@@ -1,0 +1,153 @@
+module test;
+import io;
+import string;
+
+class Foo
+{
+	def void fork()
+	{
+		f = new Foo();
+	}
+}
+
+def Foo f;
+
+class Test
+{
+	this()
+	{
+		writefln("hi");
+	}
+
+	this(int x)
+	{
+		writefln("hey: ", x);
+	}
+
+	~this()
+	{
+		writefln("bye");
+	}
+
+	def int mX;
+	def int mY;
+
+	def void fork()
+	{
+		writefln(this.mX + this.mY);
+	}
+
+	property int x
+	{
+		set(int val)
+		{
+			mX = val;
+		}
+		
+		set(char[] val)
+		{
+			mX = string.toInt(val);
+		}
+
+		get
+		{
+			return mX;
+		}
+	}
+}
+
+// Demonstrates static closures (like in Lua)
+def void function() fork(int x, int y = 10)
+{
+	def int z = x + y;
+	
+	{
+		def void fokfokosk()
+		{
+
+		}
+	}
+
+	while(z < 10)
+		++z;
+
+	// Function literal is instantiated ("closed") automatically upon being returned
+	return function void()
+	{
+		// Note access of outer variable ("upvalue") - this will still be valid when fork() returns
+		writefln(z);
+	};
+}
+
+// Making a vararg function
+def void testVararg(vararg args)
+{
+	writefln("Got ", args.length, " arguments");
+
+	for(def int i = 0; i < args.length; ++i)
+	{
+		writef("arg[", i, "] = ");
+
+		switch(args.type(i))
+		{
+			case "bool":
+				if(args.asBool(i) == true)
+					writefln("true");
+				else
+					writefln("false");
+
+				break;
+
+			case "int":
+				writefln(args.asInt(i));
+				break;
+
+			case "float":
+				writefln(args.asFloat(i));
+				break;
+
+			case "string":
+				writefln(`"`, args.asString(i), `"`);
+				break;
+
+			default:
+				writefln("something scary");
+				break;
+		}
+	}
+}
+
+main()
+{
+	// Get three instances of the function returned by fork (which has a default argument).
+	def void function() n = fork(5);
+	def void function() m = fork(10);
+	def void function() l = fork(3, 7);
+
+	// Call those three instances.  Notice that they all print different things, as their upvalues
+	// all have different values.
+	n();
+	m();
+	l();
+
+	// Try out the variadic function.
+	testVararg(5, 3.3, "hi");
+	writefln();
+	testVararg();
+	writefln();
+
+	// Calling a function indirectly.
+	def void function(vararg) blah = testVararg;
+	blah(4, 5, 6);
+
+	foreach(def char[] key, def int value; t)
+		writefln("t[", key, "] = ", value);
+
+	def Test t = new Test();
+	def int[] x = new int[](4);
+	
+	if(4 < 5)
+		writefln("hi");
+	else
+		writefln("bye");
+}
