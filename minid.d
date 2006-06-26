@@ -11,11 +11,6 @@ void main()
 {
 	BufferedFile f = new BufferedFile(`testscript.txt`, FileMode.In);
 
-	auto t = new AAType(new ArrayType(new CharType()));
-	t.mNextType = new IntType();
-	t.generateMangle();
-	writefln(t.mMangledName);
-
 	auto Compiler c = new Compiler();
 
 	c.compile(`testscript.txt`, f);
