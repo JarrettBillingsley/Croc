@@ -2,33 +2,6 @@ module test;
 import io;
 import string;
 
-namespace Utensils
-{
-	def void fork()
-	{
-		io.writefln("fork!");
-	}
-	
-	def void knife()
-	{
-		io.writefln("knife!");
-	}
-}
-
-class MyClass
-{
-	namespace Position
-	{
-		def int mX;
-		def int mY;
-
-		def int getX()
-		{
-			return mX;	
-		}
-	}
-}
-
 /*
 int locals
 float locals
@@ -52,15 +25,18 @@ class Foo
 	/*
 	Foo.fork:
 		object locals
-			0: "__temp"
+			0: "this"
+			1: "__temp"
 		referenced functions
 			0: "test.Foo.__ctor()"
 		upvalues
 			0: "f"
 			
-		rcall 0
 		opop o0
-		osetupval o0, 0
+
+		rcall 0
+		opop o1
+		osetupval o1, 0
 		ret
 	*/
 }
@@ -82,6 +58,8 @@ class Test
 			0: "hi"
 		referenced functions
 			0: "io.writefln(vararg)"
+
+		opop o0
 
 		scpush 0
 		ipushi 1
@@ -106,7 +84,9 @@ class Test
 		referenced functions
 			0: "io.writefln(vararg)"
 
+		opop o0
 		ipop i0
+
 		ipush i0
 		scpush 0
 		ipushi 2
@@ -128,6 +108,8 @@ class Test
 			0: "bye"
 		referenced functions
 			0: "io.writefln(vararg)"
+
+		opop o0
 
 		scpush 0
 		ipushi 1
@@ -154,6 +136,8 @@ class Test
 		referenced functions
 			0: "io.writefln(vararg)"
 
+		opop o0
+
 		getfield o0, "mX".indexof
 		ipop i0
 		getfield o0, "mY".indexof
@@ -165,28 +149,30 @@ class Test
 		ret
 	*/
 
-	property int x
+	namespace x
 	{
-		set(int val)
+		def int opSet(int val)
 		{
 			return mX = val;
 		}
 
 		/*
-		Test.x.set(int):
+		Test.x.opSet(int):
 			int locals
 				0: "val"
 			object locals
 				0: "__this"
 
+			opop o0
 			ipop i0
+
 			ipush i0
 			setfield o0, "mX".indexof
 			ipush i0
 			ret
 		*/
 
-		set(char[] val)
+		def int opSet(char[] val)
 		{
 			return mX = string.toInt(val);
 		}
@@ -201,7 +187,9 @@ class Test
 			referenced functions
 				0: "string.toInt(char[])"
 
+			opop o0
 			opop o1
+
 			opush o1
 			rcall 0
 			ipop i0
@@ -211,7 +199,7 @@ class Test
 			ret
 		*/
 
-		get
+		def int opGet()
 		{
 			return mX;
 		}
@@ -220,6 +208,8 @@ class Test
 		Test.x.get():
 			object locals
 				0: "__this"
+
+			opop o0
 
 			getfield o0, "mX".indexof
 			ret
@@ -247,7 +237,9 @@ foo:
 
 	ipop i0
 	ipop i1
+
 	iadd i2, i0, i1
+
 	ipush i2
 	scpush 0
 	ipushi 2
@@ -281,7 +273,9 @@ class B : A
 		referenced functions
 			0: "io.writefln(vararg)"
 
+		opop o0
 		ipop i0
+
 		ipush i0
 		scpush 1
 		getfield o0, "mX".indexof
@@ -326,9 +320,12 @@ foo:
 				upvalues
 					0: "n"
 
+				ipop i0
+
 				igetupval i1, 0
 				iadd i1, i1, i0
 				isetupval i1, 0
+
 				ipush i1
 				ret
 
@@ -407,29 +404,42 @@ fork:
 
 	ipop i0
 	ipop i1
+
 	iadd i2, i0, i1
+
 	ecall 0
+
 	rcall 0
 	opop o0
+
 	rcall 1
 	opop o1
+
 	omov o2, o1
+
 	opush o2
 	rcall 2
 	opop o6
 	ocmpnull o6
-	bne __endif0
+	beq __endif0
+
 	scpush 0
 	ipushi 1
 	rcall 3
+
 __endif0:
 	ipushi 4
 	ocall o1, "method".indexof
+
 	oclose o1, "method".indexof
 	opop o3
+
 	efuncref o4, 0
+
 	rfuncref o5, 4
+
 	odel o1
+
 	eclose o6, 0
 	opush o6
 	ret
@@ -494,34 +504,44 @@ testVararg:
 			"string: __switch0__case2
 
 	ipop i0
+
 	scpush 1
 	ipush i0
 	scpush 0
 	ipushi 3
 	rcall 0
+
 	ili i1, 0
+
 __beginFor0:
 	icmp i1, i0
 	bge __endFor0
+
 	scpush 3
 	ipush i1
 	scpush 2
 	ipushi 3
 	rcall 1
+
 	vargtype o0, i1
 	sswitch o0, 0
+
 __switch0__case0:
 	igetvarg i2, i1
 	ipush i2
 	ipushi 1
 	rcall 0
+
 	b __switch0__end
+
 __switch0__case1:
 	fgetvarg f0, i1
 	fpush f0
 	ipushi 1
 	rcall 0
+
 	b __switch0__end
+
 __switch0__case2:
 	scpush 5
 	ogetvarg o0, i1
@@ -529,15 +549,20 @@ __switch0__case2:
 	scpush 4
 	ipushi 3
 	rcall 0
+
 	b __switch0__end
+
 __switch0__default:
 	scpush 6
 	ipushi 1
 	rcall 0
+
 	b __switch0__end
+
 __switch0__end:
 	iaddi i1, i1, 1
 	b __beginFor0
+
 __endFor0:
 	popn i0
 	ret
@@ -566,8 +591,8 @@ main()
 	def void function(vararg) blah = testVararg;
 	blah(4, 5, 6);
 
-	foreach(def char[] key, def int value; t)
-		writefln("t[", key, "] = ", value);
+	//foreach(def char[] key, def int value; t)
+	//	writefln("t[", key, "] = ", value);
 
 	def Test t = new Test();
 	t.fork();
@@ -609,53 +634,73 @@ main:
 		5: "test.Test.__instanceof"
 
 	opop o6
+
 	ipushi 10
 	ipushi 5
 	rcall 0
 	opop o0
+
 	ipushi 10
 	ipushi 10
 	rcall 0
 	opop o1
+
 	ipushi 7
 	ipushi 3
 	rcall 0
 	opop o2
+
 	ocall o0, 0
+
 	ocall o1, 0
+
 	ocall o2, 0
+
 	scpush 0
 	fcpush 0
 	ipushi 5
 	ipushi 3
 	rcall 1
+
+	ipushi 0
 	rcall 2
+
 	ipushi 0
 	rcall 1
+
+	ipushi 0
 	rcall 2
+
 	rfuncref o3, 1
 	ipushi 6
 	ipushi 5
 	ipushi 4
 	ipushi 3
 	ocall o3, 0
+
 	rcall 3
 	opop o4
+
 	ocall o4, "fork".vtblIndex
+
 	ipushi 4
 	rcall 4
 	opop o5
+
 	ili i0, 5
 	icmpi i0, 4
 	ble __else0
+
 	scpush 1
 	ipushi 1
 	rcall 2
 	b __endif0
+
 __else0:
 	scpush 2
 	ipushi 1
 	rcall 2
+	
 __endif0:
 	ret
 */

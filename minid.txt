@@ -119,7 +119,7 @@ Keyword:
 	namespace
 	new
 	null
-	
+
 	return
 
 	super
@@ -388,8 +388,6 @@ UnaryExpression:
 
 NewExpression:
 	'new' Type ['(' [ArgumentList] ')']
-	//'new' Identifier // Creating closure out of pre-defined function
-	//'new' 'function' Type Parameters FunctionBody // Creating closure out of function literal
 
 PostfixExpression:
 	PrimaryExpression
