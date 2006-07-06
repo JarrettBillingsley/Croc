@@ -16,7 +16,7 @@ EndOfLine:
 	'\n'
 	'\r\n'
 	EndOfFile
-	
+
 EndOfFile:
 	physical end of file
 	'\0'
@@ -91,8 +91,10 @@ Keyword:
 	break
 
 	case
+	cast
 	char
 	class
+	closure
 	continue
 
 	def
@@ -107,8 +109,6 @@ Keyword:
 	foreach
 	function
 	
-	get
-
 	if
 	import
 	int
@@ -116,14 +116,13 @@ Keyword:
 	main
 	module
 
+	namespace
 	new
 	null
 	
-	property
-
 	return
 
-	set
+	super
 	switch
 
 	this
@@ -241,7 +240,7 @@ FloatLiteral:
 
 Exponent:
 	('e' | 'E')['+' | '-'] DecimalDigit {DecimalDigit | '_'}
-	
+
 // -----------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------
@@ -249,43 +248,42 @@ Exponent:
 // Syntax
 
 Module:
-	[ModuleDeclaration] {DeclDef} [MainDeclaration]
+	ModuleDeclaration {ImportDeclaration} {DeclDef} [MainDeclaration]
 
 ModuleDeclaration:
-	module ModuleName ';'
-
-ModuleName:
-	Identifier {'.' Identifier}
+	module Identifier {'.' Identifier} ';'
 
 DeclDef:
-	ImportDeclaration
-	MainDeclaration
 	ClassDeclaration
+	ModuleNamespaceDeclaration
 	Declaration
 
 ImportDeclaration:
 	import ModuleName ';'
-	
+
 MainDeclaration:
 	'main' '(' [Identifier] ')' BlockStatement
 
 ClassDeclaration:
-	'class' Identifier '{' {ClassElem} '}'
+	'class' Identifier [':' Identifier {'.' Identifier}] '{' {ClassElem} '}'
 
 ClassElem:
 	CtorDeclaration
 	DtorDeclaration
-	PropertyDeclaration
+	ClassNamespaceDeclaration
 	Declaration
 	
 CtorDeclaration:
 	'this' Parameters FunctionBody
-	
+
 DtorDeclaration:
 	'~' 'this' '(' ')' FunctionBody
 	
-PropertyDeclaration:
-	'property' Type Identifier '{' {'set' Parameters FunctionBody} ['get' FunctionBody] '}'
+ClassNamespaceDeclaration:
+	'namespace' Identifier '{' {ClassNamespaceDeclaration | Declaration} '}'
+
+ModuleNamespaceDeclaration:
+	'namespace' Identifier '{' {DeclDef} '}'
 
 Declaration:
 	VariableDeclaration
@@ -396,6 +394,7 @@ NewExpression:
 PostfixExpression:
 	PrimaryExpression
 	PostfixExpression '.' Identifier
+	PostfixExpression '.' '(' Type {',' Type} ')'
 	PostfixExpression '(' [ArgumentList] ')'
 	PostfixExpression '[' ArgumentList ']'
 	SliceExpression
@@ -410,12 +409,14 @@ SliceExpression:
 PrimaryExpression:
 	Identifier
 	this
+	super
 	null
 	CharLiteral
 	BoolLiteral
 	IntLiteral
 	FloatLiteral
 	StringLiteral
+	'closure' (Identifier | FunctionLiteral)
 	'function' Type Parameters FunctionBody
 	'assert' '(' AssignExpression [, StringLiteral] ')'
 	( Expression )
@@ -462,7 +463,7 @@ ForStatement:
 	'for' '(' [(Expression | VariableDeclaration)] ';' [Expression] ';' [Expression] ')' Statement
 
 ForeachStatement:
-	'foreach' '(' [(Identifier | VariableDeclaration)] {',' [(Identifier | VariableDeclaration)]} ';' Expression ')' Statement
+	'foreach' '(' Type Identifier {',' Type Identifier} ';' Expression ')' Statement
 
 SwitchStatement:
 	'switch' '(' Expression ')' '{' {CaseStatement} [DefaultStatement] '}'

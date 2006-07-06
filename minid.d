@@ -7,6 +7,37 @@ import std.stdio;
 import std.stream;
 import std.string;
 
+/*
+Calling a closure (of any type):
+	ocall ox, 0
+
+Calling methods with "this":
+	ocall ox, index
+	
+Downcalling dynamic closures:
+	ecall index
+
+Calling static functions / Sidecalling dynamic closures:
+	rcall index
+
+Referencing static functions / Sidereferencing dynamic closures:
+	rfuncref index
+
+Downreferencing dynamic closures:
+	efuncref index
+
+Downclosing a function:
+	eclose index
+
+Sideclosing a function
+	rclose index
+
+Closing/referencing methods with "this" (delegation):
+	oclose ox, index
+
+Create closures at a static function level.
+*/
+
 void main()
 {
 	BufferedFile f = new BufferedFile(`testscript.txt`, FileMode.In);
@@ -47,24 +78,22 @@ int toInt(char[] s, int base)
 
 	static char[] transTable =
 	[
-		0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
-		16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-		32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
-		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
-		64, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 91, 92, 93, 94, 95,
-		96, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 123, 124, 125, 126,
-		127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139,
-		140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152,
-		153, 154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165,
-		166, 167, 168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178,
-		179, 180, 181, 182, 183, 184, 185, 186, 187, 188, 189, 190, 191,
-		192, 193, 194, 195, 196, 197, 198, 199, 200, 201, 202, 203, 204,
-		205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215, 216, 217,
-		218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230,
-		231, 232, 233, 234, 235, 236, 237, 238, 239, 240, 241, 242, 243,
-		244, 245, 246, 247, 248, 249, 250, 251, 252, 253, 254, 255
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 
+		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0, 
+		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
+		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	];
 
     int length = s.length;
@@ -132,6 +161,7 @@ struct Token
 		Cast,
 		Char,
 		Class,
+		Closure,
 		Continue,
 		Def,
 		Default,
@@ -154,6 +184,7 @@ struct Token
 		Property,
 		Return,
 		Set,
+		Super,
 		Switch,
 		This,
 		True,
@@ -224,6 +255,7 @@ struct Token
 		"cast",
 		"char",
 		"class",
+		"closure",
 		"continue",
 		"def",
 		"default",
@@ -246,6 +278,7 @@ struct Token
 		"property",
 		"return",
 		"set",
+		"super",
 		"switch",
 		"this",
 		"true",
@@ -318,6 +351,7 @@ struct Token
 		stringToType["cast"] = Type.Cast;
 		stringToType["char"] = Type.Char;
 		stringToType["class"] = Type.Class;
+		stringToType["closure"] = Type.Closure;
 		stringToType["continue"] = Type.Continue;
 		stringToType["def"] = Type.Def;
 		stringToType["default"] = Type.Default;
@@ -341,6 +375,7 @@ struct Token
 		stringToType["property"] = Type.Property;
 		stringToType["return"] = Type.Return;
 		stringToType["set"] = Type.Set;
+		stringToType["super"] = Type.Super;
 		stringToType["switch"] = Type.Switch;
 		stringToType["this"] = Type.This;
 		stringToType["true"] = Type.True;
@@ -359,7 +394,7 @@ struct Token
 
 		stringToType.rehash;
 	}
-
+	
 	public char[] toString()
 	{
 		char[] ret;
@@ -479,7 +514,6 @@ class MDTypeConvException : MDCompileException
 		super("Cannot implicitly convert expression '" ~ from.toString() ~ "' of type '" ~ from.mSemType.toString() ~ "' to type '" ~ to.mSemType.toString() ~ "'", from.mLocation);
 	}
 }
-
 
 class Lexer
 {
@@ -1190,7 +1224,7 @@ class Lexer
 				case '\0', char.init:
 					token.type = Token.Type.EOF;
 					return token;
-					
+
 				default:
 					if(isWhitespace(mCharacter))
 					{
@@ -1631,16 +1665,12 @@ class Module : Symbol
 
 	public static Module parse(inout Token* t)
 	{
-		ModuleDecl moduleDecl;
-
-		// Parse module statement
-		if(t.type == Token.Type.Module)
-			moduleDecl = ModuleDecl.parse(t);
+		ModuleDecl moduleDecl = ModuleDecl.parse(t);
 		
 		ImportDecl[] imports;
 		Symbol[] decls;
 		MainDecl moduleMain;
-		
+
 		// Parse declarations
 		while(t.type != Token.Type.EOF)
 		{
@@ -1758,6 +1788,7 @@ class ModuleDecl : Symbol
 			t.check(Token.Type.Ident);
 
 			names ~= Identifier.parse(t);
+			names[$ - 1].mName = std.string.tolower(names[$ - 1].mName);
 
 			if(t.type == Token.Type.Dot)
 				t = t.nextToken;
@@ -1839,17 +1870,15 @@ class ImportDecl : Symbol
 
 class ClassDecl : Symbol
 {
-	protected CtorDecl[] mCtors;
-	protected DtorDecl mDtor;
+	protected Identifier[] mBaseClassName;
 	protected SimpleDecl[] mDecls;
 	protected PropertyDecl[] mProperties;
-	
-	public this(Identifier name, CtorDecl[] ctors, DtorDecl dtor, SimpleDecl[] decls, PropertyDecl[] properties, Location location)
+
+	public this(Identifier name, Identifier[] baseClassName, SimpleDecl[] decls, PropertyDecl[] properties, Location location)
 	{
 		super(name, location);
-		
-		mCtors = ctors;
-		mDtor = dtor;
+
+		mBaseClassName = baseClassName;
 		mDecls = decls;
 		mProperties = properties;
 	}
@@ -1864,13 +1893,31 @@ class ClassDecl : Symbol
 		t.check(Token.Type.Ident);
 		Identifier name = Identifier.parse(t);
 		
+		Identifier[] baseClassName;
+		
+		if(t.type == Token.Type.Colon)
+		{
+			t = t.nextToken;
+			
+			while(true)
+			{
+				t.check(Token.Type.Ident);
+				
+				baseClassName ~= Identifier.parse(t);
+
+				if(t.type != Token.Type.Dot)
+					break;
+					
+				t = t.nextToken;
+			}
+		}
+		
 		t.check(Token.Type.LBrace);
 		t = t.nextToken;
 
-		CtorDecl[] ctors;
-		DtorDecl dtor;
 		SimpleDecl[] decls;
 		PropertyDecl[] properties;
+		DtorDecl dtor;
 
 		while(t.type != Token.Type.RBrace)
 		{
@@ -1882,7 +1929,7 @@ class ClassDecl : Symbol
 					t = t.nextToken;
 					Parameter[] params = Parameter.parseParams(t);
 					CompoundStatement funcBody = CompoundStatement.parse(t);
-					ctors ~= new CtorDecl(params, funcBody, location2);
+					decls ~= new CtorDecl(params, funcBody, location2);
 					break;
 					
 				case Token.Type.Cat:
@@ -1899,6 +1946,7 @@ class ClassDecl : Symbol
 						throw new MDCompileException("Multiple destructors in class '" ~ name.toString() ~ "'", location2);
 						
 					dtor = new DtorDecl(funcBody, location2);
+					decls ~= dtor;
 					break;
 					
 				case Token.Type.Def:
@@ -1919,7 +1967,7 @@ class ClassDecl : Symbol
 
 		t = t.nextToken;
 
-		return new ClassDecl(name, ctors, dtor, decls, properties, location);
+		return new ClassDecl(name, baseClassName, decls, properties, location);
 	}
 	
 	protected override void semantic1(Scope sc)
@@ -1927,12 +1975,6 @@ class ClassDecl : Symbol
 		addAsMember(sc);
 
 		sc = sc.push(this);
-
-		foreach(CtorDecl ctor; mCtors)
-			ctor.semantic1(sc);
-
-		if(mDtor)
-			mDtor.semantic1(sc);
 
 		foreach(SimpleDecl decl; mDecls)
 			decl.semantic1(sc);
@@ -1945,12 +1987,6 @@ class ClassDecl : Symbol
 	
 	protected override void semantic2(Scope sc)
 	{
-		foreach(CtorDecl ctor; mCtors)
-			ctor.semantic2(mChild);
-
-		if(mDtor)
-			mDtor.semantic2(mChild);
-			
 		foreach(SimpleDecl decl; mDecls)
 			decl.semantic2(mChild);
 			
@@ -4655,6 +4691,15 @@ abstract class UnaryExp : Expression
 				exp = BaseNewExp.parse(t);
 				break;
 				
+			case Token.Type.Closure:
+				t = t.nextToken;
+				
+				if(t.type == Token.Type.Ident)
+					exp = new ClosureExp(location, IdentExp.parse(t));
+				else
+					exp = new ClosureLiteralExp(location, FuncLiteralExp.parse(t));
+				break;
+
 			case Token.Type.LParen:
 				t = t.nextToken;
 				exp = Expression.parse(t);
@@ -4945,47 +4990,13 @@ class CastExp : UnaryExp
 	}
 }
 
-/*class NewFuncExp : BaseNewExp
-{
-	protected Identifier mName;
-	
-	public this(Location location, Identifier name)
-	{
-		super(location);
-
-		mName = name;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("new ", mName);
-	}
-}
-
-class NewFuncLiteralExp : BaseNewExp
-{
-	protected FuncLiteralExp mLiteral;
-	
-	public this(Location location, FuncLiteralExp literal)
-	{
-		super(location);
-		
-		mLiteral = literal;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("new %s", mLiteral);
-	}
-}*/
-
 abstract class PostfixExp : UnaryExp
 {
 	public this(Location location, Expression operand)
 	{
 		super(location, operand);
 	}
-	
+
 	public static Expression parse(inout Token* t, Expression exp)
 	{
 		while(true)
@@ -4997,17 +5008,73 @@ abstract class PostfixExp : UnaryExp
 				case Token.Type.Dot:
 					t = t.nextToken;
 					
-					if(t.type != Token.Type.Ident)
+					if(t.type == Token.Type.Ident)
+					{
+					
+					//if(t.type != Token.Type.Ident)
+					//	throw new MDCompileException("Identifier expected after '.', not '" ~ t.toString() ~ "'", t.location);
+
+						exp = new DotExp(location, exp, new IdentExp(t.location, Identifier.parse(t)));
+					}
+					else if(t.type == Token.Type.LParen)
+					{
+						t = t.nextToken;
+				
+						Type[] types;
+	
+						if(t.type != Token.Type.RParen)
+						{
+							while(true)
+							{
+								types ~= Type.parse(t);
+				
+								if(t.type == Token.Type.RParen)
+									break;
+				
+								t.check(Token.Type.Comma);
+								t = t.nextToken;
+							}
+						}
+				
+						t = t.nextToken;
+	
+						exp = new OverloadResolveExp(location, exp, types);
+					}
+					else
 						throw new MDCompileException("Identifier expected after '.', not '" ~ t.toString() ~ "'", t.location);
 
-					exp = new DotExp(location, exp, new IdentExp(t.location, Identifier.parse(t)));
+					continue;
 
-					break;
-					
+				/*case Token.Type.At:
+					t = t.nextToken;
+					t.check(Token.Type.LParen);
+					t = t.nextToken;
+			
+					Type[] types;
+
+					if(t.type != Token.Type.RParen)
+					{
+						while(true)
+						{
+							paramTypes ~= Type.parse(t);
+			
+							if(t.type == Token.Type.RParen)
+								break;
+			
+							t.check(Token.Type.Comma);
+							t = t.nextToken;
+						}
+					}
+			
+					t = t.nextToken;
+
+					exp = new OverloadResolveExp(location, exp, types);
+					continue;*/
+
 				case Token.Type.LParen:
 					exp = new CallExp(location, exp, parseArgumentList(t, Token.Type.RParen));
 					continue;
-					
+
 				case Token.Type.LBracket:
 					t = t.nextToken;
 					
@@ -5053,7 +5120,7 @@ abstract class PostfixExp : UnaryExp
 						}
 					}
 					continue;
-					
+
 				default:
 					return exp;
 			}
@@ -5089,6 +5156,30 @@ class DotExp : PostfixExp
 	public char[] toString()
 	{
 		return std.string.format("%s.%s", mOp, mIdent);
+	}
+}
+
+class OverloadResolveExp : PostfixExp
+{
+	protected Type[] mTypes;
+	
+	public this(Location location, Expression operand, Type[] types)
+	{
+		super(location, operand);
+		
+		mTypes = types;
+	}
+	
+	public override Expression semantic2(Scope sc)
+	{
+		mOp = mOp.semantic2(sc);
+		
+		return this;
+	}
+	
+	public char[] toString()
+	{
+		return "overload resolve";
 	}
 }
 
@@ -5484,6 +5575,51 @@ class FuncLiteralExp : PrimaryExp
 	public char[] toString()
 	{
 		return mDecl.toString();
+	}
+}
+
+class ClosureExp : PrimaryExp
+{
+	protected IdentExp mName;
+	
+	public this(Location location, IdentExp name)
+	{
+		super(location);
+		
+		mName = name;
+	}
+	
+	public override Expression semantic2(Scope sc)
+	{
+		return this;
+	}
+
+	public char[] toString()
+	{
+		return std.string.format("closure %s", mName.toString());
+	}
+}
+
+class ClosureLiteralExp : PrimaryExp
+{
+	protected FuncLiteralExp mDecl;
+	
+	public this(Location location, FuncLiteralExp decl)
+	{
+		super(location);
+
+		mDecl = decl;
+	}
+	
+	public override Expression semantic2(Scope sc)
+	{
+		mDecl.mDecl.semantic1(sc);
+		return this;
+	}
+
+	public char[] toString()
+	{
+		return std.string.format("closure %s", mDecl.toString());
 	}
 }
 

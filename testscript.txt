@@ -2,12 +2,67 @@ module test;
 import io;
 import string;
 
+namespace Utensils
+{
+	def void fork()
+	{
+		io.writefln("fork!");
+	}
+	
+	def void knife()
+	{
+		io.writefln("knife!");
+	}
+}
+
+class MyClass
+{
+	namespace Position
+	{
+		def int mX;
+		def int mY;
+
+		def int getX()
+		{
+			return mX;	
+		}
+	}
+}
+
+/*
+int locals
+float locals
+object locals
+int constants
+float constants
+string constants
+referenced functions
+enclosed functions
+upvalues
+case tables
+*/
+
 class Foo
 {
 	def void fork()
 	{
 		f = new Foo();
 	}
+	
+	/*
+	Foo.fork:
+		object locals
+			0: "__temp"
+		referenced functions
+			0: "test.Foo.__ctor()"
+		upvalues
+			0: "f"
+			
+		rcall 0
+		opop o0
+		osetupval o0, 0
+		ret
+	*/
 }
 
 def Foo f;
@@ -16,18 +71,69 @@ class Test
 {
 	this()
 	{
-		writefln("hi");
+		io.writefln("hi");
 	}
+	
+	/*
+	Test.__ctor():
+		object locals
+			0: "__this"
+		string constants
+			0: "hi"
+		referenced functions
+			0: "io.writefln(vararg)"
+
+		scpush 0
+		ipushi 1
+		rcall 0
+		opush o0
+		ret
+	*/
 
 	this(int x)
 	{
 		writefln("hey: ", x);
 	}
+	
+	/*
+	Test.__ctor(int):
+		int locals
+			0: x
+		object locals
+			0: "__this"
+		string constants
+			0: "hey: "
+		referenced functions
+			0: "io.writefln(vararg)"
+
+		ipop i0
+		ipush i0
+		scpush 0
+		ipushi 2
+		rcall 0
+		opush o0
+		ret
+	*/
 
 	~this()
 	{
 		writefln("bye");
 	}
+	
+	/*
+	Test.__dtor():
+		object locals
+			0: "__this"
+		string constants
+			0: "bye"
+		referenced functions
+			0: "io.writefln(vararg)"
+
+		scpush 0
+		ipushi 1
+		rcall 0
+		ret
+	*/
 
 	def int mX;
 	def int mY;
@@ -36,86 +142,406 @@ class Test
 	{
 		writefln(this.mX + this.mY);
 	}
+	
+	/*
+	Test.fork():
+		int locals
+			0: "__temp"
+			1: "__temp"
+			2: "__temp"
+		object locals
+			0: "__this"
+		referenced functions
+			0: "io.writefln(vararg)"
+
+		getfield o0, "mX".indexof
+		ipop i0
+		getfield o0, "mY".indexof
+		ipop i1
+		iadd i2, i0, i1
+		ipush i2
+		ipushi 1
+		rcall 0
+		ret
+	*/
 
 	property int x
 	{
 		set(int val)
 		{
-			mX = val;
+			return mX = val;
 		}
-		
+
+		/*
+		Test.x.set(int):
+			int locals
+				0: "val"
+			object locals
+				0: "__this"
+
+			ipop i0
+			ipush i0
+			setfield o0, "mX".indexof
+			ipush i0
+			ret
+		*/
+
 		set(char[] val)
 		{
-			mX = string.toInt(val);
+			return mX = string.toInt(val);
 		}
+		
+		/*
+		Test.x.set(char[]):
+			int locals
+				0: "__temp"
+			object locals
+				0: "__this"
+				1: "val"
+			referenced functions
+				0: "string.toInt(char[])"
+
+			opop o1
+			opush o1
+			rcall 0
+			ipop i0
+			ipush i0
+			setfield i0, "mX".indexof
+			ipush i0
+			ret
+		*/
 
 		get
 		{
 			return mX;
 		}
+		
+		/*
+		Test.x.get():
+			object locals
+				0: "__this"
+
+			getfield o0, "mX".indexof
+			ret
+		*/
 	}
 }
 
-// Demonstrates static closures (like in Lua)
+def void foo(int x, int y)
+{
+	def float z = x + y;
+
+	io.writefln("z = ", z);
+}
+
+/*
+foo:
+	int locals
+		0: x
+		1: y
+		2: z
+	string constants
+		0: "z = "
+	referenced functions
+		0: "io.writefln(vararg)"
+
+	ipop i0
+	ipop i1
+	iadd i2, i0, i1
+	ipush i2
+	scpush 0
+	ipushi 2
+	rcall 0
+	ret
+*/
+
+class A
+{
+
+}
+
+class B : A
+{
+	def int mX = 3;
+
+	def void method(int x)
+	{
+		io.writefln("mX = ", mX, " x = ", x);
+	}
+	
+	/*
+	B.method(int):
+		int locals
+			0: "x"
+		object locals
+			0: "__this"
+		string constants
+			0: "mX = "
+			1: " x = "
+		referenced functions
+			0: "io.writefln(vararg)"
+
+		ipop i0
+		ipush i0
+		scpush 1
+		getfield o0, "mX".indexof
+		scpush 0
+		ipushi 4
+		rcall 0
+		ret
+	*/
+}
+
+def void knife()
+{
+
+}
+
+/*
+knife:
+	ret
+*/
+
+def int function(int) foo(int n)
+{
+	return function int(int i)
+	{
+		n += i;
+		return n;
+	};
+}
+
+/*
+foo:
+	int locals
+		0: "n"
+	object locals
+		0: "__temp"
+	enclosed functions
+		0:
+			__funcLiteral0:
+				int locals
+					0: "i"
+					1: "__temp"
+				upvalues
+					0: "n"
+
+				igetupval i1, 0
+				iadd i1, i1, i0
+				isetupval i1, 0
+				ipush i1
+				ret
+
+	eclose o0, 0
+	opush o0
+	ret
+*/
+
 def void function() fork(int x, int y = 10)
 {
 	def int z = x + y;
-	
-	{
-		def void fokfokosk()
-		{
 
-		}
+	def void enclosed()
+	{
+		writefln(z);
 	}
 
-	while(z < 10)
-		++z;
+	enclosed();
+
+	def Test t = new Test();
+	def B b = new B();
+	def A a = b;
+
+	if(cast(B)a)
+		writefln("it's a B");
+
+	b.method(4);
+
+	def void function(int) f = b.method;
+	def void function() g = enclosed;
+	def void function() h = knife;
+
+	delete b;
 
 	// Function literal is instantiated ("closed") automatically upon being returned
-	return function void()
-	{
-		// Note access of outer variable ("upvalue") - this will still be valid when fork() returns
-		writefln(z);
-	};
+	return enclosed;
 }
+
+/*
+fork:
+	int locals
+		0: "x"
+		1: "y"
+		2: "z"
+	object locals
+		0: "t"
+		1: "b"
+		2: "a"
+		3: "f"
+		4: "g"
+		5: "h"
+		6: "__temp"
+	string constants
+		0: "it's a B"
+	referenced functions
+		0: "test.Test.__ctor()"
+		1: "test.B.__ctor()"
+		2: "test.B.__instanceof(object)"
+		3: "io.writefln(vararg)"
+		4: "knife"
+	enclosed functions
+		0:
+			enclosed:
+				int locals
+					0: "__temp"
+				referenced functions
+					0: "io.writefln(vararg)"
+				upvalues
+					0: "z"
+
+				igetupval i0, 0
+				ipush i0
+				ipushi 1
+				rcall 0
+				ret
+
+	ipop i0
+	ipop i1
+	iadd i2, i0, i1
+	ecall 0
+	rcall 0
+	opop o0
+	rcall 1
+	opop o1
+	omov o2, o1
+	opush o2
+	rcall 2
+	opop o6
+	ocmpnull o6
+	bne __endif0
+	scpush 0
+	ipushi 1
+	rcall 3
+__endif0:
+	ipushi 4
+	ocall o1, "method".indexof
+	oclose o1, "method".indexof
+	opop o3
+	efuncref o4, 0
+	rfuncref o5, 4
+	odel o1
+	eclose o6, 0
+	opush o6
+	ret
+*/
 
 // Making a vararg function
 def void testVararg(vararg args)
 {
-	writefln("Got ", args.length, " arguments");
+	io.writefln("Got ", args.length, " arguments");
 
 	for(def int i = 0; i < args.length; ++i)
 	{
-		writef("arg[", i, "] = ");
+		io.writef("arg[", i, "] = ");
 
 		switch(args.type(i))
 		{
-			case "bool":
-				if(args.asBool(i) == true)
-					writefln("true");
-				else
-					writefln("false");
-
-				break;
-
 			case "int":
-				writefln(args.asInt(i));
+				io.writefln(args.asInt(i));
 				break;
 
 			case "float":
-				writefln(args.asFloat(i));
+				io.writefln(args.asFloat(i));
 				break;
 
-			case "string":
-				writefln(`"`, args.asString(i), `"`);
+			case "char[]":
+				io.writefln(`"`, args.asString(i), `"`);
 				break;
 
 			default:
-				writefln("something scary");
+				io.writefln("something scary");
 				break;
 		}
 	}
 }
+
+/*
+testVararg:
+	int locals
+		0: "__numVarargs"
+		1: "i"
+		2: "__temp"
+	float locals
+		0: "__temp"
+	object locals
+		0: "__temp"
+	string constants
+		0: "Got "
+		1: " arguments"
+		2: "arg["
+		3: "] = "
+		4: `"`
+		5: `"`
+		6: "something scary"
+	referenced functions
+		0: "io.writefln(vararg)"
+		1: "io.writef(vararg)"
+	case tables
+		0: string
+			default: __switch0__default
+			"int": __switch0__case0
+			"float": __switch0__case1
+			"string: __switch0__case2
+
+	ipop i0
+	scpush 1
+	ipush i0
+	scpush 0
+	ipushi 3
+	rcall 0
+	ili i1, 0
+__beginFor0:
+	icmp i1, i0
+	bge __endFor0
+	scpush 3
+	ipush i1
+	scpush 2
+	ipushi 3
+	rcall 1
+	vargtype o0, i1
+	sswitch o0, 0
+__switch0__case0:
+	igetvarg i2, i1
+	ipush i2
+	ipushi 1
+	rcall 0
+	b __switch0__end
+__switch0__case1:
+	fgetvarg f0, i1
+	fpush f0
+	ipushi 1
+	rcall 0
+	b __switch0__end
+__switch0__case2:
+	scpush 5
+	ogetvarg o0, i1
+	opush o0
+	scpush 4
+	ipushi 3
+	rcall 0
+	b __switch0__end
+__switch0__default:
+	scpush 6
+	ipushi 1
+	rcall 0
+	b __switch0__end
+__switch0__end:
+	iaddi i1, i1, 1
+	b __beginFor0
+__endFor0:
+	popn i0
+	ret
+*/
 
 main()
 {
@@ -144,10 +570,92 @@ main()
 		writefln("t[", key, "] = ", value);
 
 	def Test t = new Test();
+	t.fork();
 	def int[] x = new int[](4);
-	
+
 	if(4 < 5)
 		writefln("hi");
 	else
 		writefln("bye");
 }
+
+/*
+main:
+	int locals
+		0: "__temp"
+		1: "__temp"
+	object locals
+		0: "n"
+		1: "m"
+		2: "l"
+		3: "blah"
+		4: "t"
+		5: "x"
+		6: "__temp"
+
+	float constants
+		0: 3.3
+	string constants
+		0: "hi"
+		1: "hi"
+		2: "bye"
+
+	referenced functions
+		0: "test.fork"
+		1: "test.testVararg"
+		2: "io.writefln"
+		3: "test.Test.__ctor"
+		4: "__iArray.__ctor"
+		5: "test.Test.__instanceof"
+
+	opop o6
+	ipushi 10
+	ipushi 5
+	rcall 0
+	opop o0
+	ipushi 10
+	ipushi 10
+	rcall 0
+	opop o1
+	ipushi 7
+	ipushi 3
+	rcall 0
+	opop o2
+	ocall o0, 0
+	ocall o1, 0
+	ocall o2, 0
+	scpush 0
+	fcpush 0
+	ipushi 5
+	ipushi 3
+	rcall 1
+	rcall 2
+	ipushi 0
+	rcall 1
+	rcall 2
+	rfuncref o3, 1
+	ipushi 6
+	ipushi 5
+	ipushi 4
+	ipushi 3
+	ocall o3, 0
+	rcall 3
+	opop o4
+	ocall o4, "fork".vtblIndex
+	ipushi 4
+	rcall 4
+	opop o5
+	ili i0, 5
+	icmpi i0, 4
+	ble __else0
+	scpush 1
+	ipushi 1
+	rcall 2
+	b __endif0
+__else0:
+	scpush 2
+	ipushi 1
+	rcall 2
+__endif0:
+	ret
+*/
