@@ -445,6 +445,35 @@ __endif0:
 	ret
 */
 
+def void myWritefln(vararg args)
+{
+	io.writef("my writefln: ");
+	io.writefln(args);
+}
+
+/*
+myWritefln:
+	int locals
+		0: "__numVarargs"
+	string constants
+		0: "my writefln: "
+	referenced functions
+		0: "io.writef(vararg)"
+		1: "io.writefln(vararg)"
+
+	ipop i0
+
+	scpush 0
+	ipushi 1
+	rcall 0
+
+	dupn i0
+	ipush i0
+	rcall 1
+
+	ret
+*/
+
 // Making a vararg function
 def void testVararg(vararg args)
 {
@@ -700,7 +729,7 @@ __else0:
 	scpush 2
 	ipushi 1
 	rcall 2
-	
+
 __endif0:
 	ret
 */

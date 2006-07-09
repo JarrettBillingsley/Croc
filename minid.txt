@@ -251,7 +251,7 @@ Module:
 	ModuleDeclaration {ImportDeclaration} {DeclDef} [MainDeclaration]
 
 ModuleDeclaration:
-	module Identifier {'.' Identifier} ';'
+	'module' Identifier {'.' Identifier} ';'
 
 DeclDef:
 	ClassDeclaration
@@ -259,7 +259,7 @@ DeclDef:
 	Declaration
 
 ImportDeclaration:
-	import ModuleName ';'
+	'import' ModuleName ';'
 
 MainDeclaration:
 	'main' '(' [Identifier] ')' BlockStatement
@@ -382,7 +382,7 @@ UnaryExpression:
 	-- UnaryExpression
 	- UnaryExpression
 	! UnaryExpression
-	delete UnaryExpression
+	'delete' UnaryExpression
 	NewExpression
 	'cast' '(' Type ')' UnaryExpression
 
@@ -406,9 +406,9 @@ SliceExpression:
 	
 PrimaryExpression:
 	Identifier
-	this
-	super
-	null
+	'this'
+	'super'
+	'null'
 	CharLiteral
 	BoolLiteral
 	IntLiteral
