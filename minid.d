@@ -2,53 +2,16 @@ module minid;
 
 import std.c.stdlib;
 import std.conv;
-import std.perf;
 import std.stdio;
 import std.stream;
 import std.string;
 import std.utf;
 
-/*
-Calling a closure (of any type):
-	ocall ox, 0
-
-Calling methods with "this":
-	ocall ox, index
-	
-Downcalling dynamic closures:
-	ecall index
-
-Calling static functions / Sidecalling dynamic closures:
-	rcall index
-
-Referencing static functions / Sidereferencing dynamic closures:
-	rfuncref index
-
-Downreferencing dynamic closures:
-	efuncref index
-
-Downclosing a function:
-	eclose index
-
-Sideclosing a function
-	rclose index
-
-Closing/referencing methods with "this" (delegation):
-	oclose ox, index
-
-Create closures at a static function level.
-*/
-
 void main()
 {
-	BufferedFile f = new BufferedFile(`testscript.txt`, FileMode.In);
-
+	auto File f = new File(`simple.md`, FileMode.In);
 	auto Compiler c = new Compiler();
-
-	c.compile(`testscript.txt`, f);
-	
-	f.close();
-	delete f;
+	c.compile(`simple.md`, f);
 }
 
 class Compiler
@@ -57,19 +20,12 @@ class Compiler
 	{
 
 	}
-	
+
 	public void compile(char[] name, Stream source)
 	{
 		auto Lexer l = new Lexer();
-		auto HighPerformanceCounter hpc = new HighPerformanceCounter();
-		hpc.start();
 		Token* tokens = l.lex(name, source);
-		Module m = Module.parse(tokens);
-		m.semantic();
-		hpc.stop();
-		writefln("Took ", hpc.microseconds() / 1000.0, "ms\n");
-		m.showChildren();
-		//writefln(m);
+
 	}
 }
 
@@ -80,7 +36,7 @@ int toInt(char[] s, int base)
 	static char[] transTable =
 	[
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 
@@ -151,96 +107,100 @@ int toInt(char[] s, int base)
 	return v;
 }
 
+char[] vformat(TypeInfo[] arguments, void* argptr)
+{
+	char[] s;
+	
+	void putc(dchar c)
+	{
+		std.utf.encode(s, c);
+	}
+	
+	std.format.doFormat(&putc, arguments, argptr);
+	
+	return s;
+}
+
 struct Token
 {
 	public static enum Type
 	{
-		Assert,
-		Bool,
 		Break,
 		Case,
-		Cast,
-		Char,
-		Class,
-		Closure,
+		Catch,
 		Continue,
-		Def,
 		Default,
-		Delete,
 		Do,
 		Else,
 		False,
-		Float,
+		Finally,
 		For,
 		Foreach,
 		Function,
 		If,
-		Import,
-		Int,
-		Main,
-		Module,
-		Namespace,
-		New,
+		Is,
+		Local,
 		Null,
 		Return,
-		Super,
 		Switch,
-		This,
+		Throw,
 		True,
+		Try,
 		Vararg,
-		Void,
 		While,
 
 		Add,
 		AddEq,
+		Inc,
 		Sub,
 		SubEq,
+		Dec,
+		Cat,
+		CatEq,
 		Mul,
 		MulEq,
 		Div,
 		DivEq,
 		Mod,
 		ModEq,
-		Pow,
-		PowEq,
-		Cat,
-		CatEq,
-		Assign,
-
-		AndAnd,
-		OrOr,
-
-		Inc,
-		Dec,
-
 		LT,
 		LE,
+		Shl,
+		ShlEq,
 		GT,
 		GE,
+		Shr,
+		ShrEq,
+		Ushr,
+		UshrEq,
+		And,
+		AndEq,
+		AndAnd,
+		Or,
+		OrEq,
+		OrOr,
+		Xor,
+		XorEq,
+		Assign,
 		EQ,
-		NE,
-		Is,
-
+		Dot,
+		DotDot,
 		Not,
-
+		NE,
 		LParen,
 		RParen,
 		LBracket,
 		RBracket,
 		LBrace,
 		RBrace,
-
 		Colon,
 		Comma,
 		Semicolon,
-
-		Dot,
-		DotDot,
+		Length,
 
 		Ident,
-		BoolLiteral,
-		StringLiteral,
 		CharLiteral,
+		StringLiteral,
 		IntLiteral,
 		FloatLiteral,
 		EOF
@@ -248,136 +208,113 @@ struct Token
 
 	public static const char[][] tokenStrings =
 	[
-		"assert",
-		"bool",
 		"break",
 		"case",
-		"cast",
-		"char",
-		"class",
-		"closure",
+		"catch",
 		"continue",
-		"def",
 		"default",
-		"delete",
 		"do",
 		"else",
 		"false",
-		"float",
+		"finally",
 		"for",
 		"foreach",
 		"function",
 		"if",
-		"import",
-		"int",
-		"main",
-		"module",
-		"namespace"
-		"new",
+		"is",
+		"local",
 		"null",
 		"return",
-		"super",
 		"switch",
-		"this",
+		"throw",
 		"true",
+		"try",
 		"vararg",
-		"void",
 		"while",
 
 		"+",
 		"+=",
+		"++",
 		"-",
 		"-=",
+		"--",
+		"~",
+		"~=",
 		"*",
 		"*=",
 		"/",
 		"/=",
 		"%",
 		"%=",
-		"^",
-		"^=",
-		"~",
-		"~=",
-		"=",
-
-		"&&",
-		"||",
-
-		"++",
-		"--",
-
 		"<",
 		"<=",
+		"<<",
+		"<<=",
 		">",
 		">=",
+		">>",
+		">>=",
+		">>>",
+		">>>=",
+		"&",
+		"&=",
+		"&&",
+		"|",
+		"|=",
+		"||",
+		"^",
+		"^=",
+		"=",
 		"==",
-		"!=",
-		"is",
-
+		".",
+		"..",
 		"!",
-
+		"!=",
 		"(",
 		")",
 		"[",
 		"]",
 		"{",
 		"}",
-
 		":",
 		",",
 		";",
+		"#",
 
-		".",
-		"..",
-		
 		"Identifier",
-		"Bool Literal",
-		"String Literal",
 		"Char Literal",
+		"String Literal",
 		"Int Literal",
 		"Float Literal",
 		"<EOF>"
 	];
 	
 	public static Type[char[]] stringToType;
-	
+
 	static this()
 	{
-		stringToType["assert"] = Type.Assert;
-		stringToType["bool"] = Type.Bool;
 		stringToType["break"] = Type.Break;
 		stringToType["case"] = Type.Case;
-		stringToType["cast"] = Type.Cast;
-		stringToType["char"] = Type.Char;
-		stringToType["class"] = Type.Class;
-		stringToType["closure"] = Type.Closure;
+		stringToType["catch"] = Type.Catch;
 		stringToType["continue"] = Type.Continue;
-		stringToType["def"] = Type.Def;
 		stringToType["default"] = Type.Default;
-		stringToType["delete"] = Type.Delete;
 		stringToType["do"] = Type.Do;
 		stringToType["else"] = Type.Else;
 		stringToType["false"] = Type.False;
-		stringToType["float"] = Type.Float;
+		stringToType["finally"] = Type.Finally;
 		stringToType["for"] = Type.For;
 		stringToType["foreach"] = Type.Foreach;
 		stringToType["function"] = Type.Function;
 		stringToType["if"] = Type.If;
 		stringToType["is"] = Type.Is;
-		stringToType["import"] = Type.Import;
-		stringToType["int"] = Type.Int;
-		stringToType["main"] = Type.Main;
-		stringToType["module"] = Type.Module;
-		stringToType["namespace"] = Type.Namespace;
-		stringToType["new"] = Type.New;
+		stringToType["local"] = Type.Local;
 		stringToType["null"] = Type.Null;
 		stringToType["return"] = Type.Return;
-		stringToType["super"] = Type.Super;
 		stringToType["switch"] = Type.Switch;
-		stringToType["this"] = Type.This;
+		stringToType["throw"] = Type.Throw;
 		stringToType["true"] = Type.True;
+		stringToType["try"] = Type.Try;
 		stringToType["vararg"] = Type.Vararg;
-		stringToType["void"] = Type.Void;
 		stringToType["while"] = Type.While;
 		stringToType["("] = Type.LParen;
 		stringToType[")"] = Type.RParen;
@@ -388,6 +325,7 @@ struct Token
 		stringToType[":"] = Type.Colon;
 		stringToType[","] = Type.Comma;
 		stringToType[";"] = Type.Semicolon;
+		stringToType["#"] = Type.Length;
 
 		stringToType.rehash;
 	}
@@ -399,44 +337,42 @@ struct Token
 		switch(type)
 		{
 			case Type.Ident:
-				ret ~= "Ident: " ~ stringValue;
-				break;
-				
-			case Type.BoolLiteral:
-				ret ~= (boolValue ? "true" : "false");
-
-			case Type.StringLiteral:
-				ret ~= '"' ~ stringValue ~ '"';
+				ret = "Identifier: " ~ stringValue;
 				break;
 				
 			case Type.CharLiteral:
-				ret ~= "'" ~ stringValue ~ "'";
+				ret = "Character Literal";
+				break;
+				
+			case Type.StringLiteral:
+				ret = "String Literal";
+				break;
 
 			case Type.IntLiteral:
-				ret ~= "Int: " ~ std.string.toString(intValue);
+				ret = "Integer Literal: " ~ std.string.toString(intValue);
 				break;
 
 			case Type.FloatLiteral:
-				ret ~= "Float: " ~ std.string.toString(floatValue);
+				ret = "Float Literal: " ~ std.string.toString(floatValue);
 				break;
 
 			default:
-				ret ~= tokenStrings[cast(uint)type];
+				ret = tokenStrings[cast(uint)type];
 				break;
 		}
 		
 		return ret;
 	}
-	
+
 	public static char[] toString(Type type)
 	{
-		return tokenStrings[type];
+		return std.utf.toUTF8(tokenStrings[type]);
 	}
 	
 	public void check(Type t)
 	{
 		if(type != t)
-			throw new MDCompileException("'" ~ tokenStrings[t] ~ "' expected; found '" ~ tokenStrings[type] ~ "' instead", location);
+			throw new MDCompileException(location, "'%s' expected; found '%s' instead", tokenStrings[t], tokenStrings[type]);
 	}
 
 	public Type type;
@@ -471,53 +407,38 @@ struct Location
 
 	public char[] toString()
 	{
-		return fileName ~ "(" ~ .toString(line) ~ ":" ~ .toString(column) ~ ")";
+		return std.string.format("%s(%d:%d)", fileName, line, column);
 	}
 }
 
 class MDException : Exception
 {
-	public this(char[] msg)
+	public this(...)
 	{
+		char[] msg;
+
+		void putc(dchar c)
+		{
+			std.utf.encode(msg, c);
+		}
+
+		std.format.doFormat(&putc, _arguments, _argptr);
+
 		super(msg);
 	}
 }
 
 class MDCompileException : MDException
 {
-	public this(char[] msg, Location loc)
+	public this(Location loc, ...)
 	{
-		super(loc.toString() ~ ": " ~ msg);
-	}
-}
-
-class MDSymbolConflictException : MDCompileException
-{
-	public this(Symbol sym1, Symbol sym2)
-	{
-		super("'" ~ sym1.toPrettyString() ~ "' conflicts with '" ~ sym2.toPrettyString() ~ "'(" ~ sym2.mLocation.toString() ~ ")", sym1.mLocation);
-	}
-}
-
-class MDShadowingException : MDCompileException
-{
-	public this(Symbol sym1, Symbol sym2)
-	{
-		super("'" ~ sym1.toPrettyString() ~ "' shadows '" ~ sym2.toPrettyString() ~ "'(" ~ sym2.mLocation.toString() ~ ")", sym1.mLocation);	
-	}
-}
-
-class MDTypeConvException : MDCompileException
-{
-	public this(Expression from, Expression to)
-	{
-		super("Cannot implicitly convert expression '" ~ from.toString() ~ "' of type '" ~ from.mSemType.toString() ~ "' to type '" ~ to.mSemType.toString() ~ "'", from.mLocation);
+		super(loc.toString(), ": ", vformat(_arguments, _argptr));
 	}
 }
 
 class Lexer
 {
-	protected Stream mSource;
+	protected BufferedStream mSource;
 	protected Location mLoc;
 	protected char mCharacter;
 
@@ -533,7 +454,7 @@ class Lexer
 
 		mLoc = Location(name);
 
-		mSource = source;
+		mSource = new BufferedStream(source);
 
 		nextChar();
 
@@ -595,6 +516,14 @@ class Lexer
 	{
 		return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
 	}
+	
+	protected static ubyte hexDigitToInt(char c)
+	{
+		if(c >= '0' && c <= '9')	
+			return c - '0';
+
+		return std.ctype.tolower(c) - 'a' + 10;
+	}
 
 	protected void nextChar()
 	{
@@ -649,7 +578,7 @@ class Lexer
 						nextChar();
 						
 						if(!isBinaryDigit(mCharacter))
-							throw new MDCompileException("Binary digit expected, not '" ~ mCharacter ~ "'", mLoc);
+							throw new MDCompileException(mLoc, "Binary digit expected, not '%s'", mCharacter);
 
 						while(isBinaryDigit(mCharacter) || mCharacter == '_')
 						{
@@ -665,7 +594,7 @@ class Lexer
 						}
 						catch(ConvError e)
 						{
-							throw new MDCompileException("Malformed binary int literal", beginning);
+							throw new MDCompileException(beginning, "Malformed binary int literal");
 						}
 						
 						return true;
@@ -674,7 +603,7 @@ class Lexer
 						nextChar();
 						
 						if(!isOctalDigit(mCharacter))
-							throw new MDCompileException("Octal digit expected, not '" ~ mCharacter ~ "'", mLoc);
+							throw new MDCompileException(mLoc, "Octal digit expected, not '%s'", mCharacter);
 
 						while(isOctalDigit(mCharacter) || mCharacter == '_')
 						{
@@ -690,7 +619,7 @@ class Lexer
 						}
 						catch(ConvError e)
 						{
-							throw new MDCompileException("Malformed octal int literal", beginning);
+							throw new MDCompileException(beginning, "Malformed octal int literal");
 						}
 						
 						return true;
@@ -699,7 +628,7 @@ class Lexer
 						nextChar();
 						
 						if(!isHexDigit(mCharacter))
-							throw new MDCompileException("Hexadecimal digit expected, not '" ~ mCharacter ~ "'", mLoc);
+							throw new MDCompileException(mLoc, "Hexadecimal digit expected, not '%s'", mCharacter);
 
 						while(isHexDigit(mCharacter) || mCharacter == '_')
 						{
@@ -715,7 +644,7 @@ class Lexer
 						}
 						catch(ConvError e)
 						{
-							throw new MDCompileException("Malformed hexadecimal int literal", beginning);
+							throw new MDCompileException(beginning, "Malformed hexadecimal int literal");
 						}
 						
 						return true;
@@ -772,7 +701,7 @@ class Lexer
 				}
 
 				if(!isDecimalDigit(mCharacter))
-					throw new MDCompileException("Exponent value expected in float literal", mLoc);
+					throw new MDCompileException(mLoc, "Exponent value expected in float literal '%s'", buf[0 .. i]);
 
 				while(isDecimalDigit(mCharacter) || mCharacter == '_')
 				{
@@ -798,7 +727,7 @@ class Lexer
 			}
 			catch(ConvError e)
 			{
-				throw new MDCompileException("Malformed int literal '" ~ buf[0 .. i] ~ "'", beginning);
+				throw new MDCompileException(beginning, "Malformed int literal '%s'", buf[0 .. i]);
 			}
 
 			return true;
@@ -811,11 +740,110 @@ class Lexer
 			}
 			catch(ConvError e)
 			{
-				throw new MDCompileException("Malformed float literal '" ~ buf[0 .. i] ~ "'", beginning);
+				throw new MDCompileException(beginning, "Malformed float literal '%s'", buf[0 .. i]);
 			}
 
 			return false;
 		}
+	}
+	
+	protected char[] readEscapeSequence(Location beginning)
+	{
+		uint readHexDigits(uint num)
+		{
+			uint ret = 0;
+			
+			for(uint i = 0; i < num; i++)
+			{
+				if(isHexDigit(mCharacter) == false)
+					throw new MDCompileException(mLoc, "Hexadecimal escape digits expected");
+					
+				ret <<= 8;
+				ret |= hexDigitToInt(mCharacter);
+			}
+
+			return ret;
+		}
+		
+		char[] ret;
+
+		assert(mCharacter == '\\');
+		
+		nextChar();
+		if(isEOF(mCharacter))
+			throw new MDCompileException(beginning, "Unterminated string or character literal");
+
+		switch(mCharacter)
+		{
+			case 'a': return "\a";
+			case 'b': return "\b";
+			case 'f': return "\f";
+			case 'n': return "\n";
+			case 'r': return "\r";
+			case 't': return "\t";
+			case 'v': return "\v";
+			case '\\': return "\\";
+			case '\"': return "\"";
+			case '\'': return "\'";
+
+			case 'x':
+				nextChar();
+
+				int x = readHexDigits(2);
+
+				if(x > 0x7F)
+					throw new MDCompileException(mLoc, "Hexadecimal escape sequence too large");
+
+				ret ~= cast(char)x;
+				break;
+
+			case 'u':
+				nextChar();
+
+				int x = readHexDigits(4);
+
+				if(x == 0xFFFE || x == 0xFFFF)
+					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
+
+				std.utf.encode(ret, cast(wchar)x);
+				break;
+
+			case 'U':
+				nextChar();
+
+				int x = readHexDigits(8);
+
+				if(x == 0xFFFE || x == 0xFFFF)
+					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
+
+				if(std.utf.isValidDchar(cast(dchar)x) == false)
+					throw new MDCompileException(mLoc, "Unicode escape '\\U%08x' too large", x);
+
+				std.utf.encode(ret, cast(dchar)x);
+				break;
+
+			default:
+				if(!isDecimalDigit(mCharacter))
+					throw new MDCompileException(mLoc, "Invalid string escape sequence '\\%s'", mCharacter);
+
+				// Decimal char
+				int numch = 0;
+				int c = 0;
+
+				do
+				{
+					c = 10 * c + (mCharacter - '0');
+					nextChar();
+				} while(++numch < 3 && isDecimalDigit(mCharacter));
+
+				if(c > 0x7F)
+					throw new MDCompileException(mLoc, "Numeric escape sequence too large");
+
+				ret ~= cast(char)c;
+				break;
+		}
+
+		return ret;
 	}
 	
 	protected char[] readStringLiteral(bool escape)
@@ -840,66 +868,25 @@ class Lexer
 		
 		while(mCharacter != delimiter)
 		{
+			if(isEOF(mCharacter))
+				throw new MDCompileException(beginning, "Unterminated string literal");
+
 			switch(mCharacter)
 			{
-				int c;
-
-				case char.init, '\0':
-					throw new MDCompileException("Unterminated string literal", beginning);
-					
 				case '\r', '\n':
 					add('\n');
 					nextLine();
+					break;
 
 				case '\\':
 					if(escape == false)
 						goto default;
 
-					nextChar();
+					char[] esc = readEscapeSequence(beginning);
+					
+					foreach(char c; esc)
+						add(c);
 
-					switch(mCharacter)
-					{
-						case 'a': c = '\a'; break;
-						case 'b': c = '\b'; break;
-						case 'f': c = '\f'; break;
-						case 'n': c = '\n'; break;
-						case 'r': c = '\r'; break;
-						case 't': c = '\t'; break;
-						case 'v': c = '\v'; break;
-
-						case char.init, '\0':
-							// will raise an error next loop
-							continue;
-							
-						case '\\', '\"', '\'':
-							add(mCharacter);
-							nextChar();
-							continue;
-
-						default:
-							if(!isDecimalDigit(mCharacter))
-								throw new MDCompileException("Invalid string escape sequence '\\" ~ mCharacter ~ "'", mLoc);
-
-							// Decimal char
-							int numch = 0;
-							c = 0;
-
-							do
-							{
-								c = 10 * c + (mCharacter - '0');
-								nextChar();
-							} while(++numch < 3 && isDecimalDigit(mCharacter));
-
-							if(c > 127)
-								throw new MDCompileException("Numeric escape sequence too large", mLoc);
-
-							add(cast(char)c);
-
-							continue;
-					}
-
-					add(cast(char)c);
-					nextChar();
 					continue;
 
 				default:
@@ -908,7 +895,7 @@ class Lexer
 					break;
 			}
 		}
-		
+
 		// Skip end quote
 		nextChar();
 
@@ -918,68 +905,29 @@ class Lexer
 	protected char[] readCharLiteral()
 	{
 		Location beginning = mLoc;
+		char[] ret;
 
 		nextChar();
-		
-		char c;
+
+		if(isEOF(mCharacter))
+			throw new MDCompileException(beginning, "Unterminated character literal");
 
 		switch(mCharacter)
 		{
-			case char.init, '\0':
-				throw new MDCompileException("Unterminated character literal", beginning);
-
 			case '\\':
+				ret = readEscapeSequence(beginning);
 				nextChar();
-
-				switch(mCharacter)
-				{
-					case 'a': c = '\a'; nextChar(); break;
-					case 'b': c = '\b'; nextChar(); break;
-					case 'f': c = '\f'; nextChar(); break;
-					case 'n': c = '\n'; nextChar(); break;
-					case 'r': c = '\r'; nextChar(); break;
-					case 't': c = '\t'; nextChar(); break;
-					case 'v': c = '\v'; nextChar(); break;
-
-					case char.init, '\0':
-						throw new MDCompileException("Unterminated character literal", beginning);
-
-					case '\\', '\"', '\'':
-						c = mCharacter;
-						nextChar();
-						break;
-
-					default:
-						if(!isDecimalDigit(mCharacter))
-							throw new MDCompileException("Invalid escape sequence '\\" ~ mCharacter ~ "'", mLoc);
-
-						// Decimal char
-						int numch = 0;
-						c = 0;
-
-						do
-						{
-							c = 10 * c + (mCharacter - '0');
-							nextChar();
-						} while(++numch < 3 && isDecimalDigit(mCharacter));
-
-						if(c > 127)
-							throw new MDCompileException("Numeric escape sequence too large", mLoc);
-						break;
-				}
 				break;
 
 			default:
-				c = mCharacter;
+				ret ~= mCharacter;
 				nextChar();
 				break;
 		}
 		
 		if(mCharacter != '\'')
-			throw new MDCompileException("Unterminated character literal", mLoc);
-			
-		char[] ret;
-		ret ~= c;
+			throw new MDCompileException(mLoc, "Unterminated character literal");
+
 		return ret;
 	}
 
@@ -1002,58 +950,6 @@ class Lexer
 					nextLine();
 					continue;
 
-				case '=':
-					nextChar();
-
-					if(mCharacter != '=')
-						token.type = Token.Type.Assign;
-					else
-					{
-						nextChar();
-						token.type = Token.Type.EQ;
-					}
-					
-					return token;
-					
-				case '<':
-					nextChar();
-
-					if(mCharacter != '=')
-						token.type = Token.Type.LT;
-					else
-					{
-						nextChar();
-						token.type = Token.Type.LE;
-					}
-					
-					return token;
-					
-				case '>':
-					nextChar();
-
-					if(mCharacter != '=')
-						token.type = Token.Type.GT;
-					else
-					{
-						nextChar();
-						token.type = Token.Type.GE;
-					}
-					
-					return token;
-					
-				case '!':
-					nextChar();
-
-					if(mCharacter != '=')
-						token.type = Token.Type.Not;
-					else
-					{
-						nextChar();
-						token.type = Token.Type.NE;
-					}
-
-					return token;
-					
 				case '+':
 					nextChar();
 
@@ -1087,19 +983,32 @@ class Lexer
 					}
 					else
 						token.type = Token.Type.Sub;
-					
+
+					return token;
+
+				case '~':
+					nextChar();
+
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.CatEq;
+					}
+					else
+						token.type = Token.Type.Cat;
+
 					return token;
 					
 				case '*':
 					nextChar();
 
-					if(mCharacter != '=')
-						token.type = Token.Type.Mul;
-					else
+					if(mCharacter == '=')
 					{
 						nextChar();
 						token.type = Token.Type.MulEq;
 					}
+					else
+						token.type = Token.Type.Mul;
 					
 					return token;
 					
@@ -1139,7 +1048,7 @@ class Lexer
 									continue;
 									
 								case '\0', char.init:
-									throw new MDCompileException("Unterminated /* */ comment", tokenLoc);
+									throw new MDCompileException(tokenLoc, "Unterminated /* */ comment");
 
 								default:
 									break;
@@ -1155,89 +1064,176 @@ class Lexer
 					}
 
 					break;
-
+					
 				case '%':
 					nextChar();
 
-					if(mCharacter != '=')
-						token.type = Token.Type.Mod;
-					else
+					if(mCharacter == '=')
 					{
 						nextChar();
 						token.type = Token.Type.ModEq;
 					}
+					else
+						token.type = Token.Type.Mod;
+
+					return token;
+
+				case '<':
+					nextChar();
+
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.LE;
+					}
+					else if(mCharacter == '<')
+					{
+						nextChar();
+						
+						if(mCharacter == '=')
+						{
+							nextChar();
+							token.type = Token.Type.ShlEq;
+						}
+						else
+							token.type = Token.Type.Shl;
+					}
+					else
+						token.type = Token.Type.LT;
+
+					return token;
 					
+				case '>':
+					nextChar();
+
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.GE;
+					}
+					else if(mCharacter == '>')
+					{
+						nextChar();
+
+						if(mCharacter == '=')
+						{
+							nextChar();
+							token.type = Token.Type.ShrEq;
+						}
+						else if(mCharacter == '>')
+						{
+							nextChar();
+							
+							if(mCharacter == '=')
+							{
+								nextChar();
+								token.type = Token.Type.UshrEq;
+							}
+							else
+								token.type = Token.Type.Ushr;
+						}
+						else
+							token.type = Token.Type.Shr;
+					}
+					else
+						token.type = Token.Type.GT;
+					
+					return token;
+					
+				case '&':
+					nextChar();
+					
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.AndEq;
+					}
+					else if(mCharacter == '&')
+					{
+						nextChar();
+						token.type = Token.Type.AndAnd;
+					}
+					else
+						token.type = Token.Type.And;
+						
+					return token;
+					
+				case '|':
+					nextChar();
+
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.OrEq;
+					}
+					else if(mCharacter == '|')
+					{
+						nextChar();
+						token.type = Token.Type.OrOr;
+					}
+					else
+						token.type = Token.Type.Or;
+
 					return token;
 					
 				case '^':
 					nextChar();
 
-					if(mCharacter != '=')
-						token.type = Token.Type.Pow;
-					else
+					if(mCharacter == '=')
 					{
 						nextChar();
-						token.type = Token.Type.PowEq;
+						token.type = Token.Type.XorEq;
 					}
-					
+					else
+						token.type = Token.Type.Xor;
+
 					return token;
-					
-				case '~':
+
+				case '=':
 					nextChar();
 
-					if(mCharacter != '=')
-						token.type = Token.Type.Cat;
-					else
+					if(mCharacter == '=')
 					{
 						nextChar();
-						token.type = Token.Type.CatEq;
+						token.type = Token.Type.EQ;
 					}
+					else
+						token.type = Token.Type.Assign;
 					
 					return token;
-					
+
 				case '.':
 					nextChar();
 					
 					if(mCharacter == '.')
 					{
 						nextChar();
-						
 						token.type = Token.Type.DotDot;
-						return token;
 					}
 					else if(isDecimalDigit(mCharacter))
 					{
 						int dummy;
-						assert(readNumLiteral(true, token.floatValue, dummy) == false);
+						bool b = readNumLiteral(true, token.floatValue, dummy);
+						assert(b == false);
+
 						token.type = Token.Type.FloatLiteral;
-						return token;
 					}
 					else
-					{
 						token.type = Token.Type.Dot;
-						return token;
-					}
-					
-				case '&':
-					nextChar();
-					
-					if(mCharacter != '&')
-						throw new MDCompileException("Token '&&' expected", tokenLoc);
-						
-					nextChar();
-					
-					token.type = Token.Type.AndAnd;
+
 					return token;
-					
-				case '|':
+
+				case '!':
 					nextChar();
 
-					if(mCharacter != '|')
-						throw new MDCompileException("Token '||' expected", tokenLoc);
-						
-					nextChar();
-					
-					token.type = Token.Type.OrOr;
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.NE;
+					}
+					else
+						token.type = Token.Type.Not;
+
 					return token;
 					
 				case '\"':
@@ -1249,46 +1245,21 @@ class Lexer
 					token.stringValue = readStringLiteral(false);
 					token.type = Token.Type.StringLiteral;
 					return token;
+
+				case '@':
+					nextChar();
+					
+					if(mCharacter != '\"')
+						throw new MDCompileException(tokenLoc, "'@' expected to be followed by '\"'");
+
+					token.stringValue = readStringLiteral(false);
+					token.type = Token.Type.StringLiteral;
+					return token;
 					
 				case '\'':
 					token.stringValue = readCharLiteral();
 					token.type = Token.Type.CharLiteral;
 					return token;
-					
-				case 'r':
-					nextChar();
-					
-					if(mCharacter == '\"')
-					{
-						token.stringValue = readStringLiteral(true);
-						token.type = Token.Type.StringLiteral;
-						return token;
-					}
-					else
-					{
-						char[] s = "r";
-						
-						do
-						{
-							s ~= mCharacter;
-							nextChar();
-						}
-						while(isAlpha(mCharacter) || isDecimalDigit(mCharacter) || mCharacter == '_');
-						
-						Token.Type* t = (s in Token.stringToType);
-
-						if(t is null)
-						{
-							token.type = Token.Type.Ident;
-							token.stringValue = s;
-							return token;
-						}
-						else
-						{
-							token.type = *t;
-							return token;
-						}
-					}
 
 				case '\0', char.init:
 					token.type = Token.Type.EOF;
@@ -1332,7 +1303,7 @@ class Lexer
 						while(isAlpha(mCharacter) || isDecimalDigit(mCharacter) || mCharacter == '_');
 						
 						if(s.length >= 2 && s[0 .. 2] == "__")
-							throw new MDCompileException("'" ~ s ~ "': Identifiers starting with two underscores are reserved", tokenLoc);
+							throw new MDCompileException(tokenLoc, "'", s, "': Identifiers starting with two underscores are reserved");
 						
 						Token.Type* t = (s in Token.stringToType);
 
@@ -1344,14 +1315,7 @@ class Lexer
 						}
 						else
 						{
-							if(*t == Token.Type.True || *t == Token.Type.False)
-							{
-								token.type = Token.Type.BoolLiteral;
-								token.boolValue = (*t == Token.Type.True);
-							}
-							else
-								token.type = *t;
-
+							token.type = *t;
 							return token;
 						}
 					}
@@ -1365,2002 +1329,254 @@ class Lexer
 						Token.Type* t = (s in Token.stringToType);
 
 						if(t is null)
-							throw new MDCompileException("Invalid token '" ~ s ~ "'", tokenLoc);
+							throw new MDCompileException(tokenLoc, "Invalid token '%s'", s);
 						else
-						{
 							token.type = *t;
-							return token;
-						}
+
+						return token;
 					}
 			}
 		}
 	}
 }
 
-/*
-Named symbols include:
-	modules
-	classes
-	functions
-	variables
-	properties
-	
-Many symbols introduce scope.  All but variables in the above list.
-Other constructs introduce scope as well, including:
-	block
-	if
-	while
-	do-while
-	for
-	foreach
-	case
-	default
-*/
-
-class Scope
+class Chunk
 {
-	protected Symbol mParent;
-	protected Module mModule;
-	protected Scope mEnclosing;
-	protected FuncDecl mFunc;
-	protected ForeachStatement mForeach;
-	protected Statement mBreakableStat;
-	protected Statement mContinuableStat;
-	protected SymbolTable mTable;
-	protected Scope[] mEnclosed;
-	protected Scope[] mImports;
-
-	public static Scope createGlobal(Module owner)
-	{
-		Scope s = new Scope(owner);
-		s.mModule = owner;
-		owner.mChild = s;
-
-		return s;
-	}
-
-	public this(Symbol parent)
-	{
-		mParent = parent;
-
-		if(parent.mParent !is null)
-		{
-			mEnclosing = parent.mParent;
-			mModule = parent.mParent.mModule;
-			mFunc = parent.mParent.mFunc;
-		}
-	}
+	protected Statement[] mStatements;
 	
-	public this(Scope parent)
+	public this(Statement[] statements)
 	{
-		if(parent !is null)
-		{
-			mEnclosing = parent;
-			mParent = parent.mParent;
-			mModule = parent.mModule;
-			mFunc = parent.mFunc;
-			parent.mEnclosed ~= this;
-		}
+		mStatements = statements;
 	}
 
-	public Symbol search(Identifier ident, out Symbol owner)
+	public static Chunk parse(inout Token* t)
 	{
-		assert(ident !is null);
+		Statement[] statements = new Statement[10];
+		uint i = 0;
 		
-		for(Scope s = this; s !is null; s = s.mEnclosing)
+		void add(Statement s)
 		{
-			if(s.mTable is null)
-				continue;
-
-			Symbol sym = s.mTable.lookup(ident);
-
-			if(sym is null)
-			{
-				foreach(Scope imp; s.mImports)
-				{
-					Symbol sym2 = imp.search(ident);
-
-					if(sym is null)
-						sym = sym2;
-					else if(sym2 !is null && sym !is sym2)
-						throw new MDSymbolConflictException(sym, sym2);
-				}
-			}
-
-			if(sym is null)
-				continue;
-
-			owner = s.mParent;
-			return sym;
-		}
-		
-		return null;
-	}
-	
-	public void importScope(Scope s)
-	{
-		if(s is this)
-			return;
-			
-		foreach(Scope imp; mImports)
-			if(imp is s)
-				return;
+			if(i >= statements.length)
+				statements.length = statements.length * 2;
 				
-		mImports ~= s;
-	}
-	
-	public Symbol search(Identifier ident)
-	{
-		Symbol owner;
-		return search(ident, owner);
-	}
-	
-	public Symbol insert(Symbol s)
-	{
-		if(mTable is null)
-			mTable = new SymbolTable();
-
-		return mTable.insert(s);
-	}
-
-	public Scope push(Symbol s)
-	{
-		Scope sc = new Scope(s);
-		s.mChild = sc;
-
-		return sc;
-	}
-
-	public Scope push(Scope s)
-	{
-		return new Scope(s);
-	}
-	
-	public Scope push()
-	{
-		return new Scope(this);
-	}
-	
-	public Scope pop()
-	{
-		return mEnclosing;
-	}
-	
-	public void showChildren(uint tab = 0)
-	{
-		if(mTable !is null)
-		{
-			foreach(Symbol s; mTable.mTable)
-			{
-				writefln(std.string.repeat("\t", tab), s);
-
-				s.showChildren(tab + 1);
-	
-				if(cast(FuncDecl)s)
-					(cast(FuncDecl)s).showOverloads(tab);
-			}
+			statements[i] = s;
+			i++;
 		}
-
-		if(mEnclosed.length > 0)
-		{
-			//writefln(std.string.repeat("\t", tab), "showing children: ", mEnclosed.length);
-			foreach(Scope s; mEnclosed)
-				s.showChildren(tab + 1);
-
-			//writefln(std.string.repeat("\t", tab), "done showing children");
-		}
+		
+		while(t.type != Token.Type.EOF)
+			add(Statement.parse(t));
+			
+		statements.length = i;
+		
+		return new Chunk(statements);
 	}
 }
 
-class Symbol
+abstract class Statement
 {
-	protected Scope mParent;
-	protected Scope mChild;
-	protected Identifier mIdent;
 	protected Location mLocation;
-	
-	public this(Identifier ident, Location location)
+
+	public this(Location location)
 	{
-		mIdent = ident;
 		mLocation = location;
 	}
 	
-	public this()
+	public static Statement parse(inout Token* t)
 	{
-
-	}
-	
-	public Scope parent()
-	{
-		return mParent;
-	}
-	
-	public Symbol search(Identifier ident)
-	{
-		return null;
-	}
-	
-	public char[] toString()
-	{
-		if(mIdent !is null)
-			return mIdent.toString();
-		else
-			return "__anonymous";
-	}
-	
-	public char[] toName()
-	{
-		if(mIdent !is null)
-			return mIdent.toString();
-		else
-			return "__anonymous";
-	}
-
-	public char[] toPrettyString()
-	{
-		if(mParent is null)
-			return toName();
-
-		char[] ret = toName();
-
-		Symbol old;
-
-		for(Scope s = mParent; s !is null; s = s.mEnclosing)
+		Location location = t.location;
+		
+		switch(t.type)
 		{
-			if(s.mParent !is old)
+			case
+				Token.Type.CharLiteral,
+				Token.Type.Dec,
+				Token.Type.Dot,
+				Token.Type.False,
+				Token.Type.FloatLiteral,
+				Token.Type.Ident,
+				Token.Type.Inc,
+				Token.Type.IntLiteral,
+				Token.Type.LParen,
+				Token.Type.Null,
+				Token.Type.StringLiteral,
+				Token.Type.Sub,
+				Token.Type.True:
+
+				return ExpressionStatement.parse(t);
+
+			case Token.Type.Local, Token.Type.Function:
+				return DeclarationStatement.parse(t);
+
+			case Token.Type.LBrace:
+				Statement s = CompoundStatement.parse(t);
+				return s;
+				
+			case Token.Type.If:
+				return IfStatement.parse(t);
+				
+			case Token.Type.While:
+				return WhileStatement.parse(t);
+				
+			case Token.Type.Do:
+				return DoWhileStatement.parse(t);
+				
+			case Token.Type.For:
+				return ForStatement.parse(t);
+				
+			case Token.Type.Foreach:
+				return ForeachStatement.parse(t);
+
+			case Token.Type.Switch:
+				return SwitchStatement.parse(t);
+				
+			case Token.Type.Case:
+				return CaseStatement.parse(t);
+				
+			case Token.Type.Default:
+				return DefaultStatement.parse(t);
+
+			case Token.Type.Continue:
+				return ContinueStatement.parse(t);
+				
+			case Token.Type.Break:
+				return BreakStatement.parse(t);
+				
+			case Token.Type.Return:
+				return ReturnStatement.parse(t);
+				
+			case Token.Type.Try:
+				return TryCatchStatement.parse(t);
+				
+			case Token.Type.Semicolon:
+				throw new MDCompileException(t.location, "Empty statements ( ';' ) are not allowed");
+				
+			default:
+				throw new MDCompileException(t.location, "Statement expected, not '%s'", t.toString());
+		}
+	}
+}
+
+class ScopeStatement : Statement
+{
+	protected Statement mStatement;
+
+	public this(Location location, Statement statement)
+	{
+		super(location);
+		mStatement = statement;
+	}
+}
+
+class ExpressionStatement : Statement
+{
+	protected Expression mExpr;
+	
+	public this(Location location, Expression expr)
+	{
+		super(location);
+		mExpr = expr;
+	}
+	
+	public static ExpressionStatement parse(inout Token* t)
+	{
+		return new ExpressionStatement(t.location, Expression.parse(t));
+	}
+}
+
+class DeclarationStatement : Statement
+{
+	protected Declaration mDecl;
+
+	public this(Location location, Declaration decl)
+	{
+		super(location);
+		mDecl = decl;
+	}
+
+	public static DeclarationStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		return new DeclarationStatement(location, Declaration.parse(t));
+	}
+}
+
+abstract class Declaration
+{
+	protected Location mLocation;
+	
+	public this(Location location)
+	{
+		mLocation = location;
+	}
+
+	public static Declaration parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		if(t.type == Token.Type.Local)
+		{
+			t = t.nextToken;
+			
+			if(t.type == Token.Type.Function)
 			{
-				ret = s.mParent.toName() ~ "." ~ ret;
-				old = s.mParent;
+
 			}
-		}
-
-		return ret;
-	}
-
-	protected void semantic1(Scope sc)
-	{
-		throw new MDException("No semantic routine");
-	}
-
-	protected void semantic2(Scope sc)
-	{
-
-	}
-
-	protected void semantic3(Scope sc)
-	{
-
-	}
-	
-	protected bool isAnonymous()
-	{
-		return (mIdent is null);
-	}
-
-	protected bool addAsMember(Scope owner)
-	{
-		mParent = owner;
-
-		if(isAnonymous())
-			return false;
-
-		if(owner.insert(this) is null)
-		{
-			// The insert failed (it already exists in the table)
-			
-			// Let's try overloading it
-			Symbol sym = owner.mTable.lookup(mIdent);
-
-			if(sym.overloadInsert(this) == false)
-				throw new MDSymbolConflictException(this, sym);
-		}
-
-		return true;
-	}
-
-	protected bool overloadInsert(Symbol sym)
-	{
-		return false;
-	}
-	
-	public void showChildren(uint tab = 0)
-	{
-		//writefln(std.string.repeat("\t", tab), this);
-
-		if(mChild is null)
-			return;
-			
-		mChild.showChildren(tab);
-	}
-}
-
-class SymbolTable
-{
-	protected Symbol[char[]] mTable;
-
-	// Look up symbol.  Returns null if doesn't exist.
-	public Symbol lookup(Identifier ident)
-	{
-		Symbol* test = (ident.mName in mTable);
-		
-		if(test is null)
-			return null;
-		else
-			return *test;
-	}
-
-	// If symbol is there, return null; otherwise, add it and return it.
-	public Symbol insert(Symbol sym)
-	{
-		Symbol* test = (sym.mIdent.mName in mTable);
-		
-		if(test !is null)
-			return null;
-			
-		mTable[sym.mIdent.mName] = sym;
-		
-		return sym;
-	}
-	
-	// Lookup symbol.  If it's already there, return it.  Otherwise, add it and return it.
-	public Symbol update(Symbol sym)
-	{
-		Symbol* test = (sym.mIdent.mName in mTable);
-		
-		if(test !is null)
-			return *test;
-			
-		mTable[sym.mIdent.mName] = sym;
-		
-		return sym;
-	}
-}
-
-class Module : Symbol
-{
-	protected ModuleDecl mModuleDecl;
-	protected ImportDecl[] mImports;
-	protected Symbol[] mDecls;
-	protected MainDecl mMain;
-	protected bool mSemanticDone;
-
-	public this(ModuleDecl moduleDecl, ImportDecl[] imports, Symbol[] decls, MainDecl moduleMain)
-	{
-		assert(moduleDecl !is null, "There should always be a module declaration..");
-
-		super(moduleDecl.mIdent, moduleDecl.mLocation);
-
-		mModuleDecl = moduleDecl;
-		mImports = imports;
-		mDecls = decls;
-		mMain = moduleMain;
-	}
-
-	public static Module parse(inout Token* t)
-	{
-		ModuleDecl moduleDecl = ModuleDecl.parse(t);
-		
-		ImportDecl[] imports;
-		Symbol[] decls;
-		MainDecl moduleMain;
-
-		// Parse declarations
-		while(t.type != Token.Type.EOF)
-		{
-			Location location = t.location;
-
-			switch(t.type)
+			else if(t.type == Token.Type.Ident)
 			{
-				case Token.Type.Import:
-					imports ~= ImportDecl.parse(t);
-					break;
-
-				case Token.Type.Main:
-					if(moduleMain !is null)
-						throw new MDCompileException("Duplicate main declaration (other is at " ~ moduleMain.mLocation.toString() ~ ")", location);
-
-					moduleMain = MainDecl.parse(t);
-					break;
-					
-				case Token.Type.Class:
-					decls ~= ClassDecl.parse(t);
-					break;
-					
-				case Token.Type.Namespace:
-					decls ~= NamespaceDecl.parse(t, true);
-					break;
-
-				default:
-					decls ~= SimpleDecl.parse(t);
-					break;
+				
 			}
-		}
-
-		return new Module(moduleDecl, imports, decls, moduleMain);
-	}
-
-	public char[] toString()
-	{
-		return mModuleDecl.toString();
-	}
-	
-	public char[] toName()
-	{
-		if(mModuleDecl)
-			return mModuleDecl.toName();
-			
-		return "";
-	}
-	
-	// Dummy
-	protected override void semantic1(Scope sc)
-	{
-
-	}
-
-	protected void semantic()
-	{
-		if(mSemanticDone)
-			return;
-			
-		mSemanticDone = true;
-
-		Scope s = Scope.createGlobal(this);
-
-		foreach(ImportDecl imp; mImports)
-			imp.addAsMember(s);
-
-		foreach(Symbol sym; mDecls)
-			sym.semantic1(s);
-
-		if(mMain)
-			mMain.semantic1(s);
-			
-		foreach(Symbol sym; mDecls)
-			sym.semantic2(s);
-			
-		if(mMain)
-			mMain.semantic2(s);
-	}
-}
-
-class ModuleDecl : Symbol
-{
-	protected Identifier[] mPackages;
-
-	public this(Identifier[] packages, Identifier name)
-	{
-		Location location;
-		super(name, location);
-		mPackages = packages;
-	}
-	
-	public static ModuleDecl parse(inout Token* t)
-	{
-		t.check(Token.Type.Module);
-		t = t.nextToken;
-
-		Identifier[] names;
-
-		while(true)
-		{
-			t.check(Token.Type.Ident);
-
-			names ~= Identifier.parse(t);
-			names[$ - 1].mName = std.string.tolower(names[$ - 1].mName);
-
-			if(t.type == Token.Type.Dot)
-				t = t.nextToken;
 			else
-				break;
+				throw new MDCompileException(location, "'function' or identifier expected after 'local'");
 		}
-		
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
+		else if(t.type == Token.Type.Function)
+		{
 
-		return new ModuleDecl(names[0 .. $ - 1], names[$ - 1]);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("module %s", toName());
-	}
-	
-	public char[] toName()
-	{
-		char[] ret;
-
-		foreach(Identifier p; mPackages)
-			ret = std.string.format("%s%s.", ret, p);
-			
-		ret ~= mIdent.toString();
-			
-		return ret;
+		}
+		else
+			throw new MDCompileException(location, "Declaration expected");
 	}
 }
 
-class ImportDecl : Symbol
+class LocalDecl : Declaration
 {
-	protected Identifier[] mPackages;
+	protected Identifier[] mNames;
+	protected Expression[] mInitializers;
 
-	public this(Identifier[] packages, Identifier name, Location location)
+	public this(Identifier[] names, Expression[] initializers, Location location)
 	{
-		super(name, location);
-		mPackages = packages;
+		super(location);
+
+		mNames = names;
+		mInitializers = initializers;
 	}
-
-	public static ImportDecl parse(inout Token* t)
+	
+	public static LocalDecl parse(inout Token* t)
 	{
-		Location location = t.location;
-
-		t.check(Token.Type.Import);
-		t = t.nextToken;
-
-		Identifier[] names;
-
-		while(true)
-		{
-			t.check(Token.Type.Ident);
-
-			names ~= Identifier.parse(t);
-			names[$ - 1].mName = std.string.tolower(names[$ - 1].mName);
-
-			if(t.type == Token.Type.Dot)
-				t = t.nextToken;
-			else
-				break;
-		}
-		
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-
-		return new ImportDecl(names[0 .. $ - 1], names[$ - 1], location);
-	}
-
-	public char[] toString()
-	{
-		char[] ret;
-
-		foreach(Identifier p; mPackages)
-			ret = std.string.format("%s%s.", ret, p);
-
-		return std.string.format("import %s%s", ret, mIdent);
+		return null;	
 	}
 }
 
-class NamespaceDecl : Symbol
+class FuncDecl : Declaration
 {
-	protected Symbol[] mDecls;
-
-	public this(Identifier name, Symbol[] decls, Location location)
-	{
-		super(name, location);
-		
-		mDecls = decls;
-	}
-	
-	public static NamespaceDecl parse(inout Token* t, bool allowClasses)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Namespace);
-		t = t.nextToken;
-		
-		Identifier name = Identifier.parse(t);
-		
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-		
-		Symbol[] decls;
-		
-		while(t.type != Token.Type.RBrace)
-		{
-			switch(t.type)
-			{
-				case Token.Type.Def:
-					decls ~= SimpleDecl.parse(t);
-					break;
-					
-				case Token.Type.Namespace:
-					decls ~= NamespaceDecl.parse(t, allowClasses);
-					break;
-					
-				case Token.Type.Class:
-					if(allowClasses)
-						decls ~= ClassDecl.parse(t);
-					else
-						throw new MDCompileException("Cannot declare a class inside a class", t.location);
-					break;
-					
-				default:
-					throw new MDCompileException("Declaration expected for namespace '" ~ name.toString() ~ "', not '" ~ t.toString() ~ "'", t.location);
-			}
-		}
-		
-		if(t.type != Token.Type.RBrace)
-			throw new MDCompileException("'}' Expected after declaration of namespace '" ~ name.toString() ~ "'", t.location);
-			
-		t = t.nextToken;
-		
-		return new NamespaceDecl(name, decls, location);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		addAsMember(sc);
-
-		sc = sc.push(this);
-
-		foreach(Symbol decl; mDecls)
-			decl.semantic1(sc);
-			
-		sc.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		foreach(Symbol decl; mDecls)
-			decl.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		return "namespace " ~ mIdent.toString();
-	}
-}
-
-class ClassDecl : Symbol
-{
-	protected Identifier[] mBaseClassName;
-	protected Symbol[] mDecls;
-
-	public this(Identifier name, Identifier[] baseClassName, Symbol[] decls, Location location)
-	{
-		super(name, location);
-
-		mBaseClassName = baseClassName;
-		mDecls = decls;
-	}
-
-	public static ClassDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Class);
-		t = t.nextToken;
-		
-		t.check(Token.Type.Ident);
-		Identifier name = Identifier.parse(t);
-		
-		Identifier[] baseClassName;
-		
-		if(t.type == Token.Type.Colon)
-		{
-			t = t.nextToken;
-
-			while(true)
-			{
-				t.check(Token.Type.Ident);
-
-				baseClassName ~= Identifier.parse(t);
-
-				if(t.type != Token.Type.Dot)
-					break;
-					
-				t = t.nextToken;
-			}
-		}
-		
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-
-		Symbol[] decls;
-		DtorDecl dtor;
-
-		while(t.type != Token.Type.RBrace)
-		{
-			Location location2 = t.location;
-
-			switch(t.type)
-			{
-				case Token.Type.This:
-					t = t.nextToken;
-					Parameter[] params = Parameter.parseParams(t);
-					CompoundStatement funcBody = CompoundStatement.parse(t);
-					decls ~= new CtorDecl(params, funcBody, location2);
-					break;
-					
-				case Token.Type.Cat:
-					t = t.nextToken;
-					t.check(Token.Type.This);
-					t = t.nextToken;
-					t.check(Token.Type.LParen);
-					t = t.nextToken;
-					t.check(Token.Type.RParen);
-					t = t.nextToken;
-					CompoundStatement funcBody = CompoundStatement.parse(t);
-					
-					if(dtor !is null)
-						throw new MDCompileException("Multiple destructors in class '" ~ name.toString() ~ "'", location2);
-						
-					dtor = new DtorDecl(funcBody, location2);
-					decls ~= dtor;
-					break;
-					
-				case Token.Type.Def:
-					decls ~= SimpleDecl.parse(t);
-					break;
-					
-				case Token.Type.Namespace:
-					decls ~= NamespaceDecl.parse(t, false);
-					break;
-					
-				default:
-					throw new MDCompileException("Declaration expected for class '" ~ name.toString() ~ "', not '" ~ t.toString() ~ "'", location2);
-			}
-		}
-
-		if(t.type != Token.Type.RBrace)
-			throw new MDCompileException("'}' Expected after declaration of class '" ~ name.toString() ~ "'", t.location);
-
-		t = t.nextToken;
-
-		return new ClassDecl(name, baseClassName, decls, location);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		addAsMember(sc);
-
-		sc = sc.push(this);
-
-		foreach(Symbol decl; mDecls)
-			decl.semantic1(sc);
-			
-		sc.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		foreach(Symbol decl; mDecls)
-			decl.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		return "class " ~ mIdent.toString();
-	}
-}
-
-abstract class SimpleDecl : Symbol
-{
-	public this(Identifier ident, Location location)
-	{
-		super(ident, location);
-	}
-
-	public static SimpleDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Def);
-		t = t.nextToken;
-
-		Type type = Type.parse(t);
-		Identifier ident = Identifier.parse(t);
-
-		if(t.type == Token.Type.LParen)
-		{
-			Parameter[] params = Parameter.parseParams(t);
-			CompoundStatement funcBody = CompoundStatement.parse(t);
-
-			return new FuncDecl(type, ident, params, funcBody, location);
-		}
-
-		Expression init;
-
-		if(t.type == Token.Type.Assign)
-		{
-			t = t.nextToken;
-			init = BaseAssignExp.parse(t);
-			assert(init !is null);
-		}
-
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-
-		return new VarDecl(type, ident, init, location);
-	}
-}
-
-class VarDecl : SimpleDecl
-{
-	protected Type mType;
-	protected Expression mInitializer;
-
-	public this(Type type, Identifier name, Expression initializer, Location location)
-	{
-		super(name, location);
-		mType = type;
-		mInitializer = initializer;
-
-		if(mInitializer is null)
-			mInitializer = mType.defaultInitializer();
-	}
-
-	public static VarDecl parse(inout Token* t, bool isolated = true)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Def);
-		t = t.nextToken;
-		
-		Type type = Type.parse(t);
-		Identifier ident = Identifier.parse(t);
-		
-		Expression init;
-		
-		if(t.type == Token.Type.Assign)
-		{
-			t = t.nextToken;
-			init = BaseAssignExp.parse(t);
-			assert(init !is null);
-		}
-
-		if(isolated)
-		{
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
-		}
-
-		return new VarDecl(type, ident, init, location);
-	}
-
-	protected override void semantic1(Scope sc)
-	{
-		if(sc.mFunc is null)
-			addAsMember(sc);
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		if(mInitializer !is null)
-			mInitializer.semantic2(sc);
-
-		if(sc.mFunc !is null)
-		{
-			sc.mFunc.checkShadowing(this);
-			addAsMember(sc);
-		}
-
-		mType.semantic2(mLocation, sc);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s %s", mType, mIdent);
-	}
-}
-
-class ThisDecl : VarDecl
-{
-	public this(Type type, Location location)
-	{
-		super(type, Identifier.This, null, location);
-	}
-	
-	public char[] toString()
-	{
-		return "ThisDecl";
-	}
-}
-
-class FuncDecl : SimpleDecl
-{
-	protected Type mReturnType;
-	protected FunctionType mFuncType;
-	protected Parameter[] mParams;
+	protected Identifier[] mNames;
+	protected bool mIsMethod;
+	protected Identifier[] mParams;
 	protected CompoundStatement mBody;
-	protected FuncDecl mNextOverload;
-	protected ClassDecl mOwnerClass;
-	protected SymbolTable mShadowingTable;
 
-	public this(Type returnType, Identifier name, Parameter[] params, CompoundStatement funcBody, Location location)
+	public this(Identifier[] names, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
 	{
-		super(name, location);
-		mReturnType = returnType;
+		super(location);
+		
+		mNames = names;
+		mIsMethod = isMethod;
 		mParams = params;
 		mBody = funcBody;
-		
-		Type[] paramTypes;
-		
-		foreach(Parameter p; params)
-			paramTypes ~= p.mType;
-
-		mFuncType = new FunctionType(paramTypes);
-		mFuncType.mNextType = mReturnType;
-		mFuncType.generateMangle();
-	}
-	
-	protected override bool overloadInsert(Symbol sym)
-	{
-		FuncDecl other = cast(FuncDecl)sym;
-
-		if(other is null)
-			return false;
-
-		if(isSameSignature(other))
-			return false;
-			
-		if(mNextOverload !is null)
-			return mNextOverload.overloadInsert(other);
-
-		mNextOverload = other;
-		
-		return true;
-	}
-	
-	protected bool isSameSignature(FuncDecl other)
-	{
-		if(mReturnType != other.mReturnType)
-			return false;
-			
-		if(mParams.length != other.mParams.length)
-			return false;
-			
-		for(uint i = 0; i < mParams.length; i++)
-			if(mParams[i].mType != other.mParams[i].mType)
-				return false;
-
-		return true;
-	}
-
-	protected void checkShadowing(Symbol sym)
-	{
-		assert(mChild !is null, "need child scope to see if ident is shadowed");
-		
-		if(mShadowingTable is null)
-			mShadowingTable = new SymbolTable();
-
-		Symbol s = mShadowingTable.update(sym);
-
-		if(s !is sym)
-			throw new MDShadowingException(sym, s);
-	}
-
-	protected override void semantic1(Scope sc)
-	{
-		if(sc.mFunc !is null)
-			sc.mFunc.checkShadowing(this);
-
-		addAsMember(sc);
-
-		sc = sc.push(this);
-		sc.mFunc = this;
-
-		mBody.semantic1(sc);
-
-		sc.pop();
-	}
-
-	protected override void semantic2(Scope sc)
-	{
-		/*if(hasThis())
-		{
-
-		}*/
-
-		foreach(Parameter p; mParams)
-			p.semantic2(mChild);
-
-		mBody.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		char[] ret = std.string.format("%s %s(", mReturnType, mIdent);
-
-		if(mParams.length == 0)
-			ret ~= ")";
-		else if(mParams.length == 1)
-			ret = std.string.format("%s%s)", ret, mParams[0]);
-		else
-		{
-			foreach(uint i, Parameter p; mParams)
-			{
-				if(i == mParams.length - 1)
-					ret = std.string.format("%s%s)", ret, p);
-				else
-					ret = std.string.format("%s%s, ", ret, p);
-			}
-		}
-		
-		//ret ~= '\n';
-		
-		//ret = std.string.format("%s%s", ret, mBody);
-
-		return ret;
-	}
-	
-	public void showOverloads(uint tab = 0)
-	{
-		if(mNextOverload)
-		{
-			writefln(std.string.repeat("\t", tab), mNextOverload);
-			mNextOverload.showChildren(tab + 1);
-		}
-	}
-}
-
-class MainDecl : FuncDecl
-{
-	protected Identifier mArgName;
-	protected VarDecl mArgDecl;
-
-	public this(Identifier argName, CompoundStatement mainBody, Location location)
-	{
-		super(new VoidType(), Identifier.Main, null, mainBody, location);
-		mArgName = argName;
-	}
-	
-	public static MainDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Main);
-		t = t.nextToken;
-		
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-		
-		Identifier argName;
-
-		if(t.type == Token.Type.RParen)
-			t = t.nextToken;
-		else
-		{
-			argName = Identifier.parse(t);
-			t.check(Token.Type.RParen);
-			t = t.nextToken;
-		}
-
-		return new MainDecl(argName, CompoundStatement.parse(t), location);
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		if(mArgName)
-		{
-			mArgDecl = new VarDecl(new ArrayType(new ArrayType(new CharType())), mArgName, null, mLocation);
-			mArgDecl.semantic2(mChild);
-		}
-		
-		mBody.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		if(mArgName is null)
-			return "main()";
-		else
-			return "main(" ~ mArgName.toString() ~ ")";
-	}
-}
-
-class CtorDecl : FuncDecl
-{
-	public this(Parameter[] params, CompoundStatement funcBody, Location location)
-	{
-		super(new VoidType(), Identifier.Ctor, params, funcBody, location);
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = "this(";
-
-		if(mParams.length == 0)
-			ret ~= ")";
-		else if(mParams.length == 1)
-			ret = std.string.format("%s%s)", ret, mParams[0]);
-		else
-		{
-			foreach(uint i, Parameter p; mParams)
-			{
-				if(i == mParams.length - 1)
-					ret = std.string.format("%s%s)", ret, p);
-				else
-					ret = std.string.format("%s%s, ", ret, p);
-			}
-		}
-
-		return ret;
-	}
-}
-
-class DtorDecl : FuncDecl
-{
-	public this(CompoundStatement funcBody, Location location)
-	{
-		super(new VoidType(), Identifier.Dtor, null, funcBody, location);
-	}
-
-	public char[] toString()
-	{
-		return "~this()";
-	}
-}
-
-class FuncLiteralDecl : FuncDecl
-{
-	public this(Type returnType, Parameter[] params, CompoundStatement funcBody, Location location)
-	{
-		super(returnType, Identifier.generateUnique("__funcLiteral"), params, funcBody, location);
-	}
-	
-	public static FuncLiteralDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Function);
-		t = t.nextToken;
-
-		Type returnType = Type.parse(t);
-
-		Parameter[] params = Parameter.parseParams(t);
-		CompoundStatement funcBody = CompoundStatement.parse(t);
-		
-		return new FuncLiteralDecl(returnType, params, funcBody, location);
-	}
-	
-	public char[] toString()
-	{
-		return "function literal";
-	}
-}
-
-abstract class Type
-{
-	protected static struct Mangle
-	{
-		static const char[] Void = "v";
-		static const char[] Char = "c";
-		static const char[] Bool = "b";
-		static const char[] Int = "i";
-		static const char[] Float = "f";
-		static const char[] Vararg = "x";
-		static const char[] Class = "C";
-		static const char[] AA = "M";
-		static const char[] Array = "A";
-		static const char[] Function = "F";
-	}
-
-	protected char[] mMangledName;
-	
-	public static Type parse(inout Token* t)
-	{
-		BasicType basic;
-
-		switch(t.type)
-		{
-			case Token.Type.Void, Token.Type.Char, Token.Type.Bool, Token.Type.Int, Token.Type.Float, Token.Type.Ident:
-				basic = BasicType.parse(t);
-				break;
-
-			case Token.Type.Vararg:
-				return VarargType.parse(t);
-
-			default:
-				throw new MDCompileException("Type expected, not '" ~ t.toString() ~ "'", t.location);
-		}
-
-		ExtendedType ext;
-
-		while(t.type == Token.Type.LBracket || t.type == Token.Type.Function)
-		{
-			ExtendedType e = ExtendedType.parse(t);
-
-			if(ext is null)
-			{
-				e.mNextType = basic;
-				ext = e;
-			}
-			else
-			{
-				e.mNextType = ext;
-				ext = e;
-			}
-		}
-
-		if(ext is null)
-		{
-			basic.generateMangle();
-			return basic;
-		}
-		else
-		{
-			ext.generateMangle();
-			return ext;
-		}
-	}
-	
-	/*public static Type checkConversion(Type typeFrom, Type typeTo)
-	{
-		if(cast(IntType)typeFrom)
-		{
-			if(cast(FloatType)typeTo)
-				return typeTo;
-				
-			if(cast(BoolType)typeTo)
-				return typeTo;
-		}
-		
-		return null;
-	}*/
-	
-	public bool checkToBoolean()
-	{
-		return false;
-	}
-	
-	public static enum Conv
-	{
-		No,
-		Implicit,
-		Exact
-	}
-
-	public Conv implicitConvTo(Type other)
-	{
-		if(this == other)
-			return Conv.Exact;
-
-		return Conv.No;
-	}
-	
-	public Conv explicitConvTo(Type other)
-	{
-		if(this == other)
-			return Conv.Exact;
-			
-		return Conv.No;
-	}
-	
-	public bool canBeCompared(Type other)
-	{
-		if(isAA())
-			return false;
-
-		if(this != other)
-			return false;
-
-		Type b = this;
-
-		ExtendedType t = cast(ExtendedType)b;
-
-		if(t)
-		{
-			while(cast(ExtendedType)t.mNextType !is null)
-				t = cast(ExtendedType)t.mNextType;
-
-			b = t.mNextType;
-		}
-		
-		if(b.isVararg() || b.isFunction() || b.isAA() || b.isVoid() || b.isBool() || b.isClass())
-			return false;
-			
-		return true;
-	}
-	
-	public Expression defaultInitializer()
-	{
-		assert(false, "Type init needs to be overridden");
-	}
-
-	public Type semantic2(Location location, Scope sc)
-	{
-		return this;
-	}
-
-	public bool isVararg()
-	{
-		return (cast(VarargType)this) !is null;	
-	}
-	
-	public bool isFunction()
-	{
-		return (cast(FunctionType)this) !is null;
-	}
-
-	public bool isArray()
-	{
-		return (cast(ArrayType)this) !is null;
-	}
-	
-	public bool isAA()
-	{
-		return (cast(AAType)this) !is null;
-	}
-
-	public bool isVoid()
-	{
-		return (cast(VoidType)this) !is null;
-	}
-	
-	public bool isBool()
-	{
-		return (cast(BoolType)this) !is null;
-	}
-
-	public bool isInt()
-	{
-		return (cast(IntType)this) !is null;
-	}
-	
-	public bool isFloat()
-	{
-		return (cast(FloatType)this) !is null;
-	}
-
-	public bool isNumeric()
-	{
-		return isInt() || isFloat();
-	}
-	
-	public bool isChar()
-	{
-		return (cast(CharType)this) !is null;
-	}
-	
-	public bool isClass()
-	{
-		return (cast(ClassType)this) !is null;
-	}
-	
-	public bool isReference()
-	{
-		return (isClass() || isArray() || isAA() || isFunction());	
-	}
-
-	public int opEquals(Object o)
-	{
-		Type other = cast(Type)o;
-		assert(other);
-
-		return mMangledName == other.mMangledName;
-	}
-
-	protected abstract void generateMangle();
-}
-
-abstract class BasicType : Type
-{
-	public static BasicType parse(inout Token* t)
-	{
-		switch(t.type)
-		{
-			case Token.Type.Void:
-				return VoidType.parse(t);
-
-			case Token.Type.Bool:
-				return BoolType.parse(t);
-
-			case Token.Type.Int:
-				return IntType.parse(t);
-
-			case Token.Type.Float:
-				return FloatType.parse(t);
-
-			case Token.Type.Char:
-				return CharType.parse(t);
-				
-			case Token.Type.Ident:
-				return ClassType.parse(t);
-
-			default:
-				throw new MDCompileException("Basic type expected, not '" ~ t.toString() ~ "'", t.location);
-		}
-	}
-}
-
-class VoidType : BasicType
-{
-	private static VoidType instance;
-	
-	static this()
-	{
-		instance = new VoidType();
-	}
-
-	public static VoidType parse(inout Token* t)
-	{
-		t.check(Token.Type.Void);
-		t = t.nextToken;
-
-		return instance;
-	}
-
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Void;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		assert(false, "There should never be a void variable");
-	}
-
-	public char[] toString()
-	{
-		return "void";
-	}
-}
-
-class BoolType : BasicType
-{
-	private static BoolType instance;
-	private static Expression init;
-	
-	static this()
-	{
-		instance = new BoolType();
-		init = new BoolExp(Location(""), false);
-	}
-
-	public static BoolType parse(inout Token* t)
-	{
-		t.check(Token.Type.Bool);
-		t = t.nextToken;
-
-		return instance;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return true;
-	}
-
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Bool;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-
-	public char[] toString()
-	{
-		return "bool";
-	}
-}
-
-class IntType : BasicType
-{
-	private static IntType instance;
-	private static IntExp init;
-	
-	static this()
-	{
-		instance = new IntType();
-		init = new IntExp(Location(""), 0);
-	}
-
-	public static IntType parse(inout Token* t)
-	{
-		t.check(Token.Type.Int);
-		t = t.nextToken;
-		
-		return instance;
-	}
-
-	public override bool checkToBoolean()
-	{
-		return true;
-	}
-	
-	public override Conv explicitConvTo(Type other)
-	{
-		if(other.isChar())
-			return Conv.Exact;
-			
-		return super.implicitConvTo(other);
-	}
-	
-	public override Conv implicitConvTo(Type other)
-	{
-		if(other.isFloat() || other.isBool())
-			return Conv.Implicit;
-			
-		return super.implicitConvTo(other);
-	}
-
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Int;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-
-	public char[] toString()
-	{
-		return "int";
-	}
-}
-
-class FloatType : BasicType
-{
-	private static FloatType instance;
-	private static FloatExp init;
-	
-	static this()
-	{
-		instance = new FloatType();
-		init = new FloatExp(Location(""), float.nan);
-	}
-
-	public static FloatType parse(inout Token* t)
-	{
-		t.check(Token.Type.Float);
-		t = t.nextToken;
-		
-		return instance;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-	
-	public override Conv explicitConvTo(Type other)
-	{
-		if(other.isInt())
-			return Conv.Exact;
-
-		return super.implicitConvTo(other);
-	}
-	
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Float;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-	
-	public char[] toString()
-	{
-		return "float";
-	}
-}
-
-class CharType : BasicType
-{
-	private static CharType instance;
-	private static CharExp init;
-	
-	static this()
-	{
-		instance = new CharType();
-		init = new CharExp(Location(""), 0);
-	}
-
-	public static CharType parse(inout Token* t)
-	{
-		t.check(Token.Type.Char);
-		t = t.nextToken;
-		
-		return instance;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-	
-	public override Conv implicitConvTo(Type other)
-	{
-		if(other.isInt())
-			return Conv.Implicit;
-			
-		return super.implicitConvTo(other);
-	}
-
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Char;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-	
-	public char[] toString()
-	{
-		return "char";
-	}
-}
-
-class ClassType : BasicType
-{
-	protected Identifier mIdent;
-	protected ClassDecl mClassDecl;
-	protected static NullExp init;
-	
-	public this(Identifier ident)
-	{
-		mIdent = ident;
-		init = new NullExp(Location(""));
-	}
-
-	public static ClassType parse(inout Token* t)
-	{
-		return new ClassType(Identifier.parse(t));
-	}
-	
-	public override Type semantic2(Location location, Scope sc)
-	{
-		Symbol sym = sc.search(mIdent);
-
-		if(sym is null)
-			throw new MDCompileException("Undefined type '" ~ mIdent.toString() ~ "'", location);
-
-		mClassDecl = cast(ClassDecl)sym;
-
-		if(mClassDecl is null)
-			throw new MDCompileException("'" ~ sym.toString() ~ "' is not a class type", location);
-			
-		return this;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return true;
-	}
-	
-	public override Conv explicitConvTo(Type other)
-	{
-		// TODO: check class hierarchy to assure that this cast is legal
-
-		return super.explicitConvTo(other);
-	}
-	
-	public override Conv implicitConvTo(Type other)
-	{
-		// TODO: check class hierarchy to assure that this cast is legal
-
-		return super.implicitConvTo(other);
-	}
-
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Class ~ std.string.toString(mIdent.toString().length) ~ mIdent.toString();	
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-
-	public char[] toString()
-	{
-		return mIdent.toString();
-	}
-}
-
-class VarargType : Type
-{
-	public static VarargType parse(inout Token* t)
-	{
-		t.check(Token.Type.Vararg);
-		t = t.nextToken;
-		
-		return new VarargType();
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-	
-	public override void generateMangle()
-	{
-		mMangledName = Mangle.Vararg;
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		assert(false, "Varargs don't have an init, silly!");
-	}
-	
-	public char[] toString()
-	{
-		return "vararg";
-	}
-}
-
-abstract class ExtendedType : Type
-{
-	protected Type mNextType;
-	protected static NullExp init;
-	
-	static this()
-	{
-		init = new NullExp(Location(""));
-	}
-
-	public static ExtendedType parse(inout Token* t)
-	{
-		switch(t.type)
-		{
-			case Token.Type.LBracket:
-				if(t.nextToken.type == Token.Type.RBracket)
-					return ArrayType.parse(t);
-				else
-					return AAType.parse(t);
-
-			case Token.Type.Function:
-				return FunctionType.parse(t);
-
-			default:
-				throw new MDCompileException("Extended type expected, not '" ~ t.toString() ~ "'", t.location);
-		}
-	}
-	
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-}
-
-class FunctionType : ExtendedType
-{
-	protected Type[] mParamTypes;
-
-	public this(Type[] paramTypes)
-	{
-		mParamTypes = paramTypes;
-		init = new NullExp(Location(""));
-	}
-
-	public static FunctionType parse(inout Token* t)
-	{
-		t.check(Token.Type.Function);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		Type[] paramTypes;
-
-		if(t.type != Token.Type.RParen)
-		{
-			while(true)
-			{
-				paramTypes ~= Type.parse(t);
-
-				if(t.type == Token.Type.RParen)
-					break;
-
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
-			}
-		}
-
-		t = t.nextToken;
-
-		return new FunctionType(paramTypes);
-	}
-
-	protected override Type semantic2(Location location, Scope sc)
-	{
-		mNextType = mNextType.semantic2(location, sc);
-		
-		foreach(inout Type paramType; mParamTypes)
-		{
-			paramType = paramType.semantic2(location, sc);
-			
-			if(paramType.isVoid())
-				throw new MDCompileException("Cannot have parameter of type void", location);
-		}
-		
-		return this;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-
-	protected override void generateMangle()
-	{
-		mMangledName = Mangle.Function;
-		
-		foreach(Type p; mParamTypes)
-		{
-			p.generateMangle();
-			mMangledName ~= p.mMangledName;
-		}
-
-		mNextType.generateMangle();
-		mMangledName ~= mNextType.mMangledName;
-	}
-
-	public override Expression defaultInitializer()
-	{
-		return init;
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("%s function(", mNextType);
-
-		if(mParamTypes.length == 0)
-			ret ~= ")";
-		else if(mParamTypes.length == 1)
-			ret = std.string.format("%s%s)", ret, mParamTypes[0]);
-		else
-		{
-			foreach(uint i, Type t; mParamTypes)
-			{
-				if(i == mParamTypes.length - 1)
-					ret = std.string.format("%s%s)", ret, t);
-				else
-					ret = std.string.format("%s%s, ", ret, t);
-			}
-		}
-
-		return ret;
-	}
-}
-
-class ArrayType : ExtendedType
-{
-	protected static ArrayType stringInstance;
-
-	static this()
-	{
-		stringInstance = new ArrayType(new CharType());
-	}
-	
-	public this(Type nextType = null)
-	{
-		mNextType = nextType;
-	}
-
-	public static ArrayType parse(inout Token* t)
-	{
-		t.check(Token.Type.LBracket);
-		t = t.nextToken;
-
-		t.check(Token.Type.RBracket);
-		t = t.nextToken;
-
-		return new ArrayType();
-	}
-	
-	protected override Type semantic2(Location location, Scope sc)
-	{
-		mNextType = mNextType.semantic2(location, sc);
-
-		if(mNextType.isVoid() || mNextType.isVararg())
-			throw new MDCompileException("Cannot have an array of '" ~ mNextType.toString() ~ "'s", location);
-
-		return this;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-
-	protected override void generateMangle()
-	{
-		mMangledName = Mangle.Array;
-		
-		assert(mNextType !is null);
-
-		mNextType.generateMangle();
-		mMangledName ~= mNextType.mMangledName;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s[]", mNextType);
-	}
-}
-
-class AAType : ExtendedType
-{
-	protected Type mKeyType;
-
-	public this(Type keyType)
-	{
-		mKeyType = keyType;
-	}
-	
-	public static AAType parse(inout Token* t)
-	{
-		t.check(Token.Type.LBracket);
-		t = t.nextToken;
-		
-		Type keyType = Type.parse(t);
-		
-		t.check(Token.Type.RBracket);
-		t = t.nextToken;
-		
-		return new AAType(keyType);
-	}
-	
-	public override Type semantic2(Location location, Scope sc)
-	{
-		mKeyType = mKeyType.semantic2(location, sc);
-		
-		if(mKeyType.isVoid() || mKeyType.isBool() || mKeyType.isVararg())
-			throw new MDCompileException("Cannot have associative array key type of '" ~ mKeyType.toString() ~ "'", location);
-			
-		mNextType = mNextType.semantic2(location, sc);
-		
-		if(mNextType.isVoid() || mNextType.isVararg())
-			throw new MDCompileException("Cannot have an associative array of '" ~ mNextType.toString() ~ "'s", location);
-
-		return this;
-	}
-	
-	public override bool checkToBoolean()
-	{
-		return false;
-	}
-
-	protected override void generateMangle()
-	{
-		mMangledName = Mangle.AA;
-		
-		assert(mKeyType !is null);
-		assert(mNextType !is null);
-		
-		mKeyType.generateMangle();
-		mNextType.generateMangle();
-		
-		mMangledName ~= mKeyType.mMangledName ~ mNextType.mMangledName;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s[%s]", mNextType, mKeyType);
 	}
 }
 
 class Identifier
 {
 	protected char[] mName;
-
-	public static Identifier Main;
-	public static Identifier Ctor;
-	public static Identifier Dtor;
-	public static Identifier Get;
-	public static Identifier Set;
-	public static Identifier This;
-
-	static this()
-	{
-		Main = new Identifier("__main");
-		Ctor = new Identifier("__ctor");
-		Dtor = new Identifier("__dtor");
-		Get = new Identifier("__get");
-		Set = new Identifier("__set");
-		This = new Identifier("__this");
-	}
 
 	public this(char[] name)
 	{
@@ -3377,315 +1593,698 @@ class Identifier
 		return id;
 	}
 	
-	public static Identifier generateUnique(char[] base)
-	{
-		static uint i = 0;
-		
-		i++;
-		
-		return new Identifier(std.string.format(base, i));
-	}
-	
 	public char[] toString()
 	{
 		return mName;
 	}
-}
-
-class Parameter
-{
-	protected Type mType;
-	protected Identifier mName;
-	protected Expression mInitializer;
-	protected Location mLocation;
-
-	public this(Type type, Identifier name, Expression initializer, Location location)
-	{
-		mType = type;
-		mName = name;
-		mInitializer = initializer;
-		mLocation = location;
-	}
-
-	public static Parameter parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		Type type = Type.parse(t);
-		Identifier ident = Identifier.parse(t);
-		Expression init;
-
-		if(t.type == Token.Type.Assign)
-		{
-			if(type.isVararg())
-				throw new MDCompileException("Vararg parameter may not have an initializer", location);
-
-			if(type.isFunction())
-				throw new MDCompileException("Function parameter may not have an initializer", location);
-
-			t = t.nextToken;
-			init = BaseAssignExp.parse(t);
-			assert(init !is null);
-		}
-
-		return new Parameter(type, ident, init, location);
-	}
 	
-	public static Parameter[] parseParams(inout Token* t)
+	public static char[] toLongString(Identifier[] idents)
 	{
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-		
-		Parameter[] params;
-		
-		bool hasDefault = false;
-		bool hasVararg = false;
+		char[] ret = idents[$ - 1].toString();
 
-		if(t.type != Token.Type.RParen)
-		{
-			while(true)
-			{
-				Location location = t.location;
-
-				if(hasVararg)
-					throw new MDCompileException("No arguments may follow a vararg argument", location);
-
-				params ~= Parameter.parse(t);
-
-				if(params[$ - 1].mType.isVararg())
-					hasVararg = true;
-
-				if(hasDefault == false && params[$ - 1].mInitializer !is null)
-					hasDefault = true;
-				else if(hasDefault == true && params[$ - 1].mInitializer is null)
-					throw new MDCompileException("Parameter '" ~ params[$ - 1].mName.toString() ~ "' expected to have an initializer", location);
-
-				if(t.type == Token.Type.RParen)
-					break;
-
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
-			}
-		}
-		
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-
-		return params;
-	}
-	
-	public void semantic2(Scope sc)
-	{
-		VarDecl v = new VarDecl(mType, mName, null, mLocation);
-		v.semantic2(sc);
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("%s %s", mType, mName);
-
+		if(idents.length > 1)
+			for(int i = idents.length - 2; i >= 0; i--)
+				ret = std.string.format("%s.%s", idents[i].toString(), ret);
+				
 		return ret;
 	}
 }
 
-Expression[] parseArgumentList(inout Token* t, Token.Type terminator)
+class CompoundStatement : Statement
 {
-	t = t.nextToken;
+	protected Statement[] mStatements;
 
-	Expression[] args;
-
-	if(t.type != terminator)
+	public this(Location location, Statement[] statements)
 	{
-		while(true)
-		{
-			args ~= BaseAssignExp.parse(t);
-
-			if(t.type == terminator)
-				break;
-
-			t.check(Token.Type.Comma);
-			t = t.nextToken;
-		}
+		super(location);
+		mStatements = statements;
+	}
+	
+	public this(Location location, Statement statement)
+	{
+		super(location);
+		mStatements.length = 1;
+		mStatements[0] = statement;	
 	}
 
-	t.check(terminator);
-	t = t.nextToken;
+	public static CompoundStatement parse(inout Token* t)
+	{
+		Location location = t.location;
 
-	return args;
+		t.check(Token.Type.LBrace);
+		t = t.nextToken;
+
+		Statement[] statements = new Statement[10];
+		int i = 0;
+
+		void addStatement(Statement s)
+		{
+			if(i >= statements.length)
+				statements.length = statements.length * 2;
+
+			statements[i] = s;
+			i++;
+		}
+
+		while(t.type != Token.Type.RBrace)
+			addStatement(Statement.parse(t));
+			
+		statements.length = i;
+
+		t.check(Token.Type.RBrace);
+		t = t.nextToken;
+		
+		return new CompoundStatement(location, statements);
+	}
+}
+
+class IfStatement : Statement
+{
+	protected Expression mCondition;
+	protected Statement mIfBody;
+	protected Statement mElseBody;
+
+	public this(Location location, Expression condition, Statement ifBody, Statement elseBody)
+	{
+		super(location);
+
+		mCondition = condition;
+		mIfBody = ifBody;
+		mElseBody = elseBody;
+	}
+
+	public static IfStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.If);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Expression condition = OpEqExp.parse(t);
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+
+		Statement ifBody = Statement.parse(t);
+
+		Statement elseBody;
+
+		if(t.type == Token.Type.Else)
+		{
+			t = t.nextToken;
+			elseBody = Statement.parse(t);
+		}
+
+		return new IfStatement(location, condition, ifBody, elseBody);
+	}
+}
+
+class WhileStatement : Statement
+{
+	protected Expression mCondition;
+	protected Statement mBody;
+
+	public this(Location location, Expression condition, Statement whileBody)
+	{
+		super(location);
+
+		mCondition = condition;
+		mBody = whileBody;
+	}
+
+	public static WhileStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.While);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+		
+		Expression condition = OpEqExp.parse(t);
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		
+		Statement whileBody = Statement.parse(t);
+
+		return new WhileStatement(location, condition, whileBody);
+	}
+}
+
+class DoWhileStatement : Statement
+{
+	protected Statement mBody;
+	protected Expression mCondition;
+
+	public this(Location location, Statement doBody, Expression condition)
+	{
+		super(location);
+
+		mBody = doBody;
+		mCondition = condition;
+	}
+
+	public static DoWhileStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Do);
+		t = t.nextToken;
+		
+		Statement doBody = Statement.parse(t);
+		
+		t.check(Token.Type.While);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Expression condition = OpEqExp.parse(t);
+		
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+
+		return new DoWhileStatement(location, doBody, condition);
+	}
+}
+
+class ForStatement : Statement
+{
+	protected Expression mInit;
+	protected LocalDecl mInitDecl;
+	protected Expression mCondition;
+	protected Expression mIncrement;
+	protected Statement mBody;
+
+	public this(Location location, Expression init, LocalDecl initDecl, Expression condition, Expression increment, Statement forBody)
+	{
+		super(location);
+
+		mInit = init;
+		mInitDecl = initDecl;
+		mCondition = condition;
+		mIncrement = increment;
+		mBody = forBody;
+	}
+
+	public static ForStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.For);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Expression init;
+		LocalDecl initDecl;
+
+		if(t.type == Token.Type.Semicolon)
+			t = t.nextToken;
+		else
+		{
+			if(t.type == Token.Type.Local)
+				initDecl = LocalDecl.parse(t);
+			else
+				init = Expression.parse(t);
+
+			t.check(Token.Type.Semicolon);
+			t = t.nextToken;
+		}
+
+		Expression condition;
+
+		if(t.type == Token.Type.Semicolon)
+			t = t.nextToken;
+		else
+		{
+			condition = OpEqExp.parse(t);
+			t.check(Token.Type.Semicolon);
+			t = t.nextToken;
+		}
+
+		Expression increment;
+
+		if(t.type == Token.Type.RParen)
+			t = t.nextToken;
+		else
+		{
+			increment = Expression.parse(t);
+			t.check(Token.Type.RParen);
+			t = t.nextToken;
+		}
+
+		Statement forBody = Statement.parse(t);
+
+		return new ForStatement(location, init, initDecl, condition, increment, forBody);
+	}
+}
+
+class ForeachStatement : Statement
+{
+	protected Identifier[] mIndices;
+	protected Expression mContainer;
+	protected Statement mBody;
+
+	public this(Location location, Identifier[] indices, Expression container, Statement foreachBody)
+	{
+		super(location);
+
+		mIndices = indices;
+		mContainer = container;
+		mBody = foreachBody;
+	}
+
+	public static ForeachStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.Foreach);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Identifier[] indices;
+
+		t.check(Token.Type.Local);
+		t = t.nextToken;
+		
+		indices ~= Identifier.parse(t);
+			
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+
+			t.check(Token.Type.Local);
+			t = t.nextToken;
+
+			indices ~= Identifier.parse(t);
+		}
+		
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
+
+		Expression container = OpEqExp.parse(t);
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		
+		Statement foreachBody = Statement.parse(t);
+
+		return new ForeachStatement(location, indices, container, foreachBody);
+	}
+}
+
+class SwitchStatement : Statement
+{
+	protected Expression mCondition;
+	protected Statement[] mCases;
+	protected Statement mDefault;
+
+	public this(Location location, Expression condition, Statement[] cases, Statement caseDefault)
+	{
+		super(location);
+		mCondition = condition;
+		mCases = cases;
+		mDefault = caseDefault;
+	}
+
+	public static SwitchStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Switch);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+		
+		Expression condition = OpEqExp.parse(t);
+		
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		t.check(Token.Type.LBrace);
+		t = t.nextToken;
+
+		Statement[] cases = new Statement[10];
+		int i = 0;
+
+		void addCase(Statement c)
+		{
+			if(i >= cases.length)
+				cases.length = cases.length * 2;
+
+			cases[i] = c;
+			i++;
+		}
+
+		while(true)
+		{
+			if(t.type == Token.Type.Case)
+				addCase(CaseStatement.parse(t));
+			else
+				break;
+		}
+		
+		cases.length = i;
+
+		Statement caseDefault;
+
+		if(t.type == Token.Type.Default)
+			caseDefault = DefaultStatement.parse(t);
+
+		t.check(Token.Type.RBrace);
+		t = t.nextToken;
+
+		return new SwitchStatement(location, condition, cases, caseDefault);
+	}
+}
+
+class CaseStatement : Statement
+{
+	protected Expression mCondition;
+	protected Statement mBody;
+
+	public this(Location location, Expression condition, Statement caseBody)
+	{
+		super(location);
+		mCondition = condition;
+		mBody = caseBody;
+	}
+
+	public static CaseStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Case);
+		t = t.nextToken;
+
+		Expression[] cases = new Expression[10];
+		int i = 0;
+
+		void addCase(Expression c)
+		{
+			if(i >= cases.length)
+				cases.length = cases.length * 2;
+
+			cases[i] = c;
+			i++;
+		}
+
+		while(true)
+		{
+			addCase(OpEqExp.parse(t));
+
+			if(t.type != Token.Type.Comma)
+				break;
+				
+			t = t.nextToken;
+		}
+
+		cases.length = i;
+
+		// OpEqExp.parse() should catch this, but just to be safe
+		assert(cases.length > 0);
+
+		t.check(Token.Type.Colon);
+		t = t.nextToken;
+
+		Statement[] statements = new Statement[10];
+		i = 0;
+
+		void addStatement(Statement s)
+		{
+			if(i >= statements.length)
+				statements.length = statements.length * 2;
+
+			statements[i] = s;
+			i++;
+		}
+
+		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
+			addStatement(Statement.parse(t));
+			
+		statements.length = i;
+
+		Statement caseBody = new CompoundStatement(location, statements);
+		caseBody = new ScopeStatement(location, caseBody);
+
+		CaseStatement ret;
+
+		for(i = cases.length - 1; i >= 0; i--)
+			ret = new CaseStatement(location, cases[i], caseBody);
+		
+		return ret;
+	}
+}
+
+class DefaultStatement : Statement
+{
+	protected Statement mBody;
+
+	public this(Location location, Statement defaultBody)
+	{
+		super(location);
+		mBody = defaultBody;
+	}
+
+	public static DefaultStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.Default);
+		t = t.nextToken;
+		t.check(Token.Type.Colon);
+		t = t.nextToken;
+		
+		Statement[] statements = new Statement[10];
+		int i = 0;
+
+		void addStatement(Statement s)
+		{
+			if(i >= statements.length)
+				statements.length = statements.length * 2;
+
+			statements[i] = s;
+			i++;
+		}
+
+		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
+			addStatement(Statement.parse(t));
+			
+		statements.length = i;
+
+		Statement defaultBody = new CompoundStatement(location, statements);
+		defaultBody = new ScopeStatement(location, defaultBody);
+		return new DefaultStatement(location, defaultBody);
+	}
+}
+
+class ContinueStatement : Statement
+{
+	public this(Location location)
+	{
+		super(location);
+	}
+
+	public static ContinueStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		t.check(Token.Type.Continue);
+		t = t.nextToken;
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
+		return new ContinueStatement(location);
+	}
+}
+
+class BreakStatement : Statement
+{
+	public this(Location location)
+	{
+		super(location);
+	}
+
+	public static BreakStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		t.check(Token.Type.Break);
+		t = t.nextToken;
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
+		return new BreakStatement(location);
+	}
+}
+
+class ReturnStatement : Statement
+{
+	protected Expression[] mExprs;
+
+	public this(Location location, Expression[] exprs)
+	{
+		super(location);
+		mExprs = exprs;
+	}
+
+	public static ReturnStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		t.check(Token.Type.Return);
+		t = t.nextToken;
+		
+		if(t.type == Token.Type.Semicolon)
+		{
+			t = t.nextToken;
+			return new ReturnStatement(location, null);
+		}
+		else
+		{
+			Expression[] exprs = new Expression[10];
+			int i = 0;
+	
+			void add(Expression s)
+			{
+				if(i >= exprs.length)
+					exprs.length = exprs.length * 2;
+
+				exprs[i] = s;
+				i++;
+			}
+			
+			add(OpEqExp.parse(t));
+
+			while(t.type == Token.Type.Comma)
+			{
+				t = t.nextToken;
+				add(OpEqExp.parse(t));
+			}
+			
+			exprs.length = i;
+
+			t.check(Token.Type.Semicolon);
+			t = t.nextToken;
+
+			return new ReturnStatement(location, exprs);
+		}
+	}
+}
+
+class TryCatchStatement : Statement
+{
+	protected Statement mTryBody;
+	protected Identifier mCatchVar;
+	protected Statement mCatchBody;
+	protected Statement mFinallyBody;
+	
+	public this(Location location, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
+	{
+		super(location);
+		
+		mTryBody = tryBody;
+		mCatchVar = catchVar;
+		mCatchBody = catchBody;
+		mFinallyBody = finallyBody;
+	}
+	
+	public static TryCatchStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.Try);
+		t = t.nextToken;
+
+		Statement tryBody = CompoundStatement.parse(t);
+		tryBody = new ScopeStatement(tryBody.mLocation, tryBody);
+
+		t.check(Token.Type.Catch);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Identifier catchVar = Identifier.parse(t);
+
+		t.check(Token.Type.RParen);
+
+		Statement catchBody = CompoundStatement.parse(t);
+		catchBody = new ScopeStatement(catchBody.mLocation, catchBody);
+
+		Statement finallyBody;
+
+		if(t.type == Token.Type.Finally)
+		{
+			t = t.nextToken;
+			finallyBody = CompoundStatement.parse(t);
+			finallyBody = new ScopeStatement(finallyBody.mLocation, finallyBody);
+		}
+
+		return new TryCatchStatement(location, tryBody, catchVar, catchBody, finallyBody);
+	}
 }
 
 abstract class Expression
 {
 	protected Location mLocation;
-	protected Type mSemType;
 
 	public this(Location location)
 	{
 		mLocation = location;
 	}
-	
-	public Expression semantic2(Scope sc)
-	{
-		return null;
-	}
 
 	public static Expression parse(inout Token* t)
 	{
-		Location location = t.location;
-
-		Expression exp1;
-
-		exp1 = BaseAssignExp.parse(t);
-
-		return exp1;
-	}
-	
-	/*public static Type checkConversion(Expression from, Expression to)
-	{
-		assert(from.mSemType !is null && to.mSemType !is null, "Need types to check conversion");
-
-		Type t = Type.checkConversion(from.mSemType, to.mSemType);
-
-		if(t is null)
-			throw new MDTypeConvException(from, to);
-
-		if(from.mSemType != t)
-
-
-		//return t;
-	}
-	
-	public static Type checkConvComm(Expression one, Expression two)
-	{
-		assert(one.mSemType !is null && two.mSemType !is null, "Need types to check conversion");
+		Expression exp = PrimaryExp.parse(t);
 		
-		Type t = Type.checkConversion(one.mSemType, two.mSemType);
-		
-		if(t is null)
-			t = Type.checkConversion(two.mSemType, one.mSemType);
+		if((cast(CallExp)exp) is null)
+			exp = Assignment.parse(t, exp);
 
-		if(t is null)
-			throw new MDTypeConvException(one, two);
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
 
-		return t;
-	}*/
-	
-	public void checkRValue()
-	{
-		if(mSemType && mSemType.isVoid())
-			throw new MDCompileException("Expression '" ~ toString() ~ "' has no value", mLocation);
-	}
-	
-	public Expression toLValue()
-	{
-		throw new MDCompileException("'" ~ toString() ~ "' is not an LValue", mLocation);
-	}
-
-	public int toInt()
-	{
-		throw new MDCompileException("Integer literal expected, not '" ~ toString() ~ "'", mLocation);
-	}
-
-	public float toFloat()
-	{
-		throw new MDCompileException("Integer literal expected, not '" ~ toString() ~ "'", mLocation);
-	}
-
-	public void checkNumeric()
-	{
-		if(mSemType.isNumeric() == false)
-			throw new MDCompileException("'" ~ toString() ~ "' is not of a numeric type", mLocation);
-	}
-	
-	public void checkNoBool()
-	{
-		if(mSemType.isBool())
-			throw new MDCompileException("Cannot perform operation on boolean expression '" ~ toString() ~ "'; only assignment and equality are allowed", mLocation);
-	}
-
-	public void checkInt()
-	{
-		if(mSemType.isInt() == false)
-			throw new MDCompileException("'" ~ toString() ~ "' is not an integral type", mLocation);
-	}
-	
-	public void checkArith()
-	{
-		checkNumeric();
-		checkNoBool();
-	}
-
-	// TODO: overload checkSideEffect for expressions which can exist on their own (assignments, calls, &&, ||, delete, new, dot, assert)
-	public void checkSideEffect()
-	{
-		throw new MDCompileException("Expression '" ~ toString() ~ "' doesn't do anything", mLocation);
-	}
-	
-	public Expression checkToBoolean(Scope sc)
-	{
-		if(mSemType.checkToBoolean() == false)
-			throw new MDCompileException("Expression '" ~ toString() ~ "' cannot be used as a boolean", mLocation);
-			
-		Expression ret = new CastExp(mLocation, BoolType.instance, this);
-		ret = ret.semantic2(sc);
-
-		return ret;
-	}
-	
-	public Expression implicitConvTo(Type t, Scope sc)
-	{
-		Type.Conv c = mSemType.implicitConvTo(t);
-
-		if(c == Type.Conv.No)
-			throw new MDCompileException("Cannot implicitly convert expression '" ~ toString() ~ "' of type '" ~ mSemType.toString()
-				~ "' to type '" ~ t.toString(), mLocation);
-		else if(c == Type.Conv.Implicit)
-		{
-			Expression ret = new CastExp(mLocation, t, this);
-			ret = ret.semantic2(sc);
-
-			return ret;
-		}
-		else
-			return this;
-	}
-	
-	public Expression implicitConvTo(Expression other, Scope sc)
-	{
-		return implicitConvTo(other.mSemType, sc);
-	}
-
-	public bool isBool()
-	{
-		return false;
+		return exp;
 	}
 }
 
-class DeclExp : Expression
+class Assignment : Expression
 {
-	protected SimpleDecl mDecl;
-
-	public this(Location location, SimpleDecl decl)
+	protected Expression[] mLHS;
+	protected Expression[] mRHS;
+	
+	public this(Location location, Expression[] lhs, Expression[] rhs)
 	{
 		super(location);
-		mDecl = decl;
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mDecl.semantic2(sc);
 		
-		mSemType = VoidType.instance;
-	
-		return this;
+		mLHS = lhs;
+		mRHS = rhs;
 	}
-
-	public char[] toString()
+	
+	public static Assignment parse(inout Token* t, Expression firstLHS)
 	{
-		return mDecl.toString();
+		Location location = t.location;
+
+		Expression[] lhs;
+		Expression[] rhs;
+		
+		lhs ~= firstLHS;
+		
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+			lhs ~= PrimaryExp.parse(t);
+		}
+		
+		t.check(Token.Type.Assign);
+		t = t.nextToken;
+		
+		rhs ~= OpEqExp.parse(t);
+		
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+			rhs ~= OpEqExp.parse(t);
+		}
+
+		return new Assignment(location, lhs, rhs);
 	}
 }
 
@@ -3700,40 +2299,9 @@ abstract class BinaryExp : Expression
 		mOp1 = left;
 		mOp2 = right;
 	}
-	
-	public void meshTypes()
-	out
-	{
-		assert(mOp1.mSemType == mOp2.mSemType);
-	}
-	body
-	{
-		if(mOp1.mSemType != mOp2.mSemType)
-		{
-			Type t1 = mOp1.mSemType;
-			Type t2 = mOp2.mSemType;
-
-			if(t1.implicitConvTo(t2) == Type.Conv.Implicit)
-			{
-				mOp1 = new CastExp(mOp1.mLocation, t2, mOp1);
-				return;
-			}
-
-			if(t2.implicitConvTo(t1) == Type.Conv.Implicit)
-			{
-				mOp2 = new CastExp(mOp2.mLocation, t1, mOp2);
-				return;
-			}
-			
-			throw new MDCompileException("Cannot implicitly convert expression '" ~ mOp1.toString() ~ "' of type '" ~ t1.toString()
-				~ "' to type '" ~ t2.toString(), mLocation);
-		}
-
-		return;
-	}
 }
 
-abstract class BaseAssignExp : BinaryExp
+abstract class OpEqExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
@@ -3753,52 +2321,76 @@ abstract class BaseAssignExp : BinaryExp
 
 			switch(t.type)
 			{
-				case Token.Type.Assign:
-					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
-					exp1 = new AssignExp(location, exp1, exp2);
-					continue;
-
 				case Token.Type.AddEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
+					exp2 = OpEqExp.parse(t);
 					exp1 = new AddEqExp(location, exp1, exp2);
 					continue;
 
 				case Token.Type.SubEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
+					exp2 = OpEqExp.parse(t);
 					exp1 = new SubEqExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.CatEq:
+					t = t.nextToken;
+					exp2 = OpEqExp.parse(t);
+					exp1 = new CatEqExp(location, exp1, exp2);
 					continue;
 
 				case Token.Type.MulEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
+					exp2 = OpEqExp.parse(t);
 					exp1 = new MulEqExp(location, exp1, exp2);
 					continue;
 
 				case Token.Type.DivEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
+					exp2 = OpEqExp.parse(t);
 					exp1 = new DivEqExp(location, exp1, exp2);
 					continue;
 
 				case Token.Type.ModEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
+					exp2 = OpEqExp.parse(t);
 					exp1 = new ModEqExp(location, exp1, exp2);
 					continue;
-
-				case Token.Type.PowEq:
+					
+				case Token.Type.ShlEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
-					exp1 = new PowEqExp(location, exp1, exp2);
+					exp2 = OpEqExp.parse(t);
+					exp1 = new ShlEqExp(location, exp1, exp2);
 					continue;
-
-				case Token.Type.CatEq:
+					
+				case Token.Type.ShrEq:
 					t = t.nextToken;
-					exp2 = BaseAssignExp.parse(t);
-					exp1 = new CatEqExp(location, exp1, exp2);
+					exp2 = OpEqExp.parse(t);
+					exp1 = new ShrEqExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.UshrEq:
+					t = t.nextToken;
+					exp2 = OpEqExp.parse(t);
+					exp1 = new UshrEqExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.OrEq:
+					t = t.nextToken;
+					exp2 = OpEqExp.parse(t);
+					exp1 = new OrEqExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.XorEq:
+					t = t.nextToken;
+					exp2 = OpEqExp.parse(t);
+					exp1 = new XorEqExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.AndEq:
+					t = t.nextToken;
+					exp2 = OpEqExp.parse(t);
+					exp1 = new AndEqExp(location, exp1, exp2);
 					continue;
 
 				default:
@@ -3807,276 +2399,104 @@ abstract class BaseAssignExp : BinaryExp
 
 			break;
 		}
-		
+
 		return exp1;
 	}
 }
 
-class AssignExp : BaseAssignExp
+class AddEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp2.checkRValue();
-
-		mSemType = mOp1.mSemType;
-
-		return this;
-	}
-
-	public override Expression checkToBoolean(Scope sc)
-	{
-		throw new MDCompileException("Cannot use assignment '" ~ toString ~ "' as a boolean", mLocation);
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s = %s", mOp1, mOp2);
 	}
 }
 
-class AddEqExp : BaseAssignExp
+class SubEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s += %s", mOp1, mOp2);
 	}
 }
 
-class SubEqExp : BaseAssignExp
+class CatEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s -= %s", mOp1, mOp2);
 	}
 }
 
-class MulEqExp : BaseAssignExp
+class MulEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s *= %s", mOp1, mOp2);
 	}
 }
 
-class DivEqExp : BaseAssignExp
+class DivEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s /= %s", mOp1, mOp2);
 	}
 }
 
-class ModEqExp : BaseAssignExp
+class ModEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s %= %s", mOp1, mOp2);
 	}
 }
 
-class PowEqExp : BaseAssignExp
+class ShlEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s ^= %s", mOp1, mOp2);
 	}
 }
 
-class CatEqExp : BaseAssignExp
+class ShrEqExp : OpEqExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
+}
+
+class UshrEqExp : OpEqExp
+{
+	public this(Location location, Expression left, Expression right)
 	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		mOp2 = mOp2.implicitConvTo(mOp1, sc);
-		mOp1 = mOp1.toLValue();
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		if(mOp1.mSemType.isArray() == false)
-			throw new MDCompileException("'~=' can only be used to concatenate arrays, not '" ~ mOp1.mSemType.toString() ~ "' and '" ~
-				mOp2.mSemType.toString() ~ "'", mLocation);
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
+		super(location, left, right);
 	}
-	
-	public char[] toString()
+}
+
+class OrEqExp : OpEqExp
+{
+	public this(Location location, Expression left, Expression right)
 	{
-		return std.string.format("%s ~= %s", mOp1, mOp2);
+		super(location, left, right);
+	}
+}
+
+class XorEqExp : OpEqExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
+	}
+}
+
+class AndEqExp : OpEqExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
 	}
 }
 
@@ -4090,7 +2510,7 @@ class OrOrExp : BinaryExp
 	public static Expression parse(inout Token* t)
 	{
 		Location location = t.location;
-		
+
 		Expression exp1;
 		Expression exp2;
 		
@@ -4108,28 +2528,6 @@ class OrOrExp : BinaryExp
 		
 		return exp1;
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-		mOp1 = mOp1.checkToBoolean(sc);
-		mOp2 = mOp2.checkToBoolean(sc);
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = BoolType.instance;
-		
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s || %s", mOp1, mOp2);
-	}
 }
 
 class AndAndExp : BinaryExp
@@ -4146,13 +2544,13 @@ class AndAndExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 		
-		exp1 = BaseEqualExp.parse(t);
+		exp1 = OrExp.parse(t);
 		
 		while(t.type == Token.Type.AndAnd)
 		{
 			t = t.nextToken;
 
-			exp2 = BaseEqualExp.parse(t);
+			exp2 = OrExp.parse(t);
 			exp1 = new AndAndExp(location, exp1, exp2);
 
 			location = t.location;
@@ -4160,27 +2558,95 @@ class AndAndExp : BinaryExp
 		
 		return exp1;
 	}
-	
-	public override Expression semantic2(Scope sc)
+}
+
+class OrExp : BinaryExp
+{
+	public this(Location location, Expression left, Expression right)
 	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-		mOp1 = mOp1.checkToBoolean(sc);
-		mOp2 = mOp2.checkToBoolean(sc);
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = BoolType.instance;
-		
-		return this;
+		super(location, left, right);
 	}
 	
-	public char[] toString()
+	public static Expression parse(inout Token* t)
 	{
-		return std.string.format("%s && %s", mOp1, mOp2);
+		Location location = t.location;
+		
+		Expression exp1;
+		Expression exp2;
+		
+		exp1 = XorExp.parse(t);
+		
+		while(t.type == Token.Type.Or)
+		{
+			t = t.nextToken;
+
+			exp2 = XorExp.parse(t);
+			exp1 = new OrExp(location, exp1, exp2);
+
+			location = t.location;
+		}
+		
+		return exp1;
+	}
+}
+
+class XorExp : BinaryExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
+	}
+	
+	public static Expression parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		Expression exp1;
+		Expression exp2;
+		
+		exp1 = AndExp.parse(t);
+		
+		while(t.type == Token.Type.Xor)
+		{
+			t = t.nextToken;
+
+			exp2 = AndExp.parse(t);
+			exp1 = new XorExp(location, exp1, exp2);
+
+			location = t.location;
+		}
+		
+		return exp1;
+	}
+}
+
+class AndExp : BinaryExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
+	}
+	
+	public static Expression parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		Expression exp1;
+		Expression exp2;
+		
+		exp1 = BaseEqualExp.parse(t);
+		
+		while(t.type == Token.Type.And)
+		{
+			t = t.nextToken;
+
+			exp2 = BaseEqualExp.parse(t);
+			exp1 = new AndExp(location, exp1, exp2);
+
+			location = t.location;
+		}
+		
+		return exp1;
 	}
 }
 
@@ -4201,9 +2667,9 @@ abstract class BaseEqualExp : BinaryExp
 		
 		Expression exp1;
 		Expression exp2;
-		
+
 		exp1 = CmpExp.parse(t);
-		
+
 		while(true)
 		{
 			bool isTrue = false;
@@ -4250,32 +2716,6 @@ class EqualExp : BaseEqualExp
 	{
 		super(isTrue, location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-		
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = BoolType.instance;
-		
-		return this;
-	}
-
-	public char[] toString()
-	{
-		if(mIsTrue)
-			return std.string.format("%s == %s", mOp1, mOp2);
-		else
-			return std.string.format("%s != %s", mOp1, mOp2);
-	}
 }
 
 class IsExp : BaseEqualExp
@@ -4283,40 +2723,6 @@ class IsExp : BaseEqualExp
 	public this(bool isTrue, Location location, Expression left, Expression right)
 	{
 		super(isTrue, location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		// rewrite "op1 is op2" as "op1 == op2" for non-reference types
-		if(mOp1.mSemType.isReference() == false)
-		{
-			Expression e = new EqualExp(mIsTrue, mLocation, mOp1, mOp2);
-			e.semantic2(sc);
-			return e;
-		}
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = BoolType.instance;
-		
-		return this;
-	}
-
-	public char[] toString()
-	{
-		if(mIsTrue)
-			return std.string.format("%s is %s", mOp1, mOp2);
-		else
-			return std.string.format("%s !is %s", mOp1, mOp2);
 	}
 }
 
@@ -4353,7 +2759,7 @@ class CmpExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 		
-		exp1 = BaseAddExp.parse(t);
+		exp1 = BaseShiftExp.parse(t);
 		
 		while(true)
 		{
@@ -4363,7 +2769,7 @@ class CmpExp : BinaryExp
 			{
 				case Token.Type.LT, Token.Type.LE, Token.Type.GT, Token.Type.GE:
 					t = t.nextToken;
-					exp2 = BaseAddExp.parse(t);
+					exp2 = BaseShiftExp.parse(t);
 					exp1 = new CmpExp(type, location, exp1, exp2);
 					continue;
 
@@ -4376,37 +2782,78 @@ class CmpExp : BinaryExp
 		
 		return exp1;
 	}
-	
-	public override Expression semantic2(Scope sc)
+}
+
+class BaseShiftExp : BinaryExp
+{
+	public this(Location location, Expression left, Expression right)
 	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		if(mOp1.mSemType.canBeCompared(mOp2.mSemType) == false)
-			throw new MDCompileException("Comparison is undefined for '" ~ mOp1.mSemType.toString() ~ "'", mLocation);
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = BoolType.instance;
-		
-		return this;
+		super(location, left, right);
 	}
-
-	public char[] toString()
+	
+	public static Expression parse(inout Token* t)
 	{
-		switch(mType)
+		Location location = t.location;
+		
+		Expression exp1;
+		Expression exp2;
+		
+		exp1 = BaseAddExp.parse(t);
+		
+		while(true)
 		{
-			case Type.Less: return std.string.format("%s < %s", mOp1, mOp2);
-			case Type.LessEq: return std.string.format("%s <= %s", mOp1, mOp2);
-			case Type.Greater: return std.string.format("%s > %s", mOp1, mOp2);
-			case Type.GreaterEq: return std.string.format("%s >= %s", mOp1, mOp2);
+			switch(t.type)
+			{
+				case Token.Type.Shl:
+					t = t.nextToken;
+					exp2 = BaseAddExp.parse(t);
+					exp1 = new ShlExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.Shr:
+					t = t.nextToken;
+					exp2 = BaseAddExp.parse(t);
+					exp1 = new ShrExp(location, exp1, exp2);
+					continue;
+					
+				case Token.Type.Ushr:
+					t = t.nextToken;
+					exp2 = BaseAddExp.parse(t);
+					exp1 = new UshrExp(location, exp1, exp2);
+					continue;
+
+				default:
+					break;
+			}
+			
+			break;
 		}
+		
+		return exp1;
+	}
+}
+
+class ShlExp : BaseShiftExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
+	}
+}
+
+class ShrExp : BaseShiftExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
+	}
+}
+
+class UshrExp : BaseShiftExp
+{
+	public this(Location location, Expression left, Expression right)
+	{
+		super(location, left, right);
 	}
 }
 
@@ -4465,31 +2912,6 @@ class AddExp : BaseAddExp
 	{
 		super(location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s + %s", mOp1, mOp2);
-	}
 }
 
 class SubExp : BaseAddExp
@@ -4498,31 +2920,6 @@ class SubExp : BaseAddExp
 	{
 		super(location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s - %s", mOp1, mOp2);
-	}
 }
 
 class CatExp : BaseAddExp
@@ -4530,33 +2927,6 @@ class CatExp : BaseAddExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-		
-		if(mOp1.mSemType.isArray() == false)
-			throw new MDCompileException("'~' can only be used to concatenate arrays, not '" ~ mOp1.mSemType.toString() ~ "' and '" ~
-				mOp2.mSemType.toString() ~ "'", mLocation);
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s ~ %s", mOp1, mOp2);
 	}
 }
 
@@ -4574,7 +2944,7 @@ abstract class BaseMulExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 		
-		exp1 = PowerExp.parse(t);
+		exp1 = UnaryExp.parse(t);
 
 		while(true)
 		{
@@ -4582,19 +2952,19 @@ abstract class BaseMulExp : BinaryExp
 			{
 				case Token.Type.Mul:
 					t = t.nextToken;
-					exp2 = PowerExp.parse(t);
+					exp2 = UnaryExp.parse(t);
 					exp1 = new MulExp(location, exp1, exp2);
 					continue;
 					
 				case Token.Type.Div:
 					t = t.nextToken;
-					exp2 = PowerExp.parse(t);
+					exp2 = UnaryExp.parse(t);
 					exp1 = new DivExp(location, exp1, exp2);
 					continue;
 					
 				case Token.Type.Mod:
 					t = t.nextToken;
-					exp2 = PowerExp.parse(t);
+					exp2 = UnaryExp.parse(t);
 					exp1 = new ModExp(location, exp1, exp2);
 					continue;
 
@@ -4615,31 +2985,6 @@ class MulExp : BaseMulExp
 	{
 		super(location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s * %s", mOp1, mOp2);
-	}
 }
 
 class DivExp : BaseMulExp
@@ -4648,31 +2993,6 @@ class DivExp : BaseMulExp
 	{
 		super(location, left, right);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s / %s", mOp1, mOp2);
-	}
 }
 
 class ModExp : BaseMulExp
@@ -4680,86 +3000,6 @@ class ModExp : BaseMulExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s % %s", mOp1, mOp2);
-	}
-}
-
-class PowerExp : BinaryExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public static Expression parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		Expression exp1;
-		Expression exp2;
-
-		exp1 = UnaryExp.parse(t);
-
-		while(t.type == Token.Type.Pow)
-		{
-			t = t.nextToken;
-
-			exp2 = UnaryExp.parse(t);
-			exp1 = new PowerExp(location, exp1, exp2);
-
-			location = t.location;
-		}
-
-		return exp1;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-
-		meshTypes();
-
-		mOp1.checkRValue();
-		mOp2.checkRValue();
-		mOp1.checkArith();
-		mOp2.checkArith();
-
-		mSemType = mOp1.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s ^ %s", mOp1, mOp2);
 	}
 }
 
@@ -4805,47 +3045,16 @@ abstract class UnaryExp : Expression
 				exp = new NotExp(location, exp);
 				break;
 				
-			case Token.Type.Delete:
+			case Token.Type.Cat:
 				t = t.nextToken;
 				exp = UnaryExp.parse(t);
-				exp = new DeleteExp(location, exp);
+				exp = new ComExp(location, exp);
 				break;
 				
-			case Token.Type.New:
-				exp = BaseNewExp.parse(t);
-				break;
-				
-			case Token.Type.Closure:
+			case Token.Type.Length:
 				t = t.nextToken;
-				
-				if(t.type == Token.Type.Ident)
-					exp = new ClosureExp(location, IdentExp.parse(t));
-				else
-					exp = new ClosureLiteralExp(location, FuncLiteralExp.parse(t));
-				break;
-
-			case Token.Type.LParen:
-				t = t.nextToken;
-				exp = Expression.parse(t);
-				
-				t.check(Token.Type.RParen);
-				t = t.nextToken;
-
-				exp = PostfixExp.parse(t, exp);
-				break;
-				
-			case Token.Type.Cast:
-				t = t.nextToken;
-				t.check(Token.Type.LParen);
-				t = t.nextToken;
-				
-				Type type = Type.parse(t);
-				
-				t.check(Token.Type.RParen);
-				t = t.nextToken;
-				
 				exp = UnaryExp.parse(t);
-				exp = new CastExp(location, type, exp);
+				exp = new LengthExp(location, exp);
 				break;
 
 			default:
@@ -4865,42 +3074,6 @@ class NegExp : UnaryExp
 	{
 		super(location, operand);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-
-		mOp.checkRValue();
-		mOp.checkArith();
-
-		IntExp ie = cast(IntExp)mOp;
-
-		if(ie)
-		{
-			ie.mValue = -ie.mValue;
-			return ie;
-		}
-		
-		FloatExp fe = cast(FloatExp)mOp;
-
-		if(fe)
-		{
-			fe.mValue = -fe.mValue;
-			return fe;
-		}
-
-		mSemType = mOp.mSemType;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("-%s", mOp);
-	}
 }
 
 class NotExp : UnaryExp
@@ -4909,211 +3082,21 @@ class NotExp : UnaryExp
 	{
 		super(location, operand);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-
-		mOp.checkRValue();
-		mOp = mOp.checkToBoolean(sc);
-		
-		BoolExp be = cast(BoolExp)mOp;
-		
-		if(be)
-		{
-			be.mValue = !be.mValue;
-			return be;
-		}
-
-		mSemType = BoolType.instance;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("!%s", mOp);
-	}
 }
 
-class DeleteExp : UnaryExp
+class ComExp : UnaryExp
 {
 	public this(Location location, Expression operand)
 	{
 		super(location, operand);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-
-		if(mOp.mSemType.isReference() == false)
-			throw new MDCompileException("'delete' can only be used on reference types, not on '" ~ mOp.mSemType.toString() ~ "'", mLocation);
-
-		mOp.checkRValue();
-
-		mSemType = VoidType.instance;
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("delete %s", mOp);
-	}
 }
 
-abstract class BaseNewExp : Expression
+class LengthExp : UnaryExp
 {
-	public this(Location location)
-	{
-		super(location);
-	}
-	
-	public static Expression parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.New);
-		t = t.nextToken;
-
-		Type type = Type.parse(t);
-
-		Expression[] args;
-
-		if(t.type == Token.Type.LParen)
-			args = parseArgumentList(t, Token.Type.RParen);
-
-		if(type.isArray())
-		{
-			if(args.length != 1)
-				throw new MDCompileException("There must be exactly one parameter when newing an array type", location);
-
-			return new NewArrayExp(location, type, args[0]);
-		}
-
-		return new NewClassExp(location, type, args);
-	}
-}
-
-class NewArrayExp : BaseNewExp
-{
-	protected Type mNewType;
-	protected Expression mArg;
-
-	public this(Location location, Type type, Expression arg)
-	{
-		super(location);
-		
-		mNewType = type;
-		mArg = arg;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mArg = mArg.semantic2(sc);
-		mArg.checkInt();
-		mArg.checkRValue();
-
-		mNewType = mNewType.semantic2(mLocation, sc);
-
-		mSemType = mNewType;
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("new %s(%s)", mNewType, mArg);
-	}
-}
-
-class NewClassExp : BaseNewExp
-{
-	protected Type mNewType;
-	protected Expression[] mArgs;
-	
-	public this(Location location, Type type, Expression[] args)
-	{
-		super(location);
-		
-		mNewType = type;
-		mArgs = args;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		// TODO: This is like a callexp..
-
-		mNewType = mNewType.semantic2(mLocation, sc);
-
-		mSemType = mNewType;
-
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("new %s(", mNewType);
-
-		if(mArgs.length == 1)
-			ret = std.string.format("%s%s", ret, mArgs[0]);
-		else
-		{
-			foreach(uint i, Expression a; mArgs)
-			{
-				if(i == mArgs.length - 1)
-					ret = std.string.format("%s%s", ret, a);
-				else
-					ret = std.string.format("%s%s, ", ret, a);
-			}
-		}
-		
-		ret ~= ")";
-		
-		return ret;
-	}
-}
-
-class CastExp : UnaryExp
-{
-	protected Type mType;
-
-	public this(Location location, Type type, Expression operand)
+	public this(Location location, Expression operand)
 	{
 		super(location, operand);
-		mType = type;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mType = mType.semantic2(mLocation, sc);
-		
-		if(mOp.mSemType.explicitConvTo(mType) != Type.Conv.Exact)
-			throw new MDCompileException("Cannot cast expression '" ~ mOp.toString() ~ "' of type '" ~ mOp.mSemType.toString()
-				~ "' to type '" ~ mType.toString(), mLocation);
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("cast(%s)%s", mType, mOp);
 	}
 }
 
@@ -5134,86 +3117,35 @@ abstract class PostfixExp : UnaryExp
 			{
 				case Token.Type.Dot:
 					t = t.nextToken;
-					
-					if(t.type == Token.Type.Ident)
-						exp = new DotExp(location, exp, new IdentExp(t.location, Identifier.parse(t)));
-					else if(t.type == Token.Type.LParen)
-					{
-						t = t.nextToken;
-				
-						Type[] types;
-	
-						if(t.type != Token.Type.RParen)
-						{
-							while(true)
-							{
-								types ~= Type.parse(t);
-				
-								if(t.type == Token.Type.RParen)
-									break;
-				
-								t.check(Token.Type.Comma);
-								t = t.nextToken;
-							}
-						}
-				
-						t = t.nextToken;
-	
-						exp = new OverloadResolveExp(location, exp, types);
-					}
-					else
-						throw new MDCompileException("Identifier expected after '.', not '" ~ t.toString() ~ "'", t.location);
 
+					if(t.type != Token.Type.Ident)
+						throw new MDCompileException(t.location, "Identifier expected after '.', not '%s'", t.toString());
+					
+					Location loc = t.location;
+					exp = new DotExp(location, exp, new IdentExp(loc, Identifier.parse(t)));
 					continue;
+					
+				case Token.Type.Colon:
+					t = t.nextToken;
+
+					if(t.type != Token.Type.Ident)
+						throw new MDCompileException(t.location, "Identifier expected after ':', not '%s'", t.toString());
+						
+					
 
 				case Token.Type.LParen:
-					exp = new CallExp(location, exp, parseArgumentList(t, Token.Type.RParen));
+					// exp = new CallExp(location, exp, parseArgumentList(t, Token.Type.RParen));
 					continue;
 
 				case Token.Type.LBracket:
 					t = t.nextToken;
-					
-					if(t.type == Token.Type.RBracket)
-					{
-						exp = new SliceExp(location, exp);
-						t = t.nextToken;
-					}
-					else
-					{
-						Expression index = BaseAssignExp.parse(t);
-						
-						if(t.type == Token.Type.DotDot)
-						{
-							t = t.nextToken;
-							exp = new SliceExp(location, exp, index, BaseAssignExp.parse(t));
-						}
-						else
-						{
-							Expression[] args;
-							args ~= index;
 
-							if(t.type == Token.Type.Comma)
-							{
-								t = t.nextToken;
+					Expression index = OpEqExp.parse(t);
 
-								while(true)
-								{
-									args ~= BaseAssignExp.parse(t);
-	
-									if(t.type == Token.Type.RBracket)
-										break;
-	
-									t.check(Token.Type.Comma);
-									t = t.nextToken;
-								}
-							}
+					t.check(Token.Type.RBracket);
+					t = t.nextToken;
 
-							t.check(Token.Type.RBracket);
-							t = t.nextToken;
-
-							exp = new IndexExp(location, exp, args);
-						}
-					}
+					exp = new IndexExp(location, exp, index);
 					continue;
 
 				default:
@@ -5233,121 +3165,6 @@ class DotExp : PostfixExp
 		
 		mIdent = ident;
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-		
-		Expression e = this;
-
-		if(mOp.mSemType.isReference())
-		{
-			e = new ObjMemberRef(mLocation, mOp, mIdent);
-			e.semantic2(sc);
-		}
-		// TODO: else if op.semtype == namespace..
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s.%s", mOp, mIdent);
-	}
-}
-
-class ObjMemberRef : BinaryExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp1 = mOp1.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-		
-		assert(mOp1.mSemType.isReference(), "ObjMemberRef should ALWAYS be a ref type");
-		
-		// TODO: lookup member in class.
-		// see if it's a field, a method, or a namespace.
-		// convert to appropriate expression for each.
-
-		return this;
-	}
-	
-
-	namespace
-		class
-			namespace
-				field
-	
-
-
-	public char[] toString()
-	{
-		return std.string.format("%s.%s", mOp1, mOp2);
-	}
-}
-
-class ObjFieldRef : BinaryExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-			
-		mOp1 = mOp2.semantic2(sc);
-		mOp2 = mOp2.semantic2(sc);
-		
-		assert(mOp1.mSemType.isReference(), "ObjMethodRef should ALWAYS be a ref type");
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("%s.%s", mOp1, mOp2);
-	}
-}
-
-class OverloadResolveExp : PostfixExp
-{
-	protected Type[] mTypes;
-	
-	public this(Location location, Expression operand, Type[] types)
-	{
-		super(location, operand);
-		
-		mTypes = types;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return "overload resolve";
-	}
 }
 
 class CallExp : PostfixExp
@@ -5360,117 +3177,17 @@ class CallExp : PostfixExp
 		
 		mArgs = args;
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-		
-		// TODO: check args
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		char[] ret = std.string.format("%s(", mOp);
-		
-		if(mArgs.length == 0)
-			ret ~= ")";
-		else if(mArgs.length == 1)
-			ret = std.string.format("%s%s)", ret, mArgs[0]);
-		else
-		{
-			foreach(uint i, Expression a; mArgs)
-			{
-				if(i == mArgs.length - 1)
-					ret = std.string.format("%s%s)", ret, a);
-				else
-					ret = std.string.format("%s%s, ", ret, a);
-			}
-		}
-
-		return ret;
-	}
 }
 
 class IndexExp : PostfixExp
 {
-	protected Expression[] mArgs;
+	protected Expression mIndex;
 
-	public this(Location location, Expression operand, Expression[] args)
+	public this(Location location, Expression operand, Expression index)
 	{
 		super(location, operand);
 		
-		mArgs = args;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-		
-		// TODO: like callexp
-
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("%s[", mOp);
-		
-		if(mArgs.length == 0)
-			ret ~= "]";
-		else if(mArgs.length == 1)
-			ret = std.string.format("%s%s]", ret, mArgs[0]);
-		else
-		{
-			foreach(uint i, Expression a; mArgs)
-			{
-				if(i == mArgs.length - 1)
-					ret = std.string.format("%s%s]", ret, a);
-				else
-					ret = std.string.format("%s%s, ", ret, a);
-			}
-		}
-
-		return ret;
-	}
-}
-
-class SliceExp : PostfixExp
-{
-	protected Expression mLow;
-	protected Expression mHigh;
-	
-	public this(Location location, Expression operand, Expression low = null, Expression high = null)
-	{
-		super(location, operand);
-
-		mLow = low;
-		mHigh = high;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mOp = mOp.semantic2(sc);
-		
-		mLow = mLow.semantic2(sc);
-		mHigh = mHigh.semantic2(sc);
-		
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("%s[%s .. %s]", mOp, mLow, mHigh);
+		mIndex = index;
 	}
 }
 
@@ -5492,15 +3209,18 @@ class PrimaryExp : Expression
 				exp = IdentExp.parse(t);
 				break;
 				
+			case Token.Type.Dot:
+				// .Identifier
+				
 			case Token.Type.Null:
 				exp = NullExp.parse(t);
 				break;
 				
-			case Token.Type.BoolLiteral:
+			case Token.Type.True, Token.Type.False:
 				exp = BoolExp.parse(t);
 				break;
 
-			case Token.Type.IntLiteral:
+			case Token.Type.CharLiteral, Token.Type.IntLiteral:
 				exp = IntExp.parse(t);
 				break;
 				
@@ -5512,24 +3232,26 @@ class PrimaryExp : Expression
 				exp = StringExp.parse(t);
 				break;
 				
-			case Token.Type.CharLiteral:
-				exp = CharExp.parse(t);
-				break;
-
 			case Token.Type.Function:
 				exp = FuncLiteralExp.parse(t);
 				break;
 				
-			case Token.Type.This:
-				exp = ThisExp.parse(t);
+			case Token.Type.LParen:
+				t = t.nextToken;
+				exp = Expression.parse(t);
+				
+				t.check(Token.Type.RParen);
+				t = t.nextToken;
 				break;
-
-			case Token.Type.Assert:
-				exp = AssertExp.parse(t);
-				break;
+				
+			case Token.Type.LBrace:
+				// Table Ctor
+				
+			case Token.Type.LBracket:
+				// Array Ctor
 
 			default:
-				throw new MDCompileException("Expression expected, not '" ~ t.toString() ~ "'", location);
+				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
 		}
 		
 		return PostfixExp.parse(t, exp);
@@ -5551,11 +3273,6 @@ class IdentExp : PrimaryExp
 	{
 		return new IdentExp(t.location, Identifier.parse(t));
 	}
-	
-	public char[] toString()
-	{
-		return mIdent.toString();
-	}
 }
 
 class NullExp : PrimaryExp
@@ -5574,21 +3291,6 @@ class NullExp : PrimaryExp
 
 		return new NullExp(t.location);
 	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		// TODO: Just leave mSemType null to indicate null?
-
-		return this;
-	}
-	
-	public char[] toString()
-	{
-		return "null";
-	}
 }
 
 class BoolExp : PrimaryExp
@@ -5598,36 +3300,21 @@ class BoolExp : PrimaryExp
 	public this(Location location, bool value)
 	{
 		super(location);
-		
+
 		mValue = value;
-	}
-
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mSemType = BoolType.instance;
-
-		return this;
 	}
 
 	public static BoolExp parse(inout Token* t)
 	{
-		t.check(Token.Type.BoolLiteral);
-
 		scope(success)
 			t = t.nextToken;
 
-		return new BoolExp(t.location, t.boolValue);
-	}
-	
-	public char[] toString()
-	{
-		if(mValue == true)
-			return "true";
+		if(t.type == Token.Type.True)
+			return new BoolExp(t.location, true);
+		else if(t.type == Token.Type.False)
+			return new BoolExp(t.location, false);
 		else
-			return "false";
+			throw new MDCompileException(t.location, "'true' or 'false' expected, not '%s'", t.toString());
 	}
 }
 
@@ -5642,29 +3329,15 @@ class IntExp : PrimaryExp
 		mValue = value;
 	}
 	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mSemType = IntType.instance;
-
-		return this;
-	}
-
 	public static IntExp parse(inout Token* t)
 	{
-		t.check(Token.Type.IntLiteral);
-
 		scope(success)
 			t = t.nextToken;
 
-		return new IntExp(t.location, t.intValue);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.toString(mValue);
+		if(t.type == Token.Type.IntLiteral || t.type == Token.Type.CharLiteral)
+			return new IntExp(t.location, t.intValue);
+		else
+			throw new MDCompileException(t.location, "Integer literal expected, not '%s'", t.toString());
 	}
 }
 
@@ -5679,16 +3352,6 @@ class FloatExp : PrimaryExp
 		mValue = value;
 	}
 	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mSemType = FloatType.instance;
-
-		return this;
-	}
-
 	public static FloatExp parse(inout Token* t)
 	{
 		t.check(Token.Type.FloatLiteral);
@@ -5697,11 +3360,6 @@ class FloatExp : PrimaryExp
 			t = t.nextToken;
 
 		return new FloatExp(t.location, t.floatValue);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.toString(mValue);
 	}
 }
 
@@ -5716,16 +3374,6 @@ class StringExp : PrimaryExp
 		mValue = value;
 	}
 	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mSemType = ArrayType.stringInstance;
-
-		return this;
-	}
-	
 	public static StringExp parse(inout Token* t)
 	{
 		t.check(Token.Type.StringLiteral);
@@ -5735,1276 +3383,33 @@ class StringExp : PrimaryExp
 
 		return new StringExp(t.location, t.stringValue);
 	}
-	
-	public char[] toString()
-	{
-		return '\"' ~ mValue ~ '\"';
-	}
-}
-
-class CharExp : PrimaryExp
-{
-	protected char mValue;
-	
-	public this(Location location, char value)
-	{
-		super(location);
-		
-		mValue = value;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mSemType = CharType.instance;
-
-		return this;
-	}
-	
-	public static CharExp parse(inout Token* t)
-	{
-		t.check(Token.Type.CharLiteral);
-
-		scope(success)
-			t = t.nextToken;
-
-		return new CharExp(t.location, t.stringValue[0]);
-	}
-	
-	public char[] toString()
-	{
-		return "\'" ~ mValue ~ "\'";
-	}
 }
 
 class FuncLiteralExp : PrimaryExp
 {
-	protected FuncLiteralDecl mDecl;
-	
-	public this(Location location, FuncLiteralDecl decl)
+	public this(Location location)
 	{
 		super(location);
-
-		mDecl = decl;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		// semantic1 never happens for func literals.. so we have to do it here
-		mDecl.semantic1(sc);
-
-		mDecl.semantic2(sc);
-
-		mSemType = mDecl.mFuncType;
-
-		return this;
 	}
 	
 	public static FuncLiteralExp parse(inout Token* t)
 	{
-		return new FuncLiteralExp(t.location, FuncLiteralDecl.parse(t));
-	}
-	
-	public char[] toString()
-	{
-		return mDecl.toString();
+		return new FuncLiteralExp(t.location);
 	}
 }
 
-class ClosureExp : PrimaryExp
-{
-	protected IdentExp mName;
-	
-	public this(Location location, IdentExp name)
-	{
-		super(location);
-		
-		mName = name;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		// TODO: lookup symbol, see if it's a nested function (inside this or sibling)
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("closure %s", mName.toString());
-	}
-}
-
-class ClosureLiteralExp : PrimaryExp
-{
-	protected FuncLiteralExp mDecl;
-	
-	public this(Location location, FuncLiteralExp decl)
-	{
-		super(location);
-
-		mDecl = decl;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		mDecl.semantic2(sc);
-		mSemType = mDecl.mSemType;
-
-		return this;
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("closure %s", mDecl.toString());
-	}
-}
-
-class ThisExp : PrimaryExp
-{
-	protected ThisDecl mDecl;
-
-	public this(Location location)
-	{
-		super(location);
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-
-		// TODO: find the "this" declaration for the enclosing function
-		// if there is none, it's an error
-
-		return this;
-	}
-
-	public static ThisExp parse(inout Token* t)
-	{
-		t.check(Token.Type.This);
-
-		scope(success)
-			t = t.nextToken;
-
-		return new ThisExp(t.location);
-	}
-	
-	public char[] toString()
-	{
-		return "this";
-	}
-}
-
-class AssertExp : PrimaryExp
-{
-	protected Expression mExpr;
-	protected char[] mMsg;
-
-	public this(Location location, Expression expr, char[] msg)
-	{
-		super(location);
-		
-		mExpr = expr;
-		mMsg = msg;
-	}
-	
-	public override Expression semantic2(Scope sc)
-	{
-		if(mSemType !is null)
-			return this;
-			
-		// Optimize out asserts which are always true?
-		
-		mExpr = mExpr.semantic2(sc);
-
-		mSemType = VoidType.instance;
-
-		return this;
-	}
-	
-	public static AssertExp parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Assert);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		AssertExp ret;
-		Expression exp = BaseAssignExp.parse(t);
-
-		if(t.type == Token.Type.RParen)
-			ret = new AssertExp(location, exp, "");
-		else if(t.type == Token.Type.Comma)
-		{
-			t = t.nextToken;
-			t.check(Token.Type.StringLiteral);
-			ret = new AssertExp(location, exp, t.stringValue);
-			t = t.nextToken;
-		}
-
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		
-		return ret;
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("assert(%s", mExpr);
-		
-		if(mMsg.length == 0)
-			return ret ~ ")";
-		else
-			return std.string.format("%s, \"%s\")", mMsg);
-	}
-}
-
-abstract class Statement
-{
-	protected Location mLocation;
-	protected Scope mChild;
-
-	public this(Location location)
-	{
-		mLocation = location;
-	}
-	
-	enum Flags
-	{
-		Compound = 1,
-		BraceScope = 2,
-		NewScope = 4
-	}
-
-	public static Statement parse(inout Token* t, uint flags)
-	{
-		Location location = t.location;
-		
-		bool needCompound = cast(bool)(flags & Flags.Compound);
-		bool createScope = cast(bool)(flags & Flags.NewScope);
-		bool braceScope = cast(bool)(flags & Flags.BraceScope);
-
-		if(needCompound)
-			t.check(Token.Type.LBrace);
-
-		switch(t.type)
-		{
-			case
-				Token.Type.Assert,
-				Token.Type.Dec,
-				Token.Type.Delete,
-				Token.Type.False,
-				Token.Type.FloatLiteral,
-				Token.Type.Ident,
-				Token.Type.Inc,
-				Token.Type.IntLiteral,
-				Token.Type.LParen,
-				Token.Type.New,
-				Token.Type.Null,
-				Token.Type.StringLiteral,
-				Token.Type.Sub,
-				Token.Type.True:
-
-				return ExpressionStatement.parse(t);
-
-			case Token.Type.Def:
-				Statement s = DeclarationStatement.parse(t);
-
-				if(createScope)
-					s = new ScopeStatement(location, s);
-
-				return s;
-
-			case Token.Type.LBrace:
-				Statement s = CompoundStatement.parse(t);
-
-				if(createScope || braceScope)
-					s = new ScopeStatement(location, s);
-
-				return s;
-				
-			case Token.Type.While:
-				return WhileStatement.parse(t);
-				
-			case Token.Type.Do:
-				return DoWhileStatement.parse(t);
-				
-			case Token.Type.For:
-				return ForStatement.parse(t);
-				
-			case Token.Type.Foreach:
-				return ForeachStatement.parse(t);
-
-			case Token.Type.If:
-				return IfStatement.parse(t);
-				
-			case Token.Type.Switch:
-				return SwitchStatement.parse(t);
-				
-			case Token.Type.Case:
-				return CaseStatement.parse(t);
-				
-			case Token.Type.Default:
-				return DefaultStatement.parse(t);
-
-			case Token.Type.Continue:
-				return ContinueStatement.parse(t);
-				
-			case Token.Type.Break:
-				return BreakStatement.parse(t);
-				
-			case Token.Type.Return:
-				return ReturnStatement.parse(t);
-				
-			case Token.Type.Semicolon:
-				throw new MDCompileException("Empty statements ( ';' ) are not allowed", t.location);
-				
-			case
-				Token.Type.Bool,
-				Token.Type.Float,
-				Token.Type.Int,
-				Token.Type.Char,
-				Token.Type.Void:
-				
-				throw new MDCompileException("If you're trying to define a variable or function, use 'def'", t.location);
-
-			default:
-				throw new MDCompileException("Statement expected, not '" ~ t.toString() ~ "'", t.location);
-		}
-	}
-	
-	public void semantic1(Scope sc)
-	{
-
-	}
-	
-	public void semantic2(Scope s)
-	{
-		
-	}
-}
-
-class CompoundStatement : Statement
-{
-	protected Statement[] mStatements;
-
-	public this(Location location, Statement[] statements)
-	{
-		super(location);
-		mStatements = statements;
-	}
-	
-	public this(Location location, Statement statement)
-	{
-		super(location);
-		mStatements.length = 1;
-		mStatements[0] = statement;	
-	}
-	
-	public static CompoundStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-
-		Statement[] statements;
-		int i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(statements.length == 0)
-				statements.length = 10;
-			else if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
-
-		while(t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t, Flags.BraceScope));
-			
-		statements.length = i;
-
-		t.check(Token.Type.RBrace);
-		t = t.nextToken;
-		
-		return new CompoundStatement(location, statements);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		foreach(Statement s; mStatements)
-			s.semantic1(sc);
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		foreach(Statement s; mStatements)
-			s.semantic2(sc);
-	}
-
-	public char[] toString()
-	{
-		return "compound statement";
-	}
-}
-
-class ScopeStatement : Statement
-{
-	protected Statement mStatement;
-
-	public this(Location location, Statement statement)
-	{
-		super(location);
-		mStatement = statement;
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-
-		mStatement.semantic1(mChild);
-
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mStatement.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		return mStatement.toString();
-	}
-}
-
-class ExpressionStatement : Statement
-{
-	protected Expression mExpr;
-	
-	public this(Location location, Expression expr)
-	{
-		super(location);
-		mExpr = expr;
-	}
-	
-	public override void semantic2(Scope sc)
-	{
-		mExpr.semantic2(sc);
-		//mExpr.
-	}
-
-	public static ExpressionStatement parse(inout Token* t)
-	{
-		Expression expr = Expression.parse(t);
-
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-
-		return new ExpressionStatement(t.location, expr);
-	}
-
-	public char[] toString()
-	{
-		return mExpr.toString() ~ ";";
-	}
-}
-
-class DeclarationStatement : ExpressionStatement
-{
-	protected DeclExp mDeclExp;
-
-	public this(Location location, DeclExp declExp)
-	{
-		super(location, declExp);
-		mDeclExp = declExp;
-	}
-
-	public static DeclarationStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		DeclExp declExp = new DeclExp(location, SimpleDecl.parse(t));
-
-		return new DeclarationStatement(location, declExp);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mDeclExp.mDecl.semantic1(sc);
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mDeclExp.mDecl.semantic2(sc);
-	}
-
-	public char[] toString()
-	{
-		return mDeclExp.toString();
-	}
-}
-
-class IfStatement : Statement
-{
-	protected Expression mCondition;
-	protected Statement mIfBody;
-	protected Statement mElseBody;
-	protected Scope mElseScope;
-
-	public this(Location location, Expression condition, Statement ifBody, Statement elseBody)
-	{
-		super(location);
-		mCondition = condition;
-		mIfBody = ifBody;
-		mElseBody = elseBody;
-	}
-
-	public static IfStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.If);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		Expression condition = Expression.parse(t);
-
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-
-		Statement ifBody = Statement.parse(t, Flags.NewScope);
-
-		Statement elseBody;
-
-		if(t.type == Token.Type.Else)
-		{
-			t = t.nextToken;
-			elseBody = Statement.parse(t, Flags.NewScope);
-		}
-
-		return new IfStatement(location, condition, ifBody, elseBody);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-		mIfBody.semantic1(mChild);
-		mChild.pop();
-
-		if(mElseBody)
-		{
-			mElseScope = sc.push();
-			mElseBody.semantic1(mElseScope);
-			mElseScope.pop();
-		}
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mCondition.semantic2( sc);
-		
-		mIfBody.semantic2(mChild);
-		mElseBody.semantic2(mElseScope);
-	}
-
-	public char[] toString()
-	{
-		char[] ret = std.string.format("if(%s) %s", mCondition, mIfBody);
-		
-		if(mElseBody !is null)
-			ret = std.string.format("%s else %s", ret, mElseBody);
-		
-		return ret;
-	}
-}
-
-class WhileStatement : Statement
-{
-	protected Expression mCondition;
-	protected Statement mBody;
-
-	public this(Location location, Expression condition, Statement whileBody)
-	{
-		super(location);
-		mCondition = condition;
-		mBody = whileBody;
-	}
-
-	public static WhileStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.While);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-		
-		Expression condition = Expression.parse(t);
-
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		
-		Statement whileBody = Statement.parse(t, Flags.NewScope);
-
-		return new WhileStatement(location, condition, whileBody);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-		mChild.mBreakableStat = this;
-		mChild.mContinuableStat = this;
-		mBody.semantic1(mChild);
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mCondition.semantic2( sc);
-		mBody.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("while(%s) %s", mCondition, mBody);
-	}
-}
-
-class DoWhileStatement : Statement
-{
-	protected Statement mBody;
-	protected Expression mCondition;
-
-	public this(Location location, Statement doBody, Expression condition)
-	{
-		super(location);
-		mBody = doBody;
-		mCondition = condition;
-	}
-
-	public static DoWhileStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Do);
-		t = t.nextToken;
-		
-		Statement doBody = Statement.parse(t, Flags.NewScope);
-		
-		t.check(Token.Type.While);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		Expression condition = Expression.parse(t);
-		
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-
-		return new DoWhileStatement(location, doBody, condition);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-		mChild.mBreakableStat = this;
-		mChild.mContinuableStat = this;
-		mBody.semantic1(mChild);
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mBody.semantic2(mChild);
-		
-		// Using mChild as the scope for the condition allows constructions like:
-		/*
-			do
-			{
-				int x = func();
-				...
-			} while(x != 0)
-		*/
-		mCondition.semantic2(mChild);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("do %s while(%s)", mBody, mCondition);
-	}
-}
-
-class ForStatement : Statement
-{
-	protected Expression mInit;
-	protected Expression mCondition;
-	protected Expression mIncrement;
-	protected Statement mBody;
-
-	public this(Location location, Expression init, Expression condition, Expression increment, Statement forBody)
-	{
-		super(location);
-		mInit = init;
-		mCondition = condition;
-		mIncrement = increment;
-		mBody = forBody;
-	}
-
-	public static ForStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.For);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		Expression init;
-		
-		if(t.type == Token.Type.Semicolon)
-			t = t.nextToken;
-		else
-		{
-			if(t.type == Token.Type.Def)
-				init = new DeclExp(t.location, VarDecl.parse(t, false));
-			else
-				init = Expression.parse(t);
-
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
-		}
-
-		Expression condition;
-
-		if(t.type == Token.Type.Semicolon)
-			t = t.nextToken;
-		else
-		{
-			condition = Expression.parse(t);
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
-		}
-
-		Expression increment;
-
-		if(t.type == Token.Type.RParen)
-			t = t.nextToken;
-		else
-		{
-			increment = Expression.parse(t);
-			t.check(Token.Type.RParen);
-			t = t.nextToken;
-		}
-		
-		Statement forBody = Statement.parse(t, 0);
-
-		return new ForStatement(location, init, condition, increment, forBody);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-		mChild.mBreakableStat = this;
-		mChild.mContinuableStat = this;
-		mBody.semantic1(mChild);
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		if(mInit !is null)
-			mInit.semantic2(mChild);
-			
-		if(mCondition !is null)
-			mCondition.semantic2(mChild);
-			
-		if(mIncrement !is null)
-			mIncrement.semantic2(mChild);
-			
-		mBody.semantic2(mChild);
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = "for(";
-
-		if(mInit !is null)
-			ret ~= mInit.toString();
-			
-		ret ~= "; ";
-
-		if(mCondition !is null)
-			ret ~= mCondition.toString();
-			
-		ret ~= "; ";
-		
-		if(mIncrement !is null)
-			ret ~= mIncrement.toString();
-			
-		return std.string.format("%s) %s", ret, mBody);
-	}
-}
-
-class ForeachStatement : Statement
-{
-	protected Parameter[] mIndices;
-	protected Expression mContainer;
-	protected CompoundStatement mBody;
-	protected FuncLiteralDecl mFunc;
-
-	public this(Location location, Parameter[] indices, Expression container, CompoundStatement foreachBody)
-	{
-		super(location);
-		mIndices = indices;
-		mContainer = container;
-		mBody = foreachBody;
-	}
-
-	public static ForeachStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Foreach);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
-		Parameter[] indices;
-
-		if(t.type == Token.Type.Semicolon)
-			throw new MDCompileException("Foreach loop has no indices", location);
-			
-		while(t.type != Token.Type.Semicolon)
-		{
-			Location location2 = t.location;
-
-			Type type = Type.parse(t);
-			Identifier ident = Identifier.parse(t);
-
-			indices ~= new Parameter(type, ident, null, location2);
-
-			if(t.type == Token.Type.Comma)
-				t = t.nextToken;
-		}
-		
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-
-		Expression container = Expression.parse(t);
-
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		
-		Statement foreachBody = Statement.parse(t, 0);
-		if(cast(CompoundStatement)foreachBody is null)
-			foreachBody = new CompoundStatement(foreachBody.mLocation, foreachBody);
-
-		return new ForeachStatement(location, indices, container, cast(CompoundStatement)foreachBody);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-		mChild.mForeach = this;
-		//mBody.semantic1(mChild);
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		foreach(Parameter exp; mIndices)
-			exp.semantic2(mChild);
-
-		mContainer.semantic2(mChild);
-
-		mBody.semantic2(mChild);
-	}
-
-	public char[] toString()
-	{
-		char[] ret = "foreach(";
-
-		if(mIndices.length == 1)
-			ret = std.string.format("%s%s; ", ret, mIndices[0].toString());
-		else
-		{
-			foreach(uint i, Parameter index; mIndices)
-			{
-				if(i != mIndices.length - 1)
-					ret = std.string.format("%s%s, ", ret, index.toString());
-				else
-					ret = std.string.format("%s%s; ", ret, index.toString());
-			}
-		}
-
-		return std.string.format("%s %s) %s", ret, mContainer, mBody);
-	}
-}
-
-class SwitchStatement : Statement
-{
-	protected Expression mCondition;
-	protected Statement[] mCases;
-	protected Statement mDefault;
-
-	public this(Location location, Expression condition, Statement[] cases, Statement caseDefault)
-	{
-		super(location);
-		mCondition = condition;
-		mCases = cases;
-		mDefault = caseDefault;
-	}
-
-	public static SwitchStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Switch);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-		
-		Expression condition = Expression.parse(t);
-		
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-
-		Statement[] cases;
-		int i = 0;
-
-		void addCase(Statement c)
-		{
-			if(cases.length == 0)
-				cases.length = 10;
-			else if(i >= cases.length)
-				cases.length = cases.length * 2;
-
-			cases[i] = c;
-			i++;
-		}
-
-		while(true)
-		{
-			if(t.type == Token.Type.Case)
-				addCase(CaseStatement.parse(t));
-			else
-				break;
-		}
-		
-		cases.length = i;
-
-		Statement caseDefault;
-
-		if(t.type == Token.Type.Default)
-			caseDefault = DefaultStatement.parse(t);
-
-		t.check(Token.Type.RBrace);
-		t = t.nextToken;
-
-		return new SwitchStatement(location, condition, cases, caseDefault);
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mChild = sc.push();
-
-		mChild.mBreakableStat = this;
-
-		foreach(Statement s; mCases)
-			s.semantic1(mChild);
-
-		if(mDefault)
-			mDefault.semantic1(mChild);
-			
-		mChild.pop();
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		foreach(Statement s; mCases)
-			s.semantic2(mChild);
-			
-		if(mDefault)
-			mDefault.semantic2(mChild);
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = std.string.format("switch(%s) {\n", mCondition);
-
-		foreach(Statement c; mCases)
-			ret = std.string.format("%s%s", ret, c);
-
-		if(mDefault !is null)
-			ret = std.string.format("%s%s", ret, mDefault);
-	
-		ret ~= "}";
-		
-		return ret;
-	}
-}
-
-class CaseStatement : Statement
-{
-	protected Expression mCondition;
-	protected Statement mBody;
-
-	public this(Location location, Expression condition, Statement caseBody)
-	{
-		super(location);
-		mCondition = condition;
-		mBody = caseBody;
-	}
-
-	public static CaseStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Case);
-		t = t.nextToken;
-
-		Expression[] cases;
-		int i = 0;
-
-		void addCase(Expression c)
-		{
-			if(cases.length == 0)
-				cases.length = 10;
-			else if(i >= cases.length)
-				cases.length = cases.length * 2;
-
-			cases[i] = c;
-			i++;
-		}
-
-		while(true)
-		{
-			addCase(BaseAssignExp.parse(t));
-			
-			if(t.type != Token.Type.Comma)
-				break;
-				
-			t = t.nextToken;
-		}
-
-		cases.length = i;
-
-		assert(cases.length > 0);
-		
-		t.check(Token.Type.Colon);
-		t = t.nextToken;
-
-		Statement[] statements;
-		i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(statements.length == 0)
-				statements.length = 10;
-			else if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
-
-		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t, Statement.Flags.BraceScope));
-			
-		statements.length = i;
-		
-		Statement caseBody = new CompoundStatement(location, statements);
-		caseBody = new ScopeStatement(location, caseBody);
-
-		CaseStatement ret;
-
-		for(i = cases.length - 1; i >= 0; i--)
-			ret = new CaseStatement(location, cases[i], caseBody);
-		
-		return ret;
-	}
-	
-	protected override void semantic1(Scope sc)
-	{
-		mBody.semantic1(sc);
-	}
-	
-	protected override void semantic2(Scope sc)
-	{
-		mBody.semantic2(sc);
-	}
-	
-	public char[] toString()
-	{
-		return std.string.format("case %s: %s", mCondition, mBody);
-	}
-}
-
-class DefaultStatement : Statement
-{
-	protected Statement mBody;
-
-	public this(Location location, Statement defaultBody)
-	{
-		super(location);
-		mBody = defaultBody;
-	}
-
-	public static DefaultStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Default);
-		t = t.nextToken;
-		t.check(Token.Type.Colon);
-		t = t.nextToken;
-		
-		Statement[] statements;
-		int i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(statements.length == 0)
-				statements.length = 10;
-			else if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
-
-		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t, Statement.Flags.BraceScope));
-			
-		statements.length = i;
-
-		Statement defaultBody = new CompoundStatement(location, statements);
-		defaultBody = new ScopeStatement(location, defaultBody);
-		return new DefaultStatement(location, defaultBody);
-	}
-	
-	public override void semantic1(Scope sc)
-	{
-		mBody.semantic1(sc);	
-	}
-	
-	public override void semantic2(Scope sc)
-	{
-		mBody.semantic2(sc);
-	}
-
-	public char[] toString()
-	{
-		return std.string.format("default: %s", mBody);
-	}
-}
-
-class ContinueStatement : Statement
+class TableCtorExp : PrimaryExp
 {
 	public this(Location location)
 	{
 		super(location);
 	}
-
-	public static ContinueStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		t.check(Token.Type.Continue);
-		t = t.nextToken;
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-		return new ContinueStatement(location);
-	}
-	
-	public char[] toString()
-	{
-		return "continue;";
-	}
 }
 
-class BreakStatement : Statement
+class ArrayCtorExp : PrimaryExp
 {
 	public this(Location location)
 	{
 		super(location);
-	}
-
-	public static BreakStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		t.check(Token.Type.Break);
-		t = t.nextToken;
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-		return new BreakStatement(location);
-	}
-	
-	public char[] toString()
-	{
-		return "break;";
-	}
-}
-
-class ReturnStatement : Statement
-{
-	protected Expression mExpr;
-
-	public this(Location location, Expression expr)
-	{
-		super(location);
-		mExpr = expr;
-	}
-
-	public static ReturnStatement parse(inout Token* t)
-	{
-		Location location = t.location;
-		t.check(Token.Type.Return);
-		t = t.nextToken;
-		
-		if(t.type == Token.Type.Semicolon)
-		{
-			t = t.nextToken;
-			return new ReturnStatement(location, null);
-		}
-		else
-		{
-			ReturnStatement ret = new ReturnStatement(location, Expression.parse(t));
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
-			return ret;
-		}
-	}
-	
-	public char[] toString()
-	{
-		char[] ret = "return";
-		
-		if(mExpr !is null)
-			ret = std.string.format("%s %s", ret, mExpr);
-		
-		ret ~= ";";
-		
-		return ret;	
 	}
 }
