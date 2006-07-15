@@ -25,7 +25,7 @@ class Compiler
 	{
 		auto Lexer l = new Lexer();
 		Token* tokens = l.lex(name, source);
-
+		Chunk ck = Chunk.parse(tokens);
 	}
 }
 
@@ -1447,6 +1447,9 @@ abstract class Statement
 			case Token.Type.Try:
 				return TryCatchStatement.parse(t);
 				
+			case Token.Type.Throw:
+				return ThrowStatement.parse(t);
+				
 			case Token.Type.Semicolon:
 				throw new MDCompileException(t.location, "Empty statements ( ';' ) are not allowed");
 				
@@ -1479,7 +1482,13 @@ class ExpressionStatement : Statement
 	
 	public static ExpressionStatement parse(inout Token* t)
 	{
-		return new ExpressionStatement(t.location, Expression.parse(t));
+		Location location = t.location;
+		Expression exp = Expression.parse(t);
+
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
+		
+		return new ExpressionStatement(location, exp);
 	}
 }
 
@@ -1516,22 +1525,23 @@ abstract class Declaration
 		if(t.type == Token.Type.Local)
 		{
 			t = t.nextToken;
-			
-			if(t.type == Token.Type.Function)
-			{
 
-			}
+			if(t.type == Token.Type.Function)
+				return LocalFuncDecl.parse(t);
 			else if(t.type == Token.Type.Ident)
 			{
-				
+				scope(success)
+				{
+					t.check(Token.Type.Semicolon);
+					t = t.nextToken;
+				}
+				return LocalDecl.parse(t);
 			}
 			else
 				throw new MDCompileException(location, "'function' or identifier expected after 'local'");
 		}
 		else if(t.type == Token.Type.Function)
-		{
-
-		}
+			return FuncDecl.parse(t);
 		else
 			throw new MDCompileException(location, "Declaration expected");
 	}
@@ -1552,25 +1562,165 @@ class LocalDecl : Declaration
 	
 	public static LocalDecl parse(inout Token* t)
 	{
-		return null;	
+		// Special: starts on the first identifier
+		
+		Location location = t.location;
+		
+		Identifier[] names;
+		names ~= Identifier.parse(t);
+
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+			names ~= Identifier.parse(t);
+		}
+
+		Expression[] initializers;
+
+		if(t.type == Token.Type.Assign)
+		{
+			t = t.nextToken;
+
+			initializers ~= OpEqExp.parse(t);
+			
+			while(t.type == Token.Type.Comma)
+			{
+				t = t.nextToken;
+				initializers ~= OpEqExp.parse(t);
+			}
+		}
+
+		return new LocalDecl(names, initializers, location);
+	}
+}
+
+class LocalFuncDecl : Declaration
+{
+	protected Identifier mName;
+	protected Identifier[] mParams;
+	protected CompoundStatement mBody;
+	
+	public this(Identifier name, Identifier[] params, CompoundStatement funcBody, Location location)
+	{
+		super(location);
+		
+		mName = name;
+		mParams = params;
+		mBody = funcBody;
+	}
+	
+	public static LocalFuncDecl parse(inout Token* t)
+	{
+		// Special: starts on the "function" token
+		
+		Location location = t.location;
+		
+		t.check(Token.Type.Function);
+		t = t.nextToken;
+		
+		Identifier name = Identifier.parse(t);
+		
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+		
+		Identifier[] params;
+		
+		if(t.type != Token.Type.RParen)
+		{
+			while(true)
+			{
+				params ~= Identifier.parse(t);
+				
+				if(t.type == Token.Type.RParen)
+					break;
+					
+				t.check(Token.Type.Comma);
+				t = t.nextToken;
+			}
+		}
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		
+		CompoundStatement funcBody = CompoundStatement.parse(t);
+		
+		return new LocalFuncDecl(name, params, funcBody, location);
 	}
 }
 
 class FuncDecl : Declaration
 {
 	protected Identifier[] mNames;
+	protected bool mIsGlobal;
 	protected bool mIsMethod;
 	protected Identifier[] mParams;
 	protected CompoundStatement mBody;
 
-	public this(Identifier[] names, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
+	public this(Identifier[] names, bool isGlobal, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
 	{
 		super(location);
 		
 		mNames = names;
+		mIsGlobal = isGlobal;
 		mIsMethod = isMethod;
 		mParams = params;
 		mBody = funcBody;
+	}
+	
+	public static FuncDecl parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Function);
+		t = t.nextToken;
+		
+		bool isGlobal = (t.type == Token.Type.Dot);
+		
+		if(t.type == Token.Type.Dot)
+			t = t.nextToken;
+			
+		Identifier[] names;
+		names ~= Identifier.parse(t);
+		
+		while(t.type == Token.Type.Dot)
+		{
+			t = t.nextToken;
+			names ~= Identifier.parse(t);
+		}
+		
+		bool isMethod = (t.type == Token.Type.Colon);
+		
+		if(t.type == Token.Type.Colon)
+		{
+			t = t.nextToken;
+			names ~= Identifier.parse(t);
+		}
+		
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+		
+		Identifier[] params;
+		
+		if(t.type != Token.Type.RParen)
+		{
+			while(true)
+			{
+				params ~= Identifier.parse(t);
+				
+				if(t.type == Token.Type.RParen)
+					break;
+					
+				t.check(Token.Type.Comma);
+				t = t.nextToken;
+			}
+		}
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		
+		CompoundStatement funcBody = CompoundStatement.parse(t);
+		
+		return new FuncDecl(names, isGlobal, isMethod, params, funcBody, location);
 	}
 }
 
@@ -1806,7 +1956,11 @@ class ForStatement : Statement
 		else
 		{
 			if(t.type == Token.Type.Local)
+			{
+				// Have to appease the LocalDecl.parse
+				t = t.nextToken;
 				initDecl = LocalDecl.parse(t);
+			}
 			else
 				init = Expression.parse(t);
 
@@ -2205,6 +2359,7 @@ class TryCatchStatement : Statement
 		Identifier catchVar = Identifier.parse(t);
 
 		t.check(Token.Type.RParen);
+		t = t.nextToken;
 
 		Statement catchBody = CompoundStatement.parse(t);
 		catchBody = new ScopeStatement(catchBody.mLocation, catchBody);
@@ -2222,6 +2377,33 @@ class TryCatchStatement : Statement
 	}
 }
 
+class ThrowStatement : Statement
+{
+	protected Expression mExp;
+	
+	public this(Location location, Expression exp)
+	{
+		super(location);
+		
+		mExp = exp;
+	}
+	
+	public static ThrowStatement parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Throw);
+		t = t.nextToken;
+		
+		Expression exp = OpEqExp.parse(t);
+		
+		t.check(Token.Type.Semicolon);
+		t = t.nextToken;
+
+		return new ThrowStatement(location, exp);
+	}
+}
+
 abstract class Expression
 {
 	protected Location mLocation;
@@ -2233,13 +2415,19 @@ abstract class Expression
 
 	public static Expression parse(inout Token* t)
 	{
-		Expression exp = PrimaryExp.parse(t);
-		
-		if((cast(CallExp)exp) is null)
-			exp = Assignment.parse(t, exp);
+		Expression exp;
 
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
+		if(t.type == Token.Type.Ident || t.type == Token.Type.Dot)
+		{
+			exp = PrimaryExp.parse(t);
+
+			if(t.type == Token.Type.Assign || t.type == Token.Type.Comma)
+				exp = Assignment.parse(t, exp);
+			else
+				exp = OpEqExp.parse(t, exp);
+		}
+		else
+			exp = OpEqExp.parse(t);
 
 		return exp;
 	}
@@ -2266,7 +2454,7 @@ class Assignment : Expression
 		Expression[] rhs;
 		
 		lhs ~= firstLHS;
-		
+
 		while(t.type == Token.Type.Comma)
 		{
 			t = t.nextToken;
@@ -2308,12 +2496,12 @@ abstract class OpEqExp : BinaryExp
 		super(location, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(inout Token* t, Expression exp1 = null)
 	{
-		Expression exp1;
-		Expression exp2;
+		if(exp1 is null)
+			exp1 = OrOrExp.parse(t);
 
-		exp1 = OrOrExp.parse(t);
+		Expression exp2;
 
 		while(true)
 		{
@@ -3113,13 +3301,14 @@ abstract class PostfixExp : UnaryExp
 		{
 			Location location = t.location;
 			
+			Identifier methodName;
+			
 			switch(t.type)
 			{
 				case Token.Type.Dot:
 					t = t.nextToken;
 
-					if(t.type != Token.Type.Ident)
-						throw new MDCompileException(t.location, "Identifier expected after '.', not '%s'", t.toString());
+					t.check(Token.Type.Ident);
 					
 					Location loc = t.location;
 					exp = new DotExp(location, exp, new IdentExp(loc, Identifier.parse(t)));
@@ -3128,13 +3317,48 @@ abstract class PostfixExp : UnaryExp
 				case Token.Type.Colon:
 					t = t.nextToken;
 
-					if(t.type != Token.Type.Ident)
-						throw new MDCompileException(t.location, "Identifier expected after ':', not '%s'", t.toString());
-						
-					
+					t.check(Token.Type.Ident);
 
+					methodName = Identifier.parse(t);
+
+					t.check(Token.Type.LParen);
+					
+					// fall through
 				case Token.Type.LParen:
-					// exp = new CallExp(location, exp, parseArgumentList(t, Token.Type.RParen));
+					t = t.nextToken;
+
+					Expression[] args = new Expression[5];
+					uint i = 0;
+
+					void add(Expression arg)
+					{
+						if(i >= args.length)
+							args.length = args.length * 2;
+							
+						args[i] = arg;
+						i++;
+					}
+
+					if(t.type != Token.Type.RParen)
+					{
+						while(true)
+						{
+							add(OpEqExp.parse(t));
+	
+							if(t.type == Token.Type.RParen)
+								break;
+								
+							t.check(Token.Type.Comma);
+							t = t.nextToken;
+						}
+					}
+					
+					args.length = i;
+
+					t.check(Token.Type.RParen);
+					t = t.nextToken;
+
+					exp = new CallExp(location, exp, args, methodName);
 					continue;
 
 				case Token.Type.LBracket:
@@ -3170,12 +3394,14 @@ class DotExp : PostfixExp
 class CallExp : PostfixExp
 {
 	protected Expression[] mArgs;
+	protected Identifier mMethodName;
 
-	public this(Location location, Expression operand, Expression[] args)
+	public this(Location location, Expression operand, Expression[] args, Identifier methodName)
 	{
 		super(location, operand);
 		
 		mArgs = args;
+		mMethodName = methodName;
 	}
 }
 
@@ -3210,7 +3436,8 @@ class PrimaryExp : Expression
 				break;
 				
 			case Token.Type.Dot:
-				// .Identifier
+				exp = GlobalExp.parse(t);
+				break;
 				
 			case Token.Type.Null:
 				exp = NullExp.parse(t);
@@ -3238,17 +3465,19 @@ class PrimaryExp : Expression
 				
 			case Token.Type.LParen:
 				t = t.nextToken;
-				exp = Expression.parse(t);
+				exp = OpEqExp.parse(t);
 				
 				t.check(Token.Type.RParen);
 				t = t.nextToken;
 				break;
 				
 			case Token.Type.LBrace:
-				// Table Ctor
+				exp = TableCtorExp.parse(t);
+				break;
 				
 			case Token.Type.LBracket:
-				// Array Ctor
+				exp = ArrayCtorExp.parse(t);
+				break;
 
 			default:
 				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
@@ -3271,7 +3500,30 @@ class IdentExp : PrimaryExp
 	
 	public static IdentExp parse(inout Token* t)
 	{
-		return new IdentExp(t.location, Identifier.parse(t));
+		Location location = t.location;
+		return new IdentExp(location, Identifier.parse(t));
+	}
+}
+
+class GlobalExp : PrimaryExp
+{
+	protected Identifier mIdent;
+	
+	public this(Location location, Identifier ident)
+	{
+		super(location);
+		
+		mIdent = ident;
+	}
+	
+	public static GlobalExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.Dot);
+		t = t.nextToken;
+
+		return new GlobalExp(location, Identifier.parse(t));
 	}
 }
 
@@ -3400,16 +3652,149 @@ class FuncLiteralExp : PrimaryExp
 
 class TableCtorExp : PrimaryExp
 {
-	public this(Location location)
+	protected Expression[2][] mFields;
+
+	public this(Location location, Expression[2][] fields)
 	{
 		super(location);
+		
+		mFields = fields;
+	}
+
+	public static TableCtorExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.LBrace);
+		t = t.nextToken;
+		
+		Expression[2][] fields = new Expression[2][2];
+		uint i = 0;
+
+		void addPair(Expression k, Expression v)
+		{
+			if(i >= fields.length)
+				fields.length = fields.length * 2;
+
+			fields[i][0] = k;
+			fields[i][1] = v;
+			i++;
+		}
+
+		if(t.type != Token.Type.RBrace)
+		{
+			int index = 0;
+
+			void parseField()
+			{
+				Expression k;
+				Expression v;
+
+				if(t.type == Token.Type.LParen)
+				{
+					t = t.nextToken;
+					k = OpEqExp.parse(t);
+					
+					t.check(Token.Type.RParen);
+					t = t.nextToken;
+					t.check(Token.Type.Assign);
+					t = t.nextToken;
+					
+					v = OpEqExp.parse(t);
+				}
+				else
+				{
+					Expression exp = OpEqExp.parse(t);
+					IdentExp id = cast(IdentExp)exp;
+
+					if(id !is null)
+					{
+						k = new StringExp(id.mLocation, id.mIdent.mName);
+						
+						t.check(Token.Type.Assign);
+						t = t.nextToken;
+						v = OpEqExp.parse(t);
+					}
+					else
+					{
+						k = new IntExp(exp.mLocation, index);
+						index++;
+						
+						v = exp;
+					}
+				}
+				
+				addPair(k, v);
+			}
+
+			parseField();
+			
+			while(t.type != Token.Type.RBrace)
+			{
+				if(t.type == Token.Type.Comma)
+					t = t.nextToken;
+
+				parseField();
+			}
+		}
+		
+		fields.length = i;
+
+		t.check(Token.Type.RBrace);
+		t = t.nextToken;
+		
+		return new TableCtorExp(location, fields);
 	}
 }
 
 class ArrayCtorExp : PrimaryExp
 {
-	public this(Location location)
+	protected Expression[] mFields;
+
+	public this(Location location, Expression[] fields)
 	{
 		super(location);
+
+		mFields = fields;
+	}
+
+	public static ArrayCtorExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.LBracket);
+		t = t.nextToken;
+		
+		Expression[] fields = new Expression[2];
+		uint i = 0;
+
+		void add(Expression v)
+		{
+			if(i >= fields.length)
+				fields.length = fields.length * 2;
+
+			fields[i] = v;
+			i++;
+		}
+
+		if(t.type != Token.Type.RBracket)
+		{
+			add(OpEqExp.parse(t));
+
+			while(t.type != Token.Type.RBracket)
+			{
+				t.check(Token.Type.Comma);
+				t = t.nextToken;
+
+				add(OpEqExp.parse(t));
+			}
+		}
+		
+		fields.length = i;
+
+		t.check(Token.Type.RBracket);
+		t = t.nextToken;
+
+		return new ArrayCtorExp(location, fields);
 	}
 }

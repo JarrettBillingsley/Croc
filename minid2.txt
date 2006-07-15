@@ -248,6 +248,7 @@ Statement:
     'break' ';'
     'return' [Expression {',' Expression}] ';'
     'try' BlockStatement 'catch' '(' Identifier ')' BlockStatement ['finally' BlockStatement]
+    'throw' Expression ';'
 
 BlockStatement:
 	'{' {Statement} '}'
@@ -260,10 +261,10 @@ DeclarationStatement:
 	FunctionDeclaration
 
 LocalVariableDeclaration:
-	'local' {Identifier} ['=' {Expression}]
+	'local' Identifier {',' Identifier} ['=' Expression {',' Expression}]
 
 FunctionDeclaration:
-	'function' Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
+	'function' ['.'] Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
 	'local' 'function' Identifier Parameters BlockStatement
 
 Parameters:
@@ -279,6 +280,7 @@ Assignment:
 AssignmentLHS:
 	Identifier
 	'.' Identifier
+	// Note - for these two, the PostfixExpression must start with either '.' or Identifier.
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '.' Identifier
 
@@ -377,18 +379,14 @@ PrimaryExpression:
 	'(' Expression ')'
 	TableCtor
 	ArrayCtor
-	
+
 TableCtor:
-	'{' [TableField {',' TableField}] '}'
+	'{' [TableField {[','] TableField}] '}'
 
 TableField:
 	Expression
 	Identifier '=' Expression
-	Expression ':' Expression
+	'(' Expression ')' '=' Expression
 
 ArrayCtor:
-	'[' [ArrayField {',' ArrayField}] ']'
-
-ArrayField:
-	Expression
-	Expression ':' Expression
+	'[' [Expression {',' Expression}] ']'

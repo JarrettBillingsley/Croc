@@ -87,7 +87,7 @@ func();
 local function thrower(x)
 {
 	if(x >= 3)
-		throw "Sorry, x is too big for me!"
+		throw "Sorry, x is too big for me!";
 }
 
 local function tryCatch(iterations)
