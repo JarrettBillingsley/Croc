@@ -26,6 +26,10 @@ class Compiler
 		auto Lexer l = new Lexer();
 		Token* tokens = l.lex(name, source);
 		Chunk ck = Chunk.parse(tokens);
+		
+		auto File o = new File(`testoutput.txt`, FileMode.OutNew);
+		CodeWriter cw = new CodeWriter(o);
+		ck.writeCode(cw);
 	}
 }
 
@@ -1340,6 +1344,75 @@ class Lexer
 	}
 }
 
+class CodeWriter
+{
+	protected Stream mOutput;
+	protected uint mTabs = 0;
+
+	public this(Stream output)
+	{
+		mOutput = output;
+
+		assert(mOutput.writeable);
+	}
+	
+	protected void writeChar(char c)
+	{
+		mOutput.write(c);
+	}
+
+	protected void newLine()
+	{
+		writeChar('\r');
+		writeChar('\n');
+		
+		for(uint i = 0; i < mTabs; i++)
+			writeChar('\t');
+	}
+	
+	protected void incIndent()
+	{
+		mTabs++;
+	}
+	
+	protected void decIndent()
+	{
+		mTabs--;
+	}
+
+	public void write(char[] s)
+	{
+		foreach(char c; s)
+		{
+			switch(c)
+			{
+				case '{':
+					newLine();
+					writeChar('{');
+					incIndent();
+					newLine();
+					break;
+					
+				case '}':
+					decIndent();
+					newLine();
+					writeChar('}');
+					newLine();
+					newLine();
+					break;
+
+				case ';':
+					writeChar(';');
+					newLine();
+					break;
+					
+				default:
+					writeChar(c);
+			}
+		}
+	}
+}
+
 class Chunk
 {
 	protected Statement[] mStatements;
@@ -1369,6 +1442,12 @@ class Chunk
 		statements.length = i;
 		
 		return new Chunk(statements);
+	}
+	
+	void writeCode(CodeWriter cw)
+	{
+		foreach(Statement s; mStatements)
+			s.writeCode(cw);
 	}
 }
 
@@ -1457,6 +1536,11 @@ abstract class Statement
 				throw new MDCompileException(t.location, "Statement expected, not '%s'", t.toString());
 		}
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("<unimplemented>");
+	}
 }
 
 class ScopeStatement : Statement
@@ -1467,6 +1551,11 @@ class ScopeStatement : Statement
 	{
 		super(location);
 		mStatement = statement;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mStatement.writeCode(cw);
 	}
 }
 
@@ -1490,6 +1579,12 @@ class ExpressionStatement : Statement
 		
 		return new ExpressionStatement(location, exp);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mExpr.writeCode(cw);
+		cw.write(";");
+	}
 }
 
 class DeclarationStatement : Statement
@@ -1506,6 +1601,14 @@ class DeclarationStatement : Statement
 	{
 		Location location = t.location;
 		return new DeclarationStatement(location, Declaration.parse(t));
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mDecl.writeCode(cw);
+
+		if(cast(LocalDecl)mDecl)
+			cw.write(";");
 	}
 }
 
@@ -1545,6 +1648,11 @@ abstract class Declaration
 		else
 			throw new MDCompileException(location, "Declaration expected");
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("<unimplemented>");
+	}
 }
 
 class LocalDecl : Declaration
@@ -1563,7 +1671,6 @@ class LocalDecl : Declaration
 	public static LocalDecl parse(inout Token* t)
 	{
 		// Special: starts on the first identifier
-		
 		Location location = t.location;
 		
 		Identifier[] names;
@@ -1591,6 +1698,29 @@ class LocalDecl : Declaration
 		}
 
 		return new LocalDecl(names, initializers, location);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("local ");
+
+		foreach(uint i, Identifier n; mNames)
+		{
+			n.writeCode(cw);
+			
+			if(i != mNames.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(" = ");
+		
+		foreach(uint i, Expression e; mInitializers)
+		{
+			e.writeCode(cw);
+			
+			if(i != mInitializers.length - 1)
+				cw.write(", ");
+		}
 	}
 }
 
@@ -1645,6 +1775,25 @@ class LocalFuncDecl : Declaration
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 		
 		return new LocalFuncDecl(name, params, funcBody, location);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("local function ");
+		mName.writeCode(cw);
+		cw.write("(");
+		
+		foreach(uint i, Identifier p; mParams)
+		{
+			p.writeCode(cw);
+			
+			if(i != mParams.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(")");
+		
+		mBody.writeCode(cw);
 	}
 }
 
@@ -1722,6 +1871,43 @@ class FuncDecl : Declaration
 		
 		return new FuncDecl(names, isGlobal, isMethod, params, funcBody, location);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("function ");
+
+		if(mIsGlobal)
+			cw.write(".");
+		
+		foreach(uint i, Identifier n; mNames[0 .. $ - 1])
+		{
+			n.writeCode(cw);
+			
+			if(i != mNames.length - 2)
+				cw.write(".");
+		}
+
+		if(mIsMethod)
+			cw.write(":");
+		else if(mNames.length > 1)
+			cw.write(".");
+
+		mNames[$ - 1].writeCode(cw);
+		
+		cw.write("(");
+		
+		foreach(uint i, Identifier p; mParams)
+		{
+			p.writeCode(cw);
+			
+			if(i != mParams.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(")");
+		
+		mBody.writeCode(cw);
+	}
 }
 
 class Identifier
@@ -1757,6 +1943,11 @@ class Identifier
 				ret = std.string.format("%s.%s", idents[i].toString(), ret);
 				
 		return ret;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write(mName);
 	}
 }
 
@@ -1806,6 +1997,16 @@ class CompoundStatement : Statement
 		
 		return new CompoundStatement(location, statements);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("{");
+		
+		foreach(Statement s; mStatements)
+			s.writeCode(cw);
+			
+		cw.write("}");
+	}
 }
 
 class IfStatement : Statement
@@ -1849,6 +2050,20 @@ class IfStatement : Statement
 
 		return new IfStatement(location, condition, ifBody, elseBody);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("if(");
+		mCondition.writeCode(cw);
+		cw.write(")");
+		mIfBody.writeCode(cw);
+		
+		if(mElseBody)
+		{
+			cw.write("else ");
+			mElseBody.writeCode(cw);
+		}
+	}
 }
 
 class WhileStatement : Statement
@@ -1881,6 +2096,14 @@ class WhileStatement : Statement
 		Statement whileBody = Statement.parse(t);
 
 		return new WhileStatement(location, condition, whileBody);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("while(");
+		mCondition.writeCode(cw);
+		cw.write(")");
+		mBody.writeCode(cw);
 	}
 }
 
@@ -1917,6 +2140,15 @@ class DoWhileStatement : Statement
 		t = t.nextToken;
 
 		return new DoWhileStatement(location, doBody, condition);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("do ");
+		mBody.writeCode(cw);
+		cw.write("while(");
+		mCondition.writeCode(cw);
+		cw.write(")");
 	}
 }
 
@@ -1994,6 +2226,30 @@ class ForStatement : Statement
 
 		return new ForStatement(location, init, initDecl, condition, increment, forBody);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("for(");
+		
+		if(mInit)
+			mInit.writeCode(cw);
+		else if(mInitDecl)
+			mInitDecl.writeCode(cw);
+			
+		cw.write(";");
+		
+		if(mCondition)
+			mCondition.writeCode(cw);
+			
+		cw.write(";");
+		
+		if(mIncrement)
+			mIncrement.writeCode(cw);
+			
+		cw.write(")");
+			
+		mBody.writeCode(cw);
+	}
 }
 
 class ForeachStatement : Statement
@@ -2048,6 +2304,25 @@ class ForeachStatement : Statement
 		Statement foreachBody = Statement.parse(t);
 
 		return new ForeachStatement(location, indices, container, foreachBody);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("foreach(");
+		
+		foreach(uint i, Identifier index; mIndices)
+		{
+			cw.write("local ");
+			index.writeCode(cw);
+			
+			if(i != mIndices.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(";");
+		mContainer.writeCode(cw);
+		cw.write(")");
+		mBody.writeCode(cw);
 	}
 }
 
@@ -2112,6 +2387,21 @@ class SwitchStatement : Statement
 		t = t.nextToken;
 
 		return new SwitchStatement(location, condition, cases, caseDefault);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("switch(");
+		mCondition.writeCode(cw);
+		cw.write("){");
+		
+		foreach(Statement c; mCases)
+			c.writeCode(cw);
+			
+		if(mDefault)
+			mDefault.writeCode(cw);
+			
+		cw.write("}");
 	}
 }
 
@@ -2191,6 +2481,14 @@ class CaseStatement : Statement
 		
 		return ret;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("case ");
+		mCondition.writeCode(cw);
+		cw.write(":");
+		mBody.writeCode(cw);
+	}
 }
 
 class DefaultStatement : Statement
@@ -2233,6 +2531,12 @@ class DefaultStatement : Statement
 		defaultBody = new ScopeStatement(location, defaultBody);
 		return new DefaultStatement(location, defaultBody);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("default:");
+		mBody.writeCode(cw);
+	}
 }
 
 class ContinueStatement : Statement
@@ -2251,6 +2555,11 @@ class ContinueStatement : Statement
 		t = t.nextToken;
 		return new ContinueStatement(location);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("continue;");
+	}
 }
 
 class BreakStatement : Statement
@@ -2268,6 +2577,11 @@ class BreakStatement : Statement
 		t.check(Token.Type.Semicolon);
 		t = t.nextToken;
 		return new BreakStatement(location);
+	}
+
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("break;");
 	}
 }
 
@@ -2322,6 +2636,21 @@ class ReturnStatement : Statement
 			return new ReturnStatement(location, exprs);
 		}
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("return ");
+		
+		foreach(uint i, Expression e; mExprs)
+		{
+			e.writeCode(cw);
+			
+			if(i != mExprs.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(";");
+	}
 }
 
 class TryCatchStatement : Statement
@@ -2350,19 +2679,24 @@ class TryCatchStatement : Statement
 
 		Statement tryBody = CompoundStatement.parse(t);
 		tryBody = new ScopeStatement(tryBody.mLocation, tryBody);
+		
+		Identifier catchVar;
+		Statement catchBody;
 
-		t.check(Token.Type.Catch);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		if(t.type == Token.Type.Catch)
+		{
+			t = t.nextToken;
+			t.check(Token.Type.LParen);
+			t = t.nextToken;
 
-		Identifier catchVar = Identifier.parse(t);
+			catchVar = Identifier.parse(t);
 
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
+			t.check(Token.Type.RParen);
+			t = t.nextToken;
 
-		Statement catchBody = CompoundStatement.parse(t);
-		catchBody = new ScopeStatement(catchBody.mLocation, catchBody);
+			catchBody = CompoundStatement.parse(t);
+			catchBody = new ScopeStatement(catchBody.mLocation, catchBody);
+		}
 
 		Statement finallyBody;
 
@@ -2372,8 +2706,31 @@ class TryCatchStatement : Statement
 			finallyBody = CompoundStatement.parse(t);
 			finallyBody = new ScopeStatement(finallyBody.mLocation, finallyBody);
 		}
+		
+		if(catchBody is null && finallyBody is null)
+			throw new MDCompileException(location, "Try statement must be followed by a catch, finally, or both");
 
 		return new TryCatchStatement(location, tryBody, catchVar, catchBody, finallyBody);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("try");
+		mTryBody.writeCode(cw);
+		
+		if(mCatchBody)
+		{
+			cw.write("catch(");
+			mCatchVar.writeCode(cw);
+			cw.write(")");
+			mCatchBody.writeCode(cw);
+		}
+		
+		if(mFinallyBody)
+		{
+			cw.write("finally");
+			mFinallyBody.writeCode(cw);
+		}
 	}
 }
 
@@ -2401,6 +2758,13 @@ class ThrowStatement : Statement
 		t = t.nextToken;
 
 		return new ThrowStatement(location, exp);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("throw ");
+		mExp.writeCode(cw);
+		cw.write(";");
 	}
 }
 
@@ -2430,6 +2794,11 @@ abstract class Expression
 			exp = OpEqExp.parse(t);
 
 		return exp;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("<unimplemented>");
 	}
 }
 
@@ -2473,6 +2842,27 @@ class Assignment : Expression
 		}
 
 		return new Assignment(location, lhs, rhs);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		foreach(uint i, Expression e; mLHS)
+		{
+			e.writeCode(cw);
+			
+			if(i != mLHS.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(" = ");
+		
+		foreach(uint i, Expression e; mRHS)
+		{
+			e.writeCode(cw);
+			
+			if(i != mRHS.length - 1)
+				cw.write(", ");
+		}
 	}
 }
 
@@ -2598,6 +2988,13 @@ class AddEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" += ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class SubEqExp : OpEqExp
@@ -2605,6 +3002,13 @@ class SubEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" -= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2614,6 +3018,13 @@ class CatEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" ~= ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class MulEqExp : OpEqExp
@@ -2621,6 +3032,13 @@ class MulEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" *= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2630,6 +3048,13 @@ class DivEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" /= ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class ModEqExp : OpEqExp
@@ -2637,6 +3062,13 @@ class ModEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" %= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2646,6 +3078,13 @@ class ShlEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" <<= ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class ShrEqExp : OpEqExp
@@ -2653,6 +3092,13 @@ class ShrEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" >>= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2662,6 +3108,13 @@ class UshrEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" >>>= ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class OrEqExp : OpEqExp
@@ -2669,6 +3122,13 @@ class OrEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" |= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2678,6 +3138,13 @@ class XorEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" ^= ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class AndEqExp : OpEqExp
@@ -2685,6 +3152,13 @@ class AndEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" &= ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2716,6 +3190,13 @@ class OrOrExp : BinaryExp
 		
 		return exp1;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" || ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class AndAndExp : BinaryExp
@@ -2745,6 +3226,13 @@ class AndAndExp : BinaryExp
 		}
 		
 		return exp1;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" && ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2776,6 +3264,13 @@ class OrExp : BinaryExp
 		
 		return exp1;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" | ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class XorExp : BinaryExp
@@ -2806,6 +3301,13 @@ class XorExp : BinaryExp
 		
 		return exp1;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" ^ ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class AndExp : BinaryExp
@@ -2835,6 +3337,13 @@ class AndExp : BinaryExp
 		}
 		
 		return exp1;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" & ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2904,6 +3413,18 @@ class EqualExp : BaseEqualExp
 	{
 		super(isTrue, location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		
+		if(mIsTrue)
+			cw.write(" == ");
+		else
+			cw.write(" != ");
+
+		mOp2.writeCode(cw);
+	}
 }
 
 class IsExp : BaseEqualExp
@@ -2911,6 +3432,18 @@ class IsExp : BaseEqualExp
 	public this(bool isTrue, Location location, Expression left, Expression right)
 	{
 		super(isTrue, location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		
+		if(mIsTrue)
+			cw.write(" is ");
+		else
+			cw.write(" !is ");
+
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -2970,6 +3503,21 @@ class CmpExp : BinaryExp
 		
 		return exp1;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		
+		switch(mType)
+		{
+			case Type.Less:			cw.write(" < "); break;
+			case Type.Greater:		cw.write(" > "); break;
+			case Type.LessEq:		cw.write(" <= "); break;
+			case Type.GreaterEq:	cw.write(" >= "); break;
+		}
+
+		mOp2.writeCode(cw);
+	}
 }
 
 class BaseShiftExp : BinaryExp
@@ -3027,6 +3575,13 @@ class ShlExp : BaseShiftExp
 	{
 		super(location, left, right);
 	}
+
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" << ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class ShrExp : BaseShiftExp
@@ -3035,6 +3590,13 @@ class ShrExp : BaseShiftExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" >> ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class UshrExp : BaseShiftExp
@@ -3042,6 +3604,13 @@ class UshrExp : BaseShiftExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" >>> ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -3100,6 +3669,13 @@ class AddExp : BaseAddExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" + ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class SubExp : BaseAddExp
@@ -3108,6 +3684,13 @@ class SubExp : BaseAddExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" - ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class CatExp : BaseAddExp
@@ -3115,6 +3698,13 @@ class CatExp : BaseAddExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" ~ ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -3173,6 +3763,13 @@ class MulExp : BaseMulExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" * ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class DivExp : BaseMulExp
@@ -3181,6 +3778,13 @@ class DivExp : BaseMulExp
 	{
 		super(location, left, right);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" / ");
+		mOp2.writeCode(cw);
+	}
 }
 
 class ModExp : BaseMulExp
@@ -3188,6 +3792,13 @@ class ModExp : BaseMulExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		cw.write(" % ");
+		mOp2.writeCode(cw);
 	}
 }
 
@@ -3262,6 +3873,12 @@ class NegExp : UnaryExp
 	{
 		super(location, operand);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("-");
+		mOp.writeCode(cw);
+	}
 }
 
 class NotExp : UnaryExp
@@ -3269,6 +3886,12 @@ class NotExp : UnaryExp
 	public this(Location location, Expression operand)
 	{
 		super(location, operand);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("!");
+		mOp.writeCode(cw);
 	}
 }
 
@@ -3278,6 +3901,12 @@ class ComExp : UnaryExp
 	{
 		super(location, operand);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("~");
+		mOp.writeCode(cw);
+	}
 }
 
 class LengthExp : UnaryExp
@@ -3285,6 +3914,12 @@ class LengthExp : UnaryExp
 	public this(Location location, Expression operand)
 	{
 		super(location, operand);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("#");
+		mOp.writeCode(cw);
 	}
 }
 
@@ -3389,6 +4024,13 @@ class DotExp : PostfixExp
 		
 		mIdent = ident;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp.writeCode(cw);
+		cw.write(".");
+		mIdent.writeCode(cw);
+	}
 }
 
 class CallExp : PostfixExp
@@ -3403,6 +4045,29 @@ class CallExp : PostfixExp
 		mArgs = args;
 		mMethodName = methodName;
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp.writeCode(cw);
+		
+		if(mMethodName)
+		{
+			cw.write(":");
+			mMethodName.writeCode(cw);
+		}
+
+		cw.write("(");
+		
+		foreach(uint i, Expression e; mArgs)
+		{
+			e.writeCode(cw);
+			
+			if(i != mArgs.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(")");
+	}
 }
 
 class IndexExp : PostfixExp
@@ -3414,6 +4079,14 @@ class IndexExp : PostfixExp
 		super(location, operand);
 		
 		mIndex = index;
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mOp.writeCode(cw);
+		cw.write("[");
+		mIndex.writeCode(cw);
+		cw.write("]");
 	}
 }
 
@@ -3503,6 +4176,11 @@ class IdentExp : PrimaryExp
 		Location location = t.location;
 		return new IdentExp(location, Identifier.parse(t));
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		mIdent.writeCode(cw);
+	}
 }
 
 class GlobalExp : PrimaryExp
@@ -3525,6 +4203,12 @@ class GlobalExp : PrimaryExp
 
 		return new GlobalExp(location, Identifier.parse(t));
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write(".");
+		mIdent.writeCode(cw);
+	}
 }
 
 class NullExp : PrimaryExp
@@ -3542,6 +4226,11 @@ class NullExp : PrimaryExp
 			t = t.nextToken;
 
 		return new NullExp(t.location);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("null");
 	}
 }
 
@@ -3568,6 +4257,14 @@ class BoolExp : PrimaryExp
 		else
 			throw new MDCompileException(t.location, "'true' or 'false' expected, not '%s'", t.toString());
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		if(mValue)
+			cw.write("true");
+		else
+			cw.write("false");
+	}
 }
 
 class IntExp : PrimaryExp
@@ -3591,6 +4288,11 @@ class IntExp : PrimaryExp
 		else
 			throw new MDCompileException(t.location, "Integer literal expected, not '%s'", t.toString());
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write(std.string.toString(mValue));
+	}
 }
 
 class FloatExp : PrimaryExp
@@ -3612,6 +4314,11 @@ class FloatExp : PrimaryExp
 			t = t.nextToken;
 
 		return new FloatExp(t.location, t.floatValue);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write(std.string.toString(mValue));
 	}
 }
 
@@ -3635,18 +4342,78 @@ class StringExp : PrimaryExp
 
 		return new StringExp(t.location, t.stringValue);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		// Need to escape string
+		
+		cw.write("\"");
+		cw.write(mValue);
+		cw.write("\"");
+	}
 }
 
 class FuncLiteralExp : PrimaryExp
 {
-	public this(Location location)
+	protected Identifier[] mParams;
+	protected Statement mBody;
+
+	public this(Location location, Identifier[] params, Statement funcBody)
 	{
 		super(location);
+		
+		mParams = params;
+		mBody = funcBody;
 	}
 	
 	public static FuncLiteralExp parse(inout Token* t)
 	{
-		return new FuncLiteralExp(t.location);
+		Location location = t.location;
+		
+		t.check(Token.Type.Function);
+		t = t.nextToken;
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+		
+		Identifier[] params;
+		
+		if(t.type != Token.Type.RParen)
+		{
+			while(true)
+			{
+				params ~= Identifier.parse(t);
+				
+				if(t.type == Token.Type.RParen)
+					break;
+					
+				t.check(Token.Type.Comma);
+				t = t.nextToken;
+			}
+		}
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+		
+		Statement funcBody = CompoundStatement.parse(t);
+
+		return new FuncLiteralExp(t.location, params, funcBody);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("function(");
+		
+		foreach(uint i, Identifier p; mParams)
+		{
+			p.writeCode(cw);
+			
+			if(i != mParams.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write(")");
+		
+		mBody.writeCode(cw);
 	}
 }
 
@@ -3745,6 +4512,24 @@ class TableCtorExp : PrimaryExp
 		
 		return new TableCtorExp(location, fields);
 	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("{");
+		
+		foreach(uint i, Expression[2] field; mFields)
+		{
+			cw.write("(");
+			field[0].writeCode(cw);
+			cw.write(") = ");
+			field[1].writeCode(cw);
+			
+			if(i != mFields.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write("}");
+	}
 }
 
 class ArrayCtorExp : PrimaryExp
@@ -3796,5 +4581,20 @@ class ArrayCtorExp : PrimaryExp
 		t = t.nextToken;
 
 		return new ArrayCtorExp(location, fields);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("[");
+		
+		foreach(uint i, Expression field; mFields)
+		{
+			field.writeCode(cw);
+			
+			if(i != mFields.length - 1)
+				cw.write(", ");
+		}
+		
+		cw.write("]");
 	}
 }

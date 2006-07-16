@@ -247,7 +247,7 @@ Statement:
     'continue' ';'
     'break' ';'
     'return' [Expression {',' Expression}] ';'
-    'try' BlockStatement 'catch' '(' Identifier ')' BlockStatement ['finally' BlockStatement]
+    'try' BlockStatement (('catch' '(' Identifier ')' BlockStatement) || ('finally' BlockStatement))
     'throw' Expression ';'
 
 BlockStatement:
