@@ -3,31 +3,34 @@ local t =
 {
 	x = 5 // int
 	y = 4.5 // float
+	
+	function foo()
+	{
+		
+	}
 };
 
-// A class - notice the .Foo, this means accessing a global value, just like the global scope op in D.
-// This is because a lone identifier may only refer to locals and upvalues.
-// I never felt comfortable in Lua being able to "accidentally" access a global value.
-.Foo = { };
+// A class
+Foo = { };
 
 // opIndex == __index in Lua
-.Foo.opIndex = .Foo;
+Foo.opIndex = Foo;
 
 // A method
-function .Foo:bar()
+function Foo:bar()
 {
 	io.writefln("Foo.bar!");
 }
 
 // The a:b() is shorthand for a.b(this)
-function .Foo:new()
+function Foo:new()
 {
 	local t = { };
 	table.setMeta(t, this);
 	return t;
 }
 
-local f = .Foo:new();
+local f = Foo:new();
 
 // f:bar() is shorthand for f.bar(f)
 f:bar();
@@ -40,7 +43,7 @@ local arr = [3, 9, 2];
 arr:sort();
 
 // Iterate through it
-foreach(local i, local v; arr)
+foreach(local i, local v; pairs(arr))
 	io.writefln("arr[", i, "] = ", v);
 
 // Append, like in D

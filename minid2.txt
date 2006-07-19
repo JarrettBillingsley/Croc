@@ -117,6 +117,9 @@ Keyword:
 	try
 	vararg
 	while
+	
+CharLiteral:
+	"'" (Character | EscapeSequence) "'"
 
 StringLiteral:
 	RegularString
@@ -235,20 +238,20 @@ Chunk:
 Statement:
 	BlockStatement
 	ExpressionStatement
-    DeclarationStatement
-    'if' '(' Expression ')' Statement ['else' Statement]
-    'while' '(' Expression ')' Statement
-    'do' Statement 'while' '(' Expression ')'
-    'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
-    'foreach' '(' 'local' Identifier {',' 'local' Identifier} ';' Expression ')' Statement
-    'switch' '(' Expression ')' '{' {CaseStatement} [DefaultStatement] '}'
-    'case' Expression {',' Expression} ':' {Statement}
-    'default' ':' {Statement}
-    'continue' ';'
-    'break' ';'
-    'return' [Expression {',' Expression}] ';'
-    'try' BlockStatement (('catch' '(' Identifier ')' BlockStatement) || ('finally' BlockStatement))
-    'throw' Expression ';'
+	DeclarationStatement
+	'if' '(' Expression ')' Statement ['else' Statement]
+	'while' '(' Expression ')' Statement
+	'do' Statement 'while' '(' Expression ')'
+	'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
+	'foreach' '(' 'local' Identifier {',' 'local' Identifier} ';' Expression {',' Expression} ')' Statement
+	'switch' '(' Expression ')' '{' {CaseStatement} [DefaultStatement] '}'
+	'case' Expression {',' Expression} ':' {Statement}
+	'default' ':' {Statement}
+	'continue' ';'
+	'break' ';'
+	'return' [Expression {',' Expression}] ';'
+	'try' BlockStatement (('catch' '(' Identifier ')' BlockStatement) || ('finally' BlockStatement))
+	'throw' Expression ';'
 
 BlockStatement:
 	'{' {Statement} '}'
@@ -264,7 +267,7 @@ LocalVariableDeclaration:
 	'local' Identifier {',' Identifier} ['=' Expression {',' Expression}]
 
 FunctionDeclaration:
-	'function' ['.'] Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
+	'function' Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
 	'local' 'function' Identifier Parameters BlockStatement
 
 Parameters:
@@ -279,8 +282,7 @@ Assignment:
 
 AssignmentLHS:
 	Identifier
-	'.' Identifier
-	// Note - for these two, the PostfixExpression must start with either '.' or Identifier.
+	// Note - for these two, the PostfixExpression must start with Identifier.
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '.' Identifier
 
@@ -306,7 +308,7 @@ OrOrExpression:
 AndAndExpression:
 	OrExpression
 	AndAndExpression '&&' OrExpression
-	
+
 OrExpression:
 	XorExpression
 	OrExpression '|' XorExpression
@@ -367,7 +369,6 @@ PostfixExpression:
 
 PrimaryExpression:
 	Identifier
-	'.' Identifier
 	'null'
 	'true'
 	'false'
@@ -387,6 +388,7 @@ TableField:
 	Expression
 	Identifier '=' Expression
 	'(' Expression ')' '=' Expression
+	'function' Identifier Parameters BlockStatement
 
 ArrayCtor:
 	'[' [Expression {',' Expression}] ']'

@@ -1800,17 +1800,15 @@ class LocalFuncDecl : Declaration
 class FuncDecl : Declaration
 {
 	protected Identifier[] mNames;
-	protected bool mIsGlobal;
 	protected bool mIsMethod;
 	protected Identifier[] mParams;
 	protected CompoundStatement mBody;
 
-	public this(Identifier[] names, bool isGlobal, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
+	public this(Identifier[] names, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
 	{
 		super(location);
 		
 		mNames = names;
-		mIsGlobal = isGlobal;
 		mIsMethod = isMethod;
 		mParams = params;
 		mBody = funcBody;
@@ -1823,11 +1821,6 @@ class FuncDecl : Declaration
 		t.check(Token.Type.Function);
 		t = t.nextToken;
 		
-		bool isGlobal = (t.type == Token.Type.Dot);
-		
-		if(t.type == Token.Type.Dot)
-			t = t.nextToken;
-			
 		Identifier[] names;
 		names ~= Identifier.parse(t);
 		
@@ -1869,20 +1862,17 @@ class FuncDecl : Declaration
 		
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 		
-		return new FuncDecl(names, isGlobal, isMethod, params, funcBody, location);
+		return new FuncDecl(names, isMethod, params, funcBody, location);
 	}
 	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("function ");
 
-		if(mIsGlobal)
-			cw.write(".");
-		
 		foreach(uint i, Identifier n; mNames[0 .. $ - 1])
 		{
 			n.writeCode(cw);
-			
+
 			if(i != mNames.length - 2)
 				cw.write(".");
 		}
@@ -2255,10 +2245,10 @@ class ForStatement : Statement
 class ForeachStatement : Statement
 {
 	protected Identifier[] mIndices;
-	protected Expression mContainer;
+	protected Expression[] mContainer;
 	protected Statement mBody;
 
-	public this(Location location, Identifier[] indices, Expression container, Statement foreachBody)
+	public this(Location location, Identifier[] indices, Expression[] container, Statement foreachBody)
 	{
 		super(location);
 
@@ -2296,7 +2286,14 @@ class ForeachStatement : Statement
 		t.check(Token.Type.Semicolon);
 		t = t.nextToken;
 
-		Expression container = OpEqExp.parse(t);
+		Expression[] container;
+		container ~= OpEqExp.parse(t);
+		
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+			container ~= OpEqExp.parse(t);
+		}
 
 		t.check(Token.Type.RParen);
 		t = t.nextToken;
@@ -2320,7 +2317,14 @@ class ForeachStatement : Statement
 		}
 		
 		cw.write(";");
-		mContainer.writeCode(cw);
+		mContainer[0].writeCode(cw);
+		
+		foreach(Expression c; mContainer[1 .. $])
+		{
+			cw.write(", ");
+			c.writeCode(cw);
+		}
+
 		cw.write(")");
 		mBody.writeCode(cw);
 	}
@@ -2781,7 +2785,7 @@ abstract class Expression
 	{
 		Expression exp;
 
-		if(t.type == Token.Type.Ident || t.type == Token.Type.Dot)
+		if(t.type == Token.Type.Ident)
 		{
 			exp = PrimaryExp.parse(t);
 
@@ -4107,11 +4111,7 @@ class PrimaryExp : Expression
 			case Token.Type.Ident:
 				exp = IdentExp.parse(t);
 				break;
-				
-			case Token.Type.Dot:
-				exp = GlobalExp.parse(t);
-				break;
-				
+
 			case Token.Type.Null:
 				exp = NullExp.parse(t);
 				break;
@@ -4179,34 +4179,6 @@ class IdentExp : PrimaryExp
 	
 	public void writeCode(CodeWriter cw)
 	{
-		mIdent.writeCode(cw);
-	}
-}
-
-class GlobalExp : PrimaryExp
-{
-	protected Identifier mIdent;
-	
-	public this(Location location, Identifier ident)
-	{
-		super(location);
-		
-		mIdent = ident;
-	}
-	
-	public static GlobalExp parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Dot);
-		t = t.nextToken;
-
-		return new GlobalExp(location, Identifier.parse(t));
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		cw.write(".");
 		mIdent.writeCode(cw);
 	}
 }
@@ -4471,23 +4443,33 @@ class TableCtorExp : PrimaryExp
 				}
 				else
 				{
-					Expression exp = OpEqExp.parse(t);
-					IdentExp id = cast(IdentExp)exp;
-
-					if(id !is null)
+					if(t.type == Token.Type.Function)
 					{
-						k = new StringExp(id.mLocation, id.mIdent.mName);
-						
-						t.check(Token.Type.Assign);
-						t = t.nextToken;
-						v = OpEqExp.parse(t);
+						// Take advantage of the fact that LocalFuncDecl.parse() starts on the 'function' token
+						auto LocalFuncDecl fd = LocalFuncDecl.parse(t);
+						k = new StringExp(fd.mLocation, fd.mName.mName);
+						v = new FuncLiteralExp(fd.mLocation, fd.mParams, fd.mBody);
 					}
 					else
 					{
-						k = new IntExp(exp.mLocation, index);
-						index++;
-						
-						v = exp;
+						Expression exp = OpEqExp.parse(t);
+						IdentExp id = cast(IdentExp)exp;
+	
+						if(id !is null)
+						{
+							k = new StringExp(id.mLocation, id.mIdent.mName);
+							
+							t.check(Token.Type.Assign);
+							t = t.nextToken;
+							v = OpEqExp.parse(t);
+						}
+						else
+						{
+							k = new IntExp(exp.mLocation, index);
+							index++;
+							
+							v = exp;
+						}
 					}
 				}
 				
@@ -4586,7 +4568,7 @@ class ArrayCtorExp : PrimaryExp
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("[");
-		
+
 		foreach(uint i, Expression field; mFields)
 		{
 			field.writeCode(cw);
