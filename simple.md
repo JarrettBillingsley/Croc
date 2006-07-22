@@ -1,8 +1,7 @@
-// A Lua-like table
 local t =
 {
-	x = 5 // int
-	y = 4.5 // float
+	x = 5
+	y = 4.5
 	
 	function foo()
 	{
@@ -10,19 +9,15 @@ local t =
 	}
 };
 
-// A class
 Foo = { };
 
-// opIndex == __index in Lua
 Foo.opIndex = Foo;
 
-// A method
 function Foo:bar()
 {
 	io.writefln("Foo.bar!");
 }
 
-// The a:b() is shorthand for a.b(this)
 function Foo:new()
 {
 	local t = { };
@@ -32,24 +27,17 @@ function Foo:new()
 
 local f = Foo:new();
 
-// f:bar() is shorthand for f.bar(f)
 f:bar();
 
-// A Squirrel-like array
 local arr = [3, 9, 2];
 
-// This calls the global array.sort(arr), with some fancy metatable stuff.
-// Lua does a similar thing with string values.
 arr:sort();
 
-// Iterate through it
-foreach(local i, local v; pairs(arr))
+foreach(local i, local v; apairs(arr))
 	io.writefln("arr[", i, "] = ", v);
 
-// Append, like in D
 arr ~= ["foo", "far"];
 
-// Multiple assignment
 local x, y, z = 4, 5, 6;
 
 local function outer()
@@ -58,35 +46,20 @@ local function outer()
 
 	local function inner()
 	{	
-		// A Lua-style closure; x is an upvalue
 		io.writefln("inner x: ", x);
 		++x;
 	}
 
-	// When called now, inner modifies outer's x
 	io.writefln("outer x: ", x);
 	inner();
 	io.writefln("outer x: ", x);
 
-	// But return inner...
 	return inner;
 }
 
 local func = outer();
-// And now inner's x is its own value
 func();
 
-// The following mess should print:
-// tryCatch: 0
-// tryCatch: 1
-// tryCatch finally
-// tryCatch: 0
-// tryCatch: 1
-// tryCatch: 2
-// tryCatch: 3
-// tryCatch caught: Sorry, x is too big for me!
-// tryCatch finally
-// caught: Sorry, x is too big for me!
 local function thrower(x)
 {
 	if(x >= 3)
@@ -122,4 +95,12 @@ try
 catch(e)
 {
 	io.writefln("caught: ", e);
+}
+
+local function vargs(vararg)
+{
+	local args = [vararg];
+	
+	for(local i = 0; i < #args; ++i)
+		io.writefln("args[", i, "] = ", args[i]);
 }

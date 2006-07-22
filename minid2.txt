@@ -271,7 +271,8 @@ FunctionDeclaration:
 	'local' 'function' Identifier Parameters BlockStatement
 
 Parameters:
-	'(' [Identifier {',' Identifier}] ')'
+	'(' [Identifier {',' Identifier}] [',' 'vararg'] ')'
+	'(' 'vararg' ')'
 
 BaseExpression:
 	Assignment
@@ -372,6 +373,7 @@ PrimaryExpression:
 	'null'
 	'true'
 	'false'
+	'vararg'
 	IntLiteral
 	FloatLiteral
 	CharLiteral

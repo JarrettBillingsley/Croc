@@ -10,27 +10,18 @@ import std.utf;
 void main()
 {
 	auto File f = new File(`simple.md`, FileMode.In);
-	auto Compiler c = new Compiler();
-	c.compile(`simple.md`, f);
+	compile(`simple.md`, f);
 }
 
-class Compiler
+public void compile(char[] name, Stream source)
 {
-	public this()
-	{
+	auto Lexer l = new Lexer();
+	Token* tokens = l.lex(name, source);
+	Chunk ck = Chunk.parse(tokens);
 
-	}
-
-	public void compile(char[] name, Stream source)
-	{
-		auto Lexer l = new Lexer();
-		Token* tokens = l.lex(name, source);
-		Chunk ck = Chunk.parse(tokens);
-		
-		auto File o = new File(`testoutput.txt`, FileMode.OutNew);
-		CodeWriter cw = new CodeWriter(o);
-		ck.writeCode(cw);
-	}
+	auto File o = new File(`testoutput.txt`, FileMode.OutNew);
+	CodeWriter cw = new CodeWriter(o);
+	ck.writeCode(cw);
 }
 
 int toInt(char[] s, int base)
@@ -53,7 +44,7 @@ int toInt(char[] s, int base)
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 	];
 
@@ -1046,6 +1037,7 @@ class Lexer
 										nextChar();
 										break _commentLoop;
 									}
+									continue;
 
 								case '\r', '\n':
 									nextLine();
@@ -1252,7 +1244,7 @@ class Lexer
 
 				case '@':
 					nextChar();
-					
+
 					if(mCharacter != '\"')
 						throw new MDCompileException(tokenLoc, "'@' expected to be followed by '\"'");
 
@@ -1438,6 +1430,8 @@ class Chunk
 		
 		while(t.type != Token.Type.EOF)
 			add(Statement.parse(t));
+			
+		t.check(Token.Type.EOF);
 			
 		statements.length = i;
 		
@@ -1728,14 +1722,16 @@ class LocalFuncDecl : Declaration
 {
 	protected Identifier mName;
 	protected Identifier[] mParams;
+	protected bool mIsVararg;
 	protected CompoundStatement mBody;
 	
-	public this(Identifier name, Identifier[] params, CompoundStatement funcBody, Location location)
+	public this(Identifier name, Identifier[] params, bool isVararg, CompoundStatement funcBody, Location location)
 	{
 		super(location);
-		
+
 		mName = name;
 		mParams = params;
+		mIsVararg = isVararg;
 		mBody = funcBody;
 	}
 	
@@ -1754,8 +1750,14 @@ class LocalFuncDecl : Declaration
 		t = t.nextToken;
 		
 		Identifier[] params;
-		
-		if(t.type != Token.Type.RParen)
+		bool isVararg = false;
+
+		if(t.type == Token.Type.Vararg)
+		{
+			isVararg = true;
+			t = t.nextToken;
+		}
+		else if(t.type != Token.Type.RParen)
 		{
 			while(true)
 			{
@@ -1763,6 +1765,11 @@ class LocalFuncDecl : Declaration
 				
 				if(t.type == Token.Type.RParen)
 					break;
+				else if(t.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					break;
+				}
 					
 				t.check(Token.Type.Comma);
 				t = t.nextToken;
@@ -1774,7 +1781,7 @@ class LocalFuncDecl : Declaration
 		
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 		
-		return new LocalFuncDecl(name, params, funcBody, location);
+		return new LocalFuncDecl(name, params, isVararg, funcBody, location);
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -1791,6 +1798,14 @@ class LocalFuncDecl : Declaration
 				cw.write(", ");
 		}
 		
+		if(mIsVararg)
+		{
+			if(mParams.length > 0)
+				cw.write(", ");
+				
+			cw.write("vararg");
+		}
+		
 		cw.write(")");
 		
 		mBody.writeCode(cw);
@@ -1801,15 +1816,17 @@ class FuncDecl : Declaration
 {
 	protected Identifier[] mNames;
 	protected bool mIsMethod;
+	protected bool mIsVararg;
 	protected Identifier[] mParams;
 	protected CompoundStatement mBody;
 
-	public this(Identifier[] names, bool isMethod, Identifier[] params, CompoundStatement funcBody, Location location)
+	public this(Identifier[] names, bool isMethod, bool isVararg, Identifier[] params, CompoundStatement funcBody, Location location)
 	{
 		super(location);
 		
 		mNames = names;
 		mIsMethod = isMethod;
+		mIsVararg = isVararg;
 		mParams = params;
 		mBody = funcBody;
 	}
@@ -1840,10 +1857,16 @@ class FuncDecl : Declaration
 		
 		t.check(Token.Type.LParen);
 		t = t.nextToken;
-		
+
 		Identifier[] params;
-		
-		if(t.type != Token.Type.RParen)
+		bool isVararg = false;
+
+		if(t.type == Token.Type.Vararg)
+		{
+			isVararg = true;
+			t = t.nextToken;
+		}
+		else if(t.type != Token.Type.RParen)
 		{
 			while(true)
 			{
@@ -1851,6 +1874,11 @@ class FuncDecl : Declaration
 				
 				if(t.type == Token.Type.RParen)
 					break;
+				else if(t.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					break;
+				}
 					
 				t.check(Token.Type.Comma);
 				t = t.nextToken;
@@ -1862,7 +1890,7 @@ class FuncDecl : Declaration
 		
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 		
-		return new FuncDecl(names, isMethod, params, funcBody, location);
+		return new FuncDecl(names, isMethod, isVararg, params, funcBody, location);
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -1894,6 +1922,14 @@ class FuncDecl : Declaration
 				cw.write(", ");
 		}
 		
+		if(mIsVararg)
+		{
+			if(mParams.length > 0)
+				cw.write(", ");
+				
+			cw.write("vararg");
+		}
+
 		cw.write(")");
 		
 		mBody.writeCode(cw);
@@ -4119,6 +4155,10 @@ class PrimaryExp : Expression
 			case Token.Type.True, Token.Type.False:
 				exp = BoolExp.parse(t);
 				break;
+				
+			case Token.Type.Vararg:
+				exp = VarargExp.parse(t);
+				break;
 
 			case Token.Type.CharLiteral, Token.Type.IntLiteral:
 				exp = IntExp.parse(t);
@@ -4236,6 +4276,29 @@ class BoolExp : PrimaryExp
 			cw.write("true");
 		else
 			cw.write("false");
+	}
+}
+
+class VarargExp : PrimaryExp
+{
+	public this(Location location)
+	{
+		super(location);
+	}
+
+	public static VarargExp parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Vararg);
+		t = t.nextToken;
+
+		return new VarargExp(location);
+	}
+	
+	public void writeCode(CodeWriter cw)
+	{
+		cw.write("vararg");
 	}
 }
 
