@@ -18,10 +18,11 @@ public void compile(char[] name, Stream source)
 	auto Lexer l = new Lexer();
 	Token* tokens = l.lex(name, source);
 	Chunk ck = Chunk.parse(tokens);
+	ck.semantic();
 
-	auto File o = new File(`testoutput.txt`, FileMode.OutNew);
-	CodeWriter cw = new CodeWriter(o);
-	ck.writeCode(cw);
+	//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
+	//CodeWriter cw = new CodeWriter(o);
+	//ck.writeCode(cw);
 }
 
 int toInt(char[] s, int base)
@@ -445,7 +446,7 @@ class Lexer
 	public Token* lex(char[] name, Stream source)
 	{
 		if(!source.readable)
-			throw new MDException(name ~ ": Source code stream is not readable");
+			throw new MDException("%s", name, ": Source code stream is not readable");
 
 		mLoc = Location(name);
 
@@ -514,7 +515,7 @@ class Lexer
 	
 	protected static ubyte hexDigitToInt(char c)
 	{
-		if(c >= '0' && c <= '9')	
+		if(c >= '0' && c <= '9')
 			return c - '0';
 
 		return std.ctype.tolower(c) - 'a' + 10;
@@ -1405,6 +1406,139 @@ class CodeWriter
 	}
 }
 
+class FuncState
+{
+	protected Scope mParent;
+	protected Scope mScope;
+	protected bool mIsVararg;
+	protected FuncState[] mFuncs;
+
+	public this(Scope parent = null)
+	{
+		mParent = parent;
+		mScope = new Scope(this);
+		
+		if(parent !is null)
+			parent.mParent.mFuncs ~= this;
+	}
+}
+
+class Scope
+{
+	protected FuncState mParent;
+	protected Scope mEnclosing;
+	protected Statement mBreakStat;
+	protected Statement mContinueStat;
+	protected int[char[]] mLocalTable;
+	protected char[][] mLocalNames;
+	protected Location[] mLocalLocations;
+	protected Scope[] mEnclosed;
+
+	public this(FuncState parent)
+	{
+		mParent = parent;
+
+		if(parent.mParent !is null)
+			mEnclosing = parent.mParent;
+	}
+
+	public this(Scope enclosing)
+	{
+		if(enclosing !is null)
+		{
+			mEnclosing = enclosing;
+			mParent = enclosing.mParent;
+			enclosing.mEnclosed ~= this;
+		}
+	}
+
+	public int searchLocal(Identifier ident, out Scope owner)
+	{
+		assert(ident !is null);
+		
+		for(Scope s = this; s !is null; s = s.mEnclosing)
+		{
+			int* index = (ident.mName in s.mLocalTable);
+
+			if(index is null)
+				continue;
+
+			owner = s;
+			return *index;
+		}
+		
+		return -1;
+	}
+	
+	public int searchLocal(Identifier ident)
+	{
+		Scope owner;
+		return searchLocal(ident, owner);
+	}
+	
+	public int insertLocal(Identifier ident)
+	{
+		int* i = (ident.mName in mLocalTable);
+
+		if(i !is null)
+			throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s", ident.mName, mLocalLocations[*i].toString());
+
+		mLocalNames ~= ident.mName;
+		mLocalLocations ~= ident.mLocation;
+		mLocalTable[ident.mName] = mLocalNames.length - 1;
+
+		return mLocalNames.length - 1;
+	}
+
+	public Scope push(FuncState s)
+	{
+		Scope sc = new Scope(s);
+		s.mScope = sc;
+
+		return sc;
+	}
+
+	public Scope push(Scope s)
+	{
+		return new Scope(s);
+	}
+	
+	public Scope push()
+	{
+		return new Scope(this);
+	}
+	
+	public Scope pop()
+	{
+		return mEnclosing;
+	}
+	
+	/*public void showChildren(uint tab = 0)
+	{
+		if(mTable !is null)
+		{
+			foreach(Symbol s; mTable.mTable)
+			{
+				writefln(std.string.repeat("\t", tab), s);
+
+				s.showChildren(tab + 1);
+	
+				if(cast(FuncDecl)s)
+					(cast(FuncDecl)s).showOverloads(tab);
+			}
+		}
+
+		if(mEnclosed.length > 0)
+		{
+			//writefln(std.string.repeat("\t", tab), "showing children: ", mEnclosed.length);
+			foreach(Scope s; mEnclosed)
+				s.showChildren(tab + 1);
+
+			//writefln(std.string.repeat("\t", tab), "done showing children");
+		}
+	}*/
+}
+
 class Chunk
 {
 	protected Statement[] mStatements;
@@ -1438,6 +1572,14 @@ class Chunk
 		return new Chunk(statements);
 	}
 	
+	public void semantic()
+	{
+		FuncState fs = new FuncState();
+		
+		foreach(Statement s; mStatements)
+			s.semantic(fs.mScope);
+	}
+	
 	void writeCode(CodeWriter cw)
 	{
 		foreach(Statement s; mStatements)
@@ -1448,13 +1590,14 @@ class Chunk
 abstract class Statement
 {
 	protected Location mLocation;
+	protected Scope mScope;
 
 	public this(Location location)
 	{
 		mLocation = location;
 	}
 	
-	public static Statement parse(inout Token* t)
+	public static Statement parse(inout Token* t, bool createBraceScope = true)
 	{
 		Location location = t.location;
 		
@@ -1482,6 +1625,9 @@ abstract class Statement
 
 			case Token.Type.LBrace:
 				Statement s = CompoundStatement.parse(t);
+				
+				if(createBraceScope)
+					s = new ScopeStatement(s.mLocation, s);
 				return s;
 				
 			case Token.Type.If:
@@ -1531,6 +1677,11 @@ abstract class Statement
 		}
 	}
 	
+	public void semantic(Scope s)
+	{
+		assert(false, "no semantic routine");
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("<unimplemented>");
@@ -1545,6 +1696,13 @@ class ScopeStatement : Statement
 	{
 		super(location);
 		mStatement = statement;
+	}
+	
+	public override void semantic(Scope s)
+	{
+		mScope = s.push();
+		mStatement.semantic(mScope);
+		mScope.pop();
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -1574,6 +1732,11 @@ class ExpressionStatement : Statement
 		return new ExpressionStatement(location, exp);
 	}
 	
+	public override void semantic(Scope s)
+	{
+
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mExpr.writeCode(cw);
@@ -1597,6 +1760,11 @@ class DeclarationStatement : Statement
 		return new DeclarationStatement(location, Declaration.parse(t));
 	}
 	
+	public override void semantic(Scope s)
+	{
+		mDecl.semantic(s);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mDecl.writeCode(cw);
@@ -1609,7 +1777,7 @@ class DeclarationStatement : Statement
 abstract class Declaration
 {
 	protected Location mLocation;
-	
+
 	public this(Location location)
 	{
 		mLocation = location;
@@ -1641,6 +1809,11 @@ abstract class Declaration
 			return FuncDecl.parse(t);
 		else
 			throw new MDCompileException(location, "Declaration expected");
+	}
+	
+	public void semantic(Scope s)
+	{
+		assert(false, "no semantic routine");
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -1694,6 +1867,12 @@ class LocalDecl : Declaration
 		return new LocalDecl(names, initializers, location);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		foreach(Identifier n; mNames)
+			s.insertLocal(n);
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("local ");
@@ -1784,6 +1963,19 @@ class LocalFuncDecl : Declaration
 		return new LocalFuncDecl(name, params, isVararg, funcBody, location);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		s.insertLocal(mName);
+
+		FuncState fs = new FuncState(s);
+		s = fs.mScope;
+		
+		foreach(Identifier p; mParams)
+			s.insertLocal(p);
+			
+		mBody.semantic(s);
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("local function ");
@@ -1892,7 +2084,18 @@ class FuncDecl : Declaration
 		
 		return new FuncDecl(names, isMethod, isVararg, params, funcBody, location);
 	}
-	
+
+	public override void semantic(Scope s)
+	{
+		FuncState fs = new FuncState(s);
+		s = fs.mScope;
+
+		foreach(Identifier p; mParams)
+			s.insertLocal(p);
+			
+		mBody.semantic(s);
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("function ");
@@ -1939,17 +2142,19 @@ class FuncDecl : Declaration
 class Identifier
 {
 	protected char[] mName;
+	protected Location mLocation;
 
-	public this(char[] name)
+	public this(char[] name, Location location)
 	{
 		mName = name;
+		mLocation = location;
 	}
 
 	public static Identifier parse(inout Token* t)
 	{
 		t.check(Token.Type.Ident);
 
-		Identifier id = new Identifier(t.stringValue);
+		Identifier id = new Identifier(t.stringValue, t.location);
 		t = t.nextToken;
 
 		return id;
@@ -2024,6 +2229,12 @@ class CompoundStatement : Statement
 		return new CompoundStatement(location, statements);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		foreach(Statement st; mStatements)
+			st.semantic(s);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("{");
@@ -2077,6 +2288,21 @@ class IfStatement : Statement
 		return new IfStatement(location, condition, ifBody, elseBody);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		//mCondition.semantic(s);
+		s = s.push();
+		mIfBody.semantic(s);
+		s = s.pop();
+		
+		if(mElseBody)
+		{
+			s = s.push();
+			mElseBody.semantic(s);
+			s = s.pop();
+		}
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("if(");
@@ -2124,6 +2350,15 @@ class WhileStatement : Statement
 		return new WhileStatement(location, condition, whileBody);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		s = s.push();
+		s.mBreakStat = this;
+		s.mContinueStat = this;
+		mBody.semantic(s);
+		s.pop();
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("while(");
@@ -2168,6 +2403,16 @@ class DoWhileStatement : Statement
 		return new DoWhileStatement(location, doBody, condition);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		s = s.push();
+		s.mBreakStat = this;
+		s.mContinueStat = this;
+		mBody.semantic(s);
+		//mCondition.semantic(s);
+		s.pop();
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("do ");
@@ -2251,6 +2496,23 @@ class ForStatement : Statement
 		Statement forBody = Statement.parse(t);
 
 		return new ForStatement(location, init, initDecl, condition, increment, forBody);
+	}
+	
+	public override void semantic(Scope s)
+	{
+		s = s.push();
+		s.mBreakStat = this;
+		s.mContinueStat = this;
+		
+		if(mInitDecl)
+			mInitDecl.semantic(s);
+
+		//mCondition && mCondition.semantic(s);
+		//mIncrement && mIncrement.semantic(s);
+		
+		mBody.semantic(s);
+
+		s.pop();
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2337,6 +2599,22 @@ class ForeachStatement : Statement
 		Statement foreachBody = Statement.parse(t);
 
 		return new ForeachStatement(location, indices, container, foreachBody);
+	}
+	
+	public override void semantic(Scope s)
+	{
+		s = s.push();
+		s.mBreakStat = this;
+		s.mContinueStat = this;
+		
+		foreach(Identifier i; mIndices)
+			s.insertLocal(i);
+			
+		//foreach(Expression c; mContainer) c.semantic(s);
+		
+		mBody.semantic(s);
+
+		s.pop();
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2427,6 +2705,20 @@ class SwitchStatement : Statement
 		t = t.nextToken;
 
 		return new SwitchStatement(location, condition, cases, caseDefault);
+	}
+	
+	public override void semantic(Scope s)
+	{
+		s = s.push();
+		s.mBreakStat = this;
+
+		foreach(Statement c; mCases)
+			c.semantic(s);
+			
+		if(mDefault)
+			mDefault.semantic(s);
+			
+		s.pop();
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2522,6 +2814,11 @@ class CaseStatement : Statement
 		return ret;
 	}
 	
+	public override void semantic(Scope s)
+	{
+		mBody.semantic(s);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("case ");
@@ -2572,6 +2869,11 @@ class DefaultStatement : Statement
 		return new DefaultStatement(location, defaultBody);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		mBody.semantic(s);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("default:");
@@ -2596,6 +2898,11 @@ class ContinueStatement : Statement
 		return new ContinueStatement(location);
 	}
 	
+	public override void semantic(Scope s)
+	{
+
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("continue;");
@@ -2617,6 +2924,11 @@ class BreakStatement : Statement
 		t.check(Token.Type.Semicolon);
 		t = t.nextToken;
 		return new BreakStatement(location);
+	}
+	
+	public override void semantic(Scope s)
+	{
+		
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2675,6 +2987,11 @@ class ReturnStatement : Statement
 
 			return new ReturnStatement(location, exprs);
 		}
+	}
+	
+	public override void semantic(Scope s)
+	{
+		
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2753,6 +3070,22 @@ class TryCatchStatement : Statement
 		return new TryCatchStatement(location, tryBody, catchVar, catchBody, finallyBody);
 	}
 	
+	public override void semantic(Scope s)
+	{
+		mTryBody.semantic(s);
+
+		if(mCatchBody)
+		{
+			s = s.push();
+			s.insertLocal(mCatchVar);
+			mCatchBody.semantic(s);
+			s = s.pop();
+		}
+
+		if(mFinallyBody)
+			mFinallyBody.semantic(s);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("try");
@@ -2798,6 +3131,11 @@ class ThrowStatement : Statement
 		t = t.nextToken;
 
 		return new ThrowStatement(location, exp);
+	}
+	
+	public override void semantic(Scope s)
+	{
+		
 	}
 	
 	public void writeCode(CodeWriter cw)
