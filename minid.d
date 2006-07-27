@@ -4,9 +4,10 @@ import std.c.stdlib;
 import std.conv;
 import std.stdio;
 import std.stream;
-import std.string;
+import string = std.string;
 import utf = std.utf;
 import types;
+import opcodes;
 
 void main()
 {
@@ -1355,6 +1356,27 @@ class CodeWriter
 	}
 }
 
+enum VarRefType
+{
+	Local,
+	Upvalue,
+	Global,
+	Indexed
+}
+
+struct VarRef
+{
+	VarRefType type;
+	uint where;
+	uint index;
+}
+
+struct UpvalDesc
+{
+	uint index;
+	char[] name;
+}
+
 class FuncState
 {
 	struct Scope
@@ -1363,23 +1385,12 @@ class FuncState
 		protected Statement breakStat;
 		protected Statement continueStat;
 		protected uint varStart = 0;
+		protected bool hasUpval = false;
 	}
 	
-	enum VarRefType
-	{
-		Local, 
-		Upvalue,
-		Global
-	}
-
-	struct VarRef
-	{
-		VarRefType type;
-		uint index;
-	}
-
 	protected FuncState mParent;
 	protected Scope* mScope;
+	protected uint mFreeReg = 0;
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
@@ -1391,17 +1402,7 @@ class FuncState
 	protected uint[] mCode;
 	protected uint[] mLineInfo;
 	protected MDFuncDef.LocVarDesc[] mLocVars;
-	
-	struct UpvalDesc
-	{
-		MDValue.Type type;
-		uint index;
-		char[] name;
-	}
-	
 	protected UpvalDesc[] mUpvals;
-	
-	protected uint mFreeReg = 0;
 
 	public this(Location location, FuncState parent = null)
 	{
@@ -1420,9 +1421,8 @@ class FuncState
 		
 		s.breakStat = mScope.breakStat;
 		s.continueStat = mScope.continueStat;
-
-		s.enclosing = mScope;
 		s.varStart = mLocVars.length;
+		s.enclosing = mScope;
 		mScope = s;
 	}
 	
@@ -1431,6 +1431,10 @@ class FuncState
 		Scope* s = mScope;
 		mScope = mScope.enclosing;
 		assert(mScope !is null, "scope underflow");
+
+		//if(s.hasUpval)
+			//codeClose(s.varStart);
+
 		delete s;
 	}
 
@@ -1470,8 +1474,8 @@ class FuncState
 		
 		return -1;
 	}
-	
-	public int insertLocal(Identifier ident, int register = -1)
+
+	public VarRef insertLocal(Identifier ident, int register = -1)
 	{
 		int i = searchLocal(ident.mName);
 
@@ -1494,7 +1498,11 @@ class FuncState
 			reg = register;
 		}
 		
-		return register;
+		VarRef ret;
+		ret.type = VarRefType.Local;
+		ret.where = register;
+
+		return ret;
 	}
 
 	public int reserveRegister()
@@ -1504,44 +1512,166 @@ class FuncState
 		return mFreeReg - 1;
 	}
 	
+	public void freeRegister(int r)
+	{
+		mFreeReg--;
+		assert(mFreeReg == r, "reg not freed in order");
+	}
+	
 	public VarRef getVar(Identifier name)
 	{
 		VarRef ret;
 		
 		FuncState owner;
-		int index = searchVar(ident, owner);
+		int index = searchVar(name, owner);
 		
 		if(index == -1)
 		{
 			// global
 			ret.type = VarRefType.Global;
-			ret.index = codeStringConst(name.mName);
+			ret.where = codeStringConst(name.mName);
 		}
 		else if(owner is this)
 		{
 			// local
 			ret.type = VarRefType.Local;
-			ret.index = index;
+			ret.where = index;
 		}
 		else
 		{
 			//upvalue
 			ret.type = VarRefType.Upvalue;
-			ret.index = searchUpval(name);
+			ret.where = searchUpval(name);
 		}
 		
 		return ret;
 	}
-	
-	public int searchUpval(Identifier name)
-	{
-		foreach(uint i, UpvalDesc u; mUpvalues)
-			if(u.name == name.mName)
-				return i;
-				
 
+	public VarRef getField(VarRef ref, Identifier field)
+	{
+		ref.index = asConst(codeStringConst(field.mName));
+
+		switch(ref.type)
+		{
+			case VarRefType.Local:
+				uint destReg = reserveRegister();
+				codeR(Op.Index, destReg, ref.where, ref.index);
+				ref.where = destReg;
+				break;
+				
+			case VarRefType.Global:
+				uint destReg = reserveRegister();
+				codeI(Op.GetGlobal, destReg, ref.where);
+				codeR(Op.Index, destReg, destReg, ref.index);
+				ref.where = destReg;
+				break;
+
+			case VarRefType.Upvalue:
+				uint destReg = reserveRegister();
+				codeI(Op.GetUpvalue, destReg, ref.where);
+				codeR(Op.Index, destReg, destReg, ref.index);
+				ref.where = destReg;
+				break;
+				
+			case VarRefType.Indexed:
+				codeR(Op.Index, ref.where, ref.where, ref.index);
+				break;
+
+			default:
+				assert(false);
+		}
+		
+		ref.type = VarRefType.Indexed;
+		return ref;
 	}
 	
+	public void createClosure(VarRef dest, FuncState fs)
+	{
+		uint index = -1;
+		
+		foreach(uint i, FuncState child; mInnerFuncs)
+		{
+			if(fs is child)
+			{
+				index = i;
+				break;
+			}
+		}
+		
+		assert(index != -1, "fs is not a child proto");
+
+		uint destReg = reserveRegister();
+		codeI(Op.Closure, destReg, index);
+
+		codeMoveFromReg(dest, destReg);
+		
+		freeRegister(destReg);
+	}
+	
+	public void codeMoveFromReg(VarRef dest, uint srcReg)
+	{
+		switch(dest.type)
+		{
+			case VarRefType.Local:
+				codeR(Op.Move, dest.where, srcReg, 0);
+				break;
+				
+			case VarRefType.Global:
+				codeI(Op.SetGlobal, srcReg, dest.where);
+				break;
+				
+			case VarRefType.Upvalue:
+				codeI(Op.SetUpvalue, srcReg, dest.where);
+				break;
+				
+			case VarRefType.Indexed:
+				codeR(Op.IndexAssign, dest.where, dest.index, srcReg);
+				break;
+		}
+	}
+	
+	public uint asConst(uint index)
+	{
+		return index | Instruction.constBit;
+	}
+
+	public int searchUpval(Identifier name, bool isOriginal = true)
+	{
+		uint localIndex = searchLocal(name.mName);
+		
+		if(localIndex != -1)
+		{
+			// needed?  It looks for locals first, so maybe not
+			//if(!isOriginal)
+			//{
+				for(Scope* s = mScope; s !is null; s = s.enclosing)
+				{
+					if(s.varStart <= localIndex)
+					{
+						s.hasUpval = true;
+						break;
+					}
+				}
+			//}
+
+			return localIndex;
+		}
+
+		foreach(uint i, UpvalDesc u; mUpvals)
+			if(u.name == name.mName)
+				return i;
+
+		uint parentIndex = mParent.searchUpval(name, false);
+
+		UpvalDesc ud;
+		ud.index = parentIndex;
+		ud.name = name.mName;
+
+		mUpvals ~= ud;
+
+		return mUpvals.length - 1;
+	}
+
 	public int codeStringConst(char[] c)
 	{
 		foreach(uint i, MDValue v; mConstants)
@@ -1563,7 +1693,7 @@ class FuncState
 				
 		MDValue v;
 		v.value = x;
-		
+
 		mConstants ~= v;
 		return mConstants.length - 1;
 	}
@@ -1579,6 +1709,21 @@ class FuncState
 		
 		mConstants ~= v;
 		return mConstants.length - 1;
+	}
+	
+	public void codeR(Op opcode, uint dest, uint src1, uint src2)
+	{
+		
+	}
+	
+	public void codeI(Op opcode, uint dest, uint imm)
+	{
+		
+	}
+	
+	public void codeJ(Op opcode, uint dest, int offs)
+	{
+		
 	}
 
 	public void showMe(uint tab = 0)
@@ -1792,7 +1937,7 @@ class ExpressionStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
-		mExpr.codeToNothing(s);
+		//mExpr.codeToNothing(s);
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -1933,13 +2078,13 @@ class LocalDecl : Declaration
 			// put matching exprs in vars, eval extra exprs and discard results
 			for(uint i = 0; i < mNames.length; i++)
 			{
-				uint destReg = f.reserveRegister();
-				mInitializers[i].codeToReg(s, destReg);
+				uint destReg = s.reserveRegister();
+				//mInitializers[i].codeToReg(s, destReg);
 				s.insertLocal(mNames[i], destReg);
 			}
 			
 			for(uint i = mNames.length; i < mInitializers.length; i++)
-				mInitializers[i].codeToNothing(s);
+				{}//mInitializers[i].codeToNothing(s);
 		}
 		else if(mNames.length > mInitializers.length)
 		{
@@ -1948,15 +2093,15 @@ class LocalDecl : Declaration
 			// return multiple results; otherwise, initialize extra vars with null
 			for(uint i = 0; i < mInitializers.length - 1; i++)
 			{
-				uint destReg = f.reserveRegister();
-				mInitializers[i].codeToReg(s, destReg);
+				uint destReg = s.reserveRegister();
+				//mInitializers[i].codeToReg(s, destReg);
 				s.insertLocal(mNames[i], destReg);
 			}
 			
 			if(cast(CallExp)mInitializers[$ - 1] || cast(VarargExp)mInitializers[$ - 1])
 			{
-				uint destReg = f.reserveRegister();
-				mInitializers[$ - 1].codeToReg(s, destReg, Expression.MultRet);
+				uint destReg = s.reserveRegister();
+				//mInitializers[$ - 1].codeToReg(s, destReg, Expression.MultRet);
 				s.insertLocal(mNames[mInitializers.length - 1], destReg);
 
 				for(uint i = mInitializers.length; i < mNames.length; i++)
@@ -1964,7 +2109,7 @@ class LocalDecl : Declaration
 			}
 			else
 			{
-				s.reserveRegisters(mNames.length - mInitializers.length);
+				//s.reserveRegisters(mNames.length - mInitializers.length);
 				
 				for(uint i = mInitializers.length - 1; i < mNames.length; i++)
 					s.insertLocal(mNames[i]);
@@ -1979,8 +2124,8 @@ class LocalDecl : Declaration
 			
 			for(uint i = 0; i < mNames.length; i++)
 			{
-				uint destReg = f.reserveRegister();
-				mInitializers[i].codeToReg(s, destReg);
+				uint destReg = s.reserveRegister();
+				//mInitializers[i].codeToReg(s, destReg);
 				s.insertLocal(mNames[i], destReg);
 			}
 		}
@@ -2077,17 +2222,17 @@ class LocalFuncDecl : Declaration
 	
 	public override void codeGen(FuncState s)
 	{
-		uint destReg = s.reserveRegister();
+		VarRef dest = s.insertLocal(mName);
 
 		FuncState fs = new FuncState(mLocation, s);
 		fs.mIsVararg = mIsVararg;
-		
+
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
-			
-		mBody.semantic(fs);
 
-		s.closeFunc(fs, destReg);
+		mBody.codeGen(fs);
+
+		s.createClosure(dest, fs);
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2201,12 +2346,10 @@ class FuncDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
-		uint destReg = fs.getVar(mNames[0]);
+		VarRef dest = s.getVar(mNames[0]);
 
-		foreach(Identifier n; mNames[1 .. $ - 1])
-		{
-			destReg = fs.getIndexed(destReg,
-		}
+		foreach(Identifier n; mNames[1 .. $])
+			dest = s.getField(dest, n);
 
 		FuncState fs = new FuncState(mLocation, s);
 
@@ -2216,7 +2359,9 @@ class FuncDecl : Declaration
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
 
-		mBody.semantic(fs);
+		mBody.codeGen(fs);
+
+		s.createClosure(dest, fs);
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2352,11 +2497,11 @@ class CompoundStatement : Statement
 		return new CompoundStatement(location, statements);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		foreach(Statement st; mStatements)
 			st.semantic(s);
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2411,7 +2556,7 @@ class IfStatement : Statement
 		return new IfStatement(location, condition, ifBody, elseBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		//mCondition.semantic(s);
 		s.pushScope();
@@ -2424,7 +2569,7 @@ class IfStatement : Statement
 			mElseBody.semantic(s);
 			s.popScope();
 		}
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2473,14 +2618,14 @@ class WhileStatement : Statement
 		return new WhileStatement(location, condition, whileBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		s.pushScope();
 		s.breakStat = this;
 		s.continueStat = this;
 		mBody.semantic(s);
 		s.popScope();
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2526,7 +2671,7 @@ class DoWhileStatement : Statement
 		return new DoWhileStatement(location, doBody, condition);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		s.pushScope();
 		s.breakStat = this;
@@ -2534,7 +2679,7 @@ class DoWhileStatement : Statement
 		mBody.semantic(s);
 		//mCondition.semantic(s);
 		s.popScope();
-	}
+	}*/
 
 	public void writeCode(CodeWriter cw)
 	{
@@ -2621,7 +2766,7 @@ class ForStatement : Statement
 		return new ForStatement(location, init, initDecl, condition, increment, forBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		s.pushScope();
 		s.breakStat = this;
@@ -2636,7 +2781,7 @@ class ForStatement : Statement
 		mBody.semantic(s);
 
 		s.popScope();
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2724,7 +2869,7 @@ class ForeachStatement : Statement
 		return new ForeachStatement(location, indices, container, foreachBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		s.pushScope();
 		s.breakStat = this;
@@ -2738,7 +2883,7 @@ class ForeachStatement : Statement
 		mBody.semantic(s);
 
 		s.popScope();
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2830,7 +2975,7 @@ class SwitchStatement : Statement
 		return new SwitchStatement(location, condition, cases, caseDefault);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		s.pushScope();
 		s.breakStat = this;
@@ -2842,8 +2987,8 @@ class SwitchStatement : Statement
 			mDefault.semantic(s);
 
 		s.popScope();
-	}
-	
+	}*/
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("switch(");
@@ -2937,10 +3082,10 @@ class CaseStatement : Statement
 		return ret;
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		mBody.semantic(s);
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2992,11 +3137,11 @@ class DefaultStatement : Statement
 		return new DefaultStatement(location, defaultBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		mBody.semantic(s);
-	}
-	
+	}*/
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("default:");
@@ -3021,10 +3166,10 @@ class ContinueStatement : Statement
 		return new ContinueStatement(location);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -3049,10 +3194,10 @@ class BreakStatement : Statement
 		return new BreakStatement(location);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		
-	}
+	}*/
 
 	public void writeCode(CodeWriter cw)
 	{
@@ -3112,10 +3257,10 @@ class ReturnStatement : Statement
 		}
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -3193,7 +3338,7 @@ class TryCatchStatement : Statement
 		return new TryCatchStatement(location, tryBody, catchVar, catchBody, finallyBody);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
 		mTryBody.semantic(s);
 
@@ -3211,7 +3356,7 @@ class TryCatchStatement : Statement
 			mFinallyBody.semantic(s);
 			s.popScope();
 		}
-	}
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -3260,10 +3405,10 @@ class ThrowStatement : Statement
 		return new ThrowStatement(location, exp);
 	}
 	
-	public override void semantic(FuncState s)
+	/*public override void semantic(FuncState s)
 	{
-		
-	}
+
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{
