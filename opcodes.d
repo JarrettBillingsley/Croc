@@ -2,32 +2,50 @@ module opcodes;
 
 enum Op : uint
 {
-	Move,
-	LoadConst,
-	LoadBool,
-	LoadNull,
 	Add,
-	Sub,
+	Call,
 	Cat,
-	Mul,
-	Div,
-	Mod,
-	Length,
 	Close,
 	Closure,
-	NewTable,
-	NewArray,
+	Cmp,
+	Div,
+	Foreach,
+	GetGlobal,
+	GetUpvalue,
 	Index,
 	IndexAssign,
-	GetGlobal,
+	Je,
+	Jle,
+	Jlt,
+	Jmp,
+	Length,
+	LoadBool,
+	LoadConst,
+	LoadNull,
+	Mod,
+	Move,
+	Mul,
+	Neg,
+	NewArray,
+	NewTable,
+	Not,
+	PopCatch,
+	PopFinally,
+	PushCatch,
+	PushFinally,
+	Ret,
 	SetGlobal,
-	GetUpvalue,
-	SetUpvalue
+	SetUpvalue,
+	Sub,
+	SwitchInt,
+	SwitchString,
+	Throw,
+	Vararg
 }
 
 template Mask(uint length)
 {
-	const uint Mask = ~((~0) << length);
+	const uint Mask = (1 << length) - 1;
 }
 
 struct Instruction
@@ -46,14 +64,15 @@ struct Instruction
 	const uint immMax = (1 << immSize) - 1;
 	const uint immMask = Mask!(immSize);
 	const uint immPos = rs2Pos;
+	const uint immBias = (immMax + 1) / 2;
 
 	const uint rdSize = 8;
 	const uint rdMax = (1 << rdSize) - 1;
+	const uint rdMask = Mask!(rdSize);
 	const uint rdPos = rs1Pos + rs1Size;
-	const uint rdMask = 0b11111111;
 
 	const uint opcodeSize = 6;
-	const uint opcodeMask = 0b111111;
+	const uint opcodeMask = Mask!(opcodeSize);
 	const uint opcodePos = rdPos + rdSize;
 	
 	const uint constBit = 1 << (rs2Size - 1);
@@ -114,11 +133,4 @@ struct Instruction
 		data = (data & ~(opcodeMask << opcodePos)) | ((value & opcodeMask) << opcodePos);
 		return value;
 	}
-}
-
-void fooo()
-{
-	Instruction i;
-
-	i.rs2 = 4;
 }

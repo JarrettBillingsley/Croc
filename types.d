@@ -5,6 +5,8 @@ import string = std.string;
 import format = std.format;
 import std.c.string;
 
+const uint MaxRegisters = 255;
+
 char[] vformat(TypeInfo[] arguments, void* argptr)
 {
 	char[] s;

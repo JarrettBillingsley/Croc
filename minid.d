@@ -1432,8 +1432,8 @@ class FuncState
 		mScope = mScope.enclosing;
 		assert(mScope !is null, "scope underflow");
 
-		//if(s.hasUpval)
-			//codeClose(s.varStart);
+		if(s.hasUpval)
+			codeClose(s.varStart);
 
 		delete s;
 	}
@@ -1508,7 +1508,10 @@ class FuncState
 	public int reserveRegister()
 	{
 		mFreeReg++;
-		// check that there aren't too many registers
+
+		if(mFreeReg > MaxRegisters)
+			throw new MDCompileException(mLocation, "Too many registers");
+
 		return mFreeReg - 1;
 	}
 	
@@ -1549,32 +1552,32 @@ class FuncState
 
 	public VarRef getField(VarRef ref, Identifier field)
 	{
-		ref.index = asConst(codeStringConst(field.mName));
+		ref.index = codeStringConst(field.mName);
 
 		switch(ref.type)
 		{
 			case VarRefType.Local:
 				uint destReg = reserveRegister();
-				codeR(Op.Index, destReg, ref.where, ref.index);
+				codeR(Op.Index, destReg, ref.where, asConst(ref.index));
 				ref.where = destReg;
 				break;
 				
 			case VarRefType.Global:
 				uint destReg = reserveRegister();
 				codeI(Op.GetGlobal, destReg, ref.where);
-				codeR(Op.Index, destReg, destReg, ref.index);
+				codeR(Op.Index, destReg, destReg, asConst(ref.index));
 				ref.where = destReg;
 				break;
 
 			case VarRefType.Upvalue:
 				uint destReg = reserveRegister();
 				codeI(Op.GetUpvalue, destReg, ref.where);
-				codeR(Op.Index, destReg, destReg, ref.index);
+				codeR(Op.Index, destReg, destReg, asConst(ref.index));
 				ref.where = destReg;
 				break;
-				
+
 			case VarRefType.Indexed:
-				codeR(Op.Index, ref.where, ref.where, ref.index);
+				codeR(Op.Index, ref.where, ref.where, asConst(ref.index));
 				break;
 
 			default:
@@ -1606,6 +1609,11 @@ class FuncState
 		codeMoveFromReg(dest, destReg);
 		
 		freeRegister(destReg);
+	}
+	
+	public void codeClose(uint reg)
+	{
+		codeI(Op.Close, 0, reg);
 	}
 	
 	public void codeMoveFromReg(VarRef dest, uint srcReg)
@@ -1711,19 +1719,25 @@ class FuncState
 		return mConstants.length - 1;
 	}
 	
-	public void codeR(Op opcode, uint dest, uint src1, uint src2)
+	public uint code(uint inst)
 	{
-		
+		mCode ~= inst;
+		return mCode.length - 1;
+	}
+
+	public uint codeR(Op opcode, uint dest, uint src1, uint src2)
+	{
+		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | src1 << Instruction.rs1Pos | src2 << Instruction.rs2Pos);
 	}
 	
-	public void codeI(Op opcode, uint dest, uint imm)
+	public uint codeI(Op opcode, uint dest, uint imm)
 	{
-		
+		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | imm << Instruction.immPos);
 	}
-	
-	public void codeJ(Op opcode, uint dest, int offs)
+
+	public uint codeJ(Op opcode, uint dest, int offs)
 	{
-		
+		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | (offs + Instruction.immBias) << Instruction.immPos);
 	}
 
 	public void showMe(uint tab = 0)
@@ -2072,10 +2086,11 @@ class LocalDecl : Declaration
 	
 	public override void codeGen(FuncState s)
 	{
-		if(mNames.length < mInitializers.length)
+		if(mNames.length <= mInitializers.length)
 		{
-			// local a, b, = c, d, e
-			// put matching exprs in vars, eval extra exprs and discard results
+			// local a, b = c, d, e
+			// local a, b = c, d
+			// put matching exprs in vars, eval any extra exprs and discard results
 			for(uint i = 0; i < mNames.length; i++)
 			{
 				uint destReg = s.reserveRegister();
@@ -2086,47 +2101,35 @@ class LocalDecl : Declaration
 			for(uint i = mNames.length; i < mInitializers.length; i++)
 				{}//mInitializers[i].codeToNothing(s);
 		}
-		else if(mNames.length > mInitializers.length)
+		else
 		{
 			// local a, b, c = d, e
 			// put matching exprs in vals; if last expr is multret (call/varg), tell it to
 			// return multiple results; otherwise, initialize extra vars with null
-			for(uint i = 0; i < mInitializers.length - 1; i++)
-			{
-				uint destReg = s.reserveRegister();
-				//mInitializers[i].codeToReg(s, destReg);
-				s.insertLocal(mNames[i], destReg);
-			}
 			
-			if(cast(CallExp)mInitializers[$ - 1] || cast(VarargExp)mInitializers[$ - 1])
+			if(mInitializers.length == 0)
 			{
-				uint destReg = s.reserveRegister();
-				//mInitializers[$ - 1].codeToReg(s, destReg, Expression.MultRet);
-				s.insertLocal(mNames[mInitializers.length - 1], destReg);
-
-				for(uint i = mInitializers.length; i < mNames.length; i++)
-					s.insertLocal(mNames[i]);
+				foreach(Identifier n; mNames)
+					s.insertLocal(n);
 			}
 			else
 			{
-				//s.reserveRegisters(mNames.length - mInitializers.length);
-				
-				for(uint i = mInitializers.length - 1; i < mNames.length; i++)
+				for(uint i = 0; i < mInitializers.length - 1; i++)
+				{
+					uint destReg = s.reserveRegister();
+					//mInitializers[i].codeToReg(s, destReg);
+					s.insertLocal(mNames[i], destReg);
+				}
+
+				if(cast(CallExp)mInitializers[$ - 1] || cast(VarargExp)mInitializers[$ - 1])
+				{
+					uint destReg = s.reserveRegister();
+					//mInitializers[$ - 1].codeToReg(s, destReg, Expression.MultRet);
+					s.insertLocal(mNames[mInitializers.length - 1], destReg);
+				}
+
+				for(uint i = mInitializers.length; i < mNames.length; i++)
 					s.insertLocal(mNames[i]);
-					
-				
-			}
-		}
-		else
-		{
-			// local a, b, c = d, e, f
-			// put matching exprs in vals
-			
-			for(uint i = 0; i < mNames.length; i++)
-			{
-				uint destReg = s.reserveRegister();
-				//mInitializers[i].codeToReg(s, destReg);
-				s.insertLocal(mNames[i], destReg);
 			}
 		}
 	}
