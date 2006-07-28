@@ -1885,7 +1885,7 @@ abstract class Statement
 				
 			case Token.Type.Throw:
 				return ThrowStatement.parse(t);
-				
+
 			case Token.Type.Semicolon:
 				throw new MDCompileException(t.location, "Empty statements ( ';' ) are not allowed");
 				
@@ -2355,6 +2355,7 @@ class FuncDecl : Declaration
 			dest = s.getField(dest, n);
 
 		FuncState fs = new FuncState(mLocation, s);
+		fs.mIsVararg = mIsVararg;
 
 		if(mIsMethod)
 			fs.insertLocal(new Identifier("this", mLocation));
@@ -2500,12 +2501,12 @@ class CompoundStatement : Statement
 		return new CompoundStatement(location, statements);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		foreach(Statement st; mStatements)
-			st.semantic(s);
-	}*/
-	
+			st.codeGen(s);
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("{");
@@ -2573,6 +2574,17 @@ class IfStatement : Statement
 			s.popScope();
 		}
 	}*/
+	
+	public override void codeGen(FuncState s)
+	{
+		//mCondition.codeCondition(s);
+		mIfBody.codeGen(s);
+		
+		if(mElseBody)
+		{
+
+		}
+	}
 	
 	public void writeCode(CodeWriter cw)
 	{
