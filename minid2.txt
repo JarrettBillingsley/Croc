@@ -264,7 +264,7 @@ DeclarationStatement:
 	FunctionDeclaration
 
 LocalVariableDeclaration:
-	'local' Identifier {',' Identifier} ['=' Expression {',' Expression}]
+	'local' Identifier {',' Identifier} ['=' Expression]
 
 FunctionDeclaration:
 	'function' Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
@@ -279,7 +279,7 @@ BaseExpression:
 	Expression
 	
 Assignment:
-	AssignmentLHS {',' AssignmentLHS} '=' Expression {',' Expression}
+	AssignmentLHS {',' AssignmentLHS} '=' Expression
 
 AssignmentLHS:
 	Identifier

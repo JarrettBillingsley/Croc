@@ -1371,6 +1371,12 @@ struct VarRef
 	uint index;
 }
 
+struct InstRef
+{
+	InstRef* prev;
+	uint pc;
+}
+
 struct UpvalDesc
 {
 	uint index;
@@ -1384,6 +1390,8 @@ class FuncState
 		protected Scope* enclosing;
 		protected Statement breakStat;
 		protected Statement continueStat;
+		protected InstRef* breaks;
+		protected InstRef* continues;
 		protected uint varStart = 0;
 		protected bool hasUpval = false;
 	}
@@ -1399,9 +1407,10 @@ class FuncState
 	protected uint mNumParams;
 	protected uint mNumUpvals;
 	protected uint mStackSize;
-	protected uint[] mCode;
+	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
 	protected MDFuncDef.LocVarDesc[] mLocVars;
+	protected int mNumActiveVars = -1;
 	protected UpvalDesc[] mUpvals;
 
 	public this(Location location, FuncState parent = null)
@@ -1451,7 +1460,7 @@ class FuncState
 	protected int searchLocal(char[] name)
 	{
 		for(int i = mLocVars.length - 1; i >= 0; i--)
-			if(mLocVars[i].name == name)
+			if(mLocVars[i].name == name && mNumActiveVars >= mLocVars[i].reg)
 				return i;
 
 		return -1;
@@ -1486,10 +1495,7 @@ class FuncState
 		mLocVars.length = mLocVars.length + 1;
 
 		if(register ==  -1)
-		{
-			register = mFreeReg;
-			mFreeReg++;
-		}
+			register = reserveRegister();
 
 		with(mLocVars[$ - 1])
 		{
@@ -1497,12 +1503,17 @@ class FuncState
 			location = ident.mLocation;
 			reg = register;
 		}
-		
+
 		VarRef ret;
 		ret.type = VarRefType.Local;
 		ret.where = register;
 
 		return ret;
+	}
+	
+	public void activateLocals(uint num)
+	{
+		mNumActiveVars += num;
 	}
 
 	public int reserveRegister()
@@ -1603,12 +1614,15 @@ class FuncState
 		
 		assert(index != -1, "fs is not a child proto");
 
-		uint destReg = reserveRegister();
-		codeI(Op.Closure, destReg, index);
-
-		codeMoveFromReg(dest, destReg);
-		
-		freeRegister(destReg);
+		if(dest.type == VarRefType.Local)
+			codeI(Op.Closure, dest.where, index);
+		else
+		{
+			uint destReg = reserveRegister();
+			codeI(Op.Closure, destReg, index);
+			codeMoveFromReg(dest, destReg);
+			freeRegister(destReg);
+		}
 	}
 	
 	public void codeClose(uint reg)
@@ -1679,6 +1693,116 @@ class FuncState
 
 		return mUpvals.length - 1;
 	}
+	
+	public void patchJumpToHere(InstRef src)
+	{
+		int diff = mCode.length - src.pc;
+		diff += Instruction.immBias;
+		
+		if(diff < 0 || diff > Instruction.immMax)
+			throw new MDCompileException(mLocation, "Control structure too long");
+			
+		mCode[src.pc].imm = diff;
+	}
+	
+	public void patchJumpTo(InstRef src, InstRef dest)
+	{
+		int diff = dest.pc - src.pc;
+		diff += Instruction.immBias;
+		
+		if(diff < 0 || diff > Instruction.immMax)
+			throw new MDCompileException(mLocation, "Control structure too long");
+			
+		mCode[src.pc].imm = diff;
+	}
+	
+	public InstRef getLabel()
+	{
+		InstRef l;
+		l.pc = mCode.length;
+		return l;
+	}
+	
+	public void invertJump(InstRef i)
+	{
+		mCode[i.pc].rd = !mCode[i.pc].rd;
+	}
+	
+	public void patchContinues(InstRef dest)
+	{
+		for(InstRef* c = mScope.continues; c !is null; )
+		{
+			patchJumpTo(*c, dest);
+
+			InstRef* next = c.prev;
+			delete c;
+			c = next;
+		}
+	}
+	
+	public void patchBreaksToHere()
+	{
+		for(InstRef* c = mScope.breaks; c !is null; )
+		{
+			patchJumpToHere(*c);
+
+			InstRef* next = c.prev;
+			delete c;
+			c = next;
+		}
+	}
+	
+	public void patchContinuesToHere()
+	{
+		for(InstRef* c = mScope.continues; c !is null; )
+		{
+			patchJumpToHere(*c);
+
+			InstRef* next = c.prev;
+			delete c;
+			c = next;
+		}
+	}
+	
+	public void codeJump(InstRef dest)
+	{
+		int diff = dest.pc - mCode.length;
+		diff += Instruction.immBias;
+		
+		if(diff < 0 || diff > Instruction.immMax)
+			throw new MDCompileException(mLocation, "Control structure too long");
+			
+		codeJ(Op.Jmp, 0, diff);
+	}
+	
+	public InstRef makeJump()
+	{
+		InstRef i;
+		i.pc = codeJ(Op.Jmp, 0, 0);
+		return i;	
+	}
+
+	public void codeContinue(Location location)
+	{
+		if(mScope.continueStat is null)
+			throw new MDCompileException(location, "No continuable control structure");
+
+		InstRef* i = new InstRef;
+		i.pc = codeJ(Op.Jmp, 0, 0);
+		i.prev = mScope.continues;
+		mScope.continues = i;
+	}
+	
+	public void codeBreak(Location location)
+	{
+		if(mScope.breakStat is null)
+			throw new MDCompileException(location, "No breakable control structure");
+
+		InstRef* i = new InstRef;
+		i.pc = codeJ(Op.Jmp, 0, 0);
+		i.prev = mScope.breaks;
+		mScope.breaks = i;
+	}
 
 	public int codeStringConst(char[] c)
 	{
@@ -1719,9 +1843,14 @@ class FuncState
 		return mConstants.length - 1;
 	}
 	
+	public void codeNull(uint reg, uint num)
+	{
+		codeI(Op.LoadNull, reg, num);
+	}
+	
 	public uint code(uint inst)
 	{
-		mCode ~= inst;
+		mCode ~= *cast(Instruction*)&inst;
 		return mCode.length - 1;
 	}
 
@@ -1951,7 +2080,7 @@ class ExpressionStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
-		//mExpr.codeToNothing(s);
+		mExpr.codeToNothing(s);
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2042,14 +2171,14 @@ abstract class Declaration
 class LocalDecl : Declaration
 {
 	protected Identifier[] mNames;
-	protected Expression[] mInitializers;
+	protected Expression mInitializer;
 
-	public this(Identifier[] names, Expression[] initializers, Location location)
+	public this(Identifier[] names, Expression initializer, Location location)
 	{
 		super(location);
 
 		mNames = names;
-		mInitializers = initializers;
+		mInitializer = initializer;
 	}
 	
 	public static LocalDecl parse(inout Token* t)
@@ -2066,72 +2195,36 @@ class LocalDecl : Declaration
 			names ~= Identifier.parse(t);
 		}
 
-		Expression[] initializers;
+		Expression initializer;
 
 		if(t.type == Token.Type.Assign)
 		{
 			t = t.nextToken;
-
-			initializers ~= OpEqExp.parse(t);
-			
-			while(t.type == Token.Type.Comma)
-			{
-				t = t.nextToken;
-				initializers ~= OpEqExp.parse(t);
-			}
+			initializer = OpEqExp.parse(t);
 		}
 
-		return new LocalDecl(names, initializers, location);
+		return new LocalDecl(names, initializer, location);
 	}
 	
 	public override void codeGen(FuncState s)
 	{
-		if(mNames.length <= mInitializers.length)
+		if(mNames.length == 1)
 		{
-			// local a, b = c, d, e
-			// local a, b = c, d
-			// put matching exprs in vars, eval any extra exprs and discard results
-			for(uint i = 0; i < mNames.length; i++)
-			{
-				uint destReg = s.reserveRegister();
-				//mInitializers[i].codeToReg(s, destReg);
-				s.insertLocal(mNames[i], destReg);
-			}
-			
-			for(uint i = mNames.length; i < mInitializers.length; i++)
-				{}//mInitializers[i].codeToNothing(s);
+			uint destReg = s.reserveRegister();
+			mInitializer.codeToReg(s, destReg);
+			s.insertLocal(mNames[0], destReg);
 		}
 		else
 		{
-			// local a, b, c = d, e
-			// put matching exprs in vals; if last expr is multret (call/varg), tell it to
-			// return multiple results; otherwise, initialize extra vars with null
-			
-			if(mInitializers.length == 0)
-			{
-				foreach(Identifier n; mNames)
-					s.insertLocal(n);
-			}
-			else
-			{
-				for(uint i = 0; i < mInitializers.length - 1; i++)
-				{
-					uint destReg = s.reserveRegister();
-					//mInitializers[i].codeToReg(s, destReg);
-					s.insertLocal(mNames[i], destReg);
-				}
+			uint destReg = s.reserveRegister();
+			mInitializer.codeToRegs(s, destReg, mNames.length);
+			s.insertLocal(mNames[0], destReg);
 
-				if(cast(CallExp)mInitializers[$ - 1] || cast(VarargExp)mInitializers[$ - 1])
-				{
-					uint destReg = s.reserveRegister();
-					//mInitializers[$ - 1].codeToReg(s, destReg, Expression.MultRet);
-					s.insertLocal(mNames[mInitializers.length - 1], destReg);
-				}
-
-				for(uint i = mInitializers.length; i < mNames.length; i++)
-					s.insertLocal(mNames[i]);
-			}
+			foreach(Identifier n; mNames[1 .. $])
+				s.insertLocal(n);
 		}
+
+		s.activateLocals(mNames.length);
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2145,15 +2238,11 @@ class LocalDecl : Declaration
 			if(i != mNames.length - 1)
 				cw.write(", ");
 		}
-		
-		cw.write(" = ");
-		
-		foreach(uint i, Expression e; mInitializers)
+
+		if(mInitializer)
 		{
-			e.writeCode(cw);
-			
-			if(i != mInitializers.length - 1)
-				cw.write(", ");
+			cw.write(" = ");
+			mInitializer.writeCode(cw);
 		}
 	}
 }
@@ -2560,29 +2649,21 @@ class IfStatement : Statement
 		return new IfStatement(location, condition, ifBody, elseBody);
 	}
 	
-	/*public override void semantic(FuncState s)
-	{
-		//mCondition.semantic(s);
-		s.pushScope();
-		mIfBody.semantic(s);
-		s.popScope();
-		
-		if(mElseBody)
-		{
-			s.pushScope();
-			mElseBody.semantic(s);
-			s.popScope();
-		}
-	}*/
-	
 	public override void codeGen(FuncState s)
 	{
-		//mCondition.codeCondition(s);
+		InstRef i = mCondition.codeCondition(s);
+		s.pushScope();
 		mIfBody.codeGen(s);
-		
+		s.popScope();
+
 		if(mElseBody)
 		{
-
+			InstRef j = s.makeJump();
+			s.patchJumpToHere(i);
+			s.pushScope();
+			mElseBody.codeGen(s);
+			s.popScope();
+			s.patchJumpToHere(j);
 		}
 	}
 	
@@ -2632,15 +2713,25 @@ class WhileStatement : Statement
 
 		return new WhileStatement(location, condition, whileBody);
 	}
-	
-	/*public override void semantic(FuncState s)
+
+	public override void codeGen(FuncState s)
 	{
+		InstRef beginLoop = s.getLabel();
+		
+		InstRef cond = mCondition.codeCondition(s);
+		s.invertJump(cond);
+
 		s.pushScope();
-		s.breakStat = this;
-		s.continueStat = this;
-		mBody.semantic(s);
+			s.breakStat = this;
+			s.continueStat = this;
+			mBody.codeGen(s);
+			s.patchContinues(beginLoop);
+			s.codeJump(beginLoop);
+			s.patchBreaksToHere();
 		s.popScope();
-	}*/
+
+		s.patchJumpToHere(cond);
+	}
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -2686,15 +2777,20 @@ class DoWhileStatement : Statement
 		return new DoWhileStatement(location, doBody, condition);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
+		InstRef beginLoop = s.getLabel();
+		
 		s.pushScope();
-		s.breakStat = this;
-		s.continueStat = this;
-		mBody.semantic(s);
-		//mCondition.semantic(s);
+			s.breakStat = this;
+			s.continueStat = this;
+			mBody.codeGen(s);
+			s.patchContinuesToHere();
+			InstRef cond = mCondition.codeCondition(s);
+			s.patchJumpTo(cond, beginLoop);
+			s.patchBreaksToHere();
 		s.popScope();
-	}*/
+	}
 
 	public void writeCode(CodeWriter cw)
 	{
@@ -2781,22 +2877,42 @@ class ForStatement : Statement
 		return new ForStatement(location, init, initDecl, condition, increment, forBody);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
-		s.breakStat = this;
-		s.continueStat = this;
+			s.breakStat = this;
+			s.continueStat = this;
+			
+			if(mInitDecl)
+				mInitDecl.codeGen(s);
+			else
+				mInit.codeToNothing(s);
+				
+			InstRef beginLoop = s.getLabel();
 
-		if(mInitDecl)
-			mInitDecl.semantic(s);
+			InstRef cond;
 
-		//mCondition && mCondition.semantic(s);
-		//mIncrement && mIncrement.semantic(s);
-
-		mBody.semantic(s);
-
+			if(mCondition)
+			{
+				cond = mCondition.codeCondition(s);
+				s.invertJump(cond);
+			}
+			
+			mBody.codeGen(s);
+			
+			s.patchContinuesToHere();
+			
+			if(mIncrement)
+				mIncrement.codeToNothing(s);
+				
+			s.codeJump(beginLoop);
+			
+			s.patchBreaksToHere();
+			
+			if(mCondition)
+				s.patchJumpToHere(cond);
 		s.popScope();
-	}*/
+	}
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -3186,6 +3302,11 @@ class ContinueStatement : Statement
 
 	}*/
 	
+	public override void codeGen(FuncState s)
+	{
+		s.codeContinue(mLocation);
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("continue;");
@@ -3209,10 +3330,10 @@ class BreakStatement : Statement
 		return new BreakStatement(location);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-		
-	}*/
+		s.codeBreak(mLocation);
+	}
 
 	public void writeCode(CodeWriter cw)
 	{
@@ -3274,7 +3395,7 @@ class ReturnStatement : Statement
 	
 	/*public override void semantic(FuncState s)
 	{
-		
+
 	}*/
 	
 	public void writeCode(CodeWriter cw)
@@ -3419,12 +3540,7 @@ class ThrowStatement : Statement
 
 		return new ThrowStatement(location, exp);
 	}
-	
-	/*public override void semantic(FuncState s)
-	{
 
-	}*/
-	
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("throw ");
@@ -3460,7 +3576,37 @@ abstract class Expression
 
 		return exp;
 	}
+
+	public void codeToNothing(FuncState s)
+	{
+		assert(false, "unimplemented codeToNothing");
+	}
 	
+	public void codeToReg(FuncState s, uint dest)
+	{
+		assert(false, "unimplemented codeToReg");
+	}
+	
+	public void codeToRegs(FuncState s, uint start, uint num)
+	{
+		assert(false, "unimplemented codeToRegs");
+	}
+	
+	public void codeToVar(FuncState s, VarRef dest)
+	{
+		assert(false, "unimplemented codeToVar");
+	}
+
+	public InstRef codeCondition(FuncState s)
+	{
+		assert(false, "unimplemented codeCondition");
+	}
+	
+	public VarRef toDest(FuncState s)
+	{
+		assert(false, "unimplemented toDest");
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("<unimplemented>");
@@ -3470,9 +3616,9 @@ abstract class Expression
 class Assignment : Expression
 {
 	protected Expression[] mLHS;
-	protected Expression[] mRHS;
+	protected Expression mRHS;
 	
-	public this(Location location, Expression[] lhs, Expression[] rhs)
+	public this(Location location, Expression[] lhs, Expression rhs)
 	{
 		super(location);
 		
@@ -3485,7 +3631,7 @@ class Assignment : Expression
 		Location location = t.location;
 
 		Expression[] lhs;
-		Expression[] rhs;
+		Expression rhs;
 		
 		lhs ~= firstLHS;
 
@@ -3498,17 +3644,46 @@ class Assignment : Expression
 		t.check(Token.Type.Assign);
 		t = t.nextToken;
 		
-		rhs ~= OpEqExp.parse(t);
+		rhs = OpEqExp.parse(t);
 		
-		while(t.type == Token.Type.Comma)
-		{
-			t = t.nextToken;
-			rhs ~= OpEqExp.parse(t);
-		}
-
 		return new Assignment(location, lhs, rhs);
 	}
 	
+	public void codeToNothing(FuncState s)
+	{
+		if(mLHS.length == 1)
+			mRHS.codeToVar(s, mLHS[0].toDest(s));
+		else
+		{
+			
+		}
+	}
+
+	public override void codeToReg(FuncState s, uint dest)
+	{
+		assert(false, "assignment codeToReg");
+	}
+	
+	public override void codeToRegs(FuncState s, uint start, uint num)
+	{
+		assert(false, "assignment codeToRegs");
+	}
+	
+	public override void codeToVar(FuncState s, VarRef dest)
+	{
+		assert(false, "assignment codeToVar");
+	}
+
+	public override InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Assignments cannot be used as a condition");
+	}
+	
+	public override VarRef toDest(FuncState s)
+	{
+		assert(false, "assignment toDest");
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		foreach(uint i, Expression e; mLHS)
@@ -3521,13 +3696,7 @@ class Assignment : Expression
 		
 		cw.write(" = ");
 		
-		foreach(uint i, Expression e; mRHS)
-		{
-			e.writeCode(cw);
-			
-			if(i != mRHS.length - 1)
-				cw.write(", ");
-		}
+		mRHS.writeCode(cw);
 	}
 }
 
