@@ -1356,21 +1356,6 @@ class CodeWriter
 	}
 }
 
-enum VarRefType
-{
-	Local,
-	Upvalue,
-	Global,
-	Indexed
-}
-
-struct VarRef
-{
-	VarRefType type;
-	uint where;
-	uint index;
-}
-
 struct InstRef
 {
 	InstRef* prev;
@@ -1396,9 +1381,43 @@ class FuncState
 		protected bool hasUpval = false;
 	}
 	
+	enum ExpType
+	{
+		Void,
+		Null,
+		True,
+		False,
+		ConstInt,
+		ConstFloat,
+		ConstIndex,
+		Local,
+		Upvalue,
+		Global,
+		Indexed,
+		Vararg,
+		Closure,
+		Source,
+		Call
+	}
+	
+	struct Exp
+	{
+		ExpType type;
+		uint index;
+		uint index2;
+
+		union
+		{
+			int intValue;
+			float floatValue;
+		}
+	}
+
 	protected FuncState mParent;
 	protected Scope* mScope;
 	protected uint mFreeReg = 0;
+	protected Exp[] mExpStack;
+	protected int mExpSP;
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
@@ -1419,6 +1438,7 @@ class FuncState
 
 		mParent = parent;
 		mScope = new Scope;
+		mExpStack = new Exp[10];
 
 		if(parent !is null)
 			parent.mInnerFuncs ~= this;
@@ -1484,7 +1504,7 @@ class FuncState
 		return -1;
 	}
 
-	public VarRef insertLocal(Identifier ident, int register = -1)
+	public Exp* insertLocal(Identifier ident, int register = -1)
 	{
 		int i = searchLocal(ident.mName);
 
@@ -1495,7 +1515,7 @@ class FuncState
 		mLocVars.length = mLocVars.length + 1;
 
 		if(register ==  -1)
-			register = reserveRegister();
+			register = pushRegister();
 
 		with(mLocVars[$ - 1])
 		{
@@ -1503,12 +1523,6 @@ class FuncState
 			location = ident.mLocation;
 			reg = register;
 		}
-
-		VarRef ret;
-		ret.type = VarRefType.Local;
-		ret.where = register;
-
-		return ret;
 	}
 	
 	public void activateLocals(uint num)
@@ -1516,7 +1530,7 @@ class FuncState
 		mNumActiveVars += num;
 	}
 
-	public int reserveRegister()
+	public int pushRegister()
 	{
 		mFreeReg++;
 
@@ -1526,15 +1540,79 @@ class FuncState
 		return mFreeReg - 1;
 	}
 	
-	public void freeRegister(int r)
+	public void popRegister(int r)
 	{
 		mFreeReg--;
 		assert(mFreeReg == r, "reg not freed in order");
 	}
 	
-	public VarRef getVar(Identifier name)
+	protected Exp* pushExp()
 	{
-		VarRef ret;
+		if(mExpSP >= mExpStack.length)
+			mExpStack.length = mExpStack.length * 2;
+		
+		Exp* ret = &mExpStack[mExpSP];
+		mExpSP++;
+		return ret;
+	}
+	
+	protected Exp* popExp()
+	{
+		mExpSP--;
+		
+		assert(mExpSP >= 0, "exp stack underflow");
+
+		return &mExpStack[mExpSP];
+	}
+	
+	public void pushNull()
+	{
+		Exp* e = pushExp();
+		e.type = ExpType.Null;
+	}
+	
+	public void pushBool(bool value)
+	{
+		Exp* e = pushExp();
+		
+		if(value == true)
+			e.type = ExpType.True;
+		else
+			e.type = ExpType.False;
+	}
+
+	public void pushInt(int value)
+	{
+		Exp* e = pushExp();
+		
+		e.type = ExpType.ConstInt;
+		e.intValue = value;
+	}
+
+	public void pushFloat(float value)
+	{
+		Exp* e = pushExp();
+		
+		e.type = ExpType.ConstFloat;
+		e.floatValue = value;
+	}
+	
+	public void pushString(dchar[] value)
+	{
+		pushConst(codeStringConst(value));
+	}
+
+	public void pushConst(uint index)
+	{
+		Exp* e = pushExp();
+		
+		e.type = ExpType.ConstIndex;
+		e.index = index;
+	}
+	
+	public void pushVar(Identifier name)
+	{
+		Exp* e = pushExp();
 		
 		FuncState owner;
 		int index = searchVar(name, owner);
@@ -1542,65 +1620,33 @@ class FuncState
 		if(index == -1)
 		{
 			// global
-			ret.type = VarRefType.Global;
-			ret.where = codeStringConst(name.mName);
+			e.type = ExpType.Global;
+			e.index = codeStringConst(utf.toUTF32(name.mName));
 		}
 		else if(owner is this)
 		{
 			// local
-			ret.type = VarRefType.Local;
-			ret.where = index;
+			e.type = ExpType.Local;
+			e.index = index;
 		}
 		else
 		{
 			//upvalue
-			ret.type = VarRefType.Upvalue;
-			ret.where = searchUpval(name);
+			e.type = ExpType.Upvalue;
+			e.index = searchUpval(name);
 		}
-		
-		return ret;
-	}
-
-	public VarRef getField(VarRef ref, Identifier field)
-	{
-		ref.index = codeStringConst(field.mName);
-
-		switch(ref.type)
-		{
-			case VarRefType.Local:
-				uint destReg = reserveRegister();
-				codeR(Op.Index, destReg, ref.where, asConst(ref.index));
-				ref.where = destReg;
-				break;
-				
-			case VarRefType.Global:
-				uint destReg = reserveRegister();
-				codeI(Op.GetGlobal, destReg, ref.where);
-				codeR(Op.Index, destReg, destReg, asConst(ref.index));
-				ref.where = destReg;
-				break;
-
-			case VarRefType.Upvalue:
-				uint destReg = reserveRegister();
-				codeI(Op.GetUpvalue, destReg, ref.where);
-				codeR(Op.Index, destReg, destReg, asConst(ref.index));
-				ref.where = destReg;
-				break;
-
-			case VarRefType.Indexed:
-				codeR(Op.Index, ref.where, ref.where, asConst(ref.index));
-				break;
-
-			default:
-				assert(false);
-		}
-		
-		ref.type = VarRefType.Indexed;
-		return ref;
 	}
 	
-	public void createClosure(VarRef dest, FuncState fs)
+	public void pushVararg()
 	{
+		Exp* e = pushExp();
+		e.type = ExpType.Vararg;
+	}
+	
+	public void pushClosure(FuncState fs)
+	{
+		Exp* e = pushExp();
+
 		uint index = -1;
 		
 		foreach(uint i, FuncState child; mInnerFuncs)
@@ -1611,47 +1657,229 @@ class FuncState
 				break;
 			}
 		}
-		
-		assert(index != -1, "fs is not a child proto");
 
-		if(dest.type == VarRefType.Local)
-			codeI(Op.Closure, dest.where, index);
+		assert(index != -1, "fs is not a child proto");
+		
+		e.type = ExpType.Closure;
+		e.index = index;
+	}
+
+	public void popClosure()
+	{
+		Exp* dest = popExp();
+		Exp* src = popExp();
+		
+		assert(src.type == ExpType.Closure, "should be a closure!");
+		
+		if(dest.type == ExpType.Local)
+			codeI(Op.Closure, dest.index, src.index);
 		else
 		{
-			uint destReg = reserveRegister();
-			codeI(Op.Closure, destReg, index);
+			uint destReg = pushRegister();
+			codeI(Op.Closure, destReg, src.index);
 			codeMoveFromReg(dest, destReg);
-			freeRegister(destReg);
+			popRegister(destReg);
 		}
 	}
 	
+	public void popToNothing()
+	{
+		Exp* src = popExp();
+
+		if(src.type == ExpType.Call)
+			mCode[src.index].rs2 = 1;
+	}
+	
+	public void popAssign()
+	{
+		Exp* dest = popExp();
+
+		switch(dest.type)
+		{
+			case ExpType.Local:
+				popToRegister(dest.index);
+				break;
+
+			case ExpType.Upvalue:
+				uint destReg = pushRegister();
+				popToRegister(destReg);
+				codeI(Op.SetUpvalue, destReg, dest.index);
+				popRegister(destReg);
+				break;
+
+			case ExpType.Global:
+				uint destReg = pushRegister();
+				popToRegister(destReg);
+				codeI(Op.SetGlobal, destReg, dest.index);
+				popRegister(destReg);
+				break;
+
+			case ExpType.Indexed:
+				uint destReg = pushRegister();
+				popToRegister(destReg);
+				codeR(Op.IndexAssign, dest.index, dest.index2, destReg);
+				popRegister(destReg);
+				break;
+		}
+	}
+
+	public void popToRegister(uint reg)
+	{
+		Exp* src = popExp();
+
+		assert(src.type != ExpType.Void, "pop void to reg");
+
+		switch(src.type)
+		{
+			case ExpType.Null:
+				codeR(Op.LoadNull, reg, 0, 0);
+				break;
+
+			case ExpType.True:
+				codeR(Op.LoadBool, reg, 1, 0);
+				break;
+
+			case ExpType.False:
+				codeR(Op.LoadBool, reg, 0, 0);
+				break;
+
+			case ExpType.ConstInt:
+				codeI(Op.LoadConst, reg, asConst(codeIntConst(src.intValue)));
+				break;
+
+			case ExpType.ConstFloat:
+				codeI(Op.LoadConst, reg, asConst(codeFloatConst(src.floatValue)));
+				break;
+
+			case ExpType.ConstIndex:
+				codeI(Op.LoadConst, reg, src.index);
+				break;
+				
+			case ExpType.Local:
+				codeR(Op.Move, reg, src.index, 0);
+				break;
+
+			case ExpType.Upvalue:
+				codeI(Op.GetUpvalue, reg, src.index);
+				break;
+
+			case ExpType.Global:
+				codeI(Op.GetGlobal, reg, src.index);
+				break;
+
+			case ExpType.Indexed:
+				codeR(Op.Index, reg, src.index, src.index2);
+				break;
+				
+			case ExpType.Vararg:
+				codeI(Op.Vararg, reg, 2);
+				break;
+
+			case ExpType.Closure:
+				assert(false);
+
+			case ExpType.Source:
+				codeR(Op.Move, reg, src.index, 0);
+				break;
+				
+			case ExpType.Call:
+				mCode[src.index].rs2 = 2;
+				break;
+				
+			default:
+				assert(false, "pop to reg switch");
+		}
+	}
+	
+	public void popToRegisters(uint reg, uint num)
+	{
+		Exp* src = popExp();
+		
+		assert(src.type != ExpType.Void, "pop void to regs");
+
+		switch(src.type)
+		{
+			case ExpType.Vararg:
+				codeI(Op.Vararg, reg, num + 1);
+				break;
+
+			case ExpType.Call:
+				mCode[src.index].rs2 = num + 1;
+				break;
+
+			default:
+				assert(false, "pop to regs switch");
+		}
+	}
+
+	public void codeMoveFromReg(Exp* dest, uint srcReg)
+	{
+		switch(dest.type)
+		{
+			case ExpType.Local:
+				codeR(Op.Move, dest.index, srcReg, 0);
+				break;
+				
+			case ExpType.Global:
+				codeI(Op.SetGlobal, srcReg, dest.index);
+				break;
+				
+			case ExpType.Upvalue:
+				codeI(Op.SetUpvalue, srcReg, dest.index);
+				break;
+
+			case ExpType.Indexed:
+				codeR(Op.IndexAssign, dest.index, dest.index2, srcReg);
+				popRegister(dest.index);
+				break;
+
+			default:
+				assert(false);
+		}
+	}
+
+	public void popField(Identifier field)
+	{
+		assert(mExpSP > 0, "pop field from nothing");
+
+		Exp* e = &mExpStack[mExpSP - 1];
+
+		e.index2 = asConst(codeStringConst(utf.toUTF32(field.mName)));
+
+		switch(e.type)
+		{
+			case ExpType.Local:
+				// index just stays the same; type and index2 are written to
+				break;
+				
+			case ExpType.Global:
+				uint destReg = pushRegister();
+				codeI(Op.GetGlobal, destReg, e.index);
+				e.index = destReg;
+				break;
+
+			case ExpType.Upvalue:
+				uint destReg = pushRegister();
+				codeI(Op.GetUpvalue, destReg, e.index);
+				e.index = destReg;
+				break;
+
+			case ExpType.Indexed:
+				codeR(Op.Index, e.index, e.index, e.index2);
+				break;
+
+			default:
+				assert(false);
+		}
+		
+		e.type = ExpType.Indexed;
+	}
+
 	public void codeClose(uint reg)
 	{
 		codeI(Op.Close, 0, reg);
 	}
-	
-	public void codeMoveFromReg(VarRef dest, uint srcReg)
-	{
-		switch(dest.type)
-		{
-			case VarRefType.Local:
-				codeR(Op.Move, dest.where, srcReg, 0);
-				break;
-				
-			case VarRefType.Global:
-				codeI(Op.SetGlobal, srcReg, dest.where);
-				break;
-				
-			case VarRefType.Upvalue:
-				codeI(Op.SetUpvalue, srcReg, dest.where);
-				break;
-				
-			case VarRefType.Indexed:
-				codeR(Op.IndexAssign, dest.where, dest.index, srcReg);
-				break;
-		}
-	}
-	
+
 	public uint asConst(uint index)
 	{
 		return index | Instruction.constBit;
@@ -1804,7 +2032,7 @@ class FuncState
 		mScope.breaks = i;
 	}
 
-	public int codeStringConst(char[] c)
+	public int codeStringConst(dchar[] c)
 	{
 		foreach(uint i, MDValue v; mConstants)
 			if(v.isString() && v.asString() == c)
@@ -1842,7 +2070,7 @@ class FuncState
 		mConstants ~= v;
 		return mConstants.length - 1;
 	}
-	
+
 	public void codeNull(uint reg, uint num)
 	{
 		codeI(Op.LoadNull, reg, num);
@@ -2080,7 +2308,9 @@ class ExpressionStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
-		mExpr.codeToNothing(s);
+		mExpr.checkToNothing();
+		mExpr.codeGen(s);
+		s.popToNothing();
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -2208,19 +2438,30 @@ class LocalDecl : Declaration
 	
 	public override void codeGen(FuncState s)
 	{
-		if(mNames.length == 1)
+		if(mInitializer)
 		{
-			uint destReg = s.reserveRegister();
-			mInitializer.codeToReg(s, destReg);
-			s.insertLocal(mNames[0], destReg);
+			if(mNames.length == 1)
+			{
+				uint destReg = s.pushRegister();
+				mInitializer.codeGen(s);
+				s.popToRegister(destReg);
+				s.insertLocal(mNames[0], destReg);
+			}
+			else
+			{
+				uint destReg = s.pushRegister();
+				mInitializer.checkMultRet();
+				mInitializer.codeGen(s);
+				s.popToRegisters(destReg, mNames.length);
+				s.insertLocal(mNames[0], destReg);
+
+				foreach(Identifier n; mNames[1 .. $])
+					s.insertLocal(n);
+			}
 		}
 		else
 		{
-			uint destReg = s.reserveRegister();
-			mInitializer.codeToRegs(s, destReg, mNames.length);
-			s.insertLocal(mNames[0], destReg);
-
-			foreach(Identifier n; mNames[1 .. $])
+			foreach(Identifier n; mNames)
 				s.insertLocal(n);
 		}
 
@@ -2314,7 +2555,7 @@ class LocalFuncDecl : Declaration
 	
 	public override void codeGen(FuncState s)
 	{
-		VarRef dest = s.insertLocal(mName);
+		s.insertLocal(mName);
 
 		FuncState fs = new FuncState(mLocation, s);
 		fs.mIsVararg = mIsVararg;
@@ -2323,8 +2564,10 @@ class LocalFuncDecl : Declaration
 			fs.insertLocal(p);
 
 		mBody.codeGen(fs);
-
-		s.createClosure(dest, fs);
+		
+		s.pushClosure(fs);
+		s.pushVar(mName);
+		s.popClosure();
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2438,11 +2681,6 @@ class FuncDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
-		VarRef dest = s.getVar(mNames[0]);
-
-		foreach(Identifier n; mNames[1 .. $])
-			dest = s.getField(dest, n);
-
 		FuncState fs = new FuncState(mLocation, s);
 		fs.mIsVararg = mIsVararg;
 
@@ -2453,8 +2691,14 @@ class FuncDecl : Declaration
 			fs.insertLocal(p);
 
 		mBody.codeGen(fs);
-
-		s.createClosure(dest, fs);
+		
+		s.pushClosure(fs);
+		s.pushVar(mNames[0]);
+		
+		foreach(Identifier n; mNames[1 .. $])
+			s.popField(n);
+			
+		s.popClosure();
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -2665,8 +2909,10 @@ class IfStatement : Statement
 			s.popScope();
 			s.patchJumpToHere(j);
 		}
+		else
+			s.patchJumpToHere(i);
 	}
-	
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("if(");
@@ -2719,7 +2965,6 @@ class WhileStatement : Statement
 		InstRef beginLoop = s.getLabel();
 		
 		InstRef cond = mCondition.codeCondition(s);
-		s.invertJump(cond);
 
 		s.pushScope();
 			s.breakStat = this;
@@ -2787,6 +3032,7 @@ class DoWhileStatement : Statement
 			mBody.codeGen(s);
 			s.patchContinuesToHere();
 			InstRef cond = mCondition.codeCondition(s);
+			s.invertJump(cond);
 			s.patchJumpTo(cond, beginLoop);
 			s.patchBreaksToHere();
 		s.popScope();
@@ -2886,24 +3132,29 @@ class ForStatement : Statement
 			if(mInitDecl)
 				mInitDecl.codeGen(s);
 			else
-				mInit.codeToNothing(s);
+			{
+				mInit.checkToNothing();
+				mInit.codeGen(s);
+				s.popToNothing();
+			}
 				
 			InstRef beginLoop = s.getLabel();
 
 			InstRef cond;
 
 			if(mCondition)
-			{
 				cond = mCondition.codeCondition(s);
-				s.invertJump(cond);
-			}
-			
+
 			mBody.codeGen(s);
-			
+
 			s.patchContinuesToHere();
 			
 			if(mIncrement)
-				mIncrement.codeToNothing(s);
+			{
+				mIncrement.checkToNothing();
+				mIncrement.codeGen(s);
+				s.popToNothing();
+			}
 				
 			s.codeJump(beginLoop);
 			
@@ -3297,11 +3548,6 @@ class ContinueStatement : Statement
 		return new ContinueStatement(location);
 	}
 	
-	/*public override void semantic(FuncState s)
-	{
-
-	}*/
-	
 	public override void codeGen(FuncState s)
 	{
 		s.codeContinue(mLocation);
@@ -3393,10 +3639,15 @@ class ReturnStatement : Statement
 		}
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-
-	}*/
+		if(mExprs.length == 0)
+			s.codeI(Op.Ret, 0, 1);
+		else
+		{
+			//
+		}
+	}
 	
 	public void writeCode(CodeWriter cw)
 	{
@@ -3576,35 +3827,31 @@ abstract class Expression
 
 		return exp;
 	}
-
-	public void codeToNothing(FuncState s)
+	
+	public void codeGen(FuncState s)
 	{
-		assert(false, "unimplemented codeToNothing");
+		assert(false, "unimplemented codeGen");
 	}
 	
-	public void codeToReg(FuncState s, uint dest)
-	{
-		assert(false, "unimplemented codeToReg");
-	}
-	
-	public void codeToRegs(FuncState s, uint start, uint num)
-	{
-		assert(false, "unimplemented codeToRegs");
-	}
-	
-	public void codeToVar(FuncState s, VarRef dest)
-	{
-		assert(false, "unimplemented codeToVar");
-	}
-
 	public InstRef codeCondition(FuncState s)
 	{
 		assert(false, "unimplemented codeCondition");
 	}
 	
-	public VarRef toDest(FuncState s)
+	public void checkToNothing()
 	{
-		assert(false, "unimplemented toDest");
+		throw new MDException(mLocation, "Expression cannot exist on its own");
+	}
+	
+	public void checkMultRet()
+	{
+		if(isMultRet() == false)
+			throw new MDException(mLocation, "Expression cannot be the source of a multi-target assignment");
+	}
+	
+	public bool isMultRet()
+	{
+		return false;
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -3644,44 +3891,55 @@ class Assignment : Expression
 		t.check(Token.Type.Assign);
 		t = t.nextToken;
 		
-		rhs = OpEqExp.parse(t);
-		
+		rhs = OrOrExp.parse(t);
+
 		return new Assignment(location, lhs, rhs);
 	}
 	
 	public void codeToNothing(FuncState s)
 	{
-		if(mLHS.length == 1)
+		/*if(mLHS.length == 1)
 			mRHS.codeToVar(s, mLHS[0].toDest(s));
 		else
 		{
-			
+			VarRef[] dests = new VarRef[mLHS.length];
+
+			foreach(uint i, Expression e; mLHS)
+				dests[i] = e.toDest(s);
+
+			uint startReg = s.reserveRegister();
+			mRHS.codeToRegs(s, startReg, mLHS.length);
+
+			uint reg = startReg;
+
+			for(uint i = 0; i < dests.length; i++, reg++)
+				s.codeMoveFromReg(dests[i], reg);
+
+			s.freeRegister(startReg);
+			delete dests;
+		}*/
+		
+		if(mLHS.length == 1)
+		{
+			mRHS.codeGen(s);
+			mLHS[0].codeGen(s);
+			s.popAssign();
+		}
+		else
+		{
+			mRHS.checkMultRet();
+			mRHS.codeGen(s);	
 		}
 	}
-
-	public override void codeToReg(FuncState s, uint dest)
-	{
-		assert(false, "assignment codeToReg");
-	}
 	
-	public override void codeToRegs(FuncState s, uint start, uint num)
-	{
-		assert(false, "assignment codeToRegs");
-	}
-	
-	public override void codeToVar(FuncState s, VarRef dest)
-	{
-		assert(false, "assignment codeToVar");
-	}
-
-	public override InstRef codeCondition(FuncState s)
+	public InstRef codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Assignments cannot be used as a condition");
 	}
 	
-	public override VarRef toDest(FuncState s)
+	public void checkToNothing()
 	{
-		assert(false, "assignment toDest");
+		// OK
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -3822,6 +4080,45 @@ class AddEqExp : OpEqExp
 	{
 		super(location, left, right);
 	}
+	
+	public void codeToNothing(FuncState s)
+	{
+		/*VarRef dest = mOp1.toDest(s);
+		VarRef src1 = mOp1.toSrc(s);
+		VarRef src2 = mOp2.toSrc(s);
+
+		s.codeAdd(dest, src1, src2);*/
+	}
+	
+	public void codeToReg(FuncState s, uint dest)
+	{
+		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
+	}
+	
+	public void codeToRegs(FuncState s, uint start, uint num)
+	{
+		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
+	}
+	
+	/*public void codeToVar(FuncState s, VarRef dest)
+	{
+		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
+	}*/
+
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
+	}
+	
+	/*public VarRef toDest(FuncState s)
+	{
+		assert(false, "AddEqExp toDest");
+	}
+	
+	public VarRef toSrc(FuncState s)
+	{
+		assert(false, "AddEqExp toSrc");
+	}*/
 	
 	public void writeCode(CodeWriter cw)
 	{

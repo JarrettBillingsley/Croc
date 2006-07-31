@@ -22,6 +22,7 @@ enum Op : uint
 	LoadBool,
 	LoadConst,
 	LoadNull,
+	Method,
 	Mod,
 	Move,
 	Mul,

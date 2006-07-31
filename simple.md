@@ -38,8 +38,6 @@ foreach(local i, local v; apairs(arr))
 
 arr ~= ["foo", "far"];
 
-local a, b, c = 4, 5, 6;
-
 local function outer()
 {
 	local x = 0;

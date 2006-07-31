@@ -97,10 +97,20 @@ class MDString : MDObject
 	{
 		return mData == utf.toUTF32(v);
 	}
-	
+
 	public int opCmp(char[] v)
 	{
 		return dcmp(mData, utf.toUTF32(v));
+	}
+	
+	public int opEquals(dchar[] v)
+	{
+		return mData == v;
+	}
+
+	public int opCmp(dchar[] v)
+	{
+		return dcmp(mData, v);
 	}
 
 	public static MDString concat(MDString[] strings)
