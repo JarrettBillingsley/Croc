@@ -1373,8 +1373,8 @@ class FuncState
 	struct Scope
 	{
 		protected Scope* enclosing;
-		protected Statement breakStat;
-		protected Statement continueStat;
+		protected Scope* breakScope;
+		protected Scope* continueScope;
 		protected InstRef* breaks;
 		protected InstRef* continues;
 		protected uint varStart = 0;
@@ -1396,8 +1396,9 @@ class FuncState
 		Indexed,
 		Vararg,
 		Closure,
-		Source,
-		Call
+		Call,
+		NeedsDest,
+		Src
 	}
 	
 	struct Exp
@@ -1448,9 +1449,12 @@ class FuncState
 	{
 		Scope* s = new Scope;
 		
-		s.breakStat = mScope.breakStat;
-		s.continueStat = mScope.continueStat;
-		s.varStart = mLocVars.length;
+		s.breakScope = mScope.breakScope;
+		s.continueScope = mScope.continueScope;
+		s.varStart = mNumActiveVars;
+		
+		assert(mFreeReg == mNumActiveVars);
+
 		s.enclosing = mScope;
 		mScope = s;
 	}
@@ -1463,18 +1467,20 @@ class FuncState
 
 		if(s.hasUpval)
 			codeClose(s.varStart);
+			
+		deactivateLocals(s.varStart);
 
 		delete s;
 	}
 
-	public void breakStat(Statement s)
+	public void setBreakable()
 	{
-		mScope.breakStat = s;
+		mScope.breakScope = mScope;
 	}
 
-	public void continueStat(Statement s)
+	public void setContinuable()
 	{
-		mScope.continueStat = s;
+		mScope.continueScope = mScope;
 	}
 	
 	protected int searchLocal(char[] name)
@@ -1528,6 +1534,11 @@ class FuncState
 	public void activateLocals(uint num)
 	{
 		mNumActiveVars += num;
+	}
+	
+	public void deactivateLocals(uint numTo)
+	{
+		mNumActiveVars = numTo;
 	}
 
 	public int pushRegister()
@@ -1777,15 +1788,19 @@ class FuncState
 
 			case ExpType.Closure:
 				assert(false);
-
-			case ExpType.Source:
-				codeR(Op.Move, reg, src.index, 0);
-				break;
 				
 			case ExpType.Call:
 				mCode[src.index].rs2 = 2;
 				break;
 				
+			case ExpType.NeedsDest:
+				mCode[src.index].rd = reg;
+				break;
+
+			case ExpType.Src:
+				codeR(Op.Move, reg, src.index, 0);
+				break;
+
 			default:
 				assert(false, "pop to reg switch");
 		}
@@ -1804,12 +1819,41 @@ class FuncState
 				break;
 
 			case ExpType.Call:
+				assert(src.index2 == reg);
 				mCode[src.index].rs2 = num + 1;
 				break;
 
 			default:
 				assert(false, "pop to regs switch");
 		}
+	}
+	
+	public void popBinOp(Op type)
+	{
+		Exp* src1 = popExp();
+		Exp* src2 = popExp();
+		
+		bool isTemp1, isTemp2;
+
+		uint rs1 = toSource(src1, isTemp1);
+		uint rs2 = toSource(src2, isTemp2);
+
+		uint pc = codeR(type, 0, rs1, rs2);
+		
+		if(isTemp2)
+			popRegister(rs2);
+		
+		if(isTemp1)
+			popRegister(rs1);
+
+		Exp* dest = pushExp();
+		dest.type = ExpType.NeedsDest;
+		dest.index = pc;
+	}
+	
+	public void popMoveFromReg(uint srcReg)
+	{
+		codeMoveFromReg(popExp(), srcReg);
 	}
 
 	public void codeMoveFromReg(Exp* dest, uint srcReg)
@@ -1873,6 +1917,71 @@ class FuncState
 		}
 		
 		e.type = ExpType.Indexed;
+	}
+
+	protected uint toSource(Exp* e, out bool isTempReg)
+	{
+		isTempReg = false;
+
+		switch(e.type)
+		{
+			case ExpType.Null:
+				return asConst(codeNullConst());
+
+			case ExpType.True:
+				return asConst(codeIntConst(1));
+
+			case ExpType.False:
+				return asConst(codeIntConst(0));
+
+			case ExpType.ConstInt:
+				return asConst(codeIntConst(e.intValue));
+
+			case ExpType.ConstFloat:
+				return asConst(codeFloatConst(e.floatValue));
+
+			case ExpType.ConstIndex:
+				return e.index;
+
+			case ExpType.Local:
+				return e.index;
+
+			case ExpType.Upvalue:
+				uint reg = pushRegister();
+				codeI(Op.GetUpvalue, reg, e.index);
+				isTempReg = true;
+				return reg;
+
+			case ExpType.Global:
+				uint reg = pushRegister();
+				codeI(Op.GetGlobal, reg, e.index);
+				isTempReg = true;
+				return reg;
+
+			case ExpType.Indexed:
+				uint reg = pushRegister();
+				codeR(Op.Index, reg, e.index, e.index2);
+				isTempReg = true;
+				return reg;
+
+			case ExpType.NeedsDest:
+				uint reg = pushRegister();
+				mCode[e.index].rd = reg;
+				isTempReg = true;
+				return reg;
+
+			case ExpType.Call:
+				return e.index2;
+				
+			case ExpType.Src:
+				return e.index;
+			
+			case ExpType.Void:
+			case ExpType.Vararg:
+			case ExpType.Closure:
+			default:
+				assert(false, "toSource switch");
+		}
 	}
 
 	public void codeClose(uint reg)
@@ -2012,8 +2121,11 @@ class FuncState
 
 	public void codeContinue(Location location)
 	{
-		if(mScope.continueStat is null)
+		if(mScope.continueScope is null)
 			throw new MDCompileException(location, "No continuable control structure");
+			
+		if(mScope.continueScope.hasUpval)
+			codeClose(mScope.continueScope.varStart);
 
 		InstRef* i = new InstRef;
 		i.pc = codeJ(Op.Jmp, 0, 0);
@@ -2023,8 +2135,11 @@ class FuncState
 	
 	public void codeBreak(Location location)
 	{
-		if(mScope.breakStat is null)
+		if(mScope.breakScope is null)
 			throw new MDCompileException(location, "No breakable control structure");
+
+		if(mScope.breakScope.hasUpval)
+			codeClose(mScope.breakScope.varStart);
 
 		InstRef* i = new InstRef;
 		i.pc = codeJ(Op.Jmp, 0, 0);
@@ -2066,6 +2181,19 @@ class FuncState
 				
 		MDValue v;
 		v.value = x;
+		
+		mConstants ~= v;
+		return mConstants.length - 1;
+	}
+	
+	public int codeNullConst()
+	{
+		foreach(uint i, MDValue v; mConstants)
+			if(v.isNull())
+				return i;
+				
+		MDValue v;
+		v.setNull();
 		
 		mConstants ~= v;
 		return mConstants.length - 1;
@@ -2556,6 +2684,7 @@ class LocalFuncDecl : Declaration
 	public override void codeGen(FuncState s)
 	{
 		s.insertLocal(mName);
+		s.activateLocals(1);
 
 		FuncState fs = new FuncState(mLocation, s);
 		fs.mIsVararg = mIsVararg;
@@ -2564,7 +2693,8 @@ class LocalFuncDecl : Declaration
 			fs.insertLocal(p);
 
 		mBody.codeGen(fs);
-		
+		fs.codeI(Op.Ret, 0, 1);
+
 		s.pushClosure(fs);
 		s.pushVar(mName);
 		s.popClosure();
@@ -2691,6 +2821,7 @@ class FuncDecl : Declaration
 			fs.insertLocal(p);
 
 		mBody.codeGen(fs);
+		fs.codeI(Op.Ret, 0, 1);
 		
 		s.pushClosure(fs);
 		s.pushVar(mNames[0]);
@@ -2967,8 +3098,8 @@ class WhileStatement : Statement
 		InstRef cond = mCondition.codeCondition(s);
 
 		s.pushScope();
-			s.breakStat = this;
-			s.continueStat = this;
+			s.setBreakable();
+			s.setContinuable();
 			mBody.codeGen(s);
 			s.patchContinues(beginLoop);
 			s.codeJump(beginLoop);
@@ -3027,8 +3158,8 @@ class DoWhileStatement : Statement
 		InstRef beginLoop = s.getLabel();
 		
 		s.pushScope();
-			s.breakStat = this;
-			s.continueStat = this;
+			s.setBreakable();
+			s.setContinuable();
 			mBody.codeGen(s);
 			s.patchContinuesToHere();
 			InstRef cond = mCondition.codeCondition(s);
@@ -3126,8 +3257,8 @@ class ForStatement : Statement
 	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
-			s.breakStat = this;
-			s.continueStat = this;
+			s.setBreakable();
+			s.setContinuable();;
 			
 			if(mInitDecl)
 				mInitDecl.codeGen(s);
@@ -3578,6 +3709,7 @@ class BreakStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
+		
 		s.codeBreak(mLocation);
 	}
 
@@ -3645,7 +3777,26 @@ class ReturnStatement : Statement
 			s.codeI(Op.Ret, 0, 1);
 		else
 		{
-			//
+			uint firstReg = s.pushRegister();
+			mExprs[0].codeGen(s);
+			s.popToRegister(firstReg);
+			
+			uint lastReg = firstReg;
+			
+			foreach(Expression e; mExprs[1 .. $])
+			{
+				lastReg = s.pushRegister();
+				e.codeGen(s);
+				s.popToRegister(lastReg);
+			}
+			
+			if(mExprs[$ - 1].isMultRet())
+				s.codeI(Op.Ret, firstReg, 0);
+			else
+				s.codeI(Op.Ret, firstReg, lastReg - firstReg + 2);
+			
+			for(int i = lastReg; i >= firstReg; i--)
+				s.popRegister(i);
 		}
 	}
 	
@@ -3656,7 +3807,7 @@ class ReturnStatement : Statement
 		foreach(uint i, Expression e; mExprs)
 		{
 			e.writeCode(cw);
-			
+
 			if(i != mExprs.length - 1)
 				cw.write(", ");
 		}
@@ -3928,7 +4079,18 @@ class Assignment : Expression
 		else
 		{
 			mRHS.checkMultRet();
-			mRHS.codeGen(s);	
+			mRHS.codeGen(s);
+			
+			foreach(Expression dest; mLHS)
+				dest.codeGen(s);
+				
+			uint RHSReg = s.pushRegister();
+			s.popRegister(RHSReg);
+			mRHS.codeGen(s);
+			s.popToRegisters(RHSReg, mLHS.length);
+
+			for(int reg = RHSReg + mLHS.length - 1; reg >= RHSReg; reg--)
+				s.popMoveFromReg(reg);
 		}
 	}
 	
@@ -4081,45 +4243,25 @@ class AddEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
-	public void codeToNothing(FuncState s)
+	public void codeGen(FuncState s)
 	{
-		/*VarRef dest = mOp1.toDest(s);
-		VarRef src1 = mOp1.toSrc(s);
-		VarRef src2 = mOp2.toSrc(s);
-
-		s.codeAdd(dest, src1, src2);*/
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Add);
+		mOp1.codeGen(s);
+		s.popAssign();
 	}
 	
-	public void codeToReg(FuncState s, uint dest)
-	{
-		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
-	}
-	
-	public void codeToRegs(FuncState s, uint start, uint num)
-	{
-		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
-	}
-	
-	/*public void codeToVar(FuncState s, VarRef dest)
-	{
-		throw new MDCompileException(mLocation, "'+=' cannot be used as an rvalue");
-	}*/
-
 	public InstRef codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
 	}
 	
-	/*public VarRef toDest(FuncState s)
+	public void checkToNothing()
 	{
-		assert(false, "AddEqExp toDest");
+		// OK
 	}
-	
-	public VarRef toSrc(FuncState s)
-	{
-		assert(false, "AddEqExp toSrc");
-	}*/
-	
+
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4133,6 +4275,25 @@ class SubEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Sub);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'-=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -4150,6 +4311,25 @@ class CatEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Cat);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'~=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4165,6 +4345,26 @@ class MulEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Mul);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'*=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4178,6 +4378,25 @@ class DivEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Div);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'/=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -4195,6 +4414,25 @@ class ModEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Mod);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'%=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4208,6 +4446,25 @@ class ShlEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Shl);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'<<=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -4225,6 +4482,25 @@ class ShrEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Shr);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'>>=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4238,6 +4514,25 @@ class UshrEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.UShr);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'>>>=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -4255,6 +4550,25 @@ class OrEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Or);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4270,6 +4584,25 @@ class XorEqExp : OpEqExp
 		super(location, left, right);
 	}
 	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.Xor);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
+	}
+	
 	public void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
@@ -4283,6 +4616,25 @@ class AndEqExp : OpEqExp
 	public this(Location location, Expression left, Expression right)
 	{
 		super(location, left, right);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		mOp2.codeGen(s);
+		s.popBinOp(Op.And);
+		mOp1.codeGen(s);
+		s.popAssign();
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -4320,6 +4672,21 @@ class OrOrExp : BinaryExp
 		}
 		
 		return exp1;
+	}
+	
+	public void codeGen(FuncState s)
+	{
+
+	}
+	
+	public InstRef codeCondition(FuncState s)
+	{
+
+	}
+	
+	public void checkToNothing()
+	{
+		// OK
 	}
 	
 	public void writeCode(CodeWriter cw)

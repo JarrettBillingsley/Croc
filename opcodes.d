@@ -3,6 +3,7 @@ module opcodes;
 enum Op : uint
 {
 	Add,
+	And,
 	Call,
 	Cat,
 	Close,
@@ -30,6 +31,7 @@ enum Op : uint
 	NewArray,
 	NewTable,
 	Not,
+	Or,
 	PopCatch,
 	PopFinally,
 	PushCatch,
@@ -37,11 +39,15 @@ enum Op : uint
 	Ret,
 	SetGlobal,
 	SetUpvalue,
+	Shl,
+	Shr,
 	Sub,
 	SwitchInt,
 	SwitchString,
 	Throw,
-	Vararg
+	UShr,
+	Vararg,
+	Xor
 }
 
 template Mask(uint length)
