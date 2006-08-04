@@ -9,12 +9,15 @@ enum Op : uint
 	Close,
 	Closure,
 	Cmp,
+	Com,
 	Div,
 	Foreach,
 	GetGlobal,
 	GetUpvalue,
 	Index,
 	IndexAssign,
+	Is,
+	IsTrue,
 	Je,
 	Jle,
 	Jlt,
@@ -49,6 +52,58 @@ enum Op : uint
 	Vararg,
 	Xor
 }
+
+/*
+Add...............R: dest, src, src
+And...............R: dest, src, src
+Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
+Cat...............R: dest, src, src
+Close.............I: reg start, n/a
+Closure...........I: dest, index of funcdef
+Cmp...............R: n/a, src, src
+Com...............R: dest, src, n/a
+Div...............R: dest, src, src
+Foreach...........I: base reg, num indices
+GetGlobal.........I: dest, const index of global name
+GetUpvalue........I: dest, upval index
+Index.............R: dest, src table/array, src index
+IndexAssign.......R: dest table/array, src index, src
+Is................R: n/a, src, src
+IsTrue............R: n/a, src, n/a
+Je................J: isTrue, branch offset
+Jle...............J: isTrue, branch offset
+Jlt...............J: isTrue, branch offset
+Jmp...............J: 0 = jump / 1 = don't (nop), branch offset
+Length............R: dest, src, n/a
+LoadBool..........R: dest, 1/0, n/a
+LoadConst.........I: dest, const index
+LoadNull..........R: dest, n/a, n/a
+Method............R: base reg, table to index, method index
+Mod...............R: dest, src, src
+Move..............R: dest, src, n/a
+Mul...............R: dest, src, src
+Neg...............R: dest, src, n/a
+NewArray..........I: dest, size
+NewTable..........I: dest, n/a
+Not...............R: dest, src, n/a
+Or................R: dest, src, src
+PopCatch..........?
+PopFinally........?
+PushCatch.........?
+PushFinally.......?
+Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
+SetGlobal.........I: src, const index of global name
+SetUpvalue........I: src, upval index
+Shl...............R: dest, src, src
+Shr...............R: dest, src, src
+Sub...............R: dest, src, src
+SwitchInt.........I: src, index of switch table
+SwitchString......I: src, index of switch table
+Throw.............I: src, n/a
+UShr..............R: dest, src, src
+Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
+Xor...............R: dest, src, src
+*/
 
 template Mask(uint length)
 {
