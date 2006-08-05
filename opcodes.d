@@ -1,5 +1,7 @@
 module opcodes;
 
+import string = std.string;
+
 enum Op : uint
 {
 	Add,
@@ -73,7 +75,7 @@ IsTrue............R: n/a, src, n/a
 Je................J: isTrue, branch offset
 Jle...............J: isTrue, branch offset
 Jlt...............J: isTrue, branch offset
-Jmp...............J: 0 = jump / 1 = don't (nop), branch offset
+Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
 LoadBool..........R: dest, 1/0, n/a
 LoadConst.........I: dest, const index
@@ -194,5 +196,129 @@ struct Instruction
 	{
 		data = (data & ~(opcodeMask << opcodePos)) | ((value & opcodeMask) << opcodePos);
 		return value;
+	}
+	
+	import std.stdio;
+	
+	char[] toString()
+	{
+		char[] cr(int v)
+		{
+			if(v & constBit)
+				return string.format("c%s", v & ~constBit);
+			else
+				return string.format("r%s", v);
+		}
+
+		switch(opcode)
+		{
+			case Op.Add:
+				return string.format("add r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.And:
+				return string.format("and r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Call:
+				return string.format("call r%s, %s, %s", rd, rs1, rs2);
+			case Op.Cat:
+				return string.format("cat r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Close:
+				return string.format("close r%s", rd);
+			case Op.Closure:
+				return string.format("closure r%s, %s", rd, imm);
+			case Op.Cmp:
+				return string.format("cmp %s, %s", cr(rs1), cr(rs2));
+			case Op.Com:
+				return string.format("com r%s, %s", rd, cr(rs1));
+			case Op.Div:
+				return string.format("div r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Foreach:
+				return string.format("foreach r%s, %s", rd, imm);
+			case Op.GetGlobal:
+				return string.format("getg r%s, c%s", rd, imm);
+			case Op.GetUpvalue:
+				return string.format("getu r%s, %s", rd, imm);
+			case Op.Index:
+				return string.format("idx r%s, r%s, %s", rd, rs1, cr(rs2));
+			case Op.IndexAssign:
+				return string.format("idxa r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Is:
+				return string.format("is %s, %s", cr(rs1), cr(rs2));
+			case Op.IsTrue:
+				return string.format("istrue %s", cr(rs1));
+			case Op.Je:
+				if(rd == 0)
+					return string.format("jne %s", imm - immBias);
+				else
+					return string.format("je %s", imm - immBias);
+			case Op.Jle:
+				if(rd == 0)
+					return string.format("jgt %s", imm - immBias);
+				else
+					return string.format("jle %s", imm - immBias);
+			case Op.Jlt:
+				if(rd == 0)
+					return string.format("jge %s", imm - immBias);
+				else
+					return string.format("jlt %s", imm - immBias);
+			case Op.Jmp:
+				if(rd == 0)
+					return "nop";
+				else
+				{
+					return string.format("jmp %s", cast(int)(imm - immBias));
+				}
+			case Op.Length:
+				return string.format("len r%s, %s", rd, cr(rs1));
+			case Op.LoadBool:
+				return string.format("lb r%s, %s", rd, rs1);
+			case Op.LoadConst:
+				return string.format("lc r%s, c%s", rd, imm);
+			case Op.LoadNull:
+				return string.format("lnull r%s", rd);
+			case Op.Method:
+			case Op.Mod:
+				return string.format("mod r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Move:
+				return string.format("mov r%s, r%s", rd, rs1);
+			case Op.Mul:
+				return string.format("mul r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Neg:
+				return string.format("neg r%s, %s", rd, cr(rs1));
+			case Op.NewArray:
+				return string.format("newarr r%s, %s", rd, imm);
+			case Op.NewTable:
+				return string.format("newtab r%s", rd);
+			case Op.Not:
+				return string.format("not r%s, %s", rd, cr(rs1));
+			case Op.Or:
+				return string.format("or r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.PopCatch:
+			case Op.PopFinally:
+			case Op.PushCatch:
+			case Op.PushFinally:
+				assert(false);
+			case Op.Ret:
+				return string.format("ret r%s, %s", rd, imm);
+			case Op.SetGlobal:
+				return string.format("setg r%s, c%s", rd, imm);
+			case Op.SetUpvalue:
+				return string.format("setu r%s, %s", rd, imm);
+			case Op.Shl:
+				return string.format("shl r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Shr:
+				return string.format("shr r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Sub:
+				return string.format("sub r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.SwitchInt:
+			case Op.SwitchString:
+				assert(false);
+			case Op.Throw:
+				return string.format("throw r%s", rd);
+			case Op.UShr:
+				return string.format("ushr r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Vararg:
+				return string.format("varg r%s, %s", rd, imm);
+			case Op.Xor:
+				return string.format("xor r%s, %s, %s", rd, cr(rs1), cr(rs2));
+		}
 	}
 }

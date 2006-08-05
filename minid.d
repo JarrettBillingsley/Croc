@@ -20,7 +20,8 @@ public void compile(char[] name, Stream source)
 	auto Lexer l = new Lexer();
 	Token* tokens = l.lex(name, source);
 	Chunk ck = Chunk.parse(tokens);
-	ck.codeGen();
+	FuncState fs = ck.codeGen();
+	fs.showMe();
 
 	//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 	//CodeWriter cw = new CodeWriter(o);
@@ -1428,7 +1429,7 @@ class FuncState
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
 	protected MDFuncDef.LocVarDesc[] mLocVars;
-	protected int mNumActiveVars = -1;
+	protected int mNumActiveVars = 0;
 	
 	struct UpvalDesc
 	{
@@ -1491,8 +1492,8 @@ class FuncState
 	
 	protected int searchLocal(char[] name)
 	{
-		for(int i = mLocVars.length - 1; i >= 0; i--)
-			if(mLocVars[i].name == name && mNumActiveVars >= mLocVars[i].reg)
+		for(int i = mNumActiveVars - 1; i >= 0; i--)
+			if(mLocVars[i].name == name)
 				return i;
 
 		return -1;
@@ -1501,7 +1502,7 @@ class FuncState
 	public int searchVar(Identifier ident, out FuncState owner)
 	{
 		assert(ident !is null);
-		
+
 		for(FuncState s = this; s !is null; s = s.mParent)
 		{
 			int index = searchLocal(ident.mName);
@@ -1516,7 +1517,7 @@ class FuncState
 		return -1;
 	}
 
-	public Exp* insertLocal(Identifier ident, int register = -1)
+	public void insertLocal(Identifier ident, int register = -1)
 	{
 		int i = searchLocal(ident.mName);
 
@@ -1550,6 +1551,8 @@ class FuncState
 	public int pushRegister()
 	{
 		mFreeReg++;
+		
+		writefln("push ", mFreeReg);
 
 		if(mFreeReg > MaxRegisters)
 			throw new MDCompileException(mLocation, "Too many registers");
@@ -1559,6 +1562,7 @@ class FuncState
 	
 	public void popRegister(int r)
 	{
+		writefln("pop ", mFreeReg, ", ", r);
 		mFreeReg--;
 		assert(mFreeReg == r, "reg not freed in order");
 	}
@@ -1577,7 +1581,10 @@ class FuncState
 	{
 		mExpSP--;
 		
-		assert(mExpSP >= 0, "exp stack underflow");
+		//assert(mExpSP >= 0, "exp stack underflow");
+		
+		if(mExpSP < 0)
+			*cast(byte*)0 = 0;
 
 		return &mExpStack[mExpSP];
 	}
@@ -1589,6 +1596,12 @@ class FuncState
 		Exp* dest = pushExp();
 		*dest = *src;
 	}*/
+	
+	public void pushVoid()
+	{
+		Exp* e = pushExp();
+		e.type = ExpType.Void;
+	}
 	
 	public void pushNull()
 	{
@@ -1639,6 +1652,70 @@ class FuncState
 	{
 		Exp* e = pushExp();
 		
+		ExpType searchVar(FuncState s, bool isOriginal = true)
+		{
+			uint findUpval()
+			{
+				for(int i = 0; i < s.mUpvals.length; i++)
+					if(s.mUpvals[i].name == name.mName && s.mUpvals[i].type == e.type)
+						return i;
+
+				UpvalDesc ud;
+				
+				ud.name = name.mName;
+				ud.type = e.type;
+				ud.index = e.index;
+				
+				s.mUpvals ~= ud;
+				
+				// need to check length of upvals
+				
+				return mUpvals.length - 1;
+			}
+
+			if(s is null)
+			{
+				e.type = ExpType.Global;
+				return ExpType.Global;
+			}
+
+			int index = s.searchLocal(name.mName);
+
+			if(index == -1)
+			{
+				if(searchVar(s.mParent, false) == ExpType.Global)
+					return ExpType.Global;
+					
+				e.index = findUpval();
+				e.type = ExpType.Upvalue;
+				return ExpType.Upvalue;
+			}
+			else
+			{
+				e.type = ExpType.Local;
+				e.index = index;
+
+				if(isOriginal == false)
+				{
+					for(Scope* sc = s.mScope; sc !is null; sc = sc.enclosing)
+					{
+						if(sc.varStart <= index)
+						{
+							sc.hasUpval = true;
+							break;
+						}
+					}
+				}
+				
+				return ExpType.Local;
+			}
+		}
+		
+		if(searchVar(this) == ExpType.Global)
+			e.index = codeStringConst(utf.toUTF32(name.mName));
+
+		/*Exp* e = pushExp();
+
 		FuncState owner;
 		int index = searchVar(name, owner);
 		
@@ -1659,7 +1736,7 @@ class FuncState
 			//upvalue
 			e.type = ExpType.Upvalue;
 			e.index = searchUpval(name);
-		}
+		}*/
 	}
 	
 	public void pushVararg()
@@ -1698,12 +1775,12 @@ class FuncState
 		e.index = index;
 	}
 	
-	public void pushTable()
+	/*public void pushTable()
 	{
 		Exp* e = pushExp();
 		e.type = ExpType.NeedsDest;
 		e.index = codeI(Op.NewTable, 0, 0);
-	}
+	}*/
 
 	public void freeExpTempRegs(Exp* e)
 	{
@@ -1716,9 +1793,12 @@ class FuncState
 	
 	public void popToNothing()
 	{
+		if(mExpSP == 0)
+			return;
+
 		Exp* src = popExp();
-		
-		freeExpTempRegs(src);
+
+		//freeExpTempRegs(src);
 
 		if(src.type == ExpType.Call)
 			mCode[src.index].rs2 = 1;
@@ -1779,19 +1859,20 @@ class FuncState
 				break;
 
 			case ExpType.ConstInt:
-				codeI(Op.LoadConst, reg, asConst(codeIntConst(src.intValue)));
+				codeI(Op.LoadConst, reg, codeIntConst(src.intValue));
 				break;
 
 			case ExpType.ConstFloat:
-				codeI(Op.LoadConst, reg, asConst(codeFloatConst(src.floatValue)));
+				codeI(Op.LoadConst, reg, codeFloatConst(src.floatValue));
 				break;
 
 			case ExpType.ConstIndex:
 				codeI(Op.LoadConst, reg, src.index);
 				break;
-				
+
 			case ExpType.Local:
-				codeR(Op.Move, reg, src.index, 0);
+				if(reg != src.index)
+					codeR(Op.Move, reg, src.index, 0);
 				break;
 
 			case ExpType.Upvalue:
@@ -1804,7 +1885,6 @@ class FuncState
 
 			case ExpType.Indexed:
 				codeR(Op.Index, reg, src.index, src.index2);
-				// what about a[4] += 6 ?  The temp reg for the index would be released
 				freeExpTempRegs(src);
 				break;
 				
@@ -1818,6 +1898,9 @@ class FuncState
 				
 			case ExpType.Call:
 				mCode[src.index].rs2 = 2;
+				
+				if(reg != src.index2)
+					codeR(Op.Move, reg, src.index2, 0);
 				break;
 				
 			case ExpType.NeedsDest:
@@ -1825,7 +1908,9 @@ class FuncState
 				break;
 
 			case ExpType.Src:
-				codeR(Op.Move, reg, src.index, 0);
+				if(reg != src.index)
+					codeR(Op.Move, reg, src.index, 0);
+					
 				freeExpTempRegs(src);
 				break;
 
@@ -1934,7 +2019,8 @@ class FuncState
 		switch(dest.type)
 		{
 			case ExpType.Local:
-				codeR(Op.Move, dest.index, srcReg, 0);
+				if(dest.index != srcReg)
+					codeR(Op.Move, dest.index, srcReg, 0);
 				break;
 				
 			case ExpType.Global:
@@ -2052,13 +2138,41 @@ class FuncState
 				return asConst(codeIntConst(0));
 
 			case ExpType.ConstInt:
-				return asConst(codeIntConst(e.intValue));
+				uint index = codeIntConst(e.intValue);
+				
+				if(index > Instruction.rs1Max)
+				{
+					uint reg = pushRegister();
+					isTempReg = true;
+					codeI(Op.LoadConst, reg, index);
+					return reg;
+				}
+				else
+					return asConst(index);
 
 			case ExpType.ConstFloat:
-				return asConst(codeFloatConst(e.floatValue));
+				uint index = codeFloatConst(e.floatValue);
+				
+				if(index > Instruction.rs1Max)
+				{
+					uint reg = pushRegister();
+					isTempReg = true;
+					codeI(Op.LoadConst, reg, index);
+					return reg;
+				}
+				else
+					return asConst(index);
 
 			case ExpType.ConstIndex:
-				return e.index;
+				if(e.index > Instruction.rs1Max)
+				{
+					uint reg = pushRegister();
+					isTempReg = true;
+					codeI(Op.LoadConst, reg, e.index);
+					return reg;
+				}
+				else
+					return asConst(e.index);
 
 			case ExpType.Local:
 				return e.index;
@@ -2088,8 +2202,9 @@ class FuncState
 				return reg;
 
 			case ExpType.Call:
+				mCode[e.index].rs2 = 2;
 				return e.index2;
-				
+
 			case ExpType.Closure:
 				uint reg = pushRegister();
 				codeI(Op.Closure, reg, e.index);
@@ -2116,7 +2231,7 @@ class FuncState
 		return index | Instruction.constBit;
 	}
 
-	public int searchUpval(Identifier name, bool isOriginal = true)
+	public uint searchUpval(Identifier name, bool isOriginal = true)
 	{
 		uint localIndex = searchLocal(name.mName);
 		
@@ -2141,6 +2256,8 @@ class FuncState
 		foreach(uint i, UpvalDesc u; mUpvals)
 			if(u.name == name.mName)
 				return i;
+				
+		assert(mParent !is null);
 
 		uint parentIndex = mParent.searchUpval(name, false);
 
@@ -2166,7 +2283,7 @@ class FuncState
 	
 	public void patchJumpToHere(InstRef* src)
 	{
-		int diff = mCode.length - src.pc;
+		int diff = mCode.length - src.pc - 1;
 		diff += Instruction.immBias;
 
 		if(diff < 0 || diff > Instruction.immMax)
@@ -2177,7 +2294,7 @@ class FuncState
 	
 	public void patchJumpTo(InstRef* src, InstRef* dest)
 	{
-		int diff = dest.pc - src.pc;
+		int diff = dest.pc - src.pc - 1;
 		diff += Instruction.immBias;
 		
 		if(diff < 0 || diff > Instruction.immMax)
@@ -2278,15 +2395,15 @@ class FuncState
 	
 	public void codeJump(InstRef* dest)
 	{
-		int diff = dest.pc - mCode.length;
+		int diff = dest.pc - mCode.length - 1;
 		diff += Instruction.immBias;
 		
 		if(diff < 0 || diff > Instruction.immMax)
 			throw new MDCompileException(mLocation, "Control structure too long");
-			
-		codeJ(Op.Jmp, 0, diff);
+
+		codeJ(Op.Jmp, true, diff);
 	}
-	
+
 	public InstRef* makeJump(Op type = Op.Jmp, bool isTrue = true)
 	{
 		if(type == Op.Jmp)
@@ -2294,7 +2411,7 @@ class FuncState
 
 		InstRef* i = new InstRef;
 		i.pc = codeJ(type, isTrue, 0);
-		return i;	
+		return i;
 	}
 
 	public void codeContinue(Location location)
@@ -2400,7 +2517,7 @@ class FuncState
 
 	public uint codeJ(Op opcode, uint dest, int offs)
 	{
-		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | (offs + Instruction.immBias) << Instruction.immPos);
+		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | offs << Instruction.immPos);
 	}
 
 	public void showMe(uint tab = 0)
@@ -2408,10 +2525,44 @@ class FuncState
 		writefln(std.string.repeat("\t", tab), "Function at ", mLocation.toString());
 
 		foreach(v; mLocVars)
-			writefln(std.string.repeat("\t", tab + 1), "Local ", v.name, "(%s)", v.location.toString());
+			writefln(std.string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
+			
+		foreach(i, u; mUpvals)
+			writefln(std.string.repeat("\t", tab + 1), "Upvalue %s: %s", i, u.name);
 
-		foreach(FuncState s; mInnerFuncs)
+		foreach(i, c; mConstants)
+		{
+			switch(c.type)
+			{
+				case MDValue.Type.Null:
+					writefln(std.string.repeat("\t", tab + 1), "Const %s: null", i);
+					break;
+
+				case MDValue.Type.Int:
+					writefln(std.string.repeat("\t", tab + 1), "Const %s: %s", i, c.asInt());
+					break;
+					
+				case MDValue.Type.Float:
+					writefln(std.string.repeat("\t", tab + 1), "Const %s: %sf", i, c.asFloat());
+					break;
+				
+				case MDValue.Type.String:
+					writefln(std.string.repeat("\t", tab + 1), "Const %s: \"%s\"", i, c.asString());
+					break;
+					
+				default:
+					assert(false);
+			}
+		}
+
+		foreach(uint i, FuncState s; mInnerFuncs)
+		{
+			writefln(std.string.repeat("\t", tab + 1), "Inner Func ", i);
 			s.showMe(tab + 1);
+		}
+			
+		foreach(i, inst; cast(Instruction[])mCode)
+			writefln(std.string.repeat("\t", tab + 1), "[%3s] ", i, inst.toString());
 	}
 }
 
@@ -2451,14 +2602,16 @@ class Chunk
 		return new Chunk(location, statements);
 	}
 	
-	public MDFuncDef codeGen()
+	public FuncState codeGen()
 	{
 		FuncState fs = new FuncState(mLocation);
 		
 		foreach(Statement s; mStatements)
 			s.codeGen(fs);
 			
-		return null;
+		fs.codeI(Op.Ret, 0, 1);
+			
+		return fs;
 	}
 
 	void writeCode(CodeWriter cw)
@@ -2997,6 +3150,11 @@ class FuncDecl : Declaration
 
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
+			
+		fs.activateLocals(mParams.length);
+		
+		if(mIsMethod)
+			fs.activateLocals(1);
 
 		mBody.codeGen(fs);
 		fs.codeI(Op.Ret, 0, 1);
@@ -4257,7 +4415,7 @@ class Assignment : Expression
 		return new Assignment(location, lhs, rhs);
 	}
 	
-	public void codeToNothing(FuncState s)
+	public void codeGen(FuncState s)
 	{
 		if(mLHS.length == 1)
 		{
@@ -4281,6 +4439,8 @@ class Assignment : Expression
 			for(int reg = RHSReg + mLHS.length - 1; reg >= RHSReg; reg--)
 				s.popMoveFromReg(reg);
 		}
+		
+		s.pushVoid();
 	}
 	
 	public InstRef* codeCondition(FuncState s)
@@ -6245,30 +6405,36 @@ class CallExp : PostfixExp
 	public void codeGen(FuncState s)
 	{
 		uint funcReg = s.pushRegister();
+		s.popRegister(funcReg);
 		mOp.codeGen(s);
+		assert(funcReg == s.pushRegister());
 		s.popToRegister(funcReg);
 
 		if(mArgs.length == 0)
-			s.codeR(Op.Call, funcReg, 1, 0);
+			s.pushCall(funcReg, 1);
 		else
 		{
 			uint firstArg = s.pushRegister();
+			s.popRegister(firstArg);
 			mArgs[0].codeGen(s);
+			assert(firstArg == s.pushRegister());
 			s.popToRegister(firstArg);
 			
 			uint lastReg = firstArg;
-			
+
 			foreach(Expression e; mArgs[1 .. $])
 			{
 				lastReg = s.pushRegister();
+				s.popRegister(lastReg);
 				e.codeGen(s);
+				assert(lastReg == s.pushRegister());
 				s.popToRegister(lastReg);
 			}
 			
 			if(mArgs[$ - 1].isMultRet())
-				s.codeR(Op.Call, funcReg, 0, 0);
+				s.pushCall(funcReg, 0);
 			else
-				s.codeR(Op.Call, funcReg, lastReg - firstArg + 2, 0);
+				s.pushCall(funcReg, lastReg - firstArg + 2);
 			
 			for(int i = lastReg; i >= firstArg; i--)
 				s.popRegister(i);
@@ -6519,7 +6685,7 @@ class NullExp : PrimaryExp
 	
 	public InstRef* codeCondition(FuncState s)
 	{
-		return s.makeJump(Op.Jmp, true);
+		return s.makeJump(Op.Jmp);
 	}
 
 	public void writeCode(CodeWriter cw)
@@ -6561,7 +6727,7 @@ class BoolExp : PrimaryExp
 	{
 		return s.makeJump(Op.Jmp, !mValue);
 	}
-	
+
 	public void writeCode(CodeWriter cw)
 	{
 		if(mValue)
@@ -6930,7 +7096,6 @@ class TableCtorExp : PrimaryExp
 	
 	public void codeGen(FuncState s)
 	{
-		s.pushTable();
 		
 	}
 	

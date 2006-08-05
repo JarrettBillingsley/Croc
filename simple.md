@@ -1,4 +1,9 @@
-local t =
+function foo(x)
+{
+	x = x || 5;
+}
+
+/*local t =
 {
 	x = 5
 	y = 4.5
@@ -101,4 +106,4 @@ local function vargs(vararg)
 	
 	for(local i = 0; i < #args; ++i)
 		io.writefln("args[", i, "] = ", args[i]);
-}
+}*/
