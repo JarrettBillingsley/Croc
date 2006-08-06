@@ -1417,7 +1417,7 @@ class FuncState
 	protected Scope* mScope;
 	protected uint mFreeReg = 0;
 	protected Exp[] mExpStack;
-	protected int mExpSP;
+	protected int mExpSP = 0;
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
@@ -1550,9 +1550,9 @@ class FuncState
 
 	public int pushRegister()
 	{
-		mFreeReg++;
-		
 		writefln("push ", mFreeReg);
+
+		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
 			throw new MDCompileException(mLocation, "Too many registers");
@@ -1562,8 +1562,8 @@ class FuncState
 	
 	public void popRegister(int r)
 	{
-		writefln("pop ", mFreeReg, ", ", r);
 		mFreeReg--;
+		writefln("pop ", mFreeReg, ", ", r);
 		assert(mFreeReg == r, "reg not freed in order");
 	}
 	
@@ -1588,15 +1588,7 @@ class FuncState
 
 		return &mExpStack[mExpSP];
 	}
-	
-	/*public void dup()
-	{
-		assert(mExpSP > 0);
-		Exp* src = &mExpStack[mExpSP - 1];
-		Exp* dest = pushExp();
-		*dest = *src;
-	}*/
-	
+
 	public void pushVoid()
 	{
 		Exp* e = pushExp();
@@ -1713,30 +1705,6 @@ class FuncState
 		
 		if(searchVar(this) == ExpType.Global)
 			e.index = codeStringConst(utf.toUTF32(name.mName));
-
-		/*Exp* e = pushExp();
-
-		FuncState owner;
-		int index = searchVar(name, owner);
-		
-		if(index == -1)
-		{
-			// global
-			e.type = ExpType.Global;
-			e.index = codeStringConst(utf.toUTF32(name.mName));
-		}
-		else if(owner is this)
-		{
-			// local
-			e.type = ExpType.Local;
-			e.index = index;
-		}
-		else
-		{
-			//upvalue
-			e.type = ExpType.Upvalue;
-			e.index = searchUpval(name);
-		}*/
 	}
 	
 	public void pushVararg()
@@ -1774,13 +1742,6 @@ class FuncState
 		e.type = ExpType.Closure;
 		e.index = index;
 	}
-	
-	/*public void pushTable()
-	{
-		Exp* e = pushExp();
-		e.type = ExpType.NeedsDest;
-		e.index = codeI(Op.NewTable, 0, 0);
-	}*/
 
 	public void freeExpTempRegs(Exp* e)
 	{
@@ -1816,23 +1777,27 @@ class FuncState
 
 			case ExpType.Upvalue:
 				uint destReg = pushRegister();
+				popRegister(destReg);
 				popToRegister(destReg);
 				codeI(Op.SetUpvalue, destReg, dest.index);
-				popRegister(destReg);
 				break;
 
 			case ExpType.Global:
 				uint destReg = pushRegister();
+				popRegister(destReg);
 				popToRegister(destReg);
 				codeI(Op.SetGlobal, destReg, dest.index);
-				popRegister(destReg);
 				break;
 
 			case ExpType.Indexed:
-				uint destReg = pushRegister();
-				popToRegister(destReg);
-				codeR(Op.IndexAssign, dest.index, dest.index2, destReg);
-				popRegister(destReg);
+				bool isTemp;
+				uint src = popSource(isTemp);
+
+				codeR(Op.IndexAssign, dest.index, dest.index2, src);
+
+				if(isTemp)
+					popRegister(src);
+
 				freeExpTempRegs(dest);
 				break;
 		}
@@ -1910,7 +1875,7 @@ class FuncState
 			case ExpType.Src:
 				if(reg != src.index)
 					codeR(Op.Move, reg, src.index, 0);
-					
+
 				freeExpTempRegs(src);
 				break;
 
@@ -2047,8 +2012,6 @@ class FuncState
 
 		Exp* e = &mExpStack[mExpSP - 1];
 
-		e.index2 = asConst(codeStringConst(utf.toUTF32(field.mName)));
-
 		switch(e.type)
 		{
 			case ExpType.Local:
@@ -2059,12 +2022,14 @@ class FuncState
 				uint destReg = pushRegister();
 				codeI(Op.GetGlobal, destReg, e.index);
 				e.index = destReg;
+				e.isTempReg = true;
 				break;
 
 			case ExpType.Upvalue:
 				uint destReg = pushRegister();
 				codeI(Op.GetUpvalue, destReg, e.index);
 				e.index = destReg;
+				e.isTempReg = true;
 				break;
 
 			case ExpType.Indexed:
@@ -2075,34 +2040,35 @@ class FuncState
 				assert(false);
 		}
 		
+		e.index2 = asConst(codeStringConst(utf.toUTF32(field.mName)));
 		e.type = ExpType.Indexed;
 	}
 	
-	/*public void popIndex()
+	public void popIndex()
 	{
 		assert(mExpSP > 1, "pop index from nothing");
 
 		Exp* index = popExp();
 		Exp* e = &mExpStack[mExpSP - 1];
 
-		e.index2 = asConst(codeStringConst(utf.toUTF32(field.mName)));
-
 		switch(e.type)
 		{
 			case ExpType.Local:
 				// index just stays the same; type and index2 are written to
 				break;
-				
+
 			case ExpType.Global:
 				uint destReg = pushRegister();
 				codeI(Op.GetGlobal, destReg, e.index);
 				e.index = destReg;
+				e.isTempReg = true;
 				break;
 
 			case ExpType.Upvalue:
 				uint destReg = pushRegister();
 				codeI(Op.GetUpvalue, destReg, e.index);
 				e.index = destReg;
+				e.isTempReg = true;
 				break;
 
 			case ExpType.Indexed:
@@ -2113,66 +2079,52 @@ class FuncState
 				assert(false);
 		}
 		
+		e.index2 = toSource(index, e.isTempReg2);
 		e.type = ExpType.Indexed;
-	}*/
-	
+	}
+
 	public uint popSource(out bool isTempReg)
 	{
 		Exp* e = popExp();
-		return toSource(e, isTempReg);	
+		return toSource(e, isTempReg);
 	}
 
 	protected uint toSource(Exp* e, out bool isTempReg)
 	{
 		isTempReg = false;
+		
+		uint doConst(uint index)
+		{
+			if(index > Instruction.constMax)
+			{
+				uint reg = pushRegister();
+				isTempReg = true;
+				codeI(Op.LoadConst, reg, index);
+				return reg;
+			}
+			else
+				return asConst(index);
+		}
 
 		switch(e.type)
 		{
 			case ExpType.Null:
-				return asConst(codeNullConst());
+				return doConst(codeNullConst());
 
 			case ExpType.True:
-				return asConst(codeIntConst(1));
+				return doConst(codeIntConst(1));
 
 			case ExpType.False:
-				return asConst(codeIntConst(0));
+				return doConst(codeIntConst(0));
 
 			case ExpType.ConstInt:
-				uint index = codeIntConst(e.intValue);
-				
-				if(index > Instruction.rs1Max)
-				{
-					uint reg = pushRegister();
-					isTempReg = true;
-					codeI(Op.LoadConst, reg, index);
-					return reg;
-				}
-				else
-					return asConst(index);
+				return doConst(codeIntConst(e.intValue));
 
 			case ExpType.ConstFloat:
-				uint index = codeFloatConst(e.floatValue);
-				
-				if(index > Instruction.rs1Max)
-				{
-					uint reg = pushRegister();
-					isTempReg = true;
-					codeI(Op.LoadConst, reg, index);
-					return reg;
-				}
-				else
-					return asConst(index);
+				return doConst(codeFloatConst(e.floatValue));
 
 			case ExpType.ConstIndex:
-				if(e.index > Instruction.rs1Max)
-				{
-					uint reg = pushRegister();
-					isTempReg = true;
-					codeI(Op.LoadConst, reg, e.index);
-					return reg;
-				}
-				else
-					return asConst(e.index);
+				return doConst(e.index);
 
 			case ExpType.Local:
 				return e.index;
@@ -2231,56 +2183,6 @@ class FuncState
 		return index | Instruction.constBit;
 	}
 
-	public uint searchUpval(Identifier name, bool isOriginal = true)
-	{
-		uint localIndex = searchLocal(name.mName);
-		
-		if(localIndex != -1)
-		{
-			// needed?  It looks for locals first, so maybe not
-			//if(!isOriginal)
-			//{
-				for(Scope* s = mScope; s !is null; s = s.enclosing)
-				{
-					if(s.varStart <= localIndex)
-					{
-						s.hasUpval = true;
-						break;
-					}
-				}
-			//}
-
-			return localIndex;
-		}
-
-		foreach(uint i, UpvalDesc u; mUpvals)
-			if(u.name == name.mName)
-				return i;
-				
-		assert(mParent !is null);
-
-		uint parentIndex = mParent.searchUpval(name, false);
-
-		UpvalDesc ud;
-		ud.index = parentIndex;
-		ud.name = name.mName;
-
-		mUpvals ~= ud;
-
-		return mUpvals.length - 1;
-	}
-	
-	/*public void patchJumpsToHere(InstRef* src)
-	{
-		for(InstRef* i = src; i !is null; )
-		{
-			patchJumpToHere(i);
-			InstRef* next = i.prev;
-			delete i;
-			i = next;
-		}
-	}*/
-	
 	public void patchJumpToHere(InstRef* src)
 	{
 		int diff = mCode.length - src.pc - 1;
@@ -2451,6 +2353,8 @@ class FuncState
 		MDValue v;
 		v.value = new MDString(c);
 		
+		writefln("string ", c);
+		
 		mConstants ~= v;
 		return mConstants.length - 1;
 	}
@@ -2610,6 +2514,8 @@ class Chunk
 			s.codeGen(fs);
 			
 		fs.codeI(Op.Ret, 0, 1);
+		
+		assert(fs.mExpSP == 0);
 			
 		return fs;
 	}
@@ -2767,9 +2673,13 @@ class ExpressionStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
+		int freeRegCheck = s.mFreeReg;
+
 		mExpr.checkToNothing();
 		mExpr.codeGen(s);
 		s.popToNothing();
+	
+		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -3022,6 +2932,8 @@ class LocalFuncDecl : Declaration
 
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
+			
+		fs.activateLocals(mParams.length);
 
 		mBody.codeGen(fs);
 		fs.codeI(Op.Ret, 0, 1);
@@ -6496,37 +6408,9 @@ class IndexExp : PostfixExp
 	
 	public void codeGen(FuncState s)
 	{
-		/*uint funcReg = s.pushRegister();
 		mOp.codeGen(s);
-		s.popToRegister(funcReg);
-
-		if(mArgs.length == 0)
-			s.codeR(Op.Call, funcReg, 1, 0);
-		else
-		{
-			uint firstArg = s.pushRegister();
-			mArgs[0].codeGen(s);
-			s.popToRegister(firstArg);
-			
-			uint lastReg = firstArg;
-			
-			foreach(Expression e; mArgs[1 .. $])
-			{
-				lastReg = s.pushRegister();
-				e.codeGen(s);
-				s.popToRegister(lastReg);
-			}
-			
-			if(mArgs[$ - 1].isMultRet())
-				s.codeR(Op.Call, funcReg, 0, 0);
-			else
-				s.codeR(Op.Call, funcReg, lastReg - firstArg + 2, 0);
-			
-			for(int i = lastReg; i >= firstArg; i--)
-				s.popRegister(i);
-		}
-		
-		s.popRegister(funcReg);*/
+		mIndex.codeGen(s);
+		s.popIndex();
 	}
 	
 	public InstRef* codeCondition(FuncState s)
@@ -6958,6 +6842,8 @@ class FuncLiteralExp : PrimaryExp
 
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
+			
+		fs.activateLocals(mParams.length);
 
 		mBody.codeGen(fs);
 		fs.codeI(Op.Ret, 0, 1);
@@ -7005,7 +6891,7 @@ class TableCtorExp : PrimaryExp
 
 		t.check(Token.Type.LBrace);
 		t = t.nextToken;
-		
+
 		Expression[2][] fields = new Expression[2][2];
 		uint i = 0;
 
@@ -7022,56 +6908,47 @@ class TableCtorExp : PrimaryExp
 		if(t.type != Token.Type.RBrace)
 		{
 			int index = 0;
+			
+			bool lastWasFunc = false;
 
 			void parseField()
 			{
 				Expression k;
 				Expression v;
+				
+				lastWasFunc = false;
 
-				if(t.type == Token.Type.LParen)
+				if(t.type == Token.Type.LBracket)
 				{
 					t = t.nextToken;
 					k = OpEqExp.parse(t);
-					
-					t.check(Token.Type.RParen);
+
+					t.check(Token.Type.RBracket);
 					t = t.nextToken;
 					t.check(Token.Type.Assign);
 					t = t.nextToken;
-					
+
 					v = OpEqExp.parse(t);
+				}
+				else if(t.type == Token.Type.Function)
+				{
+					// Take advantage of the fact that LocalFuncDecl.parse() starts on the 'function' token
+					auto LocalFuncDecl fd = LocalFuncDecl.parse(t);
+					k = new StringExp(fd.mLocation, utf.toUTF32(fd.mName.mName));
+					v = new FuncLiteralExp(fd.mLocation, fd.mParams, fd.mIsVararg, fd.mBody);
+					lastWasFunc = true;
 				}
 				else
 				{
-					if(t.type == Token.Type.Function)
-					{
-						// Take advantage of the fact that LocalFuncDecl.parse() starts on the 'function' token
-						auto LocalFuncDecl fd = LocalFuncDecl.parse(t);
-						k = new StringExp(fd.mLocation, utf.toUTF32(fd.mName.mName));
-						v = new FuncLiteralExp(fd.mLocation, fd.mParams, fd.mIsVararg, fd.mBody);
-					}
-					else
-					{
-						Expression exp = OpEqExp.parse(t);
-						IdentExp id = cast(IdentExp)exp;
-	
-						if(id !is null)
-						{
-							k = new StringExp(id.mLocation, utf.toUTF32(id.mIdent.mName));
-							
-							t.check(Token.Type.Assign);
-							t = t.nextToken;
-							v = OpEqExp.parse(t);
-						}
-						else
-						{
-							k = new IntExp(exp.mLocation, index);
-							index++;
-							
-							v = exp;
-						}
-					}
+					Identifier id = Identifier.parse(t);
+					
+					t.check(Token.Type.Assign);
+					t = t.nextToken;
+					
+					k = new StringExp(id.mLocation, utf.toUTF32(id.mName));
+					v = OpEqExp.parse(t);
 				}
-				
+
 				addPair(k, v);
 			}
 
@@ -7079,8 +6956,16 @@ class TableCtorExp : PrimaryExp
 			
 			while(t.type != Token.Type.RBrace)
 			{
-				if(t.type == Token.Type.Comma)
+				if(lastWasFunc)
+				{
+					if(t.type == Token.Type.Comma)
+						t = t.nextToken;
+				}
+				else
+				{
+					t.check(Token.Type.Comma);
 					t = t.nextToken;
+				}
 
 				parseField();
 			}
@@ -7090,13 +6975,36 @@ class TableCtorExp : PrimaryExp
 
 		t.check(Token.Type.RBrace);
 		t = t.nextToken;
-		
+
 		return new TableCtorExp(location, fields);
 	}
 	
 	public void codeGen(FuncState s)
 	{
+		uint destReg = s.pushRegister();
+		s.codeI(Op.NewTable, destReg, 0);
 		
+		foreach(Expression[2] field; mFields)
+		{
+			bool isTemp1;
+			bool isTemp2;
+			
+			field[0].codeGen(s);
+			uint idx = s.popSource(isTemp1);
+			
+			field[1].codeGen(s);
+			uint val = s.popSource(isTemp2);
+
+			s.codeR(Op.IndexAssign, destReg, idx, val);
+			
+			if(isTemp2)
+				s.popRegister(val);
+				
+			if(isTemp1)
+				s.popRegister(idx);
+		}
+
+		s.pushTempReg(destReg);
 	}
 	
 	public InstRef* codeCondition(FuncState s)

@@ -1,12 +1,17 @@
-function foo(x)
+/*local function foo(x)
 {
 	x = x || 5;
-}
+}*/
+
+//a[4] += 2;
+
+//local a = [ foo(1, 2, 3) + 8,
+a["b"][3] = 4;
 
 /*local t =
 {
-	x = 5
-	y = 4.5
+	x = 5,
+	y = 4.5,
 	
 	function foo()
 	{
@@ -38,7 +43,7 @@ local arr = [3, 9, 2];
 
 arr:sort();
 
-foreach(local i, local v; apairs(arr))
+foreach(local i, local v; pairs(arr))
 	io.writefln("arr[", i, "] = ", v);
 
 arr ~= ["foo", "far"];

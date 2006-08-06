@@ -384,12 +384,11 @@ PrimaryExpression:
 	ArrayCtor
 
 TableCtor:
-	'{' [TableField {[','] TableField}] '}'
+	'{' [TableField {',' TableField}] '}'
 
 TableField:
-	Expression
 	Identifier '=' Expression
-	'(' Expression ')' '=' Expression
+	'[' Expression ']' '=' Expression
 	'function' Identifier Parameters BlockStatement
 
 ArrayCtor:

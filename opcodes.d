@@ -140,6 +140,7 @@ struct Instruction
 	const uint opcodePos = rdPos + rdSize;
 	
 	const uint constBit = 1 << (rs2Size - 1);
+	const uint constMax = rs1Max >> 1; // have to account for the top bit
 
 	uint data;
 	
