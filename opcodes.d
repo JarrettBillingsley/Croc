@@ -13,6 +13,7 @@ enum Op : uint
 	Cmp,
 	Com,
 	Div,
+	EndFinal,
 	Foreach,
 	GetGlobal,
 	GetUpvalue,
@@ -55,6 +56,8 @@ enum Op : uint
 	Xor
 }
 
+static assert(Op.max <= Instruction.opcodeMax);
+
 /*
 Add...............R: dest, src, src
 And...............R: dest, src, src
@@ -65,6 +68,7 @@ Closure...........I: dest, index of funcdef
 Cmp...............R: n/a, src, src
 Com...............R: dest, src, n/a
 Div...............R: dest, src, src
+EndFinal..........I: n/a, n/a
 Foreach...........I: base reg, num indices
 GetGlobal.........I: dest, const index of global name
 GetUpvalue........I: dest, upval index
@@ -79,7 +83,7 @@ Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
 LoadBool..........R: dest, 1/0, n/a
 LoadConst.........I: dest, const index
-LoadNull..........R: dest, n/a, n/a
+LoadNull..........I: dest, num regs
 Method............R: base reg, table to index, method index
 Mod...............R: dest, src, src
 Move..............R: dest, src, n/a
@@ -89,10 +93,10 @@ NewArray..........I: dest, size
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 Or................R: dest, src, src
-PopCatch..........?
-PopFinally........?
-PushCatch.........?
-PushFinally.......?
+PopCatch..........I: n/a, n/a
+PopFinally........I: n/a, n/a
+PushCatch.........J: exception reg, branch offset
+PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetGlobal.........I: src, const index of global name
 SetUpvalue........I: src, upval index
@@ -106,6 +110,7 @@ UShr..............R: dest, src, src
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
 Xor...............R: dest, src, src
 */
+
 
 template Mask(uint length)
 {
@@ -136,9 +141,10 @@ struct Instruction
 	const uint rdPos = rs1Pos + rs1Size;
 
 	const uint opcodeSize = 6;
+	const uint opcodeMax = (1 << opcodeSize) - 1;
 	const uint opcodeMask = Mask!(opcodeSize);
 	const uint opcodePos = rdPos + rdSize;
-	
+
 	const uint constBit = 1 << (rs2Size - 1);
 	const uint constMax = rs1Max >> 1; // have to account for the top bit
 
@@ -231,6 +237,8 @@ struct Instruction
 				return string.format("com r%s, %s", rd, cr(rs1));
 			case Op.Div:
 				return string.format("div r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.EndFinal:
+				return "endfinal";
 			case Op.Foreach:
 				return string.format("foreach r%s, %s", rd, imm);
 			case Op.GetGlobal:
@@ -247,26 +255,24 @@ struct Instruction
 				return string.format("istrue %s", cr(rs1));
 			case Op.Je:
 				if(rd == 0)
-					return string.format("jne %s", imm - immBias);
+					return string.format("jne %s", cast(int)(imm - immBias));
 				else
-					return string.format("je %s", imm - immBias);
+					return string.format("je %s", cast(int)(imm - immBias));
 			case Op.Jle:
 				if(rd == 0)
-					return string.format("jgt %s", imm - immBias);
+					return string.format("jgt %s", cast(int)(imm - immBias));
 				else
-					return string.format("jle %s", imm - immBias);
+					return string.format("jle %s", cast(int)(imm - immBias));
 			case Op.Jlt:
 				if(rd == 0)
-					return string.format("jge %s", imm - immBias);
+					return string.format("jge %s", cast(int)(imm - immBias));
 				else
-					return string.format("jlt %s", imm - immBias);
+					return string.format("jlt %s", cast(int)(imm - immBias));
 			case Op.Jmp:
 				if(rd == 0)
 					return "nop";
 				else
-				{
 					return string.format("jmp %s", cast(int)(imm - immBias));
-				}
 			case Op.Length:
 				return string.format("len r%s, %s", rd, cr(rs1));
 			case Op.LoadBool:
@@ -274,8 +280,9 @@ struct Instruction
 			case Op.LoadConst:
 				return string.format("lc r%s, c%s", rd, imm);
 			case Op.LoadNull:
-				return string.format("lnull r%s", rd);
+				return string.format("lnull r%s, %s", rd, imm);
 			case Op.Method:
+				return string.format("method r%s, r%s, %s", rd, rs1, cr(rs2));
 			case Op.Mod:
 				return string.format("mod r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Move:
@@ -293,10 +300,13 @@ struct Instruction
 			case Op.Or:
 				return string.format("or r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.PopCatch:
+				return "popcatch";
 			case Op.PopFinally:
+				return "popfinally";
 			case Op.PushCatch:
+				return string.format("pushcatch r%s, %s", rd, cast(int)(imm - immBias));
 			case Op.PushFinally:
-				assert(false);
+				return string.format("pushfinal %s", cast(int)(imm - immBias));
 			case Op.Ret:
 				return string.format("ret r%s, %s", rd, imm);
 			case Op.SetGlobal:
@@ -310,8 +320,9 @@ struct Instruction
 			case Op.Sub:
 				return string.format("sub r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.SwitchInt:
+				return string.format("iswitch r%s, %s", rd, imm);
 			case Op.SwitchString:
-				assert(false);
+				return string.format("sswitch r%s, %s", rd, imm);
 			case Op.Throw:
 				return string.format("throw r%s", rd);
 			case Op.UShr:

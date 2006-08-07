@@ -6,6 +6,7 @@ import std.stdio;
 import std.stream;
 import string = std.string;
 import utf = std.utf;
+
 import types;
 import opcodes;
 
@@ -342,11 +343,11 @@ struct Token
 				break;
 
 			case Type.IntLiteral:
-				ret = "Integer Literal: " ~ std.string.toString(intValue);
+				ret = "Integer Literal: " ~ string.toString(intValue);
 				break;
 
 			case Type.FloatLiteral:
-				ret = "Float Literal: " ~ std.string.toString(floatValue);
+				ret = "Float Literal: " ~ string.toString(floatValue);
 				break;
 
 			default:
@@ -359,7 +360,7 @@ struct Token
 
 	public static char[] toString(Type type)
 	{
-		return std.utf.toUTF8(tokenStrings[type]);
+		return utf.toUTF8(tokenStrings[type]);
 	}
 	
 	public void check(Type t)
@@ -752,7 +753,7 @@ class Lexer
 				if(x == 0xFFFE || x == 0xFFFF)
 					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
 
-				std.utf.encode(ret, cast(wchar)x);
+				utf.encode(ret, cast(wchar)x);
 				break;
 
 			case 'U':
@@ -763,10 +764,10 @@ class Lexer
 				if(x == 0xFFFE || x == 0xFFFF)
 					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
 
-				if(std.utf.isValidDchar(cast(dchar)x) == false)
+				if(utf.isValidDchar(cast(dchar)x) == false)
 					throw new MDCompileException(mLoc, "Unicode escape '\\U%08x' too large", x);
 
-				std.utf.encode(ret, cast(dchar)x);
+				utf.encode(ret, cast(dchar)x);
 				break;
 
 			default:
@@ -1376,7 +1377,7 @@ class FuncState
 		protected uint varStart = 0;
 		protected bool hasUpval = false;
 	}
-	
+
 	enum ExpType
 	{
 		Void,
@@ -1415,7 +1416,7 @@ class FuncState
 
 	protected FuncState mParent;
 	protected Scope* mScope;
-	protected uint mFreeReg = 0;
+	protected int mFreeReg = 0;
 	protected Exp[] mExpStack;
 	protected int mExpSP = 0;
 
@@ -1459,7 +1460,7 @@ class FuncState
 		s.breakScope = mScope.breakScope;
 		s.continueScope = mScope.continueScope;
 		s.varStart = mNumActiveVars;
-		
+
 		assert(mFreeReg == mNumActiveVars);
 
 		s.enclosing = mScope;
@@ -1499,25 +1500,7 @@ class FuncState
 		return -1;
 	}
 
-	public int searchVar(Identifier ident, out FuncState owner)
-	{
-		assert(ident !is null);
-
-		for(FuncState s = this; s !is null; s = s.mParent)
-		{
-			int index = searchLocal(ident.mName);
-
-			if(index == -1)
-				continue;
-
-			owner = s;
-			return index;
-		}
-		
-		return -1;
-	}
-
-	public void insertLocal(Identifier ident, int register = -1)
+	public void insertLocal(Identifier ident)
 	{
 		int i = searchLocal(ident.mName);
 
@@ -1527,14 +1510,11 @@ class FuncState
 
 		mLocVars.length = mLocVars.length + 1;
 
-		if(register ==  -1)
-			register = pushRegister();
-
 		with(mLocVars[$ - 1])
 		{
 			name = ident.mName;
 			location = ident.mLocation;
-			reg = register;
+			reg = pushRegister();
 		}
 	}
 	
@@ -1547,8 +1527,13 @@ class FuncState
 	{
 		mNumActiveVars = numTo;
 	}
+	
+	public uint nextRegister()
+	{
+		return mFreeReg;
+	}
 
-	public int pushRegister()
+	public uint pushRegister()
 	{
 		writefln("push ", mFreeReg);
 
@@ -1560,10 +1545,12 @@ class FuncState
 		return mFreeReg - 1;
 	}
 	
-	public void popRegister(int r)
+	public void popRegister(uint r)
 	{
 		mFreeReg--;
 		writefln("pop ", mFreeReg, ", ", r);
+		
+		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
 	}
 	
@@ -1750,6 +1737,9 @@ class FuncState
 			
 		if(e.isTempReg)
 			popRegister(e.index);
+			
+		e.isTempReg = false;
+		e.isTempReg2 = false;
 	}
 	
 	public void popToNothing()
@@ -1759,10 +1749,10 @@ class FuncState
 
 		Exp* src = popExp();
 
-		//freeExpTempRegs(src);
-
 		if(src.type == ExpType.Call)
 			mCode[src.index].rs2 = 1;
+		
+		freeExpTempRegs(src);
 	}
 	
 	public void popAssign()
@@ -1776,17 +1766,23 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
-				uint destReg = pushRegister();
-				popRegister(destReg);
-				popToRegister(destReg);
-				codeI(Op.SetUpvalue, destReg, dest.index);
+				bool isTemp;
+				uint src = popSource(isTemp);
+
+				codeI(Op.SetUpvalue, src, dest.index);
+
+				if(isTemp)
+					popRegister(src);
 				break;
 
 			case ExpType.Global:
-				uint destReg = pushRegister();
-				popRegister(destReg);
-				popToRegister(destReg);
-				codeI(Op.SetGlobal, destReg, dest.index);
+				bool isTemp;
+				uint src = popSource(isTemp);
+
+				codeI(Op.SetGlobal, src, dest.index);
+				
+				if(isTemp)
+					popRegister(src);
 				break;
 
 			case ExpType.Indexed:
@@ -1797,10 +1793,10 @@ class FuncState
 
 				if(isTemp)
 					popRegister(src);
-
-				freeExpTempRegs(dest);
 				break;
 		}
+		
+		freeExpTempRegs(dest);
 	}
 
 	public void popToRegister(uint reg)
@@ -1866,6 +1862,8 @@ class FuncState
 				
 				if(reg != src.index2)
 					codeR(Op.Move, reg, src.index2, 0);
+
+				freeExpTempRegs(src);
 				break;
 				
 			case ExpType.NeedsDest:
@@ -1883,12 +1881,10 @@ class FuncState
 				assert(false, "pop to reg switch");
 		}
 	}
-	
+
 	public void popToRegisters(uint reg, uint num)
 	{
 		Exp* src = popExp();
-		
-		assert(src.type != ExpType.Void, "pop void to regs");
 
 		switch(src.type)
 		{
@@ -1906,23 +1902,29 @@ class FuncState
 		}
 	}
 	
-	public void popBinOp(Op type)
+	public void popMultRet(uint reg)
 	{
-		Exp* src1 = popExp();
-		Exp* src2 = popExp();
+		Exp* src = popExp();
 
-		bool isTemp1, isTemp2;
+		switch(src.type)
+		{
+			case ExpType.Vararg:
+				codeI(Op.Vararg, reg, 0);
+				break;
 
-		uint rs1 = toSource(src1, isTemp1);
-		uint rs2 = toSource(src2, isTemp2);
+			case ExpType.Call:
+				assert(src.index2 == reg);
+				mCode[src.index].rs2 = 0;
+				break;
 
+			default:
+				assert(false, "pop to regs switch");
+		}
+	}
+
+	public void pushBinOp(Op type, uint rs1, uint rs2)
+	{
 		uint pc = codeR(type, 0, rs1, rs2);
-		
-		if(isTemp2)
-			popRegister(rs2);
-		
-		if(isTemp1)
-			popRegister(rs1);
 
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
@@ -1934,7 +1936,6 @@ class FuncState
 		Exp* src = popExp();
 
 		bool isTemp;
-
 		uint rs1 = toSource(src, isTemp);
 
 		uint pc = codeR(type, 0, rs1, 0);
@@ -1953,27 +1954,9 @@ class FuncState
 		e.index = codeR(Op.Call, firstReg, numRegs, 0);
 		e.type = ExpType.Call;
 		e.index2 = firstReg;
+		e.isTempReg2 = true;
 	}
-	
-	public void popCmp(Op type = Op.Cmp)
-	{
-		Exp* src1 = popExp();
-		Exp* src2 = popExp();
 
-		bool isTemp1, isTemp2;
-
-		uint rs1 = toSource(src1, isTemp1);
-		uint rs2 = toSource(src2, isTemp2);
-
-		uint pc = codeR(Op.Cmp, 0, rs1, rs2);
-
-		if(isTemp2)
-			popRegister(rs2);
-
-		if(isTemp1)
-			popRegister(rs1);
-	}
-	
 	public void popMoveFromReg(uint srcReg)
 	{
 		codeMoveFromReg(popExp(), srcReg);
@@ -1998,7 +1981,7 @@ class FuncState
 
 			case ExpType.Indexed:
 				codeR(Op.IndexAssign, dest.index, dest.index2, srcReg);
-				popRegister(dest.index);
+				freeExpTempRegs(dest);
 				break;
 
 			default:
@@ -2008,40 +1991,8 @@ class FuncState
 
 	public void popField(Identifier field)
 	{
-		assert(mExpSP > 0, "pop field from nothing");
-
-		Exp* e = &mExpStack[mExpSP - 1];
-
-		switch(e.type)
-		{
-			case ExpType.Local:
-				// index just stays the same; type and index2 are written to
-				break;
-				
-			case ExpType.Global:
-				uint destReg = pushRegister();
-				codeI(Op.GetGlobal, destReg, e.index);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			case ExpType.Upvalue:
-				uint destReg = pushRegister();
-				codeI(Op.GetUpvalue, destReg, e.index);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			case ExpType.Indexed:
-				codeR(Op.Index, e.index, e.index, e.index2);
-				break;
-
-			default:
-				assert(false);
-		}
-		
-		e.index2 = asConst(codeStringConst(utf.toUTF32(field.mName)));
-		e.type = ExpType.Indexed;
+		pushString(utf.toUTF32(field.mName));
+		popIndex();
 	}
 	
 	public void popIndex()
@@ -2092,7 +2043,7 @@ class FuncState
 	protected uint toSource(Exp* e, out bool isTempReg)
 	{
 		isTempReg = false;
-		
+
 		uint doConst(uint index)
 		{
 			if(index > Instruction.constMax)
@@ -2142,10 +2093,10 @@ class FuncState
 				return reg;
 
 			case ExpType.Indexed:
-				uint reg = pushRegister();
-				codeR(Op.Index, reg, e.index, e.index2);
-				isTempReg = true;
-				return reg;
+				codeR(Op.Index, e.index, e.index, e.index2);
+				isTempReg = e.isTempReg;
+				e.isTempReg = false;
+				return e.index;
 
 			case ExpType.NeedsDest:
 				uint reg = pushRegister();
@@ -2353,8 +2304,6 @@ class FuncState
 		MDValue v;
 		v.value = new MDString(c);
 		
-		writefln("string ", c);
-		
 		mConstants ~= v;
 		return mConstants.length - 1;
 	}
@@ -2426,32 +2375,32 @@ class FuncState
 
 	public void showMe(uint tab = 0)
 	{
-		writefln(std.string.repeat("\t", tab), "Function at ", mLocation.toString());
+		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString());
 
 		foreach(v; mLocVars)
-			writefln(std.string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
+			writefln(string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
 			
 		foreach(i, u; mUpvals)
-			writefln(std.string.repeat("\t", tab + 1), "Upvalue %s: %s", i, u.name);
+			writefln(string.repeat("\t", tab + 1), "Upvalue %s: %s", i, u.name);
 
 		foreach(i, c; mConstants)
 		{
 			switch(c.type)
 			{
 				case MDValue.Type.Null:
-					writefln(std.string.repeat("\t", tab + 1), "Const %s: null", i);
+					writefln(string.repeat("\t", tab + 1), "Const %s: null", i);
 					break;
 
 				case MDValue.Type.Int:
-					writefln(std.string.repeat("\t", tab + 1), "Const %s: %s", i, c.asInt());
+					writefln(string.repeat("\t", tab + 1), "Const %s: %s", i, c.asInt());
 					break;
 					
 				case MDValue.Type.Float:
-					writefln(std.string.repeat("\t", tab + 1), "Const %s: %sf", i, c.asFloat());
+					writefln(string.repeat("\t", tab + 1), "Const %s: %sf", i, c.asFloat());
 					break;
 				
 				case MDValue.Type.String:
-					writefln(std.string.repeat("\t", tab + 1), "Const %s: \"%s\"", i, c.asString());
+					writefln(string.repeat("\t", tab + 1), "Const %s: \"%s\"", i, c.asString());
 					break;
 					
 				default:
@@ -2461,12 +2410,12 @@ class FuncState
 
 		foreach(uint i, FuncState s; mInnerFuncs)
 		{
-			writefln(std.string.repeat("\t", tab + 1), "Inner Func ", i);
+			writefln(string.repeat("\t", tab + 1), "Inner Func ", i);
 			s.showMe(tab + 1);
 		}
 			
 		foreach(i, inst; cast(Instruction[])mCode)
-			writefln(std.string.repeat("\t", tab + 1), "[%3s] ", i, inst.toString());
+			writefln(string.repeat("\t", tab + 1), "[%3s] ", i, inst.toString());
 	}
 }
 
@@ -2509,6 +2458,7 @@ class Chunk
 	public FuncState codeGen()
 	{
 		FuncState fs = new FuncState(mLocation);
+		fs.mIsVararg = true;
 		
 		foreach(Statement s; mStatements)
 			s.codeGen(fs);
@@ -2664,10 +2614,11 @@ class ExpressionStatement : Statement
 	{
 		Location location = t.location;
 		Expression exp = Expression.parse(t);
+		exp.checkToNothing();
 
 		t.check(Token.Type.Semicolon);
 		t = t.nextToken;
-		
+
 		return new ExpressionStatement(location, exp);
 	}
 	
@@ -2678,7 +2629,7 @@ class ExpressionStatement : Statement
 		mExpr.checkToNothing();
 		mExpr.codeGen(s);
 		s.popToNothing();
-	
+
 		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
 	
@@ -2811,18 +2762,18 @@ class LocalDecl : Declaration
 		{
 			if(mNames.length == 1)
 			{
-				uint destReg = s.pushRegister();
+				uint destReg = s.nextRegister();
 				mInitializer.codeGen(s);
 				s.popToRegister(destReg);
-				s.insertLocal(mNames[0], destReg);
+				s.insertLocal(mNames[0]);
 			}
 			else
 			{
-				uint destReg = s.pushRegister();
+				uint destReg = s.nextRegister();
 				mInitializer.checkMultRet();
 				mInitializer.codeGen(s);
 				s.popToRegisters(destReg, mNames.length);
-				s.insertLocal(mNames[0], destReg);
+				s.insertLocal(mNames[0]);
 
 				foreach(Identifier n; mNames[1 .. $])
 					s.insertLocal(n);
@@ -2830,8 +2781,12 @@ class LocalDecl : Declaration
 		}
 		else
 		{
+			uint reg = s.nextRegister();
+
 			foreach(Identifier n; mNames)
 				s.insertLocal(n);
+				
+			s.codeNull(reg, mNames.length);
 		}
 
 		s.activateLocals(mNames.length);
@@ -2878,7 +2833,7 @@ class LocalFuncDecl : Declaration
 	{
 		// Special: starts on the "function" token
 		Location location = t.location;
-		
+
 		t.check(Token.Type.Function);
 		t = t.nextToken;
 		
@@ -3155,7 +3110,7 @@ class Identifier
 
 		if(idents.length > 1)
 			for(int i = idents.length - 2; i >= 0; i--)
-				ret = std.string.format("%s.%s", idents[i].toString(), ret);
+				ret = string.format("%s.%s", idents[i].toString(), ret);
 				
 		return ret;
 	}
@@ -4057,26 +4012,14 @@ class ReturnStatement : Statement
 			s.codeI(Op.Ret, 0, 1);
 		else
 		{
-			uint firstReg = s.pushRegister();
-			mExprs[0].codeGen(s);
-			s.popToRegister(firstReg);
-			
-			uint lastReg = firstReg;
-			
-			foreach(Expression e; mExprs[1 .. $])
-			{
-				lastReg = s.pushRegister();
-				e.codeGen(s);
-				s.popToRegister(lastReg);
-			}
+			uint firstReg = s.nextRegister();
+
+			Expression.codeGenListToNextReg(s, mExprs);
 			
 			if(mExprs[$ - 1].isMultRet())
 				s.codeI(Op.Ret, firstReg, 0);
 			else
-				s.codeI(Op.Ret, firstReg, lastReg - firstReg + 2);
-			
-			for(int i = lastReg; i >= firstReg; i--)
-				s.popRegister(i);
+				s.codeI(Op.Ret, firstReg, mExprs.length + 1);
 		}
 	}
 	
@@ -4259,6 +4202,49 @@ abstract class Expression
 		return exp;
 	}
 	
+	public static void codeGenListToNextReg(FuncState s, Expression[] exprs)
+	{
+		if(exprs.length == 0)
+			return;
+		else if(exprs.length == 1)
+		{
+			uint firstReg = s.nextRegister();
+			exprs[0].codeGen(s);
+			assert(s.nextRegister() == firstReg);
+
+			if(exprs[0].isMultRet())
+				s.popMultRet(firstReg);
+			else
+				s.popToRegister(firstReg);
+		}
+		else
+		{
+			uint firstReg = s.nextRegister();
+			exprs[0].codeGen(s);
+			assert(s.nextRegister() == firstReg);
+			s.pushRegister();
+			s.popToRegister(firstReg);
+
+			uint lastReg = firstReg;
+
+			foreach(uint i, Expression e; exprs[1 .. $])
+			{
+				lastReg = s.nextRegister();
+				e.codeGen(s);
+				assert(s.nextRegister() == lastReg);
+				s.pushRegister();
+
+				if(i == exprs.length - 2 && e.isMultRet())
+					s.popMultRet(lastReg);
+				else
+					s.popToRegister(lastReg);
+			}
+
+			for(int i = lastReg; i >= cast(int)firstReg; i--)
+				s.popRegister(i);
+		}
+	}
+	
 	public void codeGen(FuncState s)
 	{
 		assert(false, "unimplemented codeGen");
@@ -4271,13 +4257,13 @@ abstract class Expression
 	
 	public void checkToNothing()
 	{
-		throw new MDException(mLocation, "Expression cannot exist on its own");
+		throw new MDCompileException(mLocation, "Expression cannot exist on its own");
 	}
 	
 	public void checkMultRet()
 	{
 		if(isMultRet() == false)
-			throw new MDException(mLocation, "Expression cannot be the source of a multi-target assignment");
+			throw new MDCompileException(mLocation, "Expression cannot be the source of a multi-target assignment");
 	}
 	
 	public bool isMultRet()
@@ -4327,7 +4313,7 @@ class Assignment : Expression
 		return new Assignment(location, lhs, rhs);
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		if(mLHS.length == 1)
 		{
@@ -4343,29 +4329,28 @@ class Assignment : Expression
 			foreach(Expression dest; mLHS)
 				dest.codeGen(s);
 				
-			uint RHSReg = s.pushRegister();
-			s.popRegister(RHSReg);
+			uint RHSReg = s.nextRegister();
 			mRHS.codeGen(s);
 			s.popToRegisters(RHSReg, mLHS.length);
 
 			for(int reg = RHSReg + mLHS.length - 1; reg >= RHSReg; reg--)
 				s.popMoveFromReg(reg);
 		}
-		
+
 		s.pushVoid();
 	}
 	
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Assignments cannot be used as a condition");
 	}
 	
-	public void checkToNothing()
+	public override void checkToNothing()
 	{
 		// OK
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		foreach(uint i, Expression e; mLHS)
 		{
@@ -4374,9 +4359,9 @@ class Assignment : Expression
 			if(i != mLHS.length - 1)
 				cw.write(", ");
 		}
-		
+
 		cw.write(" = ");
-		
+
 		mRHS.writeCode(cw);
 	}
 }
@@ -4385,20 +4370,56 @@ abstract class BinaryExp : Expression
 {
 	protected Expression mOp1;
 	protected Expression mOp2;
+	protected Op mType;
 	
-	public this(Location location, Expression left, Expression right)
+	public this(Location location, Op type, Expression left, Expression right)
 	{
 		super(location);
+		mType = type;
 		mOp1 = left;
 		mOp2 = right;
 	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mOp1.codeGen(s);
+		
+		bool isTemp1;
+		uint src1 = s.popSource(isTemp1);
+
+		mOp2.codeGen(s);
+
+		bool isTemp2;
+		uint src2 = s.popSource(isTemp2);
+
+		if(isTemp2)
+			s.popRegister(src2);
+
+		if(isTemp1)
+			s.popRegister(src1);
+
+		s.pushBinOp(mType, src1, src2);
+	}
+	
+	public override InstRef* codeCondition(FuncState s)
+	{
+		uint temp = s.pushRegister();
+		codeGen(s);
+		s.popToRegister(temp);
+		s.codeR(Op.IsTrue, 0, temp, 0);
+		InstRef* ret = s.makeJump(Op.Je);
+		s.popRegister(temp);
+		return ret;
+	}
 }
 
-abstract class OpEqExp : BinaryExp
+class OpEqExp : BinaryExp
 {
-	public this(Location location, Expression left, Expression right)
+	protected Op mType;
+
+	public this(Location location, Op type, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, type, left, right);
 	}
 
 	public static Expression parse(inout Token* t, Expression exp1 = null)
@@ -4412,78 +4433,26 @@ abstract class OpEqExp : BinaryExp
 		{
 			Location location = t.location;
 
+			Op type;
 			switch(t.type)
 			{
-				case Token.Type.AddEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new AddEqExp(location, exp1, exp2);
-					continue;
+				case Token.Type.AddEq: type = Op.Add; goto _commonParse;
+				case Token.Type.SubEq: type = Op.Sub; goto _commonParse;
+				case Token.Type.CatEq: type = Op.Cat; goto _commonParse;
+				case Token.Type.MulEq: type = Op.Mul; goto _commonParse;
+				case Token.Type.DivEq: type = Op.Div; goto _commonParse;
+				case Token.Type.ModEq: type = Op.Mod; goto _commonParse;
+				case Token.Type.ShlEq: type = Op.Shl; goto _commonParse;
+				case Token.Type.ShrEq: type = Op.Shr; goto _commonParse;
+				case Token.Type.UshrEq:type = Op.UShr; goto _commonParse;
+				case Token.Type.OrEq:  type = Op.Or;  goto _commonParse;
+				case Token.Type.XorEq: type = Op.Xor; goto _commonParse;
+				case Token.Type.AndEq: type = Op.And;
 
-				case Token.Type.SubEq:
+				_commonParse:
 					t = t.nextToken;
 					exp2 = OpEqExp.parse(t);
-					exp1 = new SubEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.CatEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new CatEqExp(location, exp1, exp2);
-					continue;
-
-				case Token.Type.MulEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new MulEqExp(location, exp1, exp2);
-					continue;
-
-				case Token.Type.DivEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new DivEqExp(location, exp1, exp2);
-					continue;
-
-				case Token.Type.ModEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new ModEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.ShlEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new ShlEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.ShrEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new ShrEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.UshrEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new UshrEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.OrEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new OrEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.XorEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new XorEqExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.AndEq:
-					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
-					exp1 = new AndEqExp(location, exp1, exp2);
+					exp1 = new OpEqExp(location, type, exp1, exp2);
 					continue;
 
 				default:
@@ -4495,431 +4464,58 @@ abstract class OpEqExp : BinaryExp
 
 		return exp1;
 	}
-}
-
-class AddEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-		/*mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.dup();
-		s.popBinOpAssign(Op.Add);*/
-		
-		// hmm.  Let's go with a conservative implementation until I get this sorted out.
-
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Add);
+		super.codeGen(s);
 		mOp1.codeGen(s);
 		s.popAssign();
 	}
 	
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
-		/*uint temp = s.pushRegister();
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.dup();
-		s.popBinOpAssign(Op.Add);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;*/
-		
-		throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
+		switch(mType)
+		{
+			case Op.Add: throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
+			case Op.Sub: throw new MDCompileException(mLocation, "'-=' cannot be used as a condition");
+			case Op.Cat: throw new MDCompileException(mLocation, "'~=' cannot be used as a condition");
+			case Op.Mul: throw new MDCompileException(mLocation, "'*=' cannot be used as a condition");
+			case Op.Div: throw new MDCompileException(mLocation, "'/=' cannot be used as a condition");
+			case Op.Mod: throw new MDCompileException(mLocation, "'%=' cannot be used as a condition");
+			case Op.Shl: throw new MDCompileException(mLocation, "'<<=' cannot be used as a condition");
+			case Op.Shr: throw new MDCompileException(mLocation, "'>>=' cannot be used as a condition");
+			case Op.UShr:throw new MDCompileException(mLocation, "'>>>=' cannot be used as a condition");
+			case Op.Or:  throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
+			case Op.Xor: throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
+			case Op.And: throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
+		}
 	}
 	
-	public void checkToNothing()
+	public override void checkToNothing()
 	{
 		// OK
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
-		cw.write(" += ");
-		mOp2.writeCode(cw);
-	}
-}
 
-class SubEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Sub);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'-=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" -= ");
-		mOp2.writeCode(cw);
-	}
-}
+		switch(mType)
+		{
+			case Op.Add: cw.write(" += "); break;
+			case Op.Sub: cw.write(" -= "); break;
+			case Op.Cat: cw.write(" ~= "); break;
+			case Op.Mul: cw.write(" *= "); break;
+			case Op.Div: cw.write(" /= "); break;
+			case Op.Mod: cw.write(" %= "); break;
+			case Op.Shl: cw.write(" <<= "); break;
+			case Op.Shr: cw.write(" >>= "); break;
+			case Op.UShr:cw.write(" >>>= "); break;
+			case Op.Or:  cw.write(" |= "); break;
+			case Op.Xor: cw.write(" ^= "); break;
+			case Op.And: cw.write(" &= "); break;
+		}
 
-class CatEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Cat);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'~=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" ~= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class MulEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Mul);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'*=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" *= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class DivEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Div);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'/=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" /= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class ModEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Mod);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'%=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" %= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class ShlEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Shl);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'<<=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" <<= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class ShrEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Shr);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'>>=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" >>= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class UshrEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.UShr);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'>>>=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" >>>= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class OrEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Or);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" |= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class XorEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Xor);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" ^= ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class AndEqExp : OpEqExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.And);
-		mOp1.codeGen(s);
-		s.popAssign();
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
-	}
-	
-	public void checkToNothing()
-	{
-		// OK
-	}
-
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" &= ");
 		mOp2.writeCode(cw);
 	}
 }
@@ -4928,7 +4524,7 @@ class OrOrExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.Or, left, right);
 	}
 
 	public static Expression parse(inout Token* t)
@@ -4953,7 +4549,7 @@ class OrOrExp : BinaryExp
 		return exp1;
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		uint temp = s.pushRegister();
 		mOp1.codeGen(s);
@@ -4967,7 +4563,7 @@ class OrOrExp : BinaryExp
 		s.pushTempReg(temp);
 	}
 
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
 		InstRef* left = mOp1.codeCondition(s);
 		s.patchFalseToHere(left);
@@ -4983,12 +4579,12 @@ class OrOrExp : BinaryExp
 		return right;
 	}
 
-	public void checkToNothing()
+	public override void checkToNothing()
 	{
 		// OK
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		cw.write(" || ");
@@ -5000,7 +4596,7 @@ class AndAndExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.And, left, right);
 	}
 
 	public static Expression parse(inout Token* t)
@@ -5025,7 +4621,7 @@ class AndAndExp : BinaryExp
 		return exp1;
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		uint temp = s.pushRegister();
 		mOp1.codeGen(s);
@@ -5039,7 +4635,7 @@ class AndAndExp : BinaryExp
 		s.pushTempReg(temp);
 	}
 	
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
 		InstRef* left = mOp1.codeCondition(s);
 		s.invertJump(left);
@@ -5056,12 +4652,12 @@ class AndAndExp : BinaryExp
 		return right;
 	}
 
-	public void checkToNothing()
+	public override void checkToNothing()
 	{
 		// OK
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		cw.write(" && ");
@@ -5073,7 +4669,7 @@ class OrExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.Or, left, right);
 	}
 	
 	public static Expression parse(inout Token* t)
@@ -5097,26 +4693,8 @@ class OrExp : BinaryExp
 		
 		return exp1;
 	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Or);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		cw.write(" | ");
@@ -5128,13 +4706,13 @@ class XorExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.Xor, left, right);
 	}
 	
 	public static Expression parse(inout Token* t)
 	{
 		Location location = t.location;
-		
+
 		Expression exp1;
 		Expression exp2;
 		
@@ -5153,25 +4731,7 @@ class XorExp : BinaryExp
 		return exp1;
 	}
 	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Xor);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		cw.write(" ^ ");
@@ -5183,23 +4743,23 @@ class AndExp : BinaryExp
 {
 	public this(Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.And, left, right);
 	}
 	
 	public static Expression parse(inout Token* t)
 	{
 		Location location = t.location;
-		
+
 		Expression exp1;
 		Expression exp2;
 		
-		exp1 = BaseEqualExp.parse(t);
+		exp1 = EqualExp.parse(t);
 		
 		while(t.type == Token.Type.And)
 		{
 			t = t.nextToken;
 
-			exp2 = BaseEqualExp.parse(t);
+			exp2 = EqualExp.parse(t);
 			exp1 = new AndExp(location, exp1, exp2);
 
 			location = t.location;
@@ -5208,25 +4768,7 @@ class AndExp : BinaryExp
 		return exp1;
 	}
 	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.And);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		cw.write(" & ");
@@ -5234,14 +4776,14 @@ class AndExp : BinaryExp
 	}
 }
 
-abstract class BaseEqualExp : BinaryExp
+class EqualExp : BinaryExp
 {
 	protected bool mIsTrue;
 	
-	public this(bool isTrue, Location location, Expression left, Expression right)
+	public this(bool isTrue, Location location, Op type, Expression left, Expression right)
 	{
-		super(location, left, right);
-		
+		super(location, type, left, right);
+
 		mIsTrue = isTrue;
 	}
 
@@ -5264,7 +4806,7 @@ abstract class BaseEqualExp : BinaryExp
 					isTrue = (t.type == Token.Type.EQ);
 					t = t.nextToken;
 					exp2 = CmpExp.parse(t);
-					exp1 = new EqualExp(isTrue, location, exp1, exp2);
+					exp1 = new EqualExp(isTrue, location, Op.Cmp, exp1, exp2);
 					continue;
 
 				case Token.Type.Not:
@@ -5280,7 +4822,7 @@ abstract class BaseEqualExp : BinaryExp
 					
 				_doIs:
 					exp2 = CmpExp.parse(t);
-					exp1 = new IsExp(isTrue, location, exp1, exp2);
+					exp1 = new EqualExp(isTrue, location, Op.Is, exp1, exp2);
 					continue;
 					
 				default:
@@ -5289,19 +4831,11 @@ abstract class BaseEqualExp : BinaryExp
 			
 			break;
 		}
-		
+
 		return exp1;
 	}
-}
-
-class EqualExp : BaseEqualExp
-{
-	public this(bool isTrue, Location location, Expression left, Expression right)
-	{
-		super(isTrue, location, left, right);
-	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		uint temp = s.pushRegister();
 		InstRef* i = codeCondition(s);
@@ -5317,66 +4851,37 @@ class EqualExp : BaseEqualExp
 		s.pushTempReg(temp);
 	}
 
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
-		mOp2.codeGen(s);
 		mOp1.codeGen(s);
-		s.popCmp();
+
+		bool isTemp1;
+		uint src1 = s.popSource(isTemp1);
+
+		mOp2.codeGen(s);
+		
+		bool isTemp2;
+		uint src2 = s.popSource(isTemp2);
+
+		if(isTemp2)
+			s.popRegister(src2);
+			
+		if(isTemp1)
+			s.popRegister(src1);
+
+		s.codeR(mType, 0, src1, src2);
 		return s.makeJump(Op.Je, mIsTrue);
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		
-		if(mIsTrue)
-			cw.write(" == ");
-		else
-			cw.write(" != ");
-
-		mOp2.writeCode(cw);
-	}
-}
-
-class IsExp : BaseEqualExp
-{
-	public this(bool isTrue, Location location, Expression left, Expression right)
-	{
-		super(isTrue, location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		InstRef* i = codeCondition(s);
-		s.pushBool(false);
-		s.popToRegister(temp);
-		InstRef* j = s.makeJump(Op.Jmp);
-		s.patchJumpToHere(i);
-		delete i;
-		s.pushBool(true);
-		s.popToRegister(temp);
-		s.patchJumpToHere(j);
-		delete j;
-		s.pushTempReg(temp);
-	}
-
-	public InstRef* codeCondition(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popCmp(Op.Is);
-		return s.makeJump(Op.Je, mIsTrue);
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		
-		if(mIsTrue)
-			cw.write(" is ");
-		else
-			cw.write(" !is ");
+		switch(mType)
+		{
+			case Op.Cmp: if(mIsTrue) cw.write(" == "); else cw.write(" != "); break;
+			case Op.Is:  if(mIsTrue) cw.write(" is "); else cw.write(" !is "); break;
+		}
 
 		mOp2.writeCode(cw);
 	}
@@ -5384,28 +4889,16 @@ class IsExp : BaseEqualExp
 
 class CmpExp : BinaryExp
 {
-	public static enum Type
-	{
-		Less,
-		LessEq,
-		Greater,
-		GreaterEq
-	}
-	
-	protected Type mType;
+	protected Token.Type mCmpType;
 
 	public this(Token.Type type, Location location, Expression left, Expression right)
 	{
-		super(location, left, right);
+		super(location, Op.Cmp, left, right);
 
-		switch(type)
-		{
-			case Token.Type.LT: mType = Type.Less; break;
-			case Token.Type.LE: mType = Type.LessEq; break;
-			case Token.Type.GT: mType = Type.Greater; break;
-			case Token.Type.GE: mType = Type.GreaterEq; break;
-			default: throw new Exception("CmpExp.this() - Should never happen");
-		}
+		mCmpType = type;
+		
+		assert(mCmpType == Token.Type.LT || mCmpType == Token.Type.LE ||
+			mCmpType == Token.Type.GT || mCmpType == Token.Type.GE, "invalid cmp type");
 	}
 
 	public static Expression parse(inout Token* t)
@@ -5414,8 +4907,8 @@ class CmpExp : BinaryExp
 		
 		Expression exp1;
 		Expression exp2;
-		
-		exp1 = BaseShiftExp.parse(t);
+
+		exp1 = ShiftExp.parse(t);
 		
 		while(true)
 		{
@@ -5425,7 +4918,7 @@ class CmpExp : BinaryExp
 			{
 				case Token.Type.LT, Token.Type.LE, Token.Type.GT, Token.Type.GE:
 					t = t.nextToken;
-					exp2 = BaseShiftExp.parse(t);
+					exp2 = ShiftExp.parse(t);
 					exp1 = new CmpExp(type, location, exp1, exp2);
 					continue;
 
@@ -5439,7 +4932,7 @@ class CmpExp : BinaryExp
 		return exp1;
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		uint temp = s.pushRegister();
 		InstRef* i = codeCondition(s);
@@ -5455,74 +4948,151 @@ class CmpExp : BinaryExp
 		s.pushTempReg(temp);
 	}
 
-	public InstRef* codeCondition(FuncState s)
+	public override InstRef* codeCondition(FuncState s)
 	{
-		mOp2.codeGen(s);
 		mOp1.codeGen(s);
-		s.popCmp();
+
+		bool isTemp1;
+		uint src1 = s.popSource(isTemp1);
+
+		mOp2.codeGen(s);
 		
-		switch(mType)
+		bool isTemp2;
+		uint src2 = s.popSource(isTemp2);
+
+		if(isTemp2)
+			s.popRegister(src2);
+			
+		if(isTemp1)
+			s.popRegister(src1);
+
+		s.codeR(Op.Cmp, 0, src1, src2);
+
+		switch(mCmpType)
 		{
-			case Type.Less: return s.makeJump(Op.Jlt, true);
-			case Type.LessEq: return s.makeJump(Op.Jle, true);
-			case Type.Greater: return s.makeJump(Op.Jle, false);
-			case Type.GreaterEq: return s.makeJump(Op.Jlt, false);
+			case Token.Type.LT: return s.makeJump(Op.Jlt, true);
+			case Token.Type.LE: return s.makeJump(Op.Jle, true);
+			case Token.Type.GT: return s.makeJump(Op.Jle, false);
+			case Token.Type.GE: return s.makeJump(Op.Jlt, false);
 			default: assert(false);
 		}
 	}
+
+	public override void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+		
+		switch(mCmpType)
+		{
+			case Token.Type.LT: cw.write(" < "); break;
+			case Token.Type.LE: cw.write(" <= "); break;
+			case Token.Type.GT: cw.write(" > "); break;
+			case Token.Type.GE: cw.write(" >= "); break;
+		}
+
+		mOp2.writeCode(cw);
+	}
+}
+
+class ShiftExp : BinaryExp
+{
+	public this(Location location, Token.Type type, Expression left, Expression right)
+	{
+		Op t;
+		
+		switch(type)
+		{
+			case Token.Type.Shl: t = Op.Shl; break;
+			case Token.Type.Shr: t = Op.Shr; break;
+			case Token.Type.Ushr: t = Op.UShr; break;
+			default: assert(false, "BaseShiftExp ctor type switch");
+		}
+
+		super(location, t, left, right);
+	}
 	
-	public void writeCode(CodeWriter cw)
+	public static Expression parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		Expression exp1;
+		Expression exp2;
+
+		exp1 = AddExp.parse(t);
+		
+		while(true)
+		{
+			Token.Type type = t.type;
+
+			switch(t.type)
+			{
+				case Token.Type.Shl, Token.Type.Shr, Token.Type.Ushr:
+					t = t.nextToken;
+					exp2 = AddExp.parse(t);
+					exp1 = new ShiftExp(location, type, exp1, exp2);
+					continue;
+
+				default:
+					break;
+			}
+			
+			break;
+		}
+		
+		return exp1;
+	}
+	
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
 		
 		switch(mType)
 		{
-			case Type.Less:			cw.write(" < "); break;
-			case Type.Greater:		cw.write(" > "); break;
-			case Type.LessEq:		cw.write(" <= "); break;
-			case Type.GreaterEq:	cw.write(" >= "); break;
+			case Op.Shl: cw.write(" << "); break;
+			case Op.Shr: cw.write(" >> "); break;
+			case Op.UShr: cw.write(" >>> "); break;
 		}
 
 		mOp2.writeCode(cw);
 	}
 }
 
-class BaseShiftExp : BinaryExp
+class AddExp : BinaryExp
 {
-	public this(Location location, Expression left, Expression right)
+	public this(Location location, Token.Type type, Expression left, Expression right)
 	{
-		super(location, left, right);
+		Op t;
+		
+		switch(type)
+		{
+			case Token.Type.Add: t = Op.Add; break;
+			case Token.Type.Sub: t = Op.Sub; break;
+			case Token.Type.Cat: t = Op.Cat; break;
+			default: assert(false, "BaseAddExp ctor type switch");
+		}
+
+		super(location, t, left, right);
 	}
 	
 	public static Expression parse(inout Token* t)
 	{
 		Location location = t.location;
-		
+
 		Expression exp1;
 		Expression exp2;
 		
-		exp1 = BaseAddExp.parse(t);
+		exp1 = MulExp.parse(t);
 		
 		while(true)
 		{
+			Token.Type type = t.type;
+
 			switch(t.type)
 			{
-				case Token.Type.Shl:
+				case Token.Type.Add, Token.Type.Sub, Token.Type.Cat:
 					t = t.nextToken;
-					exp2 = BaseAddExp.parse(t);
-					exp1 = new ShlExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Shr:
-					t = t.nextToken;
-					exp2 = BaseAddExp.parse(t);
-					exp1 = new ShrExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Ushr:
-					t = t.nextToken;
-					exp2 = BaseAddExp.parse(t);
-					exp1 = new UshrExp(location, exp1, exp2);
+					exp2 = MulExp.parse(t);
+					exp1 = new AddExp(location, type, exp1, exp2);
 					continue;
 
 				default:
@@ -5534,266 +5104,43 @@ class BaseShiftExp : BinaryExp
 		
 		return exp1;
 	}
-}
-
-class ShlExp : BaseShiftExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
 	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Shl);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
-		cw.write(" << ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class ShrExp : BaseShiftExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Shr);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" >> ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class UshrExp : BaseShiftExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.UShr);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" >>> ");
-		mOp2.writeCode(cw);
-	}
-}
-
-abstract class BaseAddExp : BinaryExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public static Expression parse(inout Token* t)
-	{
-		Location location = t.location;
 		
-		Expression exp1;
-		Expression exp2;
-		
-		exp1 = BaseMulExp.parse(t);
-		
-		while(true)
+		switch(mType)
 		{
-			switch(t.type)
-			{
-				case Token.Type.Add:
-					t = t.nextToken;
-					exp2 = BaseMulExp.parse(t);
-					exp1 = new AddExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Sub:
-					t = t.nextToken;
-					exp2 = BaseMulExp.parse(t);
-					exp1 = new SubExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Cat:
-					t = t.nextToken;
-					exp2 = BaseMulExp.parse(t);
-					exp1 = new CatExp(location, exp1, exp2);
-					continue;
-
-				default:
-					break;
-			}
-			
-			break;
+			case Op.Add: cw.write(" + "); break;
+			case Op.Sub: cw.write(" - "); break;
+			case Op.Cat: cw.write(" ~ "); break;
 		}
+
+		mOp2.writeCode(cw);
+	}
+}
+
+class MulExp : BinaryExp
+{
+	public this(Location location, Token.Type type, Expression left, Expression right)
+	{
+		Op t;
 		
-		return exp1;
-	}
-}
+		switch(type)
+		{
+			case Token.Type.Mul: t = Op.Mul; break;
+			case Token.Type.Div: t = Op.Div; break;
+			case Token.Type.Mod: t = Op.Mod; break;
+			default: assert(false, "BaseMulExp ctor type switch");
+		}
 
-class AddExp : BaseAddExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Add);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" + ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class SubExp : BaseAddExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Sub);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" - ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class CatExp : BaseAddExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Cat);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" ~ ");
-		mOp2.writeCode(cw);
-	}
-}
-
-abstract class BaseMulExp : BinaryExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
+		super(location, t, left, right);
 	}
 	
 	public static Expression parse(inout Token* t)
 	{
 		Location location = t.location;
-		
+
 		Expression exp1;
 		Expression exp2;
 		
@@ -5801,24 +5148,14 @@ abstract class BaseMulExp : BinaryExp
 
 		while(true)
 		{
+			Token.Type type = t.type;
+
 			switch(t.type)
 			{
-				case Token.Type.Mul:
+				case Token.Type.Mul, Token.Type.Div, Token.Type.Mod:
 					t = t.nextToken;
 					exp2 = UnaryExp.parse(t);
-					exp1 = new MulExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Div:
-					t = t.nextToken;
-					exp2 = UnaryExp.parse(t);
-					exp1 = new DivExp(location, exp1, exp2);
-					continue;
-					
-				case Token.Type.Mod:
-					t = t.nextToken;
-					exp2 = UnaryExp.parse(t);
-					exp1 = new ModExp(location, exp1, exp2);
+					exp1 = new MulExp(location, type, exp1, exp2);
 					continue;
 
 				default:
@@ -5827,106 +5164,21 @@ abstract class BaseMulExp : BinaryExp
 			
 			break;
 		}
-		
+
 		return exp1;
 	}
-}
-
-class MulExp : BaseMulExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
 	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Mul);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp1.writeCode(cw);
-		cw.write(" * ");
-		mOp2.writeCode(cw);
-	}
-}
+		
+		switch(mType)
+		{
+			case Op.Mul: cw.write(" * "); break;
+			case Op.Div: cw.write(" / "); break;
+			case Op.Mod: cw.write(" % "); break;
+		}
 
-class DivExp : BaseMulExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Div);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" / ");
-		mOp2.writeCode(cw);
-	}
-}
-
-class ModExp : BaseMulExp
-{
-	public this(Location location, Expression left, Expression right)
-	{
-		super(location, left, right);
-	}
-	
-	public void codeGen(FuncState s)
-	{
-		mOp2.codeGen(s);
-		mOp1.codeGen(s);
-		s.popBinOp(Op.Mod);
-	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
-	{
-		mOp1.writeCode(cw);
-		cw.write(" % ");
 		mOp2.writeCode(cw);
 	}
 }
@@ -5952,13 +5204,13 @@ abstract class UnaryExp : Expression
 			case Token.Type.Inc:
 				t = t.nextToken;
 				exp = UnaryExp.parse(t);
-				exp = new AddEqExp(location, exp, new IntExp(location, 1));
+				exp = new OpEqExp(location, Op.Add, exp, new IntExp(location, 1));
 				break;
 				
 			case Token.Type.Dec:
 				t = t.nextToken;
 				exp = UnaryExp.parse(t);
-				exp = new SubEqExp(location, exp, new IntExp(location, 1));
+				exp = new OpEqExp(location, Op.Sub, exp, new IntExp(location, 1));
 				break;
 				
 			case Token.Type.Sub:
@@ -5994,6 +5246,17 @@ abstract class UnaryExp : Expression
 
 		return exp;
 	}
+
+	public override InstRef* codeCondition(FuncState s)
+	{
+		uint temp = s.pushRegister();
+		codeGen(s);
+		s.popToRegister(temp);
+		s.codeR(Op.IsTrue, 0, temp, 0);
+		InstRef* ret = s.makeJump(Op.Je);
+		s.popRegister(temp);
+		return ret;
+	}
 }
 
 class NegExp : UnaryExp
@@ -6003,7 +5266,7 @@ class NegExp : UnaryExp
 		super(location, operand);
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		IntExp intExp = cast(IntExp)mOp;
 
@@ -6026,19 +5289,8 @@ class NegExp : UnaryExp
 		mOp.codeGen(s);
 		s.popUnOp(Op.Neg);
 	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("-");
 		mOp.writeCode(cw);
@@ -6052,7 +5304,7 @@ class NotExp : UnaryExp
 		super(location, operand);
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		BoolExp boolExp = cast(BoolExp)mOp;
 		
@@ -6075,19 +5327,8 @@ class NotExp : UnaryExp
 		mOp.codeGen(s);
 		s.popUnOp(Op.Not);
 	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("!");
 		mOp.writeCode(cw);
@@ -6101,7 +5342,7 @@ class ComExp : UnaryExp
 		super(location, operand);
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		IntExp intExp = cast(IntExp)mOp;
 
@@ -6115,19 +5356,8 @@ class ComExp : UnaryExp
 		mOp.codeGen(s);
 		s.popUnOp(Op.Com);
 	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("~");
 		mOp.writeCode(cw);
@@ -6141,7 +5371,7 @@ class LengthExp : UnaryExp
 		super(location, operand);
 	}
 	
-	public void codeGen(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		StringExp stringExp = cast(StringExp)mOp;
 
@@ -6155,19 +5385,8 @@ class LengthExp : UnaryExp
 		mOp.codeGen(s);
 		s.popUnOp(Op.Length);
 	}
-	
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(temp);
-		s.codeR(Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-	
-	public void writeCode(CodeWriter cw)
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("#");
 		mOp.writeCode(cw);
@@ -6316,43 +5535,76 @@ class CallExp : PostfixExp
 	
 	public void codeGen(FuncState s)
 	{
-		uint funcReg = s.pushRegister();
-		s.popRegister(funcReg);
-		mOp.codeGen(s);
-		assert(funcReg == s.pushRegister());
-		s.popToRegister(funcReg);
+		/*
+		regular:
+			1. evaluate function exp, put in reg 1
+			2. evaluate args, put in regs 2..
+			3. call reg 1, num params + 1
+			
+		method:
+			1. evaluate function exp
+			2. method reg 1, function exp, stringConst(methodname)
+			3. evaluate args, put in regs 3..
+			4. call reg 1, num params + 2
+		*/
 
-		if(mArgs.length == 0)
-			s.pushCall(funcReg, 1);
-		else
+		if(mMethodName)
 		{
-			uint firstArg = s.pushRegister();
-			s.popRegister(firstArg);
-			mArgs[0].codeGen(s);
-			assert(firstArg == s.pushRegister());
-			s.popToRegister(firstArg);
-			
-			uint lastReg = firstArg;
+			uint funcReg = s.nextRegister();
+			mOp.codeGen(s);
 
-			foreach(Expression e; mArgs[1 .. $])
-			{
-				lastReg = s.pushRegister();
-				s.popRegister(lastReg);
-				e.codeGen(s);
-				assert(lastReg == s.pushRegister());
-				s.popToRegister(lastReg);
-			}
+			bool isTempFuncReg;
+			uint src = s.popSource(isTempFuncReg);
+
+			if(isTempFuncReg)
+				s.popRegister(src);
 			
-			if(mArgs[$ - 1].isMultRet())
+			assert(s.nextRegister() == funcReg);
+			s.pushRegister();
+
+			s.pushString(utf.toUTF32(mMethodName.mName));
+			bool isTempMethodReg;
+			uint method = s.popSource(isTempMethodReg);
+
+			s.codeR(Op.Method, funcReg, src, method);
+
+			if(isTempMethodReg)
+				s.popRegister(method);
+
+			// for "this"
+			uint thisReg = s.pushRegister();
+			
+			Expression.codeGenListToNextReg(s, mArgs);
+			
+			// for "this"
+			s.popRegister(thisReg);
+
+			if(mArgs.length == 0)
+				s.pushCall(funcReg, 2);
+			else if(mArgs[$ - 1].isMultRet())
 				s.pushCall(funcReg, 0);
 			else
-				s.pushCall(funcReg, lastReg - firstArg + 2);
-			
-			for(int i = lastReg; i >= firstArg; i--)
-				s.popRegister(i);
+				s.pushCall(funcReg, mArgs.length + 2);
 		}
-		
-		s.popRegister(funcReg);
+		else
+		{
+			uint funcReg = s.nextRegister();
+			mOp.codeGen(s);
+			assert(s.nextRegister() == funcReg);
+			s.pushRegister();
+			s.popToRegister(funcReg);
+
+			Expression.codeGenListToNextReg(s, mArgs);
+	
+			if(mArgs.length == 0)
+				s.pushCall(funcReg, 1);
+			else if(mArgs[$ - 1].isMultRet())
+				s.pushCall(funcReg, 0);
+			else
+				s.pushCall(funcReg, mArgs.length + 1);
+
+			//s.popRegister(funcReg);
+		}
 	}
 	
 	public InstRef* codeCondition(FuncState s)
@@ -6369,6 +5621,11 @@ class CallExp : PostfixExp
 	public void checkToNothing()
 	{
 		// OK
+	}
+	
+	public bool isMultRet()
+	{
+		return true;
 	}
 	
 	public void writeCode(CodeWriter cw)
@@ -6640,6 +5897,9 @@ class VarargExp : PrimaryExp
 	
 	public void codeGen(FuncState s)
 	{
+		if(s.mIsVararg == false)
+			throw new MDCompileException(mLocation, "'vararg' cannot be used in a non-variadic function");
+		
 		s.pushVararg();
 	}
 	
@@ -6648,6 +5908,11 @@ class VarargExp : PrimaryExp
 		throw new MDCompileException(mLocation, "Cannot use 'vararg' as a condition");
 	}
 	
+	public bool isMultRet()
+	{
+		return true;
+	}
+
 	public void writeCode(CodeWriter cw)
 	{
 		cw.write("vararg");
@@ -6694,7 +5959,7 @@ class IntExp : PrimaryExp
 	
 	public void writeCode(CodeWriter cw)
 	{
-		cw.write(std.string.toString(mValue));
+		cw.write(string.toString(mValue));
 	}
 }
 
@@ -6731,7 +5996,7 @@ class FloatExp : PrimaryExp
 	
 	public void writeCode(CodeWriter cw)
 	{
-		cw.write(std.string.toString(mValue));
+		cw.write(string.toString(mValue));
 	}
 }
 
