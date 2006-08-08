@@ -43,6 +43,7 @@ enum Op : uint
 	PushCatch,
 	PushFinally,
 	Ret,
+	SetArray,
 	SetGlobal,
 	SetUpvalue,
 	Shl,
@@ -56,10 +57,12 @@ enum Op : uint
 	Xor
 }
 
+// Make sure we don't add too many instructions!
 static assert(Op.max <= Instruction.opcodeMax);
 
 /*
 Add...............R: dest, src, src
+AddElem...........
 And...............R: dest, src, src
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, src
@@ -105,12 +108,11 @@ Shr...............R: dest, src, src
 Sub...............R: dest, src, src
 SwitchInt.........I: src, index of switch table
 SwitchString......I: src, index of switch table
-Throw.............I: src, n/a
+Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
 Xor...............R: dest, src, src
 */
-
 
 template Mask(uint length)
 {
@@ -324,7 +326,7 @@ struct Instruction
 			case Op.SwitchString:
 				return string.format("sswitch r%s, %s", rd, imm);
 			case Op.Throw:
-				return string.format("throw r%s", rd);
+				return string.format("throw %s", cr(rs1));
 			case Op.UShr:
 				return string.format("ushr r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Vararg:

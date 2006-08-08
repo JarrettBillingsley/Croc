@@ -1,16 +1,4 @@
-/*local function foo(x)
-{
-	x = x || 5;
-}*/
-
-//local a = [ foo(1, 2, 3) + 8,
-
-local a;
-a:b(c);
-
-//foo();
-
-/*local t =
+local t =
 {
 	x = 5,
 	y = 4.5,
@@ -40,15 +28,6 @@ function Foo:new()
 local f = Foo:new();
 
 f:bar();
-
-local arr = [3, 9, 2];
-
-arr:sort();
-
-foreach(local i, local v; pairs(arr))
-	io.writefln("arr[", i, "] = ", v);
-
-arr ~= ["foo", "far"];
 
 local function outer()
 {
@@ -107,10 +86,19 @@ catch(e)
 	io.writefln("caught: ", e);
 }
 
+local arr = [3, 9, 2];
+
+arr:sort();
+
+foreach(local i, local v; pairs(arr))
+	io.writefln("arr[", i, "] = ", v);
+
+arr ~= ["foo", "far"];
+
 local function vargs(vararg)
 {
 	local args = [vararg];
 	
 	for(local i = 0; i < #args; ++i)
 		io.writefln("args[", i, "] = ", args[i]);
-}*/
+}

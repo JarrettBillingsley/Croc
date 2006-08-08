@@ -4,8 +4,11 @@ import utf = std.utf;
 import string = std.string;
 import format = std.format;
 import std.c.string;
+import opcodes;
 
-const uint MaxRegisters = 255;
+const uint MaxRegisters = Instruction.rs1Max >> 1;
+const uint MaxConstants = Instruction.immMax;
+const uint MaxUpvalues = Instruction.immMax;
 
 char[] vformat(TypeInfo[] arguments, void* argptr)
 {
@@ -17,7 +20,7 @@ char[] vformat(TypeInfo[] arguments, void* argptr)
 	}
 	
 	format.doFormat(&putc, arguments, argptr);
-	
+
 	return s;
 }
 
@@ -204,6 +207,7 @@ class MDTable : MDObject
 		if(v is null)
 		{
 			MDValue ret;
+			ret.setNull();
 			return ret;
 		}
 		else

@@ -244,7 +244,7 @@ Statement:
 	'do' Statement 'while' '(' Expression ')'
 	'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
 	'foreach' '(' 'local' Identifier {',' 'local' Identifier} ';' Expression {',' Expression} ')' Statement
-	'switch' '(' Expression ')' '{' {CaseStatement} [DefaultStatement] '}'
+	'switch' '(' Expression ')' '{' CaseStatement {CaseStatement} [DefaultStatement] '}'
 	'case' Expression {',' Expression} ':' {Statement}
 	'default' ':' {Statement}
 	'continue' ';'

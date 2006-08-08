@@ -31,7 +31,7 @@ public void compile(char[] name, Stream source)
 
 int toInt(char[] s, int base)
 {
-	assert(base >= 2 && base <= 36);
+	assert(base >= 2 && base <= 36, "toInt - invalid base");
 
 	static char[] transTable =
 	[
@@ -715,7 +715,7 @@ class Lexer
 		
 		char[] ret;
 
-		assert(mCharacter == '\\');
+		assert(mCharacter == '\\', "escape seq - must start on backslash");
 		
 		nextChar();
 		if(isEOF(mCharacter))
@@ -1163,7 +1163,7 @@ class Lexer
 					{
 						int dummy;
 						bool b = readNumLiteral(true, token.floatValue, dummy);
-						assert(b == false);
+						assert(b == false, "literal must be float");
 
 						token.type = Token.Type.FloatLiteral;
 					}
@@ -1298,7 +1298,7 @@ class CodeWriter
 	{
 		mOutput = output;
 
-		assert(mOutput.writeable);
+		assert(mOutput.writeable, "codewriter - output stream not writeable");
 	}
 	
 	protected void writeChar(char c)
@@ -1375,6 +1375,7 @@ class FuncState
 		protected InstRef* breaks;
 		protected InstRef* continues;
 		protected uint varStart = 0;
+		protected uint regStart = 0;
 		protected bool hasUpval = false;
 	}
 
@@ -1429,8 +1430,16 @@ class FuncState
 	protected uint mStackSize;
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
-	protected MDFuncDef.LocVarDesc[] mLocVars;
-	protected int mNumActiveVars = 0;
+	
+	struct LocVarDesc
+	{
+		char[] name;
+		Location location;
+		uint reg;
+		bool isActive;
+	}
+
+	protected LocVarDesc[] mLocVars;
 	
 	struct UpvalDesc
 	{
@@ -1440,6 +1449,40 @@ class FuncState
 	}
 	
 	protected UpvalDesc[] mUpvals;
+
+	struct SwitchDesc
+	{
+		bool isString;
+		uint switchPC;
+		
+		union
+		{
+			int[int] intOffsets;
+			int[dchar[]] stringOffsets;
+		}
+
+		int defaultOffset = -1;
+
+		SwitchDesc* prev;
+	}
+
+	protected SwitchDesc* mSwitch;
+
+	struct SwitchTable
+	{
+		bool isString;
+
+		union
+		{
+			int[] intValues;
+			dchar[][] stringValues;
+		}
+
+		int[] offsets;
+		int defaultOffset = -1;
+	}
+
+	protected SwitchTable[] mSwitchTables;
 
 	public this(Location location, FuncState parent = null)
 	{
@@ -1459,9 +1502,8 @@ class FuncState
 		
 		s.breakScope = mScope.breakScope;
 		s.continueScope = mScope.continueScope;
-		s.varStart = mNumActiveVars;
-
-		assert(mFreeReg == mNumActiveVars);
+		s.varStart = mLocVars.length;
+		s.regStart = mFreeReg;
 
 		s.enclosing = mScope;
 		mScope = s;
@@ -1476,9 +1518,117 @@ class FuncState
 		if(s.hasUpval)
 			codeClose(s.varStart);
 			
-		deactivateLocals(s.varStart);
+		deactivateLocals(s.varStart, s.regStart);
 
 		delete s;
+	}
+	
+	public void beginStringSwitch(uint srcReg)
+	{
+		SwitchDesc* sd = new SwitchDesc;
+		sd.switchPC = codeI(Op.SwitchString, srcReg, 0);
+		sd.isString = true;
+		
+		sd.prev = mSwitch;
+		mSwitch = sd;
+	}
+	
+	public void beginIntSwitch(uint srcReg)
+	{
+		SwitchDesc* sd = new SwitchDesc;
+		sd.switchPC = codeI(Op.SwitchInt, srcReg, 0);
+		sd.isString = false;
+		
+		sd.prev = mSwitch;
+		mSwitch = sd;
+	}
+	
+	public void endSwitch()
+	{
+		SwitchDesc* desc = mSwitch;
+		assert(desc, "endSwitch - no switch to end");
+		mSwitch = mSwitch.prev;
+
+		SwitchTable table;
+		table.isString = desc.isString;
+
+		table.defaultOffset = desc.defaultOffset;
+		
+		if(desc.isString)
+		{
+			uint l = desc.stringOffsets.length;
+			
+			table.offsets.length = l;
+			table.stringValues.length = l;
+			
+			foreach(uint index, dchar[] value; desc.stringOffsets.keys.sort)
+			{
+				table.offsets[index] = desc.stringOffsets[value];
+				table.stringValues[index] = value;
+			}
+		}
+		else
+		{
+			uint l = desc.intOffsets.length;
+			
+			table.offsets.length = l;
+			table.intValues.length = l;
+			
+			foreach(uint index, int value; desc.intOffsets.keys.sort)
+			{
+				table.offsets[index] = desc.intOffsets[value];
+				table.intValues[index] = value;
+			}
+		}
+
+		mSwitchTables ~= table;
+		mCode[desc.switchPC].imm = mSwitchTables.length - 1;
+		
+		delete desc;
+	}
+	
+	public void addCase(Expression exp)
+	{
+		assert(mSwitch !is null, "adding case outside of a switch");
+		
+		IntExp intExp = cast(IntExp)exp;
+		
+		if(intExp)
+		{
+			if(mSwitch.isString == true)
+				throw new MDCompileException(exp.mLocation, "Case value must be a string literal");
+				
+			int* oldOffset = (intExp.mValue in mSwitch.intOffsets);
+			
+			if(oldOffset !is null)
+				throw new MDCompileException(exp.mLocation, "Duplicate case value '%s'", intExp.mValue);
+
+			mSwitch.intOffsets[intExp.mValue] = mCode.length - mSwitch.switchPC - 1;
+			
+			return;
+		}
+		
+		StringExp stringExp = cast(StringExp)exp;
+
+		assert(stringExp, "added case is neither int nor string");
+
+		if(mSwitch.isString == false)
+			throw new MDCompileException(exp.mLocation, "Case value must be an integer literal");
+
+		int* oldOffset = (stringExp.mValue in mSwitch.stringOffsets);
+
+		if(oldOffset !is null)
+			throw new MDCompileException(exp.mLocation, "Duplicate case value '%s'", stringExp.mValue);
+
+		mSwitch.stringOffsets[stringExp.mValue] = mCode.length - mSwitch.switchPC - 1;
+	}
+	
+	public void addDefault()
+	{
+		assert(mSwitch !is null, "adding default outside of a switch");
+		assert(mSwitch.defaultOffset == -1, "tried to add a second default");
+		
+		mSwitch.defaultOffset = mCode.length - mSwitch.switchPC - 1;
 	}
 
 	public void setBreakable()
@@ -1491,22 +1641,31 @@ class FuncState
 		mScope.continueScope = mScope;
 	}
 	
-	protected int searchLocal(char[] name)
+	protected int searchLocal(char[] name, out uint reg)
 	{
-		for(int i = mNumActiveVars - 1; i >= 0; i--)
-			if(mLocVars[i].name == name)
+		for(int i = mLocVars.length - 1; i >= 0; i--)
+		{
+			if(mLocVars[i].isActive && mLocVars[i].name == name)
+			{
+				reg = mLocVars[i].reg;
 				return i;
+			}
+		}
 
 		return -1;
 	}
 
-	public void insertLocal(Identifier ident)
+	public uint insertLocal(Identifier ident)
 	{
-		int i = searchLocal(ident.mName);
-
-		if(i != -1)
-			throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s",
-				ident.mName, mLocVars[i].location.toString());
+		// Search for ourselves, so that we can check inactive variables as well (i.e. other vars in same decl)
+		for(int i = mLocVars.length - 1; i >= 0; i--)
+		{
+			if(mLocVars[i].name == ident.mName && mLocVars[i].reg < mFreeReg)
+			{
+				throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s",
+					ident.mName, mLocVars[i].location.toString());
+			}
+		}
 
 		mLocVars.length = mLocVars.length + 1;
 
@@ -1515,17 +1674,32 @@ class FuncState
 			name = ident.mName;
 			location = ident.mLocation;
 			reg = pushRegister();
+			isActive = false;
 		}
+		
+		return mLocVars[$ - 1].reg;
 	}
 	
 	public void activateLocals(uint num)
 	{
-		mNumActiveVars += num;
+		for(int i = mLocVars.length - 1; i >= cast(int)(mLocVars.length - num); i--)
+		{
+			//writefln("activating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+			mLocVars[i].isActive = true;
+		}
 	}
 	
-	public void deactivateLocals(uint numTo)
+	public void deactivateLocals(int varStart, int regTo)
 	{
-		mNumActiveVars = numTo;
+		for(int i = mLocVars.length - 1; i >= varStart; i--)
+		{
+			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
+			{
+				//writefln("deactivating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+				popRegister(mLocVars[i].reg);
+				mLocVars[i].isActive = false;
+			}
+		}
 	}
 	
 	public uint nextRegister()
@@ -1535,8 +1709,7 @@ class FuncState
 
 	public uint pushRegister()
 	{
-		writefln("push ", mFreeReg);
-
+		//writefln("push ", mFreeReg);
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
@@ -1548,7 +1721,7 @@ class FuncState
 	public void popRegister(uint r)
 	{
 		mFreeReg--;
-		writefln("pop ", mFreeReg, ", ", r);
+		//writefln("pop ", mFreeReg, ", ", r);
 		
 		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
@@ -1561,17 +1734,18 @@ class FuncState
 		
 		Exp* ret = &mExpStack[mExpSP];
 		mExpSP++;
+		
+		ret.isTempReg = false;
+		ret.isTempReg2 = false;
+		
 		return ret;
 	}
-	
+
 	protected Exp* popExp()
 	{
 		mExpSP--;
 		
-		//assert(mExpSP >= 0, "exp stack underflow");
-		
-		if(mExpSP < 0)
-			*cast(byte*)0 = 0;
+		assert(mExpSP >= 0, "exp stack underflow");
 
 		return &mExpStack[mExpSP];
 	}
@@ -1647,8 +1821,9 @@ class FuncState
 				
 				s.mUpvals ~= ud;
 				
-				// need to check length of upvals
-				
+				if(mUpvals.length > MaxUpvalues)
+					throw new MDCompileException(mLocation, "Too many upvalues in function");
+
 				return mUpvals.length - 1;
 			}
 
@@ -1658,7 +1833,8 @@ class FuncState
 				return ExpType.Global;
 			}
 
-			int index = s.searchLocal(name.mName);
+			uint reg;
+			int index = s.searchLocal(name.mName, reg);
 
 			if(index == -1)
 			{
@@ -1672,7 +1848,7 @@ class FuncState
 			else
 			{
 				e.type = ExpType.Local;
-				e.index = index;
+				e.index = reg;
 
 				if(isOriginal == false)
 				{
@@ -1780,7 +1956,7 @@ class FuncState
 				uint src = popSource(isTemp);
 
 				codeI(Op.SetGlobal, src, dest.index);
-				
+
 				if(isTemp)
 					popRegister(src);
 				break;
@@ -1795,7 +1971,7 @@ class FuncState
 					popRegister(src);
 				break;
 		}
-		
+
 		freeExpTempRegs(dest);
 	}
 
@@ -1893,8 +2069,9 @@ class FuncState
 				break;
 
 			case ExpType.Call:
-				assert(src.index2 == reg);
+				assert(src.index2 == reg, "pop to regs - trying to pop func call to different reg");
 				mCode[src.index].rs2 = num + 1;
+				freeExpTempRegs(src);
 				break;
 
 			default:
@@ -2115,10 +2292,16 @@ class FuncState
 				return reg;
 
 			case ExpType.Src:
+				isTempReg = true;
 				return e.index;
+				
+			case ExpType.Vararg:
+				uint reg = pushRegister();
+				codeI(Op.Vararg, reg, 2);
+				isTempReg = true;
+				return reg;
 			
 			case ExpType.Void:
-			case ExpType.Vararg:
 			default:
 				assert(false, "toSource switch");
 		}
@@ -2266,6 +2449,21 @@ class FuncState
 		i.pc = codeJ(type, isTrue, 0);
 		return i;
 	}
+	
+	public InstRef* codeCatch(out uint checkReg)
+	{
+		InstRef* i = new InstRef;
+		i.pc = codeI(Op.PushCatch, mFreeReg, 0);
+		checkReg = mFreeReg;
+		return i;
+	}
+	
+	public InstRef* codeFinally()
+	{
+		InstRef* i = new InstRef;
+		i.pc = codeI(Op.PushFinally, 0, 0);
+		return i;
+	}
 
 	public void codeContinue(Location location)
 	{
@@ -2290,9 +2488,9 @@ class FuncState
 			codeClose(mScope.breakScope.varStart);
 
 		InstRef* i = new InstRef;
-		i.pc = codeJ(Op.Jmp, 0, 0);
-		i.trueList = mScope.breaks;
-		mScope.breaks = i;
+		i.pc = codeJ(Op.Jmp, 1, 0);
+		i.trueList = mScope.breakScope.breaks;
+		mScope.breakScope.breaks = i;
 	}
 
 	public int codeStringConst(dchar[] c)
@@ -2305,6 +2503,10 @@ class FuncState
 		v.value = new MDString(c);
 		
 		mConstants ~= v;
+		
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+			
 		return mConstants.length - 1;
 	}
 	
@@ -2318,6 +2520,10 @@ class FuncState
 		v.value = x;
 
 		mConstants ~= v;
+		
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+
 		return mConstants.length - 1;
 	}
 	
@@ -2329,8 +2535,12 @@ class FuncState
 				
 		MDValue v;
 		v.value = x;
-		
+
 		mConstants ~= v;
+		
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+
 		return mConstants.length - 1;
 	}
 	
@@ -2342,8 +2552,12 @@ class FuncState
 				
 		MDValue v;
 		v.setNull();
-		
+
 		mConstants ~= v;
+		
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+
 		return mConstants.length - 1;
 	}
 
@@ -2360,22 +2574,57 @@ class FuncState
 
 	public uint codeR(Op opcode, uint dest, uint src1, uint src2)
 	{
+		dest &= Instruction.rdMask;
+		src1 &= Instruction.rs1Mask;
+		src2 &= Instruction.rs2Mask;
 		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | src1 << Instruction.rs1Pos | src2 << Instruction.rs2Pos);
 	}
 	
 	public uint codeI(Op opcode, uint dest, uint imm)
 	{
+		dest &= Instruction.rdMask;
+		imm &= Instruction.immMask;
 		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | imm << Instruction.immPos);
 	}
 
 	public uint codeJ(Op opcode, uint dest, int offs)
 	{
+		dest &= Instruction.rdMask;
+		offs &= Instruction.immMask;
 		return code(opcode << Instruction.opcodePos | dest << Instruction.rdPos | offs << Instruction.immPos);
 	}
 
 	public void showMe(uint tab = 0)
 	{
 		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString());
+		
+		foreach(uint i, FuncState s; mInnerFuncs)
+		{
+			writefln(string.repeat("\t", tab + 1), "Inner Func ", i);
+			s.showMe(tab + 1);
+		}
+		
+		foreach(uint i, inout SwitchTable t; mSwitchTables)
+		{
+			writef(string.repeat("\t", tab + 1), "Switch Table ", i);
+
+			if(t.isString)
+			{
+				writefln(" - String");
+			
+				for(uint index = 0; index < t.stringValues.length; index++)
+					writefln(string.repeat("\t", tab + 2), "\"%s\" => %s", t.stringValues[index], t.offsets[index]);
+			}
+			else
+			{
+				writefln(" - Int");
+
+				for(uint index = 0; index < t.intValues.length; index++)
+					writefln(string.repeat("\t", tab + 2), "%s => %s", t.intValues[index], t.offsets[index]);
+			}
+
+			writefln(string.repeat("\t", tab + 2), "Default: ", t.defaultOffset);
+		}
 
 		foreach(v; mLocVars)
 			writefln(string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
@@ -2408,12 +2657,6 @@ class FuncState
 			}
 		}
 
-		foreach(uint i, FuncState s; mInnerFuncs)
-		{
-			writefln(string.repeat("\t", tab + 1), "Inner Func ", i);
-			s.showMe(tab + 1);
-		}
-			
 		foreach(i, inst; cast(Instruction[])mCode)
 			writefln(string.repeat("\t", tab + 1), "[%3s] ", i, inst.toString());
 	}
@@ -2465,7 +2708,7 @@ class Chunk
 			
 		fs.codeI(Op.Ret, 0, 1);
 		
-		assert(fs.mExpSP == 0);
+		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 			
 		return fs;
 	}
@@ -2594,7 +2837,7 @@ class ScopeStatement : Statement
 		s.popScope();
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mStatement.writeCode(cw);
 	}
@@ -2633,7 +2876,7 @@ class ExpressionStatement : Statement
 		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mExpr.writeCode(cw);
 		cw.write(";");
@@ -2661,7 +2904,7 @@ class DeclarationStatement : Statement
 		mDecl.codeGen(s);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mDecl.writeCode(cw);
 
@@ -2792,7 +3035,7 @@ class LocalDecl : Declaration
 		s.activateLocals(mNames.length);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("local ");
 
@@ -2836,7 +3079,7 @@ class LocalFuncDecl : Declaration
 
 		t.check(Token.Type.Function);
 		t = t.nextToken;
-		
+
 		Identifier name = Identifier.parse(t);
 		
 		t.check(Token.Type.LParen);
@@ -2884,6 +3127,8 @@ class LocalFuncDecl : Declaration
 
 		FuncState fs = new FuncState(mLocation, s);
 		fs.mIsVararg = mIsVararg;
+		
+		fs.pushScope();
 
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
@@ -2891,6 +3136,7 @@ class LocalFuncDecl : Declaration
 		fs.activateLocals(mParams.length);
 
 		mBody.codeGen(fs);
+		fs.popScope();
 		fs.codeI(Op.Ret, 0, 1);
 
 		s.pushClosure(fs);
@@ -2898,7 +3144,7 @@ class LocalFuncDecl : Declaration
 		s.popAssign();
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("local function ");
 		mName.writeCode(cw);
@@ -3035,7 +3281,7 @@ class FuncDecl : Declaration
 		s.popAssign();
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("function ");
 
@@ -3174,7 +3420,7 @@ class CompoundStatement : Statement
 			st.codeGen(s);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("{");
 		
@@ -3256,7 +3502,7 @@ class IfStatement : Statement
 		delete i;
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("if(");
 		mCondition.writeCode(cw);
@@ -3327,7 +3573,7 @@ class WhileStatement : Statement
 		delete beginLoop;
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("while(");
 		mCondition.writeCode(cw);
@@ -3394,7 +3640,7 @@ class DoWhileStatement : Statement
 		delete beginLoop;
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("do ");
 		mBody.writeCode(cw);
@@ -3531,7 +3777,7 @@ class ForStatement : Statement
 		}
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("for(");
 		
@@ -3608,6 +3854,9 @@ class ForeachStatement : Statement
 			t = t.nextToken;
 			container ~= OpEqExp.parse(t);
 		}
+		
+		if(container.length > 3)
+			throw new MDCompileException(location, "'foreach' may have a maximum of three container expressions");
 
 		t.check(Token.Type.RParen);
 		t = t.nextToken;
@@ -3617,23 +3866,74 @@ class ForeachStatement : Statement
 		return new ForeachStatement(location, indices, container, foreachBody);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
-		s.breakStat = this;
-		s.continueStat = this;
+			s.setBreakable();
+			s.setContinuable();
 
-		foreach(Identifier i; mIndices)
-			s.insertLocal(i);
+			uint baseReg = s.nextRegister();
+			
+			if(mContainer.length == 3)
+			{
+				foreach(uint i, Expression c; mContainer)
+				{
+					c.codeGen(s);
+					s.popToRegister(i + baseReg);
+				}
+			}
+			else
+			{
+				for(uint i = 0; i < mContainer.length - 1; i++)
+				{
+					mContainer[i].codeGen(s);
+					s.popToRegister(i + baseReg);
+				}
+				
+				mContainer[$ - 1].codeGen(s);
 
-		//foreach(Expression c; mContainer) c.semantic(s);
+				if(mContainer[$ - 1].isMultRet())
+					s.popToRegisters(baseReg + mContainer.length - 1, 3 - mContainer.length + 1);
+				else
+				{
+					s.popToRegister(baseReg + mContainer.length - 1);
+					s.codeNull(baseReg + mContainer.length, 3 - mContainer.length);
+				}
+			}
 
-		mBody.semantic(s);
+			uint generator = s.pushRegister();
+			uint invState = s.pushRegister();
+			uint control = s.pushRegister();
 
+			InstRef* beginJump = s.makeJump();
+			InstRef* beginLoop = s.getLabel();
+
+			s.pushScope();
+				foreach(Identifier i; mIndices)
+					s.insertLocal(i);
+					
+				s.activateLocals(mIndices.length);
+
+				mBody.codeGen(s);
+			s.popScope();
+
+			s.patchJumpToHere(beginJump);
+			delete beginJump;
+			
+			s.codeI(Op.Foreach, baseReg, mIndices.length);
+			InstRef* gotoBegin = s.makeJump(Op.Je);
+			
+			s.patchJumpTo(gotoBegin, beginLoop);
+			delete beginLoop;
+			delete gotoBegin;
+
+			s.popRegister(control);
+			s.popRegister(invState);
+			s.popRegister(generator);
 		s.popScope();
-	}*/
+	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("foreach(");
 		
@@ -3663,10 +3963,10 @@ class ForeachStatement : Statement
 class SwitchStatement : Statement
 {
 	protected Expression mCondition;
-	protected Statement[] mCases;
-	protected Statement mDefault;
+	protected CaseStatement[] mCases;
+	protected DefaultStatement mDefault;
 
-	public this(Location location, Expression condition, Statement[] cases, Statement caseDefault)
+	public this(Location location, Expression condition, CaseStatement[] cases, DefaultStatement caseDefault)
 	{
 		super(location);
 		mCondition = condition;
@@ -3690,10 +3990,10 @@ class SwitchStatement : Statement
 		t.check(Token.Type.LBrace);
 		t = t.nextToken;
 
-		Statement[] cases = new Statement[10];
+		CaseStatement[] cases = new CaseStatement[10];
 		int i = 0;
 
-		void addCase(Statement c)
+		void addCase(CaseStatement c)
 		{
 			if(i >= cases.length)
 				cases.length = cases.length * 2;
@@ -3712,7 +4012,10 @@ class SwitchStatement : Statement
 		
 		cases.length = i;
 
-		Statement caseDefault;
+		if(cases.length == 0)
+			throw new MDCompileException(location, "Switch statement must have at least one case statement");
+
+		DefaultStatement caseDefault;
 
 		if(t.type == Token.Type.Default)
 			caseDefault = DefaultStatement.parse(t);
@@ -3722,28 +4025,43 @@ class SwitchStatement : Statement
 
 		return new SwitchStatement(location, condition, cases, caseDefault);
 	}
-	
-	/*public override void semantic(FuncState s)
+
+	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
-		s.breakStat = this;
+			s.setBreakable();
+			
+			mCondition.codeGen(s);
+			bool isTemp;
+			uint src = s.popSource(isTemp);
 
-		foreach(Statement c; mCases)
-			c.semantic(s);
+			if(cast(IntExp)mCases[0].mCondition)
+				s.beginIntSwitch(src);
+			else
+				s.beginStringSwitch(src);
+			
+			if(isTemp)
+				s.popRegister(src);
 
-		if(mDefault)
-			mDefault.semantic(s);
+			foreach(CaseStatement c; mCases)
+				c.codeGen(s);
+				
+			if(mDefault)
+				mDefault.codeGen(s);
 
+			s.endSwitch();
+
+			s.patchBreaksToHere();
 		s.popScope();
-	}*/
+	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("switch(");
 		mCondition.writeCode(cw);
 		cw.write("){");
 		
-		foreach(Statement c; mCases)
+		foreach(CaseStatement c; mCases)
 			c.writeCode(cw);
 			
 		if(mDefault)
@@ -3786,11 +4104,26 @@ class CaseStatement : Statement
 
 		while(true)
 		{
-			addCase(OpEqExp.parse(t));
+			switch(t.type)
+			{
+				case Token.Type.IntLiteral, Token.Type.CharLiteral:
+					addCase(new IntExp(t.location, t.intValue));
+					t = t.nextToken;
+					break;
+
+				case Token.Type.StringLiteral:
+					addCase(new StringExp(t.location, utf.toUTF32(t.stringValue)));
+					t = t.nextToken;
+					break;
+
+				default:
+					throw new MDCompileException(t.location,
+						"Case value can only be an integer or string literal, not '%s'", t.toString());
+			}
 
 			if(t.type != Token.Type.Comma)
 				break;
-				
+
 			t = t.nextToken;
 		}
 
@@ -3819,23 +4152,24 @@ class CaseStatement : Statement
 			
 		statements.length = i;
 
-		Statement caseBody = new CompoundStatement(location, statements);
-		caseBody = new ScopeStatement(location, caseBody);
-
-		CaseStatement ret;
+		Statement ret = new CompoundStatement(location, statements);
+		ret = new ScopeStatement(location, ret);
 
 		for(i = cases.length - 1; i >= 0; i--)
-			ret = new CaseStatement(location, cases[i], caseBody);
+			ret = new CaseStatement(location, cases[i], ret);
 		
-		return ret;
+		assert(cast(CaseStatement)ret !is null);
+
+		return cast(CaseStatement)ret;
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-		mBody.semantic(s);
-	}*/
-	
-	public void writeCode(CodeWriter cw)
+		s.addCase(mCondition);
+		mBody.codeGen(s);	
+	}
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("case ");
 		mCondition.writeCode(cw);
@@ -3885,12 +4219,13 @@ class DefaultStatement : Statement
 		return new DefaultStatement(location, defaultBody);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-		mBody.semantic(s);
-	}*/
+		s.addDefault();
+		mBody.codeGen(s);	
+	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("default:");
 		mBody.writeCode(cw);
@@ -3919,7 +4254,7 @@ class ContinueStatement : Statement
 		s.codeContinue(mLocation);
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("continue;");
 	}
@@ -3944,11 +4279,10 @@ class BreakStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
-		
 		s.codeBreak(mLocation);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("break;");
 	}
@@ -4023,7 +4357,7 @@ class ReturnStatement : Statement
 		}
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("return ");
 		
@@ -4099,27 +4433,88 @@ class TryCatchStatement : Statement
 		return new TryCatchStatement(location, tryBody, catchVar, catchBody, finallyBody);
 	}
 	
-	/*public override void semantic(FuncState s)
+	public override void codeGen(FuncState s)
 	{
-		mTryBody.semantic(s);
-
-		if(mCatchBody)
-		{
-			s.pushScope();
-			s.insertLocal(mCatchVar);
-			mCatchBody.semantic(s);
-			s.popScope();
-		}
-
 		if(mFinallyBody)
 		{
-			s.pushScope();
-			mFinallyBody.semantic(s);
-			s.popScope();
-		}
-	}*/
+			InstRef* pushFinally = s.codeFinally();
+
+			if(mCatchBody)
+			{
+				uint checkReg1;
+				InstRef* pushCatch = s.codeCatch(checkReg1);
 	
-	public void writeCode(CodeWriter cw)
+				mTryBody.codeGen(s);
+
+				s.codeI(Op.PopCatch, 0, 0);
+				s.codeI(Op.PopFinally, 0, 0);
+				InstRef* jumpOverCatch = s.makeJump();
+				s.patchJumpToHere(pushCatch);
+				delete pushCatch;
+				
+				s.pushScope();
+					uint checkReg2 = s.insertLocal(mCatchVar);
+
+					assert(checkReg1 == checkReg2, "catch var register is not right");
+	
+					s.activateLocals(1);
+					mCatchBody.codeGen(s);
+				s.popScope();
+				
+				s.codeI(Op.PopCatch, 0, 0);
+				s.codeI(Op.PopFinally, 0, 0);
+				s.patchJumpToHere(jumpOverCatch);
+				delete jumpOverCatch;
+				
+				s.patchJumpToHere(pushFinally);
+				delete pushFinally;
+
+				mFinallyBody.codeGen(s);
+				
+				s.codeI(Op.EndFinal, 0, 0);
+			}
+			else
+			{
+				mTryBody.codeGen(s);
+				s.codeI(Op.PopFinally, 0, 0);
+
+				s.patchJumpToHere(pushFinally);
+				delete pushFinally;
+
+				mFinallyBody.codeGen(s);
+				s.codeI(Op.EndFinal, 0, 0);
+			}
+		}
+		else
+		{
+			assert(mCatchBody);
+
+			uint checkReg1;
+			InstRef* pushCatch = s.codeCatch(checkReg1);
+
+			mTryBody.codeGen(s);
+
+			s.codeI(Op.PopCatch, 0, 0);
+			InstRef* jumpOverCatch = s.makeJump();
+			s.patchJumpToHere(pushCatch);
+			delete pushCatch;
+
+			s.pushScope();
+				uint checkReg2 = s.insertLocal(mCatchVar);
+
+				assert(checkReg1 == checkReg2, "catch var register is not right");
+
+				s.activateLocals(1);
+				mCatchBody.codeGen(s);
+			s.popScope();
+
+			s.codeI(Op.PopCatch, 0, 0);
+			s.patchJumpToHere(jumpOverCatch);
+			delete jumpOverCatch;
+		}
+	}
+
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("try");
 		mTryBody.writeCode(cw);
@@ -4165,8 +4560,21 @@ class ThrowStatement : Statement
 
 		return new ThrowStatement(location, exp);
 	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mExp.codeGen(s);
+		
+		bool isTemp;
+		uint src = s.popSource(isTemp);
+		
+		s.codeR(Op.Throw, 0, src, 0);
+		
+		if(isTemp)
+			s.popRegister(src);
+	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("throw ");
 		mExp.writeCode(cw);
@@ -4234,6 +4642,7 @@ abstract class Expression
 				assert(s.nextRegister() == lastReg);
 				s.pushRegister();
 
+				// has to be -2 because i _is not the index in the array_ but the _index in the slice_
 				if(i == exprs.length - 2 && e.isMultRet())
 					s.popMultRet(lastReg);
 				else
@@ -4244,7 +4653,7 @@ abstract class Expression
 				s.popRegister(i);
 		}
 	}
-	
+
 	public void codeGen(FuncState s)
 	{
 		assert(false, "unimplemented codeGen");
@@ -4324,7 +4733,6 @@ class Assignment : Expression
 		else
 		{
 			mRHS.checkMultRet();
-			mRHS.codeGen(s);
 
 			foreach(Expression dest; mLHS)
 				dest.codeGen(s);
@@ -4471,7 +4879,7 @@ class OpEqExp : BinaryExp
 		mOp1.codeGen(s);
 		s.popAssign();
 	}
-	
+
 	public override InstRef* codeCondition(FuncState s)
 	{
 		switch(mType)
@@ -5512,7 +5920,7 @@ class DotExp : PostfixExp
 		return ret;
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp.writeCode(cw);
 		cw.write(".");
@@ -5590,9 +5998,11 @@ class CallExp : PostfixExp
 		{
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
-			assert(s.nextRegister() == funcReg);
-			s.pushRegister();
+
 			s.popToRegister(funcReg);
+			s.pushRegister();
+			
+			assert(s.nextRegister() == funcReg + 1);
 
 			Expression.codeGenListToNextReg(s, mArgs);
 	
@@ -5602,11 +6012,9 @@ class CallExp : PostfixExp
 				s.pushCall(funcReg, 0);
 			else
 				s.pushCall(funcReg, mArgs.length + 1);
-
-			//s.popRegister(funcReg);
 		}
 	}
-	
+
 	public InstRef* codeCondition(FuncState s)
 	{
 		uint temp = s.pushRegister();
@@ -5628,7 +6036,7 @@ class CallExp : PostfixExp
 		return true;
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp.writeCode(cw);
 		
@@ -5681,7 +6089,7 @@ class IndexExp : PostfixExp
 		return ret;
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mOp.writeCode(cw);
 		cw.write("[");
@@ -5796,7 +6204,7 @@ class IdentExp : PrimaryExp
 		return ret;
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		mIdent.writeCode(cw);
 	}
@@ -5829,7 +6237,7 @@ class NullExp : PrimaryExp
 		return s.makeJump(Op.Jmp);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("null");
 	}
@@ -5869,7 +6277,7 @@ class BoolExp : PrimaryExp
 		return s.makeJump(Op.Jmp, !mValue);
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		if(mValue)
 			cw.write("true");
@@ -5913,7 +6321,7 @@ class VarargExp : PrimaryExp
 		return true;
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("vararg");
 	}
@@ -5957,7 +6365,7 @@ class IntExp : PrimaryExp
 		return ret;
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write(string.toString(mValue));
 	}
@@ -5994,7 +6402,7 @@ class FloatExp : PrimaryExp
 		throw new MDCompileException(mLocation, "Cannot use a float literal as a condition");
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write(string.toString(mValue));
 	}
@@ -6031,7 +6439,7 @@ class StringExp : PrimaryExp
 		throw new MDCompileException(mLocation, "Cannot use a string literal as a condition");
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		// Need to escape string
 		
@@ -6121,7 +6529,7 @@ class FuncLiteralExp : PrimaryExp
 		throw new MDCompileException(mLocation, "Cannot use a function literal as a condition");
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("function(");
 		
@@ -6277,7 +6685,7 @@ class TableCtorExp : PrimaryExp
 		throw new MDCompileException(mLocation, "Cannot use a table constructor as a condition");
 	}
 
-	public void writeCode(CodeWriter cw)
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("{");
 		
@@ -6347,14 +6755,40 @@ class ArrayCtorExp : PrimaryExp
 		return new ArrayCtorExp(location, fields);
 	}
 	
-	public void writeCode(CodeWriter cw)
+	public override void codeGen(FuncState s)
+	{
+		uint destReg = s.pushRegister();
+		s.codeI(Op.NewArray, destReg, mFields.length);
+
+		foreach(Expression field; mFields)
+		{
+			bool isTemp;
+
+			field.codeGen(s);
+			uint val = s.popSource(isTemp);
+
+			s.codeR(Op.Cat, destReg, destReg, val);
+
+			if(isTemp)
+				s.popRegister(val);
+		}
+
+		s.pushTempReg(destReg);
+	}
+	
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use an array constructor as a condition");
+	}
+	
+	public override void writeCode(CodeWriter cw)
 	{
 		cw.write("[");
 
 		foreach(uint i, Expression field; mFields)
 		{
 			field.writeCode(cw);
-			
+
 			if(i != mFields.length - 1)
 				cw.write(", ");
 		}
