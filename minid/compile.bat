@@ -1,6 +1,6 @@
 @echo off
 set DFLAGS=-debug -g
-set DPROG=minid
+set DPROG=compiler
 set DFILES=%DPROG%.d types.d opcodes.d
 set DLIBS=
 
