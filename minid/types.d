@@ -6,6 +6,7 @@ import format = std.format;
 import std.c.string;
 
 import minid.opcodes;
+import minid.state;
 
 const uint MaxRegisters = Instruction.rs1Max >> 1;
 const uint MaxConstants = Instruction.immMax;
@@ -33,11 +34,6 @@ class MDException : Exception
 	}
 }
 
-abstract class MDObject
-{
-	public uint length();
-}
-
 int dcmp(dchar[] s1, dchar[] s2)
 {
     auto len = s1.length;
@@ -52,9 +48,26 @@ int dcmp(dchar[] s1, dchar[] s2)
     return result;
 }
 
+abstract class MDObject
+{
+	public uint length();
+	
+	// avoiding RTTI downcasts for speed
+	public MDString asString() { return null; }
+	public MDUserData asUserData() { return null; }
+	public MDClosure asClosure() { return null; }
+	public MDTable asTable() { return null; }
+	public MDArray asArray() { return null; }
+}
+
 class MDString : MDObject
 {
 	protected dchar[] mData;
+	
+	public override MDString asString()
+	{
+		return this;
+	}
 
 	public this(dchar[] data)
 	{
@@ -66,7 +79,7 @@ class MDString : MDObject
 		mData = utf.toUTF32(data);
 	}
 
-	public uint length()
+	public override uint length()
 	{
 		return mData.length;
 	}
@@ -172,7 +185,12 @@ class MDString : MDObject
 
 class MDUserData : MDObject
 {
-	public uint length()
+	public override MDUserData asUserData()
+	{
+		return this;
+	}
+
+	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a userdatum");
 	}
@@ -185,7 +203,32 @@ class MDUserData : MDObject
 
 class MDClosure : MDObject
 {
-	public uint length()
+	protected bool mIsNative;
+	
+	struct NativeClosure
+	{
+		int delegate(MDState) func;
+		MDValue[] upvals;
+	}
+	
+	struct ScriptClosure
+	{
+		MDFuncDef func;
+		MDUpval[] upvals;
+	}
+	
+	union
+	{
+		NativeClosure native;
+		ScriptClosure script;
+	}
+
+	public override MDClosure asClosure()
+	{
+		return this;
+	}
+
+	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a closure");
 	}
@@ -194,6 +237,11 @@ class MDClosure : MDObject
 	{
 		return string.format("closure 0x%0.8X", cast(void*)this);
 	}
+	
+	public bool isNative()
+	{
+		return mIsNative;
+	}
 }
 
 class MDTable : MDObject
@@ -201,6 +249,11 @@ class MDTable : MDObject
 	protected MDValue[MDValue] mData;
 	protected MDTable mMetatable;
 	
+	public override MDTable asTable()
+	{
+		return this;
+	}
+
 	public MDValue opIndex(MDValue index)
 	{
 		MDValue* v = (index in mData);
@@ -235,6 +288,11 @@ class MDTable : MDObject
 class MDArray : MDObject
 {
 	protected MDValue[] mData;
+	
+	public override MDArray asArray()
+	{
+		return this;
+	}
 
 	public override uint length()
 	{
@@ -275,11 +333,13 @@ struct MDValue
 		private bool mBool;
 		private int mInt;
 		private float mFloat;
-
-		// Object types
-		private MDObject mObj;
 	}
 	
+	// Object types
+	// This has to be outside the union, so the GC doesn't confuse other types of
+	// values for a pointer.
+	private MDObject mObj;
+
 	public int opEquals(MDValue* other)
 	{
 		if(this.mType != other.mType)
@@ -451,31 +511,31 @@ struct MDValue
 	public MDString asString()
 	{
 		assert(mType == Type.String);
-		return cast(MDString)mObj;
+		return mObj.asString();
 	}
 	
 	public MDUserData asUserData()
 	{
 		assert(mType == Type.UserData);
-		return cast(MDUserData)mObj;
+		return mObj.asUserData();
 	}
 
 	public MDClosure asFunction()
 	{
 		assert(mType == Type.Function);
-		return cast(MDClosure)mObj;
+		return mObj.asClosure();
 	}
 
 	public MDTable asTable()
 	{
 		assert(mType == Type.Table);
-		return cast(MDTable)mObj;
+		return mObj.asTable();
 	}
 	
 	public MDArray asArray()
 	{
 		assert(mType == Type.Array);
-		return cast(MDArray)mObj;
+		return mObj.asArray();
 	}
 
 	public bool isFalse()
@@ -487,6 +547,7 @@ struct MDValue
 	public void setNull()
 	{
 		mType = Type.Null;
+		mObj = null;
 	}
 	
 	public void value(bool b)
@@ -601,6 +662,7 @@ struct MDUpval
 	{
 		MDValue closedValue;
 		
+		// For the open upvalue doubly-linked list.
 		struct
 		{
 			MDUpval* next;
@@ -632,16 +694,17 @@ struct Location
 
 class MDFuncDef
 {
-	protected bool mIsVararg;
-	protected Location mLocation;
-	protected MDFuncDef[] mInnerFuncs;
-	protected MDValue[] mConstants;
-	protected uint mNumParams;
-	protected uint mNumUpvals;
-	protected uint mStackSize;
-	protected uint[] mCode;
-	protected uint[] mLineInfo;
-	
+	package bool mIsVararg;
+	package Location mLocation;
+	package MDFuncDef[] mInnerFuncs;
+	package MDValue[] mConstants;
+	package uint mNumParams;
+	package uint mNumUpvals;
+	package uint mStackSize;
+	package Instruction[] mCode;
+	package uint[] mLineInfo;
+	package dchar[][] mUpvalNames;
+
 	struct LocVarDesc
 	{
 		char[] name;
@@ -649,5 +712,21 @@ class MDFuncDef
 		uint reg;
 	}
 	
-	LocVarDesc[] mLocVarDescs;
+	package LocVarDesc[] mLocVarDescs;
+	
+	struct SwitchTable
+	{
+		bool isString;
+
+		union
+		{
+			int[] intValues;
+			dchar[][] stringValues;
+		}
+
+		int[] offsets;
+		int defaultOffset = -1;
+	}
+
+	package SwitchTable[] mSwitchTables;
 }

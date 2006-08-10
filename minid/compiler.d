@@ -17,17 +17,12 @@ void main()
 	compile(`simple.md`, f);
 }
 
-public void compile(char[] name, Stream source)
+public MDFuncDef compile(char[] name, Stream source)
 {
 	auto Lexer l = new Lexer();
 	Token* tokens = l.lex(name, source);
 	Chunk ck = Chunk.parse(tokens);
-	FuncState fs = ck.codeGen();
-	fs.showMe();
-
-	//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
-	//CodeWriter cw = new CodeWriter(o);
-	//ck.writeCode(cw);
+	return ck.codeGen();
 }
 
 int toInt(char[] s, int base)
@@ -701,14 +696,15 @@ class Lexer
 		uint readHexDigits(uint num)
 		{
 			uint ret = 0;
-			
+
 			for(uint i = 0; i < num; i++)
 			{
 				if(isHexDigit(mCharacter) == false)
 					throw new MDCompileException(mLoc, "Hexadecimal escape digits expected");
-					
-				ret <<= 8;
+
+				ret <<= 4;
 				ret |= hexDigitToInt(mCharacter);
+				nextChar();
 			}
 
 			return ret;
@@ -851,11 +847,12 @@ class Lexer
 		return buf[0 .. i];
 	}
 	
-	protected char[] readCharLiteral()
+	protected int readCharLiteral()
 	{
 		Location beginning = mLoc;
 		char[] ret;
 
+		assert(mCharacter == '\'', "char literal must start with single quote");
 		nextChar();
 
 		if(isEOF(mCharacter))
@@ -865,7 +862,6 @@ class Lexer
 		{
 			case '\\':
 				ret = readEscapeSequence(beginning);
-				nextChar();
 				break;
 
 			default:
@@ -873,11 +869,13 @@ class Lexer
 				nextChar();
 				break;
 		}
-		
-		if(mCharacter != '\'')
-			throw new MDCompileException(mLoc, "Unterminated character literal");
 
-		return ret;
+		if(mCharacter != '\'')
+			throw new MDCompileException(beginning, "Unterminated character literal");
+			
+		nextChar();
+
+		return cast(int)(utf.toUTF32(ret)[0]);
 	}
 
 	protected Token* nextToken()
@@ -1207,7 +1205,7 @@ class Lexer
 					return token;
 					
 				case '\'':
-					token.stringValue = readCharLiteral();
+					token.intValue = readCharLiteral();
 					token.type = Token.Type.CharLiteral;
 					return token;
 
@@ -2200,7 +2198,6 @@ class FuncState
 
 			case ExpType.Indexed:
 				codeR(Op.Index, e.index, e.index, e.index2);
-				freeExpTempRegs(e);
 				break;
 
 			default:
@@ -2676,6 +2673,76 @@ class FuncState
 		foreach(i, inst; cast(Instruction[])mCode)
 			writefln(string.repeat("\t", tab + 1), "[%3s] ", i, inst.toString());
 	}
+	
+	protected MDFuncDef toFuncDef()
+	{
+		/*
+		struct SwitchTable
+		{
+			bool isString;
+	
+			union
+			{
+				int[] intValues;
+				dchar[][] stringValues;
+			}
+
+			int[] offsets;
+			int defaultOffset = -1;
+		}
+	
+		package SwitchTable[] mSwitchTables;
+		*/
+		
+		MDFuncDef ret = new MDFuncDef();
+		
+		ret.mIsVararg = mIsVararg;
+		ret.mLocation = mLocation;
+		
+		ret.mInnerFuncs.length = mInnerFuncs.length;
+		
+		for(int i = 0; i < mInnerFuncs.length; i++)
+			ret.mInnerFuncs[i] = mInnerFuncs[i].toFuncDef();
+			
+		ret.mConstants = mConstants;
+		ret.mNumParams = mNumParams;
+		ret.mNumUpvals = mUpvals.length;
+		ret.mStackSize = mStackSize;
+		ret.mCode = mCode;
+		ret.mLineInfo = mLineInfo;
+		
+		ret.mLocVarDescs.length = mLocVars.length;
+		
+		for(int i = 0; i < mLocVars.length; i++)
+		{
+			with(mLocVars[i])
+			{
+				ret.mLocVarDescs[i].name = name;
+				ret.mLocVarDescs[i].location = location;
+				ret.mLocVarDescs[i].reg = reg;
+			}
+		}
+		
+		ret.mSwitchTables.length = mSwitchTables.length;
+		
+		for(int i = 0; i < mSwitchTables.length; i++)
+		{
+			with(mSwitchTables[i])
+			{
+				ret.mSwitchTables[i].isString = isString;
+				
+				if(isString)
+					ret.mSwitchTables[i].stringValues = stringValues;
+				else
+					ret.mSwitchTables[i].intValues = intValues;
+					
+				ret.mSwitchTables[i].offsets = offsets;
+				ret.mSwitchTables[i].defaultOffset = defaultOffset;	
+			}
+		}
+
+		return ret;
+	}
 }
 
 class Chunk
@@ -2714,7 +2781,7 @@ class Chunk
 		return new Chunk(location, statements);
 	}
 	
-	public FuncState codeGen()
+	public MDFuncDef codeGen()
 	{
 		FuncState fs = new FuncState(mLocation);
 		fs.mIsVararg = true;
@@ -2725,8 +2792,14 @@ class Chunk
 		fs.codeI(Op.Ret, 0, 1);
 		
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
-			
-		return fs;
+		
+		fs.showMe();
+
+		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
+		//CodeWriter cw = new CodeWriter(o);
+		//ck.writeCode(cw);
+
+		return fs.toFuncDef();
 	}
 
 	void writeCode(CodeWriter cw)

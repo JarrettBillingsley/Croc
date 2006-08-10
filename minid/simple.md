@@ -1,4 +1,4 @@
-/*local t =
+local t =
 {
 	x = 5,
 	y = 4.5,
@@ -84,7 +84,7 @@ try
 catch(e)
 {
 	io.writefln("caught: ", e);
-}*/
+}
 
 local arr = [foo(bar, baz), bat[bar]];
 
