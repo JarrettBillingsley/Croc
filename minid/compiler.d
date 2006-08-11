@@ -4,6 +4,7 @@ import std.c.stdlib;
 import std.conv;
 import std.stdio;
 import std.stream;
+import path = std.path;
 import string = std.string;
 import utf = std.utf;
 import std.asserterror;
@@ -11,10 +12,41 @@ import std.asserterror;
 import minid.types;
 import minid.opcodes;
 
+import minid.state;
+import minid.vm;
+
 void main()
 {
-	auto File f = new File(`simple.md`, FileMode.In);
-	compile(`simple.md`, f);
+	/*MDFuncDef func = compileFile(`simple.md`);
+
+	MDState state = new MDState();
+	MDClosure closure = new MDClosure(state, func);
+	MDVM vm = new MDVM();
+
+	state.mCurrentAR.base = 0;
+	state.mCurrentAR.func = closure;
+	state.mSavedPC = state.mCurrentAR.savedPC = func.mCode.ptr;
+	
+	try
+	{
+		vm.execute(state);
+	}
+	catch
+	{
+		
+	}
+	finally
+	{
+		MDValue v;
+		v.value = new MDString("d"d);
+		writefln(closure.environment[v].toString());
+	}*/
+}
+
+public MDFuncDef compileFile(char[] filename)
+{
+	auto File f = new File(filename, FileMode.In);
+	return compile(path.getBaseName(filename), f);
 }
 
 public MDFuncDef compile(char[] name, Stream source)
@@ -2793,7 +2825,7 @@ class Chunk
 		
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 		
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);

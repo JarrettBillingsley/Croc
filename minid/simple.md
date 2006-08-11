@@ -1,4 +1,10 @@
-local t =
+local a, b, c;
+a = 4;
+b = a;
+c = a + b;
+d = 4;
+
+/*local t =
 {
 	x = 5,
 	y = 4.5,
@@ -11,7 +17,7 @@ local t =
 
 Foo = { };
 
-Foo.opIndex = Foo;
+table.setMeta(Foo, { opIndex = Foo });
 
 function Foo:bar()
 {
@@ -101,4 +107,4 @@ local function vargs(vararg)
 	
 	for(local i = 0; i < #args; ++i)
 		io.writefln("args[", i, "] = ", args[i]);
-}
+}*/

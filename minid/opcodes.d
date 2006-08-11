@@ -181,6 +181,11 @@ struct Instruction
 		return (data >> immPos)	& immMask;
 	}
 	
+	int immBiased()
+	{
+		return ((data >> immPos) & immMask)	- immBias;
+	}
+	
 	uint imm(uint value)
 	{
 		data = (data & ~(immMask << immPos)) | ((value & immMask) << immPos);

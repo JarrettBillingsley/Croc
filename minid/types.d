@@ -12,6 +12,7 @@ const uint MaxRegisters = Instruction.rs1Max >> 1;
 const uint MaxConstants = Instruction.immMax;
 const uint MaxUpvalues = Instruction.immMax;
 
+// Don't know why this isn't in phobos.
 char[] vformat(TypeInfo[] arguments, void* argptr)
 {
 	char[] s;
@@ -36,39 +37,111 @@ class MDException : Exception
 
 int dcmp(dchar[] s1, dchar[] s2)
 {
-    auto len = s1.length;
-    int result;
+	auto len = s1.length;
+	int result;
 
-    //printf("cmp('%.*s', '%.*s')\n", s1, s2);
-    if (s2.length < len)
-	len = s2.length;
-    result = memcmp(s1, s2, len);
-    if (result == 0)
-	result = cast(int)s1.length - cast(int)s2.length;
-    return result;
+	if(s2.length < len)
+		len = s2.length;
+
+	result = memcmp(s1, s2, len);
+
+	if(result == 0)
+		result = cast(int)s1.length - cast(int)s2.length;
+
+	return result;
 }
+
+// All available metamethods.
+enum MMethod
+{
+	Add,
+	Sub,
+	Cat,
+	Mul,
+	Div,
+	Mod,
+	Neg,
+	Length,
+	Cmp,
+	Index,
+	IndexAssign,
+	Call,
+	And,
+	Or,
+	Xor,
+	Shl,
+	Shr,
+	UShr,
+	Com,
+	ToString
+}
+
+const dchar[][] MetaNames =
+[
+	MMethod.Add : "opAdd",
+	MMethod.Sub : "opSub",
+	MMethod.Cat : "opCat",
+	MMethod.Mul : "opMul",
+	MMethod.Div : "opDiv",
+	MMethod.Mod : "opMod",
+	MMethod.Neg : "opNeg",
+	MMethod.Length : "opLength",
+	MMethod.Cmp : "opCmp",
+	MMethod.Index : "opIndex",
+	MMethod.IndexAssign : "opIndexAssign",
+	MMethod.Call : "opCall",
+	MMethod.And : "opAnd",
+	MMethod.Or : "opOr",
+	MMethod.Xor : "opXor",
+	MMethod.Shl : "opShl",
+	MMethod.Shr : "opShr",
+	MMethod.UShr : "opUShr",
+	MMethod.Com : "opCom",
+	MMethod.ToString : "opToString"
+];
 
 abstract class MDObject
 {
 	public uint length();
 	
 	// avoiding RTTI downcasts for speed
+	public static enum Type
+	{
+		String,
+		UserData,
+		Closure,
+		Table,
+		Array
+	}
+
 	public MDString asString() { return null; }
 	public MDUserData asUserData() { return null; }
 	public MDClosure asClosure() { return null; }
 	public MDTable asTable() { return null; }
 	public MDArray asArray() { return null; }
+	public abstract Type type();
+	
+	public static int compare(MDObject o1, MDObject o2)
+	{
+		if(o1.type == o2.type)
+			return o1.opCmp(o2);
+		else
+			throw new MDException("Attempting to compare unlike objects");
+	}
+
+	public static int equals(MDObject o1, MDObject o2)
+	{
+		if(o1.type == o2.type)
+			return o1.opEquals(o2);
+		else
+			throw new MDException("Attempting to compare unlike objects");
+	}
 }
 
 class MDString : MDObject
 {
 	protected dchar[] mData;
 	
-	public override MDString asString()
-	{
-		return this;
-	}
-
 	public this(dchar[] data)
 	{
 		mData = data.dup;
@@ -78,20 +151,43 @@ class MDString : MDObject
 	{
 		mData = utf.toUTF32(data);
 	}
+	
+	protected this()
+	{
+		
+	}
+	
+	public override MDString asString()
+	{
+		return this;
+	}
+	
+	public override Type type()
+	{
+		return Type.String;
+	}
 
 	public override uint length()
 	{
 		return mData.length;
 	}
-	
+
 	public MDString opCat(MDString other)
 	{
-		return new MDString(this.mData ~ other.mData);
+		// avoid double duplication ((this ~ other).dup)
+		MDString ret = new MDString();
+		ret.mData = this.mData ~ other.mData;
+		return ret;
 	}
 	
 	public MDString opCatAssign(MDString other)
 	{
 		return opCat(other);
+	}
+
+	public hash_t toHash()
+	{
+		return typeid(typeof(mData)).getHash(&mData);
 	}
 	
 	public int opEquals(Object o)
@@ -102,6 +198,16 @@ class MDString : MDObject
 		return mData == other.mData;
 	}
 	
+	public int opEquals(char[] v)
+	{
+		return mData == utf.toUTF32(v);
+	}
+	
+	public int opEquals(dchar[] v)
+	{
+		return mData == v;
+	}
+
 	public int opCmp(Object o)
 	{
 		MDString other = cast(MDString)o;
@@ -109,20 +215,10 @@ class MDString : MDObject
 		
 		return dcmp(mData, other.mData);
 	}
-	
-	public int opEquals(char[] v)
-	{
-		return mData == utf.toUTF32(v);
-	}
 
 	public int opCmp(char[] v)
 	{
 		return dcmp(mData, utf.toUTF32(v));
-	}
-	
-	public int opEquals(dchar[] v)
-	{
-		return mData == v;
 	}
 
 	public int opCmp(dchar[] v)
@@ -146,7 +242,7 @@ class MDString : MDObject
 			result[i .. i + s.length] = s.mData[];
 			i += s.length;
 		}
-		
+
 		return new MDString(result);
 	}
 	
@@ -159,7 +255,7 @@ class MDString : MDObject
 		{
 			if(v.isString() == false)
 				return null;
-				
+
 			l += v.asString().length;
 		}
 		
@@ -185,9 +281,16 @@ class MDString : MDObject
 
 class MDUserData : MDObject
 {
+	protected MDTable mMetatable;
+
 	public override MDUserData asUserData()
 	{
 		return this;
+	}
+	
+	public override Type type()
+	{
+		return Type.UserData;
 	}
 
 	public override uint length()
@@ -204,10 +307,11 @@ class MDUserData : MDObject
 class MDClosure : MDObject
 {
 	protected bool mIsNative;
+	protected MDTable mEnvironment;
 	
 	struct NativeClosure
 	{
-		int delegate(MDState) func;
+		//int delegate(MDState) func;
 		MDValue[] upvals;
 	}
 	
@@ -222,10 +326,23 @@ class MDClosure : MDObject
 		NativeClosure native;
 		ScriptClosure script;
 	}
+	
+	/*public this(MDState s, MDFuncDef def)
+	{
+		mIsNative = false;
+		mEnvironment = s.mGlobals;
+		script.func = def;
+		script.upvals.length = def.mNumUpvals;
+	}*/
 
 	public override MDClosure asClosure()
 	{
 		return this;
+	}
+	
+	public override Type type()
+	{
+		return Type.Closure;
 	}
 
 	public override uint length()
@@ -242,6 +359,11 @@ class MDClosure : MDObject
 	{
 		return mIsNative;
 	}
+	
+	public MDTable environment()
+	{
+		return mEnvironment;
+	}
 }
 
 class MDTable : MDObject
@@ -252,6 +374,11 @@ class MDTable : MDObject
 	public override MDTable asTable()
 	{
 		return this;
+	}
+	
+	public override Type type()
+	{
+		return Type.Table;
 	}
 
 	public MDValue opIndex(MDValue index)
@@ -273,6 +400,13 @@ class MDTable : MDObject
 		mData[index] = value;
 		return value;
 	}
+	
+	public MDValue opIndexAssign(MDValue* value, MDValue index)
+	{
+		MDValue val = *value;
+		mData[index] = val;
+		return val;
+	}
 
 	public override uint length()
 	{
@@ -293,6 +427,11 @@ class MDArray : MDObject
 	{
 		return this;
 	}
+	
+	public override Type type()
+	{
+		return Type.Array;
+	}
 
 	public override uint length()
 	{
@@ -310,7 +449,7 @@ struct MDValue
 	public static enum Type
 	{
 		None = -1,
-		
+
 		// Non-object types
 		Null,
 		Bool,
@@ -325,7 +464,7 @@ struct MDValue
 		UserData
 	}
 
-	private Type mType = Type.None;
+	public Type mType = Type.None;
 
 	union
 	{
@@ -343,7 +482,7 @@ struct MDValue
 	public int opEquals(MDValue* other)
 	{
 		if(this.mType != other.mType)
-			return 0;
+			throw new MDException("Attempting to compare unlike objects");
 
 		switch(this.mType)
 		{
@@ -361,14 +500,39 @@ struct MDValue
 
 			default:
 				assert(this.mType != Type.None);
-				return this.mObj.opEquals(other.mObj);
+				return MDObject.equals(this.mObj, other.mObj);
+		}
+	}
+	
+	public bool rawEquals(MDValue* other)
+	{
+		if(this.mType != other.mType)
+			throw new MDException("Attempting to compare unlike objects");
+			
+		switch(this.mType)
+		{
+			case Type.Null:
+				return 1;
+				
+			case Type.Bool:
+				return this.mBool == other.mBool;
+
+			case Type.Int:
+				return this.mInt == other.mInt;
+
+			case Type.Float:
+				return this.mFloat == other.mFloat;
+
+			default:
+				assert(this.mType != Type.None);
+				return (this.mObj is other.mObj);
 		}
 	}
 
 	public int opCmp(MDValue* other)
 	{
 		if(this.mType != other.mType)
-			return (cast(int)this.mType - cast(int)other.mType);
+			throw new MDException("Attempting to compare unlike objects");
 
 		switch(this.mType)
 		{
@@ -379,13 +543,8 @@ struct MDValue
 				return (cast(int)this.mBool - cast(int)other.mBool);
 
 			case Type.Int:
-				if(this.mInt < other.mInt)
-					return -1;
-				else if(this.mInt > other.mInt)
-					return 1;
-				else
-					return 0;
-					
+				return this.mInt - other.mInt;
+
 			case Type.Float:
 				if(this.mFloat < other.mFloat)
 					return -1;
@@ -396,7 +555,11 @@ struct MDValue
 
 			default:
 				assert(this.mType != Type.None);
-				return this.mObj.opCmp(other.mObj);
+				
+				if(this.mObj is other.mObj)
+					return 0;
+
+				return MDObject.compare(this.mObj, other.mObj);
 		}
 
 		return -1;
@@ -424,11 +587,49 @@ struct MDValue
 		}
 	}
 	
+	public uint length()
+	{
+		switch(mType)
+		{
+			case Type.None:
+			case Type.Null:
+			case Type.Bool:
+			case Type.Int:
+			case Type.Float:
+				throw new MDException("Attempting to get length of %s value", typeString());
+
+			default:
+				return mObj.length();
+		}
+	}
+	
 	public Type type()
 	{
 		return mType;
 	}
 	
+	public static char[] typeString(Type type)
+	{
+		switch(type)
+		{
+			case Type.None:		return "none";
+			case Type.Null:		return "null";
+			case Type.Bool:		return "bool";
+			case Type.Int:		return "int";
+			case Type.Float:	return "float";
+			case Type.String:	return "string";
+			case Type.Table:	return "table";
+			case Type.Array:	return "array";
+			case Type.Function:	return "function";
+			case Type.UserData:	return "userdata";
+		}
+	}
+
+	public char[] typeString()
+	{
+		return typeString(mType);
+	}
+
 	public bool isNone()
 	{
 		return (mType == Type.None);
@@ -448,6 +649,11 @@ struct MDValue
 	{
 		return (mType == Type.Bool);
 	}
+	
+	public bool isNum()
+	{
+		return isInt() || isFloat();
+	}
 
 	public bool isInt()
 	{
@@ -458,7 +664,7 @@ struct MDValue
 	{
 		return (mType == Type.Float);
 	}
-	
+
 	public bool isString()
 	{
 		return (mType == Type.String);
@@ -492,14 +698,22 @@ struct MDValue
 
 	public int asInt()
 	{
-		assert(mType == Type.Int);
-		return mInt;
+		if(mType == Type.Float)
+			return cast(int)mFloat;
+		else if(mType == Type.Int)
+			return mInt;
+		else
+			assert(false);
 	}
 
 	public float asFloat()
 	{
-		assert(mType == Type.Float);
-		return mFloat;
+		if(mType == Type.Float)
+			return mFloat;
+		else if(mType == Type.Int)
+			return cast(float)mInt;
+		else
+			assert(false);
 	}
 
 	public MDObject asObj()
@@ -599,6 +813,33 @@ struct MDValue
 	}
 
 	public void value(MDValue v)
+	{
+		mType = v.mType;
+		
+		switch(mType)
+		{
+			case Type.None, Type.Null:
+				break;
+				
+			case Type.Bool:
+				mBool = v.mBool;
+				break;
+				
+			case Type.Int:
+				mInt = v.mInt;
+				break;
+				
+			case Type.Float:
+				mFloat = v.mFloat;
+				break;
+				
+			default:
+				mObj = v.mObj;
+				break;
+		}
+	}
+	
+	public void value(MDValue* v)
 	{
 		mType = v.mType;
 		
