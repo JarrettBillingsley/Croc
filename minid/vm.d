@@ -4,6 +4,14 @@ import minid.types;
 import minid.opcodes;
 import minid.state;
 
+class MDRuntimeException : Exception
+{
+	public this(...)
+	{
+		super(vformat(_arguments, _argptr));
+	}
+}
+
 class MDVM
 {
 	public this()
@@ -32,7 +40,12 @@ class MDVM
 			}
 			else
 			{
-
+				MDValue* method = s.getMM(src1, MM.Neg);
+				
+				if(!method.isFunction())
+					throw new MDRuntimeException("Cannot perform arithmetic on a '%s'", src1.typeString());
+			
+				// call method
 			}
 		}
 

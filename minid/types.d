@@ -52,8 +52,15 @@ int dcmp(dchar[] s1, dchar[] s2)
 }
 
 // All available metamethods.
-enum MMethod
+// These are kind of ordered by "importance," so that the most commonly-used ones are at the
+// beginning for possible optimization purposes.
+enum MM
 {
+	Index,
+	IndexAssign,
+	Cmp,
+	ToString,
+	Length,
 	Add,
 	Sub,
 	Cat,
@@ -61,10 +68,6 @@ enum MMethod
 	Div,
 	Mod,
 	Neg,
-	Length,
-	Cmp,
-	Index,
-	IndexAssign,
 	Call,
 	And,
 	Or,
@@ -73,32 +76,65 @@ enum MMethod
 	Shr,
 	UShr,
 	Com,
-	ToString
+	AddEq,
+	SubEq,
+	CatEq,
+	MulEq,
+	DivEq,
+	ModEq,
+	AndEq,
+	OrEq,
+	XorEq,
+	ShlEq,
+	ShrEq,
+	UShrEq
 }
 
 const dchar[][] MetaNames =
 [
-	MMethod.Add : "opAdd",
-	MMethod.Sub : "opSub",
-	MMethod.Cat : "opCat",
-	MMethod.Mul : "opMul",
-	MMethod.Div : "opDiv",
-	MMethod.Mod : "opMod",
-	MMethod.Neg : "opNeg",
-	MMethod.Length : "opLength",
-	MMethod.Cmp : "opCmp",
-	MMethod.Index : "opIndex",
-	MMethod.IndexAssign : "opIndexAssign",
-	MMethod.Call : "opCall",
-	MMethod.And : "opAnd",
-	MMethod.Or : "opOr",
-	MMethod.Xor : "opXor",
-	MMethod.Shl : "opShl",
-	MMethod.Shr : "opShr",
-	MMethod.UShr : "opUShr",
-	MMethod.Com : "opCom",
-	MMethod.ToString : "opToString"
+	MM.Add : "opAdd",
+	MM.Sub : "opSub",
+	MM.Cat : "opCat",
+	MM.Mul : "opMul",
+	MM.Div : "opDiv",
+	MM.Mod : "opMod",
+	MM.Neg : "opNeg",
+	MM.Length : "opLength",
+	MM.Cmp : "opCmp",
+	MM.Index : "opIndex",
+	MM.IndexAssign : "opIndexAssign",
+	MM.Call : "opCall",
+	MM.And : "opAnd",
+	MM.Or : "opOr",
+	MM.Xor : "opXor",
+	MM.Shl : "opShl",
+	MM.Shr : "opShr",
+	MM.UShr : "opUShr",
+	MM.Com : "opCom",
+	MM.ToString : "opToString",
+	MM.AddEq : "opAddEq",
+	MM.SubEq : "opSubEq",
+	MM.CatEq : "opCatEq",
+	MM.MulEq : "opMulEq",
+	MM.DivEq : "opDivEq",
+	MM.ModEq : "opModEq",
+	MM.AndEq : "opAndEq",
+	MM.OrEq : "opOrEq",
+	MM.XorEq : "opXorEq",
+	MM.ShlEq : "opShlEq",
+	MM.ShrEq : "opShrEq",
+	MM.UShrEq : "opUShrEq"
 ];
+
+public MDValue[] MetaStrings;
+
+static this()
+{
+	MetaStrings = new MDValue[MetaNames.length];
+
+	foreach(uint i, dchar[] name; MetaNames)
+		MetaStrings[i].value = new MDString(name);
+}
 
 abstract class MDObject
 {
@@ -141,15 +177,18 @@ abstract class MDObject
 class MDString : MDObject
 {
 	protected dchar[] mData;
-	
+	protected hash_t mHash;
+
 	public this(dchar[] data)
 	{
 		mData = data.dup;
+		mHash = typeid(typeof(mData)).getHash(&mData);
 	}
-	
+
 	public this(char[] data)
 	{
 		mData = utf.toUTF32(data);
+		mHash = typeid(typeof(mData)).getHash(&mData);
 	}
 	
 	protected this()
@@ -177,6 +216,7 @@ class MDString : MDObject
 		// avoid double duplication ((this ~ other).dup)
 		MDString ret = new MDString();
 		ret.mData = this.mData ~ other.mData;
+		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
 		return ret;
 	}
 	
@@ -187,7 +227,7 @@ class MDString : MDObject
 
 	public hash_t toHash()
 	{
-		return typeid(typeof(mData)).getHash(&mData);
+		return mHash;
 	}
 	
 	public int opEquals(Object o)
@@ -302,6 +342,11 @@ class MDUserData : MDObject
 	{
 		return string.format("userdata 0x%0.8X", cast(void*)this);
 	}
+	
+	public MDTable metatable()
+	{
+		return mMetatable;
+	}
 }
 
 class MDClosure : MDObject
@@ -311,7 +356,7 @@ class MDClosure : MDObject
 	
 	struct NativeClosure
 	{
-		//int delegate(MDState) func;
+		int delegate(MDState) func;
 		MDValue[] upvals;
 	}
 	
@@ -327,13 +372,13 @@ class MDClosure : MDObject
 		ScriptClosure script;
 	}
 	
-	/*public this(MDState s, MDFuncDef def)
+	public this(MDState s, MDFuncDef def)
 	{
 		mIsNative = false;
 		mEnvironment = s.mGlobals;
 		script.func = def;
 		script.upvals.length = def.mNumUpvals;
-	}*/
+	}
 
 	public override MDClosure asClosure()
 	{
@@ -381,18 +426,9 @@ class MDTable : MDObject
 		return Type.Table;
 	}
 
-	public MDValue opIndex(MDValue index)
+	public MDValue* opIndex(MDValue index)
 	{
-		MDValue* v = (index in mData);
-
-		if(v is null)
-		{
-			MDValue ret;
-			ret.setNull();
-			return ret;
-		}
-		else
-			return *v;
+		return (index in mData);
 	}
 
 	public MDValue opIndexAssign(MDValue value, MDValue index)
@@ -416,6 +452,11 @@ class MDTable : MDObject
 	public char[] toString()
 	{
 		return string.format("table 0x%0.8X", cast(void*)this);
+	}
+	
+	public MDTable metatable()
+	{
+		return mMetatable;
 	}
 }
 
@@ -463,6 +504,8 @@ struct MDValue
 		Function,
 		UserData
 	}
+	
+	public static MDValue nullValue = { mType : Type.Null };
 
 	public Type mType = Type.None;
 
@@ -875,7 +918,7 @@ struct MDValue
 				
 			case Type.Null:
 				return "null";
-				
+
 			case Type.Bool:
 				return string.toString(mBool);
 				

@@ -17,7 +17,7 @@ import minid.vm;
 
 void main()
 {
-	/*MDFuncDef func = compileFile(`simple.md`);
+	MDFuncDef func = compileFile(`simple.md`);
 
 	MDState state = new MDState();
 	MDClosure closure = new MDClosure(state, func);
@@ -33,14 +33,14 @@ void main()
 	}
 	catch
 	{
-		
+
 	}
 	finally
 	{
 		MDValue v;
 		v.value = new MDString("d"d);
-		writefln(closure.environment[v].toString());
-	}*/
+		writefln(state.getEnvironment[v].toString());
+	}
 }
 
 public MDFuncDef compileFile(char[] filename)
@@ -1975,21 +1975,21 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
-				Exp* src = popSource();
+				uint destReg = pushRegister();
+				popToRegister(destReg);
 
-				codeI(Op.SetUpvalue, src.index, dest.index);
+				codeI(Op.SetUpvalue, destReg, dest.index);
 
-				freeExpTempRegs(src);
-				delete src;
+				popRegister(destReg);
 				break;
 
 			case ExpType.Global:
-				Exp* src = popSource();
+				uint destReg = pushRegister();
+				popToRegister(destReg);
+				
+				codeI(Op.SetGlobal, destReg, dest.index);
 
-				codeI(Op.SetGlobal, src.index, dest.index);
-
-				freeExpTempRegs(src);
-				delete src;
+				popRegister(destReg);
 				break;
 
 			case ExpType.Indexed:
@@ -2088,7 +2088,7 @@ class FuncState
 		}
 	}
 
-	public void popToRegisters(uint reg, uint num)
+	public void popToRegisters(uint reg, int num)
 	{
 		Exp* src = popExp();
 
@@ -2109,27 +2109,6 @@ class FuncState
 		}
 	}
 	
-	public void popMultRet(uint reg)
-	{
-		Exp* src = popExp();
-
-		switch(src.type)
-		{
-			case ExpType.Vararg:
-				codeI(Op.Vararg, reg, 0);
-				break;
-
-			case ExpType.Call:
-				assert(src.index2 == reg);
-				mCode[src.index].rs2 = 0;
-				freeExpTempRegs(src);
-				break;
-
-			default:
-				assert(false, "pop to regs switch");
-		}
-	}
-
 	public void pushBinOp(Op type, uint rs1, uint rs2)
 	{
 		uint pc = codeR(type, 0, rs1, rs2);
@@ -2825,7 +2804,7 @@ class Chunk
 		
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 		
-		//fs.showMe();
+		fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -4741,7 +4720,7 @@ abstract class Expression
 			exprs[0].codeGen(s);
 
 			if(exprs[0].isMultRet())
-				s.popMultRet(firstReg);
+				s.popToRegisters(firstReg, -1);
 			else
 				s.popToRegister(firstReg);
 		}
@@ -4761,7 +4740,7 @@ abstract class Expression
 
 				// has to be -2 because i _is not the index in the array_ but the _index in the slice_
 				if(i == exprs.length - 2 && e.isMultRet())
-					s.popMultRet(lastReg);
+					s.popToRegisters(lastReg, -1);
 				else
 					s.popToRegister(lastReg);
 					

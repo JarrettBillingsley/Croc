@@ -1,8 +1,4 @@
-local a, b, c;
-a = 4;
-b = a;
-c = a + b;
-d = 4;
+local a = foo(foo());
 
 /*local t =
 {
