@@ -1,4 +1,5 @@
-local a = foo(foo());
+local a = { hi = "bye" };
+local b = a + 3;
 
 /*local t =
 {

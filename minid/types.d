@@ -35,6 +35,22 @@ class MDException : Exception
 	}
 }
 
+class MDCompileException : MDException
+{
+	public this(Location loc, ...)
+	{
+		super(loc.toString(), ": ", vformat(_arguments, _argptr));
+	}
+}
+
+class MDRuntimeException : Exception
+{
+	public this(...)
+	{
+		super(vformat(_arguments, _argptr));
+	}
+}
+
 int dcmp(dchar[] s1, dchar[] s2)
 {
 	auto len = s1.length;
@@ -176,7 +192,8 @@ abstract class MDObject
 
 class MDString : MDObject
 {
-	protected dchar[] mData;
+	// Hmmm.  package..
+	package dchar[] mData;
 	protected hash_t mHash;
 
 	public this(dchar[] data)
@@ -193,7 +210,7 @@ class MDString : MDObject
 	
 	protected this()
 	{
-		
+
 	}
 	
 	public override MDString asString()
@@ -233,7 +250,7 @@ class MDString : MDObject
 	public int opEquals(Object o)
 	{
 		MDString other = cast(MDString)o;
-		assert(other);
+		assert(other, "MDString opEquals");
 		
 		return mData == other.mData;
 	}
@@ -251,7 +268,7 @@ class MDString : MDObject
 	public int opCmp(Object o)
 	{
 		MDString other = cast(MDString)o;
-		assert(other);
+		assert(other, "MDString opCmp");
 		
 		return dcmp(mData, other.mData);
 	}
@@ -414,8 +431,13 @@ class MDClosure : MDObject
 class MDTable : MDObject
 {
 	protected MDValue[MDValue] mData;
-	protected MDTable mMetatable;
+	protected MDTable mMetatable = null;
 	
+	public this()
+	{
+
+	}
+
 	public override MDTable asTable()
 	{
 		return this;
@@ -425,10 +447,20 @@ class MDTable : MDObject
 	{
 		return Type.Table;
 	}
+	
+	public override uint length()
+	{
+		return mData.length;
+	}
 
 	public MDValue* opIndex(MDValue index)
 	{
-		return (index in mData);
+		MDValue* ptr = (index in mData);
+		
+		if(ptr is null)
+			return &MDValue.nullValue;
+			
+		return ptr;
 	}
 
 	public MDValue opIndexAssign(MDValue value, MDValue index)
@@ -444,11 +476,6 @@ class MDTable : MDObject
 		return val;
 	}
 
-	public override uint length()
-	{
-		return mData.length;
-	}
-	
 	public char[] toString()
 	{
 		return string.format("table 0x%0.8X", cast(void*)this);
@@ -464,6 +491,11 @@ class MDArray : MDObject
 {
 	protected MDValue[] mData;
 	
+	public this(uint size)
+	{
+		mData = new MDValue[size];
+	}
+
 	public override MDArray asArray()
 	{
 		return this;
@@ -479,6 +511,21 @@ class MDArray : MDObject
 		return mData.length;
 	}
 	
+	package void setBlock(uint block, MDValue[] data)
+	{
+		uint start = block * Instruction.arraySetFields;
+		uint end = start + data.length - 1;
+		
+		// Since Op.SetArray can use a variadic number of values, the number
+		// of elements actually added to the array in the array constructor
+		// may exceed the size with which the array was created.  So it should be
+		// resized.
+		if(end >= mData.length)
+			mData.length = end;
+			
+		mData[start .. end] = data[];
+	}
+
 	public char[] toString()
 	{
 		return string.format("array 0x%0.8X", cast(void*)this);
@@ -542,7 +589,7 @@ struct MDValue
 				return this.mFloat == other.mFloat;
 
 			default:
-				assert(this.mType != Type.None);
+				assert(this.mType != Type.None, "MDValue opEquals - None type");
 				return MDObject.equals(this.mObj, other.mObj);
 		}
 	}
@@ -567,7 +614,7 @@ struct MDValue
 				return this.mFloat == other.mFloat;
 
 			default:
-				assert(this.mType != Type.None);
+				assert(this.mType != Type.None, "MDValue rawEquals - None type");
 				return (this.mObj is other.mObj);
 		}
 	}
@@ -597,7 +644,7 @@ struct MDValue
 					return 0;
 
 			default:
-				assert(this.mType != Type.None);
+				assert(this.mType != Type.None, "MDValue opCmp - None type");
 				
 				if(this.mObj is other.mObj)
 					return 0;
@@ -625,7 +672,7 @@ struct MDValue
 				return typeid(typeof(mFloat)).getHash(&mFloat);
 
 			default:
-				assert(mType != Type.None);
+				assert(mType != Type.None, "MDValue toHash - None type");
 				return mObj.toHash();
 		}
 	}
@@ -735,7 +782,7 @@ struct MDValue
 	
 	public bool asBool()
 	{
-		assert(mType == Type.Bool);
+		assert(mType == Type.Bool, "MDValue asBool");
 		return mBool;
 	}
 
@@ -746,7 +793,7 @@ struct MDValue
 		else if(mType == Type.Int)
 			return mInt;
 		else
-			assert(false);
+			assert(false, "MDValue asInt");
 	}
 
 	public float asFloat()
@@ -756,42 +803,42 @@ struct MDValue
 		else if(mType == Type.Int)
 			return cast(float)mInt;
 		else
-			assert(false);
+			assert(false, "MDValue asFloat");
 	}
 
 	public MDObject asObj()
 	{
-		assert(cast(uint)mType >= cast(uint)Type.String);
+		assert(cast(uint)mType >= cast(uint)Type.String, "MDValue asObj");
 		return mObj;
 	}
 
 	public MDString asString()
 	{
-		assert(mType == Type.String);
+		assert(mType == Type.String, "MDValue asString");
 		return mObj.asString();
 	}
 	
 	public MDUserData asUserData()
 	{
-		assert(mType == Type.UserData);
+		assert(mType == Type.UserData, "MDValue asUserData");
 		return mObj.asUserData();
 	}
 
 	public MDClosure asFunction()
 	{
-		assert(mType == Type.Function);
+		assert(mType == Type.Function, "MDValue asFunction");
 		return mObj.asClosure();
 	}
 
 	public MDTable asTable()
 	{
-		assert(mType == Type.Table);
+		assert(mType == Type.Table, "MDValue asTable");
 		return mObj.asTable();
 	}
 	
 	public MDArray asArray()
 	{
-		assert(mType == Type.Array);
+		assert(mType == Type.Array, "MDValue asArray");
 		return mObj.asArray();
 	}
 
@@ -934,27 +981,6 @@ struct MDValue
 	}
 }
 
-struct MDUpval
-{
-	// When open (parent scope is still on the stack), this points to a stack slot
-	// which holds the value.  When the parent scope exits, the value is copied from
-	// the stack into the closedValue member, and this points to closedMember.  
-	// This means data should only ever be accessed through this member.
-	MDValue* value;
-
-	union
-	{
-		MDValue closedValue;
-		
-		// For the open upvalue doubly-linked list.
-		struct
-		{
-			MDUpval* next;
-			MDUpval* prev;
-		}
-	}
-}
-
 struct Location
 {
 	public uint line = 1;
@@ -973,6 +999,27 @@ struct Location
 	public char[] toString()
 	{
 		return string.format("%s(%d:%d)", fileName, line, column);
+	}
+}
+
+struct MDUpval
+{
+	// When open (parent scope is still on the stack), this points to a stack slot
+	// which holds the value.  When the parent scope exits, the value is copied from
+	// the stack into the closedValue member, and this points to closedMember.  
+	// This means data should only ever be accessed through this member.
+	MDValue* value;
+
+	union
+	{
+		MDValue closedValue;
+		
+		// For the open upvalue doubly-linked list.
+		struct
+		{
+			MDUpval* next;
+			MDUpval* prev;
+		}
 	}
 }
 
@@ -1004,11 +1051,10 @@ class MDFuncDef
 
 		union
 		{
-			int[] intValues;
-			dchar[][] stringValues;
+			int[int] intOffsets;
+			int[dchar[]] stringOffsets;
 		}
 
-		int[] offsets;
 		int defaultOffset = -1;
 	}
 

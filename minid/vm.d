@@ -4,14 +4,6 @@ import minid.types;
 import minid.opcodes;
 import minid.state;
 
-class MDRuntimeException : Exception
-{
-	public this(...)
-	{
-		super(vformat(_arguments, _argptr));
-	}
-}
-
 class MDVM
 {
 	public this()
@@ -19,7 +11,7 @@ class MDVM
 		
 	}
 
-	protected static void doArithmetic(MDState s, StackVal dest, MDValue* src1, MDValue* src2, Op type)
+	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
 	{
 		if(src2 is null)
 		{
@@ -29,12 +21,12 @@ class MDVM
 			{
 				if(src1.isFloat())
 				{
-					dest.value = -src1.asFloat();
+					s.getBasedStack(dest).value = -src1.asFloat();
 					return;
 				}
 				else
 				{
-					dest.value = -src1.asInt();
+					s.getBasedStack(dest).value = -src1.asInt();
 					return;
 				}
 			}
@@ -45,7 +37,10 @@ class MDVM
 				if(!method.isFunction())
 					throw new MDRuntimeException("Cannot perform arithmetic on a '%s'", src1.typeString());
 			
-				// call method
+				uint funcSlot = s.push(method);
+				s.push(src1);
+				s.call(funcSlot, 1, 1);
+				s.popToSlot(dest);
 			}
 		}
 
@@ -55,32 +50,57 @@ class MDVM
 			{
 				switch(type)
 				{
-					case Op.Add: dest.value = src1.asFloat() + src2.asFloat(); return;
-					case Op.Sub: dest.value = src1.asFloat() - src2.asFloat(); return;
-					case Op.Mul: dest.value = src1.asFloat() * src2.asFloat(); return;
-					case Op.Div: dest.value = src1.asFloat() / src2.asFloat(); return;
-					case Op.Mod: dest.value = src1.asFloat() % src2.asFloat(); return;
+					case Op.Add: s.getBasedStack(dest).value = src1.asFloat() + src2.asFloat(); return;
+					case Op.Sub: s.getBasedStack(dest).value = src1.asFloat() - src2.asFloat(); return;
+					case Op.Mul: s.getBasedStack(dest).value = src1.asFloat() * src2.asFloat(); return;
+					case Op.Div: s.getBasedStack(dest).value = src1.asFloat() / src2.asFloat(); return;
+					case Op.Mod: s.getBasedStack(dest).value = src1.asFloat() % src2.asFloat(); return;
 				}
 			}
 			else
 			{
 				switch(type)
 				{
-					case Op.Add: dest.value = src1.asInt() + src2.asInt(); return;
-					case Op.Sub: dest.value = src1.asInt() - src2.asInt(); return;
-					case Op.Mul: dest.value = src1.asInt() * src2.asInt(); return;
-					case Op.Div: dest.value = src1.asInt() / src2.asInt(); return;
-					case Op.Mod: dest.value = src1.asInt() % src2.asInt(); return;
+					case Op.Add: s.getBasedStack(dest).value = src1.asInt() + src2.asInt(); return;
+					case Op.Sub: s.getBasedStack(dest).value = src1.asInt() - src2.asInt(); return;
+					case Op.Mul: s.getBasedStack(dest).value = src1.asInt() * src2.asInt(); return;
+					case Op.Div: s.getBasedStack(dest).value = src1.asInt() / src2.asInt(); return;
+					case Op.Mod: s.getBasedStack(dest).value = src1.asInt() % src2.asInt(); return;
 				}
 			}
 		}
 		else
 		{
+			MM mmType;
 
+			switch(type)
+			{
+				case Op.Add: mmType = MM.Add; break;
+				case Op.Sub: mmType = MM.Sub; break;
+				case Op.Mul: mmType = MM.Mul; break;
+				case Op.Div: mmType = MM.Div; break;
+				case Op.Mod: mmType = MM.Mod; break;
+			}
+
+			MDValue* method = s.getMM(src1, mmType);
+
+			if(!method.isFunction())
+			{
+				method = s.getMM(src2, mmType);
+
+				if(!method.isFunction())
+					throw new MDRuntimeException("Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+			}
+
+			uint funcSlot = s.push(method);
+			s.push(src1);
+			s.push(src2);
+			s.call(funcSlot, 2, 1);
+			s.popToSlot(dest);
 		}
 	}
 	
-	protected static void doBitArith(MDState s, StackVal dest, MDValue* src1, MDValue* src2, Op type)
+	protected static void doBitArith(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
 	{
 		if(src2 is null)
 		{
@@ -88,12 +108,20 @@ class MDVM
 			
 			if(src1.isInt())
 			{
-				dest.value = ~src1.asInt();
+				s.getBasedStack(dest).value = ~src1.asInt();
 				return;
 			}
 			else
 			{
-
+				MDValue* method = s.getMM(src1, MM.Com);
+				
+				if(!method.isFunction())
+					throw new MDRuntimeException("Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
+			
+				uint funcSlot = s.push(method);
+				s.push(src1);
+				s.call(funcSlot, 1, 1);
+				s.popToSlot(dest);
 			}
 		}
 
@@ -101,17 +129,43 @@ class MDVM
 		{
 			switch(type)
 			{
-				case Op.And:  dest.value = src1.asInt() & src2.asInt(); return;
-				case Op.Or:   dest.value = src1.asInt() | src2.asInt(); return;
-				case Op.Xor:  dest.value = src1.asInt() ^ src2.asInt(); return;
-				case Op.Shl:  dest.value = src1.asInt() << src2.asInt(); return;
-				case Op.Shr:  dest.value = src1.asInt() >> src2.asInt(); return;
-				case Op.UShr: dest.value = src1.asInt() >>> src2.asInt(); return;
+				case Op.And:  s.getBasedStack(dest).value = src1.asInt() & src2.asInt(); return;
+				case Op.Or:   s.getBasedStack(dest).value = src1.asInt() | src2.asInt(); return;
+				case Op.Xor:  s.getBasedStack(dest).value = src1.asInt() ^ src2.asInt(); return;
+				case Op.Shl:  s.getBasedStack(dest).value = src1.asInt() << src2.asInt(); return;
+				case Op.Shr:  s.getBasedStack(dest).value = src1.asInt() >> src2.asInt(); return;
+				case Op.UShr: s.getBasedStack(dest).value = src1.asInt() >>> src2.asInt(); return;
 			}
 		}
 		else
 		{
+			MM mmType;
 
+			switch(type)
+			{
+				case Op.And:  mmType = MM.And; break;
+				case Op.Or:   mmType = MM.Or; break;
+				case Op.Xor:  mmType = MM.Xor; break;
+				case Op.Shl:  mmType = MM.Shl; break;
+				case Op.Shr:  mmType = MM.Shr; break;
+				case Op.UShr: mmType = MM.UShr; break;
+			}
+
+			MDValue* method = s.getMM(src1, mmType);
+
+			if(!method.isFunction())
+			{
+				method = s.getMM(src2, mmType);
+
+				if(!method.isFunction())
+					throw new MDRuntimeException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+			}
+
+			uint funcSlot = s.push(method);
+			s.push(src1);
+			s.push(src2);
+			s.call(funcSlot, 2, 1);
+			s.popToSlot(dest);
 		}
 	}
 
@@ -153,11 +207,11 @@ class MDVM
 				case Op.Mul:
 				case Op.Div:
 				case Op.Mod:
-					doArithmetic(s, s.getBasedStack(i.rd), getCR1(), getCR2(), opcode);
+					doArithmetic(s, i.rd, getCR1(), getCR2(), opcode);
 					break;
 
 				case Op.Neg:
-					doArithmetic(s, s.getBasedStack(i.rd), getCR1(), null, opcode);
+					doArithmetic(s, i.rd, getCR1(), null, opcode);
 					break;
 
 				case Op.And:
@@ -166,11 +220,11 @@ class MDVM
 				case Op.Shl:
 				case Op.Shr:
 				case Op.UShr:
-					doBitArith(s, s.getBasedStack(i.rd), getCR1(), getCR2(), opcode);
+					doBitArith(s, i.rd, getCR1(), getCR2(), opcode);
 					break;
 					
 				case Op.Com:
-					doBitArith(s, s.getBasedStack(i.rd), getCR1(), null, opcode);
+					doBitArith(s, i.rd, getCR1(), null, opcode);
 					break;
 					
 				case Op.Move:
@@ -184,7 +238,7 @@ class MDVM
 						s.getBasedStack(i.rd).value = false;
 					
 					break;
-					
+
 				case Op.Cmp:
 					Instruction jump = *pc;
 					pc++;
@@ -296,27 +350,117 @@ class MDVM
 					s.getUpvalue(i.imm).value = s.getBasedStack(i.rd);
 					break;
 
-				case Op.Foreach:
-				case Op.Call:
-				case Op.Cat:
+				case Op.NewArray:
+					s.getBasedStack(i.rd).value = new MDArray(i.imm);
+					break;
+
+				case Op.NewTable:
+					s.getBasedStack(i.rd).value = new MDTable();
+					break;
+					
+				case Op.SetArray:
+					// Since this instruction is only generated for array constructors,
+					// there is really no reason to check for type correctness for the dest.
+
+					uint sliceBegin = i.rd + 1;
+					
+					if(i.rs1 == 0)
+						s.getBasedStack(i.rd).asArray().setBlock(i.rs2, s.sliceStack(sliceBegin, -1));
+					else
+						s.getBasedStack(i.rd).asArray().setBlock(i.rs2, s.sliceStack(sliceBegin, sliceBegin + i.rs1));
+						
+					break;
+					
+				case Op.SwitchInt:
+					int offset = s.switchInt(i.rd, i.imm);
+					
+					if(offset == -1)
+						throw new MDRuntimeException("Switch without default");
+						
+					pc += offset;
+					break;
+
+				case Op.SwitchString:
+					int offset = s.switchString(i.rd, i.imm);
+
+					if(offset == -1)
+						throw new MDRuntimeException("Switch without default");
+						
+					pc += offset;
+					break;
+					
+				case Op.Vararg:
+					int numNeeded = i.rs1 - 1;
+					int numVarargs = s.getNumVarargs();
+					
+					if(numNeeded == -1)
+					{
+						// multiple returns
+						numNeeded = numVarargs;
+						s.needStackSlots(numNeeded);
+					}
+
+					uint src = s.getVarargBase();
+					uint dest = s.getBase() + i.rd;
+
+					for(uint index = 0; index < numNeeded; index++)
+					{
+						if(index < numVarargs)
+							s.copyAbsStack(dest, src);
+						else
+							s.getAbsStack(dest).setNull();
+							
+						src++;
+						dest++;
+					}
+					break;
+					
 				case Op.Close:
+					s.close(i.rd);
+					break;
+					
+				case Op.Foreach:
+					Instruction jump = *pc;
+					pc++;
+
+					uint rd = i.rd;
+					uint funcReg = rd + 3;
+
+					s.copyBasedStack(funcReg + 2, rd + 2);
+					s.copyBasedStack(funcReg + 1, rd + 1);
+					s.copyBasedStack(funcReg, rd);
+					
+					s.call(funcReg, 2, i.imm);
+					
+					if(s.getBasedStack(funcReg).isNull() == false)
+					{
+						s.copyBasedStack(rd + 2, funcReg);
+						
+						assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump");
+
+						pc += jump.immBiased;
+					}
+					else
+					
+					break;
+
+				case Op.Cat:
 				case Op.Closure:
-				case Op.EndFinal:
+
 				case Op.Index:
 				case Op.IndexAssign:
 				case Op.Method:
-				case Op.NewArray:
-				case Op.NewTable:
+
+				case Op.Call:
+				case Op.Ret:
+
+				case Op.EndFinal:
 				case Op.PopCatch:
 				case Op.PopFinally:
 				case Op.PushCatch:
 				case Op.PushFinally:
-				case Op.Ret:
-				case Op.SetArray:
-				case Op.SwitchInt:
-				case Op.SwitchString:
 				case Op.Throw:
-				case Op.Vararg:
+					assert(false, "unimplemented instruction");
 
 				case Op.Je:
 				case Op.Jle:

@@ -73,6 +73,7 @@ class MDState
 	{
 		uint base;
 		uint top;
+		uint vargBase;
 		MDClosure func;
 		Instruction* savedPC;
 		uint numReturns;
@@ -84,7 +85,8 @@ class MDState
 	Instruction* mSavedPC;
 
 	MDValue[] mStack;
-	StackVal mFreeStack;
+	StackVal mStackPtr;
+	uint mStackIndex = 0;
 	
 	MDTable mGlobals;
 	
@@ -96,15 +98,124 @@ class MDState
 		mCurrentAR = &mActRecs[0];
 		
 		mStack = new MDValue[20];
-		mFreeStack = &mStack[0];
-		
+		mStackPtr = mStack.ptr;
+
 		mGlobals = new MDTable();
 	}
 	
+	public uint push(MDValue* val)
+	{
+		if(mStackIndex >= mStack.length)
+		{
+			stackSize = mStack.length * 2;
+			mStackPtr = &mStack[mStackIndex];
+		}
+		
+		mStack[mStackIndex].value = val;
+		mStackIndex++;
+
+		return mStackIndex - 1;
+	}
+
+	public uint push(MDValue val)
+	{
+		return push(&val);
+	}
+	
+	public void popToSlot(uint slot)
+	{
+		assert(mStackIndex > 0, "Stack underflow");
+		
+		mStackIndex--;
+		
+		if(slot != mStackIndex)
+			mStack[slot].value = &mStack[mStackIndex];
+	}
+
+	public void call(uint slot, int numParams, int numReturns)
+	{
+		// blah
+	}
+	
+	package void stackSize(uint length)
+	{
+		try
+		{
+			MDValue[] oldStack = mStack;
+			mStack.length = length;
+			
+			MDValue* oldBase = oldStack.ptr;
+			MDValue* newBase = mStack.ptr;
+
+			for(MDUpval* uv = mUpvalHead; uv !is null; uv = uv.next)
+				uv.value = (uv.value - oldBase) + newBase;
+		}
+		catch
+		{
+			throw new MDRuntimeException("Stack overflow");
+		}
+	}
+	
+	package void close(uint index)
+	{
+		StackVal base = getBasedStack(index);
+		
+		for(MDUpval* uv = mUpvalHead; uv !is null && uv.value >= base; )
+		{
+			mUpvalHead = uv.next;
+			
+			uv.prev.next = uv.next;
+			uv.next.prev = uv.prev;
+			
+			uv.closedValue.value = uv.value;
+			uv.value = &uv.closedValue;
+		}
+	}
+	
+	// This should only be used for Op.SetArray, really.  Since this returns a slice of
+	// the actual stack, which can move around, the reference shouldn't really be kept
+	// for long.
+	package MDValue[] sliceStack(uint lo, int hi)
+	{
+		debug if(hi != -1)
+			assert(lo <= hi && hi <= mStack.length, "invalid slice stack params");
+
+		if(hi == -1)
+			return mStack[lo .. $];
+		else
+			return mStack[lo .. hi];
+	}
+	
+	package void needStackSlots(uint howMany)
+	{
+		if(mStack.length - mStackIndex >= howMany)
+			return;
+			
+		stackSize = howMany + mStackIndex;
+	}
+
+	package void copyBasedStack(uint dest, uint src)
+	{
+		assert((mCurrentAR.base + dest) < mStack.length, "invalid based stack dest index");
+		mStack[mCurrentAR.base + dest].value = getBasedStack(src);
+	}
+	
+	package void copyAbsStack(uint dest, uint src)
+	{
+		assert(dest < mStack.length && src < mStack.length, "invalid copyAbsStack indices");
+		mStack[dest].value = &mStack[src];
+	}
+
 	package StackVal getBasedStack(uint offset)
 	{
 		assert((mCurrentAR.base + offset) < mStack.length, "invalid based stack index");
 		return &mStack[mCurrentAR.base + offset];
+	}
+	
+	package StackVal getAbsStack(uint offset)
+	{
+		assert(offset < mStack.length, "invalid getAbsStack stack index");
+		return &mStack[offset];
 	}
 
 	package MDValue* getConst(uint num)
@@ -124,6 +235,65 @@ class MDState
 		return mCurrentAR.func.script.upvals[num].value;
 	}
 	
+	package int getNumVarargs()
+	{
+		return mCurrentAR.base - mCurrentAR.vargBase;
+	}
+	
+	package int getVarargBase()
+	{
+		return mCurrentAR.vargBase;
+	}
+	
+	package int getBase()
+	{
+		return mCurrentAR.base;
+	}
+
+	// Returns -1 on invalid switch (no case and no default)
+	package int switchInt(uint stackSlot, uint table)
+	{
+		assert(mCurrentAR.func.isNative() == false, "cannot switch in native function");
+		
+		StackVal src = getBasedStack(stackSlot);
+
+		if(src.isInt() == false)
+			throw new MDRuntimeException("Attempting to perform an integral switch on a value of type '%s'", src.typeString());
+
+		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
+		
+		assert(t.isString == false, "int switch on a string table");
+
+		int* ptr = (src.asInt() in t.intOffsets);
+
+		if(ptr is null)
+			return t.defaultOffset;
+		else
+			return *ptr;
+	}
+	
+	// Returns -1 on invalid switch (no case and no default)
+	package int switchString(uint stackSlot, uint table)
+	{
+		assert(mCurrentAR.func.isNative() == false, "cannot switch in native function");
+		
+		StackVal src = getBasedStack(stackSlot);
+
+		if(src.isString() == false)
+			throw new MDRuntimeException("Attempting to perform a string switch on a value of type '%s'", src.typeString());
+
+		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
+
+		assert(t.isString == true, "string switch on an int table");
+
+		int* ptr = (src.asString().mData in t.stringOffsets);
+
+		if(ptr is null)
+			return t.defaultOffset;
+		else
+			return *ptr;
+	}
+
 	package MDValue* getMM(MDValue* obj, MM method)
 	{
 		MDTable t;

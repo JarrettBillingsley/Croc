@@ -22,7 +22,7 @@ void main()
 	MDState state = new MDState();
 	MDClosure closure = new MDClosure(state, func);
 	MDVM vm = new MDVM();
-
+	
 	state.mCurrentAR.base = 0;
 	state.mCurrentAR.func = closure;
 	state.mSavedPC = state.mCurrentAR.savedPC = func.mCode.ptr;
@@ -133,14 +133,6 @@ int toInt(char[] s, int base)
 	}
 
 	return v;
-}
-
-class MDCompileException : MDException
-{
-	public this(Location loc, ...)
-	{
-		super(loc.toString(), ": ", vformat(_arguments, _argptr));
-	}
 }
 
 struct Token
@@ -1496,23 +1488,10 @@ class FuncState
 		SwitchDesc* prev;
 	}
 
+	// Switches are kept on this switch stack while being built..
 	protected SwitchDesc* mSwitch;
-
-	struct SwitchTable
-	{
-		bool isString;
-
-		union
-		{
-			int[] intValues;
-			dchar[][] stringValues;
-		}
-
-		int[] offsets;
-		int defaultOffset = -1;
-	}
-
-	protected SwitchTable[] mSwitchTables;
+	// ..and are then transfered to this array when they are done.
+	protected SwitchDesc*[] mSwitchTables;
 
 	public this(Location location, FuncState parent = null)
 	{
@@ -1558,7 +1537,7 @@ class FuncState
 		SwitchDesc* sd = new SwitchDesc;
 		sd.switchPC = codeI(Op.SwitchString, srcReg, 0);
 		sd.isString = true;
-		
+
 		sd.prev = mSwitch;
 		mSwitch = sd;
 	}
@@ -1579,7 +1558,7 @@ class FuncState
 		assert(desc, "endSwitch - no switch to end");
 		mSwitch = mSwitch.prev;
 
-		SwitchTable table;
+		/*SwitchTable table;
 		table.isString = desc.isString;
 
 		table.defaultOffset = desc.defaultOffset;
@@ -1609,12 +1588,10 @@ class FuncState
 				table.offsets[index] = desc.intOffsets[value];
 				table.intValues[index] = value;
 			}
-		}
+		}*/
 
-		mSwitchTables ~= table;
+		mSwitchTables ~= desc;
 		mCode[desc.switchPC].imm = mSwitchTables.length - 1;
-		
-		delete desc;
 	}
 	
 	public void addCase(Expression exp)
@@ -2628,7 +2605,7 @@ class FuncState
 			s.showMe(tab + 1);
 		}
 		
-		foreach(uint i, inout SwitchTable t; mSwitchTables)
+		foreach(uint i, inout SwitchDesc* t; mSwitchTables)
 		{
 			writef(string.repeat("\t", tab + 1), "Switch Table ", i);
 
@@ -2636,15 +2613,15 @@ class FuncState
 			{
 				writefln(" - String");
 			
-				for(uint index = 0; index < t.stringValues.length; index++)
-					writefln(string.repeat("\t", tab + 2), "\"%s\" => %s", t.stringValues[index], t.offsets[index]);
+				foreach(dchar[] index; t.stringOffsets.keys.sort)
+					writefln(string.repeat("\t", tab + 2), "\"%s\" => %s", index, t.stringOffsets[index]);
 			}
 			else
 			{
 				writefln(" - Int");
 
-				for(uint index = 0; index < t.intValues.length; index++)
-					writefln(string.repeat("\t", tab + 2), "%s => %s", t.intValues[index], t.offsets[index]);
+				foreach(int index; t.intOffsets.keys.sort)
+					writefln(string.repeat("\t", tab + 2), "%s => %s", index, t.intOffsets[index]);
 			}
 
 			writefln(string.repeat("\t", tab + 2), "Default: ", t.defaultOffset);
@@ -2738,17 +2715,16 @@ class FuncState
 		
 		for(int i = 0; i < mSwitchTables.length; i++)
 		{
-			with(mSwitchTables[i])
+			with(*mSwitchTables[i])
 			{
 				ret.mSwitchTables[i].isString = isString;
 				
 				if(isString)
-					ret.mSwitchTables[i].stringValues = stringValues;
+					ret.mSwitchTables[i].stringOffsets = stringOffsets;
 				else
-					ret.mSwitchTables[i].intValues = intValues;
+					ret.mSwitchTables[i].intOffsets = intOffsets;
 					
-				ret.mSwitchTables[i].offsets = offsets;
-				ret.mSwitchTables[i].defaultOffset = defaultOffset;	
+				ret.mSwitchTables[i].defaultOffset = defaultOffset;
 			}
 		}
 
@@ -2804,7 +2780,7 @@ class Chunk
 		
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 		
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
