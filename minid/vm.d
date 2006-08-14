@@ -10,6 +10,59 @@ class MDVM
 	{
 		
 	}
+	
+	protected const uint metaMethodLoop = 100;
+
+	protected static void getIndexed(MDState s, uint dest, StackVal table, MDValue* key)
+	{
+		for(uint i = 0; i < metaMethodLoop; i++)
+		{
+			MDValue* method;
+
+			if(table.isTable())
+			{
+				MDValue* result = table.asTable[key];
+
+				if(result.isNull() == false)
+				{
+					s.getBasedStack(dest).value = result;
+					return;
+				}
+				else
+				{
+					method = s.getMM(table, MM.Index);
+					
+					if(method.isNull())
+					{
+						s.getBasedStack(dest).value = result;
+						return;
+					}
+				}
+			}
+			else
+			{
+				method = s.getMM(table, MM.Index);
+				
+				if(method.isNull())
+					throw new MDRuntimeException("Attempting to index a '%s'", table.typeString());
+			}
+
+			if(method.isFunction())
+			{
+				uint funcSlot = s.push(method);
+				s.push(table);
+				s.push(key);
+				s.call(funcSlot, 2, 1);
+				s.popToSlot(dest);
+				return;
+			}
+			
+			// Follow the chain
+			table = method;
+		}
+
+		throw new MDRuntimeException("Metatable circular dependency or chain too deep");
+	}
 
 	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
 	{
@@ -445,14 +498,104 @@ class MDVM
 					break;
 
 				case Op.Cat:
+					StackVal src1 = getCR1();
+					StackVal src2 = getCR2();
+					
+					if(src1.isArray() && src2.isArray())
+						s.getBasedStack(i.rd).value = src1.asArray() ~ src2.asArray();
+					else if(src1.isString() && src2.isString())
+						s.getBasedStack(i.rd).value = src1.asString() ~ src2.asString();
+					else
+					{
+						MDValue* method = s.getMM(src1, MM.Cat);
+
+						if(!method.isFunction())
+						{
+							method = s.getMM(src2, MM.Cat);
+			
+							if(!method.isFunction())
+								throw new MDRuntimeException("Cannot concatenate a '%s' and a '%s'", src1.typeString(), src2.typeString());
+						}
+
+						uint funcSlot = s.push(method);
+						s.push(src1);
+						s.push(src2);
+						s.call(funcSlot, 2, 1);
+						s.popToSlot(i.rd);
+					}
+					
+					break;
+
 				case Op.Closure:
+					MDFuncDef newDef = s.getInnerFunc(i.imm);
+					MDClosure n = new MDClosure(s, newDef);
+					
+					for(int index = 0; index < newDef.mNumUpvals; index++)
+					{
+						if(pc.opcode == Op.Move)
+							n.script.upvals[index] = s.findUpvalue(i.rs2);
+						else
+						{
+							assert(pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
+							n.script.upvals[index] = s.getUpvalueRef(i.rs2);
+						}
+
+						pc++;
+					}
+					
+					s.getBasedStack(i.rd).value = n;
+					break;
 
 				case Op.Index:
+					StackVal src = s.getBasedStack(i.rs1);
+					
+					if(src.isArray())
+					{
+						MDValue* idx = getCR2();
+						
+						if(idx.isInt() == false)
+							throw new MDRuntimeException("Attempt to access an array with a '%s'", idx.typeString());
+							
+						MDValue* val = src.asArray[idx.asInt];
+						
+						if(val is null)
+							throw new MDRuntimeException("Invalid array index: ", idx.asInt());
+
+						s.getBasedStack(i.rd).value = val;
+					}
+					else
+						getIndexed(s, i.rd, s.getBasedStack(i.rs1), getCR2());
+
+					break;
+
 				case Op.IndexAssign:
+					StackVal dest = s.getBasedStack(i.rd);
+					
+					if(dest.isArray())
+					{
+						MDValue* idx = getCR1();
+						
+						if(idx.isInt() == false)
+							throw new MDRuntimeException("Attempt to access an array with a '%s'", idx.typeString());
+						
+						MDValue* val = dest.asArray()[idx.asInt];
+						
+						if(val is null)
+							throw new MDRuntimeException("Invalid array index: ", idx.asInt());
+							
+						val.value = getCR2();
+					}
+					else
+					{
+						
+					}
+					break;
+
 				case Op.Method:
 
 				case Op.Call:
 				case Op.Ret:
+					return;
 
 				case Op.EndFinal:
 				case Op.PopCatch:
@@ -460,7 +603,7 @@ class MDVM
 				case Op.PushCatch:
 				case Op.PushFinally:
 				case Op.Throw:
-					assert(false, "unimplemented instruction");
+					throw new MDException("Unimplemented instruction %s", i.toString());
 
 				case Op.Je:
 				case Op.Jle:

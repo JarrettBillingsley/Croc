@@ -8,6 +8,9 @@ alias MDValue* StackVal;
 class MDGlobalState
 {
 	public static MDGlobalState instance;
+	private MDState mMainThread;
+	private MDUpval* mUpvalHead;
+	private MDTable[] mBasicTypeMT;
 	
 	public static MDGlobalState opCall()
 	{
@@ -17,9 +20,10 @@ class MDGlobalState
 		return instance;
 	}
 
-	MDState mMainThread;
-	MDUpval* mUpvalHead;
-	MDTable[] mBasicTypeMT;
+	public static void initialize()
+	{
+		instance = new MDGlobalState();
+	}
 
 	public this()
 	{
@@ -64,6 +68,11 @@ class MDGlobalState
 		}
 		
 		mBasicTypeMT[type] = table;
+	}
+	
+	public MDState mainThread()
+	{
+		return mMainThread;
 	}
 }
 
@@ -159,14 +168,17 @@ class MDState
 	package void close(uint index)
 	{
 		StackVal base = getBasedStack(index);
-		
+
 		for(MDUpval* uv = mUpvalHead; uv !is null && uv.value >= base; )
 		{
 			mUpvalHead = uv.next;
 			
-			uv.prev.next = uv.next;
-			uv.next.prev = uv.prev;
+			if(uv.prev)
+				uv.prev.next = uv.next;
 			
+			if(uv.next)
+				uv.next.prev = uv.prev;
+
 			uv.closedValue.value = uv.value;
 			uv.value = &uv.closedValue;
 		}
@@ -228,13 +240,53 @@ class MDState
 	{
 		return mCurrentAR.func.environment();
 	}
+	
+	package MDFuncDef getInnerFunc(uint num)
+	{
+		assert(mCurrentAR.func.isNative() == false, "cannot get inner func from native function");
+		MDFuncDef def = mCurrentAR.func.script.func;
+		assert(num < def.mInnerFuncs.length, "invalid inner func index");
+		return def.mInnerFuncs[num];
+	}
 
 	package MDValue* getUpvalue(uint num)
 	{
-		assert(mCurrentAR.func.isNative() == false, "cannot get upval from native function");
-		return mCurrentAR.func.script.upvals[num].value;
+		return getUpvalueRef(num).value;
 	}
 	
+	package MDUpval* getUpvalueRef(uint num)
+	{
+		assert(mCurrentAR.func.isNative() == false, "cannot get upval from native function");
+		return mCurrentAR.func.script.upvals[num];
+	}
+	
+	package MDUpval* findUpvalue(uint num)
+	{
+		MDUpval* uv = MDGlobalState().mUpvalHead;
+		StackVal slot = getBasedStack(num);
+
+		for( ; uv !is null && uv.value >= slot; uv = uv.next)
+		{
+			if(uv.value is slot)
+				return uv;
+		}
+
+		MDUpval* ret = new MDUpval;
+		ret.value = slot;
+
+		if(MDGlobalState().mUpvalHead !is null)
+		{
+			ret.next = MDGlobalState().mUpvalHead.next;
+			
+			if(ret.next !is null)
+				ret.next.prev = ret;
+		}
+		
+		MDGlobalState().mUpvalHead = ret;
+
+		return ret;
+	}
+
 	package int getNumVarargs()
 	{
 		return mCurrentAR.base - mCurrentAR.vargBase;

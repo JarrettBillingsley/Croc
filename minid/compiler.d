@@ -19,10 +19,11 @@ void main()
 {
 	MDFuncDef func = compileFile(`simple.md`);
 
-	MDState state = new MDState();
+	MDGlobalState.initialize();
+	MDState state = MDGlobalState().mainThread();
 	MDClosure closure = new MDClosure(state, func);
 	MDVM vm = new MDVM();
-	
+
 	state.mCurrentAR.base = 0;
 	state.mCurrentAR.func = closure;
 	state.mSavedPC = state.mCurrentAR.savedPC = func.mCode.ptr;
@@ -31,9 +32,9 @@ void main()
 	{
 		vm.execute(state);
 	}
-	catch
+	catch(Object o)
 	{
-
+		writefln(o);
 	}
 	finally
 	{
@@ -2038,6 +2039,15 @@ class FuncState
 
 			case ExpType.Closure:
 				codeI(Op.Closure, reg, src.index);
+				
+				foreach(inout UpvalDesc ud; mInnerFuncs[src.index].mUpvals)
+				{
+					if(ud.type == ExpType.Local)
+						codeI(Op.Move, 0, ud.index);
+					else
+						codeI(Op.GetUpvalue, 0, ud.index);
+				}
+
 				break;
 				
 			case ExpType.Call:

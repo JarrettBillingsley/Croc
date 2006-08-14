@@ -1,5 +1,8 @@
-local a = { hi = "bye" };
-local b = a + 3;
+//local a = { hi = "bye" };
+//local b = a + 3;
+
+local foo = "foo";
+local a = function() { io.writefln(foo); };
 
 /*local t =
 {
@@ -101,7 +104,7 @@ arr ~= ["foo", "far"];
 local function vargs(vararg)
 {
 	local args = [vararg];
-	
+
 	for(local i = 0; i < #args; ++i)
 		io.writefln("args[", i, "] = ", args[i]);
 }*/

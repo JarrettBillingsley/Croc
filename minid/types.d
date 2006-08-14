@@ -380,7 +380,7 @@ class MDClosure : MDObject
 	struct ScriptClosure
 	{
 		MDFuncDef func;
-		MDUpval[] upvals;
+		MDUpval*[] upvals;
 	}
 	
 	union
@@ -395,6 +395,14 @@ class MDClosure : MDObject
 		mEnvironment = s.mGlobals;
 		script.func = def;
 		script.upvals.length = def.mNumUpvals;
+	}
+	
+	public this(MDState s, int delegate(MDState) func, MDValue[] upvals = null)
+	{
+		mIsNative = true;
+		mEnvironment = s.mGlobals;
+		native.func = func;
+		native.upvals = upvals.dup;
 	}
 
 	public override MDClosure asClosure()
@@ -462,18 +470,27 @@ class MDTable : MDObject
 			
 		return ptr;
 	}
-
+	
+	public MDValue* opIndex(MDValue* index)
+	{
+		MDValue* ptr = (*index in mData);
+		
+		if(ptr is null)
+			return &MDValue.nullValue;
+			
+		return ptr;
+	}
+	
 	public MDValue opIndexAssign(MDValue value, MDValue index)
 	{
 		mData[index] = value;
 		return value;
 	}
-	
-	public MDValue opIndexAssign(MDValue* value, MDValue index)
+
+	public MDValue* opIndexAssign(MDValue* value, MDValue index)
 	{
-		MDValue val = *value;
-		mData[index] = val;
-		return val;
+		mData[index] = *value;
+		return value;
 	}
 
 	public char[] toString()
@@ -511,6 +528,37 @@ class MDArray : MDObject
 		return mData.length;
 	}
 	
+	public MDArray opCat(MDArray other)
+	{
+		MDArray n = new MDArray(mData.length + other.mData.length);
+		n.mData = mData ~ other.mData;
+		return n;
+	}
+
+	public MDArray opCatAssign(MDArray other)
+	{
+		mData ~= other.mData;
+		return this;
+	}
+	
+	public MDValue* opIndex(int index)
+	{
+		if(index < 0 || index >= mData.length)
+			return null;
+			
+		return &mData[index];
+	}
+	
+	public MDValue* opIndexAssign(MDValue* value, int index)
+	{
+		if(index < 0 || index >= mData.length)
+			return null;
+			
+		mData[index] = *value;
+
+		return value;
+	}
+
 	package void setBlock(uint block, MDValue[] data)
 	{
 		uint start = block * Instruction.arraySetFields;
