@@ -79,17 +79,15 @@ class MDState
 		uint numReturns;
 	}
 
-	/*protected*/ ActRecord[] mActRecs;
-	/*protected*/ ActRecord* mCurrentAR;
-	/*protected*/ uint mARIndex = 0;
+	protected ActRecord[] mActRecs;
+	protected ActRecord* mCurrentAR;
+	protected uint mARIndex = 0;
 
-	///*protected*/ Instruction* mSavedPC;
+	protected MDValue[] mStack;
+	protected uint mStackIndex = 0;
 
-	/*protected*/ MDValue[] mStack;
-	/*protected*/ uint mStackIndex = 0;
-
-	/*protected*/ MDTable mGlobals;
-	/*protected*/ MDUpval* mUpvalHead;
+	protected MDTable mGlobals;
+	protected MDUpval* mUpvalHead;
 
 	// ===================================================================================
 	// Public members
@@ -451,8 +449,6 @@ class MDState
 		
 		for(MDUpval* uv = mUpvalHead; uv !is null; uv = uv.next)
 			uv.value = (uv.value - oldBase) + newBase;
-
-		//mStackPtr = &mStack[mStackIndex];
 	}
 
 	package void close(uint index)

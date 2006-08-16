@@ -192,7 +192,7 @@ abstract class MDObject
 
 class MDString : MDObject
 {
-	// Hmmm.  package..
+	//TODO: Hmmm.  package..
 	package dchar[] mData;
 	protected hash_t mHash;
 

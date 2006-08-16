@@ -13,7 +13,6 @@ import minid.types;
 import minid.opcodes;
 
 import minid.state;
-//import minid.vm;
 
 void main()
 {
@@ -3314,16 +3313,18 @@ class FuncDecl : Declaration
 		{
 			while(true)
 			{
+				if(t.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					t = t.nextToken;
+					break;
+				}
+
 				params ~= Identifier.parse(t);
 				
 				if(t.type == Token.Type.RParen)
 					break;
-				else if(t.type == Token.Type.Vararg)
-				{
-					isVararg = true;
-					break;
-				}
-					
+
 				t.check(Token.Type.Comma);
 				t = t.nextToken;
 			}
@@ -6576,16 +6577,18 @@ class FuncLiteralExp : PrimaryExp
 		{
 			while(true)
 			{
+				if(t.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					t = t.nextToken;
+					break;
+				}
+
 				params ~= Identifier.parse(t);
 				
 				if(t.type == Token.Type.RParen)
 					break;
-				else if(t.type == Token.Type.Vararg)
-				{
-					isVararg = true;
-					break;
-				}
-					
+
 				t.check(Token.Type.Comma);
 				t = t.nextToken;
 			}

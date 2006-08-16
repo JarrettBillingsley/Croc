@@ -147,3 +147,27 @@ vargs();
 writefln();
 
 vargs(2, 3, 5, "foo", "bar");
+
+writefln();
+
+for(local switchVar = 0; switchVar < 11; ++switchVar)
+{
+	switch(switchVar)
+	{
+		case 1, 2, 3:
+			writefln("small");
+			break;
+			
+		case 4, 5, 6:
+			writefln("medium");
+			break;
+			
+		case 7, 8, 9:
+			writefln("large");
+			break;
+			
+		default:
+			writefln("out of range");
+			break;
+	}
+}
