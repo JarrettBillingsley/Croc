@@ -1,21 +1,28 @@
-//local a = { hi = "bye" };
-//local b = a + 3;
+local function foo()
+{
+	writefln("hi ", 4, ", ", 5);
+}
 
-local foo = "foo";
-local a = function() { io.writefln(foo); };
+foo();
 
-/*local t =
+writefln();
+
+local t =
 {
 	x = 5,
 	y = 4.5,
 	
-	function foo()
+	function foo(this)
 	{
-
+		writefln("foo: ", this.x, ", ", this.y);
 	}
 };
 
-Foo = { };
+t:foo();
+
+writefln();
+
+/*Foo = { };
 
 table.setMeta(Foo, { opIndex = Foo });
 
@@ -33,21 +40,21 @@ function Foo:new()
 
 local f = Foo:new();
 
-f:bar();
+f:bar();*/
 
 local function outer()
 {
-	local x = 0;
+	local x = 3;
 
 	local function inner()
-	{	
-		io.writefln("inner x: ", x);
+	{
 		++x;
+		writefln("inner x: ", x);
 	}
 
-	io.writefln("outer x: ", x);
+	writefln("outer x: ", x);
 	inner();
-	io.writefln("outer x: ", x);
+	writefln("outer x: ", x);
 
 	return inner;
 }
@@ -55,7 +62,9 @@ local function outer()
 local func = outer();
 func();
 
-local function thrower(x)
+writefln();
+
+/*local function thrower(x)
 {
 	if(x >= 3)
 		throw "Sorry, x is too big for me!";
@@ -90,21 +99,51 @@ try
 catch(e)
 {
 	io.writefln("caught: ", e);
+}*/
+
+function arrayIterator(array, index)
+{
+	++index;
+	
+	if(index >= #array)
+		return null;
+
+	return index, array[index];
 }
 
-local arr = [foo(bar, baz), bat[bar]];
+function pairs(container)
+{
+	return arrayIterator, container, -1;
+}
 
-arr:sort();
+local arr = [3, 5, 7];
+
+//arr:sort();
 
 foreach(local i, local v; pairs(arr))
-	io.writefln("arr[", i, "] = ", v);
+	writefln("arr[", i, "] = ", v);
 
 arr ~= ["foo", "far"];
+
+writefln();
+
+foreach(local i, local v; pairs(arr))
+	writefln("arr[", i, "] = ", v);
+
+writefln();
 
 local function vargs(vararg)
 {
 	local args = [vararg];
 
+	writefln("num varargs: ", #args);
+
 	for(local i = 0; i < #args; ++i)
-		io.writefln("args[", i, "] = ", args[i]);
-}*/
+		writefln("args[", i, "] = ", args[i]);
+}
+
+vargs();
+
+writefln();
+
+vargs(2, 3, 5, "foo", "bar");

@@ -13,35 +13,30 @@ import minid.types;
 import minid.opcodes;
 
 import minid.state;
-import minid.vm;
+//import minid.vm;
 
 void main()
 {
-	MDFuncDef func = compileFile(`simple.md`);
-
 	MDGlobalState.initialize();
 	MDState state = MDGlobalState().mainThread();
-	MDClosure closure = new MDClosure(state, func);
-	MDVM vm = new MDVM();
+	MDClosure closure = new MDClosure(state, compileFile(`simple.md`));
 
-	state.mCurrentAR.base = 0;
-	state.mCurrentAR.func = closure;
-	state.mSavedPC = state.mCurrentAR.savedPC = func.mCode.ptr;
-	
-	try
+	int mdwritefln(MDState s)
 	{
-		vm.execute(state);
+		int numParams = s.getBasedStackIndex();
+		
+		for(int i = 0; i < numParams; i++)
+			writef(s.getBasedStack(i).toString());
+
+		writefln();
+		
+		return 0;
 	}
-	catch(Object o)
-	{
-		writefln(o);
-	}
-	finally
-	{
-		MDValue v;
-		v.value = new MDString("d"d);
-		writefln(state.getEnvironment[v].toString());
-	}
+
+	MDClosure writeflnClosure = new MDClosure(state, &mdwritefln);
+	state.setGlobal("writefln", writeflnClosure);
+
+	state.call(state.push(closure), 0, 0);
 }
 
 public MDFuncDef compileFile(char[] filename)
@@ -3183,16 +3178,18 @@ class LocalFuncDecl : Declaration
 		{
 			while(true)
 			{
+				if(t.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					t = t.nextToken;
+					break;
+				}
+
 				params ~= Identifier.parse(t);
 				
 				if(t.type == Token.Type.RParen)
 					break;
-				else if(t.type == Token.Type.Vararg)
-				{
-					isVararg = true;
-					break;
-				}
-					
+
 				t.check(Token.Type.Comma);
 				t = t.nextToken;
 			}
@@ -6860,7 +6857,11 @@ class ArrayCtorExp : PrimaryExp
 		}
 
 		uint destReg = s.pushRegister();
-		s.codeI(Op.NewArray, destReg, mFields.length);
+		
+		if(mFields.length > 0 && mFields[$ - 1].isMultRet())
+			s.codeI(Op.NewArray, destReg, mFields.length - 1);
+		else
+			s.codeI(Op.NewArray, destReg, mFields.length);
 
 		if(mFields.length > 0)
 		{
@@ -6879,7 +6880,7 @@ class ArrayCtorExp : PrimaryExp
 				if(fieldsLeft == 0 && mFields[$ - 1].isMultRet())
 					s.codeR(Op.SetArray, destReg, 0, block);
 				else
-					s.codeR(Op.SetArray, destReg, numToDo, block);
+					s.codeR(Op.SetArray, destReg, numToDo + 1, block);
 					
 				block++;
 			}

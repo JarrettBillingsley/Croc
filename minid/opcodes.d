@@ -100,7 +100,7 @@ PopFinally........I: n/a, n/a
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
-SetArray..........R: dest, num fields, block offset
+SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
 SetGlobal.........I: src, const index of global name
 SetUpvalue........I: src, upval index
 Shl...............R: dest, src, src

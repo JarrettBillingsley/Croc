@@ -392,7 +392,7 @@ class MDClosure : MDObject
 	public this(MDState s, MDFuncDef def)
 	{
 		mIsNative = false;
-		mEnvironment = s.mGlobals;
+		mEnvironment = s.getGlobals();
 		script.func = def;
 		script.upvals.length = def.mNumUpvals;
 	}
@@ -400,7 +400,7 @@ class MDClosure : MDObject
 	public this(MDState s, int delegate(MDState) func, MDValue[] upvals = null)
 	{
 		mIsNative = true;
-		mEnvironment = s.mGlobals;
+		mEnvironment = s.getGlobals();
 		native.func = func;
 		native.upvals = upvals.dup;
 	}
@@ -562,7 +562,7 @@ class MDArray : MDObject
 	package void setBlock(uint block, MDValue[] data)
 	{
 		uint start = block * Instruction.arraySetFields;
-		uint end = start + data.length - 1;
+		uint end = start + data.length;
 		
 		// Since Op.SetArray can use a variadic number of values, the number
 		// of elements actually added to the array in the array constructor
@@ -584,8 +584,6 @@ struct MDValue
 {
 	public static enum Type
 	{
-		None = -1,
-
 		// Non-object types
 		Null,
 		Bool,
@@ -602,7 +600,7 @@ struct MDValue
 	
 	public static MDValue nullValue = { mType : Type.Null };
 
-	public Type mType = Type.None;
+	public Type mType = Type.Null;
 
 	union
 	{
@@ -610,12 +608,10 @@ struct MDValue
 		private bool mBool;
 		private int mInt;
 		private float mFloat;
+		
+		// Object types
+		private MDObject mObj;
 	}
-	
-	// Object types
-	// This has to be outside the union, so the GC doesn't confuse other types of
-	// values for a pointer.
-	private MDObject mObj;
 
 	public int opEquals(MDValue* other)
 	{
@@ -637,7 +633,6 @@ struct MDValue
 				return this.mFloat == other.mFloat;
 
 			default:
-				assert(this.mType != Type.None, "MDValue opEquals - None type");
 				return MDObject.equals(this.mObj, other.mObj);
 		}
 	}
@@ -662,7 +657,6 @@ struct MDValue
 				return this.mFloat == other.mFloat;
 
 			default:
-				assert(this.mType != Type.None, "MDValue rawEquals - None type");
 				return (this.mObj is other.mObj);
 		}
 	}
@@ -692,8 +686,6 @@ struct MDValue
 					return 0;
 
 			default:
-				assert(this.mType != Type.None, "MDValue opCmp - None type");
-				
 				if(this.mObj is other.mObj)
 					return 0;
 
@@ -720,7 +712,6 @@ struct MDValue
 				return typeid(typeof(mFloat)).getHash(&mFloat);
 
 			default:
-				assert(mType != Type.None, "MDValue toHash - None type");
 				return mObj.toHash();
 		}
 	}
@@ -729,7 +720,6 @@ struct MDValue
 	{
 		switch(mType)
 		{
-			case Type.None:
 			case Type.Null:
 			case Type.Bool:
 			case Type.Int:
@@ -750,7 +740,6 @@ struct MDValue
 	{
 		switch(type)
 		{
-			case Type.None:		return "none";
 			case Type.Null:		return "null";
 			case Type.Bool:		return "bool";
 			case Type.Int:		return "int";
@@ -768,19 +757,9 @@ struct MDValue
 		return typeString(mType);
 	}
 
-	public bool isNone()
-	{
-		return (mType == Type.None);
-	}
-	
 	public bool isNull()
 	{
 		return (mType == Type.Null);
-	}
-	
-	public bool isNoneOrNull()
-	{
-		return (mType == Type.None || mType == Type.Null);
 	}
 	
 	public bool isBool()
@@ -899,9 +878,9 @@ struct MDValue
 	public void setNull()
 	{
 		mType = Type.Null;
-		mObj = null;
+		mInt = 0;
 	}
-	
+
 	public void value(bool b)
 	{
 		mType = Type.Bool;
@@ -913,7 +892,7 @@ struct MDValue
 		mType = Type.Int;
 		mInt = n;
 	}
-	
+
 	public void value(float n)
 	{
 		mType = Type.Float;
@@ -952,29 +931,7 @@ struct MDValue
 
 	public void value(MDValue v)
 	{
-		mType = v.mType;
-		
-		switch(mType)
-		{
-			case Type.None, Type.Null:
-				break;
-				
-			case Type.Bool:
-				mBool = v.mBool;
-				break;
-				
-			case Type.Int:
-				mInt = v.mInt;
-				break;
-				
-			case Type.Float:
-				mFloat = v.mFloat;
-				break;
-				
-			default:
-				mObj = v.mObj;
-				break;
-		}
+		value(&v);
 	}
 	
 	public void value(MDValue* v)
@@ -983,21 +940,22 @@ struct MDValue
 		
 		switch(mType)
 		{
-			case Type.None, Type.Null:
+			case Type.Null:
+				mInt = 0;
 				break;
-				
+
 			case Type.Bool:
 				mBool = v.mBool;
 				break;
-				
+
 			case Type.Int:
 				mInt = v.mInt;
 				break;
-				
+
 			case Type.Float:
 				mFloat = v.mFloat;
 				break;
-				
+
 			default:
 				mObj = v.mObj;
 				break;
@@ -1008,9 +966,6 @@ struct MDValue
 	{
 		switch(mType)
 		{
-			case Type.None:
-				return "none";
-				
 			case Type.Null:
 				return "null";
 
@@ -1058,17 +1013,11 @@ struct MDUpval
 	// This means data should only ever be accessed through this member.
 	MDValue* value;
 
-	union
-	{
-		MDValue closedValue;
-		
-		// For the open upvalue doubly-linked list.
-		struct
-		{
-			MDUpval* next;
-			MDUpval* prev;
-		}
-	}
+	MDValue closedValue;
+
+	// For the open upvalue doubly-linked list.
+	MDUpval* next;
+	MDUpval* prev;
 }
 
 class MDFuncDef

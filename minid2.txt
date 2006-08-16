@@ -271,7 +271,7 @@ FunctionDeclaration:
 	'local' 'function' Identifier Parameters BlockStatement
 
 Parameters:
-	'(' [Identifier {',' Identifier}] [',' 'vararg'] ')'
+	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
 
 BaseExpression:
