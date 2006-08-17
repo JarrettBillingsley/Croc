@@ -78,6 +78,18 @@ class MDState
 		Instruction* savedPC;
 		uint numReturns;
 	}
+	
+	struct TryRecord
+	{
+		bool isCatch;
+		uint catchVarSlot;
+		uint actRecord;
+		Instruction* pc;
+	}
+	
+	protected TryRecord[] mTryRecs;
+	protected TryRecord* mCurrentTR;
+	protected uint mTRIndex = 0;
 
 	protected ActRecord[] mActRecs;
 	protected ActRecord* mCurrentAR;
@@ -95,6 +107,9 @@ class MDState
 
 	public this()
 	{
+		mTryRecs = new TryRecord[10];
+		mCurrentTR = &mTryRecs[0];
+
 		mActRecs = new ActRecord[10];
 		mCurrentAR = &mActRecs[0];
 
@@ -200,7 +215,7 @@ class MDState
 			MDValue* method = getMM(func, MM.Call);
 
 			if(!method.isFunction())
-				throw new MDRuntimeException("Attempting to call a value of type '%s'", func.typeString());
+				throw new MDException("Attempting to call a value of type '%s'", func.typeString());
 
 			needStackSlots(1);
 
@@ -237,7 +252,17 @@ class MDState
 			mCurrentAR.func = closure;
 			mCurrentAR.numReturns = numReturns;
 
-			int actualReturns = closure.native.func(this);
+			int actualReturns;
+
+			try
+			{
+				actualReturns = closure.native.func(this);
+			}
+			catch(MDException e)
+			{
+				callEpilogue(0, 0);
+				throw e;
+			}
 
 			callEpilogue(mStackIndex - actualReturns, actualReturns);
 		}
@@ -264,32 +289,6 @@ class MDState
 					
 					numParams = funcDef.mNumParams;
 				}
-				
-				/*
-				f(x, y, vararg):
-
-				f()
-				   0 1    2    3
-				=> f null null null
-				   f           vb
-
-				f(1)
-				   0 1 2    3
-				=> f 1 null 1
-				   f        v
-				            b
-
-				f(1, 2)
-				   0 1 2 3 4
-				=> f 1 2 1 2
-				   f     v
-				         b
-
-				f(1, 2, 3)
-				   0 1 2 3 4 5
-				=> f 1 2 3 1 2
-				   f     v b
-				*/
 
 				vargBase = slot + funcDef.mNumParams + 1;
 
@@ -319,14 +318,14 @@ class MDState
 				if(mStackIndex > base + funcDef.mNumParams)
 				{
 					mStackIndex = base + funcDef.mNumParams;
-					debug(STACKINDEX) writefln("call() adjusted for unpassed args and set mStackIndex to ", mStackIndex);
+					debug(STACKINDEX) writefln("call() adjusted for too many args and set mStackIndex to ", mStackIndex);
 				}
 
 				needStackSlots(funcDef.mStackSize);
 			}
 
 			pushAR();
-
+			
 			mCurrentAR.base = base;
 			mCurrentAR.vargBase = vargBase;
 			mCurrentAR.funcSlot = slot;
@@ -414,7 +413,7 @@ class MDState
 			}
 			catch
 			{
-				throw new MDRuntimeException("Script call stack overflow");
+				throw new MDException("Script call stack overflow");
 			}
 		}
 
@@ -430,6 +429,34 @@ class MDState
 
 		mCurrentAR = &mActRecs[mARIndex];
 	}
+	
+	package void pushTR()
+	{
+		if(mTRIndex >= mTryRecs.length)
+		{
+			try
+			{
+				mTryRecs.length = mTryRecs.length * 2;
+			}
+			catch
+			{
+				throw new MDException("Script catch/finally stack overflow");
+			}
+		}
+
+		mTRIndex++;
+		mCurrentTR = &mTryRecs[mTRIndex];
+		mCurrentTR.actRecord = mARIndex;
+	}
+	
+	package void popTR()
+	{
+		mTRIndex--;
+
+		assert(mTRIndex != uint.max, "Script catch/finally stack underflow");
+
+		mCurrentTR = &mTryRecs[mTRIndex];
+	}
 
 	package void stackSize(uint length)
 	{
@@ -441,7 +468,7 @@ class MDState
 		}
 		catch
 		{
-			throw new MDRuntimeException("MiniD stack overflow");
+			throw new MDException("MiniD stack overflow");
 		}
 
 		MDValue* oldBase = oldStack.ptr;
@@ -577,10 +604,9 @@ class MDState
 
 	package MDUpval* findUpvalue(uint num)
 	{
-		MDUpval* uv = mUpvalHead;
 		StackVal slot = getBasedStack(num);
 
-		for( ; uv !is null && uv.value >= slot; uv = uv.next)
+		for(MDUpval* uv = mUpvalHead; uv !is null && uv.value >= slot; uv = uv.next)
 		{
 			if(uv.value is slot)
 				return uv;
@@ -628,7 +654,7 @@ class MDState
 		StackVal src = getBasedStack(stackSlot);
 
 		if(src.isInt() == false)
-			throw new MDRuntimeException("Attempting to perform an integral switch on a value of type '%s'", src.typeString());
+			throw new MDException("Attempting to perform an integral switch on a value of type '%s'", src.typeString());
 
 		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
 
@@ -650,7 +676,7 @@ class MDState
 		StackVal src = getBasedStack(stackSlot);
 
 		if(src.isString() == false)
-			throw new MDRuntimeException("Attempting to perform a string switch on a value of type '%s'", src.typeString());
+			throw new MDException("Attempting to perform a string switch on a value of type '%s'", src.typeString());
 
 		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
 
@@ -726,7 +752,7 @@ class MDState
 				method = s.getMM(table, MM.Index);
 
 				if(method.isNull())
-					throw new MDRuntimeException("Attempting to index a '%s'", table.typeString());
+					throw new MDException("Attempting to index a '%s'", table.typeString());
 			}
 
 			if(method.isFunction())
@@ -743,7 +769,7 @@ class MDState
 			table = method;
 		}
 
-		throw new MDRuntimeException("Metatable circular dependency or chain too deep");
+		throw new MDException("Metatable circular dependency or chain too deep");
 	}
 
 	protected static void setIndexed(MDState s, StackVal table, MDValue* key, MDValue* value)
@@ -767,7 +793,7 @@ class MDState
 				method = s.getMM(table, MM.IndexAssign);
 
 				if(method.isNull())
-					throw new MDRuntimeException("Attempting to index a '%s'", table.typeString());
+					throw new MDException("Attempting to index a '%s'", table.typeString());
 			}
 
 			if(method.isFunction())
@@ -784,7 +810,7 @@ class MDState
 			table = method;
 		}
 
-		throw new MDRuntimeException("Metatable circular dependency or chain too deep");
+		throw new MDException("Metatable circular dependency or chain too deep");
 	}
 
 	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
@@ -811,7 +837,7 @@ class MDState
 				MDValue* method = s.getMM(src1, MM.Neg);
 
 				if(!method.isFunction())
-					throw new MDRuntimeException("Cannot perform arithmetic on a '%s'", src1.typeString());
+					throw new MDException("Cannot perform arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
 				s.push(src1);
@@ -865,7 +891,7 @@ class MDState
 				method = s.getMM(src2, mmType);
 
 				if(!method.isFunction())
-					throw new MDRuntimeException("Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+					throw new MDException("Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
 			}
 
 			uint funcSlot = s.push(method);
@@ -892,7 +918,7 @@ class MDState
 				MDValue* method = s.getMM(src1, MM.Com);
 
 				if(!method.isFunction())
-					throw new MDRuntimeException("Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
+					throw new MDException("Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
 				s.push(src1);
@@ -934,7 +960,7 @@ class MDState
 				method = s.getMM(src2, mmType);
 
 				if(!method.isFunction())
-					throw new MDRuntimeException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+					throw new MDException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
 			}
 
 			uint funcSlot = s.push(method);
@@ -948,406 +974,476 @@ class MDState
 	public void execute()
 	{
 		Instruction* pc = getSavedPC();
+		MDException currentException = null;
 
-		while(true)
+		_exceptionRetry:
+
+		try
 		{
-			Instruction i = *pc;
-			pc++;
-
-			MDValue* getCR1()
+			while(true)
 			{
-				uint val = i.rs1;
-
-				if(val & Instruction.constBit)
-					return getConst(val & ~Instruction.constBit);
-				else
-					return getBasedStack(val);
-			}
-
-			MDValue* getCR2()
-			{
-				uint val = i.rs2;
-
-				if(val & Instruction.constBit)
-					return getConst(val & ~Instruction.constBit);
-				else
-					return getBasedStack(val);
-			}
-
-			Op opcode = cast(Op)i.opcode;
-
-			switch(opcode)
-			{
-				case Op.Add:
-				case Op.Sub:
-				case Op.Mul:
-				case Op.Div:
-				case Op.Mod:
-					doArithmetic(this, i.rd, getCR1(), getCR2(), opcode);
-					break;
-
-				case Op.Neg:
-					doArithmetic(this, i.rd, getCR1(), null, opcode);
-					break;
-
-				case Op.And:
-				case Op.Or:
-				case Op.Xor:
-				case Op.Shl:
-				case Op.Shr:
-				case Op.UShr:
-					doBitArith(this, i.rd, getCR1(), getCR2(), opcode);
-					break;
-
-				case Op.Com:
-					doBitArith(this, i.rd, getCR1(), null, opcode);
-					break;
-
-				case Op.Move:
-					getBasedStack(i.rd).value = getBasedStack(i.rs1);
-					break;
-
-				case Op.Not:
-					if(getBasedStack(i.rs1).isFalse())
-						getBasedStack(i.rd).value = true;
+				Instruction i = *pc;
+				pc++;
+	
+				MDValue* getCR1()
+				{
+					uint val = i.rs1;
+	
+					if(val & Instruction.constBit)
+						return getConst(val & ~Instruction.constBit);
 					else
-						getBasedStack(i.rd).value = false;
-
-					break;
-
-				case Op.Cmp:
-					Instruction jump = *pc;
-					pc++;
-
-					int cmpValue = getCR1().opCmp(getCR2());
-
-					if(jump.rd == 1)
-					{
-						switch(jump.opcode)
-						{
-							case Op.Je:  if(cmpValue == 0) pc += jump.immBiased; break;
-							case Op.Jle: if(cmpValue <= 0) pc += jump.immBiased; break;
-							case Op.Jlt: if(cmpValue < 0)  pc += jump.immBiased; break;
-							default: assert(false, "invalid 'cmp' jump");
-						}
-					}
+						return getBasedStack(val);
+				}
+	
+				MDValue* getCR2()
+				{
+					uint val = i.rs2;
+	
+					if(val & Instruction.constBit)
+						return getConst(val & ~Instruction.constBit);
 					else
-					{
-						switch(jump.opcode)
-						{
-							case Op.Je:  if(cmpValue != 0) pc += jump.immBiased; break;
-							case Op.Jle: if(cmpValue > 0)  pc += jump.immBiased; break;
-							case Op.Jlt: if(cmpValue >= 0) pc += jump.immBiased; break;
-							default: assert(false, "invalid 'cmp' jump");
-						}
-					}
-
-					break;
-
-				case Op.Is:
-					Instruction jump = *pc;
-					pc++;
-
-					assert(jump.opcode == Op.Je, "invalid 'is' jump");
-
-					bool cmpValue = getCR1().rawEquals(getCR2());
-
-					if(jump.rd == 1)
-					{
-						if(cmpValue is true)
-							pc += jump.immBiased;
-					}
-					else
-					{
-						if(cmpValue is false)
-							pc += jump.immBiased;
-					}
-
-					break;
-
-				case Op.IsTrue:
-					Instruction jump = *pc;
-					pc++;
-
-					assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
-
-					bool cmpValue = !getCR1().isFalse();
-
-					if(jump.rd == 1)
-					{
-						if(cmpValue is true)
-							pc += jump.immBiased;
-					}
-					else
-					{
-						if(cmpValue is false)
-							pc += jump.immBiased;
-					}
-
-					break;
-
-				case Op.Jmp:
-					pc += i.immBiased;
-					break;
-
-				case Op.Length:
-					getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
-					break;
-
-				case Op.LoadBool:
-					getBasedStack(i.rd).value = (i.rs1 == 1) ? true : false;
-					break;
-
-				case Op.LoadNull:
-					getBasedStack(i.rd).setNull();
-					break;
-
-				case Op.LoadConst:
-					getBasedStack(i.rd).value = getConst(i.imm);
-					break;
-
-				case Op.GetGlobal:
-					MDValue* index = getConst(i.imm);
-					assert(index.isString(), "trying to get a non-string global");
-					getBasedStack(i.rd).value = getEnvironment()[*index];
-					break;
-
-				case Op.SetGlobal:
-					MDValue* index = getConst(i.imm);
-					assert(index.isString(), "trying to get a non-string global");
-					getEnvironment()[*index] = getBasedStack(i.rd);
-					break;
-
-				case Op.GetUpvalue:
-					getBasedStack(i.rd).value = getUpvalue(i.imm);
-					break;
-
-				case Op.SetUpvalue:
-					getUpvalue(i.imm).value = getBasedStack(i.rd);
-					break;
-
-				case Op.NewArray:
-					getBasedStack(i.rd).value = new MDArray(i.imm);
-					break;
-
-				case Op.NewTable:
-					getBasedStack(i.rd).value = new MDTable();
-					break;
-
-				case Op.SetArray:
-					// Since this instruction is only generated for array constructors,
-					// there is really no reason to check for type correctness for the dest.
-
-					// sliceStack resets the top-of-stack.
-
-					uint sliceBegin = getBase() + i.rd + 1;
-					int numElems = i.rs1 - 1;
-
-					getBasedStack(i.rd).asArray().setBlock(i.rs2, sliceStack(sliceBegin, numElems));
-
-					break;
-
-				case Op.SwitchInt:
-					int offset = switchInt(i.rd, i.imm);
-
-					if(offset == -1)
-						throw new MDRuntimeException("Switch without default");
-
-					pc += offset;
-					break;
-
-				case Op.SwitchString:
-					int offset = switchString(i.rd, i.imm);
-
-					if(offset == -1)
-						throw new MDRuntimeException("Switch without default");
-
-					pc += offset;
-					break;
-
-				case Op.Vararg:
-					int numNeeded = i.rs1 - 1;
-					int numVarargs = getNumVarargs();
-
-					if(numNeeded == -1)
-						numNeeded = numVarargs;
-
-					needStackSlots(numNeeded);
-
-					uint src = getVarargBase();
-					uint dest = getBasedIndex(i.rd);
-
-					for(uint index = 0; index < numNeeded; index++)
-					{
-						if(index < numVarargs)
-							copyAbsStack(dest + index, src);
+						return getBasedStack(val);
+				}
+	
+				Op opcode = cast(Op)i.opcode;
+	
+				switch(opcode)
+				{
+					case Op.Add:
+					case Op.Sub:
+					case Op.Mul:
+					case Op.Div:
+					case Op.Mod:
+						doArithmetic(this, i.rd, getCR1(), getCR2(), opcode);
+						break;
+	
+					case Op.Neg:
+						doArithmetic(this, i.rd, getCR1(), null, opcode);
+						break;
+	
+					case Op.And:
+					case Op.Or:
+					case Op.Xor:
+					case Op.Shl:
+					case Op.Shr:
+					case Op.UShr:
+						doBitArith(this, i.rd, getCR1(), getCR2(), opcode);
+						break;
+	
+					case Op.Com:
+						doBitArith(this, i.rd, getCR1(), null, opcode);
+						break;
+	
+					case Op.Move:
+						getBasedStack(i.rd).value = getBasedStack(i.rs1);
+						break;
+	
+					case Op.Not:
+						if(getBasedStack(i.rs1).isFalse())
+							getBasedStack(i.rd).value = true;
 						else
-							getAbsStack(dest + index).setNull();
-
-						src++;
-					}
-					
-					mStackIndex = dest + numVarargs;
-					break;
-
-				case Op.Close:
-					close(i.rd);
-					break;
-
-				case Op.Foreach:
-					Instruction jump = *pc;
-					pc++;
-
-					uint rd = i.rd;
-					uint funcReg = rd + 3;
-
-					copyBasedStack(funcReg + 2, rd + 2);
-					copyBasedStack(funcReg + 1, rd + 1);
-					copyBasedStack(funcReg, rd);
-
-					call(funcReg, 2, i.imm);
-
-					if(getBasedStack(funcReg).isNull() == false)
-					{
-						copyBasedStack(rd + 2, funcReg);
-
-						assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump");
-
-						pc += jump.immBiased;
-					}
-
-					break;
-
-				case Op.Cat:
-					StackVal src1 = getCR1();
-					StackVal src2 = getCR2();
-
-					if(src1.isArray() && src2.isArray())
-						getBasedStack(i.rd).value = src1.asArray() ~ src2.asArray();
-					else if(src1.isString() && src2.isString())
-						getBasedStack(i.rd).value = src1.asString() ~ src2.asString();
-					else
-					{
-						MDValue* method = getMM(src1, MM.Cat);
-
-						if(!method.isFunction())
-						{
-							method = getMM(src2, MM.Cat);
-
-							if(!method.isFunction())
-								throw new MDRuntimeException("Cannot concatenate a '%s' and a '%s'", src1.typeString(), src2.typeString());
-						}
-
-						uint funcSlot = push(method);
-						push(src1);
-						push(src2);
-						call(funcSlot, 2, 1);
-						popToSlot(i.rd);
-					}
-
-					break;
-
-				case Op.Closure:
-					MDFuncDef newDef = getInnerFunc(i.imm);
-					MDClosure n = new MDClosure(this, newDef);
-
-					for(int index = 0; index < newDef.mNumUpvals; index++)
-					{
-						if(pc.opcode == Op.Move)
-							n.script.upvals[index] = findUpvalue(i.rs2);
-						else
-						{
-							assert(pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
-							n.script.upvals[index] = getUpvalueRef(i.rs2);
-						}
-
+							getBasedStack(i.rd).value = false;
+	
+						break;
+	
+					case Op.Cmp:
+						Instruction jump = *pc;
 						pc++;
-					}
-
-					getBasedStack(i.rd).value = n;
-					break;
-
-				case Op.Index:
-					StackVal src = getBasedStack(i.rs1);
-
-					if(src.isArray())
-					{
-						MDValue* idx = getCR2();
-
-						if(idx.isInt() == false)
-							throw new MDRuntimeException("Attempt to access an array with a '%s'", idx.typeString());
-
-						MDValue* val = src.asArray[idx.asInt];
-
-						if(val is null)
-							throw new MDRuntimeException("Invalid array index: ", idx.asInt());
-
-						getBasedStack(i.rd).value = val;
-					}
-					else
+	
+						int cmpValue = getCR1().opCmp(getCR2());
+	
+						if(jump.rd == 1)
+						{
+							switch(jump.opcode)
+							{
+								case Op.Je:  if(cmpValue == 0) pc += jump.immBiased; break;
+								case Op.Jle: if(cmpValue <= 0) pc += jump.immBiased; break;
+								case Op.Jlt: if(cmpValue < 0)  pc += jump.immBiased; break;
+								default: assert(false, "invalid 'cmp' jump");
+							}
+						}
+						else
+						{
+							switch(jump.opcode)
+							{
+								case Op.Je:  if(cmpValue != 0) pc += jump.immBiased; break;
+								case Op.Jle: if(cmpValue > 0)  pc += jump.immBiased; break;
+								case Op.Jlt: if(cmpValue >= 0) pc += jump.immBiased; break;
+								default: assert(false, "invalid 'cmp' jump");
+							}
+						}
+	
+						break;
+	
+					case Op.Is:
+						Instruction jump = *pc;
+						pc++;
+	
+						assert(jump.opcode == Op.Je, "invalid 'is' jump");
+	
+						bool cmpValue = getCR1().rawEquals(getCR2());
+	
+						if(jump.rd == 1)
+						{
+							if(cmpValue is true)
+								pc += jump.immBiased;
+						}
+						else
+						{
+							if(cmpValue is false)
+								pc += jump.immBiased;
+						}
+	
+						break;
+	
+					case Op.IsTrue:
+						Instruction jump = *pc;
+						pc++;
+	
+						assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
+	
+						bool cmpValue = !getCR1().isFalse();
+	
+						if(jump.rd == 1)
+						{
+							if(cmpValue is true)
+								pc += jump.immBiased;
+						}
+						else
+						{
+							if(cmpValue is false)
+								pc += jump.immBiased;
+						}
+	
+						break;
+	
+					case Op.Jmp:
+						pc += i.immBiased;
+						break;
+	
+					case Op.Length:
+						getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
+						break;
+	
+					case Op.LoadBool:
+						getBasedStack(i.rd).value = (i.rs1 == 1) ? true : false;
+						break;
+	
+					case Op.LoadNull:
+						getBasedStack(i.rd).setNull();
+						break;
+	
+					case Op.LoadConst:
+						getBasedStack(i.rd).value = getConst(i.imm);
+						break;
+	
+					case Op.GetGlobal:
+						MDValue* index = getConst(i.imm);
+						assert(index.isString(), "trying to get a non-string global");
+						getBasedStack(i.rd).value = getEnvironment()[*index];
+						break;
+	
+					case Op.SetGlobal:
+						MDValue* index = getConst(i.imm);
+						assert(index.isString(), "trying to get a non-string global");
+						getEnvironment()[*index] = getBasedStack(i.rd);
+						break;
+	
+					case Op.GetUpvalue:
+						getBasedStack(i.rd).value = getUpvalue(i.imm);
+	
+						//writefln("got upvalue: ", getBasedStack(i.rd).toString());
+						break;
+	
+					case Op.SetUpvalue:
+						getUpvalue(i.imm).value = getBasedStack(i.rd);
+						break;
+	
+					case Op.NewArray:
+						getBasedStack(i.rd).value = new MDArray(i.imm);
+						break;
+	
+					case Op.NewTable:
+						getBasedStack(i.rd).value = new MDTable();
+						break;
+	
+					case Op.SetArray:
+						// Since this instruction is only generated for array constructors,
+						// there is really no reason to check for type correctness for the dest.
+	
+						// sliceStack resets the top-of-stack.
+	
+						uint sliceBegin = getBase() + i.rd + 1;
+						int numElems = i.rs1 - 1;
+	
+						getBasedStack(i.rd).asArray().setBlock(i.rs2, sliceStack(sliceBegin, numElems));
+	
+						break;
+	
+					case Op.SwitchInt:
+						int offset = switchInt(i.rd, i.imm);
+	
+						if(offset == -1)
+							throw new MDException("Switch without default");
+	
+						pc += offset;
+						break;
+	
+					case Op.SwitchString:
+						int offset = switchString(i.rd, i.imm);
+	
+						if(offset == -1)
+							throw new MDException("Switch without default");
+	
+						pc += offset;
+						break;
+	
+					case Op.Vararg:
+						int numNeeded = i.rs1 - 1;
+						int numVarargs = getNumVarargs();
+	
+						if(numNeeded == -1)
+							numNeeded = numVarargs;
+	
+						needStackSlots(numNeeded);
+	
+						uint src = getVarargBase();
+						uint dest = getBasedIndex(i.rd);
+	
+						for(uint index = 0; index < numNeeded; index++)
+						{
+							if(index < numVarargs)
+								copyAbsStack(dest + index, src);
+							else
+								getAbsStack(dest + index).setNull();
+	
+							src++;
+						}
+						
+						mStackIndex = dest + numVarargs;
+						break;
+	
+					case Op.Close:
+						close(i.rd);
+						break;
+	
+					case Op.Foreach:
+						Instruction jump = *pc;
+						pc++;
+	
+						uint rd = i.rd;
+						uint funcReg = rd + 3;
+	
+						copyBasedStack(funcReg + 2, rd + 2);
+						copyBasedStack(funcReg + 1, rd + 1);
+						copyBasedStack(funcReg, rd);
+	
+						call(funcReg, 2, i.imm);
+	
+						if(getBasedStack(funcReg).isNull() == false)
+						{
+							copyBasedStack(rd + 2, funcReg);
+	
+							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump");
+	
+							pc += jump.immBiased;
+						}
+	
+						break;
+	
+					case Op.Cat:
+						StackVal src1 = getCR1();
+						StackVal src2 = getCR2();
+	
+						if(src1.isArray() && src2.isArray())
+							getBasedStack(i.rd).value = src1.asArray() ~ src2.asArray();
+						else if(src1.isString() && src2.isString())
+							getBasedStack(i.rd).value = src1.asString() ~ src2.asString();
+						else
+						{
+							MDValue* method = getMM(src1, MM.Cat);
+	
+							if(!method.isFunction())
+							{
+								method = getMM(src2, MM.Cat);
+	
+								if(!method.isFunction())
+									throw new MDException("Cannot concatenate a '%s' and a '%s'", src1.typeString(), src2.typeString());
+							}
+	
+							uint funcSlot = push(method);
+							push(src1);
+							push(src2);
+							call(funcSlot, 2, 1);
+							popToSlot(i.rd);
+						}
+	
+						break;
+	
+					case Op.Closure:
+						MDFuncDef newDef = getInnerFunc(i.imm);
+						MDClosure n = new MDClosure(this, newDef);
+	
+						for(int index = 0; index < newDef.mNumUpvals; index++)
+						{
+							if(pc.opcode == Op.Move)
+								n.script.upvals[index] = findUpvalue(i.rs1);
+							else
+							{
+								assert(pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
+								n.script.upvals[index] = getUpvalueRef(i.imm);
+							}
+	
+							pc++;
+						}
+	
+						getBasedStack(i.rd).value = n;
+						break;
+	
+					case Op.Index:
+						StackVal src = getBasedStack(i.rs1);
+	
+						if(src.isArray())
+						{
+							MDValue* idx = getCR2();
+	
+							if(idx.isInt() == false)
+								throw new MDException("Attempt to access an array with a '%s'", idx.typeString());
+	
+							MDValue* val = src.asArray[idx.asInt];
+	
+							if(val is null)
+								throw new MDException("Invalid array index: ", idx.asInt());
+	
+							getBasedStack(i.rd).value = val;
+						}
+						else
+							getIndexed(this, i.rd, getBasedStack(i.rs1), getCR2());
+	
+						break;
+	
+					case Op.IndexAssign:
+						StackVal dest = getBasedStack(i.rd);
+	
+						if(dest.isArray())
+						{
+							MDValue* idx = getCR1();
+	
+							if(idx.isInt() == false)
+								throw new MDException("Attempt to access an array with a '%s'", idx.typeString());
+	
+							MDValue* val = dest.asArray()[idx.asInt];
+	
+							if(val is null)
+								throw new MDException("Invalid array index: ", idx.asInt());
+	
+							val.value = getCR2();
+						}
+						else
+							setIndexed(this, getBasedStack(i.rd), getCR1(), getCR2());
+	
+						break;
+	
+					case Op.Method:
+						copyBasedStack(i.rd + 1, i.rs1);
 						getIndexed(this, i.rd, getBasedStack(i.rs1), getCR2());
+						break;
+	
+					case Op.Call:
+						int funcReg = i.rd;
+						int numParams = i.rs1 - 1;
+						int numResults = i.rs2 - 1;
+	
+						if(numParams == -1)
+							numParams = getBasedStackIndex() - funcReg - 1;
+	
+						savePC(pc);
+						call(funcReg, numParams, numResults);
+						break;
+	
+					case Op.Ret:
+						int numResults = i.imm - 1;
+	
+						close(0);
+						callEpilogue(i.rd, numResults);
+						return;
+						
+					case Op.PushCatch:
+						pushTR();
+						
+						mCurrentTR.isCatch = true;
+						mCurrentTR.catchVarSlot = i.rd;
+						mCurrentTR.pc = pc + i.immBiased;
+						break;
+	
+					case Op.PushFinally:
+						pushTR();
+						
+						mCurrentTR.isCatch = false;
+						mCurrentTR.pc = pc + i.immBiased;
+						break;
+						
+					case Op.PopCatch:
+						if(mCurrentTR.isCatch == false)
+							throw new MDException("'catch' popped out of order");
+	
+						popTR();
+						break;
+	
+					case Op.PopFinally:
+						if(mCurrentTR.isCatch == true)
+							throw new MDException("'finally' popped out of order");
+	
+						currentException = null;
 
-					break;
-
-				case Op.IndexAssign:
-					StackVal dest = getBasedStack(i.rd);
-
-					if(dest.isArray())
-					{
-						MDValue* idx = getCR1();
-
-						if(idx.isInt() == false)
-							throw new MDRuntimeException("Attempt to access an array with a '%s'", idx.typeString());
-
-						MDValue* val = dest.asArray()[idx.asInt];
-
-						if(val is null)
-							throw new MDRuntimeException("Invalid array index: ", idx.asInt());
-
-						val.value = getCR2();
-					}
-					else
-						setIndexed(this, getBasedStack(i.rd), getCR1(), getCR2());
-
-					break;
-
-				case Op.Method:
-					copyBasedStack(i.rd + 1, i.rs1);
-					getIndexed(this, i.rd, getBasedStack(i.rs1), getCR2());
-					break;
-
-				case Op.Call:
-					int funcReg = i.rd;
-					int numParams = i.rs1 - 1;
-					int numResults = i.rs2 - 1;
-
-					if(numParams == -1)
-						numParams = getBasedStackIndex() - funcReg - 1;
-
-					savePC(pc);
-					call(funcReg, numParams, numResults);
-					break;
-
-				case Op.Ret:
-					int numResults = i.imm - 1;
-
-					close(0);
-					callEpilogue(i.rd, numResults);
-					return;
-
-				case Op.EndFinal:
-				case Op.PopCatch:
-				case Op.PopFinally:
-				case Op.PushCatch:
-				case Op.PushFinally:
-				case Op.Throw:
-					throw new MDException("Unimplemented instruction %s", i.toString());
-
-				case Op.Je:
-				case Op.Jle:
-				case Op.Jlt:
-					assert(false, "lone conditional jump instruction");
+						popTR();
+						break;
+	
+					case Op.EndFinal:
+						if(currentException !is null)
+							throw currentException;
+						
+						break;
+	
+					case Op.Throw:
+						throw new MDException(getCR1());
+	
+					case Op.Je:
+					case Op.Jle:
+					case Op.Jlt:
+						assert(false, "lone conditional jump instruction");
+				}
 			}
+		}
+		catch(MDException e)
+		{
+			while(mCurrentTR.actRecord is mARIndex)
+			{
+				TryRecord tr = *mCurrentTR;
+				popTR();
+
+				if(tr.isCatch)
+				{
+					getBasedStack(tr.catchVarSlot).value = e.value;
+					
+					for(int i = getBasedIndex(tr.catchVarSlot + 1); i < mStackIndex; i++)
+						getAbsStack(i).setNull();
+						
+					currentException = null;
+
+					pc = tr.pc;
+					goto _exceptionRetry;
+				}
+				else
+				{
+					currentException = e;
+					
+					pc = tr.pc;
+					goto _exceptionRetry;
+				}
+			}
+			
+			throw e;
 		}
 	}
 }

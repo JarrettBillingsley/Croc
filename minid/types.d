@@ -4,6 +4,7 @@ import utf = std.utf;
 import string = std.string;
 import format = std.format;
 import std.c.string;
+import std.stdarg;
 
 import minid.opcodes;
 import minid.state;
@@ -27,11 +28,55 @@ char[] vformat(TypeInfo[] arguments, void* argptr)
 	return s;
 }
 
+import std.stdio;
 class MDException : Exception
 {
+	public MDValue value;
+
 	public this(...)
 	{
-		super(vformat(_arguments, _argptr));
+		char[] msg = vformat(_arguments, _argptr);
+		super(msg);
+		value.value = new MDString(msg);
+	}
+
+	public this(MDValue val)
+	{
+		this(&val);
+	}
+	
+	public this(MDValue* val)
+	{
+		value = *val;
+
+		char[] msg;
+
+		if(value.isTable())
+		{
+			MDValue key;
+			MDString k = new MDString("msg"d);
+			key.value = k;
+			
+			MDValue* message = value.asTable[key];
+			
+			if(message.isString())
+				msg = message.asString.asUTF8;
+			else
+				msg = value.toString();
+				
+			delete k;
+		}
+		else
+			msg = value.toString();
+
+		super(msg);
+	}
+	
+	public this(MDTable t)
+	{
+		MDValue val;
+		val.value = t;
+		this(&val);
 	}
 }
 
@@ -40,14 +85,6 @@ class MDCompileException : MDException
 	public this(Location loc, ...)
 	{
 		super(loc.toString(), ": ", vformat(_arguments, _argptr));
-	}
-}
-
-class MDRuntimeException : Exception
-{
-	public this(...)
-	{
-		super(vformat(_arguments, _argptr));
 	}
 }
 
@@ -201,6 +238,12 @@ class MDString : MDObject
 		mData = data.dup;
 		mHash = typeid(typeof(mData)).getHash(&mData);
 	}
+	
+	public this(wchar[] data)
+	{
+		mData = utf.toUTF32(data);
+		mHash = typeid(typeof(mData)).getHash(&mData);
+	}
 
 	public this(char[] data)
 	{
@@ -281,6 +324,21 @@ class MDString : MDObject
 	public int opCmp(dchar[] v)
 	{
 		return dcmp(mData, v);
+	}
+
+	public char[] asUTF8()
+	{
+		return utf.toUTF8(mData);
+	}
+	
+	public wchar[] asUTF16()
+	{
+		return utf.toUTF16(mData);
+	}
+	
+	public dchar[] asUTF32()
+	{
+		return mData.dup;
 	}
 
 	public static MDString concat(MDString[] strings)
@@ -422,7 +480,10 @@ class MDClosure : MDObject
 	
 	public char[] toString()
 	{
-		return string.format("closure 0x%0.8X", cast(void*)this);
+		if(mIsNative == false)
+			return string.format("closure of function at ", script.func.mLocation.toString());
+		else
+			return string.format("closure 0x%0.8X", cast(void*)this);
 	}
 	
 	public bool isNative()
@@ -441,9 +502,48 @@ class MDTable : MDObject
 	protected MDValue[MDValue] mData;
 	protected MDTable mMetatable = null;
 	
-	public this()
+	public this(...)
 	{
+		if(_arguments.length & 1)
+			throw new MDException("Native table constructor requires an even number of arguments");
+			
+		MDValue key;
+		MDValue value;
+		
+		void getVal(uint arg, out MDValue v)
+		{
+			TypeInfo ti = _arguments[arg];
+			
+			if(ti == typeid(bool))             v.value = cast(bool)va_arg!(bool)(_argptr);
+			else if(ti == typeid(byte))        v.value = cast(int)va_arg!(byte)(_argptr);
+			else if(ti == typeid(ubyte))       v.value = cast(int)va_arg!(ubyte)(_argptr);
+			else if(ti == typeid(short))       v.value = cast(int)va_arg!(ushort)(_argptr);
+			else if(ti == typeid(ushort))      v.value = cast(int)va_arg!(ushort)(_argptr);
+			else if(ti == typeid(int))         v.value = cast(int)va_arg!(int)(_argptr);
+			else if(ti == typeid(uint))        v.value = cast(int)va_arg!(uint)(_argptr);
+			else if(ti == typeid(long))        v.value = cast(int)va_arg!(long)(_argptr);
+			else if(ti == typeid(ulong))       v.value = cast(int)va_arg!(ulong)(_argptr);
+			else if(ti == typeid(float))       v.value = cast(float)va_arg!(float)(_argptr);
+			else if(ti == typeid(double))      v.value = cast(float)va_arg!(double)(_argptr);
+			else if(ti == typeid(real))        v.value = cast(float)va_arg!(real)(_argptr);
+			else if(ti == typeid(char[]))      v.value = new MDString(va_arg!(char[])(_argptr));
+			else if(ti == typeid(wchar[]))     v.value = new MDString(va_arg!(wchar[])(_argptr));
+			else if(ti == typeid(dchar[]))     v.value = new MDString(va_arg!(dchar[])(_argptr));
+			else if(ti == typeid(MDObject))    v.value = cast(MDObject)va_arg!(MDObject)(_argptr);
+			else if(ti == typeid(MDUserData))  v.value = cast(MDUserData)va_arg!(MDUserData)(_argptr);
+			else if(ti == typeid(MDClosure))   v.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
+			else if(ti == typeid(MDTable))     v.value = cast(MDTable)va_arg!(MDTable)(_argptr);
+			else if(ti == typeid(MDArray))     v.value = cast(MDArray)va_arg!(MDArray)(_argptr);
+			else throw new MDException("Native table constructor: invalid argument ", arg);
+		}
 
+		for(int i = 0; i < _arguments.length; i += 2)
+		{
+			getVal(i, key);
+			getVal(i, value);
+			
+			this[key] = value;
+		}
 	}
 
 	public override MDTable asTable()
@@ -496,6 +596,11 @@ class MDTable : MDObject
 	public char[] toString()
 	{
 		return string.format("table 0x%0.8X", cast(void*)this);
+	}
+	
+	public MDTable metatable(MDTable mt)
+	{
+		return mMetatable = mt;
 	}
 	
 	public MDTable metatable()
@@ -897,6 +1002,21 @@ struct MDValue
 	{
 		mType = Type.Float;
 		mFloat = n;
+	}
+	
+	public void value(MDObject o)
+	{
+		mObj = o;
+		
+		switch(o.type())
+		{
+			case MDObject.Type.String: mType = Type.String; break;
+			case MDObject.Type.UserData: mType = Type.UserData; break;
+			case MDObject.Type.Closure: mType = Type.Function; break;
+			case MDObject.Type.Table: mType = Type.Table; break;
+			case MDObject.Type.Array: mType = Type.Array; break;
+			default: assert(false, "invalid MDValue.value(MDObject) switch");
+		}
 	}
 
 	public void value(MDString s)

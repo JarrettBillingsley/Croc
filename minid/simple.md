@@ -1,4 +1,4 @@
-local function foo()
+/*local function foo()
 {
 	writefln("hi ", 4, ", ", 5);
 }
@@ -20,7 +20,7 @@ local t =
 
 t:foo();
 
-writefln();
+writefln();*/
 
 /*Foo = { };
 
@@ -42,7 +42,7 @@ local f = Foo:new();
 
 f:bar();*/
 
-local function outer()
+/*local function outer()
 {
 	local x = 3;
 
@@ -62,7 +62,7 @@ local function outer()
 local func = outer();
 func();
 
-writefln();
+writefln();*/
 
 /*local function thrower(x)
 {
@@ -74,34 +74,48 @@ local function tryCatch(iterations)
 {
 	try
 	{
-		for(local i = 0; i < iterations; ++i)
+		local i;
+
+		for(i = 0; i < iterations; ++i)
 		{
-			io.writefln("tryCatch: ", i);
+			writefln("tryCatch: ", i);
 			thrower(i);
 		}
 	}
 	catch(e)
 	{
-		io.writefln("tryCatch caught: ", e);
+		writefln("tryCatch caught: ", e);
 		throw e;
 	}
 	finally
 	{
-		io.writefln("tryCatch finally");
+		writefln("tryCatch finally");
 	}
 }
 
 try
 {
-	tryCatch(2);
+	//tryCatch(2);
 	tryCatch(5);
 }
 catch(e)
 {
-	io.writefln("caught: ", e);
+	writefln("caught: ", e);
 }*/
 
-function arrayIterator(array, index)
+try
+{
+	writefln("one");
+	writefln("one ", "two");
+	writefln("one ", "two ", "three");
+}
+catch(e)
+{
+	writefln("caught: ", e);
+	throw e;
+}
+
+/*function arrayIterator(array, index)
 {
 	++index;
 	
@@ -170,4 +184,4 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 			writefln("out of range");
 			break;
 	}
-}
+}*/

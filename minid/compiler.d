@@ -24,11 +24,14 @@ void main()
 	{
 		int numParams = s.getBasedStackIndex();
 		
+		if(numParams > 2)
+			throw new MDException(new MDString("Could not writefln!"d));
+		
 		for(int i = 0; i < numParams; i++)
 			writef(s.getBasedStack(i).toString());
 
 		writefln();
-		
+
 		return 0;
 	}
 
@@ -2037,7 +2040,7 @@ class FuncState
 				foreach(inout UpvalDesc ud; mInnerFuncs[src.index].mUpvals)
 				{
 					if(ud.type == ExpType.Local)
-						codeI(Op.Move, 0, ud.index);
+						codeR(Op.Move, 0, ud.index, 0);
 					else
 						codeI(Op.GetUpvalue, 0, ud.index);
 				}
@@ -2290,7 +2293,7 @@ class FuncState
 				foreach(inout UpvalDesc ud; mInnerFuncs[e.index].mUpvals)
 				{
 					if(ud.type == ExpType.Local)
-						codeI(Op.Move, 0, ud.index);
+						codeR(Op.Move, 0, ud.index, 0);
 					else
 						codeI(Op.GetUpvalue, 0, ud.index);
 				}
@@ -2783,7 +2786,7 @@ class Chunk
 		fs.codeI(Op.Ret, 0, 1);
 		
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
-		
+
 		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
@@ -4528,7 +4531,7 @@ class TryCatchStatement : Statement
 			{
 				uint checkReg1;
 				InstRef* pushCatch = s.codeCatch(checkReg1);
-	
+
 				mTryBody.codeGen(s);
 
 				s.codeI(Op.PopCatch, 0, 0);
@@ -4541,12 +4544,12 @@ class TryCatchStatement : Statement
 					uint checkReg2 = s.insertLocal(mCatchVar);
 
 					assert(checkReg1 == checkReg2, "catch var register is not right");
-	
+
 					s.activateLocals(1);
 					mCatchBody.codeGen(s);
 				s.popScope();
 				
-				s.codeI(Op.PopCatch, 0, 0);
+				//s.codeI(Op.PopCatch, 0, 0);
 				s.codeI(Op.PopFinally, 0, 0);
 				s.patchJumpToHere(jumpOverCatch);
 				delete jumpOverCatch;
@@ -4593,7 +4596,7 @@ class TryCatchStatement : Statement
 				mCatchBody.codeGen(s);
 			s.popScope();
 
-			s.codeI(Op.PopCatch, 0, 0);
+			//s.codeI(Op.PopCatch, 0, 0);
 			s.patchJumpToHere(jumpOverCatch);
 			delete jumpOverCatch;
 		}
