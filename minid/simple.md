@@ -1,4 +1,4 @@
-/*local function foo()
+local function foo()
 {
 	writefln("hi ", 4, ", ", 5);
 }
@@ -20,7 +20,7 @@ local t =
 
 t:foo();
 
-writefln();*/
+writefln();
 
 /*Foo = { };
 
@@ -42,7 +42,7 @@ local f = Foo:new();
 
 f:bar();*/
 
-/*local function outer()
+local function outer()
 {
 	local x = 3;
 
@@ -62,9 +62,9 @@ f:bar();*/
 local func = outer();
 func();
 
-writefln();*/
+writefln();
 
-/*local function thrower(x)
+local function thrower(x)
 {
 	if(x >= 3)
 		throw "Sorry, x is too big for me!";
@@ -74,9 +74,7 @@ local function tryCatch(iterations)
 {
 	try
 	{
-		local i;
-
-		for(i = 0; i < iterations; ++i)
+		for(local i = 0; i < iterations; ++i)
 		{
 			writefln("tryCatch: ", i);
 			thrower(i);
@@ -95,27 +93,17 @@ local function tryCatch(iterations)
 
 try
 {
-	//tryCatch(2);
+	tryCatch(2);
 	tryCatch(5);
 }
 catch(e)
 {
 	writefln("caught: ", e);
-}*/
-
-try
-{
-	writefln("one");
-	writefln("one ", "two");
-	writefln("one ", "two ", "three");
-}
-catch(e)
-{
-	writefln("caught: ", e);
-	throw e;
 }
 
-/*function arrayIterator(array, index)
+writefln();
+
+function arrayIterator(array, index)
 {
 	++index;
 	
@@ -184,4 +172,4 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 			writefln("out of range");
 			break;
 	}
-}*/
+}

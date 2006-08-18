@@ -745,12 +745,12 @@ struct MDValue
 	public bool rawEquals(MDValue* other)
 	{
 		if(this.mType != other.mType)
-			throw new MDException("Attempting to compare unlike objects");
+			return false;
 			
 		switch(this.mType)
 		{
 			case Type.Null:
-				return 1;
+				return true;
 				
 			case Type.Bool:
 				return this.mBool == other.mBool;

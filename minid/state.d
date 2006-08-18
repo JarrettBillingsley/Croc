@@ -341,7 +341,15 @@ class MDState
 
 			debug(STACKINDEX) writefln("call() set mStackIndex to ", mStackIndex, " (local stack size = ", funcDef.mStackSize, ")");
 
-			execute();
+			try
+			{
+				execute();
+			}
+			catch(MDException e)
+			{
+				callEpilogue(0, 0);
+				throw e;
+			}
 		}
 	}
 
@@ -614,7 +622,7 @@ class MDState
 
 		MDUpval* ret = new MDUpval;
 		ret.value = slot;
-
+		
 		if(mUpvalHead !is null)
 		{
 			ret.next = mUpvalHead;
@@ -1151,8 +1159,6 @@ class MDState
 	
 					case Op.GetUpvalue:
 						getBasedStack(i.rd).value = getUpvalue(i.imm);
-	
-						//writefln("got upvalue: ", getBasedStack(i.rd).toString());
 						break;
 	
 					case Op.SetUpvalue:
@@ -1244,7 +1250,7 @@ class MDState
 						{
 							copyBasedStack(rd + 2, funcReg);
 	
-							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump");
+							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toString());
 	
 							pc += jump.immBiased;
 						}
@@ -1287,11 +1293,11 @@ class MDState
 						for(int index = 0; index < newDef.mNumUpvals; index++)
 						{
 							if(pc.opcode == Op.Move)
-								n.script.upvals[index] = findUpvalue(i.rs1);
+								n.script.upvals[index] = findUpvalue(pc.rs1);
 							else
 							{
 								assert(pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
-								n.script.upvals[index] = getUpvalueRef(i.imm);
+								n.script.upvals[index] = getUpvalueRef(pc.imm);
 							}
 	
 							pc++;
