@@ -135,6 +135,55 @@ class MDState
 	{
 		return push(&val);
 	}
+	
+	public uint pushNull()
+	{
+		MDValue v;
+		v.setNull();
+		return push(&v);
+	}
+
+	public uint push(bool val)
+	{
+		MDValue v;
+		v.value = val;
+		return push(&v);
+	}
+
+	public uint push(int val)
+	{
+		MDValue v;
+		v.value = val;
+		return push(&v);
+	}
+
+	public uint push(float val)
+	{
+		MDValue v;
+		v.value = val;
+		return push(&v);
+	}
+	
+	public uint push(char[] val)
+	{
+		MDValue v;
+		v.value = new MDString(val);
+		return push(&v);
+	}
+	
+	public uint push(wchar[] val)
+	{
+		MDValue v;
+		v.value = new MDString(val);
+		return push(&v);
+	}
+	
+	public uint push(dchar[] val)
+	{
+		MDValue v;
+		v.value = new MDString(val);
+		return push(&v);
+	}
 
 	public uint push(MDString val)
 	{
@@ -165,20 +214,6 @@ class MDState
 	}
 
 	public uint push(MDArray val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public uint push(int val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public uint push(float val)
 	{
 		MDValue v;
 		v.value = val;
@@ -361,6 +396,8 @@ class MDState
 		value.value = val;
 		mGlobals[key] = value;
 	}
+	
+	//public void setGlobal(char[] name,
 
 	// ===================================================================================
 	// Package members

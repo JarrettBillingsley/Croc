@@ -415,7 +415,7 @@ class Lexer
 		if(!source.readable)
 			throw new MDException("%s", name, ": Source code stream is not readable");
 
-		mLoc = Location(name, 1, 0);
+		mLoc = Location(utf.toUTF32(name), 1, 0);
 
 		mSource = new BufferedStream(source);
 
@@ -1447,6 +1447,7 @@ class FuncState
 	protected uint mStackSize;
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
+	protected dchar[] mGuessedName;
 
 	struct LocVarDesc
 	{
@@ -1488,9 +1489,10 @@ class FuncState
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
 
-	public this(Location location, FuncState parent = null)
+	public this(Location location, dchar[] guessedName, FuncState parent = null)
 	{
 		mLocation = location;
+		mGuessedName = guessedName;
 
 		mParent = parent;
 		mScope = new Scope;
@@ -1552,38 +1554,6 @@ class FuncState
 		SwitchDesc* desc = mSwitch;
 		assert(desc, "endSwitch - no switch to end");
 		mSwitch = mSwitch.prev;
-
-		/*SwitchTable table;
-		table.isString = desc.isString;
-
-		table.defaultOffset = desc.defaultOffset;
-
-		if(desc.isString)
-		{
-			uint l = desc.stringOffsets.length;
-
-			table.offsets.length = l;
-			table.stringValues.length = l;
-
-			foreach(uint index, dchar[] value; desc.stringOffsets.keys.sort)
-			{
-				table.offsets[index] = desc.stringOffsets[value];
-				table.stringValues[index] = value;
-			}
-		}
-		else
-		{
-			uint l = desc.intOffsets.length;
-
-			table.offsets.length = l;
-			table.intValues.length = l;
-
-			foreach(uint index, int value; desc.intOffsets.keys.sort)
-			{
-				table.offsets[index] = desc.intOffsets[value];
-				table.intValues[index] = value;
-			}
-		}*/
 
 		mSwitchTables ~= desc;
 		mCode[desc.switchPC].imm = mSwitchTables.length - 1;
@@ -1659,14 +1629,13 @@ class FuncState
 
 	public uint insertLocal(Identifier ident)
 	{
-		// Search for ourselves, so that we can check inactive variables as well (i.e. other vars in same decl)
-		for(int i = mLocVars.length - 1; i >= 0; i--)
+		uint dummy;
+		int index = searchLocal(ident.mName, dummy);
+		
+		if(index != -1)
 		{
-			if(mLocVars[i].name == ident.mName && mLocVars[i].reg < mFreeReg)
-			{
-				throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s",
-					ident.mName, mLocVars[i].location.toString());
-			}
+			throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s",
+				ident.mName, mLocVars[index].location.toString());
 		}
 
 		mLocVars.length = mLocVars.length + 1;
@@ -2602,7 +2571,7 @@ class FuncState
 
 	public void showMe(uint tab = 0)
 	{
-		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString());
+		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString(), " (guessed name: %s)", mGuessedName);
 
 		foreach(uint i, FuncState s; mInnerFuncs)
 		{
@@ -2669,28 +2638,11 @@ class FuncState
 
 	protected MDFuncDef toFuncDef()
 	{
-		/*
-		struct SwitchTable
-		{
-			bool isString;
-
-			union
-			{
-				int[] intValues;
-				dchar[][] stringValues;
-			}
-
-			int[] offsets;
-			int defaultOffset = -1;
-		}
-
-		package SwitchTable[] mSwitchTables;
-		*/
-
 		MDFuncDef ret = new MDFuncDef();
 
 		ret.mIsVararg = mIsVararg;
 		ret.mLocation = mLocation;
+		ret.mGuessedName = mGuessedName;
 
 		ret.mInnerFuncs.length = mInnerFuncs.length;
 
@@ -2777,7 +2729,7 @@ class Chunk
 
 	public MDFuncDef codeGen()
 	{
-		FuncState fs = new FuncState(mLocation);
+		FuncState fs = new FuncState(mLocation, "chunk " ~ mLocation.fileName);
 		fs.mIsVararg = true;
 
 		foreach(Statement s; mStatements)
@@ -2787,7 +2739,7 @@ class Chunk
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -3091,6 +3043,19 @@ class LocalDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
+		// Check for name conflicts within the definition
+		foreach(uint i, Identifier n; mNames)
+		{
+			foreach(Identifier n2; mNames[0 .. i])
+			{
+				if(n.mName == n2.mName)
+				{
+					throw new MDCompileException(n.mLocation, "Local '%s' conflicts with previous definition at %s",
+						n.mName, n2.mLocation.toString());
+				}
+			}
+		}
+
 		if(mInitializer)
 		{
 			if(mNames.length == 1)
@@ -3217,7 +3182,7 @@ class LocalFuncDecl : Declaration
 		s.insertLocal(mName);
 		s.activateLocals(1);
 
-		FuncState fs = new FuncState(mLocation, s);
+		FuncState fs = new FuncState(mLocation, utf.toUTF32(mName.mName), s);
 		fs.mIsVararg = mIsVararg;
 		fs.mNumParams = mParams.length;
 
@@ -3348,12 +3313,20 @@ class FuncDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
-		FuncState fs = new FuncState(mLocation, s);
+		dchar[] guessedName = utf.toUTF32(mNames[0].mName);
+
+		foreach(Identifier n; mNames[1 .. $])
+			guessedName ~= "."d ~ utf.toUTF32(n.mName);
+
+		FuncState fs = new FuncState(mLocation, guessedName, s);
 		fs.mIsVararg = mIsVararg;
 		fs.mNumParams = mParams.length;
 
 		if(mIsMethod)
+		{
 			fs.insertLocal(new Identifier("this", mLocation));
+			fs.mNumParams++;
+		}
 
 		foreach(Identifier p; mParams)
 			fs.insertLocal(p);
@@ -6644,7 +6617,7 @@ class FuncLiteralExp : PrimaryExp
 
 	public void codeGen(FuncState s)
 	{
-		FuncState fs = new FuncState(mLocation, s);
+		FuncState fs = new FuncState(mLocation, "function literal at "d ~ utf.toUTF32(mLocation.toString()), s);
 		fs.mIsVararg = mIsVararg;
 		fs.mNumParams = mParams.length;
 

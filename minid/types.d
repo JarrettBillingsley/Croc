@@ -502,11 +502,18 @@ class MDTable : MDObject
 	protected MDValue[MDValue] mData;
 	protected MDTable mMetatable = null;
 	
-	public this(...)
+	public this()
+	{
+		
+	}
+
+	public static MDTable create(...)
 	{
 		if(_arguments.length & 1)
 			throw new MDException("Native table constructor requires an even number of arguments");
 			
+		MDTable ret = new MDTable();
+
 		MDValue key;
 		MDValue value;
 		
@@ -542,8 +549,10 @@ class MDTable : MDObject
 			getVal(i, key);
 			getVal(i, value);
 			
-			this[key] = value;
+			ret[key] = value;
 		}
+		
+		return ret;
 	}
 
 	public override MDTable asTable()
@@ -616,6 +625,49 @@ class MDArray : MDObject
 	public this(uint size)
 	{
 		mData = new MDValue[size];
+	}
+	
+	public static MDArray create(...)
+	{
+		MDArray ret = new MDArray(_arguments.length);
+
+		MDValue value;
+
+		void getVal(uint arg)
+		{
+			TypeInfo ti = _arguments[arg];
+			
+			if(ti == typeid(bool))             value.value = cast(bool)va_arg!(bool)(_argptr);
+			else if(ti == typeid(byte))        value.value = cast(int)va_arg!(byte)(_argptr);
+			else if(ti == typeid(ubyte))       value.value = cast(int)va_arg!(ubyte)(_argptr);
+			else if(ti == typeid(short))       value.value = cast(int)va_arg!(ushort)(_argptr);
+			else if(ti == typeid(ushort))      value.value = cast(int)va_arg!(ushort)(_argptr);
+			else if(ti == typeid(int))         value.value = cast(int)va_arg!(int)(_argptr);
+			else if(ti == typeid(uint))        value.value = cast(int)va_arg!(uint)(_argptr);
+			else if(ti == typeid(long))        value.value = cast(int)va_arg!(long)(_argptr);
+			else if(ti == typeid(ulong))       value.value = cast(int)va_arg!(ulong)(_argptr);
+			else if(ti == typeid(float))       value.value = cast(float)va_arg!(float)(_argptr);
+			else if(ti == typeid(double))      value.value = cast(float)va_arg!(double)(_argptr);
+			else if(ti == typeid(real))        value.value = cast(float)va_arg!(real)(_argptr);
+			else if(ti == typeid(char[]))      value.value = new MDString(va_arg!(char[])(_argptr));
+			else if(ti == typeid(wchar[]))     value.value = new MDString(va_arg!(wchar[])(_argptr));
+			else if(ti == typeid(dchar[]))     value.value = new MDString(va_arg!(dchar[])(_argptr));
+			else if(ti == typeid(MDObject))    value.value = cast(MDObject)va_arg!(MDObject)(_argptr);
+			else if(ti == typeid(MDUserData))  value.value = cast(MDUserData)va_arg!(MDUserData)(_argptr);
+			else if(ti == typeid(MDClosure))   value.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
+			else if(ti == typeid(MDTable))     value.value = cast(MDTable)va_arg!(MDTable)(_argptr);
+			else if(ti == typeid(MDArray))     value.value = cast(MDArray)va_arg!(MDArray)(_argptr);
+			else throw new MDException("Native array constructor: invalid argument ", arg);
+		}
+
+		for(int i = 0; i < _arguments.length; i++)
+		{
+			getVal(i);
+			
+			ret[i] = &value;
+		}
+		
+		return ret;
 	}
 
 	public override MDArray asArray()
@@ -1108,9 +1160,9 @@ struct Location
 {
 	public uint line = 1;
 	public uint column = 1;
-	public char[] fileName;
+	public dchar[] fileName;
 
-	public static Location opCall(char[] fileName, uint line = 1, uint column = 1)
+	public static Location opCall(dchar[] fileName, uint line = 1, uint column = 1)
 	{
 		Location l;
 		l.fileName = fileName;
@@ -1144,6 +1196,7 @@ class MDFuncDef
 {
 	package bool mIsVararg;
 	package Location mLocation;
+	package dchar[] mGuessedName;
 	package MDFuncDef[] mInnerFuncs;
 	package MDValue[] mConstants;
 	package uint mNumParams;

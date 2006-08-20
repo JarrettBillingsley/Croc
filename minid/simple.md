@@ -1,4 +1,4 @@
-local function foo()
+/*local function foo()
 {
 	writefln("hi ", 4, ", ", 5);
 }
@@ -22,7 +22,7 @@ t:foo();
 
 writefln();
 
-/*Foo = { };
+Foo = { };
 
 table.setMeta(Foo, { opIndex = Foo });
 
@@ -40,7 +40,7 @@ function Foo:new()
 
 local f = Foo:new();
 
-f:bar();*/
+f:bar();
 
 local function outer()
 {
@@ -101,7 +101,7 @@ catch(e)
 	writefln("caught: ", e);
 }
 
-writefln();
+writefln();*/
 
 function arrayIterator(array, index)
 {
@@ -170,6 +170,28 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 			
 		default:
 			writefln("out of range");
+			break;
+	}
+}
+
+writefln();
+
+local stringArray = ["hi", "bye", "foo"];
+
+foreach(local i, local v; pairs(stringArray))
+{
+	switch(v)
+	{
+		case "hi":
+			writefln("switched to hi");
+			break;
+			
+		case "bye":
+			writefln("switched to bye");
+			break;
+			
+		default:
+			writefln("switched to something else");
 			break;
 	}
 }
