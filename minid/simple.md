@@ -1,3 +1,12 @@
+local t = { };
+
+writefln(#t);
+
+setMetatable(t, { function opLength(t) { return 3; } });
+
+writefln(#t);
+
+
 /*local function foo()
 {
 	writefln("hi ", 4, ", ", 5);
@@ -23,24 +32,25 @@ t:foo();
 writefln();
 
 Foo = { };
-
-table.setMeta(Foo, { opIndex = Foo });
+Foo.opIndex = Foo;
 
 function Foo:bar()
 {
-	io.writefln("Foo.bar!");
+	writefln("Foo.bar!");
 }
 
 function Foo:new()
 {
 	local t = { };
-	table.setMeta(t, this);
+	setMetatable(t, this);
 	return t;
 }
 
 local f = Foo:new();
 
 f:bar();
+
+writefln();
 
 local function outer()
 {
@@ -101,12 +111,12 @@ catch(e)
 	writefln("caught: ", e);
 }
 
-writefln();*/
+writefln();
 
 function arrayIterator(array, index)
 {
 	++index;
-	
+
 	if(index >= #array)
 		return null;
 
@@ -120,7 +130,7 @@ function pairs(container)
 
 local arr = [3, 5, 7];
 
-//arr:sort();
+arr:sort();
 
 foreach(local i, local v; pairs(arr))
 	writefln("arr[", i, "] = ", v);
@@ -159,7 +169,7 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 		case 1, 2, 3:
 			writefln("small");
 			break;
-			
+
 		case 4, 5, 6:
 			writefln("medium");
 			break;
@@ -194,4 +204,4 @@ foreach(local i, local v; pairs(stringArray))
 			writefln("switched to something else");
 			break;
 	}
-}
+}*/

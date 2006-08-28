@@ -57,13 +57,13 @@ class MDException : Exception
 			MDString k = new MDString("msg"d);
 			key.value = k;
 			
-			MDValue* message = value.asTable[key];
+			MDValue* message = value.asTable[&key];
 			
 			if(message.isString())
 				msg = message.asString.asUTF8;
 			else
 				msg = value.toString();
-				
+
 			delete k;
 		}
 		else
@@ -85,6 +85,28 @@ class MDCompileException : MDException
 	public this(Location loc, ...)
 	{
 		super(loc.toString(), ": ", vformat(_arguments, _argptr));
+	}
+}
+
+class MDRuntimeException : MDException
+{
+	public Location location;
+	
+	public this(MDState s, MDValue* val)
+	{
+		location = s.getDebugLocation();
+		super(val);
+	}
+
+	public this(MDState s, ...)
+	{
+		location = s.getDebugLocation();
+		super(vformat(_arguments, _argptr));
+	}
+
+	public char[] toString()
+	{
+		return string.format(location.toString(), ": ", msg);
 	}
 }
 
@@ -418,6 +440,11 @@ class MDUserData : MDObject
 		return string.format("userdata 0x%0.8X", cast(void*)this);
 	}
 	
+	public MDTable metatable(MDTable mt)
+	{
+		return mMetatable = mt;
+	}
+	
 	public MDTable metatable()
 	{
 		return mMetatable;
@@ -432,6 +459,7 @@ class MDClosure : MDObject
 	struct NativeClosure
 	{
 		int delegate(MDState) func;
+		dchar[] name;
 		MDValue[] upvals;
 	}
 	
@@ -455,11 +483,12 @@ class MDClosure : MDObject
 		script.upvals.length = def.mNumUpvals;
 	}
 	
-	public this(MDState s, int delegate(MDState) func, MDValue[] upvals = null)
+	public this(MDState s, int delegate(MDState) func, dchar[] name, MDValue[] upvals = null)
 	{
 		mIsNative = true;
 		mEnvironment = s.getGlobals();
 		native.func = func;
+		native.name = name;
 		native.upvals = upvals.dup;
 	}
 
@@ -480,10 +509,10 @@ class MDClosure : MDObject
 	
 	public char[] toString()
 	{
-		if(mIsNative == false)
-			return string.format("closure of function at ", script.func.mLocation.toString());
+		if(mIsNative)
+			return string.format("native function %s", utf.toUTF8(native.name));
 		else
-			return string.format("closure 0x%0.8X", cast(void*)this);
+			return string.format("script function %s(%s)", script.func.mGuessedName, script.func.mLocation.toString());
 	}
 	
 	public bool isNative()
@@ -547,9 +576,9 @@ class MDTable : MDObject
 		for(int i = 0; i < _arguments.length; i += 2)
 		{
 			getVal(i, key);
-			getVal(i, value);
+			getVal(i + 1, value);
 			
-			ret[key] = value;
+			ret[&key] = &value;
 		}
 		
 		return ret;
@@ -569,17 +598,19 @@ class MDTable : MDObject
 	{
 		return mData.length;
 	}
-
-	public MDValue* opIndex(MDValue index)
-	{
-		MDValue* ptr = (index in mData);
-		
-		if(ptr is null)
-			return &MDValue.nullValue;
-			
-		return ptr;
-	}
 	
+	public MDTable dup()
+	{
+		MDTable n = new MDTable();
+		
+		foreach(k, v; mData)
+			n.mData[k] = v;
+			
+		n.mMetatable = mMetatable;
+		
+		return n;
+	}
+
 	public MDValue* opIndex(MDValue* index)
 	{
 		MDValue* ptr = (*index in mData);
@@ -589,16 +620,40 @@ class MDTable : MDObject
 			
 		return ptr;
 	}
-	
-	public MDValue opIndexAssign(MDValue value, MDValue index)
+
+	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
 	{
-		mData[index] = value;
+		mData[*index] = *value;
 		return value;
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, MDValue index)
+	public MDValue* opIndexAssign(MDValue* value, char[] index)
 	{
-		mData[index] = *value;
+		MDValue idx;
+		idx.value = new MDString(index);
+		return opIndexAssign(value, &idx);
+	}
+	
+	public MDObject opIndexAssign(MDObject value, MDValue* index)
+	{
+		MDValue val;
+		val.value = value;
+		
+		mData[*index] = val;
+		
+		return value;
+	}
+	
+	public MDObject opIndexAssign(MDObject value, char[] index)
+	{
+		MDValue idx;
+		idx.value = new MDString(index);
+
+		MDValue val;
+		val.value = value;
+		
+		mData[idx] = val;
+		
 		return value;
 	}
 
@@ -685,6 +740,45 @@ class MDArray : MDObject
 		return mData.length;
 	}
 	
+	public uint length(int newLength)
+	{
+		mData.length = newLength;
+		return newLength;
+	}
+	
+	public void sort()
+	{
+		mData.sort;
+	}
+	
+	public void reverse()
+	{
+		mData.reverse;
+	}
+	
+	public MDArray dup()
+	{
+		MDArray n = new MDArray(0);
+		n.mData = mData.dup;
+		return n;
+	}
+
+	public int opApply(int delegate(inout uint index, inout MDValue value) dg)
+	{
+		int result = 0;
+
+		for(uint i = 0; i < mData.length; i++)
+		{
+
+			result = dg(i, mData[i]);
+
+			if(result)
+				break;
+		}
+		
+		return result;
+	}
+	
 	public MDArray opCat(MDArray other)
 	{
 		MDArray n = new MDArray(mData.length + other.mData.length);
@@ -714,6 +808,23 @@ class MDArray : MDObject
 		mData[index] = *value;
 
 		return value;
+	}
+	
+	public MDObject opIndexAssign(MDObject value, int index)
+	{
+		if(index < 0 || index >= mData.length)
+			return null;
+
+		mData[index].value = value;
+
+		return value;
+	}
+	
+	public MDArray opSlice(uint lo, uint hi)
+	{
+		MDArray n = new MDArray(0);
+		n.mData = mData[lo .. hi].dup;
+		return n;
 	}
 
 	package void setBlock(uint block, MDValue[] data)
@@ -821,7 +932,7 @@ struct MDValue
 	public int opCmp(MDValue* other)
 	{
 		if(this.mType != other.mType)
-			throw new MDException("Attempting to compare unlike objects");
+			throw new MDException("Attempting to compare unlike objects (%s to %s)", typeString(), other.typeString());
 
 		switch(this.mType)
 		{
@@ -913,7 +1024,7 @@ struct MDValue
 	{
 		return typeString(mType);
 	}
-
+	
 	public bool isNull()
 	{
 		return (mType == Type.Null);
@@ -1158,11 +1269,11 @@ struct MDValue
 
 struct Location
 {
-	public uint line = 1;
-	public uint column = 1;
+	public int line = 1;
+	public int column = 1;
 	public dchar[] fileName;
 
-	public static Location opCall(dchar[] fileName, uint line = 1, uint column = 1)
+	public static Location opCall(dchar[] fileName, int line = 1, int column = 1)
 	{
 		Location l;
 		l.fileName = fileName;
@@ -1173,7 +1284,10 @@ struct Location
 
 	public char[] toString()
 	{
-		return string.format("%s(%d:%d)", fileName, line, column);
+		if(line == -1 && column == -1)
+			return string.format("%s(native)", fileName);
+		else
+			return string.format("%s(%d:%d)", fileName, line, column);
 	}
 }
 

@@ -291,7 +291,7 @@ struct Instruction
 			case Op.LoadNull:
 				return string.format("lnull r%s, %s", rd, imm);
 			case Op.Method:
-				return string.format("method r%s, r%s, %s", rd, rs1, cr(rs2));
+				return string.format("method r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Mod:
 				return string.format("mod r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Move:

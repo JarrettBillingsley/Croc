@@ -75,7 +75,7 @@ class MDState
 		uint vargBase;
 		uint funcSlot;
 		MDClosure func;
-		Instruction* savedPC;
+		Instruction* pc;
 		uint numReturns;
 	}
 	
@@ -126,16 +126,11 @@ class MDState
 		mStack[mStackIndex].value = val;
 		mStackIndex++;
 		
-		debug(STACKINDEX) writefln("push() set mStackIndex to ", mStackIndex);
+		debug(STACKINDEX) writefln("push() set mStackIndex to ", mStackIndex, " (pushed %s)", val.toString());
 
-		return mStackIndex - 1;
+		return mStackIndex - 1 - mCurrentAR.base;
 	}
 
-	public uint push(MDValue val)
-	{
-		return push(&val);
-	}
-	
 	public uint pushNull()
 	{
 		MDValue v;
@@ -250,7 +245,7 @@ class MDState
 			MDValue* method = getMM(func, MM.Call);
 
 			if(!method.isFunction())
-				throw new MDException("Attempting to call a value of type '%s'", func.typeString());
+				throw new MDRuntimeException(this, "Attempting to call a value of type '%s'", func.typeString());
 
 			needStackSlots(1);
 
@@ -299,7 +294,7 @@ class MDState
 				throw e;
 			}
 
-			callEpilogue(mStackIndex - actualReturns, actualReturns);
+			callEpilogue(getBasedStackIndex() - actualReturns, actualReturns);
 		}
 		else
 		{
@@ -365,7 +360,7 @@ class MDState
 			mCurrentAR.vargBase = vargBase;
 			mCurrentAR.funcSlot = slot;
 			mCurrentAR.func = closure;
-			mCurrentAR.savedPC = funcDef.mCode.ptr;
+			mCurrentAR.pc = funcDef.mCode.ptr;
 			mCurrentAR.numReturns = numReturns;
 
 			for(int i = base + funcDef.mStackSize; i >= mStackIndex; i--)
@@ -387,28 +382,258 @@ class MDState
 			}
 		}
 	}
-
-	public void setGlobal(char[] name, MDClosure val)
+	
+	public void setGlobal(char[] name, MDValue* val)
 	{
 		MDValue key;
 		key.value = new MDString(name);
-		MDValue value;
-		value.value = val;
-		mGlobals[key] = value;
+		mGlobals[&key] = val;
 	}
 	
-	//public void setGlobal(char[] name,
+	public void setGlobal(char[] name, MDString val)
+	{
+		MDValue value;
+		value.value = val;
+		setGlobal(name, &value);
+	}
+	
+	public void setGlobal(char[] name, MDUserData val)
+	{
+		MDValue value;
+		value.value = val;
+		setGlobal(name, &value);
+	}
+
+	public void setGlobal(char[] name, MDClosure val)
+	{
+		MDValue value;
+		value.value = val;
+		setGlobal(name, &value);
+	}
+	
+	public void setGlobal(char[] name, MDTable val)
+	{
+		MDValue value;
+		value.value = val;
+		setGlobal(name, &value);
+	}
+	
+	public void setGlobal(char[] name, MDArray val)
+	{
+		MDValue value;
+		value.value = val;
+		setGlobal(name, &value);
+	}
+
+	public uint numParams()
+	{
+		return getBasedStackIndex();
+	}
+	
+	public bool isNullParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		return getBasedStack(index).isNull();
+	}
+	
+	public bool isBoolParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		return getBasedStack(index).isBool();
+	}
+	
+	public bool isIntParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		return getBasedStack(index).isInt();
+	}
+	
+	public bool isFloatParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+
+		return getBasedStack(index).isFloat();
+	}
+	
+	public bool isStringParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		return getBasedStack(index).isString();
+	}
+	
+	public MDValue getParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+			
+		return *getBasedStack(index);
+	}
+
+	public bool getBoolParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isBool() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'bool' but got '" ~ val.typeString() ~ "'");
+			
+		return val.asBool();
+	}
+	
+	public int getIntParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isInt() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'int' but got '" ~ val.typeString() ~ "'");
+			
+		return val.asInt();
+	}
+	
+	public float getFloatParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isFloat() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'float' but got '" ~ val.typeString() ~ "'");
+			
+		return val.asFloat();
+	}
+
+	public char[] getStringParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isString() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+			
+		return val.asString.asUTF8();
+	}
+	
+	public wchar[] getWStringParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isString() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+			
+		return val.asString.asUTF16();
+	}
+	
+	public dchar[] getDStringParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isString() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+
+		return val.asString.asUTF32();
+	}
+	
+	public MDArray getArrayParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isArray() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'array' but got '" ~ val.typeString() ~ "'");
+
+		return val.asArray();
+	}
+
+	public MDTable getTableParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isTable() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'table' but got '" ~ val.typeString() ~ "'");
+
+		return val.asTable();
+	}
+	
+	public MDValue[] getAllParams()
+	{
+		if(numParams() == 0)
+			return null;
+			
+		MDValue[] params = new MDValue[numParams()];
+		params[] = mStack[mCurrentAR.base .. mStackIndex];
+		
+		return params;
+	}
 
 	// ===================================================================================
 	// Package members
 	// ===================================================================================
+
+	package Location getDebugLocation()
+	{
+		if(mCurrentAR.func.isNative())
+			return Location(mCurrentAR.func.native.name, -1, -1);
+		else
+		{
+			MDFuncDef fd = mCurrentAR.func.script.func;
+
+			int line = -1;
+			uint instructionIndex = mCurrentAR.pc - fd.mCode.ptr - 1;
+
+			if(instructionIndex < fd.mLineInfo.length)
+				line = fd.mLineInfo[instructionIndex];
+
+			return Location(mCurrentAR.func.script.func.mGuessedName, line);
+		}
+	}
+
+	package void badParamError(uint index, char[] funcName, char[] msg)
+	{
+		throw new MDRuntimeException(this, "Bad argument ", index + 1, ": ", msg);
+	}
 
 	package void callEpilogue(uint resultSlot, int numResults)
 	{
 		resultSlot = getBasedIndex(resultSlot);
 
 		uint destSlot = mCurrentAR.funcSlot;
-		uint numExpRets = mCurrentAR.numReturns;
+		int numExpRets = mCurrentAR.numReturns;
+
+		bool isMultRet = false;
+
+		if(numExpRets == -1)
+		{
+			isMultRet = true;
+			numExpRets = numResults;
+		}
 
 		popAR();
 
@@ -443,8 +668,11 @@ class MDState
 			}
 		}
 
-		mStackIndex = mCurrentAR.savedTop;
-		
+		if(isMultRet)
+			mStackIndex = destSlot;
+		else
+			mStackIndex = mCurrentAR.savedTop;
+
 		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex);
 	}
 
@@ -458,7 +686,7 @@ class MDState
 			}
 			catch
 			{
-				throw new MDException("Script call stack overflow");
+				throw new MDRuntimeException(this, "Script call stack overflow");
 			}
 		}
 
@@ -485,7 +713,7 @@ class MDState
 			}
 			catch
 			{
-				throw new MDException("Script catch/finally stack overflow");
+				throw new MDRuntimeException(this, "Script catch/finally stack overflow");
 			}
 		}
 
@@ -513,7 +741,7 @@ class MDState
 		}
 		catch
 		{
-			throw new MDException("MiniD stack overflow");
+			throw new MDRuntimeException(this, "MiniD stack overflow");
 		}
 
 		MDValue* oldBase = oldStack.ptr;
@@ -618,15 +846,15 @@ class MDState
 		return mGlobals;
 	}
 
-	package Instruction* getSavedPC()
+	/*package Instruction* getSavedPC()
 	{
 		return mCurrentAR.savedPC;
-	}
+	}*/
 
-	package void savePC(Instruction* pc)
+	/*package void savePC(Instruction* pc)
 	{
 		mCurrentAR.savedPC = pc;
-	}
+	}*/
 
 	package MDFuncDef getInnerFunc(uint num)
 	{
@@ -699,7 +927,7 @@ class MDState
 		StackVal src = getBasedStack(stackSlot);
 
 		if(src.isInt() == false)
-			throw new MDException("Attempting to perform an integral switch on a value of type '%s'", src.typeString());
+			throw new MDRuntimeException(this, "Attempting to perform an integral switch on a value of type '%s'", src.typeString());
 
 		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
 
@@ -721,7 +949,7 @@ class MDState
 		StackVal src = getBasedStack(stackSlot);
 
 		if(src.isString() == false)
-			throw new MDException("Attempting to perform a string switch on a value of type '%s'", src.typeString());
+			throw new MDRuntimeException(this, "Attempting to perform a string switch on a value of type '%s'", src.typeString());
 
 		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
 
@@ -757,7 +985,7 @@ class MDState
 		if(t is null)
 			return &MDValue.nullValue;
 
-		return t[MetaStrings[method]];
+		return t[&MetaStrings[method]];
 	}
 
 	// ===================================================================================
@@ -797,7 +1025,7 @@ class MDState
 				method = s.getMM(table, MM.Index);
 
 				if(method.isNull())
-					throw new MDException("Attempting to index a '%s'", table.typeString());
+					throw new MDRuntimeException(s, "Attempting to index a '%s'", table.typeString());
 			}
 
 			if(method.isFunction())
@@ -814,7 +1042,7 @@ class MDState
 			table = method;
 		}
 
-		throw new MDException("Metatable circular dependency or chain too deep");
+		throw new MDRuntimeException(s, "Metatable circular dependency or chain too deep");
 	}
 
 	protected static void setIndexed(MDState s, StackVal table, MDValue* key, MDValue* value)
@@ -829,7 +1057,7 @@ class MDState
 
 				if(method.isNull())
 				{
-					table.asTable()[*key] = value;
+					table.asTable()[key] = value;
 					return;
 				}
 			}
@@ -838,7 +1066,7 @@ class MDState
 				method = s.getMM(table, MM.IndexAssign);
 
 				if(method.isNull())
-					throw new MDException("Attempting to index a '%s'", table.typeString());
+					throw new MDRuntimeException(s, "Attempting to index a '%s'", table.typeString());
 			}
 
 			if(method.isFunction())
@@ -855,7 +1083,7 @@ class MDState
 			table = method;
 		}
 
-		throw new MDException("Metatable circular dependency or chain too deep");
+		throw new MDRuntimeException(s, "Metatable circular dependency or chain too deep");
 	}
 
 	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
@@ -882,7 +1110,7 @@ class MDState
 				MDValue* method = s.getMM(src1, MM.Neg);
 
 				if(!method.isFunction())
-					throw new MDException("Cannot perform arithmetic on a '%s'", src1.typeString());
+					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
 				s.push(src1);
@@ -936,7 +1164,7 @@ class MDState
 				method = s.getMM(src2, mmType);
 
 				if(!method.isFunction())
-					throw new MDException("Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
 			}
 
 			uint funcSlot = s.push(method);
@@ -963,7 +1191,7 @@ class MDState
 				MDValue* method = s.getMM(src1, MM.Com);
 
 				if(!method.isFunction())
-					throw new MDException("Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
+					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
 				s.push(src1);
@@ -1005,7 +1233,8 @@ class MDState
 				method = s.getMM(src2, mmType);
 
 				if(!method.isFunction())
-					throw new MDException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s' and a '%s'",
+						src1.typeString(), src2.typeString());
 			}
 
 			uint funcSlot = s.push(method);
@@ -1018,7 +1247,7 @@ class MDState
 
 	public void execute()
 	{
-		Instruction* pc = getSavedPC();
+		//Instruction* pc = mCurrentAR.pc;
 		MDException currentException = null;
 
 		_exceptionRetry:
@@ -1027,8 +1256,8 @@ class MDState
 		{
 			while(true)
 			{
-				Instruction i = *pc;
-				pc++;
+				Instruction i = *mCurrentAR.pc;
+				mCurrentAR.pc++;
 	
 				MDValue* getCR1()
 				{
@@ -1092,18 +1321,18 @@ class MDState
 						break;
 	
 					case Op.Cmp:
-						Instruction jump = *pc;
-						pc++;
-	
+						Instruction jump = *mCurrentAR.pc;
+						mCurrentAR.pc++;
+
 						int cmpValue = getCR1().opCmp(getCR2());
-	
+
 						if(jump.rd == 1)
 						{
 							switch(jump.opcode)
 							{
-								case Op.Je:  if(cmpValue == 0) pc += jump.immBiased; break;
-								case Op.Jle: if(cmpValue <= 0) pc += jump.immBiased; break;
-								case Op.Jlt: if(cmpValue < 0)  pc += jump.immBiased; break;
+								case Op.Je:  if(cmpValue == 0) mCurrentAR.pc += jump.immBiased; break;
+								case Op.Jle: if(cmpValue <= 0) mCurrentAR.pc += jump.immBiased; break;
+								case Op.Jlt: if(cmpValue < 0)  mCurrentAR.pc += jump.immBiased; break;
 								default: assert(false, "invalid 'cmp' jump");
 							}
 						}
@@ -1111,9 +1340,9 @@ class MDState
 						{
 							switch(jump.opcode)
 							{
-								case Op.Je:  if(cmpValue != 0) pc += jump.immBiased; break;
-								case Op.Jle: if(cmpValue > 0)  pc += jump.immBiased; break;
-								case Op.Jlt: if(cmpValue >= 0) pc += jump.immBiased; break;
+								case Op.Je:  if(cmpValue != 0) mCurrentAR.pc += jump.immBiased; break;
+								case Op.Jle: if(cmpValue > 0)  mCurrentAR.pc += jump.immBiased; break;
+								case Op.Jlt: if(cmpValue >= 0) mCurrentAR.pc += jump.immBiased; break;
 								default: assert(false, "invalid 'cmp' jump");
 							}
 						}
@@ -1121,8 +1350,8 @@ class MDState
 						break;
 	
 					case Op.Is:
-						Instruction jump = *pc;
-						pc++;
+						Instruction jump = *mCurrentAR.pc;
+						mCurrentAR.pc++;
 	
 						assert(jump.opcode == Op.Je, "invalid 'is' jump");
 	
@@ -1131,19 +1360,19 @@ class MDState
 						if(jump.rd == 1)
 						{
 							if(cmpValue is true)
-								pc += jump.immBiased;
+								mCurrentAR.pc += jump.immBiased;
 						}
 						else
 						{
 							if(cmpValue is false)
-								pc += jump.immBiased;
+								mCurrentAR.pc += jump.immBiased;
 						}
 	
 						break;
 	
 					case Op.IsTrue:
-						Instruction jump = *pc;
-						pc++;
+						Instruction jump = *mCurrentAR.pc;
+						mCurrentAR.pc++;
 	
 						assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
 	
@@ -1152,22 +1381,35 @@ class MDState
 						if(jump.rd == 1)
 						{
 							if(cmpValue is true)
-								pc += jump.immBiased;
+								mCurrentAR.pc += jump.immBiased;
 						}
 						else
 						{
 							if(cmpValue is false)
-								pc += jump.immBiased;
+								mCurrentAR.pc += jump.immBiased;
 						}
 	
 						break;
 	
 					case Op.Jmp:
-						pc += i.immBiased;
+						mCurrentAR.pc += i.immBiased;
 						break;
 	
 					case Op.Length:
-						getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
+						StackVal src = getBasedStack(i.rs1);
+						MDValue* method = getMM(src, MM.Length);
+						
+						if(method.isFunction())
+						{
+							uint funcReg = push(method);
+							push(src);
+
+							call(funcReg, 1, 1);
+							popToSlot(i.rd);
+						}
+						else
+							getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
+
 						break;
 	
 					case Op.LoadBool:
@@ -1185,13 +1427,13 @@ class MDState
 					case Op.GetGlobal:
 						MDValue* index = getConst(i.imm);
 						assert(index.isString(), "trying to get a non-string global");
-						getBasedStack(i.rd).value = getEnvironment()[*index];
+						getBasedStack(i.rd).value = getEnvironment()[index];
 						break;
 	
 					case Op.SetGlobal:
 						MDValue* index = getConst(i.imm);
 						assert(index.isString(), "trying to get a non-string global");
-						getEnvironment()[*index] = getBasedStack(i.rd);
+						getEnvironment()[index] = getBasedStack(i.rd);
 						break;
 	
 					case Op.GetUpvalue:
@@ -1227,18 +1469,18 @@ class MDState
 						int offset = switchInt(i.rd, i.imm);
 	
 						if(offset == -1)
-							throw new MDException("Switch without default");
+							throw new MDRuntimeException(this, "Switch without default");
 	
-						pc += offset;
+						mCurrentAR.pc += offset;
 						break;
 	
 					case Op.SwitchString:
 						int offset = switchString(i.rd, i.imm);
 	
 						if(offset == -1)
-							throw new MDException("Switch without default");
+							throw new MDRuntimeException(this, "Switch without default");
 	
-						pc += offset;
+						mCurrentAR.pc += offset;
 						break;
 	
 					case Op.Vararg:
@@ -1271,8 +1513,8 @@ class MDState
 						break;
 	
 					case Op.Foreach:
-						Instruction jump = *pc;
-						pc++;
+						Instruction jump = *mCurrentAR.pc;
+						mCurrentAR.pc++;
 	
 						uint rd = i.rd;
 						uint funcReg = rd + 3;
@@ -1289,7 +1531,7 @@ class MDState
 	
 							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toString());
 	
-							pc += jump.immBiased;
+							mCurrentAR.pc += jump.immBiased;
 						}
 	
 						break;
@@ -1311,7 +1553,8 @@ class MDState
 								method = getMM(src2, MM.Cat);
 	
 								if(!method.isFunction())
-									throw new MDException("Cannot concatenate a '%s' and a '%s'", src1.typeString(), src2.typeString());
+									throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'",
+										src1.typeString(), src2.typeString());
 							}
 	
 							uint funcSlot = push(method);
@@ -1329,15 +1572,15 @@ class MDState
 	
 						for(int index = 0; index < newDef.mNumUpvals; index++)
 						{
-							if(pc.opcode == Op.Move)
-								n.script.upvals[index] = findUpvalue(pc.rs1);
+							if(mCurrentAR.pc.opcode == Op.Move)
+								n.script.upvals[index] = findUpvalue(mCurrentAR.pc.rs1);
 							else
 							{
-								assert(pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
-								n.script.upvals[index] = getUpvalueRef(pc.imm);
+								assert(mCurrentAR.pc.opcode == Op.GetUpvalue, "invalid closure upvalue op");
+								n.script.upvals[index] = getUpvalueRef(mCurrentAR.pc.imm);
 							}
 	
-							pc++;
+							mCurrentAR.pc++;
 						}
 	
 						getBasedStack(i.rd).value = n;
@@ -1351,12 +1594,12 @@ class MDState
 							MDValue* idx = getCR2();
 	
 							if(idx.isInt() == false)
-								throw new MDException("Attempt to access an array with a '%s'", idx.typeString());
+								throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", idx.typeString());
 	
 							MDValue* val = src.asArray[idx.asInt];
 	
 							if(val is null)
-								throw new MDException("Invalid array index: ", idx.asInt());
+								throw new MDRuntimeException(this, "Invalid array index: ", idx.asInt());
 	
 							getBasedStack(i.rd).value = val;
 						}
@@ -1373,12 +1616,12 @@ class MDState
 							MDValue* idx = getCR1();
 	
 							if(idx.isInt() == false)
-								throw new MDException("Attempt to access an array with a '%s'", idx.typeString());
+								throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", idx.typeString());
 	
 							MDValue* val = dest.asArray()[idx.asInt];
 	
 							if(val is null)
-								throw new MDException("Invalid array index: ", idx.asInt());
+								throw new MDRuntimeException(this, "Invalid array index: ", idx.asInt());
 	
 							val.value = getCR2();
 						}
@@ -1388,8 +1631,9 @@ class MDState
 						break;
 	
 					case Op.Method:
-						copyBasedStack(i.rd + 1, i.rs1);
-						getIndexed(this, i.rd, getBasedStack(i.rs1), getCR2());
+						StackVal src = getCR1();
+						getBasedStack(i.rd + 1).value = src;
+						getIndexed(this, i.rd, src, getCR2());
 						break;
 	
 					case Op.Call:
@@ -1400,7 +1644,6 @@ class MDState
 						if(numParams == -1)
 							numParams = getBasedStackIndex() - funcReg - 1;
 	
-						savePC(pc);
 						call(funcReg, numParams, numResults);
 						break;
 	
@@ -1416,26 +1659,26 @@ class MDState
 						
 						mCurrentTR.isCatch = true;
 						mCurrentTR.catchVarSlot = i.rd;
-						mCurrentTR.pc = pc + i.immBiased;
+						mCurrentTR.pc = mCurrentAR.pc + i.immBiased;
 						break;
 	
 					case Op.PushFinally:
 						pushTR();
 						
 						mCurrentTR.isCatch = false;
-						mCurrentTR.pc = pc + i.immBiased;
+						mCurrentTR.pc = mCurrentAR.pc + i.immBiased;
 						break;
 						
 					case Op.PopCatch:
 						if(mCurrentTR.isCatch == false)
-							throw new MDException("'catch' popped out of order");
+							throw new MDRuntimeException(this, "'catch' popped out of order");
 	
 						popTR();
 						break;
 	
 					case Op.PopFinally:
 						if(mCurrentTR.isCatch == true)
-							throw new MDException("'finally' popped out of order");
+							throw new MDRuntimeException(this, "'finally' popped out of order");
 	
 						currentException = null;
 
@@ -1449,7 +1692,7 @@ class MDState
 						break;
 	
 					case Op.Throw:
-						throw new MDException(getCR1());
+						throw new MDRuntimeException(this, getCR1());
 	
 					case Op.Je:
 					case Op.Jle:
@@ -1474,14 +1717,14 @@ class MDState
 						
 					currentException = null;
 
-					pc = tr.pc;
+					mCurrentAR.pc = tr.pc;
 					goto _exceptionRetry;
 				}
 				else
 				{
 					currentException = e;
 					
-					pc = tr.pc;
+					mCurrentAR.pc = tr.pc;
 					goto _exceptionRetry;
 				}
 			}

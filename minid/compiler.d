@@ -8,34 +8,81 @@ import path = std.path;
 import string = std.string;
 import utf = std.utf;
 import std.asserterror;
+import std.perf;
 
 import minid.types;
 import minid.opcodes;
 
+//debug = REGPUSHPOP;
+
 import minid.state;
+import baselib = minid.baselib;
+import stringlib = minid.stringlib;
+import arraylib = minid.arraylib;
+import tablelib = minid.tablelib;
+
+class MyTimer : MDUserData
+{
+	HighPerformanceCounter mHPC;
+
+	this(MDState s)
+	{
+		mHPC = new HighPerformanceCounter();
+
+		mMetatable = MDTable.create
+		(
+			"start", new MDClosure(s, &start, "MyTimer.start"),
+			"stop",  new MDClosure(s, &stop,  "MyTimer.stop"),
+			"milliseconds", new MDClosure(s, &milliseconds, "MyTimer.milliseconds")
+		);
+
+		mMetatable["opIndex"] = mMetatable;
+	}
+
+	int start(MDState s)
+	{
+		mHPC.start();
+		return 0;
+	}
+
+	int stop(MDState s)
+	{
+		mHPC.stop();
+		return 0;
+	}
+
+	int milliseconds(MDState s)
+	{
+		s.push(mHPC.microseconds() / 1000.0);
+		return 1;
+	}
+}
 
 void main()
 {
 	MDGlobalState.initialize();
 	MDState state = MDGlobalState().mainThread();
-	MDClosure closure = new MDClosure(state, compileFile(`simple.md`));
+	baselib.init(state);
+	stringlib.init(state);
+	arraylib.init(state);
+	tablelib.init(state);
 
-	int mdwritefln(MDState s)
+	int newTimer(MDState s)
 	{
-		int numParams = s.getBasedStackIndex();
-
-		for(int i = 0; i < numParams; i++)
-			writef(s.getBasedStack(i).toString());
-
-		writefln();
-
-		return 0;
+		s.push(new MyTimer(s));
+		return 1;
 	}
+	
+	state.setGlobal("newTimer", new MDClosure(state, &newTimer, "newTimer"));
 
-	MDClosure writeflnClosure = new MDClosure(state, &mdwritefln);
-	state.setGlobal("writefln", writeflnClosure);
+	uint funcReg = state.push(new MDClosure(state, compileFile(`simple.md`)));
 
-	state.call(state.push(closure), 0, 0);
+	//auto hpc = new HighPerformanceCounter();
+	//hpc.start();
+	state.call(funcReg, 0, 0);
+	//hpc.stop();
+	
+	//writefln("took ", hpc.microseconds() / 1000.0, "ms");
 }
 
 public MDFuncDef compileFile(char[] filename)
@@ -61,7 +108,7 @@ int toInt(char[] s, int base)
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 0, 0, 0, 0, 0, 0,
 		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
 		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0,
 		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
@@ -739,16 +786,16 @@ class Lexer
 
 		switch(mCharacter)
 		{
-			case 'a': return "\a";
-			case 'b': return "\b";
-			case 'f': return "\f";
-			case 'n': return "\n";
-			case 'r': return "\r";
-			case 't': return "\t";
-			case 'v': return "\v";
-			case '\\': return "\\";
-			case '\"': return "\"";
-			case '\'': return "\'";
+			case 'a':  nextChar(); return "\a";
+			case 'b':  nextChar(); return "\b";
+			case 'f':  nextChar(); return "\f";
+			case 'n':  nextChar(); return "\n";
+			case 'r':  nextChar(); return "\r";
+			case 't':  nextChar(); return "\t";
+			case 'v':  nextChar(); return "\v";
+			case '\\': nextChar(); return "\\";
+			case '\"': nextChar(); return "\"";
+			case '\'': nextChar(); return "\'";
 
 			case 'x':
 				nextChar();
@@ -1680,7 +1727,7 @@ class FuncState
 
 	public uint pushRegister()
 	{
-		//writefln("push ", mFreeReg);
+		debug(REGPUSHPOP) writefln("push ", mFreeReg);
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
@@ -1695,7 +1742,7 @@ class FuncState
 	public void popRegister(uint r)
 	{
 		mFreeReg--;
-		//writefln("pop ", mFreeReg, ", ", r);
+		debug(REGPUSHPOP) writefln("pop ", mFreeReg, ", ", r);
 
 		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
@@ -1925,12 +1972,19 @@ class FuncState
 				break;
 
 			case ExpType.Global:
-				uint destReg = pushRegister();
+				/*uint destReg = pushRegister();
 				popToRegister(line, destReg);
 
 				codeI(line, Op.SetGlobal, destReg, dest.index);
 
-				popRegister(destReg);
+				popRegister(destReg);*/
+				
+				Exp* src = popSource(line);
+
+				codeI(line, Op.SetGlobal, src.index, dest.index);
+
+				freeExpTempRegs(src);
+				delete src;
 				break;
 
 			case ExpType.Indexed:
@@ -2176,6 +2230,7 @@ class FuncState
 		toSource(line, &mExpStack[mExpSP - 1]);
 		Exp* n = new Exp;
 		*n = *popExp();
+
 		return n;
 	}
 
@@ -2250,6 +2305,7 @@ class FuncState
 
 			case ExpType.Call:
 				mCode[e.index].rs2 = 2;
+				temp.index = e.index2;
 				break;
 
 			case ExpType.Closure:
@@ -3343,9 +3399,9 @@ class FuncDecl : Declaration
 		s.pushVar(mNames[0]);
 
 		foreach(Identifier n; mNames[1 .. $])
-			s.popField(mEndLocation.line, n);
+			s.popField(mLocation.line, n);
 
-		s.popAssign(mEndLocation.line);
+		s.popAssign(mLocation.line);
 	}
 
 	public override void writeCode(CodeWriter cw)
@@ -6070,7 +6126,7 @@ class CallExp : PostfixExp
 		{
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
-
+			
 			Exp* src = s.popSource(mOp.mEndLocation.line);
 			s.freeExpTempRegs(src);
 
