@@ -119,106 +119,52 @@ template Mask(uint length)
 	const uint Mask = (1 << length) - 1;
 }
 
-struct Instruction
+align(1) struct Instruction
 {
-	const uint rs2Size = 9;
+	const uint rs2Size = 16;
 	const uint rs2Max = (1 << rs2Size) - 1;
-	const uint rs2Mask = Mask!(rs2Size);
-	const uint rs2Pos = 0;
 
-	const uint rs1Size = 9;
+	const uint rs1Size = 16;
 	const uint rs1Max = (1 << rs1Size) - 1;
-	const uint rs1Mask = Mask!(rs1Size);
-	const uint rs1Pos = rs2Pos + rs2Size;
-	
+
 	const uint immSize = rs1Size + rs2Size;
 	const uint immMax = (1 << immSize) - 1;
-	const uint immMask = Mask!(immSize);
-	const uint immPos = rs2Pos;
-	const uint immBias = (immMax + 1) / 2;
 
-	const uint rdSize = 8;
+	const uint rdSize = 16;
 	const uint rdMax = (1 << rdSize) - 1;
-	const uint rdMask = Mask!(rdSize);
-	const uint rdPos = rs1Pos + rs1Size;
 
-	const uint opcodeSize = 6;
+	const uint reservedSize = 8;
+	const uint reservedMax = (1 << reservedSize) - 1;
+
+	const uint opcodeSize = 8;
 	const uint opcodeMax = (1 << opcodeSize) - 1;
-	const uint opcodeMask = Mask!(opcodeSize);
-	const uint opcodePos = rdPos + rdSize;
-
-	const uint constBit = 1 << (rs2Size - 1);
-	const uint constMax = rs1Max >> 1; // have to account for the top bit
 	
+	const uint constBit = 1 << (rs1Size - 1);
+	const uint constMax = rs1Max >> 1; // have to account for the top bit
+
 	const uint arraySetFields = 30;
 
-	uint data;
-	
-	uint rs2()
+	ubyte opcode;
+	ubyte reserved;
+	ushort rd;
+
+	union
 	{
-		return (data >> rs2Pos)	& rs2Mask;
+		struct
+		{
+			ushort rs1;
+			ushort rs2;
+		}
+
+		uint uimm;
+		int imm;
 	}
-	
-	uint rs2(uint value)
-	{
-		data = (data & ~(rs2Mask << rs2Pos)) | ((value & rs2Mask) << rs2Pos);
-		return value;
-	}
-	
-	uint rs1()
-	{
-		return (data >> rs1Pos)	& rs1Mask;
-	}
-	
-	uint rs1(uint value)
-	{
-		data = (data & ~(rs1Mask << rs1Pos)) | ((value & rs1Mask) << rs1Pos);
-		return value;
-	}
-	
-	uint imm()
-	{
-		return (data >> immPos)	& immMask;
-	}
-	
-	int immBiased()
-	{
-		return ((data >> immPos) & immMask)	- immBias;
-	}
-	
-	uint imm(uint value)
-	{
-		data = (data & ~(immMask << immPos)) | ((value & immMask) << immPos);
-		return value;
-	}
-	
-	uint rd()
-	{
-		return (data >> rdPos)	& rdMask;
-	}
-	
-	uint rd(uint value)
-	{
-		data = (data & ~(rdMask << rdPos)) | ((value & rdMask) << rdPos);
-		return value;
-	}
-	
-	uint opcode()
-	{
-		return (data >> opcodePos)	& opcodeMask;
-	}
-	
-	uint opcode(uint value)
-	{
-		data = (data & ~(opcodeMask << opcodePos)) | ((value & opcodeMask) << opcodePos);
-		return value;
-	}
-	
+
 	import std.stdio;
 	
 	char[] toString()
 	{
-		char[] cr(int v)
+		char[] cr(uint v)
 		{
 			if(v & constBit)
 				return string.format("c%s", v & ~constBit);
@@ -239,7 +185,7 @@ struct Instruction
 			case Op.Close:
 				return string.format("close r%s", rd);
 			case Op.Closure:
-				return string.format("closure r%s, %s", rd, imm);
+				return string.format("closure r%s, %s", rd, uimm);
 			case Op.Cmp:
 				return string.format("cmp %s, %s", cr(rs1), cr(rs2));
 			case Op.Com:
@@ -249,11 +195,11 @@ struct Instruction
 			case Op.EndFinal:
 				return "endfinal";
 			case Op.Foreach:
-				return string.format("foreach r%s, %s", rd, imm);
+				return string.format("foreach r%s, %s", rd, uimm);
 			case Op.GetGlobal:
-				return string.format("getg r%s, c%s", rd, imm);
+				return string.format("getg r%s, c%s", rd, uimm);
 			case Op.GetUpvalue:
-				return string.format("getu r%s, %s", rd, imm);
+				return string.format("getu r%s, %s", rd, uimm);
 			case Op.Index:
 				return string.format("idx r%s, r%s, %s", rd, rs1, cr(rs2));
 			case Op.IndexAssign:
@@ -264,32 +210,32 @@ struct Instruction
 				return string.format("istrue %s", cr(rs1));
 			case Op.Je:
 				if(rd == 0)
-					return string.format("jne %s", cast(int)(imm - immBias));
+					return string.format("jne %s", imm);
 				else
-					return string.format("je %s", cast(int)(imm - immBias));
+					return string.format("je %s", imm);
 			case Op.Jle:
 				if(rd == 0)
-					return string.format("jgt %s", cast(int)(imm - immBias));
+					return string.format("jgt %s", imm);
 				else
-					return string.format("jle %s", cast(int)(imm - immBias));
+					return string.format("jle %s", imm);
 			case Op.Jlt:
 				if(rd == 0)
-					return string.format("jge %s", cast(int)(imm - immBias));
+					return string.format("jge %s", imm);
 				else
-					return string.format("jlt %s", cast(int)(imm - immBias));
+					return string.format("jlt %s", imm);
 			case Op.Jmp:
 				if(rd == 0)
 					return "nop";
 				else
-					return string.format("jmp %s", cast(int)(imm - immBias));
+					return string.format("jmp %s", imm);
 			case Op.Length:
 				return string.format("len r%s, %s", rd, cr(rs1));
 			case Op.LoadBool:
 				return string.format("lb r%s, %s", rd, rs1);
 			case Op.LoadConst:
-				return string.format("lc r%s, c%s", rd, imm);
+				return string.format("lc r%s, c%s", rd, uimm);
 			case Op.LoadNull:
-				return string.format("lnull r%s, %s", rd, imm);
+				return string.format("lnull r%s, %s", rd, uimm);
 			case Op.Method:
 				return string.format("method r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Mod:
@@ -313,17 +259,17 @@ struct Instruction
 			case Op.PopFinally:
 				return "popfinally";
 			case Op.PushCatch:
-				return string.format("pushcatch r%s, %s", rd, cast(int)(imm - immBias));
+				return string.format("pushcatch r%s, %s", rd, imm);
 			case Op.PushFinally:
-				return string.format("pushfinal %s", cast(int)(imm - immBias));
+				return string.format("pushfinal %s", imm);
 			case Op.Ret:
-				return string.format("ret r%s, %s", rd, imm);
+				return string.format("ret r%s, %s", rd, uimm);
 			case Op.SetArray:
 				return string.format("setarray r%s, %s, block %s", rd, rs1, rs2);
 			case Op.SetGlobal:
-				return string.format("setg r%s, c%s", rd, imm);
+				return string.format("setg r%s, c%s", rd, uimm);
 			case Op.SetUpvalue:
-				return string.format("setu r%s, %s", rd, imm);
+				return string.format("setu r%s, %s", rd, uimm);
 			case Op.Shl:
 				return string.format("shl r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Shr:
@@ -331,17 +277,19 @@ struct Instruction
 			case Op.Sub:
 				return string.format("sub r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.SwitchInt:
-				return string.format("iswitch r%s, %s", rd, imm);
+				return string.format("iswitch r%s, %s", rd, uimm);
 			case Op.SwitchString:
-				return string.format("sswitch r%s, %s", rd, imm);
+				return string.format("sswitch r%s, %s", rd, uimm);
 			case Op.Throw:
 				return string.format("throw %s", cr(rs1));
 			case Op.UShr:
 				return string.format("ushr r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Vararg:
-				return string.format("varg r%s, %s", rd, imm);
+				return string.format("varg r%s, %s", rd, uimm);
 			case Op.Xor:
 				return string.format("xor r%s, %s, %s", rd, cr(rs1), cr(rs2));
 		}
 	}
 }
+
+static assert(Instruction.sizeof == 8);

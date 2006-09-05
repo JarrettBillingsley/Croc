@@ -10,7 +10,7 @@ import minid.opcodes;
 import minid.state;
 
 const uint MaxRegisters = Instruction.rs1Max >> 1;
-const uint MaxConstants = Instruction.immMax;
+const uint MaxConstants = Instruction.constMax;
 const uint MaxUpvalues = Instruction.immMax;
 
 // Don't know why this isn't in phobos.
@@ -51,7 +51,7 @@ class MDException : Exception
 
 		char[] msg;
 
-		if(value.isTable())
+		/*if(value.isTable())
 		{
 			MDValue key;
 			MDString k = new MDString("msg"d);
@@ -66,7 +66,7 @@ class MDException : Exception
 
 			delete k;
 		}
-		else
+		else*/
 			msg = value.toString();
 
 		super(msg);
@@ -222,7 +222,10 @@ abstract class MDObject
 		UserData,
 		Closure,
 		Table,
-		Array
+		Array,
+		Class,
+		Instance,
+		Delegate
 	}
 
 	public MDString asString() { return null; }
@@ -230,6 +233,9 @@ abstract class MDObject
 	public MDClosure asClosure() { return null; }
 	public MDTable asTable() { return null; }
 	public MDArray asArray() { return null; }
+	public MDClass asClass() { return null; }
+	public MDInstance asInstance() { return null; }
+	public MDDelegate asDelegate() { return null; }
 	public abstract Type type();
 	
 	public static int compare(MDObject o1, MDObject o2)
@@ -739,7 +745,7 @@ class MDArray : MDObject
 	{
 		return mData.length;
 	}
-	
+
 	public uint length(int newLength)
 	{
 		mData.length = newLength;
@@ -848,6 +854,85 @@ class MDArray : MDObject
 	}
 }
 
+class MDClass : MDObject
+{
+	protected MDClassDef mClass;
+	protected MDTable mFields;
+	protected MDTable mMethods;
+
+	public override MDClass asClass()
+	{
+		return this;
+	}
+	
+	public override Type type()
+	{
+		return Type.Class;
+	}
+
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a class");
+	}
+	
+	public char[] toString()
+	{
+		return string.format("class %s(%s)", mClass.mGuessedName, mClass.mLocation.toString());
+	}
+}
+
+class MDInstance : MDObject
+{
+	protected MDClassDef mClass;
+	protected MDTable mFields;
+
+	public override MDInstance asInstance()
+	{
+		return this;
+	}
+
+	public override Type type()
+	{
+		return Type.Instance;
+	}
+
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of an instance");
+	}
+	
+	public char[] toString()
+	{
+		return string.format("instance of class %s(%s)", mClass.mGuessedName, mClass.mLocation.toString());
+	}
+}
+
+class MDDelegate : MDObject
+{
+	protected MDValue mContext;
+	protected MDClosure mClosure;
+
+	public override MDDelegate asDelegate()
+	{
+		return this;
+	}
+
+	public override Type type()
+	{
+		return Type.Delegate;
+	}
+
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a delegate");
+	}
+
+	public char[] toString()
+	{
+		return string.format("delegate context:(%s) function:(%s)", mContext.toString(), mClosure.toString());
+	}
+}
+
 struct MDValue
 {
 	public static enum Type
@@ -863,7 +948,10 @@ struct MDValue
 		Table,
 		Array,
 		Function,
-		UserData
+		UserData,
+		Class,
+		Instance,
+		Delegate
 	}
 	
 	public static MDValue nullValue = { mType : Type.Null };
@@ -1017,6 +1105,9 @@ struct MDValue
 			case Type.Array:	return "array";
 			case Type.Function:	return "function";
 			case Type.UserData:	return "userdata";
+			case Type.Class:	return "class";
+			case Type.Instance:	return "instance";
+			case Type.Delegate:	return "delegate";
 		}
 	}
 
@@ -1075,6 +1166,21 @@ struct MDValue
 		return (mType == Type.UserData);
 	}
 	
+	public bool isClass()
+	{
+		return (mType == Type.Class);
+	}
+	
+	public bool isInstance()
+	{
+		return (mType == Type.Instance);
+	}
+	
+	public bool isDelegate()
+	{
+		return (mType == Type.Delegate);
+	}
+
 	public bool asBool()
 	{
 		assert(mType == Type.Bool, "MDValue asBool");
@@ -1136,6 +1242,24 @@ struct MDValue
 		assert(mType == Type.Array, "MDValue asArray");
 		return mObj.asArray();
 	}
+	
+	public MDClass asClass()
+	{
+		assert(mType == Type.Class, "MDValue asClass");
+		return mObj.asClass();
+	}
+
+	public MDInstance asInstance()
+	{
+		assert(mType == Type.Instance, "MDValue asInstance");
+		return mObj.asInstance();
+	}
+
+	public MDDelegate asDelegate()
+	{
+		assert(mType == Type.Delegate, "MDValue asDelegate");
+		return mObj.asDelegate();
+	}
 
 	public bool isFalse()
 	{
@@ -1178,38 +1302,11 @@ struct MDValue
 			case MDObject.Type.Closure: mType = Type.Function; break;
 			case MDObject.Type.Table: mType = Type.Table; break;
 			case MDObject.Type.Array: mType = Type.Array; break;
+			case MDObject.Type.Class: mType = Type.Class; break;
+			case MDObject.Type.Instance: mType = Type.Instance; break;
+			case MDObject.Type.Delegate: mType = Type.Delegate; break;
 			default: assert(false, "invalid MDValue.value(MDObject) switch");
 		}
-	}
-
-	public void value(MDString s)
-	{
-		mType = Type.String;
-		mObj = s;
-	}
-	
-	public void value(MDUserData ud)
-	{
-		mType = Type.UserData;
-		mObj = ud;
-	}
-	
-	public void value(MDClosure f)
-	{
-		mType = Type.Function;
-		mObj = f;
-	}
-	
-	public void value(MDTable t)
-	{
-		mType = Type.Table;
-		mObj = t;
-	}
-	
-	public void value(MDArray a)
-	{
-		mType = Type.Array;
-		mObj = a;
 	}
 
 	public void value(MDValue v)
@@ -1312,6 +1409,7 @@ class MDFuncDef
 	package Location mLocation;
 	package dchar[] mGuessedName;
 	package MDFuncDef[] mInnerFuncs;
+	package MDClassDef[] mClasses;
 	package MDValue[] mConstants;
 	package uint mNumParams;
 	package uint mNumUpvals;
@@ -1322,7 +1420,7 @@ class MDFuncDef
 
 	struct LocVarDesc
 	{
-		char[] name;
+		dchar[] name;
 		Location location;
 		uint reg;
 	}
@@ -1343,4 +1441,13 @@ class MDFuncDef
 	}
 
 	package SwitchTable[] mSwitchTables;
+}
+
+class MDClassDef
+{
+	package Location mLocation;
+	package dchar[] mGuessedName;
+	package dchar[][] mMethodNames;
+	package MDFuncDef[] mMethods;
+	package dchar[][] mFields;
 }

@@ -1,11 +1,34 @@
-local t = { };
+class Foo
+{
+	method foo()
+	{
+		writefln("x = ", this.x);
+	}
+	
+	method bar()
+	{
+		writefln("y = ", this.y);
+	}
+	
+	x = 0;
+	y = 0;
+}
 
-writefln(#t);
+class Foo
+{
+	x = 5;
 
-setMetatable(t, { function opLength(t) { return 3; } });
+	method bar()
+	{
+		writefln("x = ", this.x);
+	}
+}
 
-writefln(#t);
+local f = new Foo();
+local d = delegate f:bar;
 
+// writes "x = 5"
+d();
 
 /*local function foo()
 {
@@ -32,9 +55,9 @@ t:foo();
 writefln();
 
 Foo = { };
-Foo.opIndex = Foo;
+Foo.opIndex = Foo;*/
 
-function Foo:bar()
+/*function Foo:bar()
 {
 	writefln("Foo.bar!");
 }
@@ -48,9 +71,9 @@ function Foo:new()
 
 local f = Foo:new();
 
-f:bar();
+f:bar();*/
 
-writefln();
+/*writefln();
 
 local function outer()
 {

@@ -118,115 +118,50 @@ class MDState
 		mGlobals = new MDTable();
 	}
 
-	public uint push(MDValue* val)
-	{
-		if(mStackIndex >= mStack.length)
-			stackSize = mStack.length * 2;
-
-		mStack[mStackIndex].value = val;
-		mStackIndex++;
-		
-		debug(STACKINDEX) writefln("push() set mStackIndex to ", mStackIndex, " (pushed %s)", val.toString());
-
-		return mStackIndex - 1 - mCurrentAR.base;
-	}
-
 	public uint pushNull()
 	{
 		MDValue v;
 		v.setNull();
 		return push(&v);
 	}
-
-	public uint push(bool val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public uint push(int val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public uint push(float val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
 	
-	public uint push(char[] val)
+	public uint push(T)(T value)
 	{
-		MDValue v;
-		v.value = new MDString(val);
-		return push(&v);
-	}
-	
-	public uint push(wchar[] val)
-	{
-		MDValue v;
-		v.value = new MDString(val);
-		return push(&v);
-	}
-	
-	public uint push(dchar[] val)
-	{
-		MDValue v;
-		v.value = new MDString(val);
-		return push(&v);
-	}
+		static if(is(T : char[]) ||
+					is(T : wchar[]) ||
+					is(T : dchar[]))
+		{
+			MDValue val;
+			val.value = new MDString(value);
+		}
+		else static if(is(T : bool) ||
+						is(T : int) ||
+						is(T : float) ||
+						is(T : MDObject))
+		{
+			MDValue val;
+			val.value = value;
+		}
+		else static if(is(T : MDValue*))
+		{
+			alias value val;
+		}
+		else
+		{
+			// An interesting way to report errors, since static assert doesn't show the "call stack"
+			MDStatePush_InvalidArgumentType();
+			//static assert(false, "MDState.push() - invalid argument type");
+		}
 
-	public uint push(MDString val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
+		if(mStackIndex >= mStack.length)
+			stackSize = mStack.length * 2;
 
-	public uint push(MDUserData val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
+		mStack[mStackIndex].value = val;
+		mStackIndex++;
 
-	public uint push(MDClosure val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
+		debug(STACKINDEX) writefln("push() set mStackIndex to ", mStackIndex, " (pushed %s)", val.toString());
 
-	public uint push(MDTable val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public uint push(MDArray val)
-	{
-		MDValue v;
-		v.value = val;
-		return push(&v);
-	}
-
-	public void popToSlot(uint slot)
-	{
-		slot = getBasedIndex(slot);
-		
-		assert(mStackIndex > 0, "Stack underflow");
-
-		mStackIndex--;
-		
-		debug(STACKINDEX) writefln("popToSlot() set mStackIndex to ", mStackIndex);
-
-		if(slot != mStackIndex)
-			mStack[slot].value = &mStack[mStackIndex];
+		return mStackIndex - 1 - mCurrentAR.base;
 	}
 
 	public void call(uint slot, int numParams, int numReturns)
@@ -383,48 +318,40 @@ class MDState
 		}
 	}
 	
-	public void setGlobal(char[] name, MDValue* val)
+	public void setGlobal(T)(char[] name, T value)
 	{
 		MDValue key;
 		key.value = new MDString(name);
-		mGlobals[&key] = val;
-	}
-	
-	public void setGlobal(char[] name, MDString val)
-	{
-		MDValue value;
-		value.value = val;
-		setGlobal(name, &value);
-	}
-	
-	public void setGlobal(char[] name, MDUserData val)
-	{
-		MDValue value;
-		value.value = val;
-		setGlobal(name, &value);
-	}
 
-	public void setGlobal(char[] name, MDClosure val)
-	{
-		MDValue value;
-		value.value = val;
-		setGlobal(name, &value);
+		static if(is(T : char[]) ||
+					is(T : wchar[]) ||
+					is(T : dchar[]))
+		{
+			MDValue val;
+			val.value = new MDString(value);
+			mGlobals[&key] = &val;
+		}
+		else static if(is(T : bool) ||
+						is(T : int) ||
+						is(T : float) ||
+						is(T : MDObject))
+		{
+			MDValue val;
+			val.value = value;
+			mGlobals[&key] = &val;
+		}
+		else static if(is(T : MDValue*))
+		{
+			mGlobals[&key] = value;
+		}
+		else
+		{
+			// An interesting way to report errors, since static assert doesn't show the "call stack"
+			MDStateSetGlobal_InvalidArgumentType();
+			//static assert(false, "MDState.setGlobal() - invalid argument type");
+		}
 	}
 	
-	public void setGlobal(char[] name, MDTable val)
-	{
-		MDValue value;
-		value.value = val;
-		setGlobal(name, &value);
-	}
-	
-	public void setGlobal(char[] name, MDArray val)
-	{
-		MDValue value;
-		value.value = val;
-		setGlobal(name, &value);
-	}
-
 	public uint numParams()
 	{
 		return getBasedStackIndex();
@@ -803,7 +730,9 @@ class MDState
 	package void copyBasedStack(uint dest, uint src)
 	{
 		assert((mCurrentAR.base + dest) < mStack.length, "invalid based stack dest index");
-		mStack[mCurrentAR.base + dest].value = getBasedStack(src);
+		
+		if(dest != src)
+			mStack[mCurrentAR.base + dest].value = getBasedStack(src);
 	}
 
 	package void copyAbsStack(uint dest, uint src)
@@ -845,16 +774,6 @@ class MDState
 	{
 		return mGlobals;
 	}
-
-	/*package Instruction* getSavedPC()
-	{
-		return mCurrentAR.savedPC;
-	}*/
-
-	/*package void savePC(Instruction* pc)
-	{
-		mCurrentAR.savedPC = pc;
-	}*/
 
 	package MDFuncDef getInnerFunc(uint num)
 	{
@@ -1034,7 +953,7 @@ class MDState
 				s.push(table);
 				s.push(key);
 				s.call(funcSlot, 2, 1);
-				s.popToSlot(dest);
+				s.copyBasedStack(dest, funcSlot);
 				return;
 			}
 
@@ -1115,7 +1034,7 @@ class MDState
 				uint funcSlot = s.push(method);
 				s.push(src1);
 				s.call(funcSlot, 1, 1);
-				s.popToSlot(dest);
+				s.copyBasedStack(dest, funcSlot);
 			}
 		}
 
@@ -1171,7 +1090,7 @@ class MDState
 			s.push(src1);
 			s.push(src2);
 			s.call(funcSlot, 2, 1);
-			s.popToSlot(dest);
+			s.copyBasedStack(dest, funcSlot);
 		}
 	}
 
@@ -1196,7 +1115,7 @@ class MDState
 				uint funcSlot = s.push(method);
 				s.push(src1);
 				s.call(funcSlot, 1, 1);
-				s.popToSlot(dest);
+				s.copyBasedStack(dest, funcSlot);
 			}
 		}
 
@@ -1241,7 +1160,7 @@ class MDState
 			s.push(src1);
 			s.push(src2);
 			s.call(funcSlot, 2, 1);
-			s.popToSlot(dest);
+			s.copyBasedStack(dest, funcSlot);
 		}
 	}
 
@@ -1258,6 +1177,9 @@ class MDState
 			{
 				Instruction i = *mCurrentAR.pc;
 				mCurrentAR.pc++;
+				
+				MDValue cr1temp;
+				MDValue cr2temp;
 	
 				MDValue* getCR1()
 				{
@@ -1330,9 +1252,9 @@ class MDState
 						{
 							switch(jump.opcode)
 							{
-								case Op.Je:  if(cmpValue == 0) mCurrentAR.pc += jump.immBiased; break;
-								case Op.Jle: if(cmpValue <= 0) mCurrentAR.pc += jump.immBiased; break;
-								case Op.Jlt: if(cmpValue < 0)  mCurrentAR.pc += jump.immBiased; break;
+								case Op.Je:  if(cmpValue == 0) mCurrentAR.pc += jump.imm; break;
+								case Op.Jle: if(cmpValue <= 0) mCurrentAR.pc += jump.imm; break;
+								case Op.Jlt: if(cmpValue < 0)  mCurrentAR.pc += jump.imm; break;
 								default: assert(false, "invalid 'cmp' jump");
 							}
 						}
@@ -1340,9 +1262,9 @@ class MDState
 						{
 							switch(jump.opcode)
 							{
-								case Op.Je:  if(cmpValue != 0) mCurrentAR.pc += jump.immBiased; break;
-								case Op.Jle: if(cmpValue > 0)  mCurrentAR.pc += jump.immBiased; break;
-								case Op.Jlt: if(cmpValue >= 0) mCurrentAR.pc += jump.immBiased; break;
+								case Op.Je:  if(cmpValue != 0) mCurrentAR.pc += jump.imm; break;
+								case Op.Jle: if(cmpValue > 0)  mCurrentAR.pc += jump.imm; break;
+								case Op.Jlt: if(cmpValue >= 0) mCurrentAR.pc += jump.imm; break;
 								default: assert(false, "invalid 'cmp' jump");
 							}
 						}
@@ -1360,12 +1282,12 @@ class MDState
 						if(jump.rd == 1)
 						{
 							if(cmpValue is true)
-								mCurrentAR.pc += jump.immBiased;
+								mCurrentAR.pc += jump.imm;
 						}
 						else
 						{
 							if(cmpValue is false)
-								mCurrentAR.pc += jump.immBiased;
+								mCurrentAR.pc += jump.imm;
 						}
 	
 						break;
@@ -1381,18 +1303,18 @@ class MDState
 						if(jump.rd == 1)
 						{
 							if(cmpValue is true)
-								mCurrentAR.pc += jump.immBiased;
+								mCurrentAR.pc += jump.imm;
 						}
 						else
 						{
 							if(cmpValue is false)
-								mCurrentAR.pc += jump.immBiased;
+								mCurrentAR.pc += jump.imm;
 						}
 	
 						break;
 	
 					case Op.Jmp:
-						mCurrentAR.pc += i.immBiased;
+						mCurrentAR.pc += i.imm;
 						break;
 	
 					case Op.Length:
@@ -1405,7 +1327,7 @@ class MDState
 							push(src);
 
 							call(funcReg, 1, 1);
-							popToSlot(i.rd);
+							copyBasedStack(i.rd, funcReg);
 						}
 						else
 							getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
@@ -1531,7 +1453,7 @@ class MDState
 	
 							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toString());
 	
-							mCurrentAR.pc += jump.immBiased;
+							mCurrentAR.pc += jump.imm;
 						}
 	
 						break;
@@ -1561,7 +1483,7 @@ class MDState
 							push(src1);
 							push(src2);
 							call(funcSlot, 2, 1);
-							popToSlot(i.rd);
+							copyBasedStack(i.rd, funcSlot);
 						}
 	
 						break;
@@ -1659,14 +1581,14 @@ class MDState
 						
 						mCurrentTR.isCatch = true;
 						mCurrentTR.catchVarSlot = i.rd;
-						mCurrentTR.pc = mCurrentAR.pc + i.immBiased;
+						mCurrentTR.pc = mCurrentAR.pc + i.imm;
 						break;
 	
 					case Op.PushFinally:
 						pushTR();
 						
 						mCurrentTR.isCatch = false;
-						mCurrentTR.pc = mCurrentAR.pc + i.immBiased;
+						mCurrentTR.pc = mCurrentAR.pc + i.imm;
 						break;
 						
 					case Op.PopCatch:

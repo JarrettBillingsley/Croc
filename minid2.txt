@@ -94,29 +94,34 @@ IdentifierChar:
 	DecimalDigit
 
 Keyword:
-	break
-	case
-	catch
-	continue
-	default
-	do
-	else
-	false
-	finally
-	for
-	foreach
-	function
-	if
-	is
-	local
-	null
-	return
-	switch
-	throw
-	true
-	try
-	vararg
-	while
+	'as'
+	'break'
+	'case'
+	'class'
+	'catch'
+	'continue'
+	'default'
+	'delegate'
+	'do'
+	'else'
+	'false'
+	'finally'
+	'for'
+	'foreach'
+	'function'
+	'if'
+	'is'
+	'local'
+	'method'
+	'new'
+	'null'
+	'return'
+	'switch'
+	'throw'
+	'true'
+	'try'
+	'vararg'
+	'while'
 	
 CharLiteral:
 	"'" (Character | EscapeSequence) "'"
@@ -161,64 +166,64 @@ Decimal:
 	DecimalDigit {DecimalDigit | '_'}
 
 DecimalDigit:
-	0
-	1
-	2
-	3
-	4
-	5
-	6
-	7
-	8
-	9
+	'0'
+	'1'
+	'2'
+	'3'
+	'4'
+	'5'
+	'6'
+	'7'
+	'8'
+	'9'
 
 Binary:
 	'0b' BinaryDigit {BinaryDigit | '_'}
 
 BinaryDigit:
-	0
-	1
+	'0'
+	'1'
 
 Octal:
 	'0c' OctalDigit {OctalDigit | '_'}
 
 OctalDigit:
-	0
-	1
-	2
-	3
-	4
-	5
-	6
-	7
+	'0'
+	'1'
+	'2'
+	'3'
+	'4'
+	'5'
+	'6'
+	'7'
 
 Hexadecimal:
 	'0x' HexDigit {HexDigit | '_'}
 
 HexDigit:
-	0
-	1
-	2
-	3
-	4
-	5
-	6
-	7
-	8
-	9
-	A
-	a
-	B
-	b
-	C
-	c
-	D
-	d
-	E
-	e
-	F
-	f
-	
+	'0'
+	'1'
+	'2'
+	'3'
+	'4'
+	'5'
+	'6'
+	'7'
+	'8'
+	'9'
+	'A'
+	'a'
+	'B'
+	'b'
+	'C'
+	'c'
+	'D'
+	'd'
+	'E'
+	'e'
+	'F'
+	'f'
+
 FloatLiteral:
 	[DecimalDigit {DecimalDigit | '_'}] '.' DecimalDigit {DecimalDigit | '_'} [Exponent]
 	DecimalDigit {DecimalDigit | '_'} [Exponent]
@@ -239,18 +244,55 @@ Statement:
 	BlockStatement
 	ExpressionStatement
 	DeclarationStatement
+	IfStatement
+	WhileStatement
+	DoWhileStatement
+	ForStatement
+	ForeachStatement
+	SwitchStatement
+	ContinueStatement
+	BreakStatement
+	ReturnStatement
+	TryCatchStatement
+	ThrowStatement
+
+IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
+	
+WhileStatement:
 	'while' '(' Expression ')' Statement
+
+DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
+
+ForStatement:
 	'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
+	
+ForeachStatement:
 	'foreach' '(' 'local' Identifier {',' 'local' Identifier} ';' Expression {',' Expression} ')' Statement
+	
+SwitchStatement:
 	'switch' '(' Expression ')' '{' CaseStatement {CaseStatement} [DefaultStatement] '}'
+	
+CaseStatement:
 	'case' Expression {',' Expression} ':' {Statement}
+	
+DefaultStatement:
 	'default' ':' {Statement}
+	
+ContinueStatement:
 	'continue' ';'
+	
+BreakStatement:
 	'break' ';'
+	
+ReturnStatement:
 	'return' [Expression {',' Expression}] ';'
+	
+TryCatchStatement:
 	'try' BlockStatement (('catch' '(' Identifier ')' BlockStatement) || ('finally' BlockStatement))
+	
+ThrowStatement:
 	'throw' Expression ';'
 
 BlockStatement:
@@ -262,17 +304,31 @@ ExpressionStatement:
 DeclarationStatement:
 	LocalVariableDeclaration ';'
 	FunctionDeclaration
+	ClassDeclaration
 
 LocalVariableDeclaration:
 	'local' Identifier {',' Identifier} ['=' Expression]
 
 FunctionDeclaration:
-	'function' Identifier {'.' Identifier} [':' Identifier] Parameters BlockStatement
+	'function' Identifier {'.' Identifier} Parameters BlockStatement
 	'local' 'function' Identifier Parameters BlockStatement
+
+SimpleFunctionDeclaration:
+	'function' Identifier Parameters BlockStatement
 
 Parameters:
 	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
+	
+ClassDeclaration:
+	'class' Identifier [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
+	
+ClassMember:
+	MethodDeclaration
+	Identifier '=' Expression ';'
+	
+MethodDeclaration:
+	'method' Identifier Parameters BlockStatement
 
 BaseExpression:
 	Assignment
@@ -324,17 +380,21 @@ AndExpression:
 
 EqualExpression:
 	RelExpression
+	AsExpression
 	EqualExpression '==' RelExpression
 	EqualExpression '!=' RelExpression
 	EqualExpression 'is' RelExpression
 	EqualExpression '!' 'is' RelExpression
-	
+
 RelExpression:
 	ShiftExpression
 	RelExpression '<' ShiftExpression
 	RelExpression '<=' ShiftExpression
 	RelExpression '>' ShiftExpression
 	RelExpression '>=' ShiftExpression
+	
+AsExpression:
+	AsExpression 'as' Expression
 
 ShiftExpression:
 	ShiftExpression '<<' AddExpression
@@ -379,7 +439,10 @@ PrimaryExpression:
 	CharLiteral
 	StringLiteral
 	'function' Parameters BlockStatement
+	'class' [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
 	'(' Expression ')'
+	'new' Expression [Parameters]
+	'delegate' Expression ':' Identifier
 	TableCtor
 	ArrayCtor
 
@@ -389,7 +452,7 @@ TableCtor:
 TableField:
 	Identifier '=' Expression
 	'[' Expression ']' '=' Expression
-	'function' Identifier Parameters BlockStatement
+	SimpleFunctionDeclaration
 
 ArrayCtor:
 	'[' [Expression {',' Expression}] ']'
