@@ -6,8 +6,10 @@ enum Op : uint
 {
 	Add,
 	And,
+	As,
 	Call,
 	Cat,
+	Class,
 	Close,
 	Closure,
 	Cmp,
@@ -35,6 +37,7 @@ enum Op : uint
 	Mul,
 	Neg,
 	NewArray,
+	NewInstance,
 	NewTable,
 	Not,
 	Or,
@@ -63,8 +66,10 @@ static assert(Op.max <= Instruction.opcodeMax);
 /*
 Add...............R: dest, src, src
 And...............R: dest, src, src
+As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, src
+Class.............R: dest, class def index, base class reg
 Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
 Cmp...............R: n/a, src, src
@@ -75,7 +80,7 @@ Foreach...........I: base reg, num indices
 GetGlobal.........I: dest, const index of global name
 GetUpvalue........I: dest, upval index
 Index.............R: dest, src table/array, src index
-IndexAssign.......R: dest table/array, src index, src
+IndexAssign.......R: dest table/array, dest index, src
 Is................R: n/a, src, src
 IsTrue............R: n/a, src, n/a
 Je................J: isTrue, branch offset
@@ -92,6 +97,7 @@ Move..............R: dest, src, n/a
 Mul...............R: dest, src, src
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
+NewInstance.......R: dest, register of type to instance, num params + 1 (0 = use all to end of stack)
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 Or................R: dest, src, src
@@ -178,10 +184,14 @@ align(1) struct Instruction
 				return string.format("add r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.And:
 				return string.format("and r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.As:
+				return string.format("as r%s, r%s, r%s", rd, rs1, rs2);
 			case Op.Call:
 				return string.format("call r%s, %s, %s", rd, rs1, rs2);
 			case Op.Cat:
 				return string.format("cat r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Class:
+				return string.format("class r%s, %s, r%s", rd, rs1, rs2);
 			case Op.Close:
 				return string.format("close r%s", rd);
 			case Op.Closure:
@@ -248,6 +258,8 @@ align(1) struct Instruction
 				return string.format("neg r%s, %s", rd, cr(rs1));
 			case Op.NewArray:
 				return string.format("newarr r%s, %s", rd, imm);
+			case Op.NewInstance:
+				return string.format("newinst r%s, r%s, %s", rd, rs1, rs2);
 			case Op.NewTable:
 				return string.format("newtab r%s", rd);
 			case Op.Not:

@@ -92,6 +92,7 @@ Callback iteration:
 */
 
 //debug = REGPUSHPOP;
+//debug = VARACTIVATE;
 
 import minid.state;
 import baselib = minid.baselib;
@@ -1538,6 +1539,7 @@ enum ExpType
 	Indexed,
 	Vararg,
 	Closure,
+	Class,
 	Call,
 	NeedsDest,
 	Src
@@ -1583,7 +1585,7 @@ class FuncState
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
-	protected MDClassDef[] mClasses;
+	protected ClassDef[] mClasses;
 	protected Location mLocation;
 	protected MDValue[] mConstants;
 	protected uint mNumParams;
@@ -1644,11 +1646,6 @@ class FuncState
 		if(parent !is null)
 			parent.mInnerFuncs ~= this;
 	}
-	
-	public void addClass(MDClassDef c)
-	{
-		mClasses ~= c;	
-	}
 
 	public void pushScope()
 	{
@@ -1666,8 +1663,9 @@ class FuncState
 	public void popScope(uint line)
 	{
 		Scope* s = mScope;
+		assert(s !is null, "scope underflow");
+
 		mScope = mScope.enclosing;
-		assert(mScope !is null, "scope underflow");
 
 		if(s.hasUpval)
 			codeClose(line, s.varStart);
@@ -1716,7 +1714,7 @@ class FuncState
 		if(intExp)
 		{
 			if(mSwitch.isString == true)
-				throw new MDCompileException(exp.mLocation, "Case value must be a string literal");
+				throw new MDCompileException(exp.mLocation, "Case value must be a  literal");
 
 			int* oldOffset = (intExp.mValue in mSwitch.intOffsets);
 
@@ -1803,7 +1801,7 @@ class FuncState
 	{
 		for(int i = mLocVars.length - 1; i >= cast(int)(mLocVars.length - num); i--)
 		{
-			//writefln("activating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+			debug(VARACTIVATE) writefln("activating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
 			mLocVars[i].isActive = true;
 		}
 	}
@@ -1814,7 +1812,7 @@ class FuncState
 		{
 			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
 			{
-				//writefln("deactivating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+				debug(VARACTIVATE) writefln("deactivating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
 				popRegister(mLocVars[i].reg);
 				mLocVars[i].isActive = false;
 			}
@@ -2027,6 +2025,19 @@ class FuncState
 		e.type = ExpType.Closure;
 		e.index = index;
 	}
+	
+	public void pushClass(ClassDef c)
+	{
+		mClasses ~= c;
+
+		Exp baseClass = *popSource(c.mLocation.line);
+		Exp* e = pushExp();
+
+		e.type = ExpType.Class;
+		e.index = baseClass.index;
+		e.isTempReg = baseClass.isTempReg;
+		e.index2 = mClasses.length - 1;
+	}
 
 	public void freeExpTempRegs(Exp* e)
 	{
@@ -2064,12 +2075,12 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
-				uint destReg = pushRegister();
-				popToRegister(line, destReg);
+				Exp* src = popSource(line);
 
-				codeI(line, Op.SetUpvalue, destReg, dest.index);
+				codeI(line, Op.SetUpvalue, src.index, dest.index);
 
-				popRegister(destReg);
+				freeExpTempRegs(src);
+				delete src;
 				break;
 
 			case ExpType.Global:
@@ -2160,6 +2171,11 @@ class FuncState
 				}
 
 				break;
+				
+			case ExpType.Class:
+				codeR(line, Op.Class, reg, src.index2, src.index);
+				freeExpTempRegs(src);
+				break;
 
 			case ExpType.Call:
 				mCode[src.index].rs2 = 2;
@@ -2238,6 +2254,15 @@ class FuncState
 		e.type = ExpType.Call;
 		e.index2 = firstReg;
 		e.isTempReg2 = true;
+	}
+	
+	public void pushNew(uint line, uint firstReg, uint numRegs)
+	{
+		uint pc = codeR(line, Op.NewInstance, 0, firstReg, numRegs);
+		
+		Exp* dest = pushExp();
+		dest.type = ExpType.NeedsDest;
+		dest.index = pc;
 	}
 
 	public void popMoveFromReg(uint line, uint srcReg)
@@ -2411,6 +2436,11 @@ class FuncState
 				}
 
 				temp.isTempReg = true;
+				break;
+				
+			case ExpType.Class:
+				temp.index = e.index;
+				codeR(line, Op.Class, temp.index, e.index2, e.index);
 				break;
 
 			case ExpType.Src:
@@ -2713,16 +2743,11 @@ class FuncState
 			s.showMe(tab + 1);
 		}
 		
-		foreach(uint i, MDClassDef c; mClasses)
+		foreach(uint i, ClassDef c; mClasses)
 		{
 			writefln(string.repeat("\t", tab + 1), "Class ", i);
-			writefln(string.repeat("\t", tab + 1), "Class at ", c.mLocation.toString(), " (guessed name: %s)", c.mGuessedName);
 			
-			foreach(dchar[] f; c.mFields)
-				writefln(string.repeat("\t", tab + 2), "Field: ", f);
-				
-			foreach(dchar[] m; c.mMethodNames)
-				writefln(string.repeat("\t", tab + 2), "Method: ", m);
+			c.showMe(tab + 1);
 		}
 
 		foreach(uint i, inout SwitchDesc* t; mSwitchTables)
@@ -2795,7 +2820,10 @@ class FuncState
 		for(int i = 0; i < mInnerFuncs.length; i++)
 			ret.mInnerFuncs[i] = mInnerFuncs[i].toFuncDef();
 			
-		ret.mClasses = mClasses;
+		ret.mClasses.length = mClasses.length;
+		
+		for(int i = 0; i < mClasses.length; i++)
+			ret.mClasses[i] = mClasses[i].toClassDef();
 
 		ret.mConstants = mConstants;
 		ret.mNumParams = mNumParams;
@@ -2837,6 +2865,215 @@ class FuncState
 	}
 }
 
+class ClassDef
+{
+	protected Location mLocation;
+	protected Location mEndLocation;
+	protected Identifier mName;
+	protected Identifier[] mBaseClass;
+	protected MethodDecl[] mMethods;
+
+	struct Field
+	{
+		dchar[] name;
+		MDValue defaultValue;
+	}
+
+	protected Field[] mFields;
+	protected FuncState[] mMethodStates;
+	
+	public this(Identifier name, Identifier[] baseClass, MethodDecl[] methods, Field[] fields, Location location, Location endLocation)
+	{
+		mName = name;
+		mBaseClass = baseClass;
+		mMethods = methods;
+		mFields = fields;
+		mLocation = location;
+		mEndLocation = endLocation;
+	}
+
+	public static void parseBody(Location location, inout Token* t, out MethodDecl[] methods, out Field[] fields, out Location endLocation)
+	{
+		t.check(Token.Type.LBrace);
+		t = t.nextToken;
+		
+		methods = new MethodDecl[10];
+		int iMethod = 0;
+
+		void addMethod(MethodDecl m)
+		{
+			if(iMethod >= methods.length)
+				methods.length = methods.length * 2;
+
+			methods[iMethod] = m;
+			iMethod++;
+		}
+
+		fields = new Field[10];
+		int iField = 0;
+
+		void addField(dchar[] name, Expression v)
+		{
+			if(iField >= fields.length)
+				fields.length = fields.length * 2;
+
+			fields[iField].name = name;
+			
+			if(cast(NullExp)v)
+				fields[iField].defaultValue.setNull();
+			else if(cast(BoolExp)v)
+				fields[iField].defaultValue.value = (cast(BoolExp)v).mValue;
+			else if(cast(IntExp)v)
+				fields[iField].defaultValue.value = (cast(IntExp)v).mValue;
+			else if(cast(FloatExp)v)
+				fields[iField].defaultValue.value = (cast(FloatExp)v).mValue;
+			else if(cast(StringExp)v)
+				fields[iField].defaultValue.value = (cast(StringExp)v).mValue;
+			else
+				throw new MDCompileException(v.mLocation, "Class field initializer must be constant");
+
+			iField++;
+		}
+
+		while(t.type != Token.Type.RBrace)
+		{
+			switch(t.type)
+			{
+				case Token.Type.Method:
+					addMethod(MethodDecl.parse(t));
+					break;
+					
+				case Token.Type.Ident:
+					Identifier id = Identifier.parse(t);
+
+					t.check(Token.Type.Assign);
+					t = t.nextToken;
+
+					dchar[] name = utf.toUTF32(id.mName);
+					Expression v = OpEqExp.parse(t);
+					
+					t.check(Token.Type.Semicolon);
+					t = t.nextToken;
+					
+					addField(name, v);
+					break;
+					
+				default:
+					break;
+			}
+		}
+
+		methods.length = iMethod;
+		fields.length = iField;
+
+		if(t.type != Token.Type.RBrace)
+			throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
+			
+		endLocation = t.location;
+
+		t = t.nextToken;
+	}
+
+	public static Identifier[] parseBaseClass(inout Token* t)
+	{
+		Identifier[] baseClass;
+
+		if(t.type == Token.Type.Colon)
+		{
+			t = t.nextToken;
+
+			baseClass ~= Identifier.parse(t);
+
+			while(t.type == Token.Type.Dot)
+			{
+				t = t.nextToken;
+				baseClass ~= Identifier.parse(t);
+			}
+		}
+
+		if(baseClass.length == 0)
+			baseClass ~= new Identifier("Object", t.location);
+			
+		return baseClass;
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		mMethodStates.length = mMethods.length;
+
+		foreach(uint i, MethodDecl m; mMethods)
+			mMethodStates[i] = m.codeGenNoPush(s);
+			
+		s.pushVar(mBaseClass[0]);
+
+		foreach(Identifier n; mBaseClass[1 .. $])
+			s.popField(mLocation.line, n);
+
+		s.pushClass(this);
+	}
+
+	public void showMe(uint tab = 0)
+	{
+		char[] baseClassName = mBaseClass[0].mName;
+		
+		foreach(Identifier i; mBaseClass[1 .. $])
+			baseClassName ~= "." ~ i.mName;
+
+		char[] guessedName;
+		
+		if(mName is null)
+			guessedName = "class literal at " ~ mLocation.toString();
+		else
+			guessedName = mName.mName;
+
+		writefln(string.repeat("\t", tab), "Class at ", mLocation.toString(), " (guessed name: %s)", guessedName, " derives from ", baseClassName);
+
+		foreach(f; mFields)
+			writefln(string.repeat("\t", tab + 1), "Field: ", f.name, " = ", f.defaultValue.toString());
+
+		foreach(uint i, FuncState m; mMethodStates)
+		{
+			writefln(string.repeat("\t", tab + 1), "Method ", i);
+			m.showMe(tab + 1);
+		}
+	}
+	
+	public MDClassDef toClassDef()
+	{
+		MDClassDef cd = new MDClassDef();
+		
+		cd.mLocation = mLocation;
+		
+		if(mName is null)
+			cd.mGuessedName = "class literal at "d ~ utf.toUTF32(mLocation.toString());
+		else
+			cd.mGuessedName = utf.toUTF32(mName.mName);
+
+		cd.mBaseClass.length = mBaseClass.length;
+		
+		foreach(uint i, Identifier n; mBaseClass)
+			cd.mBaseClass[i] = utf.toUTF32(n.mName);
+
+		cd.mMethods.length = mMethods.length;
+
+		foreach(uint i, MethodDecl m; mMethods)
+		{
+			cd.mMethods[i].name = utf.toUTF32(m.mName.mName);
+			cd.mMethods[i].func = mMethodStates[i].toFuncDef();
+		}
+
+		cd.mFields.length = mFields.length;
+		
+		for(int i = 0; i < mFields.length; i++)
+		{
+			cd.mFields[i].name = mFields[i].name;
+			cd.mFields[i].defaultValue = mFields[i].defaultValue;
+		}
+		
+		return cd;
+	}
+}
+
 class Chunk
 {
 	protected Location mLocation;
@@ -2874,20 +3111,28 @@ class Chunk
 
 		return new Chunk(location, t.location, statements);
 	}
-
+	
 	public MDFuncDef codeGen()
 	{
 		FuncState fs = new FuncState(mLocation, "chunk " ~ mLocation.fileName);
 		fs.mIsVararg = true;
 
-		foreach(Statement s; mStatements)
-			s.codeGen(fs);
+		//try
+		//{
+			foreach(Statement s; mStatements)
+				s.codeGen(fs);
+		/*}
+		catch(Object o)
+		{
+			fs.showMe();
+			throw o;
+		}*/
 
 		fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -3180,98 +3425,6 @@ abstract class Declaration
 		return ret;
 	}
 
-	public static void parseClassBody(Location location, inout Token* t, out MethodDecl[] methods, out Expression[2][] fields, out Location endLocation)
-	{
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-		
-		methods = new MethodDecl[10];
-		int iMethod = 0;
-		
-		void addMethod(MethodDecl m)
-		{
-			if(iMethod >= methods.length)
-				methods.length = methods.length * 2;
-
-			methods[iMethod] = m;
-			iMethod++;
-		}
-
-		fields = new Expression[2][10];
-		int iField = 0;
-
-		void addField(Expression k, Expression v)
-		{
-			if(iField >= fields.length)
-				fields.length = fields.length * 2;
-
-			fields[iField][0] = k;
-			fields[iField][1] = v;
-			iField++;
-		}
-
-		while(t.type != Token.Type.RBrace)
-		{
-			switch(t.type)
-			{
-				case Token.Type.Method:
-					addMethod(MethodDecl.parse(t));
-					break;
-					
-				case Token.Type.Ident:
-					Identifier id = Identifier.parse(t);
-
-					t.check(Token.Type.Assign);
-					t = t.nextToken;
-
-					Expression k = new StringExp(id.mLocation, utf.toUTF32(id.mName));
-					Expression v = OpEqExp.parse(t);
-					
-					t.check(Token.Type.Semicolon);
-					t = t.nextToken;
-					
-					addField(k, v);
-					break;
-					
-				default:
-					break;
-			}
-		}
-
-		methods.length = iMethod;
-		fields.length = iField;
-
-		if(t.type != Token.Type.RBrace)
-			throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
-			
-		endLocation = t.location;
-
-		t = t.nextToken;
-	}
-	
-	public static Identifier[] parseBaseClass(inout Token* t)
-	{
-		Identifier[] baseClass;
-
-		if(t.type == Token.Type.Colon)
-		{
-			t = t.nextToken;
-
-			baseClass ~= Identifier.parse(t);
-
-			while(t.type == Token.Type.Dot)
-			{
-				t = t.nextToken;
-				baseClass ~= Identifier.parse(t);
-			}
-		}
-
-		if(baseClass.length == 0)
-			baseClass ~= new Identifier("Object", t.location);
-			
-		return baseClass;
-	}
-
 	public void codeGen(FuncState s)
 	{
 		assert(false, "no codegen routine");
@@ -3285,21 +3438,15 @@ abstract class Declaration
 
 class ClassDecl : Declaration
 {
-	protected Identifier mName;
-	protected Identifier[] mBaseClass;
-	protected MethodDecl[] mMethods;
-	protected Expression[2][] mFields;
+	protected ClassDef mDef;
 
-	public this(Identifier name, Identifier[] baseClass, MethodDecl[] methods, Expression[2][] fields, Location location, Location endLocation)
+	public this(Identifier name, Identifier[] baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
 	{
 		super(location, endLocation);
-		
-		mName = name;
-		mBaseClass = baseClass;
-		mMethods = methods;
-		mFields = fields;
+
+		mDef = new ClassDef(name, baseClass, methods, fields, location, endLocation);
 	}
-	
+
 	public static ClassDecl parse(inout Token* t)
 	{
 		Location location = t.location;
@@ -3309,39 +3456,22 @@ class ClassDecl : Declaration
 
 		Identifier name = Identifier.parse(t);
 		
-		Identifier[] baseClass = Declaration.parseBaseClass(t);
+		Identifier[] baseClass = ClassDef.parseBaseClass(t);
 
 		MethodDecl[] methods;
-		Expression[2][] fields;
+		ClassDef.Field[] fields;
 		Location endLocation;
-		
-		Declaration.parseClassBody(location, t, methods, fields, endLocation);
+
+		ClassDef.parseBody(location, t, methods, fields, endLocation);
 		
 		return new ClassDecl(name, baseClass, methods, fields, location, endLocation);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
-		MDClassDef cd = new MDClassDef();
-		
-		cd.mLocation = mLocation;
-		cd.mGuessedName = utf.toUTF32(mName.mName);
-		
-		cd.mMethodNames.length = mMethods.length;
-		cd.mMethods.length = mMethods.length;
-		
-		foreach(uint i, MethodDecl m; mMethods)
-		{
-			cd.mMethodNames[i] = utf.toUTF32(m.mName.mName);
-			cd.mMethods[i] = m.toFuncDef(s);
-		}
-
-		cd.mFields.length = mFields.length;
-		
-		for(int i = 0; i < mFields.length; i++)
-			cd.mFields[i] = (cast(StringExp)mFields[i][0]).mValue;
-			
-		s.addClass(cd);
+		mDef.codeGen(s);
+		s.pushVar(mDef.mName);
+		s.popAssign(mLocation.line);
 	}
 }
 
@@ -3631,7 +3761,7 @@ class MethodDecl : Declaration
 		super(location, endLocation);
 
 		mName = name;
-		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, utf.toUTF32(mName.mName));
+		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, utf.toUTF32(name.mName));
 	}
 
 	public static MethodDecl parse(inout Token* t)
@@ -3654,12 +3784,11 @@ class MethodDecl : Declaration
 		return new MethodDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
 	}
 
-	public MDFuncDef toFuncDef(FuncState s)
+	public FuncState codeGenNoPush(FuncState s)
 	{
 		mFunc.codeGen(s);
 		Exp* e = s.popExp();
-
-		return s.mInnerFuncs[e.index].toFuncDef();
+		return s.mInnerFuncs[e.index];
 	}
 
 	public override void writeCode(CodeWriter cw)
@@ -5711,6 +5840,12 @@ class CmpExp : BinaryExp
 					exp2 = ShiftExp.parse(t);
 					exp1 = new CmpExp(type, location, exp2.mEndLocation, exp1, exp2);
 					continue;
+					
+				case Token.Type.As:
+					t = t.nextToken;
+					exp2 = ShiftExp.parse(t);
+					exp1 = new AsExp(location, exp2.mEndLocation, exp1, exp2);
+					continue;
 
 				default:
 					break;
@@ -5774,6 +5909,23 @@ class CmpExp : BinaryExp
 			case Token.Type.GT: cw.write(" > "); break;
 			case Token.Type.GE: cw.write(" >= "); break;
 		}
+
+		mOp2.writeCode(cw);
+	}
+}
+
+class AsExp : BinaryExp
+{
+	public this(Location location, Location endLocation, Expression left, Expression right)
+	{
+		super(location, endLocation, Op.As, left, right);
+	}
+	
+	public override void writeCode(CodeWriter cw)
+	{
+		mOp1.writeCode(cw);
+
+		cw.write(" as ");
 
 		mOp2.writeCode(cw);
 	}
@@ -6548,6 +6700,14 @@ class PrimaryExp : Expression
 			case Token.Type.Function:
 				exp = FuncLiteralExp.parse(t);
 				break;
+				
+			case Token.Type.Class:
+				exp = ClassLiteralExp.parse(t);
+				break;
+				
+			case Token.Type.New:
+				exp = NewExp.parse(t);
+				break;
 
 			case Token.Type.LParen:
 				t = t.nextToken;
@@ -6555,6 +6715,10 @@ class PrimaryExp : Expression
 
 				t.check(Token.Type.RParen);
 				t = t.nextToken;
+				break;
+				
+			case Token.Type.Delegate:
+				exp = DelegateExp.parse(t);
 				break;
 
 			case Token.Type.LBrace:
@@ -6904,6 +7068,8 @@ class FuncLiteralExp : PrimaryExp
 
 		mBody.codeGen(fs);
 		fs.codeI(mBody.mEndLocation.line, Op.Ret, 0, 1);
+		
+		fs.popScope(mBody.mEndLocation.line);
 
 		s.pushClosure(fs);
 	}
@@ -6929,6 +7095,140 @@ class FuncLiteralExp : PrimaryExp
 
 		mBody.writeCode(cw);
 	}
+}
+
+class ClassLiteralExp : PrimaryExp
+{
+	protected ClassDef mDef;
+
+	public this(Identifier[] baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
+	{
+		super(location);
+
+		mDef = new ClassDef(null, baseClass, methods, fields, location, endLocation);
+	}
+	
+	public static ClassLiteralExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.Class);
+		t = t.nextToken;
+
+		Identifier[] baseClass = ClassDef.parseBaseClass(t);
+
+		MethodDecl[] methods;
+		ClassDef.Field[] fields;
+		Location endLocation;
+		
+		ClassDef.parseBody(location, t, methods, fields, endLocation);
+
+		return new ClassLiteralExp(baseClass, methods, fields, location, endLocation);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mDef.codeGen(s);
+	}
+	
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use a class literal as a condition");
+	}
+}
+
+class NewExp : PrimaryExp
+{
+	protected Expression mType;
+	protected Expression[] mArgs;
+
+	public this(Location location, Expression type, Expression[] args)
+	{
+		super(location);
+		mType = type;
+		mArgs = args;
+	}
+
+	public static NewExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t.check(Token.Type.New);
+		t = t.nextToken;
+
+		Expression type = OpEqExp.parse(t);
+		
+		t.check(Token.Type.LParen);
+		t = t.nextToken;
+
+		Expression[] args = new Expression[5];
+		uint i = 0;
+
+		void add(Expression arg)
+		{
+			if(i >= args.length)
+				args.length = args.length * 2;
+
+			args[i] = arg;
+			i++;
+		}
+
+		if(t.type != Token.Type.RParen)
+		{
+			while(true)
+			{
+				add(OpEqExp.parse(t));
+
+				if(t.type == Token.Type.RParen)
+					break;
+
+				t.check(Token.Type.Comma);
+				t = t.nextToken;
+			}
+		}
+
+		args.length = i;
+
+		t.check(Token.Type.RParen);
+		t = t.nextToken;
+
+		return new NewExp(location, type, args);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		uint typeReg = s.nextRegister();
+		mType.codeGen(s);
+
+		s.popToRegister(mType.mEndLocation.line, typeReg);
+		s.pushRegister();
+
+		assert(s.nextRegister() == typeReg + 1);
+
+		Expression.codeGenListToNextReg(s, mArgs);
+
+		if(mArgs.length == 0)
+			s.pushNew(mLocation.line, typeReg, 1);
+		else if(mArgs[$ - 1].isMultRet())
+			s.pushNew(mLocation.line, typeReg, 0);
+		else
+			s.pushNew(mLocation.line, typeReg, mArgs.length + 1);
+	}
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use a 'new' expression as a condition");
+	}
+
+	public override void writeCode(CodeWriter cw)
+	{
+		cw.write("<new expression>");
+	}
+}
+
+class DelegateExp : PrimaryExp
+{
+	
 }
 
 class TableCtorExp : PrimaryExp

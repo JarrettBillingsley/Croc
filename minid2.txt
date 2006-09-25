@@ -388,13 +388,11 @@ EqualExpression:
 
 RelExpression:
 	ShiftExpression
+	RelExpression 'as' ShiftExpression
 	RelExpression '<' ShiftExpression
 	RelExpression '<=' ShiftExpression
 	RelExpression '>' ShiftExpression
 	RelExpression '>=' ShiftExpression
-	
-AsExpression:
-	AsExpression 'as' Expression
 
 ShiftExpression:
 	ShiftExpression '<<' AddExpression
@@ -440,8 +438,8 @@ PrimaryExpression:
 	StringLiteral
 	'function' Parameters BlockStatement
 	'class' [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
+	'new' Expression Parameters
 	'(' Expression ')'
-	'new' Expression [Parameters]
 	'delegate' Expression ':' Identifier
 	TableCtor
 	ArrayCtor

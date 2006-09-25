@@ -1620,6 +1620,9 @@ class MDState
 					case Op.Jle:
 					case Op.Jlt:
 						assert(false, "lone conditional jump instruction");
+						
+					default:
+						throw new MDRuntimeException(this, "Unimplemented opcode \"%s\"", i.toString());
 				}
 			}
 		}

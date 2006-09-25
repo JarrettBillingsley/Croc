@@ -1,34 +1,25 @@
+local bbb = 4;
+local c;
+
 class Foo
 {
 	method foo()
 	{
 		writefln("x = ", this.x);
+		writefln(bbb);
 	}
-	
+
 	method bar()
 	{
 		writefln("y = ", this.y);
 	}
-	
+
 	x = 0;
 	y = 0;
 }
 
-class Foo
-{
-	x = 5;
-
-	method bar()
-	{
-		writefln("x = ", this.x);
-	}
-}
-
-local f = new Foo();
-local d = delegate f:bar;
-
-// writes "x = 5"
-d();
+c = class : Foo { x = 0; };
+c:blah();
 
 /*local function foo()
 {

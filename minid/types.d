@@ -1291,6 +1291,24 @@ struct MDValue
 		mFloat = n;
 	}
 	
+	public void value(char[] s)
+	{
+		mType = Type.String;
+		mObj = new MDString(s);
+	}
+	
+	public void value(wchar[] s)
+	{
+		mType = Type.String;
+		mObj = new MDString(s);
+	}
+	
+	public void value(dchar[] s)
+	{
+		mType = Type.String;
+		mObj = new MDString(s);
+	}
+
 	public void value(MDObject o)
 	{
 		mObj = o;
@@ -1447,7 +1465,21 @@ class MDClassDef
 {
 	package Location mLocation;
 	package dchar[] mGuessedName;
-	package dchar[][] mMethodNames;
-	package MDFuncDef[] mMethods;
-	package dchar[][] mFields;
+	package dchar[][] mBaseClass;
+
+	struct Method
+	{
+		dchar[] name;
+		MDFuncDef func;
+	}
+	
+	package Method[] mMethods;
+	
+	struct Field
+	{
+		dchar[] name;
+		MDValue defaultValue;
+	}
+
+	package Field[] mFields;
 }
