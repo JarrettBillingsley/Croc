@@ -18,8 +18,9 @@ class Foo
 	y = 0;
 }
 
-c = class : Foo { x = 0; };
-c:blah();
+c = new class : Foo { x = 0; };
+
+
 
 /*local function foo()
 {

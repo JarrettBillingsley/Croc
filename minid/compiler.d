@@ -2264,6 +2264,16 @@ class FuncState
 		dest.type = ExpType.NeedsDest;
 		dest.index = pc;
 	}
+	
+	public void pushDelegate(uint line, uint srcReg, dchar[] name)
+	{
+		uint idx = codeStringConst(name) | Instruction.constBit;
+		uint pc = codeR(line, Op.Delegate, 0, srcReg, idx);
+
+		Exp* dest = pushExp();
+		dest.type = ExpType.NeedsDest;
+		dest.index = pc;
+	}
 
 	public void popMoveFromReg(uint line, uint srcReg)
 	{
@@ -7158,39 +7168,48 @@ class NewExp : PrimaryExp
 
 		Expression type = OpEqExp.parse(t);
 		
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		Expression[] args;
 
-		Expression[] args = new Expression[5];
-		uint i = 0;
-
-		void add(Expression arg)
+		if(cast(CallExp)type)
 		{
-			if(i >= args.length)
-				args.length = args.length * 2;
-
-			args[i] = arg;
-			i++;
+			
 		}
-
-		if(t.type != Token.Type.RParen)
+		else
 		{
-			while(true)
+			t.check(Token.Type.LParen);
+			t = t.nextToken;
+	
+			Expression[] args = new Expression[5];
+			uint i = 0;
+	
+			void add(Expression arg)
 			{
-				add(OpEqExp.parse(t));
-
-				if(t.type == Token.Type.RParen)
-					break;
-
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
+				if(i >= args.length)
+					args.length = args.length * 2;
+	
+				args[i] = arg;
+				i++;
 			}
+	
+			if(t.type != Token.Type.RParen)
+			{
+				while(true)
+				{
+					add(OpEqExp.parse(t));
+	
+					if(t.type == Token.Type.RParen)
+						break;
+	
+					t.check(Token.Type.Comma);
+					t = t.nextToken;
+				}
+			}
+	
+			args.length = i;
+	
+			t.check(Token.Type.RParen);
+			t = t.nextToken;
 		}
-
-		args.length = i;
-
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
 
 		return new NewExp(location, type, args);
 	}
@@ -7228,7 +7247,60 @@ class NewExp : PrimaryExp
 
 class DelegateExp : PrimaryExp
 {
+	protected Expression mExpr;
+	protected Identifier mIdent;
 	
+	public this(Location location, Expression expr, Identifier ident)
+	{
+		super(location);
+		
+		mExpr = expr;
+		mIdent = ident;
+	}
+
+	public static DelegateExp parse(inout Token* t)
+	{
+		Location location = t.location;
+		
+		t.check(Token.Type.Delegate);
+		t = t.nextToken;
+		
+		Expression expr = OpEqExp.parse(t);
+		
+		t.check(Token.Type.Colon);
+		t = t.nextToken;
+		
+		Identifier ident = Identifier.parse(t);
+		
+		return new DelegateExp(location, expr, ident);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mExpr.codeGen(s);
+		Exp* src = s.popSource(mLocation.line);
+		s.freeExpTempRegs(src);
+		
+		s.pushDelegate(mLocation.line, src.index, utf.toUTF32(mIdent.mName));
+
+		delete src;
+	}
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use a 'delegate' expression as a condition");
+	}
+
+	public override void writeCode(CodeWriter cw)
+	{
+		cw.write("delegate ");
+		
+		mExpr.writeCode(cw);
+		
+		cw.write(" : ");
+		
+		mIdent.writeCode(cw);
+	}
 }
 
 class TableCtorExp : PrimaryExp

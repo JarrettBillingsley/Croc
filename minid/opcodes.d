@@ -14,6 +14,7 @@ enum Op : uint
 	Closure,
 	Cmp,
 	Com,
+	Delegate,
 	Div,
 	EndFinal,
 	Foreach,
@@ -74,6 +75,7 @@ Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
 Cmp...............R: n/a, src, src
 Com...............R: dest, src, n/a
+Delegate..........R: dest, src, ident const index
 Div...............R: dest, src, src
 EndFinal..........I: n/a, n/a
 Foreach...........I: base reg, num indices
@@ -200,6 +202,8 @@ align(1) struct Instruction
 				return string.format("cmp %s, %s", cr(rs1), cr(rs2));
 			case Op.Com:
 				return string.format("com r%s, %s", rd, cr(rs1));
+			case Op.Delegate:
+				return string.format("dg r%s, %s, %s", rd, cr(rs1), rs2);
 			case Op.Div:
 				return string.format("div r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.EndFinal:

@@ -438,7 +438,7 @@ PrimaryExpression:
 	StringLiteral
 	'function' Parameters BlockStatement
 	'class' [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
-	'new' Expression Parameters
+	'new' Expression [Parameters]
 	'(' Expression ')'
 	'delegate' Expression ':' Identifier
 	TableCtor
