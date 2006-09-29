@@ -51,23 +51,7 @@ class MDException : Exception
 
 		char[] msg;
 
-		/*if(value.isTable())
-		{
-			MDValue key;
-			MDString k = new MDString("msg"d);
-			key.value = k;
-			
-			MDValue* message = value.asTable[&key];
-			
-			if(message.isString())
-				msg = message.asString.asUTF8;
-			else
-				msg = value.toString();
-
-			delete k;
-		}
-		else*/
-			msg = value.toString();
+		msg = value.toString();
 
 		super(msg);
 	}
@@ -91,7 +75,7 @@ class MDCompileException : MDException
 class MDRuntimeException : MDException
 {
 	public Location location;
-	
+
 	public this(MDState s, MDValue* val)
 	{
 		location = s.getDebugLocation();
@@ -909,8 +893,17 @@ class MDInstance : MDObject
 
 class MDDelegate : MDObject
 {
-	protected MDValue mContext;
+	protected MDValue[] mContext;
 	protected MDClosure mClosure;
+	protected MDValue mWrapper;
+
+	public this(MDState s, MDClosure closure, MDValue[] context)
+	{
+		mClosure = closure;
+		mContext = context;
+
+		mWrapper.value = new MDClosure(s, &call, "delegate caller"d);
+	}
 
 	public override MDDelegate asDelegate()
 	{
@@ -929,7 +922,39 @@ class MDDelegate : MDObject
 
 	public char[] toString()
 	{
-		return string.format("delegate context:(%s) function:(%s)", mContext.toString(), mClosure.toString());
+		char[] ret = string.format("delegate %s(", mClosure.toString());
+
+		foreach(i, v; mContext)
+		{
+			if(i == mContext.length - 1)
+				ret = string.format("%s%s", ret, v.toString());
+			else
+				ret = string.format("%s%s, ", ret, v.toString());
+		}
+
+		return ret ~ ")";
+	}
+	
+	private int call(MDState s)
+	{
+		uint numParams = s.numParams();
+		uint funcReg = s.push(mClosure);
+
+		foreach(MDValue v; mContext)
+			s.push(&v);
+
+		// start at 1, because param 0 is "this"
+		for(uint i = 1; i < numParams; i++)
+			s.push(s.getParam(i));
+			
+		s.call(funcReg, mContext.length + numParams, -1);
+		
+		return s.numParams();
+	}
+
+	package MDValue* getCaller()
+	{
+		return &mWrapper;
 	}
 }
 
@@ -1092,26 +1117,26 @@ struct MDValue
 		return mType;
 	}
 	
-	public static char[] typeString(Type type)
+	public static dchar[] typeString(Type type)
 	{
 		switch(type)
 		{
-			case Type.Null:		return "null";
-			case Type.Bool:		return "bool";
-			case Type.Int:		return "int";
-			case Type.Float:	return "float";
-			case Type.String:	return "string";
-			case Type.Table:	return "table";
-			case Type.Array:	return "array";
-			case Type.Function:	return "function";
-			case Type.UserData:	return "userdata";
-			case Type.Class:	return "class";
-			case Type.Instance:	return "instance";
-			case Type.Delegate:	return "delegate";
+			case Type.Null:		return "null"d;
+			case Type.Bool:		return "bool"d;
+			case Type.Int:		return "int"d;
+			case Type.Float:	return "float"d;
+			case Type.String:	return "string"d;
+			case Type.Table:	return "table"d;
+			case Type.Array:	return "array"d;
+			case Type.Function:	return "function"d;
+			case Type.UserData:	return "userdata"d;
+			case Type.Class:	return "class"d;
+			case Type.Instance:	return "instance"d;
+			case Type.Delegate:	return "delegate"d;
 		}
 	}
 
-	public char[] typeString()
+	public dchar[] typeString()
 	{
 		return typeString(mType);
 	}

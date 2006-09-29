@@ -14,7 +14,6 @@ enum Op : uint
 	Closure,
 	Cmp,
 	Com,
-	Delegate,
 	Div,
 	EndFinal,
 	Foreach,
@@ -38,7 +37,6 @@ enum Op : uint
 	Mul,
 	Neg,
 	NewArray,
-	NewInstance,
 	NewTable,
 	Not,
 	Or,
@@ -75,7 +73,6 @@ Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
 Cmp...............R: n/a, src, src
 Com...............R: dest, src, n/a
-Delegate..........R: dest, src, ident const index
 Div...............R: dest, src, src
 EndFinal..........I: n/a, n/a
 Foreach...........I: base reg, num indices
@@ -99,7 +96,6 @@ Move..............R: dest, src, n/a
 Mul...............R: dest, src, src
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
-NewInstance.......R: dest, register of type to instance, num params + 1 (0 = use all to end of stack)
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 Or................R: dest, src, src
@@ -202,8 +198,6 @@ align(1) struct Instruction
 				return string.format("cmp %s, %s", cr(rs1), cr(rs2));
 			case Op.Com:
 				return string.format("com r%s, %s", rd, cr(rs1));
-			case Op.Delegate:
-				return string.format("dg r%s, %s, %s", rd, cr(rs1), rs2);
 			case Op.Div:
 				return string.format("div r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.EndFinal:
@@ -262,8 +256,6 @@ align(1) struct Instruction
 				return string.format("neg r%s, %s", rd, cr(rs1));
 			case Op.NewArray:
 				return string.format("newarr r%s, %s", rd, imm);
-			case Op.NewInstance:
-				return string.format("newinst r%s, r%s, %s", rd, rs1, rs2);
 			case Op.NewTable:
 				return string.format("newtab r%s", rd);
 			case Op.Not:

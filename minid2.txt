@@ -101,7 +101,6 @@ Keyword:
 	'catch'
 	'continue'
 	'default'
-	'delegate'
 	'do'
 	'else'
 	'false'
@@ -113,7 +112,6 @@ Keyword:
 	'is'
 	'local'
 	'method'
-	'new'
 	'null'
 	'return'
 	'switch'
@@ -438,9 +436,7 @@ PrimaryExpression:
 	StringLiteral
 	'function' Parameters BlockStatement
 	'class' [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
-	'new' Expression [Parameters]
 	'(' Expression ')'
-	'delegate' Expression ':' Identifier
 	TableCtor
 	ArrayCtor
 

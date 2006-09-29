@@ -100,6 +100,8 @@ class MDState
 
 	protected MDTable mGlobals;
 	protected MDUpval* mUpvalHead;
+	
+	protected Location[] mTraceback;
 
 	// ===================================================================================
 	// Public members
@@ -117,6 +119,16 @@ class MDState
 
 		mGlobals = new MDTable();
 	}
+	
+	debug public void printStack()
+	{
+		writefln();
+		writefln("-----Stack Dump-----");
+		for(uint i = 0; i < mStackIndex; i++)
+			writefln(i, ": ", mStack[i].toString());
+
+		writefln();
+	}
 
 	public uint pushNull()
 	{
@@ -127,12 +139,16 @@ class MDState
 	
 	public uint push(T)(T value)
 	{
+		if(mStackIndex >= mStack.length)
+			stackSize = mStack.length * 2;
+
 		static if(is(T : char[]) ||
 					is(T : wchar[]) ||
 					is(T : dchar[]))
 		{
 			MDValue val;
 			val.value = new MDString(value);
+			mStack[mStackIndex].value = &val;
 		}
 		else static if(is(T : bool) ||
 						is(T : int) ||
@@ -141,22 +157,23 @@ class MDState
 		{
 			MDValue val;
 			val.value = value;
+			mStack[mStackIndex].value = &val;
+		}
+		else static if(is(T : MDValue))
+		{
+			mStack[mStackIndex].value = &value;
 		}
 		else static if(is(T : MDValue*))
 		{
-			alias value val;
+			mStack[mStackIndex].value = value;
 		}
 		else
 		{
 			// An interesting way to report errors, since static assert doesn't show the "call stack"
-			MDStatePush_InvalidArgumentType();
+			ERROR_MDState_Push_InvalidArgumentType();
 			//static assert(false, "MDState.push() - invalid argument type");
 		}
 
-		if(mStackIndex >= mStack.length)
-			stackSize = mStack.length * 2;
-
-		mStack[mStackIndex].value = val;
 		mStackIndex++;
 
 		debug(STACKINDEX) writefln("push() set mStackIndex to ", mStackIndex, " (pushed %s)", val.toString());
@@ -188,12 +205,15 @@ class MDState
 				copyAbsStack(i, i - 1);
 
 			mStackIndex++;
-			
+
 			debug(STACKINDEX) writefln("call() got the call MM and set mStackIndex to ", mStackIndex);
 
 			// func stack reference may have been invalidated by needStackSlots
 			func = getAbsStack(slot);
 			func.value = method;
+			
+			// include the "this"
+			numParams++;
 		}
 
 		MDClosure closure = func.asFunction();
@@ -206,7 +226,7 @@ class MDState
 			needStackSlots(20);
 
 			mStackIndex = slot + 1 + numParams;
-			
+
 			debug(STACKINDEX) writefln("call called a native func and set mStackIndex to ", mStackIndex);
 
 			pushAR();
@@ -347,7 +367,7 @@ class MDState
 		else
 		{
 			// An interesting way to report errors, since static assert doesn't show the "call stack"
-			MDStateSetGlobal_InvalidArgumentType();
+			ERROR_MDState_SetGlobal_InvalidArgumentType();
 			//static assert(false, "MDState.setGlobal() - invalid argument type");
 		}
 	}
@@ -413,7 +433,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isBool() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'bool' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'bool' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asBool();
 	}
@@ -426,7 +446,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isInt() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'int' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'int' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asInt();
 	}
@@ -439,7 +459,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isFloat() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'float' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'float' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asFloat();
 	}
@@ -452,7 +472,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isString() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asString.asUTF8();
 	}
@@ -465,7 +485,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isString() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asString.asUTF16();
 	}
@@ -478,7 +498,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isString() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asString.asUTF32();
 	}
@@ -491,7 +511,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isArray() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'array' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'array' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asArray();
 	}
@@ -504,9 +524,22 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isTable() == false)
-			badParamError(index, mCurrentAR.func.toString(), "expected 'table' but got '" ~ val.typeString() ~ "'");
+			badParamError(index, mCurrentAR.func.toString(), "expected 'table' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asTable();
+	}
+	
+	public MDClosure getClosureParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isFunction() == false)
+			badParamError(index, mCurrentAR.func.toString(), "expected 'function' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+
+		return val.asFunction();
 	}
 	
 	public MDValue[] getAllParams()
@@ -518,6 +551,21 @@ class MDState
 		params[] = mStack[mCurrentAR.base .. mStackIndex];
 		
 		return params;
+	}
+	
+	public char[] getTracebackString()
+	{
+		if(mTraceback.length == 0)
+			return "";
+			
+		char[] ret = string.format("Traceback: ", mTraceback[0].toString());
+		
+		foreach(inout Location l; mTraceback[1 .. $])
+			ret = string.format("%s\n\tat ", ret, l.toString());
+
+		mTraceback.length = 0;
+		
+		return ret;
 	}
 
 	// ===================================================================================
@@ -895,7 +943,12 @@ class MDState
 			case MDValue.Type.UserData:
 				t = obj.asUserData().metatable;
 				break;
-
+				
+			case MDValue.Type.Delegate:
+				if(method == MM.Call)
+					return obj.asDelegate().getCaller();
+				
+				// else fall through
 			default:
 				t = MDGlobalState().getMetatable(obj.type);
 				break;
@@ -1166,7 +1219,6 @@ class MDState
 
 	public void execute()
 	{
-		//Instruction* pc = mCurrentAR.pc;
 		MDException currentException = null;
 
 		_exceptionRetry:
@@ -1628,6 +1680,8 @@ class MDState
 		}
 		catch(MDException e)
 		{
+			mTraceback ~= getDebugLocation();
+			
 			while(mCurrentTR.actRecord is mARIndex)
 			{
 				TryRecord tr = *mCurrentTR;

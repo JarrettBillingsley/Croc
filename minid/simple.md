@@ -1,4 +1,4 @@
-local bbb = 4;
+/*local bbb = 4;
 local c;
 
 class Foo
@@ -18,9 +18,24 @@ class Foo
 	y = 0;
 }
 
-c = new class : Foo { x = 0; };
+c = class : Foo { x = 0; }();*/
 
-
+try
+{
+	local function foo(this)
+	{
+		writefln("x = ", this.x);
+	}
+	
+	local t = { x = 4 };
+	local d = delegate(foo);
+	d();
+}
+catch(e)
+{
+	writefln("caught: ", e);
+	writefln(getTraceback());
+}
 
 /*local function foo()
 {

@@ -41,11 +41,11 @@ class Foo
 	x = 0;
 }
 
-local f = new Foo();
+local f = Foo();
 f.x = 5;
 f:m(); // writes 5
 
-local g = new Foo();
+local g = Foo();
 g.x = 2;
 Foo.m(g); // writes 2
 
@@ -64,31 +64,7 @@ d(param3); // == f(param1, param2, param3);
 New keywords:
 'method' - Like declaring a "obj:method()" function - just inserts an implicit "this"
 'as' - Attempts to downcast a class instance (inst as Class)
-'delegate' - Binds a context to a function to be passed as the first param - new datatype "delegate"
 'class' - Duh
-'new' - Duh
-
-Callback iteration:
-	+ Easier to write iterators: it's the iterator that needs the static state, not the loop body
-	- Have to create closure for loop body; overhead of calling/returning for each loop
-		> But of course these things can be worked around and optimized
-
-	Be something like:
-	
-	inner func 0: (foreach body)
-		blah
-		blah
-		blah
-
-	evaluate iterator
-	foreach <iterator reg>, 0
-	
-	Which would:
-		1. Create a closure from the foreach body
-		2. Call the iterator with the closure as its param
-		3. Delete the closure upon completion
-
-	Iterators can be either a function or something which implements opApply.
 */
 
 //debug = REGPUSHPOP;
@@ -267,7 +243,6 @@ struct Token
 		Class,
 		Continue,
 		Default,
-		Delegate,
 		Do,
 		Else,
 		False,
@@ -279,7 +254,6 @@ struct Token
 		Is,
 		Local,
 		Method,
-		New,
 		Null,
 		Return,
 		Switch,
@@ -311,8 +285,8 @@ struct Token
 		GE,
 		Shr,
 		ShrEq,
-		Ushr,
-		UshrEq,
+		UShr,
+		UShrEq,
 		And,
 		AndEq,
 		AndAnd,
@@ -348,90 +322,88 @@ struct Token
 
 	public static const char[][] tokenStrings =
 	[
-		"as",
-		"break",
-		"case",
-		"catch",
-		"class",
-		"continue",
-		"default",
-		"delegate",
-		"do",
-		"else",
-		"false",
-		"finally",
-		"for",
-		"foreach",
-		"function",
-		"if",
-		"is",
-		"local",
-		"method",
-		"new",
-		"null",
-		"return",
-		"switch",
-		"throw",
-		"true",
-		"try",
-		"vararg",
-		"while",
+		Type.As: "as",
+		Type.Break: "break",
+		Type.Case: "case",
+		Type.Catch: "catch",
+		Type.Class: "class",
+		Type.Continue: "continue",
+		Type.Default: "default",
+		Type.Do: "do",
+		Type.Else: "else",
+		Type.False: "false",
+		Type.Finally: "finally",
+		Type.For: "for",
+		Type.Foreach: "foreach",
+		Type.Function: "function",
+		Type.If: "if",
+		Type.Is: "is",
+		Type.Local: "local",
+		Type.Method: "method",
+		Type.Null: "null",
+		Type.Return: "return",
+		Type.Switch: "switch",
+		Type.Throw: "throw",
+		Type.True: "true",
+		Type.Try: "try",
+		Type.Vararg: "vararg",
+		Type.While: "while",
 
-		"+",
-		"+=",
-		"++",
-		"-",
-		"-=",
-		"--",
-		"~",
-		"~=",
-		"*",
-		"*=",
-		"/",
-		"/=",
-		"%",
-		"%=",
-		"<",
-		"<=",
-		"<<",
-		"<<=",
-		">",
-		">=",
-		">>",
-		">>=",
-		">>>",
-		">>>=",
-		"&",
-		"&=",
-		"&&",
-		"|",
-		"|=",
-		"||",
-		"^",
-		"^=",
-		"=",
-		"==",
-		".",
-		"..",
-		"!",
-		"!=",
-		"(",
-		")",
-		"[",
-		"]",
-		"{",
-		"}",
-		":",
-		",",
-		";",
-		"#",
+		Type.Add: "+",
+		Type.AddEq: "+=",
+		Type.Inc: "++",
+		Type.Sub: "-",
+		Type.SubEq: "-=",
+		Type.Dec: "--",
+		Type.Cat: "~",
+		Type.CatEq: "~=",
+		Type.Mul: "*",
+		Type.MulEq: "*=",
+		Type.Div: "/",
+		Type.DivEq: "/=",
+		Type.Mod: "%",
+		Type.ModEq: "%=",
+		Type.LT: "<",
+		Type.LE: "<=",
+		Type.Shl: "<<",
+		Type.ShlEq: "<<=",
+		Type.GT: ">",
+		Type.GE: ">=",
+		Type.Shr: ">>",
+		Type.ShrEq: ">>=",
+		Type.UShr: ">>>",
+		Type.UShrEq: ">>>=",
+		Type.And: "&",
+		Type.AndEq: "&=",
+		Type.AndAnd: "&&",
+		Type.Or: "|",
+		Type.OrEq: "|=",
+		Type.OrOr: "||",
+		Type.Xor: "^",
+		Type.XorEq: "^=",
+		Type.Assign: "=",
+		Type.EQ: "==",
+		Type.Dot: ".",
+		Type.DotDot: "..",
+		Type.Not: "!",
+		Type.NE: "!=",
+		Type.LParen: "(",
+		Type.RParen: ")",
+		Type.LBracket: "[",
+		Type.RBracket: "]",
+		Type.LBrace: "{",
+		Type.RBrace: "}",
+		Type.Colon: ":",
+		Type.Comma: ",",
+		Type.Semicolon: ";",
+		Type.Length: "#",
 
-		"Identifier",
-		"Char Literal",
-		"String Literal",
-		"Int Literal",
-		"Float Literal",
-		"<EOF>"
+		Type.Ident: "Identifier",
+		Type.CharLiteral: "Char Literal",
+		Type.StringLiteral: "String Literal",
+		Type.IntLiteral: "Int Literal",
+		Type.FloatLiteral: "Float Literal",
+		Type.EOF: "<EOF>"
 	];
 
 	public static Type[char[]] stringToType;
@@ -445,7 +417,6 @@ struct Token
 		stringToType["class"] = Type.Class;
 		stringToType["continue"] = Type.Continue;
 		stringToType["default"] = Type.Default;
-		stringToType["delegate"] = Type.Delegate;
 		stringToType["do"] = Type.Do;
 		stringToType["else"] = Type.Else;
 		stringToType["false"] = Type.False;
@@ -457,7 +428,6 @@ struct Token
 		stringToType["is"] = Type.Is;
 		stringToType["local"] = Type.Local;
 		stringToType["method"] = Type.Method;
-		stringToType["new"] = Type.New;
 		stringToType["null"] = Type.Null;
 		stringToType["return"] = Type.Return;
 		stringToType["switch"] = Type.Switch;
@@ -1235,10 +1205,10 @@ class Lexer
 							if(mCharacter == '=')
 							{
 								nextChar();
-								token.type = Token.Type.UshrEq;
+								token.type = Token.Type.UShrEq;
 							}
 							else
-								token.type = Token.Type.Ushr;
+								token.type = Token.Type.UShr;
 						}
 						else
 							token.type = Token.Type.Shr;
@@ -2256,25 +2226,6 @@ class FuncState
 		e.isTempReg2 = true;
 	}
 	
-	public void pushNew(uint line, uint firstReg, uint numRegs)
-	{
-		uint pc = codeR(line, Op.NewInstance, 0, firstReg, numRegs);
-		
-		Exp* dest = pushExp();
-		dest.type = ExpType.NeedsDest;
-		dest.index = pc;
-	}
-	
-	public void pushDelegate(uint line, uint srcReg, dchar[] name)
-	{
-		uint idx = codeStringConst(name) | Instruction.constBit;
-		uint pc = codeR(line, Op.Delegate, 0, srcReg, idx);
-
-		Exp* dest = pushExp();
-		dest.type = ExpType.NeedsDest;
-		dest.index = pc;
-	}
-
 	public void popMoveFromReg(uint line, uint srcReg)
 	{
 		codeMoveFromReg(line, popExp(), srcReg);
@@ -5377,7 +5328,7 @@ class OpEqExp : BinaryExp
 				case Token.Type.ModEq:  type = Op.Mod;  goto _commonParse;
 				case Token.Type.ShlEq:  type = Op.Shl;  goto _commonParse;
 				case Token.Type.ShrEq:  type = Op.Shr;  goto _commonParse;
-				case Token.Type.UshrEq: type = Op.UShr; goto _commonParse;
+				case Token.Type.UShrEq: type = Op.UShr; goto _commonParse;
 				case Token.Type.OrEq:   type = Op.Or;   goto _commonParse;
 				case Token.Type.XorEq:  type = Op.Xor;  goto _commonParse;
 				case Token.Type.AndEq:  type = Op.And;
@@ -5951,7 +5902,7 @@ class ShiftExp : BinaryExp
 		{
 			case Token.Type.Shl: t = Op.Shl; break;
 			case Token.Type.Shr: t = Op.Shr; break;
-			case Token.Type.Ushr: t = Op.UShr; break;
+			case Token.Type.UShr: t = Op.UShr; break;
 			default: assert(false, "BaseShiftExp ctor type switch");
 		}
 
@@ -5973,7 +5924,7 @@ class ShiftExp : BinaryExp
 
 			switch(t.type)
 			{
-				case Token.Type.Shl, Token.Type.Shr, Token.Type.Ushr:
+				case Token.Type.Shl, Token.Type.Shr, Token.Type.UShr:
 					t = t.nextToken;
 					exp2 = AddExp.parse(t);
 					exp1 = new ShiftExp(location, exp2.mEndLocation, type, exp1, exp2);
@@ -6714,10 +6665,6 @@ class PrimaryExp : Expression
 			case Token.Type.Class:
 				exp = ClassLiteralExp.parse(t);
 				break;
-				
-			case Token.Type.New:
-				exp = NewExp.parse(t);
-				break;
 
 			case Token.Type.LParen:
 				t = t.nextToken;
@@ -6727,10 +6674,6 @@ class PrimaryExp : Expression
 				t = t.nextToken;
 				break;
 				
-			case Token.Type.Delegate:
-				exp = DelegateExp.parse(t);
-				break;
-
 			case Token.Type.LBrace:
 				exp = TableCtorExp.parse(t);
 				break;
@@ -7144,162 +7087,6 @@ class ClassLiteralExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Cannot use a class literal as a condition");
-	}
-}
-
-class NewExp : PrimaryExp
-{
-	protected Expression mType;
-	protected Expression[] mArgs;
-
-	public this(Location location, Expression type, Expression[] args)
-	{
-		super(location);
-		mType = type;
-		mArgs = args;
-	}
-
-	public static NewExp parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.New);
-		t = t.nextToken;
-
-		Expression type = OpEqExp.parse(t);
-		
-		Expression[] args;
-
-		if(cast(CallExp)type)
-		{
-			
-		}
-		else
-		{
-			t.check(Token.Type.LParen);
-			t = t.nextToken;
-	
-			Expression[] args = new Expression[5];
-			uint i = 0;
-	
-			void add(Expression arg)
-			{
-				if(i >= args.length)
-					args.length = args.length * 2;
-	
-				args[i] = arg;
-				i++;
-			}
-	
-			if(t.type != Token.Type.RParen)
-			{
-				while(true)
-				{
-					add(OpEqExp.parse(t));
-	
-					if(t.type == Token.Type.RParen)
-						break;
-	
-					t.check(Token.Type.Comma);
-					t = t.nextToken;
-				}
-			}
-	
-			args.length = i;
-	
-			t.check(Token.Type.RParen);
-			t = t.nextToken;
-		}
-
-		return new NewExp(location, type, args);
-	}
-	
-	public override void codeGen(FuncState s)
-	{
-		uint typeReg = s.nextRegister();
-		mType.codeGen(s);
-
-		s.popToRegister(mType.mEndLocation.line, typeReg);
-		s.pushRegister();
-
-		assert(s.nextRegister() == typeReg + 1);
-
-		Expression.codeGenListToNextReg(s, mArgs);
-
-		if(mArgs.length == 0)
-			s.pushNew(mLocation.line, typeReg, 1);
-		else if(mArgs[$ - 1].isMultRet())
-			s.pushNew(mLocation.line, typeReg, 0);
-		else
-			s.pushNew(mLocation.line, typeReg, mArgs.length + 1);
-	}
-
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "Cannot use a 'new' expression as a condition");
-	}
-
-	public override void writeCode(CodeWriter cw)
-	{
-		cw.write("<new expression>");
-	}
-}
-
-class DelegateExp : PrimaryExp
-{
-	protected Expression mExpr;
-	protected Identifier mIdent;
-	
-	public this(Location location, Expression expr, Identifier ident)
-	{
-		super(location);
-		
-		mExpr = expr;
-		mIdent = ident;
-	}
-
-	public static DelegateExp parse(inout Token* t)
-	{
-		Location location = t.location;
-		
-		t.check(Token.Type.Delegate);
-		t = t.nextToken;
-		
-		Expression expr = OpEqExp.parse(t);
-		
-		t.check(Token.Type.Colon);
-		t = t.nextToken;
-		
-		Identifier ident = Identifier.parse(t);
-		
-		return new DelegateExp(location, expr, ident);
-	}
-	
-	public override void codeGen(FuncState s)
-	{
-		mExpr.codeGen(s);
-		Exp* src = s.popSource(mLocation.line);
-		s.freeExpTempRegs(src);
-		
-		s.pushDelegate(mLocation.line, src.index, utf.toUTF32(mIdent.mName));
-
-		delete src;
-	}
-
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(mLocation, "Cannot use a 'delegate' expression as a condition");
-	}
-
-	public override void writeCode(CodeWriter cw)
-	{
-		cw.write("delegate ");
-		
-		mExpr.writeCode(cw);
-		
-		cw.write(" : ");
-		
-		mIdent.writeCode(cw);
 	}
 }
 

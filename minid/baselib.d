@@ -18,22 +18,15 @@ class BaseLib
 
 		return 0;
 	}
-	
+
 	static MDString[] typeStrings;
 	
 	static this()
 	{
 		typeStrings = new MDString[MDValue.Type.max + 1];
 
-		typeStrings[MDValue.Type.Null] = new MDString("null"d);
-		typeStrings[MDValue.Type.Bool] = new MDString("bool"d);
-		typeStrings[MDValue.Type.Int] = new MDString("int"d);
-		typeStrings[MDValue.Type.Float] = new MDString("float"d);
-		typeStrings[MDValue.Type.String] = new MDString("string"d);
-		typeStrings[MDValue.Type.Table] = new MDString("table"d);
-		typeStrings[MDValue.Type.Array] = new MDString("array"d);
-		typeStrings[MDValue.Type.Function] = new MDString("function"d);
-		typeStrings[MDValue.Type.UserData] = new MDString("userdata"d);
+		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
+			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
 	}
 
 	int mdtypeof(MDState s)
@@ -44,7 +37,7 @@ class BaseLib
 		s.push(typeStrings[s.getParam(0).type]);
 		return 1;
 	}
-	
+
 	int mdtoString(MDState s)
 	{
 		if(s.numParams < 1)
@@ -65,6 +58,27 @@ class BaseLib
 			
 		return 0;
 	}
+
+	int mddelegate(MDState s)
+	{
+		MDClosure func = s.getClosureParam(0);
+
+		if(s.numParams() == 1)
+			throw new MDRuntimeException(s, "Need parameters to bind to delegate");
+
+		MDValue[] params = s.getAllParams()[1 .. $];
+
+		s.push(new MDDelegate(s, func, params));
+		
+		return 1;
+	}
+	
+	int getTraceback(MDState s)
+	{
+		s.push(new MDString(s.getTracebackString()));
+		
+		return 1;
+	}
 }
 
 public void init(MDState s)
@@ -75,4 +89,6 @@ public void init(MDState s)
 	s.setGlobal("typeof",       new MDClosure(s, &lib.mdtypeof,     "typeof"));
 	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
 	s.setGlobal("setMetatable", new MDClosure(s, &lib.setMetatable, "setMetatable"));
+	s.setGlobal("delegate",     new MDClosure(s, &lib.mddelegate,   "delegate"));
+	s.setGlobal("getTraceback", new MDClosure(s, &lib.getTraceback, "getTraceback"));
 }
