@@ -51,19 +51,9 @@ Foo.m(g); // writes 2
 
 I.e. something like an unbound delegate (pointer-to-member).
 
-Maybe a new type "delegate" which would be an object + method:
-
-local d = delegate f:m;
-d(); // == f:m();
-
-This could even be generalized into some kind of functional-esque parameter currying:
-
-local d = delegate f(param1, param2);
-d(param3); // == f(param1, param2, param3);
-
 New keywords:
 'method' - Like declaring a "obj:method()" function - just inserts an implicit "this"
-'as' - Attempts to downcast a class instance (inst as Class)
+'as' - Attempts to cast a class instance (inst as Class)
 'class' - Duh
 */
 
@@ -76,43 +66,6 @@ import stringlib = minid.stringlib;
 import arraylib = minid.arraylib;
 import tablelib = minid.tablelib;
 
-class MyTimer : MDUserData
-{
-	HighPerformanceCounter mHPC;
-
-	this(MDState s)
-	{
-		mHPC = new HighPerformanceCounter();
-
-		mMetatable = MDTable.create
-		(
-			"start", new MDClosure(s, &start, "MyTimer.start"),
-			"stop",  new MDClosure(s, &stop,  "MyTimer.stop"),
-			"milliseconds", new MDClosure(s, &milliseconds, "MyTimer.milliseconds")
-		);
-
-		mMetatable["opIndex"] = mMetatable;
-	}
-
-	int start(MDState s)
-	{
-		mHPC.start();
-		return 0;
-	}
-
-	int stop(MDState s)
-	{
-		mHPC.stop();
-		return 0;
-	}
-
-	int milliseconds(MDState s)
-	{
-		s.push(mHPC.microseconds() / 1000.0);
-		return 1;
-	}
-}
-
 void main()
 {
 	MDGlobalState.initialize();
@@ -122,22 +75,9 @@ void main()
 	arraylib.init(state);
 	tablelib.init(state);
 
-	int newTimer(MDState s)
-	{
-		s.push(new MyTimer(s));
-		return 1;
-	}
-	
-	state.setGlobal("newTimer", new MDClosure(state, &newTimer, "newTimer"));
+	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
 
-	uint funcReg = state.push(new MDClosure(state, compileFile(`simple.md`)));
-
-	//auto hpc = new HighPerformanceCounter();
-	//hpc.start();
-	state.call(funcReg, 0, 0);
-	//hpc.stop();
-	
-	//writefln("took ", hpc.microseconds() / 1000.0, "ms");
+	state.easyCall(cl, 0);
 }
 
 public MDFuncDef compileFile(char[] filename)
@@ -148,8 +88,7 @@ public MDFuncDef compileFile(char[] filename)
 
 public MDFuncDef compile(char[] name, Stream source)
 {
-	auto Lexer l = new Lexer();
-	Token* tokens = l.lex(name, source);
+	Token* tokens = Lexer.lex(name, source);
 	Chunk ck = Chunk.parse(tokens);
 	return ck.codeGen();
 }
@@ -512,16 +451,11 @@ struct Token
 
 class Lexer
 {
-	protected BufferedStream mSource;
-	protected Location mLoc;
-	protected char mCharacter;
+	protected static BufferedStream mSource;
+	protected static Location mLoc;
+	protected static char mCharacter;
 
-	public this()
-	{
-
-	}
-
-	public Token* lex(char[] name, Stream source)
+	public static Token* lex(char[] name, Stream source)
 	{
 		if(!source.readable)
 			throw new MDException("%s", name, ": Source code stream is not readable");
@@ -546,49 +480,51 @@ class Lexer
 		return firstToken;
 	}
 
-	protected static bool isEOF(char c)
+	protected static bool isEOF()
 	{
-		return (c == '\0') || (c == char.init);
+		return (mCharacter == '\0') || (mCharacter == char.init);
 	}
 
-	protected static bool isEOL(char c)
+	protected static bool isEOL()
 	{
-		return isNewline(c) || isEOF(c);
+		return isNewline() || isEOF();
 	}
 
-	protected static bool isWhitespace(char c)
+	protected static bool isWhitespace()
 	{
-		return (c == ' ') || (c == '\t') || (c == '\v') || (c == '\u000C') || isEOL(c);
+		return (mCharacter == ' ') || (mCharacter == '\t') || (mCharacter == '\v') || (mCharacter == '\u000C') || isEOL();
 	}
 
-	protected static bool isNewline(char c)
+	protected static bool isNewline()
 	{
-		return (c == '\r') || (c == '\n');
+		return (mCharacter == '\r') || (mCharacter == '\n');
 	}
 
-	protected static bool isBinaryDigit(char c)
+	protected static bool isBinaryDigit()
 	{
-		return (c == '0') || (c == '1');
+		return (mCharacter == '0') || (mCharacter == '1');
 	}
 
-	protected static bool isOctalDigit(char c)
+	protected static bool isOctalDigit()
 	{
-		return (c >= '0') && (c <= '7');
+		return (mCharacter >= '0') && (mCharacter <= '7');
 	}
 
-	protected static bool isHexDigit(char c)
+	protected static bool isHexDigit()
 	{
-		return ((c >= '0') && (c <= '9')) || ((c >= 'a') && (c <= 'f')) || ((c >= 'A') && (c <= 'F'));
+		return ((mCharacter >= '0') && (mCharacter <= '9')) ||
+			((mCharacter >= 'a') && (mCharacter <= 'f')) ||
+			((mCharacter >= 'A') && (mCharacter <= 'F'));
 	}
 
-	protected static bool isDecimalDigit(char c)
+	protected static bool isDecimalDigit()
 	{
-		return (c >= '0') && (c <= '9');
+		return (mCharacter >= '0') && (mCharacter <= '9');
 	}
 
-	protected static bool isAlpha(char c)
+	protected static bool isAlpha()
 	{
-		return ((c >= 'a') && (c <= 'z')) || ((c >= 'A') && (c <= 'Z'));
+		return ((mCharacter >= 'a') && (mCharacter <= 'z')) || ((mCharacter >= 'A') && (mCharacter <= 'Z'));
 	}
 
 	protected static ubyte hexDigitToInt(char c)
@@ -599,21 +535,21 @@ class Lexer
 		return std.ctype.tolower(c) - 'a' + 10;
 	}
 
-	protected void nextChar()
+	protected static void nextChar()
 	{
 		mCharacter = mSource.getc();
 		mLoc.column++;
 	}
 
-	protected void nextLine()
+	protected static void nextLine()
 	{
-		while(isNewline(mCharacter) && !isEOF(mCharacter))
+		while(isNewline() && !isEOF())
 		{
 			char old = mCharacter;
 
 			nextChar();
 
-			if(isNewline(mCharacter) && mCharacter != old)
+			if(isNewline() && mCharacter != old)
 				nextChar();
 
 			mLoc.line++;
@@ -621,7 +557,7 @@ class Lexer
 		}
 	}
 
-	protected bool readNumLiteral(bool prependPoint, out float fret, out int iret)
+	protected static bool readNumLiteral(bool prependPoint, out float fret, out int iret)
 	{
 		Location beginning = mLoc;
 		char[100] buf;
@@ -651,10 +587,10 @@ class Lexer
 					case 'b':
 						nextChar();
 
-						if(!isBinaryDigit(mCharacter))
+						if(!isBinaryDigit())
 							throw new MDCompileException(mLoc, "Binary digit expected, not '%s'", mCharacter);
 
-						while(isBinaryDigit(mCharacter) || mCharacter == '_')
+						while(isBinaryDigit() || mCharacter == '_')
 						{
 							if(mCharacter != '_')
 								add(mCharacter);
@@ -676,10 +612,10 @@ class Lexer
 					case 'c':
 						nextChar();
 
-						if(!isOctalDigit(mCharacter))
+						if(!isOctalDigit())
 							throw new MDCompileException(mLoc, "Octal digit expected, not '%s'", mCharacter);
 
-						while(isOctalDigit(mCharacter) || mCharacter == '_')
+						while(isOctalDigit() || mCharacter == '_')
 						{
 							if(mCharacter != '_')
 								add(mCharacter);
@@ -701,10 +637,10 @@ class Lexer
 					case 'x':
 						nextChar();
 
-						if(!isHexDigit(mCharacter))
+						if(!isHexDigit())
 							throw new MDCompileException(mLoc, "Hexadecimal digit expected, not '%s'", mCharacter);
 
-						while(isHexDigit(mCharacter) || mCharacter == '_')
+						while(isHexDigit() || mCharacter == '_')
 						{
 							if(mCharacter != '_')
 								add(mCharacter);
@@ -732,7 +668,7 @@ class Lexer
 
 		while(hasPoint == false)
 		{
-			if(isDecimalDigit(mCharacter))
+			if(isDecimalDigit())
 			{
 				add(mCharacter);
 				nextChar();
@@ -755,7 +691,7 @@ class Lexer
 
 		while(true)
 		{
-			if(isDecimalDigit(mCharacter))
+			if(isDecimalDigit())
 			{
 				add(mCharacter);
 				nextChar();
@@ -774,10 +710,10 @@ class Lexer
 					nextChar();
 				}
 
-				if(!isDecimalDigit(mCharacter))
+				if(!isDecimalDigit())
 					throw new MDCompileException(mLoc, "Exponent value expected in float literal '%s'", buf[0 .. i]);
 
-				while(isDecimalDigit(mCharacter) || mCharacter == '_')
+				while(isDecimalDigit() || mCharacter == '_')
 				{
 					if(mCharacter != '_')
 						add(mCharacter);
@@ -821,7 +757,7 @@ class Lexer
 		}
 	}
 
-	protected char[] readEscapeSequence(Location beginning)
+	protected static char[] readEscapeSequence(Location beginning)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -829,7 +765,7 @@ class Lexer
 
 			for(uint i = 0; i < num; i++)
 			{
-				if(isHexDigit(mCharacter) == false)
+				if(isHexDigit() == false)
 					throw new MDCompileException(mLoc, "Hexadecimal escape digits expected");
 
 				ret <<= 4;
@@ -845,7 +781,7 @@ class Lexer
 		assert(mCharacter == '\\', "escape seq - must start on backslash");
 
 		nextChar();
-		if(isEOF(mCharacter))
+		if(isEOF())
 			throw new MDCompileException(beginning, "Unterminated string or character literal");
 
 		switch(mCharacter)
@@ -898,7 +834,7 @@ class Lexer
 				break;
 
 			default:
-				if(!isDecimalDigit(mCharacter))
+				if(!isDecimalDigit())
 					throw new MDCompileException(mLoc, "Invalid string escape sequence '\\%s'", mCharacter);
 
 				// Decimal char
@@ -909,7 +845,7 @@ class Lexer
 				{
 					c = 10 * c + (mCharacter - '0');
 					nextChar();
-				} while(++numch < 3 && isDecimalDigit(mCharacter));
+				} while(++numch < 3 && isDecimalDigit());
 
 				if(c > 0x7F)
 					throw new MDCompileException(mLoc, "Numeric escape sequence too large");
@@ -921,7 +857,7 @@ class Lexer
 		return ret;
 	}
 
-	protected char[] readStringLiteral(bool escape)
+	protected static char[] readStringLiteral(bool escape)
 	{
 		Location beginning = mLoc;
 		uint i = 0;
@@ -943,7 +879,7 @@ class Lexer
 
 		while(mCharacter != delimiter)
 		{
-			if(isEOF(mCharacter))
+			if(isEOF())
 				throw new MDCompileException(beginning, "Unterminated string literal");
 
 			switch(mCharacter)
@@ -977,7 +913,7 @@ class Lexer
 		return buf[0 .. i];
 	}
 
-	protected int readCharLiteral()
+	protected static int readCharLiteral()
 	{
 		Location beginning = mLoc;
 		char[] ret;
@@ -985,7 +921,7 @@ class Lexer
 		assert(mCharacter == '\'', "char literal must start with single quote");
 		nextChar();
 
-		if(isEOF(mCharacter))
+		if(isEOF())
 			throw new MDCompileException(beginning, "Unterminated character literal");
 
 		switch(mCharacter)
@@ -1008,7 +944,7 @@ class Lexer
 		return cast(int)(utf.toUTF32(ret)[0]);
 	}
 
-	protected Token* nextToken()
+	protected static Token* nextToken()
 	{
 		Token* token = new Token;
 
@@ -1100,7 +1036,7 @@ class Lexer
 					}
 					else if(mCharacter == '/')
 					{
-						while(!isEOL(mCharacter))
+						while(!isEOL())
 							nextChar();
 					}
 					else if(mCharacter == '*')
@@ -1288,7 +1224,7 @@ class Lexer
 						nextChar();
 						token.type = Token.Type.DotDot;
 					}
-					else if(isDecimalDigit(mCharacter))
+					else if(isDecimalDigit())
 					{
 						int dummy;
 						bool b = readNumLiteral(true, token.floatValue, dummy);
@@ -1344,12 +1280,12 @@ class Lexer
 					return token;
 
 				default:
-					if(isWhitespace(mCharacter))
+					if(isWhitespace())
 					{
 						nextChar();
 						continue;
 					}
-					else if(isDecimalDigit(mCharacter))
+					else if(isDecimalDigit())
 					{
 						float fval;
 						int ival;
@@ -1369,7 +1305,7 @@ class Lexer
 							return token;
 						}
 					}
-					else if(isAlpha(mCharacter) || mCharacter == '_')
+					else if(isAlpha() || mCharacter == '_')
 					{
 						char[] s;
 
@@ -1378,7 +1314,7 @@ class Lexer
 							s ~= mCharacter;
 							nextChar();
 						}
-						while(isAlpha(mCharacter) || isDecimalDigit(mCharacter) || mCharacter == '_');
+						while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
 						if(s.length >= 2 && s[0 .. 2] == "__")
 							throw new MDCompileException(tokenLoc, "'", s, "': Identifiers starting with two underscores are reserved");
@@ -2292,7 +2228,13 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
-				codeR(line, Op.Index, e.index, e.index, e.index2);
+				if(e.isTempReg)
+					popRegister(e.index);
+
+				uint destReg = pushRegister();
+				codeR(line, Op.Index, destReg, e.index, e.index2);
+				e.index = destReg;
+				e.isTempReg = true;
 				break;
 
 			default:
@@ -2831,7 +2773,7 @@ class ClassDef
 	protected Location mLocation;
 	protected Location mEndLocation;
 	protected Identifier mName;
-	protected Identifier[] mBaseClass;
+	protected Expression mBaseClass;
 	protected MethodDecl[] mMethods;
 
 	struct Field
@@ -2843,7 +2785,7 @@ class ClassDef
 	protected Field[] mFields;
 	protected FuncState[] mMethodStates;
 	
-	public this(Identifier name, Identifier[] baseClass, MethodDecl[] methods, Field[] fields, Location location, Location endLocation)
+	public this(Identifier name, Expression baseClass, MethodDecl[] methods, Field[] fields, Location location, Location endLocation)
 	{
 		mName = name;
 		mBaseClass = baseClass;
@@ -2907,12 +2849,18 @@ class ClassDef
 				case Token.Type.Ident:
 					Identifier id = Identifier.parse(t);
 
-					t.check(Token.Type.Assign);
-					t = t.nextToken;
+					Expression v;
+
+					if(t.type == Token.Type.Assign)
+					{
+						t = t.nextToken;
+						v = OpEqExp.parse(t);
+					}
+					else
+						v = new NullExp(id.mLocation);
 
 					dchar[] name = utf.toUTF32(id.mName);
-					Expression v = OpEqExp.parse(t);
-					
+
 					t.check(Token.Type.Semicolon);
 					t = t.nextToken;
 					
@@ -2935,26 +2883,18 @@ class ClassDef
 		t = t.nextToken;
 	}
 
-	public static Identifier[] parseBaseClass(inout Token* t)
+	public static Expression parseBaseClass(inout Token* t)
 	{
-		Identifier[] baseClass;
+		Expression baseClass;
 
 		if(t.type == Token.Type.Colon)
 		{
 			t = t.nextToken;
-
-			baseClass ~= Identifier.parse(t);
-
-			while(t.type == Token.Type.Dot)
-			{
-				t = t.nextToken;
-				baseClass ~= Identifier.parse(t);
-			}
+			baseClass = OpEqExp.parse(t);
 		}
+		else
+			baseClass = new IdentExp(t.location, new Identifier("Object", t.location));
 
-		if(baseClass.length == 0)
-			baseClass ~= new Identifier("Object", t.location);
-			
 		return baseClass;
 	}
 	
@@ -2965,21 +2905,13 @@ class ClassDef
 		foreach(uint i, MethodDecl m; mMethods)
 			mMethodStates[i] = m.codeGenNoPush(s);
 			
-		s.pushVar(mBaseClass[0]);
-
-		foreach(Identifier n; mBaseClass[1 .. $])
-			s.popField(mLocation.line, n);
+		mBaseClass.codeGen(s);
 
 		s.pushClass(this);
 	}
 
 	public void showMe(uint tab = 0)
 	{
-		char[] baseClassName = mBaseClass[0].mName;
-		
-		foreach(Identifier i; mBaseClass[1 .. $])
-			baseClassName ~= "." ~ i.mName;
-
 		char[] guessedName;
 		
 		if(mName is null)
@@ -2987,7 +2919,7 @@ class ClassDef
 		else
 			guessedName = mName.mName;
 
-		writefln(string.repeat("\t", tab), "Class at ", mLocation.toString(), " (guessed name: %s)", guessedName, " derives from ", baseClassName);
+		writefln(string.repeat("\t", tab), "Class at ", mLocation.toString(), " (guessed name: %s)", guessedName);
 
 		foreach(f; mFields)
 			writefln(string.repeat("\t", tab + 1), "Field: ", f.name, " = ", f.defaultValue.toString());
@@ -3009,11 +2941,6 @@ class ClassDef
 			cd.mGuessedName = "class literal at "d ~ utf.toUTF32(mLocation.toString());
 		else
 			cd.mGuessedName = utf.toUTF32(mName.mName);
-
-		cd.mBaseClass.length = mBaseClass.length;
-		
-		foreach(uint i, Identifier n; mBaseClass)
-			cd.mBaseClass[i] = utf.toUTF32(n.mName);
 
 		cd.mMethods.length = mMethods.length;
 
@@ -3078,16 +3005,8 @@ class Chunk
 		FuncState fs = new FuncState(mLocation, "chunk " ~ mLocation.fileName);
 		fs.mIsVararg = true;
 
-		//try
-		//{
-			foreach(Statement s; mStatements)
-				s.codeGen(fs);
-		/*}
-		catch(Object o)
-		{
-			fs.showMe();
-			throw o;
-		}*/
+		foreach(Statement s; mStatements)
+			s.codeGen(fs);
 
 		fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 
@@ -3401,7 +3320,7 @@ class ClassDecl : Declaration
 {
 	protected ClassDef mDef;
 
-	public this(Identifier name, Identifier[] baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
+	public this(Identifier name, Expression baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
 	{
 		super(location, endLocation);
 
@@ -3417,7 +3336,7 @@ class ClassDecl : Declaration
 
 		Identifier name = Identifier.parse(t);
 		
-		Identifier[] baseClass = ClassDef.parseBaseClass(t);
+		Expression baseClass = ClassDef.parseBaseClass(t);
 
 		MethodDecl[] methods;
 		ClassDef.Field[] fields;
@@ -7054,7 +6973,7 @@ class ClassLiteralExp : PrimaryExp
 {
 	protected ClassDef mDef;
 
-	public this(Identifier[] baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
+	public this(Expression baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
 	{
 		super(location);
 
@@ -7068,7 +6987,7 @@ class ClassLiteralExp : PrimaryExp
 		t.check(Token.Type.Class);
 		t = t.nextToken;
 
-		Identifier[] baseClass = ClassDef.parseBaseClass(t);
+		Expression baseClass = ClassDef.parseBaseClass(t);
 
 		MethodDecl[] methods;
 		ClassDef.Field[] fields;

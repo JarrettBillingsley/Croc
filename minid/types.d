@@ -78,13 +78,13 @@ class MDRuntimeException : MDException
 
 	public this(MDState s, MDValue* val)
 	{
-		location = s.getDebugLocation();
+		location = s.startTraceback();
 		super(val);
 	}
 
 	public this(MDState s, ...)
 	{
-		location = s.getDebugLocation();
+		location = s.startTraceback();
 		super(vformat(_arguments, _argptr));
 	}
 
@@ -402,7 +402,7 @@ class MDString : MDObject
 	
 	public char[] toString()
 	{
-		return utf.toUTF8(mData);
+		return asUTF8();
 	}
 }
 
@@ -519,8 +519,7 @@ class MDClosure : MDObject
 class MDTable : MDObject
 {
 	protected MDValue[MDValue] mData;
-	protected MDTable mMetatable = null;
-	
+
 	public this()
 	{
 		
@@ -596,8 +595,6 @@ class MDTable : MDObject
 		foreach(k, v; mData)
 			n.mData[k] = v;
 			
-		n.mMetatable = mMetatable;
-		
 		return n;
 	}
 
@@ -610,6 +607,14 @@ class MDTable : MDObject
 			
 		return ptr;
 	}
+	
+	public MDValue* opIndex(char[] index)
+	{
+		MDValue key;
+		key.value = new MDString(index);
+		
+		return opIndex(&key);
+	}
 
 	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
 	{
@@ -618,6 +623,13 @@ class MDTable : MDObject
 	}
 
 	public MDValue* opIndexAssign(MDValue* value, char[] index)
+	{
+		MDValue idx;
+		idx.value = new MDString(index);
+		return opIndexAssign(value, &idx);
+	}
+	
+	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
 	{
 		MDValue idx;
 		idx.value = new MDString(index);
@@ -646,20 +658,23 @@ class MDTable : MDObject
 		
 		return value;
 	}
+	
+	public MDObject opIndexAssign(MDObject value, dchar[] index)
+	{
+		MDValue idx;
+		idx.value = new MDString(index);
+
+		MDValue val;
+		val.value = value;
+		
+		mData[idx] = val;
+		
+		return value;
+	}
 
 	public char[] toString()
 	{
 		return string.format("table 0x%0.8X", cast(void*)this);
-	}
-	
-	public MDTable metatable(MDTable mt)
-	{
-		return mMetatable = mt;
-	}
-	
-	public MDTable metatable()
-	{
-		return mMetatable;
 	}
 }
 
@@ -775,10 +790,23 @@ class MDArray : MDObject
 		n.mData = mData ~ other.mData;
 		return n;
 	}
+	
+	public MDArray opCat(MDValue* elem)
+	{
+		MDArray n = new MDArray(mData.length + 1);
+		n.mData = mData ~ *elem;
+		return n;
+	}
 
 	public MDArray opCatAssign(MDArray other)
 	{
 		mData ~= other.mData;
+		return this;
+	}
+	
+	public MDArray opCatAssign(MDValue* elem)
+	{
+		mData ~= *elem;
 		return this;
 	}
 	
@@ -841,8 +869,33 @@ class MDArray : MDObject
 class MDClass : MDObject
 {
 	protected MDClassDef mClass;
+	protected MDClass mBaseClass;
 	protected MDTable mFields;
 	protected MDTable mMethods;
+	
+	package this(MDState s, MDClassDef classDef, MDClass baseClass)
+	{
+		mClass = classDef;
+		mBaseClass = baseClass;
+
+		mMethods = new MDTable();
+		mFields = new MDTable();
+		
+		if(baseClass !is null)
+		{
+			foreach(method; mBaseClass.mClass.mMethods)
+				mMethods[method.name] = new MDClosure(s, method.func);
+				
+			foreach(field; mBaseClass.mClass.mFields)
+				mFields[field.name] = &field.defaultValue;
+		}
+		
+		foreach(method; mClass.mMethods)
+			mMethods[method.name] = new MDClosure(s, method.func);
+
+		foreach(field; mClass.mFields)
+			mFields[field.name] = &field.defaultValue;
+	}
 
 	public override MDClass asClass()
 	{
@@ -859,6 +912,38 @@ class MDClass : MDObject
 		throw new MDException("Cannot get the length of a class");
 	}
 	
+	public MDInstance newInstance()
+	{
+		MDInstance n = new MDInstance();
+		n.mClass = this;
+		n.mFields = mFields.dup;
+		n.mMethods = mMethods;
+
+		return n;
+	}
+	
+	public MDValue* opIndex(MDValue* index)
+	{
+		//TODO: Statics?
+		/*MDValue* ptr = mStaticMembers[index];
+		
+		if(ptr !is &MDValue.nullValue)
+			return ptr;*/
+
+		if(mBaseClass !is null)
+			return mBaseClass[index];
+		else
+			return &MDValue.nullValue;
+	}
+	
+	public MDValue* opIndex(char[] index)
+	{
+		MDValue key;
+		key.value = new MDString(index);
+		
+		return opIndex(&key);
+	}
+
 	public char[] toString()
 	{
 		return string.format("class %s(%s)", mClass.mGuessedName, mClass.mLocation.toString());
@@ -867,8 +952,14 @@ class MDClass : MDObject
 
 class MDInstance : MDObject
 {
-	protected MDClassDef mClass;
+	protected MDClass mClass;
 	protected MDTable mFields;
+	protected MDTable mMethods;
+	
+	private this()
+	{
+		
+	}
 
 	public override MDInstance asInstance()
 	{
@@ -885,9 +976,37 @@ class MDInstance : MDObject
 		throw new MDException("Cannot get the length of an instance");
 	}
 	
+	public MDValue* opIndex(MDValue* index)
+	{
+		MDValue* ptr = mMethods[index];
+		
+		if(ptr !is &MDValue.nullValue)
+			return ptr;
+
+		ptr = mFields[index];
+		
+		if(ptr !is &MDValue.nullValue)
+			return ptr;
+			
+		return mClass[index];
+	}
+	
+	public MDValue* opIndex(char[] index)
+	{
+		MDValue key;
+		key.value = new MDString(index);
+		
+		return opIndex(&key);
+	}
+
 	public char[] toString()
 	{
-		return string.format("instance of class %s(%s)", mClass.mGuessedName, mClass.mLocation.toString());
+		return string.format("instance of %s", mClass.toString());
+	}
+	
+	package MDTable getMethodTable()
+	{
+		return mMethods;
 	}
 }
 
@@ -1490,7 +1609,6 @@ class MDClassDef
 {
 	package Location mLocation;
 	package dchar[] mGuessedName;
-	package dchar[][] mBaseClass;
 
 	struct Method
 	{

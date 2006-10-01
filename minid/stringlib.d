@@ -672,7 +672,7 @@ public void init(MDState s)
 
 	MDValue val;
 	val.value = stringTable;
-	stringTable["opIndex"] = &val;
+	stringTable["opIndex"d] = &val;
 	
 	s.setGlobal("string", stringTable);
 	MDGlobalState().setMetatable(MDValue.Type.String, stringTable);

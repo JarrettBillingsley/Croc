@@ -319,11 +319,11 @@ Parameters:
 	'(' 'vararg' ')'
 	
 ClassDeclaration:
-	'class' Identifier [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
+	'class' Identifier [':' Expression] '{' {ClassMember} '}'
 	
 ClassMember:
 	MethodDeclaration
-	Identifier '=' Expression ';'
+	Identifier ['=' Expression] ';'
 	
 MethodDeclaration:
 	'method' Identifier Parameters BlockStatement
@@ -435,7 +435,7 @@ PrimaryExpression:
 	CharLiteral
 	StringLiteral
 	'function' Parameters BlockStatement
-	'class' [':' Identifier {'.' Identifier}] '{' {ClassMember} '}'
+	'class' [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	TableCtor
 	ArrayCtor

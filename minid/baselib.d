@@ -47,18 +47,6 @@ class BaseLib
 		return 1;
 	}
 	
-	int setMetatable(MDState s)
-	{
-		MDTable tab = s.getTableParam(0);
-
-		if(s.numParams() == 1 || s.isNullParam(1))
-			tab.metatable = null;
-		else
-			tab.metatable = s.getTableParam(1);
-			
-		return 0;
-	}
-
 	int mddelegate(MDState s)
 	{
 		MDClosure func = s.getClosureParam(0);
@@ -88,7 +76,12 @@ public void init(MDState s)
 	s.setGlobal("writefln",     new MDClosure(s, &lib.mdwritefln,   "writefln"));
 	s.setGlobal("typeof",       new MDClosure(s, &lib.mdtypeof,     "typeof"));
 	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
-	s.setGlobal("setMetatable", new MDClosure(s, &lib.setMetatable, "setMetatable"));
 	s.setGlobal("delegate",     new MDClosure(s, &lib.mddelegate,   "delegate"));
 	s.setGlobal("getTraceback", new MDClosure(s, &lib.getTraceback, "getTraceback"));
+	
+	MDClassDef cd = new MDClassDef();
+	cd.mLocation = Location("<internal>", -1, -1);
+	cd.mGuessedName = "Object"d;
+	
+	s.setGlobal("Object", new MDClass(s, cd, null));
 }

@@ -110,7 +110,7 @@ public void init(MDState s)
 
 	MDValue val;
 	val.value = arrayTable;
-	arrayTable["opIndex"] = &val;
+	arrayTable["opIndex"d] = &val;
 	
 	s.setGlobal("array", arrayTable);
 	MDGlobalState().setMetatable(MDValue.Type.Array, arrayTable);

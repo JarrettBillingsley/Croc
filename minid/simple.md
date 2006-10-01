@@ -1,7 +1,4 @@
-/*local bbb = 4;
-local c;
-
-class Foo
+/*class Foo
 {
 	method foo()
 	{
@@ -18,24 +15,65 @@ class Foo
 	y = 0;
 }
 
-c = class : Foo { x = 0; }();*/
+c = class : Foo { x = 0; }();
+c:bar();*/
 
-try
+class EventDispatcher
 {
-	local function foo(this)
+	mFunctions = null;
+
+	method constructor()
 	{
-		writefln("x = ", this.x);
+		this.mFunctions = { };
 	}
-	
-	local t = { x = 4 };
-	local d = delegate(foo);
-	d();
+
+	method opCall(type)
+	{
+		local functions = this.mFunctions[type];
+		
+		if(functions !is null)
+		{
+			for(local i = 0; i < #functions; ++i)
+				functions[i](type);
+		}
+	}
+
+	method add(type, f)
+	{
+		local functions = this.mFunctions[type];
+
+		if(functions is null)
+			functions = [f];
+		else
+			functions ~= f;
+
+		this.mFunctions[type] = functions;
+	}
 }
-catch(e)
+
+function fooHandler()
 {
-	writefln("caught: ", e);
-	writefln(getTraceback());
+	writefln("foo event");
 }
+
+function fooHandler2()
+{
+	writefln("foo event 2");
+}
+
+function barHandler()
+{
+	writefln("bar event");
+}
+
+local ed = EventDispatcher();
+ed:add("foo", fooHandler);
+ed:add("foo", fooHandler2);
+ed:add("bar", barHandler);
+
+ed("foo");
+ed("bar");
+
 
 /*local function foo()
 {
