@@ -68,7 +68,7 @@ And...............R: dest, src, src
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, src
-Class.............R: dest, class def index, base class reg
+Class.............R: dest, name const index, base class reg
 Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
 Cmp...............R: n/a, src, src
@@ -189,7 +189,7 @@ align(1) struct Instruction
 			case Op.Cat:
 				return string.format("cat r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Class:
-				return string.format("class r%s, %s, r%s", rd, rs1, rs2);
+				return string.format("class r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Close:
 				return string.format("close r%s", rd);
 			case Op.Closure:

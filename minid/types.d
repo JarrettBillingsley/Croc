@@ -868,14 +868,15 @@ class MDArray : MDObject
 
 class MDClass : MDObject
 {
-	protected MDClassDef mClass;
+	protected dchar[] mGuessedName;
 	protected MDClass mBaseClass;
 	protected MDTable mFields;
 	protected MDTable mMethods;
-	
-	package this(MDState s, MDClassDef classDef, MDClass baseClass)
+
+	package this(MDState s, dchar[] guessedName, MDClass baseClass)
 	{
-		mClass = classDef;
+		//mClass = classDef;
+		mGuessedName = guessedName.dup;
 		mBaseClass = baseClass;
 
 		mMethods = new MDTable();
@@ -883,18 +884,18 @@ class MDClass : MDObject
 		
 		if(baseClass !is null)
 		{
-			foreach(method; mBaseClass.mClass.mMethods)
+			/*foreach(method; mBaseClass.mClass.mMethods)
 				mMethods[method.name] = new MDClosure(s, method.func);
 				
 			foreach(field; mBaseClass.mClass.mFields)
-				mFields[field.name] = &field.defaultValue;
+				mFields[field.name] = &field.defaultValue;*/
 		}
 		
-		foreach(method; mClass.mMethods)
+		/*foreach(method; mClass.mMethods)
 			mMethods[method.name] = new MDClosure(s, method.func);
 
 		foreach(field; mClass.mFields)
-			mFields[field.name] = &field.defaultValue;
+			mFields[field.name] = &field.defaultValue;*/
 	}
 
 	public override MDClass asClass()
@@ -946,7 +947,7 @@ class MDClass : MDObject
 
 	public char[] toString()
 	{
-		return string.format("class %s(%s)", mClass.mGuessedName, mClass.mLocation.toString());
+		return string.format("class %s", mGuessedName);
 	}
 }
 
@@ -973,7 +974,7 @@ class MDInstance : MDObject
 
 	public override uint length()
 	{
-		throw new MDException("Cannot get the length of an instance");
+		throw new MDException("Cannot get the length of a class instance");
 	}
 	
 	public MDValue* opIndex(MDValue* index)
@@ -1004,9 +1005,25 @@ class MDInstance : MDObject
 		return string.format("instance of %s", mClass.toString());
 	}
 	
+	public bool castToClass(MDClass cls)
+	{
+		for(MDClass c = mClass; c !is null; c = c.mBaseClass)
+		{
+			if(c is cls)
+				return true;
+		}
+
+		return false;
+	}
+
 	package MDTable getMethodTable()
 	{
 		return mMethods;
+	}
+	
+	package MDClass getClass()
+	{
+		return mClass;
 	}
 }
 
@@ -1571,7 +1588,6 @@ class MDFuncDef
 	package Location mLocation;
 	package dchar[] mGuessedName;
 	package MDFuncDef[] mInnerFuncs;
-	package MDClassDef[] mClasses;
 	package MDValue[] mConstants;
 	package uint mNumParams;
 	package uint mNumUpvals;
@@ -1603,26 +1619,4 @@ class MDFuncDef
 	}
 
 	package SwitchTable[] mSwitchTables;
-}
-
-class MDClassDef
-{
-	package Location mLocation;
-	package dchar[] mGuessedName;
-
-	struct Method
-	{
-		dchar[] name;
-		MDFuncDef func;
-	}
-	
-	package Method[] mMethods;
-	
-	struct Field
-	{
-		dchar[] name;
-		MDValue defaultValue;
-	}
-
-	package Field[] mFields;
 }

@@ -2,8 +2,10 @@ module minid.baselib;
 
 import minid.state;
 import minid.types;
+import minid.compiler;
 
 import std.stdio;
+import std.stream;
 
 class BaseLib
 {
@@ -35,6 +37,15 @@ class BaseLib
 			throw new MDRuntimeException(s, "Parameter expected");
 
 		s.push(typeStrings[s.getParam(0).type]);
+		return 1;
+	}
+	
+	int classof(MDState s)
+	{
+		if(s.numParams < 1)
+			throw new MDRuntimeException(s, "Parameter expected");
+
+		s.push(s.getInstanceParam(0).getClass());
 		return 1;
 	}
 
@@ -75,13 +86,8 @@ public void init(MDState s)
 
 	s.setGlobal("writefln",     new MDClosure(s, &lib.mdwritefln,   "writefln"));
 	s.setGlobal("typeof",       new MDClosure(s, &lib.mdtypeof,     "typeof"));
+	s.setGlobal("classof",      new MDClosure(s, &lib.classof,      "classof"));
 	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
 	s.setGlobal("delegate",     new MDClosure(s, &lib.mddelegate,   "delegate"));
 	s.setGlobal("getTraceback", new MDClosure(s, &lib.getTraceback, "getTraceback"));
-	
-	MDClassDef cd = new MDClassDef();
-	cd.mLocation = Location("<internal>", -1, -1);
-	cd.mGuessedName = "Object"d;
-	
-	s.setGlobal("Object", new MDClass(s, cd, null));
 }

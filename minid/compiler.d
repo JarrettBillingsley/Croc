@@ -60,26 +60,6 @@ New keywords:
 //debug = REGPUSHPOP;
 //debug = VARACTIVATE;
 
-import minid.state;
-import baselib = minid.baselib;
-import stringlib = minid.stringlib;
-import arraylib = minid.arraylib;
-import tablelib = minid.tablelib;
-
-void main()
-{
-	MDGlobalState.initialize();
-	MDState state = MDGlobalState().mainThread();
-	baselib.init(state);
-	stringlib.init(state);
-	arraylib.init(state);
-	tablelib.init(state);
-
-	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
-
-	state.easyCall(cl, 0);
-}
-
 public MDFuncDef compileFile(char[] filename)
 {
 	auto File f = new File(filename, FileMode.In);
@@ -2340,10 +2320,16 @@ class FuncState
 
 				temp.isTempReg = true;
 				break;
-				
+
 			case ExpType.Class:
-				temp.index = e.index;
-				codeR(line, Op.Class, temp.index, e.index2, e.index);
+				if(e.isTempReg)
+					codeR(line, Op.Class, temp.index, e.index2, e.index);
+				else
+				{
+					temp.index = pushRegister();
+					temp.isTempReg = true;
+					codeR(line, Op.Class, temp.index, e.index2, e.index);
+				}
 				break;
 
 			case ExpType.Src:
@@ -2723,11 +2709,6 @@ class FuncState
 		for(int i = 0; i < mInnerFuncs.length; i++)
 			ret.mInnerFuncs[i] = mInnerFuncs[i].toFuncDef();
 			
-		ret.mClasses.length = mClasses.length;
-		
-		for(int i = 0; i < mClasses.length; i++)
-			ret.mClasses[i] = mClasses[i].toClassDef();
-
 		ret.mConstants = mConstants;
 		ret.mNumParams = mNumParams;
 		ret.mNumUpvals = mUpvals.length;
@@ -2779,7 +2760,7 @@ class ClassDef
 	struct Field
 	{
 		dchar[] name;
-		MDValue defaultValue;
+		Expression initializer;
 	}
 
 	protected Field[] mFields;
@@ -2821,19 +2802,7 @@ class ClassDef
 				fields.length = fields.length * 2;
 
 			fields[iField].name = name;
-			
-			if(cast(NullExp)v)
-				fields[iField].defaultValue.setNull();
-			else if(cast(BoolExp)v)
-				fields[iField].defaultValue.value = (cast(BoolExp)v).mValue;
-			else if(cast(IntExp)v)
-				fields[iField].defaultValue.value = (cast(IntExp)v).mValue;
-			else if(cast(FloatExp)v)
-				fields[iField].defaultValue.value = (cast(FloatExp)v).mValue;
-			else if(cast(StringExp)v)
-				fields[iField].defaultValue.value = (cast(StringExp)v).mValue;
-			else
-				throw new MDCompileException(v.mLocation, "Class field initializer must be constant");
+			fields[iField].initializer = v;
 
 			iField++;
 		}
@@ -2893,7 +2862,7 @@ class ClassDef
 			baseClass = OpEqExp.parse(t);
 		}
 		else
-			baseClass = new IdentExp(t.location, new Identifier("Object", t.location));
+			baseClass = new NullExp(t.location);
 
 		return baseClass;
 	}
@@ -2931,7 +2900,7 @@ class ClassDef
 		}
 	}
 	
-	public MDClassDef toClassDef()
+	/*public MDClassDef toClassDef()
 	{
 		MDClassDef cd = new MDClassDef();
 		
@@ -2959,7 +2928,7 @@ class ClassDef
 		}
 		
 		return cd;
-	}
+	}*/
 }
 
 class Chunk
@@ -3012,7 +2981,7 @@ class Chunk
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		//fs.showMe();
+		fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -5077,6 +5046,11 @@ abstract class Expression
 	{
 		return false;
 	}
+	
+	public bool isConstant()
+	{
+		return false;
+	}
 
 	public void writeCode(CodeWriter cw)
 	{
@@ -5798,6 +5772,9 @@ class AsExp : BinaryExp
 {
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
+		if(left.isConstant() || right.isConstant())
+			throw new MDCompileException(location, "Neither argument of an 'as' expression may be a constant");
+			
 		super(location, endLocation, Op.As, left, right);
 	}
 	
@@ -6676,6 +6653,11 @@ class NullExp : PrimaryExp
 	{
 		return s.makeJump(mEndLocation.line, Op.Jmp);
 	}
+	
+	public override bool isConstant()
+	{
+		return true;
+	}
 
 	public override void writeCode(CodeWriter cw)
 	{
@@ -6715,6 +6697,11 @@ class BoolExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		return s.makeJump(mEndLocation.line, Op.Jmp, mValue);
+	}
+	
+	public override bool isConstant()
+	{
+		return true;
 	}
 
 	public override void writeCode(CodeWriter cw)
@@ -6804,6 +6791,11 @@ class IntExp : PrimaryExp
 		s.popRegister(temp);
 		return ret;
 	}
+	
+	public override bool isConstant()
+	{
+		return true;
+	}
 
 	public override void writeCode(CodeWriter cw)
 	{
@@ -6841,6 +6833,11 @@ class FloatExp : PrimaryExp
 	{
 		throw new MDCompileException(mLocation, "Cannot use a float literal as a condition");
 	}
+	
+	public override bool isConstant()
+	{
+		return true;
+	}
 
 	public override void writeCode(CodeWriter cw)
 	{
@@ -6877,6 +6874,11 @@ class StringExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Cannot use a string literal as a condition");
+	}
+	
+	public override bool isConstant()
+	{
+		return true;
 	}
 
 	public override void writeCode(CodeWriter cw)

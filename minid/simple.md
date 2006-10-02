@@ -1,24 +1,20 @@
-/*class Foo
+local x = 0;
+
+class A
 {
 	method foo()
 	{
-		writefln("x = ", this.x);
-		writefln(bbb);
+		++x;
+		writefln("inner x: ", x);
 	}
-
-	method bar()
-	{
-		writefln("y = ", this.y);
-	}
-
-	x = 0;
-	y = 0;
 }
 
-c = class : Foo { x = 0; }();
-c:bar();*/
+local a = A();
+a:foo();
+a:foo();
+writefln("outer x: ", x);
 
-class EventDispatcher
+/*class EventDispatcher
 {
 	mFunctions = null;
 
@@ -72,7 +68,7 @@ ed:add("foo", fooHandler2);
 ed:add("bar", barHandler);
 
 ed("foo");
-ed("bar");
+ed("bar");*/
 
 
 /*local function foo()

@@ -1,5 +1,5 @@
 @echo off
-set DPROG=compiler
+set DPROG=test
 set DPROGFLAGS=
 
 call \dmd\proj\mainrun.bat

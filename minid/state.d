@@ -608,6 +608,19 @@ class MDState
 		return val.asFunction();
 	}
 	
+	public MDInstance getInstanceParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isInstance() == false)
+			badParamError(this, index, mCurrentAR.func.toString(), "expected 'instance' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+
+		return val.asInstance();
+	}
+
 	public MDValue[] getAllParams()
 	{
 		if(numParams() == 0)
@@ -907,14 +920,6 @@ class MDState
 		return def.mInnerFuncs[num];
 	}
 	
-	package MDClassDef getInnerClass(uint num)
-	{
-		assert(mCurrentAR.func.isNative() == false, "cannot get inner class from native function");
-		MDFuncDef def = mCurrentAR.func.script.func;
-		assert(num < def.mClasses.length, "invalid inner class index");
-		return def.mClasses[num];
-	}
-
 	package MDValue* getUpvalue(uint num)
 	{
 		return getUpvalueRef(num).value;
@@ -1021,9 +1026,8 @@ class MDState
 		switch(obj.type)
 		{
 			case MDValue.Type.Instance:
-				t = obj.asInstance().getMethodTable();
-				break;
-				
+				return obj.asInstance[&MetaStrings[method]];
+
 			case MDValue.Type.UserData:
 				t = obj.asUserData().metatable;
 				break;
@@ -1778,12 +1782,30 @@ class MDState
 						throw new MDRuntimeException(this, getCR1());
 						
 					case Op.Class:
-						StackVal base = getBasedStack(i.rs2);
+						StackVal base = getCR2();
 						
-						if(!base.isClass())
+						/*if(base.isNull())
+							getBasedStack(i.rd).value = new MDClass(this, getInnerClass(i.rs1), null);
+						else if(!base.isClass())
 							throw new MDRuntimeException(this, "Attempted to derive a class from a value of type '%s'", base.typeString());
+						else
+							getBasedStack(i.rd).value = new MDClass(this, getInnerClass(i.rs1), base.asClass());*/
 
-						getBasedStack(i.rd).value = new MDClass(this, getInnerClass(i.rs1), base.asClass());
+						break;
+						
+					case Op.As:
+						StackVal src = getBasedStack(i.rs1);
+						StackVal cls = getBasedStack(i.rs2);
+						
+						if(!src.isInstance() || !cls.isClass())
+							throw new MDRuntimeException(this, "Attempted to perform 'as' on '%s' and '%s'; must be 'instance' and 'class'",
+								src.typeString(), cls.typeString());
+								
+						if(src.asInstance().castToClass(cls.asClass()))
+							getBasedStack(i.rd).value = src;
+						else
+							getBasedStack(i.rd).setNull();
+							
 						break;
 
 					case Op.Je:
