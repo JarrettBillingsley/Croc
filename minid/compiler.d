@@ -2764,8 +2764,7 @@ class ClassDef
 	}
 
 	protected Field[] mFields;
-	protected FuncState[] mMethodStates;
-	
+
 	public this(Identifier name, Expression baseClass, MethodDecl[] methods, Field[] fields, Location location, Location endLocation)
 	{
 		mName = name;
@@ -2869,19 +2868,50 @@ class ClassDef
 	
 	public void codeGen(FuncState s)
 	{
-		mMethodStates.length = mMethods.length;
+		/*mBaseClass.codeGen(s);
+		Exp* base = s.popSource(mLocation.line);
+		s.freeExpTempRegs(base);
 
-		foreach(uint i, MethodDecl m; mMethods)
-			mMethodStates[i] = m.codeGenNoPush(s);
-			
-		mBaseClass.codeGen(s);
+		uint destReg = s.pushRegister();
+		uint nameConst = s.codeStringConst(mName.mName);
+		s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
 
-		s.pushClass(this);
+		delete base;
+
+		foreach(Field field; mFields)
+		{
+			uint index = s.pushStringConst(field.name);
+
+			field.initializer.codeGen(s);
+			Exp* val = s.popSource(field.initializer.mEndLocation.line);
+
+			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+
+			s.freeExpTempRegs(val);
+
+			delete val;
+		}
+		
+		foreach(MethodDecl method; mMethods)
+		{
+			uint index = s.pushStringConst(method.name);
+
+			field.initializer.codeGen(s);
+			Exp* val = s.popSource(field.initializer.mEndLocation.line);
+
+			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+
+			s.freeExpTempRegs(val);
+
+			delete val;
+		}
+
+		s.pushTempReg(destReg);*/
 	}
 
 	public void showMe(uint tab = 0)
 	{
-		char[] guessedName;
+		/*char[] guessedName;
 		
 		if(mName is null)
 			guessedName = "class literal at " ~ mLocation.toString();
@@ -2897,7 +2927,7 @@ class ClassDef
 		{
 			writefln(string.repeat("\t", tab + 1), "Method ", i);
 			m.showMe(tab + 1);
-		}
+		}*/
 	}
 	
 	/*public MDClassDef toClassDef()

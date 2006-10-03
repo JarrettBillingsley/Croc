@@ -1,4 +1,16 @@
-local x = 0;
+function foo(x, y, z)
+{
+	writefln("x = ", x, " y = ", y, " z = ", z);
+}
+
+foo(1, 2);
+foo("hi", "bye", 48);
+
+t = { x = 3, y = 8 };
+
+foo(t);
+
+/*local x = 0;
 
 class A
 {
@@ -12,7 +24,7 @@ class A
 local a = A();
 a:foo();
 a:foo();
-writefln("outer x: ", x);
+writefln("outer x: ", x);*/
 
 /*class EventDispatcher
 {
