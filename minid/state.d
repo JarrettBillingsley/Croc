@@ -1056,49 +1056,6 @@ class MDState
 	// Interpreter
 	// ===================================================================================
 
-	protected static void getIndexed(MDState s, uint dest, StackVal table, MDValue* key)
-	{
-		MDValue* method;
-
-		if(table.isTable())
-		{
-			MDValue* result = table.asTable[key];
-
-			if(result.isNull() == false)
-			{
-				s.getBasedStack(dest).value = result;
-				return;
-			}
-			else
-			{
-				method = s.getMM(table, MM.Index);
-
-				if(method.isNull())
-				{
-					s.getBasedStack(dest).value = result;
-					return;
-				}
-			}
-		}
-		else
-		{
-			method = s.getMM(table, MM.Index);
-
-			if(method.isNull())
-				throw new MDRuntimeException(s, "Attempting to index (get) a '%s'", table.typeString());
-		}
-
-		if(method.isFunction())
-		{
-			uint funcSlot = s.push(method);
-			s.push(table);
-			s.push(key);
-			s.call(funcSlot, 2, 1);
-			s.copyBasedStack(dest, funcSlot);
-			return;
-		}
-	}
-	
 	protected void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
 	{
 		MDValue* method = getMM(dest, MM.IndexAssign);
@@ -1719,7 +1676,7 @@ class MDState
 						if(src.isInstance())
 							getBasedStack(i.rd).value = src.asInstance[getCR2()];
 						else
-							getIndexed(this, i.rd, src, getCR2());
+							index(i.rd, src, getCR2());
 						break;
 	
 					case Op.Call:
