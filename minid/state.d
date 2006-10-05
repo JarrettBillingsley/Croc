@@ -8,7 +8,7 @@ import std.stdarg;
 
 alias MDValue* StackVal;
 
-//debug = STACKINDEX;
+debug = STACKINDEX;
 
 class MDGlobalState
 {
@@ -234,12 +234,13 @@ class MDState
 			mCurrentAR.numReturns = numReturns;
 
 			MDInstance n = func.asClass().newInstance();
+			
 			MDValue* ctor = n["constructor"];
 
 			if(!ctor.isNull())
 			{
 				needStackSlots(2);
-	
+
 				for(int i = mStackIndex + 1; i > slot; i--)
 					copyAbsStack(i, i - 2);
 	
@@ -663,6 +664,9 @@ class MDState
 
 	package Location getDebugLocation()
 	{
+		if(mCurrentAR.func is null)
+			return Location("<no debug location available>", 0, 0);
+
 		if(mCurrentAR.func.isNative())
 			return Location(mCurrentAR.func.native.name, -1, -1);
 		else
@@ -1052,98 +1056,140 @@ class MDState
 	// Interpreter
 	// ===================================================================================
 
-	protected const uint metaMethodLoop = 100;
-
 	protected static void getIndexed(MDState s, uint dest, StackVal table, MDValue* key)
 	{
-		for(uint i = 0; i < metaMethodLoop; i++)
+		MDValue* method;
+
+		if(table.isTable())
 		{
-			MDValue* method;
+			MDValue* result = table.asTable[key];
 
-			if(table.isTable())
+			if(result.isNull() == false)
 			{
-				MDValue* result = table.asTable[key];
-
-				if(result.isNull() == false)
-				{
-					s.getBasedStack(dest).value = result;
-					return;
-				}
-				else
-				{
-					method = s.getMM(table, MM.Index);
-
-					if(method.isNull())
-					{
-						s.getBasedStack(dest).value = result;
-						return;
-					}
-				}
+				s.getBasedStack(dest).value = result;
+				return;
 			}
 			else
 			{
 				method = s.getMM(table, MM.Index);
 
 				if(method.isNull())
-					throw new MDRuntimeException(s, "Attempting to index (get) a '%s'", table.typeString());
-			}
-
-			if(method.isFunction())
-			{
-				uint funcSlot = s.push(method);
-				s.push(table);
-				s.push(key);
-				s.call(funcSlot, 2, 1);
-				s.copyBasedStack(dest, funcSlot);
-				return;
-			}
-
-			// Follow the chain
-			table = method;
-		}
-
-		throw new MDRuntimeException(s, "Metatable circular dependency or chain too deep");
-	}
-
-	protected static void setIndexed(MDState s, StackVal table, MDValue* key, MDValue* value)
-	{
-		for(uint i = 0; i < metaMethodLoop; i++)
-		{
-			MDValue* method;
-
-			if(table.isTable())
-			{
-				method = s.getMM(table, MM.IndexAssign);
-
-				if(method.isNull())
 				{
-					table.asTable()[key] = value;
+					s.getBasedStack(dest).value = result;
 					return;
 				}
 			}
-			else
-			{
-				method = s.getMM(table, MM.IndexAssign);
+		}
+		else
+		{
+			method = s.getMM(table, MM.Index);
 
-				if(method.isNull())
-					throw new MDRuntimeException(s, "Attempting to index (set) a '%s'", table.typeString());
-			}
-
-			if(method.isFunction())
-			{
-				uint funcSlot = s.push(method);
-				s.push(table);
-				s.push(key);
-				s.push(value);
-				s.call(funcSlot, 3, 0);
-				return;
-			}
-
-			// Follow the chain
-			table = method;
+			if(method.isNull())
+				throw new MDRuntimeException(s, "Attempting to index (get) a '%s'", table.typeString());
 		}
 
-		throw new MDRuntimeException(s, "Metatable circular dependency or chain too deep");
+		if(method.isFunction())
+		{
+			uint funcSlot = s.push(method);
+			s.push(table);
+			s.push(key);
+			s.call(funcSlot, 2, 1);
+			s.copyBasedStack(dest, funcSlot);
+			return;
+		}
+	}
+	
+	protected void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
+	{
+		MDValue* method = getMM(dest, MM.IndexAssign);
+
+		if(method.isNull() == false)
+		{
+			if(method.isFunction() == false && method.isDelegate() == false)
+				throw new MDRuntimeException(this, "Invalid opIndexAssign metamethod for type '%s'", dest.typeString());
+
+			uint funcSlot = push(method);
+			push(dest);
+			push(key);
+			push(value);
+			call(funcSlot, 3, 0);
+			return;
+		}
+
+		if(dest.isArray())
+		{
+			if(key.isInt() == false)
+				throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+
+			MDValue* val = dest.asArray[key.asInt];
+
+			if(val is null)
+				throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
+
+			val.value = value;
+		}
+		else if(dest.isTable())
+		{
+			dest.asTable()[key] = value;
+		}
+		else if(dest.isInstance())
+		{
+			MDValue* val = dest.asInstance[key];
+
+			if(val.isFunction())
+				throw new MDRuntimeException(this, "Attempt to change method of class instance");
+
+			val.value = value;
+		}
+		else if(dest.isClass())
+		{
+
+			dest.asClass()[key] = value;
+		}
+	}
+	
+	protected void index(uint dest, MDValue* src, MDValue* key)
+	{
+		MDValue* method = getMM(src, MM.Index);
+
+		if(method.isNull() == false)
+		{
+			if(method.isFunction() == false && method.isDelegate() == false)
+				throw new MDRuntimeException(this, "Invalid opIndex metamethod for type '%s'", src.typeString());
+
+			uint funcSlot = push(method);
+			push(src);
+			push(key);
+			call(funcSlot, 2, 1);
+			copyBasedStack(dest, funcSlot);
+
+			return;
+		}
+
+		if(src.isArray())
+		{
+			if(key.isInt() == false)
+				throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+
+			MDValue* val = src.asArray[key.asInt];
+
+			if(val is null)
+				throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
+
+			getBasedStack(dest).value = val;
+		}
+		else if(src.isTable())
+		{
+			getBasedStack(dest).value = src.asTable[key];
+		}
+		else if(src.isInstance())
+		{
+			getBasedStack(dest).value = src.asInstance[key];
+		}
+		else if(src.isClass())
+		{
+			getBasedStack(dest).value = src.asClass[key];
+		}
 	}
 
 	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
@@ -1200,7 +1246,7 @@ class MDState
 					case Op.Sub: s.getBasedStack(dest).value = src1.asInt() - src2.asInt(); return;
 					case Op.Mul: s.getBasedStack(dest).value = src1.asInt() * src2.asInt(); return;
 					case Op.Mod: s.getBasedStack(dest).value = src1.asInt() % src2.asInt(); return;
-					
+
 					case Op.Div:
 						if(src2.asInt() == 0)
 							throw new MDRuntimeException(s, "Integer divide by zero");
@@ -1322,10 +1368,10 @@ class MDState
 			{
 				Instruction i = *mCurrentAR.pc;
 				mCurrentAR.pc++;
-				
+
 				MDValue cr1temp;
 				MDValue cr2temp;
-	
+
 				MDValue* getCR1()
 				{
 					uint val = i.rs1;
@@ -1339,13 +1385,13 @@ class MDState
 				MDValue* getCR2()
 				{
 					uint val = i.rs2;
-	
+
 					if(val & Instruction.constBit)
 						return getConst(val & ~Instruction.constBit);
 					else
 						return getBasedStack(val);
 				}
-	
+
 				Op opcode = cast(Op)i.opcode;
 	
 				switch(opcode)
@@ -1659,58 +1705,11 @@ class MDState
 						break;
 
 					case Op.Index:
-						StackVal src = getBasedStack(i.rs1);
-
-						if(src.isArray())
-						{
-							MDValue* idx = getCR2();
-	
-							if(idx.isInt() == false)
-								throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", idx.typeString());
-	
-							MDValue* val = src.asArray[idx.asInt];
-	
-							if(val is null)
-								throw new MDRuntimeException(this, "Invalid array index: ", idx.asInt());
-	
-							getBasedStack(i.rd).value = val;
-						}
-						else if(src.isInstance())
-							getBasedStack(i.rd).value = src.asInstance[getCR2()];
-						else
-							getIndexed(this, i.rd, getBasedStack(i.rs1), getCR2());
-	
+						index(i.rd, getCR1(), getCR2());
 						break;
 	
 					case Op.IndexAssign:
-						StackVal dest = getBasedStack(i.rd);
-
-						if(dest.isArray())
-						{
-							MDValue* idx = getCR1();
-	
-							if(idx.isInt() == false)
-								throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", idx.typeString());
-	
-							MDValue* val = dest.asArray()[idx.asInt];
-	
-							if(val is null)
-								throw new MDRuntimeException(this, "Invalid array index: ", idx.asInt());
-	
-							val.value = getCR2();
-						}
-						else if(dest.isInstance())
-						{
-							MDValue* val = dest.asInstance[getCR1()];
-
-							if(val.isFunction())
-								throw new MDRuntimeException(this, "Attempt to change method of class instance");
-
-							val.value = getCR2();
-						}
-						else
-							setIndexed(this, getBasedStack(i.rd), getCR1(), getCR2());
-	
+						indexAssign(getBasedStack(i.rd), getCR1(), getCR2());
 						break;
 	
 					case Op.Method:
@@ -1783,13 +1782,13 @@ class MDState
 						
 					case Op.Class:
 						StackVal base = getCR2();
-						
-						/*if(base.isNull())
-							getBasedStack(i.rd).value = new MDClass(this, getInnerClass(i.rs1), null);
+
+						if(base.isNull())
+							getBasedStack(i.rd).value = new MDClass(this, getCR1().asString.asUTF32(), null);
 						else if(!base.isClass())
 							throw new MDRuntimeException(this, "Attempted to derive a class from a value of type '%s'", base.typeString());
 						else
-							getBasedStack(i.rd).value = new MDClass(this, getInnerClass(i.rs1), base.asClass());*/
+							getBasedStack(i.rd).value = new MDClass(this, getCR1().asString.asUTF32(), base.asClass());
 
 						break;
 						

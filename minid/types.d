@@ -601,10 +601,10 @@ class MDTable : MDObject
 	public MDValue* opIndex(MDValue* index)
 	{
 		MDValue* ptr = (*index in mData);
-		
+
 		if(ptr is null)
 			return &MDValue.nullValue;
-			
+
 		return ptr;
 	}
 	
@@ -670,6 +670,24 @@ class MDTable : MDObject
 		mData[idx] = val;
 		
 		return value;
+	}
+	
+	public int opApply(int delegate(inout MDValue* key, inout MDValue* value) dg)
+	{
+		int result = 0;
+		
+		foreach(MDValue key, MDValue value; mData)
+		{
+			MDValue* k = &key;
+			MDValue* v = &value;
+
+			result = dg(k, v);
+
+			if(result)
+				break;
+		}
+
+		return result;
 	}
 
 	public char[] toString()
@@ -884,18 +902,12 @@ class MDClass : MDObject
 		
 		if(baseClass !is null)
 		{
-			/*foreach(method; mBaseClass.mClass.mMethods)
-				mMethods[method.name] = new MDClosure(s, method.func);
-				
-			foreach(field; mBaseClass.mClass.mFields)
-				mFields[field.name] = &field.defaultValue;*/
-		}
-		
-		/*foreach(method; mClass.mMethods)
-			mMethods[method.name] = new MDClosure(s, method.func);
+			foreach(key, value; mBaseClass.mMethods)
+				mMethods[key] = value;
 
-		foreach(field; mClass.mFields)
-			mFields[field.name] = &field.defaultValue;*/
+			foreach(key, value; mBaseClass.mFields)
+				mFields[key] = value;
+		}
 	}
 
 	public override MDClass asClass()
@@ -930,13 +942,33 @@ class MDClass : MDObject
 		
 		if(ptr !is &MDValue.nullValue)
 			return ptr;*/
+			
+		MDValue* ptr = mMethods[index];
 
+		if(ptr !is &MDValue.nullValue)
+			return ptr;
+
+		ptr = mFields[index];
+
+		if(ptr !is &MDValue.nullValue)
+			return ptr;
+			
 		if(mBaseClass !is null)
 			return mBaseClass[index];
 		else
 			return &MDValue.nullValue;
 	}
-	
+
+	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
+	{
+		if(value.isFunction())
+			mMethods[index] = value;
+		else
+			mFields[index] = value;
+			
+		return value;
+	}
+
 	public MDValue* opIndex(char[] index)
 	{
 		MDValue key;

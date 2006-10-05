@@ -108,10 +108,6 @@ public void init(MDState s)
 		"slice",     new MDClosure(s, &lib.slice,    "array.slice")
 	);
 
-	MDValue val;
-	val.value = arrayTable;
-	arrayTable["opIndex"d] = &val;
-	
 	s.setGlobal("array", arrayTable);
 	MDGlobalState().setMetatable(MDValue.Type.Array, arrayTable);
 }

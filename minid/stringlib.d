@@ -589,7 +589,7 @@ class StringLib
 		}
 
 		s.push(ret);
-		
+
 		return 1;
 	}
 	
@@ -670,10 +670,8 @@ public void init(MDState s)
 		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip")
 	);
 
-	MDValue val;
-	val.value = stringTable;
-	stringTable["opIndex"d] = &val;
-	
+	stringTable["opIndex"d] = stringTable["charAt"];
+
 	s.setGlobal("string", stringTable);
 	MDGlobalState().setMetatable(MDValue.Type.String, stringTable);
 }

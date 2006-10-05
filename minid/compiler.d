@@ -26,8 +26,8 @@ implementations for the above methods.
 Generally, indexing becomes:
 	for arrays: index must be an int, if not, tries metatable
 	for tables: tries to index; if not found, tries metatable
-	for classes: tries to index; if not found, tries superclass
 	for class instances: tries to index; if not found, tries class
+	for classes: tries to index; if not found, tries superclass
 
 Keep :.  That enables things like:
 
@@ -2192,6 +2192,13 @@ class FuncState
 			case ExpType.Local:
 				// index just stays the same; type and index2 are written to
 				break;
+				
+			case ExpType.ConstIndex:
+				uint destReg = pushRegister();
+				codeI(line, Op.LoadConst, destReg, e.index);
+				e.index = destReg;
+				e.isTempReg = true;
+				break;
 
 			case ExpType.Global:
 				uint destReg = pushRegister();
@@ -2218,7 +2225,7 @@ class FuncState
 				break;
 
 			default:
-				assert(false);
+				assert(false, "invalid popIndex indexed value type");
 		}
 
 		toSource(line, index);
@@ -2868,45 +2875,45 @@ class ClassDef
 	
 	public void codeGen(FuncState s)
 	{
-		/*mBaseClass.codeGen(s);
+		mBaseClass.codeGen(s);
 		Exp* base = s.popSource(mLocation.line);
 		s.freeExpTempRegs(base);
 
 		uint destReg = s.pushRegister();
-		uint nameConst = s.codeStringConst(mName.mName);
-		s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
+		uint nameConst = s.codeStringConst(utf.toUTF32(mName.mName));
+		s.codeR(mLocation.line, Op.Class, destReg, nameConst | Instruction.constBit, base.index);
 
 		delete base;
 
 		foreach(Field field; mFields)
 		{
-			uint index = s.pushStringConst(field.name);
+			uint index = s.codeStringConst(field.name);
 
 			field.initializer.codeGen(s);
 			Exp* val = s.popSource(field.initializer.mEndLocation.line);
 
-			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
 
 			s.freeExpTempRegs(val);
 
 			delete val;
 		}
-		
+
 		foreach(MethodDecl method; mMethods)
 		{
-			uint index = s.pushStringConst(method.name);
+			uint index = s.codeStringConst(utf.toUTF32(method.mName.mName));
 
-			field.initializer.codeGen(s);
-			Exp* val = s.popSource(field.initializer.mEndLocation.line);
+			method.codeGen(s);
+			Exp* val = s.popSource(method.mEndLocation.line);
 
-			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+			s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
 
 			s.freeExpTempRegs(val);
 
 			delete val;
 		}
 
-		s.pushTempReg(destReg);*/
+		s.pushTempReg(destReg);
 	}
 
 	public void showMe(uint tab = 0)
@@ -2929,36 +2936,6 @@ class ClassDef
 			m.showMe(tab + 1);
 		}*/
 	}
-	
-	/*public MDClassDef toClassDef()
-	{
-		MDClassDef cd = new MDClassDef();
-		
-		cd.mLocation = mLocation;
-		
-		if(mName is null)
-			cd.mGuessedName = "class literal at "d ~ utf.toUTF32(mLocation.toString());
-		else
-			cd.mGuessedName = utf.toUTF32(mName.mName);
-
-		cd.mMethods.length = mMethods.length;
-
-		foreach(uint i, MethodDecl m; mMethods)
-		{
-			cd.mMethods[i].name = utf.toUTF32(m.mName.mName);
-			cd.mMethods[i].func = mMethodStates[i].toFuncDef();
-		}
-
-		cd.mFields.length = mFields.length;
-		
-		for(int i = 0; i < mFields.length; i++)
-		{
-			cd.mFields[i].name = mFields[i].name;
-			cd.mFields[i].defaultValue = mFields[i].defaultValue;
-		}
-		
-		return cd;
-	}*/
 }
 
 class Chunk
@@ -3663,11 +3640,9 @@ class MethodDecl : Declaration
 		return new MethodDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
 	}
 
-	public FuncState codeGenNoPush(FuncState s)
+	public override void codeGen(FuncState s)
 	{
 		mFunc.codeGen(s);
-		Exp* e = s.popExp();
-		return s.mInnerFuncs[e.index];
 	}
 
 	public override void writeCode(CodeWriter cw)

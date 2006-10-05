@@ -16,9 +16,11 @@ class TableLib
 public void init(MDState s)
 {
 	TableLib lib = new TableLib();
-
-	s.setGlobal("table", MDTable.create
+	
+	MDTable tableLib = MDTable.create
 	(
 		"dup",       new MDClosure(s, &lib.dup,      "table.dup")
-	));
+	);
+
+	s.setGlobal("table", tableLib);
 }
