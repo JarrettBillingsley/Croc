@@ -21,5 +21,13 @@ void main()
 
 	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
 
-	state.easyCall(cl, 0);
+	try
+	{
+		state.easyCall(cl, 0);
+	}
+	catch(MDException e)
+	{
+		writefln("error: ", e);
+		writefln(state.getTracebackString());
+	}
 }

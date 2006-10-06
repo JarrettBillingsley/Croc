@@ -640,6 +640,43 @@ class StringLib
 
 		return 1;
 	}
+	
+	int slice(MDState s)
+	{
+		MDString str = s.getStringObjParam(0);
+		
+		int lo;
+		int hi;
+		
+		if(s.numParams() == 1)
+		{
+			lo = 0;
+			hi = str.length;
+		}
+		else if(s.numParams() == 2)
+		{
+			lo = s.getIntParam(1);
+			hi = str.length;
+		}
+		else
+		{
+			lo = s.getIntParam(1);
+			hi = s.getIntParam(2);
+		}
+		
+		if(lo < 0)
+			lo = str.length + lo + 1;
+			
+		if(hi < 0)
+			hi = str.length + hi + 1;
+			
+		if(lo > hi || lo < 0 || lo > str.length || hi < 0 || hi > str.length)
+			throw new MDRuntimeException(s, "Invalid slice indices [", lo, " .. ", hi, "] (string length = ", str.length, ")");
+
+		s.push(str[lo .. hi]);
+		
+		return 1;
+	}
 
 	//TODO: int format(MDState s)
 }
@@ -667,7 +704,8 @@ public void init(MDState s)
 		"splitLines", new MDClosure(s, &lib.splitLines, "string.splitLines"),
 		"strip",      new MDClosure(s, &lib.strip,      "string.strip"),
 		"lstrip",     new MDClosure(s, &lib.lstrip,     "string.lstrip"),
-		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip")
+		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip"),
+		"slice",      new MDClosure(s, &lib.slice,      "string.slice")
 	);
 
 	stringTable["opIndex"d] = stringTable["charAt"];

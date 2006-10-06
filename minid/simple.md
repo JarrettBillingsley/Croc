@@ -1,48 +1,163 @@
-writefln("hi"[0]);
-
-
-/*local function foo()
+// returns the number of days in a given month and year
+function daysInMonth(month, year)
 {
-	writefln("hi ", 4, ", ", 5);
-}
-
-foo();
-
-writefln();
-
-local t =
-{
-	x = 5,
-	y = 4.5,
-	
-	function foo(this)
+	local daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+	local d = daysInMonth[month];
+   
+	// check for leap year
+	if(month == 2)
 	{
-		writefln("foo: ", this.x, ", ", this.y);
+		if((year % 4) == 0)
+		{
+			if((year % 100) == 0)
+			{
+				if((year % 400) == 0)
+					d = 29;
+			}
+			else
+				d = 29;
+		}
 	}
-};
 
-t:foo();
-
-writefln();
-
-Foo = { };
-Foo.opIndex = Foo;*/
-
-/*function Foo:bar()
-{
-	writefln("Foo.bar!");
+	return d;
 }
 
-function Foo:new()
+// returns the day of week integer and the name of the week
+function dayOfWeek(dd, mm, yy)
 {
-	local t = { };
-	setMetatable(t, this);
-	return t;
+	local days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+	local mmx = mm;
+
+	if(mm == 1)
+	{
+		mmx = 13;
+		--yy;
+	}
+
+	if(mm == 2)
+	{
+		mmx = 14;
+		--yy;
+	}
+
+	local val8 = dd + (mmx * 2) + (((mmx + 1) * 3) / 5) + yy + (yy / 4) - (yy / 100) + (yy / 400) + 2;
+	local val9 = val8 / 7;
+	local dw = val8 - (val9 * 7);
+
+	return dw, days[dw];
 }
 
-local f = Foo:new();
+// given a string date of '2006-12-31' breaks it down to integer yy, mm and dd
+function getDateParts(dateStr)
+{
+	local parts = [0, 0, 0];
 
-f:bar();*/
+	if(dateStr !is null)
+	{
+		local begin = 0;
+		local idx = 0;
+		
+		for(local i = 0; i < #dateStr; ++i)
+		{
+			if(dateStr[i] == '-')
+			{
+				parts[idx] = dateStr:slice(begin, i):toInt();
+				++idx;
+				begin = i + 1;
+			}
+		}
+	}
+
+	return parts[0], parts[1], parts[2];
+}
+
+function arrayIterator(array, index)
+{
+	++index;
+
+	if(index >= #array)
+		return null;
+
+	return index, array[index];
+}
+
+function pairs(container)
+{
+	if(typeof(container) == "array")
+		return arrayIterator, container, -1;
+}
+
+function showCalendar(cdate)
+{
+	local out = "";
+
+	local yy, mm, dd = getDateParts(cdate);
+	local month_days = daysInMonth(mm, yy);
+	local day_week = dayOfWeek(1, mm, yy);
+
+    // day in which the calendar day start.. 1=Sunday, 2="Monday"
+	local day_start = 1;
+
+	local days_of_week = [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]];
+	local days_of_week_ordered = [];
+	
+	for(local k = 0; k < 7; ++k)
+	{
+		p = k + day_start;
+
+		if(p >= 7)
+			p -= 7;
+
+		local v = { };
+		v.dayname = days_of_week[p][0];
+		v.daynum = days_of_week[p][1];
+		days_of_week_ordered ~= v;
+	}
+
+	out = "<h3>" ~ cdate ~ "</h3>";
+	out ~= "<table border='1' width='80%' cellspacing='2' cellpadding='5'>";
+
+	out ~= "<tr>";
+	
+	foreach(local k, local v; pairs(days_of_week_ordered))
+	{
+		out ~= "<td>" ~ v.dayname ~ "</td>";
+
+		if(day_week == v.daynum)
+			d = - k + 2;
+	}
+
+	out ~= "</tr>";
+
+	while(d < month_days)
+	{
+		out ~= "<tr>";
+
+		foreach(local k, local v; pairs(days_of_week))
+		{
+			if(d >= 1 && d <= month_days)
+			{
+				if(d == dd)
+					out ~= "<td bgcolor='#FFFF99'>" ~ d ~ "</td>";
+				else
+					out ~= "<td>" ~ toString(d) ~ "</td>";
+			}
+			else
+				out ~= "<td> </td>";
+
+			++d;
+		}
+
+		out ~=  "</tr>";
+	}
+
+	out ~= "</table>";
+
+	writefln(out);
+}
+
+showCalendar("2006-4-5");
 
 /*writefln();
 

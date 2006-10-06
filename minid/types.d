@@ -152,37 +152,37 @@ enum MM
 const dchar[][] MetaNames =
 [
 	MM.Add : "opAdd",
-	MM.Sub : "opSub",
+	MM.AddEq : "opAddEq",
+	MM.And : "opAnd",
+	MM.AndEq : "opAndEq",
+	MM.Call : "opCall",
 	MM.Cat : "opCat",
-	MM.Mul : "opMul",
-	MM.Div : "opDiv",
-	MM.Mod : "opMod",
-	MM.Neg : "opNeg",
-	MM.Length : "opLength",
+	MM.CatEq : "opCatEq",
 	MM.Cmp : "opCmp",
+	MM.Com : "opCom",
+	MM.Div : "opDiv",
+	MM.DivEq : "opDivEq",
 	MM.Index : "opIndex",
 	MM.IndexAssign : "opIndexAssign",
-	MM.Call : "opCall",
-	MM.And : "opAnd",
-	MM.Or : "opOr",
-	MM.Xor : "opXor",
-	MM.Shl : "opShl",
-	MM.Shr : "opShr",
-	MM.UShr : "opUShr",
-	MM.Com : "opCom",
-	MM.ToString : "opToString",
-	MM.AddEq : "opAddEq",
-	MM.SubEq : "opSubEq",
-	MM.CatEq : "opCatEq",
-	MM.MulEq : "opMulEq",
-	MM.DivEq : "opDivEq",
+	MM.Length : "opLength",
+	MM.Mod : "opMod",
 	MM.ModEq : "opModEq",
-	MM.AndEq : "opAndEq",
+	MM.Mul : "opMul",
+	MM.MulEq : "opMulEq",
+	MM.Neg : "opNeg",
+	MM.Or : "opOr",
 	MM.OrEq : "opOrEq",
-	MM.XorEq : "opXorEq",
+	MM.Shl : "opShl",
 	MM.ShlEq : "opShlEq",
+	MM.Shr : "opShr",
 	MM.ShrEq : "opShrEq",
-	MM.UShrEq : "opUShrEq"
+	MM.Sub : "opSub",
+	MM.SubEq : "opSubEq",
+	MM.ToString : "opToString",
+	MM.UShr : "opUShr",
+	MM.UShrEq : "opUShrEq",
+	MM.Xor : "opXor",
+	MM.XorEq : "opXorEq",
 ];
 
 public MDValue[] MetaStrings;
@@ -336,6 +336,22 @@ class MDString : MDObject
 	public int opCmp(dchar[] v)
 	{
 		return dcmp(mData, v);
+	}
+	
+	public dchar opIndex(uint index)
+	{
+		debug if(index < 0 || index >= mData.length)
+			throw new MDException("Invalid string character index: ", index);
+
+		return mData[index];
+	}
+	
+	public MDString opSlice(uint lo, uint hi)
+	{
+		debug if(lo > hi || lo < 0 || lo > mData.length || hi < 0 || hi > mData.length)
+			throw new MDException("Invalid string slice indices [%s .. %s]", lo, hi);
+			
+		return new MDString(mData[lo .. hi].dup);
 	}
 
 	public char[] asUTF8()

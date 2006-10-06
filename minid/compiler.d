@@ -2186,14 +2186,16 @@ class FuncState
 
 		Exp* index = popExp();
 		Exp* e = &mExpStack[mExpSP - 1];
-
+		
 		switch(e.type)
 		{
 			case ExpType.Local:
 				// index just stays the same; type and index2 are written to
 				break;
-				
+
 			case ExpType.ConstIndex:
+				freeExpTempRegs(e);
+
 				uint destReg = pushRegister();
 				codeI(line, Op.LoadConst, destReg, e.index);
 				e.index = destReg;
@@ -2201,6 +2203,8 @@ class FuncState
 				break;
 
 			case ExpType.Global:
+				freeExpTempRegs(e);
+
 				uint destReg = pushRegister();
 				codeI(line, Op.GetGlobal, destReg, e.index);
 				e.index = destReg;
@@ -2208,6 +2212,8 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
+				freeExpTempRegs(e);
+
 				uint destReg = pushRegister();
 				codeI(line, Op.GetUpvalue, destReg, e.index);
 				e.index = destReg;
@@ -2215,8 +2221,7 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
-				if(e.isTempReg)
-					popRegister(e.index);
+				freeExpTempRegs(e);
 
 				uint destReg = pushRegister();
 				codeR(line, Op.Index, destReg, e.index, e.index2);
@@ -2299,7 +2304,14 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
-				codeR(line, Op.Index, e.index, e.index, e.index2);
+				if(e.isTempReg)
+					codeR(line, Op.Index, e.index, e.index, e.index2);
+				else
+				{
+					temp.index = pushRegister();
+					codeR(line, Op.Index, temp.index, e.index, e.index2);
+					temp.isTempReg = true;	
+				}
 				break;
 
 			case ExpType.NeedsDest:
@@ -2981,14 +2993,22 @@ class Chunk
 		FuncState fs = new FuncState(mLocation, "chunk " ~ mLocation.fileName);
 		fs.mIsVararg = true;
 
-		foreach(Statement s; mStatements)
-			s.codeGen(fs);
+		try
+		{
+			foreach(Statement s; mStatements)
+				s.codeGen(fs);
+		}
+		catch(Exception e)
+		{
+			//fs.showMe();
+			throw e;	
+		}
 
 		fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);

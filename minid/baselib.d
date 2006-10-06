@@ -14,7 +14,7 @@ class BaseLib
 		int numParams = s.numParams();
 
 		for(int i = 0; i < numParams; i++)
-			writef(s.getParam(i).toString());
+			writef("%s", s.getParam(i).toString());
 
 		writefln();
 

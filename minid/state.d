@@ -8,7 +8,7 @@ import std.stdarg;
 
 alias MDValue* StackVal;
 
-debug = STACKINDEX;
+//debug = STACKINDEX;
 
 class MDGlobalState
 {
@@ -569,7 +569,20 @@ class MDState
 
 		return val.asString.asUTF32();
 	}
-	
+
+	public MDString getStringObjParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isString() == false)
+			badParamError(this, index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+
+		return val.asString();
+	}
+
 	public MDArray getArrayParam(uint index)
 	{
 		if(index >= numParams())
@@ -1325,7 +1338,7 @@ class MDState
 			{
 				Instruction i = *mCurrentAR.pc;
 				mCurrentAR.pc++;
-
+				
 				MDValue cr1temp;
 				MDValue cr2temp;
 
@@ -1424,7 +1437,7 @@ class MDState
 						mCurrentAR.pc++;
 	
 						assert(jump.opcode == Op.Je, "invalid 'is' jump");
-	
+
 						bool cmpValue = getCR1().rawEquals(getCR2());
 	
 						if(jump.rd == 1)
@@ -1447,7 +1460,7 @@ class MDState
 						assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
 	
 						bool cmpValue = !getCR1().isFalse();
-	
+
 						if(jump.rd == 1)
 						{
 							if(cmpValue is true)
@@ -1478,7 +1491,7 @@ class MDState
 							copyBasedStack(i.rd, funcReg);
 						}
 						else
-							getBasedStack(i.rd).value = cast(int)getBasedStack(i.rs1).length;
+							getBasedStack(i.rd).value = cast(int)src.length;
 
 						break;
 	
@@ -1676,9 +1689,16 @@ class MDState
 						if(src.isInstance())
 							getBasedStack(i.rd).value = src.asInstance[getCR2()];
 						else
-							index(i.rd, src, getCR2());
+						{
+							MDTable metatable = MDGlobalState().getMetatable(src.type);
+
+							if(metatable is null)
+								throw new MDRuntimeException(this, "No metatable for type '%s'", src.typeString());
+
+							getBasedStack(i.rd).value = metatable[getCR2()];
+						}
 						break;
-	
+
 					case Op.Call:
 						int funcReg = i.rd;
 						int numParams = i.rs1 - 1;
