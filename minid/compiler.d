@@ -13,52 +13,9 @@ import std.perf;
 import minid.types;
 import minid.opcodes;
 
-/*
-metamethods become per-type for ALL types, including tables and userdata.  
-there are default metamethods implemented for all types, such as:
-	opLength
-	opToString
-	opTypeString
-
-There is a base class, Object, from which all classes derive.  It has default
-implementations for the above methods.
-
-Generally, indexing becomes:
-	for arrays: index must be an int, if not, tries metatable
-	for tables: tries to index; if not found, tries metatable
-	for class instances: tries to index; if not found, tries class
-	for classes: tries to index; if not found, tries superclass
-
-Keep :.  That enables things like:
-
-class Foo
-{
-	method m()
-	{
-		writefln(this.x);
-	}
-	
-	x = 0;
-}
-
-local f = Foo();
-f.x = 5;
-f:m(); // writes 5
-
-local g = Foo();
-g.x = 2;
-Foo.m(g); // writes 2
-
-I.e. something like an unbound delegate (pointer-to-member).
-
-New keywords:
-'method' - Like declaring a "obj:method()" function - just inserts an implicit "this"
-'as' - Attempts to cast a class instance (inst as Class)
-'class' - Duh
-*/
-
 //debug = REGPUSHPOP;
 //debug = VARACTIVATE;
+//debug = WRITECODE;
 
 public MDFuncDef compileFile(char[] filename)
 {
@@ -2194,6 +2151,7 @@ class FuncState
 				break;
 
 			case ExpType.ConstIndex:
+				freeExpTempRegs(index);
 				freeExpTempRegs(e);
 
 				uint destReg = pushRegister();
@@ -2203,6 +2161,7 @@ class FuncState
 				break;
 
 			case ExpType.Global:
+				freeExpTempRegs(index);
 				freeExpTempRegs(e);
 
 				uint destReg = pushRegister();
@@ -2212,6 +2171,7 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
+				freeExpTempRegs(index);
 				freeExpTempRegs(e);
 
 				uint destReg = pushRegister();
@@ -2221,6 +2181,7 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
+				freeExpTempRegs(index);
 				freeExpTempRegs(e);
 
 				uint destReg = pushRegister();
@@ -2610,6 +2571,8 @@ class FuncState
 		i.rs1 = src1;
 		i.rs2 = src2;
 
+		debug(WRITECODE) writefln(i.toString());
+
 		mLineInfo ~= line;
 		mCode ~= i;
 		return mCode.length - 1;
@@ -2623,6 +2586,8 @@ class FuncState
 		i.rd = dest;
 		i.uimm = imm;
 
+		debug(WRITECODE) writefln(i.toString());
+
 		mLineInfo ~= line;
 		mCode ~= i;
 		return mCode.length - 1;
@@ -2635,6 +2600,8 @@ class FuncState
 		//i.attrs = attrs;
 		i.rd = dest;
 		i.imm = offs;
+		
+		debug(WRITECODE) writefln(i.toString());
 
 		mLineInfo ~= line;
 		mCode ~= i;
@@ -3000,7 +2967,7 @@ class Chunk
 		}
 		catch(Exception e)
 		{
-			//fs.showMe();
+			fs.showMe();
 			throw e;	
 		}
 
@@ -3160,11 +3127,12 @@ class ExpressionStatement : Statement
 	{
 		Location location = t.location;
 		Expression exp = Expression.parse(t);
-		exp.checkToNothing();
 
 		t.check(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
+		
+		exp.checkToNothing();
 
 		return new ExpressionStatement(location, endLocation, exp);
 	}
@@ -5058,7 +5026,7 @@ abstract class Expression
 
 	public void checkToNothing()
 	{
-		throw new MDCompileException(mLocation, "Expression cannot exist on its own");
+		throw new MDCompileException(mLocation, "Expression cannot exist on its own ");
 	}
 
 	public void checkMultRet()

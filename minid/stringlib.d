@@ -677,6 +677,19 @@ class StringLib
 		
 		return 1;
 	}
+	
+	int fromChar(MDState s)
+	{
+		dchar c = s.getIntParam(0);
+
+		if(!utf.isValidDchar(c))
+			throw new MDRuntimeException(s, "Invalid character: ", cast(int)c);
+			
+		dchar[] str = new dchar[1];
+		str[0] = c;
+
+		return s.push(new MDString(str));
+	}
 
 	//TODO: int format(MDState s)
 }
@@ -705,7 +718,8 @@ public void init(MDState s)
 		"strip",      new MDClosure(s, &lib.strip,      "string.strip"),
 		"lstrip",     new MDClosure(s, &lib.lstrip,     "string.lstrip"),
 		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip"),
-		"slice",      new MDClosure(s, &lib.slice,      "string.slice")
+		"slice",      new MDClosure(s, &lib.slice,      "string.slice"),
+		"fromChar",   new MDClosure(s, &lib.fromChar,   "string.fromChar")
 	);
 
 	stringTable["opIndex"d] = stringTable["charAt"];

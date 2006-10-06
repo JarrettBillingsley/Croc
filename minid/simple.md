@@ -1,163 +1,153 @@
-// returns the number of days in a given month and year
-function daysInMonth(month, year)
+class StringStream
 {
-	local daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-	local d = daysInMonth[month];
-   
-	// check for leap year
-	if(month == 2)
+	mSource = "";
+	mIndex = 0;
+	
+	method constructor(source)
 	{
-		if((year % 4) == 0)
-		{
-			if((year % 100) == 0)
-			{
-				if((year % 400) == 0)
-					d = 29;
-			}
-			else
-				d = 29;
-		}
+		if(typeof(source) != "string")
+			throw "StringStream.constructor() -- Expected string argument";
+			
+		this.mSource = source;
 	}
-
-	return d;
-}
-
-// returns the day of week integer and the name of the week
-function dayOfWeek(dd, mm, yy)
-{
-	local days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-	local mmx = mm;
-
-	if(mm == 1)
+	
+	method readChar()
 	{
-		mmx = 13;
-		--yy;
-	}
-
-	if(mm == 2)
-	{
-		mmx = 14;
-		--yy;
-	}
-
-	local val8 = dd + (mmx * 2) + (((mmx + 1) * 3) / 5) + yy + (yy / 4) - (yy / 100) + (yy / 400) + 2;
-	local val9 = val8 / 7;
-	local dw = val8 - (val9 * 7);
-
-	return dw, days[dw];
-}
-
-// given a string date of '2006-12-31' breaks it down to integer yy, mm and dd
-function getDateParts(dateStr)
-{
-	local parts = [0, 0, 0];
-
-	if(dateStr !is null)
-	{
-		local begin = 0;
-		local idx = 0;
+		if(this.mIndex >= #this.mSource)
+			return null;
 		
-		for(local i = 0; i < #dateStr; ++i)
-		{
-			if(dateStr[i] == '-')
-			{
-				parts[idx] = dateStr:slice(begin, i):toInt();
-				++idx;
-				begin = i + 1;
-			}
-		}
+		local ret = this.mSource:slice(this.mIndex, this.mIndex + 1);
+		++this.mIndex;
+
+		return ret;
 	}
-
-	return parts[0], parts[1], parts[2];
-}
-
-function arrayIterator(array, index)
-{
-	++index;
-
-	if(index >= #array)
-		return null;
-
-	return index, array[index];
-}
-
-function pairs(container)
-{
-	if(typeof(container) == "array")
-		return arrayIterator, container, -1;
-}
-
-function showCalendar(cdate)
-{
-	local out = "";
-
-	local yy, mm, dd = getDateParts(cdate);
-	local month_days = daysInMonth(mm, yy);
-	local day_week = dayOfWeek(1, mm, yy);
-
-    // day in which the calendar day start.. 1=Sunday, 2="Monday"
-	local day_start = 1;
-
-	local days_of_week = [["Sun", 0], ["Mon", 1], ["Tue", 2], ["Wed", 3], ["Thu", 4], ["Fri", 5], ["Sat", 6]];
-	local days_of_week_ordered = [];
 	
-	for(local k = 0; k < 7; ++k)
+	method eof()
 	{
-		p = k + day_start;
-
-		if(p >= 7)
-			p -= 7;
-
-		local v = { };
-		v.dayname = days_of_week[p][0];
-		v.daynum = days_of_week[p][1];
-		days_of_week_ordered ~= v;
+		return this.mIndex >= #this.mSource;
 	}
+}
 
-	out = "<h3>" ~ cdate ~ "</h3>";
-	out ~= "<table border='1' width='80%' cellspacing='2' cellpadding='5'>";
+class ConsoleOutStream
+{
+	method write(vararg)
+	{
+		local args = [vararg];
+		
+		for(local i = 0; i < #args; ++i)
+			writefln(args[i]);
+	}
+}
 
-	out ~= "<tr>";
+class CompressDict
+{
+	mData = {};
+	mNextCode = 128;
+
+	method constructor()
+	{
+		for(local i = 0; i < 128; ++i)
+			this.mData[string.fromChar(i)] = i;
+	}
 	
-	foreach(local k, local v; pairs(days_of_week_ordered))
+	method has(key)
 	{
-		out ~= "<td>" ~ v.dayname ~ "</td>";
-
-		if(day_week == v.daynum)
-			d = - k + 2;
+		return this.mData[key] !is null;
 	}
 
-	out ~= "</tr>";
-
-	while(d < month_days)
+	method lookup(key)
 	{
-		out ~= "<tr>";
+		return this.mData[key];
+	}
 
-		foreach(local k, local v; pairs(days_of_week))
+	method addCode(key)
+	{
+		this.mData[key] = this.mNextCode;
+		++this.mNextCode;
+	}
+}
+
+function compress(input, output)
+{
+	local dict = CompressDict();
+	local w = "";
+
+	do
+	{
+		local k = input:readChar();
+
+		if(dict:has(w ~ k))
+			w ~= k;
+		else
 		{
-			if(d >= 1 && d <= month_days)
-			{
-				if(d == dd)
-					out ~= "<td bgcolor='#FFFF99'>" ~ d ~ "</td>";
-				else
-					out ~= "<td>" ~ toString(d) ~ "</td>";
-			}
-			else
-				out ~= "<td> </td>";
-
-			++d;
+			output:write(dict:lookup(w));
+			dict:addCode(w ~ k);
+			w = k;
 		}
 
-		out ~=  "</tr>";
-	}
-
-	out ~= "</table>";
-
-	writefln(out);
+	} while(!input:eof())
 }
 
-showCalendar("2006-4-5");
+local t = { };
+t["hi"] = 4;
+writefln(t["hi"]);
+t["a"] = 5;
+writefln(t["a"]);
+
+local var = string.fromChar;
+writefln(t[var('a')]);
+
+throw "end";
+
+local in = StringStream(`
+Nevertheless, a few are to be feared; and foremost among these is the
+Malmignatte, the terror of the Corsican peasantry.  I have seen her
+settle in the furrows, lay out her web and rush boldly at insects larger
+than herself; I have admired her garb of black velvet speckled with
+carmine-red; above all, I have heard most disquieting stories told about
+her.  Around Ajaccio and Bonifacio, her bite is reputed very dangerous,
+sometimes mortal.  The countryman declares this for a fact and the doctor
+does not always dare deny it.  In the neighbourhood of Pujaud, not far
+from Avignon, the harvesters speak with dread of _Theridion lugubre_, {1}
+first observed by Leon Dufour in the Catalonian mountains; according to
+them, her bite would lead to serious accidents.  The Italians have
+bestowed a bad reputation on the Tarantula, who produces convulsions and
+frenzied dances in the person stung by her.  To cope with 'tarantism,'
+the name given to the disease that follows on the bite of the Italian
+Spider, you must have recourse to music, the only efficacious remedy, so
+they tell us.  Special tunes have been noted, those quickest to afford
+relief.  There is medical choreography, medical music.  And have we not
+the tarentella, a lively and nimble dance, bequeathed to us perhaps by
+the healing art of the Calabrian peasant?
+
+Must we take these queer things seriously or laugh at them?  From the
+little that I have seen, I hesitate to pronounce an opinion.  Nothing
+tells us that the bite of the Tarantula may not provoke, in weak and very
+impressionable people, a nervous disorder which music will relieve;
+nothing tells us that a profuse perspiration, resulting from a very
+energetic dance, is not likely to diminish the discomfort by diminishing
+the cause of the ailment.  So far from laughing, I reflect and enquire,
+when the Calabrian peasant talks to me of his Tarantula, the Pujaud
+reaper of his _Theridion lugubre_, the Corsican husbandman of his
+Malmignatte.  Those Spiders might easily deserve, at least partly, their
+terrible reputation.
+
+The most powerful Spider in my district, the Black-bellied Tarantula,
+will presently give us something to think about, in this connection.  It
+is not my business to discuss a medical point, I interest myself
+especially in matters of instinct; but, as the poison-fangs play a
+leading part in the huntress' manoeuvres of war, I shall speak of their
+effects by the way.  The habits of the Tarantula, her ambushes, her
+artifices, her methods of killing her prey: these constitute my subject.
+I will preface it with an account by Leon Dufour, {2} one of those
+accounts in which I used to delight and which did much to bring me into
+closer touch with the insect.  The Wizard of the Landes tells us of the
+ordinary Tarantula, that of the Calabrias, observed by him in Spain:
+ `);
+ 
+local out = ConsoleOutStream();
+
+compress(in, out);
 
 /*writefln();
 

@@ -20,6 +20,16 @@ class BaseLib
 
 		return 0;
 	}
+	
+	int mdwritef(MDState s)
+	{
+		int numParams = s.numParams();
+
+		for(int i = 0; i < numParams; i++)
+			writef("%s", s.getParam(i).toString());
+
+		return 0;
+	}
 
 	static MDString[] typeStrings;
 	
@@ -85,6 +95,7 @@ public void init(MDState s)
 	BaseLib lib = new BaseLib();
 
 	s.setGlobal("writefln",     new MDClosure(s, &lib.mdwritefln,   "writefln"));
+	s.setGlobal("writef",       new MDClosure(s, &lib.mdwritef,     "writef"));
 	s.setGlobal("typeof",       new MDClosure(s, &lib.mdtypeof,     "typeof"));
 	s.setGlobal("classof",      new MDClosure(s, &lib.classof,      "classof"));
 	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
