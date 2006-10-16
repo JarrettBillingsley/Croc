@@ -1428,7 +1428,6 @@ class FuncState
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
-	protected ClassDef[] mClasses;
 	protected Location mLocation;
 	protected MDValue[] mConstants;
 	protected uint mNumParams;
@@ -1868,19 +1867,6 @@ class FuncState
 		e.type = ExpType.Closure;
 		e.index = index;
 	}
-	
-	public void pushClass(ClassDef c)
-	{
-		mClasses ~= c;
-
-		Exp baseClass = *popSource(c.mLocation.line);
-		Exp* e = pushExp();
-
-		e.type = ExpType.Class;
-		e.index = baseClass.index;
-		e.isTempReg = baseClass.isTempReg;
-		e.index2 = mClasses.length - 1;
-	}
 
 	public void freeExpTempRegs(Exp* e)
 	{
@@ -2143,7 +2129,7 @@ class FuncState
 
 		Exp* index = popExp();
 		Exp* e = &mExpStack[mExpSP - 1];
-		
+
 		switch(e.type)
 		{
 			case ExpType.Local:
@@ -2284,6 +2270,7 @@ class FuncState
 			case ExpType.Call:
 				mCode[e.index].rs2 = 2;
 				temp.index = e.index2;
+				temp.isTempReg = e.isTempReg2;
 				break;
 
 			case ExpType.Closure:
@@ -2618,13 +2605,6 @@ class FuncState
 			s.showMe(tab + 1);
 		}
 		
-		foreach(uint i, ClassDef c; mClasses)
-		{
-			writefln(string.repeat("\t", tab + 1), "Class ", i);
-			
-			c.showMe(tab + 1);
-		}
-
 		foreach(uint i, inout SwitchDesc* t; mSwitchTables)
 		{
 			writef(string.repeat("\t", tab + 1), "Switch Table ", i);
@@ -2893,27 +2873,6 @@ class ClassDef
 		}
 
 		s.pushTempReg(destReg);
-	}
-
-	public void showMe(uint tab = 0)
-	{
-		/*char[] guessedName;
-		
-		if(mName is null)
-			guessedName = "class literal at " ~ mLocation.toString();
-		else
-			guessedName = mName.mName;
-
-		writefln(string.repeat("\t", tab), "Class at ", mLocation.toString(), " (guessed name: %s)", guessedName);
-
-		foreach(f; mFields)
-			writefln(string.repeat("\t", tab + 1), "Field: ", f.name, " = ", f.defaultValue.toString());
-
-		foreach(uint i, FuncState m; mMethodStates)
-		{
-			writefln(string.repeat("\t", tab + 1), "Method ", i);
-			m.showMe(tab + 1);
-		}*/
 	}
 }
 
@@ -5026,7 +4985,7 @@ abstract class Expression
 
 	public void checkToNothing()
 	{
-		throw new MDCompileException(mLocation, "Expression cannot exist on its own ");
+		throw new MDCompileException(mLocation, "Expression cannot exist on its own");
 	}
 
 	public void checkMultRet()
@@ -6403,6 +6362,7 @@ class CallExp : PostfixExp
 		}
 		else
 		{
+
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
 

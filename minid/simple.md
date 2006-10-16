@@ -1,4 +1,9 @@
-class StringStream
+local foo, func;
+local baz;
+
+foo.bar[4], baz = func(8);
+
+/*class StringStream
 {
 	mSource = "";
 	mIndex = 0;
@@ -87,17 +92,6 @@ function compress(input, output)
 
 	} while(!input:eof())
 }
-
-local t = { };
-t["hi"] = 4;
-writefln(t["hi"]);
-t["a"] = 5;
-writefln(t["a"]);
-
-local var = string.fromChar;
-writefln(t[var('a')]);
-
-throw "end";
 
 local in = StringStream(`
 Nevertheless, a few are to be feared; and foremost among these is the
