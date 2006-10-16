@@ -1382,7 +1382,6 @@ enum ExpType
 	Indexed,
 	Vararg,
 	Closure,
-	Class,
 	Call,
 	NeedsDest,
 	Src
@@ -1896,6 +1895,7 @@ class FuncState
 	public void popAssign(uint line)
 	{
 		Exp* dest = popExp();
+		Exp src;
 
 		switch(dest.type)
 		{
@@ -1904,30 +1904,27 @@ class FuncState
 				break;
 
 			case ExpType.Upvalue:
-				Exp* src = popSource(line);
+				popSource(line, src);
 
 				codeI(line, Op.SetUpvalue, src.index, dest.index);
 
-				freeExpTempRegs(src);
-				delete src;
+				freeExpTempRegs(&src);
 				break;
 
 			case ExpType.Global:
-				Exp* src = popSource(line);
+				popSource(line, src);
 
 				codeI(line, Op.SetGlobal, src.index, dest.index);
 
-				freeExpTempRegs(src);
-				delete src;
+				freeExpTempRegs(&src);
 				break;
 
 			case ExpType.Indexed:
-				Exp* src = popSource(line);
+				popSource(line, src);
 
 				codeR(line, Op.IndexAssign, dest.index, dest.index2, src.index);
 
-				freeExpTempRegs(src);
-				delete src;
+				freeExpTempRegs(&src);
 				break;
 		}
 
@@ -2000,18 +1997,13 @@ class FuncState
 				}
 
 				break;
-				
-			case ExpType.Class:
-				codeR(line, Op.Class, reg, src.index2, src.index);
-				freeExpTempRegs(src);
-				break;
 
 			case ExpType.Call:
 				mCode[src.index].rs2 = 2;
 
 				if(reg != src.index2)
 					codeR(line, Op.Move, reg, src.index2, 0);
-
+				
 				freeExpTempRegs(src);
 				break;
 
@@ -2186,18 +2178,15 @@ class FuncState
 		e.type = ExpType.Indexed;
 	}
 
-	public Exp* popSource(uint line)
+	public void popSource(uint line, out Exp n)
 	{
-		toSource(line, &mExpStack[mExpSP - 1]);
-		Exp* n = new Exp;
-		*n = *popExp();
-
-		return n;
+		n = *popExp();
+		toSource(line, &n);
 	}
 
 	protected void toSource(uint line, Exp* e)
 	{
-		Exp temp = *e;
+		Exp temp;
 		temp.type = ExpType.Src;
 
 		void doConst(uint index)
@@ -2252,13 +2241,33 @@ class FuncState
 
 			case ExpType.Indexed:
 				if(e.isTempReg)
-					codeR(line, Op.Index, e.index, e.index, e.index2);
+				{
+					if(e.isTempReg2)
+					{
+						// 2 temp regs to choose from.  Put result in index, free index2.
+						codeR(line, Op.Index, e.index, e.index, e.index2);
+						popRegister(e.index2);
+					}
+					else
+						// 1 temp reg, just put it in there.
+						codeR(line, Op.Index, e.index, e.index, e.index2);
+
+					temp.index = e.index;
+				}
+				else if(e.isTempReg2)
+				{
+					// 1 temp reg.
+					codeR(line, Op.Index, e.index2, e.index, e.index2);
+					temp.index = e.index2;
+				}
 				else
 				{
+					// No temp regs, make our own.
 					temp.index = pushRegister();
 					codeR(line, Op.Index, temp.index, e.index, e.index2);
-					temp.isTempReg = true;	
 				}
+				
+				temp.isTempReg = true;
 				break;
 
 			case ExpType.NeedsDest:
@@ -2288,18 +2297,8 @@ class FuncState
 				temp.isTempReg = true;
 				break;
 
-			case ExpType.Class:
-				if(e.isTempReg)
-					codeR(line, Op.Class, temp.index, e.index2, e.index);
-				else
-				{
-					temp.index = pushRegister();
-					temp.isTempReg = true;
-					codeR(line, Op.Class, temp.index, e.index2, e.index);
-				}
-				break;
-
 			case ExpType.Src:
+				temp = *e;
 				break;
 
 			case ExpType.Vararg:
@@ -2835,27 +2834,25 @@ class ClassDef
 	public void codeGen(FuncState s)
 	{
 		mBaseClass.codeGen(s);
-		Exp* base = s.popSource(mLocation.line);
-		s.freeExpTempRegs(base);
+		Exp base;
+		s.popSource(mLocation.line, base);
+		s.freeExpTempRegs(&base);
 
 		uint destReg = s.pushRegister();
 		uint nameConst = s.codeStringConst(utf.toUTF32(mName.mName));
 		s.codeR(mLocation.line, Op.Class, destReg, nameConst | Instruction.constBit, base.index);
-
-		delete base;
 
 		foreach(Field field; mFields)
 		{
 			uint index = s.codeStringConst(field.name);
 
 			field.initializer.codeGen(s);
-			Exp* val = s.popSource(field.initializer.mEndLocation.line);
+			Exp val;
+			s.popSource(field.initializer.mEndLocation.line, val);
 
 			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
 
-			s.freeExpTempRegs(val);
-
-			delete val;
+			s.freeExpTempRegs(&val);
 		}
 
 		foreach(MethodDecl method; mMethods)
@@ -2863,13 +2860,12 @@ class ClassDef
 			uint index = s.codeStringConst(utf.toUTF32(method.mName.mName));
 
 			method.codeGen(s);
-			Exp* val = s.popSource(method.mEndLocation.line);
+			Exp val;
+			s.popSource(method.mEndLocation.line, val);
 
 			s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
 
-			s.freeExpTempRegs(val);
-
-			delete val;
+			s.freeExpTempRegs(&val);
 		}
 
 		s.pushTempReg(destReg);
@@ -2934,7 +2930,7 @@ class Chunk
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		//fs.showMe();
+		fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -4340,15 +4336,15 @@ class SwitchStatement : Statement
 			s.setBreakable();
 
 			mCondition.codeGen(s);
-			Exp* src = s.popSource(mLocation.line);
+			Exp src;
+			s.popSource(mLocation.line, src);
 
 			if(cast(IntExp)mCases[0].mCondition)
 				s.beginIntSwitch(mLocation.line, src.index);
 			else
 				s.beginStringSwitch(mLocation.line, src.index);
 
-			s.freeExpTempRegs(src);
-			delete src;
+			s.freeExpTempRegs(&src);
 
 			foreach(CaseStatement c; mCases)
 				c.codeGen(s);
@@ -4885,12 +4881,12 @@ class ThrowStatement : Statement
 	{
 		mExp.codeGen(s);
 
-		Exp* src = s.popSource(mLocation.line);
+		Exp src;
+		s.popSource(mLocation.line, src);
 
 		s.codeR(mEndLocation.line, Op.Throw, 0, src.index, 0);
 
-		s.freeExpTempRegs(src);
-		delete src;
+		s.freeExpTempRegs(&src);
 	}
 
 	public override void writeCode(CodeWriter cw)
@@ -5117,17 +5113,16 @@ abstract class BinaryExp : Expression
 	public override void codeGen(FuncState s)
 	{
 		mOp1.codeGen(s);
-		Exp* src1 = s.popSource(mOp1.mEndLocation.line);
+		Exp src1;
+		s.popSource(mOp1.mEndLocation.line, src1);
 		mOp2.codeGen(s);
-		Exp* src2 = s.popSource(mEndLocation.line);
+		Exp src2;
+		s.popSource(mEndLocation.line, src2);
 
-		s.freeExpTempRegs(src2);
-		s.freeExpTempRegs(src1);
+		s.freeExpTempRegs(&src2);
+		s.freeExpTempRegs(&src1);
 
 		s.pushBinOp(mEndLocation.line, mType, src1.index, src2.index);
-
-		delete src1;
-		delete src2;
 	}
 
 	public override InstRef* codeCondition(FuncState s)
@@ -5583,17 +5578,16 @@ class EqualExp : BinaryExp
 	public override InstRef* codeCondition(FuncState s)
 	{
 		mOp1.codeGen(s);
-		Exp* src1 = s.popSource(mOp1.mEndLocation.line);
+		Exp src1;
+		s.popSource(mOp1.mEndLocation.line, src1);
 		mOp2.codeGen(s);
-		Exp* src2 = s.popSource(mEndLocation.line);
+		Exp src2;
+		s.popSource(mEndLocation.line, src2);
 
-		s.freeExpTempRegs(src2);
-		s.freeExpTempRegs(src1);
+		s.freeExpTempRegs(&src2);
+		s.freeExpTempRegs(&src1);
 
 		s.codeR(mEndLocation.line, mType, 0, src1.index, src2.index);
-
-		delete src1;
-		delete src2;
 
 		return s.makeJump(mEndLocation.line, Op.Je, mIsTrue);
 	}
@@ -5682,17 +5676,16 @@ class CmpExp : BinaryExp
 	public override InstRef* codeCondition(FuncState s)
 	{
 		mOp1.codeGen(s);
-		Exp* src1 = s.popSource(mOp1.mEndLocation.line);
+		Exp src1;
+		s.popSource(mOp1.mEndLocation.line, src1);
 		mOp2.codeGen(s);
-		Exp* src2 = s.popSource(mEndLocation.line);
+		Exp src2;
+		s.popSource(mEndLocation.line, src2);
 
-		s.freeExpTempRegs(src2);
-		s.freeExpTempRegs(src1);
+		s.freeExpTempRegs(&src2);
+		s.freeExpTempRegs(&src1);
 
 		s.codeR(mEndLocation.line, Op.Cmp, 0, src1.index, src2.index);
-
-		delete src1;
-		delete src2;
 
 		switch(mCmpType)
 		{
@@ -6331,18 +6324,20 @@ class CallExp : PostfixExp
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
 			
-			Exp* src = s.popSource(mOp.mEndLocation.line);
-			s.freeExpTempRegs(src);
+			Exp src;
+			s.popSource(mOp.mEndLocation.line, src);
+			s.freeExpTempRegs(&src);
 
 			assert(s.nextRegister() == funcReg);
 			s.pushRegister();
 
 			s.pushString(utf.toUTF32(mMethodName.mName));
-			Exp* method = s.popSource(mOp.mEndLocation.line);
+			Exp method;
+			s.popSource(mOp.mEndLocation.line, method);
 
 			s.codeR(mOp.mEndLocation.line, Op.Method, funcReg, src.index, method.index);
 
-			s.freeExpTempRegs(method);
+			s.freeExpTempRegs(&method);
 
 			uint thisReg = s.pushRegister();
 
@@ -6356,9 +6351,6 @@ class CallExp : PostfixExp
 				s.pushCall(mEndLocation.line, funcReg, 0);
 			else
 				s.pushCall(mEndLocation.line, funcReg, mArgs.length + 2);
-
-			delete src;
-			delete method;
 		}
 		else
 		{
@@ -6564,12 +6556,12 @@ class IdentExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		codeGen(s);
-		Exp* reg = s.popSource(mEndLocation.line);
+		Exp reg;
+		s.popSource(mEndLocation.line, reg);
 		s.codeR(mEndLocation.line, Op.IsTrue, 0, reg.index, 0);
 		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
 
-		s.freeExpTempRegs(reg);
-		delete reg;
+		s.freeExpTempRegs(&reg);
 
 		return ret;
 	}
@@ -7080,18 +7072,17 @@ class TableCtorExp : PrimaryExp
 		foreach(Expression[2] field; mFields)
 		{
 			field[0].codeGen(s);
-			Exp* idx = s.popSource(field[0].mEndLocation.line);
+			Exp idx;
+			s.popSource(field[0].mEndLocation.line, idx);
 
 			field[1].codeGen(s);
-			Exp* val = s.popSource(field[1].mEndLocation.line);
+			Exp val;
+			s.popSource(field[1].mEndLocation.line, val);
 
 			s.codeR(field[1].mEndLocation.line, Op.IndexAssign, destReg, idx.index, val.index);
 
-			s.freeExpTempRegs(val);
-			s.freeExpTempRegs(idx);
-
-			delete idx;
-			delete val;
+			s.freeExpTempRegs(&val);
+			s.freeExpTempRegs(&idx);
 		}
 
 		s.pushTempReg(destReg);

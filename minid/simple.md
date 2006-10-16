@@ -1,9 +1,4 @@
-local foo, func;
-local baz;
-
-foo.bar[4], baz = func(8);
-
-/*class StringStream
+class StringStream
 {
 	mSource = "";
 	mIndex = 0;
@@ -51,13 +46,20 @@ class CompressDict
 
 	method constructor()
 	{
+		//local t = {};
+
 		for(local i = 0; i < 128; ++i)
 			this.mData[string.fromChar(i)] = i;
+
+		//this.mData = t;
 	}
-	
+
 	method has(key)
 	{
-		return this.mData[key] !is null;
+		if(this.mData[key] is null)
+			return false;
+		else
+			return true;
 	}
 
 	method lookup(key)
@@ -93,7 +95,7 @@ function compress(input, output)
 	} while(!input:eof())
 }
 
-local in = StringStream(`
+/*local in = StringStream(`
 Nevertheless, a few are to be feared; and foremost among these is the
 Malmignatte, the terror of the Corsican peasantry.  I have seen her
 settle in the furrows, lay out her web and rush boldly at insects larger
@@ -137,11 +139,23 @@ I will preface it with an account by Leon Dufour, {2} one of those
 accounts in which I used to delight and which did much to bring me into
 closer touch with the insect.  The Wizard of the Landes tells us of the
 ordinary Tarantula, that of the Calabrias, observed by him in Spain:
- `);
+ `);*/
+ 
+local in = StringStream("CACATCATGCATCATCA");
  
 local out = ConsoleOutStream();
 
-compress(in, out);
+//compress(in, out);
+
+local dict = CompressDict();
+
+
+local t = {};
+for(local i = 0; i < 128; ++i)
+	t[string.fromChar(i)] = i;
+
+writefln(#t);
+writefln(#dict.mData);
 
 /*writefln();
 
