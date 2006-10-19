@@ -90,7 +90,7 @@ class StringLib
 {
 	int toInt(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		int base = 10;
 
@@ -119,7 +119,7 @@ class StringLib
 	
 	int toFloat(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		float dest;
 	
@@ -143,8 +143,8 @@ class StringLib
 	
 	int compare(MDState s)
 	{
-		char[] src1 = s.getStringParam(0);
-		char[] src2 = s.getStringParam(1);
+		char[] src1 = s.getStringParam(0).asUTF8();
+		char[] src2 = s.getStringParam(1).asUTF8();
 		
 		int ret;
 		
@@ -168,8 +168,8 @@ class StringLib
 	
 	int icompare(MDState s)
 	{
-		char[] src1 = s.getStringParam(0);
-		char[] src2 = s.getStringParam(1);
+		char[] src1 = s.getStringParam(0).asUTF8();
+		char[] src2 = s.getStringParam(1).asUTF8();
 		
 		int ret;
 		
@@ -193,7 +193,7 @@ class StringLib
 	
 	int find(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		int ret;
 
@@ -201,7 +201,7 @@ class StringLib
 		{
 			try
 			{
-				ret = string.find(src, s.getStringParam(1));
+				ret = string.find(src, s.getStringParam(1).asUTF8());
 			}
 			catch(MDException e)
 			{
@@ -212,11 +212,11 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isIntParam(1))
+		else if(s.isCharParam(1))
 		{
 			try
 			{
-				ret = string.find(src, cast(dchar)s.getIntParam(1));
+				ret = string.find(src, s.getCharParam(1));
 			}
 			catch(MDException e)
 			{
@@ -237,7 +237,7 @@ class StringLib
 	
 	int ifind(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		int ret;
 
@@ -245,7 +245,7 @@ class StringLib
 		{
 			try
 			{
-				ret = string.ifind(src, s.getStringParam(1));
+				ret = string.ifind(src, s.getStringParam(1).asUTF8());
 			}
 			catch(MDException e)
 			{
@@ -256,11 +256,11 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isIntParam(1))
+		else if(s.isCharParam(1))
 		{
 			try
 			{
-				ret = string.ifind(src, cast(dchar)s.getIntParam(1));
+				ret = string.ifind(src, s.getCharParam(1));
 			}
 			catch(MDException e)
 			{
@@ -281,7 +281,7 @@ class StringLib
 	
 	int rfind(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		int ret;
 
@@ -289,7 +289,7 @@ class StringLib
 		{
 			try
 			{
-				ret = string.rfind(src, s.getStringParam(1));
+				ret = string.rfind(src, s.getStringParam(1).asUTF8());
 			}
 			catch(MDException e)
 			{
@@ -300,11 +300,11 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isIntParam(1))
+		else if(s.isCharParam(1))
 		{
 			try
 			{
-				ret = string.rfind(src, cast(dchar)s.getIntParam(1));
+				ret = string.rfind(src, s.getCharParam(1));
 			}
 			catch(MDException e)
 			{
@@ -325,7 +325,7 @@ class StringLib
 	
 	int irfind(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		int ret;
 
@@ -333,7 +333,7 @@ class StringLib
 		{
 			try
 			{
-				ret = string.irfind(src, s.getStringParam(1));
+				ret = string.irfind(src, s.getStringParam(1).asUTF8());
 			}
 			catch(MDException e)
 			{
@@ -344,11 +344,11 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isIntParam(1))
+		else if(s.isCharParam(1))
 		{
 			try
 			{
-				ret = string.irfind(src, cast(dchar)s.getIntParam(1));
+				ret = string.irfind(src, s.getCharParam(1));
 			}
 			catch(MDException e)
 			{
@@ -369,20 +369,20 @@ class StringLib
 	
 	int charAt(MDState s)
 	{
-		dchar[] src = s.getDStringParam(0);
+		MDString src = s.getStringParam(0);
 		int index = s.getIntParam(1);
-		
+
 		if(index < 0 || index >= src.length)
 			throw new MDRuntimeException(s, "Invalid character index: ", index);
 
-		s.push(cast(int)src[index]);
+		s.push(src[index]);
 		
 		return 1;
 	}
 	
 	int toLower(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		char[] ret;
 		
@@ -406,7 +406,7 @@ class StringLib
 	
 	int toUpper(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		
 		char[] ret;
 		
@@ -430,7 +430,7 @@ class StringLib
 	
 	int repeat(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 		int numTimes = s.getIntParam(1);
 		
 		if(numTimes < 1)
@@ -459,7 +459,7 @@ class StringLib
 	int join(MDState s)
 	{
 		MDArray array = s.getArrayParam(0);
-		char[] sep = s.getStringParam(1);
+		char[] sep = s.getStringParam(1).asUTF8();
 		
 		char[][] strings = new char[][array.length];
 		
@@ -493,13 +493,13 @@ class StringLib
 	
 	int split(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 
 		char[][] ret;
 
 		if(s.numParams() > 1)
 		{
-			char[] delim = s.getStringParam(1);
+			char[] delim = s.getStringParam(1).asUTF8();
 
 			try
 			{
@@ -542,7 +542,7 @@ class StringLib
 	
 	int splitLines(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 
 		char[][] ret;
 
@@ -571,7 +571,7 @@ class StringLib
 	
 	int strip(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 
 		char[] ret;
 
@@ -595,7 +595,7 @@ class StringLib
 	
 	int lstrip(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 
 		char[] ret;
 
@@ -619,7 +619,7 @@ class StringLib
 	
 	int rstrip(MDState s)
 	{
-		char[] src = s.getStringParam(0);
+		char[] src = s.getStringParam(0).asUTF8();
 
 		char[] ret;
 
@@ -643,7 +643,7 @@ class StringLib
 	
 	int slice(MDState s)
 	{
-		MDString str = s.getStringObjParam(0);
+		MDString str = s.getStringParam(0);
 		
 		int lo;
 		int hi;
@@ -680,15 +680,45 @@ class StringLib
 	
 	int fromChar(MDState s)
 	{
-		dchar c = s.getIntParam(0);
+		dchar c;
+		
+		if(s.isIntParam(0))
+			c = s.getIntParam(0);
+		else
+			c = s.getCharParam(0);
 
 		if(!utf.isValidDchar(c))
-			throw new MDRuntimeException(s, "Invalid character: ", cast(int)c);
+			throw new MDRuntimeException(s, "Invalid character: U+%x", cast(int)c);
 			
 		dchar[] str = new dchar[1];
 		str[0] = c;
 
 		return s.push(new MDString(str));
+	}
+	
+	int replace(MDState s)
+	{
+		char[] src = s.getStringParam(0).asUTF8();
+		char[] from = s.getStringParam(1).asUTF8();
+		char[] to = s.getStringParam(2).asUTF8();
+		
+		char[] ret;
+		
+		try
+		{
+			ret = string.replace(src, from, to);
+		}
+		catch(MDException e)
+		{
+			throw e;
+		}
+		catch(Exception e)
+		{
+			throw new MDRuntimeException(s, e.toString());
+		}
+		
+		s.push(ret);
+		return 1;
 	}
 
 	//TODO: int format(MDState s)
@@ -719,7 +749,8 @@ public void init(MDState s)
 		"lstrip",     new MDClosure(s, &lib.lstrip,     "string.lstrip"),
 		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip"),
 		"slice",      new MDClosure(s, &lib.slice,      "string.slice"),
-		"fromChar",   new MDClosure(s, &lib.fromChar,   "string.fromChar")
+		"fromChar",   new MDClosure(s, &lib.fromChar,   "string.fromChar"),
+		"replace",    new MDClosure(s, &lib.replace,    "string.replace")
 	);
 
 	stringTable["opIndex"d] = stringTable["charAt"];

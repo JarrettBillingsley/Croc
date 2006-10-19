@@ -43,31 +43,22 @@ class BaseLib
 
 	int mdtypeof(MDState s)
 	{
-		if(s.numParams < 1)
-			throw new MDRuntimeException(s, "Parameter expected");
-
 		s.push(typeStrings[s.getParam(0).type]);
 		return 1;
 	}
-	
+
 	int classof(MDState s)
 	{
-		if(s.numParams < 1)
-			throw new MDRuntimeException(s, "Parameter expected");
-
 		s.push(s.getInstanceParam(0).getClass());
 		return 1;
 	}
 
 	int mdtoString(MDState s)
 	{
-		if(s.numParams < 1)
-			throw new MDRuntimeException(s, "Parameter expected");
-			
 		s.push(s.getParam(0).toString());
 		return 1;
 	}
-	
+
 	int mddelegate(MDState s)
 	{
 		MDClosure func = s.getClosureParam(0);

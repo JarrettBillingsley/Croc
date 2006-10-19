@@ -7,6 +7,7 @@ import baselib = minid.baselib;
 import stringlib = minid.stringlib;
 import arraylib = minid.arraylib;
 import tablelib = minid.tablelib;
+import mathlib = minid.mathlib;
 
 import std.stdio;
 
@@ -18,6 +19,7 @@ void main()
 	stringlib.init(state);
 	arraylib.init(state);
 	tablelib.init(state);
+	mathlib.init(state);
 
 	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
 

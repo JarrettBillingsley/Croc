@@ -153,6 +153,7 @@ class MDState
 		else static if(is(T : bool) ||
 						is(T : int) ||
 						is(T : float) ||
+						is(T : dchar) ||
 						is(T : MDObject))
 		{
 			MDValue val;
@@ -476,6 +477,14 @@ class MDState
 		return getBasedStack(index).isFloat();
 	}
 	
+	public bool isCharParam(uint index)
+	{
+		if(index >= numParams())
+			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+
+		return getBasedStack(index).isChar();
+	}
+	
 	public bool isStringParam(uint index)
 	{
 		if(index >= numParams())
@@ -530,47 +539,21 @@ class MDState
 			
 		return val.asFloat();
 	}
-
-	public char[] getStringParam(uint index)
-	{
-		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
-		
-		MDValue* val = getBasedStack(index);
-
-		if(val.isString() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
-			
-		return val.asString.asUTF8();
-	}
 	
-	public wchar[] getWStringParam(uint index)
+	public dchar getCharParam(uint index)
 	{
 		if(index >= numParams())
 			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
-		if(val.isString() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+		if(val.isChar() == false)
+			badParamError(this, index, mCurrentAR.func.toString(), "expected 'char' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
-		return val.asString.asUTF16();
-	}
-	
-	public dchar[] getDStringParam(uint index)
-	{
-		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
-		
-		MDValue* val = getBasedStack(index);
-
-		if(val.isString() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
-
-		return val.asString.asUTF32();
+		return val.asChar();
 	}
 
-	public MDString getStringObjParam(uint index)
+	public MDString getStringParam(uint index)
 	{
 		if(index >= numParams())
 			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
@@ -608,7 +591,7 @@ class MDState
 
 		return val.asTable();
 	}
-	
+
 	public MDClosure getClosureParam(uint index)
 	{
 		if(index >= numParams())
@@ -709,6 +692,9 @@ class MDState
 		int numExpRets = mCurrentAR.numReturns;
 
 		bool isMultRet = false;
+		
+		if(numResults == -1)
+			numResults = mStackIndex - resultSlot;
 
 		if(numExpRets == -1)
 		{
@@ -998,15 +984,23 @@ class MDState
 		assert(mCurrentAR.func.isNative() == false, "cannot switch in native function");
 
 		StackVal src = getBasedStack(stackSlot);
+		int value;
 
 		if(src.isInt() == false)
-			throw new MDRuntimeException(this, "Attempting to perform an integral switch on a value of type '%s'", src.typeString());
+		{
+			if(src.isChar() == false)
+				throw new MDRuntimeException(this, "Attempting to perform an integral switch on a value of type '%s'", src.typeString());
+			
+			value = cast(int)src.asChar();
+		}
+		else
+			value = src.asInt();
 
 		auto t = &mCurrentAR.func.script.func.mSwitchTables[table];
 
 		assert(t.isString == false, "int switch on a string table");
 
-		int* ptr = (src.asInt() in t.intOffsets);
+		int* ptr = (value in t.intOffsets);
 
 		if(ptr is null)
 			return t.defaultOffset;
@@ -1629,29 +1623,58 @@ class MDState
 								getBasedStack(i.rd).value = src1.asArray() ~ src2.asArray();
 							else
 								getBasedStack(i.rd).value = src1.asArray() ~ src2;
+								
+							break;
 						}
-						else if(src1.isString() && src2.isString())
-							getBasedStack(i.rd).value = src1.asString() ~ src2.asString();
-						else
+						
+						if(src1.isString())
 						{
-							MDValue* method = getMM(src1, MM.Cat);
-	
-							if(!method.isFunction())
+							if(src2.isString())
 							{
-								method = getMM(src2, MM.Cat);
-	
-								if(!method.isFunction())
-									throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'",
-										src1.typeString(), src2.typeString());
+								getBasedStack(i.rd).value = src1.asString() ~ src2.asString();
+								break;
 							}
-	
-							uint funcSlot = push(method);
-							push(src1);
-							push(src2);
-							call(funcSlot, 2, 1);
-							copyBasedStack(i.rd, funcSlot);
+							else if(src2.isChar())
+							{
+								getBasedStack(i.rd).value = src1.asString() ~ src2.asChar();
+								break;
+							}
 						}
-	
+						
+						if(src1.isChar())
+						{
+							if(src2.isString())
+							{
+								getBasedStack(i.rd).value = src1.asChar() ~ src2.asString();
+								break;
+							}
+							else if(src2.isChar())
+							{
+								dchar[2] data;
+								data[0] = src1.asChar();
+								data[1] = src2.asChar();
+
+								getBasedStack(i.rd).value = new MDString(data);
+								break;
+							}
+						}
+
+						MDValue* method = getMM(src1, MM.Cat);
+
+						if(!method.isFunction())
+						{
+							method = getMM(src2, MM.Cat);
+
+							if(!method.isFunction())
+								throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'",
+									src1.typeString(), src2.typeString());
+						}
+
+						uint funcSlot = push(method);
+						push(src1);
+						push(src2);
+						call(funcSlot, 2, 1);
+						copyBasedStack(i.rd, funcSlot);
 						break;
 	
 					case Op.Closure:

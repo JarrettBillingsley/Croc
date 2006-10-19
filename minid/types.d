@@ -292,9 +292,30 @@ class MDString : MDObject
 		return ret;
 	}
 	
+	public MDString opCat(dchar c)
+	{
+		MDString ret = new MDString();
+		ret.mData = this.mData ~ c;
+		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
+		return ret;
+	}
+	
+	public MDString opCat_r(dchar c)
+	{
+		MDString ret = new MDString();
+		ret.mData = c ~ this.mData;
+		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
+		return ret;
+	}
+
 	public MDString opCatAssign(MDString other)
 	{
 		return opCat(other);
+	}
+	
+	public MDString opCatAssign(dchar c)
+	{
+		return opCat(c);
 	}
 
 	public hash_t toHash()
@@ -1151,6 +1172,7 @@ struct MDValue
 		Bool,
 		Int,
 		Float,
+		Char,
 
 		// Object types
 		String,
@@ -1173,6 +1195,7 @@ struct MDValue
 		private bool mBool;
 		private int mInt;
 		private float mFloat;
+		private dchar mChar;
 		
 		// Object types
 		private MDObject mObj;
@@ -1196,6 +1219,9 @@ struct MDValue
 
 			case Type.Float:
 				return this.mFloat == other.mFloat;
+				
+			case Type.Char:
+				return this.mChar == other.mChar;
 
 			default:
 				return MDObject.equals(this.mObj, other.mObj);
@@ -1220,6 +1246,9 @@ struct MDValue
 
 			case Type.Float:
 				return this.mFloat == other.mFloat;
+				
+			case Type.Char:
+				return this.mChar == other.mChar;
 
 			default:
 				return (this.mObj is other.mObj);
@@ -1250,6 +1279,9 @@ struct MDValue
 				else
 					return 0;
 
+			case Type.Char:
+				return this.mChar - other.mChar;
+
 			default:
 				if(this.mObj is other.mObj)
 					return 0;
@@ -1275,6 +1307,9 @@ struct MDValue
 				
 			case Type.Float:
 				return typeid(typeof(mFloat)).getHash(&mFloat);
+				
+			case Type.Char:
+				return typeid(typeof(mChar)).getHash(&mChar);
 
 			default:
 				return mObj.toHash();
@@ -1289,6 +1324,7 @@ struct MDValue
 			case Type.Bool:
 			case Type.Int:
 			case Type.Float:
+			case Type.Char:
 				throw new MDException("Attempting to get length of %s value", typeString());
 
 			default:
@@ -1305,18 +1341,19 @@ struct MDValue
 	{
 		switch(type)
 		{
-			case Type.Null:		return "null"d;
-			case Type.Bool:		return "bool"d;
-			case Type.Int:		return "int"d;
-			case Type.Float:	return "float"d;
-			case Type.String:	return "string"d;
-			case Type.Table:	return "table"d;
-			case Type.Array:	return "array"d;
-			case Type.Function:	return "function"d;
-			case Type.UserData:	return "userdata"d;
-			case Type.Class:	return "class"d;
-			case Type.Instance:	return "instance"d;
-			case Type.Delegate:	return "delegate"d;
+			case Type.Null:     return "null"d;
+			case Type.Bool:     return "bool"d;
+			case Type.Int:      return "int"d;
+			case Type.Float:    return "float"d;
+			case Type.Char:     return "char"d;
+			case Type.String:   return "string"d;
+			case Type.Table:    return "table"d;
+			case Type.Array:    return "array"d;
+			case Type.Function: return "function"d;
+			case Type.UserData: return "userdata"d;
+			case Type.Class:    return "class"d;
+			case Type.Instance: return "instance"d;
+			case Type.Delegate: return "delegate"d;
 		}
 	}
 
@@ -1348,6 +1385,11 @@ struct MDValue
 	public bool isFloat()
 	{
 		return (mType == Type.Float);
+	}
+	
+	public bool isChar()
+	{
+		return (mType == Type.Char);
 	}
 
 	public bool isString()
@@ -1414,6 +1456,14 @@ struct MDValue
 			return cast(float)mInt;
 		else
 			assert(false, "MDValue asFloat");
+	}
+	
+	public dchar asChar()
+	{
+		if(mType == Type.Char)
+			return mChar;
+		else
+			assert(false, "MDValue asChar");
 	}
 
 	public MDObject asObj()
@@ -1500,6 +1550,12 @@ struct MDValue
 		mFloat = n;
 	}
 	
+	public void value(dchar n)
+	{
+		mType = Type.Char;
+		mChar = n;
+	}
+	
 	public void value(char[] s)
 	{
 		mType = Type.String;
@@ -1562,6 +1618,10 @@ struct MDValue
 			case Type.Float:
 				mFloat = v.mFloat;
 				break;
+				
+			case Type.Char:
+				mChar = v.mChar;
+				break;
 
 			default:
 				mObj = v.mObj;
@@ -1584,6 +1644,11 @@ struct MDValue
 				
 			case Type.Float:
 				return string.toString(mFloat);
+				
+			case Type.Char:
+				char[] ret;
+				utf.encode(ret, mChar);
+				return ret;
 				
 			default:
 				return mObj.toString();

@@ -1555,7 +1555,7 @@ class FuncState
 		if(intExp)
 		{
 			if(mSwitch.isString == true)
-				throw new MDCompileException(exp.mLocation, "Case value must be a  literal");
+				throw new MDCompileException(exp.mLocation, "Case value must be a string literal");
 
 			int* oldOffset = (intExp.mValue in mSwitch.intOffsets);
 
@@ -1753,6 +1753,11 @@ class FuncState
 	{
 		pushConst(codeStringConst(value));
 	}
+	
+	public void pushChar(dchar value)
+	{
+		pushConst(codeCharConst(value));
+	}
 
 	public void pushConst(uint index)
 	{
@@ -1870,13 +1875,60 @@ class FuncState
 	public void freeExpTempRegs(Exp* e)
 	{
 		if(e.isTempReg2)
-			popRegister(e.index2);
-
-		if(e.isTempReg)
+		{
+			if(e.isTempReg)
+			{
+				if(e.index > e.index2)
+				{
+					popRegister(e.index);
+					popRegister(e.index2);
+				}
+				else
+				{
+					popRegister(e.index2);
+					popRegister(e.index);
+				}
+			}
+			else
+				popRegister(e.index2);
+		}
+		else if(e.isTempReg)
 			popRegister(e.index);
 
 		e.isTempReg = false;
 		e.isTempReg2 = false;
+	}
+	
+	public void freeExpsTempRegs(Exp* e1, Exp* e2)
+	{
+		int[4] temps;
+		int numTemps = 0;
+		
+		if(e1.isTempReg)
+			temps[numTemps++] = e1.index;
+
+		if(e1.isTempReg2)
+			temps[numTemps++] = e1.index2;
+			
+		if(e2.isTempReg)
+			temps[numTemps++] = e2.index;
+
+		if(e2.isTempReg2)
+			temps[numTemps++] = e2.index2;
+			
+		if(numTemps == 0)
+			return;
+			
+		int[] sortedTemps = temps[0 .. numTemps];
+		sortedTemps.sort;
+		
+		for(int i = sortedTemps.length - 1; i >= 0; i--)
+			popRegister(sortedTemps[i]);
+
+		e1.isTempReg = false;
+		e1.isTempReg2 = false;
+		e2.isTempReg = false;
+		e2.isTempReg2 = false;
 	}
 
 	public void popToNothing()
@@ -1908,7 +1960,7 @@ class FuncState
 
 				codeI(line, Op.SetUpvalue, src.index, dest.index);
 
-				freeExpTempRegs(&src);
+				freeExpsTempRegs(dest, &src);
 				break;
 
 			case ExpType.Global:
@@ -1916,7 +1968,7 @@ class FuncState
 
 				codeI(line, Op.SetGlobal, src.index, dest.index);
 
-				freeExpTempRegs(&src);
+				freeExpsTempRegs(dest, &src);
 				break;
 
 			case ExpType.Indexed:
@@ -1924,11 +1976,9 @@ class FuncState
 
 				codeR(line, Op.IndexAssign, dest.index, dest.index2, src.index);
 
-				freeExpTempRegs(&src);
+				freeExpsTempRegs(dest, &src);
 				break;
 		}
-
-		freeExpTempRegs(dest);
 	}
 
 	public void popToRegister(uint line, uint reg)
@@ -2122,57 +2172,9 @@ class FuncState
 		Exp* index = popExp();
 		Exp* e = &mExpStack[mExpSP - 1];
 
-		switch(e.type)
-		{
-			case ExpType.Local:
-				// index just stays the same; type and index2 are written to
-				break;
-
-			case ExpType.ConstIndex:
-				freeExpTempRegs(index);
-				freeExpTempRegs(e);
-
-				uint destReg = pushRegister();
-				codeI(line, Op.LoadConst, destReg, e.index);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			case ExpType.Global:
-				freeExpTempRegs(index);
-				freeExpTempRegs(e);
-
-				uint destReg = pushRegister();
-				codeI(line, Op.GetGlobal, destReg, e.index);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			case ExpType.Upvalue:
-				freeExpTempRegs(index);
-				freeExpTempRegs(e);
-
-				uint destReg = pushRegister();
-				codeI(line, Op.GetUpvalue, destReg, e.index);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			case ExpType.Indexed:
-				freeExpTempRegs(index);
-				freeExpTempRegs(e);
-
-				uint destReg = pushRegister();
-				codeR(line, Op.Index, destReg, e.index, e.index2);
-				e.index = destReg;
-				e.isTempReg = true;
-				break;
-
-			default:
-				assert(false, "invalid popIndex indexed value type");
-		}
-
+		toSource(line, e);
 		toSource(line, index);
+
 		e.index2 = index.index;
 		e.isTempReg2 = index.isTempReg;
 		e.type = ExpType.Indexed;
@@ -2496,6 +2498,23 @@ class FuncState
 	{
 		foreach(uint i, MDValue v; mConstants)
 			if(v.isInt() && v.asInt() == x)
+				return i;
+
+		MDValue v;
+		v.value = x;
+
+		mConstants ~= v;
+
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+
+		return mConstants.length - 1;
+	}
+	
+	public int codeCharConst(dchar x)
+	{
+		foreach(uint i, MDValue v; mConstants)
+			if(v.isChar() && v.asChar() == x)
 				return i;
 
 		MDValue v;
@@ -2930,7 +2949,7 @@ class Chunk
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
 
-		fs.showMe();
+		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);
@@ -4413,7 +4432,7 @@ class CaseStatement : Statement
 					addCase(new IntExp(t.location, t.intValue));
 					t = t.nextToken;
 					break;
-
+					
 				case Token.Type.StringLiteral:
 					addCase(new StringExp(t.location, utf.toUTF32(t.stringValue)));
 					t = t.nextToken;
@@ -6269,6 +6288,8 @@ class DotExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
+		//s.pushString(utf.toUTF32(mIdent.mIdent.mName));
+		//s.popIndex(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
 	}
 
@@ -6486,8 +6507,12 @@ class PrimaryExp : Expression
 			case Token.Type.Vararg:
 				exp = VarargExp.parse(t);
 				break;
+				
+			case Token.Type.CharLiteral:
+				exp = CharExp.parse(t);
+				break;
 
-			case Token.Type.CharLiteral, Token.Type.IntLiteral:
+			case Token.Type.IntLiteral:
 				exp = IntExp.parse(t);
 				break;
 
@@ -6699,6 +6724,58 @@ class VarargExp : PrimaryExp
 	}
 }
 
+class CharExp : PrimaryExp
+{
+	protected dchar mValue;
+
+	public this(Location location, dchar value)
+	{
+		super(location);
+
+		mValue = value;
+	}
+
+	public static CharExp parse(inout Token* t)
+	{
+		scope(success)
+			t = t.nextToken;
+
+		if(t.type == Token.Type.CharLiteral)
+			return new CharExp(t.location, t.intValue);
+		else
+			throw new MDCompileException(t.location, "Character literal expected, not '%s'", t.toString());
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		s.pushChar(mValue);
+	}
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		uint temp = s.pushRegister();
+		codeGen(s);
+		s.popToRegister(mEndLocation.line, temp);
+		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
+		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
+		s.popRegister(temp);
+		return ret;
+	}
+	
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override void writeCode(CodeWriter cw)
+	{
+		char[] s;
+		utf.encode(s, mValue);
+
+		cw.write("'" ~ s ~ "'");
+	}
+}
+
 class IntExp : PrimaryExp
 {
 	protected int mValue;
@@ -6715,7 +6792,7 @@ class IntExp : PrimaryExp
 		scope(success)
 			t = t.nextToken;
 
-		if(t.type == Token.Type.IntLiteral || t.type == Token.Type.CharLiteral)
+		if(t.type == Token.Type.IntLiteral)
 			return new IntExp(t.location, t.intValue);
 		else
 			throw new MDCompileException(t.location, "Integer literal expected, not '%s'", t.toString());

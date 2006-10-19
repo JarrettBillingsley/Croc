@@ -23,4 +23,5 @@ public void init(MDState s)
 	);
 
 	s.setGlobal("table", tableLib);
+	MDGlobalState().setMetatable(MDValue.Type.Table, tableLib);
 }
