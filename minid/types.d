@@ -203,7 +203,7 @@ abstract class MDObject
 	public static enum Type
 	{
 		String,
-		UserData,
+		Userdata,
 		Closure,
 		Table,
 		Array,
@@ -213,7 +213,7 @@ abstract class MDObject
 	}
 
 	public MDString asString() { return null; }
-	public MDUserData asUserData() { return null; }
+	public MDUserdata asUserdata() { return null; }
 	public MDClosure asClosure() { return null; }
 	public MDTable asTable() { return null; }
 	public MDArray asArray() { return null; }
@@ -443,18 +443,18 @@ class MDString : MDObject
 	}
 }
 
-class MDUserData : MDObject
+class MDUserdata : MDObject
 {
 	protected MDTable mMetatable;
 
-	public override MDUserData asUserData()
+	public override MDUserdata asUserdata()
 	{
 		return this;
 	}
 	
 	public override Type type()
 	{
-		return Type.UserData;
+		return Type.Userdata;
 	}
 
 	public override uint length()
@@ -592,7 +592,7 @@ class MDTable : MDObject
 			else if(ti == typeid(wchar[]))     v.value = new MDString(va_arg!(wchar[])(_argptr));
 			else if(ti == typeid(dchar[]))     v.value = new MDString(va_arg!(dchar[])(_argptr));
 			else if(ti == typeid(MDObject))    v.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-			else if(ti == typeid(MDUserData))  v.value = cast(MDUserData)va_arg!(MDUserData)(_argptr);
+			else if(ti == typeid(MDUserdata))  v.value = cast(MDUserdata)va_arg!(MDUserdata)(_argptr);
 			else if(ti == typeid(MDClosure))   v.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
 			else if(ti == typeid(MDTable))     v.value = cast(MDTable)va_arg!(MDTable)(_argptr);
 			else if(ti == typeid(MDArray))     v.value = cast(MDArray)va_arg!(MDArray)(_argptr);
@@ -768,7 +768,7 @@ class MDArray : MDObject
 			else if(ti == typeid(wchar[]))     value.value = new MDString(va_arg!(wchar[])(_argptr));
 			else if(ti == typeid(dchar[]))     value.value = new MDString(va_arg!(dchar[])(_argptr));
 			else if(ti == typeid(MDObject))    value.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-			else if(ti == typeid(MDUserData))  value.value = cast(MDUserData)va_arg!(MDUserData)(_argptr);
+			else if(ti == typeid(MDUserdata))  value.value = cast(MDUserdata)va_arg!(MDUserdata)(_argptr);
 			else if(ti == typeid(MDClosure))   value.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
 			else if(ti == typeid(MDTable))     value.value = cast(MDTable)va_arg!(MDTable)(_argptr);
 			else if(ti == typeid(MDArray))     value.value = cast(MDArray)va_arg!(MDArray)(_argptr);
@@ -1179,7 +1179,7 @@ struct MDValue
 		Table,
 		Array,
 		Function,
-		UserData,
+		Userdata,
 		Class,
 		Instance,
 		Delegate
@@ -1350,7 +1350,7 @@ struct MDValue
 			case Type.Table:    return "table"d;
 			case Type.Array:    return "array"d;
 			case Type.Function: return "function"d;
-			case Type.UserData: return "userdata"d;
+			case Type.Userdata: return "userdata"d;
 			case Type.Class:    return "class"d;
 			case Type.Instance: return "instance"d;
 			case Type.Delegate: return "delegate"d;
@@ -1412,9 +1412,9 @@ struct MDValue
 		return (mType == Type.Function);
 	}
 	
-	public bool isUserData()
+	public bool isUserdata()
 	{
-		return (mType == Type.UserData);
+		return (mType == Type.Userdata);
 	}
 	
 	public bool isClass()
@@ -1478,10 +1478,10 @@ struct MDValue
 		return mObj.asString();
 	}
 	
-	public MDUserData asUserData()
+	public MDUserdata asUserdata()
 	{
-		assert(mType == Type.UserData, "MDValue asUserData");
-		return mObj.asUserData();
+		assert(mType == Type.Userdata, "MDValue asUserdata");
+		return mObj.asUserdata();
 	}
 
 	public MDClosure asFunction()
@@ -1581,7 +1581,7 @@ struct MDValue
 		switch(o.type())
 		{
 			case MDObject.Type.String: mType = Type.String; break;
-			case MDObject.Type.UserData: mType = Type.UserData; break;
+			case MDObject.Type.Userdata: mType = Type.Userdata; break;
 			case MDObject.Type.Closure: mType = Type.Function; break;
 			case MDObject.Type.Table: mType = Type.Table; break;
 			case MDObject.Type.Array: mType = Type.Array; break;

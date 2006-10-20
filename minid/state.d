@@ -50,7 +50,7 @@ class MDGlobalState
 		debug switch(type)
 		{
 			case MDValue.Type.Null:
-			case MDValue.Type.UserData:
+			case MDValue.Type.Userdata:
 				throw new MDException("Cannot set global metatable for type '%s'", MDValue.typeString(type));
 
 			default:
@@ -206,7 +206,7 @@ class MDState
 			else if(ti == typeid(wchar[]))     push(new MDString(va_arg!(wchar[])(_argptr)));
 			else if(ti == typeid(dchar[]))     push(new MDString(va_arg!(dchar[])(_argptr)));
 			else if(ti == typeid(MDObject))    push(cast(MDObject)va_arg!(MDObject)(_argptr));
-			else if(ti == typeid(MDUserData))  push(cast(MDUserData)va_arg!(MDUserData)(_argptr));
+			else if(ti == typeid(MDUserdata))  push(cast(MDUserdata)va_arg!(MDUserdata)(_argptr));
 			else if(ti == typeid(MDClosure))   push(cast(MDClosure)va_arg!(MDClosure)(_argptr));
 			else if(ti == typeid(MDTable))     push(cast(MDTable)va_arg!(MDTable)(_argptr));
 			else if(ti == typeid(MDArray))     push(cast(MDArray)va_arg!(MDArray)(_argptr));
@@ -1039,8 +1039,8 @@ class MDState
 			case MDValue.Type.Instance:
 				return obj.asInstance[&MetaStrings[method]];
 
-			case MDValue.Type.UserData:
-				t = obj.asUserData().metatable;
+			case MDValue.Type.Userdata:
+				t = obj.asUserdata().metatable;
 				break;
 				
 			case MDValue.Type.Delegate:
@@ -1129,30 +1129,46 @@ class MDState
 
 			return;
 		}
-
-		if(src.isArray())
+		
+		switch(src.type)
 		{
-			if(key.isInt() == false)
-				throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+			case MDValue.Type.Array:
+				if(key.isInt() == false)
+					throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+	
+				MDValue* val = src.asArray[key.asInt];
+	
+				if(val is null)
+					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
+	
+				getBasedStack(dest).value = val;
+				break;
 
-			MDValue* val = src.asArray[key.asInt];
+			case MDValue.Type.String:
+				if(key.isInt() == false)
+					throw new MDRuntimeException(this, "Attempt to access a string with a '%s'", key.typeString());
+					
+				if(key.asInt() < 0 || key.asInt() >= src.asString.length)
+					throw new MDRuntimeException(this, "Invalid string index: ", key.asInt());
 
-			if(val is null)
-				throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
+				getBasedStack(dest).value = src.asString[key.asInt];
+				break;
 
-			getBasedStack(dest).value = val;
-		}
-		else if(src.isTable())
-		{
-			getBasedStack(dest).value = src.asTable[key];
-		}
-		else if(src.isInstance())
-		{
-			getBasedStack(dest).value = src.asInstance[key];
-		}
-		else if(src.isClass())
-		{
-			getBasedStack(dest).value = src.asClass[key];
+			case MDValue.Type.Table:
+				getBasedStack(dest).value = src.asTable[key];
+				break;
+
+			case MDValue.Type.Instance:
+				getBasedStack(dest).value = src.asInstance[key];
+				break;
+
+			case MDValue.Type.Class:
+				getBasedStack(dest).value = src.asClass[key];
+				break;
+				
+			default:
+				assert(false, "index switch");
+				break;
 		}
 	}
 

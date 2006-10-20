@@ -58,7 +58,7 @@ class BaseLib
 		s.push(s.getParam(0).toString());
 		return 1;
 	}
-
+	
 	int mddelegate(MDState s)
 	{
 		MDClosure func = s.getClosureParam(0);
@@ -72,12 +72,105 @@ class BaseLib
 		
 		return 1;
 	}
-	
+
 	int getTraceback(MDState s)
 	{
 		s.push(new MDString(s.getTracebackString()));
 		
 		return 1;
+	}
+
+	int isNull(MDState s)
+	{
+		s.push(s.getParam(0).isNull());
+		return 1;
+	}
+	
+	int isBool(MDState s)
+	{
+		s.push(s.getParam(0).isBool());
+		return 1;
+	}
+	
+	int isInt(MDState s)
+	{
+		s.push(s.getParam(0).isInt());
+		return 1;
+	}
+	
+	int isFloat(MDState s)
+	{
+		s.push(s.getParam(0).isFloat());
+		return 1;
+	}
+	
+	int isChar(MDState s)
+	{
+		s.push(s.getParam(0).isChar());
+		return 1;
+	}
+	
+	int isString(MDState s)
+	{
+		s.push(s.getParam(0).isString());
+		return 1;
+	}
+	
+	int isTable(MDState s)
+	{
+		s.push(s.getParam(0).isTable());
+		return 1;
+	}
+	
+	int isArray(MDState s)
+	{
+		s.push(s.getParam(0).isArray());
+		return 1;
+	}
+	
+	int isFunction(MDState s)
+	{
+		s.push(s.getParam(0).isFunction());
+		return 1;
+	}
+	
+	int isUserdata(MDState s)
+	{
+		s.push(s.getParam(0).isUserdata());
+		return 1;
+	}
+	
+	int isClass(MDState s)
+	{
+		s.push(s.getParam(0).isClass());
+		return 1;
+	}
+	
+	int isInstance(MDState s)
+	{
+		s.push(s.getParam(0).isInstance());
+		return 1;
+	}
+
+	int isDelegate(MDState s)
+	{
+		s.push(s.getParam(0).isDelegate());
+		return 1;
+	}
+	
+	int mdassert(MDState s)
+	{
+		MDValue condition = s.getParam(0);
+		
+		if(condition.isFalse())
+		{
+			if(s.numParams() == 1)
+				throw new MDRuntimeException(s, "Assertion Failed!");
+			else
+				throw new MDRuntimeException(s, "Assertion Failed: %s", s.getParam(1).toString());
+		}
+		
+		return 0;
 	}
 }
 
@@ -92,4 +185,18 @@ public void init(MDState s)
 	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
 	s.setGlobal("delegate",     new MDClosure(s, &lib.mddelegate,   "delegate"));
 	s.setGlobal("getTraceback", new MDClosure(s, &lib.getTraceback, "getTraceback"));
+	s.setGlobal("isNull",       new MDClosure(s, &lib.isNull,       "isNull"));
+	s.setGlobal("isBool",       new MDClosure(s, &lib.isBool,       "isBool"));
+	s.setGlobal("isInt",        new MDClosure(s, &lib.isInt,        "isInt"));
+	s.setGlobal("isFloat",      new MDClosure(s, &lib.isFloat,      "isFloat"));
+	s.setGlobal("isChar",       new MDClosure(s, &lib.isChar,       "isChar"));
+	s.setGlobal("isString",     new MDClosure(s, &lib.isString,     "isString"));
+	s.setGlobal("isTable",      new MDClosure(s, &lib.isTable,      "isTable"));
+	s.setGlobal("isArray",      new MDClosure(s, &lib.isArray,      "isArray"));
+	s.setGlobal("isFunction",   new MDClosure(s, &lib.isFunction,   "isFunction"));
+	s.setGlobal("isUserdata",   new MDClosure(s, &lib.isUserdata,   "isUserdata"));
+	s.setGlobal("isClass",      new MDClosure(s, &lib.isClass,      "isClass"));
+	s.setGlobal("isInstance",   new MDClosure(s, &lib.isInstance,   "isInstance"));
+	s.setGlobal("isDelegate",   new MDClosure(s, &lib.isDelegate,   "isDelegate"));
+	s.setGlobal("assert",       new MDClosure(s, &lib.mdassert,     "assert"));
 }

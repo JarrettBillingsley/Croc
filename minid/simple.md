@@ -1,10 +1,4 @@
-local s = 'a' ~ 'c';
-writefln(typeof(s));
-
-s = 'z' ~ s;
-s ~= 'r';
-
-writefln(s);
+writefln("hi");
 
 /*writefln();
 

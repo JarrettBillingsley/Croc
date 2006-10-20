@@ -30,7 +30,7 @@ public MDFuncDef compile(char[] name, Stream source)
 	return ck.codeGen();
 }
 
-int toInt(char[] s, int base)
+int toInt(dchar[] s, int base)
 {
 	assert(base >= 2 && base <= 36, "toInt - invalid base");
 
@@ -57,7 +57,7 @@ int toInt(char[] s, int base)
     int length = s.length;
 
 	if(!length)
-		throw new ConvError(s);
+		throw new ConvError(utf.toUTF8(s));
 
 	int sign = 0;
 	int v = 0;
@@ -74,35 +74,35 @@ int toInt(char[] s, int base)
 			v = v * base + (c - '0');
 
 			if(cast(uint)v < v1)
-				throw new ConvOverflowError(s);
+				throw new ConvOverflowError(utf.toUTF8(s));
 		}
 		else if(c == '-' && i == 0)
 		{
 			sign = -1;
 
 			if(length == 1)
-				throw new ConvError(s);
+				throw new ConvError(utf.toUTF8(s));
 		}
 		else if(c == '+' && i == 0)
 		{
 			if(length == 1)
-				throw new ConvError(s);
+				throw new ConvError(utf.toUTF8(s));
 		}
 		else
-			throw new ConvError(s);
+			throw new ConvError(utf.toUTF8(s));
 	}
 
 	if(sign == -1)
 	{
 		if(cast(uint)v > 0x80000000)
-			throw new ConvOverflowError(s);
+			throw new ConvOverflowError(utf.toUTF8(s));
 
 		v = -v;
 	}
 	else
 	{
 		if(cast(uint)v > 0x7FFFFFFF)
-			throw new ConvOverflowError(s);
+			throw new ConvOverflowError(utf.toUTF8(s));
 	}
 
 	return v;
@@ -196,7 +196,7 @@ struct Token
 		EOF
 	}
 
-	public static const char[][] tokenStrings =
+	public static const dchar[][] tokenStrings =
 	[
 		Type.As: "as",
 		Type.Break: "break",
@@ -282,7 +282,7 @@ struct Token
 		Type.EOF: "<EOF>"
 	];
 
-	public static Type[char[]] stringToType;
+	public static Type[dchar[]] stringToType;
 
 	static this()
 	{
@@ -333,7 +333,7 @@ struct Token
 		switch(type)
 		{
 			case Type.Ident:
-				ret = "Identifier: " ~ stringValue;
+				ret = "Identifier: " ~ utf.toUTF8(stringValue);
 				break;
 
 			case Type.CharLiteral:
@@ -353,7 +353,7 @@ struct Token
 				break;
 
 			default:
-				ret = tokenStrings[cast(uint)type];
+				ret = utf.toUTF8(tokenStrings[cast(uint)type]);
 				break;
 		}
 
@@ -376,7 +376,7 @@ struct Token
 	union
 	{
 		public bool boolValue;
-		public char[] stringValue;
+		public dchar[] stringValue;
 		public int intValue;
 		public float floatValue;
 	}
@@ -390,7 +390,19 @@ class Lexer
 {
 	protected static BufferedStream mSource;
 	protected static Location mLoc;
-	protected static char mCharacter;
+	protected static dchar mCharacter;
+	
+	enum Encoding
+	{
+		ASCII,
+		UTF8,
+		UTF16LE,
+		UTF16BE,
+		UTF32LE,
+		UTF32BE
+	}
+	
+	protected static Encoding mEncoding;
 
 	public static Token* lex(char[] name, Stream source)
 	{
@@ -401,7 +413,97 @@ class Lexer
 
 		mSource = new BufferedStream(source);
 
-		nextChar();
+		char firstChar = mSource.getc();
+		
+		switch(firstChar)
+		{
+			case 0xEF:
+				char c = mSource.getc();
+				
+				if(c != 0xBB)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				c = mSource.getc();
+				
+				if(c != 0xBF)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				mEncoding = Encoding.UTF8;
+				nextChar();
+				break;
+				
+			case 0xFE:
+				char c = mSource.getc();
+				
+				if(c != 0xFF)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				mEncoding = Encoding.UTF16BE;
+				nextChar();
+				break;
+				
+			case 0xFF:
+				char c = mSource.getc();
+				
+				if(c != 0xFE)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				c = mSource.getc();
+				
+				if(c == 0)
+				{
+					c = mSource.getc();
+					
+					if(c != 0)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
+					mEncoding = Encoding.UTF32LE;
+					nextChar();
+					break;
+				}
+				else if(c == char.init)
+				{
+					// end of file?
+					mCharacter = dchar.init;
+					mEncoding = Encoding.UTF16LE;
+					break;
+				}
+				else
+				{
+					mEncoding = Encoding.UTF16LE;
+					nextChar();
+					break;
+				}
+				break;
+				
+			case 0:
+				char c = mSource.getc();
+				
+				if(c != 0)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				c = mSource.getc();
+
+				if(c != 0xFE)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				c = mSource.getc();
+
+				if(c != 0xFF)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				mEncoding = Encoding.UTF32BE;
+				nextChar();
+				break;
+				
+			default:
+				if(firstChar > 0x7f)
+					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					
+				mEncoding = Encoding.ASCII;
+				mCharacter = firstChar;
+				break;
+		}
 
 		Token* firstToken = nextToken();
 		Token* t = firstToken;
@@ -419,7 +521,7 @@ class Lexer
 
 	protected static bool isEOF()
 	{
-		return (mCharacter == '\0') || (mCharacter == char.init);
+		return (mCharacter == '\0') || (mCharacter == dchar.init);
 	}
 
 	protected static bool isEOL()
@@ -464,25 +566,44 @@ class Lexer
 		return ((mCharacter >= 'a') && (mCharacter <= 'z')) || ((mCharacter >= 'A') && (mCharacter <= 'Z'));
 	}
 
-	protected static ubyte hexDigitToInt(char c)
+	protected static ubyte hexDigitToInt(dchar c)
 	{
+		assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "hexDigitToInt");
+
 		if(c >= '0' && c <= '9')
 			return c - '0';
 
-		return std.ctype.tolower(c) - 'a' + 10;
+		return std.ctype.tolower(cast(char)c) - 'a' + 10;
 	}
 
 	protected static void nextChar()
 	{
-		mCharacter = mSource.getc();
 		mLoc.column++;
+
+		switch(mEncoding)
+		{
+			case Encoding.ASCII:
+				char c = mSource.getc();
+				
+				if(c == char.init)
+					mCharacter = dchar.init;
+				else if(c > 0x7f)
+					throw new MDCompileException(mLoc, "Invalid ASCII character 0x%2x", cast(int)c);
+				else
+					mCharacter = c;
+				break;
+
+			case Encoding.UTF8:
+				//TODO: make other encodings work..
+				assert(false);
+		}
 	}
 
 	protected static void nextLine()
 	{
 		while(isNewline() && !isEOF())
 		{
-			char old = mCharacter;
+			dchar old = mCharacter;
 
 			nextChar();
 
@@ -497,10 +618,10 @@ class Lexer
 	protected static bool readNumLiteral(bool prependPoint, out float fret, out int iret)
 	{
 		Location beginning = mLoc;
-		char[100] buf;
+		dchar[100] buf;
 		uint i = 0;
 
-		void add(char c)
+		void add(dchar c)
 		{
 			buf[i] = c;
 			i++;
@@ -670,7 +791,7 @@ class Lexer
 		{
 			try
 			{
-				iret = std.conv.toInt(buf[0 .. i]);
+				iret = toInt(buf[0 .. i], 10);
 			}
 			catch(ConvError e)
 			{
@@ -683,7 +804,7 @@ class Lexer
 		{
 			try
 			{
-				fret = std.conv.toFloat(buf[0 .. i]);
+				fret = std.conv.toFloat(utf.toUTF8(buf[0 .. i]));
 			}
 			catch(ConvError e)
 			{
@@ -694,7 +815,7 @@ class Lexer
 		}
 	}
 
-	protected static char[] readEscapeSequence(Location beginning)
+	protected static dchar readEscapeSequence(Location beginning)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -713,7 +834,7 @@ class Lexer
 			return ret;
 		}
 
-		char[] ret;
+		dchar ret;
 
 		assert(mCharacter == '\\', "escape seq - must start on backslash");
 
@@ -723,16 +844,16 @@ class Lexer
 
 		switch(mCharacter)
 		{
-			case 'a':  nextChar(); return "\a";
-			case 'b':  nextChar(); return "\b";
-			case 'f':  nextChar(); return "\f";
-			case 'n':  nextChar(); return "\n";
-			case 'r':  nextChar(); return "\r";
-			case 't':  nextChar(); return "\t";
-			case 'v':  nextChar(); return "\v";
-			case '\\': nextChar(); return "\\";
-			case '\"': nextChar(); return "\"";
-			case '\'': nextChar(); return "\'";
+			case 'a':  nextChar(); return '\a';
+			case 'b':  nextChar(); return '\b';
+			case 'f':  nextChar(); return '\f';
+			case 'n':  nextChar(); return '\n';
+			case 'r':  nextChar(); return '\r';
+			case 't':  nextChar(); return '\t';
+			case 'v':  nextChar(); return '\v';
+			case '\\': nextChar(); return '\\';
+			case '\"': nextChar(); return '\"';
+			case '\'': nextChar(); return '\'';
 
 			case 'x':
 				nextChar();
@@ -742,7 +863,7 @@ class Lexer
 				if(x > 0x7F)
 					throw new MDCompileException(mLoc, "Hexadecimal escape sequence too large");
 
-				ret ~= cast(char)x;
+				ret = cast(dchar)x;
 				break;
 
 			case 'u':
@@ -753,7 +874,7 @@ class Lexer
 				if(x == 0xFFFE || x == 0xFFFF)
 					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
 
-				utf.encode(ret, cast(wchar)x);
+				ret = cast(dchar)x;
 				break;
 
 			case 'U':
@@ -767,7 +888,7 @@ class Lexer
 				if(utf.isValidDchar(cast(dchar)x) == false)
 					throw new MDCompileException(mLoc, "Unicode escape '\\U%08x' too large", x);
 
-				utf.encode(ret, cast(dchar)x);
+				ret = cast(dchar)x;
 				break;
 
 			default:
@@ -787,20 +908,20 @@ class Lexer
 				if(c > 0x7F)
 					throw new MDCompileException(mLoc, "Numeric escape sequence too large");
 
-				ret ~= cast(char)c;
+				ret = cast(dchar)c;
 				break;
 		}
 
 		return ret;
 	}
 
-	protected static char[] readStringLiteral(bool escape)
+	protected static dchar[] readStringLiteral(bool escape)
 	{
 		Location beginning = mLoc;
 		uint i = 0;
-		char[] buf = new char[100];
+		dchar[] buf = new dchar[100];
 
-		void add(char c)
+		void add(dchar c)
 		{
 			if(i >= buf.length)
 				buf.length = cast(uint)(buf.length * 1.5);
@@ -809,7 +930,7 @@ class Lexer
 			i++;
 		}
 
-		char delimiter = mCharacter;
+		dchar delimiter = mCharacter;
 
 		// Skip opening quote
 		nextChar();
@@ -830,11 +951,7 @@ class Lexer
 					if(escape == false)
 						goto default;
 
-					char[] esc = readEscapeSequence(beginning);
-
-					foreach(char c; esc)
-						add(c);
-
+					add(readEscapeSequence(beginning));
 					continue;
 
 				default:
@@ -850,10 +967,10 @@ class Lexer
 		return buf[0 .. i];
 	}
 
-	protected static int readCharLiteral()
+	protected static dchar readCharLiteral()
 	{
 		Location beginning = mLoc;
-		char[] ret;
+		dchar ret;
 
 		assert(mCharacter == '\'', "char literal must start with single quote");
 		nextChar();
@@ -868,7 +985,7 @@ class Lexer
 				break;
 
 			default:
-				ret ~= mCharacter;
+				ret = mCharacter;
 				nextChar();
 				break;
 		}
@@ -878,7 +995,7 @@ class Lexer
 
 		nextChar();
 
-		return cast(int)(utf.toUTF32(ret)[0]);
+		return ret;
 	}
 
 	protected static Token* nextToken()
@@ -998,7 +1115,7 @@ class Lexer
 									nextLine();
 									continue;
 
-								case '\0', char.init:
+								case '\0', dchar.init:
 									throw new MDCompileException(tokenLoc, "Unterminated /* */ comment");
 
 								default:
@@ -1212,7 +1329,7 @@ class Lexer
 					token.type = Token.Type.CharLiteral;
 					return token;
 
-				case '\0', char.init:
+				case '\0', dchar.init:
 					token.type = Token.Type.EOF;
 					return token;
 
@@ -1244,7 +1361,7 @@ class Lexer
 					}
 					else if(isAlpha() || mCharacter == '_')
 					{
-						char[] s;
+						dchar[] s;
 
 						do
 						{
@@ -1272,7 +1389,7 @@ class Lexer
 					}
 					else
 					{
-						char[] s;
+						dchar[] s;
 						s ~= mCharacter;
 
 						nextChar();
@@ -1437,7 +1554,7 @@ class FuncState
 
 	struct LocVarDesc
 	{
-		char[] name;
+		dchar[] name;
 		Location location;
 		uint reg;
 		bool isActive;
@@ -1449,7 +1566,7 @@ class FuncState
 	{
 		ExpType type;
 		uint index;
-		char[] name;
+		dchar[] name;
 	}
 
 	protected UpvalDesc[] mUpvals;
@@ -1600,7 +1717,7 @@ class FuncState
 		mScope.continueScope = mScope;
 	}
 
-	protected int searchLocal(char[] name, out uint reg)
+	protected int searchLocal(dchar[] name, out uint reg)
 	{
 		for(int i = mLocVars.length - 1; i >= 0; i--)
 		{
@@ -1833,7 +1950,7 @@ class FuncState
 		}
 
 		if(searchVar(this) == ExpType.Global)
-			e.index = codeStringConst(utf.toUTF32(name.mName));
+			e.index = codeStringConst(name.mName);
 	}
 
 	public void pushVararg()
@@ -2161,7 +2278,7 @@ class FuncState
 
 	public void popField(uint line, Identifier field)
 	{
-		pushString(utf.toUTF32(field.mName));
+		pushString(field.mName);
 		popIndex(line);
 	}
 
@@ -2706,7 +2823,7 @@ class FuncState
 		{
 			with(mLocVars[i])
 			{
-				ret.mLocVarDescs[i].name = utf.toUTF32(name);
+				ret.mLocVarDescs[i].name = name;
 				ret.mLocVarDescs[i].location = location;
 				ret.mLocVarDescs[i].reg = reg;
 			}
@@ -2811,7 +2928,7 @@ class ClassDef
 					else
 						v = new NullExp(id.mLocation);
 
-					dchar[] name = utf.toUTF32(id.mName);
+					dchar[] name = id.mName;
 
 					t.check(Token.Type.Semicolon);
 					t = t.nextToken;
@@ -2858,7 +2975,7 @@ class ClassDef
 		s.freeExpTempRegs(&base);
 
 		uint destReg = s.pushRegister();
-		uint nameConst = s.codeStringConst(utf.toUTF32(mName.mName));
+		uint nameConst = s.codeStringConst(mName.mName);
 		s.codeR(mLocation.line, Op.Class, destReg, nameConst | Instruction.constBit, base.index);
 
 		foreach(Field field; mFields)
@@ -2876,7 +2993,7 @@ class ClassDef
 
 		foreach(MethodDecl method; mMethods)
 		{
-			uint index = s.codeStringConst(utf.toUTF32(method.mName.mName));
+			uint index = s.codeStringConst(method.mName.mName);
 
 			method.codeGen(s);
 			Exp val;
@@ -3414,7 +3531,7 @@ class LocalFuncDecl : Declaration
 		super(location, endLocation);
 
 		mName = name;
-		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, utf.toUTF32(mName.mName));
+		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, mName.mName);
 	}
 
 	public static LocalFuncDecl parse(inout Token* t)
@@ -3485,10 +3602,10 @@ class FuncDecl : Declaration
 
 		mNames = names;
 
-		dchar[] guessedName = utf.toUTF32(mNames[0].mName);
+		dchar[] guessedName = mNames[0].mName;
 
 		foreach(Identifier n; mNames[1 .. $])
-			guessedName ~= "."d ~ utf.toUTF32(n.mName);
+			guessedName ~= "."d ~ n.mName;
 			
 		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, guessedName);
 	}
@@ -3579,7 +3696,7 @@ class MethodDecl : Declaration
 		super(location, endLocation);
 
 		mName = name;
-		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, utf.toUTF32(name.mName));
+		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, name.mName);
 	}
 
 	public static MethodDecl parse(inout Token* t)
@@ -3637,10 +3754,10 @@ class MethodDecl : Declaration
 
 class Identifier
 {
-	protected char[] mName;
+	protected dchar[] mName;
 	protected Location mLocation;
 
-	public this(char[] name, Location location)
+	public this(dchar[] name, Location location)
 	{
 		mName = name;
 		mLocation = location;
@@ -3658,7 +3775,7 @@ class Identifier
 
 	public char[] toString()
 	{
-		return mName;
+		return utf.toUTF8(mName);
 	}
 
 	public static char[] toLongString(Identifier[] idents)
@@ -3674,7 +3791,7 @@ class Identifier
 
 	public void writeCode(CodeWriter cw)
 	{
-		cw.write(mName);
+		cw.write(utf.toUTF8(mName));
 	}
 }
 
@@ -4434,7 +4551,7 @@ class CaseStatement : Statement
 					break;
 					
 				case Token.Type.StringLiteral:
-					addCase(new StringExp(t.location, utf.toUTF32(t.stringValue)));
+					addCase(new StringExp(t.location, t.stringValue));
 					t = t.nextToken;
 					break;
 
@@ -6288,7 +6405,7 @@ class DotExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
-		//s.pushString(utf.toUTF32(mIdent.mIdent.mName));
+		//s.pushString(mIdent.mIdent.mName);
 		//s.popIndex(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
 	}
@@ -6352,7 +6469,7 @@ class CallExp : PostfixExp
 			assert(s.nextRegister() == funcReg);
 			s.pushRegister();
 
-			s.pushString(utf.toUTF32(mMethodName.mName));
+			s.pushString(mMethodName.mName);
 			Exp method;
 			s.popSource(mOp.mEndLocation.line, method);
 
@@ -6885,7 +7002,7 @@ class StringExp : PrimaryExp
 		scope(success)
 			t = t.nextToken;
 
-		return new StringExp(t.location, utf.toUTF32(t.stringValue));
+		return new StringExp(t.location, t.stringValue);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7096,7 +7213,7 @@ class TableCtorExp : PrimaryExp
 				{
 					// Take advantage of the fact that LocalFuncDecl.parse() starts on the 'function' token
 					auto LocalFuncDecl fd = LocalFuncDecl.parse(t);
-					k = new StringExp(fd.mLocation, utf.toUTF32(fd.mName.mName));
+					k = new StringExp(fd.mLocation, fd.mName.mName);
 					v = fd.mFunc;
 					lastWasFunc = true;
 				}
@@ -7107,7 +7224,7 @@ class TableCtorExp : PrimaryExp
 					t.check(Token.Type.Assign);
 					t = t.nextToken;
 
-					k = new StringExp(id.mLocation, utf.toUTF32(id.mName));
+					k = new StringExp(id.mLocation, id.mName);
 					v = OpEqExp.parse(t);
 				}
 

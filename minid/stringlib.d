@@ -367,19 +367,6 @@ class StringLib
 		return 1;
 	}
 	
-	int charAt(MDState s)
-	{
-		MDString src = s.getStringParam(0);
-		int index = s.getIntParam(1);
-
-		if(index < 0 || index >= src.length)
-			throw new MDRuntimeException(s, "Invalid character index: ", index);
-
-		s.push(src[index]);
-		
-		return 1;
-	}
-	
 	int toLower(MDState s)
 	{
 		char[] src = s.getStringParam(0).asUTF8();
@@ -734,7 +721,6 @@ public void init(MDState s)
 		"toFloat",    new MDClosure(s, &lib.toFloat,    "string.toFloat"),
 		"compare",    new MDClosure(s, &lib.compare,    "string.compare"),
 		"icompare",   new MDClosure(s, &lib.icompare,   "string.icompare"),
-		"charAt",     new MDClosure(s, &lib.charAt,     "string.charAt"),
 		"find",       new MDClosure(s, &lib.find,       "string.find"),
 		"ifind",      new MDClosure(s, &lib.ifind,      "string.ifind"),
 		"rfind",      new MDClosure(s, &lib.rfind,      "string.rfind"),
@@ -752,8 +738,6 @@ public void init(MDState s)
 		"fromChar",   new MDClosure(s, &lib.fromChar,   "string.fromChar"),
 		"replace",    new MDClosure(s, &lib.replace,    "string.replace")
 	);
-
-	stringTable["opIndex"d] = stringTable["charAt"];
 
 	s.setGlobal("string", stringTable);
 	MDGlobalState().setMetatable(MDValue.Type.String, stringTable);
