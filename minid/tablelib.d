@@ -22,6 +22,6 @@ public void init(MDState s)
 		"dup",       new MDClosure(s, &lib.dup,      "table.dup")
 	);
 
-	s.setGlobal("table", tableLib);
+	s.setGlobal("table"d, tableLib);
 	MDGlobalState().setMetatable(MDValue.Type.Table, tableLib);
 }

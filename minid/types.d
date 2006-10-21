@@ -48,12 +48,7 @@ class MDException : Exception
 	public this(MDValue* val)
 	{
 		value = *val;
-
-		char[] msg;
-
-		msg = value.toString();
-
-		super(msg);
+		super(value.toString());
 	}
 	
 	public this(MDTable t)
@@ -336,6 +331,11 @@ class MDString : MDObject
 		return mData == utf.toUTF32(v);
 	}
 	
+	public int opEquals(wchar[] v)
+	{
+		return mData == utf.toUTF32(v);
+	}
+	
 	public int opEquals(dchar[] v)
 	{
 		return mData == v;
@@ -350,6 +350,11 @@ class MDString : MDObject
 	}
 
 	public int opCmp(char[] v)
+	{
+		return dcmp(mData, utf.toUTF32(v));
+	}
+	
+	public int opCmp(wchar[] v)
 	{
 		return dcmp(mData, utf.toUTF32(v));
 	}
@@ -645,7 +650,7 @@ class MDTable : MDObject
 		return ptr;
 	}
 	
-	public MDValue* opIndex(char[] index)
+	public MDValue* opIndex(dchar[] index)
 	{
 		MDValue key;
 		key.value = new MDString(index);
@@ -659,13 +664,6 @@ class MDTable : MDObject
 		return value;
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, char[] index)
-	{
-		MDValue idx;
-		idx.value = new MDString(index);
-		return opIndexAssign(value, &idx);
-	}
-	
 	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
 	{
 		MDValue idx;
@@ -679,19 +677,6 @@ class MDTable : MDObject
 		val.value = value;
 		
 		mData[*index] = val;
-		
-		return value;
-	}
-	
-	public MDObject opIndexAssign(MDObject value, char[] index)
-	{
-		MDValue idx;
-		idx.value = new MDString(index);
-
-		MDValue val;
-		val.value = value;
-		
-		mData[idx] = val;
 		
 		return value;
 	}
@@ -930,7 +915,6 @@ class MDClass : MDObject
 
 	package this(MDState s, dchar[] guessedName, MDClass baseClass)
 	{
-		//mClass = classDef;
 		mGuessedName = guessedName.dup;
 		mBaseClass = baseClass;
 
@@ -979,7 +963,7 @@ class MDClass : MDObject
 		
 		if(ptr !is &MDValue.nullValue)
 			return ptr;*/
-			
+
 		MDValue* ptr = mMethods[index];
 
 		if(ptr !is &MDValue.nullValue)
@@ -995,6 +979,14 @@ class MDClass : MDObject
 		else
 			return &MDValue.nullValue;
 	}
+	
+	public MDValue* opIndex(dchar[] index)
+	{
+		MDValue key;
+		key.value = new MDString(index);
+		
+		return opIndex(&key);
+	}
 
 	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
 	{
@@ -1005,13 +997,33 @@ class MDClass : MDObject
 			
 		return value;
 	}
-
-	public MDValue* opIndex(char[] index)
+	
+	public MDObject opIndexAssign(MDObject value, MDValue* index)
 	{
-		MDValue key;
-		key.value = new MDString(index);
+		mFields[index] = value;
+			
+		return value;
+	}
+
+	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
+	{
+		MDValue idx;
+		idx.value = new MDString(index);
+
+		return opIndexAssign(value, &idx);
+	}
+	
+	public MDObject opIndexAssign(MDObject value, dchar[] index)
+	{
+		MDValue idx;
+		idx.value = new MDString(index);
 		
-		return opIndex(&key);
+		MDValue val;
+		val.value = value;
+		
+		opIndexAssign(&val, &idx);
+		
+		return value;
 	}
 
 	public char[] toString()
@@ -1061,7 +1073,7 @@ class MDInstance : MDObject
 		return mClass[index];
 	}
 	
-	public MDValue* opIndex(char[] index)
+	public MDValue* opIndex(dchar[] index)
 	{
 		MDValue key;
 		key.value = new MDString(index);

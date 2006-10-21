@@ -406,7 +406,7 @@ class MDState
 		}
 	}
 	
-	public void setGlobal(T)(char[] name, T value)
+	public void setGlobal(T)(dchar[] name, T value)
 	{
 		MDValue key;
 		key.value = new MDString(name);
@@ -448,7 +448,7 @@ class MDState
 	public bool isNullParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		return getBasedStack(index).isNull();
 	}
@@ -456,7 +456,7 @@ class MDState
 	public bool isBoolParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		return getBasedStack(index).isBool();
 	}
@@ -464,7 +464,7 @@ class MDState
 	public bool isIntParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		return getBasedStack(index).isInt();
 	}
@@ -472,7 +472,7 @@ class MDState
 	public bool isFloatParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 
 		return getBasedStack(index).isFloat();
 	}
@@ -480,7 +480,7 @@ class MDState
 	public bool isCharParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 
 		return getBasedStack(index).isChar();
 	}
@@ -488,7 +488,7 @@ class MDState
 	public bool isStringParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		return getBasedStack(index).isString();
 	}
@@ -496,7 +496,7 @@ class MDState
 	public MDValue getParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 			
 		return *getBasedStack(index);
 	}
@@ -504,12 +504,12 @@ class MDState
 	public bool getBoolParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isBool() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'bool' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'bool' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asBool();
 	}
@@ -517,12 +517,12 @@ class MDState
 	public int getIntParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isInt() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'int' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'int' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asInt();
 	}
@@ -530,12 +530,12 @@ class MDState
 	public float getFloatParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isFloat() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'float' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'float' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asFloat();
 	}
@@ -543,12 +543,12 @@ class MDState
 	public dchar getCharParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isChar() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'char' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'char' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 			
 		return val.asChar();
 	}
@@ -556,12 +556,12 @@ class MDState
 	public MDString getStringParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isString() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asString();
 	}
@@ -569,12 +569,12 @@ class MDState
 	public MDArray getArrayParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isArray() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'array' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'array' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asArray();
 	}
@@ -582,12 +582,12 @@ class MDState
 	public MDTable getTableParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isTable() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'table' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'table' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asTable();
 	}
@@ -595,12 +595,12 @@ class MDState
 	public MDClosure getClosureParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isFunction() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'function' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'function' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asFunction();
 	}
@@ -608,12 +608,12 @@ class MDState
 	public MDInstance getInstanceParam(uint index)
 	{
 		if(index >= numParams())
-			badParamError(this, index, mCurrentAR.func.toString(), "not enough parameters");
+			badParamError(this, index, "not enough parameters");
 		
 		MDValue* val = getBasedStack(index);
 
 		if(val.isInstance() == false)
-			badParamError(this, index, mCurrentAR.func.toString(), "expected 'instance' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'instance' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
 
 		return val.asInstance();
 	}
@@ -679,7 +679,7 @@ class MDState
 		}
 	}
 
-	static package void badParamError(MDState s, uint index, char[] funcName, char[] msg)
+	static package void badParamError(MDState s, uint index, char[] msg)
 	{
 		throw new MDRuntimeException(s, "Bad argument ", index + 1, ": ", msg);
 	}
@@ -1347,6 +1347,7 @@ class MDState
 			while(true)
 			{
 				Instruction i = *mCurrentAR.pc;
+
 				mCurrentAR.pc++;
 				
 				MDValue cr1temp;

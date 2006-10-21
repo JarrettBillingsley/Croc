@@ -102,6 +102,6 @@ public void init(MDState s)
 		"isAscii",     new MDClosure(s, &lib.isAscii,     "char.isAscii")
 	);
 
-	s.setGlobal("char", charLib);
+	s.setGlobal("char"d, charLib);
 	MDGlobalState().setMetatable(MDValue.Type.Char, charLib);
 }

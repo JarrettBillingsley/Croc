@@ -58,7 +58,7 @@ class BaseLib
 		s.push(s.getParam(0).toString());
 		return 1;
 	}
-	
+
 	int mddelegate(MDState s)
 	{
 		MDClosure func = s.getClosureParam(0);
@@ -178,25 +178,25 @@ public void init(MDState s)
 {
 	BaseLib lib = new BaseLib();
 
-	s.setGlobal("writefln",     new MDClosure(s, &lib.mdwritefln,   "writefln"));
-	s.setGlobal("writef",       new MDClosure(s, &lib.mdwritef,     "writef"));
-	s.setGlobal("typeof",       new MDClosure(s, &lib.mdtypeof,     "typeof"));
-	s.setGlobal("classof",      new MDClosure(s, &lib.classof,      "classof"));
-	s.setGlobal("toString",     new MDClosure(s, &lib.mdtoString,   "toString"));
-	s.setGlobal("delegate",     new MDClosure(s, &lib.mddelegate,   "delegate"));
-	s.setGlobal("getTraceback", new MDClosure(s, &lib.getTraceback, "getTraceback"));
-	s.setGlobal("isNull",       new MDClosure(s, &lib.isNull,       "isNull"));
-	s.setGlobal("isBool",       new MDClosure(s, &lib.isBool,       "isBool"));
-	s.setGlobal("isInt",        new MDClosure(s, &lib.isInt,        "isInt"));
-	s.setGlobal("isFloat",      new MDClosure(s, &lib.isFloat,      "isFloat"));
-	s.setGlobal("isChar",       new MDClosure(s, &lib.isChar,       "isChar"));
-	s.setGlobal("isString",     new MDClosure(s, &lib.isString,     "isString"));
-	s.setGlobal("isTable",      new MDClosure(s, &lib.isTable,      "isTable"));
-	s.setGlobal("isArray",      new MDClosure(s, &lib.isArray,      "isArray"));
-	s.setGlobal("isFunction",   new MDClosure(s, &lib.isFunction,   "isFunction"));
-	s.setGlobal("isUserdata",   new MDClosure(s, &lib.isUserdata,   "isUserdata"));
-	s.setGlobal("isClass",      new MDClosure(s, &lib.isClass,      "isClass"));
-	s.setGlobal("isInstance",   new MDClosure(s, &lib.isInstance,   "isInstance"));
-	s.setGlobal("isDelegate",   new MDClosure(s, &lib.isDelegate,   "isDelegate"));
-	s.setGlobal("assert",       new MDClosure(s, &lib.mdassert,     "assert"));
+	s.setGlobal("writefln"d,     new MDClosure(s, &lib.mdwritefln,   "writefln"));
+	s.setGlobal("writef"d,       new MDClosure(s, &lib.mdwritef,     "writef"));
+	s.setGlobal("typeof"d,       new MDClosure(s, &lib.mdtypeof,     "typeof"));
+	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
+	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));
+	s.setGlobal("delegate"d,     new MDClosure(s, &lib.mddelegate,   "delegate"));
+	s.setGlobal("getTraceback"d, new MDClosure(s, &lib.getTraceback, "getTraceback"));
+	s.setGlobal("isNull"d,       new MDClosure(s, &lib.isNull,       "isNull"));
+	s.setGlobal("isBool"d,       new MDClosure(s, &lib.isBool,       "isBool"));
+	s.setGlobal("isInt"d,        new MDClosure(s, &lib.isInt,        "isInt"));
+	s.setGlobal("isFloat"d,      new MDClosure(s, &lib.isFloat,      "isFloat"));
+	s.setGlobal("isChar"d,       new MDClosure(s, &lib.isChar,       "isChar"));
+	s.setGlobal("isString"d,     new MDClosure(s, &lib.isString,     "isString"));
+	s.setGlobal("isTable"d,      new MDClosure(s, &lib.isTable,      "isTable"));
+	s.setGlobal("isArray"d,      new MDClosure(s, &lib.isArray,      "isArray"));
+	s.setGlobal("isFunction"d,   new MDClosure(s, &lib.isFunction,   "isFunction"));
+	s.setGlobal("isUserdata"d,   new MDClosure(s, &lib.isUserdata,   "isUserdata"));
+	s.setGlobal("isClass"d,      new MDClosure(s, &lib.isClass,      "isClass"));
+	s.setGlobal("isInstance"d,   new MDClosure(s, &lib.isInstance,   "isInstance"));
+	s.setGlobal("isDelegate"d,   new MDClosure(s, &lib.isDelegate,   "isDelegate"));
+	s.setGlobal("assert"d,       new MDClosure(s, &lib.mdassert,     "assert"));
 }

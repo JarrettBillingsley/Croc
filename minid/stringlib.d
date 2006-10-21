@@ -5,10 +5,11 @@ import minid.types;
 
 import string = std.string;
 import std.conv;
+import std.uni;
 
 //import std.stdio;
 
-int toIntEx(char[] s, int base)
+int toIntEx(dchar[] s, int base)
 {
 	assert(base >= 2 && base <= 36, "toInt - invalid base");
 
@@ -35,7 +36,7 @@ int toIntEx(char[] s, int base)
     int length = s.length;
 
 	if(!length)
-		throw new ConvError(s);
+		throw new ConvError(utf.toUTF8(s));
 
 	int sign = 0;
 	int v = 0;
@@ -52,35 +53,35 @@ int toIntEx(char[] s, int base)
 			v = v * base + (c - '0');
 
 			if(cast(uint)v < v1)
-				throw new ConvOverflowError(s);
+				throw new ConvOverflowError(utf.toUTF8(s));
 		}
 		else if(c == '-' && i == 0)
 		{
 			sign = -1;
 
 			if(length == 1)
-				throw new ConvError(s);
+				throw new ConvError(utf.toUTF8(s));
 		}
 		else if(c == '+' && i == 0)
 		{
 			if(length == 1)
-				throw new ConvError(s);
+				throw new ConvError(utf.toUTF8(s));
 		}
 		else
-			throw new ConvError(s);
+			throw new ConvError(utf.toUTF8(s));
 	}
-	
+
 	if(sign == -1)
 	{
 		if(cast(uint)v > 0x80000000)
-			throw new ConvOverflowError(s);
+			throw new ConvOverflowError(utf.toUTF8(s));
 
 		v = -v;
 	}
 	else
 	{
 		if(cast(uint)v > 0x7FFFFFFF)
-			throw new ConvOverflowError(s);
+			throw new ConvOverflowError(utf.toUTF8(s));
 	}
 
 	return v;
@@ -90,7 +91,7 @@ class StringLib
 {
 	int toInt(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		dchar[] src = s.getStringParam(0).asUTF32();
 		
 		int base = 10;
 
@@ -102,10 +103,6 @@ class StringLib
 		try
 		{
 			dest = toIntEx(src, base);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -127,10 +124,6 @@ class StringLib
 		{
 			dest = std.conv.toFloat(utf.toUTF8(src));
 		}
-		catch(MDException e)
-		{
-			throw e;
-		}
 		catch(Exception e)
 		{
 			throw new MDRuntimeException(s, e.toString());
@@ -147,20 +140,16 @@ class StringLib
 		char[] src2 = s.getStringParam(1).asUTF8();
 		
 		int ret;
-		
+
 		try
 		{
 			ret = string.cmp(src1, src2);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
 			throw new MDRuntimeException(s, e.toString());
 		}
-		
+
 		s.push(ret);
 
 		return 1;
@@ -177,15 +166,11 @@ class StringLib
 		{
 			ret = string.icmp(src1, src2);
 		}
-		catch(MDException e)
-		{
-			throw e;
-		}
 		catch(Exception e)
 		{
 			throw new MDRuntimeException(s, e.toString());
 		}
-		
+
 		s.push(ret);
 
 		return 1;
@@ -203,10 +188,6 @@ class StringLib
 			{
 				ret = string.find(src, s.getStringParam(1).asUTF8());
 			}
-			catch(MDException e)
-			{
-				throw e;
-			}
 			catch(Exception e)
 			{
 				throw new MDRuntimeException(s, e.toString());
@@ -217,10 +198,6 @@ class StringLib
 			try
 			{
 				ret = string.find(src, s.getCharParam(1));
-			}
-			catch(MDException e)
-			{
-				throw e;
 			}
 			catch(Exception e)
 			{
@@ -247,10 +224,6 @@ class StringLib
 			{
 				ret = string.ifind(src, s.getStringParam(1).asUTF8());
 			}
-			catch(MDException e)
-			{
-				throw e;
-			}
 			catch(Exception e)
 			{
 				throw new MDRuntimeException(s, e.toString());
@@ -261,10 +234,6 @@ class StringLib
 			try
 			{
 				ret = string.ifind(src, s.getCharParam(1));
-			}
-			catch(MDException e)
-			{
-				throw e;
 			}
 			catch(Exception e)
 			{
@@ -291,10 +260,6 @@ class StringLib
 			{
 				ret = string.rfind(src, s.getStringParam(1).asUTF8());
 			}
-			catch(MDException e)
-			{
-				throw e;
-			}
 			catch(Exception e)
 			{
 				throw new MDRuntimeException(s, e.toString());
@@ -305,10 +270,6 @@ class StringLib
 			try
 			{
 				ret = string.rfind(src, s.getCharParam(1));
-			}
-			catch(MDException e)
-			{
-				throw e;
 			}
 			catch(Exception e)
 			{
@@ -335,10 +296,6 @@ class StringLib
 			{
 				ret = string.irfind(src, s.getStringParam(1).asUTF8());
 			}
-			catch(MDException e)
-			{
-				throw e;
-			}
 			catch(Exception e)
 			{
 				throw new MDRuntimeException(s, e.toString());
@@ -349,10 +306,6 @@ class StringLib
 			try
 			{
 				ret = string.irfind(src, s.getCharParam(1));
-			}
-			catch(MDException e)
-			{
-				throw e;
 			}
 			catch(Exception e)
 			{
@@ -369,13 +322,14 @@ class StringLib
 	
 	int toLower(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		MDString src = s.getStringParam(0);
 		
-		char[] ret;
+		dchar[] dest = new dchar[src.length];
 		
 		try
 		{
-			ret = string.tolower(src);
+			for(int i = 0; i < src.length; i++)
+				dest[i] = toUniLower(src[i]);
 		}
 		catch(MDException e)
 		{
@@ -386,20 +340,21 @@ class StringLib
 			throw new MDRuntimeException(s, e.toString());
 		}
 		
-		s.push(ret);
+		s.push(new MDString(dest));
 		
 		return 1;
 	}
 	
 	int toUpper(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		MDString src = s.getStringParam(0);
 		
-		char[] ret;
+		dchar[] dest = new dchar[src.length];
 		
 		try
 		{
-			ret = string.toupper(src);
+			for(int i = 0; i < src.length; i++)
+				dest[i] = toUniUpper(src[i]);
 		}
 		catch(MDException e)
 		{
@@ -409,8 +364,8 @@ class StringLib
 		{
 			throw new MDRuntimeException(s, e.toString());
 		}
-
-		s.push(ret);
+		
+		s.push(new MDString(dest));
 		
 		return 1;
 	}
@@ -428,10 +383,6 @@ class StringLib
 		try
 		{
 			ret = string.repeat(src, numTimes);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -464,10 +415,6 @@ class StringLib
 		{
 			ret = string.join(strings, sep);
 		}
-		catch(MDException e)
-		{
-			throw e;
-		}
 		catch(Exception e)
 		{
 			throw new MDRuntimeException(s, e.toString());
@@ -492,10 +439,6 @@ class StringLib
 			{
 				ret = string.split(src, delim);
 			}
-			catch(MDException e)
-			{
-				throw e;
-			}
 			catch(Exception e)
 			{
 				throw new MDRuntimeException(s, e.toString());
@@ -506,10 +449,6 @@ class StringLib
 			try
 			{
 				ret = string.split(src);
-			}
-			catch(MDException e)
-			{
-				throw e;
 			}
 			catch(Exception e)
 			{
@@ -530,16 +469,11 @@ class StringLib
 	int splitLines(MDState s)
 	{
 		char[] src = s.getStringParam(0).asUTF8();
-
 		char[][] ret;
 
 		try
 		{
 			ret = string.splitlines(src);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -559,16 +493,11 @@ class StringLib
 	int strip(MDState s)
 	{
 		char[] src = s.getStringParam(0).asUTF8();
-
 		char[] ret;
 
 		try
 		{
 			ret = string.strip(src);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -583,16 +512,11 @@ class StringLib
 	int lstrip(MDState s)
 	{
 		char[] src = s.getStringParam(0).asUTF8();
-
 		char[] ret;
 
 		try
 		{
 			ret = string.stripl(src);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -607,16 +531,11 @@ class StringLib
 	int rstrip(MDState s)
 	{
 		char[] src = s.getStringParam(0).asUTF8();
-
 		char[] ret;
 
 		try
 		{
 			ret = string.stripr(src);
-		}
-		catch(MDException e)
-		{
-			throw e;
 		}
 		catch(Exception e)
 		{
@@ -695,15 +614,11 @@ class StringLib
 		{
 			ret = string.replace(src, from, to);
 		}
-		catch(MDException e)
-		{
-			throw e;
-		}
 		catch(Exception e)
 		{
 			throw new MDRuntimeException(s, e.toString());
 		}
-		
+
 		s.push(ret);
 		return 1;
 	}
@@ -739,6 +654,6 @@ public void init(MDState s)
 		"replace",    new MDClosure(s, &lib.replace,    "string.replace")
 	);
 
-	s.setGlobal("string", stringTable);
+	s.setGlobal("string"d, stringTable);
 	MDGlobalState().setMetatable(MDValue.Type.String, stringTable);
 }

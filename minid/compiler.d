@@ -447,9 +447,9 @@ class Lexer
 				
 				if(c != 0xFE)
 					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
+
 				c = mSource.getc();
-				
+
 				if(c == 0)
 				{
 					c = mSource.getc();
@@ -471,7 +471,7 @@ class Lexer
 				else
 				{
 					mEncoding = Encoding.UTF16LE;
-					nextChar();
+					mCharacter = readRestOfUTF16LEChar(c);
 					break;
 				}
 				break;
@@ -575,6 +575,37 @@ class Lexer
 
 		return std.ctype.tolower(cast(char)c) - 'a' + 10;
 	}
+	
+	protected static dchar readRestOfUTF16LEChar(char loChar)
+	{
+		char hiChar = mSource.getc();
+
+		if(hiChar == char.init)
+			throw new MDCompileException(mLoc, "Unfinished UTF-16 character");
+
+		wchar c = loChar | (hiChar << 8);
+
+		if(c & ~0x7F)
+		{
+			if(c >= 0xD800 && c <= 0xDBFF)
+			{
+				wchar c2 = mSource.getcw();
+
+				if(c2 < 0xDC00 || c2 > 0xDFFF)
+					throw new MDCompileException(mLoc, "Surrogate UTF-16 low value out of range");
+
+				return ((c - 0xD7C0) << 10) + (c2 - 0xDC00);
+			}
+			else if(c >= 0xDC00 && c <= 0xDFFF)
+				throw new MDCompileException(mLoc, "Unpaired surrogate UTF-16 value");
+			else if(c == 0xFFFE || c == 0xFFFF)
+				throw new MDCompileException(mLoc, "Illegal UTF-16 value");
+			else
+				return c;
+		}
+		else
+			return c;
+	}
 
 	protected static void nextChar()
 	{
@@ -584,18 +615,97 @@ class Lexer
 		{
 			case Encoding.ASCII:
 				char c = mSource.getc();
-				
+		
 				if(c == char.init)
+				{
 					mCharacter = dchar.init;
-				else if(c > 0x7f)
+					return;
+				}
+
+				if(c > 0x7f)
 					throw new MDCompileException(mLoc, "Invalid ASCII character 0x%2x", cast(int)c);
 				else
 					mCharacter = c;
 				break;
 
 			case Encoding.UTF8:
-				//TODO: make other encodings work..
-				assert(false);
+				char c = mSource.getc();
+		
+				if(c == char.init)
+				{
+					mCharacter = dchar.init;
+					return;
+				}
+
+				if(c & 0x80)
+				{
+					uint n;
+
+					for(n = 1; ; n++)
+					{
+						if(n > 4)
+							throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+
+						if(((c << n) & 0x80) == 0)
+						{
+							if(n == 1)
+								throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+
+							break;
+						}
+					}
+
+					dchar dc = cast(dchar)(c & ((1 << (7 - n)) - 1));
+
+					char c2 = mSource.getc();
+
+					if ((c & 0xFE) == 0xC0 ||
+						(c == 0xE0 && (c2 & 0xE0) == 0x80) ||
+						(c == 0xF0 && (c2 & 0xF0) == 0x80) ||
+						(c == 0xF8 && (c2 & 0xF8) == 0x80) ||
+						(c == 0xFC && (c2 & 0xFC) == 0x80))
+						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+
+					c = c2;
+					if((c & 0xC0) != 0x80)
+						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+
+					dc = (dc << 6) | (c & 0x3F);
+
+					for(uint i = 2; i != n; i++)
+					{
+						c = mSource.getc();
+
+						if((c & 0xC0) != 0x80)
+							throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+
+						dc = (dc << 6) | (c & 0x3F);
+					}
+
+					if(!utf.isValidDchar(dc))
+						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
+						
+					mCharacter = dc;
+				}
+				else
+					mCharacter = c;
+
+				break;
+
+			case Encoding.UTF16LE:
+				char hiChar = mSource.getc();
+
+				if(hiChar == char.init)
+				{
+					mCharacter = dchar.init;
+					return;
+				}
+
+				mCharacter = readRestOfUTF16LEChar(hiChar);
+				break;
+				
+			default:
+				assert(false, "unimplemented encoding");
 		}
 	}
 
@@ -1632,6 +1742,11 @@ class FuncState
 
 		delete s;
 	}
+	
+	public bool scopeHasUpval()
+	{
+		return mScope.hasUpval;
+	}
 
 	public void beginStringSwitch(uint line, uint srcReg)
 	{
@@ -2432,6 +2547,12 @@ class FuncState
 		}
 
 		*e = temp;
+	}
+
+	public void codeClose(uint line)
+	{
+		if(mScope.hasUpval)
+			codeI(line, Op.Close, mScope.varStart, 0);
 	}
 
 	public void codeClose(uint line, uint reg)
@@ -4168,44 +4289,49 @@ class ForStatement : Statement
 	{
 		s.pushScope();
 			s.setBreakable();
-			s.setContinuable();
+			
+			s.pushScope();
+				s.setContinuable();
+	
+				if(mInitDecl)
+					mInitDecl.codeGen(s);
+				else
+				{
+					mInit.checkToNothing();
+					mInit.codeGen(s);
+					s.popToNothing();
+				}
+	
+				InstRef* beginLoop = s.getLabel();
+	
+				InstRef* cond;
+	
+				if(mCondition)
+				{
+					cond = mCondition.codeCondition(s);
+					s.invertJump(cond);
+					s.patchTrueToHere(cond);
+				}
+	
+				mBody.codeGen(s);
+	
+				s.patchContinuesToHere();
+				
+				if(s.scopeHasUpval())
+					s.codeClose(mIncrement.mLocation.line);
 
-			if(mInitDecl)
-				mInitDecl.codeGen(s);
-			else
-			{
-				mInit.checkToNothing();
-				mInit.codeGen(s);
-				s.popToNothing();
-			}
-
-			InstRef* beginLoop = s.getLabel();
-
-			InstRef* cond;
-
-			if(mCondition)
-			{
-				cond = mCondition.codeCondition(s);
-				s.invertJump(cond);
-				s.patchTrueToHere(cond);
-			}
-
-			mBody.codeGen(s);
-
-			s.patchContinuesToHere();
-
-			if(mIncrement)
-			{
-				mIncrement.checkToNothing();
-				mIncrement.codeGen(s);
-				s.popToNothing();
-			}
+				if(mIncrement)
+				{
+					mIncrement.checkToNothing();
+					mIncrement.codeGen(s);
+					s.popToNothing();
+				}
+			s.popScope(mEndLocation.line);
 
 			s.codeJump(mEndLocation.line, beginLoop);
+			delete beginLoop;
 
 			s.patchBreaksToHere();
-
-			delete beginLoop;
 		s.popScope(mEndLocation.line);
 
 		if(mCondition)

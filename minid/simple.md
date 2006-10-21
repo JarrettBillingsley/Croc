@@ -1,4 +1,17 @@
-writefln("hi");
+/*local t = Test();
+t.x = 5;
+t.y = 10;
+t:testMethod1();
+t:testMethod2(25);*/
+
+local a = array.new(10);
+
+for(local i = 0; i < 10; ++i)
+	a[i] = function() { return i; };
+
+for(local i = 0; i < #a; ++i)
+	writefln(a[i]());
+
 
 /*writefln();
 

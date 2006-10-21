@@ -274,5 +274,5 @@ public void init(MDState s)
 		"rand",     new MDClosure(s, &lib.rand,    "math.rand")
 	);
 
-	s.setGlobal("math", mathLib);
+	s.setGlobal("math"d, mathLib);
 }
