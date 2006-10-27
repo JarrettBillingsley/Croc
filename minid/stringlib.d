@@ -182,7 +182,7 @@ class StringLib
 		
 		int ret;
 
-		if(s.isStringParam(1))
+		if(s.isParam!("string")(1))
 		{
 			try
 			{
@@ -193,7 +193,7 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isCharParam(1))
+		else if(s.isParam!("char")(1))
 		{
 			try
 			{
@@ -218,7 +218,7 @@ class StringLib
 		
 		int ret;
 
-		if(s.isStringParam(1))
+		if(s.isParam!("string")(1))
 		{
 			try
 			{
@@ -229,7 +229,7 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isCharParam(1))
+		else if(s.isParam!("char")(1))
 		{
 			try
 			{
@@ -254,7 +254,7 @@ class StringLib
 		
 		int ret;
 
-		if(s.isStringParam(1))
+		if(s.isParam!("string")(1))
 		{
 			try
 			{
@@ -265,7 +265,7 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isCharParam(1))
+		else if(s.isParam!("char")(1))
 		{
 			try
 			{
@@ -290,7 +290,7 @@ class StringLib
 		
 		int ret;
 
-		if(s.isStringParam(1))
+		if(s.isParam!("string")(1))
 		{
 			try
 			{
@@ -301,7 +301,7 @@ class StringLib
 				throw new MDRuntimeException(s, e.toString());
 			}
 		}
-		else if(s.isCharParam(1))
+		else if(s.isParam!("char")(1))
 		{
 			try
 			{
@@ -588,7 +588,7 @@ class StringLib
 	{
 		dchar c;
 		
-		if(s.isIntParam(0))
+		if(s.isParam!("int")(0))
 			c = s.getIntParam(0);
 		else
 			c = s.getCharParam(0);
@@ -622,6 +622,61 @@ class StringLib
 		s.push(ret);
 		return 1;
 	}
+	
+	int iterator(MDState s)
+	{
+		MDString string = s.getStringParam(0);
+		int index = s.getIntParam(1);
+
+		index++;
+		
+		if(index >= string.length)
+			return 0;
+			
+		s.push(index);
+		s.push(string[index]);
+
+		return 2;
+	}
+	
+	int iteratorReverse(MDState s)
+	{
+		MDString string = s.getStringParam(0);
+		int index = s.getIntParam(1);
+
+		index--;
+
+		if(index < 0)
+			return 0;
+
+		s.push(index);
+		s.push(string[index]);
+		
+		return 2;
+	}
+	
+	MDClosure iteratorClosure;
+	MDClosure iteratorReverseClosure;
+	
+	int apply(MDState s)
+	{
+		MDString string = s.getStringParam(0);
+
+		if(s.numParams() > 1 && s.isParam!("string")(1) && s.getStringParam(1) == "reverse"d)
+		{
+			s.push(iteratorReverseClosure);
+			s.push(string);
+			s.push(cast(int)string.length);
+		}
+		else
+		{
+			s.push(iteratorClosure);
+			s.push(string);
+			s.push(-1);
+		}
+
+		return 3;
+	}
 
 	//TODO: int format(MDState s)
 }
@@ -629,6 +684,9 @@ class StringLib
 public void init(MDState s)
 {
 	StringLib lib = new StringLib();
+	
+	lib.iteratorClosure = new MDClosure(s, &lib.iterator, "string.iterator");
+	lib.iteratorReverseClosure = new MDClosure(s, &lib.iteratorReverse, "string.iteratorReverse");
 
 	MDTable stringTable = MDTable.create
 	(
@@ -651,7 +709,8 @@ public void init(MDState s)
 		"rstrip",     new MDClosure(s, &lib.rstrip,     "string.rstrip"),
 		"slice",      new MDClosure(s, &lib.slice,      "string.slice"),
 		"fromChar",   new MDClosure(s, &lib.fromChar,   "string.fromChar"),
-		"replace",    new MDClosure(s, &lib.replace,    "string.replace")
+		"replace",    new MDClosure(s, &lib.replace,    "string.replace"),
+		"opApply",    new MDClosure(s, &lib.apply,      "string.opApply")
 	);
 
 	s.setGlobal("string"d, stringTable);

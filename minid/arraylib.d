@@ -92,11 +92,69 @@ class ArrayLib
 		
 		return 1;
 	}
+	
+	int iterator(MDState s)
+	{
+		MDArray array = s.getArrayParam(0);
+		int index = s.getIntParam(1);
+		
+		index++;
+		
+		if(index >= array.length)
+			return 0;
+			
+		s.push(index);
+		s.push(array[index]);
+		
+		return 2;
+	}
+	
+	int iteratorReverse(MDState s)
+	{
+		MDArray array = s.getArrayParam(0);
+		int index = s.getIntParam(1);
+		
+		index--;
+		
+		if(index < 0)
+			return 0;
+			
+		s.push(index);
+		s.push(array[index]);
+		
+		return 2;
+	}
+	
+	MDClosure iteratorClosure;
+	MDClosure iteratorReverseClosure;
+	
+	int apply(MDState s)
+	{
+		MDArray array = s.getArrayParam(0);
+
+		if(s.numParams() > 1 && s.isParam!("string")(1) && s.getStringParam(1) == "reverse"d)
+		{
+			s.push(iteratorReverseClosure);
+			s.push(array);
+			s.push(cast(int)array.length);
+		}
+		else
+		{
+			s.push(iteratorClosure);
+			s.push(array);
+			s.push(-1);
+		}
+
+		return 3;
+	}
 }
 
 public void init(MDState s)
 {
 	ArrayLib lib = new ArrayLib();
+	
+	lib.iteratorClosure = new MDClosure(s, &lib.iterator, "array.iterator");
+	lib.iteratorReverseClosure = new MDClosure(s, &lib.iteratorReverse, "array.iteratorReverse");
 
 	MDTable arrayTable = MDTable.create
 	(
@@ -105,7 +163,8 @@ public void init(MDState s)
 		"reverse",   new MDClosure(s, &lib.reverse,  "array.reverse"),
 		"dup",       new MDClosure(s, &lib.dup,      "array.dup"),
 		"length",    new MDClosure(s, &lib.length,   "array.length"),
-		"slice",     new MDClosure(s, &lib.slice,    "array.slice")
+		"slice",     new MDClosure(s, &lib.slice,    "array.slice"),
+		"opApply",   new MDClosure(s, &lib.apply,    "array.opApply")
 	);
 
 	s.setGlobal("array"d, arrayTable);

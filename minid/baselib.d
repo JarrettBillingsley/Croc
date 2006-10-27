@@ -6,29 +6,261 @@ import minid.compiler;
 
 import std.stdio;
 import std.stream;
+import std.format;
+
+void specialFormat(void delegate(dchar) putc, ...)
+{
+	doFormat(putc, _arguments, _argptr);
+}
 
 class BaseLib
 {
 	int mdwritefln(MDState s)
 	{
-		int numParams = s.numParams();
-
-		for(int i = 0; i < numParams; i++)
-			writef("%s", s.getParam(i).toString());
-
-		writefln();
-
+		writefln(baseFormat(s, s.getAllParams()));
 		return 0;
 	}
 	
 	int mdwritef(MDState s)
 	{
+		writef(baseFormat(s, s.getAllParams()));
+		return 0;
+	}
+	
+	int writeln(MDState s)
+	{
 		int numParams = s.numParams();
-
+		
+		for(int i = 0; i < numParams; i++)
+			writef("%s", s.getParam(i).toString());
+			
+		writefln();
+		return 0;
+	}
+	
+	int write(MDState s)
+	{
+		int numParams = s.numParams();
+		
 		for(int i = 0; i < numParams; i++)
 			writef("%s", s.getParam(i).toString());
 
 		return 0;
+	}
+
+	static dchar[] baseFormat(MDState s, MDValue[] params)
+	{
+		dchar[] output;
+
+		void outputChar(dchar c)
+		{
+			output ~= c;
+		}
+		
+		void outputString(dchar[] s)
+		{
+			output ~= s;
+		}
+
+		for(int paramIndex = 0; paramIndex < params.length; paramIndex++)
+		{
+			if(params[paramIndex].isString())
+			{
+				MDString formatStr = params[paramIndex].asString();
+				int formatStrIndex = paramIndex;
+				
+				int getIntParam(int index)
+				{
+					if(index >= params.length)
+						throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+						
+					if(params[index].isInt() == false)
+						throw new MDRuntimeException(s, "Expected 'int' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+						
+					return params[index].asInt();
+				}
+				
+				float getFloatParam(int index)
+				{
+					if(index >= params.length)
+						throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+						
+					if(params[index].isFloat() == false)
+						throw new MDRuntimeException(s, "Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+						
+					return params[index].asFloat();
+				}
+				
+				dchar getCharParam(int index)
+				{
+					if(index >= params.length)
+						throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+						
+					if(params[index].isChar() == false)
+						throw new MDRuntimeException(s, "Expected 'char' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+						
+					return params[index].asChar();
+				}
+				
+				MDValue getParam(int index)
+				{
+					if(index >= params.length)
+						throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+						
+					return params[index];
+				}
+
+				for(int i = 0; i < formatStr.length; i++)
+				{
+					dchar[20] formatting;
+					int formattingLength = 0;
+
+					void addFormatChar(dchar c)
+					{
+						if(formattingLength >= formatting.length)
+							throw new MDRuntimeException(s, "Format specifier too long in parameter ", formatStrIndex);
+
+						formatting[formattingLength] = c;
+						formattingLength++;
+					}
+					
+					dchar c = formatStr[i];
+
+					void nextChar()
+					{
+						i++;
+
+						if(i >= formatStr.length)
+							throw new MDRuntimeException(s, "Unterminated format specifier in parameter ", formatStrIndex);
+
+						c = formatStr[i];
+					}
+
+					if(c == '%')
+					{
+						nextChar();
+						
+						if(c == '%')
+						{
+							outputChar('%');
+							continue;
+						}
+						else
+							addFormatChar('%');
+
+						while(true)
+						{
+							switch(c)
+							{
+								case '-', '+', '#', '0', ' ':
+									addFormatChar(c);
+									nextChar();
+									continue;
+
+								default:
+									break;
+							}
+							
+							break;
+						}
+						
+						if(c == '*')
+							throw new MDRuntimeException(s, "Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
+						else if(std.ctype.isdigit(c))
+						{
+							addFormatChar(c);
+							nextChar();
+
+							while(true)
+							{
+								if(std.ctype.isdigit(c))
+								{
+									addFormatChar(c);
+									nextChar();
+									continue;
+								}
+								
+								break;
+							}
+						}
+						
+						if(c == '.')
+						{
+							addFormatChar('.');
+							nextChar();
+							
+							if(c == '*')
+								throw new MDRuntimeException(s, "Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
+							else if(std.ctype.isdigit(c))
+							{
+								addFormatChar(c);
+								nextChar();
+								
+								while(true)
+								{
+									if(std.ctype.isdigit(c))
+									{
+										addFormatChar(c);
+										nextChar();
+										continue;
+									}
+									
+									break;
+								}
+							}
+						}
+						
+						paramIndex++;
+						
+						addFormatChar(c);
+
+						switch(c)
+						{
+							case 'd', 'i', 'b', 'o', 'x', 'X':
+								int val = getIntParam(paramIndex);
+								specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+								break;
+								
+							case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
+								float val;
+
+								if(s.isParam!("int")(paramIndex))
+									val = getIntParam(paramIndex);
+								else
+									val = getFloatParam(paramIndex);
+									
+								specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+								break;
+								
+							case 's':
+								char[] val = getParam(paramIndex).toString();
+								specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+								break;
+								
+							case 'c':
+								dchar val = getCharParam(paramIndex);
+								specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+								break;
+								
+							default:
+								throw new MDRuntimeException(s, "Unsupported format specifier '%c' in parameter ", c, formatStrIndex);
+						}
+					}
+					else
+						outputChar(c);
+				}
+			}
+			else
+				outputString(utf.toUTF32(s.getParam(paramIndex).toString()));
+		}
+		
+		return output;
+	}
+
+	int mdformat(MDState s)
+	{
+		s.push(baseFormat(s, s.getAllParams()));
+		return 1;
 	}
 
 	static MDString[] typeStrings;
@@ -180,6 +412,9 @@ public void init(MDState s)
 
 	s.setGlobal("writefln"d,     new MDClosure(s, &lib.mdwritefln,   "writefln"));
 	s.setGlobal("writef"d,       new MDClosure(s, &lib.mdwritef,     "writef"));
+	s.setGlobal("writeln"d,      new MDClosure(s, &lib.writeln,      "writeln"));
+	s.setGlobal("write"d,        new MDClosure(s, &lib.write,        "write"));
+	s.setGlobal("format"d,       new MDClosure(s, &lib.mdformat,     "format"));
 	s.setGlobal("typeof"d,       new MDClosure(s, &lib.mdtypeof,     "typeof"));
 	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
 	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));

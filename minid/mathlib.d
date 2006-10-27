@@ -10,7 +10,7 @@ class MathLib
 {
 	static int getInt(MDState s, uint i)
 	{
-		if(s.isIntParam(i))
+		if(s.isParam!("int")(i))
 			return s.getIntParam(i);
 		else
 			throw new MDRuntimeException(s, "Expected 'int', not '%s'", s.getParam(i).typeString());
@@ -18,9 +18,9 @@ class MathLib
 	
 	static float getFloat(MDState s, uint i)
 	{
-		if(s.isIntParam(i))
+		if(s.isParam!("int")(i))
 			return s.getIntParam(i);
-		else if(s.isFloatParam(i))
+		else if(s.isParam!("float")(i))
 			return s.getFloatParam(i);
 		else
 			throw new MDRuntimeException(s, "Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
@@ -28,9 +28,9 @@ class MathLib
 
 	int abs(MDState s)
 	{
-		if(s.isIntParam(0))
+		if(s.isParam!("int")(0))
 			s.push(math.abs(s.getIntParam(0)));
-		else if(s.isFloatParam(0))
+		else if(s.isParam!("float")(0))
 			s.push(math.abs(s.getFloatParam(0)));
 		else
 			throw new MDRuntimeException(s, "Expected 'int' or 'float', not '%s'", s.getParam(0).typeString());
@@ -172,7 +172,7 @@ class MathLib
 	
 	int sign(MDState s)
 	{
-		if(s.isIntParam(0))
+		if(s.isParam!("int")(0))
 		{
 			int val = s.getIntParam(0);
 			
@@ -202,7 +202,7 @@ class MathLib
 	{
 		float base = getFloat(s, 0);
 		
-		if(s.isIntParam(1))
+		if(s.isParam!("int")(1))
 			s.push(math.pow(cast(real)base, getInt(s, 1)));
 		else
 			s.push(math.pow(base, getFloat(s, 1)));

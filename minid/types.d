@@ -115,6 +115,7 @@ enum MM
 	Cmp,
 	ToString,
 	Length,
+	Apply,
 	Add,
 	Sub,
 	Cat,
@@ -150,6 +151,7 @@ const dchar[][] MetaNames =
 	MM.AddEq : "opAddEq",
 	MM.And : "opAnd",
 	MM.AndEq : "opAndEq",
+	MM.Apply : "opApply",
 	MM.Call : "opCall",
 	MM.Cat : "opCat",
 	MM.CatEq : "opCatEq",
@@ -267,7 +269,7 @@ class MDString : MDObject
 	{
 		return this;
 	}
-	
+
 	public override Type type()
 	{
 		return Type.String;
@@ -277,16 +279,16 @@ class MDString : MDObject
 	{
 		return mData.length;
 	}
-
+	
 	public MDString opCat(MDString other)
 	{
 		// avoid double duplication ((this ~ other).dup)
 		MDString ret = new MDString();
 		ret.mData = this.mData ~ other.mData;
-		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
 		return ret;
 	}
-	
+
 	public MDString opCat(dchar c)
 	{
 		MDString ret = new MDString();
@@ -363,7 +365,7 @@ class MDString : MDObject
 	{
 		return dcmp(mData, v);
 	}
-	
+
 	public dchar opIndex(uint index)
 	{
 		debug if(index < 0 || index >= mData.length)
@@ -371,13 +373,18 @@ class MDString : MDObject
 
 		return mData[index];
 	}
-	
+
 	public MDString opSlice(uint lo, uint hi)
 	{
 		debug if(lo > hi || lo < 0 || lo > mData.length || hi < 0 || hi > mData.length)
 			throw new MDException("Invalid string slice indices [%s .. %s]", lo, hi);
 			
-		return new MDString(mData[lo .. hi].dup);
+			
+		MDString ret = new MDString();
+		ret.mData = mData[lo .. hi].dup;
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
+
+		return ret;
 	}
 
 	public char[] asUTF8()
@@ -639,6 +646,16 @@ class MDTable : MDObject
 			
 		return n;
 	}
+	
+	public MDArray keys()
+	{
+		return new MDArray(mData.keys);
+	}
+	
+	public MDArray values()
+	{
+		return new MDArray(mData.values);
+	}
 
 	public MDValue* opIndex(MDValue* index)
 	{
@@ -727,6 +744,11 @@ class MDArray : MDObject
 		mData = new MDValue[size];
 	}
 	
+	package this(MDValue[] data)
+	{
+		mData = data;
+	}
+
 	public static MDArray create(...)
 	{
 		MDArray ret = new MDArray(_arguments.length);
@@ -1562,6 +1584,18 @@ struct MDValue
 		mFloat = n;
 	}
 	
+	public void value(char n)
+	{
+		mType = Type.Char;
+		mChar = n;
+	}
+	
+	public void value(wchar n)
+	{
+		mType = Type.Char;
+		mChar = n;
+	}
+
 	public void value(dchar n)
 	{
 		mType = Type.Char;

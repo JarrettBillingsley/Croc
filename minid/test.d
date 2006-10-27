@@ -24,8 +24,8 @@ void main()
 	charlib.init(state);
 
 	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
-	
-	MDClass testClass = new MDClass(state, "Test", null);
+
+	/*MDClass testClass = new MDClass(state, "Test", null);
 	
 	int testMethod1(MDState s)
 	{
@@ -52,11 +52,11 @@ void main()
 	testClass["x"] = &val;
 	testClass["y"] = &val;
 	
-	state.setGlobal("Test"d, testClass);
+	state.setGlobal("Test"d, testClass);*/
 
 	try
 	{
-		state.easyCall(cl, 0);
+		state.easyCall(cl, 0, 4, 5, 6);
 	}
 	catch(MDException e)
 	{
