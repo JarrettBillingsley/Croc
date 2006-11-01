@@ -1,8 +1,4 @@
-local t = { };
-t[4] = "hi";
-t["hi"] = 5;
-
-writefln(t[4]);
+local arr = array.new(4);
 
 /*class Test
 {

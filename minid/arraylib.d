@@ -7,7 +7,7 @@ class ArrayLib
 {
 	int newArray(MDState s)
 	{
-		int length = s.getIntParam(1);
+		int length = s.getIntParam(0);
 		
 		if(length < 0)
 			throw new MDRuntimeException(s, "Invalid length: ", length);

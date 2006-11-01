@@ -24,7 +24,7 @@ void main()
 	charlib.init(state);
 	iolib.init(state);
 
-	MDClosure cl = new MDClosure(state, compileFile(`wc.md`));
+	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
 	
 	state.setGlobal("intToChar"d, new MDClosure(state, delegate int(MDState s)
 	{

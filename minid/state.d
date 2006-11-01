@@ -144,9 +144,9 @@ class MDState
 		if(mStackIndex >= mStack.length)
 			stackSize = mStack.length * 2;
 
-		static if(is(T : char[]) ||
-					is(T : wchar[]) ||
-					is(T : dchar[]))
+		static if(is(T == char[]) ||
+					is(T == wchar[]) ||
+					is(T == dchar[]))
 		{
 			MDValue val;
 			val.value = new MDString(value);
@@ -168,7 +168,6 @@ class MDState
 		}
 		else static if(is(T : bool) ||
 						is(T : float) ||
-
 						is(T : MDObject))
 		{
 			MDValue val;
@@ -420,20 +419,30 @@ class MDState
 		MDValue key;
 		key.value = new MDString(name);
 
-		static if(is(T : char[]) ||
-					is(T : wchar[]) ||
-					is(T : dchar[]))
+		static if(is(T == char[]) ||
+					is(T == wchar[]) ||
+					is(T == dchar[]))
 		{
 			MDValue val;
 			val.value = new MDString(value);
 			mGlobals[&key] = &val;
 		}
+		else static if(is(T == char) ||
+						is(T == wchar) ||
+						is(T == dchar))
+		{
+			MDValue val;
+			val.value = cast(dchar)value;
+			mGlobals[&key] = &val;
+		}
+		else static if(is(T : int))
+		{
+			MDValue val;
+			val.value = cast(int)value;
+			mGlobals[&key] = &val;
+		}
 		else static if(is(T : bool) ||
-						is(T : int) ||
 						is(T : float) ||
-						is(T : char) ||
-						is(T : wchar) ||
-						is(T : dchar) ||
 						is(T : MDObject))
 		{
 			MDValue val;
@@ -470,20 +479,30 @@ class MDState
 		else
 			throw new MDRuntimeException(this, "MDState.setUpvalue() - No function to set upvalue");
 
-		static if(is(T : char[]) ||
-					is(T : wchar[]) ||
-					is(T : dchar[]))
+		static if(is(T == char[]) ||
+					is(T == wchar[]) ||
+					is(T == dchar[]))
 		{
 			MDValue val;
 			val.value = new MDString(value);
 			mCurrentAR.func.native.upvalues[index] = val;
 		}
+		else static if(is(T == char) ||
+						is(T == wchar) ||
+						is(T == dchar))
+		{
+			MDValue val;
+			val.value = cast(dchar)value;
+			mCurrentAR.func.native.upvals[index] = val;
+		}
+		else static if(is(T : int))
+		{
+			MDValue val;
+			val.value = cast(int)value;
+			mCurrentAR.func.native.upvals[index] = val;
+		}
 		else static if(is(T : bool) ||
-						is(T : int) ||
 						is(T : float) ||
-						is(T : char) ||
-						is(T : wchar) ||
-						is(T : dchar) ||
 						is(T : MDObject))
 		{
 			MDValue val;
