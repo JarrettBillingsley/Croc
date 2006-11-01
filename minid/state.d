@@ -78,7 +78,7 @@ class MDState
 		Instruction* pc;
 		uint numReturns;
 	}
-	
+
 	struct TryRecord
 	{
 		bool isCatch;
@@ -97,11 +97,12 @@ class MDState
 
 	protected MDValue[] mStack;
 	protected uint mStackIndex = 0;
-
+	
 	protected MDTable mGlobals;
 	protected MDUpval* mUpvalHead;
-	
+
 	protected Location[] mTraceback;
+	protected MDString mCtorString;
 
 	// ===================================================================================
 	// Public members
@@ -118,9 +119,10 @@ class MDState
 		mStack = new MDValue[20];
 
 		mGlobals = new MDTable();
+		mCtorString = new MDString("constructor"d);
 	}
 	
-	debug public void printStack()
+	debug final public void printStack()
 	{
 		writefln();
 		writefln("-----Stack Dump-----");
@@ -150,12 +152,23 @@ class MDState
 			val.value = new MDString(value);
 			mStack[mStackIndex].value = &val;
 		}
+		else static if(is(T == char) ||
+						is(T == wchar) ||
+						is(T == dchar))
+		{
+			MDValue val;
+			val.value = cast(dchar)value;
+			mStack[mStackIndex].value = &val;
+		}
+		else static if(is(T : int))
+		{
+			MDValue val;
+			val.value = cast(int)value;
+			mStack[mStackIndex].value = &val;
+		}
 		else static if(is(T : bool) ||
-						is(T : int) ||
 						is(T : float) ||
-						is(T : char) ||
-						is(T : wchar) ||
-						is(T : dchar) ||
+
 						is(T : MDObject))
 		{
 			MDValue val;
@@ -231,8 +244,8 @@ class MDState
 			mCurrentAR.numReturns = numReturns;
 
 			MDInstance n = func.asClass().newInstance();
-			
-			MDValue* ctor = n["constructor"];
+
+			MDValue* ctor = n[mCtorString];
 
 			if(!ctor.isNull())
 			{
@@ -275,13 +288,13 @@ class MDState
 			// func stack reference may have been invalidated by needStackSlots
 			func = getAbsStack(slot);
 			func.value = method;
-			
+
 			// include the "this"
 			numParams++;
 		}
 
 		MDClosure closure = func.asFunction();
-		
+
 		mCurrentAR.savedTop = mStackIndex;
 
 		if(closure.isNative())
@@ -559,7 +572,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isBool() == false)
-			badParamError(this, index, "expected 'bool' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'bool' but got '%s'", val.typeString());
 			
 		return val.asBool();
 	}
@@ -572,7 +585,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isInt() == false)
-			badParamError(this, index, "expected 'int' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'int' but got '%s'", val.typeString());
 			
 		return val.asInt();
 	}
@@ -585,7 +598,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isFloat() == false)
-			badParamError(this, index, "expected 'float' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'float' but got '%s'", val.typeString());
 			
 		return val.asFloat();
 	}
@@ -598,7 +611,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isChar() == false)
-			badParamError(this, index, "expected 'char' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'char' but got '%s'", val.typeString());
 			
 		return val.asChar();
 	}
@@ -611,7 +624,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isString() == false)
-			badParamError(this, index, "expected 'string' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'string' but got '%s'", val.typeString());
 
 		return val.asString();
 	}
@@ -624,7 +637,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isArray() == false)
-			badParamError(this, index, "expected 'array' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'array' but got '%s'", val.typeString());
 
 		return val.asArray();
 	}
@@ -637,7 +650,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isTable() == false)
-			badParamError(this, index, "expected 'table' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'table' but got '%s'", val.typeString());
 
 		return val.asTable();
 	}
@@ -650,7 +663,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isFunction() == false)
-			badParamError(this, index, "expected 'function' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'function' but got '%s'", val.typeString());
 
 		return val.asFunction();
 	}
@@ -663,7 +676,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isUserdata() == false)
-			badParamError(this, index, "expected 'userdata' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'userdata' but got '%s'", val.typeString());
 
 		return val.asUserdata();
 	}
@@ -676,7 +689,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isClass() == false)
-			badParamError(this, index, "expected 'class' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'class' but got '%s'", val.typeString());
 
 		return val.asClass();
 	}
@@ -689,9 +702,29 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isInstance() == false)
-			badParamError(this, index, "expected 'instance' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'instance' but got '%s'", val.typeString());
 
 		return val.asInstance();
+	}
+	
+	public MDInstance getInstanceParam(uint index, MDClass type)
+	{
+		assert(type !is null, "getInstanceParam wants a non-null type!");
+
+		if(index >= numParams())
+			badParamError(this, index, "not enough parameters");
+		
+		MDValue* val = getBasedStack(index);
+
+		if(val.isInstance() == false)
+			badParamError(this, index, "expected 'instance' but got '%s'", val.typeString());
+
+		MDInstance i = val.asInstance();
+
+		if(i.castToClass(type) == false)
+			badParamError(this, index, "expected instance of class '%s' but got instance of class '%s'", type.getName(), i.getClass().getName());
+
+		return i;
 	}
 	
 	public MDDelegate getDelegateParam(uint index)
@@ -702,7 +735,7 @@ class MDState
 		MDValue* val = getBasedStack(index);
 
 		if(val.isDelegate() == false)
-			badParamError(this, index, "expected 'delegate' but got '" ~ utf.toUTF8(val.typeString()) ~ "'");
+			badParamError(this, index, "expected 'delegate' but got '%s'", val.typeString());
 
 		return val.asDelegate();
 	}
@@ -714,6 +747,25 @@ class MDState
 			
 		MDValue[] params = new MDValue[numParams()];
 		params[] = mStack[mCurrentAR.base .. mStackIndex];
+
+		return params;
+	}
+	
+	public MDValue[] getParams(int lo, int hi)
+	{
+		int numParams = numParams();
+
+		if(lo < 0)
+			lo = numParams + lo + 1;
+
+		if(hi < 0)
+			hi = numParams + hi + 1;
+
+		if(lo > hi || lo < 0 || lo > numParams || hi < 0 || hi > numParams)
+			throw new MDRuntimeException(this, "Invalid getParams indices (", lo, " .. ", hi, ") (num params = ", numParams, ")");
+
+		MDValue[] params = new MDValue[hi - lo];
+		params[] = mStack[mCurrentAR.base + lo .. mCurrentAR.base + hi];
 
 		return params;
 	}
@@ -764,13 +816,13 @@ class MDState
 			if(instructionIndex < fd.mLineInfo.length)
 				line = fd.mLineInfo[instructionIndex];
 
-			return Location(mCurrentAR.func.script.func.mGuessedName, line);
+			return Location(mCurrentAR.func.script.func.mGuessedName, line, instructionIndex);
 		}
 	}
 
-	static package void badParamError(MDState s, uint index, char[] msg)
+	static package void badParamError(MDState s, uint index, ...)
 	{
-		throw new MDRuntimeException(s, "Bad argument ", index + 1, ": ", msg);
+		throw new MDRuntimeException(s, "Bad argument ", index + 1, ": %s", vformat(_arguments, _argptr));
 	}
 
 	package void callEpilogue(uint resultSlot, int numResults)
@@ -834,7 +886,7 @@ class MDState
 
 	package void pushAR()
 	{
-		if(mARIndex >= mActRecs.length)
+		if(mARIndex >= mActRecs.length - 1)
 		{
 			try
 			{
@@ -861,7 +913,7 @@ class MDState
 	
 	package void pushTR()
 	{
-		if(mTRIndex >= mTryRecs.length)
+		if(mTRIndex >= mTryRecs.length - 1)
 		{
 			try
 			{
@@ -950,10 +1002,10 @@ class MDState
 
 	package void needStackSlots(uint howMany)
 	{
-		if(mStack.length - mStackIndex >= howMany)
+		if(mStack.length - mStackIndex >= howMany + 1)
 			return;
 
-		stackSize = howMany + mStackIndex;
+		stackSize = howMany + 1 + mStackIndex;
 	}
 
 	package void copyBasedStack(uint dest, uint src)
@@ -1128,18 +1180,27 @@ class MDState
 
 		switch(obj.type)
 		{
+			case MDValue.Type.Table:
+				MDValue* m = obj.asTable[&MetaStrings[method]];
+
+				if(m.isNull() == false)
+					return m;
+
+				goto default;
+
 			case MDValue.Type.Instance:
 				return obj.asInstance[&MetaStrings[method]];
 
 			case MDValue.Type.Userdata:
 				t = obj.asUserdata().metatable;
 				break;
-				
+
 			case MDValue.Type.Delegate:
 				if(method == MM.Call)
 					return obj.asDelegate().getCaller();
-				
-				// else fall through
+
+				goto default;
+
 			default:
 				t = MDGlobalState().getMetatable(obj.type);
 				break;
@@ -1233,12 +1294,10 @@ class MDState
 				if(key.isInt() == false)
 					throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
 	
-				MDValue* val = src.asArray[key.asInt];
-	
-				if(val is null)
+				if(key.asInt() < 0 || key.asInt() >= src.asArray.length)
 					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
 	
-				getBasedStack(dest).value = val;
+				getBasedStack(dest).value = src.asArray[key.asInt];
 				break;
 
 			case MDValue.Type.String:
@@ -1247,7 +1306,7 @@ class MDState
 					
 				if(key.asInt() < 0 || key.asInt() >= src.asString.length)
 					throw new MDRuntimeException(this, "Invalid string index: ", key.asInt());
-
+					
 				getBasedStack(dest).value = src.asString[key.asInt];
 				break;
 
@@ -1349,10 +1408,12 @@ class MDState
 
 			if(!method.isFunction())
 			{
-				method = s.getMM(src2, mmType);
+				//method = s.getMM(src2, mmType);
 
-				if(!method.isFunction())
+				//if(!method.isFunction())
 					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+					
+				//mNextThis = *src2;
 			}
 
 			uint funcSlot = s.push(method);
@@ -1418,9 +1479,9 @@ class MDState
 
 			if(!method.isFunction())
 			{
-				method = s.getMM(src2, mmType);
+				//method = s.getMM(src2, mmType);
 
-				if(!method.isFunction())
+				//if(!method.isFunction())
 					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s' and a '%s'",
 						src1.typeString(), src2.typeString());
 			}
@@ -1453,13 +1514,13 @@ class MDState
 				MDValue* getCR1()
 				{
 					uint val = i.rs1;
-	
+
 					if(val & Instruction.constBit)
 						return getConst(val & ~Instruction.constBit);
 					else
 						return getBasedStack(val);
 				}
-	
+
 				MDValue* getCR2()
 				{
 					uint val = i.rs2;
@@ -1792,9 +1853,9 @@ class MDState
 
 						if(!method.isFunction())
 						{
-							method = getMM(src2, MM.Cat);
+							//method = getMM(src2, MM.Cat);
 
-							if(!method.isFunction())
+							//if(!method.isFunction())
 								throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'",
 									src1.typeString(), src2.typeString());
 						}
@@ -1822,7 +1883,7 @@ class MDState
 	
 							mCurrentAR.pc++;
 						}
-	
+
 						getBasedStack(i.rd).value = n;
 						break;
 
@@ -1839,16 +1900,25 @@ class MDState
 						getBasedStack(i.rd + 1).value = src;
 						
 						if(src.isInstance())
-							getBasedStack(i.rd).value = src.asInstance[getCR2()];
-						else
 						{
-							MDTable metatable = MDGlobalState().getMetatable(src.type);
-
-							if(metatable is null)
-								throw new MDRuntimeException(this, "No metatable for type '%s'", src.typeString());
-
-							getBasedStack(i.rd).value = metatable[getCR2()];
+							getBasedStack(i.rd).value = src.asInstance[getCR2()];
+							break;
 						}
+
+						if(src.isTable())
+						{
+							index(i.rd, src, getCR2());
+							
+							if(getBasedStack(i.rd).isFunction() == true)
+								break;
+						}
+
+						MDTable metatable = MDGlobalState().getMetatable(src.type);
+
+						if(metatable is null)
+							throw new MDRuntimeException(this, "No metatable for type '%s'", src.typeString());
+
+						getBasedStack(i.rd).value = metatable[getCR2()];
 						break;
 
 					case Op.Call:

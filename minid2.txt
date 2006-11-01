@@ -309,7 +309,7 @@ LocalVariableDeclaration:
 
 FunctionDeclaration:
 	'function' Identifier {'.' Identifier} Parameters BlockStatement
-	'local' 'function' Identifier Parameters BlockStatement
+	'local' SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
 	'function' Identifier Parameters BlockStatement
@@ -331,7 +331,7 @@ MethodDeclaration:
 BaseExpression:
 	Assignment
 	Expression
-	
+
 Assignment:
 	AssignmentLHS {',' AssignmentLHS} '=' Expression
 

@@ -7,7 +7,7 @@ class ArrayLib
 {
 	int newArray(MDState s)
 	{
-		int length = s.getIntParam(0);
+		int length = s.getIntParam(1);
 		
 		if(length < 0)
 			throw new MDRuntimeException(s, "Invalid length: ", length);
@@ -108,7 +108,7 @@ class ArrayLib
 		
 		return 2;
 	}
-	
+
 	int iteratorReverse(MDState s)
 	{
 		MDArray array = s.getArrayParam(0);

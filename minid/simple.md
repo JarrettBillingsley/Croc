@@ -1,5 +1,8 @@
-writefln("hello %d world!", 4);
-writeln("hello %d world!", 4);
+local t = { };
+t[4] = "hi";
+t["hi"] = 5;
+
+writefln(t[4]);
 
 /*class Test
 {
@@ -79,86 +82,6 @@ writefln();
 
 foreach(local k, local v; s, "reverse")
 	writefln("s[", k, "] = ", v);*/
-
-/*local w_total = 0;
-local l_total = 0;
-local c_total = 0;
-local dictionary = { };
-
-writefln("	 lines	 words	 bytes file");
-
-local args = [vararg];
-
-foreach(local arg; pairs(args.slice(1, -1)))
-{
-	local w_cnt = 0;
-	local l_cnt = 0;
-	local inword = false;
-
-	local c_cnt = io.fileSize(arg);
-
-	local f = io.BufferedFile(arg);
-	local buf = "";
-
-	while(!f:eof())
-	{
-		local c = f:readByte();
-
-		if(c == '\n')
-			++l_cnt;
-
-		if(c:isDigit())
-		{
-			if(inword)
-				buf ~= c;
-		}
-		else if(c:isAlpha())
-		{
-			if(!inword)
-			{
-				buf = string.fromChar(c);
-				inword = true;
-				++w_cnt;
-			}
-			else
-				buf ~= c;
-		}
-		else if(inword)
-		{
-			local val = dictionary[buf];
-			
-			if(val is null)
-			{
-				buf = "";
-				dictionary[buf] = 1;
-			}
-			else
-				dictionary[buf] += 1;
-
-			inword = false;
-		}
-	}
-	
-	f:close();
-
-	if(inword)
-		dictionary[buf] += 1;
-
-	writefln("%8s%8s%8s %s\n", l_cnt, w_cnt, c_cnt, arg);
-	l_total += l_cnt;
-	w_total += w_cnt;
-	c_total += c_cnt;
-}
-
-if(#args > 1)
-	writefln("--------------------------------------\n%8s%8s%8s total", l_total, w_total, c_total);
-
-writefln("--------------------------------------");
-
-foreach(local word1; dictionary:keys():sort())
-	writefln("%3s %s", dictionary[word1], word1);*/
-	
-
 
 /*local a = array.new(10);
 

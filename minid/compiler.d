@@ -7,8 +7,6 @@ import std.stream;
 import path = std.path;
 import string = std.string;
 import utf = std.utf;
-import std.asserterror;
-import std.perf;
 
 import minid.types;
 import minid.opcodes;
@@ -415,94 +413,102 @@ class Lexer
 
 		char firstChar = mSource.getc();
 		
-		switch(firstChar)
+		if(mSource.eof() == false)
 		{
-			case 0xEF:
-				char c = mSource.getc();
-				
-				if(c != 0xBB)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
+			switch(firstChar)
+			{
+				case 0xEF:
+					char c = mSource.getc();
 					
-				c = mSource.getc();
-				
-				if(c != 0xBF)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				mEncoding = Encoding.UTF8;
-				nextChar();
-				break;
-				
-			case 0xFE:
-				char c = mSource.getc();
-				
-				if(c != 0xFF)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				mEncoding = Encoding.UTF16BE;
-				nextChar();
-				break;
-				
-			case 0xFF:
-				char c = mSource.getc();
-				
-				if(c != 0xFE)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-
-				c = mSource.getc();
-
-				if(c == 0)
-				{
+					if(c != 0xBB)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
 					c = mSource.getc();
+					
+					if(c != 0xBF)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
+					mEncoding = Encoding.UTF8;
+					nextChar();
+					break;
+					
+				case 0xFE:
+					char c = mSource.getc();
+					
+					if(c != 0xFF)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
+					mEncoding = Encoding.UTF16BE;
+					nextChar();
+					break;
+					
+				case 0xFF:
+					char c = mSource.getc();
+					
+					if(c != 0xFE)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+	
+					c = mSource.getc();
+	
+					if(c == 0)
+					{
+						c = mSource.getc();
+						
+						if(c != 0)
+							throw new MDCompileException(mLoc, "Invalid input source text encoding");
+							
+						mEncoding = Encoding.UTF32LE;
+						nextChar();
+						break;
+					}
+					else if(c == char.init)
+					{
+						// end of file?
+						mCharacter = dchar.init;
+						mEncoding = Encoding.UTF16LE;
+						break;
+					}
+					else
+					{
+						mEncoding = Encoding.UTF16LE;
+						mCharacter = readRestOfUTF16LEChar(c);
+						break;
+					}
+					break;
+					
+				case 0:
+					char c = mSource.getc();
 					
 					if(c != 0)
 						throw new MDCompileException(mLoc, "Invalid input source text encoding");
 						
-					mEncoding = Encoding.UTF32LE;
+					c = mSource.getc();
+	
+					if(c != 0xFE)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
+					c = mSource.getc();
+	
+					if(c != 0xFF)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						
+					mEncoding = Encoding.UTF32BE;
 					nextChar();
 					break;
-				}
-				else if(c == char.init)
-				{
-					// end of file?
-					mCharacter = dchar.init;
-					mEncoding = Encoding.UTF16LE;
+	
+				default:
+					if(firstChar > 0x7f)
+						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+	
+					mEncoding = Encoding.ASCII;
+					mCharacter = firstChar;
 					break;
-				}
-				else
-				{
-					mEncoding = Encoding.UTF16LE;
-					mCharacter = readRestOfUTF16LEChar(c);
-					break;
-				}
-				break;
-				
-			case 0:
-				char c = mSource.getc();
-				
-				if(c != 0)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				c = mSource.getc();
-
-				if(c != 0xFE)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				c = mSource.getc();
-
-				if(c != 0xFF)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				mEncoding = Encoding.UTF32BE;
-				nextChar();
-				break;
-				
-			default:
-				if(firstChar > 0x7f)
-					throw new MDCompileException(mLoc, "Invalid input source text encoding");
-					
-				mEncoding = Encoding.ASCII;
-				mCharacter = firstChar;
-				break;
+			}
+		}
+		else
+		{
+			mEncoding = Encoding.ASCII;
+			mCharacter = 0;
 		}
 
 		Token* firstToken = nextToken();
@@ -2067,7 +2073,7 @@ class FuncState
 		if(searchVar(this) == ExpType.Global)
 			e.index = codeStringConst(name.mName);
 	}
-
+	
 	public void pushVararg()
 	{
 		Exp* e = pushExp();
@@ -2905,6 +2911,10 @@ class FuncState
 					writefln(string.repeat("\t", tab + 1), "Const %s: %sf", i, c.asFloat());
 					break;
 
+				case MDValue.Type.Char:
+					writefln(string.repeat("\t", tab + 1), "Const %s: '%s'", i, c.asChar());
+					break;
+
 				case MDValue.Type.String:
 					writefln(string.repeat("\t", tab + 1), "Const %s: \"%s\"", i, c.asString());
 					break;
@@ -3180,7 +3190,7 @@ class Chunk
 		catch(Exception e)
 		{
 			fs.showMe();
-			throw e;	
+			throw e;
 		}
 
 		fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
@@ -3237,7 +3247,7 @@ abstract class Statement
 
 				return ExpressionStatement.parse(t);
 
-			case Token.Type.Local, Token.Type.Function, Token.Type.Method, Token.Type.Class:
+			case Token.Type.Local, Token.Type.Function, Token.Type.Class:
 				return DeclarationStatement.parse(t);
 
 			case Token.Type.LBrace:
@@ -3642,7 +3652,7 @@ class LocalDecl : Declaration
 	}
 }
 
-class LocalFuncDecl : Declaration
+class SimpleFuncDecl : Declaration
 {
 	protected Identifier mName;
 	protected FuncLiteralExp mFunc;
@@ -3650,14 +3660,13 @@ class LocalFuncDecl : Declaration
 	public this(Identifier name, Identifier[] params, bool isVararg, CompoundStatement funcBody, Location location, Location endLocation)
 	{
 		super(location, endLocation);
-
+		
 		mName = name;
-		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, mName.mName);
+		mFunc = new FuncLiteralExp(mLocation, params, isVararg, funcBody, name.mName);
 	}
 
-	public static LocalFuncDecl parse(inout Token* t)
+	public static SimpleFuncDecl parse(inout Token* t)
 	{
-		// Special: starts on the "function" token
 		Location location = t.location;
 
 		t.check(Token.Type.Function);
@@ -3670,17 +3679,40 @@ class LocalFuncDecl : Declaration
 
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 
-		return new LocalFuncDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
+		return new SimpleFuncDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mFunc.codeGen(s);
+	}
+}
+
+class LocalFuncDecl : Declaration
+{
+	protected SimpleFuncDecl mDecl;
+
+	public this(SimpleFuncDecl decl)
+	{
+		super(decl.mLocation, decl.mEndLocation);
+
+		mDecl = decl;
+	}
+
+	public static LocalFuncDecl parse(inout Token* t)
+	{
+		SimpleFuncDecl decl = SimpleFuncDecl.parse(t);
+		return new LocalFuncDecl(decl);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		s.insertLocal(mName);
+		s.insertLocal(mDecl.mName);
 		s.activateLocals(1);
 
-		mFunc.codeGen(s);
+		mDecl.codeGen(s);
 
-		s.pushVar(mName);
+		s.pushVar(mDecl.mName);
 		s.popAssign(mEndLocation.line);
 	}
 
@@ -3708,6 +3740,72 @@ class LocalFuncDecl : Declaration
 
 		cw.write(")");
 
+		mBody.writeCode(cw);*/
+	}
+}
+
+class MethodDecl : Declaration
+{
+	protected Identifier mName;
+	protected FuncLiteralExp mFunc;
+	
+	public this(Identifier name, Identifier[] params, bool isVararg, CompoundStatement funcBody, Location location, Location endLocation)
+	{
+		super(location, endLocation);
+	
+		mName = name;
+		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, name.mName);
+	}
+	
+	public static MethodDecl parse(inout Token* t)
+	{
+		Location location = t.location;
+	
+		t.check(Token.Type.Method);
+		t = t.nextToken;
+	
+		Identifier name = Identifier.parse(t);
+	
+		bool isVararg;
+		Identifier[] params;
+		
+		params ~= new Identifier("this", t.location);
+		params ~= Declaration.parseParams(t, isVararg);
+	
+		CompoundStatement funcBody = CompoundStatement.parse(t);
+	
+		return new MethodDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mFunc.codeGen(s);
+	}
+	
+	public override void writeCode(CodeWriter cw)
+	{
+		/*cw.write("local function ");
+		mName.writeCode(cw);
+		cw.write("(");
+	
+		foreach(uint i, Identifier p; mParams)
+		{
+			p.writeCode(cw);
+	
+			if(i != mParams.length - 1)
+				cw.write(", ");
+		}
+	
+		if(mIsVararg)
+		{
+			if(mParams.length > 0)
+				cw.write(", ");
+	
+			cw.write("vararg");
+		}
+	
+		cw.write(")");
+	
 		mBody.writeCode(cw);*/
 	}
 }
@@ -3783,72 +3881,6 @@ class FuncDecl : Declaration
 
 		mNames[$ - 1].writeCode(cw);
 
-		cw.write("(");
-
-		foreach(uint i, Identifier p; mParams)
-		{
-			p.writeCode(cw);
-
-			if(i != mParams.length - 1)
-				cw.write(", ");
-		}
-
-		if(mIsVararg)
-		{
-			if(mParams.length > 0)
-				cw.write(", ");
-
-			cw.write("vararg");
-		}
-
-		cw.write(")");
-
-		mBody.writeCode(cw);*/
-	}
-}
-
-class MethodDecl : Declaration
-{
-	protected Identifier mName;
-	protected FuncLiteralExp mFunc;
-
-	public this(Identifier name, Identifier[] params, bool isVararg, CompoundStatement funcBody, Location location, Location endLocation)
-	{
-		super(location, endLocation);
-
-		mName = name;
-		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, name.mName);
-	}
-
-	public static MethodDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-
-		t.check(Token.Type.Method);
-		t = t.nextToken;
-
-		Identifier name = Identifier.parse(t);
-
-		bool isVararg;
-		Identifier[] params;
-		
-		params ~= new Identifier("this", t.location);
-		params ~= Declaration.parseParams(t, isVararg);
-
-		CompoundStatement funcBody = CompoundStatement.parse(t);
-
-		return new MethodDecl(name, params, isVararg, funcBody, location, funcBody.mEndLocation);
-	}
-
-	public override void codeGen(FuncState s)
-	{
-		mFunc.codeGen(s);
-	}
-
-	public override void writeCode(CodeWriter cw)
-	{
-		/*cw.write("local function ");
-		mName.writeCode(cw);
 		cw.write("(");
 
 		foreach(uint i, Identifier p; mParams)
@@ -6433,7 +6465,7 @@ abstract class PostfixExp : UnaryExp
 		while(true)
 		{
 			Location location = t.location;
-
+			
 			Identifier methodName;
 
 			switch(t.type)
@@ -6449,16 +6481,16 @@ abstract class PostfixExp : UnaryExp
 
 					exp = new DotExp(location, ie.mEndLocation, exp, ie);
 					continue;
-
+					
 				case Token.Type.Colon:
 					t = t.nextToken;
-
+					
 					t.check(Token.Type.Ident);
-
+					
 					methodName = Identifier.parse(t);
-
+					
 					t.check(Token.Type.LParen);
-
+					
 					// fall through
 				case Token.Type.LParen:
 					t = t.nextToken;
@@ -6591,7 +6623,7 @@ class CallExp : PostfixExp
 			Exp src;
 			s.popSource(mOp.mEndLocation.line, src);
 			s.freeExpTempRegs(&src);
-
+			
 			assert(s.nextRegister() == funcReg);
 			s.pushRegister();
 
@@ -6662,7 +6694,7 @@ class CallExp : PostfixExp
 	public override void writeCode(CodeWriter cw)
 	{
 		mOp.writeCode(cw);
-
+		
 		if(mMethodName)
 		{
 			cw.write(":");
@@ -6738,7 +6770,7 @@ class PrimaryExp : Expression
 			case Token.Type.Ident:
 				exp = IdentExp.parse(t);
 				break;
-
+				
 			case Token.Type.Null:
 				exp = NullExp.parse(t);
 				break;
@@ -7337,8 +7369,7 @@ class TableCtorExp : PrimaryExp
 				}
 				else if(t.type == Token.Type.Function)
 				{
-					// Take advantage of the fact that LocalFuncDecl.parse() starts on the 'function' token
-					auto LocalFuncDecl fd = LocalFuncDecl.parse(t);
+					auto SimpleFuncDecl fd = SimpleFuncDecl.parse(t);
 					k = new StringExp(fd.mLocation, fd.mName.mName);
 					v = fd.mFunc;
 					lastWasFunc = true;

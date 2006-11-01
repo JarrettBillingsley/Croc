@@ -9,7 +9,7 @@ import arraylib = minid.arraylib;
 import tablelib = minid.tablelib;
 import mathlib = minid.mathlib;
 import charlib = minid.charlib;
-
+import iolib = minid.iolib;
 import std.stdio;
 
 void main()
@@ -22,8 +22,15 @@ void main()
 	tablelib.init(state);
 	mathlib.init(state);
 	charlib.init(state);
+	iolib.init(state);
 
-	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
+	MDClosure cl = new MDClosure(state, compileFile(`wc.md`));
+	
+	state.setGlobal("intToChar"d, new MDClosure(state, delegate int(MDState s)
+	{
+		s.push(cast(dchar)s.getIntParam(0));
+		return 1;
+	}, "intToChar"));
 
 	/*MDClass testClass = new MDClass(state, "Test", null);
 	
@@ -56,7 +63,7 @@ void main()
 
 	try
 	{
-		state.easyCall(cl, 0, 4, 5, 6);
+		state.easyCall(cl, 0, "alice.txt");
 	}
 	catch(MDException e)
 	{

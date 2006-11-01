@@ -977,7 +977,7 @@ class MDClass : MDObject
 
 		return n;
 	}
-	
+
 	public MDValue* opIndex(MDValue* index)
 	{
 		//TODO: Statics?
@@ -1047,6 +1047,11 @@ class MDClass : MDObject
 		
 		return value;
 	}
+	
+	public dchar[] getName()
+	{
+		return mGuessedName.dup;	
+	}
 
 	public char[] toString()
 	{
@@ -1059,7 +1064,7 @@ class MDInstance : MDObject
 	protected MDClass mClass;
 	protected MDTable mFields;
 	protected MDTable mMethods;
-	
+
 	private this()
 	{
 		
@@ -1093,6 +1098,14 @@ class MDInstance : MDObject
 			return ptr;
 			
 		return mClass[index];
+	}
+	
+	public MDValue* opIndex(MDObject index)
+	{
+		MDValue idx;
+		idx.value = index;
+		
+		return opIndex(&idx);
 	}
 	
 	public MDValue* opIndex(dchar[] index)
@@ -1185,7 +1198,7 @@ class MDDelegate : MDObject
 		// start at 1, because param 0 is "this"
 		for(uint i = 1; i < numParams; i++)
 			s.push(s.getParam(i));
-			
+
 		s.call(funcReg, mContext.length + numParams, -1);
 		
 		return s.numParams();
