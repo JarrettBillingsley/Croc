@@ -9,6 +9,59 @@ import std.stdarg;
 alias MDValue* StackVal;
 
 //debug = STACKINDEX;
+//debug = CALLEPILOGUE;
+
+// Some type traits stuff.
+
+template isStringType(T)
+{
+	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
+}
+
+template isCharType(T)
+{
+	const bool isCharType = is(T == char) || is(T == wchar) || is(T == dchar);
+}
+
+template isIntType(T)
+{
+	const bool isIntType = is(T : int);
+}
+
+template isFloatType(T)
+{
+	const bool isFloatType = is(T == float) || is(T == double) || is(T == real);
+}
+
+private void putInValue(T)(MDValue* dest, T src)
+{
+	static if(isCharType!(T))
+	{
+		dest.value = cast(dchar)src;
+	}
+	else static if(isStringType!(T) || isFloatType!(T) || is(T == bool) || is(T : MDObject))
+	{
+		dest.value = src;
+	}
+	else static if(isIntType!(T))
+	{
+		dest.value = cast(int)src;
+	}
+	else static if(is(T : MDValue))
+	{
+		dest.value = &src;
+	}
+	else static if(is(T : MDValue*))
+	{
+		dest.value = src;
+	}
+	else
+	{
+		// I do this because static assert won't show the template instantiation "call stack."
+		pragma(msg, "putInValue() - Invalid argument type ");
+		ARGUMENT_ERROR(T);
+	}
+}
 
 class MDGlobalState
 {
@@ -102,7 +155,6 @@ class MDState
 	protected MDUpval* mUpvalHead;
 
 	protected Location[] mTraceback;
-	protected MDString mCtorString;
 
 	// ===================================================================================
 	// Public members
@@ -119,9 +171,8 @@ class MDState
 		mStack = new MDValue[20];
 
 		mGlobals = new MDTable();
-		mCtorString = new MDString("constructor"d);
 	}
-	
+
 	debug final public void printStack()
 	{
 		writefln();
@@ -129,6 +180,26 @@ class MDState
 		for(uint i = 0; i < mStackIndex; i++)
 			writefln(i, ": ", mStack[i].toString());
 
+		writefln();
+	}
+	
+	debug final public void printCallStack()
+	{
+		writefln();
+		writefln("-----Call Stack-----");
+		
+		for(int i = mARIndex; i > 0; i--)
+		{
+			with(mActRecs[i])
+			{
+				writefln("Record ", func.toString());
+				writefln("\tBase: ", base);
+				writefln("\tSaved Top: ", savedTop);
+				writefln("\tVararg Base: ", vargBase);
+				writefln("\tFunc Slot: ", funcSlot);
+				writefln("\tNum Returns: ", numReturns);
+			}
+		}
 		writefln();
 	}
 
@@ -141,47 +212,11 @@ class MDState
 	
 	public uint push(T)(T value)
 	{
-		if(mStackIndex >= mStack.length)
-			stackSize = mStack.length * 2;
-
-		static if(is(T == char[]) ||
-					is(T == wchar[]) ||
-					is(T == dchar[]))
-		{
-			MDValue val;
-			val.value = new MDString(value);
-			mStack[mStackIndex].value = &val;
-		}
-		else static if(is(T == char) ||
-						is(T == wchar) ||
-						is(T == dchar))
-		{
-			MDValue val;
-			val.value = cast(dchar)value;
-			mStack[mStackIndex].value = &val;
-		}
-		else static if(is(T : int))
-		{
-			MDValue val;
-			val.value = cast(int)value;
-			mStack[mStackIndex].value = &val;
-		}
-		else static if(is(T : bool) ||
-						is(T : float) ||
-						is(T : MDObject))
-		{
-			MDValue val;
-			val.value = value;
-			mStack[mStackIndex].value = &val;
-		}
-		else static if(is(T : MDValue))
-			mStack[mStackIndex].value = &value;
-		else static if(is(T : MDValue*))
-			mStack[mStackIndex].value = value;
-		else
-			// An interesting way to report errors, since static assert doesn't show the "call stack"
-			ERROR_MDState_Push_InvalidArgumentType();
-			//static assert(false, "MDState.push() - invalid argument type");
+		needStackSlots(1);
+			
+		MDValue val;
+		putInValue(&val, value);
+		mStack[mStackIndex].value = &val;
 
 		mStackIndex++;
 
@@ -190,38 +225,17 @@ class MDState
 		return mStackIndex - 1 - mCurrentAR.base;
 	}
 	
-	public void easyCall(MDClosure func, uint numReturns, ...)
+	public void easyCall(T...)(MDClosure func, uint numReturns, T params)
 	{
-		uint funcReg = push(func);
-		
-		for(int i = 0; i < _arguments.length; i++)
-		{
-			TypeInfo ti = _arguments[i];
-			
-			if(ti == typeid(bool))             push(cast(bool)va_arg!(bool)(_argptr));
-			else if(ti == typeid(byte))        push(cast(int)va_arg!(byte)(_argptr));
-			else if(ti == typeid(ubyte))       push(cast(int)va_arg!(ubyte)(_argptr));
-			else if(ti == typeid(short))       push(cast(int)va_arg!(ushort)(_argptr));
-			else if(ti == typeid(ushort))      push(cast(int)va_arg!(ushort)(_argptr));
-			else if(ti == typeid(int))         push(cast(int)va_arg!(int)(_argptr));
-			else if(ti == typeid(uint))        push(cast(int)va_arg!(uint)(_argptr));
-			else if(ti == typeid(long))        push(cast(int)va_arg!(long)(_argptr));
-			else if(ti == typeid(ulong))       push(cast(int)va_arg!(ulong)(_argptr));
-			else if(ti == typeid(float))       push(cast(float)va_arg!(float)(_argptr));
-			else if(ti == typeid(double))      push(cast(float)va_arg!(double)(_argptr));
-			else if(ti == typeid(real))        push(cast(float)va_arg!(real)(_argptr));
-			else if(ti == typeid(char[]))      push(new MDString(va_arg!(char[])(_argptr)));
-			else if(ti == typeid(wchar[]))     push(new MDString(va_arg!(wchar[])(_argptr)));
-			else if(ti == typeid(dchar[]))     push(new MDString(va_arg!(dchar[])(_argptr)));
-			else if(ti == typeid(MDObject))    push(cast(MDObject)va_arg!(MDObject)(_argptr));
-			else if(ti == typeid(MDUserdata))  push(cast(MDUserdata)va_arg!(MDUserdata)(_argptr));
-			else if(ti == typeid(MDClosure))   push(cast(MDClosure)va_arg!(MDClosure)(_argptr));
-			else if(ti == typeid(MDTable))     push(cast(MDTable)va_arg!(MDTable)(_argptr));
-			else if(ti == typeid(MDArray))     push(cast(MDArray)va_arg!(MDArray)(_argptr));
-			else throw new MDRuntimeException(this, "MDState.easyCall(): invalid parameter ", i);
-		}
-		
-		call(funcReg, _arguments.length, numReturns);
+		//uint funcReg = push(func);
+		uint funcReg = mStackIndex;
+
+		foreach(param; params)
+			push(param);
+
+		directCall(func, funcReg, numReturns, funcReg, params.length);
+
+		//call(funcReg, params.length, numReturns);
 	}
 
 	public void call(uint slot, int numParams, int numReturns)
@@ -230,233 +244,85 @@ class MDState
 
 		if(numParams == -1)
 			numParams = mStackIndex - slot - 1;
-
+			
 		assert(numParams >= 0, "negative num params in call");
 
 		StackVal func = getAbsStack(slot);
-		
+
 		if(func.isClass())
 		{
 			pushAR();
-			
+
 			*mCurrentAR = mActRecs[mARIndex - 1];
+			mCurrentAR.base = slot;
 			mCurrentAR.numReturns = numReturns;
+			mCurrentAR.funcSlot = slot;
 
 			MDInstance n = func.asClass().newInstance();
-
-			MDValue* ctor = n[mCtorString];
+			
+			MDValue* ctor = n.getCtor();
 
 			if(!ctor.isNull())
 			{
-				needStackSlots(2);
-
-				for(int i = mStackIndex + 1; i > slot; i--)
-					copyAbsStack(i, i - 2);
-	
-				mStackIndex += 2;
-	
-				debug(STACKINDEX) writefln("call() made a class and set mStackIndex to ", mStackIndex);
-	
-				getAbsStack(slot + 1).value = ctor;
-				getAbsStack(slot + 2).value = n;
-				
-				call(slot - mCurrentAR.base + 1, numParams + 1, 0);
+				getAbsStack(slot).value = n;
+				directCall(ctor.asFunction(), slot, 0, slot, numParams + 1);
 			}
 			
 			getAbsStack(slot).value = n;
 			callEpilogue(0, 1);
-			return;
 		}
-
-		if(!func.isFunction())
+		else if(func.isFunction())
+		{
+			MDClosure closure = func.asFunction();
+			directCall(closure, slot, numReturns, slot + 1, numParams);
+		}
+		else
 		{
 			MDValue* method = getMM(func, MM.Call);
 
 			if(!method.isFunction())
 				throw new MDRuntimeException(this, "Attempting to call a value of type '%s'", func.typeString());
 
-			needStackSlots(1);
-
-			for(int i = mStackIndex; i > slot; i--)
-				copyAbsStack(i, i - 1);
-
-			mStackIndex++;
-
-			debug(STACKINDEX) writefln("call() got the call MM and set mStackIndex to ", mStackIndex);
-
-			// func stack reference may have been invalidated by needStackSlots
-			func = getAbsStack(slot);
-			func.value = method;
-
-			// include the "this"
-			numParams++;
-		}
-
-		MDClosure closure = func.asFunction();
-
-		mCurrentAR.savedTop = mStackIndex;
-
-		if(closure.isNative())
-		{
-			// Native function
-			needStackSlots(20);
-
-			mStackIndex = slot + 1 + numParams;
-
-			debug(STACKINDEX) writefln("call called a native func and set mStackIndex to ", mStackIndex);
-
-			pushAR();
-
-			mCurrentAR.base = slot + 1;
-			mCurrentAR.vargBase = 0;
-			mCurrentAR.funcSlot = slot;
-			mCurrentAR.func = closure;
-			mCurrentAR.numReturns = numReturns;
-
-			int actualReturns;
-
-			try
-			{
-				actualReturns = closure.native.func(this);
-			}
-			catch(MDException e)
-			{
-				callEpilogue(0, 0);
-				throw e;
-			}
-
-			callEpilogue(getBasedStackIndex() - actualReturns, actualReturns);
-		}
-		else
-		{
-			// Script function
-			MDFuncDef funcDef = closure.script.func;
-			mStackIndex = slot + numParams + 1;
-
-			uint base;
-			uint vargBase;
-
-			if(funcDef.mIsVararg)
-			{
-				if(numParams < funcDef.mNumParams)
-				{
-					needStackSlots(funcDef.mNumParams - numParams);
-
-					for(int i = funcDef.mNumParams - numParams; i > 0; i--)
-					{
-						mStack[mStackIndex].setNull();
-						mStackIndex++;
-					}
-					
-					numParams = funcDef.mNumParams;
-				}
-
-				vargBase = slot + funcDef.mNumParams + 1;
-
-				mStackIndex = slot + numParams + 1;
-
-				needStackSlots(funcDef.mStackSize);
-
-				debug(STACKINDEX) writefln("call() adjusted the varargs and set mStackIndex to ", mStackIndex);
-
-				uint paramSlot = slot + 1;
-				base = mStackIndex;
-
-				for(int i = 0; i < funcDef.mNumParams; i++)
-				{
-					copyAbsStack(mStackIndex, paramSlot);
-					getAbsStack(paramSlot).setNull();
-					paramSlot++;
-					mStackIndex++;
-				}
-				
-				debug(STACKINDEX) writefln("call() copied the regular args for a vararg and set mStackIndex to ", mStackIndex);
-			}
-			else
-			{
-				base = slot + 1;
-
-				if(mStackIndex > base + funcDef.mNumParams)
-				{
-					mStackIndex = base + funcDef.mNumParams;
-					debug(STACKINDEX) writefln("call() adjusted for too many args and set mStackIndex to ", mStackIndex);
-				}
-
-				needStackSlots(funcDef.mStackSize);
-			}
-
-			pushAR();
-			
-			mCurrentAR.base = base;
-			mCurrentAR.vargBase = vargBase;
-			mCurrentAR.funcSlot = slot;
-			mCurrentAR.func = closure;
-			mCurrentAR.pc = funcDef.mCode.ptr;
-			mCurrentAR.numReturns = numReturns;
-
-			for(int i = base + funcDef.mStackSize; i >= mStackIndex; i--)
-				getAbsStack(i).setNull();
-
-			mStackIndex = base + funcDef.mStackSize;
-			mCurrentAR.savedTop = mStackIndex;
-
-			debug(STACKINDEX) writefln("call() set mStackIndex to ", mStackIndex, " (local stack size = ", funcDef.mStackSize, ")");
-
-			try
-			{
-				execute();
-			}
-			catch(MDException e)
-			{
-				callEpilogue(0, 0);
-				throw e;
-			}
+			directCall(method.asFunction(), slot, numReturns, slot, numParams + 1);
 		}
 	}
-	
+
 	public void setGlobal(T)(dchar[] name, T value)
 	{
 		MDValue key;
 		key.value = new MDString(name);
 
-		static if(is(T == char[]) ||
-					is(T == wchar[]) ||
-					is(T == dchar[]))
-		{
-			MDValue val;
-			val.value = new MDString(value);
-			mGlobals[&key] = &val;
-		}
-		else static if(is(T == char) ||
-						is(T == wchar) ||
-						is(T == dchar))
+		static if(isCharType!(T))
 		{
 			MDValue val;
 			val.value = cast(dchar)value;
 			mGlobals[&key] = &val;
 		}
-		else static if(is(T : int))
+		else static if(isIntType!(T))
 		{
 			MDValue val;
 			val.value = cast(int)value;
 			mGlobals[&key] = &val;
 		}
-		else static if(is(T : bool) ||
-						is(T : float) ||
-						is(T : MDObject))
+		else static if(isStringType!(T) || is(T : bool) || is(T : float) || is(T : MDObject))
 		{
 			MDValue val;
 			val.value = value;
 			mGlobals[&key] = &val;
 		}
 		else static if(is(T : MDValue))
+		{
 			mGlobals[&key] = &value;
+		}
 		else static if(is(T : MDValue*))
+		{
 			mGlobals[&key] = value;
+		}
 		else
-			// An interesting way to report errors, since static assert doesn't show the "call stack"
-			ERROR_MDState_SetGlobal_InvalidArgumentType();
-			//static assert(false, "MDState.setGlobal() - invalid argument type");
+		{
+			pragma(msg, "setGlobal() - Invalid argument type ");
+			ARGUMENT_ERROR(T);
+		}
 	}
 
 	public MDValue* getGlobal(dchar[] name)
@@ -468,55 +334,46 @@ class MDState
 	
 	public void setUpvalue(T)(uint index, T value)
 	{
-		if(mCurrentAR.func)
-		{
-			if(mCurrentAR.func.isNative() == false)
-				throw new MDRuntimeException(this, "MDState.setUpvalue() cannot be used on a non-native function");
-				
-			if(index >= mCurrentAR.func.native.upvals.length)
-				throw new MDRuntimeException(this, "MDState.setUpvalue() - Invalid upvalue index: ", index);
-		}
-		else
+		if(!mCurrentAR.func)
 			throw new MDRuntimeException(this, "MDState.setUpvalue() - No function to set upvalue");
 
-		static if(is(T == char[]) ||
-					is(T == wchar[]) ||
-					is(T == dchar[]))
-		{
-			MDValue val;
-			val.value = new MDString(value);
-			mCurrentAR.func.native.upvalues[index] = val;
-		}
-		else static if(is(T == char) ||
-						is(T == wchar) ||
-						is(T == dchar))
+		if(mCurrentAR.func.isNative() == false)
+			throw new MDRuntimeException(this, "MDState.setUpvalue() cannot be used on a non-native function");
+
+		if(index >= mCurrentAR.func.native.upvals.length)
+			throw new MDRuntimeException(this, "MDState.setUpvalue() - Invalid upvalue index: ", index);
+
+		static if(isCharType!(T))
 		{
 			MDValue val;
 			val.value = cast(dchar)value;
 			mCurrentAR.func.native.upvals[index] = val;
 		}
-		else static if(is(T : int))
+		else static if(isIntType!(T))
 		{
 			MDValue val;
 			val.value = cast(int)value;
 			mCurrentAR.func.native.upvals[index] = val;
 		}
-		else static if(is(T : bool) ||
-						is(T : float) ||
-						is(T : MDObject))
+		else static if(isStringType!(T) || is(T : bool) || is(T : float) || is(T : MDObject))
 		{
 			MDValue val;
 			val.value = value;
-			mCurrentAR.func.native.upvals[index] = val;
+			mCurrentAR.func.native.upvalues[index] = val;
 		}
 		else static if(is(T : MDValue))
+		{
 			mCurrentAR.func.native.upvals[index] = value;
+		}
 		else static if(is(T : MDValue*))
+		{
 			mCurrentAR.func.native.upvals[index] = *value;
+		}
 		else
-			// An interesting way to report errors, since static assert doesn't show the "call stack"
-			ERROR_MDState_SetUpvalue_InvalidArgumentType();
-			//static assert(false, "MDState.setGlobal() - invalid argument type");
+		{
+			pragma(msg, "setUpvalue() - Invalid argument type ");
+			ARGUMENT_ERROR(T);
+		}
 	}
 
 	public MDValue* getUpvalue(uint index)
@@ -545,35 +402,72 @@ class MDState
 		if(index >= numParams())
 			badParamError(this, index, "not enough parameters");
 			
-		static if(type == "null")
-			return getBasedStack(index).isNull();
-		else static if(type == "bool")
-			return getBasedStack(index).isBool();
-		else static if(type == "int")
-			return getBasedStack(index).isInt();
-		else static if(type == "float")
-			return getBasedStack(index).isFloat();
-		else static if(type == "char")
-			return getBasedStack(index).isChar();
-		else static if(type == "string")
-			return getBasedStack(index).isString();
-		else static if(type == "table")
-			return getBasedStack(index).isTable();
-		else static if(type == "array")
-			return getBasedStack(index).isArray();
-		else static if(type == "function")
-			return getBasedStack(index).isFunction();
-		else static if(type == "userdata")
-			return getBasedStack(index).isUserdata();
-		else static if(type == "class")
-			return getBasedStack(index).isClass();
-		else static if(type == "instance")
-			return getBasedStack(index).isInstance();
-		else static if(type == "delegate")
-			return getBasedStack(index).isDelegate();
-		else
-			ERROR_MDState_IsParam_InvalidType();
+		static if(type == "null")          return getBasedStack(index).isNull();
+		else static if(type == "bool")     return getBasedStack(index).isBool();
+		else static if(type == "int")      return getBasedStack(index).isInt();
+		else static if(type == "float")    return getBasedStack(index).isFloat();
+		else static if(type == "char")     return getBasedStack(index).isChar();
+		else static if(type == "string")   return getBasedStack(index).isString();
+		else static if(type == "table")    return getBasedStack(index).isTable();
+		else static if(type == "array")    return getBasedStack(index).isArray();
+		else static if(type == "function") return getBasedStack(index).isFunction();
+		else static if(type == "userdata") return getBasedStack(index).isUserdata();
+		else static if(type == "class")    return getBasedStack(index).isClass();
+		else static if(type == "instance") return getBasedStack(index).isInstance();
+		else static if(type == "delegate") return getBasedStack(index).isDelegate();
+		else ERROR_MDState_IsParam_InvalidType();
 	}
+	
+	/*public T getTypeParam(T)(uint index)
+	{
+		if(index >= numParams())
+			badParamError(this, index, "not enough parameters");
+			
+		MDValue* val = getBasedStack(index);
+
+		static if(isCharType!(T))
+		{
+			if(val.isChar() == false)
+				badParamError(this, index, "expected 'char' but got '%s'", val.typeString());
+				
+			return cast(T)val.asChar();
+		}
+		else static if(isIntType!(T))
+		{
+			if(val.isInt() == false)
+				badParamError(this, index, "expected 'int' but got '%s'", val.typeString());
+				
+			return cast(T)val.asInt();
+		}
+		else static if(is(T : float))
+		{
+			if(val.isFloat() == false)
+				badParamError(this, index, "expected 'float' but got '%s'", val.typeString());
+	
+			return cast(T)val.asFloat();
+		}
+		else static if(is(T : char[]))
+		{
+			if(val.isString() == false)
+				badParamError(this, index, "expected 'string' but got '%s'", val.typeString());
+	
+			return val.asString.asUTF8();
+		}
+		else static if(is(T : wchar[]))
+		{
+			if(val.isString() == false)
+				badParamError(this, index, "expected 'string' but got '%s'", val.typeString());
+	
+			return val.asString.asUTF16();
+		}
+		else static if(is(T : dchar[]))
+		{
+			if(val.isString() == false)
+				badParamError(this, index, "expected 'string' but got '%s'", val.typeString());
+	
+			return val.asString.asUTF32();
+		}
+	}*/
 
 	public MDValue getParam(uint index)
 	{
@@ -618,7 +512,7 @@ class MDState
 
 		if(val.isFloat() == false)
 			badParamError(this, index, "expected 'float' but got '%s'", val.typeString());
-			
+
 		return val.asFloat();
 	}
 	
@@ -725,7 +619,7 @@ class MDState
 
 		return val.asInstance();
 	}
-	
+
 	public MDInstance getInstanceParam(uint index, MDClass type)
 	{
 		assert(type !is null, "getInstanceParam wants a non-null type!");
@@ -807,6 +701,127 @@ class MDState
 	// ===================================================================================
 	// Package members
 	// ===================================================================================
+	
+	package void directCall(MDClosure closure, uint returnSlot, uint numReturns, uint paramSlot, uint numParams)
+	{
+		if(closure.isNative())
+		{
+			// Native function
+			needStackSlots(20);
+
+			mStackIndex = paramSlot + numParams;
+
+			debug(STACKINDEX) writefln("directCall called a native func '%s'", closure.toString(), " and set mStackIndex to ", mStackIndex);
+
+			pushAR();
+
+			mCurrentAR.base = paramSlot;
+			mCurrentAR.vargBase = 0;
+			mCurrentAR.funcSlot = returnSlot;
+			mCurrentAR.func = closure;
+			mCurrentAR.numReturns = numReturns;
+
+			int actualReturns;
+
+			try
+			{
+				actualReturns = closure.native.func(this);
+			}
+			catch(MDException e)
+			{
+				callEpilogue(0, 0);
+				throw e;
+			}
+
+			callEpilogue(getBasedStackIndex() - actualReturns, actualReturns);
+		}
+		else
+		{
+			// Script function
+			MDFuncDef funcDef = closure.script.func;
+			mStackIndex = paramSlot + numParams;
+
+			uint base;
+			uint vargBase;
+
+			if(funcDef.mIsVararg)
+			{
+				if(numParams < funcDef.mNumParams)
+				{
+					needStackSlots(funcDef.mNumParams - numParams);
+
+					for(int i = funcDef.mNumParams - numParams; i > 0; i--)
+					{
+						mStack[mStackIndex].setNull();
+						mStackIndex++;
+					}
+					
+					numParams = funcDef.mNumParams;
+				}
+
+				vargBase = paramSlot + funcDef.mNumParams;
+
+				mStackIndex = paramSlot + numParams;
+
+				needStackSlots(funcDef.mStackSize);
+
+				debug(STACKINDEX) writefln("directCall adjusted the varargs and set mStackIndex to ", mStackIndex);
+
+				uint oldParamSlot = paramSlot;
+				base = mStackIndex;
+
+				for(int i = 0; i < funcDef.mNumParams; i++)
+				{
+					copyAbsStack(mStackIndex, oldParamSlot);
+					getAbsStack(oldParamSlot).setNull();
+					oldParamSlot++;
+					mStackIndex++;
+				}
+				
+				debug(STACKINDEX) writefln("directCall copied the regular args for a vararg and set mStackIndex to ", mStackIndex);
+			}
+			else
+			{
+				base = paramSlot;
+
+				if(mStackIndex > base + funcDef.mNumParams)
+				{
+					mStackIndex = base + funcDef.mNumParams;
+					debug(STACKINDEX) writefln("directCall adjusted for too many args and set mStackIndex to ", mStackIndex);
+				}
+
+				needStackSlots(funcDef.mStackSize);
+			}
+
+			pushAR();
+
+			mCurrentAR.base = base;
+			mCurrentAR.vargBase = vargBase;
+			mCurrentAR.funcSlot = returnSlot;
+			mCurrentAR.func = closure;
+			mCurrentAR.pc = funcDef.mCode.ptr;
+			mCurrentAR.numReturns = numReturns;
+			
+			mStackIndex = base + funcDef.mStackSize;
+			
+			debug(STACKINDEX) writefln("directCall of function '%s'", closure.toString(), " set mStackIndex to ", mStackIndex, " (local stack size = ", funcDef.mStackSize, ", base = ", base, ")");
+
+			for(int i = base + funcDef.mStackSize; i >= 0 && i >= mStackIndex; i--)
+				getAbsStack(i).setNull();
+
+			mCurrentAR.savedTop = mStackIndex;
+
+			try
+			{
+				execute();
+			}
+			catch(MDException e)
+			{
+				callEpilogue(0, 0);
+				throw e;
+			}
+		}
+	}
 
 	package Location startTraceback()
 	{
@@ -846,13 +861,20 @@ class MDState
 
 	package void callEpilogue(uint resultSlot, int numResults)
 	{
+		debug(CALLEPILOGUE) printCallStack();
+
 		resultSlot = getBasedIndex(resultSlot);
+
+		debug(CALLEPILOGUE) writefln("callEpilogue for function ", mCurrentAR.func.toString());
+		debug(CALLEPILOGUE) writefln("\tResult slot: ", resultSlot, "\n\tNum results: ", numResults);
 
 		uint destSlot = mCurrentAR.funcSlot;
 		int numExpRets = mCurrentAR.numReturns;
+		
+		debug(CALLEPILOGUE) writefln("\tDest slot: ", destSlot, "\n\tNum expected results: ", numExpRets);
 
 		bool isMultRet = false;
-		
+
 		if(numResults == -1)
 			numResults = mStackIndex - resultSlot;
 
@@ -860,8 +882,9 @@ class MDState
 		{
 			isMultRet = true;
 			numExpRets = numResults;
+			debug(CALLEPILOGUE) writefln("\tNum multi rets: ", numExpRets);
 		}
-
+		
 		popAR();
 
 		if(numExpRets <= numResults)
@@ -869,6 +892,7 @@ class MDState
 			while(numExpRets > 0)
 			{
 				copyAbsStack(destSlot, resultSlot);
+				debug(CALLEPILOGUE) writefln("\tvalue: ", getAbsStack(destSlot).toString());
 
 				destSlot++;
 				resultSlot++;
@@ -880,6 +904,7 @@ class MDState
 			while(numResults > 0)
 			{
 				copyAbsStack(destSlot, resultSlot);
+				debug(CALLEPILOGUE) writefln("\tvalue: ", getAbsStack(destSlot).toString());
 
 				destSlot++;
 				resultSlot++;
@@ -894,13 +919,13 @@ class MDState
 				numExpRets--;
 			}
 		}
-
+		
 		if(isMultRet)
 			mStackIndex = destSlot;
 		else
 			mStackIndex = mCurrentAR.savedTop;
 
-		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex);
+		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex, isMultRet? " (multret)" : "");
 	}
 
 	package void pushAR()
@@ -968,7 +993,7 @@ class MDState
 		}
 		catch
 		{
-			throw new MDRuntimeException(this, "MiniD stack overflow");
+			throw new MDRuntimeException(this, "Script value stack overflow");
 		}
 
 		MDValue* newBase = mStack.ptr;
@@ -1256,7 +1281,7 @@ class MDState
 		{
 			case MDValue.Type.Array:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+					throw new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString());
 
 				MDValue* val = dest.asArray[key.asInt];
 	
@@ -1272,11 +1297,14 @@ class MDState
 
 			case MDValue.Type.Instance:
 				MDValue* val = dest.asInstance[key];
-	
+
 				if(val.isFunction())
-					throw new MDRuntimeException(this, "Attempt to change method of class instance");
-	
-				val.value = value;
+					throw new MDRuntimeException(this, "Attempting to change method '%s' of class instance", key.toString());
+
+				if(val is &MDValue.nullValue)
+					throw new MDRuntimeException(this, "Attempting to add a member '%s' to a class instance", key.toString());
+
+				dest.asInstance()[key] = value;
 				break;
 
 			case MDValue.Type.Class:
@@ -1311,7 +1339,7 @@ class MDState
 		{
 			case MDValue.Type.Array:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempt to access an array with a '%s'", key.typeString());
+					throw new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString());
 	
 				if(key.asInt() < 0 || key.asInt() >= src.asArray.length)
 					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
@@ -1321,7 +1349,7 @@ class MDState
 
 			case MDValue.Type.String:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempt to access a string with a '%s'", key.typeString());
+					throw new MDRuntimeException(this, "Attempting to access a string with a '%s'", key.typeString());
 					
 				if(key.asInt() < 0 || key.asInt() >= src.asString.length)
 					throw new MDRuntimeException(this, "Invalid string index: ", key.asInt());
@@ -1334,7 +1362,12 @@ class MDState
 				break;
 
 			case MDValue.Type.Instance:
-				getBasedStack(dest).value = src.asInstance[key];
+				MDValue* v = src.asInstance[key];
+				
+				if(v is &MDValue.nullValue)
+					throw new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", key.toString());
+
+				getBasedStack(dest).value = v;
 				break;
 
 			case MDValue.Type.Class:
@@ -1370,7 +1403,7 @@ class MDState
 			{
 				MDValue* method = s.getMM(src1, MM.Neg);
 
-				if(!method.isFunction())
+				if(!method.isFunction() && !method.isDelegate())
 					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
@@ -1425,7 +1458,7 @@ class MDState
 
 			MDValue* method = s.getMM(src1, mmType);
 
-			if(!method.isFunction())
+			if(!method.isFunction() && !method.isDelegate())
 			{
 				//method = s.getMM(src2, mmType);
 
@@ -1458,7 +1491,7 @@ class MDState
 			{
 				MDValue* method = s.getMM(src1, MM.Com);
 
-				if(!method.isFunction())
+				if(!method.isFunction() && !method.isDelegate())
 					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
@@ -1496,7 +1529,7 @@ class MDState
 
 			MDValue* method = s.getMM(src1, mmType);
 
-			if(!method.isFunction())
+			if(!method.isFunction() && !method.isDelegate())
 			{
 				//method = s.getMM(src2, mmType);
 
@@ -1670,7 +1703,7 @@ class MDState
 						StackVal src = getBasedStack(i.rs1);
 						MDValue* method = getMM(src, MM.Length);
 						
-						if(method.isFunction())
+						if(method.isFunction() || method.isDelegate())
 						{
 							uint funcReg = push(method);
 							push(src);
@@ -1702,9 +1735,9 @@ class MDState
 						break;
 	
 					case Op.SetGlobal:
-						MDValue* index = getConst(i.imm);
+						MDValue* index = getConst(i.rs2);
 						assert(index.isString(), "trying to get a non-string global");
-						getEnvironment()[index] = getBasedStack(i.rd);
+						getEnvironment()[index] = getCR1();
 						break;
 	
 					case Op.GetUpvalue:
@@ -1712,7 +1745,7 @@ class MDState
 						break;
 	
 					case Op.SetUpvalue:
-						getInternalUpvalue(i.imm).value = getBasedStack(i.rd);
+						getInternalUpvalue(i.rs2).value = getCR1();
 						break;
 	
 					case Op.NewArray:
@@ -1791,7 +1824,7 @@ class MDState
 						uint funcReg = rd + 3;
 						MDValue src = *getBasedStack(rd);
 
-						if(src.isFunction() == false && src.isDelegate() == false)
+						if(!src.isFunction() && !src.isDelegate())
 						{
 							MDValue* apply = getMM(&src, MM.Apply);
 							
@@ -1863,14 +1896,14 @@ class MDState
 								data[0] = src1.asChar();
 								data[1] = src2.asChar();
 
-								getBasedStack(i.rd).value = new MDString(data);
+								getBasedStack(i.rd).value = data;
 								break;
 							}
 						}
 
 						MDValue* method = getMM(src1, MM.Cat);
 
-						if(!method.isFunction())
+						if(!method.isFunction() && !method.isDelegate())
 						{
 							//method = getMM(src2, MM.Cat);
 
@@ -1916,20 +1949,29 @@ class MDState
 	
 					case Op.Method:
 						StackVal src = getCR1();
-						getBasedStack(i.rd + 1).value = src;
 						
+						getBasedStack(i.rd + 1).value = src;
+
 						if(src.isInstance())
 						{
-							getBasedStack(i.rd).value = src.asInstance[getCR2()];
+							MDValue* v = src.asInstance[getCR2()];
+							
+							if(v is &MDValue.nullValue)
+								throw new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", getCR2().toString());
+
+							getBasedStack(i.rd).value = v;
 							break;
 						}
 
 						if(src.isTable())
 						{
-							index(i.rd, src, getCR2());
-							
-							if(getBasedStack(i.rd).isFunction() == true)
+							MDValue* val = src.asTable[getCR2()];
+
+							if(val.isFunction() || val.isDelegate())
+							{
+								getBasedStack(i.rd).value = val;
 								break;
+							}
 						}
 
 						MDTable metatable = MDGlobalState().getMetatable(src.type);
@@ -2013,7 +2055,7 @@ class MDState
 					case Op.As:
 						StackVal src = getBasedStack(i.rs1);
 						StackVal cls = getBasedStack(i.rs2);
-						
+      
 						if(!src.isInstance() || !cls.isClass())
 							throw new MDRuntimeException(this, "Attempted to perform 'as' on '%s' and '%s'; must be 'instance' and 'class'",
 								src.typeString(), cls.typeString());

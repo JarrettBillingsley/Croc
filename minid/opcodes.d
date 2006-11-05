@@ -105,8 +105,8 @@ PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
-SetGlobal.........I: src, const index of global name
-SetUpvalue........I: src, upval index
+SetGlobal.........R: n/a, src, const index of global name
+SetUpvalue........R: n/a, src, upval index
 Shl...............R: dest, src, src
 Shr...............R: dest, src, src
 Sub...............R: dest, src, src
@@ -275,9 +275,9 @@ align(1) struct Instruction
 			case Op.SetArray:
 				return string.format("setarray r%s, %s, block %s", rd, rs1, rs2);
 			case Op.SetGlobal:
-				return string.format("setg r%s, c%s", rd, uimm);
+				return string.format("setg %s, c%s", cr(rs1), rs2);
 			case Op.SetUpvalue:
-				return string.format("setu r%s, %s", rd, uimm);
+				return string.format("setu %s, c%s", cr(rs1), rs2);
 			case Op.Shl:
 				return string.format("shl r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Shr:

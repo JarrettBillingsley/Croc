@@ -172,7 +172,6 @@ struct Token
 		Assign,
 		EQ,
 		Dot,
-		DotDot,
 		Not,
 		NE,
 		LParen,
@@ -258,7 +257,6 @@ struct Token
 		Type.Assign: "=",
 		Type.EQ: "==",
 		Type.Dot: ".",
-		Type.DotDot: "..",
 		Type.Not: "!",
 		Type.NE: "!=",
 		Type.LParen: "(",
@@ -1389,12 +1387,7 @@ class Lexer
 				case '.':
 					nextChar();
 
-					if(mCharacter == '.')
-					{
-						nextChar();
-						token.type = Token.Type.DotDot;
-					}
-					else if(isDecimalDigit())
+					if(isDecimalDigit())
 					{
 						int dummy;
 						bool b = readNumLiteral(true, token.floatValue, dummy);
@@ -2196,7 +2189,7 @@ class FuncState
 			case ExpType.Upvalue:
 				popSource(line, src);
 
-				codeI(line, Op.SetUpvalue, src.index, dest.index);
+				codeR(line, Op.SetUpvalue, 0, src.index, dest.index);
 
 				freeExpsTempRegs(dest, &src);
 				break;
@@ -2204,7 +2197,7 @@ class FuncState
 			case ExpType.Global:
 				popSource(line, src);
 
-				codeI(line, Op.SetGlobal, src.index, dest.index);
+				codeR(line, Op.SetGlobal, 0, src.index, dest.index);
 
 				freeExpsTempRegs(dest, &src);
 				break;
@@ -2380,11 +2373,11 @@ class FuncState
 				break;
 
 			case ExpType.Global:
-				codeI(line, Op.SetGlobal, srcReg, dest.index);
+				codeR(line, Op.SetGlobal, 0, srcReg, dest.index);
 				break;
 
 			case ExpType.Upvalue:
-				codeI(line, Op.SetUpvalue, srcReg, dest.index);
+				codeR(line, Op.SetUpvalue, 0, srcReg, dest.index);
 				break;
 
 			case ExpType.Indexed:
@@ -3186,18 +3179,15 @@ class Chunk
 		{
 			foreach(Statement s; mStatements)
 				s.codeGen(fs);
+				
+			fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 		}
-		catch(Exception e)
+		finally
 		{
-			fs.showMe();
-			throw e;
+			//fs.showMe();
 		}
-
-		fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 
 		assert(fs.mExpSP == 0, "chunk - not all expressions have been popped");
-
-		//fs.showMe();
 
 		//auto File o = new File(`testoutput.txt`, FileMode.OutNew);
 		//CodeWriter cw = new CodeWriter(o);

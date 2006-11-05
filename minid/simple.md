@@ -1,9 +1,7 @@
-local arr = array.new(4);
-
 /*class Test
 {
 	mData = [4, 5, 6];
-	
+
 	method opApply(extra)
 	{
 		function iterator(this, index)
@@ -86,7 +84,6 @@ for(local i = 0; i < 10; ++i)
 
 for(local i = 0; i < #a; ++i)
 	writefln(a[i]());*/
-
 
 /*writefln();
 

@@ -298,7 +298,7 @@ class BaseLib
 		if(s.numParams() == 1)
 			throw new MDRuntimeException(s, "Need parameters to bind to delegate");
 
-		MDValue[] params = s.getAllParams()[1 .. $];
+		MDValue[] params = s.getParams(1, -1);
 
 		s.push(new MDDelegate(s, func, params));
 		
@@ -308,7 +308,6 @@ class BaseLib
 	int getTraceback(MDState s)
 	{
 		s.push(new MDString(s.getTracebackString()));
-		
 		return 1;
 	}
 

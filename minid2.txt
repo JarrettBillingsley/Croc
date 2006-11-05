@@ -67,7 +67,6 @@ Token:
 	'='
 	'=='
 	'.'
-	'..'
 	'!'
 	'!='
 	'('
@@ -254,6 +253,37 @@ Statement:
 	TryCatchStatement
 	ThrowStatement
 
+BlockStatement:
+	'{' {Statement} '}'
+	
+ExpressionStatement:
+	BaseExpression ';'
+	
+DeclarationStatement:
+	LocalVariableDeclaration ';'
+	FunctionDeclaration
+	ClassDeclaration
+
+LocalVariableDeclaration:
+	'local' Identifier {',' Identifier} ['=' Expression]
+
+FunctionDeclaration:
+	'function' Identifier {'.' Identifier} Parameters BlockStatement
+	'local' SimpleFunctionDeclaration
+
+SimpleFunctionDeclaration:
+	'function' Identifier Parameters BlockStatement
+	
+ClassDeclaration:
+	'class' Identifier [':' Expression] '{' {ClassMember} '}'
+	
+ClassMember:
+	MethodDeclaration
+	Identifier ['=' Expression] ';'
+	
+MethodDeclaration:
+	'method' Identifier Parameters BlockStatement
+
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
 	
@@ -293,40 +323,9 @@ TryCatchStatement:
 ThrowStatement:
 	'throw' Expression ';'
 
-BlockStatement:
-	'{' {Statement} '}'
-
-ExpressionStatement:
-	BaseExpression ';'
-
-DeclarationStatement:
-	LocalVariableDeclaration ';'
-	FunctionDeclaration
-	ClassDeclaration
-
-LocalVariableDeclaration:
-	'local' Identifier {',' Identifier} ['=' Expression]
-
-FunctionDeclaration:
-	'function' Identifier {'.' Identifier} Parameters BlockStatement
-	'local' SimpleFunctionDeclaration
-
-SimpleFunctionDeclaration:
-	'function' Identifier Parameters BlockStatement
-
 Parameters:
 	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
-	
-ClassDeclaration:
-	'class' Identifier [':' Expression] '{' {ClassMember} '}'
-	
-ClassMember:
-	MethodDeclaration
-	Identifier ['=' Expression] ';'
-	
-MethodDeclaration:
-	'method' Identifier Parameters BlockStatement
 
 BaseExpression:
 	Assignment
@@ -378,7 +377,6 @@ AndExpression:
 
 EqualExpression:
 	RelExpression
-	AsExpression
 	EqualExpression '==' RelExpression
 	EqualExpression '!=' RelExpression
 	EqualExpression 'is' RelExpression

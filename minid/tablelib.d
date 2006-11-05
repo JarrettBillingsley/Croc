@@ -26,6 +26,22 @@ class TableLib
 		return 1;
 	}
 	
+	int remove(MDState s)
+	{
+		MDValue key = s.getParam(1);
+		s.getTableParam(0).remove(&key);
+		return 0;
+	}
+	
+	int contains(MDState s)
+	{
+		MDValue key = s.getParam(1);
+		MDValue* val = s.getTableParam(0)[&key];
+		
+		s.push(!val.isNull());
+		return 1;
+	}
+	
 	int iterator(MDState s)
 	{
 		MDTable table = s.getUpvalue(0).asTable();
@@ -67,6 +83,8 @@ public void init(MDState s)
 		"dup",       new MDClosure(s, &lib.dup,      "table.dup"),
 		"keys",      new MDClosure(s, &lib.keys,     "table.keys"),
 		"values",    new MDClosure(s, &lib.values,   "table.values"),
+		"remove",    new MDClosure(s, &lib.remove,   "table.remove"),
+		"contains",  new MDClosure(s, &lib.contains, "table.contains"),
 		"opApply",   new MDClosure(s, &lib.apply,    "table.opApply")
 	);
 

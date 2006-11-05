@@ -58,12 +58,12 @@ void main()
 	val.value = 0;
 	testClass["x"] = &val;
 	testClass["y"] = &val;
-	
+
 	state.setGlobal("Test"d, testClass);*/
 
 	try
 	{
-		state.easyCall(cl, 0, "alice.txt");
+		state.easyCall(cl, 0u);
 	}
 	catch(MDException e)
 	{
