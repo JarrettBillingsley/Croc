@@ -8,6 +8,9 @@ import path = std.path;
 import string = std.string;
 import utf = std.utf;
 
+// Note: minid.state is only included to get around the forward reference error in DMD
+import minid.state;
+
 import minid.types;
 import minid.opcodes;
 
@@ -21,10 +24,24 @@ public MDFuncDef compileFile(char[] filename)
 	return compile(path.getBaseName(filename), f);
 }
 
-public MDFuncDef compile(char[] name, Stream source)
+public MDFuncDef compile(char[] name, Stream source, bool* atEOF = null)
 {
 	Token* tokens = Lexer.lex(name, source);
-	Chunk ck = Chunk.parse(tokens);
+
+	Chunk ck;
+
+	try
+	{
+		ck = Chunk.parse(tokens);
+	}
+	catch(Object o)
+	{
+		if(atEOF !is null && tokens.type == Token.Type.EOF)
+			*atEOF = true;
+
+		throw o;
+	}
+
 	return ck.codeGen();
 }
 
@@ -2177,37 +2194,41 @@ class FuncState
 
 	public void popAssign(uint line)
 	{
+		Exp* src = popExp();
 		Exp* dest = popExp();
-		Exp src;
 
 		switch(dest.type)
 		{
 			case ExpType.Local:
-				popToRegister(line, dest.index);
+				//popToRegister(line, dest.index);
+				toRegister(line, dest.index, src);
 				break;
 
 			case ExpType.Upvalue:
-				popSource(line, src);
+				//popSource(line, src);
+				toSource(line, src);
 
 				codeR(line, Op.SetUpvalue, 0, src.index, dest.index);
 
-				freeExpsTempRegs(dest, &src);
+				freeExpsTempRegs(dest, src);
 				break;
 
 			case ExpType.Global:
-				popSource(line, src);
+				//popSource(line, src);
+				toSource(line, src);
 
 				codeR(line, Op.SetGlobal, 0, src.index, dest.index);
 
-				freeExpsTempRegs(dest, &src);
+				freeExpsTempRegs(dest, src);
 				break;
 
 			case ExpType.Indexed:
-				popSource(line, src);
+				//popSource(line, src);
+				toSource(line, src);
 
 				codeR(line, Op.IndexAssign, dest.index, dest.index2, src.index);
 
-				freeExpsTempRegs(dest, &src);
+				freeExpsTempRegs(dest, src);
 				break;
 		}
 	}
@@ -2218,6 +2239,11 @@ class FuncState
 
 		assert(src.type != ExpType.Void, "pop void to reg");
 
+		toRegister(line, reg, src);
+	}
+	
+	public void toRegister(uint line, uint reg, Exp* src)
+	{
 		switch(src.type)
 		{
 			case ExpType.Null:
@@ -2406,6 +2432,51 @@ class FuncState
 		toSource(line, e);
 		toSource(line, index);
 
+		
+		/*
+		x = a.b.c[c.d.e[f.g.h]]
+
+		push x
+
+		push a
+		toptosource
+		push "b"
+		popindex
+		toptosource => idx t0, a, "b"
+		push "c"
+		popindex
+		toptosource
+			push c
+			push "d"
+			popindex
+			push "e"
+			popindex
+			toptosource
+				push f
+				push "g"
+				popindex
+				push "h"
+				popindex
+			popindex
+		popindex
+
+		popassign
+
+		"c"
+		src t0
+
+		idx t0, a, "b"
+		idx t0, t0, "c"
+		idx t1, c, "d"
+		idx t1, t1, "e"
+		idx t2, f, "g"
+		idx t2, t2, "h"
+		idx t1, t1, t2
+		idx x, t0, t1
+		*/
+
+		//freeExpTempRegs(index);
+
 		e.index2 = index.index;
 		e.isTempReg2 = index.isTempReg;
 		e.type = ExpType.Indexed;
@@ -2415,6 +2486,11 @@ class FuncState
 	{
 		n = *popExp();
 		toSource(line, &n);
+	}
+	
+	public void topToSource(uint line)
+	{
+		toSource(line, &mExpStack[mExpSP - 1]);
 	}
 
 	protected void toSource(uint line, Exp* e)
@@ -2473,19 +2549,31 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
-				if(e.isTempReg)
+				/*if(e.isTempReg)
 				{
 					if(e.isTempReg2)
 					{
-						// 2 temp regs to choose from.  Put result in index, free index2.
-						codeR(line, Op.Index, e.index, e.index, e.index2);
-						popRegister(e.index2);
+						// 2 temp regs to choose from.
+						
+						if(e.index < e.index2)
+						{
+							codeR(line, Op.Index, e.index, e.index, e.index2);
+							popRegister(e.index2);
+							temp.index = e.index;
+						}
+						else
+						{
+							codeR(line, Op.Index, e.index2, e.index, e.index2);
+							popRegister(e.index);
+							temp.index = e.index2;
+						}
 					}
 					else
+					{
 						// 1 temp reg, just put it in there.
 						codeR(line, Op.Index, e.index, e.index, e.index2);
-
-					temp.index = e.index;
+						temp.index = e.index;
+					}
 				}
 				else if(e.isTempReg2)
 				{
@@ -2501,6 +2589,12 @@ class FuncState
 				}
 				
 				temp.isTempReg = true;
+				temp.isTempReg2 = false;*/
+				
+				freeExpTempRegs(e);
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeR(line, Op.Index, temp.index, e.index, e.index2);
 				break;
 
 			case ExpType.NeedsDest:
@@ -3059,7 +3153,10 @@ class ClassDef
 					
 					addField(name, v);
 					break;
-					
+
+				case Token.Type.EOF:
+					throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
+
 				default:
 					break;
 			}
@@ -3179,7 +3276,7 @@ class Chunk
 		{
 			foreach(Statement s; mStatements)
 				s.codeGen(fs);
-				
+
 			fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 		}
 		finally
@@ -3343,8 +3440,6 @@ class ExpressionStatement : Statement
 		t.check(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
-		
-		exp.checkToNothing();
 
 		return new ExpressionStatement(location, endLocation, exp);
 	}
@@ -3525,8 +3620,8 @@ class ClassDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
-		mDef.codeGen(s);
 		s.pushVar(mDef.mName);
+		mDef.codeGen(s);
 		s.popAssign(mLocation.line);
 	}
 }
@@ -3700,9 +3795,9 @@ class LocalFuncDecl : Declaration
 		s.insertLocal(mDecl.mName);
 		s.activateLocals(1);
 
+		s.pushVar(mDecl.mName);
 		mDecl.codeGen(s);
 
-		s.pushVar(mDecl.mName);
 		s.popAssign(mEndLocation.line);
 	}
 
@@ -3845,11 +3940,12 @@ class FuncDecl : Declaration
 
 	public override void codeGen(FuncState s)
 	{
-		mFunc.codeGen(s);
 		s.pushVar(mNames[0]);
 
 		foreach(Identifier n; mNames[1 .. $])
 			s.popField(mLocation.line, n);
+			
+		mFunc.codeGen(s);
 
 		s.popAssign(mLocation.line);
 	}
@@ -4314,10 +4410,10 @@ class ForStatement : Statement
 			
 			s.pushScope();
 				s.setContinuable();
-	
+				
 				if(mInitDecl)
 					mInitDecl.codeGen(s);
-				else
+				else if(mInit)
 				{
 					mInit.checkToNothing();
 					mInit.codeGen(s);
@@ -4327,7 +4423,7 @@ class ForStatement : Statement
 				InstRef* beginLoop = s.getLabel();
 	
 				InstRef* cond;
-	
+				
 				if(mCondition)
 				{
 					cond = mCondition.codeCondition(s);
@@ -5330,8 +5426,8 @@ class Assignment : Expression
 	{
 		if(mLHS.length == 1)
 		{
-			mRHS.codeGen(s);
 			mLHS[0].codeGen(s);
+			mRHS.codeGen(s);
 			s.popAssign(mEndLocation.line);
 		}
 		else
@@ -5475,8 +5571,8 @@ class OpEqExp : BinaryExp
 
 	public override void codeGen(FuncState s)
 	{
-		super.codeGen(s);
 		mOp1.codeGen(s);
+		super.codeGen(s);
 		s.popAssign(mEndLocation.line);
 	}
 
@@ -6553,6 +6649,9 @@ class DotExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
+		
+		s.topToSource(mEndLocation.line);
+
 		//s.pushString(mIdent.mIdent.mName);
 		//s.popIndex(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
@@ -6719,6 +6818,9 @@ class IndexExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
+		
+		s.topToSource(mEndLocation.line);
+
 		mIndex.codeGen(s);
 		s.popIndex(mEndLocation.line);
 	}

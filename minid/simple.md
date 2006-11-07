@@ -1,3 +1,214 @@
+
+
+/*class Container
+{
+	method insert(data) { }
+	method remove() { }
+	method hasData() { return false; }
+}
+
+class PQ : Container
+{
+	mData;
+	mLength = 0;
+	
+	method constructor()
+	{
+		this.mData = array.new(15);
+	}
+	
+	method insert(data)
+	{
+		this:resizeArray();
+		
+		this.mData[this.mLength] = data;
+		
+		local index = this.mLength;
+		local parentIndex = (index - 1) / 2;
+		
+		while(index > 0 && this.mData[parentIndex] > this.mData[index])
+		{
+			local temp = this.mData[parentIndex];
+			this.mData[parentIndex] = this.mData[index];
+			this.mData[index] = temp;
+
+			index = parentIndex;
+			parentIndex = (index - 1) / 2;
+		}
+		
+		this.mLength += 1;
+	}
+	
+	method remove()
+	{
+		if(this.mLength == 0)
+			throw "PQ:remove() - No items to remove";
+			
+		local data = this.mData[0];
+		this.mLength -= 1;
+		this.mData[0] = this.mData[this.mLength];
+		
+		local index = 0;
+		local left = 1;
+		local right = 2;
+
+		while(index < this.mLength)
+		{
+			local smaller;
+			
+			if(left >= this.mLength)
+			{
+				if(right >= this.mLength)
+					break;
+				else
+					smaller = right;
+			}
+			else
+			{
+				if(right >= this.mLength)
+					smaller = left;
+				else
+				{
+					if(this.mData[left] < this.mData[right])
+						smaller = left;
+					else
+						smaller = right;
+				}
+			}
+
+			if(this.mData[index] > this.mData[smaller])
+			{
+				local temp = this.mData[index];
+				this.mData[index] = this.mData[smaller];
+				this.mData[smaller] = temp;
+				
+				index = smaller;
+				left = (index * 2) + 1;
+				right = left + 1;
+			}
+			else
+				break;
+		}
+		
+		return data;
+	}
+	
+	method resizeArray()
+	{
+		if(this.mLength >= #this.mData)
+			this.mData:length((#this.mData + 1) * 2 - 1);
+	}
+	
+	method hasData()
+	{
+		return this.mLength != 0;
+	}
+}
+
+class Stack : Container
+{
+	mHead = null;
+	
+	method insert(data)
+	{
+		local t = { data = data, next = this.mHead };
+		this.mHead = t;
+	}
+	
+	method remove()
+	{
+		if(this.mHead is null)
+			throw "Stack:remove() - No items to pop";
+			
+		local item = this.mHead;
+		this.mHead = this.mHead.next;
+		
+		return item.data;
+	}
+	
+	method hasData()
+	{
+		return this.mHead !is null;
+	}
+}
+
+class Queue : Container
+{
+	mHead = null;
+	mTail = null;
+
+	method insert(data)
+	{
+		local t = { data = data };
+
+		if(this.mTail is null)
+		{
+			this.mHead = t;
+			this.mTail = t;
+		}
+		else
+		{
+			this.mTail.next = t;
+			this.mTail = t;
+		}
+	}
+	
+	method remove()
+	{
+		if(this.mTail is null)
+			throw "Queue:pop() - No items to pop";
+			
+		local item = this.mHead;
+		this.mHead = this.mHead.next;
+		
+		if(this.mHead is null)
+			this.mTail = null;
+			
+		return item.data;
+	}
+	
+	method hasData()
+	{
+		return this.mHead !is null;
+	}
+}
+
+local pq = PQ();
+
+for(local i = 0; i < 5; ++i)
+	pq:insert(math.rand(0, 20));
+
+writefln("Priority queue (heap)");
+
+while(pq:hasData())
+	writefln(pq:remove());
+	
+writefln();
+
+local s = Stack();
+
+for(local i = 0; i < 5; ++i)
+	s:insert(i + 1);
+	
+writefln("Stack");
+
+while(s:hasData())
+	writefln(s:remove());
+
+writefln();
+
+local q = Queue();
+
+for(local i = 0; i < 5; ++i)
+	q:insert(i + 1);
+	
+writefln("Queue");
+
+while(q:hasData())
+	writefln(q:remove());
+
+writefln();*/
+
 /*class Test
 {
 	mData = [4, 5, 6];
@@ -10,7 +221,7 @@
 			
 			if(index >= #this.mData)
 				return;
-				
+
 			return index, this.mData[index];
 		}
 		
@@ -35,7 +246,7 @@ local t = Test();
 
 foreach(local k, local v; t)
 	writefln("t[", k, "] = ", v);
-	
+
 writefln();
 
 foreach(local k, local v; t, "reverse")
@@ -148,33 +359,18 @@ catch(e)
 
 writefln();
 
-function arrayIterator(array, index)
-{
-	++index;
-
-	if(index >= #array)
-		return null;
-
-	return index, array[index];
-}
-
-function pairs(container)
-{
-	return arrayIterator, container, -1;
-}
-
 local arr = [3, 5, 7];
 
 arr:sort();
 
-foreach(local i, local v; pairs(arr))
+foreach(local i, local v; arr)
 	writefln("arr[", i, "] = ", v);
 
 arr ~= ["foo", "far"];
 
 writefln();
 
-foreach(local i, local v; pairs(arr))
+foreach(local i, local v; arr)
 	writefln("arr[", i, "] = ", v);
 
 writefln();
@@ -223,7 +419,7 @@ writefln();
 
 local stringArray = ["hi", "bye", "foo"];
 
-foreach(local i, local v; pairs(stringArray))
+foreach(local i, local v; stringArray)
 {
 	switch(v)
 	{

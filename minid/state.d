@@ -65,33 +65,25 @@ private void putInValue(T)(MDValue* dest, T src)
 
 class MDGlobalState
 {
-	public static MDGlobalState instance;
+	private static MDGlobalState instance;
 	private MDState mMainThread;
 	private MDTable[] mBasicTypeMT;
 
 	public static MDGlobalState opCall()
 	{
-		debug if(instance is null)
-			throw new MDException("MDGlobalState is not initialized");
+		if(instance is null)
+			instance = new MDGlobalState();
 
 		return instance;
 	}
 
-	public static void initialize()
+	private this()
 	{
-		instance = new MDGlobalState();
-	}
-
-	public this()
-	{
-		if(instance !is null)
-			throw new MDException("MDGlobalState is a singleton and cannot be created more than once");
-
 		mMainThread = new MDState();
 		mBasicTypeMT = new MDTable[MDValue.Type.max + 1];
-
-		instance = this;
 	}
+	
+	import minid.types;
 
 	public MDTable getMetatable(MDValue.Type type)
 	{

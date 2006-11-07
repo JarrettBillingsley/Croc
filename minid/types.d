@@ -6,8 +6,8 @@ import format = std.format;
 import std.c.string;
 import std.stdarg;
 
-import minid.opcodes;
 import minid.state;
+import minid.opcodes;
 
 const uint MaxRegisters = Instruction.rs1Max >> 1;
 const uint MaxConstants = Instruction.constMax;
@@ -28,7 +28,6 @@ char[] vformat(TypeInfo[] arguments, void* argptr)
 	return s;
 }
 
-import std.stdio;
 class MDException : Exception
 {
 	public MDValue value;
@@ -1114,7 +1113,7 @@ class MDInstance : MDObject
 		if(ptr !is &MDValue.nullValue)
 			return ptr;
 			
-		return &MDValue.nullValue;//mClass[index];
+		return &MDValue.nullValue;
 	}
 	
 	public MDValue* opIndex(MDObject index)
@@ -1476,7 +1475,7 @@ struct MDValue
 	{
 		return typeString(mType);
 	}
-	
+
 	public bool isNull()
 	{
 		return (mType == Type.Null);
