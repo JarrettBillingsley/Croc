@@ -208,6 +208,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 							break;
 
 						default:
+							// unsupported: %p
 							throw new MDRuntimeException(s, "Unsupported format specifier '%c' in parameter ", c, formatStrIndex);
 					}
 				}
@@ -409,16 +410,18 @@ public void init(MDState s)
 {
 	BaseLib lib = new BaseLib();
 
+	s.setGlobal("assert"d,       new MDClosure(s, &lib.mdassert,     "assert"));
+	s.setGlobal("getTraceback"d, new MDClosure(s, &lib.getTraceback, "getTraceback"));
+	s.setGlobal("delegate"d,     new MDClosure(s, &lib.mddelegate,   "delegate"));
+	s.setGlobal("typeof"d,       new MDClosure(s, &lib.mdtypeof,     "typeof"));
+	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
+	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));
+	s.setGlobal("format"d,       new MDClosure(s, &lib.mdformat,     "format"));
+
 	s.setGlobal("writefln"d,     new MDClosure(s, &lib.mdwritefln,   "writefln"));
 	s.setGlobal("writef"d,       new MDClosure(s, &lib.mdwritef,     "writef"));
 	s.setGlobal("writeln"d,      new MDClosure(s, &lib.writeln,      "writeln"));
 	s.setGlobal("write"d,        new MDClosure(s, &lib.write,        "write"));
-	s.setGlobal("format"d,       new MDClosure(s, &lib.mdformat,     "format"));
-	s.setGlobal("typeof"d,       new MDClosure(s, &lib.mdtypeof,     "typeof"));
-	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
-	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));
-	s.setGlobal("delegate"d,     new MDClosure(s, &lib.mddelegate,   "delegate"));
-	s.setGlobal("getTraceback"d, new MDClosure(s, &lib.getTraceback, "getTraceback"));
 	s.setGlobal("isNull"d,       new MDClosure(s, &lib.isNull,       "isNull"));
 	s.setGlobal("isBool"d,       new MDClosure(s, &lib.isBool,       "isBool"));
 	s.setGlobal("isInt"d,        new MDClosure(s, &lib.isInt,        "isInt"));
@@ -432,5 +435,4 @@ public void init(MDState s)
 	s.setGlobal("isClass"d,      new MDClosure(s, &lib.isClass,      "isClass"));
 	s.setGlobal("isInstance"d,   new MDClosure(s, &lib.isInstance,   "isInstance"));
 	s.setGlobal("isDelegate"d,   new MDClosure(s, &lib.isDelegate,   "isDelegate"));
-	s.setGlobal("assert"d,       new MDClosure(s, &lib.mdassert,     "assert"));
 }

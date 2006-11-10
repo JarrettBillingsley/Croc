@@ -163,6 +163,7 @@ class MDState
 		mStack = new MDValue[20];
 
 		mGlobals = new MDTable();
+		mGlobals["_G"d] = mGlobals;
 	}
 
 	debug final public void printStack()
@@ -254,7 +255,7 @@ class MDState
 			
 			MDValue* ctor = n.getCtor();
 
-			if(!ctor.isNull())
+			if(ctor !is null)
 			{
 				getAbsStack(slot).value = n;
 				directCall(ctor.asFunction(), slot, 0, slot, numParams + 1);
@@ -268,11 +269,31 @@ class MDState
 			MDClosure closure = func.asFunction();
 			directCall(closure, slot, numReturns, slot + 1, numParams);
 		}
+		else if(func.isDelegate())
+		{
+			MDDelegate dg = func.asDelegate();
+			
+			MDClosure closure = dg.getClosure();
+			MDValue[] context = dg.getContext();
+
+			if(context.length > 1)
+			{
+				needStackSlots(context.length - 1);
+
+				for(int i = mStackIndex + context.length - 2; i > slot + context.length - 1; i--)
+					copyAbsStack(i, i - 1);
+			}
+
+			for(int i = slot, j = 0; j < context.length; i++, j++)
+				getAbsStack(i).value = &context[j];
+				
+			directCall(closure, slot, numReturns, slot, numParams + context.length);
+		}
 		else
 		{
 			MDValue* method = getMM(func, MM.Call);
 
-			if(!method.isFunction())
+			if(method is null || !method.isFunction())
 				throw new MDRuntimeException(this, "Attempting to call a value of type '%s'", func.typeString());
 
 			directCall(method.asFunction(), slot, numReturns, slot, numParams + 1);
@@ -321,9 +342,15 @@ class MDState
 	{
 		MDValue key;
 		key.value = new MDString(name);
-		return mGlobals[&key];
+		
+		MDValue* value = mGlobals[&key];
+		
+		if(value is null)
+			throw new MDRuntimeException(this, "MDState.getGlobal() - Attempting to access nonexistant global '%s'", name);
+
+		return value;
 	}
-	
+
 	public void setUpvalue(T)(uint index, T value)
 	{
 		if(!mCurrentAR.func)
@@ -798,7 +825,7 @@ class MDState
 			
 			debug(STACKINDEX) writefln("directCall of function '%s'", closure.toString(), " set mStackIndex to ", mStackIndex, " (local stack size = ", funcDef.mStackSize, ", base = ", base, ")");
 
-			for(int i = base + funcDef.mStackSize; i >= 0 && i >= mStackIndex; i--)
+			for(int i = base + funcDef.mStackSize; i >= 0 && i >= base + numParams; i--)
 				getAbsStack(i).setNull();
 
 			mCurrentAR.savedTop = mStackIndex;
@@ -1219,23 +1246,17 @@ class MDState
 			case MDValue.Type.Table:
 				MDValue* m = obj.asTable[&MetaStrings[method]];
 
-				if(m.isNull() == false)
+				if(m !is null)
 					return m;
 
 				goto default;
 
 			case MDValue.Type.Instance:
-				return obj.asInstance[&MetaStrings[method]];
+				return obj.asInstance[MetaStrings[method].asString()];
 
 			case MDValue.Type.Userdata:
 				t = obj.asUserdata().metatable;
 				break;
-
-			case MDValue.Type.Delegate:
-				if(method == MM.Call)
-					return obj.asDelegate().getCaller();
-
-				goto default;
 
 			default:
 				t = MDGlobalState().getMetatable(obj.type);
@@ -1243,7 +1264,7 @@ class MDState
 		}
 
 		if(t is null)
-			return &MDValue.nullValue;
+			return null;
 
 		return t[&MetaStrings[method]];
 	}
@@ -1254,26 +1275,31 @@ class MDState
 
 	protected void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
 	{
-		MDValue* method = getMM(dest, MM.IndexAssign);
-
-		if(method.isNull() == false)
+		void tryMM(lazy MDException ex)
 		{
+			MDValue* method = getMM(dest, MM.IndexAssign);
+
+			if(method is null)
+				throw ex;
+
 			if(method.isFunction() == false && method.isDelegate() == false)
 				throw new MDRuntimeException(this, "Invalid opIndexAssign metamethod for type '%s'", dest.typeString());
-
+	
 			uint funcSlot = push(method);
 			push(dest);
 			push(key);
 			push(value);
 			call(funcSlot, 3, 0);
-			return;
 		}
-		
+
 		switch(dest.type)
 		{
 			case MDValue.Type.Array:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString());
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString()));
+					break;
+				}
 
 				MDValue* val = dest.asArray[key.asInt];
 	
@@ -1288,51 +1314,71 @@ class MDState
 				break;
 
 			case MDValue.Type.Instance:
-				MDValue* val = dest.asInstance[key];
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index assign an instance with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				MDString k = key.asString();
+				MDValue* val = dest.asInstance[k];
+
+				if(val is null)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to add a member '%s' to a class instance", key.toString()));
+					break;
+				}
 
 				if(val.isFunction())
 					throw new MDRuntimeException(this, "Attempting to change method '%s' of class instance", key.toString());
 
-				if(val is &MDValue.nullValue)
-					throw new MDRuntimeException(this, "Attempting to add a member '%s' to a class instance", key.toString());
-
-				dest.asInstance()[key] = value;
+				val.value = value;
 				break;
 
 			case MDValue.Type.Class:
-				dest.asClass()[key] = value;
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index assign a class with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				dest.asClass()[key.asString()] = value;
 				break;
-				
+
 			default:
-				throw new MDRuntimeException(this, "Attempting to index assign a value of type '%s'", dest.typeString());
+				tryMM(new MDRuntimeException(this, "Attempting to index assign a value of type '%s'", dest.typeString()));
 				break;
 		}
 	}
 	
 	protected void index(uint dest, MDValue* src, MDValue* key)
 	{
-		MDValue* method = getMM(src, MM.Index);
-
-		if(method.isNull() == false)
+		void tryMM(lazy MDException ex)
 		{
+			MDValue* method = getMM(src, MM.Index);
+		
+			if(method is null)
+				throw ex;
+	
 			if(method.isFunction() == false && method.isDelegate() == false)
 				throw new MDRuntimeException(this, "Invalid opIndex metamethod for type '%s'", src.typeString());
-
+	
 			uint funcSlot = push(method);
 			push(src);
 			push(key);
 			call(funcSlot, 2, 1);
 			copyBasedStack(dest, funcSlot);
-
-			return;
 		}
-		
+
 		switch(src.type)
 		{
 			case MDValue.Type.Array:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString());
-	
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString()));
+					break;
+				}
+
 				if(key.asInt() < 0 || key.asInt() >= src.asArray.length)
 					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
 	
@@ -1341,8 +1387,11 @@ class MDState
 
 			case MDValue.Type.String:
 				if(key.isInt() == false)
-					throw new MDRuntimeException(this, "Attempting to access a string with a '%s'", key.typeString());
-					
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access a string with a '%s'", key.typeString()));
+					break;
+				}
+
 				if(key.asInt() < 0 || key.asInt() >= src.asString.length)
 					throw new MDRuntimeException(this, "Invalid string index: ", key.asInt());
 					
@@ -1350,24 +1399,55 @@ class MDState
 				break;
 
 			case MDValue.Type.Table:
-				getBasedStack(dest).value = src.asTable[key];
+				MDValue* val = src.asTable[key];
+				
+				if(val is null)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant index '%s' from table", key.toString()));
+					break;
+				}
+
+				getBasedStack(dest).value = val;
 				break;
 
 			case MDValue.Type.Instance:
-				MDValue* v = src.asInstance[key];
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index an instance with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				MDValue* v = src.asInstance[key.asString()];
 				
-				if(v is &MDValue.nullValue)
-					throw new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", key.toString());
+				if(v is null)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", key.toString()));
+					break;
+				}
 
 				getBasedStack(dest).value = v;
 				break;
 
 			case MDValue.Type.Class:
-				getBasedStack(dest).value = src.asClass[key];
-				break;
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index a class with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				MDValue* v = src.asClass[key.asString()];
 				
+				if(v is null)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class", key.toString()));
+					break;
+				}
+
+				getBasedStack(dest).value = v;
+				break;
+
 			default:
-				throw new MDRuntimeException(this, "Attempting to index a value of type '%s'", src.typeString());
+				tryMM(new MDRuntimeException(this, "Attempting to index a value of type '%s'", src.typeString()));
 				break;
 		}
 	}
@@ -1395,7 +1475,7 @@ class MDState
 			{
 				MDValue* method = s.getMM(src1, MM.Neg);
 
-				if(!method.isFunction() && !method.isDelegate())
+				if(method is null || (!method.isFunction() && !method.isDelegate()))
 					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
@@ -1450,7 +1530,7 @@ class MDState
 
 			MDValue* method = s.getMM(src1, mmType);
 
-			if(!method.isFunction() && !method.isDelegate())
+			if(method is null || (!method.isFunction() && !method.isDelegate()))
 			{
 				//method = s.getMM(src2, mmType);
 
@@ -1483,7 +1563,7 @@ class MDState
 			{
 				MDValue* method = s.getMM(src1, MM.Com);
 
-				if(!method.isFunction() && !method.isDelegate())
+				if(method is null || (!method.isFunction() && !method.isDelegate()))
 					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
 
 				uint funcSlot = s.push(method);
@@ -1521,7 +1601,7 @@ class MDState
 
 			MDValue* method = s.getMM(src1, mmType);
 
-			if(!method.isFunction() && !method.isDelegate())
+			if(method is null || (!method.isFunction() && !method.isDelegate()))
 			{
 				//method = s.getMM(src2, mmType);
 
@@ -1695,7 +1775,7 @@ class MDState
 						StackVal src = getBasedStack(i.rs1);
 						MDValue* method = getMM(src, MM.Length);
 						
-						if(method.isFunction() || method.isDelegate())
+						if(method !is null && (method.isFunction() || method.isDelegate()))
 						{
 							uint funcReg = push(method);
 							push(src);
@@ -1723,7 +1803,13 @@ class MDState
 					case Op.GetGlobal:
 						MDValue* index = getConst(i.imm);
 						assert(index.isString(), "trying to get a non-string global");
-						getBasedStack(i.rd).value = getEnvironment()[index];
+						
+						MDValue* val = getEnvironment()[index];
+						
+						if(val is null)
+							throw new MDRuntimeException(this, "Attempting to access nonexistant global '%s'", index.toString());
+
+						getBasedStack(i.rd).value = val;
 						break;
 	
 					case Op.SetGlobal:
@@ -1820,7 +1906,7 @@ class MDState
 						{
 							MDValue* apply = getMM(&src, MM.Apply);
 							
-							if(apply.isNull())
+							if(apply is null)
 								throw new MDRuntimeException(this, "No implementation of opApply for type '%s'", src.typeString());
 
 							copyBasedStack(rd + 2, rd + 1);
@@ -1895,7 +1981,7 @@ class MDState
 
 						MDValue* method = getMM(src1, MM.Cat);
 
-						if(!method.isFunction() && !method.isDelegate())
+						if(method is null || (!method.isFunction() && !method.isDelegate()))
 						{
 							//method = getMM(src2, MM.Cat);
 
@@ -1946,9 +2032,14 @@ class MDState
 
 						if(src.isInstance())
 						{
-							MDValue* v = src.asInstance[getCR2()];
+							MDValue* key = getCR2();
+
+							if(!key.isString())
+								throw new MDRuntimeException(this, "Attempting to index an instance with a key of type '%s'", key.typeString());
+
+							MDValue* v = src.asInstance[key.asString()];
 							
-							if(v is &MDValue.nullValue)
+							if(v is null)
 								throw new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", getCR2().toString());
 
 							getBasedStack(i.rd).value = v;
@@ -1959,7 +2050,7 @@ class MDState
 						{
 							MDValue* val = src.asTable[getCR2()];
 
-							if(val.isFunction() || val.isDelegate())
+							if(val !is null && (val.isFunction() || val.isDelegate()))
 							{
 								getBasedStack(i.rd).value = val;
 								break;
@@ -1971,7 +2062,13 @@ class MDState
 						if(metatable is null)
 							throw new MDRuntimeException(this, "No metatable for type '%s'", src.typeString());
 
-						getBasedStack(i.rd).value = metatable[getCR2()];
+						MDValue* key = getCR2();
+						MDValue* method = metatable[key];
+
+						if(method is null)
+							throw new MDRuntimeException(this, "No implementation of method '%s' for type '%s'", key.toString(), src.typeString());
+
+						getBasedStack(i.rd).value = method;
 						break;
 
 					case Op.Call:
@@ -2031,7 +2128,7 @@ class MDState
 	
 					case Op.Throw:
 						throw new MDRuntimeException(this, getCR1());
-						
+
 					case Op.Class:
 						StackVal base = getCR2();
 

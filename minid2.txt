@@ -445,6 +445,7 @@ TableField:
 	Identifier '=' Expression
 	'[' Expression ']' '=' Expression
 	SimpleFunctionDeclaration
+	MethodDeclaration
 
 ArrayCtor:
 	'[' [Expression {',' Expression}] ']'

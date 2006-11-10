@@ -25,7 +25,7 @@ void main()
 	iolib.init(state);
 
 	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
-	
+
 	try
 	{
 		state.easyCall(cl, 0u);

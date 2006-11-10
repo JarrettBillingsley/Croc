@@ -296,6 +296,9 @@ align(1) struct Instruction
 				return string.format("varg r%s, %s", rd, uimm);
 			case Op.Xor:
 				return string.format("xor r%s, %s, %s", rd, cr(rs1), cr(rs2));
+				
+			default:
+				return string.format("??? opcode = ", opcode);
 		}
 	}
 }

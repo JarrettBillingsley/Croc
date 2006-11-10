@@ -1,4 +1,122 @@
+function mixinProperties(classType, vararg)
+{
+	classType.mProps = { };
+	
+	classType.opIndex = function(this, key)
+	{
+		if(!this.mProps:contains(key))
+			throw format(classType, ":opIndex() - Property '%s' does not exist", key);
+			
+		local prop = this.mProps[key];
+		
+		if(!prop:contains("getter"))
+			throw format(classType, ":opIndex() - Property '%s' has no getter", key);
+			
+		return prop.getter(this);
+	};
+	
+	classType.opIndexAssign = function(this, key, value)
+	{
+		if(!this.mProps:contains(key))
+			throw format(classType, ":opIndexAssign() - Property '%s' does not exist", key);
+			
+		local prop = this.mProps[key];
+		
+		if(!prop:contains("setter"))
+			throw format(classType, ":opIndexAssign() - Property '%s' has no setter", key);
+			
+		prop.setter(this, value);
+	};
+	
+	foreach(local k, local v; [vararg])
+	{
+		if(!isTable(v))
+			throw "mixinProperties() - properties must be tables";
+		
+		if(!v:contains("name"))
+			throw format("mixinProperties() - property ", k, " has no name");
 
+		if(!v:contains("setter") && !v:contains("getter"))
+			throw format("mixinProperties() - property '%s' has no getter or setter", v.name);
+
+		classType.mProps[v.name] = v;
+	}
+}
+
+class PropTest
+{
+	mX = 0;
+	mY = 0;
+	mName = "";
+	
+	method constructor(name)
+	{
+		this.mName = name;
+	}
+	
+	method toString()
+	{
+		return format("name = '", this.mName, "' x = ", this.mX, " y = ", this.mY);
+	}
+}
+
+mixinProperties(
+	PropTest,
+
+	{
+		name = "x",
+		
+		method setter(value)
+		{
+			this.mX = value;
+		}
+		
+		method getter()
+		{
+			return this.mX;
+		}
+	},
+	
+	{
+		name = "y",
+		
+		method setter(value)
+		{
+			this.mY = value;
+		}
+		
+		method getter()
+		{
+			return this.mY;
+		}
+	},
+
+	{
+		name = "name",
+		
+		method getter()
+		{
+			return this.mName;
+		}
+	}
+);
+	
+local p = PropTest("hello");
+
+writefln(p:toString());
+p.x = 46;
+p.y = 123;
+p.x = p.x + p.y;
+writefln(p:toString());
+
+try
+{
+	p.name = "crap";
+}
+catch(e)
+{
+	writefln("caught: ", e);
+}
 
 /*class Container
 {
@@ -11,7 +129,7 @@ class PQ : Container
 {
 	mData;
 	mLength = 0;
-	
+
 	method constructor()
 	{
 		this.mData = array.new(15);
@@ -43,7 +161,7 @@ class PQ : Container
 	{
 		if(this.mLength == 0)
 			throw "PQ:remove() - No items to remove";
-			
+
 		local data = this.mData[0];
 		this.mLength -= 1;
 		this.mData[0] = this.mData[this.mLength];
@@ -139,7 +257,7 @@ class Queue : Container
 
 	method insert(data)
 	{
-		local t = { data = data };
+		local t = { data = data, next = null };
 
 		if(this.mTail is null)
 		{
@@ -215,30 +333,34 @@ writefln();*/
 
 	method opApply(extra)
 	{
-		function iterator(this, index)
-		{
-			++index;
-			
-			if(index >= #this.mData)
-				return;
-
-			return index, this.mData[index];
-		}
-		
-		function iterator_reverse(this, index)
-		{
-			--index;
-			
-			if(index < 0)
-				return;
-				
-			return index, this.mData[index];
-		}
-
 		if(isString(extra) && extra == "reverse")
+		{
+			local function iterator_reverse(this, index)
+			{
+				--index;
+				
+				if(index < 0)
+					return;
+					
+				return index, this.mData[index];
+			}
+
 			return iterator_reverse, this, #this.mData;
+		}
 		else
+		{
+			local function iterator(this, index)
+			{
+				++index;
+	
+				if(index >= #this.mData)
+					return;
+	
+				return index, this.mData[index];
+			}
+
 			return iterator, this, -1;
+		}
 	}
 }
 
@@ -296,7 +418,7 @@ for(local i = 0; i < 10; ++i)
 for(local i = 0; i < #a; ++i)
 	writefln(a[i]());*/
 
-/*writefln();
+/* writefln();
 
 local function outer()
 {
@@ -435,4 +557,4 @@ foreach(local i, local v; stringArray)
 			writefln("switched to something else");
 			break;
 	}
-}*/
+} */

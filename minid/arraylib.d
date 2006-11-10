@@ -65,8 +65,8 @@ class ArrayLib
 		
 		if(s.numParams() == 1)
 		{
-			lo = 0;
-			hi = arr.length;
+			s.push(arr);
+			return 1;
 		}
 		else if(s.numParams() == 2)
 		{

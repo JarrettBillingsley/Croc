@@ -671,7 +671,7 @@ class MDTable : MDObject
 		MDValue* ptr = (*index in mData);
 
 		if(ptr is null)
-			return &MDValue.nullValue;
+			return null;
 
 		return ptr;
 	}
@@ -906,9 +906,7 @@ class MDArray : MDObject
 	
 	public MDArray opSlice(uint lo, uint hi)
 	{
-		MDArray n = new MDArray(0);
-		n.mData = mData[lo .. hi].dup;
-		return n;
+		return new MDArray(mData[lo .. hi]);
 	}
 
 	package void setBlock(uint block, MDValue[] data)
@@ -936,16 +934,18 @@ class MDClass : MDObject
 {
 	protected dchar[] mGuessedName;
 	protected MDClass mBaseClass;
-	protected MDTable mFields;
-	protected MDTable mMethods;
-	
-	protected static MDValue CtorString;
-	protected static MDValue SuperString;
+	//protected MDTable mFields;
+	//protected MDTable mMethods;
+	protected MDValue[MDString] mFields;
+	protected MDValue[MDString] mMethods;
+
+	protected static MDString CtorString;
+	protected static MDString SuperString;
 	
 	static this()
 	{
-		CtorString.value = new MDString("constructor"d);
-		SuperString.value = new MDString("super"d);
+		CtorString = new MDString("constructor"d);
+		SuperString = new MDString("super"d);
 	}
 
 	package this(MDState s, dchar[] guessedName, MDClass baseClass)
@@ -953,8 +953,8 @@ class MDClass : MDObject
 		mGuessedName = guessedName.dup;
 		mBaseClass = baseClass;
 
-		mMethods = new MDTable();
-		mFields = new MDTable();
+		//mMethods = new MDTable();
+		//mFields = new MDTable();
 		
 		if(baseClass !is null)
 		{
@@ -964,10 +964,10 @@ class MDClass : MDObject
 			foreach(key, value; mBaseClass.mFields)
 				mFields[key] = value;
 				
-			MDValue* superCtor = mBaseClass[&CtorString];
+			MDValue* superCtor = mBaseClass[CtorString];
 			
-			if(superCtor.isNull() == false)
-				mMethods[&SuperString] = superCtor;
+			if(superCtor !is null)
+				mMethods[SuperString] = *superCtor;
 		}
 	}
 
@@ -990,55 +990,56 @@ class MDClass : MDObject
 	{
 		MDInstance n = new MDInstance();
 		n.mClass = this;
-		n.mFields = mFields.dup;
+		
+		foreach(k, v; mFields)
+			n.mFields[k] = v;
+
+		//n.mFields = mFields.dup;
 		n.mMethods = mMethods;
 
 		return n;
 	}
 
-	public MDValue* opIndex(MDValue* index)
+	public MDValue* opIndex(MDString index)
 	{
 		//TODO: Statics?
 		/*MDValue* ptr = mStaticMembers[index];
-		
-		if(ptr !is &MDValue.nullValue)
+
+		if(ptr !is null)
 			return ptr;*/
 
-		MDValue* ptr = mMethods[index];
+		MDValue* ptr = (index in mMethods);
 
-		if(ptr !is &MDValue.nullValue)
+		if(ptr !is null)
 			return ptr;
 
-		ptr = mFields[index];
+		ptr = (index in mFields);
 
-		if(ptr !is &MDValue.nullValue)
+		if(ptr !is null)
 			return ptr;
 			
 		if(mBaseClass !is null)
 			return mBaseClass[index];
 		else
-			return &MDValue.nullValue;
+			return null;
 	}
 	
 	public MDValue* opIndex(dchar[] index)
 	{
-		MDValue key;
-		key.value = new MDString(index);
-		
-		return opIndex(&key);
+		return opIndex(new MDString(index));
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
+	public MDValue* opIndexAssign(MDValue* value, MDString index)
 	{
 		if(value.isFunction())
-			mMethods[index] = value;
+			mMethods[index] = *value;
 		else
-			mFields[index] = value;
+			mFields[index] = *value;
 			
 		return value;
 	}
 
-	public MDValue* opIndexAssign(MDObject value, MDValue* index)
+	public MDValue* opIndexAssign(MDObject value, MDString index)
 	{
 		MDValue val;
 		val.value = value;
@@ -1047,21 +1048,15 @@ class MDClass : MDObject
 
 	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
 	{
-		MDValue idx;
-		idx.value = new MDString(index);
-
-		return opIndexAssign(value, &idx);
+		return opIndexAssign(value, new MDString(index));
 	}
 	
 	public MDValue* opIndexAssign(MDObject value, dchar[] index)
 	{
-		MDValue idx;
-		idx.value = new MDString(index);
-		
 		MDValue val;
 		val.value = value;
 		
-		return opIndexAssign(&val, &idx);
+		return opIndexAssign(&val, new MDString(index));
 	}
 	
 	public dchar[] getName()
@@ -1078,8 +1073,10 @@ class MDClass : MDObject
 class MDInstance : MDObject
 {
 	protected MDClass mClass;
-	protected MDTable mFields;
-	protected MDTable mMethods;
+	//protected MDTable mFields;
+	//protected MDTable mMethods;
+	protected MDValue[MDString] mFields;
+	protected MDValue[MDString] mMethods;
 
 	private this()
 	{
@@ -1101,48 +1098,37 @@ class MDInstance : MDObject
 		throw new MDException("Cannot get the length of a class instance");
 	}
 	
-	public MDValue* opIndex(MDValue* index)
+	public MDValue* opIndex(MDString index)
 	{
-		MDValue* ptr = mMethods[index];
+		MDValue* ptr = (index in mMethods);
 		
-		if(ptr !is &MDValue.nullValue)
+		if(ptr !is null)
 			return ptr;
 
-		ptr = mFields[index];
+		ptr = (index in mFields);
 		
-		if(ptr !is &MDValue.nullValue)
+		if(ptr !is null)
 			return ptr;
 			
-		return &MDValue.nullValue;
-	}
-	
-	public MDValue* opIndex(MDObject index)
-	{
-		MDValue idx;
-		idx.value = index;
-		
-		return opIndex(&idx);
+		return null;
 	}
 	
 	public MDValue* opIndex(dchar[] index)
 	{
-		MDValue key;
-		key.value = new MDString(index);
-		
-		return opIndex(&key);
+		return opIndex(new MDString(index));
 	}
 	
-	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
+	public MDValue* opIndexAssign(MDValue* value, MDString index)
 	{
 		if(value.isFunction())
 			throw new MDException("Attempting to change a method of a class instance!");
 		else
-			mFields[index] = value;
+			mFields[index] = *value;
 			
 		return value;
 	}
 
-	public MDValue* opIndexAssign(MDObject value, MDValue* index)
+	public MDValue* opIndexAssign(MDObject value, MDString index)
 	{
 		MDValue val;
 		val.value = value;
@@ -1151,21 +1137,15 @@ class MDInstance : MDObject
 
 	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
 	{
-		MDValue idx;
-		idx.value = new MDString(index);
-
-		return opIndexAssign(value, &idx);
+		return opIndexAssign(value, new MDString(index));
 	}
 	
 	public MDValue* opIndexAssign(MDObject value, dchar[] index)
 	{
-		MDValue idx;
-		idx.value = new MDString(index);
-		
 		MDValue val;
 		val.value = value;
 		
-		return opIndexAssign(&val, &idx);
+		return opIndexAssign(&val, new MDString(index));
 	}
 
 	public char[] toString()
@@ -1175,6 +1155,8 @@ class MDInstance : MDObject
 	
 	public bool castToClass(MDClass cls)
 	{
+		assert(cls !is null, "MDInstance.castToClass() class is null");
+
 		for(MDClass c = mClass; c !is null; c = c.mBaseClass)
 		{
 			if(c is cls)
@@ -1184,10 +1166,10 @@ class MDInstance : MDObject
 		return false;
 	}
 
-	package MDTable getMethodTable()
-	{
-		return mMethods;
-	}
+	//package MDTable getMethodTable()
+	//{
+	//	return mMethods;
+	//}
 	
 	package MDClass getClass()
 	{
@@ -1196,7 +1178,7 @@ class MDInstance : MDObject
 	
 	package MDValue* getCtor()
 	{
-		return this[&MDClass.CtorString];
+		return this[MDClass.CtorString];
 	}
 }
 
@@ -1204,14 +1186,11 @@ class MDDelegate : MDObject
 {
 	protected MDValue[] mContext;
 	protected MDClosure mClosure;
-	protected MDValue mWrapper;
 
 	public this(MDState s, MDClosure closure, MDValue[] context)
 	{
 		mClosure = closure;
 		mContext = context;
-
-		mWrapper.value = new MDClosure(s, &call, "delegate caller"d);
 	}
 
 	public override MDDelegate asDelegate()
@@ -1243,31 +1222,15 @@ class MDDelegate : MDObject
 
 		return ret ~ ")";
 	}
-	
-	private int call(MDState s)
+
+	package MDValue[] getContext()
 	{
-		uint numParams = s.numParams();
-		uint funcReg = s.push(mClosure);
-
-		foreach(MDValue v; mContext)
-			s.push(&v);
-
-		// start at 1, because param 0 is "this"
-		for(uint i = 1; i < numParams; i++)
-			s.push(s.getParam(i));
-			
-		if(mClosure.isNative() == false && (numParams - 1) < mClosure.script.func.mNumParams)
-			for(uint i = numParams; i < mClosure.script.func.mNumParams; i++)
-				s.pushNull();
-
-		s.call(funcReg, mContext.length + numParams, -1);
-		
-		return s.numParams();
+		return mContext;
 	}
-
-	package MDValue* getCaller()
+	
+	package MDClosure getClosure()
 	{
-		return &mWrapper;
+		return mClosure;
 	}
 }
 
@@ -1293,13 +1256,13 @@ struct MDValue
 		Delegate
 	}
 	
-	public static MDValue nullValue = { mType : Type.Null };
+	//public static MDValue nullValue = { mType : Type.Null };
 	
 	// No one should ever change nullValue!
-	invariant
-	{
-		assert(nullValue.mType == Type.Null, "Someone changed nullValue!");
-	}
+	//invariant
+	//{
+	//	assert(nullValue.mType == Type.Null, "Someone changed nullValue!");
+	//}
 
 	public Type mType = Type.Null;
 
@@ -1535,7 +1498,7 @@ struct MDValue
 	{
 		return (mType == Type.Class);
 	}
-	
+
 	public bool isInstance()
 	{
 		return (mType == Type.Instance);

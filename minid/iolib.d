@@ -226,7 +226,11 @@ class IOLib
 		{
 			MDFile n = new MDFile();
 			n.mClass = this;
-			n.mFields = mFields.dup;
+			//n.mFields = mFields.dup;
+			
+			foreach(k, v; mFields)
+				n.mFields[k] = v;
+
 			n.mMethods = mMethods;
 
 			return n;

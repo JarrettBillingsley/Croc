@@ -2432,51 +2432,6 @@ class FuncState
 		toSource(line, e);
 		toSource(line, index);
 
-		
-		/*
-		x = a.b.c[c.d.e[f.g.h]]
-
-		push x
-
-		push a
-		toptosource
-		push "b"
-		popindex
-		toptosource => idx t0, a, "b"
-		push "c"
-		popindex
-		toptosource
-			push c
-			push "d"
-			popindex
-			push "e"
-			popindex
-			toptosource
-				push f
-				push "g"
-				popindex
-				push "h"
-				popindex
-			popindex
-		popindex
-
-		popassign
-
-		"c"
-		src t0
-
-		idx t0, a, "b"
-		idx t0, t0, "c"
-		idx t1, c, "d"
-		idx t1, t1, "e"
-		idx t2, f, "g"
-		idx t2, t2, "h"
-		idx t1, t1, t2
-		idx x, t0, t1
-		*/
-
-		//freeExpTempRegs(index);
-
 		e.index2 = index.index;
 		e.isTempReg2 = index.isTempReg;
 		e.type = ExpType.Indexed;
@@ -2549,48 +2504,6 @@ class FuncState
 				break;
 
 			case ExpType.Indexed:
-				/*if(e.isTempReg)
-				{
-					if(e.isTempReg2)
-					{
-						// 2 temp regs to choose from.
-						
-						if(e.index < e.index2)
-						{
-							codeR(line, Op.Index, e.index, e.index, e.index2);
-							popRegister(e.index2);
-							temp.index = e.index;
-						}
-						else
-						{
-							codeR(line, Op.Index, e.index2, e.index, e.index2);
-							popRegister(e.index);
-							temp.index = e.index2;
-						}
-					}
-					else
-					{
-						// 1 temp reg, just put it in there.
-						codeR(line, Op.Index, e.index, e.index, e.index2);
-						temp.index = e.index;
-					}
-				}
-				else if(e.isTempReg2)
-				{
-					// 1 temp reg.
-					codeR(line, Op.Index, e.index2, e.index, e.index2);
-					temp.index = e.index2;
-				}
-				else
-				{
-					// No temp regs, make our own.
-					temp.index = pushRegister();
-					codeR(line, Op.Index, temp.index, e.index, e.index2);
-				}
-				
-				temp.isTempReg = true;
-				temp.isTempReg2 = false;*/
-				
 				freeExpTempRegs(e);
 				temp.index = pushRegister();
 				temp.isTempReg = true;
@@ -7446,35 +7359,44 @@ class TableCtorExp : PrimaryExp
 				Expression v;
 
 				lastWasFunc = false;
-
-				if(t.type == Token.Type.LBracket)
+				
+				switch(t.type)
 				{
-					t = t.nextToken;
-					k = OpEqExp.parse(t);
+					case Token.Type.LBracket:
+						t = t.nextToken;
+						k = OpEqExp.parse(t);
+	
+						t.check(Token.Type.RBracket);
+						t = t.nextToken;
+						t.check(Token.Type.Assign);
+						t = t.nextToken;
+	
+						v = OpEqExp.parse(t);
+						break;
 
-					t.check(Token.Type.RBracket);
-					t = t.nextToken;
-					t.check(Token.Type.Assign);
-					t = t.nextToken;
+					case Token.Type.Function:
+						auto SimpleFuncDecl fd = SimpleFuncDecl.parse(t);
+						k = new StringExp(fd.mLocation, fd.mName.mName);
+						v = fd.mFunc;
+						lastWasFunc = true;
+						break;
 
-					v = OpEqExp.parse(t);
-				}
-				else if(t.type == Token.Type.Function)
-				{
-					auto SimpleFuncDecl fd = SimpleFuncDecl.parse(t);
-					k = new StringExp(fd.mLocation, fd.mName.mName);
-					v = fd.mFunc;
-					lastWasFunc = true;
-				}
-				else
-				{
-					Identifier id = Identifier.parse(t);
+					case Token.Type.Method:
+						auto MethodDecl md = MethodDecl.parse(t);
+						k = new StringExp(md.mLocation, md.mName.mName);
+						v = md.mFunc;
+						lastWasFunc = true;
+						break;
 
-					t.check(Token.Type.Assign);
-					t = t.nextToken;
-
-					k = new StringExp(id.mLocation, id.mName);
-					v = OpEqExp.parse(t);
+					default:
+						Identifier id = Identifier.parse(t);
+	
+						t.check(Token.Type.Assign);
+						t = t.nextToken;
+	
+						k = new StringExp(id.mLocation, id.mName);
+						v = OpEqExp.parse(t);
+						break;
 				}
 
 				addPair(k, v);
