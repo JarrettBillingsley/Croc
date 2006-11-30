@@ -14,7 +14,7 @@ const uint MaxConstants = Instruction.constMax;
 const uint MaxUpvalues = Instruction.immMax;
 
 // Don't know why this isn't in phobos.
-char[] vformat(TypeInfo[] arguments, void* argptr)
+char[] vformat(TypeInfo[] arguments, va_list argptr)
 {
 	char[] s;
 	

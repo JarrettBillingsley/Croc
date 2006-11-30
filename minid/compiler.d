@@ -407,7 +407,6 @@ class Lexer
 	
 	enum Encoding
 	{
-		ASCII,
 		UTF8,
 		UTF16LE,
 		UTF16BE,
@@ -512,18 +511,30 @@ class Lexer
 					break;
 	
 				default:
-					if(firstChar > 0x7f)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+					// If we default to UTF-8, the first character could be the beginning of a multi-byte, so..
+					//if(firstChar > 0x7f)
+					//	throw new MDCompileException(mLoc, "Invalid input source text encoding");
 	
-					mEncoding = Encoding.ASCII;
+					mEncoding = Encoding.UTF8;
 					mCharacter = firstChar;
 					break;
 			}
 		}
 		else
 		{
-			mEncoding = Encoding.ASCII;
+			mEncoding = Encoding.UTF8;
 			mCharacter = 0;
+		}
+		
+		if(mCharacter == '#')
+		{
+			nextChar();
+			
+			if(mCharacter != '!')
+				throw new MDCompileException(mLoc, "Script line must start with \"#!\"");
+			
+			while(!isEOL())
+				nextChar();
 		}
 
 		Token* firstToken = nextToken();
@@ -634,21 +645,6 @@ class Lexer
 
 		switch(mEncoding)
 		{
-			case Encoding.ASCII:
-				char c = mSource.getc();
-		
-				if(c == char.init)
-				{
-					mCharacter = dchar.init;
-					return;
-				}
-
-				if(c > 0x7f)
-					throw new MDCompileException(mLoc, "Invalid ASCII character 0x%2x", cast(int)c);
-				else
-					mCharacter = c;
-				break;
-
 			case Encoding.UTF8:
 				char c = mSource.getc();
 		
@@ -2384,6 +2380,12 @@ class FuncState
 		e.isTempReg2 = true;
 	}
 	
+	public void makeTailcall()
+	{
+		assert(mCode[$ - 1].opcode == Op.Call, "need call to make tailcall");
+		mCode[$ - 1].opcode = Op.Tailcall;	
+	}
+
 	public void popMoveFromReg(uint line, uint srcReg)
 	{
 		codeMoveFromReg(line, popExp(), srcReg);
@@ -4952,12 +4954,22 @@ class ReturnStatement : Statement
 		{
 			uint firstReg = s.nextRegister();
 
-			Expression.codeGenListToNextReg(s, mExprs);
-
-			if(mExprs[$ - 1].isMultRet())
-				s.codeI(mEndLocation.line, Op.Ret, firstReg, 0);
+			if(mExprs.length == 1 && cast(CallExp)mExprs[0])
+			{
+				mExprs[0].codeGen(s);
+				s.popToRegisters(mEndLocation.line, firstReg, -1);
+				s.makeTailcall();
+			}
 			else
-				s.codeI(mEndLocation.line, Op.Ret, firstReg, mExprs.length + 1);
+			{
+
+				Expression.codeGenListToNextReg(s, mExprs);
+	
+				if(mExprs[$ - 1].isMultRet())
+					s.codeI(mEndLocation.line, Op.Ret, firstReg, 0);
+				else
+					s.codeI(mEndLocation.line, Op.Ret, firstReg, mExprs.length + 1);
+			}
 		}
 	}
 
@@ -6652,7 +6664,6 @@ class CallExp : PostfixExp
 		}
 		else
 		{
-
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
 

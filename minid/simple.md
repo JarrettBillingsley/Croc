@@ -1,4 +1,6 @@
-function mixinProperties(classType, vararg)
+// A function which lets us define properties for a class.
+// The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
+/*function mixinProperties(classType, vararg)
 {
 	classType.mProps = { };
 	
@@ -14,7 +16,7 @@ function mixinProperties(classType, vararg)
 			
 		return prop.getter(this);
 	};
-	
+
 	classType.opIndexAssign = function(this, key, value)
 	{
 		if(!this.mProps:contains(key))
@@ -27,7 +29,7 @@ function mixinProperties(classType, vararg)
 			
 		prop.setter(this, value);
 	};
-	
+
 	foreach(local k, local v; [vararg])
 	{
 		if(!isTable(v))
@@ -43,6 +45,7 @@ function mixinProperties(classType, vararg)
 	}
 }
 
+// Create a class to test out.
 class PropTest
 {
 	mX = 0;
@@ -60,6 +63,7 @@ class PropTest
 	}
 }
 
+// Mix in the properties.
 mixinProperties(
 	PropTest,
 
@@ -100,7 +104,8 @@ mixinProperties(
 		}
 	}
 );
-	
+
+// Create an instance and try it out.
 local p = PropTest("hello");
 
 writefln(p:toString());
@@ -109,6 +114,7 @@ p.y = 123;
 p.x = p.x + p.y;
 writefln(p:toString());
 
+// Try to access a nonexistent property.
 try
 {
 	p.name = "crap";

@@ -164,6 +164,8 @@ class MDState
 
 		mGlobals = new MDTable();
 		mGlobals["_G"d] = mGlobals;
+		
+		mTryRecs[0].actRecord = uint.max;
 	}
 
 	debug final public void printStack()
@@ -220,84 +222,19 @@ class MDState
 	
 	public void easyCall(T...)(MDClosure func, uint numReturns, T params)
 	{
-		//uint funcReg = push(func);
-		uint funcReg = mStackIndex;
+		uint paramSlot = mStackIndex;
 
 		foreach(param; params)
 			push(param);
 
-		directCall(func, funcReg, numReturns, funcReg, params.length);
-
-		//call(funcReg, params.length, numReturns);
+		if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length))
+			callExecute();
 	}
 
 	public void call(uint slot, int numParams, int numReturns)
 	{
-		slot = getBasedIndex(slot);
-
-		if(numParams == -1)
-			numParams = mStackIndex - slot - 1;
-			
-		assert(numParams >= 0, "negative num params in call");
-
-		StackVal func = getAbsStack(slot);
-
-		if(func.isClass())
-		{
-			pushAR();
-
-			*mCurrentAR = mActRecs[mARIndex - 1];
-			mCurrentAR.base = slot;
-			mCurrentAR.numReturns = numReturns;
-			mCurrentAR.funcSlot = slot;
-
-			MDInstance n = func.asClass().newInstance();
-			
-			MDValue* ctor = n.getCtor();
-
-			if(ctor !is null)
-			{
-				getAbsStack(slot).value = n;
-				directCall(ctor.asFunction(), slot, 0, slot, numParams + 1);
-			}
-			
-			getAbsStack(slot).value = n;
-			callEpilogue(0, 1);
-		}
-		else if(func.isFunction())
-		{
-			MDClosure closure = func.asFunction();
-			directCall(closure, slot, numReturns, slot + 1, numParams);
-		}
-		else if(func.isDelegate())
-		{
-			MDDelegate dg = func.asDelegate();
-			
-			MDClosure closure = dg.getClosure();
-			MDValue[] context = dg.getContext();
-
-			if(context.length > 1)
-			{
-				needStackSlots(context.length - 1);
-
-				for(int i = mStackIndex + context.length - 2; i > slot + context.length - 1; i--)
-					copyAbsStack(i, i - 1);
-			}
-
-			for(int i = slot, j = 0; j < context.length; i++, j++)
-				getAbsStack(i).value = &context[j];
-				
-			directCall(closure, slot, numReturns, slot, numParams + context.length);
-		}
-		else
-		{
-			MDValue* method = getMM(func, MM.Call);
-
-			if(method is null || !method.isFunction())
-				throw new MDRuntimeException(this, "Attempting to call a value of type '%s'", func.typeString());
-
-			directCall(method.asFunction(), slot, numReturns, slot, numParams + 1);
-		}
+		if(callPrologue(slot, numReturns, numParams))
+			callExecute();
 	}
 
 	public void setGlobal(T)(dchar[] name, T value)
@@ -346,7 +283,7 @@ class MDState
 		MDValue* value = mGlobals[&key];
 		
 		if(value is null)
-			throw new MDRuntimeException(this, "MDState.getGlobal() - Attempting to access nonexistant global '%s'", name);
+			throw new MDRuntimeException(this, "MDState.getGlobal() - Attempting to access nonexistent global '%s'", name);
 
 		return value;
 	}
@@ -720,8 +657,131 @@ class MDState
 	// ===================================================================================
 	// Package members
 	// ===================================================================================
+
+	package Location startTraceback()
+	{
+		mTraceback.length = 0;
+		
+		Location ret = getDebugLocation();
+		mTraceback ~= ret;
+		
+		return ret;
+	}
+
+	package Location getDebugLocation()
+	{
+		if(mCurrentAR.func is null)
+			return Location("<no debug location available>", 0, 0);
+
+		if(mCurrentAR.func.isNative())
+			return Location(mCurrentAR.func.native.name, -1, -1);
+		else
+		{
+			MDFuncDef fd = mCurrentAR.func.script.func;
+
+			int line = -1;
+			uint instructionIndex = mCurrentAR.pc - fd.mCode.ptr - 1;
+
+			if(instructionIndex < fd.mLineInfo.length)
+				line = fd.mLineInfo[instructionIndex];
+
+			return Location(mCurrentAR.func.script.func.mGuessedName, line, instructionIndex);
+		}
+	}
+
+	static package void badParamError(MDState s, uint index, ...)
+	{
+		throw new MDRuntimeException(s, "Bad argument ", index + 1, ": %s", vformat(_arguments, _argptr));
+	}
 	
-	package void directCall(MDClosure closure, uint returnSlot, uint numReturns, uint paramSlot, uint numParams)
+	package bool callPrologue(uint slot, int numReturns, int numParams)
+	{
+		uint returnSlot;
+		uint paramSlot;
+		MDClosure closure;
+		
+		slot = getBasedIndex(slot);
+		returnSlot = slot;
+
+		if(numParams == -1)
+			numParams = mStackIndex - slot - 1;
+
+		assert(numParams >= 0, "negative num params in callPrologue");
+
+		StackVal func = getAbsStack(slot);
+
+		if(func.isClass())
+		{
+			pushAR();
+
+			*mCurrentAR = mActRecs[mARIndex - 1];
+			mCurrentAR.base = slot;
+			mCurrentAR.numReturns = numReturns;
+			mCurrentAR.funcSlot = slot;
+
+			MDInstance n = func.asClass().newInstance();
+			
+			MDValue* ctor = n.getCtor();
+
+			if(ctor !is null && ctor.isFunction())
+			{
+				getAbsStack(slot).value = n;
+
+				if(callPrologue2(ctor.asFunction(), slot, 0, slot, numParams + 1))
+					callExecute();
+			}
+
+			getAbsStack(slot).value = n;
+			callEpilogue(0, 1);
+
+			closure = null;
+		}
+		else if(func.isFunction())
+		{
+			paramSlot = slot + 1;
+			closure = func.asFunction();
+		}
+		else if(func.isDelegate())
+		{
+			MDDelegate dg = func.asDelegate();
+			MDValue[] context = dg.getContext();
+
+			if(context.length > 1)
+			{
+				needStackSlots(context.length - 1);
+
+				for(int i = mStackIndex + context.length - 2; i > slot + context.length - 1; i--)
+					copyAbsStack(i, i - 1);
+			}
+
+			for(int i = slot, j = 0; j < context.length; i++, j++)
+				getAbsStack(i).value = &context[j];
+				
+			paramSlot = slot;
+			numParams += context.length;
+			
+			closure = dg.getClosure();
+		}
+		else
+		{
+			MDValue* method = getMM(func, MM.Call);
+
+			if(method is null || !method.isFunction())
+				throw new MDRuntimeException(this, "Attempting to call a value of type '%s'", func.typeString());
+
+			paramSlot = slot;
+			numParams++;
+			
+			closure = method.asFunction();
+		}
+		
+		if(closure is null)
+			return false;
+			
+		return callPrologue2(closure, returnSlot, numReturns, paramSlot, numParams);
+	}
+
+	package bool callPrologue2(MDClosure closure, uint returnSlot, int numReturns, uint paramSlot, int numParams)
 	{
 		if(closure.isNative())
 		{
@@ -753,6 +813,7 @@ class MDState
 			}
 
 			callEpilogue(getBasedStackIndex() - actualReturns, actualReturns);
+			return false;
 		}
 		else
 		{
@@ -829,56 +890,25 @@ class MDState
 				getAbsStack(i).setNull();
 
 			mCurrentAR.savedTop = mStackIndex;
-
-			try
-			{
-				execute();
-			}
-			catch(MDException e)
-			{
-				callEpilogue(0, 0);
-				throw e;
-			}
+			
+			return true;
 		}
 	}
-
-	package Location startTraceback()
+	
+	package void callExecute()
 	{
-		mTraceback.length = 0;
-		
-		Location ret = getDebugLocation();
-		mTraceback ~= ret;
-		
-		return ret;
-	}
-
-	package Location getDebugLocation()
-	{
-		if(mCurrentAR.func is null)
-			return Location("<no debug location available>", 0, 0);
-
-		if(mCurrentAR.func.isNative())
-			return Location(mCurrentAR.func.native.name, -1, -1);
-		else
+		try
 		{
-			MDFuncDef fd = mCurrentAR.func.script.func;
-
-			int line = -1;
-			uint instructionIndex = mCurrentAR.pc - fd.mCode.ptr - 1;
-
-			if(instructionIndex < fd.mLineInfo.length)
-				line = fd.mLineInfo[instructionIndex];
-
-			return Location(mCurrentAR.func.script.func.mGuessedName, line, instructionIndex);
+			execute();
+		}
+		catch(MDException e)
+		{
+			callEpilogue(0, 0);
+			throw e;
 		}
 	}
 
-	static package void badParamError(MDState s, uint index, ...)
-	{
-		throw new MDRuntimeException(s, "Bad argument ", index + 1, ": %s", vformat(_arguments, _argptr));
-	}
-
-	package void callEpilogue(uint resultSlot, int numResults)
+	package void callEpilogue(uint resultSlot, int numResults, bool pop = true)
 	{
 		debug(CALLEPILOGUE) printCallStack();
 
@@ -904,7 +934,8 @@ class MDState
 			debug(CALLEPILOGUE) writefln("\tNum multi rets: ", numExpRets);
 		}
 		
-		popAR();
+		if(pop)
+			popAR();
 
 		if(numExpRets <= numResults)
 		{
@@ -1400,10 +1431,10 @@ class MDState
 
 			case MDValue.Type.Table:
 				MDValue* val = src.asTable[key];
-				
+
 				if(val is null)
 				{
-					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant index '%s' from table", key.toString()));
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistent index '%s' from table", key.toString()));
 					break;
 				}
 
@@ -1421,7 +1452,7 @@ class MDState
 				
 				if(v is null)
 				{
-					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", key.toString()));
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistent member '%s' from class instance", key.toString()));
 					break;
 				}
 
@@ -1439,7 +1470,7 @@ class MDState
 				
 				if(v is null)
 				{
-					tryMM(new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class", key.toString()));
+					tryMM(new MDRuntimeException(this, "Attempting to access nonexistent member '%s' from class", key.toString()));
 					break;
 				}
 
@@ -1666,7 +1697,7 @@ class MDState
 					case Op.Mod:
 						doArithmetic(this, i.rd, getCR1(), getCR2(), opcode);
 						break;
-	
+
 					case Op.Neg:
 						doArithmetic(this, i.rd, getCR1(), null, opcode);
 						break;
@@ -1807,7 +1838,7 @@ class MDState
 						MDValue* val = getEnvironment()[index];
 						
 						if(val is null)
-							throw new MDRuntimeException(this, "Attempting to access nonexistant global '%s'", index.toString());
+							throw new MDRuntimeException(this, "Attempting to access nonexistent global '%s'", index.toString());
 
 						getBasedStack(i.rd).value = val;
 						break;
@@ -2024,7 +2055,7 @@ class MDState
 					case Op.IndexAssign:
 						indexAssign(getBasedStack(i.rd), getCR1(), getCR2());
 						break;
-	
+
 					case Op.Method:
 						StackVal src = getCR1();
 						
@@ -2040,7 +2071,7 @@ class MDState
 							MDValue* v = src.asInstance[key.asString()];
 							
 							if(v is null)
-								throw new MDRuntimeException(this, "Attempting to access nonexistant member '%s' from class instance", getCR2().toString());
+								throw new MDRuntimeException(this, "Attempting to access nonexistent member '%s' from class instance", getCR2().toString());
 
 							getBasedStack(i.rd).value = v;
 							break;
@@ -2081,7 +2112,34 @@ class MDState
 	
 						call(funcReg, numParams, numResults);
 						break;
-	
+						
+					case Op.Tailcall:
+						close(0);
+						
+						int funcReg = i.rd;
+						int numParams = i.rs1 - 1;
+
+						if(numParams == -1)
+							numParams = getBasedStackIndex() - funcReg - 1;
+							
+						funcReg = getBasedIndex(funcReg);
+							
+						for(int j = 0; j < numParams + 1; j++)
+							copyAbsStack(mCurrentAR.funcSlot + j, funcReg + j);
+
+						funcReg = mCurrentAR.funcSlot;
+						int numReturns = mCurrentAR.numReturns;
+
+						popAR();
+
+						if(callPrologue(funcReg, numReturns, numParams) == false)
+						{
+							callEpilogue(i.rd, -1, false);
+							return;
+						}
+
+						break;
+
 					case Op.Ret:
 						int numResults = i.imm - 1;
 	

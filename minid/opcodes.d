@@ -53,6 +53,7 @@ enum Op : uint
 	Sub,
 	SwitchInt,
 	SwitchString,
+	Tailcall,
 	Throw,
 	UShr,
 	Vararg,
@@ -112,6 +113,7 @@ Shr...............R: dest, src, src
 Sub...............R: dest, src, src
 SwitchInt.........I: src, index of switch table
 SwitchString......I: src, index of switch table
+Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
 Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
@@ -288,6 +290,8 @@ align(1) struct Instruction
 				return string.format("iswitch r%s, %s", rd, uimm);
 			case Op.SwitchString:
 				return string.format("sswitch r%s, %s", rd, uimm);
+			case Op.Tailcall:
+				return string.format("tcall r%s, %s", rd, rs1);
 			case Op.Throw:
 				return string.format("throw %s", cr(rs1));
 			case Op.UShr:
