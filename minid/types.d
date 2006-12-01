@@ -585,7 +585,7 @@ class MDTable : MDObject
 	{
 		
 	}
-
+	
 	public static MDTable create(...)
 	{
 		if(_arguments.length & 1)
@@ -599,28 +599,43 @@ class MDTable : MDObject
 		void getVal(uint arg, out MDValue v)
 		{
 			TypeInfo ti = _arguments[arg];
-			
-			if(ti == typeid(bool))             v.value = cast(bool)va_arg!(bool)(_argptr);
-			else if(ti == typeid(byte))        v.value = cast(int)va_arg!(byte)(_argptr);
-			else if(ti == typeid(ubyte))       v.value = cast(int)va_arg!(ubyte)(_argptr);
-			else if(ti == typeid(short))       v.value = cast(int)va_arg!(ushort)(_argptr);
-			else if(ti == typeid(ushort))      v.value = cast(int)va_arg!(ushort)(_argptr);
-			else if(ti == typeid(int))         v.value = cast(int)va_arg!(int)(_argptr);
-			else if(ti == typeid(uint))        v.value = cast(int)va_arg!(uint)(_argptr);
-			else if(ti == typeid(long))        v.value = cast(int)va_arg!(long)(_argptr);
-			else if(ti == typeid(ulong))       v.value = cast(int)va_arg!(ulong)(_argptr);
-			else if(ti == typeid(float))       v.value = cast(float)va_arg!(float)(_argptr);
-			else if(ti == typeid(double))      v.value = cast(float)va_arg!(double)(_argptr);
-			else if(ti == typeid(real))        v.value = cast(float)va_arg!(real)(_argptr);
-			else if(ti == typeid(char[]))      v.value = new MDString(va_arg!(char[])(_argptr));
-			else if(ti == typeid(wchar[]))     v.value = new MDString(va_arg!(wchar[])(_argptr));
-			else if(ti == typeid(dchar[]))     v.value = new MDString(va_arg!(dchar[])(_argptr));
-			else if(ti == typeid(MDObject))    v.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-			else if(ti == typeid(MDUserdata))  v.value = cast(MDUserdata)va_arg!(MDUserdata)(_argptr);
-			else if(ti == typeid(MDClosure))   v.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
-			else if(ti == typeid(MDTable))     v.value = cast(MDTable)va_arg!(MDTable)(_argptr);
-			else if(ti == typeid(MDArray))     v.value = cast(MDArray)va_arg!(MDArray)(_argptr);
-			else throw new MDException("Native table constructor: invalid argument ", arg);
+			TypeInfo_Class tic = cast(TypeInfo_Class)ti;
+
+			if(tic is null)
+			{
+				if(ti == typeid(bool))             v.value = cast(bool)va_arg!(bool)(_argptr);
+				else if(ti == typeid(byte))        v.value = cast(int)va_arg!(byte)(_argptr);
+				else if(ti == typeid(ubyte))       v.value = cast(int)va_arg!(ubyte)(_argptr);
+				else if(ti == typeid(short))       v.value = cast(int)va_arg!(ushort)(_argptr);
+				else if(ti == typeid(ushort))      v.value = cast(int)va_arg!(ushort)(_argptr);
+				else if(ti == typeid(int))         v.value = cast(int)va_arg!(int)(_argptr);
+				else if(ti == typeid(uint))        v.value = cast(int)va_arg!(uint)(_argptr);
+				else if(ti == typeid(long))        v.value = cast(int)va_arg!(long)(_argptr);
+				else if(ti == typeid(ulong))       v.value = cast(int)va_arg!(ulong)(_argptr);
+				else if(ti == typeid(float))       v.value = cast(float)va_arg!(float)(_argptr);
+				else if(ti == typeid(double))      v.value = cast(float)va_arg!(double)(_argptr);
+				else if(ti == typeid(real))        v.value = cast(float)va_arg!(real)(_argptr);
+				else if(ti == typeid(char[]))      v.value = new MDString(va_arg!(char[])(_argptr));
+				else if(ti == typeid(wchar[]))     v.value = new MDString(va_arg!(wchar[])(_argptr));
+				else if(ti == typeid(dchar[]))     v.value = new MDString(va_arg!(dchar[])(_argptr));
+				else throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
+			}
+			else
+			{
+				ClassInfo ci = tic.info;
+				
+				for( ; ci !is null; ci = ci.base)
+				{
+					if(ci == MDObject.classinfo)
+					{
+						v.value = cast(MDObject)va_arg!(MDObject)(_argptr);
+						break;
+					}
+				}
+
+				if(ci is null)
+					throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
+			}
 		}
 
 		for(int i = 0; i < _arguments.length; i += 2)
@@ -775,28 +790,43 @@ class MDArray : MDObject
 		void getVal(uint arg)
 		{
 			TypeInfo ti = _arguments[arg];
-			
-			if(ti == typeid(bool))             value.value = cast(bool)va_arg!(bool)(_argptr);
-			else if(ti == typeid(byte))        value.value = cast(int)va_arg!(byte)(_argptr);
-			else if(ti == typeid(ubyte))       value.value = cast(int)va_arg!(ubyte)(_argptr);
-			else if(ti == typeid(short))       value.value = cast(int)va_arg!(ushort)(_argptr);
-			else if(ti == typeid(ushort))      value.value = cast(int)va_arg!(ushort)(_argptr);
-			else if(ti == typeid(int))         value.value = cast(int)va_arg!(int)(_argptr);
-			else if(ti == typeid(uint))        value.value = cast(int)va_arg!(uint)(_argptr);
-			else if(ti == typeid(long))        value.value = cast(int)va_arg!(long)(_argptr);
-			else if(ti == typeid(ulong))       value.value = cast(int)va_arg!(ulong)(_argptr);
-			else if(ti == typeid(float))       value.value = cast(float)va_arg!(float)(_argptr);
-			else if(ti == typeid(double))      value.value = cast(float)va_arg!(double)(_argptr);
-			else if(ti == typeid(real))        value.value = cast(float)va_arg!(real)(_argptr);
-			else if(ti == typeid(char[]))      value.value = new MDString(va_arg!(char[])(_argptr));
-			else if(ti == typeid(wchar[]))     value.value = new MDString(va_arg!(wchar[])(_argptr));
-			else if(ti == typeid(dchar[]))     value.value = new MDString(va_arg!(dchar[])(_argptr));
-			else if(ti == typeid(MDObject))    value.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-			else if(ti == typeid(MDUserdata))  value.value = cast(MDUserdata)va_arg!(MDUserdata)(_argptr);
-			else if(ti == typeid(MDClosure))   value.value = cast(MDClosure)va_arg!(MDClosure)(_argptr);
-			else if(ti == typeid(MDTable))     value.value = cast(MDTable)va_arg!(MDTable)(_argptr);
-			else if(ti == typeid(MDArray))     value.value = cast(MDArray)va_arg!(MDArray)(_argptr);
-			else throw new MDException("Native array constructor: invalid argument ", arg);
+			TypeInfo_Class tic = cast(TypeInfo_Class)ti;
+
+			if(tic is null)
+			{
+				if(ti == typeid(bool))             value.value = cast(bool)va_arg!(bool)(_argptr);
+				else if(ti == typeid(byte))        value.value = cast(int)va_arg!(byte)(_argptr);
+				else if(ti == typeid(ubyte))       value.value = cast(int)va_arg!(ubyte)(_argptr);
+				else if(ti == typeid(short))       value.value = cast(int)va_arg!(ushort)(_argptr);
+				else if(ti == typeid(ushort))      value.value = cast(int)va_arg!(ushort)(_argptr);
+				else if(ti == typeid(int))         value.value = cast(int)va_arg!(int)(_argptr);
+				else if(ti == typeid(uint))        value.value = cast(int)va_arg!(uint)(_argptr);
+				else if(ti == typeid(long))        value.value = cast(int)va_arg!(long)(_argptr);
+				else if(ti == typeid(ulong))       value.value = cast(int)va_arg!(ulong)(_argptr);
+				else if(ti == typeid(float))       value.value = cast(float)va_arg!(float)(_argptr);
+				else if(ti == typeid(double))      value.value = cast(float)va_arg!(double)(_argptr);
+				else if(ti == typeid(real))        value.value = cast(float)va_arg!(real)(_argptr);
+				else if(ti == typeid(char[]))      value.value = new MDString(va_arg!(char[])(_argptr));
+				else if(ti == typeid(wchar[]))     value.value = new MDString(va_arg!(wchar[])(_argptr));
+				else if(ti == typeid(dchar[]))     value.value = new MDString(va_arg!(dchar[])(_argptr));
+				else throw new MDException("Native array constructor: invalid argument %d of type ", arg, ti);
+			}
+			else
+			{
+				ClassInfo ci = tic.info;
+				
+				for( ; ci !is null; ci = ci.base)
+				{
+					if(ci == MDObject.classinfo)
+					{
+						value.value = cast(MDObject)va_arg!(MDObject)(_argptr);
+						break;
+					}
+				}
+
+				if(ci is null)
+					throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
+			}
 		}
 
 		for(int i = 0; i < _arguments.length; i++)
