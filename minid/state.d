@@ -1072,9 +1072,8 @@ class MDState
 		}
 	}
 
-	// This should only be used for Op.SetArray, really.  Since this returns a slice of
-	// the actual stack, which can move around, the reference shouldn't really be kept
-	// for long.
+	// Since this returns a slice of the actual stack, which can move around, the reference
+	// shouldn't really be kept for long.
 	package MDValue[] sliceStack(uint lo, int num)
 	{
 		debug if(num != -1)
@@ -1304,7 +1303,7 @@ class MDState
 	// Interpreter
 	// ===================================================================================
 
-	protected void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
+	protected final void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
 	{
 		void tryMM(lazy MDException ex)
 		{
@@ -1382,7 +1381,7 @@ class MDState
 		}
 	}
 	
-	protected void index(uint dest, MDValue* src, MDValue* key)
+	protected final void index(uint dest, MDValue* src, MDValue* key)
 	{
 		void tryMM(lazy MDException ex)
 		{
@@ -1483,66 +1482,35 @@ class MDState
 		}
 	}
 
-	protected static void doArithmetic(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
+	protected final void doArithmetic(uint dest, MDValue src1, MDValue src2, Op type)
 	{
-		if(src2 is null)
-		{
-			assert(type == Op.Neg, "invalid arith");
-
-			if(src1.isNum())
-			{
-				if(src1.isFloat())
-				{
-					s.getBasedStack(dest).value = -src1.asFloat();
-					return;
-				}
-				else
-				{
-					s.getBasedStack(dest).value = -src1.asInt();
-					return;
-				}
-			}
-			else
-			{
-				MDValue* method = s.getMM(src1, MM.Neg);
-
-				if(method is null || (!method.isFunction() && !method.isDelegate()))
-					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s'", src1.typeString());
-
-				uint funcSlot = s.push(method);
-				s.push(src1);
-				s.call(funcSlot, 1, 1);
-				s.copyBasedStack(dest, funcSlot);
-			}
-		}
-
 		if(src1.isNum() && src2.isNum())
 		{
 			if(src1.isFloat() || src2.isFloat())
 			{
 				switch(type)
 				{
-					case Op.Add: s.getBasedStack(dest).value = src1.asFloat() + src2.asFloat(); return;
-					case Op.Sub: s.getBasedStack(dest).value = src1.asFloat() - src2.asFloat(); return;
-					case Op.Mul: s.getBasedStack(dest).value = src1.asFloat() * src2.asFloat(); return;
-					case Op.Div: s.getBasedStack(dest).value = src1.asFloat() / src2.asFloat(); return;
-					case Op.Mod: s.getBasedStack(dest).value = src1.asFloat() % src2.asFloat(); return;
+					case Op.Add: getBasedStack(dest).value = src1.asFloat() + src2.asFloat(); return;
+					case Op.Sub: getBasedStack(dest).value = src1.asFloat() - src2.asFloat(); return;
+					case Op.Mul: getBasedStack(dest).value = src1.asFloat() * src2.asFloat(); return;
+					case Op.Div: getBasedStack(dest).value = src1.asFloat() / src2.asFloat(); return;
+					case Op.Mod: getBasedStack(dest).value = src1.asFloat() % src2.asFloat(); return;
 				}
 			}
 			else
 			{
 				switch(type)
 				{
-					case Op.Add: s.getBasedStack(dest).value = src1.asInt() + src2.asInt(); return;
-					case Op.Sub: s.getBasedStack(dest).value = src1.asInt() - src2.asInt(); return;
-					case Op.Mul: s.getBasedStack(dest).value = src1.asInt() * src2.asInt(); return;
-					case Op.Mod: s.getBasedStack(dest).value = src1.asInt() % src2.asInt(); return;
+					case Op.Add: getBasedStack(dest).value = src1.asInt() + src2.asInt(); return;
+					case Op.Sub: getBasedStack(dest).value = src1.asInt() - src2.asInt(); return;
+					case Op.Mul: getBasedStack(dest).value = src1.asInt() * src2.asInt(); return;
+					case Op.Mod: getBasedStack(dest).value = src1.asInt() % src2.asInt(); return;
 
 					case Op.Div:
 						if(src2.asInt() == 0)
-							throw new MDRuntimeException(s, "Integer divide by zero");
+							throw new MDRuntimeException(this, "Integer divide by zero");
 
-						s.getBasedStack(dest).value = src1.asInt() / src2.asInt(); return;
+						getBasedStack(dest).value = src1.asInt() / src2.asInt(); return;
 				}
 			}
 		}
@@ -1559,61 +1527,91 @@ class MDState
 				case Op.Mod: mmType = MM.Mod; break;
 			}
 
-			MDValue* method = s.getMM(src1, mmType);
+			MDValue* method = getMM(&src1, mmType);
 
 			if(method is null || (!method.isFunction() && !method.isDelegate()))
-			{
-				//method = s.getMM(src2, mmType);
+				throw new MDRuntimeException(this, "Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
 
-				//if(!method.isFunction())
-					throw new MDRuntimeException(s, "Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
-					
-				//mNextThis = *src2;
-			}
-
-			uint funcSlot = s.push(method);
-			s.push(src1);
-			s.push(src2);
-			s.call(funcSlot, 2, 1);
-			s.copyBasedStack(dest, funcSlot);
+			uint funcSlot = push(method);
+			push(src1);
+			push(src2);
+			call(funcSlot, 2, 1);
+			copyBasedStack(dest, funcSlot);
 		}
 	}
 
-	protected static void doBitArith(MDState s, uint dest, MDValue* src1, MDValue* src2, Op type)
+	protected final void doReflexiveArithmetic(uint dest, MDValue src2, Op type)
 	{
-		if(src2 is null)
-		{
-			assert(type == Op.Com, "invalid bit arith");
+		MDValue src1 = *getBasedStack(dest);
 
-			if(src1.isInt())
+		if(src1.isNum() && src2.isNum())
+		{
+			if(src1.isFloat() || src2.isFloat())
 			{
-				s.getBasedStack(dest).value = ~src1.asInt();
-				return;
+				switch(type)
+				{
+					case Op.AddEq: getBasedStack(dest).value = src1.asFloat() + src2.asFloat(); return;
+					case Op.SubEq: getBasedStack(dest).value = src1.asFloat() - src2.asFloat(); return;
+					case Op.MulEq: getBasedStack(dest).value = src1.asFloat() * src2.asFloat(); return;
+					case Op.DivEq: getBasedStack(dest).value = src1.asFloat() / src2.asFloat(); return;
+					case Op.ModEq: getBasedStack(dest).value = src1.asFloat() % src2.asFloat(); return;
+				}
 			}
 			else
 			{
-				MDValue* method = s.getMM(src1, MM.Com);
+				switch(type)
+				{
+					case Op.AddEq: getBasedStack(dest).value = src1.asInt() + src2.asInt(); return;
+					case Op.SubEq: getBasedStack(dest).value = src1.asInt() - src2.asInt(); return;
+					case Op.MulEq: getBasedStack(dest).value = src1.asInt() * src2.asInt(); return;
+					case Op.ModEq: getBasedStack(dest).value = src1.asInt() % src2.asInt(); return;
 
-				if(method is null || (!method.isFunction() && !method.isDelegate()))
-					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s'", src1.typeString());
+					case Op.DivEq:
+						if(src2.asInt() == 0)
+							throw new MDRuntimeException(this, "Integer divide by zero");
 
-				uint funcSlot = s.push(method);
-				s.push(src1);
-				s.call(funcSlot, 1, 1);
-				s.copyBasedStack(dest, funcSlot);
+						getBasedStack(dest).value = src1.asInt() / src2.asInt(); return;
+				}
 			}
 		}
+		else
+		{
+			MM mmType;
 
+			switch(type)
+			{
+				case Op.AddEq: mmType = MM.AddEq; break;
+				case Op.SubEq: mmType = MM.SubEq; break;
+				case Op.MulEq: mmType = MM.MulEq; break;
+				case Op.DivEq: mmType = MM.DivEq; break;
+				case Op.ModEq: mmType = MM.ModEq; break;
+			}
+
+			MDValue* method = getMM(&src1, mmType);
+
+			if(method is null || (!method.isFunction() && !method.isDelegate()))
+				throw new MDRuntimeException(this, "Cannot perform arithmetic on a '%s' and a '%s'", src1.typeString(), src2.typeString());
+
+			uint funcSlot = push(method);
+			push(src1);
+			push(src2);
+			call(funcSlot, 2, 1);
+			copyBasedStack(dest, funcSlot);
+		}
+	}
+
+	protected final void doBitArith(uint dest, MDValue src1, MDValue src2, Op type)
+	{
 		if(src1.isInt() && src2.isInt())
 		{
 			switch(type)
 			{
-				case Op.And:  s.getBasedStack(dest).value = src1.asInt() & src2.asInt(); return;
-				case Op.Or:   s.getBasedStack(dest).value = src1.asInt() | src2.asInt(); return;
-				case Op.Xor:  s.getBasedStack(dest).value = src1.asInt() ^ src2.asInt(); return;
-				case Op.Shl:  s.getBasedStack(dest).value = src1.asInt() << src2.asInt(); return;
-				case Op.Shr:  s.getBasedStack(dest).value = src1.asInt() >> src2.asInt(); return;
-				case Op.UShr: s.getBasedStack(dest).value = src1.asInt() >>> src2.asInt(); return;
+				case Op.And:  getBasedStack(dest).value = src1.asInt() & src2.asInt(); return;
+				case Op.Or:   getBasedStack(dest).value = src1.asInt() | src2.asInt(); return;
+				case Op.Xor:  getBasedStack(dest).value = src1.asInt() ^ src2.asInt(); return;
+				case Op.Shl:  getBasedStack(dest).value = src1.asInt() << src2.asInt(); return;
+				case Op.Shr:  getBasedStack(dest).value = src1.asInt() >> src2.asInt(); return;
+				case Op.UShr: getBasedStack(dest).value = src1.asInt() >>> src2.asInt(); return;
 			}
 		}
 		else
@@ -1630,22 +1628,61 @@ class MDState
 				case Op.UShr: mmType = MM.UShr; break;
 			}
 
-			MDValue* method = s.getMM(src1, mmType);
+			MDValue* method = getMM(&src1, mmType);
 
 			if(method is null || (!method.isFunction() && !method.isDelegate()))
-			{
-				//method = s.getMM(src2, mmType);
+				throw new MDRuntimeException(this, "Cannot perform bitwise arithmetic on a '%s' and a '%s'",
+					src1.typeString(), src2.typeString());
 
-				//if(!method.isFunction())
-					throw new MDRuntimeException(s, "Cannot perform bitwise arithmetic on a '%s' and a '%s'",
-						src1.typeString(), src2.typeString());
+			uint funcSlot = push(method);
+			push(src1);
+			push(src2);
+			call(funcSlot, 2, 1);
+			copyBasedStack(dest, funcSlot);
+		}
+	}
+	
+	protected final void doReflexiveBitArith(uint dest, MDValue src2, Op type)
+	{
+		MDValue src1 = *getBasedStack(dest);
+
+		if(src1.isInt() && src2.isInt())
+		{
+			switch(type)
+			{
+				case Op.AndEq:  getBasedStack(dest).value = src1.asInt() & src2.asInt(); return;
+				case Op.OrEq:   getBasedStack(dest).value = src1.asInt() | src2.asInt(); return;
+				case Op.XorEq:  getBasedStack(dest).value = src1.asInt() ^ src2.asInt(); return;
+				case Op.ShlEq:  getBasedStack(dest).value = src1.asInt() << src2.asInt(); return;
+				case Op.ShrEq:  getBasedStack(dest).value = src1.asInt() >> src2.asInt(); return;
+				case Op.UShrEq: getBasedStack(dest).value = src1.asInt() >>> src2.asInt(); return;
+			}
+		}
+		else
+		{
+			MM mmType;
+
+			switch(type)
+			{
+				case Op.AndEq:  mmType = MM.AndEq;  break;
+				case Op.OrEq:   mmType = MM.OrEq;   break;
+				case Op.XorEq:  mmType = MM.XorEq;  break;
+				case Op.ShlEq:  mmType = MM.ShlEq;  break;
+				case Op.ShrEq:  mmType = MM.ShrEq;  break;
+				case Op.UShrEq: mmType = MM.UShrEq; break;
 			}
 
-			uint funcSlot = s.push(method);
-			s.push(src1);
-			s.push(src2);
-			s.call(funcSlot, 2, 1);
-			s.copyBasedStack(dest, funcSlot);
+			MDValue* method = getMM(&src1, mmType);
+
+			if(method is null || (!method.isFunction() && !method.isDelegate()))
+				throw new MDRuntimeException(this, "Cannot perform bitwise arithmetic on a '%s' and a '%s'",
+					src1.typeString(), src2.typeString());
+
+			uint funcSlot = push(method);
+			push(src1);
+			push(src2);
+			call(funcSlot, 2, 1);
+			copyBasedStack(dest, funcSlot);
 		}
 	}
 
@@ -1695,11 +1732,39 @@ class MDState
 					case Op.Mul:
 					case Op.Div:
 					case Op.Mod:
-						doArithmetic(this, i.rd, getCR1(), getCR2(), opcode);
+						doArithmetic(i.rd, *getCR1(), *getCR2(), opcode);
 						break;
-
+						
 					case Op.Neg:
-						doArithmetic(this, i.rd, getCR1(), null, opcode);
+						MDValue src = *getCR1();
+
+						if(src.isNum())
+						{
+							if(src.isFloat())
+								getBasedStack(i.rd).value = -src.asFloat();
+							else
+								getBasedStack(i.rd).value = -src.asInt();
+						}
+						else
+						{
+							MDValue* method = getMM(&src, MM.Neg);
+			
+							if(method is null || (!method.isFunction() && !method.isDelegate()))
+								throw new MDRuntimeException(this, "Cannot perform negation on a '%s'", src.typeString());
+			
+							uint funcSlot = push(method);
+							push(&src);
+							call(funcSlot, 1, 1);
+							copyBasedStack(i.rd, funcSlot);
+						}
+						break;
+						
+					case Op.AddEq:
+					case Op.SubEq:
+					case Op.MulEq:
+					case Op.DivEq:
+					case Op.ModEq:
+						doReflexiveArithmetic(i.rd, *getCR1(), opcode);
 						break;
 
 					case Op.And:
@@ -1708,11 +1773,35 @@ class MDState
 					case Op.Shl:
 					case Op.Shr:
 					case Op.UShr:
-						doBitArith(this, i.rd, getCR1(), getCR2(), opcode);
+						doBitArith(i.rd, *getCR1(), *getCR2(), opcode);
 						break;
 
 					case Op.Com:
-						doBitArith(this, i.rd, getCR1(), null, opcode);
+						MDValue src = *getCR1();
+
+						if(src.isInt())
+							getBasedStack(i.rd).value = ~src.asInt();
+						else
+						{
+							MDValue* method = getMM(&src, MM.Com);
+			
+							if(method is null || (!method.isFunction() && !method.isDelegate()))
+								throw new MDRuntimeException(this, "Cannot perform complement on a '%s'", src.typeString());
+			
+							uint funcSlot = push(method);
+							push(&src);
+							call(funcSlot, 1, 1);
+							copyBasedStack(i.rd, funcSlot);
+						}
+						break;
+						
+					case Op.AndEq:
+					case Op.OrEq:
+					case Op.XorEq:
+					case Op.ShlEq:
+					case Op.ShrEq:
+					case Op.UShrEq:
+						doReflexiveBitArith(i.rd, *getCR1(), opcode);
 						break;
 	
 					case Op.Move:
@@ -1799,7 +1888,8 @@ class MDState
 						break;
 	
 					case Op.Jmp:
-						mCurrentAR.pc += i.imm;
+						if(i.rd != 0)
+							mCurrentAR.pc += i.imm;
 						break;
 	
 					case Op.Length:
@@ -1873,7 +1963,7 @@ class MDState
 	
 						uint sliceBegin = getBase() + i.rd + 1;
 						int numElems = i.rs1 - 1;
-	
+
 						getBasedStack(i.rd).asArray().setBlock(i.rs2, sliceStack(sliceBegin, numElems));
 	
 						break;
@@ -1956,7 +2046,7 @@ class MDState
 						if(getBasedStack(funcReg).isNull() == false)
 						{
 							copyBasedStack(rd + 2, funcReg);
-	
+							
 							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toString());
 	
 							mCurrentAR.pc += jump.imm;
@@ -1965,9 +2055,115 @@ class MDState
 						break;
 	
 					case Op.Cat:
+						StackVal src1 = getBasedStack(i.rs1);
+
+						if(src1.isArray())
+						{
+							getBasedStack(i.rd).value = MDArray.concat(sliceStack(getBase() + i.rs1, i.rs2 - 1));
+							break;
+						}
+
+						if(src1.isString() || src1.isChar())
+						{
+							uint badIndex;
+							MDString newStr = MDString.concat(sliceStack(getBase() + i.rs1, i.rs2 - 1), badIndex);
+
+							if(newStr is null)
+								throw new MDRuntimeException(this, "Cannot list concatenate a 'string' and a '%s'",
+									getBasedStack(i.rs1 + badIndex).typeString());
+									
+							getBasedStack(i.rd).value = newStr;
+							break;
+						}
+
+						MDValue* method = getMM(src1, MM.Cat);
+
+						if(method is null || (!method.isFunction() && !method.isDelegate()))
+							throw new MDRuntimeException(this, "Cannot list concatenate a '%s'", src1.typeString());
+
+						uint firstItem = getBasedIndex(i.rs1);
+						uint lastItem;
+						int numItems = i.rs2 - 1;
+
+						if(numItems == -1)
+						{
+							lastItem = mStackIndex - 1;
+							numItems = lastItem - firstItem + 1;
+						}
+						else
+							lastItem = firstItem + numItems - 1;
+
+						uint funcSlot = push(method);
+
+						for(int j = firstItem; j <= lastItem; j++)
+							push(getAbsStack(j));
+
+						call(funcSlot, numItems, 1);
+						copyBasedStack(i.rd, funcSlot);
+						break;
+						
+					case Op.CatEq:
+						StackVal src1 = getBasedStack(i.rd);
+						StackVal src2 = getCR1();
+
+						if(src1.isArray())
+						{
+							if(src2.isArray())
+								getBasedStack(i.rd).asArray() ~= src2.asArray();
+							else
+								getBasedStack(i.rd).asArray() ~= src2;
+
+							break;
+						}
+
+						if(src1.isString())
+						{
+							if(src2.isString())
+							{
+								getBasedStack(i.rd).value = src1.asString() ~= src2.asString();
+								break;
+							}
+							else if(src2.isChar())
+							{
+								getBasedStack(i.rd).value = src1.asString() ~= src2.asChar();
+								break;
+							}
+						}
+
+						if(src1.isChar())
+						{
+							if(src2.isString())
+							{
+								getBasedStack(i.rd).value = src1.asChar() ~ src2.asString();
+								break;
+							}
+							else if(src2.isChar())
+							{
+								dchar[2] data;
+								data[0] = src1.asChar();
+								data[1] = src2.asChar();
+
+								getBasedStack(i.rd).value = data;
+								break;
+							}
+						}
+
+						MDValue* method = getMM(src1, MM.CatEq);
+
+						if(method is null || (!method.isFunction() && !method.isDelegate()))
+							throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'", src1.typeString(), src2.typeString());
+
+						uint funcSlot = push(method);
+						push(src1);
+						push(src2);
+						call(funcSlot, 2, 0);
+						break;
+						
+					/*
+					case Op.BinCat:
 						StackVal src1 = getCR1();
 						StackVal src2 = getCR2();
-	
+
 						if(src1.isArray())
 						{
 							if(src2.isArray())
@@ -1991,7 +2187,7 @@ class MDState
 								break;
 							}
 						}
-						
+
 						if(src1.isChar())
 						{
 							if(src2.isString())
@@ -2010,14 +2206,14 @@ class MDState
 							}
 						}
 
-						MDValue* method = getMM(src1, MM.Cat);
+						MDValue* method = getMM(src1, MM.BinCat);
 
 						if(method is null || (!method.isFunction() && !method.isDelegate()))
 						{
 							//method = getMM(src2, MM.Cat);
 
 							//if(!method.isFunction())
-								throw new MDRuntimeException(this, "Cannot concatenate a '%s' and a '%s'",
+								throw new MDRuntimeException(this, "Cannot binary concatenate a '%s' and a '%s'",
 									src1.typeString(), src2.typeString());
 						}
 
@@ -2027,7 +2223,8 @@ class MDState
 						call(funcSlot, 2, 1);
 						copyBasedStack(i.rd, funcSlot);
 						break;
-	
+					*/
+
 					case Op.Closure:
 						MDFuncDef newDef = getInnerFunc(i.imm);
 						MDClosure n = new MDClosure(this, newDef);

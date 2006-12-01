@@ -115,7 +115,7 @@ class ArrayLib
 		int index = s.getIntParam(1);
 		
 		index--;
-		
+
 		if(index < 0)
 			return 0;
 			
@@ -147,6 +147,16 @@ class ArrayLib
 
 		return 3;
 	}
+	
+	int expand(MDState s)
+	{
+		MDArray array = s.getArrayParam(0);
+		
+		for(int i = 0; i < array.length; i++)
+			s.push(array[i]);
+			
+		return array.length;
+	}
 }
 
 public void init(MDState s)
@@ -164,7 +174,8 @@ public void init(MDState s)
 		"dup",       new MDClosure(s, &lib.dup,      "array.dup"),
 		"length",    new MDClosure(s, &lib.length,   "array.length"),
 		"slice",     new MDClosure(s, &lib.slice,    "array.slice"),
-		"opApply",   new MDClosure(s, &lib.apply,    "array.opApply")
+		"opApply",   new MDClosure(s, &lib.apply,    "array.opApply"),
+		"expand",    new MDClosure(s, &lib.expand,   "array.expand")
 	);
 
 	s.setGlobal("array"d, arrayTable);

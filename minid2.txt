@@ -297,7 +297,7 @@ ForStatement:
 	'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
 	
 ForeachStatement:
-	'foreach' '(' 'local' Identifier {',' 'local' Identifier} ';' Expression {',' Expression} ')' Statement
+	'foreach' '(' Identifier {',' Identifier} ';' Expression [',' Expression [',' Expression]] ')' Statement
 	
 SwitchStatement:
 	'switch' '(' Expression ')' '{' CaseStatement {CaseStatement} [DefaultStatement] '}'

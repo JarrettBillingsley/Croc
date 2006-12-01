@@ -422,16 +422,21 @@ class MDString : MDObject
 	}
 	
 	// Returns null on failure, so that the VM can give an error at the appropriate location
-	public static MDString concat(MDValue[] values)
+	public static MDString concat(MDValue[] values, out uint badIndex)
 	{
 		uint l = 0;
 
-		foreach(MDValue v; values)
+		foreach(uint i, MDValue v; values)
 		{
-			if(v.isString() == false)
+			if(v.isString())
+				l += v.asString().length;
+			else if(v.isChar())
+				l += 1;
+			else
+			{
+				badIndex = i;
 				return null;
-
-			l += v.asString().length;
+			}
 		}
 		
 		dchar[] result = new dchar[l];
@@ -440,9 +445,17 @@ class MDString : MDObject
 		
 		foreach(MDValue v; values)
 		{
-			MDString s = v.asString();
-			result[i .. i + s.length] = s.mData[];
-			i += s.length;
+			if(v.isString())
+			{
+				MDString s = v.asString();
+				result[i .. i + s.length] = s.mData[];
+				i += s.length;
+			}
+			else
+			{
+				result[i] = v.asChar();
+				i++;
+			}
 		}
 		
 		return new MDString(result);
@@ -928,14 +941,46 @@ class MDArray : MDObject
 	{
 		return string.format("array 0x%0.8X", cast(void*)this);
 	}
+	
+	public static MDArray concat(MDValue[] values)
+	{
+		uint l = 0;
+
+		foreach(uint i, MDValue v; values)
+		{
+			if(v.isArray())
+				l += v.asArray().length;
+			else
+				l += 1;
+		}
+		
+		MDArray result = new MDArray(l);
+		
+		uint i = 0;
+		
+		foreach(MDValue v; values)
+		{
+			if(v.isArray())
+			{
+				MDArray a = v.asArray();
+				result.mData[i .. i + a.length] = a.mData[];
+				i += a.length;
+			}
+			else
+			{
+				result[i] = &v;
+				i++;
+			}
+		}
+
+		return result;
+	}
 }
 
 class MDClass : MDObject
 {
 	protected dchar[] mGuessedName;
 	protected MDClass mBaseClass;
-	//protected MDTable mFields;
-	//protected MDTable mMethods;
 	protected MDValue[MDString] mFields;
 	protected MDValue[MDString] mMethods;
 
@@ -953,9 +998,6 @@ class MDClass : MDObject
 		mGuessedName = guessedName.dup;
 		mBaseClass = baseClass;
 
-		//mMethods = new MDTable();
-		//mFields = new MDTable();
-		
 		if(baseClass !is null)
 		{
 			foreach(key, value; mBaseClass.mMethods)
@@ -994,7 +1036,6 @@ class MDClass : MDObject
 		foreach(k, v; mFields)
 			n.mFields[k] = v;
 
-		//n.mFields = mFields.dup;
 		n.mMethods = mMethods;
 
 		return n;
@@ -1073,8 +1114,6 @@ class MDClass : MDObject
 class MDInstance : MDObject
 {
 	protected MDClass mClass;
-	//protected MDTable mFields;
-	//protected MDTable mMethods;
 	protected MDValue[MDString] mFields;
 	protected MDValue[MDString] mMethods;
 
@@ -1166,11 +1205,6 @@ class MDInstance : MDObject
 		return false;
 	}
 
-	//package MDTable getMethodTable()
-	//{
-	//	return mMethods;
-	//}
-	
 	package MDClass getClass()
 	{
 		return mClass;
