@@ -29,14 +29,6 @@ void main()
 	try
 	{
 		state.easyCall(cl, 0);
-		
-		MDClosure func = state.getGlobal("foo"d).asFunction();
-		
-		uint firstReturn = state.numParams();
-		uint numReturns = state.easyCall(func, -1);
-		
-		for(int i = firstReturn; i < firstReturn + numReturns; i++)
-			writefln("value ", i - firstReturn, ": ", state.getParam(i).toString());
 	}
 	catch(MDException e)
 	{
