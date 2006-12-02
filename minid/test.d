@@ -23,16 +23,21 @@ void main()
 	mathlib.init(state);
 	charlib.init(state);
 	iolib.init(state);
-
+	
 	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
-
+	
 	try
 	{
-		state.easyCall(cl, 0u);
+		state.easyCall(cl, 0);
 	}
 	catch(MDException e)
 	{
 		writefln("error: ", e);
+		writefln(state.getTracebackString());
+	}
+	catch(Object e)
+	{
+		writefln("bad error: ", e);
 		writefln(state.getTracebackString());
 	}
 }

@@ -36,7 +36,7 @@ class TableLib
 	int contains(MDState s)
 	{
 		MDValue key = s.getParam(1);
-		MDValue* val = s.getTableParam(0)[&key];
+		MDValue* val = s.getTableParam(0)[key];
 		
 		s.push(val !is null);
 		return 1;
@@ -55,7 +55,7 @@ class TableLib
 			return 0;
 
 		s.push(keys[index]);
-		s.push(table[keys[index]]);
+		s.push(table[*keys[index]]);
 
 		return 2;
 	}

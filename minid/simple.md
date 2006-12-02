@@ -1,12 +1,6 @@
-foreach(i, v; [1, 2, 3])
-	writefln("arr[", i, "] = ", v);
-
-foreach(v; [5, 10, 15])
-	writefln(v);
-
 // A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
-/*function mixinProperties(classType, vararg)
+function mixinProperties(classType, vararg)
 {
 	classType.mProps = { };
 	
@@ -36,7 +30,7 @@ foreach(v; [5, 10, 15])
 		prop.setter(this, value);
 	};
 
-	foreach(local k, local v; [vararg])
+	foreach(k, v; [vararg])
 	{
 		if(!isTable(v))
 			throw "mixinProperties() - properties must be tables";

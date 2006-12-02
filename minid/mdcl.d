@@ -142,7 +142,7 @@ void main(char[][] args)
 
 			try
 			{
-				def = compile("(command line)", s, &atEOF);
+				def = compile("(command line)", s, atEOF);
 			}
 			catch(MDCompileException e)
 			{
@@ -163,7 +163,7 @@ void main(char[][] args)
 
 			try
 			{
-				state.easyCall(new MDClosure(state, def), 0u);
+				state.easyCall(new MDClosure(state, def), 0);
 			}
 			catch(MDException e)
 			{

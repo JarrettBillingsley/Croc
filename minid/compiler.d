@@ -25,7 +25,13 @@ public MDFuncDef compileFile(char[] filename)
 	return compile(path.getBaseName(filename), f);
 }
 
-public MDFuncDef compile(char[] name, Stream source, bool* atEOF = null)
+public MDFuncDef compile(char[] name, Stream source)
+{
+	bool dummy;
+	return compile(name, source, dummy);
+}
+
+public MDFuncDef compile(char[] name, Stream source, out bool atEOF)
 {
 	Token* tokens = Lexer.lex(name, source);
 
@@ -37,8 +43,8 @@ public MDFuncDef compile(char[] name, Stream source, bool* atEOF = null)
 	}
 	catch(Object o)
 	{
-		if(atEOF !is null && tokens.type == Token.Type.EOF)
-			*atEOF = true;
+		if(tokens.type == Token.Type.EOF)
+			atEOF = true;
 
 		throw o;
 	}

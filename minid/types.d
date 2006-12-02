@@ -194,7 +194,7 @@ static this()
 abstract class MDObject
 {
 	public uint length();
-	
+
 	// avoiding RTTI downcasts for speed
 	public static enum Type
 	{
@@ -292,7 +292,7 @@ class MDString : MDObject
 	{
 		MDString ret = new MDString();
 		ret.mData = this.mData ~ c;
-		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
 		return ret;
 	}
 	
@@ -300,7 +300,7 @@ class MDString : MDObject
 	{
 		MDString ret = new MDString();
 		ret.mData = c ~ this.mData;
-		ret.mHash = typeid(typeof(mData)).getHash(&ret.mData);
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
 		return ret;
 	}
 
@@ -561,7 +561,7 @@ class MDClosure : MDObject
 	public char[] toString()
 	{
 		if(mIsNative)
-			return string.format("native function %s", utf.toUTF8(native.name));
+			return string.format("native function %s", native.name);
 		else
 			return string.format("script function %s(%s)", script.func.mGuessedName, script.func.mLocation.toString());
 	}
@@ -586,66 +586,36 @@ class MDTable : MDObject
 		
 	}
 	
-	public static MDTable create(...)
+	public static MDTable create(T...)(T args)
 	{
-		if(_arguments.length & 1)
-			throw new MDException("Native table constructor requires an even number of arguments");
-			
+		static if(args.length & 1)
+		{
+			pragma(msg, "Native table constructor requires an even number of arguments");
+			static assert(false);
+		}
+
 		MDTable ret = new MDTable();
 
 		MDValue key;
 		MDValue value;
 		
-		void getVal(uint arg, out MDValue v)
+		bool k = true;
+		
+		foreach(arg; args)
 		{
-			TypeInfo ti = _arguments[arg];
-			TypeInfo_Class tic = cast(TypeInfo_Class)ti;
-
-			if(tic is null)
+			if(k)
 			{
-				if(ti == typeid(bool))             v.value = cast(bool)va_arg!(bool)(_argptr);
-				else if(ti == typeid(byte))        v.value = cast(int)va_arg!(byte)(_argptr);
-				else if(ti == typeid(ubyte))       v.value = cast(int)va_arg!(ubyte)(_argptr);
-				else if(ti == typeid(short))       v.value = cast(int)va_arg!(ushort)(_argptr);
-				else if(ti == typeid(ushort))      v.value = cast(int)va_arg!(ushort)(_argptr);
-				else if(ti == typeid(int))         v.value = cast(int)va_arg!(int)(_argptr);
-				else if(ti == typeid(uint))        v.value = cast(int)va_arg!(uint)(_argptr);
-				else if(ti == typeid(long))        v.value = cast(int)va_arg!(long)(_argptr);
-				else if(ti == typeid(ulong))       v.value = cast(int)va_arg!(ulong)(_argptr);
-				else if(ti == typeid(float))       v.value = cast(float)va_arg!(float)(_argptr);
-				else if(ti == typeid(double))      v.value = cast(float)va_arg!(double)(_argptr);
-				else if(ti == typeid(real))        v.value = cast(float)va_arg!(real)(_argptr);
-				else if(ti == typeid(char[]))      v.value = new MDString(va_arg!(char[])(_argptr));
-				else if(ti == typeid(wchar[]))     v.value = new MDString(va_arg!(wchar[])(_argptr));
-				else if(ti == typeid(dchar[]))     v.value = new MDString(va_arg!(dchar[])(_argptr));
-				else throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
+				k = false;
+				putInValue(key, arg);
 			}
 			else
 			{
-				ClassInfo ci = tic.info;
-				
-				for( ; ci !is null; ci = ci.base)
-				{
-					if(ci == MDObject.classinfo)
-					{
-						v.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-						break;
-					}
-				}
-
-				if(ci is null)
-					throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
+				k = true;
+				putInValue(value, arg);
+				ret[key] = value;
 			}
 		}
 
-		for(int i = 0; i < _arguments.length; i += 2)
-		{
-			getVal(i, key);
-			getVal(i + 1, value);
-			
-			ret[&key] = &value;
-		}
-		
 		return ret;
 	}
 
@@ -694,9 +664,9 @@ class MDTable : MDObject
 		mData.remove(*index);
 	}
 	
-	public MDValue* opIndex(MDValue* index)
+	public MDValue* opIndex(inout MDValue index)
 	{
-		MDValue* ptr = (*index in mData);
+		MDValue* ptr = (index in mData);
 
 		if(ptr is null)
 			return null;
@@ -709,30 +679,29 @@ class MDTable : MDObject
 		MDValue key;
 		key.value = new MDString(index);
 		
-		return opIndex(&key);
+		return opIndex(key);
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, MDValue* index)
+	public void opIndexAssign(inout MDValue value, inout MDValue index)
 	{
-		mData[*index] = *value;
-		return value;
+		mData[index] = value;
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
+	public void opIndexAssign(inout MDValue value, dchar[] index)
 	{
 		MDValue idx;
 		idx.value = new MDString(index);
-		return opIndexAssign(value, &idx);
+		opIndexAssign(value, idx);
 	}
 	
-	public MDValue* opIndexAssign(MDObject value, MDValue* index)
+	public void opIndexAssign(MDObject value, inout MDValue index)
 	{
 		MDValue val;
 		val.value = value;
-		return opIndexAssign(&val, index);
+		opIndexAssign(val, index);
 	}
 	
-	public MDValue* opIndexAssign(MDObject value, dchar[] index)
+	public void opIndexAssign(MDObject value, dchar[] index)
 	{
 		MDValue idx;
 		idx.value = new MDString(index);
@@ -740,19 +709,16 @@ class MDTable : MDObject
 		MDValue val;
 		val.value = value;
 		
-		return opIndexAssign(&val, &idx);
+		opIndexAssign(val, idx);
 	}
-	
-	public int opApply(int delegate(inout MDValue* key, inout MDValue* value) dg)
+
+	public int opApply(int delegate(inout MDValue key, inout MDValue value) dg)
 	{
 		int result = 0;
 		
 		foreach(MDValue key, MDValue value; mData)
 		{
-			MDValue* k = &key;
-			MDValue* v = &value;
-
-			result = dg(k, v);
+			result = dg(key, value);
 
 			if(result)
 				break;
@@ -781,61 +747,18 @@ class MDArray : MDObject
 		mData = data;
 	}
 
-	public static MDArray create(...)
+	public static MDArray create(T...)(T args)
 	{
-		MDArray ret = new MDArray(_arguments.length);
+		MDArray ret = new MDArray(args.length);
 
 		MDValue value;
 
-		void getVal(uint arg)
+		foreach(i, arg; args)
 		{
-			TypeInfo ti = _arguments[arg];
-			TypeInfo_Class tic = cast(TypeInfo_Class)ti;
-
-			if(tic is null)
-			{
-				if(ti == typeid(bool))             value.value = cast(bool)va_arg!(bool)(_argptr);
-				else if(ti == typeid(byte))        value.value = cast(int)va_arg!(byte)(_argptr);
-				else if(ti == typeid(ubyte))       value.value = cast(int)va_arg!(ubyte)(_argptr);
-				else if(ti == typeid(short))       value.value = cast(int)va_arg!(ushort)(_argptr);
-				else if(ti == typeid(ushort))      value.value = cast(int)va_arg!(ushort)(_argptr);
-				else if(ti == typeid(int))         value.value = cast(int)va_arg!(int)(_argptr);
-				else if(ti == typeid(uint))        value.value = cast(int)va_arg!(uint)(_argptr);
-				else if(ti == typeid(long))        value.value = cast(int)va_arg!(long)(_argptr);
-				else if(ti == typeid(ulong))       value.value = cast(int)va_arg!(ulong)(_argptr);
-				else if(ti == typeid(float))       value.value = cast(float)va_arg!(float)(_argptr);
-				else if(ti == typeid(double))      value.value = cast(float)va_arg!(double)(_argptr);
-				else if(ti == typeid(real))        value.value = cast(float)va_arg!(real)(_argptr);
-				else if(ti == typeid(char[]))      value.value = new MDString(va_arg!(char[])(_argptr));
-				else if(ti == typeid(wchar[]))     value.value = new MDString(va_arg!(wchar[])(_argptr));
-				else if(ti == typeid(dchar[]))     value.value = new MDString(va_arg!(dchar[])(_argptr));
-				else throw new MDException("Native array constructor: invalid argument %d of type ", arg, ti);
-			}
-			else
-			{
-				ClassInfo ci = tic.info;
-				
-				for( ; ci !is null; ci = ci.base)
-				{
-					if(ci == MDObject.classinfo)
-					{
-						value.value = cast(MDObject)va_arg!(MDObject)(_argptr);
-						break;
-					}
-				}
-
-				if(ci is null)
-					throw new MDException("Native table constructor: invalid argument %d of type ", arg, ti);
-			}
+			putInValue(value, arg);
+			ret[i] = value;
 		}
 
-		for(int i = 0; i < _arguments.length; i++)
-		{
-			getVal(i);
-			
-			ret[i] = &value;
-		}
-		
 		return ret;
 	}
 
@@ -883,7 +806,6 @@ class MDArray : MDObject
 
 		for(uint i = 0; i < mData.length; i++)
 		{
-
 			result = dg(i, mData[i]);
 
 			if(result)
@@ -900,10 +822,10 @@ class MDArray : MDObject
 		return n;
 	}
 	
-	public MDArray opCat(MDValue* elem)
+	public MDArray opCat(inout MDValue elem)
 	{
 		MDArray n = new MDArray(mData.length + 1);
-		n.mData = mData ~ *elem;
+		n.mData = mData ~ elem;
 		return n;
 	}
 
@@ -913,9 +835,9 @@ class MDArray : MDObject
 		return this;
 	}
 	
-	public MDArray opCatAssign(MDValue* elem)
+	public MDArray opCatAssign(inout MDValue elem)
 	{
-		mData ~= *elem;
+		mData ~= elem;
 		return this;
 	}
 	
@@ -927,24 +849,20 @@ class MDArray : MDObject
 		return &mData[index];
 	}
 	
-	public MDValue* opIndexAssign(MDValue* value, int index)
+	public void opIndexAssign(inout MDValue value, int index)
 	{
 		if(index < 0 || index >= mData.length)
 			return null;
 			
-		mData[index] = *value;
-
-		return value;
+		mData[index] = value;
 	}
 	
-	public MDObject opIndexAssign(MDObject value, int index)
+	public void opIndexAssign(MDObject value, int index)
 	{
 		if(index < 0 || index >= mData.length)
 			return null;
 
 		mData[index].value = value;
-
-		return value;
 	}
 	
 	public MDArray opSlice(uint lo, uint hi)
@@ -998,7 +916,7 @@ class MDArray : MDObject
 			}
 			else
 			{
-				result[i] = &v;
+				result[i] = v;
 				i++;
 			}
 		}
@@ -1100,34 +1018,32 @@ class MDClass : MDObject
 		return opIndex(new MDString(index));
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, MDString index)
+	public void opIndexAssign(inout MDValue value, MDString index)
 	{
 		if(value.isFunction())
-			mMethods[index] = *value;
+			mMethods[index] = value;
 		else
-			mFields[index] = *value;
-			
-		return value;
+			mFields[index] = value;
 	}
 
-	public MDValue* opIndexAssign(MDObject value, MDString index)
+	public void opIndexAssign(MDObject value, MDString index)
 	{
 		MDValue val;
 		val.value = value;
-		return opIndexAssign(&val, index);
+		opIndexAssign(val, index);
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
+	public void opIndexAssign(inout MDValue value, dchar[] index)
 	{
-		return opIndexAssign(value, new MDString(index));
+		opIndexAssign(value, new MDString(index));
 	}
 	
-	public MDValue* opIndexAssign(MDObject value, dchar[] index)
+	public void opIndexAssign(MDObject value, dchar[] index)
 	{
 		MDValue val;
 		val.value = value;
 		
-		return opIndexAssign(&val, new MDString(index));
+		opIndexAssign(val, new MDString(index));
 	}
 	
 	public dchar[] getName()
@@ -1187,34 +1103,32 @@ class MDInstance : MDObject
 		return opIndex(new MDString(index));
 	}
 	
-	public MDValue* opIndexAssign(MDValue* value, MDString index)
+	public void opIndexAssign(inout MDValue value, MDString index)
 	{
 		if(value.isFunction())
 			throw new MDException("Attempting to change a method of a class instance!");
 		else
-			mFields[index] = *value;
-			
-		return value;
+			mFields[index] = value;
 	}
 
-	public MDValue* opIndexAssign(MDObject value, MDString index)
+	public void opIndexAssign(MDObject value, MDString index)
 	{
 		MDValue val;
 		val.value = value;
-		return opIndexAssign(&val, index);
+		opIndexAssign(val, index);
 	}
 
-	public MDValue* opIndexAssign(MDValue* value, dchar[] index)
+	public void opIndexAssign(inout MDValue value, dchar[] index)
 	{
-		return opIndexAssign(value, new MDString(index));
+		opIndexAssign(value, new MDString(index));
 	}
 	
-	public MDValue* opIndexAssign(MDObject value, dchar[] index)
+	public void opIndexAssign(MDObject value, dchar[] index)
 	{
 		MDValue val;
 		val.value = value;
 		
-		return opIndexAssign(&val, new MDString(index));
+		opIndexAssign(val, new MDString(index));
 	}
 
 	public char[] toString()
@@ -1320,14 +1234,6 @@ struct MDValue
 		Delegate
 	}
 	
-	//public static MDValue nullValue = { mType : Type.Null };
-	
-	// No one should ever change nullValue!
-	//invariant
-	//{
-	//	assert(nullValue.mType == Type.Null, "Someone changed nullValue!");
-	//}
-
 	public Type mType = Type.Null;
 
 	union
@@ -1340,6 +1246,13 @@ struct MDValue
 		
 		// Object types
 		private MDObject mObj;
+	}
+	
+	public static MDValue opCall(T)(T value)
+	{
+		MDValue ret;
+		putInValue(ret, value);
+		return ret;	
 	}
 
 	public int opEquals(MDValue* other)
@@ -1745,12 +1658,7 @@ struct MDValue
 		}
 	}
 
-	public void value(MDValue v)
-	{
-		value(&v);
-	}
-	
-	public void value(MDValue* v)
+	public void value(inout MDValue v)
 	{
 		mType = v.mType;
 		
