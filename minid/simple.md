@@ -1,4 +1,9 @@
-// A function which lets us define properties for a class.
+function foo()
+{
+	return 1, 2, 3;	
+}
+
+/* // A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
 function mixinProperties(classType, vararg)
 {

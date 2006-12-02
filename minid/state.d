@@ -220,7 +220,7 @@ class MDState
 		return mStackIndex - 1 - mCurrentAR.base;
 	}
 	
-	public void easyCall(T...)(MDClosure func, int numReturns, T params)
+	public uint easyCall(T...)(MDClosure func, int numReturns, T params)
 	{
 		uint paramSlot = mStackIndex;
 
@@ -229,12 +229,16 @@ class MDState
 
 		if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length))
 			callExecute();
+			
+		return mStackIndex - paramSlot;
 	}
 
-	public void call(uint slot, int numParams, int numReturns)
+	public uint call(uint slot, int numParams, int numReturns)
 	{
 		if(callPrologue(slot, numReturns, numParams))
 			callExecute();
+			
+		return mStackIndex - slot;
 	}
 
 	public void setGlobal(T)(dchar[] name, T value)
