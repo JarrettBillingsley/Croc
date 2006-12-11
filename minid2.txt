@@ -67,6 +67,8 @@ Token:
 	'='
 	'=='
 	'.'
+	'..'
+	'...'
 	'!'
 	'!='
 	'('
@@ -338,22 +340,23 @@ AssignmentLHS:
 	Identifier
 	// Note - for these two, the PostfixExpression must start with Identifier.
 	PostfixExpression '[' Expression ']'
+	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier
 
 Expression:
 	OrOrExpression
-	OrOrExpression '+=' Expression
-	OrOrExpression '-=' Expression
-	OrOrExpression '~=' Expression
-	OrOrExpression '*=' Expression
-	OrOrExpression '/=' Expression
-	OrOrExpression '%=' Expression
-	OrOrExpression '<<=' Expression
-	OrOrExpression '>>=' Expression
-	OrOrExpression '>>>=' Expression
-	OrOrExpression '|=' Expression
-	OrOrExpression '^=' Expression
-	OrOrExpression '&=' Expression
+	AssignmentLHS '+=' OrOrExpression
+	AssignmentLHS '-=' OrOrExpression
+	AssignmentLHS '~=' OrOrExpression
+	AssignmentLHS '*=' OrOrExpression
+	AssignmentLHS '/=' OrOrExpression
+	AssignmentLHS '%=' OrOrExpression
+	AssignmentLHS '<<=' OrOrExpression
+	AssignmentLHS '>>=' OrOrExpression
+	AssignmentLHS '>>>=' OrOrExpression
+	AssignmentLHS '|=' OrOrExpression
+	AssignmentLHS '^=' OrOrExpression
+	AssignmentLHS '&=' OrOrExpression
 
 OrOrExpression:
 	AndAndExpression
@@ -419,6 +422,7 @@ UnaryExpression:
 PostfixExpression:
 	PrimaryExpression
 	PostfixExpression '[' Expression ']'
+	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier
 	PostfixExpression [':' Identifier] '(' [Expression {',' Expression}] ')'
 

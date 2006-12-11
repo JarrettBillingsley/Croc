@@ -1,38 +1,39 @@
-function foo()
-{
-	return 1, 2, 3;	
-}
-
-/* // A function which lets us define properties for a class.
+// A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
 function mixinProperties(classType, vararg)
 {
 	classType.mProps = { };
-	
+
 	classType.opIndex = function(this, key)
 	{
-		if(!this.mProps:contains(key))
+		local c, prop = this.mProps:contains(key);
+
+		if(!c)
 			throw format(classType, ":opIndex() - Property '%s' does not exist", key);
 			
-		local prop = this.mProps[key];
-		
-		if(!prop:contains("getter"))
+		local getter;
+		c, getter = prop:contains("getter");
+
+		if(!c)
 			throw format(classType, ":opIndex() - Property '%s' has no getter", key);
-			
-		return prop.getter(this);
+
+		return getter(this);
 	};
 
 	classType.opIndexAssign = function(this, key, value)
 	{
-		if(!this.mProps:contains(key))
+		local c, prop = this.mProps:contains(key);
+
+		if(!c)
 			throw format(classType, ":opIndexAssign() - Property '%s' does not exist", key);
 			
-		local prop = this.mProps[key];
+		local setter;
+		c, setter = prop:contains("setter");
 		
-		if(!prop:contains("setter"))
+		if(!c)
 			throw format(classType, ":opIndexAssign() - Property '%s' has no setter", key);
 			
-		prop.setter(this, value);
+		setter(this, value);
 	};
 
 	foreach(k, v; [vararg])
@@ -113,11 +114,11 @@ mixinProperties(
 // Create an instance and try it out.
 local p = PropTest("hello");
 
-writefln(p:toString());
+writefln(p);
 p.x = 46;
 p.y = 123;
 p.x = p.x + p.y;
-writefln(p:toString());
+writefln(p);
 
 // Try to access a nonexistent property.
 try

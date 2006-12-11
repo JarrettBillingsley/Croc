@@ -197,7 +197,7 @@ class IOLib
 	{
 		public this(MDState s)
 		{
-			super(s, "File", null);
+			super("File", null);
 			
 			this["constructor"] = new MDClosure(s, &constructor,    "File.constructor");
 			this["readByte"] =    new MDClosure(s, &read!(ubyte),   "File.readByte");

@@ -2,6 +2,10 @@ module minid.opcodes;
 
 import string = std.string;
 
+const uint MaxRegisters = Instruction.rs1Max >> 1;
+const uint MaxConstants = Instruction.constMax;
+const uint MaxUpvalues = Instruction.immMax;
+
 enum Op : uint
 {
 	Add,
@@ -59,6 +63,8 @@ enum Op : uint
 	ShlEq,
 	Shr,
 	ShrEq,
+	Slice,
+	SliceAssign,
 	Sub,
 	SubEq,
 	SwitchInt,
@@ -131,6 +137,8 @@ Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
 Shr...............R: dest, src, src
 ShrEq.............R: dest, src, n/a
+Slice.............R: dest, src, n/a (indices are at src + 1 and src + 2)
+SliceAssign.......R: dest, src, n/a (indices are at dest + 1 and dest + 2)
 Sub...............R: dest, src, src
 SubEq.............R: dest, src, n/a
 SwitchInt.........I: src, index of switch table
@@ -273,6 +281,8 @@ align(1) struct Instruction
 			case Op.ShlEq:         return string.format("shleq r%s, %s", rd, cr(rs1));
 			case Op.Shr:           return string.format("shr r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.ShrEq:         return string.format("shreq r%s, %s", rd, cr(rs1));
+			case Op.Slice:         return string.format("slice r%s, r%s", rd, rs1);
+			case Op.SliceAssign:   return string.format("slicea r%s, %s", rd, cr(rs1));
 			case Op.Sub:           return string.format("sub r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.SubEq:         return string.format("subeq r%s, %s", rd, cr(rs1));
 			case Op.SwitchInt:     return string.format("iswitch r%s, %s", rd, uimm);

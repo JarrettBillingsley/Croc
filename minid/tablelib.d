@@ -37,9 +37,18 @@ class TableLib
 	{
 		MDValue key = s.getParam(1);
 		MDValue* val = s.getTableParam(0)[key];
-		
-		s.push(val !is null);
-		return 1;
+
+		if(val is null)
+		{
+			s.push(false);
+			return 1;
+		}
+		else
+		{
+			s.push(true);
+			s.push(val);
+			return 2;
+		}
 	}
 	
 	int iterator(MDState s)

@@ -196,6 +196,7 @@ struct Token
 		Assign,
 		EQ,
 		Dot,
+		DotDot,
 		Not,
 		NE,
 		LParen,
@@ -281,6 +282,7 @@ struct Token
 		Type.Assign: "=",
 		Type.EQ: "==",
 		Type.Dot: ".",
+		Type.DotDot: "..",
 		Type.Not: "!",
 		Type.NE: "!=",
 		Type.LParen: "(",
@@ -411,6 +413,8 @@ class Lexer
 	protected static BufferedStream mSource;
 	protected static Location mLoc;
 	protected static dchar mCharacter;
+	protected static dchar mLookaheadCharacter;
+	protected static bool mHaveLookahead = false;
 	
 	enum Encoding
 	{
@@ -645,21 +649,16 @@ class Lexer
 		else
 			return c;
 	}
-
-	protected static void nextChar()
+	
+	protected static dchar readChar()
 	{
-		mLoc.column++;
-
 		switch(mEncoding)
 		{
 			case Encoding.UTF8:
 				char c = mSource.getc();
-		
+
 				if(c == char.init)
-				{
-					mCharacter = dchar.init;
-					return;
-				}
+					return dchar.init;
 
 				if(c & 0x80)
 				{
@@ -708,28 +707,46 @@ class Lexer
 
 					if(!utf.isValidDchar(dc))
 						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-						
-					mCharacter = dc;
+
+					return dc;
 				}
 				else
-					mCharacter = c;
-
-				break;
+					return c;
 
 			case Encoding.UTF16LE:
 				char hiChar = mSource.getc();
 
 				if(hiChar == char.init)
-				{
-					mCharacter = dchar.init;
-					return;
-				}
+					return dchar.init;
 
-				mCharacter = readRestOfUTF16LEChar(hiChar);
-				break;
-				
+				return readRestOfUTF16LEChar(hiChar);
+
 			default:
 				assert(false, "unimplemented encoding");
+		}
+	}
+	
+	protected static dchar lookaheadChar()
+	{
+		assert(mHaveLookahead == false, "looking ahead too far");
+
+		mLookaheadCharacter = readChar();
+		mHaveLookahead = true;
+		return mLookaheadCharacter;
+	}
+
+	protected static void nextChar()
+	{
+		mLoc.column++;
+		
+		if(mHaveLookahead)
+		{
+			mCharacter = mLookaheadCharacter;
+			mHaveLookahead = false;
+		}
+		else
+		{
+			mCharacter = readChar();
 		}
 	}
 
@@ -867,18 +884,39 @@ class Lexer
 			}
 			else if(mCharacter == '.')
 			{
-				hasPoint = true;
-
-				add(mCharacter);
-				nextChar();
+				if(lookaheadChar() == '.')
+				{
+					// next token is probably a ..
+					break;
+				}
+				else
+				{
+					hasPoint = true;
+					add(mCharacter);
+					nextChar();
+				}
 			}
 			else if(mCharacter == '_')
+			{
+				nextChar();
 				continue;
+			}
 			else
 				// this will still handle exponents on literals without a decimal point
 				break;
 		}
 
+		if(hasPoint)
+		{
+			if(isDecimalDigit())
+			{
+				add(mCharacter);
+				nextChar();
+			}
+			else
+				throw new MDCompileException(mLoc, "Floating point literal '%s' must have at least one digit after decimal point", buf[0 .. i]);
+		}
+		
 		bool hasExponent = false;
 
 		while(true)
@@ -1416,7 +1454,15 @@ class Lexer
 						token.type = Token.Type.FloatLiteral;
 					}
 					else
-						token.type = Token.Type.Dot;
+					{
+						if(mCharacter == '.')
+						{
+							nextChar();
+							token.type = Token.Type.DotDot;
+						}
+						else
+							token.type = Token.Type.Dot;
+					}
 
 					return token;
 
@@ -1546,7 +1592,6 @@ struct InstRef
 
 enum ExpType
 {
-	Void,
 	Null,
 	True,
 	False,
@@ -1557,6 +1602,7 @@ enum ExpType
 	Upvalue,
 	Global,
 	Indexed,
+	Sliced,
 	Vararg,
 	Closure,
 	Call,
@@ -1569,9 +1615,11 @@ struct Exp
 	ExpType type;
 	uint index;
 	uint index2;
+	uint index3;
 
 	bool isTempReg;
 	bool isTempReg2;
+	bool isTempReg3;
 	
 	//uint attrs;
 
@@ -1880,6 +1928,7 @@ class FuncState
 
 		ret.isTempReg = false;
 		ret.isTempReg2 = false;
+		ret.isTempReg3 = false;
 
 		return ret;
 	}
@@ -1898,12 +1947,6 @@ class FuncState
 		Exp* src = &mExpStack[mExpSP - 1];
 		Exp* e = pushExp();
 		*e = *src;
-	}
-
-	public void pushVoid()
-	{
-		Exp* e = pushExp();
-		e.type = ExpType.Void;
 	}
 
 	public void pushNull()
@@ -2063,7 +2106,7 @@ class FuncState
 
 	public void freeExpTempRegs(Exp* e)
 	{
-		if(e.isTempReg2)
+		/*if(e.isTempReg2)
 		{
 			if(e.isTempReg)
 			{
@@ -2088,7 +2131,25 @@ class FuncState
 			popRegister(e.index);
 
 		e.isTempReg = false;
-		e.isTempReg2 = false;
+		e.isTempReg2 = false;*/
+		
+		if(e.isTempReg3)
+		{
+			popRegister(e.index3);
+			e.isTempReg3 = false;
+		}
+			
+		if(e.isTempReg2)
+		{
+			popRegister(e.index2);
+			e.isTempReg2 = false;
+		}
+			
+		if(e.isTempReg)
+		{
+			popRegister(e.index);
+			e.isTempReg = false;
+		}
 	}
 	
 	public void popToNothing()
@@ -2141,18 +2202,24 @@ class FuncState
 				freeExpTempRegs(src);
 				freeExpTempRegs(dest);
 				break;
+				
+			case ExpType.Sliced:
+				toSource(line, src);
+				
+				codeR(line, Op.SliceAssign, dest.index, src.index, 0);
+				
+				freeExpTempRegs(src);
+				freeExpTempRegs(dest);
+				break;
 		}
 	}
 
 	public void popToRegister(uint line, uint reg)
 	{
 		Exp* src = popExp();
-
-		assert(src.type != ExpType.Void, "pop void to reg");
-
 		toRegister(line, reg, src);
 	}
-	
+
 	public void toRegister(uint line, uint reg, Exp* src)
 	{
 		switch(src.type)
@@ -2196,6 +2263,11 @@ class FuncState
 
 			case ExpType.Indexed:
 				codeR(line, Op.Index, reg, src.index, src.index2);
+				freeExpTempRegs(src);
+				break;
+				
+			case ExpType.Sliced:
+				codeR(line, Op.Slice, reg, src.index, 0);
 				freeExpTempRegs(src);
 				break;
 
@@ -2334,6 +2406,11 @@ class FuncState
 				codeR(line, Op.IndexAssign, dest.index, dest.index2, srcReg);
 				freeExpTempRegs(dest);
 				break;
+				
+			case ExpType.Sliced:
+				codeR(line, Op.SliceAssign, dest.index, srcReg, 0);
+				freeExpTempRegs(dest);
+				break;
 
 			default:
 				assert(false);
@@ -2359,6 +2436,21 @@ class FuncState
 		e.index2 = index.index;
 		e.isTempReg2 = index.isTempReg;
 		e.type = ExpType.Indexed;
+	}
+
+	public void pushSlice(uint line, uint reg)
+	{
+		Exp* e = pushExp();
+		e.index = pushRegister();
+		
+		assert(e.index == reg, "push slice reg wrong");
+
+		e.isTempReg = true;
+		e.index2 = pushRegister();
+		e.isTempReg2 = true;
+		e.index3 = pushRegister();
+		e.isTempReg3 = true;
+		e.type = ExpType.Sliced;
 	}
 
 	public void popSource(uint line, out Exp n)
@@ -2441,6 +2533,15 @@ class FuncState
 				temp.isTempReg = true;
 				codeR(line, Op.Index, temp.index, e.index, e.index2);
 				break;
+				
+			case ExpType.Sliced:
+				if(cleanup)
+					freeExpTempRegs(e);
+					
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeR(line, Op.Slice, temp.index, e.index, 0);
+				break;
 
 			case ExpType.NeedsDest:
 				temp.index = pushRegister();
@@ -2479,7 +2580,6 @@ class FuncState
 				temp.isTempReg = true;
 				break;
 
-			case ExpType.Void:
 			default:
 				assert(false, "toSource switch");
 		}
@@ -4966,9 +5066,6 @@ class Assignment : Expression
 			for(int reg = RHSReg + mLHS.length - 1; reg >= RHSReg; reg--)
 				s.popMoveFromReg(mEndLocation.line, reg);
 		}
-
-		// to appease popToNothing
-		s.pushVoid();
 	}
 
 	public override InstRef* codeCondition(FuncState s)
@@ -5040,8 +5137,8 @@ class OpEqExp : BinaryExp
 		while(true)
 		{
 			Location location = t.location;
-
 			Op type;
+
 			switch(t.type)
 			{
 				case Token.Type.AddEq:  type = Op.AddEq;  goto _commonParse;
@@ -5059,7 +5156,7 @@ class OpEqExp : BinaryExp
 
 				_commonParse:
 					t = t.nextToken;
-					exp2 = OpEqExp.parse(t);
+					exp2 = OrOrExp.parse(t);
 					exp1 = new OpEqExp(location, exp2.mEndLocation, type, exp1, exp2);
 					continue;
 
@@ -6030,13 +6127,70 @@ abstract class PostfixExp : UnaryExp
 				case Token.Type.LBracket:
 					t = t.nextToken;
 
-					Expression index = OpEqExp.parse(t);
+					Expression loIndex;
+					Expression hiIndex;
+					
+					Location endLocation;
 
-					t.check(Token.Type.RBracket);
-					Location endLocation = t.location;
-					t = t.nextToken;
+					if(t.type == Token.Type.DotDot)
+					{
+						loIndex = new NullExp(t.location);
+						t = t.nextToken;
 
-					exp = new IndexExp(location, endLocation, exp, index);
+						if(t.type == Token.Type.RBracket)
+						{
+							// a[ .. ]
+							hiIndex = new NullExp(t.location);
+							endLocation = t.location;
+							t = t.nextToken;
+						}
+						else
+						{
+							// a[ .. 0]
+							hiIndex = Expression.parse(t);
+							t.check(Token.Type.RBracket);
+							endLocation = t.location;
+							t = t.nextToken;
+						}
+
+						exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+					}
+					else
+					{
+						loIndex = Expression.parse(t);
+
+						if(t.type == Token.Type.DotDot)
+						{
+							t = t.nextToken;
+
+							if(t.type == Token.Type.RBracket)
+							{
+								// a[0 .. ]
+								hiIndex = new NullExp(t.location);
+								endLocation = t.location;
+								t = t.nextToken;
+							}
+							else
+							{
+								// a[0 .. 0]
+								hiIndex = Expression.parse(t);
+								t.check(Token.Type.RBracket);
+								endLocation = t.location;
+								t = t.nextToken;
+							}
+							
+							exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+						}
+						else
+						{
+							// a[0]
+							t.check(Token.Type.RBracket);
+							endLocation = t.location;
+							t = t.nextToken;
+							
+							exp = new IndexExp(location, endLocation, exp, loIndex);
+						}
+					}
 					continue;
 
 				default:
@@ -6063,17 +6217,6 @@ class DotExp : PostfixExp
 		
 		s.topToSource(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
-	}
-
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
-		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
-		s.popRegister(temp);
-		return ret;
 	}
 }
 
@@ -6159,17 +6302,6 @@ class CallExp : PostfixExp
 		}
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
-		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
-		s.popRegister(temp);
-		return ret;
-	}
-
 	public void checkToNothing()
 	{
 		// OK
@@ -6201,16 +6333,27 @@ class IndexExp : PostfixExp
 		mIndex.codeGen(s);
 		s.popIndex(mEndLocation.line);
 	}
+}
 
-	public InstRef* codeCondition(FuncState s)
+class SliceExp : PostfixExp
+{
+	protected Expression mLoIndex;
+	protected Expression mHiIndex;
+	
+	public this(Location location, Location endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
-		uint temp = s.pushRegister();
-		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
-		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
-		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
-		s.popRegister(temp);
-		return ret;
+		super(location, endLocation, operand);
+		
+		mLoIndex = loIndex;
+		mHiIndex = hiIndex;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		uint reg = s.nextRegister();
+		Expression.codeGenListToNextReg(s, [mOp, mLoIndex, mHiIndex]);
+
+		s.pushSlice(mEndLocation.line, reg);
 	}
 }
 

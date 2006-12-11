@@ -55,44 +55,7 @@ class ArrayLib
 		s.push(arr);
 		return 1;
 	}
-	
-	int slice(MDState s)
-	{
-		MDArray arr = s.getArrayParam(0);
-		
-		int lo;
-		int hi;
-		
-		if(s.numParams() == 1)
-		{
-			s.push(arr);
-			return 1;
-		}
-		else if(s.numParams() == 2)
-		{
-			lo = s.getIntParam(1);
-			hi = arr.length;
-		}
-		else
-		{
-			lo = s.getIntParam(1);
-			hi = s.getIntParam(2);
-		}
-		
-		if(lo < 0)
-			lo = arr.length + lo + 1;
-			
-		if(hi < 0)
-			hi = arr.length + hi + 1;
-			
-		if(lo > hi || lo < 0 || lo > arr.length || hi < 0 || hi > arr.length)
-			throw new MDRuntimeException(s, "Invalid slice indices [", lo, " .. ", hi, "] (array length = ", arr.length, ")");
 
-		s.push(arr[lo .. hi]);
-		
-		return 1;
-	}
-	
 	int iterator(MDState s)
 	{
 		MDArray array = s.getArrayParam(0);
@@ -157,6 +120,25 @@ class ArrayLib
 			
 		return array.length;
 	}
+	
+	int ToString(MDState s)
+	{
+		MDArray array = s.getArrayParam(0);
+		
+		char[] str = "[";
+
+		for(int i = 0; i < array.length; i++)
+		{
+			str ~= array[i].toString();
+			
+			if(i < array.length - 1)
+				str ~= ", ";
+		}
+
+		s.push(str ~ "]");
+		
+		return 1;
+	}
 }
 
 public void init(MDState s)
@@ -173,9 +155,9 @@ public void init(MDState s)
 		"reverse",   new MDClosure(s, &lib.reverse,  "array.reverse"),
 		"dup",       new MDClosure(s, &lib.dup,      "array.dup"),
 		"length",    new MDClosure(s, &lib.length,   "array.length"),
-		"slice",     new MDClosure(s, &lib.slice,    "array.slice"),
 		"opApply",   new MDClosure(s, &lib.apply,    "array.opApply"),
-		"expand",    new MDClosure(s, &lib.expand,   "array.expand")
+		"expand",    new MDClosure(s, &lib.expand,   "array.expand"),
+		"toString",  new MDClosure(s, &lib.ToString, "array.toString")
 	);
 
 	s.setGlobal("array"d, arrayTable);

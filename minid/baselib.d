@@ -198,8 +198,8 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 							break;
 
 						case 's':
-							char[] val = getParam(paramIndex).toString();
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+							MDString val = s.valueToString(getParam(paramIndex));
+							specialFormat(&outputChar, formatting[0 .. formattingLength], val.mData);
 							break;
 
 						case 'c':
@@ -217,7 +217,10 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			}
 		}
 		else
-			outputString(utf.toUTF32(s.getParam(paramIndex).toString()));
+		{
+			MDString val = s.valueToString(s.getParam(paramIndex));
+			outputString(val.mData);
+		}
 	}
 
 	return output;
@@ -240,10 +243,13 @@ class BaseLib
 	int writeln(MDState s)
 	{
 		int numParams = s.numParams();
-		
+
 		for(int i = 0; i < numParams; i++)
-			writef("%s", s.getParam(i).toString());
-			
+		{
+			MDString str = s.valueToString(s.getParam(i));
+			writef("%s", str.mData);
+		}
+
 		writefln();
 		return 0;
 	}
@@ -253,7 +259,10 @@ class BaseLib
 		int numParams = s.numParams();
 		
 		for(int i = 0; i < numParams; i++)
-			writef("%s", s.getParam(i).toString());
+		{
+			MDString str = s.valueToString(s.getParam(i));
+			writef("%s", str.mData);
+		}
 
 		return 0;
 	}
@@ -288,7 +297,7 @@ class BaseLib
 
 	int mdtoString(MDState s)
 	{
-		s.push(s.getParam(0).toString());
+		s.push(s.valueToString(s.getParam(0)));
 		return 1;
 	}
 
@@ -301,7 +310,7 @@ class BaseLib
 
 		MDValue[] params = s.getParams(1, -1);
 
-		s.push(new MDDelegate(s, func, params));
+		s.push(new MDDelegate(func, params));
 		
 		return 1;
 	}
@@ -417,7 +426,6 @@ public void init(MDState s)
 	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
 	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));
 	s.setGlobal("format"d,       new MDClosure(s, &lib.mdformat,     "format"));
-
 	s.setGlobal("writefln"d,     new MDClosure(s, &lib.mdwritefln,   "writefln"));
 	s.setGlobal("writef"d,       new MDClosure(s, &lib.mdwritef,     "writef"));
 	s.setGlobal("writeln"d,      new MDClosure(s, &lib.writeln,      "writeln"));

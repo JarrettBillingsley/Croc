@@ -220,6 +220,15 @@ class MDState
 		return mStackIndex - 1 - mCurrentAR.base;
 	}
 	
+	public MDValue pop()
+	{
+		if(mStackIndex <= mCurrentAR.base)
+			throw new MDRuntimeException(this, "MDState.pop() - Stack underflow!");
+			
+		mStackIndex--;
+		return mStack[mStackIndex];
+	}
+	
 	public uint easyCall(T...)(MDClosure func, int numReturns, T params)
 	{
 		uint paramSlot = mStackIndex;
@@ -629,6 +638,25 @@ class MDState
 		mTraceback.length = 0;
 		
 		return ret;
+	}
+	
+	public MDString valueToString(inout MDValue value)
+	{
+		if(value.isString())
+			return value.asString();
+
+		MDValue* method = getMM(&value, MM.ToString);
+
+		if(method is null || (!method.isFunction() && !method.isDelegate()))
+			return new MDString(value.toString());
+
+		easyCall(method.asFunction(), 1, value);
+		MDValue ret = pop();
+		
+		if(!ret.isString())
+			throw new MDRuntimeException(this, "MDState.valueToString() - '%s' method did not return a string!", MetaNames[MM.ToString]);
+			
+		return ret.asString();
 	}
 
 	// ===================================================================================
@@ -1287,84 +1315,6 @@ class MDState
 	// Interpreter
 	// ===================================================================================
 
-	protected final void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
-	{
-		void tryMM(lazy MDException ex)
-		{
-			MDValue* method = getMM(dest, MM.IndexAssign);
-
-			if(method is null)
-				throw ex;
-
-			if(method.isFunction() == false && method.isDelegate() == false)
-				throw new MDRuntimeException(this, "Invalid opIndexAssign metamethod for type '%s'", dest.typeString());
-	
-			uint funcSlot = push(method);
-			push(dest);
-			push(key);
-			push(value);
-			call(funcSlot, 3, 0);
-		}
-
-		switch(dest.type)
-		{
-			case MDValue.Type.Array:
-				if(key.isInt() == false)
-				{
-					tryMM(new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString()));
-					break;
-				}
-
-				MDValue* val = dest.asArray[key.asInt];
-	
-				if(val is null)
-					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
-	
-				val.value = *value;
-				break;
-
-			case MDValue.Type.Table:
-				dest.asTable()[*key] = *value;
-				break;
-
-			case MDValue.Type.Instance:
-				if(!key.isString())
-				{
-					tryMM(new MDRuntimeException(this, "Attempting to index assign an instance with a key of type '%s'", key.typeString()));
-					break;
-				}
-
-				MDString k = key.asString();
-				MDValue* val = dest.asInstance[k];
-
-				if(val is null)
-				{
-					tryMM(new MDRuntimeException(this, "Attempting to add a member '%s' to a class instance", key.toString()));
-					break;
-				}
-
-				if(val.isFunction())
-					throw new MDRuntimeException(this, "Attempting to change method '%s' of class instance", key.toString());
-
-				val.value = *value;
-				break;
-
-			case MDValue.Type.Class:
-				if(!key.isString())
-				{
-					tryMM(new MDRuntimeException(this, "Attempting to index assign a class with a key of type '%s'", key.typeString()));
-					break;
-				}
-
-				dest.asClass()[key.asString()] = *value;
-				break;
-
-			default:
-				tryMM(new MDRuntimeException(this, "Attempting to index assign a value of type '%s'", dest.typeString()));
-				break;
-		}
-	}
-	
 	protected final void index(uint dest, MDValue* src, MDValue* key)
 	{
 		void tryMM(lazy MDException ex)
@@ -1375,7 +1325,7 @@ class MDState
 				throw ex;
 	
 			if(method.isFunction() == false && method.isDelegate() == false)
-				throw new MDRuntimeException(this, "Invalid opIndex metamethod for type '%s'", src.typeString());
+				throw new MDRuntimeException(this, "Invalid %s metamethod for type '%s'", MetaNames[MM.Index], src.typeString());
 	
 			uint funcSlot = push(method);
 			push(src);
@@ -1462,6 +1412,275 @@ class MDState
 
 			default:
 				tryMM(new MDRuntimeException(this, "Attempting to index a value of type '%s'", src.typeString()));
+				break;
+		}
+	}
+
+	protected final void indexAssign(MDValue* dest, MDValue* key, MDValue* value)
+	{
+		void tryMM(lazy MDException ex)
+		{
+			MDValue* method = getMM(dest, MM.IndexAssign);
+
+			if(method is null)
+				throw ex;
+
+			if(method.isFunction() == false && method.isDelegate() == false)
+				throw new MDRuntimeException(this, "Invalid %s metamethod for type '%s'", MetaNames[MM.IndexAssign], dest.typeString());
+	
+			uint funcSlot = push(method);
+			push(dest);
+			push(key);
+			push(value);
+			call(funcSlot, 3, 0);
+		}
+
+		switch(dest.type)
+		{
+			case MDValue.Type.Array:
+				if(key.isInt() == false)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to access an array with a '%s'", key.typeString()));
+					break;
+				}
+
+				MDValue* val = dest.asArray[key.asInt];
+	
+				if(val is null)
+					throw new MDRuntimeException(this, "Invalid array index: ", key.asInt());
+	
+				val.value = *value;
+				break;
+
+			case MDValue.Type.Table:
+				dest.asTable()[*key] = *value;
+				break;
+
+			case MDValue.Type.Instance:
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index assign an instance with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				MDString k = key.asString();
+				MDValue* val = dest.asInstance[k];
+
+				if(val is null)
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to add a member '%s' to a class instance", key.toString()));
+					break;
+				}
+
+				if(val.isFunction())
+					throw new MDRuntimeException(this, "Attempting to change method '%s' of class instance", key.toString());
+
+				val.value = *value;
+				break;
+
+			case MDValue.Type.Class:
+				if(!key.isString())
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to index assign a class with a key of type '%s'", key.typeString()));
+					break;
+				}
+
+				dest.asClass()[key.asString()] = *value;
+				break;
+
+			default:
+				tryMM(new MDRuntimeException(this, "Attempting to index assign a value of type '%s'", dest.typeString()));
+				break;
+		}
+	}
+
+	protected final void slice(uint dest, MDValue* src, MDValue* lo, MDValue* hi)
+	{
+		void tryMM(lazy MDException ex)
+		{
+			MDValue* method = getMM(src, MM.Slice);
+
+			if(method is null)
+				throw ex;
+
+			if(!method.isFunction() && !method.isDelegate())
+				throw new MDRuntimeException(this, "Invalid %s metamethod for type '%s'", MetaNames[MM.Slice], src.typeString());
+	
+			uint funcSlot = push(method);
+			push(src);
+			push(lo);
+			push(hi);
+			call(funcSlot, 3, 1);
+			copyBasedStack(dest, funcSlot);
+		}
+
+		switch(src.type)
+		{
+			case MDValue.Type.Array:
+				MDArray arr = src.asArray();
+				int loIndex;
+				int hiIndex;
+				
+				if(lo.isNull() && hi.isNull())
+				{
+					getBasedStack(dest).value = *src;
+					break;
+				}
+
+				if(lo.isNull())
+					loIndex = 0;
+				else if(lo.isInt())
+				{
+					loIndex = lo.asInt();
+					
+					if(loIndex < 0)
+						loIndex += arr.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice an array with a '%s'", lo.typeString()));
+					break;
+				}
+
+				if(hi.isNull())
+					hiIndex = arr.length;
+				else if(hi.isInt())
+				{
+					hiIndex = hi.asInt();
+					
+					if(hiIndex < 0)
+						hiIndex += arr.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice an array with a '%s'", hi.typeString()));
+					break;
+				}
+
+				if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+					throw new MDRuntimeException(this, "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");
+
+				getBasedStack(dest).value = arr[loIndex .. hiIndex];
+				break;
+			
+			case MDValue.Type.String:
+				MDString str = src.asString();
+				int loIndex;
+				int hiIndex;
+				
+				if(lo.isNull() && hi.isNull())
+				{
+					getBasedStack(dest).value = *src;
+					break;
+				}
+
+				if(lo.isNull())
+					loIndex = 0;
+				else if(lo.isInt())
+				{
+					loIndex = lo.asInt();
+					
+					if(loIndex < 0)
+						loIndex += str.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice a string with a '%s'", lo.typeString()));
+					break;
+				}
+
+				if(hi.isNull())
+					hiIndex = str.length;
+				else if(hi.isInt())
+				{
+					hiIndex = hi.asInt();
+					
+					if(hiIndex < 0)
+						hiIndex += str.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice a string with a '%s'", hi.typeString()));
+					break;
+				}
+
+				if(loIndex > hiIndex || loIndex < 0 || loIndex > str.length || hiIndex < 0 || hiIndex > str.length)
+					throw new MDRuntimeException(this, "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (string length = ", str.length, ")");
+
+				getBasedStack(dest).value = str[loIndex .. hiIndex];
+				break;
+
+			default:
+				tryMM(new MDRuntimeException(this, "Attempting to slice a value of type '%s'", src.typeString()));
+				break;
+		}
+	}
+	
+	protected final void sliceAssign(MDValue* dest, MDValue* lo, MDValue* hi, MDValue* value)
+	{
+		void tryMM(lazy MDException ex)
+		{
+			MDValue* method = getMM(dest, MM.SliceAssign);
+
+			if(method is null)
+				throw ex;
+
+			if(!method.isFunction() && !method.isDelegate())
+				throw new MDRuntimeException(this, "Invalid %s metamethod for type '%s'", MetaNames[MM.SliceAssign], dest.typeString());
+	
+			uint funcSlot = push(method);
+			push(dest);
+			push(lo);
+			push(hi);
+			push(value);
+			call(funcSlot, 4, 0);
+		}
+
+		switch(dest.type)
+		{
+			case MDValue.Type.Array:
+				MDArray arr = dest.asArray();
+				int loIndex;
+				int hiIndex;
+
+				if(lo.isNull())
+					loIndex = 0;
+				else if(lo.isInt())
+				{
+					loIndex = lo.asInt();
+					
+					if(loIndex < 0)
+						loIndex += arr.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice assign an array with a '%s'", lo.typeString()));
+					break;
+				}
+
+				if(hi.isNull())
+					hiIndex = arr.length;
+				else if(hi.isInt())
+				{
+					hiIndex = hi.asInt();
+					
+					if(hiIndex < 0)
+						hiIndex += arr.length;
+				}
+				else
+				{
+					tryMM(new MDRuntimeException(this, "Attempting to slice assign an array with a '%s'", hi.typeString()));
+					break;
+				}
+
+				if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+					throw new MDRuntimeException(this, "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");
+
+				arr[loIndex .. hiIndex] = *value;
+				break;
+
+			default:
+				tryMM(new MDRuntimeException(this, "Attempting to slice assign a value of type '%s'", dest.typeString()));
 				break;
 		}
 	}
@@ -2170,6 +2389,14 @@ class MDState
 					case Op.IndexAssign:
 						indexAssign(getBasedStack(i.rd), getCR1(), getCR2());
 						break;
+						
+					case Op.Slice:
+						slice(i.rd, getBasedStack(i.rs1), getBasedStack(i.rs1 + 1), getBasedStack(i.rs1 + 2));
+						break;
+
+					case Op.SliceAssign:
+						sliceAssign(getBasedStack(i.rd), getBasedStack(i.rd + 1), getBasedStack(i.rd + 2), getCR1());
+						break;
 
 					case Op.Method:
 						StackVal src = getCR1();
@@ -2303,11 +2530,11 @@ class MDState
 						StackVal base = getCR2();
 
 						if(base.isNull())
-							getBasedStack(i.rd).value = new MDClass(this, getCR1().asString.asUTF32(), null);
+							getBasedStack(i.rd).value = new MDClass(getCR1().asString.asUTF32(), null);
 						else if(!base.isClass())
 							throw new MDRuntimeException(this, "Attempted to derive a class from a value of type '%s'", base.typeString());
 						else
-							getBasedStack(i.rd).value = new MDClass(this, getCR1().asString.asUTF32(), base.asClass());
+							getBasedStack(i.rd).value = new MDClass(getCR1().asString.asUTF32(), base.asClass());
 
 						break;
 						
@@ -2323,9 +2550,9 @@ class MDState
 							getBasedStack(i.rd).value = *src;
 						else
 							getBasedStack(i.rd).setNull();
-							
-						break;
 
+						break;
+						
 					case Op.Je:
 					case Op.Jle:
 					case Op.Jlt:

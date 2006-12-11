@@ -9,10 +9,6 @@ import std.stdarg;
 import minid.state;
 import minid.opcodes;
 
-const uint MaxRegisters = Instruction.rs1Max >> 1;
-const uint MaxConstants = Instruction.constMax;
-const uint MaxUpvalues = Instruction.immMax;
-
 // Don't know why this isn't in phobos.
 char[] vformat(TypeInfo[] arguments, va_list argptr)
 {
@@ -48,13 +44,6 @@ class MDException : Exception
 	{
 		value = *val;
 		super(value.toString());
-	}
-	
-	public this(MDTable t)
-	{
-		MDValue val;
-		val.value = t;
-		this(&val);
 	}
 }
 
@@ -96,7 +85,7 @@ int dcmp(dchar[] s1, dchar[] s2)
 	if(s2.length < len)
 		len = s2.length;
 
-	result = memcmp(s1, s2, len);
+	result = memcmp(s1.ptr, s2.ptr, len);
 
 	if(result == 0)
 		result = cast(int)s1.length - cast(int)s2.length;
@@ -115,6 +104,8 @@ enum MM
 	ToString,
 	Length,
 	Apply,
+	Slice,
+	SliceAssign,
 	Add,
 	Sub,
 	Cat,
@@ -172,9 +163,11 @@ const dchar[][] MetaNames =
 	MM.ShlEq : "opShlEq",
 	MM.Shr : "opShr",
 	MM.ShrEq : "opShrEq",
+	MM.Slice : "opSlice",
+	MM.SliceAssign : "opSliceAssign",
 	MM.Sub : "opSub",
 	MM.SubEq : "opSubEq",
-	MM.ToString : "opToString",
+	MM.ToString : "toString",
 	MM.UShr : "opUShr",
 	MM.UShrEq : "opUShrEq",
 	MM.Xor : "opXor",
@@ -205,7 +198,7 @@ abstract class MDObject
 		Array,
 		Class,
 		Instance,
-		Delegate
+		Delegate,
 	}
 
 	public MDString asString() { return null; }
@@ -217,7 +210,7 @@ abstract class MDObject
 	public MDInstance asInstance() { return null; }
 	public MDDelegate asDelegate() { return null; }
 	public abstract Type type();
-	
+
 	public static int compare(MDObject o1, MDObject o2)
 	{
 		if(o1.type == o2.type)
@@ -375,10 +368,6 @@ class MDString : MDObject
 
 	public MDString opSlice(uint lo, uint hi)
 	{
-		debug if(lo > hi || lo < 0 || lo > mData.length || hi < 0 || hi > mData.length)
-			throw new MDException("Invalid string slice indices [%s .. %s]", lo, hi);
-			
-			
 		MDString ret = new MDString();
 		ret.mData = mData[lo .. hi].dup;
 		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
@@ -390,7 +379,7 @@ class MDString : MDObject
 	{
 		return utf.toUTF8(mData);
 	}
-	
+
 	public wchar[] asUTF16()
 	{
 		return utf.toUTF16(mData);
@@ -463,7 +452,7 @@ class MDString : MDObject
 	
 	public char[] toString()
 	{
-		return asUTF8();
+		return "\"" ~ asUTF8() ~ "\"";
 	}
 }
 
@@ -849,17 +838,17 @@ class MDArray : MDObject
 		return &mData[index];
 	}
 	
-	public void opIndexAssign(inout MDValue value, int index)
+	public void opIndexAssign(inout MDValue value, uint index)
 	{
-		if(index < 0 || index >= mData.length)
+		if(index >= mData.length)
 			return null;
 			
 		mData[index] = value;
 	}
 	
-	public void opIndexAssign(MDObject value, int index)
+	public void opIndexAssign(MDObject value, uint index)
 	{
-		if(index < 0 || index >= mData.length)
+		if(index >= mData.length)
 			return null;
 
 		mData[index].value = value;
@@ -868,6 +857,11 @@ class MDArray : MDObject
 	public MDArray opSlice(uint lo, uint hi)
 	{
 		return new MDArray(mData[lo .. hi]);
+	}
+	
+	public void opSliceAssign(inout MDValue value, uint lo, uint hi)
+	{
+		mData[lo .. hi] = value;
 	}
 
 	package void setBlock(uint block, MDValue[] data)
@@ -941,7 +935,7 @@ class MDClass : MDObject
 		SuperString = new MDString("super"d);
 	}
 
-	package this(MDState s, dchar[] guessedName, MDClass baseClass)
+	package this(dchar[] guessedName, MDClass baseClass)
 	{
 		mGuessedName = guessedName.dup;
 		mBaseClass = baseClass;
@@ -1165,7 +1159,7 @@ class MDDelegate : MDObject
 	protected MDValue[] mContext;
 	protected MDClosure mClosure;
 
-	public this(MDState s, MDClosure closure, MDValue[] context)
+	public this(MDClosure closure, MDValue[] context)
 	{
 		mClosure = closure;
 		mContext = context;
@@ -1252,7 +1246,7 @@ struct MDValue
 	{
 		MDValue ret;
 		putInValue(ret, value);
-		return ret;	
+		return ret;
 	}
 
 	public int opEquals(MDValue* other)
@@ -1485,7 +1479,7 @@ struct MDValue
 	{
 		return (mType == Type.Delegate);
 	}
-
+	
 	public bool asBool()
 	{
 		assert(mType == Type.Bool, "MDValue asBool");
@@ -1573,7 +1567,7 @@ struct MDValue
 		assert(mType == Type.Delegate, "MDValue asDelegate");
 		return mObj.asDelegate();
 	}
-
+	
 	public bool isFalse()
 	{
 		return (mType == Type.Null) || (mType == Type.Bool && mBool == false) ||
