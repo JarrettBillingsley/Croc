@@ -863,6 +863,11 @@ class MDArray : MDObject
 	{
 		mData[lo .. hi] = value;
 	}
+	
+	public void opSliceAssign(MDArray arr, uint lo, uint hi)
+	{
+		mData[lo .. hi] = arr.mData[];
+	}
 
 	package void setBlock(uint block, MDValue[] data)
 	{
@@ -1305,7 +1310,7 @@ struct MDValue
 
 	public int opCmp(MDValue* other)
 	{
-		if(this.mType != other.mType)
+		if(!(isNum() && other.isNum) && this.mType != other.mType)
 			throw new MDException("Attempting to compare unlike objects (%s to %s)", typeString(), other.typeString());
 
 		switch(this.mType)
@@ -1317,15 +1322,41 @@ struct MDValue
 				return (cast(int)this.mBool - cast(int)other.mBool);
 
 			case Type.Int:
-				return this.mInt - other.mInt;
+				if(other.mType == Type.Float)
+				{
+					float val = mInt;
+
+					if(val < other.mFloat)
+						return -1;
+					else if(val > other.mFloat)
+						return 1;
+					else
+						return 0;
+				}
+				else
+					return this.mInt - other.mInt;
 
 			case Type.Float:
-				if(this.mFloat < other.mFloat)
-					return -1;
-				else if(this.mFloat > other.mFloat)
-					return 1;
+				if(other.mType == Type.Int)
+				{
+					float val = other.mInt;
+					
+					if(this.mFloat < val)
+						return -1;
+					else if(this.mFloat > val)
+						return 1;
+					else
+						return 0;
+				}
 				else
-					return 0;
+				{
+					if(this.mFloat < other.mFloat)
+						return -1;
+					else if(this.mFloat > other.mFloat)
+						return 1;
+					else
+						return 0;
+				}
 
 			case Type.Char:
 				return this.mChar - other.mChar;

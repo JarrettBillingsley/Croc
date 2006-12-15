@@ -59,7 +59,7 @@ class TableLib
 
 		index++;
 		s.setUpvalue(2u, index);
-		
+
 		if(index >= keys.length)
 			return 0;
 
@@ -81,6 +81,24 @@ class TableLib
 		
 		return 1;
 	}
+	
+	int each(MDState s)
+	{
+		MDTable table = s.getTableParam(0);
+		MDClosure func = s.getClosureParam(1);
+		
+		foreach(k, v; table)
+		{
+			s.easyCall(func, 1, table, k, v);
+			
+			MDValue ret = s.pop();
+		
+			if(ret.isBool() && ret.asBool == false)
+				break;
+		}
+		
+		return 0;
+	}
 }
 
 public void init(MDState s)
@@ -94,7 +112,8 @@ public void init(MDState s)
 		"values",    new MDClosure(s, &lib.values,   "table.values"),
 		"remove",    new MDClosure(s, &lib.remove,   "table.remove"),
 		"contains",  new MDClosure(s, &lib.contains, "table.contains"),
-		"opApply",   new MDClosure(s, &lib.apply,    "table.opApply")
+		"opApply",   new MDClosure(s, &lib.apply,    "table.opApply"),
+		"each",      new MDClosure(s, &lib.each,     "table.each")
 	);
 
 	s.setGlobal("table"d, tableLib);

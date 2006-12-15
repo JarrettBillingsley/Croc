@@ -1,4 +1,4 @@
-// A function which lets us define properties for a class.
+/* // A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
 function mixinProperties(classType, vararg)
 {
@@ -10,7 +10,7 @@ function mixinProperties(classType, vararg)
 
 		if(!c)
 			throw format(classType, ":opIndex() - Property '%s' does not exist", key);
-			
+
 		local getter;
 		c, getter = prop:contains("getter");
 

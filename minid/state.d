@@ -164,7 +164,7 @@ class MDState
 
 		mGlobals = new MDTable();
 		mGlobals["_G"d] = mGlobals;
-		
+
 		mTryRecs[0].actRecord = uint.max;
 	}
 
@@ -173,7 +173,7 @@ class MDState
 		writefln();
 		writefln("-----Stack Dump-----");
 		for(uint i = 0; i < mStackIndex; i++)
-			writefln(i, ": ", mStack[i].toString());
+			writefln(i, ": %s", mStack[i].toString());
 
 		writefln();
 	}
@@ -237,15 +237,15 @@ class MDState
 			push(param);
 
 		if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length))
-			callExecute();
-			
+			execute();
+
 		return mStackIndex - paramSlot;
 	}
 
 	public uint call(uint slot, int numParams, int numReturns)
 	{
 		if(callPrologue(slot, numReturns, numParams))
-			callExecute();
+			execute();
 			
 		return mStackIndex - slot;
 	}
@@ -666,11 +666,7 @@ class MDState
 	package Location startTraceback()
 	{
 		mTraceback.length = 0;
-		
-		Location ret = getDebugLocation();
-		mTraceback ~= ret;
-		
-		return ret;
+		return getDebugLocation();
 	}
 
 	package Location getDebugLocation()
@@ -734,9 +730,9 @@ class MDState
 					getAbsStack(slot).value = n;
 	
 					if(callPrologue2(ctor.asFunction(), slot, 0, slot, numParams + 1))
-						callExecute();
+						execute();
 				}
-	
+
 				getAbsStack(slot).value = n;
 				callEpilogue(0, 1);
 	
@@ -764,7 +760,7 @@ class MDState
 					
 				paramSlot = slot;
 				numParams += context.length;
-				
+
 				closure = dg.getClosure();
 				break;
 
@@ -901,19 +897,6 @@ class MDState
 			return true;
 		}
 	}
-	
-	package void callExecute()
-	{
-		try
-		{
-			execute();
-		}
-		catch(MDException e)
-		{
-			callEpilogue(0, 0);
-			throw e;
-		}
-	}
 
 	package void callEpilogue(uint resultSlot, int numResults)
 	{
@@ -976,12 +959,9 @@ class MDState
 			}
 		}
 
-		//if(isMultRet)
-			mStackIndex = destSlot;
-		//else
-		//	mStackIndex = mCurrentAR.savedTop;
+		mStackIndex = destSlot;
 
-		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex, isMultRet? " (multret)" : "");
+		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex);
 	}
 
 	package void pushAR()
@@ -999,6 +979,7 @@ class MDState
 		}
 
 		mARIndex++;
+
 		mCurrentAR = &mActRecs[mARIndex];
 	}
 
@@ -1057,7 +1038,7 @@ class MDState
 		}
 		catch
 		{
-			throw new MDRuntimeException(this, "Script value stack overflow");
+			throw new MDRuntimeException(this, "Script value stack overflow: ", mStack.length);
 		}
 
 		MDValue* newBase = mStack.ptr;
@@ -1676,7 +1657,15 @@ class MDState
 				if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
 					throw new MDRuntimeException(this, "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");
 
-				arr[loIndex .. hiIndex] = *value;
+				if(value.isArray())
+				{
+					if((hiIndex - loIndex) != value.asArray.length)
+						throw new MDRuntimeException(this, "Array slice assign lengths do not match (", hiIndex - loIndex, " and ", value.asArray.length, ")");
+				
+					arr[loIndex .. hiIndex] = value.asArray();
+				}
+				else
+					arr[loIndex .. hiIndex] = *value;
 				break;
 
 			default:
@@ -1891,6 +1880,7 @@ class MDState
 
 	public void execute()
 	{
+		int depth = 1;
 		MDException currentException = null;
 
 		_exceptionRetry:
@@ -2452,9 +2442,10 @@ class MDState
 						if(numParams == -1)
 							numParams = getBasedStackIndex() - funcReg - 1;
 	
-						call(funcReg, numParams, numResults);
+						if(callPrologue(funcReg, numResults, numParams) == true)
+							depth++;
 						break;
-						
+
 					case Op.Tailcall:
 						close(0);
 
@@ -2463,18 +2454,19 @@ class MDState
 
 						if(numParams == -1)
 							numParams = getBasedStackIndex() - funcReg - 1;
-							
+						
 						funcReg = basedIndexToAbs(funcReg);
-							
+						
+						int destReg = mCurrentAR.funcSlot;
+						
 						for(int j = 0; j < numParams + 1; j++)
-							copyAbsStack(mCurrentAR.funcSlot + j, funcReg + j);
-							
-						funcReg = mCurrentAR.funcSlot;
+							copyAbsStack(destReg + j, funcReg + j);
+
 						int numReturns = mCurrentAR.numReturns;
 
 						popAR();
 
-						if(callPrologue(absIndexToBased(funcReg), numReturns, numParams) == false)
+						if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
 							return;
 
 						break;
@@ -2484,8 +2476,14 @@ class MDState
 	
 						close(0);
 						callEpilogue(i.rd, numResults);
-						return;
 						
+						--depth;
+						
+						if(depth == 0)
+							return;
+						
+						break;
+
 					case Op.PushCatch:
 						pushTR();
 						
@@ -2565,34 +2563,40 @@ class MDState
 		}
 		catch(MDException e)
 		{
-			mTraceback ~= getDebugLocation();
-
-			while(mCurrentTR.actRecord is mARIndex)
+			while(depth > 0)
 			{
-				TryRecord tr = *mCurrentTR;
-				popTR();
+				mTraceback ~= getDebugLocation();
 
-				if(tr.isCatch)
+				while(mCurrentTR.actRecord is mARIndex)
 				{
-					getBasedStack(tr.catchVarSlot).value = e.value;
+					TryRecord tr = *mCurrentTR;
+					popTR();
 
-					for(int i = basedIndexToAbs(tr.catchVarSlot + 1); i < mStackIndex; i++)
-						getAbsStack(i).setNull();
+					if(tr.isCatch)
+					{
+						getBasedStack(tr.catchVarSlot).value = e.value;
+	
+						for(int i = basedIndexToAbs(tr.catchVarSlot + 1); i < mStackIndex; i++)
+							getAbsStack(i).setNull();
+							
+						currentException = null;
+	
+						mCurrentAR.pc = tr.pc;
+						goto _exceptionRetry;
+					}
+					else
+					{
+						currentException = e;
 						
-					currentException = null;
+						mCurrentAR.pc = tr.pc;
+						goto _exceptionRetry;
+					}
+				}
 
-					mCurrentAR.pc = tr.pc;
-					goto _exceptionRetry;
-				}
-				else
-				{
-					currentException = e;
-					
-					mCurrentAR.pc = tr.pc;
-					goto _exceptionRetry;
-				}
+				depth--;
+				callEpilogue(0, 0);
 			}
-			
+
 			throw e;
 		}
 	}
