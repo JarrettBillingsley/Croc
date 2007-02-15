@@ -1,42 +1,51 @@
 module minid.tablelib;
 
-import minid.state;
 import minid.types;
 
 class TableLib
 {
+	this(MDNamespace namespace)
+	{
+		namespace.addList
+		(
+			"dup",       new MDClosure(namespace, &dup,      "table.dup"),
+			"keys",      new MDClosure(namespace, &keys,     "table.keys"),
+			"values",    new MDClosure(namespace, &values,   "table.values"),
+			"remove",    new MDClosure(namespace, &remove,   "table.remove"),
+			"contains",  new MDClosure(namespace, &contains, "table.contains"),
+			"opApply",   new MDClosure(namespace, &apply,    "table.opApply"),
+			"each",      new MDClosure(namespace, &each,     "table.each")
+		);
+	}
+
 	int dup(MDState s)
 	{
-		MDTable tab = s.getTableParam(0);
-		s.push(tab.dup);
+		s.push(s.getTableParam(0).dup);
 		return 1;
 	}
 	
 	int keys(MDState s)
 	{
-		MDTable tab = s.getTableParam(0);
-		s.push(tab.keys);
+		s.push(s.getTableParam(0).keys);
 		return 1;
 	}
 	
 	int values(MDState s)
 	{
-		MDTable tab = s.getTableParam(0);
-		s.push(tab.values);
+		s.push(s.getTableParam(0).values);
 		return 1;
 	}
 	
 	int remove(MDState s)
 	{
-		MDValue key = s.getParam(1);
-		s.getTableParam(0).remove(&key);
+		s.getTableParam(0).remove(s.getParam(1));
 		return 0;
 	}
 	
 	int contains(MDState s)
 	{
 		MDValue key = s.getParam(1);
-		MDValue* val = s.getTableParam(0)[key];
+		MDValue* val = (key in s.getTableParam(0));
 
 		if(val is null)
 		{
@@ -77,8 +86,8 @@ class TableLib
 		upvalues[1].value = upvalues[0].asTable.keys;
 		upvalues[2].value = -1;
 
-		s.push(new MDClosure(s, &iterator, "table.iterator", upvalues));
-		
+		s.push(MDGlobalState().newClosure(&iterator, "table.iterator", upvalues));
+
 		return 1;
 	}
 	
@@ -101,21 +110,10 @@ class TableLib
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	TableLib lib = new TableLib();
-	
-	MDTable tableLib = MDTable.create
-	(
-		"dup",       new MDClosure(s, &lib.dup,      "table.dup"),
-		"keys",      new MDClosure(s, &lib.keys,     "table.keys"),
-		"values",    new MDClosure(s, &lib.values,   "table.values"),
-		"remove",    new MDClosure(s, &lib.remove,   "table.remove"),
-		"contains",  new MDClosure(s, &lib.contains, "table.contains"),
-		"opApply",   new MDClosure(s, &lib.apply,    "table.opApply"),
-		"each",      new MDClosure(s, &lib.each,     "table.each")
-	);
-
-	s.setGlobal("table"d, tableLib);
-	MDGlobalState().setMetatable(MDValue.Type.Table, tableLib);
+	MDNamespace namespace = new MDNamespace("table"d);
+	new TableLib(namespace);
+	MDGlobalState().setGlobal("table"d, namespace);
+	MDGlobalState().setMetatable(MDValue.Type.Table, namespace);
 }

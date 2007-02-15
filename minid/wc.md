@@ -1,3 +1,5 @@
+module wc;
+
 local w_total = 0;
 local l_total = 0;
 local c_total = 0;
@@ -10,7 +12,7 @@ if(#args == 0)
 
 writefln("	 lines	 words	 bytes file");
 
-foreach(local index, local arg; args)
+foreach(index, arg; args)
 {
 	local w_cnt = 0;
 	local l_cnt = 0;
@@ -76,5 +78,5 @@ if(#args > 1)
 
 writefln("--------------------------------------");
 
-foreach(local index, local word1; dictionary:keys():sort())
+foreach(index, word1; dictionary:keys():sort())
 	writefln("%3s %s", dictionary[word1], word1);

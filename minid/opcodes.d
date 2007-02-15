@@ -1,6 +1,7 @@
 module minid.opcodes;
 
 import string = std.string;
+import std.stream;
 
 const uint MaxRegisters = Instruction.rs1Max >> 1;
 const uint MaxConstants = Instruction.constMax;
@@ -47,6 +48,7 @@ enum Op : uint
 	MulEq,
 	Neg,
 	NewArray,
+	NewGlobal,
 	NewTable,
 	Not,
 	Or,
@@ -113,7 +115,7 @@ Length............R: dest, src, n/a
 LoadBool..........R: dest, 1/0, n/a
 LoadConst.........I: dest, const index
 LoadNull..........I: dest, num regs
-Method............R: base reg, table to index, method index
+Method............R: base reg, object to index, const index of method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
@@ -121,6 +123,7 @@ Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
+NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 Or................R: dest, src, src
@@ -231,33 +234,15 @@ align(1) struct Instruction
 			case Op.IndexAssign:   return string.format("idxa r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.Is:            return string.format("is %s, %s", cr(rs1), cr(rs2));
 			case Op.IsTrue:        return string.format("istrue %s", cr(rs1));
-
-			case Op.Je:
-				if(rd == 0)
-					return string.format("jne %s", imm);
-				else
-					return string.format("je %s", imm);
-			case Op.Jle:
-				if(rd == 0)
-					return string.format("jgt %s", imm);
-				else
-					return string.format("jle %s", imm);
-			case Op.Jlt:
-				if(rd == 0)
-					return string.format("jge %s", imm);
-				else
-					return string.format("jlt %s", imm);
-			case Op.Jmp:
-				if(rd == 0)
-					return "nop";
-				else
-					return string.format("jmp %s", imm);
-
+			case Op.Je:            return string.format((rd == 0) ? "jne %s" : "je % s", imm);
+			case Op.Jle:           return string.format((rd == 0) ? "jgt %s" : "jle % s", imm);
+			case Op.Jlt:           return string.format((rd == 0) ? "jge %s" : "jlt % s", imm);
+			case Op.Jmp:           return (rd == 0) ? "nop" : string.format("jmp %s", imm);
 			case Op.Length:        return string.format("len r%s, %s", rd, cr(rs1));
 			case Op.LoadBool:      return string.format("lb r%s, %s", rd, rs1);
 			case Op.LoadConst:     return string.format("lc r%s, c%s", rd, uimm);
 			case Op.LoadNull:      return string.format("lnull r%s, %s", rd, uimm);
-			case Op.Method:        return string.format("method r%s, %s, %s", rd, cr(rs1), cr(rs2));
+			case Op.Method:        return string.format("method r%s, %s, c%s", rd, cr(rs1), rs2);
 			case Op.Mod:           return string.format("mod r%s, %s, %s", rd, cr(rs1), cr(rs2));
 			case Op.ModEq:         return string.format("modeq r%s, %s", rd, cr(rs1));
 			case Op.Move:          return string.format("mov r%s, r%s", rd, rs1);
@@ -265,6 +250,7 @@ align(1) struct Instruction
 			case Op.MulEq:         return string.format("muleq r%s, %s", rd, cr(rs1));
 			case Op.Neg:           return string.format("neg r%s, %s", rd, cr(rs1));
 			case Op.NewArray:      return string.format("newarr r%s, %s", rd, imm);
+			case Op.NewGlobal:     return string.format("newg %s, c%s", cr(rs1), rs2);
 			case Op.NewTable:      return string.format("newtab r%s", rd);
 			case Op.Not:           return string.format("not r%s, %s", rd, cr(rs1));
 			case Op.Or:            return string.format("or r%s, %s, %s", rd, cr(rs1), cr(rs2));
@@ -297,6 +283,20 @@ align(1) struct Instruction
 			default:               return string.format("??? opcode = ", opcode);
 		}
 	}
+	
+	void serialize(Stream s)
+	{
+		s.writeExact(this, Instruction.sizeof);
+	}
+	
+	static Instruction deserialize(Stream s)
+	{
+		Instruction ret;
+		s.readExact(&ret, Instruction.sizeof);
+		return ret;
+	}
+	
+	private const bool SerializeAsChunk = true;
 }
 
 static assert(Instruction.sizeof == 8);

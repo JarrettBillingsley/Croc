@@ -1,6 +1,5 @@
 module minid.mathlib;
 
-import minid.state;
 import minid.types;
 
 import math = std.math;
@@ -8,12 +7,49 @@ import random = std.random;
 
 class MathLib
 {
+	this(MDNamespace namespace)
+	{
+		namespace.addList
+		(
+			"e",        std.math.E,
+			"pi",       std.math.PI,
+			"nan",      float.nan,
+			"infinity", float.infinity,
+			"abs",      new MDClosure(namespace, &abs,     "math.abs"),
+			"sin",      new MDClosure(namespace, &sin,     "math.sin"),
+			"cos",      new MDClosure(namespace, &cos,     "math.cos"),
+			"tan",      new MDClosure(namespace, &tan,     "math.tan"),
+			"asin",     new MDClosure(namespace, &asin,    "math.asin"),
+			"acos",     new MDClosure(namespace, &acos,    "math.acos"),
+			"atan",     new MDClosure(namespace, &atan,    "math.atan"),
+			"atan2",    new MDClosure(namespace, &atan2,   "math.atan2"),
+			"sqrt",     new MDClosure(namespace, &sqrt,    "math.sqrt"),
+			"cbrt",     new MDClosure(namespace, &cbrt,    "math.cbrt"),
+			"pow",      new MDClosure(namespace, &pow,     "math.pow"),
+			"exp",      new MDClosure(namespace, &exp,     "math.exp"),
+			"ln",       new MDClosure(namespace, &ln,      "math.ln"),
+			"log2",     new MDClosure(namespace, &log2,    "math.log2"),
+			"log10",    new MDClosure(namespace, &log10,   "math.log10"),
+			"hypot",    new MDClosure(namespace, &hypot,   "math.hypot"),
+			"lgamma",   new MDClosure(namespace, &lgamma,  "math.lgamma"),
+			"gamma",    new MDClosure(namespace, &gamma,   "math.gamma"),
+			"ceil",     new MDClosure(namespace, &ceil,    "math.ceil"),
+			"floor",    new MDClosure(namespace, &floor,   "math.floor"),
+			"round",    new MDClosure(namespace, &round,   "math.round"),
+			"trunc",    new MDClosure(namespace, &trunc,   "math.trunc"),
+			"isNan",    new MDClosure(namespace, &isNan,   "math.isNan"),
+			"isInf",    new MDClosure(namespace, &isInf,   "math.isInf"),
+			"sign",     new MDClosure(namespace, &sign,    "math.sign"),
+			"rand",     new MDClosure(namespace, &rand,    "math.rand")
+		);
+	}
+
 	static int getInt(MDState s, uint i)
 	{
 		if(s.isParam!("int")(i))
 			return s.getIntParam(i);
 		else
-			throw new MDRuntimeException(s, "Expected 'int', not '%s'", s.getParam(i).typeString());
+			s.throwRuntimeException("Expected 'int', not '%s'", s.getParam(i).typeString());
 	}
 	
 	static float getFloat(MDState s, uint i)
@@ -23,7 +59,7 @@ class MathLib
 		else if(s.isParam!("float")(i))
 			return s.getFloatParam(i);
 		else
-			throw new MDRuntimeException(s, "Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
+			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
 	}
 
 	int abs(MDState s)
@@ -33,7 +69,7 @@ class MathLib
 		else if(s.isParam!("float")(0))
 			s.push(math.abs(s.getFloatParam(0)));
 		else
-			throw new MDRuntimeException(s, "Expected 'int' or 'float', not '%s'", s.getParam(0).typeString());
+			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(0).typeString());
 			
 		return 1;
 	}
@@ -236,43 +272,9 @@ class MathLib
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	MathLib lib = new MathLib();
-	
-	MDTable mathLib = MDTable.create
-	(
-		"e",        std.math.E,
-		"pi",       std.math.PI,
-		"nan",      float.nan,
-		"infinity", float.infinity,
-		"abs",      new MDClosure(s, &lib.abs,     "math.abs"),
-		"sin",      new MDClosure(s, &lib.sin,     "math.sin"),
-		"cos",      new MDClosure(s, &lib.cos,     "math.cos"),
-		"tan",      new MDClosure(s, &lib.tan,     "math.tan"),
-		"asin",     new MDClosure(s, &lib.asin,    "math.asin"),
-		"acos",     new MDClosure(s, &lib.acos,    "math.acos"),
-		"atan",     new MDClosure(s, &lib.atan,    "math.atan"),
-		"atan2",    new MDClosure(s, &lib.atan2,   "math.atan2"),
-		"sqrt",     new MDClosure(s, &lib.sqrt,    "math.sqrt"),
-		"cbrt",     new MDClosure(s, &lib.cbrt,    "math.cbrt"),
-		"pow",      new MDClosure(s, &lib.pow,     "math.pow"),
-		"exp",      new MDClosure(s, &lib.exp,     "math.exp"),
-		"ln",       new MDClosure(s, &lib.ln,      "math.ln"),
-		"log2",     new MDClosure(s, &lib.log2,    "math.log2"),
-		"log10",    new MDClosure(s, &lib.log10,   "math.log10"),
-		"hypot",    new MDClosure(s, &lib.hypot,   "math.hypot"),
-		"lgamma",   new MDClosure(s, &lib.lgamma,  "math.lgamma"),
-		"gamma",    new MDClosure(s, &lib.gamma,   "math.gamma"),
-		"ceil",     new MDClosure(s, &lib.ceil,    "math.ceil"),
-		"floor",    new MDClosure(s, &lib.floor,   "math.floor"),
-		"round",    new MDClosure(s, &lib.round,   "math.round"),
-		"trunc",    new MDClosure(s, &lib.trunc,   "math.trunc"),
-		"isNan",    new MDClosure(s, &lib.isNan,   "math.isNan"),
-		"isInf",    new MDClosure(s, &lib.isInf,   "math.isInf"),
-		"sign",     new MDClosure(s, &lib.sign,    "math.sign"),
-		"rand",     new MDClosure(s, &lib.rand,    "math.rand")
-	);
-
-	s.setGlobal("math"d, mathLib);
+	MDNamespace namespace = new MDNamespace("math"d);
+	new MathLib(namespace);
+	MDGlobalState().setGlobal("math"d, namespace);
 }

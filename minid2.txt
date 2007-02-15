@@ -15,6 +15,7 @@ EndOfLine:
 	'\r'
 	'\n'
 	'\r\n'
+	'\n\r'
 	EndOfFile
 
 EndOfFile:
@@ -22,8 +23,12 @@ EndOfFile:
 	'\0'
 
 Comment:
-	'/*' characters '*/'
-	'//' characters EndOfLine
+	'/*' {Character} '*/'
+	'//' {Character} EndOfLine
+	NestedComment
+	
+NestedComment:
+	'/+' {Character | NestedComment} '+/'
 
 Token:
 	Identifier
@@ -86,7 +91,7 @@ Identifier:
 	IdentifierStart {IdentifierChar}
 
 IdentifierStart:
-	_
+	'_'
 	Letter
 
 IdentifierChar:
@@ -108,10 +113,13 @@ Keyword:
 	'for'
 	'foreach'
 	'function'
+	'global'
 	'if'
+	'import'
 	'is'
 	'local'
 	'method'
+	'module'
 	'null'
 	'return'
 	'switch'
@@ -235,8 +243,14 @@ Exponent:
 
 // Syntax
 
-Chunk:
-	{Statement}
+Module:
+	ModuleDeclaration {ImportStatement | Statement} EOF
+
+ModuleDeclaration:
+	'module' Identifier {'.' Identifier} ';'
+
+ImportStatement:
+	'import' Identifier {'.' Identifier} ';'
 
 Statement:
 	BlockStatement
@@ -261,33 +275,43 @@ ExpressionStatement:
 	BaseExpression ';'
 	
 DeclarationStatement:
-	LocalVariableDeclaration ';'
+	VariableDeclaration ';'
 	FunctionDeclaration
 	ClassDeclaration
 
-LocalVariableDeclaration:
+VariableDeclaration:
+	LocalVarDeclaration
+	GlobalVarDeclaration
+	
+LocalVarDeclaration:
 	'local' Identifier {',' Identifier} ['=' Expression]
 
+GlobalVarDeclaration:
+	'global' Identifier {',' Identifier} ['=' Expression]
+
 FunctionDeclaration:
-	'function' Identifier {'.' Identifier} Parameters BlockStatement
-	'local' SimpleFunctionDeclaration
+	['local' | 'global'] SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
 	'function' Identifier Parameters BlockStatement
 	
+Parameters:
+	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
+	'(' 'vararg' ')'
+
 ClassDeclaration:
-	'class' Identifier [':' Expression] '{' {ClassMember} '}'
-	
+	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
+
 ClassMember:
 	MethodDeclaration
 	Identifier ['=' Expression] ';'
-	
+
 MethodDeclaration:
 	'method' Identifier Parameters BlockStatement
-
+	
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
-	
+
 WhileStatement:
 	'while' '(' Expression ')' Statement
 
@@ -295,14 +319,14 @@ DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
 
 ForStatement:
-	'for' '(' [(BaseExpression | LocalVariableDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
+	'for' '(' [(BaseExpression | LocalVarDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
 	
 ForeachStatement:
 	'foreach' '(' Identifier {',' Identifier} ';' Expression [',' Expression [',' Expression]] ')' Statement
 	
 SwitchStatement:
 	'switch' '(' Expression ')' '{' CaseStatement {CaseStatement} [DefaultStatement] '}'
-	
+
 CaseStatement:
 	'case' Expression {',' Expression} ':' {Statement}
 	
@@ -319,14 +343,10 @@ ReturnStatement:
 	'return' [Expression {',' Expression}] ';'
 	
 TryCatchStatement:
-	'try' BlockStatement (('catch' '(' Identifier ')' BlockStatement) || ('finally' BlockStatement))
+	'try' Statement (('catch' '(' Identifier ')' Statement) || ('finally' Statement))
 	
 ThrowStatement:
 	'throw' Expression ';'
-
-Parameters:
-	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
-	'(' 'vararg' ')'
 
 BaseExpression:
 	Assignment
@@ -337,7 +357,7 @@ Assignment:
 
 AssignmentLHS:
 	Identifier
-	// Note - for these two, the PostfixExpression must start with Identifier.
+	// Note - for these, the PostfixExpression must start with Identifier.
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier

@@ -1,17 +1,11 @@
 module minid.baselib;
 
-import minid.state;
 import minid.types;
 import minid.compiler;
 
 import std.stdio;
 import std.stream;
 import std.format;
-
-void specialFormat(void delegate(dchar) putc, ...)
-{
-	doFormat(putc, _arguments, _argptr);
-}
 
 dchar[] baseFormat(MDState s, MDValue[] params)
 {
@@ -27,6 +21,11 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 		output ~= s;
 	}
 
+	void specialFormat(void delegate(dchar) putc, ...)
+	{
+		doFormat(putc, _arguments, _argptr);
+	}
+
 	for(int paramIndex = 0; paramIndex < params.length; paramIndex++)
 	{
 		if(params[paramIndex].isString())
@@ -37,10 +36,10 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			int getIntParam(int index)
 			{
 				if(index >= params.length)
-					throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
 
 				if(params[index].isInt() == false)
-					throw new MDRuntimeException(s, "Expected 'int' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+					s.throwRuntimeException("Expected 'int' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
 
 				return params[index].asInt();
 			}
@@ -48,10 +47,10 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			float getFloatParam(int index)
 			{
 				if(index >= params.length)
-					throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
 
 				if(params[index].isFloat() == false)
-					throw new MDRuntimeException(s, "Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+					s.throwRuntimeException("Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
 
 				return params[index].asFloat();
 			}
@@ -59,10 +58,10 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			dchar getCharParam(int index)
 			{
 				if(index >= params.length)
-					throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
 
 				if(params[index].isChar() == false)
-					throw new MDRuntimeException(s, "Expected 'char' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
+					s.throwRuntimeException("Expected 'char' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
 
 				return params[index].asChar();
 			}
@@ -70,7 +69,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			MDValue getParam(int index)
 			{
 				if(index >= params.length)
-					throw new MDRuntimeException(s, "Not enough parameters to format parameter ", formatStrIndex);
+					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
 
 				return params[index];
 			}
@@ -83,7 +82,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 				void addFormatChar(dchar c)
 				{
 					if(formattingLength >= formatting.length)
-						throw new MDRuntimeException(s, "Format specifier too long in parameter ", formatStrIndex);
+						s.throwRuntimeException("Format specifier too long in parameter ", formatStrIndex);
 
 					formatting[formattingLength] = c;
 					formattingLength++;
@@ -96,7 +95,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 					i++;
 
 					if(i >= formatStr.length)
-						throw new MDRuntimeException(s, "Unterminated format specifier in parameter ", formatStrIndex);
+						s.throwRuntimeException("Unterminated format specifier in parameter ", formatStrIndex);
 
 					c = formatStr[i];
 				}
@@ -130,7 +129,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 					}
 
 					if(c == '*')
-						throw new MDRuntimeException(s, "Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
+						s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
 					else if(std.ctype.isdigit(c))
 					{
 						addFormatChar(c);
@@ -155,7 +154,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 						nextChar();
 
 						if(c == '*')
-							throw new MDRuntimeException(s, "Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
+							s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
 						else if(std.ctype.isdigit(c))
 						{
 							addFormatChar(c);
@@ -209,7 +208,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 
 						default:
 							// unsupported: %p
-							throw new MDRuntimeException(s, "Unsupported format specifier '%c' in parameter ", c, formatStrIndex);
+							s.throwRuntimeException("Unsupported format specifier '%c' in parameter ", c, formatStrIndex);
 					}
 				}
 				else
@@ -306,7 +305,7 @@ class BaseLib
 		MDClosure func = s.getClosureParam(0);
 
 		if(s.numParams() == 1)
-			throw new MDRuntimeException(s, "Need parameters to bind to delegate");
+			s.throwRuntimeException("Need parameters to bind to delegate");
 
 		MDValue[] params = s.getParams(1, -1);
 
@@ -406,41 +405,44 @@ class BaseLib
 		if(condition.isFalse())
 		{
 			if(s.numParams() == 1)
-				throw new MDRuntimeException(s, "Assertion Failed!");
+				s.throwRuntimeException("Assertion Failed!");
 			else
-				throw new MDRuntimeException(s, "Assertion Failed: %s", s.getParam(1).toString());
+				s.throwRuntimeException("Assertion Failed: %s", s.getParam(1).toString());
 		}
 		
 		return 0;
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	BaseLib lib = new BaseLib();
+	with(MDGlobalState())
+	{
+		BaseLib lib = new BaseLib();
 
-	s.setGlobal("assert"d,       new MDClosure(s, &lib.mdassert,     "assert"));
-	s.setGlobal("getTraceback"d, new MDClosure(s, &lib.getTraceback, "getTraceback"));
-	s.setGlobal("delegate"d,     new MDClosure(s, &lib.mddelegate,   "delegate"));
-	s.setGlobal("typeof"d,       new MDClosure(s, &lib.mdtypeof,     "typeof"));
-	s.setGlobal("classof"d,      new MDClosure(s, &lib.classof,      "classof"));
-	s.setGlobal("toString"d,     new MDClosure(s, &lib.mdtoString,   "toString"));
-	s.setGlobal("format"d,       new MDClosure(s, &lib.mdformat,     "format"));
-	s.setGlobal("writefln"d,     new MDClosure(s, &lib.mdwritefln,   "writefln"));
-	s.setGlobal("writef"d,       new MDClosure(s, &lib.mdwritef,     "writef"));
-	s.setGlobal("writeln"d,      new MDClosure(s, &lib.writeln,      "writeln"));
-	s.setGlobal("write"d,        new MDClosure(s, &lib.write,        "write"));
-	s.setGlobal("isNull"d,       new MDClosure(s, &lib.isNull,       "isNull"));
-	s.setGlobal("isBool"d,       new MDClosure(s, &lib.isBool,       "isBool"));
-	s.setGlobal("isInt"d,        new MDClosure(s, &lib.isInt,        "isInt"));
-	s.setGlobal("isFloat"d,      new MDClosure(s, &lib.isFloat,      "isFloat"));
-	s.setGlobal("isChar"d,       new MDClosure(s, &lib.isChar,       "isChar"));
-	s.setGlobal("isString"d,     new MDClosure(s, &lib.isString,     "isString"));
-	s.setGlobal("isTable"d,      new MDClosure(s, &lib.isTable,      "isTable"));
-	s.setGlobal("isArray"d,      new MDClosure(s, &lib.isArray,      "isArray"));
-	s.setGlobal("isFunction"d,   new MDClosure(s, &lib.isFunction,   "isFunction"));
-	s.setGlobal("isUserdata"d,   new MDClosure(s, &lib.isUserdata,   "isUserdata"));
-	s.setGlobal("isClass"d,      new MDClosure(s, &lib.isClass,      "isClass"));
-	s.setGlobal("isInstance"d,   new MDClosure(s, &lib.isInstance,   "isInstance"));
-	s.setGlobal("isDelegate"d,   new MDClosure(s, &lib.isDelegate,   "isDelegate"));
+		setGlobal("assert"d,       newClosure(&lib.mdassert,     "assert"));
+		setGlobal("getTraceback"d, newClosure(&lib.getTraceback, "getTraceback"));
+		setGlobal("delegate"d,     newClosure(&lib.mddelegate,   "delegate"));
+		setGlobal("typeof"d,       newClosure(&lib.mdtypeof,     "typeof"));
+		setGlobal("classof"d,      newClosure(&lib.classof,      "classof"));
+		setGlobal("toString"d,     newClosure(&lib.mdtoString,   "toString"));
+		setGlobal("format"d,       newClosure(&lib.mdformat,     "format"));
+		setGlobal("writefln"d,     newClosure(&lib.mdwritefln,   "writefln"));
+		setGlobal("writef"d,       newClosure(&lib.mdwritef,     "writef"));
+		setGlobal("writeln"d,      newClosure(&lib.writeln,      "writeln"));
+		setGlobal("write"d,        newClosure(&lib.write,        "write"));
+		setGlobal("isNull"d,       newClosure(&lib.isNull,       "isNull"));
+		setGlobal("isBool"d,       newClosure(&lib.isBool,       "isBool"));
+		setGlobal("isInt"d,        newClosure(&lib.isInt,        "isInt"));
+		setGlobal("isFloat"d,      newClosure(&lib.isFloat,      "isFloat"));
+		setGlobal("isChar"d,       newClosure(&lib.isChar,       "isChar"));
+		setGlobal("isString"d,     newClosure(&lib.isString,     "isString"));
+		setGlobal("isTable"d,      newClosure(&lib.isTable,      "isTable"));
+		setGlobal("isArray"d,      newClosure(&lib.isArray,      "isArray"));
+		setGlobal("isFunction"d,   newClosure(&lib.isFunction,   "isFunction"));
+		setGlobal("isUserdata"d,   newClosure(&lib.isUserdata,   "isUserdata"));
+		setGlobal("isClass"d,      newClosure(&lib.isClass,      "isClass"));
+		setGlobal("isInstance"d,   newClosure(&lib.isInstance,   "isInstance"));
+		setGlobal("isDelegate"d,   newClosure(&lib.isDelegate,   "isDelegate"));
+	}
 }

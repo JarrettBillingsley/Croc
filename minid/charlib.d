@@ -1,6 +1,5 @@
 module minid.charlib;
 
-import minid.state;
 import minid.types;
 
 import ctype = std.ctype;
@@ -8,15 +7,34 @@ import std.uni;
 
 class CharLib
 {
+	this(MDNamespace namespace)
+	{
+		namespace.addList
+		(
+			"toLower",     new MDClosure(namespace, &toLower,     "char.toLower"),
+			"toUpper",     new MDClosure(namespace, &toUpper,     "char.toUpper"),
+			"isAlpha",     new MDClosure(namespace, &isAlpha,     "char.isAlpha"),
+			"isAlNum",     new MDClosure(namespace, &isAlNum,     "char.isAlNum"),
+			"isLower",     new MDClosure(namespace, &isLower,     "char.isLower"),
+			"isUpper",     new MDClosure(namespace, &isUpper,     "char.isUpper"),
+			"isDigit",     new MDClosure(namespace, &isDigit,     "char.isDigit"),
+			"isCtrl",      new MDClosure(namespace, &isCtrl,      "char.isCtrl"),
+			"isPunct",     new MDClosure(namespace, &isPunct,     "char.isPunct"),
+			"isSpace",     new MDClosure(namespace, &isSpace,     "char.isSpace"),
+			"isHexDigit",  new MDClosure(namespace, &isHexDigit,  "char.isHexDigit"),
+			"isAscii",     new MDClosure(namespace, &isAscii,     "char.isAscii")
+		);
+	}
+
 	int toLower(MDState s)
 	{
-		s.push(toUniLower(s.getCharParam(0)));
+		s.push(s.safeCode(toUniLower(s.getCharParam(0))));
 		return 1;
 	}
-	
+
 	int toUpper(MDState s)
 	{
-		s.push(toUniUpper(s.getCharParam(0)));
+		s.push(s.safeCode(toUniUpper(s.getCharParam(0))));
 		return 1;
 	}
 	
@@ -82,26 +100,10 @@ class CharLib
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	CharLib lib = new CharLib();
-	
-	MDTable charLib = MDTable.create
-	(
-		"toLower",     new MDClosure(s, &lib.toLower,     "char.toLower"),
-		"toUpper",     new MDClosure(s, &lib.toUpper,     "char.toUpper"),
-		"isAlpha",     new MDClosure(s, &lib.isAlpha,     "char.isAlpha"),
-		"isAlNum",     new MDClosure(s, &lib.isAlNum,     "char.isAlNum"),
-		"isLower",     new MDClosure(s, &lib.isLower,     "char.isLower"),
-		"isUpper",     new MDClosure(s, &lib.isUpper,     "char.isUpper"),
-		"isDigit",     new MDClosure(s, &lib.isDigit,     "char.isDigit"),
-		"isCtrl",      new MDClosure(s, &lib.isCtrl,      "char.isCtrl"),
-		"isPunct",     new MDClosure(s, &lib.isPunct,     "char.isPunct"),
-		"isSpace",     new MDClosure(s, &lib.isSpace,     "char.isSpace"),
-		"isHexDigit",  new MDClosure(s, &lib.isHexDigit,  "char.isHexDigit"),
-		"isAscii",     new MDClosure(s, &lib.isAscii,     "char.isAscii")
-	);
-
-	s.setGlobal("char"d, charLib);
-	MDGlobalState().setMetatable(MDValue.Type.Char, charLib);
+	MDNamespace namespace = new MDNamespace("char"d);
+	new CharLib(namespace);
+	MDGlobalState().setGlobal("char"d, namespace);
+	MDGlobalState().setMetatable(MDValue.Type.Char, namespace);
 }

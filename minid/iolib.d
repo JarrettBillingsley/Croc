@@ -1,6 +1,5 @@
 module minid.iolib;
 
-import minid.state;
 import minid.types;
 import minid.baselib;
 
@@ -9,20 +8,42 @@ import std.stream;
 
 class IOLib
 {
+	this(MDNamespace namespace)
+	{
+		fileClass = new MDFileClass();
+
+		namespace.addList
+		(
+			"File",        fileClass,
+			"FileMode",    MDTable.create
+			(
+				"In",     cast(int)FileMode.In,
+				"Out",    cast(int)FileMode.Out,
+				"OutNew", cast(int)FileMode.OutNew,
+				"Append", cast(int)FileMode.Append
+			),
+	
+			"rename",      new MDClosure(namespace, &rename,      "io.rename"),
+			"remove",      new MDClosure(namespace, &remove,      "io.remove"),
+			"copy",        new MDClosure(namespace, &copy,        "io.copy"),
+			"size",        new MDClosure(namespace, &size,        "io.size"),
+			"exists",      new MDClosure(namespace, &exists,      "io.exists"),
+			"isFile",      new MDClosure(namespace, &isFile,      "io.isFile"),
+			"isDir",       new MDClosure(namespace, &isDir,       "io.isDir"),
+			"currentDir",  new MDClosure(namespace, &currentDir,  "io.currentDir"),
+			"changeDir",   new MDClosure(namespace, &changeDir,   "io.changeDir"),
+			"makeDir",     new MDClosure(namespace, &makeDir,     "io.makeDir"),
+			"removeDir",   new MDClosure(namespace, &removeDir,   "io.removeDir")
+		);
+	}
+
 	int rename(MDState s)
 	{
 		char[] file = s.getStringParam(0).asUTF8();
 		char[] newName = s.getStringParam(1).asUTF8();
 		
-		try
-		{
-			std.file.rename(file, newName);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
-		
+		s.safeCode(std.file.rename(file, newName));
+
 		return 0;
 	}
 	
@@ -30,15 +51,8 @@ class IOLib
 	{
 		char[] file = s.getStringParam(0).asUTF8();
 
-		try
-		{
-			std.file.remove(file);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
-		
+		s.safeCode(std.file.remove(file));
+
 		return 0;
 	}
 	
@@ -47,31 +61,16 @@ class IOLib
 		char[] src = s.getStringParam(0).asUTF8();
 		char[] dest = s.getStringParam(1).asUTF8();
 
-		try
-		{
-			std.file.copy(src, dest);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
-		
+		s.safeCode(std.file.copy(src, dest));
+
 		return 0;
 	}
 	
 	int size(MDState s)
 	{
 		char[] file = s.getStringParam(0).asUTF8();
-		ulong ret = 0;
 
-		try
-		{
-			ret = std.file.getSize(file);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		ulong ret = s.safeCode(std.file.getSize(file));
 
 		s.push(cast(int)ret);
 		return 1;
@@ -86,16 +85,8 @@ class IOLib
 	int isFile(MDState s)
 	{
 		char[] file = s.getStringParam(0).asUTF8();
-		bool ret = false;
-
-		try
-		{
-			ret = cast(bool)std.file.isfile(file);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		
+		bool ret = s.safeCode(cast(bool)std.file.isfile(file));
 
 		s.push(ret);
 		return 1;
@@ -104,16 +95,7 @@ class IOLib
 	int isDir(MDState s)
 	{
 		char[] file = s.getStringParam(0).asUTF8();
-		bool ret = false;
-
-		try
-		{
-			ret = cast(bool)std.file.isdir(file);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		bool ret = s.safeCode(cast(bool)std.file.isdir(file));
 
 		s.push(ret);
 		return 1;
@@ -121,18 +103,10 @@ class IOLib
 	
 	int currentDir(MDState s)
 	{
-		char[] ret;
-
-		try
-		{
-			ret = std.file.getcwd();
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		char[] ret = s.safeCode(std.file.getcwd());
 
 		s.push(ret);
+
 		return 1;
 	}
 	
@@ -140,14 +114,7 @@ class IOLib
 	{
 		char[] path = s.getStringParam(0).asUTF8();
 
-		try
-		{
-			std.file.chdir(path);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		s.safeCode(std.file.chdir(path));
 
 		return 0;
 	}
@@ -156,14 +123,7 @@ class IOLib
 	{
 		char[] path = s.getStringParam(0).asUTF8();
 
-		try
-		{
-			std.file.mkdir(path);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		s.safeCode(std.file.mkdir(path));
 
 		return 0;
 	}
@@ -172,62 +132,47 @@ class IOLib
 	{
 		char[] path = s.getStringParam(0).asUTF8();
 
-		try
-		{
-			std.file.rmdir(path);
-		}
-		catch(Exception e)
-		{
-			throw new MDRuntimeException(s, e.toString());
-		}
+		s.safeCode(std.file.rmdir(path));
 
 		return 0;
 	}
 	
 	MDFileClass fileClass;
-	
-	/*wrappedClass!(MDFile) f;
-	f.def!(MDFile.readByte);
-	f.def!(MDFile.readShort);
-	...
-	f.init!(void function(char[], int));
-	s.finalizeClass(f);*/
 
 	static class MDFileClass : MDClass
 	{
-		public this(MDState s)
+		public this()
 		{
 			super("File", null);
 			
-			this["constructor"] = new MDClosure(s, &constructor,    "File.constructor");
-			this["readByte"] =    new MDClosure(s, &read!(ubyte),   "File.readByte");
-			this["readShort"] =   new MDClosure(s, &read!(ushort),  "File.readShort");
-			this["readInt"] =     new MDClosure(s, &read!(int),     "File.readInt");
-			this["readFloat"] =   new MDClosure(s, &read!(float),   "File.readFloat");
-			this["readChar"] =    new MDClosure(s, &read!(char),    "File.readChar");
-			this["readWChar"] =   new MDClosure(s, &read!(wchar),   "File.readWChar");
-			this["readDChar"] =   new MDClosure(s, &read!(dchar),   "File.readDChar");
-			this["readLine"] =    new MDClosure(s, &readLine,       "File.readLine");
-			this["eof"] =         new MDClosure(s, &eof,            "File.eof");
-			this["writeByte"] =   new MDClosure(s, &write!(ubyte),  "File.writeByte");
-			this["writeShort"] =  new MDClosure(s, &write!(ushort), "File.writeShort");
-			this["writeInt"] =    new MDClosure(s, &write!(int),    "File.writeInt");
-			this["writeFloat"] =  new MDClosure(s, &write!(float),  "File.writeFloat");
-			this["writeChar"] =   new MDClosure(s, &write!(char),   "File.writeChar");
-			this["writeWChar"] =  new MDClosure(s, &write!(wchar),  "File.writeWChar");
-			this["writeDChar"] =  new MDClosure(s, &write!(dchar),  "File.writeDChar");
-			this["writeLine"] =   new MDClosure(s, &writeLine,      "File.writeLine");
-			this["writef"] =      new MDClosure(s, &writef,         "File.writef");
-			this["writefln"] =    new MDClosure(s, &writefln,       "File.writefln");
-			this["close"] =       new MDClosure(s, &close,          "File.close");
+			this["constructor"] = new MDClosure(mMethods, &constructor,    "File.constructor");
+			this["readByte"] =    new MDClosure(mMethods, &read!(ubyte),   "File.readByte");
+			this["readShort"] =   new MDClosure(mMethods, &read!(ushort),  "File.readShort");
+			this["readInt"] =     new MDClosure(mMethods, &read!(int),     "File.readInt");
+			this["readFloat"] =   new MDClosure(mMethods, &read!(float),   "File.readFloat");
+			this["readChar"] =    new MDClosure(mMethods, &read!(char),    "File.readChar");
+			this["readWChar"] =   new MDClosure(mMethods, &read!(wchar),   "File.readWChar");
+			this["readDChar"] =   new MDClosure(mMethods, &read!(dchar),   "File.readDChar");
+			this["readLine"] =    new MDClosure(mMethods, &readLine,       "File.readLine");
+			this["eof"] =         new MDClosure(mMethods, &eof,            "File.eof");
+			this["writeByte"] =   new MDClosure(mMethods, &write!(ubyte),  "File.writeByte");
+			this["writeShort"] =  new MDClosure(mMethods, &write!(ushort), "File.writeShort");
+			this["writeInt"] =    new MDClosure(mMethods, &write!(int),    "File.writeInt");
+			this["writeFloat"] =  new MDClosure(mMethods, &write!(float),  "File.writeFloat");
+			this["writeChar"] =   new MDClosure(mMethods, &write!(char),   "File.writeChar");
+			this["writeWChar"] =  new MDClosure(mMethods, &write!(wchar),  "File.writeWChar");
+			this["writeDChar"] =  new MDClosure(mMethods, &write!(dchar),  "File.writeDChar");
+			this["writeLine"] =   new MDClosure(mMethods, &writeLine,      "File.writeLine");
+			this["writef"] =      new MDClosure(mMethods, &writef,         "File.writef");
+			this["writefln"] =    new MDClosure(mMethods, &writefln,       "File.writefln");
+			this["close"] =       new MDClosure(mMethods, &close,          "File.close");
 		}
 
 		public override MDFile newInstance()
 		{
 			MDFile n = new MDFile();
 			n.mClass = this;
-			//n.mFields = mFields.dup;
-			
+
 			foreach(k, v; mFields)
 				n.mFields[k] = v;
 
@@ -249,7 +194,7 @@ class IOLib
 			}
 			catch(StreamException e)
 			{
-				throw new MDRuntimeException(s, e.toString());
+				s.throwRuntimeException(e.toString());
 			}
 
 			return 0;
@@ -259,16 +204,7 @@ class IOLib
 		{
 			MDFile i = cast(MDFile)s.getInstanceParam(0, this);
 
-			T val;
-			
-			try
-			{
-				val = i.read!(T)();
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
+			T val = s.safeCode(i.read!(T)());
 
 			s.push(val);
 			return 1;
@@ -278,17 +214,8 @@ class IOLib
 		{
 			MDFile i = cast(MDFile)s.getInstanceParam(0, this);
 
-			char[] val;
-			
-			try
-			{
-				val = i.readLine();
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
-			
+			char[] val = s.safeCode(i.readLine());
+
 			s.push(val);
 			return 1;
 		}
@@ -306,14 +233,7 @@ class IOLib
 			else static if(is(T == char) || is(T == wchar) || is(T == dchar))
 				val = s.getCharParam(1);
 
-			try
-			{
-				i.write!(T)(val);
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
+			s.safeCode(i.write!(T)(val));
 
 			return 0;
 		}
@@ -323,14 +243,7 @@ class IOLib
 			MDFile i = cast(MDFile)s.getInstanceParam(0, this);
 			char[] val = s.getStringParam(1).asUTF8();
 			
-			try
-			{
-				i.writeLine(val);
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
+			s.safeCode(i.writeLine(val));
 
 			return 0;
 		}
@@ -340,14 +253,7 @@ class IOLib
 			MDFile i = cast(MDFile)s.getInstanceParam(0, this);
 			dchar[] output = baseFormat(s, s.getParams(1, -1));
 			
-			try
-			{
-				i.writef(output);
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
+			s.safeCode(i.writef(output));
 
 			return 0;
 		}
@@ -357,14 +263,7 @@ class IOLib
 			MDFile i = cast(MDFile)s.getInstanceParam(0, this);
 			dchar[] output = baseFormat(s, s.getParams(1, -1));
 			
-			try
-			{
-				i.writefln(output);
-			}
-			catch(StreamException e)
-			{
-				throw new MDRuntimeException(s, e.toString());
-			}
+			s.safeCode(i.writefln(output));
 
 			return 0;
 		}
@@ -437,34 +336,9 @@ class IOLib
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	IOLib lib = new IOLib();
-	
-	lib.fileClass = new IOLib.MDFileClass(s);
-
-	MDTable ioTable = MDTable.create
-	(
-		"File",        lib.fileClass,
-		"FileMode",    MDTable.create
-		(
-			"In",     cast(int)FileMode.In,
-			"Out",    cast(int)FileMode.Out,
-			"OutNew", cast(int)FileMode.OutNew,
-			"Append", cast(int)FileMode.Append
-		),
-		"rename",      new MDClosure(s, &lib.rename,      "io.rename"),
-		"remove",      new MDClosure(s, &lib.remove,      "io.remove"),
-		"copy",        new MDClosure(s, &lib.copy,        "io.copy"),
-		"size",        new MDClosure(s, &lib.size,        "io.size"),
-		"exists",      new MDClosure(s, &lib.exists,      "io.exists"),
-		"isFile",      new MDClosure(s, &lib.isFile,      "io.isFile"),
-		"isDir",       new MDClosure(s, &lib.isDir,       "io.isDir"),
-		"currentDir",  new MDClosure(s, &lib.currentDir,  "io.currentDir"),
-		"changeDir",   new MDClosure(s, &lib.changeDir,   "io.changeDir"),
-		"makeDir",     new MDClosure(s, &lib.makeDir,     "io.makeDir"),
-		"removeDir",   new MDClosure(s, &lib.removeDir,   "io.removeDir")
-	);
-
-	s.setGlobal("io"d, ioTable);
+	MDNamespace namespace = new MDNamespace("io"d);
+	new IOLib(namespace);
+	MDGlobalState().setGlobal("io"d, namespace);
 }

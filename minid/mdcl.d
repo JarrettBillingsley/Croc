@@ -1,19 +1,12 @@
 module minid.mdcl;
 
-import minid.state;
-import minid.types;
 import minid.compiler;
-import baselib = minid.baselib;
-import stringlib = minid.stringlib;
-import arraylib = minid.arraylib;
-import tablelib = minid.tablelib;
-import mathlib = minid.mathlib;
-import charlib = minid.charlib;
-import iolib = minid.iolib;
+import minid.minid;
+import minid.types;
 
-import std.stdio;
 import std.cstream;
 import std.path;
+import std.stdio;
 import std.stream;
 
 void printVersion()
@@ -53,7 +46,6 @@ const char[] Prompt2 = "... ";
 
 void main(char[][] args)
 {
-	MDState state;
 	bool printedVersion = false;
 	bool interactive = false;
 	char[] inputFile;
@@ -99,29 +91,29 @@ void main(char[][] args)
 		}
 	}
 	
-	state = MDGlobalState().mainThread();
-	baselib.init(state);
-	stringlib.init(state);
-	arraylib.init(state);
-	tablelib.init(state);
-	mathlib.init(state);
-	charlib.init(state);
-	iolib.init(state);
+	MDState state = MDInitialize();
 
 	if(inputFile.length > 0)
 	{
-		MDClosure cl = new MDClosure(state, compileFile(inputFile));
+		MDModuleDef def;
 
-		uint funcReg = state.push(cl);
+		if(inputFile.length >= 3 && inputFile[$ - 3 .. $] == ".md")
+			def = compileModule(inputFile);
+		else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
+			def = MDModuleDef.loadFromFile(inputFile);
+
+		uint funcReg = state.push(MDGlobalState().initModule(def, false, state));
 
 		foreach(arg; scriptArgs)
 			state.push(arg);
 
-		state.call(funcReg,scriptArgs.length, 0);
+		state.call(funcReg, scriptArgs.length, 0);
 	}
 
 	if(interactive)
 	{
+		writefln("Type EOF (Ctrl-D on *nix, Ctrl-Z on Windows) and hit enter to end.");
+
 		char[] buffer;
 
 		writef(Prompt1);
@@ -135,14 +127,14 @@ void main(char[][] args)
 
 			buffer ~= line;
 
-			MemoryStream s = new MemoryStream(buffer);
+			scope MemoryStream s = new MemoryStream(buffer);
 
 			bool atEOF = false;
 			MDFuncDef def;
 
 			try
 			{
-				def = compile("(command line)", s, atEOF);
+				def = compileStatement(s, "stdin", atEOF);
 			}
 			catch(MDCompileException e)
 			{
@@ -163,7 +155,8 @@ void main(char[][] args)
 
 			try
 			{
-				state.easyCall(new MDClosure(state, def), 0);
+				scope closure = MDGlobalState().newClosure(def);
+				state.easyCall(closure, 0);
 			}
 			catch(MDException e)
 			{

@@ -1,16 +1,33 @@
 module minid.arraylib;
 
-import minid.state;
 import minid.types;
 
 class ArrayLib
 {
+	this(MDNamespace namespace)
+	{
+		iteratorClosure = new MDClosure(namespace, &iterator, "array.iterator");
+		iteratorReverseClosure = new MDClosure(namespace, &iteratorReverse, "array.iteratorReverse");
+	
+		namespace.addList
+		(
+			"new",       new MDClosure(namespace, &newArray, "array.new"),
+			"sort",      new MDClosure(namespace, &sort,     "array.sort"),
+			"reverse",   new MDClosure(namespace, &reverse,  "array.reverse"),
+			"dup",       new MDClosure(namespace, &dup,      "array.dup"),
+			"length",    new MDClosure(namespace, &length,   "array.length"),
+			"opApply",   new MDClosure(namespace, &apply,    "array.opApply"),
+			"expand",    new MDClosure(namespace, &expand,   "array.expand"),
+			"toString",  new MDClosure(namespace, &ToString, "array.toString")
+		);
+	}
+
 	int newArray(MDState s)
 	{
 		int length = s.getIntParam(0);
 		
 		if(length < 0)
-			throw new MDRuntimeException(s, "Invalid length: ", length);
+			s.throwRuntimeException("Invalid length: ", length);
 			
 		s.push(new MDArray(length));
 		
@@ -37,8 +54,7 @@ class ArrayLib
 	
 	int dup(MDState s)
 	{
-		MDArray arr = s.getArrayParam(0);
-		s.push(arr.dup);
+		s.push(s.getArrayParam(0).dup);
 		return 1;
 	}
 	
@@ -48,7 +64,7 @@ class ArrayLib
 		int length = s.getIntParam(1);
 
 		if(length < 0)
-			throw new MDRuntimeException(s, "Invalid length: ", length);
+			s.throwRuntimeException("Invalid length: ", length);
 
 		arr.length = length;
 
@@ -141,25 +157,10 @@ class ArrayLib
 	}
 }
 
-public void init(MDState s)
+public void init()
 {
-	ArrayLib lib = new ArrayLib();
-	
-	lib.iteratorClosure = new MDClosure(s, &lib.iterator, "array.iterator");
-	lib.iteratorReverseClosure = new MDClosure(s, &lib.iteratorReverse, "array.iteratorReverse");
-
-	MDTable arrayTable = MDTable.create
-	(
-		"new",       new MDClosure(s, &lib.newArray, "array.new"),
-		"sort",      new MDClosure(s, &lib.sort,     "array.sort"),
-		"reverse",   new MDClosure(s, &lib.reverse,  "array.reverse"),
-		"dup",       new MDClosure(s, &lib.dup,      "array.dup"),
-		"length",    new MDClosure(s, &lib.length,   "array.length"),
-		"opApply",   new MDClosure(s, &lib.apply,    "array.opApply"),
-		"expand",    new MDClosure(s, &lib.expand,   "array.expand"),
-		"toString",  new MDClosure(s, &lib.ToString, "array.toString")
-	);
-
-	s.setGlobal("array"d, arrayTable);
-	MDGlobalState().setMetatable(MDValue.Type.Array, arrayTable);
+	MDNamespace namespace = new MDNamespace("array"d);
+	new ArrayLib(namespace);
+	MDGlobalState().setGlobal("array"d, namespace);
+	MDGlobalState().setMetatable(MDValue.Type.Array, namespace);
 }

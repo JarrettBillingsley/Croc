@@ -1,20 +1,36 @@
-/* // A function which lets us define properties for a class.
+module simple;
+
+// Testing tailcalls.
+
+global function recurse(x)
+{
+	writefln("recurse: ", x);
+
+	if(x == 0)
+		return toString(x);
+	else
+		return recurse(x - 1);
+}
+
+writefln(recurse(5));
+writefln();
+
+// A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
-function mixinProperties(classType, vararg)
+local function mixinProperties(classType, vararg)
 {
 	classType.mProps = { };
 
 	classType.opIndex = function(this, key)
 	{
-		local c, prop = this.mProps:contains(key);
+		local prop = this.mProps[key];
 
-		if(!c)
+		if(prop is null)
 			throw format(classType, ":opIndex() - Property '%s' does not exist", key);
 
-		local getter;
-		c, getter = prop:contains("getter");
+		local getter = prop.getter;
 
-		if(!c)
+		if(getter is null)
 			throw format(classType, ":opIndex() - Property '%s' has no getter", key);
 
 		return getter(this);
@@ -22,15 +38,14 @@ function mixinProperties(classType, vararg)
 
 	classType.opIndexAssign = function(this, key, value)
 	{
-		local c, prop = this.mProps:contains(key);
+		local prop = this.mProps[key];
 
-		if(!c)
+		if(prop is null)
 			throw format(classType, ":opIndexAssign() - Property '%s' does not exist", key);
 			
-		local setter;
-		c, setter = prop:contains("setter");
+		local setter = prop.setter;
 		
-		if(!c)
+		if(setter is null)
 			throw format(classType, ":opIndexAssign() - Property '%s' has no setter", key);
 			
 		setter(this, value);
@@ -41,10 +56,10 @@ function mixinProperties(classType, vararg)
 		if(!isTable(v))
 			throw "mixinProperties() - properties must be tables";
 		
-		if(!v:contains("name"))
+		if(v.name is null)
 			throw format("mixinProperties() - property ", k, " has no name");
 
-		if(!v:contains("setter") && !v:contains("getter"))
+		if(v.setter is null && v.getter is null)
 			throw format("mixinProperties() - property '%s' has no getter or setter", v.name);
 
 		classType.mProps[v.name] = v;
@@ -52,7 +67,7 @@ function mixinProperties(classType, vararg)
 }
 
 // Create a class to test out.
-class PropTest
+local class PropTest
 {
 	mX = 0;
 	mY = 0;
@@ -122,22 +137,18 @@ writefln(p);
 
 // Try to access a nonexistent property.
 try
-{
 	p.name = "crap";
-}
 catch(e)
 {
 	writefln("caught: ", e);
+	writefln(getTraceback());
 }
 
-/*class Container
-{
-	method insert(data) { }
-	method remove() { }
-	method hasData() { return false; }
-}
+writefln();
 
-class PQ : Container
+// Some container classes.
+
+local class PQ
 {
 	mData;
 	mLength = 0;
@@ -235,7 +246,7 @@ class PQ : Container
 	}
 }
 
-class Stack : Container
+local class Stack
 {
 	mHead = null;
 	
@@ -255,14 +266,14 @@ class Stack : Container
 		
 		return item.data;
 	}
-	
+
 	method hasData()
 	{
 		return this.mHead !is null;
 	}
 }
 
-class Queue : Container
+local class Queue
 {
 	mHead = null;
 	mTail = null;
@@ -303,43 +314,45 @@ class Queue : Container
 	}
 }
 
-local pq = PQ();
+local prioQ = PQ();
 
 for(local i = 0; i < 5; ++i)
-	pq:insert(math.rand(0, 20));
+	prioQ:insert(math.rand(0, 20));
 
 writefln("Priority queue (heap)");
 
-while(pq:hasData())
-	writefln(pq:remove());
+while(prioQ:hasData())
+	writefln(prioQ:remove());
 	
 writefln();
 
-local s = Stack();
+local stack = Stack();
 
 for(local i = 0; i < 5; ++i)
-	s:insert(i + 1);
+	stack:insert(i + 1);
 	
 writefln("Stack");
 
-while(s:hasData())
-	writefln(s:remove());
+while(stack:hasData())
+	writefln(stack:remove());
 
 writefln();
 
-local q = Queue();
+local queue = Queue();
 
 for(local i = 0; i < 5; ++i)
-	q:insert(i + 1);
+	queue:insert(i + 1);
 	
 writefln("Queue");
 
-while(q:hasData())
-	writefln(q:remove());
+while(queue:hasData())
+	writefln(queue:remove());
 
-writefln();*/
+writefln();
 
-/*class Test
+// opApply tests.
+
+local class Test
 {
 	mData = [4, 5, 6];
 
@@ -376,61 +389,65 @@ writefln();*/
 	}
 }
 
-local t = Test();
+local test = Test();
 
-foreach(local k, local v; t)
-	writefln("t[", k, "] = ", v);
+foreach(k, v; test)
+	writefln("test[", k, "] = ", v);
 
 writefln();
 
-foreach(local k, local v; t, "reverse")
-	writefln("t[", k, "] = ", v);
+foreach(k, v; test, "reverse")
+	writefln("test[", k, "] = ", v);
 	
-t =
+writefln();
+
+test =
 {
 	fork = 5,
 	knife = 10,
 	spoon = "hi"
 };
 
-writefln();
-
-foreach(local k, local v; t)
-	writefln("t[", k, "] = ", v);
+foreach(k, v; test)
+	writefln("test[", k, "] = ", v);
 	
-t = [5, 10, "hi"];
+test = [5, 10, "hi"];
 
 writefln();
 
-foreach(local k, local v; t)
-	writefln("t[", k, "] = ", v);
+foreach(k, v; test)
+	writefln("test[", k, "] = ", v);
 
 writefln();
 
-foreach(local k, local v; t, "reverse")
-	writefln("t[", k, "] = ", v);
-	
+foreach(k, v; test, "reverse")
+	writefln("test[", k, "] = ", v);
+
 writefln();
 
-local s = "hello";
+foreach(k, v; "hello")
+	writefln("str[", k, "] = ", v);
 
-foreach(local k, local v; s)
-	writefln("s[", k, "] = ", v);
-	
 writefln();
 
-foreach(local k, local v; s, "reverse")
-	writefln("s[", k, "] = ", v);*/
+foreach(k, v; "hello", "reverse")
+	writefln("str[", k, "] = ", v);
 
-/*local a = array.new(10);
+writefln();
+
+// Testing upvalues in for loops.
+
+local arr = array.new(10);
 
 for(local i = 0; i < 10; ++i)
-	a[i] = function() { return i; };
+	arr[i] = function() { return i; };
 
-for(local i = 0; i < #a; ++i)
-	writefln(a[i]());*/
+for(local i = 0; i < #arr; ++i)
+	writefln(arr[i]());
 
-/* writefln();
+writefln();
+
+// Testing nested functions.
 
 local function outer()
 {
@@ -453,6 +470,8 @@ local func = outer();
 func();
 
 writefln();
+
+// Testing Exceptions.
 
 local function thrower(x)
 {
@@ -493,21 +512,25 @@ catch(e)
 
 writefln();
 
-local arr = [3, 5, 7];
+// Testing arrays.
 
-arr:sort();
+local array = [3, 5, 7];
 
-foreach(local i, local v; arr)
+array:sort();
+
+foreach(i, v; array)
 	writefln("arr[", i, "] = ", v);
 
-arr ~= ["foo", "far"];
+array ~= ["foo", "far"];
 
 writefln();
 
-foreach(local i, local v; arr)
+foreach(i, v; array)
 	writefln("arr[", i, "] = ", v);
 
 writefln();
+
+// Testing vararg functions.
 
 local function vargs(vararg)
 {
@@ -526,6 +549,8 @@ writefln();
 vargs(2, 3, 5, "foo", "bar");
 
 writefln();
+
+// Testing switches.
 
 for(local switchVar = 0; switchVar < 11; ++switchVar)
 {
@@ -551,9 +576,7 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 
 writefln();
 
-local stringArray = ["hi", "bye", "foo"];
-
-foreach(local i, local v; stringArray)
+foreach(i, v; ["hi", "bye", "foo"])
 {
 	switch(v)
 	{
@@ -569,4 +592,4 @@ foreach(local i, local v; stringArray)
 			writefln("switched to something else");
 			break;
 	}
-} */
+}

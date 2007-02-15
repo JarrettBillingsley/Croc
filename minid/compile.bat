@@ -2,12 +2,13 @@
 
 rem goto makelib
 rem goto makemdcl
+rem goto makeminidc
 
 set DFLAGS=-debug -g -oftest.exe -I"C:\dmd\proj\minid"
 set DPROG=test
-set DFILES=%DPROG%.d state.d types.d compiler.d opcodes.d stringlib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
+set DFILES=%DPROG%.d minid.d types.d compiler.d opcodes.d utils.d stringlib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
 rem set DFILES=%DPROG%.d
-rem set DLIBS=minid.lib
+rem set DLIBS=
 
 call \dmd\proj\maincompile.bat
 goto end
@@ -15,9 +16,19 @@ goto end
 :makemdcl
 set DFLAGS=-release -ofmdcl.exe -I"C:\dmd\proj\minid"
 set DPROG=mdcl
-set DFILES=%DPROG%.d state.d types.d compiler.d opcodes.d stringlib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
+set DFILES=%DPROG%.d minid.d types.d compiler.d opcodes.d utils.d stringlib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
 rem set DFILES=%DPROG%.d
-rem set DLIBS=minid.lib
+rem set DLIBS=
+
+call \dmd\proj\maincompile.bat
+goto end
+
+:makeminidc
+set DFLAGS=-release -ofminidc.exe -I"C:\dmd\proj\minid"
+set DPROG=minidc
+set DFILES=%DPROG%.d minid.d types.d compiler.d opcodes.d utils.d stringlib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
+rem set DFILES=%DPROG%.d
+rem set DLIBS=
 
 call \dmd\proj\maincompile.bat
 goto end
@@ -25,7 +36,7 @@ goto end
 :makelib
 set DFLAGS=-release -c -I"C:\dmd\proj\minid"
 set DPROG=
-set DFILES=state.d types.d opcodes.d
+set DFILES=types.d opcodes.d utils.d
 set DLIBS=
 
 \dmd\bin\dmd %DFLAGS% %DFILES%

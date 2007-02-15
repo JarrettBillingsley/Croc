@@ -1,43 +1,29 @@
 module minid.test;
 
-import minid.state;
+import minid.minid;
 import minid.types;
-import minid.compiler;
-import baselib = minid.baselib;
-import stringlib = minid.stringlib;
-import arraylib = minid.arraylib;
-import tablelib = minid.tablelib;
-import mathlib = minid.mathlib;
-import charlib = minid.charlib;
-import iolib = minid.iolib;
+
 import std.stdio;
 import std.stream;
+import std.string;
 
 void main()
 {
-	MDState state = MDGlobalState().mainThread();
-	baselib.init(state);
-	stringlib.init(state);
-	arraylib.init(state);
-	tablelib.init(state);
-	mathlib.init(state);
-	charlib.init(state);
-	iolib.init(state);
-	
-	MDClosure cl = new MDClosure(state, compileFile(`simple.md`));
+	MDState s = MDInitialize();
+	MDFileLoader().addPath(`imports`);
 
 	try
 	{
-		state.easyCall(cl, 0);
+		MDGlobalState().importModule(`simple`);
 	}
 	catch(MDException e)
 	{
-		writefln("error: ", e);
-		writefln(state.getTracebackString());
+		writefln("Error: ", e);
+		writefln(s.getTracebackString());
 	}
 	catch(Object e)
 	{
-		writefln("bad error: ", e);
-		writefln(state.getTracebackString());
+		writefln("Bad error: ", e);
+		writefln(s.getTracebackString());
 	}
 }
