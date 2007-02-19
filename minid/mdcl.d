@@ -156,7 +156,7 @@ void main(char[][] args)
 			try
 			{
 				scope closure = MDGlobalState().newClosure(def);
-				state.easyCall(closure, 0);
+				state.easyCall(closure, 0, MDValue(MDGlobalState().globals));
 			}
 			catch(MDException e)
 			{

@@ -15,6 +15,7 @@ void main()
 	try
 	{
 		MDGlobalState().importModule(`simple`);
+		//compileModule(`simple.md`);
 	}
 	catch(MDException e)
 	{

@@ -257,7 +257,7 @@ class MathLib
 				break;
 
 			case 1:
-				s.push(cast(int)random.rand() % s.getIntParam(0));
+				s.push(cast(uint)random.rand() % s.getIntParam(0));
 				break;
 
 			default:
@@ -274,7 +274,7 @@ class MathLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("math"d);
+	MDNamespace namespace = new MDNamespace("math"d, MDGlobalState().globals);
 	new MathLib(namespace);
 	MDGlobalState().setGlobal("math"d, namespace);
 }

@@ -118,11 +118,11 @@ Keyword:
 	'import'
 	'is'
 	'local'
-	'method'
 	'module'
 	'null'
 	'return'
 	'switch'
+	'this'
 	'throw'
 	'true'
 	'try'
@@ -303,11 +303,8 @@ ClassDeclaration:
 	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
 
 ClassMember:
-	MethodDeclaration
+	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
-
-MethodDeclaration:
-	'method' Identifier Parameters BlockStatement
 	
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
@@ -443,10 +440,11 @@ PostfixExpression:
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier
-	PostfixExpression [':' Identifier] '(' [Expression {',' Expression}] ')'
+	PostfixExpression '(' [Expression {',' Expression}] ')'
 
 PrimaryExpression:
 	Identifier
+	'this'
 	'null'
 	'true'
 	'false'
@@ -468,7 +466,6 @@ TableField:
 	Identifier '=' Expression
 	'[' Expression ']' '=' Expression
 	SimpleFunctionDeclaration
-	MethodDeclaration
 
 ArrayCtor:
 	'[' [Expression {',' Expression}] ']'

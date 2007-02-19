@@ -8,10 +8,9 @@ class ArrayLib
 	{
 		iteratorClosure = new MDClosure(namespace, &iterator, "array.iterator");
 		iteratorReverseClosure = new MDClosure(namespace, &iteratorReverse, "array.iteratorReverse");
-	
+
 		namespace.addList
 		(
-			"new",       new MDClosure(namespace, &newArray, "array.new"),
 			"sort",      new MDClosure(namespace, &sort,     "array.sort"),
 			"reverse",   new MDClosure(namespace, &reverse,  "array.reverse"),
 			"dup",       new MDClosure(namespace, &dup,      "array.dup"),
@@ -20,6 +19,12 @@ class ArrayLib
 			"expand",    new MDClosure(namespace, &expand,   "array.expand"),
 			"toString",  new MDClosure(namespace, &ToString, "array.toString")
 		);
+		
+		MDGlobalState().setGlobal("array"d, MDNamespace.create
+		(
+			"array"d, MDGlobalState().globals,
+			"new", new MDClosure(namespace, &newArray, "array.new")
+		));
 	}
 
 	int newArray(MDState s)
@@ -36,7 +41,7 @@ class ArrayLib
 
 	int sort(MDState s)
 	{
-		MDArray arr = s.getArrayParam(0);
+		MDArray arr = s.getContext().asArray();
 		arr.sort();
 		s.push(arr);
 
@@ -45,7 +50,7 @@ class ArrayLib
 	
 	int reverse(MDState s)
 	{
-		MDArray arr = s.getArrayParam(0);
+		MDArray arr = s.getContext().asArray();
 		arr.reverse();
 		s.push(arr);
 		
@@ -54,14 +59,14 @@ class ArrayLib
 	
 	int dup(MDState s)
 	{
-		s.push(s.getArrayParam(0).dup);
+		s.push(s.getContext().asArray().dup);
 		return 1;
 	}
 	
 	int length(MDState s)
 	{
-		MDArray arr = s.getArrayParam(0);
-		int length = s.getIntParam(1);
+		MDArray arr = s.getContext().asArray();
+		int length = s.getIntParam(0);
 
 		if(length < 0)
 			s.throwRuntimeException("Invalid length: ", length);
@@ -74,9 +79,9 @@ class ArrayLib
 
 	int iterator(MDState s)
 	{
-		MDArray array = s.getArrayParam(0);
-		int index = s.getIntParam(1);
-		
+		MDArray array = s.getContext().asArray();
+		int index = s.getIntParam(0);
+
 		index++;
 		
 		if(index >= array.length)
@@ -90,8 +95,8 @@ class ArrayLib
 
 	int iteratorReverse(MDState s)
 	{
-		MDArray array = s.getArrayParam(0);
-		int index = s.getIntParam(1);
+		MDArray array = s.getContext().asArray();
+		int index = s.getIntParam(0);
 		
 		index--;
 
@@ -109,9 +114,9 @@ class ArrayLib
 	
 	int apply(MDState s)
 	{
-		MDArray array = s.getArrayParam(0);
+		MDArray array = s.getContext().asArray();
 
-		if(s.numParams() > 1 && s.isParam!("string")(1) && s.getStringParam(1) == "reverse"d)
+		if(s.numParams() > 0 && s.isParam!("string")(0) && s.getStringParam(0) == "reverse"d)
 		{
 			s.push(iteratorReverseClosure);
 			s.push(array);
@@ -129,7 +134,7 @@ class ArrayLib
 	
 	int expand(MDState s)
 	{
-		MDArray array = s.getArrayParam(0);
+		MDArray array = s.getContext().asArray();
 		
 		for(int i = 0; i < array.length; i++)
 			s.push(array[i]);
@@ -139,13 +144,16 @@ class ArrayLib
 	
 	int ToString(MDState s)
 	{
-		MDArray array = s.getArrayParam(0);
+		MDArray array = s.getContext().asArray();
 		
 		char[] str = "[";
 
 		for(int i = 0; i < array.length; i++)
 		{
-			str ~= array[i].toString();
+			if(array[i].isString())
+				str ~= '"' ~ array[i].toString() ~ '"';
+			else
+				str ~= array[i].toString();
 			
 			if(i < array.length - 1)
 				str ~= ", ";
@@ -159,8 +167,7 @@ class ArrayLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("array"d);
+	MDNamespace namespace = new MDNamespace("array"d, MDGlobalState().globals);
 	new ArrayLib(namespace);
-	MDGlobalState().setGlobal("array"d, namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Array, namespace);
 }

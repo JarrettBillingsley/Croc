@@ -217,7 +217,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 		}
 		else
 		{
-			MDString val = s.valueToString(s.getParam(paramIndex));
+			MDString val = s.valueToString(params[paramIndex]);
 			outputString(val.mData);
 		}
 	}
@@ -229,13 +229,13 @@ class BaseLib
 {
 	int mdwritefln(MDState s)
 	{
-		writefln(baseFormat(s, s.getAllParams()));
+		writefln("%s", baseFormat(s, s.getAllParams()));
 		return 0;
 	}
-	
+
 	int mdwritef(MDState s)
 	{
-		writef(baseFormat(s, s.getAllParams()));
+		writef("%s", baseFormat(s, s.getAllParams()));
 		return 0;
 	}
 	
@@ -304,13 +304,15 @@ class BaseLib
 	{
 		MDClosure func = s.getClosureParam(0);
 
+		MDValue[] params;
+		
 		if(s.numParams() == 1)
-			s.throwRuntimeException("Need parameters to bind to delegate");
-
-		MDValue[] params = s.getParams(1, -1);
+			params ~= MDValue(func.environment);
+		else
+			params = s.getParams(1, -1);
 
 		s.push(new MDDelegate(func, params));
-		
+
 		return 1;
 	}
 
@@ -398,6 +400,12 @@ class BaseLib
 		return 1;
 	}
 	
+	int isNamespace(MDState s)
+	{
+		s.push(s.getParam(0).isNamespace());
+		return 1;
+	}
+	
 	int mdassert(MDState s)
 	{
 		MDValue condition = s.getParam(0);
@@ -444,5 +452,6 @@ public void init()
 		setGlobal("isClass"d,      newClosure(&lib.isClass,      "isClass"));
 		setGlobal("isInstance"d,   newClosure(&lib.isInstance,   "isInstance"));
 		setGlobal("isDelegate"d,   newClosure(&lib.isDelegate,   "isDelegate"));
+		setGlobal("isNamespace"d,  newClosure(&lib.isNamespace,  "isNamespace"));
 	}
 }

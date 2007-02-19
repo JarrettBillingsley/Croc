@@ -27,26 +27,8 @@ public MDModuleDef compileModule(char[] filename)
 
 public MDModuleDef compileModule(Stream source, char[] name)
 {
-	bool dummy;
-	return compileModule(source, name, dummy);
-}
-
-public MDModuleDef compileModule(Stream source, char[] name, out bool atEOF)
-{
 	Token* tokens = Lexer.lex(name, source);
-	Module mod;
-
-	try
-	{
-		mod = Module.parse(tokens);
-	}
-	catch(Object o)
-	{
-		if(tokens.type == Token.Type.EOF)
-			atEOF = true;
-
-		throw o;
-	}
+	Module mod = Module.parse(tokens);
 
 	return mod.codeGen();
 }
@@ -58,10 +40,7 @@ public MDFuncDef compileStatement(Stream source, char[] name, out bool atEOF)
 	FuncState fs;
 
 	try
-	{
 		s = Statement.parse(tokens);
-		assert(tokens.type == Token.Type.EOF, "compileStatement() - more code left?");
-	}
 	catch(Object o)
 	{
 		if(tokens.type == Token.Type.EOF)
@@ -100,11 +79,11 @@ struct Token
 		Import,
 		Is,
 		Local,
-		Method,
 		Module,
 		Null,
 		Return,
 		Switch,
+		This,
 		Throw,
 		True,
 		Try,
@@ -189,11 +168,11 @@ struct Token
 		Type.Import: "import",
 		Type.Is: "is",
 		Type.Local: "local",
-		Type.Method: "method",
 		Type.Module: "module",
 		Type.Null: "null",
 		Type.Return: "return",
 		Type.Switch: "switch",
+		Type.This: "this",
 		Type.Throw: "throw",
 		Type.True: "true",
 		Type.Try: "try",
@@ -280,11 +259,11 @@ struct Token
 		stringToType["import"] = Type.Import;
 		stringToType["is"] = Type.Is;
 		stringToType["local"] = Type.Local;
-		stringToType["method"] = Type.Method;
 		stringToType["module"] = Type.Module;
 		stringToType["null"] = Type.Null;
 		stringToType["return"] = Type.Return;
 		stringToType["switch"] = Type.Switch;
+		stringToType["this"] = Type.This;
 		stringToType["throw"] = Type.Throw;
 		stringToType["true"] = Type.True;
 		stringToType["try"] = Type.Try;
@@ -1599,12 +1578,8 @@ enum ExpType
 	Null,
 	True,
 	False,
-	ConstInt,
-	ConstFloat,
-	ConstIndex,
-	Local,
-	Upvalue,
-	Global,
+	Const,
+	Var,
 	NewGlobal,
 	Indexed,
 	Sliced,
@@ -1675,7 +1650,7 @@ class FuncState
 
 	struct UpvalDesc
 	{
-		ExpType type;
+		bool isUpvalue;
 		uint index;
 		dchar[] name;
 	}
@@ -1714,6 +1689,64 @@ class FuncState
 
 		if(parent !is null)
 			parent.mInnerFuncs ~= this;
+		else
+		{
+			mNumParams = 1;
+			insertLocal(new Identifier("this", mLocation));
+			activateLocals(1);
+		}
+	}
+	
+	public uint tagLocal(uint val)
+	{
+		if(val > MaxRegisters)
+			throw new MDCompileException(mLocation, "Too many locals");
+			
+		return (val & ~Instruction.locLocal) | Instruction.locLocal;
+	}
+	
+	public uint tagConst(uint val)
+	{
+		if(val > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants");
+			
+		return (val & ~Instruction.locConst) | Instruction.locConst;
+	}
+	
+	public uint tagUpval(uint val)
+	{
+		if(val > MaxUpvalues)
+			throw new MDCompileException(mLocation, "Too many upvalues");
+
+		return (val & ~Instruction.locUpval) | Instruction.locUpval;
+	}
+	
+	public uint tagGlobal(uint val)
+	{
+		if(val > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants");
+			
+		return (val & ~Instruction.locGlobal) | Instruction.locGlobal;
+	}
+	
+	public bool isLocalTag(uint val)
+	{
+		return ((val & Instruction.locMask) == Instruction.locLocal);
+	}
+	
+	public bool isConstTag(uint val)
+	{
+		return ((val & Instruction.locMask) == Instruction.locConst);
+	}
+	
+	public bool isUpvalTag(uint val)
+	{
+		return ((val & Instruction.locMask) == Instruction.locUpval);
+	}
+	
+	public bool isGlobalTag(uint val)
+	{
+		return ((val & Instruction.locMask) == Instruction.locGlobal);
 	}
 
 	public void pushScope()
@@ -1752,7 +1785,7 @@ class FuncState
 	public void beginStringSwitch(uint line, uint srcReg)
 	{
 		SwitchDesc* sd = new SwitchDesc;
-		sd.switchPC = codeI(line, Op.SwitchString, srcReg, 0);
+		sd.switchPC = codeR(line, Op.SwitchString, 0, srcReg, 0);
 		sd.isString = true;
 
 		sd.prev = mSwitch;
@@ -1762,7 +1795,7 @@ class FuncState
 	public void beginIntSwitch(uint line, uint srcReg)
 	{
 		SwitchDesc* sd = new SwitchDesc;
-		sd.switchPC = codeI(line, Op.SwitchInt, srcReg, 0);
+		sd.switchPC = codeR(line, Op.SwitchInt, 0, srcReg, 0);
 		sd.isString = false;
 
 		sd.prev = mSwitch;
@@ -1776,7 +1809,7 @@ class FuncState
 		mSwitch = mSwitch.prev;
 
 		mSwitchTables ~= desc;
-		mCode[desc.switchPC].imm = mSwitchTables.length - 1;
+		mCode[desc.switchPC].rt = mSwitchTables.length - 1;
 	}
 
 	public void addCase(Expression exp)
@@ -1970,16 +2003,12 @@ class FuncState
 
 	public void pushInt(int value)
 	{
-		Exp* e = pushExp();
-		e.type = ExpType.ConstInt;
-		e.intValue = value;
+		pushConst(codeIntConst(value));
 	}
 
 	public void pushFloat(float value)
 	{
-		Exp* e = pushExp();
-		e.type = ExpType.ConstFloat;
-		e.floatValue = value;
+		pushConst(codeFloatConst(value));
 	}
 
 	public void pushString(dchar[] value)
@@ -1995,33 +2024,51 @@ class FuncState
 	public void pushConst(uint index)
 	{
 		Exp* e = pushExp();
-		e.type = ExpType.ConstIndex;
-		e.index = index;
+		e.type = ExpType.Const;
+		e.index = tagConst(index);
 	}
 	
 	public void pushNewGlobal(Identifier name)
 	{
 		Exp* e = pushExp();
 		e.type = ExpType.NewGlobal;
-		e.index = codeStringConst(name.mName);
+		e.index = tagConst(codeStringConst(name.mName));
+	}
+	
+	public void pushThis()
+	{
+		Exp* e = pushExp();
+		e.type = ExpType.Var;
+		e.index = tagLocal(0);
 	}
 
 	public void pushVar(Identifier name)
 	{
 		Exp* e = pushExp();
 
-		ExpType searchVar(FuncState s, bool isOriginal = true)
+		const Local = 0;
+		const Upvalue = 1;
+		const Global = 2;
+
+		uint varType = Local;
+
+		uint searchVar(FuncState s, bool isOriginal = true)
 		{
 			uint findUpval()
 			{
 				for(int i = 0; i < s.mUpvals.length; i++)
-					if(s.mUpvals[i].name == name.mName && s.mUpvals[i].type == e.type)
-						return i;
+				{
+					if(s.mUpvals[i].name == name.mName)
+					{
+						if((s.mUpvals[i].isUpvalue && varType == Upvalue) || (!s.mUpvals[i].isUpvalue && varType == Local))
+							return i;
+					}
+				}
 
 				UpvalDesc ud;
 
 				ud.name = name.mName;
-				ud.type = e.type;
+				ud.isUpvalue = (varType == Upvalue);
 				ud.index = e.index;
 
 				s.mUpvals ~= ud;
@@ -2034,8 +2081,8 @@ class FuncState
 
 			if(s is null)
 			{
-				e.type = ExpType.Global;
-				return ExpType.Global;
+				varType = Global;
+				return Global;
 			}
 
 			uint reg;
@@ -2043,17 +2090,17 @@ class FuncState
 
 			if(index == -1)
 			{
-				if(searchVar(s.mParent, false) == ExpType.Global)
-					return ExpType.Global;
+				if(searchVar(s.mParent, false) == Global)
+					return Global;
 
-				e.index = findUpval();
-				e.type = ExpType.Upvalue;
-				return ExpType.Upvalue;
+				e.index = tagUpval(findUpval());
+				varType = Upvalue;
+				return Upvalue;
 			}
 			else
 			{
-				e.type = ExpType.Local;
-				e.index = reg;
+				varType = Local;
+				e.index = tagLocal(reg);
 
 				if(isOriginal == false)
 				{
@@ -2067,12 +2114,14 @@ class FuncState
 					}
 				}
 
-				return ExpType.Local;
+				return Local;
 			}
 		}
 
-		if(searchVar(this) == ExpType.Global)
-			e.index = codeStringConst(name.mName);
+		if(searchVar(this) == Global)
+			e.index = tagGlobal(codeStringConst(name.mName));
+			
+		e.type = ExpType.Var;
 	}
 	
 	public void pushVararg()
@@ -2113,33 +2162,6 @@ class FuncState
 
 	public void freeExpTempRegs(Exp* e)
 	{
-		/*if(e.isTempReg2)
-		{
-			if(e.isTempReg)
-			{
-				if(e.index > e.index2)
-				{
-					popRegister(e.index);
-					popRegister(e.index2);
-					
-					// hopefully this message never comes up.. if it does, there are still bugs
-					writefln("COMPILER BUG: reversed temp reg indices");
-				}
-				else
-				{
-					popRegister(e.index2);
-					popRegister(e.index);
-				}
-			}
-			else
-				popRegister(e.index2);
-		}
-		else if(e.isTempReg)
-			popRegister(e.index);
-
-		e.isTempReg = false;
-		e.isTempReg2 = false;*/
-		
 		if(e.isTempReg3)
 		{
 			popRegister(e.index3);
@@ -2167,7 +2189,7 @@ class FuncState
 		Exp* src = popExp();
 
 		if(src.type == ExpType.Call)
-			mCode[src.index].rs2 = 1;
+			mCode[src.index].rt = 1;
 
 		freeExpTempRegs(src);
 	}
@@ -2179,28 +2201,10 @@ class FuncState
 
 		switch(dest.type)
 		{
-			case ExpType.Local:
-				toRegister(line, dest.index, src);
+			case ExpType.Var:
+				moveTo(line, dest.index, src);
 				break;
 
-			case ExpType.Upvalue:
-				toSource(line, src);
-
-				codeR(line, Op.SetUpvalue, 0, src.index, dest.index);
-
-				freeExpTempRegs(src);
-				freeExpTempRegs(dest);
-				break;
-
-			case ExpType.Global:
-				toSource(line, src);
-
-				codeR(line, Op.SetGlobal, 0, src.index, dest.index);
-
-				freeExpTempRegs(src);
-				freeExpTempRegs(dest);
-				break;
-				
 			case ExpType.NewGlobal:
 				toSource(line, src);
 				
@@ -2230,106 +2234,95 @@ class FuncState
 		}
 	}
 
-	public void popToRegister(uint line, uint reg)
+	public void popMoveTo(uint line, uint dest)
 	{
 		Exp* src = popExp();
-		toRegister(line, reg, src);
+		moveTo(line, dest, src);
 	}
 
-	public void toRegister(uint line, uint reg, Exp* src)
+	public void moveTo(uint line, uint dest, Exp* src)
 	{
 		switch(src.type)
 		{
 			case ExpType.Null:
-				codeR(line, Op.LoadNull, reg, 0, 0);
+				codeR(line, Op.LoadNull, dest, 0, 0);
 				break;
 
 			case ExpType.True:
-				codeR(line, Op.LoadBool, reg, 1, 0);
+				codeR(line, Op.LoadBool, dest, 1, 0);
 				break;
 
 			case ExpType.False:
-				codeR(line, Op.LoadBool, reg, 0, 0);
+				codeR(line, Op.LoadBool, dest, 0, 0);
 				break;
 
-			case ExpType.ConstInt:
-				codeI(line, Op.LoadConst, reg, codeIntConst(src.intValue));
+			case ExpType.Const:
+				codeR(line, Op.Move, dest, src.index, 0);
 				break;
 
-			case ExpType.ConstFloat:
-				codeI(line, Op.LoadConst, reg, codeFloatConst(src.floatValue));
-				break;
-
-			case ExpType.ConstIndex:
-				codeI(line, Op.LoadConst, reg, src.index);
-				break;
-
-			case ExpType.Local:
-				if(reg != src.index)
-					codeR(line, Op.Move, reg, src.index, 0);
-				break;
-
-			case ExpType.Upvalue:
-				codeI(line, Op.GetUpvalue, reg, src.index);
-				break;
-				
-			case ExpType.NewGlobal:
-				assert(false, "toRegister switch: NewGlobal");
-				break;
-
-			case ExpType.Global:
-				codeI(line, Op.GetGlobal, reg, src.index);
+			case ExpType.Var:
+				if(dest != src.index)
+					codeR(line, Op.Move, dest, src.index, 0);
 				break;
 
 			case ExpType.Indexed:
-				codeR(line, Op.Index, reg, src.index, src.index2);
+				codeR(line, Op.Index, dest, src.index, src.index2);
 				freeExpTempRegs(src);
 				break;
 				
 			case ExpType.Sliced:
-				codeR(line, Op.Slice, reg, src.index, 0);
+				codeR(line, Op.Slice, dest, src.index, 0);
 				freeExpTempRegs(src);
 				break;
 
 			case ExpType.Vararg:
-				codeI(line, Op.Vararg, reg, 2);
+				if(isLocalTag(dest))
+					codeI(line, Op.Vararg, dest, 2);
+				else
+				{
+					assert(!isConstTag(dest), "moveTo vararg dest is const");
+					uint tempReg = pushRegister();
+					codeI(line, Op.Vararg, tempReg, 2);
+					codeR(line, Op.Move, dest, tempReg, 0);
+					popRegister(tempReg);
+				}
 				break;
 
 			case ExpType.Closure:
-				codeI(line, Op.Closure, reg, src.index);
+				codeI(line, Op.Closure, dest, src.index);
 
 				foreach(inout UpvalDesc ud; mInnerFuncs[src.index].mUpvals)
 				{
-					if(ud.type == ExpType.Local)
-						codeR(line, Op.Move, 0, ud.index, 0);
+					if(ud.isUpvalue)
+						codeR(line, Op.Move, 1, ud.index, 0);
 					else
-						codeI(line, Op.GetUpvalue, 0, ud.index);
+						codeR(line, Op.Move, 0, ud.index, 0);
 				}
 
 				break;
 
 			case ExpType.Call:
-				mCode[src.index].rs2 = 2;
+				mCode[src.index].rt = 2;
 
-				if(reg != src.index2)
-					codeR(line, Op.Move, reg, src.index2, 0);
-				
+				if(dest != src.index2)
+					codeR(line, Op.Move, dest, src.index2, 0);
+
 				freeExpTempRegs(src);
 				break;
 
 			case ExpType.NeedsDest:
-				mCode[src.index].rd = reg;
+				mCode[src.index].rd = dest;
 				break;
 
 			case ExpType.Src:
-				if(reg != src.index)
-					codeR(line, Op.Move, reg, src.index, 0);
+				if(dest != src.index)
+					codeR(line, Op.Move, dest, src.index, 0);
 
 				freeExpTempRegs(src);
 				break;
 
 			default:
-				assert(false, "pop to reg switch");
+				assert(false, "moveTo switch");
 		}
 	}
 
@@ -2345,7 +2338,7 @@ class FuncState
 
 			case ExpType.Call:
 				assert(src.index2 == reg, "pop to regs - trying to pop func call to different reg");
-				mCode[src.index].rs2 = num + 1;
+				mCode[src.index].rt = num + 1;
 				freeExpTempRegs(src);
 				break;
 
@@ -2354,19 +2347,19 @@ class FuncState
 		}
 	}
 
-	public void pushBinOp(uint line, Op type, uint rs1, uint rs2)
+	public void pushBinOp(uint line, Op type, uint rs, uint rt)
 	{
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, type, 0, rs1, rs2);
+		dest.index = codeR(line, type, 0, rs, rt);
 	}
 	
-	public void popReflexOp(uint line, Op type, uint rs1, uint rs2)
+	public void popReflexOp(uint line, Op type, uint rd, uint rs)
 	{
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, type, rs1, rs2, 0);
-		
+		dest.index = codeR(line, type, rd, rs, 0);
+
 		popAssign(line);
 	}
 
@@ -2397,7 +2390,7 @@ class FuncState
 	public void makeTailcall()
 	{
 		assert(mCode[$ - 1].opcode == Op.Call, "need call to make tailcall");
-		mCode[$ - 1].opcode = Op.Tailcall;	
+		mCode[$ - 1].opcode = Op.Tailcall;
 	}
 
 	public void popMoveFromReg(uint line, uint srcReg)
@@ -2409,21 +2402,13 @@ class FuncState
 	{
 		switch(dest.type)
 		{
-			case ExpType.Local:
+			case ExpType.Var:
 				if(dest.index != srcReg)
 					codeR(line, Op.Move, dest.index, srcReg, 0);
 				break;
 				
 			case ExpType.NewGlobal:
 				codeR(line, Op.NewGlobal, 0, srcReg, dest.index);
-				break;
-
-			case ExpType.Global:
-				codeR(line, Op.SetGlobal, 0, srcReg, dest.index);
-				break;
-
-			case ExpType.Upvalue:
-				codeR(line, Op.SetUpvalue, 0, srcReg, dest.index);
 				break;
 
 			case ExpType.Indexed:
@@ -2499,58 +2484,26 @@ class FuncState
 		Exp temp;
 		temp.type = ExpType.Src;
 
-		void doConst(uint index)
-		{
-			if(index > Instruction.constMax)
-				throw new MDCompileException(mLocation, "Too many constants");
-
-			temp.index = index | Instruction.constBit;
-		}
-
 		switch(e.type)
 		{
 			case ExpType.Null:
-				doConst(codeNullConst());
+				temp.index = tagConst(codeNullConst());
 				break;
 
 			case ExpType.True:
-				doConst(codeIntConst(1));
+				temp.index = tagConst(codeIntConst(1));
 				break;
 
 			case ExpType.False:
-				doConst(codeIntConst(0));
+				temp.index = tagConst(codeIntConst(0));
 				break;
 
-			case ExpType.ConstInt:
-				doConst(codeIntConst(e.intValue));
-				break;
-
-			case ExpType.ConstFloat:
-				doConst(codeFloatConst(e.floatValue));
-				break;
-
-			case ExpType.ConstIndex:
-				doConst(e.index);
-				break;
-
-			case ExpType.Local:
+			case ExpType.Const:
 				temp.index = e.index;
 				break;
 
-			case ExpType.Upvalue:
-				temp.index = pushRegister();
-				codeI(line, Op.GetUpvalue, temp.index, e.index);
-				temp.isTempReg = true;
-				break;
-				
-			case ExpType.NewGlobal:
-				assert(false, "toSource switch: NewGlobal");
-				break;
-
-			case ExpType.Global:
-				temp.index = pushRegister();
-				codeI(line, Op.GetGlobal, temp.index, e.index);
-				temp.isTempReg = true;
+			case ExpType.Var:
+				temp.index = e.index;
 				break;
 
 			case ExpType.Indexed:
@@ -2565,7 +2518,7 @@ class FuncState
 			case ExpType.Sliced:
 				if(cleanup)
 					freeExpTempRegs(e);
-					
+
 				temp.index = pushRegister();
 				temp.isTempReg = true;
 				codeR(line, Op.Slice, temp.index, e.index, 0);
@@ -2578,7 +2531,7 @@ class FuncState
 				break;
 
 			case ExpType.Call:
-				mCode[e.index].rs2 = 2;
+				mCode[e.index].rt = 2;
 				temp.index = e.index2;
 				temp.isTempReg = e.isTempReg2;
 				break;
@@ -2589,10 +2542,10 @@ class FuncState
 
 				foreach(inout UpvalDesc ud; mInnerFuncs[e.index].mUpvals)
 				{
-					if(ud.type == ExpType.Local)
-						codeR(line, Op.Move, 0, ud.index, 0);
+					if(ud.isUpvalue)
+						codeR(line, Op.Move, 1, ud.index, 0);
 					else
-						codeI(line, Op.GetUpvalue, 0, ud.index);
+						codeR(line, Op.Move, 0, ud.index, 0);
 				}
 
 				temp.isTempReg = true;
@@ -2866,9 +2819,9 @@ class FuncState
 		return mConstants.length - 1;
 	}
 
-	public void codeNull(uint line, uint reg, uint num)
+	public void codeNulls(uint line, uint reg, uint num)
 	{
-		codeI(line, Op.LoadNull, reg, num);
+		codeI(line, Op.LoadNulls, reg, num);
 	}
 
 	public uint codeR(uint line, Op opcode, ushort dest, ushort src1, ushort src2)
@@ -2876,8 +2829,8 @@ class FuncState
 		Instruction i;
 		i.opcode = opcode;
 		i.rd = dest;
-		i.rs1 = src1;
-		i.rs2 = src2;
+		i.rs = src1;
+		i.rt = src2;
 
 		debug(WRITECODE) writefln(i.toString());
 
@@ -2950,7 +2903,7 @@ class FuncState
 			writefln(string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
 
 		foreach(i, u; mUpvals)
-			writefln(string.repeat("\t", tab + 1), "Upvalue %s: %s : %s (%s)", i, u.name, u.index, (u.type == ExpType.Local) ? "local" : "upval");
+			writefln(string.repeat("\t", tab + 1), "Upvalue %s: %s : %s (%s)", i, u.name, u.index, u.isUpvalue ? "upval" : "local");
 
 		foreach(i, c; mConstants)
 		{
@@ -3049,7 +3002,7 @@ class ClassDef
 	protected Location mEndLocation;
 	protected Identifier mName;
 	protected Expression mBaseClass;
-	protected MethodDecl[] mMethods;
+	protected SimpleFuncDecl[] mMethods;
 
 	struct Field
 	{
@@ -3059,7 +3012,7 @@ class ClassDef
 
 	protected Field[] mFields;
 
-	public this(Identifier name, Expression baseClass, MethodDecl[] methods, Field[] fields, Location location, Location endLocation)
+	public this(Identifier name, Expression baseClass, SimpleFuncDecl[] methods, Field[] fields, Location location, Location endLocation)
 	{
 		mName = name;
 		mBaseClass = baseClass;
@@ -3069,15 +3022,15 @@ class ClassDef
 		mEndLocation = endLocation;
 	}
 
-	public static void parseBody(Location location, inout Token* t, out MethodDecl[] methods, out Field[] fields, out Location endLocation)
+	public static void parseBody(Location location, inout Token* t, out SimpleFuncDecl[] methods, out Field[] fields, out Location endLocation)
 	{
 		t.check(Token.Type.LBrace);
 		t = t.nextToken;
 		
-		methods = new MethodDecl[10];
+		methods = new SimpleFuncDecl[10];
 		int iMethod = 0;
 
-		void addMethod(MethodDecl m)
+		void addMethod(SimpleFuncDecl m)
 		{
 			if(iMethod >= methods.length)
 				methods.length = methods.length * 2;
@@ -3104,8 +3057,8 @@ class ClassDef
 		{
 			switch(t.type)
 			{
-				case Token.Type.Method:
-					addMethod(MethodDecl.parse(t));
+				case Token.Type.Function:
+					addMethod(SimpleFuncDecl.parse(t));
 					break;
 					
 				case Token.Type.Ident:
@@ -3171,31 +3124,31 @@ class ClassDef
 		s.freeExpTempRegs(&base);
 
 		uint destReg = s.pushRegister();
-		uint nameConst = s.codeStringConst(mName.mName);
-		s.codeR(mLocation.line, Op.Class, destReg, nameConst | Instruction.constBit, base.index);
+		uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
+		s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
 
 		foreach(Field field; mFields)
 		{
-			uint index = s.codeStringConst(field.name);
+			uint index = s.tagConst(s.codeStringConst(field.name));
 
 			field.initializer.codeGen(s);
 			Exp val;
 			s.popSource(field.initializer.mEndLocation.line, val);
 
-			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
+			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
 
 			s.freeExpTempRegs(&val);
 		}
 
-		foreach(MethodDecl method; mMethods)
+		foreach(SimpleFuncDecl method; mMethods)
 		{
-			uint index = s.codeStringConst(method.mName.mName);
+			uint index = s.tagConst(s.codeStringConst(method.mName.mName));
 
 			method.codeGen(s);
 			Exp val;
 			s.popSource(method.mEndLocation.line, val);
 
-			s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index | Instruction.constBit, val.index);
+			s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
 
 			s.freeExpTempRegs(&val);
 		}
@@ -3362,6 +3315,7 @@ abstract class Statement
 				Token.Type.Null,
 				Token.Type.StringLiteral,
 				Token.Type.Sub,
+				Token.Type.This,
 				Token.Type.True:
 
 				return ExpressionStatement.parse(t);
@@ -3591,13 +3545,12 @@ abstract class Declaration
 			throw new MDCompileException(location, "Declaration expected");
 	}
 	
-	public static Identifier[] parseParams(inout Token* t, out bool isVararg, bool isMethod = false)
+	public static Identifier[] parseParams(inout Token* t, out bool isVararg)
 	{
 		Identifier[] ret;
 		
-		if(isMethod)
-			ret ~= new Identifier("this", t.location);
-			
+		ret ~= new Identifier("this", t.location);
+
 		t.check(Token.Type.LParen);
 		t = t.nextToken;
 			
@@ -3673,7 +3626,7 @@ class ClassDecl : Declaration
 		Identifier name = Identifier.parse(t);
 		Expression baseClass = ClassDef.parseBaseClass(t);
 
-		MethodDecl[] methods;
+		SimpleFuncDecl[] methods;
 		ClassDef.Field[] fields;
 		Location endLocation;
 
@@ -3701,7 +3654,7 @@ class ClassDecl : Declaration
 		}
 
 		mDef.codeGen(s);
-		s.popAssign(mLocation.line);
+		s.popAssign(mEndLocation.line);
 	}
 }
 
@@ -3818,7 +3771,7 @@ class VarDecl : Declaration
 				{
 					uint destReg = s.nextRegister();
 					mInitializer.codeGen(s);
-					s.popToRegister(mLocation.line, destReg);
+					s.popMoveTo(mLocation.line, destReg);
 					s.insertLocal(mNames[0]);
 				}
 				else
@@ -3840,7 +3793,7 @@ class VarDecl : Declaration
 				foreach(Identifier n; mNames)
 					s.insertLocal(n);
 	
-				s.codeNull(mLocation.line, reg, mNames.length);
+				s.codeNulls(mLocation.line, reg, mNames.length);
 			}
 
 			s.activateLocals(mNames.length);
@@ -3933,45 +3886,6 @@ class FuncDecl : Declaration
 
 		mDecl.codeGen(s);
 		s.popAssign(mEndLocation.line);
-	}
-}
-
-class MethodDecl : Declaration
-{
-	protected Identifier mName;
-	protected FuncLiteralExp mFunc;
-	
-	public this(Location location, Location endLocation, Identifier name, Identifier[] params, bool isVararg, CompoundStatement funcBody)
-	{
-		super(location, endLocation, Protection.Undefined);
-	
-		mName = name;
-		mFunc = new FuncLiteralExp(location, params, isVararg, funcBody, name.mName);
-	}
-	
-	public static MethodDecl parse(inout Token* t)
-	{
-		Location location = t.location;
-	
-		t.check(Token.Type.Method);
-		t = t.nextToken;
-	
-		Identifier name = Identifier.parse(t);
-	
-		bool isVararg;
-		Identifier[] params;
-		
-		params ~= new Identifier("this", t.location);
-		params ~= Declaration.parseParams(t, isVararg);
-	
-		CompoundStatement funcBody = CompoundStatement.parse(t);
-	
-		return new MethodDecl(location, funcBody.mEndLocation, name, params, isVararg, funcBody);
-	}
-	
-	public override void codeGen(FuncState s)
-	{
-		mFunc.codeGen(s);
 	}
 }
 
@@ -4498,7 +4412,7 @@ class ForeachStatement : Statement
 				foreach(uint i, Expression c; mContainer)
 				{
 					c.codeGen(s);
-					s.popToRegister(c.mLocation.line, i + baseReg);
+					s.popMoveTo(c.mLocation.line, i + baseReg);
 				}
 			}
 			else
@@ -4506,7 +4420,7 @@ class ForeachStatement : Statement
 				for(uint i = 0; i < mContainer.length - 1; i++)
 				{
 					mContainer[i].codeGen(s);
-					s.popToRegister(mContainer[i].mLocation.line, i + baseReg);
+					s.popMoveTo(mContainer[i].mLocation.line, i + baseReg);
 				}
 
 				mContainer[$ - 1].codeGen(s);
@@ -4515,8 +4429,8 @@ class ForeachStatement : Statement
 					s.popToRegisters(mContainer[$ - 1].mLocation.line, baseReg + mContainer.length - 1, 3 - mContainer.length + 1);
 				else
 				{
-					s.popToRegister(mContainer[$ - 1].mLocation.line, baseReg + mContainer.length - 1);
-					s.codeNull(mContainer[$ - 1].mLocation.line, baseReg + mContainer.length, 3 - mContainer.length);
+					s.popMoveTo(mContainer[$ - 1].mLocation.line, baseReg + mContainer.length - 1);
+					s.codeNulls(mContainer[$ - 1].mLocation.line, baseReg + mContainer.length, 3 - mContainer.length);
 				}
 			}
 
@@ -4919,7 +4833,7 @@ class ReturnStatement : Statement
 			{
 
 				Expression.codeGenListToNextReg(s, mExprs);
-	
+
 				if(mExprs[$ - 1].isMultRet())
 					s.codeI(mEndLocation.line, Op.Ret, firstReg, 0);
 				else
@@ -5130,7 +5044,7 @@ abstract class Expression
 	{
 		Expression exp;
 
-		if(t.type == Token.Type.Ident)
+		if(t.type == Token.Type.Ident || t.type == Token.Type.This)
 		{
 			exp = PrimaryExp.parse(t);
 
@@ -5157,13 +5071,13 @@ abstract class Expression
 			if(exprs[0].isMultRet())
 				s.popToRegisters(exprs[0].mEndLocation.line, firstReg, -1);
 			else
-				s.popToRegister(exprs[0].mEndLocation.line, firstReg);
+				s.popMoveTo(exprs[0].mEndLocation.line, firstReg);
 		}
 		else
 		{
 			uint firstReg = s.nextRegister();
 			exprs[0].codeGen(s);
-			s.popToRegister(exprs[0].mEndLocation.line, firstReg);
+			s.popMoveTo(exprs[0].mEndLocation.line, firstReg);
 			s.pushRegister();
 
 			uint lastReg = firstReg;
@@ -5177,7 +5091,7 @@ abstract class Expression
 				if(i == exprs.length - 2 && e.isMultRet())
 					s.popToRegisters(e.mEndLocation.line, lastReg, -1);
 				else
-					s.popToRegister(e.mEndLocation.line, lastReg);
+					s.popMoveTo(e.mEndLocation.line, lastReg);
 
 				s.pushRegister();
 			}
@@ -5252,6 +5166,10 @@ class Assignment : Expression
 
 		rhs = OrOrExp.parse(t);
 
+		foreach(exp; lhs)
+			if(cast(ThisExp)exp)
+				throw new MDCompileException(exp.mLocation, "'this' cannot be the target of an assignment");
+
 		return new Assignment(location, rhs.mEndLocation, lhs, rhs);
 	}
 
@@ -5324,7 +5242,7 @@ abstract class BinaryExp : Expression
 	{
 		uint temp = s.pushRegister();
 		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
 		s.popRegister(temp);
@@ -5457,11 +5375,11 @@ class OrOrExp : BinaryExp
 	{
 		uint temp = s.pushRegister();
 		mOp1.codeGen(s);
-		s.popToRegister(mOp1.mEndLocation.line, temp);
+		s.popMoveTo(mOp1.mEndLocation.line, temp);
 		s.codeR(mOp1.mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* i = s.makeJump(mOp1.mEndLocation.line, Op.Je);
 		mOp2.codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.patchJumpToHere(i);
 		delete i;
 		s.pushTempReg(temp);
@@ -5522,11 +5440,11 @@ class AndAndExp : BinaryExp
 	{
 		uint temp = s.pushRegister();
 		mOp1.codeGen(s);
-		s.popToRegister(mOp1.mEndLocation.line, temp);
+		s.popMoveTo(mOp1.mEndLocation.line, temp);
 		s.codeR(mOp1.mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* i = s.makeJump(mOp1.mEndLocation.line, Op.Je, false);
 		mOp2.codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.patchJumpToHere(i);
 		delete i;
 		s.pushTempReg(temp);
@@ -5709,12 +5627,12 @@ class EqualExp : BinaryExp
 		uint temp = s.pushRegister();
 		InstRef* i = codeCondition(s);
 		s.pushBool(false);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		InstRef* j = s.makeJump(mEndLocation.line, Op.Jmp);
 		s.patchJumpToHere(i);
 		delete i;
 		s.pushBool(true);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.patchJumpToHere(j);
 		delete j;
 		s.pushTempReg(temp);
@@ -5794,12 +5712,12 @@ class CmpExp : BinaryExp
 		uint temp = s.pushRegister();
 		InstRef* i = codeCondition(s);
 		s.pushBool(false);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		InstRef* j = s.makeJump(mEndLocation.line, Op.Jmp);
 		s.patchJumpToHere(i);
 		delete i;
 		s.pushBool(true);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.patchJumpToHere(j);
 		delete j;
 		s.pushTempReg(temp);
@@ -6114,7 +6032,7 @@ abstract class UnaryExp : Expression
 	{
 		uint temp = s.nextRegister();
 		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
 		return ret;
@@ -6271,8 +6189,6 @@ abstract class PostfixExp : UnaryExp
 		while(true)
 		{
 			Location location = t.location;
-			
-			Identifier methodName;
 
 			switch(t.type)
 			{
@@ -6288,16 +6204,6 @@ abstract class PostfixExp : UnaryExp
 					exp = new DotExp(location, ie.mEndLocation, exp, ie);
 					continue;
 					
-				case Token.Type.Colon:
-					t = t.nextToken;
-					
-					t.check(Token.Type.Ident);
-					
-					methodName = Identifier.parse(t);
-					
-					t.check(Token.Type.LParen);
-					
-					// fall through
 				case Token.Type.LParen:
 					t = t.nextToken;
 
@@ -6333,7 +6239,7 @@ abstract class PostfixExp : UnaryExp
 					Location endLocation = t.location;
 					t = t.nextToken;
 
-					exp = new CallExp(location, endLocation, exp, args, methodName);
+					exp = new CallExp(location, endLocation, exp, args);
 					continue;
 
 				case Token.Type.LBracket:
@@ -6435,49 +6341,37 @@ class DotExp : PostfixExp
 class CallExp : PostfixExp
 {
 	protected Expression[] mArgs;
-	protected Identifier mMethodName;
 
-	public this(Location location, Location endLocation, Expression operand, Expression[] args, Identifier methodName)
+	public this(Location location, Location endLocation, Expression operand, Expression[] args)
 	{
 		super(location, endLocation, operand);
 
 		mArgs = args;
-		mMethodName = methodName;
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		/*
-		regular:
-			1. evaluate function exp, put in reg 1
-			2. evaluate args, put in regs 2..
-			3. call reg 1, num params + 1
+		DotExp dotExp = cast(DotExp)mOp;
 
-		method:
-			1. evaluate function exp
-			2. method reg 1, function exp, stringConst(methodname)
-			3. evaluate args, put in regs 3..
-			4. call reg 1, num params + 2
-		*/
-
-		if(mMethodName)
+		if(dotExp !is null)
 		{
+			Identifier methodName = dotExp.mIdent.mIdent;
+
 			uint funcReg = s.nextRegister();
-			mOp.codeGen(s);
+			dotExp.mOp.codeGen(s);
 			
 			Exp src;
 			s.popSource(mOp.mEndLocation.line, src);
 			s.freeExpTempRegs(&src);
-			
 			assert(s.nextRegister() == funcReg);
+			//assert(src.index < funcReg + 2);
+
 			s.pushRegister();
-
-			s.codeR(mOp.mEndLocation.line, Op.Method, funcReg, src.index, s.codeStringConst(mMethodName.mName));
-
 			uint thisReg = s.pushRegister();
 
 			Expression.codeGenListToNextReg(s, mArgs);
-
+			
+			s.codeR(mOp.mEndLocation.line, Op.Method, funcReg, src.index, s.codeStringConst(methodName.mName));
 			s.popRegister(thisReg);
 
 			if(mArgs.length == 0)
@@ -6491,20 +6385,26 @@ class CallExp : PostfixExp
 		{
 			uint funcReg = s.nextRegister();
 			mOp.codeGen(s);
+			
+			Exp src;
+			s.popSource(mOp.mEndLocation.line, src);
+			s.freeExpTempRegs(&src);
+			assert(s.nextRegister() == funcReg);
 
-			s.popToRegister(mOp.mEndLocation.line, funcReg);
 			s.pushRegister();
-
-			assert(s.nextRegister() == funcReg + 1);
+			uint thisReg = s.pushRegister();
 
 			Expression.codeGenListToNextReg(s, mArgs);
+			
+			s.codeR(mOp.mEndLocation.line, Op.Precall, funcReg, src.index, 0);
+			s.popRegister(thisReg);
 
 			if(mArgs.length == 0)
-				s.pushCall(mEndLocation.line, funcReg, 1);
+				s.pushCall(mEndLocation.line, funcReg, 2);
 			else if(mArgs[$ - 1].isMultRet())
 				s.pushCall(mEndLocation.line, funcReg, 0);
 			else
-				s.pushCall(mEndLocation.line, funcReg, mArgs.length + 1);
+				s.pushCall(mEndLocation.line, funcReg, mArgs.length + 2);
 		}
 	}
 
@@ -6579,6 +6479,10 @@ class PrimaryExp : Expression
 		{
 			case Token.Type.Ident:
 				exp = IdentExp.parse(t);
+				break;
+				
+			case Token.Type.This:
+				exp = ThisExp.parse(t);
 				break;
 				
 			case Token.Type.Null:
@@ -6680,6 +6584,46 @@ class IdentExp : PrimaryExp
 	{
 		return "Ident " ~ utf.toUTF8(mIdent.mName);	
 	}
+}
+
+class ThisExp : PrimaryExp
+{
+	public this(Location location)
+	{
+		super(location);
+	}
+
+	public static ThisExp parse(inout Token* t)
+	{
+		Location location = t.location;
+		t.check(Token.Type.This);
+		t = t.nextToken;
+		return new ThisExp(location);
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		s.pushThis();
+	}
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		codeGen(s);
+		Exp reg;
+		s.popSource(mEndLocation.line, reg);
+		s.codeR(mEndLocation.line, Op.IsTrue, 0, reg.index, 0);
+		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
+
+		s.freeExpTempRegs(&reg);
+
+		return ret;
+	}
+
+	char[] toString()
+	{
+		return "this";
+	}
+
 }
 
 class NullExp : PrimaryExp
@@ -6822,7 +6766,7 @@ class CharExp : PrimaryExp
 	{
 		uint temp = s.pushRegister();
 		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
 		s.popRegister(temp);
@@ -6866,7 +6810,7 @@ class IntExp : PrimaryExp
 	{
 		uint temp = s.pushRegister();
 		codeGen(s);
-		s.popToRegister(mEndLocation.line, temp);
+		s.popMoveTo(mEndLocation.line, temp);
 		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
 		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
 		s.popRegister(temp);
@@ -7018,13 +6962,15 @@ class FuncLiteralExp : PrimaryExp
 
 class ClassLiteralExp : PrimaryExp
 {
+	static NameCounter = 0;
 	protected ClassDef mDef;
 
-	public this(Expression baseClass, MethodDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
+	public this(Expression baseClass, SimpleFuncDecl[] methods, ClassDef.Field[] fields, Location location, Location endLocation)
 	{
 		super(location);
-
-		mDef = new ClassDef(null, baseClass, methods, fields, location, endLocation);
+		
+		Identifier name = new Identifier(utf.toUTF32("__classliteral" ~ string.toString(NameCounter++)), location);
+		mDef = new ClassDef(name, baseClass, methods, fields, location, endLocation);
 	}
 	
 	public static ClassLiteralExp parse(inout Token* t)
@@ -7036,7 +6982,7 @@ class ClassLiteralExp : PrimaryExp
 
 		Expression baseClass = ClassDef.parseBaseClass(t);
 
-		MethodDecl[] methods;
+		SimpleFuncDecl[] methods;
 		ClassDef.Field[] fields;
 		Location endLocation;
 		
@@ -7124,13 +7070,6 @@ class TableCtorExp : PrimaryExp
 						lastWasFunc = true;
 						break;
 
-					case Token.Type.Method:
-						auto MethodDecl md = MethodDecl.parse(t);
-						k = new StringExp(md.mLocation, md.mName.mName);
-						v = md.mFunc;
-						lastWasFunc = true;
-						break;
-
 					default:
 						Identifier id = Identifier.parse(t);
 	
@@ -7206,7 +7145,7 @@ class ArrayCtorExp : PrimaryExp
 {
 	protected Expression[] mFields;
 
-	protected const uint maxFields = Instruction.arraySetFields * Instruction.rs2Max;
+	protected const uint maxFields = Instruction.arraySetFields * Instruction.rtMax;
 
 	public this(Location location, Expression[] fields)
 	{

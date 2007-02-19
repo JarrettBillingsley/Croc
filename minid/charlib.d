@@ -28,82 +28,81 @@ class CharLib
 
 	int toLower(MDState s)
 	{
-		s.push(s.safeCode(toUniLower(s.getCharParam(0))));
+		s.push(s.safeCode(toUniLower(s.getContext().asChar())));
 		return 1;
 	}
 
 	int toUpper(MDState s)
 	{
-		s.push(s.safeCode(toUniUpper(s.getCharParam(0))));
+		s.push(s.safeCode(toUniUpper(s.getContext().asChar())));
 		return 1;
 	}
 	
 	int isAlpha(MDState s)
 	{
-		s.push(cast(bool)isUniAlpha(s.getCharParam(0)));
+		s.push(cast(bool)isUniAlpha(s.getContext().asChar()));
 		return 1;
 	}
 
 	int isAlNum(MDState s)
 	{
-		dchar c = s.getCharParam(0);
+		dchar c = s.getContext().asChar();
 		s.push(cast(bool)(ctype.isdigit(c) || isUniAlpha(c)));
 		return 1;
 	}
 	
 	int isLower(MDState s)
 	{
-		s.push(cast(bool)isUniLower(s.getCharParam(0)));
+		s.push(cast(bool)isUniLower(s.getContext().asChar()));
 		return 1;
 	}
 	
 	int isUpper(MDState s)
 	{
-		s.push(cast(bool)isUniUpper(s.getCharParam(0)));
+		s.push(cast(bool)isUniUpper(s.getContext().asChar()));
 		return 1;
 	}
 
 	int isDigit(MDState s)
 	{
-		s.push(cast(bool)ctype.isdigit(s.getCharParam(0)));
+		s.push(cast(bool)ctype.isdigit(s.getContext().asChar()));
 		return 1;
 	}
 
 	int isCtrl(MDState s)
 	{
-		s.push(cast(bool)ctype.iscntrl(s.getCharParam(0)));
+		s.push(cast(bool)ctype.iscntrl(s.getContext().asChar()));
 		return 1;
 	}
 	
 	int isPunct(MDState s)
 	{
-		s.push(cast(bool)ctype.ispunct(s.getCharParam(0)));
+		s.push(cast(bool)ctype.ispunct(s.getContext().asChar()));
 		return 1;
 	}
 	
 	int isSpace(MDState s)
 	{
-		s.push(cast(bool)ctype.isspace(s.getCharParam(0)));
+		s.push(cast(bool)ctype.isspace(s.getContext().asChar()));
 		return 1;
 	}
 	
 	int isHexDigit(MDState s)
 	{
-		s.push(cast(bool)ctype.isxdigit(s.getCharParam(0)));
+		s.push(cast(bool)ctype.isxdigit(s.getContext().asChar()));
 		return 1;
 	}
 	
 	int isAscii(MDState s)
 	{
-		s.push(cast(bool)ctype.isascii(s.getCharParam(0)));
+		s.push(cast(bool)ctype.isascii(s.getContext().asChar()));
 		return 1;
 	}
 }
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("char"d);
+	MDNamespace namespace = new MDNamespace("char"d, MDGlobalState().globals);
 	new CharLib(namespace);
-	MDGlobalState().setGlobal("char"d, namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Char, namespace);
 }

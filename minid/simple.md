@@ -1,7 +1,6 @@
 module simple;
 
 // Testing tailcalls.
-
 global function recurse(x)
 {
 	writefln("recurse: ", x);
@@ -15,38 +14,55 @@ global function recurse(x)
 writefln(recurse(5));
 writefln();
 
+local class A
+{
+	function f(x)
+	{
+		writefln("A.f: ", x);
+		
+		if(x == 0)
+			return toString(x);
+		else
+			return this.f(x - 1); // call it as this.f to force a 'method' instruction to be generated
+	}
+}
+
+local a = A();
+writefln(a.f(5));
+writefln();
+
 // A function which lets us define properties for a class.
 // The varargs should be a bunch of tables, each with a 'name' field, and 'getter' and/or 'setter' fields.
 local function mixinProperties(classType, vararg)
 {
 	classType.mProps = { };
 
-	classType.opIndex = function(this, key)
+	classType.opIndex = function(key)
 	{
-		local prop = this.mProps[key];
+		local prop = mProps[key];
 
 		if(prop is null)
-			throw format(classType, ":opIndex() - Property '%s' does not exist", key);
+			throw format(classType, ".opIndex() - Property '%s' does not exist", key);
 
 		local getter = prop.getter;
 
 		if(getter is null)
-			throw format(classType, ":opIndex() - Property '%s' has no getter", key);
+			throw format(classType, ".opIndex() - Property '%s' has no getter", key);
 
 		return getter(this);
 	};
 
-	classType.opIndexAssign = function(this, key, value)
+	classType.opIndexAssign = function(key, value)
 	{
-		local prop = this.mProps[key];
+		local prop = mProps[key];
 
 		if(prop is null)
-			throw format(classType, ":opIndexAssign() - Property '%s' does not exist", key);
+			throw format(classType, ".opIndexAssign() - Property '%s' does not exist", key);
 			
 		local setter = prop.setter;
 		
 		if(setter is null)
-			throw format(classType, ":opIndexAssign() - Property '%s' has no setter", key);
+			throw format(classType, ".opIndexAssign() - Property '%s' has no setter", key);
 			
 		setter(this, value);
 	};
@@ -73,14 +89,14 @@ local class PropTest
 	mY = 0;
 	mName = "";
 	
-	method constructor(name)
+	function constructor(name)
 	{
-		this.mName = name;
+		mName = name;
 	}
-	
-	method toString()
+
+	function toString()
 	{
-		return format("name = '", this.mName, "' x = ", this.mX, " y = ", this.mY);
+		return format("name = '", mName, "' x = ", mX, " y = ", mY);
 	}
 }
 
@@ -91,37 +107,37 @@ mixinProperties(
 	{
 		name = "x",
 		
-		method setter(value)
+		function setter(me, value)
 		{
-			this.mX = value;
+			me.mX = value;
 		}
-		
-		method getter()
+
+		function getter(me)
 		{
-			return this.mX;
+			return me.mX;
 		}
 	},
-	
+
 	{
 		name = "y",
-		
-		method setter(value)
+
+		function setter(me, value)
 		{
-			this.mY = value;
+			me.mY = value;
 		}
-		
-		method getter()
+
+		function getter(me)
 		{
-			return this.mY;
+			return me.mY;
 		}
 	},
 
 	{
 		name = "name",
-		
-		method getter()
+
+		function getter(me)
 		{
-			return this.mName;
+			return me.mName;
 		}
 	}
 );
@@ -153,75 +169,75 @@ local class PQ
 	mData;
 	mLength = 0;
 
-	method constructor()
+	function constructor()
 	{
-		this.mData = array.new(15);
+		mData = array.new(15);
 	}
-	
-	method insert(data)
+
+	function insert(data)
 	{
-		this:resizeArray();
+		resizeArray();
+
+		mData[mLength] = data;
 		
-		this.mData[this.mLength] = data;
-		
-		local index = this.mLength;
+		local index = mLength;
 		local parentIndex = (index - 1) / 2;
-		
-		while(index > 0 && this.mData[parentIndex] > this.mData[index])
+
+		while(index > 0 && mData[parentIndex] > mData[index])
 		{
-			local temp = this.mData[parentIndex];
-			this.mData[parentIndex] = this.mData[index];
-			this.mData[index] = temp;
+			local temp = mData[parentIndex];
+			mData[parentIndex] = mData[index];
+			mData[index] = temp;
 
 			index = parentIndex;
 			parentIndex = (index - 1) / 2;
 		}
-		
-		this.mLength += 1;
+
+		mLength += 1;
 	}
 	
-	method remove()
+	function remove()
 	{
-		if(this.mLength == 0)
-			throw "PQ:remove() - No items to remove";
+		if(mLength == 0)
+			throw "PQ.remove() - No items to remove";
 
-		local data = this.mData[0];
-		this.mLength -= 1;
-		this.mData[0] = this.mData[this.mLength];
+		local data = mData[0];
+		mLength -= 1;
+		mData[0] = mData[mLength];
 		
 		local index = 0;
 		local left = 1;
 		local right = 2;
 
-		while(index < this.mLength)
+		while(index < mLength)
 		{
 			local smaller;
 			
-			if(left >= this.mLength)
+			if(left >= mLength)
 			{
-				if(right >= this.mLength)
+				if(right >= mLength)
 					break;
 				else
 					smaller = right;
 			}
 			else
 			{
-				if(right >= this.mLength)
+				if(right >= mLength)
 					smaller = left;
 				else
 				{
-					if(this.mData[left] < this.mData[right])
+					if(mData[left] < mData[right])
 						smaller = left;
 					else
 						smaller = right;
 				}
 			}
 
-			if(this.mData[index] > this.mData[smaller])
+			if(mData[index] > mData[smaller])
 			{
-				local temp = this.mData[index];
-				this.mData[index] = this.mData[smaller];
-				this.mData[smaller] = temp;
+				local temp = mData[index];
+				mData[index] = mData[smaller];
+				mData[smaller] = temp;
 				
 				index = smaller;
 				left = (index * 2) + 1;
@@ -234,42 +250,42 @@ local class PQ
 		return data;
 	}
 	
-	method resizeArray()
+	function resizeArray()
 	{
-		if(this.mLength >= #this.mData)
-			this.mData:length((#this.mData + 1) * 2 - 1);
+		if(mLength >= #mData)
+			mData.length((#mData + 1) * 2 - 1);
 	}
 	
-	method hasData()
+	function hasData()
 	{
-		return this.mLength != 0;
+		return mLength != 0;
 	}
 }
 
 local class Stack
 {
 	mHead = null;
-	
-	method insert(data)
+
+	function push(data)
 	{
-		local t = { data = data, next = this.mHead };
-		this.mHead = t;
+		local t = { data = data, next = mHead };
+		mHead = t;
 	}
 	
-	method remove()
+	function pop()
 	{
-		if(this.mHead is null)
-			throw "Stack:remove() - No items to pop";
-			
-		local item = this.mHead;
-		this.mHead = this.mHead.next;
+		if(mHead is null)
+			throw "Stack.pop() - No items to pop";
+
+		local item = mHead;
+		mHead = mHead.next;
 		
 		return item.data;
 	}
 
-	method hasData()
+	function hasData()
 	{
-		return this.mHead !is null;
+		return mHead !is null;
 	}
 }
 
@@ -278,75 +294,73 @@ local class Queue
 	mHead = null;
 	mTail = null;
 
-	method insert(data)
+	function push(data)
 	{
 		local t = { data = data, next = null };
 
-		if(this.mTail is null)
+		if(mTail is null)
 		{
-			this.mHead = t;
-			this.mTail = t;
+			mHead = t;
+			mTail = t;
 		}
 		else
 		{
-			this.mTail.next = t;
-			this.mTail = t;
+			mTail.next = t;
+			mTail = t;
 		}
 	}
 	
-	method remove()
+	function pop()
 	{
-		if(this.mTail is null)
-			throw "Queue:pop() - No items to pop";
+		if(mTail is null)
+			throw "Queue.pop() - No items to pop";
 			
-		local item = this.mHead;
-		this.mHead = this.mHead.next;
+		local item = mHead;
+		mHead = mHead.next;
 		
-		if(this.mHead is null)
-			this.mTail = null;
+		if(mHead is null)
+			mTail = null;
 			
 		return item.data;
 	}
 	
-	method hasData()
+	function hasData()
 	{
-		return this.mHead !is null;
+		return mHead !is null;
 	}
 }
 
-local prioQ = PQ();
-
-for(local i = 0; i < 5; ++i)
-	prioQ:insert(math.rand(0, 20));
-
 writefln("Priority queue (heap)");
 
-while(prioQ:hasData())
-	writefln(prioQ:remove());
+local prioQ = PQ();
+
+for(local i = 0; i < 10; ++i)
+	prioQ.insert(math.rand(0, 20));
+
+while(prioQ.hasData())
+	writefln(prioQ.remove());
 	
 writefln();
+writefln("Stack");
 
 local stack = Stack();
 
 for(local i = 0; i < 5; ++i)
-	stack:insert(i + 1);
-	
-writefln("Stack");
+	stack.push(i + 1);
 
-while(stack:hasData())
-	writefln(stack:remove());
+while(stack.hasData())
+	writefln(stack.pop());
 
 writefln();
+writefln("Queue");
 
 local queue = Queue();
 
 for(local i = 0; i < 5; ++i)
-	queue:insert(i + 1);
-	
-writefln("Queue");
+	queue.push(i + 1);
 
-while(queue:hasData())
-	writefln(queue:remove());
+while(queue.hasData())
+	writefln(queue.pop());
 
 writefln();
 
@@ -356,32 +370,32 @@ local class Test
 {
 	mData = [4, 5, 6];
 
-	method opApply(extra)
+	function opApply(extra)
 	{
 		if(isString(extra) && extra == "reverse")
 		{
-			local function iterator_reverse(this, index)
+			local function iterator_reverse(index)
 			{
 				--index;
 				
 				if(index < 0)
 					return;
 					
-				return index, this.mData[index];
+				return index, mData[index];
 			}
 
-			return iterator_reverse, this, #this.mData;
+			return iterator_reverse, this, #mData;
 		}
 		else
 		{
-			local function iterator(this, index)
+			local function iterator(index)
 			{
 				++index;
 	
-				if(index >= #this.mData)
+				if(index >= #mData)
 					return;
 	
-				return index, this.mData[index];
+				return index, mData[index];
 			}
 
 			return iterator, this, -1;
@@ -441,6 +455,8 @@ local arr = array.new(10);
 
 for(local i = 0; i < 10; ++i)
 	arr[i] = function() { return i; };
+
+writefln("This should be the values 0 through 9:");
 
 for(local i = 0; i < #arr; ++i)
 	writefln(arr[i]());
@@ -514,9 +530,9 @@ writefln();
 
 // Testing arrays.
 
-local array = [3, 5, 7];
+local array = [7, 9, 2, 3, 6];
 
-array:sort();
+array.sort();
 
 foreach(i, v; array)
 	writefln("arr[", i, "] = ", v);
@@ -563,7 +579,7 @@ for(local switchVar = 0; switchVar < 11; ++switchVar)
 		case 4, 5, 6:
 			writefln("medium");
 			break;
-			
+
 		case 7, 8, 9:
 			writefln("large");
 			break;

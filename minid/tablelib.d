@@ -20,32 +20,32 @@ class TableLib
 
 	int dup(MDState s)
 	{
-		s.push(s.getTableParam(0).dup);
+		s.push(s.getContext().asTable().dup);
 		return 1;
 	}
 	
 	int keys(MDState s)
 	{
-		s.push(s.getTableParam(0).keys);
+		s.push(s.getContext().asTable().keys);
 		return 1;
 	}
 	
 	int values(MDState s)
 	{
-		s.push(s.getTableParam(0).values);
+		s.push(s.getContext().asTable().values);
 		return 1;
 	}
 	
 	int remove(MDState s)
 	{
-		s.getTableParam(0).remove(s.getParam(1));
+		s.getContext().asTable().remove(s.getParam(0));
 		return 0;
 	}
 	
 	int contains(MDState s)
 	{
-		MDValue key = s.getParam(1);
-		MDValue* val = (key in s.getTableParam(0));
+		MDValue key = s.getParam(0);
+		MDValue* val = (key in s.getContext().asTable());
 
 		if(val is null)
 		{
@@ -59,7 +59,7 @@ class TableLib
 			return 2;
 		}
 	}
-	
+
 	int iterator(MDState s)
 	{
 		MDTable table = s.getUpvalue(0).asTable();
@@ -77,12 +77,12 @@ class TableLib
 
 		return 2;
 	}
-	
+
 	int apply(MDState s)
 	{
 		MDValue[3] upvalues;
 
-		upvalues[0].value = s.getTableParam(0);
+		upvalues[0].value = s.getContext().asTable();
 		upvalues[1].value = upvalues[0].asTable.keys;
 		upvalues[2].value = -1;
 
@@ -90,15 +90,16 @@ class TableLib
 
 		return 1;
 	}
-	
+
 	int each(MDState s)
 	{
-		MDTable table = s.getTableParam(0);
-		MDClosure func = s.getClosureParam(1);
-		
+		MDTable table = s.getContext().asTable();
+		MDClosure func = s.getClosureParam(0);
+		MDValue tableVal = MDValue(table);
+
 		foreach(k, v; table)
 		{
-			s.easyCall(func, 1, table, k, v);
+			s.easyCall(func, 1, tableVal, k, v);
 			
 			MDValue ret = s.pop();
 		
@@ -112,8 +113,7 @@ class TableLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("table"d);
+	MDNamespace namespace = new MDNamespace("table"d, MDGlobalState().globals);
 	new TableLib(namespace);
-	MDGlobalState().setGlobal("table"d, namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Table, namespace);
 }

@@ -31,7 +31,6 @@ class StringLib
 			"toLower",    new MDClosure(namespace, &toLower,    "string.toLower"),
 			"toUpper",    new MDClosure(namespace, &toUpper,    "string.toUpper"),
 			"repeat",     new MDClosure(namespace, &repeat,     "string.repeat"),
-			"join",       new MDClosure(namespace, &join,       "string.join"),
 			"split",      new MDClosure(namespace, &split,      "string.split"),
 			"splitLines", new MDClosure(namespace, &splitLines, "string.splitLines"),
 			"strip",      new MDClosure(namespace, &strip,      "string.strip"),
@@ -40,16 +39,22 @@ class StringLib
 			"replace",    new MDClosure(namespace, &replace,    "string.replace"),
 			"opApply",    new MDClosure(namespace, &apply,      "string.opApply")
 		);
+		
+		MDGlobalState().setGlobal("string"d, MDNamespace.create
+		(
+			"string"d, MDGlobalState().globals,
+			"join",       new MDClosure(namespace, &join,       "string.join")
+		));
 	}
 
 	int toInt(MDState s)
 	{
-		dchar[] src = s.getStringParam(0).asUTF32();
+		dchar[] src = s.getContext().asString().asUTF32();
 		
 		int base = 10;
 
-		if(s.numParams() > 1)
-			base = s.getIntParam(1);
+		if(s.numParams() > 0)
+			base = s.getIntParam(0);
 
 		s.push(s.safeCode(.toInt(src, base)));
 		return 1;
@@ -57,14 +62,14 @@ class StringLib
 	
 	int toFloat(MDState s)
 	{
-		s.push(s.safeCode(std.conv.toFloat(s.getStringParam(0).asUTF8())));
+		s.push(s.safeCode(std.conv.toFloat(s.getContext().asString().asUTF8())));
 		return 1;
 	}
 	
 	int compare(MDState s)
 	{
-		char[] src1 = s.getStringParam(0).asUTF8();
-		char[] src2 = s.getStringParam(1).asUTF8();
+		char[] src1 = s.getContext().asString().asUTF8();
+		char[] src2 = s.getStringParam(0).asUTF8();
 
 		s.push(s.safeCode(string.cmp(src1, src2)));
 		return 1;
@@ -72,8 +77,8 @@ class StringLib
 	
 	int icompare(MDState s)
 	{
-		char[] src1 = s.getStringParam(0).asUTF8();
-		char[] src2 = s.getStringParam(1).asUTF8();
+		char[] src1 = s.getContext().asString().asUTF8();
+		char[] src2 = s.getStringParam(0).asUTF8();
 
 		s.push(s.safeCode(string.icmp(src1, src2)));
 		return 1;
@@ -81,12 +86,12 @@ class StringLib
 	
 	int find(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 
-		if(s.isParam!("string")(1))
-			s.push(s.safeCode(string.find(src, s.getStringParam(1).asUTF8())));
-		else if(s.isParam!("char")(1))
-			s.push(s.safeCode(string.find(src, s.getCharParam(1))));
+		if(s.isParam!("string")(0))
+			s.push(s.safeCode(string.find(src, s.getStringParam(0).asUTF8())));
+		else if(s.isParam!("char")(0))
+			s.push(s.safeCode(string.find(src, s.getCharParam(0))));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 
@@ -95,12 +100,12 @@ class StringLib
 	
 	int ifind(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 
-		if(s.isParam!("string")(1))
-			s.push(s.safeCode(string.ifind(src, s.getStringParam(1).asUTF8())));
-		else if(s.isParam!("char")(1))
-			s.push(s.safeCode(string.ifind(src, s.getCharParam(1))));
+		if(s.isParam!("string")(0))
+			s.push(s.safeCode(string.ifind(src, s.getStringParam(0).asUTF8())));
+		else if(s.isParam!("char")(0))
+			s.push(s.safeCode(string.ifind(src, s.getCharParam(0))));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 
@@ -109,12 +114,12 @@ class StringLib
 	
 	int rfind(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 		
-		if(s.isParam!("string")(1))
-			s.push(s.safeCode(string.rfind(src, s.getStringParam(1).asUTF8())));
-		else if(s.isParam!("char")(1))
-			s.push(s.safeCode(string.rfind(src, s.getCharParam(1))));
+		if(s.isParam!("string")(0))
+			s.push(s.safeCode(string.rfind(src, s.getStringParam(0).asUTF8())));
+		else if(s.isParam!("char")(0))
+			s.push(s.safeCode(string.rfind(src, s.getCharParam(0))));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 
@@ -123,12 +128,12 @@ class StringLib
 
 	int irfind(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 
-		if(s.isParam!("string")(1))
-			s.push(s.safeCode(string.irfind(src, s.getStringParam(1).asUTF8())));
-		else if(s.isParam!("char")(1))
-			s.push(s.safeCode(string.irfind(src, s.getCharParam(1))));
+		if(s.isParam!("string")(0))
+			s.push(s.safeCode(string.irfind(src, s.getStringParam(0).asUTF8())));
+		else if(s.isParam!("char")(0))
+			s.push(s.safeCode(string.irfind(src, s.getCharParam(0))));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 
@@ -137,7 +142,7 @@ class StringLib
 
 	int toLower(MDState s)
 	{
-		MDString src = s.getStringParam(0);
+		MDString src = s.getContext().asString();
 
 		dchar[] dest = new dchar[src.length];
 
@@ -153,7 +158,7 @@ class StringLib
 	
 	int toUpper(MDState s)
 	{
-		MDString src = s.getStringParam(0);
+		MDString src = s.getContext().asString();
 
 		dchar[] dest = new dchar[src.length];
 		
@@ -169,8 +174,8 @@ class StringLib
 	
 	int repeat(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
-		int numTimes = s.getIntParam(1);
+		char[] src = s.getContext().asString().asUTF8();
+		int numTimes = s.getIntParam(0);
 		
 		if(numTimes < 1)
 			s.throwRuntimeException("Invalid number of repetitions: ", numTimes);
@@ -200,13 +205,13 @@ class StringLib
 	
 	int split(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 
 		char[][] ret;
 
-		if(s.numParams() > 1)
+		if(s.numParams() > 0)
 		{
-			char[] delim = s.getStringParam(1).asUTF8();
+			char[] delim = s.getStringParam(0).asUTF8();
 			s.safeCode(ret = string.split(src, delim));
 		}
 		else
@@ -223,7 +228,7 @@ class StringLib
 
 	int splitLines(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
 		char[][] ret;
 
 		s.safeCode(ret = string.splitlines(src));
@@ -239,27 +244,27 @@ class StringLib
 	
 	int strip(MDState s)
 	{
-		s.push(s.safeCode(string.strip(s.getStringParam(0).asUTF8())));
+		s.push(s.safeCode(string.strip(s.getContext().asString().asUTF8())));
 		return 1;
 	}
 
 	int lstrip(MDState s)
 	{
-		s.push(s.safeCode(string.stripl(s.getStringParam(0).asUTF8())));
+		s.push(s.safeCode(string.stripl(s.getContext().asString().asUTF8())));
 		return 1;
 	}
 
 	int rstrip(MDState s)
 	{
-		s.push(s.safeCode(string.stripr(s.getStringParam(0).asUTF8())));
+		s.push(s.safeCode(string.stripr(s.getContext().asString().asUTF8())));
 		return 1;
 	}
 
 	int replace(MDState s)
 	{
-		char[] src = s.getStringParam(0).asUTF8();
-		char[] from = s.getStringParam(1).asUTF8();
-		char[] to = s.getStringParam(2).asUTF8();
+		char[] src = s.getContext().asString().asUTF8();
+		char[] from = s.getStringParam(0).asUTF8();
+		char[] to = s.getStringParam(1).asUTF8();
 
 		s.push(s.safeCode(string.replace(src, from, to)));
 		return 1;
@@ -267,8 +272,8 @@ class StringLib
 
 	int iterator(MDState s)
 	{
-		MDString string = s.getStringParam(0);
-		int index = s.getIntParam(1);
+		MDString string = s.getContext().asString();
+		int index = s.getIntParam(0);
 
 		index++;
 
@@ -283,8 +288,8 @@ class StringLib
 	
 	int iteratorReverse(MDState s)
 	{
-		MDString string = s.getStringParam(0);
-		int index = s.getIntParam(1);
+		MDString string = s.getContext().asString();
+		int index = s.getIntParam(0);
 
 		index--;
 
@@ -302,9 +307,9 @@ class StringLib
 	
 	int apply(MDState s)
 	{
-		MDString string = s.getStringParam(0);
+		MDString string = s.getContext().asString();
 
-		if(s.numParams() > 1 && s.isParam!("string")(1) && s.getStringParam(1) == "reverse"d)
+		if(s.numParams() > 0 && s.isParam!("string")(0) && s.getStringParam(0) == "reverse"d)
 		{
 			s.push(iteratorReverseClosure);
 			s.push(string);
@@ -323,8 +328,7 @@ class StringLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("string"d);
+	MDNamespace namespace = new MDNamespace("string"d, MDGlobalState().globals);
 	new StringLib(namespace);
-	MDGlobalState().setGlobal("string"d, namespace);
 	MDGlobalState().setMetatable(MDValue.Type.String, namespace);
 }
