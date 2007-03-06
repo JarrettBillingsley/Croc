@@ -1,3 +1,26 @@
+/******************************************************************************
+License:
+Copyright (c) 2007 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.types;
 
 import format = std.format;
@@ -164,1186 +187,6 @@ static this()
 
 	foreach(uint i, dchar[] name; MetaNames)
 		MetaStrings[i] = new MDString(name);
-}
-
-abstract class MDObject
-{
-	public uint length();
-
-	// avoiding RTTI downcasts for speed
-	public static enum Type
-	{
-		String,
-		Userdata,
-		Closure,
-		Table,
-		Array,
-		Class,
-		Instance,
-		Delegate,
-		Namespace
-	}
-
-	public MDString asString() { return null; }
-	public MDUserdata asUserdata() { return null; }
-	public MDClosure asClosure() { return null; }
-	public MDTable asTable() { return null; }
-	public MDArray asArray() { return null; }
-	public MDClass asClass() { return null; }
-	public MDInstance asInstance() { return null; }
-	public MDDelegate asDelegate() { return null; }
-	public MDNamespace asNamespace() { return null; }
-	public abstract Type type();
-
-	public static int compare(MDObject o1, MDObject o2)
-	{
-		if(o1.type == o2.type)
-			return o1.opCmp(o2);
-		else
-			throw new MDException("Attempting to compare unlike objects");
-	}
-
-	public static int equals(MDObject o1, MDObject o2)
-	{
-		if(o1.type == o2.type)
-			return o1.opEquals(o2);
-		else
-			throw new MDException("Attempting to compare unlike objects");
-	}
-}
-
-class MDString : MDObject
-{
-	//TODO: Hmmm.  package..
-	package dchar[] mData;
-	protected hash_t mHash;
-
-	public this(dchar[] data)
-	{
-		mData = data.dup;
-		mHash = typeid(typeof(mData)).getHash(&mData);
-	}
-	
-	public this(wchar[] data)
-	{
-		mData = utf.toUTF32(data);
-		mHash = typeid(typeof(mData)).getHash(&mData);
-	}
-
-	public this(char[] data)
-	{
-		mData = utf.toUTF32(data);
-		mHash = typeid(typeof(mData)).getHash(&mData);
-	}
-	
-	package static MDString newTemp(dchar[] data)
-	{
-		MDString ret = new MDString();
-		ret.mData = data;
-		ret.mHash = typeid(typeof(data)).getHash(&data);
-		return ret;	
-	}
-
-	protected this()
-	{
-
-	}
-	
-	public override MDString asString()
-	{
-		return this;
-	}
-
-	public override Type type()
-	{
-		return Type.String;
-	}
-
-	public override uint length()
-	{
-		return mData.length;
-	}
-	
-	public MDString opCat(MDString other)
-	{
-		// avoid double duplication ((this ~ other).dup)
-		MDString ret = new MDString();
-		ret.mData = this.mData ~ other.mData;
-		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
-		return ret;
-	}
-
-	public MDString opCat(dchar c)
-	{
-		MDString ret = new MDString();
-		ret.mData = this.mData ~ c;
-		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
-		return ret;
-	}
-	
-	public MDString opCat_r(dchar c)
-	{
-		MDString ret = new MDString();
-		ret.mData = c ~ this.mData;
-		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
-		return ret;
-	}
-
-	public MDString opCatAssign(MDString other)
-	{
-		return opCat(other);
-	}
-	
-	public MDString opCatAssign(dchar c)
-	{
-		return opCat(c);
-	}
-
-	public hash_t toHash()
-	{
-		return mHash;
-	}
-	
-	public int opEquals(Object o)
-	{
-		MDString other = cast(MDString)o;
-		assert(other, "MDString opEquals");
-		
-		return mData == other.mData;
-	}
-	
-	public int opEquals(char[] v)
-	{
-		return mData == utf.toUTF32(v);
-	}
-	
-	public int opEquals(wchar[] v)
-	{
-		return mData == utf.toUTF32(v);
-	}
-	
-	public int opEquals(dchar[] v)
-	{
-		return mData == v;
-	}
-
-	public int opCmp(Object o)
-	{
-		MDString other = cast(MDString)o;
-		assert(other, "MDString opCmp");
-		
-		return dcmp(mData, other.mData);
-	}
-
-	public int opCmp(char[] v)
-	{
-		return dcmp(mData, utf.toUTF32(v));
-	}
-	
-	public int opCmp(wchar[] v)
-	{
-		return dcmp(mData, utf.toUTF32(v));
-	}
-
-	public int opCmp(dchar[] v)
-	{
-		return dcmp(mData, v);
-	}
-
-	public dchar opIndex(uint index)
-	{
-		debug if(index < 0 || index >= mData.length)
-			throw new MDException("Invalid string character index: ", index);
-
-		return mData[index];
-	}
-
-	public MDString opSlice(uint lo, uint hi)
-	{
-		MDString ret = new MDString();
-		ret.mData = mData[lo .. hi].dup;
-		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
-
-		return ret;
-	}
-
-	public char[] asUTF8()
-	{
-		return utf.toUTF8(mData);
-	}
-
-	public wchar[] asUTF16()
-	{
-		return utf.toUTF16(mData);
-	}
-	
-	public dchar[] asUTF32()
-	{
-		return mData.dup;
-	}
-
-	public static MDString concat(MDString[] strings)
-	{
-		uint l = 0;
-		
-		foreach(MDString s; strings)
-			l += s.length;
-			
-		dchar[] result = new dchar[l];
-		
-		uint i = 0;
-		
-		foreach(MDString s; strings)
-		{
-			result[i .. i + s.length] = s.mData[];
-			i += s.length;
-		}
-
-		return new MDString(result);
-	}
-	
-	// Returns null on failure, so that the VM can give an error at the appropriate location
-	public static MDString concat(MDValue[] values, out uint badIndex)
-	{
-		uint l = 0;
-
-		foreach(uint i, MDValue v; values)
-		{
-			if(v.isString())
-				l += v.asString().length;
-			else if(v.isChar())
-				l += 1;
-			else
-			{
-				badIndex = i;
-				return null;
-			}
-		}
-		
-		dchar[] result = new dchar[l];
-		
-		uint i = 0;
-		
-		foreach(MDValue v; values)
-		{
-			if(v.isString())
-			{
-				MDString s = v.asString();
-				result[i .. i + s.length] = s.mData[];
-				i += s.length;
-			}
-			else
-			{
-				result[i] = v.asChar();
-				i++;
-			}
-		}
-		
-		return new MDString(result);
-	}
-	
-	public char[] toString()
-	{
-		return asUTF8();
-	}
-}
-
-class MDUserdata : MDObject
-{
-	protected MDNamespace mMetatable;
-
-	public override MDUserdata asUserdata()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Userdata;
-	}
-
-	public override uint length()
-	{
-		throw new MDException("Cannot get the length of a userdatum");
-	}
-	
-	public char[] toString()
-	{
-		return string.format("userdata 0x%0.8X", cast(void*)this);
-	}
-	
-	public MDNamespace metatable(MDNamespace mt)
-	{
-		return mMetatable = mt;
-	}
-	
-	public MDNamespace metatable()
-	{
-		return mMetatable;
-	}
-}
-
-class MDClosure : MDObject
-{
-	protected bool mIsNative;
-	protected MDNamespace mEnvironment;
-
-	struct NativeClosure
-	{
-		int delegate(MDState) func;
-		dchar[] name;
-		MDValue[] upvals;
-	}
-	
-	struct ScriptClosure
-	{
-		MDFuncDef func;
-		MDUpval*[] upvals;
-	}
-	
-	union
-	{
-		NativeClosure native;
-		ScriptClosure script;
-	}
-
-	public this(MDNamespace environment, MDFuncDef def)
-	{
-		mIsNative = false;
-		mEnvironment = environment;
-		script.func = def;
-		script.upvals.length = def.mNumUpvals;
-	}
-	
-	public this(MDNamespace environment, int delegate(MDState) func, dchar[] name, MDValue[] upvals = null)
-	{
-		mIsNative = true;
-		mEnvironment = environment;
-		native.func = func;
-		native.name = name;
-		native.upvals = upvals.dup;
-	}
-
-	public override MDClosure asClosure()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Closure;
-	}
-
-	public override uint length()
-	{
-		throw new MDException("Cannot get the length of a closure");
-	}
-
-	public char[] toString()
-	{
-		if(mIsNative)
-			return string.format("native function %s", native.name);
-		else
-			return string.format("script function %s(%s)", script.func.mGuessedName, script.func.mLocation.toString());
-	}
-
-	public bool isNative()
-	{
-		return mIsNative;
-	}
-	
-	public MDNamespace environment()
-	{
-		return mEnvironment;
-	}
-}
-
-class MDTable : MDObject
-{
-	protected MDValue[MDValue] mData;
-
-	public this()
-	{
-		
-	}
-
-	public static MDTable create(T...)(T args)
-	{
-		static if(args.length & 1)
-		{
-			pragma(msg, "Native table constructor requires an even number of arguments");
-			static assert(false);
-		}
-
-		MDTable ret = new MDTable();
-		
-		foreach(i, arg; args)
-			static if(!(i & 1))
-				ret[MDValue(arg)] = MDValue(args[i + 1]);
-
-		return ret;
-	}
-
-	public override MDTable asTable()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Table;
-	}
-	
-	public override uint length()
-	{
-		return mData.length;
-	}
-	
-	public MDValue* opIn_r(inout MDValue index)
-	{
-		return (index in mData);	
-	}
-	
-	public MDTable dup()
-	{
-		MDTable n = new MDTable();
-		
-		foreach(k, v; mData)
-			n.mData[k] = v;
-			
-		return n;
-	}
-	
-	public MDArray keys()
-	{
-		return new MDArray(mData.keys);
-	}
-
-	public MDArray values()
-	{
-		return new MDArray(mData.values);
-	}
-	
-	public void remove(inout MDValue index)
-	{
-		MDValue* ptr = (index in mData);
-
-		if(ptr is null)
-			return;
-
-		mData.remove(index);
-	}
-	
-	public MDValue* opIndex(inout MDValue index)
-	{
-		MDValue* val = (index in mData);
-		
-		if(val is null)
-			return &MDValue.nullValue;
-		else
-			return val;
-	}
-	
-	public MDValue* opIndex(dchar[] index)
-	{
-		scope str = MDString.newTemp(index);
-		return opIndex(MDValue(str));
-	}
-
-	public void opIndexAssign(inout MDValue value, inout MDValue index)
-	{
-		if(value.isNull())
-		{
-			if(index in mData)
-				mData.remove(index);
-		}
-		else
-			mData[index] = value;
-	}
-
-	public void opIndexAssign(inout MDValue value, dchar[] index)
-	{
-		opIndexAssign(value, MDValue(index));
-	}
-	
-	public void opIndexAssign(MDObject value, inout MDValue index)
-	{
-		opIndexAssign(MDValue(value), index);
-	}
-	
-	public void opIndexAssign(MDObject value, dchar[] index)
-	{
-		opIndexAssign(MDValue(value), MDValue(index));
-	}
-
-	public int opApply(int delegate(inout MDValue key, inout MDValue value) dg)
-	{
-		int result = 0;
-
-		foreach(MDValue key, MDValue value; mData)
-		{
-			result = dg(key, value);
-
-			if(result)
-				break;
-		}
-
-		return result;
-	}
-
-	public char[] toString()
-	{
-		return string.format("table 0x%0.8X", cast(void*)this);
-	}
-}
-
-class MDArray : MDObject
-{
-	protected MDValue[] mData;
-	
-	public this(uint size)
-	{
-		mData = new MDValue[size];
-	}
-	
-	package this(MDValue[] data)
-	{
-		mData = data;
-	}
-	
-	package this(MDString[] data)
-	{
-		mData.length = data.length;
-		
-		foreach(i, inout v; mData)
-			v.value = data[i];
-	}
-
-	public static MDArray create(T...)(T args)
-	{
-		MDArray ret = new MDArray(args.length);
-
-		foreach(i, arg; args)
-			putInValue(ret.mData[i], arg);
-
-		return ret;
-	}
-
-	public override MDArray asArray()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Array;
-	}
-
-	public override uint length()
-	{
-		return mData.length;
-	}
-
-	public uint length(int newLength)
-	{
-		mData.length = newLength;
-		return newLength;
-	}
-	
-	public void sort()
-	{
-		mData.sort;
-	}
-	
-	public void reverse()
-	{
-		mData.reverse;
-	}
-	
-	public MDArray dup()
-	{
-		MDArray n = new MDArray(0);
-		n.mData = mData.dup;
-		return n;
-	}
-
-	public int opApply(int delegate(inout uint index, inout MDValue value) dg)
-	{
-		int result = 0;
-
-		for(uint i = 0; i < mData.length; i++)
-		{
-			result = dg(i, mData[i]);
-
-			if(result)
-				break;
-		}
-		
-		return result;
-	}
-	
-	public MDArray opCat(MDArray other)
-	{
-		MDArray n = new MDArray(mData.length + other.mData.length);
-		n.mData = mData ~ other.mData;
-		return n;
-	}
-	
-	public MDArray opCat(inout MDValue elem)
-	{
-		MDArray n = new MDArray(mData.length + 1);
-		n.mData = mData ~ elem;
-		return n;
-	}
-
-	public MDArray opCatAssign(MDArray other)
-	{
-		mData ~= other.mData;
-		return this;
-	}
-	
-	public MDArray opCatAssign(inout MDValue elem)
-	{
-		mData ~= elem;
-		return this;
-	}
-	
-	public MDValue* opIndex(int index)
-	{
-		return &mData[index];
-	}
-	
-	public void opIndexAssign(inout MDValue value, uint index)
-	{
-		mData[index] = value;
-	}
-	
-	public void opIndexAssign(MDObject value, uint index)
-	{
-		mData[index].value = value;
-	}
-	
-	public MDArray opSlice(uint lo, uint hi)
-	{
-		return new MDArray(mData[lo .. hi]);
-	}
-	
-	public void opSliceAssign(inout MDValue value, uint lo, uint hi)
-	{
-		mData[lo .. hi] = value;
-	}
-	
-	public void opSliceAssign(MDArray arr, uint lo, uint hi)
-	{
-		mData[lo .. hi] = arr.mData[];
-	}
-
-	package void setBlock(uint block, MDValue[] data)
-	{
-		uint start = block * Instruction.arraySetFields;
-		uint end = start + data.length;
-		
-		// Since Op.SetArray can use a variadic number of values, the number
-		// of elements actually added to the array in the array constructor
-		// may exceed the size with which the array was created.  So it should be
-		// resized.
-		if(end >= mData.length)
-			mData.length = end;
-			
-		mData[start .. end] = data[];
-	}
-
-	public char[] toString()
-	{
-		return string.format("array 0x%0.8X", cast(void*)this);
-	}
-	
-	public static MDArray concat(MDValue[] values)
-	{
-		uint l = 0;
-
-		foreach(uint i, MDValue v; values)
-		{
-			if(v.isArray())
-				l += v.asArray().length;
-			else
-				l += 1;
-		}
-		
-		MDArray result = new MDArray(l);
-		
-		uint i = 0;
-		
-		foreach(MDValue v; values)
-		{
-			if(v.isArray())
-			{
-				MDArray a = v.asArray();
-				result.mData[i .. i + a.length] = a.mData[];
-				i += a.length;
-			}
-			else
-			{
-				result[i] = v;
-				i++;
-			}
-		}
-
-		return result;
-	}
-}
-
-class MDClass : MDObject
-{
-	protected dchar[] mGuessedName;
-	protected MDClass mBaseClass;
-	protected MDNamespace mFields;
-	protected MDNamespace mMethods;
-
-	protected static MDString CtorString;
-	protected static MDString SuperString;
-	
-	static this()
-	{
-		CtorString = new MDString("constructor"d);
-		SuperString = new MDString("super"d);
-	}
-
-	package this(dchar[] guessedName, MDClass baseClass)
-	{
-		mGuessedName = guessedName.dup;
-		mBaseClass = baseClass;
-		
-		mFields = new MDNamespace();
-		mMethods = new MDNamespace();
-
-		if(baseClass !is null)
-		{
-			foreach(key, value; mBaseClass.mMethods)
-				mMethods[key] = value;
-
-			foreach(key, value; mBaseClass.mFields)
-				mFields[key] = value;
-				
-			MDValue* superCtor = mBaseClass[CtorString];
-			
-			if(superCtor !is null)
-				mMethods[SuperString] = *superCtor;
-		}
-	}
-
-	public override MDClass asClass()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Class;
-	}
-
-	public override uint length()
-	{
-		throw new MDException("Cannot get the length of a class");
-	}
-	
-	public MDInstance newInstance()
-	{
-		MDInstance n = new MDInstance();
-		n.mClass = this;
-		
-		foreach(k, v; mFields)
-			n.mFields[k] = v;
-
-		n.mMethods = mMethods;
-
-		return n;
-	}
-
-	public MDValue* opIndex(MDString index)
-	{
-		//TODO: Statics?
-		/*MDValue* ptr = mStaticMembers[index];
-
-		if(ptr !is null)
-			return ptr;*/
-
-		MDValue* ptr = (index in mMethods);
-
-		if(ptr !is null)
-			return ptr;
-
-		ptr = (index in mFields);
-
-		if(ptr !is null)
-			return ptr;
-			
-		if(mBaseClass !is null)
-			return mBaseClass[index];
-		else
-			return null;
-	}
-	
-	public MDValue* opIndex(dchar[] index)
-	{
-		scope str = MDString.newTemp(index);
-		return opIndex(str);
-	}
-
-	public void opIndexAssign(inout MDValue value, MDString index)
-	{
-		if(value.isFunction())
-			mMethods[index] = value;
-		else
-			mFields[index] = value;
-	}
-
-	public void opIndexAssign(MDObject value, MDString index)
-	{
-		opIndexAssign(MDValue(value), index);
-	}
-
-	public void opIndexAssign(inout MDValue value, dchar[] index)
-	{
-		opIndexAssign(value, new MDString(index));
-	}
-
-	public void opIndexAssign(MDObject value, dchar[] index)
-	{
-		opIndexAssign(MDValue(value), new MDString(index));
-	}
-	
-	public dchar[] getName()
-	{
-		return mGuessedName.dup;	
-	}
-
-	public char[] toString()
-	{
-		return string.format("class %s", mGuessedName);
-	}
-}
-
-class MDInstance : MDObject
-{
-	protected MDClass mClass;
-	protected MDNamespace mFields;
-	protected MDNamespace mMethods;
-
-	private this()
-	{
-		mFields = new MDNamespace();
-	}
-
-	public override MDInstance asInstance()
-	{
-		return this;
-	}
-
-	public override Type type()
-	{
-		return Type.Instance;
-	}
-
-	public override uint length()
-	{
-		throw new MDException("Cannot get the length of a class instance");
-	}
-	
-	public MDValue* opIndex(MDString index)
-	{
-		MDValue* ptr = (index in mMethods);
-		
-		if(ptr !is null)
-			return ptr;
-
-		ptr = (index in mFields);
-		
-		if(ptr !is null)
-			return ptr;
-			
-		return null;
-	}
-	
-	public MDValue* opIndex(dchar[] index)
-	{
-		scope str = MDString.newTemp(index);
-		return opIndex(str);
-	}
-	
-	public void opIndexAssign(inout MDValue value, MDString index)
-	{
-		if(value.isFunction())
-			throw new MDException("Attempting to change a method of a class instance!");
-		else
-			mFields[index] = value;
-	}
-
-	public void opIndexAssign(MDObject value, MDString index)
-	{
-		opIndexAssign(MDValue(value), index);
-	}
-
-	public void opIndexAssign(inout MDValue value, dchar[] index)
-	{
-		opIndexAssign(value, new MDString(index));
-	}
-
-	public void opIndexAssign(MDObject value, dchar[] index)
-	{
-		opIndexAssign(MDValue(value), new MDString(index));
-	}
-
-	public char[] toString()
-	{
-		return string.format("instance of %s", mClass.toString());
-	}
-	
-	public bool castToClass(MDClass cls)
-	{
-		assert(cls !is null, "MDInstance.castToClass() class is null");
-
-		for(MDClass c = mClass; c !is null; c = c.mBaseClass)
-		{
-			if(c is cls)
-				return true;
-		}
-
-		return false;
-	}
-
-	package MDClass getClass()
-	{
-		return mClass;
-	}
-	
-	package MDValue* getCtor()
-	{
-		return this[MDClass.CtorString];
-	}
-}
-
-class MDDelegate : MDObject
-{
-	protected MDValue[] mContext;
-	protected MDClosure mClosure;
-
-	public this(MDClosure closure, MDValue[] context)
-	{
-		mClosure = closure;
-		mContext = context;
-	}
-
-	public override MDDelegate asDelegate()
-	{
-		return this;
-	}
-
-	public override Type type()
-	{
-		return Type.Delegate;
-	}
-
-	public override uint length()
-	{
-		throw new MDException("Cannot get the length of a delegate");
-	}
-
-	public char[] toString()
-	{
-		char[] ret = string.format("delegate %s(", mClosure.toString());
-
-		foreach(i, v; mContext)
-		{
-			if(i == mContext.length - 1)
-				ret = string.format("%s%s", ret, v.toString());
-			else
-				ret = string.format("%s%s, ", ret, v.toString());
-		}
-
-		return ret ~ ")";
-	}
-
-	package MDValue[] getContext()
-	{
-		return mContext;
-	}
-	
-	package MDClosure getClosure()
-	{
-		return mClosure;
-	}
-}
-
-class MDNamespace : MDObject
-{
-	protected MDValue[MDString] mData;
-	protected MDNamespace mParent;
-	dchar[] mName;
-
-	public this(dchar[] name = null, MDNamespace parent = null)
-	{
-		mName = name;
-		mParent = parent;
-	}
-	
-	public static MDNamespace create(T...)(dchar[] name, MDNamespace parent, T args)
-	{
-		MDNamespace ret = new MDNamespace(name, parent);
-		ret.addList(args);
-
-		return ret;
-	}
-	
-	public void addList(T...)(T args)
-	{
-		static if(args.length & 1)
-		{
-			pragma(msg, "MDNamespace.addList() requires an even number of arguments");
-			static assert(false);
-		}
-
-		foreach(i, arg; args)
-		{
-			static if(!(i & 1))
-			{
-				static if(!isStringType!(typeof(arg)) && !is(typeof(arg) : MDString))
-				{
-					pragma(msg, "Native namespace constructor keys must be strings");
-					static assert(false);
-				}
-
-				this[new MDString(arg)] = MDValue(args[i + 1]);
-			}
-		}
-	}
-
-	public override MDNamespace asNamespace()
-	{
-		return this;
-	}
-	
-	public override Type type()
-	{
-		return Type.Namespace;
-	}
-	
-	public override uint length()
-	{
-		return mData.length;
-	}
-	
-	public dchar[] name()
-	{
-		return mName;
-	}
-	
-	public MDNamespace parent()
-	{
-		return mParent;
-	}
-
-	public MDValue* opIn_r(MDString index)
-	{
-		return (index in mData);
-	}
-	
-	public MDValue* opIn_r(dchar[] index)
-	{
-		scope idx = MDString.newTemp(index);
-		return (idx in mData);	
-	}
-
-	public MDNamespace dup()
-	{
-		MDNamespace n = new MDNamespace(mName, mParent);
-
-		foreach(k, v; mData)
-			n.mData[k] = v;
-			
-		return n;
-	}
-	
-	public MDArray keys()
-	{
-		return new MDArray(mData.keys);
-	}
-
-	public MDArray values()
-	{
-		return new MDArray(mData.values);
-	}
-	
-	public void remove(MDString index)
-	{
-		MDValue* ptr = (index in mData);
-
-		if(ptr is null)
-			return;
-			
-		mData.remove(index);
-	}
-	
-	public MDValue* opIndex(MDString index)
-	{
-		return (index in mData);
-	}
-
-	public MDValue* opIndex(dchar[] index)
-	{
-		scope str = MDString.newTemp(index);
-		return opIndex(str);
-	}
-
-	public void opIndexAssign(inout MDValue value, MDString index)
-	{
-		mData[index] = value;
-	}
-
-	public void opIndexAssign(inout MDValue value, dchar[] index)
-	{
-		opIndexAssign(value, new MDString(index));
-	}
-	
-	public void opIndexAssign(MDObject value, MDString index)
-	{
-		opIndexAssign(MDValue(value), index);
-	}
-	
-	public void opIndexAssign(MDObject value, dchar[] index)
-	{
-		opIndexAssign(MDValue(value), new MDString(index));
-	}
-
-	public int opApply(int delegate(inout MDString key, inout MDValue value) dg)
-	{
-		int result = 0;
-
-		foreach(MDString key, MDValue value; mData)
-		{
-			result = dg(key, value);
-
-			if(result)
-				break;
-		}
-
-		return result;
-	}
-
-	public dchar[] nameString()
-	{
-		dchar[] ret = mName;
-
-		if(mParent)
-			ret = mParent.nameString() ~ "." ~ ret;
-			
-		return ret;
-	}
-
-	public char[] toString()
-	{
-		return string.format("namespace %s", nameString());
-	}
 }
 
 package void putInValue(T)(out MDValue dest, T src)
@@ -1858,20 +701,7 @@ struct MDValue
 	public void value(MDObject o)
 	{
 		mObj = o;
-		
-		switch(o.type())
-		{
-			case MDObject.Type.String: mType = Type.String; break;
-			case MDObject.Type.Userdata: mType = Type.Userdata; break;
-			case MDObject.Type.Closure: mType = Type.Function; break;
-			case MDObject.Type.Table: mType = Type.Table; break;
-			case MDObject.Type.Array: mType = Type.Array; break;
-			case MDObject.Type.Class: mType = Type.Class; break;
-			case MDObject.Type.Instance: mType = Type.Instance; break;
-			case MDObject.Type.Delegate: mType = Type.Delegate; break;
-			case MDObject.Type.Namespace: mType = Type.Namespace; break;
-			default: assert(false, "invalid MDValue.value(MDObject) switch");
-		}
+		mType = o.mType;
 	}
 
 	public void value(inout MDValue v)
@@ -2007,6 +837,1164 @@ struct MDValue
 	}
 }
 
+abstract class MDObject
+{
+	public uint length();
+
+	// avoiding RTTI downcasts for speed
+	public MDString asString() { return null; }
+	public MDUserdata asUserdata() { return null; }
+	public MDClosure asClosure() { return null; }
+	public MDTable asTable() { return null; }
+	public MDArray asArray() { return null; }
+	public MDClass asClass() { return null; }
+	public MDInstance asInstance() { return null; }
+	public MDDelegate asDelegate() { return null; }
+	public MDNamespace asNamespace() { return null; }
+	public MDValue.Type mType;
+
+	public static int compare(MDObject o1, MDObject o2)
+	{
+		if(o1.mType == o2.mType)
+			return o1.opCmp(o2);
+		else
+			throw new MDException("Attempting to compare unlike objects");
+	}
+
+	public static int equals(MDObject o1, MDObject o2)
+	{
+		if(o1.mType == o2.mType)
+			return o1.opEquals(o2);
+		else
+			throw new MDException("Attempting to compare unlike objects");
+	}
+}
+
+class MDString : MDObject
+{
+	//TODO: Hmmm.  package..
+	package dchar[] mData;
+	protected hash_t mHash;
+
+	public this(dchar[] data)
+	{
+		mData = data.dup;
+		mHash = typeid(typeof(mData)).getHash(&mData);
+		mType = MDValue.Type.String;
+	}
+	
+	public this(wchar[] data)
+	{
+		mData = utf.toUTF32(data);
+		mHash = typeid(typeof(mData)).getHash(&mData);
+		mType = MDValue.Type.String;
+	}
+
+	public this(char[] data)
+	{
+		mData = utf.toUTF32(data);
+		mHash = typeid(typeof(mData)).getHash(&mData);
+		mType = MDValue.Type.String;
+	}
+	
+	package static MDString newTemp(dchar[] data)
+	{
+		MDString ret = new MDString();
+		ret.mData = data;
+		ret.mHash = typeid(typeof(data)).getHash(&data);
+		return ret;
+	}
+
+	protected this()
+	{
+		mType = MDValue.Type.String;
+	}
+	
+	public override MDString asString()
+	{
+		return this;
+	}
+
+	public override uint length()
+	{
+		return mData.length;
+	}
+	
+	public MDString opCat(MDString other)
+	{
+		// avoid double duplication ((this ~ other).dup)
+		MDString ret = new MDString();
+		ret.mData = this.mData ~ other.mData;
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
+		return ret;
+	}
+
+	public MDString opCat(dchar c)
+	{
+		MDString ret = new MDString();
+		ret.mData = this.mData ~ c;
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
+		return ret;
+	}
+	
+	public MDString opCat_r(dchar c)
+	{
+		MDString ret = new MDString();
+		ret.mData = c ~ this.mData;
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
+		return ret;
+	}
+
+	public MDString opCatAssign(MDString other)
+	{
+		return opCat(other);
+	}
+	
+	public MDString opCatAssign(dchar c)
+	{
+		return opCat(c);
+	}
+
+	public hash_t toHash()
+	{
+		return mHash;
+	}
+	
+	public int opEquals(Object o)
+	{
+		MDString other = cast(MDString)o;
+		assert(other, "MDString opEquals");
+		
+		return mData == other.mData;
+	}
+	
+	public int opEquals(char[] v)
+	{
+		return mData == utf.toUTF32(v);
+	}
+	
+	public int opEquals(wchar[] v)
+	{
+		return mData == utf.toUTF32(v);
+	}
+	
+	public int opEquals(dchar[] v)
+	{
+		return mData == v;
+	}
+
+	public int opCmp(Object o)
+	{
+		MDString other = cast(MDString)o;
+		assert(other, "MDString opCmp");
+		
+		return dcmp(mData, other.mData);
+	}
+
+	public int opCmp(char[] v)
+	{
+		return dcmp(mData, utf.toUTF32(v));
+	}
+	
+	public int opCmp(wchar[] v)
+	{
+		return dcmp(mData, utf.toUTF32(v));
+	}
+
+	public int opCmp(dchar[] v)
+	{
+		return dcmp(mData, v);
+	}
+
+	public dchar opIndex(uint index)
+	{
+		debug if(index < 0 || index >= mData.length)
+			throw new MDException("Invalid string character index: ", index);
+
+		return mData[index];
+	}
+
+	public MDString opSlice(uint lo, uint hi)
+	{
+		MDString ret = new MDString();
+		ret.mData = mData[lo .. hi].dup;
+		ret.mHash = typeid(typeof(ret.mData)).getHash(&ret.mData);
+
+		return ret;
+	}
+
+	public char[] asUTF8()
+	{
+		return utf.toUTF8(mData);
+	}
+
+	public wchar[] asUTF16()
+	{
+		return utf.toUTF16(mData);
+	}
+	
+	public dchar[] asUTF32()
+	{
+		return mData.dup;
+	}
+
+	public static MDString concat(MDString[] strings)
+	{
+		uint l = 0;
+		
+		foreach(MDString s; strings)
+			l += s.length;
+			
+		dchar[] result = new dchar[l];
+		
+		uint i = 0;
+		
+		foreach(MDString s; strings)
+		{
+			result[i .. i + s.length] = s.mData[];
+			i += s.length;
+		}
+
+		return new MDString(result);
+	}
+	
+	// Returns null on failure, so that the VM can give an error at the appropriate location
+	public static MDString concat(MDValue[] values, out uint badIndex)
+	{
+		uint l = 0;
+
+		foreach(uint i, MDValue v; values)
+		{
+			if(v.isString())
+				l += v.asString().length;
+			else if(v.isChar())
+				l += 1;
+			else
+			{
+				badIndex = i;
+				return null;
+			}
+		}
+		
+		dchar[] result = new dchar[l];
+		
+		uint i = 0;
+		
+		foreach(MDValue v; values)
+		{
+			if(v.isString())
+			{
+				MDString s = v.asString();
+				result[i .. i + s.length] = s.mData[];
+				i += s.length;
+			}
+			else
+			{
+				result[i] = v.asChar();
+				i++;
+			}
+		}
+		
+		return new MDString(result);
+	}
+	
+	public char[] toString()
+	{
+		return asUTF8();
+	}
+}
+
+class MDUserdata : MDObject
+{
+	protected MDNamespace mMetatable;
+	
+	public this()
+	{
+		mType = MDValue.Type.Userdata;
+	}
+
+	public override MDUserdata asUserdata()
+	{
+		return this;
+	}
+	
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a userdatum");
+	}
+	
+	public char[] toString()
+	{
+		return string.format("userdata 0x%0.8X", cast(void*)this);
+	}
+	
+	public MDNamespace metatable(MDNamespace mt)
+	{
+		return mMetatable = mt;
+	}
+	
+	public MDNamespace metatable()
+	{
+		return mMetatable;
+	}
+}
+
+class MDClosure : MDObject
+{
+	protected bool mIsNative;
+	protected MDNamespace mEnvironment;
+
+	struct NativeClosure
+	{
+		int delegate(MDState) func;
+		dchar[] name;
+		MDValue[] upvals;
+	}
+	
+	struct ScriptClosure
+	{
+		MDFuncDef func;
+		MDUpval*[] upvals;
+	}
+	
+	union
+	{
+		NativeClosure native;
+		ScriptClosure script;
+	}
+
+	public this(MDNamespace environment, MDFuncDef def)
+	{
+		mIsNative = false;
+		mEnvironment = environment;
+		script.func = def;
+		script.upvals.length = def.mNumUpvals;
+		mType = MDValue.Type.Function;
+	}
+	
+	public this(MDNamespace environment, int delegate(MDState) func, dchar[] name, MDValue[] upvals = null)
+	{
+		mIsNative = true;
+		mEnvironment = environment;
+		native.func = func;
+		native.name = name;
+		native.upvals = upvals.dup;
+		mType = MDValue.Type.Function;
+	}
+
+	public override MDClosure asClosure()
+	{
+		return this;
+	}
+	
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a closure");
+	}
+
+	public char[] toString()
+	{
+		if(mIsNative)
+			return string.format("native function %s", native.name);
+		else
+			return string.format("script function %s(%s)", script.func.mGuessedName, script.func.mLocation.toString());
+	}
+
+	public bool isNative()
+	{
+		return mIsNative;
+	}
+	
+	public MDNamespace environment()
+	{
+		return mEnvironment;
+	}
+}
+
+class MDTable : MDObject
+{
+	protected MDValue[MDValue] mData;
+
+	public this()
+	{
+		mType = MDValue.Type.Table;
+	}
+
+	public static MDTable create(T...)(T args)
+	{
+		static if(args.length & 1)
+		{
+			pragma(msg, "Native table constructor requires an even number of arguments");
+			static assert(false);
+		}
+
+		MDTable ret = new MDTable();
+		
+		foreach(i, arg; args)
+			static if(!(i & 1))
+				ret[MDValue(arg)] = MDValue(args[i + 1]);
+
+		return ret;
+	}
+
+	public override MDTable asTable()
+	{
+		return this;
+	}
+	
+	public override uint length()
+	{
+		return mData.length;
+	}
+	
+	public MDValue* opIn_r(inout MDValue index)
+	{
+		return (index in mData);	
+	}
+	
+	public MDTable dup()
+	{
+		MDTable n = new MDTable();
+		
+		foreach(k, v; mData)
+			n.mData[k] = v;
+			
+		return n;
+	}
+	
+	public MDArray keys()
+	{
+		return new MDArray(mData.keys);
+	}
+
+	public MDArray values()
+	{
+		return new MDArray(mData.values);
+	}
+	
+	public void remove(inout MDValue index)
+	{
+		MDValue* ptr = (index in mData);
+
+		if(ptr is null)
+			return;
+
+		mData.remove(index);
+	}
+	
+	public MDValue* opIndex(inout MDValue index)
+	{
+		MDValue* val = (index in mData);
+		
+		if(val is null)
+			return &MDValue.nullValue;
+		else
+			return val;
+	}
+	
+	public MDValue* opIndex(dchar[] index)
+	{
+		scope str = MDString.newTemp(index);
+		return opIndex(MDValue(str));
+	}
+
+	public void opIndexAssign(inout MDValue value, inout MDValue index)
+	{
+		if(value.isNull())
+			mData.remove(index);
+		else
+			mData[index] = value;
+	}
+
+	public void opIndexAssign(inout MDValue value, dchar[] index)
+	{
+		opIndexAssign(value, MDValue(index));
+	}
+	
+	public void opIndexAssign(MDObject value, inout MDValue index)
+	{
+		opIndexAssign(MDValue(value), index);
+	}
+	
+	public void opIndexAssign(MDObject value, dchar[] index)
+	{
+		opIndexAssign(MDValue(value), MDValue(index));
+	}
+
+	public int opApply(int delegate(inout MDValue key, inout MDValue value) dg)
+	{
+		int result = 0;
+
+		foreach(MDValue key, MDValue value; mData)
+		{
+			result = dg(key, value);
+
+			if(result)
+				break;
+		}
+
+		return result;
+	}
+
+	public char[] toString()
+	{
+		return string.format("table 0x%0.8X", cast(void*)this);
+	}
+}
+
+class MDArray : MDObject
+{
+	protected MDValue[] mData;
+
+	public this(uint size)
+	{
+		mData = new MDValue[size];
+		mType = MDValue.Type.Array;
+	}
+
+	package this(MDValue[] data)
+	{
+		mData = data;
+		mType = MDValue.Type.Array;
+	}
+
+	package this(MDString[] data)
+	{
+		mData.length = data.length;
+		
+		foreach(i, inout v; mData)
+			v.value = data[i];
+
+		mType = MDValue.Type.Array;
+	}
+
+	public static MDArray create(T...)(T args)
+	{
+		MDArray ret = new MDArray(args.length);
+
+		foreach(i, arg; args)
+			putInValue(ret.mData[i], arg);
+
+		return ret;
+	}
+
+	public override MDArray asArray()
+	{
+		return this;
+	}
+
+	public override uint length()
+	{
+		return mData.length;
+	}
+
+	public uint length(int newLength)
+	{
+		mData.length = newLength;
+		return newLength;
+	}
+	
+	public void sort()
+	{
+		mData.sort;
+	}
+	
+	public void reverse()
+	{
+		mData.reverse;
+	}
+	
+	public MDArray dup()
+	{
+		MDArray n = new MDArray(0);
+		n.mData = mData.dup;
+		return n;
+	}
+
+	public int opApply(int delegate(inout uint index, inout MDValue value) dg)
+	{
+		int result = 0;
+
+		for(uint i = 0; i < mData.length; i++)
+		{
+			result = dg(i, mData[i]);
+
+			if(result)
+				break;
+		}
+		
+		return result;
+	}
+	
+	public MDArray opCat(MDArray other)
+	{
+		MDArray n = new MDArray(mData.length + other.mData.length);
+		n.mData = mData ~ other.mData;
+		return n;
+	}
+	
+	public MDArray opCat(inout MDValue elem)
+	{
+		MDArray n = new MDArray(mData.length + 1);
+		n.mData = mData ~ elem;
+		return n;
+	}
+
+	public MDArray opCatAssign(MDArray other)
+	{
+		mData ~= other.mData;
+		return this;
+	}
+	
+	public MDArray opCatAssign(inout MDValue elem)
+	{
+		mData ~= elem;
+		return this;
+	}
+	
+	public MDValue* opIndex(int index)
+	{
+		return &mData[index];
+	}
+	
+	public void opIndexAssign(inout MDValue value, uint index)
+	{
+		mData[index] = value;
+	}
+	
+	public void opIndexAssign(MDObject value, uint index)
+	{
+		mData[index].value = value;
+	}
+	
+	public MDArray opSlice(uint lo, uint hi)
+	{
+		return new MDArray(mData[lo .. hi]);
+	}
+	
+	public void opSliceAssign(inout MDValue value, uint lo, uint hi)
+	{
+		mData[lo .. hi] = value;
+	}
+	
+	public void opSliceAssign(MDArray arr, uint lo, uint hi)
+	{
+		mData[lo .. hi] = arr.mData[];
+	}
+
+	package void setBlock(uint block, MDValue[] data)
+	{
+		uint start = block * Instruction.arraySetFields;
+		uint end = start + data.length;
+		
+		// Since Op.SetArray can use a variadic number of values, the number
+		// of elements actually added to the array in the array constructor
+		// may exceed the size with which the array was created.  So it should be
+		// resized.
+		if(end >= mData.length)
+			mData.length = end;
+			
+		mData[start .. end] = data[];
+	}
+
+	public char[] toString()
+	{
+		return string.format("array 0x%0.8X", cast(void*)this);
+	}
+	
+	public static MDArray concat(MDValue[] values)
+	{
+		uint l = 0;
+
+		foreach(uint i, MDValue v; values)
+		{
+			if(v.isArray())
+				l += v.asArray().length;
+			else
+				l += 1;
+		}
+		
+		MDArray result = new MDArray(l);
+		
+		uint i = 0;
+		
+		foreach(MDValue v; values)
+		{
+			if(v.isArray())
+			{
+				MDArray a = v.asArray();
+				result.mData[i .. i + a.length] = a.mData[];
+				i += a.length;
+			}
+			else
+			{
+				result[i] = v;
+				i++;
+			}
+		}
+
+		return result;
+	}
+}
+
+class MDClass : MDObject
+{
+	protected dchar[] mGuessedName;
+	protected MDClass mBaseClass;
+	protected MDNamespace mFields;
+	protected MDNamespace mMethods;
+
+	protected static MDString CtorString;
+	protected static MDString SuperString;
+	
+	static this()
+	{
+		CtorString = new MDString("constructor"d);
+		SuperString = new MDString("super"d);
+	}
+
+	package this(dchar[] guessedName, MDClass baseClass)
+	{
+		mGuessedName = guessedName.dup;
+		mBaseClass = baseClass;
+		
+		mFields = new MDNamespace();
+		mMethods = new MDNamespace();
+
+		if(baseClass !is null)
+		{
+			foreach(key, value; mBaseClass.mMethods)
+				mMethods[key] = value;
+
+			foreach(key, value; mBaseClass.mFields)
+				mFields[key] = value;
+				
+			MDValue* superCtor = mBaseClass[CtorString];
+			
+			if(superCtor !is null)
+				mMethods[SuperString] = *superCtor;
+		}
+		
+		mType = MDValue.Type.Class;
+	}
+
+	public override MDClass asClass()
+	{
+		return this;
+	}
+	
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a class");
+	}
+	
+	public MDInstance newInstance()
+	{
+		MDInstance n = new MDInstance();
+		n.mClass = this;
+		
+		foreach(k, v; mFields)
+			n.mFields[k] = v;
+
+		n.mMethods = mMethods;
+
+		return n;
+	}
+
+	public MDValue* opIndex(MDString index)
+	{
+		//TODO: Statics?
+		/*MDValue* ptr = mStaticMembers[index];
+
+		if(ptr !is null)
+			return ptr;*/
+
+		MDValue* ptr = (index in mMethods);
+
+		if(ptr !is null)
+			return ptr;
+
+		ptr = (index in mFields);
+
+		if(ptr !is null)
+			return ptr;
+			
+		if(mBaseClass !is null)
+			return mBaseClass[index];
+		else
+			return null;
+	}
+	
+	public MDValue* opIndex(dchar[] index)
+	{
+		scope str = MDString.newTemp(index);
+		return opIndex(str);
+	}
+
+	public void opIndexAssign(inout MDValue value, MDString index)
+	{
+		if(value.isFunction())
+			mMethods[index] = value;
+		else
+			mFields[index] = value;
+	}
+
+	public void opIndexAssign(MDObject value, MDString index)
+	{
+		opIndexAssign(MDValue(value), index);
+	}
+
+	public void opIndexAssign(inout MDValue value, dchar[] index)
+	{
+		opIndexAssign(value, new MDString(index));
+	}
+
+	public void opIndexAssign(MDObject value, dchar[] index)
+	{
+		opIndexAssign(MDValue(value), new MDString(index));
+	}
+	
+	public dchar[] getName()
+	{
+		return mGuessedName.dup;
+	}
+	
+	public MDNamespace fields()
+	{
+		return mFields;
+	}
+	
+	public MDNamespace methods()
+	{
+		return mMethods;
+	}
+
+	public char[] toString()
+	{
+		return string.format("class %s", mGuessedName);
+	}
+}
+
+class MDInstance : MDObject
+{
+	protected MDClass mClass;
+	protected MDNamespace mFields;
+	protected MDNamespace mMethods;
+
+	private this()
+	{
+		mFields = new MDNamespace();
+		mType = MDValue.Type.Instance;
+	}
+
+	public override MDInstance asInstance()
+	{
+		return this;
+	}
+
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a class instance");
+	}
+	
+	public MDValue* opIndex(MDString index)
+	{
+		MDValue* ptr = (index in mMethods);
+		
+		if(ptr !is null)
+			return ptr;
+
+		ptr = (index in mFields);
+		
+		if(ptr !is null)
+			return ptr;
+			
+		return null;
+	}
+	
+	public MDValue* opIndex(dchar[] index)
+	{
+		scope str = MDString.newTemp(index);
+		return opIndex(str);
+	}
+	
+	public void opIndexAssign(inout MDValue value, MDString index)
+	{
+		if(value.isFunction())
+			throw new MDException("Attempting to change a method of a class instance!");
+		else
+			mFields[index] = value;
+	}
+
+	public void opIndexAssign(MDObject value, MDString index)
+	{
+		opIndexAssign(MDValue(value), index);
+	}
+
+	public void opIndexAssign(inout MDValue value, dchar[] index)
+	{
+		opIndexAssign(value, new MDString(index));
+	}
+
+	public void opIndexAssign(MDObject value, dchar[] index)
+	{
+		opIndexAssign(MDValue(value), new MDString(index));
+	}
+
+	public char[] toString()
+	{
+		return string.format("instance of %s", mClass.toString());
+	}
+	
+	public bool castToClass(MDClass cls)
+	{
+		assert(cls !is null, "MDInstance.castToClass() class is null");
+
+		for(MDClass c = mClass; c !is null; c = c.mBaseClass)
+		{
+			if(c is cls)
+				return true;
+		}
+
+		return false;
+	}
+
+	package MDClass getClass()
+	{
+		return mClass;
+	}
+	
+	public MDNamespace fields()
+	{
+		return mFields;
+	}
+	
+	public MDNamespace methods()
+	{
+		return mMethods;
+	}
+
+	package MDValue* getCtor()
+	{
+		return this[MDClass.CtorString];
+	}
+}
+
+class MDDelegate : MDObject
+{
+	protected MDValue[] mContext;
+	protected MDClosure mClosure;
+
+	public this(MDClosure closure, MDValue[] context)
+	{
+		mClosure = closure;
+		mContext = context;
+		mType = MDValue.Type.Delegate;
+	}
+
+	public override MDDelegate asDelegate()
+	{
+		return this;
+	}
+
+	public override uint length()
+	{
+		throw new MDException("Cannot get the length of a delegate");
+	}
+
+	public char[] toString()
+	{
+		char[] ret = string.format("delegate %s(", mClosure.toString());
+
+		foreach(i, v; mContext)
+		{
+			if(i == mContext.length - 1)
+				ret = string.format("%s%s", ret, v.toString());
+			else
+				ret = string.format("%s%s, ", ret, v.toString());
+		}
+
+		return ret ~ ")";
+	}
+
+	package MDValue[] getContext()
+	{
+		return mContext;
+	}
+	
+	package MDClosure getClosure()
+	{
+		return mClosure;
+	}
+}
+
+class MDNamespace : MDObject
+{
+	protected MDValue[MDString] mData;
+	protected MDNamespace mParent;
+	dchar[] mName;
+
+	public this(dchar[] name = null, MDNamespace parent = null)
+	{
+		mName = name;
+		mParent = parent;
+		mType = MDValue.Type.Namespace;
+	}
+	
+	public static MDNamespace create(T...)(dchar[] name, MDNamespace parent, T args)
+	{
+		MDNamespace ret = new MDNamespace(name, parent);
+		ret.addList(args);
+
+		return ret;
+	}
+	
+	public void addList(T...)(T args)
+	{
+		static if(args.length & 1)
+		{
+			pragma(msg, "MDNamespace.addList() requires an even number of arguments");
+			static assert(false);
+		}
+
+		foreach(i, arg; args)
+		{
+			static if(!(i & 1))
+			{
+				static if(!isStringType!(typeof(arg)) && !is(typeof(arg) : MDString))
+				{
+					pragma(msg, "Native namespace constructor keys must be strings");
+					static assert(false);
+				}
+
+				this[new MDString(arg)] = MDValue(args[i + 1]);
+			}
+		}
+	}
+
+	public override MDNamespace asNamespace()
+	{
+		return this;
+	}
+	
+	public override uint length()
+	{
+		return mData.length;
+	}
+	
+	public dchar[] name()
+	{
+		return mName;
+	}
+	
+	public MDNamespace parent()
+	{
+		return mParent;
+	}
+
+	public MDValue* opIn_r(MDString index)
+	{
+		return (index in mData);
+	}
+	
+	public MDValue* opIn_r(dchar[] index)
+	{
+		scope idx = MDString.newTemp(index);
+		return (idx in mData);	
+	}
+
+	public MDNamespace dup()
+	{
+		MDNamespace n = new MDNamespace(mName, mParent);
+
+		foreach(k, v; mData)
+			n.mData[k] = v;
+			
+		return n;
+	}
+	
+	public MDArray keys()
+	{
+		return new MDArray(mData.keys);
+	}
+
+	public MDArray values()
+	{
+		return new MDArray(mData.values);
+	}
+	
+	public void remove(MDString index)
+	{
+		MDValue* ptr = (index in mData);
+
+		if(ptr is null)
+			return;
+			
+		mData.remove(index);
+	}
+	
+	public MDValue* opIndex(MDString index)
+	{
+		return (index in mData);
+	}
+
+	public MDValue* opIndex(dchar[] index)
+	{
+		scope str = MDString.newTemp(index);
+		return opIndex(str);
+	}
+
+	public void opIndexAssign(inout MDValue value, MDString index)
+	{
+		mData[index] = value;
+	}
+
+	public void opIndexAssign(inout MDValue value, dchar[] index)
+	{
+		opIndexAssign(value, new MDString(index));
+	}
+	
+	public void opIndexAssign(MDObject value, MDString index)
+	{
+		opIndexAssign(MDValue(value), index);
+	}
+	
+	public void opIndexAssign(MDObject value, dchar[] index)
+	{
+		opIndexAssign(MDValue(value), new MDString(index));
+	}
+
+	public int opApply(int delegate(inout MDString key, inout MDValue value) dg)
+	{
+		int result = 0;
+
+		foreach(MDString key, MDValue value; mData)
+		{
+			result = dg(key, value);
+
+			if(result)
+				break;
+		}
+
+		return result;
+	}
+
+	public dchar[] nameString()
+	{
+		dchar[] ret = mName;
+
+		if(mParent)
+			ret = mParent.nameString() ~ "." ~ ret;
+			
+		return ret;
+	}
+
+	public char[] toString()
+	{
+		return string.format("namespace %s", nameString());
+	}
+}
+
 struct Location
 {
 	public int line = 1;
@@ -2072,9 +2060,13 @@ class MDModuleDef
 		}
 
 		ubyte endianness = cast(ubyte)std.system.endian;
-		ushort _padding1;
-		uint _padding2;
+		ushort _padding1 = 0;
+		uint _padding2 = 0;
+		
+		static const bool SerializeAsChunk = true;
 	}
+	
+	static assert(FileHeader.sizeof == 16);
 
 	public void serialize(Stream s)
 	{
@@ -2412,10 +2404,10 @@ class MDGlobalState
 
 	public MDClosure initModule(MDModuleDef def, bool staticInit, MDState s)
 	{
-		mLoadedModules[djoin(def.mName, '.')] = true;
-		
+		mLoadedModules[def.name] = true;
+
 		scope(failure)
-			mLoadedModules.remove(djoin(def.mName, '.'));
+			mLoadedModules.remove(def.name);
 
 		dchar[][] packages = def.mName[0 .. $ - 1];
 		dchar[] name = def.mName[$ - 1];
@@ -2470,6 +2462,7 @@ class MDState
 		MDClosure func;
 		Instruction* pc;
 		uint numReturns;
+		MDNamespace env;
 	}
 
 	struct TryRecord
@@ -2664,7 +2657,7 @@ class MDState
 		{
 			if(val.isChar() == false)
 				badParamError(this, index, "expected 'char' but got '%s'", val.typeString());
-				
+
 			return cast(T)val.asChar();
 		}
 		else static if(isIntType!(T))
@@ -3135,6 +3128,7 @@ class MDState
 			mCurrentAR.func = closure;
 			mCurrentAR.numReturns = numReturns;
 			mCurrentAR.savedTop = mStackIndex;
+			mCurrentAR.env = closure.environment();
 
 			int actualReturns;
 
@@ -3217,6 +3211,7 @@ class MDState
 			mCurrentAR.func = closure;
 			mCurrentAR.pc = funcDef.mCode.ptr;
 			mCurrentAR.numReturns = numReturns;
+			mCurrentAR.env = closure.environment();
 			
 			mStackIndex = base + funcDef.mStackSize;
 			
@@ -3322,6 +3317,8 @@ class MDState
 
 		assert(mARIndex != uint.max, "Script call stack underflow");
 
+		mCurrentAR.func = null;
+		mCurrentAR.env = null;
 		mCurrentAR = &mActRecs[mARIndex];
 	}
 	
@@ -3448,11 +3445,6 @@ class MDState
 		return &mCurrentAR.func.script.func.mConstants[num];
 	}
 
-	protected MDNamespace getEnvironment()
-	{
-		return mCurrentAR.func.environment();
-	}
-
 	protected MDFuncDef getInnerFunc(uint num)
 	{
 		assert(mCurrentAR.func.isNative() == false, "cannot get inner func from native function");
@@ -3541,7 +3533,7 @@ class MDState
 	protected MDValue* getMM(inout MDValue obj, MM method)
 	{
 		MDValue* m;
-
+		
 		switch(obj.type)
 		{
 			case MDValue.Type.Table:
@@ -4083,6 +4075,15 @@ class MDState
 
 			return v;
 		}
+		else if(src.isClass())
+		{
+			v = src.asClass[name];
+			
+			if(v is null)
+				throwRuntimeException("Attempting to access nonexistent member '%s' from class '%s'", name, src.asClass.getName());
+				
+			return v;
+		}
 
 		MDNamespace metatable = MDGlobalState().getMetatable(src.type);
 
@@ -4112,18 +4113,17 @@ class MDState
 
 				mCurrentAR.pc++;
 
-				MDValue RS;
+				MDValue* RS;
 				MDValue RSEnv;
-				MDValue RT;
-				MDValue RTEnv;
-				MDValue RDEnv;
+				MDValue* RT;
 
-				MDValue* get(uint index, inout MDValue environment)
+				MDValue* get(uint index, MDValue* environment)
 				{
 					uint val = index & ~Instruction.locMask;
 					uint loc = index & Instruction.locMask;
 					
-					environment.value = getEnvironment();
+					if(environment)
+						environment.value = mCurrentAR.env;
 
 					switch(loc)
 					{
@@ -4144,14 +4144,15 @@ class MDState
 					if(glob is null)
 					{
 						MDNamespace owner;
-						glob = lookupGlobal(getEnvironment(), name, owner);
+						glob = lookupGlobal(mCurrentAR.env, name, owner);
 
 						if(glob is null)
 							throwRuntimeException("Attempting to get nonexistent global '%s'", name);
 
-						environment.value = owner;
+						if(environment)
+							environment.value = owner;
 					}
-					else
+					else if(environment)
 						environment.value = *getBasedStack(0);
 
 					return glob;
@@ -4160,17 +4161,22 @@ class MDState
 				MDValue* getRD()
 				{
 					assert((i.rd & Instruction.locMask) != Instruction.locConst, "getRD setting a const");
-					return get(i.rd, RDEnv);
+					return get(i.rd, null);
 				}
 
 				void getRS()
 				{
-					RS.value = *get(i.rs, RSEnv);
+					RS = get(i.rs, null);
+				}
+				
+				void getRSwithEnv()
+				{
+					RS = get(i.rs, &RSEnv);
 				}
 
 				void getRT()
 				{
-					RT.value = *get(i.rt, RTEnv);
+					RT = get(i.rt, null);
 				}
 
 				Op opcode = cast(Op)i.opcode;
@@ -4222,7 +4228,7 @@ class MDState
 						}
 						else
 						{
-							MDValue* method = getMM(RS, operation);
+							MDValue* method = getMM(*RS, operation);
 
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform arithmetic on a '%s' and a '%s'", RS.typeString(), RT.typeString());
@@ -4245,7 +4251,7 @@ class MDState
 							getRD().value = -RS.asInt();
 						else
 						{
-							MDValue* method = getMM(RS, MM.Neg);
+							MDValue* method = getMM(*RS, MM.Neg);
 
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform negation on a '%s'", RS.typeString());
@@ -4339,7 +4345,7 @@ class MDState
 						}
 						else
 						{
-							MDValue* method = getMM(RS, operation);
+							MDValue* method = getMM(*RS, operation);
 				
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", RS.typeString(), RT.typeString());
@@ -4360,7 +4366,7 @@ class MDState
 							getRD().value = ~RS.asInt();
 						else
 						{
-							MDValue* method = getMM(RS, MM.Com);
+							MDValue* method = getMM(*RS, MM.Com);
 
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform complement on a '%s'", RS.typeString());
@@ -4415,7 +4421,7 @@ class MDState
 					// Data Transfer
 					case Op.Move:
 						getRS();
-						getRD().value = RS;
+						getRD().value = *RS;
 						break;
 						
 					case Op.LoadBool:
@@ -4439,13 +4445,13 @@ class MDState
 
 						assert(RT.isString(), "trying to new a non-string global");
 
-						MDNamespace env = getEnvironment();
+						MDNamespace env = mCurrentAR.env;
 						MDValue* val = env[RT.asString()];
 
 						if(val !is null)
 							throwRuntimeException("Attempting to create global '%s' that already exists", RT.toString());
 							
-						env[RT.asString()] = RS;
+						env[RT.asString()] = *RS;
 						break;
 
 					// Logical and Control Flow
@@ -4466,7 +4472,7 @@ class MDState
 						Instruction jump = *mCurrentAR.pc;
 						mCurrentAR.pc++;
 
-						int cmpValue = RS.opCmp(&RT);
+						int cmpValue = RS.opCmp(RT);
 
 						if(jump.rd == 1)
 						{
@@ -4500,7 +4506,7 @@ class MDState
 
 						assert(jump.opcode == Op.Je, "invalid 'is' jump");
 
-						bool cmpValue = RS.rawEquals(&RT);
+						bool cmpValue = RS.rawEquals(RT);
 	
 						if(jump.rd == 1)
 						{
@@ -4682,7 +4688,7 @@ class MDState
 	
 					case Op.Throw:
 						getRS();
-						throwRuntimeException(&RS);
+						throwRuntimeException(RS);
 
 					// Function Calling
 					{
@@ -4696,8 +4702,8 @@ class MDState
 
 						MDString methodName = getConst(i.rt).asString();
 
-						getBasedStack(i.rd + 1).value = RS;
-						getBasedStack(i.rd).value = *lookupMethod(&RS, methodName);
+						getBasedStack(i.rd + 1).value = *RS;
+						getBasedStack(i.rd).value = *lookupMethod(RS, methodName);
 
 						assert(i.rd == call.rd, "Op.Method");
 						
@@ -4721,15 +4727,19 @@ class MDState
 						break;
 
 					case Op.Precall:
-						getRS();
+						if(i.rt == 1)
+						{
+							getRSwithEnv();
+							getBasedStack(i.rd + 1).value = RSEnv;
+						}
+						else
+							getRS();
 
 						call = *mCurrentAR.pc;
 						mCurrentAR.pc++;
 
-						getBasedStack(i.rd + 1).value = RSEnv;
-						
 						if(i.rd != i.rs)
-							getRD().value = RS;
+							getBasedStack(i.rd).value = *RS;
 							
 						if(call.opcode == Op.Call)
 						{
@@ -4818,18 +4828,32 @@ class MDState
 					// Array and List Operations
 					case Op.Length:
 						getRS();
-
-						MDValue* method = getMM(RS, MM.Length);
 						
-						if(method.isFunction())
+						switch(RS.type)
 						{
-							uint funcReg = push(method);
-							push(RS);
-							call(funcReg, 1, 1);
-							getRD().value = *getBasedStack(funcReg);
+							case MDValue.Type.String:
+								getRD().value = cast(int)RS.asString().length;
+								break;
+								
+							case MDValue.Type.Array:
+								getRD().value = cast(int)RS.asArray().length;
+								break;
+								
+							default:
+								MDValue* method = getMM(*RS, MM.Length);
+						
+								if(method.isFunction())
+								{
+									uint funcReg = push(method);
+									push(RS);
+									call(funcReg, 1, 1);
+									getRD().value = *getBasedStack(funcReg);
+								}
+								else
+									getRD().value = cast(int)RS.length;
+									
+								break;
 						}
-						else
-							getRD().value = cast(int)RS.length;
 
 						break;
 
@@ -4903,7 +4927,7 @@ class MDState
 							if(RS.isArray())
 								RD.asArray() ~= RS.asArray();
 							else
-								RD.asArray() ~= RS;
+								RD.asArray() ~= *RS;
 
 							break;
 						}
@@ -4948,7 +4972,7 @@ class MDState
 						getRT();
 						MDValue dest;
 
-						index(&dest, &RS, &RT);
+						index(&dest, RS, RT);
 						
 						getRD().value = dest;
 						break;
@@ -4957,7 +4981,7 @@ class MDState
 						getRS();
 						getRT();
 
-						indexAssign(getRD(), &RS, &RT);
+						indexAssign(getRD(), RS, RT);
 						break;
 						
 					case Op.Slice:
@@ -4969,7 +4993,7 @@ class MDState
 
 					case Op.SliceAssign:
 						getRS();
-						sliceAssign(getBasedStack(i.rd), getBasedStack(i.rd + 1), getBasedStack(i.rd + 2), &RS);
+						sliceAssign(getBasedStack(i.rd), getBasedStack(i.rd + 1), getBasedStack(i.rd + 2), RS);
 						break;
 						
 					// Value Creation
@@ -4983,7 +5007,7 @@ class MDState
 
 					case Op.Closure:
 						MDFuncDef newDef = getInnerFunc(i.imm);
-						MDClosure n = new MDClosure(getEnvironment(), newDef);
+						MDClosure n = new MDClosure(mCurrentAR.env, newDef);
 	
 						for(int index = 0; index < newDef.mNumUpvals; index++)
 						{
@@ -5026,7 +5050,7 @@ class MDState
 								RS.typeString(), RT.typeString());
 
 						if(RS.asInstance().castToClass(RT.asClass()))
-							getRD().value = RS;
+							getRD().value = *RS;
 						else
 							getRD().setNull();
 

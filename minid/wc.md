@@ -23,23 +23,23 @@ foreach(index, arg; args)
 	local f = io.File(arg);
 	local buf = "";
 
-	while(!f:eof())
+	while(!f.eof())
 	{
-		local c = intToChar(f:readByte());
+		local c = f.readChar();
 
 		if(c == '\n')
 			++l_cnt;
 
-		if(c:isDigit())
+		if(c.isDigit())
 		{
 			if(inword)
 				buf ~= c;
 		}
-		else if(c:isAlpha())
+		else if(c.isAlpha())
 		{
 			if(!inword)
 			{
-				buf = string.fromChar(c);
+				buf = toString(c);
 				inword = true;
 				++w_cnt;
 			}
@@ -62,7 +62,7 @@ foreach(index, arg; args)
 		}
 	}
 	
-	f:close();
+	f.close();
 
 	if(inword)
 		dictionary[buf] += 1;
@@ -78,5 +78,5 @@ if(#args > 1)
 
 writefln("--------------------------------------");
 
-foreach(index, word1; dictionary:keys():sort())
+foreach(index, word1; dictionary.keys().sort())
 	writefln("%3s %s", dictionary[word1], word1);

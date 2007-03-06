@@ -1,11 +1,36 @@
+/******************************************************************************
+License:
+Copyright (c) 2007 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.baselib;
 
 import minid.types;
 import minid.compiler;
+import minid.utils;
 
 import std.stdio;
 import std.stream;
 import std.format;
+import std.conv;
 
 dchar[] baseFormat(MDState s, MDValue[] params)
 {
@@ -420,6 +445,138 @@ class BaseLib
 		
 		return 0;
 	}
+	
+	int toInt(MDState s)
+	{
+		MDValue val = s.getParam(0);
+
+		switch(val.type)
+		{
+			case MDValue.Type.Bool:
+				s.push(cast(int)val.asBool());
+				break;
+
+			case MDValue.Type.Int:
+				s.push(val.asInt());
+				break;
+
+			case MDValue.Type.Float:
+				s.push(cast(int)val.asFloat());
+				break;
+
+			case MDValue.Type.Char:
+				s.push(cast(int)val.asChar());
+				break;
+				
+			case MDValue.Type.String:
+				s.push(s.safeCode(minid.utils.toInt(val.asString.asUTF32, 10)));
+				break;
+				
+			default:
+				s.throwRuntimeException("Cannot convert type '%s' to int", val.typeString());
+		}
+
+		return 1;
+	}
+	
+	int toFloat(MDState s)
+	{
+		MDValue val = s.getParam(0);
+
+		switch(val.type)
+		{
+			case MDValue.Type.Bool:
+				s.push(cast(float)val.asBool());
+				break;
+
+			case MDValue.Type.Int:
+				s.push(cast(float)val.asInt());
+				break;
+
+			case MDValue.Type.Float:
+				s.push(val.asFloat());
+				break;
+
+			case MDValue.Type.Char:
+				s.push(cast(float)val.asChar());
+				break;
+				
+			case MDValue.Type.String:
+				s.push(s.safeCode(std.conv.toFloat(val.asString.asUTF8)));
+				break;
+
+			default:
+				s.throwRuntimeException("Cannot convert type '%s' to float", val.typeString());
+		}
+
+		return 1;
+	}
+	
+	int toChar(MDState s)
+	{
+		s.push(cast(dchar)s.getIntParam(0));
+		return 1;
+	}
+
+	int namespaceIterator(MDState s)
+	{
+		MDNamespace namespace = s.getUpvalue(0).asNamespace();
+		MDArray keys = s.getUpvalue(1).asArray();
+		int index = s.getUpvalue(2).asInt();
+
+		index++;
+		s.setUpvalue(2u, index);
+
+		if(index >= keys.length)
+			return 0;
+
+		s.push(keys[index]);
+		s.push(namespace[keys[index].asString()]);
+
+		return 2;
+	}
+
+	MDClosure makeNamespaceIterator(MDNamespace ns)
+	{
+		MDValue[3] upvalues;
+
+		upvalues[0].value = ns;
+		upvalues[1].value = ns.keys;
+		upvalues[2].value = -1;
+
+		return MDGlobalState().newClosure(&namespaceIterator, "namespaceIterator", upvalues);
+	}
+
+	int namespaceApply(MDState s)
+	{
+		s.push(makeNamespaceIterator(s.getContext().asNamespace()));
+
+		return 1;
+	}
+	
+	int fieldsOf(MDState s)
+	{
+		if(s.isParam!("class")(0))
+			s.push(makeNamespaceIterator(s.getClassParam(0).fields));
+		else if(s.isParam!("instance")(0))
+			s.push(makeNamespaceIterator(s.getInstanceParam(0).fields));
+		else
+			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0).typeString());
+	
+		return 1;
+	}
+	
+	int methodsOf(MDState s)
+	{
+		if(s.isParam!("class")(0))
+			s.push(makeNamespaceIterator(s.getClassParam(0).methods));
+		else if(s.isParam!("instance")(0))
+			s.push(makeNamespaceIterator(s.getInstanceParam(0).methods));
+		else
+			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0).typeString());
+
+		return 1;
+	}
 }
 
 public void init()
@@ -433,7 +590,12 @@ public void init()
 		setGlobal("delegate"d,     newClosure(&lib.mddelegate,   "delegate"));
 		setGlobal("typeof"d,       newClosure(&lib.mdtypeof,     "typeof"));
 		setGlobal("classof"d,      newClosure(&lib.classof,      "classof"));
+		setGlobal("fieldsOf"d,     newClosure(&lib.fieldsOf,     "fieldsOf"));
+		setGlobal("methodsOf"d,    newClosure(&lib.methodsOf,    "methodsOf"));
 		setGlobal("toString"d,     newClosure(&lib.mdtoString,   "toString"));
+		setGlobal("toInt"d,        newClosure(&lib.toInt,        "toInt"));
+		setGlobal("toFloat"d,      newClosure(&lib.toFloat,      "toFloat"));
+		setGlobal("toChar"d,       newClosure(&lib.toChar,       "toChar"));
 		setGlobal("format"d,       newClosure(&lib.mdformat,     "format"));
 		setGlobal("writefln"d,     newClosure(&lib.mdwritefln,   "writefln"));
 		setGlobal("writef"d,       newClosure(&lib.mdwritef,     "writef"));
@@ -453,5 +615,12 @@ public void init()
 		setGlobal("isInstance"d,   newClosure(&lib.isInstance,   "isInstance"));
 		setGlobal("isDelegate"d,   newClosure(&lib.isDelegate,   "isDelegate"));
 		setGlobal("isNamespace"d,  newClosure(&lib.isNamespace,  "isNamespace"));
+		
+		MDNamespace namespace = MDNamespace.create(
+			"namespace"d, globals,
+			"opApply"d, newClosure(&lib.namespaceApply, "namespace.opApply")
+		);
+		
+		setMetatable(MDValue.Type.Namespace, namespace);
 	}
 }

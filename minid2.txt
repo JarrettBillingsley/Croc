@@ -128,6 +128,7 @@ Keyword:
 	'try'
 	'vararg'
 	'while'
+	'with'
 	
 CharLiteral:
 	"'" (Character | EscapeSequence) "'"
@@ -441,6 +442,7 @@ PostfixExpression:
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier
 	PostfixExpression '(' [Expression {',' Expression}] ')'
+	PostfixExpression '(' 'with' Expression {',' Expression} ')'
 
 PrimaryExpression:
 	Identifier

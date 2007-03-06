@@ -1,3 +1,26 @@
+/******************************************************************************
+License:
+Copyright (c) 2007 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.compiler;
 
 import std.c.stdlib;
@@ -50,6 +73,7 @@ public MDFuncDef compileStatement(Stream source, char[] name, out bool atEOF)
 	}
 
 	fs = new FuncState(Location(utf.toUTF32(name), 1, 1), utf.toUTF32(name));
+	s = s.fold();
 	s.codeGen(fs);
 	fs.codeI(s.mEndLocation.line, Op.Ret, 0, 1);
 
@@ -89,6 +113,7 @@ struct Token
 		Try,
 		Vararg,
 		While,
+		With,
 
 		Add,
 		AddEq,
@@ -178,6 +203,7 @@ struct Token
 		Type.Try: "try",
 		Type.Vararg: "vararg",
 		Type.While: "while",
+		Type.With: "with",
 
 		Type.Add: "+",
 		Type.AddEq: "+=",
@@ -269,6 +295,7 @@ struct Token
 		stringToType["try"] = Type.Try;
 		stringToType["vararg"] = Type.Vararg;
 		stringToType["while"] = Type.While;
+		stringToType["with"] = Type.With;
 		stringToType["("] = Type.LParen;
 		stringToType[")"] = Type.RParen;
 		stringToType["["] = Type.LBracket;
@@ -1593,6 +1620,7 @@ enum ExpType
 struct Exp
 {
 	ExpType type;
+
 	uint index;
 	uint index2;
 	uint index3;
@@ -1600,12 +1628,6 @@ struct Exp
 	bool isTempReg;
 	bool isTempReg2;
 	bool isTempReg3;
-
-	union
-	{
-		int intValue;
-		float floatValue;
-	}
 }
 
 class FuncState
@@ -1770,7 +1792,7 @@ class FuncState
 		mScope = mScope.enclosing;
 
 		if(s.hasUpval)
-			codeClose(line, s.varStart);
+			codeClose(line, s.regStart);
 
 		deactivateLocals(s.varStart, s.regStart);
 
@@ -2106,7 +2128,7 @@ class FuncState
 				{
 					for(Scope* sc = s.mScope; sc !is null; sc = sc.enclosing)
 					{
-						if(sc.varStart <= index)
+						if(sc.regStart <= reg)
 						{
 							sc.hasUpval = true;
 							break;
@@ -2571,7 +2593,7 @@ class FuncState
 	public void codeClose(uint line)
 	{
 		if(mScope.hasUpval)
-			codeI(line, Op.Close, mScope.varStart, 0);
+			codeI(line, Op.Close, mScope.regStart, 0);
 	}
 
 	public void codeClose(uint line, uint reg)
@@ -2712,7 +2734,7 @@ class FuncState
 			throw new MDCompileException(location, "No continuable control structure");
 
 		if(mScope.continueScope.hasUpval)
-			codeClose(location.line, mScope.continueScope.varStart);
+			codeClose(location.line, mScope.continueScope.regStart);
 
 		InstRef* i = new InstRef;
 		i.pc = codeJ(location.line, Op.Jmp, 1, 0);
@@ -2726,7 +2748,7 @@ class FuncState
 			throw new MDCompileException(location, "No breakable control structure");
 
 		if(mScope.breakScope.hasUpval)
-			codeClose(location.line, mScope.breakScope.varStart);
+			codeClose(location.line, mScope.breakScope.regStart);
 
 		InstRef* i = new InstRef;
 		i.pc = codeJ(location.line, Op.Jmp, 1, 0);
@@ -3155,6 +3177,16 @@ class ClassDef
 
 		s.pushTempReg(destReg);
 	}
+	
+	public ClassDef fold()
+	{
+		mBaseClass = mBaseClass.fold();
+		
+		foreach(inout field; mFields)
+			field.initializer = field.initializer.fold();
+		
+		return this;
+	}
 }
 
 class Module
@@ -3229,14 +3261,17 @@ class Module
 
 		try
 		{
-			foreach(Statement s; mStatements)
+			foreach(inout s; mStatements)
+			{
+				s = s.fold();
 				s.codeGen(fs);
+			}
 
 			fs.codeI(mEndLocation.line, Op.Ret, 0, 1);
 		}
 		finally
 		{
-			//showMe(); fs.showMe();
+			//showMe(); fs.showMe(); fflush(stdout);
 		}
 
 		assert(fs.mExpSP == 0, "module - not all expressions have been popped");
@@ -3378,6 +3413,11 @@ abstract class Statement
 	{
 		assert(false, "no codegen routine");
 	}
+	
+	public Statement fold()
+	{
+		return this;
+	}
 }
 
 class ImportStatement : Statement
@@ -3400,7 +3440,7 @@ class ImportStatement : Statement
 		
 		Identifier[] names;
 		names ~= Identifier.parse(t);
-		
+
 		while(t.type == Token.Type.Dot)
 		{
 			t = t.nextToken;
@@ -3436,6 +3476,12 @@ class ScopeStatement : Statement
 		mStatement.codeGen(s);
 		s.popScope(mEndLocation.line);
 	}
+	
+	public override Statement fold()
+	{
+		mStatement = mStatement.fold();
+		return this;
+	}
 }
 
 class ExpressionStatement : Statement
@@ -3470,6 +3516,12 @@ class ExpressionStatement : Statement
 
 		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
+	
+	public override Statement fold()
+	{
+		mExpr = mExpr.fold();
+		return this;
+	}
 }
 
 class DeclarationStatement : Statement
@@ -3492,6 +3544,12 @@ class DeclarationStatement : Statement
 	public override void codeGen(FuncState s)
 	{
 		mDecl.codeGen(s);
+	}
+	
+	public override Statement fold()
+	{
+		mDecl = mDecl.fold();
+		return this;
 	}
 }
 
@@ -3590,6 +3648,11 @@ abstract class Declaration
 	{
 		assert(false, "no declaration codegen routine");
 	}
+	
+	public Declaration fold()
+	{
+		return this;
+	}
 }
 
 class ClassDecl : Declaration
@@ -3655,6 +3718,12 @@ class ClassDecl : Declaration
 
 		mDef.codeGen(s);
 		s.popAssign(mEndLocation.line);
+	}
+	
+	public override Declaration fold()
+	{
+		mDef = mDef.fold();
+		return this;
 	}
 }
 
@@ -3799,6 +3868,12 @@ class VarDecl : Declaration
 			s.activateLocals(mNames.length);
 		}
 	}
+
+	public override VarDecl fold()
+	{
+		mInitializer = mInitializer.fold();
+		return this;
+	}
 }
 
 class SimpleFuncDecl : Declaration
@@ -3834,6 +3909,12 @@ class SimpleFuncDecl : Declaration
 	public override void codeGen(FuncState s)
 	{
 		mFunc.codeGen(s);
+	}
+	
+	public override SimpleFuncDecl fold()
+	{
+		mFunc = mFunc.fold();
+		return this;
 	}
 }
 
@@ -3886,6 +3967,12 @@ class FuncDecl : Declaration
 
 		mDecl.codeGen(s);
 		s.popAssign(mEndLocation.line);
+	}
+	
+	public override Declaration fold()
+	{
+		mDecl = mDecl.fold();
+		return this;
 	}
 }
 
@@ -3991,6 +4078,14 @@ class CompoundStatement : Statement
 		foreach(Statement st; mStatements)
 			st.codeGen(s);
 	}
+	
+	public override CompoundStatement fold()
+	{
+		foreach(inout statement; mStatements)
+			statement = statement.fold();
+			
+		return this;
+	}
 }
 
 class IfStatement : Statement
@@ -4072,6 +4167,30 @@ class IfStatement : Statement
 
 		delete i;
 	}
+	
+	public override Statement fold()
+	{
+		mCondition = mCondition.fold();
+		mIfBody = mIfBody.fold();
+		
+		if(mElseBody)
+			mElseBody = mElseBody.fold();
+			
+		if(mCondition.isConstant)
+		{
+			if(mCondition.isTrue)
+				return mIfBody;
+			else
+			{
+				if(mElseBody)
+					return mElseBody;
+				else
+					return new CompoundStatement(mLocation, mEndLocation, null);
+			}
+		}
+		
+		return this;
+	}
 }
 
 class WhileStatement : Statement
@@ -4109,25 +4228,54 @@ class WhileStatement : Statement
 	public override void codeGen(FuncState s)
 	{
 		InstRef* beginLoop = s.getLabel();
+		
+		if(mCondition.isConstant && mCondition.isTrue)
+		{
+			s.pushScope();
+				s.setBreakable();
+				s.setContinuable();
+				mBody.codeGen(s);
+				s.patchContinues(beginLoop);
+				s.codeJump(mEndLocation.line, beginLoop);
+				s.patchBreaksToHere();
+			s.popScope(mEndLocation.line);
+		}
+		else
+		{
+			InstRef* cond = mCondition.codeCondition(s);
+			s.invertJump(cond);
+	
+			s.pushScope();
+				s.patchTrueToHere(cond);
+				s.setBreakable();
+				s.setContinuable();
+				mBody.codeGen(s);
+				s.patchContinues(beginLoop);
+				s.codeJump(mEndLocation.line, beginLoop);
+				s.patchBreaksToHere();
+			s.popScope(mEndLocation.line);
 
-		InstRef* cond = mCondition.codeCondition(s);
-		s.invertJump(cond);
+			s.patchFalseToHere(cond);
+			s.patchJumpToHere(cond);
 
-		s.pushScope();
-			s.patchTrueToHere(cond);
-			s.setBreakable();
-			s.setContinuable();
-			mBody.codeGen(s);
-			s.patchContinues(beginLoop);
-			s.codeJump(mEndLocation.line, beginLoop);
-			s.patchBreaksToHere();
-		s.popScope(mEndLocation.line);
+			delete cond;
+		}
 
-		s.patchFalseToHere(cond);
-		s.patchJumpToHere(cond);
-
-		delete cond;
 		delete beginLoop;
+	}
+	
+	public override Statement fold()
+	{
+		mCondition = mCondition.fold();
+		mBody = mBody.fold();
+		
+		if(mCondition.isConstant)
+		{
+			if(!mCondition.isTrue)
+				return new CompoundStatement(mLocation, mEndLocation, null);
+		}
+		
+		return this;
 	}
 }
 
@@ -4171,23 +4319,52 @@ class DoWhileStatement : Statement
 	{
 		InstRef* beginLoop = s.getLabel();
 
-		s.pushScope();
-			s.setBreakable();
-			s.setContinuable();
-			mBody.codeGen(s);
-			s.patchContinuesToHere();
-			InstRef* cond = mCondition.codeCondition(s);
-			s.invertJump(cond);
-			s.patchTrueToHere(cond);
-			s.codeJump(mEndLocation.line, beginLoop);
-			s.patchBreaksToHere();
-		s.popScope(mEndLocation.line);
+		if(mCondition.isConstant && mCondition.isTrue)
+		{
+			s.pushScope();
+				s.setBreakable();
+				s.setContinuable();
+				mBody.codeGen(s);
+				s.patchContinuesToHere();
+				s.codeJump(mEndLocation.line, beginLoop);
+				s.patchBreaksToHere();
+			s.popScope(mEndLocation.line);
+		}
+		else
+		{
+			s.pushScope();
+				s.setBreakable();
+				s.setContinuable();
+				mBody.codeGen(s);
+				s.patchContinuesToHere();
+				InstRef* cond = mCondition.codeCondition(s);
+				s.invertJump(cond);
+				s.patchTrueToHere(cond);
+				s.codeJump(mEndLocation.line, beginLoop);
+				s.patchBreaksToHere();
+			s.popScope(mEndLocation.line);
 
-		s.patchFalseToHere(cond);
-		s.patchJumpToHere(cond);
+			s.patchFalseToHere(cond);
+			s.patchJumpToHere(cond);
+	
+			delete cond;
+		}
 
-		delete cond;
 		delete beginLoop;
+	}
+	
+	public override Statement fold()
+	{
+		mBody = mBody.fold();
+		mCondition = mCondition.fold();
+
+		if(mCondition.isConstant)
+		{
+			if(!mCondition.isTrue)
+				return mBody;
+		}
+		
+		return this;
 	}
 }
 
@@ -4269,7 +4446,7 @@ class ForStatement : Statement
 			
 			s.pushScope();
 				s.setContinuable();
-				
+
 				if(mInitDecl)
 					mInitDecl.codeGen(s);
 				else if(mInit)
@@ -4317,6 +4494,37 @@ class ForStatement : Statement
 			s.patchJumpToHere(cond);
 			delete cond;
 		}
+	}
+	
+	public override Statement fold()
+	{
+		if(mInit)
+			mInit = mInit.fold();
+
+		if(mInitDecl)
+			mInitDecl = mInitDecl.fold();
+
+		if(mCondition)
+			mCondition = mCondition.fold();
+
+		if(mIncrement)
+			mIncrement = mIncrement.fold();
+
+		mBody = mBody.fold();
+
+		if(mCondition && mCondition.isConstant)
+		{
+			if(mCondition.isTrue)
+				mCondition = null;
+			else if(mInit)
+				return new ScopeStatement(mLocation, mEndLocation, new ExpressionStatement(mLocation, mEndLocation, mInit));
+			else if(mInitDecl)
+				return new ScopeStatement(mLocation, mEndLocation, new DeclarationStatement(mLocation, mEndLocation, mInitDecl));
+			else
+				return new CompoundStatement(mLocation, mEndLocation, null);
+		}
+
+		return this;
 	}
 }
 
@@ -4464,6 +4672,16 @@ class ForeachStatement : Statement
 			s.popRegister(generator);
 		s.popScope(mEndLocation.line);
 	}
+	
+	public override Statement fold()
+	{
+		foreach(inout c; mContainer)
+			c = c.fold();
+			
+		mBody = mBody.fold();
+
+		return this;
+	}
 }
 
 class SwitchStatement : Statement
@@ -4560,6 +4778,19 @@ class SwitchStatement : Statement
 			s.patchBreaksToHere();
 		s.popScope(mEndLocation.line);
 	}
+	
+	public override Statement fold()
+	{
+		mCondition = mCondition.fold();
+		
+		foreach(inout c; mCases)
+			c = c.fold();
+			
+		if(mDefault)
+			mDefault = mDefault.fold();
+
+		return this;
+	}
 }
 
 class CaseStatement : Statement
@@ -4592,36 +4823,16 @@ class CaseStatement : Statement
 			cases[i] = c;
 			i++;
 		}
-
-		while(true)
+		
+		addCase(OpEqExp.parse(t));
+		
+		while(t.type == Token.Type.Comma)
 		{
-			switch(t.type)
-			{
-				case Token.Type.IntLiteral, Token.Type.CharLiteral:
-					addCase(new IntExp(t.location, t.intValue));
-					t = t.nextToken;
-					break;
-					
-				case Token.Type.StringLiteral:
-					addCase(new StringExp(t.location, t.stringValue));
-					t = t.nextToken;
-					break;
-
-				default:
-					throw new MDCompileException(t.location,
-						"Case value can only be an integer or string literal, not '%s'", t.toString());
-			}
-
-			if(t.type != Token.Type.Comma)
-				break;
-
 			t = t.nextToken;
+			addCase(OpEqExp.parse(t));
 		}
 
 		cases.length = i;
-
-		// OpEqExp.parse() should catch this, but just to be safe
-		assert(cases.length > 0);
 
 		t.check(Token.Type.Colon);
 		t = t.nextToken;
@@ -4642,8 +4853,8 @@ class CaseStatement : Statement
 			addStatement(Statement.parse(t));
 
 		statements.length = i;
-		
-		Location endLocation = statements[$ - 1].mEndLocation;
+
+		Location endLocation = t.location;
 
 		Statement ret = new CompoundStatement(location, endLocation, statements);
 		ret = new ScopeStatement(location, endLocation, ret);
@@ -4651,15 +4862,23 @@ class CaseStatement : Statement
 		for(i = cases.length - 1; i >= 0; i--)
 			ret = new CaseStatement(location, endLocation, cases[i], ret);
 
-		assert(cast(CaseStatement)ret !is null);
-
 		return cast(CaseStatement)ret;
 	}
 
 	public override void codeGen(FuncState s)
 	{
+		if(!mCondition.isConstant)
+			throw new MDCompileException(mLocation, "Case value is not constant");
+
 		s.addCase(mCondition);
 		mBody.codeGen(s);
+	}
+
+	public override CaseStatement fold()
+	{
+		mCondition = mCondition.fold();
+		mBody = mBody.fold();
+		return this;
 	}
 }
 
@@ -4699,7 +4918,7 @@ class DefaultStatement : Statement
 
 		statements.length = i;
 		
-		Location endLocation = statements[$ - 1].mEndLocation;
+		Location endLocation = t.location;
 
 		Statement defaultBody = new CompoundStatement(location, endLocation, statements);
 		defaultBody = new ScopeStatement(location, endLocation, defaultBody);
@@ -4710,6 +4929,12 @@ class DefaultStatement : Statement
 	{
 		s.addDefault();
 		mBody.codeGen(s);
+	}
+
+	public override DefaultStatement fold()
+	{
+		mBody = mBody.fold();
+		return this;
 	}
 }
 
@@ -4840,6 +5065,14 @@ class ReturnStatement : Statement
 					s.codeI(mEndLocation.line, Op.Ret, firstReg, mExprs.length + 1);
 			}
 		}
+	}
+	
+	public override Statement fold()
+	{
+		foreach(inout exp; mExprs)
+			exp = exp.fold();
+			
+		return this;
 	}
 }
 
@@ -4987,6 +5220,19 @@ class TryCatchStatement : Statement
 			delete jumpOverCatch;
 		}
 	}
+
+	public override Statement fold()
+	{
+		mTryBody = mTryBody.fold();
+
+		if(mCatchBody)
+			mCatchBody = mCatchBody.fold();
+			
+		if(mFinallyBody)
+			mFinallyBody = mFinallyBody.fold();
+			
+		return this;
+	}
 }
 
 class ThrowStatement : Statement
@@ -5026,6 +5272,12 @@ class ThrowStatement : Statement
 		s.codeR(mEndLocation.line, Op.Throw, 0, src.index, 0);
 
 		s.freeExpTempRegs(&src);
+	}
+	
+	public override Statement fold()
+	{
+		mExp = mExp.fold();
+		return this;	
 	}
 }
 
@@ -5131,6 +5383,16 @@ abstract class Expression
 	{
 		return false;
 	}
+	
+	public bool isTrue()
+	{
+		return false;
+	}
+	
+	public Expression fold()
+	{
+		return this;
+	}
 }
 
 class Assignment : Expression
@@ -5206,6 +5468,12 @@ class Assignment : Expression
 	public override void checkToNothing()
 	{
 		// OK
+	}
+
+	public override Expression fold()
+	{
+		mRHS = mRHS.fold();
+		return this;
 	}
 }
 
@@ -5340,6 +5608,12 @@ class OpEqExp : BinaryExp
 	{
 		// OK
 	}
+	
+	public override Expression fold()
+	{
+		mOp2 = mOp2.fold();
+		return this;
+	}
 }
 
 class OrOrExp : BinaryExp
@@ -5404,6 +5678,22 @@ class OrOrExp : BinaryExp
 	public override void checkToNothing()
 	{
 		// OK
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant)
+		{
+			if(mOp1.isTrue())
+				return mOp1;
+			else
+				return mOp2;
+		}
+
+		return this;
 	}
 }
 
@@ -5471,6 +5761,22 @@ class AndAndExp : BinaryExp
 	{
 		// OK
 	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant)
+		{
+			if(mOp1.isTrue())
+				return mOp2;
+			else
+				return mOp1;
+		}
+
+		return this;
+	}
 }
 
 class OrExp : BinaryExp
@@ -5500,6 +5806,25 @@ class OrExp : BinaryExp
 		}
 
 		return exp1;
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp e1 = cast(IntExp)mOp1;
+			IntExp e2 = cast(IntExp)mOp2;
+			
+			if(e1 is null || e2 is null)
+				throw new MDCompileException(mLocation, "Bitwise Or must be performed on integers");
+				
+			return new IntExp(mLocation, e1.mValue | e2.mValue);
+		}
+
+		return this;
 	}
 }
 
@@ -5531,6 +5856,25 @@ class XorExp : BinaryExp
 
 		return exp1;
 	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp e1 = cast(IntExp)mOp1;
+			IntExp e2 = cast(IntExp)mOp2;
+			
+			if(e1 is null || e2 is null)
+				throw new MDCompileException(mLocation, "Bitwise Xor must be performed on integers");
+
+			return new IntExp(mLocation, e1.mValue ^ e2.mValue);
+		}
+
+		return this;
+	}
 }
 
 class AndExp : BinaryExp
@@ -5560,6 +5904,25 @@ class AndExp : BinaryExp
 		}
 
 		return exp1;
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp e1 = cast(IntExp)mOp1;
+			IntExp e2 = cast(IntExp)mOp2;
+			
+			if(e1 is null || e2 is null)
+				throw new MDCompileException(mLocation, "Bitwise And must be performed on integers");
+
+			return new IntExp(mLocation, e1.mValue & e2.mValue);
+		}
+
+		return this;
 	}
 }
 
@@ -5654,6 +6017,58 @@ class EqualExp : BinaryExp
 
 		return s.makeJump(mEndLocation.line, Op.Je, mIsTrue);
 	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			if(cast(NullExp)mOp1 && cast(NullExp)mOp2)
+				return new BoolExp(mLocation, mIsTrue ? true : false);
+
+			BoolExp b1 = cast(BoolExp)mOp1;
+			BoolExp b2 = cast(BoolExp)mOp2;
+
+			if(b1 && b2)
+				return new BoolExp(mLocation, mIsTrue ? b1.mValue == b2.mValue : b1.mValue != b2.mValue);
+
+			IntExp i1 = cast(IntExp)mOp1;
+			IntExp i2 = cast(IntExp)mOp2;
+
+			if(i1 && i2)
+				return new BoolExp(mLocation, mIsTrue ? i1.mValue == i2.mValue : i1.mValue != i2.mValue);
+
+			FloatExp f1 = cast(FloatExp)mOp1;
+			FloatExp f2 = cast(FloatExp)mOp2;
+
+			if(f1 && f2)
+				return new BoolExp(mLocation, mIsTrue ? f1.mValue == f2.mValue : f1.mValue != f2.mValue);
+
+			if(i1 && f2)
+				return new BoolExp(mLocation, mIsTrue ? i1.mValue == f2.mValue : i1.mValue != f2.mValue);
+
+			if(f1 && i2)
+				return new BoolExp(mLocation, mIsTrue ? f1.mValue == i2.mValue : f1.mValue != i2.mValue);
+
+			CharExp c1 = cast(CharExp)mOp1;
+			CharExp c2 = cast(CharExp)mOp2;
+
+			if(c1 && c2)
+				return new BoolExp(mLocation, mIsTrue ? c1.mValue == c2.mValue : c1.mValue != c2.mValue);
+				
+			StringExp s1 = cast(StringExp)mOp1;
+			StringExp s2 = cast(StringExp)mOp2;
+			
+			if(s1 && s2)
+				return new BoolExp(mLocation, mIsTrue ? s1.mValue == s2.mValue : s1.mValue != s2.mValue);
+				
+			throw new MDCompileException(mLocation, "Cannot compare different types");
+		}
+
+		return this;
+	}
 }
 
 class CmpExp : BinaryExp
@@ -5746,6 +6161,104 @@ class CmpExp : BinaryExp
 			default: assert(false);
 		}
 	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			int cmpVal = 0;
+
+			if(cast(NullExp)mOp1 && cast(NullExp)mOp2)
+			{
+				cmpVal = 0;
+				goto _done;
+			}
+
+			IntExp i1 = cast(IntExp)mOp1;
+			IntExp i2 = cast(IntExp)mOp2;
+
+			if(i1 && i2)
+			{
+				cmpVal = i1.mValue - i2.mValue;
+				goto _done;
+			}
+
+			FloatExp f1 = cast(FloatExp)mOp1;
+			FloatExp f2 = cast(FloatExp)mOp2;
+
+			if(f1 && f2)
+			{
+				if(f1.mValue < f2.mValue)
+					cmpVal = -1;
+				else if(f1.mValue > f2.mValue)
+					cmpVal = 1;
+				else
+					cmpVal = 0;
+					
+				goto _done;
+			}
+
+			if(i1 && f2)
+			{
+				if(i1.mValue < f2.mValue)
+					cmpVal = -1;
+				else if(i1.mValue > f2.mValue)
+					cmpVal = 1;
+				else
+					cmpVal = 0;
+					
+				goto _done;
+			}
+
+			if(f1 && i2)
+			{
+				if(f1.mValue < i2.mValue)
+					cmpVal = -1;
+				else if(f1.mValue > i2.mValue)
+					cmpVal = 1;
+				else
+					cmpVal = 0;
+					
+				goto _done;
+			}
+
+			CharExp c1 = cast(CharExp)mOp1;
+			CharExp c2 = cast(CharExp)mOp2;
+
+			if(c1 && c2)
+			{
+				cmpVal = c1.mValue - c2.mValue;
+				goto _done;
+			}
+
+			StringExp s1 = cast(StringExp)mOp1;
+			StringExp s2 = cast(StringExp)mOp2;
+
+			if(s1 && s2)
+			{
+				cmpVal = dcmp(s1.mValue, s2.mValue);
+				goto _done;
+			}
+				
+			throw new MDCompileException(mLocation, "Invalid compile-time comparison");
+			
+			_done:
+			
+			switch(mCmpType)
+			{
+				case Token.Type.LT: return new BoolExp(mLocation, cmpVal < 0);
+				case Token.Type.LE: return new BoolExp(mLocation, cmpVal <= 0);
+				case Token.Type.GT: return new BoolExp(mLocation, cmpVal > 0);
+				case Token.Type.GE: return new BoolExp(mLocation, cmpVal >= 0);
+				default: assert(false, "CmpExp fold");
+			}
+		}
+
+		return this;
+	}
 }
 
 class AsExp : BinaryExp
@@ -5770,7 +6283,7 @@ class ShiftExp : BinaryExp
 			case Token.Type.Shl: t = Op.Shl; break;
 			case Token.Type.Shr: t = Op.Shr; break;
 			case Token.Type.UShr: t = Op.UShr; break;
-			default: assert(false, "BaseShiftExp ctor type switch");
+			default: assert(false, "ShiftExp ctor type switch");
 		}
 
 		super(location, endLocation, t, left, right);
@@ -5805,6 +6318,31 @@ class ShiftExp : BinaryExp
 		}
 
 		return exp1;
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp e1 = cast(IntExp)mOp1;
+			IntExp e2 = cast(IntExp)mOp2;
+			
+			if(e1 is null || e2 is null)
+				throw new MDCompileException(mLocation, "Bitshifting must be performed on integers");
+				
+			switch(mType)
+			{
+				case Op.Shl: return new IntExp(mLocation, e1.mValue << e2.mValue);
+				case Op.Shr: return new IntExp(mLocation, e1.mValue >> e2.mValue);
+				case Op.UShr: return new IntExp(mLocation, e1.mValue >>> e2.mValue);
+				default: assert(false, "ShiftExp fold");
+			}
+		}
+
+		return this;
 	}
 }
 
@@ -5860,6 +6398,60 @@ class AddExp : BinaryExp
 
 		return exp1;
 	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp i1 = cast(IntExp)mOp1;
+			IntExp i2 = cast(IntExp)mOp2;
+			
+			if(i1 && i2)
+			{
+				if(mType == Op.Add)
+					return new IntExp(mLocation, i1.mValue + i2.mValue);
+				else
+				{
+					assert(mType == Op.Sub, "AddExp fold 1");
+					return new IntExp(mLocation, i1.mValue - i2.mValue);
+				}
+			}
+
+			FloatExp f1 = cast(FloatExp)mOp1;
+			FloatExp f2 = cast(FloatExp)mOp2;
+			
+			if((f1 && f2) || (f1 && i2) || (i1 && f2))
+			{
+				float val1;
+				float val2;
+				
+				if(i1)
+					val1 = cast(float)i1.mValue;
+				else
+					val1 = f1.mValue;
+					
+				if(i2)
+					val2 = cast(float)i2.mValue;
+				else
+					val2 = f2.mValue;
+					
+				if(mType == Op.Add)
+					return new FloatExp(mLocation, val1 + val2);
+				else
+				{
+					assert(mType == Op.Sub, "AddExp fold 2");
+					return new FloatExp(mLocation, val1 - val2);
+				}
+			}
+				
+			throw new MDCompileException(mLocation, "Addition and Subtraction must be performed on numbers");
+		}
+
+		return this;
+	}
 }
 
 class CatExp : BinaryExp
@@ -5872,37 +6464,10 @@ class CatExp : BinaryExp
 		super(location, endLocation, Op.Cat, left, right);
 	}
 
-	private void collapse()
-	{
-		assert(mCollapsed == false, "repeated CatExp collapse");
-
-		mCollapsed = true;
-
-		CatExp l = cast(CatExp)mOp1;
-		CatExp r = cast(CatExp)mOp2;
-		
-		if(l)
-		{
-			l.collapse();
-			mOps = l.mOps ~ mOps;
-		}
-		else
-			mOps = mOp1 ~ mOps;
-
-		if(r)
-			r.collapse();
-
-		mOps ~= mOp2;
-		
-		mEndLocation = mOps[$ - 1].mEndLocation;
-	}
-
 	public override void codeGen(FuncState s)
 	{
-		if(!mCollapsed)
-			collapse();
-		
-		assert(mOps.length >= 2);
+		assert(mCollapsed is true, "CatExp codeGen not collapsed");
+		assert(mOps.length >= 2, "CatExp codeGen not enough ops");
 
 		uint firstReg = s.nextRegister();
 
@@ -5912,6 +6477,82 @@ class CatExp : BinaryExp
 			s.pushBinOp(mEndLocation.line, Op.Cat, firstReg, 0);
 		else
 			s.pushBinOp(mEndLocation.line, Op.Cat, firstReg, mOps.length + 1);
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+
+		assert(mCollapsed is false, "repeated CatExp fold");
+		mCollapsed = true;
+		
+		CatExp l = cast(CatExp)mOp1;
+		CatExp r = cast(CatExp)mOp2;
+		
+		if(l)
+			mOps = l.mOps ~ mOps;
+		else
+			mOps = mOp1 ~ mOps;
+
+		mOps ~= mOp2;
+
+		mEndLocation = mOps[$ - 1].mEndLocation;
+		
+		for(int i = 0; i < mOps.length - 1; i++)
+		{
+			if(mOps[i].isConstant && mOps[i + 1].isConstant)
+			{
+				StringExp s1 = cast(StringExp)mOps[i];
+				StringExp s2 = cast(StringExp)mOps[i + 1];
+
+				if(s1 && s2)
+				{
+					mOps[i] = new StringExp(mLocation, s1.mValue ~ s2.mValue);
+					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
+					i--;
+					continue;
+				}
+
+				CharExp c1 = cast(CharExp)mOps[i];
+				CharExp c2 = cast(CharExp)mOps[i + 1];
+
+				if(c1 && c2)
+				{
+					dchar[] s = new dchar[2];
+					s[0] = c1.mValue;
+					s[1] = c2.mValue;
+	
+					mOps[i] = new StringExp(mLocation, s);
+					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
+					i--;
+					continue;
+				}
+
+				if(s1 && c2)
+				{
+					mOps[i] = new StringExp(mLocation, s1.mValue ~ c2.mValue);
+					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
+					i--;
+					continue;
+				}
+	
+				if(c1 && s2)
+				{
+					mOps[i] = new StringExp(mLocation, c1.mValue ~ s2.mValue);
+					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
+					i--;
+					continue;
+				}
+
+				throw new MDCompileException(mLocation, "Can only concatenate strings and characters at compile time");
+			}
+		}
+		
+		if(mOps.length == 1)
+			return mOps[0];
+
+		return this;
 	}
 }
 
@@ -5961,6 +6602,70 @@ class MulExp : BinaryExp
 		}
 
 		return exp1;
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			IntExp i1 = cast(IntExp)mOp1;
+			IntExp i2 = cast(IntExp)mOp2;
+			
+			if(i1 && i2)
+			{
+				switch(mType)
+				{
+					case Op.Mul: return new IntExp(mLocation, i1.mValue * i2.mValue);
+					case Op.Mod: return new IntExp(mLocation, i1.mValue % i2.mValue);
+					case Op.Div:
+						if(i2.mValue == 0)
+							throw new MDCompileException(mLocation, "Division by 0");
+
+						return new IntExp(mLocation, i1.mValue / i2.mValue);
+						
+					default: assert(false, "MulExp fold 1");
+				}
+			}
+
+			FloatExp f1 = cast(FloatExp)mOp1;
+			FloatExp f2 = cast(FloatExp)mOp2;
+			
+			if((f1 && f2) || (f1 && i2) || (i1 && f2))
+			{
+				float val1;
+				float val2;
+				
+				if(i1)
+					val1 = cast(float)i1.mValue;
+				else
+					val1 = f1.mValue;
+					
+				if(i2)
+					val2 = cast(float)i2.mValue;
+				else
+					val2 = f2.mValue;
+					
+				switch(mType)
+				{
+					case Op.Mul: return new FloatExp(mLocation, val1 * val2);
+					case Op.Mod: return new FloatExp(mLocation, val1 % val2);
+					case Op.Div:
+						if(val2 == 0.0)
+							throw new MDCompileException(mLocation, "Division by 0");
+
+						return new FloatExp(mLocation, val1 / val2);
+
+					default: assert(false, "MulExp fold 2");
+				}
+			}
+				
+			throw new MDCompileException(mLocation, "Multiplication, Division, and Modulo must be performed on numbers");
+		}
+
+		return this;
 	}
 }
 
@@ -6048,26 +6753,36 @@ class NegExp : UnaryExp
 
 	public override void codeGen(FuncState s)
 	{
-		IntExp intExp = cast(IntExp)mOp;
-
-		if(intExp)
-		{
-			intExp.mValue = -intExp.mValue;
-			intExp.codeGen(s);
-			return;
-		}
-
-		FloatExp floatExp = cast(FloatExp)mOp;
-
-		if(floatExp)
-		{
-			floatExp.mValue = -floatExp.mValue;
-			floatExp.codeGen(s);
-			return;
-		}
-
 		mOp.codeGen(s);
 		s.popUnOp(mEndLocation.line, Op.Neg);
+	}
+
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+
+		if(mOp.isConstant)
+		{
+			IntExp intExp = cast(IntExp)mOp;
+
+			if(intExp)
+			{
+				intExp.mValue = -intExp.mValue;
+				return intExp;
+			}
+
+			FloatExp floatExp = cast(FloatExp)mOp;
+
+			if(floatExp)
+			{
+				floatExp.mValue = -floatExp.mValue;
+				return floatExp;
+			}
+			
+			throw new MDCompileException(mLocation, "Negation must be performed on numbers");
+		}
+
+		return this;
 	}
 }
 
@@ -6080,30 +6795,17 @@ class NotExp : UnaryExp
 
 	public override void codeGen(FuncState s)
 	{
-		BoolExp boolExp = cast(BoolExp)mOp;
-
-		if(boolExp)
-		{
-			boolExp.mValue = !boolExp.mValue;
-			boolExp.codeGen(s);
-			return;
-		}
-
-		NullExp nullExp = cast(NullExp)mOp;
-
-		if(nullExp)
-		{
-			BoolExp e = new BoolExp(nullExp.mLocation, true);
-			e.codeGen(s);
-			return;
-		}
-
 		mOp.codeGen(s);
 		s.popUnOp(mEndLocation.line, Op.Not);
 	}
 
-	public override InstRef* codeCondition(FuncState s)
+	public override Expression fold()
 	{
+		mOp = mOp.fold();
+		
+		if(mOp.isConstant)
+			return new BoolExp(mLocation, !mOp.isTrue);
+
 		CmpExp cmpExp = cast(CmpExp)mOp;
 
 		if(cmpExp)
@@ -6116,7 +6818,7 @@ class NotExp : UnaryExp
 				case Token.Type.GE: cmpExp.mCmpType = Token.Type.LT; break;
 			}
 
-			return cmpExp.codeCondition(s);
+			return cmpExp;
 		}
 
 		EqualExp equalExp = cast(EqualExp)mOp;
@@ -6124,10 +6826,10 @@ class NotExp : UnaryExp
 		if(equalExp)
 		{
 			equalExp.mIsTrue = !equalExp.mIsTrue;
-			return equalExp.codeCondition(s);
+			return equalExp;
 		}
 
-		return super.codeCondition(s);
+		return this;
 	}
 }
 
@@ -6140,17 +6842,28 @@ class ComExp : UnaryExp
 
 	public override void codeGen(FuncState s)
 	{
-		IntExp intExp = cast(IntExp)mOp;
-
-		if(intExp)
-		{
-			intExp.mValue = ~intExp.mValue;
-			intExp.codeGen(s);
-			return;
-		}
-
 		mOp.codeGen(s);
 		s.popUnOp(mEndLocation.line, Op.Com);
+	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		
+		if(mOp.isConstant)
+		{
+			IntExp intExp = cast(IntExp)mOp;
+
+			if(intExp)
+			{
+				intExp.mValue = ~intExp.mValue;
+				return intExp;
+			}
+			
+			throw new MDCompileException(mLocation, "Bitwise complement must be performed on integers");
+		}
+		
+		return this;
 	}
 }
 
@@ -6163,17 +6876,25 @@ class LengthExp : UnaryExp
 
 	public override void codeGen(FuncState s)
 	{
-		StringExp stringExp = cast(StringExp)mOp;
-
-		if(stringExp)
-		{
-			IntExp intExp = new IntExp(stringExp.mLocation, stringExp.mValue.length);
-			intExp.codeGen(s);
-			return;
-		}
-
 		mOp.codeGen(s);
 		s.popUnOp(mEndLocation.line, Op.Length);
+	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		
+		if(mOp.isConstant)
+		{
+			StringExp stringExp = cast(StringExp)mOp;
+			
+			if(stringExp)
+				return new IntExp(mLocation, stringExp.mValue.length);
+
+			throw new MDCompileException(mLocation, "Length must be performed on a string");
+		}
+		
+		return this;
 	}
 }
 
@@ -6203,10 +6924,11 @@ abstract class PostfixExp : UnaryExp
 
 					exp = new DotExp(location, ie.mEndLocation, exp, ie);
 					continue;
-					
+
 				case Token.Type.LParen:
 					t = t.nextToken;
 
+					Expression context;
 					Expression[] args = new Expression[5];
 					uint i = 0;
 
@@ -6218,8 +6940,19 @@ abstract class PostfixExp : UnaryExp
 						args[i] = arg;
 						i++;
 					}
-
-					if(t.type != Token.Type.RParen)
+					
+					if(t.type == Token.Type.With)
+					{
+						t = t.nextToken;
+						context = OpEqExp.parse(t);
+						
+						while(t.type == Token.Type.Comma)
+						{
+							t = t.nextToken;
+							add(OpEqExp.parse(t));
+						}
+					}
+					else if(t.type != Token.Type.RParen)
 					{
 						while(true)
 						{
@@ -6239,7 +6972,7 @@ abstract class PostfixExp : UnaryExp
 					Location endLocation = t.location;
 					t = t.nextToken;
 
-					exp = new CallExp(location, endLocation, exp, args);
+					exp = new CallExp(location, endLocation, exp, context, args);
 					continue;
 
 				case Token.Type.LBracket:
@@ -6336,16 +7069,24 @@ class DotExp : PostfixExp
 		s.topToSource(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
 	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		return this;
+	}
 }
 
 class CallExp : PostfixExp
 {
+	protected Expression mContext;
 	protected Expression[] mArgs;
 
-	public this(Location location, Location endLocation, Expression operand, Expression[] args)
+	public this(Location location, Location endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(location, endLocation, operand);
 
+		mContext = context;
 		mArgs = args;
 	}
 
@@ -6353,7 +7094,7 @@ class CallExp : PostfixExp
 	{
 		DotExp dotExp = cast(DotExp)mOp;
 
-		if(dotExp !is null)
+		if(dotExp !is null && mContext is null)
 		{
 			Identifier methodName = dotExp.mIdent.mIdent;
 
@@ -6393,10 +7134,16 @@ class CallExp : PostfixExp
 
 			s.pushRegister();
 			uint thisReg = s.pushRegister();
+			
+			if(mContext)
+			{
+				mContext.codeGen(s);
+				s.popMoveTo(mOp.mEndLocation.line, thisReg);
+			}
 
 			Expression.codeGenListToNextReg(s, mArgs);
-			
-			s.codeR(mOp.mEndLocation.line, Op.Precall, funcReg, src.index, 0);
+
+			s.codeR(mOp.mEndLocation.line, Op.Precall, funcReg, src.index, (mContext is null) ? 1 : 0);
 			s.popRegister(thisReg);
 
 			if(mArgs.length == 0)
@@ -6416,6 +7163,16 @@ class CallExp : PostfixExp
 	public bool isMultRet()
 	{
 		return true;
+	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+
+		foreach(inout arg; mArgs)
+			arg = arg.fold();
+			
+		return this;
 	}
 }
 
@@ -6439,6 +7196,31 @@ class IndexExp : PostfixExp
 		mIndex.codeGen(s);
 		s.popIndex(mEndLocation.line);
 	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		mIndex = mIndex.fold();
+		
+		if(mOp.isConstant && mIndex.isConstant)
+		{
+			StringExp str = cast(StringExp)mOp;
+			IntExp idx = cast(IntExp)mIndex;
+
+			if(str is null || idx is null)
+				throw new MDCompileException(mLocation, "Can only index strings with integers at compile time");
+
+			if(idx.mValue < 0)
+				idx.mValue += str.mValue.length;
+
+			if(idx.mValue < 0 || idx.mValue >= str.mValue.length)
+				throw new MDCompileException(mLocation, "Invalid string index");
+
+			return new CharExp(mLocation, str.mValue[idx.mValue]);
+		}
+
+		return this;
+	}
 }
 
 class SliceExp : PostfixExp
@@ -6460,6 +7242,39 @@ class SliceExp : PostfixExp
 		Expression.codeGenListToNextReg(s, [mOp, mLoIndex, mHiIndex]);
 
 		s.pushSlice(mEndLocation.line, reg);
+	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		mLoIndex = mLoIndex.fold();
+		mHiIndex = mHiIndex.fold();
+
+		if(mOp.isConstant && mLoIndex.isConstant && mHiIndex.isConstant)
+		{
+			StringExp str = cast(StringExp)mOp;
+			IntExp lo = cast(IntExp)mLoIndex;
+			IntExp hi = cast(IntExp)mHiIndex;
+
+			if(str is null || lo is null || hi is null)
+				throw new MDCompileException(mLocation, "Can only slice strings with integers at compile time");
+
+			int l = lo.mValue;
+			int h = hi.mValue;
+
+			if(l < 0)
+				l += str.mValue.length;
+
+			if(h < 0)
+				h += str.mValue.length;
+
+			if(l < 0 || l >= str.mValue.length || h < 0 || h >= str.mValue.length || l > h)
+				throw new MDCompileException(mLocation, "Invalid slice indices");
+
+			return new StringExp(mLocation, str.mValue[l .. h]);
+		}
+
+		return this;
 	}
 }
 
@@ -6623,7 +7438,6 @@ class ThisExp : PrimaryExp
 	{
 		return "this";
 	}
-
 }
 
 class NullExp : PrimaryExp
@@ -6656,6 +7470,11 @@ class NullExp : PrimaryExp
 	public override bool isConstant()
 	{
 		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return false;
 	}
 }
 
@@ -6696,6 +7515,11 @@ class BoolExp : PrimaryExp
 	public override bool isConstant()
 	{
 		return true;
+	}
+	
+	public override bool isTrue()
+	{
+		return mValue;
 	}
 }
 
@@ -6821,6 +7645,11 @@ class IntExp : PrimaryExp
 	{
 		return true;
 	}
+	
+	public override bool isTrue()
+	{
+		return (mValue != 0);
+	}
 }
 
 class FloatExp : PrimaryExp
@@ -6858,6 +7687,11 @@ class FloatExp : PrimaryExp
 	{
 		return true;
 	}
+	
+	public override bool isTrue()
+	{
+		return (mValue != 0.0);
+	}
 }
 
 class StringExp : PrimaryExp
@@ -6892,6 +7726,11 @@ class StringExp : PrimaryExp
 	}
 	
 	public override bool isConstant()
+	{
+		return true;
+	}
+	
+	public override bool isTrue()
 	{
 		return true;
 	}
@@ -6958,6 +7797,12 @@ class FuncLiteralExp : PrimaryExp
 	{
 		throw new MDCompileException(mLocation, "Cannot use a function literal as a condition");
 	}
+	
+	public override FuncLiteralExp fold()
+	{
+		mBody = mBody.fold();
+		return this;
+	}
 }
 
 class ClassLiteralExp : PrimaryExp
@@ -6999,6 +7844,12 @@ class ClassLiteralExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Cannot use a class literal as a condition");
+	}
+	
+	public override Expression fold()
+	{
+		mDef = mDef.fold();
+		return this;
 	}
 }
 
@@ -7139,6 +7990,17 @@ class TableCtorExp : PrimaryExp
 	{
 		throw new MDCompileException(mLocation, "Cannot use a table constructor as a condition");
 	}
+	
+	public override Expression fold()
+	{
+		foreach(inout field; mFields)
+		{
+			field[0] = field[0].fold();
+			field[1] = field[1].fold();
+		}
+
+		return this;
+	}
 }
 
 class ArrayCtorExp : PrimaryExp
@@ -7244,5 +8106,13 @@ class ArrayCtorExp : PrimaryExp
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Cannot use an array constructor as a condition");
+	}
+	
+	public override Expression fold()
+	{
+		foreach(inout field; mFields)
+			field = field.fold();
+			
+		return this;
 	}
 }

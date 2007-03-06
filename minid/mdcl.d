@@ -1,3 +1,26 @@
+/******************************************************************************
+License:
+Copyright (c) 2007 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.mdcl;
 
 import minid.compiler;
@@ -90,7 +113,7 @@ void main(char[][] args)
 				break _argLoop;
 		}
 	}
-	
+
 	MDState state = MDInitialize();
 
 	if(inputFile.length > 0)
@@ -101,18 +124,22 @@ void main(char[][] args)
 			def = compileModule(inputFile);
 		else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
 			def = MDModuleDef.loadFromFile(inputFile);
+			
+		MDClosure cl = MDGlobalState().initModule(def, false, state);
 
-		uint funcReg = state.push(MDGlobalState().initModule(def, false, state));
+		uint funcReg = state.push(cl);
+
+		state.push(cl.environment);
 
 		foreach(arg; scriptArgs)
 			state.push(arg);
 
-		state.call(funcReg, scriptArgs.length, 0);
+		state.call(funcReg, scriptArgs.length + 1, 0);
 	}
 
 	if(interactive)
 	{
-		writefln("Type EOF (Ctrl-D on *nix, Ctrl-Z on Windows) and hit enter to end.");
+		writefln("Type EOF (Ctrl-D on *nix, Ctrl-Z on DOS) and hit enter to end.");
 
 		char[] buffer;
 

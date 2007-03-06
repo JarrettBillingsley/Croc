@@ -49,7 +49,7 @@ local function mixinProperties(classType, vararg)
 		if(getter is null)
 			throw format(classType, ".opIndex() - Property '%s' has no getter", key);
 
-		return getter(this);
+		return getter(with this);
 	};
 
 	classType.opIndexAssign = function(key, value)
@@ -58,13 +58,13 @@ local function mixinProperties(classType, vararg)
 
 		if(prop is null)
 			throw format(classType, ".opIndexAssign() - Property '%s' does not exist", key);
-			
+
 		local setter = prop.setter;
-		
+
 		if(setter is null)
 			throw format(classType, ".opIndexAssign() - Property '%s' has no setter", key);
-			
-		setter(this, value);
+
+		setter(with this, value);
 	};
 
 	foreach(k, v; [vararg])
@@ -101,43 +101,44 @@ local class PropTest
 }
 
 // Mix in the properties.
-mixinProperties(
+mixinProperties
+(
 	PropTest,
 
 	{
 		name = "x",
 		
-		function setter(me, value)
+		function setter(value)
 		{
-			me.mX = value;
+			mX = value;
 		}
 
-		function getter(me)
+		function getter()
 		{
-			return me.mX;
+			return mX;
 		}
 	},
 
 	{
 		name = "y",
 
-		function setter(me, value)
+		function setter(value)
 		{
-			me.mY = value;
+			mY = value;
 		}
 
-		function getter(me)
+		function getter()
 		{
-			return me.mY;
+			return mY;
 		}
 	},
 
 	{
 		name = "name",
 
-		function getter(me)
+		function getter()
 		{
-			return me.mName;
+			return mName;
 		}
 	}
 );
@@ -161,6 +162,7 @@ catch(e)
 }
 
 writefln();
+
 
 // Some container classes.
 
@@ -458,8 +460,8 @@ for(local i = 0; i < 10; ++i)
 
 writefln("This should be the values 0 through 9:");
 
-for(local i = 0; i < #arr; ++i)
-	writefln(arr[i]());
+foreach(func; arr)
+	writefln(func());
 
 writefln();
 
@@ -554,8 +556,8 @@ local function vargs(vararg)
 
 	writefln("num varargs: ", #args);
 
-	for(local i = 0; i < #args; ++i)
-		writefln("args[", i, "] = ", args[i]);
+	foreach(i, v; args)
+		writefln("args[", i, "] = ", v);
 }
 
 vargs();

@@ -1,3 +1,26 @@
+/******************************************************************************
+License:
+Copyright (c) 2007 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.tablelib;
 
 import minid.types;
@@ -11,8 +34,6 @@ class TableLib
 			"dup",       new MDClosure(namespace, &dup,      "table.dup"),
 			"keys",      new MDClosure(namespace, &keys,     "table.keys"),
 			"values",    new MDClosure(namespace, &values,   "table.values"),
-			"remove",    new MDClosure(namespace, &remove,   "table.remove"),
-			"contains",  new MDClosure(namespace, &contains, "table.contains"),
 			"opApply",   new MDClosure(namespace, &apply,    "table.opApply"),
 			"each",      new MDClosure(namespace, &each,     "table.each")
 		);
@@ -36,30 +57,6 @@ class TableLib
 		return 1;
 	}
 	
-	int remove(MDState s)
-	{
-		s.getContext().asTable().remove(s.getParam(0));
-		return 0;
-	}
-	
-	int contains(MDState s)
-	{
-		MDValue key = s.getParam(0);
-		MDValue* val = (key in s.getContext().asTable());
-
-		if(val is null)
-		{
-			s.push(false);
-			return 1;
-		}
-		else
-		{
-			s.push(true);
-			s.push(val);
-			return 2;
-		}
-	}
-
 	int iterator(MDState s)
 	{
 		MDTable table = s.getUpvalue(0).asTable();
