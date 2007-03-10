@@ -101,6 +101,7 @@ struct Token
 		Global,
 		If,
 		Import,
+		In,
 		Is,
 		Local,
 		Module,
@@ -191,6 +192,7 @@ struct Token
 		Type.Global: "global",
 		Type.If: "if",
 		Type.Import: "import",
+		Type.In: "in",
 		Type.Is: "is",
 		Type.Local: "local",
 		Type.Module: "module",
@@ -283,6 +285,7 @@ struct Token
 		stringToType["global"] = Type.Global;
 		stringToType["if"] = Type.If;
 		stringToType["import"] = Type.Import;
+		stringToType["in"] = Type.In;
 		stringToType["is"] = Type.Is;
 		stringToType["local"] = Type.Local;
 		stringToType["module"] = Type.Module;
@@ -1718,13 +1721,13 @@ class FuncState
 			activateLocals(1);
 		}
 	}
-	
+
 	public uint tagLocal(uint val)
 	{
 		if(val > MaxRegisters)
 			throw new MDCompileException(mLocation, "Too many locals");
 			
-		return (val & ~Instruction.locLocal) | Instruction.locLocal;
+		return (val & ~Instruction.locMask) | Instruction.locLocal;
 	}
 	
 	public uint tagConst(uint val)
@@ -1732,7 +1735,7 @@ class FuncState
 		if(val > MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
-		return (val & ~Instruction.locConst) | Instruction.locConst;
+		return (val & ~Instruction.locMask) | Instruction.locConst;
 	}
 	
 	public uint tagUpval(uint val)
@@ -1740,7 +1743,7 @@ class FuncState
 		if(val > MaxUpvalues)
 			throw new MDCompileException(mLocation, "Too many upvalues");
 
-		return (val & ~Instruction.locUpval) | Instruction.locUpval;
+		return (val & ~Instruction.locMask) | Instruction.locUpval;
 	}
 	
 	public uint tagGlobal(uint val)
@@ -1748,7 +1751,7 @@ class FuncState
 		if(val > MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
-		return (val & ~Instruction.locGlobal) | Instruction.locGlobal;
+		return (val & ~Instruction.locMask) | Instruction.locGlobal;
 	}
 	
 	public bool isLocalTag(uint val)
@@ -2513,11 +2516,11 @@ class FuncState
 				break;
 
 			case ExpType.True:
-				temp.index = tagConst(codeIntConst(1));
+				temp.index = tagConst(codeBoolConst(true));
 				break;
 
 			case ExpType.False:
-				temp.index = tagConst(codeIntConst(0));
+				temp.index = tagConst(codeBoolConst(false));
 				break;
 
 			case ExpType.Const:
@@ -2772,6 +2775,23 @@ class FuncState
 
 		return mConstants.length - 1;
 	}
+	
+	public int codeBoolConst(bool b)
+	{
+		foreach(uint i, MDValue v; mConstants)
+			if(v.isBool() && v.asBool() == b)
+				return i;
+
+		MDValue v;
+		v.value = b;
+
+		mConstants ~= v;
+
+		if(mConstants.length > MaxConstants)
+			throw new MDCompileException(mLocation, "Too many constants in function");
+
+		return mConstants.length - 1;
+	}
 
 	public int codeIntConst(int x)
 	{
@@ -2892,6 +2912,7 @@ class FuncState
 	public void showMe(uint tab = 0)
 	{
 		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString(), " (guessed name: %s)", mGuessedName);
+		writefln(string.repeat("\t", tab), "Num params: ", mNumParams, " Vararg: ", mIsVararg, " Stack size: ", mStackSize);
 
 		foreach(uint i, FuncState s; mInnerFuncs)
 		{
@@ -3184,6 +3205,9 @@ class ClassDef
 		
 		foreach(inout field; mFields)
 			field.initializer = field.initializer.fold();
+			
+		foreach(inout method; mMethods)
+			method = method.fold();
 		
 		return this;
 	}
@@ -3871,7 +3895,9 @@ class VarDecl : Declaration
 
 	public override VarDecl fold()
 	{
-		mInitializer = mInitializer.fold();
+		if(mInitializer)
+			mInitializer = mInitializer.fold();
+	
 		return this;
 	}
 }
@@ -5472,6 +5498,9 @@ class Assignment : Expression
 
 	public override Expression fold()
 	{
+		foreach(inout exp; mLHS)
+			exp = exp.fold();
+			
 		mRHS = mRHS.fold();
 		return this;
 	}
@@ -6111,6 +6140,21 @@ class CmpExp : BinaryExp
 					exp2 = ShiftExp.parse(t);
 					exp1 = new AsExp(location, exp2.mEndLocation, exp1, exp2);
 					continue;
+					
+				case Token.Type.In:
+					t = t.nextToken;
+					exp2 = ShiftExp.parse(t);
+					exp1 = new InExp(location, exp2.mEndLocation, exp1, exp2);
+					continue;
+					
+				case Token.Type.Not:
+					if(t.nextToken.type != Token.Type.In)
+						break;
+
+					t = t.nextToken.nextToken;
+					exp2 = ShiftExp.parse(t);
+					exp1 = new NotInExp(location, exp2.mEndLocation, exp1, exp2);
+					continue;
 
 				default:
 					break;
@@ -6269,6 +6313,22 @@ class AsExp : BinaryExp
 			throw new MDCompileException(location, "Neither argument of an 'as' expression may be a constant");
 			
 		super(location, endLocation, Op.As, left, right);
+	}
+}
+
+class InExp : BinaryExp
+{
+	public this(Location location, Location endLocation, Expression left, Expression right)
+	{
+		super(location, endLocation, Op.In, left, right);
+	}
+}
+
+class NotInExp : BinaryExp
+{
+	public this(Location location, Location endLocation, Expression left, Expression right)
+	{
+		super(location, endLocation, Op.NotIn, left, right);
 	}
 }
 
@@ -6544,11 +6604,9 @@ class CatExp : BinaryExp
 					i--;
 					continue;
 				}
-
-				throw new MDCompileException(mLocation, "Can only concatenate strings and characters at compile time");
 			}
 		}
-		
+
 		if(mOps.length == 1)
 			return mOps[0];
 
@@ -6760,7 +6818,7 @@ class NegExp : UnaryExp
 	public override Expression fold()
 	{
 		mOp = mOp.fold();
-
+		
 		if(mOp.isConstant)
 		{
 			IntExp intExp = cast(IntExp)mOp;
@@ -6998,7 +7056,7 @@ abstract class PostfixExp : UnaryExp
 						else
 						{
 							// a[ .. 0]
-							hiIndex = Expression.parse(t);
+							hiIndex = OpEqExp.parse(t);
 							t.check(Token.Type.RBracket);
 							endLocation = t.location;
 							t = t.nextToken;
@@ -7008,7 +7066,7 @@ abstract class PostfixExp : UnaryExp
 					}
 					else
 					{
-						loIndex = Expression.parse(t);
+						loIndex = OpEqExp.parse(t);
 
 						if(t.type == Token.Type.DotDot)
 						{
@@ -7024,7 +7082,7 @@ abstract class PostfixExp : UnaryExp
 							else
 							{
 								// a[0 .. 0]
-								hiIndex = Expression.parse(t);
+								hiIndex = OpEqExp.parse(t);
 								t.check(Token.Type.RBracket);
 								endLocation = t.location;
 								t = t.nextToken;

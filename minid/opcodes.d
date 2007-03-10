@@ -49,6 +49,7 @@ enum Op : uint
 	DivEq,
 	EndFinal,
 	Foreach,
+	In,
 	Index,
 	IndexAssign,
 	Is,
@@ -72,6 +73,7 @@ enum Op : uint
 	NewGlobal,
 	NewTable,
 	Not,
+	NotIn,
 	Or,
 	OrEq,
 	PopCatch,
@@ -123,6 +125,7 @@ Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
 Foreach...........I: base reg, num indices
+In................R: dest, src value, src object
 Index.............R: dest, src object, src index
 IndexAssign.......R: dest object, dest index, src
 Is................R: n/a, src, src
@@ -146,6 +149,7 @@ NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
+NotIn.............R: dest, src value, src object
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
@@ -259,6 +263,7 @@ align(1) struct Instruction
 			case Op.DivEq:         return string.format("diveq %s, %s", cr(rd), cr(rs));
 			case Op.EndFinal:      return "endfinal";
 			case Op.Foreach:       return string.format("foreach r%s, %s", rd, uimm);
+			case Op.In:            return string.format("in %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Index:         return string.format("idx %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.IndexAssign:   return string.format("idxa %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Is:            return string.format("is %s, %s", cr(rs), cr(rt));
@@ -282,6 +287,7 @@ align(1) struct Instruction
 			case Op.NewGlobal:     return string.format("newg %s, %s", cr(rs), cr(rt));
 			case Op.NewTable:      return string.format("newtab r%s", rd);
 			case Op.Not:           return string.format("not %s, %s", cr(rd), cr(rs));
+			case Op.NotIn:         return string.format("notin %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Or:            return string.format("or %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.OrEq:          return string.format("oreq %s, %s", cr(rd), cr(rs));
 			case Op.PopCatch:      return "popcatch";

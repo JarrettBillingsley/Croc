@@ -34,6 +34,7 @@ import tablelib = minid.tablelib;
 import mathlib = minid.mathlib;
 import charlib = minid.charlib;
 import iolib = minid.iolib;
+import oslib = minid.oslib;
 
 import path = std.path;
 import file = std.file;
@@ -48,8 +49,9 @@ enum MDStdlib
 	Math =    8,
 	String = 16,
 	Table =  32,
+	OS =     64,
 	Safe = Array | Char | Math | String | Table,
-	All = Array | Char | IO | Math | String | Table,
+	All = Array | Char | IO | Math | String | Table | OS,
 }
 
 MDState MDInitialize(MDStdlib libs = MDStdlib.All)
@@ -77,6 +79,9 @@ MDState MDInitialize(MDStdlib libs = MDStdlib.All)
 
 		if(libs & MDStdlib.Table)
 			tablelib.init();
+			
+		if(libs & MDStdlib.OS)
+			oslib.init();
 
 		MDGlobalState().registerModuleLoader(&MDFileLoader().load);
 	}

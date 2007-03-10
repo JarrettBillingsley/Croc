@@ -67,18 +67,18 @@ local function mixinProperties(classType, vararg)
 		setter(with this, value);
 	};
 
-	foreach(k, v; [vararg])
+	foreach(i, prop; [vararg])
 	{
-		if(!isTable(v))
-			throw "mixinProperties() - properties must be tables";
-		
-		if(v.name is null)
-			throw format("mixinProperties() - property ", k, " has no name");
+		if(!isTable(prop))
+			throw format("mixinProperties() - property ", i, " is not a table");
 
-		if(v.setter is null && v.getter is null)
-			throw format("mixinProperties() - property '%s' has no getter or setter", v.name);
+		if(prop.name is null)
+			throw format("mixinProperties() - property ", i, " has no name");
 
-		classType.mProps[v.name] = v;
+		if(prop.setter is null && prop.getter is null)
+			throw format("mixinProperties() - property '%s' has no getter or setter", prop.name);
+
+		classType.mProps[prop.name] = prop;
 	}
 }
 

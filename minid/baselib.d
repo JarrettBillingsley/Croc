@@ -31,6 +31,120 @@ import std.stdio;
 import std.stream;
 import std.format;
 import std.conv;
+import std.cstream;
+import std.stream;
+
+MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
+{
+	MDValue[] output;
+
+	void outputValue(inout MDValue val)
+	{
+		output ~= val;
+	}
+
+	int begin = 0;
+
+	for(int i = 0; i < formatStr.length; i++)
+	{
+		dchar c = formatStr[i];
+
+		void nextChar()
+		{
+			i++;
+
+			if(i >= formatStr.length)
+				s.throwRuntimeException("Unterminated format specifier");
+
+			c = formatStr[i];
+		}
+
+		if(c == '%')
+		{
+			nextChar();
+
+			if(c == '%')
+				continue;
+
+			while(true)
+			{
+				switch(c)
+				{
+					case '-', '+', '#', '0', ' ':
+						nextChar();
+						continue;
+
+					default:
+						break;
+				}
+
+				break;
+			}
+
+			if(c == '*')
+				s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
+			else if(std.ctype.isdigit(c))
+			{
+				do
+					nextChar();
+				while(std.ctype.isdigit(c))
+			}
+
+			if(c == '.')
+			{
+				nextChar();
+
+				if(c == '*')
+					s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
+				else if(std.ctype.isdigit(c))
+				{
+					do
+						nextChar();
+					while(std.ctype.isdigit(c))
+				}
+			}
+			
+			char[] fmt = utf.toUTF8(formatStr[begin .. i + 1]);
+			MDValue val;
+
+			switch(c)
+			{
+				case 'd', 'i', 'b', 'o', 'x', 'X':
+					int v;
+					input.readf(fmt, &v);
+					val.value = v;
+					break;
+
+				case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
+					float f;
+					input.readf(fmt, &f);
+					val.value = f;
+					break;
+
+				case 's':
+					char[] v;
+					input.readf(fmt, &v);
+					val.value = v;
+					break;
+
+				case 'c':
+					char v;
+					input.readf(fmt, &v);
+					val.value = cast(dchar)v;
+					break;
+
+				default:
+					// unsupported: %p
+					s.throwRuntimeException("Unsupported format specifier '%c'", c);
+			}
+			
+			outputValue(val);
+			begin = i + 1;
+		}
+	}
+
+	return output;
+}
 
 dchar[] baseFormat(MDState s, MDValue[] params)
 {
@@ -289,6 +403,16 @@ class BaseLib
 		}
 
 		return 0;
+	}
+	
+	int readf(MDState s)
+	{
+		MDValue[] ret = s.safeCode(baseUnFormat(s, s.getStringParam(0).asUTF32(), din));
+		
+		foreach(inout v; ret)
+			s.push(v);
+			
+		return ret.length;
 	}
 
 	int mdformat(MDState s)
@@ -577,7 +701,16 @@ class BaseLib
 
 		return 1;
 	}
+	
+	int timeGetTime(MDState s)
+	{
+		s.push(.timeGetTime());
+		return 1;
+	}
 }
+
+pragma(lib, "winmm.lib");
+extern(Windows) uint timeGetTime();
 
 public void init()
 {
@@ -601,6 +734,7 @@ public void init()
 		setGlobal("writef"d,       newClosure(&lib.mdwritef,     "writef"));
 		setGlobal("writeln"d,      newClosure(&lib.writeln,      "writeln"));
 		setGlobal("write"d,        newClosure(&lib.write,        "write"));
+		setGlobal("readf"d,        newClosure(&lib.readf,        "readf"));
 		setGlobal("isNull"d,       newClosure(&lib.isNull,       "isNull"));
 		setGlobal("isBool"d,       newClosure(&lib.isBool,       "isBool"));
 		setGlobal("isInt"d,        newClosure(&lib.isInt,        "isInt"));
@@ -616,6 +750,8 @@ public void init()
 		setGlobal("isDelegate"d,   newClosure(&lib.isDelegate,   "isDelegate"));
 		setGlobal("isNamespace"d,  newClosure(&lib.isNamespace,  "isNamespace"));
 		
+		setGlobal("timeGetTime"d,  newClosure(&lib.timeGetTime,  "timeGetTime"));
+
 		MDNamespace namespace = MDNamespace.create(
 			"namespace"d, globals,
 			"opApply"d, newClosure(&lib.namespaceApply, "namespace.opApply")

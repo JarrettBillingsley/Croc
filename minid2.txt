@@ -116,6 +116,7 @@ Keyword:
 	'global'
 	'if'
 	'import'
+	'in'
 	'is'
 	'local'
 	'module'
@@ -405,6 +406,8 @@ EqualExpression:
 RelExpression:
 	ShiftExpression
 	RelExpression 'as' ShiftExpression
+	RelExpression 'in' ShiftExpression
+	RelExpression '!' 'in' ShiftExpression
 	RelExpression '<' ShiftExpression
 	RelExpression '<=' ShiftExpression
 	RelExpression '>' ShiftExpression

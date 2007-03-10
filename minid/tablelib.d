@@ -31,29 +31,41 @@ class TableLib
 	{
 		namespace.addList
 		(
-			"dup",       new MDClosure(namespace, &dup,      "table.dup"),
-			"keys",      new MDClosure(namespace, &keys,     "table.keys"),
-			"values",    new MDClosure(namespace, &values,   "table.values"),
-			"opApply",   new MDClosure(namespace, &apply,    "table.opApply"),
-			"each",      new MDClosure(namespace, &each,     "table.each")
+			"dup"d,     new MDClosure(namespace, &dup,    "table.dup"),
+			"keys"d,    new MDClosure(namespace, &keys,   "table.keys"),
+			"values"d,  new MDClosure(namespace, &values, "table.values"),
+			"opApply"d, new MDClosure(namespace, &apply,  "table.opApply"),
+			"each"d,    new MDClosure(namespace, &each,   "table.each")
 		);
-	}
+		
+		MDNamespace table = new MDNamespace("table"d, MDGlobalState().globals);
+		table.addList
+		(
+			"dup"d,    new MDClosure(table, &staticDup,    "table.dup"),
+			"keys"d,   new MDClosure(table, &staticKeys,   "table.keys"),
+			"values"d, new MDClosure(table, &staticValues, "table.values"),
+			"apply"d,  new MDClosure(table, &staticApply,  "table.apply"),
+			"each"d,   new MDClosure(table, &staticEach,   "table.each")
+		);
 
-	int dup(MDState s)
+		MDGlobalState().setGlobal("table"d, table);
+	}
+	
+	int dupImpl(MDState s, MDTable t)
 	{
-		s.push(s.getContext().asTable().dup);
+		s.push(t.dup);
 		return 1;
 	}
 	
-	int keys(MDState s)
+	int keysImpl(MDState s, MDTable t)
 	{
-		s.push(s.getContext().asTable().keys);
+		s.push(t.keys);
 		return 1;
 	}
 	
-	int values(MDState s)
+	int valuesImpl(MDState s, MDTable t)
 	{
-		s.push(s.getContext().asTable().values);
+		s.push(t.values);
 		return 1;
 	}
 	
@@ -74,27 +86,24 @@ class TableLib
 
 		return 2;
 	}
-
-	int apply(MDState s)
+	
+	int applyImpl(MDState s, MDTable t)
 	{
 		MDValue[3] upvalues;
 
-		upvalues[0].value = s.getContext().asTable();
-		upvalues[1].value = upvalues[0].asTable.keys;
+		upvalues[0].value = t;
+		upvalues[1].value = t.keys;
 		upvalues[2].value = -1;
 
 		s.push(MDGlobalState().newClosure(&iterator, "table.iterator", upvalues));
-
 		return 1;
 	}
-
-	int each(MDState s)
+	
+	int eachImpl(MDState s, MDTable t, MDClosure func)
 	{
-		MDTable table = s.getContext().asTable();
-		MDClosure func = s.getClosureParam(0);
-		MDValue tableVal = MDValue(table);
+		MDValue tableVal = MDValue(t);
 
-		foreach(k, v; table)
+		foreach(k, v; t)
 		{
 			s.easyCall(func, 1, tableVal, k, v);
 			
@@ -103,8 +112,58 @@ class TableLib
 			if(ret.isBool() && ret.asBool == false)
 				break;
 		}
-		
+
 		return 0;
+	}
+
+	int dup(MDState s)
+	{
+		return dupImpl(s, s.getContext().asTable());
+	}
+
+	int keys(MDState s)
+	{
+		return keysImpl(s, s.getContext().asTable());
+	}
+	
+	int values(MDState s)
+	{
+		return valuesImpl(s, s.getContext().asTable());
+	}
+
+	int apply(MDState s)
+	{
+		return applyImpl(s, s.getContext().asTable());
+	}
+
+	int each(MDState s)
+	{
+		return eachImpl(s, s.getContext().asTable(), s.getClosureParam(0));
+	}
+	
+	int staticDup(MDState s)
+	{
+		return dupImpl(s, s.getTableParam(0));
+	}
+
+	int staticKeys(MDState s)
+	{
+		return keysImpl(s, s.getTableParam(0));
+	}
+
+	int staticValues(MDState s)
+	{
+		return valuesImpl(s, s.getTableParam(0));
+	}
+	
+	int staticApply(MDState s)
+	{
+		return applyImpl(s, s.getTableParam(0));
+	}
+	
+	int staticEach(MDState s)
+	{
+		return eachImpl(s, s.getTableParam(0), s.getClosureParam(1));
 	}
 }
 

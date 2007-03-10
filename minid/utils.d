@@ -498,7 +498,7 @@ template MakeVersion(uint major, uint minor)
 }
 
 // The current version of MiniD.  (this is kind of buried here)
-const uint MiniDVersion = MakeVersion!(0, 3);
+const uint MiniDVersion = MakeVersion!(0, 4);
 
 // See if T is a type that can't be automatically serialized.
 template isInvalidSerializeType(T)
@@ -600,8 +600,17 @@ void Serialize(T)(Stream s, T value)
 	}
 	else static if(method == SerializeMethod.Vector)
 	{
-		s.write(value.length);
-		s.writeExact(value.ptr, typeof(T[0]).sizeof * value.length);
+		static if(is(T == dchar[]) || is(T == wchar[]))
+		{
+			char[] str = utf.toUTF8(value);
+			s.write(str.length);
+			s.writeExact(str.ptr, char.sizeof * str.length);
+		}
+		else
+		{
+			s.write(value.length);
+			s.writeExact(value.ptr, typeof(T[0]).sizeof * value.length);
+		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
@@ -640,8 +649,22 @@ void Deserialize(T)(Stream s, out T dest)
 	{
 		size_t len;
 		s.read(len);
-		dest.length = len;
-		s.readExact(dest.ptr, typeof(T[0]).sizeof * dest.length);
+		
+		static if(is(T == dchar[]) || is(T == wchar[]))
+		{
+			char[] str = new char[len];
+			s.readExact(str.ptr, char.sizeof * len);
+			
+			static if(is(T == dchar[]))
+				dest = utf.toUTF32(str);
+			else
+				dest = utf.toUTF16(str);
+		}
+		else
+		{
+			dest.length = len;
+			s.readExact(dest.ptr, typeof(T[0]).sizeof * dest.length);
+		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
