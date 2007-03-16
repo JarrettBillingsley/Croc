@@ -35,6 +35,7 @@ import mathlib = minid.mathlib;
 import charlib = minid.charlib;
 import iolib = minid.iolib;
 import oslib = minid.oslib;
+import regexplib = minid.regexplib;
 
 import path = std.path;
 import file = std.file;
@@ -42,16 +43,17 @@ import utf = std.utf;
 
 enum MDStdlib
 {
-	None =    0,
-	Array =   1,
-	Char =    2,
-	IO =      4,
-	Math =    8,
-	String = 16,
-	Table =  32,
-	OS =     64,
-	Safe = Array | Char | Math | String | Table,
-	All = Array | Char | IO | Math | String | Table | OS,
+	None =      0,
+	Array =     1,
+	Char =      2,
+	IO =        4,
+	Math =      8,
+	String =   16,
+	Table =    32,
+	OS =       64,
+	Regexp =  128,
+	Safe = Array | Char | Math | String | Table | Regexp,
+	All = Safe | IO | OS,
 }
 
 MDState MDInitialize(MDStdlib libs = MDStdlib.All)
@@ -82,6 +84,9 @@ MDState MDInitialize(MDStdlib libs = MDStdlib.All)
 			
 		if(libs & MDStdlib.OS)
 			oslib.init();
+			
+		if(libs & MDStdlib.Regexp)
+			regexplib.init();
 
 		MDGlobalState().registerModuleLoader(&MDFileLoader().load);
 	}

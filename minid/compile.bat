@@ -1,6 +1,6 @@
 @echo off
 
-set BASEFILES=minid.d types.d compiler.d opcodes.d utils.d stringlib.d oslib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
+set BASEFILES=minid.d types.d compiler.d opcodes.d utils.d regexplib.d stringlib.d oslib.d arraylib.d tablelib.d baselib.d mathlib.d charlib.d iolib.d
 
 rem goto makemdcl
 rem goto makeminidc

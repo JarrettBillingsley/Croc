@@ -1393,6 +1393,16 @@ class MDArray : MDObject
 
 		return ret;
 	}
+	
+	public static MDArray create(T)(T[] array)
+	{
+		MDArray ret = new MDArray(array.length);
+		
+		foreach(i, val; array)
+			putInValue(ret.mData[i], val);
+			
+		return ret;	
+	}
 
 	public override MDArray asArray()
 	{

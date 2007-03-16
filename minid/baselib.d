@@ -701,16 +701,7 @@ class BaseLib
 
 		return 1;
 	}
-	
-	int timeGetTime(MDState s)
-	{
-		s.push(.timeGetTime());
-		return 1;
-	}
 }
-
-pragma(lib, "winmm.lib");
-extern(Windows) uint timeGetTime();
 
 public void init()
 {
@@ -749,10 +740,9 @@ public void init()
 		setGlobal("isInstance"d,   newClosure(&lib.isInstance,   "isInstance"));
 		setGlobal("isDelegate"d,   newClosure(&lib.isDelegate,   "isDelegate"));
 		setGlobal("isNamespace"d,  newClosure(&lib.isNamespace,  "isNamespace"));
-		
-		setGlobal("timeGetTime"d,  newClosure(&lib.timeGetTime,  "timeGetTime"));
 
-		MDNamespace namespace = MDNamespace.create(
+		MDNamespace namespace = MDNamespace.create
+		(
 			"namespace"d, globals,
 			"opApply"d, newClosure(&lib.namespaceApply, "namespace.opApply")
 		);

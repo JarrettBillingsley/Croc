@@ -43,30 +43,30 @@ class StringLib
 		
 		namespace.addList
 		(
-			"toInt",      new MDClosure(namespace, &toInt,      "string.toInt"),
-			"toFloat",    new MDClosure(namespace, &toFloat,    "string.toFloat"),
-			"compare",    new MDClosure(namespace, &compare,    "string.compare"),
-			"icompare",   new MDClosure(namespace, &icompare,   "string.icompare"),
-			"find",       new MDClosure(namespace, &find,       "string.find"),
-			"ifind",      new MDClosure(namespace, &ifind,      "string.ifind"),
-			"rfind",      new MDClosure(namespace, &rfind,      "string.rfind"),
-			"irfind",     new MDClosure(namespace, &irfind,     "string.irfind"),
-			"toLower",    new MDClosure(namespace, &toLower,    "string.toLower"),
-			"toUpper",    new MDClosure(namespace, &toUpper,    "string.toUpper"),
-			"repeat",     new MDClosure(namespace, &repeat,     "string.repeat"),
-			"split",      new MDClosure(namespace, &split,      "string.split"),
-			"splitLines", new MDClosure(namespace, &splitLines, "string.splitLines"),
-			"strip",      new MDClosure(namespace, &strip,      "string.strip"),
-			"lstrip",     new MDClosure(namespace, &lstrip,     "string.lstrip"),
-			"rstrip",     new MDClosure(namespace, &rstrip,     "string.rstrip"),
-			"replace",    new MDClosure(namespace, &replace,    "string.replace"),
-			"opApply",    new MDClosure(namespace, &apply,      "string.opApply")
+			"toInt"d,      new MDClosure(namespace, &toInt,      "string.toInt"),
+			"toFloat"d,    new MDClosure(namespace, &toFloat,    "string.toFloat"),
+			"compare"d,    new MDClosure(namespace, &compare,    "string.compare"),
+			"icompare"d,   new MDClosure(namespace, &icompare,   "string.icompare"),
+			"find"d,       new MDClosure(namespace, &find,       "string.find"),
+			"ifind"d,      new MDClosure(namespace, &ifind,      "string.ifind"),
+			"rfind"d,      new MDClosure(namespace, &rfind,      "string.rfind"),
+			"irfind"d,     new MDClosure(namespace, &irfind,     "string.irfind"),
+			"toLower"d,    new MDClosure(namespace, &toLower,    "string.toLower"),
+			"toUpper"d,    new MDClosure(namespace, &toUpper,    "string.toUpper"),
+			"repeat"d,     new MDClosure(namespace, &repeat,     "string.repeat"),
+			"split"d,      new MDClosure(namespace, &split,      "string.split"),
+			"splitLines"d, new MDClosure(namespace, &splitLines, "string.splitLines"),
+			"strip"d,      new MDClosure(namespace, &strip,      "string.strip"),
+			"lstrip"d,     new MDClosure(namespace, &lstrip,     "string.lstrip"),
+			"rstrip"d,     new MDClosure(namespace, &rstrip,     "string.rstrip"),
+			"replace"d,    new MDClosure(namespace, &replace,    "string.replace"),
+			"opApply"d,    new MDClosure(namespace, &apply,      "string.opApply")
 		);
-		
+
 		MDGlobalState().setGlobal("string"d, MDNamespace.create
 		(
 			"string"d, MDGlobalState().globals,
-			"join",       new MDClosure(namespace, &join,       "string.join")
+			"join"d,       new MDClosure(namespace, &join,       "string.join")
 		));
 	}
 

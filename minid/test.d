@@ -14,7 +14,7 @@ void main()
 
 	try
 	{
-		MDGlobalState().importModule(`simple`);
+		MDGlobalState().importModule(`regexptest`);
 		//compileModule(`simple.md`);
 	}
 	catch(MDException e)

@@ -34,18 +34,18 @@ class CharLib
 	{
 		namespace.addList
 		(
-			"toLower",     new MDClosure(namespace, &toLower,     "char.toLower"),
-			"toUpper",     new MDClosure(namespace, &toUpper,     "char.toUpper"),
-			"isAlpha",     new MDClosure(namespace, &isAlpha,     "char.isAlpha"),
-			"isAlNum",     new MDClosure(namespace, &isAlNum,     "char.isAlNum"),
-			"isLower",     new MDClosure(namespace, &isLower,     "char.isLower"),
-			"isUpper",     new MDClosure(namespace, &isUpper,     "char.isUpper"),
-			"isDigit",     new MDClosure(namespace, &isDigit,     "char.isDigit"),
-			"isCtrl",      new MDClosure(namespace, &isCtrl,      "char.isCtrl"),
-			"isPunct",     new MDClosure(namespace, &isPunct,     "char.isPunct"),
-			"isSpace",     new MDClosure(namespace, &isSpace,     "char.isSpace"),
-			"isHexDigit",  new MDClosure(namespace, &isHexDigit,  "char.isHexDigit"),
-			"isAscii",     new MDClosure(namespace, &isAscii,     "char.isAscii")
+			"toLower"d,    new MDClosure(namespace, &toLower,     "char.toLower"),
+			"toUpper"d,    new MDClosure(namespace, &toUpper,     "char.toUpper"),
+			"isAlpha"d,    new MDClosure(namespace, &isAlpha,     "char.isAlpha"),
+			"isAlNum"d,    new MDClosure(namespace, &isAlNum,     "char.isAlNum"),
+			"isLower"d,    new MDClosure(namespace, &isLower,     "char.isLower"),
+			"isUpper"d,    new MDClosure(namespace, &isUpper,     "char.isUpper"),
+			"isDigit"d,    new MDClosure(namespace, &isDigit,     "char.isDigit"),
+			"isCtrl"d,     new MDClosure(namespace, &isCtrl,      "char.isCtrl"),
+			"isPunct"d,    new MDClosure(namespace, &isPunct,     "char.isPunct"),
+			"isSpace"d,    new MDClosure(namespace, &isSpace,     "char.isSpace"),
+			"isHexDigit"d, new MDClosure(namespace, &isHexDigit,  "char.isHexDigit"),
+			"isAscii"d,    new MDClosure(namespace, &isAscii,     "char.isAscii")
 		);
 	}
 

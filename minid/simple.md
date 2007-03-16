@@ -1,5 +1,7 @@
 module simple;
 
+
+/+
 // Testing tailcalls.
 global function recurse(x)
 {
@@ -610,4 +612,4 @@ foreach(i, v; ["hi", "bye", "foo"])
 			writefln("switched to something else");
 			break;
 	}
-}
+}+/

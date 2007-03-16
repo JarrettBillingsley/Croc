@@ -175,32 +175,32 @@ class OSLib
 			mCounter = new PerformanceCounter();
 		}
 		
-		public void start()
+		public final void start()
 		{
 			mCounter.start();
 		}
-		
-		public void stop()
+
+		public final void stop()
 		{
 			mCounter.stop();
 		}
-		
-		public int period()
+
+		public final int period()
 		{
 			return mCounter.periodCount();
 		}
-		
-		public float seconds()
+
+		public final float seconds()
 		{
 			return mCounter.microseconds() / 1000000.0;
 		}
-		
-		public float millisecs()
+
+		public final float millisecs()
 		{
 			return mCounter.microseconds() / 1000.0;
 		}
-		
-		public float microsecs()
+
+		public final float microsecs()
 		{
 			return mCounter.microseconds();
 		}
