@@ -1,0 +1,2 @@
+@cd..
+@call run.bat
