@@ -1,0 +1,14 @@
+types.d
+compiler.d
+opcodes.d
+utils.d
+stringlib.d
+arraylib.d
+tablelib.d
+baselib.d
+mathlib.d
+charlib.d
+iolib.d
+-clean
+-Tminid.lib
+-release
