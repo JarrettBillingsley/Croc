@@ -1,6 +1,0 @@
-test.d
--I"C:\dmd\proj\minid"
--clean
--debug
--unittest
--g
