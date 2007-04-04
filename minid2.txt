@@ -71,6 +71,7 @@ Token:
 	'^='
 	'='
 	'=='
+	'?='
 	'.'
 	'..'
 	'!'
@@ -367,6 +368,7 @@ Assignment:
 	AssignmentLHS '|=' Expression
 	AssignmentLHS '^=' Expression
 	AssignmentLHS '&=' Expression
+	AssignmentLHS '?=' Expression
 	'++' PrimaryExpression
 	'--' PrimaryExpression
 	PrimaryExpression '++'
