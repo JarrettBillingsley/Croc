@@ -41,6 +41,7 @@ enum Op : uint
 	Cat,
 	CatEq,
 	Class,
+	ClassOf,
 	Close,
 	Closure,
 	Coroutine,
@@ -92,8 +93,8 @@ enum Op : uint
 	SliceAssign,
 	Sub,
 	SubEq,
-	SwitchInt,
-	SwitchString,
+	Super,
+	Switch,
 	Tailcall,
 	Throw,
 	UShr,
@@ -108,8 +109,6 @@ enum Op : uint
 static assert(Op.max <= Instruction.opcodeMax);
 
 /*
-Impl of Op.Closure must be changed as to which instructions denote local/upvalue for upvalues.
-
 Add...............R: dest, src, src
 AddEq.............R: dest, src, n/a
 And...............R: dest, src, src
@@ -119,6 +118,7 @@ Call..............R: register of func, num params + 1, num results + 1 (both, 0 
 Cat...............R: dest, src, num values + 1 (0 = use all to end of stack);
 CatEq.............R: dest, src, n/a
 Class.............R: dest, name const index, base class reg
+ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
 Coroutine.........R: dest, src, n/a
@@ -170,8 +170,8 @@ Slice.............R: dest, src, n/a (indices are at src + 1 and src + 2)
 SliceAssign.......R: dest, src, n/a (indices are at dest + 1 and dest + 2)
 Sub...............R: dest, src, src
 SubEq.............R: dest, src, n/a
-SwitchInt.........R: n/a, src, index of switch table
-SwitchString......R: n/a, src, index of switch table
+Super.............R: dest, src, n/a
+Switch............R: n/a, src, index of switch table
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
 Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
@@ -259,6 +259,7 @@ align(1) struct Instruction
 			case Op.Cat:           return string.format("cat %s, r%s, %s", cr(rd), rs, rt);
 			case Op.CatEq:         return string.format("cateq %s, %s", cr(rd), cr(rs));
 			case Op.Class:         return string.format("class %s, %s, %s", cr(rd), cr(rs), cr(rt));
+			case Op.ClassOf:       return string.format("classof %s, %s", cr(rd), cr(rs));
 			case Op.Close:         return string.format("close r%s", rd);
 			case Op.Closure:       return string.format("closure %s, %s", cr(rd), uimm);
 			case Op.Coroutine:     return string.format("coroutine %s, %s", cr(rd), cr(rs));
@@ -308,10 +309,10 @@ align(1) struct Instruction
 			case Op.ShrEq:         return string.format("shreq %s, %s", cr(rd), cr(rs));
 			case Op.Slice:         return string.format("slice %s, r%s", cr(rd), rs);
 			case Op.SliceAssign:   return string.format("slicea r%s, %s", rd, cr(rs));
+			case Op.Super:         return string.format("super %s, %s", cr(rd), cr(rs));
 			case Op.Sub:           return string.format("sub %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.SubEq:         return string.format("subeq %s, %s", cr(rd), cr(rs));
-			case Op.SwitchInt:     return string.format("iswitch %s, %s", cr(rs), rt);
-			case Op.SwitchString:  return string.format("sswitch %s, %s", cr(rs), rt);
+			case Op.Switch:        return string.format("switch %s, %s", cr(rs), rt);
 			case Op.Tailcall:      return string.format("tcall r%s, %s", rd, rs);
 			case Op.Throw:         return string.format("throw %s", cr(rs));
 			case Op.UShr:          return string.format("ushr %s, %s, %s", cr(rd), cr(rs), cr(rt));

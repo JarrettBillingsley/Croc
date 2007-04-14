@@ -108,6 +108,7 @@ struct Token
 		Module,
 		Null,
 		Return,
+		Super,
 		Switch,
 		This,
 		Throw,
@@ -202,6 +203,7 @@ struct Token
 		Type.Module: "module",
 		Type.Null: "null",
 		Type.Return: "return",
+		Type.Super: "super",
 		Type.Switch: "switch",
 		Type.This: "this",
 		Type.Throw: "throw",
@@ -298,6 +300,7 @@ struct Token
 		stringToType["module"] = Type.Module;
 		stringToType["null"] = Type.Null;
 		stringToType["return"] = Type.Return;
+		stringToType["super"] = Type.Super;
 		stringToType["switch"] = Type.Switch;
 		stringToType["this"] = Type.This;
 		stringToType["throw"] = Type.Throw;
@@ -323,36 +326,15 @@ struct Token
 
 	public char[] toString()
 	{
-		char[] ret;
-
 		switch(type)
 		{
-			case Type.Ident:
-				ret = "Identifier: " ~ utf.toUTF8(stringValue);
-				break;
-
-			case Type.CharLiteral:
-				ret = "Character Literal";
-				break;
-
-			case Type.StringLiteral:
-				ret = "String Literal";
-				break;
-
-			case Type.IntLiteral:
-				ret = "Integer Literal: " ~ string.toString(intValue);
-				break;
-
-			case Type.FloatLiteral:
-				ret = "Float Literal: " ~ string.toString(floatValue);
-				break;
-
-			default:
-				ret = utf.toUTF8(tokenStrings[cast(uint)type]);
-				break;
+			case Type.Ident:         return "Identifier: " ~ utf.toUTF8(stringValue);
+			case Type.CharLiteral:   return "Character Literal";
+			case Type.StringLiteral: return "String Literal";
+			case Type.IntLiteral:    return "Integer Literal: " ~ string.toString(intValue);
+			case Type.FloatLiteral:  return "Float Literal: " ~ string.toString(floatValue);
+			default:                 return utf.toUTF8(tokenStrings[cast(uint)type]);
 		}
-
-		return ret;
 	}
 
 	public static char[] toString(Type type)
@@ -360,10 +342,12 @@ struct Token
 		return utf.toUTF8(tokenStrings[type]);
 	}
 
-	public void check(Type t)
+	public Token* expect(Type t)
 	{
 		if(type != t)
 			throw new MDCompileException(location, "'%s' expected; found '%s' instead", tokenStrings[t], tokenStrings[type]);
+
+		return nextToken;
 	}
 	
 	public bool isOpAssign()
@@ -1731,6 +1715,7 @@ class FuncState
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
 	protected dchar[] mGuessedName;
+	protected bool mIsMethod;
 
 	struct LocVarDesc
 	{
@@ -1753,15 +1738,8 @@ class FuncState
 
 	struct SwitchDesc
 	{
-		bool isString;
 		uint switchPC;
-
-		union
-		{
-			int[int] intOffsets;
-			int[dchar[]] stringOffsets;
-		}
-
+		int[MDValue] offsets;
 		int defaultOffset = -1;
 
 		SwitchDesc* prev;
@@ -1771,11 +1749,38 @@ class FuncState
 	protected SwitchDesc* mSwitch;
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
+	
+	protected static ClassDef[] mCurrentClass;
+	protected static uint mClassDefIndex = 0;
 
-	public this(Location location, dchar[] guessedName, FuncState parent = null)
+	public static void enterClass(ClassDef def)
+	{
+		if(mClassDefIndex >= mCurrentClass.length)
+			mCurrentClass.length = mCurrentClass.length + 3;
+
+		mCurrentClass[mClassDefIndex] = def;
+		mClassDefIndex++;
+	}
+
+	public static void leaveClass()
+	{
+		assert(mClassDefIndex != 0, "Number of classes underflow");
+		mClassDefIndex--;
+	}
+
+	public static ClassDef currentClass()
+	{
+		if(mClassDefIndex == 0)
+			return null;
+		else
+			return mCurrentClass[mClassDefIndex - 1];
+	}
+
+	public this(Location location, dchar[] guessedName, FuncState parent = null, bool isMethod = false)
 	{
 		mLocation = location;
 		mGuessedName = guessedName;
+		mIsMethod = isMethod;
 
 		mParent = parent;
 		mScope = new Scope;
@@ -1789,6 +1794,11 @@ class FuncState
 			insertLocal(new Identifier("this", mLocation));
 			activateLocals(1);
 		}
+	}
+
+	public bool isMethod()
+	{
+		return mIsMethod;
 	}
 
 	public uint tagLocal(uint val)
@@ -1876,23 +1886,12 @@ class FuncState
 		return mScope.hasUpval;
 	}
 
-	public void beginStringSwitch(uint line, uint srcReg)
+	public void beginSwitch(uint line, uint srcReg)
 	{
 		SwitchDesc* sd = new SwitchDesc;
-		sd.switchPC = codeR(line, Op.SwitchString, 0, srcReg, 0);
-		sd.isString = true;
-
+		sd.switchPC = codeR(line, Op.Switch, 0, srcReg, 0);
 		sd.prev = mSwitch;
-		mSwitch = sd;
-	}
 
-	public void beginIntSwitch(uint line, uint srcReg)
-	{
-		SwitchDesc* sd = new SwitchDesc;
-		sd.switchPC = codeR(line, Op.SwitchInt, 0, srcReg, 0);
-		sd.isString = false;
-
-		sd.prev = mSwitch;
 		mSwitch = sd;
 	}
 
@@ -1906,46 +1905,39 @@ class FuncState
 		mCode[desc.switchPC].rt = mSwitchTables.length - 1;
 	}
 
-	public void addCase(Expression exp)
+	public void addNullCase(Location location)
 	{
 		assert(mSwitch !is null, "adding case outside of a switch");
-
-		IntExp intExp = cast(IntExp)exp;
-
-		if(intExp)
-		{
-			if(mSwitch.isString == true)
-				throw new MDCompileException(exp.mLocation, "Case value must be a string literal");
-
-			int* oldOffset = (intExp.mValue in mSwitch.intOffsets);
-
-			if(oldOffset !is null)
-				throw new MDCompileException(exp.mLocation, "Duplicate case value '%s'", intExp.mValue);
-
-			mSwitch.intOffsets[intExp.mValue] = mCode.length - mSwitch.switchPC - 1;
-
-			return;
-		}
-
-		StringExp stringExp = cast(StringExp)exp;
-
-		assert(stringExp, "added case is neither int nor string");
-
-		if(mSwitch.isString == false)
-			throw new MDCompileException(exp.mLocation, "Case value must be an integer literal");
-
-		int* oldOffset = (stringExp.mValue in mSwitch.stringOffsets);
+		int* oldOffset = (MDValue.nullValue in mSwitch.offsets);
 
 		if(oldOffset !is null)
-			throw new MDCompileException(exp.mLocation, "Duplicate case value '%s'", stringExp.mValue);
+			throw new MDCompileException(location, "Duplicate case value 'null'");
 
-		mSwitch.stringOffsets[stringExp.mValue] = mCode.length - mSwitch.switchPC - 1;
+		mSwitch.offsets[MDValue.nullValue] = mCode.length - mSwitch.switchPC - 1;
+	}
+	
+	public void addCase(T)(Location location, T v)
+	{
+		if(mSwitch is null)
+			throw new MDCompileException(location, "Case statements may not exist outside of a switch");
+
+		MDValue val = v;
+
+		int* oldOffset = (val in mSwitch.offsets);
+
+		if(oldOffset !is null)
+			throw new MDCompileException(location, "Duplicate case value '%s'", v);
+
+		mSwitch.offsets[val] = mCode.length - mSwitch.switchPC - 1;
 	}
 
-	public void addDefault()
+	public void addDefault(Location location)
 	{
-		assert(mSwitch !is null, "adding default outside of a switch");
-		assert(mSwitch.defaultOffset == -1, "tried to add a second default");
+		if(mSwitch is null)
+			throw new MDCompileException(location, "Default statements may not exist outside of a switch");
+
+		if(mSwitch.defaultOffset != -1)
+			throw new MDCompileException(location, "Multiple defaults in one switch");
 
 		mSwitch.defaultOffset = mCode.length - mSwitch.switchPC - 1;
 	}
@@ -3000,22 +2992,10 @@ class FuncState
 		
 		foreach(uint i, inout SwitchDesc* t; mSwitchTables)
 		{
-			writef(string.repeat("\t", tab + 1), "Switch Table ", i);
+			writefln(string.repeat("\t", tab + 1), "Switch Table ", i);
 
-			if(t.isString)
-			{
-				writefln(" - String");
-
-				foreach(dchar[] index; t.stringOffsets.keys.sort)
-					writefln(string.repeat("\t", tab + 2), "\"%s\" => %s", index, t.stringOffsets[index]);
-			}
-			else
-			{
-				writefln(" - Int");
-
-				foreach(int index; t.intOffsets.keys.sort)
-					writefln(string.repeat("\t", tab + 2), "%s => %s", index, t.intOffsets[index]);
-			}
+			foreach(index; t.offsets.keys)
+				writefln(string.repeat("\t", tab + 2), "%s => %s", index, t.offsets[index]);
 
 			writefln(string.repeat("\t", tab + 2), "Default: ", t.defaultOffset);
 		}
@@ -3102,13 +3082,7 @@ class FuncState
 		{
 			with(*mSwitchTables[i])
 			{
-				ret.mSwitchTables[i].isString = isString;
-
-				if(isString)
-					ret.mSwitchTables[i].stringOffsets = stringOffsets;
-				else
-					ret.mSwitchTables[i].intOffsets = intOffsets;
-
+				ret.mSwitchTables[i].offsets = offsets;
 				ret.mSwitchTables[i].defaultOffset = defaultOffset;
 			}
 		}
@@ -3146,41 +3120,48 @@ class ClassDef
 			mName = new Identifier("<literal at " ~ utf.toUTF32(mLocation.toString()) ~ ">", mLocation);
 	}
 
-	public static void parseBody(Location location, inout Token* t, out FuncDef[] methods, out Field[] fields, out Location endLocation)
+	public static void parseBody(Location location, inout Token* t, out FuncDef[] oMethods, out Field[] oFields, out Location oEndLocation)
 	{
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
-		
-		methods = new FuncDef[10];
-		int iMethod = 0;
+		t = t.expect(Token.Type.LBrace);
+
+		FuncDef[dchar[]] methods;
 
 		void addMethod(FuncDef m)
 		{
-			if(iMethod >= methods.length)
-				methods.length = methods.length * 2;
+			dchar[] name = m.mName.mName;
 
-			methods[iMethod] = m;
-			iMethod++;
+			if(name in methods)
+				throw new MDCompileException(m.mLocation, "Redeclaration of method '%s'", name);
+
+			methods[name] = m;
 		}
 
-		fields = new Field[10];
-		int iField = 0;
+		Expression[dchar[]] fields;
 
-		void addField(dchar[] name, Expression v)
+		void addField(Identifier name, Expression v)
 		{
-			if(iField >= fields.length)
-				fields.length = fields.length * 2;
+			if(name.mName in fields)
+				throw new MDCompileException(name.mLocation, "Redeclaration of field '%s'", name.mName);
 
-			fields[iField].name = name;
-			fields[iField].initializer = v;
-
-			iField++;
+			fields[name.mName] = v;
 		}
 
 		while(t.type != Token.Type.RBrace)
 		{
 			switch(t.type)
 			{
+				case Token.Type.This:
+					Location ctorLocation = t.location;
+					Identifier name = new Identifier("constructor", t.location);
+					t = t.nextToken;
+
+					bool isVararg;
+					Identifier[] params = FuncDef.parseParams(t, isVararg);
+
+					CompoundStatement funcBody = CompoundStatement.parse(t);
+					addMethod(new FuncDef(ctorLocation, funcBody.mEndLocation, params, isVararg, funcBody, name));
+					break;
+
 				case Token.Type.Function:
 					addMethod(FuncDef.parseSimple(t));
 					break;
@@ -3198,30 +3179,34 @@ class ClassDef
 					else
 						v = new NullExp(id.mLocation);
 
-					dchar[] name = id.mName;
-
-					t.check(Token.Type.Semicolon);
-					t = t.nextToken;
-					
-					addField(name, v);
+					t = t.expect(Token.Type.Semicolon);
+					addField(id, v);
 					break;
 
 				case Token.Type.EOF:
 					throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
 
 				default:
+					throw new MDCompileException(t.location, "Class method or field expected, not '%s'", t.toString());
 					break;
 			}
 		}
 
-		methods.length = iMethod;
-		fields.length = iField;
+		oMethods = methods.values;
 
-		if(t.type != Token.Type.RBrace)
-			throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
-			
-		endLocation = t.location;
+		oFields.length = fields.length;
+		
+		uint i = 0;
 
+		foreach(name, initializer; fields)
+		{
+			oFields[i].name = name;
+			oFields[i].initializer = initializer;
+			i++;
+		}
+
+		t.expect(Token.Type.RBrace);
+		oEndLocation = t.location;
 		t = t.nextToken;
 	}
 
@@ -3250,6 +3235,8 @@ class ClassDef
 		uint destReg = s.pushRegister();
 		uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
 		s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
+		
+		FuncState.enterClass(this);
 
 		foreach(Field field; mFields)
 		{
@@ -3268,7 +3255,7 @@ class ClassDef
 		{
 			uint index = s.tagConst(s.codeStringConst(method.mName.mName));
 
-			method.codeGen(s);
+			method.codeGen(s, true);
 			Exp val;
 			s.popSource(method.mEndLocation.line, val);
 
@@ -3276,6 +3263,8 @@ class ClassDef
 
 			s.freeExpTempRegs(&val);
 		}
+		
+		FuncState.leaveClass();
 
 		s.pushTempReg(destReg);
 	}
@@ -3291,6 +3280,11 @@ class ClassDef
 			method = method.fold();
 		
 		return this;
+	}
+	
+	public bool hasBase()
+	{
+		return (mBaseClass !is null);
 	}
 }
 
@@ -3317,8 +3311,7 @@ class FuncDef
 	{
 		Location location = t.location;
 		
-		t.check(Token.Type.Function);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Function);
 
 		Identifier name = Identifier.parse(t);
 
@@ -3334,8 +3327,7 @@ class FuncDef
 	{
 		Location location = t.location;
 		
-		t.check(Token.Type.Function);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Function);
 
 		Identifier name;
 		
@@ -3363,9 +3355,8 @@ class FuncDef
 		
 		ret ~= new Identifier("this", t.location);
 
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-			
+		t = t.expect(Token.Type.LParen);
+		
 		if(t.type == Token.Type.Vararg)
 		{
 			isVararg = true;
@@ -3387,20 +3378,17 @@ class FuncDef
 				if(t.type == Token.Type.RParen)
 					break;
 
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
+				t = t.expect(Token.Type.Comma);
 			}
 		}
 		
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		
+		t = t.expect(Token.Type.RParen);
 		return ret;
 	}
 
-	public void codeGen(FuncState s)
+	public void codeGen(FuncState s, bool isMethod = false)
 	{
-		FuncState fs = new FuncState(mLocation, mName.mName, s);
+		FuncState fs = new FuncState(mLocation, mName.mName, s, isMethod);
 
 		fs.mIsVararg = mIsVararg;
 		fs.mNumParams = mParams.length;
@@ -3447,19 +3435,9 @@ class Module
 		Location location = t.location;
 		ModuleDeclaration modDecl = ModuleDeclaration.parse(t);
 
-		Statement[] statements = new Statement[32];
-		uint i = 0;
+		List!(Statement) statements;
 
 		bool[dchar[][]] imports;
-
-		void add(Statement s)
-		{
-			if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
 
 		void addImport(ImportStatement imp)
 		{
@@ -3471,14 +3449,12 @@ class Module
 			if(t.type == Token.Type.Import)
 				addImport(ImportStatement.parse(t));
 			else
-				add(Statement.parse(t));
+				statements.add(Statement.parse(t));
 		}
 
-		t.check(Token.Type.EOF);
+		t.expect(Token.Type.EOF);
 
-		statements.length = i;
-
-		return new Module(location, t.location, modDecl, imports.keys.sort, statements);
+		return new Module(location, t.location, modDecl, imports.keys.sort, statements.toArray());
 	}
 
 	public MDModuleDef codeGen()
@@ -3538,9 +3514,8 @@ class ModuleDeclaration
 
 	public static ModuleDeclaration parse(inout Token* t)
 	{
-		t.check(Token.Type.Module);
-		t = t.nextToken;
-		
+		t = t.expect(Token.Type.Module);
+
 		Identifier[] names;
 		names ~= Identifier.parse(t);
 		
@@ -3550,9 +3525,8 @@ class ModuleDeclaration
 			names ~= Identifier.parse(t);
 		}
 		
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
-		
+		t = t.expect(Token.Type.Semicolon);
+			
 		return new ModuleDeclaration(names);
 	}
 }
@@ -3575,20 +3549,12 @@ abstract class Statement
 		switch(t.type)
 		{
 			case
-				Token.Type.CharLiteral,
 				Token.Type.Dec,
-				Token.Type.Dot,
-				Token.Type.False,
-				Token.Type.FloatLiteral,
 				Token.Type.Ident,
 				Token.Type.Inc,
-				Token.Type.IntLiteral,
 				Token.Type.LParen,
-				Token.Type.Null,
-				Token.Type.StringLiteral,
-				Token.Type.Sub,
+				Token.Type.Super,
 				Token.Type.This,
-				Token.Type.True,
 				Token.Type.Yield:
 
 				return ExpressionStatement.parse(t);
@@ -3617,7 +3583,7 @@ abstract class Statement
 
 			case Token.Type.Switch:
 				return SwitchStatement.parse(t);
-
+				
 			case Token.Type.Case:
 				return CaseStatement.parse(t);
 
@@ -3673,9 +3639,8 @@ class ImportStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Import);
-		t = t.nextToken;
-		
+		t = t.expect(Token.Type.Import);
+
 		Identifier[] names;
 		names ~= Identifier.parse(t);
 
@@ -3685,7 +3650,7 @@ class ImportStatement : Statement
 			names ~= Identifier.parse(t);
 		}
 
-		t.check(Token.Type.Semicolon);
+		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -3737,7 +3702,7 @@ class ExpressionStatement : Statement
 		Location location = t.location;
 		Expression exp = Expression.parseStatement(t);
 
-		t.check(Token.Type.Semicolon);
+		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -3819,8 +3784,7 @@ abstract class Declaration
 			{
 				VarDecl ret = VarDecl.parse(t);
 				
-				t.check(Token.Type.Semicolon);
-				t = t.nextToken;
+				t = t.expect(Token.Type.Semicolon);
 
 				return ret;
 			}
@@ -3836,7 +3800,7 @@ abstract class Declaration
 		else if(t.type == Token.Type.Class)
 			return ClassDecl.parse(t);
 		else
-			throw new MDCompileException(location, "Declaration expected");
+			throw new MDCompileException(location, "Declaration expected, not '%s'", t.toString());
 	}
 
 	public void codeGen(FuncState s)
@@ -3875,8 +3839,7 @@ class ClassDecl : Declaration
 		else if(t.type == Token.Type.Local)
 			t = t.nextToken;
 
-		t.check(Token.Type.Class);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Class);
 
 		Identifier name = Identifier.parse(t);
 		Expression baseClass = ClassDef.parseBaseClass(t);
@@ -3907,6 +3870,7 @@ class ClassDecl : Declaration
 		}
 
 		mDef.codeGen(s);
+
 		s.popAssign(mEndLocation.line);
 	}
 	
@@ -3942,10 +3906,7 @@ class VarDecl : Declaration
 			t = t.nextToken;
 		}
 		else
-		{
-			t.check(Token.Type.Local);
-			t = t.nextToken;
-		}
+			t = t.expect(Token.Type.Local);
 
 		Identifier[] names;
 		names ~= Identifier.parse(t);
@@ -4143,8 +4104,7 @@ class Identifier
 
 	public static Identifier parse(inout Token* t)
 	{
-		t.check(Token.Type.Ident);
-
+		t.expect(Token.Type.Ident);
 		Identifier id = new Identifier(t.stringValue, t.location);
 		t = t.nextToken;
 
@@ -4192,31 +4152,18 @@ class CompoundStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
+		t = t.expect(Token.Type.LBrace);
 
-		Statement[] statements = new Statement[10];
-		int i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
+		List!(Statement) statements;
 
 		while(t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t));
+			statements.add(Statement.parse(t));
 
-		statements.length = i;
-
-		t.check(Token.Type.RBrace);
+		t.expect(Token.Type.RBrace);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new CompoundStatement(location, endLocation, statements);
+		return new CompoundStatement(location, endLocation, statements.toArray());
 	}
 
 	public override void codeGen(FuncState s)
@@ -4253,15 +4200,12 @@ class IfStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.If);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.If);
+		t = t.expect(Token.Type.LParen);
 
 		Expression condition = Expression.parse(t);
 
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.RParen);
 
 		Statement ifBody = Statement.parse(t);
 
@@ -4356,15 +4300,12 @@ class WhileStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.While);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.While);
+		t = t.expect(Token.Type.LParen);
 
 		Expression condition = Expression.parse(t);
 
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.RParen);
 
 		Statement whileBody = Statement.parse(t);
 
@@ -4442,19 +4383,16 @@ class DoWhileStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Do);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Do);
 
 		Statement doBody = Statement.parse(t);
 
-		t.check(Token.Type.While);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.While);
+		t = t.expect(Token.Type.LParen);
 
 		Expression condition = Expression.parse(t);
 
-		t.check(Token.Type.RParen);
+		t.expect(Token.Type.RParen);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -4537,11 +4475,9 @@ class ForStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.For);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-
+		t = t.expect(Token.Type.For);
+		t = t.expect(Token.Type.LParen);
+		
 		Expression init;
 		VarDecl initDecl;
 
@@ -4554,8 +4490,7 @@ class ForStatement : Statement
 			else
 				init = Expression.parseStatement(t);
 
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
+			t = t.expect(Token.Type.Semicolon);
 		}
 
 		Expression condition;
@@ -4565,8 +4500,7 @@ class ForStatement : Statement
 		else
 		{
 			condition = Expression.parse(t);
-			t.check(Token.Type.Semicolon);
-			t = t.nextToken;
+			t = t.expect(Token.Type.Semicolon);
 		}
 
 		Expression increment;
@@ -4576,8 +4510,7 @@ class ForStatement : Statement
 		else
 		{
 			increment = Expression.parseStatement(t);
-			t.check(Token.Type.RParen);
-			t = t.nextToken;
+			t = t.expect(Token.Type.RParen);
 		}
 
 		Statement forBody = Statement.parse(t);
@@ -4697,39 +4630,23 @@ class ForeachStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Foreach);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Foreach);
+		t = t.expect(Token.Type.LParen);
 
 		Identifier[] indices;
-
-		if(t.type == Token.Type.Local)
-		{
-			derr.writefln("Warning ", t.location.toString(), ": 'local' in foreach indices will soon be illegal");
-			t = t.nextToken;
-		}
 
 		indices ~= Identifier.parse(t);
 
 		while(t.type == Token.Type.Comma)
 		{
 			t = t.nextToken;
-
-			if(t.type == Token.Type.Local)
-			{
-				derr.writefln("Warning ", t.location.toString(), ": 'local' in foreach indices will soon be illegal");
-				t = t.nextToken;
-			}
-
 			indices ~= Identifier.parse(t);
 		}
 		
 		if(indices.length == 1)
 			indices = dummyIndex(indices[0].mLocation) ~ indices;
 
-		t.check(Token.Type.Semicolon);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Semicolon);
 
 		Expression[] container;
 		container ~= Expression.parse(t);
@@ -4743,8 +4660,7 @@ class ForeachStatement : Statement
 		if(container.length > 3)
 			throw new MDCompileException(location, "'foreach' may have a maximum of three container expressions");
 
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.RParen);
 
 		Statement foreachBody = Statement.parse(t);
 
@@ -4881,39 +4797,18 @@ class SwitchStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Switch);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Switch);
+		t = t.expect(Token.Type.LParen);
 
 		Expression condition = Expression.parse(t);
 
-		t.check(Token.Type.RParen);
-		t = t.nextToken;
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
+		t = t.expect(Token.Type.RParen);
+		t = t.expect(Token.Type.LBrace);
+		
+		List!(CaseStatement) cases;
 
-		CaseStatement[] cases = new CaseStatement[10];
-		int i = 0;
-
-		void addCase(CaseStatement c)
-		{
-			if(i >= cases.length)
-				cases.length = cases.length * 2;
-
-			cases[i] = c;
-			i++;
-		}
-
-		while(true)
-		{
-			if(t.type == Token.Type.Case)
-				addCase(CaseStatement.parse(t));
-			else
-				break;
-		}
-
-		cases.length = i;
+		while(t.type == Token.Type.Case)
+			cases.add(CaseStatement.parse(t));
 
 		if(cases.length == 0)
 			throw new MDCompileException(location, "Switch statement must have at least one case statement");
@@ -4923,11 +4818,11 @@ class SwitchStatement : Statement
 		if(t.type == Token.Type.Default)
 			caseDefault = DefaultStatement.parse(t);
 
-		t.check(Token.Type.RBrace);
+		t.expect(Token.Type.RBrace);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new SwitchStatement(location, endLocation, condition, cases, caseDefault);
+		return new SwitchStatement(location, endLocation, condition, cases.toArray(), caseDefault);
 	}
 
 	public override void codeGen(FuncState s)
@@ -4939,10 +4834,7 @@ class SwitchStatement : Statement
 			Exp src;
 			s.popSource(mLocation.line, src);
 
-			if(cast(IntExp)mCases[0].mCondition)
-				s.beginIntSwitch(mLocation.line, src.index);
-			else
-				s.beginStringSwitch(mLocation.line, src.index);
+			s.beginSwitch(mLocation.line, src.index);
 
 			s.freeExpTempRegs(&src);
 
@@ -4988,57 +4880,30 @@ class CaseStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Case);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Case);
 
-		Expression[] cases = new Expression[10];
-		int i = 0;
+		List!(Expression) cases;
+		cases.add(Expression.parse(t));
 
-		void addCase(Expression c)
-		{
-			if(i >= cases.length)
-				cases.length = cases.length * 2;
-
-			cases[i] = c;
-			i++;
-		}
-		
-		addCase(Expression.parse(t));
-		
 		while(t.type == Token.Type.Comma)
 		{
 			t = t.nextToken;
-			addCase(Expression.parse(t));
+			cases.add(Expression.parse(t));
 		}
+		
+		t = t.expect(Token.Type.Colon);
 
-		cases.length = i;
-
-		t.check(Token.Type.Colon);
-		t = t.nextToken;
-
-		Statement[] statements = new Statement[10];
-		i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
+		List!(Statement) statements;
 
 		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t));
-
-		statements.length = i;
+			statements.add(Statement.parse(t));
 
 		Location endLocation = t.location;
 
-		Statement ret = new CompoundStatement(location, endLocation, statements);
+		Statement ret = new CompoundStatement(location, endLocation, statements.toArray());
 		ret = new ScopeStatement(location, endLocation, ret);
 
-		for(i = cases.length - 1; i >= 0; i--)
+		for(int i = cases.length - 1; i >= 0; i--)
 			ret = new CaseStatement(location, endLocation, cases[i], ret);
 
 		return cast(CaseStatement)ret;
@@ -5049,7 +4914,48 @@ class CaseStatement : Statement
 		if(!mCondition.isConstant)
 			throw new MDCompileException(mLocation, "Case value is not constant");
 
-		s.addCase(mCondition);
+		IntExp intExp = cast(IntExp)mCondition;
+		
+		if(intExp)
+			s.addCase(mLocation, intExp.mValue);
+		else
+		{
+			StringExp stringExp = cast(StringExp)mCondition;
+
+			if(stringExp)
+				s.addCase(mLocation, stringExp.mValue);
+			else
+			{
+				CharExp charExp = cast(CharExp)mCondition;
+				
+				if(charExp)
+					s.addCase(mLocation, charExp.mValue);
+				else
+				{
+					FloatExp floatExp = cast(FloatExp)mCondition;
+					
+					if(floatExp)
+						s.addCase(mLocation, floatExp.mValue);
+					else
+					{
+						BoolExp boolExp = cast(BoolExp)mCondition;
+						
+						if(boolExp)
+							s.addCase(mLocation, boolExp.mValue);
+						else
+						{
+							NullExp nullExp = cast(NullExp)mCondition;
+
+							if(nullExp)
+								s.addNullCase(mLocation);
+							else
+								throw new MDCompileException(mLocation, "Invalid case value");
+						}
+					}
+				}
+			}
+		}
+
 		mBody.codeGen(s);
 	}
 
@@ -5075,38 +4981,24 @@ class DefaultStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Default);
-		t = t.nextToken;
-		t.check(Token.Type.Colon);
-		t = t.nextToken;
-
-		Statement[] statements = new Statement[10];
-		int i = 0;
-
-		void addStatement(Statement s)
-		{
-			if(i >= statements.length)
-				statements.length = statements.length * 2;
-
-			statements[i] = s;
-			i++;
-		}
+		t = t.expect(Token.Type.Default);
+		t = t.expect(Token.Type.Colon);
+		
+		List!(Statement) statements;
 
 		while(t.type != Token.Type.Case && t.type != Token.Type.Default && t.type != Token.Type.RBrace)
-			addStatement(Statement.parse(t));
+			statements.add(Statement.parse(t));
 
-		statements.length = i;
-		
 		Location endLocation = t.location;
 
-		Statement defaultBody = new CompoundStatement(location, endLocation, statements);
+		Statement defaultBody = new CompoundStatement(location, endLocation, statements.toArray());
 		defaultBody = new ScopeStatement(location, endLocation, defaultBody);
 		return new DefaultStatement(location, endLocation, defaultBody);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		s.addDefault();
+		s.addDefault(mLocation);
 		mBody.codeGen(s);
 	}
 
@@ -5127,9 +5019,8 @@ class ContinueStatement : Statement
 	public static ContinueStatement parse(inout Token* t)
 	{
 		Location location = t.location;
-		t.check(Token.Type.Continue);
-		t = t.nextToken;
-		t.check(Token.Type.Semicolon);
+		t = t.expect(Token.Type.Continue);
+		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 		return new ContinueStatement(location, endLocation);
@@ -5151,9 +5042,8 @@ class BreakStatement : Statement
 	public static BreakStatement parse(inout Token* t)
 	{
 		Location location = t.location;
-		t.check(Token.Type.Break);
-		t = t.nextToken;
-		t.check(Token.Type.Semicolon);
+		t = t.expect(Token.Type.Break);
+		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 		return new BreakStatement(location, endLocation);
@@ -5184,8 +5074,7 @@ class ReturnStatement : Statement
 	public static ReturnStatement parse(inout Token* t)
 	{
 		Location location = t.location;
-		t.check(Token.Type.Return);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Return);
 
 		if(t.type == Token.Type.Semicolon)
 		{
@@ -5195,33 +5084,21 @@ class ReturnStatement : Statement
 		}
 		else
 		{
-			Expression[] exprs = new Expression[10];
-			int i = 0;
+			List!(Expression) exprs;
 
-			void add(Expression s)
-			{
-				if(i >= exprs.length)
-					exprs.length = exprs.length * 2;
-
-				exprs[i] = s;
-				i++;
-			}
-
-			add(Expression.parse(t));
+			exprs.add(Expression.parse(t));
 
 			while(t.type == Token.Type.Comma)
 			{
 				t = t.nextToken;
-				add(Expression.parse(t));
+				exprs.add(Expression.parse(t));
 			}
 
-			exprs.length = i;
-
-			t.check(Token.Type.Semicolon);
+			t.expect(Token.Type.Semicolon);
 			Location endLocation = t.location;
 			t = t.nextToken;
 
-			return new ReturnStatement(location, endLocation, exprs);
+			return new ReturnStatement(location, endLocation, exprs.toArray());
 		}
 	}
 
@@ -5282,8 +5159,7 @@ class TryCatchStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Try);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Try);
 
 		Statement tryBody = Statement.parse(t);
 		tryBody = new ScopeStatement(tryBody.mLocation, tryBody.mEndLocation, tryBody);
@@ -5296,13 +5172,11 @@ class TryCatchStatement : Statement
 		if(t.type == Token.Type.Catch)
 		{
 			t = t.nextToken;
-			t.check(Token.Type.LParen);
-			t = t.nextToken;
+			t = t.expect(Token.Type.LParen);
 
 			catchVar = Identifier.parse(t);
 
-			t.check(Token.Type.RParen);
-			t = t.nextToken;
+			t = t.expect(Token.Type.RParen);
 
 			catchBody = Statement.parse(t);
 			catchBody = new ScopeStatement(catchBody.mLocation, catchBody.mEndLocation, catchBody);
@@ -5435,12 +5309,11 @@ class ThrowStatement : Statement
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Throw);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Throw);
 
 		Expression exp = Expression.parse(t);
 
-		t.check(Token.Type.Semicolon);
+		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -5501,33 +5374,53 @@ abstract class Expression
 		}
 		else
 		{
-			if(t.type != Token.Type.Ident && t.type != Token.Type.This && t.type != Token.Type.LParen && t.type != Token.Type.Yield)
-				throw new MDCompileException(t.location,
-					"Expression statements may not begin with '%s'", t.toString());
-			else
-			{
-				exp = PrimaryExp.parse(t);
+			exp = PrimaryExp.parse(t);
 
-				if(t.isOpAssign())
-					exp = OpEqExp.parse(t, exp);
-				else if(t.type == Token.Type.Assign || t.type == Token.Type.Comma)
-					exp = Assignment.parse(t, exp);
-				else if(t.type == Token.Type.Inc)
-				{
-					t = t.nextToken;
-					exp = new OpEqExp(location, location, Op.AddEq, exp, new IntExp(location, 1));
-				}
-				else if(t.type == Token.Type.Dec)
-				{
-					t = t.nextToken;
-					exp = new OpEqExp(location, location, Op.SubEq, exp, new IntExp(location, 1));
-				}
+			if(t.isOpAssign())
+				exp = OpEqExp.parse(t, exp);
+			else if(t.type == Token.Type.Assign || t.type == Token.Type.Comma)
+				exp = Assignment.parse(t, exp);
+			else if(t.type == Token.Type.Inc)
+			{
+				t = t.nextToken;
+				exp = new OpEqExp(location, location, Op.AddEq, exp, new IntExp(location, 1));
+			}
+			else if(t.type == Token.Type.Dec)
+			{
+				t = t.nextToken;
+				exp = new OpEqExp(location, location, Op.SubEq, exp, new IntExp(location, 1));
 			}
 		}
 
 		exp.checkToNothing();
 
 		return exp;
+	}
+	
+	public static Expression[] parseArguments(inout Token* t)
+	{
+		Expression[] args = new Expression[5];
+		uint i = 0;
+
+		void add(Expression arg)
+		{
+			if(i >= args.length)
+				args.length = args.length * 2;
+
+			args[i] = arg;
+			i++;
+		}
+
+		add(Expression.parse(t));
+
+		while(t.type == Token.Type.Comma)
+		{
+			t = t.nextToken;
+			add(Expression.parse(t));
+		}
+
+		args.length = i;
+		return args;
 	}
 
 	public static void codeGenListToNextReg(FuncState s, Expression[] exprs)
@@ -5642,8 +5535,7 @@ class Assignment : Expression
 			lhs ~= PrimaryExp.parse(t);
 		}
 
-		t.check(Token.Type.Assign);
-		t = t.nextToken;
+		t = t.expect(Token.Type.Assign);
 
 		rhs = OrOrExp.parse(t);
 
@@ -7201,59 +7093,44 @@ abstract class PostfixExp : UnaryExp
 				case Token.Type.Dot:
 					t = t.nextToken;
 
-					t.check(Token.Type.Ident);
-
-					Location loc = t.location;
-					
-					IdentExp ie = new IdentExp(loc, Identifier.parse(t));
-
-					exp = new DotExp(location, ie.mEndLocation, exp, ie);
+					if(t.type == Token.Type.Ident)
+					{
+						IdentExp ie = new IdentExp(t.location, Identifier.parse(t));
+						exp = new DotExp(location, ie.mEndLocation, exp, ie);
+					}
+					else if(t.type == Token.Type.Super)
+					{
+						Location endLocation = t.location;
+						t = t.nextToken;
+						exp = new DotSuperExp(location, endLocation, exp);
+					}
+					else
+					{
+						t.expect(Token.Type.Class);
+						Location endLocation = t.location;
+						t = t.nextToken;
+						exp = new DotClassExp(location, endLocation, exp);	
+					}
 					continue;
 
 				case Token.Type.LParen:
 					t = t.nextToken;
 
 					Expression context;
-					Expression[] args = new Expression[5];
-					uint i = 0;
+					Expression[] args;
 
-					void add(Expression arg)
-					{
-						if(i >= args.length)
-							args.length = args.length * 2;
-
-						args[i] = arg;
-						i++;
-					}
-					
 					if(t.type == Token.Type.With)
 					{
 						t = t.nextToken;
-						context = Expression.parse(t);
 						
-						while(t.type == Token.Type.Comma)
-						{
-							t = t.nextToken;
-							add(Expression.parse(t));
-						}
+						args = Expression.parseArguments(t);
+						context = args[0];
+						args = args[1 .. $];
 					}
 					else if(t.type != Token.Type.RParen)
-					{
-						while(true)
-						{
-							add(Expression.parse(t));
+						args = Expression.parseArguments(t);
 
-							if(t.type == Token.Type.RParen)
-								break;
-
-							t.check(Token.Type.Comma);
-							t = t.nextToken;
-						}
-					}
-
-					args.length = i;
-
-					t.check(Token.Type.RParen);
+					t.expect(Token.Type.RParen);
 					Location endLocation = t.location;
 					t = t.nextToken;
 
@@ -7284,7 +7161,7 @@ abstract class PostfixExp : UnaryExp
 						{
 							// a[ .. 0]
 							hiIndex = Expression.parse(t);
-							t.check(Token.Type.RBracket);
+							t.expect(Token.Type.RBracket);
 							endLocation = t.location;
 							t = t.nextToken;
 						}
@@ -7310,7 +7187,7 @@ abstract class PostfixExp : UnaryExp
 							{
 								// a[0 .. 0]
 								hiIndex = Expression.parse(t);
-								t.check(Token.Type.RBracket);
+								t.expect(Token.Type.RBracket);
 								endLocation = t.location;
 								t = t.nextToken;
 							}
@@ -7320,7 +7197,7 @@ abstract class PostfixExp : UnaryExp
 						else
 						{
 							// a[0]
-							t.check(Token.Type.RBracket);
+							t.expect(Token.Type.RBracket);
 							endLocation = t.location;
 							t = t.nextToken;
 							
@@ -7362,6 +7239,46 @@ class DotExp : PostfixExp
 	}
 }
 
+class DotSuperExp : PostfixExp
+{
+	public this(Location location, Location endLocation, Expression operand)
+	{
+		super(location, endLocation, operand);
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		mOp.codeGen(s);
+		s.popUnOp(mEndLocation.line, Op.Super);
+	}
+
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		return this;
+	}
+}
+
+class DotClassExp : PostfixExp
+{
+	public this(Location location, Location endLocation, Expression operand)
+	{
+		super(location, endLocation, operand);
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		mOp.codeGen(s);
+		s.popUnOp(mEndLocation.line, Op.ClassOf);
+	}
+
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
+		return this;
+	}
+}
+
 class CallExp : PostfixExp
 {
 	protected Expression mContext;
@@ -7385,7 +7302,7 @@ class CallExp : PostfixExp
 
 			uint funcReg = s.nextRegister();
 			dotExp.mOp.codeGen(s);
-			
+
 			Exp src;
 			s.popSource(mOp.mEndLocation.line, src);
 			s.freeExpTempRegs(&src);
@@ -7641,6 +7558,10 @@ class PrimaryExp : Expression
 			case Token.Type.Yield:
 				exp = YieldExp.parse(t);
 				break;
+				
+			case Token.Type.Super:
+				exp = SuperCallExp.parse(t);
+				break;
 
 			default:
 				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
@@ -7701,8 +7622,7 @@ class ThisExp : PrimaryExp
 	public static ThisExp parse(inout Token* t)
 	{
 		Location location = t.location;
-		t.check(Token.Type.This);
-		t = t.nextToken;
+		t = t.expect(Token.Type.This);
 		return new ThisExp(location);
 	}
 
@@ -7739,12 +7659,9 @@ class NullExp : PrimaryExp
 
 	public static NullExp parse(inout Token* t)
 	{
-		t.check(Token.Type.Null);
-
-		scope(success)
-			t = t.nextToken;
-
-		return new NullExp(t.location);
+		Location location = t.location;
+		t = t.expect(Token.Type.Null);
+		return new NullExp(location);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7823,10 +7740,7 @@ class VarargExp : PrimaryExp
 	public static VarargExp parse(inout Token* t)
 	{
 		Location location = t.location;
-
-		t.check(Token.Type.Vararg);
-		t = t.nextToken;
-
+		t = t.expect(Token.Type.Vararg);
 		return new VarargExp(location);
 	}
 
@@ -7955,7 +7869,7 @@ class FloatExp : PrimaryExp
 
 	public static FloatExp parse(inout Token* t)
 	{
-		t.check(Token.Type.FloatLiteral);
+		t.expect(Token.Type.FloatLiteral);
 
 		scope(success)
 			t = t.nextToken;
@@ -7997,7 +7911,7 @@ class StringExp : PrimaryExp
 
 	public static StringExp parse(inout Token* t)
 	{
-		t.check(Token.Type.StringLiteral);
+		t.expect(Token.Type.StringLiteral);
 
 		scope(success)
 			t = t.nextToken;
@@ -8077,9 +7991,8 @@ class ClassLiteralExp : PrimaryExp
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Class);
-		t = t.nextToken;
-		
+		t = t.expect(Token.Type.Class);
+
 		Identifier name;
 		
 		if(t.type == Token.Type.Ident)
@@ -8100,7 +8013,7 @@ class ClassLiteralExp : PrimaryExp
 	{
 		mDef.codeGen(s);
 	}
-	
+
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(mLocation, "Cannot use a class literal as a condition");
@@ -8127,10 +8040,9 @@ class ParenExp : PrimaryExp
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
+		t = t.expect(Token.Type.LParen);
 		Expression exp = Expression.parse(t);
-		t.check(Token.Type.RParen);
+		t.expect(Token.Type.RParen);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -8173,8 +8085,7 @@ class TableCtorExp : PrimaryExp
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.LBrace);
-		t = t.nextToken;
+		t = t.expect(Token.Type.LBrace);
 
 		Expression[2][] fields = new Expression[2][2];
 		uint i = 0;
@@ -8208,11 +8119,9 @@ class TableCtorExp : PrimaryExp
 						t = t.nextToken;
 						k = Expression.parse(t);
 	
-						t.check(Token.Type.RBracket);
-						t = t.nextToken;
-						t.check(Token.Type.Assign);
-						t = t.nextToken;
-	
+						t = t.expect(Token.Type.RBracket);
+						t = t.expect(Token.Type.Assign);
+
 						v = Expression.parse(t);
 						break;
 
@@ -8225,10 +8134,7 @@ class TableCtorExp : PrimaryExp
 
 					default:
 						Identifier id = Identifier.parse(t);
-	
-						t.check(Token.Type.Assign);
-						t = t.nextToken;
-	
+						t = t.expect(Token.Type.Assign);
 						k = new StringExp(id.mLocation, id.mName);
 						v = Expression.parse(t);
 						break;
@@ -8247,10 +8153,7 @@ class TableCtorExp : PrimaryExp
 						t = t.nextToken;
 				}
 				else
-				{
-					t.check(Token.Type.Comma);
-					t = t.nextToken;
-				}
+					t = t.expect(Token.Type.Comma);
 
 				parseField();
 			}
@@ -8258,7 +8161,7 @@ class TableCtorExp : PrimaryExp
 
 		fields.length = i;
 
-		t.check(Token.Type.RBrace);
+		t.expect(Token.Type.RBrace);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -8326,41 +8229,26 @@ class ArrayCtorExp : PrimaryExp
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.LBracket);
-		t = t.nextToken;
-
-		Expression[] fields = new Expression[2];
-		uint i = 0;
-
-		void add(Expression v)
-		{
-			if(i >= fields.length)
-				fields.length = fields.length * 2;
-
-			fields[i] = v;
-			i++;
-		}
+		t = t.expect(Token.Type.LBracket);
+		
+		List!(Expression) fields;
 
 		if(t.type != Token.Type.RBracket)
 		{
-			add(Expression.parse(t));
+			fields.add(Expression.parse(t));
 
 			while(t.type != Token.Type.RBracket)
 			{
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
-
-				add(Expression.parse(t));
+				t = t.expect(Token.Type.Comma);
+				fields.add(Expression.parse(t));
 			}
 		}
 
-		fields.length = i;
-
-		t.check(Token.Type.RBracket);
+		t.expect(Token.Type.RBracket);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new ArrayCtorExp(location, endLocation, fields);
+		return new ArrayCtorExp(location, endLocation, fields.toArray());
 	}
 
 	public override void codeGen(FuncState s)
@@ -8435,40 +8323,15 @@ class YieldExp : PrimaryExp
 	{
 		Location location = t.location;
 
-		t.check(Token.Type.Yield);
-		t = t.nextToken;
-		t.check(Token.Type.LParen);
-		t = t.nextToken;
-		
-		Expression[] args = new Expression[5];
-		uint i = 0;
+		t = t.expect(Token.Type.Yield);
+		t = t.expect(Token.Type.LParen);
 
-		void add(Expression arg)
-		{
-			if(i >= args.length)
-				args.length = args.length * 2;
-
-			args[i] = arg;
-			i++;
-		}
+		Expression[] args;
 
 		if(t.type != Token.Type.RParen)
-		{
-			while(true)
-			{
-				add(Expression.parse(t));
+			args = Expression.parseArguments(t);
 
-				if(t.type == Token.Type.RParen)
-					break;
-
-				t.check(Token.Type.Comma);
-				t = t.nextToken;
-			}
-		}
-
-		args.length = i;
-
-		t.check(Token.Type.RParen);
+		t.expect(Token.Type.RParen);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
@@ -8498,7 +8361,93 @@ class YieldExp : PrimaryExp
 	{
 		return true;
 	}
+
+	public override Expression fold()
+	{
+		foreach(inout arg; mArgs)
+			arg = arg.fold();
+
+		return this;
+	}
+}
+
+class SuperCallExp : PrimaryExp
+{
+	protected IdentExp mMethod;
+	protected Expression[] mArgs;
+
+	public this(Location location, Location endLocation, IdentExp method, Expression[] args)
+	{
+		super(location, endLocation);
+		mMethod = method;
+		mArgs = args;
+	}
 	
+	public static SuperCallExp parse(inout Token* t)
+	{
+		Location location = t.location;
+
+		t = t.expect(Token.Type.Super);
+
+		IdentExp method;
+
+		if(t.type == Token.Type.Dot)
+		{
+			t = t.nextToken;
+			method = IdentExp.parse(t);
+		}
+
+		t = t.expect(Token.Type.LParen);
+
+		Expression[] args;
+
+		if(t.type != Token.Type.RParen)
+			args = Expression.parseArguments(t);
+
+		t.expect(Token.Type.RParen);
+		Location endLocation = t.location;
+		t = t.nextToken;
+
+		return new SuperCallExp(location, endLocation, method, args);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		if(!s.isMethod())
+			throw new MDCompileException(mLocation, "'super' calls may only appear in class methods");
+
+		ClassDef def = FuncState.currentClass();
+		assert(def !is null, "SuperCallExp null def");
+
+		if(!def.hasBase())
+			throw new MDCompileException(mLocation, "'super' calls may not be used in classes which have no base classes");
+
+		IdentExp method = mMethod;
+
+		if(method is null)
+			method = new IdentExp(mLocation, new Identifier("constructor", mLocation));
+
+		// rewrite super(1, 2, 3) as super.constructor(1, 2, 3)
+		// rewrite super.method(1, 2, 3) as (this.super).method(with this, 1, 2, 3);
+
+		ThisExp _this = new ThisExp(mLocation);
+		DotSuperExp sup = new DotSuperExp(mLocation, mEndLocation, _this);
+		DotExp dot = new DotExp(mLocation, mEndLocation, sup, method);
+		CallExp call = new CallExp(mLocation, mEndLocation, dot, _this, mArgs);
+
+		call.codeGen(s);
+	}
+
+	public void checkToNothing()
+	{
+		// OK
+	}
+
+	public bool isMultRet()
+	{
+		return true;
+	}
+
 	public override Expression fold()
 	{
 		foreach(inout arg; mArgs)

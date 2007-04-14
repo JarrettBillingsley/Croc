@@ -412,7 +412,7 @@ struct MDValue
 	{
 		return mType;
 	}
-	
+
 	public static dchar[] typeString(Type type)
 	{
 		switch(type)
@@ -1608,12 +1608,10 @@ class MDClass : MDObject
 	protected MDNamespace mMethods;
 
 	protected static MDString CtorString;
-	protected static MDString SuperString;
 	
 	static this()
 	{
 		CtorString = new MDString("constructor"d);
-		SuperString = new MDString("super"d);
 	}
 
 	package this(dchar[] guessedName, MDClass baseClass)
@@ -1633,11 +1631,6 @@ class MDClass : MDObject
 
 			foreach(key, value; mBaseClass.mFields)
 				mFields[key] = value;
-
-			MDValue* superCtor = mBaseClass[CtorString];
-
-			if(superCtor !is null)
-				mMethods[SuperString] = *superCtor;
 		}
 	}
 
@@ -1651,6 +1644,14 @@ class MDClass : MDObject
 		throw new MDException("Cannot get the length of a class");
 	}
 	
+	public MDValue superClass()
+	{
+		if(mBaseClass is null)
+			return MDValue.nullValue;
+		else
+			return MDValue(mBaseClass);
+	}
+
 	public MDInstance newInstance()
 	{
 		return new MDInstance(this);
@@ -2139,14 +2140,7 @@ class MDFuncDef
 	
 	struct SwitchTable
 	{
-		bool isString;
-
-		union
-		{
-			int[int] intOffsets;
-			int[dchar[]] stringOffsets;
-		}
-
+		int[MDValue] offsets;
 		int defaultOffset = -1;
 	}
 
@@ -2170,29 +2164,14 @@ class MDFuncDef
 		
 		foreach(st; mSwitchTables)
 		{
-			Serialize(s, st.isString);
-			
-			if(st.isString)
-			{
-				Serialize(s, st.stringOffsets.length);
+			Serialize(s, st.offsets.length);
 
-				foreach(k, v; st.stringOffsets)
-				{
-					Serialize(s, k);
-					Serialize(s, v);
-				}
-			}
-			else
+			foreach(k, v; st.offsets)
 			{
-				Serialize(s, st.intOffsets.length);
-
-				foreach(k, v; st.intOffsets)
-				{
-					Serialize(s, k);
-					Serialize(s, v);
-				}
+				Serialize(s, k);
+				Serialize(s, v);
 			}
-			
+
 			Serialize(s, st.defaultOffset);
 		}
 		
@@ -2221,37 +2200,17 @@ class MDFuncDef
 		
 		foreach(inout st; ret.mSwitchTables)
 		{
-			Deserialize(s, st.isString);
-			
-			if(st.isString)
-			{
-				Deserialize(s, len);
-				
-				for(int i = 0; i < len; i++)
-				{
-					dchar[] key;
-					int value;
-					
-					Deserialize(s, key);
-					Deserialize(s, value);
+			Deserialize(s, len);
 
-					st.stringOffsets[key] = value;
-				}
-			}
-			else
+			for(int i = 0; i < len; i++)
 			{
-				Deserialize(s, len);
-				
-				for(int i = 0; i < len; i++)
-				{
-					int key;
-					int value;
-					
-					Deserialize(s, key);
-					Deserialize(s, value);
-					
-					st.intOffsets[key] = value;
-				}
+				MDValue key;
+				int value;
+
+				Deserialize(s, key);
+				Deserialize(s, value);
+
+				st.offsets[key] = value;
 			}
 
 			Deserialize(s, st.defaultOffset);
@@ -2462,13 +2421,15 @@ class MDGlobalState
 
 		if(staticInit)
 			s.easyCall(ret, 0, MDValue(modNS));
-			
+
 		return ret;
 	}
 }
 
 class MDState : MDObject
 {
+	protected static Location[] Traceback;
+
 	struct ActRecord
 	{
 		uint base;
@@ -2523,12 +2484,11 @@ class MDState : MDObject
 	
 	protected MDUpval* mUpvalHead;
 
-	protected Location[] mTraceback;
-	
 	protected State mState = State.Initial;
 	protected MDClosure mCoroFunc;
 	protected uint mSavedCallDepth;
 	protected uint mNumYields;
+	protected uint mNativeCallDepth = 0;
 
 	// ===================================================================================
 	// Public members
@@ -2654,7 +2614,7 @@ class MDState : MDObject
 
 		if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length + 1))
 			execute();
-			
+
 		if(numReturns == -1)
 			return mStackIndex - paramSlot;
 		else
@@ -2868,21 +2828,6 @@ class MDState : MDObject
 		return mStack[mCurrentAR.base + 1 .. mStackIndex].dup;
 	}
 
-	public char[] getTracebackString()
-	{
-		if(mTraceback.length == 0)
-			return "";
-			
-		char[] ret = string.format("Traceback: ", mTraceback[0].toString());
-
-		foreach(inout Location l; mTraceback[1 .. $])
-			ret = string.format("%s\n\tat ", ret, l.toString());
-
-		mTraceback.length = 0;
-
-		return ret;
-	}
-	
 	public MDString valueToString(inout MDValue value)
 	{
 		if(value.isString())
@@ -2893,6 +2838,11 @@ class MDState : MDObject
 		if(method.isNull() || !method.isFunction())
 			return new MDString(value.toString());
 
+		mNativeCallDepth++;
+		
+		scope(exit)
+			mNativeCallDepth--;
+			
 		easyCall(method.as!(MDClosure), 1, value);
 		MDValue ret = pop();
 
@@ -2916,10 +2866,25 @@ class MDState : MDObject
 	{
 		throw new MDRuntimeException(startTraceback(), val);
 	}
-	
+
 	public void throwRuntimeException(...)
 	{
 		throw new MDRuntimeException(startTraceback(), _arguments, _argptr);
+	}
+	
+	public static char[] getTracebackString()
+	{
+		if(Traceback.length == 0)
+			return "";
+			
+		char[] ret = string.format("Traceback: ", Traceback[0].toString());
+
+		foreach(inout Location l; Traceback[1 .. $])
+			ret = string.format("%s\n\tat ", ret, l.toString());
+
+		Traceback.length = 0;
+
+		return ret;
 	}
 
 	// ===================================================================================
@@ -2928,7 +2893,7 @@ class MDState : MDObject
 
 	protected Location startTraceback()
 	{
-		mTraceback.length = 0;
+		Traceback.length = 0;
 		return getDebugLocation();
 	}
 
@@ -2949,7 +2914,7 @@ class MDState : MDObject
 			if(instructionIndex < fd.mLineInfo.length)
 				line = fd.mLineInfo[instructionIndex];
 
-			return Location(mCurrentAR.func.script.func.mGuessedName, line, instructionIndex);
+			return Location(mCurrentAR.env.nameString() ~ "." ~ mCurrentAR.func.script.func.mGuessedName, line, instructionIndex);
 		}
 	}
 
@@ -3078,6 +3043,11 @@ class MDState : MDObject
 				break;
 
 			default:
+				mNativeCallDepth++;
+				
+				scope(exit)
+					mNativeCallDepth--;
+
 				MDValue* method = getMM(*func, MM.Call);
 
 				if(method.isNull() || !method.isFunction())
@@ -3117,7 +3087,14 @@ class MDState : MDObject
 			int actualReturns;
 
 			try
+			{
+				mNativeCallDepth++;
+
+				scope(exit)
+					mNativeCallDepth--;
+
 				actualReturns = closure.native.dg(this, numParams - 1);
+			}
 			catch(MDRuntimeException e)
 			{
 				if(callEpilogue(0, 0))
@@ -3128,7 +3105,7 @@ class MDState : MDObject
 			catch(MDException e)
 			{
 				Location loc = startTraceback();
-				
+
 				if(callEpilogue(0, 0))
 					mStackIndex = mCurrentAR.savedTop;
 
@@ -3224,7 +3201,7 @@ class MDState : MDObject
 	protected bool callEpilogue(uint resultSlot, int numResults)
 	{
 		debug(CALLEPILOGUE) printCallStack();
-
+		
 		resultSlot = basedIndexToAbs(resultSlot);
 
 		debug(CALLEPILOGUE) writefln("callEpilogue for function ", mCurrentAR.func.toString());
@@ -3241,7 +3218,7 @@ class MDState : MDObject
 			numResults = mStackIndex - resultSlot;
 			
 		mNumYields = numResults;
-
+		
 		if(numExpRets == -1)
 		{
 			isMultRet = true;
@@ -3250,7 +3227,7 @@ class MDState : MDObject
 		}
 		
 		popAR();
-
+		
 		if(numExpRets <= numResults)
 		{
 			while(numExpRets > 0)
@@ -3340,7 +3317,7 @@ class MDState : MDObject
 	{
 		mARIndex--;
 
-		assert(mARIndex != uint.max, "Script call stack underflow");
+		assert(mARIndex != uint.max);//BUG , "Script call stack underflow");
 
 		mCurrentAR.func = null;
 		mCurrentAR.env = null;
@@ -3605,6 +3582,11 @@ class MDState : MDObject
 			if(method.isFunction() == false)
 				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.Index], src.typeString());
 
+			mNativeCallDepth++;
+
+			scope(exit)
+				mNativeCallDepth--;
+
 			uint funcSlot = push(method);
 			push(src);
 			push(key);
@@ -3742,6 +3724,11 @@ class MDState : MDObject
 			if(method.isFunction() == false)
 				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.IndexAssign], dest.typeString());
 	
+			mNativeCallDepth++;
+
+			scope(exit)
+				mNativeCallDepth--;
+
 			uint funcSlot = push(method);
 			push(dest);
 			push(key);
@@ -3845,6 +3832,11 @@ class MDState : MDObject
 			if(!method.isFunction())
 				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.Slice], src.typeString());
 	
+			mNativeCallDepth++;
+
+			scope(exit)
+				mNativeCallDepth--;
+
 			uint funcSlot = push(method);
 			push(src);
 			push(lo);
@@ -3974,6 +3966,11 @@ class MDState : MDObject
 
 			if(!method.isFunction())
 				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.SliceAssign], dest.typeString());
+
+			mNativeCallDepth++;
+
+			scope(exit)
+				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(dest);
@@ -4150,7 +4147,7 @@ class MDState : MDObject
 						case Instruction.locUpval: return getUpvalueRef(val).value;
 						default: break;
 					}
-					
+
 					assert(loc == Instruction.locGlobal, "get() location");
 
 					MDValue* idx = getConst(val);
@@ -4171,20 +4168,10 @@ class MDState : MDObject
 							glob = v;
 							break;
 
-						case MDValue.Type.Instance:
-							glob = src.as!(MDInstance)[name];
-							break;
-
-						case MDValue.Type.Class:
-							glob = src.as!(MDClass)[name];
-							break;
-
-						case MDValue.Type.Namespace:
-							glob = src.as!(MDNamespace)[name];
-							break;
-
-						default:
-							break;
+						case MDValue.Type.Instance:  glob = src.as!(MDInstance)[name]; break;
+						case MDValue.Type.Class:     glob = src.as!(MDClass)[name]; break;
+						case MDValue.Type.Namespace: glob = src.as!(MDNamespace)[name]; break;
+						default: break;
 					}
 
 					if(glob is null)
@@ -4284,6 +4271,11 @@ class MDState : MDObject
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform arithmetic on a '%s' and a '%s'", RS.typeString(), RT.typeString());
 
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+
 							uint funcSlot = push(method);
 							push(RS);
 							push(RT);
@@ -4309,6 +4301,11 @@ class MDState : MDObject
 
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform negation on a '%s'", RS.typeString());
+
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
 
 							uint funcSlot = push(method);
 							push(RS);
@@ -4364,10 +4361,15 @@ class MDState : MDObject
 						else
 						{
 							MDValue* method = getMM(*RD, operation);
-				
+
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform arithmetic on a '%s' and a '%s'", RD.typeString(), RS.typeString());
-				
+
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+
 							uint funcSlot = push(method);
 							push(RD);
 							push(RS);
@@ -4410,6 +4412,11 @@ class MDState : MDObject
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", RS.typeString(), RT.typeString());
 
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+
 							uint funcSlot = push(method);
 							push(RS);
 							push(RT);
@@ -4434,13 +4441,18 @@ class MDState : MDObject
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform complement on a '%s'", RS.typeString());
 
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+
 							uint funcSlot = push(method);
 							push(RS);
 							call(funcSlot, 1, 1);
 							*getRD() = *getBasedStack(funcSlot);
 						}
 						break;
-						
+
 					// Reflexive Bitwise
 					case Op.AndEq:  operation = MM.AndEq;  goto case cast(Op)-4;
 					case Op.OrEq:   operation = MM.OrEq;   goto case cast(Op)-4;
@@ -4471,10 +4483,15 @@ class MDState : MDObject
 						else
 						{
 							MDValue* method = getMM(*RD, operation);
-				
+
 							if(!method.isFunction())
 								throwRuntimeException("Cannot perform bitwise arithmetic on a '%s' and a '%s'", RD.typeString(), RS.typeString());
 				
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+
 							uint funcSlot = push(method);
 							push(RD);
 							push(RS);
@@ -4595,9 +4612,14 @@ class MDState : MDObject
 									else
 									{
 										MDValue* method = getMM(RS, MM.Cmp);
-										
+
 										if(method.isFunction())
 										{
+											mNativeCallDepth++;
+
+											scope(exit)
+												mNativeCallDepth--;
+
 											uint funcReg = push(method);
 											push(RS);
 											push(RT);
@@ -4618,9 +4640,14 @@ class MDState : MDObject
 						else
 						{
 							MDValue* method = getMM(RS, MM.Cmp);
-							
+
 							if(!method.isFunction())
 								throwRuntimeException("invalid opCmp metamethod for type '%s'", RS.typeString());
+
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
 
 							uint funcReg = push(method);
 							push(RS);
@@ -4715,30 +4742,15 @@ class MDState : MDObject
 							mCurrentAR.pc += i.imm;
 						break;
 						
-					case Op.SwitchInt:
-						debug(TIMINGS) scope _profiler_ = new Profiler("SwitchInt");
+					case Op.Switch:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Switch");
 
 						getRS();
 
-						int value;
-						int offset;
-
-						if(RS.isInt() == false)
-						{
-							if(RS.isChar() == false)
-								throwRuntimeException("Attempting to perform an integral switch on a value of type '%s'", RS.typeString());
-							
-							value = cast(int)RS.as!(dchar);
-						}
-						else
-							value = RS.as!(int);
-
 						auto t = &mCurrentAR.func.script.func.mSwitchTables[i.rt];
-				
-						assert(t.isString == false, "int switch on a string table");
-				
-						int* ptr = (value in t.intOffsets);
-				
+						int offset;
+						int* ptr = (RS in t.offsets);
+
 						if(ptr is null)
 							offset = t.defaultOffset;
 						else
@@ -4749,34 +4761,7 @@ class MDState : MDObject
 
 						mCurrentAR.pc += offset;
 						break;
-	
-					case Op.SwitchString:
-						debug(TIMINGS) scope _profiler_ = new Profiler("SwitchString");
 
-						getRS();
-
-						int offset;
-						
-						if(RS.isString() == false)
-							throwRuntimeException("Attempting to perform a string switch on a value of type '%s'", RS.typeString());
-
-						auto t = &mCurrentAR.func.script.func.mSwitchTables[i.rt];
-				
-						assert(t.isString == true, "string switch on an int table");
-				
-						int* ptr = (RS.as!(MDString).mData in t.stringOffsets);
-				
-						if(ptr is null)
-							offset = t.defaultOffset;
-						else
-							offset = *ptr;
-
-						if(offset == -1)
-							throwRuntimeException("Switch without default");
-	
-						mCurrentAR.pc += offset;
-						break;
-						
 					case Op.Close:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Close");
 
@@ -4799,6 +4784,11 @@ class MDState : MDObject
 
 							if(!apply.isFunction())
 								throwRuntimeException("No implementation of %s for type '%s'", MetaStrings[MM.Apply], src.typeString());
+
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
 
 							copyBasedStack(rd + 2, rd + 1);
 							*getBasedStack(rd + 1) = src;
@@ -4968,7 +4958,7 @@ class MDState : MDObject
 						else
 						{
 							assert(call.opcode == Op.Tailcall, "Op.Precall invalid call opcode");
-							
+
 							close(0);
 
 							int funcReg = call.rd;
@@ -4987,10 +4977,15 @@ class MDState : MDObject
 							int numReturns = mCurrentAR.numReturns;
 	
 							popAR();
-	
-							if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
-								--depth;
-	
+
+							{
+								scope(failure)
+									--depth;
+
+								if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
+									--depth;
+							}
+							
 							if(depth == 0)
 								return;
 						}
@@ -5040,8 +5035,11 @@ class MDState : MDObject
 						
 						mStackIndex = dest + numNeeded;
 						break;
-						
+
 					case Op.Yield:
+						if(mNativeCallDepth > 0)
+							throwRuntimeException("Attempting to yield across native / metamethod call boundary");
+
 						uint firstValue = basedIndexToAbs(i.rd);
 
 						pushAR();
@@ -5082,10 +5080,14 @@ class MDState : MDObject
 								
 							default:
 								MDValue* method = getMM(RS, MM.Length);
-						
+
 								if(method.isFunction())
 								{
-									
+									mNativeCallDepth++;
+
+									scope(exit)
+										mNativeCallDepth--;
+
 									uint funcReg = push(method);
 									push(RS);
 									call(funcReg, 1, 1);
@@ -5160,6 +5162,11 @@ class MDState : MDObject
 						for(int j = firstItem; j <= lastItem; j++)
 							push(getAbsStack(j));
 
+						mNativeCallDepth++;
+
+						scope(exit)
+							mNativeCallDepth--;
+
 						call(funcSlot, numItems, 1);
 						*getRD() = *getBasedStack(funcSlot);
 						break;
@@ -5214,6 +5221,11 @@ class MDState : MDObject
 
 						if(!method.isFunction())
 							throwRuntimeException("Cannot concatenate a '%s' and a '%s'", RD.typeString(), RS.typeString());
+
+						mNativeCallDepth++;
+
+						scope(exit)
+							mNativeCallDepth--;
 
 						uint funcSlot = push(method);
 						push(RD);
@@ -5292,11 +5304,13 @@ class MDState : MDObject
 							default:
 								MDValue* method = getMM(RT, MM.In);
 
-								if(method.isNull())
+								if(!method.isFunction())
 									throwRuntimeException("No %s metamethod for type '%s'", MetaNames[MM.In], RT.typeString());
 
-								if(method.isFunction() == false)
-									throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.In], RT.typeString());
+								mNativeCallDepth++;
+
+								scope(exit)
+									mNativeCallDepth--;
 
 								uint funcSlot = push(method);
 								push(RT);
@@ -5370,7 +5384,7 @@ class MDState : MDObject
 						*getRD() = new MDState(RS.as!(MDClosure));
 						break;
 						
-					// As
+					// Class stuff
 					case Op.As:
 						debug(TIMINGS) scope _profiler_ = new Profiler("As");
 
@@ -5388,6 +5402,32 @@ class MDState : MDObject
 
 						break;
 						
+					case Op.Super:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Super");
+						
+						getRS();
+
+						if(RS.isInstance())
+							*getRD() = RS.as!(MDInstance).getClass().superClass();
+						else if(RS.isClass())
+							*getRD() = RS.as!(MDClass).superClass();
+						else
+							throwRuntimeException("Can only get superclass of classes and instances, not '%s'", RS.typeString());
+
+						break;
+						
+					case Op.ClassOf:
+						debug(TIMINGS) scope _profiler_ = new Profiler("ClassOf");
+
+						getRS();
+
+						if(RS.isInstance())
+							*getRD() = RS.as!(MDInstance).getClass();
+						else
+							throwRuntimeException("Can only get class of instances, not '%s'", RS.typeString());
+
+						break;
+
 					case Op.Je:
 					case Op.Jle:
 					case Op.Jlt:
@@ -5408,7 +5448,7 @@ class MDState : MDObject
 		{
 			while(depth > 0)
 			{
-				mTraceback ~= getDebugLocation();
+				Traceback ~= getDebugLocation();
 
 				while(mCurrentTR.actRecord is mARIndex)
 				{
@@ -5435,9 +5475,9 @@ class MDState : MDObject
 						goto _exceptionRetry;
 					}
 				}
-
-				depth--;
 				
+				depth--;
+
 				if(callEpilogue(0, 0))
 					mStackIndex = mCurrentAR.savedTop;
 			}

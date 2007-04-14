@@ -41,22 +41,63 @@ import path = std.path;
 import file = std.file;
 import utf = std.utf;
 
+/**
+This enumeration is used with the MDInitialize function to specify which standard libraries you
+want to load when MiniD is initialized.  The base library is always loaded, so there is no
+flag for it.  You can choose which libraries you want to load by ORing together multiple
+flags.
+*/
 enum MDStdlib
 {
+	/// Nothing but the base library will be loaded if you specify this flag.
 	None =      0,
+	
+	/// Array manipulation.
 	Array =     1,
+
+	/// Character classification.
 	Char =      2,
+
+	/// Stream-based input and output.
 	IO =        4,
+
+	/// Standard math functions.
 	Math =      8,
+
+	/// String manipulation.
 	String =   16,
+
+	/// Table manipulation.
 	Table =    32,
+	
+	/// OS-specific functionality.
 	OS =       64,
+	
+	/// Regular expressions.
 	Regexp =  128,
+	
+	/// This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
+	/// the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+	/// or OS libraries to do bad things.
 	Safe = Array | Char | Math | String | Table | Regexp,
+	
+	/// All available standard libraries.
 	All = Safe | IO | OS,
 }
 
-MDState MDInitialize(MDStdlib libs = MDStdlib.All)
+/**
+Initializes the global MiniD state and loads any specified standard libraries into it.  This also
+registers the default module loader (MDFileLoader) with the global state; this is important for
+imports to work properly.
+
+Parameters:
+	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
+	Defaults to MDStdlib.All.
+	
+Returns:
+	The main thread state associated with the global state.
+*/
+MDState MDInitialize(uint libs = MDStdlib.All)
 {
 	if(!MDGlobalState.isInitialized())
 	{
@@ -94,24 +135,30 @@ MDState MDInitialize(MDStdlib libs = MDStdlib.All)
 	return MDGlobalState().mainThread();
 }
 
+/**
+The default module loader for MiniD.  It will load modules from the filesystem based on their
+name and given search paths.
+*/
 class MDFileLoader
 {
 	private static MDFileLoader instance;
 	private bool[char[]] mPaths;
-	
+
 	private this()
 	{
 
 	}
 	
+	/// This class is a singleton, and this static opCall overload will return the instance.
 	public static MDFileLoader opCall()
 	{
 		if(instance is null)
 			instance = new MDFileLoader();
-			
+
 		return instance;
 	}
 	
+	/// Adds a search path to the list of search paths.
 	public void addPath(char[] path)
 	{
 		mPaths[path] = true;

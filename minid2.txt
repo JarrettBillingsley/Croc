@@ -124,6 +124,7 @@ Keyword:
 	'module'
 	'null'
 	'return'
+	'super'
 	'switch'
 	'this'
 	'throw'
@@ -310,6 +311,7 @@ ClassDeclaration:
 ClassMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
+	'this' Parameters BlockStatement
 	
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
@@ -450,9 +452,12 @@ PostfixExpression:
 	PrimaryExpression
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' Identifier
-	PostfixExpression '(' [Expression {',' Expression}] ')'
-	PostfixExpression '(' 'with' Expression {',' Expression} ')'
+	PostfixExpression '.' (Identifier | 'super' | 'class')
+	PostfixExpression '(' [Arguments] ')'
+	PostfixExpression '(' 'with' Arguments ')'
+
+Arguments:
+	Expression {',' Arguments}
 
 PrimaryExpression:
 	Identifier
@@ -470,7 +475,8 @@ PrimaryExpression:
 	'(' Expression ')'
 	TableCtor
 	ArrayCtor
-	'yield' '(' [Expression {',' Expression}] ')'
+	'yield' '(' [Arguments] ')'
+	'super' ['.' Identifier] '(' [Arguments] ')'
 
 TableCtor:
 	'{' [TableField {',' TableField}] '}'

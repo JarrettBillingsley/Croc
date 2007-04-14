@@ -32,39 +32,44 @@ import utf = std.utf;
 import std.uni;
 import std.perf;
 
-// Some type traits stuff.
+/// Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 template isStringType(T)
 {
 	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
 }
 
+/// Sees if a type is char, wchar, or dchar.
 template isCharType(T)
 {
 	const bool isCharType = is(T == char) || is(T == wchar) || is(T == dchar);
 }
 
+/// Sees if a type is a signed or unsigned byte, short, int, or long.
 template isIntType(T)
 {
 	const bool isIntType = is(T == int) || is(T == uint) || is(T == long) || is(T == ulong) ||
 							is(T == short) || is(T == ushort) || is(T == byte) || is(T == ubyte) /* || is(T == cent) || is(T == ucent) */;
 }
 
+/// Sees if a type is float, double, or real.
 template isFloatType(T)
 {
 	const bool isFloatType = is(T == float) || is(T == double) || is(T == real);
 }
 
+/// Sees if a type is an array.
 template isArrayType(T)
 {
 	const bool isArrayType = is(typeof(T[0])) && is(typeof(T.sort));
 }
 
+/// Sees if a type is a pointer.
 template isPointerType(T)
 {
 	const bool isPointerType = is(typeof(*T)) && !isArrayType!(T);
 }
 
-// Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+/// Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
 template realType(T)
 {
 	static if(is(T Base == typedef))
@@ -73,8 +78,8 @@ template realType(T)
 		alias T realType;
 }
 
-// Determine if a given aggregate type contains any unions, explicit or anonymous.
-// Thanks to Frits van Bommel for the original code.
+/// Determine if a given aggregate type contains any unions, explicit or anonymous.
+/// Thanks to Frits van Bommel for the original code.
 template hasUnions(T, size_t Idx = 0)
 {
 	static if(!is(typeof(T.tupleof)))
@@ -161,25 +166,27 @@ unittest
 	assert(hasUnions!(E));
 }
 
-// Convert any function pointer into a delegate that calls the function when it's called.
-RetType delegate(Args) ToDelegate(RetType, Args...)(RetType function(Args) func)
+/// Convert any function pointer into a delegate that calls the function when it's called.
+template ToDelegate(alias func)
 {
-	struct S
+	ReturnType!(func) delegate(ParameterTypeTuple!(func)) ToDelegate()
 	{
-		RetType function(Args) func;
-		
-		RetType callMe(Args args)
+		struct S
 		{
-			return func(args);
+			static S s;
+
+			ReturnType!(func) callMe(ParameterTypeTuple!(func) args)
+			{
+				return func(args);
+			}
 		}
-	}
 	
-	S* s = new S;
-	s.func = func;
-	return &s.callMe;
+		return &S.s.callMe;
+	}
 }
 
-// Don't know why this isn't in phobos.
+/// Takes a TypeInfo[] and va_list and formats them, like the format(...) function.
+/// Don't know why this isn't in phobos.
 char[] vformat(TypeInfo[] arguments, va_list argptr)
 {
 	char[] s;
@@ -188,7 +195,7 @@ char[] vformat(TypeInfo[] arguments, va_list argptr)
 	{
 		utf.encode(s, c);
 	}
-	
+
 	format.doFormat(&putc, arguments, argptr);
 
 	return s;
@@ -206,7 +213,7 @@ unittest
 	assert(fmt("hello %s", "world") == "hello world");
 }
 
-// Or this.
+/// Compares dchar[] strings, like std.string.cmp().
 int dcmp(dchar[] s1, dchar[] s2)
 {
 	auto len = s1.length;
@@ -232,7 +239,7 @@ unittest
 	assert(dcmp("an even longer string"d, "an even"d) > 0);
 }
 
-// Like std.string.join, but for dchar[]s.
+/// Like std.string.join, but for dchar[]s.
 dchar[] djoin(dchar[][] strings, dchar[] separator)
 {
 	uint length = 0;
@@ -262,7 +269,7 @@ dchar[] djoin(dchar[][] strings, dchar[] separator)
 	return ret;
 }
 
-// Same, but with a single-character separator (optimized a bit).
+/// ditto
 dchar[] djoin(dchar[][] strings, dchar separator)
 {
 	uint length = 0;
@@ -291,7 +298,8 @@ dchar[] djoin(dchar[][] strings, dchar separator)
 	return ret;
 }
 
-// For joining lists of strings which aren't kept in dchar[][]s.
+/// Join lists of strings which aren't kept in arrays.  The given delegate is passed increasing
+/// indices starting at 0, and should return null to signal the end of the list.
 dchar[] djoin(dchar[] delegate(uint) dg, dchar[] separator)
 {
 	dchar[] ret = dg(0);
@@ -319,7 +327,7 @@ unittest
 	}, "::") == "foo::bar::baz");
 }
 
-// Parse a based integer out of a dchar[].
+/// Parse a based integer out of a dchar[].
 int toInt(dchar[] s, int base)
 {
 	assert(base >= 2 && base <= 36, "toInt - invalid base");
@@ -432,6 +440,7 @@ unittest
 	catch{}
 }
 
+/// Lowercase a dchar[] using proper Unicode character functions.
 dchar[] toLowerD(dchar[] s)
 {
 	bool changed = false;
@@ -445,14 +454,15 @@ dchar[] toLowerD(dchar[] s)
 				s = s.dup;
 				changed = true;
 			}
-			
+
 			s[i] = toUniLower(s[i]);
 		}
 	}
-	
+
 	return s;
 }
 
+/// Uppercase a dchar[] using proper Unicode character functions.
 dchar[] toUpperD(dchar[] s)
 {
 	bool changed = false;
@@ -485,30 +495,30 @@ unittest
 	assert(toUpperD(t) !is t);
 }
 
-// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+/// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
 template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
 	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
 }
 
-// Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
+/// Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
 template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
 }
 
-// The current version of MiniD.  (this is kind of buried here)
+/// The current version of MiniD.  (this is kind of buried here)
 const uint MiniDVersion = MakeVersion!(0, 4);
 
-// See if T is a type that can't be automatically serialized.
+/// See if T is a type that can't be automatically serialized.
 template isInvalidSerializeType(T)
 {
 	const bool isInvalidSerializeType = isPointerType!(T) || is(T == function) || is(T == delegate) ||
 		is(T == interface) || is(T == union) || (is(typeof(T.keys)) && is(typeof(T.values)));
 }
 
-// The different ways data can be serialized and deserialized.
+/// The different ways data can be serialized and deserialized.
 enum SerializeMethod
 {
 	Invalid,
@@ -519,7 +529,7 @@ enum SerializeMethod
 	Chunk
 }
 
-// Given a type, determine how to serialize or deserialize a value of that type.
+/// Given a type, determine how to serialize or deserialize a value of that type.
 template TypeSerializeMethod(T)
 {
 	static if(isInvalidSerializeType!(T))
@@ -692,6 +702,11 @@ void Deserialize(T)(Stream s, out T dest)
 	}
 }
 
+/// A class used for profiling pieces of code.  You initialize it with an output filename,
+/// and during execution of your program, you just create instances of this class with a
+/// certain name.  Timings for each profile name are accumulated over the course of the program and
+/// the final output will show the name of the profile, how many times it was instanced, the
+/// tital time in milliseconds, and the average time per instance in milliseconds.
 scope class Profiler : HighPerformanceCounter
 {
 	private static Stream mOutLog;
@@ -775,4 +790,39 @@ scope class Profiler : HighPerformanceCounter
 static this()
 {
 	debug(TIMINGS) Profiler.init("timings.txt");
+}
+
+struct List(T)
+{
+	private T[] mData;
+	private uint mIndex = 0;
+
+	public void add(T item)
+	{
+		if(mIndex >= mData.length)
+		{
+			if(mData.length == 0)
+				mData.length = 10;
+			else
+				mData.length = mData.length * 2;
+		}
+		
+		mData[mIndex] = item;
+		mIndex++;
+	}
+	
+	public T opIndex(uint index)
+	{
+		return mData[index];
+	}
+	
+	public uint length()
+	{
+		return mIndex;
+	}
+
+	public T[] toArray()
+	{
+		return mData[0 .. mIndex];
+	}
 }

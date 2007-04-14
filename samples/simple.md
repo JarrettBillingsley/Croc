@@ -1,5 +1,35 @@
 module simple;
 
+// Coroutines and coroutine iteration.
+local countDown = coroutine function countDown(x)
+{
+	yield();
+	
+	while(x > 0)
+	{
+		yield(x);
+		x--;
+	}
+};
+
+foreach(v; countDown, 5)
+	writefln(v);
+	
+writefln();
+
+local forEach = coroutine function forEach(t)
+{
+	yield();
+
+	foreach(k, v; t)
+		yield(k, v);
+};
+
+foreach(_, k, v; forEach, {hi = 1, bye = 2})
+	writefln("key: ", k, ", value: ", v);
+
+writefln();
+
 // Testing tailcalls.
 function recurse(x)
 {
@@ -569,31 +599,7 @@ writefln();
 
 // Testing switches.
 
-for(local switchVar = 0; switchVar < 11; switchVar++)
-{
-	switch(switchVar)
-	{
-		case 1, 2, 3:
-			writefln("small");
-			break;
-
-		case 4, 5, 6:
-			writefln("medium");
-			break;
-
-		case 7, 8, 9:
-			writefln("large");
-			break;
-			
-		default:
-			writefln("out of range");
-			break;
-	}
-}
-
-writefln();
-
-foreach(i, v; ["hi", "bye", "foo"])
+foreach(v; ["hi", "bye", "foo"])
 {
 	switch(v)
 	{
@@ -613,30 +619,15 @@ foreach(i, v; ["hi", "bye", "foo"])
 
 writefln();
 
-// Coroutines and coroutine iteration
-local countDown = coroutine function countDown(x)
+foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 {
-	yield();
-	
-	while(x > 0)
+	switch(v)
 	{
-		yield(x);
-		x--;
+		case null: writefln("null"); break;
+		case false: writefln("false"); break;
+		case 1: writefln("1"); break;
+		case 2.3: writefln("2.3"); break;
+		case 'x': writefln("x"); break;
+		case "hi": writefln("hi"); break;
 	}
-};
-
-foreach(v; countDown, 5)
-	writefln(v);
-	
-writefln();
-
-local forEach = coroutine function forEach(t)
-{
-	yield();
-	
-	foreach(k, v; t)
-		yield(k, v);
-};
-
-foreach(_, k, v; forEach, {hi = 1, bye = 2})
-	writefln("key: ", k, ", value: ", v);
+}

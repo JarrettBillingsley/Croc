@@ -17,16 +17,15 @@ void main()
 		MDFileLoader().addPath(`samples`);
 
 		MDGlobalState().importModule("simple");
-		//compileModule(`samples\simple.md`);
 	}
 	catch(MDException e)
 	{
 		writefln("Error: ", e);
-		writefln(s.getTracebackString());
+		writefln(MDState.getTracebackString());
 	}
 	catch(Object e)
 	{
 		writefln("Bad error: ", e);
-		writefln(s.getTracebackString());
+		writefln(MDState.getTracebackString());
 	}
 }

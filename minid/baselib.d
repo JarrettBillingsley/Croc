@@ -427,12 +427,6 @@ class BaseLib
 		return 1;
 	}
 
-	int classof(MDState s, uint numParams)
-	{
-		s.push(s.getParam!(MDInstance)(0).getClass());
-		return 1;
-	}
-
 	int mdtoString(MDState s, uint numParams)
 	{
 		s.push(s.valueToString(s.getParam(0u)));
@@ -441,7 +435,7 @@ class BaseLib
 
 	int getTraceback(MDState s, uint numParams)
 	{
-		s.push(new MDString(s.getTracebackString()));
+		s.push(new MDString(MDState.getTracebackString()));
 		return 1;
 	}
 	
@@ -712,7 +706,6 @@ public void init()
 		setGlobal("assert"d,        newClosure(&lib.mdassert,              "assert"));
 		setGlobal("getTraceback"d,  newClosure(&lib.getTraceback,          "getTraceback"));
 		setGlobal("typeof"d,        newClosure(&lib.mdtypeof,              "typeof"));
-		setGlobal("classof"d,       newClosure(&lib.classof,               "classof"));
 		setGlobal("fieldsOf"d,      newClosure(&lib.fieldsOf,              "fieldsOf"));
 		setGlobal("methodsOf"d,     newClosure(&lib.methodsOf,             "methodsOf"));
 		setGlobal("toString"d,      newClosure(&lib.mdtoString,            "toString"));
