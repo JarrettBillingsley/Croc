@@ -707,7 +707,7 @@ void Deserialize(T)(Stream s, out T dest)
 /// certain name.  Timings for each profile name are accumulated over the course of the program and
 /// the final output will show the name of the profile, how many times it was instanced, the
 /// tital time in milliseconds, and the average time per instance in milliseconds.
-scope class Profiler : HighPerformanceCounter
+scope class Profiler : PerformanceCounter
 {
 	private static Stream mOutLog;
 	
@@ -806,7 +806,7 @@ struct List(T)
 			else
 				mData.length = mData.length * 2;
 		}
-		
+
 		mData[mIndex] = item;
 		mIndex++;
 	}
