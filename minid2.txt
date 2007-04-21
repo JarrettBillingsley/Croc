@@ -302,7 +302,7 @@ SimpleFunctionDeclaration:
 	'function' Identifier Parameters BlockStatement
 	
 Parameters:
-	'(' [Identifier {',' Identifier} [',' 'vararg']] ')'
+	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
 
 ClassDeclaration:
@@ -312,7 +312,7 @@ ClassMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
 	'this' Parameters BlockStatement
-	
+
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
 
@@ -339,7 +339,7 @@ DefaultStatement:
 	
 ContinueStatement:
 	'continue' ';'
-	
+
 BreakStatement:
 	'break' ';'
 	

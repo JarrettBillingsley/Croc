@@ -1,5 +1,25 @@
 module simple;
 
+class Base
+{
+	function fork()
+	{
+		writefln("Base fork.");
+	}
+}
+
+class Derived : Base
+{
+	function fork()
+	{
+		writefln("Derived fork!");
+		super.fork();
+	}
+}
+
+local d = Derived();
+d.fork();
+
 // Coroutines and coroutine iteration.
 local countDown = coroutine function countDown(x)
 {

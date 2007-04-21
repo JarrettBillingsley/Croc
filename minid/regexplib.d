@@ -34,7 +34,7 @@ class RegexpLib
 	this(MDNamespace namespace)
 	{
 		regexpClass = new MDRegexpClass();
-
+		
 		namespace.addList
 		(
 			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,

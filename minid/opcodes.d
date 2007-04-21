@@ -44,6 +44,7 @@ enum Op : uint
 	ClassOf,
 	Close,
 	Closure,
+	CondMove,
 	Coroutine,
 	Cmp,
 	Com,
@@ -121,6 +122,7 @@ Class.............R: dest, name const index, base class reg
 ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
+CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
 Com...............R: dest, src, n/a
@@ -262,6 +264,7 @@ align(1) struct Instruction
 			case Op.ClassOf:       return string.format("classof %s, %s", cr(rd), cr(rs));
 			case Op.Close:         return string.format("close r%s", rd);
 			case Op.Closure:       return string.format("closure %s, %s", cr(rd), uimm);
+			case Op.CondMove:      return string.format("cmov %s, %s", cr(rd), cr(rs));
 			case Op.Coroutine:     return string.format("coroutine %s, %s", cr(rd), cr(rs));
 			case Op.Cmp:           return string.format("cmp %s, %s", cr(rs), cr(rt));
 			case Op.Com:           return string.format("com %s, %s", cr(rd), cr(rs));

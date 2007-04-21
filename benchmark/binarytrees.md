@@ -43,7 +43,7 @@ local time = os.microTime();
 	
 	if(maxdepth < n)
 		maxdepth = n;
-	
+
 	{
 		local stretchdepth = maxdepth + 1;
 		local stretchtree = BottomUpTree(0, stretchdepth);
@@ -51,7 +51,7 @@ local time = os.microTime();
 	}
 	
 	local longlivedtree = BottomUpTree(0, maxdepth);
-	
+
 	for(local depth = mindepth; depth <= maxdepth; depth += 2)
 	{
 		local iterations = 1 << (maxdepth - depth + mindepth);

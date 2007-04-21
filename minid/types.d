@@ -4132,11 +4132,9 @@ class MDState : MDObject
 
 				MDValue* get(uint index, MDValue* environment)
 				{
-					debug(TIMINGS) scope _profiler_ = new Profiler("get()");
-
 					uint val = index & ~Instruction.locMask;
 					uint loc = index & Instruction.locMask;
-					
+
 					if(environment)
 						*environment = mCurrentAR.env;
 
@@ -4147,6 +4145,8 @@ class MDState : MDObject
 						case Instruction.locUpval: return getUpvalueRef(val).value;
 						default: break;
 					}
+
+					debug(TIMINGS) scope _profiler_ = new Profiler("get() glob");
 
 					assert(loc == Instruction.locGlobal, "get() location");
 
@@ -4506,6 +4506,18 @@ class MDState : MDObject
 
 						getRS();
 						*getRD() = RS;
+						break;
+						
+					case Op.CondMove:
+						debug(TIMINGS) scope _profiler_ = new Profiler("CondMove");
+						
+						MDValue* RD = getRD();
+						
+						if(RD.isNull())
+						{
+							getRS();
+							*RD = RS;
+						}
 						break;
 
 					case Op.LoadBool:

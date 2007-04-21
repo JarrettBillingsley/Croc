@@ -1,3 +1,6 @@
 mdcl.d
 -clean
 -release
+-O
+-inline
+-op

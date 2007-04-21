@@ -34,23 +34,6 @@ version(Windows)
 else
 {
 	import std.c.linux.linux;
-
-	extern (C)
-	{
-		struct timeval
-		{
-			int tv_sec;
-			int tv_usec;
-		}
-
-		struct timezone
-		{
-			int tz_minuteswest;
-			int tz_dsttime;
-		}
-
-		private void gettimeofday(timeval *tv, timezone *tz);
-	}
 }
 
 class OSLib
@@ -82,17 +65,17 @@ class OSLib
 			QueryPerformanceCounter(&time);
 
 			if(time < 0x8637BD05AF6L)
-				s.push((time * 1000000) / performanceFreq);
+				s.push((time * 1_000_000) / performanceFreq);
 			else
-				s.push((time / performanceFreq) * 1000000);
+				s.push((time / performanceFreq) * 1_000_000);
 		}
 		else
 		{
 			// Let's just assume that most other OSes besides Windows support gettimeofday()...
-			timeval tv;
-			timezone tz;
-			gettimeofday(&tv, &tz);
-			s.push(tv.tv_usec);
+			std.c.linux.linux.timeval tv;
+			struct_timezone tz;
+			std.c.linux.linux.gettimeofday(&tv, &tz);
+			s.push(cast(ulong)(tv.tv_sec * 1_000_000L) + cast(ulong)tv.tv_usec);
 		}
 		
 		return 1;
@@ -192,7 +175,7 @@ class OSLib
 
 		public final float seconds()
 		{
-			return mCounter.microseconds() / 1000000.0;
+			return mCounter.microseconds() / 1_000_000.0;
 		}
 
 		public final float millisecs()

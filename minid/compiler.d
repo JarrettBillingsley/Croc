@@ -1803,7 +1803,7 @@ class FuncState
 
 	public uint tagLocal(uint val)
 	{
-		if(val > MaxRegisters)
+		if((val & ~Instruction.locMask) > MaxRegisters)
 			throw new MDCompileException(mLocation, "Too many locals");
 
 		return (val & ~Instruction.locMask) | Instruction.locLocal;
@@ -1811,7 +1811,7 @@ class FuncState
 	
 	public uint tagConst(uint val)
 	{
-		if(val > MaxConstants)
+		if((val & ~Instruction.locMask) > MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
 		return (val & ~Instruction.locMask) | Instruction.locConst;
@@ -1819,7 +1819,7 @@ class FuncState
 	
 	public uint tagUpval(uint val)
 	{
-		if(val > MaxUpvalues)
+		if((val & ~Instruction.locMask) > MaxUpvalues)
 			throw new MDCompileException(mLocation, "Too many upvalues");
 
 		return (val & ~Instruction.locMask) | Instruction.locUpval;
@@ -1827,7 +1827,7 @@ class FuncState
 	
 	public uint tagGlobal(uint val)
 	{
-		if(val > MaxConstants)
+		if((val & ~Instruction.locMask) > MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
 		return (val & ~Instruction.locMask) | Instruction.locGlobal;
@@ -2166,7 +2166,7 @@ class FuncState
 
 				ud.name = name.mName;
 				ud.isUpvalue = (varType == Upvalue);
-				ud.index = e.index;
+				ud.index = tagLocal(e.index);
 
 				s.mUpvals ~= ud;
 
@@ -3156,7 +3156,7 @@ class ClassDef
 					t = t.nextToken;
 
 					bool isVararg;
-					Identifier[] params = FuncDef.parseParams(t, isVararg);
+					auto params = FuncDef.parseParams(t, isVararg);
 
 					CompoundStatement funcBody = CompoundStatement.parse(t);
 					addMethod(new FuncDef(ctorLocation, funcBody.mEndLocation, params, isVararg, funcBody, name));
@@ -3292,12 +3292,19 @@ class FuncDef
 {
 	protected Location mLocation;
 	protected Location mEndLocation;
-	protected Identifier[] mParams;
+	
+	struct Param
+	{
+		Identifier name;
+		Expression defValue;
+	}
+
+	protected Param[] mParams;
 	protected bool mIsVararg;
 	protected Statement mBody;
 	protected Identifier mName;
 
-	public this(Location location, Location endLocation, Identifier[] params, bool isVararg, Statement funcBody, Identifier name)
+	public this(Location location, Location endLocation, Param[] params, bool isVararg, Statement funcBody, Identifier name)
 	{
 		mLocation = location;
 		mEndLocation = endLocation;
@@ -3316,7 +3323,7 @@ class FuncDef
 		Identifier name = Identifier.parse(t);
 
 		bool isVararg;
-		Identifier[] params = parseParams(t, isVararg);
+		Param[] params = parseParams(t, isVararg);
 
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 
@@ -3337,7 +3344,7 @@ class FuncDef
 			name = new Identifier("<literal at " ~ utf.toUTF32(location.toString()) ~ ">", location);
 
 		bool isVararg;
-		Identifier[] params = parseParams(t, isVararg);
+		Param[] params = parseParams(t, isVararg);
 
 		Statement funcBody;
 		
@@ -3349,14 +3356,14 @@ class FuncDef
 		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
 	}
 
-	public static Identifier[] parseParams(inout Token* t, out bool isVararg)
+	public static Param[] parseParams(inout Token* t, out bool isVararg)
 	{
-		Identifier[] ret;
-		
-		ret ~= new Identifier("this", t.location);
+		Param[] ret = new Param[1];
+
+		ret[0].name = new Identifier("this", t.location);
 
 		t = t.expect(Token.Type.LParen);
-		
+
 		if(t.type == Token.Type.Vararg)
 		{
 			isVararg = true;
@@ -3373,7 +3380,18 @@ class FuncDef
 					break;
 				}
 
-				ret ~= Identifier.parse(t);
+				Identifier name = Identifier.parse(t);
+				Expression defValue = null;
+
+				if(t.type == Token.Type.Assign)
+				{
+					t = t.nextToken;
+					defValue = Expression.parse(t);
+				}
+				
+				ret.length = ret.length + 1;
+				ret[$ - 1].name = name;
+				ret[$ - 1].defValue = defValue;
 
 				if(t.type == Token.Type.RParen)
 					break;
@@ -3393,10 +3411,14 @@ class FuncDef
 		fs.mIsVararg = mIsVararg;
 		fs.mNumParams = mParams.length;
 
-		foreach(Identifier p; mParams)
-			fs.insertLocal(p);
+		foreach(p; mParams)
+			fs.insertLocal(p.name);
 
 		fs.activateLocals(mParams.length);
+
+		foreach(p; mParams)
+			if(p.defValue !is null)
+				(new OpEqExp(p.name.mLocation, p.name.mLocation, Op.CondMove, new IdentExp(p.name.mLocation, p.name), p.defValue)).codeGen(fs);
 
 		mBody.codeGen(fs);
 		fs.codeI(mBody.mEndLocation.line, Op.Ret, 0, 1);
@@ -3408,6 +3430,10 @@ class FuncDef
 
 	public FuncDef fold()
 	{
+		foreach(inout p; mParams)
+			if(p.defValue !is null)
+				p.defValue = p.defValue.fold();
+
 		mBody = mBody.fold();
 		return this;
 	}
@@ -5627,7 +5653,7 @@ class OpEqExp : Expression
 			case Token.Type.OrEq:      type = Op.OrEq;   goto _commonParse;
 			case Token.Type.XorEq:     type = Op.XorEq;  goto _commonParse;
 			case Token.Type.AndEq:     type = Op.AndEq;  goto _commonParse;
-			case Token.Type.DefaultEq: type = Op.Move;
+			case Token.Type.DefaultEq: type = Op.CondMove;
 
 			_commonParse:
 				t = t.nextToken;
@@ -5645,29 +5671,19 @@ class OpEqExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
-		if(mType == Op.Move)
-		{
-			Statement ifBody = new ExpressionStatement(mLocation, mEndLocation, new Assignment(mLocation, mEndLocation, [mLHS], mRHS));
-			Expression condition = new EqualExp(true, mLocation, mEndLocation, Op.Is, mLHS, new NullExp(mLocation));
-			Statement ifStatement = new IfStatement(mLocation, mEndLocation, condition, ifBody, null);
-			ifStatement.codeGen(s);
-		}
-		else
-		{
-			mLHS.codeGen(s);
-			s.pushSource(mLHS.mEndLocation.line);
-	
-			Exp src1;
-			s.popSource(mLHS.mEndLocation.line, src1);
-			mRHS.codeGen(s);
-			Exp src2;
-			s.popSource(mEndLocation.line, src2);
-	
-			s.freeExpTempRegs(&src2);
-			s.freeExpTempRegs(&src1);
-	
-			s.popReflexOp(mEndLocation.line, mType, src1.index, src2.index);
-		}
+		mLHS.codeGen(s);
+		s.pushSource(mLHS.mEndLocation.line);
+
+		Exp src1;
+		s.popSource(mLHS.mEndLocation.line, src1);
+		mRHS.codeGen(s);
+		Exp src2;
+		s.popSource(mEndLocation.line, src2);
+
+		s.freeExpTempRegs(&src2);
+		s.freeExpTempRegs(&src1);
+
+		s.popReflexOp(mEndLocation.line, mType, src1.index, src2.index);
 	}
 
 	public override InstRef* codeCondition(FuncState s)
@@ -5686,7 +5702,7 @@ class OpEqExp : Expression
 			case Op.OrEq:   throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
 			case Op.XorEq:  throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
 			case Op.AndEq:  throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
-			case Op.Move:   throw new MDCompileException(mLocation, "'?=' cannot be used as a condition");
+			case Op.CondMove:   throw new MDCompileException(mLocation, "'?=' cannot be used as a condition");
 		}
 	}
 
