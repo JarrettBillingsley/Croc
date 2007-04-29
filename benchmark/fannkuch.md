@@ -3,7 +3,7 @@ module benchmark.fannkuch;
 // n = 10, 79.13 sec
 // n = 11, 975 sec
 
-local function fannkuch(n)
+function fannkuch(n)
 {
 	local perm = array.new(n, 0);
 	local perm1 = array.range(n);

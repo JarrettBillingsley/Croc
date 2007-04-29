@@ -1,18 +1,9 @@
 module test;
 
-global x = 5;
-
-global function foo()
+global class A
 {
-	return "foo";
-}
-
-local function bar()
-{
-	return "bar";
-}
-
-global function opCall()
-{
-	writefln("BRRING BRRING I HAVE AN IMPORTANT CALL");
+	this()
+	{
+		writefln("A ctor");
+	}
 }

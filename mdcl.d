@@ -134,7 +134,13 @@ void main(char[][] args)
 		foreach(arg; scriptArgs)
 			state.push(arg);
 
-		state.call(funcReg, scriptArgs.length + 1, 0);
+		try
+			state.call(funcReg, scriptArgs.length + 1, 0);
+		catch(MDException e)
+		{
+			writefln("Error: ", e);
+			writefln(MDState.getTracebackString());
+		}
 	}
 
 	if(interactive)
@@ -187,7 +193,8 @@ void main(char[][] args)
 			}
 			catch(MDException e)
 			{
-				writefln(e);
+				writefln("Error: ", e);
+				writefln(MDState.getTracebackString());
 				writefln();
 			}
 

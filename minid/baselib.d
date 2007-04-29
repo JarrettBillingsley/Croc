@@ -116,12 +116,12 @@ MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 					break;
 
 				case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-					float f;
+					mdfloat f;
 					input.readf(fmt, &f);
 					val = f;
 					break;
 
-				case 's':
+				case 'r', 's':
 					char[] v;
 					input.readf(fmt, &v);
 					val = v;
@@ -183,7 +183,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 				return params[index].as!(int);
 			}
 
-			float getFloatParam(int index)
+			mdfloat getFloatParam(int index)
 			{
 				if(index >= params.length)
 					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
@@ -191,7 +191,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 				if(params[index].isFloat() == false)
 					s.throwRuntimeException("Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
 
-				return params[index].as!(float);
+				return params[index].as!(mdfloat);
 			}
 
 			dchar getCharParam(int index)
@@ -325,7 +325,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 							break;
 
 						case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-							float val;
+							mdfloat val;
 
 							if(s.isParam!("int")(paramIndex))
 								val = getIntParam(paramIndex);
@@ -339,6 +339,12 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 							MDString val = s.valueToString(getParam(paramIndex));
 							specialFormat(&outputChar, formatting[0 .. formattingLength], val.mData);
 							break;
+							
+						case 'r':
+							formatting[formattingLength - 1] = 's';
+							char[] val = getParam(paramIndex).toString();
+							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
+							break;
 
 						case 'c':
 							dchar val = getCharParam(paramIndex);
@@ -347,7 +353,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 
 						default:
 							// unsupported: %p
-							s.throwRuntimeException("Unsupported format specifier '%c' in parameter ", c, formatStrIndex);
+							s.throwRuntimeException("Unsupported format specifier '%s' in parameter ", c, formatStrIndex);
 					}
 				}
 				else
@@ -432,6 +438,12 @@ class BaseLib
 		s.push(s.valueToString(s.getParam(0u)));
 		return 1;
 	}
+	
+	int rawToString(MDState s, uint numParams)
+	{
+		s.push(s.getParam(0u).toString());
+		return 1;
+	}
 
 	int getTraceback(MDState s, uint numParams)
 	{
@@ -475,7 +487,7 @@ class BaseLib
 				break;
 
 			case MDValue.Type.Float:
-				s.push(cast(int)val.as!(float));
+				s.push(cast(int)val.as!(mdfloat));
 				break;
 
 			case MDValue.Type.Char:
@@ -500,19 +512,19 @@ class BaseLib
 		switch(val.type)
 		{
 			case MDValue.Type.Bool:
-				s.push(cast(float)val.as!(bool));
+				s.push(cast(mdfloat)val.as!(bool));
 				break;
 
 			case MDValue.Type.Int:
-				s.push(cast(float)val.as!(int));
+				s.push(cast(mdfloat)val.as!(int));
 				break;
 
 			case MDValue.Type.Float:
-				s.push(val.as!(float));
+				s.push(val.as!(mdfloat));
 				break;
 
 			case MDValue.Type.Char:
-				s.push(cast(float)val.as!(dchar));
+				s.push(cast(mdfloat)val.as!(dchar));
 				break;
 
 			case MDValue.Type.String:
@@ -695,6 +707,427 @@ class BaseLib
 		s.push(new MDClosure(upvalues[0].as!(MDClosure).environment, &curryClosure, "curryClosure", upvalues));
 		return 1;
 	}
+	
+	MDStringBufferClass stringBufferClass;
+
+	static class MDStringBufferClass : MDClass
+	{
+		public this()
+		{
+			super("StringBuffer", null);
+
+			iteratorClosure = new MDClosure(mMethods, &iterator, "StringBuffer.iterator");
+			iteratorReverseClosure = new MDClosure(mMethods, &iteratorReverse, "StringBuffer.iteratorReverse");
+			auto catEq = new MDClosure(mMethods, &opCatAssign, "StringBuffer.opCatAssign");
+
+			mMethods.addList
+			(
+				"constructor"d,   new MDClosure(mMethods, &constructor,   "StringBuffer.constructor"),
+				"append"d,        catEq,
+				"opCatAssign"d,   catEq,
+				"insert"d,        new MDClosure(mMethods, &insert,        "StringBuffer.insert"),
+				"remove"d,        new MDClosure(mMethods, &remove,        "StringBuffer.remove"),
+				"toString"d,      new MDClosure(mMethods, &toString,      "StringBuffer.toString"),
+				"length"d,        new MDClosure(mMethods, &length,        "StringBuffer.length"),
+				"opLength"d,      new MDClosure(mMethods, &opLength,      "StringBuffer.opLength"),
+				"opIndex"d,       new MDClosure(mMethods, &opIndex,       "StringBuffer.opIndex"),
+				"opIndexAssign"d, new MDClosure(mMethods, &opIndexAssign, "StringBuffer.opIndexAssign"),
+				"opApply"d,       new MDClosure(mMethods, &opApply,       "StringBuffer.opApply"),
+				"opSlice"d,       new MDClosure(mMethods, &opSlice,       "StringBuffer.opSlice"),
+				"opSliceAssign"d, new MDClosure(mMethods, &opSliceAssign, "StringBuffer.opSliceAssign"),
+				"reserve"d,       new MDClosure(mMethods, &reserve,       "StringBuffer.reserve")
+			);
+		}
+
+		public MDStringBuffer newInstance()
+		{
+			return new MDStringBuffer(this);
+		}
+
+		public int constructor(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			
+			if(numParams > 0)
+			{
+				if(s.isParam!("int")(0))
+					i.constructor(s.getParam!(uint)(0));
+				else if(s.isParam!("string")(0))
+					i.constructor(s.getParam!(dchar[])(0));
+				else
+					s.throwRuntimeException("'int' or 'string' expected for constructor, not '%s'", s.getParam(0u).typeString());
+			}
+			else
+				i.constructor();
+
+			return 0;
+		}
+		
+		public int opCatAssign(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			
+			for(uint j = 0; j < numParams; j++)
+			{
+				MDValue param = s.getParam(j);
+
+				if(param.isObj)
+				{
+					if(param.isInstance)
+					{
+						MDStringBuffer other = cast(MDStringBuffer)param.as!(MDInstance);
+		
+						if(other)
+						{
+							i.append(other);
+							return 0;
+						}
+					}
+		
+					i.append(s.valueToString(param));
+				}
+				else
+					i.append(param.toString());
+			}
+			
+			return 0;
+		}
+
+		public int insert(MDState s, uint numparams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			MDValue param = s.getParam(1u);
+
+			if(param.isObj)
+			{
+				if(param.isInstance)
+				{
+					MDStringBuffer other = cast(MDStringBuffer)param.as!(MDInstance);
+					
+					if(other)
+					{
+						i.insert(s.getParam!(int)(0), other);
+						return 0;
+					}
+				}
+				
+				i.insert(s.getParam!(int)(0), s.valueToString(param));
+			}
+			else
+				i.insert(s.getParam!(int)(0), param.toString());
+
+			return 0;
+		}
+		
+		public int remove(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			uint start = s.getParam!(uint)(0);
+			uint end = start + 1;
+
+			if(numParams > 1)
+				end = s.getParam!(uint)(1);
+
+			i.remove(start, end);
+			return 0;
+		}
+		
+		public int toString(MDState s, uint numParams)
+		{
+			s.push(s.getContext!(MDStringBuffer).toMDString());
+			return 1;
+		}
+		
+		public int length(MDState s, uint numParams)
+		{
+			s.getContext!(MDStringBuffer).length = s.getParam!(uint)(0);
+			return 0;
+		}
+		
+		public int opLength(MDState s, uint numParams)
+		{
+			s.push(s.getContext!(MDStringBuffer).length);
+			return 1;
+		}
+		
+		public int opIndex(MDState s, uint numParams)
+		{
+			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)]);
+			return 1;
+		}
+		
+		public int opIndexAssign(MDState s, uint numParams)
+		{
+			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)] = s.getParam!(dchar)(1);
+			return 0;
+		}
+		
+		MDClosure iteratorClosure;
+		MDClosure iteratorReverseClosure;
+		
+		public int iterator(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			int index = s.getParam!(int)(0);
+	
+			index++;
+
+			if(index >= i.length)
+				return 0;
+
+			s.push(index);
+			s.push(i[index]);
+
+			return 2;
+		}
+		
+		public int iteratorReverse(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+			int index = s.getParam!(int)(0);
+			
+			index--;
+	
+			if(index < 0)
+				return 0;
+				
+			s.push(index);
+			s.push(i[index]);
+			
+			return 2;
+		}
+		
+		public int opApply(MDState s, uint numParams)
+		{
+			MDStringBuffer i = s.getContext!(MDStringBuffer);
+
+			if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+			{
+				s.push(iteratorReverseClosure);
+				s.push(i);
+				s.push(cast(int)i.length);
+			}
+			else
+			{
+				s.push(iteratorClosure);
+				s.push(i);
+				s.push(-1);
+			}
+
+			return 3;
+		}
+		
+		public int opSlice(MDState s, uint numParams)
+		{
+			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)]);
+			return 1;
+		}
+		
+		public int opSliceAssign(MDState s, uint numParams)
+		{
+			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
+			return 0;
+		}
+		
+		public int reserve(MDState s, uint numParams)
+		{
+			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
+			return 0;
+		}
+	}
+
+	static class MDStringBuffer : MDInstance
+	{
+		protected dchar[] mBuffer;
+		protected uint mLength = 0;
+
+		public this(MDClass owner)
+		{
+			super(owner);
+		}
+
+		public void constructor()
+		{
+			mBuffer = new dchar[32];
+		}
+
+		public void constructor(int size)
+		{
+			mBuffer = new dchar[size];
+		}
+
+		public void constructor(dchar[] data)
+		{
+			mBuffer = data;
+			mLength = mBuffer.length;
+		}
+		
+		public void append(MDStringBuffer other)
+		{
+			resize(other.mLength);
+			mBuffer[mLength .. mLength + other.mLength] = other.mBuffer[0 .. other.mLength];
+			mLength += other.mLength;
+		}
+
+		public void append(MDString str)
+		{
+			resize(str.mData.length);
+			mBuffer[mLength .. mLength + str.mData.length] = str.mData[];
+			mLength += str.mData.length;
+		}
+		
+		public void append(char[] s)
+		{
+			dchar[] str = utf.toUTF32(s);
+			resize(str.length);
+			mBuffer[mLength .. mLength + str.length] = str[];
+			mLength += str.length;
+		}
+		
+		public void insert(int offset, MDStringBuffer other)
+		{
+			if(offset > mLength)
+				throw new MDException("Offset out of bounds: ", offset);
+
+			resize(other.mLength);
+			
+			for(int i = mLength + other.mLength - 1, j = mLength - 1; j >= offset; i--, j--)
+				mBuffer[i] = mBuffer[j];
+				
+			mBuffer[offset .. offset + other.mLength] = other.mBuffer[0 .. other.mLength];
+			mLength += other.mLength;
+		}
+		
+		public void insert(int offset, MDString str)
+		{
+			if(offset > mLength)
+				throw new MDException("Offset out of bounds: ", offset);
+
+			resize(str.mData.length);
+
+			for(int i = mLength + str.mData.length - 1, j = mLength - 1; j >= offset; i--, j--)
+				mBuffer[i] = mBuffer[j];
+
+			mBuffer[offset .. offset + str.mData.length] = str.mData[];
+			mLength += str.mData.length;
+		}
+
+		public void insert(int offset, char[] s)
+		{
+			if(offset > mLength)
+				throw new MDException("Offset out of bounds: ", offset);
+
+			dchar[] str = utf.toUTF32(s);
+			resize(str.length);
+
+			for(int i = mLength + str.length - 1, j = mLength - 1; j >= offset; i--, j--)
+				mBuffer[i] = mBuffer[j];
+
+			mBuffer[offset .. offset + str.length] = str[];
+			mLength += str.length;
+		}
+		
+		public void remove(uint start, uint end)
+		{
+			if(end > mLength)
+				end = mLength;
+
+			if(start > mLength || start > end)
+				throw new MDException("Invalid indices: %d .. %d", start, end);
+
+			for(int i = start, j = end; j < mLength; i++, j++)
+				mBuffer[i] = mBuffer[j];
+
+			mLength -= (end - start);
+		}
+		
+		public MDString toMDString()
+		{
+			return new MDString(mBuffer[0 .. mLength]);
+		}
+		
+		public void length(uint len)
+		{
+			uint oldLength = mLength;
+			mLength = len;
+
+			if(mLength > mBuffer.length)
+				mBuffer.length = mLength;
+				
+			if(mLength > oldLength)
+				mBuffer[oldLength .. mLength] = dchar.init;
+		}
+		
+		public uint length()
+		{
+			return mLength;
+		}
+		
+		public dchar opIndex(int index)
+		{
+			if(index < 0)
+				index += mLength;
+
+			if(index < 0 || index >= mLength)
+				throw new MDException("Invalid index: ", index);
+
+			return mBuffer[index];
+		}
+
+		public void opIndexAssign(dchar c, int index)
+		{
+			if(index < 0)
+				index += mLength;
+
+			if(index >= mLength)
+				throw new MDException("Invalid index: ", index);
+				
+			mBuffer[index] = c;
+		}
+		
+		public dchar[] opSlice(int lo, int hi)
+		{
+			if(lo < 0)
+				lo += mLength;
+				
+			if(hi < 0)
+				hi += mLength;
+				
+			if(lo < 0 || lo > hi || hi >= mLength)
+				throw new MDException("Invalid indices: %d .. %d", lo, hi);
+				
+			return mBuffer[lo .. hi];
+		}
+		
+		public void opSliceAssign(dchar[] s, int lo, int hi)
+		{
+			if(lo < 0)
+				lo += mLength;
+
+			if(hi < 0)
+				hi += mLength;
+
+			if(lo < 0 || lo > hi || hi >= mLength)
+				throw new MDException("Invalid indices: %d .. %d", lo, hi);
+
+			if(hi - lo != s.length)
+				throw new MDException("Slice length (%d) does not match length of string (%d)", hi - lo, s.length);
+
+			mBuffer[lo .. hi] = s[];
+		}
+		
+		public void reserve(int size)
+		{
+			if(size > mBuffer.length)
+				mBuffer.length = size;
+		}
+
+		protected void resize(uint length)
+		{
+			if(length > (mBuffer.length - mLength))
+				mBuffer.length = mBuffer.length + length;
+		}
+	}
 }
 
 public void init()
@@ -702,13 +1135,16 @@ public void init()
 	with(MDGlobalState())
 	{
 		BaseLib lib = new BaseLib();
+		lib.stringBufferClass = new BaseLib.MDStringBufferClass();
 
+		setGlobal("StringBuffer"d,  lib.stringBufferClass);
 		setGlobal("assert"d,        newClosure(&lib.mdassert,              "assert"));
 		setGlobal("getTraceback"d,  newClosure(&lib.getTraceback,          "getTraceback"));
 		setGlobal("typeof"d,        newClosure(&lib.mdtypeof,              "typeof"));
 		setGlobal("fieldsOf"d,      newClosure(&lib.fieldsOf,              "fieldsOf"));
 		setGlobal("methodsOf"d,     newClosure(&lib.methodsOf,             "methodsOf"));
 		setGlobal("toString"d,      newClosure(&lib.mdtoString,            "toString"));
+		setGlobal("rawToString"d,   newClosure(&lib.rawToString,           "rawToString"));
 		setGlobal("toInt"d,         newClosure(&lib.toInt,                 "toInt"));
 		setGlobal("toFloat"d,       newClosure(&lib.toFloat,               "toFloat"));
 		setGlobal("toChar"d,        newClosure(&lib.toChar,                "toChar"));

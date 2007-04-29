@@ -51,7 +51,9 @@ enum Op : uint
 	Div,
 	DivEq,
 	EndFinal,
+	For,
 	Foreach,
+	ForLoop,
 	In,
 	Index,
 	IndexAssign,
@@ -129,7 +131,9 @@ Com...............R: dest, src, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
+For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
+ForLoop...........J: base reg, branch offset
 In................R: dest, src value, src object
 Index.............R: dest, src object, src index
 IndexAssign.......R: dest object, dest index, src
@@ -271,7 +275,9 @@ align(1) struct Instruction
 			case Op.Div:           return string.format("div %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:         return string.format("diveq %s, %s", cr(rd), cr(rs));
 			case Op.EndFinal:      return "endfinal";
+			case Op.For:           return string.format("for %s, %s", cr(rd), imm);
 			case Op.Foreach:       return string.format("foreach r%s, %s", rd, uimm);
+			case Op.ForLoop:       return string.format("forloop %s, %s", cr(rd), imm);
 			case Op.In:            return string.format("in %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Index:         return string.format("idx %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.IndexAssign:   return string.format("idxa %s, %s, %s", cr(rd), cr(rs), cr(rt));

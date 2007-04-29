@@ -24,6 +24,7 @@ subject to the following restrictions:
 module minid.mathlib;
 
 import minid.types;
+import minid.utils;
 
 import math = std.math;
 import random = std.random;
@@ -36,8 +37,8 @@ class MathLib
 		(
 			"e"d,        std.math.E,
 			"pi"d,       std.math.PI,
-			"nan"d,      float.nan,
-			"infinity"d, float.infinity,
+			"nan"d,      mdfloat.nan,
+			"infinity"d, mdfloat.infinity,
 			"abs"d,      new MDClosure(namespace, &abs,     "math.abs"),
 			"sin"d,      new MDClosure(namespace, &sin,     "math.sin"),
 			"cos"d,      new MDClosure(namespace, &cos,     "math.cos"),
@@ -75,12 +76,12 @@ class MathLib
 			s.throwRuntimeException("Expected 'int', not '%s'", s.getParam(i).typeString());
 	}
 	
-	static float getFloat(MDState s, uint i)
+	static mdfloat getFloat(MDState s, uint i)
 	{
 		if(s.isParam!("int")(i))
 			return s.getParam!(int)(i);
 		else if(s.isParam!("float")(i))
-			return s.getParam!(float)(i);
+			return s.getParam!(mdfloat)(i);
 		else
 			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
 	}
@@ -90,7 +91,7 @@ class MathLib
 		if(s.isParam!("int")(0))
 			s.push(math.abs(s.getParam!(int)(0)));
 		else if(s.isParam!("float")(0))
-			s.push(math.abs(s.getParam!(float)(0)));
+			s.push(math.abs(s.getParam!(mdfloat)(0)));
 		else
 			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(0u).typeString());
 			
@@ -244,7 +245,7 @@ class MathLib
 		}
 		else
 		{
-			float val = s.getParam!(float)(0);
+			mdfloat val = s.getParam!(mdfloat)(0);
 
 			if(val < 0)
 				s.push(-1);
@@ -259,7 +260,7 @@ class MathLib
 	
 	int pow(MDState s, uint numParams)
 	{
-		float base = getFloat(s, 0);
+		mdfloat base = getFloat(s, 0);
 		
 		if(s.isParam!("int")(1))
 			s.push(math.pow(cast(real)base, getInt(s, 1)));

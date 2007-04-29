@@ -227,9 +227,9 @@ struct MDValue
 		// Non-object types
 		private bool mBool;
 		private int mInt;
-		private float mFloat;
+		private mdfloat mFloat;
 		private dchar mChar;
-		
+
 		// Object types
 		private MDObject mObj;
 	}
@@ -321,7 +321,7 @@ struct MDValue
 			case Type.Int:
 				if(other.mType == Type.Float)
 				{
-					float val = mInt;
+					mdfloat val = mInt;
 
 					if(val < other.mFloat)
 						return -1;
@@ -336,7 +336,7 @@ struct MDValue
 			case Type.Float:
 				if(other.mType == Type.Int)
 				{
-					float val = other.mInt;
+					mdfloat val = other.mInt;
 					
 					if(this.mFloat < val)
 						return -1;
@@ -466,6 +466,11 @@ struct MDValue
 	public bool isChar()
 	{
 		return (mType == Type.Char);
+	}
+	
+	public bool isObj()
+	{
+		return (cast(uint)mType >= Type.String);	
 	}
 
 	public bool isString()
@@ -757,7 +762,7 @@ struct MDValue
 		else static if(isFloatType!(T))
 		{
 			mType = Type.Float;
-			mFloat = cast(float)src;
+			mFloat = cast(mdfloat)src;
 		}
 		else static if(isCharType!(T))
 		{
@@ -4240,11 +4245,11 @@ class MDState : MDObject
 							{
 								switch(operation)
 								{
-									case MM.Add: *getRD() = RS.as!(float) + RT.as!(float); break;
-									case MM.Sub: *getRD() = RS.as!(float) - RT.as!(float); break;
-									case MM.Mul: *getRD() = RS.as!(float) * RT.as!(float); break;
-									case MM.Div: *getRD() = RS.as!(float) / RT.as!(float); break;
-									case MM.Mod: *getRD() = RS.as!(float) % RT.as!(float); break;
+									case MM.Add: *getRD() = RS.as!(mdfloat) + RT.as!(mdfloat); break;
+									case MM.Sub: *getRD() = RS.as!(mdfloat) - RT.as!(mdfloat); break;
+									case MM.Mul: *getRD() = RS.as!(mdfloat) * RT.as!(mdfloat); break;
+									case MM.Div: *getRD() = RS.as!(mdfloat) / RT.as!(mdfloat); break;
+									case MM.Mod: *getRD() = RS.as!(mdfloat) % RT.as!(mdfloat); break;
 								}
 							}
 							else
@@ -4292,7 +4297,7 @@ class MDState : MDObject
 						getRS();
 
 						if(RS.isFloat())
-							*getRD() = -RS.as!(float);
+							*getRD() = -RS.as!(mdfloat);
 						else if(RS.isInt())
 							*getRD() = -RS.as!(int);
 						else
@@ -4334,11 +4339,11 @@ class MDState : MDObject
 							{
 								switch(operation)
 								{
-									case MM.AddEq: *RD = RD.as!(float) + RS.as!(float); break;
-									case MM.SubEq: *RD = RD.as!(float) - RS.as!(float); break;
-									case MM.MulEq: *RD = RD.as!(float) * RS.as!(float); break;
-									case MM.DivEq: *RD = RD.as!(float) / RS.as!(float); break;
-									case MM.ModEq: *RD = RD.as!(float) % RS.as!(float); break;
+									case MM.AddEq: *RD = RD.as!(mdfloat) + RS.as!(mdfloat); break;
+									case MM.SubEq: *RD = RD.as!(mdfloat) - RS.as!(mdfloat); break;
+									case MM.MulEq: *RD = RD.as!(mdfloat) * RS.as!(mdfloat); break;
+									case MM.DivEq: *RD = RD.as!(mdfloat) / RS.as!(mdfloat); break;
+									case MM.ModEq: *RD = RD.as!(mdfloat) % RS.as!(mdfloat); break;
 								}
 							}
 							else
@@ -4586,8 +4591,8 @@ class MDState : MDObject
 						{
 							if(RS.isFloat() || RT.isFloat())
 							{
-								float f1 = RS.as!(float);
-								float f2 = RT.as!(float);
+								mdfloat f1 = RS.as!(mdfloat);
+								mdfloat f2 = RT.as!(mdfloat);
 								
 								if(f1 < f2)
 									cmpValue = -1;
@@ -4778,6 +4783,59 @@ class MDState : MDObject
 						debug(TIMINGS) scope _profiler_ = new Profiler("Close");
 
 						close(i.rd);
+						break;
+						
+					case Op.For:
+						debug(TIMINGS) scope _profiler_ = new Profiler("For");
+						MDValue* idx = getBasedStack(i.rd);
+						MDValue* hi = getBasedStack(i.rd + 1);
+						MDValue* step = getBasedStack(i.rd + 2);
+						
+						if(!idx.isInt() || !hi.isInt() || !step.isInt())
+							throwRuntimeException("Numeric for loop low, high, and step values must be integers");
+						
+						int intIdx = idx.as!(int);
+						int intHi = hi.as!(int);
+						int intStep = step.as!(int);
+
+						if(intStep == 0)
+							throwRuntimeException("Numeric for loop step value may not be 0");
+
+						if(intIdx > intHi && intStep > 0 || intIdx < intHi && intStep < 0)
+							intStep = -intStep;
+
+						if(intStep < 0)
+							*idx = intIdx + intStep;
+						
+						*step = intStep;
+
+						mCurrentAR.pc += i.imm;
+						break;
+
+					case Op.ForLoop:
+						debug(TIMINGS) scope _profiler_ = new Profiler("ForLoop");
+						int idx = getBasedStack(i.rd).as!(int);
+						int hi = getBasedStack(i.rd + 1).as!(int);
+						int step = getBasedStack(i.rd + 2).as!(int);
+
+						if(step > 0)
+						{
+							if(idx < hi)
+							{
+								*getBasedStack(i.rd + 3) = idx;
+								*getBasedStack(i.rd) = idx + step;
+								mCurrentAR.pc += i.imm;
+							}
+						}
+						else
+						{
+							if(idx >= hi)
+							{
+								*getBasedStack(i.rd + 3) = idx;
+								*getBasedStack(i.rd) = idx + step;
+								mCurrentAR.pc += i.imm;
+							}
+						}
 						break;
 
 					case Op.Foreach:

@@ -2,7 +2,7 @@ module benchmark.binarytrees;
 
 // n = 16, 94.764 sec
 
-local function BottomUpTree(item, depth)
+function BottomUpTree(item, depth)
 {
 	if(depth > 0)
 	{
@@ -18,7 +18,7 @@ local function BottomUpTree(item, depth)
 		return [item];
 }
 
-local function ItemCheck(tree)
+function ItemCheck(tree)
 {
 	if(#tree == 3)
 		return tree[0] + ItemCheck(tree[1]) - ItemCheck(tree[2]);
@@ -52,12 +52,12 @@ local time = os.microTime();
 	
 	local longlivedtree = BottomUpTree(0, maxdepth);
 
-	for(local depth = mindepth; depth <= maxdepth; depth += 2)
+	for(depth : mindepth .. maxdepth + 1, 2)
 	{
 		local iterations = 1 << (maxdepth - depth + mindepth);
 		local check = 0;
-	
-		for(local i = 1; i <= iterations; ++i)
+
+		for(i : 0 .. iterations)
 			check += ItemCheck(BottomUpTree(1, depth)) + ItemCheck(BottomUpTree(-1, depth));
 	
 		writefln("%d\t trees of depth %d\t check: %d", iterations * 2, depth, check);

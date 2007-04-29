@@ -36,7 +36,7 @@ local cofunc = coroutine link;
 cofunc(500);
 local count = 0;
 
-for(local i = 1; i <= n; i++)
+for(i : 0 .. n)
 	count += cofunc();
 	
 writefln(count);

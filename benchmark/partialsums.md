@@ -1,6 +1,6 @@
 module benchmark.partialsums;
 
-// n = 2,500,000, 18.96 sec (no double precision, so results are not correct)
+// n = 2,500,000, 21.74 sec
 
 local args = [vararg];
 local n = 2_500_000;
@@ -29,22 +29,35 @@ local time = os.microTime();
 	local cos = math.cos;
 	local pow = math.pow;
 	
-	for(local k = 1; k <= n; ++k)
+	for(local k = 1.0; k <= n; k += 1.0)
 	{
 		local k2 = k * k;
 		local sk = sin(k);
 		local ck = cos(k);
 		local k3 = k2 * k;
-	
+
 		a1 += pow(2.0 / 3.0, k);
 		a2 += 1.0 / sqrt(k);
 		a3 += 1.0 / (k2 + k);
+
+		// Flint Hills
 		a4 += 1.0 / (k3 * sk * sk);
+
+		// Cookson Hills
 		a5 += 1.0 / (k3 * ck * ck);
+		
+		// Harmonic
 		a6 += 1.0 / k;
+		
+		// Riemann zeta
 		a7 += 1.0 / k2;
+
+		// Alternating harmonic
 		a8 += alt / k;
+
+		// Gregory
 		a9 += alt / (k + k - 1);
+
 		alt = -alt;
 	}
 	

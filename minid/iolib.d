@@ -203,38 +203,40 @@ class IOLib
 			
 			mMethods.addList
 			(
-				"readByte"d,    new MDClosure(mMethods, &read!(ubyte),   "Stream.readByte"),
-				"readShort"d,   new MDClosure(mMethods, &read!(ushort),  "Stream.readShort"),
-				"readInt"d,     new MDClosure(mMethods, &read!(int),     "Stream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &read!(float),   "Stream.readFloat"),
-				"readChar"d,    new MDClosure(mMethods, &read!(char),    "Stream.readChar"),
-				"readWChar"d,   new MDClosure(mMethods, &read!(wchar),   "Stream.readWChar"),
-				"readDChar"d,   new MDClosure(mMethods, &read!(dchar),   "Stream.readDChar"),
-				"readString"d,  new MDClosure(mMethods, &readString,     "Stream.readString"),
-				"readLine"d,    new MDClosure(mMethods, &readLine,       "Stream.readLine"),
-				"readf"d,       new MDClosure(mMethods, &readf,          "Stream.readf"),
+				"readByte"d,    new MDClosure(mMethods, &read!(ubyte),    "Stream.readByte"),
+				"readShort"d,   new MDClosure(mMethods, &read!(ushort),   "Stream.readShort"),
+				"readInt"d,     new MDClosure(mMethods, &read!(int),      "Stream.readInt"),
+				"readFloat"d,   new MDClosure(mMethods, &read!(mdfloat),  "Stream.readFloat"),
+				"readChar"d,    new MDClosure(mMethods, &read!(char),     "Stream.readChar"),
+				"readWChar"d,   new MDClosure(mMethods, &read!(wchar),    "Stream.readWChar"),
+				"readDChar"d,   new MDClosure(mMethods, &read!(dchar),    "Stream.readDChar"),
+				"readString"d,  new MDClosure(mMethods, &readString,      "Stream.readString"),
+				"readLine"d,    new MDClosure(mMethods, &readLine,        "Stream.readLine"),
+				"readf"d,       new MDClosure(mMethods, &readf,           "Stream.readf"),
+				"readChars"d,   new MDClosure(mMethods, &readChars,       "Stream.readChars"),
 
-				"writeByte"d,   new MDClosure(mMethods, &write!(ubyte),  "Stream.writeByte"),
-				"writeShort"d,  new MDClosure(mMethods, &write!(ushort), "Stream.writeShort"),
-				"writeInt"d,    new MDClosure(mMethods, &write!(int),    "Stream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &write!(float),  "Stream.writeFloat"),
-				"writeChar"d,   new MDClosure(mMethods, &write!(char),   "Stream.writeChar"),
-				"writeWChar"d,  new MDClosure(mMethods, &write!(wchar),  "Stream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mMethods, &write!(dchar),  "Stream.writeDChar"),
-				"writeString"d, new MDClosure(mMethods, &writeString,    "Stream.writeString"),
-				"writeLine"d,   new MDClosure(mMethods, &writeLine,      "Stream.writeLine"),
-				"writef"d,      new MDClosure(mMethods, &writef,         "Stream.writef"),
-				"writefln"d,    new MDClosure(mMethods, &writefln,       "Stream.writefln"),
+				"writeByte"d,   new MDClosure(mMethods, &write!(ubyte),   "Stream.writeByte"),
+				"writeShort"d,  new MDClosure(mMethods, &write!(ushort),  "Stream.writeShort"),
+				"writeInt"d,    new MDClosure(mMethods, &write!(int),     "Stream.writeInt"),
+				"writeFloat"d,  new MDClosure(mMethods, &write!(mdfloat), "Stream.writeFloat"),
+				"writeChar"d,   new MDClosure(mMethods, &write!(char),    "Stream.writeChar"),
+				"writeWChar"d,  new MDClosure(mMethods, &write!(wchar),   "Stream.writeWChar"),
+				"writeDChar"d,  new MDClosure(mMethods, &write!(dchar),   "Stream.writeDChar"),
+				"writeString"d, new MDClosure(mMethods, &writeString,     "Stream.writeString"),
+				"writeLine"d,   new MDClosure(mMethods, &writeLine,       "Stream.writeLine"),
+				"writef"d,      new MDClosure(mMethods, &writef,          "Stream.writef"),
+				"writefln"d,    new MDClosure(mMethods, &writefln,        "Stream.writefln"),
+				"writeChars"d,  new MDClosure(mMethods, &writeChars,      "Stream.writeChars"),
 
-				"available"d,   new MDClosure(mMethods, &available,      "Stream.available"),
-				"eof"d,         new MDClosure(mMethods, &eof,            "Stream.eof"),
-				"isOpen"d,      new MDClosure(mMethods, &isOpen,         "Stream.isOpen"),
-				"flush"d,       new MDClosure(mMethods, &flush,          "Stream.flush"),
-				"seek"d,        new MDClosure(mMethods, &seek,           "Stream.seek"),
-				"position"d,    new MDClosure(mMethods, &position,       "Stream.position"),
-				"size"d,        new MDClosure(mMethods, &size,           "Stream.size"),
-				"close"d,       new MDClosure(mMethods, &close,          "Stream.close"),
-				"opApply"d,     new MDClosure(mMethods, &apply,          "Stream.opApply")
+				"available"d,   new MDClosure(mMethods, &available,       "Stream.available"),
+				"eof"d,         new MDClosure(mMethods, &eof,             "Stream.eof"),
+				"isOpen"d,      new MDClosure(mMethods, &isOpen,          "Stream.isOpen"),
+				"flush"d,       new MDClosure(mMethods, &flush,           "Stream.flush"),
+				"seek"d,        new MDClosure(mMethods, &seek,            "Stream.seek"),
+				"position"d,    new MDClosure(mMethods, &position,        "Stream.position"),
+				"size"d,        new MDClosure(mMethods, &size,            "Stream.size"),
+				"close"d,       new MDClosure(mMethods, &close,           "Stream.close"),
+				"opApply"d,     new MDClosure(mMethods, &apply,           "Stream.opApply")
 			);
 		}
 
@@ -282,6 +284,13 @@ class IOLib
 			return ret.length;
 		}
 		
+		public int readChars(MDState s, uint numParams)
+		{
+			MDStream i = s.getContext!(MDStream);
+			s.push(s.safeCode(i.readChars(s.getParam!(int)(0))));
+			return 1;
+		}
+		
 		public int write(T)(MDState s, uint numParams)
 		{
 			MDStream i = s.getContext!(MDStream);
@@ -314,6 +323,13 @@ class IOLib
 		{
 			MDStream i = s.getContext!(MDStream);
 			s.safeCode(i.writefln(baseFormat(s, s.getAllParams())));
+			return 0;
+		}
+		
+		public int writeChars(MDState s, uint numParams)
+		{
+			MDStream i = s.getContext!(MDStream);
+			s.safeCode(i.writeChars(s.getParam!(char[])(0)));
 			return 0;
 		}
 		
@@ -454,6 +470,11 @@ class IOLib
 			return mStream.readLine();
 		}
 		
+		public MDString readChars(uint length)
+		{
+			return new MDString(mStream.readString(length));
+		}
+
 		public void write(T)(T val)
 		{
 			mStream.write(val);
@@ -479,6 +500,11 @@ class IOLib
 			mStream.writefln(val);
 		}
 		
+		public void writeChars(char[] data)
+		{
+			mStream.writeString(data);
+		}
+
 		public int available()
 		{
 			return mStream.available();

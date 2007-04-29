@@ -24,6 +24,7 @@ subject to the following restrictions:
 module minid.oslib;
 
 import minid.types;
+import minid.utils;
 
 import std.perf;
 
@@ -173,17 +174,17 @@ class OSLib
 			return mCounter.periodCount();
 		}
 
-		public final float seconds()
+		public final mdfloat seconds()
 		{
 			return mCounter.microseconds() / 1_000_000.0;
 		}
 
-		public final float millisecs()
+		public final mdfloat millisecs()
 		{
 			return mCounter.microseconds() / 1000.0;
 		}
 
-		public final float microsecs()
+		public final mdfloat microsecs()
 		{
 			return mCounter.microseconds();
 		}

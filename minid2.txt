@@ -256,7 +256,7 @@ ModuleDeclaration:
 	'module' Identifier {'.' Identifier} ';'
 
 ImportStatement:
-	'import' Identifier {'.' Identifier} ';'
+	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] ';'
 
 Statement:
 	BlockStatement
@@ -323,8 +323,13 @@ DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
 
 ForStatement:
-	'for' '(' [(BaseExpression | LocalVarDeclaration)] ';' [Expression] ';' [BaseExpression] ')' Statement
-	
+	'for' '(' [ForInitializer {',' ForInitializer}] ';' [Expression] ';' [BaseExpression {',' BaseExpression}] ')' Statement
+	'for' '(' Identifier ':' Expression '..' Expression [',' Expression] ')' Statement
+
+ForInitializer:
+	BaseExpression
+	LocalVarDeclaration
+
 ForeachStatement:
 	'foreach' '(' Identifier {',' Identifier} ';' Expression [',' Expression [',' Expression]] ')' Statement
 	

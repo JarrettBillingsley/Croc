@@ -1,5 +1,8 @@
 module simple;
 
+
+
+/*
 class Base
 {
 	function fork()
@@ -385,7 +388,7 @@ writefln("Priority queue (heap)");
 
 local prioQ = PQ();
 
-for(local i = 0; i < 10; i++)
+for(i : 0 .. 10)
 	prioQ.insert(math.rand(0, 20));
 
 while(prioQ.hasData())
@@ -396,7 +399,7 @@ writefln("Stack");
 
 local stack = Stack();
 
-for(local i = 0; i < 5; i++)
+for(i : 0 .. 5)
 	stack.push(i + 1);
 
 while(stack.hasData())
@@ -407,7 +410,7 @@ writefln("Queue");
 
 local queue = Queue();
 
-for(local i = 0; i < 5; i++)
+for(i : 0 .. 5)
 	queue.push(i + 1);
 
 while(queue.hasData())
@@ -504,7 +507,7 @@ writefln();
 
 local arr = array.new(10);
 
-for(local i = 0; i < 10; i++)
+for(i : 0 .. 10)
 	arr[i] = function() { return i; };
 
 writefln("This should be the values 0 through 9:");
@@ -550,7 +553,7 @@ function tryCatch(iterations)
 {
 	try
 	{
-		for(local i = 0; i < iterations; i++)
+		for(i : 0 .. iterations)
 		{
 			writefln("tryCatch: ", i);
 			thrower(i);
@@ -562,9 +565,7 @@ function tryCatch(iterations)
 		throw e;
 	}
 	finally
-	{
 		writefln("tryCatch finally");
-	}
 }
 
 try
@@ -573,9 +574,7 @@ try
 	tryCatch(5);
 }
 catch(e)
-{
 	writefln("caught: ", e);
-}
 
 writefln();
 
@@ -650,4 +649,4 @@ foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 		case 'x': writefln("x"); break;
 		case "hi": writefln("hi"); break;
 	}
-}
+}*/

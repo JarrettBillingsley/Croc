@@ -32,6 +32,8 @@ import utf = std.utf;
 import std.uni;
 import std.perf;
 
+alias double mdfloat;
+
 /// Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 template isStringType(T)
 {

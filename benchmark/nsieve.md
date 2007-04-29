@@ -1,17 +1,17 @@
 module benchmark.nsieve;
 
-// n = 9, 14.772 sec
+// n = 9, 13.79 sec
 
-local function nsieve(m)
+function nsieve(m)
 {
 	local isPrime = array.new(m, true);
 	local count = 0;
 
-	for(local i = 2; i < m; ++i)
+	for(i : 2 .. m)
 	{
 		if(isPrime[i])
 		{
-			for(local k = i + i; k < m; k += i)
+			for(k : i + i .. m, i)
 				isPrime[k] = false;
 
 			++count;
@@ -33,7 +33,7 @@ if(#args > 0)
 
 local time = os.microTime();
 
-	for(local i = 0; i < 3; ++i)
+	for(i : 0 .. 3)
 	{
 		local m = 10000 << (n - i);
 		writefln("Primes up to %8d %8d", m, nsieve(m));

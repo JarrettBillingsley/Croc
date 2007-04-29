@@ -2,17 +2,17 @@ module benchmark.pidigits;
 
 // Broken, need a bigInt representation
 
-local function Next(z)
+function Next(z)
 {
-	return (3 * z[0] + z[1]) / (3 * z[2] + z[3]);
+	return (3zz * z[0] + z[1]) / (3 * z[2] + z[3]);
 }
 
-local function Safe(z, n)
+function Safe(z, n)
 {
 	return n == ((4 * z[0] + z[1]) / (4 * z[2] + z[3]));
 }
 
-local function Comp(a, b)
+function Comp(a, b)
 {
 	return [a[0] * b[0] + a[1] * b[2],
 			a[0] * b[1] + a[1] * b[3],
@@ -20,17 +20,17 @@ local function Comp(a, b)
 			a[2] * b[1] + a[3] * b[3]];
 }
 
-local function Prod(z, n)
+function Prod(z, n)
 {
 	return Comp([10, -10 * n, 0, 1], z);
 }
 
-local function Cons(z, k)
+function Cons(z, k)
 {
 	return Comp(z, [k, 4 * k + 2, 0, 2 * k + 1]);
 }
 
-local function Digit(k, z, n, Row, Col)
+function Digit(k, z, n, Row, Col)
 {
 	if(n > 0)
 	{
@@ -61,7 +61,7 @@ local function Digit(k, z, n, Row, Col)
 	}
 }
 
-local function Digits(n)
+function Digits(n)
 {
 	return Digit(1, [1, 0, 0, 1], n, 0, 0);
 }
@@ -78,7 +78,7 @@ if(#args > 0)
 
 local time = os.microTime();
 
-	Digits(n);
+ Digits(n);
 
 time = os.microTime() - time;
 writefln("Took ", time / 1000000.0, " sec");

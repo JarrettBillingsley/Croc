@@ -1,8 +1,8 @@
 module benchmark.recursive;
 
-// n = 11, 345.122 sec (Fib(38.0) output is off by 2, don't have double precision)
+// n = 11, 345.122 sec
 
-local function ack(m, n)
+function ack(m, n)
 {
 	if(m == 0)
 		return n + 1;
@@ -13,7 +13,7 @@ local function ack(m, n)
 	return ack(m - 1, ack(m, n - 1));
 }
 
-local function fib(n)
+function fib(n)
 {
 	if(n < 2)
 		return 1;
@@ -21,7 +21,7 @@ local function fib(n)
 	return fib(n - 2) + fib(n - 1);
 }
 
-local function tak(x, y, z)
+function tak(x, y, z)
 {
 	if(y >= x)
 		return z;
@@ -41,13 +41,13 @@ if(#args > 0)
 
 local time = os.microTime();
 
-	writefln("Ack(3, %d): %d", n, ack(3, n));
+	//writefln("Ack(3, %d): %d", n, ack(3, n));
 	writefln("Fib(%.1f): %.1f", n + 27.0, fib(n + 27.0));
-	
+
 	--n;
-	writefln("Tak(%d, %d, %d): %d", 3 * n, 2 * n, n, tak(3 * n, 2 * n, n));
-	writefln("Fib(3): %d", fib(3));
-	writefln("Tak(3.0, 2.0, 1.0): %.1f", tak(3.0, 2.0, 1.0));
+	//writefln("Tak(%d, %d, %d): %d", 3 * n, 2 * n, n, tak(3 * n, 2 * n, n));
+	//writefln("Fib(3): %d", fib(3));
+	//writefln("Tak(3.0, 2.0, 1.0): %.1f", tak(3.0, 2.0, 1.0));
 	
 time = os.microTime() - time;
 writefln("Took ", time / 1000000.0, " sec");

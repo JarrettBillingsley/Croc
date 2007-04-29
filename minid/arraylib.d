@@ -49,7 +49,8 @@ class ArrayLib
 			"each"d,     new MDClosure(namespace, &each,     "array.each"),
 			"filter"d,   new MDClosure(namespace, &filter,   "array.filter"),
 			"find"d,     new MDClosure(namespace, &find,     "array.find"),
-			"bsearch"d,  new MDClosure(namespace, &bsearch,  "array.bsearch")
+			"bsearch"d,  new MDClosure(namespace, &bsearch,  "array.bsearch"),
+			"pop"d,      new MDClosure(namespace, &pop,      "array.pop")
 		);
 
 		MDGlobalState().setGlobal("array"d, MDNamespace.create
@@ -411,6 +412,33 @@ class ArrayLib
 		}
 
 		s.push(-1);
+		return 1;
+	}
+	
+	int pop(MDState s, uint numParams)
+	{
+		MDArray array = s.getContext!(MDArray);
+		int index = -1;
+
+		if(array.length == 0)
+			s.throwRuntimeException("Array is empty");
+
+		if(numParams > 0)
+			index = s.getParam!(int)(0);
+
+		if(index < 0)
+			index += array.length;
+
+		if(index < 0 || index >= array.length)
+			s.throwRuntimeException("Invalid array index: ", index);
+
+		s.push(array[index]);
+
+		for(int i = index; i < array.length - 1; i++)
+			array[i] = *array[i + 1];
+
+		array.length = array.length - 1;
+
 		return 1;
 	}
 }

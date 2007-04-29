@@ -15,6 +15,7 @@ void main()
 	{
 		s = MDInitialize();
 		MDFileLoader().addPath(`samples`);
+		MDFileLoader().addPath(`imports`);
 
 		MDGlobalState().importModule("simple");
 	}

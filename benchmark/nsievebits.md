@@ -1,18 +1,17 @@
 module benchmark.nsievebits;
 
-// n = 11, 167.86 sec (crappy)
+// n = 11, 155 sec
 
 local BPC = 32;
 
-local function primes(n)
+function primes(n)
 {
 	local count = 0;
-	local prime = 0;
 	local size = 10000 << n;
 
 	local flags = array.new(size / BPC + 1, -1);
 
-	for(prime = 2; prime <= size; ++prime)
+	for(prime : 2 .. size + 1)
 	{
 		local offset = prime / BPC;
 		local mask = 1 << (prime % BPC);
@@ -21,7 +20,7 @@ local function primes(n)
 		{
 			++count;
 
-			for(local i = prime + prime; i <= size; i += prime)
+			for(i : prime + prime .. size + 1, prime)
 			{
 				offset = i / BPC;
 				mask = 1 << (i % BPC);
@@ -47,7 +46,7 @@ if(#args > 0)
 
 local time = os.microTime();
 
-    for(local i = 0; i < 3; ++i)
+    for(i : 0 .. 3)
         primes(n - i);
 
 time = os.microTime() - time;

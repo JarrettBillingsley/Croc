@@ -381,7 +381,7 @@ struct Token
 		public bool boolValue;
 		public dchar[] stringValue;
 		public int intValue;
-		public float floatValue;
+		public mdfloat floatValue;
 	}
 
 	public Location location;
@@ -747,7 +747,7 @@ class Lexer
 		}
 	}
 
-	protected static bool readNumLiteral(bool prependPoint, out float fret, out int iret)
+	protected static bool readNumLiteral(bool prependPoint, out mdfloat fret, out int iret)
 	{
 		Location beginning = mLoc;
 		dchar[100] buf;
@@ -957,7 +957,7 @@ class Lexer
 		{
 			try
 			{
-				fret = std.conv.toFloat(utf.toUTF8(buf[0 .. i]));
+				fret = std.conv.toDouble(utf.toUTF8(buf[0 .. i]));
 			}
 			catch(ConvError e)
 			{
@@ -1556,7 +1556,7 @@ class Lexer
 					}
 					else if(isDecimalDigit())
 					{
-						float fval;
+						mdfloat fval;
 						int ival;
 
 						bool type = readNumLiteral(false, fval, ival);
@@ -1811,7 +1811,7 @@ class FuncState
 	
 	public uint tagConst(uint val)
 	{
-		if((val & ~Instruction.locMask) > MaxConstants)
+		if((val & ~Instruction.locMask) >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
 		return (val & ~Instruction.locMask) | Instruction.locConst;
@@ -1819,7 +1819,7 @@ class FuncState
 	
 	public uint tagUpval(uint val)
 	{
-		if((val & ~Instruction.locMask) > MaxUpvalues)
+		if((val & ~Instruction.locMask) >= MaxUpvalues)
 			throw new MDCompileException(mLocation, "Too many upvalues");
 
 		return (val & ~Instruction.locMask) | Instruction.locUpval;
@@ -1827,7 +1827,7 @@ class FuncState
 	
 	public uint tagGlobal(uint val)
 	{
-		if((val & ~Instruction.locMask) > MaxConstants)
+		if((val & ~Instruction.locMask) >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
 			
 		return (val & ~Instruction.locMask) | Instruction.locGlobal;
@@ -2103,7 +2103,7 @@ class FuncState
 		pushConst(codeIntConst(value));
 	}
 
-	public void pushFloat(float value)
+	public void pushFloat(mdfloat value)
 	{
 		pushConst(codeFloatConst(value));
 	}
@@ -2170,7 +2170,7 @@ class FuncState
 
 				s.mUpvals ~= ud;
 
-				if(mUpvals.length > MaxUpvalues)
+				if(mUpvals.length >= MaxUpvalues)
 					throw new MDCompileException(mLocation, "Too many upvalues in function");
 
 				return s.mUpvals.length - 1;
@@ -2795,6 +2795,20 @@ class FuncState
 		i.pc = codeJ(line, type, isTrue, 0);
 		return i;
 	}
+	
+	public InstRef* makeFor(uint line, uint baseReg)
+	{
+		InstRef* i = new InstRef;
+		i.pc = codeJ(line, Op.For, baseReg, 0);
+		return i;
+	}
+	
+	public InstRef* makeForLoop(uint line, uint baseReg)
+	{
+		InstRef* i = new InstRef;
+		i.pc = codeJ(line, Op.ForLoop, baseReg, 0);
+		return i;
+	}
 
 	public InstRef* codeCatch(uint line, out uint checkReg)
 	{
@@ -2848,7 +2862,7 @@ class FuncState
 		MDValue v = c;
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
@@ -2863,7 +2877,7 @@ class FuncState
 		MDValue v = b;
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
@@ -2878,7 +2892,7 @@ class FuncState
 		MDValue v = x;
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
@@ -2893,22 +2907,22 @@ class FuncState
 		MDValue v = x;
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
 
-	public int codeFloatConst(float x)
+	public int codeFloatConst(mdfloat x)
 	{
 		foreach(uint i, MDValue v; mConstants)
-			if(v.isFloat() && v.as!(float)() == x)
+			if(v.isFloat() && v.as!(mdfloat)() == x)
 				return i;
 
 		MDValue v = x;
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
@@ -2925,7 +2939,7 @@ class FuncState
 
 		mConstants ~= v;
 
-		if(mConstants.length > MaxConstants)
+		if(mConstants.length >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
@@ -2994,8 +3008,8 @@ class FuncState
 		{
 			writefln(string.repeat("\t", tab + 1), "Switch Table ", i);
 
-			foreach(index; t.offsets.keys)
-				writefln(string.repeat("\t", tab + 2), "%s => %s", index, t.offsets[index]);
+			foreach(k, v; t.offsets)
+				writefln(string.repeat("\t", tab + 2), "%s => %s", k, v);
 
 			writefln(string.repeat("\t", tab + 2), "Default: ", t.defaultOffset);
 		}
@@ -3013,13 +3027,17 @@ class FuncState
 				case MDValue.Type.Null:
 					writefln(string.repeat("\t", tab + 1), "Const %s: null", i);
 					break;
+					
+				case MDValue.Type.Bool:
+					writefln(string.repeat("\t", tab + 1), "Const %s: %s", i, c.as!(bool)());
+					break;
 
 				case MDValue.Type.Int:
 					writefln(string.repeat("\t", tab + 1), "Const %s: %s", i, c.as!(int)());
 					break;
 
 				case MDValue.Type.Float:
-					writefln(string.repeat("\t", tab + 1), "Const %s: %sf", i, c.as!(float)());
+					writefln(string.repeat("\t", tab + 1), "Const %s: %sf", i, c.as!(mdfloat)());
 					break;
 
 				case MDValue.Type.Char:
@@ -3035,7 +3053,7 @@ class FuncState
 			}
 		}
 
-		foreach(i, inst; cast(Instruction[])mCode)
+		foreach(i, inst; mCode)
 			writefln(string.repeat("\t", tab + 1), "[%3s:%4s] ", i, mLineInfo[i], inst.toString());
 	}
 
@@ -3468,6 +3486,7 @@ class Module
 		void addImport(ImportStatement imp)
 		{
 			imports[Identifier.toStringArray(imp.mNames)] = true;
+			statements.add(imp);
 		}
 
 		while(t.type != Token.Type.EOF)
@@ -3653,12 +3672,14 @@ abstract class Statement
 class ImportStatement : Statement
 {
 	protected Identifier[] mNames;
+	protected Identifier[] mSymbols;
 
-	public this(Location location, Location endLocation, Identifier[] names)
+	public this(Location location, Location endLocation, Identifier[] names, Identifier[] symbols)
 	{
 		super(location, endLocation);
 
 		mNames = names;
+		mSymbols = symbols;
 	}
 
 	public static ImportStatement parse(inout Token* t)
@@ -3675,17 +3696,70 @@ class ImportStatement : Statement
 			t = t.nextToken;
 			names ~= Identifier.parse(t);
 		}
+		
+		Identifier[] symbols;
+
+		if(t.type == Token.Type.Colon)
+		{
+			t = t.nextToken;
+			symbols ~= Identifier.parse(t);
+			
+			while(t.type == Token.Type.Comma)
+			{
+				t = t.nextToken;
+				symbols ~= Identifier.parse(t);
+			}
+		}
 
 		t.expect(Token.Type.Semicolon);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new ImportStatement(location, endLocation, names);
+		return new ImportStatement(location, endLocation, names, symbols);
 	}
 	
 	public char[] toString()
 	{
 		return "import " ~ utf.toUTF8(Identifier.toLongString(mNames)) ~ ";";
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		if(mSymbols.length == 0)
+			return;
+
+		foreach(i, sym; mSymbols)
+		{
+			foreach(sym2; mSymbols[0 .. i])
+			{
+				if(sym.mName == sym2.mName)
+				{
+					throw new MDCompileException(sym.mLocation, "Variable '%s' conflicts with previous definition at %s",
+						sym.mName, sym2.mLocation.toString());
+				}
+			}
+		}
+
+		foreach(sym; mSymbols)
+		{
+			uint destReg = s.nextRegister();
+
+			s.pushVar(mNames[0]);
+			
+			foreach(name; mNames[1 .. $])
+			{
+				s.topToSource(mLocation.line);
+				s.popField(mLocation.line, name);
+			}
+
+			s.topToSource(mLocation.line);
+			s.popField(mLocation.line, sym);
+
+			s.popMoveTo(mLocation.line, destReg);
+			s.insertLocal(sym);
+		}
+
+		s.activateLocals(mSymbols.length);
 	}
 }
 
@@ -4480,41 +4554,94 @@ class DoWhileStatement : Statement
 
 class ForStatement : Statement
 {
-	protected Expression mInit;
+	struct ForInitializer
+	{
+		bool isDecl = false;
+		
+		union
+		{
+			Expression init;
+			VarDecl decl;
+		}
+	}
+
+	protected ForInitializer[] mInit;
 	protected VarDecl mInitDecl;
 	protected Expression mCondition;
-	protected Expression mIncrement;
+	protected Expression[] mIncrement;
 	protected Statement mBody;
 
-	public this(Location location, Location endLocation, Expression init, VarDecl initDecl, Expression cond, Expression inc, Statement forBody)
+	public this(Location location, Location endLocation, ForInitializer[] init, Expression cond, Expression[] inc, Statement forBody)
 	{
 		super(location, endLocation);
 
 		mInit = init;
-		mInitDecl = initDecl;
 		mCondition = cond;
 		mIncrement = inc;
 		mBody = forBody;
 	}
 
-	public static ForStatement parse(inout Token* t)
+	public static Statement parse(inout Token* t)
 	{
 		Location location = t.location;
 
 		t = t.expect(Token.Type.For);
 		t = t.expect(Token.Type.LParen);
 		
-		Expression init;
-		VarDecl initDecl;
+		ForInitializer[] init;
+		
+		void parseInitializer()
+		{
+			init.length = init.length + 1;
+			
+			if(t.type == Token.Type.Local)
+			{
+				init[$ - 1].isDecl = true;
+				init[$ - 1].decl = VarDecl.parse(t);
+			}
+			else
+				init[$ - 1].init = Expression.parseStatement(t);
+		}
 
 		if(t.type == Token.Type.Semicolon)
 			t = t.nextToken;
 		else
 		{
-			if(t.type == Token.Type.Local)
-				initDecl = VarDecl.parse(t);
-			else
-				init = Expression.parseStatement(t);
+			if(t.type == Token.Type.Ident && t.nextToken.type == Token.Type.Colon)
+			{
+
+				Identifier index = Identifier.parse(t);
+				
+				t = t.expect(Token.Type.Colon);
+				
+				Expression lo = Expression.parse(t);
+				t = t.expect(Token.Type.DotDot);
+				Expression hi = Expression.parse(t);
+				
+				Expression step;
+
+				if(t.type == Token.Type.Comma)
+				{
+					t = t.nextToken;
+					step = Expression.parse(t);
+				}
+				else
+					step = new IntExp(location, 1);
+					
+				t = t.expect(Token.Type.RParen);
+				
+				Statement forBody = Statement.parse(t);
+				
+				return new NumericForStatement(location, forBody.mEndLocation, index, lo, hi, step, forBody);
+			}
+
+			parseInitializer();
+			
+			while(t.type == Token.Type.Comma)
+			{
+				t = t.nextToken;
+				parseInitializer();
+			}
 
 			t = t.expect(Token.Type.Semicolon);
 		}
@@ -4529,19 +4656,26 @@ class ForStatement : Statement
 			t = t.expect(Token.Type.Semicolon);
 		}
 
-		Expression increment;
+		Expression[] increment;
 
 		if(t.type == Token.Type.RParen)
 			t = t.nextToken;
 		else
 		{
-			increment = Expression.parseStatement(t);
+			increment ~= Expression.parseStatement(t);
+			
+			while(t.type == Token.Type.Comma)
+			{
+				t = t.nextToken;
+				increment ~= Expression.parseStatement(t);
+			}
+
 			t = t.expect(Token.Type.RParen);
 		}
 
 		Statement forBody = Statement.parse(t);
 
-		return new ForStatement(location, forBody.mEndLocation, init, initDecl, condition, increment, forBody);
+		return new ForStatement(location, forBody.mEndLocation, init, condition, increment, forBody);
 	}
 
 	public override void codeGen(FuncState s)
@@ -4552,12 +4686,15 @@ class ForStatement : Statement
 			s.pushScope();
 				s.setContinuable();
 
-				if(mInitDecl)
-					mInitDecl.codeGen(s);
-				else if(mInit)
+				foreach(init; mInit)
 				{
-					mInit.codeGen(s);
-					s.popToNothing();
+					if(init.isDecl)
+						init.decl.codeGen(s);
+					else
+					{
+						init.init.codeGen(s);
+						s.popToNothing();
+					}
 				}
 	
 				InstRef* beginLoop = s.getLabel();
@@ -4574,13 +4711,13 @@ class ForStatement : Statement
 				mBody.codeGen(s);
 	
 				s.patchContinuesToHere();
-				
-				if(s.scopeHasUpval())
-					s.codeClose(mIncrement.mLocation.line);
 
-				if(mIncrement)
+				if(s.scopeHasUpval())
+					s.codeClose(mLocation.line);
+
+				foreach(inc; mIncrement)
 				{
-					mIncrement.codeGen(s);
+					inc.codeGen(s);
 					s.popToNothing();
 				}
 			s.popScope(mEndLocation.line);
@@ -4601,17 +4738,19 @@ class ForStatement : Statement
 	
 	public override Statement fold()
 	{
-		if(mInit)
-			mInit = mInit.fold();
-
-		if(mInitDecl)
-			mInitDecl = mInitDecl.fold();
+		foreach(inout init; mInit)
+		{
+			if(init.isDecl)
+				init.decl = init.decl.fold();
+			else
+				init.init = init.init.fold();
+		}
 
 		if(mCondition)
 			mCondition = mCondition.fold();
 
-		if(mIncrement)
-			mIncrement = mIncrement.fold();
+		foreach(inout inc; mIncrement)
+			inc = inc.fold();
 
 		mBody = mBody.fold();
 
@@ -4619,12 +4758,135 @@ class ForStatement : Statement
 		{
 			if(mCondition.isTrue)
 				mCondition = null;
-			else if(mInit)
-				return new ScopeStatement(mLocation, mEndLocation, new ExpressionStatement(mLocation, mEndLocation, mInit));
-			else if(mInitDecl)
-				return new ScopeStatement(mLocation, mEndLocation, new DeclarationStatement(mLocation, mEndLocation, mInitDecl));
 			else
-				return new CompoundStatement(mLocation, mEndLocation, null);
+			{
+				if(mInit.length > 0)
+				{
+					Statement[] inits;
+					
+					foreach(init; mInit)
+					{
+						if(init.isDecl)
+							inits ~= new DeclarationStatement(init.decl.mLocation, init.decl.mEndLocation, init.decl);
+						else
+							inits ~= new ExpressionStatement(init.init.mLocation, init.init.mEndLocation, init.init);
+					}
+					
+					return new ScopeStatement(mLocation, mEndLocation, new CompoundStatement(mLocation, mEndLocation, inits));
+				}
+				else
+					return new CompoundStatement(mLocation, mEndLocation, null);
+			}
+		}
+
+		return this;
+	}
+}
+
+class NumericForStatement : Statement
+{
+	Identifier mIndex;
+	Expression mLo;
+	Expression mHi;
+	Expression mStep;
+	Statement mBody;
+
+	public this(Location location, Location endLocation, Identifier index, Expression lo, Expression hi, Expression step, Statement loopBody)
+	{
+		super(location, endLocation);
+
+		mIndex = index;
+		mLo = lo;
+		mHi = hi;
+		mStep = step;
+		mBody = loopBody;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		s.pushScope();
+			s.setBreakable();
+			s.setContinuable();
+
+			uint baseReg = s.nextRegister();
+			uint loIndex;
+			uint hi;
+			uint step;
+
+			loIndex = s.nextRegister();
+			mLo.codeGen(s);
+			s.popMoveTo(mLo.mLocation.line, loIndex);
+			s.pushRegister();
+
+			hi = s.nextRegister();
+			mHi.codeGen(s);
+			s.popMoveTo(mHi.mLocation.line, hi);
+			s.pushRegister();
+
+			step = s.nextRegister();
+			mStep.codeGen(s);
+			s.popMoveTo(mStep.mLocation.line, step);
+			s.pushRegister();
+
+			InstRef* beginJump = s.makeFor(mLocation.line, baseReg);
+			InstRef* beginLoop = s.getLabel();
+
+			s.pushScope();
+				s.insertLocal(mIndex);
+				s.activateLocals(1);
+				mBody.codeGen(s);
+			s.popScope(mEndLocation.line);
+
+			s.patchJumpToHere(beginJump);
+			delete beginJump;
+
+			s.patchContinuesToHere();
+
+			InstRef* gotoBegin = s.makeForLoop(mEndLocation.line, baseReg);
+			s.patchJumpTo(gotoBegin, beginLoop);
+
+			delete beginLoop;
+			delete gotoBegin;
+
+			s.patchBreaksToHere();
+
+			s.popRegister(step);
+			s.popRegister(hi);
+			s.popRegister(loIndex);
+		s.popScope(mEndLocation.line);
+	}
+	
+	public override Statement fold()
+	{
+		mLo = mLo.fold();
+		mHi = mHi.fold();
+		mStep = mStep.fold();
+		
+		if(mLo.isConstant)
+		{
+			IntExp val = cast(IntExp)mLo;
+
+			if(val is null)
+				throw new MDCompileException(mLo.mLocation, "Low value of a numeric for loop must be an integer");
+		}
+
+		if(mHi.isConstant)
+		{
+			IntExp val = cast(IntExp)mHi;
+
+			if(val is null)
+				throw new MDCompileException(mHi.mLocation, "High value of a numeric for loop must be an integer");
+		}
+
+		if(mStep.isConstant)
+		{
+			IntExp val = cast(IntExp)mStep;
+
+			if(val is null)
+				throw new MDCompileException(mStep.mLocation, "Step value of a numeric for loop must be an integer");
+				
+			if(val.mValue == 0)
+				throw new MDCompileException(mStep.mLocation, "Step value of a numeric for loop may not be 0");
 		}
 
 		return this;
@@ -4780,6 +5042,8 @@ class ForeachStatement : Statement
 
 			s.patchJumpToHere(beginJump);
 			delete beginJump;
+			
+			s.patchContinuesToHere();
 
 			s.codeI(mEndLocation.line, Op.Foreach, baseReg, mIndices.length);
 			InstRef* gotoBegin = s.makeJump(mEndLocation.line, Op.Je);
@@ -4787,6 +5051,8 @@ class ForeachStatement : Statement
 			s.patchJumpTo(gotoBegin, beginLoop);
 			delete beginLoop;
 			delete gotoBegin;
+			
+			s.patchBreaksToHere();
 
 			s.popRegister(control);
 			s.popRegister(invState);
@@ -6606,16 +6872,16 @@ class AddExp : BinaryExp
 			
 			if((f1 && f2) || (f1 && i2) || (i1 && f2))
 			{
-				float val1;
-				float val2;
+				mdfloat val1;
+				mdfloat val2;
 				
 				if(i1)
-					val1 = cast(float)i1.mValue;
+					val1 = cast(mdfloat)i1.mValue;
 				else
 					val1 = f1.mValue;
 					
 				if(i2)
-					val2 = cast(float)i2.mValue;
+					val2 = cast(mdfloat)i2.mValue;
 				else
 					val2 = f2.mValue;
 					
@@ -6814,16 +7080,16 @@ class MulExp : BinaryExp
 			
 			if((f1 && f2) || (f1 && i2) || (i1 && f2))
 			{
-				float val1;
-				float val2;
+				mdfloat val1;
+				mdfloat val2;
 				
 				if(i1)
-					val1 = cast(float)i1.mValue;
+					val1 = cast(mdfloat)i1.mValue;
 				else
 					val1 = f1.mValue;
 					
 				if(i2)
-					val2 = cast(float)i2.mValue;
+					val2 = cast(mdfloat)i2.mValue;
 				else
 					val2 = f2.mValue;
 					
@@ -7243,7 +7509,7 @@ class DotExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
-		
+
 		s.topToSource(mEndLocation.line);
 		s.popField(mEndLocation.line, mIdent.mIdent);
 	}
@@ -7874,9 +8140,9 @@ class IntExp : PrimaryExp
 
 class FloatExp : PrimaryExp
 {
-	protected float mValue;
+	protected mdfloat mValue;
 
-	public this(Location location, float value)
+	public this(Location location, mdfloat value)
 	{
 		super(location);
 

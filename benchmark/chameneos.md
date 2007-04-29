@@ -60,7 +60,7 @@ function creature(color)
 	{
 		local me = color;
 
-		for(local met = 0; met <= 1_000_000_000; met++)
+		for(met : 0 .. 1_000_000_001)
 		{
 			local other = meet(me);
 
@@ -102,7 +102,7 @@ function schedule(threads)
 
 	while(true)
 	{
-		for(local i = 0; i < numThreads; i++)
+		for(i : 0 .. numThreads)
 		{
 			local thr = threads[i];
 
