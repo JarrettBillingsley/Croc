@@ -1,4 +1,4 @@
-module fasta;
+module benchmark.fasta;
 
 // laptop: n = 25,000,000, 860 sec
 

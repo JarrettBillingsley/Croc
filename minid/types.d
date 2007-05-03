@@ -1993,13 +1993,24 @@ class MDNamespace : MDObject
 
 	public MDValue* opIndex(MDString key)
 	{
-		return opIn_r(key);
+		Slot* slot = lookup(key);
+		
+		if(slot is null)
+			return null;
+
+		return &slot.value;
 	}
 
 	public MDValue* opIndex(dchar[] key)
 	{
 		scope str = MDString.newTemp(key);
-		return opIndex(str);
+		
+		Slot* slot = lookup(str);
+
+		if(slot is null)
+			return null;
+
+		return &slot.value;
 	}
 
 	public void opIndexAssign(inout MDValue value, MDString key)
@@ -2010,6 +2021,9 @@ class MDNamespace : MDObject
 		{
 			mSlots[h].key = key;
 			mSlots[h].value = value;
+			
+			if(h is mColSlot)
+				moveColSlot();
 		}
 		else
 		{
@@ -2033,18 +2047,7 @@ class MDNamespace : MDObject
 			{}
 
 			slot.next = &mSlots[mColSlot];
-			
-			for( ; mColSlot < mSlots.length; mColSlot++)
-				if(mSlots[mColSlot].key is null)
-					return;
-
-			grow();
-
-			for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
-				if(mSlots[mColSlot].key is null)
-					return;
-
-			assert(false, "MDNamespace.opIndexAssign");
+			moveColSlot();
 		}
 		
 		mLength++;
@@ -2122,7 +2125,7 @@ class MDNamespace : MDObject
 			if(v.key is null)
 				continue;
 
-			hash_t h = typeid(typeof(v.key)).getHash(&v.key) % newSlots.length;
+			hash_t h = v.key.toHash() % newSlots.length;
 
 			if(newSlots[h].key is null)
 			{
@@ -2149,6 +2152,21 @@ class MDNamespace : MDObject
 		}
 		
 		mSlots = newSlots;
+	}
+	
+	protected void moveColSlot()
+	{
+		for( ; mColSlot < mSlots.length; mColSlot++)
+			if(mSlots[mColSlot].key is null)
+				return;
+
+		grow();
+
+		for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
+			if(mSlots[mColSlot].key is null)
+				return;
+
+		assert(false, "MDNamespace.moveColSlot");
 	}
 }
 

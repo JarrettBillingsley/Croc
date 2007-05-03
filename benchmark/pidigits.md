@@ -4,7 +4,7 @@ module benchmark.pidigits;
 
 function Next(z)
 {
-	return (3zz * z[0] + z[1]) / (3 * z[2] + z[3]);
+	return (3 * z[0] + z[1]) / (3 * z[2] + z[3]);
 }
 
 function Safe(z, n)

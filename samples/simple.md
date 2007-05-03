@@ -1,5 +1,6 @@
 module simple;
 
+
 class Base
 {
 	function fork()

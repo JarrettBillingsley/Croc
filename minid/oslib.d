@@ -32,10 +32,17 @@ version(Windows)
 {
 	import std.c.windows.windows;
 }
-else
+else version(Unix)
+{
+	import std.c.unix.unix;
+	alias timezone struct_timezone;
+}
+else version(linux)
 {
 	import std.c.linux.linux;
 }
+else
+	static assert(false, "No valid platform defined");
 
 class OSLib
 {
@@ -72,10 +79,9 @@ class OSLib
 		}
 		else
 		{
-			// Let's just assume that most other OSes besides Windows support gettimeofday()...
-			std.c.linux.linux.timeval tv;
+			timeval tv;
 			struct_timezone tz;
-			std.c.linux.linux.gettimeofday(&tv, &tz);
+			gettimeofday(&tv, &tz);
 			s.push(cast(ulong)(tv.tv_sec * 1_000_000L) + cast(ulong)tv.tv_usec);
 		}
 		
