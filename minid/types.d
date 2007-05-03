@@ -2013,6 +2013,15 @@ class MDNamespace : MDObject
 		}
 		else
 		{
+			for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
+			{
+				if(slot.key == key)
+				{
+					slot.value = value;
+					return;
+				}
+			}
+
 			if(mColSlot == mSlots.length)
 				grow();
 

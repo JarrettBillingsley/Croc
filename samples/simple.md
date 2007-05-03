@@ -20,6 +20,8 @@ class Derived : Base
 local d = Derived();
 d.fork();
 
+writefln();
+
 // Coroutines and coroutine iteration.
 local countDown = coroutine function countDown(x)
 {

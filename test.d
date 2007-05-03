@@ -18,7 +18,7 @@ void main()
 		MDFileLoader().addPath(`imports`);
 		MDFileLoader().addPath(`benchmark`);
 
-		MDGlobalState().importModule("fasta");
+		MDGlobalState().importModule("simple");
 	}
 	catch(MDException e)
 	{
