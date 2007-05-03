@@ -1,6 +1,7 @@
 module benchmark.partialsums;
 
 // n = 2,500,000, 21.74 sec
+// on laptop, 13.996 sec
 
 local args = [vararg];
 local n = 2_500_000;

@@ -1,6 +1,7 @@
 module benchmark.nsieve;
 
 // n = 9, 13.79 sec
+// laptop: 7.718 sec (rather nice)
 
 function nsieve(m)
 {

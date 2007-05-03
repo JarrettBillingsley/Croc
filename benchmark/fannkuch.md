@@ -2,6 +2,7 @@ module benchmark.fannkuch;
 
 // n = 10, 79.13 sec
 // n = 11, 975 sec
+// laptop: n = 10, 57.29 sec
 
 function fannkuch(n)
 {

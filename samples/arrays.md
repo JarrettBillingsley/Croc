@@ -1,52 +1,35 @@
 module arrays;
 
-function compareArr(a1, a2)
-{
-	foreach(i, val; a1)
-		if(val != a2[i])
-			return false;
-
-	return true;
-}
-
 function test()
 {
-	local size = 100000;
-	local l1 = array.range(size);
+	local l1 = array.range(100000);
 	local l2 = l1.dup();
 	local l3 = [];
 
 	l2.reverse();
 
 	while(#l2 > 0)
-	{
-		l3 ~= l2[-1];
-		l2.length(#l2 - 1);
-	}
+		l3 ~= l2.pop();
 
 	while(#l3 > 0)
-	{
-		l2 ~= l3[-1];
-		l3.length(#l3 - 1);
-	}
+		l2 ~= l3.pop();
 
 	l1.reverse();
 
-	if(compareArr(l1, l2))
-		return #l1;
+	for(i : 0 .. #l1)
+		if(l1[i] != l2[i])
+			return false;
 
-	return false;
+	return #l1;
 }
 
 local args = [vararg];
-local n;
+local n = 1;
 
 if(#args > 0)
 	n = toInt(args[0]);
-else
-	n = 1;
 
-for(local i = 0; i < n; ++i)
+for(i : 0 .. n)
 {
 	if(!test())
 	{

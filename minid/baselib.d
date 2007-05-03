@@ -708,6 +708,49 @@ class BaseLib
 		return 1;
 	}
 	
+	int require(MDState s, uint numParams)
+	{
+		MDGlobalState().importModule(s.getParam!(char[])(0));
+		return 0;
+	}
+	
+	int loadString(MDState s, uint numParams)
+	{
+		char[] name;
+		
+		if(numParams > 1)
+			name = s.getParam!(char[])(1);
+		else
+			name = "<loaded by loadString>";
+			
+		scope MemoryStream data = new MemoryStream(s.getParam!(char[])(0));
+		bool dummy;
+
+		MDFuncDef def = compileStatements(data, name, dummy);
+		s.push(new MDClosure(s.environment(1), def));
+		return 1;
+	}
+	
+	int eval(MDState s, uint numParams)
+	{
+		scope MemoryStream data = new MemoryStream(string.format("return %s;", s.getParam!(char[])(0)));
+		bool dummy;
+
+		MDFuncDef def = compileStatements(data, "<loaded by eval>", dummy);
+		MDNamespace env = s.environment(1);
+		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
+		return 1;
+	}
+	
+	int loadJSON(MDState s, uint numParams)
+	{
+		scope MemoryStream data = new MemoryStream(s.getParam!(char[])(0));
+		MDFuncDef def = compileJSON(data);
+		MDNamespace env = s.environment(1);
+		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
+		return 1;
+	}
+
 	MDStringBufferClass stringBufferClass;
 
 	static class MDStringBufferClass : MDClass
@@ -1169,6 +1212,10 @@ public void init()
 		setGlobal("isThread"d,      newClosure(&lib.isParam!("thread"),    "isThread"));
 		setGlobal("currentThread"d, newClosure(&lib.currentThread,         "currentThread"));
 		setGlobal("curry"d,         newClosure(&lib.curry,                 "curry"));
+		setGlobal("require"d,       newClosure(&lib.require,               "require"));
+		setGlobal("loadString"d,    newClosure(&lib.loadString,            "loadString"));
+		setGlobal("eval"d,          newClosure(&lib.eval,                  "eval"));
+		setGlobal("loadJSON"d,      newClosure(&lib.loadJSON,              "loadJSON"));
 
 		MDNamespace namespace = MDNamespace.create
 		(

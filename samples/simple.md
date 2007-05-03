@@ -1,8 +1,5 @@
 module simple;
 
-
-
-/*
 class Base
 {
 	function fork()
@@ -649,4 +646,4 @@ foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 		case 'x': writefln("x"); break;
 		case "hi": writefln("hi"); break;
 	}
-}*/
+}

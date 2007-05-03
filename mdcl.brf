@@ -3,4 +3,5 @@ mdcl.d
 -release
 -O
 -inline
+-g
 -op

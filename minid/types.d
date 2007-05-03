@@ -232,6 +232,14 @@ struct MDValue
 
 		// Object types
 		private MDObject mObj;
+		private MDString mString;
+		private MDTable mTable;
+		private MDArray mArray;
+		private MDClosure mFunction;
+		private MDClass mClass;
+		private MDInstance mInstance;
+		private MDNamespace mNamespace;
+		private MDState mThread;
 	}
 	
 	public static MDValue opCall(T)(T value)
@@ -554,57 +562,62 @@ struct MDValue
 			assert(mType == Type.String, "MDValue as " ~ T.stringof);
 
 			static if(is(T == char[]))
-				return mObj.asString.asUTF8();
+				return mString.asUTF8();
 			else static if(is(T == wchar[]))
-				return mObj.asString.asUTF16();
+				return mString.asUTF16();
 			else
-				return mObj.asString.asUTF32();
+				return mString.asUTF32();
 		}
 		else static if(is(T : MDString))
 		{
 			assert(mType == Type.String, "MDValue as " ~ T.stringof);
-			return mObj.asString;
+			return mString;
 		}
 		else static if(is(T : MDTable))
 		{
 			assert(mType == Type.Table, "MDValue as " ~ T.stringof);
-			return mObj.asTable;
+			return mTable;
 		}
 		else static if(is(T : MDArray))
 		{
 			assert(mType == Type.Array, "MDValue as " ~ T.stringof);
-			return mObj.asArray;
+			return mArray;
 		}
 		else static if(is(T : MDClosure))
 		{
 			assert(mType == Type.Function, "MDValue as " ~ T.stringof);
-			return mObj.asClosure;
+			return mFunction;
 		}
 		else static if(is(T : MDClass))
 		{
 			assert(mType == Type.Class, "MDValue as " ~ T.stringof);
-			return mObj.asClass;
+			return mClass;
 		}
 		else static if(is(T : MDInstance))
 		{
 			assert(mType == Type.Instance, "MDValue as " ~ T.stringof);
 
-			T ret = cast(T)mObj.asInstance;
+			static if(is(T == MDInstance))
+				T ret = mInstance;
+			else
+			{
+				T ret = cast(T)mInstance;
 
-			if(ret is null)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, mObj.asInstance.classinfo.name);
+				if(ret is null)
+					throw new MDException("Cannot convert '%s' to " ~ T.stringof, mInstance.classinfo.name);
+			}
 
 			return ret;
 		}
 		else static if(is(T : MDNamespace))
 		{
 			assert(mType == Type.Namespace, "MDValue as " ~ T.stringof);
-			return mObj.asNamespace;
+			return mNamespace;
 		}
 		else static if(is(T : MDState))
 		{
 			assert(mType == Type.Thread, "MDValue as " ~ T.stringof);
-			return mObj.asThread;
+			return mThread;
 		}
 		else static if(is(T : MDObject))
 		{
@@ -659,57 +672,62 @@ struct MDValue
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 
 			static if(is(T == char[]))
-				return mObj.asString.asUTF8();
+				return mString.asUTF8();
 			else static if(is(T == wchar[]))
-				return mObj.asString.asUTF16();
+				return mString.asUTF16();
 			else
-				return mObj.asString.asUTF32();
+				return mString.asUTF32();
 		}
 		else static if(is(T : MDString))
 		{
 			if(mType != Type.String)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 				
-			return mObj.asString;
+			return mString;
 		}
 		else static if(is(T : MDTable))
 		{
 			if(mType != Type.Table)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 				
-			return mObj.asTable;
+			return mTable;
 		}
 		else static if(is(T : MDArray))
 		{
 			if(mType != Type.Array)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 				
-			return mObj.asArray;
+			return mArray;
 		}
 		else static if(is(T : MDClosure))
 		{
 			if(mType != Type.Function)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 
-			return mObj.asClosure;
+			return mFunction;
 		}
 		else static if(is(T : MDClass))
 		{
 			if(mType != Type.Class)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 				
-			return mObj.asClass;
+			return mClass;
 		}
 		else static if(is(T : MDInstance))
 		{
 			if(mType != Type.Instance)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 				
-			T ret = cast(T)mObj.asInstance;
-
-			if(ret is null)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, mObj.asInstance.classinfo.name);
-				
+			static if(is(T == MDInstance))
+				T ret = mInstance;
+			else
+			{
+				T ret = cast(T)mInstance;
+	
+				if(ret is null)
+					throw new MDException("Cannot convert '%s' to " ~ T.stringof, mInstance.classinfo.name);
+			}
+			
 			return ret;
 		}
 		else static if(is(T : MDNamespace))
@@ -717,14 +735,14 @@ struct MDValue
 			if(mType != Type.Namespace)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 
-			return mObj.asNamespace;
+			return mNamespace;
 		}
 		else static if(is(T : MDState))
 		{
 			if(mType != Type.Thread)
 				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
 
-			return mObj.asThread;
+			return mThread;
 		}
 		else static if(is(T : MDObject))
 		{
@@ -772,7 +790,47 @@ struct MDValue
 		else static if(isStringType!(T))
 		{
 			mType = Type.String;
-			mObj = new MDString(src);
+			mString = new MDString(src);
+		}
+		else static if(is(T : MDString))
+		{
+			mType = Type.String;
+			mString = src;	
+		}
+		else static if(is(T : MDTable))
+		{
+			mType = src.mType;
+			mTable = src;
+		}
+		else static if(is(T : MDArray))
+		{
+			mType = Type.Array;
+			mArray = src;
+		}
+		else static if(is(T : MDClosure))
+		{
+			mType = Type.Function;
+			mFunction = src;
+		}
+		else static if(is(T : MDClass))
+		{
+			mType = Type.Class;
+			mClass = src;
+		}
+		else static if(is(T : MDInstance))
+		{
+			mType = Type.Instance;
+			mInstance = src;
+		}
+		else static if(is(T : MDNamespace))
+		{
+			mType = Type.Namespace;
+			mNamespace = src;
+		}
+		else static if(is(T : MDState))
+		{
+			mType = Type.Thread;
+			mThread = src;
 		}
 		else static if(is(T : MDObject))
 		{
@@ -848,7 +906,7 @@ struct MDValue
 				break;
 
 			case Type.String:
-				Serialize(s, mObj.asString.mData);
+				Serialize(s, mString.mData);
 				break;
 				
 			default:
@@ -886,7 +944,7 @@ struct MDValue
 			case Type.String:
 				dchar[] data;
 				Deserialize(s, data);
-				ret.mObj = new MDString(data);
+				ret.mString = new MDString(data);
 				break;
 				
 			default:
@@ -899,19 +957,10 @@ struct MDValue
 
 abstract class MDObject
 {
+	public MDValue.Type mType;
+
 	public uint length();
 
-	// avoiding RTTI downcasts for speed
-	public MDString asString() { return null; }
-	public MDClosure asClosure() { return null; }
-	public MDTable asTable() { return null; }
-	public MDArray asArray() { return null; }
-	public MDClass asClass() { return null; }
-	public MDInstance asInstance() { return null; }
-	public MDNamespace asNamespace() { return null; }
-	public MDState asThread() { return null; }
-	public MDValue.Type mType;
-	
 	public int opCmp(Object o)
 	{
 		throw new MDException("No opCmp defined for type '%s'", MDValue.typeString(mType));
@@ -974,11 +1023,6 @@ class MDString : MDObject
 		mType = MDValue.Type.String;
 	}
 	
-	public override MDString asString()
-	{
-		return this;
-	}
-
 	public override uint length()
 	{
 		return mData.length;
@@ -1116,11 +1160,11 @@ class MDString : MDObject
 	{
 		uint l = 0;
 
-		foreach(uint i, MDValue v; values)
+		for(uint i = 0; i < values.length; i++)
 		{
-			if(v.isString())
-				l += v.as!(MDString).length;
-			else if(v.isChar())
+			if(values[i].isString())
+				l += values[i].as!(MDString).length;
+			else if(values[i].isChar())
 				l += 1;
 			else
 			{
@@ -1213,11 +1257,6 @@ class MDClosure : MDObject
 		mType = MDValue.Type.Function;
 	}
 
-	public override MDClosure asClosure()
-	{
-		return this;
-	}
-	
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a closure");
@@ -1273,11 +1312,6 @@ class MDTable : MDObject
 		return ret;
 	}
 
-	public override MDTable asTable()
-	{
-		return this;
-	}
-	
 	public override uint length()
 	{
 		return mData.length;
@@ -1425,11 +1459,6 @@ class MDArray : MDObject
 			ret.mData[i] = val;
 			
 		return ret;	
-	}
-
-	public override MDArray asArray()
-	{
-		return this;
 	}
 
 	public override uint length()
@@ -1639,11 +1668,6 @@ class MDClass : MDObject
 		}
 	}
 
-	public override MDClass asClass()
-	{
-		return this;
-	}
-	
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a class");
@@ -1664,12 +1688,6 @@ class MDClass : MDObject
 
 	public MDValue* opIndex(MDString index)
 	{
-		//TODO: Statics?
-		/*MDValue* ptr = mStaticMembers[index];
-
-		if(ptr !is null)
-			return ptr;*/
-
 		MDValue* ptr = (index in mMethods);
 
 		if(ptr !is null)
@@ -1750,11 +1768,6 @@ class MDInstance : MDObject
 		mMethods = mClass.mMethods;
 	}
 
-	public override MDInstance asInstance()
-	{
-		return this;
-	}
-
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a class instance");
@@ -1771,7 +1784,7 @@ class MDInstance : MDObject
 		
 		if(ptr !is null)
 			return ptr;
-			
+
 		return null;
 	}
 	
@@ -1845,12 +1858,27 @@ class MDInstance : MDObject
 
 class MDNamespace : MDObject
 {
-	protected MDValue[MDString] mData;
-	protected MDNamespace mParent;
-	dchar[] mName;
-
-	public this(dchar[] name = null, MDNamespace parent = null)
+	struct Slot
 	{
+		MDString key;
+		MDValue value;
+		Slot* next;
+	}
+
+	protected Slot[] mSlots;
+	protected size_t mLength;
+	protected size_t mColSlot;
+
+	protected MDNamespace mParent;
+	protected dchar[] mName;
+
+	public this(dchar[] name = null, MDNamespace parent = null, Slot[] slots = null)
+	{
+		if(slots is null)
+			mSlots = new Slot[32];
+		else
+			mSlots = slots;
+
 		mName = name;
 		mParent = parent;
 		mType = MDValue.Type.Namespace;
@@ -1876,25 +1904,22 @@ class MDNamespace : MDObject
 		{
 			static if(!(i & 1))
 			{
-				static if(!isStringType!(typeof(arg)) && !is(typeof(arg) : MDString))
+				static if(isStringType!(typeof(arg)))
+					this[new MDString(arg)] = MDValue(args[i + 1]);
+				else static if(is(typeof(arg) : MDString))
+					this[arg] = MDValue(args[i + 1]);
+				else
 				{
 					pragma(msg, "Native namespace constructor keys must be strings");
 					static assert(false);
 				}
-
-				this[new MDString(arg)] = MDValue(args[i + 1]);
 			}
 		}
 	}
 
-	public override MDNamespace asNamespace()
-	{
-		return this;
-	}
-
 	public override uint length()
 	{
-		return mData.length;
+		return mLength;
 	}
 	
 	public dchar[] name()
@@ -1907,85 +1932,140 @@ class MDNamespace : MDObject
 		return mParent;
 	}
 
-	public MDValue* opIn_r(MDString index)
+	public MDValue* opIn_r(MDString key)
 	{
-		return (index in mData);
+		Slot* slot = lookup(key);
+		
+		if(slot is null)
+			return null;
+
+		return &slot.value;
 	}
 	
-	public MDValue* opIn_r(dchar[] index)
+	public MDValue* opIn_r(dchar[] key)
 	{
-		scope idx = MDString.newTemp(index);
-		return (idx in mData);	
+		scope idx = MDString.newTemp(key);
+		return opIn_r(idx);
 	}
 
 	public MDNamespace dup()
 	{
-		MDNamespace n = new MDNamespace(mName, mParent);
+		MDNamespace n = new MDNamespace(mName, mParent, mSlots.dup);
+		n.mLength = mLength;
+		n.mColSlot = mColSlot;
 
-		foreach(k, v; mData)
-			n.mData[k] = v;
-			
 		return n;
 	}
 	
 	public MDArray keys()
 	{
-		return new MDArray(mData.keys);
+		MDArray ret = new MDArray(mLength);
+		int i = 0;
+
+		foreach(inout v; mSlots)
+		{
+			if(v.key is null)
+				continue;
+				
+			ret[i] = v.key;
+			i++;
+		}
+
+		return ret;
 	}
 
 	public MDArray values()
 	{
-		return new MDArray(mData.values);
-	}
-	
-	public void remove(MDString index)
-	{
-		MDValue* ptr = (index in mData);
+		MDArray ret = new MDArray(mLength);
+		int i = 0;
 
-		if(ptr is null)
-			return;
-			
-		mData.remove(index);
-	}
-	
-	public MDValue* opIndex(MDString index)
-	{
-		return (index in mData);
+		foreach(inout v; mSlots)
+		{
+			if(v.key is null)
+				continue;
+				
+			ret[i] = v.value;
+			i++;
+		}
+
+		return ret;
 	}
 
-	public MDValue* opIndex(dchar[] index)
+	public MDValue* opIndex(MDString key)
 	{
-		scope str = MDString.newTemp(index);
+		return opIn_r(key);
+	}
+
+	public MDValue* opIndex(dchar[] key)
+	{
+		scope str = MDString.newTemp(key);
 		return opIndex(str);
 	}
 
-	public void opIndexAssign(inout MDValue value, MDString index)
+	public void opIndexAssign(inout MDValue value, MDString key)
 	{
-		mData[index] = value;
+		hash_t h = key.toHash() % mSlots.length;
+
+		if(mSlots[h].key is null)
+		{
+			mSlots[h].key = key;
+			mSlots[h].value = value;
+		}
+		else
+		{
+			if(mColSlot == mSlots.length)
+				grow();
+
+			mSlots[mColSlot].key = key;
+			mSlots[mColSlot].value = value;
+
+			Slot* slot;
+			for(slot = &mSlots[h]; slot.next !is null; slot = slot.next)
+			{}
+
+			slot.next = &mSlots[mColSlot];
+			
+			for( ; mColSlot < mSlots.length; mColSlot++)
+				if(mSlots[mColSlot].key is null)
+					return;
+
+			grow();
+
+			for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
+				if(mSlots[mColSlot].key is null)
+					return;
+
+			assert(false, "MDNamespace.opIndexAssign");
+		}
+		
+		mLength++;
 	}
 
-	public void opIndexAssign(inout MDValue value, dchar[] index)
+	public void opIndexAssign(inout MDValue value, dchar[] key)
 	{
-		opIndexAssign(value, new MDString(index));
+		opIndexAssign(value, new MDString(key));
 	}
 	
-	public void opIndexAssign(MDObject value, MDString index)
+	public void opIndexAssign(MDObject value, MDString key)
 	{
-		opIndexAssign(MDValue(value), index);
+		opIndexAssign(MDValue(value), key);
 	}
 	
-	public void opIndexAssign(MDObject value, dchar[] index)
+	public void opIndexAssign(MDObject value, dchar[] key)
 	{
-		opIndexAssign(MDValue(value), new MDString(index));
+		opIndexAssign(MDValue(value), new MDString(key));
 	}
-
-	public int opApply(int delegate(inout MDString key, inout MDValue value) dg)
+	
+	public int opApply(int delegate(inout MDString, inout MDValue) dg)
 	{
 		int result = 0;
-
-		foreach(MDString key, MDValue value; mData)
+		
+		foreach(i, inout v; mSlots)
 		{
-			result = dg(key, value);
+			if(v.key is null)
+				continue;
+				
+			result = dg(v.key, v.value);
 
 			if(result)
 				break;
@@ -2007,6 +2087,59 @@ class MDNamespace : MDObject
 	public char[] toString()
 	{
 		return string.format("namespace %s", nameString());
+	}
+	
+	protected Slot* lookup(MDString key)
+	{
+		hash_t h = key.toHash() % mSlots.length;
+
+		if(mSlots[h].key is null)
+			return null;
+
+		for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
+			if(slot.key == key)
+				return slot;
+
+		return null;
+	}
+
+	protected void grow()
+	{
+		Slot[] newSlots = new Slot[mSlots.length * 2];
+		size_t colSlot = 0;
+
+		foreach(i, inout v; mSlots)
+		{
+			if(v.key is null)
+				continue;
+
+			hash_t h = typeid(typeof(v.key)).getHash(&v.key) % newSlots.length;
+
+			if(newSlots[h].key is null)
+			{
+				newSlots[h].key = v.key;
+				newSlots[h].value = v.value;
+			}
+			else
+			{
+				newSlots[colSlot].key = v.key;
+				newSlots[colSlot].value = v.value;
+
+				Slot* slot;
+				for(slot = &newSlots[h]; slot.next !is null; slot = slot.next)
+				{}
+
+				slot.next = &newSlots[colSlot];
+
+				for( ; colSlot < newSlots.length; colSlot++)
+					if(newSlots[colSlot].key is null)
+						break;
+						
+				assert(colSlot < newSlots.length, "MDNamespace.grow");
+			}
+		}
+		
+		mSlots = newSlots;
 	}
 }
 
@@ -2469,7 +2602,7 @@ class MDState : MDObject
 	static this()
 	{
 		StateStrings = new MDString[5];
-		StateStrings[0] = new MDString("initial"d);	
+		StateStrings[0] = new MDString("initial"d);
 		StateStrings[1] = new MDString("waiting"d);
 		StateStrings[2] = new MDString("running"d);
 		StateStrings[3] = new MDString("suspended"d);
@@ -2525,11 +2658,6 @@ class MDState : MDObject
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a thread");
-	}
-	
-	public override MDState asThread()
-	{
-		return this;
 	}
 	
 	public char[] toString()
@@ -2840,7 +2968,7 @@ class MDState : MDObject
 
 		MDValue* method = getMM(value, MM.ToString);
 		
-		if(method.isNull() || !method.isFunction())
+		if(!method.isFunction())
 			return new MDString(value.toString());
 
 		mNativeCallDepth++;
@@ -2891,6 +3019,17 @@ class MDState : MDObject
 
 		return ret;
 	}
+	
+	public MDNamespace environment(int depth = 0)
+	{
+		if(mARIndex < 1)
+			throw new MDException("MDState.environment() - no current environment");
+
+		if(depth < 0 || mARIndex - depth < 1)
+			throw new MDException("MDState.environment() - Invalid depth: ", depth);
+
+		return mActRecs[mARIndex - depth].env;
+	}
 
 	// ===================================================================================
 	// Internal functions
@@ -2930,12 +3069,11 @@ class MDState : MDObject
 
 	protected bool callPrologue(uint slot, int numReturns, int numParams)
 	{
-		uint returnSlot;
 		uint paramSlot;
 		MDClosure closure;
 
 		slot = basedIndexToAbs(slot);
-		returnSlot = slot;
+		uint returnSlot = slot;
 
 		if(numParams == -1)
 			numParams = mStackIndex - slot - 1;
@@ -2946,6 +3084,11 @@ class MDState : MDObject
 
 		switch(func.type())
 		{
+			case MDValue.Type.Function:
+				closure = func.as!(MDClosure);
+				paramSlot = slot + 1;
+				break;
+
 			case MDValue.Type.Class:
 				pushAR();
 
@@ -2967,10 +3110,7 @@ class MDState : MDObject
 				}
 
 				*getAbsStack(slot) = n;
-				
-				if(callEpilogue(0, 1))
-					mStackIndex = mCurrentAR.savedTop;
-
+				callEpilogue(0, 1);
 				return false;
 
 			case MDValue.Type.Thread:
@@ -3020,42 +3160,29 @@ class MDState : MDObject
 					numRets = thread.resume(numParams);
 				catch(MDRuntimeException e)
 				{
-					if(callEpilogue(0, 0))
-						mStackIndex = mCurrentAR.savedTop;
-	
+					callEpilogue(0, 0);
 					throw e;
 				}
 				catch(MDException e)
 				{
 					Location loc = startTraceback();
-					
-					if(callEpilogue(0, 0))
-						mStackIndex = mCurrentAR.savedTop;
-	
+					callEpilogue(0, 0);
 					throw new MDRuntimeException(loc, &e.value);
 				}
 
 				moveStackFrom(thread, numRets);
-
-				if(callEpilogue(0, numRets))
-					mStackIndex = mCurrentAR.savedTop;
-					
+				callEpilogue(0, numRets);
 				return false;
-				
-			case MDValue.Type.Function:
-				closure = func.as!(MDClosure);
-				paramSlot = slot + 1;
-				break;
 
 			default:
 				mNativeCallDepth++;
-				
+
 				scope(exit)
 					mNativeCallDepth--;
 
 				MDValue* method = getMM(*func, MM.Call);
 
-				if(method.isNull() || !method.isFunction())
+				if(!method.isFunction())
 					throwRuntimeException("Attempting to call a value of type '%s'", func.typeString());
 
 				copyAbsStack(slot + 1, slot);
@@ -3102,24 +3229,17 @@ class MDState : MDObject
 			}
 			catch(MDRuntimeException e)
 			{
-				if(callEpilogue(0, 0))
-					mStackIndex = mCurrentAR.savedTop;
-
+				callEpilogue(0, 0);
 				throw e;
 			}
 			catch(MDException e)
 			{
 				Location loc = startTraceback();
-
-				if(callEpilogue(0, 0))
-					mStackIndex = mCurrentAR.savedTop;
-
+				callEpilogue(0, 0);
 				throw new MDRuntimeException(loc, &e.value);
 			}
 
-			if(callEpilogue(getBasedStackIndex() - actualReturns, actualReturns))
-				mStackIndex = mCurrentAR.savedTop;
-				
+			callEpilogue(getBasedStackIndex() - actualReturns, actualReturns);
 			return false;
 		}
 		else
@@ -3203,7 +3323,7 @@ class MDState : MDObject
 		}
 	}
 
-	protected bool callEpilogue(uint resultSlot, int numResults)
+	protected void callEpilogue(uint resultSlot, int numResults)
 	{
 		debug(CALLEPILOGUE) printCallStack();
 		
@@ -3272,7 +3392,8 @@ class MDState : MDObject
 		if(mARIndex == 0)
 			mState = State.Dead;
 
-		return !isMultRet;
+		if(!isMultRet)
+			mStackIndex = mCurrentAR.savedTop;
 	}
 	
 	protected uint resume(uint numParams)
@@ -3290,9 +3411,7 @@ class MDState : MDObject
 				return mNumYields;
 
 			case State.Suspended:
-				if(callEpilogue(mStackIndex - numParams - mCurrentAR.base, numParams))
-					mStackIndex = mCurrentAR.savedTop;
-
+				callEpilogue(mStackIndex - numParams - mCurrentAR.base, numParams);
 				execute(mSavedCallDepth);
 				return mNumYields;
 
@@ -3387,27 +3506,6 @@ class MDState : MDObject
 				uv.value = (uv.value - oldBase) + newBase;
 	}
 
-	// Since this returns a slice of the actual stack, which can move around, the reference
-	// shouldn't really be kept for long.
-	protected MDValue[] sliceStack(uint lo, int num)
-	{
-		debug if(num != -1)
-			assert(lo <= mStack.length && (lo + num) <= mStack.length, "invalid slice stack params");
-		else
-			assert(lo <= mStack.length, "invalid slice stack params");
-
-		if(num == -1)
-		{
-			MDValue[] ret = mStack[lo .. mStackIndex];
-			mStackIndex = mCurrentAR.savedTop;
-			
-			debug(STACKINDEX) writefln("sliceStack() set mStackIndex to ", mStackIndex);
-			return ret;
-		}
-		else
-			return mStack[lo .. lo + num];
-	}
-
 	protected void copyBasedStack(uint dest, uint src)
 	{
 		assert((mCurrentAR.base + dest) < mStack.length && (mCurrentAR.base + src) < mStack.length, "invalid based stack indices");
@@ -3462,12 +3560,6 @@ class MDState : MDObject
 		return offset - mCurrentAR.base;
 	}
 
-	protected MDValue* getConst(uint num)
-	{
-		assert(mCurrentAR.func.isNative() == false, "cannot get constant from native function");
-		return &mCurrentAR.func.script.func.mConstants[num];
-	}
-
 	protected MDFuncDef getInnerFunc(uint num)
 	{
 		assert(mCurrentAR.func.isNative() == false, "cannot get inner func from native function");
@@ -3493,12 +3585,6 @@ class MDState : MDObject
 			uv.closedValue = *uv.value;
 			uv.value = &uv.closedValue;
 		}
-	}
-
-	protected MDUpval* getUpvalueRef(uint num)
-	{
-		assert(mCurrentAR.func.isNative() == false, "cannot get upval ref from native function");
-		return mCurrentAR.func.script.upvals[num];
 	}
 
 	protected MDUpval* findUpvalue(uint num)
@@ -3573,655 +3659,102 @@ class MDState : MDObject
 	// Interpreter
 	// ===================================================================================
 
-	protected final MDValue index(MDValue src, MDValue key)
-	{
-		MDValue dest;
-
-		void tryMM(MDRuntimeException delegate() ex)
-		{
-			MDValue* method = getMM(src, MM.Index);
-
-			if(method.isNull())
-				throw ex();
-
-			if(method.isFunction() == false)
-				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.Index], src.typeString());
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
-			uint funcSlot = push(method);
-			push(src);
-			push(key);
-			call(funcSlot, 2, 1);
-			dest = *getBasedStack(funcSlot);
-		}
-
-		switch(src.type)
-		{
-			case MDValue.Type.Array:
-				if(key.isInt() == false)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access an array with a '%s'", key.typeString());});
-					break;
-				}
-				
-				int index = key.as!(int);
-				MDArray arr = src.as!(MDArray);
-
-				if(index < 0)
-					index += arr.length;
-
-				if(index < 0 || index >= arr.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid array index: ", index);});
-					break;
-				}
-
-				dest = *arr[index];
-				break;
-
-			case MDValue.Type.String:
-				if(key.isInt() == false)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access a string with a '%s'", key.typeString());});
-					break;
-				}
-
-				int index = key.as!(int);
-				MDString str = src.as!(MDString);
-
-				if(index < 0)
-					index += str.length;
-
-				if(index < 0 || index >= str.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid string index: ", key.as!(int));});
-					break;
-				}
-
-				dest = str[index];
-				break;
-
-			case MDValue.Type.Table:
-				if(key.isNull())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index a table with a key of type 'null'");});
-					break;
-				}
-
-				dest = *src.as!(MDTable)[key];
-				break;
-
-			case MDValue.Type.Instance:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index an instance with a key of type '%s'", key.typeString());});
-					break;
-				}
-
-				MDValue* v = src.as!(MDInstance)[key.as!(MDString)];
-
-				if(v is null)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from class instance", key.toString());});
-					break;
-				}
-
-				dest = *v;
-				break;
-
-			case MDValue.Type.Class:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index a class with a key of type '%s'", key.typeString());});
-					break;
-				}
-
-				MDValue* v = src.as!(MDClass)[key.as!(MDString)];
-
-				if(v is null)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from class", key.toString());});
-					break;
-				}
-
-				dest = *v;
-				break;
-				
-			case MDValue.Type.Namespace:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index namespace '%s' with a key of type '%s'", src.as!(MDNamespace).nameString(), key.typeString());});
-					break;
-				}
-
-				MDValue* v = src.as!(MDNamespace)[key.as!(MDString)];
-				
-				if(v is null)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from namespace %s", key.toString(), src.as!(MDNamespace).nameString);});
-					break;
-				}
-
-				dest = *v;
-				break;
-
-			default:
-				tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index a value of type '%s'", src.typeString());});
-				break;
-		}
-		
-		return dest;
-	}
-
-	protected final void indexAssign(MDValue dest, MDValue key, MDValue value)
-	{
-		void tryMM(MDRuntimeException delegate() ex)
-		{
-			MDValue* method = getMM(dest, MM.IndexAssign);
-
-			if(method.isNull())
-				throw ex();
-
-			if(method.isFunction() == false)
-				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.IndexAssign], dest.typeString());
-	
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
-			uint funcSlot = push(method);
-			push(dest);
-			push(key);
-			push(value);
-			call(funcSlot, 3, 0);
-		}
-
-		switch(dest.type)
-		{
-			case MDValue.Type.Array:
-				if(key.isInt() == false)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access an array with a '%s'", key.typeString());});
-					break;
-				}
-				
-				int index = key.as!(int);
-				MDArray arr = dest.as!(MDArray);
-				
-				if(index < 0)
-					index += arr.length;
-					
-				if(index < 0 || index >= arr.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid array index: ", key.as!(int));});
-					break;
-				}
-
-				arr[index] = value;
-				break;
-
-			case MDValue.Type.Table:
-				if(key.isNull())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a table with a key of type 'null'");});
-					break;
-				}
-
-				dest.as!(MDTable)()[key] = value;
-				break;
-
-			case MDValue.Type.Instance:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign an instance with a key of type '%s'", key.typeString());});
-					break;
-				}
-
-				MDString k = key.as!(MDString);
-				MDValue* val = dest.as!(MDInstance)[k];
-
-				if(val is null)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to add a member '%s' to a class instance", key.toString());});
-					break;
-				}
-
-				if(val.isFunction())
-					throw new MDRuntimeException(startTraceback(), "Attempting to change method '%s' of class instance", key.toString());
-
-				*val = value;
-				break;
-
-			case MDValue.Type.Class:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a class with a key of type '%s'", key.typeString());});
-					break;
-				}
-
-				dest.as!(MDClass)()[key.as!(MDString)] = value;
-				break;
-				
-			case MDValue.Type.Namespace:
-				if(!key.isString())
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a namespace with a key of type '%s'", key.typeString());});
-					break;
-				}
-
-				dest.as!(MDNamespace)()[key.as!(MDString)] = value;
-				break;
-
-			default:
-				tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a value of type '%s'", dest.typeString());});
-				break;
-		}
-	}
-
-	protected final MDValue slice(MDValue src, MDValue lo, MDValue hi)
-	{
-		MDValue dest;
-
-		void tryMM(MDRuntimeException delegate() ex)
-		{
-			MDValue* method = getMM(src, MM.Slice);
-
-			if(method.isNull())
-				throw ex();
-
-			if(!method.isFunction())
-				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.Slice], src.typeString());
-	
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
-			uint funcSlot = push(method);
-			push(src);
-			push(lo);
-			push(hi);
-			call(funcSlot, 3, 1);
-			dest = *getBasedStack(funcSlot);
-		}
-
-		switch(src.type)
-		{
-			case MDValue.Type.Array:
-				MDArray arr = src.as!(MDArray);
-				int loIndex;
-				int hiIndex;
-				
-				if(lo.isNull() && hi.isNull())
-				{
-					dest = src;
-					break;
-				}
-
-				if(lo.isNull())
-					loIndex = 0;
-				else if(lo.isInt())
-				{
-					loIndex = lo.as!(int);
-					
-					if(loIndex < 0)
-						loIndex += arr.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice an array with a '%s'", lo.typeString());});
-					break;
-				}
-
-				if(hi.isNull())
-					hiIndex = arr.length;
-				else if(hi.isInt())
-				{
-					hiIndex = hi.as!(int);
-					
-					if(hiIndex < 0)
-						hiIndex += arr.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice an array with a '%s'", hi.typeString());});
-					break;
-				}
-
-				if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");});
-					break;
-				}
-
-				dest = arr[loIndex .. hiIndex];
-				break;
-
-			case MDValue.Type.String:
-				MDString str = src.as!(MDString);
-				int loIndex;
-				int hiIndex;
-				
-				if(lo.isNull() && hi.isNull())
-				{
-					dest = src;
-					break;
-				}
-
-				if(lo.isNull())
-					loIndex = 0;
-				else if(lo.isInt())
-				{
-					loIndex = lo.as!(int);
-					
-					if(loIndex < 0)
-						loIndex += str.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice a string with a '%s'", lo.typeString());});
-					break;
-				}
-
-				if(hi.isNull())
-					hiIndex = str.length;
-				else if(hi.isInt())
-				{
-					hiIndex = hi.as!(int);
-					
-					if(hiIndex < 0)
-						hiIndex += str.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice a string with a '%s'", hi.typeString());});
-					break;
-				}
-
-				if(loIndex > hiIndex || loIndex < 0 || loIndex > str.length || hiIndex < 0 || hiIndex > str.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (string length = ", str.length, ")");});
-					break;
-				}
-
-				dest = str[loIndex .. hiIndex];
-				break;
-
-			default:
-				tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice a value of type '%s'", src.typeString());});
-				break;
-		}
-		
-		return dest;
-	}
-	
-	protected final void sliceAssign(MDValue dest, MDValue lo, MDValue hi, MDValue value)
-	{
-		void tryMM(MDRuntimeException delegate() ex)
-		{
-			MDValue* method = getMM(dest, MM.SliceAssign);
-
-			if(method.isNull())
-				throw ex();
-
-			if(!method.isFunction())
-				throwRuntimeException("Invalid %s metamethod for type '%s'", MetaNames[MM.SliceAssign], dest.typeString());
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
-			uint funcSlot = push(method);
-			push(dest);
-			push(lo);
-			push(hi);
-			push(value);
-			call(funcSlot, 4, 0);
-		}
-
-		switch(dest.type)
-		{
-			case MDValue.Type.Array:
-				MDArray arr = dest.as!(MDArray);
-				int loIndex;
-				int hiIndex;
-
-				if(lo.isNull())
-					loIndex = 0;
-				else if(lo.isInt())
-				{
-					loIndex = lo.as!(int);
-					
-					if(loIndex < 0)
-						loIndex += arr.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice assign an array with a '%s'", lo.typeString());});
-					break;
-				}
-
-				if(hi.isNull())
-					hiIndex = arr.length;
-				else if(hi.isInt())
-				{
-					hiIndex = hi.as!(int);
-					
-					if(hiIndex < 0)
-						hiIndex += arr.length;
-				}
-				else
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice assign an array with a '%s'", hi.typeString());});
-					break;
-				}
-
-				if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
-				{
-					tryMM({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");});
-					break;
-				}
-
-				if(value.isArray())
-				{
-					if((hiIndex - loIndex) != value.as!(MDArray).length)
-						throw new MDRuntimeException(startTraceback(), "Array slice assign lengths do not match (", hiIndex - loIndex, " and ", value.as!(MDArray).length, ")");
-				
-					arr[loIndex .. hiIndex] = value.as!(MDArray);
-				}
-				else
-					arr[loIndex .. hiIndex] = value;
-				break;
-
-			default:
-				tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice assign a value of type '%s'", dest.typeString());});
-				break;
-		}
-	}
-
-	protected final MDValue* lookupGlobal(MDNamespace ns, MDString name, out MDNamespace owner)
-	{
-		for( ; ns !is null; ns = ns.mParent)
-		{
-			MDValue* val = ns[name];
-			
-			if(val !is null)
-			{
-				owner = ns;
-				return val;
-			}
-		}
-
-		return null;
-	}
-
-	protected final MDValue* lookupMethod(MDValue* src, MDString name)
-	{
-		MDValue* v;
-
-		switch(src.type)
-		{
-			case MDValue.Type.Instance:
-				v = src.as!(MDInstance)[name];
-
-				if(v is null)
-					throwRuntimeException("Attempting to access nonexistent member '%s' from class instance", name);
-
-				return v;
-
-			case MDValue.Type.Table:
-				v = src.as!(MDTable)[MDValue(name)];
-
-				if(!v.isNull() && v.isFunction())
-					return v;
-					
-				break;
-
-			case MDValue.Type.Namespace:
-				v = src.as!(MDNamespace)[name];
-
-				if(v is null)
-					throwRuntimeException("Attempting to access nonexistent member '%s' from namespace '%s'", name, src.as!(MDNamespace).nameString);
-
-				return v;
-
-			case MDValue.Type.Class:
-				v = src.as!(MDClass)[name];
-
-				if(v is null)
-					throwRuntimeException("Attempting to access nonexistent member '%s' from class '%s'", name, src.as!(MDClass).getName());
-
-				return v;
-			
-			default:
-				break;
-		}
-
-		MDNamespace metatable = MDGlobalState().getMetatable(src.type);
-
-		if(metatable is null)
-			throwRuntimeException("No metatable for type '%s'", src.typeString());
-
-		v = metatable[name];
-
-		if(v is null)
-			throwRuntimeException("No implementation of method '%s' for type '%s'", name, src.typeString());
-
-		return v;
-	}
-
 	protected void execute(uint depth = 1)
 	{
 		MDException currentException = null;
+		MDValue[] constTable = mCurrentAR.func.script.func.mConstants;
 
 		_exceptionRetry:
 		mState = State.Running;
 
 		try
 		{
+			MDValue RS;
+			MDValue RT;
+			
+			MDValue* get(uint index, MDValue* environment)
+			{
+				switch(index & Instruction.locMask)
+				{
+					case Instruction.locLocal:
+						assert((mCurrentAR.base + (index & ~Instruction.locMask)) < mStack.length, "invalid based stack index");
+
+						if(environment)
+							*environment = mCurrentAR.env;
+
+						return &mStack[mCurrentAR.base + (index & ~Instruction.locMask)];
+
+					case Instruction.locConst:
+						if(environment)
+							*environment = mCurrentAR.env;
+
+						return &constTable[index & ~Instruction.locMask];
+
+					case Instruction.locUpval:
+						if(environment)
+							*environment = mCurrentAR.env;
+
+						return mCurrentAR.func.script.upvals[index & ~Instruction.locMask].value;
+
+					default:
+						assert((index & Instruction.locMask) == Instruction.locGlobal, "get() location");
+
+						MDValue* idx = &constTable[index & ~Instruction.locMask];
+						assert(idx.isString(), "trying to get a non-string global");
+						MDString name = idx.as!(MDString);
+
+						MDValue* glob = null;
+						MDValue* src = getBasedStack(0);
+
+						switch(src.type)
+						{
+							case MDValue.Type.Table:
+								MDValue* v = src.as!(MDTable)[*idx];
+
+								if(v.isNull())
+									break;
+
+								glob = v;
+								break;
+
+							case MDValue.Type.Instance:  glob = src.as!(MDInstance)[name]; break;
+							case MDValue.Type.Class:     glob = src.as!(MDClass)[name]; break;
+							case MDValue.Type.Namespace: glob = src.as!(MDNamespace)[name]; break;
+							default: break;
+						}
+
+						if(glob is null)
+						{
+							for(MDNamespace ns = mCurrentAR.env; ns !is null; ns = ns.mParent)
+							{
+								glob = ns[name];
+
+								if(glob !is null)
+								{
+									if(environment)
+										*environment = ns;
+
+									return glob;
+								}
+							}
+
+							throwRuntimeException("Attempting to get nonexistent global '%s'", name);
+						}
+						else if(environment)
+							*environment = *getBasedStack(0);
+
+						return glob;
+				}
+			}
+
 			while(true)
 			{
 				Instruction i = *mCurrentAR.pc;
-
 				mCurrentAR.pc++;
 
-				MDValue RS;
-				MDValue RSEnv;
-				MDValue RT;
+				MM operation = void;
 
-				MDValue* get(uint index, MDValue* environment)
-				{
-					uint val = index & ~Instruction.locMask;
-					uint loc = index & Instruction.locMask;
-
-					if(environment)
-						*environment = mCurrentAR.env;
-
-					switch(loc)
-					{
-						case Instruction.locLocal: return getBasedStack(val);
-						case Instruction.locConst: return getConst(val);
-						case Instruction.locUpval: return getUpvalueRef(val).value;
-						default: break;
-					}
-
-					debug(TIMINGS) scope _profiler_ = new Profiler("get() glob");
-
-					assert(loc == Instruction.locGlobal, "get() location");
-
-					MDValue* idx = getConst(val);
-					assert(idx.isString(), "trying to get a non-string global");
-					MDString name = idx.as!(MDString);
-
-					MDValue* glob = null;
-					MDValue* src = getBasedStack(0);
-
-					switch(src.type)
-					{
-						case MDValue.Type.Table:
-							MDValue* v = src.as!(MDTable)[*idx];
-
-							if(v.isNull())
-								break;
-
-							glob = v;
-							break;
-
-						case MDValue.Type.Instance:  glob = src.as!(MDInstance)[name]; break;
-						case MDValue.Type.Class:     glob = src.as!(MDClass)[name]; break;
-						case MDValue.Type.Namespace: glob = src.as!(MDNamespace)[name]; break;
-						default: break;
-					}
-
-					if(glob is null)
-					{
-						MDNamespace owner;
-						glob = lookupGlobal(mCurrentAR.env, name, owner);
-
-						if(glob is null)
-							throwRuntimeException("Attempting to get nonexistent global '%s'", name);
-
-						if(environment)
-							*environment = owner;
-					}
-					else if(environment)
-						*environment = *getBasedStack(0);
-
-					return glob;
-				}
-
-				MDValue* getRD()
-				{
-					assert((i.rd & Instruction.locMask) != Instruction.locConst, "getRD setting a const");
-					return get(i.rd, null);
-				}
-
-				void getRS()
-				{
-					RS = *get(i.rs, null);
-				}
-				
-				void getRSwithEnv()
-				{
-					RS = *get(i.rs, &RSEnv);
-				}
-
-				void getRT()
-				{
-					RT = *get(i.rt, null);
-				}
-
-				Op opcode = cast(Op)i.opcode;
-				
-				MM operation;
-
-				switch(opcode)
+				switch(i.opcode)
 				{
 					// Binary Arithmetic
 					case Op.Add: operation = MM.Add; goto case cast(Op)-1;
@@ -4236,8 +3769,8 @@ class MDState : MDObject
 					{
 						debug(TIMINGS) scope _profiler_ = new Profiler("Arith");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						if(RS.isNum() && RT.isNum())
 						{
@@ -4245,27 +3778,27 @@ class MDState : MDObject
 							{
 								switch(operation)
 								{
-									case MM.Add: *getRD() = RS.as!(mdfloat) + RT.as!(mdfloat); break;
-									case MM.Sub: *getRD() = RS.as!(mdfloat) - RT.as!(mdfloat); break;
-									case MM.Mul: *getRD() = RS.as!(mdfloat) * RT.as!(mdfloat); break;
-									case MM.Div: *getRD() = RS.as!(mdfloat) / RT.as!(mdfloat); break;
-									case MM.Mod: *getRD() = RS.as!(mdfloat) % RT.as!(mdfloat); break;
+									case MM.Add: *get(i.rd, null) = RS.as!(mdfloat) + RT.as!(mdfloat); break;
+									case MM.Sub: *get(i.rd, null) = RS.as!(mdfloat) - RT.as!(mdfloat); break;
+									case MM.Mul: *get(i.rd, null) = RS.as!(mdfloat) * RT.as!(mdfloat); break;
+									case MM.Div: *get(i.rd, null) = RS.as!(mdfloat) / RT.as!(mdfloat); break;
+									case MM.Mod: *get(i.rd, null) = RS.as!(mdfloat) % RT.as!(mdfloat); break;
 								}
 							}
 							else
 							{
 								switch(operation)
 								{
-									case MM.Add: *getRD() = RS.as!(int) + RT.as!(int); break;
-									case MM.Sub: *getRD() = RS.as!(int) - RT.as!(int); break;
-									case MM.Mul: *getRD() = RS.as!(int) * RT.as!(int); break;
-									case MM.Mod: *getRD() = RS.as!(int) % RT.as!(int); break;
+									case MM.Add: *get(i.rd, null) = RS.as!(int) + RT.as!(int); break;
+									case MM.Sub: *get(i.rd, null) = RS.as!(int) - RT.as!(int); break;
+									case MM.Mul: *get(i.rd, null) = RS.as!(int) * RT.as!(int); break;
+									case MM.Mod: *get(i.rd, null) = RS.as!(int) % RT.as!(int); break;
 
 									case MM.Div:
 										if(RT.as!(int) == 0)
 											throwRuntimeException("Integer divide by zero");
 
-										*getRD() = RS.as!(int) / RT.as!(int); break;
+										*get(i.rd, null) = RS.as!(int) / RT.as!(int); break;
 								}
 							}
 						}
@@ -4285,7 +3818,7 @@ class MDState : MDObject
 							push(RS);
 							push(RT);
 							call(funcSlot, 2, 1);
-							*getRD() = *getBasedStack(funcSlot);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
 						}
 						break;
 					}
@@ -4294,12 +3827,12 @@ class MDState : MDObject
 					case Op.Neg:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Neg");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						if(RS.isFloat())
-							*getRD() = -RS.as!(mdfloat);
+							*get(i.rd, null) = -RS.as!(mdfloat);
 						else if(RS.isInt())
-							*getRD() = -RS.as!(int);
+							*get(i.rd, null) = -RS.as!(int);
 						else
 						{
 							MDValue* method = getMM(RS, MM.Neg);
@@ -4315,7 +3848,7 @@ class MDState : MDObject
 							uint funcSlot = push(method);
 							push(RS);
 							call(funcSlot, 1, 1);
-							*getRD() = *getBasedStack(funcSlot);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
 						}
 						break;
 
@@ -4330,8 +3863,8 @@ class MDState : MDObject
 					{
 						debug(TIMINGS) scope _profiler_ = new Profiler("ReflArith");
 
-						MDValue* RD = getRD();
-						getRS();
+						MDValue* RD = get(i.rd, null);
+						RS = *get(i.rs, null);
 				
 						if(RD.isNum() && RS.isNum())
 						{
@@ -4395,19 +3928,19 @@ class MDState : MDObject
 					{
 						debug(TIMINGS) scope _profiler_ = new Profiler("BitArith");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						if(RS.isInt() && RT.isInt())
 						{
 							switch(operation)
 							{
-								case MM.And:  *getRD() = RS.as!(int) & RT.as!(int); break;
-								case MM.Or:   *getRD() = RS.as!(int) | RT.as!(int); break;
-								case MM.Xor:  *getRD() = RS.as!(int) ^ RT.as!(int); break;
-								case MM.Shl:  *getRD() = RS.as!(int) << RT.as!(int); break;
-								case MM.Shr:  *getRD() = RS.as!(int) >> RT.as!(int); break;
-								case MM.UShr: *getRD() = RS.as!(int) >>> RT.as!(int); break;
+								case MM.And:  *get(i.rd, null) = RS.as!(int) & RT.as!(int); break;
+								case MM.Or:   *get(i.rd, null) = RS.as!(int) | RT.as!(int); break;
+								case MM.Xor:  *get(i.rd, null) = RS.as!(int) ^ RT.as!(int); break;
+								case MM.Shl:  *get(i.rd, null) = RS.as!(int) << RT.as!(int); break;
+								case MM.Shr:  *get(i.rd, null) = RS.as!(int) >> RT.as!(int); break;
+								case MM.UShr: *get(i.rd, null) = RS.as!(int) >>> RT.as!(int); break;
 							}
 						}
 						else
@@ -4426,7 +3959,7 @@ class MDState : MDObject
 							push(RS);
 							push(RT);
 							call(funcSlot, 2, 1);
-							*getRD() = *getBasedStack(funcSlot);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
 						}
 						break;
 					}
@@ -4435,10 +3968,10 @@ class MDState : MDObject
 					case Op.Com:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Com");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						if(RS.isInt())
-							*getRD() = ~RS.as!(int);
+							*get(i.rd, null) = ~RS.as!(int);
 						else
 						{
 							MDValue* method = getMM(RS, MM.Com);
@@ -4454,7 +3987,7 @@ class MDState : MDObject
 							uint funcSlot = push(method);
 							push(RS);
 							call(funcSlot, 1, 1);
-							*getRD() = *getBasedStack(funcSlot);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
 						}
 						break;
 
@@ -4470,8 +4003,8 @@ class MDState : MDObject
 					{
 						debug(TIMINGS) scope _profiler_ = new Profiler("ReflBitArith");
 
-						MDValue* RD = getRD();
-						getRS();
+						MDValue* RD = get(i.rd, null);
+						RS = *get(i.rs, null);
 
 						if(RD.isInt() && RS.isInt())
 						{
@@ -4509,18 +4042,30 @@ class MDState : MDObject
 					case Op.Move:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Move");
 
-						getRS();
-						*getRD() = RS;
+						RS = *get(i.rs, null);
+						*get(i.rd, null) = RS;
+						break;
+						
+					case Op.MoveLocal:
+						debug(TIMINGS) scope _profiler_ = new Profiler("MoveLocal");
+
+						mStack[mCurrentAR.base + i.rd] = &mStack[mCurrentAR.base + i.rs];
+						break;
+						
+					case Op.LoadConst:
+						debug(TIMINGS) scope _profiler_ = new Profiler("LoadConst");
+
+						mStack[mCurrentAR.base + i.rd] = constTable[i.rs & ~Instruction.locMask];
 						break;
 						
 					case Op.CondMove:
 						debug(TIMINGS) scope _profiler_ = new Profiler("CondMove");
 						
-						MDValue* RD = getRD();
+						MDValue* RD = get(i.rd, null);
 						
 						if(RD.isNull())
 						{
-							getRS();
+							RS = *get(i.rs, null);
 							*RD = RS;
 						}
 						break;
@@ -4528,13 +4073,13 @@ class MDState : MDObject
 					case Op.LoadBool:
 						debug(TIMINGS) scope _profiler_ = new Profiler("LoadBool");
 
-						*getRD() = (i.rs == 1) ? true : false;
+						*get(i.rd, null) = (i.rs == 1) ? true : false;
 						break;
 	
 					case Op.LoadNull:
 						debug(TIMINGS) scope _profiler_ = new Profiler("LoadNull");
 
-						getRD().setNull();
+						get(i.rd, null).setNull();
 						break;
 
 					case Op.LoadNulls:
@@ -4549,8 +4094,8 @@ class MDState : MDObject
 					case Op.NewGlobal:
 						debug(TIMINGS) scope _profiler_ = new Profiler("NewGlobal");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						assert(RT.isString(), "trying to new a non-string global");
 
@@ -4567,20 +4112,20 @@ class MDState : MDObject
 					case Op.Not:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Not");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						if(RS.isFalse())
-							*getRD() = true;
+							*get(i.rd, null) = true;
 						else
-							*getRD() = false;
+							*get(i.rd, null) = false;
 	
 						break;
 
 					case Op.Cmp:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Cmp");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						Instruction jump = *mCurrentAR.pc;
 						mCurrentAR.pc++;
@@ -4704,8 +4249,8 @@ class MDState : MDObject
 					case Op.Is:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Is");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						Instruction jump = *mCurrentAR.pc;
 						mCurrentAR.pc++;
@@ -4730,7 +4275,7 @@ class MDState : MDObject
 					case Op.IsTrue:
 						debug(TIMINGS) scope _profiler_ = new Profiler("IsTrue");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						Instruction jump = *mCurrentAR.pc;
 						mCurrentAR.pc++;
@@ -4762,7 +4307,7 @@ class MDState : MDObject
 					case Op.Switch:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Switch");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						auto t = &mCurrentAR.func.script.func.mSwitchTables[i.rt];
 						int offset;
@@ -4814,16 +4359,16 @@ class MDState : MDObject
 
 					case Op.ForLoop:
 						debug(TIMINGS) scope _profiler_ = new Profiler("ForLoop");
-						int idx = getBasedStack(i.rd).as!(int);
-						int hi = getBasedStack(i.rd + 1).as!(int);
-						int step = getBasedStack(i.rd + 2).as!(int);
+						int idx = mStack[mCurrentAR.base + i.rd].as!(int);
+						int hi = mStack[mCurrentAR.base + i.rd + 1].as!(int);
+						int step = mStack[mCurrentAR.base + i.rd + 2].as!(int);
 
 						if(step > 0)
 						{
 							if(idx < hi)
 							{
-								*getBasedStack(i.rd + 3) = idx;
-								*getBasedStack(i.rd) = idx + step;
+								mStack[mCurrentAR.base + i.rd + 3] = idx;
+								mStack[mCurrentAR.base + i.rd] = idx + step;
 								mCurrentAR.pc += i.imm;
 							}
 						}
@@ -4831,8 +4376,8 @@ class MDState : MDObject
 						{
 							if(idx >= hi)
 							{
-								*getBasedStack(i.rd + 3) = idx;
-								*getBasedStack(i.rd) = idx + step;
+								mStack[mCurrentAR.base + i.rd + 3] = idx;
+								mStack[mCurrentAR.base + i.rd] = idx + step;
 								mCurrentAR.pc += i.imm;
 							}
 						}
@@ -4933,7 +4478,7 @@ class MDState : MDObject
 					case Op.Throw:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Throw");
 
-						getRS();
+						RS = *get(i.rs, null);
 						throwRuntimeException(RS);
 						break;
 
@@ -4941,18 +4486,67 @@ class MDState : MDObject
 					case Op.Method:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Method");
 
-						getRS();
-
 						Instruction call = *mCurrentAR.pc;
 						mCurrentAR.pc++;
-
-						MDString methodName = getConst(i.rt).as!(MDString);
-
-						*getBasedStack(i.rd + 1) = RS;
-						*getBasedStack(i.rd) = *lookupMethod(&RS, methodName);
-
 						assert(i.rd == call.rd, "Op.Method");
+
+						MDString methodName = constTable[i.rt].as!(MDString);
 						
+						RS = *get(i.rs, null);
+						mStack[mCurrentAR.base + i.rd + 1] = RS;
+
+						MDValue* v;
+
+						switch(RS.type)
+						{
+							case MDValue.Type.Instance:
+								v = RS.as!(MDInstance)[methodName];
+
+								if(v is null)
+									throwRuntimeException("Attempting to access nonexistent member '%s' from class instance", methodName);
+
+								break;
+
+							case MDValue.Type.Table:
+								v = RS.as!(MDTable)[MDValue(methodName)];
+
+								if(v.isFunction())
+									break;
+
+								goto default;
+
+							case MDValue.Type.Namespace:
+								v = RS.as!(MDNamespace)[methodName];
+
+								if(v is null)
+									throwRuntimeException("Attempting to access nonexistent member '%s' from namespace '%s'", methodName, RS.as!(MDNamespace).nameString);
+
+								break;
+
+							case MDValue.Type.Class:
+								v = RS.as!(MDClass)[methodName];
+
+								if(v is null)
+									throwRuntimeException("Attempting to access nonexistent member '%s' from class '%s'", methodName, RS.as!(MDClass).getName());
+
+								break;
+
+							default:
+								MDNamespace metatable = MDGlobalState().getMetatable(RS.type);
+
+								if(metatable is null)
+									throwRuntimeException("No metatable for type '%s'", RS.typeString());
+
+								v = metatable[methodName];
+
+								if(v is null)
+									throwRuntimeException("No implementation of method '%s' for type '%s'", methodName, RS.typeString());
+
+								break;
+						}
+
+						mStack[mCurrentAR.base + i.rd] = *v;
+
 						if(call.opcode == Op.Call)
 						{
 							int funcReg = call.rd;
@@ -4963,7 +4557,10 @@ class MDState : MDObject
 								numParams = getBasedStackIndex() - funcReg - 1;
 	
 							if(callPrologue(funcReg, numResults, numParams) == true)
+							{
 								depth++;
+								constTable = mCurrentAR.func.script.func.mConstants;
+							}
 						}
 						else
 						{
@@ -4992,6 +4589,8 @@ class MDState : MDObject
 	
 							if(depth == 0)
 								return;
+								
+							constTable = mCurrentAR.func.script.func.mConstants;
 						}
 						
 						break;
@@ -5000,30 +4599,30 @@ class MDState : MDObject
 						debug(TIMINGS) scope _profiler_ = new Profiler("Precall");
 
 						if(i.rt == 1)
-						{
-							getRSwithEnv();
-							*getBasedStack(i.rd + 1) = RSEnv;
-						}
+							RS = *get(i.rs, getBasedStack(i.rd + 1));
 						else
-							getRS();
-
-						Instruction call = *mCurrentAR.pc;
-						mCurrentAR.pc++;
+							RS = *get(i.rs, null);
 
 						if(i.rd != i.rs)
 							*getBasedStack(i.rd) = RS;
+
+						Instruction call = *mCurrentAR.pc;
+						mCurrentAR.pc++;
 
 						if(call.opcode == Op.Call)
 						{
 							int funcReg = call.rd;
 							int numParams = call.rs - 1;
 							int numResults = call.rt - 1;
-	
+
 							if(numParams == -1)
 								numParams = getBasedStackIndex() - funcReg - 1;
-							
+
 							if(callPrologue(funcReg, numResults, numParams) == true)
+							{
 								depth++;
+								constTable = mCurrentAR.func.script.func.mConstants;
+							}
 						}
 						else
 						{
@@ -5055,9 +4654,11 @@ class MDState : MDObject
 								if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
 									--depth;
 							}
-							
+
 							if(depth == 0)
 								return;
+								
+							constTable = mCurrentAR.func.script.func.mConstants;
 						}
 						
 						break;
@@ -5068,15 +4669,13 @@ class MDState : MDObject
 						int numResults = i.imm - 1;
 
 						close(0);
-						
-						if(callEpilogue(i.rd, numResults))
-							mStackIndex = mCurrentAR.savedTop;
-
+						callEpilogue(i.rd, numResults);
 						--depth;
 
 						if(depth == 0)
 							return;
 
+						constTable = mCurrentAR.func.script.func.mConstants;
 						break;
 
 					case Op.Vararg:
@@ -5136,16 +4735,16 @@ class MDState : MDObject
 					case Op.Length:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Length");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						switch(RS.type)
 						{
 							case MDValue.Type.String:
-								*getRD() = cast(int)RS.as!(MDString).length;
+								*get(i.rd, null) = cast(int)RS.as!(MDString).length;
 								break;
 
 							case MDValue.Type.Array:
-								*getRD() = cast(int)RS.as!(MDArray).length;
+								*get(i.rd, null) = cast(int)RS.as!(MDArray).length;
 								break;
 								
 							default:
@@ -5161,10 +4760,10 @@ class MDState : MDObject
 									uint funcReg = push(method);
 									push(RS);
 									call(funcReg, 1, 1);
-									*getRD() = *getBasedStack(funcReg);
+									*get(i.rd, null) = *getBasedStack(funcReg);
 								}
 								else
-									*getRD() = cast(int)RS.length;
+									*get(i.rd, null) = cast(int)RS.length;
 
 								break;
 						}
@@ -5174,16 +4773,19 @@ class MDState : MDObject
 					case Op.SetArray:
 						debug(TIMINGS) scope _profiler_ = new Profiler("SetArray");
 
-						// Since this instruction is only generated for array constructors,
-						// there is really no reason to check for type correctness for the dest.
-	
-						// sliceStack resets the top-of-stack.
-	
 						uint sliceBegin = mCurrentAR.base + i.rd + 1;
 						int numElems = i.rs - 1;
 
-						getBasedStack(i.rd).as!(MDArray).setBlock(i.rt, sliceStack(sliceBegin, numElems));
-	
+						if(numElems == -1)
+						{
+							mStack[mCurrentAR.base + i.rd].as!(MDArray).setBlock(i.rt, mStack[sliceBegin .. mStackIndex]);
+							mStackIndex = mCurrentAR.savedTop;
+							
+							debug(STACKINDEX) writefln("SetArray set mStackIndex to ", mStackIndex);
+						}
+						else
+							mStack[mCurrentAR.base + i.rd].as!(MDArray).setBlock(i.rt, mStack[sliceBegin .. sliceBegin + numElems]);
+
 						break;
 
 					case Op.Cat:
@@ -5193,20 +4795,43 @@ class MDState : MDObject
 
 						if(src1.isArray())
 						{
-							*getRD() = MDArray.concat(sliceStack(mCurrentAR.base + i.rs, i.rt - 1));
+							int numElems = i.rt - 1;
+
+							if(numElems == -1)
+							{
+								*get(i.rd, null) = MDArray.concat(mStack[mCurrentAR.base + i.rs .. mStackIndex]);
+								mStackIndex = mCurrentAR.savedTop;
+
+								debug(STACKINDEX) writefln("Cat(Array) set mStackIndex to ", mStackIndex);
+							}
+							else
+								*get(i.rd, null) = MDArray.concat(mStack[mCurrentAR.base + i.rs .. mCurrentAR.base + i.rs + numElems]);
+
 							break;
 						}
 
 						if(src1.isString() || src1.isChar())
 						{
 							uint badIndex;
-							MDString newStr = MDString.concat(sliceStack(mCurrentAR.base + i.rs, i.rt - 1), badIndex);
+							MDString newStr;
+							
+							int numElems = i.rt - 1;
+
+							if(numElems == -1)
+							{
+								newStr = MDString.concat(mStack[mCurrentAR.base + i.rs .. mStackIndex], badIndex);
+								mStackIndex = mCurrentAR.savedTop;
+
+								debug(STACKINDEX) writefln("Cat(String) set mStackIndex to ", mStackIndex);
+							}
+							else
+								newStr = MDString.concat(mStack[mCurrentAR.base + i.rs .. mCurrentAR.base + i.rs + numElems], badIndex);
 
 							if(newStr is null)
-								throwRuntimeException("Cannot list concatenate a 'string' and a '%s'",
-									getBasedStack(i.rs + badIndex).typeString());
-									
-							*getRD() = newStr;
+								throwRuntimeException("Cannot list concatenate a 'string' and a '%s' (index: %d)",
+									getBasedStack(i.rs + badIndex).typeString(), badIndex);
+
+							*get(i.rd, null) = newStr;
 							break;
 						}
 
@@ -5238,14 +4863,14 @@ class MDState : MDObject
 							mNativeCallDepth--;
 
 						call(funcSlot, numItems, 1);
-						*getRD() = *getBasedStack(funcSlot);
+						*get(i.rd, null) = *getBasedStack(funcSlot);
 						break;
 
 					case Op.CatEq:
 						debug(TIMINGS) scope _profiler_ = new Profiler("CatEq");
 
-						MDValue* RD = getRD();
-						getRS();
+						MDValue* RD = get(i.rd, null);
+						RS = *get(i.rs, null);
 
 						if(RD.isArray())
 						{
@@ -5306,33 +4931,475 @@ class MDState : MDObject
 					case Op.Index:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Index");
 
-						getRS();
-						getRT();
-						MDValue dest;
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
-						*getRD() = index(RS, RT);
+						void tryMMIdx(MDRuntimeException delegate() ex)
+						{
+							MDValue* method = getMM(RS, MM.Index);
+				
+							if(method.isFunction() == false)
+								throw ex();
+								
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+				
+							uint funcSlot = push(method);
+							push(RS);
+							push(RT);
+							call(funcSlot, 2, 1);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
+						}
+				
+						switch(RS.type)
+						{
+							case MDValue.Type.Array:
+								if(RT.isInt() == false)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to access an array with a '%s'", RT.typeString());});
+									break;
+								}
+								
+								int index = RT.as!(int);
+								MDArray arr = RS.as!(MDArray);
+				
+								if(index < 0)
+									index += arr.length;
+				
+								if(index < 0 || index >= arr.length)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Invalid array index: ", index);});
+									break;
+								}
+				
+								*get(i.rd, null) = *arr[index];
+								break;
+				
+							case MDValue.Type.String:
+								if(RT.isInt() == false)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to access a string with a '%s'", RT.typeString());});
+									break;
+								}
+				
+								int index = RT.as!(int);
+								MDString str = RS.as!(MDString);
+				
+								if(index < 0)
+									index += str.length;
+				
+								if(index < 0 || index >= str.length)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Invalid string index: ", index);});
+									break;
+								}
+
+								*get(i.rd, null) = str[index];
+								break;
+				
+							case MDValue.Type.Table:
+								if(RT.isNull())
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to index a table with a key of type 'null'");});
+									break;
+								}
+				
+								*get(i.rd, null) = *RS.as!(MDTable)[RT];
+								break;
+				
+							case MDValue.Type.Instance:
+								if(!RT.isString())
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to index an instance with a key of type '%s'", RT.typeString());});
+									break;
+								}
+				
+								MDValue* v = RS.as!(MDInstance)[RT.as!(MDString)];
+				
+								if(v is null)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from class instance", RT.toString());});
+									break;
+								}
+
+								*get(i.rd, null) = *v;
+								break;
+				
+							case MDValue.Type.Class:
+								if(!RT.isString())
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to index a class with a key of type '%s'", RT.typeString());});
+									break;
+								}
+				
+								MDValue* v = RS.as!(MDClass)[RT.as!(MDString)];
+				
+								if(v is null)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from class", RT.toString());});
+									break;
+								}
+				
+								*get(i.rd, null) = *v;
+								break;
+								
+							case MDValue.Type.Namespace:
+								if(!RT.isString())
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to index namespace '%s' with a key of type '%s'", RS.as!(MDNamespace).nameString(), RT.typeString());});
+									break;
+								}
+				
+								MDValue* v = RS.as!(MDNamespace)[RT.as!(MDString)];
+								
+								if(v is null)
+								{
+									tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '%s' from namespace %s", RT.toString(), RS.as!(MDNamespace).nameString);});
+									break;
+								}
+				
+								*get(i.rd, null) = *v;
+								break;
+				
+							default:
+								tryMMIdx({return new MDRuntimeException(startTraceback(), "Attempting to index a value of type '%s'", RS.typeString());});
+								break;
+						}
+
 						break;
 
 					case Op.IndexAssign:
 						debug(TIMINGS) scope _profiler_ = new Profiler("IndexAssign");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
+						MDValue RD = *get(i.rd, null);
 
-						indexAssign(*getRD(), RS, RT);
+						void tryMMIdxa(MDRuntimeException delegate() ex)
+						{
+							MDValue* method = getMM(RD, MM.IndexAssign);
+				
+							if(method.isFunction() == false)
+								throw ex();
+					
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+				
+							uint funcSlot = push(method);
+							push(RD);
+							push(RS);
+							push(RT);
+							call(funcSlot, 3, 0);
+						}
+				
+						switch(RD.type)
+						{
+							case MDValue.Type.Array:
+								if(RS.isInt() == false)
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to access an array with a '%s'", RS.typeString());});
+									break;
+								}
+								
+								int index = RS.as!(int);
+								MDArray arr = RD.as!(MDArray);
+								
+								if(index < 0)
+									index += arr.length;
+									
+								if(index < 0 || index >= arr.length)
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Invalid array index: ", RS.as!(int));});
+									break;
+								}
+				
+								arr[index] = RT;
+								break;
+				
+							case MDValue.Type.Table:
+								if(RS.isNull())
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to index assign a table with a key of type 'null'");});
+									break;
+								}
+				
+								RD.as!(MDTable)()[RS] = RT;
+								break;
+				
+							case MDValue.Type.Instance:
+								if(!RS.isString())
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to index assign an instance with a key of type '%s'", RS.typeString());});
+									break;
+								}
+				
+								MDString k = RS.as!(MDString);
+								MDValue* val = RD.as!(MDInstance)[k];
+				
+								if(val is null)
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to add a member '%s' to a class instance", RS.toString());});
+									break;
+								}
+				
+								if(val.isFunction())
+									throw new MDRuntimeException(startTraceback(), "Attempting to change method '%s' of class instance", RS.toString());
+
+								*val = RT;
+								break;
+
+							case MDValue.Type.Class:
+								if(!RS.isString())
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to index assign a class with a key of type '%s'", RS.typeString());});
+									break;
+								}
+				
+								RD.as!(MDClass)()[RS.as!(MDString)] = RT;
+								break;
+								
+							case MDValue.Type.Namespace:
+								if(!RS.isString())
+								{
+									tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to index assign a namespace with a key of type '%s'", RS.typeString());});
+									break;
+								}
+				
+								RD.as!(MDNamespace)()[RS.as!(MDString)] = RT;
+								break;
+				
+							default:
+								tryMMIdxa({return new MDRuntimeException(startTraceback(), "Attempting to index assign a value of type '%s'", RD.typeString());});
+								break;
+						}
 						break;
 						
 					case Op.Slice:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Slice");
 
-						*getRD() = slice(*getBasedStack(i.rs), *getBasedStack(i.rs + 1), *getBasedStack(i.rs + 2));;
+						MDValue src = *getBasedStack(i.rs);
+						MDValue lo = *getBasedStack(i.rs + 1);
+						MDValue hi = *getBasedStack(i.rs + 2);
+
+						void tryMMSlice(MDRuntimeException delegate() ex)
+						{
+							MDValue* method = getMM(src, MM.Slice);
+				
+							if(!method.isFunction())
+								throw ex();
+				
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+				
+							uint funcSlot = push(method);
+							push(src);
+							push(lo);
+							push(hi);
+							call(funcSlot, 3, 1);
+							*get(i.rd, null) = *getBasedStack(funcSlot);
+						}
+				
+						switch(src.type)
+						{
+							case MDValue.Type.Array:
+								MDArray arr = src.as!(MDArray);
+								int loIndex;
+								int hiIndex;
+								
+								if(lo.isNull() && hi.isNull())
+								{
+									*get(i.rd, null) = src;
+									break;
+								}
+				
+								if(lo.isNull())
+									loIndex = 0;
+								else if(lo.isInt())
+								{
+									loIndex = lo.as!(int);
+									
+									if(loIndex < 0)
+										loIndex += arr.length;
+								}
+								else
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Attempting to slice an array with a '%s'", lo.typeString());});
+									break;
+								}
+				
+								if(hi.isNull())
+									hiIndex = arr.length;
+								else if(hi.isInt())
+								{
+									hiIndex = hi.as!(int);
+									
+									if(hiIndex < 0)
+										hiIndex += arr.length;
+								}
+								else
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Attempting to slice an array with a '%s'", hi.typeString());});
+									break;
+								}
+				
+								if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");});
+									break;
+								}
+				
+								*get(i.rd, null) = arr[loIndex .. hiIndex];
+								break;
+				
+							case MDValue.Type.String:
+								MDString str = src.as!(MDString);
+								int loIndex;
+								int hiIndex;
+								
+								if(lo.isNull() && hi.isNull())
+								{
+									*get(i.rd, null) = src;
+									break;
+								}
+				
+								if(lo.isNull())
+									loIndex = 0;
+								else if(lo.isInt())
+								{
+									loIndex = lo.as!(int);
+									
+									if(loIndex < 0)
+										loIndex += str.length;
+								}
+								else
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Attempting to slice a string with a '%s'", lo.typeString());});
+									break;
+								}
+				
+								if(hi.isNull())
+									hiIndex = str.length;
+								else if(hi.isInt())
+								{
+									hiIndex = hi.as!(int);
+									
+									if(hiIndex < 0)
+										hiIndex += str.length;
+								}
+								else
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Attempting to slice a string with a '%s'", hi.typeString());});
+									break;
+								}
+				
+								if(loIndex > hiIndex || loIndex < 0 || loIndex > str.length || hiIndex < 0 || hiIndex > str.length)
+								{
+									tryMMSlice({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (string length = ", str.length, ")");});
+									break;
+								}
+				
+								*get(i.rd, null) = str[loIndex .. hiIndex];
+								break;
+				
+							default:
+								tryMMSlice({return new MDRuntimeException(startTraceback(), "Attempting to slice a value of type '%s'", src.typeString());});
+								break;
+						}
 						break;
 
 					case Op.SliceAssign:
 						debug(TIMINGS) scope _profiler_ = new Profiler("SliceAssign");
 
-						getRS();
-						sliceAssign(*getBasedStack(i.rd), *getBasedStack(i.rd + 1), *getBasedStack(i.rd + 2), RS);
+						RS = *get(i.rs, null);
+						MDValue RD = *getBasedStack(i.rd);
+
+						MDValue lo = *getBasedStack(i.rd + 1);
+						MDValue hi = *getBasedStack(i.rd + 2);
+
+						void tryMMSlicea(MDRuntimeException delegate() ex)
+						{
+							MDValue* method = getMM(RD, MM.SliceAssign);
+				
+							if(!method.isFunction())
+								throw ex();
+								
+							mNativeCallDepth++;
+
+							scope(exit)
+								mNativeCallDepth--;
+				
+							uint funcSlot = push(method);
+							push(RD);
+							push(lo);
+							push(hi);
+							push(RS);
+							call(funcSlot, 4, 0);
+						}
+				
+						switch(RD.type)
+						{
+							case MDValue.Type.Array:
+								MDArray arr = RD.as!(MDArray);
+								int loIndex;
+								int hiIndex;
+				
+								if(lo.isNull())
+									loIndex = 0;
+								else if(lo.isInt())
+								{
+									loIndex = lo.as!(int);
+									
+									if(loIndex < 0)
+										loIndex += arr.length;
+								}
+								else
+								{
+									tryMMSlicea({return new MDRuntimeException(startTraceback(), "Attempting to slice assign an array with a '%s'", lo.typeString());});
+									break;
+								}
+				
+								if(hi.isNull())
+									hiIndex = arr.length;
+								else if(hi.isInt())
+								{
+									hiIndex = hi.as!(int);
+									
+									if(hiIndex < 0)
+										hiIndex += arr.length;
+								}
+								else
+								{
+									tryMMSlicea({return new MDRuntimeException(startTraceback(), "Attempting to slice assign an array with a '%s'", hi.typeString());});
+									break;
+								}
+				
+								if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+								{
+									tryMMSlicea({return new MDRuntimeException(startTraceback(), "Invalid slice indices [", loIndex, " .. ", hiIndex, "] (array length = ", arr.length, ")");});
+									break;
+								}
+				
+								if(RS.isArray())
+								{
+									if((hiIndex - loIndex) != RS.as!(MDArray).length)
+										throw new MDRuntimeException(startTraceback(), "Array slice assign lengths do not match (", hiIndex - loIndex, " and ", RS.as!(MDArray).length, ")");
+								
+									arr[loIndex .. hiIndex] = RS.as!(MDArray);
+								}
+								else
+									arr[loIndex .. hiIndex] = RS;
+								break;
+				
+							default:
+								tryMMSlicea({return new MDRuntimeException(startTraceback(), "Attempting to slice assign a value of type '%s'", RD.typeString());});
+								break;
+						}
 						break;
 						
 					case Op.NotIn:
@@ -5341,11 +5408,11 @@ class MDState : MDObject
 
 						bool truth = true;
 						
-						if(opcode == Op.NotIn)
+						if(i.opcode == Op.NotIn)
 							truth = false;
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 						
 						switch(RT.type)
 						{
@@ -5353,22 +5420,22 @@ class MDState : MDObject
 								if(RS.isChar() == false)
 									throwRuntimeException("Can only use characters to look in strings, not '%s'", RS.typeString());
 
-								*getRD() = ((RS.as!(dchar) in RT.as!(MDString)) >= 0) ? truth : !truth;
+								*get(i.rd, null) = ((RS.as!(dchar) in RT.as!(MDString)) >= 0) ? truth : !truth;
 								break;
 
 							case MDValue.Type.Array:
-								*getRD() = ((RS in RT.as!(MDArray)) >= 0) ? truth : !truth;
+								*get(i.rd, null) = ((RS in RT.as!(MDArray)) >= 0) ? truth : !truth;
 								break;
 
 							case MDValue.Type.Table:
-								*getRD() = (RS in RT.as!(MDTable)) ? truth : !truth;
+								*get(i.rd, null) = (RS in RT.as!(MDTable)) ? truth : !truth;
 								break;
 
 							case MDValue.Type.Namespace:
 								if(RS.isString() == false)
 									throwRuntimeException("Attempting to access namespace '%s' with type '%s'", RT.as!(MDNamespace).nameString(), RS.typeString());
 
-								*getRD() = (RS.as!(MDString) in RT.as!(MDNamespace)) ? truth : !truth;
+								*get(i.rd, null) = (RS.as!(MDString) in RT.as!(MDNamespace)) ? truth : !truth;
 								break;
 								
 							default:
@@ -5387,7 +5454,7 @@ class MDState : MDObject
 								push(RS);
 								call(funcSlot, 2, 1);
 
-								*getRD() = (getBasedStack(funcSlot).isFalse()) ? !truth : truth;
+								*get(i.rd, null) = (getBasedStack(funcSlot).isFalse()) ? !truth : truth;
 						}
 						break;
 
@@ -5419,80 +5486,80 @@ class MDState : MDObject
 							else
 							{
 								assert(mCurrentAR.pc.rd == 1, "invalid closure upvalue rd");
-								n.script.upvals[index] = getUpvalueRef(mCurrentAR.pc.imm);
+								n.script.upvals[index] = mCurrentAR.func.script.upvals[mCurrentAR.pc.imm];
 							}
 	
 							mCurrentAR.pc++;
 						}
 
-						*getRD() = n;
+						*get(i.rd, null) = n;
 						break;
 
 					case Op.Class:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Class");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						if(RT.isNull())
-							*getRD() = new MDClass(RS.as!(dchar[]), null);
+							*get(i.rd, null) = new MDClass(RS.as!(dchar[]), null);
 						else if(!RT.isClass())
 							throwRuntimeException("Attempted to derive a class from a value of type '%s'", RT.typeString());
 						else
-							*getRD() = new MDClass(RS.as!(dchar[]), RT.as!(MDClass));
+							*get(i.rd, null) = new MDClass(RS.as!(dchar[]), RT.as!(MDClass));
 
 						break;
 						
 					case Op.Coroutine:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Coroutine");
 						
-						getRS();
+						RS = *get(i.rs, null);
 						
 						if(!RS.isFunction() || RS.as!(MDClosure).isNative)
 							throwRuntimeException("Coroutines must be created with a script function, not '%s'", RS.typeString());
 
-						*getRD() = new MDState(RS.as!(MDClosure));
+						*get(i.rd, null) = new MDState(RS.as!(MDClosure));
 						break;
 						
 					// Class stuff
 					case Op.As:
 						debug(TIMINGS) scope _profiler_ = new Profiler("As");
 
-						getRS();
-						getRT();
+						RS = *get(i.rs, null);
+						RT = *get(i.rt, null);
 
 						if(!RS.isInstance() || !RT.isClass())
 							throwRuntimeException("Attempted to perform 'as' on '%s' and '%s'; must be 'instance' and 'class'",
 								RS.typeString(), RT.typeString());
 
 						if(RS.as!(MDInstance).castToClass(RT.as!(MDClass)))
-							*getRD() = RS;
+							*get(i.rd, null) = RS;
 						else
-							getRD().setNull();
+							get(i.rd, null).setNull();
 
 						break;
 						
 					case Op.Super:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Super");
 						
-						getRS();
+						RS = *get(i.rs, null);
 
 						if(RS.isInstance())
-							*getRD() = RS.as!(MDInstance).getClass().superClass();
+							*get(i.rd, null) = RS.as!(MDInstance).getClass().superClass();
 						else if(RS.isClass())
-							*getRD() = RS.as!(MDClass).superClass();
+							*get(i.rd, null) = RS.as!(MDClass).superClass();
 						else
 							throwRuntimeException("Can only get superclass of classes and instances, not '%s'", RS.typeString());
 
 						break;
-						
+
 					case Op.ClassOf:
 						debug(TIMINGS) scope _profiler_ = new Profiler("ClassOf");
 
-						getRS();
+						RS = *get(i.rs, null);
 
 						if(RS.isInstance())
-							*getRD() = RS.as!(MDInstance).getClass();
+							*get(i.rd, null) = RS.as!(MDInstance).getClass();
 						else
 							throwRuntimeException("Can only get class of instances, not '%s'", RS.typeString());
 
@@ -5548,8 +5615,10 @@ class MDState : MDObject
 				
 				depth--;
 
-				if(callEpilogue(0, 0))
-					mStackIndex = mCurrentAR.savedTop;
+				callEpilogue(0, 0);
+
+				if(depth > 0)
+					constTable = mCurrentAR.func.script.func.mConstants;
 			}
 
 			throw e;

@@ -56,14 +56,18 @@ public MDModuleDef compileModule(Stream source, char[] name)
 	return mod.codeGen();
 }
 
-public MDFuncDef compileStatement(Stream source, char[] name, out bool atEOF)
+public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
 {
 	Token* tokens = Lexer.lex(name, source);
-	Statement s;
+	List!(Statement) s;
 	FuncState fs;
 
 	try
-		s = Statement.parse(tokens);
+	{
+		do
+			s.add(Statement.parse(tokens));
+		while(tokens.type != Token.Type.EOF)
+	}
 	catch(Object o)
 	{
 		if(tokens.type == Token.Type.EOF)
@@ -71,11 +75,36 @@ public MDFuncDef compileStatement(Stream source, char[] name, out bool atEOF)
 
 		throw o;
 	}
+	
+	Statement[] stmts = s.toArray();
 
 	fs = new FuncState(Location(utf.toUTF32(name), 1, 1), utf.toUTF32(name));
-	s = s.fold();
-	s.codeGen(fs);
-	fs.codeI(s.mEndLocation.line, Op.Ret, 0, 1);
+	fs.mIsVararg = true;
+	
+	foreach(stmt; stmts)
+		stmt.fold().codeGen(fs);
+
+	fs.codeI(stmts[$ - 1].mEndLocation.line, Op.Ret, 0, 1);
+
+	return fs.toFuncDef();
+}
+
+public MDFuncDef compileJSON(Stream source)
+{
+	Token* tokens = Lexer.lex("JSON", source, true);
+
+	Expression e;
+
+	if(tokens.type == Token.Type.LBrace)
+		e = TableCtorExp.parseJSON(tokens);
+	else
+		e = ArrayCtorExp.parseJSON(tokens);
+
+	Statement s = new ReturnStatement(Location("JSON"), Location("JSON"), [e]);
+	FuncState fs = new FuncState(Location("JSON"), "JSON");
+
+	s.fold().codeGen(fs);
+	fs.codeI(1, Op.Ret, 0, 1);
 
 	return fs.toFuncDef();
 }
@@ -396,7 +425,8 @@ class Lexer
 	protected static dchar mCharacter;
 	protected static dchar mLookaheadCharacter;
 	protected static bool mHaveLookahead = false;
-	
+	protected static bool mIsJSON = false;
+
 	enum Encoding
 	{
 		UTF8,
@@ -408,7 +438,7 @@ class Lexer
 	
 	protected static Encoding mEncoding;
 
-	public static Token* lex(char[] name, Stream source)
+	public static Token* lex(char[] name, Stream source, bool isJSON = false)
 	{
 		if(!source.readable)
 			throw new MDException("%s", name, ": Source code stream is not readable");
@@ -416,6 +446,7 @@ class Lexer
 		mLoc = Location(utf.toUTF32(name), 1, 0);
 
 		mSource = new BufferedStream(source);
+		mIsJSON = isJSON;
 
 		char firstChar = mSource.getc();
 		
@@ -427,12 +458,12 @@ class Lexer
 					char c = mSource.getc();
 					
 					if(c != 0xBB)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 1");
 						
 					c = mSource.getc();
 					
 					if(c != 0xBF)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 2");
 						
 					mEncoding = Encoding.UTF8;
 					nextChar();
@@ -442,7 +473,7 @@ class Lexer
 					char c = mSource.getc();
 					
 					if(c != 0xFF)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 3");
 						
 					mEncoding = Encoding.UTF16BE;
 					nextChar();
@@ -452,7 +483,7 @@ class Lexer
 					char c = mSource.getc();
 					
 					if(c != 0xFE)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 4");
 	
 					c = mSource.getc();
 	
@@ -461,7 +492,7 @@ class Lexer
 						c = mSource.getc();
 						
 						if(c != 0)
-							throw new MDCompileException(mLoc, "Invalid input source text encoding");
+							throw new MDCompileException(mLoc, "Invalid source text encoding 5");
 
 						mEncoding = Encoding.UTF32LE;
 						nextChar();
@@ -486,17 +517,17 @@ class Lexer
 					char c = mSource.getc();
 					
 					if(c != 0)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 6");
 						
 					c = mSource.getc();
 	
 					if(c != 0xFE)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 7");
 						
 					c = mSource.getc();
 	
 					if(c != 0xFF)
-						throw new MDCompileException(mLoc, "Invalid input source text encoding");
+						throw new MDCompileException(mLoc, "Invalid source text encoding 8");
 						
 					mEncoding = Encoding.UTF32BE;
 					nextChar();
@@ -1007,6 +1038,15 @@ class Lexer
 			case '\\': nextChar(); return '\\';
 			case '\"': nextChar(); return '\"';
 			case '\'': nextChar(); return '\'';
+			
+			case '/':
+				if(mIsJSON)
+				{
+					nextChar();
+					return '/';
+				}
+
+				goto default;
 
 			case 'x':
 				nextChar();
@@ -2354,12 +2394,20 @@ class FuncState
 				break;
 
 			case ExpType.Const:
-				codeR(line, Op.Move, dest, src.index, 0);
+				if(isLocalTag(dest))
+					codeR(line, Op.LoadConst, dest, src.index, 0);
+				else
+					codeR(line, Op.Move, dest, src.index, 0);
 				break;
 
 			case ExpType.Var:
 				if(dest != src.index)
-					codeR(line, Op.Move, dest, src.index, 0);
+				{
+					if(isLocalTag(dest) && isLocalTag(src.index))
+						codeR(line, Op.MoveLocal, dest, src.index, 0);
+					else
+						codeR(line, Op.Move, dest, src.index, 0);
+				}
 				break;
 
 			case ExpType.Indexed:
@@ -2402,8 +2450,13 @@ class FuncState
 				mCode[src.index].rt = 2;
 
 				if(dest != src.index2)
-					codeR(line, Op.Move, dest, src.index2, 0);
-
+				{
+					if(isLocalTag(dest) && isLocalTag(src.index2))
+						codeR(line, Op.MoveLocal, dest, src.index2, 0);
+					else
+						codeR(line, Op.Move, dest, src.index2, 0);
+				}
+				
 				freeExpTempRegs(src);
 				break;
 
@@ -2413,8 +2466,13 @@ class FuncState
 
 			case ExpType.Src:
 				if(dest != src.index)
-					codeR(line, Op.Move, dest, src.index, 0);
-
+				{
+					if(isLocalTag(dest) && isLocalTag(src.index))
+						codeR(line, Op.MoveLocal, dest, src.index, 0);
+					else
+						codeR(line, Op.Move, dest, src.index, 0);
+				}
+				
 				freeExpTempRegs(src);
 				break;
 
@@ -2509,7 +2567,12 @@ class FuncState
 		{
 			case ExpType.Var:
 				if(dest.index != srcReg)
-					codeR(line, Op.Move, dest.index, srcReg, 0);
+				{
+					if(isLocalTag(dest.index))
+						codeR(line, Op.MoveLocal, dest.index, srcReg, 0);
+					else
+						codeR(line, Op.Move, dest.index, srcReg, 0);
+				}
 				break;
 				
 			case ExpType.NewGlobal:
@@ -7851,6 +7914,48 @@ class PrimaryExp : Expression
 
 		return PostfixExp.parse(t, exp);
 	}
+	
+	public static Expression parseJSON(inout Token* t)
+	{
+		Expression exp;
+		Location location = t.location;
+
+		switch(t.type)
+		{
+			case Token.Type.Null:
+				exp = NullExp.parse(t);
+				break;
+
+			case Token.Type.True, Token.Type.False:
+				exp = BoolExp.parse(t);
+				break;
+
+			case Token.Type.IntLiteral:
+				exp = IntExp.parse(t);
+				break;
+
+			case Token.Type.FloatLiteral:
+				exp = FloatExp.parse(t);
+				break;
+
+			case Token.Type.StringLiteral:
+				exp = StringExp.parse(t);
+				break;
+
+			case Token.Type.LBrace:
+				exp = TableCtorExp.parseJSON(t);
+				break;
+
+			case Token.Type.LBracket:
+				exp = ArrayCtorExp.parseJSON(t);
+				break;
+
+			default:
+				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
+		}
+
+		return exp;
+	}
 }
 
 class IdentExp : PrimaryExp
@@ -8384,8 +8489,6 @@ class TableCtorExp : PrimaryExp
 
 		if(t.type != Token.Type.RBrace)
 		{
-			int index = 0;
-
 			bool lastWasFunc = false;
 
 			void parseField()
@@ -8437,6 +8540,54 @@ class TableCtorExp : PrimaryExp
 				else
 					t = t.expect(Token.Type.Comma);
 
+				parseField();
+			}
+		}
+
+		fields.length = i;
+
+		t.expect(Token.Type.RBrace);
+		Location endLocation = t.location;
+		t = t.nextToken;
+
+		return new TableCtorExp(location, endLocation, fields);
+	}
+
+	public static TableCtorExp parseJSON(inout Token* t)
+	{
+		Location location = t.location;
+
+		t = t.expect(Token.Type.LBrace);
+
+		Expression[2][] fields = new Expression[2][2];
+		uint i = 0;
+
+		void addPair(Expression k, Expression v)
+		{
+			if(i >= fields.length)
+				fields.length = fields.length * 2;
+
+			fields[i][0] = k;
+			fields[i][1] = v;
+			i++;
+		}
+
+		if(t.type != Token.Type.RBrace)
+		{
+			void parseField()
+			{
+				Expression k = StringExp.parse(t);
+				t = t.expect(Token.Type.Colon);
+				Expression v = PrimaryExp.parseJSON(t);
+
+				addPair(k, v);
+			}
+
+			parseField();
+
+			while(t.type != Token.Type.RBrace)
+			{
+				t = t.expect(Token.Type.Comma);
 				parseField();
 			}
 		}
@@ -8523,6 +8674,30 @@ class ArrayCtorExp : PrimaryExp
 			{
 				t = t.expect(Token.Type.Comma);
 				fields.add(Expression.parse(t));
+			}
+		}
+
+		t.expect(Token.Type.RBracket);
+		Location endLocation = t.location;
+		t = t.nextToken;
+
+		return new ArrayCtorExp(location, endLocation, fields.toArray());
+	}
+	
+	public static ArrayCtorExp parseJSON(inout Token* t)
+	{
+		Location location = t.location;
+		t = t.expect(Token.Type.LBracket);
+		List!(Expression) fields;
+
+		if(t.type != Token.Type.RBracket)
+		{
+			fields.add(PrimaryExp.parseJSON(t));
+
+			while(t.type != Token.Type.RBracket)
+			{
+				t = t.expect(Token.Type.Comma);
+				fields.add(PrimaryExp.parseJSON(t));
 			}
 		}
 

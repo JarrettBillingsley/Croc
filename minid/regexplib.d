@@ -80,13 +80,31 @@ class RegexpLib
 	{
 		char[] pattern = s.getParam!(char[])(0);
 		char[] src = s.getParam!(char[])(1);
-		char[] rep = s.getParam!(char[])(2);
 		char[] attributes = "";
-		
+
 		if(numParams > 3)
 			attributes = s.getParam!(char[])(3);
 
-		s.push(s.safeCode(RegExp(pattern, attributes).replace(src,rep)));
+		if(s.isParam!("string")(2))
+		{
+			char[] rep = s.getParam!(char[])(2);
+			s.push(s.safeCode(RegExp(pattern, attributes).replace(src, rep)));
+		}
+		else
+		{
+			MDClosure rep = s.getParam!(MDClosure)(2);
+			scope MDRegexp temp = regexpClass.newInstance();
+
+			s.push(s.safeCode(sub(src, pattern, (RegExp m)
+			{
+				temp.constructor(m);
+				
+				s.easyCall(rep, 1, s.getContext(), temp);
+				
+				return s.pop!(char[]);
+			}, attributes)));
+		}
+
 		return 1;
 	}
 

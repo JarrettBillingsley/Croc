@@ -65,12 +65,14 @@ enum Op : uint
 	Jmp,
 	Length,
 	LoadBool,
+	LoadConst,
 	LoadNull,
 	LoadNulls,
 	Method,
 	Mod,
 	ModEq,
 	Move,
+	MoveLocal,
 	Mul,
 	MulEq,
 	Neg,
@@ -145,12 +147,14 @@ Jlt...............J: isTrue, branch offset
 Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
 LoadBool..........R: dest, 1/0, n/a
+LoadConst.........R: dest local, src const, n/a
 LoadNull..........I: dest, n/a
 LoadNulls.........I: dest, num regs
 Method............R: base reg, object to index, const index of method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
+MoveLocal.........R: dest local, src local, n/a
 Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
 Neg...............R: dest, src, n/a
@@ -289,12 +293,14 @@ align(1) struct Instruction
 			case Op.Jmp:           return (rd == 0) ? "nop" : string.format("jmp %s", imm);
 			case Op.Length:        return string.format("len %s, %s", cr(rd), cr(rs));
 			case Op.LoadBool:      return string.format("lb %s, %s", cr(rd), rs);
+			case Op.LoadConst:     return string.format("lc %s, %s", cr(rd), cr(rs));
 			case Op.LoadNull:      return string.format("lnull %s", cr(rd));
 			case Op.LoadNulls:     return string.format("lnulls r%s, %s", rd, uimm);
 			case Op.Method:        return string.format("method r%s, %s, c%s", rd, cr(rs), rt);
 			case Op.Mod:           return string.format("mod %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.ModEq:         return string.format("modeq %s, %s", cr(rd), cr(rs));
 			case Op.Move:          return string.format("mov %s, %s", cr(rd), cr(rs));
+			case Op.MoveLocal:     return string.format("movl %s, %s", cr(rd), cr(rs));
 			case Op.Mul:           return string.format("mul %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.MulEq:         return string.format("muleq %s, %s", cr(rd), cr(rs));
 			case Op.Neg:           return string.format("neg %s, %s", cr(rd), cr(rs));

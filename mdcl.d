@@ -166,9 +166,7 @@ void main(char[][] args)
 			MDFuncDef def;
 
 			try
-			{
-				def = compileStatement(s, "stdin", atEOF);
-			}
+				def = compileStatements(s, "stdin", atEOF);
 			catch(MDCompileException e)
 			{
 				if(atEOF)

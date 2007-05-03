@@ -1,6 +1,7 @@
 module benchmark.chameneos;
 
 // n = 1_000_000, 15.816 sec (meh)
+// laptop: 10.398
 
 local args = [vararg];
 local N = 1_000_000;

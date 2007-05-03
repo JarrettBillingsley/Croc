@@ -1,6 +1,7 @@
 module benchmark.cheapconcurrency;
 
 // n = 3000, 3.566 sec (very good, and on my desktop at that!!)
+// on my laptop: 1.128 sec!!
 
 function link(n)
 {
@@ -38,7 +39,7 @@ local count = 0;
 
 for(i : 0 .. n)
 	count += cofunc();
-	
+
 writefln(count);
 
 time = os.microTime() - time;
