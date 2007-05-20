@@ -3148,7 +3148,7 @@ class FuncState
 		ret.mConstants = mConstants;
 		ret.mNumParams = mNumParams;
 		ret.mNumUpvals = mUpvals.length;
-		ret.mStackSize = mStackSize;
+		ret.mStackSize = mStackSize + 1;
 		ret.mCode = mCode;
 		ret.mLineInfo = mLineInfo;
 

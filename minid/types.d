@@ -2870,7 +2870,7 @@ final class MDState : MDObject
 	{
 		writefln();
 		writefln("-----Stack Dump-----");
-		for(int i = 0; i < mCurrentAR.savedTop; i++)
+		for(int i = 0; i < mStack.length; i++)
 			writefln("[%2d:%3d]: %s", i, i - cast(int)mCurrentAR.base, mStack[i].toString());
 
 		writefln();
@@ -3716,7 +3716,7 @@ final class MDState : MDObject
 			mCurrentAR.pc = funcDef.mCode.ptr;
 			mCurrentAR.numReturns = numReturns;
 			mCurrentAR.env = closure.environment();
-			
+
 			mStackIndex = base + funcDef.mStackSize;
 
 			debug(STACKINDEX) writefln("callPrologue2 of function '%s'", closure.toString(), " set mStackIndex to ", mStackIndex, " (local stack size = ", funcDef.mStackSize, ", base = ", base, ")");
@@ -3792,12 +3792,12 @@ final class MDState : MDObject
 			}
 		}
 
-		mStackIndex = destSlot;
-
 		if(mARIndex == 0)
 			mState = State.Dead;
 
-		if(!isMultRet)
+		if(isMultRet)
+			mStackIndex = destSlot;
+		else
 			mStackIndex = mCurrentAR.savedTop;
 
 		debug(STACKINDEX) writefln("callEpilogue() set mStackIndex to ", mStackIndex);
@@ -4868,7 +4868,7 @@ final class MDState : MDObject
 		}
 	}
 	
-	protected MDValue lookupMethod(MDValue* RS, MDString methodName)
+	protected final MDValue lookupMethod(MDValue* RS, MDString methodName)
 	{
 		MDValue* v;
 
@@ -4923,7 +4923,7 @@ final class MDState : MDObject
 		return *v;
 	}
 	
-	protected MDValue operatorCat(MDValue[] vals)
+	protected final MDValue operatorCat(MDValue[] vals)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Cat");
 
@@ -4963,7 +4963,7 @@ final class MDState : MDObject
 		}
 	}
 	
-	protected void operatorCatAssign(MDValue* dest, MDValue[] vals)
+	protected final void operatorCatAssign(MDValue* dest, MDValue[] vals)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("CatEq");
 
@@ -5094,8 +5094,6 @@ final class MDState : MDObject
 			{
 				Instruction i = *mCurrentAR.pc;
 				mCurrentAR.pc++;
-
-				MM operation = void;
 
 				switch(i.opcode)
 				{
@@ -5552,11 +5550,18 @@ final class MDState : MDObject
 	
 							if(numParams == -1)
 								numParams = getBasedStackIndex() - funcReg - 1;
+							else
+								mStackIndex = funcReg + numParams + 1;
 	
 							if(callPrologue(funcReg, numResults, numParams) == true)
 							{
 								depth++;
 								constTable = mCurrentAR.func.script.func.mConstants;
+							}
+							else
+							{
+								if(numResults >= 0)
+									mStackIndex = mCurrentAR.savedTop;
 							}
 						}
 						else
@@ -5569,7 +5574,9 @@ final class MDState : MDObject
 	
 							if(numParams == -1)
 								numParams = getBasedStackIndex() - funcReg - 1;
-	
+							else
+								mStackIndex = funcReg + numParams + 1;
+
 							funcReg = basedIndexToAbs(funcReg);
 	
 							int destReg = mCurrentAR.funcSlot;
@@ -5614,11 +5621,18 @@ final class MDState : MDObject
 
 							if(numParams == -1)
 								numParams = getBasedStackIndex() - funcReg - 1;
+							else
+								mStackIndex = funcReg + numParams + 1;
 
 							if(callPrologue(funcReg, numResults, numParams) == true)
 							{
 								depth++;
 								constTable = mCurrentAR.func.script.func.mConstants;
+							}
+							else
+							{
+								if(numResults >= 0)
+									mStackIndex = mCurrentAR.savedTop;
 							}
 						}
 						else
@@ -5632,6 +5646,8 @@ final class MDState : MDObject
 	
 							if(numParams == -1)
 								numParams = getBasedStackIndex() - funcReg - 1;
+							else
+								mStackIndex = funcReg + numParams + 1;
 	
 							funcReg = basedIndexToAbs(funcReg);
 	
@@ -5664,6 +5680,9 @@ final class MDState : MDObject
 						debug(TIMINGS) scope _profiler_ = new Profiler("Ret");
 
 						int numResults = i.imm - 1;
+						
+						if(numResults >= 0)
+							mStackIndex = i.rd + numResults;
 
 						close(0);
 						callEpilogue(i.rd, numResults);
@@ -5671,7 +5690,7 @@ final class MDState : MDObject
 
 						if(depth == 0)
 							return;
-
+							
 						constTable = mCurrentAR.func.script.func.mConstants;
 						break;
 
@@ -5680,26 +5699,29 @@ final class MDState : MDObject
 
 						int numNeeded = i.imm - 1;
 						int numVarargs = mCurrentAR.base - mCurrentAR.vargBase;
+						uint dest = basedIndexToAbs(i.rd);
 	
 						if(numNeeded == -1)
+						{
 							numNeeded = numVarargs;
-
-						needStackSlots(numNeeded);
+							mStackIndex = dest + numVarargs;
+							checkStack(mStackIndex);
+						}
 
 						uint src = mCurrentAR.vargBase;
-						uint dest = basedIndexToAbs(i.rd);
 
 						for(uint index = 0; index < numNeeded; index++)
 						{
 							if(index < numVarargs)
-								copyAbsStack(dest + index, src);
+								copyAbsStack(dest, src);
 							else
-								getAbsStack(dest + index).setNull();
-	
+								getAbsStack(dest).setNull();
+
 							src++;
+							dest++;
 						}
-						
-						mStackIndex = dest + numNeeded;
+
+						debug(STACKINDEX) writefln("Op.Vararg set stack index to ", mStackIndex);
 						break;
 
 					case Op.Yield:

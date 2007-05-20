@@ -170,7 +170,7 @@ Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
-Precall...........R: dest, src, lookup (0 = no, 1 = yes)
+	Precall...........R: dest, src, lookup (0 = no, 1 = yes)
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)

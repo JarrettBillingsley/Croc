@@ -429,7 +429,7 @@ class BaseLib
 
 	int mdtypeof(MDState s, uint numParams)
 	{
-		s.push(typeStrings[s.getParam(0u).type]);
+		s.push(s.getParam(0u).typeString());
 		return 1;
 	}
 
