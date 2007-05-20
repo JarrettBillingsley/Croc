@@ -1,6 +1,5 @@
 module simple;
 
-/*
 // Super calls.
 {
 	class Base
@@ -707,4 +706,4 @@ module simple;
 				break;
 		}
 	}
-}*/
+}

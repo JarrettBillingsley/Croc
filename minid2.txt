@@ -72,6 +72,7 @@ Token:
 	'^='
 	'='
 	'=='
+	'?'
 	'?='
 	'.'
 	'..'
@@ -390,7 +391,10 @@ AssignmentLHS:
 	PostfixExpression '.' Identifier
 
 Expression:
-	OrOrExpression
+	ConditionalExpression
+	
+ConditionalExpression:
+	OrOrExpression '?' Expression ':' ConditionalExpression
 
 OrOrExpression:
 	AndAndExpression

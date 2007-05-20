@@ -16,7 +16,6 @@ void main()
 		MDFileLoader().addPath(`samples`);
 
 		MDGlobalState().importModule("simple");
-
 	}
 	catch(MDException e)
 	{
