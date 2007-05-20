@@ -38,7 +38,7 @@ MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 {
 	MDValue[] output;
 
-	void outputValue(inout MDValue val)
+	void outputValue(ref MDValue val)
 	{
 		output ~= val;
 	}
@@ -405,7 +405,7 @@ class BaseLib
 	{
 		MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), din));
 		
-		foreach(inout v; ret)
+		foreach(ref v; ret)
 			s.push(v);
 			
 		return ret.length;
@@ -710,7 +710,7 @@ class BaseLib
 	
 	int require(MDState s, uint numParams)
 	{
-		MDGlobalState().importModule(s.getParam!(char[])(0));
+		MDGlobalState().importModule(s.getParam!(dchar[])(0));
 		return 0;
 	}
 	
@@ -823,7 +823,7 @@ class BaseLib
 						if(other)
 						{
 							i.append(other);
-							return 0;
+							continue;
 						}
 					}
 		
@@ -1138,7 +1138,7 @@ class BaseLib
 				
 			if(lo < 0 || lo > hi || hi >= mLength)
 				throw new MDException("Invalid indices: %d .. %d", lo, hi);
-				
+
 			return mBuffer[lo .. hi];
 		}
 		

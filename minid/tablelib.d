@@ -45,7 +45,9 @@ class TableLib
 			"keys"d,   new MDClosure(table, &staticKeys,   "table.keys"),
 			"values"d, new MDClosure(table, &staticValues, "table.values"),
 			"apply"d,  new MDClosure(table, &staticApply,  "table.apply"),
-			"each"d,   new MDClosure(table, &staticEach,   "table.each")
+			"each"d,   new MDClosure(table, &staticEach,   "table.each"),
+			"set"d,    new MDClosure(table, &set,          "table.set"),
+			"get"d,    new MDClosure(table, &get,          "table.get")
 		);
 
 		MDGlobalState().setGlobal("table"d, table);
@@ -165,6 +167,18 @@ class TableLib
 	int staticEach(MDState s, uint numParams)
 	{
 		return eachImpl(s, s.getParam!(MDTable)(0), s.getParam!(MDClosure)(1));
+	}
+	
+	int set(MDState s, uint numParams)
+	{
+		s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
+		return 0;
+	}
+	
+	int get(MDState s, uint numParams)
+	{
+		s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
+		return 1;
 	}
 }
 

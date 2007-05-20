@@ -167,7 +167,7 @@ class IOLib
 		else
 			listing = std.file.listdir(path, s.getParam!(char[])(1));
 			
-		s.push(MDArray.create(listing));
+		s.push(MDArray.fromArray(listing));
 		return 1;
 	}
 	
@@ -206,7 +206,8 @@ class IOLib
 				"readByte"d,    new MDClosure(mMethods, &read!(ubyte),    "Stream.readByte"),
 				"readShort"d,   new MDClosure(mMethods, &read!(ushort),   "Stream.readShort"),
 				"readInt"d,     new MDClosure(mMethods, &read!(int),      "Stream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &read!(mdfloat),  "Stream.readFloat"),
+				"readFloat"d,   new MDClosure(mMethods, &read!(float),    "Stream.readFloat"),
+				"readDouble"d,  new MDClosure(mMethods, &read!(double),   "Stream.readDouble"),
 				"readChar"d,    new MDClosure(mMethods, &read!(char),     "Stream.readChar"),
 				"readWChar"d,   new MDClosure(mMethods, &read!(wchar),    "Stream.readWChar"),
 				"readDChar"d,   new MDClosure(mMethods, &read!(dchar),    "Stream.readDChar"),
@@ -218,7 +219,8 @@ class IOLib
 				"writeByte"d,   new MDClosure(mMethods, &write!(ubyte),   "Stream.writeByte"),
 				"writeShort"d,  new MDClosure(mMethods, &write!(ushort),  "Stream.writeShort"),
 				"writeInt"d,    new MDClosure(mMethods, &write!(int),     "Stream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &write!(mdfloat), "Stream.writeFloat"),
+				"writeFloat"d,  new MDClosure(mMethods, &write!(float),   "Stream.writeFloat"),
+				"writeDouble"d, new MDClosure(mMethods, &write!(double),  "Stream.writeDouble"),
 				"writeChar"d,   new MDClosure(mMethods, &write!(char),    "Stream.writeChar"),
 				"writeWChar"d,  new MDClosure(mMethods, &write!(wchar),   "Stream.writeWChar"),
 				"writeDChar"d,  new MDClosure(mMethods, &write!(dchar),   "Stream.writeDChar"),
@@ -278,7 +280,7 @@ class IOLib
 			MDStream i = s.getContext!(MDStream);
 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
 
-			foreach(inout v; ret)
+			foreach(ref v; ret)
 				s.push(v);
 				
 			return ret.length;

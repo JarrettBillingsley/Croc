@@ -1,3 +1,4 @@
+
 /******************************************************************************
 License:
 Copyright (c) 2007 Jarrett Billingsley
@@ -156,6 +157,7 @@ struct Token
 		Dec,
 		Cat,
 		CatEq,
+		Cmp3,
 		Mul,
 		MulEq,
 		DefaultEq,
@@ -197,6 +199,7 @@ struct Token
 		Comma,
 		Semicolon,
 		Length,
+		Question,
 
 		Ident,
 		CharLiteral,
@@ -251,6 +254,7 @@ struct Token
 		Type.Dec: "--",
 		Type.Cat: "~",
 		Type.CatEq: "~=",
+		Type.Cmp3: "<=>",
 		Type.Mul: "*",
 		Type.MulEq: "*=",
 		Type.DefaultEq: "?=",
@@ -292,6 +296,7 @@ struct Token
 		Type.Comma: ",",
 		Type.Semicolon: ";",
 		Type.Length: "#",
+		Type.Question: "?",
 
 		Type.Ident: "Identifier",
 		Type.CharLiteral: "Char Literal",
@@ -1393,7 +1398,14 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						token.type = Token.Type.LE;
+
+						if(mCharacter == '>')
+						{
+							nextChar();
+							token.type = Token.Type.Cmp3;
+						}
+						else
+							token.type = Token.Type.LE;
 					}
 					else if(mCharacter == '<')
 					{
@@ -1550,13 +1562,15 @@ class Lexer
 					
 				case '?':
 					nextChar();
-					
-					if(mCharacter != '=')
-						throw new MDCompileException(tokenLoc, "'?' expected to be followed by '='");
-					
-					nextChar();
 
-					token.type = Token.Type.DefaultEq;
+					if(mCharacter == '=')
+					{
+						nextChar();
+						token.type = Token.Type.DefaultEq;
+					}
+					else
+						token.type = Token.Type.Question;
+
 					return token;
 
 				case '\"':
@@ -1599,9 +1613,9 @@ class Lexer
 						mdfloat fval;
 						int ival;
 
-						bool type = readNumLiteral(false, fval, ival);
+						bool isInt = readNumLiteral(false, fval, ival);
 
-						if(type == false)
+						if(isInt == false)
 						{
 							token.floatValue = fval;
 							token.type = Token.Type.FloatLiteral;
@@ -1702,27 +1716,25 @@ struct Exp
 	
 	char[] toString()
 	{
-		char[] typename;
-		
-		switch(type)
-		{
-			case ExpType.Null: typename = "Null"; break;
-			case ExpType.True: typename = "True"; break;
-			case ExpType.False: typename = "False"; break;
-			case ExpType.Const: typename = "Const"; break;
-			case ExpType.Var: typename = "Var"; break;
-			case ExpType.NewGlobal: typename = "NewGlobal"; break;
-			case ExpType.Indexed: typename = "Indexed"; break;
-			case ExpType.Sliced: typename = "Sliced"; break;
-			case ExpType.Vararg: typename = "Vararg"; break;
-			case ExpType.Closure: typename = "Closure"; break;
-			case ExpType.Call: typename = "Call"; break;
-			case ExpType.Yield: typename = "Yield"; break;
-			case ExpType.NeedsDest: typename = "NeedsDest"; break;
-			case ExpType.Src: typename = "Src"; break;
-		}
-		
-		return string.format("%s (%d, %d, %d) : (%s, %s, %s)", typename, index, index2, index3, isTempReg, isTempReg2, isTempReg3);
+		static const char[][] typeNames = 
+		[
+			ExpType.Null: "Null",
+			ExpType.True: "True",
+			ExpType.False: "False",
+			ExpType.Const: "Const",
+			ExpType.Var: "Var",
+			ExpType.NewGlobal: "NewGlobal",
+			ExpType.Indexed: "Indexed",
+			ExpType.Sliced: "Sliced",
+			ExpType.Vararg: "Vararg",
+			ExpType.Closure: "Closure",
+			ExpType.Call: "Call",
+			ExpType.Yield: "Yield",
+			ExpType.NeedsDest: "NeedsDest",
+			ExpType.Src: "Src"
+		];
+
+		return string.format("%s (%d, %d, %d) : (%s, %s, %s)", typeNames[cast(uint)type], index, index2, index3, isTempReg, isTempReg2, isTempReg3);
 	}
 }
 
@@ -1931,44 +1943,48 @@ class FuncState
 		SwitchDesc* sd = new SwitchDesc;
 		sd.switchPC = codeR(line, Op.Switch, 0, srcReg, 0);
 		sd.prev = mSwitch;
-
 		mSwitch = sd;
 	}
 
 	public void endSwitch()
 	{
 		SwitchDesc* desc = mSwitch;
-		assert(desc, "endSwitch - no switch to end");
+		assert(desc !is null, "endSwitch - no switch to end");
 		mSwitch = mSwitch.prev;
 
 		mSwitchTables ~= desc;
 		mCode[desc.switchPC].rt = mSwitchTables.length - 1;
 	}
 
-	public void addNullCase(Location location)
-	{
-		assert(mSwitch !is null, "adding case outside of a switch");
-		int* oldOffset = (MDValue.nullValue in mSwitch.offsets);
-
-		if(oldOffset !is null)
-			throw new MDCompileException(location, "Duplicate case value 'null'");
-
-		mSwitch.offsets[MDValue.nullValue] = mCode.length - mSwitch.switchPC - 1;
-	}
-	
-	public void addCase(T)(Location location, T v)
+	public int* addCase(Location location, Expression v)
 	{
 		if(mSwitch is null)
 			throw new MDCompileException(location, "Case statements may not exist outside of a switch");
 
-		MDValue val = v;
+		MDValue val;
+
+		if(v.isNull())
+			val.setNull();
+		else if(v.isBool())
+			val = v.asBool();
+		else if(v.isInt())
+			val = v.asInt();
+		else if(v.isFloat())
+			val = v.asFloat();
+		else if(v.isChar())
+			val = v.asChar();
+		else if(v.isString())
+			val = v.asString();
+		else
+			assert(false, "addCase invalid type: " ~ v.toString());
 
 		int* oldOffset = (val in mSwitch.offsets);
 
 		if(oldOffset !is null)
-			throw new MDCompileException(location, "Duplicate case value '%s'", v);
+			throw new MDCompileException(location, "Duplicate case value '%s'", val);
 
-		mSwitch.offsets[val] = mCode.length - mSwitch.switchPC - 1;
+		mSwitch.offsets[val] = 0;
+		return (val in mSwitch.offsets);
 	}
 
 	public void addDefault(Location location)
@@ -2436,13 +2452,8 @@ class FuncState
 			case ExpType.Closure:
 				codeI(line, Op.Closure, dest, src.index);
 
-				foreach(inout UpvalDesc ud; mInnerFuncs[src.index].mUpvals)
-				{
-					if(ud.isUpvalue)
-						codeR(line, Op.Move, 1, ud.index, 0);
-					else
-						codeR(line, Op.Move, 0, ud.index, 0);
-				}
+				foreach(ref UpvalDesc ud; mInnerFuncs[src.index].mUpvals)
+					codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
 
 				break;
 
@@ -2509,11 +2520,11 @@ class FuncState
 		dest.index = codeR(line, type, 0, rs, rt);
 	}
 	
-	public void popReflexOp(uint line, Op type, uint rd, uint rs)
+	public void popReflexOp(uint line, Op type, uint rd, uint rs, uint rt = 0)
 	{
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, type, rd, rs, 0);
+		dest.index = codeR(line, type, rd, rs, rt);
 
 		popAssign(line);
 	}
@@ -2682,7 +2693,7 @@ class FuncState
 				temp.isTempReg = true;
 				codeR(line, Op.Index, temp.index, e.index, e.index2);
 				break;
-				
+
 			case ExpType.Sliced:
 				if(cleanup)
 					freeExpTempRegs(e);
@@ -2708,13 +2719,8 @@ class FuncState
 				temp.index = pushRegister();
 				codeI(line, Op.Closure, temp.index, e.index);
 
-				foreach(inout UpvalDesc ud; mInnerFuncs[e.index].mUpvals)
-				{
-					if(ud.isUpvalue)
-						codeR(line, Op.Move, 1, ud.index, 0);
-					else
-						codeR(line, Op.Move, 0, ud.index, 0);
-				}
+				foreach(ref UpvalDesc ud; mInnerFuncs[e.index].mUpvals)
+					codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
 
 				temp.isTempReg = true;
 				break;
@@ -2750,6 +2756,12 @@ class FuncState
 	public void patchJumpToHere(InstRef* src)
 	{
 		mCode[src.pc].imm = mCode.length - src.pc - 1;
+	}
+	
+	public void patchSwitchJumpToHere(int* offset)
+	{
+		assert(mSwitch !is null);
+		*offset = mCode.length - mSwitch.switchPC - 1;
 	}
 
 	public void patchJumpTo(InstRef* src, InstRef* dest)
@@ -3067,7 +3079,7 @@ class FuncState
 			s.showMe(tab + 1);
 		}
 		
-		foreach(uint i, inout SwitchDesc* t; mSwitchTables)
+		foreach(uint i, ref SwitchDesc* t; mSwitchTables)
 		{
 			writefln(string.repeat("\t", tab + 1), "Switch Table ", i);
 
@@ -3201,7 +3213,7 @@ class ClassDef
 			mName = new Identifier("<literal at " ~ utf.toUTF32(mLocation.toString()) ~ ">", mLocation);
 	}
 
-	public static void parseBody(Location location, inout Token* t, out FuncDef[] oMethods, out Field[] oFields, out Location oEndLocation)
+	public static void parseBody(Location location, ref Token* t, out FuncDef[] oMethods, out Field[] oFields, out Location oEndLocation)
 	{
 		t = t.expect(Token.Type.LBrace);
 
@@ -3291,7 +3303,7 @@ class ClassDef
 		t = t.nextToken;
 	}
 
-	public static Expression parseBaseClass(inout Token* t)
+	public static Expression parseBaseClass(ref Token* t)
 	{
 		Expression baseClass;
 
@@ -3354,10 +3366,10 @@ class ClassDef
 	{
 		mBaseClass = mBaseClass.fold();
 		
-		foreach(inout field; mFields)
+		foreach(ref field; mFields)
 			field.initializer = field.initializer.fold();
 			
-		foreach(inout method; mMethods)
+		foreach(ref method; mMethods)
 			method = method.fold();
 		
 		return this;
@@ -3395,7 +3407,7 @@ class FuncDef
 		mName = name;
 	}
 
-	public static FuncDef parseSimple(inout Token* t)
+	public static FuncDef parseSimple(ref Token* t)
 	{
 		Location location = t.location;
 		
@@ -3411,7 +3423,7 @@ class FuncDef
 		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
 	}
 	
-	public static FuncDef parseLiteral(inout Token* t)
+	public static FuncDef parseLiteral(ref Token* t)
 	{
 		Location location = t.location;
 		
@@ -3437,7 +3449,7 @@ class FuncDef
 		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
 	}
 
-	public static Param[] parseParams(inout Token* t, out bool isVararg)
+	public static Param[] parseParams(ref Token* t, out bool isVararg)
 	{
 		Param[] ret = new Param[1];
 
@@ -3511,7 +3523,7 @@ class FuncDef
 
 	public FuncDef fold()
 	{
-		foreach(inout p; mParams)
+		foreach(ref p; mParams)
 			if(p.defValue !is null)
 				p.defValue = p.defValue.fold();
 
@@ -3525,10 +3537,10 @@ class Module
 	protected Location mLocation;
 	protected Location mEndLocation;
 	protected ModuleDeclaration mModDecl;
-	protected dchar[][][] mImports;
+	protected dchar[][] mImports;
 	protected Statement[] mStatements;
 
-	public this(Location location, Location endLocation, ModuleDeclaration modDecl, dchar[][][] imports, Statement[] statements)
+	public this(Location location, Location endLocation, ModuleDeclaration modDecl, dchar[][] imports, Statement[] statements)
 	{
 		mLocation = location;
 		mEndLocation = endLocation;
@@ -3537,18 +3549,18 @@ class Module
 		mStatements = statements;
 	}
 
-	public static Module parse(inout Token* t)
+	public static Module parse(ref Token* t)
 	{
 		Location location = t.location;
 		ModuleDeclaration modDecl = ModuleDeclaration.parse(t);
 
 		List!(Statement) statements;
 
-		bool[dchar[][]] imports;
+		bool[dchar[]] imports;
 
 		void addImport(ImportStatement imp)
 		{
-			imports[Identifier.toStringArray(imp.mNames)] = true;
+			imports[Identifier.toLongString(imp.mNames)] = true;
 			statements.add(imp);
 		}
 
@@ -3569,11 +3581,7 @@ class Module
 	{
 		MDModuleDef def = new MDModuleDef();
 
-		def.mName.length = mModDecl.mNames.length;
-
-		foreach(i, ident; mModDecl.mNames)
-			def.mName[i] = ident.mName;
-
+		def.mName = Identifier.toLongString(mModDecl.mNames);
 		def.mImports = mImports;
 
 		FuncState fs = new FuncState(mLocation, "module " ~ Identifier.toLongString(mModDecl.mNames));
@@ -3581,7 +3589,7 @@ class Module
 
 		try
 		{
-			foreach(inout s; mStatements)
+			foreach(ref s; mStatements)
 			{
 				s = s.fold();
 				s.codeGen(fs);
@@ -3607,7 +3615,7 @@ class Module
 		writefln("module %s", Identifier.toLongString(mModDecl.mNames));
 
 		foreach(name; mImports)
-			writefln("import %s", djoin(name, '.'));
+			writefln("import %s", name);
 	}
 }
 
@@ -3620,7 +3628,7 @@ class ModuleDeclaration
 		mNames = names;
 	}
 
-	public static ModuleDeclaration parse(inout Token* t)
+	public static ModuleDeclaration parse(ref Token* t)
 	{
 		t = t.expect(Token.Type.Module);
 
@@ -3650,7 +3658,7 @@ abstract class Statement
 		mEndLocation = endLocation;
 	}
 
-	public static Statement parse(inout Token* t)
+	public static Statement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -3692,11 +3700,11 @@ abstract class Statement
 			case Token.Type.Switch:
 				return SwitchStatement.parse(t);
 				
-			case Token.Type.Case:
-				return CaseStatement.parse(t);
+			//case Token.Type.Case:
+			//	return CaseStatement.parse(t);
 
-			case Token.Type.Default:
-				return DefaultStatement.parse(t);
+			//case Token.Type.Default:
+			//	return DefaultStatement.parse(t);
 
 			case Token.Type.Continue:
 				return ContinueStatement.parse(t);
@@ -3745,7 +3753,7 @@ class ImportStatement : Statement
 		mSymbols = symbols;
 	}
 
-	public static ImportStatement parse(inout Token* t)
+	public static ImportStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -3860,7 +3868,7 @@ class ExpressionStatement : Statement
 		mExpr = expr;
 	}
 
-	public static ExpressionStatement parse(inout Token* t)
+	public static ExpressionStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 		Expression exp = Expression.parseStatement(t);
@@ -3899,7 +3907,7 @@ class DeclarationStatement : Statement
 		mDecl = decl;
 	}
 
-	public static DeclarationStatement parse(inout Token* t)
+	public static DeclarationStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 		Declaration decl = Declaration.parse(t);
@@ -3937,7 +3945,7 @@ abstract class Declaration
 		mProtection = protection;
 	}
 
-	public static Declaration parse(inout Token* t)
+	public static Declaration parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -3988,7 +3996,7 @@ class ClassDecl : Declaration
 		mDef = def;
 	}
 
-	public static ClassDecl parse(inout Token* t)
+	public static ClassDecl parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4057,7 +4065,7 @@ class VarDecl : Declaration
 		mInitializer = initializer;
 	}
 
-	public static VarDecl parse(inout Token* t)
+	public static VarDecl parse(ref Token* t)
 	{
 		Location location = t.location;
 		
@@ -4203,7 +4211,7 @@ class FuncDecl : Declaration
 		mDef = def;
 	}
 
-	public static FuncDecl parse(inout Token* t, bool simple = false)
+	public static FuncDecl parse(ref Token* t, bool simple = false)
 	{
 		Location location = t.location;
 		Protection protection = Protection.Local;
@@ -4265,7 +4273,7 @@ class Identifier
 		return typeid(typeof(mName)).compare(&mName, &other.mName);	
 	}
 
-	public static Identifier parse(inout Token* t)
+	public static Identifier parse(ref Token* t)
 	{
 		t.expect(Token.Type.Ident);
 		Identifier id = new Identifier(t.stringValue, t.location);
@@ -4311,7 +4319,7 @@ class CompoundStatement : Statement
 		mStatements = statements;
 	}
 
-	public static CompoundStatement parse(inout Token* t)
+	public static CompoundStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4337,7 +4345,7 @@ class CompoundStatement : Statement
 	
 	public override CompoundStatement fold()
 	{
-		foreach(inout statement; mStatements)
+		foreach(ref statement; mStatements)
 			statement = statement.fold();
 			
 		return this;
@@ -4359,7 +4367,7 @@ class IfStatement : Statement
 		mElseBody = elseBody;
 	}
 
-	public static IfStatement parse(inout Token* t)
+	public static IfStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4459,7 +4467,7 @@ class WhileStatement : Statement
 		mBody = whileBody;
 	}
 
-	public static WhileStatement parse(inout Token* t)
+	public static WhileStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4542,7 +4550,7 @@ class DoWhileStatement : Statement
 		mCondition = condition;
 	}
 
-	public static DoWhileStatement parse(inout Token* t)
+	public static DoWhileStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4644,7 +4652,7 @@ class ForStatement : Statement
 		mBody = forBody;
 	}
 
-	public static Statement parse(inout Token* t)
+	public static Statement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -4674,9 +4682,9 @@ class ForStatement : Statement
 			{
 
 				Identifier index = Identifier.parse(t);
-				
+
 				t = t.expect(Token.Type.Colon);
-				
+
 				Expression lo = Expression.parse(t);
 				t = t.expect(Token.Type.DotDot);
 				Expression hi = Expression.parse(t);
@@ -4801,7 +4809,7 @@ class ForStatement : Statement
 	
 	public override Statement fold()
 	{
-		foreach(inout init; mInit)
+		foreach(ref init; mInit)
 		{
 			if(init.isDecl)
 				init.decl = init.decl.fold();
@@ -4812,7 +4820,7 @@ class ForStatement : Statement
 		if(mCondition)
 			mCondition = mCondition.fold();
 
-		foreach(inout inc; mIncrement)
+		foreach(ref inc; mIncrement)
 			inc = inc.fold();
 
 		mBody = mBody.fold();
@@ -4926,29 +4934,19 @@ class NumericForStatement : Statement
 		mStep = mStep.fold();
 		
 		if(mLo.isConstant)
-		{
-			IntExp val = cast(IntExp)mLo;
-
-			if(val is null)
+			if(!mLo.isInt)
 				throw new MDCompileException(mLo.mLocation, "Low value of a numeric for loop must be an integer");
-		}
 
 		if(mHi.isConstant)
-		{
-			IntExp val = cast(IntExp)mHi;
-
-			if(val is null)
+			if(!mHi.isInt)
 				throw new MDCompileException(mHi.mLocation, "High value of a numeric for loop must be an integer");
-		}
 
 		if(mStep.isConstant)
 		{
-			IntExp val = cast(IntExp)mStep;
-
-			if(val is null)
+			if(!mStep.isInt)
 				throw new MDCompileException(mStep.mLocation, "Step value of a numeric for loop must be an integer");
-				
-			if(val.mValue == 0)
+
+			if(mStep.asInt() == 0)
 				throw new MDCompileException(mStep.mLocation, "Step value of a numeric for loop may not be 0");
 		}
 
@@ -4977,7 +4975,7 @@ class ForeachStatement : Statement
 		return new Identifier("__dummy"d ~ utf.toUTF32(string.toString(counter++)), l);
 	}
 
-	public static ForeachStatement parse(inout Token* t)
+	public static ForeachStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -5125,7 +5123,7 @@ class ForeachStatement : Statement
 	
 	public override Statement fold()
 	{
-		foreach(inout c; mContainer)
+		foreach(ref c; mContainer)
 			c = c.fold();
 			
 		mBody = mBody.fold();
@@ -5148,7 +5146,7 @@ class SwitchStatement : Statement
 		mDefault = caseDefault;
 	}
 
-	public static SwitchStatement parse(inout Token* t)
+	public static SwitchStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -5159,7 +5157,7 @@ class SwitchStatement : Statement
 
 		t = t.expect(Token.Type.RParen);
 		t = t.expect(Token.Type.LBrace);
-		
+
 		List!(CaseStatement) cases;
 
 		while(t.type == Token.Type.Case)
@@ -5182,18 +5180,51 @@ class SwitchStatement : Statement
 
 	public override void codeGen(FuncState s)
 	{
+		struct Case
+		{
+			Expression expr;
+			CaseStatement stmt;
+		}
+		
+		List!(Case) constCases;
+		List!(Case) dynCases;
+
+		foreach(caseStmt; mCases)
+		{
+			foreach(cond; caseStmt.mConditions)
+			{
+				if(cond.isConstant)
+					constCases.add(Case(cond, caseStmt));
+				else
+					dynCases.add(Case(cond, caseStmt));
+			}
+		}
+
 		s.pushScope();
 			s.setBreakable();
 
 			mCondition.codeGen(s);
 			Exp src;
 			s.popSource(mLocation.line, src);
+			
+			foreach(c; dynCases)
+			{
+				c.expr.codeGen(s);
+				Exp cond;
+				s.popSource(mLocation.line, cond);
 
+				s.codeR(mLocation.line, Op.SwitchCmp, 0, src.index, cond.index);
+				c.stmt.addDynJump(s.makeJump(mLocation.line, Op.Je, true));
+				s.freeExpTempRegs(&cond);
+			}
+			
 			s.beginSwitch(mLocation.line, src.index);
-
 			s.freeExpTempRegs(&src);
+			
+			foreach(c; constCases)
+				c.stmt.addConstJump(s.addCase(c.expr.mLocation, c.expr));
 
-			foreach(CaseStatement c; mCases)
+			foreach(c; mCases)
 				c.codeGen(s);
 
 			if(mDefault)
@@ -5209,7 +5240,7 @@ class SwitchStatement : Statement
 	{
 		mCondition = mCondition.fold();
 		
-		foreach(inout c; mCases)
+		foreach(ref c; mCases)
 			c = c.fold();
 			
 		if(mDefault)
@@ -5221,31 +5252,33 @@ class SwitchStatement : Statement
 
 class CaseStatement : Statement
 {
-	protected Expression mCondition;
+	protected Expression[] mConditions;
 	protected Statement mBody;
+	protected List!(InstRef*) mDynJumps;
+	protected List!(int*) mConstJumps;
 
-	public this(Location location, Location endLocation, Expression condition, Statement caseBody)
+	public this(Location location, Location endLocation, Expression[] conditions, Statement caseBody)
 	{
 		super(location, endLocation);
-		mCondition = condition;
+		mConditions = conditions;
 		mBody = caseBody;
 	}
 
-	public static CaseStatement parse(inout Token* t)
+	public static CaseStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
 		t = t.expect(Token.Type.Case);
 
-		List!(Expression) cases;
-		cases.add(Expression.parse(t));
+		List!(Expression) conditions;
+		conditions.add(Expression.parse(t));
 
 		while(t.type == Token.Type.Comma)
 		{
 			t = t.nextToken;
-			cases.add(Expression.parse(t));
+			conditions.add(Expression.parse(t));
 		}
-		
+
 		t = t.expect(Token.Type.Colon);
 
 		List!(Statement) statements;
@@ -5255,60 +5288,34 @@ class CaseStatement : Statement
 
 		Location endLocation = t.location;
 
-		Statement ret = new CompoundStatement(location, endLocation, statements.toArray());
-		ret = new ScopeStatement(location, endLocation, ret);
+		Statement caseBody = new CompoundStatement(location, endLocation, statements.toArray());
+		caseBody = new ScopeStatement(location, endLocation, caseBody);
 
-		for(int i = cases.length - 1; i >= 0; i--)
-			ret = new CaseStatement(location, endLocation, cases[i], ret);
-
-		return cast(CaseStatement)ret;
+		return new CaseStatement(location, endLocation, conditions.toArray(), caseBody);
+	}
+	
+	public void addDynJump(InstRef* i)
+	{
+		mDynJumps.add(i);
+	}
+	
+	public void addConstJump(int* i)
+	{
+		mConstJumps.add(i);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		if(!mCondition.isConstant)
-			throw new MDCompileException(mLocation, "Case value is not constant");
-
-		IntExp intExp = cast(IntExp)mCondition;
-		
-		if(intExp)
-			s.addCase(mLocation, intExp.mValue);
-		else
+		foreach(ref j; mDynJumps)
 		{
-			StringExp stringExp = cast(StringExp)mCondition;
-
-			if(stringExp)
-				s.addCase(mLocation, stringExp.mValue);
-			else
-			{
-				CharExp charExp = cast(CharExp)mCondition;
-				
-				if(charExp)
-					s.addCase(mLocation, charExp.mValue);
-				else
-				{
-					FloatExp floatExp = cast(FloatExp)mCondition;
-					
-					if(floatExp)
-						s.addCase(mLocation, floatExp.mValue);
-					else
-					{
-						BoolExp boolExp = cast(BoolExp)mCondition;
-						
-						if(boolExp)
-							s.addCase(mLocation, boolExp.mValue);
-						else
-						{
-							NullExp nullExp = cast(NullExp)mCondition;
-
-							if(nullExp)
-								s.addNullCase(mLocation);
-							else
-								throw new MDCompileException(mLocation, "Invalid case value");
-						}
-					}
-				}
-			}
+			s.patchJumpToHere(j);
+			delete j;
+		}
+		
+		foreach(ref j; mConstJumps)
+		{
+			s.patchSwitchJumpToHere(j);
+			j = null;	
 		}
 
 		mBody.codeGen(s);
@@ -5316,7 +5323,9 @@ class CaseStatement : Statement
 
 	public override CaseStatement fold()
 	{
-		mCondition = mCondition.fold();
+		foreach(ref cond; mConditions)
+			cond = cond.fold();
+
 		mBody = mBody.fold();
 		return this;
 	}
@@ -5332,7 +5341,7 @@ class DefaultStatement : Statement
 		mBody = defaultBody;
 	}
 
-	public static DefaultStatement parse(inout Token* t)
+	public static DefaultStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -5371,7 +5380,7 @@ class ContinueStatement : Statement
 		super(location, endLocation);
 	}
 
-	public static ContinueStatement parse(inout Token* t)
+	public static ContinueStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Continue);
@@ -5394,7 +5403,7 @@ class BreakStatement : Statement
 		super(location, endLocation);
 	}
 
-	public static BreakStatement parse(inout Token* t)
+	public static BreakStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Break);
@@ -5426,7 +5435,7 @@ class ReturnStatement : Statement
 		mExprs ~= value;	
 	}
 
-	public static ReturnStatement parse(inout Token* t)
+	public static ReturnStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Return);
@@ -5486,7 +5495,7 @@ class ReturnStatement : Statement
 	
 	public override Statement fold()
 	{
-		foreach(inout exp; mExprs)
+		foreach(ref exp; mExprs)
 			exp = exp.fold();
 			
 		return this;
@@ -5510,7 +5519,7 @@ class TryCatchStatement : Statement
 		mFinallyBody = finallyBody;
 	}
 
-	public static TryCatchStatement parse(inout Token* t)
+	public static TryCatchStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -5660,7 +5669,7 @@ class ThrowStatement : Statement
 		mExp = exp;
 	}
 
-	public static ThrowStatement parse(inout Token* t)
+	public static ThrowStatement parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -5705,12 +5714,12 @@ abstract class Expression
 		mEndLocation = endLocation;
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
-		return BinaryExp.parse(t);
+		return CondExp.parse(t);
 	}
 	
-	public static Expression parseStatement(inout Token* t)
+	public static Expression parseStatement(ref Token* t)
 	{
 		Location location = t.location;
 		Expression exp;
@@ -5752,7 +5761,7 @@ abstract class Expression
 		return exp;
 	}
 	
-	public static Expression[] parseArguments(inout Token* t)
+	public static Expression[] parseArguments(ref Token* t)
 	{
 		Expression[] args = new Expression[5];
 		uint i = 0;
@@ -5851,6 +5860,61 @@ abstract class Expression
 		return false;
 	}
 	
+	public bool isNull()
+	{
+		return false;
+	}
+	
+	public bool isBool()
+	{
+		return false;
+	}
+	
+	public bool asBool()
+	{
+		assert(false);
+	}
+	
+	public bool isInt()
+	{
+		return false;
+	}
+	
+	public int asInt()
+	{
+		assert(false);
+	}
+
+	public bool isFloat()
+	{
+		return false;
+	}
+
+	public mdfloat asFloat()
+	{
+		assert(false);
+	}
+
+	public bool isChar()
+	{
+		return false;
+	}
+
+	public dchar asChar()
+	{
+		assert(false);
+	}
+
+	public bool isString()
+	{
+		return false;
+	}
+
+	public dchar[] asString()
+	{
+		assert(false);
+	}
+	
 	public bool isTrue()
 	{
 		return false;
@@ -5875,7 +5939,7 @@ class Assignment : Expression
 		mRHS = rhs;
 	}
 
-	public static Assignment parse(inout Token* t, Expression firstLHS)
+	public static Assignment parse(ref Token* t, Expression firstLHS)
 	{
 		Location location = t.location;
 
@@ -5938,7 +6002,7 @@ class Assignment : Expression
 
 	public override Expression fold()
 	{
-		foreach(inout exp; mLHS)
+		foreach(ref exp; mLHS)
 			exp = exp.fold();
 			
 		mRHS = mRHS.fold();
@@ -5961,7 +6025,7 @@ class OpEqExp : Expression
 		mType = type;
 	}
 
-	public static Expression parse(inout Token* t, Expression exp1)
+	public static Expression parse(ref Token* t, Expression exp1)
 	{
 		Expression exp2;
 
@@ -5972,7 +6036,6 @@ class OpEqExp : Expression
 		{
 			case Token.Type.AddEq:     type = Op.AddEq;  goto _commonParse;
 			case Token.Type.SubEq:     type = Op.SubEq;  goto _commonParse;
-			case Token.Type.CatEq:     type = Op.CatEq;  goto _commonParse;
 			case Token.Type.MulEq:     type = Op.MulEq;  goto _commonParse;
 			case Token.Type.DivEq:     type = Op.DivEq;  goto _commonParse;
 			case Token.Type.ModEq:     type = Op.ModEq;  goto _commonParse;
@@ -5988,6 +6051,12 @@ class OpEqExp : Expression
 				t = t.nextToken;
 				exp2 = OrOrExp.parse(t);
 				exp1 = new OpEqExp(location, exp2.mEndLocation, type, exp1, exp2);
+				break;
+				
+			case Token.Type.CatEq:
+				t = t.nextToken;
+				exp2 = OrOrExp.parse(t);
+				exp1 = new CatEqExp(location, exp2.mEndLocation, exp1, exp2);
 				break;
 
 			default:
@@ -6019,19 +6088,18 @@ class OpEqExp : Expression
 	{
 		switch(mType)
 		{
-			case Op.AddEq:  throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
-			case Op.SubEq:  throw new MDCompileException(mLocation, "'-=' cannot be used as a condition");
-			case Op.CatEq:  throw new MDCompileException(mLocation, "'~=' cannot be used as a condition");
-			case Op.MulEq:  throw new MDCompileException(mLocation, "'*=' cannot be used as a condition");
-			case Op.DivEq:  throw new MDCompileException(mLocation, "'/=' cannot be used as a condition");
-			case Op.ModEq:  throw new MDCompileException(mLocation, "'%=' cannot be used as a condition");
-			case Op.ShlEq:  throw new MDCompileException(mLocation, "'<<=' cannot be used as a condition");
-			case Op.ShrEq:  throw new MDCompileException(mLocation, "'>>=' cannot be used as a condition");
-			case Op.UShrEq: throw new MDCompileException(mLocation, "'>>>=' cannot be used as a condition");
-			case Op.OrEq:   throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
-			case Op.XorEq:  throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
-			case Op.AndEq:  throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
-			case Op.CondMove:   throw new MDCompileException(mLocation, "'?=' cannot be used as a condition");
+			case Op.AddEq:    throw new MDCompileException(mLocation, "'+=' cannot be used as a condition");
+			case Op.SubEq:    throw new MDCompileException(mLocation, "'-=' cannot be used as a condition");
+			case Op.MulEq:    throw new MDCompileException(mLocation, "'*=' cannot be used as a condition");
+			case Op.DivEq:    throw new MDCompileException(mLocation, "'/=' cannot be used as a condition");
+			case Op.ModEq:    throw new MDCompileException(mLocation, "'%=' cannot be used as a condition");
+			case Op.ShlEq:    throw new MDCompileException(mLocation, "'<<=' cannot be used as a condition");
+			case Op.ShrEq:    throw new MDCompileException(mLocation, "'>>=' cannot be used as a condition");
+			case Op.UShrEq:   throw new MDCompileException(mLocation, "'>>>=' cannot be used as a condition");
+			case Op.OrEq:     throw new MDCompileException(mLocation, "'|=' cannot be used as a condition");
+			case Op.XorEq:    throw new MDCompileException(mLocation, "'^=' cannot be used as a condition");
+			case Op.AndEq:    throw new MDCompileException(mLocation, "'&=' cannot be used as a condition");
+			case Op.CondMove: throw new MDCompileException(mLocation, "'?=' cannot be used as a condition");
 		}
 	}
 
@@ -6039,13 +6107,111 @@ class OpEqExp : Expression
 	{
 		// OK
 	}
-	
+
 	public override Expression fold()
 	{
 		mLHS = mLHS.fold();
 		mRHS = mRHS.fold();
 
 		return this;
+	}
+}
+
+class CatEqExp : Expression
+{
+	protected Expression mLHS;
+	protected Expression mRHS;
+	protected Expression[] mOps;
+	protected bool mCollapsed = false;
+
+	public this(Location location, Location endLocation, Expression left, Expression right)
+	{
+		super(location, endLocation);
+		mLHS = left;
+		mRHS = right;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		assert(mCollapsed is true, "CatEqExp codeGen not collapsed");
+		assert(mOps.length >= 1, "CatEqExp codeGen not enough ops");
+
+		mLHS.codeGen(s);
+		s.pushSource(mLHS.mEndLocation.line);
+
+		Exp src1;
+		s.popSource(mLHS.mEndLocation.line, src1);
+
+		uint firstReg = s.nextRegister();
+		Expression.codeGenListToNextReg(s, mOps);
+
+		s.freeExpTempRegs(&src1);
+		
+		if(mOps[$ - 1].isMultRet())
+			s.popReflexOp(mEndLocation.line, Op.CatEq, src1.index, firstReg, 0);
+		else
+			s.popReflexOp(mEndLocation.line, Op.CatEq, src1.index, firstReg, mOps.length + 1);
+	}
+	
+	public override Expression fold()
+	{
+		mLHS = mLHS.fold();
+		mRHS = mRHS.fold();
+		
+		CatExp catExp = cast(CatExp)mRHS;
+		
+		if(catExp)
+			mOps = catExp.mOps;
+		else
+			mOps = [mRHS];
+			
+		mCollapsed = true;
+
+		return this;
+	}
+	
+	public override InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "'~=' cannot be used as a condition");
+	}
+
+	public override void checkToNothing()
+	{
+		// OK
+	}
+}
+
+class CondExp : Expression
+{
+	public this()
+	{
+		assert(false);
+		super(Location(""), Location(""));
+	}
+
+	public static Expression parse(ref Token* t)
+	{
+		Location location = t.location;
+
+		Expression exp1;
+		Expression exp2;
+		Expression exp3;
+
+		exp1 = OrOrExp.parse(t);
+
+		while(t.type == Token.Type.Question)
+		{
+			t = t.nextToken;
+
+			exp2 = Expression.parse(t);
+			t = t.expect(Token.Type.Colon);
+			exp3 = CondExp.parse(t);
+			exp1 = new OrOrExp(location, exp3.mEndLocation, new AndAndExp(location, exp2.mEndLocation, exp1, exp2), exp3);
+
+			location = t.location;
+		}
+
+		return exp1;
 	}
 }
 
@@ -6077,11 +6243,6 @@ abstract class BinaryExp : Expression
 
 		s.pushBinOp(mEndLocation.line, mType, src1.index, src2.index);
 	}
-	
-	public static Expression parse(inout Token* t)
-	{
-		return OrOrExp.parse(t);
-	}
 
 	public override InstRef* codeCondition(FuncState s)
 	{
@@ -6102,7 +6263,7 @@ class OrOrExp : BinaryExp
 		super(location, endLocation, Op.Or, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6183,7 +6344,7 @@ class AndAndExp : BinaryExp
 		super(location, endLocation, Op.And, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6265,7 +6426,7 @@ class OrExp : BinaryExp
 		super(location, endLocation, Op.Or, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6294,13 +6455,10 @@ class OrExp : BinaryExp
 		
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp e1 = cast(IntExp)mOp1;
-			IntExp e2 = cast(IntExp)mOp2;
-			
-			if(e1 is null || e2 is null)
+			if(!mOp1.isInt || !mOp2.isInt)
 				throw new MDCompileException(mLocation, "Bitwise Or must be performed on integers");
 				
-			return new IntExp(mLocation, e1.mValue | e2.mValue);
+			return new IntExp(mLocation, mOp1.asInt() | mOp2.asInt());
 		}
 
 		return this;
@@ -6314,7 +6472,7 @@ class XorExp : BinaryExp
 		super(location, endLocation, Op.Xor, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6343,13 +6501,10 @@ class XorExp : BinaryExp
 		
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp e1 = cast(IntExp)mOp1;
-			IntExp e2 = cast(IntExp)mOp2;
-			
-			if(e1 is null || e2 is null)
+			if(!mOp1.isInt || !mOp2.isInt)
 				throw new MDCompileException(mLocation, "Bitwise Xor must be performed on integers");
 
-			return new IntExp(mLocation, e1.mValue ^ e2.mValue);
+			return new IntExp(mLocation, mOp1.asInt() ^ mOp2.asInt());
 		}
 
 		return this;
@@ -6363,7 +6518,7 @@ class AndExp : BinaryExp
 		super(location, endLocation, Op.And, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6392,13 +6547,10 @@ class AndExp : BinaryExp
 		
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp e1 = cast(IntExp)mOp1;
-			IntExp e2 = cast(IntExp)mOp2;
-			
-			if(e1 is null || e2 is null)
+			if(!mOp1.isInt || !mOp2.isInt)
 				throw new MDCompileException(mLocation, "Bitwise And must be performed on integers");
 
-			return new IntExp(mLocation, e1.mValue & e2.mValue);
+			return new IntExp(mLocation, mOp1.asInt() & mOp2.asInt());
 		}
 
 		return this;
@@ -6416,7 +6568,7 @@ class EqualExp : BinaryExp
 		mIsTrue = isTrue;
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6504,44 +6656,23 @@ class EqualExp : BinaryExp
 		
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			if(cast(NullExp)mOp1 && cast(NullExp)mOp2)
+			if(mOp1.isNull && mOp2.isNull)
 				return new BoolExp(mLocation, mIsTrue ? true : false);
 
-			BoolExp b1 = cast(BoolExp)mOp1;
-			BoolExp b2 = cast(BoolExp)mOp2;
+			if(mOp1.isBool && mOp2.isBool)
+				return new BoolExp(mLocation, mIsTrue ? mOp1.asBool() == mOp2.asBool() : mOp1.asBool() != mOp2.asBool());
 
-			if(b1 && b2)
-				return new BoolExp(mLocation, mIsTrue ? b1.mValue == b2.mValue : b1.mValue != b2.mValue);
-
-			IntExp i1 = cast(IntExp)mOp1;
-			IntExp i2 = cast(IntExp)mOp2;
-
-			if(i1 && i2)
-				return new BoolExp(mLocation, mIsTrue ? i1.mValue == i2.mValue : i1.mValue != i2.mValue);
-
-			FloatExp f1 = cast(FloatExp)mOp1;
-			FloatExp f2 = cast(FloatExp)mOp2;
-
-			if(f1 && f2)
-				return new BoolExp(mLocation, mIsTrue ? f1.mValue == f2.mValue : f1.mValue != f2.mValue);
-
-			if(i1 && f2)
-				return new BoolExp(mLocation, mIsTrue ? i1.mValue == f2.mValue : i1.mValue != f2.mValue);
-
-			if(f1 && i2)
-				return new BoolExp(mLocation, mIsTrue ? f1.mValue == i2.mValue : f1.mValue != i2.mValue);
-
-			CharExp c1 = cast(CharExp)mOp1;
-			CharExp c2 = cast(CharExp)mOp2;
-
-			if(c1 && c2)
-				return new BoolExp(mLocation, mIsTrue ? c1.mValue == c2.mValue : c1.mValue != c2.mValue);
+			if(mOp1.isInt && mOp2.isInt)
+				return new BoolExp(mLocation, mIsTrue ? mOp1.asInt() == mOp2.asInt() : mOp1.asInt() != mOp2.asInt());
 				
-			StringExp s1 = cast(StringExp)mOp1;
-			StringExp s2 = cast(StringExp)mOp2;
-			
-			if(s1 && s2)
-				return new BoolExp(mLocation, mIsTrue ? s1.mValue == s2.mValue : s1.mValue != s2.mValue);
+			if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
+				return new BoolExp(mLocation, mIsTrue ? mOp1.asFloat() == mOp2.asFloat() : mOp1.asFloat() != mOp2.asFloat());
+
+			if(mOp1.isChar && mOp2.isChar)
+				return new BoolExp(mLocation, mIsTrue ? mOp1.asChar() == mOp2.asChar() : mOp1.asChar() != mOp2.asChar());
+
+			if(mOp1.isString && mOp2.isString)
+				return new BoolExp(mLocation, mIsTrue ? mOp1.asString() == mOp2.asString() : mOp1.asString() != mOp2.asString());
 				
 			throw new MDCompileException(mLocation, "Cannot compare different types");
 		}
@@ -6564,7 +6695,7 @@ class CmpExp : BinaryExp
 			mCmpType == Token.Type.GT || mCmpType == Token.Type.GE, "invalid cmp type");
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6596,7 +6727,7 @@ class CmpExp : BinaryExp
 					exp2 = ShiftExp.parse(t);
 					exp1 = new InExp(location, exp2.mEndLocation, exp1, exp2);
 					continue;
-					
+
 				case Token.Type.Not:
 					if(t.nextToken.type != Token.Type.In)
 						break;
@@ -6604,6 +6735,12 @@ class CmpExp : BinaryExp
 					t = t.nextToken.nextToken;
 					exp2 = ShiftExp.parse(t);
 					exp1 = new NotInExp(location, exp2.mEndLocation, exp1, exp2);
+					continue;
+					
+				case Token.Type.Cmp3:
+					t = t.nextToken;
+					exp2 = ShiftExp.parse(t);
+					exp1 = new Cmp3Exp(location, exp2.mEndLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -6665,82 +6802,26 @@ class CmpExp : BinaryExp
 		{
 			int cmpVal = 0;
 
-			if(cast(NullExp)mOp1 && cast(NullExp)mOp2)
-			{
+			if(mOp1.isNull && mOp2.isNull)
 				cmpVal = 0;
-				goto _done;
-			}
-
-			IntExp i1 = cast(IntExp)mOp1;
-			IntExp i2 = cast(IntExp)mOp2;
-
-			if(i1 && i2)
+			else if(mOp1.isInt && mOp2.isInt)
+				cmpVal = mOp1.asInt() - mOp2.asInt();
+			else if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
 			{
-				cmpVal = i1.mValue - i2.mValue;
-				goto _done;
-			}
-
-			FloatExp f1 = cast(FloatExp)mOp1;
-			FloatExp f2 = cast(FloatExp)mOp2;
-
-			if(f1 && f2)
-			{
-				if(f1.mValue < f2.mValue)
+				if(mOp1.asFloat() < mOp2.asFloat())
 					cmpVal = -1;
-				else if(f1.mValue > f2.mValue)
+				else if(mOp1.asFloat() > mOp2.asFloat())
 					cmpVal = 1;
 				else
 					cmpVal = 0;
-					
-				goto _done;
 			}
+			else if(mOp1.isChar && mOp2.isChar)
+				cmpVal = mOp1.asChar() - mOp2.asChar();
+			else if(mOp1.isString && mOp2.isString)
+				cmpVal = dcmp(mOp1.asString(), mOp2.asString());
+			else
+				throw new MDCompileException(mLocation, "Invalid compile-time comparison");
 
-			if(i1 && f2)
-			{
-				if(i1.mValue < f2.mValue)
-					cmpVal = -1;
-				else if(i1.mValue > f2.mValue)
-					cmpVal = 1;
-				else
-					cmpVal = 0;
-					
-				goto _done;
-			}
-
-			if(f1 && i2)
-			{
-				if(f1.mValue < i2.mValue)
-					cmpVal = -1;
-				else if(f1.mValue > i2.mValue)
-					cmpVal = 1;
-				else
-					cmpVal = 0;
-					
-				goto _done;
-			}
-
-			CharExp c1 = cast(CharExp)mOp1;
-			CharExp c2 = cast(CharExp)mOp2;
-
-			if(c1 && c2)
-			{
-				cmpVal = c1.mValue - c2.mValue;
-				goto _done;
-			}
-
-			StringExp s1 = cast(StringExp)mOp1;
-			StringExp s2 = cast(StringExp)mOp2;
-
-			if(s1 && s2)
-			{
-				cmpVal = dcmp(s1.mValue, s2.mValue);
-				goto _done;
-			}
-				
-			throw new MDCompileException(mLocation, "Invalid compile-time comparison");
-			
-			_done:
-			
 			switch(mCmpType)
 			{
 				case Token.Type.LT: return new BoolExp(mLocation, cmpVal < 0);
@@ -6782,6 +6863,14 @@ class NotInExp : BinaryExp
 	}
 }
 
+class Cmp3Exp : BinaryExp
+{
+	public this(Location location, Location endLocation, Expression left, Expression right)
+	{
+		super(location, endLocation, Op.Cmp3, left, right);
+	}
+}
+
 class ShiftExp : BinaryExp
 {
 	public this(Location location, Location endLocation, Token.Type type, Expression left, Expression right)
@@ -6799,7 +6888,7 @@ class ShiftExp : BinaryExp
 		super(location, endLocation, t, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6837,17 +6926,14 @@ class ShiftExp : BinaryExp
 		
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp e1 = cast(IntExp)mOp1;
-			IntExp e2 = cast(IntExp)mOp2;
-			
-			if(e1 is null || e2 is null)
+			if(!mOp1.isInt || !mOp2.isInt)
 				throw new MDCompileException(mLocation, "Bitshifting must be performed on integers");
-				
+
 			switch(mType)
 			{
-				case Op.Shl: return new IntExp(mLocation, e1.mValue << e2.mValue);
-				case Op.Shr: return new IntExp(mLocation, e1.mValue >> e2.mValue);
-				case Op.UShr: return new IntExp(mLocation, e1.mValue >>> e2.mValue);
+				case Op.Shl: return new IntExp(mLocation, mOp1.asInt() << mOp2.asInt());
+				case Op.Shr: return new IntExp(mLocation, mOp1.asInt() >> mOp2.asInt());
+				case Op.UShr: return new IntExp(mLocation, mOp1.asInt() >>> mOp2.asInt());
 				default: assert(false, "ShiftExp fold");
 			}
 		}
@@ -6872,7 +6958,7 @@ class AddExp : BinaryExp
 		super(location, endLocation, t, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -6916,44 +7002,25 @@ class AddExp : BinaryExp
 
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp i1 = cast(IntExp)mOp1;
-			IntExp i2 = cast(IntExp)mOp2;
-			
-			if(i1 && i2)
+			if(mOp1.isInt && mOp2.isInt)
 			{
 				if(mType == Op.Add)
-					return new IntExp(mLocation, i1.mValue + i2.mValue);
+					return new IntExp(mLocation, mOp1.asInt() + mOp2.asInt());
 				else
 				{
 					assert(mType == Op.Sub, "AddExp fold 1");
-					return new IntExp(mLocation, i1.mValue - i2.mValue);
+					return new IntExp(mLocation, mOp1.asInt() - mOp2.asInt());
 				}
 			}
-
-			FloatExp f1 = cast(FloatExp)mOp1;
-			FloatExp f2 = cast(FloatExp)mOp2;
 			
-			if((f1 && f2) || (f1 && i2) || (i1 && f2))
+			if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
 			{
-				mdfloat val1;
-				mdfloat val2;
-				
-				if(i1)
-					val1 = cast(mdfloat)i1.mValue;
-				else
-					val1 = f1.mValue;
-					
-				if(i2)
-					val2 = cast(mdfloat)i2.mValue;
-				else
-					val2 = f2.mValue;
-					
 				if(mType == Op.Add)
-					return new FloatExp(mLocation, val1 + val2);
+					return new FloatExp(mLocation, mOp1.asFloat() + mOp2.asFloat());
 				else
 				{
 					assert(mType == Op.Sub, "AddExp fold 2");
-					return new FloatExp(mLocation, val1 - val2);
+					return new FloatExp(mLocation, mOp1.asFloat() - mOp2.asFloat());
 				}
 			}
 				
@@ -6996,10 +7063,9 @@ class CatExp : BinaryExp
 
 		assert(mCollapsed is false, "repeated CatExp fold");
 		mCollapsed = true;
-		
+
 		CatExp l = cast(CatExp)mOp1;
-		CatExp r = cast(CatExp)mOp2;
-		
+
 		if(l)
 			mOps = l.mOps ~ mOps;
 		else
@@ -7013,46 +7079,33 @@ class CatExp : BinaryExp
 		{
 			if(mOps[i].isConstant && mOps[i + 1].isConstant)
 			{
-				StringExp s1 = cast(StringExp)mOps[i];
-				StringExp s2 = cast(StringExp)mOps[i + 1];
-
-				if(s1 && s2)
+				if(mOps[i].isString && mOps[i + 1].isString)
 				{
-					mOps[i] = new StringExp(mLocation, s1.mValue ~ s2.mValue);
+					mOps[i] = new StringExp(mLocation, mOps[i].asString() ~ mOps[i + 1].asString());
 					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
 					i--;
-					continue;
 				}
-
-				CharExp c1 = cast(CharExp)mOps[i];
-				CharExp c2 = cast(CharExp)mOps[i + 1];
-
-				if(c1 && c2)
+				else if(mOps[i].isChar && mOps[i + 1].isChar)
 				{
 					dchar[] s = new dchar[2];
-					s[0] = c1.mValue;
-					s[1] = c2.mValue;
-	
+					s[0] = mOps[i].asChar();
+					s[1] = mOps[i + 1].asChar();
+
 					mOps[i] = new StringExp(mLocation, s);
 					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
 					i--;
-					continue;
 				}
-
-				if(s1 && c2)
+				else if(mOps[i].isString && mOps[i + 1].isChar)
 				{
-					mOps[i] = new StringExp(mLocation, s1.mValue ~ c2.mValue);
+					mOps[i] = new StringExp(mLocation, mOps[i].asString() ~ mOps[i + 1].asChar());
 					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
 					i--;
-					continue;
 				}
-	
-				if(c1 && s2)
+				else if(mOps[i].isChar && mOps[i + 1].isString)
 				{
-					mOps[i] = new StringExp(mLocation, c1.mValue ~ s2.mValue);
+					mOps[i] = new StringExp(mLocation, mOps[i].asChar() ~ mOps[i + 1].asString());
 					mOps = mOps[0 .. i + 1] ~ mOps[i + 2 .. $];
 					i--;
-					continue;
 				}
 			}
 		}
@@ -7081,7 +7134,7 @@ class MulExp : BinaryExp
 		super(location, endLocation, t, left, right);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -7119,52 +7172,43 @@ class MulExp : BinaryExp
 
 		if(mOp1.isConstant && mOp2.isConstant)
 		{
-			IntExp i1 = cast(IntExp)mOp1;
-			IntExp i2 = cast(IntExp)mOp2;
-			
-			if(i1 && i2)
+			if(mOp1.isInt && mOp2.isInt)
 			{
 				switch(mType)
 				{
-					case Op.Mul: return new IntExp(mLocation, i1.mValue * i2.mValue);
-					case Op.Mod: return new IntExp(mLocation, i1.mValue % i2.mValue);
+					case Op.Mul: return new IntExp(mLocation, mOp1.asInt() * mOp2.asInt());
+					case Op.Mod:
+						if(mOp2.asInt == 0)
+							throw new MDCompileException(mLocation, "Modulo by 0");
+
+						return new IntExp(mLocation, mOp1.asInt() % mOp2.asInt());
+
 					case Op.Div:
-						if(i2.mValue == 0)
+						if(mOp2.asInt == 0)
 							throw new MDCompileException(mLocation, "Division by 0");
 
-						return new IntExp(mLocation, i1.mValue / i2.mValue);
+						return new IntExp(mLocation, mOp1.asInt() / mOp2.asInt());
 						
 					default: assert(false, "MulExp fold 1");
 				}
 			}
 
-			FloatExp f1 = cast(FloatExp)mOp1;
-			FloatExp f2 = cast(FloatExp)mOp2;
-			
-			if((f1 && f2) || (f1 && i2) || (i1 && f2))
+			if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
 			{
-				mdfloat val1;
-				mdfloat val2;
-				
-				if(i1)
-					val1 = cast(mdfloat)i1.mValue;
-				else
-					val1 = f1.mValue;
-					
-				if(i2)
-					val2 = cast(mdfloat)i2.mValue;
-				else
-					val2 = f2.mValue;
-					
 				switch(mType)
 				{
-					case Op.Mul: return new FloatExp(mLocation, val1 * val2);
-					case Op.Mod: return new FloatExp(mLocation, val1 % val2);
+					case Op.Mul: return new FloatExp(mLocation, mOp1.asFloat() * mOp2.asFloat());
+					case Op.Mod: 
+						if(mOp2.asFloat() == 0.0)
+							throw new MDCompileException(mLocation, "Modulo by 0");
+
+						return new FloatExp(mLocation, mOp1.asFloat() % mOp2.asFloat());
+
 					case Op.Div:
-						if(val2 == 0.0)
+						if(mOp2.asFloat() == 0.0)
 							throw new MDCompileException(mLocation, "Division by 0");
 
-						return new FloatExp(mLocation, val1 / val2);
+						return new FloatExp(mLocation, mOp1.asFloat() / mOp2.asFloat());
 
 					default: assert(false, "MulExp fold 2");
 				}
@@ -7187,7 +7231,7 @@ abstract class UnaryExp : Expression
 		mOp = operand;
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -7265,20 +7309,16 @@ class NegExp : UnaryExp
 		
 		if(mOp.isConstant)
 		{
-			IntExp intExp = cast(IntExp)mOp;
-
-			if(intExp)
+			if(mOp.isInt)
 			{
-				intExp.mValue = -intExp.mValue;
-				return intExp;
+				(cast(IntExp)mOp).mValue = -mOp.asInt();
+				return mOp;
 			}
 
-			FloatExp floatExp = cast(FloatExp)mOp;
-
-			if(floatExp)
+			if(mOp.isFloat)
 			{
-				floatExp.mValue = -floatExp.mValue;
-				return floatExp;
+				(cast(FloatExp)mOp).mValue = -mOp.asFloat();
+				return mOp;
 			}
 			
 			throw new MDCompileException(mLocation, "Negation must be performed on numbers");
@@ -7354,12 +7394,10 @@ class ComExp : UnaryExp
 		
 		if(mOp.isConstant)
 		{
-			IntExp intExp = cast(IntExp)mOp;
-
-			if(intExp)
+			if(mOp.isInt)
 			{
-				intExp.mValue = ~intExp.mValue;
-				return intExp;
+				(cast(IntExp)mOp).mValue = ~mOp.asInt();
+				return mOp;
 			}
 			
 			throw new MDCompileException(mLocation, "Bitwise complement must be performed on integers");
@@ -7388,10 +7426,8 @@ class LengthExp : UnaryExp
 		
 		if(mOp.isConstant)
 		{
-			StringExp stringExp = cast(StringExp)mOp;
-			
-			if(stringExp)
-				return new IntExp(mLocation, stringExp.mValue.length);
+			if(mOp.isString)
+				return new IntExp(mLocation, mOp.asString().length);
 
 			throw new MDCompileException(mLocation, "Length must be performed on a string");
 		}
@@ -7427,7 +7463,7 @@ abstract class PostfixExp : UnaryExp
 		super(location, endLocation, operand);
 	}
 
-	public static Expression parse(inout Token* t, Expression exp)
+	public static Expression parse(ref Token* t, Expression exp)
 	{
 		while(true)
 		{
@@ -7716,7 +7752,7 @@ class CallExp : PostfixExp
 	{
 		mOp = mOp.fold();
 
-		foreach(inout arg; mArgs)
+		foreach(ref arg; mArgs)
 			arg = arg.fold();
 			
 		return this;
@@ -7751,19 +7787,18 @@ class IndexExp : PostfixExp
 		
 		if(mOp.isConstant && mIndex.isConstant)
 		{
-			StringExp str = cast(StringExp)mOp;
-			IntExp idx = cast(IntExp)mIndex;
-
-			if(str is null || idx is null)
+			if(!mOp.isString || !mIndex.isInt)
 				throw new MDCompileException(mLocation, "Can only index strings with integers at compile time");
 
-			if(idx.mValue < 0)
-				idx.mValue += str.mValue.length;
+			int idx = mIndex.asInt();
 
-			if(idx.mValue < 0 || idx.mValue >= str.mValue.length)
+			if(idx < 0)
+				idx += mOp.asString.length;
+
+			if(idx < 0 || idx >= mOp.asString.length)
 				throw new MDCompileException(mLocation, "Invalid string index");
 
-			return new CharExp(mLocation, str.mValue[idx.mValue]);
+			return new CharExp(mLocation, mOp.asString[idx]);
 		}
 
 		return this;
@@ -7799,26 +7834,23 @@ class SliceExp : PostfixExp
 
 		if(mOp.isConstant && mLoIndex.isConstant && mHiIndex.isConstant)
 		{
-			StringExp str = cast(StringExp)mOp;
-			IntExp lo = cast(IntExp)mLoIndex;
-			IntExp hi = cast(IntExp)mHiIndex;
-
-			if(str is null || lo is null || hi is null)
+			if(!mOp.isString || !mLoIndex.isInt || !mHiIndex.isInt)
 				throw new MDCompileException(mLocation, "Can only slice strings with integers at compile time");
 
-			int l = lo.mValue;
-			int h = hi.mValue;
+			dchar[] str = mOp.asString();
+			int l = mLoIndex.asInt();
+			int h = mHiIndex.asInt();
 
 			if(l < 0)
-				l += str.mValue.length;
+				l += str.length;
 
 			if(h < 0)
-				h += str.mValue.length;
+				h += str.length;
 
-			if(l < 0 || l >= str.mValue.length || h < 0 || h >= str.mValue.length || l > h)
+			if(l < 0 || l >= str.length || h < 0 || h >= str.length || l > h)
 				throw new MDCompileException(mLocation, "Invalid slice indices");
 
-			return new StringExp(mLocation, str.mValue[l .. h]);
+			return new StringExp(mLocation, str[l .. h]);
 		}
 
 		return this;
@@ -7837,7 +7869,7 @@ class PrimaryExp : Expression
 		super(location, endLocation);
 	}
 
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Expression exp;
 		Location location = t.location;
@@ -7915,7 +7947,7 @@ class PrimaryExp : Expression
 		return PostfixExp.parse(t, exp);
 	}
 	
-	public static Expression parseJSON(inout Token* t)
+	public static Expression parseJSON(ref Token* t)
 	{
 		Expression exp;
 		Location location = t.location;
@@ -7969,7 +8001,7 @@ class IdentExp : PrimaryExp
 		mIdent = ident;
 	}
 
-	public static IdentExp parse(inout Token* t)
+	public static IdentExp parse(ref Token* t)
 	{
 		Location location = t.location;
 		return new IdentExp(location, Identifier.parse(t));
@@ -8006,7 +8038,7 @@ class ThisExp : PrimaryExp
 		super(location);
 	}
 
-	public static ThisExp parse(inout Token* t)
+	public static ThisExp parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.This);
@@ -8044,7 +8076,7 @@ class NullExp : PrimaryExp
 		super(location);
 	}
 
-	public static NullExp parse(inout Token* t)
+	public static NullExp parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Null);
@@ -8070,6 +8102,11 @@ class NullExp : PrimaryExp
 	{
 		return false;
 	}
+	
+	public override bool isNull()
+	{
+		return true;
+	}
 }
 
 class BoolExp : PrimaryExp
@@ -8083,7 +8120,7 @@ class BoolExp : PrimaryExp
 		mValue = value;
 	}
 
-	public static BoolExp parse(inout Token* t)
+	public static BoolExp parse(ref Token* t)
 	{
 		scope(success)
 			t = t.nextToken;
@@ -8115,6 +8152,16 @@ class BoolExp : PrimaryExp
 	{
 		return mValue;
 	}
+	
+	public override bool isBool()
+	{
+		return true;
+	}
+	
+	public override bool asBool()
+	{
+		return mValue;
+	}
 }
 
 class VarargExp : PrimaryExp
@@ -8124,7 +8171,7 @@ class VarargExp : PrimaryExp
 		super(location);
 	}
 
-	public static VarargExp parse(inout Token* t)
+	public static VarargExp parse(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Vararg);
@@ -8161,7 +8208,7 @@ class CharExp : PrimaryExp
 		mValue = value;
 	}
 
-	public static CharExp parse(inout Token* t)
+	public static CharExp parse(ref Token* t)
 	{
 		scope(success)
 			t = t.nextToken;
@@ -8192,6 +8239,16 @@ class CharExp : PrimaryExp
 	{
 		return true;
 	}
+	
+	public override bool isChar()
+	{
+		return true;
+	}
+	
+	public override dchar asChar()
+	{
+		return mValue;
+	}
 }
 
 class IntExp : PrimaryExp
@@ -8205,7 +8262,7 @@ class IntExp : PrimaryExp
 		mValue = value;
 	}
 
-	public static IntExp parse(inout Token* t)
+	public static IntExp parse(ref Token* t)
 	{
 		scope(success)
 			t = t.nextToken;
@@ -8241,6 +8298,21 @@ class IntExp : PrimaryExp
 	{
 		return (mValue != 0);
 	}
+	
+	public override bool isInt()
+	{
+		return true;
+	}
+
+	public override int asInt()
+	{
+		return mValue;
+	}
+	
+	public override mdfloat asFloat()
+	{
+		return cast(mdfloat)mValue;
+	}
 }
 
 class FloatExp : PrimaryExp
@@ -8254,7 +8326,7 @@ class FloatExp : PrimaryExp
 		mValue = value;
 	}
 
-	public static FloatExp parse(inout Token* t)
+	public static FloatExp parse(ref Token* t)
 	{
 		t.expect(Token.Type.FloatLiteral);
 
@@ -8283,6 +8355,16 @@ class FloatExp : PrimaryExp
 	{
 		return (mValue != 0.0);
 	}
+	
+	public override bool isFloat()
+	{
+		return true;
+	}
+
+	public override mdfloat asFloat()
+	{
+		return mValue;
+	}
 }
 
 class StringExp : PrimaryExp
@@ -8296,7 +8378,7 @@ class StringExp : PrimaryExp
 		mValue = value;
 	}
 
-	public static StringExp parse(inout Token* t)
+	public static StringExp parse(ref Token* t)
 	{
 		t.expect(Token.Type.StringLiteral);
 
@@ -8325,6 +8407,16 @@ class StringExp : PrimaryExp
 	{
 		return true;
 	}
+	
+	public override bool isString()
+	{
+		return true;
+	}
+
+	public override dchar[] asString()
+	{
+		return mValue;
+	}
 }
 
 class FuncLiteralExp : PrimaryExp
@@ -8338,7 +8430,7 @@ class FuncLiteralExp : PrimaryExp
 		mDef = def;
 	}
 
-	public static FuncLiteralExp parse(inout Token* t)
+	public static FuncLiteralExp parse(ref Token* t)
 	{
 		Location location = t.location;
 		FuncDef def = FuncDef.parseLiteral(t);
@@ -8374,7 +8466,7 @@ class ClassLiteralExp : PrimaryExp
 		mDef = new ClassDef(name, baseClass, methods, fields, location, endLocation);
 	}
 	
-	public static ClassLiteralExp parse(inout Token* t)
+	public static ClassLiteralExp parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8423,7 +8515,7 @@ class ParenExp : PrimaryExp
 		mExp = exp;
 	}
 	
-	public static Expression parse(inout Token* t)
+	public static Expression parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8468,7 +8560,7 @@ class TableCtorExp : PrimaryExp
 		mFields = fields;
 	}
 
-	public static TableCtorExp parse(inout Token* t)
+	public static TableCtorExp parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8553,7 +8645,7 @@ class TableCtorExp : PrimaryExp
 		return new TableCtorExp(location, endLocation, fields);
 	}
 
-	public static TableCtorExp parseJSON(inout Token* t)
+	public static TableCtorExp parseJSON(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8632,7 +8724,7 @@ class TableCtorExp : PrimaryExp
 	
 	public override Expression fold()
 	{
-		foreach(inout field; mFields)
+		foreach(ref field; mFields)
 		{
 			field[0] = field[0].fold();
 			field[1] = field[1].fold();
@@ -8658,7 +8750,7 @@ class ArrayCtorExp : PrimaryExp
 		mFields = fields;
 	}
 
-	public static ArrayCtorExp parse(inout Token* t)
+	public static ArrayCtorExp parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8684,7 +8776,7 @@ class ArrayCtorExp : PrimaryExp
 		return new ArrayCtorExp(location, endLocation, fields.toArray());
 	}
 	
-	public static ArrayCtorExp parseJSON(inout Token* t)
+	public static ArrayCtorExp parseJSON(ref Token* t)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.LBracket);
@@ -8759,7 +8851,7 @@ class ArrayCtorExp : PrimaryExp
 	
 	public override Expression fold()
 	{
-		foreach(inout field; mFields)
+		foreach(ref field; mFields)
 			field = field.fold();
 			
 		return this;
@@ -8776,7 +8868,7 @@ class YieldExp : PrimaryExp
 		mArgs = args;
 	}
 	
-	public static YieldExp parse(inout Token* t)
+	public static YieldExp parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8821,7 +8913,7 @@ class YieldExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		foreach(inout arg; mArgs)
+		foreach(ref arg; mArgs)
 			arg = arg.fold();
 
 		return this;
@@ -8840,7 +8932,7 @@ class SuperCallExp : PrimaryExp
 		mArgs = args;
 	}
 	
-	public static SuperCallExp parse(inout Token* t)
+	public static SuperCallExp parse(ref Token* t)
 	{
 		Location location = t.location;
 
@@ -8907,7 +8999,7 @@ class SuperCallExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		foreach(inout arg; mArgs)
+		foreach(ref arg; mArgs)
 			arg = arg.fold();
 
 		return this;

@@ -53,6 +53,7 @@ Token:
 	'%='
 	'<'
 	'<='
+	'<=>'
 	'<<'
 	'<<='
 	'>'
@@ -427,6 +428,7 @@ RelExpression:
 	RelExpression '<=' ShiftExpression
 	RelExpression '>' ShiftExpression
 	RelExpression '>=' ShiftExpression
+	RelExpression '<=>' ShiftExpression
 
 ShiftExpression:
 	ShiftExpression '<<' AddExpression

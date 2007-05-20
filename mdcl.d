@@ -124,18 +124,43 @@ void main(char[][] args)
 			def = compileModule(inputFile);
 		else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
 			def = MDModuleDef.loadFromFile(inputFile);
-			
-		MDClosure cl = MDGlobalState().initModule(def, false, state);
+		else
+		{
+			char[] sourceName = inputFile ~ ".md";
+			char[] moduleName = inputFile ~ ".mdm";
 
-		uint funcReg = state.push(cl);
+			if(file.exists(sourceName))
+			{
+				if(file.exists(moduleName))
+				{
+					long sourceTime;
+					long moduleTime;
+					long dummy;
 
-		state.push(cl.environment);
+					file.getTimes(sourceName, dummy, dummy, sourceTime);
+					file.getTimes(moduleName, dummy, dummy, moduleTime);
 
-		foreach(arg; scriptArgs)
-			state.push(arg);
+					if(sourceTime > moduleTime)
+						def = compileModule(sourceName);
+					else
+						def = MDModuleDef.loadFromFile(moduleName);
+				}
+				else
+					def = compileModule(sourceName);
+			}
+			else
+				def = MDModuleDef.loadFromFile(moduleName);
+		}
+
+		MDNamespace ns = MDGlobalState().registerModule(def, state);
+
+		MDValue[] params = new MDValue[scriptArgs.length];
+		
+		foreach(i, v; scriptArgs)
+			params[i] = v;
 
 		try
-			state.call(funcReg, scriptArgs.length + 1, 0);
+			MDGlobalState().staticInitModule(def, ns, state, params);
 		catch(MDException e)
 		{
 			writefln("Error: ", e);

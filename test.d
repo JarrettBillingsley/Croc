@@ -6,17 +6,17 @@ import minid.types;
 import std.stdio;
 import std.stream;
 import std.string;
+import std.traits;
 
 void main()
 {
-	MDState s;
-
 	try
 	{
-		s = MDInitialize();
+		MDState s = MDInitialize();
 		MDFileLoader().addPath(`samples`);
 
 		MDGlobalState().importModule("simple");
+
 	}
 	catch(MDException e)
 	{

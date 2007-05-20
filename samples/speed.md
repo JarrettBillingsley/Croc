@@ -27,6 +27,32 @@ MiniD instantiations     := 0.32
 MiniD version pre-1.0
 
 // values in millions per second
+
+On my desktop.
+
+Python localAccesses       := 15.87
+Python localSets           := 16.13
+
+Python slotAccesses        := 5.32
+Python slotSets            := 5.32
+
+Python blockActivations    := 1.78
+Python instantiations      := 1.73
+Python version := "2.5.0 final 0"
+
+// values in millions per second
+
+MiniD localAccesses      := 20.18
+MiniD localSets          := 22.90
+
+MiniD slotAccesses       := 2.76
+MiniD slotSets           := 2.83
+
+MiniD blockActivations   := 1.59
+MiniD instantiations     := 0.10
+MiniD version pre-1.0
+
+// values in millions per second
 */
 
 local oneMillion = 10_000_000; // 2 + 2 = 5 for large values of 2

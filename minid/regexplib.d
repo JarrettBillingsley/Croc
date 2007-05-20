@@ -117,7 +117,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.create(s.safeCode(RegExp(pattern, attributes).split(src))));
+		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).split(src))));
 		return 1;
 	}
 
@@ -130,7 +130,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.create(s.safeCode(RegExp(pattern, attributes).match(src))));
+		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).match(src))));
 		return 1;
 	}
 
@@ -203,7 +203,7 @@ class RegexpLib
 			if(s.isParam!("int")(0))
 				s.push(r.match(s.getParam!(int)(0)));
 			else
-				s.push(MDArray.create(r.match(s.getParam!(char[])(0))));
+				s.push(MDArray.fromArray(r.match(s.getParam!(char[])(0))));
 
 			return 1;
 		}
@@ -242,7 +242,7 @@ class RegexpLib
 		public int split(MDState s, uint numParams)
 		{
 			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(MDArray.create(r.split(s.getParam!(char[])(0))));
+			s.push(MDArray.fromArray(r.split(s.getParam!(char[])(0))));
 			return 1;
 		}
 

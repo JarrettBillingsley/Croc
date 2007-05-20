@@ -47,6 +47,7 @@ enum Op : uint
 	CondMove,
 	Coroutine,
 	Cmp,
+	Cmp3,
 	Com,
 	Div,
 	DivEq,
@@ -100,6 +101,7 @@ enum Op : uint
 	SubEq,
 	Super,
 	Switch,
+	SwitchCmp,
 	Tailcall,
 	Throw,
 	UShr,
@@ -120,8 +122,8 @@ And...............R: dest, src, src
 AndEq.............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
-Cat...............R: dest, src, num values + 1 (0 = use all to end of stack);
-CatEq.............R: dest, src, n/a
+Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
+CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
 Class.............R: dest, name const index, base class reg
 ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
@@ -129,6 +131,7 @@ Closure...........I: dest, index of funcdef
 CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
+Cmp3..............R: dest, src, src
 Com...............R: dest, src, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
@@ -182,6 +185,7 @@ Sub...............R: dest, src, src
 SubEq.............R: dest, src, n/a
 Super.............R: dest, src, n/a
 Switch............R: n/a, src, index of switch table
+SwitchCmp.........R: n/a, src, src
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
 Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
@@ -202,7 +206,7 @@ align(1) struct Instruction
 	const uint locMaskSize = 2;
 	const uint locMask = Mask!(locMaskSize) << (16 - locMaskSize);
 	
-	const uint locLocal =  0b00;
+	const uint locLocal =  0;
 	const uint locConst =  0b01 << (16 - locMaskSize);
 	const uint locUpval =  0b10 << (16 - locMaskSize);
 	const uint locGlobal = 0b11 << (16 - locMaskSize);
@@ -267,7 +271,7 @@ align(1) struct Instruction
 			case Op.As:            return string.format("as %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Call:          return string.format("call r%s, %s, %s", rd, rs, rt);
 			case Op.Cat:           return string.format("cat %s, r%s, %s", cr(rd), rs, rt);
-			case Op.CatEq:         return string.format("cateq %s, %s", cr(rd), cr(rs));
+			case Op.CatEq:         return string.format("cateq %s, r%s, %s", cr(rd), rs, rt);
 			case Op.Class:         return string.format("class %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.ClassOf:       return string.format("classof %s, %s", cr(rd), cr(rs));
 			case Op.Close:         return string.format("close r%s", rd);
@@ -275,6 +279,7 @@ align(1) struct Instruction
 			case Op.CondMove:      return string.format("cmov %s, %s", cr(rd), cr(rs));
 			case Op.Coroutine:     return string.format("coroutine %s, %s", cr(rd), cr(rs));
 			case Op.Cmp:           return string.format("cmp %s, %s", cr(rs), cr(rt));
+			case Op.Cmp3:          return string.format("cmp3 %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Com:           return string.format("com %s, %s", cr(rd), cr(rs));
 			case Op.Div:           return string.format("div %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:         return string.format("diveq %s, %s", cr(rd), cr(rs));
@@ -328,6 +333,7 @@ align(1) struct Instruction
 			case Op.Sub:           return string.format("sub %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.SubEq:         return string.format("subeq %s, %s", cr(rd), cr(rs));
 			case Op.Switch:        return string.format("switch %s, %s", cr(rs), rt);
+			case Op.SwitchCmp:     return string.format("swcmp %s, %s", cr(rs), cr(rt));
 			case Op.Tailcall:      return string.format("tcall r%s, %s", rd, rs);
 			case Op.Throw:         return string.format("throw %s", cr(rs));
 			case Op.UShr:          return string.format("ushr %s, %s, %s", cr(rd), cr(rs), cr(rt));

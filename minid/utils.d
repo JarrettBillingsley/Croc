@@ -31,6 +31,7 @@ import std.stream;
 import utf = std.utf;
 import std.uni;
 import std.perf;
+import string = std.string;
 
 alias double mdfloat;
 
@@ -62,7 +63,12 @@ template isFloatType(T)
 /// Sees if a type is an array.
 template isArrayType(T)
 {
-	const bool isArrayType = is(typeof(T[0])) && is(typeof(T.sort));
+	const bool isArrayType = false;
+}
+
+template isArrayType(T : T[])
+{
+	const bool isArrayType = true;
 }
 
 /// Sees if a type is a pointer.
@@ -141,7 +147,7 @@ unittest
 	assert(isArrayType!(int[3][4]));
 	assert(!isArrayType!(int[int]));
 	assert(!isArrayType!(Object));
-	
+
 	assert(isPointerType!(int*));
 	assert(!isPointerType!(int[]));
 	assert(!isPointerType!(Object));
@@ -497,6 +503,61 @@ unittest
 	assert(toUpperD(t) !is t);
 }
 
+dchar[][] dsplit(dchar[] s, dchar c)
+{
+	dchar[][] words;
+
+	if(s.length)
+	{
+		dchar* p = &s[0];
+		dchar* pend = p + s.length;
+		size_t start = 0;
+		bool inWord = false;
+
+		size_t i;
+		for(i = 0; i < s.length; i++)
+		{
+			if(s[i] == c)
+			{
+				if(inWord)
+				{
+					words ~= s[start .. i];
+					inWord = false;
+				}
+			}
+			else
+			{
+				if(!inWord)
+				{
+					start = i;
+					inWord = true;
+				}
+			}
+		}
+		
+		if(inWord)
+			words ~= s[start .. i];
+	}
+
+	return words;
+}
+
+unittest
+{
+	dchar[] s = "peter.paul.jerry";
+	dchar[][] words;
+	int i;
+
+	words = dsplit(s, '.');
+	assert(words.length == 3);
+	i = dcmp(words[0], "peter");
+	assert(i == 0);
+	i = dcmp(words[1], "paul");
+	assert(i == 0);
+	i = dcmp(words[2], "jerry");
+	assert(i == 0);
+}
+
 /// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
 template FOURCC(char[] name)
 {
@@ -630,7 +691,7 @@ void Serialize(T)(Stream s, T value)
 		s.write(value.length);
 
 		foreach(v; value)
-				Serialize(s, v);
+			Serialize(s, v);
 	}
 	else static if(method == SerializeMethod.Custom)
 	{
@@ -685,7 +746,7 @@ void Deserialize(T)(Stream s, out T dest)
 		s.read(len);
 		dest.length = len;
 
-		foreach(inout v; dest)
+		foreach(ref v; dest)
 			Deserialize(s, v);
 	}
 	else static if(method == SerializeMethod.Custom)
@@ -826,5 +887,35 @@ struct List(T)
 	public T[] toArray()
 	{
 		return mData[0 .. mIndex];
+	}
+	
+	public int opApply(int delegate(ref T) dg)
+	{
+		int result = 0;
+		
+		foreach(ref v; mData[0 .. mIndex])
+		{
+			result = dg(v);
+			
+			if(result)
+				break;
+		}
+		
+		return result;
+	}
+	
+	public int opApply(int delegate(size_t, ref T) dg)
+	{
+		int result = 0;
+
+		foreach(i, ref v; mData[0 .. mIndex])
+		{
+			result = dg(i, v);
+			
+			if(result)
+				break;
+		}
+		
+		return result;
 	}
 }
