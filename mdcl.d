@@ -60,8 +60,15 @@ void printUsage()
 	writefln("you may be given a ... prompt.  That means you need to type more to make");
 	writefln("the code complete.  Once you enter enough code to make it complete, the");
 	writefln("code will be run.  If there is an error, the code buffer is cleared.");
-	writefln("To end interactive mode, type the end-of-file character (Ctrl-Z on DOS,");
-	writefln("Ctrl-D on *nix) and hit enter to end, or force exit by hitting Ctrl-C.");
+	writefln("To end interactive mode, either use the function \"exit();\", or type");
+	
+	version(Windows)
+	{
+		writefln("the end-of-file character (Ctrl-Z) and hit enter to end, or force exit");
+		writefln("by hitting Ctrl-C.");
+	}
+	else
+		writefln("the end-of-file character (Ctrl-D) and hit enter to end.");
 }
 
 const char[] Prompt1 = ">>> ";
@@ -170,13 +177,26 @@ void main(char[][] args)
 
 	if(interactive)
 	{
-		writefln("Type EOF (Ctrl-D on *nix, Ctrl-Z on DOS) and hit enter to end.");
-
 		char[] buffer;
+		bool run = true;
 
+		MDGlobalState().setGlobal("exit"d, MDGlobalState().newClosure
+		(
+			(MDState s, uint numParams)
+			{
+				run = false;
+				return 0;
+			}, "exit"
+		));
+
+		version(Windows)
+			writefln("Type EOF (Ctrl-Z) and hit enter to end, or use the \"exit();\" function.");
+		else
+			writefln("Type EOF (Ctrl-D) and hit enter to end, or use the \"exit();\" function.");
+			
 		writef(Prompt1);
 
-		while(true)
+		while(run)
 		{
 			char[] line = din.readLine();
 

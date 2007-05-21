@@ -376,7 +376,7 @@ class IOLib
 			else if(whence == 'e')
 				s.safeCode(i.seek(pos, SeekPos.End));
 			else
-				s.throwRuntimeException("Invalid seek type '%c'", whence);
+				s.throwRuntimeException("Invalid seek type '%s'", whence);
 
 			return 0;
 		}

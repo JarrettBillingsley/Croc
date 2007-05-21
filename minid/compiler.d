@@ -65,9 +65,9 @@ public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
 
 	try
 	{
-		do
-			s.add(Statement.parse(tokens));
 		while(tokens.type != Token.Type.EOF)
+			s.add(Statement.parse(tokens));
+
 	}
 	catch(Object o)
 	{
@@ -85,7 +85,10 @@ public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
 	foreach(stmt; stmts)
 		stmt.fold().codeGen(fs);
 
-	fs.codeI(stmts[$ - 1].mEndLocation.line, Op.Ret, 0, 1);
+	if(stmts.length == 0)
+		fs.codeI(1, Op.Ret, 0, 1);
+	else
+		fs.codeI(stmts[$ - 1].mEndLocation.line, Op.Ret, 0, 1);
 
 	return fs.toFuncDef();
 }
@@ -832,6 +835,10 @@ class Lexer
 						{
 							throw new MDCompileException(beginning, "Malformed binary int literal");
 						}
+						catch(ConvOverflowError e)
+						{
+							throw new MDCompileException(beginning, "Numeric overflow");
+						}
 
 						return true;
 
@@ -857,6 +864,10 @@ class Lexer
 						{
 							throw new MDCompileException(beginning, "Malformed octal int literal");
 						}
+						catch(ConvOverflowError e)
+						{
+							throw new MDCompileException(beginning, "Numeric overflow");
+						}
 
 						return true;
 
@@ -881,6 +892,10 @@ class Lexer
 						catch(ConvError e)
 						{
 							throw new MDCompileException(beginning, "Malformed hexadecimal int literal");
+						}
+						catch(ConvOverflowError e)
+						{
+							throw new MDCompileException(beginning, "Numeric overflow");
 						}
 
 						return true;
@@ -986,6 +1001,10 @@ class Lexer
 			{
 				throw new MDCompileException(beginning, "Malformed int literal '%s'", buf[0 .. i]);
 			}
+			catch(ConvOverflowError e)
+			{
+				throw new MDCompileException(beginning, "Numeric overflow");
+			}
 
 			return true;
 		}
@@ -998,6 +1017,10 @@ class Lexer
 			catch(ConvError e)
 			{
 				throw new MDCompileException(beginning, "Malformed float literal '%s'", buf[0 .. i]);
+			}
+			catch(ConvOverflowError e)
+			{
+				throw new MDCompileException(beginning, "Numeric overflow");
 			}
 
 			return false;

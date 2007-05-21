@@ -3510,9 +3510,23 @@ final class MDState : MDObject
 				{
 					uint thisSlot = slot + 1;
 					*getAbsStack(thisSlot) = n;
-
-					if(callPrologue2(ctor.as!(MDClosure), thisSlot, 0, thisSlot, numParams))
-						execute();
+					
+					try
+					{
+						if(callPrologue2(ctor.as!(MDClosure), thisSlot, 0, thisSlot, numParams))
+							execute();
+					}
+					catch(MDRuntimeException e)
+					{
+						callEpilogue(0, 0);
+						throw e;
+					}
+					catch(MDException e)
+					{
+						Location loc = startTraceback();
+						callEpilogue(0, 0);
+						throw new MDRuntimeException(loc, &e.value);
+					}
 				}
 
 				*getAbsStack(slot) = n;
@@ -5464,6 +5478,7 @@ final class MDState : MDObject
 						copyBasedStack(funcReg, rd);
 
 						call(funcReg, 2, i.imm);
+						mStackIndex = mCurrentAR.savedTop;
 
 						if(getBasedStack(funcReg).isNull() == false)
 						{

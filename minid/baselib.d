@@ -137,7 +137,7 @@ MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 					// unsupported: %p
 					s.throwRuntimeException("Unsupported format specifier '%c'", c);
 			}
-			
+
 			outputValue(val);
 			begin = i + 1;
 		}
@@ -187,11 +187,13 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 			{
 				if(index >= params.length)
 					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
-
-				if(params[index].isFloat() == false)
+					
+				if(params[index].isFloat())
+					return params[index].as!(mdfloat);
+				else if(params[index].isInt())
+					return params[index].as!(int);
+				else
 					s.throwRuntimeException("Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
-
-				return params[index].as!(mdfloat);
 			}
 
 			dchar getCharParam(int index)
@@ -325,13 +327,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 							break;
 
 						case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-							mdfloat val;
-
-							if(s.isParam!("int")(paramIndex))
-								val = getIntParam(paramIndex);
-							else
-								val = getFloatParam(paramIndex);
-
+							mdfloat val = getFloatParam(paramIndex);
 							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
 							break;
 
@@ -348,6 +344,7 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 
 						case 'c':
 							dchar val = getCharParam(paramIndex);
+							formatting[formattingLength - 1] = 's';
 							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
 							break;
 

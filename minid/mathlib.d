@@ -68,14 +68,6 @@ class MathLib
 		);
 	}
 
-	static int getInt(MDState s, uint i)
-	{
-		if(s.isParam!("int")(i))
-			return s.getParam!(int)(i);
-		else
-			s.throwRuntimeException("Expected 'int', not '%s'", s.getParam(i).typeString());
-	}
-	
 	static mdfloat getFloat(MDState s, uint i)
 	{
 		if(s.isParam!("int")(i))
@@ -263,7 +255,7 @@ class MathLib
 		mdfloat base = getFloat(s, 0);
 		
 		if(s.isParam!("int")(1))
-			s.push(math.pow(cast(real)base, getInt(s, 1)));
+			s.push(math.pow(cast(real)base, s.getParam!(int)(1)));
 		else
 			s.push(math.pow(base, getFloat(s, 1)));
 			

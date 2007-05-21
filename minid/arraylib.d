@@ -365,7 +365,7 @@ class ArrayLib
 		
 		foreach(i, v; array)
 		{
-			if(val.type == v.type && val.compare(&v) == 0)
+			if(val.type == v.type && s.cmp(val, v) == 0)
 			{
 				s.push(i);
 				return 1;
@@ -387,7 +387,7 @@ class ArrayLib
 
 		while((hi - lo) > 8)
 		{
-			int cmp = val.compare(array[mid]);
+			int cmp = s.cmp(val, *array[mid]);
 			
 			if(cmp == 0)
 			{
