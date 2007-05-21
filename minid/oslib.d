@@ -40,6 +40,8 @@ else version(Unix)
 else version(linux)
 {
 	import std.c.linux.linux;
+	alias std.c.linux.linux.timeval timeval;
+	alias std.c.linux.linux.gettimeofday gettimeofday;
 }
 else
 	static assert(false, "No valid platform defined");
