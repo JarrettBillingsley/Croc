@@ -182,13 +182,6 @@ class RegexpLib
 			return n;
 		}
 
-		protected MDRegexp newInstance(RegExp rxp)
-		{
-			MDRegexp n = newInstance();
-			n.constructor(rxp);
-			return n;
-		}
-
 		public int test(MDState s, uint numParams)
 		{
 			MDRegexp r = s.getContext!(MDRegexp);
@@ -217,7 +210,7 @@ class RegexpLib
 			s.push(r);
 			return 1;
 		}
-
+		
 		public int pre(MDState s, uint numParams)
 		{
 			MDRegexp r = s.getContext!(MDRegexp);
@@ -301,7 +294,7 @@ class RegexpLib
 		{
 			return mRegexp.match(n);
 		}
-
+		
 		char[] pre()
 		{
 			return mRegexp.pre();

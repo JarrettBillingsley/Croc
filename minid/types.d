@@ -529,7 +529,7 @@ align(1) struct MDValue
 	public bool isFalse()
 	{
 		return (mType == Type.Null) || (mType == Type.Bool && mBool == false) ||
-			(mType == Type.Int && mInt == 0) || (mType == Type.Float && mFloat == 0.0);
+			(mType == Type.Int && mInt == 0) || (mType == Type.Float && mFloat == 0.0) || (mType == Type.Char && mChar != 0);
 	}
 	
 	public bool isTrue()
@@ -985,14 +985,6 @@ abstract class MDObject
 	{
 		if(o1.mType == o2.mType)
 			return o1.opCmp(o2);
-		else
-			throw new MDException("Attempting to compare unlike objects");
-	}
-
-	public static int equals(MDObject o1, MDObject o2)
-	{
-		if(o1.mType == o2.mType)
-			return o1.opEquals(o2);
 		else
 			throw new MDException("Attempting to compare unlike objects");
 	}

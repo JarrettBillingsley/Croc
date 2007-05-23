@@ -15,7 +15,7 @@ void main()
 		MDState s = MDInitialize();
 		MDFileLoader().addPath(`samples`);
 
-		MDGlobalState().importModule("simple");
+		MDGlobalState().importModule("tests.interpreter");
 	}
 	catch(MDException e)
 	{

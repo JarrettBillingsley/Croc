@@ -97,10 +97,7 @@ class StringLib
 
 	int icompare(MDState s, uint numParams)
 	{
-		char[] src1 = s.getContext!(char[]);
-		char[] src2 = s.getParam!(char[])(0);
-
-		s.push(s.safeCode(string.icmp(src1, src2)));
+		s.push(string.icmp(s.getContext!(char[]), s.getParam!(char[])(0)));
 		return 1;
 	}
 	
