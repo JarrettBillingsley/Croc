@@ -68,8 +68,8 @@ t();
 try foreach(c; t){} catch(e){}
 currentThread();
 curry(function(x, y){}, 3)(4);
-try require("blahblah"); catch(e){}
-require("tests.dummy");
+try import("blahblah"); catch(e){}
+import("tests.dummy");
 loadString("");
 loadString("", "h");
 eval("5");
@@ -107,4 +107,41 @@ try s[95091235 .. 5010936] = "h"; catch(e){}
 try s[0] = s[230591 .. 019096]; catch(e){ writefln(e);}
 try s[-392096 .. 0] = "h"; catch(e){}
 
-readf("%d");
+{
+	function loadMod(name, ns)
+	{
+		assert(name == "mod");
+	
+		ns.x = "I'm x";
+	
+		ns.foo = function foo()
+		{
+			writefln("foo");
+		};
+	
+		ns.bar = function bar(x)
+		{
+			return x[0];
+		};
+	
+		ns.baz = function baz()
+		{
+			writefln(x);
+		};
+	
+		foreach(k, v; ns)
+			if(isFunction(v))
+				v.environment(ns);
+	}
+	
+	setModuleLoader("mod", loadMod);
+	
+	import mod : foo, bar;
+	foo();
+	writefln(bar([5]));
+	mod.baz();
+	
+	writefln();
+	
+	readf("%d");
+}

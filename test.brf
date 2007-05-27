@@ -1,6 +1,7 @@
 test.d
 -clean
 -debug
--unittest
 -g
 -op
+-unittest
+-version=MDNoDynLibs

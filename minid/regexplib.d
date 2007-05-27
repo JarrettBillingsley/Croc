@@ -344,7 +344,7 @@ class RegexpLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("regexp"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("regexp"d, MDGlobalState().globals.ns);
 	new RegexpLib(namespace);
-	MDGlobalState().setGlobal("regexp"d, namespace);
+	MDGlobalState().globals["regexp"d] = namespace;
 }

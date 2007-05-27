@@ -232,6 +232,11 @@ x = [1, 2, 3];
 loadString("x = [f()];");
 try loadString("if([]){}"); catch(e){}
 loadString("yield(1); yield(f()); class A : B { this() { super(); } function f() { super.f(2); x = [super.f()]; }}");
-try require("tests.compiler.dupimportlocals"); catch(e){}
-require("tests.compiler.noimportlocals");
+try import("tests.compiler.dupimportlocals"); catch(e){}
+import("tests.compiler.noimportlocals");
+loadString("namespace a : b { function foo(){} bar = 5; baz; } local namespace b {} namespace c{} global namespace d {} ");
+loadString("x = namespace x{};");
+try loadString("namespace a{"); catch(e){}
+try loadString("namespace a { x; x; }"); catch(e){}
+try loadString("namespace a { #### }"); catch(e){}
 try loadString(`x = "hello\`); catch(e){}

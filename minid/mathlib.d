@@ -288,7 +288,7 @@ class MathLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("math"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("math"d, MDGlobalState().globals.ns);
 	new MathLib(namespace);
-	MDGlobalState().setGlobal("math"d, namespace);
+	MDGlobalState().globals["math"d] = namespace;
 }

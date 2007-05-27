@@ -201,7 +201,7 @@ class OSLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("os"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("os"d, MDGlobalState().globals.ns);
 	new OSLib(namespace);
-	MDGlobalState().setGlobal("os"d, namespace);
+	MDGlobalState().globals["os"d] = namespace;
 }

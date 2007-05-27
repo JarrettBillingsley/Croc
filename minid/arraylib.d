@@ -53,12 +53,12 @@ class ArrayLib
 			"pop"d,      new MDClosure(namespace, &pop,      "array.pop")
 		);
 
-		MDGlobalState().setGlobal("array"d, MDNamespace.create
+		MDGlobalState().globals["array"d] = MDNamespace.create
 		(
-			"array"d,    MDGlobalState().globals,
+			"array"d,    MDGlobalState().globals.ns,
 			"new"d,      new MDClosure(namespace, &newArray, "array.new"),
 			"range"d,    new MDClosure(namespace, &range,    "array.range")
-		));
+		);
 	}
 
 	int newArray(MDState s, uint numParams)
@@ -445,7 +445,7 @@ class ArrayLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("array"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("array"d, MDGlobalState().globals.ns);
 	new ArrayLib(namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Array, namespace);
 }

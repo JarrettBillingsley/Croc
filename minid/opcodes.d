@@ -55,6 +55,7 @@ enum Op : uint
 	For,
 	Foreach,
 	ForLoop,
+	Import,
 	In,
 	Index,
 	IndexAssign,
@@ -76,6 +77,7 @@ enum Op : uint
 	MoveLocal,
 	Mul,
 	MulEq,
+	Namespace,
 	Neg,
 	NewArray,
 	NewGlobal,
@@ -124,7 +126,7 @@ As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
 CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
-Class.............R: dest, name const index, base class reg
+Class.............R: dest, name const index, base class
 ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
 Closure...........I: dest, index of funcdef
@@ -139,6 +141,7 @@ EndFinal..........I: n/a, n/a
 For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
+Import............R: dest, name src, n/a
 In................R: dest, src value, src object
 Index.............R: dest, src object, src index
 IndexAssign.......R: dest object, dest index, src
@@ -160,6 +163,7 @@ Move..............R: dest, src, n/a
 MoveLocal.........R: dest local, src local, n/a
 Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
+Namespace.........R: dest, name const index, parent namespace
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
@@ -170,7 +174,7 @@ Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
-	Precall...........R: dest, src, lookup (0 = no, 1 = yes)
+Precall...........R: dest, src, lookup (0 = no, 1 = yes)
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
@@ -287,6 +291,7 @@ align(1) struct Instruction
 			case Op.For:           return string.format("for %s, %s", cr(rd), imm);
 			case Op.Foreach:       return string.format("foreach r%s, %s", rd, uimm);
 			case Op.ForLoop:       return string.format("forloop %s, %s", cr(rd), imm);
+			case Op.Import:        return string.format("import r%s, %s", rd, cr(rs));
 			case Op.In:            return string.format("in %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Index:         return string.format("idx %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.IndexAssign:   return string.format("idxa %s, %s, %s", cr(rd), cr(rs), cr(rt));
@@ -308,6 +313,7 @@ align(1) struct Instruction
 			case Op.MoveLocal:     return string.format("movl %s, %s", cr(rd), cr(rs));
 			case Op.Mul:           return string.format("mul %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.MulEq:         return string.format("muleq %s, %s", cr(rd), cr(rs));
+			case Op.Namespace:     return string.format("namespace %s, %s, %s", cr(rd), cr(rs), cr(rt));
 			case Op.Neg:           return string.format("neg %s, %s", cr(rd), cr(rs));
 			case Op.NewArray:      return string.format("newarr r%s, %s", rd, imm);
 			case Op.NewGlobal:     return string.format("newg %s, %s", cr(rs), cr(rt));

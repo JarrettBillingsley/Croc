@@ -556,7 +556,7 @@ class IOLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("io"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("io"d, MDGlobalState().globals.ns);
 	new IOLib(namespace);
-	MDGlobalState().setGlobal("io"d, namespace);
+	MDGlobalState().globals["io"d] = namespace;
 }

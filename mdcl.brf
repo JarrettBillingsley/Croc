@@ -2,5 +2,5 @@ mdcl.d
 -clean
 -release
 -O
--inline
 -op
+-version=MDNoDynLibs

@@ -38,7 +38,7 @@ class TableLib
 			"each"d,    new MDClosure(namespace, &each,   "table.each")
 		);
 		
-		MDNamespace table = new MDNamespace("table"d, MDGlobalState().globals);
+		MDNamespace table = new MDNamespace("table"d, MDGlobalState().globals.ns);
 		table.addList
 		(
 			"dup"d,    new MDClosure(table, &staticDup,    "table.dup"),
@@ -50,7 +50,7 @@ class TableLib
 			"get"d,    new MDClosure(table, &get,          "table.get")
 		);
 
-		MDGlobalState().setGlobal("table"d, table);
+		MDGlobalState().globals["table"d] = table;
 	}
 	
 	int dupImpl(MDState s, MDTable t)
@@ -184,7 +184,7 @@ class TableLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("table"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("table"d, MDGlobalState().globals.ns);
 	new TableLib(namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Table, namespace);
 }

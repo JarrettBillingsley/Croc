@@ -7,7 +7,7 @@ function test()
 	local l3 = [];
 
 	l2.reverse();
-
+	
 	while(#l2 > 0)
 		l3 ~= l2.pop();
 

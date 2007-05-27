@@ -125,7 +125,7 @@ class CharLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("char"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("char"d, MDGlobalState().globals.ns);
 	new CharLib(namespace);
 	MDGlobalState().setMetatable(MDValue.Type.Char, namespace);
 }

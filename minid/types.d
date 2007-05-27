@@ -30,7 +30,10 @@ import std.stdio;
 import std.stream;
 import std.system;
 import string = std.string;
+import path = std.path;
 import utf = std.utf;
+import file = std.file;
+import std.gc;
 
 import minid.opcodes;
 import minid.utils;
@@ -536,22 +539,82 @@ align(1) struct MDValue
 	{
 		return !isFalse();
 	}
-
-	public T as(T)()
+	
+	public bool canCastTo(T)()
 	{
 		static if(is(T == bool))
 		{
-			assert(mType == Type.Bool, "MDValue as " ~ T.stringof);
+			return mType == Type.Bool;
+		}
+		else static if(isIntType!(T))
+		{
+			return mType == Type.Int;
+		}
+		else static if(isFloatType!(T))
+		{
+			return mType == Type.Int || mType == Type.Float;
+		}
+		else static if(isCharType!(T))
+		{
+			return mType == Type.Char;
+		}
+		else static if(isStringType!(T) || is(T : MDString))
+		{
+			return mType == Type.String;
+		}
+		else static if(is(T : MDTable))
+		{
+			return mType == Type.Table;
+		}
+		else static if(is(T : MDArray))
+		{
+			return mType == Type.Array;
+		}
+		else static if(is(T : MDClosure))
+		{
+			return mType == Type.Function;
+		}
+		else static if(is(T : MDClass))
+		{
+			return mType == Type.Class;
+		}
+		else static if(is(T : MDInstance))
+		{
+			if(mType != Type.Instance)
+				return false;
+
+			static if(is(T == MDInstance))
+				return mType == Type.Instance;
+			else
+				return (cast(T)mInstance) !is null;
+		}
+		else static if(is(T : MDNamespace))
+		{
+			return mType == Type.Namespace;
+		}
+		else static if(is(T : MDState))
+		{
+			return mType == Type.Thread;
+		}
+		else static if(is(T : MDObject))
+		{
+			return cast(uint)mType >= cast(uint)Type.String;
+		}
+		else
+			return false;
+	}
+
+	public T as(T)()
+	{
+		assert(canCastTo!(T)(), "MDValue as " ~ T.stringof);
+
+		static if(is(T == bool))
+		{
 			return mBool;
 		}
 		else static if(isIntType!(T))
 		{
-			if(mType == Type.Int)
-				return mInt;
-			else if(mType == Type.Float)
-				return cast(T)mFloat;
-			else
-				assert(false, "MDValue as " ~ T.stringof);
+			return mInt;
 		}
 		else static if(isFloatType!(T))
 		{
@@ -564,13 +627,10 @@ align(1) struct MDValue
 		}
 		else static if(isCharType!(T))
 		{
-			assert(mType == Type.Char, "MDValue as " ~ T.stringof);
 			return mChar;
 		}
 		else static if(isStringType!(T))
 		{
-			assert(mType == Type.String, "MDValue as " ~ T.stringof);
-
 			static if(is(T == char[]))
 				return mString.asUTF8();
 			else static if(is(T == wchar[]))
@@ -580,33 +640,26 @@ align(1) struct MDValue
 		}
 		else static if(is(T : MDString))
 		{
-			assert(mType == Type.String, "MDValue as " ~ T.stringof);
 			return mString;
 		}
 		else static if(is(T : MDTable))
 		{
-			assert(mType == Type.Table, "MDValue as " ~ T.stringof);
 			return mTable;
 		}
 		else static if(is(T : MDArray))
 		{
-			assert(mType == Type.Array, "MDValue as " ~ T.stringof);
 			return mArray;
 		}
 		else static if(is(T : MDClosure))
 		{
-			assert(mType == Type.Function, "MDValue as " ~ T.stringof);
 			return mFunction;
 		}
 		else static if(is(T : MDClass))
 		{
-			assert(mType == Type.Class, "MDValue as " ~ T.stringof);
 			return mClass;
 		}
 		else static if(is(T : MDInstance))
 		{
-			assert(mType == Type.Instance, "MDValue as " ~ T.stringof);
-
 			static if(is(T == MDInstance))
 				T ret = mInstance;
 			else
@@ -621,17 +674,14 @@ align(1) struct MDValue
 		}
 		else static if(is(T : MDNamespace))
 		{
-			assert(mType == Type.Namespace, "MDValue as " ~ T.stringof);
 			return mNamespace;
 		}
 		else static if(is(T : MDState))
 		{
-			assert(mType == Type.Thread, "MDValue as " ~ T.stringof);
 			return mThread;
 		}
 		else static if(is(T : MDObject))
 		{
-			assert(cast(uint)mType >= cast(uint)Type.String, "MDValue as " ~ T.stringof);
 			return mObj;
 		}
 		else
@@ -644,21 +694,16 @@ align(1) struct MDValue
 	
 	public T to(T)()
 	{
+		if(!canCastTo!(T))
+			throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
+
 		static if(is(T == bool))
 		{
-			if(mType != Type.Bool)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mBool;
 		}
 		else static if(isIntType!(T))
 		{
-			if(mType == Type.Int)
-				return mInt;
-			else if(mType == Type.Float)
-				return cast(T)mFloat;
-			else
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
+			return mInt;
 		}
 		else static if(isFloatType!(T))
 		{
@@ -667,20 +712,14 @@ align(1) struct MDValue
 			else if(mType == Type.Float)
 				return mFloat;
 			else
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
+				assert(false, "MDValue.to!(" ~ T.stringof ~ ")");
 		}
 		else static if(isCharType!(T))
 		{
-			if(mType != Type.Char)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mChar;
 		}
 		else static if(isStringType!(T))
 		{
-			if(mType != Type.String)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			static if(is(T == char[]))
 				return mString.asUTF8();
 			else static if(is(T == wchar[]))
@@ -690,75 +729,41 @@ align(1) struct MDValue
 		}
 		else static if(is(T : MDString))
 		{
-			if(mType != Type.String)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-				
 			return mString;
 		}
 		else static if(is(T : MDTable))
 		{
-			if(mType != Type.Table)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-				
 			return mTable;
 		}
 		else static if(is(T : MDArray))
 		{
-			if(mType != Type.Array)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-				
 			return mArray;
 		}
 		else static if(is(T : MDClosure))
 		{
-			if(mType != Type.Function)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mFunction;
 		}
 		else static if(is(T : MDClass))
 		{
-			if(mType != Type.Class)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-				
 			return mClass;
 		}
 		else static if(is(T : MDInstance))
 		{
-			if(mType != Type.Instance)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-				
 			static if(is(T == MDInstance))
-				T ret = mInstance;
+				return mInstance;
 			else
-			{
-				T ret = cast(T)mInstance;
-	
-				if(ret is null)
-					throw new MDException("Cannot convert '%s' to " ~ T.stringof, mInstance.classinfo.name);
-			}
-			
-			return ret;
+				return cast(T)mInstance;
 		}
 		else static if(is(T : MDNamespace))
 		{
-			if(mType != Type.Namespace)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mNamespace;
 		}
 		else static if(is(T : MDState))
 		{
-			if(mType != Type.Thread)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mThread;
 		}
 		else static if(is(T : MDObject))
 		{
-			if(cast(uint)mType < cast(uint)Type.String)
-				throw new MDException("Cannot convert '%s' to " ~ T.stringof, typeString());
-
 			return mObj;
 		}
 		else
@@ -889,7 +894,7 @@ align(1) struct MDValue
 				char[] ret;
 				utf.encode(ret, mChar);
 				return ret;
-				
+
 			default:
 				return mObj.toString();
 		}
@@ -1087,7 +1092,7 @@ class MDString : MDObject
 	public int opEquals(Object o)
 	{
 		MDString other = cast(MDString)o;
-		assert(other, "MDString opEquals");
+		assert(other !is null, "MDString opEquals");
 		
 		if(mHash != other.mHash)
 			return false;
@@ -1113,7 +1118,7 @@ class MDString : MDObject
 	public int opCmp(Object o)
 	{
 		MDString other = cast(MDString)o;
-		assert(other, "MDString opCmp");
+		assert(other !is null, "MDString opCmp");
 
 		return dcmp(mData, other.mData);
 	}
@@ -1298,6 +1303,11 @@ class MDClosure : MDObject
 	public MDNamespace environment()
 	{
 		return mEnvironment;
+	}
+	
+	public void environment(MDNamespace env)
+	{
+		mEnvironment = env;
 	}
 	
 	protected int callFunc(MDState s, uint numParams)
@@ -1646,6 +1656,14 @@ class MDArray : MDObject
 	
 	public static MDArray concat(MDValue[] values)
 	{
+		if(values.length == 2 && values[0].isArray())
+		{
+			if(values[1].isArray())
+				return values[0].as!(MDArray) ~ values[1].as!(MDArray);
+			else
+				return values[0].as!(MDArray) ~ values[1];	
+		}
+
 		uint l = 0;
 
 		foreach(uint i, MDValue v; values)
@@ -1680,9 +1698,19 @@ class MDArray : MDObject
 	
 	public static void concatEq(MDArray dest, MDValue[] values)
 	{
+		if(values.length == 1)
+		{
+			if(values[0].isArray())
+				dest ~= values[0].as!(MDArray);
+			else
+				dest ~= values[0];
+				
+			return;
+		}
+
 		uint l = 0;
 
-		foreach(uint i, MDValue v; values)
+		foreach(uint i, ref MDValue v; values)
 		{
 			if(v.isArray())
 				l += v.as!(MDArray).length;
@@ -1691,7 +1719,7 @@ class MDArray : MDObject
 		}
 
 		uint i = dest.mData.length;
-		dest.mData.length = dest.mData.length + l;
+		dest.mData.length = i + l;
 
 		foreach(MDValue v; values)
 		{
@@ -2387,9 +2415,8 @@ struct MDUpval
 class MDModuleDef
 {
 	package dchar[] mName;
-	package dchar[][] mImports;
 	package MDFuncDef mFunc;
-	
+
 	dchar[] name()
 	{
 		return mName;
@@ -2423,7 +2450,6 @@ class MDModuleDef
 		FileHeader header;
 		Serialize(s, header);
 		Serialize(s, mName);
-		Serialize(s, mImports);
 
 		assert(mFunc.mNumUpvals == 0, "MDModuleDef.serialize() - Func def has upvalues");
 
@@ -2440,9 +2466,8 @@ class MDModuleDef
 
 		MDModuleDef ret = new MDModuleDef();
 		Deserialize(s, ret.mName);
-		Deserialize(s, ret.mImports);
 		Deserialize(s, ret.mFunc);
-		
+
 		return ret;
 	}
 	
@@ -2562,16 +2587,205 @@ class MDFuncDef
 	}
 }
 
+version(MDNoDynLibs) {} else
+{
+/*
+ * Copyright (c) 2005-2006 Derelict Developers
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+ *
+ * * Redistributions of source code must retain the above copyright
+ *   notice, this list of conditions and the following disclaimer.
+ *
+ * * Redistributions in binary form must reproduce the above copyright
+ *   notice, this list of conditions and the following disclaimer in the
+ *   documentation and/or other materials provided with the distribution.
+ *
+ * * Neither the names 'Derelict', 'DerelictUtil', nor the names of its contributors
+ *   may be used to endorse or promote products derived from this software
+ *   without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+ * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+ * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+ * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+version(linux)
+	version = Dlfcn;
+else version(darwin)
+	version = Dlfcn;
+else version(Unix)
+	version = Dlfcn;
+
+class DynLib
+{
+	private extern(C) alias void function(void*) InitProc;
+	private extern(C) alias void function() UninitProc;
+	private extern(C) alias MDNamespace function(MDGlobalState, dchar[]) LoadModuleProc;
+	
+	private void* mHandle;
+	private dchar[] mName;
+	private LoadModuleProc mLoadModuleProc;
+	private static bool[DynLib] DynLibs;
+	private static DynLib[dchar[]] LibsByName;
+
+	static ~this()
+	{
+		foreach(lib; DynLibs.keys)
+			lib.unload();
+	}
+
+	private this(void* handle, dchar[] name)
+	{
+		mHandle = handle;
+		mName = name;
+		
+		auto initProc = cast(InitProc)getProc("MDInitialize");
+		initProc(std.gc.getGCHandle());
+		
+		mLoadModuleProc = cast(LoadModuleProc)getProc("MDLoadModule");
+		
+		DynLibs[this] = true;
+		LibsByName[name] = this;
+	}
+
+	public dchar[] name()
+	{
+		return mName;
+	}
+
+	version(Windows)
+		import std.c.windows.windows;
+	else version(Dlfcn)
+	{
+		version(linux)
+			private import std.c.linux.linux;
+		else
+		{
+			extern(C)
+			{
+				// From <dlfcn.h>
+				// See http://www.opengroup.org/onlinepubs/007908799/xsh/dlsym.html
+				const int RTLD_NOW = 2;
+				void* dlopen(char* file, int mode);
+				int dlclose(void* handle);
+				void *dlsym(void* handle, char* name);
+				char* dlerror();
+			}
+		}
+	}
+	else
+		static assert(false, "MiniD cannot use dynamic libraries -- unsupported platform.  Compile with the MDNoDynLibs version defined.");
+		
+	import std.string;
+		
+	public static DynLib load(dchar[] libName)
+	{
+		if(auto l = libName in LibsByName)
+			return *l;
+
+		version(Windows)
+			HMODULE hlib = LoadLibraryA(toStringz(utf.toUTF8(libName)));
+		else version(Dlfcn)
+			void* hlib = dlopen(toStringz(utf.toUTF8(libName)), RTLD_NOW);
+
+		if(hlib is null)
+			throw new MDException("Could not load dynamic library '%s'", libName);
+
+		return new DynLib(hlib, libName);
+	}
+
+	public void unload()
+	{
+		auto uninitProc = cast(UninitProc)getProc("MDUninitialize");
+		uninitProc();
+		
+		version(Windows)
+			FreeLibrary(cast(HMODULE)mHandle);
+		else version(Dlfcn)
+			dlclose(mHandle);
+
+		mHandle = null;
+		LibsByName.remove(mName);
+		DynLibs.remove(this);
+	}
+
+	public void* getProc(char[] procName)
+	{
+		version(Windows)
+			void* proc = GetProcAddress(cast(HMODULE)mHandle, toStringz(procName));
+		else version(Dlfcn)
+			void* proc = dlsym(mHandle, toStringz(procName));
+
+		if(proc is null)
+			throw new MDException("Could not get function '%s' from dynamic library '%s'", procName, mName);
+
+		return proc;
+	}
+	
+	public MDNamespace loadModule(dchar[] name)
+	{
+		auto ret = mLoadModuleProc(MDGlobalState(), name);
+		return ret;
+	}
+}
+
+}
+
 class MDGlobalState
 {
-	private alias bool delegate(MDState s, dchar[] name, dchar[] fromModule) ModuleLoader;
+	private struct _Globals
+	{
+		private MDNamespace mGlobals;
+		
+		public T opIndex(T = MDValue*)(dchar[] name)
+		{
+			MDValue* value = mGlobals[name];
+			
+			if(value is null)
+				throw new MDException("MDGlobalState.getGlobal() - Attempting to access nonexistent global '%s'", name);
+	
+			static if(is(T == MDValue*))
+				return value;
+			else
+				return value.to!(T);
+		}
+		
+		public alias opIndex get;
+
+		public void opIndexAssign(T)(T value, dchar[] name)
+		{
+			mGlobals[new MDString(name)] = MDValue(value);
+		}
+		
+		public MDNamespace ns()
+		{
+			return mGlobals;
+		}
+	}
 
 	private static MDGlobalState instance;
 	private MDState mMainThread;
 	private MDNamespace[] mBasicTypeMT;
-	private MDNamespace mGlobals;
-	private ModuleLoader[] mModuleLoaders;
-	private bool[dchar[]] mLoadedModules;
+	private MDNamespace[dchar[]] mLoadedModules;
+	private MDClosure[dchar[]] mModuleLoaders;
+	private bool[dchar[]] mModulesLoading;
+	private bool[char[]] mImportPaths;
+	package MDModuleDef function(char[], char[][]) tryPath;
+	version(MDNoDynLibs){}else package char[] function(char[], char[][]) tryDynLibPath;
+
+	public _Globals globals;
 
 	public static bool isInitialized()
 	{
@@ -2588,9 +2802,8 @@ class MDGlobalState
 
 	private this()
 	{
-		mGlobals = new MDNamespace();
-		mGlobals["_G"d] = mGlobals;
-
+		globals.mGlobals = new MDNamespace();
+		globals.mGlobals["_G"d] = globals.mGlobals;
 		mMainThread = new MDState();
 		mBasicTypeMT = new MDNamespace[MDValue.Type.max + 1];
 	}
@@ -2613,96 +2826,165 @@ class MDGlobalState
 		return mMainThread;
 	}
 	
-	public MDNamespace globals()
-	{
-		return mGlobals;
-	}
-	
-	public void setGlobal(T)(dchar[] name, T value)
-	{
-		mGlobals[new MDString(name)] = MDValue(value);
-	}
-
-	public T getGlobal(T = MDValue*)(dchar[] name)
-	{
-		scope str = MDString.newTemp(name);
-		MDValue* value = mGlobals[str];
-		
-		if(value is null)
-			throw new MDException("MDGlobalState.getGlobal() - Attempting to access nonexistent global '%s'", name);
-
-		static if(is(T == MDValue*))
-			return value;
-		else
-			return value.to!(T);
-	}
-
 	public MDClosure newClosure(MDFuncDef def)
 	{
-		return new MDClosure(mGlobals, def);
+		return new MDClosure(globals.mGlobals, def);
 	}
 
 	public MDClosure newClosure(int delegate(MDState, uint) dg, dchar[] name, MDValue[] upvals = null)
 	{
-		return new MDClosure(mGlobals, dg, name, upvals);
+		return new MDClosure(globals.mGlobals, dg, name, upvals);
 	}
 	
 	public MDClosure newClosure(int function(MDState, uint) func, dchar[] name, MDValue[] upvals = null)
 	{
-		return new MDClosure(mGlobals, func, name, upvals);
+		return new MDClosure(globals.mGlobals, func, name, upvals);
+	}
+	
+	public void addImportPath(char[] path)
+	{
+		foreach(p, _; mImportPaths)
+			if(.path.fcmp(p, path) == 0)
+				return;
+
+		mImportPaths[path] = true;
+	}
+	
+	public void setModuleLoader(dchar[] name, MDClosure loader)
+	{
+		mModuleLoaders[name] = loader;
 	}
 
-	public void registerModuleLoader(ModuleLoader loader)
+	public MDNamespace importModule(dchar[] name, MDState s = null)
 	{
-		mModuleLoaders ~= loader;
-	}
-
-	public void importModule(dchar[] name, dchar[] fromModule = null, MDState s = null)
-	{
+		// See if it's already loaded
+		if(auto ns = name in mLoadedModules)
+			return *ns;
+			
 		if(s is null)
 			s = mMainThread;
 
-		if(name in mLoadedModules)
-			return;
+		// Check for circular imports
+		if(name in mModulesLoading)
+			s.throwRuntimeException("Attempting to import module \"%s\" more than once; is it being circularly imported?", name);
 
-		bool success = false;
+		mModulesLoading[name] = true;
 
-		foreach(loader; mModuleLoaders)
+		scope(exit)
+			mModulesLoading.remove(name);
+
+		// See if there's a loader registered for it
+		if(auto cl = name in mModuleLoaders)
 		{
-			success = loader(s, name, fromModule);
+			MDNamespace modNS = findNamespace(s, name);
 
-			if(success)
-				break;
+			try
+				s.easyCall(*cl, 0, MDValue((*cl).environment), name, modNS);
+			catch(MDException e)
+				s.throwRuntimeException("Could not import module \"%s\":\n\t%s", name, e.toString());
+
+			mLoadedModules[name] = modNS;
+			return modNS;
 		}
 
-		if(success == false)
+		// OK, now let's try to load a source or binary module file
+		if(MDNamespace ns = loadModuleFromFile(s, name, null))
 		{
-			if(fromModule.length == 0)
-				throw new MDException("Could not import module \"%s\"", name);
-			else
-				throw new MDException("From module \"%s\"", fromModule, ": Could not import module \"%s\"", name);
+			mLoadedModules[name] = ns;
+			return ns;
 		}
+
+		// Last try: see if there's a dynamic module we can load
+		version(MDNoDynLibs) {} else
+		{
+			char[] libName = tryDynLibPath(file.getcwd(), elements);
+
+			if(libName is null)
+			{
+				foreach(customPath, _; mImportPaths)
+				{
+					libName = tryDynLibPath(customPath, elements);
+
+					if(libName !is null)
+						break;
+				}
+			}
+
+			if(libName !is null)
+			{
+				DynLib dl = DynLib.load(utf.toUTF32(libName));
+
+				MDNamespace modNS;
+
+				try
+					modNS = dl.loadModule(name);
+				catch(MDException e)
+					s.throwRuntimeException("Error loading module \"%s\" from a dynamic library:\n\t%s", name, e.toString());
+
+				mLoadedModules[name] = modNS;
+				return modNS;
+			}
+		}
+
+		s.throwRuntimeException("Error loading module \"%s\": could not find anything to load", name);
 	}
 
-	public MDNamespace registerModule(MDModuleDef def, MDState s)
-	in
+	public MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
 	{
-		assert(!(def.name in mLoadedModules));
-	}
-	body
-	{
-		mLoadedModules[def.name] = true;
+		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
+		char[][] elements = string.split(utf.toUTF8(name), ".");
 
-		scope(failure)
-			mLoadedModules.remove(def.name);
-			
-		dchar[][] splitName = dsplit(def.name, '.');
+		MDModuleDef def = tryPath(file.getcwd(), elements);
 
-		dchar[][] packages = splitName[0 .. $ - 1];
-		dchar[] name = splitName[$ - 1];
-
-		MDNamespace put = mGlobals;
+		if(def is null)
+		{
+			foreach(customPath, _; mImportPaths)
+			{
+				def = tryPath(customPath, elements);
 	
+				if(def !is null)
+					break;
+			}
+		}
+
+		if(def !is null)
+		{
+			if(def.mName != name)
+				s.throwRuntimeException("Attempting to load module \"%s\", but module declaration says \"%s\"", name, def.name);
+
+			return initializeModule(s, def, params);
+		}
+		
+		return null;
+	}
+
+	public MDNamespace initializeModule(MDState s, MDModuleDef def, MDValue[] params)
+	{
+		MDNamespace modNS = findNamespace(s, def.name);
+
+		MDClosure cl = new MDClosure(modNS, def.mFunc);
+		uint funcReg = s.push(cl);
+		s.push(modNS);
+
+		foreach(ref val; params)
+			s.push(val);
+
+		try
+			s.call(funcReg, params.length + 1, 0);
+		catch(MDException e)
+			s.throwRuntimeException("Error loading module \"%s\":\n\t%s", def.name, e.toString());
+			
+		return modNS;
+	}
+	
+	private MDNamespace findNamespace(MDState s, dchar[] name)
+	{
+		dchar[][] splitName = dsplit(name, '.');
+		dchar[][] packages = splitName[0 .. $ - 1];
+		dchar[] modName = splitName[$ - 1];
+
+		MDNamespace put = globals.mGlobals;
+
 		foreach(i, pkg; packages)
 		{
 			MDValue* v = (pkg in put);
@@ -2718,33 +3000,17 @@ class MDGlobalState
 				if(v.isNamespace())
 					put = v.as!(MDNamespace);
 				else
-					s.throwRuntimeException("Error loading module ", def.name, "; conflicts with ", packages[0 .. i + 1]);
+					s.throwRuntimeException("Error loading module \"%s\": conflicts with ", name, djoin(packages[0 .. i + 1], '.'));
 			}
 		}
 
-		if(name in put)
-			throw new MDException("Error loading module ", def.name, "; a global of the same name already exists");
+		if(modName in put)
+			s.throwRuntimeException("Error loading module \"%s\": a global of the same name already exists", name);
 
-		MDNamespace modNS = new MDNamespace(name, put);
-		put[name] = modNS;
-
-		foreach(imp; def.mImports)
-			importModule(imp, def.name, s);
-
-		return modNS;
-	}
-	
-	public void staticInitModule(MDModuleDef def, MDNamespace modNS, MDState s, MDValue[] params = null)
-	{
-		MDClosure cl = new MDClosure(modNS, def.mFunc);
-
-		uint funcReg = s.push(cl);
-		s.push(modNS);
+		MDNamespace modNS = new MDNamespace(modName, put);
+		put[modName] = modNS;
 		
-		foreach(param; params)
-			s.push(param);
-			
-		s.call(funcReg, params.length + 1, 0);
+		return modNS;
 	}
 }
 
@@ -2780,7 +3046,7 @@ final class MDState : MDObject
 		Suspended,
 		Dead
 	}
-	
+
 	static MDString[] StateStrings;
 
 	static this()
@@ -3056,112 +3322,22 @@ final class MDState : MDObject
 	{
 		if(index >= (getBasedStackIndex() - 1))
 			badParamError(index, "not enough parameters");
-			
-		MDValue* val = getBasedStack(index + 1);
 
-		static if(is(T == bool))
+		static if(is(T == MDValue))
 		{
-			if(val.isBool() == false)
-				badParamError(index, "expected 'bool' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(isIntType!(T))
-		{
-			if(val.isInt() == false)
-				badParamError(index, "expected 'int' but got '%s'", val.typeString());
-				
-			return val.as!(T);
-		}
-		else static if(isFloatType!(T))
-		{
-			if(val.isFloat() == false)
-				badParamError(index, "expected 'float' but got '%s'", val.typeString());
-	
-			return val.as!(T);
-		}
-		else static if(isCharType!(T))
-		{
-			if(val.isChar() == false)
-				badParamError(index, "expected 'char' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(isStringType!(T))
-		{
-			if(val.isString() == false)
-				badParamError(index, "expected 'string' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDString))
-		{
-			if(val.isString() == false)
-				badParamError(index, "expected 'string' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDTable))
-		{
-			if(val.isTable() == false)
-				badParamError(index, "expected 'table' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDArray))
-		{
-			if(val.isArray() == false)
-				badParamError(index, "expected 'array' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDClosure))
-		{
-			if(val.isFunction() == false)
-				badParamError(index, "expected 'function' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDClass))
-		{
-			if(val.isClass() == false)
-				badParamError(index, "expected 'class' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDInstance))
-		{
-			if(val.isInstance() == false)
-				badParamError(index, "expected 'instance' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDNamespace))
-		{
-			if(val.isString() == false)
-				badParamError(index, "expected 'namespace' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T : MDState))
-		{
-			if(val.isThread() == false)
-				badParamError(index, "expected 'thread' but got '%s'", val.typeString());
-
-			return val.as!(T);
-		}
-		else static if(is(T == MDValue))
-		{
-			return *val;
+			return mStack[mCurrentAR.base + index + 1];
 		}
 		else
 		{
-			// I do this because static assert won't show the template instantiation "call stack."
-			pragma(msg, "MDState.getParam() - Invalid argument type '" ~ T.stringof ~ "'");
-			ARGUMENT_ERROR(T);
+			MDValue* val = &mStack[mCurrentAR.base + index + 1];
+
+			if(!val.canCastTo!(T))
+				badParamError(index, "expected '" ~ T.stringof ~ "' but got '%s'", val.typeString());
+				
+			return val.as!(T);
 		}
 	}
-	
+
 	public final T getContext(T = MDValue)()
 	{
 		static if(is(T == MDValue))
@@ -3413,7 +3589,7 @@ final class MDState : MDObject
 	{
 		binaryReflOp(MM.UShrEq, &a, &b);
 	}
-
+	
 	public static char[] getTracebackString()
 	{
 		if(Traceback.length == 0)
@@ -5203,6 +5379,23 @@ final class MDState : MDObject
 						break;
 
 					// Logical and Control Flow
+					case Op.Import:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Import");
+						assert(mStackIndex == mCurrentAR.savedTop, "import: stack index not at top");
+
+						RS = get(i.rs);
+
+						if(!RS.isString())
+							throwRuntimeException("Import expression must be a string value, not '%s'", RS.typeString());
+
+						try
+							mStack[mCurrentAR.base + i.rd] = MDGlobalState().importModule(RS.as!(dchar[]), this);
+						catch(MDRuntimeException e)
+							throw e;
+						catch(MDException e)
+							throw new MDRuntimeException(startTraceback(), &e.value);
+						break;
+
 					case Op.Not:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Not");
 						*get(i.rd) = get(i.rs).isFalse();
@@ -5451,7 +5644,7 @@ final class MDState : MDObject
 							MDValue* apply = getMM(src, MM.Apply);
 
 							if(!apply.isFunction())
-								throwRuntimeException("No implementation of %s for type '%s'", MetaStrings[MM.Apply], src.typeString());
+								throwRuntimeException("No implementation of %s for type '%s'", MetaNames[MM.Apply], src.typeString());
 
 							mNativeCallDepth++;
 
@@ -5901,6 +6094,21 @@ final class MDState : MDObject
 							throwRuntimeException("Coroutines must be created with a script function, not '%s'", RS.typeString());
 
 						*get(i.rd) = new MDState(RS.as!(MDClosure));
+						break;
+						
+					case Op.Namespace:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Namespace");
+
+						RS = *get(i.rs);
+						RT = *get(i.rt);
+
+						if(RT.isNull())
+							*get(i.rd) = new MDNamespace(RS.as!(dchar[]), null);
+						else if(!RT.isNamespace())
+							throwRuntimeException("Attempted to use a '%s' as a parent namespace for namespace '%s'", RT.typeString(), RS.toString());
+						else
+							*get(i.rd) = new MDNamespace(RS.as!(dchar[]), RT.as!(MDNamespace));
+
 						break;
 						
 					// Class stuff

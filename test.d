@@ -1,21 +1,20 @@
 module test;
 
-import minid.minid;
-import minid.types;
-
 import std.stdio;
 import std.stream;
 import std.string;
 import std.traits;
+
+import minid.minid;
 
 void main()
 {
 	try
 	{
 		MDState s = MDInitialize();
-		MDFileLoader().addPath(`samples`);
+		MDGlobalState().addImportPath(`samples`);
 
-		MDGlobalState().importModule("tests.interpreter");
+		MDGlobalState().importModule("arrays");
 	}
 	catch(MDException e)
 	{

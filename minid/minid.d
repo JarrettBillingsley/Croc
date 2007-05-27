@@ -23,24 +23,24 @@ subject to the following restrictions:
 
 module minid.minid;
 
-public import minid.types;
 public import minid.compiler;
+public import minid.types;
 public import minid.utils;
 
-import baselib = minid.baselib;
-import stringlib = minid.stringlib;
 import arraylib = minid.arraylib;
-import tablelib = minid.tablelib;
-import mathlib = minid.mathlib;
+import baselib = minid.baselib;
 import charlib = minid.charlib;
 import iolib = minid.iolib;
+import mathlib = minid.mathlib;
 import oslib = minid.oslib;
 import regexplib = minid.regexplib;
+import stringlib = minid.stringlib;
+import tablelib = minid.tablelib;
 
-import path = std.path;
 import file = std.file;
-import utf = std.utf;
+import path = std.path;
 import std.string;
+import utf = std.utf;
 
 /**
 This enumeration is used with the MDInitialize function to specify which standard libraries you
@@ -94,7 +94,7 @@ imports to work properly.
 Parameters:
 	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
 	Defaults to MDStdlib.All.
-	
+
 Returns:
 	The main thread state associated with the global state.
 */
@@ -103,6 +103,8 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 	if(!MDGlobalState.isInitialized())
 	{
 		MDGlobalState();
+		MDGlobalState().tryPath = &tryPath;
+		version(MDNoDynLibs){}else MDGlobalState().tryDynLibPath = &tryDynLibPath;
 
 		baselib.init();
 
@@ -117,12 +119,6 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 
 		if(libs & MDStdlib.Math)
 			mathlib.init();
-
-		if(libs & MDStdlib.String)
-			stringlib.init();
-
-		if(libs & MDStdlib.Table)
-			tablelib.init();
 			
 		if(libs & MDStdlib.OS)
 			oslib.init();
@@ -130,79 +126,71 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 		if(libs & MDStdlib.Regexp)
 			regexplib.init();
 
-		MDGlobalState().registerModuleLoader(&MDFileLoader().load);
+		if(libs & MDStdlib.String)
+			stringlib.init();
+
+		if(libs & MDStdlib.Table)
+			tablelib.init();
 	}
 
 	return MDGlobalState().mainThread();
 }
 
-/**
-The default module loader for MiniD.  It will load modules from the filesystem based on their
-name and given search paths.
-*/
-class MDFileLoader
+private MDModuleDef tryPath(char[] path, char[][] elems)
 {
-	private static MDFileLoader instance;
-	private bool[char[]] mPaths;
+	if(!file.exists(path))
+		return null;
 
-	/// This class is a singleton, and this static opCall overload will return the instance.
-	public static MDFileLoader opCall()
+	foreach(elem; elems[0 .. $ - 1])
 	{
-		if(instance is null)
-			instance = new MDFileLoader();
-
-		return instance;
+		path = .path.join(path, elem);
+		
+		if(!file.exists(path))
+			return null;
 	}
+
+	path = .path.join(path, elems[$ - 1]);
+
+	char[] sourceName = path ~ ".md";
+	char[] moduleName = path ~ ".mdm";
 	
-	private this()
+	MDModuleDef def = null;
+
+	if(file.exists(sourceName))
 	{
-
-	}
-	
-	/// Adds a search path to the list of search paths.
-	public void addPath(char[] path)
-	{
-		mPaths[path] = true;
-	}
-
-	private bool load(MDState s, dchar[] name, dchar[] fromModule)
-	{
-		char[][] elements = split(utf.toUTF8(name), ".");
-
-		MDModuleDef def = tryPath(file.getcwd(), elements);
-
-		if(def is null)
+		if(file.exists(moduleName))
 		{
-			foreach(customPath, dummy; mPaths)
-			{
-				def = tryPath(customPath, elements);
-	
-				if(def !is null)
-					break;
-			}
-		}
+			long sourceTime;
+			long moduleTime;
+			long dummy;
 
-		if(def is null)
-			return false;
-
-		if(def.mName != name)
-		{
-			if(fromModule.length == 0)
-				throw new MDException("Attempting to load module \"%s\"", name, ", but module declaration says \"%s\"", def.name, "");
+			file.getTimes(sourceName, dummy, dummy, sourceTime);
+			file.getTimes(moduleName, dummy, dummy, moduleTime);
+			
+			if(sourceTime > moduleTime)
+				def = compileModule(sourceName);
 			else
-				throw new MDException("From module \"%s\"", fromModule, ": Attempting to load module \"%s\"", name, ", but module declaration says \"%s\"", def.name);
+				def = MDModuleDef.loadFromFile(moduleName);
 		}
-
-		MDNamespace ns = MDGlobalState().registerModule(def, s);
-		MDGlobalState().staticInitModule(def, ns, s);
-		return true;
+		else
+			def = compileModule(sourceName);
 	}
+	else
+	{
+		if(file.exists(moduleName))
+			def = MDModuleDef.loadFromFile(moduleName);
+	}
+	
+	return def;
+}
 
-	private MDModuleDef tryPath(char[] path, char[][] elems)
+version(MDNoDynLibs) {} else
+{
+	private char[] tryDynLibPath(char[] path, char[][] elems)
 	{
 		if(!file.exists(path))
 			return null;
-
+			
 		foreach(elem; elems[0 .. $ - 1])
 		{
 			path = .path.join(path, elem);
@@ -210,192 +198,14 @@ class MDFileLoader
 			if(!file.exists(path))
 				return null;
 		}
-
+	
 		path = .path.join(path, elems[$ - 1]);
-
-		char[] sourceName = path ~ ".md";
-		char[] moduleName = path ~ ".mdm";
 		
-		MDModuleDef def = null;
-
-		if(file.exists(sourceName))
-		{
-			if(file.exists(moduleName))
-			{
-				long sourceTime;
-				long moduleTime;
-				long dummy;
-
-				file.getTimes(sourceName, dummy, dummy, sourceTime);
-				file.getTimes(moduleName, dummy, dummy, moduleTime);
-				
-				if(sourceTime > moduleTime)
-					def = compileModule(sourceName);
-				else
-					def = MDModuleDef.loadFromFile(moduleName);
-			}
-			else
-				def = compileModule(sourceName);
-		}
-		else
-		{
-			if(file.exists(moduleName))
-				def = MDModuleDef.loadFromFile(moduleName);
-		}
+		char[] fileName = path ~ ".dll";
 		
-		return def;
-	}
-}
-
-version(MDNoDynLibs) {} else
-{
-/*
- * Copyright (c) 2005-2006 Derelict Developers
- * All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions are
- * met:
- *
- * * Redistributions of source code must retain the above copyright
- *   notice, this list of conditions and the following disclaimer.
- *
- * * Redistributions in binary form must reproduce the above copyright
- *   notice, this list of conditions and the following disclaimer in the
- *   documentation and/or other materials provided with the distribution.
- *
- * * Neither the names 'Derelict', 'DerelictUtil', nor the names of its contributors
- *   may be used to endorse or promote products derived from this software
- *   without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
- * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
- * TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
- * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
- * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
- * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
- * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
- * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
- * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
- * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-
-version(linux)
-	version = Dlfcn;
-
-version(darwin)
-	version = Dlfcn;
-else version(Unix)
-	version = Dlfcn;
-
-class DynLib
-{
-	private void* mHandle;
-	private dchar[] mName;
-	private static bool[DynLib] DynLibs;
-	private static DynLib[dchar[]] LibsByName;
-
-	static ~this()
-	{
-		foreach(lib; DynLibs.keys)
-			lib.unload();
-	}
-
-	private this(void* handle, dchar[] name)
-	{
-		mHandle = handle;
-		mName = name;
-		DynLibs[this] = true;
-		LibsByName[name] = this;
-	}
-
-	public dchar[] name()
-	{
-		return mName;
-	}
-
-	version(Windows)
-		import std.c.windows.windows;
-	else version(Dlfcn)
-	{
-		version(linux)
-			private import std.c.linux.linux;
-		else
-		{
-			extern(C)
-			{
-				// From <dlfcn.h>
-				// See http://www.opengroup.org/onlinepubs/007908799/xsh/dlsym.html
-				const int RTLD_NOW = 2;
-				void* dlopen(char* file, int mode);
-				int dlclose(void* handle);
-				void *dlsym(void* handle, char* name);
-				char* dlerror();
-			}
-		}
-	}
-	else
-		static assert(false, "MiniD cannot use dynamic libraries -- unsupported platform");
-		
-	public static DynLib load(dchar[] libName)
-	{
-		if(auto l = libName in LibsByName)
-			return *l;
-
-		version(Windows)
-			HMODULE hlib = LoadLibraryA(toStringz(utf.toUTF8(libName)));
-		else version(Dlfcn)
-			void* hlib = dlopen(toStringz(utf.toUTF8(libName)), RTLD_NOW);
-
-		if(hlib is null)
-			throw new MDException("Could not load dynamic library '%s'", libName);
-
-		return new DynLib(hlib, libName);
-	}
-
-	public void unload()
-	{
-		version(Windows)
-			FreeLibrary(cast(HMODULE)mHandle);
-		else version(Dlfcn)
-			dlclose(mHandle);
-
-		mHandle = null;
-		LibsByName.remove(mName);
-		DynLibs.remove(this);
-	}
-
-	public void* getProc(char[] procName)
-	{
-		version(Windows)
-			void* proc = GetProcAddress(cast(HMODULE)mHandle, toStringz(procName));
-		else version(Dlfcn)
-			void* proc = dlsym(mHandle, toStringz(procName));
-
-		if(proc is null)
-			throw new MDException("Could not get function '%s' from dynamic library '%s'", procName, mName);
-
-		return proc;
-	}
-}
-
-class MDDynLibLoader
-{
-	private static MDDynLibLoader instance;
-
-	public static MDDynLibLoader opCall()
-	{
-		if(instance is null)
-			instance = new MDDynLibLoader();
-
-		return instance;
-	}
-
-	private this()
-	{
-
-	}
-}
-
+		if(file.exists(fileName))
+			return fileName;
+			
+		return null;
+	} 
 }

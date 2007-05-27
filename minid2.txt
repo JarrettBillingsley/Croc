@@ -124,6 +124,7 @@ Keyword:
 	'is'
 	'local'
 	'module'
+	'namespace'
 	'null'
 	'return'
 	'super'
@@ -192,14 +193,14 @@ DecimalDigit:
 	'9'
 
 Binary:
-	'0b' BinaryDigit {BinaryDigit | '_'}
+	'0' ('b' | 'B') (BinaryDigit | '_') {BinaryDigit | '_'}
 
 BinaryDigit:
 	'0'
 	'1'
 
 Octal:
-	'0c' OctalDigit {OctalDigit | '_'}
+	'0' ('c' | 'C') (OctalDigit | '_') {OctalDigit | '_'}
 
 OctalDigit:
 	'0'
@@ -212,7 +213,7 @@ OctalDigit:
 	'7'
 
 Hexadecimal:
-	'0x' HexDigit {HexDigit | '_'}
+	'0' ('x' | 'X') (HexDigit | '_') {HexDigit | '_'}
 
 HexDigit:
 	'0'
@@ -239,11 +240,11 @@ HexDigit:
 	'f'
 
 FloatLiteral:
-	[DecimalDigit {DecimalDigit | '_'}] '.' DecimalDigit {DecimalDigit | '_'} [Exponent]
+	[DecimalDigit {DecimalDigit | '_'}] '.' (DecimalDigit | '_') {DecimalDigit | '_'} [Exponent]
 	DecimalDigit {DecimalDigit | '_'} [Exponent]
 
 Exponent:
-	('e' | 'E')['+' | '-'] DecimalDigit {DecimalDigit | '_'}
+	('e' | 'E')['+' | '-'] (DecimalDigit | '_') {DecimalDigit | '_'}
 
 // -----------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------
@@ -252,15 +253,10 @@ Exponent:
 // Syntax
 
 Module:
-	ModuleDeclaration {ImportStatement | Statement} EOF
-
-ModuleDeclaration:
-	'module' Identifier {'.' Identifier} ';'
-
-ImportStatement:
-	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] ';'
+	{Statement} EOF
 
 Statement:
+	ImportStatement
 	BlockStatement
 	ExpressionStatement
 	DeclarationStatement
@@ -276,6 +272,10 @@ Statement:
 	TryCatchStatement
 	ThrowStatement
 
+ImportStatement:
+	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] ';'
+	'import' '(' Expression ')' [':' Identifier {',' Identifier}] ';'
+
 BlockStatement:
 	'{' {Statement} '}'
 	
@@ -286,6 +286,7 @@ DeclarationStatement:
 	VariableDeclaration ';'
 	FunctionDeclaration
 	ClassDeclaration
+	NamespaceDeclaration
 
 VariableDeclaration:
 	LocalVarDeclaration
@@ -314,6 +315,13 @@ ClassMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
 	'this' Parameters BlockStatement
+	
+NamespaceDeclaration:
+	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
+	
+NamespaceMember:
+	SimpleFunctionDeclaration
+	Identifier ['=' Expression] ';'
 
 IfStatement:
 	'if' '(' Expression ')' Statement ['else' Statement]
@@ -486,6 +494,7 @@ PrimaryExpression:
 	'(' Expression ')'
 	TableCtor
 	ArrayCtor
+	NamespaceCtor
 	'yield' '(' [Arguments] ')'
 	'super' ['.' Identifier] '(' [Arguments] ')'
 
@@ -499,3 +508,6 @@ TableField:
 
 ArrayCtor:
 	'[' [Expression {',' Expression}] ']'
+	
+NamespaceCtor:
+	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'

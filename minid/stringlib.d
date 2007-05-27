@@ -63,11 +63,11 @@ class StringLib
 			"opApply"d,    new MDClosure(namespace, &apply,      "string.opApply")
 		);
 
-		MDGlobalState().setGlobal("string"d, MDNamespace.create
+		MDGlobalState().globals["string"d] = MDNamespace.create
 		(
-			"string"d, MDGlobalState().globals,
+			"string"d, MDGlobalState().globals.ns,
 			"join"d,       new MDClosure(namespace, &join,       "string.join")
-		));
+		);
 	}
 
 	int toInt(MDState s, uint numParams)
@@ -341,7 +341,7 @@ class StringLib
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("string"d, MDGlobalState().globals);
+	MDNamespace namespace = new MDNamespace("string"d, MDGlobalState().globals.ns);
 	new StringLib(namespace);
 	MDGlobalState().setMetatable(MDValue.Type.String, namespace);
 }

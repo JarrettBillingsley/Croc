@@ -44,13 +44,18 @@ void printUsage()
 	writefln("\tmdcl [flags] [filename [args]]");
 	writefln();
 	writefln("Flags:");
-	writefln("\t-i   Enter interactive mode, after executing any script file.");
-	writefln("\t-v   Print the version of the CLI.");
-	writefln("\t-h   Print this message and end.");
+	writefln("\t-i      Enter interactive mode, after executing any script file.");
+	writefln("\t-v      Print the version of the CLI.");
+	writefln("\t-h      Print this message and end.");
+	writefln("\t-I path Specifies an import path to search when importing modules.");
 	writefln();
 	writefln("If mdcl is called without any arguments, it will be as if you passed it");
 	writefln("the -v and -i arguments (it will print the version and enter interactive");
 	writefln("mode).");
+	writefln();
+	writefln("If the filename has no extension, it will be treated as a MiniD import-");
+	writefln("style module name.  So \"a.b\" will look for a module named b in the a");
+	writefln("directory.  The -I flag also affects the search paths used for this.");
 	writefln();
 	writefln("When passing a filename followed by args, all the args will be available");
 	writefln("to the script by using the vararg expression.  The arguments will all be");
@@ -80,6 +85,7 @@ void main(char[][] args)
 	bool interactive = false;
 	char[] inputFile;
 	char[][] scriptArgs;
+	char[][] importPaths;
 
 	if(args.length == 1)
 	{
@@ -106,6 +112,19 @@ void main(char[][] args)
 			case "-h":
 				printUsage();
 				return;
+				
+			case "-I":
+				i++;
+				
+				if(i >= args.length)
+				{
+					writefln("-I must be followed by a path");
+					printUsage();
+					return;
+				}
+				
+				importPaths ~= args[i];
+				break;
 
 			default:
 				if(args[i][0] == '-')
@@ -122,6 +141,9 @@ void main(char[][] args)
 	}
 
 	MDState state = MDInitialize();
+	
+	foreach(path; importPaths)
+		MDGlobalState().addImportPath(path);
 
 	if(inputFile.length > 0)
 	{
@@ -131,47 +153,34 @@ void main(char[][] args)
 			def = compileModule(inputFile);
 		else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
 			def = MDModuleDef.loadFromFile(inputFile);
-		else
-		{
-			char[] sourceName = inputFile ~ ".md";
-			char[] moduleName = inputFile ~ ".mdm";
-
-			if(file.exists(sourceName))
-			{
-				if(file.exists(moduleName))
-				{
-					long sourceTime;
-					long moduleTime;
-					long dummy;
-
-					file.getTimes(sourceName, dummy, dummy, sourceTime);
-					file.getTimes(moduleName, dummy, dummy, moduleTime);
-
-					if(sourceTime > moduleTime)
-						def = compileModule(sourceName);
-					else
-						def = MDModuleDef.loadFromFile(moduleName);
-				}
-				else
-					def = compileModule(sourceName);
-			}
-			else
-				def = MDModuleDef.loadFromFile(moduleName);
-		}
-
-		MDNamespace ns = MDGlobalState().registerModule(def, state);
 
 		MDValue[] params = new MDValue[scriptArgs.length];
-		
-		foreach(i, v; scriptArgs)
-			params[i] = v;
 
-		try
-			MDGlobalState().staticInitModule(def, ns, state, params);
-		catch(MDException e)
+		foreach(i, arg; scriptArgs)
+			params[i] = arg;
+
+		if(def is null)
 		{
-			writefln("Error: ", e);
-			writefln(MDState.getTracebackString());
+			try
+			{
+				if(MDGlobalState().loadModuleFromFile(state, utf.toUTF32(inputFile), params) is null)
+					writefln("Error: could not find module '%s'", inputFile);
+			}
+			catch(MDException e)
+			{
+				writefln("Error: ", e);
+				writefln(MDState.getTracebackString());
+			}
+		}
+		else
+		{
+			try
+				MDGlobalState().initializeModule(state, def, params);
+			catch(MDException e)
+			{
+				writefln("Error: ", e);
+				writefln(MDState.getTracebackString());
+			}
 		}
 	}
 
@@ -180,14 +189,14 @@ void main(char[][] args)
 		char[] buffer;
 		bool run = true;
 
-		MDGlobalState().setGlobal("exit"d, MDGlobalState().newClosure
+		MDGlobalState().globals["exit"d] = MDGlobalState().newClosure
 		(
 			(MDState s, uint numParams)
 			{
 				run = false;
 				return 0;
 			}, "exit"
-		));
+		);
 
 		version(Windows)
 			writefln("Type EOF (Ctrl-Z) and hit enter to end, or use the \"exit();\" function.");
@@ -232,7 +241,7 @@ void main(char[][] args)
 			try
 			{
 				scope closure = MDGlobalState().newClosure(def);
-				state.easyCall(closure, 0, MDValue(MDGlobalState().globals));
+				state.easyCall(closure, 0, MDValue(MDGlobalState().globals.ns));
 			}
 			catch(MDException e)
 			{

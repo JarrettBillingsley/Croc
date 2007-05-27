@@ -1,5 +1,43 @@
 module simple;
 
+// Importing stuff.
+{
+	function loadMod(name, ns)
+	{
+		assert(name == "mod");
+		
+		ns.x = "I'm x";
+	
+		ns.foo = function foo()
+		{
+			writefln("foo");
+		};
+	
+		ns.bar = function bar(x)
+		{
+			return x[0];
+		};
+	
+		ns.baz = function baz()
+		{
+			writefln(x);
+		};
+		
+		foreach(k, v; ns)
+			if(isFunction(v))
+				v.environment(ns);
+	}
+	
+	setModuleLoader("mod", loadMod);
+	
+	import mod : foo, bar;
+	foo();
+	writefln(bar([5]));
+	mod.baz();
+
+	writefln();
+}
+
 // Super calls.
 {
 	class Base
@@ -9,7 +47,7 @@ module simple;
 			writefln("Base fork.");
 		}
 	}
-	
+
 	class Derived : Base
 	{
 		function fork()

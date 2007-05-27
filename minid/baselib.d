@@ -573,16 +573,15 @@ class BaseLib
 	int namespaceApply(MDState s, uint numParams)
 	{
 		s.push(makeNamespaceIterator(s.getContext!(MDNamespace)));
-
 		return 1;
 	}
 	
 	int fieldsOf(MDState s, uint numParams)
 	{
 		if(s.isParam!("class")(0))
-			s.push(makeNamespaceIterator(s.getParam!(MDClass)(0).fields));
+			s.push(s.getParam!(MDClass)(0).fields);
 		else if(s.isParam!("instance")(0))
-			s.push(makeNamespaceIterator(s.getParam!(MDInstance)(0).fields));
+			s.push(s.getParam!(MDInstance)(0).fields);
 		else
 			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0u).typeString());
 	
@@ -592,9 +591,9 @@ class BaseLib
 	int methodsOf(MDState s, uint numParams)
 	{
 		if(s.isParam!("class")(0))
-			s.push(makeNamespaceIterator(s.getParam!(MDClass)(0).methods));
+			s.push(s.getParam!(MDClass)(0).methods);
 		else if(s.isParam!("instance")(0))
-			s.push(makeNamespaceIterator(s.getParam!(MDInstance)(0).methods));
+			s.push(s.getParam!(MDInstance)(0).methods);
 		else
 			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0u).typeString());
 
@@ -705,12 +704,6 @@ class BaseLib
 		return 1;
 	}
 	
-	int require(MDState s, uint numParams)
-	{
-		MDGlobalState().importModule(s.getParam!(dchar[])(0));
-		return 0;
-	}
-	
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
@@ -745,6 +738,24 @@ class BaseLib
 		MDFuncDef def = compileJSON(data);
 		MDNamespace env = s.environment(1);
 		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
+		return 1;
+	}
+	
+	int setModuleLoader(MDState s, uint numParams)
+	{
+		MDGlobalState().setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
+		return 0;
+	}
+	
+	int functionEnvironment(MDState s, uint numParams)
+	{
+		MDClosure cl = s.getContext!(MDClosure);
+		
+		s.push(cl.environment);
+
+		if(numParams > 0)
+			cl.environment = s.getParam!(MDNamespace)(0);
+
 		return 1;
 	}
 
@@ -1177,46 +1188,46 @@ public void init()
 		BaseLib lib = new BaseLib();
 		lib.stringBufferClass = new BaseLib.MDStringBufferClass();
 
-		setGlobal("StringBuffer"d,  lib.stringBufferClass);
-		setGlobal("assert"d,        newClosure(&lib.mdassert,              "assert"));
-		setGlobal("getTraceback"d,  newClosure(&lib.getTraceback,          "getTraceback"));
-		setGlobal("typeof"d,        newClosure(&lib.mdtypeof,              "typeof"));
-		setGlobal("fieldsOf"d,      newClosure(&lib.fieldsOf,              "fieldsOf"));
-		setGlobal("methodsOf"d,     newClosure(&lib.methodsOf,             "methodsOf"));
-		setGlobal("toString"d,      newClosure(&lib.mdtoString,            "toString"));
-		setGlobal("rawToString"d,   newClosure(&lib.rawToString,           "rawToString"));
-		setGlobal("toInt"d,         newClosure(&lib.toInt,                 "toInt"));
-		setGlobal("toFloat"d,       newClosure(&lib.toFloat,               "toFloat"));
-		setGlobal("toChar"d,        newClosure(&lib.toChar,                "toChar"));
-		setGlobal("format"d,        newClosure(&lib.mdformat,              "format"));
-		setGlobal("writefln"d,      newClosure(&lib.mdwritefln,            "writefln"));
-		setGlobal("writef"d,        newClosure(&lib.mdwritef,              "writef"));
-		setGlobal("writeln"d,       newClosure(&lib.writeln,               "writeln"));
-		setGlobal("write"d,         newClosure(&lib.write,                 "write"));
-		setGlobal("readf"d,         newClosure(&lib.readf,                 "readf"));
-		setGlobal("isNull"d,        newClosure(&lib.isParam!("null"),      "isNull"));
-		setGlobal("isBool"d,        newClosure(&lib.isParam!("bool"),      "isBool"));
-		setGlobal("isInt"d,         newClosure(&lib.isParam!("int"),       "isInt"));
-		setGlobal("isFloat"d,       newClosure(&lib.isParam!("float"),     "isFloat"));
-		setGlobal("isChar"d,        newClosure(&lib.isParam!("char"),      "isChar"));
-		setGlobal("isString"d,      newClosure(&lib.isParam!("string"),    "isString"));
-		setGlobal("isTable"d,       newClosure(&lib.isParam!("table"),     "isTable"));
-		setGlobal("isArray"d,       newClosure(&lib.isParam!("array"),     "isArray"));
-		setGlobal("isFunction"d,    newClosure(&lib.isParam!("function"),  "isFunction"));
-		setGlobal("isClass"d,       newClosure(&lib.isParam!("class"),     "isClass"));
-		setGlobal("isInstance"d,    newClosure(&lib.isParam!("instance"),  "isInstance"));
-		setGlobal("isNamespace"d,   newClosure(&lib.isParam!("namespace"), "isNamespace"));
-		setGlobal("isThread"d,      newClosure(&lib.isParam!("thread"),    "isThread"));
-		setGlobal("currentThread"d, newClosure(&lib.currentThread,         "currentThread"));
-		setGlobal("curry"d,         newClosure(&lib.curry,                 "curry"));
-		setGlobal("require"d,       newClosure(&lib.require,               "require"));
-		setGlobal("loadString"d,    newClosure(&lib.loadString,            "loadString"));
-		setGlobal("eval"d,          newClosure(&lib.eval,                  "eval"));
-		setGlobal("loadJSON"d,      newClosure(&lib.loadJSON,              "loadJSON"));
+		globals["StringBuffer"d] =    lib.stringBufferClass;
+		globals["assert"d] =          newClosure(&lib.mdassert,              "assert");
+		globals["getTraceback"d] =    newClosure(&lib.getTraceback,          "getTraceback");
+		globals["typeof"d] =          newClosure(&lib.mdtypeof,              "typeof");
+		globals["fieldsOf"d] =        newClosure(&lib.fieldsOf,              "fieldsOf");
+		globals["methodsOf"d] =       newClosure(&lib.methodsOf,             "methodsOf");
+		globals["toString"d] =        newClosure(&lib.mdtoString,            "toString");
+		globals["rawToString"d] =     newClosure(&lib.rawToString,           "rawToString");
+		globals["toInt"d] =           newClosure(&lib.toInt,                 "toInt");
+		globals["toFloat"d] =         newClosure(&lib.toFloat,               "toFloat");
+		globals["toChar"d] =          newClosure(&lib.toChar,                "toChar");
+		globals["format"d] =          newClosure(&lib.mdformat,              "format");
+		globals["writefln"d] =        newClosure(&lib.mdwritefln,            "writefln");
+		globals["writef"d] =          newClosure(&lib.mdwritef,              "writef");
+		globals["writeln"d] =         newClosure(&lib.writeln,               "writeln");
+		globals["write"d] =           newClosure(&lib.write,                 "write");
+		globals["readf"d] =           newClosure(&lib.readf,                 "readf");
+		globals["isNull"d] =          newClosure(&lib.isParam!("null"),      "isNull");
+		globals["isBool"d] =          newClosure(&lib.isParam!("bool"),      "isBool");
+		globals["isInt"d] =           newClosure(&lib.isParam!("int"),       "isInt");
+		globals["isFloat"d] =         newClosure(&lib.isParam!("float"),     "isFloat");
+		globals["isChar"d] =          newClosure(&lib.isParam!("char"),      "isChar");
+		globals["isString"d] =        newClosure(&lib.isParam!("string"),    "isString");
+		globals["isTable"d] =         newClosure(&lib.isParam!("table"),     "isTable");
+		globals["isArray"d] =         newClosure(&lib.isParam!("array"),     "isArray");
+		globals["isFunction"d] =      newClosure(&lib.isParam!("function"),  "isFunction");
+		globals["isClass"d] =         newClosure(&lib.isParam!("class"),     "isClass");
+		globals["isInstance"d] =      newClosure(&lib.isParam!("instance"),  "isInstance");
+		globals["isNamespace"d] =     newClosure(&lib.isParam!("namespace"), "isNamespace");
+		globals["isThread"d] =        newClosure(&lib.isParam!("thread"),    "isThread");
+		globals["currentThread"d] =   newClosure(&lib.currentThread,         "currentThread");
+		globals["curry"d] =           newClosure(&lib.curry,                 "curry");
+		globals["loadString"d] =      newClosure(&lib.loadString,            "loadString");
+		globals["eval"d] =            newClosure(&lib.eval,                  "eval");
+		globals["loadJSON"d] =        newClosure(&lib.loadJSON,              "loadJSON");
+		globals["setModuleLoader"d] = newClosure(&lib.setModuleLoader,       "setModuleLoader");
 
 		MDNamespace namespace = MDNamespace.create
 		(
-			"namespace"d, globals,
+			"namespace"d, globals.ns,
 			"opApply"d,             newClosure(&lib.namespaceApply,        "namespace.opApply")
 		);
 
@@ -1224,7 +1235,7 @@ public void init()
 
 		MDNamespace thread = MDNamespace.create
 		(
-			"thread"d, globals,
+			"thread"d, globals.ns,
 			"state"d,               newClosure(&lib.threadState,           "thread.state"),
 			"isInitial"d,           newClosure(&lib.isInitial,             "thread.isInitial"),
 			"isRunning"d,           newClosure(&lib.isRunning,             "thread.isRunning"),
@@ -1237,5 +1248,13 @@ public void init()
 		lib.threadIteratorClosure = new MDClosure(thread, &lib.threadIterator, "thread.iterator");
 
 		setMetatable(MDValue.Type.Thread, thread);
+		
+		MDNamespace func = MDNamespace.create
+		(
+			"function"d, globals.ns,
+			"environment"d,         newClosure(&lib.functionEnvironment,   "function.environment")
+		);
+		
+		setMetatable(MDValue.Type.Function, func);
 	}
 }

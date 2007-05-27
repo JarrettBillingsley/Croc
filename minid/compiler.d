@@ -139,6 +139,7 @@ struct Token
 		Is,
 		Local,
 		Module,
+		Namespace,
 		Null,
 		Return,
 		Super,
@@ -236,6 +237,7 @@ struct Token
 		Type.Is: "is",
 		Type.Local: "local",
 		Type.Module: "module",
+		Type.Namespace: "namespace",
 		Type.Null: "null",
 		Type.Return: "return",
 		Type.Super: "super",
@@ -335,6 +337,7 @@ struct Token
 		stringToType["is"] = Type.Is;
 		stringToType["local"] = Type.Local;
 		stringToType["module"] = Type.Module;
+		stringToType["namespace"] = Type.Namespace;
 		stringToType["null"] = Type.Null;
 		stringToType["return"] = Type.Return;
 		stringToType["super"] = Type.Super;
@@ -461,8 +464,6 @@ class Lexer
 				mCharacter = firstChar;
 
 			mEncoding = Encoding.UTF8;
-			//mCharacter = firstChar;
-			//mCharacter = 0;
 		}
 		else
 		{
@@ -814,10 +815,10 @@ class Lexer
 
 				switch(mCharacter)
 				{
-					case 'b':
+					case 'b', 'B':
 						nextChar();
 
-						if(!isBinaryDigit())
+						if(!isBinaryDigit() && mCharacter != '_')
 							throw new MDCompileException(mLoc, "Binary digit expected, not '%s'", mCharacter);
 
 						while(isBinaryDigit() || mCharacter == '_')
@@ -844,10 +845,10 @@ class Lexer
 
 						return true;
 
-					case 'c':
+					case 'c', 'C':
 						nextChar();
 
-						if(!isOctalDigit())
+						if(!isOctalDigit() && mCharacter != '_')
 							throw new MDCompileException(mLoc, "Octal digit expected, not '%s'", mCharacter);
 
 						while(isOctalDigit() || mCharacter == '_')
@@ -874,7 +875,7 @@ class Lexer
 
 						return true;
 
-					case 'x':
+					case 'x', 'X':
 						nextChar();
 
 						if(!isHexDigit() && mCharacter != '_')
@@ -3549,20 +3550,156 @@ class FuncDef
 	}
 }
 
+class NamespaceDef
+{
+	protected Location mLocation;
+	protected Location mEndLocation;
+	protected Identifier mName;
+	protected Expression mParent;
+	
+	struct Field
+	{
+		dchar[] name;
+		Expression initializer;
+	}
+
+	protected Field[] mFields;
+
+	public this(Location location, Location endLocation, Identifier name, Expression parent, Field[] fields)
+	{
+		mLocation = location;
+		mEndLocation = endLocation;
+		mName = name;
+		mParent = parent;
+		mFields = fields;
+	}
+
+	public static NamespaceDef parse(ref Token* t)
+	{
+		Location location = t.location;
+		t = t.expect(Token.Type.Namespace);
+
+		Identifier name = Identifier.parse(t);
+		Expression parent;
+
+		if(t.type == Token.Type.Colon)
+		{
+			t = t.nextToken;
+			parent = Expression.parse(t);
+		}
+		else
+			parent = new NullExp(t.location);
+
+		t = t.expect(Token.Type.LBrace);
+		
+		Expression[dchar[]] fields;
+
+		void addField(Identifier name, Expression v)
+		{
+			if(name.mName in fields)
+				throw new MDCompileException(name.mLocation, "Redeclaration of member '%s'", name.mName);
+
+			fields[name.mName] = v;
+		}
+		
+		while(t.type != Token.Type.RBrace)
+		{
+			switch(t.type)
+			{
+				case Token.Type.Function:
+					FuncDef fd = FuncDef.parseSimple(t);
+					addField(fd.mName, new FuncLiteralExp(fd.mLocation, fd.mEndLocation, fd));
+					break;
+
+				case Token.Type.Ident:
+					Identifier id = Identifier.parse(t);
+
+					Expression v;
+
+					if(t.type == Token.Type.Assign)
+					{
+						t = t.nextToken;
+						v = Expression.parse(t);
+					}
+					else
+						v = new NullExp(id.mLocation);
+
+					t = t.expect(Token.Type.Semicolon);
+					addField(id, v);
+					break;
+
+				case Token.Type.EOF:
+					throw new MDCompileException(t.location, "Namespace at ", location.toString(), " is missing its closing brace");
+
+				default:
+					throw new MDCompileException(t.location, "Namespace member expected, not '%s'", t.toString());
+			}
+		}
+
+		Field[] fieldsArray = new Field[fields.length];
+
+		uint i = 0;
+
+		foreach(name, initializer; fields)
+		{
+			fieldsArray[i].name = name;
+			fieldsArray[i].initializer = initializer;
+			i++;
+		}
+
+		t.expect(Token.Type.RBrace);
+		Location endLocation = t.location;
+		t = t.nextToken;
+		
+		return new NamespaceDef(location, endLocation, name, parent, fieldsArray);
+	}
+
+	public void codeGen(FuncState s)
+	{
+		mParent.codeGen(s);
+		Exp parent;
+		s.popSource(mLocation.line, parent);
+		s.freeExpTempRegs(&parent);
+
+		uint destReg = s.pushRegister();
+		uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
+		s.codeR(mLocation.line, Op.Namespace, destReg, nameConst, parent.index);
+
+		foreach(field; mFields)
+		{
+			uint index = s.tagConst(s.codeStringConst(field.name));
+
+			field.initializer.codeGen(s);
+			Exp val;
+			s.popSource(field.initializer.mEndLocation.line, val);
+			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+			s.freeExpTempRegs(&val);
+		}
+
+		s.pushTempReg(destReg);
+	}
+
+	public NamespaceDef fold()
+	{
+		foreach(ref field; mFields)
+			field.initializer = field.initializer.fold();
+
+		return this;
+	}
+}
+
 class Module
 {
 	protected Location mLocation;
 	protected Location mEndLocation;
 	protected ModuleDeclaration mModDecl;
-	protected dchar[][] mImports;
 	protected Statement[] mStatements;
 
-	public this(Location location, Location endLocation, ModuleDeclaration modDecl, dchar[][] imports, Statement[] statements)
+	public this(Location location, Location endLocation, ModuleDeclaration modDecl, Statement[] statements)
 	{
 		mLocation = location;
 		mEndLocation = endLocation;
 		mModDecl = modDecl;
-		mImports = imports;
 		mStatements = statements;
 	}
 
@@ -3570,38 +3707,24 @@ class Module
 	{
 		Location location = t.location;
 		ModuleDeclaration modDecl = ModuleDeclaration.parse(t);
-
+		
 		List!(Statement) statements;
 
-		bool[dchar[]] imports;
-
-		void addImport(ImportStatement imp)
-		{
-			imports[Identifier.toLongString(imp.mNames)] = true;
-			statements.add(imp);
-		}
-
 		while(t.type != Token.Type.EOF)
-		{
-			if(t.type == Token.Type.Import)
-				addImport(ImportStatement.parse(t));
-			else
-				statements.add(Statement.parse(t));
-		}
+			statements.add(Statement.parse(t));
 
 		t.expect(Token.Type.EOF);
 
-		return new Module(location, t.location, modDecl, imports.keys.sort, statements.toArray());
+		return new Module(location, t.location, modDecl, statements.toArray());
 	}
 
 	public MDModuleDef codeGen()
 	{
 		MDModuleDef def = new MDModuleDef();
-
+		
 		def.mName = Identifier.toLongString(mModDecl.mNames);
-		def.mImports = mImports;
 
-		FuncState fs = new FuncState(mLocation, "module " ~ Identifier.toLongString(mModDecl.mNames));
+		FuncState fs = new FuncState(mLocation, "module " ~ mModDecl.mNames[$ - 1].mName);
 		fs.mIsVararg = true;
 
 		try
@@ -3630,9 +3753,6 @@ class Module
 	public void showMe()
 	{
 		writefln("module %s", Identifier.toLongString(mModDecl.mNames));
-
-		foreach(name; mImports)
-			writefln("import %s", name);
 	}
 }
 
@@ -3692,8 +3812,11 @@ abstract class Statement
 
 				return ExpressionStatement.parse(t);
 
-			case Token.Type.Local, Token.Type.Global, Token.Type.Function, Token.Type.Class:
+			case Token.Type.Local, Token.Type.Global, Token.Type.Function, Token.Type.Class, Token.Type.Namespace:
 				return DeclarationStatement.parse(t);
+				
+			case Token.Type.Import:
+				return ImportStatement.parse(t);
 
 			case Token.Type.LBrace:
 				CompoundStatement s = CompoundStatement.parse(t);
@@ -3720,12 +3843,6 @@ abstract class Statement
 
 			case Token.Type.Switch:
 				return SwitchStatement.parse(t);
-				
-			//case Token.Type.Case:
-			//	return CaseStatement.parse(t);
-
-			//case Token.Type.Default:
-			//	return DefaultStatement.parse(t);
 
 			case Token.Type.Continue:
 				return ContinueStatement.parse(t);
@@ -3763,14 +3880,14 @@ abstract class Statement
 
 class ImportStatement : Statement
 {
-	protected Identifier[] mNames;
+	protected Expression mExpr;
 	protected Identifier[] mSymbols;
 
-	public this(Location location, Location endLocation, Identifier[] names, Identifier[] symbols)
+	public this(Location location, Location endLocation, Expression expr, Identifier[] symbols)
 	{
 		super(location, endLocation);
-
-		mNames = names;
+		
+		mExpr = expr;
 		mSymbols = symbols;
 	}
 
@@ -3779,16 +3896,29 @@ class ImportStatement : Statement
 		Location location = t.location;
 
 		t = t.expect(Token.Type.Import);
-
-		Identifier[] names;
-		names ~= Identifier.parse(t);
-
-		while(t.type == Token.Type.Dot)
+		
+		Expression expr;
+		
+		if(t.type == Token.Type.LParen)
 		{
 			t = t.nextToken;
-			names ~= Identifier.parse(t);
+			expr = Expression.parse(t);
+			t = t.expect(Token.Type.RParen);
 		}
-		
+		else
+		{
+			Identifier[] names;
+			names ~= Identifier.parse(t);
+	
+			while(t.type == Token.Type.Dot)
+			{
+				t = t.nextToken;
+				names ~= Identifier.parse(t);
+			}
+			
+			expr = new StringExp(location, Identifier.toLongString(names));
+		}
+
 		Identifier[] symbols;
 
 		if(t.type == Token.Type.Colon)
@@ -3807,19 +3937,11 @@ class ImportStatement : Statement
 		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new ImportStatement(location, endLocation, names, symbols);
-	}
-	
-	public char[] toString()
-	{
-		return "import " ~ utf.toUTF8(Identifier.toLongString(mNames)) ~ ";";
+		return new ImportStatement(location, endLocation, expr, symbols);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		if(mSymbols.length == 0)
-			return;
-
 		foreach(i, sym; mSymbols)
 		{
 			foreach(sym2; mSymbols[0 .. i])
@@ -3831,13 +3953,33 @@ class ImportStatement : Statement
 				}
 			}
 		}
-
+		
+		uint firstReg = s.nextRegister();
+		
 		foreach(sym; mSymbols)
+			s.pushRegister();
+
+		uint importReg = s.nextRegister();
+
+		mExpr.codeGen(s);
+		Exp src;
+		s.popSource(mLocation.line, src);
+
+		assert(s.nextRegister() == importReg, "bad import regs");
+
+		s.codeR(mLocation.line, Op.Import, importReg, src.index, 0);
+		
+		for(int reg = firstReg + mSymbols.length - 1; reg >= firstReg; reg--)
+			s.popRegister(reg);
+
+		foreach(i, sym; mSymbols)
 		{
-			uint destReg = s.nextRegister();
+			s.codeR(mLocation.line, Op.Index, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.mName)));
+
+			/*uint destReg = s.nextRegister();
 
 			s.pushVar(mNames[0]);
-			
+
 			foreach(name; mNames[1 .. $])
 			{
 				s.topToSource(mLocation.line);
@@ -3847,7 +3989,7 @@ class ImportStatement : Statement
 			s.topToSource(mLocation.line);
 			s.popField(mLocation.line, sym);
 
-			s.popMoveTo(mLocation.line, destReg);
+			s.popMoveTo(mLocation.line, destReg);*/
 			s.insertLocal(sym);
 		}
 
@@ -3984,6 +4126,8 @@ abstract class Declaration
             	return FuncDecl.parse(t);
 			else if(t.nextToken.type == Token.Type.Class)
 				return ClassDecl.parse(t);
+			else if(t.nextToken.type == Token.Type.Namespace)
+				return NamespaceDecl.parse(t);
 			else
 				throw new MDCompileException(location, "Illegal token '%s' after '%s'", t.nextToken.toString(), t.toString());
 		}
@@ -3991,6 +4135,8 @@ abstract class Declaration
 			return FuncDecl.parse(t);
 		else if(t.type == Token.Type.Class)
 			return ClassDecl.parse(t);
+		else if(t.type == Token.Type.Namespace)
+			return NamespaceDecl.parse(t);
 		else
 			throw new MDCompileException(location, "Declaration expected, not '%s'", t.toString());
 	}
@@ -4250,6 +4396,60 @@ class FuncDecl : Declaration
 		return new FuncDecl(location, protection, def);
 	}
 
+	public override void codeGen(FuncState s)
+	{
+		if(mProtection == Protection.Local)
+		{
+			s.insertLocal(mDef.mName);
+			s.activateLocals(1);
+			s.pushVar(mDef.mName);
+		}
+		else
+		{
+			assert(mProtection == Protection.Global);
+			s.pushNewGlobal(mDef.mName);
+		}
+
+		mDef.codeGen(s);
+		s.popAssign(mEndLocation.line);
+	}
+	
+	public override Declaration fold()
+	{
+		mDef = mDef.fold();
+		return this;
+	}
+}
+
+class NamespaceDecl : Declaration
+{
+	protected NamespaceDef mDef;
+
+	public this(Location location, Protection protection, NamespaceDef def)
+	{
+		super(location, def.mEndLocation, protection);
+
+		mDef = def;
+	}
+
+	public static NamespaceDecl parse(ref Token* t)
+	{
+		Location location = t.location;
+		Protection protection = Protection.Local;
+		
+		if(t.type == Token.Type.Global)
+		{
+			protection = Protection.Global;
+			t = t.nextToken;
+		}
+		else if(t.type == Token.Type.Local)
+			t = t.nextToken;
+
+		NamespaceDef def = NamespaceDef.parse(t);
+
+		return new NamespaceDecl(location, protection, def);
+	}
+	
 	public override void codeGen(FuncState s)
 	{
 		if(mProtection == Protection.Local)
@@ -6049,13 +6249,13 @@ class OpEqExp : Expression
 
 			_commonParse:
 				t = t.nextToken;
-				exp2 = OrOrExp.parse(t);
+				exp2 = Expression.parse(t);
 				exp1 = new OpEqExp(location, exp2.mEndLocation, type, exp1, exp2);
 				break;
 				
 			case Token.Type.CatEq:
 				t = t.nextToken;
-				exp2 = OrOrExp.parse(t);
+				exp2 = Expression.parse(t);
 				exp1 = new CatEqExp(location, exp2.mEndLocation, exp1, exp2);
 				break;
 
@@ -7688,7 +7888,6 @@ class CallExp : PostfixExp
 			s.popSource(mOp.mEndLocation.line, src);
 			s.freeExpTempRegs(&src);
 			assert(s.nextRegister() == funcReg);
-			//assert(src.index < funcReg + 2);
 
 			s.pushRegister();
 			uint thisReg = s.pushRegister();
@@ -7930,6 +8129,10 @@ class PrimaryExp : Expression
 
 			case Token.Type.LBracket:
 				exp = ArrayCtorExp.parse(t);
+				break;
+				
+			case Token.Type.Namespace:
+				exp = NamespaceCtorExp.parse(t);
 				break;
 				
 			case Token.Type.Yield:
@@ -8526,7 +8729,7 @@ class TableCtorExp : PrimaryExp
 	public this(Location location, Location endLocation, Expression[2][] fields)
 	{
 		super(location, endLocation);
-		
+
 		if(fields.length > 0)
 			mEndLocation = fields[$ - 1][1].mEndLocation;
 
@@ -8827,6 +9030,42 @@ class ArrayCtorExp : PrimaryExp
 		foreach(ref field; mFields)
 			field = field.fold();
 			
+		return this;
+	}
+}
+
+class NamespaceCtorExp : PrimaryExp
+{
+	protected NamespaceDef mDef;
+
+	public this(Location location, Location endLocation, NamespaceDef def)
+	{
+		super(location, endLocation);
+		
+		mDef = def;
+	}
+
+	public static NamespaceCtorExp parse(ref Token* t)
+	{
+		Location location = t.location;
+		NamespaceDef def = NamespaceDef.parse(t);
+
+		return new NamespaceCtorExp(location, def.mEndLocation, def);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		mDef.codeGen(s);
+	}
+	
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use namespace constructor as a condition");
+	}
+
+	public override Expression fold()
+	{
+		mDef = mDef.fold();
 		return this;
 	}
 }
