@@ -253,7 +253,10 @@ Exponent:
 // Syntax
 
 Module:
-	{Statement} EOF
+	ModuleDeclaration {Statement} EOF
+
+ModuleDeclaration:
+	'module' Identifier {'.' Identifier} ';'
 
 Statement:
 	ImportStatement
