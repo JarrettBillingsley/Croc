@@ -26,22 +26,20 @@ module minid.oslib;
 import minid.types;
 import minid.utils;
 
-import std.perf;
+import tango.util.time.StopWatch;
 
 version(Windows)
 {
-	import std.c.windows.windows;
+	private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
+	private extern(Windows) int QueryPerformanceCounter(ulong* count);
 }
 else version(Unix)
 {
-	import std.c.unix.unix;
-	alias timezone struct_timezone;
+	import tango.stdc.posix.sys.time;
 }
 else version(linux)
 {
-	import std.c.linux.linux;
-	alias std.c.linux.linux.timeval timeval;
-	alias std.c.linux.linux.gettimeofday gettimeofday;
+	import tango.stdc.posix.sys.time;
 }
 else
 	static assert(false, "No valid platform defined");
@@ -65,13 +63,13 @@ class OSLib
 		);
 	}
 
-	version(Windows) long performanceFreq;
+	version(Windows) ulong performanceFreq;
 
 	int microTime(MDState s, uint numParams)
 	{
 		version(Windows)
 		{
-			long time;
+			ulong time;
 			QueryPerformanceCounter(&time);
 
 			if(time < 0x8637BD05AF6L)
@@ -82,8 +80,7 @@ class OSLib
 		else
 		{
 			timeval tv;
-			struct_timezone tz;
-			gettimeofday(&tv, &tz);
+			gettimeofday(&tv, null);
 			s.push(cast(ulong)(tv.tv_sec * 1_000_000L) + cast(ulong)tv.tv_usec);
 		}
 		
@@ -102,7 +99,6 @@ class OSLib
 			(
 				"start"d,     new MDClosure(mMethods, &start,     "PerfCounter.start"),
 				"stop"d,      new MDClosure(mMethods, &stop,      "PerfCounter.stop"),
-				"period"d,    new MDClosure(mMethods, &period,    "PerfCounter.period"),
 				"seconds"d,   new MDClosure(mMethods, &seconds,   "PerfCounter.seconds"),
 				"millisecs"d, new MDClosure(mMethods, &millisecs, "PerfCounter.millisecs"),
 				"microsecs"d, new MDClosure(mMethods, &microsecs, "PerfCounter.microsecs")
@@ -126,13 +122,6 @@ class OSLib
 			MDPerfCounter i = s.getContext!(MDPerfCounter);
 			i.stop();
 			return 0;
-		}
-		
-		public int period(MDState s, uint numParams)
-		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			s.push(i.period());
-			return 1;
 		}
 		
 		public int seconds(MDState s, uint numParams)
@@ -159,42 +148,37 @@ class OSLib
 
 	static class MDPerfCounter : MDInstance
 	{
-		protected PerformanceCounter mCounter;
+		protected StopWatch mWatch;
+		protected mdfloat mTime = 0;
 
 		public this(MDClass owner)
 		{
 			super(owner);
-			mCounter = new PerformanceCounter();
 		}
 		
 		public final void start()
 		{
-			mCounter.start();
+			mWatch.start();
 		}
 
 		public final void stop()
 		{
-			mCounter.stop();
-		}
-
-		public final int period()
-		{
-			return mCounter.periodCount();
+			mTime = mWatch.stop();
 		}
 
 		public final mdfloat seconds()
 		{
-			return mCounter.microseconds() / 1_000_000.0;
+			return mTime;
 		}
 
 		public final mdfloat millisecs()
 		{
-			return mCounter.microseconds() / 1000.0;
+			return mTime * 1000;
 		}
 
 		public final mdfloat microsecs()
 		{
-			return mCounter.microseconds();
+			return mTime * 1000000;
 		}
 	}
 }

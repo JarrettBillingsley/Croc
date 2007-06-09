@@ -23,6 +23,12 @@ subject to the following restrictions:
 
 module minid.minid;
 
+version(MDDynLibs)
+{
+	pragma(msg, "MiniD's dynamic library support is not implemented.\nPlease compile without the MDDynLibs version set.");
+	static assert(false);
+}
+
 public import minid.compiler;
 public import minid.types;
 public import minid.utils;
@@ -37,10 +43,7 @@ import regexplib = minid.regexplib;
 import stringlib = minid.stringlib;
 import tablelib = minid.tablelib;
 
-import file = std.file;
-import path = std.path;
-import std.string;
-import utf = std.utf;
+import tango.io.FilePath;
 
 /**
 This enumeration is used with the MDInitialize function to specify which standard libraries you
@@ -104,7 +107,7 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 	{
 		MDGlobalState();
 		MDGlobalState().tryPath = &tryPath;
-		version(MDNoDynLibs){}else MDGlobalState().tryDynLibPath = &tryDynLibPath;
+		version(MDDynLibs) MDGlobalState().tryDynLibPath = &tryDynLibPath;
 
 		baselib.init();
 
@@ -136,55 +139,46 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 	return MDGlobalState().mainThread();
 }
 
-private MDModuleDef tryPath(char[] path, char[][] elems)
+private MDModuleDef tryPath(FilePath path, char[][] elems)
 {
-	if(!file.exists(path))
+	if(!path.exists())
 		return null;
 
 	foreach(elem; elems[0 .. $ - 1])
 	{
-		path = .path.join(path, elem);
-		
-		if(!file.exists(path))
+		path.set(FilePath.join(path.toUtf8(), elem), true);
+
+		if(!path.exists())
 			return null;
 	}
 
-	path = .path.join(path, elems[$ - 1]);
+	scope sourceName = new FilePath(FilePath.join(path.toUtf8(), elems[$ - 1] ~ ".md"));
+	scope binaryName = new FilePath(FilePath.join(path.toUtf8(), elems[$ - 1] ~ ".mdm"));
 
-	char[] sourceName = path ~ ".md";
-	char[] moduleName = path ~ ".mdm";
-	
 	MDModuleDef def = null;
 
-	if(file.exists(sourceName))
+	if(sourceName.exists())
 	{
-		if(file.exists(moduleName))
+		if(binaryName.exists())
 		{
-			long sourceTime;
-			long moduleTime;
-			long dummy;
-
-			file.getTimes(sourceName, dummy, dummy, sourceTime);
-			file.getTimes(moduleName, dummy, dummy, moduleTime);
-			
-			if(sourceTime > moduleTime)
-				def = compileModule(sourceName);
+			if(sourceName.modified() > binaryName.modified())
+				def = compileModule(sourceName.toUtf8());
 			else
-				def = MDModuleDef.loadFromFile(moduleName);
+				def = MDModuleDef.loadFromFile(binaryName.toUtf8());
 		}
 		else
-			def = compileModule(sourceName);
+			def = compileModule(sourceName.toUtf8());
 	}
 	else
 	{
-		if(file.exists(moduleName))
-			def = MDModuleDef.loadFromFile(moduleName);
+		if(binaryName.exists())
+			def = MDModuleDef.loadFromFile(binaryName.toUtf8());
 	}
-	
+
 	return def;
 }
 
-version(MDNoDynLibs) {} else
+version(MDDynLibs)
 {
 	private char[] tryDynLibPath(char[] path, char[][] elems)
 	{

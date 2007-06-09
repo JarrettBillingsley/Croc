@@ -26,8 +26,10 @@ module minid.mathlib;
 import minid.types;
 import minid.utils;
 
-import math = std.math;
-import random = std.random;
+import math = tango.math.Math;
+import tango.math.GammaFunction;
+import tango.math.Random;
+import tango.math.IEEE;
 
 class MathLib
 {
@@ -35,8 +37,8 @@ class MathLib
 	{
 		namespace.addList
 		(
-			"e"d,        std.math.E,
-			"pi"d,       std.math.PI,
+			"e"d,        tango.math.Math.E,
+			"pi"d,       tango.math.Math.PI,
 			"nan"d,      mdfloat.nan,
 			"infinity"d, mdfloat.infinity,
 			"abs"d,      new MDClosure(namespace, &abs,     "math.abs"),
@@ -75,7 +77,7 @@ class MathLib
 		else if(s.isParam!("float")(i))
 			return s.getParam!(mdfloat)(i);
 		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
+			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(i).typeString());
 	}
 
 	int abs(MDState s, uint numParams)
@@ -85,8 +87,8 @@ class MathLib
 		else if(s.isParam!("float")(0))
 			s.push(math.abs(s.getParam!(mdfloat)(0)));
 		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(0u).typeString());
-			
+			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(0u).typeString());
+
 		return 1;
 	}
 	
@@ -176,13 +178,13 @@ class MathLib
 	
 	int lgamma(MDState s, uint numParams)
 	{
-		s.push(math.lgamma(getFloat(s, 0)));
+		s.push(logGamma(getFloat(s, 0)));
 		return 1;
 	}
-	
+
 	int gamma(MDState s, uint numParams)
 	{
-		s.push(math.tgamma(getFloat(s, 0)));
+		s.push(.gamma(getFloat(s, 0)));
 		return 1;
 	}
 	
@@ -212,13 +214,13 @@ class MathLib
 	
 	int isNan(MDState s, uint numParams)
 	{
-		s.push(cast(bool)math.isnan(getFloat(s, 0)));
+		s.push(cast(bool)math.isNaN(getFloat(s, 0)));
 		return 1;
 	}
 
 	int isInf(MDState s, uint numParams)
 	{
-		s.push(cast(bool)math.isinf(getFloat(s, 0)));
+		s.push(cast(bool)math.isInfinity(getFloat(s, 0)));
 		return 1;
 	}
 	
@@ -267,18 +269,18 @@ class MathLib
 		switch(numParams)
 		{
 			case 0:
-				s.push(cast(int)random.rand());
+				s.push(cast(int)Random.shared.next());
 				break;
 
 			case 1:
-				s.push(cast(uint)random.rand() % s.getParam!(int)(0));
+				s.push(cast(uint)Random.shared.next() % s.getParam!(int)(0));
 				break;
 
 			default:
 				int lo = s.getParam!(int)(0);
 				int hi = s.getParam!(int)(1);
 				
-				s.push(cast(int)(random.rand() % (hi - lo)) + lo);
+				s.push(cast(int)(Random.shared.next() % (hi - lo)) + lo);
 				break;
 		}
 		

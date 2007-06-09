@@ -15,5 +15,4 @@ minid/utils.d
 -Tminid.lib
 -release
 -clean
--version=MDNoDynLibs
 -od.

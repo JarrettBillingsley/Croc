@@ -3,4 +3,3 @@ mdcl.d
 -release
 -O
 -op
--version=MDNoDynLibs

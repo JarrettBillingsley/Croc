@@ -10,7 +10,7 @@ loadJSON("{}");
 local x = 0;
 x += 5;
 try loadString("f(4 5)"); catch(e){}
-try require("tests.compiler.badshebang"); catch(e){}
+try import("tests.compiler.badshebang"); catch(e){}
 x = 0b0011;
 x = 0x5f;
 x = 0c37;
@@ -22,7 +22,7 @@ try loadString("x = 0b1111111111111111111111111111111111111111111111111111;"); c
 try loadString("x = 0c8;"); catch(e){}
 try loadString("x = 0c777777777777777777777777777777;"); catch(e){}
 try loadString("x = 999999999999999999999999999;"); catch(e){}
-try loadString("x = 0xffffffffffffffffffffffff;"); catch(e){}
+try loadString("x = 0xfffffffffffffffffffffffffffff;"); catch(e){}
 try loadString("x = 0x_f;"); catch(e){}
 try loadString("x = 0xh;"); catch(e){}
 x = 4._5_5;

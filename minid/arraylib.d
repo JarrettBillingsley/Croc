@@ -24,8 +24,7 @@ subject to the following restrictions:
 module minid.arraylib;
 
 import minid.types;
-
-import std.math;
+import tango.math.Math;
 
 class ArrayLib
 {
@@ -66,7 +65,7 @@ class ArrayLib
 		int length = s.getParam!(int)(0);
 		
 		if(length < 0)
-			s.throwRuntimeException("Invalid length: ", length);
+			s.throwRuntimeException("Invalid length: {}", length);
 			
 		if(numParams == 1)
 			s.push(new MDArray(length));
@@ -157,7 +156,7 @@ class ArrayLib
 		int length = s.getParam!(int)(0);
 
 		if(length < 0)
-			s.throwRuntimeException("Invalid length: ", length);
+			s.throwRuntimeException("Invalid length: {}", length);
 
 		arr.length = length;
 
@@ -239,9 +238,9 @@ class ArrayLib
 		for(int i = 0; i < array.length; i++)
 		{
 			if(array[i].isString())
-				str ~= '"' ~ array[i].toString() ~ '"';
+				str ~= '"' ~ array[i].as!(MDString).asUTF8() ~ '"';
 			else
-				str ~= array[i].toString();
+				str ~= array[i].toUtf8();
 			
 			if(i < array.length - 1)
 				str ~= ", ";
@@ -430,7 +429,7 @@ class ArrayLib
 			index += array.length;
 
 		if(index < 0 || index >= array.length)
-			s.throwRuntimeException("Invalid array index: ", index);
+			s.throwRuntimeException("Invalid array index: {}", index);
 
 		s.push(array[index]);
 

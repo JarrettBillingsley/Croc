@@ -7,6 +7,10 @@ module tests.str;
 ("a").icompare("b");
 ("a").find("a");
 ("a").find('a');
+("a").find('b');
+("a").ifind('b');
+("a").rfind('b');
+("a").irfind('b');
 try ("a").find(4); catch(e){}
 ("a").ifind("a");
 ("a").ifind('a');

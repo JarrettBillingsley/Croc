@@ -1,11 +1,7 @@
 module test;
 
-import std.stdio;
-import std.stream;
-import std.string;
-import std.traits;
-
 import minid.minid;
+import tango.io.Stdout;
 
 void main()
 {
@@ -14,16 +10,16 @@ void main()
 		MDState s = MDInitialize();
 		MDGlobalState().addImportPath(`samples`);
 
-		MDGlobalState().importModule("arrays");
+		MDGlobalState().importModule("simple");
 	}
 	catch(MDException e)
 	{
-		writefln("Error: ", e);
-		writefln(MDState.getTracebackString());
+		Stdout.formatln("Error: {}", e.toUtf8());
+		Stdout.formatln("{}", MDState.getTracebackString());
 	}
-	catch(Object e)
+	catch(Exception e)
 	{
-		writefln("Bad error: ", e);
-		writefln(MDState.getTracebackString());
+		Stdout.formatln("Bad error: {}", e.toUtf8());
+		Stdout.formatln("{}", MDState.getTracebackString());
 	}
 }

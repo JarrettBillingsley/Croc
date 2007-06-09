@@ -27,19 +27,26 @@ import minid.types;
 import minid.baselib;
 import minid.utils;
 
-import std.file;
-import std.stream;
-import std.cstream;
+import tango.io.Buffer;
+import tango.io.FilePath;
+import tango.io.FileScan;
+import tango.io.FileSystem;
+import tango.io.Print;
+import tango.io.protocol.Reader;
+import tango.io.protocol.Writer;
+import tango.io.Stdout;
+import tango.text.stream.LineIterator;
+import tango.util.PathUtil;
 
 class IOLib
 {
 	this(MDNamespace namespace)
 	{
-		streamClass = new MDStreamClass();
+		//streamClass = new MDStreamClass();
 
 		namespace.addList
 		(
-			"Stream"d,      streamClass,
+			/*"Stream"d,      streamClass,
 
 			"stdin"d,       streamClass.newInstance(din),
 			"stdout"d,      streamClass.newInstance(dout),
@@ -53,7 +60,7 @@ class IOLib
 				"Append"d,  cast(int)FileMode.Append
 			),
 
-			"File"d,        new MDClosure(namespace, &file,        "io.File"),
+			"File"d,        new MDClosure(namespace, &file,        "io.File"),*/
 			"rename"d,      new MDClosure(namespace, &rename,      "io.rename"),
 			"remove"d,      new MDClosure(namespace, &remove,      "io.remove"),
 			"copy"d,        new MDClosure(namespace, &copy,        "io.copy"),
@@ -71,89 +78,81 @@ class IOLib
 
 	int rename(MDState s, uint numParams)
 	{
-		char[] file = s.getParam!(char[])(0);
-		char[] newName = s.getParam!(char[])(1);
-		
-		s.safeCode(std.file.rename(file, newName));
-
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.safeCode(fp.rename(s.getParam!(char[])(1)));
 		return 0;
 	}
 	
 	int remove(MDState s, uint numParams)
 	{
-		char[] file = s.getParam!(char[])(0);
-
-		s.safeCode(std.file.remove(file));
-
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.safeCode(fp.remove());
 		return 0;
 	}
 	
 	int copy(MDState s, uint numParams)
 	{
-		char[] src = s.getParam!(char[])(0);
-		char[] dest = s.getParam!(char[])(1);
-
-		s.safeCode(std.file.copy(src, dest));
-
+		scope fp = new FilePath(s.getParam!(char[])(1));
+		s.safeCode(fp.copy(s.getParam!(char[])(0)));
 		return 0;
 	}
 	
 	int size(MDState s, uint numParams)
 	{
-		char[] file = s.getParam!(char[])(0);
-		ulong ret = s.safeCode(std.file.getSize(file));
-
-		s.push(cast(int)ret);
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.push(cast(int)s.safeCode(fp.fileSize()));
 		return 1;
 	}
 	
 	int exists(MDState s, uint numParams)
 	{
-		s.push(cast(bool)std.file.exists(s.getParam!(char[])(0)));
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.push(cast(bool)fp.exists());
 		return 1;
 	}
 	
 	int isFile(MDState s, uint numParams)
 	{
-		char[] file = s.getParam!(char[])(0);
-		s.push(s.safeCode(cast(bool)std.file.isfile(file)));
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.push(s.safeCode(!fp.isFolder()));
 		return 1;
 	}
 	
 	int isDir(MDState s, uint numParams)
 	{
-		char[] file = s.getParam!(char[])(0);
-		s.push(s.safeCode(cast(bool)std.file.isdir(file)));
+		scope fp = new FilePath(s.getParam!(char[])(0));
+		s.push(s.safeCode(fp.isFolder()));
 		return 1;
 	}
 	
 	int currentDir(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(std.file.getcwd()));
+		s.push(s.safeCode(FileSystem.getDirectory()));
 		return 1;
 	}
 	
 	int changeDir(MDState s, uint numParams)
 	{
 		char[] path = s.getParam!(char[])(0);
-		s.safeCode(std.file.chdir(path));
-
+		s.safeCode(FileSystem.setDirectory(path));
 		return 0;
 	}
 	
 	int makeDir(MDState s, uint numParams)
 	{
-		char[] path = s.getParam!(char[])(0);
-		s.safeCode(std.file.mkdir(path));
+		scope fp = new FilePath(s.getParam!(char[])(0), true);
+		
+		if(!fp.isAbsolute())
+			fp.prepend(FileSystem.getDirectory());
 
+		s.safeCode(fp.create());
 		return 0;
 	}
 	
 	int removeDir(MDState s, uint numParams)
 	{
-		char[] path = s.getParam!(char[])(0);
-		s.safeCode(std.file.rmdir(path));
-
+		scope fp = new FilePath(s.getParam!(char[])(0), true);
+		s.safeCode(fp.remove());
 		return 0;
 	}
 	
@@ -161,16 +160,36 @@ class IOLib
 	{
 		char[] path = s.getParam!(char[])(0);
 		char[][] listing;
-		
+
 		if(numParams == 1)
-			listing = std.file.listdir(path);
+		{
+			scope fp = new FilePath(path, true);
+			listing = s.safeCode(fp.toList());
+		}
 		else
-			listing = std.file.listdir(path, s.getParam!(char[])(1));
+		{
+			char[] filter = s.getParam!(char[])(1);
+			scope scan = new FileScan();
 			
+			s.safeCode(scan(path, (FilePath fp, bool isDir)
+			{
+				if(isDir)
+					return false;
+
+				return patternMatch(fp.toUtf8(), filter);
+			}));
+			
+			foreach(folder; scan.folders)
+				listing ~= folder.toUtf8();
+				
+			foreach(file; scan.files)
+				listing ~= file.toUtf8();
+		}
+
 		s.push(MDArray.fromArray(listing));
 		return 1;
 	}
-	
+	/*
 	int file(MDState s, uint numParams)
 	{
 		File f;
@@ -184,7 +203,7 @@ class IOLib
 		}
 		catch(StreamException e)
 		{
-			s.throwRuntimeException(e.toString());
+			s.throwRuntimeException(e.toUtf8());
 		}
 		
 		s.push(streamClass.newInstance(f));
@@ -213,7 +232,7 @@ class IOLib
 				"readDChar"d,   new MDClosure(mMethods, &read!(dchar),    "Stream.readDChar"),
 				"readString"d,  new MDClosure(mMethods, &readString,      "Stream.readString"),
 				"readLine"d,    new MDClosure(mMethods, &readLine,        "Stream.readLine"),
-				"readf"d,       new MDClosure(mMethods, &readf,           "Stream.readf"),
+// 				"readf"d,       new MDClosure(mMethods, &readf,           "Stream.readf"),
 				"readChars"d,   new MDClosure(mMethods, &readChars,       "Stream.readChars"),
 
 				"writeByte"d,   new MDClosure(mMethods, &write!(ubyte),   "Stream.writeByte"),
@@ -247,10 +266,10 @@ class IOLib
 			return new MDStream(this);
 		}
 		
-		protected MDStream newInstance(Stream source)
+		protected MDStream newInstance(Buffer buffer)
 		{
 			MDStream n = newInstance();
-			n.constructor(source);
+			n.constructor(buffer);
 			return n;
 		}
 
@@ -275,17 +294,17 @@ class IOLib
 			return 1;
 		}
 		
-		public int readf(MDState s, uint numParams)
-		{
-			MDStream i = s.getContext!(MDStream);
-			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
+// 		public int readf(MDState s, uint numParams)
+// 		{
+// 			MDStream i = s.getContext!(MDStream);
+// 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
+// 
+// 			foreach(ref v; ret)
+// 				s.push(v);
+// 				
+// 			return ret.length;
+// 		}
 
-			foreach(ref v; ret)
-				s.push(v);
-				
-			return ret.length;
-		}
-		
 		public int readChars(MDState s, uint numParams)
 		{
 			MDStream i = s.getContext!(MDStream);
@@ -376,7 +395,7 @@ class IOLib
 			else if(whence == 'e')
 				s.safeCode(i.seek(pos, SeekPos.End));
 			else
-				s.throwRuntimeException("Invalid seek type '%s'", whence);
+				s.throwRuntimeException("Invalid seek type '{}'", whence);
 
 			return 0;
 		}
@@ -441,57 +460,71 @@ class IOLib
 
 	static class MDStream : MDInstance
 	{
-		protected Stream mStream;
+		protected Buffer mBuffer;
+		protected Reader mReader;
+		protected Writer mWriter;
+		protected LineIterator!(dchar) mLines;
+		protected Print!(char) mPrint;
 		
 		public this(MDClass owner)
 		{
 			super(owner);
 		}
 
-		public void constructor(Stream stream)
+		public void constructor(Buffer buffer)
 		{
-			mStream = stream;
+			mBuffer = buffer;
+			mReader = new Reader(mBuffer);
+			mWriter = new Writer(mBuffer);
+			mLines = new LineIterator!(dchar)(mBuffer);
+			
+			version(Windows)
+				mPrint = new Print!(char)(Stdout.layout, mBuffer, "\r\n");
+			else
+				mPrint = new Print!(char)(Stdout.layout, mBuffer, "\n");
 		}
 		
 		public T read(T)()
 		{
 			T val;
-			mStream.read(val);
+			mReader.read(val);
 			return val;
 		}
 		
 		public dchar[] readString()
 		{
 			dchar[] s;
-			Deserialize(mStream, s);
+			Deserialize(mReader, s);
 			return s;
 		}
 
 		public char[] readLine()
 		{
-			return mStream.readLine();
+			return mLines.next();
 		}
 		
 		public MDString readChars(uint length)
 		{
-			return new MDString(mStream.readString(length));
+			char[] data = new char[length];
+			mBuffer.readExact(data.ptr, length * char.sizeof);
+			return new MDString(data);
 		}
 
 		public void write(T)(T val)
 		{
-			mStream.write(val);
+			mWriter.write(val);
 		}
 		
 		public void writeString(dchar[] s)
 		{
-			Serialize(mStream, s);
+			Serialize(mWriter, s);
 		}
-		
+
 		public void writeLine(char[] val)
 		{
-			mStream.writeLine(val);
+			mPrint.print(val);
 		}
-		
+
 		public void writef(dchar[] val)
 		{
 			mStream.writef(val);
@@ -551,7 +584,7 @@ class IOLib
 		{
 			mStream.close();
 		}
-	}
+	}*/
 }
 
 public void init()

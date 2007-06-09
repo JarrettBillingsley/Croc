@@ -26,13 +26,12 @@ module minid.stringlib;
 import minid.types;
 import minid.utils;
 
-alias minid.utils.toInt toInt;
-
-import string = std.string;
-import std.conv;
-import std.uni;
-
-//import std.stdio;
+import Integer = tango.text.convert.Integer;
+import Float = tango.text.convert.Float;
+import tango.text.Ascii;
+import tango.core.Array;
+import tango.text.Util;
+import UniChar;
 
 class StringLib
 {
@@ -79,13 +78,13 @@ class StringLib
 		if(numParams > 0)
 			base = s.getParam!(int)(0);
 
-		s.push(s.safeCode(.toInt(src, base)));
+		s.push(s.safeCode(Integer.toInt(src, base)));
 		return 1;
 	}
-	
+
 	int toFloat(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(std.conv.toFloat(s.getContext!(char[]))));
+		s.push(s.safeCode(Float.toFloat(s.getContext!(dchar[]))));
 		return 1;
 	}
 	
@@ -97,62 +96,86 @@ class StringLib
 
 	int icompare(MDState s, uint numParams)
 	{
-		s.push(string.icmp(s.getContext!(char[]), s.getParam!(char[])(0)));
+		s.push(.icompare(s.getContext!(char[]), s.getParam!(char[])(0)));
 		return 1;
 	}
 	
 	int find(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
+		dchar[] src = s.getContext!(dchar[]);
+		uint result;
 
 		if(s.isParam!("string")(0))
-			s.push(s.safeCode(string.find(src, s.getParam!(char[])(0))));
+			result = locatePattern(src, s.getParam!(dchar[])(0));
 		else if(s.isParam!("char")(0))
-			s.push(s.safeCode(string.find(src, s.getParam!(dchar)(0))));
+			result = locate(src, s.getParam!(dchar)(0));
 		else
-			s.throwRuntimeException("Second parameter must be string or int");
+			s.throwRuntimeException("Second parameter must be string or char");
+
+		if(result == src.length)
+			s.push(-1);
+		else
+			s.push(result);
 
 		return 1;
 	}
 	
 	int ifind(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
+		dchar[] src = toLowerD(s.getContext!(dchar[]));
+		uint result;
 
 		if(s.isParam!("string")(0))
-			s.push(s.safeCode(string.ifind(src, s.getParam!(char[])(0))));
+			result = locatePattern(src, toLowerD(s.getParam!(dchar[])(0)));
 		else if(s.isParam!("char")(0))
-			s.push(s.safeCode(string.ifind(src, s.getParam!(dchar)(0))));
+			result = locate(src, toUniLower(s.getParam!(dchar)(0)));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
+			
+		if(result == src.length)
+			s.push(-1);
+		else
+			s.push(result);
 
 		return 1;
 	}
 	
 	int rfind(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
-		
+		dchar[] src = s.getContext!(dchar[]);
+		uint result;
+
 		if(s.isParam!("string")(0))
-			s.push(s.safeCode(string.rfind(src, s.getParam!(char[])(0))));
+			result = locatePatternPrior(src, s.getParam!(dchar[])(0));
 		else if(s.isParam!("char")(0))
-			s.push(s.safeCode(string.rfind(src, s.getParam!(dchar)(0))));
+			result = locatePrior(src, s.getParam!(dchar)(0));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
+
+		if(result == src.length)
+			s.push(-1);
+		else
+			s.push(result);
 
 		return 1;
 	}
 
 	int irfind(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
+		dchar[] src = toLowerD(s.getContext!(dchar[]));
+		uint result;
 
 		if(s.isParam!("string")(0))
-			s.push(s.safeCode(string.irfind(src, s.getParam!(char[])(0))));
+			result = locatePatternPrior(src, toLowerD(s.getParam!(dchar[])(0)));
 		else if(s.isParam!("char")(0))
-			s.push(s.safeCode(string.irfind(src, s.getParam!(dchar)(0))));
+			result = locatePrior(src, toUniLower(s.getParam!(dchar)(0)));
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
+			
+		if(result == src.length)
+			s.push(-1);
+		else
+			s.push(result);
 
 		return 1;
 	}
@@ -191,95 +214,86 @@ class StringLib
 		int numTimes = s.getParam!(int)(0);
 		
 		if(numTimes < 0)
-			s.throwRuntimeException("Invalid number of repetitions: ", numTimes);
+			s.throwRuntimeException("Invalid number of repetitions: {}", numTimes);
 
-		s.push(s.safeCode(string.repeat(src, numTimes)));
+		s.push(.repeat(src, numTimes));
 		return 1;
 	}
 	
 	int join(MDState s, uint numParams)
 	{
 		MDArray array = s.getParam!(MDArray)(0);
-		char[] sep = s.getParam!(char[])(1);
+		dchar[] sep = s.getParam!(dchar[])(1);
 		
-		char[][] strings = new char[][array.length];
+		dchar[][] strings = new dchar[][array.length];
 		
 		foreach(uint i, MDValue val; array)
 		{
 			if(val.isString() == false)
-				s.throwRuntimeException("Array element ", i, " is not a string");
+				s.throwRuntimeException("Array element {} is not a string", i);
 				
-			strings[i] = val.as!(char[]);
+			strings[i] = val.as!(dchar[]);
 		}
 
-		s.push(s.safeCode(string.join(strings, sep)));
+		s.push(.join(strings, sep));
 		return 1;
 	}
 	
 	int split(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
-
-		char[][] ret;
+		dchar[] src = s.getContext!(dchar[]);
+		dchar[][] ret;
 
 		if(numParams > 0)
-		{
-			char[] delim = s.getParam!(char[])(0);
-			s.safeCode(ret = string.split(src, delim));
-		}
+			ret = .split(src, s.getParam!(dchar[])(0));
 		else
-			s.safeCode(ret = string.split(src));
+		{
+			ret = src.delimit(" \t\v\r\n\f\u2028\u2029"d);
+			uint num = ret.removeIf((dchar[] elem) { return elem.length == 0; });
+			ret = ret[0 .. num];
+		}
 
-		MDArray array = new MDArray(ret.length);
-
-		for(uint i = 0; i < ret.length; i++)
-			array[i] = new MDString(ret[i]);
-
-		s.push(array);
+		s.push(MDArray.fromArray(ret));
 		return 1;
 	}
 
 	int splitLines(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
-		char[][] ret;
-
-		s.safeCode(ret = string.splitlines(src));
-
-		MDArray array = new MDArray(ret.length);
-
-		for(uint i = 0; i < ret.length; i++)
-			array[i] = new MDString(ret[i]);
-
-		s.push(array);
+		s.push(MDArray.fromArray(.splitLines(s.getContext!(dchar[]))));
 		return 1;
 	}
 	
 	int strip(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(string.strip(s.getContext!(char[]))));
+		s.push(trim(s.getContext!(dchar[])));
 		return 1;
 	}
 
 	int lstrip(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(string.stripl(s.getContext!(char[]))));
+		dchar[] str = s.getContext!(dchar[]);
+		size_t i;
+
+		for(i = 0; i < str.length && isSpace(str[i]); i++){}
+
+		s.push(str[i .. $]);
 		return 1;
 	}
 
 	int rstrip(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(string.stripr(s.getContext!(char[]))));
+		dchar[] str = s.getContext!(dchar[]);
+		int i;
+
+		for(i = str.length - 1; i >= 0 && isSpace(str[i]); i--){}
+
+		s.push(str[0 .. i + 1]);
 		return 1;
 	}
 
 	int replace(MDState s, uint numParams)
 	{
-		char[] src = s.getContext!(char[]);
-		char[] from = s.getParam!(char[])(0);
-		char[] to = s.getParam!(char[])(1);
-
-		s.push(s.safeCode(string.replace(src, from, to)));
+		s.push(.substitute(s.getContext!(dchar[]), s.getParam!(dchar[])(0), s.getParam!(dchar[])(1)));
 		return 1;
 	}
 

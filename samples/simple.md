@@ -140,28 +140,28 @@ module simple;
 			local prop = mProps[key];
 	
 			if(prop is null)
-				throw format(classType, ".opIndex() - Property '%s' does not exist", key);
-	
+				throw format(classType, ".opIndex() - Property '{}' does not exist", key);
+
 			local getter = prop.getter;
-	
+
 			if(getter is null)
-				throw format(classType, ".opIndex() - Property '%s' has no getter", key);
-	
+				throw format(classType, ".opIndex() - Property '{}' has no getter", key);
+
 			return getter(with this);
 		};
-	
+
 		classType.opIndexAssign = function opIndexAssign(key, value)
 		{
 			local prop = mProps[key];
-	
+
 			if(prop is null)
-				throw format(classType, ".opIndexAssign() - Property '%s' does not exist", key);
-	
+				throw format(classType, ".opIndexAssign() - Property '{}' does not exist", key);
+
 			local setter = prop.setter;
-	
+
 			if(setter is null)
-				throw format(classType, ".opIndexAssign() - Property '%s' has no setter", key);
-	
+				throw format(classType, ".opIndexAssign() - Property '{}' has no setter", key);
+
 			setter(with this, value);
 		};
 	
@@ -174,7 +174,7 @@ module simple;
 				throw format("mixinProperties() - property ", i, " has no name");
 	
 			if(prop.setter is null && prop.getter is null)
-				throw format("mixinProperties() - property '%s' has no getter or setter", prop.name);
+				throw format("mixinProperties() - property '{}' has no getter or setter", prop.name);
 	
 			classType.mProps[prop.name] = prop;
 		}

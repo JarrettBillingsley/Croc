@@ -27,7 +27,7 @@ module minid.regexplib;
 import minid.types;
 import minid.utils;
 
-import std.regexp;
+import tango.text.Regex;
 
 class RegexpLib
 {
@@ -38,7 +38,7 @@ class RegexpLib
 		namespace.addList
 		(
 			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
-			"url"d,        std.regexp.url,
+			"url"d,        tango.text.Regex.url,
 			"alpha"d,      r"^[a-zA-Z_]+$"d,
 			"space"d,      r"^\s+$"d,
 			"digit"d,      r"^\d+$"d,
@@ -72,7 +72,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(s.safeCode(cast(bool)RegExp(pattern, attributes).test(src)));
+		s.push(s.safeCode(cast(bool)Regex(pattern, attributes).test(src)));
 		return 1;
 	}
 
@@ -88,14 +88,14 @@ class RegexpLib
 		if(s.isParam!("string")(2))
 		{
 			char[] rep = s.getParam!(char[])(2);
-			s.push(s.safeCode(RegExp(pattern, attributes).replace(src, rep)));
+			s.push(s.safeCode(Regex(pattern, attributes).replace(src, rep)));
 		}
 		else
 		{
 			MDClosure rep = s.getParam!(MDClosure)(2);
 			scope MDRegexp temp = regexpClass.newInstance();
 
-			s.push(s.safeCode(sub(src, pattern, (RegExp m)
+			s.push(s.safeCode(sub(src, pattern, (Regex m)
 			{
 				temp.constructor(m);
 				
@@ -117,7 +117,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).split(src))));
+		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).split(src))));
 		return 1;
 	}
 
@@ -130,7 +130,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).match(src))));
+		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).match(src))));
 		return 1;
 	}
 
@@ -273,7 +273,7 @@ class RegexpLib
 
 	static class MDRegexp : MDInstance
 	{
-		protected RegExp mRegexp;
+		protected Regex mRegexp;
 
 		public this(MDClass owner)
 		{
@@ -282,10 +282,10 @@ class RegexpLib
 
 		public void constructor(char[] pattern, char[] attributes)
 		{
-			mRegexp = new std.regexp.RegExp(pattern, attributes);
+			mRegexp = new Regex(pattern, attributes);
 		}
 
-		public void constructor(RegExp rxp)
+		public void constructor(Regex rxp)
 		{
 			mRegexp = rxp;
 		}

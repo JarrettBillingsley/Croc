@@ -27,20 +27,19 @@ import minid.compiler;
 import minid.types;
 import minid.utils;
 
-import std.stdio;
-import std.stream;
+import tango.io.Console;
 
 void printUsage()
 {
-	writefln("MiniD Compiler beta");
-	writefln();
-	writefln("Usage:");
-	writefln("\tminidc filename");
-	writefln();
-	writefln("This program is very straightforward.  You give it the name of a .md");
-	writefln("file, and it will compile the module and write it to a binary .mdm file.");
-	writefln("The output file will have the same name as the input file but with the");
-	writefln(".mdm extension.");
+	Cout("MiniD Compiler beta").newline;
+	Cout.newline;
+	Cout("Usage:").newline;
+	Cout("\tminidc filename").newline;
+	Cout.newline;
+	Cout("This program is very straightforward.  You give it the name of a .md").newline;
+	Cout("file, and it will compile the module and write it to a binary .mdm file.").newline;
+	Cout("The output file will have the same name as the input file but with the").newline;
+	Cout(".mdm extension.").newline;
 }
 
 void main(char[][] args)
@@ -51,8 +50,5 @@ void main(char[][] args)
 		return;
 	}
 
-	MDModuleDef def = compileModule(args[1]);
-	scope f = new BufferedFile(args[1] ~ "m", FileMode.OutNew);
-	Serialize(f, def);
-	f.flush();
+	compileModule(args[1]).writeToFile(args[1] ~ "m");
 }

@@ -25,8 +25,8 @@ module minid.charlib;
 
 import minid.types;
 
-import ctype = std.ctype;
-import std.uni;
+import tango.stdc.ctype;
+import UniChar;
 
 class CharLib
 {
@@ -70,7 +70,7 @@ class CharLib
 	int isAlNum(MDState s, uint numParams)
 	{
 		dchar c = s.getContext!(dchar);
-		s.push(cast(bool)(ctype.isdigit(c) || isUniAlpha(c)));
+		s.push(cast(bool)(isdigit(c) || isUniAlpha(c)));
 		return 1;
 	}
 	
@@ -88,37 +88,37 @@ class CharLib
 
 	int isDigit(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isdigit(s.getContext!(dchar)));
+		s.push(cast(bool)isdigit(s.getContext!(dchar)));
 		return 1;
 	}
 
 	int isCtrl(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.iscntrl(s.getContext!(dchar)));
+		s.push(cast(bool)iscntrl(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isPunct(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.ispunct(s.getContext!(dchar)));
+		s.push(cast(bool)ispunct(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isSpace(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isspace(s.getContext!(dchar)));
+		s.push(cast(bool)isspace(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isHexDigit(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isxdigit(s.getContext!(dchar)));
+		s.push(cast(bool)isxdigit(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isAscii(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isascii(s.getContext!(dchar)));
+		s.push(s.getContext!(dchar) <= 0x7f);
 		return 1;
 	}
 }

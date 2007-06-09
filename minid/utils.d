@@ -23,15 +23,18 @@ subject to the following restrictions:
 
 module minid.utils;
 
-import format = std.format;
-import std.c.string;
-import std.conv;
-import std.stdarg;
-import std.stream;
-import utf = std.utf;
-import std.uni;
-import std.perf;
-import string = std.string;
+import tango.core.Vararg;
+import tango.io.Buffer;
+import tango.io.FileConduit;
+import tango.io.Print;
+import tango.io.protocol.model.IReader;
+import tango.io.protocol.model.IWriter;
+import tango.io.Stdout;
+import tango.text.Util;
+import tango.util.time.StopWatch;
+import tango.text.convert.Utf;
+import tango.stdc.string;
+import UniChar;
 
 alias double mdfloat;
 
@@ -193,259 +196,22 @@ template ToDelegate(alias func)
 	}
 }
 
-/// Takes a TypeInfo[] and va_list and formats them, like the format(...) function.
-/// Don't know why this isn't in phobos.
-char[] vformat(TypeInfo[] arguments, va_list argptr)
-{
-	char[] s;
-	
-	void putc(dchar c)
-	{
-		utf.encode(s, c);
-	}
-
-	format.doFormat(&putc, arguments, argptr);
-
-	return s;
-}
-
-unittest
-{
-	char[] fmt(...)
-	{
-		return vformat(_arguments, _argptr);
-	}
-
-	assert(fmt("%s, %s, %s", 4, 5, 6) == "4, 5, 6");
-	assert(fmt("%.8x", 4500) == "00001194");
-	assert(fmt("hello %s", "world") == "hello world");
-}
-
-/// Compares dchar[] strings, like std.string.cmp().
+/// Compares dchar[] strings stupidly (just by character value, not lexicographically).
 int dcmp(dchar[] s1, dchar[] s2)
 {
 	auto len = s1.length;
-	int result;
 
 	if(s2.length < len)
 		len = s2.length;
 
-	result = memcmp(s1.ptr, s2.ptr, len * dchar.sizeof);
+	int result = mismatch(s1.ptr, s2.ptr, len);
 
-	if(result == 0)
+	if(result == len)
 		result = cast(int)s1.length - cast(int)s2.length;
+	else
+		result = s1[result] - s2[result];
 
 	return result;
-}
-
-unittest
-{
-	assert(dcmp("Hello"d, "Hello"d) == 0);
-	assert(dcmp("taxes"d, "texas"d) < 0);
-	assert(dcmp("Taxes"d, "taxes"d) < 0);
-	assert(dcmp("a longer string"d, "a longer string still"d) < 0);
-	assert(dcmp("an even longer string"d, "an even"d) > 0);
-}
-
-/// Like std.string.join, but for dchar[]s.
-dchar[] djoin(dchar[][] strings, dchar[] separator)
-{
-	uint length = 0;
-
-	foreach(s; strings)
-		length += s.length;
-
-	length += (strings.length - 1) * separator.length;
-
-	dchar[] ret = new dchar[length];
-	
-	uint numStrings = strings.length;
-	uint sepLength = separator.length;
-
-	for(int i = 0, j = 0; i < numStrings; i++)
-	{
-		ret[j .. j + strings[i].length] = strings[i];
-		j += strings[i].length;
-
-		if(j < length)
-		{
-			ret[j .. j + sepLength] = separator;
-			j += sepLength;
-		}
-	}
-
-	return ret;
-}
-
-/// ditto
-dchar[] djoin(dchar[][] strings, dchar separator)
-{
-	uint length = 0;
-
-	foreach(s; strings)
-		length += s.length;
-
-	length += strings.length - 1;
-
-	dchar[] ret = new dchar[length];
-	
-	uint numStrings = strings.length;
-
-	for(int i = 0, j = 0; i < numStrings; i++)
-	{
-		ret[j .. j + strings[i].length] = strings[i];
-		j += strings[i].length;
-
-		if(j < length)
-		{
-			ret[j] = separator;
-			j++;
-		}
-	}
-
-	return ret;
-}
-
-/// Join lists of strings which aren't kept in arrays.  The given delegate is passed increasing
-/// indices starting at 0, and should return null to signal the end of the list.
-dchar[] djoin(dchar[] delegate(uint) dg, dchar[] separator)
-{
-	dchar[] ret = dg(0);
-	uint i = 1;
-
-	for(dchar[] string = dg(i++); string !is null; string = dg(i++))
-		ret ~= separator ~ string;
-
-	return ret;
-}
-
-unittest
-{
-	assert(djoin(["hello"d, "my"d, "friends"d], "! ") == "hello! my! friends");
-	assert(djoin(["one"d, "two"d, "three"d], '.') == "one.two.three");
-	
-	dchar[][] array = ["foo"d, "bar"d, "baz"d];
-
-	assert(djoin((uint index)
-	{
-		if(index < array.length)
-			return array[index];
-		else
-			return cast(dchar[])null;
-	}, "::") == "foo::bar::baz");
-}
-
-/// Parse a based integer out of a dchar[].
-int toInt(dchar[] s, int base)
-{
-	assert(base >= 2 && base <= 36, "toInt - invalid base");
-
-	static char[] transTable =
-	[
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 0, 0, 0, 0, 0, 0,
-		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0,
-		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	];
-
-    int length = s.length;
-
-	if(!length)
-		throw new ConvError(utf.toUTF8(s));
-
-	int sign = 0;
-	int v = 0;
-
-	char maxDigit = '0' + base - 1;
-	
-	if(s[0] == '+')
-	{
-		if(length == 1)
-			throw new ConvError(utf.toUTF8(s));
-
-		s = s[1 .. $];
-	}
-	else if(s[0] == '-')
-	{
-		sign = -1;
-
-		if(length == 1)
-			throw new ConvError(utf.toUTF8(s));
-
-		s = s[1 .. $];
-	}
-
-	foreach(dc; s)
-	{
-		char c = cast(char)dc;
-
-		if(c > 0x7f)
-			throw new ConvError(utf.toUTF8(s));
-
-		c = transTable[c];
-
-		if(c >= '0' && c <= maxDigit)
-		{
-			uint v1 = v;
-			v = v * base + (c - '0');
-
-			if(cast(uint)v < v1)
-				throw new ConvOverflowError(utf.toUTF8(s));
-		}
-		else
-			throw new ConvError(utf.toUTF8(s));
-	}
-
-	if(sign == -1)
-	{
-		if(cast(uint)v > 0x80000000)
-			throw new ConvOverflowError(utf.toUTF8(s));
-
-		v = -v;
-	}
-	else
-	{
-		if(cast(uint)v > 0x7FFFFFFF)
-			throw new ConvOverflowError(utf.toUTF8(s));
-	}
-
-	return v;
-}
-
-unittest
-{
-	assert(toInt("12345"d, 10) == 12345);
-	assert(toInt("EADBEEF"d, 16) == 0xEADBEEF);
-	assert(toInt("34567"d, 8) == 034567);
-	assert(toInt("10010101"d, 2) == 0b10010101);
-	assert(toInt("+456"d, 10) == 456);
-	assert(toInt("-934"d, 10) == -934);
-
-	try
-	{
-		toInt("999999999999999999999999999999999", 10);
-		assert(false);
-	}
-	catch{}
-	
-	try
-	{
-		toInt("--1"d, 10);
-		assert(false);
-	}
-	catch{}
 }
 
 /// Lowercase a dchar[] using proper Unicode character functions.
@@ -503,59 +269,10 @@ unittest
 	assert(toUpperD(t) !is t);
 }
 
-dchar[][] dsplit(dchar[] s, dchar c)
+/// See if a given Unicode character is valid.
+bool isValidUniChar(dchar c)
 {
-	dchar[][] words;
-
-	if(s.length)
-	{
-		dchar* p = &s[0];
-		dchar* pend = p + s.length;
-		size_t start = 0;
-		bool inWord = false;
-
-		size_t i;
-		for(i = 0; i < s.length; i++)
-		{
-			if(s[i] == c)
-			{
-				if(inWord)
-				{
-					words ~= s[start .. i];
-					inWord = false;
-				}
-			}
-			else
-			{
-				if(!inWord)
-				{
-					start = i;
-					inWord = true;
-				}
-			}
-		}
-		
-		if(inWord)
-			words ~= s[start .. i];
-	}
-
-	return words;
-}
-
-unittest
-{
-	dchar[] s = "peter.paul.jerry";
-	dchar[][] words;
-	int i;
-
-	words = dsplit(s, '.');
-	assert(words.length == 3);
-	i = dcmp(words[0], "peter");
-	assert(i == 0);
-	i = dcmp(words[1], "paul");
-	assert(i == 0);
-	i = dcmp(words[2], "jerry");
-	assert(i == 0);
+	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
 }
 
 /// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
@@ -572,7 +289,7 @@ template MakeVersion(uint major, uint minor)
 }
 
 /// The current version of MiniD.  (this is kind of buried here)
-const uint MiniDVersion = MakeVersion!(0, 6);
+const uint MiniDVersion = MakeVersion!(0, 7);
 
 /// See if T is a type that can't be automatically serialized.
 template isInvalidSerializeType(T)
@@ -663,7 +380,7 @@ These methods must always follow the form:
 	
 where T is your custom type.
 */
-void Serialize(T)(Stream s, T value)
+void Serialize(T)(IWriter s, T value)
 {
 	const method = TypeSerializeMethod!(T);
 
@@ -676,19 +393,17 @@ void Serialize(T)(Stream s, T value)
 	{
 		static if(is(T == dchar[]) || is(T == wchar[]))
 		{
-			char[] str = utf.toUTF8(value);
-			s.write(str.length);
-			s.writeExact(str.ptr, char.sizeof * str.length);
+			s.put(toUtf8(value));
 		}
 		else
 		{
-			s.write(value.length);
-			s.writeExact(value.ptr, typeof(T[0]).sizeof * value.length);
+			s.put(value.length);
+			s.buffer.append((cast(void*)value.ptr)[0 .. typeof(T[0]).sizeof * value.length]);
 		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
-		s.write(value.length);
+		s.put(value.length);
 
 		foreach(v; value)
 			Serialize(s, v);
@@ -705,12 +420,12 @@ void Serialize(T)(Stream s, T value)
 	else
 	{
 		static assert(method == SerializeMethod.Chunk, "Serialize");
-		s.writeExact(&value, T.sizeof);
+		s.buffer.append(&value, T.sizeof);
 	}
 }
 
 /// The opposite of Serialize().  The same rules apply here as with Serialize().
-void Deserialize(T)(Stream s, out T dest)
+void Deserialize(T)(IReader s, out T dest)
 {
 	const method = TypeSerializeMethod!(T);
 
@@ -721,29 +436,28 @@ void Deserialize(T)(Stream s, out T dest)
 	}
 	else static if(method == SerializeMethod.Vector)
 	{
-		size_t len;
-		s.read(len);
-		
 		static if(is(T == dchar[]) || is(T == wchar[]))
 		{
-			char[] str = new char[len];
-			s.readExact(str.ptr, char.sizeof * len);
-			
+			char[] str;
+			s.get(str);
+
 			static if(is(T == dchar[]))
-				dest = utf.toUTF32(str);
+				dest = toUtf32(str);
 			else
-				dest = utf.toUTF16(str);
+				dest = toUtf16(str);
 		}
 		else
 		{
-			dest.length = len;
-			s.readExact(dest.ptr, typeof(T[0]).sizeof * dest.length);
+			size_t length;
+			s.get(length);
+			dest.length = length;
+			s.buffer.read((cast(void*)dest.ptr)[0 .. typeof(T[0]).sizeof * dest.length]);
 		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
 		size_t len;
-		s.read(len);
+		s.get(len);
 		dest.length = len;
 
 		foreach(ref v; dest)
@@ -761,7 +475,7 @@ void Deserialize(T)(Stream s, out T dest)
 	else
 	{
 		static assert(method == SerializeMethod.Chunk, "Deserialize");
-		s.readExact(&dest, T.sizeof);
+		s.buffer.readExact(&dest, T.sizeof);
 	}
 }
 
@@ -770,14 +484,15 @@ void Deserialize(T)(Stream s, out T dest)
 /// certain name.  Timings for each profile name are accumulated over the course of the program and
 /// the final output will show the name of the profile, how many times it was instanced, the
 /// tital time in milliseconds, and the average time per instance in milliseconds.
-scope class Profiler : PerformanceCounter
+scope class Profiler
 {
-	private static Stream mOutLog;
-	
+	private StopWatch mTimer;
+	private static Print!(char) mOutLog;
+
 	struct Timing
 	{
 		char[] name;
-		ulong time = 0;
+		Interval time = 0;
 		ulong count = 0;
 
 		static Timing opCall(char[] name)
@@ -802,25 +517,18 @@ scope class Profiler : PerformanceCounter
 
 	public static void init(char[] output)
 	{
-		mOutLog = new BufferedFile(output, FileMode.OutNew);
+		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
 	}
-	
+
 	debug(TIMINGS) static ~this()
 	{
-		mOutLog.writefln("Name           | Count        | Total Time         | Average Time");
-		mOutLog.writefln("-----------------------------------------------------------------");
+		mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
+		mOutLog.formatln("-----------------------------------------------------------------");
 
 		foreach(timing; mTimings.values.sort)
-		{
-			real time = timing.time / 1000.0;
-			ulong count = timing.count;
-			real average = time / count;
-
-			mOutLog.writefln("%-14s | %-12s | %-18s | %-18s", timing.name, count, time, average);
-		}
+			mOutLog.formatln("{,-14} | {,-12} | {,-18:9f} | {,-18:9f}", timing.name, timing.count, timing.time, timing.time / timing.count);
 
 		mOutLog.flush();
-		mOutLog.close();
 	}
 
 	private char[] mName;
@@ -832,20 +540,14 @@ scope class Profiler : PerformanceCounter
 		if(!(name in mTimings))
 			mTimings[name] = Timing(name);
 
-		start();
-	}
-	
-	~this()
-	{
-		stop();
+		mTimer.start();
 	}
 
-	public override void stop()
+	~this()
 	{
-		super.stop();
-		
+		Interval endTime = mTimer.stop();
 		Timing* t = (mName in mTimings);
-		t.time += microseconds();
+		t.time += endTime;
 		t.count++;
 	}
 }
@@ -892,7 +594,7 @@ struct List(T)
 	public int opApply(int delegate(ref T) dg)
 	{
 		int result = 0;
-		
+
 		foreach(ref v; mData[0 .. mIndex])
 		{
 			result = dg(v);

@@ -24,20 +24,22 @@ subject to the following restrictions:
 
 module minid.compiler;
 
-import std.c.stdlib;
-import std.conv;
-import std.stdio;
-import std.stream;
-import path = std.path;
-import string = std.string;
-import utf = std.utf;
-import std.cstream;
+import Float = tango.text.convert.Float;
+import Integer = tango.text.convert.Integer;
+import tango.core.Exception;
+import tango.text.Util;
+import utf = tango.text.convert.Utf;
+import tango.io.Stdout;
+import tango.io.protocol.model.IReader;
+import tango.io.protocol.Reader;
+import tango.io.FileConduit;
+import tango.io.UnicodeFile;
+import tango.io.FilePath;
+import UniChar;
 
 import minid.types;
 import minid.opcodes;
 import minid.utils;
-
-alias minid.utils.toInt toInt;
 
 //debug = REGPUSHPOP;
 //debug = VARACTIVATE;
@@ -45,11 +47,11 @@ alias minid.utils.toInt toInt;
 
 public MDModuleDef compileModule(char[] filename)
 {
-	scope f = new BufferedFile(filename, FileMode.In);
-	return compileModule(f, path.getBaseName(filename));
+	scope path = new FilePath(filename);
+	return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
 }
 
-public MDModuleDef compileModule(Stream source, char[] name)
+public MDModuleDef compileModule(dchar[] source, char[] name)
 {
 	Token* tokens = Lexer.lex(name, source);
 	Module mod = Module.parse(tokens);
@@ -57,7 +59,7 @@ public MDModuleDef compileModule(Stream source, char[] name)
 	return mod.codeGen();
 }
 
-public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
+public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 {
 	Token* tokens = Lexer.lex(name, source);
 	List!(Statement) s;
@@ -79,7 +81,7 @@ public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
 	
 	Statement[] stmts = s.toArray();
 
-	fs = new FuncState(Location(utf.toUTF32(name), 1, 1), utf.toUTF32(name));
+	fs = new FuncState(Location(utf.toUtf32(name), 1, 1), utf.toUtf32(name));
 	fs.mIsVararg = true;
 	
 	foreach(stmt; stmts)
@@ -93,7 +95,7 @@ public MDFuncDef compileStatements(Stream source, char[] name, out bool atEOF)
 	return fs.toFuncDef();
 }
 
-public MDFuncDef compileJSON(Stream source)
+public MDFuncDef compileJSON(dchar[] source)
 {
 	Token* tokens = Lexer.lex("JSON", source, true);
 
@@ -364,23 +366,23 @@ struct Token
 		stringToType.rehash;
 	}
 
-	public char[] toString()
+	public char[] toUtf8()
 	{
 		switch(type)
 		{
-			case Type.Ident:         return "Identifier: " ~ utf.toUTF8(stringValue);
+			case Type.Ident:         return "Identifier: " ~ utf.toUtf8(stringValue);
 			case Type.CharLiteral:   return "Character Literal";
 			case Type.StringLiteral: return "String Literal";
-			case Type.IntLiteral:    return "Integer Literal: " ~ string.toString(intValue);
-			case Type.FloatLiteral:  return "Float Literal: " ~ string.toString(floatValue);
-			default:                 return utf.toUTF8(tokenStrings[cast(uint)type]);
+			case Type.IntLiteral:    return "Integer Literal: " ~ Integer.toUtf8(intValue);
+			case Type.FloatLiteral:  return "Float Literal: " ~ Float.toUtf8(floatValue);
+			default:                 return utf.toUtf8(tokenStrings[cast(uint)type]);
 		}
 	}
 
 	public Token* expect(Type t)
 	{
 		if(type != t)
-			throw new MDCompileException(location, "'%s' expected; found '%s' instead", tokenStrings[t], tokenStrings[type]);
+			throw new MDCompileException(location, "'{}' expected; found '{}' instead", tokenStrings[t], tokenStrings[type]);
 
 		return nextToken;
 	}
@@ -426,143 +428,28 @@ struct Token
 
 class Lexer
 {
-	protected static BufferedStream mSource;
+	protected static dchar[] mSource;
 	protected static Location mLoc;
+	protected static size_t mPosition;
 	protected static dchar mCharacter;
 	protected static dchar mLookaheadCharacter;
 	protected static bool mHaveLookahead = false;
 	protected static bool mIsJSON = false;
 
-	enum Encoding
+	public static Token* lex(char[] name, dchar[] source, bool isJSON = false)
 	{
-		UTF8,
-		UTF16LE,
-		UTF16BE,
-		UTF32LE,
-		UTF32BE
-	}
-	
-	protected static Encoding mEncoding;
+		mLoc = Location(utf.toUtf32(name), 1, 0);
 
-	public static Token* lex(char[] name, Stream source, bool isJSON = false)
-	{
-		if(!source.readable)
-			throw new MDException("%s", name, ": Source code stream is not readable");
-
-		mLoc = Location(utf.toUTF32(name), 1, 0);
-
-		mSource = new BufferedStream(source);
+		mSource = source;
+		mPosition = 0;
 		mIsJSON = isJSON;
-
-		char firstChar = mSource.getc();
-
-		if(mSource.eof())
-		{
-			if(firstChar == char.init)
-				mCharacter = 0;
-			else
-				mCharacter = firstChar;
-
-			mEncoding = Encoding.UTF8;
-		}
-		else
-		{
-			switch(firstChar)
-			{
-				case 0xEF:
-					char c = mSource.getc();
-					
-					if(c != 0xBB)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 1");
-						
-					c = mSource.getc();
-					
-					if(c != 0xBF)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 2");
-						
-					mEncoding = Encoding.UTF8;
-					nextChar();
-					break;
-					
-				case 0xFE:
-					char c = mSource.getc();
-					
-					if(c != 0xFF)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 3");
-						
-					mEncoding = Encoding.UTF16BE;
-					nextChar();
-					break;
-					
-				case 0xFF:
-					char c = mSource.getc();
-					
-					if(c != 0xFE)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 4");
-	
-					c = mSource.getc();
-	
-					if(c == 0)
-					{
-						c = mSource.getc();
-						
-						if(c != 0)
-							throw new MDCompileException(mLoc, "Invalid source text encoding 5");
-
-						mEncoding = Encoding.UTF32LE;
-						nextChar();
-						break;
-					}
-					else if(c == char.init)
-					{
-						// end of file?
-						mCharacter = dchar.init;
-						mEncoding = Encoding.UTF16LE;
-						break;
-					}
-					else
-					{
-						mEncoding = Encoding.UTF16LE;
-						mCharacter = readRestOfUTF16LEChar(c);
-						break;
-					}
-					break;
-					
-				case 0:
-					char c = mSource.getc();
-					
-					if(c != 0)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 6");
-						
-					c = mSource.getc();
-	
-					if(c != 0xFE)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 7");
-						
-					c = mSource.getc();
-	
-					if(c != 0xFF)
-						throw new MDCompileException(mLoc, "Invalid source text encoding 8");
-						
-					mEncoding = Encoding.UTF32BE;
-					nextChar();
-					break;
-	
-				default:
-					// If we default to UTF-8, the first character could be the beginning of a multi-byte, so..
-					//if(firstChar > 0x7f)
-					//	throw new MDCompileException(mLoc, "Invalid input source text encoding");
-	
-					mEncoding = Encoding.UTF8;
-					mCharacter = firstChar;
-					break;
-			}
-		}
+		
+		nextChar();
 
 		if(mCharacter == '#')
 		{
 			nextChar();
-			
+
 			if(mCharacter != '!')
 				throw new MDCompileException(mLoc, "Script line must start with \"#!\"");
 			
@@ -638,114 +525,15 @@ class Lexer
 		if(c >= '0' && c <= '9')
 			return c - '0';
 
-		return std.ctype.tolower(cast(char)c) - 'a' + 10;
+		return toUniLower(c) - 'a' + 10;
 	}
-	
-	protected static dchar readRestOfUTF16LEChar(char loChar)
-	{
-		char hiChar = mSource.getc();
 
-		if(hiChar == char.init)
-			throw new MDCompileException(mLoc, "Unfinished UTF-16 character");
-
-		wchar c = loChar | (hiChar << 8);
-
-		if(c & ~0x7F)
-		{
-			if(c >= 0xD800 && c <= 0xDBFF)
-			{
-				wchar c2 = mSource.getcw();
-
-				if(c2 < 0xDC00 || c2 > 0xDFFF)
-					throw new MDCompileException(mLoc, "Surrogate UTF-16 low value out of range");
-
-				return ((c - 0xD7C0) << 10) + (c2 - 0xDC00);
-			}
-			else if(c >= 0xDC00 && c <= 0xDFFF)
-				throw new MDCompileException(mLoc, "Unpaired surrogate UTF-16 value");
-			else if(c == 0xFFFE || c == 0xFFFF)
-				throw new MDCompileException(mLoc, "Illegal UTF-16 value");
-			else
-				return c;
-		}
-		else
-			return c;
-	}
-	
 	protected static dchar readChar()
 	{
-		switch(mEncoding)
-		{
-			case Encoding.UTF8:
-				char c = mSource.getc();
-
-				if(c == char.init)
-					return dchar.init;
-
-				if(c & 0x80)
-				{
-					uint n;
-
-					for(n = 1; ; n++)
-					{
-						if(n > 4)
-							throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-						if(((c << n) & 0x80) == 0)
-						{
-							if(n == 1)
-								throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-							break;
-						}
-					}
-
-					dchar dc = cast(dchar)(c & ((1 << (7 - n)) - 1));
-
-					char c2 = mSource.getc();
-
-					if ((c & 0xFE) == 0xC0 ||
-						(c == 0xE0 && (c2 & 0xE0) == 0x80) ||
-						(c == 0xF0 && (c2 & 0xF0) == 0x80) ||
-						(c == 0xF8 && (c2 & 0xF8) == 0x80) ||
-						(c == 0xFC && (c2 & 0xFC) == 0x80))
-						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-					c = c2;
-					if((c & 0xC0) != 0x80)
-						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-					dc = (dc << 6) | (c & 0x3F);
-
-					for(uint i = 2; i != n; i++)
-					{
-						c = mSource.getc();
-
-						if((c & 0xC0) != 0x80)
-							throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-						dc = (dc << 6) | (c & 0x3F);
-					}
-
-					if(!utf.isValidDchar(dc))
-						throw new MDCompileException(mLoc, "Invalid UTF-8 character");
-
-					return dc;
-				}
-				else
-					return c;
-
-			case Encoding.UTF16LE:
-				char hiChar = mSource.getc();
-
-				if(hiChar == char.init)
-					return dchar.init;
-
-				return readRestOfUTF16LEChar(hiChar);
-
-			default:
-				assert(false, "unimplemented encoding");
-		}
+		if(mPosition >= mSource.length)
+			return dchar.init;
+		else
+			return mSource[mPosition++];
 	}
 	
 	protected static dchar lookaheadChar()
@@ -760,7 +548,7 @@ class Lexer
 	protected static void nextChar()
 	{
 		mLoc.column++;
-		
+
 		if(mHaveLookahead)
 		{
 			mCharacter = mLookaheadCharacter;
@@ -819,7 +607,7 @@ class Lexer
 						nextChar();
 
 						if(!isBinaryDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Binary digit expected, not '%s'", mCharacter);
+							throw new MDCompileException(mLoc, "Binary digit expected, not '{}'", mCharacter);
 
 						while(isBinaryDigit() || mCharacter == '_')
 						{
@@ -830,18 +618,9 @@ class Lexer
 						}
 
 						try
-						{
-							iret = toInt(buf[0 .. i], 2);
-						}
-						catch(ConvError e)
-						{
-							//REACHABLE?
-							throw new MDCompileException(beginning, "Malformed binary int literal");
-						}
-						catch(ConvOverflowError e)
-						{
-							throw new MDCompileException(beginning, "Numeric overflow");
-						}
+							iret = Integer.toInt(buf[0 .. i], 2);
+						catch(IllegalArgumentException e)
+							throw new MDCompileException(beginning, e.toUtf8());
 
 						return true;
 
@@ -849,7 +628,7 @@ class Lexer
 						nextChar();
 
 						if(!isOctalDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Octal digit expected, not '%s'", mCharacter);
+							throw new MDCompileException(mLoc, "Octal digit expected, not '{}'", mCharacter);
 
 						while(isOctalDigit() || mCharacter == '_')
 						{
@@ -860,18 +639,9 @@ class Lexer
 						}
 
 						try
-						{
-							iret = toInt(buf[0 .. i], 8);
-						}
-						catch(ConvError e)
-						{
-							//REACHABLE?
-							throw new MDCompileException(beginning, "Malformed octal int literal");
-						}
-						catch(ConvOverflowError e)
-						{
-							throw new MDCompileException(beginning, "Numeric overflow");
-						}
+							iret = Integer.toInt(buf[0 .. i], 8);
+						catch(IllegalArgumentException e)
+							throw new MDCompileException(beginning, e.toUtf8());
 
 						return true;
 
@@ -879,7 +649,7 @@ class Lexer
 						nextChar();
 
 						if(!isHexDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Hexadecimal digit expected, not '%s'", mCharacter);
+							throw new MDCompileException(mLoc, "Hexadecimal digit expected, not '{}'", mCharacter);
 
 						while(isHexDigit() || mCharacter == '_')
 						{
@@ -890,18 +660,9 @@ class Lexer
 						}
 
 						try
-						{
-							iret = toInt(buf[0 .. i], 16);
-						}
-						catch(ConvError e)
-						{
-							//REACHABLE?
-							throw new MDCompileException(beginning, "Malformed hexadecimal int literal");
-						}
-						catch(ConvOverflowError e)
-						{
-							throw new MDCompileException(beginning, "Numeric overflow");
-						}
+							iret = Integer.toInt(buf[0 .. i], 16);
+						catch(IllegalArgumentException e)
+							throw new MDCompileException(beginning, e.toUtf8());
 
 						return true;
 
@@ -954,7 +715,7 @@ class Lexer
 			else if(mCharacter == '_')
 				nextChar();
 			else
-				throw new MDCompileException(mLoc, "Floating point literal '%s' must have at least one digit after decimal point", buf[0 .. i]);
+				throw new MDCompileException(mLoc, "Floating point literal '{}' must have at least one digit after decimal point", buf[0 .. i]);
 		}
 		
 		bool hasExponent = false;
@@ -981,7 +742,7 @@ class Lexer
 				}
 
 				if(!isDecimalDigit() && mCharacter != '_')
-					throw new MDCompileException(mLoc, "Exponent value expected in float literal '%s'", buf[0 .. i]);
+					throw new MDCompileException(mLoc, "Exponent value expected in float literal '{}'", buf[0 .. i]);
 
 				while(isDecimalDigit() || mCharacter == '_')
 				{
@@ -1005,37 +766,18 @@ class Lexer
 		if(hasPoint == false && hasExponent == false)
 		{
 			try
-			{
-				iret = toInt(buf[0 .. i], 10);
-			}
-			catch(ConvError e)
-			{
-				//REACHABLE?
-				throw new MDCompileException(beginning, "Malformed int literal '%s'", buf[0 .. i]);
-			}
-			catch(ConvOverflowError e)
-			{
-				throw new MDCompileException(beginning, "Numeric overflow");
-			}
+				iret = Integer.toInt(buf[0 .. i], 10);
+			catch(IllegalArgumentException e)
+				throw new MDCompileException(beginning, e.toUtf8());
 
 			return true;
 		}
 		else
 		{
 			try
-			{
-				fret = std.conv.toDouble(utf.toUTF8(buf[0 .. i]));
-			}
-			catch(ConvError e)
-			{
-				throw new MDCompileException(beginning, "Malformed float literal '%s'", buf[0 .. i]);
-			}
-			catch(ConvOverflowError e)
-			{
-				//REACHABLE?
-				// std.conv.toDouble doesn't throw ConvOverflowErrors.
-				throw new MDCompileException(beginning, "Numeric overflow");
-			}
+				fret = Float.toFloat(utf.toUtf8(buf[0 .. i]));
+			catch(IllegalArgumentException e)
+				throw new MDCompileException(beginning, e.toUtf8());
 
 			return false;
 		}
@@ -1093,7 +835,7 @@ class Lexer
 			case 'x':
 				nextChar();
 
-				int x = readHexDigits(2);
+				uint x = readHexDigits(2);
 
 				if(x > 0x7F)
 					throw new MDCompileException(mLoc, "Hexadecimal escape sequence too large");
@@ -1104,10 +846,10 @@ class Lexer
 			case 'u':
 				nextChar();
 
-				int x = readHexDigits(4);
+				uint x = readHexDigits(4);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
+					throw new MDCompileException(mLoc, "Unicode escape '\\u{:x4}' is illegal", x);
 
 				ret = cast(dchar)x;
 				break;
@@ -1115,20 +857,20 @@ class Lexer
 			case 'U':
 				nextChar();
 
-				int x = readHexDigits(8);
+				uint x = readHexDigits(8);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					throw new MDCompileException(mLoc, "Unicode escape '\\u%04x' is illegal", x);
+					throw new MDCompileException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
-				if(utf.isValidDchar(cast(dchar)x) == false)
-					throw new MDCompileException(mLoc, "Unicode escape '\\U%08x' too large", x);
+				if(isValidUniChar(cast(dchar)x) == false)
+					throw new MDCompileException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
 				break;
 
 			default:
 				if(!isDecimalDigit())
-					throw new MDCompileException(mLoc, "Invalid string escape sequence '\\%s'", mCharacter);
+					throw new MDCompileException(mLoc, "Invalid string escape sequence '\\{}'", mCharacter);
 
 				// Decimal char
 				int numch = 0;
@@ -1677,7 +1419,7 @@ class Lexer
 						while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
 						if(s.length >= 2 && s[0 .. 2] == "__")
-							throw new MDCompileException(tokenLoc, "'", s, "': Identifiers starting with two underscores are reserved");
+							throw new MDCompileException(tokenLoc, "'{}': Identifiers starting with two underscores are reserved", s);
 
 						Token.Type* t = (s in Token.stringToType);
 
@@ -1703,7 +1445,7 @@ class Lexer
 						Token.Type* t = (s in Token.stringToType);
 
 						if(t is null)
-							throw new MDCompileException(tokenLoc, "Invalid token '%s'", s);
+							throw new MDCompileException(tokenLoc, "Invalid token '{}'", s);
 						else
 							token.type = *t;
 
@@ -1751,7 +1493,7 @@ struct Exp
 	bool isTempReg2;
 	bool isTempReg3;
 	
-	char[] toString()
+	char[] toUtf8()
 	{
 		static const char[][] typeNames = 
 		[
@@ -1771,7 +1513,7 @@ struct Exp
 			ExpType.Src: "Src"
 		];
 
-		return string.format("%s (%d, %d, %d) : (%s, %s, %s)", typeNames[cast(uint)type], index, index2, index3, isTempReg, isTempReg2, isTempReg3);
+		return Stdout.layout.convert("{} ({}, {}, {}) : ({}, {}, {})", typeNames[cast(uint)type], index, index2, index3, isTempReg, isTempReg2, isTempReg3);
 	}
 }
 
@@ -2014,12 +1756,12 @@ class FuncState
 		else if(v.isString())
 			val = v.asString();
 		else
-			assert(false, "addCase invalid type: " ~ v.toString());
+			assert(false, "addCase invalid type: " ~ v.toUtf8());
 
 		int* oldOffset = (val in mSwitch.offsets);
 
 		if(oldOffset !is null)
-			throw new MDCompileException(location, "Duplicate case value '%s'", val);
+			throw new MDCompileException(location, "Duplicate case value '{}'", val);
 
 		mSwitch.offsets[val] = 0;
 		return (val in mSwitch.offsets);
@@ -2064,8 +1806,8 @@ class FuncState
 		
 		if(index != -1)
 		{
-			throw new MDCompileException(ident.mLocation, "Local '%s' conflicts with previous definition at %s",
-				ident.mName, mLocVars[index].location.toString());
+			throw new MDCompileException(ident.mLocation, "Local '{}' conflicts with previous definition at {}",
+				ident.mName, mLocVars[index].location.toUtf8());
 		}
 
 		mLocVars.length = mLocVars.length + 1;
@@ -2085,7 +1827,7 @@ class FuncState
 	{
 		for(int i = mLocVars.length - 1; i >= cast(int)(mLocVars.length - num); i--)
 		{
-			debug(VARACTIVATE) writefln("activating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+			debug(VARACTIVATE) Stdout.formatln("activating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toUtf8(), mLocVars[i].reg);
 			mLocVars[i].isActive = true;
 		}
 	}
@@ -2096,7 +1838,7 @@ class FuncState
 		{
 			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
 			{
-				debug(VARACTIVATE) writefln("deactivating %s %s reg %s", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toUtf8(), mLocVars[i].reg);
 				popRegister(mLocVars[i].reg);
 				mLocVars[i].isActive = false;
 			}
@@ -2110,7 +1852,7 @@ class FuncState
 
 	public uint pushRegister()
 	{
-		debug(REGPUSHPOP) writefln("push ", mFreeReg);
+		debug(REGPUSHPOP) Stdout.formatln("push ", mFreeReg);
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
@@ -2125,7 +1867,7 @@ class FuncState
 	public void popRegister(uint r)
 	{
 		mFreeReg--;
-		debug(REGPUSHPOP) writefln("pop ", mFreeReg, ", ", r);
+		debug(REGPUSHPOP) Stdout.formatln("pop ", mFreeReg, ", ", r);
 
 		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
@@ -2133,13 +1875,13 @@ class FuncState
 	
 	protected void printExpStack()
 	{
-		writefln("Expression Stack");
-		writefln("----------------");
+		Stdout.formatln("Expression Stack");
+		Stdout.formatln("----------------");
 
 		for(int i = 0; i < mExpSP; i++)
-			writefln(i, ": ", mExpStack[i].toString());
-			
-		writefln();
+			Stdout.formatln("{}: {}", i, mExpStack[i].toUtf8());
+
+		Stdout.formatln("");
 	}
 
 	protected Exp* pushExp()
@@ -3054,7 +2796,7 @@ class FuncState
 		i.rs = src1;
 		i.rt = src2;
 
-		debug(WRITECODE) writefln(i.toString());
+		debug(WRITECODE) Stdout.formatln(i.toUtf8());
 
 		mLineInfo ~= line;
 		mCode ~= i;
@@ -3068,7 +2810,7 @@ class FuncState
 		i.rd = dest;
 		i.uimm = imm;
 
-		debug(WRITECODE) writefln(i.toString());
+		debug(WRITECODE) Stdout.formatln(i.toUtf8());
 
 		mLineInfo ~= line;
 		mCode ~= i;
@@ -3082,7 +2824,7 @@ class FuncState
 		i.rd = dest;
 		i.imm = offs;
 		
-		debug(WRITECODE) writefln(i.toString());
+		debug(WRITECODE) Stdout.formatln(i.toUtf8());
 
 		mLineInfo ~= line;
 		mCode ~= i;
@@ -3091,57 +2833,57 @@ class FuncState
 
 	public void showMe(uint tab = 0)
 	{
-		writefln(string.repeat("\t", tab), "Function at ", mLocation.toString(), " (guessed name: %s)", mGuessedName);
-		writefln(string.repeat("\t", tab), "Num params: ", mNumParams, " Vararg: ", mIsVararg, " Stack size: ", mStackSize);
+		Stdout.formatln("{}Function at {} (guessed name: {})", repeat("\t", tab), mLocation.toUtf8(), mGuessedName);
+		Stdout.formatln("{}Num params: {} Vararg: {} Stack size: {}", repeat("\t", tab), mNumParams, mIsVararg, mStackSize);
 
 		foreach(uint i, FuncState s; mInnerFuncs)
 		{
-			writefln(string.repeat("\t", tab + 1), "Inner Func ", i);
+			Stdout.formatln("{}Inner Func {}", repeat("\t", tab + 1), i);
 			s.showMe(tab + 1);
 		}
 		
 		foreach(uint i, ref SwitchDesc* t; mSwitchTables)
 		{
-			writefln(string.repeat("\t", tab + 1), "Switch Table ", i);
+			Stdout.formatln("{}Switch Table {}", repeat("\t", tab + 1), i);
 
 			foreach(k, v; t.offsets)
-				writefln(string.repeat("\t", tab + 2), "%s => %s", k, v);
+				Stdout.formatln("{}{} => {}", repeat("\t", tab + 2), k.toUtf8(), v);
 
-			writefln(string.repeat("\t", tab + 2), "Default: ", t.defaultOffset);
+			Stdout.formatln("{}Default: {}", repeat("\t", tab + 2), t.defaultOffset);
 		}
 
 		foreach(v; mLocVars)
-			writefln(string.repeat("\t", tab + 1), "Local ", v.name, "(at %s, reg %s)", v.location.toString(), v.reg);
+			Stdout.formatln("{}Local {} (at {}, reg {})", repeat("\t", tab + 1), v.name, v.location.toUtf8(), v.reg);
 
 		foreach(i, u; mUpvals)
-			writefln(string.repeat("\t", tab + 1), "Upvalue %s: %s : %s (%s)", i, u.name, u.index, u.isUpvalue ? "upval" : "local");
+			Stdout.formatln("{}Upvalue {}: {} : {} ({})", repeat("\t", tab + 1), i, u.name, u.index, u.isUpvalue ? "upval" : "local");
 
 		foreach(i, c; mConstants)
 		{
 			switch(c.type)
 			{
 				case MDValue.Type.Null:
-					writefln(string.repeat("\t", tab + 1), "Const %s: null", i);
+					Stdout.formatln("{}Const {}: null", repeat("\t", tab + 1), i);
 					break;
 					
 				case MDValue.Type.Bool:
-					writefln(string.repeat("\t", tab + 1), "Const %s: %s", i, c.as!(bool)());
+					Stdout.formatln("{}Const {}: {}", repeat("\t", tab + 1), i, c.as!(bool)());
 					break;
 
 				case MDValue.Type.Int:
-					writefln(string.repeat("\t", tab + 1), "Const %s: %s", i, c.as!(int)());
+					Stdout.formatln("{}Const {}: {}", repeat("\t", tab + 1), i, c.as!(int)());
 					break;
 
 				case MDValue.Type.Float:
-					writefln(string.repeat("\t", tab + 1), "Const %s: %sf", i, c.as!(mdfloat)());
+					Stdout.formatln("{}Const {}: {:6}f", repeat("\t", tab + 1), i, c.as!(mdfloat)());
 					break;
 
 				case MDValue.Type.Char:
-					writefln(string.repeat("\t", tab + 1), "Const %s: '%s'", i, c.as!(dchar)());
+					Stdout.formatln("{}Const {}: '{}'", repeat("\t", tab + 1), i, c.as!(dchar)());
 					break;
 
 				case MDValue.Type.String:
-					writefln(string.repeat("\t", tab + 1), "Const %s: \"%s\"", i, c.as!(dchar[])());
+					Stdout.formatln("{}Const {}: \"{}\"", repeat("\t", tab + 1), i, c.as!(dchar[])());
 					break;
 
 				default:
@@ -3150,7 +2892,7 @@ class FuncState
 		}
 
 		foreach(i, inst; mCode)
-			writefln(string.repeat("\t", tab + 1), "[%3s:%4s] ", i, mLineInfo[i], inst.toString());
+			Stdout.formatln("{}[{,3}:{,4}] {}", repeat("\t", tab + 1), i, mLineInfo[i], inst.toUtf8());
 	}
 
 	protected MDFuncDef toFuncDef()
@@ -3231,7 +2973,7 @@ class ClassDef
 		mEndLocation = endLocation;
 
 		if(mName is null)
-			mName = new Identifier("<literal at " ~ utf.toUTF32(mLocation.toString()) ~ ">", mLocation);
+			mName = new Identifier("<literal at " ~ utf.toUtf32(mLocation.toUtf8()) ~ ">", mLocation);
 	}
 
 	public static void parseBody(Location location, ref Token* t, out FuncDef[] oMethods, out Field[] oFields, out Location oEndLocation)
@@ -3245,7 +2987,7 @@ class ClassDef
 			dchar[] name = m.mName.mName;
 
 			if(name in methods)
-				throw new MDCompileException(m.mLocation, "Redeclaration of method '%s'", name);
+				throw new MDCompileException(m.mLocation, "Redeclaration of method '{}'", name);
 
 			methods[name] = m;
 		}
@@ -3255,7 +2997,7 @@ class ClassDef
 		void addField(Identifier name, Expression v)
 		{
 			if(name.mName in fields)
-				throw new MDCompileException(name.mLocation, "Redeclaration of field '%s'", name.mName);
+				throw new MDCompileException(name.mLocation, "Redeclaration of field '{}'", name.mName);
 
 			fields[name.mName] = v;
 		}
@@ -3298,10 +3040,10 @@ class ClassDef
 					break;
 
 				case Token.Type.EOF:
-					throw new MDCompileException(t.location, "Class at ", location.toString(), " is missing its closing brace");
+					throw new MDCompileException(t.location, "Class at {} is missing its closing brace", location.toUtf8());
 
 				default:
-					throw new MDCompileException(t.location, "Class method or field expected, not '%s'", t.toString());
+					throw new MDCompileException(t.location, "Class method or field expected, not '{}'", t.toUtf8());
 			}
 		}
 
@@ -3454,7 +3196,7 @@ class FuncDef
 		if(t.type == Token.Type.Ident)
 			name = Identifier.parse(t);
 		else
-			name = new Identifier("<literal at " ~ utf.toUTF32(location.toString()) ~ ">", location);
+			name = new Identifier("<literal at " ~ utf.toUtf32(location.toUtf8()) ~ ">", location);
 
 		bool isVararg;
 		Param[] params = parseParams(t, isVararg);
@@ -3597,7 +3339,7 @@ class NamespaceDef
 		void addField(Identifier name, Expression v)
 		{
 			if(name.mName in fields)
-				throw new MDCompileException(name.mLocation, "Redeclaration of member '%s'", name.mName);
+				throw new MDCompileException(name.mLocation, "Redeclaration of member '{}'", name.mName);
 
 			fields[name.mName] = v;
 		}
@@ -3629,10 +3371,10 @@ class NamespaceDef
 					break;
 
 				case Token.Type.EOF:
-					throw new MDCompileException(t.location, "Namespace at ", location.toString(), " is missing its closing brace");
+					throw new MDCompileException(t.location, "Namespace at {} is missing its closing brace", location.toUtf8());
 
 				default:
-					throw new MDCompileException(t.location, "Namespace member expected, not '%s'", t.toString());
+					throw new MDCompileException(t.location, "Namespace member expected, not '{}'", t.toUtf8());
 			}
 		}
 
@@ -3739,7 +3481,7 @@ class Module
 		}
 		finally
 		{
-			//showMe(); fs.showMe(); fflush(stdout);
+			//showMe(); fs.showMe(); Stdout.flush;
 			//fs.printExpStack();
 		}
 
@@ -3752,7 +3494,7 @@ class Module
 	
 	public void showMe()
 	{
-		writefln("module %s", Identifier.toLongString(mModDecl.mNames));
+		Stdout.formatln("module {}", Identifier.toLongString(mModDecl.mNames));
 	}
 }
 
@@ -3863,7 +3605,7 @@ abstract class Statement
 				throw new MDCompileException(t.location, "Empty statements ( ';' ) are not allowed");
 
 			default:
-				throw new MDCompileException(t.location, "Statement expected, not '%s'", t.toString());
+				throw new MDCompileException(t.location, "Statement expected, not '{}'", t.toUtf8());
 		}
 	}
 
@@ -3948,8 +3690,8 @@ class ImportStatement : Statement
 			{
 				if(sym.mName == sym2.mName)
 				{
-					throw new MDCompileException(sym.mLocation, "Variable '%s' conflicts with previous definition at %s",
-						sym.mName, sym2.mLocation.toString());
+					throw new MDCompileException(sym.mLocation, "Variable '{}' conflicts with previous definition at {}",
+						sym.mName, sym2.mLocation.toUtf8());
 				}
 			}
 		}
@@ -3975,21 +3717,6 @@ class ImportStatement : Statement
 		foreach(i, sym; mSymbols)
 		{
 			s.codeR(mLocation.line, Op.Index, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.mName)));
-
-			/*uint destReg = s.nextRegister();
-
-			s.pushVar(mNames[0]);
-
-			foreach(name; mNames[1 .. $])
-			{
-				s.topToSource(mLocation.line);
-				s.popField(mLocation.line, name);
-			}
-
-			s.topToSource(mLocation.line);
-			s.popField(mLocation.line, sym);
-
-			s.popMoveTo(mLocation.line, destReg);*/
 			s.insertLocal(sym);
 		}
 
@@ -4129,7 +3856,7 @@ abstract class Declaration
 			else if(t.nextToken.type == Token.Type.Namespace)
 				return NamespaceDecl.parse(t);
 			else
-				throw new MDCompileException(location, "Illegal token '%s' after '%s'", t.nextToken.toString(), t.toString());
+				throw new MDCompileException(location, "Illegal token '{}' after '{}'", t.nextToken.toUtf8(), t.toUtf8());
 		}
 		else if(t.type == Token.Type.Function)
 			return FuncDecl.parse(t);
@@ -4138,7 +3865,7 @@ abstract class Declaration
 		else if(t.type == Token.Type.Namespace)
 			return NamespaceDecl.parse(t);
 		else
-			throw new MDCompileException(location, "Declaration expected, not '%s'", t.toString());
+			throw new MDCompileException(location, "Declaration expected, not '{}'", t.toUtf8());
 	}
 
 	public void codeGen(FuncState s)
@@ -4278,8 +4005,8 @@ class VarDecl : Declaration
 			{
 				if(n.mName == n2.mName)
 				{
-					throw new MDCompileException(n.mLocation, "Variable '%s' conflicts with previous definition at %s",
-						n.mName, n2.mLocation.toString());
+					throw new MDCompileException(n.mLocation, "Variable '{}' conflicts with previous definition at {}",
+						n.mName, n2.mLocation.toUtf8());
 				}
 			}
 		}
@@ -4506,18 +4233,17 @@ class Identifier
 
 	public static dchar[] toLongString(Identifier[] idents)
 	{
-		return djoin((uint index)
-		{
-			if(index >= idents.length)
-				return cast(dchar[])null;
-			else
-				return idents[index].mName;
-		}, ".");
+		dchar[][] strings = new dchar[][idents.length];
+		
+		foreach(i, ident; idents)
+			strings[i] = ident.mName;
+
+		return join(strings, "."d);
 	}
 
-	public char[] toString()
+	public char[] toUtf8()
 	{
-		return utf.toUTF8(mName);
+		return utf.toUtf8(mName);
 	}
 }
 
@@ -5180,7 +4906,7 @@ class ForeachStatement : Statement
 	private static Identifier dummyIndex(Location l)
 	{
 		static uint counter = 0;
-		return new Identifier("__dummy"d ~ utf.toUTF32(string.toString(counter++)), l);
+		return new Identifier("__dummy"d ~ Integer.toUtf32(counter++), l);
 	}
 
 	public static ForeachStatement parse(ref Token* t)
@@ -8144,7 +7870,7 @@ class PrimaryExp : Expression
 				break;
 
 			default:
-				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
+				throw new MDCompileException(location, "Expression expected, not '{}'", t.toUtf8());
 		}
 
 		return PostfixExp.parse(t, exp);
@@ -8186,7 +7912,7 @@ class PrimaryExp : Expression
 				break;
 
 			default:
-				throw new MDCompileException(location, "Expression expected, not '%s'", t.toString());
+				throw new MDCompileException(location, "Expression expected, not '{}'", t.toUtf8());
 		}
 
 		return exp;
@@ -8228,9 +7954,9 @@ class IdentExp : PrimaryExp
 		return ret;
 	}
 
-	char[] toString()
+	char[] toUtf8()
 	{
-		return "Ident " ~ utf.toUTF8(mIdent.mName);	
+		return "Ident " ~ utf.toUtf8(mIdent.mName);
 	}
 }
 
@@ -8266,7 +7992,7 @@ class ThisExp : PrimaryExp
 		return ret;
 	}
 
-	char[] toString()
+	char[] toUtf8()
 	{
 		return "this";
 	}
@@ -8328,7 +8054,7 @@ class BoolExp : PrimaryExp
 		else if(t.type == Token.Type.False)
 			return new BoolExp(t.location, false);
 		else
-			throw new MDCompileException(t.location, "'true' or 'false' expected, not '%s'", t.toString());
+			throw new MDCompileException(t.location, "'true' or 'false' expected, not '{}'", t.toUtf8());
 	}
 
 	public override void codeGen(FuncState s)
@@ -8409,7 +8135,7 @@ class CharExp : PrimaryExp
 		if(t.type == Token.Type.CharLiteral)
 			return new CharExp(t.location, t.intValue);
 		else
-			throw new MDCompileException(t.location, "Character literal expected, not '%s'", t.toString());
+			throw new MDCompileException(t.location, "Character literal expected, not '{}'", t.toUtf8());
 	}
 
 	public override void codeGen(FuncState s)
@@ -8457,7 +8183,7 @@ class IntExp : PrimaryExp
 		if(t.type == Token.Type.IntLiteral)
 			return new IntExp(t.location, t.intValue);
 		else
-			throw new MDCompileException(t.location, "Integer literal expected, not '%s'", t.toString());
+			throw new MDCompileException(t.location, "Integer literal expected, not '{}'", t.toUtf8());
 	}
 
 	public override void codeGen(FuncState s)
@@ -8979,7 +8705,7 @@ class ArrayCtorExp : PrimaryExp
 	public override void codeGen(FuncState s)
 	{
 		if(mFields.length >= maxFields)
-			throw new MDCompileException(mLocation, "Array constructor has too many fields (more than %s)", maxFields);
+			throw new MDCompileException(mLocation, "Array constructor has too many fields (more than {})", maxFields);
 
 		uint min(uint a, uint b)
 		{

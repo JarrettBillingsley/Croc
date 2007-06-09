@@ -2,7 +2,7 @@ module tests.iando;
 
 io.changeDir(`tests\files`);
 
-io.File("foo", io.FileMode.OutNew).close();
+//io.File("foo", io.FileMode.OutNew).close();
 io.rename("foo", "bar");
 io.copy("bar", "foo");
 io.size("foo");
@@ -14,7 +14,7 @@ io.makeDir("dir");
 io.removeDir("dir");
 io.listDir(io.currentDir());
 io.listDir(io.currentDir(), "*.md");
-local f = io.File("foo");
+/*local f = io.File("foo");
 try io.File("FOASAF"); catch(e){}
 f.seek(0, 'c');
 f.seek(0, 'e');
@@ -43,7 +43,7 @@ f.readf("%s");
 f.readChars(1);
 f.close();
 
-foreach(line; io.File("lines.txt")){}
+foreach(line; io.File("lines.txt")){}*/
 
 io.remove("foo");
 io.remove("bar");

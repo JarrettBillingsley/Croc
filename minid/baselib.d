@@ -27,13 +27,14 @@ import minid.types;
 import minid.compiler;
 import minid.utils;
 
-import std.stdio;
-import std.stream;
-import std.format;
-import std.conv;
-import std.cstream;
-import std.stream;
+import Integer = tango.text.convert.Integer;
+import utf = tango.text.convert.Utf;
+import tango.text.convert.Layout;
+import tango.io.Stdout;
+import tango.stdc.ctype;
+import tango.io.Console;
 
+/*
 MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 {
 	MDValue[] output;
@@ -104,7 +105,7 @@ MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 				}
 			}
 			
-			char[] fmt = utf.toUTF8(formatStr[begin .. i + 1]);
+			char[] fmt = utf.toUtf8(formatStr[begin .. i + 1]);
 			MDValue val;
 
 			switch(c)
@@ -145,90 +146,87 @@ MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
 
 	return output;
 }
+*/
 
-dchar[] baseFormat(MDState s, MDValue[] params)
+private Layout!(dchar) Formatter;
+
+static this()
 {
-	dchar[] output;
+	Formatter = new Layout!(dchar);
+}
 
-	void outputChar(dchar c)
+void baseFormat(MDState s, MDValue[] params, uint delegate(dchar[]) sink)
+{
+	void output(dchar[] fmt, MDValue* param, bool isRaw)
 	{
-		output ~= c;
-	}
+		if(param is null)
+			Formatter.convert(sink, fmt, "{invalid index}");
+		else
+		{
+			switch(param.type)
+			{
+				case MDValue.Type.Null:
+					Formatter.convert(sink, fmt, "null");
+					break;
 
-	void outputString(dchar[] s)
-	{
-		output ~= s;
-	}
+				case MDValue.Type.Bool:
+					Formatter.convert(sink, fmt, param.as!(bool) ? "true" : "false");
+					break;
 
-	void specialFormat(void delegate(dchar) putc, ...)
-	{
-		doFormat(putc, _arguments, _argptr);
+				case MDValue.Type.Int:
+					Formatter.convert(sink, fmt, param.as!(int));
+					break;
+
+				case MDValue.Type.Float:
+					Formatter.convert(sink, fmt, param.as!(mdfloat));
+					break;
+
+				case MDValue.Type.Char:
+					Formatter.convert(sink, fmt, param.as!(dchar));
+					break;
+
+				case MDValue.Type.String:
+					Formatter.convert(sink, fmt, param.as!(dchar[]));
+					break;
+
+				default:
+					if(isRaw)
+						Formatter.convert(sink, fmt, param.toUtf8());
+					else
+						Formatter.convert(sink, fmt, s.valueToString(*param).asUTF32());
+					break;
+			}
+		}
 	}
+	
+	if(params.length > 64)
+		s.throwRuntimeException("Too many parameters to format");
+
+	bool[64] used;
 
 	for(int paramIndex = 0; paramIndex < params.length; paramIndex++)
 	{
-		if(params[paramIndex].isString())
+		if(used[paramIndex])
+			continue;
+
+  		if(!params[paramIndex].isString())
+			output("{}", &params[paramIndex], false);
+		else
 		{
 			MDString formatStr = params[paramIndex].as!(MDString);
 			int formatStrIndex = paramIndex;
+			int autoIndex = paramIndex + 1;
 
-			int getIntParam(int index)
+			MDValue* getParam(int index)
 			{
 				if(index >= params.length)
-					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
+					return null;
 
-				if(params[index].isInt() == false)
-					s.throwRuntimeException("Expected 'int' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
-
-				return params[index].as!(int);
-			}
-
-			mdfloat getFloatParam(int index)
-			{
-				if(index >= params.length)
-					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
-					
-				if(params[index].isFloat())
-					return params[index].as!(mdfloat);
-				else if(params[index].isInt())
-					return params[index].as!(int);
-				else
-					s.throwRuntimeException("Expected 'float' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
-			}
-
-			dchar getCharParam(int index)
-			{
-				if(index >= params.length)
-					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
-
-				if(params[index].isChar() == false)
-					s.throwRuntimeException("Expected 'char' but got '%s' for parameter ", params[index].typeString(), formatStrIndex);
-
-				return params[index].as!(dchar);
-			}
-
-			MDValue getParam(int index)
-			{
-				if(index >= params.length)
-					s.throwRuntimeException("Not enough parameters to format parameter ", formatStrIndex);
-
-				return params[index];
+				return &params[index];
 			}
 
 			for(int i = 0; i < formatStr.length; i++)
 			{
-				dchar[20] formatting;
-				int formattingLength = 0;
-
-				void addFormatChar(dchar c)
-				{
-					if(formattingLength >= formatting.length)
-						s.throwRuntimeException("Format specifier too long in parameter ", formatStrIndex);
-
-					formatting[formattingLength] = c;
-					formattingLength++;
-				}
-
 				dchar c = formatStr[i];
 
 				void nextChar()
@@ -236,169 +234,167 @@ dchar[] baseFormat(MDState s, MDValue[] params)
 					i++;
 
 					if(i >= formatStr.length)
-						s.throwRuntimeException("Unterminated format specifier in parameter ", formatStrIndex);
+						s.throwRuntimeException("Unterminated format specifier in parameter {}", formatStrIndex);
 
 					c = formatStr[i];
 				}
 
-				if(c == '%')
+				dchar[20] format = void;
+				int iFormat = 0;
+
+				void addChar(dchar c)
+				{
+					if(iFormat >= format.length)
+						s.throwRuntimeException("Format specifier too long in parameter {}", formatStrIndex);
+
+					format[iFormat++] = c;
+				}
+
+				if(c != '{')
+					sink([c]);
+				else
 				{
 					nextChar();
 
-					if(c == '%')
+					if(c == '{')
 					{
-						outputChar('%');
+						sink("{");
 						continue;
 					}
-					else
-						addFormatChar('%');
+					
+					addChar('{');
+					
+					bool isRaw = false;
 
-					while(true)
+					if(c == 'r')
 					{
-						switch(c)
-						{
-							case '-', '+', '#', '0', ' ':
-								addFormatChar(c);
-								nextChar();
-								continue;
-
-							default:
-								break;
-						}
-
-						break;
-					}
-
-					if(c == '*')
-						s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
-					else if(std.ctype.isdigit(c))
-					{
-						addFormatChar(c);
+						isRaw = true;
 						nextChar();
-
-						while(true)
-						{
-							if(std.ctype.isdigit(c))
-							{
-								addFormatChar(c);
-								nextChar();
-								continue;
-							}
-
-							break;
-						}
 					}
+					
+					int index = autoIndex;
 
-					if(c == '.')
+					if(c == '-' || isdigit(c))
 					{
-						addFormatChar('.');
-						nextChar();
+						int begin = i;
 
-						if(c == '*')
-							s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported in parameter ", formatStrIndex);
-						else if(std.ctype.isdigit(c))
-						{
-							addFormatChar(c);
+						if(!isdigit(c))
+							s.throwRuntimeException("Format index must have at least one digit in parameter {}", formatStrIndex);
+
+						while(isdigit(c))
 							nextChar();
 
-							while(true)
-							{
-								if(std.ctype.isdigit(c))
-								{
-									addFormatChar(c);
-									nextChar();
-									continue;
-								}
+						int offset = Integer.atoi(formatStr.sliceData(begin, i));
+						
+						index = formatStrIndex + offset + 1;
+					}
+					else
+						autoIndex++;
+					
+					if(c == ',')
+					{
+						addChar(',');
+						nextChar();
+						
+						if(c == '-')
+						{
+							addChar('-');
+							nextChar();
+						}
+						
+						if(!isdigit(c))
+							s.throwRuntimeException("Format width must have at least one digit in parameter {}", formatStrIndex);
 
-								break;
-							}
+						while(isdigit(c))
+						{
+							addChar(c);
+							nextChar();
 						}
 					}
-
-					paramIndex++;
-
-					addFormatChar(c);
-
-					switch(c)
+					
+					if(c == ':')
 					{
-						case 'd', 'i', 'b', 'o', 'x', 'X':
-							int val = getIntParam(paramIndex);
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
-							break;
-
-						case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-							mdfloat val = getFloatParam(paramIndex);
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
-							break;
-
-						case 's':
-							MDString val = s.valueToString(getParam(paramIndex));
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val.mData);
-							break;
-							
-						case 'r':
-							formatting[formattingLength - 1] = 's';
-							char[] val = getParam(paramIndex).toString();
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
-							break;
-
-						case 'c':
-							dchar val = getCharParam(paramIndex);
-							formatting[formattingLength - 1] = 's';
-							specialFormat(&outputChar, formatting[0 .. formattingLength], val);
-							break;
-
-						default:
-							// unsupported: %p
-							s.throwRuntimeException("Unsupported format specifier '%s' in parameter ", c, formatStrIndex);
+						addChar(':');
+						nextChar();
+						
+						while(c != '}')
+						{
+							addChar(c);
+							nextChar();
+						}
 					}
+					
+					if(c != '}')
+					{
+						sink("{missing or misplaced '}'}");
+						continue;
+					}
+
+					addChar('}');
+					used[index] = true;
+
+					output(format[0 .. iFormat], getParam(index), isRaw);
 				}
-				else
-					outputChar(c);
 			}
 		}
-		else
-		{
-			MDString val = s.valueToString(params[paramIndex]);
-			outputString(val.mData);
-		}
 	}
-
-	return output;
 }
 
 class BaseLib
 {
 	int mdwritefln(MDState s, uint numParams)
 	{
-		writefln("%s", baseFormat(s, s.getAllParams()));
+		char[256] buffer = void;
+		char[] buf = buffer;
+
+		uint sink(dchar[] data)
+		{
+			buf = utf.toUtf8(data, buf);
+			Stdout(buf);
+			return data.length;
+		}
+
+		baseFormat(s, s.getAllParams(), &sink);
+		Stdout.newline;
 		return 0;
 	}
 
 	int mdwritef(MDState s, uint numParams)
 	{
-		writef("%s", baseFormat(s, s.getAllParams()));
+		char[256] buffer = void;
+		char[] buf = buffer;
+
+		uint sink(dchar[] data)
+		{
+			buf = utf.toUtf8(data, buf);
+			Stdout(buf);
+			return data.length;
+		}
+
+		baseFormat(s, s.getAllParams(), &sink);
+		Cout();
 		return 0;
 	}
 	
 	int writeln(MDState s, uint numParams)
 	{
 		for(uint i = 0; i < numParams; i++)
-			writef("%s", s.valueToString(s.getParam(i)).mData);
+			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
 
-		writefln();
+		Stdout.newline;
 		return 0;
 	}
-	
+
 	int write(MDState s, uint numParams)
 	{
 		for(uint i = 0; i < numParams; i++)
-			writef("%s", s.valueToString(s.getParam(i)).mData);
+			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
 
+		Cout();
 		return 0;
 	}
 
-	int readf(MDState s, uint numParams)
+	/*int readf(MDState s, uint numParams)
 	{
 		MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), din));
 		
@@ -406,11 +402,26 @@ class BaseLib
 			s.push(v);
 			
 		return ret.length;
+	}*/
+	
+	int readln(MDState s, uint numParams)
+	{
+		s.push(Cin.copyln());
+		return 1;
 	}
 
 	int mdformat(MDState s, uint numParams)
 	{
-		s.push(baseFormat(s, s.getAllParams()));
+		dchar[] ret;
+
+		uint sink(dchar[] data)
+		{
+			ret ~= data;
+			return data.length;
+		}
+
+		baseFormat(s, s.getAllParams(), &sink);
+		s.push(ret);
 		return 1;
 	}
 
@@ -438,7 +449,7 @@ class BaseLib
 	
 	int rawToString(MDState s, uint numParams)
 	{
-		s.push(s.getParam(0u).toString());
+		s.push(s.getParam(0u).toUtf8());
 		return 1;
 	}
 
@@ -463,7 +474,7 @@ class BaseLib
 			if(numParams == 1)
 				s.throwRuntimeException("Assertion Failed!");
 			else
-				s.throwRuntimeException("Assertion Failed: %s", s.getParam(1u).toString());
+				s.throwRuntimeException("Assertion Failed: {}", s.getParam(1u).toUtf8());
 		}
 		
 		return 0;
@@ -492,11 +503,11 @@ class BaseLib
 				break;
 				
 			case MDValue.Type.String:
-				s.push(s.safeCode(minid.utils.toInt(val.as!(dchar[]), 10)));
+				s.push(s.safeCode(Integer.parse(val.as!(dchar[]), 10)));
 				break;
 				
 			default:
-				s.throwRuntimeException("Cannot convert type '%s' to int", val.typeString());
+				s.throwRuntimeException("Cannot convert type '{}' to int", val.typeString());
 		}
 
 		return 1;
@@ -525,11 +536,11 @@ class BaseLib
 				break;
 
 			case MDValue.Type.String:
-				s.push(s.safeCode(std.conv.toFloat(val.as!(char[]))));
+				s.push(s.safeCode(Float.parse(val.as!(dchar[]))));
 				break;
 
 			default:
-				s.throwRuntimeException("Cannot convert type '%s' to float", val.typeString());
+				s.throwRuntimeException("Cannot convert type '{}' to float", val.typeString());
 		}
 
 		return 1;
@@ -583,7 +594,7 @@ class BaseLib
 		else if(s.isParam!("instance")(0))
 			s.push(s.getParam!(MDInstance)(0).fields);
 		else
-			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0u).typeString());
+			s.throwRuntimeException("Expected class or instance, not '{}'", s.getParam(0u).typeString());
 	
 		return 1;
 	}
@@ -595,7 +606,7 @@ class BaseLib
 		else if(s.isParam!("instance")(0))
 			s.push(s.getParam!(MDInstance)(0).methods);
 		else
-			s.throwRuntimeException("Expected class or instance, not '%s'", s.getParam(0u).typeString());
+			s.throwRuntimeException("Expected class or instance, not '{}'", s.getParam(0u).typeString());
 
 		return 1;
 	}
@@ -713,20 +724,16 @@ class BaseLib
 		else
 			name = "<loaded by loadString>";
 			
-		scope MemoryStream data = new MemoryStream(s.getParam!(char[])(0));
 		bool dummy;
-
-		MDFuncDef def = compileStatements(data, name, dummy);
+		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name, dummy);
 		s.push(new MDClosure(s.environment(1), def));
 		return 1;
 	}
 	
 	int eval(MDState s, uint numParams)
 	{
-		scope MemoryStream data = new MemoryStream(string.format("return %s;", s.getParam!(char[])(0)));
 		bool dummy;
-
-		MDFuncDef def = compileStatements(data, "<loaded by eval>", dummy);
+		MDFuncDef def = compileStatements("return " ~ s.getParam!(dchar[])(0) ~ ";", "<loaded by eval>", dummy);
 		MDNamespace env = s.environment(1);
 		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
 		return 1;
@@ -734,8 +741,7 @@ class BaseLib
 	
 	int loadJSON(MDState s, uint numParams)
 	{
-		scope MemoryStream data = new MemoryStream(s.getParam!(char[])(0));
-		MDFuncDef def = compileJSON(data);
+		MDFuncDef def = compileJSON(s.getParam!(dchar[])(0));
 		MDNamespace env = s.environment(1);
 		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
 		return 1;
@@ -806,7 +812,7 @@ class BaseLib
 				else if(s.isParam!("string")(0))
 					i.constructor(s.getParam!(dchar[])(0));
 				else
-					s.throwRuntimeException("'int' or 'string' expected for constructor, not '%s'", s.getParam(0u).typeString());
+					s.throwRuntimeException("'int' or 'string' expected for constructor, not '{}'", s.getParam(0u).typeString());
 			}
 			else
 				i.constructor();
@@ -838,7 +844,7 @@ class BaseLib
 					i.append(s.valueToString(param));
 				}
 				else
-					i.append(param.toString());
+					i.append(param.toUtf8());
 			}
 			
 			return 0;
@@ -865,7 +871,7 @@ class BaseLib
 				i.insert(s.getParam!(int)(0), s.valueToString(param));
 			}
 			else
-				i.insert(s.getParam!(int)(0), param.toString());
+				i.insert(s.getParam!(int)(0), param.toUtf8());
 
 			return 0;
 		}
@@ -1029,7 +1035,7 @@ class BaseLib
 		
 		public void append(char[] s)
 		{
-			dchar[] str = utf.toUTF32(s);
+			dchar[] str = utf.toUtf32(s);
 			resize(str.length);
 			mBuffer[mLength .. mLength + str.length] = str[];
 			mLength += str.length;
@@ -1038,7 +1044,7 @@ class BaseLib
 		public void insert(int offset, MDStringBuffer other)
 		{
 			if(offset > mLength)
-				throw new MDException("Offset out of bounds: ", offset);
+				throw new MDException("Offset out of bounds: {}", offset);
 
 			resize(other.mLength);
 			
@@ -1052,7 +1058,7 @@ class BaseLib
 		public void insert(int offset, MDString str)
 		{
 			if(offset > mLength)
-				throw new MDException("Offset out of bounds: ", offset);
+				throw new MDException("Offset out of bounds: {}", offset);
 
 			resize(str.mData.length);
 
@@ -1066,9 +1072,9 @@ class BaseLib
 		public void insert(int offset, char[] s)
 		{
 			if(offset > mLength)
-				throw new MDException("Offset out of bounds: ", offset);
+				throw new MDException("Offset out of bounds: {}", offset);
 
-			dchar[] str = utf.toUTF32(s);
+			dchar[] str = utf.toUtf32(s);
 			resize(str.length);
 
 			for(int i = mLength + str.length - 1, j = mLength - 1; j >= offset; i--, j--)
@@ -1084,7 +1090,7 @@ class BaseLib
 				end = mLength;
 
 			if(start > mLength || start > end)
-				throw new MDException("Invalid indices: %d .. %d", start, end);
+				throw new MDException("Invalid indices: {} .. {}", start, end);
 
 			for(int i = start, j = end; j < mLength; i++, j++)
 				mBuffer[i] = mBuffer[j];
@@ -1120,7 +1126,7 @@ class BaseLib
 				index += mLength;
 
 			if(index < 0 || index >= mLength)
-				throw new MDException("Invalid index: ", index);
+				throw new MDException("Invalid index: {}", index);
 
 			return mBuffer[index];
 		}
@@ -1131,25 +1137,25 @@ class BaseLib
 				index += mLength;
 
 			if(index >= mLength)
-				throw new MDException("Invalid index: ", index);
-				
+				throw new MDException("Invalid index: {}", index);
+
 			mBuffer[index] = c;
 		}
-		
+
 		public dchar[] opSlice(int lo, int hi)
 		{
 			if(lo < 0)
 				lo += mLength;
-				
+
 			if(hi < 0)
 				hi += mLength;
-				
+
 			if(lo < 0 || lo > hi || hi >= mLength)
-				throw new MDException("Invalid indices: %d .. %d", lo, hi);
+				throw new MDException("Invalid indices: {} .. {}", lo, hi);
 
 			return mBuffer[lo .. hi];
 		}
-		
+
 		public void opSliceAssign(dchar[] s, int lo, int hi)
 		{
 			if(lo < 0)
@@ -1159,10 +1165,10 @@ class BaseLib
 				hi += mLength;
 
 			if(lo < 0 || lo > hi || hi >= mLength)
-				throw new MDException("Invalid indices: %d .. %d", lo, hi);
+				throw new MDException("Invalid indices: {} .. {}", lo, hi);
 
 			if(hi - lo != s.length)
-				throw new MDException("Slice length (%d) does not match length of string (%d)", hi - lo, s.length);
+				throw new MDException("Slice length ({}) does not match length of string ({})", hi - lo, s.length);
 
 			mBuffer[lo .. hi] = s[];
 		}
@@ -1204,7 +1210,8 @@ public void init()
 		globals["writef"d] =          newClosure(&lib.mdwritef,              "writef");
 		globals["writeln"d] =         newClosure(&lib.writeln,               "writeln");
 		globals["write"d] =           newClosure(&lib.write,                 "write");
-		globals["readf"d] =           newClosure(&lib.readf,                 "readf");
+		//globals["readf"d] =           newClosure(&lib.readf,                 "readf");
+		globals["readln"d] =          newClosure(&lib.readln,                "readln");
 		globals["isNull"d] =          newClosure(&lib.isParam!("null"),      "isNull");
 		globals["isBool"d] =          newClosure(&lib.isParam!("bool"),      "isBool");
 		globals["isInt"d] =           newClosure(&lib.isParam!("int"),       "isInt");

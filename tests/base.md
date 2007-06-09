@@ -1,5 +1,6 @@
 module tests.base;
 
+/*
 local f = io.File(`tests\foobar.txt`);
 
 try f.readf("%% %0*"); catch(e){}
@@ -7,23 +8,16 @@ try f.readf("%3.*"); catch(e){}
 writefln(f.readf("%5s %d %c %s %f %.3s"));
 try f.readf("%p"); catch(e){}
 try f.readf("%"); catch(e){ writefln("BO"); }
+*/
 
-writefln("%d %f %c %s", 4, 5.6, 'h', "hi", 7);
-writefln("%010.10f", 5);
-writefln("%r", []);
-writefln("%%");
-try writefln("%d"); catch(e){}
-try writefln("%d", 'h'); catch(e){}
-try writefln("%f"); catch(e){writefln("FO");}
-try writefln("%f", 'h'); catch(e){}
-try writefln("%c"); catch(e){}
-try writefln("%c", 5); catch(e){}
-try writefln("%s"); catch(e){}
-try writefln("%100000000000000000000000000f", 4); catch(e){}
-try writefln("%"); catch(e){}
-try writefln("%*"); catch(e){}
-try writefln("%.*"); catch(e){}
-try writefln("%p"); catch(e){}
+writefln("{} {} {}", null, true, []);
+writefln("{} {} {} {} {}", 4, 5.6, 'h', "hi", 7);
+writefln("{:10E}", 5);
+writefln("{r}", []);
+writefln("{{");
+writefln("{}");
+try writefln("{:10000000000000000000000000000000000000000000}", 4); catch(e){}
+try writefln("{"); catch(e){}
 write("hi");
 writef("hi");
 writeln("hi");
@@ -143,5 +137,5 @@ try s[-392096 .. 0] = "h"; catch(e){}
 	
 	writefln();
 	
-	readf("%d");
+	//readf("%d");
 }
