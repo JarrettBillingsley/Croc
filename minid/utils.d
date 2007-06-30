@@ -74,6 +74,12 @@ template isArrayType(T : T[])
 	const bool isArrayType = true;
 }
 
+/// Sees if a type is an associative array.
+template isAAType(T)
+{
+	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
+}
+
 /// Sees if a type is a pointer.
 template isPointerType(T)
 {
@@ -483,7 +489,7 @@ void Deserialize(T)(IReader s, out T dest)
 /// and during execution of your program, you just create instances of this class with a
 /// certain name.  Timings for each profile name are accumulated over the course of the program and
 /// the final output will show the name of the profile, how many times it was instanced, the
-/// tital time in milliseconds, and the average time per instance in milliseconds.
+/// total time in milliseconds, and the average time per instance in milliseconds.
 scope class Profiler
 {
 	private StopWatch mTimer;

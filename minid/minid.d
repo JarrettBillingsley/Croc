@@ -32,6 +32,7 @@ version(MDDynLibs)
 public import minid.compiler;
 public import minid.types;
 public import minid.utils;
+public import minid.bind;
 
 import arraylib = minid.arraylib;
 import baselib = minid.baselib;
@@ -139,21 +140,21 @@ MDState MDInitialize(uint libs = MDStdlib.All)
 	return MDGlobalState().mainThread();
 }
 
+private import tango.io.Stdout;
+private import tango.io.FileSystem;
+
 private MDModuleDef tryPath(FilePath path, char[][] elems)
 {
 	if(!path.exists())
 		return null;
 
-	foreach(elem; elems[0 .. $ - 1])
-	{
-		path.set(FilePath.join(path.toUtf8(), elem), true);
+	scope fp = new FilePath(FilePath.join(path.toUtf8().dup, FilePath.join(elems[0 .. $ - 1])), true);
 
-		if(!path.exists())
-			return null;
-	}
+	if(!fp.exists())
+		return null;
 
-	scope sourceName = new FilePath(FilePath.join(path.toUtf8(), elems[$ - 1] ~ ".md"));
-	scope binaryName = new FilePath(FilePath.join(path.toUtf8(), elems[$ - 1] ~ ".mdm"));
+	scope sourceName = new FilePath(FilePath.join(fp.toUtf8(), elems[$ - 1] ~ ".md"));
+	scope binaryName = new FilePath(FilePath.join(fp.toUtf8(), elems[$ - 1] ~ ".mdm"));
 
 	MDModuleDef def = null;
 

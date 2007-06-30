@@ -1,5 +1,18 @@
 module simple;
 
+/*
+// uncomment this for an example of using automatically-bound D functions!
+
+import bar;
+
+bar.foo(3, 4);
+bar.foo(6);
+bar.foo(1, 2, 3);
+writefln(bar.average([5, 23, 74, 35, 1, 43, -82]));
+bar.something(4.56);
+*/
+
+
 // Importing stuff.
 {
 	function loadMod(name, ns)
@@ -17,7 +30,7 @@ module simple;
 		{
 			return x[0];
 		};
-	
+
 		ns.baz = function baz()
 		{
 			writefln(x);

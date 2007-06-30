@@ -3544,12 +3544,21 @@ abstract class Statement
 		switch(t.type)
 		{
 			case
+				Token.Type.CharLiteral,
 				Token.Type.Dec,
+				Token.Type.False,
+				Token.Type.FloatLiteral,
 				Token.Type.Ident,
 				Token.Type.Inc,
+				Token.Type.IntLiteral,
+				Token.Type.LBracket,
 				Token.Type.LParen,
+				Token.Type.Null,
+				Token.Type.StringLiteral,
 				Token.Type.Super,
 				Token.Type.This,
+				Token.Type.True,
+				Token.Type.Vararg,
 				Token.Type.Yield:
 
 				return ExpressionStatement.parse(t);

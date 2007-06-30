@@ -23,21 +23,21 @@ subject to the following restrictions:
 
 module minid.types;
 
+import tango.core.Vararg;
+import tango.io.FileConduit;
+import tango.io.FilePath;
+import tango.io.FileSystem;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
 import tango.io.protocol.Reader;
 import tango.io.protocol.Writer;
-import tango.io.FileConduit;
-import tango.text.Util;
-import tango.text.Ascii;
 import tango.io.Stdout;
-import utf = tango.text.convert.Utf;
-import tango.io.FileSystem;
-import tango.io.FilePath;
 import tango.stdc.string : memcmp;
-import tango.core.Vararg;
-import Integer = tango.text.convert.Integer;
+import tango.text.Ascii;
 import Float = tango.text.convert.Float;
+import Integer = tango.text.convert.Integer;
+import utf = tango.text.convert.Utf;
+import tango.text.Util;
 
 import minid.opcodes;
 import minid.utils;
@@ -609,103 +609,138 @@ align(1) struct MDValue
 		{
 			return cast(uint)mType >= cast(uint)Type.String;
 		}
+		else static if(isArrayType!(T))
+		{
+			if(mType != Type.Array)
+				return false;
+
+			alias typeof(T[0]) ElemType;
+
+			foreach(ref v; mArray)
+				if(!v.canCastTo!(ElemType))
+					return false;
+					
+			return true;
+		}
+		else static if(isAAType!(T))
+		{
+			if(mType != Type.Table)
+				return false;
+				
+			alias typeof(T.init.keys[0]) KeyType;
+			alias typeof(T.init.values[0]) ValueType;
+			
+			foreach(ref k, ref v; mTable)
+				if(!k.canCastTo!(KeyType) || !v.canCastTo!(ValueType))
+					return false;
+					
+			return true;
+		}
 		else
 			return false;
 	}
 
 	public T as(T)()
 	{
-		assert(canCastTo!(T)(), "MDValue as " ~ T.stringof);
+		static if(!isStringType!(T) && isArrayType!(T))
+		{
+			assert(mType == Type.Array, "MDValue as " ~ T.stringof);
 
-		static if(is(T == bool))
-		{
-			return mBool;
-		}
-		else static if(isIntType!(T))
-		{
-			return mInt;
-		}
-		else static if(isFloatType!(T))
-		{
-			if(mType == Type.Int)
-				return cast(T)mInt;
-			else if(mType == Type.Float)
-				return mFloat;
-			else
-				assert(false, "MDValue as " ~ T.stringof);
-		}
-		else static if(isCharType!(T))
-		{
-			return mChar;
-		}
-		else static if(isStringType!(T))
-		{
-			static if(is(T == char[]))
-				return mString.asUTF8();
-			else static if(is(T == wchar[]))
-				return mString.asUTF16();
-			else
-				return mString.asUTF32();
-		}
-		else static if(is(T : MDString))
-		{
-			return mString;
-		}
-		else static if(is(T : MDTable))
-		{
-			return mTable;
-		}
-		else static if(is(T : MDArray))
-		{
-			return mArray;
-		}
-		else static if(is(T : MDClosure))
-		{
-			return mFunction;
-		}
-		else static if(is(T : MDClass))
-		{
-			return mClass;
-		}
-		else static if(is(T : MDInstance))
-		{
-			static if(is(T == MDInstance))
-				T ret = mInstance;
-			else
+			alias typeof(T[0]) ElemType;
+
+			T ret = new T(mArray.length);
+			
+			foreach(i, ref v; mArray)
 			{
-				T ret = cast(T)mInstance;
-
-				if(ret is null)
-					throw new MDException("Cannot convert '{}' to " ~ T.stringof, mInstance.classinfo.name);
+				assert(v.canCastTo!(ElemType), "MDValue as " ~ T.stringof);
+				ret[i] = v.as!(typeof(T[0]));
 			}
 
 			return ret;
 		}
-		else static if(is(T : MDNamespace))
+		else static if(isAAType!(T))
 		{
-			return mNamespace;
-		}
-		else static if(is(T : MDState))
-		{
-			return mThread;
-		}
-		else static if(is(T : MDObject))
-		{
-			return mObj;
+			assert(mType == Type.Table, "MDValue as " ~ T.stringof);
+
+			alias typeof(T.init.keys[0]) KeyType;
+			alias typeof(T.init.values[0]) ValueType;
+
+			T ret;
+
+			foreach(ref k, ref v; mTable)
+			{
+				assert(k.canCastTo!(KeyType), "MDValue as " ~ T.stringof);
+				assert(v.canCastTo!(ValueType), "MDValue as " ~ T.stringof);
+				ret[k.as!(typeof(T.init.keys[0]))] = v.as!(typeof(T.init.values[0]));
+			}
+
+			return ret;
 		}
 		else
 		{
-			// I do this because static assert won't show the template instantiation "call stack."
-			pragma(msg, "MDValue.as() - Invalid argument type '" ~ T.stringof ~ "'");
-			ARGUMENT_ERROR(T);
+			assert(canCastTo!(T)(), "MDValue as " ~ T.stringof);
+			return this.convertTo!(T);
 		}
 	}
 	
 	public T to(T)()
 	{
-		if(!canCastTo!(T))
-			throw new MDException("Cannot convert '{}' to " ~ T.stringof, typeString());
+		static if(!isStringType!(T) && isArrayType!(T))
+		{
+			if(mType != Type.Array)
+				throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof, typeString());
 
+			alias typeof(T[0]) ElemType;
+
+			T ret = new T(mArray.length);
+			
+			foreach(i, ref v; mArray)
+			{
+				if(!v.canCastTo!(ElemType))
+					throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof ~ ": element {} should be " ~
+						ElemType.stringof ~ ", not '{}'", typeString(), v.typeString());
+
+				ret[i] = v.as!(typeof(T[0]));
+			}
+
+			return ret;
+		}
+		else static if(isAAType!(T))
+		{
+			if(mType != Type.Table)
+				throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof, typeString());
+
+			alias typeof(T.init.keys[0]) KeyType;
+			alias typeof(T.init.values[0]) ValueType;
+
+			T ret;
+
+			foreach(ref k, ref v; mTable)
+			{
+				if(!k.canCastTo!(KeyType))
+					throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof ~ ": key {} should be " ~
+						KeyType.stringof ~ ", not '{}'", typeString(), k.typeString());
+
+				if(!v.canCastTo!(ValueType))
+					throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof ~ ": value {} should be " ~
+						ValueType.stringof ~ ", not '{}'", typeString(), v.typeString());
+
+				ret[k.as!(typeof(T.init.keys[0]))] = v.as!(typeof(T.init.values[0]));
+			}
+
+			return ret;
+		}
+		else
+		{
+			if(!canCastTo!(T))
+				throw new MDException("MDValue.to() - Cannot convert '{}' to " ~ T.stringof, typeString());
+
+			return this.convertTo!(T);
+		}
+	}
+
+	private T convertTo(T)()
+	{
 		static if(is(T == bool))
 		{
 			return mBool;
@@ -721,7 +756,7 @@ align(1) struct MDValue
 			else if(mType == Type.Float)
 				return mFloat;
 			else
-				assert(false, "MDValue.to!(" ~ T.stringof ~ ")");
+				assert(false, "MDValue.convertTo!(" ~ T.stringof ~ ")");
 		}
 		else static if(isCharType!(T))
 		{
@@ -778,7 +813,7 @@ align(1) struct MDValue
 		else
 		{
 			// I do this because static assert won't show the template instantiation "call stack."
-			pragma(msg, "MDValue.to() - Invalid argument type '" ~ T.stringof ~ "'");
+			pragma(msg, "MDValue.convertTo() - Invalid argument type '" ~ T.stringof ~ "'");
 			ARGUMENT_ERROR(T);
 		}
 	}
@@ -1353,6 +1388,21 @@ class MDTable : MDObject
 
 		return ret;
 	}
+	
+	public static MDTable fromAA(K, V)(V[K] aa)
+	{
+		MDTable ret = new MDTable();
+
+		foreach(k, ref v; aa)
+		{
+			MDValue key = k;
+			MDValue val = v;
+			
+			ret[key] = val;
+		}
+
+		return ret;
+	}
 
 	public override uint length()
 	{
@@ -1541,7 +1591,7 @@ class MDArray : MDObject
 			len = other.mData.length;
 
 		result = memcmp(mData.ptr, other.mData.ptr, len * MDValue.sizeof);
-	
+
 		if(result == 0)
 			result = cast(int)mData.length - cast(int)other.mData.length;
 
@@ -1563,6 +1613,21 @@ class MDArray : MDObject
 				return i;
 				
 		return -1;
+	}
+	
+	public int opApply(int delegate(ref MDValue value) dg)
+	{
+		int result = 0;
+
+		for(uint i = 0; i < mData.length; i++)
+		{
+			result = dg(mData[i]);
+
+			if(result)
+				break;
+		}
+		
+		return result;
 	}
 
 	public int opApply(int delegate(ref uint index, ref MDValue value) dg)
@@ -1726,6 +1791,8 @@ class MDClass : MDObject
 	protected MDClass mBaseClass;
 	protected MDNamespace mFields;
 	protected MDNamespace mMethods;
+	protected bool mIsCtorCached = false;
+	protected MDValue* mCtor;
 
 	protected static MDString CtorString;
 	
@@ -1802,6 +1869,8 @@ class MDClass : MDObject
 			mMethods[index] = value;
 		else
 			mFields[index] = value;
+			
+		mIsCtorCached = false;
 	}
 
 	public void opIndexAssign(MDObject value, MDString index)
@@ -1837,6 +1906,16 @@ class MDClass : MDObject
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("class {}", mGuessedName);
+	}
+	
+	package MDValue* getCtor()
+	{
+		if(mIsCtorCached)
+			return mCtor;
+
+		mIsCtorCached = true;
+		mCtor = this[MDClass.CtorString];
+		return mCtor;
 	}
 }
 
@@ -1935,50 +2014,19 @@ class MDInstance : MDObject
 	{
 		return mMethods;
 	}
-
-	package MDValue* getCtor()
-	{
-		return this[MDClass.CtorString];
-	}
 }
 
-class MDNamespace : MDObject
+final class MDNamespace : MDObject
 {
-	version(MDExperimentalNamespaces)
-	{
-		struct Slot
-		{
-			MDString key;
-			MDValue value;
-			Slot* next;
-		}
-	
-		protected Slot[] mSlots;
-		protected size_t mLength;
-		protected size_t mColSlot;
-	}
-	else
-		protected MDValue[MDString] mData;
-
+	protected MDValue[MDString] mData;
 	protected MDNamespace mParent;
 	protected dchar[] mName;
 
 	public this(dchar[] name = null, MDNamespace parent = null)
 	{
-		version(MDExperimentalNamespaces)
-			mSlots = new Slot[32];
-
 		mName = name;
 		mParent = parent;
 		mType = MDValue.Type.Namespace;
-	}
-
-	version(MDExperimentalNamespaces)
-	{
-		private this(Slot[] slots)
-		{
-			mSlots = slots;
-		}
 	}
 
 	public static MDNamespace create(T...)(dchar[] name, MDNamespace parent, T args)
@@ -2016,10 +2064,7 @@ class MDNamespace : MDObject
 
 	public override uint length()
 	{
-		version(MDExperimentalNamespaces)
-			return mLength;
-		else
-			return mData.length;
+		return mData.length;
 	}
 
 	public dchar[] name()
@@ -2034,187 +2079,49 @@ class MDNamespace : MDObject
 
 	public MDValue* opIn_r(MDString key)
 	{
-		version(MDExperimentalNamespaces)
-		{
-			Slot* slot = lookup(key);
-			
-			if(slot is null)
-				return null;
-	
-			return &slot.value;
-		}
-		else
-			return key in mData;
+		return key in mData;
 	}
 	
 	public MDValue* opIn_r(dchar[] key)
 	{
 		scope idx = MDString.newTemp(key);
-
-		version(MDExperimentalNamespaces)
-		{
-			Slot* slot = lookup(idx);
-			
-			if(slot is null)
-				return null;
-	
-			return &slot.value;
-		}
-		else
-			return idx in mData;
+		return idx in mData;
 	}
 
 	public MDNamespace dup()
 	{
-		version(MDExperimentalNamespaces)
-		{
-			MDNamespace n = new MDNamespace(mSlots.dup);
-			n.mName = mName;
-			n.mParent = mParent;
-			n.mLength = mLength;
-			n.mColSlot = mColSlot;
-			
-			Slot* oldBase = mSlots.ptr;
-			Slot* newBase = n.mSlots.ptr;
-			
-			foreach(ref slot; n.mSlots)
-			{
-				if(slot.next !is null)
-					slot.next = (slot.next - oldBase) + newBase;
-			}
-	
-			return n;
-		}
-		else
-		{
-			MDNamespace n = new MDNamespace(mName, mParent);
-			
-			foreach(k, v; mData)
-				n[k] = v;
-				
-			return n;
-		}
+		MDNamespace n = new MDNamespace(mName, mParent);
+
+		foreach(k, ref v; mData)
+			n.mData[k] = v;
+
+		return n;
 	}
-	
+
 	public MDArray keys()
 	{
-		version(MDExperimentalNamespaces)
-		{
-			MDArray ret = new MDArray(mLength);
-			int i = 0;
-	
-			foreach(ref v; mSlots)
-			{
-				if(v.key is null)
-					continue;
-					
-				ret[i] = v.key;
-				i++;
-			}
-	
-			return ret;
-		}
-		else
-			return MDArray.fromArray(mData.keys);
+		return MDArray.fromArray(mData.keys);
 	}
 
 	public MDArray values()
 	{
-		version(MDExperimentalNamespaces)
-		{
-			MDArray ret = new MDArray(mLength);
-			int i = 0;
-	
-			foreach(ref v; mSlots)
-			{
-				if(v.key is null)
-					continue;
-					
-				ret[i] = v.value;
-				i++;
-			}
-	
-			return ret;
-		}
-		else
-			return new MDArray(mData.values);
+		return new MDArray(mData.values);
 	}
 
 	public MDValue* opIndex(MDString key)
 	{
-		version(MDExperimentalNamespaces)
-		{
-			Slot* slot = lookup(key);
-			
-			if(slot is null)
-				return null;
-	
-			return &slot.value;
-		}
-		else
 			return key in mData;
 	}
 
 	public MDValue* opIndex(dchar[] key)
 	{
 		scope str = MDString.newTemp(key);
-		
-		version(MDExperimentalNamespaces)
-		{
-			Slot* slot = lookup(str);
-	
-			if(slot is null)
-				return null;
-	
-			return &slot.value;
-		}
-		else
-			return str in mData;
+		return str in mData;
 	}
 
 	public void opIndexAssign(ref MDValue value, MDString key)
 	{
-		version(MDExperimentalNamespaces)
-		{
-			hash_t h = key.toHash() % mSlots.length;
-	
-			if(mSlots[h].key is null)
-			{
-				mSlots[h].key = key;
-				mSlots[h].value = value;
-				
-				if(h is mColSlot)
-					moveColSlot();
-			}
-			else
-			{
-				for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
-				{
-					if(slot.key == key)
-					{
-						slot.value = value;
-						return;
-					}
-				}
-	
-				if(mColSlot == mSlots.length)
-					grow();
-	
-				mSlots[mColSlot].key = key;
-				mSlots[mColSlot].value = value;
-	
-				Slot* slot;
-				for(slot = &mSlots[h]; slot.next !is null; slot = slot.next)
-				{}
-	
-				slot.next = &mSlots[mColSlot];
-				moveColSlot();
-			}
-			
-			mLength++;
-		}
-		else
-			mData[key] = value;
+		mData[key] = value;
 	}
 
 	public void opIndexAssign(ref MDValue value, dchar[] key)
@@ -2235,29 +2142,13 @@ class MDNamespace : MDObject
 	public int opApply(int delegate(ref MDString, ref MDValue) dg)
 	{
 		int result = 0;
-		
-		version(MDExperimentalNamespaces)
+
+		foreach(k, ref v; mData)
 		{
-			foreach(i, ref v; mSlots)
-			{
-				if(v.key is null)
-					continue;
-					
-				result = dg(v.key, v.value);
-	
-				if(result)
-					break;
-			}
-		}
-		else
-		{
-			foreach(k, ref v; mData)
-			{
-				result = dg(k, v);
-				
-				if(result)
-					break;
-			}
+			result = dg(k, v);
+
+			if(result)
+				break;
 		}
 
 		return result;
@@ -2281,77 +2172,6 @@ class MDNamespace : MDObject
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("namespace {}", nameString());
-	}
-	
-	version(MDExperimentalNamespaces)
-	{
-		protected Slot* lookup(MDString key)
-		{
-			hash_t h = key.toHash() % mSlots.length;
-	
-			if(mSlots[h].key is null)
-				return null;
-	
-			for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
-				if(slot.key == key)
-					return slot;
-	
-			return null;
-		}
-	
-		protected void grow()
-		{
-			Slot[] newSlots = new Slot[mSlots.length * 2];
-			size_t colSlot = 0;
-	
-			foreach(i, ref v; mSlots)
-			{
-				if(v.key is null)
-					continue;
-	
-				hash_t h = v.key.toHash() % newSlots.length;
-	
-				if(newSlots[h].key is null)
-				{
-					newSlots[h].key = v.key;
-					newSlots[h].value = v.value;
-				}
-				else
-				{
-					newSlots[colSlot].key = v.key;
-					newSlots[colSlot].value = v.value;
-	
-					Slot* slot;
-					for(slot = &newSlots[h]; slot.next !is null; slot = slot.next)
-					{}
-	
-					slot.next = &newSlots[colSlot];
-	
-					for( ; colSlot < newSlots.length; colSlot++)
-						if(newSlots[colSlot].key is null)
-							break;
-							
-					assert(colSlot < newSlots.length, "MDNamespace.grow");
-				}
-			}
-			
-			mSlots = newSlots;
-		}
-		
-		protected void moveColSlot()
-		{
-			for( ; mColSlot < mSlots.length; mColSlot++)
-				if(mSlots[mColSlot].key is null)
-					return;
-	
-			grow();
-	
-			for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
-				if(mSlots[mColSlot].key is null)
-					return;
-	
-			assert(false, "MDNamespace.moveColSlot");
-		}
 	}
 }
 
@@ -2741,16 +2561,16 @@ class MDGlobalState
 		public T opIndex(T = MDValue*)(dchar[] name)
 		{
 			MDValue* value = mGlobals[name];
-			
+
 			if(value is null)
 				throw new MDException("MDGlobalState.getGlobal() - Attempting to access nonexistent global '{}'", name);
-	
+
 			static if(is(T == MDValue*))
 				return value;
 			else
 				return value.to!(T);
 		}
-		
+
 		public alias opIndex get;
 
 		public void opIndexAssign(T)(T value, dchar[] name)
@@ -3002,12 +2822,22 @@ class MDGlobalState
 			}
 		}
 
-		if(modName in put)
-			s.throwRuntimeException("Error loading module \"{}\": a global of the same name already exists", name);
+		MDNamespace modNS;
+		MDValue* v = modName in put;
 
-		MDNamespace modNS = new MDNamespace(modName, put);
-		put[modName] = modNS;
-		
+		if(v !is null)
+		{
+			if(!v.isNamespace())
+				s.throwRuntimeException("Error loading module \"{}\": a global of the same name already exists", name);
+
+			modNS = v.as!(MDNamespace);
+		}
+		else
+		{
+			modNS = new MDNamespace(modName, put);
+			put[modName] = modNS;
+		}
+
 		return modNS;
 	}
 }
@@ -3628,7 +3458,7 @@ final class MDState : MDObject
 
 	protected final void badParamError(uint index, char[] fmt, ...)
 	{
-		throwRuntimeException("Bad argument {}: {}", index + 1, Stdout.layout.convert(fmt, _arguments, _argptr));
+		throwRuntimeException("Bad argument {}: {}", index + 1, Stdout.layout.convert(_arguments, _argptr, fmt));
 	}
 
 	protected final bool callPrologue(uint slot, int numReturns, int numParams)
@@ -3636,7 +3466,7 @@ final class MDState : MDObject
 		uint paramSlot;
 		MDClosure closure;
 
-		slot = basedIndexToAbs(slot);
+		slot = mCurrentAR.base + slot;
 		uint returnSlot = slot;
 
 		if(numParams == -1)
@@ -3654,21 +3484,15 @@ final class MDState : MDObject
 				break;
 
 			case MDValue.Type.Class:
-				pushAR();
-
-				*mCurrentAR = mActRecs[mARIndex - 1];
-				mCurrentAR.base = slot;
-				mCurrentAR.numReturns = numReturns;
-				mCurrentAR.funcSlot = slot;
-
-				MDInstance n = func.as!(MDClass).newInstance();
-				MDValue* ctor = n.getCtor();
+				MDClass cls = func.as!(MDClass);
+				MDInstance n = cls.newInstance();
+				MDValue* ctor = cls.getCtor();
 
 				if(ctor !is null && ctor.isFunction())
 				{
 					uint thisSlot = slot + 1;
-					*getAbsStack(thisSlot) = n;
-					
+					mStack[thisSlot] = n;
+
 					try
 					{
 						if(callPrologue2(ctor.as!(MDClosure), thisSlot, 0, thisSlot, numParams))
@@ -3686,9 +3510,30 @@ final class MDState : MDObject
 						throw new MDRuntimeException(loc, &e.value);
 					}
 				}
+				
+				mStack[slot] = n;
 
-				*getAbsStack(slot) = n;
-				callEpilogue(0, 1);
+				if(numReturns == -1)
+					mStackIndex = slot + 1;
+				else if(numReturns > 1)
+				{
+					slot++;
+					numReturns--;
+
+					auto stk = mStack;
+
+					while(numReturns > 0)
+					{
+						stk[slot].setNull();
+						slot++;
+						numReturns--;
+					}
+
+					mStackIndex = mCurrentAR.savedTop;
+				}
+
+				if(mARIndex == 0)
+					mState = State.Dead;
 				return false;
 
 			case MDValue.Type.Thread:
@@ -3903,17 +3748,10 @@ final class MDState : MDObject
 
 	protected final void callEpilogue(uint resultSlot, int numResults)
 	{
-		debug(CALLEPILOGUE) printCallStack();
-
-		resultSlot = basedIndexToAbs(resultSlot);
-
-		debug(CALLEPILOGUE) Stdout.formatln("callEpilogue for function {}", mCurrentAR.func.toUtf8());
-		debug(CALLEPILOGUE) Stdout.formatln("\tResult slot: {}\n\tNum results: {}", resultSlot, numResults);
+		resultSlot = mCurrentAR.base + resultSlot;
 
 		uint destSlot = mCurrentAR.funcSlot;
 		int numExpRets = mCurrentAR.numReturns;
-
-		debug(CALLEPILOGUE) Stdout.formatln("\tDest slot: {}\n\tNum expected results: {}", destSlot, numExpRets);
 
 		bool isMultRet = false;
 
@@ -3921,23 +3759,22 @@ final class MDState : MDObject
 			numResults = mStackIndex - resultSlot;
 			
 		mNumYields = numResults;
-		
+
 		if(numExpRets == -1)
 		{
 			isMultRet = true;
 			numExpRets = numResults;
-			debug(CALLEPILOGUE) Stdout.formatln("\tNum multi rets: {}", numExpRets);
 		}
 		
 		popAR();
 		
+		auto stk = mStack;
+
 		if(numExpRets <= numResults)
 		{
 			while(numExpRets > 0)
 			{
-				copyAbsStack(destSlot, resultSlot);
-				debug(CALLEPILOGUE) Stdout.formatln("\tvalue: {}", getAbsStack(destSlot).toUtf8());
-
+				stk[destSlot] = stk[resultSlot];
 				destSlot++;
 				resultSlot++;
 				numExpRets--;
@@ -3947,9 +3784,7 @@ final class MDState : MDObject
 		{
 			while(numResults > 0)
 			{
-				copyAbsStack(destSlot, resultSlot);
-				debug(CALLEPILOGUE) Stdout.formatln("\tvalue: {}", getAbsStack(destSlot).toUtf8());
-
+				stk[destSlot] = stk[resultSlot];
 				destSlot++;
 				resultSlot++;
 				numResults--;
@@ -3958,7 +3793,7 @@ final class MDState : MDObject
 
 			while(numExpRets > 0)
 			{
-				getAbsStack(destSlot).setNull();
+				stk[destSlot].setNull();
 				destSlot++;
 				numExpRets--;
 			}
