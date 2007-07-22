@@ -28,11 +28,13 @@ import minid.compiler;
 import minid.utils;
 
 import Integer = tango.text.convert.Integer;
-import utf = tango.text.convert.Utf;
-import tango.text.convert.Layout;
+import tango.io.Console;
+import tango.io.MemoryConduit;
+import tango.io.Print;
 import tango.io.Stdout;
 import tango.stdc.ctype;
-import tango.io.Console;
+import tango.text.convert.Layout;
+import utf = tango.text.convert.Utf;
 
 /*
 MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
@@ -656,7 +658,10 @@ class BaseLib
 		index++;
 
 		s.push(index);
-		uint numRets = s.call(s.push(thread), 0, -1) + 1;
+		
+		uint threadIdx = s.push(thread);
+		s.pushNull();
+		uint numRets = s.call(threadIdx, 1, -1) + 1;
 
 		if(thread.state == MDState.State.Dead)
 			return 0;
@@ -741,12 +746,214 @@ class BaseLib
 	
 	int loadJSON(MDState s, uint numParams)
 	{
-		MDFuncDef def = compileJSON(s.getParam!(dchar[])(0));
-		MDNamespace env = s.environment(1);
-		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
+		s.push(compileJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
-	
+
+	static package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) printer)
+	{
+		bool[MDValue] cycles;
+
+		int indent = 0;
+
+		void newline(int dir = 0)
+		{
+			printer.newline;
+
+			if(dir > 0)
+				indent++;
+			else if(dir < 0)
+				indent--;
+
+			for(int i = indent; i > 0; i--)
+				printer.print("\t");
+		}
+
+		void delegate(MDTable) outputTable;
+		void delegate(MDArray) outputArray;
+		void delegate(ref MDValue) outputValue;
+
+		void _outputTable(MDTable t)
+		{
+			printer.print("{");
+			
+			if(pretty)
+				newline(1);
+
+			bool first = true;
+
+			foreach(k, ref v; t)
+			{
+				if(!k.isString())
+					s.throwRuntimeException("All keys in a JSON table must be strings");
+
+				if(first)
+					first = false;
+				else
+				{
+					printer.print(",");
+
+					if(pretty)
+						newline();
+				}
+
+				outputValue(k);
+
+				if(pretty)
+					printer.print(": ");
+				else
+					printer.print(":");
+
+				outputValue(v);
+			}
+
+			if(pretty)
+				newline(-1);
+
+			printer.print("}");
+		}
+
+		void _outputArray(MDArray a)
+		{
+			printer.print("[");
+
+			bool first = true;
+
+			foreach(ref v; a)
+			{
+				if(first)
+					first = false;
+				else
+				{
+					if(pretty)
+						printer.print(", ");
+					else
+						printer.print(",");
+				}
+
+				outputValue(v);
+			}
+
+			printer.print("]");
+		}
+
+		void _outputValue(ref MDValue v)
+		{
+			switch(v.type)
+			{
+				case MDValue.Type.Null:
+					printer.print("null");
+					break;
+
+				case MDValue.Type.Bool:
+					printer.print(v.isFalse() ? "false" : "true");
+					break;
+
+				case MDValue.Type.Int:
+					printer.format("{}", v.as!(int));
+					break;
+
+				case MDValue.Type.Float:
+					printer.format("{}", v.as!(double));
+					break;
+
+				case MDValue.Type.Char:
+					printer.print("\"");
+					printer.print(v.as!(dchar));
+					printer.print("\"");
+					break;
+
+				case MDValue.Type.String:
+					printer.print('"');
+
+					foreach(c; v.as!(MDString).mData)
+					{
+						switch(c)
+						{
+							case '\b': printer.print("\\b"); break;
+							case '\f': printer.print("\\f"); break;
+							case '\n': printer.print("\\n"); break;
+							case '\r': printer.print("\\r"); break;
+							case '\t': printer.print("\\t"); break;
+
+							case '"', '\\', '/':
+								printer.print("\\");
+								printer.print(c);
+								break;
+
+							default:
+								if(c > 0x7f)
+									printer.format("{:x4}", cast(int)c);
+								else
+									printer.print(c);
+
+								break;
+						}
+					}
+
+					printer.print('"');
+					break;
+					
+				case MDValue.Type.Table:
+					if(v in cycles)
+						s.throwRuntimeException("Table is cyclically referenced");
+						
+					cycles[v] = true;
+				
+					scope(exit)
+						cycles.remove(v);
+
+					outputTable(v.as!(MDTable));
+					break;
+					
+				case MDValue.Type.Array:
+					if(v in cycles)
+						s.throwRuntimeException("Array is cyclically referenced");
+						
+					cycles[v] = true;
+
+					scope(exit)
+						cycles.remove(v);
+
+					outputArray(v.as!(MDArray));
+					break;
+					
+				default:
+					s.throwRuntimeException("Type '{}' is not a valid type for conversion to JSON", v.typeString());
+			}
+		}
+
+		outputTable = &_outputTable;
+		outputArray = &_outputArray;
+		outputValue = &_outputValue;
+
+		if(root.isArray())
+			outputArray(root.as!(MDArray));
+		else if(root.isTable())
+			outputTable(root.as!(MDTable));
+		else
+			s.throwRuntimeException("Root element must be either a table or an array, not a '{}'", root.typeString());
+
+		printer.flush();
+	}
+
+	int toJSON(MDState s, uint numParams)
+	{
+		MDValue root = s.getParam(0u);
+		bool pretty = false;
+
+		if(numParams > 1)
+			pretty = s.getParam!(bool)(1);
+
+		scope cond = new MemoryConduit();
+		scope printer = new Print!(dchar)(Formatter, cond);
+
+		toJSONImpl(s, root, pretty, printer);
+
+		s.push(cast(dchar[])cond.slice());
+		return 1;
+	}
+
 	int setModuleLoader(MDState s, uint numParams)
 	{
 		MDGlobalState().setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
@@ -996,7 +1203,7 @@ class BaseLib
 	static class MDStringBuffer : MDInstance
 	{
 		protected dchar[] mBuffer;
-		protected uint mLength = 0;
+		protected size_t mLength = 0;
 
 		public this(MDClass owner)
 		{
@@ -1185,6 +1392,60 @@ class BaseLib
 				mBuffer.length = mBuffer.length + length;
 		}
 	}
+	
+// 	static class MDBlobClass : MDClass
+// 	{
+// 		public this()
+// 		{
+// 			super("Blob", null);
+// 
+// 			auto catEq = new MDClosure(mMethods, &opCatAssign, "Blob.opCatAssign");
+// 
+// 			mMethods.addList
+// 			(
+// 				"constructor"d,   new MDClosure(mMethods, &constructor,   "Blob.constructor"),
+// 				"append"d,        catEq,
+// 				"opCatAssign"d,   catEq,
+// 				"insert"d,        new MDClosure(mMethods, &insert,        "Blob.insert"),
+// 				"remove"d,        new MDClosure(mMethods, &remove,        "Blob.remove"),
+// 				"toString"d,      new MDClosure(mMethods, &toString,      "Blob.toString"),
+// 				"length"d,        new MDClosure(mMethods, &length,        "Blob.length"),
+// 				"opLength"d,      new MDClosure(mMethods, &opLength,      "Blob.opLength"),
+// 				"opIndex"d,       new MDClosure(mMethods, &opIndex,       "Blob.opIndex"),
+// 				"opIndexAssign"d, new MDClosure(mMethods, &opIndexAssign, "Blob.opIndexAssign"),
+// 				"opSlice"d,       new MDClosure(mMethods, &opSlice,       "Blob.opSlice"),
+// 				"opSliceAssign"d, new MDClosure(mMethods, &opSliceAssign, "Blob.opSliceAssign"),
+// 				"reserve"d,       new MDClosure(mMethods, &reserve,       "Blob.reserve")
+// 			);
+// 		}
+// 	}
+// 
+// 	static class MDBlob : MDInstance
+// 	{
+// 		private void[] mData;
+// 		protected size_t mLength;
+// 
+// 		public this(MDClass owner)
+// 		{
+// 			super(owner);
+// 		}
+// 		
+// 		public void constructor()
+// 		{
+// 			mData = new void[32];
+// 		}
+// 
+// 		public void constructor(int size)
+// 		{
+// 			mData = new void[size];
+// 		}
+// 
+// 		public void constructor(void[] data)
+// 		{
+// 			mData = data;
+// 			mLength = mData.length;
+// 		}
+// 	}
 }
 
 public void init()
@@ -1230,6 +1491,7 @@ public void init()
 		globals["loadString"d] =      newClosure(&lib.loadString,            "loadString");
 		globals["eval"d] =            newClosure(&lib.eval,                  "eval");
 		globals["loadJSON"d] =        newClosure(&lib.loadJSON,              "loadJSON");
+		globals["toJSON"d] =          newClosure(&lib.toJSON,                "toJSON");
 		globals["setModuleLoader"d] = newClosure(&lib.setModuleLoader,       "setModuleLoader");
 
 		MDNamespace namespace = MDNamespace.create

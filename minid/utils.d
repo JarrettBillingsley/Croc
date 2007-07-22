@@ -23,6 +23,8 @@ subject to the following restrictions:
 
 module minid.utils;
 
+import tango.core.Traits;
+import tango.core.Tuple;
 import tango.core.Vararg;
 import tango.io.Buffer;
 import tango.io.FileConduit;
@@ -295,7 +297,7 @@ template MakeVersion(uint major, uint minor)
 }
 
 /// The current version of MiniD.  (this is kind of buried here)
-const uint MiniDVersion = MakeVersion!(0, 7);
+const uint MiniDVersion = MakeVersion!(0, 8);
 
 /// See if T is a type that can't be automatically serialized.
 template isInvalidSerializeType(T)
@@ -365,7 +367,7 @@ or an S[] where S is a struct type marked as SerializeAsChunk, it will write out
 array at once.  Otherwise, it'll write out the array element-by-element.
 
 For structs, the following methods are tried:
-	1) If the struct has both "void serialize(Stream s)" and "static T deserialize(Stream s)" methods,
+	1) If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
 	   Serialize/Deserialize will call those.
 	2) If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
 	   serialize instances of the struct as chunks of memory.
@@ -381,8 +383,8 @@ so arrays of them will be serialized in one call.
 If your struct or class declares custom serialize/deserialize methods, it must declare both or neither.
 These methods must always follow the form:
 
-	void serialize(Stream s);
-	static T deserialize(Stream s);
+	void serialize(IWriter);
+	static T deserialize(IReader);
 	
 where T is your custom type.
 */
@@ -525,16 +527,24 @@ scope class Profiler
 	{
 		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
 	}
-
-	debug(TIMINGS) static ~this()
+	
+	debug(TIMINGS) 
 	{
-		mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
-		mOutLog.formatln("-----------------------------------------------------------------");
+		static this()
+		{
+			init("timings.txt");
+		}
+	
+		static ~this()
+		{
+			mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
+			mOutLog.formatln("-----------------------------------------------------------------");
 
-		foreach(timing; mTimings.values.sort)
-			mOutLog.formatln("{,-14} | {,-12} | {,-18:9f} | {,-18:9f}", timing.name, timing.count, timing.time, timing.time / timing.count);
+			foreach(timing; mTimings.values.sort)
+				mOutLog.formatln("{,-14} | {,-12} | {,-18:9f} | {,-18:9f}", timing.name, timing.count, timing.time, timing.time / timing.count);
 
-		mOutLog.flush();
+			mOutLog.flush();
+		}
 	}
 
 	private char[] mName;
@@ -558,11 +568,8 @@ scope class Profiler
 	}
 }
 
-static this()
-{
-	debug(TIMINGS) Profiler.init("timings.txt");
-}
-
+/// Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
+/// over-allocates for arrays, but I don't like relying on implementation-specific features.
 struct List(T)
 {
 	private T[] mData;
@@ -626,4 +633,64 @@ struct List(T)
 		
 		return result;
 	}
+}
+
+/// Gets the name of a function alias.
+public template NameOfFunc(alias f)
+{
+	const char[] NameOfFunc = (&f).stringof[2 .. $];
+}
+
+unittest
+{
+	static void foo(){}
+	assert(NameOfFunc!(foo) == "foo");
+}
+
+/// Given a predicate template and a tuple, sorts the tuple.  I'm not sure how quick it is, but it's probably fast enough
+/// for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
+/// same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
+public template QSort(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias List QSort;
+	else static if(List.length == 2)
+	{
+		static if(Pred!(List[0], List[1]) <= 0)
+			alias Tuple!(List[0], List[1]) QSort;
+		else
+			alias Tuple!(List[1], List[0]) QSort;
+	}
+	else
+		alias Tuple!(QSort!(Pred, QSort_less!(Pred, List)), QSort_equal!(Pred, List), List[0], QSort!(Pred, QSort_greater!(Pred, List))) QSort;
+}
+
+private template QSort_less(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_less;
+	else static if(Pred!(List[1], List[0]) < 0)
+		alias Tuple!(List[1], QSort_less!(Pred, List[0], List[2 .. $])) QSort_less;
+	else
+		alias QSort_less!(Pred, List[0], List[2 .. $]) QSort_less;
+}
+
+private template QSort_equal(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_equal;
+	else static if(Pred!(List[1], List[0]) == 0)
+		alias Tuple!(List[1], QSort_equal!(Pred, List[0], List[2 .. $])) QSort_equal;
+	else
+		alias QSort_equal!(Pred, List[0], List[2 .. $]) QSort_equal;
+}
+
+private template QSort_greater(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_greater;
+	else static if(Pred!(List[1], List[0]) > 0)
+		alias Tuple!(List[1], QSort_greater!(Pred, List[0], List[2 .. $])) QSort_greater;
+	else
+		alias QSort_greater!(Pred, List[0], List[2 .. $]) QSort_greater;
 }

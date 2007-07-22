@@ -95,7 +95,8 @@ class IOLib
 			"changeDir"d,    new MDClosure(namespace, &changeDir,   "io.changeDir"),
 			"makeDir"d,      new MDClosure(namespace, &makeDir,     "io.makeDir"),
 			"removeDir"d,    new MDClosure(namespace, &removeDir,   "io.removeDir"),
-			"listDir"d,      new MDClosure(namespace, &listDir,     "io.listDir")
+			"listFiles"d,    new MDClosure(namespace, &listFiles,   "io.listFiles"),
+			"listDirs"d,     new MDClosure(namespace, &listDirs,    "io.listDirs")
 		);
 	}
 
@@ -179,7 +180,7 @@ class IOLib
 		return 0;
 	}
 	
-	int listDir(MDState s, uint numParams)
+	int listFiles(MDState s, uint numParams)
 	{
 		char[] path = s.getParam!(char[])(0);
 		char[][] listing;
@@ -187,26 +188,58 @@ class IOLib
 		if(numParams == 1)
 		{
 			scope fp = new FilePath(path, true);
-			listing = s.safeCode(fp.toList());
+			
+			fp.toList((char[] prefix, char[] name, bool isDir)
+			{
+				if(!isDir)
+					listing ~= (prefix ~ name);
+			});
 		}
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
-			scope scan = new FileScan();
+			scope fp = new FilePath(path, true);
+
+			fp.toList((char[] prefix, char[] name, bool isDir)
+			{
+				char[] fullName = prefix ~ name;
+
+				if(!isDir && patternMatch(fullName, filter))
+					listing ~= fullName;
+			});
+		}
+
+		s.push(MDArray.fromArray(listing));
+		return 1;
+	}
+	
+	int listDirs(MDState s, uint numParams)
+	{
+		char[] path = s.getParam!(char[])(0);
+		char[][] listing;
+
+		if(numParams == 1)
+		{
+			scope fp = new FilePath(path, true);
 			
-			s.safeCode(scan(path, (FilePath fp, bool isDir)
+			fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				if(isDir)
-					return false;
+					listing ~= (prefix ~ name);
+			});
+		}
+		else
+		{
+			char[] filter = s.getParam!(char[])(1);
+			scope fp = new FilePath(path, true);
 
-				return patternMatch(fp.toUtf8(), filter);
-			}));
-			
-			foreach(folder; scan.folders)
-				listing ~= folder.toUtf8();
-				
-			foreach(file; scan.files)
-				listing ~= file.toUtf8();
+			fp.toList((char[] prefix, char[] name, bool isDir)
+			{
+				char[] fullName = prefix ~ name;
+
+				if(isDir && patternMatch(fullName, filter))
+					listing ~= fullName;
+			});
 		}
 
 		s.push(MDArray.fromArray(listing));
@@ -220,7 +253,7 @@ class IOLib
 			FileConduit.Style s;
 			s.share = FileConduit.Share.ReadWrite;
 			s.cache = FileConduit.Cache.Stream;
-			
+
 			s.access = cast(FileConduit.Access)0;
 
 			if(mode & FileMode.In)
@@ -240,7 +273,7 @@ class IOLib
 
 				s.open |= FileConduit.Open.Exists;
 			}
-			
+
 			return s;
 		}
 
@@ -312,7 +345,7 @@ class IOLib
 			char[] ret = s.safeCode(s.getContext!(MDInputStream).readln());
 
 			if(ret.ptr is null)
-				s.throwRuntimeException("Stream {} has no more data.");
+				s.throwRuntimeException("Stream has no more data.");
 
 			s.push(ret);
 			return 1;
@@ -429,6 +462,7 @@ class IOLib
 				"writef"d,      new MDClosure(mMethods, &writef,            "OutputStream.writef"),
 				"writefln"d,    new MDClosure(mMethods, &writefln,          "OutputStream.writefln"),
 				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "OutputStream.writeChars"),
+				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "OutputStream.writeJSON"),
 				"flush"d,       new MDClosure(mMethods, &flush,             "OutputStream.flush")
 			);
 		}
@@ -447,50 +481,61 @@ class IOLib
 
 		public int writeVal(T)(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream)().writeVal!(T)(s.getParam!(T)(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream)().writeVal!(T)(s.getParam!(T)(0))));
+			return 1;
 		}
 
 		public int writeString(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).writeString(s.getParam!(dchar[])(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).writeString(s.getParam!(dchar[])(0))));
+			return 1;
 		}
 
 		public int write(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).write(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).write(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writeln(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).writeln(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).writeln(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writef(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).writef(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).writef(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writefln(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).writefln(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).writefln(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writeChars(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).writeChars(s.getParam!(char[])(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).writeChars(s.getParam!(char[])(0))));
+			return 1;
+		}
+
+		public int writeJSON(MDState s, uint numParams)
+		{
+			bool pretty = false;
+
+			if(numParams > 1)
+				pretty = s.getParam!(bool)(1);
+
+			s.push(s.getContext!(MDOutputStream).writeJSON(s, s.getParam(0u), pretty));
+			return 1;
 		}
 
 		public int flush(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDOutputStream).flush());
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDOutputStream).flush()));
+			return 1;
 		}
 	}
 	
@@ -514,49 +559,64 @@ class IOLib
 			mPrint = new Print!(char)(mLayout, mOutput);
 		}
 
-		public void writeVal(T)(T val)
+		public MDOutputStream writeVal(T)(T val)
 		{
 			mWriter.put(val);
+			return this;
 		}
 
-		public void writeString(dchar[] s)
+		public MDOutputStream writeString(dchar[] s)
 		{
 			Serialize(mWriter, s);
+			return this;
 		}
 
-		public void write(MDState s, MDValue[] params)
+		public MDOutputStream write(MDState s, MDValue[] params)
 		{
 			foreach(ref val; params)
 				mPrint.print(s.valueToString(val).mData);
+				
+			return this;
 		}
 
-		public void writeln(MDState s, MDValue[] params)
+		public MDOutputStream writeln(MDState s, MDValue[] params)
 		{
 			foreach(ref val; params)
 				mPrint.print(s.valueToString(val).mData);
 
 			mPrint.newline;
+			return this;
 		}
 
-		public void writef(MDState s, MDValue[] params)
+		public MDOutputStream writef(MDState s, MDValue[] params)
 		{
 			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
+			return this;
 		}
 
-		public void writefln(MDState s, MDValue[] params)
+		public MDOutputStream writefln(MDState s, MDValue[] params)
 		{
 			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
 			mPrint.newline;
+			return this;
 		}
 
-		public void writeChars(char[] data)
+		public MDOutputStream writeChars(char[] data)
 		{
 			mWriter.buffer.append(data.ptr, data.length * char.sizeof);
+			return this;
 		}
 
-		public void flush()
+		public MDOutputStream writeJSON(MDState s, MDValue root, bool pretty = false)
+		{
+			BaseLib.toJSONImpl(s, root, pretty, mPrint);
+			return this;
+		}
+
+		public MDOutputStream flush()
 		{
 			mOutput.flush();
+			return this;
 		}
 	}
 
@@ -580,6 +640,7 @@ class IOLib
 				"readln"d,      new MDClosure(mMethods, &readln,            "Stream.readln"),
 // 				"readf"d,       new MDClosure(mMethods, &readf,             "Stream.readf"),
 				"readChars"d,   new MDClosure(mMethods, &readChars,         "Stream.readChars"),
+				"opApply"d,     new MDClosure(mMethods, &apply,             "Stream.opApply"),
 
 				"writeByte"d,   new MDClosure(mMethods, &writeVal!(ubyte),  "Stream.writeByte"),
 				"writeShort"d,  new MDClosure(mMethods, &writeVal!(ushort), "Stream.writeShort"),
@@ -595,14 +656,14 @@ class IOLib
 				"writef"d,      new MDClosure(mMethods, &writef,            "Stream.writef"),
 				"writefln"d,    new MDClosure(mMethods, &writefln,          "Stream.writefln"),
 				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "Stream.writeChars"),
+				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "Stream.writeJSON"),
+				"flush"d,       new MDClosure(mMethods, &flush,             "Stream.flush"),
 
 				"seek"d,        new MDClosure(mMethods, &seek,              "Stream.seek"),
 				"position"d,    new MDClosure(mMethods, &position,          "Stream.position"),
 				"size"d,        new MDClosure(mMethods, &size,              "Stream.size"),
-				"flush"d,       new MDClosure(mMethods, &flush,             "Stream.flush"),
 				"close"d,       new MDClosure(mMethods, &close,             "Stream.close"),
 				"isOpen"d,      new MDClosure(mMethods, &isOpen,            "Stream.isOpen"),
-				"opApply"d,     new MDClosure(mMethods, &apply,             "Stream.opApply"),
 
 				"input"d,       new MDClosure(mMethods, &input,             "Stream.input"),
 				"output"d,      new MDClosure(mMethods, &output,            "Stream.output")
@@ -635,7 +696,13 @@ class IOLib
 		
 		public int readln(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mInput.readln()));
+			auto self = s.getContext!(MDStream);
+			char[] ret = s.safeCode(self.mInput.readln());
+
+			if(ret.ptr is null)
+				s.throwRuntimeException("Stream {} has no more data.", self.mConduit);
+
+			s.push(ret);
 			return 1;
 		}
 
@@ -655,47 +722,72 @@ class IOLib
 			s.push(s.safeCode(s.getContext!(MDStream).mInput.readChars(s.getParam!(int)(0))));
 			return 1;
 		}
+		
+		public int apply(MDState s, uint numParams)
+		{
+			s.push(inputStreamClass.mIteratorClosure);
+			s.push(s.getContext!(MDStream).mInput);
+			s.push(0);
+			return 3;
+		}
 
 		public int writeVal(T)(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writeVal!(T)(s.getParam!(T)(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeVal!(T)(s.getParam!(T)(0))));
+			return 1;
 		}
 
 		public int writeString(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writeString(s.getParam!(dchar[])(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeString(s.getParam!(dchar[])(0))));
+			return 1;
 		}
 
 		public int write(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.write(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.write(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writeln(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writeln(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeln(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writef(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writef(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writef(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writefln(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writefln(s, s.getAllParams()));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writefln(s, s.getAllParams())));
+			return 1;
 		}
 
 		public int writeChars(MDState s, uint numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).mOutput.writeChars(s.getParam!(char[])(0)));
-			return 0;
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeChars(s.getParam!(char[])(0))));
+			return 1;
+		}
+
+		public int writeJSON(MDState s, uint numParams)
+		{
+			bool pretty = false;
+
+			if(numParams > 1)
+				pretty = s.getParam!(bool)(1);
+
+			s.push(s.getContext!(MDStream).mOutput.writeJSON(s, s.getParam(0u), pretty));
+			return 1;
+		}
+		
+		public int flush(MDState s, uint numParams)
+		{
+			s.push(s.safeCode(s.getContext!(MDStream).mOutput.flush()));
+			return 1;
 		}
 
 		public int seek(MDState s, uint numParams)
@@ -736,12 +828,6 @@ class IOLib
 			return 1;
 		}
 
-		public int flush(MDState s, uint numParams)
-		{
-			s.safeCode(s.getContext!(MDStream).mOutput.flush());
-			return 0;
-		}
-
 		public int close(MDState s, uint numParams)
 		{
 			s.safeCode(s.getContext!(MDStream).close());
@@ -752,14 +838,6 @@ class IOLib
 		{
 			s.push(s.safeCode(s.getContext!(MDStream).isOpen()));
 			return 1;
-		}
-		
-		public int apply(MDState s, uint numParams)
-		{
-			s.push(inputStreamClass.mIteratorClosure);
-			s.push(s.getContext!(MDStream).mInput);
-			s.push(0);
-			return 3;
 		}
 
 		public int input(MDState s, uint numParams)

@@ -1,17 +1,32 @@
 module simple;
 
-/*
-// uncomment this for an example of using automatically-bound D functions!
+// Making sure finally blocks are executed.
+{
+	function f()
+	{
+		try
+		{
+			try
+			{
+				writefln("hi 1");
+				return "foo", "bar";
+			}
+			finally
+				writefln("bye 1");
 
-import bar;
+			writefln("no use 1");
+		}
+		finally
+			writefln("bye 2");
 
-bar.foo(3, 4);
-bar.foo(6);
-bar.foo(1, 2, 3);
-writefln(bar.average([5, 23, 74, 35, 1, 43, -82]));
-bar.something(4.56);
-*/
+		writefln("no use 2");
+	}
 
+	local a, b = f();
+	writefln(a, ", ", b);
+	
+	writefln();
+}
 
 // Importing stuff.
 {

@@ -1,4 +1,3 @@
-
 /******************************************************************************
 License:
 Copyright (c) 2007 Jarrett Billingsley
@@ -78,12 +77,12 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 
 		throw o;
 	}
-	
+
 	Statement[] stmts = s.toArray();
 
 	fs = new FuncState(Location(utf.toUtf32(name), 1, 1), utf.toUtf32(name));
 	fs.mIsVararg = true;
-	
+
 	foreach(stmt; stmts)
 		stmt.fold().codeGen(fs);
 
@@ -95,24 +94,14 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 	return fs.toFuncDef();
 }
 
-public MDFuncDef compileJSON(dchar[] source)
+public MDValue compileJSON(dchar[] source)
 {
 	Token* tokens = Lexer.lex("JSON", source, true);
 
-	Expression e;
-
 	if(tokens.type == Token.Type.LBrace)
-		e = TableCtorExp.parseJSON(tokens);
+		return TableCtorExp.parseJSON(tokens);
 	else
-		e = ArrayCtorExp.parseJSON(tokens);
-
-	Statement s = new ReturnStatement(Location("JSON"), Location("JSON"), [e]);
-	FuncState fs = new FuncState(Location("JSON"), "JSON");
-
-	s.fold().codeGen(fs);
-	fs.codeI(1, Op.Ret, 0, 1);
-
-	return fs.toFuncDef();
+		return ArrayCtorExp.parseJSON(tokens);
 }
 
 struct Token
@@ -1680,6 +1669,49 @@ class FuncState
 	public bool isGlobalTag(uint val)
 	{
 		return ((val & Instruction.locMask) == Instruction.locGlobal);
+	}
+	
+	public uint resolveAssignmentConflicts(uint line, uint numVals)
+	{
+		uint numTemps = 0;
+
+		for(int i = mExpSP - numVals + 1; i < mExpSP; i++)
+		{
+			Exp* index = &mExpStack[i];
+			uint reloc = uint.max;
+
+			for(int j = mExpSP - numVals; j < i; j++)
+			{
+				Exp* e = &mExpStack[j];
+
+				if(e.index == index.index || e.index2 == index.index)
+				{
+					if(reloc == uint.max)
+					{
+						numTemps++;
+						reloc = pushRegister();
+
+						if(isLocalTag(index.index))
+							codeR(line, Op.MoveLocal, reloc, index.index, 0);
+						else
+							codeR(line, Op.Move, reloc, index.index, 0);
+					}
+
+					if(e.index == index.index)
+						e.index = reloc;
+
+					if(e.index2 == index.index)
+						e.index2 = reloc;
+				}
+			}
+		}
+
+		return numTemps;
+	}
+	
+	public void popAssignmentConflicts(uint num)
+	{
+		mFreeReg -= num;
 	}
 
 	public void pushScope()
@@ -4629,7 +4661,6 @@ class ForStatement : Statement
 		{
 			if(t.type == Token.Type.Ident && t.nextToken.type == Token.Type.Colon)
 			{
-
 				Identifier index = Identifier.parse(t);
 
 				t = t.expect(Token.Type.Colon);
@@ -4875,7 +4906,7 @@ class NumericForStatement : Statement
 		mLo = mLo.fold();
 		mHi = mHi.fold();
 		mStep = mStep.fold();
-		
+
 		if(mLo.isConstant)
 			if(!mLo.isInt)
 				throw new MDCompileException(mLo.mLocation, "Low value of a numeric for loop must be an integer");
@@ -5909,15 +5940,18 @@ class Assignment : Expression
 		}
 		else
 		{
-			//TODO: Have to do conflict checking (local a, b; a[b], a = foo())!
 			mRHS.checkMultRet();
 
 			foreach(Expression dest; mLHS)
 				dest.codeGen(s);
 
+			uint numTemps = s.resolveAssignmentConflicts(mLHS[$ - 1].mLocation.line, mLHS.length);
+
 			uint RHSReg = s.nextRegister();
 			mRHS.codeGen(s);
 			s.popToRegisters(mEndLocation.line, RHSReg, mLHS.length);
+
+			s.popAssignmentConflicts(numTemps);
 
 			for(int reg = RHSReg + mLHS.length - 1; reg >= RHSReg; reg--)
 				s.popMoveFromReg(mEndLocation.line, reg);
@@ -6118,10 +6152,16 @@ class CatEqExp : Expression
 
 class CondExp : Expression
 {
-	public this()
+	protected Expression mCond;
+	protected Expression mOp1;
+	protected Expression mOp2;
+
+	public this(Location location, Location endLocation, Expression cond, Expression op1, Expression op2)
 	{
-		assert(false);
-		super(Location(""), Location(""));
+		super(location, endLocation);
+		mCond = cond;
+		mOp1 = op1;
+		mOp2 = op2;
 	}
 
 	public static Expression parse(ref Token* t)
@@ -6141,12 +6181,86 @@ class CondExp : Expression
 			exp2 = Expression.parse(t);
 			t = t.expect(Token.Type.Colon);
 			exp3 = CondExp.parse(t);
-			exp1 = new OrOrExp(location, exp3.mEndLocation, new AndAndExp(location, exp2.mEndLocation, exp1, exp2), exp3);
+			exp1 = new CondExp(location, exp3.mEndLocation, exp1, exp2, exp3);
 
 			location = t.location;
 		}
 
 		return exp1;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		uint temp = s.pushRegister();
+		
+		InstRef* c = mCond.codeCondition(s);
+		s.invertJump(c);
+		s.patchTrueToHere(c);
+
+		mOp1.codeGen(s);
+		s.popMoveTo(mOp1.mEndLocation.line, temp);
+		InstRef* i = s.makeJump(mOp1.mEndLocation.line, Op.Jmp);
+
+		s.patchJumpToHere(c);
+		delete c;
+		
+		mOp2.codeGen(s);
+		s.popMoveTo(mEndLocation.line, temp);
+		s.patchJumpToHere(i);
+		delete i;
+
+		s.pushTempReg(temp);
+	}
+
+	public override InstRef* codeCondition(FuncState s)
+	{
+		InstRef* c = mCond.codeCondition(s);
+		s.invertJump(c);
+		s.patchTrueToHere(c);
+
+		InstRef* left = mOp1.codeCondition(s);
+		s.invertJump(left);
+		s.patchTrueToHere(left);
+		InstRef* trueJump = s.makeJump(mOp1.mEndLocation.line, Op.Jmp, true);
+
+		s.patchFalseToHere(c);
+		s.patchJumpToHere(c);
+		delete c;
+
+		InstRef* right = mOp2.codeCondition(s);
+
+		InstRef* i;
+		for(i = right; i.falseList !is null; i = i.falseList) {}
+		
+		i.falseList = left;
+
+		for(i = right; i.trueList !is null; i = i.trueList) {}
+		
+		i.trueList = trueJump;
+		
+		return right;
+	}
+
+	public override void checkToNothing()
+	{
+		// OK
+	}
+	
+	public override Expression fold()
+	{
+		mCond = mCond.fold();
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+
+		if(mCond.isConstant)
+		{
+			if(mCond.isTrue())
+				return mOp1;
+			else
+				return mOp2;
+		}
+
+		return this;
 	}
 }
 
@@ -7884,47 +7998,47 @@ class PrimaryExp : Expression
 
 		return PostfixExp.parse(t, exp);
 	}
-	
-	public static Expression parseJSON(ref Token* t)
+
+	public static MDValue parseJSON(ref Token* t)
 	{
-		Expression exp;
+		MDValue ret;
 		Location location = t.location;
 
 		switch(t.type)
 		{
 			case Token.Type.Null:
-				exp = NullExp.parse(t);
+				ret = NullExp.parseJSON(t);
 				break;
 
 			case Token.Type.True, Token.Type.False:
-				exp = BoolExp.parse(t);
+				ret = BoolExp.parseJSON(t);
 				break;
 
 			case Token.Type.IntLiteral:
-				exp = IntExp.parse(t);
+				ret = IntExp.parseJSON(t);
 				break;
 
 			case Token.Type.FloatLiteral:
-				exp = FloatExp.parse(t);
+				ret = FloatExp.parseJSON(t);
 				break;
 
 			case Token.Type.StringLiteral:
-				exp = StringExp.parse(t);
+				ret = StringExp.parseJSON(t);
 				break;
 
 			case Token.Type.LBrace:
-				exp = TableCtorExp.parseJSON(t);
+				ret = TableCtorExp.parseJSON(t);
 				break;
 
 			case Token.Type.LBracket:
-				exp = ArrayCtorExp.parseJSON(t);
+				ret = ArrayCtorExp.parseJSON(t);
 				break;
 
 			default:
 				throw new MDCompileException(location, "Expression expected, not '{}'", t.toUtf8());
 		}
 
-		return exp;
+		return ret;
 	}
 }
 
@@ -8020,6 +8134,12 @@ class NullExp : PrimaryExp
 		t = t.expect(Token.Type.Null);
 		return new NullExp(location);
 	}
+	
+	public static MDValue parseJSON(ref Token* t)
+	{
+		t = t.expect(Token.Type.Null);
+		return MDValue.nullValue;	
+	}
 
 	public override void codeGen(FuncState s)
 	{
@@ -8062,6 +8182,19 @@ class BoolExp : PrimaryExp
 			return new BoolExp(t.location, true);
 		else if(t.type == Token.Type.False)
 			return new BoolExp(t.location, false);
+		else
+			throw new MDCompileException(t.location, "'true' or 'false' expected, not '{}'", t.toUtf8());
+	}
+	
+	public static MDValue parseJSON(ref Token* t)
+	{
+		scope(success)
+			t = t.nextToken;
+
+		if(t.type == Token.Type.True)
+			return MDValue(true);
+		else if(t.type == Token.Type.False)
+			return MDValue(false);
 		else
 			throw new MDCompileException(t.location, "'true' or 'false' expected, not '{}'", t.toUtf8());
 	}
@@ -8194,6 +8327,17 @@ class IntExp : PrimaryExp
 		else
 			throw new MDCompileException(t.location, "Integer literal expected, not '{}'", t.toUtf8());
 	}
+	
+	public static MDValue parseJSON(ref Token* t)
+	{
+		scope(success)
+			t = t.nextToken;
+
+		if(t.type == Token.Type.IntLiteral)
+			return MDValue(t.intValue);
+		else
+			throw new MDCompileException(t.location, "Integer literal expected, not '{}'", t.toUtf8());
+	}
 
 	public override void codeGen(FuncState s)
 	{
@@ -8246,6 +8390,16 @@ class FloatExp : PrimaryExp
 
 		return new FloatExp(t.location, t.floatValue);
 	}
+	
+	public static MDValue parseJSON(ref Token* t)
+	{
+		t.expect(Token.Type.FloatLiteral);
+
+		scope(success)
+			t = t.nextToken;
+
+		return MDValue(t.floatValue);
+	}
 
 	public override void codeGen(FuncState s)
 	{
@@ -8292,6 +8446,16 @@ class StringExp : PrimaryExp
 			t = t.nextToken;
 
 		return new StringExp(t.location, t.stringValue);
+	}
+	
+	public static MDValue parseJSON(ref Token* t)
+	{
+		t.expect(Token.Type.StringLiteral);
+
+		scope(success)
+			t = t.nextToken;
+
+		return MDValue(t.stringValue);
 	}
 
 	public override void codeGen(FuncState s)
@@ -8556,34 +8720,21 @@ class TableCtorExp : PrimaryExp
 		return new TableCtorExp(location, endLocation, fields);
 	}
 
-	public static TableCtorExp parseJSON(ref Token* t)
+	public static MDValue parseJSON(ref Token* t)
 	{
-		Location location = t.location;
-
 		t = t.expect(Token.Type.LBrace);
 
-		Expression[2][] fields = new Expression[2][8];
-		uint i = 0;
-
-		void addPair(Expression k, Expression v)
-		{
-			if(i >= fields.length)
-				fields.length = fields.length * 2;
-
-			fields[i][0] = k;
-			fields[i][1] = v;
-			i++;
-		}
+		MDTable ret = new MDTable();
 
 		if(t.type != Token.Type.RBrace)
 		{
 			void parseField()
 			{
-				Expression k = StringExp.parse(t);
+				MDValue k = StringExp.parseJSON(t);
 				t = t.expect(Token.Type.Colon);
-				Expression v = PrimaryExp.parseJSON(t);
+				MDValue v = PrimaryExp.parseJSON(t);
 
-				addPair(k, v);
+				ret[k] = v;
 			}
 
 			parseField();
@@ -8595,13 +8746,10 @@ class TableCtorExp : PrimaryExp
 			}
 		}
 
-		fields.length = i;
-
 		t.expect(Token.Type.RBrace);
-		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new TableCtorExp(location, endLocation, fields);
+		return MDValue(ret);
 	}
 
 	public override void codeGen(FuncState s)
@@ -8687,33 +8835,32 @@ class ArrayCtorExp : PrimaryExp
 		return new ArrayCtorExp(location, endLocation, fields.toArray());
 	}
 	
-	public static ArrayCtorExp parseJSON(ref Token* t)
+	public static MDValue parseJSON(ref Token* t)
 	{
-		Location location = t.location;
 		t = t.expect(Token.Type.LBracket);
-		List!(Expression) fields;
+		
+		MDArray ret = new MDArray(0);
 
 		if(t.type != Token.Type.RBracket)
 		{
-			fields.add(PrimaryExp.parseJSON(t));
+			ret ~= PrimaryExp.parseJSON(t);
 
 			while(t.type != Token.Type.RBracket)
 			{
 				t = t.expect(Token.Type.Comma);
-				fields.add(PrimaryExp.parseJSON(t));
+				ret ~= PrimaryExp.parseJSON(t);
 			}
 		}
 
 		t.expect(Token.Type.RBracket);
-		Location endLocation = t.location;
 		t = t.nextToken;
 
-		return new ArrayCtorExp(location, endLocation, fields.toArray());
+		return MDValue(ret);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		if(mFields.length >= maxFields)
+		if(mFields.length > maxFields)
 			throw new MDCompileException(mLocation, "Array constructor has too many fields (more than {})", maxFields);
 
 		uint min(uint a, uint b)

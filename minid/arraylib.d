@@ -24,9 +24,11 @@ subject to the following restrictions:
 module minid.arraylib;
 
 import minid.types;
+import minid.utils;
+import tango.core.Tuple;
 import tango.math.Math;
 
-class ArrayLib
+final class ArrayLib
 {
 	this(MDNamespace namespace)
 	{
@@ -41,7 +43,7 @@ class ArrayLib
 			"length"d,   new MDClosure(namespace, &length,   "array.length"),
 			"opApply"d,  new MDClosure(namespace, &opApply,  "array.opApply"),
 			"expand"d,   new MDClosure(namespace, &expand,   "array.expand"),
-			"toString"d, new MDClosure(namespace, &ToString, "array.toString"),
+			"toString"d, new MDClosure(namespace, &toString, "array.toString"),
 			"apply"d,    new MDClosure(namespace, &apply,    "array.apply"),
 			"map"d,      new MDClosure(namespace, &map,      "array.map"),
 			"reduce"d,   new MDClosure(namespace, &reduce,   "array.reduce"),
@@ -229,7 +231,7 @@ class ArrayLib
 		return array.length;
 	}
 	
-	int ToString(MDState s, uint numParams)
+	int toString(MDState s, uint numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		
