@@ -1,0 +1,5 @@
+MODULES =
+	$(MODULE_FULL minid.types)
+	$(MODULE_FULL minid.utils)
+	$(MODULE_FULL minid.compiler)
+	$(MODULE_FULL minid.minid)

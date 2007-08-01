@@ -148,18 +148,21 @@ final class ArrayLib
 	int sort(MDState s, uint numParams)
 	{
 		MDArray arr = s.getContext!(MDArray);
-		arr.sort();
+		
+		arr.sort(delegate bool(MDValue v1, MDValue v2)
+		{
+			return s.cmp(v1, v2) < 0;
+		});
+		
 		s.push(arr);
-
 		return 1;
 	}
-	
+
 	int reverse(MDState s, uint numParams)
 	{
 		MDArray arr = s.getContext!(MDArray);
 		arr.reverse();
 		s.push(arr);
-		
 		return 1;
 	}
 	

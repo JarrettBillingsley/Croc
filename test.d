@@ -16,7 +16,7 @@ void main()
 		{
 			with(s)
 			{
-				Stdout.formatln("Co has begun with parameters: {}, {}", getParam!(int)(0), getParam!(int)(1));
+				Stdout.formatln("Co has begun with Params: {}, {}", getParam!(int)(0), getParam!(int)(1));
 				yield(2, MDValue("I've begun"));
 
 				MDValue r2 = pop();

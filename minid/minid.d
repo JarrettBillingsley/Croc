@@ -54,39 +54,61 @@ flags.
 */
 enum MDStdlib
 {
-	/// Nothing but the base library will be loaded if you specify this flag.
+	/**
+	Nothing but the base library will be loaded if you specify this flag.
+	*/
 	None =      0,
-	
-	/// Array manipulation.
+
+	/**
+	Array manipulation.
+	*/
 	Array =     1,
 
-	/// Character classification.
+	/**
+	Character classification.
+	*/
 	Char =      2,
 
-	/// Stream-based input and output.
+	/**
+	Stream-based input and output.
+	*/
 	IO =        4,
 
-	/// Standard math functions.
+	/**
+	Standard math functions.
+	*/
 	Math =      8,
 
-	/// String manipulation.
+	/**
+	String manipulation.
+	*/
 	String =   16,
 
-	/// Table manipulation.
+	/**
+	Table manipulation.
+	*/
 	Table =    32,
-	
-	/// OS-specific functionality.
+
+	/**
+	OS-specific functionality.
+	*/
 	OS =       64,
 
-	/// Regular expressions.
+	/**
+	Regular expressions.
+	*/
 	Regexp =  128,
-	
-	/// This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
-	/// the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
-	/// or OS libraries to do bad things.
+
+	/**
+	This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
+	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+	or OS libraries to do bad things.
+	*/
 	Safe = Array | Char | Math | String | Table | Regexp,
-	
-	/// All available standard libraries.
+
+	/**
+	All available standard libraries.
+	*/
 	All = Safe | IO | OS,
 }
 
@@ -94,7 +116,7 @@ enum MDStdlib
 Initializes a new MiniD context and loads any specified standard libraries into it.  Each new
 context is also given a new MDState as its main thread.
 
-Parameters:
+Params:
 	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
 	Defaults to MDStdlib.All.
 
@@ -138,14 +160,14 @@ MDContext NewContext(uint libs = MDStdlib.All)
 /**
 Compiles and initializes a module from a string, rather than loading one from a file.
 
-Parameters:
+Params:
 	s = The state that will be used to initialize the module after it has been compiled.
 		The module will be loaded into the global namespace of this state's context as well.
 	source = The source code of the module, exactly as it would appear in a file.
 	params = An optional list of parameters.  These are passed as the variadic parameters
 		to the top-level module function.  Defaults to null (no parameters).
 	name = The name which takes the place of the filename, used by the compiler to report
-		error messages.  Defaults to "<module string>".
+		error messages.  Defaults to "&lt;module string&gt;".
 
 Returns:
 	The top-level namespace of the module.
@@ -160,15 +182,15 @@ Compiles a string containing a list of statements into a variadic function, call
 returns the number of results that the function returned (which can be popped off the provided
 state's stack).  This is equivalent to the "loadString" baselib function in MiniD.
 
-Parameters:
+Params:
 	s = The state that will be used to execute the resulting function.
 	source = The source code to be compiled.
 	params = An optional list of parameters.  These are passed as the variadic parameters
 		to the compiled function.  Defaults to null (no parameters).
 	name = The name which takes the place of the filename, used by the compiler to report
 		error messages.  Also used as the name of the function, used when reporting runtime
-		errors.  Defaults to "<statement string>".
-		
+		errors.  Defaults to "&lt;statement string&gt;".
+
 Returns:
 	The number of return values which the compiled function has returned.  These can then be
 	popped off the execution stack of the state that was passed in as the first parameter.
@@ -191,7 +213,7 @@ public uint loadStatementString(MDState s, dchar[] source, MDValue[] params = nu
 Compile and evaluate a MiniD expression, and get the result.  This is the equivalent of the "eval"
 baselib function in MiniD.
 
-Parameters:
+Params:
 	s = The state that will be used to run the compiled expression.
 	source = The string that holds the expression.
 	ns = The namespace which will be used as the context in which the expression will be evaluated.

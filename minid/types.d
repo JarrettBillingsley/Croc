@@ -27,6 +27,7 @@ subject to the following restrictions:
 
 module minid.types;
 
+import tango.core.Array;
 import tango.core.Thread;
 import tango.core.Vararg;
 import tango.io.FileConduit;
@@ -58,17 +59,23 @@ where values of any type can be thrown as exceptions, it has a public member whi
 */
 class MDException : Exception
 {
-	/// The MiniD value which is used if the exception is caught by a catch statement in MiniD code.
+	/**
+	The MiniD value which is used if the exception is caught by a catch statement in MiniD code.
+	*/
 	public MDValue value;
 
-	/// Construct an MDException using a format string and a list of arguments, using Tango-style formatting.
-	/// The string will be formatted, and assigned into the value member as well.
+	/**
+	Construct an MDException using a format string and a list of arguments, using Tango-style formatting.
+	The string will be formatted, and assigned into the value member as well.
+	*/
 	public this(char[] fmt, ...)
 	{
 		this(fmt, _arguments, _argptr);
 	}
-	
-	/// Like above, but for when you already have the two variadic parameters from another variadic function.
+
+	/**
+	Like above, but for when you already have the two variadic parameters from another variadic function.
+	*/
 	public this(char[] fmt, TypeInfo[] arguments, va_list argptr)
 	{
 		char[] msg = Stdout.layout.convert(arguments, argptr, fmt);
@@ -76,14 +83,18 @@ class MDException : Exception
 		super(msg);
 	}
 
-	/// Construct an MDException from an MDValue.  It will be assigned to the value member, and the string
-	/// representation of it (not calling toString metamethods) will be used as the exception message.
+	/**
+	Construct an MDException from an MDValue.  It will be assigned to the value member, and the string
+	representation of it (not calling toString metamethods) will be used as the exception message.
+	*/
 	public this(MDValue val)
 	{
 		this(&val);
 	}
 
-	/// Like above, but for MDValue pointers instead.
+	/**
+	Like above, but for MDValue pointers instead.
+	*/
 	public this(MDValue* val)
 	{
 		value = *val;
@@ -98,7 +109,9 @@ The message will be in the form "filename(line:colunm): error message".
 */
 class MDCompileException : MDException
 {
-	/// Takes the location of the error, and a variadic list of Tango-style formatted arguments.
+	/**
+	Takes the location of the error, and a variadic list of Tango-style formatted arguments.
+	*/
 	public this(Location loc, char[] fmt, ...)
 	{
 		super("{}: {}", loc.toUtf8(), Stdout.layout.convert(_arguments, _argptr, fmt));
@@ -112,35 +125,45 @@ This class includes a location of where the exception was thrown.
 */
 class MDRuntimeException : MDException
 {
-	/// The location of where the exception was thrown.  This may not be entirely accurate,
-	/// depending on whether or not debug information was compiled into the bytecode, who
-	/// threw the exception etc.
+	/**
+	The location of where the exception was thrown.  This may not be entirely accurate,
+	depending on whether or not debug information was compiled into the bytecode, who
+	threw the exception etc.
+	*/
 	public Location location;
 
-	/// Constructs the exception from a location and an MDValue pointer to the value to be thrown.
+	/**
+	Constructs the exception from a location and an MDValue pointer to the value to be thrown.
+	*/
 	public this(Location loc, MDValue* val)
 	{
 		location = loc;
 		super(val);
 	}
 
-	/// Constructs the exception from a location and Tango-style formatted arguments.
+	/**
+	Constructs the exception from a location and Tango-style formatted arguments.
+	*/
 	public this(Location loc, char[] fmt, ...)
 	{
 		this(loc, fmt, _arguments, _argptr);
 	}
 
-	/// Like above, but takes the variadic function parameters instead.
+	/**
+	Like above, but takes the variadic function parameters instead.
+	*/
 	public this(Location loc, char[] fmt, TypeInfo[] arguments, va_list argptr)
 	{
 		location = loc;
 		super(fmt, arguments, argptr);
 	}
 
-	/// Overridden to include the location in the error message.  Note that the result of this
-	/// is in the format "filename(line:instruction): error message".  The 'instruction' in this
-	/// message is the index of the instruction in the bytecode that caused the exception, and
-	/// is mostly meant for low-level debugging.
+	/**
+	Overridden to include the location in the error message.  Note that the result of this
+	is in the format "filename(line:instruction): error message".  The 'instruction' in this
+	message is the index of the instruction in the bytecode that caused the exception, and
+	is mostly meant for low-level debugging.
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("{}: {}", location.toUtf8(), msg);
@@ -252,7 +275,9 @@ a double-precision floating-point value, the largest type that it can hold).
 */
 align(1) struct MDValue
 {
-	/// Enumerates the basic datatypes of MiniD.  See the 'Types' section of the spec for more info.
+	/**
+	Enumerates the basic datatypes of MiniD.  See the 'Types' section of the spec for more info.
+	*/
 	public enum Type
 	{
 		// Non-object types
@@ -273,10 +298,12 @@ align(1) struct MDValue
 		Thread
 	}
 
-	/// A static MDValue instance which should always, always hold 'null'.  There is an invariant
-	/// which ensures this.  This is mostly used by functions which need to return a pointer to a
-	/// null MDValue, rather than returning an actual null pointer.  You can also use this any time
-	/// you need a null MDValue in your D code.
+	/**
+	A static MDValue instance which should always, always hold 'null'.  There is an invariant
+	which ensures this.  This is mostly used by functions which need to return a pointer to a
+	null MDValue, rather than returning an actual null pointer.  You can also use this any time
+	you need a null MDValue in your D code.
+	*/
 	public static MDValue nullValue = { mType : Type.Null, mInt : 0 };
 
 	invariant
@@ -306,8 +333,10 @@ align(1) struct MDValue
 		private MDState mThread;
 	}
 	
-	/// The "constructor" for the struct.  It's templated based on the parameter, and all it does is
-	/// call opAssign, so see opAssign for more info.
+	/**
+	The "constructor" for the struct.  It's templated based on the parameter, and all it does is
+	call opAssign, so see opAssign for more info.
+	*/
 	public static MDValue opCall(T)(T value)
 	{
 		MDValue ret;
@@ -315,8 +344,10 @@ align(1) struct MDValue
 		return ret;
 	}
 
-	/// Returns true if this and the other value are exactly the same type and the same value.  The semantics
-	/// of this are exactly the same as the 'is' expression in MiniD.
+	/**
+	Returns true if this and the other value are exactly the same type and the same value.  The semantics
+	of this are exactly the same as the 'is' expression in MiniD.
+	*/
 	public int opEquals(MDValue* other)
 	{
 		if(this.mType != other.mType)
@@ -344,9 +375,11 @@ align(1) struct MDValue
 		}
 	}
 	
-	/// This is mostly overridden for using MDValues as AA keys.  You probably shouldn't use this for
-	/// comparing MDValues in general, because (1) it will return 'less' or 'greater' for values which are
-	/// different types, which doesn't really make sense, and (2) will not call opCmp metamethods.
+	/**
+	This is mostly overridden for using MDValues as AA keys.  You probably shouldn't use this for
+	comparing MDValues in general, because (1) it will return 'less' or 'greater' for values which are
+	different types, which doesn't really make sense, and (2) will not call opCmp metamethods.
+	*/
 	public int opCmp(MDValue* other)
 	{
 		if(mType != other.mType)
@@ -384,10 +417,12 @@ align(1) struct MDValue
 		assert(false);
 	}
 
-	/// Compares this to another MDValue in a more sensible way.  If the two objects are different types, and are not
-	/// both numeric types (int or float), an exception will be thrown.  Integers will automatically be cast to floats
-	/// when comparing an int and a float.  This function still does not call opCmp metamethods, however; you should use
-	/// the APIs in the MDState class for the best comparison.
+	/**
+	Compares this to another MDValue in a more sensible way.  If the two objects are different types, and are not
+	both numeric types (int or float), an exception will be thrown.  Integers will automatically be cast to floats
+	when comparing an int and a float.  This function still does not call opCmp metamethods, however; you should use
+	the APIs in the MDState class for the best comparison.
+	*/
 	public int compare(MDValue* other)
 	{
 		if(!(isNum() && other.isNum()) && this.mType != other.mType)
@@ -451,7 +486,9 @@ align(1) struct MDValue
 		return -1;
 	}
 	
-	/// Overridden to allow the use of MDValues as AA keys.
+	/**
+	Overridden to allow the use of MDValues as AA keys.
+	*/
 	public hash_t toHash()
 	{
 		switch(mType)
@@ -476,8 +513,10 @@ align(1) struct MDValue
 		}
 	}
 	
-	/// Gets the length of the MDValue, which will fail (throw an exception) if getting the length
-	/// makes no sense for the MDValue's type.  Does not call opLength metamethods.
+	/**
+	Gets the length of the MDValue, which will fail (throw an exception) if getting the length
+	makes no sense for the MDValue's type.  Does not call opLength metamethods.
+	*/
 	public uint length()
 	{
 		switch(mType)
@@ -494,14 +533,18 @@ align(1) struct MDValue
 		}
 	}
 	
-	/// Returns the current type of this value, as a value from the MDValue.Type enumeration.
+	/**
+	Returns the current type of this value, as a value from the MDValue.Type enumeration.
+	*/
 	public Type type()
 	{
 		return mType;
 	}
 
-	/// A static method which, given a value from the MDValue.Type enumeration, will give the
-	/// string representation of that type.
+	/**
+	A static method which, given a value from the MDValue.Type enumeration, will give the
+	string representation of that type.
+	*/
 	public static dchar[] typeString(Type type)
 	{
 		switch(type)
@@ -522,9 +565,11 @@ align(1) struct MDValue
 		}
 	}
 
-	/// Gets a string representation of the type of this value.  Differs from passing the type
-	/// into the static typeString() function in that it will include the name of the class if
-	/// this is a class or instance value.
+	/**
+	Gets a string representation of the type of this value.  Differs from passing the type
+	into the static typeString() function in that it will include the name of the class if
+	this is a class or instance value.
+	*/
 	public dchar[] typeString()
 	{
 		if(mType == Type.Class)
@@ -535,7 +580,9 @@ align(1) struct MDValue
 			return typeString(mType);
 	}
 
-	/// These return true if this is the given type, and false otherwise.
+	/**
+	These return true if this is the given type, and false otherwise.
+	*/
 	public bool isNull()
 	{
 		return (mType == Type.Null);
@@ -625,25 +672,31 @@ align(1) struct MDValue
 		return (mType == Type.Thread);
 	}
 
-	/// Returns true if this value is false (null, 'false', an integer with the value 0, a float 
-	/// with the value 0.0, or a NUL ('\0') character).
+	/**
+	Returns true if this value is false (null, 'false', an integer with the value 0, a float
+	with the value 0.0, or a NUL ('\0') character).
+	*/
 	public bool isFalse()
 	{
 		return (mType == Type.Null) || (mType == Type.Bool && mBool == false) ||
 			(mType == Type.Int && mInt == 0) || (mType == Type.Float && mFloat == 0.0) || (mType == Type.Char && mChar != 0);
 	}
 	
-	/// Returns the opposite of isFalse().
+	/**
+	Returns the opposite of isFalse().
+	*/
 	public bool isTrue()
 	{
 		return !isFalse();
 	}
-	
-	/// A templated method which checks if this value can be converted to the given D type.  Array
-	/// and AA types will check the entire contents of the Array or Table (if the value is one) to make
-	/// sure all the elements can be cast as well, so this can be a non-trivial operation for the container
-	/// types.  .canCastTo!(floating point type)() will return true if the value is either a float or an int.
-	/// If the value is an instance, it will check that it can be downcast to the given class instance type.
+
+	/**
+	A templated method which checks if this value can be converted to the given D type.  Array
+	and AA types will check the entire contents of the Array or Table (if the value is one) to make
+	sure all the elements can be cast as well, so this can be a non-trivial operation for the container
+	types.  .canCastTo!(floating point type)() will return true if the value is either a float or an int.
+	If the value is an instance, it will check that it can be downcast to the given class instance type.
+	*/
 	public bool canCastTo(T)()
 	{
 		static if(is(T == bool))
@@ -736,10 +789,12 @@ align(1) struct MDValue
 			return false;
 	}
 
-	/// A templated method which converts this value to the given D type.  This is kind of a power-user
-	/// method, used for converting a MiniD value to a D value as long as you know in advance that this
-	/// conversion can be done.  If the conversion can't be done, an assertion will be thrown in debug
-	/// builds, but the behavior is undefined in release builds.
+	/**
+	A templated method which converts this value to the given D type.  This is kind of a power-user
+	method, used for converting a MiniD value to a D value as long as you know in advance that this
+	conversion can be done.  If the conversion can't be done, an assertion will be thrown in debug
+	builds, but the behavior is undefined in release builds.
+	*/
 	public T as(T)()
 	{
 		static if(!isStringType!(T) && isArrayType!(T))
@@ -783,8 +838,10 @@ align(1) struct MDValue
 		}
 	}
 
-	/// A 'safer' version of .as(), this will do basically the same thing, but will throw an exception on
-	/// a failed conversion.
+	/**
+	A 'safer' version of .as(), this will do basically the same thing, but will throw an exception on
+	a failed conversion.
+	*/
 	public T to(T)()
 	{
 		static if(!isStringType!(T) && isArrayType!(T))
@@ -920,17 +977,21 @@ align(1) struct MDValue
 		}
 	}
 
-	/// Sets this value to null.  You can also set a value to null by assigning it the D 'null' value.
+	/**
+	Sets this value to null.  You can also set a value to null by assigning it the D 'null' value.
+	*/
 	public void setNull()
 	{
 		mType = Type.Null;
 		mInt = 0;
 	}
 
-	/// A templated opAssign which allows the assignment of many D types into an MDValue.  All reasonable
-	/// assignments are valid.  Assignment of an array or AA to an MDValue will convert it into a MiniD
-	/// array or table.  You can assign 'null' into an MDValue as well.  An invalid type will trigger
-	/// a compile-time error.
+	/**
+	A templated opAssign which allows the assignment of many D types into an MDValue.  All reasonable
+	assignments are valid.  Assignment of an array or AA to an MDValue will convert it into a MiniD
+	array or table.  You can assign 'null' into an MDValue as well.  An invalid type will trigger
+	a compile-time error.
+	*/
 	public void opAssign(T)(T src)
 	{
 		static if(is(T == bool))
@@ -1025,7 +1086,9 @@ align(1) struct MDValue
 		}
 	}
 
-	/// Returns the string representation of the value.  Does not call toString metamethods.
+	/**
+	Returns the string representation of the value.  Does not call toString metamethods.
+	*/
 	public char[] toUtf8()
 	{
 		switch(mType)
@@ -1139,8 +1202,10 @@ abstract class MDObject
 		throw new MDException("No opCmp defined for type '{}'", MDValue.typeString(mType));
 	}
 
-	/// Given two MDObject references, compares them.  Doesn't call opCmp metamethods, and
-	/// throws an exception if the two objects are of different types.
+	/**
+	Given two MDObject references, compares them.  Doesn't call opCmp metamethods, and
+	throws an exception if the two objects are of different types.
+	*/
 	public static int compare(MDObject o1, MDObject o2)
 	{
 		if(o1.mType == o2.mType)
@@ -1164,8 +1229,10 @@ class MDString : MDObject
 	package dchar[] mData;
 	protected hash_t mHash;
 
-	/// These construct an MDString from the given D string.  The data is duplicated, so you don't
-	/// have to worry about changing the source data after the MDString has been created.
+	/**
+	These construct an MDString from the given D string.  The data is duplicated, so you don't
+	have to worry about changing the source data after the MDString has been created.
+	*/
 	public this(dchar[] data)
 	{
 		mData = data.dup;
@@ -1202,14 +1269,18 @@ class MDString : MDObject
 		mType = MDValue.Type.String;
 	}
 	
-	/// Gets the length of the string in characters (codepoints?  code units?  it's all so confusing).
+	/**
+	Gets the length of the string in characters (codepoints?  code units?  it's all so confusing).
+	*/
 	public override uint length()
 	{
 		return mData.length;
 	}
 
-	/// If the given character is in the string, returns the index of its first occurrence; otherwise
-	/// returns -1.
+	/**
+	If the given character is in the string, returns the index of its first occurrence; otherwise
+	returns -1.
+	*/
 	public int opIn_r(dchar c)
 	{
 		foreach(i, ch; mData)
@@ -1219,7 +1290,9 @@ class MDString : MDObject
 		return -1;
 	}
 
-	/// Concatenates two MDStrings, resulting in a new MDString.
+	/**
+	Concatenates two MDStrings, resulting in a new MDString.
+	*/
 	public MDString opCat(MDString other)
 	{
 		// avoid double duplication ((this ~ other).dup)
@@ -1229,7 +1302,9 @@ class MDString : MDObject
 		return ret;
 	}
 
-	/// Concatenates an MDString with a single character, resulting in a new MDString.
+	/**
+	Concatenates an MDString with a single character, resulting in a new MDString.
+	*/
 	public MDString opCat(dchar c)
 	{
 		MDString ret = new MDString();
@@ -1247,14 +1322,18 @@ class MDString : MDObject
 		return ret;
 	}
 
-	/// Returns the hash of the string (which was computed at construction).
+	/**
+	Returns the hash of the string (which was computed at construction).
+	*/
 	public hash_t toHash()
 	{
 		return mHash;
 	}
 
-	/// Returns true if this and another string are identical; false otherwise.
-	/// Checks to see if the hashes diff first, which can save a lot of time.
+	/**
+	Returns true if this and another string are identical; false otherwise.
+	Checks to see if the hashes diff first, which can save a lot of time.
+	*/
 	public int opEquals(Object o)
 	{
 		MDString other = cast(MDString)o;
@@ -1265,8 +1344,10 @@ class MDString : MDObject
 
 		return mData == other.mData;
 	}
-	
-	/// Returns true if this MDString's data is identical to the given D string; false otherwise.
+
+	/**
+	Returns true if this MDString's data is identical to the given D string; false otherwise.
+	*/
 	public int opEquals(char[] v)
 	{
 		return mData == utf.toUtf32(v);
@@ -1284,8 +1365,10 @@ class MDString : MDObject
 		return mData == v;
 	}
 
-	/// Compares this string to another MDString by character values (i.e. it doesn't do a full lexicographical
-	/// language-correct comparison).
+	/**
+	Compares this string to another MDString by character values (i.e. it doesn't do a full lexicographical
+	language-correct comparison).
+	*/
 	public int opCmp(Object o)
 	{
 		MDString other = cast(MDString)o;
@@ -1294,7 +1377,9 @@ class MDString : MDObject
 		return dcmp(mData, other.mData);
 	}
 
-	/// Same as above, but for D string arguments.
+	/**
+	Same as above, but for D string arguments.
+	*/
 	public int opCmp(char[] v)
 	{
 		return dcmp(mData, utf.toUtf32(v));
@@ -1312,7 +1397,9 @@ class MDString : MDObject
 		return dcmp(mData, v);
 	}
 
-	/// Gets the character at the given index.
+	/**
+	Gets the character at the given index.
+	*/
 	public dchar opIndex(uint index)
 	{
 		debug if(index < 0 || index >= mData.length)
@@ -1321,9 +1408,11 @@ class MDString : MDObject
 		return mData[index];
 	}
 
-	/// Slices this string, returning a new MDString.  Thanks to immutability, the
-	/// new string's data will simply point into the old string's, meaning the only memory
-	/// allocation is for the new string's instance.
+	/**
+	Slices this string, returning a new MDString.  Thanks to immutability, the
+	new string's data will simply point into the old string's, meaning the only memory
+	allocation is for the new string's instance.
+	*/
 	public MDString opSlice(uint lo, uint hi)
 	{
 		MDString ret = new MDString();
@@ -1338,8 +1427,10 @@ class MDString : MDObject
 		return mData[lo .. hi];
 	}
 
-	/// These convert this string into the given UTF encoding.  The returned value will never
-	/// reference the data inside the instance, to preserve immutability.
+	/**
+	These convert this string into the given UTF encoding.  The returned value will never
+	reference the data inside the instance, to preserve immutability.
+	*/
 	public char[] asUTF8()
 	{
 		return utf.toUtf8(mData);
@@ -1407,7 +1498,9 @@ class MDString : MDObject
 		return ret;
 	}
 
-	/// Returns the UTF-8 string representation of the string; basically just returns .asUTF8().
+	/**
+	Returns the UTF-8 string representation of the string; basically just returns .asUTF8().
+	*/
 	public char[] toUtf8()
 	{
 		return asUTF8();
@@ -1419,8 +1512,9 @@ The class which represents the MiniD 'function' type.
 
 This is a closure, that is a function and all the environment it needs to execute correctly.
 It can hold either a MiniD closure (a "script closure"), or a reference to a native D function
-(a "native closure").  In most cases this distinction is transparent, except with coroutines.
-Coroutines can only be created with script closures.
+(a "native closure").  In virtually all cases this distinction is transparent, except when it
+comes to coroutines.  You cannot yield out of a coroutine across the boundary of a native function
+call.
 
 In addition to their executable function, closures also have what's called the "environment."
 In the global lookup process (in script functions, that is), the first step is to check if the
@@ -1460,7 +1554,7 @@ class MDClosure : MDObject
 	/**
 	Constructs a script closure.
 	
-	Parameters:
+	Params:
 		environment = The environment of the closure.  See the description of this class for info.
 		def = The MDFuncDef, which was either loaded from a file or just compiled, which holds the
 			bytecode representation of the closure.
@@ -1478,14 +1572,14 @@ class MDClosure : MDObject
 	Constructs a native closure.  Both function pointers and delegates are allowed; using delegates will be
 	slightly faster when the closure is called.
 
-	All native functions which interact with the API follow the same signature.  They take two parameters:
+	All native functions which interact with the API follow the same signature.  They take two Params:
 	an MDValue which represents the thread from which this closure was called, and the number of parameters
 	(not including the context 'this' parameter, which is always present) with which the function was called.
-	The MDState parameter contains all the parameter which were passed to the function, as well as being a
+	The MDState parameter contains all the parameters which were passed to the function, as well as being a
 	very important interface through which much of the native API is used.  Native functions return an integer,
-	which is how many values it is returning (which were pushed onto the MDState's stack prior to returning).
+	which is how many values they are returning (which were pushed onto the MDState's stack prior to returning).
 
-	Parameters:
+	Params:
 		environment = The environment of the closure.  See the description of this class for info.
 		dg = (or func) The delegate or function pointer of the native function.
 		name = The name of the function, which will be used in error messages and when its toString is called.
@@ -1519,14 +1613,18 @@ class MDClosure : MDObject
 		mType = MDValue.Type.Function;
 	}
 
-	/// Getting the length of a closure makes no sense; this just throws an exception.
+	/**
+	Getting the length of a closure makes no sense; this just throws an exception.
+	*/
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a closure");
 	}
 
-	/// Gets a string representation of the closure.  For native closures, it looks something like "native function name";
-	/// for script closures, "script function name(location defined)".
+	/**
+	Gets a string representation of the closure.  For native closures, it looks something like "native function name";
+	for script closures, "script function name(location defined)".
+	*/
 	public char[] toUtf8()
 	{
 		if(mIsNative)
@@ -1535,18 +1633,22 @@ class MDClosure : MDObject
 			return Stdout.layout.convert("script function {}({})", script.func.mGuessedName, script.func.mLocation.toUtf8());
 	}
 
-	/// Returns whether or not this is a native closure.
+	/**
+	Returns whether or not this is a native closure.
+	*/
 	public bool isNative()
 	{
 		return mIsNative;
 	}
 
-	/// Gets or sets the environment of the closure.  See the class description for info.
+	/**
+	Gets or sets the environment of the closure.  See the class description for info.
+	*/
 	public MDNamespace environment()
 	{
 		return mEnvironment;
 	}
-	
+
 	/// ditto
 	public void environment(MDNamespace env)
 	{
@@ -1576,9 +1678,11 @@ class MDTable : MDObject
 		mType = MDValue.Type.Table;
 	}
 
-	/// Create a table from a templated list of variadic arguments.  There must be an even
-	/// number of arguments.  Each pair of arguments is interpreted as a key-value pair, and
-	/// the types of these must be convertible to MiniD types.
+	/**
+	Create a table from a templated list of variadic arguments.  There must be an even
+	number of arguments.  Each pair of arguments is interpreted as a key-value pair, and
+	the types of these must be convertible to MiniD types.
+	*/
 	public static MDTable create(T...)(T args)
 	{
 		static if(args.length & 1)
@@ -1596,8 +1700,10 @@ class MDTable : MDObject
 		return ret;
 	}
 	
-	/// Create a table from an associative array.  The key and value types must be convertible
-	/// to MiniD types.
+	/**
+	Create a table from an associative array.  The key and value types must be convertible
+	to MiniD types.
+	*/
 	public static MDTable fromAA(K, V)(V[K] aa)
 	{
 		MDTable ret = new MDTable();
@@ -1613,14 +1719,18 @@ class MDTable : MDObject
 		return ret;
 	}
 
-	/// Gets the number of key-value pairs in the table.
+	/**
+	Gets the number of key-value pairs in the table.
+	*/
 	public override uint length()
 	{
 		return mData.length;
 	}
 
-	/// Creates a shallow copy of the table.  The keys and values in the new table will be the same;
-	/// they are not recursively duplicated.
+	/**
+	Creates a shallow copy of the table.  The keys and values in the new table will be the same;
+	they are not recursively duplicated.
+	*/
 	public MDTable dup()
 	{
 		MDTable n = new MDTable();
@@ -1631,20 +1741,26 @@ class MDTable : MDObject
 		return n;
 	}
 	
-	/// Gets an MDArray of all the keys of the table.
+	/**
+	Gets an MDArray of all the keys of the table.
+	*/
 	public MDArray keys()
 	{
 		return new MDArray(mData.keys);
 	}
 
-	/// Gets an MDArray of all the values of the table.
+	/**
+	Gets an MDArray of all the values of the table.
+	*/
 	public MDArray values()
 	{
 		return new MDArray(mData.values);
 	}
 
-	/// Removes a key-value pair from the table with the given key.  If the key doesn't exist, this
-	/// simply returns.  You can also remove a pair by assigning a null value to it.
+	/**
+	Removes a key-value pair from the table with the given key.  If the key doesn't exist, this
+	simply returns.  You can also remove a pair by assigning a null value to it.
+	*/
 	public void remove(ref MDValue index)
 	{
 		MDValue* ptr = (index in mData);
@@ -1655,14 +1771,18 @@ class MDTable : MDObject
 		mData.remove(index);
 	}
 	
-	/// Returns a pointer to the value given the key.  Returns a null pointer if the key doesn't exist.
+	/**
+	Returns a pointer to the value given the key.  Returns a null pointer if the key doesn't exist.
+	*/
 	public MDValue* opIn_r(ref MDValue index)
 	{
 		return (index in mData);
 	}
 
-	/// Returns a pointer to the value given the key.  Throws an exception if the key is a null MDValue.
-	/// Never returns a null MDValue*; if the key doesn't exist, returns a pointer to a null MDValue instead.
+	/**
+	Returns a pointer to the value given the key.  Throws an exception if the key is a null MDValue.
+	Never returns a null MDValue*; if the key doesn't exist, returns a pointer to a null MDValue instead.
+	*/
 	public MDValue* opIndex(ref MDValue index)
 	{
 		if(index.isNull())
@@ -1676,8 +1796,10 @@ class MDTable : MDObject
 			return val;
 	}
 
-	/// Assigns a value to a key-value pair.  Throws an exception if the key is a null MDValue.  Removes
-	/// the pair, if it exists, if the value is a null MDValue.
+	/**
+	Assigns a value to a key-value pair.  Throws an exception if the key is a null MDValue.  Removes
+	the pair, if it exists, if the value is a null MDValue.
+	*/
 	public void opIndexAssign(ref MDValue value, ref MDValue index)
 	{
 		if(index.isNull())
@@ -1692,8 +1814,10 @@ class MDTable : MDObject
 			mData[index] = value;
 	}
 
-	/// Overloaded opApply so you can use a foreach loop on an MDTable.  They key and value are both
-	/// MDValues.
+	/**
+	Overloaded opApply so you can use a foreach loop on an MDTable.  They key and value are both
+	MDValues.
+	*/
 	public int opApply(int delegate(ref MDValue key, ref MDValue value) dg)
 	{
 		int result = 0;
@@ -1709,8 +1833,10 @@ class MDTable : MDObject
 		return result;
 	}
 
-	/// Returns a string representation of the table, in the format "table 0x00000000", where the number
-	/// is the hexidecimal representation of the 'this' pointer.
+	/**
+	Returns a string representation of the table, in the format "table 0x00000000", where the number
+	is the hexidecimal representation of the 'this' pointer.
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("table 0x{:X8}", cast(size_t)cast(void*)this);
@@ -1726,7 +1852,9 @@ class MDArray : MDObject
 {
 	protected MDValue[] mData;
 
-	/// Construct this array with a given size.  All the elements will be the null MDValue.
+	/**
+	Construct this array with a given size.  All the elements will be the null MDValue.
+	*/
 	public this(uint size)
 	{
 		mData = new MDValue[size];
@@ -1739,8 +1867,10 @@ class MDArray : MDObject
 		mType = MDValue.Type.Array;
 	}
 
-	/// Create an MDArray from a templated list of variadic arguments.  All the arguments must have types
-	/// which are convertible to MiniD types.
+	/**
+	Create an MDArray from a templated list of variadic arguments.  All the arguments must have types
+	which are convertible to MiniD types.
+	*/
 	public static MDArray create(T...)(T args)
 	{
 		MDArray ret = new MDArray(args.length);
@@ -1751,8 +1881,10 @@ class MDArray : MDObject
 		return ret;
 	}
 
-	/// Create an MDArray from a D array.  The element type must be convertible to a MiniD type.  Multi-dimensional
-	/// arrays work as well.
+	/**
+	Create an MDArray from a D array.  The element type must be convertible to a MiniD type.  Multi-dimensional
+	arrays work as well.
+	*/
 	public static MDArray fromArray(T)(T[] array)
 	{
 		MDArray ret = new MDArray(array.length);
@@ -1768,33 +1900,52 @@ class MDArray : MDObject
 		return ret;	
 	}
 
-	/// Gets the number of elements in the array.
+	/**
+	Gets the number of elements in the array.
+	*/
 	public override uint length()
 	{
 		return mData.length;
 	}
 
-	/// Sets the length of the array.  If the new length is longer than the old, the new elements will
-	/// be filled in with the null MDValue.
+	/**
+	Sets the length of the array.  If the new length is longer than the old, the new elements will
+	be filled in with the null MDValue.
+	*/
 	public uint length(int newLength)
 	{
 		mData.length = newLength;
 		return newLength;
 	}
 
-	/// Sorts the array.  All the elements must be the same type for this to succeed; throws an exception on failure.
+	/**
+	Sorts the array.  All the elements must be the same type for this to succeed; throws an exception on failure.
+	*/
 	public void sort()
 	{
 		mData.sort;
 	}
-	
-	/// Reverses the order of the array.
+
+	/**
+	Sorts the array, using a custom predicate.  This predicate takes two values and should return 'true'
+	if the first is less than the second, and 'false' otherwise.
+	*/
+	public void sort(bool delegate(MDValue, MDValue) predicate)
+	{
+		.sort(mData, predicate);
+	}
+
+	/**
+	Reverses the order of the array.
+	*/
 	public void reverse()
 	{
 		mData.reverse;
 	}
 
-	/// Performs a shallow copy of the array.
+	/**
+	Performs a shallow copy of the array.
+	*/
 	public MDArray dup()
 	{
 		MDArray n = new MDArray(0);
@@ -1802,11 +1953,13 @@ class MDArray : MDObject
 		return n;
 	}
 	
-	/// Compares this array to another array.  Comparison works just like on D arrays.  As long as the
-	/// length and data are identical, the arrays will compare equal.  If all the elements of both arrays
-	/// are the same type, you can even compare for ordering; smaller arrays and arrays with smaller elements
-	/// will compare less than larger arrays.  If the elements are different types, comparing for ordering
-	/// doesn't make much sense, but equality still works.
+	/**
+	Compares this array to another array.  Comparison works just like on D arrays.  As long as the
+	length and data are identical, the arrays will compare equal.  If all the elements of both arrays
+	are the same type, you can even compare for ordering; smaller arrays and arrays with smaller elements
+	will compare less than larger arrays.  If the elements are different types, comparing for ordering
+	doesn't make much sense, but equality still works.
+	*/
 	public int opCmp(Object o)
 	{
 		auto other = cast(MDArray)o;
@@ -1826,7 +1979,9 @@ class MDArray : MDObject
 		return result;
 	}
 
-	/// Sees if this array is identical to another array.
+	/**
+	Sees if this array is identical to another array.
+	*/
 	public int opEquals(Object o)
 	{
 		auto other = cast(MDArray)o;
@@ -1835,7 +1990,9 @@ class MDArray : MDObject
 		return mData == other.mData;
 	}
 
-	/// If the given value is in the array, returns the index of the first instance; otherwise, returns -1.
+	/**
+	If the given value is in the array, returns the index of the first instance; otherwise, returns -1.
+	*/
 	public int opIn_r(ref MDValue v)
 	{
 		foreach(i, ref val; mData)
@@ -1844,9 +2001,11 @@ class MDArray : MDObject
 
 		return -1;
 	}
-	
-	/// opApply overloads to allow using foreach on an MDArray.  Both index-value and value-only forms are
-	/// available.  The value type is an MDValue.
+
+	/**
+	opApply overloads to allow using foreach on an MDArray.  Both index-value and value-only forms are
+	available.  The value type is an MDValue.
+	*/
 	public int opApply(int delegate(ref MDValue value) dg)
 	{
 		int result = 0;
@@ -1878,8 +2037,10 @@ class MDArray : MDObject
 		return result;
 	}
 	
-	/// Concatenates two arrays into a new array.  The data is always copied from
-	/// the source arrays.
+	/**
+	Concatenates two arrays into a new array.  The data is always copied from
+	the source arrays.
+	*/
 	public MDArray opCat(MDArray other)
 	{
 		MDArray n = new MDArray(mData.length + other.mData.length);
@@ -1888,7 +2049,9 @@ class MDArray : MDObject
 		return n;
 	}
 
-	/// Concatenates an array with a single element.  Always copies from the source array.
+	/**
+	Concatenates an array with a single element.  Always copies from the source array.
+	*/
 	public MDArray opCat(ref MDValue elem)
 	{
 		MDArray n = new MDArray(mData.length + 1);
@@ -1896,7 +2059,7 @@ class MDArray : MDObject
 		n.mData[$ - 1] = elem;
 		return n;
 	}
-	
+
 	/// ditto
 	public MDArray opCat_r(ref MDValue elem)
 	{
@@ -1906,62 +2069,80 @@ class MDArray : MDObject
 		return n;
 	}
 
-	/// Appends another array onto the end of this one.  No new array is created; this array is
-	/// just resized.
+	/**
+	Appends another array onto the end of this one.  No new array is created; this array is
+	just resized.
+	*/
 	public MDArray opCatAssign(MDArray other)
 	{
 		mData ~= other.mData;
 		return this;
 	}
 
-	/// Appends a single element to the end of this array.
+	/**
+	Appends a single element to the end of this array.
+	*/
 	public MDArray opCatAssign(ref MDValue elem)
 	{
 		mData ~= elem;
 		return this;
 	}
-	
-	/// Gets a pointer to the value stored at the given index.  Returns a pointer instead of a plain
-	/// MDValue so that the array data can be updated after the fact.
+
+	/**
+	Gets a pointer to the value stored at the given index.  Returns a pointer instead of a plain
+	MDValue so that the array data can be updated after the fact.
+	*/
 	public MDValue* opIndex(int index)
 	{
 		return &mData[index];
 	}
 
-	/// Assigns a value into the given index.
+	/**
+	Assigns a value into the given index.
+	*/
 	public void opIndexAssign(ref MDValue value, uint index)
 	{
 		mData[index] = value;
 	}
 
-	/// Creates a new array which is a slice into this array's data.  Modifying the contents of the
-	/// sliced array will modify the contents of this array (unless this array is resized, in which
-	/// case it may not).
+	/**
+	Creates a new array which is a slice into this array's data.  Modifying the contents of the
+	sliced array will modify the contents of this array (unless this array is resized, in which
+	case it may not).
+	*/
 	public MDArray opSlice(uint lo, uint hi)
 	{
 		return new MDArray(mData[lo .. hi]);
 	}
 
-	/// Assigns a single value to a range of indices.
+	/**
+	Assigns a single value to a range of indices.
+	*/
 	public void opSliceAssign(ref MDValue value, uint lo, uint hi)
 	{
 		mData[lo .. hi] = value;
 	}
-	
-	/// Copies the data from another MDArray into this one.  The length of the other array must be the
-	/// same as the length of the slice indicated by the indices.
+
+	/**
+	Copies the data from another MDArray into this one.  The length of the other array must be the
+	same as the length of the slice indicated by the indices.
+	*/
 	public void opSliceAssign(MDArray arr, uint lo, uint hi)
 	{
 		mData[lo .. hi] = arr.mData[];
 	}
-	
-	/// Assigns a single value to every element of this array.
+
+	/**
+	Assigns a single value to every element of this array.
+	*/
 	public void opSliceAssign(ref MDValue value)
 	{
 		mData[] = value;
 	}
 
-	/// Copies the data from another array into this one.  Both arrays must have the same length.
+	/**
+	Copies the data from another array into this one.  Both arrays must have the same length.
+	*/
 	public void opSliceAssign(MDArray arr)
 	{
 		mData[] = arr.mData[];
@@ -1982,8 +2163,10 @@ class MDArray : MDObject
 		mData[start .. end] = data[];
 	}
 
-	/// Returns a string representation of the array, in the format "array 0x00000000", where the number
-	/// is the hexidecimal representation of the 'this' pointer.
+	/**
+	Returns a string representation of the array, in the format "array 0x00000000", where the number
+	is the hexidecimal representation of the 'this' pointer.
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("array 0x{:X8}", cast(void*)this);
@@ -2073,7 +2256,7 @@ class MDClass : MDObject
 	/**
 	Creates a new class.
 	
-	Parameters:
+	Params:
 		guessedName = The name of the class.  This is called "guessed" mostly because in MiniD code, classes
 			do not have any intrinsic name associated with them, and sometimes the compiler will generate a
 			name for an anonymous class.  For any classes that you create from native code, though, you'll
@@ -2104,13 +2287,17 @@ class MDClass : MDObject
 		}
 	}
 
-	/// Throws an exception since classes do not have a length.
+	/**
+	Throws an exception since classes do not have a length.
+	*/
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a class");
 	}
-	
-	/// Returns an MDValue containing the base class.  Returns a null MDValue if it has no base class.
+
+	/**
+	Returns an MDValue containing the base class.  Returns a null MDValue if it has no base class.
+	*/
 	public MDValue superClass()
 	{
 		if(mBaseClass is null)
@@ -2119,17 +2306,21 @@ class MDClass : MDObject
 			return MDValue(mBaseClass);
 	}
 
-	/// Creates a new instance of this class; this doesn't, however, run the constructor, so the instance
-	/// may be incompletely initialized.  The fields are copied from the class into the new instance; the
-	/// instance's method namespace simply points to this class's method namespace.
+	/**
+	Creates a new instance of this class; this doesn't, however, run the constructor, so the instance
+	may be incompletely initialized.  The fields are copied from the class into the new instance; the
+	instance's method namespace simply points to this class's method namespace.
+	*/
 	public MDInstance newInstance()
 	{
 		return new MDInstance(this);
 	}
 
-	/// Look up a member of the class.  This will look in the methods, the fields, and then continue the
-	/// search in the base class if there is any.  Returns a null pointer (not a pointer to a null MDValue)
-	/// if the member wasn't found.
+	/**
+	Look up a member of the class.  This will look in the methods, the fields, and then continue the
+	search in the base class if there is any.  Returns a null pointer (not a pointer to a null MDValue)
+	if the member wasn't found.
+	*/
 	public MDValue* opIndex(MDString index)
 	{
 		MDValue* ptr = (index in mMethods);
@@ -2155,8 +2346,10 @@ class MDClass : MDObject
 		return opIndex(str);
 	}
 
-	/// Sets a member of a class.  If the value is a function, it'll be put into the methods namespace;
-	/// otherwise, it'll be put into the fields namespace.
+	/**
+	Sets a member of a class.  If the value is a function, it'll be put into the methods namespace;
+	otherwise, it'll be put into the fields namespace.
+	*/
 	public void opIndexAssign(ref MDValue value, MDString index)
 	{
 		if(value.isFunction())
@@ -2173,29 +2366,37 @@ class MDClass : MDObject
 		opIndexAssign(value, new MDString(index));
 	}
 
-	/// Returns the guessed name (a duplicate of the internal name, so it can't be corrupted).
+	/**
+	Returns the guessed name (a duplicate of the internal name, so it can't be corrupted).
+	*/
 	public dchar[] getName()
 	{
 		return mGuessedName.dup;
 	}
-	
-	/// Returns the namespace that contains the fields for this class.  Manually adding members to the returned
-	/// namespace is not recommended, as this bypasses some caching logic that MDClass performs with a normal
-	/// member add.
+
+	/**
+	Returns the namespace that contains the fields for this class.  Manually adding members to the returned
+	namespace is not recommended, as this bypasses some caching logic that MDClass performs with a normal
+	member add.
+	*/
 	public MDNamespace fields()
 	{
 		return mFields;
 	}
 
-	/// Returns the namespace that contains the methods for this class.  Manually adding members to the returned
-	/// namespace is not recommended, as this bypasses some caching logic that MDClass performs with a normal
-	/// member add.
+	/**
+	Returns the namespace that contains the methods for this class.  Manually adding members to the returned
+	namespace is not recommended, as this bypasses some caching logic that MDClass performs with a normal
+	member add.
+	*/
 	public MDNamespace methods()
 	{
 		return mMethods;
 	}
 
-	/// Returns a string representation of the class in the form "class name".
+	/**
+	Returns a string representation of the class in the form "class name".
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("class {}", mGuessedName);
@@ -2237,15 +2438,19 @@ class MDInstance : MDObject
 		mMethods = mClass.mMethods;
 	}
 
-	/// Getting the length of an instance $(I could) make sense, if the instance had an opLength method.
-	/// However, none of these class methods call (or can call) metamethods, so this just throws an
-	/// exception.
+	/**
+	Getting the length of an instance $(I could) make sense, if the instance had an opLength method.
+	However, none of these class methods call (or can call) metamethods, so this just throws an
+	exception.
+	*/
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a class instance");
 	}
 
-	/// Looks up a member in the instance.  If the member doesn't exist, returns a null pointer.
+	/**
+	Looks up a member in the instance.  If the member doesn't exist, returns a null pointer.
+	*/
 	public MDValue* opIndex(MDString index)
 	{
 		MDValue* ptr = (index in mMethods);
@@ -2268,9 +2473,11 @@ class MDInstance : MDObject
 		return opIndex(str);
 	}
 
-	/// Sets a member in an instance.  You cannot reassign instance methods; attempting to do so will
-	/// result in an exception being thrown.  You also can't add fields to the class instance which
-	/// it didn't have to begin with (also throws an error).
+	/**
+	Sets a member in an instance.  You cannot reassign instance methods; attempting to do so will
+	result in an exception being thrown.  You also can't add fields to the class instance which
+	it didn't have to begin with (also throws an error).
+	*/
 	public void opIndexAssign(ref MDValue value, MDString index)
 	{
 		if(value.isFunction())
@@ -2287,16 +2494,21 @@ class MDInstance : MDObject
 		opIndexAssign(value, new MDString(index));
 	}
 
-	/// Gets a string representation of the instance, in the form "instance of class classname".  Does
-	/// not call toString metamethods.
+	/**
+	Gets a string representation of the instance, in the form "instance of class classname".  Does
+	not call toString metamethods.
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("instance of {}", mClass.toUtf8());
 	}
+
+	/**
+	Given a reference to a class, sees if this instance can be cast to the given class.
 	
-	/// Given a reference to a class, sees if this instance can be cast to the given class.  
-	/// Returns:
-	/// 'this' if it can be cast; null otherwise.
+	Returns:
+		'this' if it can be cast; null otherwise.
+	*/
 	public bool castToClass(MDClass cls)
 	{
 		assert(cls !is null, "MDInstance.castToClass() class is null");
@@ -2315,14 +2527,18 @@ class MDInstance : MDObject
 		return mClass;
 	}
 
-	/// Get a reference to the field namespace of this instance.  Every instance has its own field namespace.
+	/**
+	Get a reference to the field namespace of this instance.  Every instance has its own field namespace.
+	*/
 	public MDNamespace fields()
 	{
 		return mFields;
 	}
 
-	/// Get a reference to the method namespace of this instance.  All instances of a class and the class itself
-	/// share the method namespace.
+	/**
+	Get a reference to the method namespace of this instance.  All instances of a class and the class itself
+	share the method namespace.
+	*/
 	public MDNamespace methods()
 	{
 		return mMethods;
@@ -2352,7 +2568,7 @@ final class MDNamespace : MDObject
 	/**
 	Construct a new namespace.
 	
-	Parameters:
+	Params:
 		name = The optional name of the namespace.  It can be null, in which case the namespace will be anonymous.
 			class method and field namespaces are anonymous, for example.
 		parent = The optional parent of the namespace.  The parent is used for global lookup (see the description
@@ -2367,10 +2583,12 @@ final class MDNamespace : MDObject
 		mType = MDValue.Type.Namespace;
 	}
 
-	/// Create a namespace from a variadic list of arguments.  This is similar to the MDTable.create() function,
-	/// in that there must be an even number of arguments, and each pair is interpreted as a key-value pair.
-	/// This has the additional requirement that the keys must all be strings.  The name and parent parameters
-	/// are the same as in the constructor.
+	/**
+	Create a namespace from a variadic list of arguments.  This is similar to the MDTable.create() function,
+	in that there must be an even number of arguments, and each pair is interpreted as a key-value pair.
+	This has the additional requirement that the keys must all be strings.  The name and parent parameters
+	are the same as in the constructor.
+	*/
 	public static MDNamespace create(T...)(dchar[] name, MDNamespace parent, T args)
 	{
 		MDNamespace ret = new MDNamespace(name, parent);
@@ -2378,8 +2596,10 @@ final class MDNamespace : MDObject
 
 		return ret;
 	}
-	
-	/// Similar to create(), but just adds a list of key-value pairs to an already-created namespace.
+
+	/**
+	Similar to create(), but just adds a list of key-value pairs to an already-created namespace.
+	*/
 	public void addList(T...)(T args)
 	{
 		static if(args.length & 1)
@@ -2405,26 +2625,34 @@ final class MDNamespace : MDObject
 		}
 	}
 
-	/// Gets the number of key-value pairs in the namespace.
+	/**
+	Gets the number of key-value pairs in the namespace.
+	*/
 	public override uint length()
 	{
 		return mData.length;
 	}
 
-	/// Gets the name of the namespace (not including the parent's name).
+	/**
+	Gets the name of the namespace (not including the parent's name).
+	*/
 	public dchar[] name()
 	{
 		return mName;
 	}
 
-	/// Gets the parent of this namespace.
+	/**
+	Gets the parent of this namespace.
+	*/
 	public MDNamespace parent()
 	{
 		return mParent;
 	}
 
-	/// Looks up a value in the namespace from a string key.  As usual for D's 'in', returns null if
-	/// the value isn't found, and a pointer to the value if it is.
+	/**
+	Looks up a value in the namespace from a string key.  As usual for D's 'in', returns null if
+	the value isn't found, and a pointer to the value if it is.
+	*/
 	public MDValue* opIn_r(MDString key)
 	{
 		return key in mData;
@@ -2437,7 +2665,9 @@ final class MDNamespace : MDObject
 		return idx in mData;
 	}
 
-	/// Duplicate this namespace, performing a shallow copy of all the key-value pairs.
+	/**
+	Duplicate this namespace, performing a shallow copy of all the key-value pairs.
+	*/
 	public MDNamespace dup()
 	{
 		MDNamespace n = new MDNamespace(mName, mParent);
@@ -2448,19 +2678,25 @@ final class MDNamespace : MDObject
 		return n;
 	}
 
-	/// Gets an MDArray of all the keys in the namespace.
+	/**
+	Gets an MDArray of all the keys in the namespace.
+	*/
 	public MDArray keys()
 	{
 		return MDArray.fromArray(mData.keys);
 	}
 
-	/// Gets an MDArray of all the values in the namespace.
+	/**
+	Gets an MDArray of all the values in the namespace.
+	*/
 	public MDArray values()
 	{
 		return new MDArray(mData.values);
 	}
 
-	/// Looks up a value from the namespace.  Returns a null pointer if the key doesn't exist.
+	/**
+	Looks up a value from the namespace.  Returns a null pointer if the key doesn't exist.
+	*/
 	public MDValue* opIndex(MDString key)
 	{
 		return key in mData;
@@ -2473,9 +2709,11 @@ final class MDNamespace : MDObject
 		return str in mData;
 	}
 
-	/// Assigns a value to a key n the namespace.  Will insert the pair if the key doesn't exist
-	/// already.  Assigning a null value to a key-value pair will $(I not) remove the pair from
-	/// the namespace as it does with tables.
+	/**
+	Assigns a value to a key n the namespace.  Will insert the pair if the key doesn't exist
+	already.  Assigning a null value to a key-value pair will $(I not) remove the pair from
+	the namespace as it does with tables.
+	*/
 	public void opIndexAssign(ref MDValue value, MDString key)
 	{
 		mData[key] = value;
@@ -2487,19 +2725,25 @@ final class MDNamespace : MDObject
 		opIndexAssign(value, new MDString(key));
 	}
 
+	/**
+	Remove the given key from the namespace.  Throws an exception if they key does not exist.
+	*/
 	public void remove(MDString key)
 	{
 		mData.remove(key);
 	}
 	
+	/// ditto
 	public void remove(dchar[] key)
 	{
 		scope k = MDString.newTemp(key);
 		remove(k);
 	}
 
-	/// Overload of opApply to allow using foreach over a namespace.  The keys are MDStrings, and
-	/// the values are MDValues.
+	/**
+	Overload of opApply to allow using foreach over a namespace.  The keys are MDStrings, and
+	the values are MDValues.
+	*/
 	public int opApply(int delegate(ref MDString, ref MDValue) dg)
 	{
 		int result = 0;
@@ -2515,8 +2759,10 @@ final class MDNamespace : MDObject
 		return result;
 	}
 
-	/// Gets a more complete name of the namespace, including the name of all parent namespaces.
-	/// So if namespace 'b's parent is namespace 'a', this will return a string like "a.b".
+	/**
+	Gets a more complete name of the namespace, including the name of all parent namespaces.
+	So if namespace 'b's parent is namespace 'a', this will return a string like "a.b".
+	*/
 	public dchar[] nameString()
 	{
 		dchar[] ret = mName;
@@ -2532,23 +2778,29 @@ final class MDNamespace : MDObject
 		return ret;
 	}
 
-	/// Gets a string representation of the namespace in the form "namespace full.name".
+	/**
+	Gets a string representation of the namespace in the form "namespace full.name".
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("namespace {}", nameString());
 	}
 }
 
-/// A struct that holds a location (a filename, a line number, and a column number) of
-/// a piece of code.  Used by the compiler and in runtime debug locations.
+/**
+A struct that holds a location (a filename, a line number, and a column number) of
+a piece of code.  Used by the compiler and in runtime debug locations.
+*/
 struct Location
 {
 	public int line = 1;
 	public int column = 1;
 	public dchar[] fileName;
 
-	/// Create a location with the given filename, line, and column.  Lines and columns start
-	/// at 1.  A line, column pair of -1, -1 has the special meaning of "in a native function."
+	/**
+	Create a location with the given filename, line, and column.  Lines and columns start
+	at 1.  A line, column pair of -1, -1 has the special meaning of "in a native function."
+	*/
 	public static Location opCall(dchar[] fileName, int line = 1, int column = 1)
 	{
 		Location l;
@@ -2558,11 +2810,13 @@ struct Location
 		return l;
 	}
 
-	/// Gets a string representation of the location.  If the line and column are both -1, the
-	/// string is formatted like "fileName(native)", meaning that the location came from a native
-	/// function (i.e. a native function may have thrown an exception).  Otherwise, it's in
-	/// the form "fileName(line:column)".  For runtime debug locations, 'column' is actually
-	/// replaced by the index of the bytecode instruction.
+	/**
+	Gets a string representation of the location.  If the line and column are both -1, the
+	string is formatted like "fileName(native)", meaning that the location came from a native
+	function (i.e. a native function may have thrown an exception).  Otherwise, it's in
+	the form "fileName(line:column)".  For runtime debug locations, 'column' is actually
+	replaced by the index of the bytecode instruction.
+	*/
 	public char[] toUtf8()
 	{
 		if(line == -1 && column == -1)
@@ -2592,14 +2846,16 @@ A definition of a MiniD module.
 
 This is really just a name and the code for the top-level function of the module.  This can
 be serialized and deserialized using the minid.utils serialization protocol.  This can also
-be loaded by the MDGlobalState class, but that's a very low-level API.
+be loaded by the MDContext class, but that's a very low-level API.
 */
 class MDModuleDef
 {
 	package dchar[] mName;
 	package MDFuncDef mFunc;
 
-	/// Gets the name of the module.  This is the name given in the module declaration.
+	/**
+	Gets the name of the module.  This is the name given in the module declaration.
+	*/
 	public dchar[] name()
 	{
 		return mName;
@@ -2628,8 +2884,10 @@ class MDModuleDef
 	
 	static assert(FileHeader.sizeof == 16);
 
-	/// Serialize this module to some kind of output.  To be used with the minid.utils serialization
-	/// protocol.
+	/**
+	Serialize this module to some kind of output.  To be used with the minid.utils serialization
+	protocol.
+	*/
 	public void serialize(IWriter s)
 	{
 		FileHeader header;
@@ -2641,8 +2899,10 @@ class MDModuleDef
 		Serialize(s, mFunc);
 	}
 
-	/// Deserialize this module from some kind of input.  To be used with the minid.utils serialization
-	/// protocol.
+	/**
+	Deserialize this module from some kind of input.  To be used with the minid.utils serialization
+	protocol.
+	*/
 	public static MDModuleDef deserialize(IReader s)
 	{
 		FileHeader header;
@@ -2657,9 +2917,11 @@ class MDModuleDef
 
 		return ret;
 	}
-	
-	/// Load a module definition from a filename.  This is a low-level API that you probably won't have
-	/// to deal with.
+
+	/**
+	Load a module definition from a filename.  This is a low-level API that you probably won't have
+	to deal with.
+	*/
 	public static MDModuleDef loadFromFile(char[] filename)
 	{
 		scope file = new Reader(new FileConduit(filename));
@@ -2668,7 +2930,9 @@ class MDModuleDef
 		return ret;
 	}
 
-	/// Save this module to a filename.
+	/**
+	Save this module to a filename.
+	*/
 	public void writeToFile(char[] filename)
 	{
 		scope file = new Writer(new FileConduit(filename, FileConduit.ReadWriteCreate));
@@ -2984,10 +3248,12 @@ class MDContext
 	{
 		private MDNamespace mGlobals;
 
-		/// Attempts to get a global of the given name from the global namespace.  Throws an exception if the
-		/// global does not exist.  This is a templated function and returns an MDValue* by default.  If you
-		/// want to get another type, you can use the 'get' alias to this function and call it as a templated
-		/// method.
+		/**
+		Attempts to get a global of the given name from the global namespace.  Throws an exception if the
+		global does not exist.  This is a templated function and returns an MDValue* by default.  If you
+		want to get another type, you can use the 'get' alias to this function and call it as a templated
+		method.
+		*/
 		public T opIndex(T = MDValue*)(dchar[] name)
 		{
 			MDValue* value = mGlobals[name];
@@ -3004,20 +3270,26 @@ class MDContext
 		/// ditto
 		public alias opIndex get;
 
-		/// Set a global in the global namespace.
+		/**
+		Set a global in the global namespace.
+		*/
 		public void opIndexAssign(T)(T value, dchar[] name)
 		{
 			mGlobals[new MDString(name)] = MDValue(value);
 		}
-		
-		/// Get the underlying MDNamespace which actually holds the globals.
+
+		/**
+		Get the underlying MDNamespace which actually holds the globals.
+		*/
 		public MDNamespace ns()
 		{
 			return mGlobals;
 		}
 	}
 
-	/// An instance of the above struct.  You can access globals by writing things like "MDGlobalState().globals["x"d] = 5".
+	/**
+	An instance of the above struct.  You can access _globals by writing things like "context._globals["x"d] = 5".
+	*/
 	public _Globals globals;
 
 	public this()
@@ -3028,10 +3300,12 @@ class MDContext
 		mBasicTypeMT = new MDNamespace[MDValue.Type.max + 1];
 	}
 
-	/// Gets or sets the metatable for the given type.  Every type has a metatable associated with it where metamethods
-	/// are looked up after any normal method indexing mechanisms fail.  For example, the 'string' standard library sets
-	/// itself as the metatable for the 'string' type, making it possible to call the library functions as if they were
-	/// methods of the string objects themselves.
+	/**
+	Gets or sets the metatable for the given type.  Every type has a metatable associated with it where metamethods
+	are looked up after any normal method indexing mechanisms fail.  For example, the 'string' standard library sets
+	itself as the metatable for the 'string' type, making it possible to call the library functions as if they were
+	methods of the string objects themselves.
+	*/
 	public MDNamespace getMetatable(MDValue.Type type)
 	{
 		return mBasicTypeMT[cast(uint)type];
@@ -3046,34 +3320,42 @@ class MDContext
 		mBasicTypeMT[type] = table;
 	}
 
-	/// Gets the main thread of execution.  This thread is created when the context is created,
-	/// and is the default thread of execution.
+	/**
+	Gets the main thread of execution.  This thread is created when the context is created,
+	and is the default thread of execution.
+	*/
 	public MDState mainThread()
 	{
 		return mMainThread;
 	}
 
-	/// Create a new closure in the global namespace from the given script function definition.
+	/**
+	Create a new closure in the global namespace from the given script function definition.
+	*/
 	public MDClosure newClosure(MDFuncDef def)
 	{
 		return new MDClosure(globals.mGlobals, def);
 	}
 
-	/// Create a new closure in the global namespace from the given native closure information.  See
-	/// MDClosure.this() for info on these parameters.
+	/**
+	Create a new closure in the global namespace from the given native closure information.  See
+	MDClosure.this() for info on these parameters.
+	*/
 	public MDClosure newClosure(int delegate(MDState, uint) dg, dchar[] name, MDValue[] upvals = null)
 	{
 		return new MDClosure(globals.mGlobals, dg, name, upvals);
 	}
-	
+
 	/// ditto
 	public MDClosure newClosure(int function(MDState, uint) func, dchar[] name, MDValue[] upvals = null)
 	{
 		return new MDClosure(globals.mGlobals, func, name, upvals);
 	}
 
-	/// Add a path to be searched when performing an import.  See importModule() for information on the
-	/// import mechanism.
+	/**
+	Add a path to be searched when performing an import.  See importModule() for information on the
+	import mechanism.
+	*/
 	public void addImportPath(char[] path)
 	{
 		version(Windows)
@@ -3087,11 +3369,12 @@ class MDContext
 
 		mImportPaths[new FilePath(path, true)] = true;
 	}
-	
-	/** Sets a module loader for a given module name.  The name should be in the format of a module declaration
+
+	/**
+	Sets a module loader for a given module name.  The name should be in the format of a module declaration
 	name, such as "fork.knife.spoon".
 
-	The closure takes two parameters: the name of the module to load (so that multiple modules can be loaded
+	The closure takes two Params: the name of the module to load (so that multiple modules can be loaded
 	by the same function), and a namespace in which to place the loaded module symbols.  It is not expected to
 	return anything.
 	*/
@@ -3124,7 +3407,7 @@ class MDContext
 		
 	If all these steps fail, the import process fails.
 	
-	Parameters:
+	Params:
 		name = The name of the module to load, in the format "fork.knife.spoon".
 		s = The state to use to load the module.  This is used when calling any custom module loader functions,
 			or if the module being loaded is a script module, in which case the top-level function will be called.
@@ -3242,7 +3525,7 @@ class MDContext
 	Initialize a module given the module's definition and a list of parameters which will be 
 	passed as vararg parameters to the top-level function.  This is a very low-level API.
 
-	Parameters:
+	Params:
 		s = The state to use to call the top-level module function.
 		def = The module definition, which was compiled from source or loaded from a file.
 		params = An array of parameters which will be passed as varargs to the top-level function.
@@ -3345,7 +3628,9 @@ final class MDState : MDObject
 		Instruction* pc;
 	}
 	
-	/// An enumeration of all the valid states a thread can be in, for coroutine support.
+	/**
+	An enumeration of all the valid states a thread can be in, for coroutine support.
+	*/
 	enum State
 	{
 		/**
@@ -3421,8 +3706,8 @@ final class MDState : MDObject
 
 	/**
 	Construct a new thread.  A default thread of execution, the 'main thread', is created for
-	you by MDGlobalState, so you'll really only need this for creating coroutines.
-	
+	you by MDContext, so you'll really only need this for creating coroutines.
+
 	If you pass a script function closure to this constructor, this thread will be a coroutine.  It
 	can then be subsequently resumed by calling it with another MDState (just like how you call
 	threads to resume them in MiniD).
@@ -3459,26 +3744,34 @@ final class MDState : MDObject
 		mCoroFunc = coroFunc;
 	}
 
-	/// You can't get the length of a state.  Throws an exception.
+	/**
+	You can't get the length of a state.  Throws an exception.
+	*/
 	public override uint length()
 	{
 		throw new MDException("Cannot get the length of a thread");
 	}
 
-	/// Returns a string representation of the thread, in the form "thread 0x00000000", where the number
-	/// is the hexadecimal representation of the 'this' pointer.
+	/**
+	Returns a string representation of the thread, in the form "thread 0x00000000", where the number
+	is the hexadecimal representation of the 'this' pointer.
+	*/
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("thread 0x{:X8}", cast(void*)this);
 	}
 
-	/// Gets the current coroutine state of the state as a member of the State enumeration.
+	/**
+	Gets the current coroutine state of the state as a member of the State enumeration.
+	*/
 	public final State state()
 	{
 		return mState;
 	}
 
-	/// Gets a string representation of the current state of the coroutine.
+	/**
+	Gets a string representation of the current state of the coroutine.
+	*/
 	public final MDString stateString()
 	{
 		return StateStrings[mState];
@@ -3533,7 +3826,7 @@ final class MDState : MDObject
 	Push a value onto the value stack.  This is a templated method which can accept any type which can be
 	converted to a MiniD type.
 	
-	Parameters:
+	Params:
 		value = The value to push.
 		
 	Returns:
@@ -3550,8 +3843,10 @@ final class MDState : MDObject
 		return mStackIndex - 1 - mCurrentAR.base;
 	}
 
-	/// Pop a value off the value stack.  This is templated so that you can pop any type that can be converted from
-	/// a MiniD type, but it defaults to MDValue.
+	/**
+	Pop a value off the value stack.  This is templated so that you can pop any type that can be converted from
+	a MiniD type, but it defaults to MDValue.
+	*/
 	public final T pop(T = MDValue)()
 	{
 		if(mStackIndex <= mCurrentAR.base)
@@ -3572,7 +3867,7 @@ final class MDState : MDObject
 	
 	Once the call completes, you must pop any return values off the stack.
 	
-	Parameters:
+	Params:
 		func = Any callable type.  This is templated to allow any type.
 		numReturns = How many return values you want from this function call.  If >= 0, will leave exactly that many values
 			on the value stack which you can then pop.  If this is -1, indicates that you want as many return values that
@@ -3635,7 +3930,7 @@ final class MDState : MDObject
 	/**
 	Very similar to the easyCall method, this will call a method of any object.
 	
-	Parameters:
+	Params:
 		val = The object whose method you would like to call.
 		methodName = The name of the method to call.
 		numReturns = See easyCall for a description of this parameter.
@@ -3690,7 +3985,7 @@ final class MDState : MDObject
 	auto ret = s.pop!(int);
 	-----
 	
-	Parameters:
+	Params:
 		slot = The stack slot of the object to call.  Usually you get this from a push.
 		numParams = How many parameters, including the context, you are passing to the function.
 			Since you always need context, this must always be at least 1.
@@ -3719,7 +4014,7 @@ final class MDState : MDObject
 	This is to be used from native closures which were created with a list of upvalues.  Sets the
 	value of the upvalue at the given integer index (upvalues are like an array).
 	
-	Parameters:
+	Params:
 		index = The index of the upvalue to set.
 		value = The value, which must have a type convertible to a MiniD type, to be set to the upvalue.
 	*/
@@ -3741,7 +4036,7 @@ final class MDState : MDObject
 	MDValue*.  You can then modify the contents of this return value and the changes will be reflected
 	in the internal upvalue array.
 	
-	Parameters:
+	Params:
 		index = The index of the upvalue to get.
 		
 	Returns:
@@ -3769,7 +4064,7 @@ final class MDState : MDObject
 	Possible values are "null", "bool", "int", "float", "char", "string", "table", "array", "function",
 	"class", "instance", "namespace", and "thread".  Any other value will give a compile-time error.
 
-	Parameters:
+	Params:
 		index = The 0-based index of the parameter whose type you'd like to check.  Throws an error
 			if this index is invalid.
 
@@ -3804,7 +4099,7 @@ final class MDState : MDObject
 	/**
 	Gets the value of a parameter off the stack.  
 	
-	Parameters:
+	Params:
 		index = The index of the parameter to get.  Throws an error if this index is invalid.
 		
 	Returns:
@@ -3849,7 +4144,7 @@ final class MDState : MDObject
 	/**
 	Gets a slice of the parameters as an array.  Throws an error if the slice boundaries are invalid.
 
-	Parameters:
+	Params:
 		lo = The low index of the slice.  Can be negative, which means "from the end," i.e. -1 would mean
 			"begin at the very last parameter."  Inclusive.
 		hi = The high index of the slice.  Can be negative, which means "from the end," i.e. -1 would mean
@@ -3918,7 +4213,7 @@ final class MDState : MDObject
 	
 	safeCode() is templated to allow any return value.  
 	
-	Parameters:
+	Params:
 		code = The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
 			safeCode.
 			
@@ -3935,7 +4230,9 @@ final class MDState : MDObject
 			throwRuntimeException(e.toUtf8());
 	}
 
-	/// Throws a new runtime exception, starting the debug traceback with the current debug location.
+	/**
+	Throws a new runtime exception, starting the debug traceback with the current debug location.
+	*/
 	public final void throwRuntimeException(MDValue* val)
 	{
 		throw new MDRuntimeException(startTraceback(), val);
@@ -3950,7 +4247,7 @@ final class MDState : MDObject
 	/**
 	Gets the environment of a closure on the call stack.
 
-	Parameters:
+	Params:
 		depth = The depth into the call stack of the closure whose environment to get.  Defaults to 0, which
 			means the currently-executing closure.  A depth of 1 would mean the closure which called this
 			closure, 2 the closure that called that one etc.
@@ -3973,7 +4270,7 @@ final class MDState : MDObject
 	Get a string representation of any MiniD value.  This is different from MDValue.toUtf8() in that it will call
 	any toString metamethods defined for the object.  
 	
-	Parameters:
+	Params:
 		The value to get a string representation of.
 		
 	Returns:
@@ -4003,49 +4300,65 @@ final class MDState : MDObject
 		return ret.as!(MDString);
 	}
 
-	/// Determines if the value a is in the container b.  Returns true if so, false if not.
+	/**
+	Determines if the value a is in the container b.  Returns true if so, false if not.
+	*/
 	public final bool opin(ref MDValue a, ref MDValue b)
 	{
 		return operatorIn(&a, &b);
 	}
 
-	/// Compares the two values, calling any opCmp metamethods, and returns the result.
+	/**
+	Compares the two values, calling any opCmp metamethods, and returns the result.
+	*/
 	public final int cmp(ref MDValue a, ref MDValue b)
 	{
 		return compare(&a, &b);
 	}
 
-	/// Indexes src with index, and gives the result.  Like writing src[index] in MiniD.  Calls metamethods.
+	/**
+	Indexes src with index, and gives the result.  Like writing src[index] in MiniD.  Calls metamethods.
+	*/
 	public final MDValue idx(ref MDValue src, ref MDValue index)
 	{
 		return operatorIndex(&src, &index);
 	}
 
-	/// Index-assigns src into the index slot of dest.  Like writing dest[index] = src in MiniD.  Calls metamethods.
+	/**
+	Index-assigns src into the index slot of dest.  Like writing dest[index] = src in MiniD.  Calls metamethods.
+	*/
 	public final void idxa(ref MDValue dest, ref MDValue index, ref MDValue src)
 	{
 		operatorIndexAssign(&dest, &index, &src);
 	}
 
-	/// Gets the length of val.  Like #val in MiniD.  Calls metamethods.
+	/**
+	Gets the length of val.  Like #val in MiniD.  Calls metamethods.
+	*/
 	public final MDValue len(ref MDValue val)
 	{
 		return operatorLength(&val);
 	}
 
-	/// Slice src from lo to hi.  Like src[lo .. hi] in MiniD.  Calls metamethods.
+	/**
+	Slice src from lo to hi.  Like src[lo .. hi] in MiniD.  Calls metamethods.
+	*/
 	public final MDValue slice(ref MDValue src, ref MDValue lo, ref MDValue hi)
 	{
 		return operatorSlice(&src, &lo, &hi);
 	}
 
-	/// Assign a slice src to dest from lo to hi.  Like dest[lo .. hi] = src in MiniD.  Calls metamethods.
+	/**
+	Assign a slice src to dest from lo to hi.  Like dest[lo .. hi] = src in MiniD.  Calls metamethods.
+	*/
 	public final void slicea(ref MDValue dest, ref MDValue lo, ref MDValue hi, ref MDValue src)
 	{
 		operatorSliceAssign(&dest, &lo, &hi, &src);
 	}
-	
-	/// Performs an arithmetic operation on the two values and returns the result.  Calls metamethods.
+
+	/**
+	Performs an arithmetic operation on the two values and returns the result.  Calls metamethods.
+	*/
 	public final MDValue add(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Add, &a, &b);
@@ -4075,13 +4388,17 @@ final class MDState : MDObject
 		return binOp(MM.Mod, &a, &b);
 	}
 	
-	/// Negates the argument.  Calls metamethods.
+	/**
+	Negates the argument.  Calls metamethods.
+	*/
 	public final MDValue neg(ref MDValue a)
 	{
 		return unOp(MM.Neg, &a);
 	}
 
-	/// Performs a reflexive arithmetic operation on a, with b as the right hand side.  Calls metamethods.
+	/**
+	Performs a reflexive arithmetic operation on a, with b as the right hand side.  Calls metamethods.
+	*/
 	public final void addeq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.AddEq, &a, &b);
@@ -4111,7 +4428,9 @@ final class MDState : MDObject
 		reflOp(MM.ModEq, &a, &b);
 	}
 
-	/// Performs a binary operation on the two values and returns the result.  Calls metamethods.
+	/**
+	Performs a binary operation on the two values and returns the result.  Calls metamethods.
+	*/
 	public final MDValue and(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.And, &a, &b);
@@ -4146,14 +4465,18 @@ final class MDState : MDObject
 	{
 		return binaryBinOp(MM.UShr, &a, &b);
 	}
-	
-	/// Performs a bitwise complement of the argument.  Calls metamethods.
+
+	/**
+	Performs a bitwise complement of the argument.  Calls metamethods.
+	*/
 	public final MDValue com(ref MDValue a)
 	{
 		return binaryUnOp(MM.Com, &a);
 	}
-	
-	/// Performs a reflexive bitwise operation on a, with b as the right hand side.  Calls metamethods.
+
+	/**
+	Performs a reflexive bitwise operation on a, with b as the right hand side.  Calls metamethods.
+	*/
 	public final void andeq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.AndEq, &a, &b);
@@ -4189,9 +4512,11 @@ final class MDState : MDObject
 		binaryReflOp(MM.UShrEq, &a, &b);
 	}
 	
-	/// Gets traceback info of the most recently-thrown exception, and clears the traceback
-	/// info.  This method is static, because exceptions can propagate through multiple states
-	/// and through coroutine calls, and so the traceback is stored globally.
+	/**
+	Gets traceback info of the most recently-thrown exception, and clears the traceback
+	info.  This method is static, because exceptions can propagate through multiple states
+	and through coroutine calls, and so the traceback is stored globally.
+	*/
 	public static char[] getTracebackString()
 	{
 		if(Traceback.length == 0)
@@ -4210,7 +4535,7 @@ final class MDState : MDObject
 	/** Yields from a native function acting as a coroutine, just like using the yield() expression
 	in MiniD.
 	
-	Parameters:
+	Params:
 		numReturns = How many returns you'd like to get from the yield operation.  -1 means as many
 			values as are passed to this coroutine when it's resumed, in which case the return value
 			of this method becomes significant.
@@ -4254,7 +4579,9 @@ final class MDState : MDObject
 		}
 	}
 	
-	/// Resets this coroutine.  Only works if this coroutine is in the Dead state.
+	/**
+	Resets this coroutine.  Only works if this coroutine is in the Dead state.
+	*/
 	public final void reset()
 	{
 		if(mState != State.Dead)
@@ -4266,7 +4593,9 @@ final class MDState : MDObject
 		mState = State.Initial;
 	}
 
-	/// Gets the context which owns this thread.
+	/**
+	Gets the context which owns this thread.
+	*/
 	public final MDContext context()
 	{
 		return mContext;

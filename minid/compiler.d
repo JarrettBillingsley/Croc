@@ -44,24 +44,53 @@ import minid.utils;
 //debug = VARACTIVATE;
 //debug = WRITECODE;
 
+/**
+Compile a source code file into a binary module.  Takes the path to the source file and returns
+the compiled module, which can be loaded into a context.
+
+You shouldn't have to deal with this function that much.  Most of the time the compilation of
+modules should be handled for you by the import system in MDContext.
+*/
 public MDModuleDef compileModule(char[] filename)
 {
 	scope path = new FilePath(filename);
 	return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
 }
 
+/**
+Compile a module from a string containing the source code.
+
+Params:
+	source = The source code as a string.
+	name = The name which should be used as the source name in compiler error message.  Takes the
+		place of the filename when compiling from a source file.
+
+Returns:
+	The compiled module.
+*/
 public MDModuleDef compileModule(dchar[] source, char[] name)
 {
 	Token* tokens = Lexer.lex(name, source);
 	return Module.parse(tokens).codeGen();
 }
 
-public MDFuncDef compileStatements(dchar[] source, char[] name)
-{
-	bool dummy;
-	return compileStatements(source, name, dummy);
-}
+/**
+Compile a list of statements into a function body which takes a variadic number of arguments.  Kind
+of like a module without the module statement.  
 
+Params:
+	source = The source code as a string.
+	name = The name to use as the source name for compilation errors.
+	atEOF = (Optional) This parameter is useful for writing interactive interpreters.  Try to call
+		this function with this parameter set to an output, and if you catch any compilation exceptions,
+		you can check this output to see if typing more could result in the code compiling correctly.
+		That is, you can collect input from the user one line at a time, compiling each time they hit
+		enter, and if the atEOF output is true, keep letting them input code and recompiling until
+		it works.  You can see the source of mdcl for an example of using this.
+		
+Returns:
+	The compiled function.
+*/
 public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 {
 	Token* tokens = Lexer.lex(name, source);
@@ -98,6 +127,17 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 	return fs.toFuncDef();
 }
 
+/// ditto
+public MDFuncDef compileStatements(dchar[] source, char[] name)
+{
+	bool dummy;
+	return compileStatements(source, name, dummy);
+}
+
+/**
+Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
+function.
+*/
 public MDValue loadJSON(dchar[] source)
 {
 	Token* tokens = Lexer.lex("JSON", source, true);

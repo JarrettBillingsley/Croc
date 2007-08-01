@@ -1,5 +1,31 @@
 module simple;
 
+class A
+{
+	x;
+	
+	this(x)
+	{
+		this.x = x;
+	}
+	
+	function toString()
+	{
+		return format("A {}", x);
+	}
+	
+	function opCmp(other)
+	{
+		return x <=> other.x;
+	}
+}
+
+local a = [A(1), A(2), A(3)];
+local b = [A(1), A(2), A(3)];
+
+writefln(b == a);
+
+/+
 /*
 local co = coroutine Co;
 writefln("In main, the coroutine says: \"{}\"", co(1, 2));
@@ -784,4 +810,4 @@ co(3, 4);
 				break;
 		}
 	}
-}
+}+/

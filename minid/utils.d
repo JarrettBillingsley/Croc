@@ -40,32 +40,42 @@ import UniChar;
 
 alias double mdfloat;
 
-/// Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+/**
+Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+*/
 template isStringType(T)
 {
 	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
 }
 
-/// Sees if a type is char, wchar, or dchar.
+/**
+Sees if a type is char, wchar, or dchar.
+*/
 template isCharType(T)
 {
 	const bool isCharType = is(T == char) || is(T == wchar) || is(T == dchar);
 }
 
-/// Sees if a type is a signed or unsigned byte, short, int, or long.
+/**
+Sees if a type is a signed or unsigned byte, short, int, or long.
+*/
 template isIntType(T)
 {
 	const bool isIntType = is(T == int) || is(T == uint) || is(T == long) || is(T == ulong) ||
 							is(T == short) || is(T == ushort) || is(T == byte) || is(T == ubyte) /* || is(T == cent) || is(T == ucent) */;
 }
 
-/// Sees if a type is float, double, or real.
+/**
+Sees if a type is float, double, or real.
+*/
 template isFloatType(T)
 {
 	const bool isFloatType = is(T == float) || is(T == double) || is(T == real);
 }
 
-/// Sees if a type is an array.
+/**
+Sees if a type is an array.
+*/
 template isArrayType(T)
 {
 	const bool isArrayType = false;
@@ -76,19 +86,25 @@ template isArrayType(T : T[])
 	const bool isArrayType = true;
 }
 
-/// Sees if a type is an associative array.
+/**
+Sees if a type is an associative array.
+*/
 template isAAType(T)
 {
 	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
 }
 
-/// Sees if a type is a pointer.
+/**
+Sees if a type is a pointer.
+*/
 template isPointerType(T)
 {
 	const bool isPointerType = is(typeof(*T)) && !isArrayType!(T);
 }
 
-/// Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+/**
+Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+*/
 template realType(T)
 {
 	static if(is(T Base == typedef))
@@ -97,8 +113,10 @@ template realType(T)
 		alias T realType;
 }
 
-/// Determine if a given aggregate type contains any unions, explicit or anonymous.
-/// Thanks to Frits van Bommel for the original code.
+/**
+Determine if a given aggregate type contains any unions, explicit or anonymous.
+Thanks to Frits van Bommel for the original code.
+*/
 template hasUnions(T, size_t Idx = 0)
 {
 	static if(!is(typeof(T.tupleof)))
@@ -185,7 +203,9 @@ unittest
 	assert(hasUnions!(E));
 }
 
-/// Convert any function pointer into a delegate that calls the function when it's called.
+/**
+Convert any function pointer into a delegate that calls the function when it's called.
+*/
 template ToDelegate(alias func)
 {
 	ReturnType!(func) delegate(ParameterTypeTuple!(func)) ToDelegate()
@@ -204,7 +224,9 @@ template ToDelegate(alias func)
 	}
 }
 
-/// Compares dchar[] strings stupidly (just by character value, not lexicographically).
+/**
+Compares dchar[] strings stupidly (just by character value, not lexicographically).
+*/
 int dcmp(dchar[] s1, dchar[] s2)
 {
 	auto len = s1.length;
@@ -222,7 +244,9 @@ int dcmp(dchar[] s1, dchar[] s2)
 	return result;
 }
 
-/// Lowercase a dchar[] using proper Unicode character functions.
+/**
+Lowercase a dchar[] using proper Unicode character functions.
+*/
 dchar[] toLowerD(dchar[] s)
 {
 	bool changed = false;
@@ -244,7 +268,9 @@ dchar[] toLowerD(dchar[] s)
 	return s;
 }
 
-/// Uppercase a dchar[] using proper Unicode character functions.
+/**
+Uppercase a dchar[] using proper Unicode character functions.
+*/
 dchar[] toUpperD(dchar[] s)
 {
 	bool changed = false;
@@ -277,36 +303,48 @@ unittest
 	assert(toUpperD(t) !is t);
 }
 
-/// See if a given Unicode character is valid.
+/**
+See if a given Unicode character is valid.
+*/
 bool isValidUniChar(dchar c)
 {
 	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
 }
 
-/// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+/**
+Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+*/
 template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
 	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
 }
 
-/// Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
+/**
+Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
+*/
 template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
 }
 
-/// The current version of MiniD.  (this is kind of buried here)
+/**
+The current version of MiniD.  (this is kind of buried here)
+*/
 const uint MiniDVersion = MakeVersion!(1, 0);
 
-/// See if T is a type that can't be automatically serialized.
+/**
+See if T is a type that can't be automatically serialized.
+*/
 template isInvalidSerializeType(T)
 {
 	const bool isInvalidSerializeType = isPointerType!(T) || is(T == function) || is(T == delegate) ||
-		is(T == interface) || is(T == union) || (is(typeof(T.keys)) && is(typeof(T.values)));
+		is(T == interface) || is(T == union) || isAAType!(T);
 }
 
-/// The different ways data can be serialized and deserialized.
+/**
+The different ways data can be serialized and deserialized.
+*/
 enum SerializeMethod
 {
 	Invalid,
@@ -317,7 +355,9 @@ enum SerializeMethod
 	Chunk
 }
 
-/// Given a type, determine how to serialize or deserialize a value of that type.
+/**
+Given a type, determine how to serialize or deserialize a value of that type.
+*/
 template TypeSerializeMethod(T)
 {
 	static if(isInvalidSerializeType!(T))
@@ -367,13 +407,15 @@ or an S[] where S is a struct type marked as SerializeAsChunk, it will write out
 array at once.  Otherwise, it'll write out the array element-by-element.
 
 For structs, the following methods are tried:
-	1) If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
-	   Serialize/Deserialize will call those.
-	2) If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
-	   serialize instances of the struct as chunks of memory.
-	3) As a last resort, it will try to write out the struct member-by-member.  If the struct has any
+$(OL
+	$(LI If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
+	   Serialize/Deserialize will call those.)
+	$(LI If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
+	   serialize instances of the struct as chunks of memory.)
+	$(LI As a last resort, it will try to write out the struct member-by-member.  If the struct has any
 	   unions (explicit or anonymous), the struct will not be able to be automatically serialized, and
-	   you will either have to make it chunk-serializable or provide custom serialization methods.
+	   you will either have to make it chunk-serializable or provide custom serialization methods.)
+)
 
 For classes, it will expect for there to be custom serialize/deserialize methods.
 
@@ -383,8 +425,10 @@ so arrays of them will be serialized in one call.
 If your struct or class declares custom serialize/deserialize methods, it must declare both or neither.
 These methods must always follow the form:
 
-	void serialize(IWriter);
-	static T deserialize(IReader);
+---
+void serialize(IWriter);
+static T deserialize(IReader);
+---
 	
 where T is your custom type.
 */
@@ -432,7 +476,9 @@ void Serialize(T)(IWriter s, T value)
 	}
 }
 
-/// The opposite of Serialize().  The same rules apply here as with Serialize().
+/**
+The opposite of Serialize().  The same rules apply here as with Serialize().
+*/
 void Deserialize(T)(IReader s, out T dest)
 {
 	const method = TypeSerializeMethod!(T);
@@ -487,11 +533,13 @@ void Deserialize(T)(IReader s, out T dest)
 	}
 }
 
-/// A class used for profiling pieces of code.  You initialize it with an output filename,
-/// and during execution of your program, you just create instances of this class with a
-/// certain name.  Timings for each profile name are accumulated over the course of the program and
-/// the final output will show the name of the profile, how many times it was instanced, the
-/// total time in milliseconds, and the average time per instance in milliseconds.
+/**
+A class used for profiling pieces of code.  You initialize it with an output filename,
+and during execution of your program, you just create instances of this class with a
+certain name.  Timings for each profile name are accumulated over the course of the program and
+the final output will show the name of the profile, how many times it was instanced, the
+total time in milliseconds, and the average time per instance in milliseconds.
+*/
 scope class Profiler
 {
 	private StopWatch mTimer;
@@ -568,8 +616,10 @@ scope class Profiler
 	}
 }
 
-/// Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
-/// over-allocates for arrays, but I don't like relying on implementation-specific features.
+/**
+Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
+over-allocates for arrays, but I don't like relying on implementation-specific features.
+*/
 struct List(T)
 {
 	private T[] mData;
@@ -635,7 +685,9 @@ struct List(T)
 	}
 }
 
-/// Gets the name of a function alias.
+/**
+Gets the name of a function alias.
+*/
 public template NameOfFunc(alias f)
 {
 	const char[] NameOfFunc = (&f).stringof[2 .. $];
@@ -647,9 +699,11 @@ unittest
 	assert(NameOfFunc!(foo) == "foo");
 }
 
-/// Given a predicate template and a tuple, sorts the tuple.  I'm not sure how quick it is, but it's probably fast enough
-/// for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
-/// same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
+/**
+Given a predicate template and a tuple, sorts the tuple.  I'm not sure how quick it is, but it's probably fast enough
+for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
+same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
+*/
 public template QSort(alias Pred, List...)
 {
 	static if(List.length == 0 || List.length == 1)
