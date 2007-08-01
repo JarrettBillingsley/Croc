@@ -31,10 +31,24 @@ import tango.text.Regex;
 
 class RegexpLib
 {
-	this(MDNamespace namespace)
+	private static RegexpLib lib;
+	
+	static this()
+	{
+		lib = new RegexpLib();
+	}
+	
+	private MDRegexpClass regexpClass;
+
+	private this()
 	{
 		regexpClass = new MDRegexpClass();
-		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("regexp"d, context.globals.ns);
+
 		namespace.addList
 		(
 			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
@@ -55,12 +69,14 @@ class RegexpLib
 			"usPhone"d,    r"^((1-)?\d{3}-)?\d{3}-\d{4}$"d,
 			"usZip"d,      r"^\d{5}$"d,
 
-			"compile"d,    new MDClosure(namespace, &compile,    "regexp.compile"),
-			"test"d,       new MDClosure(namespace, &test,       "regexp.test"),
-			"replace"d,    new MDClosure(namespace, &replace,    "regexp.replace"),
-			"split"d,      new MDClosure(namespace, &split,      "regexp.split"),
-			"match"d,      new MDClosure(namespace, &match,      "regexp.match")
+			"compile"d,    new MDClosure(namespace, &lib.compile,    "regexp.compile"),
+			"test"d,       new MDClosure(namespace, &lib.test,       "regexp.test"),
+			"replace"d,    new MDClosure(namespace, &lib.replace,    "regexp.replace"),
+			"split"d,      new MDClosure(namespace, &lib.split,      "regexp.split"),
+			"match"d,      new MDClosure(namespace, &lib.match,      "regexp.match")
 		);
+
+		context.globals["regexp"d] = namespace;
 	}
 
 	int test(MDState s, uint numParams)
@@ -145,8 +161,6 @@ class RegexpLib
 		s.push(s.safeCode(regexpClass.newInstance(pattern, attributes)));
 		return 1;
 	}
-
-	public MDRegexpClass regexpClass;
 
 	static class MDRegexpClass : MDClass
 	{
@@ -340,11 +354,4 @@ class RegexpLib
 			mRegexp.search(str);
 		}
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("regexp"d, MDGlobalState().globals.ns);
-	new RegexpLib(namespace);
-	MDGlobalState().globals["regexp"d] = namespace;
 }

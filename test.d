@@ -1,6 +1,7 @@
 module test;
 
 import minid.minid;
+import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
@@ -8,10 +9,28 @@ void main()
 {
 	try
 	{
-		MDState s = MDInitialize();
-		MDGlobalState().addImportPath(`samples`);
+		MDContext ctx = NewContext();
 
-		/*WrapModule!
+		/+/*
+		ctx.globals["Co"d] = new MDClosure(ctx.globals.ns, (MDState s, uint numParams)
+		{
+			with(s)
+			{
+				Stdout.formatln("Co has begun with parameters: {}, {}", getParam!(int)(0), getParam!(int)(1));
+				yield(2, MDValue("I've begun"));
+
+				MDValue r2 = pop();
+				MDValue r1 = pop();
+
+				Stdout.formatln("Back in co, main gave me: {}, {}", valueToString(r1), valueToString(r2));
+				yield(0, MDValue("Thanks for the values"));
+				Stdout.formatln("Co is about to return, bye");
+				push("I'm finished");
+				return 1;
+			}
+		}, "Co"d);*/
+
+		WrapModule!
 		(
 			"bar",
 			WrapFunc!(foo),
@@ -32,18 +51,19 @@ void main()
 			),
 
 			WrapClass!(B),
-			
+
 			WrapClassEx!
 			(
 				C,
 				WrapCtors!(void function(int), void function(float), void function(char[]), void function(int, float), void function(A))
 			)
-		);
+		)(ctx);
 
-		WrapGlobalFunc!(one, "One");
-		WrapGlobalFunc!(two, void function(int, int));*/
+		WrapGlobalFunc!(one, "One")(ctx);
+		WrapGlobalFunc!(two, void function(int, int))(ctx);+/
 
-		MDGlobalState().importModule("simple");
+		ctx.addImportPath(`samples`);
+		ctx.importModule("simple");
 	}
 	catch(MDException e)
 	{
@@ -57,7 +77,6 @@ void main()
 	}
 }
 
-/*
 class A
 {
 	private int mSize = 10;
@@ -200,4 +219,4 @@ void two(int x, int y)
 void three(float x)
 {
 	Stdout.formatln("three!");
-}*/
+}

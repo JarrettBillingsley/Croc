@@ -45,9 +45,23 @@ import tango.util.PathUtil;
 
 class IOLib
 {
-	static MDInputStreamClass inputStreamClass;
-	static MDOutputStreamClass outputStreamClass;
-	static MDStreamClass streamClass;
+	private static IOLib lib;
+	private static MDInputStreamClass inputStreamClass;
+	private static MDOutputStreamClass outputStreamClass;
+	private static MDStreamClass streamClass;
+	
+	static this()
+	{
+		lib = new IOLib();
+		inputStreamClass = new MDInputStreamClass();
+		outputStreamClass = new MDOutputStreamClass();
+		streamClass = new MDStreamClass();
+	}
+
+	private this()
+	{
+
+	}
 
 	enum FileMode
 	{
@@ -57,22 +71,20 @@ class IOLib
 		Append = 8,
 		OutNew = Out | New
 	}
-
-	this(MDNamespace namespace)
+	
+	public static void init(MDContext context)
 	{
-		inputStreamClass = new MDInputStreamClass();
-		outputStreamClass = new MDOutputStreamClass();
-		streamClass = new MDStreamClass();
+		MDNamespace namespace = new MDNamespace("io"d, context.globals.ns);
 
 		namespace.addList
 		(
-			"InputStream"d,  inputStreamClass,
-			"OutputStream"d, outputStreamClass,
-			"Stream"d,       streamClass,
+			"InputStream"d,  lib.inputStreamClass,
+			"OutputStream"d, lib.outputStreamClass,
+			"Stream"d,       lib.streamClass,
 
- 			"stdin"d,        inputStreamClass.newInstance(Cin.stream),
- 			"stdout"d,       outputStreamClass.newInstance(Cout.stream),
- 			"stderr"d,       outputStreamClass.newInstance(Cerr.stream),
+ 			"stdin"d,        lib.inputStreamClass.newInstance(Cin.stream),
+ 			"stdout"d,       lib.outputStreamClass.newInstance(Cout.stream),
+ 			"stderr"d,       lib.outputStreamClass.newInstance(Cerr.stream),
 
 			"FileMode"d,     MDTable.create
 			(
@@ -83,21 +95,23 @@ class IOLib
 				"OutNew"d,   cast(int)FileMode.OutNew
 			),
 
-			"File"d,         new MDClosure(namespace, &File,        "io.File"),
-			"rename"d,       new MDClosure(namespace, &rename,      "io.rename"),
-			"remove"d,       new MDClosure(namespace, &remove,      "io.remove"),
-			"copy"d,         new MDClosure(namespace, &copy,        "io.copy"),
-			"size"d,         new MDClosure(namespace, &size,        "io.size"),
-			"exists"d,       new MDClosure(namespace, &exists,      "io.exists"),
-			"isFile"d,       new MDClosure(namespace, &isFile,      "io.isFile"),
-			"isDir"d,        new MDClosure(namespace, &isDir,       "io.isDir"),
-			"currentDir"d,   new MDClosure(namespace, &currentDir,  "io.currentDir"),
-			"changeDir"d,    new MDClosure(namespace, &changeDir,   "io.changeDir"),
-			"makeDir"d,      new MDClosure(namespace, &makeDir,     "io.makeDir"),
-			"removeDir"d,    new MDClosure(namespace, &removeDir,   "io.removeDir"),
-			"listFiles"d,    new MDClosure(namespace, &listFiles,   "io.listFiles"),
-			"listDirs"d,     new MDClosure(namespace, &listDirs,    "io.listDirs")
+			"File"d,         new MDClosure(namespace, &lib.File,        "io.File"),
+			"rename"d,       new MDClosure(namespace, &lib.rename,      "io.rename"),
+			"remove"d,       new MDClosure(namespace, &lib.remove,      "io.remove"),
+			"copy"d,         new MDClosure(namespace, &lib.copy,        "io.copy"),
+			"size"d,         new MDClosure(namespace, &lib.size,        "io.size"),
+			"exists"d,       new MDClosure(namespace, &lib.exists,      "io.exists"),
+			"isFile"d,       new MDClosure(namespace, &lib.isFile,      "io.isFile"),
+			"isDir"d,        new MDClosure(namespace, &lib.isDir,       "io.isDir"),
+			"currentDir"d,   new MDClosure(namespace, &lib.currentDir,  "io.currentDir"),
+			"changeDir"d,    new MDClosure(namespace, &lib.changeDir,   "io.changeDir"),
+			"makeDir"d,      new MDClosure(namespace, &lib.makeDir,     "io.makeDir"),
+			"removeDir"d,    new MDClosure(namespace, &lib.removeDir,   "io.removeDir"),
+			"listFiles"d,    new MDClosure(namespace, &lib.listFiles,   "io.listFiles"),
+			"listDirs"d,     new MDClosure(namespace, &lib.listDirs,    "io.listDirs")
 		);
+		
+		context.globals["io"d] = namespace;
 	}
 
 	int rename(MDState s, uint numParams)
@@ -141,7 +155,7 @@ class IOLib
 		s.push(s.safeCode(!fp.isFolder()));
 		return 1;
 	}
-	
+
 	int isDir(MDState s, uint numParams)
 	{
 		scope fp = new FilePath(s.getParam!(char[])(0));
@@ -188,7 +202,7 @@ class IOLib
 		if(numParams == 1)
 		{
 			scope fp = new FilePath(path, true);
-			
+
 			fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				if(!isDir)
@@ -914,7 +928,7 @@ class IOLib
 
 		public void close()
 		{
-			mOutput.flush();
+			try mOutput.flush(); catch{}
 			mConduit.close();
 		}
 
@@ -923,11 +937,4 @@ class IOLib
 			return mConduit.isAlive();
 		}
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("io"d, MDGlobalState().globals.ns);
-	new IOLib(namespace);
-	MDGlobalState().globals["io"d] = namespace;
 }

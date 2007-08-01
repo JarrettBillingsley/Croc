@@ -1,5 +1,17 @@
 module simple;
 
+/*
+local co = coroutine Co;
+writefln("In main, the coroutine says: \"{}\"", co(1, 2));
+writefln("In main, the coroutine says: \"{}\"", co([1, 2, 3], "hi"));
+writefln("In main, the coroutine says: \"{}\"", co());
+
+writefln("Co's state: {}", co.state());
+co.reset();
+writefln("Now, Co's state: {}", co.state());
+co(3, 4);
+*/
+
 // Making sure finally blocks are executed.
 {
 	function f()
@@ -24,7 +36,7 @@ module simple;
 
 	local a, b = f();
 	writefln(a, ", ", b);
-	
+
 	writefln();
 }
 
@@ -134,7 +146,7 @@ module simple;
 		else
 			return recurse(x - 1);
 	}
-	
+
 	writefln(recurse(5));
 	writefln();
 	
@@ -233,7 +245,7 @@ module simple;
 	
 		{
 			name = "x",
-			
+
 			function setter(value)
 			{
 				mX = value;
@@ -331,7 +343,7 @@ module simple;
 			local data = mData[0];
 			mLength -= 1;
 			mData[0] = mData[mLength];
-			
+
 			local index = 0;
 			local left = 1;
 			local right = 2;
@@ -477,7 +489,7 @@ module simple;
 	
 	while(stack.hasData())
 		writefln(stack.pop());
-	
+
 	writefln();
 	writefln("Queue");
 	
@@ -625,7 +637,7 @@ module simple;
 		if(x >= 3)
 			throw "Sorry, x is too big for me!";
 	}
-	
+
 	function tryCatch(iterations)
 	{
 		try
@@ -717,7 +729,7 @@ module simple;
 	}
 	
 	writefln();
-	
+
 	foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 	{
 		switch(v)

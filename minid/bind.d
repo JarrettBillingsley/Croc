@@ -30,9 +30,9 @@ import tango.core.Tuple;
 import utf = tango.text.convert.Utf;
 
 /// Creates a module with the given name and members.
-public void WrapModule(dchar[] name, Members...)()
+public void WrapModule(dchar[] name, Members...)(MDContext context)
 {
-	MDGlobalState().setModuleLoader(name, new MDClosure(MDGlobalState().globals.ns, delegate int (MDState s, uint numParams)
+	context.setModuleLoader(name, new MDClosure(context.globals.ns, delegate int (MDState s, uint numParams)
 	{
 		MDNamespace ns = s.getParam!(MDNamespace)(1);
 
@@ -72,10 +72,10 @@ public template WrapFunc(alias func, funcType)
 
 /// Given a function alias, and an optional name and type for overloading, this will wrap the function and register
 /// it in the global namespace.  This is not meant to be used as a parameter to WrapModule, as it's not in any module.
-public void WrapGlobalFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))()
+public void WrapGlobalFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))(MDContext context)
 {
 	dchar[] n = utf.toUtf32(name);
-	MDGlobalState().globals[n] = MDGlobalState().newClosure(&WrappedFunc!(func, name, funcType), n);
+	context.globals[n] = context.newClosure(&WrappedFunc!(func, name, funcType), n);
 }
 
 /// ditto
@@ -274,10 +274,10 @@ public template WrapClassEx(ClassType, Members...)
 }
 
 /// Wrap a class and insert it into the global namespace.
-public void WrapGlobalClass(ClassType, char[] name = ClassType.stringof, Members...)()
+public void WrapGlobalClass(ClassType, char[] name = ClassType.stringof, Members...)(MDContext context)
 {
 	dchar[] n = utf.toUtf32(name);
-	MDGlobalState().globals[n] = MDValue(new WrapClass!(ClassType, name, Members).Class());
+	context.globals[n] = MDValue(new WrapClass!(ClassType, name, Members).Class());
 }
 
 /// Like WrapGlobalClass but lets you skip the name.  This is named differently because otherwise there would be a naming conflict.

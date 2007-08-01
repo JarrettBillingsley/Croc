@@ -27,6 +27,7 @@ subject to the following restrictions:
 
 module minid.types;
 
+import tango.core.Thread;
 import tango.core.Vararg;
 import tango.io.FileConduit;
 import tango.io.FilePath;
@@ -2462,7 +2463,7 @@ final class MDNamespace : MDObject
 	/// Looks up a value from the namespace.  Returns a null pointer if the key doesn't exist.
 	public MDValue* opIndex(MDString key)
 	{
-			return key in mData;
+		return key in mData;
 	}
 
 	/// ditto
@@ -2484,6 +2485,17 @@ final class MDNamespace : MDObject
 	public void opIndexAssign(ref MDValue value, dchar[] key)
 	{
 		opIndexAssign(value, new MDString(key));
+	}
+
+	public void remove(MDString key)
+	{
+		mData.remove(key);
+	}
+	
+	public void remove(dchar[] key)
+	{
+		scope k = MDString.newTemp(key);
+		remove(k);
 	}
 
 	/// Overload of opApply to allow using foreach over a namespace.  The keys are MDStrings, and
@@ -2935,14 +2947,36 @@ class DynLib
 }
 
 /**
-A singleton class which holds some important information for the MiniD runtime, such as the global namespace,
-and which controls the module importing system.
+A class which represents an execution context for MiniD code.  It holds a global namespace hierarchy into
+which modules can be imported, as well as a set of type metatables.  Also provides a state which can be
+used to run code.
 
-This class holds the global namespace, which is where all module and package namespaces are held.  The global
-namespace also contains the base library.  The global namespace is unnamed and has no parent.
+You can create multiple, independent MiniD execution contexts.  These are not the same as states.  A state
+is simply a thread of execution, and there can be multiple states associated with a single context.
+When you create a context, a default state (its "main thread") is created for you.  This thread can spawn
+other threads with the creation of coroutines.  
+
+A context is useful for creating a "sandbox."  What you can do is create a context, and only load into it
+libraries which you know are safe.  Then you can execute untrusted code in this sandbox, and it won't have
+access to potentially dangerous functionality.  Then you can have a separate context for executing trusted
+code.
+
+You can instantiate this class directly, and then load the standard libraries into it manually, but there
+is minid.minid.NewContext, a helper function which will load standard libraries into the context based on
+a flags parameter, which is a bit more compact.
 */
-class MDGlobalState
+class MDContext
 {
+	package static MDModuleDef function(FilePath, char[][]) tryPath;
+	version(MDDynLibs) package static char[] function(char[], char[][]) tryDynLibPath;
+	
+	private MDState mMainThread;
+	private MDNamespace[] mBasicTypeMT;
+	private MDNamespace[dchar[]] mLoadedModules;
+	private MDClosure[dchar[]] mModuleLoaders;
+	private bool[dchar[]] mModulesLoading;
+	private bool[FilePath] mImportPaths;
+
 	/**
 	This struct isn't meant to be used as a type in its own right; it's just a helper for accessing globals.
 	*/
@@ -2959,7 +2993,7 @@ class MDGlobalState
 			MDValue* value = mGlobals[name];
 
 			if(value is null)
-				throw new MDException("MDGlobalState.getGlobal() - Attempting to access nonexistent global '{}'", name);
+				throw new MDException("MDContext.globals.get() - Attempting to access nonexistent global '{}'", name);
 
 			static if(is(T == MDValue*))
 				return value;
@@ -2983,39 +3017,14 @@ class MDGlobalState
 		}
 	}
 
-	private static MDGlobalState instance;
-	private MDState mMainThread;
-	private MDNamespace[] mBasicTypeMT;
-	private MDNamespace[dchar[]] mLoadedModules;
-	private MDClosure[dchar[]] mModuleLoaders;
-	private bool[dchar[]] mModulesLoading;
-	private bool[FilePath] mImportPaths;
-	package MDModuleDef function(FilePath, char[][]) tryPath;
-	version(MDDynLibs) package char[] function(char[], char[][]) tryDynLibPath;
-
 	/// An instance of the above struct.  You can access globals by writing things like "MDGlobalState().globals["x"d] = 5".
 	public _Globals globals;
 
-	package static bool isInitialized()
-	{
-		return instance !is null;
-	}
-
-	/// Get the singleton instance for this class.  This is how you'll be accessing all the members.  Lazily creates the
-	/// instance if it doesn't exist already.
-	public static MDGlobalState opCall()
-	{
-		if(instance is null)
-			instance = new MDGlobalState();
-
-		return instance;
-	}
-
-	private this()
+	public this()
 	{
 		globals.mGlobals = new MDNamespace();
 		globals.mGlobals["_G"d] = MDValue(globals.mGlobals);
-		mMainThread = new MDState();
+		mMainThread = new MDState(this);
 		mBasicTypeMT = new MDNamespace[MDValue.Type.max + 1];
 	}
 
@@ -3037,9 +3046,8 @@ class MDGlobalState
 		mBasicTypeMT[type] = table;
 	}
 
-	/// Gets the main thread of execution.  This thread is created when the global state is created,
-	/// and if you don't use any coroutines, will be the only thread in existence for the duration of
-	/// the program.
+	/// Gets the main thread of execution.  This thread is created when the context is created,
+	/// and is the default thread of execution.
 	public MDState mainThread()
 	{
 		return mMainThread;
@@ -3063,7 +3071,7 @@ class MDGlobalState
 	{
 		return new MDClosure(globals.mGlobals, func, name, upvals);
 	}
-	
+
 	/// Add a path to be searched when performing an import.  See importModule() for information on the
 	/// import mechanism.
 	public void addImportPath(char[] path)
@@ -3365,16 +3373,15 @@ final class MDState : MDObject
 		
 		/**
 		Means that the coroutine was exited, either by returning or by having an exception propagate
-		out of the coroutine.  The coroutine is basically useless.
+		out of the coroutine.  The coroutine can be reset to the initial state and restarted.
 		*/
 		Dead
 	}
 
-	static MDString[] StateStrings;
+	static MDString[5] StateStrings;
 
 	static this()
 	{
-		StateStrings = new MDString[5];
 		StateStrings[0] = new MDString("initial"d);
 		StateStrings[1] = new MDString("waiting"d);
 		StateStrings[2] = new MDString("running"d);
@@ -3404,6 +3411,9 @@ final class MDState : MDObject
 	private uint mSavedCallDepth;
 	private uint mNumYields;
 	private uint mNativeCallDepth = 0;
+	
+	private Fiber mCoroFiber;
+	private MDContext mContext;
 
 	// ===================================================================================
 	// Public members
@@ -3422,7 +3432,7 @@ final class MDState : MDObject
 	Passing null as the closure (the default) will simply create a new state with no special
 	properties.  Not all that useful.
 	*/
-	public this(MDClosure coroFunc = null)
+	public this(MDContext context)
 	{
 		mTryRecs = new TryRecord[10];
 		mCurrentTR = &mTryRecs[0];
@@ -3433,16 +3443,20 @@ final class MDState : MDObject
 		mStack = new MDValue[20];
 		mResults = new MDValue[8];
 
-		if(coroFunc)
-		{
-			if(coroFunc.isNative())
-				throw new MDException("Cannot create a coroutine thread with a native function closure");
-
-			mCoroFunc = coroFunc;
-		}
-
 		mTryRecs[0].actRecord = uint.max;
 		mType = MDValue.Type.Thread;
+		
+		mContext = context;
+	}
+
+	public this(MDContext context, MDClosure coroFunc)
+	{
+		this(context);
+
+		if(coroFunc.isNative())
+			mCoroFiber = new Fiber(&coroResume);
+
+		mCoroFunc = coroFunc;
 	}
 
 	/// You can't get the length of a state.  Throws an exception.
@@ -3989,164 +4003,195 @@ final class MDState : MDObject
 		return ret.as!(MDString);
 	}
 
-	/**
-	These are all
-	*/
+	/// Determines if the value a is in the container b.  Returns true if so, false if not.
 	public final bool opin(ref MDValue a, ref MDValue b)
 	{
 		return operatorIn(&a, &b);
 	}
 
+	/// Compares the two values, calling any opCmp metamethods, and returns the result.
 	public final int cmp(ref MDValue a, ref MDValue b)
 	{
 		return compare(&a, &b);
 	}
-	
+
+	/// Indexes src with index, and gives the result.  Like writing src[index] in MiniD.  Calls metamethods.
 	public final MDValue idx(ref MDValue src, ref MDValue index)
 	{
 		return operatorIndex(&src, &index);
 	}
-	
+
+	/// Index-assigns src into the index slot of dest.  Like writing dest[index] = src in MiniD.  Calls metamethods.
 	public final void idxa(ref MDValue dest, ref MDValue index, ref MDValue src)
 	{
 		operatorIndexAssign(&dest, &index, &src);
 	}
-	
+
+	/// Gets the length of val.  Like #val in MiniD.  Calls metamethods.
 	public final MDValue len(ref MDValue val)
 	{
 		return operatorLength(&val);
 	}
-	
+
+	/// Slice src from lo to hi.  Like src[lo .. hi] in MiniD.  Calls metamethods.
 	public final MDValue slice(ref MDValue src, ref MDValue lo, ref MDValue hi)
 	{
 		return operatorSlice(&src, &lo, &hi);
 	}
-	
+
+	/// Assign a slice src to dest from lo to hi.  Like dest[lo .. hi] = src in MiniD.  Calls metamethods.
 	public final void slicea(ref MDValue dest, ref MDValue lo, ref MDValue hi, ref MDValue src)
 	{
 		operatorSliceAssign(&dest, &lo, &hi, &src);
 	}
 	
+	/// Performs an arithmetic operation on the two values and returns the result.  Calls metamethods.
 	public final MDValue add(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Add, &a, &b);
 	}
 	
+	/// ditto
 	public final MDValue sub(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Sub, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue mul(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Mul, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue div(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Div, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue mod(ref MDValue a, ref MDValue b)
 	{
 		return binOp(MM.Mod, &a, &b);
 	}
 	
+	/// Negates the argument.  Calls metamethods.
 	public final MDValue neg(ref MDValue a)
 	{
 		return unOp(MM.Neg, &a);
 	}
-	
+
+	/// Performs a reflexive arithmetic operation on a, with b as the right hand side.  Calls metamethods.
 	public final void addeq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.AddEq, &a, &b);
 	}
 	
+	/// ditto
 	public final void subeq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.SubEq, &a, &b);
 	}
-
+	
+	/// ditto
 	public final void muleq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.MulEq, &a, &b);
 	}
 
+	/// ditto
 	public final void diveq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.DivEq, &a, &b);
 	}
 
+	/// ditto
 	public final void modeq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.ModEq, &a, &b);
 	}
-	
+
+	/// Performs a binary operation on the two values and returns the result.  Calls metamethods.
 	public final MDValue and(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.And, &a, &b);
 	}
-	
+
+	/// ditto
 	public final MDValue or(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.Or, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue xor(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.Xor, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue shl(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.Shl, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue shr(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.Shr, &a, &b);
 	}
 
+	/// ditto
 	public final MDValue ushr(ref MDValue a, ref MDValue b)
 	{
 		return binaryBinOp(MM.UShr, &a, &b);
 	}
 	
+	/// Performs a bitwise complement of the argument.  Calls metamethods.
 	public final MDValue com(ref MDValue a)
 	{
 		return binaryUnOp(MM.Com, &a);
 	}
 	
+	/// Performs a reflexive bitwise operation on a, with b as the right hand side.  Calls metamethods.
 	public final void andeq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.AndEq, &a, &b);
 	}
 	
+	/// ditto
 	public final void oreq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.OrEq, &a, &b);
 	}
 
+	/// ditto
 	public final void xoreq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.XorEq, &a, &b);
 	}
 
+	/// ditto
 	public final void shleq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.ShlEq, &a, &b);
 	}
 
+	/// ditto
 	public final void shreq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.ShrEq, &a, &b);
 	}
 
+	/// ditto
 	public final void ushreq(ref MDValue a, ref MDValue b)
 	{
 		binaryReflOp(MM.UShrEq, &a, &b);
 	}
 	
+	/// Gets traceback info of the most recently-thrown exception, and clears the traceback
+	/// info.  This method is static, because exceptions can propagate through multiple states
+	/// and through coroutine calls, and so the traceback is stored globally.
 	public static char[] getTracebackString()
 	{
 		if(Traceback.length == 0)
@@ -4160,6 +4205,71 @@ final class MDState : MDObject
 		Traceback.length = 0;
 
 		return ret;
+	}
+	
+	/** Yields from a native function acting as a coroutine, just like using the yield() expression
+	in MiniD.
+	
+	Parameters:
+		numReturns = How many returns you'd like to get from the yield operation.  -1 means as many
+			values as are passed to this coroutine when it's resumed, in which case the return value
+			of this method becomes significant.
+			
+		values = A list of values to yield.
+		
+	Returns:
+		The number of return values to be popped off the stack.  If numReturns was -1, this is how many
+		values you must pop.  If numReturns was >= 0, it's the same as numReturns.
+	*/
+	public final uint yield(uint numReturns, MDValue[] values...)
+	{
+		if(mCoroFiber is null)
+			throwRuntimeException("Attempting to yield a non-coroutine state");
+			
+		if(Fiber.getThis() !is mCoroFiber)
+			throwRuntimeException("Attempting to yield a coroutine with the wrong state, or attempting to yield outside the coroutine's execution");
+
+		pushAR();
+		
+		uint first = mStackIndex;
+
+		*mCurrentAR = mActRecs[mARIndex - 1];
+		mCurrentAR.funcSlot = first;
+		mCurrentAR.numReturns = numReturns;
+		mStackIndex += values.length;
+		checkStack(mStackIndex);
+		mStack[first .. mStackIndex] = values[];
+		mNumYields = values.length;
+
+		mState = State.Suspended;
+		Fiber.yield();
+		callEpilogue(true);
+
+		if(numReturns == -1)
+			return mStackIndex - first;
+		else
+		{
+			mStackIndex = first + numReturns;
+			return numReturns;
+		}
+	}
+	
+	/// Resets this coroutine.  Only works if this coroutine is in the Dead state.
+	public final void reset()
+	{
+		if(mState != State.Dead)
+			throwRuntimeException("Can only reset a dead coroutine, not a {} coroutine", stateString());
+
+		if(mCoroFiber)
+			mCoroFiber.reset();
+
+		mState = State.Initial;
+	}
+
+	/// Gets the context which owns this thread.
+	public final MDContext context()
+	{
+		return mContext;
 	}
 
 	// ===================================================================================
@@ -4273,7 +4383,9 @@ final class MDState : MDObject
 
 			case MDValue.Type.Thread:
 				MDState thread = func.as!(MDState);
-				assert(thread !is this, "thread attempting to resume itself");
+				
+				if(thread is this)
+					throwRuntimeException("Thread attempted to resume itself");
 
 				pushAR();
 				
@@ -4376,20 +4488,7 @@ final class MDState : MDObject
 		if(closure.isNative())
 		{
 			// Native function
-			mStackIndex = paramSlot + numParams;
-			checkStack(mStackIndex);
-
-			debug(STACKINDEX) Stdout.formatln("callPrologue2 called a native func '{}' and set mStackIndex to {} (got {} params)", closure.toUtf8(), mStackIndex, numParams);
-
-			pushAR();
-
-			mCurrentAR.base = paramSlot;
-			mCurrentAR.vargBase = 0;
-			mCurrentAR.funcSlot = returnSlot;
-			mCurrentAR.func = closure;
-			mCurrentAR.numReturns = numReturns;
-			mCurrentAR.savedTop = mStackIndex;
-			mCurrentAR.env = closure.environment();
+			nativeCallPrologue(closure, returnSlot, numReturns, paramSlot, numParams);
 
 			int actualReturns;
 
@@ -4498,6 +4597,24 @@ final class MDState : MDObject
 		}
 	}
 
+	protected final void nativeCallPrologue(MDClosure closure, uint returnSlot, int numReturns, uint paramSlot, int numParams)
+	{
+		mStackIndex = paramSlot + numParams;
+		checkStack(mStackIndex);
+
+		debug(STACKINDEX) Stdout.formatln("nativeCallPrologue called a native func '{}' and set mStackIndex to {} (got {} params)", closure.toUtf8(), mStackIndex, numParams);
+
+		pushAR();
+
+		mCurrentAR.base = paramSlot;
+		mCurrentAR.vargBase = 0;
+		mCurrentAR.funcSlot = returnSlot;
+		mCurrentAR.func = closure;
+		mCurrentAR.numReturns = numReturns;
+		mCurrentAR.savedTop = mStackIndex;
+		mCurrentAR.env = closure.environment();
+	}
+
 	protected final void callEpilogue(bool needResults)
 	{
 		uint destSlot = mCurrentAR.funcSlot;
@@ -4583,22 +4700,79 @@ final class MDState : MDObject
 		{
 			case State.Initial:
 				mStack[0] = mCoroFunc;
-				mCoroFunc = null;
 
-				bool result = callPrologue(0, -1, numParams);
-				assert(result == true, "resume callPrologue must return true");
+				if(mCoroFunc.isNative)
+				{
+					assert(mCoroFiber !is null, "no coroutine fiber for native coroutine");
 
-				execute();
+					nativeCallPrologue(mCoroFunc, 0, -1, 1, numParams);
+					mCoroFiber.call();
+
+					if(mCoroFiber.state == Fiber.State.HOLD)
+						mState = State.Suspended;
+					else if(mCoroFiber.state == Fiber.State.TERM)
+						mState = State.Dead;
+				}
+				else
+				{
+					bool result = callPrologue(0, -1, numParams);
+					assert(result == true, "resume callPrologue must return true");
+
+					execute();
+				}
+
 				return mNumYields;
 
 			case State.Suspended:
-				callEpilogue(true);
-				execute(mSavedCallDepth);
+				if(mCoroFunc.isNative)
+				{
+					mCoroFiber.call();
+
+					if(mCoroFiber.state == Fiber.State.HOLD)
+						mState = State.Suspended;
+					else if(mCoroFiber.state == Fiber.State.TERM)
+						mState = State.Dead;
+				}
+				else
+				{
+					callEpilogue(true);
+					execute(mSavedCallDepth);
+				}
+
 				return mNumYields;
 
 			default:
 				assert(false, "resume invalid state");
 		}
+	}
+	
+	protected final void coroResume()
+	{
+		int actualReturns;
+
+		try
+		{
+			mNativeCallDepth++;
+
+			scope(exit)
+				mNativeCallDepth--;
+
+			actualReturns = mCoroFunc.native.dg(this, mStackIndex - 2);
+		}
+		catch(MDRuntimeException e)
+		{
+			callEpilogue(false);
+			throw e;
+		}
+		catch(MDException e)
+		{
+			Location loc = startTraceback();
+			callEpilogue(false);
+			throw new MDRuntimeException(loc, &e.value);
+		}
+
+		saveResults(mStack[mStackIndex - actualReturns .. mStackIndex]);
+		callEpilogue(true);
 	}
 
 	protected final void pushAR()
@@ -4808,7 +4982,7 @@ final class MDState : MDObject
 				break;
 
 			default:
-				MDNamespace n = MDGlobalState().getMetatable(obj.type);
+				MDNamespace n = mContext.getMetatable(obj.type);
 
 				if(n is null)
 					break;
@@ -5681,7 +5855,7 @@ final class MDState : MDObject
 				break;
 
 			default:
-				MDNamespace metatable = MDGlobalState().getMetatable(RS.type);
+				MDNamespace metatable = mContext.getMetatable(RS.type);
 
 				if(metatable is null)
 					throwRuntimeException("No metatable for type '{}'", RS.typeString());
@@ -5869,8 +6043,6 @@ final class MDState : MDObject
 			{
 				Instruction i = *mCurrentAR.pc;
 				mCurrentAR.pc++;
-				
-				Location _DEBUGLOC = getDebugLocation();
 
 				switch(i.opcode)
 				{
@@ -5984,7 +6156,7 @@ final class MDState : MDObject
 							throwRuntimeException("Import expression must be a string value, not '{}'", RS.typeString());
 
 						try
-							mStack[mCurrentAR.base + i.rd] = MDGlobalState().importModule(RS.as!(dchar[]), this);
+							mStack[mCurrentAR.base + i.rd] = mContext.importModule(RS.as!(dchar[]), this);
 						catch(MDRuntimeException e)
 							throw e;
 						catch(MDException e)
@@ -6734,11 +6906,11 @@ final class MDState : MDObject
 						debug(TIMINGS) scope _profiler_ = new Profiler("Coroutine");
 						
 						RS = *get(i.rs);
-						
-						if(!RS.isFunction() || RS.as!(MDClosure).isNative)
+
+						if(!RS.isFunction())
 							throwRuntimeException("Coroutines must be created with a script function, not '{}'", RS.typeString());
 
-						*get(i.rd) = new MDState(RS.as!(MDClosure));
+						*get(i.rd) = new MDState(mContext, RS.as!(MDClosure));
 						break;
 						
 					case Op.Namespace:

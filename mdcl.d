@@ -141,10 +141,11 @@ void main(char[][] args)
 		}
 	}
 
-	MDState state = MDInitialize();
+	MDContext ctx = NewContext();
+	MDState state = ctx.mainThread;
 
 	foreach(path; importPaths)
-		MDGlobalState().addImportPath(path);
+		ctx.addImportPath(path);
 
 	if(inputFile.length > 0)
 	{
@@ -164,7 +165,7 @@ void main(char[][] args)
 		{
 			try
 			{
-				if(MDGlobalState().loadModuleFromFile(state, utf.toUtf32(inputFile), params) is null)
+				if(ctx.loadModuleFromFile(state, utf.toUtf32(inputFile), params) is null)
 					Stdout.formatln("Error: could not find module '{}'", inputFile);
 			}
 			catch(MDException e)
@@ -176,7 +177,7 @@ void main(char[][] args)
 		else
 		{
 			try
-				MDGlobalState().initializeModule(state, def, params);
+				ctx.initializeModule(state, def, params);
 			catch(MDException e)
 			{
 				Stdout.formatln("Error: {}", e);
@@ -190,7 +191,7 @@ void main(char[][] args)
 		char[] buffer;
 		bool run = true;
 
-		MDGlobalState().globals["exit"d] = MDGlobalState().newClosure
+		ctx.globals["exit"d] = ctx.newClosure
 		(
 			(MDState s, uint numParams)
 			{
@@ -207,7 +208,7 @@ void main(char[][] args)
 		{
 			Stdout("Use the \"exit();\" function to end.").newline;
 		}
-		
+
 		Stdout(Prompt1)();
 
 		while(run)
@@ -243,8 +244,8 @@ void main(char[][] args)
 
 			try
 			{
-				scope closure = MDGlobalState().newClosure(def);
-				state.easyCall(closure, 0, MDValue(MDGlobalState().globals.ns));
+				scope closure = ctx.newClosure(def);
+				state.easyCall(closure, 0, MDValue(ctx.globals.ns));
 			}
 			catch(MDException e)
 			{

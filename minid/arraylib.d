@@ -30,36 +30,53 @@ import tango.math.Math;
 
 final class ArrayLib
 {
-	this(MDNamespace namespace)
+	private static ArrayLib lib;
+	
+	private this()
 	{
-		iteratorClosure = new MDClosure(namespace, &iterator, "array.iterator");
-		iteratorReverseClosure = new MDClosure(namespace, &iteratorReverse, "array.iteratorReverse");
+
+	}
+	
+	static this()
+	{
+		lib = new ArrayLib();
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("array"d, context.globals.ns);
 
 		namespace.addList
 		(
-			"sort"d,     new MDClosure(namespace, &sort,     "array.sort"),
-			"reverse"d,  new MDClosure(namespace, &reverse,  "array.reverse"),
-			"dup"d,      new MDClosure(namespace, &dup,      "array.dup"),
-			"length"d,   new MDClosure(namespace, &length,   "array.length"),
-			"opApply"d,  new MDClosure(namespace, &opApply,  "array.opApply"),
-			"expand"d,   new MDClosure(namespace, &expand,   "array.expand"),
-			"toString"d, new MDClosure(namespace, &toString, "array.toString"),
-			"apply"d,    new MDClosure(namespace, &apply,    "array.apply"),
-			"map"d,      new MDClosure(namespace, &map,      "array.map"),
-			"reduce"d,   new MDClosure(namespace, &reduce,   "array.reduce"),
-			"each"d,     new MDClosure(namespace, &each,     "array.each"),
-			"filter"d,   new MDClosure(namespace, &filter,   "array.filter"),
-			"find"d,     new MDClosure(namespace, &find,     "array.find"),
-			"bsearch"d,  new MDClosure(namespace, &bsearch,  "array.bsearch"),
-			"pop"d,      new MDClosure(namespace, &pop,      "array.pop")
+			"sort"d,     new MDClosure(namespace, &lib.sort,     "array.sort"),
+			"reverse"d,  new MDClosure(namespace, &lib.reverse,  "array.reverse"),
+			"dup"d,      new MDClosure(namespace, &lib.dup,      "array.dup"),
+			"length"d,   new MDClosure(namespace, &lib.length,   "array.length"),
+			"opApply"d,  new MDClosure(namespace, &lib.opApply,  "array.opApply",
+			[
+				MDValue(new MDClosure(namespace, &lib.iterator,        "array.iterator")),
+				MDValue(new MDClosure(namespace, &lib.iteratorReverse, "array.iteratorReverse"))
+			]),
+			"expand"d,   new MDClosure(namespace, &lib.expand,   "array.expand"),
+			"toString"d, new MDClosure(namespace, &lib.toString, "array.toString"),
+			"apply"d,    new MDClosure(namespace, &lib.apply,    "array.apply"),
+			"map"d,      new MDClosure(namespace, &lib.map,      "array.map"),
+			"reduce"d,   new MDClosure(namespace, &lib.reduce,   "array.reduce"),
+			"each"d,     new MDClosure(namespace, &lib.each,     "array.each"),
+			"filter"d,   new MDClosure(namespace, &lib.filter,   "array.filter"),
+			"find"d,     new MDClosure(namespace, &lib.find,     "array.find"),
+			"bsearch"d,  new MDClosure(namespace, &lib.bsearch,  "array.bsearch"),
+			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop")
 		);
 
-		MDGlobalState().globals["array"d] = MDNamespace.create
+		context.globals["array"d] = MDNamespace.create
 		(
-			"array"d,    MDGlobalState().globals.ns,
-			"new"d,      new MDClosure(namespace, &newArray, "array.new"),
-			"range"d,    new MDClosure(namespace, &range,    "array.range")
+			"array"d,    context.globals.ns,
+			"new"d,      new MDClosure(context.globals.ns, &lib.newArray, "array.new"),
+			"range"d,    new MDClosure(context.globals.ns, &lib.range,    "array.range")
 		);
+
+		context.setMetatable(MDValue.Type.Array, namespace);
 	}
 
 	int newArray(MDState s, uint numParams)
@@ -198,22 +215,19 @@ final class ArrayLib
 		return 2;
 	}
 	
-	MDClosure iteratorClosure;
-	MDClosure iteratorReverseClosure;
-	
 	int opApply(MDState s, uint numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 
 		if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
 		{
-			s.push(iteratorReverseClosure);
+			s.push(s.getUpvalue(1u));
 			s.push(array);
 			s.push(cast(int)array.length);
 		}
 		else
 		{
-			s.push(iteratorClosure);
+			s.push(s.getUpvalue(0u));
 			s.push(array);
 			s.push(-1);
 		}
@@ -442,11 +456,4 @@ final class ArrayLib
 
 		return 1;
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("array"d, MDGlobalState().globals.ns);
-	new ArrayLib(namespace);
-	MDGlobalState().setMetatable(MDValue.Type.Array, namespace);
 }

@@ -46,24 +46,36 @@ else
 
 class OSLib
 {
-	this(MDNamespace namespace)
+	private static OSLib lib;
+	
+	static this()
+	{
+		lib = new OSLib();
+	}
+	
+	private MDPerfCounterClass perfCounterClass;
+	version(Windows) ulong performanceFreq;
+	
+	private this()
 	{
 		perfCounterClass = new MDPerfCounterClass();
+		
+		if(!QueryPerformanceFrequency(&performanceFreq))
+			performanceFreq = 0x7fffffffffffffffL;
+	}
 
-		version(Windows)
-		{
-			if(!QueryPerformanceFrequency(&performanceFreq))
-				performanceFreq = 0x7fffffffffffffffL;
-		}
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("os"d, context.globals.ns);
 
 		namespace.addList
 		(
-			"PerfCounter"d,       perfCounterClass,
-			"microTime"d,         new MDClosure(namespace, &microTime, "os.microTime")
+			"PerfCounter"d,  lib.perfCounterClass,
+			"microTime"d,    new MDClosure(namespace, &lib.microTime, "os.microTime")
 		);
+		
+		context.globals["os"d] = namespace;
 	}
-
-	version(Windows) ulong performanceFreq;
 
 	int microTime(MDState s, uint numParams)
 	{
@@ -86,8 +98,6 @@ class OSLib
 		
 		return 1;
 	}
-
-	MDPerfCounterClass perfCounterClass;
 
 	static class MDPerfCounterClass : MDClass
 	{
@@ -181,11 +191,4 @@ class OSLib
 			return mTime * 1000000;
 		}
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("os"d, MDGlobalState().globals.ns);
-	new OSLib(namespace);
-	MDGlobalState().globals["os"d] = namespace;
 }

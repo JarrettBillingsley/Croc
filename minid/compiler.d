@@ -53,9 +53,13 @@ public MDModuleDef compileModule(char[] filename)
 public MDModuleDef compileModule(dchar[] source, char[] name)
 {
 	Token* tokens = Lexer.lex(name, source);
-	Module mod = Module.parse(tokens);
+	return Module.parse(tokens).codeGen();
+}
 
-	return mod.codeGen();
+public MDFuncDef compileStatements(dchar[] source, char[] name)
+{
+	bool dummy;
+	return compileStatements(source, name, dummy);
 }
 
 public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
@@ -94,7 +98,7 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 	return fs.toFuncDef();
 }
 
-public MDValue compileJSON(dchar[] source)
+public MDValue loadJSON(dchar[] source)
 {
 	Token* tokens = Lexer.lex("JSON", source, true);
 
@@ -8038,6 +8042,17 @@ class PrimaryExp : Expression
 				throw new MDCompileException(location, "Expression expected, not '{}'", t.toUtf8());
 		}
 
+		return ret;
+	}
+	
+	public override InstRef* codeCondition(FuncState s)
+	{
+		uint temp = s.pushRegister();
+		codeGen(s);
+		s.popMoveTo(mEndLocation.line, temp);
+		s.codeR(mEndLocation.line, Op.IsTrue, 0, temp, 0);
+		InstRef* ret = s.makeJump(mEndLocation.line, Op.Je);
+		s.popRegister(temp);
 		return ret;
 	}
 }

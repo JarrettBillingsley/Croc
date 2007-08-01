@@ -35,38 +35,55 @@ import UniChar;
 
 class StringLib
 {
-	this(MDNamespace namespace)
+	private static StringLib lib;
+	
+	static this()
 	{
-		iteratorClosure = new MDClosure(namespace, &iterator, "string.iterator");
-		iteratorReverseClosure = new MDClosure(namespace, &iteratorReverse, "string.iteratorReverse");
+		lib = new StringLib();
+	}
+	
+	private this()
+	{
 		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("string"d, context.globals.ns);
+
 		namespace.addList
 		(
-			"toInt"d,      new MDClosure(namespace, &toInt,      "string.toInt"),
-			"toFloat"d,    new MDClosure(namespace, &toFloat,    "string.toFloat"),
-			"compare"d,    new MDClosure(namespace, &compare,    "string.compare"),
-			"icompare"d,   new MDClosure(namespace, &icompare,   "string.icompare"),
-			"find"d,       new MDClosure(namespace, &find,       "string.find"),
-			"ifind"d,      new MDClosure(namespace, &ifind,      "string.ifind"),
-			"rfind"d,      new MDClosure(namespace, &rfind,      "string.rfind"),
-			"irfind"d,     new MDClosure(namespace, &irfind,     "string.irfind"),
-			"toLower"d,    new MDClosure(namespace, &toLower,    "string.toLower"),
-			"toUpper"d,    new MDClosure(namespace, &toUpper,    "string.toUpper"),
-			"repeat"d,     new MDClosure(namespace, &repeat,     "string.repeat"),
-			"split"d,      new MDClosure(namespace, &split,      "string.split"),
-			"splitLines"d, new MDClosure(namespace, &splitLines, "string.splitLines"),
-			"strip"d,      new MDClosure(namespace, &strip,      "string.strip"),
-			"lstrip"d,     new MDClosure(namespace, &lstrip,     "string.lstrip"),
-			"rstrip"d,     new MDClosure(namespace, &rstrip,     "string.rstrip"),
-			"replace"d,    new MDClosure(namespace, &replace,    "string.replace"),
-			"opApply"d,    new MDClosure(namespace, &apply,      "string.opApply")
+			"toInt"d,      new MDClosure(namespace, &lib.toInt,      "string.toInt"),
+			"toFloat"d,    new MDClosure(namespace, &lib.toFloat,    "string.toFloat"),
+			"compare"d,    new MDClosure(namespace, &lib.compare,    "string.compare"),
+			"icompare"d,   new MDClosure(namespace, &lib.icompare,   "string.icompare"),
+			"find"d,       new MDClosure(namespace, &lib.find,       "string.find"),
+			"ifind"d,      new MDClosure(namespace, &lib.ifind,      "string.ifind"),
+			"rfind"d,      new MDClosure(namespace, &lib.rfind,      "string.rfind"),
+			"irfind"d,     new MDClosure(namespace, &lib.irfind,     "string.irfind"),
+			"toLower"d,    new MDClosure(namespace, &lib.toLower,    "string.toLower"),
+			"toUpper"d,    new MDClosure(namespace, &lib.toUpper,    "string.toUpper"),
+			"repeat"d,     new MDClosure(namespace, &lib.repeat,     "string.repeat"),
+			"split"d,      new MDClosure(namespace, &lib.split,      "string.split"),
+			"splitLines"d, new MDClosure(namespace, &lib.splitLines, "string.splitLines"),
+			"strip"d,      new MDClosure(namespace, &lib.strip,      "string.strip"),
+			"lstrip"d,     new MDClosure(namespace, &lib.lstrip,     "string.lstrip"),
+			"rstrip"d,     new MDClosure(namespace, &lib.rstrip,     "string.rstrip"),
+			"replace"d,    new MDClosure(namespace, &lib.replace,    "string.replace"),
+			"opApply"d,    new MDClosure(namespace, &lib.apply,      "string.opApply",
+			[
+				MDValue(new MDClosure(namespace, &lib.iterator, "string.iterator")),
+				MDValue(new MDClosure(namespace, &lib.iteratorReverse, "string.iteratorReverse"))
+			])
 		);
 
-		MDGlobalState().globals["string"d] = MDNamespace.create
+		context.globals["string"d] = MDNamespace.create
 		(
-			"string"d, MDGlobalState().globals.ns,
-			"join"d,       new MDClosure(namespace, &join,       "string.join")
+			"string"d, context.globals.ns,
+			"join"d, new MDClosure(context.globals.ns, &lib.join, "string.join")
 		);
+		
+		context.setMetatable(MDValue.Type.String, namespace);
 	}
 
 	int toInt(MDState s, uint numParams)
@@ -219,7 +236,7 @@ class StringLib
 		s.push(.repeat(src, numTimes));
 		return 1;
 	}
-	
+
 	int join(MDState s, uint numParams)
 	{
 		MDArray array = s.getParam!(MDArray)(0);
@@ -328,34 +345,24 @@ class StringLib
 		
 		return 2;
 	}
-	
-	MDClosure iteratorClosure;
-	MDClosure iteratorReverseClosure;
-	
+
 	int apply(MDState s, uint numParams)
 	{
 		MDString string = s.getContext!(MDString);
 
 		if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
 		{
-			s.push(iteratorReverseClosure);
+			s.push(s.getUpvalue(1u));
 			s.push(string);
 			s.push(cast(int)string.length);
 		}
 		else
 		{
-			s.push(iteratorClosure);
+			s.push(s.getUpvalue(0u));
 			s.push(string);
 			s.push(-1);
 		}
 
 		return 3;
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("string"d, MDGlobalState().globals.ns);
-	new StringLib(namespace);
-	MDGlobalState().setMetatable(MDValue.Type.String, namespace);
 }

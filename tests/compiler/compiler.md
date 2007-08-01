@@ -48,6 +48,10 @@ try loadString(`x = "hello`); catch(e){}
 x = "hi
 there";try loadString(`x = '`); catch(e){}
 try loadString(`x = 'h`); catch(e){}
+local y = array.new(10);
+function foobar() { return 4, 5; }
+x = 0;
+y[x], x = foobar();
 x = 4 + 5;
 x++;
 x -= 1;
@@ -92,7 +96,10 @@ x = !x;
 x = 4 != 5;
 x ?= 4;
 x = true ? 4 : 5;
+x = false ? 4 : 5;
 x = @"hello";
+x = x ? 1 : 2;
+if(x ? 1 : 2) {}
 try loadString(`x = @y;`); catch(e){}
 try loadString(`__x = 5;`); catch(e){}
 try loadString("$"); catch(e){}

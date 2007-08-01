@@ -29,26 +29,26 @@ version(MDDynLibs)
 	static assert(false);
 }
 
-public import minid.compiler;
-public import minid.types;
-public import minid.utils;
-public import minid.bind;
+import minid.types;
+import minid.compiler;
 
-import arraylib = minid.arraylib;
-import baselib = minid.baselib;
-import charlib = minid.charlib;
-import iolib = minid.iolib;
-import mathlib = minid.mathlib;
-import oslib = minid.oslib;
-import regexplib = minid.regexplib;
-import stringlib = minid.stringlib;
-import tablelib = minid.tablelib;
+import minid.arraylib;
+import minid.baselib;
+import minid.charlib;
+import minid.iolib;
+import minid.mathlib;
+import minid.oslib;
+import minid.regexplib;
+import minid.stringlib;
+import minid.tablelib;
 
 import tango.io.FilePath;
+private import tango.io.Stdout;
+private import tango.io.FileSystem;
 
 /**
-This enumeration is used with the MDInitialize function to specify which standard libraries you
-want to load when MiniD is initialized.  The base library is always loaded, so there is no
+This enumeration is used with the NewContext function to specify which standard libraries you
+want to load into the new context.  The base library is always loaded, so there is no
 flag for it.  You can choose which libraries you want to load by ORing together multiple
 flags.
 */
@@ -77,7 +77,7 @@ enum MDStdlib
 	
 	/// OS-specific functionality.
 	OS =       64,
-	
+
 	/// Regular expressions.
 	Regexp =  128,
 	
@@ -91,57 +91,127 @@ enum MDStdlib
 }
 
 /**
-Initializes the global MiniD state and loads any specified standard libraries into it.  This also
-registers the default module loader (MDFileLoader) with the global state; this is important for
-imports to work properly.
+Initializes a new MiniD context and loads any specified standard libraries into it.  Each new
+context is also given a new MDState as its main thread.
 
 Parameters:
 	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
 	Defaults to MDStdlib.All.
 
 Returns:
-	The main thread state associated with the global state.
+	The newly-created context, into which you can import code and from which you can get the main
+	thread to run code.
 */
-MDState MDInitialize(uint libs = MDStdlib.All)
+MDContext NewContext(uint libs = MDStdlib.All)
 {
-	if(!MDGlobalState.isInitialized())
-	{
-		MDGlobalState();
-		MDGlobalState().tryPath = &tryPath;
-		version(MDDynLibs) MDGlobalState().tryDynLibPath = &tryDynLibPath;
+	MDContext ret = new MDContext();
 
-		baselib.init();
+	BaseLib.init(ret);
 
-		if(libs & MDStdlib.Array)
-			arraylib.init();
+	if(libs & MDStdlib.Array)
+		ArrayLib.init(ret);
 
-		if(libs & MDStdlib.Char)
-			charlib.init();
+	if(libs & MDStdlib.Char)
+		CharLib.init(ret);
 
-		if(libs & MDStdlib.IO)
-			iolib.init();
+	if(libs & MDStdlib.IO)
+		IOLib.init(ret);
 
-		if(libs & MDStdlib.Math)
-			mathlib.init();
-			
-		if(libs & MDStdlib.OS)
-			oslib.init();
-			
-		if(libs & MDStdlib.Regexp)
-			regexplib.init();
+	if(libs & MDStdlib.Math)
+		MathLib.init(ret);
 
-		if(libs & MDStdlib.String)
-			stringlib.init();
+	if(libs & MDStdlib.OS)
+		OSLib.init(ret);
 
-		if(libs & MDStdlib.Table)
-			tablelib.init();
-	}
+	if(libs & MDStdlib.Regexp)
+		RegexpLib.init(ret);
 
-	return MDGlobalState().mainThread();
+	if(libs & MDStdlib.String)
+		StringLib.init(ret);
+
+	if(libs & MDStdlib.Table)
+		TableLib.init(ret);
+
+	return ret;
 }
 
-private import tango.io.Stdout;
-private import tango.io.FileSystem;
+/**
+Compiles and initializes a module from a string, rather than loading one from a file.
+
+Parameters:
+	s = The state that will be used to initialize the module after it has been compiled.
+		The module will be loaded into the global namespace of this state's context as well.
+	source = The source code of the module, exactly as it would appear in a file.
+	params = An optional list of parameters.  These are passed as the variadic parameters
+		to the top-level module function.  Defaults to null (no parameters).
+	name = The name which takes the place of the filename, used by the compiler to report
+		error messages.  Defaults to "<module string>".
+
+Returns:
+	The top-level namespace of the module.
+*/
+public MDNamespace loadModuleString(MDState s, dchar[] source, MDValue[] params = null, char[] name = "<module string>")
+{
+	return s.context.initializeModule(s, compileModule(source, name), params);
+}
+
+/**
+Compiles a string containing a list of statements into a variadic function, calls it, and
+returns the number of results that the function returned (which can be popped off the provided
+state's stack).  This is equivalent to the "loadString" baselib function in MiniD.
+
+Parameters:
+	s = The state that will be used to execute the resulting function.
+	source = The source code to be compiled.
+	params = An optional list of parameters.  These are passed as the variadic parameters
+		to the compiled function.  Defaults to null (no parameters).
+	name = The name which takes the place of the filename, used by the compiler to report
+		error messages.  Also used as the name of the function, used when reporting runtime
+		errors.  Defaults to "<statement string>".
+		
+Returns:
+	The number of return values which the compiled function has returned.  These can then be
+	popped off the execution stack of the state that was passed in as the first parameter.
+*/
+public uint loadStatementString(MDState s, dchar[] source, MDValue[] params = null, char[] name = "<statement string>")
+{
+	MDFuncDef def = compileStatements(source, name);
+	MDClosure cl = new MDClosure(s.context.globals.ns, def);
+
+	uint funcReg = s.push(cl);
+	s.push(s.context.globals.ns);
+
+	foreach(ref param; params)
+		s.push(param);
+
+	return s.call(funcReg, params.length + 1, -1);
+}
+
+/**
+Compile and evaluate a MiniD expression, and get the result.  This is the equivalent of the "eval"
+baselib function in MiniD.
+
+Parameters:
+	s = The state that will be used to run the compiled expression.
+	source = The string that holds the expression.
+	ns = The namespace which will be used as the context in which the expression will be evaluated.
+		Defaults to the global namespace of the state's owning context.
+*/
+public MDValue eval(MDState s, dchar[] source, MDNamespace ns = null)
+{
+	if(ns is null)
+		ns = s.context.globals.ns;
+
+	MDFuncDef def = compileStatements("return " ~ source ~ ";", "<loaded by eval>");
+	s.easyCall(new MDClosure(ns, def), 1, MDValue(ns));
+	return s.pop();
+}
+
+static this()
+{
+	MDContext.tryPath = &tryPath;
+	version(MDDynLibs) MDContext.tryDynLibPath = &tryDynLibPath;
+}
 
 private MDModuleDef tryPath(FilePath path, char[][] elems)
 {

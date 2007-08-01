@@ -33,41 +33,57 @@ import tango.math.IEEE;
 
 class MathLib
 {
-	this(MDNamespace namespace)
+	private static MathLib lib;
+	
+	static this()
 	{
+		lib = new MathLib();
+	}
+	
+	private this()
+	{
+		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("math"d, context.globals.ns);
+
 		namespace.addList
 		(
 			"e"d,        tango.math.Math.E,
 			"pi"d,       tango.math.Math.PI,
 			"nan"d,      mdfloat.nan,
 			"infinity"d, mdfloat.infinity,
-			"abs"d,      new MDClosure(namespace, &abs,     "math.abs"),
-			"sin"d,      new MDClosure(namespace, &sin,     "math.sin"),
-			"cos"d,      new MDClosure(namespace, &cos,     "math.cos"),
-			"tan"d,      new MDClosure(namespace, &tan,     "math.tan"),
-			"asin"d,     new MDClosure(namespace, &asin,    "math.asin"),
-			"acos"d,     new MDClosure(namespace, &acos,    "math.acos"),
-			"atan"d,     new MDClosure(namespace, &atan,    "math.atan"),
-			"atan2"d,    new MDClosure(namespace, &atan2,   "math.atan2"),
-			"sqrt"d,     new MDClosure(namespace, &sqrt,    "math.sqrt"),
-			"cbrt"d,     new MDClosure(namespace, &cbrt,    "math.cbrt"),
-			"pow"d,      new MDClosure(namespace, &pow,     "math.pow"),
-			"exp"d,      new MDClosure(namespace, &exp,     "math.exp"),
-			"ln"d,       new MDClosure(namespace, &ln,      "math.ln"),
-			"log2"d,     new MDClosure(namespace, &log2,    "math.log2"),
-			"log10"d,    new MDClosure(namespace, &log10,   "math.log10"),
-			"hypot"d,    new MDClosure(namespace, &hypot,   "math.hypot"),
-			"lgamma"d,   new MDClosure(namespace, &lgamma,  "math.lgamma"),
-			"gamma"d,    new MDClosure(namespace, &gamma,   "math.gamma"),
-			"ceil"d,     new MDClosure(namespace, &ceil,    "math.ceil"),
-			"floor"d,    new MDClosure(namespace, &floor,   "math.floor"),
-			"round"d,    new MDClosure(namespace, &round,   "math.round"),
-			"trunc"d,    new MDClosure(namespace, &trunc,   "math.trunc"),
-			"isNan"d,    new MDClosure(namespace, &isNan,   "math.isNan"),
-			"isInf"d,    new MDClosure(namespace, &isInf,   "math.isInf"),
-			"sign"d,     new MDClosure(namespace, &sign,    "math.sign"),
-			"rand"d,     new MDClosure(namespace, &rand,    "math.rand")
+			"abs"d,      new MDClosure(namespace, &lib.abs,     "math.abs"),
+			"sin"d,      new MDClosure(namespace, &lib.sin,     "math.sin"),
+			"cos"d,      new MDClosure(namespace, &lib.cos,     "math.cos"),
+			"tan"d,      new MDClosure(namespace, &lib.tan,     "math.tan"),
+			"asin"d,     new MDClosure(namespace, &lib.asin,    "math.asin"),
+			"acos"d,     new MDClosure(namespace, &lib.acos,    "math.acos"),
+			"atan"d,     new MDClosure(namespace, &lib.atan,    "math.atan"),
+			"atan2"d,    new MDClosure(namespace, &lib.atan2,   "math.atan2"),
+			"sqrt"d,     new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
+			"cbrt"d,     new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
+			"pow"d,      new MDClosure(namespace, &lib.pow,     "math.pow"),
+			"exp"d,      new MDClosure(namespace, &lib.exp,     "math.exp"),
+			"ln"d,       new MDClosure(namespace, &lib.ln,      "math.ln"),
+			"log2"d,     new MDClosure(namespace, &lib.log2,    "math.log2"),
+			"log10"d,    new MDClosure(namespace, &lib.log10,   "math.log10"),
+			"hypot"d,    new MDClosure(namespace, &lib.hypot,   "math.hypot"),
+			"lgamma"d,   new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
+			"gamma"d,    new MDClosure(namespace, &lib.gamma,   "math.gamma"),
+			"ceil"d,     new MDClosure(namespace, &lib.ceil,    "math.ceil"),
+			"floor"d,    new MDClosure(namespace, &lib.floor,   "math.floor"),
+			"round"d,    new MDClosure(namespace, &lib.round,   "math.round"),
+			"trunc"d,    new MDClosure(namespace, &lib.trunc,   "math.trunc"),
+			"isNan"d,    new MDClosure(namespace, &lib.isNan,   "math.isNan"),
+			"isInf"d,    new MDClosure(namespace, &lib.isInf,   "math.isInf"),
+			"sign"d,     new MDClosure(namespace, &lib.sign,    "math.sign"),
+			"rand"d,     new MDClosure(namespace, &lib.rand,    "math.rand")
 		);
+		
+		context.globals["math"d] = namespace;
 	}
 
 	static mdfloat getFloat(MDState s, uint i)
@@ -286,11 +302,4 @@ class MathLib
 		
 		return 1;
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("math"d, MDGlobalState().globals.ns);
-	new MathLib(namespace);
-	MDGlobalState().globals["math"d] = namespace;
 }
