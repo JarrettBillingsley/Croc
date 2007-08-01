@@ -1110,8 +1110,9 @@ and then changing it, which would result in undefined behavior.
 <br><br>
 This is a closure, that is a function and all the environment it needs to execute correctly.
 It can hold either a MiniD closure (a "script closure"), or a reference to a native D function
-(a "native closure").  In most cases this distinction is transparent, except with coroutines.
-Coroutines can only be created with script closures.
+(a "native closure").  In virtually all cases this distinction is transparent, except when it
+comes to coroutines.  You cannot yield out of a coroutine across the boundary of a native function
+call.
 <br><br>
 
 In addition to their executable function, closures also have what's called the "environment."
@@ -1165,9 +1166,9 @@ an explicit context with the 'with' keyword, its environment will be passed as t
 All native functions which interact with the API follow the same signature.  They take two Params:
 	an MDValue which represents the thread from which this closure was called, and the number of parameters
 	(not including the context 'this' parameter, which is always present) with which the function was called.
-	The MDState parameter contains all the parameter which were passed to the function, as well as being a
+	The MDState parameter contains all the parameters which were passed to the function, as well as being a
 	very important interface through which much of the native API is used.  Native functions return an integer,
-	which is how many values it is returning (which were pushed onto the MDState's stack prior to returning).
+	which is how many values they are returning (which were pushed onto the MDState's stack prior to returning).
 
 <br><br>
 <b>Params:</b><br>
@@ -1652,6 +1653,23 @@ This is a very simple and straightforward class.  It's basically a mutable, resi
 
 
 <dd>Sorts the array.  All the elements must be the same type for this to succeed; throws an exception on failure.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">sort</span>
+<script>explorer.outline.addDecl('sort');</script>
+
+(bool delegate(MDValue , MDValue ) <span class="funcparam">predicate</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sorts the array, using a custom <span class="funcparam">predicate</span>.  This <span class="funcparam">predicate</span> takes two values and should return '<b>true</b>'
+	if the first is less than the second, and '<b>false</b>' otherwise.
 	
 <br><br>
 
@@ -2804,7 +2822,7 @@ a piece of code.  Used by the compiler and in runtime debug locations.
 <br><br>
 This is really just a name and the code for the top-level function of the module.  This can
 be serialized and deserialized using the minid.utils serialization protocol.  This can also
-be loaded by the MDGlobalState class, but that's a very low-level API.
+be loaded by the MDContext class, but that's a very low-level API.
 <br><br>
 
 
@@ -3052,15 +3070,7 @@ a flags parameter, which is a bit more compact.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>An instance of the above struct.  You can access 
-<span class="currsymbol">globals</span>
-<script>explorer.outline.addDecl('globals');</script>
-
- by writing things like "MDGlobalState().
-<span class="currsymbol">globals</span>
-<script>explorer.outline.addDecl('globals');</script>
-
-["x"d] = 5".
+<dd>An instance of the above struct.  You can access globals by writing things like "context.globals["x"d] = 5".
 	
 <br><br>
 
@@ -3410,7 +3420,7 @@ Also keeps track of the script call call stack, locals stack, and debug tracebac
 
 
 <dd>Construct a new thread.  A default thread of execution, the 'main thread', is created for
-	you by MDGlobalState, so you'll really only need this for creating coroutines.
+	you by MDContext, so you'll really only need this for creating coroutines.
 <br><br>
 If you pass a script function closure to this constructor, this thread will be a coroutine.  It
 	can then be subsequently resumed by calling it with another MDState (just like how you call
@@ -4491,7 +4501,7 @@ The number of return <span class="funcparam">values</span> to be popped off the 
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Wed Aug  1 13:47:14 2007
+			on Wed Aug  1 15:04:30 2007
 
 		</td></tr>
 	</table>
