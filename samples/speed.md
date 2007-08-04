@@ -55,11 +55,11 @@ MiniD version pre-1.0
 // values in millions per second
 */
 
-local oneMillion = 10_000_000; // 2 + 2 = 5 for large values of 2
+local oneMillion = 2_000_000; // 2 + 2 = 5 for large values of 2
+local t1;
 
 class Tester
 {
-	t1;
 	x;
 
 	function foo()
@@ -69,13 +69,13 @@ class Tester
 
 	function beginTimer()
 	{
-		this.t1 = os.microTime();
+		t1 = os.microTime();
 	}
 
 	function endTimer(s)
 	{
-		local mps = toFloat(oneMillion) / ((os.microTime() - this.t1));
-		writefln("MiniD %s := %0.2f", s, mps);
+		local mps = toFloat(oneMillion) / ((os.microTime() - t1));
+		writefln("MiniD {} := {}", s, mps);
 	}
 	
 	function testLocals()
@@ -164,14 +164,14 @@ class Tester
 
 	function test()
 	{
-		writefln();
+		/*writefln();
 		this.testLocals();
 		this.testSetLocals();
 		writefln();
 		this.testSlot();
 		this.testSetSlot();
 		writefln();
-		this.testBlock();
+		this.testBlock();*/
 		this.testInstantiations();
 
 		writefln("MiniD version pre-1.0");

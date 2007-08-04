@@ -26,46 +26,64 @@ module minid.mathlib;
 import minid.types;
 import minid.utils;
 
-import math = std.math;
-import random = std.random;
+import math = tango.math.Math;
+import tango.math.GammaFunction;
+import tango.math.Random;
+import tango.math.IEEE;
 
 class MathLib
 {
-	this(MDNamespace namespace)
+	private static MathLib lib;
+	
+	static this()
 	{
+		lib = new MathLib();
+	}
+	
+	private this()
+	{
+		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("math"d, context.globals.ns);
+
 		namespace.addList
 		(
-			"e"d,        std.math.E,
-			"pi"d,       std.math.PI,
+			"e"d,        tango.math.Math.E,
+			"pi"d,       tango.math.Math.PI,
 			"nan"d,      mdfloat.nan,
 			"infinity"d, mdfloat.infinity,
-			"abs"d,      new MDClosure(namespace, &abs,     "math.abs"),
-			"sin"d,      new MDClosure(namespace, &sin,     "math.sin"),
-			"cos"d,      new MDClosure(namespace, &cos,     "math.cos"),
-			"tan"d,      new MDClosure(namespace, &tan,     "math.tan"),
-			"asin"d,     new MDClosure(namespace, &asin,    "math.asin"),
-			"acos"d,     new MDClosure(namespace, &acos,    "math.acos"),
-			"atan"d,     new MDClosure(namespace, &atan,    "math.atan"),
-			"atan2"d,    new MDClosure(namespace, &atan2,   "math.atan2"),
-			"sqrt"d,     new MDClosure(namespace, &sqrt,    "math.sqrt"),
-			"cbrt"d,     new MDClosure(namespace, &cbrt,    "math.cbrt"),
-			"pow"d,      new MDClosure(namespace, &pow,     "math.pow"),
-			"exp"d,      new MDClosure(namespace, &exp,     "math.exp"),
-			"ln"d,       new MDClosure(namespace, &ln,      "math.ln"),
-			"log2"d,     new MDClosure(namespace, &log2,    "math.log2"),
-			"log10"d,    new MDClosure(namespace, &log10,   "math.log10"),
-			"hypot"d,    new MDClosure(namespace, &hypot,   "math.hypot"),
-			"lgamma"d,   new MDClosure(namespace, &lgamma,  "math.lgamma"),
-			"gamma"d,    new MDClosure(namespace, &gamma,   "math.gamma"),
-			"ceil"d,     new MDClosure(namespace, &ceil,    "math.ceil"),
-			"floor"d,    new MDClosure(namespace, &floor,   "math.floor"),
-			"round"d,    new MDClosure(namespace, &round,   "math.round"),
-			"trunc"d,    new MDClosure(namespace, &trunc,   "math.trunc"),
-			"isNan"d,    new MDClosure(namespace, &isNan,   "math.isNan"),
-			"isInf"d,    new MDClosure(namespace, &isInf,   "math.isInf"),
-			"sign"d,     new MDClosure(namespace, &sign,    "math.sign"),
-			"rand"d,     new MDClosure(namespace, &rand,    "math.rand")
+			"abs"d,      new MDClosure(namespace, &lib.abs,     "math.abs"),
+			"sin"d,      new MDClosure(namespace, &lib.sin,     "math.sin"),
+			"cos"d,      new MDClosure(namespace, &lib.cos,     "math.cos"),
+			"tan"d,      new MDClosure(namespace, &lib.tan,     "math.tan"),
+			"asin"d,     new MDClosure(namespace, &lib.asin,    "math.asin"),
+			"acos"d,     new MDClosure(namespace, &lib.acos,    "math.acos"),
+			"atan"d,     new MDClosure(namespace, &lib.atan,    "math.atan"),
+			"atan2"d,    new MDClosure(namespace, &lib.atan2,   "math.atan2"),
+			"sqrt"d,     new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
+			"cbrt"d,     new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
+			"pow"d,      new MDClosure(namespace, &lib.pow,     "math.pow"),
+			"exp"d,      new MDClosure(namespace, &lib.exp,     "math.exp"),
+			"ln"d,       new MDClosure(namespace, &lib.ln,      "math.ln"),
+			"log2"d,     new MDClosure(namespace, &lib.log2,    "math.log2"),
+			"log10"d,    new MDClosure(namespace, &lib.log10,   "math.log10"),
+			"hypot"d,    new MDClosure(namespace, &lib.hypot,   "math.hypot"),
+			"lgamma"d,   new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
+			"gamma"d,    new MDClosure(namespace, &lib.gamma,   "math.gamma"),
+			"ceil"d,     new MDClosure(namespace, &lib.ceil,    "math.ceil"),
+			"floor"d,    new MDClosure(namespace, &lib.floor,   "math.floor"),
+			"round"d,    new MDClosure(namespace, &lib.round,   "math.round"),
+			"trunc"d,    new MDClosure(namespace, &lib.trunc,   "math.trunc"),
+			"isNan"d,    new MDClosure(namespace, &lib.isNan,   "math.isNan"),
+			"isInf"d,    new MDClosure(namespace, &lib.isInf,   "math.isInf"),
+			"sign"d,     new MDClosure(namespace, &lib.sign,    "math.sign"),
+			"rand"d,     new MDClosure(namespace, &lib.rand,    "math.rand")
 		);
+		
+		context.globals["math"d] = namespace;
 	}
 
 	static mdfloat getFloat(MDState s, uint i)
@@ -75,7 +93,7 @@ class MathLib
 		else if(s.isParam!("float")(i))
 			return s.getParam!(mdfloat)(i);
 		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(i).typeString());
+			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(i).typeString());
 	}
 
 	int abs(MDState s, uint numParams)
@@ -85,8 +103,8 @@ class MathLib
 		else if(s.isParam!("float")(0))
 			s.push(math.abs(s.getParam!(mdfloat)(0)));
 		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '%s'", s.getParam(0u).typeString());
-			
+			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(0u).typeString());
+
 		return 1;
 	}
 	
@@ -176,13 +194,13 @@ class MathLib
 	
 	int lgamma(MDState s, uint numParams)
 	{
-		s.push(math.lgamma(getFloat(s, 0)));
+		s.push(logGamma(getFloat(s, 0)));
 		return 1;
 	}
-	
+
 	int gamma(MDState s, uint numParams)
 	{
-		s.push(math.tgamma(getFloat(s, 0)));
+		s.push(.gamma(getFloat(s, 0)));
 		return 1;
 	}
 	
@@ -212,13 +230,13 @@ class MathLib
 	
 	int isNan(MDState s, uint numParams)
 	{
-		s.push(cast(bool)math.isnan(getFloat(s, 0)));
+		s.push(cast(bool)math.isNaN(getFloat(s, 0)));
 		return 1;
 	}
 
 	int isInf(MDState s, uint numParams)
 	{
-		s.push(cast(bool)math.isinf(getFloat(s, 0)));
+		s.push(cast(bool)math.isInfinity(getFloat(s, 0)));
 		return 1;
 	}
 	
@@ -267,28 +285,21 @@ class MathLib
 		switch(numParams)
 		{
 			case 0:
-				s.push(cast(int)random.rand());
+				s.push(cast(int)Random.shared.next());
 				break;
 
 			case 1:
-				s.push(cast(uint)random.rand() % s.getParam!(int)(0));
+				s.push(cast(uint)Random.shared.next() % s.getParam!(int)(0));
 				break;
 
 			default:
 				int lo = s.getParam!(int)(0);
 				int hi = s.getParam!(int)(1);
 				
-				s.push(cast(int)(random.rand() % (hi - lo)) + lo);
+				s.push(cast(int)(Random.shared.next() % (hi - lo)) + lo);
 				break;
 		}
 		
 		return 1;
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("math"d, MDGlobalState().globals.ns);
-	new MathLib(namespace);
-	MDGlobalState().globals["math"d] = namespace;
 }

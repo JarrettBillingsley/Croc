@@ -27,53 +27,54 @@ import minid.compiler;
 import minid.minid;
 import minid.types;
 
-import std.cstream;
-import std.path;
-import std.stdio;
-import std.stream;
+import tango.io.Stdout;
+import tango.io.Console;
+import utf = tango.text.convert.Utf;
 
 void printVersion()
 {
-	writefln("MiniD Command-Line interpreter beta");
+	Stdout("MiniD Command-Line interpreter beta").newline;
 }
 
 void printUsage()
 {
 	printVersion();
-	writefln("Usage:");
-	writefln("\tmdcl [flags] [filename [args]]");
-	writefln();
-	writefln("Flags:");
-	writefln("\t-i      Enter interactive mode, after executing any script file.");
-	writefln("\t-v      Print the version of the CLI.");
-	writefln("\t-h      Print this message and end.");
-	writefln("\t-I path Specifies an import path to search when importing modules.");
-	writefln();
-	writefln("If mdcl is called without any arguments, it will be as if you passed it");
-	writefln("the -v and -i arguments (it will print the version and enter interactive");
-	writefln("mode).");
-	writefln();
-	writefln("If the filename has no extension, it will be treated as a MiniD import-");
-	writefln("style module name.  So \"a.b\" will look for a module named b in the a");
-	writefln("directory.  The -I flag also affects the search paths used for this.");
-	writefln();
-	writefln("When passing a filename followed by args, all the args will be available");
-	writefln("to the script by using the vararg expression.  The arguments will all be");
-	writefln("strings.");
-	writefln();
-	writefln("In interactive mode, you will be given a >>> prompt.  When you hit enter,");
-	writefln("you may be given a ... prompt.  That means you need to type more to make");
-	writefln("the code complete.  Once you enter enough code to make it complete, the");
-	writefln("code will be run.  If there is an error, the code buffer is cleared.");
-	writefln("To end interactive mode, either use the function \"exit();\", or type");
-	
+	Stdout("Usage:").newline;
+	Stdout("\tmdcl [flags] [filename [args]]").newline;
+	Stdout.newline;
+	Stdout("Flags:").newline;
+	Stdout("\t-i      Enter interactive mode, after executing any script file.").newline;
+	Stdout("\t-v      Print the version of the CLI.").newline;
+	Stdout("\t-h      Print this message and end.").newline;
+	Stdout("\t-I path Specifies an import path to search when importing modules.").newline;
+	Stdout.newline;
+	Stdout("If mdcl is called without any arguments, it will be as if you passed it").newline;
+	Stdout("the -v and -i arguments (it will print the version and enter interactive").newline;
+	Stdout("mode).").newline;
+	Stdout.newline;
+	Stdout("If the filename has no extension, it will be treated as a MiniD import-").newline;
+	Stdout("style module name.  So \"a.b\" will look for a module named b in the a").newline;
+	Stdout("directory.  The -I flag also affects the search paths used for this.").newline;
+	Stdout.newline;
+	Stdout("When passing a filename followed by args, all the args will be available").newline;
+	Stdout("to the script by using the vararg expression.  The arguments will all be").newline;
+	Stdout("strings.").newline;
+	Stdout.newline;
+	Stdout("In interactive mode, you will be given a >>> prompt.  When you hit enter,").newline;
+	Stdout("you may be given a ... prompt.  That means you need to type more to make").newline;
+	Stdout("the code complete.  Once you enter enough code to make it complete, the").newline;
+	Stdout("code will be run.  If there is an error, the code buffer is cleared.").newline;
+
+
 	version(Windows)
 	{
-		writefln("the end-of-file character (Ctrl-Z) and hit enter to end, or force exit");
-		writefln("by hitting Ctrl-C.");
+		Stdout("To end interactive mode, either use the function \"exit();\", or force").newline;
+		Stdout("exit by hitting Ctrl-C.").newline;
 	}
 	else
-		writefln("the end-of-file character (Ctrl-D) and hit enter to end.");
+	{
+		Stdout("To end interactive mode, use the function \"exit();\".").newline;
+	}
 }
 
 const char[] Prompt1 = ">>> ";
@@ -118,7 +119,7 @@ void main(char[][] args)
 				
 				if(i >= args.length)
 				{
-					writefln("-I must be followed by a path");
+					Stdout("-I must be followed by a path").newline;
 					printUsage();
 					return;
 				}
@@ -129,7 +130,7 @@ void main(char[][] args)
 			default:
 				if(args[i][0] == '-')
 				{
-					writefln("Invalid flag '%s'", args[i]);
+					Stdout("Invalid flag '%s'", args[i]).newline;
 					printUsage();
 					return;
 				}
@@ -140,10 +141,11 @@ void main(char[][] args)
 		}
 	}
 
-	MDState state = MDInitialize();
-	
+	MDContext ctx = NewContext();
+	MDState state = ctx.mainThread;
+
 	foreach(path; importPaths)
-		MDGlobalState().addImportPath(path);
+		ctx.addImportPath(path);
 
 	if(inputFile.length > 0)
 	{
@@ -163,23 +165,23 @@ void main(char[][] args)
 		{
 			try
 			{
-				if(MDGlobalState().loadModuleFromFile(state, utf.toUTF32(inputFile), params) is null)
-					writefln("Error: could not find module '%s'", inputFile);
+				if(ctx.loadModuleFromFile(state, utf.toUtf32(inputFile), params) is null)
+					Stdout.formatln("Error: could not find module '{}'", inputFile);
 			}
 			catch(MDException e)
 			{
-				writefln("Error: ", e);
-				writefln(MDState.getTracebackString());
+				Stdout.formatln("Error: {}", e);
+				Stdout.formatln("{}", MDState.getTracebackString());
 			}
 		}
 		else
 		{
 			try
-				MDGlobalState().initializeModule(state, def, params);
+				ctx.initializeModule(state, def, params);
 			catch(MDException e)
 			{
-				writefln("Error: ", e);
-				writefln(MDState.getTracebackString());
+				Stdout.formatln("Error: {}", e);
+				Stdout.formatln("{}", MDState.getTracebackString());
 			}
 		}
 	}
@@ -189,7 +191,7 @@ void main(char[][] args)
 		char[] buffer;
 		bool run = true;
 
-		MDGlobalState().globals["exit"d] = MDGlobalState().newClosure
+		ctx.globals["exit"d] = ctx.newClosure
 		(
 			(MDState s, uint numParams)
 			{
@@ -199,39 +201,41 @@ void main(char[][] args)
 		);
 
 		version(Windows)
-			writefln("Type EOF (Ctrl-Z) and hit enter to end, or use the \"exit();\" function.");
+		{
+			Stdout("Use the \"exit();\" function to end, or hit Ctrl-C.").newline;
+		}
 		else
-			writefln("Type EOF (Ctrl-D) and hit enter to end, or use the \"exit();\" function.");
-			
-		writef(Prompt1);
+		{
+			Stdout("Use the \"exit();\" function to end.").newline;
+		}
+
+		Stdout(Prompt1)();
 
 		while(run)
 		{
-			char[] line = din.readLine();
-
-			if(din.eof())
+			char[] line;
+			
+			if(Cin.readln(line) == false)
 				break;
 
 			buffer ~= line;
-
-			scope MemoryStream s = new MemoryStream(buffer);
 
 			bool atEOF = false;
 			MDFuncDef def;
 
 			try
-				def = compileStatements(s, "stdin", atEOF);
+				def = compileStatements(utf.toUtf32(buffer), "stdin", atEOF);
 			catch(MDCompileException e)
 			{
 				if(atEOF)
 				{
-					writef(Prompt2);
+					Stdout(Prompt2)();
 				}
 				else
 				{
-					writefln(e);
-					writefln();
-					writef(Prompt1);
+					Stdout.formatln("{}", e);
+					Stdout.newline;
+					Stdout(Prompt1)();
 					buffer.length = 0;
 				}
 
@@ -240,17 +244,17 @@ void main(char[][] args)
 
 			try
 			{
-				scope closure = MDGlobalState().newClosure(def);
-				state.easyCall(closure, 0, MDValue(MDGlobalState().globals.ns));
+				scope closure = ctx.newClosure(def);
+				state.easyCall(closure, 0, MDValue(ctx.globals.ns));
 			}
 			catch(MDException e)
 			{
-				writefln("Error: ", e);
-				writefln(MDState.getTracebackString());
-				writefln();
+				Stdout.formatln("Error: {}", e);
+				Stdout.formatln("{}", MDState.getTracebackString());
+				Stdout.newline;
 			}
 
-			writef(Prompt1);
+			Stdout(Prompt1)();
 			buffer.length = 0;
 		}
 	}

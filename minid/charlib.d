@@ -25,28 +25,44 @@ module minid.charlib;
 
 import minid.types;
 
-import ctype = std.ctype;
-import std.uni;
+import tango.stdc.ctype;
+import UniChar;
 
 class CharLib
 {
-	this(MDNamespace namespace)
+	private static CharLib lib;
+	
+	static this()
 	{
+		lib = new CharLib();
+	}
+	
+	private this()
+	{
+		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("char"d, context.globals.ns);
+		
 		namespace.addList
 		(
-			"toLower"d,    new MDClosure(namespace, &toLower,     "char.toLower"),
-			"toUpper"d,    new MDClosure(namespace, &toUpper,     "char.toUpper"),
-			"isAlpha"d,    new MDClosure(namespace, &isAlpha,     "char.isAlpha"),
-			"isAlNum"d,    new MDClosure(namespace, &isAlNum,     "char.isAlNum"),
-			"isLower"d,    new MDClosure(namespace, &isLower,     "char.isLower"),
-			"isUpper"d,    new MDClosure(namespace, &isUpper,     "char.isUpper"),
-			"isDigit"d,    new MDClosure(namespace, &isDigit,     "char.isDigit"),
-			"isCtrl"d,     new MDClosure(namespace, &isCtrl,      "char.isCtrl"),
-			"isPunct"d,    new MDClosure(namespace, &isPunct,     "char.isPunct"),
-			"isSpace"d,    new MDClosure(namespace, &isSpace,     "char.isSpace"),
-			"isHexDigit"d, new MDClosure(namespace, &isHexDigit,  "char.isHexDigit"),
-			"isAscii"d,    new MDClosure(namespace, &isAscii,     "char.isAscii")
+			"toLower"d,    new MDClosure(namespace, &lib.toLower,     "char.toLower"),
+			"toUpper"d,    new MDClosure(namespace, &lib.toUpper,     "char.toUpper"),
+			"isAlpha"d,    new MDClosure(namespace, &lib.isAlpha,     "char.isAlpha"),
+			"isAlNum"d,    new MDClosure(namespace, &lib.isAlNum,     "char.isAlNum"),
+			"isLower"d,    new MDClosure(namespace, &lib.isLower,     "char.isLower"),
+			"isUpper"d,    new MDClosure(namespace, &lib.isUpper,     "char.isUpper"),
+			"isDigit"d,    new MDClosure(namespace, &lib.isDigit,     "char.isDigit"),
+			"isCtrl"d,     new MDClosure(namespace, &lib.isCtrl,      "char.isCtrl"),
+			"isPunct"d,    new MDClosure(namespace, &lib.isPunct,     "char.isPunct"),
+			"isSpace"d,    new MDClosure(namespace, &lib.isSpace,     "char.isSpace"),
+			"isHexDigit"d, new MDClosure(namespace, &lib.isHexDigit,  "char.isHexDigit"),
+			"isAscii"d,    new MDClosure(namespace, &lib.isAscii,     "char.isAscii")
 		);
+		
+		context.setMetatable(MDValue.Type.Char, namespace);
 	}
 
 	int toLower(MDState s, uint numParams)
@@ -60,7 +76,7 @@ class CharLib
 		s.push(s.safeCode(toUniUpper(s.getContext!(dchar))));
 		return 1;
 	}
-	
+
 	int isAlpha(MDState s, uint numParams)
 	{
 		s.push(cast(bool)isUniAlpha(s.getContext!(dchar)));
@@ -70,7 +86,7 @@ class CharLib
 	int isAlNum(MDState s, uint numParams)
 	{
 		dchar c = s.getContext!(dchar);
-		s.push(cast(bool)(ctype.isdigit(c) || isUniAlpha(c)));
+		s.push(cast(bool)(isdigit(c) || isUniAlpha(c)));
 		return 1;
 	}
 	
@@ -88,44 +104,42 @@ class CharLib
 
 	int isDigit(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isdigit(s.getContext!(dchar)));
+		s.push(cast(bool)isdigit(s.getContext!(dchar)));
 		return 1;
 	}
 
 	int isCtrl(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.iscntrl(s.getContext!(dchar)));
+		s.push(cast(bool)iscntrl(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isPunct(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.ispunct(s.getContext!(dchar)));
+		s.push(cast(bool)ispunct(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isSpace(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isspace(s.getContext!(dchar)));
+		s.push(cast(bool)isspace(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isHexDigit(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isxdigit(s.getContext!(dchar)));
+		s.push(cast(bool)isxdigit(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isAscii(MDState s, uint numParams)
 	{
-		s.push(cast(bool)ctype.isascii(s.getContext!(dchar)));
+		s.push(s.getContext!(dchar) <= 0x7f);
 		return 1;
 	}
 }
 
 public void init()
 {
-	MDNamespace namespace = new MDNamespace("char"d, MDGlobalState().globals.ns);
-	new CharLib(namespace);
-	MDGlobalState().setMetatable(MDValue.Type.Char, namespace);
+
 }

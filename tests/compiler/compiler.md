@@ -10,7 +10,7 @@ loadJSON("{}");
 local x = 0;
 x += 5;
 try loadString("f(4 5)"); catch(e){}
-try require("tests.compiler.badshebang"); catch(e){}
+try import("tests.compiler.badshebang"); catch(e){}
 x = 0b0011;
 x = 0x5f;
 x = 0c37;
@@ -22,7 +22,7 @@ try loadString("x = 0b1111111111111111111111111111111111111111111111111111;"); c
 try loadString("x = 0c8;"); catch(e){}
 try loadString("x = 0c777777777777777777777777777777;"); catch(e){}
 try loadString("x = 999999999999999999999999999;"); catch(e){}
-try loadString("x = 0xffffffffffffffffffffffff;"); catch(e){}
+try loadString("x = 0xfffffffffffffffffffffffffffff;"); catch(e){}
 try loadString("x = 0x_f;"); catch(e){}
 try loadString("x = 0xh;"); catch(e){}
 x = 4._5_5;
@@ -48,6 +48,10 @@ try loadString(`x = "hello`); catch(e){}
 x = "hi
 there";try loadString(`x = '`); catch(e){}
 try loadString(`x = 'h`); catch(e){}
+local y = array.new(10);
+function foobar() { return 4, 5; }
+x = 0;
+y[x], x = foobar();
 x = 4 + 5;
 x++;
 x -= 1;
@@ -92,7 +96,10 @@ x = !x;
 x = 4 != 5;
 x ?= 4;
 x = true ? 4 : 5;
+x = false ? 4 : 5;
 x = @"hello";
+x = x ? 1 : 2;
+if(x ? 1 : 2) {}
 try loadString(`x = @y;`); catch(e){}
 try loadString(`__x = 5;`); catch(e){}
 try loadString("$"); catch(e){}

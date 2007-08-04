@@ -284,7 +284,7 @@ BlockStatement:
 	
 ExpressionStatement:
 	BaseExpression ';'
-	
+
 DeclarationStatement:
 	VariableDeclaration ';'
 	FunctionDeclaration
@@ -405,6 +405,7 @@ Expression:
 	ConditionalExpression
 	
 ConditionalExpression:
+	OrOrExpression
 	OrOrExpression '?' Expression ':' ConditionalExpression
 
 OrOrExpression:
@@ -446,6 +447,7 @@ RelExpression:
 	RelExpression '<=>' ShiftExpression
 
 ShiftExpression:
+	AddExpression
 	ShiftExpression '<<' AddExpression
 	ShiftExpression '>>' AddExpression
 	ShiftExpression '>>>' AddExpression

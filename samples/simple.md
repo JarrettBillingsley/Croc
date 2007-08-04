@@ -1,5 +1,71 @@
 module simple;
 
+class A
+{
+	x;
+	
+	this(x)
+	{
+		this.x = x;
+	}
+	
+	function toString()
+	{
+		return format("A {}", x);
+	}
+	
+	function opCmp(other)
+	{
+		return x <=> other.x;
+	}
+}
+
+local a = [A(1), A(2), A(3)];
+local b = [A(1), A(2), A(3)];
+
+writefln(b == a);
+
+/+
+/*
+local co = coroutine Co;
+writefln("In main, the coroutine says: \"{}\"", co(1, 2));
+writefln("In main, the coroutine says: \"{}\"", co([1, 2, 3], "hi"));
+writefln("In main, the coroutine says: \"{}\"", co());
+
+writefln("Co's state: {}", co.state());
+co.reset();
+writefln("Now, Co's state: {}", co.state());
+co(3, 4);
+*/
+
+// Making sure finally blocks are executed.
+{
+	function f()
+	{
+		try
+		{
+			try
+			{
+				writefln("hi 1");
+				return "foo", "bar";
+			}
+			finally
+				writefln("bye 1");
+
+			writefln("no use 1");
+		}
+		finally
+			writefln("bye 2");
+
+		writefln("no use 2");
+	}
+
+	local a, b = f();
+	writefln(a, ", ", b);
+
+	writefln();
+}
+
 // Importing stuff.
 {
 	function loadMod(name, ns)
@@ -17,7 +83,7 @@ module simple;
 		{
 			return x[0];
 		};
-	
+
 		ns.baz = function baz()
 		{
 			writefln(x);
@@ -106,7 +172,7 @@ module simple;
 		else
 			return recurse(x - 1);
 	}
-	
+
 	writefln(recurse(5));
 	writefln();
 	
@@ -140,28 +206,28 @@ module simple;
 			local prop = mProps[key];
 	
 			if(prop is null)
-				throw format(classType, ".opIndex() - Property '%s' does not exist", key);
-	
+				throw format(classType, ".opIndex() - Property '{}' does not exist", key);
+
 			local getter = prop.getter;
-	
+
 			if(getter is null)
-				throw format(classType, ".opIndex() - Property '%s' has no getter", key);
-	
+				throw format(classType, ".opIndex() - Property '{}' has no getter", key);
+
 			return getter(with this);
 		};
-	
+
 		classType.opIndexAssign = function opIndexAssign(key, value)
 		{
 			local prop = mProps[key];
-	
+
 			if(prop is null)
-				throw format(classType, ".opIndexAssign() - Property '%s' does not exist", key);
-	
+				throw format(classType, ".opIndexAssign() - Property '{}' does not exist", key);
+
 			local setter = prop.setter;
-	
+
 			if(setter is null)
-				throw format(classType, ".opIndexAssign() - Property '%s' has no setter", key);
-	
+				throw format(classType, ".opIndexAssign() - Property '{}' has no setter", key);
+
 			setter(with this, value);
 		};
 	
@@ -174,7 +240,7 @@ module simple;
 				throw format("mixinProperties() - property ", i, " has no name");
 	
 			if(prop.setter is null && prop.getter is null)
-				throw format("mixinProperties() - property '%s' has no getter or setter", prop.name);
+				throw format("mixinProperties() - property '{}' has no getter or setter", prop.name);
 	
 			classType.mProps[prop.name] = prop;
 		}
@@ -205,7 +271,7 @@ module simple;
 	
 		{
 			name = "x",
-			
+
 			function setter(value)
 			{
 				mX = value;
@@ -303,7 +369,7 @@ module simple;
 			local data = mData[0];
 			mLength -= 1;
 			mData[0] = mData[mLength];
-			
+
 			local index = 0;
 			local left = 1;
 			local right = 2;
@@ -449,7 +515,7 @@ module simple;
 	
 	while(stack.hasData())
 		writefln(stack.pop());
-	
+
 	writefln();
 	writefln("Queue");
 	
@@ -597,7 +663,7 @@ module simple;
 		if(x >= 3)
 			throw "Sorry, x is too big for me!";
 	}
-	
+
 	function tryCatch(iterations)
 	{
 		try
@@ -689,7 +755,7 @@ module simple;
 	}
 	
 	writefln();
-	
+
 	foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 	{
 		switch(v)
@@ -744,4 +810,4 @@ module simple;
 				break;
 		}
 	}
-}
+}+/

@@ -35,7 +35,7 @@ foreach(k, v; temail)
 writefln();
 
 foreach(i, m; regexp.compile("ab").search("abcabcabab"))
-	writefln(i, ": %s[%s]%s", m.pre(), m.match(0), m.post());
+	writefln(i, ": {}[{}]{}", m.pre(), m.match(0), m.post());
 	
 writefln();
 

@@ -4,4 +4,3 @@ test.d
 -g
 -op
 -unittest
--version=MDNoDynLibs

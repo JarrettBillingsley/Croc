@@ -27,30 +27,47 @@ import minid.types;
 
 class TableLib
 {
-	this(MDNamespace namespace)
+	private static TableLib lib;
+	
+	static this()
 	{
+		lib = new TableLib();
+	}
+	
+	private this()
+	{
+		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("table"d, context.globals.ns);
+
 		namespace.addList
 		(
-			"dup"d,     new MDClosure(namespace, &dup,    "table.dup"),
-			"keys"d,    new MDClosure(namespace, &keys,   "table.keys"),
-			"values"d,  new MDClosure(namespace, &values, "table.values"),
-			"opApply"d, new MDClosure(namespace, &apply,  "table.opApply"),
-			"each"d,    new MDClosure(namespace, &each,   "table.each")
+			"dup"d,     new MDClosure(namespace, &lib.dup,    "table.dup"),
+			"keys"d,    new MDClosure(namespace, &lib.keys,   "table.keys"),
+			"values"d,  new MDClosure(namespace, &lib.values, "table.values"),
+			"opApply"d, new MDClosure(namespace, &lib.apply,  "table.opApply"),
+			"each"d,    new MDClosure(namespace, &lib.each,   "table.each")
 		);
 		
-		MDNamespace table = new MDNamespace("table"d, MDGlobalState().globals.ns);
+		context.setMetatable(MDValue.Type.Table, namespace);
+		
+		MDNamespace table = new MDNamespace("table"d, context.globals.ns);
+
 		table.addList
 		(
-			"dup"d,    new MDClosure(table, &staticDup,    "table.dup"),
-			"keys"d,   new MDClosure(table, &staticKeys,   "table.keys"),
-			"values"d, new MDClosure(table, &staticValues, "table.values"),
-			"apply"d,  new MDClosure(table, &staticApply,  "table.apply"),
-			"each"d,   new MDClosure(table, &staticEach,   "table.each"),
-			"set"d,    new MDClosure(table, &set,          "table.set"),
-			"get"d,    new MDClosure(table, &get,          "table.get")
+			"dup"d,    new MDClosure(table, &lib.staticDup,    "table.dup"),
+			"keys"d,   new MDClosure(table, &lib.staticKeys,   "table.keys"),
+			"values"d, new MDClosure(table, &lib.staticValues, "table.values"),
+			"apply"d,  new MDClosure(table, &lib.staticApply,  "table.apply"),
+			"each"d,   new MDClosure(table, &lib.staticEach,   "table.each"),
+			"set"d,    new MDClosure(table, &lib.set,          "table.set"),
+			"get"d,    new MDClosure(table, &lib.get,          "table.get")
 		);
 
-		MDGlobalState().globals["table"d] = table;
+		context.globals["table"d] = table;
 	}
 	
 	int dupImpl(MDState s, MDTable t)
@@ -97,7 +114,7 @@ class TableLib
 		upvalues[1] = t.keys;
 		upvalues[2] = -1;
 
-		s.push(MDGlobalState().newClosure(&iterator, "table.iterator", upvalues));
+		s.push(s.context.newClosure(&iterator, "table.iterator", upvalues));
 		return 1;
 	}
 	
@@ -180,11 +197,4 @@ class TableLib
 		s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
 		return 1;
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("table"d, MDGlobalState().globals.ns);
-	new TableLib(namespace);
-	MDGlobalState().setMetatable(MDValue.Type.Table, namespace);
 }

@@ -1,5 +1,6 @@
 module tests.base;
 
+/*
 local f = io.File(`tests\foobar.txt`);
 
 try f.readf("%% %0*"); catch(e){}
@@ -7,27 +8,21 @@ try f.readf("%3.*"); catch(e){}
 writefln(f.readf("%5s %d %c %s %f %.3s"));
 try f.readf("%p"); catch(e){}
 try f.readf("%"); catch(e){ writefln("BO"); }
+*/
 
-writefln("%d %f %c %s", 4, 5.6, 'h', "hi", 7);
-writefln("%010.10f", 5);
-writefln("%r", []);
-writefln("%%");
-try writefln("%d"); catch(e){}
-try writefln("%d", 'h'); catch(e){}
-try writefln("%f"); catch(e){writefln("FO");}
-try writefln("%f", 'h'); catch(e){}
-try writefln("%c"); catch(e){}
-try writefln("%c", 5); catch(e){}
-try writefln("%s"); catch(e){}
-try writefln("%100000000000000000000000000f", 4); catch(e){}
-try writefln("%"); catch(e){}
-try writefln("%*"); catch(e){}
-try writefln("%.*"); catch(e){}
-try writefln("%p"); catch(e){}
+writefln("{,-5}", 10);
+writefln("{} {} {}", null, true, []);
+writefln("{} {} {} {} {}", 4, 5.6, 'h', "hi", 7);
+writefln("{:10E}", 5);
+writefln("{r}", []);
+writefln("{{");
+writefln("{}");
+try writefln("{:10000000000000000000000000000000000000000000}", 4); catch(e){}
+writefln("{,45hi");
 write("hi");
 writef("hi");
 writeln("hi");
-format();
+format("hi");
 typeof(5);
 toString(5);
 rawToString(5);
@@ -66,6 +61,7 @@ t.isDead();
 foreach(v; coroutine function countDown(x){currentThread(); yield();while(x > 0){yield(x);x--;}}, 5){}
 t();
 try foreach(c; t){} catch(e){}
+t.reset();
 currentThread();
 curry(function(x, y){}, 3)(4);
 try import("blahblah"); catch(e){}
@@ -74,6 +70,14 @@ loadString("");
 loadString("", "h");
 eval("5");
 loadJSON("{}");
+
+local tab = {x = 5};
+removeKey(tab, "x");
+local ns = namespace ns{x = 5;};
+removeKey(ns, "x");
+
+try removeKey(tab, null); catch(e){}
+try removeKey(ns, "y"); catch(e){}
 
 local s = StringBuffer("hello");
 StringBuffer(5);
@@ -104,7 +108,7 @@ try s[0] = s[95209]; catch(e){}
 s[-4 .. -3] = s[-2 .. -1];
 try s[0 .. 1] = "hello"; catch(e){}
 try s[95091235 .. 5010936] = "h"; catch(e){}
-try s[0] = s[230591 .. 019096]; catch(e){ writefln(e);}
+try s[0] = s[230591 .. 019096]; catch(e){}
 try s[-392096 .. 0] = "h"; catch(e){}
 
 {
@@ -143,5 +147,19 @@ try s[-392096 .. 0] = "h"; catch(e){}
 	
 	writefln();
 	
-	readf("%d");
+	//readf("%d");
 }
+
+local data = [ null, true, false, 5, 4.2, 'c', "hi\b\f\n\r\t\\/\"\u5555", { x = 10, y = 20 }, [1, 2, 3] ];
+writefln("{}", toJSON(data));
+writefln("{}", toJSON(data, true));
+toJSON({ x = 5, y = 10 });
+try toJSON({[5] = 10}); catch(e){}
+data = [0];
+data[0] = data;
+try toJSON(data); catch(e){}
+data = {x = 0};
+data.x = data;
+try toJSON(data); catch(e){}
+try toJSON([namespace n{}]); catch(e){}
+try toJSON(5); catch(e){}

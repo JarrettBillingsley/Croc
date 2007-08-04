@@ -23,44 +23,59 @@ subject to the following restrictions:
 
 module minid.utils;
 
-import format = std.format;
-import std.c.string;
-import std.conv;
-import std.stdarg;
-import std.stream;
-import utf = std.utf;
-import std.uni;
-import std.perf;
-import string = std.string;
+import tango.core.Traits;
+import tango.core.Tuple;
+import tango.core.Vararg;
+import tango.io.Buffer;
+import tango.io.FileConduit;
+import tango.io.Print;
+import tango.io.protocol.model.IReader;
+import tango.io.protocol.model.IWriter;
+import tango.io.Stdout;
+import tango.text.Util;
+import tango.util.time.StopWatch;
+import tango.text.convert.Utf;
+import tango.stdc.string;
+import UniChar;
 
 alias double mdfloat;
 
-/// Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+/**
+Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+*/
 template isStringType(T)
 {
 	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
 }
 
-/// Sees if a type is char, wchar, or dchar.
+/**
+Sees if a type is char, wchar, or dchar.
+*/
 template isCharType(T)
 {
 	const bool isCharType = is(T == char) || is(T == wchar) || is(T == dchar);
 }
 
-/// Sees if a type is a signed or unsigned byte, short, int, or long.
+/**
+Sees if a type is a signed or unsigned byte, short, int, or long.
+*/
 template isIntType(T)
 {
 	const bool isIntType = is(T == int) || is(T == uint) || is(T == long) || is(T == ulong) ||
 							is(T == short) || is(T == ushort) || is(T == byte) || is(T == ubyte) /* || is(T == cent) || is(T == ucent) */;
 }
 
-/// Sees if a type is float, double, or real.
+/**
+Sees if a type is float, double, or real.
+*/
 template isFloatType(T)
 {
 	const bool isFloatType = is(T == float) || is(T == double) || is(T == real);
 }
 
-/// Sees if a type is an array.
+/**
+Sees if a type is an array.
+*/
 template isArrayType(T)
 {
 	const bool isArrayType = false;
@@ -71,13 +86,25 @@ template isArrayType(T : T[])
 	const bool isArrayType = true;
 }
 
-/// Sees if a type is a pointer.
+/**
+Sees if a type is an associative array.
+*/
+template isAAType(T)
+{
+	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
+}
+
+/**
+Sees if a type is a pointer.
+*/
 template isPointerType(T)
 {
 	const bool isPointerType = is(typeof(*T)) && !isArrayType!(T);
 }
 
-/// Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+/**
+Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+*/
 template realType(T)
 {
 	static if(is(T Base == typedef))
@@ -86,8 +113,10 @@ template realType(T)
 		alias T realType;
 }
 
-/// Determine if a given aggregate type contains any unions, explicit or anonymous.
-/// Thanks to Frits van Bommel for the original code.
+/**
+Determine if a given aggregate type contains any unions, explicit or anonymous.
+Thanks to Frits van Bommel for the original code.
+*/
 template hasUnions(T, size_t Idx = 0)
 {
 	static if(!is(typeof(T.tupleof)))
@@ -174,7 +203,9 @@ unittest
 	assert(hasUnions!(E));
 }
 
-/// Convert any function pointer into a delegate that calls the function when it's called.
+/**
+Convert any function pointer into a delegate that calls the function when it's called.
+*/
 template ToDelegate(alias func)
 {
 	ReturnType!(func) delegate(ParameterTypeTuple!(func)) ToDelegate()
@@ -193,262 +224,29 @@ template ToDelegate(alias func)
 	}
 }
 
-/// Takes a TypeInfo[] and va_list and formats them, like the format(...) function.
-/// Don't know why this isn't in phobos.
-char[] vformat(TypeInfo[] arguments, va_list argptr)
-{
-	char[] s;
-	
-	void putc(dchar c)
-	{
-		utf.encode(s, c);
-	}
-
-	format.doFormat(&putc, arguments, argptr);
-
-	return s;
-}
-
-unittest
-{
-	char[] fmt(...)
-	{
-		return vformat(_arguments, _argptr);
-	}
-
-	assert(fmt("%s, %s, %s", 4, 5, 6) == "4, 5, 6");
-	assert(fmt("%.8x", 4500) == "00001194");
-	assert(fmt("hello %s", "world") == "hello world");
-}
-
-/// Compares dchar[] strings, like std.string.cmp().
+/**
+Compares dchar[] strings stupidly (just by character value, not lexicographically).
+*/
 int dcmp(dchar[] s1, dchar[] s2)
 {
 	auto len = s1.length;
-	int result;
 
 	if(s2.length < len)
 		len = s2.length;
 
-	result = memcmp(s1.ptr, s2.ptr, len * dchar.sizeof);
+	int result = mismatch(s1.ptr, s2.ptr, len);
 
-	if(result == 0)
+	if(result == len)
 		result = cast(int)s1.length - cast(int)s2.length;
+	else
+		result = s1[result] - s2[result];
 
 	return result;
 }
 
-unittest
-{
-	assert(dcmp("Hello"d, "Hello"d) == 0);
-	assert(dcmp("taxes"d, "texas"d) < 0);
-	assert(dcmp("Taxes"d, "taxes"d) < 0);
-	assert(dcmp("a longer string"d, "a longer string still"d) < 0);
-	assert(dcmp("an even longer string"d, "an even"d) > 0);
-}
-
-/// Like std.string.join, but for dchar[]s.
-dchar[] djoin(dchar[][] strings, dchar[] separator)
-{
-	uint length = 0;
-
-	foreach(s; strings)
-		length += s.length;
-
-	length += (strings.length - 1) * separator.length;
-
-	dchar[] ret = new dchar[length];
-	
-	uint numStrings = strings.length;
-	uint sepLength = separator.length;
-
-	for(int i = 0, j = 0; i < numStrings; i++)
-	{
-		ret[j .. j + strings[i].length] = strings[i];
-		j += strings[i].length;
-
-		if(j < length)
-		{
-			ret[j .. j + sepLength] = separator;
-			j += sepLength;
-		}
-	}
-
-	return ret;
-}
-
-/// ditto
-dchar[] djoin(dchar[][] strings, dchar separator)
-{
-	uint length = 0;
-
-	foreach(s; strings)
-		length += s.length;
-
-	length += strings.length - 1;
-
-	dchar[] ret = new dchar[length];
-	
-	uint numStrings = strings.length;
-
-	for(int i = 0, j = 0; i < numStrings; i++)
-	{
-		ret[j .. j + strings[i].length] = strings[i];
-		j += strings[i].length;
-
-		if(j < length)
-		{
-			ret[j] = separator;
-			j++;
-		}
-	}
-
-	return ret;
-}
-
-/// Join lists of strings which aren't kept in arrays.  The given delegate is passed increasing
-/// indices starting at 0, and should return null to signal the end of the list.
-dchar[] djoin(dchar[] delegate(uint) dg, dchar[] separator)
-{
-	dchar[] ret = dg(0);
-	uint i = 1;
-
-	for(dchar[] string = dg(i++); string !is null; string = dg(i++))
-		ret ~= separator ~ string;
-
-	return ret;
-}
-
-unittest
-{
-	assert(djoin(["hello"d, "my"d, "friends"d], "! ") == "hello! my! friends");
-	assert(djoin(["one"d, "two"d, "three"d], '.') == "one.two.three");
-	
-	dchar[][] array = ["foo"d, "bar"d, "baz"d];
-
-	assert(djoin((uint index)
-	{
-		if(index < array.length)
-			return array[index];
-		else
-			return cast(dchar[])null;
-	}, "::") == "foo::bar::baz");
-}
-
-/// Parse a based integer out of a dchar[].
-int toInt(dchar[] s, int base)
-{
-	assert(base >= 2 && base <= 36, "toInt - invalid base");
-
-	static char[] transTable =
-	[
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 0, 0, 0, 0, 0, 0,
-		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0,
-		0, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72,
-		73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-		0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
-	];
-
-    int length = s.length;
-
-	if(!length)
-		throw new ConvError(utf.toUTF8(s));
-
-	int sign = 0;
-	int v = 0;
-
-	char maxDigit = '0' + base - 1;
-	
-	if(s[0] == '+')
-	{
-		if(length == 1)
-			throw new ConvError(utf.toUTF8(s));
-
-		s = s[1 .. $];
-	}
-	else if(s[0] == '-')
-	{
-		sign = -1;
-
-		if(length == 1)
-			throw new ConvError(utf.toUTF8(s));
-
-		s = s[1 .. $];
-	}
-
-	foreach(dc; s)
-	{
-		char c = cast(char)dc;
-
-		if(c > 0x7f)
-			throw new ConvError(utf.toUTF8(s));
-
-		c = transTable[c];
-
-		if(c >= '0' && c <= maxDigit)
-		{
-			uint v1 = v;
-			v = v * base + (c - '0');
-
-			if(cast(uint)v < v1)
-				throw new ConvOverflowError(utf.toUTF8(s));
-		}
-		else
-			throw new ConvError(utf.toUTF8(s));
-	}
-
-	if(sign == -1)
-	{
-		if(cast(uint)v > 0x80000000)
-			throw new ConvOverflowError(utf.toUTF8(s));
-
-		v = -v;
-	}
-	else
-	{
-		if(cast(uint)v > 0x7FFFFFFF)
-			throw new ConvOverflowError(utf.toUTF8(s));
-	}
-
-	return v;
-}
-
-unittest
-{
-	assert(toInt("12345"d, 10) == 12345);
-	assert(toInt("EADBEEF"d, 16) == 0xEADBEEF);
-	assert(toInt("34567"d, 8) == 034567);
-	assert(toInt("10010101"d, 2) == 0b10010101);
-	assert(toInt("+456"d, 10) == 456);
-	assert(toInt("-934"d, 10) == -934);
-
-	try
-	{
-		toInt("999999999999999999999999999999999", 10);
-		assert(false);
-	}
-	catch{}
-	
-	try
-	{
-		toInt("--1"d, 10);
-		assert(false);
-	}
-	catch{}
-}
-
-/// Lowercase a dchar[] using proper Unicode character functions.
+/**
+Lowercase a dchar[] using proper Unicode character functions.
+*/
 dchar[] toLowerD(dchar[] s)
 {
 	bool changed = false;
@@ -470,7 +268,9 @@ dchar[] toLowerD(dchar[] s)
 	return s;
 }
 
-/// Uppercase a dchar[] using proper Unicode character functions.
+/**
+Uppercase a dchar[] using proper Unicode character functions.
+*/
 dchar[] toUpperD(dchar[] s)
 {
 	bool changed = false;
@@ -503,85 +303,48 @@ unittest
 	assert(toUpperD(t) !is t);
 }
 
-dchar[][] dsplit(dchar[] s, dchar c)
+/**
+See if a given Unicode character is valid.
+*/
+bool isValidUniChar(dchar c)
 {
-	dchar[][] words;
-
-	if(s.length)
-	{
-		dchar* p = &s[0];
-		dchar* pend = p + s.length;
-		size_t start = 0;
-		bool inWord = false;
-
-		size_t i;
-		for(i = 0; i < s.length; i++)
-		{
-			if(s[i] == c)
-			{
-				if(inWord)
-				{
-					words ~= s[start .. i];
-					inWord = false;
-				}
-			}
-			else
-			{
-				if(!inWord)
-				{
-					start = i;
-					inWord = true;
-				}
-			}
-		}
-		
-		if(inWord)
-			words ~= s[start .. i];
-	}
-
-	return words;
+	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
 }
 
-unittest
-{
-	dchar[] s = "peter.paul.jerry";
-	dchar[][] words;
-	int i;
-
-	words = dsplit(s, '.');
-	assert(words.length == 3);
-	i = dcmp(words[0], "peter");
-	assert(i == 0);
-	i = dcmp(words[1], "paul");
-	assert(i == 0);
-	i = dcmp(words[2], "jerry");
-	assert(i == 0);
-}
-
-/// Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+/**
+Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+*/
 template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
 	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
 }
 
-/// Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
+/**
+Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
+*/
 template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
 }
 
-/// The current version of MiniD.  (this is kind of buried here)
-const uint MiniDVersion = MakeVersion!(0, 6);
+/**
+The current version of MiniD.  (this is kind of buried here)
+*/
+const uint MiniDVersion = MakeVersion!(1, 0);
 
-/// See if T is a type that can't be automatically serialized.
+/**
+See if T is a type that can't be automatically serialized.
+*/
 template isInvalidSerializeType(T)
 {
 	const bool isInvalidSerializeType = isPointerType!(T) || is(T == function) || is(T == delegate) ||
-		is(T == interface) || is(T == union) || (is(typeof(T.keys)) && is(typeof(T.values)));
+		is(T == interface) || is(T == union) || isAAType!(T);
 }
 
-/// The different ways data can be serialized and deserialized.
+/**
+The different ways data can be serialized and deserialized.
+*/
 enum SerializeMethod
 {
 	Invalid,
@@ -592,7 +355,9 @@ enum SerializeMethod
 	Chunk
 }
 
-/// Given a type, determine how to serialize or deserialize a value of that type.
+/**
+Given a type, determine how to serialize or deserialize a value of that type.
+*/
 template TypeSerializeMethod(T)
 {
 	static if(isInvalidSerializeType!(T))
@@ -642,13 +407,15 @@ or an S[] where S is a struct type marked as SerializeAsChunk, it will write out
 array at once.  Otherwise, it'll write out the array element-by-element.
 
 For structs, the following methods are tried:
-	1) If the struct has both "void serialize(Stream s)" and "static T deserialize(Stream s)" methods,
-	   Serialize/Deserialize will call those.
-	2) If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
-	   serialize instances of the struct as chunks of memory.
-	3) As a last resort, it will try to write out the struct member-by-member.  If the struct has any
+$(OL
+	$(LI If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
+	   Serialize/Deserialize will call those.)
+	$(LI If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
+	   serialize instances of the struct as chunks of memory.)
+	$(LI As a last resort, it will try to write out the struct member-by-member.  If the struct has any
 	   unions (explicit or anonymous), the struct will not be able to be automatically serialized, and
-	   you will either have to make it chunk-serializable or provide custom serialization methods.
+	   you will either have to make it chunk-serializable or provide custom serialization methods.)
+)
 
 For classes, it will expect for there to be custom serialize/deserialize methods.
 
@@ -658,12 +425,14 @@ so arrays of them will be serialized in one call.
 If your struct or class declares custom serialize/deserialize methods, it must declare both or neither.
 These methods must always follow the form:
 
-	void serialize(Stream s);
-	static T deserialize(Stream s);
+---
+void serialize(IWriter);
+static T deserialize(IReader);
+---
 	
 where T is your custom type.
 */
-void Serialize(T)(Stream s, T value)
+void Serialize(T)(IWriter s, T value)
 {
 	const method = TypeSerializeMethod!(T);
 
@@ -676,19 +445,17 @@ void Serialize(T)(Stream s, T value)
 	{
 		static if(is(T == dchar[]) || is(T == wchar[]))
 		{
-			char[] str = utf.toUTF8(value);
-			s.write(str.length);
-			s.writeExact(str.ptr, char.sizeof * str.length);
+			s.put(toUtf8(value));
 		}
 		else
 		{
-			s.write(value.length);
-			s.writeExact(value.ptr, typeof(T[0]).sizeof * value.length);
+			s.put(value.length);
+			s.buffer.append((cast(void*)value.ptr)[0 .. typeof(T[0]).sizeof * value.length]);
 		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
-		s.write(value.length);
+		s.put(value.length);
 
 		foreach(v; value)
 			Serialize(s, v);
@@ -705,12 +472,14 @@ void Serialize(T)(Stream s, T value)
 	else
 	{
 		static assert(method == SerializeMethod.Chunk, "Serialize");
-		s.writeExact(&value, T.sizeof);
+		s.buffer.append(&value, T.sizeof);
 	}
 }
 
-/// The opposite of Serialize().  The same rules apply here as with Serialize().
-void Deserialize(T)(Stream s, out T dest)
+/**
+The opposite of Serialize().  The same rules apply here as with Serialize().
+*/
+void Deserialize(T)(IReader s, out T dest)
 {
 	const method = TypeSerializeMethod!(T);
 
@@ -721,29 +490,28 @@ void Deserialize(T)(Stream s, out T dest)
 	}
 	else static if(method == SerializeMethod.Vector)
 	{
-		size_t len;
-		s.read(len);
-		
 		static if(is(T == dchar[]) || is(T == wchar[]))
 		{
-			char[] str = new char[len];
-			s.readExact(str.ptr, char.sizeof * len);
-			
+			char[] str;
+			s.get(str);
+
 			static if(is(T == dchar[]))
-				dest = utf.toUTF32(str);
+				dest = toUtf32(str);
 			else
-				dest = utf.toUTF16(str);
+				dest = toUtf16(str);
 		}
 		else
 		{
-			dest.length = len;
-			s.readExact(dest.ptr, typeof(T[0]).sizeof * dest.length);
+			size_t length;
+			s.get(length);
+			dest.length = length;
+			s.buffer.read((cast(void*)dest.ptr)[0 .. typeof(T[0]).sizeof * dest.length]);
 		}
 	}
 	else static if(method == SerializeMethod.Sequence)
 	{
 		size_t len;
-		s.read(len);
+		s.get(len);
 		dest.length = len;
 
 		foreach(ref v; dest)
@@ -761,23 +529,26 @@ void Deserialize(T)(Stream s, out T dest)
 	else
 	{
 		static assert(method == SerializeMethod.Chunk, "Deserialize");
-		s.readExact(&dest, T.sizeof);
+		s.buffer.readExact(&dest, T.sizeof);
 	}
 }
 
-/// A class used for profiling pieces of code.  You initialize it with an output filename,
-/// and during execution of your program, you just create instances of this class with a
-/// certain name.  Timings for each profile name are accumulated over the course of the program and
-/// the final output will show the name of the profile, how many times it was instanced, the
-/// tital time in milliseconds, and the average time per instance in milliseconds.
-scope class Profiler : PerformanceCounter
+/**
+A class used for profiling pieces of code.  You initialize it with an output filename,
+and during execution of your program, you just create instances of this class with a
+certain name.  Timings for each profile name are accumulated over the course of the program and
+the final output will show the name of the profile, how many times it was instanced, the
+total time in milliseconds, and the average time per instance in milliseconds.
+*/
+scope class Profiler
 {
-	private static Stream mOutLog;
-	
+	private StopWatch mTimer;
+	private static Print!(char) mOutLog;
+
 	struct Timing
 	{
 		char[] name;
-		ulong time = 0;
+		Interval time = 0;
 		ulong count = 0;
 
 		static Timing opCall(char[] name)
@@ -802,25 +573,26 @@ scope class Profiler : PerformanceCounter
 
 	public static void init(char[] output)
 	{
-		mOutLog = new BufferedFile(output, FileMode.OutNew);
+		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
 	}
 	
-	debug(TIMINGS) static ~this()
+	debug(TIMINGS) 
 	{
-		mOutLog.writefln("Name           | Count        | Total Time         | Average Time");
-		mOutLog.writefln("-----------------------------------------------------------------");
-
-		foreach(timing; mTimings.values.sort)
+		static this()
 		{
-			real time = timing.time / 1000.0;
-			ulong count = timing.count;
-			real average = time / count;
-
-			mOutLog.writefln("%-14s | %-12s | %-18s | %-18s", timing.name, count, time, average);
+			init("timings.txt");
 		}
+	
+		static ~this()
+		{
+			mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
+			mOutLog.formatln("-----------------------------------------------------------------");
 
-		mOutLog.flush();
-		mOutLog.close();
+			foreach(timing; mTimings.values.sort)
+				mOutLog.formatln("{,-14} | {,-12} | {,-18:9f} | {,-18:9f}", timing.name, timing.count, timing.time, timing.time / timing.count);
+
+			mOutLog.flush();
+		}
 	}
 
 	private char[] mName;
@@ -832,29 +604,22 @@ scope class Profiler : PerformanceCounter
 		if(!(name in mTimings))
 			mTimings[name] = Timing(name);
 
-		start();
-	}
-	
-	~this()
-	{
-		stop();
+		mTimer.start();
 	}
 
-	public override void stop()
+	~this()
 	{
-		super.stop();
-		
+		Interval endTime = mTimer.stop();
 		Timing* t = (mName in mTimings);
-		t.time += microseconds();
+		t.time += endTime;
 		t.count++;
 	}
 }
 
-static this()
-{
-	debug(TIMINGS) Profiler.init("timings.txt");
-}
-
+/**
+Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
+over-allocates for arrays, but I don't like relying on implementation-specific features.
+*/
 struct List(T)
 {
 	private T[] mData;
@@ -892,7 +657,7 @@ struct List(T)
 	public int opApply(int delegate(ref T) dg)
 	{
 		int result = 0;
-		
+
 		foreach(ref v; mData[0 .. mIndex])
 		{
 			result = dg(v);
@@ -918,4 +683,68 @@ struct List(T)
 		
 		return result;
 	}
+}
+
+/**
+Gets the name of a function alias.
+*/
+public template NameOfFunc(alias f)
+{
+	const char[] NameOfFunc = (&f).stringof[2 .. $];
+}
+
+unittest
+{
+	static void foo(){}
+	assert(NameOfFunc!(foo) == "foo");
+}
+
+/**
+Given a predicate template and a tuple, sorts the tuple.  I'm not sure how quick it is, but it's probably fast enough
+for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
+same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
+*/
+public template QSort(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias List QSort;
+	else static if(List.length == 2)
+	{
+		static if(Pred!(List[0], List[1]) <= 0)
+			alias Tuple!(List[0], List[1]) QSort;
+		else
+			alias Tuple!(List[1], List[0]) QSort;
+	}
+	else
+		alias Tuple!(QSort!(Pred, QSort_less!(Pred, List)), QSort_equal!(Pred, List), List[0], QSort!(Pred, QSort_greater!(Pred, List))) QSort;
+}
+
+private template QSort_less(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_less;
+	else static if(Pred!(List[1], List[0]) < 0)
+		alias Tuple!(List[1], QSort_less!(Pred, List[0], List[2 .. $])) QSort_less;
+	else
+		alias QSort_less!(Pred, List[0], List[2 .. $]) QSort_less;
+}
+
+private template QSort_equal(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_equal;
+	else static if(Pred!(List[1], List[0]) == 0)
+		alias Tuple!(List[1], QSort_equal!(Pred, List[0], List[2 .. $])) QSort_equal;
+	else
+		alias QSort_equal!(Pred, List[0], List[2 .. $]) QSort_equal;
+}
+
+private template QSort_greater(alias Pred, List...)
+{
+	static if(List.length == 0 || List.length == 1)
+		alias Tuple!() QSort_greater;
+	else static if(Pred!(List[1], List[0]) > 0)
+		alias Tuple!(List[1], QSort_greater!(Pred, List[0], List[2 .. $])) QSort_greater;
+	else
+		alias QSort_greater!(Pred, List[0], List[2 .. $]) QSort_greater;
 }

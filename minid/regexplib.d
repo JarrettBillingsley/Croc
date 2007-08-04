@@ -27,18 +27,32 @@ module minid.regexplib;
 import minid.types;
 import minid.utils;
 
-import std.regexp;
+import tango.text.Regex;
 
 class RegexpLib
 {
-	this(MDNamespace namespace)
+	private static RegexpLib lib;
+	
+	static this()
+	{
+		lib = new RegexpLib();
+	}
+	
+	private MDRegexpClass regexpClass;
+
+	private this()
 	{
 		regexpClass = new MDRegexpClass();
-		
+	}
+
+	public static void init(MDContext context)
+	{
+		MDNamespace namespace = new MDNamespace("regexp"d, context.globals.ns);
+
 		namespace.addList
 		(
 			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
-			"url"d,        std.regexp.url,
+			"url"d,        tango.text.Regex.url,
 			"alpha"d,      r"^[a-zA-Z_]+$"d,
 			"space"d,      r"^\s+$"d,
 			"digit"d,      r"^\d+$"d,
@@ -55,12 +69,14 @@ class RegexpLib
 			"usPhone"d,    r"^((1-)?\d{3}-)?\d{3}-\d{4}$"d,
 			"usZip"d,      r"^\d{5}$"d,
 
-			"compile"d,    new MDClosure(namespace, &compile,    "regexp.compile"),
-			"test"d,       new MDClosure(namespace, &test,       "regexp.test"),
-			"replace"d,    new MDClosure(namespace, &replace,    "regexp.replace"),
-			"split"d,      new MDClosure(namespace, &split,      "regexp.split"),
-			"match"d,      new MDClosure(namespace, &match,      "regexp.match")
+			"compile"d,    new MDClosure(namespace, &lib.compile,    "regexp.compile"),
+			"test"d,       new MDClosure(namespace, &lib.test,       "regexp.test"),
+			"replace"d,    new MDClosure(namespace, &lib.replace,    "regexp.replace"),
+			"split"d,      new MDClosure(namespace, &lib.split,      "regexp.split"),
+			"match"d,      new MDClosure(namespace, &lib.match,      "regexp.match")
 		);
+
+		context.globals["regexp"d] = namespace;
 	}
 
 	int test(MDState s, uint numParams)
@@ -72,7 +88,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(s.safeCode(cast(bool)RegExp(pattern, attributes).test(src)));
+		s.push(s.safeCode(cast(bool)Regex(pattern, attributes).test(src)));
 		return 1;
 	}
 
@@ -88,14 +104,14 @@ class RegexpLib
 		if(s.isParam!("string")(2))
 		{
 			char[] rep = s.getParam!(char[])(2);
-			s.push(s.safeCode(RegExp(pattern, attributes).replace(src, rep)));
+			s.push(s.safeCode(Regex(pattern, attributes).replace(src, rep)));
 		}
 		else
 		{
 			MDClosure rep = s.getParam!(MDClosure)(2);
 			scope MDRegexp temp = regexpClass.newInstance();
 
-			s.push(s.safeCode(sub(src, pattern, (RegExp m)
+			s.push(s.safeCode(sub(src, pattern, (Regex m)
 			{
 				temp.constructor(m);
 				
@@ -117,7 +133,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).split(src))));
+		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).split(src))));
 		return 1;
 	}
 
@@ -130,7 +146,7 @@ class RegexpLib
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
-		s.push(MDArray.fromArray(s.safeCode(RegExp(pattern, attributes).match(src))));
+		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).match(src))));
 		return 1;
 	}
 
@@ -145,8 +161,6 @@ class RegexpLib
 		s.push(s.safeCode(regexpClass.newInstance(pattern, attributes)));
 		return 1;
 	}
-
-	public MDRegexpClass regexpClass;
 
 	static class MDRegexpClass : MDClass
 	{
@@ -273,7 +287,7 @@ class RegexpLib
 
 	static class MDRegexp : MDInstance
 	{
-		protected RegExp mRegexp;
+		protected Regex mRegexp;
 
 		public this(MDClass owner)
 		{
@@ -282,10 +296,10 @@ class RegexpLib
 
 		public void constructor(char[] pattern, char[] attributes)
 		{
-			mRegexp = new std.regexp.RegExp(pattern, attributes);
+			mRegexp = new Regex(pattern, attributes);
 		}
 
-		public void constructor(RegExp rxp)
+		public void constructor(Regex rxp)
 		{
 			mRegexp = rxp;
 		}
@@ -340,11 +354,4 @@ class RegexpLib
 			mRegexp.search(str);
 		}
 	}
-}
-
-public void init()
-{
-	MDNamespace namespace = new MDNamespace("regexp"d, MDGlobalState().globals.ns);
-	new RegexpLib(namespace);
-	MDGlobalState().globals["regexp"d] = namespace;
 }
