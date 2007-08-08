@@ -60,8 +60,11 @@ class OSLib
 	{
 		perfCounterClass = new MDPerfCounterClass();
 		
-		if(!QueryPerformanceFrequency(&performanceFreq))
-			performanceFreq = 0x7fffffffffffffffL;
+		version(Windows)
+		{
+			if(!QueryPerformanceFrequency(&performanceFreq))
+				performanceFreq = 0x7fffffffffffffffL;
+		}
 	}
 
 	public static void init(MDContext context)
