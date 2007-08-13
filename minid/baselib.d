@@ -409,6 +409,7 @@ class BaseLib
 		globals["toJSON"d] =          new MDClosure(globals.ns, &lib.toJSON,                "toJSON");
 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &lib.setModuleLoader,       "setModuleLoader");
 		globals["removeKey"d] =       new MDClosure(globals.ns, &lib.removeKey,             "removeKey");
+		globals["bindContext"d] =     new MDClosure(globals.ns, &lib.bindContext,           "bindContext");
 
 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
 		
@@ -830,7 +831,7 @@ class BaseLib
 
 		return s.call(funcReg, numParams + 2, -1);
 	}
-	
+
 	int curry(MDState s, uint numParams)
 	{
 		MDValue[2] upvalues;
@@ -838,6 +839,33 @@ class BaseLib
 		upvalues[1] = s.getParam(1u);
 		
 		s.push(new MDClosure(upvalues[0].as!(MDClosure).environment, &curryClosure, "curryClosure", upvalues));
+		return 1;
+	}
+	
+	int bindContext(MDState s, uint numParams)
+	{
+		struct Closure
+		{
+			MDClosure func;
+			MDValue context;
+
+			int call(MDState s, uint numParams)
+			{
+				uint funcReg = s.push(func);
+				s.push(context);
+
+				for(uint i = 0; i < numParams; i++)
+					s.push(s.getParam(i));
+
+				return s.call(funcReg, numParams + 1, -1);
+			}
+		}
+
+		auto cl = new Closure;
+		cl.func = s.getParam!(MDClosure)(0);
+		cl.context = s.getParam(1u);
+
+		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
 		return 1;
 	}
 	
