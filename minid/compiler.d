@@ -226,6 +226,7 @@ struct Token
 		EQ,
 		Dot,
 		DotDot,
+		Expand,
 		Not,
 		NE,
 		LParen,
@@ -324,6 +325,7 @@ struct Token
 		Type.EQ: "==",
 		Type.Dot: ".",
 		Type.DotDot: "..",
+		Type.Expand: "...",
 		Type.Not: "!",
 		Type.NE: "!=",
 		Type.LParen: "(",
@@ -479,16 +481,9 @@ class Lexer
 		
 		nextChar();
 
-		if(mCharacter == '#')
-		{
-			nextChar();
-
-			if(mCharacter != '!')
-				throw new MDCompileException(mLoc, "Script line must start with \"#!\"");
-			
+		if(mSource.length >= 2 && mSource[0 .. 2] == "#!")
 			while(!isEOL())
 				nextChar();
-		}
 
 		Token* firstToken = nextToken();
 		Token* t = firstToken;
@@ -1346,16 +1341,20 @@ class Lexer
 
 						token.type = Token.Type.FloatLiteral;
 					}
-					else
+					else if(mCharacter == '.')
 					{
+						nextChar();
+						
 						if(mCharacter == '.')
 						{
 							nextChar();
-							token.type = Token.Type.DotDot;
+							token.type = Token.Type.Expand;
 						}
 						else
-							token.type = Token.Type.Dot;
+							token.type = Token.Type.DotDot;
 					}
+					else
+						token.type = Token.Type.Dot;
 
 					return token;
 
@@ -1505,7 +1504,9 @@ enum ExpType
 	Var,
 	NewGlobal,
 	Indexed,
+	IndexedVararg,
 	Sliced,
+	Length,
 	Vararg,
 	Closure,
 	Call,
@@ -1537,6 +1538,7 @@ struct Exp
 			ExpType.Var: "Var",
 			ExpType.NewGlobal: "NewGlobal",
 			ExpType.Indexed: "Indexed",
+			ExpType.IndexedVararg: "IndexedVararg",
 			ExpType.Sliced: "Sliced",
 			ExpType.Vararg: "Vararg",
 			ExpType.Closure: "Closure",
@@ -1990,6 +1992,13 @@ class FuncState
 		Exp* e = pushExp();
 		*e = *src;
 	}
+	
+	public void pushVargLen(uint line)
+	{
+		Exp* e = pushExp();
+		e.type = ExpType.NeedsDest;
+		e.index = codeR(line, Op.VargLen, 0, 0, 0);
+	}
 
 	public void pushNull()
 	{
@@ -2229,10 +2238,26 @@ class FuncState
 				freeExpTempRegs(dest);
 				break;
 				
-			case ExpType.Sliced:
+			case ExpType.IndexedVararg:
 				toSource(line, src);
 				
+				codeR(line, Op.VargIndexAssign, dest.index, src.index, 0);
+				freeExpTempRegs(src);
+				break;
+
+			case ExpType.Sliced:
+				toSource(line, src);
+
 				codeR(line, Op.SliceAssign, dest.index, src.index, 0);
+
+				freeExpTempRegs(src);
+				freeExpTempRegs(dest);
+				break;
+				
+			case ExpType.Length:
+				toSource(line, src);
+				
+				codeR(line, Op.LengthAssign, dest.index, src.index, 0);
 				
 				freeExpTempRegs(src);
 				freeExpTempRegs(dest);
@@ -2283,9 +2308,18 @@ class FuncState
 				codeR(line, Op.Index, dest, src.index, src.index2);
 				freeExpTempRegs(src);
 				break;
-				
+
+			case ExpType.IndexedVararg:
+				codeR(line, Op.VargIndex, dest, src.index, 0);
+				break;
+
 			case ExpType.Sliced:
 				codeR(line, Op.Slice, dest, src.index, 0);
+				freeExpTempRegs(src);
+				break;
+
+			case ExpType.Length:
+				codeR(line, Op.Length, dest, src.index, 0);
 				freeExpTempRegs(src);
 				break;
 
@@ -2396,6 +2430,13 @@ class FuncState
 		dest.type = ExpType.NeedsDest;
 		dest.index = pc;
 	}
+	
+	public void popLength(uint line)
+	{
+		Exp* src = &mExpStack[mExpSP - 1];
+		toSource(line, src);
+		src.type = ExpType.Length;	
+	}
 
 	public void pushCall(uint line, uint firstReg, uint numRegs)
 	{
@@ -2448,8 +2489,17 @@ class FuncState
 				freeExpTempRegs(dest);
 				break;
 				
+			case ExpType.IndexedVararg:
+				codeR(line, Op.VargIndexAssign, dest.index, srcReg, 0);
+				break;
+				
 			case ExpType.Sliced:
 				codeR(line, Op.SliceAssign, dest.index, srcReg, 0);
+				freeExpTempRegs(dest);
+				break;
+				
+			case ExpType.Length:
+				codeR(line, Op.LengthAssign, dest.index, srcReg, 0);
 				freeExpTempRegs(dest);
 				break;
 
@@ -2477,6 +2527,15 @@ class FuncState
 		e.index2 = index.index;
 		e.isTempReg2 = index.isTempReg;
 		e.type = ExpType.Indexed;
+	}
+	
+	public void popVargIndex(uint line)
+	{
+		assert(mExpSP > 0, "pop varg index from nothing");
+		
+		Exp* e = &mExpStack[mExpSP - 1];
+		toSource(line, e);
+		e.type = ExpType.IndexedVararg;
 	}
 
 	public void pushSlice(uint line, uint reg)
@@ -2546,6 +2605,12 @@ class FuncState
 				temp.isTempReg = true;
 				codeR(line, Op.Index, temp.index, e.index, e.index2);
 				break;
+				
+			case ExpType.IndexedVararg:
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeR(line, Op.VargIndex, temp.index, e.index, 0);
+				break;
 
 			case ExpType.Sliced:
 				if(cleanup)
@@ -2554,6 +2619,12 @@ class FuncState
 				temp.index = pushRegister();
 				temp.isTempReg = true;
 				codeR(line, Op.Slice, temp.index, e.index, 0);
+				break;
+				
+			case ExpType.Length:
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeR(line, Op.Length, temp.index, e.index, 0);
 				break;
 
 			case ExpType.NeedsDest:
@@ -3557,7 +3628,7 @@ class Module
 		}
 		finally
 		{
-			//showMe(); fs.showMe(); Stdout.flush;
+			showMe(); fs.showMe(); Stdout.flush;
 			//fs.printExpStack();
 		}
 
@@ -3628,6 +3699,7 @@ abstract class Statement
 				Token.Type.Inc,
 				Token.Type.IntLiteral,
 				Token.Type.LBracket,
+				Token.Type.Length,
 				Token.Type.LParen,
 				Token.Type.Null,
 				Token.Type.StringLiteral,
@@ -5754,7 +5826,10 @@ abstract class Expression
 		}
 		else
 		{
-			exp = PrimaryExp.parse(t);
+			if(t.type == Token.Type.Length)
+				exp = UnaryExp.parse(t);
+			else
+				exp = PrimaryExp.parse(t);
 
 			if(t.isOpAssign())
 				exp = OpEqExp.parse(t, exp);
@@ -5968,8 +6043,13 @@ class Assignment : Expression
 		rhs = Expression.parse(t);
 
 		foreach(exp; lhs)
+		{
 			if(cast(ThisExp)exp)
 				throw new MDCompileException(exp.mLocation, "'this' cannot be the target of an assignment");
+			
+			if(cast(VargLengthExp)exp)
+				throw new MDCompileException(exp.mLocation, "'#vararg' cannot be the target of an assignment");
+		}
 
 		return new Assignment(location, rhs.mEndLocation, lhs, rhs);
 	}
@@ -6082,6 +6162,9 @@ class OpEqExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
+		if(cast(VargLengthExp)mLHS)
+			throw new MDCompileException(mLocation, "'#vararg' cannot be the target of an assignment");
+
 		mLHS.codeGen(s);
 		s.pushSource(mLHS.mEndLocation.line);
 
@@ -7353,7 +7436,11 @@ abstract class UnaryExp : Expression
 			case Token.Type.Length:
 				t = t.nextToken;
 				exp = UnaryExp.parse(t);
-				exp = new LengthExp(location, exp.mEndLocation, exp);
+				
+				if(cast(VarargExp)exp)
+					exp = new VargLengthExp(location, exp.mEndLocation);
+				else
+					exp = new LengthExp(location, exp.mEndLocation, exp);
 				break;
 				
 			case Token.Type.Coroutine:
@@ -7510,7 +7597,7 @@ class LengthExp : UnaryExp
 	public override void codeGen(FuncState s)
 	{
 		mOp.codeGen(s);
-		s.popUnOp(mEndLocation.line, Op.Length);
+		s.popLength(mEndLocation.line);
 	}
 	
 	public override Expression fold()
@@ -7525,6 +7612,27 @@ class LengthExp : UnaryExp
 			throw new MDCompileException(mLocation, "Length must be performed on a string");
 		}
 		
+		return this;
+	}
+}
+
+class VargLengthExp : UnaryExp
+{
+	public this(Location location, Location endLocation)
+	{
+		super(location, endLocation, null);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		if(!s.mIsVararg)
+			throw new MDCompileException(mLocation, "'vararg' cannot be used in a non-variadic function");
+
+		s.pushVargLen(mEndLocation.line);
+	}
+	
+	public override Expression fold()
+	{
 		return this;
 	}
 }
@@ -7616,10 +7724,19 @@ abstract class PostfixExp : UnaryExp
 
 					Expression loIndex;
 					Expression hiIndex;
-					
-					Location endLocation;
 
-					if(t.type == Token.Type.DotDot)
+					Location endLocation;
+					
+					if(t.type == Token.Type.RBracket)
+					{
+						loIndex = new NullExp(t.location);
+						hiIndex = new NullExp(t.location);
+						endLocation = t.location;
+						t = t.nextToken;
+						
+						exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+					}
+					else if(t.type == Token.Type.DotDot)
 					{
 						loIndex = new NullExp(t.location);
 						t = t.nextToken;
@@ -7678,6 +7795,11 @@ abstract class PostfixExp : UnaryExp
 							exp = new IndexExp(location, endLocation, exp, loIndex);
 						}
 					}
+					continue;
+					
+				case Token.Type.Expand:
+					exp = new ExpandExp(location, t.location, exp);
+					t = t.nextToken;
 					continue;
 
 				default:
@@ -7864,12 +7986,23 @@ class IndexExp : PostfixExp
 
 	public override void codeGen(FuncState s)
 	{
-		mOp.codeGen(s);
-		
-		s.topToSource(mEndLocation.line);
+		if(cast(VarargExp)mOp)
+		{
+			if(!s.mIsVararg)
+				throw new MDCompileException(mLocation, "'vararg' cannot be used in a non-variadic function");
+				
+			mIndex.codeGen(s);
+			s.popVargIndex(mEndLocation.line);	
+		}
+		else
+		{
+			mOp.codeGen(s);
 
-		mIndex.codeGen(s);
-		s.popIndex(mEndLocation.line);
+			s.topToSource(mEndLocation.line);
+
+			mIndex.codeGen(s);
+			s.popIndex(mEndLocation.line);
+		}
 	}
 	
 	public override Expression fold()
@@ -7912,10 +8045,20 @@ class SliceExp : PostfixExp
 	
 	public override void codeGen(FuncState s)
 	{
-		uint reg = s.nextRegister();
-		Expression.codeGenListToNextReg(s, [mOp, mLoIndex, mHiIndex]);
+		if(cast(VarargExp)mOp)
+		{
+			if(!s.mIsVararg)
+				throw new MDCompileException(mLocation, "'vararg' cannot be used in a non-variadic function");
 
-		s.pushSlice(mEndLocation.line, reg);
+
+		}
+		else
+		{
+			uint reg = s.nextRegister();
+			Expression.codeGenListToNextReg(s, [mOp, mLoIndex, mHiIndex]);
+
+			s.pushSlice(mEndLocation.line, reg);
+		}
 	}
 	
 	public override Expression fold()
@@ -7945,6 +8088,35 @@ class SliceExp : PostfixExp
 			return new StringExp(mLocation, str[l .. h]);
 		}
 
+		return this;
+	}
+}
+
+class ExpandExp : PostfixExp
+{
+	public this(Location location, Location endLocation, Expression operand)
+	{
+		super(location, endLocation, operand);		
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		if(cast(VarargExp)mOp)
+		{
+			mOp.codeGen(s);
+		}
+		else
+		{
+			uint reg = s.nextRegister();
+			Expression.codeGenListToNextReg(s, [mOp, mLoIndex, mHiIndex]);
+
+			s.pushSlice(mEndLocation.line, reg);
+		}
+	}
+	
+	public override Expression fold()
+	{
+		mOp = mOp.fold();
 		return this;
 	}
 }

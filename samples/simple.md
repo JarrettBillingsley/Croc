@@ -1,29 +1,26 @@
 module simple;
 
-class A
+class A{}
+class B : A{}
+writefln(B.super);
+
+/*function foo(vararg)
 {
-	x;
-	
-	this(x)
+	writefln("got {} arguments", #vararg);
+
+	for(i: 0 .. #vararg)
 	{
-		this.x = x;
+		vararg[i] *= 2;
+		writefln("\t{}", vararg[i]);
 	}
-	
-	function toString()
-	{
-		return format("A {}", x);
-	}
-	
-	function opCmp(other)
-	{
-		return x <=> other.x;
-	}
+
+	writefln("all: ", vararg);
 }
 
-local a = [A(1), A(2), A(3)];
-local b = [A(1), A(2), A(3)];
+foo();
+foo(1, 2, 3);*/
 
-writefln(b == a);
+
 
 /+
 /*

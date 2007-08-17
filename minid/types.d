@@ -180,6 +180,7 @@ enum MM
 	Cmp,
 	ToString,
 	Length,
+	LengthAssign,
 	Apply,
 	Slice,
 	SliceAssign,
@@ -217,42 +218,43 @@ enum MM
 
 const dchar[][] MetaNames =
 [
-	MM.Add :         "opAdd",
-	MM.AddEq :       "opAddAssign",
-	MM.And :         "opAnd",
-	MM.AndEq :       "opAndAssign",
-	MM.Apply :       "opApply",
-	MM.Call :        "opCall",
-	MM.Cat :         "opCat",
-	MM.CatEq :       "opCatAssign",
-	MM.Cmp :         "opCmp",
-	MM.Com :         "opCom",
-	MM.Div :         "opDiv",
-	MM.DivEq :       "opDivAssign",
-	MM.In :          "opIn",
-	MM.Index :       "opIndex",
-	MM.IndexAssign : "opIndexAssign",
-	MM.Length :      "opLength",
-	MM.Mod :         "opMod",
-	MM.ModEq :       "opModAssign",
-	MM.Mul :         "opMul",
-	MM.MulEq :       "opMulAssign",
-	MM.Neg :         "opNeg",
-	MM.Or :          "opOr",
-	MM.OrEq :        "opOrAssign",
-	MM.Shl :         "opShl",
-	MM.ShlEq :       "opShlAssign",
-	MM.Shr :         "opShr",
-	MM.ShrEq :       "opShrAssign",
-	MM.Slice :       "opSlice",
-	MM.SliceAssign : "opSliceAssign",
-	MM.Sub :         "opSub",
-	MM.SubEq :       "opSubAssign",
-	MM.ToString :    "toString",
-	MM.UShr :        "opUShr",
-	MM.UShrEq :      "opUShrAssign",
-	MM.Xor :         "opXor",
-	MM.XorEq :       "opXorAssign",
+	MM.Add :          "opAdd",
+	MM.AddEq :        "opAddAssign",
+	MM.And :          "opAnd",
+	MM.AndEq :        "opAndAssign",
+	MM.Apply :        "opApply",
+	MM.Call :         "opCall",
+	MM.Cat :          "opCat",
+	MM.CatEq :        "opCatAssign",
+	MM.Cmp :          "opCmp",
+	MM.Com :          "opCom",
+	MM.Div :          "opDiv",
+	MM.DivEq :        "opDivAssign",
+	MM.In :           "opIn",
+	MM.Index :        "opIndex",
+	MM.IndexAssign :  "opIndexAssign",
+	MM.Length :       "opLength",
+	MM.LengthAssign : "opLengthAssign",
+	MM.Mod :          "opMod",
+	MM.ModEq :        "opModAssign",
+	MM.Mul :          "opMul",
+	MM.MulEq :        "opMulAssign",
+	MM.Neg :          "opNeg",
+	MM.Or :           "opOr",
+	MM.OrEq :         "opOrAssign",
+	MM.Shl :          "opShl",
+	MM.ShlEq :        "opShlAssign",
+	MM.Shr :          "opShr",
+	MM.ShrEq :        "opShrAssign",
+	MM.Slice :        "opSlice",
+	MM.SliceAssign :  "opSliceAssign",
+	MM.Sub :          "opSub",
+	MM.SubEq :        "opSubAssign",
+	MM.ToString :     "toString",
+	MM.UShr :         "opUShr",
+	MM.UShrEq :       "opUShrAssign",
+	MM.Xor :          "opXor",
+	MM.XorEq :        "opXorAssign",
 ];
 
 public MDString[] MetaStrings;
@@ -4361,6 +4363,14 @@ final class MDState : MDObject
 	{
 		return operatorLength(&val);
 	}
+	
+	/**
+	Sets the length of val.  Like #val = len in MiniD.  Calls metamethods.
+	*/
+	public final void lena(ref MDValue val, ref MDValue len)
+	{
+		operatorLengthAssign(&val, &len);
+	}
 
 	/**
 	Slice src from lo to hi.  Like src[lo .. hi] in MiniD.  Calls metamethods.
@@ -5770,6 +5780,45 @@ final class MDState : MDObject
 		}
 	}
 	
+	protected final void operatorLengthAssign(MDValue* RD, MDValue* RS)
+	{
+		debug(TIMINGS) scope _profiler_ = new Profiler("LengthAssign");
+
+		switch(RD.type)
+		{
+			case MDValue.Type.Array:
+				if(!RS.isInt())
+					goto default;
+					
+				int len = RS.as!(int);
+				
+				if(len < 0)
+					goto default;
+					
+				RD.as!(MDArray).length = len;
+				return;
+
+			default:
+				MDValue* method = getMM(*RD, MM.LengthAssign);
+
+				if(method.isFunction())
+				{
+					mNativeCallDepth++;
+
+					scope(exit)
+						mNativeCallDepth--;
+
+					uint funcReg = push(method);
+					push(RD);
+					push(RS);
+					call(funcReg, 2, 0);
+					return;
+				}
+				else
+					throwRuntimeException("Attempting to set length of a '{}' {}", RD.typeString());
+		}
+	}
+	
 	protected final MDValue operatorIndex(MDValue* RS, MDValue* RT)
 	{
 		MDValue tryMM(MDRuntimeException delegate() ex)
@@ -7094,6 +7143,51 @@ final class MDState : MDObject
 
 						debug(STACKINDEX) Stdout.formatln("Op.Vararg set stack index to {}", mStackIndex);
 						break;
+						
+					case Op.VargLen:
+						debug(TIMINGS) scope _profiler_ = new Profiler("VarargLen");
+						*get(i.rd) = mCurrentAR.base - mCurrentAR.vargBase;
+						break;
+
+					case Op.VargIndex:
+						debug(TIMINGS) scope _profiler_ = new Profiler("VarargIndex");
+						int numVarargs = mCurrentAR.base - mCurrentAR.vargBase;
+						
+						RS = *get(i.rs);
+						
+						if(!RS.isInt())
+							throwRuntimeException("Attempting to index 'vararg' with a '{}'", RS.typeString());
+							
+						int index = RS.as!(int);
+						
+						if(index < 0)
+							index += numVarargs;
+							
+						if(index < 0 || index >= numVarargs)
+							throwRuntimeException("Invalid 'vararg' index: {}", index);
+							
+						*get(i.rd) = mStack[mCurrentAR.vargBase + index];
+						break;
+						
+					case Op.VargIndexAssign:
+						debug(TIMINGS) scope _profiler_ = new Profiler("VarargIndexAssign");
+						int numVarargs = mCurrentAR.base - mCurrentAR.vargBase;
+
+						RS = *get(i.rd);
+
+						if(!RS.isInt())
+							throwRuntimeException("Attempting to index assign 'vararg' with a '{}'", RS.typeString());
+							
+						int index = RS.as!(int);
+
+						if(index < 0)
+							index += numVarargs;
+
+						if(index < 0 || index >= numVarargs)
+							throwRuntimeException("Invalid 'vararg' index: {}", index);
+
+						mStack[mCurrentAR.vargBase + index] = *get(i.rs);
+						break;
 
 					case Op.Yield:
 						if(mNativeCallDepth > 0)
@@ -7124,6 +7218,10 @@ final class MDState : MDObject
 					// Array and List Operations
 					case Op.Length:
 						*get(i.rd) = operatorLength(get(i.rs));
+						break;
+
+					case Op.LengthAssign:
+						operatorLengthAssign(get(i.rd), get(i.rs));
 						break;
 
 					case Op.SetArray:

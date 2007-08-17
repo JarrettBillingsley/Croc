@@ -76,6 +76,7 @@ Token:
 	'?='
 	'.'
 	'..'
+	'...'
 	'!'
 	'!='
 	'('
@@ -389,14 +390,14 @@ Assignment:
 	AssignmentLHS '^=' Expression
 	AssignmentLHS '&=' Expression
 	AssignmentLHS '?=' Expression
-	'++' PrimaryExpression
-	'--' PrimaryExpression
-	PrimaryExpression '++'
-	PrimaryExpression '--'
+	'++' AssignmentLHS
+	'--' AssignmentLHS
+	AssignmentLHS '++'
+	AssignmentLHS '--'
 
 AssignmentLHS:
 	Identifier
-	// Note - for these, the PostfixExpression must start with Identifier or with 'this'.
+	// Note - for these, the PostfixExpression must start with Identifier, 'this', or '#'.
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' Identifier
@@ -475,10 +476,12 @@ UnaryExpression:
 PostfixExpression:
 	PrimaryExpression
 	PostfixExpression '[' Expression ']'
+	PostfixExpression '[' ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' (Identifier | 'super' | 'class')
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
+	PostfixExpression '...'
 
 Arguments:
 	Expression {',' Arguments}
