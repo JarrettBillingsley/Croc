@@ -1,10 +1,6 @@
 module simple;
 
-class A{}
-class B : A{}
-writefln(B.super);
-
-/*function foo(vararg)
+function foo(vararg)
 {
 	writefln("got {} arguments", #vararg);
 
@@ -18,9 +14,17 @@ writefln(B.super);
 }
 
 foo();
-foo(1, 2, 3);*/
+foo(1, 2, 3);
 
+function each(array, func)
+{
+	for(i: 0 .. #array)
+		callblock func(i, array[i]);
+}
 
+each([1, 2, 3, 4, 5]) {|i, v|
+	writefln(i, ": ", v);
+};
 
 /+
 /*

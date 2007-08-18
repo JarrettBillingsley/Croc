@@ -3620,6 +3620,7 @@ final class MDState : MDObject
 		Instruction* pc;
 		uint numReturns;
 		MDNamespace env;
+		uint blockRet = uint.max;
 	}
 
 	struct TryRecord
@@ -3629,7 +3630,7 @@ final class MDState : MDObject
 		uint actRecord;
 		Instruction* pc;
 	}
-	
+
 	/**
 	An enumeration of all the valid states a thread can be in, for coroutine support.
 	*/
@@ -6925,10 +6926,13 @@ final class MDState : MDObject
 						break;
 
 					// Function Calling
+				{
+					Instruction call = void;
+
 					case Op.Method:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Method");
 
-						Instruction call = *mCurrentAR.pc;
+						call = *mCurrentAR.pc;
 						mCurrentAR.pc++;
 						assert(i.rd == call.rd, "Op.Method");
 
@@ -6938,62 +6942,7 @@ final class MDState : MDObject
 						mStack[mCurrentAR.base + i.rd + 1] = RS;
 						mStack[mCurrentAR.base + i.rd] = lookupMethod(&RS, methodName);
 
-						if(call.opcode == Op.Call)
-						{
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-							int numResults = call.rt - 1;
-	
-							if(numParams == -1)
-								numParams = getBasedStackIndex() - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-	
-							if(callPrologue(funcReg, numResults, numParams) == true)
-							{
-								depth++;
-								constTable = mCurrentAR.func.script.func.mConstants;
-							}
-							else
-							{
-								if(numResults >= 0)
-									mStackIndex = mCurrentAR.savedTop;
-							}
-						}
-						else
-						{
-							assert(call.opcode == Op.Tailcall, "Op.Method invalid call opcode");
-							close(0);
-
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-	
-							if(numParams == -1)
-								numParams = getBasedStackIndex() - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-
-							funcReg = basedIndexToAbs(funcReg);
-	
-							int destReg = mCurrentAR.funcSlot;
-	
-							for(int j = 0; j < numParams + 1; j++)
-								copyAbsStack(destReg + j, funcReg + j);
-	
-							int numReturns = mCurrentAR.numReturns;
-	
-							popAR();
-	
-							if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
-								--depth;
-	
-							if(depth == 0)
-								return;
-								
-							constTable = mCurrentAR.func.script.func.mConstants;
-						}
-						
-						break;
+						goto _commonCall;
 
 					case Op.Precall:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Precall");
@@ -7006,71 +6955,93 @@ final class MDState : MDObject
 						if(i.rd != i.rs)
 							*getBasedStack(i.rd) = RS;
 
-						Instruction call = *mCurrentAR.pc;
+						call = *mCurrentAR.pc;
 						mCurrentAR.pc++;
-
-						if(call.opcode == Op.Call)
-						{
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-							int numResults = call.rt - 1;
-
-							if(numParams == -1)
-								numParams = getBasedStackIndex() - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-
-							if(callPrologue(funcReg, numResults, numParams) == true)
-							{
-								depth++;
-								constTable = mCurrentAR.func.script.func.mConstants;
-							}
-							else
-							{
-								if(numResults >= 0)
-									mStackIndex = mCurrentAR.savedTop;
-							}
-						}
-						else
-						{
-							assert(call.opcode == Op.Tailcall, "Op.Precall invalid call opcode");
-
-							close(0);
-
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-	
-							if(numParams == -1)
-								numParams = getBasedStackIndex() - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-	
-							funcReg = basedIndexToAbs(funcReg);
-	
-							int destReg = mCurrentAR.funcSlot;
-	
-							for(int j = 0; j < numParams + 1; j++)
-								copyAbsStack(destReg + j, funcReg + j);
-	
-							int numReturns = mCurrentAR.numReturns;
-	
-							popAR();
-
-							{
-								scope(failure)
-									--depth;
-
-								if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
-									--depth;
-							}
-
-							if(depth == 0)
-								return;
-								
-							constTable = mCurrentAR.func.script.func.mConstants;
-						}
 						
+					_commonCall:
+						switch(call.opcode)
+						{
+							case Op.Call, Op.CallBlock:
+								int funcReg = call.rd;
+								int numParams = call.rs - 1;
+								int numResults = call.rt - 1;
+
+								if(numParams == -1)
+									numParams = getBasedStackIndex() - funcReg - 1;
+								else
+									mStackIndex = funcReg + numParams + 1;
+
+								if(call.opcode == Op.CallBlock)
+									mCurrentAR.blockRet = funcReg + mCurrentAR.base;
+
+								if(callPrologue(funcReg, numResults, numParams) == true)
+								{
+									depth++;
+									constTable = mCurrentAR.func.script.func.mConstants;
+								}
+								else
+								{
+									if(numResults >= 0)
+										mStackIndex = mCurrentAR.savedTop;
+
+									if(call.opcode == Op.CallBlock)
+									{
+										mCurrentAR.blockRet = uint.max;
+										funcReg += mCurrentAR.base;
+
+										assert(mStackIndex - funcReg >= 1, "Block function must return at least one value");
+										assert(mStack[funcReg].isBool(), "Block function must return a boolean as the first return value");
+
+										if(mStack[funcReg].as!(bool) is false)
+										{
+											saveResults(mStack[funcReg + 1 .. mStackIndex]);
+											mStackIndex = mCurrentAR.savedTop;
+											
+											goto _commonReturn;
+										}
+									}
+								}
+								
+								break;
+								
+							case Op.Tailcall:
+								close(0);
+	
+								int funcReg = call.rd;
+								int numParams = call.rs - 1;
+	
+								if(numParams == -1)
+									numParams = getBasedStackIndex() - funcReg - 1;
+								else
+									mStackIndex = funcReg + numParams + 1;
+	
+								funcReg = basedIndexToAbs(funcReg);
+	
+								int destReg = mCurrentAR.funcSlot;
+	
+								for(int j = 0; j < numParams + 1; j++)
+									copyAbsStack(destReg + j, funcReg + j);
+	
+								int numReturns = mCurrentAR.numReturns;
+	
+								popAR();
+	
+								{
+									scope(failure)
+										--depth;
+	
+									if(callPrologue(absIndexToBased(destReg), numReturns, numParams) == false)
+										--depth;
+								}
+	
+								if(depth == 0)
+									return;
+	
+								constTable = mCurrentAR.func.script.func.mConstants;
+								break;
+						}
 						break;
+				}
 
 					case Op.Ret:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Ret");
@@ -7086,6 +7057,7 @@ final class MDState : MDObject
 						else
 							saveResults(mStack[firstResult .. firstResult + numResults]);
 
+					_commonReturn:
 						isReturning = true;
 
 						if(mTRIndex > 0)
@@ -7112,6 +7084,18 @@ final class MDState : MDObject
 
 						isReturning = false;
 						constTable = mCurrentAR.func.script.func.mConstants;
+
+						if(mCurrentAR.blockRet != uint.max)
+						{
+							uint reg = mCurrentAR.blockRet;
+							mCurrentAR.blockRet = uint.max;
+
+							if(mStack[reg].as!(bool) is false)
+							{
+								saveResults(mStack[reg + 1 .. mStackIndex]);
+								goto _commonReturn;
+							}
+						}
 						break;
 
 					case Op.Vararg:

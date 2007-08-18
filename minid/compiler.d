@@ -154,6 +154,7 @@ struct Token
 	{
 		As,
 		Break,
+		CallBlock,
 		Case,
 		Catch,
 		Class,
@@ -253,6 +254,7 @@ struct Token
 	[
 		Type.As: "as",
 		Type.Break: "break",
+		Type.CallBlock: "callblock",
 		Type.Case: "case",
 		Type.Catch: "catch",
 		Type.Class: "class",
@@ -354,6 +356,7 @@ struct Token
 	{
 		stringToType["as"] = Type.As;
 		stringToType["break"] = Type.Break;
+		stringToType["callblock"] = Type.CallBlock;
 		stringToType["case"] = Type.Case;
 		stringToType["catch"] = Type.Catch;
 		stringToType["class"] = Type.Class;
@@ -1564,6 +1567,8 @@ class FuncState
 		protected uint varStart = 0;
 		protected uint regStart = 0;
 		protected bool hasUpval = false;
+		protected bool isBlock = false;
+		protected bool blockRet = false;
 	}
 
 	protected FuncState mParent;
@@ -1582,6 +1587,7 @@ class FuncState
 	protected uint[] mLineInfo;
 	protected dchar[] mGuessedName;
 	protected bool mIsMethod;
+	protected bool mIsBlock;
 
 	struct LocVarDesc
 	{
@@ -1663,6 +1669,11 @@ class FuncState
 	public bool isMethod()
 	{
 		return mIsMethod;
+	}
+
+	public bool isBlockReturn()
+	{
+		return mScope.blockRet;
 	}
 
 	public uint tagLocal(uint val)
@@ -1760,14 +1771,27 @@ class FuncState
 		mFreeReg -= num;
 	}
 
-	public void pushScope()
+	public void pushScope(bool isBlock = false)
 	{
 		Scope* s = new Scope;
 
-		s.breakScope = mScope.breakScope;
-		s.continueScope = mScope.continueScope;
 		s.varStart = mLocVars.length;
 		s.regStart = mFreeReg;
+		s.isBlock = isBlock;
+		
+		if(mScope !is null)
+			s.blockRet = mScope.blockRet;
+
+		if(isBlock)
+		{
+			s.breakScope = s;
+			s.continueScope = s;
+		}
+		else
+		{
+			s.breakScope = mScope.breakScope;
+			s.continueScope = mScope.continueScope;
+		}
 
 		s.enclosing = mScope;
 		mScope = s;
@@ -2460,6 +2484,13 @@ class FuncState
 		assert(mCode[$ - 1].opcode == Op.Call, "need call to make tailcall");
 		mCode[$ - 1].opcode = Op.Tailcall;
 	}
+	
+	public void makeCallBlock()
+	{
+		assert(mCode[$ - 1].opcode == Op.Call, "need call to make callblock");
+		mCode[$ - 1].opcode = Op.CallBlock;
+		mCode[$ - 1].rt = 0;
+	}
 
 	public void popMoveFromReg(uint line, uint srcReg)
 	{
@@ -2815,13 +2846,22 @@ class FuncState
 		if(mScope.continueScope is null)
 			throw new MDCompileException(location, "No continuable control structure");
 
-		if(mScope.continueScope.hasUpval)
-			codeClose(location.line, mScope.continueScope.regStart);
+		if(mScope.continueScope.isBlock)
+		{
+			uint reg = nextRegister();
+			codeR(location.line, Op.LoadBool, reg, 1, 0);
+			codeI(location.line, Op.Ret, reg, 2);
+		}
+		else
+		{
+			if(mScope.continueScope.hasUpval)
+				codeClose(location.line, mScope.continueScope.regStart);
 
-		InstRef* i = new InstRef;
-		i.pc = codeJ(location.line, Op.Jmp, 1, 0);
-		i.trueList = mScope.continueScope.continues;
-		mScope.continueScope.continues = i;
+			InstRef* i = new InstRef;
+			i.pc = codeJ(location.line, Op.Jmp, 1, 0);
+			i.trueList = mScope.continueScope.continues;
+			mScope.continueScope.continues = i;
+		}
 	}
 
 	public void codeBreak(Location location)
@@ -2829,13 +2869,22 @@ class FuncState
 		if(mScope.breakScope is null)
 			throw new MDCompileException(location, "No breakable control structure");
 
-		if(mScope.breakScope.hasUpval)
-			codeClose(location.line, mScope.breakScope.regStart);
+		if(mScope.continueScope.isBlock)
+		{
+			uint reg = nextRegister();
+			codeR(location.line, Op.LoadBool, reg, 0, 0);
+			codeI(location.line, Op.Ret, reg, 2);
+		}
+		else
+		{
+			if(mScope.breakScope.hasUpval)
+				codeClose(location.line, mScope.breakScope.regStart);
 
-		InstRef* i = new InstRef;
-		i.pc = codeJ(location.line, Op.Jmp, 1, 0);
-		i.trueList = mScope.breakScope.breaks;
-		mScope.breakScope.breaks = i;
+			InstRef* i = new InstRef;
+			i.pc = codeJ(location.line, Op.Jmp, 1, 0);
+			i.trueList = mScope.breakScope.breaks;
+			mScope.breakScope.breaks = i;
+		}
 	}
 	
 	public int codeStringConst(dchar[] c)
@@ -3157,9 +3206,12 @@ class ClassDef
 					Location ctorLocation = t.location;
 					Identifier name = new Identifier("constructor", t.location);
 					t = t.nextToken;
+					t = t.expect(Token.Type.LParen);
 
 					bool isVararg;
-					auto params = FuncDef.parseParams(t, isVararg);
+					auto params = FuncDef.parseParams(t, Token.Type.RParen, isVararg);
+
+					t = t.expect(Token.Type.RParen);
 
 					CompoundStatement funcBody = CompoundStatement.parse(t);
 					addMethod(new FuncDef(ctorLocation, funcBody.mEndLocation, params, isVararg, funcBody, name));
@@ -3323,10 +3375,12 @@ class FuncDef
 		t = t.expect(Token.Type.Function);
 
 		Identifier name = Identifier.parse(t);
+		t = t.expect(Token.Type.LParen);
 
 		bool isVararg;
-		Param[] params = parseParams(t, isVararg);
+		Param[] params = parseParams(t, Token.Type.RParen, isVararg);
 
+		t = t.expect(Token.Type.RParen);
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 
 		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
@@ -3345,8 +3399,12 @@ class FuncDef
 		else
 			name = new Identifier("<literal at " ~ utf.toUtf32(location.toUtf8()) ~ ">", location);
 
+		t = t.expect(Token.Type.LParen);
+
 		bool isVararg;
-		Param[] params = parseParams(t, isVararg);
+		Param[] params = parseParams(t, Token.Type.RParen, isVararg);
+
+		t = t.expect(Token.Type.RParen);
 
 		Statement funcBody;
 		
@@ -3357,21 +3415,45 @@ class FuncDef
 
 		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
 	}
+	
+	public static FuncDef parseBlock(ref Token* t)
+	{
+		Location location = t.location;
+		t = t.expect(Token.Type.LBrace);
+		t = t.expect(Token.Type.Or);
+		
+		Identifier name = new Identifier("<block at " ~ utf.toUtf32(location.toUtf8()) ~ ">", location);
+		
+		bool isVararg;
+		Param[] params = parseParams(t, Token.Type.Or, isVararg);
+		
+		t = t.expect(Token.Type.Or);
+		
+		Location stmtLocation = t.location;
 
-	public static Param[] parseParams(ref Token* t, out bool isVararg)
+		List!(Statement) funcBody;
+
+		while(t.type != Token.Type.RBrace)
+			funcBody.add(Statement.parse(t));
+
+		Location endLocation = t.location;
+		t = t.expect(Token.Type.RBrace);
+
+		return new FuncDef(location, endLocation, params, isVararg, new CompoundStatement(stmtLocation, endLocation, funcBody.toArray()), name);
+	}
+
+	public static Param[] parseParams(ref Token* t, Token.Type terminator, out bool isVararg)
 	{
 		Param[] ret = new Param[1];
 
 		ret[0].name = new Identifier("this", t.location);
-
-		t = t.expect(Token.Type.LParen);
 
 		if(t.type == Token.Type.Vararg)
 		{
 			isVararg = true;
 			t = t.nextToken;
 		}
-		else if(t.type != Token.Type.RParen)
+		else if(t.type != terminator)
 		{
 			while(true)
 			{
@@ -3395,14 +3477,13 @@ class FuncDef
 				ret[$ - 1].name = name;
 				ret[$ - 1].defValue = defValue;
 
-				if(t.type == Token.Type.RParen)
+				if(t.type == terminator)
 					break;
 
 				t = t.expect(Token.Type.Comma);
 			}
 		}
-		
-		t = t.expect(Token.Type.RParen);
+
 		return ret;
 	}
 
@@ -3425,6 +3506,33 @@ class FuncDef
 		mBody.codeGen(fs);
 		fs.codeI(mBody.mEndLocation.line, Op.Ret, 0, 1);
 		fs.popScope(mBody.mEndLocation.line);
+		s.pushClosure(fs);
+	}
+	
+	public void codeGenBlock(FuncState s, bool isMethod = false)
+	{
+		FuncState fs = new FuncState(mLocation, mName.mName, s, isMethod);
+
+		fs.mIsVararg = mIsVararg;
+		fs.mNumParams = mParams.length;
+
+		foreach(p; mParams)
+			fs.insertLocal(p.name);
+
+		fs.activateLocals(mParams.length);
+
+		foreach(p; mParams)
+			if(p.defValue !is null)
+				(new OpEqExp(p.name.mLocation, p.name.mLocation, Op.CondMove, new IdentExp(p.name.mLocation, p.name), p.defValue)).codeGen(fs);
+
+		fs.pushScope(true);
+		mBody.codeGen(fs);
+		uint reg = fs.nextRegister();
+		fs.codeR(mBody.mEndLocation.line, Op.LoadBool, reg, 1, 0);
+		fs.codeI(mBody.mEndLocation.line, Op.Ret, reg, 2);
+		fs.popScope(mBody.mEndLocation.line);
+		fs.popScope(mBody.mEndLocation.line);
+
 		s.pushClosure(fs);
 	}
 
@@ -3628,7 +3736,7 @@ class Module
 		}
 		finally
 		{
-			showMe(); fs.showMe(); Stdout.flush;
+			fs.showMe(); Stdout.flush;
 			//fs.printExpStack();
 		}
 
@@ -3637,11 +3745,6 @@ class Module
 		def.mFunc = fs.toFuncDef();
 
 		return def;
-	}
-	
-	public void showMe()
-	{
-		Stdout.formatln("module {}", Identifier.toLongString(mModDecl.mNames));
 	}
 }
 
@@ -3716,6 +3819,9 @@ abstract class Statement
 				
 			case Token.Type.Import:
 				return ImportStatement.parse(t);
+				
+			case Token.Type.CallBlock:
+				return CallBlockStatement.parse(t);
 
 			case Token.Type.LBrace:
 				CompoundStatement s = CompoundStatement.parse(t);
@@ -4413,7 +4519,7 @@ class CompoundStatement : Statement
 		super(location, endLocation);
 		mStatements = statements;
 	}
-
+	
 	public static CompoundStatement parse(ref Token* t)
 	{
 		Location location = t.location;
@@ -4443,6 +4549,47 @@ class CompoundStatement : Statement
 		foreach(ref statement; mStatements)
 			statement = statement.fold();
 			
+		return this;
+	}
+}
+
+class CallBlockStatement : Statement
+{
+	protected Expression mExp;
+
+	public this(Location location, Location endLocation, Expression exp)
+	{
+		super(location, endLocation);
+		mExp = exp;
+	}
+
+	public static CallBlockStatement parse(ref Token* t)
+	{
+		Location location = t.location;
+		t = t.expect(Token.Type.CallBlock);
+
+		Expression exp = Expression.parse(t);
+
+		if(cast(CallExp)exp is null)
+			throw new MDCompileException(location, "Function call expression expected after 'callblock'");
+
+		Location endLocation = t.location;
+		t = t.expect(Token.Type.Semicolon);
+
+		return new CallBlockStatement(location, endLocation, exp);
+	}
+	
+	public override void codeGen(FuncState fs)
+	{
+		uint reg = fs.nextRegister();
+		mExp.codeGen(fs);
+		fs.popToRegisters(mLocation.line, reg, -1);
+		fs.makeCallBlock();
+	}
+
+	public override Statement fold()
+	{
+		mExp = mExp.fold();
 		return this;
 	}
 }
@@ -5556,6 +5703,9 @@ class ReturnStatement : Statement
 
 	public override void codeGen(FuncState s)
 	{
+		if(s.isBlockReturn())
+			mExprs = [new BoolExp(mLocation, false)] ~ mExprs;
+
 		if(mExprs.length == 0)
 			s.codeI(mLocation.line, Op.Ret, 0, 1);
 		else
@@ -5580,7 +5730,7 @@ class ReturnStatement : Statement
 			}
 		}
 	}
-	
+
 	public override Statement fold()
 	{
 		foreach(ref exp; mExprs)
@@ -7716,6 +7866,12 @@ abstract class PostfixExp : UnaryExp
 					Location endLocation = t.location;
 					t = t.nextToken;
 
+					if(t.type == Token.Type.LBrace)
+					{
+						args ~= BlockLiteralExp.parse(t);
+						endLocation = args[$ - 1].mEndLocation;
+					}
+
 					exp = new CallExp(location, endLocation, exp, context, args);
 					continue;
 
@@ -7797,6 +7953,11 @@ abstract class PostfixExp : UnaryExp
 					}
 					continue;
 					
+// 				case Token.Type.LBrace:
+// 					auto block = BlockLiteralExp.parse(t);
+// 					exp = new CallExp(exp.mLocation, block.mEndLocation, exp, null, [block]);
+// 					continue;
+
 				case Token.Type.Expand:
 					exp = new ExpandExp(location, t.location, exp);
 					t = t.nextToken;
@@ -8099,7 +8260,7 @@ class ExpandExp : PostfixExp
 		super(location, endLocation, operand);		
 	}
 	
-	public override void codeGen(FuncState s)
+	/*public override void codeGen(FuncState s)
 	{
 		if(cast(VarargExp)mOp)
 		{
@@ -8112,7 +8273,7 @@ class ExpandExp : PostfixExp
 
 			s.pushSlice(mEndLocation.line, reg);
 		}
-	}
+	}*/
 	
 	public override Expression fold()
 	{
@@ -8189,7 +8350,10 @@ class PrimaryExp : Expression
 				break;
 				
 			case Token.Type.LBrace:
-				exp = TableCtorExp.parse(t);
+				if(t.nextToken.type == Token.Type.Or)
+					exp = BlockLiteralExp.parse(t);
+				else
+					exp = TableCtorExp.parse(t);
 				break;
 
 			case Token.Type.LBracket:
@@ -8741,6 +8905,41 @@ class FuncLiteralExp : PrimaryExp
 	}
 	
 	public override FuncLiteralExp fold()
+	{
+		mDef = mDef.fold();
+		return this;
+	}
+}
+
+class BlockLiteralExp : PrimaryExp
+{
+	protected FuncDef mDef;
+	
+	public this(Location location, Location endLocation, FuncDef def)
+	{
+		super(location, endLocation);
+		mDef = def;
+	}
+	
+	public static BlockLiteralExp parse(ref Token* t)
+	{
+		Location location = t.location;
+		FuncDef def = FuncDef.parseBlock(t);
+
+		return new BlockLiteralExp(location, def.mEndLocation, def);
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		mDef.codeGenBlock(s);
+	}
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(mLocation, "Cannot use a block literal as a condition");
+	}
+	
+	public override BlockLiteralExp fold()
 	{
 		mDef = mDef.fold();
 		return this;

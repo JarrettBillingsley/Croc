@@ -37,6 +37,7 @@ enum Op : uint
 	AndEq,
 	As,
 	Call,
+	CallBlock,
 	Cat,
 	CatEq,
 	Class,
@@ -129,6 +130,7 @@ And...............R: dest, src, src
 AndEq.............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
+CallBlock.........R: register of func, num params + 1, n/a (0 params = use all to end of stack)
 Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
 CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
 Class.............R: dest, name const index, base class
@@ -283,6 +285,7 @@ align(1) struct Instruction
 			case Op.AndEq:           return Stdout.layout.convert("andeq {}, {}", cr(rd), cr(rs));
 			case Op.As:              return Stdout.layout.convert("as {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Call:            return Stdout.layout.convert("call r{}, {}, {}", rd, rs, rt);
+			case Op.CallBlock:       return Stdout.layout.convert("callblk r{}, {}", rd, rs);
 			case Op.Cat:             return Stdout.layout.convert("cat {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CatEq:           return Stdout.layout.convert("cateq {}, r{}, {}", cr(rd), rs, rt);
 			case Op.Class:           return Stdout.layout.convert("class {}, {}, {}", cr(rd), cr(rs), cr(rt));

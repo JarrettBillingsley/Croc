@@ -105,6 +105,7 @@ IdentifierChar:
 Keyword:
 	'as'
 	'break'
+	'callblock'
 	'case'
 	'class'
 	'catch'
@@ -262,6 +263,7 @@ ModuleDeclaration:
 Statement:
 	ImportStatement
 	BlockStatement
+	CallBlockStatement
 	ExpressionStatement
 	DeclarationStatement
 	IfStatement
@@ -282,6 +284,9 @@ ImportStatement:
 
 BlockStatement:
 	'{' {Statement} '}'
+	
+CallBlockStatement:
+	'callblock' CallExpression ';'
 	
 ExpressionStatement:
 	BaseExpression ';'
@@ -306,11 +311,11 @@ FunctionDeclaration:
 	['local' | 'global'] SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
-	'function' Identifier Parameters BlockStatement
-	
+	'function' Identifier '(' Parameters ')' BlockStatement
+
 Parameters:
-	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
-	'(' 'vararg' ')'
+	[Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']]
+	'vararg'
 
 ClassDeclaration:
 	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
@@ -318,7 +323,7 @@ ClassDeclaration:
 ClassMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
-	'this' Parameters BlockStatement
+	'this' '(' Parameters ')' BlockStatement
 	
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
@@ -475,10 +480,15 @@ UnaryExpression:
 
 PostfixExpression:
 	PrimaryExpression
+	CallExpression [BlockLiteral]
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' (Identifier | 'super' | 'class')
+	PostfixExpression '.' ('super' | 'class')
+	//PostfixExpression BlockLiteral
+
+CallExpression:
+	PostfixExpression '.' Identifier '(' [Arguments] ')'
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
 	PostfixExpression '...'
@@ -497,7 +507,7 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
-	'function' [Identifier] Parameters (BlockStatement | Expression)
+	'function' [Identifier] '(' Parameters ')' (BlockStatement | Expression)
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	TableCtor
@@ -505,6 +515,7 @@ PrimaryExpression:
 	NamespaceCtor
 	'yield' '(' [Arguments] ')'
 	'super' ['.' Identifier] '(' [Arguments] ')'
+	BlockLiteral
 
 TableCtor:
 	'{' [TableField {',' TableField}] '}'
@@ -519,3 +530,6 @@ ArrayCtor:
 	
 NamespaceCtor:
 	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
+	
+BlockLiteral:
+	'{' '|' Parameters '|' {Statement} '}'
