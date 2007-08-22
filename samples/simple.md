@@ -1,43 +1,108 @@
 module simple;
 
-function foo(vararg)
 {
-	writefln("got {} arguments", #vararg);
-
-	for(i: 0 .. #vararg)
+	/+class A
 	{
-		vararg[i] *= 2;
-		writefln("\t{}", vararg[i]);
+		x = 5;
+		y = 10;
+
+		this()
+		{
+			writeln("A ctor!");
+		}
+
+		function foo()
+		{
+			writefln("I'm an A, and my values are x = {}, y = {}", x, y);
+		}
+	}
+	
+	class Mock
+	{
+		mInstance;
+
+		this(className, vararg)
+		{
+			mInstance = className(vararg);
+		}
+		
+		function opField(name)
+		{
+			writefln("Mock: getting field {}.", name);
+			return mInstance.(name);
+		}
+		
+		function opFieldAssign(name, value)
+		{
+			writefln("Mock: setting field {} to {}.", name, value);
+			mInstance.(name) = value;
+		}
+
+		function opMethod(name)
+		{
+			return function(vararg)
+			{
+				writef("Mock: calling method {} with parameters ", name);
+				
+				if(#vararg > 0)
+				{
+					write(vararg[0]);
+
+					for(i: 1 .. #vararg)
+						write(", ", vararg[i]);
+				}
+				
+				writeln();
+
+				return mInstance.(name)(vararg);
+			};
+		}
 	}
 
-	writefln("all: ", vararg);
+	local a = A();
+	a.foo();
+	a.x += 5;
+	a.foo();
+	
+	a = Mock(A);
+	a.foo();
+	a.x += 5;
+	a.foo(1, 2);+/
+
+	/*function foo(vararg)
+	{
+		for(i: 0 .. #vararg + 1)
+			writefln("i: {} args: ", i, vararg[i ..]);
+
+		writefln(vararg);
+		writefln(vararg[]);
+		writefln(vararg[0 .. #vararg]);
+	}
+
+	foo(1, 2, 3);
+
+	writefln();
+
+	function each(array, func)
+	{
+		for(i: 0 .. #array)
+			callblock func(i, array[i]);
+	}
+
+	each([1, 2, 3, 4, 5]) |i, v|
+	{
+		writefln(i, ": ", v);
+	};
+
+	function blah(func)
+	{
+		for(i: 1 .. 6)
+			callblock func(i);
+	}
+
+	blah |i| { writefln(i); };*/
 }
 
-foo();
-foo(1, 2, 3);
-
-function each(array, func)
-{
-	for(i: 0 .. #array)
-		callblock func(i, array[i]);
-}
-
-each([1, 2, 3, 4, 5]) {|i, v|
-	writefln(i, ": ", v);
-};
-
-/+
-/*
-local co = coroutine Co;
-writefln("In main, the coroutine says: \"{}\"", co(1, 2));
-writefln("In main, the coroutine says: \"{}\"", co([1, 2, 3], "hi"));
-writefln("In main, the coroutine says: \"{}\"", co());
-
-writefln("Co's state: {}", co.state());
-co.reset();
-writefln("Now, Co's state: {}", co.state());
-co(3, 4);
-*/
 
 // Making sure finally blocks are executed.
 {
@@ -89,14 +154,14 @@ co(3, 4);
 		{
 			writefln(x);
 		};
-		
+
 		foreach(k, v; ns)
 			if(isFunction(v))
 				v.environment(ns);
 	}
-	
+
 	setModuleLoader("mod", loadMod);
-	
+
 	import mod : foo, bar;
 	foo();
 	writefln(bar([5]));
@@ -202,10 +267,10 @@ co(3, 4);
 	{
 		classType.mProps = { };
 	
-		classType.opIndex = function opIndex(key)
+		classType.opField = function opField(key)
 		{
 			local prop = mProps[key];
-	
+
 			if(prop is null)
 				throw format(classType, ".opIndex() - Property '{}' does not exist", key);
 
@@ -217,7 +282,7 @@ co(3, 4);
 			return getter(with this);
 		};
 
-		classType.opIndexAssign = function opIndexAssign(key, value)
+		classType.opFieldAssign = function opFieldAssign(key, value)
 		{
 			local prop = mProps[key];
 
@@ -271,22 +336,22 @@ co(3, 4);
 		PropTest,
 	
 		{
-			name = "x",
+			name = :x,
 
 			function setter(value)
 			{
 				mX = value;
 			}
-	
+
 			function getter()
 			{
 				return mX;
 			}
 		},
-	
+
 		{
-			name = "y",
-	
+			name = :y,
+
 			function setter(value)
 			{
 				mY = value;
@@ -299,7 +364,7 @@ co(3, 4);
 		},
 	
 		{
-			name = "name",
+			name = :name,
 	
 			function getter()
 			{
@@ -811,4 +876,4 @@ co(3, 4);
 				break;
 		}
 	}
-}+/
+}

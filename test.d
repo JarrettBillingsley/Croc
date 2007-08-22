@@ -5,32 +5,17 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
+import tango.core.Exception;
+
 void main()
 {
+	//setAssertHandler(function void(char[] file, uint line, char[] msg) { *(cast(byte*)null) = 0; });
+
 	try
 	{
 		MDContext ctx = NewContext();
 
-		/+/*
-		ctx.globals["Co"d] = new MDClosure(ctx.globals.ns, (MDState s, uint numParams)
-		{
-			with(s)
-			{
-				Stdout.formatln("Co has begun with Params: {}, {}", getParam!(int)(0), getParam!(int)(1));
-				yield(2, MDValue("I've begun"));
-
-				MDValue r2 = pop();
-				MDValue r1 = pop();
-
-				Stdout.formatln("Back in co, main gave me: {}, {}", valueToString(r1), valueToString(r2));
-				yield(0, MDValue("Thanks for the values"));
-				Stdout.formatln("Co is about to return, bye");
-				push("I'm finished");
-				return 1;
-			}
-		}, "Co"d);*/
-
-		WrapModule!
+		/*WrapModule!
 		(
 			"bar",
 			WrapFunc!(foo),
@@ -60,7 +45,7 @@ void main()
 		)(ctx);
 
 		WrapGlobalFunc!(one, "One")(ctx);
-		WrapGlobalFunc!(two, void function(int, int))(ctx);+/
+		WrapGlobalFunc!(two, void function(int, int))(ctx);*/
 
 		ctx.addImportPath(`samples`);
 		ctx.importModule("simple");

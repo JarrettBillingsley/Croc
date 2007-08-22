@@ -37,6 +37,7 @@ Token:
 	StringLiteral
 	IntLiteral
 	FloatLiteral
+	SymbolLiteral
 	'+'
 	'+='
 	'++'
@@ -76,7 +77,6 @@ Token:
 	'?='
 	'.'
 	'..'
-	'...'
 	'!'
 	'!='
 	'('
@@ -168,10 +168,10 @@ EscapeSequence:
 	'\ ' DecimalDigit [DecimalDigit [DecimalDigit]]
 
 WysiwygString:
-	'@"' {Character | EndOfLine} '"'
+	'@"' {Character | EndOfLine | '""'} '"'
 
 AltWysiwygString:
-	'`' {Character | EndOfLine} '`'
+	'`' {Character | EndOfLine | '``'} '`'
 
 IntLiteral:
 	Decimal
@@ -247,6 +247,10 @@ FloatLiteral:
 
 Exponent:
 	('e' | 'E')['+' | '-'] (DecimalDigit | '_') {DecimalDigit | '_'}
+	
+SymbolLiteral:
+	':' (Identifier | Keyword)
+	':' '"' {Character | EscapeSequence} '"'
 
 // -----------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------
@@ -480,18 +484,17 @@ UnaryExpression:
 
 PostfixExpression:
 	PrimaryExpression
-	CallExpression [BlockLiteral]
+	CallExpression
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' ('super' | 'class')
-	//PostfixExpression BlockLiteral
+	PostfixExpression '.' (Identifier | 'super' | 'class' | '(' Expression ')')
+	PostfixExpression BlockLiteral
 
 CallExpression:
 	PostfixExpression '.' Identifier '(' [Arguments] ')'
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
-	PostfixExpression '...'
 
 Arguments:
 	Expression {',' Arguments}
@@ -507,29 +510,18 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
+	SymbolLiteral
 	'function' [Identifier] '(' Parameters ')' (BlockStatement | Expression)
+	'|' Parameters '|' BlockStatement
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
-	TableCtor
-	ArrayCtor
-	NamespaceCtor
+	'{' [TableField {',' TableField}] '}'
+	'[' [Expression {',' Expression}] ']'
+	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	'yield' '(' [Arguments] ')'
 	'super' ['.' Identifier] '(' [Arguments] ')'
-	BlockLiteral
-
-TableCtor:
-	'{' [TableField {',' TableField}] '}'
 
 TableField:
 	Identifier '=' Expression
 	'[' Expression ']' '=' Expression
 	SimpleFunctionDeclaration
-
-ArrayCtor:
-	'[' [Expression {',' Expression}] ']'
-	
-NamespaceCtor:
-	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
-	
-BlockLiteral:
-	'{' '|' Parameters '|' {Statement} '}'

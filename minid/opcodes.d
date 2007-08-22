@@ -52,7 +52,8 @@ enum Op : uint
 	Div,
 	DivEq,
 	EndFinal,
-	Expand,
+	Field,
+	FieldAssign,
 	For,
 	Foreach,
 	ForLoop,
@@ -84,6 +85,7 @@ enum Op : uint
 	NewArray,
 	NewGlobal,
 	NewTable,
+	NewVector,
 	Not,
 	NotIn,
 	Or,
@@ -111,9 +113,9 @@ enum Op : uint
 	UShr,
 	UShrEq,
 	Vararg,
-	VargLen,
 	VargIndex,
 	VargIndexAssign,
+	VargLen,
 	VargSlice,
 	Xor,
 	XorEq,
@@ -145,7 +147,8 @@ Com...............R: dest, src, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
-Expand............R: dest base reg, src, num results + 1 (0 = return all)
+Field.............R: dest, src, index
+FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
@@ -177,6 +180,7 @@ Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
+NewVector.........I: dest, size
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
 Or................R: dest, src, src
@@ -204,10 +208,10 @@ Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
 UShrEq............R: dest, src, n/a
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
-VargLen...........R: dest, n/a, n/a
 VargIndex.........R: dest, idx, n/a
 VargIndexAssign...R: idx, src, n/a
-VargSlice.........R: dest, lo, hi
+VargLen...........R: dest, n/a, n/a
+VargSlice.........I: base reg, num rets + 1 (0 = return all to end of stack; indices are at base reg and base reg + 1)
 Xor...............R: dest, src, src
 XorEq.............R: dest, src, n/a
 Yield.............R: register of first yielded value, num values + 1, num results + 1 (both, 0 = to end of stack)
@@ -300,7 +304,8 @@ align(1) struct Instruction
 			case Op.Div:             return Stdout.layout.convert("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:           return Stdout.layout.convert("diveq {}, {}", cr(rd), cr(rs));
 			case Op.EndFinal:        return "endfinal";
-			case Op.Expand:          return Stdout.layout.convert("expnd r{}, {}, {}", rd, cr(rs), rt);
+			case Op.Field:           return Stdout.layout.convert("field {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.FieldAssign:     return Stdout.layout.convert("fielda {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.For:             return Stdout.layout.convert("for {}, {}", cr(rd), imm);
 			case Op.Foreach:         return Stdout.layout.convert("foreach r{}, {}", rd, uimm);
 			case Op.ForLoop:         return Stdout.layout.convert("forloop {}, {}", cr(rd), imm);
@@ -332,6 +337,7 @@ align(1) struct Instruction
 			case Op.NewArray:        return Stdout.layout.convert("newarr r{}, {}", rd, imm);
 			case Op.NewGlobal:       return Stdout.layout.convert("newg {}, {}", cr(rs), cr(rt));
 			case Op.NewTable:        return Stdout.layout.convert("newtab r{}", rd);
+			case Op.NewVector:       return Stdout.layout.convert("newvec r{}, {}", rd, imm);
 			case Op.Not:             return Stdout.layout.convert("not {}, {}", cr(rd), cr(rs));
 			case Op.NotIn:           return Stdout.layout.convert("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Or:              return Stdout.layout.convert("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
@@ -359,10 +365,10 @@ align(1) struct Instruction
 			case Op.UShr:            return Stdout.layout.convert("ushr {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.UShrEq:          return Stdout.layout.convert("ushreq {}, {}", cr(rd), cr(rs));
 			case Op.Vararg:          return Stdout.layout.convert("varg r{}, {}", rd, uimm);
-			case Op.VargLen:         return Stdout.layout.convert("varglen {}", cr(rd));
 			case Op.VargIndex:       return Stdout.layout.convert("vargidx {}, {}", cr(rd), cr(rs));
 			case Op.VargIndexAssign: return Stdout.layout.convert("vargidxa {}, {}", cr(rd), cr(rs));
-			case Op.VargSlice:       return Stdout.layout.convert("vargslice r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.VargLen:         return Stdout.layout.convert("varglen {}", cr(rd));
+			case Op.VargSlice:       return Stdout.layout.convert("vargslice r{}, {}", rd, uimm);
 			case Op.Xor:             return Stdout.layout.convert("xor {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.XorEq:           return Stdout.layout.convert("xoreq {}, {}", cr(rd), cr(rs));
 			case Op.Yield:           return Stdout.layout.convert("yield r{}, {}, {}", rd, rs, rt);
