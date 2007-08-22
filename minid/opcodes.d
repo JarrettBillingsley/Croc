@@ -57,6 +57,7 @@ enum Op : uint
 	For,
 	Foreach,
 	ForLoop,
+	GetMethod,
 	Import,
 	In,
 	Index,
@@ -152,6 +153,7 @@ FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
+GetMethod.........R: dest, src, name
 Import............R: dest, name src, n/a
 In................R: dest, src value, src object
 Index.............R: dest, src object, src index
@@ -309,6 +311,7 @@ align(1) struct Instruction
 			case Op.For:             return Stdout.layout.convert("for {}, {}", cr(rd), imm);
 			case Op.Foreach:         return Stdout.layout.convert("foreach r{}, {}", rd, uimm);
 			case Op.ForLoop:         return Stdout.layout.convert("forloop {}, {}", cr(rd), imm);
+			case Op.GetMethod:       return Stdout.layout.convert("getmethod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Import:          return Stdout.layout.convert("import r{}, {}", rd, cr(rs));
 			case Op.In:              return Stdout.layout.convert("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Index:           return Stdout.layout.convert("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));
@@ -325,7 +328,7 @@ align(1) struct Instruction
 			case Op.LoadConst:       return Stdout.layout.convert("lc {}, {}", cr(rd), cr(rs));
 			case Op.LoadNull:        return Stdout.layout.convert("lnull {}", cr(rd));
 			case Op.LoadNulls:       return Stdout.layout.convert("lnulls r{}, {}", rd, uimm);
-			case Op.Method:          return Stdout.layout.convert("method r{}, {}, c{}", rd, cr(rs), rt);
+			case Op.Method:          return Stdout.layout.convert("method r{}, {}, {}", rd, cr(rs), cr(rt));
 			case Op.Mod:             return Stdout.layout.convert("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ModEq:           return Stdout.layout.convert("modeq {}, {}", cr(rd), cr(rs));
 			case Op.Move:            return Stdout.layout.convert("mov {}, {}", cr(rd), cr(rs));

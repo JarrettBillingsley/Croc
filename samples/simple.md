@@ -1,7 +1,7 @@
 module simple;
 
 {
-	/+class A
+	class A
 	{
 		x = 5;
 		y = 10;
@@ -23,6 +23,7 @@ module simple;
 
 		this(className, vararg)
 		{
+			writefln("Mock: instantiating {}.", className);
 			mInstance = className(vararg);
 		}
 		
@@ -42,7 +43,7 @@ module simple;
 		{
 			return function(vararg)
 			{
-				writef("Mock: calling method {} with parameters ", name);
+				writef("Mock: calling method {} with parameters (", name);
 				
 				if(#vararg > 0)
 				{
@@ -52,7 +53,7 @@ module simple;
 						write(", ", vararg[i]);
 				}
 				
-				writeln();
+				writeln(")");
 
 				return mInstance.(name)(vararg);
 			};
@@ -63,11 +64,13 @@ module simple;
 	a.foo();
 	a.x += 5;
 	a.foo();
-	
+
+	writefln();
+
 	a = Mock(A);
 	a.foo();
 	a.x += 5;
-	a.foo(1, 2);+/
+	a.foo(1, 2);
 
 	/*function foo(vararg)
 	{
@@ -103,7 +106,7 @@ module simple;
 	blah |i| { writefln(i); };*/
 }
 
-
+/+
 // Making sure finally blocks are executed.
 {
 	function f()
@@ -876,4 +879,4 @@ module simple;
 				break;
 		}
 	}
-}
+}+/

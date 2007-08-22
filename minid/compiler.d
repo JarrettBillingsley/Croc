@@ -7948,7 +7948,7 @@ abstract class PostfixExp : UnaryExp
 
 					if(t.type == Token.Type.Ident)
 					{
-						IdentExp ie = new IdentExp(t.location, Identifier.parse(t));
+						SymbolExp ie = new SymbolExp(t.location, Identifier.parse(t).mName);
 						exp = new DotExp(location, ie.mEndLocation, exp, ie);
 					}
 					else if(t.type == Token.Type.Super)
@@ -7957,12 +7957,18 @@ abstract class PostfixExp : UnaryExp
 						t = t.nextToken;
 						exp = new DotSuperExp(location, endLocation, exp);
 					}
-					else
+					else if(t.type == Token.Type.Class)
 					{
-						t.expect(Token.Type.Class);
 						Location endLocation = t.location;
 						t = t.nextToken;
-						exp = new DotClassExp(location, endLocation, exp);	
+						exp = new DotClassExp(location, endLocation, exp);
+					}
+					else
+					{
+						t = t.expect(Token.Type.LParen);
+						Expression subExp = Expression.parse(t);
+						t = t.expect(Token.Type.RParen);
+						exp = new DotExp(location, subExp.mEndLocation, exp, subExp);	
 					}
 					continue;
 
@@ -8151,6 +8157,34 @@ class DotClassExp : PostfixExp
 	}
 }
 
+/*
+regular call:
+	codegen op.
+	make room for this.
+	precall.
+	call.
+
+regular call with context:
+	codegen op.
+	codegen context, in place of this.
+	precall.
+	call.
+
+method call:
+	codegen op.
+	codegen method name.
+	method.
+	call.
+
+method call with context:
+	codegen op.
+	codegen method name.
+	getmethod.
+	codegen context.
+	precall.
+	call.
+*/
+
 class CallExp : PostfixExp
 {
 	protected Expression mContext;
@@ -8170,7 +8204,7 @@ class CallExp : PostfixExp
 
 		if(dotExp !is null && mContext is null)
 		{
-			Identifier methodName = dotExp.mIdent.mIdent;
+			Expression methodName = dotExp.mName;
 
 			uint funcReg = s.nextRegister();
 			dotExp.mOp.codeGen(s);
@@ -8181,11 +8215,17 @@ class CallExp : PostfixExp
 			assert(s.nextRegister() == funcReg);
 
 			s.pushRegister();
+
+			Exp meth;
+			methodName.codeGen(s);
+			s.popSource(methodName.mEndLocation.line, meth);
+			s.freeExpTempRegs(&meth);
+
 			uint thisReg = s.pushRegister();
 
 			Expression.codeGenListToNextReg(s, mArgs);
-			
-			s.codeR(mOp.mEndLocation.line, Op.Method, funcReg, src.index, s.codeSymbolConst(methodName.mName));
+
+			s.codeR(mOp.mEndLocation.line, Op.Method, funcReg, src.index, meth.index);
 			s.popRegister(thisReg);
 
 			if(mArgs.length == 0)
@@ -8198,21 +8238,43 @@ class CallExp : PostfixExp
 		else
 		{
 			uint funcReg = s.nextRegister();
-			mOp.codeGen(s);
-			
 			Exp src;
-			s.popSource(mOp.mEndLocation.line, src);
-			s.freeExpTempRegs(&src);
-			assert(s.nextRegister() == funcReg);
 
-			s.pushRegister();
-			uint thisReg = s.pushRegister();
+			if(dotExp is null)
+			{
+				mOp.codeGen(s);
+
+				s.popSource(mOp.mEndLocation.line, src);
+				s.freeExpTempRegs(&src);
+				assert(s.nextRegister() == funcReg);
+			}
+			else
+			{
+				dotExp.mOp.codeGen(s);
+
+				s.popSource(dotExp.mOp.mEndLocation.line, src);
+
+				Exp meth;
+				dotExp.mName.codeGen(s);
+				s.popSource(dotExp.mName.mEndLocation.line, meth);
+				s.freeExpTempRegs(&meth);
+				s.freeExpTempRegs(&src);
+
+				s.codeR(dotExp.mEndLocation.line, Op.GetMethod, src.index, src.index, meth.index);
+				
+				assert(s.nextRegister() == funcReg);
+			}
 			
+			s.pushRegister();
+			uint thisReg = s.nextRegister();
+
 			if(mContext)
 			{
 				mContext.codeGen(s);
 				s.popMoveTo(mOp.mEndLocation.line, thisReg);
 			}
+
+			s.pushRegister();
 
 			Expression.codeGenListToNextReg(s, mArgs);
 

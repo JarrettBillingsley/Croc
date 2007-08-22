@@ -6497,7 +6497,7 @@ final class MDState : MDObject
 				MDValue* v = RS.as!(MDInstance)[methodName];
 
 				if(v is null || !v.isFunction())
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from class instance", methodName);});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from class instance", methodName);});
 
 				return *v;
 
@@ -6513,7 +6513,7 @@ final class MDState : MDObject
 				MDValue* v = RS.as!(MDNamespace)[methodName];
 
 				if(v is null || !v.isFunction())
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from namespace '{}'", methodName, RS.as!(MDNamespace).nameString);});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from namespace '{}'", methodName, RS.as!(MDNamespace).nameString);});
 
 				return *v;
 
@@ -6521,7 +6521,7 @@ final class MDState : MDObject
 				MDValue* v = RS.as!(MDClass)[methodName];
 
 				if(v is null || !v.isFunction())
-					tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from class '{}'", methodName, RS.as!(MDClass).getName());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent method '{}' from class '{}'", methodName, RS.as!(MDClass).getName());});
 
 				return *v;
 
@@ -6534,7 +6534,7 @@ final class MDState : MDObject
 				MDValue* v = metatable[methodName];
 
 				if(v is null || !v.isFunction())
-					tryMM({return new MDRuntimeException(startTraceback(), "No implementation of method '{}' for type '{}'", methodName.toUtf8(), RS.typeString());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "No implementation of method '{}' for type '{}'", methodName.toUtf8(), RS.typeString());});
 
 				return *v;
 		}
@@ -7177,11 +7177,14 @@ final class MDState : MDObject
 						mCurrentAR.pc++;
 						assert(i.rd == call.rd, "Op.Method");
 
-						MDSymbol methodName = constTable[i.rt].as!(MDSymbol);
+						RT = *get(i.rt);
 						
+						if(!RT.isSymbol())
+							throwRuntimeException("Attempting to get a method with a non-symbol name (type '{}' instead)", RT.typeString());
+
 						RS = *get(i.rs);
 						mStack[mCurrentAR.base + i.rd + 1] = RS;
-						mStack[mCurrentAR.base + i.rd] = operatorMethod(&RS, methodName);
+						mStack[mCurrentAR.base + i.rd] = operatorMethod(&RS, RT.as!(MDSymbol));
 
 						goto _commonCall;
 
@@ -7285,6 +7288,17 @@ final class MDState : MDObject
 						}
 						break;
 				}
+				
+					case Op.GetMethod:
+						debug(TIMINGS) scope _profiler_ = new Profiler("GetMethod");
+						RT = *get(i.rt);
+						
+						if(!RT.isSymbol())
+							throwRuntimeException("Attempting to get a method with a non-symbol name (type '{}' instead)", RT.typeString());
+
+						RS = *get(i.rs);
+						mStack[mCurrentAR.base + i.rd] = operatorMethod(&RS, RT.as!(MDSymbol));
+						break;
 
 					case Op.Ret:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Ret");
