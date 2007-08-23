@@ -8157,34 +8157,6 @@ class DotClassExp : PostfixExp
 	}
 }
 
-/*
-regular call:
-	codegen op.
-	make room for this.
-	precall.
-	call.
-
-regular call with context:
-	codegen op.
-	codegen context, in place of this.
-	precall.
-	call.
-
-method call:
-	codegen op.
-	codegen method name.
-	method.
-	call.
-
-method call with context:
-	codegen op.
-	codegen method name.
-	getmethod.
-	codegen context.
-	precall.
-	call.
-*/
-
 class CallExp : PostfixExp
 {
 	protected Expression mContext;
