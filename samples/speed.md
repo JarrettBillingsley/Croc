@@ -2,60 +2,34 @@ module speed;
 
 /*
 Taken from the Io speed test.
-Both the Python and the MiniD tests were done on my laptop.
-
-Python localAccesses       := 10.00
-Python localSets           := 14.29
-
-Python slotAccesses        := 10.00
-Python slotSets            := 7.63
-
-Python blockActivations    := 2.56
-Python instantiations      := 2.43
-Python version := "2.5.0 final 0"
-
-// values in millions per second
-
-MiniD localAccesses      := 17.19
-MiniD localSets          := 27.39
-
-MiniD slotAccesses       := 5.10
-MiniD slotSets           := 4.88
-
-MiniD blockActivations   := 2.32
-MiniD instantiations     := 0.32
-MiniD version pre-1.0
-
-// values in millions per second
-
 On my desktop.
 
-Python localAccesses       := 15.87
-Python localSets           := 16.13
+Python localAccesses       := 24.63
+Python localSets           := 26.60
 
-Python slotAccesses        := 5.32
-Python slotSets            := 5.32
+Python slotAccesses        := 8.65
+Python slotSets            := 8.43
 
-Python blockActivations    := 1.78
-Python instantiations      := 1.73
+Python blockActivations    := 2.83
+Python instantiations      := 2.67
 Python version := "2.5.0 final 0"
 
 // values in millions per second
 
-MiniD localAccesses      := 20.18
-MiniD localSets          := 22.90
+MiniD localAccesses      := 29.68
+MiniD localSets          := 35.94
 
-MiniD slotAccesses       := 2.76
-MiniD slotSets           := 2.83
+MiniD slotAccesses       := 4.41
+MiniD slotSets           := 4.19
 
-MiniD blockActivations   := 1.59
-MiniD instantiations     := 0.10
-MiniD version pre-1.0
+MiniD blockActivations   := 1.74
+MiniD instantiations     := 0.50
+MiniD version 2 beta
 
 // values in millions per second
 */
 
-local oneMillion = 2_000_000; // 2 + 2 = 5 for large values of 2
+local oneMillion = 5_000_00; // 2 + 2 = 5 for large values of 2
 local t1;
 
 class Tester
@@ -164,17 +138,17 @@ class Tester
 
 	function test()
 	{
-		/*writefln();
+		writefln();
 		this.testLocals();
 		this.testSetLocals();
 		writefln();
 		this.testSlot();
 		this.testSetSlot();
 		writefln();
-		this.testBlock();*/
+		this.testBlock();
 		this.testInstantiations();
 
-		writefln("MiniD version pre-1.0");
+		writefln("MiniD version 2 beta");
 		writefln();
 		writefln("// values in millions per second");
 		writefln();

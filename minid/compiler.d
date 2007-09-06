@@ -246,7 +246,6 @@ struct Token
 		StringLiteral,
 		IntLiteral,
 		FloatLiteral,
-		SymbolLiteral,
 		EOF
 	}
 
@@ -346,7 +345,6 @@ struct Token
 		Type.StringLiteral: "String Literal",
 		Type.IntLiteral: "Int Literal",
 		Type.FloatLiteral: "Float Literal",
-		Type.SymbolLiteral: "Symbol Literal",
 		Type.EOF: "<EOF>"
 	];
 
@@ -399,6 +397,7 @@ struct Token
 		stringToType[","] = Type.Comma;
 		stringToType[";"] = Type.Semicolon;
 		stringToType["#"] = Type.Length;
+		stringToType[":"] = Type.Colon;
 
 		stringToType.rehash;
 	}
@@ -412,7 +411,6 @@ struct Token
 			case Type.StringLiteral: return "String Literal";
 			case Type.IntLiteral:    return "Integer Literal: " ~ Integer.toUtf8(intValue);
 			case Type.FloatLiteral:  return "Float Literal: " ~ Float.toUtf8(floatValue);
-			case Type.SymbolLiteral: return "Symbol Literal: " ~ utf.toUtf8(stringValue);
 			default:                 return utf.toUtf8(tokenStrings[cast(uint)type]);
 		}
 	}
@@ -1418,32 +1416,6 @@ class Lexer
 					token.intValue = readCharLiteral();
 					token.type = Token.Type.CharLiteral;
 					return token;
-					
-				case ':':
-					nextChar();
-					
-					if(isAlpha() || mCharacter == '_')
-					{
-						dchar[] s;
-
-						do
-						{
-							s ~= mCharacter;
-							nextChar();
-						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
-
-						token.type = Token.Type.SymbolLiteral;
-						token.stringValue = s;
-					}
-					else if(mCharacter == '"')
-					{
-						token.type = Token.Type.SymbolLiteral;
-						token.stringValue = readStringLiteral(true, false);
-					}
-					else
-						token.type = Token.Type.Colon;
-						
-					return token;
 
 				case '\0', dchar.init:
 					token.type = Token.Type.EOF;
@@ -2096,11 +2068,6 @@ class FuncState
 	{
 		pushConst(codeCharConst(value));
 	}
-	
-	public void pushSymbol(dchar[] value)
-	{
-		pushConst(codeSymbolConst(value));	
-	}
 
 	public void pushConst(uint index)
 	{
@@ -2113,7 +2080,7 @@ class FuncState
 	{
 		Exp* e = pushExp();
 		e.type = ExpType.NewGlobal;
-		e.index = tagConst(codeSymbolConst(name.mName));
+		e.index = tagConst(codeStringConst(name.mName));
 	}
 	
 	public void pushThis()
@@ -2200,7 +2167,7 @@ class FuncState
 		}
 
 		if(searchVar(this) == Global)
-			e.index = tagGlobal(codeSymbolConst(name.mName));
+			e.index = tagGlobal(codeStringConst(name.mName));
 			
 		e.type = ExpType.Var;
 	}
@@ -3011,21 +2978,6 @@ class FuncState
 
 		return mConstants.length - 1;
 	}
-	
-	public int codeSymbolConst(dchar[] c)
-	{
-		foreach(uint i, MDValue v; mConstants)
-			if(v.isSymbol() && v.as!(MDSymbol)() == c)
-				return i;
-
-		MDValue v = MDSymbol(c);
-		mConstants ~= v;
-
-		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
-
-		return mConstants.length - 1;
-	}
 
 	public int codeBoolConst(bool b)
 	{
@@ -3205,10 +3157,6 @@ class FuncState
 
 				case MDValue.Type.String:
 					Stdout.formatln("{}Const {}: \"{}\"", repeat("\t", tab + 1), i, c.as!(dchar[])());
-					break;
-					
-				case MDValue.Type.Symbol:
-					Stdout.formatln("{}Const {}: :\"{}\"", repeat("\t", tab + 1), i, c.as!(MDSymbol).toUtf8());
 					break;
 
 				default:
@@ -3423,7 +3371,7 @@ class ClassDef
 
 		foreach(Field field; mFields)
 		{
-			uint index = s.tagConst(s.codeSymbolConst(field.name));
+			uint index = s.tagConst(s.codeStringConst(field.name));
 
 			field.initializer.codeGen(s);
 			Exp val;
@@ -3436,7 +3384,7 @@ class ClassDef
 
 		foreach(FuncDef method; mMethods)
 		{
-			uint index = s.tagConst(s.codeSymbolConst(method.mName.mName));
+			uint index = s.tagConst(s.codeStringConst(method.mName.mName));
 
 			method.codeGen(s, true);
 			Exp val;
@@ -3783,7 +3731,7 @@ class NamespaceDef
 
 		foreach(field; mFields)
 		{
-			uint index = s.tagConst(s.codeSymbolConst(field.name));
+			uint index = s.tagConst(s.codeStringConst(field.name));
 
 			field.initializer.codeGen(s);
 			Exp val;
@@ -4099,7 +4047,7 @@ class ImportStatement : Statement
 
 		foreach(i, sym; mSymbols)
 		{
-			s.codeR(mLocation.line, Op.Index, firstReg + i, importReg, s.tagConst(s.codeSymbolConst(sym.mName)));
+			s.codeR(mLocation.line, Op.Index, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.mName)));
 			s.insertLocal(sym);
 		}
 
@@ -7948,8 +7896,8 @@ abstract class PostfixExp : UnaryExp
 
 					if(t.type == Token.Type.Ident)
 					{
-						SymbolExp ie = new SymbolExp(t.location, Identifier.parse(t).mName);
-						exp = new DotExp(location, ie.mEndLocation, exp, ie);
+						IdentExp ie = IdentExp.parse(t);
+						exp = new DotExp(location, ie.mEndLocation, exp, new StringExp(ie.mLocation, ie.mIdent.mName));
 					}
 					else if(t.type == Token.Type.Super)
 					{
@@ -8463,10 +8411,6 @@ class PrimaryExp : Expression
 
 			case Token.Type.StringLiteral:
 				exp = StringExp.parse(t);
-				break;
-				
-			case Token.Type.SymbolLiteral:
-				exp = SymbolExp.parse(t);
 				break;
 
 			case Token.Type.Function:
@@ -9008,33 +8952,6 @@ class StringExp : PrimaryExp
 	}
 }
 
-class SymbolExp : PrimaryExp
-{
-	protected dchar[] mValue;
-
-	public this(Location location, dchar[] value)
-	{
-		super(location);
-
-		mValue = value;
-	}
-
-	public static SymbolExp parse(ref Token* t)
-	{
-		t.expect(Token.Type.SymbolLiteral);
-
-		scope(success)
-			t = t.nextToken;
-
-		return new SymbolExp(t.location, t.stringValue);
-	}
-	
-	public override void codeGen(FuncState s)
-	{
-		s.pushSymbol(mValue);
-	}
-}
-
 class FuncLiteralExp : PrimaryExp
 {
 	protected FuncDef mDef;
@@ -9265,7 +9182,7 @@ class TableCtorExp : PrimaryExp
 
 					case Token.Type.Function:
 						FuncDef fd = FuncDef.parseSimple(t);
-						k = new SymbolExp(fd.mLocation, fd.mName.mName);
+						k = new StringExp(fd.mLocation, fd.mName.mName);
 						v = new FuncLiteralExp(fd.mLocation, fd.mEndLocation, fd);
 						lastWasFunc = true;
 						break;
@@ -9273,7 +9190,7 @@ class TableCtorExp : PrimaryExp
 					default:
 						Identifier id = Identifier.parse(t);
 						t = t.expect(Token.Type.Assign);
-						k = new SymbolExp(id.mLocation, id.mName);
+						k = new StringExp(id.mLocation, id.mName);
 						v = Expression.parse(t);
 						break;
 				}

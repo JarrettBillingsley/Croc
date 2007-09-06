@@ -598,10 +598,6 @@ class BaseLib
 				s.push(cast(int)val.as!(dchar));
 				break;
 				
-			case MDValue.Type.Symbol:
-				s.push(cast(int)val.as!(MDSymbol).id);
-				break;
-
 			case MDValue.Type.String:
 				s.push(s.safeCode(Integer.parse(val.as!(dchar[]), 10)));
 				break;
@@ -665,7 +661,7 @@ class BaseLib
 			return 0;
 
 		s.push(keys[index]);
-		s.push(namespace[keys[index].as!(MDSymbol)]);
+		s.push(namespace[keys[index].as!(MDString)]);
 
 		return 2;
 	}
@@ -699,7 +695,7 @@ class BaseLib
 		else if(container.isNamespace())
 		{
 			MDNamespace ns = container.as!(MDNamespace);
-			MDSymbol key = s.getParam!(MDSymbol)(1);
+			MDString key = s.getParam!(MDString)(1);
 
 			if(!(key in ns))
 				s.throwRuntimeException("Key '{}' does not exist in namespace '{}'", key, ns.nameString());
