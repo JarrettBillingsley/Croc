@@ -29,8 +29,5 @@ function F(f)
 local factorial = Y(F); // factorial is the fixed point of F
 
 // now test it
-writefln(3, "! = ", factorial(3));
-writefln(4, "! = ", factorial(4));
-writefln(5, "! = ", factorial(5));
-writefln(6, "! = ", factorial(6));
-writefln(7, "! = ", factorial(7));
+for(i: 3 .. 18)
+	writefln(i, "! = ", factorial(i));
