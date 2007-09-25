@@ -62,15 +62,15 @@ local time = os.microTime();
 		alt = -alt;
 	}
 	
-	writefln("%.9f\t(2/3)^k", a1);
-	writefln("%.9f\tk^-0.5", a2);
-	writefln("%.9f\t1/k(k+1)", a3);
-	writefln("%.9f\tFlint Hills", a4);
-	writefln("%.9f\tCookson Hills", a5);
-	writefln("%.9f\tHarmonic", a6);
-	writefln("%.9f\tRiemann Zeta", a7);
-	writefln("%.9f\tAlternating Harmonic", a8);
-	writefln("%.9f\tGregory", a9);
-	
+	writefln("{:9}\t(2/3)^k", a1);
+	writefln("{:9}\tk^-0.5", a2);
+	writefln("{:9}\t1/k(k+1)", a3);
+	writefln("{:9}\tFlint Hills", a4);
+	writefln("{:9}\tCookson Hills", a5);
+	writefln("{:9}\tHarmonic", a6);
+	writefln("{:9}\tRiemann Zeta", a7);
+	writefln("{:9}\tAlternating Harmonic", a8);
+	writefln("{:9}\tGregory", a9);
+
 time = os.microTime() - time;
 writefln("Took ", time / 1000000.0, " sec");
