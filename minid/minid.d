@@ -224,8 +224,7 @@ public MDValue eval(MDState s, dchar[] source, MDNamespace ns = null)
 	if(ns is null)
 		ns = s.context.globals.ns;
 
-	MDFuncDef def = compileStatements("return " ~ source ~ ";", "<loaded by eval>");
-	s.easyCall(new MDClosure(ns, def), 1, MDValue(ns));
+	s.easyCall(new MDClosure(ns, compileExpression(source, "<loaded by eval>")), 1, MDValue(ns));
 	return s.pop();
 }
 
