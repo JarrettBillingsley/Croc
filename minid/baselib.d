@@ -877,17 +877,22 @@ class BaseLib
 			name = s.getParam!(char[])(1);
 		else
 			name = "<loaded by loadString>";
-			
-		bool dummy;
-		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name, dummy);
+
+		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name);
 		s.push(new MDClosure(s.environment(1), def));
 		return 1;
 	}
 	
 	int eval(MDState s, uint numParams)
 	{
-		MDFuncDef def = compileStatements("return " ~ s.getParam!(dchar[])(0) ~ ";", "<loaded by eval>");
-		MDNamespace env = s.environment(1);
+		MDFuncDef def = compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
+		MDNamespace env;
+		
+		if(s.callDepth() > 1)
+			env = s.environment(1);
+		else
+			env = s.context.globals.ns;
+
 		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
 		return 1;
 	}

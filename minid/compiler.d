@@ -91,11 +91,10 @@ Params:
 Returns:
 	The compiled function.
 */
-public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
+public MDFuncDef compileStatements(dchar[] source, char[] name)
 {
 	Token* tokens = Lexer.lex(name, source);
 	List!(Statement) s;
-	FuncState fs;
 
 	try
 	{
@@ -106,14 +105,17 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 	catch(Object o)
 	{
 		if(tokens.type == Token.Type.EOF)
-			atEOF = true;
-
+		{
+			if(auto mdce = cast(MDCompileException)o)
+				mdce.atEOF = true;
+		}
+		
 		throw o;
 	}
 
 	Statement[] stmts = s.toArray();
 
-	fs = new FuncState(Location(utf.toUtf32(name), 1, 1), utf.toUtf32(name));
+	FuncState fs = new FuncState(Location(utf.toUtf32(name), 1, 1), utf.toUtf32(name));
 	fs.mIsVararg = true;
 
 	foreach(stmt; stmts)
@@ -127,11 +129,36 @@ public MDFuncDef compileStatements(dchar[] source, char[] name, out bool atEOF)
 	return fs.toFuncDef();
 }
 
-/// ditto
-public MDFuncDef compileStatements(dchar[] source, char[] name)
+public MDFuncDef compileExpression(dchar[] source, char[] name)
 {
-	bool dummy;
-	return compileStatements(source, name, dummy);
+	Token* tokens = Lexer.lex(name, source);
+	Expression e;
+
+	try
+		e = Expression.parse(tokens);
+	catch(Object o)
+	{
+		if(tokens.type == Token.Type.EOF)
+		{
+			if(auto mdce = cast(MDCompileException)o)
+				mdce.atEOF = true;
+		}
+
+		throw o;
+	}
+
+	if(tokens.type != Token.Type.EOF)
+		throw new MDCompileException(tokens.location, "Extra unexpected code after expression");
+		
+	FuncState fs = new FuncState(Location(utf.toUtf32(name), 1, 1), utf.toUtf32(name));
+	fs.mIsVararg = true;
+	
+	auto ret = (new ReturnStatement(e)).fold();
+
+	ret.codeGen(fs);
+	fs.codeI(ret.mEndLocation.line, Op.Ret, 0, 1);
+	
+	return fs.toFuncDef();
 }
 
 /**
@@ -4967,6 +4994,8 @@ class NumericForStatement : Statement
 			if(mStep.asInt() == 0)
 				throw new MDCompileException(mStep.mLocation, "Step value of a numeric for loop may not be 0");
 		}
+		
+		mBody = mBody.fold();
 
 		return this;
 	}
