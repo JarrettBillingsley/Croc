@@ -552,7 +552,7 @@ class BaseLib
 
 	int getTraceback(MDState s, uint numParams)
 	{
-		s.push(new MDString(MDState.getTracebackString()));
+		s.push(new MDString(s.context.getTracebackString()));
 		return 1;
 	}
 	
@@ -872,7 +872,7 @@ class BaseLib
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
-		
+
 		if(numParams > 1)
 			name = s.getParam!(char[])(1);
 		else
