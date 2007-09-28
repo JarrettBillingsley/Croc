@@ -7,9 +7,11 @@ import tango.io.Stdout;
 
 void main()
 {
+	MDContext ctx;
+
 	try
 	{
-		MDContext ctx = NewContext();
+		ctx = NewContext();
 
 		/+/*
 		ctx.globals["Co"d] = new MDClosure(ctx.globals.ns, (MDState s, uint numParams)
@@ -68,12 +70,12 @@ void main()
 	catch(MDException e)
 	{
 		Stdout.formatln("Error: {}", e.toUtf8());
-		Stdout.formatln("{}", MDState.getTracebackString());
+		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 	catch(Exception e)
 	{
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e.toUtf8());
-		Stdout.formatln("{}", MDState.getTracebackString());
+		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 }
 
