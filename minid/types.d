@@ -110,6 +110,13 @@ The message will be in the form "filename(line:colunm): error message".
 class MDCompileException : MDException
 {
 	/**
+	Indicates whether the compiler threw this at the end of the file or not.  If this is
+	true, this might be because the compiler ran out of input, in which case the code could
+	be made to compile by adding more code.
+	*/
+	bool atEOF = false;
+
+	/**
 	Takes the location of the error, and a variadic list of Tango-style formatted arguments.
 	*/
 	public this(Location loc, char[] fmt, ...)
@@ -3229,11 +3236,12 @@ You can instantiate this class directly, and then load the standard libraries in
 is minid.minid.NewContext, a helper function which will load standard libraries into the context based on
 a flags parameter, which is a bit more compact.
 */
-class MDContext
+final class MDContext
 {
 	package static MDModuleDef function(FilePath, char[][]) tryPath;
 	version(MDDynLibs) package static char[] function(char[], char[][]) tryDynLibPath;
-	
+
+	private Location[] mTraceback;
 	private MDState mMainThread;
 	private MDNamespace[] mBasicTypeMT;
 	private MDNamespace[dchar[]] mLoadedModules;
@@ -3306,13 +3314,13 @@ class MDContext
 	itself as the metatable for the 'string' type, making it possible to call the library functions as if they were
 	methods of the string objects themselves.
 	*/
-	public MDNamespace getMetatable(MDValue.Type type)
+	public final MDNamespace getMetatable(MDValue.Type type)
 	{
 		return mBasicTypeMT[cast(uint)type];
 	}
 
 	/// ditto
-	public void setMetatable(MDValue.Type type, MDNamespace table)
+	public final void setMetatable(MDValue.Type type, MDNamespace table)
 	{
 		if(type == MDValue.Type.Null)
 			throw new MDException("Cannot set global metatable for type 'null'");
@@ -3324,7 +3332,7 @@ class MDContext
 	Gets the main thread of execution.  This thread is created when the context is created,
 	and is the default thread of execution.
 	*/
-	public MDState mainThread()
+	public final MDState mainThread()
 	{
 		return mMainThread;
 	}
@@ -3332,7 +3340,7 @@ class MDContext
 	/**
 	Create a new closure in the global namespace from the given script function definition.
 	*/
-	public MDClosure newClosure(MDFuncDef def)
+	public final MDClosure newClosure(MDFuncDef def)
 	{
 		return new MDClosure(globals.mGlobals, def);
 	}
@@ -3341,13 +3349,13 @@ class MDContext
 	Create a new closure in the global namespace from the given native closure information.  See
 	MDClosure.this() for info on these parameters.
 	*/
-	public MDClosure newClosure(int delegate(MDState, uint) dg, dchar[] name, MDValue[] upvals = null)
+	public final MDClosure newClosure(int delegate(MDState, uint) dg, dchar[] name, MDValue[] upvals = null)
 	{
 		return new MDClosure(globals.mGlobals, dg, name, upvals);
 	}
 
 	/// ditto
-	public MDClosure newClosure(int function(MDState, uint) func, dchar[] name, MDValue[] upvals = null)
+	public final MDClosure newClosure(int function(MDState, uint) func, dchar[] name, MDValue[] upvals = null)
 	{
 		return new MDClosure(globals.mGlobals, func, name, upvals);
 	}
@@ -3356,7 +3364,7 @@ class MDContext
 	Add a path to be searched when performing an import.  See importModule() for information on the
 	import mechanism.
 	*/
-	public void addImportPath(char[] path)
+	public final void addImportPath(char[] path)
 	{
 		version(Windows)
 			alias icompare fcompare;
@@ -3378,7 +3386,7 @@ class MDContext
 	by the same function), and a namespace in which to place the loaded module symbols.  It is not expected to
 	return anything.
 	*/
-	public void setModuleLoader(dchar[] name, MDClosure loader)
+	public final void setModuleLoader(dchar[] name, MDClosure loader)
 	{
 		mModuleLoaders[name] = loader;
 	}
@@ -3416,7 +3424,7 @@ class MDContext
 	Returns:
 		The namespace which holds the module's symbols.
 	*/
-	public MDNamespace importModule(dchar[] name, MDState s = null)
+	public final MDNamespace importModule(dchar[] name, MDState s = null)
 	{
 		// See if it's already loaded
 		if(auto ns = name in mLoadedModules)
@@ -3490,7 +3498,7 @@ class MDContext
 		throw new MDException("Error loading module \"{}\": could not find anything to load", name);
 	}
 
-	public MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
+	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
 	{
 		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
 		char[][] elements = split(utf.toUtf8(name), "."c);
@@ -3533,7 +3541,7 @@ class MDContext
 	Returns:
 		The namespace of the module.
 	*/
-	public MDNamespace initializeModule(MDState s, MDModuleDef def, MDValue[] params)
+	public final MDNamespace initializeModule(MDState s, MDModuleDef def, MDValue[] params)
 	{
 		MDNamespace modNS = findNamespace(s, def.name);
 
@@ -3552,7 +3560,7 @@ class MDContext
 		return modNS;
 	}
 	
-	private MDNamespace findNamespace(MDState s, dchar[] name)
+	private final MDNamespace findNamespace(MDState s, dchar[] name)
 	{
 		dchar[][] splitName = split(name, "."d);
 		dchar[][] packages = splitName[0 .. $ - 1];
@@ -3597,17 +3605,35 @@ class MDContext
 
 		return modNS;
 	}
+	
+	/**
+	Gets traceback info of the most recently-thrown exception, and clears the traceback
+	info.  This method is here because exceptions can propagate through multiple states
+	and through coroutine calls.
+	*/
+	public final char[] getTracebackString()
+	{
+		if(mTraceback.length == 0)
+			return "";
+
+		char[] ret = Stdout.layout.convert("Traceback: {}", mTraceback[0].toUtf8());
+
+		foreach(ref loc; mTraceback[1 .. $])
+			ret = Stdout.layout.convert("{}\n\tat {}", ret, loc.toUtf8());
+
+		mTraceback.length = 0;
+
+		return ret;
+	}
 }
 
 /**
 The class which represents the MiniD 'thread' type.  Also probably the singularly most important class
 in the native API, this is passed as a "context" to all native functions and contains the script interpreter.
-Also keeps track of the script call call stack, locals stack, and debug traceback info.
+Also keeps track of the script call call stack and locals stack.
 */
 final class MDState : MDObject
 {
-	private static Location[] Traceback;
-
 	struct ActRecord
 	{
 		uint base;
@@ -3961,6 +3987,28 @@ final class MDState : MDObject
 		}
 	}
 
+	/// ditto
+	public final uint callMethod(T...)(ref MDValue val, MDString methodName, int numReturns, T params)
+	{
+		uint funcSlot = push(lookupMethod(&val, methodName));
+		push(val);
+
+		foreach(param; params)
+			push(param);
+			
+		if(callPrologue(funcSlot, numReturns, params.length + 1))
+			execute();
+
+		if(numReturns == -1)
+			return mStackIndex - funcSlot;
+		else
+		{
+			mStackIndex = funcSlot + numReturns;
+			return numReturns;
+		}
+	}
+
+
 	/**
 	Perform a slightly lower-level call to any callable type.
 	
@@ -4265,6 +4313,15 @@ final class MDState : MDObject
 
 		return mActRecs[mARIndex - depth].env;
 	}
+	
+	/**
+	Gets the current call depth, that is, how many functions are currently on the call stack which
+	have yet to return.
+	*/
+	public final size_t callDepth()
+	{
+		return mARIndex;
+	}
 
 	/**
 	Get a string representation of any MiniD value.  This is different from MDValue.toUtf8() in that it will call
@@ -4363,7 +4420,7 @@ final class MDState : MDObject
 	{
 		return binOp(MM.Add, &a, &b);
 	}
-	
+
 	/// ditto
 	public final MDValue sub(ref MDValue a, ref MDValue b)
 	{
@@ -4387,7 +4444,7 @@ final class MDState : MDObject
 	{
 		return binOp(MM.Mod, &a, &b);
 	}
-	
+
 	/**
 	Negates the argument.  Calls metamethods.
 	*/
@@ -4403,13 +4460,13 @@ final class MDState : MDObject
 	{
 		reflOp(MM.AddEq, &a, &b);
 	}
-	
+
 	/// ditto
 	public final void subeq(ref MDValue a, ref MDValue b)
 	{
 		reflOp(MM.SubEq, &a, &b);
 	}
-	
+
 	/// ditto
 	public final void muleq(ref MDValue a, ref MDValue b)
 	{
@@ -4481,7 +4538,7 @@ final class MDState : MDObject
 	{
 		binaryReflOp(MM.AndEq, &a, &b);
 	}
-	
+
 	/// ditto
 	public final void oreq(ref MDValue a, ref MDValue b)
 	{
@@ -4511,27 +4568,7 @@ final class MDState : MDObject
 	{
 		binaryReflOp(MM.UShrEq, &a, &b);
 	}
-	
-	/**
-	Gets traceback info of the most recently-thrown exception, and clears the traceback
-	info.  This method is static, because exceptions can propagate through multiple states
-	and through coroutine calls, and so the traceback is stored globally.
-	*/
-	public static char[] getTracebackString()
-	{
-		if(Traceback.length == 0)
-			return "";
-			
-		char[] ret = Stdout.layout.convert("Traceback: {}", Traceback[0].toUtf8());
 
-		foreach(ref loc; Traceback[1 .. $])
-			ret = Stdout.layout.convert("{}\n\tat {}", ret, loc.toUtf8());
-
-		Traceback.length = 0;
-
-		return ret;
-	}
-	
 	/** Yields from a native function acting as a coroutine, just like using the yield() expression
 	in MiniD.
 	
@@ -4607,7 +4644,7 @@ final class MDState : MDObject
 
 	protected final Location startTraceback()
 	{
-		Traceback.length = 0;
+		mContext.mTraceback.length = 0;
 		return getDebugLocation();
 	}
 
@@ -4675,14 +4712,9 @@ final class MDState : MDObject
 							execute();
 					}
 					catch(MDRuntimeException e)
-					{
 						throw e;
-					}
 					catch(MDException e)
-					{
-						Location loc = startTraceback();
-						throw new MDRuntimeException(loc, &e.value);
-					}
+						throw new MDRuntimeException(startTraceback(), &e.value);
 				}
 				
 				mStack[slot] = n;
@@ -5025,6 +5057,9 @@ final class MDState : MDObject
 
 	protected final uint resume(uint numParams)
 	{
+		if(mCoroFunc is null)
+			throwRuntimeException("Cannot resume a state which has no associated coroutine");
+
 		switch(mState)
 		{
 			case State.Initial:
@@ -5969,7 +6004,7 @@ final class MDState : MDObject
 				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a value of type '{}'", RD.typeString());});
 		}
 	}
-	
+
 	protected final MDValue operatorSlice(MDValue* src, MDValue* lo, MDValue* hi)
 	{
 		MDValue tryMM(MDRuntimeException delegate() ex)
@@ -6072,7 +6107,7 @@ final class MDState : MDObject
 				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice a value of type '{}'", src.typeString());});
 		}
 	}
-	
+
 	protected final void operatorSliceAssign(MDValue* RD, MDValue* lo, MDValue* hi, MDValue* RS)
 	{
 		void tryMM(MDRuntimeException delegate() ex)
@@ -6144,7 +6179,7 @@ final class MDState : MDObject
 				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to slice assign a value of type '{}'", RD.typeString());});
 		}
 	}
-	
+
 	protected final MDValue lookupMethod(MDValue* RS, MDString methodName)
 	{
 		MDValue* v;
@@ -6196,10 +6231,10 @@ final class MDState : MDObject
 
 				break;
 		}
-		
+
 		return *v;
 	}
-	
+
 	protected final MDValue operatorCat(MDValue[] vals)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Cat");
@@ -6223,15 +6258,15 @@ final class MDState : MDObject
 			if(method.isFunction())
 			{
 				uint funcSlot = push(method);
-				
+
 				foreach(val; vals)
 					push(val);
-	
+
 				mNativeCallDepth++;
-	
+
 				scope(exit)
 					mNativeCallDepth--;
-	
+
 				call(funcSlot, vals.length, 1);
 				return pop();
 			}
@@ -6239,7 +6274,7 @@ final class MDState : MDObject
 				return MDValue(MDArray.concat(vals));
 		}
 	}
-	
+
 	protected final void operatorCatAssign(MDValue* dest, MDValue[] vals)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("CatEq");
@@ -7321,7 +7356,7 @@ final class MDState : MDObject
 		{
 			while(depth > 0)
 			{
-				Traceback ~= getDebugLocation();
+				mContext.mTraceback ~= getDebugLocation();
 
 				while(mCurrentTR.actRecord is mARIndex)
 				{
