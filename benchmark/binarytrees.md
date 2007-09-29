@@ -47,9 +47,9 @@ local time = os.microTime();
 	{
 		local stretchdepth = maxdepth + 1;
 		local stretchtree = BottomUpTree(0, stretchdepth);
-		writefln("stretch tree of depth %d\t check: %d", stretchdepth, ItemCheck(stretchtree));
+		writefln("stretch tree of depth {}\t check: {}", stretchdepth, ItemCheck(stretchtree));
 	}
-	
+
 	local longlivedtree = BottomUpTree(0, maxdepth);
 
 	for(depth : mindepth .. maxdepth + 1, 2)
@@ -59,11 +59,11 @@ local time = os.microTime();
 
 		for(i : 0 .. iterations)
 			check += ItemCheck(BottomUpTree(1, depth)) + ItemCheck(BottomUpTree(-1, depth));
-	
-		writefln("%d\t trees of depth %d\t check: %d", iterations * 2, depth, check);
+
+		writefln("{}\t trees of depth {}\t check: {}", iterations * 2, depth, check);
 	}
-	
-	writefln("long lived tree of depth %d\t check: %d", maxdepth, ItemCheck(longlivedtree));
+
+	writefln("long lived tree of depth {}\t check: {}", maxdepth, ItemCheck(longlivedtree));
 	
 time = os.microTime() - time;
 writefln("Took ", time / 1000000.0, " sec");

@@ -163,3 +163,4 @@ data.x = data;
 try toJSON(data); catch(e){}
 try toJSON([namespace n{}]); catch(e){}
 try toJSON(5); catch(e){}
+bindContext(function(x){}, this)(5);

@@ -246,4 +246,7 @@ loadString("x = namespace x{};");
 try loadString("namespace a{"); catch(e){}
 try loadString("namespace a { x; x; }"); catch(e){}
 try loadString("namespace a { #### }"); catch(e){}
+eval("4 + 5");
+try eval("4 + "); catch(e){}
+try eval("4 + 5 6"); catch(e){}
 try loadString(`x = "hello\`); catch(e){}

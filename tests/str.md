@@ -1,3 +1,4 @@
+// NOTE TO SELF: This does not run successfully with -cov enabled in the host.  Causes a Heisenbug.
 module tests.str;
 
 "123".toInt();

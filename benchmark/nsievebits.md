@@ -30,7 +30,7 @@ function primes(n)
 		}
 	}
 
-	writefln("Primes up to %8d %8d", size, count);
+	writefln("Primes up to {,8} {,8}", size, count);
 }
 
 local args = [vararg];
