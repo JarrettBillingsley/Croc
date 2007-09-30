@@ -86,16 +86,8 @@ public class CommandLine
 		mOutput("you may be given a ... prompt.  That means you need to type more to make").newline;
 		mOutput("the code complete.  Once you enter enough code to make it complete, the").newline;
 		mOutput("code will be run.	If there is an error, the code buffer is cleared.").newline;
-
-		version(Windows)
-		{
-			mOutput("To end interactive mode, either use the function \"exit();\", or force").newline;
-			mOutput("exit by hitting Ctrl-C.").newline;
-		}
-		else
-		{
-			mOutput("To end interactive mode, use the function \"exit();\".").newline;
-		}
+		mOutput("To end interactive mode, either use the function \"exit();\", or force").newline;
+		mOutput("exit by hitting Ctrl-C.").newline;
 	}
 
 	void run(char[][] args = null, MDContext ctx = null)
@@ -189,7 +181,7 @@ public class CommandLine
 				catch(MDException e)
 				{
 					mOutput.formatln("Error: {}", e);
-					mOutput.formatln("{}", MDState.getTracebackString());
+					mOutput.formatln("{}", ctx.getTracebackString());
 				}
 			}
 			else
@@ -199,7 +191,7 @@ public class CommandLine
 				catch(MDException e)
 				{
 					mOutput.formatln("Error: {}", e);
-					mOutput.formatln("{}", MDState.getTracebackString());
+					mOutput.formatln("{}", ctx.getTracebackString());
 				}
 			}
 		}
@@ -264,7 +256,7 @@ public class CommandLine
 					catch(MDException e)
 					{
 						mOutput.formatln("Error: {}", e);
-						mOutput.formatln("{}", MDState.getTracebackString());
+						mOutput.formatln("{}", ctx.getTracebackString());
 						mOutput.newline;
 					}
 				}
@@ -297,7 +289,7 @@ public class CommandLine
 					catch(MDException e)
 					{
 						mOutput.formatln("Error: {}", e);
-						mOutput.formatln("{}", MDState.getTracebackString());
+						mOutput.formatln("{}", ctx.getTracebackString());
 						mOutput.newline;
 					}
 				}
