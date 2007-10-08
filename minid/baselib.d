@@ -479,14 +479,20 @@ class BaseLib
 		}
 
 		baseFormat(s, s.getAllParams(), &sink);
-		Cout();
+		Stdout.flush;
 		return 0;
 	}
 	
 	int writeln(MDState s, uint numParams)
 	{
+		char[256] buffer = void;
+		char[] buf = buffer;
+
 		for(uint i = 0; i < numParams; i++)
-			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
+		{
+			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			Stdout(buf);
+		}
 
 		Stdout.newline;
 		return 0;
@@ -494,10 +500,16 @@ class BaseLib
 
 	int write(MDState s, uint numParams)
 	{
-		for(uint i = 0; i < numParams; i++)
-			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
+		char[256] buffer = void;
+		char[] buf = buffer;
 
-		Cout();
+		for(uint i = 0; i < numParams; i++)
+		{
+			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			Stdout(buf);
+		}
+
+		Stdout.flush;
 		return 0;
 	}
 

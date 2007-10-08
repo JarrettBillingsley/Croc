@@ -422,7 +422,7 @@ class IOLib
 			mReader = new Reader(mInput);
 			mLines = new LineIterator!(char)(mInput);
 		}
-		
+
 		public T readVal(T)()
 		{
 			T val;

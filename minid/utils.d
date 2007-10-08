@@ -204,6 +204,14 @@ unittest
 }
 
 /**
+Compare two values, a and b, using < and >.  Returns -1 if a < b, 1 if a > b, and 0 otherwise.
+*/
+int Compare3(T)(T a, T b)
+{
+	return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
 Convert any function pointer into a delegate that calls the function when it's called.
 */
 template ToDelegate(alias func)

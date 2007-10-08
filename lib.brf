@@ -1,6 +1,8 @@
 minid/arraylib.d
+minid/bind.d
 minid/baselib.d
 minid/charlib.d
+minid/commandline.d
 minid/compiler.d
 minid/iolib.d
 minid/mathlib.d

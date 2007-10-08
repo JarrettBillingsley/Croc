@@ -125,6 +125,8 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 		fs.codeI(1, Op.Ret, 0, 1);
 	else
 		fs.codeI(stmts[$ - 1].mEndLocation.line, Op.Ret, 0, 1);
+		
+	//fs.showMe(); Stdout.flush;
 
 	return fs.toFuncDef();
 }
@@ -3185,46 +3187,98 @@ class ClassDef
 	
 	public void codeGen(FuncState s)
 	{
-		mBaseClass.codeGen(s);
-		Exp base;
-		s.popSource(mLocation.line, base);
-		s.freeExpTempRegs(&base);
-
-		uint destReg = s.pushRegister();
-		uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
-		s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
+		/*
+		A class declaration/literal actually gets rewritten as a call to a function literal.  This allows
+		super calls to work correctly within the methods, by making this class available as an upvalue to those
+		methods.
 		
-		FuncState.enterClass(this);
-
-		foreach(Field field; mFields)
+		class A : B
 		{
-			uint index = s.tagConst(s.codeStringConst(field.name));
-
-			field.initializer.codeGen(s);
-			Exp val;
-			s.popSource(field.initializer.mEndLocation.line, val);
-
-			s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
-
-			s.freeExpTempRegs(&val);
-		}
-
-		foreach(FuncDef method; mMethods)
-		{
-			uint index = s.tagConst(s.codeStringConst(method.mName.mName));
-
-			method.codeGen(s, true);
-			Exp val;
-			s.popSource(method.mEndLocation.line, val);
-
-			s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
-
-			s.freeExpTempRegs(&val);
+			this() { super(); }
+			function fork() { super.fork(); }
 		}
 		
-		FuncState.leaveClass();
+		is rewritten as:
+		
+		(function <class A>()
+		{
+			local __class;
+			
+			__class = class A : B
+			{
+				this() { __class.super.constructor(with this); }
+				function fork() { __class.super.fork(with this); }
+			};
+			
+			return __class;
+		})();
+		*/
+		
+		Expression classExp = new class Expression
+		{
+			this()
+			{
+				super(mLocation, mEndLocation);
+			}
 
-		s.pushTempReg(destReg);
+			override void codeGen(FuncState s)
+			{
+				mBaseClass.codeGen(s);
+				Exp base;
+				s.popSource(mLocation.line, base);
+				s.freeExpTempRegs(&base);
+		
+				uint destReg = s.pushRegister();
+				uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
+				s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
+				
+				FuncState.enterClass(this.outer);
+		
+				foreach(Field field; mFields)
+				{
+					uint index = s.tagConst(s.codeStringConst(field.name));
+		
+					field.initializer.codeGen(s);
+					Exp val;
+					s.popSource(field.initializer.mEndLocation.line, val);
+		
+					s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+		
+					s.freeExpTempRegs(&val);
+				}
+		
+				foreach(FuncDef method; mMethods)
+				{
+					uint index = s.tagConst(s.codeStringConst(method.mName.mName));
+		
+					method.codeGen(s, true);
+					Exp val;
+					s.popSource(method.mEndLocation.line, val);
+		
+					s.codeR(method.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
+		
+					s.freeExpTempRegs(&val);
+				}
+				
+				FuncState.leaveClass();
+		
+				s.pushTempReg(destReg);	
+			}
+		};
+
+		Identifier __class = new Identifier("__class", mLocation);
+		Expression __classExp = new IdentExp(mLocation, __class);
+
+  		CompoundStatement funcBody = new CompoundStatement(mLocation, mEndLocation,
+  		[
+	  		cast(Statement)new DeclarationStatement(mLocation, mLocation, new VarDecl(mLocation, mLocation, Declaration.Protection.Local, [new Identifier("__class", mLocation)], null)),
+			new ExpressionStatement(mLocation, mEndLocation, new Assignment(mLocation, mEndLocation, [__classExp], classExp)),
+			new ReturnStatement(__classExp)
+		]);
+		
+		FuncLiteralExp func = new FuncLiteralExp(mLocation, mEndLocation, new FuncDef(mLocation, mEndLocation, null, false, funcBody, mName));
+		
+		(new CallExp(mLocation, mEndLocation, func, null, null)).codeGen(s);
 	}
 
 	public ClassDef fold()
@@ -6927,18 +6981,11 @@ class CmpExp : BinaryExp
 			if(mOp1.isNull && mOp2.isNull)
 				cmpVal = 0;
 			else if(mOp1.isInt && mOp2.isInt)
-				cmpVal = mOp1.asInt() - mOp2.asInt();
+				cmpVal = Compare3(mOp1.asInt(), mOp2.asInt());
 			else if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
-			{
-				if(mOp1.asFloat() < mOp2.asFloat())
-					cmpVal = -1;
-				else if(mOp1.asFloat() > mOp2.asFloat())
-					cmpVal = 1;
-				else
-					cmpVal = 0;
-			}
+				cmpVal = Compare3(mOp1.asFloat(), mOp2.asFloat());
 			else if(mOp1.isChar && mOp2.isChar)
-				cmpVal = mOp1.asChar() - mOp2.asChar();
+				cmpVal = Compare3(mOp1.asChar, mOp2.asChar);
 			else if(mOp1.isString && mOp2.isString)
 				cmpVal = dcmp(mOp1.asString(), mOp2.asString());
 			else
@@ -6990,6 +7037,35 @@ class Cmp3Exp : BinaryExp
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, Op.Cmp3, left, right);
+	}
+	
+	public override Expression fold()
+	{
+		mOp1 = mOp1.fold();
+		mOp2 = mOp2.fold();
+		
+		if(mOp1.isConstant && mOp2.isConstant)
+		{
+			int cmpVal = 0;
+
+			if(mOp1.isNull && mOp2.isNull)
+				cmpVal = 0;
+			else if(mOp1.isInt && mOp2.isInt)
+				cmpVal = Compare3(mOp1.asInt(), mOp2.asInt());
+			else if((mOp1.isInt || mOp1.isFloat) && (mOp2.isInt || mOp2.isFloat))
+				cmpVal = Compare3(mOp1.asFloat(), mOp2.asFloat());
+			else if(mOp1.isChar && mOp2.isChar)
+				cmpVal = Compare3(mOp1.asChar(), mOp2.asChar());
+			else if(mOp1.isString && mOp2.isString)
+				cmpVal = dcmp(mOp1.asString(), mOp2.asString());
+			else
+				throw new MDCompileException(mLocation, "Invalid compile-time comparison");
+
+			return new IntExp(mLocation, cmpVal);
+		}
+
+
+		return this;
 	}
 }
 
@@ -9155,10 +9231,11 @@ class SuperCallExp : PrimaryExp
 			method = new IdentExp(mLocation, new Identifier("constructor", mLocation));
 
 		// rewrite super(1, 2, 3) as super.constructor(1, 2, 3)
-		// rewrite super.method(1, 2, 3) as (this.super).method(with this, 1, 2, 3);
+		// rewrite super.method(1, 2, 3) as __class.super.method(with this, 1, 2, 3);
 
 		ThisExp _this = new ThisExp(mLocation);
-		DotSuperExp sup = new DotSuperExp(mLocation, mEndLocation, _this);
+		IdentExp _class = new IdentExp(mLocation, new Identifier("__class", mLocation));
+		DotSuperExp sup = new DotSuperExp(mLocation, mEndLocation, _class);
 		DotExp dot = new DotExp(mLocation, mEndLocation, sup, method);
 		CallExp call = new CallExp(mLocation, mEndLocation, dot, _this, mArgs);
 

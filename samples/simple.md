@@ -1,31 +1,5 @@
 module simple;
 
-class A
-{
-	x;
-	
-	this(x)
-	{
-		this.x = x;
-	}
-	
-	function toString()
-	{
-		return format("A {}", x);
-	}
-	
-	function opCmp(other)
-	{
-		return x <=> other.x;
-	}
-}
-
-local a = [A(1), A(2), A(3)];
-local b = [A(1), A(2), A(3)];
-
-writefln(b == a);
-
-/+
 /*
 local co = coroutine Co;
 writefln("In main, the coroutine says: \"{}\"", co(1, 2));
@@ -37,6 +11,63 @@ co.reset();
 writefln("Now, Co's state: {}", co.state());
 co(3, 4);
 */
+
+// Making sure supercalls work correctly.
+{
+	class A
+	{
+		mX;
+	
+		this()
+		{
+			mX = 5;
+			writefln("A ctor");
+		}
+		
+		function fork()
+		{
+			writefln("A fork");
+		}
+	}
+	
+	class B : A
+	{
+		mY;
+	
+		this()
+		{
+			mY = 10;
+	
+			writefln("B ctor");
+			super();
+		}
+	}
+	
+	class C : B
+	{
+		mZ;
+	
+		this()
+		{
+			mZ = 15;
+	
+			writefln("C ctor");
+			super();
+		}
+		
+		function fork()
+		{
+			writefln("C fork");
+			super.fork();
+		}
+	}
+	
+	local c = C();
+	writefln("{} {} {}", c.mX, c.mY, c.mZ);
+	c.fork();
+	
+	writefln();
+}
 
 // Making sure finally blocks are executed.
 {
@@ -166,7 +197,7 @@ co(3, 4);
 	function recurse(x)
 	{
 		writefln("recurse: ", x);
-	
+
 		if(x == 0)
 			return toString(x);
 		else
@@ -175,7 +206,7 @@ co(3, 4);
 
 	writefln(recurse(5));
 	writefln();
-	
+
 	class A
 	{
 		function f(x)
@@ -810,4 +841,4 @@ co(3, 4);
 				break;
 		}
 	}
-}+/
+}

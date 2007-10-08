@@ -1,5 +1,5 @@
 mdcl.d
 -clean
 -release
--O
 -op
+-O
