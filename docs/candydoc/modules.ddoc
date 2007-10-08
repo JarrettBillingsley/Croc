@@ -1,6 +1,6 @@
 MODULES =
-	$(MODULE minid.minid)
 	$(MODULE minid.bind)
 	$(MODULE minid.compiler)
-	$(MODULE minid.utils)
+	$(MODULE minid.minid)
 	$(MODULE minid.types)
+	$(MODULE minid.utils)
