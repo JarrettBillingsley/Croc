@@ -339,7 +339,7 @@ template MakeVersion(uint major, uint minor)
 /**
 The current version of MiniD.  (this is kind of buried here)
 */
-const uint MiniDVersion = MakeVersion!(1, 0);
+const uint MiniDVersion = MakeVersion!(1, 1);
 
 /**
 See if T is a type that can't be automatically serialized.

@@ -131,6 +131,16 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 	return fs.toFuncDef();
 }
 
+/**
+Compile a single expression into a function which returns the value of that expression when called.
+
+Params:
+	source = The source code as a strng.
+	name = The name to use as the source name for compilation errors.
+	
+Returns:
+	The compiled function.
+*/
 public MDFuncDef compileExpression(dchar[] source, char[] name)
 {
 	Token* tokens = Lexer.lex(name, source);
