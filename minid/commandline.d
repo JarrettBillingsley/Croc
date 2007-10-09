@@ -223,9 +223,9 @@ public class CommandLine
 
 			while(run)
 			{
-				char[] line;
-			
-				if((line = mInput.next()) == null)
+				char[] line = mInput.next();
+
+				if(line.ptr is null)
 					break;
 
 				buffer ~= line;
@@ -277,7 +277,7 @@ public class CommandLine
 							mOutput(Prompt1)();
 							buffer.length = 0;
 						}
-	
+
 						continue;
 					}
 	
