@@ -2430,17 +2430,10 @@ class MDInstance : MDObject
 	*/
 	public MDValue* opIndex(MDString index)
 	{
-		MDValue* ptr = (index in mMethods);
-
-		if(ptr !is null)
+		if(auto ptr = index in mMethods)
 			return ptr;
 
-		ptr = (index in mFields);
-
-		if(ptr !is null)
-			return ptr;
-
-		return null;
+		return (index in mFields);
 	}
 
 	/// ditto
@@ -2499,11 +2492,6 @@ class MDInstance : MDObject
 		return false;
 	}
 
-	package MDClass getClass()
-	{
-		return mClass;
-	}
-
 	/**
 	Get a reference to the field namespace of this instance.  Every instance has its own field namespace.
 	*/
@@ -2519,6 +2507,16 @@ class MDInstance : MDObject
 	public MDNamespace methods()
 	{
 		return mMethods;
+	}
+	
+	package MDClass getClass()
+	{
+		return mClass;
+	}
+	
+	private MDValue* getField(MDString index)
+	{
+		return (index in mFields);
 	}
 }
 
@@ -4713,7 +4711,7 @@ final class MDState : MDObject
 						throw e;
 					catch(MDException e)
 						throw new MDRuntimeException(startTraceback(), &e.value);
-					}
+				}
 				
 				mStack[slot] = n;
 
@@ -4820,11 +4818,6 @@ final class MDState : MDObject
 				return false;
 
 			default:
-				mNativeCallDepth++;
-
-				scope(exit)
-					mNativeCallDepth--;
-
 				MDValue* method = getMM(*func, MM.Call);
 
 				if(method.mType != MDValue.Type.Function)
@@ -5658,7 +5651,8 @@ final class MDState : MDObject
 				return Compare3(f1, f2);
 			}
 		}
-		else if(RS.type == RT.type)
+		
+		if(RS.type == RT.type)
 		{
 			switch(RS.type)
 			{
@@ -5709,7 +5703,7 @@ final class MDState : MDObject
 			MDValue* method = getMM(*RS, MM.Cmp);
 
 			if(method.mType != MDValue.Type.Function)
-				throwRuntimeException("invalid opCmp metamethod for type '{}'", RS.typeString());
+				throwRuntimeException("cannot compare values of type '{}' and '{}' (no opCmp defined for '{0}')", RS.typeString(), RT.typeString());
 
 			mNativeCallDepth++;
 
@@ -5728,7 +5722,7 @@ final class MDState : MDObject
 			return ret.mInt;
 		}
 	}
-	
+
 	protected final bool operatorIn(MDValue* RS, MDValue* RT)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("In");
@@ -5738,7 +5732,7 @@ final class MDState : MDObject
 			case MDValue.Type.String:
 				if(RS.mType != MDValue.Type.Char)
 					throwRuntimeException("Can only use characters to look in strings, not '{}'", RS.typeString());
-	
+
 				return ((RS.mChar in RT.mString) >= 0);
 
 			case MDValue.Type.Array:
@@ -5772,7 +5766,7 @@ final class MDState : MDObject
 				return pop().isTrue();
 		}
 	}
-	
+
 	protected final MDValue operatorLength(MDValue* RS)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Length");
@@ -5804,7 +5798,7 @@ final class MDState : MDObject
 					return MDValue(RS.length);
 		}
 	}
-	
+
 	protected final MDValue operatorIndex(MDValue* RS, MDValue* RT)
 	{
 		MDValue tryMM(MDRuntimeException delegate() ex)
@@ -5992,7 +5986,13 @@ final class MDState : MDObject
 						table[*RS] = *RT;
 				}
 				else
-					*val = *RT;
+				{
+					if(RT.mType == MDValue.Type.Null)
+						table[*RS] = *RT;
+					else
+						*val = *RT;
+				}
+				
 				return;
 
 			case MDValue.Type.Instance:
@@ -6000,13 +6000,10 @@ final class MDState : MDObject
 					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign an instance with a key of type '{}'", RS.typeString());});
 
 				MDString k = RS.mString;
-				MDValue* val = RD.mInstance[k];
+				MDValue* val = RD.mInstance.getField(k);
 
 				if(val is null)
 					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to add a member '{}' to a class instance", RS.toUtf8());});
-
-				if(val.mType == MDValue.Type.Function)
-					throw new MDRuntimeException(startTraceback(), "Attempting to change method '{}' of class instance", RS.toUtf8());
 
 				*val = RT;
 				return;
