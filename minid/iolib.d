@@ -203,24 +203,24 @@ class IOLib
 		{
 			scope fp = new FilePath(path, true);
 
-			fp.toList((char[] prefix, char[] name, bool isDir)
+			s.safeCode(fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				if(!isDir)
 					listing ~= (prefix ~ name);
-			});
+			}));
 		}
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
 			scope fp = new FilePath(path, true);
 
-			fp.toList((char[] prefix, char[] name, bool isDir)
+			s.safeCode(fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				char[] fullName = prefix ~ name;
 
 				if(!isDir && patternMatch(fullName, filter))
 					listing ~= fullName;
-			});
+			}));
 		}
 
 		s.push(MDArray.fromArray(listing));
@@ -236,24 +236,24 @@ class IOLib
 		{
 			scope fp = new FilePath(path, true);
 			
-			fp.toList((char[] prefix, char[] name, bool isDir)
+			s.safeCode(fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				if(isDir)
 					listing ~= (prefix ~ name);
-			});
+			}));
 		}
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
 			scope fp = new FilePath(path, true);
 
-			fp.toList((char[] prefix, char[] name, bool isDir)
+			s.safeCode(fp.toList((char[] prefix, char[] name, bool isDir)
 			{
 				char[] fullName = prefix ~ name;
 
 				if(isDir && patternMatch(fullName, filter))
 					listing ~= fullName;
-			});
+			}));
 		}
 
 		s.push(MDArray.fromArray(listing));
