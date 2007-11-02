@@ -1,10 +1,5 @@
 module simple;
 
-{
-
-	return;
-}
-
 /*
 local co = coroutine Co;
 writefln("In main, the coroutine says: \"{}\"", co(1, 2));
