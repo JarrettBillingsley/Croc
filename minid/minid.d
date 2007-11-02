@@ -47,7 +47,7 @@ import tango.io.FilePath;
 import tango.io.Print;
 import tango.io.Stdout;
 import tango.io.FileSystem;
-import tango.io.MemoryConduit;
+import tango.io.GrowBuffer;
 import tango.text.convert.Layout;
 
 /**
@@ -263,7 +263,7 @@ template toJSON(U)
 	{
 		MDValue root = r;
 
-		scope cond = new MemoryConduit();
+		scope cond = new GrowBuffer();
 		scope formatter = new Layout!(U);
 		scope printer = new Print!(U)(formatter, cond);
 

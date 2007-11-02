@@ -30,7 +30,7 @@ import minid.utils;
 
 import Integer = tango.text.convert.Integer;
 import tango.io.Console;
-import tango.io.MemoryConduit;
+import tango.io.GrowBuffer;
 import tango.io.Print;
 import tango.io.Stdout;
 import utf = tango.text.convert.Utf;
@@ -614,7 +614,7 @@ class BaseLib
 		if(numParams > 1)
 			pretty = s.getParam!(bool)(1);
 
-		scope cond = new MemoryConduit();
+		scope cond = new GrowBuffer();
 		scope printer = new Print!(dchar)(FormatterD, cond);
 
 		toJSONImpl(s, root, pretty, printer);
