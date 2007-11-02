@@ -34,7 +34,7 @@ import tango.io.protocol.Reader;
 import tango.io.FileConduit;
 import tango.io.UnicodeFile;
 import tango.io.FilePath;
-import UniChar;
+import Uni = tango.text.Unicode;
 
 import minid.types;
 import minid.opcodes;
@@ -597,7 +597,10 @@ class Lexer
 		if(c >= '0' && c <= '9')
 			return c - '0';
 
-		return toUniLower(c) - 'a' + 10;
+		if(Uni.isUpper(c))
+			return c - 'A' + 10;
+		else
+			return c - 'a' + 10;
 	}
 
 	protected static dchar readChar()

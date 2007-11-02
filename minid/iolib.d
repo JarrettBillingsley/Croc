@@ -23,8 +23,8 @@ subject to the following restrictions:
 
 module minid.iolib;
 
+import minid.misc;
 import minid.types;
-import minid.baselib;
 import minid.utils;
 
 import tango.io.Buffer;
@@ -604,13 +604,13 @@ class IOLib
 
 		public MDOutputStream writef(MDState s, MDValue[] params)
 		{
-			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
+			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
 			return this;
 		}
 
 		public MDOutputStream writefln(MDState s, MDValue[] params)
 		{
-			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
+			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
 			mPrint.newline;
 			return this;
 		}
@@ -623,7 +623,7 @@ class IOLib
 
 		public MDOutputStream writeJSON(MDState s, MDValue root, bool pretty = false)
 		{
-			BaseLib.toJSONImpl(s, root, pretty, mPrint);
+			toJSONImpl(s, root, pretty, mPrint);
 			return this;
 		}
 

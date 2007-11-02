@@ -1,4 +1,9 @@
 /******************************************************************************
+A module holding a variety of utility functions used throughout MiniD.  This
+module doesn't (and shouldn't) depend on the rest of the library in any way,
+and as such can't hold implementation-specific functionality.  For that, look
+in the minid.misc module.
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 
@@ -32,12 +37,16 @@ import tango.io.Print;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
 import tango.io.Stdout;
+import tango.stdc.string;
+import tango.text.convert.Utf;
 import tango.text.Util;
 import tango.util.time.StopWatch;
-import tango.text.convert.Utf;
-import tango.stdc.string;
-import UniChar;
+import Uni = tango.text.Unicode;
 
+/**
+This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
+the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
+*/
 alias double mdfloat;
 
 /**
@@ -212,27 +221,6 @@ int Compare3(T)(T a, T b)
 }
 
 /**
-Convert any function pointer into a delegate that calls the function when it's called.
-*/
-template ToDelegate(alias func)
-{
-	ReturnType!(func) delegate(ParameterTypeTuple!(func)) ToDelegate()
-	{
-		struct S
-		{
-			static S s;
-
-			ReturnType!(func) callMe(ParameterTypeTuple!(func) args)
-			{
-				return func(args);
-			}
-		}
-	
-		return &S.s.callMe;
-	}
-}
-
-/**
 Compares dchar[] strings stupidly (just by character value, not lexicographically).
 */
 int dcmp(dchar[] s1, dchar[] s2)
@@ -242,73 +230,34 @@ int dcmp(dchar[] s1, dchar[] s2)
 	if(s2.length < len)
 		len = s2.length;
 
-	int result = mismatch(s1.ptr, s2.ptr, len);
+	auto result = mismatch(s1.ptr, s2.ptr, len);
 
 	if(result == len)
-		result = cast(int)s1.length - cast(int)s2.length;
+		return Compare3(s1.length, s2.length);
 	else
-		result = s1[result] - s2[result];
-
-	return result;
+		return Compare3(s1[result], s2[result]);
 }
 
 /**
-Lowercase a dchar[] using proper Unicode character functions.
+Compares dchar[] strings stupidly, but case-insensitively.
 */
-dchar[] toLowerD(dchar[] s)
+int idcmp(dchar[] s1, dchar[] s2)
 {
-	bool changed = false;
+	dchar[64] buf1, buf2;
+	s1 = Uni.toFold(s1, buf1);
+	s2 = Uni.toFold(s2, buf2);
 
-	for(int i = 0; i < s.length; i++)
-	{
-		if(isUniUpper(s[i]))
-		{
-			if(!changed)
-			{
-				s = s.dup;
-				changed = true;
-			}
+	auto len = s1.length;
 
-			s[i] = toUniLower(s[i]);
-		}
-	}
+	if(s2.length < len)
+		len = s2.length;
 
-	return s;
-}
+	auto result = mismatch(s1.ptr, s2.ptr, len);
 
-/**
-Uppercase a dchar[] using proper Unicode character functions.
-*/
-dchar[] toUpperD(dchar[] s)
-{
-	bool changed = false;
-
-	for(int i = 0; i < s.length; i++)
-	{
-		if(isUniLower(s[i]))
-		{
-			if(!changed)
-			{
-				s = s.dup;
-				changed = true;
-			}
-
-			s[i] = toUniUpper(s[i]);
-		}
-	}
-
-	return s;
-}
-
-unittest
-{
-	dchar[] s = "HelloOoO!";
-	assert(toLowerD(s) == "helloooo!");
-	assert(toUpperD(s) == "HELLOOOO!");
-	
-	dchar[] t = "hi";
-	assert(toLowerD(t) is t);
-	assert(toUpperD(t) !is t);
+	if(result == len)
+		return Compare3(s1.length, s2.length);
+	else
+		return Compare3(s1[result], s2[result]);
 }
 
 /**

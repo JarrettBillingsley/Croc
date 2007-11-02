@@ -64,8 +64,20 @@ void main()
 		WrapGlobalFunc!(one, "One")(ctx);
 		WrapGlobalFunc!(two, void function(int, int))(ctx);+/
 
+		//*
 		ctx.addImportPath(`samples`);
 		ctx.importModule("simple");
+		/*/
+		MDValue t = MDTable.create
+		(
+			"foo", "bar",
+			"baz", 5,
+			"array", MDArray.create(1, 2, 3.4),
+			"crap", 'g'
+		);
+
+		writeJSONc(Stdout, ["hi"[]: 3, "bye": 6]);
+		// */
 	}
 	catch(MDException e)
 	{

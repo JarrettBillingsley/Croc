@@ -1055,6 +1055,11 @@ align(1) struct MDValue
 			mType = Type.Array;
 			mArray = MDArray.fromArray(src);
 		}
+		else static if(isAAType!(T))
+		{
+			mType = Type.Table;
+			mTable = MDTable.fromAA(src);
+		}
 		else
 		{
 			// I do this because static assert won't show the template instantiation "call stack."
@@ -4261,7 +4266,13 @@ final class MDState : MDObject
 	/// ditto
 	public final void throwRuntimeException(char[] fmt, ...)
 	{
-		throw new MDRuntimeException(startTraceback(), fmt, _arguments, _argptr);
+		throwRuntimeException(fmt, _arguments, _argptr);
+	}
+	
+	// ditto
+	public final void throwRuntimeException(char[] fmt, TypeInfo[] arguments, va_list argptr)
+	{
+		throw new MDRuntimeException(startTraceback(), fmt, arguments, argptr);
 	}
 
 	/**
