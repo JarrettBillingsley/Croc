@@ -3227,11 +3227,14 @@ class ClassDef
 		})();
 		*/
 		
-		Expression classExp = new class Expression
+		Expression classExp = new class(this) Expression
 		{
-			this()
+			private ClassDef mOuter;
+
+			this(ClassDef _outer)
 			{
 				super(mLocation, mEndLocation);
+				mOuter = _outer;
 			}
 
 			override void codeGen(FuncState s)
@@ -3244,8 +3247,8 @@ class ClassDef
 				uint destReg = s.pushRegister();
 				uint nameConst = s.tagConst(s.codeStringConst(mName.mName));
 				s.codeR(mLocation.line, Op.Class, destReg, nameConst, base.index);
-				
-				FuncState.enterClass(this.outer);
+
+				FuncState.enterClass(mOuter);
 		
 				foreach(Field field; mFields)
 				{
@@ -3254,7 +3257,7 @@ class ClassDef
 					field.initializer.codeGen(s);
 					Exp val;
 					s.popSource(field.initializer.mEndLocation.line, val);
-		
+
 					s.codeR(field.initializer.mEndLocation.line, Op.IndexAssign, destReg, index, val.index);
 		
 					s.freeExpTempRegs(&val);

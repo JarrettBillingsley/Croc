@@ -2513,8 +2513,11 @@ class MDInstance : MDObject
 	{
 		return mMethods;
 	}
-	
-	package MDClass getClass()
+
+	/**
+	Gets a reference to the owning class.
+	*/
+	public MDClass getClass()
 	{
 		return mClass;
 	}
