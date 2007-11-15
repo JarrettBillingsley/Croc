@@ -1,5 +1,50 @@
 module simple;
 
+{
+	import arc.window;
+	import arc.input : key;
+	import arc.font : Font;
+	import arc.math.point : Point;
+	import arc.draw.color : Color;
+
+	arc.window.open("Hello world", 400, 300, false);
+	arc.input.open();
+	arc.font.open();
+
+	local font = Font("arial.ttf", 32);
+	local p = Point(200.0, 200.0);
+	local col = Color(1.0, 1.0, 1.0);
+
+	while(!arc.input.keyDown(key.Quit))
+	{
+		arc.input.process();
+		arc.window.clear();
+
+		if(arc.input.keyDown(key.Left))
+			p.x--;
+
+		if(arc.input.keyDown(key.Right))
+			p.x++;
+
+		if(arc.input.keyDown(key.Up))
+			p.y--;
+
+		if(arc.input.keyDown(key.Down))
+			p.y++;
+
+		font.draw("Hello world!", p, col);
+		writefln(p);
+
+		arc.window.swap();
+	}
+
+	arc.font.close();
+	arc.input.close();
+	arc.window.close();
+
+	return;
+}
+
 /*
 local co = coroutine Co;
 writefln("In main, the coroutine says: \"{}\"", co(1, 2));
@@ -23,7 +68,7 @@ co(3, 4);
 			mX = 5;
 			writefln("A ctor");
 		}
-		
+
 		function fork()
 		{
 			writefln("A fork");

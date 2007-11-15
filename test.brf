@@ -3,4 +3,3 @@ test.d
 -debug
 -g
 -op
--unittest

@@ -5,6 +5,11 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
+import arc.draw.color;
+import arc.window;
+import arc.font;
+import arc.input;
+
 void main()
 {
 	MDContext ctx;
@@ -64,6 +69,77 @@ void main()
 		WrapGlobalFunc!(one, "One")(ctx);
 		WrapGlobalFunc!(two, void function(int, int))(ctx);+/
 
+		WrapModule!
+		(
+			"arc.window",
+			WrapFunc!(arc.window.open),
+			WrapFunc!(arc.window.close),
+			WrapFunc!(arc.window.clear),
+			WrapFunc!(arc.window.swap)
+		)(ctx);
+		
+		static MDTable initKey()
+		{
+			return MDTable.create
+			(
+				"Quit", ARC_QUIT,
+				"Up", ARC_UP,
+				"Down", ARC_DOWN,
+				"Left", ARC_LEFT,
+				"Right", ARC_RIGHT
+			);
+		}
+
+		WrapModule!
+		(
+			"arc.input",
+			WrapFunc!(arc.input.open),
+			WrapFunc!(arc.input.close),
+			WrapFunc!(arc.input.process),
+			WrapFunc!(arc.input.keyDown),
+			WrapCustom!("key", initKey)
+		)(ctx);
+		
+		WrapModule!
+		(
+			"arc.font",
+			WrapFunc!(arc.font.open),
+			WrapFunc!(arc.font.close),
+			WrapClassEx!
+			(
+				arc.font.Font,
+				WrapCtors!(void function(char[], int)),
+				WrapMethod!(Font.draw, void function(dchar[], arc.math.point.Point, arc.draw.color.Color))
+			)
+		)(ctx);
+		
+		WrapModule!
+		(
+			"arc.math.point",
+			WrapStruct!
+			(
+				arc.math.point.Point, "Point",
+				WrapCtors!(void function(float, float)),
+				WrapMethod!(arc.math.point.Point.toUtf8, "toString")
+			)
+		)(ctx);
+
+		WrapModule!
+		(
+			"arc.draw.color",
+			WrapStruct!
+			(
+				arc.draw.color.Color, "Color",
+				WrapCtors!
+				(
+					void function(int, int, int),
+					void function(int, int, int, int),
+					void function(float, float, float),
+					void function(float, float, float, float)
+				)
+			)
+		)(ctx);
+
 		ctx.addImportPath(`samples`);
 		ctx.importModule("simple");
 	}
@@ -77,6 +153,13 @@ void main()
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e.toUtf8());
 		Stdout.formatln("{}", ctx.getTracebackString());
 	}
+}
+
+enum E
+{
+	One,
+	Two,
+	Three	
 }
 
 class A

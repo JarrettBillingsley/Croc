@@ -102,6 +102,7 @@ class OSLib
 		context.globals["os"d] = namespace;
 	}
 
+	// is using doubles OK?  Since the tick count is a long, high values could reduce precision..
 	int microTime(MDState s, uint numParams)
 	{
 		version(Windows)
@@ -110,15 +111,15 @@ class OSLib
 			QueryPerformanceCounter(&time);
 
 			if(time < 0x8637BD05AF6L)
-				s.push((time * 1_000_000) / performanceFreq);
+				s.push(cast(double)((time * 1_000_000) / performanceFreq));
 			else
-				s.push((time / performanceFreq) * 1_000_000);
+				s.push(cast(double)((time / performanceFreq) * 1_000_000));
 		}
 		else
 		{
 			timeval tv;
 			gettimeofday(&tv, null);
-			s.push(cast(ulong)(tv.tv_sec * 1_000_000L) + cast(ulong)tv.tv_usec);
+			s.push(cast(double)(tv.tv_sec * 1_000_000L) + cast(double)tv.tv_usec);
 		}
 		
 		return 1;
