@@ -1,43 +1,47 @@
 module simple;
 
+function clamp(x, lo, hi)
+{
+	return x < lo ? lo : x > hi ? hi : x;
+}
+
 {
 	import arc.window;
 	import arc.input : key;
 	import arc.font : Font;
 	import arc.math.point : Point;
 	import arc.draw.color : Color;
+	import arc.time;
 
-	arc.window.open("Hello world", 400, 300, false);
+	arc.window.open("Hello world", 640, 480, false);
 	arc.input.open();
 	arc.font.open();
+	arc.time.open();
 
-	local font = Font("arial.ttf", 32);
-	local p = Point(200.0, 200.0);
-	local col = Color(1.0, 1.0, 1.0);
+	local font = Font("arial.ttf", 12);
+	local col = Color(1.0, 1.0, 1.0, 1.0);
+	local origin = Point(0.0, 0.0);
+	local white = Color(255, 255, 255);
 
-	while(!arc.input.keyDown(key.Quit))
+	while(!arc.input.keyDown(key.Quit) && !arc.input.keyDown(key.Esc))
 	{
 		arc.input.process();
 		arc.window.clear();
+		arc.time.process();
 
-		if(arc.input.keyDown(key.Left))
-			p.x--;
+		col.a = (math.sin(((arc.time.getTime() % 1000) / 500.0) * math.pi) + 1) / 4.0 + 0.5;
 
-		if(arc.input.keyDown(key.Right))
-			p.x++;
+		local p = arc.input.mousePos();
 
-		if(arc.input.keyDown(key.Up))
-			p.y--;
+		font.draw(p.toString(), p, col);
+		font.draw(toString(col.a), origin, white);
+		font.draw(toString(arc.time.fps()), Point(0.0, 16.0), white);
 
-		if(arc.input.keyDown(key.Down))
-			p.y++;
-
-		font.draw("Hello world!", p, col);
-		writefln(p);
-
+		arc.time.limitFPS(60);
 		arc.window.swap();
 	}
 
+	arc.time.close();
 	arc.font.close();
 	arc.input.close();
 	arc.window.close();

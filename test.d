@@ -9,6 +9,8 @@ import arc.draw.color;
 import arc.window;
 import arc.font;
 import arc.input;
+import arc.time;
+import arc.math.point;
 
 void main()
 {
@@ -86,7 +88,8 @@ void main()
 				"Up", ARC_UP,
 				"Down", ARC_DOWN,
 				"Left", ARC_LEFT,
-				"Right", ARC_RIGHT
+				"Right", ARC_RIGHT,
+				"Esc", ARC_ESCAPE
 			);
 		}
 
@@ -97,6 +100,9 @@ void main()
 			WrapFunc!(arc.input.close),
 			WrapFunc!(arc.input.process),
 			WrapFunc!(arc.input.keyDown),
+			WrapFunc!(arc.input.mouseX),
+			WrapFunc!(arc.input.mouseY),
+			WrapFunc!(arc.input.mousePos),
 			WrapCustom!("key", initKey)
 		)(ctx);
 		
@@ -109,18 +115,44 @@ void main()
 			(
 				arc.font.Font,
 				WrapCtors!(void function(char[], int)),
-				WrapMethod!(Font.draw, void function(dchar[], arc.math.point.Point, arc.draw.color.Color))
+				WrapMethod!(Font.draw)
 			)
 		)(ctx);
-		
+
 		WrapModule!
 		(
 			"arc.math.point",
 			WrapStruct!
 			(
-				arc.math.point.Point, "Point",
+				Point, "Point",
 				WrapCtors!(void function(float, float)),
-				WrapMethod!(arc.math.point.Point.toUtf8, "toString")
+				WrapMethod!(Point.set),
+				WrapMethod!(Point.angle),
+				WrapMethod!(Point.length),
+				WrapMethod!(Point.toUtf8, "toString"),
+				WrapMethod!(Point.maxComponent),
+				WrapMethod!(Point.minComponent),
+				WrapMethod!(Point.opNeg),
+				// cross, dot
+				WrapMethod!(Point.scale),
+				// apply
+				WrapMethod!(Point.lengthSquared),
+				WrapMethod!(Point.normalise, "normalize"),
+				WrapMethod!(Point.normaliseCopy, "normalizeCopy"),
+				// angle
+				WrapMethod!(Point.rotate),
+				WrapMethod!(Point.abs),
+				WrapMethod!(Point.absCopy),
+				// clamp
+				WrapMethod!(Point.randomise, "randomize"),
+				// distance, distanceSquared
+				WrapMethod!(Point.rotateCopy),
+				WrapMethod!(Point.getX),
+				WrapMethod!(Point.getY),
+				WrapMethod!(Point.setX),
+				WrapMethod!(Point.setY),
+				WrapMethod!(Point.addX),
+				WrapMethod!(Point.addY)
 			)
 		)(ctx);
 
@@ -129,15 +161,38 @@ void main()
 			"arc.draw.color",
 			WrapStruct!
 			(
-				arc.draw.color.Color, "Color",
+				Color, "Color",
 				WrapCtors!
 				(
 					void function(int, int, int),
 					void function(int, int, int, int),
 					void function(float, float, float),
 					void function(float, float, float, float)
-				)
+				),
+				WrapMethod!(Color.setR),
+				WrapMethod!(Color.setG),
+				WrapMethod!(Color.setB),
+				WrapMethod!(Color.setA),
+				WrapMethod!(Color.getR),
+				WrapMethod!(Color.getG),
+				WrapMethod!(Color.getB),
+				WrapMethod!(Color.getA),
+				WrapMethod!(Color.setGLColor)
 			)
+		)(ctx);
+
+		WrapModule!
+		(
+			"arc.time",
+			WrapFunc!(arc.time.open),
+			WrapFunc!(arc.time.close),
+			WrapFunc!(arc.time.process),
+			WrapFunc!(arc.time.sleep),
+			WrapFunc!(arc.time.elapsedMilliseconds),
+			WrapFunc!(arc.time.elapsedSeconds),
+			WrapFunc!(arc.time.fps),
+			WrapFunc!(arc.time.limitFPS),
+			WrapFunc!(arc.time.getTime)
 		)(ctx);
 
 		ctx.addImportPath(`samples`);

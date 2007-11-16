@@ -63,8 +63,8 @@ public void WrapModule(char[] name, Members...)(MDContext context)
 
 				static assert(!is(ReturnTypeOf!(member.Func) == void), "Custom member function may not return void");
 
-				static if(is(typeof(member.Func(s))))
-					ns[name] = MDValue(member.Func(s));
+				static if(is(typeof(member.Func(s, ns))))
+					ns[name] = MDValue(member.Func(s, ns));
 				else
 					ns[name] = MDValue(member.Func());
 			}
@@ -117,38 +117,37 @@ public struct WrapCustom(char[] name, alias func)
 
 private class WrappedInstance : MDInstance
 {
+	private Object inst;
+
 	private this(MDClass owner)
 	{
 		super(owner);
 	}
-
-	private Object inst;
 }
 
 private class WrappedStruct(T) : MDInstance
 {
-	alias FieldNames!(T) fieldNames;
+//	alias FieldNames!(T) fieldNames;
+	private T inst;
 
 	private this(MDClass owner)
 	{
 		super(owner);
 	}
 
-	private T inst;
-
-	private void updateFields()
-	{
-		foreach(i, v; fieldNames)
-			mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")] = MDValue(inst.tupleof[i]);
-	}
-
-	private T* toStruct()
-	{
-		foreach(i, v; fieldNames)
-			inst.tupleof[i] = mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")].to!(typeof(inst.tupleof[i]));
-
-		return &inst;
-	}
+// 	private void updateFields()
+// 	{
+// 		foreach(i, v; fieldNames)
+// 			mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")] = MDValue(inst.tupleof[i]);
+// 	}
+// 
+// 	private T* toStruct()
+// 	{
+// 		foreach(i, v; fieldNames)
+// 			inst.tupleof[i] = mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")].to!(typeof(inst.tupleof[i]));
+// 
+// 		return &inst;
+// 	}
 }
 
 /**
@@ -190,7 +189,7 @@ public struct WrapClass(ClassType, char[] name = ClassType.stringof, Members...)
 				static if(is(typeof(member.isMethod)))
 				{
 					dchar[] name = utf.toUtf32(member.Name);
-					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedMethod!(member.Func, member.FuncType, ClassType, WrappedInstance), className ~ "." ~ name));
+					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedMethod!(member.Func, member.FuncType, ClassType), className ~ "." ~ name));
 				}
 				else static if(is(typeof(member.isProperty)))
 				{
@@ -329,7 +328,7 @@ private template GenerateStructCasesImpl(int num, int idx, Ctors...)
 		params[i] = ToDType!(typeof(arg))(args[i]);
 
 	self.inst = StructType(params);
-	self.updateFields();
+	//self.updateFields();
 	return 0;
 }\n\n" ~ GenerateStructCasesImpl!(num, idx + 1, Ctors[1 .. $]);
 	}
@@ -450,16 +449,19 @@ public struct WrapStruct(StructType, char[] name = StructType.stringof, Members.
 			dchar[] structName = utf.toUtf32(name);
 			
 			super(structName, null);
-			
-			foreach(i, n; FieldNames!(StructType))
-				mFields[mixin("\"" ~ FieldNames!(StructType)[i] ~ "\"d")] = MDValue(StructType.init.tupleof[i]);
+
+			//foreach(i, n; FieldNames!(StructType))
+			//	mFields[mixin("\"" ~ FieldNames!(StructType)[i] ~ "\"d")] = MDValue(StructType.init.tupleof[i]);
+
+			mMethods["opIndex"d] = MDValue(new MDClosure(mMethods, &getField, structName ~ ".opIndex"));
+			mMethods["opIndexAssign"d] = MDValue(new MDClosure(mMethods, &setField, structName ~ ".opIndexAssign"));
 
 			foreach(i, member; Members)
 			{
 				static if(is(typeof(member.isMethod)))
 				{
 					dchar[] name = utf.toUtf32(member.Name);
-					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedMethod!(member.Func, member.FuncType, StructType, WrappedStruct!(StructType)), structName ~ "." ~ name));
+					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedMethod!(member.Func, member.FuncType, StructType), structName ~ "." ~ name));
 				}
 				else static if(is(typeof(member.isProperty)))
 				{
@@ -544,12 +546,80 @@ public struct WrapStruct(StructType, char[] name = StructType.stringof, Members.
 
 			s.throwRuntimeException("Parameter list {} passed to constructor does not match any wrapped constructors", typeString);
 		}
+		
+		private int getField(MDState s, uint numParams)
+		{
+			StructType* self = &s.getContext!(WrappedStruct!(StructType)).inst;
+			dchar[] fieldName = s.getParam!(MDString)(0).mData;
+
+			const Switch = GetStructField!(StructType);
+			mixin(Switch);
+
+			return 1;
+		}
+
+		private int setField(MDState s, uint numParams)
+		{
+			StructType* self = &s.getContext!(WrappedStruct!(StructType)).inst;
+			dchar[] fieldName = s.getParam!(MDString)(0).mData;
+
+			const Switch = SetStructField!(StructType);
+			mixin(Switch);
+
+			return 0;
+		}
 	}
 }
 
 public template WrapStructEx(StructType, Members...)
 {
 	alias WrapStruct!(StructType, StructType.stringof, Members) WrapStructEx;
+}
+
+private template GetStructField(T)
+{
+	const GetStructField =
+	"switch(fieldName)"
+	"{"
+		"default:"
+			"s.throwRuntimeException(\"Attempting to access nonexistent field '{}' from type " ~ T.stringof ~ "\", fieldName);\n"
+		~ GetStructFieldImpl!(FieldNames!(T)) ~
+	"}";
+}
+
+private template GetStructFieldImpl(Fields...)
+{
+	static if(Fields.length == 0)
+		const GetStructFieldImpl = "";
+	else
+	{
+		const GetStructFieldImpl =
+		"case \"" ~ Fields[0] ~ "\"d: s.push(self." ~ Fields[0] ~ "); break;\n"
+		~ GetStructFieldImpl!(Fields[1 .. $]);
+	}
+}
+
+private template SetStructField(T)
+{
+	const SetStructField =
+	"switch(fieldName)"
+	"{"
+		"default:"
+			"s.throwRuntimeException(\"Attempting to access nonexistent field '{}' from type " ~ T.stringof ~ "\", fieldName);\n"
+		~ SetStructFieldImpl!(FieldNames!(T)) ~
+	"}";
+}
+
+private template SetStructFieldImpl(Fields...)
+{
+	static if(Fields.length == 0)
+		const SetStructFieldImpl = "";
+	else
+	{
+		const SetStructFieldImpl =
+		"case \"" ~ Fields[0] ~ "\"d: self." ~ Fields[0] ~ " = GetParameter!(typeof(self." ~ Fields[0] ~ "))(s, 1); break;\n"
+		~ SetStructFieldImpl!(Fields[1 .. $]);
+	}
 }
 
 private template CountCtors(T...)
@@ -658,7 +728,7 @@ private int WrappedFunc(alias func, char[] name, funcType)(MDState s, uint numPa
 	assert(false, "WrappedFunc should never ever get here.");
 }
 
-private int WrappedMethod(alias func, funcType, ClassType, InstanceType)(MDState s, uint numParams)
+private int WrappedMethod(alias func, funcType, ClassType)(MDState s, uint numParams)
 {
 	const char[] name = NameOfFunc!(func);
 	ParameterTupleOf!(funcType) args;
@@ -673,12 +743,12 @@ private int WrappedMethod(alias func, funcType, ClassType, InstanceType)(MDState
 
 	static if(is(ClassType == class))
 	{
-		auto self = cast(ClassType)s.getContext!(InstanceType).inst;
+		auto self = cast(ClassType)s.getContext!(WrappedInstance).inst;
 		assert(self !is null, "Invalid 'this' parameter passed to method " ~ ClassType.stringof ~ "." ~ name);
 	}
 	else
 	{
-		auto self = s.getContext!(InstanceType).toStruct();
+		auto self = &s.getContext!(WrappedStruct!(ClassType)).inst;
 	}
 
 	static if(args.length == 0)
@@ -801,7 +871,7 @@ private T GetParameter(T)(MDState s, int index)
 	}
 	else static if(is(T == struct))
 	{
-		return *s.getParam!(WrappedStruct!(T))(index).toStruct();
+		return s.getParam!(WrappedStruct!(T))(index).inst;
 	}
 	else
 		return s.getParam!(T)(index);
@@ -820,7 +890,7 @@ private T ToDType(T)(ref MDValue v)
 	}
 	else static if(is(T == struct))
 	{
-		return *v.to!(WrappedStruct!(T)).toStruct();
+		return v.to!(WrappedStruct!(T)).inst;
 	}
 	else
 		return v.to!(T);
@@ -878,7 +948,7 @@ private MDValue ToMiniDType(T)(T v)
 		{
 			auto inst = new WrappedStruct!(T)(cls);
 			inst.inst = v;
-			inst.updateFields();
+			//inst.updateFields();
 			return MDValue(inst);
 		}
 		else
