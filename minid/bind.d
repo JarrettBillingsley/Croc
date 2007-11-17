@@ -45,12 +45,12 @@ public void WrapModule(char[] name, Members...)(MDContext context)
 			static if(is(typeof(member.isFunc)))
 			{
 				dchar[] name = utf.toUtf32(member.Name);
-				ns[name] = MDValue(new MDClosure(ns, &member.Function, name));
+				ns[name] = MDValue(new MDClosure(ns, &member.WrappedFunc, name));
 			}
 			else static if(is(typeof(member.isClass)))
 			{
 				dchar[] name = utf.toUtf32(member.Name);
-				ns[name] = MDValue(new member.Class());
+				ns[name] = MDValue(member.makeClass());
 			}
 			else static if(is(typeof(member.isStruct)))
 			{
@@ -79,17 +79,35 @@ public void WrapModule(char[] name, Members...)(MDContext context)
 /**
 This wraps a function, and is meant to be used as a parameter to WrapModule.
 */
-public struct WrapFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))
+public struct WrapFunc(alias func)
 {
 	const bool isFunc = true;
-	alias WrappedFunc!(func, name, funcType) Function;
-	const char[] Name = name;
+	const char[] Name = NameOfFunc!(func);
+	mixin WrappedFunc!(func, Name, typeof(&func));
 }
 
 /// ditto
 public template WrapFunc(alias func, funcType)
 {
-	alias WrapFunc!(func, NameOfFunc!(func), funcType) WrapFunc;
+	const bool isFunc = true;
+	const char[] Name = NameOfFunc!(func);
+	mixin WrappedFunc!(func, Name, funcType);
+}
+
+/// ditto
+public struct WrapFunc(alias func, char[] name)
+{
+	const bool isFunc = true;
+	const char[] Name = name;
+	mixin WrappedFunc!(func, Name, typeof(&func));
+}
+
+/// ditto
+public struct WrapFunc(alias func, char[] name, funcType)
+{
+	const bool isFunc = true;
+	const char[] Name = name;
+	mixin WrappedFunc!(func, Name, funcType);
 }
 
 /**
@@ -115,6 +133,19 @@ public struct WrapCustom(char[] name, alias func)
 	alias func Func;
 }
 
+private class WrappedClass : MDClass
+{
+	private this(dchar[] name, MDClass base)
+	{
+		super(name, base);
+	}
+
+	public override WrappedInstance newInstance()
+	{
+		return new WrappedInstance(this);
+	}
+}
+
 private class WrappedInstance : MDInstance
 {
 	private Object inst;
@@ -127,31 +158,17 @@ private class WrappedInstance : MDInstance
 
 private class WrappedStruct(T) : MDInstance
 {
-//	alias FieldNames!(T) fieldNames;
 	private T inst;
 
 	private this(MDClass owner)
 	{
 		super(owner);
 	}
-
-// 	private void updateFields()
-// 	{
-// 		foreach(i, v; fieldNames)
-// 			mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")] = MDValue(inst.tupleof[i]);
-// 	}
-// 
-// 	private T* toStruct()
-// 	{
-// 		foreach(i, v; fieldNames)
-// 			inst.tupleof[i] = mFields[mixin("\"" ~ fieldNames[i] ~ "\"d")].to!(typeof(inst.tupleof[i]));
-// 
-// 		return &inst;
-// 	}
 }
 
 /**
 Wraps a D class of the given type with the given members.  name is the name that will be given to the class in MiniD.
+This is meant to be used as a parameter to WrapModule.
 */
 public struct WrapClass(ClassType, char[] name = ClassType.stringof, Members...)
 {
@@ -160,74 +177,72 @@ public struct WrapClass(ClassType, char[] name = ClassType.stringof, Members...)
 	const bool isClass = true;
 	const char[] Name = name;
 	const CtorCount = CountCtors!(Members);
+	const className = ToUTF32!(name);
 
 	static assert(CtorCount <= 1, "Cannot have more than one WrapCtors instance in wrapped class parameters for class " ~ ClassType.stringof);
 
-	static class Class : MDClass
+	public static WrappedClass makeClass()
 	{
-		private this()
-		{
-			alias BaseTypeTupleOf!(ClassType) Bases;
-			
-			if(typeid(ClassType) in WrappedClasses)
-				throw new MDException("Native class " ~ ClassType.stringof ~ " cannot be wrapped more than once");
-			
-			WrappedClasses[typeid(ClassType)] = this;
-			dchar[] className = utf.toUtf32(name);
+		alias BaseTypeTupleOf!(ClassType) Bases;
 
-			static if(!is(Bases[0] == Object))
+		if(typeid(ClassType) in WrappedClasses)
+			throw new MDException("Native class " ~ ClassType.stringof ~ " cannot be wrapped more than once");
+
+		WrappedClass self;
+
+		static if(!is(Bases[0] == Object))
+		{
+			self = new WrappedClass(className, GetWrappedClass(typeid(Bases[0])));
+		}
+		else
+		{
+			self = new WrappedClass(className, null);
+		}
+		
+		WrappedClasses[typeid(ClassType)] = self;
+
+		foreach(i, member; Members)
+		{
+			static if(is(typeof(member.isMethod)))
 			{
-				super(className, GetWrappedClass(typeid(Bases[0])));
+				const name = ToUTF32!(member.Name);
+				self.mMethods[name] = MDValue(new MDClosure(self.mMethods, &WrappedMethod!(member.Func, member.FuncType, ClassType), className ~ "." ~ name));
+			}
+			else static if(is(typeof(member.isProperty)))
+			{
+				const name = ToUTF32!(member.Name);
+				self.mMethods[name] = MDValue(new MDClosure(self.mMethods, &WrappedProperty!(member.Func, member.Name, member.FuncType, ClassType), className ~ "." ~ name));
+			}
+			else static if(is(typeof(member.isCtors)))
+			{
+				self.mMethods["constructor"d] = MDValue(new MDClosure(self.mMethods, &constructor!(member.Types), className ~ ".constructor"));
 			}
 			else
-			{
-				super(className, null);
-			}
-
-			foreach(i, member; Members)
-			{
-				static if(is(typeof(member.isMethod)))
-				{
-					dchar[] name = utf.toUtf32(member.Name);
-					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedMethod!(member.Func, member.FuncType, ClassType), className ~ "." ~ name));
-				}
-				else static if(is(typeof(member.isProperty)))
-				{
-					dchar[] name = utf.toUtf32(member.Name);
-					mMethods[name] = MDValue(new MDClosure(mMethods, &WrappedProperty!(member.Func, member.Name, member.FuncType, ClassType), className ~ "." ~ name));
-				}
-				else static if(is(typeof(member.isCtors)))
-				{
-					mMethods["constructor"d] = MDValue(new MDClosure(mMethods, &constructor!(member.Types), className ~ ".constructor"));
-				}
-				else
-					static assert(false, "Invalid member type '" ~ typeof(member).stringof ~ "' in wrapped class '" ~ name ~ "'");
-			}
-
-			static if(CtorCount == 0)
-				mMethods["constructor"d] = MDValue(new MDClosure(mMethods, &defaultCtor, className ~ ".constructor"));
-		}
-
-		public override WrappedInstance newInstance()
-		{
-			return new WrappedInstance(this);
+				static assert(false, "Invalid member type '" ~ typeof(member).stringof ~ "' in wrapped class '" ~ name ~ "'");
 		}
 
 		static if(CtorCount == 0)
+			self.mMethods["constructor"d] = MDValue(new MDClosure(self.mMethods, &defaultCtor, className ~ ".constructor"));
+			
+		return self;
+	}
+
+	static if(CtorCount == 0)
+	{
+		static assert(is(typeof(new ClassType())), "Cannot call default constructor for class " ~ ClassType.stringof ~ "; please wrap a constructor explicitly");
+
+		private static int defaultCtor(MDState s, uint numParams)
 		{
-			static assert(is(typeof(new ClassType())), "Cannot call default constructor for class " ~ ClassType.stringof ~ "; please wrap a constructor explicitly");
+			auto self = s.getContext!(WrappedInstance);
+			assert(self !is null, "Invalid 'this' parameter passed to " ~ ClassType.stringof ~ ".constructor");
 
-			private int defaultCtor(MDState s, uint numParams)
-			{
-				auto self = s.getContext!(WrappedInstance);
-				assert(self !is null, "Invalid 'this' parameter passed to " ~ ClassType.stringof ~ ".constructor");
-
-				self.inst = new ClassType();
-				return 0;
-			}
+			self.inst = new ClassType();
+			return 0;
 		}
-
-		private int constructor(Ctors...)(MDState s, uint numParams)
+	}
+	else
+	{
+		private static int constructor(Ctors...)(MDState s, uint numParams)
 		{
 			auto self = s.getContext!(WrappedInstance);
 			assert(self !is null, "Invalid 'this' parameter passed to " ~ ClassType.stringof ~ ".constructor");
@@ -255,7 +270,7 @@ public struct WrapClass(ClassType, char[] name = ClassType.stringof, Members...)
 					return 0;
 				}
 			}
-			
+	
 			for(uint i = 0; i < numParams; i++)
 				args[i] = s.getParam(i);
 
@@ -267,11 +282,11 @@ public struct WrapClass(ClassType, char[] name = ClassType.stringof, Members...)
 			if(numParams > 0)
 			{
 				typeString ~= s.getParam(0u).typeString();
-			
+	
 				for(uint i = 1; i < numParams; i++)
 					typeString ~= ", " ~ s.getParam(i).typeString();
 			}
-			
+	
 			typeString ~= ")";
 
 			s.throwRuntimeException("Parameter list {} passed to constructor does not match any wrapped constructors", typeString);
@@ -386,18 +401,39 @@ public template WrapGlobalClassEx(ClassType, Members...)
 /**
 Wrap a class method given an alias to the method (like A.foo).  To be used as a parameter to one of the class wrapping templates.
 */
-public struct WrapMethod(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))
+public struct WrapMethod(alias func)
 {
 	const bool isMethod = true;
+	const char[] Name = NameOfFunc!(func);
 	alias func Func;
+	alias typeof(&func) FuncType;
+}
+
+/// ditto
+public struct WrapMethod(alias func, char[] name)
+{
+	const bool isMethod = true;
 	const char[] Name = name;
+	alias func Func;
+	alias typeof(&func) FuncType;
+}
+
+/// ditto
+public struct WrapMethod(alias func, funcType)
+{
+	const bool isMethod = true;
+	const char[] Name = NameOfFunc!(func);
+	alias func Func;
 	alias funcType FuncType;
 }
 
 /// ditto
-public template WrapMethod(alias func, funcType)
+public struct WrapMethod(alias func, char[] name, funcType)
 {
-	alias WrapMethod!(func, NameOfFunc!(func), funcType) WrapMethod;
+	const bool isMethod = true;
+	const char[] Name = name;
+	alias func Func;
+	alias funcType FuncType;
 }
 
 /**
@@ -407,7 +443,34 @@ returns 0 or 1 values is a setter; a function of the same name with no parameter
 figure out the setters/getters of the D class's properties, and wrap them into a single MiniD method which will call the setter
 or getter as appropriate based on how many parameters were passed to the MiniD method.
 */
-public struct WrapProperty(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))
+public struct WrapProperty(alias func)
+{
+	const bool isProperty = true;
+	alias func Func;
+	const char[] Name = NameOfFunc!(func);
+	alias typeof(&func) FuncType;
+}
+
+/// ditto
+public struct WrapProperty(alias func, char[] name)
+{
+	const bool isProperty = true;
+	alias func Func;
+	const char[] Name = name;
+	alias typeof(&func) FuncType;
+}
+
+/// ditto
+public struct WrapProperty(alias func, funcType)
+{
+	const bool isProperty = true;
+	alias func Func;
+	const char[] Name = NameOfFunc!(func);
+	alias funcType FuncType;
+}
+
+/// ditto
+public struct WrapProperty(alias func, char[] name, funcType)
 {
 	const bool isProperty = true;
 	alias func Func;
@@ -440,18 +503,15 @@ public struct WrapStruct(StructType, char[] name = StructType.stringof, Members.
 
 	static class Class : MDClass
 	{
-		private this()
+		public this()
 		{
 			if(typeid(StructType) in WrappedClasses)
 				throw new MDException("Native struct " ~ StructType.stringof ~ " cannot be wrapped more than once");
 
 			WrappedClasses[typeid(StructType)] = this;
-			dchar[] structName = utf.toUtf32(name);
-			
-			super(structName, null);
+			const structName = ToUTF32!(name);
 
-			//foreach(i, n; FieldNames!(StructType))
-			//	mFields[mixin("\"" ~ FieldNames!(StructType)[i] ~ "\"d")] = MDValue(StructType.init.tupleof[i]);
+			super(structName, null);
 
 			mMethods["opIndex"d] = MDValue(new MDClosure(mMethods, &getField, structName ~ ".opIndex"));
 			mMethods["opIndexAssign"d] = MDValue(new MDClosure(mMethods, &setField, structName ~ ".opIndexAssign"));
@@ -525,7 +585,7 @@ public struct WrapStruct(StructType, char[] name = StructType.stringof, Members.
 					return 0;
 				}
 			}
-			
+
 			for(uint i = 0; i < numParams; i++)
 				args[i] = s.getParam(i);
 
@@ -541,12 +601,12 @@ public struct WrapStruct(StructType, char[] name = StructType.stringof, Members.
 				for(uint i = 1; i < numParams; i++)
 					typeString ~= ", " ~ s.getParam(i).typeString();
 			}
-			
+
 			typeString ~= ")";
 
 			s.throwRuntimeException("Parameter list {} passed to constructor does not match any wrapped constructors", typeString);
 		}
-		
+
 		private int getField(MDState s, uint numParams)
 		{
 			StructType* self = &s.getContext!(WrappedStruct!(StructType)).inst;
@@ -655,77 +715,80 @@ private MDClass GetWrappedClass(TypeInfo ti)
 	return null;
 }
 
-private int WrappedFunc(alias func, char[] name, funcType)(MDState s, uint numParams)
+private template WrappedFunc(alias func, char[] name, funcType)
 {
-	ParameterTupleOf!(funcType) args;
-	const minArgs = MinArgs!(func);
-	const maxArgs = args.length;
-
-	if(numParams < minArgs)
-		s.throwRuntimeException("At least " ~ itoa!(minArgs) ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
-
-	if(numParams > maxArgs)
-		numParams = maxArgs;
-
-	static if(args.length == 0)
+	static int WrappedFunc(MDState s, uint numParams)
 	{
-		static if(is(ReturnTypeOf!(funcType) == void))
+		ParameterTupleOf!(funcType) args;
+		const minArgs = MinArgs!(func);
+		const maxArgs = args.length;
+	
+		if(numParams < minArgs)
+			s.throwRuntimeException("At least " ~ itoa!(minArgs) ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+	
+		if(numParams > maxArgs)
+			numParams = maxArgs;
+	
+		static if(args.length == 0)
 		{
-			func();
-			return 0;
+			static if(is(ReturnTypeOf!(funcType) == void))
+			{
+				func();
+				return 0;
+			}
+			else
+			{
+				s.push(ToMiniDType(func()));
+				return 1;
+			}
 		}
 		else
 		{
-			s.push(ToMiniDType(func()));
-			return 1;
-		}
-	}
-	else
-	{
-		static if(minArgs == 0)
-		{
-			if(numParams == 0)
+			static if(minArgs == 0)
 			{
-				static if(is(ReturnTypeOf!(funcType) == void))
-				{
-					func();
-					return 0;
-				}
-				else
-				{
-					s.push(ToMiniDType(func()));
-					return 1;
-				}
-			}
-		}
-
-		foreach(i, arg; args)
-		{
-			const argNum = i + 1;
-
-			if(i < numParams)
-				args[i] = GetParameter!(typeof(arg))(s, i);
-
-			static if(argNum >= minArgs && argNum <= maxArgs)
-			{
-				if(argNum == numParams)
+				if(numParams == 0)
 				{
 					static if(is(ReturnTypeOf!(funcType) == void))
 					{
-						func(args[0 .. argNum]);
+						func();
 						return 0;
 					}
 					else
 					{
-						s.push(ToMiniDType(func(args[0 .. argNum])));
+						s.push(ToMiniDType(func()));
 						return 1;
 					}
 				}
 			}
+	
+			foreach(i, arg; args)
+			{
+				const argNum = i + 1;
+	
+				if(i < numParams)
+					args[i] = GetParameter!(typeof(arg))(s, i);
+	
+				static if(argNum >= minArgs && argNum <= maxArgs)
+				{
+					if(argNum == numParams)
+					{
+						static if(is(ReturnTypeOf!(funcType) == void))
+						{
+							func(args[0 .. argNum]);
+							return 0;
+						}
+						else
+						{
+							s.push(ToMiniDType(func(args[0 .. argNum])));
+							return 1;
+						}
+					}
+				}
+			}
 		}
-	}
 
-	assert(false, "WrappedFunc should never ever get here.");
+		assert(false, "WrappedFunc should never ever get here.");
+	}
 }
 
 private int WrappedMethod(alias func, funcType, ClassType)(MDState s, uint numParams)
@@ -905,7 +968,7 @@ private bool CanCastTo(T)(ref MDValue v)
 
 		if(!v.canCastTo!(WrappedInstance))
 			return false;
-			
+
 		return (cast(T)v.as!(WrappedInstance).inst) !is null;
 	}
 	else

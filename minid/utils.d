@@ -705,3 +705,60 @@ private template QSort_greater(alias Pred, List...)
 	else
 		alias QSort_greater!(Pred, List[0], List[2 .. $]) QSort_greater;
 }
+
+/**
+Convert string literals between unicode encodings at compile time.  I swear, this should be
+built into the compiler or something.
+*/
+public template ToUTF8(char[] s)
+{
+	const char[] ToUTF8 = s;
+}
+
+/// ditto
+public template ToUTF8(wchar[] s)
+{
+	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
+}
+
+/// ditto
+public template ToUTF8(dchar[] s)
+{
+	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
+}
+
+/// ditto
+public template ToUTF16(char[] s)
+{
+	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
+}
+
+/// ditto
+public template ToUTF16(wchar[] s)
+{
+	const wchar[] ToUTF16 = s;
+}
+
+/// ditto
+public template ToUTF16(dchar[] s)
+{
+	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
+}
+
+/// ditto
+public template ToUTF32(char[] s)
+{
+	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
+}
+
+/// ditto
+public template ToUTF32(wchar[] s)
+{
+	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
+}
+
+/// ditto
+public template ToUTF32(dchar[] s)
+{
+	const dchar[] ToUTF32 = s;
+}

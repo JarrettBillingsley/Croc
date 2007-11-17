@@ -115,7 +115,13 @@ void main()
 			(
 				arc.font.Font,
 				WrapCtors!(void function(char[], int)),
-				WrapMethod!(Font.draw)
+				/* WrapMethod!(Font.getWidth!(dchar)),
+				WrapMethod!(Font.getWidthLastLine!(dchar)),
+				WrapMethod!(Font.getHeight),
+				WrapMethod!(Font.getLineSkip),
+				WrapMethod!(Font.setLineGap), */
+				WrapMethod!(Font.draw, void function(dchar[], Point, Color))//,
+				//WrapMethod!(Font.calculateIndex!(dchar))
 			)
 		)(ctx);
 
@@ -133,26 +139,28 @@ void main()
 				WrapMethod!(Point.maxComponent),
 				WrapMethod!(Point.minComponent),
 				WrapMethod!(Point.opNeg),
-				// cross, dot
+				WrapMethod!(Point.cross),
+				WrapMethod!(Point.dot),
 				WrapMethod!(Point.scale),
 				// apply
 				WrapMethod!(Point.lengthSquared),
 				WrapMethod!(Point.normalise, "normalize"),
 				WrapMethod!(Point.normaliseCopy, "normalizeCopy"),
-				// angle
 				WrapMethod!(Point.rotate),
+				WrapMethod!(Point.rotateCopy),
 				WrapMethod!(Point.abs),
 				WrapMethod!(Point.absCopy),
-				// clamp
+				WrapMethod!(Point.clamp),
 				WrapMethod!(Point.randomise, "randomize"),
-				// distance, distanceSquared
-				WrapMethod!(Point.rotateCopy),
+				WrapMethod!(Point.distance),
+				WrapMethod!(Point.distanceSquared),
 				WrapMethod!(Point.getX),
 				WrapMethod!(Point.getY),
 				WrapMethod!(Point.setX),
 				WrapMethod!(Point.setY),
 				WrapMethod!(Point.addX),
 				WrapMethod!(Point.addY)
+				// above, below, left, right
 			)
 		)(ctx);
 

@@ -22,6 +22,7 @@ function clamp(x, lo, hi)
 	local col = Color(1.0, 1.0, 1.0, 1.0);
 	local origin = Point(0.0, 0.0);
 	local white = Color(255, 255, 255);
+	local p1 = Point(100.0, 100.0);
 
 	while(!arc.input.keyDown(key.Quit) && !arc.input.keyDown(key.Esc))
 	{
@@ -29,12 +30,10 @@ function clamp(x, lo, hi)
 		arc.window.clear();
 		arc.time.process();
 
-		col.a = (math.sin(((arc.time.getTime() % 1000) / 500.0) * math.pi) + 1) / 4.0 + 0.5;
-
 		local p = arc.input.mousePos();
 
 		font.draw(p.toString(), p, col);
-		font.draw(toString(col.a), origin, white);
+		font.draw(toString(p1.distance(p)), origin, white);
 		font.draw(toString(arc.time.fps()), Point(0.0, 16.0), white);
 
 		arc.time.limitFPS(60);
@@ -66,7 +65,7 @@ co(3, 4);
 	class A
 	{
 		mX;
-	
+
 		this()
 		{
 			mX = 5;
@@ -78,20 +77,20 @@ co(3, 4);
 			writefln("A fork");
 		}
 	}
-	
+
 	class B : A
 	{
 		mY;
-	
+
 		this()
 		{
 			mY = 10;
-	
+
 			writefln("B ctor");
 			super();
 		}
 	}
-	
+
 	class C : B
 	{
 		mZ;
