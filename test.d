@@ -5,11 +5,6 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
-void printFoo()
-{
-	Stdout.formatln("foo!");
-}
-
 void main()
 {
 	MDContext ctx;
