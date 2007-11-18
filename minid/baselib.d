@@ -774,7 +774,12 @@ class BaseLib
 		
 		public int length(MDState s, uint numParams)
 		{
-			s.getContext!(MDStringBuffer).length = s.getParam!(uint)(0);
+			int newLen = s.getParam!(int)(0);
+			
+			if(newLen < 0)
+				s.throwRuntimeException("Invalid length ({})", newLen);
+
+			s.getContext!(MDStringBuffer).length = newLen;
 			return 0;
 		}
 		

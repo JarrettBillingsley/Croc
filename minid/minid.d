@@ -1,4 +1,8 @@
 /******************************************************************************
+This module holds some useful API functions that don't fit anywhere else.  This
+also holds the important NewContext function, which is how you create a MiniD
+interpreter to use in your app.
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 

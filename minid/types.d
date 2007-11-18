@@ -3,6 +3,11 @@ The main header file of the MiniD interpreter.  This file defines all the basic 
 of MiniD, as well as the MDState type, which is the interpreter (and doubles as the
 'thread' type for coroutines).
 
+It makes me sad to have to have so much stuff in one file, but D just can't handle
+circular imports (which would be necessary for splitting this up) without throwing
+up all over itself in a flurry of forward declaration/reference errors.  Sigh, if
+only it followed the spec where it says "things to drop: forward declarations."
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 
@@ -3740,6 +3745,7 @@ final class MDState : MDObject
 		mContext = context;
 	}
 
+	/// ditto
 	public this(MDContext context, MDClosure coroFunc)
 	{
 		this(context);

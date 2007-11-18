@@ -1,4 +1,16 @@
 /******************************************************************************
+This module contains scary template stuff to make it possible to wrap D functions,
+classes, and structs and expose them as functions and types in MiniD.
+
+Bugs:
+When wrapping structs, or when using functions which take structs as arguments, if a
+struct type has any private fields, it will fail.  Unfortunately D doesn't seem to
+provide any way to step around the private members, and also trying to get the .init
+of most structs causes a forward declaration error, so it's a bug that forces another
+bug.
+
+Arrays of wrapped structs/classes are not yet supported.
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 
@@ -20,7 +32,6 @@ subject to the following restrictions:
 
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
-
 module minid.bind;
 
 import minid.types;
@@ -55,7 +66,12 @@ struct WrapModule
 			MDNamespace ns = s.getParam!(MDNamespace)(1);
 
 			foreach(k, v; namespace)
+			{
+				if(v.isFunction())
+					v.as!(MDClosure).environment = ns;
+
 				ns[k] = v;
+			}
 	
 			return 0;
 		}
@@ -144,14 +160,46 @@ struct WrapModule
 	Returns:
 		A chaining reference to this module.
 	*/
-	public typeof(this) type(T)(T value, dchar[] name = "")
+	public typeof(this) type(T)(T value)
 	{
-		value.addToNamespace(loader.namespace, name);
+		value.addToNamespace(loader.namespace);
+		return this;
+	}
+
+	public typeof(this) type(T, U)(U name, T value)
+	{
+		static if(is(U == dchar[]))
+			value.addToNamespace(loader.namespace, name[]);
+		else
+			value.addToNamespace(loader.namespace, utf.toUtf32(name[]));
+			
 		return this;
 	}
 }
 
-struct WrapClass(ClassType, DirtyCtors...)
+/**
+Used to wrap a class or struct type that is exposed to MiniD.  Since classes and structs are very similar, both can be
+wrapped by this one template.  They can have any number of constructors, methods, and properties, and structs will have all their
+fields wrapped in opIndex and opIndexAssign metamethods so that they can be accessed from within MiniD.
+
+Params:
+	ClassType = The type of the class or struct to wrap.
+	Ctors = An optional list of function types which represent the constructors (or in the case of structs, static opCalls) which
+		should be wrapped.  If this is left out, it will attempt to wrap the default (no-parameter) constructor.
+
+Bugs:
+	As explained in the module header, wrapping structs with private fields fails.  You could try making a wrapper type for it, and
+	then wrapping that :X
+
+Examples:
+-----
+WrapClass!(MyClass, void function(int), void function(int, float)) // class type, followed by ctor types
+	.method!(MyClass.methodOne)() // wrap a method
+	.property!(MyClass.position)() // wrap a property
+.addToNamespace(someNamespace); // register it into a namespace
+-----
+*/
+struct WrapClass(ClassType, Ctors...)
 {
 	static if(is(ClassType == class))
 	{
@@ -169,10 +217,16 @@ struct WrapClass(ClassType, DirtyCtors...)
 	else
 		static assert(false, "Cannot wrap type " ~ ClassType.stringof);
 
-	alias Unique!(QSort!(SortByNumParams, DirtyCtors)) Ctors;
-	
+	alias Unique!(QSort!(SortByNumParams, Ctors)) CleanCtors;
+
 	private MDClassType mClass;
 
+	/**
+	Creates an instance of this struct so you can start wrapping your class or struct.
+
+	Returns:
+		An instance of this struct.
+	*/
 	public static typeof(*this) opCall()
 	{
 		typeof(*this) ret;
@@ -202,7 +256,7 @@ struct WrapClass(ClassType, DirtyCtors...)
 			ret.mClass.mMethods["opIndexAssign"d] = MDValue(new MDClosure(ret.mClass.mMethods, &ret.mClass.setField, ClassName ~ ".opIndexAssign"));
 		}
 
-		static if(Ctors.length == 0)
+		static if(CleanCtors.length == 0)
 			ret.mClass.mMethods["constructor"d] = MDValue(new MDClosure(ret.mClass.mMethods, &defaultCtor, ClassName ~ ".constructor"));
 		else
 			ret.mClass.mMethods["constructor"d] = MDValue(new MDClosure(ret.mClass.mMethods, &constructor, ClassName ~ ".constructor"));
@@ -210,6 +264,19 @@ struct WrapClass(ClassType, DirtyCtors...)
 		return ret;
 	}
 
+	/**
+	Wrap a class or struct method.
+
+	Params:
+		func = An alias to the method to wrap.  If your class type is "MyClass" and the method is "foo", use "MyClass.foo" (without the quotes)
+			as the parameter.
+		name = The name that should be used on the MiniD side to represent the method.  Defaults to the D method name.
+		funcType = The type of the method to wrap.  This defaults to typeof(func), but you'll need to specify this
+			explicitly if you're wrapping an overloaded method, in order to select the proper overload.
+
+	Returns:
+		A chaining reference to this struct.
+	*/
 	public typeof(this) method(alias func, char[] name = NameOfFunc!(func), funcType = typeof(func))()
 	{
 		const name32 = ToUTF32!(name);
@@ -217,7 +284,8 @@ struct WrapClass(ClassType, DirtyCtors...)
 
 		return this;
 	}
-	
+
+	/// ditto
 	public typeof(this) method(alias func, funcType)()
 	{
 		const name = NameOfFunc!(func);
@@ -227,6 +295,23 @@ struct WrapClass(ClassType, DirtyCtors...)
 		return this;
 	}
 
+	/**
+	Wrap a property.  MiniD doesn't have explicit support for properties, but the MiniD standard library follows a certain convention, which is
+	compatible with the D property convention.  In MiniD, a property is represented as a function which sets the value when called with one
+	parameter, and which gets the value when called with none, just like in D.  A wrapped property will call the getter and/or setter appropriately
+	when used from MiniD.  The getter and setter are automatically determined, so you don't have to wrap them separately.  It will also work if
+	your property is read-only or write-only.
+
+	Params:
+		func = An alias to the property to wrap, just like with method wrapping.
+		name = The name that should be used on the MiniD side to represent the property.  Defaults to the D property name.
+		funcType = The type of the property to wrap.  This defaults to typeof(func), but you might have to use an explicit type if you have
+			another class method with the same name as the property but with a different number of parameters.  This can be either
+			the type of the setter or the getter.
+
+	Returns:
+		A chaining reference to this struct.
+	*/
 	public typeof(this) property(alias func, char[] name = NameOfFunc!(func), funcType = typeof(func))()
 	{
 		const name32 = ToUTF32!(name);
@@ -235,6 +320,7 @@ struct WrapClass(ClassType, DirtyCtors...)
 		return this;
 	}
 
+	/// ditto
 	public typeof(this) property(alias func, funcType)()
 	{
 		const name = NameOfFunc!(func);
@@ -244,6 +330,13 @@ struct WrapClass(ClassType, DirtyCtors...)
 		return this;
 	}
 
+	/**
+	Registers this class as a global variable in the given context.
+
+	Params:
+		ctx = The context to load this class into.
+		name = The name to give the class in MiniD.  Defaults to "", which means the class's D name will be used as the MiniD name.
+	*/
 	public void makeGlobal(MDContext ctx, dchar[] name = "")
 	{
 		if(name.length == 0)
@@ -252,6 +345,13 @@ struct WrapClass(ClassType, DirtyCtors...)
 			ctx.globals[name] = MDValue(mClass);
 	}
 
+	/**
+	Adds this class to some namespace.
+
+	Params:
+		ns = The namespace to put this class in.
+		name = The name to give the class in MiniD.  Defaults to "", which means the class's D name will be used as the MiniD name.
+	*/
 	public void addToNamespace(MDNamespace ns, dchar[] name = "")
 	{
 		if(name.length == 0)
@@ -260,7 +360,7 @@ struct WrapClass(ClassType, DirtyCtors...)
 			ns[name] = MDValue(mClass);
 	}
 
-	static if(Ctors.length == 0)
+	static if(CleanCtors.length == 0)
 	{
 		static if(is(ClassType == class))
 			static assert(is(typeof(new ClassType())), "Cannot call default constructor for class " ~ ToUTF8!(ClassName) ~ "; please wrap a constructor explicitly");
@@ -292,17 +392,17 @@ struct WrapClass(ClassType, DirtyCtors...)
 				static if(is(typeof(new ClassType())))
 					const minArgs = 0;
 				else
-					const minArgs = ParameterTupleOf!(Ctors[0]).length;
+					const minArgs = ParameterTupleOf!(CleanCtors[0]).length;
 			}
 			else
 			{
 				static if(is(typeof(ClassType())))
 					const minArgs = 0;
 				else
-					const minArgs = ParameterTupleOf!(Ctors[0]).length;
+					const minArgs = ParameterTupleOf!(CleanCtors[0]).length;
 			}
 
-			const maxArgs = ParameterTupleOf!(Ctors[$ - 1]).length;
+			const maxArgs = ParameterTupleOf!(CleanCtors[$ - 1]).length;
 
 			MDValue[maxArgs] args;
 
@@ -329,9 +429,9 @@ struct WrapClass(ClassType, DirtyCtors...)
 				args[i] = s.getParam(i);
 
 			static if(is(ClassType == class))
-				const Switch = GenerateCases!(Ctors);
+				const Switch = GenerateCases!(CleanCtors);
 			else
-				const Switch = GenerateStructCases!(Ctors);
+				const Switch = GenerateStructCases!(CleanCtors);
 
 			mixin(Switch);
 
@@ -353,8 +453,14 @@ struct WrapClass(ClassType, DirtyCtors...)
 }
 
 /**
-Given a function alias, and an optional name and type for overloading, this will wrap the function and register
-it in the global namespace.  This is not meant to be used as a parameter to WrapModule, as it's not in any module.
+Wraps a free function and places it into a given namespace.
+
+Params:
+	func = An alias to the function you want to wrap.
+	name = The name to call it in MiniD.  Defaults to the D function name.
+	funcType = The type of the function to wrap.  This defaults to typeof(func), but you'll need to specify this
+		explicitly if you're wrapping an overloaded function, in order to select the proper overload.
+	ns = The namespace to put the function in.
 */
 public void WrapFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))(MDNamespace ns)
 {
@@ -369,8 +475,14 @@ public template WrapFunc(alias func, funcType)
 }
 
 /**
-Given a function alias, and an optional name and type for overloading, this will wrap the function and register
-it in the global namespace.  This is not meant to be used as a parameter to WrapModule, as it's not in any module.
+Wraps a free function and places it into the global namespace of a given context.
+
+Params:
+	func = An alias to the function you want to wrap.
+	name = The name to call it in MiniD.  Defaults to the D function name.
+	funcType = The type of the function to wrap.  This defaults to typeof(func), but you'll need to specify this
+		explicitly if you're wrapping an overloaded function, in order to select the proper overload.
+	context = The context into whose global namespace this function will be placed.
 */
 public void WrapGlobalFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))(MDContext context)
 {
@@ -388,19 +500,22 @@ public template WrapGlobalFunc(alias func, funcType)
 Given an alias to a function, this metafunction will give the minimum legal number of arguments it can be called with.
 Even works for aliases to class methods.
 */
-public template MinArgs(alias func)
+public template MinArgs(alias func, funcType = void)
 {
-	const uint MinArgs = MinArgsImpl!(func, 0, InitsOf!(ParameterTupleOf!(typeof(&func))));
+	static if(is(funcType == void))
+		const uint MinArgs = MinArgsImpl!(func, NumParams!(typeof(&func)), InitsOf!(ParameterTupleOf!(typeof(&func))));
+	else
+		const uint MinArgs = MinArgsImpl!(func, NumParams!(funcType), InitsOf!(ParameterTupleOf!(funcType)));
 }
 
 public template MinArgsImpl(alias func, int index, Args...)
 {
-	static if(index >= Args.length)
-		const uint MinArgsImpl = Args.length;
-	else static if(is(typeof(func(Args[0 .. index]))))
-		const uint MinArgsImpl = index;
+	static if(index < 0)
+		const uint MinArgsImpl = 0;
+	else static if(is(typeof(func(Args[0 .. index]))) && is(typeof(func(Args[0 .. index])) == ReturnTypeOf!(typeof(func))))
+		const uint MinArgsImpl = MinArgsImpl!(func, index - 1, Args);
 	else
-		const uint MinArgsImpl = MinArgsImpl!(func, index + 1, Args);
+		const uint MinArgsImpl = index + 1;
 }
 
 /**
@@ -521,7 +636,7 @@ private template GetStructFieldImpl(Fields...)
 	else
 	{
 		const GetStructFieldImpl =
-		"case \"" ~ Fields[0] ~ "\"d: s.push(self." ~ Fields[0] ~ "); break;\n"
+		"case \"" ~ Fields[0] ~ "\"d: s.push(ToMiniDType(self." ~ Fields[0] ~ ")); break;\n"
 		~ GetStructFieldImpl!(Fields[1 .. $]);
 	}
 }
@@ -651,7 +766,7 @@ private template WrappedFunc(alias func, char[] name, funcType)
 	static int WrappedFunc(MDState s, uint numParams)
 	{
 		ParameterTupleOf!(funcType) args;
-		const minArgs = MinArgs!(func);
+		const minArgs = MinArgs!(func, funcType);
 		const maxArgs = args.length;
 	
 		if(numParams < minArgs)
@@ -726,7 +841,7 @@ private int WrappedMethod(alias func, funcType, ClassType)(MDState s, uint numPa
 {
 	const char[] name = NameOfFunc!(func);
 	ParameterTupleOf!(funcType) args;
-	const minArgs = MinArgs!(func);
+	const minArgs = MinArgs!(func, funcType);
 	const maxArgs = args.length;
 
 	if(numParams < minArgs)
@@ -811,7 +926,7 @@ private int WrappedProperty(alias func, char[] name, funcType, ClassType)(MDStat
 	{
 		alias ReturnTypeOf!(funcType) propType;
 
-		static if(is(typeof(func(propType.init)) T))
+		static if(is(typeof(func(InitOf!(propType))) T))
 			alias T function(propType) setterType;
 		else
 			alias void setterType;

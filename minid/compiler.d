@@ -1,4 +1,7 @@
 /******************************************************************************
+The MiniD compiler.  This is, unsurprisingly, the largest part of the implementation,
+although it has a very small public interface.
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 

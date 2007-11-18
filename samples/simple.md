@@ -1,20 +1,19 @@
 module simple;
 
-function clamp(x, lo, hi)
-{
-	return x < lo ? lo : x > hi ? hi : x;
-}
-
-{
-	import arc.window;
-	import arc.input : key, mouse;
-	import arc.font : Font;
-	import arc.math.point : Point;
+/*{
 	import arc.draw.color : Color;
-	import arc.time;
+	import arc.draw.image : drawImage, drawImageTopLeft;
+	import arc.draw.shape : drawCircle, drawRectangle;
+	import arc.font : Font;
+	import arc.input : key, mouse;
+	import arc.math.point : Point;
+	import arc.math.size : Size;
 	import arc.sound : Sound, SoundFile;
+	import arc.texture : Texture;
+	import arc.time;
+	import arc.window;
 
-	arc.window.open("Hello world", 640, 480, false);
+	arc.window.open("Hello world", 800, 600, false);
 	arc.input.open();
 	arc.font.open();
 	arc.time.open();
@@ -25,10 +24,10 @@ function clamp(x, lo, hi)
 	local origin = Point(0.0, 0.0);
 	local white = Color(255, 255, 255);
 
-	local sound = Sound(SoundFile("LASERTW.WAV"));
-	local music = Sound(SoundFile("Svyashchennaya_voyna.ogg"));
-	music.setLoop(true);
-	music.play();
+// 	local sound = Sound(SoundFile("LASERTW.WAV"));
+// 	local music = Sound(SoundFile("title choir.ogg"));
+// 	music.setLoop(true);
+// 	music.play();
 
 	while(!arc.input.keyDown(key.Quit) && !arc.input.keyDown(key.Esc))
 	{
@@ -36,16 +35,15 @@ function clamp(x, lo, hi)
 		arc.window.clear();
 		arc.time.process();
 		arc.sound.process();
-		sound.process();
-		music.process();
+// 		sound.process();
+// 		music.process();
 
-		if(arc.input.mouseButtonPressed(mouse.Left))
-		{
-			sound.seek(0.0);
-			sound.play();
-		}
+// 		if(arc.input.mouseButtonPressed(mouse.Left))
+// 		{
+// 			sound.seek(0.0);
+// 			sound.play();
+// 		}
 
-		font2.draw("Hi, Clapton!", arc.input.mousePos(), white);
 		font.draw(toString(arc.time.fps()), origin, white);
 
 		arc.time.limitFPS(60);
@@ -59,7 +57,7 @@ function clamp(x, lo, hi)
 	arc.window.close();
 
 	return;
-}
+}*/
 
 /*
 local co = coroutine Co;
