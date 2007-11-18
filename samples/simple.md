@@ -7,39 +7,52 @@ function clamp(x, lo, hi)
 
 {
 	import arc.window;
-	import arc.input : key;
+	import arc.input : key, mouse;
 	import arc.font : Font;
 	import arc.math.point : Point;
 	import arc.draw.color : Color;
 	import arc.time;
+	import arc.sound : Sound, SoundFile;
 
 	arc.window.open("Hello world", 640, 480, false);
 	arc.input.open();
 	arc.font.open();
 	arc.time.open();
+	arc.sound.open();
 
 	local font = Font("arial.ttf", 12);
-	local col = Color(1.0, 1.0, 1.0, 1.0);
+	local font2 = Font("arial.ttf", 32);
 	local origin = Point(0.0, 0.0);
 	local white = Color(255, 255, 255);
-	local p1 = Point(100.0, 100.0);
+
+	local sound = Sound(SoundFile("LASERTW.WAV"));
+	local music = Sound(SoundFile("Svyashchennaya_voyna.ogg"));
+	music.setLoop(true);
+	music.play();
 
 	while(!arc.input.keyDown(key.Quit) && !arc.input.keyDown(key.Esc))
 	{
 		arc.input.process();
 		arc.window.clear();
 		arc.time.process();
+		arc.sound.process();
+		sound.process();
+		music.process();
 
-		local p = arc.input.mousePos();
+		if(arc.input.mouseButtonPressed(mouse.Left))
+		{
+			sound.seek(0.0);
+			sound.play();
+		}
 
-		font.draw(p.toString(), p, col);
-		font.draw(toString(p1.distance(p)), origin, white);
-		font.draw(toString(arc.time.fps()), Point(0.0, 16.0), white);
+		font2.draw("Hi, Clapton!", arc.input.mousePos(), white);
+		font.draw(toString(arc.time.fps()), origin, white);
 
 		arc.time.limitFPS(60);
 		arc.window.swap();
 	}
 
+	arc.sound.close();
 	arc.time.close();
 	arc.font.close();
 	arc.input.close();

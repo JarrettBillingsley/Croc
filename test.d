@@ -5,13 +5,6 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
-import arc.draw.color;
-import arc.window;
-import arc.font;
-import arc.input;
-import arc.time;
-import arc.math.point;
-
 void printFoo()
 {
 	Stdout.formatln("foo!");
@@ -42,6 +35,14 @@ void main()
 	}
 }
 
+import arc.draw.color;
+import arc.window;
+import arc.font;
+import arc.input;
+import arc.time;
+import arc.math.point;
+import arc.sound;
+
 void LoadArc(MDContext ctx)
 {
 	WrapModule("arc.window", ctx)
@@ -58,6 +59,7 @@ void LoadArc(MDContext ctx)
 		.func!(arc.input.mouseX)()
 		.func!(arc.input.mouseY)()
 		.func!(arc.input.mousePos)()
+		.func!(arc.input.mouseButtonPressed)()
 		.custom("key", MDTable.create
 		(
 			"Quit", ARC_QUIT,
@@ -66,6 +68,15 @@ void LoadArc(MDContext ctx)
 			"Left", ARC_LEFT,
 			"Right", ARC_RIGHT,
 			"Esc", ARC_ESCAPE
+		))
+		.custom("mouse", MDTable.create
+		(
+			"Any", ANYBUTTON,
+			"Left", LEFT,
+			"Middle", MIDDLE,
+			"Right", RIGHT,
+			"WheelUp", WHEELUP,
+			"WheelDown", WHEELDOWN
 		));
 
 	WrapModule("arc.font", ctx)
@@ -141,4 +152,43 @@ void LoadArc(MDContext ctx)
 		.func!(arc.time.fps)()
 		.func!(arc.time.limitFPS)()
 		.func!(arc.time.getTime)();
+
+	WrapModule("arc.sound", ctx)
+		.func!(arc.sound.open)()
+		.func!(arc.sound.close)()
+		.func!(arc.sound.process)()
+		.func!(arc.sound.on)()
+		.func!(arc.sound.off)()
+		.func!(arc.sound.isSoundOn)()
+		.type(WrapClass!(Sound, void function(SoundFile))()
+			.method!(Sound.getSound)()
+			.method!(Sound.setSound)()
+			.method!(Sound.setGain)()
+			.method!(Sound.getPitch)()
+			.method!(Sound.setPitch)()
+			.method!(Sound.getVolume)()
+			.method!(Sound.setVolume)()
+			.method!(Sound.getLooping)()
+			.method!(Sound.setLoop)()
+			.method!(Sound.getPaused)()
+			.method!(Sound.setPaused)()
+			.method!(Sound.play)()
+			.method!(Sound.pause)()
+			.method!(Sound.seek)()
+			.method!(Sound.tell)()
+			.method!(Sound.stop)()
+			.method!(Sound.updateBuffers)()
+			.method!(Sound.process)())
+		.type(WrapClass!(SoundFile, void function(char[]))()
+			.method!(SoundFile.getFrequency)()
+// 			.method!(SoundFile.getBuffers, "getBuffersList", void function())()
+// 			.method!(SoundFile.getBuffersLength)()
+// 			.method!(SoundFile.getBuffersPerSecond)()
+			.method!(SoundFile.getLength)()
+			.method!(SoundFile.getSize)()
+			.method!(SoundFile.getSource)()
+// 			.method!(SoundFile.getBuffers, void function(int, int))()
+// 			.method!(SoundFile.allocBuffers)()
+// 			.method!(SoundFile.freeBuffers)()
+			.method!(SoundFile.print)());
 }
