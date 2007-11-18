@@ -13,7 +13,6 @@ void main()
 	{
 		ctx = NewContext();
 		//LoadArc(ctx);
-		WrapGlobalFunc!(printFoo)(ctx);
 
 		ctx.addImportPath(`samples`);
 		ctx.importModule("simple");
