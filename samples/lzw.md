@@ -17,7 +17,10 @@ local code;
 for(code = 0; code < 128; code++)
 	dict[toString(toChar(code))] = code;
 
-do
+local shortCount = 0;
+output.writeInt(0);
+
+for(local i = 0, local size = input.size(); i < size; i++)
 {
 	local k = input.readChar();
 
@@ -28,11 +31,16 @@ do
 	else
 	{
 		output.writeShort(dict[w]);
+		shortCount++;
 		dict[wk] = code;
 		code++;
 		w = toString(k);
 	}
-} while(!input.eof())
+}
+
+output.flush();
+output.position(0);
+output.writeInt(shortCount);
 
 input.close();
 output.close();

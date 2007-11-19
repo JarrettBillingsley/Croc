@@ -23,8 +23,8 @@ subject to the following restrictions:
 
 module minid.iolib;
 
+import minid.misc;
 import minid.types;
-import minid.baselib;
 import minid.utils;
 
 import tango.io.Buffer;
@@ -202,25 +202,34 @@ class IOLib
 		if(numParams == 1)
 		{
 			scope fp = new FilePath(path, true);
-
-			fp.toList((char[] prefix, char[] name, bool isDir)
-			{
-				if(!isDir)
-					listing ~= (prefix ~ name);
-			});
+			
+			s.safeCode
+			({
+				foreach(info; fp)
+				{
+					if(!info.folder)
+						listing ~= (info.path ~ info.name);
+				}
+			}());
 		}
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
 			scope fp = new FilePath(path, true);
 
-			fp.toList((char[] prefix, char[] name, bool isDir)
-			{
-				char[] fullName = prefix ~ name;
-
-				if(!isDir && patternMatch(fullName, filter))
-					listing ~= fullName;
-			});
+			s.safeCode
+			({
+				foreach(info; fp)
+				{
+					if(!info.folder)
+					{
+						char[] fullName = info.path ~ info.name;
+						
+						if(patternMatch(fullName, filter))
+							listing ~= fullName;
+					}
+				}
+			}());
 		}
 
 		s.push(MDArray.fromArray(listing));
@@ -235,25 +244,34 @@ class IOLib
 		if(numParams == 1)
 		{
 			scope fp = new FilePath(path, true);
-			
-			fp.toList((char[] prefix, char[] name, bool isDir)
-			{
-				if(isDir)
-					listing ~= (prefix ~ name);
-			});
+
+			s.safeCode
+			({
+				foreach(info; fp)
+				{
+					if(info.folder)
+						listing ~= (info.path ~ info.name);
+				}
+			}());
 		}
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
 			scope fp = new FilePath(path, true);
 
-			fp.toList((char[] prefix, char[] name, bool isDir)
-			{
-				char[] fullName = prefix ~ name;
-
-				if(isDir && patternMatch(fullName, filter))
-					listing ~= fullName;
-			});
+			s.safeCode
+			({
+				foreach(info; fp)
+				{
+					if(info.folder)
+					{
+						char[] fullName = info.path ~ info.name;
+						
+						if(patternMatch(fullName, filter))
+							listing ~= fullName;
+					}
+				}
+			}());
 		}
 
 		s.push(MDArray.fromArray(listing));
@@ -422,7 +440,7 @@ class IOLib
 			mReader = new Reader(mInput);
 			mLines = new LineIterator!(char)(mInput);
 		}
-		
+
 		public T readVal(T)()
 		{
 			T val;
@@ -604,13 +622,13 @@ class IOLib
 
 		public MDOutputStream writef(MDState s, MDValue[] params)
 		{
-			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
+			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
 			return this;
 		}
 
 		public MDOutputStream writefln(MDState s, MDValue[] params)
 		{
-			baseFormat(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
+			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
 			mPrint.newline;
 			return this;
 		}
@@ -623,7 +641,7 @@ class IOLib
 
 		public MDOutputStream writeJSON(MDState s, MDValue root, bool pretty = false)
 		{
-			BaseLib.toJSONImpl(s, root, pretty, mPrint);
+			toJSONImpl(s, root, pretty, mPrint);
 			return this;
 		}
 

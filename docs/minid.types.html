@@ -21,6 +21,12 @@ The main header file of the MiniD interpreter.  This file defines all the basic
 of MiniD, as well as the MDState type, which is the interpreter (and doubles as the
 'thread' type for coroutines).
 <br><br>
+It makes me sad to have to have so much stuff in one file, but D just can't handle
+circular imports (which would be necessary for splitting this up) without throwing
+up all over itself in a flurry of forward declaration/reference errors.  Sigh, if
+only it followed the spec where it says "things to drop: forward declarations."
+
+<br><br>
 <b>License:</b><br>
 Copyright (c) 2007 Jarrett Billingsley
 <br><br>
@@ -163,6 +169,24 @@ The message will be in the form "filename(line:colunm): error message".
 
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">atEOF</span>
+<script>explorer.outline.addDecl('atEOF');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Indicates whether the compiler threw this at the end of the file or not.  If this is
+	<b>true</b>, this might be because the compiler ran out of input, in which case the code could
+	be made to compile by adding more code.
+	
+<br><br>
+
+</dd>
+
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">this(Location <span class="funcparam">loc</span>, char[] <span class="funcparam">fmt</span>,...);
 </span></dt>
@@ -2387,6 +2411,22 @@ Instances must be created through a class; you cannot instantiate an instance on
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">MDClass 
+<span class="currsymbol">getClass</span>
+<script>explorer.outline.addDecl('getClass');</script>
+
+();
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets a reference to the owning class.
+	
+<br><br>
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -3077,12 +3117,12 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDNamespace 
+<dt><span class="decl">final MDNamespace 
 <span class="currsymbol">getMetatable</span>
 <script>explorer.outline.addDecl('getMetatable');</script>
 
 (Type <span class="funcparam">type</span>);
-<br>void 
+<br>final void 
 <span class="currsymbol">setMetatable</span>
 <script>explorer.outline.addDecl('setMetatable');</script>
 
@@ -3101,7 +3141,7 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDState 
+<dt><span class="decl">final MDState 
 <span class="currsymbol">mainThread</span>
 <script>explorer.outline.addDecl('mainThread');</script>
 
@@ -3118,7 +3158,7 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDClosure 
+<dt><span class="decl">final MDClosure 
 <span class="currsymbol">newClosure</span>
 <script>explorer.outline.addDecl('newClosure');</script>
 
@@ -3134,12 +3174,12 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDClosure 
+<dt><span class="decl">final MDClosure 
 <span class="currsymbol">newClosure</span>
 <script>explorer.outline.addDecl('newClosure');</script>
 
 (int delegate(MDState, uint) <span class="funcparam">dg</span>, dchar[] <span class="funcparam">name</span>, MDValue [] <span class="funcparam">upvals</span> = null);
-<br>MDClosure 
+<br>final MDClosure 
 <span class="currsymbol">newClosure</span>
 <script>explorer.outline.addDecl('newClosure');</script>
 
@@ -3156,7 +3196,7 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
+<dt><span class="decl">final void 
 <span class="currsymbol">addImportPath</span>
 <script>explorer.outline.addDecl('addImportPath');</script>
 
@@ -3173,7 +3213,7 @@ a flags parameter, which is a bit more compact.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
+<dt><span class="decl">final void 
 <span class="currsymbol">setModuleLoader</span>
 <script>explorer.outline.addDecl('setModuleLoader');</script>
 
@@ -3194,7 +3234,7 @@ The closure takes two Params: the <span class="funcparam">name</span> of the mod
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDNamespace 
+<dt><span class="decl">final MDNamespace 
 <span class="currsymbol">importModule</span>
 <script>explorer.outline.addDecl('importModule');</script>
 
@@ -3253,7 +3293,7 @@ The namespace which holds the module'<span class="funcparam">s</span> symbols.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDNamespace 
+<dt><span class="decl">final MDNamespace 
 <span class="currsymbol">initializeModule</span>
 <script>explorer.outline.addDecl('initializeModule');</script>
 
@@ -3288,6 +3328,24 @@ The namespace of the module.
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">final char[] 
+<span class="currsymbol">getTracebackString</span>
+<script>explorer.outline.addDecl('getTracebackString');</script>
+
+();
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets traceback info of the most recently-thrown exception, and clears the traceback
+	info.  This method is here because exceptions can propagate through multiple states
+	and through coroutine calls.
+	
+<br><br>
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -3306,7 +3364,7 @@ The namespace of the module.
 
 <dd>The class which represents the MiniD 'thread' type.  Also probably the singularly most important class
 in the native API, this is passed as a "context" to all native functions and contains the script interpreter.
-Also keeps track of the script call call stack, locals stack, and debug traceback info.
+Also keeps track of the script call call stack and locals stack.
 <br><br>
 
 
@@ -3415,6 +3473,7 @@ Also keeps track of the script call call stack, locals stack, and debug tracebac
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">this(MDContext <span class="funcparam">context</span>);
+<br>this(MDContext <span class="funcparam">context</span>, MDClosure <span class="funcparam">coroFunc</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3643,6 +3702,19 @@ The number of return values from this call.  If the numReturns parameter was &gt
 <script>explorer.outline.addDecl('callMethod');</script>
 
 (T...)(ref MDValue <span class="funcparam">val</span>, dchar[] <span class="funcparam">methodName</span>, int <span class="funcparam">numReturns</span>, T <span class="funcparam">params</span>);
+<br>uint 
+<span class="currsymbol">
+<span class="currsymbol">callMethod</span>
+<script>explorer.outline.addDecl('callMethod');</script>
+
+</span>
+<script>explorer.outline.addDecl('
+<span class="currsymbol">callMethod</span>
+<script>explorer.outline.addDecl('callMethod');</script>
+
+');</script>
+
+(T...)(ref MDValue <span class="funcparam"><span class="funcparam">val</span></span>, MDString <span class="funcparam"><span class="funcparam">methodName</span></span>, int <span class="funcparam"><span class="funcparam">numReturns</span></span>, T <span class="funcparam"><span class="funcparam">params</span></span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3709,7 +3781,7 @@ This interface makes slightly less code bloat than the easyCall, as it doesn't r
 	s.push(param2);
 
 	<font color=green>// 4. Make the call.
-</font>	s.<u>call</u>(funcIdx, 2, 1);
+</font>	s.<u>call</u>(funcIdx, 3, 1);
 
 	<font color=green>// 5. Pop any return values.
 </font>	<font color=blue>auto</font> ret = s.pop!(<font color=blue>int</font>);
@@ -4065,6 +4137,23 @@ The closure's
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">final uint 
+<span class="currsymbol">callDepth</span>
+<script>explorer.outline.addDecl('callDepth');</script>
+
+();
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the current call depth, that is, how many functions are currently on the call stack which
+	have yet to return.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">final MDString 
 <span class="currsymbol">valueToString</span>
 <script>explorer.outline.addDecl('valueToString');</script>
@@ -4389,18 +4478,34 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static char[] 
-<span class="currsymbol">getTracebackString</span>
-<script>explorer.outline.addDecl('getTracebackString');</script>
+<dt><span class="decl">final MDValue  
+<span class="currsymbol">cat</span>
+<script>explorer.outline.addDecl('cat');</script>
 
-();
+(MDValue [] <span class="funcparam">vals</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets traceback info of the most recently-thrown exception, and clears the traceback
-	info.  This method is static, because exceptions can propagate through multiple states
-	and through coroutine calls, and so the traceback is stored globally.
+<dd>Concatenates the list of values (which must be at least two items long) into a single value and
+	returns it.  Calls metamethods.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">final void 
+<span class="currsymbol">cateq</span>
+<script>explorer.outline.addDecl('cateq');</script>
+
+(ref MDValue <span class="funcparam">dest</span>, MDValue [] <span class="funcparam">vals</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Appends the list of values (which must have at least one item) to the end of the value held in <span class="funcparam">dest</span>.
+	Calls metamethods.
 	
 <br><br>
 
@@ -4501,16 +4606,17 @@ The number of return <span class="funcparam">values</span> to be popped off the 
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Wed Aug  1 15:04:30 2007
+			on Sun Nov 18 11:04:09 2007
 
 		</td></tr>
 	</table>
 </div>
 <script>
+	explorer.packageExplorer.addModuleFull("minid.minid");
 	explorer.packageExplorer.addModuleFull("minid.types");
-	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.bind");
 	explorer.packageExplorer.addModuleFull("minid.compiler");
-	explorer.packageExplorer.addModuleFull("minid.minid");</script>
+	explorer.packageExplorer.addModuleFull("minid.utils");</script>
 </body></html>
 
 

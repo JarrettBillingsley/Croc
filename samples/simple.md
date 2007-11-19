@@ -16,7 +16,7 @@ module simple;
 			writefln("I'm an A, and my values are x = {}, y = {}", x, y);
 		}
 	}
-	
+
 	class Mock
 	{
 		mInstance;
@@ -39,24 +39,21 @@ module simple;
 			mInstance.(name) = value;
 		}
 
-		function opMethod(name)
+		function opMethod(name, vararg)
 		{
-			return function(vararg)
+			writef("Mock: calling method {} with parameters (", name);
+
+			if(#vararg > 0)
 			{
-				writef("Mock: calling method {} with parameters (", name);
-				
-				if(#vararg > 0)
-				{
-					write(vararg[0]);
+				write(vararg[0]);
 
-					for(i: 1 .. #vararg)
-						write(", ", vararg[i]);
-				}
-				
-				writeln(")");
+				for(i: 1 .. #vararg)
+					write(", ", vararg[i]);
+			}
 
-				return mInstance.(name)(vararg);
-			};
+			writeln(")");
+
+			return mInstance.(name)(vararg);
 		}
 	}
 
@@ -71,10 +68,12 @@ module simple;
 	a.foo();
 	a.x += 5;
 	a.foo(1, 2);
+	
+	writefln();
 
-	/*function foo(vararg)
+	function foo(vararg)
 	{
-		for(i: 0 .. #vararg + 1)
+		for(i: 0 .. #vararg)
 			writefln("i: {} args: ", i, vararg[i ..]);
 
 		writefln(vararg);
@@ -85,28 +84,10 @@ module simple;
 	foo(1, 2, 3);
 
 	writefln();
-
-	function each(array, func)
-	{
-		for(i: 0 .. #array)
-			callblock func(i, array[i]);
-	}
-
-	each([1, 2, 3, 4, 5]) |i, v|
-	{
-		writefln(i, ": ", v);
-	};
-
-	function blah(func)
-	{
-		for(i: 1 .. 6)
-			callblock func(i);
-	}
-
-	blah |i| { writefln(i); };*/
 }
 
-/+
+
+/*
 // Making sure finally blocks are executed.
 {
 	function f()
@@ -339,7 +320,7 @@ module simple;
 		PropTest,
 	
 		{
-			name = :x,
+			name = "x",
 
 			function setter(value)
 			{
@@ -353,7 +334,7 @@ module simple;
 		},
 
 		{
-			name = :y,
+			name = "y",
 
 			function setter(value)
 			{
@@ -367,7 +348,7 @@ module simple;
 		},
 	
 		{
-			name = :name,
+			name = "name",
 	
 			function getter()
 			{
@@ -788,10 +769,10 @@ module simple;
 	{
 		local args = [vararg];
 	
-		writefln("num varargs: ", #args);
-	
-		foreach(i, v; args)
-			writefln("args[", i, "] = ", v);
+		writefln("num varargs: ", #vararg);
+
+		for(i: 0 .. #vararg)
+			writefln("args[", i, "] = ", vararg[i]);
 	}
 	
 	vargs();
@@ -879,4 +860,4 @@ module simple;
 				break;
 		}
 	}
-}+/
+}*/

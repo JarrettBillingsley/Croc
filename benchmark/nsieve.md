@@ -37,7 +37,7 @@ local time = os.microTime();
 	for(i : 0 .. 3)
 	{
 		local m = 10000 << (n - i);
-		writefln("Primes up to %8d %8d", m, nsieve(m));
+		writefln("Primes up to {,8} {,8}", m, nsieve(m));
 	}
 	
 time = os.microTime() - time;

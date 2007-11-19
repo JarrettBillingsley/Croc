@@ -10,9 +10,9 @@ local args = [vararg];
 if(#args == 0)
 	return;
 
-writefln("	 lines	 words	 bytes file");
+writefln("   lines   words   bytes  file");
 
-foreach(index, arg; args)
+foreach(arg; args)
 {
 	local w_cnt = 0;
 	local l_cnt = 0;
@@ -23,42 +23,43 @@ foreach(index, arg; args)
 	local f = io.File(arg);
 	local buf = "";
 
-	while(!f.eof())
+	foreach(line; f)
 	{
-		local c = f.readChar();
-
-		if(c == '\n')
-			++l_cnt;
-
-		if(c.isDigit())
+		foreach(c; line)
 		{
-			if(inword)
-				buf ~= c;
-		}
-		else if(c.isAlpha())
-		{
-			if(!inword)
+			if(c == '\n')
+				++l_cnt;
+	
+			if(c.isDigit())
 			{
-				buf = toString(c);
-				inword = true;
-				++w_cnt;
+				if(inword)
+					buf ~= c;
 			}
-			else
-				buf ~= c;
-		}
-		else if(inword)
-		{
-			local val = dictionary[buf];
-			
-			if(val is null)
+			else if(c.isAlpha())
 			{
-				dictionary[buf] = 1;
-				buf = "";
+				if(!inword)
+				{
+					buf = toString(c);
+					inword = true;
+					++w_cnt;
+				}
+				else
+					buf ~= c;
 			}
-			else
-				dictionary[buf] += 1;
-
-			inword = false;
+			else if(inword)
+			{
+				local val = dictionary[buf];
+				
+				if(val is null)
+				{
+					dictionary[buf] = 1;
+					buf = "";
+				}
+				else
+					dictionary[buf] += 1;
+	
+				inword = false;
+			}
 		}
 	}
 	
@@ -67,16 +68,16 @@ foreach(index, arg; args)
 	if(inword)
 		dictionary[buf] += 1;
 
-	writefln("%8s%8s%8s %s\n", l_cnt, w_cnt, c_cnt, arg);
+	writefln("{,8}{,8}{,8}  {}\n", l_cnt, w_cnt, c_cnt, arg);
 	l_total += l_cnt;
 	w_total += w_cnt;
 	c_total += c_cnt;
 }
 
 if(#args > 1)
-	writefln("--------------------------------------\n%8s%8s%8s total", l_total, w_total, c_total);
+	writefln("--------------------------------------\n{,8}{,8}{,8}  total", l_total, w_total, c_total);
 
 writefln("--------------------------------------");
 
-foreach(index, word1; dictionary.keys().sort())
-	writefln("%3s %s", dictionary[word1], word1);
+foreach(word; dictionary.keys().sort())
+	writefln("{,3} {}", dictionary[word], word);

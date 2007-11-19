@@ -42,13 +42,13 @@ if(#args > 0)
 
 local time = os.microTime();
 
-	writefln("Ack(3, %d): %d", n, ack(3, n));
-	writefln("Fib(%.1f): %.1f", n + 27.0, fib(n + 27.0));
+	writefln("Ack(3, {}): {}", n, ack(3, n));
+	writefln("Fib({:1}): {:1}", n + 27.0, fib(n + 27.0));
 
 	--n;
-	writefln("Tak(%d, %d, %d): %d", 3 * n, 2 * n, n, tak(3 * n, 2 * n, n));
-	writefln("Fib(3): %d", fib(3));
-	writefln("Tak(3.0, 2.0, 1.0): %.1f", tak(3.0, 2.0, 1.0));
+	writefln("Tak({}, {}, {}): {}", 3 * n, 2 * n, n, tak(3 * n, 2 * n, n));
+	writefln("Fib(3): {}", fib(3));
+	writefln("Tak(3.0, 2.0, 1.0): {:1}", tak(3.0, 2.0, 1.0));
 
 time = os.microTime() - time;
 writefln("Took ", time / 1000000.0, " sec");

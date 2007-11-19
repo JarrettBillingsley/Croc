@@ -1,4 +1,9 @@
 /******************************************************************************
+A module holding a variety of utility functions used throughout MiniD.  This
+module doesn't (and shouldn't) depend on the rest of the library in any way,
+and as such can't hold implementation-specific functionality.  For that, look
+in the minid.misc module.
+
 License:
 Copyright (c) 2007 Jarrett Billingsley
 
@@ -32,12 +37,16 @@ import tango.io.Print;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
 import tango.io.Stdout;
+import tango.stdc.string;
+import tango.text.convert.Utf;
 import tango.text.Util;
 import tango.util.time.StopWatch;
-import tango.text.convert.Utf;
-import tango.stdc.string;
-import UniChar;
+import Uni = tango.text.Unicode;
 
+/**
+This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
+the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
+*/
 alias double mdfloat;
 
 /**
@@ -204,24 +213,11 @@ unittest
 }
 
 /**
-Convert any function pointer into a delegate that calls the function when it's called.
+Compare two values, a and b, using < and >.  Returns -1 if a < b, 1 if a > b, and 0 otherwise.
 */
-template ToDelegate(alias func)
+int Compare3(T)(T a, T b)
 {
-	ReturnType!(func) delegate(ParameterTypeTuple!(func)) ToDelegate()
-	{
-		struct S
-		{
-			static S s;
-
-			ReturnType!(func) callMe(ParameterTypeTuple!(func) args)
-			{
-				return func(args);
-			}
-		}
-	
-		return &S.s.callMe;
-	}
+	return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
@@ -234,73 +230,34 @@ int dcmp(dchar[] s1, dchar[] s2)
 	if(s2.length < len)
 		len = s2.length;
 
-	int result = mismatch(s1.ptr, s2.ptr, len);
+	auto result = mismatch(s1.ptr, s2.ptr, len);
 
 	if(result == len)
-		result = cast(int)s1.length - cast(int)s2.length;
+		return Compare3(s1.length, s2.length);
 	else
-		result = s1[result] - s2[result];
-
-	return result;
+		return Compare3(s1[result], s2[result]);
 }
 
 /**
-Lowercase a dchar[] using proper Unicode character functions.
+Compares dchar[] strings stupidly, but case-insensitively.
 */
-dchar[] toLowerD(dchar[] s)
+int idcmp(dchar[] s1, dchar[] s2)
 {
-	bool changed = false;
+	dchar[64] buf1, buf2;
+	s1 = Uni.toFold(s1, buf1);
+	s2 = Uni.toFold(s2, buf2);
 
-	for(int i = 0; i < s.length; i++)
-	{
-		if(isUniUpper(s[i]))
-		{
-			if(!changed)
-			{
-				s = s.dup;
-				changed = true;
-			}
+	auto len = s1.length;
 
-			s[i] = toUniLower(s[i]);
-		}
-	}
+	if(s2.length < len)
+		len = s2.length;
 
-	return s;
-}
+	auto result = mismatch(s1.ptr, s2.ptr, len);
 
-/**
-Uppercase a dchar[] using proper Unicode character functions.
-*/
-dchar[] toUpperD(dchar[] s)
-{
-	bool changed = false;
-
-	for(int i = 0; i < s.length; i++)
-	{
-		if(isUniLower(s[i]))
-		{
-			if(!changed)
-			{
-				s = s.dup;
-				changed = true;
-			}
-
-			s[i] = toUniUpper(s[i]);
-		}
-	}
-
-	return s;
-}
-
-unittest
-{
-	dchar[] s = "HelloOoO!";
-	assert(toLowerD(s) == "helloooo!");
-	assert(toUpperD(s) == "HELLOOOO!");
-	
-	dchar[] t = "hi";
-	assert(toLowerD(t) is t);
-	assert(toUpperD(t) !is t);
+	if(result == len)
+		return Compare3(s1.length, s2.length);
+	else
+		return Compare3(s1[result], s2[result]);
 }
 
 /**
@@ -331,7 +288,7 @@ template MakeVersion(uint major, uint minor)
 /**
 The current version of MiniD.  (this is kind of buried here)
 */
-const uint MiniDVersion = MakeVersion!(1, 0);
+const uint MiniDVersion = MakeVersion!(1, 1);
 
 /**
 See if T is a type that can't be automatically serialized.
@@ -747,4 +704,74 @@ private template QSort_greater(alias Pred, List...)
 		alias Tuple!(List[1], QSort_greater!(Pred, List[0], List[2 .. $])) QSort_greater;
 	else
 		alias QSort_greater!(Pred, List[0], List[2 .. $]) QSort_greater;
+}
+
+/**
+Convert string literals between unicode encodings at compile time.  I swear, this should be
+built into the compiler or something.
+*/
+public template ToUTF8(char[] s)
+{
+	const char[] ToUTF8 = s;
+}
+
+/// ditto
+public template ToUTF8(wchar[] s)
+{
+	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
+}
+
+/// ditto
+public template ToUTF8(dchar[] s)
+{
+	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
+}
+
+/// ditto
+public template ToUTF16(char[] s)
+{
+	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
+}
+
+/// ditto
+public template ToUTF16(wchar[] s)
+{
+	const wchar[] ToUTF16 = s;
+}
+
+/// ditto
+public template ToUTF16(dchar[] s)
+{
+	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
+}
+
+/// ditto
+public template ToUTF32(char[] s)
+{
+	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
+}
+
+/// ditto
+public template ToUTF32(wchar[] s)
+{
+	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
+}
+
+/// ditto
+public template ToUTF32(dchar[] s)
+{
+	const dchar[] ToUTF32 = s;
+}
+
+/**
+Convert an integer to a string at compile time.
+*/
+public template Itoa(int i)
+{
+	static if(i < 0)
+		const char[] Itoa = "-" ~ Itoa!(-i);
+	else static if(i > 10)
+		const char[] Itoa = Itoa!(i / 10) ~ "0123456789"[i % 10];
+	else
+		const char[] Itoa = "" ~ "0123456789"[i % 10];
 }

@@ -2,4 +2,4 @@ mdcl.d
 -clean
 -release
 -op
--profile
+-O

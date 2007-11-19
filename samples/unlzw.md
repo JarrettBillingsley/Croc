@@ -15,17 +15,26 @@ local code;
 
 for(code = 0; code < 128; code++)
 	dict[code] = toString(toChar(code));
+	
+local shortCount = input.readInt();
 
 local k = input.readShort();
 output.writeChars(dict[k]);
+shortCount--;
 
 local w = dict[k];
 local fchar = w[0];
 local entry;
 
-do
+for( ; shortCount > 0; shortCount--)
 {
-	k = input.readShort();
+	try
+		k = input.readShort();
+	catch(e)
+	{
+		writefln(shortCount);
+		throw e;
+	}
 
 	if(k in dict)
 		entry = dict[k];
@@ -38,7 +47,9 @@ do
 	dict[code] = w ~ fchar;
 	code++;
 	w = entry;
-} while(!input.eof())
+}
+
+output.flush();
 
 input.close();
 output.close();

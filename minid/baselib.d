@@ -23,326 +23,17 @@ subject to the following restrictions:
 
 module minid.baselib;
 
-import minid.types;
 import minid.compiler;
+import minid.misc;
+import minid.types;
 import minid.utils;
 
 import Integer = tango.text.convert.Integer;
 import tango.io.Console;
-import tango.io.MemoryConduit;
+import tango.io.GrowBuffer;
 import tango.io.Print;
 import tango.io.Stdout;
-import tango.stdc.ctype;
-import tango.text.convert.Layout;
 import utf = tango.text.convert.Utf;
-
-/*
-MDValue[] baseUnFormat(MDState s, dchar[] formatStr, Stream input)
-{
-	MDValue[] output;
-
-	void outputValue(ref MDValue val)
-	{
-		output ~= val;
-	}
-
-	int begin = 0;
-
-	for(int i = 0; i < formatStr.length; i++)
-	{
-		dchar c = formatStr[i];
-
-		void nextChar()
-		{
-			i++;
-
-			if(i >= formatStr.length)
-				s.throwRuntimeException("Unterminated format specifier");
-
-			c = formatStr[i];
-		}
-
-		if(c == '%')
-		{
-			nextChar();
-
-			if(c == '%')
-				continue;
-
-			while(true)
-			{
-				switch(c)
-				{
-					case '-', '+', '#', '0', ' ':
-						nextChar();
-						continue;
-
-					default:
-						break;
-				}
-
-				break;
-			}
-
-			if(c == '*')
-				s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-			else if(std.ctype.isdigit(c))
-			{
-				do
-					nextChar();
-				while(std.ctype.isdigit(c))
-			}
-
-			if(c == '.')
-			{
-				nextChar();
-
-				if(c == '*')
-					s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-				else if(std.ctype.isdigit(c))
-				{
-					do
-						nextChar();
-					while(std.ctype.isdigit(c))
-				}
-			}
-			
-			char[] fmt = utf.toUtf8(formatStr[begin .. i + 1]);
-			MDValue val;
-
-			switch(c)
-			{
-				case 'd', 'i', 'b', 'o', 'x', 'X':
-					int v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-					mdfloat f;
-					input.readf(fmt, &f);
-					val = f;
-					break;
-
-				case 'r', 's':
-					char[] v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'c':
-					char v;
-					input.readf(fmt, &v);
-					val = cast(dchar)v;
-					break;
-
-				default:
-					// unsupported: %p
-					s.throwRuntimeException("Unsupported format specifier '%c'", c);
-			}
-
-			outputValue(val);
-			begin = i + 1;
-		}
-	}
-
-	return output;
-}
-*/
-
-private Layout!(dchar) Formatter;
-
-static this()
-{
-	Formatter = new Layout!(dchar);
-}
-
-void baseFormat(MDState s, MDValue[] params, uint delegate(dchar[]) sink)
-{
-	void output(dchar[] fmt, MDValue* param, bool isRaw)
-	{
-		if(param is null)
-			Formatter.convert(sink, fmt, "{invalid index}");
-		else
-		{
-			switch(param.type)
-			{
-				case MDValue.Type.Null:
-					Formatter.convert(sink, fmt, "null");
-					break;
-
-				case MDValue.Type.Bool:
-					Formatter.convert(sink, fmt, param.as!(bool) ? "true" : "false");
-					break;
-
-				case MDValue.Type.Int:
-					Formatter.convert(sink, fmt, param.as!(int));
-					break;
-
-				case MDValue.Type.Float:
-					Formatter.convert(sink, fmt, param.as!(mdfloat));
-					break;
-
-				case MDValue.Type.Char:
-					Formatter.convert(sink, fmt, param.as!(dchar));
-					break;
-
-				case MDValue.Type.String:
-					Formatter.convert(sink, fmt, param.as!(dchar[]));
-					break;
-
-				default:
-					if(isRaw)
-						Formatter.convert(sink, fmt, param.toUtf8());
-					else
-						Formatter.convert(sink, fmt, s.valueToString(*param).asUTF32());
-					break;
-			}
-		}
-	}
-	
-	if(params.length > 64)
-		s.throwRuntimeException("Too many parameters to format");
-
-	bool[64] used;
-
-	for(int paramIndex = 0; paramIndex < params.length; paramIndex++)
-	{
-		if(used[paramIndex])
-			continue;
-
-  		if(!params[paramIndex].isString())
-			output("{}", &params[paramIndex], false);
-		else
-		{
-			MDString formatStr = params[paramIndex].as!(MDString);
-			int formatStrIndex = paramIndex;
-			int autoIndex = paramIndex + 1;
-
-			MDValue* getParam(int index)
-			{
-				if(index >= params.length)
-					return null;
-
-				return &params[index];
-			}
-
-			for(int i = 0; i < formatStr.length; i++)
-			{
-				dchar c = formatStr[i];
-
-				void nextChar()
-				{
-					i++;
-
-					if(i >= formatStr.length)
-						c = dchar.init;
-					else
-						c = formatStr[i];
-				}
-
-				dchar[20] format = void;
-				int iFormat = 0;
-
-				void addChar(dchar c)
-				{
-					if(iFormat >= format.length)
-						s.throwRuntimeException("Format specifier too long in parameter {}", formatStrIndex);
-
-					format[iFormat++] = c;
-				}
-
-				if(c != '{')
-					sink([c]);
-				else
-				{
-					nextChar();
-
-					if(c == '{')
-					{
-						sink("{");
-						continue;
-					}
-					
-					addChar('{');
-					
-					bool isRaw = false;
-
-					if(c == 'r')
-					{
-						isRaw = true;
-						nextChar();
-					}
-					
-					int index = autoIndex;
-
-					if(c == '-' || isdigit(c))
-					{
-						int begin = i;
-
-						if(!isdigit(c))
-							s.throwRuntimeException("Format index must have at least one digit in parameter {}", formatStrIndex);
-
-						while(isdigit(c))
-							nextChar();
-
-						int offset = Integer.atoi(formatStr.sliceData(begin, i));
-						
-						index = formatStrIndex + offset + 1;
-					}
-					else
-						autoIndex++;
-					
-					if(c == ',')
-					{
-						addChar(',');
-						nextChar();
-						
-						if(c == '-')
-						{
-							addChar('-');
-							nextChar();
-						}
-						
-						if(!isdigit(c))
-							s.throwRuntimeException("Format width must have at least one digit in parameter {}", formatStrIndex);
-
-						while(isdigit(c))
-						{
-							addChar(c);
-							nextChar();
-						}
-					}
-					
-					if(c == ':')
-					{
-						addChar(':');
-						nextChar();
-
-						while(c != '}')
-						{
-							addChar(c);
-							nextChar();
-						}
-					}
-					
-					if(c != '}')
-					{
-						sink("{missing or misplaced '}'}");
-						sink(format[0 .. iFormat]);
-						i--;
-						continue;
-					}
-
-					addChar('}');
-					used[index] = true;
-
-					output(format[0 .. iFormat], getParam(index), isRaw);
-				}
-			}
-		}
-	}
-}
 
 class BaseLib
 {
@@ -409,6 +100,7 @@ class BaseLib
 		globals["toJSON"d] =          new MDClosure(globals.ns, &lib.toJSON,                "toJSON");
 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &lib.setModuleLoader,       "setModuleLoader");
 		globals["removeKey"d] =       new MDClosure(globals.ns, &lib.removeKey,             "removeKey");
+		globals["bindContext"d] =     new MDClosure(globals.ns, &lib.bindContext,           "bindContext");
 
 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
 		
@@ -460,7 +152,7 @@ class BaseLib
 			return data.length;
 		}
 
-		baseFormat(s, s.getAllParams(), &sink);
+		formatImpl(s, s.getAllParams(), &sink);
 		Stdout.newline;
 		return 0;
 	}
@@ -477,15 +169,21 @@ class BaseLib
 			return data.length;
 		}
 
-		baseFormat(s, s.getAllParams(), &sink);
-		Cout();
+		formatImpl(s, s.getAllParams(), &sink);
+		Stdout.flush;
 		return 0;
 	}
 	
 	int writeln(MDState s, uint numParams)
 	{
+		char[256] buffer = void;
+		char[] buf = buffer;
+
 		for(uint i = 0; i < numParams; i++)
-			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
+		{
+			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			Stdout(buf);
+		}
 
 		Stdout.newline;
 		return 0;
@@ -493,10 +191,16 @@ class BaseLib
 
 	int write(MDState s, uint numParams)
 	{
-		for(uint i = 0; i < numParams; i++)
-			Stdout.format("{}", s.valueToString(s.getParam(i)).mData);
+		char[256] buffer = void;
+		char[] buf = buffer;
 
-		Cout();
+		for(uint i = 0; i < numParams; i++)
+		{
+			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			Stdout(buf);
+		}
+
+		Stdout.flush;
 		return 0;
 	}
 
@@ -526,7 +230,7 @@ class BaseLib
 			return data.length;
 		}
 
-		baseFormat(s, s.getAllParams(), &sink);
+		formatImpl(s, s.getAllParams(), &sink);
 		s.push(ret);
 		return 1;
 	}
@@ -551,7 +255,7 @@ class BaseLib
 
 	int getTraceback(MDState s, uint numParams)
 	{
-		s.push(new MDString(MDState.getTracebackString()));
+		s.push(new MDString(s.context.getTracebackString()));
 		return 1;
 	}
 	
@@ -802,7 +506,7 @@ class BaseLib
 		s.push(0);
 		return 3;
 	}
-	
+
 	int threadReset(MDState s, uint numParams)
 	{
 		s.getContext!(MDState).reset();
@@ -830,7 +534,7 @@ class BaseLib
 
 		return s.call(funcReg, numParams + 2, -1);
 	}
-	
+
 	int curry(MDState s, uint numParams)
 	{
 		MDValue[2] upvalues;
@@ -841,25 +545,57 @@ class BaseLib
 		return 1;
 	}
 	
+	int bindContext(MDState s, uint numParams)
+	{
+		struct Closure
+		{
+			MDClosure func;
+			MDValue context;
+
+			int call(MDState s, uint numParams)
+			{
+				uint funcReg = s.push(func);
+				s.push(context);
+
+				for(uint i = 0; i < numParams; i++)
+					s.push(s.getParam(i));
+
+				return s.call(funcReg, numParams + 1, -1);
+			}
+		}
+
+		auto cl = new Closure;
+		cl.func = s.getParam!(MDClosure)(0);
+		cl.context = s.getParam(1u);
+
+		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
+		return 1;
+	}
+	
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
-		
+
 		if(numParams > 1)
 			name = s.getParam!(char[])(1);
 		else
 			name = "<loaded by loadString>";
-			
-		bool dummy;
-		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name, dummy);
+
+		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name);
 		s.push(new MDClosure(s.environment(1), def));
 		return 1;
 	}
 	
 	int eval(MDState s, uint numParams)
 	{
-		MDFuncDef def = compileStatements("return " ~ s.getParam!(dchar[])(0) ~ ";", "<loaded by eval>");
-		MDNamespace env = s.environment(1);
+		MDFuncDef def = compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
+		MDNamespace env;
+
+		if(s.callDepth() > 1)
+			env = s.environment(1);
+		else
+			env = s.context.globals.ns;
+
 		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
 		return 1;
 	}
@@ -870,193 +606,6 @@ class BaseLib
 		return 1;
 	}
 
-	static package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) printer)
-	{
-		bool[MDValue] cycles;
-
-		int indent = 0;
-
-		void newline(int dir = 0)
-		{
-			printer.newline;
-
-			if(dir > 0)
-				indent++;
-			else if(dir < 0)
-				indent--;
-
-			for(int i = indent; i > 0; i--)
-				printer.print("\t");
-		}
-
-		void delegate(MDTable) outputTable;
-		void delegate(MDArray) outputArray;
-		void delegate(ref MDValue) outputValue;
-
-		void _outputTable(MDTable t)
-		{
-			printer.print("{");
-			
-			if(pretty)
-				newline(1);
-
-			bool first = true;
-
-			foreach(k, ref v; t)
-			{
-				if(!k.isString())
-					s.throwRuntimeException("All keys in a JSON table must be strings");
-
-				if(first)
-					first = false;
-				else
-				{
-					printer.print(",");
-
-					if(pretty)
-						newline();
-				}
-
-				outputValue(k);
-
-				if(pretty)
-					printer.print(": ");
-				else
-					printer.print(":");
-
-				outputValue(v);
-			}
-
-			if(pretty)
-				newline(-1);
-
-			printer.print("}");
-		}
-
-		void _outputArray(MDArray a)
-		{
-			printer.print("[");
-
-			bool first = true;
-
-			foreach(ref v; a)
-			{
-				if(first)
-					first = false;
-				else
-				{
-					if(pretty)
-						printer.print(", ");
-					else
-						printer.print(",");
-				}
-
-				outputValue(v);
-			}
-
-			printer.print("]");
-		}
-
-		void _outputValue(ref MDValue v)
-		{
-			switch(v.type)
-			{
-				case MDValue.Type.Null:
-					printer.print("null");
-					break;
-
-				case MDValue.Type.Bool:
-					printer.print(v.isFalse() ? "false" : "true");
-					break;
-
-				case MDValue.Type.Int:
-					printer.format("{}", v.as!(int));
-					break;
-
-				case MDValue.Type.Float:
-					printer.format("{}", v.as!(double));
-					break;
-
-				case MDValue.Type.Char:
-					printer.print("\"");
-					printer.print(v.as!(dchar));
-					printer.print("\"");
-					break;
-
-				case MDValue.Type.String:
-					printer.print('"');
-
-					foreach(c; v.as!(MDString).mData)
-					{
-						switch(c)
-						{
-							case '\b': printer.print("\\b"); break;
-							case '\f': printer.print("\\f"); break;
-							case '\n': printer.print("\\n"); break;
-							case '\r': printer.print("\\r"); break;
-							case '\t': printer.print("\\t"); break;
-
-							case '"', '\\', '/':
-								printer.print("\\");
-								printer.print(c);
-								break;
-
-							default:
-								if(c > 0x7f)
-									printer.format("\\u{:x4}", cast(int)c);
-								else
-									printer.print(c);
-
-								break;
-						}
-					}
-
-					printer.print('"');
-					break;
-					
-				case MDValue.Type.Table:
-					if(v in cycles)
-						s.throwRuntimeException("Table is cyclically referenced");
-						
-					cycles[v] = true;
-				
-					scope(exit)
-						cycles.remove(v);
-
-					outputTable(v.as!(MDTable));
-					break;
-					
-				case MDValue.Type.Array:
-					if(v in cycles)
-						s.throwRuntimeException("Array is cyclically referenced");
-						
-					cycles[v] = true;
-
-					scope(exit)
-						cycles.remove(v);
-
-					outputArray(v.as!(MDArray));
-					break;
-					
-				default:
-					s.throwRuntimeException("Type '{}' is not a valid type for conversion to JSON", v.typeString());
-			}
-		}
-
-		outputTable = &_outputTable;
-		outputArray = &_outputArray;
-		outputValue = &_outputValue;
-
-		if(root.isArray())
-			outputArray(root.as!(MDArray));
-		else if(root.isTable())
-			outputTable(root.as!(MDTable));
-		else
-			s.throwRuntimeException("Root element must be either a table or an array, not a '{}'", root.typeString());
-
-		printer.flush();
-	}
-
 	int toJSON(MDState s, uint numParams)
 	{
 		MDValue root = s.getParam(0u);
@@ -1065,8 +614,8 @@ class BaseLib
 		if(numParams > 1)
 			pretty = s.getParam!(bool)(1);
 
-		scope cond = new MemoryConduit();
-		scope printer = new Print!(dchar)(Formatter, cond);
+		scope cond = new GrowBuffer();
+		scope printer = new Print!(dchar)(FormatterD, cond);
 
 		toJSONImpl(s, root, pretty, printer);
 
@@ -1225,7 +774,12 @@ class BaseLib
 		
 		public int length(MDState s, uint numParams)
 		{
-			s.getContext!(MDStringBuffer).length = s.getParam!(uint)(0);
+			int newLen = s.getParam!(int)(0);
+			
+			if(newLen < 0)
+				s.throwRuntimeException("Invalid length ({})", newLen);
+
+			s.getContext!(MDStringBuffer).length = newLen;
 			return 0;
 		}
 		

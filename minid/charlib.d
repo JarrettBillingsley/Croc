@@ -26,7 +26,7 @@ module minid.charlib;
 import minid.types;
 
 import tango.stdc.ctype;
-import UniChar;
+import Uni = tango.text.Unicode;
 
 class CharLib
 {
@@ -67,44 +67,45 @@ class CharLib
 
 	int toLower(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(toUniLower(s.getContext!(dchar))));
+		dchar[1] buf;
+		s.push(s.safeCode(Uni.toLower([s.getContext!(dchar)], buf)[0]));
 		return 1;
 	}
 
 	int toUpper(MDState s, uint numParams)
 	{
-		s.push(s.safeCode(toUniUpper(s.getContext!(dchar))));
+		dchar[1] buf;
+		s.push(s.safeCode(Uni.toUpper([s.getContext!(dchar)], buf)[0]));
 		return 1;
 	}
 
 	int isAlpha(MDState s, uint numParams)
 	{
-		s.push(cast(bool)isUniAlpha(s.getContext!(dchar)));
+		s.push(Uni.isLetter(s.getContext!(dchar)));
 		return 1;
 	}
 
 	int isAlNum(MDState s, uint numParams)
 	{
-		dchar c = s.getContext!(dchar);
-		s.push(cast(bool)(isdigit(c) || isUniAlpha(c)));
+		s.push(Uni.isLetterOrDigit(s.getContext!(dchar)));
 		return 1;
 	}
 	
 	int isLower(MDState s, uint numParams)
 	{
-		s.push(cast(bool)isUniLower(s.getContext!(dchar)));
+		s.push(Uni.isLower(s.getContext!(dchar)));
 		return 1;
 	}
-	
+
 	int isUpper(MDState s, uint numParams)
 	{
-		s.push(cast(bool)isUniUpper(s.getContext!(dchar)));
+		s.push(Uni.isUpper(s.getContext!(dchar)));
 		return 1;
 	}
 
 	int isDigit(MDState s, uint numParams)
 	{
-		s.push(cast(bool)isdigit(s.getContext!(dchar)));
+		s.push(Uni.isDigit(s.getContext!(dchar)));
 		return 1;
 	}
 

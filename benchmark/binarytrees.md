@@ -2,6 +2,11 @@ module benchmark.binarytrees;
 
 // n = 16, 94.764 sec
 
+local n = 16;
+
+if(#vararg > 0)
+	try n = toInt(vararg[0]); catch(e) {}
+
 function BottomUpTree(item, depth)
 {
 	if(depth > 0)
@@ -25,18 +30,9 @@ function ItemCheck(tree)
 	else
 		return tree[0];
 }
-	
-local args = [vararg];
-local n = 16;
 
-if(#args > 0)
-{
-	try
-		n = toInt(args[0]);
-	catch(e) {}
-}
-
-local time = os.microTime();
+local timer = os.PerfCounter();
+timer.start();
 
 	local mindepth = 4;
 	local maxdepth = mindepth + 2;
@@ -47,23 +43,23 @@ local time = os.microTime();
 	{
 		local stretchdepth = maxdepth + 1;
 		local stretchtree = BottomUpTree(0, stretchdepth);
-		writefln("stretch tree of depth %d\t check: %d", stretchdepth, ItemCheck(stretchtree));
+		writefln("stretch tree of depth {}\t check: {}", stretchdepth, ItemCheck(stretchtree));
 	}
-	
+
 	local longlivedtree = BottomUpTree(0, maxdepth);
 
-	for(depth : mindepth .. maxdepth + 1, 2)
+	for(depth: mindepth .. maxdepth + 1, 2)
 	{
 		local iterations = 1 << (maxdepth - depth + mindepth);
 		local check = 0;
 
-		for(i : 0 .. iterations)
+		for(i: 0 .. iterations)
 			check += ItemCheck(BottomUpTree(1, depth)) + ItemCheck(BottomUpTree(-1, depth));
-	
-		writefln("%d\t trees of depth %d\t check: %d", iterations * 2, depth, check);
+
+		writefln("{}\t trees of depth {}\t check: {}", iterations * 2, depth, check);
 	}
-	
-	writefln("long lived tree of depth %d\t check: %d", maxdepth, ItemCheck(longlivedtree));
-	
-time = os.microTime() - time;
-writefln("Took ", time / 1000000.0, " sec");
+
+	writefln("long lived tree of depth {}\t check: {}", maxdepth, ItemCheck(longlivedtree));
+
+timer.stop();
+writefln("Took ", timer.seconds(), " sec");

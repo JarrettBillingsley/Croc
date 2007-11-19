@@ -1,10 +1,13 @@
 minid/arraylib.d
+minid/bind.d
 minid/baselib.d
 minid/charlib.d
+minid/commandline.d
 minid/compiler.d
 minid/iolib.d
 minid/mathlib.d
 minid/minid.d
+minid/misc.d
 minid/opcodes.d
 minid/oslib.d
 minid/regexplib.d

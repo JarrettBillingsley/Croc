@@ -4,27 +4,40 @@ module speed;
 Taken from the Io speed test.
 On my desktop.
 
-Python localAccesses       := 24.63
-Python localSets           := 26.60
+Python reflIntMath       := 12.32
+Python reflFloatMath     := 8.65
 
-Python slotAccesses        := 8.65
-Python slotSets            := 8.43
+Python intMath           := 12.79
+Python floatMath         := 8.65
 
-Python blockActivations    := 2.83
-Python instantiations      := 2.67
-Python version := "2.5.0 final 0"
+Python localAccesses     := 26.60
+Python localSets         := 24.63
+
+Python slotAccesses      := 9.71
+Python slotSets          := 8.65
+
+Python blockActivations  := 2.99
+Python instantiations    := 2.64
+Python version           := "2.5.0 final 0"
 
 // values in millions per second
 
-MiniD localAccesses      := 29.68
-MiniD localSets          := 35.94
+MiniD reflIntMath        := 21.35
+MiniD reflFloatMath      := 21.24
 
-MiniD slotAccesses       := 4.41
-MiniD slotSets           := 4.19
+MiniD intMath            := 13.85
+MiniD floatMath          := 12.71
 
-MiniD blockActivations   := 1.74
-MiniD instantiations     := 0.50
-MiniD version 2 beta
+MiniD localAccesses      := 38.08
+MiniD localSets          := 41.84
+
+MiniD slotAccesses       := 5.03
+MiniD slotSets           := 4.96
+
+MiniD blockActivations   := 1.98
+MiniD instantiations     := 0.45
+
+MiniD version            := "1.0"
 
 // values in millions per second
 */
@@ -52,6 +65,68 @@ class Tester
 		writefln("MiniD {} := {}", s, mps);
 	}
 	
+	function testIntMath()
+	{
+		this.beginTimer();
+		local x = 0;
+		local y = 5;
+		local z = 10;
+
+		for(i: 0 .. oneMillion / 8)
+		{
+			x = y + z; x = y + z; x = y + z; x = y + z;
+			x = y + z; x = y + z; x = y + z; x = y + z;
+		}
+
+		this.endTimer("intMath\t\t");
+	}
+
+	function testFloatMath()
+	{
+		this.beginTimer();
+		local x = 0.0;
+		local y = 5.0;
+		local z = 10.0;
+
+		for(i: 0 .. oneMillion / 8)
+		{
+			x = y + z; x = y + z; x = y + z; x = y + z;
+			x = y + z; x = y + z; x = y + z; x = y + z;
+		}
+
+		this.endTimer("floatMath\t\t");
+	}
+
+	function testReflIntMath()
+	{
+		this.beginTimer();
+		local x = 0;
+		local y = 5;
+
+		for(i: 0 .. oneMillion / 8)
+		{
+			x += y; x += y; x += y; x += y;
+			x += y; x += y; x += y; x += y;
+		}
+
+		this.endTimer("reflIntMath\t");
+	}
+
+	function testReflFloatMath()
+	{
+		this.beginTimer();
+		local x = 0.0;
+		local y = 5.0;
+
+		for(i: 0 .. oneMillion / 8)
+		{
+			x += y; x += y; x += y; x += y;
+			x += y; x += y; x += y; x += y;
+		}
+
+		this.endTimer("reflFloatMath\t");
+	}
+
 	function testLocals()
 	{
 		this.beginTimer();
@@ -99,7 +174,6 @@ class Tester
 	function testSetSlot()
 	{
 		this.beginTimer();
-		this.x = 1;
 
 		for(i : 0 .. oneMillion / 8)
 		{
@@ -139,6 +213,12 @@ class Tester
 	function test()
 	{
 		writefln();
+		this.testReflIntMath();
+		this.testReflFloatMath();
+		writefln();
+		this.testIntMath();
+		this.testFloatMath();
+		writefln();
 		this.testLocals();
 		this.testSetLocals();
 		writefln();
@@ -147,12 +227,14 @@ class Tester
 		writefln();
 		this.testBlock();
 		this.testInstantiations();
-
-		writefln("MiniD version 2 beta");
+		
+		writefln();
+		writefln("MiniD version\t\t := \"1.0\"");
 		writefln();
 		writefln("// values in millions per second");
 		writefln();
 	}
 }
+
 
 Tester().test();

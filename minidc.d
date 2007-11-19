@@ -27,19 +27,19 @@ import minid.compiler;
 import minid.types;
 import minid.utils;
 
-import tango.io.Console;
+import tango.io.Stdout;
 
 void printUsage()
 {
-	Cout("MiniD Compiler beta").newline;
-	Cout.newline;
-	Cout("Usage:").newline;
-	Cout("\tminidc filename").newline;
-	Cout.newline;
-	Cout("This program is very straightforward.  You give it the name of a .md").newline;
-	Cout("file, and it will compile the module and write it to a binary .mdm file.").newline;
-	Cout("The output file will have the same name as the input file but with the").newline;
-	Cout(".mdm extension.").newline;
+	Stdout.formatln("MiniD Compiler v{}.{}", MiniDVersion >> 16, MiniDVersion & 0xFFFF).newline;
+	Stdout.newline;
+	Stdout("Usage:").newline;
+	Stdout("\tminidc filename").newline;
+	Stdout.newline;
+	Stdout("This program is very straightforward.  You give it the name of a .md").newline;
+	Stdout("file, and it will compile the module and write it to a binary .mdm file.").newline;
+	Stdout("The output file will have the same name as the input file but with the").newline;
+	Stdout(".mdm extension.").newline;
 }
 
 void main(char[][] args)

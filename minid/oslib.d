@@ -26,6 +26,14 @@ module minid.oslib;
 import minid.types;
 import minid.utils;
 
+import tango.stdc.stdlib;
+import tango.stdc.stringz;
+import tango.sys.Environment;
+import tango.text.locale.Convert;
+import tango.text.locale.Core;
+import tango.util.time.Clock;
+import tango.util.time.Date;
+import tango.util.time.DateTime;
 import tango.util.time.StopWatch;
 
 version(Windows)
@@ -33,11 +41,7 @@ version(Windows)
 	private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
 	private extern(Windows) int QueryPerformanceCounter(ulong* count);
 }
-else version(Unix)
-{
-	import tango.stdc.posix.sys.time;
-}
-else version(linux)
+else version(Posix)
 {
 	import tango.stdc.posix.sys.time;
 }
@@ -47,10 +51,23 @@ else
 class OSLib
 {
 	private static OSLib lib;
-	
+	private static MDValue YearString;
+	private static MDValue MonthString;
+	private static MDValue DayString;
+	private static MDValue HourString;
+	private static MDValue MinString;
+	private static MDValue SecString;
+
 	static this()
 	{
 		lib = new OSLib();
+		
+		YearString = new MDString("year"d);
+		MonthString = new MDString("month"d);
+		DayString = new MDString("day"d);
+		HourString = new MDString("hour"d);
+		MinString = new MDString("min"d);
+		SecString = new MDString("sec"d);
 	}
 	
 	private MDPerfCounterClass perfCounterClass;
@@ -60,8 +77,11 @@ class OSLib
 	{
 		perfCounterClass = new MDPerfCounterClass();
 		
-		if(!QueryPerformanceFrequency(&performanceFreq))
-			performanceFreq = 0x7fffffffffffffffL;
+		version(Windows)
+		{
+			if(!QueryPerformanceFrequency(&performanceFreq))
+				performanceFreq = 0x7fffffffffffffffL;
+		}
 	}
 
 	public static void init(MDContext context)
@@ -71,9 +91,14 @@ class OSLib
 		namespace.addList
 		(
 			"PerfCounter"d,  lib.perfCounterClass,
-			"microTime"d,    new MDClosure(namespace, &lib.microTime, "os.microTime")
+			"microTime"d,    new MDClosure(namespace, &lib.microTime,  "os.microTime"),
+			"system"d,       new MDClosure(namespace, &lib.system,     "os.system"),
+			"getEnv"d,       new MDClosure(namespace, &lib.getEnv,     "os.getEnv"),
+			"dateString"d,   new MDClosure(namespace, &lib.dateString, "os.dateString"),
+			"dateTime"d,     new MDClosure(namespace, &lib.dateTime,   "os.dateTime"),
+			"culture"d,      new MDClosure(namespace, &lib.culture,    "os.culture")
 		);
-		
+
 		context.globals["os"d] = namespace;
 	}
 
@@ -93,10 +118,130 @@ class OSLib
 		{
 			timeval tv;
 			gettimeofday(&tv, null);
-			s.push(cast(ulong)(tv.tv_sec * 1_000_000L) + cast(ulong)tv.tv_usec);
+			s.push(tv.tv_sec * 1_000_000L + tv.tv_usec);
 		}
 		
 		return 1;
+	}
+	
+	int system(MDState s, uint numParams)
+	{
+		if(numParams == 0)
+			s.push(.system(null) ? true : false);
+		else
+			s.push(.system(toUtf8z(s.getParam!(char[])(0))));
+	
+		return 1;
+	}
+	
+	int getEnv(MDState s, uint numParams)
+	{
+		if(numParams == 0)
+			s.push(Environment.get());
+		else
+		{
+			char[] def = null;
+			
+			if(numParams > 1)
+				def = s.getParam!(char[])(1);
+
+			char[] val = Environment.get(s.getParam!(char[])(0), def);
+			
+			if(val is null)
+				s.pushNull();
+			else
+				s.push(val);
+		}
+		
+		return 1;
+	}
+	
+	int dateString(MDState s, uint numParams)
+	{
+		DateTime dt = DateTime.now;
+		char[40] buffer;
+		char[] format = "G";
+		Culture culture = null;
+
+		if(numParams > 0)
+			format = s.getParam!(char[])(0);
+
+		if(numParams > 1 && !s.isParam!("null")(1))
+			dt = TableToDateTime(s, s.getParam!(MDTable)(1));
+
+		if(numParams > 2)
+			culture = s.safeCode(Culture.getCulture(s.getParam!(char[])(2)));
+
+		s.push(s.safeCode(formatDateTime(buffer, dt, format, culture)));
+		return 1;
+	}
+	
+	int dateTime(MDState s, uint numParams)
+	{
+		MDTable t = null;
+		
+		if(numParams > 0)
+			t = s.getParam!(MDTable)(0);
+
+		s.push(DateTimeToTable(s, DateTime.now, t));
+		return 1;
+	}
+	
+	int culture(MDState s, uint numParams)
+	{
+		s.push(Culture.current.name);
+
+		if(numParams > 0)
+			Culture.current = s.safeCode(Culture.getCulture(s.getParam!(char[])(0)));
+
+		return 1;
+	}
+
+	static DateTime TableToDateTime(MDState s, MDTable tab)
+	{
+		MDValue table = MDValue(tab);
+		Date date;
+
+		with(s)
+		{
+			MDValue year = idx(table, YearString);
+			MDValue month = idx(table, MonthString);
+			MDValue day = idx(table, DayString);
+			MDValue hour = idx(table, HourString);
+			MDValue min = idx(table, MinString);
+			MDValue sec = idx(table, SecString);
+			
+			if(!year.isInt() || !month.isInt() || !day.isInt())
+				s.throwRuntimeException("year, month, and day fields in time table must exist and must be integers");
+
+			date.setDate(year.as!(int), month.as!(int), day.as!(int));
+			
+			if(hour.isInt() && min.isInt() && sec.isInt())
+				date.setTime(hour.as!(int), min.as!(int), sec.as!(int));
+		}
+		
+		return DateTime(Clock.fromDate(date));
+	}
+
+	static MDTable DateTimeToTable(MDState s, DateTime time, MDTable dest)
+	{
+		if(dest is null)
+			dest = new MDTable();
+
+		Date date = Clock.toDate(time.time);
+		MDValue table = dest;
+
+		with(s)
+		{
+			idxa(table, YearString, MDValue(date.year));
+			idxa(table, MonthString, MDValue(date.month));
+			idxa(table, DayString, MDValue(date.day));
+			idxa(table, HourString, MDValue(date.hour));
+			idxa(table, MinString, MDValue(date.min));
+			idxa(table, SecString, MDValue(date.sec));
+		}
+		
+		return dest;
 	}
 
 	static class MDPerfCounterClass : MDClass

@@ -3,6 +3,11 @@ module benchmark.cheapconcurrency;
 // n = 3000, 3.566 sec (very good, and on my desktop at that!!)
 // on my laptop: 1.128 sec!!
 
+local n = 3000;
+
+if(#vararg > 0)
+	try n = toInt(vararg[0]); catch(e) {}
+
 function link(n)
 {
 	if(n > 1)
@@ -21,26 +26,17 @@ function link(n)
 	}
 }
 
-local args = [vararg];
-local n = 3000;
+local timer = os.PerfCounter();
+timer.start();
 
-if(#args > 0)
-{
-	try
-		n = toInt(args[0]);
-	catch(e) {}
-}
+	local cofunc = coroutine link;
+	cofunc(500);
+	local count = 0;
 
-local time = os.microTime();
+	for(i : 0 .. n)
+		count += cofunc();
 
-local cofunc = coroutine link;
-cofunc(500);
-local count = 0;
+	writefln(count);
 
-for(i : 0 .. n)
-	count += cofunc();
-
-writefln(count);
-
-time = os.microTime() - time;
-writefln("Took ", time / 1000000.0, " sec");
+timer.stop();
+writefln("Took ", timer.seconds(), " sec");

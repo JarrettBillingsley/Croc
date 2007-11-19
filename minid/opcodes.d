@@ -37,7 +37,6 @@ enum Op : uint
 	AndEq,
 	As,
 	Call,
-	CallBlock,
 	Cat,
 	CatEq,
 	Class,
@@ -57,7 +56,6 @@ enum Op : uint
 	For,
 	Foreach,
 	ForLoop,
-	GetMethod,
 	Import,
 	In,
 	Index,
@@ -75,6 +73,7 @@ enum Op : uint
 	LoadNull,
 	LoadNulls,
 	Method,
+	MethodNC,
 	Mod,
 	ModEq,
 	Move,
@@ -86,7 +85,6 @@ enum Op : uint
 	NewArray,
 	NewGlobal,
 	NewTable,
-	NewVector,
 	Not,
 	NotIn,
 	Or,
@@ -133,7 +131,6 @@ And...............R: dest, src, src
 AndEq.............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
-CallBlock.........R: register of func, num params + 1, n/a (0 params = use all to end of stack)
 Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
 CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
 Class.............R: dest, name const index, base class
@@ -153,7 +150,6 @@ FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
-GetMethod.........R: dest, src, name
 Import............R: dest, name src, n/a
 In................R: dest, src value, src object
 Index.............R: dest, src object, src index
@@ -170,7 +166,8 @@ LoadBool..........R: dest, 1/0, n/a
 LoadConst.........R: dest local, src const, n/a
 LoadNull..........I: dest, n/a
 LoadNulls.........I: dest, num regs
-Method............R: base reg, object to index, const index of method name
+Method............R: base reg, object to index, method name
+MethodNC..........R: base reg, object to index, method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
@@ -182,7 +179,6 @@ Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
-NewVector.........I: dest, size
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
 Or................R: dest, src, src
@@ -291,7 +287,6 @@ align(1) struct Instruction
 			case Op.AndEq:           return Stdout.layout.convert("andeq {}, {}", cr(rd), cr(rs));
 			case Op.As:              return Stdout.layout.convert("as {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Call:            return Stdout.layout.convert("call r{}, {}, {}", rd, rs, rt);
-			case Op.CallBlock:       return Stdout.layout.convert("callblk r{}, {}", rd, rs);
 			case Op.Cat:             return Stdout.layout.convert("cat {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CatEq:           return Stdout.layout.convert("cateq {}, r{}, {}", cr(rd), rs, rt);
 			case Op.Class:           return Stdout.layout.convert("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
@@ -311,7 +306,6 @@ align(1) struct Instruction
 			case Op.For:             return Stdout.layout.convert("for {}, {}", cr(rd), imm);
 			case Op.Foreach:         return Stdout.layout.convert("foreach r{}, {}", rd, uimm);
 			case Op.ForLoop:         return Stdout.layout.convert("forloop {}, {}", cr(rd), imm);
-			case Op.GetMethod:       return Stdout.layout.convert("getmethod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Import:          return Stdout.layout.convert("import r{}, {}", rd, cr(rs));
 			case Op.In:              return Stdout.layout.convert("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Index:           return Stdout.layout.convert("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));
@@ -329,6 +323,7 @@ align(1) struct Instruction
 			case Op.LoadNull:        return Stdout.layout.convert("lnull {}", cr(rd));
 			case Op.LoadNulls:       return Stdout.layout.convert("lnulls r{}, {}", rd, uimm);
 			case Op.Method:          return Stdout.layout.convert("method r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.MethodNC:        return Stdout.layout.convert("methodnc r{}, {}, {}", rd, cr(rs), cr(rt));
 			case Op.Mod:             return Stdout.layout.convert("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ModEq:           return Stdout.layout.convert("modeq {}, {}", cr(rd), cr(rs));
 			case Op.Move:            return Stdout.layout.convert("mov {}, {}", cr(rd), cr(rs));
@@ -340,7 +335,6 @@ align(1) struct Instruction
 			case Op.NewArray:        return Stdout.layout.convert("newarr r{}, {}", rd, imm);
 			case Op.NewGlobal:       return Stdout.layout.convert("newg {}, {}", cr(rs), cr(rt));
 			case Op.NewTable:        return Stdout.layout.convert("newtab r{}", rd);
-			case Op.NewVector:       return Stdout.layout.convert("newvec r{}, {}", rd, imm);
 			case Op.Not:             return Stdout.layout.convert("not {}, {}", cr(rd), cr(rs));
 			case Op.NotIn:           return Stdout.layout.convert("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Or:              return Stdout.layout.convert("or {}, {}, {}", cr(rd), cr(rs), cr(rt));

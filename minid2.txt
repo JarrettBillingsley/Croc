@@ -37,7 +37,6 @@ Token:
 	StringLiteral
 	IntLiteral
 	FloatLiteral
-	SymbolLiteral
 	'+'
 	'+='
 	'++'
@@ -105,7 +104,6 @@ IdentifierChar:
 Keyword:
 	'as'
 	'break'
-	'callblock'
 	'case'
 	'class'
 	'catch'
@@ -247,10 +245,6 @@ FloatLiteral:
 
 Exponent:
 	('e' | 'E')['+' | '-'] (DecimalDigit | '_') {DecimalDigit | '_'}
-	
-SymbolLiteral:
-	':' (Identifier | Keyword)
-	':' '"' {Character | EscapeSequence} '"'
 
 // -----------------------------------------------------------------------------------------------------------------
 // -----------------------------------------------------------------------------------------------------------------
@@ -267,7 +261,6 @@ ModuleDeclaration:
 Statement:
 	ImportStatement
 	BlockStatement
-	CallBlockStatement
 	ExpressionStatement
 	DeclarationStatement
 	IfStatement
@@ -288,9 +281,6 @@ ImportStatement:
 
 BlockStatement:
 	'{' {Statement} '}'
-	
-CallBlockStatement:
-	'callblock' CallExpression ';'
 	
 ExpressionStatement:
 	BaseExpression ';'
@@ -315,11 +305,11 @@ FunctionDeclaration:
 	['local' | 'global'] SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
-	'function' Identifier '(' Parameters ')' BlockStatement
-
+	'function' Identifier Parameters BlockStatement
+	
 Parameters:
-	[Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']]
-	'vararg'
+	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
+	'(' 'vararg' ')'
 
 ClassDeclaration:
 	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
@@ -327,7 +317,7 @@ ClassDeclaration:
 ClassMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
-	'this' '(' Parameters ')' BlockStatement
+	'this' Parameters BlockStatement
 	
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
@@ -399,10 +389,10 @@ Assignment:
 	AssignmentLHS '^=' Expression
 	AssignmentLHS '&=' Expression
 	AssignmentLHS '?=' Expression
-	'++' AssignmentLHS
-	'--' AssignmentLHS
-	AssignmentLHS '++'
-	AssignmentLHS '--'
+	'++' PrimaryExpression
+	'--' PrimaryExpression
+	PrimaryExpression '++'
+	PrimaryExpression '--'
 
 AssignmentLHS:
 	Identifier
@@ -489,7 +479,6 @@ PostfixExpression:
 	PostfixExpression '[' ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
 	PostfixExpression '.' (Identifier | 'super' | 'class' | '(' Expression ')')
-	PostfixExpression BlockLiteral
 
 CallExpression:
 	PostfixExpression '.' Identifier '(' [Arguments] ')'
@@ -510,16 +499,14 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
-	SymbolLiteral
-	'function' [Identifier] '(' Parameters ')' (BlockStatement | Expression)
-	'|' Parameters '|' BlockStatement
+	'function' [Identifier] Parameters (BlockStatement | Expression)
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	'{' [TableField {',' TableField}] '}'
 	'[' [Expression {',' Expression}] ']'
 	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	'yield' '(' [Arguments] ')'
-	'super' ['.' Identifier] '(' [Arguments] ')'
+	'super' ['.' (Identifier | ('(' Expression ')'))] '(' [Arguments] ')'
 
 TableField:
 	Identifier '=' Expression
