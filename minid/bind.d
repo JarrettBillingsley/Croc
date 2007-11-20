@@ -432,7 +432,7 @@ struct WrapClass(ClassType, Ctors...)
 				const Switch = GenerateCases!(CleanCtors);
 			else
 				const Switch = GenerateStructCases!(CleanCtors);
-
+				
 			mixin(Switch);
 
 			dchar[] typeString = "(";
@@ -577,9 +577,9 @@ private template GenerateCasesImpl(int num, int idx, Ctors...)
 		const GenerateCasesImpl = "break;\ncase " ~ Itoa!(NumParams!(Ctors[0])) ~ ":\n" ~ GenerateCasesImpl!(NumParams!(Ctors[0]), idx, Ctors);
 	else
 	{
-		const GenerateCasesImpl = "if(TypesMatch!(ParameterTupleOf!(Ctors[" ~ Itoa!(idx) ~ "]))(args[0 .. " ~ Itoa!(num) ~ "]))
+		const GenerateCasesImpl = "if(TypesMatch!(ParameterTupleOf!(CleanCtors[" ~ Itoa!(idx) ~ "]))(args[0 .. " ~ Itoa!(num) ~ "]))
 {
-	ParameterTupleOf!(Ctors[" ~ Itoa!(idx) ~ "]) params;
+	ParameterTupleOf!(CleanCtors[" ~ Itoa!(idx) ~ "]) params;
 
 	foreach(i, arg; params)
 		params[i] = ToDType!(typeof(arg))(args[i]);
@@ -604,15 +604,14 @@ private template GenerateStructCasesImpl(int num, int idx, Ctors...)
 		const GenerateStructCasesImpl = "break;\ncase " ~ Itoa!(NumParams!(Ctors[0])) ~ ":\n" ~ GenerateStructCasesImpl!(NumParams!(Ctors[0]), idx, Ctors);
 	else
 	{
-		const GenerateStructCasesImpl = "if(TypesMatch!(ParameterTupleOf!(Ctors[" ~ Itoa!(idx) ~ "]))(args[0 .. " ~ Itoa!(num) ~ "]))
+		const GenerateStructCasesImpl = "if(TypesMatch!(ParameterTupleOf!(CleanCtors[" ~ Itoa!(idx) ~ "]))(args[0 .. " ~ Itoa!(num) ~ "]))
 {
-	ParameterTupleOf!(Ctors[" ~ Itoa!(idx) ~ "]) params;
+	ParameterTupleOf!(CleanCtors[" ~ Itoa!(idx) ~ "]) params;
 
 	foreach(i, arg; params)
 		params[i] = ToDType!(typeof(arg))(args[i]);
 
 	self.inst = ClassType(params);
-	//self.updateFields();
 	return 0;
 }\n\n" ~ GenerateStructCasesImpl!(num, idx + 1, Ctors[1 .. $]);
 	}
