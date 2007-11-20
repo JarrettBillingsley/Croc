@@ -287,6 +287,9 @@ ExpressionStatement:
 
 DeclarationStatement:
 	VariableDeclaration ';'
+	['</' [TableField {',' TableField}] '/>'] OtherDeclaration
+
+OtherDeclaration:
 	FunctionDeclaration
 	ClassDeclaration
 	NamespaceDeclaration
@@ -315,7 +318,7 @@ ClassDeclaration:
 	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
 
 ClassMember:
-	SimpleFunctionDeclaration
+	['</' [TableField {',' TableField}] '/>'] SimpleFunctionDeclaration
 	Identifier ['=' Expression] ';'
 	'this' Parameters BlockStatement
 	

@@ -1,91 +1,12 @@
 module simple;
 
 {
-	class A
+	</ blah = true />
+	local function foo()
 	{
-		x = 5;
-		y = 10;
-
-		this()
-		{
-			writeln("A ctor!");
-		}
-
-		function foo()
-		{
-			writefln("I'm an A, and my values are x = {}, y = {}", x, y);
-		}
+		writefln("foo!");
 	}
-
-	class Mock
-	{
-		mInstance;
-
-		this(className, vararg)
-		{
-			writefln("Mock: instantiating {}.", className);
-			mInstance = className(vararg);
-		}
-		
-		function opField(name)
-		{
-			writefln("Mock: getting field {}.", name);
-			return mInstance.(name);
-		}
-		
-		function opFieldAssign(name, value)
-		{
-			writefln("Mock: setting field {} to {}.", name, value);
-			mInstance.(name) = value;
-		}
-
-		function opMethod(name, vararg)
-		{
-			writef("Mock: calling method {} with parameters (", name);
-
-			if(#vararg > 0)
-			{
-				write(vararg[0]);
-
-				for(i: 1 .. #vararg)
-					write(", ", vararg[i]);
-			}
-
-			writeln(")");
-
-			return mInstance.(name)(vararg);
-		}
-	}
-
-	local a = A();
-	a.foo();
-	a.x += 5;
-	a.foo();
-
-	writefln();
-
-	a = Mock(A);
-	a.foo();
-	a.x += 5;
-	a.foo(1, 2);
-	
-	writefln();
-
-	function foo(vararg)
-	{
-		for(i: 0 .. #vararg)
-			writefln("i: {} args: ", i, vararg[i ..]);
-
-		writefln(vararg);
-		writefln(vararg[]);
-		writefln(vararg[0 .. #vararg]);
-	}
-
-	foo(1, 2, 3);
-
-	writefln();
 }
-
 
 /*
 // Making sure finally blocks are executed.

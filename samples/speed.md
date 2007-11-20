@@ -229,7 +229,7 @@ class Tester
 		this.testInstantiations();
 		
 		writefln();
-		writefln("MiniD version\t\t := \"1.0\"");
+		writefln("MiniD version\t\t := \"2.0 beta\"");
 		writefln();
 		writefln("// values in millions per second");
 		writefln();

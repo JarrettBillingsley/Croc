@@ -276,6 +276,8 @@ struct Token
 		RBracket,
 		LBrace,
 		RBrace,
+		LAttr,
+		RAttr,
 		Colon,
 		Comma,
 		Semicolon,
@@ -374,6 +376,8 @@ struct Token
 		Type.RBracket: "]",
 		Type.LBrace: "{",
 		Type.RBrace: "}",
+		Type.LAttr: "</",
+		Type.RAttr: "/>",
 		Type.Colon: ":",
 		Type.Comma: ",",
 		Type.Semicolon: ";",
@@ -1146,6 +1150,12 @@ class Lexer
 						while(!isEOL())
 							nextChar();
 					}
+					else if(mCharacter == '>')
+					{
+						nextChar();
+						token.type = Token.Type.RAttr;
+						return token;	
+					}
 					else if(mCharacter == '*')
 					{
 						nextChar();
@@ -1273,6 +1283,11 @@ class Lexer
 						}
 						else
 							token.type = Token.Type.Shl;
+					}
+					else if(mCharacter == '/')
+					{
+						nextChar();
+						token.type = Token.Type.LAttr;
 					}
 					else
 						token.type = Token.Type.LT;
@@ -3214,6 +3229,7 @@ class ClassDef
 	protected Identifier mName;
 	protected Expression mBaseClass;
 	protected FuncDef[] mMethods;
+	protected TableCtorExp mAttrs;
 
 	struct Field
 	{
@@ -3223,7 +3239,7 @@ class ClassDef
 
 	protected Field[] mFields;
 
-	public this(Identifier name, Expression baseClass, FuncDef[] methods, Field[] fields, Location location, Location endLocation)
+	public this(Identifier name, Expression baseClass, FuncDef[] methods, Field[] fields, Location location, Location endLocation, TableCtorExp attrs = null)
 	{
 		mName = name;
 		mBaseClass = baseClass;
@@ -3231,6 +3247,7 @@ class ClassDef
 		mFields = fields;
 		mLocation = location;
 		mEndLocation = endLocation;
+		mAttrs = attrs;
 
 		if(mName is null)
 			mName = new Identifier("<literal at " ~ utf.toUtf32(mLocation.toUtf8()) ~ ">", mLocation);
@@ -3276,6 +3293,11 @@ class ClassDef
 
 					CompoundStatement funcBody = CompoundStatement.parse(t);
 					addMethod(new FuncDef(ctorLocation, funcBody.mEndLocation, params, isVararg, funcBody, name));
+					break;
+
+				case Token.Type.LAttr:
+					auto attrs = TableCtorExp.parseAttrs(t);
+					addMethod(FuncDef.parseSimple(t, attrs));
 					break;
 
 				case Token.Type.Function:
@@ -3481,8 +3503,9 @@ class FuncDef
 	protected bool mIsVararg;
 	protected Statement mBody;
 	protected Identifier mName;
+	protected TableCtorExp mAttrs;
 
-	public this(Location location, Location endLocation, Param[] params, bool isVararg, Statement funcBody, Identifier name)
+	public this(Location location, Location endLocation, Param[] params, bool isVararg, Statement funcBody, Identifier name, TableCtorExp attrs = null)
 	{
 		mLocation = location;
 		mEndLocation = endLocation;
@@ -3490,9 +3513,10 @@ class FuncDef
 		mIsVararg = isVararg;
 		mBody = funcBody;
 		mName = name;
+		mAttrs = attrs;
 	}
 
-	public static FuncDef parseSimple(ref Token* t)
+	public static FuncDef parseSimple(ref Token* t, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 		
@@ -3505,7 +3529,7 @@ class FuncDef
 
 		CompoundStatement funcBody = CompoundStatement.parse(t);
 
-		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name);
+		return new FuncDef(location, funcBody.mEndLocation, params, isVararg, funcBody, name, attrs);
 	}
 	
 	public static FuncDef parseLiteral(ref Token* t)
@@ -3621,7 +3645,8 @@ class NamespaceDef
 	protected Location mEndLocation;
 	protected Identifier mName;
 	protected Expression mParent;
-	
+	protected TableCtorExp mAttrs;
+
 	struct Field
 	{
 		dchar[] name;
@@ -3630,16 +3655,17 @@ class NamespaceDef
 
 	protected Field[] mFields;
 
-	public this(Location location, Location endLocation, Identifier name, Expression parent, Field[] fields)
+	public this(Location location, Location endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
 	{
 		mLocation = location;
 		mEndLocation = endLocation;
 		mName = name;
 		mParent = parent;
 		mFields = fields;
+		mAttrs = attrs;
 	}
 
-	public static NamespaceDef parse(ref Token* t)
+	public static NamespaceDef parse(ref Token* t, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 		t = t.expect(Token.Type.Namespace);
@@ -3716,7 +3742,7 @@ class NamespaceDef
 		Location endLocation = t.location;
 		t = t.nextToken;
 		
-		return new NamespaceDef(location, endLocation, name, parent, fieldsArray);
+		return new NamespaceDef(location, endLocation, name, parent, fieldsArray, attrs);
 	}
 
 	public void codeGen(FuncState s)
@@ -3888,7 +3914,7 @@ abstract class Statement
 
 				return ExpressionStatement.parse(t);
 
-			case Token.Type.Local, Token.Type.Global, Token.Type.Function, Token.Type.Class, Token.Type.Namespace:
+			case Token.Type.Local, Token.Type.Global, Token.Type.Function, Token.Type.Class, Token.Type.Namespace, Token.Type.LAttr:
 				return DeclarationStatement.parse(t);
 				
 			case Token.Type.Import:
@@ -4169,37 +4195,51 @@ abstract class Declaration
 		mProtection = protection;
 	}
 
-	public static Declaration parse(ref Token* t)
+	public static Declaration parse(ref Token* t, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 
-		if(t.type == Token.Type.Local || t.type == Token.Type.Global)
+		switch(t.type)
 		{
-			if(t.nextToken.type == Token.Type.Ident)
-			{
-				VarDecl ret = VarDecl.parse(t);
-				
-				t = t.expect(Token.Type.Semicolon);
+			case Token.Type.Local, Token.Type.Global:
+				switch(t.nextToken.type)
+				{
+					case Token.Type.Ident:
+						if(attrs !is null)
+							throw new MDCompileException(location, "Cannot attach attributes to variables");
 
-				return ret;
-			}
-			else if(t.nextToken.type == Token.Type.Function)
-            	return FuncDecl.parse(t);
-			else if(t.nextToken.type == Token.Type.Class)
-				return ClassDecl.parse(t);
-			else if(t.nextToken.type == Token.Type.Namespace)
-				return NamespaceDecl.parse(t);
-			else
-				throw new MDCompileException(location, "Illegal token '{}' after '{}'", t.nextToken.toUtf8(), t.toUtf8());
+						VarDecl ret = VarDecl.parse(t);
+						t = t.expect(Token.Type.Semicolon);
+						return ret;
+					
+					case Token.Type.Function:
+		            	return FuncDecl.parse(t, false, attrs);
+
+					case Token.Type.Class:
+						return ClassDecl.parse(t, attrs);
+
+					case Token.Type.Namespace:
+						return NamespaceDecl.parse(t, attrs);
+
+					default:
+						throw new MDCompileException(location, "Illegal token '{}' after '{}'", t.nextToken.toUtf8(), t.toUtf8());
+				}
+
+			case Token.Type.Function:
+				return FuncDecl.parse(t, false, attrs);
+
+			case Token.Type.Class:
+				return ClassDecl.parse(t, attrs);
+
+			case Token.Type.Namespace:
+				return NamespaceDecl.parse(t, attrs);
+
+			case Token.Type.LAttr:
+				return Declaration.parse(t, TableCtorExp.parseAttrs(t));
+
+			default:
+				throw new MDCompileException(location, "Declaration expected, not '{}'", t.toUtf8());
 		}
-		else if(t.type == Token.Type.Function)
-			return FuncDecl.parse(t);
-		else if(t.type == Token.Type.Class)
-			return ClassDecl.parse(t);
-		else if(t.type == Token.Type.Namespace)
-			return NamespaceDecl.parse(t);
-		else
-			throw new MDCompileException(location, "Declaration expected, not '{}'", t.toUtf8());
 	}
 
 	public void codeGen(FuncState s)
@@ -4224,7 +4264,7 @@ class ClassDecl : Declaration
 		mDef = def;
 	}
 
-	public static ClassDecl parse(ref Token* t)
+	public static ClassDecl parse(ref Token* t, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 
@@ -4249,7 +4289,7 @@ class ClassDecl : Declaration
 
 		ClassDef.parseBody(location, t, methods, fields, endLocation);
 
-		ClassDef def = new ClassDef(name, baseClass, methods, fields, location, endLocation);
+		ClassDef def = new ClassDef(name, baseClass, methods, fields, location, endLocation, attrs);
 		
 		return new ClassDecl(location, protection, def);
 	}
@@ -4438,7 +4478,7 @@ class FuncDecl : Declaration
 		mDef = def;
 	}
 
-	public static FuncDecl parse(ref Token* t, bool simple = false)
+	public static FuncDecl parse(ref Token* t, bool simple = false, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 		Protection protection = Protection.Local;
@@ -4451,7 +4491,7 @@ class FuncDecl : Declaration
 		else if(t.type == Token.Type.Local)
 			t = t.nextToken;
 
-		FuncDef def = FuncDef.parseSimple(t);
+		FuncDef def = FuncDef.parseSimple(t, attrs);
 
 		return new FuncDecl(location, protection, def);
 	}
@@ -4492,11 +4532,11 @@ class NamespaceDecl : Declaration
 		mDef = def;
 	}
 
-	public static NamespaceDecl parse(ref Token* t)
+	public static NamespaceDecl parse(ref Token* t, TableCtorExp attrs = null)
 	{
 		Location location = t.location;
 		Protection protection = Protection.Local;
-		
+
 		if(t.type == Token.Type.Global)
 		{
 			protection = Protection.Global;
@@ -4505,7 +4545,7 @@ class NamespaceDecl : Declaration
 		else if(t.type == Token.Type.Local)
 			t = t.nextToken;
 
-		NamespaceDef def = NamespaceDef.parse(t);
+		NamespaceDef def = NamespaceDef.parse(t, attrs);
 
 		return new NamespaceDecl(location, protection, def);
 	}
@@ -9058,13 +9098,9 @@ class TableCtorExp : PrimaryExp
 
 		mFields = fields;
 	}
-
-	public static TableCtorExp parse(ref Token* t)
+	
+	public static Expression[2][] parseFields(ref Token* t, Token.Type terminator)
 	{
-		Location location = t.location;
-
-		t = t.expect(Token.Type.LBrace);
-
 		Expression[2][] fields = new Expression[2][8];
 		uint i = 0;
 
@@ -9078,7 +9114,7 @@ class TableCtorExp : PrimaryExp
 			i++;
 		}
 
-		if(t.type != Token.Type.RBrace)
+		if(t.type != terminator)
 		{
 			bool lastWasFunc = false;
 
@@ -9121,7 +9157,7 @@ class TableCtorExp : PrimaryExp
 
 			parseField();
 
-			while(t.type != Token.Type.RBrace)
+			while(t.type != terminator)
 			{
 				if(lastWasFunc)
 				{
@@ -9134,10 +9170,34 @@ class TableCtorExp : PrimaryExp
 				parseField();
 			}
 		}
+		
+		return fields[0 .. i];
+	}
 
-		fields.length = i;
+	public static TableCtorExp parse(ref Token* t)
+	{
+		Location location = t.location;
+
+		t = t.expect(Token.Type.LBrace);
+
+		auto fields = parseFields(t, Token.Type.RBrace);
 
 		t.expect(Token.Type.RBrace);
+		Location endLocation = t.location;
+		t = t.nextToken;
+
+		return new TableCtorExp(location, endLocation, fields);
+	}
+
+	public static TableCtorExp parseAttrs(ref Token* t)
+	{
+		Location location = t.location;
+
+		t = t.expect(Token.Type.LAttr);
+
+		auto fields = parseFields(t, Token.Type.RAttr);
+
+		t.expect(Token.Type.RAttr);
 		Location endLocation = t.location;
 		t = t.nextToken;
 
