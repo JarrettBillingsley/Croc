@@ -1,11 +1,7 @@
 module simple;
 
 {
-	</ blah = true />
-	local function foo()
-	{
-		writefln("foo!");
-	}
+
 }
 
 /*

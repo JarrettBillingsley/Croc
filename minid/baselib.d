@@ -67,6 +67,8 @@ class BaseLib
 		globals["typeof"d] =          new MDClosure(globals.ns, &lib.mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &lib.fieldsOf,              "fieldsOf");
 		globals["methodsOf"d] =       new MDClosure(globals.ns, &lib.methodsOf,             "methodsOf");
+		globals["attributesOf"d] =    new MDClosure(globals.ns, &lib.attributesOf,          "attributesOf");
+		globals["hasAttributes"d] =   new MDClosure(globals.ns, &lib.hasAttributes,         "hasAttributes");
 		globals["toString"d] =        new MDClosure(globals.ns, &lib.mdtoString,            "toString");
 		globals["rawToString"d] =     new MDClosure(globals.ns, &lib.rawToString,           "rawToString");
 		globals["toInt"d] =           new MDClosure(globals.ns, &lib.toInt,                 "toInt");
@@ -434,6 +436,42 @@ class BaseLib
 		return 1;
 	}
 	
+	int attributesOf(MDState s, uint numParams)
+	{
+		MDTable ret;
+
+		if(s.isParam!("function")(0))
+			ret = s.getParam!(MDClosure)(0).attributes;
+		else if(s.isParam!("class")(0))
+			ret = s.getParam!(MDClass)(0).attributes;
+		else if(s.isParam!("namespace")(0))
+			ret = s.getParam!(MDNamespace)(0).attributes;
+		else
+			s.throwRuntimeException("Expected function, class, or namespace, not '{}'", s.getParam(0u).typeString());
+
+		if(ret is null)
+			s.pushNull();
+		else
+			s.push(ret);
+
+		return 1;
+	}
+	
+	int hasAttributes(MDState s, uint numParams)
+	{
+		MDTable ret;
+
+		if(s.isParam!("function")(0))
+			ret = s.getParam!(MDClosure)(0).attributes;
+		else if(s.isParam!("class")(0))
+			ret = s.getParam!(MDClass)(0).attributes;
+		else if(s.isParam!("namespace")(0))
+			ret = s.getParam!(MDNamespace)(0).attributes;
+
+		s.push(ret !is null);
+		return 1;
+	}
+
 	int threadState(MDState s, uint numParams)
 	{
 		s.push(s.getContext!(MDState).stateString());
@@ -445,7 +483,7 @@ class BaseLib
 		s.push(s.getContext!(MDState).state() == MDState.State.Initial);
 		return 1;
 	}
-	
+
 	int isRunning(MDState s, uint numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Running);

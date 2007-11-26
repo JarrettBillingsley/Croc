@@ -2215,7 +2215,7 @@ class FuncState
 		e.isTempReg = true;
 	}
 
-	public void pushClosure(FuncState fs)
+	public void pushClosure(FuncState fs, int attrReg = -1)
 	{
 		Exp* e = pushExp();
 
@@ -2234,6 +2234,12 @@ class FuncState
 
 		e.type = ExpType.Closure;
 		e.index = index;
+		
+		if(attrReg != -1)
+		{
+			e.index2 = attrReg;
+			e.isTempReg2 = true;
+		}
 	}
 
 	public void freeExpTempRegs(Exp* e)
@@ -2424,7 +2430,13 @@ class FuncState
 				break;
 
 			case ExpType.Closure:
-				codeI(line, Op.Closure, dest, src.index);
+				if(src.isTempReg2)
+				{
+					codeR(line, Op.Closure, dest, src.index, src.index2 + 1);
+					freeExpTempRegs(src);
+				}
+				else
+					codeR(line, Op.Closure, dest, src.index, 0);
 
 				foreach(ref ud; mInnerFuncs[src.index].mUpvals)
 					codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
@@ -2763,8 +2775,16 @@ class FuncState
 				break;
 
 			case ExpType.Closure:
-				temp.index = pushRegister();
-				codeI(line, Op.Closure, temp.index, e.index);
+				if(e.isTempReg2)
+				{
+					temp.index = e.index2;
+					codeR(line, Op.Closure, temp.index, e.index, temp.index + 1);
+				}
+				else
+				{
+					temp.index = pushRegister();
+					codeI(line, Op.Closure, temp.index, e.index);
+				}
 
 				foreach(ref ud; mInnerFuncs[e.index].mUpvals)
 					codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
@@ -3449,6 +3469,15 @@ class ClassDef
 				}
 				
 				FuncState.leaveClass();
+				
+				if(mAttrs)
+				{
+					mAttrs.codeGen(s);
+					Exp src;
+					s.popSource(mLocation.line, src);
+					s.freeExpTempRegs(&src);
+					s.codeR(mLocation.line, Op.SetAttrs, destReg, src.index, 0);
+				}
 
 				s.pushTempReg(destReg);
 			}
@@ -3625,7 +3654,16 @@ class FuncDef
 		mBody.codeGen(fs);
 		fs.codeI(mBody.mEndLocation.line, Op.Ret, 0, 1);
 		fs.popScope(mBody.mEndLocation.line);
-		s.pushClosure(fs);
+
+		if(mAttrs is null)
+			s.pushClosure(fs);
+		else
+		{
+			mAttrs.codeGen(s);
+			Exp src;
+			s.popSource(mLocation.line, src);
+			s.pushClosure(fs, src.index);
+		}
 	}
 
 	public FuncDef fold()
@@ -3765,6 +3803,15 @@ class NamespaceDef
 			s.popSource(field.initializer.mEndLocation.line, val);
 			s.codeR(field.initializer.mEndLocation.line, Op.FieldAssign, destReg, index, val.index);
 			s.freeExpTempRegs(&val);
+		}
+		
+		if(mAttrs)
+		{
+			mAttrs.codeGen(s);
+			Exp src;
+			s.popSource(mLocation.line, src);
+			s.freeExpTempRegs(&src);
+			s.codeR(mLocation.line, Op.SetAttrs, destReg, src.index, 0);
 		}
 
 		s.pushTempReg(destReg);
@@ -4665,14 +4712,16 @@ class CompoundStatement : Statement
 
 class IfStatement : Statement
 {
+	protected Identifier mCondVar;
 	protected Expression mCondition;
 	protected Statement mIfBody;
 	protected Statement mElseBody;
 
-	public this(Location location, Location endLocation, Expression condition, Statement ifBody, Statement elseBody)
+	public this(Location location, Location endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(location, endLocation);
 
+		mCondVar = condVar;
 		mCondition = condition;
 		mIfBody = ifBody;
 		mElseBody = elseBody;
@@ -4684,6 +4733,15 @@ class IfStatement : Statement
 
 		t = t.expect(Token.Type.If);
 		t = t.expect(Token.Type.LParen);
+
+		Identifier condVar;
+
+		if(t.type == Token.Type.Local)
+		{
+			t = t.nextToken;
+			condVar = Identifier.parse(t);
+			t = t.expect(Token.Type.Assign);
+		}
 
 		Expression condition = Expression.parse(t);
 
@@ -4702,16 +4760,29 @@ class IfStatement : Statement
 			endLocation = elseBody.mEndLocation;
 		}
 
-		return new IfStatement(location, endLocation, condition, ifBody, elseBody);
+		return new IfStatement(location, endLocation, condVar, condition, ifBody, elseBody);
 	}
 
 	public override void codeGen(FuncState s)
 	{
-		InstRef* i = mCondition.codeCondition(s);
-		s.invertJump(i);
+		InstRef* i;
 
 		s.pushScope();
 
+		if(mCondVar !is null)
+		{
+			uint destReg = s.nextRegister();
+			mCondition.codeGen(s);
+			s.popMoveTo(mLocation.line, destReg);
+			s.insertLocal(mCondVar);
+			s.activateLocals(1);
+
+			i = (new IdentExp(mCondVar.mLocation, mCondVar)).codeCondition(s);
+		}
+		else
+			i = mCondition.codeCondition(s);
+
+		s.invertJump(i);
 		s.patchTrueToHere(i);
 		mIfBody.codeGen(s);
 
@@ -4767,13 +4838,15 @@ class IfStatement : Statement
 
 class WhileStatement : Statement
 {
+	protected Identifier mCondVar;
 	protected Expression mCondition;
 	protected Statement mBody;
 
-	public this(Location location, Location endLocation, Expression condition, Statement whileBody)
+	public this(Location location, Location endLocation, Identifier condVar, Expression condition, Statement whileBody)
 	{
 		super(location, endLocation);
-
+		
+		mCondVar = condVar;
 		mCondition = condition;
 		mBody = whileBody;
 	}
@@ -4784,6 +4857,15 @@ class WhileStatement : Statement
 
 		t = t.expect(Token.Type.While);
 		t = t.expect(Token.Type.LParen);
+		
+		Identifier condVar;
+
+		if(t.type == Token.Type.Local)
+		{
+			t = t.nextToken;
+			condVar = Identifier.parse(t);
+			t = t.expect(Token.Type.Assign);
+		}
 
 		Expression condition = Expression.parse(t);
 
@@ -4791,7 +4873,7 @@ class WhileStatement : Statement
 
 		Statement whileBody = Statement.parse(t, false);
 
-		return new WhileStatement(location, whileBody.mEndLocation, condition, whileBody);
+		return new WhileStatement(location, whileBody.mEndLocation, condVar, condition, whileBody);
 	}
 
 	public override void codeGen(FuncState s)
@@ -4800,22 +4882,57 @@ class WhileStatement : Statement
 		
 		if(mCondition.isConstant && mCondition.isTrue)
 		{
-			s.pushScope();
-				s.setBreakable();
-				s.setContinuable();
-				mBody.codeGen(s);
-				s.patchContinues(beginLoop);
-				s.codeJump(mEndLocation.line, beginLoop);
-				s.patchBreaksToHere();
-			s.popScope(mEndLocation.line);
+			if(mCondVar !is null)
+			{
+				s.pushScope();
+					s.setBreakable();
+					s.setContinuable();
+					
+					uint destReg = s.nextRegister();
+					mCondition.codeGen(s);
+					s.popMoveTo(mLocation.line, destReg);
+					s.insertLocal(mCondVar);
+					s.activateLocals(1);
+
+					mBody.codeGen(s);
+					s.patchContinues(beginLoop);
+					s.codeJump(mEndLocation.line, beginLoop);
+					s.patchBreaksToHere();
+				s.popScope(mEndLocation.line);
+			}
+			else
+			{
+				s.pushScope();
+					s.setBreakable();
+					s.setContinuable();
+					mBody.codeGen(s);
+					s.patchContinues(beginLoop);
+					s.codeJump(mEndLocation.line, beginLoop);
+					s.patchBreaksToHere();
+				s.popScope(mEndLocation.line);
+			}
 		}
 		else
 		{
-			InstRef* cond = mCondition.codeCondition(s);
-			s.invertJump(cond);
-
 			s.pushScope();
+				InstRef* cond;
+	
+				if(mCondVar !is null)
+				{
+					uint destReg = s.nextRegister();
+					mCondition.codeGen(s);
+					s.popMoveTo(mLocation.line, destReg);
+					s.insertLocal(mCondVar);
+					s.activateLocals(1);
+	
+					cond = (new IdentExp(mCondVar.mLocation, mCondVar)).codeCondition(s);
+				}
+				else
+					cond = mCondition.codeCondition(s);
+	
+				s.invertJump(cond);
 				s.patchTrueToHere(cond);
+
 				s.setBreakable();
 				s.setContinuable();
 				mBody.codeGen(s);

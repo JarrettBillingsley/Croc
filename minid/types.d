@@ -1525,6 +1525,7 @@ class MDClosure : MDObject
 {
 	protected bool mIsNative;
 	protected MDNamespace mEnvironment;
+	protected MDTable mAttrs;
 
 	struct NativeClosure
 	{
@@ -1648,6 +1649,21 @@ class MDClosure : MDObject
 	public void environment(MDNamespace env)
 	{
 		mEnvironment = env;
+	}
+
+	/**
+	Gets or sets the attribute table of the closure.  The attribute table is an arbitrary table
+	that you can attach to a closure to hold application-specific data.
+	*/
+	public void attributes(MDTable attrs)
+	{
+		mAttrs = attrs;
+	}
+
+	/// ditto
+	public MDTable attributes()
+	{
+		return mAttrs;
 	}
 
 	protected int callFunc(MDState s, uint numParams)
@@ -2240,6 +2256,7 @@ class MDClass : MDObject
 	protected MDNamespace mMethods;
 	protected bool mIsCtorCached = false;
 	protected MDValue* mCtor;
+	protected MDTable mAttrs;
 
 	protected static MDString CtorString;
 
@@ -2395,6 +2412,21 @@ class MDClass : MDObject
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("class {}", mGuessedName);
+	}
+	
+	/**
+	Gets or sets the attribute table of the class.  The attribute table is an arbitrary table
+	that you can attach to a class to hold application-specific data.
+	*/
+	public void attributes(MDTable attrs)
+	{
+		mAttrs = attrs;
+	}
+
+	/// ditto
+	public MDTable attributes()
+	{
+		return mAttrs;
 	}
 
 	package MDValue* getCtor()
@@ -2564,6 +2596,7 @@ final class MDNamespace : MDObject
 	protected MDValue[MDString] mData;
 	protected MDNamespace mParent;
 	protected dchar[] mName;
+	protected MDTable mAttrs;
 
 	/**
 	Construct a new namespace.
@@ -2784,6 +2817,21 @@ final class MDNamespace : MDObject
 	public char[] toUtf8()
 	{
 		return Stdout.layout.convert("namespace {}", nameString());
+	}
+	
+	/**
+	Gets or sets the attribute table of the closure.  The attribute table is an arbitrary table
+	that you can attach to a closure to hold application-specific data.
+	*/
+	public void attributes(MDTable attrs)
+	{
+		mAttrs = attrs;
+	}
+
+	/// ditto
+	public MDTable attributes()
+	{
+		return mAttrs;
 	}
 }
 
@@ -7552,6 +7600,19 @@ final class MDState : MDObject
 							mStack[stackBase + i.rd].mArray.setBlock(i.rt, mStack[sliceBegin .. sliceBegin + numElems]);
 
 						break;
+						
+					case Op.SetAttrs:
+						debug(TIMINGS) scope _profiler_ = new Profiler("SetAttrs");
+						
+						MDValue* RD = get(i.rd);
+
+						if(RD.mType == MDValue.Type.Class)
+							RD.mClass.attributes = get(i.rs).mTable;
+						else if(RD.mType == MDValue.Type.Namespace)
+							RD.mNamespace.attributes = get(i.rs).mTable;
+						else
+							assert(false, "invalid setattrs dest");
+						break;
 
 					case Op.Cat:
 						int numElems = i.rt - 1;
@@ -7637,9 +7698,9 @@ final class MDState : MDObject
 						debug(TIMINGS) scope _profiler_ = new Profiler("Closure");
 
 						MDFuncDef newDef = mCurrentAR.func.script.func;
-						assert(i.imm < newDef.mInnerFuncs.length, "invalid inner func index");
-						newDef = newDef.mInnerFuncs[i.imm];
-						
+						assert(i.rs < newDef.mInnerFuncs.length, "invalid inner func index");
+						newDef = newDef.mInnerFuncs[i.rs];
+
 						MDClosure n = new MDClosure(mCurrentAR.env, newDef);
 
 						for(int index = 0; index < newDef.mNumUpvals; index++)
@@ -7656,6 +7717,9 @@ final class MDState : MDObject
 	
 							mCurrentAR.pc++;
 						}
+
+						if(i.rt != 0)
+							n.attributes = get(i.rt - 1).mTable;
 
 						*get(i.rd) = n;
 						break;

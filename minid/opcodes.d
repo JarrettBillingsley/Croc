@@ -96,6 +96,7 @@ enum Op : uint
 	PushFinally,
 	Ret,
 	SetArray,
+	SetAttrs,
 	Shl,
 	ShlEq,
 	Shr,
@@ -136,7 +137,7 @@ CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
 Class.............R: dest, name const index, base class
 ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
-Closure...........I: dest, index of funcdef
+Closure...........R: dest, index of funcdef, attrs reg + 1 (0 means no attrs)
 CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
@@ -190,6 +191,7 @@ PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
+SetAttrs..........R: dest, src, n/a
 Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
 Shr...............R: dest, src, src
@@ -292,7 +294,7 @@ align(1) struct Instruction
 			case Op.Class:           return Stdout.layout.convert("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ClassOf:         return Stdout.layout.convert("classof {}, {}", cr(rd), cr(rs));
 			case Op.Close:           return Stdout.layout.convert("close r{}", rd);
-			case Op.Closure:         return Stdout.layout.convert("closure {}, {}", cr(rd), uimm);
+			case Op.Closure:         return Stdout.layout.convert("closure {}, {}, {}", cr(rd), rs, rt);
 			case Op.CondMove:        return Stdout.layout.convert("cmov {}, {}", cr(rd), cr(rs));
 			case Op.Coroutine:       return Stdout.layout.convert("coroutine {}, {}", cr(rd), cr(rs));
 			case Op.Cmp:             return Stdout.layout.convert("cmp {}, {}", cr(rs), cr(rt));
@@ -346,6 +348,7 @@ align(1) struct Instruction
 			case Op.PushFinally:     return Stdout.layout.convert("pushfinal {}", imm);
 			case Op.Ret:             return Stdout.layout.convert("ret r{}, {}", rd, uimm);
 			case Op.SetArray:        return Stdout.layout.convert("setarray r{}, {}, block {}", rd, rs, rt);
+			case Op.SetAttrs:        return Stdout.layout.convert("setattrs r{}, r{}", rd, rs);
 			case Op.Shl:             return Stdout.layout.convert("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ShlEq:           return Stdout.layout.convert("shleq {}, {}", cr(rd), cr(rs));
 			case Op.Shr:             return Stdout.layout.convert("shr {}, {}, {}", cr(rd), cr(rs), cr(rt));

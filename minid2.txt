@@ -330,10 +330,10 @@ NamespaceMember:
 	Identifier ['=' Expression] ';'
 
 IfStatement:
-	'if' '(' Expression ')' Statement ['else' Statement]
+	'if' '(' ['local' Identifier '='] Expression ')' Statement ['else' Statement]
 
 WhileStatement:
-	'while' '(' Expression ')' Statement
+	'while' '(' ['local' Identifier '='] Expression ')' Statement
 
 DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
