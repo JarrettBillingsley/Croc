@@ -5,6 +5,8 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
+version = Arc;
+
 void main()
 {
 	MDContext ctx;
@@ -12,7 +14,9 @@ void main()
 	try
 	{
 		ctx = NewContext();
-		//LoadArc(ctx);
+
+		version(Arc)
+			LoadArc(ctx);
 
 		ctx.addImportPath(`samples`);
 		ctx.importModule("simple");
@@ -29,7 +33,9 @@ void main()
 	}
 }
 
-/+
+version(Arc)
+{
+
 import arc.draw.color;
 import arc.draw.image;
 import arc.draw.shape;
@@ -334,10 +340,33 @@ void LoadArc(MDContext ctx)
 		.func!(arc.time.fps)()
 		.func!(arc.time.limitFPS)()
 		.func!(arc.time.getTime)();
-			
+
+	MDNamespace coordinates = new MDNamespace("coordinates");
+	
+	with(arc.window.coordinates)
+	{
+		WrapFunc!(setSize)(coordinates);
+		WrapFunc!(setOrigin)(coordinates);
+		WrapFunc!(getSize)(coordinates);
+		WrapFunc!(getWidth)(coordinates);
+		WrapFunc!(getHeight)(coordinates);
+		WrapFunc!(getOrigin)(coordinates);
+	}
+
 	WrapModule("arc.window", ctx)
 		.func!(arc.window.open)()
 		.func!(arc.window.close)()
+		.func!(arc.window.getWidth)()
+		.func!(arc.window.getHeight)()
+		.func!(arc.window.getSize)()
+		.func!(arc.window.isFullScreen)()
+		.func!(arc.window.resize)()
+		.func!(arc.window.toggleFullScreen)()
 		.func!(arc.window.clear)()
-		.func!(arc.window.swap)();
-}+/
+		.func!(arc.window.swap)()
+		.func!(arc.window.swapClear)()
+		.func!(arc.window.screenshot)()
+		.custom("coordinates", coordinates);
+}
+
+}

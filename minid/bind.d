@@ -465,7 +465,7 @@ Params:
 public void WrapFunc(alias func, char[] name = NameOfFunc!(func), funcType = typeof(&func))(MDNamespace ns)
 {
 	const name32 = ToUTF32!(name);
-	ns[name32] = new MDClosure(ns, &WrappedFunc!(func, name, funcType), name32);
+	ns[new MDString(name32)] = MDValue(new MDClosure(ns, &WrappedFunc!(func, name, funcType), name32));
 }
 
 /// ditto
