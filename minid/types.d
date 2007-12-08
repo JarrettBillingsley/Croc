@@ -120,6 +120,12 @@ class MDCompileException : MDException
 	be made to compile by adding more code.
 	*/
 	bool atEOF = false;
+	
+	/**
+	Indicates whether the compiler threw this because of a no-effect expression.  If true, the
+	code might be able to be compiled and evaluated as an expression.
+	*/
+	bool solitaryExpression = false;
 
 	/**
 	Takes the location of the error, and a variadic list of Tango-style formatted arguments.
@@ -6802,7 +6808,7 @@ final class MDState : MDObject
 						MDValue* val = env[name];
 
 						if(val !is null)
-							throwRuntimeException("Attempting to create global '{}' that already exists", RT.toUtf8());
+							throwRuntimeException("Attempting to create global '{}' that already exists", name);
 
 						env[name] = RS;
 						break;

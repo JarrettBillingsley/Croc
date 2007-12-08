@@ -66,7 +66,8 @@ final class ArrayLib
 			"filter"d,   new MDClosure(namespace, &lib.filter,   "array.filter"),
 			"find"d,     new MDClosure(namespace, &lib.find,     "array.find"),
 			"bsearch"d,  new MDClosure(namespace, &lib.bsearch,  "array.bsearch"),
-			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop")
+			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop"),
+			"set"d,      new MDClosure(namespace, &lib.set,      "array.set")
 		);
 
 		context.globals["array"d] = MDNamespace.create
@@ -457,6 +458,19 @@ final class ArrayLib
 
 		array.length = array.length - 1;
 
+		return 1;
+	}
+	
+	int set(MDState s, uint numParams)
+	{
+		auto array = s.getContext!(MDArray);
+		
+		array.length = numParams;
+		
+		for(uint i = 0; i < numParams; i++)
+			array[i] = s.getParam(i);
+
+		s.push(array);
 		return 1;
 	}
 }

@@ -26,11 +26,14 @@ module minid.commandline;
 private import minid.compiler;
 private import minid.minid;
 private import minid.types;
+private import minid.utils;
 
 private import tango.io.Print;
 private import tango.io.model.IConduit;
 private import tango.text.convert.Layout;
 private import tango.text.stream.LineIterator;
+private import tango.stdc.ctype;
+private import Uni = tango.text.Unicode;
 
 private import utf = tango.text.convert.Utf;
 
@@ -88,6 +91,55 @@ public class CommandLine
 		mOutput("code will be run.	If there is an error, the code buffer is cleared.").newline;
 		mOutput("To end interactive mode, either use the function \"exit();\", or force").newline;
 		mOutput("exit by hitting Ctrl-C.").newline;
+	}
+
+	private void outputRepr(MDState state, ref MDValue v)
+	{
+		void escape(dchar c)
+		{
+			switch(c)
+			{
+				case '\'': mOutput(`\'`); break;
+				case '\"': mOutput(`\"`); break;
+				case '\\': mOutput(`\\`); break;
+				case '\a': mOutput(`\a`); break;
+				case '\b': mOutput(`\b`); break;
+				case '\f': mOutput(`\f`); break;
+				case '\n': mOutput(`\n`); break;
+				case '\r': mOutput(`\r`); break;
+				case '\t': mOutput(`\t`); break;
+				case '\v': mOutput(`\v`); break;
+
+				default:
+					if(isprint(c))
+						mOutput(c);
+					else if(c <= 0xFFFF)
+						mOutput.format("\\u{:x4}", cast(uint)c);
+					else
+						mOutput.format("\\U{:X8}", cast(uint)c);
+					break;
+			}
+		}
+
+		if(v.isString)
+		{
+			mOutput('"');
+			
+			auto s = v.as!(MDString);
+
+			for(int i = 0; i < s.length; i++)
+				escape(s[i]);
+				
+			mOutput('"');
+		}
+		else if(v.isChar)
+		{
+			mOutput("'");
+			escape(v.as!(dchar));
+			mOutput("'");
+		}
+		else
+			mOutput(state.valueToString(v));
 	}
 
 	void run(char[][] args = null, MDContext ctx = null)
@@ -198,6 +250,9 @@ public class CommandLine
 
 		if(interactive)
 		{
+			dchar[1024] utf32buffer;
+			List!(MDValue) returnBuffer;
+
 			char[] buffer;
 			bool run = true;
 
@@ -210,16 +265,107 @@ public class CommandLine
 				}, "exit"
 			);
 
-			version(Windows)
+			mOutput("Use the \"exit()\" function to end, or hit Ctrl-C.").newline;
+			mOutput(Prompt1)();
+			
+			bool couldBeDecl()
 			{
-				mOutput("Use the \"exit();\" function to end, or hit Ctrl-C.").newline;
-			}
-			else
-			{
-				mOutput("Use the \"exit();\" function to end.").newline;
+				if(buffer.length == 0)
+					return false;
+
+				size_t i = 0;
+
+				for( ; i < buffer.length && Uni.isWhitespace(buffer[i]); i++)
+				{}
+				
+				auto temp = buffer[i .. $];
+
+				return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace");
 			}
 
-			mOutput(Prompt1)();
+			bool tryAsStatement(Exception e = null)
+			{
+				try
+				{
+					auto def = compileStatements(utf.toUtf32(buffer), "stdin");
+					scope closure = ctx.newClosure(def);
+					state.easyCall(closure, 0, MDValue(ctx.globals.ns));
+				}
+				catch(MDCompileException e2)
+				{
+					if(e2.atEOF)
+					{
+						mOutput(Prompt2)();
+						return true;
+					}
+					else if(e2.solitaryExpression && e !is null)
+					{
+						// output e, the exception that caused it not to be evaluable as an expression in the first place
+						mOutput.formatln("Error: {}", e);
+						mOutput.newline;
+					}
+					else
+					{
+						mOutput.formatln("Error: {}", e2);
+						mOutput.newline;
+					}
+				}
+				catch(MDException e2)
+				{
+					mOutput.formatln("Error: {}", e2);
+					mOutput.formatln("{}", ctx.getTracebackString());
+					mOutput.newline;
+				}
+
+				return false;
+			}
+			
+			bool tryAsExpression()
+			{
+				try
+				{
+					auto numRets = evalMultRet(state, utf.toUtf32(buffer, utf32buffer));
+					
+					if(numRets > 0)
+					{
+						mOutput(" => ");
+						returnBuffer.length = 0;
+
+						for(uint i = 0; i < numRets; i++)
+							returnBuffer ~= state.pop();
+
+						auto returns = returnBuffer.toArray();
+
+						outputRepr(state, returns[$ - 1]);
+
+						foreach_reverse(val; returns[0 .. $ - 1])
+						{
+							mOutput(", ");
+							outputRepr(state, val);
+						}
+
+						mOutput.newline;
+					}
+				}
+				catch(MDCompileException e)
+				{
+					if(e.atEOF)
+					{
+						mOutput(Prompt2)();
+						return true;
+					}
+					else
+						return tryAsStatement(e);
+				}
+				catch(MDException e)
+				{
+					mOutput.formatln("Error: {}", e);
+					mOutput.formatln("{}", ctx.getTracebackString());
+					mOutput.newline;
+				}
+				
+				return false;
+			}
 
 			while(run)
 			{
@@ -227,71 +373,24 @@ public class CommandLine
 
 				if(line.ptr is null)
 					break;
-
-				buffer ~= line;
-
-				if(buffer.length > 0 && buffer[0] == '=')
+					
+				if(buffer.length is 0 && line.length is 0)
 				{
-					MDValue val;
+					mOutput(Prompt1)();
+					continue;
+				}
 
-					try
-					{
-						val = eval(state, utf.toUtf32(buffer[1 .. $]));
-						mOutput(" => ")(state.valueToString(val)).newline;
-					}
-					catch(MDCompileException e)
-					{
-						if(e.atEOF)
-							mOutput(Prompt2)();
-						else
-						{
-							mOutput.formatln("{}", e);
-							mOutput.newline;
-							mOutput(Prompt1)();
-							buffer.length = 0;
-						}
-						
+				buffer ~= '\n' ~ line;
+
+				if(couldBeDecl())
+				{
+					if(tryAsStatement())
 						continue;
-					}
-					catch(MDException e)
-					{
-						mOutput.formatln("Error: {}", e);
-						mOutput.formatln("{}", ctx.getTracebackString());
-						mOutput.newline;
-					}
 				}
 				else
 				{
-					MDFuncDef def;
-
-					try
-						def = compileStatements(utf.toUtf32(buffer), "stdin");
-					catch(MDCompileException e)
-					{
-						if(e.atEOF)
-							mOutput(Prompt2)();
-						else
-						{
-							mOutput.formatln("{}", e);
-							mOutput.newline;
-							mOutput(Prompt1)();
-							buffer.length = 0;
-						}
-
+					if(tryAsExpression())
 						continue;
-					}
-	
-					try
-					{
-						scope closure = ctx.newClosure(def);
-						state.easyCall(closure, 0, MDValue(ctx.globals.ns));
-					}
-					catch(MDException e)
-					{
-						mOutput.formatln("Error: {}", e);
-						mOutput.formatln("{}", ctx.getTracebackString());
-						mOutput.newline;
-					}
 				}
 
 				mOutput(Prompt1)();

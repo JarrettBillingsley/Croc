@@ -580,7 +580,7 @@ over-allocates for arrays, but I don't like relying on implementation-specific f
 struct List(T)
 {
 	private T[] mData;
-	private uint mIndex = 0;
+	private size_t mIndex = 0;
 
 	public void add(T item)
 	{
@@ -596,12 +596,22 @@ struct List(T)
 		mIndex++;
 	}
 	
-	public T opIndex(uint index)
+	alias add opCatAssign;
+
+	public T opIndex(size_t index)
 	{
 		return mData[index];
 	}
 	
-	public uint length()
+	public void length(size_t l)
+	{
+		mIndex = l;
+		
+		if(mIndex > mData.length)
+			mData.length = mIndex;
+	}
+
+	public size_t length()
 	{
 		return mIndex;
 	}
@@ -774,4 +784,12 @@ public template Itoa(int i)
 		const char[] Itoa = Itoa!(i / 10) ~ "0123456789"[i % 10];
 	else
 		const char[] Itoa = "" ~ "0123456789"[i % 10];
+}
+
+/**
+See if a string starts with another string.  Useful.
+*/
+public bool startsWith(T)(T[] string, T[] pattern)
+{
+	return string.length > pattern.length && string[0 .. pattern.length] == pattern[];
 }

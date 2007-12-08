@@ -256,7 +256,12 @@ Module:
 	ModuleDeclaration {Statement} EOF
 
 ModuleDeclaration:
-	'module' Identifier {'.' Identifier} ';'
+	'module' Identifier {'.' Identifier} StatementTerminator
+
+StatementTerminator:
+	';'
+	EndOfLine
+	'}' // not consumed
 
 Statement:
 	ImportStatement
@@ -276,17 +281,17 @@ Statement:
 	ThrowStatement
 
 ImportStatement:
-	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] ';'
-	'import' '(' Expression ')' [':' Identifier {',' Identifier}] ';'
+	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] StatementTerminator
+	'import' '(' Expression ')' [':' Identifier {',' Identifier}] StatementTerminator
 
 BlockStatement:
 	'{' {Statement} '}'
-	
+
 ExpressionStatement:
-	BaseExpression ';'
+	BaseExpression StatementTerminator
 
 DeclarationStatement:
-	VariableDeclaration ';'
+	VariableDeclaration StatementTerminator
 	['</' [TableField {',' TableField}] '/>'] OtherDeclaration
 
 OtherDeclaration:
@@ -319,7 +324,7 @@ ClassDeclaration:
 
 ClassMember:
 	['</' [TableField {',' TableField}] '/>'] SimpleFunctionDeclaration
-	Identifier ['=' Expression] ';'
+	Identifier ['=' Expression] StatementTerminator
 	'this' Parameters BlockStatement
 	
 NamespaceDeclaration:
@@ -327,7 +332,7 @@ NamespaceDeclaration:
 	
 NamespaceMember:
 	SimpleFunctionDeclaration
-	Identifier ['=' Expression] ';'
+	Identifier ['=' Expression] StatementTerminator
 
 IfStatement:
 	'if' '(' ['local' Identifier '='] Expression ')' Statement ['else' Statement]
@@ -359,19 +364,19 @@ DefaultStatement:
 	'default' ':' {Statement}
 	
 ContinueStatement:
-	'continue' ';'
+	'continue' StatementTerminator
 
 BreakStatement:
-	'break' ';'
+	'break' StatementTerminator
 	
 ReturnStatement:
-	'return' [Expression {',' Expression}] ';'
+	'return' [Expression {',' Expression}] StatementTerminator
 	
 TryCatchStatement:
 	'try' Statement (('catch' '(' Identifier ')' Statement) || ('finally' Statement))
 	
 ThrowStatement:
-	'throw' Expression ';'
+	'throw' Expression StatementTerminator
 
 BaseExpression:
 	Assignment

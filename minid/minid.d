@@ -241,6 +241,14 @@ public MDValue eval(MDState s, dchar[] source, MDNamespace ns = null)
 	return s.pop();
 }
 
+public uint evalMultRet(MDState s, dchar[] source, MDNamespace ns = null)
+{
+	if(ns is null)
+		ns = s.context.globals.ns;
+
+	return s.easyCall(new MDClosure(ns, compileExpression(source, "<loaded by eval>")), -1, MDValue(ns));
+}
+
 /**
 Convert a table or an array object into JSON format.  This will work with MDTable, MDArray, or any
 convertible D array or AA type.  Returns a string containing the JSON data.  If you have the need
