@@ -256,7 +256,7 @@ Module:
 	ModuleDeclaration {Statement} EOF
 
 ModuleDeclaration:
-	'module' Identifier {'.' Identifier} StatementTerminator
+	[AttributeTable] 'module' Identifier {'.' Identifier} StatementTerminator
 
 StatementTerminator:
 	';'
@@ -292,7 +292,10 @@ ExpressionStatement:
 
 DeclarationStatement:
 	VariableDeclaration StatementTerminator
-	['</' [TableField {',' TableField}] '/>'] OtherDeclaration
+	[AttributeTable] OtherDeclaration
+	
+AttributeTable:
+	'</' [TableField {',' TableField}] '/>'
 
 OtherDeclaration:
 	FunctionDeclaration
@@ -323,7 +326,7 @@ ClassDeclaration:
 	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
 
 ClassMember:
-	['</' [TableField {',' TableField}] '/>'] SimpleFunctionDeclaration
+	[AttributeTable] SimpleFunctionDeclaration
 	Identifier ['=' Expression] StatementTerminator
 	'this' Parameters BlockStatement
 	

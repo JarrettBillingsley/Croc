@@ -15,7 +15,7 @@ void main()
 		//LoadArc(ctx);
 
 		ctx.addImportPath(`samples`);
-		ctx.importModule("simple");
+		ctx.importModule("speed");
 	}
 	catch(MDException e)
 	{

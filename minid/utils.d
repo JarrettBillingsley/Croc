@@ -532,14 +532,14 @@ scope class Profiler
 	{
 		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
 	}
-	
-	debug(TIMINGS) 
+
+	debug(TIMINGS)
 	{
 		static this()
 		{
 			init("timings.txt");
 		}
-	
+
 		static ~this()
 		{
 			mOutLog.formatln("Name           | Count        | Total Time         | Average Time");

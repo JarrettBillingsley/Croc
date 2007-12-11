@@ -1,7 +1,4 @@
-// Optional semicolons
 module simple
-
-
 
 /+
 // Making sure finally blocks are executed.

@@ -4762,11 +4762,7 @@ final class MDState : MDObject
 
 	protected final bool callPrologue(uint slot, int numReturns, int numParams)
 	{
-		uint paramSlot;
-		MDClosure closure;
-
-		slot = mCurrentAR.base + slot;
-		uint returnSlot = slot;
+		slot += mCurrentAR.base;
 
 		if(numParams == -1)
 			numParams = mStackIndex - slot - 1;
@@ -4775,12 +4771,10 @@ final class MDState : MDObject
 
 		MDValue* func = &mStack[slot];
 		
-		switch(func.type())
+		switch(func.mType)
 		{
 			case MDValue.Type.Function:
-				closure = func.mFunction;
-				paramSlot = slot + 1;
-				break;
+				return callPrologue2(func.mFunction, slot, numReturns, slot + 1, numParams);
 
 			case MDValue.Type.Class:
 				MDClass cls = func.mClass;
@@ -4809,15 +4803,13 @@ final class MDState : MDObject
 					mStackIndex = slot + 1;
 				else if(numReturns > 1)
 				{
-					slot++;
 					numReturns--;
-
-					auto stk = mStack;
+					auto stk = &mStack[slot + 1];
 
 					while(numReturns > 0)
 					{
-						stk[slot].setNull();
-						slot++;
+						stk.setNull();
+						stk++;
 						numReturns--;
 					}
 
@@ -4914,15 +4906,8 @@ final class MDState : MDObject
 					throwRuntimeException("Attempting to call a value of type '{}'", func.typeString());
 
 				mStack[slot + 1] = mStack[slot];
-				paramSlot = slot + 1;
-				closure = method.mFunction;
-				break;
+				return callPrologue2( method.mFunction, slot, numReturns, slot + 1, numParams);
 		}
-		
-		if(closure is null)
-			return false;
-
-		return callPrologue2(closure, returnSlot, numReturns, paramSlot, numParams);
 	}
 
 	protected final bool callPrologue2(MDClosure closure, uint returnSlot, int numReturns, uint paramSlot, int numParams)
@@ -5367,7 +5352,7 @@ final class MDState : MDObject
 	{
 		MDValue* m;
 		
-		switch(obj.type)
+		switch(obj.mType)
 		{
 			case MDValue.Type.Table:
 				m = obj.mTable[MDValue(MetaStrings[method])];
@@ -5382,7 +5367,7 @@ final class MDState : MDObject
 				break;
 
 			default:
-				MDNamespace n = mContext.getMetatable(obj.type);
+				MDNamespace n = mContext.getMetatable(obj.mType);
 
 				if(n is null)
 					break;
@@ -5654,7 +5639,7 @@ final class MDState : MDObject
 
 		MDValue* method = getMM(*RS, MM.Com);
 
-		if(method.type != MDValue.Type.Function)
+		if(method.mType != MDValue.Type.Function)
 			throwRuntimeException("Cannot perform complement on a '{}'", RS.typeString());
 
 		mNativeCallDepth++;
@@ -5742,9 +5727,9 @@ final class MDState : MDObject
 			}
 		}
 		
-		if(RS.type == RT.type)
+		if(RS.mType == RT.mType)
 		{
-			switch(RS.type)
+			switch(RS.mType)
 			{
 				case MDValue.Type.Null:
 					return 0;
@@ -5817,7 +5802,7 @@ final class MDState : MDObject
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("In");
 
-		switch(RT.type)
+		switch(RT.mType)
 		{
 			case MDValue.Type.String:
 				if(RS.mType != MDValue.Type.Char)
@@ -5861,7 +5846,7 @@ final class MDState : MDObject
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Length");
 
-		switch(RS.type)
+		switch(RS.mType)
 		{
 			case MDValue.Type.String:
 				return MDValue(RS.mString.length);
@@ -5893,7 +5878,7 @@ final class MDState : MDObject
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("LengthAssign");
 
-		switch(RD.type)
+		switch(RD.mType)
 		{
 			case MDValue.Type.Array:
 				if(RS.mType != MDValue.Type.Int)
@@ -5949,7 +5934,7 @@ final class MDState : MDObject
 			return pop();
 		}
 
-		switch(RS.type)
+		switch(RS.mType)
 		{
 			case MDValue.Type.Array:
 				if(RT.mType != MDValue.Type.Int)
@@ -6036,7 +6021,7 @@ final class MDState : MDObject
 			call(funcSlot, 3, 0);
 		}
 
-		switch(RD.type)
+		switch(RD.mType)
 		{
 			case MDValue.Type.Array:
 				if(RS.mType != MDValue.Type.Int)
@@ -6119,7 +6104,7 @@ final class MDState : MDObject
 			return pop();
 		}
 
-		switch(RS.type)
+		switch(RS.mType)
 		{
 			case MDValue.Type.Table:
 				MDValue* v = RS.mTable[*RT];
@@ -6200,7 +6185,7 @@ final class MDState : MDObject
 			call(funcSlot, 3, 0);
 		}
 
-		switch(RD.type)
+		switch(RD.mType)
 		{
 			case MDValue.Type.Table:
 				MDTable table = RD.mTable;
@@ -6281,7 +6266,7 @@ final class MDState : MDObject
 			return pop();
 		}
 
-		switch(src.type)
+		switch(src.mType)
 		{
 			case MDValue.Type.Array:
 				MDArray arr = src.mArray;
@@ -6384,7 +6369,7 @@ final class MDState : MDObject
 			call(funcSlot, 4, 0);
 		}
 
-		switch(RD.type)
+		switch(RD.mType)
 		{
 			case MDValue.Type.Array:
 				MDArray arr = RD.mArray;
@@ -6436,7 +6421,7 @@ final class MDState : MDObject
 	
 	protected final MDValue* lookupMethod(MDValue* RS, MDString methodName)
 	{
-		switch(RS.type)
+		switch(RS.mType)
 		{
 			case MDValue.Type.Instance:
 				return RS.mInstance[methodName];
@@ -6486,7 +6471,7 @@ final class MDState : MDObject
 			return pop();
 		}
 
-		switch(RS.type)
+		switch(RS.mType)
 		{
 			case MDValue.Type.Instance:
 				MDValue* v = RS.mInstance[methodName];
@@ -6521,7 +6506,7 @@ final class MDState : MDObject
 				return *v;
 
 			default:
-				MDNamespace metatable = mContext.getMetatable(RS.type);
+				MDNamespace metatable = mContext.getMetatable(RS.mType);
 
 				if(metatable is null)
 					throwRuntimeException("No metatable for type '{}'", RS.typeString());
@@ -6663,7 +6648,7 @@ final class MDState : MDObject
 						MDValue* glob = null;
 						MDValue* src = &mStack[stackBase];
 
-						switch(src.type)
+						switch(src.mType)
 						{
 							case MDValue.Type.Table:
 								MDValue* v = src.mTable[*idx];
@@ -6879,9 +6864,9 @@ final class MDState : MDObject
 
 						int cmpValue = 1;
 
-						if(RS.type == RT.type)
+						if(RS.mType == RT.mType)
 						{
-							switch(RS.type)
+							switch(RS.mType)
 							{
 								case MDValue.Type.Null:
 									cmpValue = 0;
@@ -7188,13 +7173,13 @@ final class MDState : MDObject
 						break;
 
 					// Function Calling
-				{
-					Instruction call = void;
+				//{
+					//Instruction call = void;
 
 					case Op.Method, Op.MethodNC:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Method");
 
-						call = *mCurrentAR.pc;
+						Instruction call = *mCurrentAR.pc;
 						mCurrentAR.pc++;
 						assert(i.rd == call.rd, "Op.Method");
 
@@ -7299,23 +7284,7 @@ final class MDState : MDObject
 
 						mStack[stackBase + i.rd] = *method;
 
-						goto _commonCall;
-
-					case Op.Precall:
-						debug(TIMINGS) scope _profiler_ = new Profiler("Precall");
-
-						if(i.rt == 1)
-							RS = *get(i.rs, &mStack[stackBase + i.rd + 1]);
-						else
-							RS = *get(i.rs);
-
-						if(i.rd != i.rs)
-							mStack[stackBase + i.rd] = RS;
-
-						call = *mCurrentAR.pc;
-						mCurrentAR.pc++;
-
-					_commonCall:
+						//goto _commonCall;
 						if(call.opcode == Op.Call)
 						{
 							int funcReg = call.rd;
@@ -7377,9 +7346,88 @@ final class MDState : MDObject
 							constTable = mCurrentAR.func.script.func.mConstants;
 							stackBase = mCurrentAR.base;
 						}
-						
+
 						break;
-				}
+
+					case Op.Precall:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Precall");
+
+						if(i.rt == 1)
+							RS = *get(i.rs, &mStack[stackBase + i.rd + 1]);
+						else
+							RS = *get(i.rs);
+
+						if(i.rd != i.rs)
+							mStack[stackBase + i.rd] = RS;
+
+						Instruction call = *mCurrentAR.pc;
+						mCurrentAR.pc++;
+
+					//_commonCall:
+						if(call.opcode == Op.Call)
+						{
+							int funcReg = call.rd;
+							int numParams = call.rs - 1;
+							int numResults = call.rt - 1;
+
+							if(numParams == -1)
+								numParams = mStackIndex - stackBase - funcReg - 1;
+							else
+								mStackIndex = funcReg + numParams + 1;
+
+							if(callPrologue(funcReg, numResults, numParams) == true)
+							{
+								depth++;
+								constTable = mCurrentAR.func.script.func.mConstants;
+								stackBase = mCurrentAR.base;
+							}
+							else
+							{
+								if(numResults >= 0)
+									mStackIndex = mCurrentAR.savedTop;
+							}
+						}
+						else
+						{
+							assert(call.opcode == Op.Tailcall, "Op.Method invalid call opcode");
+							close(0);
+
+							int funcReg = call.rd;
+							int numParams = call.rs - 1;
+
+							if(numParams == -1)
+								numParams = mStackIndex - stackBase - funcReg - 1;
+							else
+								mStackIndex = funcReg + numParams + 1;
+
+							funcReg += stackBase;
+
+							int destReg = mCurrentAR.funcSlot;
+
+							for(int j = 0; j < numParams + 1; j++)
+								mStack[destReg + j] = mStack[funcReg + j];
+
+							int numReturns = mCurrentAR.numReturns;
+
+							popAR();
+
+							{
+								scope(failure)
+									--depth;
+
+								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams) == false)
+									--depth;
+							}
+
+							if(depth == 0)
+								return;
+
+							constTable = mCurrentAR.func.script.func.mConstants;
+							stackBase = mCurrentAR.base;
+						}
+
+						break;
+				//}
 
 					case Op.Ret:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Ret");

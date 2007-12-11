@@ -3865,6 +3865,8 @@ class Module
 
 		try
 		{
+			mModDecl.codeGen(fs);
+
 			foreach(ref s; mStatements)
 			{
 				s = s.fold();
@@ -3894,29 +3896,50 @@ class Module
 
 class ModuleDeclaration
 {
+	protected TableCtorExp mAttrs;
 	protected Identifier[] mNames;
-	
-	public this(Identifier[] names)
+
+	public this(Identifier[] names, TableCtorExp attrs)
 	{
 		mNames = names;
+		mAttrs = attrs;
 	}
 
 	public static ModuleDeclaration parse(Lexer l)
 	{
+		TableCtorExp attrs;
+
+		if(l.tok.type == Token.Type.LAttr)
+			attrs = TableCtorExp.parseAttrs(l);
+
 		l.expect(Token.Type.Module);
 
 		Identifier[] names;
 		names ~= Identifier.parse(l);
-		
+
 		while(l.type == Token.Type.Dot)
 		{
 			l.next();
 			names ~= Identifier.parse(l);
 		}
-		
+
 		l.statementTerm();
-			
-		return new ModuleDeclaration(names);
+
+		return new ModuleDeclaration(names, attrs);
+	}
+	
+	public void codeGen(FuncState s)
+	{
+		if(mAttrs is null)
+			return;
+
+		mAttrs.codeGen(s);
+		Exp src;
+		s.popSource(mAttrs.mLocation.line, src);
+		s.freeExpTempRegs(&src);
+
+		// rd = 0 means 'this', i.e. the module.
+		s.codeR(mAttrs.mLocation.line, Op.SetAttrs, 0, src.index, 0);
 	}
 }
 
