@@ -2260,8 +2260,7 @@ class MDClass : MDObject
 	protected MDClass mBaseClass;
 	protected MDNamespace mFields;
 	protected MDNamespace mMethods;
-	protected bool mIsCtorCached = false;
-	protected MDValue* mCtor;
+	protected MDValue mCtor;
 	protected MDTable mAttrs;
 
 	protected static MDString CtorString;
@@ -2371,11 +2370,14 @@ class MDClass : MDObject
 	public void opIndexAssign(ref MDValue value, MDString index)
 	{
 		if(value.mType == MDValue.Type.Function)
+		{
 			mMethods[index] = value;
+			
+			if(index == CtorString)
+				mCtor = value;
+		}
 		else
 			mFields[index] = value;
-
-		mIsCtorCached = false;
 	}
 
 	/// ditto
@@ -2433,16 +2435,6 @@ class MDClass : MDObject
 	public MDTable attributes()
 	{
 		return mAttrs;
-	}
-
-	package MDValue* getCtor()
-	{
-		if(mIsCtorCached)
-			return mCtor;
-
-		mIsCtorCached = true;
-		mCtor = this[MDClass.CtorString];
-		return mCtor;
 	}
 }
 
@@ -2599,7 +2591,22 @@ namespace, all the way up the chain of namespaces until either the global is fou
 */
 final class MDNamespace : MDObject
 {
-	protected MDValue[MDString] mData;
+	version(MDExperimentalNamespaces)
+	{
+		struct Slot
+		{
+			MDString key;
+			MDValue value;
+			Slot* next;
+		}
+	
+		protected Slot[] mSlots;
+		protected size_t mLength;
+		protected size_t mColSlot;
+	}
+	else
+		protected MDValue[MDString] mData;
+
 	protected MDNamespace mParent;
 	protected dchar[] mName;
 	protected MDTable mAttrs;
@@ -2620,6 +2627,14 @@ final class MDNamespace : MDObject
 		mName = name;
 		mParent = parent;
 		mType = MDValue.Type.Namespace;
+	}
+	
+	version(MDExperimentalNamespaces)
+	{
+		private this(Slot[] slots)
+		{
+			mSlots = slots;
+		}
 	}
 
 	/**
@@ -2669,7 +2684,10 @@ final class MDNamespace : MDObject
 	*/
 	public override uint length()
 	{
-		return mData.length;
+		version(MDExperimentalNamespaces)
+			return mLength;
+		else
+			return mData.length;
 	}
 
 	/**
@@ -2694,14 +2712,35 @@ final class MDNamespace : MDObject
 	*/
 	public MDValue* opIn_r(MDString key)
 	{
-		return key in mData;
+		version(MDExperimentalNamespaces)
+		{
+			Slot* slot = lookup(key);
+			
+			if(slot is null)
+				return null;
+	
+			return &slot.value;
+		}
+		else
+			return key in mData;
 	}
 
 	/// ditto
 	public MDValue* opIn_r(dchar[] key)
 	{
 		scope idx = MDString.newTemp(key);
-		return idx in mData;
+		
+		version(MDExperimentalNamespaces)
+		{
+			Slot* slot = lookup(idx);
+			
+			if(slot is null)
+				return null;
+	
+			return &slot.value;
+		}
+		else
+			return idx in mData;
 	}
 
 	/**
@@ -2709,12 +2748,34 @@ final class MDNamespace : MDObject
 	*/
 	public MDNamespace dup()
 	{
-		MDNamespace n = new MDNamespace(mName, mParent);
+		version(MDExperimentalNamespaces)
+		{
+			MDNamespace n = new MDNamespace(mSlots.dup);
+			n.mName = mName;
+			n.mParent = mParent;
+			n.mLength = mLength;
+			n.mColSlot = mColSlot;
+			
+			Slot* oldBase = mSlots.ptr;
+			Slot* newBase = n.mSlots.ptr;
+			
+			foreach(ref slot; n.mSlots)
+			{
+				if(slot.next !is null)
+					slot.next = (slot.next - oldBase) + newBase;
+			}
+	
+			return n;
+		}
+		else
+		{
+			MDNamespace n = new MDNamespace(mName, mParent);
 
-		foreach(k, ref v; mData)
-			n.mData[k] = v;
-
-		return n;
+			foreach(k, ref v; mData)
+				n.mData[k] = v;
+	
+			return n;
+		}
 	}
 
 	/**
@@ -2722,7 +2783,24 @@ final class MDNamespace : MDObject
 	*/
 	public MDArray keys()
 	{
-		return MDArray.fromArray(mData.keys);
+		version(MDExperimentalNamespaces)
+		{
+			MDArray ret = new MDArray(mLength);
+			int i = 0;
+	
+			foreach(ref v; mSlots)
+			{
+				if(v.key is null)
+					continue;
+					
+				ret[i] = v.key;
+				i++;
+			}
+	
+			return ret;
+		}
+		else
+			return MDArray.fromArray(mData.keys);
 	}
 
 	/**
@@ -2730,7 +2808,24 @@ final class MDNamespace : MDObject
 	*/
 	public MDArray values()
 	{
-		return new MDArray(mData.values);
+		version(MDExperimentalNamespaces)
+		{
+			MDArray ret = new MDArray(mLength);
+			int i = 0;
+	
+			foreach(ref v; mSlots)
+			{
+				if(v.key is null)
+					continue;
+					
+				ret[i] = v.value;
+				i++;
+			}
+	
+			return ret;
+		}
+		else
+			return new MDArray(mData.values);
 	}
 
 	/**
@@ -4770,7 +4865,7 @@ final class MDState : MDObject
 		assert(numParams >= 0, "negative num params in callPrologue");
 
 		MDValue* func = &mStack[slot];
-		
+
 		switch(func.mType)
 		{
 			case MDValue.Type.Function:
@@ -4779,9 +4874,9 @@ final class MDState : MDObject
 			case MDValue.Type.Class:
 				MDClass cls = func.mClass;
 				MDInstance n = cls.newInstance();
-				MDValue* ctor = cls.getCtor();
+				MDValue* ctor = &cls.mCtor;
 
-				if(ctor !is null && ctor.mType == MDValue.Type.Function)
+				if(ctor.mType == MDValue.Type.Function)
 				{
 					uint thisSlot = slot + 1;
 					mStack[thisSlot] = n;

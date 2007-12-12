@@ -30,5 +30,11 @@ import tango.io.Console;
 
 void main(char[][] args)
 {
+	// This seemingly pointless code forces the GC to reserve some extra memory
+	// from the start in order to improve performance upon subsequent allocations.
+	// This is until the Tango GC gets a .reserve function or the like.
+	auto chunk = new ubyte[1024 * 1024 * 4];
+	delete chunk;
+
 	(new CommandLine(Stdout, Cin.stream)).run(args);
 }

@@ -1,6 +1,6 @@
 test.d
 -clean
--debug
+-release
 -g
 -op
 -profile

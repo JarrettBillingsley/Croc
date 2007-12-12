@@ -11,6 +11,9 @@ void main()
 
 	try
 	{
+		auto chunk = new ubyte[1024 * 1024 * 4];
+		delete chunk;
+
 		ctx = NewContext();
 		//LoadArc(ctx);
 
