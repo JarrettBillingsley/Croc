@@ -3,3 +3,4 @@ test.d
 -debug
 -g
 -op
+-profile

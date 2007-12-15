@@ -5,7 +5,7 @@ import minid.types;
 import minid.bind;
 import tango.io.Stdout;
 
-version = Arc;
+//version = Arc;
 
 void main()
 {
@@ -19,7 +19,7 @@ void main()
 			LoadArc(ctx);
 
 		ctx.addImportPath(`samples`);
-		ctx.importModule("simple");
+		ctx.importModule("speed");
 	}
 	catch(MDException e)
 	{
