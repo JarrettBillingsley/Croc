@@ -2606,7 +2606,7 @@ final class MDNamespace : MDObject
 	}
 	else
 		protected MDValue[MDString] mData;
-
+	
 	protected MDNamespace mParent;
 	protected dchar[] mName;
 	protected MDTable mAttrs;
@@ -2624,16 +2624,20 @@ final class MDNamespace : MDObject
 	*/
 	public this(dchar[] name = null, MDNamespace parent = null)
 	{
+		version(MDExperimentalNamespaces)
+			mSlots = new Slot[20];
+
 		mName = name;
 		mParent = parent;
 		mType = MDValue.Type.Namespace;
 	}
-	
+
 	version(MDExperimentalNamespaces)
 	{
 		private this(Slot[] slots)
 		{
 			mSlots = slots;
+			mType = MDValue.Type.Namespace;
 		}
 	}
 
@@ -2755,10 +2759,11 @@ final class MDNamespace : MDObject
 			n.mParent = mParent;
 			n.mLength = mLength;
 			n.mColSlot = mColSlot;
+			n.mAttrs = mAttrs;
 			
 			Slot* oldBase = mSlots.ptr;
 			Slot* newBase = n.mSlots.ptr;
-			
+
 			foreach(ref slot; n.mSlots)
 			{
 				if(slot.next !is null)
@@ -2792,8 +2797,8 @@ final class MDNamespace : MDObject
 			{
 				if(v.key is null)
 					continue;
-					
-				ret[i] = v.key;
+
+				ret[i] = MDValue(v.key);
 				i++;
 			}
 	
@@ -2818,7 +2823,7 @@ final class MDNamespace : MDObject
 				if(v.key is null)
 					continue;
 					
-				ret[i] = v.value;
+				ret[i] = MDValue(v.value);
 				i++;
 			}
 	
@@ -2833,14 +2838,35 @@ final class MDNamespace : MDObject
 	*/
 	public MDValue* opIndex(MDString key)
 	{
-		return key in mData;
+		version(MDExperimentalNamespaces)
+		{
+			Slot* slot = lookup(key);
+			
+			if(slot is null)
+				return null;
+	
+			return &slot.value;
+		}
+		else
+			return key in mData;
 	}
 
 	/// ditto
 	public MDValue* opIndex(dchar[] key)
 	{
 		scope str = MDString.newTemp(key);
-		return str in mData;
+		
+		version(MDExperimentalNamespaces)
+		{
+			Slot* slot = lookup(str);
+	
+			if(slot is null)
+				return null;
+	
+			return &slot.value;
+		}
+		else
+			return str in mData;
 	}
 
 	/**
@@ -2850,7 +2876,47 @@ final class MDNamespace : MDObject
 	*/
 	public void opIndexAssign(ref MDValue value, MDString key)
 	{
-		mData[key] = value;
+		version(MDExperimentalNamespaces)
+		{
+			hash_t h = key.toHash() % mSlots.length;
+	
+			if(mSlots[h].key is null)
+			{
+				mSlots[h].key = key;
+				mSlots[h].value = value;
+				
+				if(h is mColSlot)
+					moveColSlot();
+			}
+			else
+			{
+				for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
+				{
+					if(slot.key == key)
+					{
+						slot.value = value;
+						return;
+					}
+				}
+	
+				if(mColSlot == mSlots.length)
+					grow();
+	
+				mSlots[mColSlot].key = key;
+				mSlots[mColSlot].value = value;
+	
+				Slot* slot;
+				for(slot = &mSlots[h]; slot.next !is null; slot = slot.next)
+				{}
+	
+				slot.next = &mSlots[mColSlot];
+				moveColSlot();
+			}
+			
+			mLength++;
+		}
+		else
+			mData[key] = value;
 	}
 
 	/// ditto
@@ -2864,14 +2930,26 @@ final class MDNamespace : MDObject
 	*/
 	public void remove(MDString key)
 	{
-		mData.remove(key);
+		version(MDExperimentalNamespaces)
+		{
+			assert(false);
+		}
+		else
+			mData.remove(key);
 	}
-	
+
 	/// ditto
 	public void remove(dchar[] key)
 	{
-		scope k = MDString.newTemp(key);
-		remove(k);
+		version(MDExperimentalNamespaces)
+		{
+			assert(false);
+		}
+		else
+		{
+			scope k = MDString.newTemp(key);
+			remove(k);
+		}
 	}
 
 	/**
@@ -2880,17 +2958,25 @@ final class MDNamespace : MDObject
 	*/
 	public int opApply(int delegate(ref MDString, ref MDValue) dg)
 	{
-		int result = 0;
-
-		foreach(k, ref v; mData)
+		version(MDExperimentalNamespaces)
 		{
-			result = dg(k, v);
+			foreach(i, ref v; mSlots)
+			{
+				if(v.key is null)
+					continue;
 
-			if(result)
-				break;
+				if(auto result = dg(v.key, v.value))
+					return result;
+			}
+		}
+		else
+		{
+			foreach(k, ref v; mData)
+				if(auto result = dg(k, v))
+					return result;
 		}
 
-		return result;
+		return 0;
 	}
 
 	/**
@@ -2933,6 +3019,77 @@ final class MDNamespace : MDObject
 	public MDTable attributes()
 	{
 		return mAttrs;
+	}
+	
+	version(MDExperimentalNamespaces)
+	{
+		protected Slot* lookup(MDString key)
+		{
+			hash_t h = key.toHash() % mSlots.length;
+	
+			if(mSlots[h].key is null)
+				return null;
+	
+			for(Slot* slot = &mSlots[h]; slot !is null; slot = slot.next)
+				if(slot.key == key)
+					return slot;
+	
+			return null;
+		}
+	
+		protected void grow()
+		{
+			Slot[] newSlots = new Slot[mSlots.length * 2];
+			size_t colSlot = 0;
+	
+			foreach(i, ref v; mSlots)
+			{
+				if(v.key is null)
+					continue;
+	
+				hash_t h = v.key.toHash() % newSlots.length;
+	
+				if(newSlots[h].key is null)
+				{
+					newSlots[h].key = v.key;
+					newSlots[h].value = v.value;
+				}
+				else
+				{
+					newSlots[colSlot].key = v.key;
+					newSlots[colSlot].value = v.value;
+	
+					Slot* slot;
+					for(slot = &newSlots[h]; slot.next !is null; slot = slot.next)
+					{}
+
+					slot.next = &newSlots[colSlot];
+	
+					for( ; colSlot < newSlots.length; colSlot++)
+						if(newSlots[colSlot].key is null)
+							break;
+							
+					assert(colSlot < newSlots.length, "MDNamespace.grow");
+				}
+			}
+			
+			mSlots = newSlots;
+		}
+		
+		protected void moveColSlot()
+		{
+			for( ; mColSlot < mSlots.length; mColSlot++)
+				if(mSlots[mColSlot].key is null)
+					return;
+	
+			grow();
+	
+			for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
+				if(mSlots[mColSlot].key is null)
+					return;
+	
+			assert(false, "MDNamespace.moveColSlot");
+		}
 	}
 }
 
