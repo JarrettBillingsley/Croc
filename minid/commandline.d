@@ -111,12 +111,12 @@ public class CommandLine
 				case '\v': mOutput(`\v`); break;
 
 				default:
-					if(isprint(c))
+					if(c <= 0x7f && isprint(c))
 						mOutput(c);
 					else if(c <= 0xFFFF)
 						mOutput.format("\\u{:x4}", cast(uint)c);
 					else
-						mOutput.format("\\U{:X8}", cast(uint)c);
+						mOutput.format("\\U{:x8}", cast(uint)c);
 					break;
 			}
 		}
@@ -129,7 +129,7 @@ public class CommandLine
 
 			for(int i = 0; i < s.length; i++)
 				escape(s[i]);
-				
+
 			mOutput('"');
 		}
 		else if(v.isChar)
@@ -330,12 +330,12 @@ public class CommandLine
 					{
 						mOutput(" => ");
 						returnBuffer.length = 0;
-
+						
 						for(uint i = 0; i < numRets; i++)
 							returnBuffer ~= state.pop();
 
 						auto returns = returnBuffer.toArray();
-
+						
 						outputRepr(state, returns[$ - 1]);
 
 						foreach_reverse(val; returns[0 .. $ - 1])
@@ -343,7 +343,7 @@ public class CommandLine
 							mOutput(", ");
 							outputRepr(state, val);
 						}
-
+						
 						mOutput.newline;
 					}
 				}
