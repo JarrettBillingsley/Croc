@@ -23,12 +23,12 @@ void main()
 	}
 	catch(MDException e)
 	{
-		Stdout.formatln("Error: {}", e.toUtf8());
+		Stdout.formatln("Error: {}", e.toString());
 		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 	catch(Exception e)
 	{
-		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e.toUtf8());
+		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e.toString());
 		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 }
@@ -212,7 +212,7 @@ void LoadArc(MDContext ctx)
 			.method!(Point.set)()
 			.method!(Point.angle)()
 			.method!(Point.length)()
-			.method!(Point.toUtf8, "toString")()
+			.method!(Point.toString, "toString")()
 			.method!(Point.maxComponent)()
 			.method!(Point.minComponent)()
 			.method!(Point.opNeg)()
@@ -262,7 +262,7 @@ void LoadArc(MDContext ctx)
 	WrapModule("arc.math.size", ctx)
 		.type(WrapClass!(Size, void function(float, float))()
 			.method!(Size.set)()
-			.method!(Size.toUtf8, "toString")()
+			.method!(Size.toString, "toString")()
 			.method!(Size.maxComponent)()
 			.method!(Size.minComponent)()
 			.method!(Size.opNeg)()
