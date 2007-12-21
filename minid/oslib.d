@@ -31,10 +31,10 @@ import tango.stdc.stringz;
 import tango.sys.Environment;
 import tango.text.locale.Convert;
 import tango.text.locale.Core;
-import tango.util.time.Clock;
-import tango.util.time.Date;
-import tango.util.time.DateTime;
-import tango.util.time.StopWatch;
+import tango.time.Time;
+import tango.time.StopWatch;
+import tango.time.WallClock;
+import tango.time.chrono.Gregorian;
 
 version(Windows)
 {
@@ -129,11 +129,11 @@ class OSLib
 		if(numParams == 0)
 			s.push(.system(null) ? true : false);
 		else
-			s.push(.system(toUtf8z(s.getParam!(char[])(0))));
-	
+			s.push(.system(toStringz(s.getParam!(char[])(0))));
+
 		return 1;
 	}
-	
+
 	int getEnv(MDState s, uint numParams)
 	{
 		if(numParams == 0)
@@ -155,10 +155,10 @@ class OSLib
 		
 		return 1;
 	}
-	
+
 	int dateString(MDState s, uint numParams)
 	{
-		DateTime dt = DateTime.now;
+		Time time;
 		char[40] buffer;
 		char[] format = "G";
 		Culture culture = null;
@@ -167,12 +167,14 @@ class OSLib
 			format = s.getParam!(char[])(0);
 
 		if(numParams > 1 && !s.isParam!("null")(1))
-			dt = TableToDateTime(s, s.getParam!(MDTable)(1));
+			time = TableToTime(s, s.getParam!(MDTable)(1));
+		else
+			time = WallClock.now;
 
 		if(numParams > 2)
 			culture = s.safeCode(Culture.getCulture(s.getParam!(char[])(2)));
 
-		s.push(s.safeCode(formatDateTime(buffer, dt, format, culture)));
+		s.push(s.safeCode(formatDateTime(buffer, time, format, culture)));
 		return 1;
 	}
 	
@@ -183,7 +185,7 @@ class OSLib
 		if(numParams > 0)
 			t = s.getParam!(MDTable)(0);
 
-		s.push(DateTimeToTable(s, DateTime.now, t));
+		s.push(DateTimeToTable(s, WallClock.toDate, t));
 		return 1;
 	}
 	
@@ -197,10 +199,10 @@ class OSLib
 		return 1;
 	}
 
-	static DateTime TableToDateTime(MDState s, MDTable tab)
+	static Time TableToTime(MDState s, MDTable tab)
 	{
 		MDValue table = MDValue(tab);
-		Date date;
+		Time time;
 
 		with(s)
 		{
@@ -214,13 +216,13 @@ class OSLib
 			if(!year.isInt() || !month.isInt() || !day.isInt())
 				s.throwRuntimeException("year, month, and day fields in time table must exist and must be integers");
 
-			date.setDate(year.as!(int), month.as!(int), day.as!(int));
-			
 			if(hour.isInt() && min.isInt() && sec.isInt())
-				date.setTime(hour.as!(int), min.as!(int), sec.as!(int));
+				time = Gregorian.generic.toTime(year.as!(int), month.as!(int), day.as!(int), hour.as!(int), min.as!(int), sec.as!(int), 0, 0);
+			else
+				time = Gregorian.generic.toTime(year.as!(int), month.as!(int), day.as!(int), 0, 0, 0, 0, 0);
 		}
 		
-		return DateTime(Clock.fromDate(date));
+		return time;
 	}
 
 	static MDTable DateTimeToTable(MDState s, DateTime time, MDTable dest)
@@ -228,17 +230,16 @@ class OSLib
 		if(dest is null)
 			dest = new MDTable();
 
-		Date date = Clock.toDate(time.time);
 		MDValue table = dest;
 
 		with(s)
 		{
-			idxa(table, YearString, MDValue(date.year));
-			idxa(table, MonthString, MDValue(date.month));
-			idxa(table, DayString, MDValue(date.day));
-			idxa(table, HourString, MDValue(date.hour));
-			idxa(table, MinString, MDValue(date.min));
-			idxa(table, SecString, MDValue(date.sec));
+			idxa(table, YearString, MDValue(time.date.year));
+			idxa(table, MonthString, MDValue(time.date.month));
+			idxa(table, DayString, MDValue(time.date.day));
+			idxa(table, HourString, MDValue(time.time.hours));
+			idxa(table, MinString, MDValue(time.time.minutes));
+			idxa(table, SecString, MDValue(time.time.seconds));
 		}
 		
 		return dest;

@@ -227,7 +227,7 @@ public class CommandLine
 			{
 				try
 				{
-					if(ctx.loadModuleFromFile(state, utf.toUtf32(inputFile), params) is null)
+					if(ctx.loadModuleFromFile(state, utf.toString32(inputFile), params) is null)
 						mOutput.formatln("Error: could not find module '{}'", inputFile);
 				}
 				catch(MDException e)
@@ -287,7 +287,7 @@ public class CommandLine
 			{
 				try
 				{
-					auto def = compileStatements(utf.toUtf32(buffer), "stdin");
+					auto def = compileStatements(utf.toString32(buffer), "stdin");
 					scope closure = ctx.newClosure(def);
 					state.easyCall(closure, 0, MDValue(ctx.globals.ns));
 				}
@@ -324,7 +324,7 @@ public class CommandLine
 			{
 				try
 				{
-					auto numRets = evalMultRet(state, utf.toUtf32(buffer, utf32buffer));
+					auto numRets = evalMultRet(state, utf.toString32(buffer, utf32buffer));
 					
 					if(numRets > 0)
 					{

@@ -260,7 +260,7 @@ final class ArrayLib
 			if(array[i].isString())
 				str ~= '"' ~ array[i].as!(MDString).asUTF8() ~ '"';
 			else
-				str ~= array[i].toUtf8();
+				str ~= array[i].toString();
 			
 			if(i < array.length - 1)
 				str ~= ", ";

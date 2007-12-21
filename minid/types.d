@@ -103,7 +103,7 @@ class MDException : Exception
 	public this(MDValue* val)
 	{
 		value = *val;
-		super(value.toUtf8());
+		super(value.toString());
 	}
 }
 
@@ -132,7 +132,7 @@ class MDCompileException : MDException
 	*/
 	public this(Location loc, char[] fmt, ...)
 	{
-		super("{}: {}", loc.toUtf8(), Stdout.layout.convert(_arguments, _argptr, fmt));
+		super("{}: {}", loc.toString(), Stdout.layout.convert(_arguments, _argptr, fmt));
 	}
 }
 
@@ -182,9 +182,9 @@ class MDRuntimeException : MDException
 	message is the index of the instruction in the bytecode that caused the exception, and
 	is mostly meant for low-level debugging.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
-		return Stdout.layout.convert("{}: {}", location.toUtf8(), msg);
+		return Stdout.layout.convert("{}: {}", location.toString(), msg);
 	}
 }
 
@@ -1090,7 +1090,7 @@ align(1) struct MDValue
 	/**
 	Returns the string representation of the value.  Does not call toString metamethods.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		switch(mType)
 		{
@@ -1101,16 +1101,16 @@ align(1) struct MDValue
 				return mBool ? "true" : "false";
 
 			case Type.Int:
-				return Integer.toUtf8(mInt);
+				return Integer.toString(mInt);
 				
 			case Type.Float:
-				return Float.toUtf8(mFloat);
+				return Float.toString(mFloat);
 				
 			case Type.Char:
-				return utf.toUtf8([mChar]);
+				return utf.toString([mChar]);
 
 			default:
-				return mObj.toUtf8();
+				return mObj.toString();
 		}
 	}
 
@@ -1244,7 +1244,7 @@ class MDString : MDObject
 	/// ditto
 	public this(wchar[] data)
 	{
-		mData = utf.toUtf32(data);
+		mData = utf.toString32(data);
 		mHash = typeid(typeof(mData)).getHash(&mData);
 		mType = MDValue.Type.String;
 	}
@@ -1252,7 +1252,7 @@ class MDString : MDObject
 	/// ditto
 	public this(char[] data)
 	{
-		mData = utf.toUtf32(data);
+		mData = utf.toString32(data);
 		mHash = typeid(typeof(mData)).getHash(&mData);
 		mType = MDValue.Type.String;
 	}
@@ -1351,13 +1351,13 @@ class MDString : MDObject
 	*/
 	public int opEquals(char[] v)
 	{
-		return mData == utf.toUtf32(v);
+		return mData == utf.toString32(v);
 	}
 
 	/// ditto
 	public int opEquals(wchar[] v)
 	{
-		return mData == utf.toUtf32(v);
+		return mData == utf.toString32(v);
 	}
 
 	/// ditto
@@ -1383,13 +1383,13 @@ class MDString : MDObject
 	*/
 	public int opCmp(char[] v)
 	{
-		return dcmp(mData, utf.toUtf32(v));
+		return dcmp(mData, utf.toString32(v));
 	}
 
 	/// ditto
 	public int opCmp(wchar[] v)
 	{
-		return dcmp(mData, utf.toUtf32(v));
+		return dcmp(mData, utf.toString32(v));
 	}
 
 	/// ditto
@@ -1434,13 +1434,13 @@ class MDString : MDObject
 	*/
 	public char[] asUTF8()
 	{
-		return utf.toUtf8(mData);
+		return utf.toString(mData);
 	}
 
 	/// ditto
 	public wchar[] asUTF16()
 	{
-		return utf.toUtf16(mData);
+		return utf.toString16(mData);
 	}
 
 	/// ditto
@@ -1502,7 +1502,7 @@ class MDString : MDObject
 	/**
 	Returns the UTF-8 string representation of the string; basically just returns .asUTF8().
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return asUTF8();
 	}
@@ -1627,12 +1627,12 @@ class MDClosure : MDObject
 	Gets a string representation of the closure.  For native closures, it looks something like "native function name";
 	for script closures, "script function name(location defined)".
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		if(mIsNative)
 			return Stdout.layout.convert("native function {}", native.name);
 		else
-			return Stdout.layout.convert("script function {}({})", script.func.mGuessedName, script.func.mLocation.toUtf8());
+			return Stdout.layout.convert("script function {}({})", script.func.mGuessedName, script.func.mLocation.toString());
 	}
 
 	/**
@@ -1854,7 +1854,7 @@ class MDTable : MDObject
 	Returns a string representation of the table, in the format "table 0x00000000", where the number
 	is the hexidecimal representation of the 'this' pointer.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return Stdout.layout.convert("table 0x{:X8}", cast(size_t)cast(void*)this);
 	}
@@ -2184,7 +2184,7 @@ class MDArray : MDObject
 	Returns a string representation of the array, in the format "array 0x00000000", where the number
 	is the hexidecimal representation of the 'this' pointer.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return Stdout.layout.convert("array 0x{:X8}", cast(void*)this);
 	}
@@ -2417,7 +2417,7 @@ class MDClass : MDObject
 	/**
 	Returns a string representation of the class in the form "class name".
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return Stdout.layout.convert("class {}", mGuessedName);
 	}
@@ -2499,11 +2499,11 @@ class MDInstance : MDObject
 	public void opIndexAssign(ref MDValue value, MDString index)
 	{
 		if(value.mType == MDValue.Type.Function)
-			throw new MDException("Attempting to change a method of an instance of '{}'", mClass.toUtf8());
+			throw new MDException("Attempting to change a method of an instance of '{}'", mClass.toString());
 		else if(auto member = index in mFields)
 			*member = value;
 		else
-			throw new MDException("Attempting to insert a new member '{}' into an instance of '{}'", mClass.toUtf8());
+			throw new MDException("Attempting to insert a new member '{}' into an instance of '{}'", mClass.toString());
 	}
 
 	/// ditto
@@ -2516,9 +2516,9 @@ class MDInstance : MDObject
 	Gets a string representation of the instance, in the form "instance of class classname".  Does
 	not call toString metamethods.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
-		return Stdout.layout.convert("instance of {}", mClass.toUtf8());
+		return Stdout.layout.convert("instance of {}", mClass.toString());
 	}
 
 	/**
@@ -3001,7 +3001,7 @@ final class MDNamespace : MDObject
 	/**
 	Gets a string representation of the namespace in the form "namespace full.name".
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return Stdout.layout.convert("namespace {}", nameString());
 	}
@@ -3123,7 +3123,7 @@ struct Location
 	the form "fileName(line:column)".  For runtime debug locations, 'column' is actually
 	replaced by the index of the bytecode instruction.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		if(line == -1 && column == -1)
 			return Stdout.layout.convert("{}(native)", fileName);
@@ -3469,9 +3469,9 @@ class DynLib
 			return *l;
 
 		version(Windows)
-			HMODULE hlib = LoadLibraryA(toStringz(utf.toUTF8(libName)));
+			HMODULE hlib = LoadLibraryA(toStringz(utf.toString(libName)));
 		else version(Dlfcn)
-			void* hlib = dlopen(toStringz(utf.toUTF8(libName)), RTLD_NOW);
+			void* hlib = dlopen(toStringz(utf.toString(libName)), RTLD_NOW);
 
 		if(hlib is null)
 			throw new MDException("Could not load dynamic library '{}'", libName);
@@ -3671,10 +3671,10 @@ final class MDContext
 			alias compare fcompare;
 
 		foreach(p, _; mImportPaths)
-			if(fcompare(p.toUtf8(), path) == 0)
+			if(fcompare(p.toString(), path) == 0)
 				return;
 
-		mImportPaths[new FilePath(path, true)] = true;
+		mImportPaths[FilePath(path)] = true;
 	}
 
 	/**
@@ -3749,7 +3749,7 @@ final class MDContext
 			try
 				s.easyCall(*cl, 0, MDValue((*cl).environment), name, modNS);
 			catch(MDException e)
-				throw new MDException("Could not import module \"{}\":\n\t{}", name, e.toUtf8());
+				throw new MDException("Could not import module \"{}\":\n\t{}", name, e.toString());
 
 			mLoadedModules[name] = modNS;
 			return modNS;
@@ -3780,7 +3780,7 @@ final class MDContext
 
 			if(libName !is null)
 			{
-				DynLib dl = DynLib.load(utf.toUTF32(libName));
+				DynLib dl = DynLib.load(utf.toString32(libName));
 
 				MDNamespace modNS;
 
@@ -3800,9 +3800,9 @@ final class MDContext
 	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
 	{
 		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
-		char[][] elements = split(utf.toUtf8(name), "."c);
+		char[][] elements = split(utf.toString(name), "."c);
 
-		scope curDir = new FilePath(FileSystem.getDirectory(), true);
+		scope curDir = FilePath(FileSystem.getDirectory());
 
 		MDModuleDef def = tryPath(curDir, elements);
 
@@ -3854,7 +3854,7 @@ final class MDContext
 		try
 			s.call(funcReg, params.length + 1, 0);
 		catch(MDException e)
-			throw new MDException("Error loading module \"{}\":\n\t{}", def.name, e.toUtf8());
+			throw new MDException("Error loading module \"{}\":\n\t{}", def.name, e.toString());
 			
 		return modNS;
 	}
@@ -3915,10 +3915,10 @@ final class MDContext
 		if(mTraceback.length == 0)
 			return "";
 
-		char[] ret = Stdout.layout.convert("Traceback: {}", mTraceback[0].toUtf8());
+		char[] ret = Stdout.layout.convert("Traceback: {}", mTraceback[0].toString());
 
 		foreach(ref loc; mTraceback[1 .. $])
-			ret = Stdout.layout.convert("{}\n\tat {}", ret, loc.toUtf8());
+			ret = Stdout.layout.convert("{}\n\tat {}", ret, loc.toString());
 
 		mTraceback.length = 0;
 
@@ -4082,7 +4082,7 @@ final class MDState : MDObject
 	Returns a string representation of the thread, in the form "thread 0x00000000", where the number
 	is the hexadecimal representation of the 'this' pointer.
 	*/
-	public char[] toUtf8()
+	public char[] toString()
 	{
 		return Stdout.layout.convert("thread 0x{:X8}", cast(void*)this);
 	}
@@ -4109,7 +4109,7 @@ final class MDState : MDObject
 		Stdout("-----Stack Dump-----").newline;
 
 		for(int i = 0; i < mStack.length; i++)
-			Stdout.formatln("[{,2}:{,3}]: {} ({})", i, i - cast(int)mCurrentAR.base, mStack[i].typeString(), mStack[i].toUtf8());
+			Stdout.formatln("[{,2}:{,3}]: {} ({})", i, i - cast(int)mCurrentAR.base, mStack[i].typeString(), mStack[i].toString());
 
 		Stdout.newline;
 	}
@@ -4123,7 +4123,7 @@ final class MDState : MDObject
 		{
 			with(mActRecs[i])
 			{
-				Stdout.formatln("Record {}", func.toUtf8());
+				Stdout.formatln("Record {}", func.toString());
 				Stdout.formatln("\tBase: {}", base);
 				Stdout.formatln("\tSaved Top: {}", savedTop);
 				Stdout.formatln("\tVararg Base: {}", vargBase);
@@ -4164,7 +4164,7 @@ final class MDState : MDObject
 		mStack[mStackIndex] = value;
 		mStackIndex++;
 
-		debug(STACKINDEX) Stdout.formatln("push() set mStackIndex to {}", mStackIndex);//, " (pushed {})", val.toUtf8());
+		debug(STACKINDEX) Stdout.formatln("push() set mStackIndex to {}", mStackIndex);//, " (pushed {})", val.toString());
 
 		return mStackIndex - 1 - mCurrentAR.base;
 	}
@@ -4575,7 +4575,7 @@ final class MDState : MDObject
 		catch(MDException e)
 			throw e;
 		catch(Exception e)
-			throwRuntimeException(e.toUtf8());
+			throwRuntimeException(e.toString());
 	}
 
 	/**
@@ -4630,7 +4630,7 @@ final class MDState : MDObject
 	}
 
 	/**
-	Get a string representation of any MiniD value.  This is different from MDValue.toUtf8() in that it will call
+	Get a string representation of any MiniD value.  This is different from MDValue.toString() in that it will call
 	any toString metamethods defined for the object.  
 	
 	Params:
@@ -4647,7 +4647,7 @@ final class MDState : MDObject
 		MDValue* method = getMM(value, MM.ToString);
 		
 		if(method.mType != MDValue.Type.Function)
-			return new MDString(value.toUtf8());
+			return new MDString(value.toString());
 
 		mNativeCallDepth++;
 
@@ -5266,7 +5266,7 @@ final class MDState : MDObject
 
 			mStackIndex = base + funcDef.mStackSize;
 
-			debug(STACKINDEX) Stdout.formatln("callPrologue2 of function '{}' set mStackIndex to {} (local stack size = {}, base = {})", closure.toUtf8(), mStackIndex, funcDef.mStackSize, base);
+			debug(STACKINDEX) Stdout.formatln("callPrologue2 of function '{}' set mStackIndex to {} (local stack size = {}, base = {})", closure.toString(), mStackIndex, funcDef.mStackSize, base);
 
 			for(int i = base + funcDef.mStackSize; i >= 0 && i >= base + numParams; i--)
 				mStack[i].setNull();
@@ -5281,7 +5281,7 @@ final class MDState : MDObject
 		mStackIndex = paramSlot + numParams;
 		checkStack(mStackIndex);
 
-		debug(STACKINDEX) Stdout.formatln("nativeCallPrologue called a native func '{}' and set mStackIndex to {} (got {} params)", closure.toUtf8(), mStackIndex, numParams);
+		debug(STACKINDEX) Stdout.formatln("nativeCallPrologue called a native func '{}' and set mStackIndex to {} (got {} params)", closure.toString(), mStackIndex, numParams);
 
 		pushAR();
 
@@ -6389,7 +6389,7 @@ final class MDState : MDObject
 				MDValue* v = RS.mInstance[RT.mString];
 
 				if(v is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from class instance", RT.toUtf8());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from class instance", RT.toString());});
 
 				return *v;
 
@@ -6397,7 +6397,7 @@ final class MDState : MDObject
 				MDValue* v = RS.mClass[RT.mString];
 
 				if(v is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from class", RT.toUtf8());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from class", RT.toString());});
 
 				return *v;
 
@@ -6405,12 +6405,12 @@ final class MDState : MDObject
 				MDValue* v = RS.mNamespace[RT.mString];
 
 				if(v is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from namespace {}", RT.toUtf8(), RS.mNamespace.nameString);});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from namespace {}", RT.toString(), RS.mNamespace.nameString);});
 
 				return *v;
 
 			default:
-				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent field '{}' from type '{}'", RT.toUtf8(), RS.typeString());});
+				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent field '{}' from type '{}'", RT.toString(), RS.typeString());});
 		}
 	}
 
@@ -6478,7 +6478,7 @@ final class MDState : MDObject
 				MDValue* val = RD.mInstance.getField(k);
 
 				if(val is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to add a member '{}' to a class instance", RS.toUtf8());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to add a member '{}' to a class instance", RS.toString());});
 
 				*val = RT;
 				return;
@@ -6766,7 +6766,7 @@ final class MDState : MDObject
 				MDValue* v = metatable[methodName];
 
 				if(v is null || !v.isFunction())
-					return tryMM({return new MDRuntimeException(startTraceback(), "No implementation of method '{}' for type '{}'", methodName.toUtf8(), RS.typeString());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "No implementation of method '{}' for type '{}'", methodName.toString(), RS.typeString());});
 
 				return *v;
 		}
@@ -7338,7 +7338,7 @@ final class MDState : MDObject
 						{
 							mStack[stackBase + rd + 2] = mStack[stackBase + funcReg];
 
-							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toUtf8());
+							assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump " ~ jump.toString());
 	
 							mCurrentAR.pc += jump.imm;
 						}
@@ -8065,7 +8065,7 @@ final class MDState : MDObject
 						if(RT.mType == MDValue.Type.Null)
 							*get(i.rd) = new MDNamespace(RS.mString.asUTF32(), null);
 						else if(RT.mType != MDValue.Type.Namespace)
-							throwRuntimeException("Attempted to use a '{}' as a parent namespace for namespace '{}'", RT.typeString(), RS.toUtf8());
+							throwRuntimeException("Attempted to use a '{}' as a parent namespace for namespace '{}'", RT.typeString(), RS.toString());
 						else
 							*get(i.rd) = new MDNamespace(RS.mString.asUTF32(), RT.mNamespace);
 
@@ -8122,12 +8122,12 @@ final class MDState : MDObject
 						
 					case Op.Call:
 						assert(false, "lone call instruction");
-						
+
 					case Op.Tailcall:
 						assert(false, "lone tailcall instruction");
 
 					default:
-						throwRuntimeException("Unimplemented opcode \"{}\"", i.toUtf8());
+						throwRuntimeException("Unimplemented opcode \"{}\"", i.toString());
 				}
 			}
 		}

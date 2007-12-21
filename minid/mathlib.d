@@ -80,7 +80,8 @@ class MathLib
 			"isNan"d,    new MDClosure(namespace, &lib.isNan,   "math.isNan"),
 			"isInf"d,    new MDClosure(namespace, &lib.isInf,   "math.isInf"),
 			"sign"d,     new MDClosure(namespace, &lib.sign,    "math.sign"),
-			"rand"d,     new MDClosure(namespace, &lib.rand,    "math.rand")
+			"rand"d,     new MDClosure(namespace, &lib.rand,    "math.rand"),
+			"frand"d,    new MDClosure(namespace, &lib.frand,   "math.frand")
 		);
 		
 		context.globals["math"d] = namespace;
@@ -282,21 +283,48 @@ class MathLib
 
 	int rand(MDState s, uint numParams)
 	{
+		uint num = Random.shared.next();
+
 		switch(numParams)
 		{
 			case 0:
-				s.push(cast(int)Random.shared.next());
+				s.push(cast(int)num);
 				break;
 
 			case 1:
-				s.push(cast(uint)Random.shared.next() % s.getParam!(int)(0));
+				s.push(cast(uint)num % s.getParam!(int)(0));
 				break;
 
 			default:
 				int lo = s.getParam!(int)(0);
 				int hi = s.getParam!(int)(1);
-				
-				s.push(cast(int)(Random.shared.next() % (hi - lo)) + lo);
+
+				s.push(cast(int)(num % (hi - lo)) + lo);
+				break;
+		}
+		
+		return 1;
+	}
+	
+	int frand(MDState s, uint numParams)
+	{
+		auto num = cast(mdfloat)Random.shared.next() / uint.max;
+
+		switch(numParams)
+		{
+			case 0:
+				s.push(num);
+				break;
+
+			case 1:
+				s.push(num * s.getParam!(mdfloat)(0));
+				break;
+
+			default:
+				auto lo = s.getParam!(mdfloat)(0);
+				auto hi = s.getParam!(mdfloat)(1);
+
+				s.push((num * (hi - lo)) + lo);
 				break;
 		}
 		

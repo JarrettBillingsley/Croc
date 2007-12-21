@@ -351,13 +351,13 @@ private MDModuleDef tryPath(FilePath path, char[][] elems)
 	if(!path.exists())
 		return null;
 
-	scope fp = new FilePath(FilePath.join(path.toUtf8().dup, FilePath.join(elems[0 .. $ - 1])), true);
+	scope fp = FilePath(FilePath.join(path.toString().dup, FilePath.join(elems[0 .. $ - 1])));
 
 	if(!fp.exists())
 		return null;
 
-	scope sourceName = new FilePath(FilePath.join(fp.toUtf8(), elems[$ - 1] ~ ".md"));
-	scope binaryName = new FilePath(FilePath.join(fp.toUtf8(), elems[$ - 1] ~ ".mdm"));
+	scope sourceName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".md"));
+	scope binaryName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".mdm"));
 
 	MDModuleDef def = null;
 
@@ -366,17 +366,17 @@ private MDModuleDef tryPath(FilePath path, char[][] elems)
 		if(binaryName.exists())
 		{
 			if(sourceName.modified() > binaryName.modified())
-				def = compileModule(sourceName.toUtf8());
+				def = compileModule(sourceName.toString());
 			else
-				def = MDModuleDef.loadFromFile(binaryName.toUtf8());
+				def = MDModuleDef.loadFromFile(binaryName.toString());
 		}
 		else
-			def = compileModule(sourceName.toUtf8());
+			def = compileModule(sourceName.toString());
 	}
 	else
 	{
 		if(binaryName.exists())
-			def = MDModuleDef.loadFromFile(binaryName.toUtf8());
+			def = MDModuleDef.loadFromFile(binaryName.toString());
 	}
 
 	return def;

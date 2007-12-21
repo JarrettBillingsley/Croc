@@ -149,7 +149,7 @@ class BaseLib
 
 		uint sink(dchar[] data)
 		{
-			buf = utf.toUtf8(data, buf);
+			buf = utf.toString(data, buf);
 			Stdout(buf);
 			return data.length;
 		}
@@ -166,7 +166,7 @@ class BaseLib
 
 		uint sink(dchar[] data)
 		{
-			buf = utf.toUtf8(data, buf);
+			buf = utf.toString(data, buf);
 			Stdout(buf);
 			return data.length;
 		}
@@ -183,7 +183,7 @@ class BaseLib
 
 		for(uint i = 0; i < numParams; i++)
 		{
-			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
 			Stdout(buf);
 		}
 
@@ -198,7 +198,7 @@ class BaseLib
 
 		for(uint i = 0; i < numParams; i++)
 		{
-			buf = utf.toUtf8(s.valueToString(s.getParam(i)).mData, buf);
+			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
 			Stdout(buf);
 		}
 
@@ -251,7 +251,7 @@ class BaseLib
 	
 	int rawToString(MDState s, uint numParams)
 	{
-		s.push(s.getParam(0u).toUtf8());
+		s.push(s.getParam(0u).toString());
 		return 1;
 	}
 
@@ -276,7 +276,7 @@ class BaseLib
 			if(numParams == 1)
 				s.throwRuntimeException("Assertion Failed!");
 			else
-				s.throwRuntimeException("Assertion Failed: {}", s.getParam(1u).toUtf8());
+				s.throwRuntimeException("Assertion Failed: {}", s.getParam(1u).toString());
 		}
 		
 		return 0;
@@ -759,7 +759,7 @@ class BaseLib
 					i.append(s.valueToString(param));
 				}
 				else
-					i.append(param.toUtf8());
+					i.append(param.toString());
 			}
 			
 			return 0;
@@ -786,7 +786,7 @@ class BaseLib
 				i.insert(s.getParam!(int)(0), s.valueToString(param));
 			}
 			else
-				i.insert(s.getParam!(int)(0), param.toUtf8());
+				i.insert(s.getParam!(int)(0), param.toString());
 
 			return 0;
 		}
@@ -952,7 +952,7 @@ class BaseLib
 		
 		public void append(char[] s)
 		{
-			dchar[] str = utf.toUtf32(s);
+			dchar[] str = utf.toString32(s);
 			resize(str.length);
 			mBuffer[mLength .. mLength + str.length] = str[];
 			mLength += str.length;
@@ -991,7 +991,7 @@ class BaseLib
 			if(offset > mLength)
 				throw new MDException("Offset out of bounds: {}", offset);
 
-			dchar[] str = utf.toUtf32(s);
+			dchar[] str = utf.toString32(s);
 			resize(str.length);
 
 			for(int i = mLength + str.length - 1, j = mLength - 1; j >= offset; i--, j--)

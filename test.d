@@ -22,12 +22,12 @@ void main()
 	}
 	catch(MDException e)
 	{
-		Stdout.formatln("Error: {}", e.toUtf8());
+		Stdout.formatln("Error: {}", e);
 		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 	catch(Exception e)
 	{
-		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e.toUtf8());
+		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
 		Stdout.formatln("{}", ctx.getTracebackString());
 	}
 }
