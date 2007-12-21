@@ -161,7 +161,6 @@ if(false)
 	return;
 }
 
-/+
 /*
 local co = coroutine Co;
 writefln("In main, the coroutine says: \"{}\"", co(1, 2));
@@ -1004,4 +1003,3 @@ co(3, 4);
 		}
 	}
 }
-+/
