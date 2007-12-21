@@ -246,7 +246,7 @@ align(1) struct Instruction
 		int imm;
 	}
 
-	char[] toUtf8()
+	char[] toString()
 	{
 		char[] cr(uint v)
 		{

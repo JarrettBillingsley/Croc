@@ -116,49 +116,49 @@ class IOLib
 
 	int rename(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.rename(s.getParam!(char[])(1)));
 		return 0;
 	}
 	
 	int remove(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.remove());
 		return 0;
 	}
 	
 	int copy(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(1));
+		scope fp = FilePath(s.getParam!(char[])(1));
 		s.safeCode(fp.copy(s.getParam!(char[])(0)));
 		return 0;
 	}
 	
 	int size(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(cast(int)s.safeCode(fp.fileSize()));
 		return 1;
 	}
 	
 	int exists(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(cast(bool)fp.exists());
 		return 1;
 	}
 	
 	int isFile(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(s.safeCode(!fp.isFolder()));
 		return 1;
 	}
 
 	int isDir(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(s.safeCode(fp.isFolder()));
 		return 1;
 	}
@@ -178,7 +178,7 @@ class IOLib
 	
 	int makeDir(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0), true);
+		scope fp = FilePath(s.getParam!(char[])(0));
 		
 		if(!fp.isAbsolute())
 			fp.prepend(FileSystem.getDirectory());
@@ -189,7 +189,7 @@ class IOLib
 	
 	int removeDir(MDState s, uint numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0), true);
+		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.remove());
 		return 0;
 	}
@@ -201,7 +201,7 @@ class IOLib
 
 		if(numParams == 1)
 		{
-			scope fp = new FilePath(path, true);
+			scope fp = FilePath(path);
 			
 			s.safeCode
 			({
@@ -215,7 +215,7 @@ class IOLib
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
-			scope fp = new FilePath(path, true);
+			scope fp = FilePath(path);
 
 			s.safeCode
 			({
@@ -243,7 +243,7 @@ class IOLib
 
 		if(numParams == 1)
 		{
-			scope fp = new FilePath(path, true);
+			scope fp = FilePath(path);
 
 			s.safeCode
 			({
@@ -257,7 +257,7 @@ class IOLib
 		else
 		{
 			char[] filter = s.getParam!(char[])(1);
-			scope fp = new FilePath(path, true);
+			scope fp = FilePath(path);
 
 			s.safeCode
 			({
@@ -929,7 +929,7 @@ class IOLib
 			if(mSeeker is null)
 				throw new MDException("Stream {} is not seekable.", mConduit);
 
-			return mSeeker.position();
+			return mSeeker.seek(0, IConduit.Seek.Anchor.Current);
 		}
 
 		public int size()
@@ -938,7 +938,7 @@ class IOLib
 				throw new MDException("Stream {} is not seekable.", mConduit);
 
 			ulong pos, ret;
-			pos = mSeeker.position();
+			pos = mSeeker.seek(0, IConduit.Seek.Anchor.Current);
 			ret = mSeeker.seek(0, IConduit.Seek.Anchor.End);
 			mSeeker.seek(pos, IConduit.Seek.Anchor.Begin);
 			return ret;

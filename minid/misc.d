@@ -86,7 +86,7 @@ package void formatImpl(MDState s, MDValue[] params, uint delegate(dchar[]) sink
 
 				default:
 					if(isRaw)
-						FormatterD.convert(sink, fmt, param.toUtf8());
+						FormatterD.convert(sink, fmt, param.toString());
 					else
 						FormatterD.convert(sink, fmt, s.valueToString(*param).asUTF32());
 					break;
@@ -507,7 +507,7 @@ package MDValue[] unformatImpl(MDState s, dchar[] formatStr, Stream input)
 				}
 			}
 			
-			char[] fmt = utf.toUtf8(formatStr[begin .. i + 1]);
+			char[] fmt = utf.toString(formatStr[begin .. i + 1]);
 			MDValue val;
 
 			switch(c)

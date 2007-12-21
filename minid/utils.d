@@ -40,7 +40,7 @@ import tango.io.Stdout;
 import tango.stdc.string;
 import tango.text.convert.Utf;
 import tango.text.Util;
-import tango.util.time.StopWatch;
+import tango.time.StopWatch;
 import Uni = tango.text.Unicode;
 
 /**
@@ -402,7 +402,7 @@ void Serialize(T)(IWriter s, T value)
 	{
 		static if(is(T == dchar[]) || is(T == wchar[]))
 		{
-			s.put(toUtf8(value));
+			s.put(toString(value));
 		}
 		else
 		{
@@ -453,9 +453,9 @@ void Deserialize(T)(IReader s, out T dest)
 			s.get(str);
 
 			static if(is(T == dchar[]))
-				dest = toUtf32(str);
+				dest = toString32(str);
 			else
-				dest = toUtf16(str);
+				dest = toString16(str);
 		}
 		else
 		{
@@ -505,7 +505,7 @@ scope class Profiler
 	struct Timing
 	{
 		char[] name;
-		Interval time = 0;
+		double time = 0;
 		ulong count = 0;
 
 		static Timing opCall(char[] name)
@@ -566,7 +566,7 @@ scope class Profiler
 
 	~this()
 	{
-		Interval endTime = mTimer.stop();
+		double endTime = mTimer.stop();
 		Timing* t = (mName in mTimings);
 		t.time += endTime;
 		t.count++;

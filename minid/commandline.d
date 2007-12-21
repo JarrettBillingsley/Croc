@@ -175,7 +175,7 @@ public class CommandLine
 			{
 				try
 				{
-					if(ctx.loadModuleFromFile(state, utf.toUtf32(inputFile), params) is null)
+					if(ctx.loadModuleFromFile(state, utf.toString32(inputFile), params) is null)
 						mOutput.formatln("Error: could not find module '{}'", inputFile);
 				}
 				catch(MDException e)
@@ -236,7 +236,7 @@ public class CommandLine
 
 					try
 					{
-						val = eval(state, utf.toUtf32(buffer[1 .. $]));
+						val = eval(state, utf.toString32(buffer[1 .. $]));
 						mOutput(" => ")(state.valueToString(val)).newline;
 					}
 					catch(MDCompileException e)
@@ -265,7 +265,7 @@ public class CommandLine
 					MDFuncDef def;
 
 					try
-						def = compileStatements(utf.toUtf32(buffer), "stdin");
+						def = compileStatements(utf.toString32(buffer), "stdin");
 					catch(MDCompileException e)
 					{
 						if(e.atEOF)

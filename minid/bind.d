@@ -96,7 +96,7 @@ struct WrapModule
 		ret.loader = new Loader;
 		ret.loader.namespace = new MDNamespace();
 
-		dchar[] name32 = utf.toUtf32(name);
+		dchar[] name32 = utf.toString32(name);
 
 		context.setModuleLoader(name32, new MDClosure(context.globals.ns, &ret.loader.loader, "module " ~ name32));
 
@@ -145,7 +145,7 @@ struct WrapModule
 	*/
 	public typeof(this) custom(T)(char[] name, T value)
 	{
-		loader.namespace[utf.toUtf32(name)] = MDValue(value);
+		loader.namespace[utf.toString32(name)] = MDValue(value);
 		return this;
 	}
 
@@ -171,7 +171,7 @@ struct WrapModule
 		static if(is(U == dchar[]))
 			value.addToNamespace(loader.namespace, name[]);
 		else
-			value.addToNamespace(loader.namespace, utf.toUtf32(name[]));
+			value.addToNamespace(loader.namespace, utf.toString32(name[]));
 			
 		return this;
 	}
