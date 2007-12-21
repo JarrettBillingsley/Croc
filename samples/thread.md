@@ -1,52 +1,48 @@
-module thread;
+module thread
 
-function Set(vararg)
+local function Set(vararg)
 {
-	local ret = {};
+	local ret = {}
 
-	foreach(val; [vararg])
-		ret[val] = val;
+	for(i: 0 .. #vararg)
+		ret[vararg[i]] = vararg[i]
 
-	return ret;
+	return ret
 }
 
 // A class which encapsulates a thread's body, a message queue, and timed wait
 // functionality.
-class Thread
+local class Thread
 {
-	mBody;
-	mWaitTime;
-	mNeedMessage = false;
-	mMessageHead;
-	mMessageTail;
+	mBody
+	mWaitTime
+	mNeedMessage = false
+	mMessageHead
+	mMessageTail
 
 	// Construct a thread with a coroutine body.
 	this(body)
-	{
-		mBody = body;
-	}
+		mBody = body
 
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
 	function beginWait(duration)
-	{
-		mWaitTime = os.microTime() + toInt(duration * 1000000);
-	}
+		mWaitTime = os.microTime() + toInt(duration * 1000000)
 
 	// Add a message to this thread's message queue.
 	function send(value)
 	{
-		local n = { value = value };
+		local n = { value = value }
 
 		if(mMessageTail is null)
 		{
-			mMessageHead = n;
-			mMessageTail = n;
+			mMessageHead = n
+			mMessageTail = n
 		}
 		else
 		{
-			mMessageTail.next = n;
-			mMessageTail = n;
+			mMessageTail.next = n
+			mMessageTail = n
 		}
 	}
 
@@ -57,57 +53,50 @@ class Thread
 	{
 		if(mMessageHead is null)
 		{
-			mNeedMessage = true;
-			return false;
+			mNeedMessage = true
+			return false
 		}
 
-		local item = mMessageHead;
-		mMessageHead = mMessageHead.next;
+		local item = mMessageHead
+		mMessageHead = mMessageHead.next
 
 		if(mMessageHead is null)
-			mMessageTail = null;
+			mMessageTail = null
 
-		return true, item.value;
+		return true, item.value
 	}
 
 	// Resume the thread's body.  This should only be called when isWaiting() returns
 	// false.  This will give the thread any message that it's waiting for, and if none
 	// is waiting, will give it the varargs to this function instead.
 	function resume(vararg)
-	{
 		if(mNeedMessage)
 		{
-			assert(mMessageHead !is null);
-			mNeedMessage = false;
-			local ok, value = receive();
-			assert(ok);
-			return mBody(value);
+			assert(mMessageHead !is null)
+			mNeedMessage = false
+			local ok, value = receive()
+			assert(ok)
+			return mBody(value)
 		}
 		else
-			return mBody(vararg);
-	}
+			return mBody(vararg)
 
 	// Returns a bool, whether this thread is waiting, either on a message or on a timer.
 	function isWaiting()
-	{
 		if(mNeedMessage)
-			return mMessageHead is null;
+			return mMessageHead is null
 		else if(mWaitTime is null)
-			return false;
+			return false
 		else
-			return os.microTime() < mWaitTime;
-	}
+			return os.microTime() < mWaitTime
 
 	// Returns whether the thread has completed or not.
-	function isDead()
-	{
-		return mBody.isDead();
-	}
+	function isDead() = mBody.isDead()
 }
 
 // Pass this function a set of Threads (i.e. a table where the keys == values).
 // This function only returns when all the threads have exited.
-function scheduler(threads)
+local function scheduler(threads)
 {
 	// Very clever function.  It handles "system calls", which are yielded values
 	// from coroutines.  It then can resume the threads and tailcall itself, making
@@ -116,33 +105,33 @@ function scheduler(threads)
 	function handleCall(thread, type, vararg)
 	{
 		if(thread.isDead())
-			return true;
+			return true
 
 		switch(type)
 		{
 			case "Yield":
-				return false;
+				return false
 
 			case "Wait":
-				thread.beginWait(vararg);
-				return false;
+				thread.beginWait(vararg)
+				return false
 
 			case "Send":
-				local dest, value = vararg;
-				assert(dest in threads);
-				dest.send(value);
-				return handleCall(thread, thread.resume());
+				local dest, value = vararg
+				assert(dest in threads)
+				dest.send(value)
+				return handleCall(thread, thread.resume())
 
 			case "Receive":
-				local ok, value = thread.receive();
+				local ok, value = thread.receive()
 
 				if(!ok)
-					return false;
+					return false
 
-				return handleCall(thread, thread.resume(value));
+				return handleCall(thread, thread.resume(value))
 
 			default:
-				throw "Unknown call";
+				throw "Unknown call"
 		}
 	}
 
@@ -151,67 +140,60 @@ function scheduler(threads)
 		foreach(thread; threads)
 		{
 			if(thread.isWaiting())
-				continue;
+				continue
 
 			if(handleCall(thread, thread.resume()))
-				threads[thread] = null;
+				threads[thread] = null
 		}
 	}
 }
 
 // Wait for 'duration' seconds.  Can be float or int.
-function wait(duration)
-{
-	yield("Wait", duration);
-}
+local function wait(duration)
+	yield("Wait", duration)
 
 // Send the message 'value' to Thread 'dest'.
-function send(dest, value)
-{
-	yield("Send", dest, value);
-}
+local function send(dest, value)
+	yield("Send", dest, value)
 
 // Receive a message from any thread.
-function receive()
-{
-	return yield("Receive");
-}
+local function receive() = yield("Receive")
 
 // Example producer-consumer code with message-passing for synchronization.
-local N = 100;
+local N = 100
 
-local producer, consumer;
+local producer, consumer
 
 producer = Thread(coroutine function()
 {
 	while(true)
 	{
-		wait(0.3 + math.rand(0, 100) / 100.0);
+		wait(0.3 + math.rand(0, 100) / 100.0)
 
-		local item = { type = "Item", value = math.abs(math.rand() % 10) };
-		local msg = receive();
-		assert(msg.type == "Empty");
-		writefln("Producer produced {}.", item.value);
-		send(consumer, item);
+		local item = { type = "Item", value = math.abs(math.rand() % 10) }
+		local msg = receive()
+		assert(msg.type == "Empty")
+		writefln("Producer produced {}.", item.value)
+		send(consumer, item)
 	}
-});
+})
 
 consumer = Thread(coroutine function()
 {
-	local empty = { type = "Empty" };
+	local empty = { type = "Empty" }
 
 	for(i: 0 .. N)
-		send(producer, empty);
+		send(producer, empty)
 
 	while(true)
 	{
-		local msg = receive();
-		wait(0.3 + math.rand(0, 100) / 100.0);
-		assert(msg.type == "Item");
-		send(producer, empty);
-		writefln("Consumer consumed {}.", msg.value);
+		local msg = receive()
+		wait(0.3 + math.rand(0, 100) / 100.0)
+		assert(msg.type == "Item")
+		send(producer, empty)
+		writefln("Consumer consumed {}.", msg.value)
 	}
-});
+})
 
-scheduler(Set(producer, consumer));
-writefln("Finished.");
+scheduler(Set(producer, consumer))
+writefln("Finished.")

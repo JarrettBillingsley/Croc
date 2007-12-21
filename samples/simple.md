@@ -1,6 +1,5 @@
 module simple
 
-/+
 // Making sure finally blocks are executed.
 {
 	function f()
@@ -34,7 +33,7 @@ module simple
 	function loadMod(name, ns)
 	{
 		assert(name == "mod")
-		
+
 		ns.x = "I'm x"
 
 		ns.foo = function foo()
@@ -72,9 +71,7 @@ module simple
 	class Base
 	{
 		function fork()
-		{
 			writefln("Base fork.")
-		}
 	}
 
 	class Derived : Base
@@ -151,7 +148,7 @@ module simple
 				return this.f(x - 1) // call it as this.f to force a 'method' instruction to be generated
 		}
 	}
-	
+
 	local a = A()
 	writefln(a.f(5))
 	writefln()
@@ -198,7 +195,7 @@ module simple
 		{
 			if(!isTable(prop))
 				throw format("mixinProperties() - property ", i, " is not a table")
-	
+
 			if(prop.name is null)
 				throw format("mixinProperties() - property ", i, " has no name")
 	
@@ -217,14 +214,10 @@ module simple
 		mName = ""
 		
 		function constructor(name)
-		{
 			mName = name
-		}
-	
-		function toString()
-		{
-			return format("name = '", mName, "' x = ", mX, " y = ", mY)
-		}
+
+		function toString() =
+			format("name = '", mName, "' x = ", mX, " y = ", mY)
 	}
 	
 	// Mix in the properties.
@@ -234,39 +227,19 @@ module simple
 	
 		{
 			name = "x",
-
-			function setter(value)
-			{
-				mX = value
-			}
-
-			function getter()
-			{
-				return mX
-			}
+			function setter(value) mX = value
+			function getter() = mX
 		},
 
 		{
 			name = "y",
-
-			function setter(value)
-			{
-				mY = value
-			}
-	
-			function getter()
-			{
-				return mY
-			}
+			function setter(value) mY = value
+			function getter() = mY
 		},
-	
+
 		{
 			name = "name",
-	
-			function getter()
-			{
-				return mName
-			}
+			function getter() = mName
 		}
 	)
 	
@@ -299,10 +272,8 @@ module simple
 		mLength = 0
 	
 		function constructor()
-		{
 			mData = array.new(15)
-		}
-	
+
 		function insert(data)
 		{
 			resizeArray()
@@ -384,10 +355,7 @@ module simple
 				mData.length((#mData + 1) * 2 - 1)
 		}
 		
-		function hasData()
-		{
-			return mLength != 0
-		}
+		function hasData() = mLength != 0
 	}
 	
 	class Stack
@@ -411,10 +379,7 @@ module simple
 			return item.data
 		}
 	
-		function hasData()
-		{
-			return mHead !is null
-		}
+		function hasData() = mHead !is null
 	}
 
 	class Queue
@@ -452,10 +417,7 @@ module simple
 			return item.data
 		}
 		
-		function hasData()
-		{
-			return mHead !is null
-		}
+		function hasData() = mHead !is null
 	}
 	
 	writefln("Priority queue (heap)")
@@ -584,8 +546,8 @@ module simple
 	local arr = array.new(10)
 	
 	for(i : 0 .. 10)
-		arr[i] = function() { return i }
-	
+		arr[i] = function() = i
+
 	writefln("This should be the values 0 through 9:")
 	
 	foreach(func; arr)
@@ -622,10 +584,8 @@ module simple
 // Testing Exceptions.
 {
 	function thrower(x)
-	{
 		if(x >= 3)
 			throw "Sorry, x is too big for me!"
-	}
 
 	function tryCatch(iterations)
 	{
@@ -737,23 +697,21 @@ module simple
 	local class A
 	{
 		mValue
-		
+
 		this(value)
-		{
 			mValue = value
-		}
-	
+
 		function opCmp(other)
 		{
 			assert(other as A)
 			return mValue <=> other.mValue
 		}
 	}
-	
+
 	local a1 = A(1)
 	local a2 = A(2)
 	local a3 = A(3)
-	
+
 	for(s : 1 .. 4)
 	{
 		local ss = A(s)
@@ -773,4 +731,4 @@ module simple
 				break
 		}
 	}
-}+/
+}

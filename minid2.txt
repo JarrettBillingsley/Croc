@@ -316,7 +316,10 @@ FunctionDeclaration:
 	['local' | 'global'] SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
-	'function' Identifier Parameters BlockStatement
+	'function' Identifier FunctionBody
+
+FunctionBody:
+	Parameters (Statement | '=' Expression)
 	
 Parameters:
 	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
@@ -328,8 +331,8 @@ ClassDeclaration:
 ClassMember:
 	[AttributeTable] SimpleFunctionDeclaration
 	Identifier ['=' Expression] StatementTerminator
-	'this' Parameters BlockStatement
-	
+	[AttributeTable] 'this' FunctionBody
+
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	
@@ -362,7 +365,7 @@ SwitchStatement:
 
 CaseStatement:
 	'case' Expression {',' Expression} ':' {Statement}
-	
+
 DefaultStatement:
 	'default' ':' {Statement}
 	
@@ -373,6 +376,7 @@ BreakStatement:
 	'break' StatementTerminator
 	
 ReturnStatement:
+	'return' ';'
 	'return' [Expression {',' Expression}] StatementTerminator
 	
 TryCatchStatement:
@@ -510,11 +514,11 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
-	'function' [Identifier] Parameters (BlockStatement | Expression)
+	'function' [Identifier] FunctionBody
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
-	'{' [TableField {',' TableField}] '}'
-	'[' [Expression {',' Expression}] ']'
+	'{' [TableField {[','] TableField}] '}'
+	'[' [Expression {[','] Expression}] ']'
 	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	'yield' '(' [Arguments] ')'
 	'super' ['.' (Identifier | ('(' Expression ')'))] '(' [Arguments] ')'

@@ -1,55 +1,54 @@
-module matrix;
+module matrix
 
-local SIZE = 30;
+local SIZE = 30
 
 function mkmatrix(rows, cols)
 {
-	local count = 1;
-	local m = array.new(rows);
+	local count = 1
+	local m = array.new(rows)
 
-	for(local i = 0; i < rows; ++i)
+	for(i: 0 .. rows)
 	{
-		m[i] = array.new(cols);
+		m[i] = array.new(cols)
 
-		for(local j = 0; j < cols; ++j)
+		for(j: 0 .. cols)
 		{
-			++count;
-			m[i][j] = count;
+			++count
+			m[i][j] = count
 		}
 	}
 
-	return m;
+	return m
 }
 
 function mmult(rows, cols, m1, m2, m3)
 {
-	for(local i = 0; i < rows; ++i)
+	for(i: 0 .. rows)
 	{
-		for(local j = 0; j < cols; ++j)
+		for(j: 0 .. cols)
 		{
-			local val = 0;
+			local val = 0
 
-			for(local k = 0; k < cols; ++k)
-				val += m1[i][k] * m2[k][j];
+			for(k: 0 .. cols)
+				val += m1[i][k] * m2[k][j]
 
-			m3[i][j] = val;
+			m3[i][j] = val
 		}
 	}
 
-	return m3;
+	return m3
 }
 
-local args = [vararg];
-local n = 1;
+local n = 1
 
-if(#args > 0)
-	n = toInt(args[0]);
+if(#vararg > 0)
+	n = toInt(vararg[0])
 
-local m1 = mkmatrix(SIZE, SIZE);
-local m2 = mkmatrix(SIZE, SIZE);
-local mm = mkmatrix(SIZE, SIZE);
+local m1 = mkmatrix(SIZE, SIZE)
+local m2 = mkmatrix(SIZE, SIZE)
+local mm = mkmatrix(SIZE, SIZE)
 
-for(local i = 0; i < n; ++i)
-	mmult(SIZE, SIZE, m1, m2, mm);
+for(i: 0 .. n)
+	mmult(SIZE, SIZE, m1, m2, mm)
 
-writefln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4]);
+writefln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4])

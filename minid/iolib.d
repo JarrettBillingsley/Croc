@@ -39,6 +39,7 @@ import tango.io.Print;
 import tango.io.protocol.Reader;
 import tango.io.protocol.Writer;
 import tango.io.Stdout;
+import tango.io.UnicodeFile;
 import tango.text.convert.Layout;
 import tango.text.stream.LineIterator;
 import tango.util.PathUtil;
@@ -108,7 +109,9 @@ class IOLib
 			"makeDir"d,      new MDClosure(namespace, &lib.makeDir,     "io.makeDir"),
 			"removeDir"d,    new MDClosure(namespace, &lib.removeDir,   "io.removeDir"),
 			"listFiles"d,    new MDClosure(namespace, &lib.listFiles,   "io.listFiles"),
-			"listDirs"d,     new MDClosure(namespace, &lib.listDirs,    "io.listDirs")
+			"listDirs"d,     new MDClosure(namespace, &lib.listDirs,    "io.listDirs"),
+			"readFile"d,     new MDClosure(namespace, &lib.readFile,    "io.readFile"),
+			"writeFile"d,    new MDClosure(namespace, &lib.writeFile,   "io.writeFile")
 		);
 		
 		context.globals["io"d] = namespace;
@@ -276,6 +279,23 @@ class IOLib
 
 		s.push(MDArray.fromArray(listing));
 		return 1;
+	}
+	
+	int readFile(MDState s, uint numParams)
+	{
+		auto name = s.getParam!(char[])(0);
+		scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.Unknown));
+		s.push(s.safeCode(file.read()));
+		return 1;
+	}
+	
+	int writeFile(MDState s, uint numParams)
+	{
+		auto name = s.getParam!(char[])(0);
+		auto data = s.getParam!(dchar[])(1);
+		scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.UTF_8));
+		s.safeCode(file.write(data));
+		return 0;
 	}
 
 	int File(MDState s, uint numParams)

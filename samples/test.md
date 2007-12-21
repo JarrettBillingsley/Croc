@@ -1,3 +1,3 @@
-module test;
-writefln("TEST");
-global x = 5;
+module test
+writefln("TEST")
+global x = 5

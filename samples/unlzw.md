@@ -1,55 +1,47 @@
-module unlzw;
+module unlzw
 
-local args = [vararg];
-
-if(#args < 2)
+if(#vararg < 2)
 {
-	writefln("Usage: mdcl unlzw.md inputFile outputFile");
-	return;
+	writefln("Usage: mdcl unlzw.md inputFile outputFile")
+	return
 }
 
-local input = io.File(args[0], io.FileMode.In);
-local output = io.File(args[1], io.FileMode.OutNew);
-local dict = {};
-local code;
+local input = io.File(vararg[0], io.FileMode.In)
+local output = io.File(vararg[1], io.FileMode.OutNew)
+local dict = {}
+local code
 
 for(code = 0; code < 128; code++)
-	dict[code] = toString(toChar(code));
-	
-local shortCount = input.readInt();
+	dict[code] = toString(toChar(code))
 
-local k = input.readShort();
-output.writeChars(dict[k]);
-shortCount--;
+local shortCount = input.readInt()
 
-local w = dict[k];
-local fchar = w[0];
-local entry;
+local k = input.readShort()
+output.writeChars(dict[k])
+shortCount--
+
+local w = dict[k]
+local fchar = w[0]
+local entry
 
 for( ; shortCount > 0; shortCount--)
 {
-	try
-		k = input.readShort();
-	catch(e)
-	{
-		writefln(shortCount);
-		throw e;
-	}
+	k = input.readShort()
 
 	if(k in dict)
-		entry = dict[k];
+		entry = dict[k]
 	else
-		entry = w ~ fchar;
+		entry = w ~ fchar
 
-	output.writeChars(entry);
+	output.writeChars(entry)
 
-	fchar = entry[0];
-	dict[code] = w ~ fchar;
-	code++;
-	w = entry;
+	fchar = entry[0]
+	dict[code] = w ~ fchar
+	code++
+	w = entry
 }
 
-output.flush();
+output.flush()
 
-input.close();
-output.close();
+input.close()
+output.close()
