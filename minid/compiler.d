@@ -56,7 +56,7 @@ modules should be handled for you by the import system in MDContext.
 */
 public MDModuleDef compileModule(char[] filename)
 {
-	scope path = FilePath(filename);
+	scope path = new FilePath(filename);
 	return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
 }
 

@@ -343,13 +343,13 @@ private MDModuleDef tryPath(FilePath path, char[][] elems)
 	if(!path.exists())
 		return null;
 
-	scope fp = FilePath(FilePath.join(path.toString().dup, FilePath.join(elems[0 .. $ - 1])));
+	scope fp = new FilePath(FilePath.join(path.toString().dup, FilePath.join(elems[0 .. $ - 1])));
 
 	if(!fp.exists())
 		return null;
 
-	scope sourceName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".md"));
-	scope binaryName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".mdm"));
+	scope sourceName = new FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".md"));
+	scope binaryName = new FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".mdm"));
 
 	MDModuleDef def = null;
 

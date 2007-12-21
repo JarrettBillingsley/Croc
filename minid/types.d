@@ -3360,7 +3360,7 @@ final class MDContext
 			if(fcompare(p.toString(), path) == 0)
 				return;
 
-		mImportPaths[FilePath(path)] = true;
+		mImportPaths[new FilePath(path)] = true;
 	}
 
 	/**
@@ -3488,7 +3488,7 @@ final class MDContext
 		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
 		char[][] elements = split(utf.toString(name), "."c);
 
-		scope curDir = FilePath(FileSystem.getDirectory());
+		scope curDir = new FilePath(FileSystem.getDirectory());
 
 		MDModuleDef def = tryPath(curDir, elements);
 
