@@ -55,7 +55,7 @@ public class CommandLine
 
 	private void printVersion()
 	{
-		mOutput("MiniD Command-Line interpreter beta").newline;
+		mOutput("MiniD Command-Line interpreter 1.1").newline;
 	}
 	
 	private void printUsage(char[] progname)
@@ -198,6 +198,9 @@ public class CommandLine
 
 		if(interactive)
 		{
+			if(!printedVersion)
+				printVersion();
+				
 			char[] buffer;
 			bool run = true;
 
