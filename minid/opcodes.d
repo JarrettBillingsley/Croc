@@ -35,12 +35,11 @@ enum Op : uint
 	AddEq,
 	And,
 	AndEq,
+	Append,
 	As,
 	Call,
 	Cat,
 	CatEq,
-	Class,
-	ClassOf,
 	Close,
 	Closure,
 	CondMove,
@@ -48,6 +47,7 @@ enum Op : uint
 	Cmp,
 	Cmp3,
 	Com,
+	Dec,
 	Div,
 	DivEq,
 	EndFinal,
@@ -58,6 +58,7 @@ enum Op : uint
 	ForLoop,
 	Import,
 	In,
+	Inc,
 	Index,
 	IndexAssign,
 	Is,
@@ -87,6 +88,7 @@ enum Op : uint
 	NewTable,
 	Not,
 	NotIn,
+	Object,
 	Or,
 	OrEq,
 	PopCatch,
@@ -105,7 +107,8 @@ enum Op : uint
 	SliceAssign,
 	Sub,
 	SubEq,
-	Super,
+	SuperMethod,
+	SuperOf,
 	Switch,
 	SwitchCmp,
 	Tailcall,
@@ -130,12 +133,11 @@ Add...............R: dest, src, src
 AddEq.............R: dest, src, n/a
 And...............R: dest, src, src
 AndEq.............R: dest, src, n/a
+Append............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
 CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
-Class.............R: dest, name const index, base class
-ClassOf...........R: dest, src, n/a
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, attrs reg + 1 (0 means no attrs)
 CondMove..........R: dest, src, n/a
@@ -143,6 +145,7 @@ Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
 Cmp3..............R: dest, src, src
 Com...............R: dest, src, n/a
+Dec...............R: dest, n/a, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
@@ -153,6 +156,7 @@ Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
 Import............R: dest, name src, n/a
 In................R: dest, src value, src object
+Inc...............R: dest, n/a, n/a
 Index.............R: dest, src object, src index
 IndexAssign.......R: dest object, dest index, src
 Is................R: n/a, src, src
@@ -182,6 +186,7 @@ NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
+Object............R: dest, name const index, proto object
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
@@ -200,7 +205,8 @@ Slice.............R: dest, src, n/a (indices are at src + 1 and src + 2)
 SliceAssign.......R: dest, src, n/a (indices are at dest + 1 and dest + 2)
 Sub...............R: dest, src, src
 SubEq.............R: dest, src, n/a
-Super.............R: dest, src, n/a
+SuperMethod.......R: base reg, object to index, method name
+SuperOf...........R: dest, src, n/a
 Switch............R: n/a, src, index of switch table
 SwitchCmp.........R: n/a, src, src
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
@@ -209,7 +215,7 @@ UShr..............R: dest, src, src
 UShrEq............R: dest, src, n/a
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
 VargIndex.........R: dest, idx, n/a
-VargIndexAssign...R: idx, src, n/a
+VargIndexAssign...R: n/a, idx, src
 VargLen...........R: dest, n/a, n/a
 VargSlice.........I: base reg, num rets + 1 (0 = return all to end of stack; indices are at base reg and base reg + 1)
 Xor...............R: dest, src, src
@@ -287,12 +293,11 @@ align(1) struct Instruction
 			case Op.AddEq:           return Stdout.layout.convert("addeq {}, {}", cr(rd), cr(rs));
 			case Op.And:             return Stdout.layout.convert("and {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.AndEq:           return Stdout.layout.convert("andeq {}, {}", cr(rd), cr(rs));
+			case Op.Append:          return Stdout.layout.convert("append {}, {}", cr(rd), cr(rs));
 			case Op.As:              return Stdout.layout.convert("as {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Call:            return Stdout.layout.convert("call r{}, {}, {}", rd, rs, rt);
 			case Op.Cat:             return Stdout.layout.convert("cat {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CatEq:           return Stdout.layout.convert("cateq {}, r{}, {}", cr(rd), rs, rt);
-			case Op.Class:           return Stdout.layout.convert("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ClassOf:         return Stdout.layout.convert("classof {}, {}", cr(rd), cr(rs));
 			case Op.Close:           return Stdout.layout.convert("close r{}", rd);
 			case Op.Closure:         return Stdout.layout.convert("closure {}, {}, {}", cr(rd), rs, rt);
 			case Op.CondMove:        return Stdout.layout.convert("cmov {}, {}", cr(rd), cr(rs));
@@ -339,6 +344,7 @@ align(1) struct Instruction
 			case Op.NewTable:        return Stdout.layout.convert("newtab r{}", rd);
 			case Op.Not:             return Stdout.layout.convert("not {}, {}", cr(rd), cr(rs));
 			case Op.NotIn:           return Stdout.layout.convert("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Object:          return Stdout.layout.convert("object {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Or:              return Stdout.layout.convert("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.OrEq:            return Stdout.layout.convert("oreq {}, {}", cr(rd), cr(rs));
 			case Op.PopCatch:        return "popcatch";
@@ -355,9 +361,10 @@ align(1) struct Instruction
 			case Op.ShrEq:           return Stdout.layout.convert("shreq {}, {}", cr(rd), cr(rs));
 			case Op.Slice:           return Stdout.layout.convert("slice {}, r{}", cr(rd), rs);
 			case Op.SliceAssign:     return Stdout.layout.convert("slicea r{}, {}", rd, cr(rs));
-			case Op.Super:           return Stdout.layout.convert("super {}, {}", cr(rd), cr(rs));
 			case Op.Sub:             return Stdout.layout.convert("sub {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.SubEq:           return Stdout.layout.convert("subeq {}, {}", cr(rd), cr(rs));
+			case Op.SuperMethod:     return Stdout.layout.convert("smethod r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.SuperOf:         return Stdout.layout.convert("superof {}, {}", cr(rd), cr(rs));
 			case Op.Switch:          return Stdout.layout.convert("switch {}, {}", cr(rs), rt);
 			case Op.SwitchCmp:       return Stdout.layout.convert("swcmp {}, {}", cr(rs), cr(rt));
 			case Op.Tailcall:        return Stdout.layout.convert("tcall r{}, {}", rd, rs);

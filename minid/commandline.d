@@ -33,6 +33,7 @@ private import tango.io.model.IConduit;
 private import tango.text.convert.Layout;
 private import tango.text.stream.LineIterator;
 private import tango.stdc.ctype;
+private import tango.stdc.signal;
 private import Uni = tango.text.Unicode;
 
 private import utf = tango.text.convert.Utf;
@@ -58,7 +59,7 @@ public class CommandLine
 
 	private void printVersion()
 	{
-		mOutput("MiniD Command-Line interpreter beta").newline;
+		mOutput("MiniD Command-Line interpreter 2.0 beta").newline;
 	}
 	
 	private void printUsage(char[] progname)
@@ -95,6 +96,8 @@ public class CommandLine
 
 	private void outputRepr(MDState state, ref MDValue v)
 	{
+		static bool[MDBaseObject] shown;
+
 		void escape(dchar c)
 		{
 			switch(c)
@@ -120,6 +123,89 @@ public class CommandLine
 					break;
 			}
 		}
+		
+		void delegate(MDArray) outputArray;
+		void delegate(MDTable) outputTable;
+
+		void outputArray_(MDArray a)
+		{
+			if(a in shown)
+			{
+				mOutput("[...]");
+				return;
+			}
+			
+			shown[a] = true;
+
+			mOutput('[');
+
+			if(a.length > 0)
+			{
+				outputRepr(state, *a[0]);
+				
+				for(int i = 1; i < a.length; i++)
+				{
+					mOutput(", ");
+					outputRepr(state, *a[i]);
+				}
+			}
+
+			mOutput(']');
+			
+			shown.remove(a);
+		}
+
+		void outputTable_(MDTable t)
+		{
+			if(t in shown)
+			{
+				mOutput("{...}");
+				return;
+			}
+
+			shown[t] = true;
+
+			mOutput('{');
+
+			if(t.length > 0)
+			{
+				if(t.length == 1)
+				{
+					foreach(k, v; t)
+					{
+						mOutput('[');
+						outputRepr(state, k);
+						mOutput("] = ");
+						outputRepr(state, v);
+					}
+				}
+				else
+				{
+					bool first = true;
+
+					foreach(k, v; t)
+					{
+						if(first)
+							first = !first;
+						else
+							mOutput(", ");
+
+
+						mOutput('[');
+						outputRepr(state, k);
+						mOutput("] = ");
+						outputRepr(state, v);
+					}
+				}
+			}
+
+			mOutput('}');
+
+			shown.remove(t);
+		}
+
+		outputArray = &outputArray_;
+		outputTable = &outputTable_;
 
 		if(v.isString)
 		{
@@ -138,6 +224,10 @@ public class CommandLine
 			escape(v.as!(dchar));
 			mOutput("'");
 		}
+		else if(v.isArray)
+			outputArray(v.as!(MDArray));
+		else if(v.isTable)
+			outputTable(v.as!(MDTable));
 		else
 			mOutput(state.valueToString(v));
 	}
@@ -204,7 +294,9 @@ public class CommandLine
 		if(ctx is null)
 			ctx = NewContext();
 		
-		MDState state = ctx.mainThread;
+		// static so it can be accessed by the signal handler
+		static MDState state;
+		state = ctx.mainThread();
 
 		foreach(path; importPaths)
 			ctx.addImportPath(path);
@@ -250,6 +342,9 @@ public class CommandLine
 
 		if(interactive)
 		{
+			if(!printedVersion)
+				printVersion();
+
 			dchar[1024] utf32buffer;
 			List!(MDValue) returnBuffer;
 
@@ -268,6 +363,21 @@ public class CommandLine
 			mOutput("Use the \"exit()\" function to end, or hit Ctrl-C.").newline;
 			mOutput(Prompt1)();
 			
+			// static so the interrupt can access it.
+			static bool didHalt = false;
+			
+			static extern(C) void interruptHandler(int s)
+			{
+				state.pendingHalt();
+				didHalt = true;
+				signal(s, &interruptHandler);
+			}
+			
+			signal(SIGINT, &interruptHandler);
+			
+			scope(exit)
+				signal(SIGINT, SIG_DFL);
+
 			bool couldBeDecl()
 			{
 				if(buffer.length == 0)
@@ -280,7 +390,7 @@ public class CommandLine
 				
 				auto temp = buffer[i .. $];
 
-				return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace");
+				return temp.startsWith("function") || temp.startsWith("object") || temp.startsWith("namespace");
 			}
 
 			bool tryAsStatement(Exception e = null)
@@ -289,7 +399,7 @@ public class CommandLine
 				{
 					auto def = compileStatements(utf.toString32(buffer), "stdin");
 					scope closure = ctx.newClosure(def);
-					state.easyCall(closure, 0, MDValue(ctx.globals.ns));
+					state.call(closure, 0);
 				}
 				catch(MDCompileException e2)
 				{
@@ -325,7 +435,7 @@ public class CommandLine
 				try
 				{
 					auto numRets = evalMultRet(state, utf.toString32(buffer, utf32buffer));
-					
+
 					if(numRets > 0)
 					{
 						mOutput(" => ");
@@ -363,7 +473,7 @@ public class CommandLine
 					mOutput.formatln("{}", ctx.getTracebackString());
 					mOutput.newline;
 				}
-				
+
 				return false;
 			}
 
@@ -391,6 +501,12 @@ public class CommandLine
 				{
 					if(tryAsExpression())
 						continue;
+				}
+				
+				if(didHalt)
+				{
+					mOutput.formatln("Halted by keyboard interrupt.");
+					didHalt = false;
 				}
 
 				mOutput(Prompt1)();

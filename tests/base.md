@@ -1,15 +1,5 @@
 module tests.base;
 
-/*
-local f = io.File(`tests\foobar.txt`);
-
-try f.readf("%% %0*"); catch(e){}
-try f.readf("%3.*"); catch(e){}
-writefln(f.readf("%5s %d %c %s %f %.3s"));
-try f.readf("%p"); catch(e){}
-try f.readf("%"); catch(e){ writefln("BO"); }
-*/
-
 writefln("{,-5}", 10);
 writefln("{} {} {}", null, true, []);
 writefln("{} {} {} {} {}", 4, 5.6, 'h', "hi", 7);

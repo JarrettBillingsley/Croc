@@ -50,23 +50,19 @@ class BaseLib
 			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
 	}
 
-	private MDStringBufferClass stringBufferClass;
-	
-	private this()
-	{
-		stringBufferClass = new MDStringBufferClass();
-	}
-
 	public static void init(MDContext context)
 	{
 		auto globals = context.globals;
 
-		globals["StringBuffer"d] =    lib.stringBufferClass;
+		auto _Object = new MDObject("Object");
+		_Object["clone"] = MDValue(new MDClosure(globals.ns, &lib.objectClone, "Object.clone"));
+		globals["Object"d] = _Object;
+
+		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
 		globals["assert"d] =          new MDClosure(globals.ns, &lib.mdassert,              "assert");
 		globals["getTraceback"d] =    new MDClosure(globals.ns, &lib.getTraceback,          "getTraceback");
 		globals["typeof"d] =          new MDClosure(globals.ns, &lib.mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &lib.fieldsOf,              "fieldsOf");
-		globals["methodsOf"d] =       new MDClosure(globals.ns, &lib.methodsOf,             "methodsOf");
 		globals["attributesOf"d] =    new MDClosure(globals.ns, &lib.attributesOf,          "attributesOf");
 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &lib.hasAttributes,         "hasAttributes");
 		globals["toString"d] =        new MDClosure(globals.ns, &lib.mdtoString,            "toString");
@@ -90,8 +86,7 @@ class BaseLib
 		globals["isTable"d] =         new MDClosure(globals.ns, &lib.isParam!("table"),     "isTable");
 		globals["isArray"d] =         new MDClosure(globals.ns, &lib.isParam!("array"),     "isArray");
 		globals["isFunction"d] =      new MDClosure(globals.ns, &lib.isParam!("function"),  "isFunction");
-		globals["isClass"d] =         new MDClosure(globals.ns, &lib.isParam!("class"),     "isClass");
-		globals["isInstance"d] =      new MDClosure(globals.ns, &lib.isParam!("instance"),  "isInstance");
+		globals["isObject"d] =        new MDClosure(globals.ns, &lib.isParam!("object"),    "isObject");
 		globals["isNamespace"d] =     new MDClosure(globals.ns, &lib.isParam!("namespace"), "isNamespace");
 		globals["isThread"d] =        new MDClosure(globals.ns, &lib.isParam!("thread"),    "isThread");
 		globals["currentThread"d] =   new MDClosure(globals.ns, &lib.currentThread,         "currentThread");
@@ -103,6 +98,9 @@ class BaseLib
 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &lib.setModuleLoader,       "setModuleLoader");
 		globals["removeKey"d] =       new MDClosure(globals.ns, &lib.removeKey,             "removeKey");
 		globals["bindContext"d] =     new MDClosure(globals.ns, &lib.bindContext,           "bindContext");
+		globals["rawSet"d] =          new MDClosure(globals.ns, &lib.rawSet,                "rawSet");
+		globals["rawGet"d] =          new MDClosure(globals.ns, &lib.rawGet,                "rawGet");
+		globals["haltThread"d] =      new MDClosure(globals.ns, &lib.haltThread,            "haltThread");
 
 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
 		
@@ -136,10 +134,20 @@ class BaseLib
 		
 		func.addList
 		(
-			"environment"d, new MDClosure(func, &lib.functionEnvironment, "function.environment")
+			"environment"d, new MDClosure(func, &lib.functionEnvironment, "function.environment"),
+			"isNative"d,    new MDClosure(func, &lib.functionIsNative,    "function.isNative"),
+			"numParams"d,   new MDClosure(func, &lib.functionNumParams,   "function.numParams"),
+			"isVararg"d,    new MDClosure(func, &lib.functionIsVararg,    "function.isVararg")
 		);
 
 		context.setMetatable(MDValue.Type.Function, func);
+	}
+	
+	int objectClone(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDObject);
+		s.push(new MDObject(self.name, self));
+		return 1;
 	}
 
 	int mdwritefln(MDState s, uint numParams)
@@ -270,7 +278,7 @@ class BaseLib
 	int mdassert(MDState s, uint numParams)
 	{
 		MDValue condition = s.getParam(0u);
-		
+
 		if(condition.isFalse())
 		{
 			if(numParams == 1)
@@ -408,42 +416,30 @@ class BaseLib
 
 			ns.remove(key);
 		}
+		else
+			s.throwRuntimeException("Container must be a table or namespace");
 
 		return 0;
 	}
-	
+
 	int fieldsOf(MDState s, uint numParams)
 	{
-		if(s.isParam!("class")(0))
-			s.push(s.getParam!(MDClass)(0).fields);
-		else if(s.isParam!("instance")(0))
-			s.push(s.getParam!(MDInstance)(0).fields);
+		if(s.isParam!("object")(0))
+			s.push(s.getParam!(MDObject)(0).fields);
 		else
-			s.throwRuntimeException("Expected class or instance, not '{}'", s.getParam(0u).typeString());
-	
-		return 1;
-	}
-
-	int methodsOf(MDState s, uint numParams)
-	{
-		if(s.isParam!("class")(0))
-			s.push(s.getParam!(MDClass)(0).methods);
-		else if(s.isParam!("instance")(0))
-			s.push(s.getParam!(MDInstance)(0).methods);
-		else
-			s.throwRuntimeException("Expected class or instance, not '{}'", s.getParam(0u).typeString());
+			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
 
 		return 1;
 	}
-	
+
 	int attributesOf(MDState s, uint numParams)
 	{
 		MDTable ret;
 
 		if(s.isParam!("function")(0))
 			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("class")(0))
-			ret = s.getParam!(MDClass)(0).attributes;
+		else if(s.isParam!("object")(0))
+			ret = s.getParam!(MDObject)(0).attributes;
 		else if(s.isParam!("namespace")(0))
 			ret = s.getParam!(MDNamespace)(0).attributes;
 		else
@@ -463,8 +459,8 @@ class BaseLib
 
 		if(s.isParam!("function")(0))
 			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("class")(0))
-			ret = s.getParam!(MDClass)(0).attributes;
+		else if(s.isParam!("object")(0))
+			ret = s.getParam!(MDObject)(0).attributes;
 		else if(s.isParam!("namespace")(0))
 			ret = s.getParam!(MDNamespace)(0).attributes;
 
@@ -518,7 +514,7 @@ class BaseLib
 		
 		uint threadIdx = s.push(thread);
 		s.pushNull();
-		uint numRets = s.call(threadIdx, 1, -1) + 1;
+		uint numRets = s.rawCall(threadIdx, -1) + 1;
 
 		if(thread.state == MDState.State.Dead)
 			return 0;
@@ -537,7 +533,7 @@ class BaseLib
 		uint funcReg = s.push(thread);
 		s.push(thread);
 		s.push(init);
-		s.call(funcReg, 2, 0);
+		s.rawCall(funcReg, 0);
 		
 		s.push(s.getUpvalue(0u));
 		s.push(thread);
@@ -547,7 +543,12 @@ class BaseLib
 
 	int threadReset(MDState s, uint numParams)
 	{
-		s.getContext!(MDState).reset();
+		MDClosure cl;
+
+		if(numParams > 0)
+			cl = s.getParam!(MDClosure)(0);
+
+		s.getContext!(MDState).reset(cl);
 		return 0;
 	}
 	
@@ -570,7 +571,7 @@ class BaseLib
 		for(uint i = 0; i < numParams; i++)
 			s.push(s.getParam(i));
 
-		return s.call(funcReg, numParams + 2, -1);
+		return s.rawCall(funcReg, -1);
 	}
 
 	int curry(MDState s, uint numParams)
@@ -598,7 +599,7 @@ class BaseLib
 				for(uint i = 0; i < numParams; i++)
 					s.push(s.getParam(i));
 
-				return s.call(funcReg, numParams + 1, -1);
+				return s.rawCall(funcReg, -1);
 			}
 		}
 
@@ -609,7 +610,7 @@ class BaseLib
 		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
 		return 1;
 	}
-	
+
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
@@ -634,7 +635,7 @@ class BaseLib
 		else
 			env = s.context.globals.ns;
 
-		s.easyCall(new MDClosure(env, def), 1, MDValue(env));
+		s.call(new MDClosure(env, def), 1);
 		return 1;
 	}
 	
@@ -667,6 +668,40 @@ class BaseLib
 		return 0;
 	}
 	
+	int rawSet(MDState s, uint numParams)
+	{
+		if(s.isParam!("table")(0))
+			s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
+		else if(s.isParam!("object")(0))
+			s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)] = s.getParam(2u);
+		else
+			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+
+		return 0;
+	}
+	
+	int rawGet(MDState s, uint numParams)
+	{
+		if(s.isParam!("table")(0))
+			s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
+		else if(s.isParam!("object")(0))
+			s.push(s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)]);
+		else
+			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+
+		return 1;
+	}
+	
+	int haltThread(MDState s, uint numParams)
+	{
+		if(numParams == 0)
+			s.halt();
+		else
+			s.getParam!(MDState)(0).pendingHalt();
+
+		return 0;
+	}
+	
 	int functionEnvironment(MDState s, uint numParams)
 	{
 		MDClosure cl = s.getContext!(MDClosure);
@@ -678,61 +713,75 @@ class BaseLib
 
 		return 1;
 	}
+	
+	int functionIsNative(MDState s, uint numParams)
+	{
+		s.push(s.getContext!(MDClosure).isNative);
+		return 1;
+	}
+	
+	int functionNumParams(MDState s, uint numParams)
+	{
+		s.push(s.getContext!(MDClosure).numParams);
+		return 1;
+	}
+	
+	int functionIsVararg(MDState s, uint numParams)
+	{
+		s.push(s.getContext!(MDClosure).isVararg);
+		return 1;
+	}
 
-	static class MDStringBufferClass : MDClass
+	static class MDStringBufferClass : MDObject
 	{
 		MDClosure iteratorClosure;
 		MDClosure iteratorReverseClosure;
 
-		public this()
+		public this(MDObject owner)
 		{
-			super("StringBuffer", null);
+			super("StringBuffer", owner);
 
-			iteratorClosure = new MDClosure(mMethods, &iterator, "StringBuffer.iterator");
-			iteratorReverseClosure = new MDClosure(mMethods, &iteratorReverse, "StringBuffer.iteratorReverse");
-			auto catEq = new MDClosure(mMethods, &opCatAssign, "StringBuffer.opCatAssign");
+			iteratorClosure = new MDClosure(mFields, &iterator, "StringBuffer.iterator");
+			iteratorReverseClosure = new MDClosure(mFields, &iteratorReverse, "StringBuffer.iteratorReverse");
+			auto catEq = new MDClosure(mFields, &opCatAssign, "StringBuffer.opCatAssign");
 
-			mMethods.addList
+			mFields.addList
 			(
-				"constructor"d,   new MDClosure(mMethods, &constructor,   "StringBuffer.constructor"),
-				"append"d,        catEq,
-				"opCatAssign"d,   catEq,
-				"insert"d,        new MDClosure(mMethods, &insert,        "StringBuffer.insert"),
-				"remove"d,        new MDClosure(mMethods, &remove,        "StringBuffer.remove"),
-				"toString"d,      new MDClosure(mMethods, &toString,      "StringBuffer.toString"),
-				"length"d,        new MDClosure(mMethods, &length,        "StringBuffer.length"),
-				"opLength"d,      new MDClosure(mMethods, &opLength,      "StringBuffer.opLength"),
-				"opIndex"d,       new MDClosure(mMethods, &opIndex,       "StringBuffer.opIndex"),
-				"opIndexAssign"d, new MDClosure(mMethods, &opIndexAssign, "StringBuffer.opIndexAssign"),
-				"opApply"d,       new MDClosure(mMethods, &opApply,       "StringBuffer.opApply"),
-				"opSlice"d,       new MDClosure(mMethods, &opSlice,       "StringBuffer.opSlice"),
-				"opSliceAssign"d, new MDClosure(mMethods, &opSliceAssign, "StringBuffer.opSliceAssign"),
-				"reserve"d,       new MDClosure(mMethods, &reserve,       "StringBuffer.reserve")
+				"clone"d,          new MDClosure(mFields, &clone,          "StringBuffer.clone"),
+				"append"d,         catEq,
+				"opCatAssign"d,    catEq,
+				"insert"d,         new MDClosure(mFields, &insert,         "StringBuffer.insert"),
+				"remove"d,         new MDClosure(mFields, &remove,         "StringBuffer.remove"),
+				"toString"d,       new MDClosure(mFields, &toString,       "StringBuffer.toString"),
+				"opLengthAssign"d, new MDClosure(mFields, &opLengthAssign, "StringBuffer.opLengthAssign"),
+				"opLength"d,       new MDClosure(mFields, &opLength,       "StringBuffer.opLength"),
+				"opIndex"d,        new MDClosure(mFields, &opIndex,        "StringBuffer.opIndex"),
+				"opIndexAssign"d,  new MDClosure(mFields, &opIndexAssign,  "StringBuffer.opIndexAssign"),
+				"opApply"d,        new MDClosure(mFields, &opApply,        "StringBuffer.opApply"),
+				"opSlice"d,        new MDClosure(mFields, &opSlice,        "StringBuffer.opSlice"),
+				"opSliceAssign"d,  new MDClosure(mFields, &opSliceAssign,  "StringBuffer.opSliceAssign"),
+				"reserve"d,        new MDClosure(mFields, &reserve,        "StringBuffer.reserve")
 			);
 		}
 
-		public MDStringBuffer newInstance()
+		public int clone(MDState s, uint numParams)
 		{
-			return new MDStringBuffer(this);
-		}
+			MDStringBuffer ret;
 
-		public int constructor(MDState s, uint numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			
 			if(numParams > 0)
 			{
 				if(s.isParam!("int")(0))
-					i.constructor(s.getParam!(uint)(0));
+					ret = new MDStringBuffer(this, s.getParam!(uint)(0));
 				else if(s.isParam!("string")(0))
-					i.constructor(s.getParam!(dchar[])(0));
+					ret = new MDStringBuffer(this, s.getParam!(dchar[])(0));
 				else
 					s.throwRuntimeException("'int' or 'string' expected for constructor, not '{}'", s.getParam(0u).typeString());
 			}
 			else
-				i.constructor();
-
-			return 0;
+				ret = new MDStringBuffer(this);
+				
+			s.push(ret);
+			return 1;
 		}
 
 		public int opCatAssign(MDState s, uint numParams)
@@ -745,9 +794,9 @@ class BaseLib
 
 				if(param.isObj)
 				{
-					if(param.isInstance)
+					if(param.isObject)
 					{
-						MDStringBuffer other = cast(MDStringBuffer)param.as!(MDInstance);
+						MDStringBuffer other = cast(MDStringBuffer)param.as!(MDObject);
 		
 						if(other)
 						{
@@ -772,9 +821,9 @@ class BaseLib
 
 			if(param.isObj)
 			{
-				if(param.isInstance)
+				if(param.isObject)
 				{
-					MDStringBuffer other = cast(MDStringBuffer)param.as!(MDInstance);
+					MDStringBuffer other = cast(MDStringBuffer)param.as!(MDObject);
 					
 					if(other)
 					{
@@ -810,7 +859,7 @@ class BaseLib
 			return 1;
 		}
 		
-		public int length(MDState s, uint numParams)
+		public int opLengthAssign(MDState s, uint numParams)
 		{
 			int newLen = s.getParam!(int)(0);
 			
@@ -820,7 +869,7 @@ class BaseLib
 			s.getContext!(MDStringBuffer).length = newLen;
 			return 0;
 		}
-		
+
 		public int opLength(MDState s, uint numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer).length);
@@ -902,7 +951,7 @@ class BaseLib
 			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
 			return 0;
 		}
-		
+
 		public int reserve(MDState s, uint numParams)
 		{
 			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
@@ -910,28 +959,26 @@ class BaseLib
 		}
 	}
 
-	static class MDStringBuffer : MDInstance
+	static class MDStringBuffer : MDObject
 	{
 		protected dchar[] mBuffer;
 		protected size_t mLength = 0;
 
-		public this(MDClass owner)
+		public this(MDStringBufferClass owner)
 		{
-			super(owner);
-		}
-
-		public void constructor()
-		{
+			super("StringBuffer", owner);
 			mBuffer = new dchar[32];
 		}
 
-		public void constructor(int size)
+		public this(MDStringBufferClass owner, size_t size)
 		{
+			super("StringBuffer", owner);
 			mBuffer = new dchar[size];
 		}
 
-		public void constructor(dchar[] data)
+		public this(MDStringBufferClass owner, dchar[] data)
 		{
+			super("StringBuffer", owner);
 			mBuffer = data;
 			mLength = mBuffer.length;
 		}
@@ -1102,7 +1149,7 @@ class BaseLib
 				mBuffer.length = mBuffer.length + length;
 		}
 	}
-	
+
 // 	static class MDBlobClass : MDClass
 // 	{
 // 		public this()

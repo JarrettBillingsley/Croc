@@ -95,23 +95,28 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 
 	while(lexer.type != Token.Type.EOF)
 		s.add(Statement.parse(lexer));
-		
+
 	lexer.expect(Token.Type.EOF);
 
 	Statement[] stmts = s.toArray();
 
 	FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name));
 	fs.mIsVararg = true;
-
-	foreach(stmt; stmts)
-		stmt.fold().codeGen(fs);
-
-	if(stmts.length == 0)
-		fs.codeI(1, Op.Ret, 0, 1);
-	else
-		fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
-		
-	//fs.showMe(); Stdout.flush;
+	
+	try
+	{
+		foreach(stmt; stmts)
+			stmt.fold().codeGen(fs);
+	
+		if(stmts.length == 0)
+			fs.codeI(1, Op.Ret, 0, 1);
+		else
+			fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
+	}
+	finally
+	{
+		//fs.showMe(); Stdout.flush;
+	}
 
 	return fs.toFuncDef();
 }
@@ -136,12 +141,19 @@ public MDFuncDef compileExpression(dchar[] source, char[] name)
 		
 	FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name));
 	fs.mIsVararg = true;
-	
+
 	auto ret = (new ReturnStatement(e)).fold();
 
-	ret.codeGen(fs);
-	fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
-	
+	try
+	{
+		ret.codeGen(fs);
+		fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
+	}
+	finally
+	{
+		//fs.showMe(); Stdout.flush;
+	}
+
 	return fs.toFuncDef();
 }
 
@@ -167,7 +179,6 @@ struct Token
 		Break,
 		Case,
 		Catch,
-		Class,
 		Continue,
 		Coroutine,
 		Default,
@@ -187,6 +198,7 @@ struct Token
 		Module,
 		Namespace,
 		Null,
+		Object,
 		Return,
 		Super,
 		Switch,
@@ -267,7 +279,6 @@ struct Token
 		Type.Break: "break",
 		Type.Case: "case",
 		Type.Catch: "catch",
-		Type.Class: "class",
 		Type.Continue: "continue",
 		Type.Coroutine: "coroutine",
 		Type.Default: "default",
@@ -287,6 +298,7 @@ struct Token
 		Type.Module: "module",
 		Type.Namespace: "namespace",
 		Type.Null: "null",
+		Type.Object: "object",
 		Type.Return: "return",
 		Type.Super: "super",
 		Type.Switch: "switch",
@@ -464,7 +476,7 @@ class Lexer
 
 		next();
 	}
-	
+
 	public final Token* tok()
 	{
 		return &mTok;
@@ -493,21 +505,23 @@ class Lexer
 	
 	public final bool isStatementTerm()
 	{
-		return mNewlineSinceLastTok || mTok.type == Token.Type.EOF || mTok.type == Token.Type.Semicolon || mTok.type == Token.Type.RBrace;
+		return mNewlineSinceLastTok ||
+			mTok.type == Token.Type.EOF ||
+			mTok.type == Token.Type.Semicolon ||
+			mTok.type == Token.Type.RBrace ||
+			mTok.type == Token.Type.RParen;
 	}
 
 	public final void statementTerm()
 	{
 		if(mNewlineSinceLastTok)
-			mNewlineSinceLastTok = false;
+			return;
 		else
 		{
-			if(mTok.type == Token.Type.EOF)
+			if(mTok.type == Token.Type.EOF || mTok.type == Token.Type.RBrace || mTok.type == Token.Type.RParen)
 				return;
 			else if(mTok.type == Token.Type.Semicolon)
 				next();
-			else if(mTok.type == Token.Type.RBrace)
-				return;
 			else
 				throw new MDCompileException(mLoc, "Statement terminator expected, not '{}'", mTok.toString());
 		}
@@ -605,7 +619,7 @@ class Lexer
 		else
 			return mSource[mPosition++];
 	}
-	
+
 	protected final dchar lookaheadChar()
 	{
 		assert(mHaveLookahead == false, "looking ahead too far");
@@ -878,7 +892,11 @@ class Lexer
 
 		nextChar();
 		if(isEOF())
-			throw new MDCompileException(beginning, "Unterminated string or character literal");
+		{
+			auto e = new MDCompileException(beginning, "Unterminated string or character literal");
+			e.atEOF = true;
+			throw e;
+		}
 
 		switch(mCharacter)
 		{
@@ -972,10 +990,14 @@ class Lexer
 		// Skip opening quote
 		nextChar();
 
-		do
+		loop: while(true)
 		{
 			if(isEOF())
-				throw new MDCompileException(beginning, "Unterminated string literal");
+			{
+				auto e = new MDCompileException(beginning, "Unterminated string literal");
+				e.atEOF = true;
+				throw e;
+			}
 
 			switch(mCharacter)
 			{
@@ -1000,18 +1022,20 @@ class Lexer
 							nextChar();
 							nextChar();
 						}
+						else
+							break loop;
 					}
 					else
 					{
 						if(escape && mCharacter == delimiter)
-							break;
+							break loop;
 
 						buf.add(mCharacter);
 						nextChar();
 					}
 					break;
 			}
-		} while(mCharacter != delimiter)
+		}
 
 		// Skip end quote
 		nextChar();
@@ -1670,30 +1694,6 @@ class FuncState
 	protected SwitchDesc* mSwitch;
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
-	
-	protected static ClassDef[] mCurrentClass;
-	protected static uint mClassDefIndex = 0;
-
-	public static void enterClass(ClassDef def)
-	{
-		if(mClassDefIndex >= mCurrentClass.length)
-			mCurrentClass.length = mCurrentClass.length + 3;
-
-		mCurrentClass[mClassDefIndex] = def;
-		mClassDefIndex++;
-	}
-
-	public static void leaveClass()
-	{
-		assert(mClassDefIndex != 0, "Number of classes underflow");
-		mClassDefIndex--;
-	}
-
-	public static ClassDef currentClass()
-	{
-		assert(mClassDefIndex != 0);
-		return mCurrentClass[mClassDefIndex - 1];
-	}
 
 	public this(Location location, dchar[] guessedName, FuncState parent = null, bool isMethod = false)
 	{
@@ -1737,7 +1737,7 @@ class FuncState
 	{
 		if((val & ~Instruction.locMask) >= MaxConstants)
 			throw new MDCompileException(mLocation, "Too many constants");
-			
+
 		return (val & ~Instruction.locMask) | Instruction.locConst;
 	}
 	
@@ -2010,7 +2010,7 @@ class FuncState
 		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
 	}
-	
+
 	protected void printExpStack()
 	{
 		Stdout.formatln("Expression Stack");
@@ -2109,7 +2109,7 @@ class FuncState
 		e.type = ExpType.NewGlobal;
 		e.index = tagConst(codeStringConst(name.name));
 	}
-	
+
 	public void pushThis()
 	{
 		Exp* e = pushExp();
@@ -2198,7 +2198,7 @@ class FuncState
 			
 		e.type = ExpType.Var;
 	}
-	
+
 	public void pushVararg()
 	{
 		Exp* e = pushExp();
@@ -2254,7 +2254,7 @@ class FuncState
 			popRegister(e.index2);
 			e.isTempReg2 = false;
 		}
-			
+
 		if(e.isTempReg)
 		{
 			popRegister(e.index);
@@ -2316,7 +2316,7 @@ class FuncState
 			case ExpType.IndexedVararg:
 				toSource(line, src);
 				
-				codeR(line, Op.VargIndexAssign, dest.index, src.index, 0);
+				codeR(line, Op.VargIndexAssign, 0, dest.index, src.index);
 				freeExpTempRegs(src);
 				break;
 
@@ -2328,7 +2328,7 @@ class FuncState
 				freeExpTempRegs(src);
 				freeExpTempRegs(dest);
 				break;
-				
+
 			case ExpType.Length:
 				toSource(line, src);
 				
@@ -2538,7 +2538,7 @@ class FuncState
 	{
 		Exp* src = &mExpStack[mExpSP - 1];
 		toSource(line, src);
-		src.type = ExpType.Length;	
+		src.type = ExpType.Length;
 	}
 
 	public void pushCall(uint line, uint firstReg, uint numRegs)
@@ -2598,7 +2598,7 @@ class FuncState
 				break;
 				
 			case ExpType.IndexedVararg:
-				codeR(line, Op.VargIndexAssign, dest.index, srcReg, 0);
+				codeR(line, Op.VargIndexAssign, 0, dest.index, srcReg);
 				break;
 				
 			case ExpType.Sliced:
@@ -3278,7 +3278,7 @@ class Identifier
 enum AstTag
 {
 	Other,
-	ClassDef,
+	ObjectDef,
 	FuncDef,
 	NamespaceDef,
 	Module,
@@ -3288,7 +3288,7 @@ enum AstTag
 	ScopeStmt,
 	ExpressionStmt,
 	FuncDecl,
-	ClassDecl,
+	ObjectDecl,
 	NamespaceDecl,
 	VarDecl,
 	IfStmt,
@@ -3320,6 +3320,8 @@ enum AstTag
 	UShrAssign,
 	CondAssign,
 	CondExp,
+	IncExp,
+	DecExp,
 	OrOrExp,
 	AndAndExp,
 	OrExp,
@@ -3353,12 +3355,12 @@ enum AstTag
 	VargLenExp,
 	CoroutineExp,
 	DotExp,
-	DotClassExp,
 	DotSuperExp,
 	IndexExp,
 	SliceExp,
 	VargSliceExp,
 	CallExp,
+	MethodCallExp,
 	IdentExp,
 	ThisExp,
 	NullExp,
@@ -3369,116 +3371,128 @@ enum AstTag
 	CharExp,
 	StringExp,
 	FuncLiteralExp,
-	ClassLiteralExp,
+	ObjectLiteralExp,
 	ParenExp,
 	TableCtorExp,
 	ArrayCtorExp,
 	NamespaceCtorExp,
 	YieldExp,
-	SuperCallExp
+	SuperCallExp,
+	ForeachComprehension,
+	ForNumComprehension,
+	IfComprehension,
+	ArrayComprehension,
+	TableComprehension,
 }
 
-const char[][] AstTagNames = 
+const char[][] AstTagNames =
 [
-	AstTag.Other:            "Other",
-	AstTag.ClassDef:         "ClassDef",
-	AstTag.FuncDef:          "FuncDef",
-	AstTag.NamespaceDef:     "NamespaceDef",
-    AstTag.Module:           "Module",
-    AstTag.ModuleDecl:       "ModuleDecl",
-    AstTag.ImportStmt:       "ImportStmt",
-    AstTag.BlockStmt:        "BlockStmt",
-    AstTag.ScopeStmt:        "ScopeStmt",
-    AstTag.ExpressionStmt:   "ExpressionStmt",
-    AstTag.FuncDecl:         "FuncDecl",
-    AstTag.ClassDecl:        "ClassDecl",
-    AstTag.NamespaceDecl:    "NamespaceDecl",
-    AstTag.VarDecl:          "VarDecl",
-    AstTag.IfStmt:           "IfStmt",
-    AstTag.WhileStmt:        "WhileStmt",
-    AstTag.DoWhileStmt:      "DoWhileStmt",
-    AstTag.ForStmt:          "ForStmt",
-    AstTag.ForNumStmt:       "ForNumStmt",
-    AstTag.ForeachStmt:      "ForeachStmt",
-    AstTag.SwitchStmt:       "SwitchStmt",
-    AstTag.CaseStmt:         "CaseStmt",
-    AstTag.DefaultStmt:      "DefaultStmt",
-    AstTag.ContinueStmt:     "ContinueStmt",
-    AstTag.BreakStmt:        "BreakStmt",
-    AstTag.ReturnStmt:       "ReturnStmt",
-    AstTag.TryStmt:          "TryStmt",
-    AstTag.ThrowStmt:        "ThrowStmt",
-    AstTag.Assign:           "Assign",
-    AstTag.AddAssign:        "AddAssign",
-    AstTag.SubAssign:        "SubAssign",
-    AstTag.CatAssign:        "CatAssign",
-    AstTag.MulAssign:        "MulAssign",
-    AstTag.DivAssign:        "DivAssign",
-    AstTag.ModAssign:        "ModAssign",
-    AstTag.OrAssign:         "OrAssign",
-    AstTag.XorAssign:        "XorAssign",
-    AstTag.AndAssign:        "AndAssign",
-    AstTag.ShlAssign:        "ShlAssign",
-    AstTag.ShrAssign:        "ShrAssign",
-    AstTag.UShrAssign:       "UShrAssign",
-    AstTag.CondAssign:       "CondAssign",
-    AstTag.CondExp:          "CondExp",
-    AstTag.OrOrExp:          "OrOrExp",
-    AstTag.AndAndExp:        "AndAndExp",
-    AstTag.OrExp:            "OrExp",
-    AstTag.XorExp:           "XorExp",
-    AstTag.AndExp:           "AndExp",
-    AstTag.EqualExp:         "EqualExp",
-    AstTag.NotEqualExp:      "NotEqualExp",
-    AstTag.IsExp:            "IsExp",
-    AstTag.NotIsExp:         "NotIsExp",
-    AstTag.LTExp:          "LTExp",
-    AstTag.LEExp:     "LEExp",
-    AstTag.GTExp:       "GTExp",
-    AstTag.GEExp:  "GEExp",
-    AstTag.Cmp3Exp:          "Cmp3Exp",
-    AstTag.AsExp:            "AsExp",
-    AstTag.InExp:            "InExp",
-    AstTag.NotInExp:         "NotInExp",
-    AstTag.ShlExp:           "ShlExp",
-    AstTag.ShrExp:           "ShrExp",
-    AstTag.UShrExp:          "UShrExp",
-    AstTag.AddExp:           "AddExp",
-    AstTag.SubExp:           "SubExp",
-    AstTag.CatExp:           "CatExp",
-    AstTag.MulExp:           "MulExp",
-    AstTag.DivExp:           "DivExp",
-    AstTag.ModExp:           "ModExp",
-    AstTag.NegExp:           "NegExp",
-    AstTag.NotExp:           "NotExp",
-    AstTag.ComExp:           "ComExp",
-    AstTag.LenExp:           "LenExp",
-    AstTag.VargLenExp:       "VargLenExp",
-    AstTag.CoroutineExp:     "CoroutineExp",
-    AstTag.DotExp:           "DotExp",
-    AstTag.DotClassExp:      "DotClassExp",
-    AstTag.DotSuperExp:      "DotSuperExp",
-    AstTag.IndexExp:         "IndexExp",
-    AstTag.SliceExp:         "SliceExp",
-    AstTag.VargSliceExp:     "VargSliceExp",
-    AstTag.CallExp:          "CallExp",
-    AstTag.IdentExp:         "IdentExp",
-    AstTag.ThisExp:          "ThisExp",
-    AstTag.NullExp:          "NullExp",
-    AstTag.BoolExp:          "BoolExp",
-    AstTag.VarargExp:        "VarargExp",
-    AstTag.IntExp:           "IntExp",
-    AstTag.FloatExp:         "FloatExp",
-    AstTag.CharExp:          "CharExp",
-    AstTag.StringExp:        "StringExp",
-    AstTag.FuncLiteralExp:   "FuncLiteralExp",
-    AstTag.ClassLiteralExp:  "ClassLiteralExp",
-    AstTag.ParenExp:         "ParenExp",
-    AstTag.TableCtorExp:     "TableCtorExp",
-    AstTag.ArrayCtorExp:     "ArrayCtorExp",
-    AstTag.NamespaceCtorExp: "NamespaceCtorExp",
-    AstTag.YieldExp:         "YieldExp",
-    AstTag.SuperCallExp:     "SuperCallExp"
+	AstTag.Other:                "Other",
+	AstTag.ObjectDef:            "ObjectDef",
+	AstTag.FuncDef:              "FuncDef",
+	AstTag.NamespaceDef:         "NamespaceDef",
+    AstTag.Module:               "Module",
+    AstTag.ModuleDecl:           "ModuleDecl",
+    AstTag.ImportStmt:           "ImportStmt",
+    AstTag.BlockStmt:            "BlockStmt",
+    AstTag.ScopeStmt:            "ScopeStmt",
+    AstTag.ExpressionStmt:       "ExpressionStmt",
+    AstTag.FuncDecl:             "FuncDecl",
+    AstTag.ObjectDecl:           "ObjectDecl",
+    AstTag.NamespaceDecl:        "NamespaceDecl",
+    AstTag.VarDecl:              "VarDecl",
+    AstTag.IfStmt:               "IfStmt",
+    AstTag.WhileStmt:            "WhileStmt",
+    AstTag.DoWhileStmt:          "DoWhileStmt",
+    AstTag.ForStmt:              "ForStmt",
+    AstTag.ForNumStmt:           "ForNumStmt",
+    AstTag.ForeachStmt:          "ForeachStmt",
+    AstTag.SwitchStmt:           "SwitchStmt",
+    AstTag.CaseStmt:             "CaseStmt",
+    AstTag.DefaultStmt:          "DefaultStmt",
+    AstTag.ContinueStmt:         "ContinueStmt",
+    AstTag.BreakStmt:            "BreakStmt",
+    AstTag.ReturnStmt:           "ReturnStmt",
+    AstTag.TryStmt:              "TryStmt",
+    AstTag.ThrowStmt:            "ThrowStmt",
+    AstTag.Assign:               "Assign",
+    AstTag.AddAssign:            "AddAssign",
+    AstTag.SubAssign:            "SubAssign",
+    AstTag.CatAssign:            "CatAssign",
+    AstTag.MulAssign:            "MulAssign",
+    AstTag.DivAssign:            "DivAssign",
+    AstTag.ModAssign:            "ModAssign",
+    AstTag.OrAssign:             "OrAssign",
+    AstTag.XorAssign:            "XorAssign",
+    AstTag.AndAssign:            "AndAssign",
+    AstTag.ShlAssign:            "ShlAssign",
+    AstTag.ShrAssign:            "ShrAssign",
+    AstTag.UShrAssign:           "UShrAssign",
+    AstTag.CondAssign:           "CondAssign",
+    AstTag.CondExp:              "CondExp",
+    AstTag.IncExp:               "IncExp",
+    AstTag.DecExp:               "DecExp",
+    AstTag.OrOrExp:              "OrOrExp",
+    AstTag.AndAndExp:            "AndAndExp",
+    AstTag.OrExp:                "OrExp",
+    AstTag.XorExp:               "XorExp",
+    AstTag.AndExp:               "AndExp",
+    AstTag.EqualExp:             "EqualExp",
+    AstTag.NotEqualExp:          "NotEqualExp",
+    AstTag.IsExp:                "IsExp",
+    AstTag.NotIsExp:             "NotIsExp",
+    AstTag.LTExp:                "LTExp",
+    AstTag.LEExp:                "LEExp",
+    AstTag.GTExp:                "GTExp",
+    AstTag.GEExp:                "GEExp",
+    AstTag.Cmp3Exp:              "Cmp3Exp",
+    AstTag.AsExp:                "AsExp",
+    AstTag.InExp:                "InExp",
+    AstTag.NotInExp:             "NotInExp",
+    AstTag.ShlExp:               "ShlExp",
+    AstTag.ShrExp:               "ShrExp",
+    AstTag.UShrExp:              "UShrExp",
+    AstTag.AddExp:               "AddExp",
+    AstTag.SubExp:               "SubExp",
+    AstTag.CatExp:               "CatExp",
+    AstTag.MulExp:               "MulExp",
+    AstTag.DivExp:               "DivExp",
+    AstTag.ModExp:               "ModExp",
+    AstTag.NegExp:               "NegExp",
+    AstTag.NotExp:               "NotExp",
+    AstTag.ComExp:               "ComExp",
+    AstTag.LenExp:               "LenExp",
+    AstTag.VargLenExp:           "VargLenExp",
+    AstTag.CoroutineExp:         "CoroutineExp",
+    AstTag.DotExp:               "DotExp",
+    AstTag.DotSuperExp:          "DotSuperExp",
+    AstTag.IndexExp:             "IndexExp",
+    AstTag.SliceExp:             "SliceExp",
+    AstTag.VargSliceExp:         "VargSliceExp",
+    AstTag.CallExp:              "CallExp",
+    AstTag.MethodCallExp:        "MethodCallExp",
+    AstTag.IdentExp:             "IdentExp",
+    AstTag.ThisExp:              "ThisExp",
+    AstTag.NullExp:              "NullExp",
+    AstTag.BoolExp:              "BoolExp",
+    AstTag.VarargExp:            "VarargExp",
+    AstTag.IntExp:               "IntExp",
+    AstTag.FloatExp:             "FloatExp",
+    AstTag.CharExp:              "CharExp",
+    AstTag.StringExp:            "StringExp",
+    AstTag.FuncLiteralExp:       "FuncLiteralExp",
+    AstTag.ObjectLiteralExp:     "ObjectLiteralExp",
+    AstTag.ParenExp:             "ParenExp",
+    AstTag.TableCtorExp:         "TableCtorExp",
+    AstTag.ArrayCtorExp:         "ArrayCtorExp",
+    AstTag.NamespaceCtorExp:     "NamespaceCtorExp",
+    AstTag.YieldExp:             "YieldExp",
+    AstTag.SuperCallExp:         "SuperCallExp",
+    AstTag.ForeachComprehension: "ForeachComprehension",
+    AstTag.ForNumComprehension:  "ForNumComprehension",
+    AstTag.IfComprehension:      "IfComprehension",
+    AstTag.ArrayComprehension:   "ArrayComprehension",
+    AstTag.TableComprehension:   "TableComprehension"
 ];
 
 private Op AstTagToOpcode(AstTag tag)
@@ -3498,6 +3512,8 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.ShrAssign: return Op.ShrEq;
 		case AstTag.UShrAssign: return Op.UShrEq;
 		case AstTag.CondAssign: return Op.CondMove;
+		case AstTag.IncExp: return Op.Inc;
+		case AstTag.DecExp: return Op.Dec;
 		case AstTag.OrExp: return Op.Or;
 		case AstTag.XorExp: return Op.Xor;
 		case AstTag.AndExp: return Op.And;
@@ -3549,7 +3565,7 @@ abstract class AstNode
 	}
 }
 
-class ClassDef : AstNode
+class ObjectDef : AstNode
 {
 	struct Field
 	{
@@ -3558,89 +3574,65 @@ class ClassDef : AstNode
 	}
 
 	public Identifier name;
-	public Expression baseClass;
-	public FuncDef[] methods;
+	public Expression baseObject;
 	public Field[] fields;
 	public TableCtorExp attrs;
 
-	public this(Location location, Location endLocation, Identifier name, Expression baseClass, FuncDef[] methods, Field[] fields, TableCtorExp attrs = null)
+	public this(Location location, Location endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
 	{
-		super(location, endLocation, AstTag.ClassDef);
+		super(location, endLocation, AstTag.ObjectDef);
 		this.name = name;
-		this.baseClass = baseClass;
-		this.methods = methods;
+		this.baseObject = baseObject;
 		this.fields = fields;
 		this.attrs = attrs;
-
-		if(this.name is null)
-			this.name = new Identifier(location, "<literal at " ~ utf.toString32(location.toString()) ~ ">");
 	}
 
-	public static ClassDef parse(Lexer l, bool nameOptional, TableCtorExp attrs = null)
+	public static ObjectDef parse(Lexer l, bool nameOptional, TableCtorExp attrs = null)
 	{
-		auto location = l.expect(Token.Type.Class).location;
+		auto location = l.expect(Token.Type.Object).location;
 
 		Identifier name;
 
 		if(!nameOptional || l.type == Token.Type.Ident)
 			name = Identifier.parse(l);
 
-		Expression baseClass;
+		Expression baseObject;
 
 		if(l.type == Token.Type.Colon)
 		{
 			l.next();
-			baseClass = Expression.parse(l);
+			baseObject = Expression.parse(l);
 		}
 		else
-			baseClass = new NullExp(l.loc);
+			baseObject = new IdentExp(l.loc, "Object");
 
 		l.expect(Token.Type.LBrace);
 
-		FuncDef[dchar[]] methods;
-
-		void addMethod(FuncDef m)
-		{
-			dchar[] name = m.name.name;
-
-			if(name in methods)
-				throw new MDCompileException(m.location, "Redeclaration of method '{}'", name);
-
-			methods[name] = m;
-		}
-
-		Expression[dchar[]] fields;
+		bool[dchar[]] fieldMap;
+		Field[] fields;
 
 		void addField(Identifier name, Expression v)
 		{
-			if(name.name in fields)
+			if(name.name in fieldMap)
 				throw new MDCompileException(name.location, "Redeclaration of field '{}'", name.name);
 
-			fields[name.name] = v;
+			fieldMap[name.name] = true;
+			fields ~= Field(name.name, v);
+		}
+		
+		void addMethod(FuncDef m)
+		{
+			dchar[] name = m.name.name;
+			addField(m.name, new FuncLiteralExp(m.location, m));
 		}
 
 		while(l.type != Token.Type.RBrace)
 		{
 			switch(l.type)
 			{
-				case Token.Type.This:
-					auto ctorLocation = l.loc;
-					l.next();
-
-					addMethod(FuncDef.parseBody(l, ctorLocation, new Identifier(ctorLocation, "constructor")));
-					break;
-
 				case Token.Type.LAttr:
 					auto attr = TableCtorExp.parseAttrs(l);
-
-					if(l.type == Token.Type.This)
-					{
-						auto ctorLocation = l.loc;
-						l.next();
-						addMethod(FuncDef.parseBody(l, ctorLocation, new Identifier(ctorLocation, "constructor"), attr));
-					}
-					else
-						addMethod(FuncDef.parseSimple(l, attr));
+					addMethod(FuncDef.parseSimple(l, attr));
 					break;
 
 				case Token.Type.Function:
@@ -3665,12 +3657,12 @@ class ClassDef : AstNode
 					break;
 
 				case Token.Type.EOF:
-					auto e = new MDCompileException(l.loc, "Class at {} is missing its closing brace", location.toString());
+					auto e = new MDCompileException(l.loc, "Object at {} is missing its closing brace", location.toString());
 					e.atEOF = true;
 					throw e;
 
 				default:
-					l.tok.expected("Class method or field");
+					l.tok.expected("Object method or field");
 			}
 		}
 
@@ -3678,160 +3670,54 @@ class ClassDef : AstNode
 		auto endLocation = l.loc;
 		l.next();
 
-		auto f = new Field[fields.length];
-
-		uint i = 0;
-
-		foreach(name, initializer; fields)
-		{
-			f[i].name = name;
-			f[i].initializer = initializer;
-			i++;
-		}
-
-		return new ClassDef(location, endLocation, name, baseClass, methods.values, f, attrs);
+		return new ObjectDef(location, endLocation, name, baseObject, fields, attrs);
 	}
 	
 	public void codeGen(FuncState s)
 	{
-		/*
-		A class declaration/literal actually gets rewritten as a call to a function literal.  This allows
-		super calls to work correctly within the methods, by making this class available as an upvalue to those
-		methods.
-		
-		The expression (not the declaration):
+		baseObject.codeGen(s);
+		Exp base;
+		s.popSource(location.line, base);
+		s.freeExpTempRegs(&base);
 
-		class A : B
+		uint destReg = s.pushRegister();
+		uint nameConst = name is null ? s.tagConst(s.codeNullConst()) : s.tagConst(s.codeStringConst(name.name));
+		s.codeR(location.line, Op.Object, destReg, nameConst, base.index);
+
+		foreach(field; fields)
 		{
-			this() { super(); }
-			function fork() { super.fork(); }
-			function spoon() { writefln("spoon"); }
+			uint index = s.tagConst(s.codeStringConst(field.name));
+
+			field.initializer.codeGen(s);
+			Exp val;
+			s.popSource(field.initializer.endLocation.line, val);
+			s.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
+			s.freeExpTempRegs(&val);
 		}
 
-		is rewritten as:
-
-		(function <class A>()
+		if(attrs)
 		{
-			local __class;
+			attrs.codeGen(s);
+			Exp src;
+			s.popSource(location.line, src);
+			s.freeExpTempRegs(&src);
+			s.codeR(location.line, Op.SetAttrs, destReg, src.index, 0);
+		}
 
-			__class = class A : B
-			{
-				this() { __class.super.constructor(with this); }
-				function fork() { __class.super.fork(with this); }
-				function spoon() { writefln("spoon"); }
-			};
-
-			return __class;
-		})();
-
-		So a declaration amounts to the assignment of this function call into a variable.
-		
-		Notice that any methods that don't use supercalls aren't penalized with the creation of an upvalue for __class.
-		*/
-		
-		Expression classExp = new class(this) Expression
-		{
-			private ClassDef mOuter;
-
-			this(ClassDef _outer)
-			{
-				super(_outer.location, _outer.endLocation, AstTag.Other);
-				mOuter = _outer;
-			}
-
-			override void codeGen(FuncState s)
-			{
-				baseClass.codeGen(s);
-				Exp base;
-				s.popSource(location.line, base);
-				s.freeExpTempRegs(&base);
-
-				uint destReg = s.pushRegister();
-				uint nameConst = s.tagConst(s.codeStringConst(name.name));
-				s.codeR(location.line, Op.Class, destReg, nameConst, base.index);
-
-				FuncState.enterClass(mOuter);
-
-				foreach(field; fields)
-				{
-					uint index = s.tagConst(s.codeStringConst(field.name));
-
-					field.initializer.codeGen(s);
-					Exp val;
-					s.popSource(field.initializer.endLocation.line, val);
-
-					s.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
-
-					s.freeExpTempRegs(&val);
-				}
-
-				foreach(method; methods)
-				{
-					uint index = s.tagConst(s.codeStringConst(method.name.name));
-
-					method.codeGen(s, true);
-					Exp val;
-					s.popSource(method.endLocation.line, val);
-
-					s.codeR(method.endLocation.line, Op.FieldAssign, destReg, index, val.index);
-
-					s.freeExpTempRegs(&val);
-				}
-
-				FuncState.leaveClass();
-
-				if(attrs)
-				{
-					attrs.codeGen(s);
-					Exp src;
-					s.popSource(location.line, src);
-					s.freeExpTempRegs(&src);
-					s.codeR(location.line, Op.SetAttrs, destReg, src.index, 0);
-				}
-
-				s.pushTempReg(destReg);
-			}
-
-			override InstRef* codeCondition(FuncState fs)
-			{
-				assert(false);
-			}
-		};
-
-		Identifier __class = new Identifier(location, "__class");
-		Expression __classExp = new IdentExp(__class);
-
-  		CompoundStatement funcBody = new CompoundStatement(location, endLocation,
-  		[
-	  		cast(Statement)new VarDecl(location, location, Protection.Local, [__class], null),
-			new ExpressionStatement(location, endLocation, new Assignment(location, endLocation, [__classExp], classExp)),
-			new ReturnStatement(__classExp)
-		]);
-
-		FuncLiteralExp func = new FuncLiteralExp(location, new FuncDef(location, name, [FuncDef.Param(new Identifier(location, "this"))], false, funcBody));
-
-		(new CallExp(location, endLocation, func, null, null)).codeGen(s);
+		s.pushTempReg(destReg);
 	}
 
-	public ClassDef fold()
+	public ObjectDef fold()
 	{
-		baseClass = baseClass.fold();
+		baseObject = baseObject.fold();
 
 		foreach(ref field; fields)
 			field.initializer = field.initializer.fold();
 
-		foreach(ref method; methods)
-			method = method.fold();
-		
 		if(attrs)
 			attrs = attrs.fold();
 
 		return this;
-	}
-
-	public bool hasBase()
-	{
-		return !baseClass.isNull();
 	}
 }
 
@@ -3858,7 +3744,7 @@ class FuncDef : AstNode
 		this.name = name;
 		this.attrs = attrs;
 	}
-	
+
 	public static FuncDef parseBody(Lexer l, Location location, Identifier name, TableCtorExp attrs = null)
 	{
 		bool isVararg;
@@ -4083,7 +3969,7 @@ class NamespaceDef : AstNode
 		l.tok.expect(Token.Type.RBrace);
 		auto endLocation = l.loc;
 		l.next();
-		
+
 		return new NamespaceDef(location, endLocation, name, parent, fieldsArray, attrs);
 	}
 	
@@ -4290,12 +4176,13 @@ abstract class Statement : AstNode
 				Token.Type.This,
 				Token.Type.True,
 				Token.Type.Vararg,
-				Token.Type.Yield:
+				Token.Type.Yield,
+				Token.Type.Colon:
 
 				return ExpressionStatement.parse(l);
 
 			case
-				Token.Type.Class,
+				Token.Type.Object,
 				Token.Type.Function,
 				Token.Type.Global,
 				Token.Type.LAttr,
@@ -4337,14 +4224,18 @@ abstract class Statement : AstNode
 
 class ImportStatement : Statement
 {
+	public Identifier importName;
 	public Expression expr;
 	public Identifier[] symbols;
+	public Identifier[] symbolNames;
 
-	public this(Location location, Location endLocation, Expression expr, Identifier[] symbols)
+	public this(Location location, Location endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
 		super(location, endLocation, AstTag.ImportStmt);
+		this.importName = importName;
 		this.expr = expr;
 		this.symbols = symbols;
+		this.symbolNames = symbolNames;
 	}
 
 	public static ImportStatement parse(Lexer l)
@@ -4353,7 +4244,14 @@ class ImportStatement : Statement
 
 		l.expect(Token.Type.Import);
 
+		Identifier importName;
 		Expression expr;
+		
+		if(l.type == Token.Type.Ident && l.peek.type == Token.Type.Assign)
+		{
+			importName = Identifier.parse(l);
+			l.next();
+		}
 
 		if(l.type == Token.Type.LParen)
 		{
@@ -4375,28 +4273,51 @@ class ImportStatement : Statement
 		}
 
 		Identifier[] symbols;
+		Identifier[] symbolNames;
+		
+		void parseSelectiveImport()
+		{
+			auto id = Identifier.parse(l);
+			
+			if(l.type == Token.Type.Assign)
+			{
+				l.next();
+				symbolNames ~= id;
+				symbols ~= Identifier.parse(l);
+			}
+			else
+			{
+				symbolNames ~= id;
+				symbols ~= id;
+			}
+		}
 
 		if(l.type == Token.Type.Colon)
 		{
 			l.next();
-			symbols ~= Identifier.parse(l);
+
+			parseSelectiveImport();
 
 			while(l.type == Token.Type.Comma)
 			{
 				l.next();
-				symbols ~= Identifier.parse(l);
+				parseSelectiveImport();
 			}
 		}
 		
 		auto endLocation = l.loc;
 		l.statementTerm();
-		return new ImportStatement(location, endLocation, expr, symbols);
+		return new ImportStatement(location, endLocation, importName, expr, symbols, symbolNames);
 	}
 	
 	public override void codeGen(FuncState s)
 	{
 		foreach(i, sym; symbols)
 		{
+			if(importName !is null && sym.name == importName.name)
+				throw new MDCompileException(sym.location, "Variable '{}' conflicts with previous definition at {}",
+					sym.name, importName.location.toString());
+
 			foreach(sym2; symbols[0 .. i])
 			{
 				if(sym.name == sym2.name)
@@ -4407,31 +4328,57 @@ class ImportStatement : Statement
 			}
 		}
 
-		uint firstReg = s.nextRegister();
-
-		foreach(sym; symbols)
-			s.pushRegister();
-
-		uint importReg = s.nextRegister();
-
-		expr.codeGen(s);
-		Exp src;
-		s.popSource(location.line, src);
-
-		assert(s.nextRegister() == importReg, "bad import regs");
-
-		s.codeR(location.line, Op.Import, importReg, src.index, 0);
-
-		for(int reg = firstReg + symbols.length - 1; reg >= firstReg; reg--)
-			s.popRegister(reg);
-
-		foreach(i, sym; symbols)
+		if(importName is null)
 		{
-			s.codeR(location.line, Op.Field, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.name)));
-			s.insertLocal(sym);
-		}
+			uint firstReg = s.nextRegister();
 
-		s.activateLocals(symbols.length);
+			foreach(sym; symbols)
+				s.pushRegister();
+
+			// push then pop to ensure the stack size is set correctly.
+			uint importReg = s.pushRegister();
+			s.popRegister(importReg);
+
+			expr.codeGen(s);
+			Exp src;
+			s.popSource(location.line, src);
+
+			s.codeR(location.line, Op.Import, importReg, src.index, 0);
+
+			for(int reg = firstReg + symbols.length - 1; reg >= firstReg; reg--)
+				s.popRegister(reg);
+
+			foreach(i, sym; symbols)
+			{
+				s.codeR(location.line, Op.Field, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.name)));
+				s.insertLocal(symbolNames[i]);
+			}
+
+			s.activateLocals(symbols.length);
+		}
+		else
+		{
+			uint importReg = s.nextRegister();
+
+			expr.codeGen(s);
+			Exp src;
+			s.popSource(location.line, src);
+
+			s.codeR(location.line, Op.Import, importReg, src.index, 0);
+
+			s.insertLocal(importName);
+			s.activateLocals(1);
+
+			uint firstReg = s.nextRegister();
+
+			foreach(i, sym; symbols)
+			{
+				s.codeR(location.line, Op.Field, firstReg + i, importReg, s.tagConst(s.codeStringConst(sym.name)));
+				s.insertLocal(symbolNames[i]);
+			}
+
+			s.activateLocals(symbols.length);
+		}
 	}
 	
 	public override Statement fold()
@@ -4537,8 +4484,8 @@ abstract class DeclStatement : Statement
 					case Token.Type.Function:
 		            	return FuncDecl.parse(l, attrs);
 
-					case Token.Type.Class:
-						return ClassDecl.parse(l, attrs);
+					case Token.Type.Object:
+						return ObjectDecl.parse(l, attrs);
 
 					case Token.Type.Namespace:
 						return NamespaceDecl.parse(l, attrs);
@@ -4550,8 +4497,8 @@ abstract class DeclStatement : Statement
 			case Token.Type.Function:
 				return FuncDecl.parse(l, attrs);
 
-			case Token.Type.Class:
-				return ClassDecl.parse(l, attrs);
+			case Token.Type.Object:
+				return ObjectDecl.parse(l, attrs);
 
 			case Token.Type.Namespace:
 				return NamespaceDecl.parse(l, attrs);
@@ -4568,17 +4515,17 @@ abstract class DeclStatement : Statement
 	}
 }
 
-class ClassDecl : DeclStatement
+class ObjectDecl : DeclStatement
 {
-	public ClassDef def;
+	public ObjectDef def;
 
-	public this(Location location, Protection protection, ClassDef def)
+	public this(Location location, Protection protection, ObjectDef def)
 	{
-		super(location, def.endLocation, AstTag.ClassDecl, protection);
+		super(location, def.endLocation, AstTag.ObjectDecl, protection);
 		this.def = def;
 	}
 
-	public static ClassDecl parse(Lexer l, TableCtorExp attrs = null)
+	public static ObjectDecl parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -4594,7 +4541,7 @@ class ClassDecl : DeclStatement
 			l.next();
 		}
 
-		return new ClassDecl(location, protection, ClassDef.parse(l, false, attrs));
+		return new ObjectDecl(location, protection, ObjectDef.parse(l, false, attrs));
 	}
 	
 	public override void codeGen(FuncState s)
@@ -5297,11 +5244,11 @@ class ForStatement : Statement
 
 		if(l.type == Token.Type.Semicolon)
 			l.next();
-		else if(l.type == Token.Type.Ident && l.peek.type == Token.Type.Colon)
+		else if(l.type == Token.Type.Ident && (l.peek.type == Token.Type.Colon || l.peek.type == Token.Type.Semicolon))
 		{
 			auto index = Identifier.parse(l);
 
-			l.expect(Token.Type.Colon);
+			l.next();
 
 			auto lo = Expression.parse(l);
 			l.expect(Token.Type.DotDot);
@@ -6071,7 +6018,7 @@ class ReturnStatement : Statement
 		{
 			uint firstReg = s.nextRegister();
 
-			if(exprs.length == 1 && cast(CallExp)exprs[0])
+			if(exprs.length == 1 && (cast(CallExp)exprs[0] || cast(MethodCallExp)exprs[0] || cast(SuperCallExp)exprs[0]))
 			{
 				exprs[0].codeGen(s);
 				s.popToRegisters(endLocation.line, firstReg, -1);
@@ -6304,13 +6251,13 @@ abstract class Expression : AstNode
 		{
 			l.next();
 			exp = PrimaryExp.parse(l);
-			exp = new OpEqExp(location, location, AstTag.AddAssign, exp, new IntExp(location, 1));
+			exp = new IncExp(location, location, exp);
 		}
 		else if(l.type == Token.Type.Dec)
 		{
 			l.next();
 			exp = PrimaryExp.parse(l);
-			exp = new OpEqExp(location, location, AstTag.SubAssign, exp, new IntExp(location, 1));
+			exp = new DecExp(location, location, exp);
 		}
 		else
 		{
@@ -6326,12 +6273,12 @@ abstract class Expression : AstNode
 			else if(l.type == Token.Type.Inc)
 			{
 				l.next();
-				exp = new OpEqExp(location, location, AstTag.AddAssign, exp, new IntExp(location, 1));
+				exp = new IncExp(location, location, exp);
 			}
 			else if(l.type == Token.Type.Dec)
 			{
 				l.next();
-				exp = new OpEqExp(location, location, AstTag.SubAssign, exp, new IntExp(location, 1));
+				exp = new DecExp(location, location, exp);
 			}
 			else if(l.type == Token.Type.OrOr)
 				exp = OrOrExp.parse(l, exp);
@@ -6343,7 +6290,7 @@ abstract class Expression : AstNode
 
 		return exp;
 	}
-	
+
 	public static Expression[] parseArguments(Lexer l)
 	{
 		List!(Expression) args;
@@ -6480,7 +6427,7 @@ abstract class Expression : AstNode
 	{
 		assert(false);
 	}
-	
+
 	public bool isTrue()
 	{
 		return false;
@@ -6530,6 +6477,9 @@ class Assignment : Expression
 
 			if(cast(VargLengthExp)exp)
 				throw new MDCompileException(exp.location, "'#vararg' cannot be the target of an assignment");
+				
+			if(exp.isConstant)
+				throw new MDCompileException(exp.location, "constant values cannot be the target of an assignment");
 		}
 
 		return new Assignment(location, rhs.endLocation, lhs, rhs);
@@ -6578,7 +6528,7 @@ class Assignment : Expression
 	{
 		foreach(ref exp; lhs)
 			exp = exp.fold();
-			
+
 		rhs = rhs.fold();
 		return this;
 	}
@@ -6591,6 +6541,12 @@ class OpEqExp : Expression
 
 	public this(Location location, Location endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
+		if(lhs.isConstant)
+			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
+			
+		if(cast(VargLengthExp)lhs)
+			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+
 		super(location, endLocation, type);
 		this.lhs = lhs;
 		this.rhs = rhs;
@@ -6640,9 +6596,6 @@ class OpEqExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
-		if(cast(VargLengthExp)lhs)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
-
 		lhs.codeGen(s);
 		s.pushSource(lhs.endLocation.line);
 
@@ -6700,6 +6653,12 @@ class CatEqExp : Expression
 
 	public this(Location location, Location endLocation, Expression lhs, Expression rhs)
 	{
+		if(lhs.isConstant)
+			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
+			
+		if(cast(VargLengthExp)lhs)
+			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+
 		super(location, endLocation, AstTag.CatAssign);
 		this.lhs = lhs;
 		this.rhs = rhs;
@@ -6752,6 +6711,96 @@ class CatEqExp : Expression
 	public override void checkToNothing()
 	{
 		// OK
+	}
+}
+
+class IncExp : Expression
+{
+	public Expression exp;
+
+	public this(Location location, Location endLocation, Expression exp)
+	{
+		if(exp.isConstant)
+			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
+
+		if(cast(VargLengthExp)exp)
+			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+
+		super(location, endLocation, AstTag.IncExp);
+		this.exp = exp;
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		exp.codeGen(s);
+		s.pushSource(exp.endLocation.line);
+
+		Exp src;
+		s.popSource(exp.endLocation.line, src);
+		s.freeExpTempRegs(&src);
+
+		s.popReflexOp(endLocation.line, AstTagToOpcode(type), src.index, 0);
+	}
+
+	public override InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(location, "'++' cannot be used as a condition");
+	}
+
+	public override void checkToNothing()
+	{
+		// OK
+	}
+
+	public override Expression fold()
+	{
+		exp = exp.fold();
+		return this;
+	}
+}
+
+class DecExp : Expression
+{
+	public Expression exp;
+
+	public this(Location location, Location endLocation, Expression exp)
+	{
+		if(exp.isConstant)
+			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
+
+		if(cast(VargLengthExp)exp)
+			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+
+		super(location, endLocation, AstTag.DecExp);
+		this.exp = exp;
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		exp.codeGen(s);
+		s.pushSource(exp.endLocation.line);
+
+		Exp src;
+		s.popSource(exp.endLocation.line, src);
+		s.freeExpTempRegs(&src);
+
+		s.popReflexOp(endLocation.line, AstTagToOpcode(type), src.index, 0);
+	}
+
+	public override InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(location, "'--' cannot be used as a condition");
+	}
+
+	public override void checkToNothing()
+	{
+		// OK
+	}
+
+	public override Expression fold()
+	{
+		exp = exp.fold();
+		return this;
 	}
 }
 
@@ -7612,7 +7661,7 @@ class ShiftExp : BinaryExp
 
 		return exp1;
 	}
-	
+
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7853,7 +7902,7 @@ class MulExp : BinaryExp
 
 		return exp1;
 	}
-	
+
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8031,7 +8080,7 @@ class NotExp : UnaryExp
 	{
 		super(location, endLocation, AstTag.NotExp, operand);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
@@ -8206,12 +8255,6 @@ abstract class PostfixExp : UnaryExp
 						l.next();
 						exp = new DotSuperExp(location, endLocation, exp);
 					}
-					else if(l.type == Token.Type.Class)
-					{
-						auto endLocation = l.loc;
-						l.next();
-						exp = new DotClassExp(location, endLocation, exp);
-					}
 					else
 					{
 						l.expect(Token.Type.LParen);
@@ -8222,6 +8265,9 @@ abstract class PostfixExp : UnaryExp
 					continue;
 
 				case Token.Type.LParen:
+					if(exp.endLocation.line != l.loc.line)
+						throw new MDCompileException(l.loc, "ambiguous left-paren (chained call or beginning of new statement?)");
+
 					l.next();
 
 					Expression context;
@@ -8241,8 +8287,12 @@ abstract class PostfixExp : UnaryExp
 					l.tok.expect(Token.Type.RParen);
 					auto endLocation = l.loc;
 					l.next();
+					
+					if(cast(DotExp)exp)
+						exp = new MethodCallExp(location, endLocation, exp, context, args);
+					else
+						exp = new CallExp(location, endLocation, exp, context, args);
 
-					exp = new CallExp(location, endLocation, exp, context, args);
 					continue;
 
 				case Token.Type.LBracket:
@@ -8350,6 +8400,35 @@ class DotExp : PostfixExp
 		this.name = name;
 	}
 	
+	public static Expression parseMemberExp(Lexer l)
+	{
+		auto loc = l.expect(Token.Type.Colon).location;
+		Location endLoc;
+		Expression exp;
+
+		if(l.type == Token.Type.LParen)
+		{
+			l.next();
+			exp = Expression.parse(l);
+			endLoc = l.expect(Token.Type.RParen).location;
+			exp = new DotExp(loc, endLoc, new ThisExp(loc), exp);
+		}
+		else if(l.type == Token.Type.Super)
+		{
+			endLoc = l.loc;
+			l.next();
+			exp = new DotSuperExp(loc, endLoc, new ThisExp(loc));
+		}
+		else
+		{
+			endLoc = l.loc;
+			auto name = Identifier.parseName(l);
+			exp = new DotExp(loc, endLoc, new ThisExp(loc), new StringExp(endLoc, name));
+		}
+		
+		return exp;
+	}
+
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
@@ -8376,7 +8455,7 @@ class DotSuperExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
-		s.popUnOp(endLocation.line, Op.Super);
+		s.popUnOp(endLocation.line, Op.SuperOf);
 	}
 
 	public override Expression fold()
@@ -8386,22 +8465,94 @@ class DotSuperExp : PostfixExp
 	}
 }
 
-class DotClassExp : PostfixExp
+class MethodCallExp : PostfixExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	public Expression context;
+	public Expression[] args;
+
+	public this(Location location, Location endLocation, Expression operand, Expression context, Expression[] args)
 	{
-		super(location, endLocation, AstTag.DotClassExp, operand);
+		super(location, endLocation, AstTag.MethodCallExp, operand);
+		this.context = context;
+		this.args = args;
 	}
 	
 	public override void codeGen(FuncState s)
 	{
-		op.codeGen(s);
-		s.popUnOp(endLocation.line, Op.ClassOf);
+		codeGen(s, false);
+	}
+
+	public void codeGen(FuncState s, bool isSuperCall = false)
+	{
+		auto dotExp = cast(DotExp)op;
+
+		Expression methodName = dotExp.name;
+
+		uint funcReg = s.nextRegister();
+		dotExp.op.codeGen(s);
+
+		Exp src;
+		s.popSource(op.endLocation.line, src);
+		s.freeExpTempRegs(&src);
+		assert(s.nextRegister() == funcReg);
+
+		s.pushRegister();
+
+		Exp meth;
+		methodName.codeGen(s);
+		s.popSource(methodName.endLocation.line, meth);
+		s.freeExpTempRegs(&meth);
+
+		uint thisReg = s.nextRegister();
+
+		if(context)
+		{
+			context.codeGen(s);
+			s.popMoveTo(op.endLocation.line, thisReg);
+		}
+
+		s.pushRegister();
+
+		Expression.codeGenListToNextReg(s, args);
+
+		Op opcode;
+		
+		if(context is null)
+			opcode = isSuperCall ? Op.SuperMethod : Op.Method;
+		else
+			opcode = Op.MethodNC;
+
+		s.codeR(op.endLocation.line, opcode, funcReg, src.index, meth.index);
+		s.popRegister(thisReg);
+
+		if(args.length == 0)
+			s.pushCall(endLocation.line, funcReg, 2);
+		else if(args[$ - 1].isMultRet())
+			s.pushCall(endLocation.line, funcReg, 0);
+		else
+			s.pushCall(endLocation.line, funcReg, args.length + 2);
+	}
+
+	public override void checkToNothing()
+	{
+		// OK
+	}
+
+	public override bool isMultRet()
+	{
+		return true;
 	}
 
 	public override Expression fold()
 	{
 		op = op.fold();
+
+		if(context)
+			context = context.fold();
+
+		foreach(ref arg; args)
+			arg = arg.fold();
+
 		return this;
 	}
 }
@@ -8417,84 +8568,40 @@ class CallExp : PostfixExp
 		this.context = context;
 		this.args = args;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
-		if(auto dotExp = cast(DotExp)op)
+		uint funcReg = s.nextRegister();
+		Exp src;
+
+		op.codeGen(s);
+
+		s.popSource(op.endLocation.line, src);
+		s.freeExpTempRegs(&src);
+		assert(s.nextRegister() == funcReg);
+
+		s.pushRegister();
+		uint thisReg = s.nextRegister();
+
+		if(context)
 		{
-			Expression methodName = dotExp.name;
-
-			uint funcReg = s.nextRegister();
-			dotExp.op.codeGen(s);
-
-			Exp src;
-			s.popSource(op.endLocation.line, src);
-			s.freeExpTempRegs(&src);
-			assert(s.nextRegister() == funcReg);
-
-			s.pushRegister();
-
-			Exp meth;
-			methodName.codeGen(s);
-			s.popSource(methodName.endLocation.line, meth);
-			s.freeExpTempRegs(&meth);
-
-			uint thisReg = s.nextRegister();
-
-			if(context)
-			{
-				context.codeGen(s);
-				s.popMoveTo(op.endLocation.line, thisReg);
-			}
-
-			s.pushRegister();
-
-			Expression.codeGenListToNextReg(s, args);
-
-			s.codeR(op.endLocation.line, (context is null) ? Op.Method : Op.MethodNC, funcReg, src.index, meth.index);
-			s.popRegister(thisReg);
-
-			if(args.length == 0)
-				s.pushCall(endLocation.line, funcReg, 2);
-			else if(args[$ - 1].isMultRet())
-				s.pushCall(endLocation.line, funcReg, 0);
-			else
-				s.pushCall(endLocation.line, funcReg, args.length + 2);
+			context.codeGen(s);
+			s.popMoveTo(op.endLocation.line, thisReg);
 		}
+
+		s.pushRegister();
+
+		Expression.codeGenListToNextReg(s, args);
+
+		s.codeR(op.endLocation.line, Op.Precall, funcReg, src.index, (context is null) ? 1 : 0);
+		s.popRegister(thisReg);
+
+		if(args.length == 0)
+			s.pushCall(endLocation.line, funcReg, 2);
+		else if(args[$ - 1].isMultRet())
+			s.pushCall(endLocation.line, funcReg, 0);
 		else
-		{
-			uint funcReg = s.nextRegister();
-			Exp src;
-			
-			op.codeGen(s);
-
-			s.popSource(op.endLocation.line, src);
-			s.freeExpTempRegs(&src);
-			assert(s.nextRegister() == funcReg);
-
-			s.pushRegister();
-			uint thisReg = s.nextRegister();
-
-			if(context)
-			{
-				context.codeGen(s);
-				s.popMoveTo(op.endLocation.line, thisReg);
-			}
-
-			s.pushRegister();
-
-			Expression.codeGenListToNextReg(s, args);
-
-			s.codeR(op.endLocation.line, Op.Precall, funcReg, src.index, (context is null) ? 1 : 0);
-			s.popRegister(thisReg);
-
-			if(args.length == 0)
-				s.pushCall(endLocation.line, funcReg, 2);
-			else if(args[$ - 1].isMultRet())
-				s.pushCall(endLocation.line, funcReg, 0);
-			else
-				s.pushCall(endLocation.line, funcReg, args.length + 2);
-		}
+			s.pushCall(endLocation.line, funcReg, args.length + 2);
 	}
 
 	public override void checkToNothing()
@@ -8693,13 +8800,14 @@ class PrimaryExp : Expression
 			case Token.Type.FloatLiteral:           exp = FloatExp.parse(l); break;
 			case Token.Type.StringLiteral:          exp = StringExp.parse(l); break;
 			case Token.Type.Function:               exp = FuncLiteralExp.parse(l); break;
-			case Token.Type.Class:                  exp = ClassLiteralExp.parse(l); break;
+			case Token.Type.Object:                 exp = ObjectLiteralExp.parse(l); break;
 			case Token.Type.LParen:                 exp = ParenExp.parse(l); break;
 			case Token.Type.LBrace:                 exp = TableCtorExp.parse(l); break;
 			case Token.Type.LBracket:               exp = ArrayCtorExp.parse(l); break;
 			case Token.Type.Namespace:              exp = NamespaceCtorExp.parse(l); break;
 			case Token.Type.Yield:                  exp = YieldExp.parse(l); break;
 			case Token.Type.Super:                  exp = SuperCallExp.parse(l); break;
+			case Token.Type.Colon:                  exp = DotExp.parseMemberExp(l); break;
 			default: l.tok.expected("Expression");
 		}
 
@@ -9163,20 +9271,20 @@ class FuncLiteralExp : PrimaryExp
 	}
 }
 
-class ClassLiteralExp : PrimaryExp
+class ObjectLiteralExp : PrimaryExp
 {
-	public ClassDef def;
+	public ObjectDef def;
 
-	public this(Location location, ClassDef def)
+	public this(Location location, ObjectDef def)
 	{
-		super(location, def.endLocation, AstTag.ClassLiteralExp);
+		super(location, def.endLocation, AstTag.ObjectLiteralExp);
 		this.def = def;
 	}
 	
-	public static ClassLiteralExp parse(Lexer l)
+	public static ObjectLiteralExp parse(Lexer l)
 	{
 		auto location = l.loc;
-		return new ClassLiteralExp(location, ClassDef.parse(l, true));
+		return new ObjectLiteralExp(location, ObjectDef.parse(l, true));
 	}
 
 	public override void codeGen(FuncState s)
@@ -9251,6 +9359,251 @@ class ParenExp : PrimaryExp
 	}
 }
 
+abstract class ForComprehension : AstNode
+{
+	public this(Location location, Location endLocation, AstTag tag)
+	{
+		super(location, endLocation, tag);
+	}
+	
+	public static ForComprehension parse(Lexer l)
+	{
+		auto loc = l.expect(Token.Type.For).location;
+		
+		Identifier[] names;
+		names ~= Identifier.parse(l);
+		
+		while(l.type == Token.Type.Comma)
+		{
+			l.next();
+			names ~= Identifier.parse(l);
+		}
+		
+		l.expect(Token.Type.In);
+		
+		auto exp = Expression.parse(l);
+		
+		if(l.type == Token.Type.DotDot)
+		{
+			if(names.length > 1)
+				throw new MDCompileException(loc, "Numeric for comprehension may only have one index");
+				
+			l.next();
+			auto exp2 = Expression.parse(l);
+			
+			Expression step;
+
+			if(l.type == Token.Type.Comma)
+			{
+				l.next();
+				step = Expression.parse(l);
+			}
+			
+			IfComprehension ifComp;
+
+			if(l.type == Token.Type.If)
+				ifComp = IfComprehension.parse(l);
+				
+			ForComprehension forComp;
+			
+			if(l.type == Token.Type.For)
+				forComp = ForComprehension.parse(l);
+
+			return new ForNumComprehension(loc, names[0], exp, exp2, step, ifComp, forComp);
+		}
+		else
+		{
+			Expression[] container;
+			container ~= exp;
+			
+			if(names.length == 1)
+				names = ForeachStatement.dummyIndex(names[0].location) ~ names;
+
+			while(l.type == Token.Type.Comma)
+			{
+				l.next();
+				container ~= Expression.parse(l);
+			}
+
+			if(container.length > 3)
+				throw new MDCompileException(container[0].location, "Too many expressions in container");
+
+			IfComprehension ifComp;
+
+			if(l.type == Token.Type.If)
+				ifComp = IfComprehension.parse(l);
+
+			ForComprehension forComp;
+
+			if(l.type == Token.Type.For)
+				forComp = ForComprehension.parse(l);
+
+			return new ForeachComprehension(loc, names, container, ifComp, forComp);
+		}
+	}
+
+	public abstract Statement rewrite(Statement innerStmt);
+	public abstract ForComprehension fold();
+}
+
+class ForeachComprehension : ForComprehension
+{
+	public Identifier[] indices;
+	public Expression[] container;
+	public IfComprehension ifComp;
+	public ForComprehension forComp;
+
+	public this(Location location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				super(location, forComp.endLocation, AstTag.ForeachComprehension);
+			else
+				super(location, ifComp.endLocation, AstTag.ForeachComprehension);
+		}
+		else if(forComp)
+			super(location, forComp.endLocation, AstTag.ForeachComprehension);
+		else
+			super(location, container[$ - 1].endLocation, AstTag.ForeachComprehension);
+
+		this.indices = indices;
+		this.container = container;
+		this.ifComp = ifComp;
+		this.forComp = forComp;
+	}
+	
+	public override Statement rewrite(Statement innerStmt)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				innerStmt = ifComp.rewrite(forComp.rewrite(innerStmt));
+			else
+				innerStmt = ifComp.rewrite(innerStmt);
+		}
+		else if(forComp)
+			innerStmt = forComp.rewrite(innerStmt);
+
+		return (new ForeachStatement(location, indices, container, innerStmt)).fold();
+	}
+
+	public override ForComprehension fold()
+	{
+		foreach(ref exp; container)
+			exp = exp.fold();
+
+		if(ifComp)
+			ifComp = ifComp.fold();
+
+		if(forComp)
+			forComp = forComp.fold();
+
+		return this;
+	}
+}
+
+class ForNumComprehension : ForComprehension
+{
+	public Identifier index;
+	public Expression lo;
+	public Expression hi;
+	public Expression step;
+	public IfComprehension ifComp;
+	public ForComprehension forComp;
+	
+	public this(Location location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				super(location, forComp.endLocation, AstTag.ForNumComprehension);
+			else
+				super(location, ifComp.endLocation, AstTag.ForNumComprehension);
+		}
+		else if(forComp)
+			super(location, forComp.endLocation, AstTag.ForNumComprehension);
+		else if(step)
+			super(location, step.endLocation, AstTag.ForeachComprehension);
+		else
+			super(location, hi.endLocation, AstTag.ForeachComprehension);
+
+		this.index = index;
+		this.lo = lo;
+		this.hi = hi;
+		
+		if(step is null)
+			this.step = new IntExp(location, 1);
+		else
+			this.step = step;
+
+		this.ifComp = ifComp;
+		this.forComp = forComp;
+	}
+	
+	public override Statement rewrite(Statement innerStmt)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				innerStmt = ifComp.rewrite(forComp.rewrite(innerStmt));
+			else
+				innerStmt = ifComp.rewrite(innerStmt);
+		}
+		else if(forComp)
+			innerStmt = forComp.rewrite(innerStmt);
+			
+		return (new NumericForStatement(location, index, lo, hi, step, innerStmt)).fold();
+	}
+	
+	public override ForComprehension fold()
+	{
+		lo = lo.fold();
+		hi = hi.fold();
+		
+		if(step)
+			step = step.fold();
+			
+		if(ifComp)
+			ifComp = ifComp.fold();
+			
+		if(forComp)
+			forComp = forComp.fold();
+			
+		return this;
+	}
+}
+
+class IfComprehension : AstNode
+{
+	public Expression condition;
+
+	public this(Location location, Expression condition)
+	{
+		super(location, condition.endLocation, AstTag.IfComprehension);
+		
+		this.condition = condition;
+	}
+	
+	public static IfComprehension parse(Lexer l)
+	{
+		auto loc = l.expect(Token.Type.If).location;
+		auto condition = Expression.parse(l);
+		return new IfComprehension(loc, condition);
+	}
+	
+	public Statement rewrite(Statement innerStmt)
+	{
+		return (new IfStatement(location, endLocation, null, condition, innerStmt, null)).fold();
+	}
+	
+	public IfComprehension fold()
+	{
+		condition = condition.fold();
+		return this;
+	}
+}
+
 class TableCtorExp : PrimaryExp
 {
 	public Expression[2][] fields;
@@ -9260,9 +9613,23 @@ class TableCtorExp : PrimaryExp
 		super(location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
 	}
-	
-	public static Expression[2][] parseFields(Lexer l, Token.Type terminator)
+
+	private static Expression parseImpl(Lexer l, bool isAttr)
 	{
+		auto location = l.loc;
+		Token.Type terminator;
+
+		if(isAttr)
+		{
+			l.expect(Token.Type.LAttr);
+			terminator = Token.Type.RAttr;
+		}
+		else
+		{
+			l.expect(Token.Type.LBrace);
+			terminator = Token.Type.RBrace;
+		}
+
 		Expression[2][] fields = new Expression[2][8];
 		uint i = 0;
 
@@ -9278,7 +9645,7 @@ class TableCtorExp : PrimaryExp
 
 		if(l.type != terminator)
 		{
-			bool lastWasFunc = false;
+			bool lastWasPlain = false;
 
 			void parseField()
 			{
@@ -9295,12 +9662,15 @@ class TableCtorExp : PrimaryExp
 						l.expect(Token.Type.Assign);
 
 						v = Expression.parse(l);
+						
+						lastWasPlain = true;
 						break;
 
 					case Token.Type.Function:
 						FuncDef fd = FuncDef.parseSimple(l);
 						k = new StringExp(fd.location, fd.name.name);
 						v = new FuncLiteralExp(fd.location, fd);
+						lastWasPlain = false;
 						break;
 
 					default:
@@ -9308,6 +9678,7 @@ class TableCtorExp : PrimaryExp
 						l.expect(Token.Type.Assign);
 						k = new StringExp(id.location, id.name);
 						v = Expression.parse(l);
+						lastWasPlain = false;
 						break;
 				}
 
@@ -9315,6 +9686,13 @@ class TableCtorExp : PrimaryExp
 			}
 
 			parseField();
+
+			if(!isAttr && lastWasPlain && l.type == Token.Type.For)
+			{
+				auto forComp = ForComprehension.parse(l);
+				auto endLocation = l.expect(terminator).location;
+				return new TableComprehension(location, endLocation, fields[0][0], fields[0][1], forComp);
+			}
 
 			while(l.type != terminator)
 			{
@@ -9324,32 +9702,20 @@ class TableCtorExp : PrimaryExp
 				parseField();
 			}
 		}
-		
-		return fields[0 .. i];
+
+		auto endLocation = l.expect(terminator).location;
+
+		return new TableCtorExp(location, endLocation, fields[0 .. i]);
 	}
 
-	public static TableCtorExp parse(Lexer l)
+	public static Expression parse(Lexer l)
 	{
-		auto location = l.loc;
-
-		l.expect(Token.Type.LBrace);
-
-		auto fields = parseFields(l, Token.Type.RBrace);
-		auto endLocation = l.expect(Token.Type.RBrace).location;
-
-		return new TableCtorExp(location, endLocation, fields);
+		return parseImpl(l, false);
 	}
 
 	public static TableCtorExp parseAttrs(Lexer l)
 	{
-		auto location = l.loc;
-
-		l.expect(Token.Type.LAttr);
-
-		auto fields = parseFields(l, Token.Type.RAttr);
-		auto endLocation = l.expect(Token.Type.RAttr).location;
-
-		return new TableCtorExp(location, endLocation, fields);
+		return cast(TableCtorExp)parseImpl(l, true);
 	}
 
 	public static MDValue parseJSON(Lexer l)
@@ -9437,7 +9803,7 @@ class ArrayCtorExp : PrimaryExp
 		this.values = values;
 	}
 
-	public static ArrayCtorExp parse(Lexer l)
+	public static PrimaryExp parse(Lexer l)
 	{
 		auto location = l.loc;
 
@@ -9447,14 +9813,25 @@ class ArrayCtorExp : PrimaryExp
 
 		if(l.type != Token.Type.RBracket)
 		{
-			values.add(Expression.parse(l));
-
-			while(l.type != Token.Type.RBracket)
+			auto exp = Expression.parse(l);
+			
+			if(l.type == Token.Type.For)
 			{
-				if(l.type == Token.Type.Comma)
-					l.next();
-					
-				values.add(Expression.parse(l));
+				auto forComp = ForComprehension.parse(l);
+				auto endLocation = l.expect(Token.Type.RBracket).location;
+				return new ArrayComprehension(location, endLocation, exp, forComp);
+			}
+			else
+			{
+				values.add(exp);
+
+				while(l.type != Token.Type.RBracket)
+				{
+					if(l.type == Token.Type.Comma)
+						l.next();
+
+					values.add(Expression.parse(l));
+				}
 			}
 		}
 
@@ -9537,6 +9914,167 @@ class ArrayCtorExp : PrimaryExp
 		foreach(ref value; values)
 			value = value.fold();
 			
+		return this;
+	}
+}
+
+class ArrayComprehension : PrimaryExp
+{
+	public Expression exp;
+	public ForComprehension forComp;
+	
+	public this(Location location, Location endLocation, Expression exp, ForComprehension forComp)
+	{
+		super(location, endLocation, AstTag.ArrayComprehension);
+		
+		this.exp = exp;
+		this.forComp = forComp;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		uint destReg = s.pushRegister();
+		s.codeI(location.line, Op.NewArray, destReg, 0);
+
+		auto exp = new class(this, destReg) Expression
+		{
+			ArrayComprehension mOuter;
+			uint mReg;
+
+			this(ArrayComprehension _outer, uint reg)
+			{
+				super(_outer.exp.location, _outer.exp.endLocation, AstTag.Other);
+				mOuter = _outer;
+				mReg = reg;
+			}
+
+			public override void checkToNothing()
+			{
+				//OK
+			}
+
+			public override void codeGen(FuncState s)
+			{
+				auto e = s.pushExp();
+				e.type = ExpType.Var;
+				e.index = mReg;
+				s.pushSource(endLocation.line);
+
+				Exp dest;
+				s.popSource(endLocation.line, dest);
+
+				mOuter.exp.codeGen(s);
+				Exp src;
+				s.popSource(endLocation.line, src);
+
+				s.freeExpTempRegs(&src);
+				s.freeExpTempRegs(&dest);
+
+				s.popReflexOp(endLocation.line, Op.Append, dest.index, src.index, 2);
+
+				// for popToNothing
+				s.pushNull();
+			}
+
+			public override InstRef* codeCondition(FuncState s) { assert(false); }
+		};
+
+		auto stmt = new ExpressionStatement(location, endLocation, exp);
+
+		forComp.rewrite(stmt).codeGen(s);
+		s.pushTempReg(destReg);
+	}
+	
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
+	}
+	
+	public override Expression fold()
+	{
+		exp = exp.fold;
+		forComp = forComp.fold();
+		
+		return this;
+	}
+}
+
+class TableComprehension : PrimaryExp
+{
+	public Expression key;
+	public Expression value;
+	public ForComprehension forComp;
+	
+	public this(Location location, Location endLocation, Expression key, Expression value, ForComprehension forComp)
+	{
+		super(location, endLocation, AstTag.TableComprehension);
+
+		this.key = key;
+		this.value = value;
+		this.forComp = forComp;
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		uint destReg = s.pushRegister();
+		s.codeI(location.line, Op.NewTable, destReg, 0);
+
+		auto exp = new class(this, destReg) Expression
+		{
+			TableComprehension mOuter;
+			uint mReg;
+
+			this(TableComprehension _outer, uint reg)
+			{
+				super(Location(""), Location(""), AstTag.Other);
+				mOuter = _outer;
+				mReg = reg;
+			}
+
+			public override void checkToNothing()
+			{
+				//OK
+			}
+
+			public override void codeGen(FuncState s)
+			{
+				mOuter.key.codeGen(s);
+				Exp idx;
+				s.popSource(mOuter.key.endLocation.line, idx);
+
+				mOuter.value.codeGen(s);
+				Exp val;
+				s.popSource(mOuter.value.endLocation.line, val);
+
+				s.codeR(mOuter.value.endLocation.line, Op.IndexAssign, mReg, idx.index, val.index);
+
+				s.freeExpTempRegs(&val);
+				s.freeExpTempRegs(&idx);
+
+				// for popToNothing
+				s.pushNull();
+			}
+
+			public override InstRef* codeCondition(FuncState s) { assert(false); }
+		};
+
+		auto stmt = new ExpressionStatement(location, endLocation, exp);
+
+		forComp.rewrite(stmt).codeGen(s);
+		s.pushTempReg(destReg);
+	}
+	
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
+	}
+	
+	public override Expression fold()
+	{
+		key = key.fold();
+		value = value.fold();
+		forComp = forComp.fold();
+		
 		return this;
 	}
 }
@@ -9652,24 +10190,19 @@ class SuperCallExp : PrimaryExp
 
 		Expression method;
 
-		if(l.type == Token.Type.Dot)
-		{
-			l.next();
+		l.next();
 
-			if(l.type == Token.Type.Ident)
-			{
-				with(l.expect(Token.Type.Ident))
-					method = new StringExp(location, stringValue);
-			}
-			else
-			{
-				l.expect(Token.Type.LParen);
-				method = Expression.parse(l);
-				l.expect(Token.Type.RParen);
-			}
+		if(l.type == Token.Type.Ident)
+		{
+			with(l.expect(Token.Type.Ident))
+				method = new StringExp(location, stringValue);
 		}
 		else
-			method = new StringExp(l.loc, "constructor");
+		{
+			l.expect(Token.Type.LParen);
+			method = Expression.parse(l);
+			l.expect(Token.Type.RParen);
+		}
 
 		l.expect(Token.Type.LParen);
 
@@ -9684,26 +10217,11 @@ class SuperCallExp : PrimaryExp
 	
 	public override void codeGen(FuncState s)
 	{
-		if(!s.isMethod())
-			throw new MDCompileException(location, "'super' calls may only appear in class methods");
+		auto _this = new ThisExp(location);
+		auto dot = new DotExp(location, endLocation, _this, method);
+		auto call = new MethodCallExp(location, endLocation, dot, null, args);
 
-		ClassDef def = FuncState.currentClass();
-		assert(def !is null, "SuperCallExp null def");
-
-		if(!def.hasBase())
-			throw new MDCompileException(location, "'super' calls may not be used in classes which have no base classes");
-
-		// rewrite super(1, 2, 3) as super.constructor(1, 2, 3)
-		// rewrite super.method(1, 2, 3) as __class.super.("method")(with this, 1, 2, 3)
-		// rewrite super.("method")(1, 2, 3) as __class.super.("method")(with this, 1, 2, 3)
-
-		ThisExp _this = new ThisExp(location);
-		IdentExp _class = new IdentExp(location, "__class");
-		DotSuperExp sup = new DotSuperExp(location, endLocation, _class);
-		DotExp dot = new DotExp(location, endLocation, sup, method);
-		CallExp call = new CallExp(location, endLocation, dot, _this, args);
-
-		call.codeGen(s);
+		call.codeGen(s, true);
 	}
 
 	public void checkToNothing()

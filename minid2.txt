@@ -105,7 +105,6 @@ Keyword:
 	'as'
 	'break'
 	'case'
-	'class'
 	'catch'
 	'continue'
 	'coroutine'
@@ -126,6 +125,7 @@ Keyword:
 	'module'
 	'namespace'
 	'null'
+	'object'
 	'return'
 	'super'
 	'switch'
@@ -260,8 +260,9 @@ ModuleDeclaration:
 
 StatementTerminator:
 	';'
-	EndOfLine
+	EndOfLine // not consumed
 	'}' // not consumed
+	')' // not consumed
 
 Statement:
 	ImportStatement
@@ -281,8 +282,14 @@ Statement:
 	ThrowStatement
 
 ImportStatement:
-	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] StatementTerminator
-	'import' '(' Expression ')' [':' Identifier {',' Identifier}] StatementTerminator
+	'import' [Identifier '='] Identifier {'.' Identifier} [SelectiveImports] StatementTerminator
+	'import' [Identifier '='] '(' Expression ')' [SelectiveImports] StatementTerminator
+
+SelectiveImports:
+	':' SelectiveImport {',' SelectiveImport}
+
+SelectiveImport:
+	[Identifier '='] Identifier
 
 BlockStatement:
 	'{' {Statement} '}'
@@ -299,13 +306,13 @@ AttributeTable:
 
 OtherDeclaration:
 	FunctionDeclaration
-	ClassDeclaration
+	ObjectDeclaration
 	NamespaceDeclaration
 
 VariableDeclaration:
 	LocalVarDeclaration
 	GlobalVarDeclaration
-	
+
 LocalVarDeclaration:
 	'local' Identifier {',' Identifier} ['=' Expression]
 
@@ -325,13 +332,12 @@ Parameters:
 	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
 
-ClassDeclaration:
-	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
+ObjectDeclaration:
+	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'
 
-ClassMember:
+ObjectMember:
 	[AttributeTable] SimpleFunctionDeclaration
 	Identifier ['=' Expression] StatementTerminator
-	[AttributeTable] 'this' FunctionBody
 
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
@@ -351,7 +357,7 @@ DoWhileStatement:
 
 ForStatement:
 	'for' '(' [ForInitializer {',' ForInitializer}] ';' [Expression] ';' [BaseExpression {',' BaseExpression}] ')' Statement
-	'for' '(' Identifier ':' Expression '..' Expression [',' Expression] ')' Statement
+	'for' '(' Identifier (':' | ';') Expression '..' Expression [',' Expression] ')' Statement
 
 ForInitializer:
 	BaseExpression
@@ -493,12 +499,14 @@ PostfixExpression:
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' (Identifier | 'super' | 'class' | '(' Expression ')')
+	PostfixExpression '.' (Identifier | 'super' | '(' Expression ')')
 
 CallExpression:
 	PostfixExpression '.' Identifier '(' [Arguments] ')'
+	PostfixExpression '.' Identifier '(' 'with' Arguments ')'
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
+	'super' '.' (Identifier | '(' Expression ')') '(' [Arguments] ')'
 
 Arguments:
 	Expression {',' Arguments}
@@ -514,16 +522,38 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
+	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
-	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
+	'object' [Identifier] [':' Expression] '{' {ObjectMember} '}'
 	'(' Expression ')'
-	'{' [TableField {[','] TableField}] '}'
-	'[' [Expression {[','] Expression}] ']'
+	TableCtorExp
+	ArrayLiteral
 	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	'yield' '(' [Arguments] ')'
-	'super' ['.' (Identifier | ('(' Expression ')'))] '(' [Arguments] ')'
+
+ArrayLiteral:
+	'[' ']'
+	'[' Expression ']'
+	'[' Expression [','] Expression {[','] Expression} ']'
+	'[' Expression ForComprehension ']'
+
+TableCtorExp:
+	'{' '}'
+	'{' TableField '}'
+	'{' TableField [','] TableField {[','] TableField} '}'
+	'{' PlainTableField ForComprehension ']'
 
 TableField:
 	Identifier '=' Expression
-	'[' Expression ']' '=' Expression
+	PlainTableField
 	SimpleFunctionDeclaration
+
+PlainTableField:
+	'[' Expression ']' '=' Expression
+
+ForComprehension:
+	'for' Identifier {',' Identifier} 'in' Expression [',' Expression [',' Expression]] [IfComprehension] [ForComprehension]
+	'for' Identifier 'in' Expression '..' Expression [',' Expression] [IfComprehension] [ForComprehension]
+
+IfComprehension:
+	'if' Expression

@@ -31,23 +31,18 @@ import tango.text.Regex;
 
 class RegexpLib
 {
-	private static RegexpLib lib;
-	
-	static this()
-	{
-		lib = new RegexpLib();
-	}
-	
 	private MDRegexpClass regexpClass;
 
-	private this()
+	private this(MDObject _Object)
 	{
-		regexpClass = new MDRegexpClass();
+		regexpClass = new MDRegexpClass(_Object);
 	}
 
 	public static void init(MDContext context)
 	{
 		MDNamespace namespace = new MDNamespace("regexp"d, context.globals.ns);
+
+		auto lib = new RegexpLib(context.globals.get!(MDObject)("Object"d));
 
 		namespace.addList
 		(
@@ -109,13 +104,13 @@ class RegexpLib
 		else
 		{
 			MDClosure rep = s.getParam!(MDClosure)(2);
-			scope MDRegexp temp = regexpClass.newInstance();
+			scope MDRegexp temp = regexpClass.nativeClone();
 
 			s.push(s.safeCode(sub(src, pattern, (Regex m)
 			{
 				temp.constructor(m);
-				
-				s.easyCall(rep, 1, s.getContext(), temp);
+
+				s.callWith(rep, 1, s.getContext(), temp);
 				
 				return s.pop!(char[]);
 			}, attributes)));
@@ -158,41 +153,45 @@ class RegexpLib
 		if(numParams > 1)
 			attributes = s.getParam!(char[])(1);
 
-		s.push(s.safeCode(regexpClass.newInstance(pattern, attributes)));
+		s.push(s.safeCode(regexpClass.nativeClone(pattern, attributes)));
 		return 1;
 	}
 
-	static class MDRegexpClass : MDClass
+	static class MDRegexpClass : MDObject
 	{
-		public this()
+		MDClosure iteratorClosure;
+
+		public this(MDObject owner)
 		{
-			super("Regexp", null);
+			super("Regexp", owner);
 
-			iteratorClosure = new MDClosure(mMethods, &iterator, "Regexp.iterator");
+			iteratorClosure = new MDClosure(mFields, &iterator, "Regexp.iterator");
 
-			mMethods.addList
+			mFields.addList
 			(
-				"test"d,    new MDClosure(mMethods, &test,    "Regexp.test"),
-				"search"d,  new MDClosure(mMethods, &search,  "Regexp.search"),
-				"match"d,   new MDClosure(mMethods, &match,   "Regexp.match"),
-				"pre"d,     new MDClosure(mMethods, &pre,     "Regexp.pre"),
-				"post"d,    new MDClosure(mMethods, &post,    "Regexp.post"),
-				"find"d,    new MDClosure(mMethods, &find,    "Regexp.find"),
-				"split"d,   new MDClosure(mMethods, &split,   "Regexp.split"),
-				"replace"d, new MDClosure(mMethods, &replace, "Regexp.replace"),
-				"opApply"d, new MDClosure(mMethods, &apply,   "Regexp.opApply")
+				"test"d,    new MDClosure(mFields, &test,    "Regexp.test"),
+				"search"d,  new MDClosure(mFields, &search,  "Regexp.search"),
+				"match"d,   new MDClosure(mFields, &match,   "Regexp.match"),
+				"pre"d,     new MDClosure(mFields, &pre,     "Regexp.pre"),
+				"post"d,    new MDClosure(mFields, &post,    "Regexp.post"),
+				"find"d,    new MDClosure(mFields, &find,    "Regexp.find"),
+				"split"d,   new MDClosure(mFields, &split,   "Regexp.split"),
+				"replace"d, new MDClosure(mFields, &replace, "Regexp.replace"),
+				"opApply"d, new MDClosure(mFields, &apply,   "Regexp.opApply")
 			);
+			
+			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		public override MDRegexp newInstance()
+		public MDRegexp nativeClone()
 		{
 			return new MDRegexp(this);
 		}
 
-		protected MDRegexp newInstance(char[] pattern, char[] attributes)
+		protected MDRegexp nativeClone(char[] pattern, char[] attributes)
 		{
-			MDRegexp n = newInstance();
-			n.constructor(pattern,attributes);
+			auto n = nativeClone();
+			n.constructor(pattern, attributes);
 			return n;
 		}
 
@@ -260,8 +259,6 @@ class RegexpLib
 			return 1;
 		}
 
-		MDClosure iteratorClosure;
-
 		int iterator(MDState s, uint numParams)
 		{
 			MDRegexp r = s.getContext!(MDRegexp);
@@ -285,13 +282,13 @@ class RegexpLib
 		}
 	}
 
-	static class MDRegexp : MDInstance
+	static class MDRegexp : MDObject
 	{
 		protected Regex mRegexp;
 
-		public this(MDClass owner)
+		public this(MDObject owner)
 		{
-			super(owner);
+			super("Regexp", owner);
 		}
 
 		public void constructor(char[] pattern, char[] attributes)
@@ -308,7 +305,7 @@ class RegexpLib
 		{
 			return mRegexp.match(n);
 		}
-		
+
 		char[] pre()
 		{
 			return mRegexp.pre();

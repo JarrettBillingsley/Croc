@@ -124,7 +124,7 @@ class TableLib
 
 		foreach(k, v; t)
 		{
-			s.easyCall(func, 1, tableVal, k, v);
+			s.callWith(func, 1, tableVal, k, v);
 			
 			MDValue ret = s.pop();
 		

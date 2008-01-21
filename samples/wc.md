@@ -33,7 +33,7 @@ for(iarg: 0 .. #vararg)
 			//if(inword)
 			//	buf ~= c
 		}
-		else if(c.isAlpha())
+		else if(c.isAlpha() || c == '\'')
 		{
 			if(!inword)
 			{
@@ -46,7 +46,7 @@ for(iarg: 0 .. #vararg)
 		}
 		else if(inword)
 		{
-			local word = f[wstart .. j];
+			local word = f[wstart .. j].toLower();
 			local val = dictionary[word]
 
 			if(val is null)
@@ -60,7 +60,7 @@ for(iarg: 0 .. #vararg)
 
 	if(inword)
 	{
-		local word = f[wstart .. j];
+		local word = f[wstart .. j].toLower();
 		local val = dictionary[word]
 
 		if(val is null)
@@ -80,5 +80,7 @@ if(#vararg > 1)
 
 writefln("--------------------------------------")
 
-foreach(word; dictionary.keys().sort())
-	writefln("{,3} {}", dictionary[word], word)
+local results = dictionary.keys().apply(function(v) = [v, dictionary[v]]).sort(function(a, b) = b[1] <=> a[1])
+
+foreach(word; results)
+	writefln("{,5} {}", word[1], word[0])

@@ -46,22 +46,27 @@ import tango.util.PathUtil;
 
 class IOLib
 {
-	private static IOLib lib;
-	private static MDInputStreamClass inputStreamClass;
-	private static MDOutputStreamClass outputStreamClass;
-	private static MDStreamClass streamClass;
-	
+	private static const FileConduit.Style DefaultFileStyle;
+	private MDInputStreamClass inputStreamClass;
+	private MDOutputStreamClass outputStreamClass;
+	private MDStreamClass streamClass;
+
 	static this()
 	{
-		lib = new IOLib();
-		inputStreamClass = new MDInputStreamClass();
-		outputStreamClass = new MDOutputStreamClass();
-		streamClass = new MDStreamClass();
+		DefaultFileStyle = FileConduit.Style
+		(
+			FileConduit.ReadExisting.access,
+			FileConduit.ReadExisting.open,
+			FileConduit.Share.ReadWrite,
+			FileConduit.ReadExisting.cache
+		);
 	}
 
-	private this()
+	private this(MDObject _Object)
 	{
-
+		inputStreamClass = new MDInputStreamClass(_Object);
+		outputStreamClass = new MDOutputStreamClass(_Object);
+		streamClass = new MDStreamClass(_Object);
 	}
 
 	enum FileMode
@@ -77,15 +82,17 @@ class IOLib
 	{
 		MDNamespace namespace = new MDNamespace("io"d, context.globals.ns);
 
+		auto lib = new IOLib(context.globals.get!(MDObject)("Object"d));
+
 		namespace.addList
 		(
 			"InputStream"d,  lib.inputStreamClass,
 			"OutputStream"d, lib.outputStreamClass,
 			"Stream"d,       lib.streamClass,
 
- 			"stdin"d,        lib.inputStreamClass.newInstance(Cin.stream),
- 			"stdout"d,       lib.outputStreamClass.newInstance(Cout.stream),
- 			"stderr"d,       lib.outputStreamClass.newInstance(Cerr.stream),
+			"stdin"d,        lib.inputStreamClass.nativeClone(Cin.stream),
+			"stdout"d,       lib.outputStreamClass.nativeClone(Cout.stream),
+			"stderr"d,       lib.outputStreamClass.nativeClone(Cerr.stream),
 
 			"FileMode"d,     MDTable.create
 			(
@@ -302,9 +309,7 @@ class IOLib
 	{
 		FileConduit.Style parseFileMode(int mode)
 		{
-			FileConduit.Style s;
-			s.share = FileConduit.Share.ReadWrite;
-			s.cache = FileConduit.Cache.Stream;
+			FileConduit.Style s = DefaultFileStyle;
 
 			s.access = cast(FileConduit.Access)0;
 
@@ -332,52 +337,47 @@ class IOLib
 		FileConduit f;
 
 		if(numParams == 1)
-			f = s.safeCode(new FileConduit(s.getParam!(char[])(0)));
+			f = s.safeCode(new FileConduit(s.getParam!(char[])(0), DefaultFileStyle));
 		else
 			f = s.safeCode(new FileConduit(s.getParam!(char[])(0), parseFileMode(s.getParam!(int)(1))));
 
-		s.push(streamClass.newInstance(f, f));
+		s.push(streamClass.nativeClone(f, f));
 		return 1;
 	}
 
-	static class MDInputStreamClass : MDClass
+	static class MDInputStreamClass : MDObject
 	{
 		private MDClosure mIteratorClosure;
 
-		public this()
+		public this(MDObject owner)
 		{
-			super("InputStream", null);
+			super("InputStream", owner);
 
-			mIteratorClosure = new MDClosure(mMethods, &iterator, "InputStream.iterator");
+			mIteratorClosure = new MDClosure(mFields, &iterator, "InputStream.iterator");
 
-			mMethods.addList
+			mFields.addList
 			(
-				"readByte"d,    new MDClosure(mMethods, &readVal!(ubyte),   "InputStream.readByte"),
-				"readShort"d,   new MDClosure(mMethods, &readVal!(ushort),  "InputStream.readShort"),
-				"readInt"d,     new MDClosure(mMethods, &readVal!(int),     "InputStream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &readVal!(float),   "InputStream.readFloat"),
-				"readDouble"d,  new MDClosure(mMethods, &readVal!(double),  "InputStream.readDouble"),
-				"readChar"d,    new MDClosure(mMethods, &readVal!(char),    "InputStream.readChar"),
-				"readWChar"d,   new MDClosure(mMethods, &readVal!(wchar),   "InputStream.readWChar"),
-				"readDChar"d,   new MDClosure(mMethods, &readVal!(dchar),   "InputStream.readDChar"),
-				"readString"d,  new MDClosure(mMethods, &readString,        "InputStream.readString"),
-				"readln"d,      new MDClosure(mMethods, &readln,            "InputStream.readln"),
-// 				"readf"d,       new MDClosure(mMethods, &readf,           	"InputStream.readf"),
-				"readChars"d,   new MDClosure(mMethods, &readChars,         "InputStream.readChars"),
-				"opApply"d,     new MDClosure(mMethods, &apply,             "InputStream.opApply")
+				"readByte"d,    new MDClosure(mFields, &readVal!(ubyte),   "InputStream.readByte"),
+				"readShort"d,   new MDClosure(mFields, &readVal!(ushort),  "InputStream.readShort"),
+				"readInt"d,     new MDClosure(mFields, &readVal!(int),     "InputStream.readInt"),
+				"readFloat"d,   new MDClosure(mFields, &readVal!(float),   "InputStream.readFloat"),
+				"readDouble"d,  new MDClosure(mFields, &readVal!(double),  "InputStream.readDouble"),
+				"readChar"d,    new MDClosure(mFields, &readVal!(char),    "InputStream.readChar"),
+				"readWChar"d,   new MDClosure(mFields, &readVal!(wchar),   "InputStream.readWChar"),
+				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "InputStream.readDChar"),
+				"readString"d,  new MDClosure(mFields, &readString,        "InputStream.readString"),
+				"readln"d,      new MDClosure(mFields, &readln,            "InputStream.readln"),
+// 				"readf"d,       new MDClosumFieldsods, &readf,           	"InputStream.readf"),
+				"readChars"d,   new MDClosure(mFields, &readChars,         "InputStream.readChars"),
+				"opApply"d,     new MDClosure(mFields, &apply,             "InputStream.opApply")
 			);
+			
+			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		public override MDInputStream newInstance()
+		protected MDInputStream nativeClone(InputStream input)
 		{
-			return new MDInputStream(this);
-		}
-
-		protected MDInputStream newInstance(InputStream input)
-		{
-			MDInputStream n = newInstance();
-			n.constructor(input);
-			return n;
+			return new MDInputStream(this, input);
 		}
 
 		public int readVal(T)(MDState s, uint numParams)
@@ -443,19 +443,16 @@ class IOLib
 		}
 	}
 
-	static class MDInputStream : MDInstance
+	static class MDInputStream : MDObject
 	{
 		private InputStream mInput;
 		private Reader mReader;
 		private LineIterator!(char) mLines;
 
-		public this(MDInputStreamClass owner)
+		public this(MDInputStreamClass owner, InputStream input)
 		{
-			super(owner);
-		}
-		
-		public void constructor(InputStream input)
-		{
+			super("InputStream", owner);
+
 			mInput = input;
 			mReader = new Reader(mInput);
 			mLines = new LineIterator!(char)(mInput);
@@ -488,47 +485,42 @@ class IOLib
 		}
 	}
 
-	static class MDOutputStreamClass : MDClass
+	static class MDOutputStreamClass : MDObject
 	{
 		private Layout!(char) mLayout;
 
-		public this()
+		public this(MDObject owner)
 		{
-			super("OutputStream", null);
+			super("OutputStream", owner);
 
 			mLayout = new Layout!(char)();
-			
-			mMethods.addList
+
+			mFields.addList
 			(
-				"writeByte"d,   new MDClosure(mMethods, &writeVal!(ubyte),  "OutputStream.writeByte"),
-				"writeShort"d,  new MDClosure(mMethods, &writeVal!(ushort), "OutputStream.writeShort"),
-				"writeInt"d,    new MDClosure(mMethods, &writeVal!(int),    "OutputStream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &writeVal!(float),  "OutputStream.writeFloat"),
-				"writeDouble"d, new MDClosure(mMethods, &writeVal!(double), "OutputStream.writeDouble"),
-				"writeChar"d,   new MDClosure(mMethods, &writeVal!(char),   "OutputStream.writeChar"),
-				"writeWChar"d,  new MDClosure(mMethods, &writeVal!(wchar),  "OutputStream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mMethods, &writeVal!(dchar),  "OutputStream.writeDChar"),
-				"writeString"d, new MDClosure(mMethods, &writeString,       "OutputStream.writeString"),
-				"write"d,       new MDClosure(mMethods, &write,             "OutputStream.write"),
-				"writeln"d,     new MDClosure(mMethods, &writeln,           "OutputStream.writeln"),
-				"writef"d,      new MDClosure(mMethods, &writef,            "OutputStream.writef"),
-				"writefln"d,    new MDClosure(mMethods, &writefln,          "OutputStream.writefln"),
-				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "OutputStream.writeChars"),
-				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "OutputStream.writeJSON"),
-				"flush"d,       new MDClosure(mMethods, &flush,             "OutputStream.flush")
+				"writeByte"d,   new MDClosure(mFields, &writeVal!(ubyte),  "OutputStream.writeByte"),
+				"writeShort"d,  new MDClosure(mFields, &writeVal!(ushort), "OutputStream.writeShort"),
+				"writeInt"d,    new MDClosure(mFields, &writeVal!(int),    "OutputStream.writeInt"),
+				"writeFloat"d,  new MDClosure(mFields, &writeVal!(float),  "OutputStream.writeFloat"),
+				"writeDouble"d, new MDClosure(mFields, &writeVal!(double), "OutputStream.writeDouble"),
+				"writeChar"d,   new MDClosure(mFields, &writeVal!(char),   "OutputStream.writeChar"),
+				"writeWChar"d,  new MDClosure(mFields, &writeVal!(wchar),  "OutputStream.writeWChar"),
+				"writeDChar"d,  new MDClosure(mFields, &writeVal!(dchar),  "OutputStream.writeDChar"),
+				"writeString"d, new MDClosure(mFields, &writeString,       "OutputStream.writeString"),
+				"write"d,       new MDClosure(mFields, &write,             "OutputStream.write"),
+				"writeln"d,     new MDClosure(mFields, &writeln,           "OutputStream.writeln"),
+				"writef"d,      new MDClosure(mFields, &writef,            "OutputStream.writef"),
+				"writefln"d,    new MDClosure(mFields, &writefln,          "OutputStream.writefln"),
+				"writeChars"d,  new MDClosure(mFields, &writeChars,        "OutputStream.writeChars"),
+				"writeJSON"d,   new MDClosure(mFields, &writeJSON,         "OutputStream.writeJSON"),
+				"flush"d,       new MDClosure(mFields, &flush,             "OutputStream.flush")
 			);
+			
+			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		public override MDOutputStream newInstance()
+		protected MDOutputStream nativeClone(OutputStream output)
 		{
-			return new MDOutputStream(this);
-		}
-
-		protected MDOutputStream newInstance(OutputStream output)
-		{
-			MDOutputStream n = newInstance();
-			n.constructor(output);
-			return n;
+			return new MDOutputStream(this, output);
 		}
 
 		public int writeVal(T)(MDState s, uint numParams)
@@ -591,21 +583,18 @@ class IOLib
 		}
 	}
 	
-	static class MDOutputStream : MDInstance
+	static class MDOutputStream : MDObject
 	{
 		private Layout!(char) mLayout;
 		private OutputStream mOutput;
 		private Writer mWriter;
 		private Print!(char) mPrint;
 
-		public this(MDOutputStreamClass owner)
+		public this(MDOutputStreamClass owner, OutputStream output)
 		{
-			super(owner);
-			mLayout = owner.mLayout;
-		}
+			super("OutputStream", owner);
 
-		public void constructor(OutputStream output)
-		{
+			mLayout = owner.mLayout;
 			mOutput = output;
 			mWriter = new Writer(mOutput);
 			mPrint = new Print!(char)(mLayout, mOutput);
@@ -672,66 +661,61 @@ class IOLib
 		}
 	}
 
-	static class MDStreamClass : MDClass
+	class MDStreamClass : MDObject
 	{
-		public this()
+		public this(MDObject owner)
 		{
-			super("Stream", null);
+			super("Stream", owner);
 
-			mMethods.addList
+			mFields.addList
 			(
-				"readByte"d,    new MDClosure(mMethods, &readVal!(ubyte),   "Stream.readByte"),
-				"readShort"d,   new MDClosure(mMethods, &readVal!(ushort),  "Stream.readShort"),
-				"readInt"d,     new MDClosure(mMethods, &readVal!(int),     "Stream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &readVal!(float),   "Stream.readFloat"),
-				"readDouble"d,  new MDClosure(mMethods, &readVal!(double),  "Stream.readDouble"),
-				"readChar"d,    new MDClosure(mMethods, &readVal!(char),    "Stream.readChar"),
-				"readWChar"d,   new MDClosure(mMethods, &readVal!(wchar),   "Stream.readWChar"),
-				"readDChar"d,   new MDClosure(mMethods, &readVal!(dchar),   "Stream.readDChar"),
-				"readString"d,  new MDClosure(mMethods, &readString,        "Stream.readString"),
-				"readln"d,      new MDClosure(mMethods, &readln,            "Stream.readln"),
-// 				"readf"d,       new MDClosure(mMethods, &readf,             "Stream.readf"),
-				"readChars"d,   new MDClosure(mMethods, &readChars,         "Stream.readChars"),
-				"opApply"d,     new MDClosure(mMethods, &apply,             "Stream.opApply"),
+				"readByte"d,    new MDClosure(mFields, &readVal!(ubyte),   "Stream.readByte"),
+				"readShort"d,   new MDClosure(mFields, &readVal!(ushort),  "Stream.readShort"),
+				"readInt"d,     new MDClosure(mFields, &readVal!(int),     "Stream.readInt"),
+				"readFloat"d,   new MDClosure(mFields, &readVal!(float),   "Stream.readFloat"),
+				"readDouble"d,  new MDClosure(mFields, &readVal!(double),  "Stream.readDouble"),
+				"readChar"d,    new MDClosure(mFields, &readVal!(char),    "Stream.readChar"),
+				"readWChar"d,   new MDClosure(mFields, &readVal!(wchar),   "Stream.readWChar"),
+				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "Stream.readDChar"),
+				"readString"d,  new MDClosure(mFields, &readString,        "Stream.readString"),
+				"readln"d,      new MDClosure(mFields, &readln,            "Stream.readln"),
+// 				"readf"d,       new MDClosumFieldsods, &readf,             "Stream.readf"),
+				"readChars"d,   new MDClosure(mFields, &readChars,         "Stream.readChars"),
+				"opApply"d,     new MDClosure(mFields, &apply,             "Stream.opApply"),
 
-				"writeByte"d,   new MDClosure(mMethods, &writeVal!(ubyte),  "Stream.writeByte"),
-				"writeShort"d,  new MDClosure(mMethods, &writeVal!(ushort), "Stream.writeShort"),
-				"writeInt"d,    new MDClosure(mMethods, &writeVal!(int),    "Stream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &writeVal!(float),  "Stream.writeFloat"),
-				"writeDouble"d, new MDClosure(mMethods, &writeVal!(double), "Stream.writeDouble"),
-				"writeChar"d,   new MDClosure(mMethods, &writeVal!(char),   "Stream.writeChar"),
-				"writeWChar"d,  new MDClosure(mMethods, &writeVal!(wchar),  "Stream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mMethods, &writeVal!(dchar),  "Stream.writeDChar"),
-				"writeString"d, new MDClosure(mMethods, &writeString,       "Stream.writeString"),
-				"write"d,       new MDClosure(mMethods, &write,             "Stream.write"),
-				"writeln"d,     new MDClosure(mMethods, &writeln,           "Stream.writeln"),
-				"writef"d,      new MDClosure(mMethods, &writef,            "Stream.writef"),
-				"writefln"d,    new MDClosure(mMethods, &writefln,          "Stream.writefln"),
-				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "Stream.writeChars"),
-				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "Stream.writeJSON"),
-				"flush"d,       new MDClosure(mMethods, &flush,             "Stream.flush"),
+				"writeByte"d,   new MDClosure(mFields, &writeVal!(ubyte),  "Stream.writeByte"),
+				"writeShort"d,  new MDClosure(mFields, &writeVal!(ushort), "Stream.writeShort"),
+				"writeInt"d,    new MDClosure(mFields, &writeVal!(int),    "Stream.writeInt"),
+				"writeFloat"d,  new MDClosure(mFields, &writeVal!(float),  "Stream.writeFloat"),
+				"writeDouble"d, new MDClosure(mFields, &writeVal!(double), "Stream.writeDouble"),
+				"writeChar"d,   new MDClosure(mFields, &writeVal!(char),   "Stream.writeChar"),
+				"writeWChar"d,  new MDClosure(mFields, &writeVal!(wchar),  "Stream.writeWChar"),
+				"writeDChar"d,  new MDClosure(mFields, &writeVal!(dchar),  "Stream.writeDChar"),
+				"writeString"d, new MDClosure(mFields, &writeString,       "Stream.writeString"),
+				"write"d,       new MDClosure(mFields, &write,             "Stream.write"),
+				"writeln"d,     new MDClosure(mFields, &writeln,           "Stream.writeln"),
+				"writef"d,      new MDClosure(mFields, &writef,            "Stream.writef"),
+				"writefln"d,    new MDClosure(mFields, &writefln,          "Stream.writefln"),
+				"writeChars"d,  new MDClosure(mFields, &writeChars,        "Stream.writeChars"),
+				"writeJSON"d,   new MDClosure(mFields, &writeJSON,         "Stream.writeJSON"),
+				"flush"d,       new MDClosure(mFields, &flush,             "Stream.flush"),
 
-				"seek"d,        new MDClosure(mMethods, &seek,              "Stream.seek"),
-				"position"d,    new MDClosure(mMethods, &position,          "Stream.position"),
-				"size"d,        new MDClosure(mMethods, &size,              "Stream.size"),
-				"close"d,       new MDClosure(mMethods, &close,             "Stream.close"),
-				"isOpen"d,      new MDClosure(mMethods, &isOpen,            "Stream.isOpen"),
+				"seek"d,        new MDClosure(mFields, &seek,              "Stream.seek"),
+				"position"d,    new MDClosure(mFields, &position,          "Stream.position"),
+				"size"d,        new MDClosure(mFields, &size,              "Stream.size"),
+				"close"d,       new MDClosure(mFields, &close,             "Stream.close"),
+				"isOpen"d,      new MDClosure(mFields, &isOpen,            "Stream.isOpen"),
 
-				"input"d,       new MDClosure(mMethods, &input,             "Stream.input"),
-				"output"d,      new MDClosure(mMethods, &output,            "Stream.output")
+				"input"d,       new MDClosure(mFields, &input,             "Stream.input"),
+				"output"d,      new MDClosure(mFields, &output,            "Stream.output")
 			);
+			
+			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		public override MDStream newInstance()
+		protected MDStream nativeClone(Conduit conduit, IConduit.Seek seeker = null)
 		{
-			return new MDStream(this);
-		}
-		
-		protected MDStream newInstance(Conduit conduit, IConduit.Seek seeker = null)
-		{
-			MDStream n = newInstance();
-			n.constructor(conduit, seeker);
-			return n;
+			return new MDStream(this, conduit, seeker);
 		}
 
 		public int readVal(T)(MDState s, uint numParams)
@@ -905,28 +889,25 @@ class IOLib
 		}
 	}
 	
-	static class MDStream : MDInstance
+	class MDStream : MDObject
 	{
 		private Conduit mConduit;
 		private MDInputStream mInput;
 		private MDOutputStream mOutput;
 		private IConduit.Seek mSeeker;
 
-		public this(MDStreamClass owner)
+		public this(MDStreamClass owner, Conduit conduit, IConduit.Seek seeker = null)
 		{
-			super(owner);
-		}
+			super("Stream", owner);
 
-		public void constructor(Conduit conduit, IConduit.Seek seeker = null)
-		{
 			mConduit = conduit;
 			auto b = new Buffer(mConduit);
-			mInput = inputStreamClass.newInstance(b);
-			mOutput = outputStreamClass.newInstance(b);
+			mInput = inputStreamClass.nativeClone(b);
+			mOutput = outputStreamClass.nativeClone(b);
 			mSeeker = seeker;
 		}
 
-		public void seek(uint pos, IConduit.Seek.Anchor whence)
+		public void seek(int pos, IConduit.Seek.Anchor whence)
 		{
 			if(mSeeker is null)
 				throw new MDException("Stream {} is not seekable.", mConduit);

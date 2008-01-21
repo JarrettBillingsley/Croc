@@ -50,7 +50,6 @@ else
 
 class OSLib
 {
-	private static OSLib lib;
 	private static MDValue YearString;
 	private static MDValue MonthString;
 	private static MDValue DayString;
@@ -60,8 +59,6 @@ class OSLib
 
 	static this()
 	{
-		lib = new OSLib();
-		
 		YearString = new MDString("year"d);
 		MonthString = new MDString("month"d);
 		DayString = new MDString("day"d);
@@ -73,10 +70,10 @@ class OSLib
 	private MDPerfCounterClass perfCounterClass;
 	version(Windows) ulong performanceFreq;
 	
-	private this()
+	private this(MDObject _Object)
 	{
-		perfCounterClass = new MDPerfCounterClass();
-		
+		perfCounterClass = new MDPerfCounterClass(_Object);
+
 		version(Windows)
 		{
 			if(!QueryPerformanceFrequency(&performanceFreq))
@@ -87,6 +84,8 @@ class OSLib
 	public static void init(MDContext context)
 	{
 		MDNamespace namespace = new MDNamespace("os"d, context.globals.ns);
+		
+		auto lib = new OSLib(context.globals.get!(MDObject)("Object"d));
 
 		namespace.addList
 		(
@@ -245,73 +244,70 @@ class OSLib
 		return dest;
 	}
 
-	static class MDPerfCounterClass : MDClass
+	static class MDPerfCounterClass : MDObject
 	{
-		public this()
+		public this(MDObject owner)
 		{
-			super("PerfCounter", null);
+			super("PerfCounter", owner);
 
-			mMethods.addList
+			mFields.addList
 			(
-				"start"d,     new MDClosure(mMethods, &start,     "PerfCounter.start"),
-				"stop"d,      new MDClosure(mMethods, &stop,      "PerfCounter.stop"),
-				"seconds"d,   new MDClosure(mMethods, &seconds,   "PerfCounter.seconds"),
-				"millisecs"d, new MDClosure(mMethods, &millisecs, "PerfCounter.millisecs"),
-				"microsecs"d, new MDClosure(mMethods, &microsecs, "PerfCounter.microsecs")
+				"clone"d,     new MDClosure(mFields, &clone,     "PerfCounter.clone"),
+				"start"d,     new MDClosure(mFields, &start,     "PerfCounter.start"),
+				"stop"d,      new MDClosure(mFields, &stop,      "PerfCounter.stop"),
+				"seconds"d,   new MDClosure(mFields, &seconds,   "PerfCounter.seconds"),
+				"millisecs"d, new MDClosure(mFields, &millisecs, "PerfCounter.millisecs"),
+				"microsecs"d, new MDClosure(mFields, &microsecs, "PerfCounter.microsecs")
 			);
 		}
 
-		public MDPerfCounter newInstance()
+		public int clone(MDState s, uint numParams)
 		{
-			return new MDPerfCounter(this);
+			s.push(new MDPerfCounter(this));
+			return 1;
 		}
-		
+
 		public int start(MDState s, uint numParams)
 		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			i.start();
+			s.getContext!(MDPerfCounter).start();
 			return 0;
 		}
-		
+
 		public int stop(MDState s, uint numParams)
 		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			i.stop();
+			s.getContext!(MDPerfCounter).stop();
 			return 0;
 		}
-		
+
 		public int seconds(MDState s, uint numParams)
 		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			s.push(i.seconds());
+			s.push(s.getContext!(MDPerfCounter).seconds());
 			return 1;
 		}
 		
 		public int millisecs(MDState s, uint numParams)
 		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			s.push(i.millisecs());
+			s.push(s.getContext!(MDPerfCounter).millisecs());
 			return 1;
 		}
-		
+
 		public int microsecs(MDState s, uint numParams)
 		{
-			MDPerfCounter i = s.getContext!(MDPerfCounter);
-			s.push(i.microsecs());
+			s.push(s.getContext!(MDPerfCounter).microsecs());
 			return 1;
 		}
 	}
 
-	static class MDPerfCounter : MDInstance
+	static class MDPerfCounter : MDObject
 	{
 		protected StopWatch mWatch;
 		protected mdfloat mTime = 0;
 
-		public this(MDClass owner)
+		public this(MDObject owner)
 		{
-			super(owner);
+			super("PerfCounter", owner);
 		}
-		
+
 		public final void start()
 		{
 			mWatch.start();

@@ -67,7 +67,14 @@ final class ArrayLib
 			"find"d,     new MDClosure(namespace, &lib.find,     "array.find"),
 			"bsearch"d,  new MDClosure(namespace, &lib.bsearch,  "array.bsearch"),
 			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop"),
-			"set"d,      new MDClosure(namespace, &lib.set,      "array.set")
+			"set"d,      new MDClosure(namespace, &lib.set,      "array.set"),
+			"min"d,      new MDClosure(namespace, &lib.min,      "array.min"),
+			"max"d,      new MDClosure(namespace, &lib.max,      "array.max"),
+			"extreme"d,  new MDClosure(namespace, &lib.extreme,  "array.extreme"),
+			"any"d,      new MDClosure(namespace, &lib.any,      "array.any"),
+			"all"d,      new MDClosure(namespace, &lib.all,      "array.all"),
+			"fill"d,     new MDClosure(namespace, &lib.fill,     "array.fill"),
+			"append"d,   new MDClosure(namespace, &lib.append,   "array.append")
 		);
 
 		context.globals["array"d] = MDNamespace.create
@@ -149,12 +156,40 @@ final class ArrayLib
 	int sort(MDState s, uint numParams)
 	{
 		MDArray arr = s.getContext!(MDArray);
-		
-		arr.sort(delegate bool(MDValue v1, MDValue v2)
+
+		bool delegate(MDValue, MDValue) pred;
+
+		MDClosure sortFunc;
+
+		if(numParams > 0)
 		{
-			return s.cmp(v1, v2) < 0;
-		});
-		
+			if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+			{
+				pred = (MDValue v1, MDValue v2)
+				{
+					return s.cmp(v1, v2) > 0;
+				};
+			}
+			else
+			{
+				sortFunc = s.getParam!(MDClosure)(0);
+
+				pred = (MDValue v1, MDValue v2)
+				{
+					s.call(sortFunc, 1, v1, v2);
+					return s.pop!(int)() < 0;
+				};
+			}
+		}
+		else
+		{
+			pred = (MDValue v1, MDValue v2)
+			{
+				return s.cmp(v1, v2) < 0;
+			};
+		}
+
+		arr.sort(pred);
 		s.push(arr);
 		return 1;
 	}
@@ -279,7 +314,7 @@ final class ArrayLib
 
 		foreach(i, v; array)
 		{
-			s.easyCall(func, 1, arrayVal, v);
+			s.callWith(func, 1, arrayVal, v);
 			array[i] = s.pop();
 		}
 
@@ -297,7 +332,7 @@ final class ArrayLib
 
 		foreach(i, v; array)
 		{
-			s.easyCall(func, 1, arrayVal, v);
+			s.callWith(func, 1, arrayVal, v);
 			ret[i] = s.pop();
 		}
 
@@ -321,7 +356,7 @@ final class ArrayLib
 		
 		for(int i = 1; i < array.length; i++)
 		{
-			s.easyCall(func, 1, arrayVal, ret, array[i]);
+			s.callWith(func, 1, arrayVal, ret, array[i]);
 			ret = s.pop();
 		}
 		
@@ -337,7 +372,7 @@ final class ArrayLib
 
 		foreach(i, v; array)
 		{
-			s.easyCall(func, 1, arrayVal, i, v);
+			s.callWith(func, 1, arrayVal, i, v);
 
 			MDValue ret = s.pop();
 		
@@ -360,7 +395,7 @@ final class ArrayLib
 
 		foreach(i, v; array)
 		{
-			s.easyCall(func, 1, arrayVal, i, v);
+			s.callWith(func, 1, arrayVal, i, v);
 
 			if(s.pop!(bool)() == true)
 			{
@@ -464,7 +499,7 @@ final class ArrayLib
 	int set(MDState s, uint numParams)
 	{
 		auto array = s.getContext!(MDArray);
-		
+
 		array.length = numParams;
 		
 		for(uint i = 0; i < numParams; i++)
@@ -472,5 +507,148 @@ final class ArrayLib
 
 		s.push(array);
 		return 1;
+	}
+	
+	int minMaxImpl(MDState s, uint numParams, bool max)
+	{
+		auto self = s.getContext!(MDArray);
+		
+		if(self.length == 0)
+			s.throwRuntimeException("Array is empty");
+
+		auto extreme = self[0];
+
+		if(numParams > 0)
+		{
+			auto compare = s.getParam!(MDClosure)(0);
+
+			for(int i = 1; i < self.length; i++)
+			{
+				s.call(compare, 1, self[i], extreme);
+
+				if(s.pop!(bool))
+					extreme = self[i];
+			}
+		}
+		else
+		{
+			if(max)
+			{
+				for(int i = 1; i < self.length; i++)
+					if(s.cmp(*self[i], *extreme) > 0)
+						extreme = self[i];
+			}
+			else
+			{
+				for(int i = 1; i < self.length; i++)
+					if(s.cmp(*self[i], *extreme) < 0)
+						extreme = self[i];
+			}
+		}
+
+		s.push(extreme);
+		return 1;
+	}
+
+	int min(MDState s, uint numParams)
+	{
+		return minMaxImpl(s, 0, false);
+	}
+
+	int max(MDState s, uint numParams)
+	{
+		return minMaxImpl(s, 0, true);
+	}
+	
+	int extreme(MDState s, uint numParams)
+	{
+		s.getParam!(MDClosure)(0);
+		return minMaxImpl(s, numParams, false);
+	}
+	
+	int all(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray);
+
+		if(numParams > 0)
+		{
+			auto pred = s.getParam!(MDClosure)(0);
+			
+			foreach(ref v; self)
+			{
+				s.call(pred, 1, v);
+				
+				if(s.pop().isFalse)
+				{
+					s.push(false);
+					return 1;
+				}
+			}
+		}
+		else
+		{
+			foreach(ref v; self)
+			{
+				if(v.isFalse)
+				{
+					s.push(false);
+					return 1;
+				}
+			}
+		}
+
+		s.push(true);
+		return 1;
+	}
+	
+	int any(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray);
+
+		if(numParams > 0)
+		{
+			auto pred = s.getParam!(MDClosure)(0);
+			
+			foreach(ref v; self)
+			{
+				s.call(pred, 1, v);
+				
+				if(s.pop().isTrue)
+				{
+					s.push(true);
+					return 1;
+				}
+			}
+		}
+		else
+		{
+			foreach(ref v; self)
+			{
+				if(v.isTrue)
+				{
+					s.push(true);
+					return 1;
+				}
+			}
+		}
+
+		s.push(false);
+		return 1;
+	}
+	
+	int fill(MDState s, uint numParams)
+	{
+		s.getContext!(MDArray)()[] = s.getParam(0u);
+		return 0;
+	}
+
+	int append(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+
+		for(uint i = 0; i < numParams; i++)
+			self ~= s.getParam(i);
+			
+		return 0;
 	}
 }

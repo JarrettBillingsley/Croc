@@ -219,7 +219,7 @@ public uint loadStatementString(MDState s, dchar[] source, MDNamespace ns = null
 	foreach(ref param; params)
 		s.push(param);
 
-	return s.call(funcReg, params.length + 1, -1);
+	return s.rawCall(funcReg, -1);
 }
 
 /**
@@ -236,8 +236,10 @@ public MDValue eval(MDState s, dchar[] source, MDNamespace ns = null)
 {
 	if(ns is null)
 		ns = s.context.globals.ns;
+		
+	auto cl = new MDClosure(ns, compileExpression(source, "<loaded by eval>"));
 
-	s.easyCall(new MDClosure(ns, compileExpression(source, "<loaded by eval>")), 1, MDValue(ns));
+	s.callWith(cl, 1, MDValue(ns));
 	return s.pop();
 }
 
@@ -246,7 +248,9 @@ public uint evalMultRet(MDState s, dchar[] source, MDNamespace ns = null)
 	if(ns is null)
 		ns = s.context.globals.ns;
 
-	return s.easyCall(new MDClosure(ns, compileExpression(source, "<loaded by eval>")), -1, MDValue(ns));
+	auto cl = new MDClosure(ns, compileExpression(source, "<loaded by eval>"));
+
+	return s.callWith(cl, -1, MDValue(ns));
 }
 
 /**

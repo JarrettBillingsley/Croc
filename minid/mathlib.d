@@ -51,37 +51,45 @@ class MathLib
 
 		namespace.addList
 		(
-			"e"d,        tango.math.Math.E,
-			"pi"d,       tango.math.Math.PI,
-			"nan"d,      mdfloat.nan,
-			"infinity"d, mdfloat.infinity,
-			"abs"d,      new MDClosure(namespace, &lib.abs,     "math.abs"),
-			"sin"d,      new MDClosure(namespace, &lib.sin,     "math.sin"),
-			"cos"d,      new MDClosure(namespace, &lib.cos,     "math.cos"),
-			"tan"d,      new MDClosure(namespace, &lib.tan,     "math.tan"),
-			"asin"d,     new MDClosure(namespace, &lib.asin,    "math.asin"),
-			"acos"d,     new MDClosure(namespace, &lib.acos,    "math.acos"),
-			"atan"d,     new MDClosure(namespace, &lib.atan,    "math.atan"),
-			"atan2"d,    new MDClosure(namespace, &lib.atan2,   "math.atan2"),
-			"sqrt"d,     new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
-			"cbrt"d,     new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
-			"pow"d,      new MDClosure(namespace, &lib.pow,     "math.pow"),
-			"exp"d,      new MDClosure(namespace, &lib.exp,     "math.exp"),
-			"ln"d,       new MDClosure(namespace, &lib.ln,      "math.ln"),
-			"log2"d,     new MDClosure(namespace, &lib.log2,    "math.log2"),
-			"log10"d,    new MDClosure(namespace, &lib.log10,   "math.log10"),
-			"hypot"d,    new MDClosure(namespace, &lib.hypot,   "math.hypot"),
-			"lgamma"d,   new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
-			"gamma"d,    new MDClosure(namespace, &lib.gamma,   "math.gamma"),
-			"ceil"d,     new MDClosure(namespace, &lib.ceil,    "math.ceil"),
-			"floor"d,    new MDClosure(namespace, &lib.floor,   "math.floor"),
-			"round"d,    new MDClosure(namespace, &lib.round,   "math.round"),
-			"trunc"d,    new MDClosure(namespace, &lib.trunc,   "math.trunc"),
-			"isNan"d,    new MDClosure(namespace, &lib.isNan,   "math.isNan"),
-			"isInf"d,    new MDClosure(namespace, &lib.isInf,   "math.isInf"),
-			"sign"d,     new MDClosure(namespace, &lib.sign,    "math.sign"),
-			"rand"d,     new MDClosure(namespace, &lib.rand,    "math.rand"),
-			"frand"d,    new MDClosure(namespace, &lib.frand,   "math.frand")
+			"e"d,         tango.math.Math.E,
+			"pi"d,        tango.math.Math.PI,
+			"nan"d,       mdfloat.nan,
+			"infinity"d,  mdfloat.infinity,
+			"intMin"d,    int.min,
+			"intMax"d,    int.max,
+			"floatMin"d,  mdfloat.min,
+			"floatMax"d,  mdfloat.max,
+			"intSize"d,   int.sizeof,
+			"floatSize"d, mdfloat.sizeof,
+			"abs"d,       new MDClosure(namespace, &lib.abs,     "math.abs"),
+			"sin"d,       new MDClosure(namespace, &lib.sin,     "math.sin"),
+			"cos"d,       new MDClosure(namespace, &lib.cos,     "math.cos"),
+			"tan"d,       new MDClosure(namespace, &lib.tan,     "math.tan"),
+			"asin"d,      new MDClosure(namespace, &lib.asin,    "math.asin"),
+			"acos"d,      new MDClosure(namespace, &lib.acos,    "math.acos"),
+			"atan"d,      new MDClosure(namespace, &lib.atan,    "math.atan"),
+			"atan2"d,     new MDClosure(namespace, &lib.atan2,   "math.atan2"),
+			"sqrt"d,      new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
+			"cbrt"d,      new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
+			"pow"d,       new MDClosure(namespace, &lib.pow,     "math.pow"),
+			"exp"d,       new MDClosure(namespace, &lib.exp,     "math.exp"),
+			"ln"d,        new MDClosure(namespace, &lib.ln,      "math.ln"),
+			"log2"d,      new MDClosure(namespace, &lib.log2,    "math.log2"),
+			"log10"d,     new MDClosure(namespace, &lib.log10,   "math.log10"),
+			"hypot"d,     new MDClosure(namespace, &lib.hypot,   "math.hypot"),
+			"lgamma"d,    new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
+			"gamma"d,     new MDClosure(namespace, &lib.gamma,   "math.gamma"),
+			"ceil"d,      new MDClosure(namespace, &lib.ceil,    "math.ceil"),
+			"floor"d,     new MDClosure(namespace, &lib.floor,   "math.floor"),
+			"round"d,     new MDClosure(namespace, &lib.round,   "math.round"),
+			"trunc"d,     new MDClosure(namespace, &lib.trunc,   "math.trunc"),
+			"isNan"d,     new MDClosure(namespace, &lib.isNan,   "math.isNan"),
+			"isInf"d,     new MDClosure(namespace, &lib.isInf,   "math.isInf"),
+			"sign"d,      new MDClosure(namespace, &lib.sign,    "math.sign"),
+			"rand"d,      new MDClosure(namespace, &lib.rand,    "math.rand"),
+			"frand"d,     new MDClosure(namespace, &lib.frand,   "math.frand"),
+			"max"d,       new MDClosure(namespace, &lib.max,     "math.max"),
+			"min"d,       new MDClosure(namespace, &lib.min,     "math.min")
 		);
 		
 		context.globals["math"d] = namespace;
@@ -328,6 +336,74 @@ class MathLib
 				break;
 		}
 		
+		return 1;
+	}
+	
+	int max(MDState s, uint numParams)
+	{
+		switch(numParams)
+		{
+			case 0:
+				s.throwRuntimeException("At least one parameter required");
+				
+			case 1:
+				break;
+				
+			case 2:
+				if(s.cmp(s.getParam(0u), s.getParam(1u)) > 0)
+					s.pop();
+
+				break;
+
+			default:
+				auto m = s.getParam(0u);
+
+				for(uint i = 1; i < numParams; i++)
+				{
+					auto v = s.getParam(i);
+
+					if(s.cmp(v, m) > 0)
+						m = v;
+				}
+				
+				s.push(m);
+				break;
+		}
+		
+		return 1;
+	}
+	
+	int min(MDState s, uint numParams)
+	{
+		switch(numParams)
+		{
+			case 0:
+				s.throwRuntimeException("At least one parameter required");
+
+			case 1:
+				break;
+
+			case 2:
+				if(s.cmp(s.getParam(0u), s.getParam(1u)) < 0)
+					s.pop();
+
+				break;
+
+			default:
+				auto m = s.getParam(0u);
+
+				for(uint i = 1; i < numParams; i++)
+				{
+					auto v = s.getParam(i);
+
+					if(s.cmp(v, m) < 0)
+						m = v;
+				}
+
+				s.push(m);
+				break;
+		}
+
 		return 1;
 	}
 }

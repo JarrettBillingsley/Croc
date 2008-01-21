@@ -22,27 +22,27 @@ local class Thread
 
 	// Construct a thread with a coroutine body.
 	this(body)
-		mBody = body
+		:mBody = body
 
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
 	function beginWait(duration)
-		mWaitTime = os.microTime() + toInt(duration * 1000000)
+		:mWaitTime = os.microTime() + toInt(duration * 1000000)
 
 	// Add a message to this thread's message queue.
 	function send(value)
 	{
 		local n = { value = value }
 
-		if(mMessageTail is null)
+		if(:mMessageTail is null)
 		{
-			mMessageHead = n
-			mMessageTail = n
+			:mMessageHead = n
+			:mMessageTail = n
 		}
 		else
 		{
-			mMessageTail.next = n
-			mMessageTail = n
+			:mMessageTail.next = n
+			:mMessageTail = n
 		}
 	}
 
@@ -51,17 +51,17 @@ local class Thread
 	// Returns (true, message) if there was a message.
 	function receive()
 	{
-		if(mMessageHead is null)
+		if(:mMessageHead is null)
 		{
-			mNeedMessage = true
+			:mNeedMessage = true
 			return false
 		}
 
-		local item = mMessageHead
-		mMessageHead = mMessageHead.next
+		local item = :mMessageHead
+		:mMessageHead = :mMessageHead.next
 
-		if(mMessageHead is null)
-			mMessageTail = null
+		if(:mMessageHead is null)
+			:mMessageTail = null
 
 		return true, item.value
 	}
@@ -70,28 +70,28 @@ local class Thread
 	// false.  This will give the thread any message that it's waiting for, and if none
 	// is waiting, will give it the varargs to this function instead.
 	function resume(vararg)
-		if(mNeedMessage)
+		if(:mNeedMessage)
 		{
-			assert(mMessageHead !is null)
-			mNeedMessage = false
-			local ok, value = receive()
+			assert(:mMessageHead !is null)
+			:mNeedMessage = false
+			local ok, value = :receive()
 			assert(ok)
-			return mBody(value)
+			return :mBody(value)
 		}
 		else
-			return mBody(vararg)
+			return :mBody(vararg)
 
 	// Returns a bool, whether this thread is waiting, either on a message or on a timer.
 	function isWaiting()
-		if(mNeedMessage)
-			return mMessageHead is null
-		else if(mWaitTime is null)
+		if(:mNeedMessage)
+			return :mMessageHead is null
+		else if(:mWaitTime is null)
 			return false
 		else
-			return os.microTime() < mWaitTime
+			return os.microTime() < :mWaitTime
 
 	// Returns whether the thread has completed or not.
-	function isDead() = mBody.isDead()
+	function isDead() = :mBody.isDead()
 }
 
 // Pass this function a set of Threads (i.e. a table where the keys == values).
