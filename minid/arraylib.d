@@ -25,6 +25,7 @@ module minid.arraylib;
 
 import minid.types;
 import minid.utils;
+import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
@@ -74,7 +75,12 @@ final class ArrayLib
 			"any"d,      new MDClosure(namespace, &lib.any,      "array.any"),
 			"all"d,      new MDClosure(namespace, &lib.all,      "array.all"),
 			"fill"d,     new MDClosure(namespace, &lib.fill,     "array.fill"),
-			"append"d,   new MDClosure(namespace, &lib.append,   "array.append")
+			"append"d,   new MDClosure(namespace, &lib.append,   "array.append"),
+			"flatten"d,  new MDClosure(namespace, &lib.flatten,  "array.flatten"),
+			"makeHeap"d, new MDClosure(namespace, &lib.makeHeap, "array.makeHeap"),
+			"pushHeap"d, new MDClosure(namespace, &lib.pushHeap, "array.pushHeap"),
+			"popHeap"d,  new MDClosure(namespace, &lib.popHeap,  "array.popHeap"),
+			"sortHeap"d, new MDClosure(namespace, &lib.sortHeap, "array.sortHeap")
 		);
 
 		context.globals["array"d] = MDNamespace.create
@@ -253,7 +259,7 @@ final class ArrayLib
 		
 		return 2;
 	}
-	
+
 	int opApply(MDState s, uint numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
@@ -426,7 +432,7 @@ final class ArrayLib
 			}
 		}
 		
-		s.push(-1);
+		s.push(array.length);
 		return 1;
 	}
 	
@@ -465,7 +471,7 @@ final class ArrayLib
 			}
 		}
 
-		s.push(-1);
+		s.push(array.length);
 		return 1;
 	}
 	
@@ -648,7 +654,72 @@ final class ArrayLib
 
 		for(uint i = 0; i < numParams; i++)
 			self ~= s.getParam(i);
-			
+
 		return 0;
+	}
+	
+	int flatten(MDState s, uint numParams)
+	{
+		bool[MDArray] flattening;
+		auto ret = new MDArray(0);
+
+		void flatten(MDArray a)
+		{
+			if(a in flattening)
+				s.throwRuntimeException("Attempting to flatten a self-referencing array");
+
+			flattening[a] = true;
+			
+			foreach(ref val; a)
+			{
+				if(val.isArray)
+					flatten(val.as!(MDArray));
+				else
+					ret ~= val;
+			}
+
+			flattening.remove(a);
+		}
+		
+		flatten(s.getContext!(MDArray)());
+		s.push(ret);
+		return 1;
+	}
+	
+	int makeHeap(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+		.makeHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
+		s.push(self);
+		return 1;
+	}
+
+	int pushHeap(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+		auto val = s.getParam(0u);
+		.pushHeap(self.mData, val, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
+		s.push(self);
+		return 1;
+	}
+
+	int popHeap(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+
+		if(self.length == 0)
+			s.throwRuntimeException("Array is empty");
+
+		s.push(self[0]);
+		.popHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
+		return 1;
+	}
+
+	int sortHeap(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+		.sortHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
+		s.push(self);
+		return 1;
 	}
 }

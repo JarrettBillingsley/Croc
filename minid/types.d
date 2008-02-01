@@ -34,6 +34,8 @@ module minid.types;
 
 import tango.core.Array;
 import tango.core.Thread;
+import tango.core.Traits : ParameterTupleOf;
+import tango.core.Tuple;
 import tango.core.Vararg;
 import tango.io.FileConduit;
 import tango.io.FilePath;
@@ -822,6 +824,10 @@ align(1) struct MDValue
 					
 			return true;
 		}
+		else static if(is(T : MDValue))
+		{
+			return true;
+		}
 		else
 			return false;
 	}
@@ -1001,6 +1007,10 @@ align(1) struct MDValue
 		else static if(is(T : MDBaseObject))
 		{
 			return mBaseObj;
+		}
+		else static if(is(T : MDValue))
+		{
+			return *this;
 		}
 		else
 		{
@@ -1915,7 +1925,8 @@ This is a very simple and straightforward class.  It's basically a mutable, resi
 */
 class MDArray : MDBaseObject
 {
-	protected MDValue[] mData;
+	// package, hmm..
+	package MDValue[] mData;
 
 	/**
 	Construct this array with a given size.  All the elements will be the null MDValue.
@@ -2648,7 +2659,7 @@ final class MDNamespace : MDBaseObject
 				if(slot.next !is null)
 					slot.next = (slot.next - oldBase) + newBase;
 			}
-	
+
 			return n;
 		}
 		else
@@ -2738,7 +2749,7 @@ final class MDNamespace : MDBaseObject
 		version(MDExperimentalNamespaces)
 		{
 			Slot* slot = lookup(str);
-	
+
 			if(slot is null)
 				return null;
 	
@@ -2783,7 +2794,7 @@ final class MDNamespace : MDBaseObject
 	
 				mSlots[mColSlot].key = key;
 				mSlots[mColSlot].value = value;
-	
+
 				Slot* slot;
 				for(slot = &mSlots[h]; slot.next !is null; slot = slot.next)
 				{}
@@ -3903,7 +3914,7 @@ final class MDState : MDBaseObject
 	
 	private Fiber mCoroFiber;
 	private MDContext mContext;
-	
+
 	private bool mShouldHalt = false;
 
 	// ===================================================================================
@@ -3917,9 +3928,9 @@ final class MDState : MDBaseObject
 	If you pass a script function closure to this constructor, this thread will be a coroutine.  It
 	can then be subsequently resumed by calling it with another MDState (just like how you call
 	threads to resume them in MiniD).
-	
+
 	Attempting to pass a native function closure will throw an exception.
-	
+
 	Passing null as the closure (the default) will simply create a new state with no special
 	properties.  Not all that useful.
 	*/
@@ -3936,7 +3947,7 @@ final class MDState : MDBaseObject
 
 		mTryRecs[0].actRecord = uint.max;
 		mType = MDValue.Type.Thread;
-		
+
 		mContext = context;
 	}
 
@@ -5187,6 +5198,99 @@ final class MDState : MDBaseObject
 
 		mState = State.Initial;
 	}
+	
+	struct Each
+	{
+		MDState s;
+		MDValue iter;
+		MDValue obj;
+		MDValue idx;
+
+		public int opApply(T)(T dg)
+		{
+			static if(ParameterTupleOf!(T).length == 1)
+			{
+				alias Tuple!(MDValue, ParameterTupleOf!(T)) Indices;
+				const numParams = 1;
+			}
+			else
+			{
+				alias ParameterTupleOf!(T) Indices;
+				const numParams = Indices.length;
+			}
+
+			if(iter.mType != MDValue.Type.Function)
+			{
+				auto apply = s.getMM(iter, MM.Apply);
+
+				if(apply.mType != MDValue.Type.Function)
+					s.throwRuntimeException("No implementation of {} for type '{}'", MetaNames[MM.Apply], iter.typeString());
+
+				s.mNativeCallDepth++;
+
+				scope(exit)
+					s.mNativeCallDepth--;
+					
+				auto funcReg = s.push(apply);
+				s.push(iter);
+				s.push(obj);
+				s.rawCall(funcReg, 3);
+				s.popMulti(iter, obj, idx);
+			}
+			
+			Indices indices;
+
+			while(true)
+			{
+				auto funcReg = s.push(iter);
+				s.push(obj);
+				s.push(idx);
+				s.rawCall(funcReg, Indices.length);
+
+				{
+					scope(exit)
+						s.mStackIndex -= Indices.length;
+
+					auto firstSlot = funcReg + s.mCurrentAR.base;
+
+					if(s.mStack[firstSlot].mType == MDValue.Type.Null)
+						break;
+
+					idx = s.mStack[firstSlot];
+
+					foreach(i, _; indices)
+					{
+						MDValue* val = &s.mStack[firstSlot + i];
+
+						if(!val.canCastTo!(Indices[i]))
+							s.throwRuntimeException("Native foreach's index " ~ Itoa!(i) ~ ": cannot convert MiniD type '{}' to native type '" ~ Indices[i].stringof ~ "'", val.typeString());
+
+						indices[i] = val.as!(Indices[i]);
+					}
+				}
+
+				if(auto result = dg(indices[$ - numParams .. $]))
+					return result;
+			}
+			
+			return 0;
+		}
+	}
+
+	public Each each(ref MDValue iter)
+	{
+		return Each(this, iter, MDValue.nullValue, MDValue.nullValue);
+	}
+
+	public Each each(ref MDValue iter, ref MDValue obj)
+	{
+		return Each(this, iter, obj, MDValue.nullValue);
+	}
+
+	public Each each(ref MDValue iter, ref MDValue obj, ref MDValue idx)
+	{
+		return Each(this, iter, obj, idx);
+	}
 
 	/**
 	Gets the context which owns this thread.
@@ -5195,7 +5299,7 @@ final class MDState : MDBaseObject
 	{
 		return mContext;
 	}
-	
+
 	public final void halt()
 	{
 		throw new MDHaltException();
@@ -5214,6 +5318,11 @@ final class MDState : MDBaseObject
 			mShouldHalt = true;
 
 		volatile busy = false;
+	}
+	
+	public final bool hasPendingHalt()
+	{
+		return mShouldHalt;
 	}
 
 	// ===================================================================================
@@ -8444,8 +8553,15 @@ final class MDState : MDBaseObject
 							else
 								get(i.rd).setNull();
 						}
+						else if(RS.mType == MDValue.Type.Namespace)
+						{
+							if(auto p = RS.mNamespace.parent())
+								*get(i.rd) = p;
+							else
+								get(i.rd).setNull();
+						}
 						else
-							throwRuntimeException("Can only get super of objects, not '{}'", RS.typeString());
+							throwRuntimeException("Can only get super of objects and namespaces, not '{}'", RS.typeString());
 
 						break;
 

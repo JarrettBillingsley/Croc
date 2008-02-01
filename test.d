@@ -20,23 +20,9 @@ void main()
 		
 		version(Arc)
 			LoadArc(ctx);
-		
-		loadStatementString(ctx.mainThread, `function func() return 1, "hi"`);
 
-		with(ctx.mainThread)
-		{
-			call(ctx.globals["func"d], 2);
-			
-			int x;
-			char[] s;
-
-			popMulti(x, s);
-
-			Stdout.formatln("{} {}", x, s);
-		}
-
-		//ctx.addImportPath(`samples`);
-		//ctx.importModule("simple");
+		ctx.addImportPath(`samples`);
+		ctx.importModule("simple");
 	}
 	catch(MDException e)
 	{

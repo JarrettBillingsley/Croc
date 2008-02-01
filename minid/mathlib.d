@@ -300,12 +300,20 @@ class MathLib
 				break;
 
 			case 1:
-				s.push(cast(uint)num % s.getParam!(int)(0));
+				auto max = s.getParam!(int)(0);
+				
+				if(max == 0)
+					s.throwRuntimeException("Maximum value may not be 0");
+
+				s.push(cast(uint)num % max);
 				break;
 
 			default:
 				int lo = s.getParam!(int)(0);
 				int hi = s.getParam!(int)(1);
+				
+				if(hi == lo)
+					s.throwRuntimeException("Low and high values must be different");
 
 				s.push(cast(int)(num % (hi - lo)) + lo);
 				break;

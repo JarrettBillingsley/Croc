@@ -562,25 +562,31 @@ class BaseLib
 		return 1;
 	}
 
-	int curryClosure(MDState s, uint numParams)
-	{
-		uint funcReg = s.push(s.getUpvalue!(MDClosure)(0));
-		s.push(s.getContext());
-		s.push(s.getUpvalue(1u));
-
-		for(uint i = 0; i < numParams; i++)
-			s.push(s.getParam(i));
-
-		return s.rawCall(funcReg, -1);
-	}
-
 	int curry(MDState s, uint numParams)
 	{
-		MDValue[2] upvalues;
-		upvalues[0] = s.getParam!(MDClosure)(0);
-		upvalues[1] = s.getParam(1u);
+		struct Closure
+		{
+			MDClosure func;
+			MDValue val;
+
+			int call(MDState s, uint numParams)
+			{
+				uint funcReg = s.push(func);
+				s.push(s.getContext());
+				s.push(val);
+				
+				for(uint i = 0; i < numParams; i++)
+					s.push(s.getParam(i));
+					
+				return s.rawCall(funcReg, -1);
+			}
+		}
 		
-		s.push(new MDClosure(upvalues[0].as!(MDClosure).environment, &curryClosure, "curryClosure", upvalues));
+		auto cl = new Closure;
+		cl.func = s.getParam!(MDClosure)(0);
+		cl.val = s.getParam(1u);
+		
+		s.push(new MDClosure(cl.func.environment, &cl.call, "curryClosure"));
 		return 1;
 	}
 	
@@ -760,7 +766,9 @@ class BaseLib
 				"opApply"d,        new MDClosure(mFields, &opApply,        "StringBuffer.opApply"),
 				"opSlice"d,        new MDClosure(mFields, &opSlice,        "StringBuffer.opSlice"),
 				"opSliceAssign"d,  new MDClosure(mFields, &opSliceAssign,  "StringBuffer.opSliceAssign"),
-				"reserve"d,        new MDClosure(mFields, &reserve,        "StringBuffer.reserve")
+				"reserve"d,        new MDClosure(mFields, &reserve,        "StringBuffer.reserve"),
+				"format"d,         new MDClosure(mFields, &format,         "StringBuffer.format"),
+				"formatln"d,       new MDClosure(mFields, &formatln,       "StringBuffer.formatln")
 			);
 		}
 
@@ -957,6 +965,35 @@ class BaseLib
 			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
 			return 0;
 		}
+		
+		public int format(MDState s, uint numParams)
+		{
+			auto self = s.getContext!(MDStringBuffer);
+
+			uint sink(dchar[] data)
+			{
+				self.append(data);
+				return data.length;
+			}
+
+			formatImpl(s, s.getAllParams(), &sink);
+			return 0;
+		}
+
+		public int formatln(MDState s, uint numParams)
+		{
+			auto self = s.getContext!(MDStringBuffer);
+
+			uint sink(dchar[] data)
+			{
+				self.append(data);
+				return data.length;
+			}
+
+			formatImpl(s, s.getAllParams(), &sink);
+			self.append("\n"d);
+			return 0;
+		}
 	}
 
 	static class MDStringBuffer : MDObject
@@ -999,10 +1036,14 @@ class BaseLib
 		
 		public void append(char[] s)
 		{
-			dchar[] str = utf.toString32(s);
-			resize(str.length);
-			mBuffer[mLength .. mLength + str.length] = str[];
-			mLength += str.length;
+			append(utf.toString32(s));
+		}
+		
+		public void append(dchar[] s)
+		{
+			resize(s.length);
+			mBuffer[mLength .. mLength + s.length] = s[];
+			mLength += s.length;
 		}
 		
 		public void insert(int offset, MDStringBuffer other)

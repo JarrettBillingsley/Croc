@@ -1,232 +1,78 @@
 module simple
 
-local MonthTab =
+_G.Rope = object Rope
 {
-	["Jan"] = "January", ["Jan."] = "January", ["January"] = "January",
-	["Feb"] = "February", ["Feb."] = "February", ["February"] = "February",
-	["Mar"] = "March", ["Mar."] = "March", ["March"] = "March",
-	["Apr"] = "April", ["Apr."] = "April", ["April"] = "April",
-	["May"] = "May",
-	["Jun"] = "June", ["Jun."] = "June", ["June"] = "June",
-	["Jul"] = "July", ["Jul."] = "July", ["July"] = "July",
-	["Aug"] = "August", ["Aug."] = "August", ["August"] = "August",
-	["Sept"] = "September", ["Sept."] = "September", ["September"] = "September",
-	["Oct"] = "October", ["Oct."] = "October", ["October"] = "October",
-	["Nov"] = "November", ["Nov."] = "November", ["November"] = "November",
-	["Dec"] = "December", ["Dec."] = "December", ["December"] = "December"
-}
+	function clone(s) = object : this { str = s; next = null }
 
-local Ones = ["zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
-local Teens = ["ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen",
-	"sixteen", "seventeen", "eighteen", "nineteen"]
-local Tens = [null, "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"]
-local MajorPlaces = ["thousand", "million", "billion", "trillion", "quadrillion", "quintillion",
-	"sextillion", "septillion", "octillion", "nonillion", "decillion"]
-local OrdinalOnes = ["zeroeth", "first", "second", "third", "fourth", "fifth",
-	"sixth", "seventh", "eigth", "ninth"]
-local OrdinalTeens = ["tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth",
-	"sixteenth", "seventeenth", "eighteenth", "ninteenth"]
-local OrdinalTens = [null, "tenth", "twentieth", "thirtieth", "fourtieth", "fiftieth",
-	"sixtieth", "seventieth", "eightieth", "ninetieth"]
-
-// Converts a number < 1000 as a string to a readable string.
-function convertSmallNumber(num)
-{
-	assert(isString(num))
-
-	local value = toInt(num)
-	local ret = ""
-
-	if(value >= 100)
+	/*function opCat(vararg)
 	{
-		ret ~= Ones[value / 100] ~ " hundred "
-		value %= 100
-	}
+		local ret = object : Rope { str = :s }
+		local r = ret
 
-	if(value >= 20)
-	{
-		if(value % 10 == 0)
-			ret ~= Tens[value / 10]
-		else
-			ret ~= Tens[value / 10] ~ "-" ~ Ones[value % 10]
-	}
-	else if(value >= 10)
-		ret ~= Teens[value - 10]
-	else if(value % 10 != 0)
-		ret ~= Ones[value]
-
-	return ret.strip()
-}
-
-// Converts a number string to a readable string.
-function convertNumber(num)
-{
-	assert(isString(num))
-
-	local pieces = num.split(".")
-	local frac, whole
-
-	if(#pieces > 1)
-	{
-		frac = pieces[1]
-		whole = pieces[0]
-	}
-	else
-	{
-		frac = ""
-		whole = pieces[0]
-	}
-	
-	local ret
-
-	if(whole == "0")
-		ret = "zero"
-	else
-	{
-		pieces = whole.split(",")
-		ret = convertSmallNumber(pieces[-1])
-
-		pieces = pieces[0 .. -1]
-		local placesIndex = 0
-
-		while(#pieces > 0)
+		for(i: 0 .. #vararg)
 		{
-			if(placesIndex >= #MajorPlaces)
-				throw "Number too large to convert"
+			local v = vararg[i]
 
-			ret = convertSmallNumber(pieces[-1]) ~ " " ~ MajorPlaces[placesIndex] ~ " " ~ ret
-			placesIndex++
-			pieces = pieces[0 .. -1]
-		}
-	}
-
-	if(#frac > 0)
-	{
-		ret ~= " point"
-		
-		frac = frac[1 ..]
-
-		while(#frac > 0)
-		{
-			ret ~= " " ~ Ones[toInt(frac[0 .. 1])]
-			frac = frac[1 ..]
-		}
-	}
-
-	return ret.strip()
-}
-
-function convertYear(year)
-{
-	if(isString(year))
-		year = toInt(year)
-
-	if(year < 2000 || year > 2009)
-	{
-		if(year % 100 < 10)
-			return number(year / 100) ~ " oh " ~ number(year % 100)
-		else
-			return number(year / 100) ~ " " ~ number(year % 100)
-	}
-	else
-		return "two thousand " ~ number(year % 100)
-}
-
-function ordinal(val)
-{
-	if(isString(val))
-		val = toInt(val)
-
-	local ret = ""
-
-	if(val < 10)
-		ret = OrdinalOnes[val]
-	else if(val < 20)
-		ret = OrdinalTeens[val - 10]
-	else
-	{
-		local tens = val % 100
-		local hundreds = val - tens
-		
-		if(hundreds != 0)
-		{
-			ret ~= number(hundreds)
-
-			if(tens == 0)
-				ret ~= "th"
+			if(isString(v))
+				r.next = Rope.clone(v)
+			else if(v as Rope)
+				r.next = v
 			else
-				ret ~= " "
-		}
+				r.next = Rope.clone(toString(v))
 
-		if(tens > 0)
+			r = r.next
+		}
+		
+		return ret
+	}*/
+	
+	function opCatAssign(vararg)
+	{
+		local s = this
+
+		for( ; s.next !is null; s = s.next) {}
+
+		for(i: 0 .. #vararg)
 		{
-			if(tens < 10)
-				ret ~= OrdinalOnes[tens]
-			else if(tens < 20)
-				ret ~= OrdinalTeens[tens - 10]
-			else if(tens % 10 == 0)
-				ret ~= OrdinalTens[tens / 10]
+			local v = vararg[i]
+
+			if(isString(v))
+				s.next = Rope.clone(v)
+			else if(v as Rope)
+				s.next = v
 			else
-				ret ~= Tens[tens / 10] ~ "-" ~ OrdinalOnes[tens % 10]
+				s.next = Rope.clone(toString(v))
+
+			s = s.next
 		}
 	}
-
-	return ret.strip()
-}
-
-function convertDate(dateStr)
-{
-	assert(isString(dateStr), "param must be a string")
 	
-	local pieces = dateStr.split(" ")
+	function print()
+		for(local s = this; s !is null; s = s.next)
+			write(s.str)
+			
+	function opLength()
+	{
+		local total = 0
 
-	local month = MonthTab[pieces[0]]
-	local day = ordinal(pieces[1])
-	
-	if(#pieces > 2)
-		return format("{} {}, {}", month, day, convertYear(toInt(pieces[2])))
-	else
-		return format("{} {}", month, day)
+		for(local s = this; s !is null; s = s.next)
+			total += #s.str
+			
+		return total
+	}
+
+	function toString()
+	{
+		local sb = StringBuffer.clone()
+		
+		for(local s = this; s !is null; s = s.next)
+			sb.append(s.str)
+			
+		return sb.toString()
+	}
 }
 
-/*if(#vararg < 1 || #vararg > 2)
-{
-	writeln("usage: python cs1671hw1.py inputfile [outputfile]")
-	writeln("If no output file is specified, output will be sent to stdout.")
-	return
-}
-
-local input = io.File(vararg[0], io.FileMode.In)
-local output
-
-if(#vararg == 2)
-	output = io.File(vararg[1], io.FileMode.OutNew)
-else
-	output = io.stdout
-
-local datere = regexp.compile(
-					@"((Jan(\.?|uary))|(Feb(\.?|ruary))|(Mar(\.?|ch))|(Apr(\.?|il))|" ~
-					@"(May)|(Jun(\.?|e))|(Jul(\.?|y))|(Aug(\.?|ust))|(Sept(\.?|ember))|" ~
-					@"(Oct(\.?|ober))|(Nov(\.?|ember))|(Dec(\.?|ember)))\s(\d\d?)(\s\d{4})?"
-				)
-
-foreach(line; input)
-{
-	// Change percent signs to the word "percent".  Percentages don't actually need
-	// to be handled in any special way, and since the percent sign can be preceded
-	// by some other form (such as 3\/4 or 14.8), there's no point in duplicating
-	// effort in converting those.
-
-	line = line.replace("%", "percent")
-
-	foreach(m; datere.search(line))
-		output.writeln(convertDate(m.match(0)))
-}
-
-input.close()
-
-if(output !is io.stdout)
-	output.close()*/
+Rope.opCall = Rope.clone
 
 /+
 /*object BaseProp

@@ -96,6 +96,9 @@ public class CommandLine
 
 	private void outputRepr(MDState state, ref MDValue v)
 	{
+		if(state.hasPendingHalt())
+			throw new MDHaltException();
+
 		static bool[MDBaseObject] shown;
 
 		void escape(dchar c)
@@ -145,6 +148,9 @@ public class CommandLine
 				
 				for(int i = 1; i < a.length; i++)
 				{
+					if(state.hasPendingHalt())
+						throw new MDHaltException();
+
 					mOutput(", ");
 					outputRepr(state, *a[i]);
 				}
@@ -173,6 +179,9 @@ public class CommandLine
 				{
 					foreach(k, v; t)
 					{
+						if(state.hasPendingHalt())
+							throw new MDHaltException();
+				
 						mOutput('[');
 						outputRepr(state, k);
 						mOutput("] = ");
@@ -189,7 +198,9 @@ public class CommandLine
 							first = !first;
 						else
 							mOutput(", ");
-
+							
+						if(state.hasPendingHalt())
+							throw new MDHaltException();
 
 						mOutput('[');
 						outputRepr(state, k);
@@ -360,6 +371,18 @@ public class CommandLine
 				}, "exit"
 			);
 
+			MDClosure reprFunc = ctx.newClosure
+			(
+				(MDState s, uint numParams)
+				{
+					outputRepr(s, s.getParam(0u));
+					mOutput.newline;
+					return 0;
+				}, "repr"
+			);
+			
+			ctx.globals["repr"d] = reprFunc;
+
 			mOutput("Use the \"exit()\" function to end, or hit Ctrl-C.").newline;
 			mOutput(Prompt1)();
 			
@@ -374,7 +397,7 @@ public class CommandLine
 			}
 			
 			signal(SIGINT, &interruptHandler);
-			
+
 			scope(exit)
 				signal(SIGINT, SIG_DFL);
 
@@ -398,8 +421,7 @@ public class CommandLine
 				try
 				{
 					auto def = compileStatements(utf.toString32(buffer), "stdin");
-					scope closure = ctx.newClosure(def);
-					state.call(closure, 0);
+					state.call(ctx.newClosure(def), 0);
 				}
 				catch(MDCompileException e2)
 				{
@@ -408,10 +430,16 @@ public class CommandLine
 						mOutput(Prompt2)();
 						return true;
 					}
-					else if(e2.solitaryExpression && e !is null)
+					else if(e2.solitaryExpression)
 					{
-						// output e, the exception that caused it not to be evaluable as an expression in the first place
-						mOutput.formatln("Error: {}", e);
+						if(e)
+						{
+							mOutput.formatln("When attempting to evaluate as an expression:");
+							mOutput.formatln("Error: {}", e);
+							mOutput.formatln("When attempting to evaluate as a statement:");
+						}
+
+						mOutput.formatln("Error: {}", e2);
 						mOutput.newline;
 					}
 					else
@@ -446,12 +474,12 @@ public class CommandLine
 
 						auto returns = returnBuffer.toArray();
 						
-						outputRepr(state, returns[$ - 1]);
+						state.call(reprFunc, 0, returns[$ - 1]);
 
 						foreach_reverse(val; returns[0 .. $ - 1])
 						{
 							mOutput(", ");
-							outputRepr(state, val);
+							state.call(reprFunc, 0, val);
 						}
 						
 						mOutput.newline;

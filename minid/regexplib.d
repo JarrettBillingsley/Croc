@@ -206,7 +206,9 @@ class RegexpLib
 		{
 			MDRegexp r = s.getContext!(MDRegexp);
 
-			if(s.isParam!("int")(0))
+			if(numParams == 0)
+				s.push(r.match(0));
+			else if(s.isParam!("int")(0))
 				s.push(r.match(s.getParam!(int)(0)));
 			else
 				s.push(MDArray.fromArray(r.match(s.getParam!(char[])(0))));

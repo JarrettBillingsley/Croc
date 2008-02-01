@@ -46,6 +46,7 @@ import minid.utils;
 //debug = REGPUSHPOP;
 //debug = VARACTIVATE;
 //debug = WRITECODE;
+//debug = SHOWME;
 
 /**
 Compile a source code file into a binary module.  Takes the path to the source file and returns
@@ -115,7 +116,10 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 	}
 	finally
 	{
-		//fs.showMe(); Stdout.flush;
+		debug(SHOWME)
+		{
+			fs.showMe(); Stdout.flush;
+		}
 	}
 
 	return fs.toFuncDef();
@@ -151,7 +155,10 @@ public MDFuncDef compileExpression(dchar[] source, char[] name)
 	}
 	finally
 	{
-		//fs.showMe(); Stdout.flush;
+		debug(SHOWME)
+		{
+			fs.showMe(); Stdout.flush;
+		}
 	}
 
 	return fs.toFuncDef();
@@ -766,16 +773,18 @@ class Lexer
 			}
 			else if(mCharacter == '.')
 			{
-				if(lookaheadChar() == '.')
-				{
-					// next token is probably a ..
-					break;
-				}
-				else
+				auto ch = lookaheadChar();
+
+				if((ch >= '0' && ch <= '9') || ch == '_')
 				{
 					hasPoint = true;
 					add(mCharacter);
 					nextChar();
+				}
+				else
+				{
+					// next token is either a .. or maybe it's .something
+					break;
 				}
 			}
 			else if(mCharacter == '_')
@@ -799,7 +808,10 @@ class Lexer
 			else if(mCharacter == '_')
 				nextChar();
 			else
+			{
+				// REACHABLE?
 				throw new MDCompileException(mLoc, "Floating point literal '{}' must have at least one digit after decimal point", buf[0 .. i]);
+			}
 		}
 		
 		bool hasExponent = false;
@@ -1660,7 +1672,6 @@ class FuncState
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
 	protected dchar[] mGuessedName;
-	protected bool mIsMethod;
 
 	struct LocVarDesc
 	{
@@ -1695,11 +1706,10 @@ class FuncState
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
 
-	public this(Location location, dchar[] guessedName, FuncState parent = null, bool isMethod = false)
+	public this(Location location, dchar[] guessedName, FuncState parent = null)
 	{
 		mLocation = location;
 		mGuessedName = guessedName;
-		mIsMethod = isMethod;
 
 		mParent = parent;
 		mScope = new Scope;
@@ -1718,11 +1728,6 @@ class FuncState
 	public bool isTopLevel()
 	{
 		return mParent is null;
-	}
-
-	public bool isMethod()
-	{
-		return mIsMethod;
 	}
 
 	public uint tagLocal(uint val)
@@ -2052,7 +2057,7 @@ class FuncState
 		Exp* e = pushExp();
 		*e = *src;
 	}
-	
+
 	public void pushVargLen(uint line)
 	{
 		Exp* e = pushExp();
@@ -2536,9 +2541,8 @@ class FuncState
 	
 	public void popLength(uint line)
 	{
-		Exp* src = &mExpStack[mExpSP - 1];
-		toSource(line, src);
-		src.type = ExpType.Length;
+		topToSource(line);
+		mExpStack[mExpSP - 1].type = ExpType.Length;
 	}
 
 	public void pushCall(uint line, uint firstReg, uint numRegs)
@@ -2596,7 +2600,7 @@ class FuncState
 				codeR(line, Op.FieldAssign, dest.index, dest.index2, srcReg);
 				freeExpTempRegs(dest);
 				break;
-				
+
 			case ExpType.IndexedVararg:
 				codeR(line, Op.VargIndexAssign, 0, dest.index, srcReg);
 				break;
@@ -2683,7 +2687,7 @@ class FuncState
 		n = *popExp();
 		toSource(line, &n);
 	}
-	
+
 	public void pushSource(uint line)
 	{
 		dup();
@@ -2756,6 +2760,9 @@ class FuncState
 				break;
 				
 			case ExpType.Length:
+				if(cleanup)
+					freeExpTempRegs(e);
+
 				temp.index = pushRegister();
 				temp.isTempReg = true;
 				codeR(line, Op.Length, temp.index, e.index, 0);
@@ -3357,6 +3364,7 @@ enum AstTag
 	DotExp,
 	DotSuperExp,
 	IndexExp,
+	VargIndexExp,
 	SliceExp,
 	VargSliceExp,
 	CallExp,
@@ -3467,6 +3475,7 @@ const char[][] AstTagNames =
     AstTag.DotExp:               "DotExp",
     AstTag.DotSuperExp:          "DotSuperExp",
     AstTag.IndexExp:             "IndexExp",
+    AstTag.VargIndexExp:         "VargIndexExp",
     AstTag.SliceExp:             "SliceExp",
     AstTag.VargSliceExp:         "VargSliceExp",
     AstTag.CallExp:              "CallExp",
@@ -3546,12 +3555,36 @@ private Op AstTagToOpcode(AstTag tag)
 	}
 }
 
+/**
+The base class for all the Abstract Syntax Tree nodes in the language.
+*/
 abstract class AstNode
 {
+	/**
+	The location of the beginning of this node.
+	*/
 	public Location location;
+
+	/**
+	The location of the end of this node.
+	*/
 	public Location endLocation;
+	
+	/**
+	The tag indicating what kind of node this actually is.  You can switch on this
+	to walk an AST.
+	*/
 	public AstTag type;
 
+	/**
+	The base constructor, but since this class is abstract, this can only be
+	called from derived classes.
+	
+	Params:
+		location = The location of the beginning of this node.
+		endLocation = The location of the end of this node.
+		type = The type of this node.
+	*/
 	public this(Location location, Location endLocation, AstTag type)
 	{
 		this.location = location;
@@ -3559,25 +3592,65 @@ abstract class AstNode
 		this.type = type;
 	}
 
+	/**
+	By default, toString() will return the string representation of the node type.
+	*/
 	public char[] toString()
 	{
 		return AstTagNames[type];
 	}
 }
 
+/**
+This node represents the guts of an object literal.  This node does not directly correspond
+to a single grammar element; rather it represents the common attributes of both object
+literals and object declarations.
+*/
 class ObjectDef : AstNode
 {
+	/**
+	Represents a single field in the object.  Remember that methods are fields too.
+	*/
 	struct Field
 	{
+		/**
+		The name of the field.  This corresponds to either the name of a data member or
+		the name of a method.
+		*/
 		dchar[] name;
+		
+		/**
+		The initializer of the field.  This will never be null.  If a field is declared in
+		an object but not given a value, a NullExp will be inserted into this field.
+		*/
 		Expression initializer;
 	}
 
+	/**
+	The name of the object.  This field can be null, which indicates that the name of the
+	object will be taken from its base object at runtime.
+	*/
 	public Identifier name;
+	
+	/**
+	The base object from which this object derives.  This field will never be null.  If
+	no base object is specified, it is given the value of an IdentExp with the identifier
+	"Object".
+	*/
 	public Expression baseObject;
+	
+	/**
+	The fields in this object, in the order they were declared.  See the Field struct above.
+	*/
 	public Field[] fields;
+	
+	/**
+	Optional attribute table for this object.  This member can be null.
+	*/
 	public TableCtorExp attrs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.ObjectDef);
@@ -3587,6 +3660,20 @@ class ObjectDef : AstNode
 		this.attrs = attrs;
 	}
 
+	/**
+	Parse an object definition.  
+	
+	Params:
+		l = The lexer to be used.
+		nameOptional = If true, the name is optional (such as with object literal expressions).
+			Otherwise, the name is required (such as with object declarations).
+		attrs = An optional attribute table to associate with the object.  This is here
+			because an attribute table must first be parsed before the compiler can determine
+			what kind of declaration follows it.
+			
+	Returns:
+		An instance of this class.
+	*/
 	public static ObjectDef parse(Lexer l, bool nameOptional, TableCtorExp attrs = null)
 	{
 		auto location = l.expect(Token.Type.Object).location;
@@ -3619,7 +3706,7 @@ class ObjectDef : AstNode
 			fieldMap[name.name] = true;
 			fields ~= Field(name.name, v);
 		}
-		
+
 		void addMethod(FuncDef m)
 		{
 			dchar[] name = m.name.name;
@@ -3707,6 +3794,8 @@ class ObjectDef : AstNode
 		s.pushTempReg(destReg);
 	}
 
+	/**
+	*/
 	public ObjectDef fold()
 	{
 		baseObject = baseObject.fold();
@@ -3721,20 +3810,60 @@ class ObjectDef : AstNode
 	}
 }
 
+/**
+Similar to ObjectDef, this class represents the common attributes of both function literals
+and function declarations.
+*/
 class FuncDef : AstNode
 {
+	/**
+	Represents a parameter to the function.
+	*/
 	struct Param
 	{
+		/**
+		The name of the parameter.
+		*/
 		Identifier name;
+		
+		/**
+		The default value for the parameter.  This can be null, in which case it will have
+		no default value.
+		*/
 		Expression defValue;
 	}
 
+	/**
+	The name of the function.  This will never be null.  In the case of function literals
+	without names, this will be filled with an auto-generated name based off the location of
+	where the literal occurred.
+	*/
 	public Identifier name;
+	
+	/**
+	The list of parameters to the function.  See the Param struct above.  This will always be
+	at least one element long, and element 0 will always be the 'this' parameter.
+	*/
 	public Param[] params;
+	
+	/**
+	Indicates whether or not this function is variadic.
+	*/
 	public bool isVararg;
+	
+	/**
+	The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
+	is a ReturnStatement with one expression, the expression that is the lambda's body.
+	*/
 	public Statement code;
+	
+	/**
+	Optional attribute table for this function.  This can be null.
+	*/
 	public TableCtorExp attrs;
 
+	/**
+	*/
 	public this(Location location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
 	{
 		super(location, code.endLocation, AstTag.FuncDef);
@@ -3745,6 +3874,18 @@ class FuncDef : AstNode
 		this.attrs = attrs;
 	}
 
+	/**
+	Parse everything starting from the left-paren of the parameter list to the end of the body.
+	
+	Params:
+		l = The lexer to use.
+		location = Where the function actually started.
+		name = The name of the function.  Must be non-null.
+		attrs = The optional attribute table.
+
+	Returns:
+		The completed function definition.
+	*/
 	public static FuncDef parseBody(Lexer l, Location location, Identifier name, TableCtorExp attrs = null)
 	{
 		bool isVararg;
@@ -3763,6 +3904,10 @@ class FuncDef : AstNode
 		return new FuncDef(location, name, params, isVararg, code, attrs);
 	}
 
+	/**
+	Parse a simple function declaration.  This is basically a function declaration without
+	any preceding 'local' or 'global'.  The function must have a name.
+	*/
 	public static FuncDef parseSimple(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.expect(Token.Type.Function).location;
@@ -3771,6 +3916,10 @@ class FuncDef : AstNode
 		return parseBody(l, location, name, attrs);
 	}
 	
+	/**
+	Parse a function literal.  The name is optional, and one will be autogenerated for the
+	function if none exists.
+	*/
 	public static FuncDef parseLiteral(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Function).location;
@@ -3785,6 +3934,16 @@ class FuncDef : AstNode
 		return parseBody(l, location, name);
 	}
 
+	/**
+	Parse a parameter list, opening and closing parens included.
+	
+	Params:
+		l = The lexer to use.
+		isVararg = Return value to indicate if the parameter list ended with 'vararg'.
+	
+	Returns:
+		An array of Param structs.
+	*/
 	public static Param[] parseParams(Lexer l, out bool isVararg)
 	{
 		Param[] ret = new Param[1];
@@ -3823,9 +3982,9 @@ class FuncDef : AstNode
 		return ret;
 	}
 
-	public void codeGen(FuncState s, bool isMethod = false)
+	public void codeGen(FuncState s)
 	{
-		FuncState fs = new FuncState(location, name.name, s, isMethod);
+		FuncState fs = new FuncState(location, name.name, s);
 
 		fs.mIsVararg = isVararg;
 		fs.mNumParams = params.length;
@@ -3854,6 +4013,8 @@ class FuncDef : AstNode
 		}
 	}
 
+	/**
+	*/
 	public FuncDef fold()
 	{
 		foreach(ref p; params)
@@ -3869,19 +4030,53 @@ class FuncDef : AstNode
 	}
 }
 
+/**
+Like the ObjectDef and FuncDef classes, this represents the common attributes of both
+namespace literals and declarations.
+*/
 class NamespaceDef : AstNode
 {
+	/**
+	Represents a single field in the namespace.  Remember that functions are fields too.
+	*/
 	struct Field
 	{
+		/**
+		The name of the field.  This corresponds to either the name of a data member or
+		the name of a function.
+		*/
 		dchar[] name;
+		
+		/**
+		The initializer of the field.  This will never be null.  If a field is declared in
+		a namespace but not given a value, a NullExp will be inserted into this field.
+		*/
 		Expression initializer;
 	}
 
+	/**
+	The name of the namespace.  This field will never be null.
+	*/
 	public Identifier name;
+	
+	/**
+	The namespace which will become the parent of this namespace.  This field will never be
+	null.  In the case that no parent is specified in the code, this will be a NullExp.
+	*/
 	public Expression parent;
+	
+	/**
+	The fields in this namespace, in an arbitrary order.  See the Field struct above.
+	*/
 	public Field[] fields;
+	
+	/**
+	Optional attribute table for this namespace.  This member can be null.
+	*/
 	public TableCtorExp attrs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.NamespaceDef);
@@ -3891,6 +4086,16 @@ class NamespaceDef : AstNode
 		this.attrs = attrs;
 	}
 
+	/**
+	Parse a namespace.  Both literals and declarations require a name.
+	
+	Params:
+		l = The lexer to use.
+		attrs = The optional attribute table to attach to this namespace.
+		
+	Returns:
+		An instance of this class.
+	*/
 	public static NamespaceDef parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
@@ -4007,6 +4212,8 @@ class NamespaceDef : AstNode
 		s.pushTempReg(destReg);
 	}
 
+	/**
+	*/
 	public NamespaceDef fold()
 	{
 		foreach(ref field; fields)
@@ -4019,11 +4226,24 @@ class NamespaceDef : AstNode
 	}
 }
 
+/**
+Represents a MiniD module.  This node usually forms the root of an AST tree, at least
+when a module is compiled.
+*/
 class Module : AstNode
 {
+	/**
+	The module declaration.  This will never be null.
+	*/
 	public ModuleDeclaration modDecl;
+	
+	/**
+	A list of 0 or more statements which make up the body of the module.
+	*/
 	public Statement[] statements;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, ModuleDeclaration modDecl, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.Module);
@@ -4031,6 +4251,9 @@ class Module : AstNode
 		this.statements = statements;
 	}
 
+	/**
+	Parse a module.
+	*/
 	public static Module parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -4069,7 +4292,10 @@ class Module : AstNode
 		}
 		finally
 		{
-			//showMe(); fs.showMe(); Stdout.flush;
+			debug(SHOWME)
+			{
+				showMe(); fs.showMe(); Stdout.flush;
+			}
 			//fs.printExpStack();
 		}
 
@@ -4080,17 +4306,33 @@ class Module : AstNode
 		return def;
 	}
 
+	/**
+	A debugging function which just prints the name of the module.
+	*/
 	public void showMe()
 	{
 		Stdout.formatln("module {}", join(modDecl.names, "."d));
 	}
 }
 
+/**
+This node represents the module declaration that comes at the top of every module.
+*/
 class ModuleDeclaration : AstNode
 {
+	/**
+	The name of this module.  This is an array of strings, each element of which is one
+	piece of a dotted name.  This array will always be at least one element long.
+	*/
 	public dchar[][] names;
+	
+	/**
+	An optional attribute table to attach to the module.
+	*/
 	public TableCtorExp attrs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, dchar[][] names, TableCtorExp attrs)
 	{
 		super(location, endLocation, AstTag.ModuleDecl);
@@ -4098,6 +4340,9 @@ class ModuleDeclaration : AstNode
 		this.attrs = attrs;
 	}
 
+	/**
+	Parse a module declaration.
+	*/
 	public static ModuleDeclaration parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -4123,7 +4368,7 @@ class ModuleDeclaration : AstNode
 
 		return new ModuleDeclaration(location, endLocation, names, attrs);
 	}
-	
+
 	public void codeGen(FuncState s)
 	{
 		if(attrs is null)
@@ -4137,7 +4382,9 @@ class ModuleDeclaration : AstNode
 		// rd = 0 means 'this', i.e. the module.
 		s.codeR(attrs.location.line, Op.SetAttrs, 0, src.index, 0);
 	}
-	
+
+	/**
+	*/
 	public ModuleDeclaration fold()
 	{
 		if(attrs)
@@ -4147,6 +4394,9 @@ class ModuleDeclaration : AstNode
 	}
 }
 
+/**
+The base class for all statements.
+*/
 abstract class Statement : AstNode
 {
 	public this(Location location, Location endLocation, AstTag type)
@@ -4154,6 +4404,14 @@ abstract class Statement : AstNode
 		super(location, endLocation, type);
 	}
 
+	/**
+	Parse a statement.
+	
+	Params:
+		l = The lexer to use.
+		needScope = If true, and the statement is a block statement, the block will be wrapped
+			in a ScopeStatement.  Else, the raw block statement will be returned.
+	*/
 	public static Statement parse(Lexer l, bool needScope = true)
 	{
 		switch(l.type)
@@ -4196,7 +4454,7 @@ abstract class Statement : AstNode
 					return new ScopeStatement(CompoundStatement.parse(l));
 				else
 					return CompoundStatement.parse(l);
-					
+
 			case Token.Type.Break:    return BreakStatement.parse(l);
 			case Token.Type.Continue: return ContinueStatement.parse(l);
 			case Token.Type.Do:       return DoWhileStatement.parse(l);
@@ -4217,18 +4475,48 @@ abstract class Statement : AstNode
 				l.tok.expected("Statement");
 		}
 	}
-	
+
 	public abstract void codeGen(FuncState s);
+	
+	/**
+	*/
 	public abstract Statement fold();
 }
 
+/**
+This node represents an import statement.
+*/
 class ImportStatement : Statement
 {
+	/**
+	An optional renaming of the import.  This member can be null, in which case no renaming
+	is done.  In the code "import x = y;", this member corresponds to "x".
+	*/
 	public Identifier importName;
+	
+	/**
+	The expression which evaluates to a string containing the name of the module to import.
+	The statement "import a.b.c" is actually syntactic sugar for "import("a.b.c")", so expr
+	will be a StringExp in this case.  This expression is checked (if it's constant) to ensure
+	that it's a string when constant folding occurs.
+	*/
 	public Expression expr;
+	
+	/**
+	An optional list of symbols to import from the module.  In the code "import x : a, b, c",
+	this corresponds to "a, b, c".
+	*/
 	public Identifier[] symbols;
+	
+	/**
+	A parallel array to the symbols array.  This holds the names of the symbols as they should
+	be called in this module.  The code "import x : a, b" is sugar for "import x : a = a, b = b".
+	In the code "import x : y = a, z = b", this array corresponds to "y, z".
+	*/
 	public Identifier[] symbolNames;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
 		super(location, endLocation, AstTag.ImportStmt);
@@ -4238,6 +4526,9 @@ class ImportStatement : Statement
 		this.symbolNames = symbolNames;
 	}
 
+	/**
+	Parse an import statement.
+	*/
 	public static ImportStatement parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -4380,31 +4671,51 @@ class ImportStatement : Statement
 			s.activateLocals(symbols.length);
 		}
 	}
-	
+
+	/**
+	*/
 	public override Statement fold()
 	{
 		expr = expr.fold();
+		
+		if(expr.isConstant() && !expr.isString())
+			throw new MDCompileException(expr.location, "Import expression must evaluate to a string");
+
 		return this;
 	}
 }
 
+/**
+Another node which doesn't correspond to a grammar element.  This indicates a new nested scope.
+An example of where this would be used is in an anonymous scope with some code in it.  All it
+does is affects the codegen of the contained statement by beginning a new scope before it
+and ending the scope after it.
+*/
 class ScopeStatement : Statement
 {
+	/**
+	The statement contained within this scope.  Typically a block statement, but can
+	be anything.
+	*/
 	public Statement statement;
 
+	/**
+	*/
 	public this(Statement statement)
 	{
 		super(statement.location, statement.endLocation, AstTag.ScopeStmt);
 		this.statement = statement;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
 		statement.codeGen(s);
 		s.popScope(endLocation.line);
 	}
-
+	
+	/**
+	*/
 	public override Statement fold()
 	{
 		statement = statement.fold();
@@ -4412,16 +4723,34 @@ class ScopeStatement : Statement
 	}
 }
 
+/**
+A statement that holds a side-effecting expression to be evaluated as a statement,
+such as a function call, assignment etc.
+*/
 class ExpressionStatement : Statement
 {
+	/**
+	The expression to be evaluated for this statement.  This must be a side-effecting
+	expression, including function calls, yields, and assignments.  Conditional (?:)
+	expressions and logical or and logical and (|| and &&) expressions are also allowed,
+	providing at least one component is side-effecting.
+	
+	This class does $(B not) check that this expression is side-effecting; that is up to
+	you.
+	*/
 	public Expression expr;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression expr)
 	{
 		super(location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
 	}
 
+	/**
+	Parse an expression statement.
+	*/
 	public static ExpressionStatement parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -4431,7 +4760,7 @@ class ExpressionStatement : Statement
 
 		return new ExpressionStatement(location, endLocation, exp);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		int freeRegCheck = s.mFreeReg;
@@ -4442,6 +4771,8 @@ class ExpressionStatement : Statement
 		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		expr = expr.fold();
@@ -4449,23 +4780,55 @@ class ExpressionStatement : Statement
 	}
 }
 
+/**
+Defines the types of protection possible for object, function, namespace, and variable
+declarations.
+*/
 enum Protection
 {
+	/**
+	This indicates "default" protection, which means global at module-level scope and local
+	everywhere else.
+	*/
 	Default,
+	
+	/**
+	This forces local protection.
+	*/
 	Local,
+	
+	/**
+	This forces global protection.
+	*/
 	Global
 }
 
+/**
+The abstract base class for the declaration statements.
+*/
 abstract class DeclStatement : Statement
 {
+	/**
+	What protection level this declaration uses.
+	*/
 	public Protection protection;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Protection protection)
 	{
 		super(location, endLocation, type);
 		this.protection = protection;
 	}
 
+	/**
+	Parse a declaration statement.
+
+	Params:
+		l = The lexer to use.
+		attrs = An optional attribute table to attach to the declaration.  If the declaration
+			is a variable declaration and this is non-null, an error will be thrown.
+	*/
 	public static DeclStatement parse(Lexer l, TableCtorExp attrs = null)
 	{
 		switch(l.type)
@@ -4515,16 +4878,32 @@ abstract class DeclStatement : Statement
 	}
 }
 
+/**
+This node represents an object declaration.
+*/
 class ObjectDecl : DeclStatement
 {
+	/**
+	The actual "guts" of the object.
+	*/
 	public ObjectDef def;
 
+	/**
+	The protection parameter can be any kind of protection.
+	*/
 	public this(Location location, Protection protection, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectDecl, protection);
 		this.def = def;
 	}
 
+	/**
+	Parse an object declaration, optional protection included.
+	
+	Params:
+		l = The lexer to use.
+		attrs = An optional attribute table to attach to the declaration.
+	*/
 	public static ObjectDecl parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
@@ -4543,7 +4922,7 @@ class ObjectDecl : DeclStatement
 
 		return new ObjectDecl(location, protection, ObjectDef.parse(l, false, attrs));
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		if(protection == Protection.Default)
@@ -4566,6 +4945,8 @@ class ObjectDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -4573,11 +4954,26 @@ class ObjectDecl : DeclStatement
 	}
 }
 
+/**
+Represents local and global variable declarations.
+*/
 class VarDecl : DeclStatement
 {
+	/**
+	The list of names to be declared.  This will always have at least one name.
+	*/
 	public Identifier[] names;
+	
+	/**
+	The initializer for the variables.  This can be null, in which case the variables
+	will be initialized to null.  If this is non-null and there is more than one name,
+	this must be a multi-return expression, such as a function call, vararg etc.
+	*/
 	public Expression initializer;
 
+	/**
+	The protection parameter must be either Protection.Local or Protection.Global.
+	*/
 	public this(Location location, Location endLocation, Protection protection, Identifier[] names, Expression initializer)
 	{
 		super(location, endLocation, AstTag.VarDecl, protection);
@@ -4585,6 +4981,9 @@ class VarDecl : DeclStatement
 		this.initializer = initializer;
 	}
 
+	/**
+	Parse a local or global variable declaration.
+	*/
 	public static VarDecl parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -4620,7 +5019,7 @@ class VarDecl : DeclStatement
 
 		return new VarDecl(location, endLocation, protection, names, initializer);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		// Check for name conflicts within the definition
@@ -4709,6 +5108,8 @@ class VarDecl : DeclStatement
 		}
 	}
 
+	/**
+	*/
 	public override VarDecl fold()
 	{
 		if(initializer)
@@ -4718,10 +5119,21 @@ class VarDecl : DeclStatement
 	}
 }
 
+/**
+This node represents a function declaration.  Note that there are some places in the
+grammar which look like function declarations (like inside objects and namespaces) but
+which actually are just syntactic sugar.  This is for actual declarations.
+*/
 class FuncDecl : DeclStatement
 {
+	/**
+	The "guts" of the function declaration.
+	*/
 	public FuncDef def;
 
+	/**
+	The protection parameter can be any kind of protection.
+	*/
 	public this(Location location, Protection protection, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncDecl, protection);
@@ -4729,6 +5141,13 @@ class FuncDecl : DeclStatement
 		this.def = def;
 	}
 
+	/**
+	Parse a function declaration, optional protection included.
+	
+	Params:
+		l = The lexer to use.
+		attrs = An optional attribute table to attach to the function.
+	*/
 	public static FuncDecl parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
@@ -4769,6 +5188,8 @@ class FuncDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -4776,10 +5197,19 @@ class FuncDecl : DeclStatement
 	}
 }
 
+/**
+This node represents a namespace declaration.
+*/
 class NamespaceDecl : DeclStatement
 {
+	/**
+	The "guts" of the namespace.
+	*/
 	public NamespaceDef def;
 
+	/**
+	The protection parameter can be any level of protection.
+	*/
 	public this(Location location, Protection protection, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceDecl, protection);
@@ -4787,6 +5217,13 @@ class NamespaceDecl : DeclStatement
 		this.def = def;
 	}
 
+	/**
+	Parse a namespace declaration, optional protection included.
+	
+	Params:
+		l = The lexer to use.
+		attrs = An optional attribute table to attach to the namespace.
+	*/
 	public static NamespaceDecl parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
@@ -4827,6 +5264,8 @@ class NamespaceDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -4834,16 +5273,26 @@ class NamespaceDecl : DeclStatement
 	}
 }
 
+/**
+This node represents a block statement (i.e. one surrounded by curly braces).
+*/
 class CompoundStatement : Statement
 {
+	/**
+	The list of statements contained in the braces.
+	*/
 	public Statement[] statements;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
 	}
 
+	/**
+	*/
 	public static CompoundStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.LBrace).location;
@@ -4863,6 +5312,8 @@ class CompoundStatement : Statement
 			st.codeGen(s);
 	}
 
+	/**
+	*/
 	public override CompoundStatement fold()
 	{
 		foreach(ref statement; statements)
@@ -4872,13 +5323,36 @@ class CompoundStatement : Statement
 	}
 }
 
+/**
+This node represents an if statement.
+*/
 class IfStatement : Statement
 {
+	/**
+	An optional variable to declare inside the statement's condition which will take on
+	the value of the condition.  In the code "if(local x = y < z){}", this corresponds
+	to "x".  This member may be null, in which case there is no variable there.
+	*/
 	public Identifier condVar;
+	
+	/**
+	The condition to test.
+	*/
 	public Expression condition;
+	
+	/**
+	The code to execute if the condition evaluates to true.
+	*/
 	public Statement ifBody;
+
+	/**
+	If there is an else clause, this is the code to execute if the condition evaluates to
+	false.  If there is no else clause, this member is null.
+	*/
 	public Statement elseBody;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(location, endLocation, AstTag.IfStmt);
@@ -4889,6 +5363,8 @@ class IfStatement : Statement
 		this.elseBody = elseBody;
 	}
 
+	/**
+	*/
 	public static IfStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.If).location;
@@ -4969,6 +5445,8 @@ class IfStatement : Statement
 		delete i;
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -4994,12 +5472,30 @@ class IfStatement : Statement
 	}
 }
 
+/**
+This node represents a while loop.
+*/
 class WhileStatement : Statement
 {
+	/**
+	An optional variable to declare inside the statement's condition which will take on
+	the value of the condition.  In the code "while(local x = y < z){}", this corresponds
+	to "x".  This member may be null, in which case there is no variable there.
+	*/
 	public Identifier condVar;
+	
+	/**
+	The condition to test.
+	*/
 	public Expression condition;
+	
+	/**
+	The code inside the loop.
+	*/
 	public Statement code;
 
+	/**
+	*/
 	public this(Location location, Identifier condVar, Expression condition, Statement code)
 	{
 		super(location, code.endLocation, AstTag.WhileStmt);
@@ -5009,6 +5505,8 @@ class WhileStatement : Statement
 		this.code = code;
 	}
 
+	/**
+	*/
 	public static WhileStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.While).location;
@@ -5104,6 +5602,8 @@ class WhileStatement : Statement
 		delete beginLoop;
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -5116,11 +5616,23 @@ class WhileStatement : Statement
 	}
 }
 
+/**
+This node corresponds to a do-while loop.
+*/
 class DoWhileStatement : Statement
 {
+	/**
+	The code inside the loop.
+	*/
 	public Statement code;
+	
+	/**
+	The condition to test at the end of the loop.
+	*/
 	public Expression condition;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Statement code, Expression condition)
 	{
 		super(location, endLocation, AstTag.DoWhileStmt);
@@ -5129,6 +5641,8 @@ class DoWhileStatement : Statement
 		this.condition = condition;
 	}
 
+	/**
+	*/
 	public static DoWhileStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Do).location;
@@ -5181,6 +5695,8 @@ class DoWhileStatement : Statement
 		delete beginLoop;
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		code = code.fold();
@@ -5193,25 +5709,63 @@ class DoWhileStatement : Statement
 	}
 }
 
+/**
+This node represents a C-style for loop.
+*/
 class ForStatement : Statement
 {
+	/**
+	There are two types of initializers possible in the first clause of the for loop header:
+	variable declarations and expression statements.  This struct holds one or the other.
+	*/
 	struct ForInitializer
 	{
+		/**
+		If true, the 'decl' member should be used; else, the 'init' member should be used.
+		*/
 		bool isDecl = false;
 
 		union
 		{
+			/**
+			If isDecl is false, this holds an expression to be evaluated at the beginning
+			of the loop.
+			*/
 			Expression init;
+
+			/**
+			If isDecl is true, this holds a variable declaration to be performed at the
+			beginning of the loop.
+			*/
 			VarDecl decl;
 		}
 	}
 
+	/**
+	A list of 0 or more initializers (the first clause of the foreach header).
+	*/
 	public ForInitializer[] init;
-	public VarDecl initDecl;
+	
+	/**
+	The condition to test at the beginning of each iteration of the loop.  This can be
+	null, in which case the only way to get out of the loop is to break, return, or
+	throw an exception.
+	*/
 	public Expression condition;
+	
+	/**
+	A list of 0 or more increment expression statements to be evaluated at the end of
+	each iteration of the loop.
+	*/
 	public Expression[] increment;
+	
+	/**
+	The code inside the loop.
+	*/
 	public Statement code;
 
+	/**
+	*/
 	public this(Location location, ForInitializer[] init, Expression cond, Expression[] inc, Statement code)
 	{
 		super(location, endLocation, AstTag.ForStmt);
@@ -5222,6 +5776,10 @@ class ForStatement : Statement
 		this.code = code;
 	}
 
+	/**
+	This function will actually parse both C-style and numeric for loops.  The return value
+	can be either one.
+	*/
 	public static Statement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.For).location;
@@ -5365,6 +5923,8 @@ class ForStatement : Statement
 		}
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		foreach(ref i; init)
@@ -5412,14 +5972,42 @@ class ForStatement : Statement
 	}
 }
 
+/**
+This node represents a numeric for loop, i.e. "for(i: 0 .. 10){}".
+*/
 class NumericForStatement : Statement
 {
+	/**
+	The name of the index variable.
+	*/
 	public Identifier index;
+	
+	/**
+	The lower bound of the loop (the value before the "..").  If constant, it must be an
+	int.
+	*/
 	public Expression lo;
+
+	/**
+	The upper bound of the loop (the value after the "..").  If constant, it must be an
+	int.
+	*/
 	public Expression hi;
+
+	/**
+	The step value of the loop.  If specified, this is the value after the comma after the
+	upper bound.  If not specified, this is given an IntExp of value 1.  This member is
+	never null.  If constant, it must be an int.
+	*/
 	public Expression step;
+	
+	/**
+	The code inside the loop.
+	*/
 	public Statement code;
 
+	/**
+	*/
 	public this(Location location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForNumStmt);
@@ -5485,6 +6073,8 @@ class NumericForStatement : Statement
 		s.popRegister(loIndex);
 	}
 	
+	/**
+	*/
 	public override Statement fold()
 	{
 		lo = lo.fold();
@@ -5511,12 +6101,33 @@ class NumericForStatement : Statement
 	}
 }
 
+/**
+This node represents a foreach loop.
+*/
 class ForeachStatement : Statement
 {
+	/**
+	The list of index names (the names before the semicolon).  This list is always at least
+	two elements long.  This is because when you write a foreach loop with only one index,
+	an implicit dummy index is inserted before it.
+	*/
 	public Identifier[] indices;
+	
+	/**
+	The container (the stuff after the semicolon).  This array can be 1, 2, or 3 elements
+	long.  Semantically, the first element is the "iterator", the second the "state", and
+	the third the "index".  However MiniD will automatically call opApply on the "iterator"
+	if it's not a function, so this can function like a foreach loop in D.
+	*/
 	public Expression[] container;
+	
+	/**
+	The code inside the loop.
+	*/
 	public Statement code;
 
+	/**
+	*/
 	public this(Location location, Identifier[] indices, Expression[] container, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForeachStmt);
@@ -5532,6 +6143,8 @@ class ForeachStatement : Statement
 		return new Identifier(l, "__dummy"d ~ Integer.toString32(counter++));
 	}
 
+	/**
+	*/
 	public static ForeachStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Foreach).location;
@@ -5569,7 +6182,7 @@ class ForeachStatement : Statement
 		auto code = Statement.parse(l);
 		return new ForeachStatement(location, indices, container, code);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.pushScope();
@@ -5673,6 +6286,8 @@ class ForeachStatement : Statement
 		s.popRegister(generator);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		foreach(ref c; container)
@@ -5683,12 +6298,28 @@ class ForeachStatement : Statement
 	}
 }
 
+/**
+This node represents a switch statement.
+*/
 class SwitchStatement : Statement
 {
+	/**
+	The value to switch on.
+	*/
 	public Expression condition;
+	
+	/**
+	A list of cases.  This is always at least one element long.
+	*/
 	public CaseStatement[] cases;
+	
+	/**
+	An optional default case.  This member can be null.
+	*/
 	public DefaultStatement caseDefault;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression condition, CaseStatement[] cases, DefaultStatement caseDefault)
 	{
 		super(location, endLocation, AstTag.SwitchStmt);
@@ -5697,6 +6328,8 @@ class SwitchStatement : Statement
 		this.caseDefault = caseDefault;
 	}
 
+	/**
+	*/
 	public static SwitchStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Switch).location;
@@ -5782,6 +6415,8 @@ class SwitchStatement : Statement
 		s.popScope(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -5796,13 +6431,28 @@ class SwitchStatement : Statement
 	}
 }
 
+/**
+This node represents a single case statement within a switch statement.
+*/
 class CaseStatement : Statement
 {
+	/**
+	The list of values which will cause execution to jump to this case.  In the code
+	"case 1, 2, 3:" this corresponds to "1, 2, 3".  This will always be at least one element
+	long.
+	*/
 	public Expression[] conditions;
+	
+	/**
+	The code of the case statement.
+	*/
 	public Statement code;
+
 	protected List!(InstRef*) mDynJumps;
 	protected List!(int*) mConstJumps;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[] conditions, Statement code)
 	{
 		super(location, endLocation, AstTag.CaseStmt);
@@ -5810,6 +6460,8 @@ class CaseStatement : Statement
 		this.code = code;
 	}
 
+	/**
+	*/
 	public static CaseStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Case).location;
@@ -5836,12 +6488,12 @@ class CaseStatement : Statement
 		return new CaseStatement(location, endLocation, conditions.toArray(), code);
 	}
 	
-	public void addDynJump(InstRef* i)
+	private void addDynJump(InstRef* i)
 	{
 		mDynJumps.add(i);
 	}
 
-	public void addConstJump(int* i)
+	private void addConstJump(int* i)
 	{
 		mConstJumps.add(i);
 	}
@@ -5863,6 +6515,8 @@ class CaseStatement : Statement
 		code.codeGen(s);
 	}
 
+	/**
+	*/
 	public override CaseStatement fold()
 	{
 		foreach(ref cond; conditions)
@@ -5873,16 +6527,26 @@ class CaseStatement : Statement
 	}
 }
 
+/**
+This node represents the default case in a switch statement.
+*/
 class DefaultStatement : Statement
 {
+	/**
+	The code of the statement.
+	*/
 	public Statement code;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Statement code)
 	{
 		super(location, endLocation, AstTag.DefaultStmt);
 		this.code = code;
 	}
 
+	/**
+	*/
 	public static DefaultStatement parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -5907,6 +6571,8 @@ class DefaultStatement : Statement
 		code.codeGen(s);
 	}
 
+	/**
+	*/
 	public override DefaultStatement fold()
 	{
 		code = code.fold();
@@ -5914,72 +6580,104 @@ class DefaultStatement : Statement
 	}
 }
 
+/**
+This node represents a continue statement.
+*/
 class ContinueStatement : Statement
 {
+	/**
+	*/
 	public this(Location location)
 	{
 		super(location, location, AstTag.ContinueStmt);
 	}
 
+	/**
+	*/
 	public static ContinueStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Continue).location;
 		l.statementTerm();
 		return new ContinueStatement(location);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.codeContinue(location);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		return this;
 	}
 }
 
+/**
+This node represents a break statement.
+*/
 class BreakStatement : Statement
 {
+	/**
+	*/
 	public this(Location location)
 	{
 		super(location, location, AstTag.BreakStmt);
 	}
 
+	/**
+	*/
 	public static BreakStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Break).location;
 		l.statementTerm();
 		return new BreakStatement(location);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.codeBreak(location);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		return this;
 	}
 }
 
+/**
+This node represents a return statement.
+*/
 class ReturnStatement : Statement
 {
+	/**
+	The list of expressions to return.  This array may have 0 or more elements.
+	*/
 	public Expression[] exprs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[] exprs)
 	{
 		super(location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
 	}
 
+	/**
+	Construct a return statement from an expression.  This is used in functions which use
+	the "lambda" syntax, i.e. "function f(x) = x * x".
+	*/
 	public this(Expression value)
 	{
 		super(value.location, value.endLocation, AstTag.ReturnStmt);
 		exprs ~= value;
 	}
 
+	/**
+	*/
 	public static ReturnStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Return).location;
@@ -6036,6 +6734,8 @@ class ReturnStatement : Statement
 		}
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		foreach(ref exp; exprs)
@@ -6045,13 +6745,39 @@ class ReturnStatement : Statement
 	}
 }
 
+/**
+This node represents a try-catch-finally statement.  It holds not only the try clause,
+but either or both the catch and finally clauses.
+*/
 class TryCatchStatement : Statement
 {
+	/**
+	The body of code to try.
+	*/
 	public Statement tryBody;
+	
+	/**
+	The variable to use in the catch block.  In the code "try{}catch(e){}", this corresponds
+	to 'e'.  This member can be null, in which case there is no catch block (and therefore
+	there must be a finally block).  If this member is non-null, catchBody must also be
+	non-null.
+	*/
 	public Identifier catchVar;
+
+	/**
+	The body of the catch block.  If this member is non-null, catchVar must also be non-null.
+	If this member is null, finallyBody must be non-null.
+	*/
 	public Statement catchBody;
+
+	/**
+	The body of the finally block.  If this member is null, catchVar and catchBody must be
+	non-null.
+	*/
 	public Statement finallyBody;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
 	{
 		super(location, endLocation, AstTag.TryStmt);
@@ -6062,6 +6788,8 @@ class TryCatchStatement : Statement
 		this.finallyBody = finallyBody;
 	}
 
+	/**
+	*/
 	public static TryCatchStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Try).location;
@@ -6179,6 +6907,8 @@ class TryCatchStatement : Statement
 		}
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		tryBody = tryBody.fold();
@@ -6193,16 +6923,26 @@ class TryCatchStatement : Statement
 	}
 }
 
+/**
+This node represents a throw statement.
+*/
 class ThrowStatement : Statement
 {
+	/**
+	The value that should be thrown.
+	*/
 	public Expression exp;
 
+	/**
+	*/
 	public this(Location location, Expression exp)
 	{
 		super(location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
 	}
 
+	/**
+	*/
 	public static ThrowStatement parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Throw).location;
@@ -6223,6 +6963,8 @@ class ThrowStatement : Statement
 		s.freeExpTempRegs(&src);
 	}
 
+	/**
+	*/
 	public override Statement fold()
 	{
 		exp = exp.fold();
@@ -6230,18 +6972,32 @@ class ThrowStatement : Statement
 	}
 }
 
+/**
+The base class for all expressions, including assignments.
+*/
 abstract class Expression : AstNode
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
 
+	/**
+	Parse a non-assignment expression.  The returned expression is therefore guaranteed
+	to give some kind of value.
+	*/
 	public static Expression parse(Lexer l)
 	{
 		return CondExp.parse(l);
 	}
-	
+
+	/**
+	Parse any expression which can be executed as a statement, i.e. any expression which
+	can have side effects, including assignments, function calls, yields, ?:, &&, and ||
+	expressions.  The parsed expression is checked for side effects before being returned.
+	*/
 	public static Expression parseStatement(Lexer l)
 	{
 		auto location = l.loc;
@@ -6284,6 +7040,8 @@ abstract class Expression : AstNode
 				exp = OrOrExp.parse(l, exp);
 			else if(l.type == Token.Type.AndAnd)
 				exp = AndAndExp.parse(l, exp);
+			else if(l.type == Token.Type.Question)
+				exp = CondExp.parse(l, exp);
 		}
 
 		exp.checkToNothing();
@@ -6291,6 +7049,9 @@ abstract class Expression : AstNode
 		return exp;
 	}
 
+	/**
+	Parse a comma-separated list of expressions, such as for argument lists.
+	*/
 	public static Expression[] parseArguments(Lexer l)
 	{
 		List!(Expression) args;
@@ -6304,7 +7065,7 @@ abstract class Expression : AstNode
 
 		return args.toArray();
 	}
-	
+
 	public static void codeGenListToNextReg(FuncState s, Expression[] exprs)
 	{
 		if(exprs.length == 0)
@@ -6350,100 +7111,181 @@ abstract class Expression : AstNode
 	public abstract void codeGen(FuncState s);
 	public abstract InstRef* codeCondition(FuncState s);
 
+	/**
+	Ensure that this expression can be evaluated to nothing, i.e. that it can exist
+	on its own.  Throws an exception if not.
+	*/
 	public void checkToNothing()
 	{
-		auto e = new MDCompileException(location, "Expression cannot exist on its own");
-		e.solitaryExpression = true;
-		throw e;
+		if(!hasSideEffects())
+		{
+			auto e = new MDCompileException(location, "Expression cannot exist on its own");
+			e.solitaryExpression = true;
+			throw e;
+		}
+	}
+	
+	/**
+	Returns whether or not this expression has side effects.  If this returns false,
+	checkToNothing will throw an error.
+	*/
+	public bool hasSideEffects()
+	{
+		return false;
 	}
 
+	/**
+	Ensure that this expression can give multiple return values.  If it can't, throws an
+	exception.
+	*/
 	public void checkMultRet()
 	{
 		if(isMultRet() == false)
 			throw new MDCompileException(location, "Expression cannot be the source of a multi-target assignment");
 	}
 
+	/**
+	Returns whether this expression can give multiple return values.  If this returns
+	false, checkMultRet will throw an error.
+	*/
 	public bool isMultRet()
 	{
 		return false;
 	}
 	
+	/**
+	Returns whether this expression is a constant value.
+	*/
 	public bool isConstant()
 	{
 		return false;
 	}
-	
+
+	/**
+	Returns whether this expression is 'null'.
+	*/
 	public bool isNull()
 	{
 		return false;
 	}
 	
+	/**
+	Returns whether this expression is a boolean constant.
+	*/
 	public bool isBool()
 	{
 		return false;
 	}
 	
+	/**
+	Returns this expression as a boolean constant, if possible.  assert(false)s
+	otherwise.
+	*/
 	public bool asBool()
 	{
 		assert(false);
 	}
 	
+	/**
+	Returns whether this expression is an integer constant.
+	*/
 	public bool isInt()
 	{
 		return false;
 	}
 	
+	/**
+	Returns this expression as an integer constant, if possible.  assert(false)s
+	otherwise.
+	*/
 	public int asInt()
 	{
 		assert(false);
 	}
 
+	/**
+	Returns whether this expression is a floating point constant.
+	*/
 	public bool isFloat()
 	{
 		return false;
 	}
 
+	/**
+	Returns this expression as a floating point constant, if possible.  assert(false)s
+	otherwise.
+	*/
 	public mdfloat asFloat()
 	{
 		assert(false);
 	}
 
+	/**
+	Returns whether this expression is a character constant.
+	*/
 	public bool isChar()
 	{
 		return false;
 	}
 
+	/**
+	Returns this expression as a character constant, if possible.  assert(false)s
+	otherwise.
+	*/
 	public dchar asChar()
 	{
 		assert(false);
 	}
 
+	/**
+	Returns whether this expression is a string constant.
+	*/
 	public bool isString()
 	{
 		return false;
 	}
 
+	/**
+	Returns this expression as a string constant, if possible.  assert(false)s
+	otherwise.
+	*/
 	public dchar[] asString()
 	{
 		assert(false);
 	}
 
+	/**
+	If this expression is a constant value, returns whether this expression would evaluate
+	as true according to MiniD's definition of truth.  Otherwise returns false.
+	*/
 	public bool isTrue()
 	{
 		return false;
 	}
-	
+
+	/**
+	*/
 	public Expression fold()
 	{
 		return this;
 	}
 }
 
+/**
+This node represents normal assignment, either single- or multi-target.
+*/
 class Assignment : Expression
 {
+	/**
+	The list of destination expressions.  This list always has at least one element.
+	This list will never contain 'this', '#vararg', or constant values.  These conditions
+	will be checked at codegen time.
+	*/
 	public Expression[] lhs;
 	public Expression rhs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[] lhs, Expression rhs)
 	{
 		super(location, endLocation, AstTag.Assign);
@@ -6451,6 +7293,16 @@ class Assignment : Expression
 		this.rhs = rhs;
 	}
 
+	/**
+	Parse an assignment.
+	
+	Params:
+		l = The lexer to use.
+		firstLHS = Since you can't tell if you're on an assignment until you parse
+		at least one item in the left-hand-side, this parameter should be the first
+		item on the left-hand-side.  Therefore this function parses everything $(I but)
+		the first item on the left-hand-side.
+	*/
 	public static Assignment parse(Lexer l, Expression firstLHS)
 	{
 		auto location = l.loc;
@@ -6470,6 +7322,11 @@ class Assignment : Expression
 
 		rhs = Expression.parse(l);
 
+		return new Assignment(location, rhs.endLocation, lhs, rhs);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
 		foreach(exp; lhs)
 		{
 			if(cast(ThisExp)exp)
@@ -6482,11 +7339,6 @@ class Assignment : Expression
 				throw new MDCompileException(exp.location, "constant values cannot be the target of an assignment");
 		}
 
-		return new Assignment(location, rhs.endLocation, lhs, rhs);
-	}
-	
-	public override void codeGen(FuncState s)
-	{
 		if(lhs.length == 1)
 		{
 			lhs[0].codeGen(s);
@@ -6519,11 +7371,13 @@ class Assignment : Expression
 		throw new MDCompileException(location, "Assignments cannot be used as a condition");
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		foreach(ref exp; lhs)
@@ -6534,24 +7388,42 @@ class Assignment : Expression
 	}
 }
 
+/**
+This node represents most of the reflexive assignments, as well as conditional assignment (?=).
+The only kind it doesn't represent is appending (~=), since it has to be handled specially.
+*/
 class OpEqExp : Expression
 {
+	/**
+	The left-hand-side of the assignment.  This may not be a constant value or '#vararg', and if
+	this is a conditional assignment, it may not be 'this'.  These conditions will be checked at
+	codegen.
+	*/
 	public Expression lhs;
+	
+	/**
+	The right-hand-side of the assignment.
+	*/
 	public Expression rhs;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
-		if(lhs.isConstant)
-			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
-			
-		if(cast(VargLengthExp)lhs)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
-
 		super(location, endLocation, type);
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-
+	
+	/**
+	Parse a reflexive assignment.
+	
+	Params:
+		l = The lexer to use.
+		exp1 = The left-hand-side of the assignment.  As with normal assignments, since
+			you can't actually tell that something is an assignment until the LHS is
+			at least parsed, this has to be passed as a parameter.
+	*/
 	public static Expression parse(Lexer l, Expression exp1)
 	{
 		Expression exp2;
@@ -6596,6 +7468,15 @@ class OpEqExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
+		if(lhs.isConstant)
+			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
+			
+		if(cast(VargLengthExp)lhs)
+			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+			
+		if(type == AstTag.CondAssign && cast(ThisExp)lhs)
+			throw new MDCompileException(location, "'this' cannot be the target of a conditional assignment");
+
 		lhs.codeGen(s);
 		s.pushSource(lhs.endLocation.line);
 
@@ -6630,11 +7511,13 @@ class OpEqExp : Expression
 		}
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		lhs = lhs.fold();
@@ -6644,30 +7527,44 @@ class OpEqExp : Expression
 	}
 }
 
+/**
+This node represents concatenation assignment, or appending (the ~= operator).
+*/
 class CatEqExp : Expression
 {
+	/**
+	The left-hand-side of the assignment.  The same constraints apply here as for other
+	reflexive assignments.
+	*/
 	public Expression lhs;
+	
+	/**
+	The right-hand-side of the assignment.
+	*/
 	public Expression rhs;
-	public Expression[] operands;
-	public bool collapsed = false;
 
+	private Expression[] operands;
+	private bool collapsed = false;
+
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression lhs, Expression rhs)
 	{
+		super(location, endLocation, AstTag.CatAssign);
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		assert(collapsed is true, "CatEqExp codeGen not collapsed");
+		assert(operands.length >= 1, "CatEqExp codeGen not enough ops");
+		
 		if(lhs.isConstant)
 			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
 			
 		if(cast(VargLengthExp)lhs)
 			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
-
-		super(location, endLocation, AstTag.CatAssign);
-		this.lhs = lhs;
-		this.rhs = rhs;
-	}
-	
-	public override void codeGen(FuncState s)
-	{
-		assert(collapsed is true, "CatEqExp codeGen not collapsed");
-		assert(operands.length >= 1, "CatEqExp codeGen not enough ops");
 
 		lhs.codeGen(s);
 		s.pushSource(lhs.endLocation.line);
@@ -6686,6 +7583,8 @@ class CatEqExp : Expression
 			s.popReflexOp(endLocation.line, Op.CatEq, src1.index, firstReg, operands.length + 1);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		lhs = lhs.fold();
@@ -6708,17 +7607,31 @@ class CatEqExp : Expression
 		throw new MDCompileException(location, "'~=' cannot be used as a condition");
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 }
 
+/**
+This node represents an increment, either prefix or postfix (++a or a++).
+*/
 class IncExp : Expression
 {
+	/**
+	The expression to modify.  The same constraints apply as for reflexive assignments.
+	*/
 	public Expression exp;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression exp)
+	{
+		super(location, endLocation, AstTag.IncExp);
+		this.exp = exp;
+	}
+
+	public override void codeGen(FuncState s)
 	{
 		if(exp.isConstant)
 			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
@@ -6726,12 +7639,6 @@ class IncExp : Expression
 		if(cast(VargLengthExp)exp)
 			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
 
-		super(location, endLocation, AstTag.IncExp);
-		this.exp = exp;
-	}
-
-	public override void codeGen(FuncState s)
-	{
 		exp.codeGen(s);
 		s.pushSource(exp.endLocation.line);
 
@@ -6747,11 +7654,13 @@ class IncExp : Expression
 		throw new MDCompileException(location, "'++' cannot be used as a condition");
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -6759,11 +7668,25 @@ class IncExp : Expression
 	}
 }
 
+/**
+This node represents a decrement, either prefix or postfix (--a or a--).
+*/
 class DecExp : Expression
 {
+	/**
+	The expression to modify.  The same constraints apply as for reflexive assignments.
+	*/
 	public Expression exp;
-
+	
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression exp)
+	{
+		super(location, endLocation, AstTag.DecExp);
+		this.exp = exp;
+	}
+
+	public override void codeGen(FuncState s)
 	{
 		if(exp.isConstant)
 			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
@@ -6771,12 +7694,6 @@ class DecExp : Expression
 		if(cast(VargLengthExp)exp)
 			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
 
-		super(location, endLocation, AstTag.DecExp);
-		this.exp = exp;
-	}
-
-	public override void codeGen(FuncState s)
-	{
 		exp.codeGen(s);
 		s.pushSource(exp.endLocation.line);
 
@@ -6792,11 +7709,13 @@ class DecExp : Expression
 		throw new MDCompileException(location, "'--' cannot be used as a condition");
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -6804,12 +7723,28 @@ class DecExp : Expression
 	}
 }
 
+/**
+This node represents a conditional (?:) expression.
+*/
 class CondExp : Expression
 {
+	/**
+	The first expression, which comes before the question mark.
+	*/
 	public Expression cond;
+	
+	/**
+	The second expression, which comes between the question mark and the colon.
+	*/
 	public Expression op1;
+	
+	/**
+	The third expression, which comes after the colon.
+	*/
 	public Expression op2;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression cond, Expression op1, Expression op2)
 	{
 		super(location, endLocation, AstTag.CondExp);
@@ -6818,15 +7753,25 @@ class CondExp : Expression
 		this.op2 = op2;
 	}
 
-	public static Expression parse(Lexer l)
+	/**
+	Parse a conditional expression.
+	
+	Params:
+		l = The lexer to use.
+		exp1 = Conditional expressions can occur as statements, in which case the first
+			expression must be parsed in order to see what kind of expression it is.
+			In this case, the first expression is passed in as a parameter.  Otherwise,
+			it defaults to null and this function parses the first expression itself.
+	*/
+	public static Expression parse(Lexer l, Expression exp1 = null)
 	{
 		auto location = l.loc;
 
-		Expression exp1;
 		Expression exp2;
 		Expression exp3;
 
-		exp1 = OrOrExp.parse(l);
+		if(exp1 is null)
+			exp1 = OrOrExp.parse(l);
 
 		while(l.type == Token.Type.Question)
 		{
@@ -6895,11 +7840,13 @@ class CondExp : Expression
 		return right;
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return cond.hasSideEffects() || op1.hasSideEffects() || op2.hasSideEffects();
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		cond = cond.fold();
@@ -6918,11 +7865,25 @@ class CondExp : Expression
 	}
 }
 
+/**
+The base class for binary expressions.  Many of them share some or all of their code
+generation phases, as well has having other similar properties, such as having two
+operands.
+*/
 abstract class BinaryExp : Expression
 {
+	/**
+	The left-hand operand.
+	*/
 	public Expression op1;
+	
+	/**
+	The right-hand operand.
+	*/
 	public Expression op2;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type);
@@ -6957,13 +7918,28 @@ abstract class BinaryExp : Expression
 	}
 }
 
+/**
+This node represents a logical or (||) expression.
+*/
 class OrOrExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrOrExp, left, right);
 	}
 
+	/**
+	Parse a logical or expression.
+
+	Params:
+		l = The lexer to use.
+		exp1 = Or-or expressions can occur as statements, in which case the first
+			expression must be parsed in order to see what kind of expression it is.
+			In this case, the first expression is passed in as a parameter.  Otherwise,
+			it defaults to null and this function parses the first expression itself.
+	*/
 	public static Expression parse(Lexer l, Expression exp1 = null)
 	{
 		auto location = l.loc;
@@ -7016,11 +7992,13 @@ class OrOrExp : BinaryExp
 		return right;
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7038,13 +8016,28 @@ class OrOrExp : BinaryExp
 	}
 }
 
+/**
+This node represents a logical or (||) expression.
+*/
 class AndAndExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndAndExp, left, right);
 	}
 
+	/**
+	Parse a logical and expression.
+
+	Params:
+		l = The lexer to use.
+		exp1 = And-and expressions can occur as statements, in which case the first
+			expression must be parsed in order to see what kind of expression it is.
+			In this case, the first expression is passed in as a parameter.  Otherwise,
+			it defaults to null and this function parses the first expression itself.
+	*/
 	public static Expression parse(Lexer l, Expression exp1 = null)
 	{
 		auto location = l.loc;
@@ -7098,11 +8091,13 @@ class AndAndExp : BinaryExp
 		return right;
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7120,13 +8115,20 @@ class AndAndExp : BinaryExp
 	}
 }
 
+/**
+This node represents a bitwise or expression.
+*/
 class OrExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrExp, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7149,6 +8151,8 @@ class OrExp : BinaryExp
 		return exp1;
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7166,13 +8170,20 @@ class OrExp : BinaryExp
 	}
 }
 
+/**
+This node represents a bitwise xor expression.
+*/
 class XorExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.XorExp, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7195,6 +8206,8 @@ class XorExp : BinaryExp
 		return exp1;
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7212,13 +8225,20 @@ class XorExp : BinaryExp
 	}
 }
 
+/**
+This node represents a bitwise and expression.
+*/
 class AndExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndExp, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		Location location = l.loc;
@@ -7241,6 +8261,8 @@ class AndExp : BinaryExp
 		return exp1;
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7258,13 +8280,20 @@ class AndExp : BinaryExp
 	}
 }
 
+/**
+This node represents equality and identity expressions (==, !=, is, !is).
+*/
 class EqualExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7348,6 +8377,8 @@ class EqualExp : BinaryExp
 		return s.makeJump(endLocation.line, Op.Je, type == AstTag.EqualExp || type == AstTag.IsExp);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7393,13 +8424,22 @@ class EqualExp : BinaryExp
 	}
 }
 
+/**
+This node represents the four kinds of comparison (<, <=, >, >=).
+*/
 class CmpExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type, op1, op2);
 	}
 
+	/**
+	Parse a comparison expression.  This actually not only parses the four kinds of
+	comparison, but also in, !in, as, and three-way comparison (<=>) expressions.
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7515,6 +8555,8 @@ class CmpExp : BinaryExp
 		}
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7539,9 +8581,9 @@ class CmpExp : BinaryExp
 
 			switch(type)
 			{
-				case AstTag.LTExp:         return new BoolExp(location, cmpVal < 0);
-				case AstTag.LEExp:    return new BoolExp(location, cmpVal <= 0);
-				case AstTag.GTExp:      return new BoolExp(location, cmpVal > 0);
+				case AstTag.LTExp: return new BoolExp(location, cmpVal < 0);
+				case AstTag.LEExp: return new BoolExp(location, cmpVal <= 0);
+				case AstTag.GTExp: return new BoolExp(location, cmpVal > 0);
 				case AstTag.GEExp: return new BoolExp(location, cmpVal >= 0);
 				default: assert(false, "CmpExp fold");
 			}
@@ -7551,6 +8593,9 @@ class CmpExp : BinaryExp
 	}
 }
 
+/**
+This node represents an 'as' expression.
+*/
 class AsExp : BinaryExp
 {
 	public this(Location location, Location endLocation, Expression left, Expression right)
@@ -7562,6 +8607,9 @@ class AsExp : BinaryExp
 	}
 }
 
+/**
+This node represents an 'in' expression.
+*/
 class InExp : BinaryExp
 {
 	public this(Location location, Location endLocation, Expression left, Expression right)
@@ -7570,6 +8618,9 @@ class InExp : BinaryExp
 	}
 }
 
+/**
+This node represents a '!in' expression.
+*/
 class NotInExp : BinaryExp
 {
 	public this(Location location, Location endLocation, Expression left, Expression right)
@@ -7578,13 +8629,20 @@ class NotInExp : BinaryExp
 	}
 }
 
+/**
+This node represents a three-way comparison (<=>) expression.
+*/
 class Cmp3Exp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.Cmp3Exp, left, right);
 	}
-	
+
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7614,13 +8672,20 @@ class Cmp3Exp : BinaryExp
 	}
 }
 
+/**
+This node represents bitwise shift expressions (<<, >>, >>>).
+*/
 class ShiftExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7662,6 +8727,8 @@ class ShiftExp : BinaryExp
 		return exp1;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7685,13 +8752,22 @@ class ShiftExp : BinaryExp
 	}
 }
 
+/**
+This node represents addition and subtraction expressions (+, -).
+*/
 class AddExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
 
+	/**
+	This function parses not only addition and subtraction expressions, but also
+	concatenation expressions.
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7733,6 +8809,8 @@ class AddExp : BinaryExp
 		return exp1;
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7769,16 +8847,23 @@ class AddExp : BinaryExp
 	}
 }
 
+/**
+This node represents concatenation (~) expressions.
+*/
 class CatExp : BinaryExp
 {
-	public Expression[] operands;
-	public bool collapsed = false;
+	private Expression[] operands;
+	private bool collapsed = false;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.CatExp, left, right);
 	}
-	
+
+	/**
+	*/
 	public override void codeGen(FuncState s)
 	{
 		assert(collapsed is true, "CatExp codeGen not collapsed");
@@ -7794,6 +8879,8 @@ class CatExp : BinaryExp
 			s.pushBinOp(endLocation.line, Op.Cat, firstReg, operands.length + 1);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7855,13 +8942,20 @@ class CatExp : BinaryExp
 	}
 }
 
+/**
+This node represents multiplication, division, and modulo expressions (*, /, %).
+*/
 class MulExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7903,6 +8997,8 @@ class MulExp : BinaryExp
 		return exp1;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -7963,16 +9059,29 @@ class MulExp : BinaryExp
 	}
 }
 
+/**
+This class is the base class for unary expressions.  These tend to share some code
+generation, as well as all having a single operand.
+*/
 abstract class UnaryExp : Expression
 {
+	/**
+	The operand of the expression.
+	*/
 	protected Expression op;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type);
 		op = operand;
 	}
 
+	/**
+	Parse a unary expression.  This parses negation (-), not (!), complement (~),
+	length (#), and coroutine expressions.  '#vararg' is also incidentally parsed.
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -7984,19 +9093,19 @@ abstract class UnaryExp : Expression
 			case Token.Type.Sub:
 				l.next();
 				exp = UnaryExp.parse(l);
-				exp = new NegExp(location, exp.endLocation, exp);
+				exp = new NegExp(location, exp);
 				break;
 
 			case Token.Type.Not:
 				l.next();
 				exp = UnaryExp.parse(l);
-				exp = new NotExp(location, exp.endLocation, exp);
+				exp = new NotExp(location, exp);
 				break;
 
 			case Token.Type.Cat:
 				l.next();
 				exp = UnaryExp.parse(l);
-				exp = new ComExp(location, exp.endLocation, exp);
+				exp = new ComExp(location, exp);
 				break;
 
 			case Token.Type.Length:
@@ -8006,13 +9115,13 @@ abstract class UnaryExp : Expression
 				if(cast(VarargExp)exp)
 					exp = new VargLengthExp(location, exp.endLocation);
 				else
-					exp = new LengthExp(location, exp.endLocation, exp);
+					exp = new LengthExp(location, exp);
 				break;
 
 			case Token.Type.Coroutine:
 				l.next();
 				exp = UnaryExp.parse(l);
-				exp = new CoroutineExp(location, exp.endLocation, exp);
+				exp = new CoroutineExp(exp.endLocation, exp);
 				break;
 
 			default:
@@ -8024,7 +9133,7 @@ abstract class UnaryExp : Expression
 
 		return exp;
 	}
-	
+
 	public override InstRef* codeCondition(FuncState s)
 	{
 		uint temp = s.nextRegister();
@@ -8036,19 +9145,26 @@ abstract class UnaryExp : Expression
 	}
 }
 
+/**
+This node represents a negation (-a).
+*/
 class NegExp : UnaryExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location location, Expression operand)
 	{
-		super(location, endLocation, AstTag.NegExp, operand);
+		super(location, operand.endLocation, AstTag.NegExp, operand);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
 		s.popUnOp(endLocation.line, Op.Neg);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8074,11 +9190,16 @@ class NegExp : UnaryExp
 	}
 }
 
+/**
+This node represents a logical not expression (!a).
+*/
 class NotExp : UnaryExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location location, Expression operand)
 	{
-		super(location, endLocation, AstTag.NotExp, operand);
+		super(location, operand.endLocation, AstTag.NotExp, operand);
 	}
 
 	public override void codeGen(FuncState s)
@@ -8087,6 +9208,8 @@ class NotExp : UnaryExp
 		s.popUnOp(endLocation.line, Op.Not);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8124,11 +9247,16 @@ class NotExp : UnaryExp
 	}
 }
 
+/**
+This node represents a bitwise complement expression (~a).
+*/
 class ComExp : UnaryExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location location, Expression operand)
 	{
-		super(location, endLocation, AstTag.ComExp, operand);
+		super(location, operand.endLocation, AstTag.ComExp, operand);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -8137,6 +9265,8 @@ class ComExp : UnaryExp
 		s.popUnOp(endLocation.line, Op.Com);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8156,19 +9286,26 @@ class ComExp : UnaryExp
 	}
 }
 
+/**
+This node represents a length expression (#a).
+*/
 class LengthExp : UnaryExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location location, Expression operand)
 	{
-		super(location, endLocation, AstTag.LenExp, operand);
+		super(location, operand.endLocation, AstTag.LenExp, operand);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
 		s.popLength(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8178,20 +9315,25 @@ class LengthExp : UnaryExp
 			if(op.isString)
 				return new IntExp(location, op.asString().length);
 
-			throw new MDCompileException(location, "Length must be performed on a string");
+			throw new MDCompileException(location, "Length must be performed on a string at compile time");
 		}
 
 		return this;
 	}
 }
 
+/**
+This node represents the variadic-length expression (#vararg).
+*/
 class VargLengthExp : UnaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation)
 	{
 		super(location, endLocation, AstTag.VargLenExp, null);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		if(!s.mIsVararg)
@@ -8199,18 +9341,25 @@ class VargLengthExp : UnaryExp
 
 		s.pushVargLen(endLocation.line);
 	}
-	
+
+	/**
+	*/
 	public override Expression fold()
 	{
 		return this;
 	}
 }
 
+/**
+This node represents the coroutine expression (coroutine a).
+*/
 class CoroutineExp : UnaryExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location location, Expression operand)
 	{
-		super(location, endLocation, AstTag.CoroutineExp, operand);
+		super(location, operand.endLocation, AstTag.CoroutineExp, operand);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -8226,13 +9375,28 @@ class CoroutineExp : UnaryExp
 	}
 }
 
+/**
+This class is the base class for postfix expressions, that is expressions which kind of
+attach to the end of other expressions.  It inherits from UnaryExp, so that the single
+operand becomes the expression to which the postfix expression becomes attached.
+*/
 abstract class PostfixExp : UnaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type, operand);
 	}
 
+	/**
+	Parse a postfix expression.  This includes dot expressions (.ident, .super, and .(expr)),
+	function calls, indexing, slicing, and vararg slicing.
+	
+	Params:
+		l = The lexer to use.
+		exp = The expression to which the resulting postfix expression will be attached.
+	*/
 	public static Expression parse(Lexer l, Expression exp)
 	{
 		while(true)
@@ -8247,20 +9411,20 @@ abstract class PostfixExp : UnaryExp
 					if(l.type == Token.Type.Ident)
 					{
 						auto ie = IdentExp.parse(l);
-						exp = new DotExp(location, ie.endLocation, exp, new StringExp(ie.location, ie.name.name));
+						exp = new DotExp(exp, new StringExp(ie.location, ie.name.name));
 					}
 					else if(l.type == Token.Type.Super)
 					{
 						auto endLocation = l.loc;
 						l.next();
-						exp = new DotSuperExp(location, endLocation, exp);
+						exp = new DotSuperExp(endLocation, exp);
 					}
 					else
 					{
 						l.expect(Token.Type.LParen);
 						auto subExp = Expression.parse(l);
 						l.expect(Token.Type.RParen);
-						exp = new DotExp(location, subExp.endLocation, exp, subExp);
+						exp = new DotExp(exp, subExp);
 					}
 					continue;
 
@@ -8289,9 +9453,9 @@ abstract class PostfixExp : UnaryExp
 					l.next();
 					
 					if(cast(DotExp)exp)
-						exp = new MethodCallExp(location, endLocation, exp, context, args);
+						exp = new MethodCallExp(endLocation, exp, context, args);
 					else
-						exp = new CallExp(location, endLocation, exp, context, args);
+						exp = new CallExp(endLocation, exp, context, args);
 
 					continue;
 
@@ -8314,7 +9478,7 @@ abstract class PostfixExp : UnaryExp
 						if(cast(VarargExp)exp)
 							exp = new VargSliceExp(location, endLocation, loIndex, hiIndex);
 						else
-							exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+							exp = new SliceExp(endLocation, exp, loIndex, hiIndex);
 					}
 					else if(l.type == Token.Type.DotDot)
 					{
@@ -8340,7 +9504,7 @@ abstract class PostfixExp : UnaryExp
 						if(cast(VarargExp)exp)
 							exp = new VargSliceExp(location, endLocation, loIndex, hiIndex);
 						else
-							exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+							exp = new SliceExp(endLocation, exp, loIndex, hiIndex);
 					}
 					else
 					{
@@ -8369,7 +9533,7 @@ abstract class PostfixExp : UnaryExp
 							if(cast(VarargExp)exp)
 								exp = new VargSliceExp(location, endLocation, loIndex, hiIndex);
 							else
-								exp = new SliceExp(location, endLocation, exp, loIndex, hiIndex);
+								exp = new SliceExp(endLocation, exp, loIndex, hiIndex);
 						}
 						else
 						{
@@ -8377,8 +9541,11 @@ abstract class PostfixExp : UnaryExp
 							l.tok.expect(Token.Type.RBracket);
 							endLocation = l.loc;
 							l.next();
-
-							exp = new IndexExp(location, endLocation, exp, loIndex);
+							
+							if(cast(VarargExp)exp)
+								exp = new VargIndexExp(location, endLocation, loIndex);
+							else
+								exp = new IndexExp(endLocation, exp, loIndex);
 						}
 					}
 					continue;
@@ -8390,16 +9557,31 @@ abstract class PostfixExp : UnaryExp
 	}
 }
 
+/**
+This node represents dot expressions, in both the dot-ident (a.x) and dot-expression
+(a.(expr)) forms.  These correspond to field access.
+*/
 class DotExp : PostfixExp
 {
+	/**
+	The name.  This can be any expression, as long as it evaluates to a string.  An
+	expression like "a.x" is sugar for "a.("x")", so this will be a string literal
+	in that case.
+	*/
 	public Expression name;
 
-	public this(Location location, Location endLocation, Expression operand, Expression name)
+	/**
+	*/
+	public this(Expression operand, Expression name)
 	{
-		super(location, endLocation, AstTag.DotExp, operand);
+		super(operand.location, name.endLocation, AstTag.DotExp, operand);
 		this.name = name;
 	}
-	
+
+	/**
+	Parse a member exp (:a).  This is a shorthand expression for "this.a".  This
+	also works with super (:super) and paren (:("a")) versions.
+	*/
 	public static Expression parseMemberExp(Lexer l)
 	{
 		auto loc = l.expect(Token.Type.Colon).location;
@@ -8411,19 +9593,19 @@ class DotExp : PostfixExp
 			l.next();
 			exp = Expression.parse(l);
 			endLoc = l.expect(Token.Type.RParen).location;
-			exp = new DotExp(loc, endLoc, new ThisExp(loc), exp);
+			exp = new DotExp(new ThisExp(loc), exp);
 		}
 		else if(l.type == Token.Type.Super)
 		{
 			endLoc = l.loc;
 			l.next();
-			exp = new DotSuperExp(loc, endLoc, new ThisExp(loc));
+			exp = new DotSuperExp(endLoc, new ThisExp(loc));
 		}
 		else
 		{
 			endLoc = l.loc;
 			auto name = Identifier.parseName(l);
-			exp = new DotExp(loc, endLoc, new ThisExp(loc), new StringExp(endLoc, name));
+			exp = new DotExp(new ThisExp(loc), new StringExp(endLoc, name));
 		}
 		
 		return exp;
@@ -8437,27 +9619,40 @@ class DotExp : PostfixExp
 		s.popField(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
 		name = name.fold();
+		
+		if(name.isConstant && !name.isString)
+			throw new MDCompileException(name.location, "Field name must be a string");
+
 		return this;
 	}
 }
 
+/**
+This node corresponds to the super expression (a.super).
+*/
 class DotSuperExp : PostfixExp
 {
-	public this(Location location, Location endLocation, Expression operand)
+	/**
+	*/
+	public this(Location endLocation, Expression operand)
 	{
-		super(location, endLocation, AstTag.DotSuperExp, operand);
+		super(operand.location, endLocation, AstTag.DotSuperExp, operand);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		op.codeGen(s);
 		s.popUnOp(endLocation.line, Op.SuperOf);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8465,14 +9660,28 @@ class DotSuperExp : PostfixExp
 	}
 }
 
+/**
+This class corresponds to a method call in either form (a.f() or a.("f")()).
+*/
 class MethodCallExp : PostfixExp
 {
+	/**
+	The context to be used when calling the method.  This corresponds to 'x' in
+	the expression "a.f(with x)".  If this member is null, there is no custom
+	context and the context will be determined automatically.
+	*/
 	public Expression context;
+	
+	/**
+	The list of argument to pass to the method.  This can have 0 or more elements.
+	*/
 	public Expression[] args;
 
-	public this(Location location, Location endLocation, Expression operand, Expression context, Expression[] args)
+	/**
+	*/
+	public this(Location endLocation, Expression operand, Expression context, Expression[] args)
 	{
-		super(location, endLocation, AstTag.MethodCallExp, operand);
+		super(operand.location, endLocation, AstTag.MethodCallExp, operand);
 		this.context = context;
 		this.args = args;
 	}
@@ -8533,9 +9742,9 @@ class MethodCallExp : PostfixExp
 			s.pushCall(endLocation.line, funcReg, args.length + 2);
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
 	public override bool isMultRet()
@@ -8543,6 +9752,8 @@ class MethodCallExp : PostfixExp
 		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8557,14 +9768,28 @@ class MethodCallExp : PostfixExp
 	}
 }
 
+/**
+This node corresponds to a non-method function call (f()).
+*/
 class CallExp : PostfixExp
 {
+	/**
+	The context to be used when calling the function.  This corresponds to 'x' in
+	the expression "f(with x)".  If this member is null, there is no custom
+	context and the context will be determined automatically.
+	*/
 	public Expression context;
+	
+	/**
+	The list of arguments to be passed to the function.  This can be 0 or more elements.
+	*/
 	public Expression[] args;
 
-	public this(Location location, Location endLocation, Expression operand, Expression context, Expression[] args)
+	/**
+	*/
+	public this(Location endLocation, Expression operand, Expression context, Expression[] args)
 	{
-		super(location, endLocation, AstTag.CallExp, operand);
+		super(operand.location, endLocation, AstTag.CallExp, operand);
 		this.context = context;
 		this.args = args;
 	}
@@ -8604,9 +9829,9 @@ class CallExp : PostfixExp
 			s.pushCall(endLocation.line, funcReg, args.length + 2);
 	}
 
-	public override void checkToNothing()
+	public override bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
 	public override bool isMultRet()
@@ -8614,6 +9839,8 @@ class CallExp : PostfixExp
 		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8628,37 +9855,36 @@ class CallExp : PostfixExp
 	}
 }
 
+/**
+This node corresponds to an indexing operation (a[x]).
+*/
 class IndexExp : PostfixExp
 {
+	/**
+	The index of the operation (the value inside the brackets).
+	*/
 	public Expression index;
 
-	public this(Location location, Location endLocation, Expression operand, Expression index)
+	/**
+	*/
+	public this(Location endLocation, Expression operand, Expression index)
 	{
-		super(location, endLocation, AstTag.IndexExp, operand);
+		super(operand.location, endLocation, AstTag.IndexExp, operand);
 		this.index = index;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
-		if(cast(VarargExp)op)
-		{
-			if(!s.mIsVararg)
-				throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
-				
-			index.codeGen(s);
-			s.popVargIndex(endLocation.line);
-		}
-		else
-		{
-			op.codeGen(s);
+		op.codeGen(s);
 
-			s.topToSource(endLocation.line);
+		s.topToSource(endLocation.line);
 
-			index.codeGen(s);
-			s.popIndex(endLocation.line);
-		}
+		index.codeGen(s);
+		s.popIndex(endLocation.line);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8684,14 +9910,68 @@ class IndexExp : PostfixExp
 	}
 }
 
+/**
+This node corresponds to a variadic indexing operation (vararg[x]).
+*/
+class VargIndexExp : PostfixExp
+{
+	/**
+	The index of the operation (the value inside the brackets).
+	*/
+	public Expression index;
+
+	/**
+	*/
+	public this(Location location, Location endLocation, Expression index)
+	{
+		super(location, endLocation, AstTag.VargIndexExp, null);
+		this.index = index;
+	}
+
+	public override void codeGen(FuncState s)
+	{
+		if(!s.mIsVararg)
+			throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
+
+		index.codeGen(s);
+		s.popVargIndex(endLocation.line);
+	}
+
+	/**
+	*/
+	public override Expression fold()
+	{
+		index = index.fold();
+
+		if(index.isConstant && !index.isInt)
+			throw new MDCompileException(index.location, "index of a vararg indexing must be an integer");
+
+		return this;
+	}
+}
+
+/**
+This node corresponds to a slicing operation (a[x .. y]).
+*/
 class SliceExp : PostfixExp
 {
+	/**
+	The low index of the slice.  If no low index is given, this will be a NullExp.
+	This member will therefore never be null.
+	*/
 	public Expression loIndex;
+	
+	/**
+	The high index of the slice.  If no high index is given, this will be a NullExp.
+	This member will therefore never be null.
+	*/
 	public Expression hiIndex;
 
-	public this(Location location, Location endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	/**
+	*/
+	public this(Location endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
-		super(location, endLocation, AstTag.SliceExp, operand);
+		super(operand.location, endLocation, AstTag.SliceExp, operand);
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
@@ -8704,6 +9984,8 @@ class SliceExp : PostfixExp
 		s.pushSlice(endLocation.line, reg);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -8735,11 +10017,23 @@ class SliceExp : PostfixExp
 	}
 }
 
+/**
+This node represents a variadic slice operation (vararg[x .. y]).
+*/
 class VargSliceExp : PostfixExp
 {
+	/**
+	The low index of the slice.
+	*/
 	public Expression loIndex;
+	
+	/**
+	The high index of the slice.
+	*/
 	public Expression hiIndex;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression loIndex, Expression hiIndex)
 	{
 		super(location, endLocation, AstTag.VargSliceExp, null);
@@ -8758,10 +10052,19 @@ class VargSliceExp : PostfixExp
 		s.pushVargSlice(endLocation.line, reg);
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		loIndex = loIndex.fold();
 		hiIndex = hiIndex.fold();
+		
+		if(loIndex.isConstant && !(loIndex.isNull || loIndex.isInt))
+			throw new MDCompileException(loIndex.location, "low index of vararg slice must be null or int");
+			
+		if(hiIndex.isConstant && !(hiIndex.isNull || hiIndex.isInt))
+			throw new MDCompileException(hiIndex.location, "high index of vararg slice must be null or int");
+
 		return this;
 	}
 
@@ -8771,18 +10074,30 @@ class VargSliceExp : PostfixExp
 	}
 }
 
+/**
+The base class for primary expressions.  These are expressions which evaluate to a single
+value, including constants and literals.
+*/
 class PrimaryExp : Expression
 {
+	/**
+	*/
 	public this(Location location, AstTag type)
 	{
 		super(location, location, type);
 	}
 	
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
 
+	/**
+	Parse a primary expression.  Will also parse any postfix expressions attached
+	to the primary exps.
+	*/
 	public static Expression parse(Lexer l)
 	{
 		Expression exp;
@@ -8814,6 +10129,9 @@ class PrimaryExp : Expression
 		return PostfixExp.parse(l, exp);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		MDValue ret;
@@ -8846,22 +10164,36 @@ class PrimaryExp : Expression
 	}
 }
 
+/**
+An identifier expression.  These can refer to locals, upvalues, or globals.
+*/
 class IdentExp : PrimaryExp
 {
+	/**
+	The identifier itself.
+	*/
 	public Identifier name;
 
+	/**
+	Create an ident exp from a location and name directly.
+	*/
 	public this(Location location, dchar[] name)
 	{
 		super(location, AstTag.IdentExp);
 		this.name = new Identifier(location, name);
 	}
 	
+	/**
+	Create an ident exp from an identifier object.
+	*/
 	public this(Identifier i)
 	{
 		super(i.location, AstTag.IdentExp);
 		this.name = i;
 	}
 
+	/**
+	*/
 	public static IdentExp parse(Lexer l)
 	{
 		return new IdentExp(Identifier.parse(l));
@@ -8886,13 +10218,20 @@ class IdentExp : PrimaryExp
 	}
 }
 
+/**
+Represents the ubiquitous 'this' variable.
+*/
 class ThisExp : PrimaryExp
 {
+	/**
+	*/
 	public this(Location location)
 	{
 		super(location, AstTag.ThisExp);
 	}
 
+	/**
+	*/
 	public static ThisExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.This))
@@ -8918,25 +10257,35 @@ class ThisExp : PrimaryExp
 	}
 }
 
+/**
+Represents the 'null' literal.
+*/
 class NullExp : PrimaryExp
 {
+	/**
+	*/
 	public this(Location location)
 	{
 		super(location, AstTag.NullExp);
 	}
 
+	/**
+	*/
 	public static NullExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.Null))
 			return new NullExp(location);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		l.expect(Token.Type.Null);
 		return MDValue.nullValue;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.pushNull();
@@ -8958,16 +10307,26 @@ class NullExp : PrimaryExp
 	}
 }
 
+/**
+Represents either a 'true' or 'false' literal.
+*/
 class BoolExp : PrimaryExp
 {
+	/**
+	The actual value of the literal.
+	*/
 	public bool value;
 
+	/**
+	*/
 	public this(Location location, bool value)
 	{
 		super(location, AstTag.BoolExp);
 		this.value = value;
 	}
 
+	/**
+	*/
 	public static BoolExp parse(Lexer l)
 	{
 		if(l.type == Token.Type.True)
@@ -8978,6 +10337,9 @@ class BoolExp : PrimaryExp
 				return new BoolExp(location, false);
 	}
 	
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		if(l.type == Token.Type.True)
@@ -9014,19 +10376,27 @@ class BoolExp : PrimaryExp
 	}
 }
 
+/**
+Represents the 'vararg' exp outside of a special form (i.e. not #vararg, vararg[x], or
+vararg[x .. y]).
+*/
 class VarargExp : PrimaryExp
 {
+	/**
+	*/
 	public this(Location location)
 	{
 		super(location, AstTag.VarargExp);
 	}
 
+	/**
+	*/
 	public static VarargExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.Vararg))
 			return new VarargExp(location);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		if(s.mIsVararg == false)
@@ -9046,16 +10416,26 @@ class VarargExp : PrimaryExp
 	}
 }
 
+/**
+Represents a character literal.
+*/
 class CharExp : PrimaryExp
 {
+	/**
+	The actual character of the literal.
+	*/
 	public dchar value;
 
+	/**
+	*/
 	public this(Location location, dchar value)
 	{
 		super(location, AstTag.CharExp);
 		this.value = value;
 	}
 
+	/**
+	*/
 	public static CharExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.CharLiteral))
@@ -9088,22 +10468,35 @@ class CharExp : PrimaryExp
 	}
 }
 
+/**
+Represents an integer literal.
+*/
 class IntExp : PrimaryExp
 {
+	/**
+	The actual value of the literal.
+	*/
 	public int value;
 
+	/**
+	*/
 	public this(Location location, int value)
 	{
 		super(location, AstTag.IntExp);
 		this.value = value;
 	}
 
+	/**
+	*/
 	public static IntExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.IntLiteral))
 			return new IntExp(location, intValue);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		with(l.expect(Token.Type.IntLiteral))
@@ -9141,22 +10534,35 @@ class IntExp : PrimaryExp
 	}
 }
 
+/**
+Represents a floating-point literal.
+*/
 class FloatExp : PrimaryExp
 {
+	/**
+	The actual value of the literal.
+	*/
 	public mdfloat value;
 
+	/**
+	*/
 	public this(Location location, mdfloat value)
 	{
 		super(location, AstTag.FloatExp);
 		this.value = value;
 	}
 
+	/**
+	*/
 	public static FloatExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.FloatLiteral))
 			return new FloatExp(location, floatValue);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		with(l.expect(Token.Type.FloatLiteral))
@@ -9189,22 +10595,35 @@ class FloatExp : PrimaryExp
 	}
 }
 
+/**
+Represents a string literal.
+*/
 class StringExp : PrimaryExp
 {
+	/**
+	The actual value of the literal.
+	*/
 	public dchar[] value;
 
+	/**
+	*/
 	public this(Location location, dchar[] value)
 	{
 		super(location, AstTag.StringExp);
 		this.value = value;
 	}
 
+	/**
+	*/
 	public static StringExp parse(Lexer l)
 	{
 		with(l.expect(Token.Type.StringLiteral))
 			return new StringExp(location, stringValue);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		with(l.expect(Token.Type.StringLiteral))
@@ -9237,23 +10656,33 @@ class StringExp : PrimaryExp
 	}
 }
 
+/**
+Represents a function literal.
+*/
 class FuncLiteralExp : PrimaryExp
 {
+	/**
+	The actual "guts" of the function.
+	*/
 	public FuncDef def;
 
+	/**
+	*/
 	public this(Location location, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncLiteralExp);
 		this.def = def;
 	}
 
+	/**
+	*/
 	public static FuncLiteralExp parse(Lexer l)
 	{
 		auto location = l.loc;
 		auto def = FuncDef.parseLiteral(l);
 		return new FuncLiteralExp(location, def);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		def.codeGen(s);
@@ -9264,6 +10693,8 @@ class FuncLiteralExp : PrimaryExp
 		throw new MDCompileException(location, "Cannot use a function literal as a condition");
 	}
 
+	/**
+	*/
 	public override FuncLiteralExp fold()
 	{
 		def = def.fold();
@@ -9271,16 +10702,26 @@ class FuncLiteralExp : PrimaryExp
 	}
 }
 
+/**
+Represents an object literal.
+*/
 class ObjectLiteralExp : PrimaryExp
 {
+	/**
+	The actual "guts" of the object.
+	*/
 	public ObjectDef def;
 
+	/**
+	*/
 	public this(Location location, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectLiteralExp);
 		this.def = def;
 	}
-	
+
+	/**
+	*/
 	public static ObjectLiteralExp parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -9297,6 +10738,8 @@ class ObjectLiteralExp : PrimaryExp
 		throw new MDCompileException(location, "Cannot use a class literal as a condition");
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		def = def.fold();
@@ -9304,16 +10747,32 @@ class ObjectLiteralExp : PrimaryExp
 	}
 }
 
+/**
+Represents an expression inside a pair of parentheses.  Besides controlling order-of-
+operations, this expression will make a multiple-return-value expression return exactly
+one result instead.  Thus 'vararg' can give 0 or more values but '(vararg)' gives
+exactly one (null in the case that there are no varargs).
+*/
 class ParenExp : PrimaryExp
 {
+	/**
+	The parenthesized expression.
+	*/
 	public Expression exp;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.ParenExp);
 		this.exp = exp;
 	}
 
+	/**
+	Parse a parenthesized expression.  Actually, if the expression contained is
+	not multi-return, you'll just get the expression instead (i.e. parsing "(4 + 5)"
+	will get you an AddExp of 4 and 5).
+	*/
 	public static Expression parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -9327,7 +10786,7 @@ class ParenExp : PrimaryExp
 		else
 			return exp;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		assert(exp.isMultRet(), "ParenExp codeGen not multret");
@@ -9352,6 +10811,8 @@ class ParenExp : PrimaryExp
 		return ret;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -9359,13 +10820,34 @@ class ParenExp : PrimaryExp
 	}
 }
 
+/**
+This is the base class for both numeric and generic for comprehensions inside array
+and table comprehensions.
+*/
 abstract class ForComprehension : AstNode
 {
+	/**
+	Optional if comprehension that follows this.  This member may be null.
+	*/
+	public IfComprehension ifComp;
+
+	/**
+	Optional for comprehension that follows this.  This member may be null.
+	*/
+	public ForComprehension forComp;
+
+	/**
+	*/
 	public this(Location location, Location endLocation, AstTag tag)
 	{
 		super(location, endLocation, tag);
 	}
 	
+	/**
+	Parse a for comprehension.  Note that in the grammar, this actually includes an optional
+	if comprehension and optional for comprehension after it, meaning that an entire array
+	or table comprehension is parsed in one call.
+	*/
 	public static ForComprehension parse(Lexer l)
 	{
 		auto loc = l.expect(Token.Type.For).location;
@@ -9442,17 +10924,29 @@ abstract class ForComprehension : AstNode
 		}
 	}
 
-	public abstract Statement rewrite(Statement innerStmt);
+	protected abstract Statement rewrite(Statement innerStmt);
+	
+	/**
+	*/
 	public abstract ForComprehension fold();
 }
 
+/**
+This node represents a foreach comprehension in an array or table comprehension, i.e.
+in the code "[x for x in a]", it represents "for x in a".
+*/
 class ForeachComprehension : ForComprehension
 {
+	/**
+	These members are the same as for a ForeachStatement.
+	*/
 	public Identifier[] indices;
+	
+	/// ditto
 	public Expression[] container;
-	public IfComprehension ifComp;
-	public ForComprehension forComp;
 
+	/**
+	*/
 	public this(Location location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
@@ -9472,8 +10966,8 @@ class ForeachComprehension : ForComprehension
 		this.ifComp = ifComp;
 		this.forComp = forComp;
 	}
-	
-	public override Statement rewrite(Statement innerStmt)
+
+	protected override Statement rewrite(Statement innerStmt)
 	{
 		if(ifComp)
 		{
@@ -9488,6 +10982,8 @@ class ForeachComprehension : ForComprehension
 		return (new ForeachStatement(location, indices, container, innerStmt)).fold();
 	}
 
+	/**
+	*/
 	public override ForComprehension fold()
 	{
 		foreach(ref exp; container)
@@ -9503,15 +10999,28 @@ class ForeachComprehension : ForComprehension
 	}
 }
 
+/**
+This node represents a numeric for comprehension in an array or table comprehension, i.e.
+in the code "[x for x in 0 .. 10]" this represents "for x in 0 .. 10".
+*/
 class ForNumComprehension : ForComprehension
 {
+	/**
+	These members are the same as for a NumericForStatement.
+	*/
 	public Identifier index;
-	public Expression lo;
-	public Expression hi;
-	public Expression step;
-	public IfComprehension ifComp;
-	public ForComprehension forComp;
 	
+	/// ditto
+	public Expression lo;
+	
+	/// ditto
+	public Expression hi;
+	
+	/// ditto
+	public Expression step;
+
+	/**
+	*/	
 	public this(Location location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
@@ -9524,9 +11033,9 @@ class ForNumComprehension : ForComprehension
 		else if(forComp)
 			super(location, forComp.endLocation, AstTag.ForNumComprehension);
 		else if(step)
-			super(location, step.endLocation, AstTag.ForeachComprehension);
+			super(location, step.endLocation, AstTag.ForNumComprehension);
 		else
-			super(location, hi.endLocation, AstTag.ForeachComprehension);
+			super(location, hi.endLocation, AstTag.ForNumComprehension);
 
 		this.index = index;
 		this.lo = lo;
@@ -9541,7 +11050,7 @@ class ForNumComprehension : ForComprehension
 		this.forComp = forComp;
 	}
 	
-	public override Statement rewrite(Statement innerStmt)
+	protected override Statement rewrite(Statement innerStmt)
 	{
 		if(ifComp)
 		{
@@ -9556,6 +11065,8 @@ class ForNumComprehension : ForComprehension
 		return (new NumericForStatement(location, index, lo, hi, step, innerStmt)).fold();
 	}
 	
+	/**
+	*/
 	public override ForComprehension fold()
 	{
 		lo = lo.fold();
@@ -9566,7 +11077,7 @@ class ForNumComprehension : ForComprehension
 			
 		if(ifComp)
 			ifComp = ifComp.fold();
-			
+
 		if(forComp)
 			forComp = forComp.fold();
 			
@@ -9574,10 +11085,19 @@ class ForNumComprehension : ForComprehension
 	}
 }
 
+/**
+This node represents an if comprehension an an array or table comprehension, i.e.
+in the code "[x for x in a if x < 10]", this represents "if x < 10".
+*/
 class IfComprehension : AstNode
 {
+	/**
+	The condition to test.
+	*/
 	public Expression condition;
 
+	/**
+	*/
 	public this(Location location, Expression condition)
 	{
 		super(location, condition.endLocation, AstTag.IfComprehension);
@@ -9585,6 +11105,8 @@ class IfComprehension : AstNode
 		this.condition = condition;
 	}
 	
+	/**
+	*/
 	public static IfComprehension parse(Lexer l)
 	{
 		auto loc = l.expect(Token.Type.If).location;
@@ -9592,11 +11114,13 @@ class IfComprehension : AstNode
 		return new IfComprehension(loc, condition);
 	}
 	
-	public Statement rewrite(Statement innerStmt)
+	protected Statement rewrite(Statement innerStmt)
 	{
 		return (new IfStatement(location, endLocation, null, condition, innerStmt, null)).fold();
 	}
 	
+	/**
+	*/
 	public IfComprehension fold()
 	{
 		condition = condition.fold();
@@ -9604,10 +11128,19 @@ class IfComprehension : AstNode
 	}
 }
 
+/**
+This node represents either a table literal or an attribute table.  Both are the
+same thing, really.
+*/
 class TableCtorExp : PrimaryExp
 {
+	/**
+	An array of fields.  The first value in each element is the key; the second the value.
+	*/
 	public Expression[2][] fields;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[2][] fields)
 	{
 		super(location, endLocation, AstTag.TableCtorExp);
@@ -9708,16 +11241,25 @@ class TableCtorExp : PrimaryExp
 		return new TableCtorExp(location, endLocation, fields[0 .. i]);
 	}
 
+	/**
+	*/
 	public static Expression parse(Lexer l)
 	{
 		return parseImpl(l, false);
 	}
 
+	/**
+	Parse an attribute table.  The only difference is the delimiters (</ /> instead
+	of { }).
+	*/
 	public static TableCtorExp parseAttrs(Lexer l)
 	{
 		return cast(TableCtorExp)parseImpl(l, true);
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		l.expect(Token.Type.LBrace);
@@ -9749,7 +11291,7 @@ class TableCtorExp : PrimaryExp
 
 		return MDValue(ret);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		uint destReg = s.pushRegister();
@@ -9779,6 +11321,8 @@ class TableCtorExp : PrimaryExp
 		throw new MDCompileException(location, "Cannot use a table constructor as a condition");
 	}
 
+	/**
+	*/
 	public override TableCtorExp fold()
 	{
 		foreach(ref field; fields)
@@ -9791,18 +11335,28 @@ class TableCtorExp : PrimaryExp
 	}
 }
 
+/**
+This node represents an array literal.
+*/
 class ArrayCtorExp : PrimaryExp
 {
+	/**
+	The list of values.
+	*/
 	public Expression[] values;
 
 	protected const uint maxFields = Instruction.arraySetFields * Instruction.rtMax;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[] values)
 	{
 		super(location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
 	}
 
+	/**
+	*/
 	public static PrimaryExp parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -9839,6 +11393,9 @@ class ArrayCtorExp : PrimaryExp
 		return new ArrayCtorExp(location, endLocation, values.toArray());
 	}
 
+	/**
+	Used for parsing JSON.
+	*/
 	public static MDValue parseJSON(Lexer l)
 	{
 		l.expect(Token.Type.LBracket);
@@ -9909,6 +11466,8 @@ class ArrayCtorExp : PrimaryExp
 		throw new MDCompileException(location, "Cannot use an array constructor as a condition");
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		foreach(ref value; values)
@@ -9918,19 +11477,32 @@ class ArrayCtorExp : PrimaryExp
 	}
 }
 
+/**
+This node represents an array comprehension, such as "[x for x in a]".
+*/
 class ArrayComprehension : PrimaryExp
 {
+	/**
+	The expression which is executed as the innermost thing in the loop and whose values
+	are used to construct the array.
+	*/
 	public Expression exp;
+	
+	/**
+	The root of the comprehension tree.
+	*/
 	public ForComprehension forComp;
 	
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression exp, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.ArrayComprehension);
-		
+
 		this.exp = exp;
 		this.forComp = forComp;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		uint destReg = s.pushRegister();
@@ -9948,9 +11520,9 @@ class ArrayComprehension : PrimaryExp
 				mReg = reg;
 			}
 
-			public override void checkToNothing()
+			public override bool hasSideEffects()
 			{
-				//OK
+				return true;
 			}
 
 			public override void codeGen(FuncState s)
@@ -9990,6 +11562,8 @@ class ArrayComprehension : PrimaryExp
 		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		exp = exp.fold;
@@ -9999,12 +11573,28 @@ class ArrayComprehension : PrimaryExp
 	}
 }
 
+/**
+This node represents a table comprehension, such as "{[v] = k for k, v in a}".
+*/
 class TableComprehension : PrimaryExp
 {
+	/**
+	The key expression.  This is the thing in the brackets at the beginning.
+	*/
 	public Expression key;
+
+	/**
+	The value expression.  This is the thing after the equals sign at the beginning.
+	*/
 	public Expression value;
+	
+	/**
+	The root of the comprehension tree.
+	*/
 	public ForComprehension forComp;
 	
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression key, Expression value, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.TableComprehension);
@@ -10031,9 +11621,9 @@ class TableComprehension : PrimaryExp
 				mReg = reg;
 			}
 
-			public override void checkToNothing()
+			public override bool hasSideEffects()
 			{
-				//OK
+				return true;
 			}
 
 			public override void codeGen(FuncState s)
@@ -10069,6 +11659,8 @@ class TableComprehension : PrimaryExp
 		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
 	}
 	
+	/**
+	*/
 	public override Expression fold()
 	{
 		key = key.fold();
@@ -10079,33 +11671,45 @@ class TableComprehension : PrimaryExp
 	}
 }
 
+/**
+This node represents a namespace literal.
+*/
 class NamespaceCtorExp : PrimaryExp
 {
+	/**
+	The actual "guts" of the namespace.
+	*/
 	public NamespaceDef def;
 
+	/**
+	*/
 	public this(Location location, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceCtorExp);
 		this.def = def;
 	}
 
+	/**
+	*/
 	public static NamespaceCtorExp parse(Lexer l)
 	{
 		auto location = l.loc;
 		auto def = NamespaceDef.parse(l);
 		return new NamespaceCtorExp(location, def);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		def.codeGen(s);
 	}
-	
+
 	public InstRef* codeCondition(FuncState s)
 	{
 		throw new MDCompileException(location, "Cannot use namespace constructor as a condition");
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		def = def.fold();
@@ -10113,16 +11717,26 @@ class NamespaceCtorExp : PrimaryExp
 	}
 }
 
+/**
+This node represents a yield expression, such as "yield(1, 2, 3)".
+*/
 class YieldExp : PrimaryExp
 {
+	/**
+	The arguments inside the yield expression.
+	*/
 	public Expression[] args;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression[] args)
 	{
 		super(location, endLocation, AstTag.YieldExp);
 		this.args = args;
 	}
 
+	/**
+	*/
 	public static YieldExp parse(Lexer l)
 	{
 		auto location = l.loc;
@@ -10153,9 +11767,9 @@ class YieldExp : PrimaryExp
 			s.pushYield(endLocation.line, firstReg, args.length + 1);
 	}
 
-	public void checkToNothing()
+	public bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
 	public bool isMultRet()
@@ -10163,6 +11777,8 @@ class YieldExp : PrimaryExp
 		return true;
 	}
 
+	/**
+	*/
 	public override Expression fold()
 	{
 		foreach(ref arg; args)
@@ -10172,11 +11788,24 @@ class YieldExp : PrimaryExp
 	}
 }
 
+/**
+This node represents a super call exp, such as "super.f()" or "super.("f")()"
+(the former is sugar for the latter).
+*/
 class SuperCallExp : PrimaryExp
 {
+	/**
+	The method name.  This can be any expression as long as it evaluates to a string.
+	*/
 	public Expression method;
+	
+	/**
+	The arguments to pass to the function.
+	*/
 	public Expression[] args;
 
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression method, Expression[] args)
 	{
 		super(location, endLocation, AstTag.SuperCallExp);
@@ -10184,6 +11813,8 @@ class SuperCallExp : PrimaryExp
 		this.args = args;
 	}
 
+	/**
+	*/
 	public static SuperCallExp parse(Lexer l)
 	{
 		auto location = l.expect(Token.Type.Super).location;
@@ -10218,15 +11849,15 @@ class SuperCallExp : PrimaryExp
 	public override void codeGen(FuncState s)
 	{
 		auto _this = new ThisExp(location);
-		auto dot = new DotExp(location, endLocation, _this, method);
-		auto call = new MethodCallExp(location, endLocation, dot, null, args);
+		auto dot = new DotExp(_this, method);
+		auto call = new MethodCallExp(endLocation, dot, null, args);
 
 		call.codeGen(s, true);
 	}
 
-	public void checkToNothing()
+	public bool hasSideEffects()
 	{
-		// OK
+		return true;
 	}
 
 	public bool isMultRet()
@@ -10236,6 +11867,11 @@ class SuperCallExp : PrimaryExp
 
 	public override Expression fold()
 	{
+		method = method.fold();
+		
+		if(method.isConstant && !method.isString)
+			throw new MDCompileException(method.location, "Method name must be a string");
+
 		foreach(ref arg; args)
 			arg = arg.fold();
 
