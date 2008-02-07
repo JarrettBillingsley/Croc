@@ -30,6 +30,7 @@ import minid.utils;
 import tango.io.Buffer;
 import tango.io.Conduit;
 import tango.io.Console;
+import tango.io.File;
 import tango.io.FileConduit;
 import tango.io.FilePath;
 import tango.io.FileScan;
@@ -291,16 +292,32 @@ class IOLib
 	int readFile(MDState s, uint numParams)
 	{
 		auto name = s.getParam!(char[])(0);
-		scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.Unknown));
-		s.push(s.safeCode(file.read()));
+		
+		if(numParams == 1 || s.getParam!(bool)(1) == false)
+		{
+			scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.Unknown));
+			s.push(s.safeCode(file.read()));
+		}
+		else
+		{
+			scope file = s.safeCode(new .File(name));
+			ubyte[] data = s.safeCode(cast(ubyte[])file.read());
+			
+			foreach(ref d; data)
+				if(d > 0x7f)
+					d = '?';
+					
+			s.push(new MDString(cast(char[])data));
+		}
+
 		return 1;
 	}
 	
 	int writeFile(MDState s, uint numParams)
 	{
 		auto name = s.getParam!(char[])(0);
-		auto data = s.getParam!(dchar[])(1);
-		scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.UTF_8));
+		auto data = s.getParam!(MDString)(1).mData;
+		scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.UTF_8N));
 		s.safeCode(file.write(data));
 		return 0;
 	}

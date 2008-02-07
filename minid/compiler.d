@@ -6823,7 +6823,11 @@ class TryCatchStatement : Statement
 		}
 
 		if(catchBody is null && finallyBody is null)
-			throw new MDCompileException(location, "Try statement must be followed by a catch, finally, or both");
+		{
+			auto e = new MDCompileException(location, "Try statement must be followed by a catch, finally, or both");
+			e.atEOF = true;
+			throw e;
+		}
 
 		return new TryCatchStatement(location, endLocation, tryBody, catchVar, catchBody, finallyBody);
 	}

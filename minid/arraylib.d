@@ -80,7 +80,9 @@ final class ArrayLib
 			"makeHeap"d, new MDClosure(namespace, &lib.makeHeap, "array.makeHeap"),
 			"pushHeap"d, new MDClosure(namespace, &lib.pushHeap, "array.pushHeap"),
 			"popHeap"d,  new MDClosure(namespace, &lib.popHeap,  "array.popHeap"),
-			"sortHeap"d, new MDClosure(namespace, &lib.sortHeap, "array.sortHeap")
+			"sortHeap"d, new MDClosure(namespace, &lib.sortHeap, "array.sortHeap"),
+			"count"d,    new MDClosure(namespace, &lib.count,    "array.count"),
+			"countIf"d,  new MDClosure(namespace, &lib.countIf,  "array.countIf")
 		);
 
 		context.globals["array"d] = MDNamespace.create
@@ -720,6 +722,43 @@ final class ArrayLib
 		auto self = s.getContext!(MDArray)();
 		.sortHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
 		s.push(self);
+		return 1;
+	}
+	
+	int count(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+		auto val = s.getParam(0u);
+
+		bool delegate(MDValue, MDValue) pred;
+
+		if(numParams > 1)
+		{
+			auto cl = s.getParam!(MDClosure)(1);
+			pred = (MDValue a, MDValue b)
+			{
+				s.call(cl, 1, a, b);
+				return s.pop!(bool)();
+			};
+		}
+		else
+			pred = (MDValue a, MDValue b) { return s.cmp(a, b) == 0; };
+
+		s.push(.count(self.mData, val, pred));
+		return 1;
+	}
+
+	int countIf(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray)();
+		auto cl = s.getParam!(MDClosure)(0);
+
+		s.push(.countIf(self.mData, (MDValue a)
+		{
+			s.call(cl, 1, a);
+			return s.pop!(bool)();
+		}));
+		
 		return 1;
 	}
 }

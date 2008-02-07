@@ -245,7 +245,7 @@ class StringLib
 	{
 		MDArray array = s.getParam!(MDArray)(0);
 		dchar[] sep = s.getParam!(MDString)(1).mData;
-
+	
 		dchar[][] strings = new dchar[][array.length];
 
 		foreach(i, val; array)
