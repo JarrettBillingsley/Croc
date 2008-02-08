@@ -516,7 +516,8 @@ class Lexer
 			mTok.type == Token.Type.EOF ||
 			mTok.type == Token.Type.Semicolon ||
 			mTok.type == Token.Type.RBrace ||
-			mTok.type == Token.Type.RParen;
+			mTok.type == Token.Type.RParen ||
+			mTok.type == Token.Type.RBracket;
 	}
 
 	public final void statementTerm()
@@ -525,7 +526,7 @@ class Lexer
 			return;
 		else
 		{
-			if(mTok.type == Token.Type.EOF || mTok.type == Token.Type.RBrace || mTok.type == Token.Type.RParen)
+			if(mTok.type == Token.Type.EOF || mTok.type == Token.Type.RBrace || mTok.type == Token.Type.RParen || mTok.type == Token.Type.RBracket)
 				return;
 			else if(mTok.type == Token.Type.Semicolon)
 				next();

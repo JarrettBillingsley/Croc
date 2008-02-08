@@ -43,6 +43,41 @@ public class CommandLine
 	const char[] Prompt1 = ">>> ";
 	const char[] Prompt2 = "... ";
 
+	const char[] Usage =
+"
+Flags:
+\t-i		Enter interactive mode, after executing any script file.
+\t-v		Print the version of the CLI.
+\t-h		Print this message and end.
+\t-I path Specifies an import path to search when importing modules.
+
+If mdcl is called without any arguments, it will be as if you passed it
+the -v and -i arguments (it will print the version and enter interactive
+mode).
+
+If the filename has no extension, it will be treated as a MiniD import-
+style module name.  So \"a.b\" will look for a module named b in the a
+directory.  The -I flag also affects the search paths used for this.
+
+When passing a filename followed by args, all the args will be available
+to the script by using the vararg expression.  The arguments will all be
+strings.
+
+In interactive mode, you will be given a >>> prompt.  When you hit enter,
+you may be given a ... prompt.  That means you need to type more to make
+the code complete.  Once you enter enough code to make it complete, the
+code will be run.	If there is an error, the code buffer is cleared.
+To end interactive mode, either use the function \"exit()\", or force
+exit by hitting Ctrl-C.""
+
+In interactive mode, you will also have access to a function \"repr()\"
+which will print out a readable representation of a variable, more
+readable than what you get from toString() anyway.  The first param is
+the value to output; the optional second param should be 'true' to output
+a newline after printing the value, or 'false' not to.  Defaults to true.
+";
+/+ Stupid editor has issues with multiline strings. "+/
+
 	private Print!(char) mOutput;
 	private LineIterator!(char) mInput;
 
@@ -67,31 +102,8 @@ public class CommandLine
 		printVersion();
 		mOutput("Usage:").newline;
 		mOutput("\t")(progname)(" [flags] [filename [args]]").newline;
-		mOutput.newline;
-		mOutput("Flags:").newline;
-		mOutput("\t-i		Enter interactive mode, after executing any script file.").newline;
-		mOutput("\t-v		Print the version of the CLI.").newline;
-		mOutput("\t-h		Print this message and end.").newline;
-		mOutput("\t-I path Specifies an import path to search when importing modules.").newline;
-		mOutput.newline;
-		mOutput("If mdcl is called without any arguments, it will be as if you passed it").newline;
-		mOutput("the -v and -i arguments (it will print the version and enter interactive").newline;
-		mOutput("mode).").newline;
-		mOutput.newline;
-		mOutput("If the filename has no extension, it will be treated as a MiniD import-").newline;
-		mOutput("style module name.  So \"a.b\" will look for a module named b in the a").newline;
-		mOutput("directory.  The -I flag also affects the search paths used for this.").newline;
-		mOutput.newline;
-		mOutput("When passing a filename followed by args, all the args will be available").newline;
-		mOutput("to the script by using the vararg expression.  The arguments will all be").newline;
-		mOutput("strings.").newline;
-		mOutput.newline;
-		mOutput("In interactive mode, you will be given a >>> prompt.  When you hit enter,").newline;
-		mOutput("you may be given a ... prompt.  That means you need to type more to make").newline;
-		mOutput("the code complete.  Once you enter enough code to make it complete, the").newline;
-		mOutput("code will be run.	If there is an error, the code buffer is cleared.").newline;
-		mOutput("To end interactive mode, either use the function \"exit();\", or force").newline;
-		mOutput("exit by hitting Ctrl-C.").newline;
+		
+		mOutput(Usage);
 	}
 
 	private void outputRepr(MDState state, ref MDValue v)
@@ -376,7 +388,10 @@ public class CommandLine
 				(MDState s, uint numParams)
 				{
 					outputRepr(s, s.getParam(0u));
-					mOutput.newline;
+					
+					if(numParams == 1 || (numParams > 1 && s.getParam!(bool)(1)))
+						mOutput.newline;
+
 					return 0;
 				}, "repr"
 			);
@@ -474,12 +489,12 @@ public class CommandLine
 
 						auto returns = returnBuffer.toArray();
 						
-						state.call(reprFunc, 0, returns[$ - 1]);
+						state.call(reprFunc, 0, returns[$ - 1], false);
 
 						foreach_reverse(val; returns[0 .. $ - 1])
 						{
 							mOutput(", ");
-							state.call(reprFunc, 0, val);
+							state.call(reprFunc, 0, val, false);
 						}
 						
 						mOutput.newline;

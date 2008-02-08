@@ -263,6 +263,7 @@ StatementTerminator:
 	EndOfLine // not consumed
 	'}' // not consumed
 	')' // not consumed
+	']' // not consumed
 
 Statement:
 	ImportStatement
