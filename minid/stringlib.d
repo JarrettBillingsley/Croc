@@ -132,10 +132,7 @@ class StringLib
 		else
 			s.throwRuntimeException("Parameter must be string or char");
 
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+		s.push(result);
 
 		return 1;
 	}
@@ -153,10 +150,7 @@ class StringLib
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 			
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+		s.push(result);
 
 		return 1;
 	}
@@ -173,10 +167,7 @@ class StringLib
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
 
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+		s.push(result);
 
 		return 1;
 	}
@@ -193,11 +184,8 @@ class StringLib
 			result = Text.locatePrior(src, Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
 		else
 			s.throwRuntimeException("Second parameter must be string or int");
-			
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+
+		s.push(result);
 
 		return 1;
 	}

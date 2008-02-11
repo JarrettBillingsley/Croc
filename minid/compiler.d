@@ -4502,7 +4502,7 @@ class ImportStatement : Statement
 	that it's a string when constant folding occurs.
 	*/
 	public Expression expr;
-	
+
 	/**
 	An optional list of symbols to import from the module.  In the code "import x : a, b, c",
 	this corresponds to "a, b, c".
@@ -7157,7 +7157,7 @@ abstract class Expression : AstNode
 	{
 		return false;
 	}
-	
+
 	/**
 	Returns whether this expression is a constant value.
 	*/
@@ -7742,7 +7742,7 @@ class CondExp : Expression
 	The second expression, which comes between the question mark and the colon.
 	*/
 	public Expression op1;
-	
+
 	/**
 	The third expression, which comes after the colon.
 	*/
@@ -9073,7 +9073,7 @@ abstract class UnaryExp : Expression
 	/**
 	The operand of the expression.
 	*/
-	protected Expression op;
+	public Expression op;
 
 	/**
 	*/
@@ -10847,7 +10847,7 @@ abstract class ForComprehension : AstNode
 	{
 		super(location, endLocation, tag);
 	}
-	
+
 	/**
 	Parse a for comprehension.  Note that in the grammar, this actually includes an optional
 	if comprehension and optional for comprehension after it, meaning that an entire array
@@ -10892,7 +10892,7 @@ abstract class ForComprehension : AstNode
 				ifComp = IfComprehension.parse(l);
 				
 			ForComprehension forComp;
-			
+
 			if(l.type == Token.Type.For)
 				forComp = ForComprehension.parse(l);
 
@@ -11477,7 +11477,7 @@ class ArrayCtorExp : PrimaryExp
 	{
 		foreach(ref value; values)
 			value = value.fold();
-			
+
 		return this;
 	}
 }
@@ -11850,7 +11850,7 @@ class SuperCallExp : PrimaryExp
 		auto endLocation = l.expect(Token.Type.RParen).location;
 		return new SuperCallExp(location, endLocation, method, args);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		auto _this = new ThisExp(location);

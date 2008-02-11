@@ -59,7 +59,8 @@ class CharLib
 			"isPunct"d,    new MDClosure(namespace, &lib.isPunct,     "char.isPunct"),
 			"isSpace"d,    new MDClosure(namespace, &lib.isSpace,     "char.isSpace"),
 			"isHexDigit"d, new MDClosure(namespace, &lib.isHexDigit,  "char.isHexDigit"),
-			"isAscii"d,    new MDClosure(namespace, &lib.isAscii,     "char.isAscii")
+			"isAscii"d,    new MDClosure(namespace, &lib.isAscii,     "char.isAscii"),
+			"isValid"d,    new MDClosure(namespace, &lib.isValid,     "char.isValid")
 		);
 		
 		context.setMetatable(MDValue.Type.Char, namespace);
@@ -136,6 +137,13 @@ class CharLib
 	int isAscii(MDState s, uint numParams)
 	{
 		s.push(s.getContext!(dchar) <= 0x7f);
+		return 1;
+	}
+	
+	int isValid(MDState s, uint numParams)
+	{
+		auto c = s.getContext!(dchar);
+		s.push(c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF));
 		return 1;
 	}
 }

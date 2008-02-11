@@ -250,7 +250,12 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 		else if(v.isArray)
 			outputArray(v.as!(MDArray));
 		else if(v.isTable)
-			outputTable(v.as!(MDTable));
+		{
+			if(state.opin(MDValue("toString"), v))
+				mOutput(state.valueToString(v));		
+			else
+				outputTable(v.as!(MDTable));
+		}
 		else
 			mOutput(state.valueToString(v));
 	}

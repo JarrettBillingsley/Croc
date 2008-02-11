@@ -66,6 +66,7 @@ final class ArrayLib
 			"each"d,     new MDClosure(namespace, &lib.each,     "array.each"),
 			"filter"d,   new MDClosure(namespace, &lib.filter,   "array.filter"),
 			"find"d,     new MDClosure(namespace, &lib.find,     "array.find"),
+			"findIf"d,   new MDClosure(namespace, &lib.findIf,   "array.findIf"),
 			"bsearch"d,  new MDClosure(namespace, &lib.bsearch,  "array.bsearch"),
 			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop"),
 			"set"d,      new MDClosure(namespace, &lib.set,      "array.set"),
@@ -435,6 +436,26 @@ final class ArrayLib
 		}
 		
 		s.push(array.length);
+		return 1;
+	}
+	
+	int findIf(MDState s, uint numParams)
+	{
+		auto self = s.getContext!(MDArray);
+		auto cl = s.getParam!(MDClosure)(0);
+		
+		foreach(i, v; self)
+		{
+			s.call(cl, 1, v);
+
+			if(s.pop!(bool))
+			{
+				s.push(i);
+				return 1;
+			}
+		}
+
+		s.push(self.length);
 		return 1;
 	}
 	
