@@ -17,8 +17,8 @@ function sing(i = 99)
 
 sing()*/
 
-array.range(100).apply(function(v)=format("{} {} of beer on the wall, {} {1} of beer.
+array.range(99, -1).apply(function(v)=format("{} {} of beer on the wall, {} {1} of beer.
 {}, {} {} of beer on the wall.\n",v==0?"No more":toString(v),v==1?"bottle":"bottles",
 v==0?"no more":toString(v),v==0?"Go to the store and buy some more":
 "Take one down and pass it around",v==0?"99":v==1?"no more":toString(v-1),v==2?"bottle":
-"bottles")).reverse().each(function(i,v)writeln(v);)
+"bottles")).each(function(i,v)writeln(v))

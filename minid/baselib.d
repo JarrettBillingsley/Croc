@@ -91,6 +91,7 @@ class BaseLib
 		globals["isThread"d] =        new MDClosure(globals.ns, &lib.isParam!("thread"),    "isThread");
 		globals["currentThread"d] =   new MDClosure(globals.ns, &lib.currentThread,         "currentThread");
 		globals["curry"d] =           new MDClosure(globals.ns, &lib.curry,                 "curry");
+		globals["reloadModule"d] =    new MDClosure(globals.ns, &lib.reloadModule,          "reloadModule");
 		globals["loadString"d] =      new MDClosure(globals.ns, &lib.loadString,            "loadString");
 		globals["eval"d] =            new MDClosure(globals.ns, &lib.eval,                  "eval");
 		globals["loadJSON"d] =        new MDClosure(globals.ns, &lib.loadJSON,              "loadJSON");
@@ -534,7 +535,7 @@ class BaseLib
 		s.push(thread);
 		s.push(init);
 		s.rawCall(funcReg, 0);
-		
+
 		s.push(s.getUpvalue(0u));
 		s.push(thread);
 		s.push(0);
@@ -614,6 +615,12 @@ class BaseLib
 		cl.context = s.getParam(1u);
 
 		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
+		return 1;
+	}
+	
+	int reloadModule(MDState s, uint numParams)
+	{
+		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
 		return 1;
 	}
 
@@ -703,7 +710,11 @@ class BaseLib
 		if(numParams == 0)
 			s.halt();
 		else
-			s.getParam!(MDState)(0).pendingHalt();
+		{
+			auto thread = s.getParam!(MDState)(0);
+			thread.pendingHalt();
+			s.call(thread, 0);
+		}
 
 		return 0;
 	}

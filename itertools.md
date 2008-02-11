@@ -8,31 +8,29 @@ function chain(vararg)
 	{
 		yield()
 
-		for(i: 0 .. #args)
-			foreach(v; args[i])
+		foreach(arg; args)
+			foreach(v; arg)
 				yield(v)
 	}
 }
 
-function count(n = 0)
-{
-	return coroutine function()
+function count(n = 0) =
+	coroutine function()
 	{
 		yield()
-		
+
 		while(true)
 		{
 			yield(n)
 			n++
 		}
 	}
-}
 
 function izip(vararg)
 {
 	if(#vararg == 0)
 		return function() = null
-		
+
 	local args = [vararg]
 	local n = #args
 	local lengths = args.map(function(x) = #x)
@@ -56,9 +54,8 @@ function izip(vararg)
 	return iterator, null, -1
 }
 
-function generator(x, extra = null)
-{
-	return coroutine function()
+function generator(x, extra = null) =
+	coroutine function()
 	{
 		yield()
 
@@ -68,18 +65,16 @@ function generator(x, extra = null)
 		{
 			if(idx0 is null)
 				return;
-				
+
 			yield(idx0, vararg)
-			
+
 			return loop(iterFunc(with state, idx0))
 		}
 
 		loop(iterFunc(with state, idx))
 	}
-}
 
 function repeat(x, times)
-{
 	if(times is null)
 		return function(index) { return index + 1, x }, null, -1
 	else
@@ -96,7 +91,6 @@ function repeat(x, times)
 
 		return iterator, null, -1
 	}
-}
 
 function iter(callable, sentinel)
 {

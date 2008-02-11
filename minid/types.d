@@ -2841,6 +2841,15 @@ final class MDNamespace : MDBaseObject
 			remove(k);
 		}
 	}
+	
+	/**
+	Remove all key-value pairs from the namespace.
+	*/
+	public void clear()
+	{
+		foreach(key; keys())
+			remove(key.as!(MDString));
+	}
 
 	/**
 	Overload of opApply to allow using foreach over a namespace.  The keys are MDStrings, and
@@ -3618,7 +3627,60 @@ final class MDContext
 		// See if it's already loaded
 		if(auto ns = name in mLoadedModules)
 			return *ns;
-			
+
+		return commonModuleLoad(name, s);
+	}
+	
+	/**
+	This is very similar to importModule, except that the module must already have been loaded.  If it hasn't been,
+	an exception is thrown.  If it has been, the existing namespace for the module is cleared out, and the import
+	process continues as normal.  Note that the namespace is not actually deleted, meaning that any cached references
+	to the namespace anywhere else will still point to the module's namespace; however any cached references to the
+	objects inside the namespace will still point to the old objects, and not the new ones loaded by this function.
+	*/
+	public final MDNamespace reloadModule(dchar[] name, MDState s = null)
+	{
+		auto ns = name in mLoadedModules;
+
+		if(ns is null)
+			throw new MDException("Attempting to reload module \"{}\" which has not yet been loaded", name);
+
+		return commonModuleLoad(name, s);
+	}
+
+	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
+	{
+		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
+		char[][] elements = split(utf.toString(name), "."c);
+
+		scope curDir = new FilePath(FileSystem.getDirectory());
+
+		MDModuleDef def = tryPath(curDir, elements);
+
+		if(def is null)
+		{
+			foreach(customPath, _; mImportPaths)
+			{
+				def = tryPath(customPath, elements);
+
+				if(def !is null)
+					break;
+			}
+		}
+
+		if(def !is null)
+		{
+			if(def.mName != name)
+				throw new MDException("Attempting to load module \"{}\", but module declaration says \"{}\"", name, def.name);
+
+			return initializeModule(s, def, params);
+		}
+
+		return null;
+	}
+
+	private final MDNamespace commonModuleLoad(dchar[] name, MDState s)
+	{
 		if(s is null)
 			s = mMainThread;
 
@@ -3687,39 +3749,8 @@ final class MDContext
 		throw new MDException("Error loading module \"{}\": could not find anything to load", name);
 	}
 
-	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
-	{
-		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
-		char[][] elements = split(utf.toString(name), "."c);
-
-		scope curDir = new FilePath(FileSystem.getDirectory());
-
-		MDModuleDef def = tryPath(curDir, elements);
-
-		if(def is null)
-		{
-			foreach(customPath, _; mImportPaths)
-			{
-				def = tryPath(customPath, elements);
-
-				if(def !is null)
-					break;
-			}
-		}
-
-		if(def !is null)
-		{
-			if(def.mName != name)
-				throw new MDException("Attempting to load module \"{}\", but module declaration says \"{}\"", name, def.name);
-
-			return initializeModule(s, def, params);
-		}
-
-		return null;
-	}
-
 	/**
-	Initialize a module given the module's definition and a list of parameters which will be 
+	Initialize a module given the module's definition and a list of parameters which will be
 	passed as vararg parameters to the top-level function.  This is a very low-level API.
 
 	Params:
@@ -3757,44 +3788,31 @@ final class MDContext
 
 		MDNamespace put = globals.mGlobals;
 
-		foreach(i, pkg; packages)
+		foreach(i, pkg; splitName)
 		{
-			MDValue* v = (pkg in put);
+			auto str = new MDString(pkg);
 
-			if(v is null)
+			if(auto v = (str in put))
 			{
-				MDNamespace n = new MDNamespace(pkg, put);
-				put[pkg] = MDValue(n);
-				put = n;
+				if(v.mType != MDValue.Type.Namespace)
+					throw new MDException("Error loading module \"{}\": conflicts with {}", name, join(packages[0 .. i + 1], "."d));
+
+				put = v.mNamespace;
 			}
 			else
 			{
-				if(v.mType == MDValue.Type.Namespace)
-					put = v.mNamespace;
-				else
-					throw new MDException("Error loading module \"{}\": conflicts with {}", name, join(packages[0 .. i + 1], "."d));
+				auto n = new MDNamespace(pkg, put);
+				put[str] = MDValue(n);
+				put = n;
 			}
 		}
+		
+		if(put.length > 0)
+			put.clear();
 
-		MDNamespace modNS;
-		MDValue* v = modName in put;
-
-		if(v !is null)
-		{
-			if(v.mType != MDValue.Type.Namespace)
-				throw new MDException("Error loading module \"{}\": a global of the same name already exists", name);
-
-			modNS = v.mNamespace;
-		}
-		else
-		{
-			modNS = new MDNamespace(modName, put);
-			put[modName] = MDValue(modNS);
-		}
-
-		return modNS;
+		return put;
 	}
-	
+
 	/**
 	Gets traceback info of the most recently-thrown exception, and clears the traceback
 	info.  This method is here because exceptions can propagate through multiple states
