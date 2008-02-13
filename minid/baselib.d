@@ -63,6 +63,7 @@ class BaseLib
 		globals["getTraceback"d] =    new MDClosure(globals.ns, &lib.getTraceback,          "getTraceback");
 		globals["typeof"d] =          new MDClosure(globals.ns, &lib.mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &lib.fieldsOf,              "fieldsOf");
+		globals["hasMethod"d] =       new MDClosure(globals.ns, &lib.hasMethod,             "hasMethod");
 		globals["attributesOf"d] =    new MDClosure(globals.ns, &lib.attributesOf,          "attributesOf");
 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &lib.hasAttributes,         "hasAttributes");
 		globals["toString"d] =        new MDClosure(globals.ns, &lib.mdtoString,            "toString");
@@ -430,6 +431,12 @@ class BaseLib
 		else
 			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
 
+		return 1;
+	}
+
+	int hasMethod(MDState s, uint numParams)
+	{
+		s.push(s.hasMethod(s.getParam(0u), s.getParam!(MDString)(1)));
 		return 1;
 	}
 

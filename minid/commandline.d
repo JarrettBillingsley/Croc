@@ -42,14 +42,13 @@ public class CommandLine
 {
 	const char[] Prompt1 = ">>> ";
 	const char[] Prompt2 = "... ";
-
 	const char[] Usage =
 "
 Flags:
-\t-i		Enter interactive mode, after executing any script file.
-\t-v		Print the version of the CLI.
-\t-h		Print this message and end.
-\t-I path Specifies an import path to search when importing modules.
+    -i        Enter interactive mode, after executing any script file.
+    -v        Print the version of the CLI.
+    -h        Print this message and end.
+    -I path   Specifies an import path to search when importing modules.
 
 If mdcl is called without any arguments, it will be as if you passed it
 the -v and -i arguments (it will print the version and enter interactive
@@ -66,9 +65,8 @@ strings.
 In interactive mode, you will be given a >>> prompt.  When you hit enter,
 you may be given a ... prompt.  That means you need to type more to make
 the code complete.  Once you enter enough code to make it complete, the
-code will be run.	If there is an error, the code buffer is cleared.
-To end interactive mode, either use the function \"exit()\", or force
-exit by hitting Ctrl-C.""
+code will be run.  If there is an error, the code buffer is cleared.
+To end interactive mode, use the \"exit()\" function.
 
 In interactive mode, you will also have access to a function \"repr()\"
 which will print out a readable representation of a variable, more
@@ -80,11 +78,13 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 
 	private Print!(char) mOutput;
 	private LineIterator!(char) mInput;
+	private MDString mToStringStr;
 
 	public this(Print!(char) output, InputStream inputStream)
 	{
 		mOutput = output;
 		mInput = new LineIterator!(char)(inputStream);
+		mToStringStr = new MDString("toString"d);
 	}
 
 	public this(OutputStream outputStream, InputStream inputStream)
@@ -102,7 +102,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 		printVersion();
 		mOutput("Usage:").newline;
 		mOutput("\t")(progname)(" [flags] [filename [args]]").newline;
-		
+
 		mOutput(Usage);
 	}
 
@@ -251,8 +251,8 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			outputArray(v.as!(MDArray));
 		else if(v.isTable)
 		{
-			if(state.opin(MDValue("toString"), v))
-				mOutput(state.valueToString(v));		
+			if(state.hasMethod(v, mToStringStr))
+				mOutput(state.valueToString(v));
 			else
 				outputTable(v.as!(MDTable));
 		}
@@ -310,6 +310,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			default:
 				if(args[i][0] == '-')
 				{
+					mOutput("Unknown flag '{}'.", args[i]);
 					return;
 				}
 
@@ -403,7 +404,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			
 			ctx.globals["repr"d] = reprFunc;
 
-			mOutput("Use the \"exit()\" function to end, or hit Ctrl-C.").newline;
+			mOutput("Use the \"exit()\" function to end.").newline;
 			mOutput(Prompt1)();
 			
 			// static so the interrupt can access it.
@@ -530,8 +531,16 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 				char[] line = mInput.next();
 
 				if(line.ptr is null)
-					break;
-					
+				{
+					if(didHalt)
+					{
+						didHalt = false;
+						mOutput.newline;
+					}
+					else
+						break;
+				}
+
 				if(buffer.length is 0 && line.length is 0)
 				{
 					mOutput(Prompt1)();

@@ -5342,6 +5342,12 @@ final class MDState : MDBaseObject
 	{
 		return mShouldHalt;
 	}
+	
+	public final bool hasMethod(ref MDValue val, MDString methodName)
+	{
+		MDValue proto = void;
+		return lookupMethod(val, methodName, proto) !is null;
+	}
 
 	// ===================================================================================
 	// Internal functions

@@ -10,7 +10,7 @@ local MAXGEN = 10000
 
 local NOWORD = '\n'
 
-local wordRE = regexp.compile(@"(\w+)")
+local wordRE = regexp.compile(@"(\w[a-zA-Z']+)")
 
 function allwords(f) =
 	coroutine function()
@@ -47,7 +47,7 @@ function analyze(input, N)
 	
 			for(i: 0 .. #words - 1)
 				words[i] = words[i + 1]
-	
+
 			words[-1] = c.toLower()
 		}
 	
@@ -57,36 +57,38 @@ function analyze(input, N)
 	return statetab
 }
 
-function generate(statetab, N)
+function generate(statetab, N, max)
 {
 	local words = array.new(N)
+	local ret = []
+	local sb = StringBuffer.clone(30)
 
 	// generate text
-	for(i: 0 .. MAXGEN)
+	for(i: 0 .. max)
 	{
 		words.fill(NOWORD)
-	
-		for(c: 0 .. 20)
+		#sb = 0
+
+		for(c: 0 .. 30)
 		{
 			local list = statetab[prefix(words)]
-	
+
 			// choose a random item from list
 			local nextword = list[math.rand(#list)]
-		
+
 			if(nextword == NOWORD)
 				break
-		
-			write(nextword)
-		
+
+			sb.append(nextword)
+
 			for(j: 0 .. #words - 1)
 				words[j] = words[j + 1]
-		
+
 			words[-1] = nextword
 		}
-		
-		write(' ')
-	
-		if(i > 0 && i % 10 == 0)
-			writeln()
+
+		ret ~= sb.toString()
 	}
+	
+	return ret
 }
