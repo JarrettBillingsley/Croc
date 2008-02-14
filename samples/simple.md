@@ -1,78 +1,16 @@
 module simple
 
-_G.Rope = object Rope
+namespace N
 {
-	function clone(s) = object : this { str = s; next = null }
-
-	/*function opCat(vararg)
-	{
-		local ret = object : Rope { str = :s }
-		local r = ret
-
-		for(i: 0 .. #vararg)
-		{
-			local v = vararg[i]
-
-			if(isString(v))
-				r.next = Rope.clone(v)
-			else if(v as Rope)
-				r.next = v
-			else
-				r.next = Rope.clone(toString(v))
-
-			r = r.next
-		}
-		
-		return ret
-	}*/
+	x = 3
 	
-	function opCatAssign(vararg)
+	function f()
 	{
-		local s = this
-
-		for( ; s.next !is null; s = s.next) {}
-
-		for(i: 0 .. #vararg)
-		{
-			local v = vararg[i]
-
-			if(isString(v))
-				s.next = Rope.clone(v)
-			else if(v as Rope)
-				s.next = v
-			else
-				s.next = Rope.clone(toString(v))
-
-			s = s.next
-		}
-	}
-	
-	function print()
-		for(local s = this; s !is null; s = s.next)
-			write(s.str)
-			
-	function opLength()
-	{
-		local total = 0
-
-		for(local s = this; s !is null; s = s.next)
-			total += #s.str
-			
-		return total
-	}
-
-	function toString()
-	{
-		local sb = StringBuffer.clone()
-		
-		for(local s = this; s !is null; s = s.next)
-			sb.append(s.str)
-			
-		return sb.toString()
+		writefln("hi! {}", x)
 	}
 }
 
-Rope.opCall = Rope.clone
+N.f()
 
 /+
 /*object BaseProp

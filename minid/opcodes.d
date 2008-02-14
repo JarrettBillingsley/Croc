@@ -82,6 +82,7 @@ enum Op : uint
 	Mul,
 	MulEq,
 	Namespace,
+	NamespaceNP,
 	Neg,
 	NewArray,
 	NewGlobal,
@@ -99,6 +100,7 @@ enum Op : uint
 	Ret,
 	SetArray,
 	SetAttrs,
+	SetEnv,
 	Shl,
 	ShlEq,
 	Shr,
@@ -180,6 +182,7 @@ MoveLocal.........R: dest local, src local, n/a
 Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
 Namespace.........R: dest, name const index, parent namespace
+NamespaceNP.......R: dest, name const index, n/a
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
@@ -197,6 +200,7 @@ PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
 SetAttrs..........R: dest, src, n/a
+SetEnv............R: dest, src, n/a
 Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
 Shr...............R: dest, src, src
@@ -338,6 +342,7 @@ align(1) struct Instruction
 			case Op.Mul:             return Stdout.layout.convert("mul {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.MulEq:           return Stdout.layout.convert("muleq {}, {}", cr(rd), cr(rs));
 			case Op.Namespace:       return Stdout.layout.convert("namespace {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.NamespaceNP:     return Stdout.layout.convert("namespacenp {}, {}", cr(rd), cr(rs));
 			case Op.Neg:             return Stdout.layout.convert("neg {}, {}", cr(rd), cr(rs));
 			case Op.NewArray:        return Stdout.layout.convert("newarr r{}, {}", rd, imm);
 			case Op.NewGlobal:       return Stdout.layout.convert("newg {}, {}", cr(rs), cr(rt));
@@ -355,6 +360,7 @@ align(1) struct Instruction
 			case Op.Ret:             return Stdout.layout.convert("ret r{}, {}", rd, uimm);
 			case Op.SetArray:        return Stdout.layout.convert("setarray r{}, {}, block {}", rd, rs, rt);
 			case Op.SetAttrs:        return Stdout.layout.convert("setattrs r{}, r{}", rd, rs);
+			case Op.SetEnv:          return Stdout.layout.convert("setenv {}, {}", cr(rd), cr(rs));
 			case Op.Shl:             return Stdout.layout.convert("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ShlEq:           return Stdout.layout.convert("shleq {}, {}", cr(rd), cr(rs));
 			case Op.Shr:             return Stdout.layout.convert("shr {}, {}, {}", cr(rd), cr(rs), cr(rt));

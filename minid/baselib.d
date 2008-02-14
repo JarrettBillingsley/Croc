@@ -39,11 +39,11 @@ class BaseLib
 {
 	private static BaseLib lib;
 	private static MDString[] typeStrings;
-	
+
 	static this()
 	{
 		lib = new BaseLib();
-		
+
 		typeStrings = new MDString[MDValue.Type.max + 1];
 
 		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
@@ -306,6 +306,12 @@ class BaseLib
 		}
 		
 		return 0;
+	}
+	
+	int toBool(MDState s, uint numParams)
+	{
+		s.push(s.getParam(0u).isTrue());
+		return 1;	
 	}
 	
 	int toInt(MDState s, uint numParams)

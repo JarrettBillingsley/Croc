@@ -4061,11 +4061,11 @@ class NamespaceDef : AstNode
 	public Identifier name;
 	
 	/**
-	The namespace which will become the parent of this namespace.  This field will never be
-	null.  In the case that no parent is specified in the code, this will be a NullExp.
+	The namespace which will become the parent of this namespace.  This field can be null,
+	in which case the namespace's parent will be set to the environment of the current function.
 	*/
 	public Expression parent;
-	
+
 	/**
 	The fields in this namespace, in an arbitrary order.  See the Field struct above.
 	*/
@@ -4111,7 +4111,7 @@ class NamespaceDef : AstNode
 			parent = Expression.parse(l);
 		}
 		else
-			parent = new NullExp(l.loc);
+			parent = null;
 
 		l.expect(Token.Type.LBrace);
 
@@ -4181,42 +4181,180 @@ class NamespaceDef : AstNode
 	
 	public void codeGen(FuncState s)
 	{
-		parent.codeGen(s);
-		Exp parent;
-		s.popSource(location.line, parent);
-		s.freeExpTempRegs(&parent);
-
-		uint destReg = s.pushRegister();
-		uint nameConst = s.tagConst(s.codeStringConst(name.name));
-		s.codeR(location.line, Op.Namespace, destReg, nameConst, parent.index);
-
-		foreach(field; fields)
+		/*
+		Rewrite:
+		
+		namespace N
 		{
-			uint index = s.tagConst(s.codeStringConst(field.name));
-
-			field.initializer.codeGen(s);
-			Exp val;
-			s.popSource(field.initializer.endLocation.line, val);
-			s.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
-			s.freeExpTempRegs(&val);
+			function f() {}
 		}
-
-		if(attrs)
+		
+		as:
+		
+		(function <namespace N>()
 		{
-			attrs.codeGen(s);
-			Exp src;
-			s.popSource(location.line, src);
-			s.freeExpTempRegs(&src);
-			s.codeR(location.line, Op.SetAttrs, destReg, src.index, 0);
-		}
+			local namespace N {}
 
-		s.pushTempReg(destReg);
+			local function __temp()
+			{
+				N.f = function f() {}
+			}
+
+			__temp.environment(N)
+			__temp()
+
+			return N
+		})()
+		
+		OMFG is this complex.
+		*/
+
+		auto localVar = new VarDecl(location, endLocation, Protection.Local, [name], new class(this) Expression
+		{
+			private NamespaceDef mOuter; 
+
+			this(NamespaceDef _outer)
+			{
+				super(_outer.location, _outer.endLocation, AstTag.Other);
+				mOuter = _outer;
+			}
+			
+			override void codeGen(FuncState s)
+			{
+				uint destReg;
+
+				if(mOuter.parent)
+				{
+					mOuter.parent.codeGen(s);
+					Exp parent;
+					s.popSource(location.line, parent);
+					s.freeExpTempRegs(&parent);
+
+					destReg = s.pushRegister();
+					uint nameConst = s.tagConst(s.codeStringConst(mOuter.name.name));
+					s.codeR(location.line, Op.Namespace, destReg, nameConst, parent.index);
+				}
+				else
+				{
+					destReg = s.pushRegister();
+					uint nameConst = s.tagConst(s.codeStringConst(mOuter.name.name));
+					s.codeR(location.line, Op.NamespaceNP, destReg, nameConst, 0);
+				}
+
+				if(mOuter.attrs)
+				{
+					mOuter.attrs.codeGen(s);
+					Exp src;
+					s.popSource(location.line, src);
+					s.freeExpTempRegs(&src);
+					s.codeR(location.line, Op.SetAttrs, destReg, src.index, 0);
+				}
+
+				s.pushTempReg(destReg);
+			}
+			
+			override InstRef* codeCondition(FuncState s)
+			{
+				assert(false);
+			}
+			
+			override Expression fold()
+			{
+				return this;
+			}
+		});
+
+		auto innerLoop = new class(this) Statement
+		{
+			private NamespaceDef mOuter;
+			private Identifier mName;
+
+			this(NamespaceDef _outer)
+			{
+				super(_outer.location, _outer.endLocation, AstTag.Other);
+				mOuter = _outer;
+				mName = _outer.name;
+			}
+
+			override void codeGen(FuncState s)
+			{
+				foreach(field; mOuter.fields)
+				{
+					// name.fieldname = fieldinitializer
+					auto lhs = new DotExp(new IdentExp(mName), new StringExp(field.initializer.location, field.name));
+					auto assig = new Assignment(field.initializer.location, field.initializer.endLocation, [lhs], field.initializer);
+					assig.codeGen(s);
+				}
+			}
+
+			override Statement fold()
+			{
+				return this;
+			}
+		};
+
+		auto innerFuncBody = new CompoundStatement(location, endLocation, [cast(Statement)innerLoop]);
+		auto innerFuncName = new Identifier(location, "__temp");
+		auto innerFuncDef = new FuncDef(location, innerFuncName, null, false, innerFuncBody);
+		auto innerFuncDecl = new FuncDecl(location, Protection.Local, innerFuncDef);
+
+		auto innerFuncEnv = new class(this, innerFuncName) Statement
+		{
+			private NamespaceDef mOuter;
+			private Identifier mName;
+
+			this(NamespaceDef _outer, Identifier name)
+			{
+				super(_outer.location, _outer.endLocation, AstTag.Other);
+				mOuter = _outer;
+				mName = name;
+			}
+
+			override void codeGen(FuncState s)
+			{
+				s.pushVar(mName);
+				Exp dest;
+				s.popSource(location.line, dest);
+				s.pushVar(mOuter.name);
+				Exp src;
+				s.popSource(location.line, src);
+				s.freeExpTempRegs(&src);
+				s.freeExpTempRegs(&dest);
+				s.codeR(location.line, Op.SetEnv, dest.index, src.index, 0);
+			}
+
+			override Statement fold()
+			{
+				return this;
+			}
+		};
+
+		auto innerFuncCall = new ExpressionStatement(location, endLocation, new CallExp(endLocation, new IdentExp(innerFuncName), null, null));
+		auto ret = new ReturnStatement(new IdentExp(name));
+
+		auto funcBody = new CompoundStatement(location, endLocation,
+		[
+			cast(Statement)localVar,
+			innerFuncDecl,
+			innerFuncEnv,
+			innerFuncCall,
+			ret
+		]);
+		
+		auto funcDef = new FuncDef(location, name, null, false, funcBody);
+		auto funcExp = new FuncLiteralExp(location, funcDef);
+		auto callExp = new CallExp(endLocation, funcExp, null, null);
+		
+		callExp.codeGen(s);
 	}
 
 	/**
 	*/
 	public NamespaceDef fold()
 	{
+		if(parent)
+			parent.fold();
+
 		foreach(ref field; fields)
 			field.initializer = field.initializer.fold();
 

@@ -8503,6 +8503,11 @@ final class MDState : MDBaseObject
 
 						*get(i.rd) = n;
 						break;
+						
+					case Op.SetEnv:
+						debug(TIMINGS) scope _profiler_ = new Profiler("SetEnv");
+						get(i.rd).mFunction.environment = get(i.rs).mNamespace;
+						break;
 
 					case Op.Object:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Object");
@@ -8546,6 +8551,13 @@ final class MDState : MDBaseObject
 						else
 							*get(i.rd) = new MDNamespace(RS.mString.asUTF32(), RT.mNamespace);
 
+						break;
+						
+					case Op.NamespaceNP:
+						debug(TIMINGS) scope _profiler_ = new Profiler("NamespaceNP");
+
+						RS = *get(i.rs);
+						*get(i.rd) = new MDNamespace(RS.mString.asUTF32(), env);
 						break;
 
 					// Class stuff
