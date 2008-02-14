@@ -369,24 +369,16 @@ class StringLib
 		auto string = s.getContext!(MDString);
 		auto pattern = s.getParam!(MDString)(0);
 
-		if(pattern.length > string.length)
-			s.push(false);
-		else
-			s.push(string.mData[0 .. pattern.length] == pattern.mData[]);
-
+		s.push(.startsWith(string.mData, pattern.mData));
 		return 1;
 	}
-	
+
 	int endsWith(MDState s, uint numParams)
 	{
 		auto string = s.getContext!(MDString);
 		auto pattern = s.getParam!(MDString)(0);
 
-		if(pattern.length > string.length)
-			s.push(false);
-		else
-			s.push(string.mData[$ - pattern.length .. $] == pattern.mData[]);
-
+		s.push(.endsWith(string.mData, pattern.mData));
 		return 1;
 	}
 	

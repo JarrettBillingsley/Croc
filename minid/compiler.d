@@ -3711,6 +3711,15 @@ abstract class AstNode
 	{
 		return AstTagNames[type];
 	}
+	
+	/**
+	Returns a nicer (readable) representation of this kind of node.
+	*/
+	
+	public char[] niceString()
+	{
+		return NiceAstTagNames[type];
+	}
 }
 
 /**
@@ -3906,8 +3915,6 @@ class ObjectDef : AstNode
 		s.pushTempReg(destReg);
 	}
 
-	/**
-	*/
 	public ObjectDef fold()
 	{
 		baseObject = baseObject.fold();
@@ -4125,8 +4132,6 @@ class FuncDef : AstNode
 		}
 	}
 
-	/**
-	*/
 	public FuncDef fold()
 	{
 		foreach(ref p; params)
@@ -4363,12 +4368,7 @@ class NamespaceDef : AstNode
 
 				s.pushTempReg(destReg);
 			}
-			
-			override InstRef* codeCondition(FuncState s)
-			{
-				assert(false);
-			}
-			
+
 			override Expression fold()
 			{
 				return this;
@@ -4459,8 +4459,6 @@ class NamespaceDef : AstNode
 		callExp.codeGen(s);
 	}
 
-	/**
-	*/
 	public NamespaceDef fold()
 	{
 		if(parent)
@@ -4633,8 +4631,6 @@ class ModuleDeclaration : AstNode
 		s.codeR(attrs.location.line, Op.SetAttrs, 0, src.index, 0);
 	}
 
-	/**
-	*/
 	public ModuleDeclaration fold()
 	{
 		if(attrs)
@@ -4728,8 +4724,6 @@ abstract class Statement : AstNode
 
 	public abstract void codeGen(FuncState s);
 	
-	/**
-	*/
 	public abstract Statement fold();
 }
 
@@ -4922,8 +4916,6 @@ class ImportStatement : Statement
 		}
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		expr = expr.fold();
@@ -4964,8 +4956,6 @@ class ScopeStatement : Statement
 		s.popScope(endLocation.line);
 	}
 	
-	/**
-	*/
 	public override Statement fold()
 	{
 		statement = statement.fold();
@@ -5021,8 +5011,6 @@ class ExpressionStatement : Statement
 		assert(s.mFreeReg == freeRegCheck, "not all regs freed");
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		expr = expr.fold();
@@ -5195,8 +5183,6 @@ class ObjectDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -5358,8 +5344,6 @@ class VarDecl : DeclStatement
 		}
 	}
 
-	/**
-	*/
 	public override VarDecl fold()
 	{
 		if(initializer)
@@ -5438,8 +5422,6 @@ class FuncDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -5514,8 +5496,6 @@ class NamespaceDecl : DeclStatement
 		s.popAssign(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		def = def.fold();
@@ -5562,8 +5542,6 @@ class CompoundStatement : Statement
 			st.codeGen(s);
 	}
 
-	/**
-	*/
 	public override CompoundStatement fold()
 	{
 		foreach(ref statement; statements)
@@ -5695,8 +5673,6 @@ class IfStatement : Statement
 		delete i;
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -5852,8 +5828,6 @@ class WhileStatement : Statement
 		delete beginLoop;
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -5945,8 +5919,6 @@ class DoWhileStatement : Statement
 		delete beginLoop;
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		code = code.fold();
@@ -6173,8 +6145,6 @@ class ForStatement : Statement
 		}
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		foreach(ref i; init)
@@ -6323,8 +6293,6 @@ class NumericForStatement : Statement
 		s.popRegister(loIndex);
 	}
 	
-	/**
-	*/
 	public override Statement fold()
 	{
 		lo = lo.fold();
@@ -6536,8 +6504,6 @@ class ForeachStatement : Statement
 		s.popRegister(generator);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		foreach(ref c; container)
@@ -6665,8 +6631,6 @@ class SwitchStatement : Statement
 		s.popScope(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		condition = condition.fold();
@@ -6765,8 +6729,6 @@ class CaseStatement : Statement
 		code.codeGen(s);
 	}
 
-	/**
-	*/
 	public override CaseStatement fold()
 	{
 		foreach(ref cond; conditions)
@@ -6821,8 +6783,6 @@ class DefaultStatement : Statement
 		code.codeGen(s);
 	}
 
-	/**
-	*/
 	public override DefaultStatement fold()
 	{
 		code = code.fold();
@@ -6856,8 +6816,6 @@ class ContinueStatement : Statement
 		s.codeContinue(location);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		return this;
@@ -6890,8 +6848,6 @@ class BreakStatement : Statement
 		s.codeBreak(location);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		return this;
@@ -6984,8 +6940,6 @@ class ReturnStatement : Statement
 		}
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		foreach(ref exp; exprs)
@@ -7161,8 +7115,6 @@ class TryCatchStatement : Statement
 		}
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		tryBody = tryBody.fold();
@@ -7217,8 +7169,6 @@ class ThrowStatement : Statement
 		s.freeExpTempRegs(&src);
 	}
 
-	/**
-	*/
 	public override Statement fold()
 	{
 		exp = exp.fold();
@@ -7363,7 +7313,11 @@ abstract class Expression : AstNode
 	}
 
 	public abstract void codeGen(FuncState s);
-	public abstract InstRef* codeCondition(FuncState s);
+
+	public InstRef* codeCondition(FuncState s)
+	{
+		throw new MDCompileException(location, "{} cannot be used as a condition", niceString());
+	}
 
 	/**
 	Ensure that this expression can be evaluated to nothing, i.e. that it can exist
@@ -7373,7 +7327,7 @@ abstract class Expression : AstNode
 	{
 		if(!hasSideEffects())
 		{
-			auto e = new MDCompileException(location, "Expression cannot exist on its own");
+			auto e = new MDCompileException(location, "{} cannot exist on its own", niceString());
 			e.solitaryExpression = true;
 			throw e;
 		}
@@ -7395,7 +7349,7 @@ abstract class Expression : AstNode
 	public void checkMultRet()
 	{
 		if(isMultRet() == false)
-			throw new MDCompileException(location, "Expression cannot be the source of a multi-target assignment");
+			throw new MDCompileException(location, "{} cannot be the source of a multi-target assignment", niceString());
 	}
 
 	/**
@@ -7414,7 +7368,7 @@ abstract class Expression : AstNode
 	public void checkLHS()
 	{
 		if(!isLHS())
-			throw new MDCompileException(location, "{} cannot be the target of an assignment", NiceAstTagNames[type]);
+			throw new MDCompileException(location, "{} cannot be the target of an assignment", niceString());
 	}
 
 	/**
@@ -7536,8 +7490,6 @@ abstract class Expression : AstNode
 		return false;
 	}
 
-	/**
-	*/
 	public Expression fold()
 	{
 		return this;
@@ -7551,10 +7503,16 @@ class Assignment : Expression
 {
 	/**
 	The list of destination expressions.  This list always has at least one element.
-	This list will never contain 'this', '#vararg', or constant values.  These conditions
-	will be checked at codegen time.
+	This list must contain only expressions which can be LHSes.  That will be checked
+	at codegen time.
 	*/
 	public Expression[] lhs;
+
+	/**
+	The right-hand side of the assignment.  If lhs.length > 1, this must be a multi-value
+	giving expression, meaning either a function call, vararg, sliced vararg, or yield
+	expression.  Otherwise, it can be any kind of expression.
+	*/
 	public Expression rhs;
 
 	/**
@@ -7629,19 +7587,11 @@ class Assignment : Expression
 		}
 	}
 
-	public override InstRef* codeCondition(FuncState s)
-	{
-		//REACHABLE?
-		throw new MDCompileException(location, "Assignments cannot be used as a condition");
-	}
-
 	public override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		foreach(ref exp; lhs)
@@ -7755,32 +7705,11 @@ class OpEqExp : Expression
 		s.popReflexOp(endLocation.line, AstTagToOpcode(type), src1.index, src2.index);
 	}
 
-	public override InstRef* codeCondition(FuncState s)
-	{
-		switch(type)
-		{
-			case AstTag.AddAssign:  throw new MDCompileException(location, "'+=' cannot be used as a condition");
-			case AstTag.SubAssign:  throw new MDCompileException(location, "'-=' cannot be used as a condition");
-			case AstTag.MulAssign:  throw new MDCompileException(location, "'*=' cannot be used as a condition");
-			case AstTag.DivAssign:  throw new MDCompileException(location, "'/=' cannot be used as a condition");
-			case AstTag.ModAssign:  throw new MDCompileException(location, "'%=' cannot be used as a condition");
-			case AstTag.ShlAssign:  throw new MDCompileException(location, "'<<=' cannot be used as a condition");
-			case AstTag.ShrAssign:  throw new MDCompileException(location, "'>>=' cannot be used as a condition");
-			case AstTag.UShrAssign: throw new MDCompileException(location, "'>>>=' cannot be used as a condition");
-			case AstTag.OrAssign:   throw new MDCompileException(location, "'|=' cannot be used as a condition");
-			case AstTag.XorAssign:  throw new MDCompileException(location, "'^=' cannot be used as a condition");
-			case AstTag.AndAssign:  throw new MDCompileException(location, "'&=' cannot be used as a condition");
-			case AstTag.CondAssign: throw new MDCompileException(location, "'?=' cannot be used as a condition");
-		}
-	}
-
 	public override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		lhs = lhs.fold();
@@ -7843,8 +7772,6 @@ class CatEqExp : Expression
 			s.popReflexOp(endLocation.line, Op.CatEq, src1.index, firstReg, operands.length + 1);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		lhs = lhs.fold();
@@ -7862,11 +7789,6 @@ class CatEqExp : Expression
 		return this;
 	}
 	
-	public override InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "'~=' cannot be used as a condition");
-	}
-
 	public override bool hasSideEffects()
 	{
 		return true;
@@ -7906,18 +7828,11 @@ class IncExp : Expression
 		s.popReflexOp(endLocation.line, AstTagToOpcode(type), src.index, 0);
 	}
 
-	public override InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "'++' cannot be used as a condition");
-	}
-
 	public override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -7958,18 +7873,11 @@ class DecExp : Expression
 		s.popReflexOp(endLocation.line, AstTagToOpcode(type), src.index, 0);
 	}
 
-	public override InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "'--' cannot be used as a condition");
-	}
-
 	public override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -8099,8 +8007,6 @@ class CondExp : Expression
 		return cond.hasSideEffects() || op1.hasSideEffects() || op2.hasSideEffects();
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		cond = cond.fold();
@@ -8251,8 +8157,6 @@ class OrOrExp : BinaryExp
 		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8350,8 +8254,6 @@ class AndAndExp : BinaryExp
 		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8405,8 +8307,6 @@ class OrExp : BinaryExp
 		return exp1;
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8460,8 +8360,6 @@ class XorExp : BinaryExp
 		return exp1;
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8515,8 +8413,6 @@ class AndExp : BinaryExp
 		return exp1;
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8631,8 +8527,6 @@ class EqualExp : BinaryExp
 		return s.makeJump(endLocation.line, Op.Je, type == AstTag.EqualExp || type == AstTag.IsExp);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8809,8 +8703,6 @@ class CmpExp : BinaryExp
 		}
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8852,11 +8744,13 @@ This node represents an 'as' expression.
 */
 class AsExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		if(left.isConstant() || right.isConstant())
 			throw new MDCompileException(location, "Neither argument of an 'as' expression may be a constant");
-			
+
 		super(location, endLocation, AstTag.AsExp, left, right);
 	}
 }
@@ -8866,6 +8760,8 @@ This node represents an 'in' expression.
 */
 class InExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.InExp, left, right);
@@ -8877,6 +8773,8 @@ This node represents a '!in' expression.
 */
 class NotInExp : BinaryExp
 {
+	/**
+	*/
 	public this(Location location, Location endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.NotInExp, left, right);
@@ -8895,8 +8793,6 @@ class Cmp3Exp : BinaryExp
 		super(location, endLocation, AstTag.Cmp3Exp, left, right);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -8981,8 +8877,6 @@ class ShiftExp : BinaryExp
 		return exp1;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -9063,8 +8957,6 @@ class AddExp : BinaryExp
 		return exp1;
 	}
 	
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -9133,8 +9025,6 @@ class CatExp : BinaryExp
 			s.pushBinOp(endLocation.line, Op.Cat, firstReg, operands.length + 1);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -9251,8 +9141,6 @@ class MulExp : BinaryExp
 		return exp1;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op1 = op1.fold();
@@ -9417,8 +9305,6 @@ class NegExp : UnaryExp
 		s.popUnOp(endLocation.line, Op.Neg);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -9462,8 +9348,6 @@ class NotExp : UnaryExp
 		s.popUnOp(endLocation.line, Op.Not);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -9519,8 +9403,6 @@ class ComExp : UnaryExp
 		s.popUnOp(endLocation.line, Op.Com);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -9558,8 +9440,6 @@ class LengthExp : UnaryExp
 		s.popLength(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -9596,8 +9476,6 @@ class VargLengthExp : UnaryExp
 		s.pushVargLen(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		return this;
@@ -9873,8 +9751,6 @@ class DotExp : PostfixExp
 		s.popField(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -9910,8 +9786,6 @@ class DotSuperExp : PostfixExp
 		s.popUnOp(endLocation.line, Op.SuperOf);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -10011,8 +9885,6 @@ class MethodCallExp : PostfixExp
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -10098,8 +9970,6 @@ class CallExp : PostfixExp
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -10142,8 +10012,6 @@ class IndexExp : PostfixExp
 		s.popIndex(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -10201,8 +10069,6 @@ class VargIndexExp : PostfixExp
 		s.popVargIndex(endLocation.line);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		index = index.fold();
@@ -10253,8 +10119,6 @@ class SliceExp : PostfixExp
 		s.pushSlice(endLocation.line, reg);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		op = op.fold();
@@ -10326,8 +10190,6 @@ class VargSliceExp : PostfixExp
 		s.pushVargSlice(endLocation.line, reg);
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		loIndex = loIndex.fold();
@@ -10684,11 +10546,6 @@ class VarargExp : PrimaryExp
 		s.pushVararg();
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use 'vararg' as a condition");
-	}
-
 	public bool isMultRet()
 	{
 		return true;
@@ -10967,13 +10824,6 @@ class FuncLiteralExp : PrimaryExp
 		def.codeGen(s);
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use a function literal as a condition");
-	}
-
-	/**
-	*/
 	public override FuncLiteralExp fold()
 	{
 		def = def.fold();
@@ -11012,13 +10862,6 @@ class ObjectLiteralExp : PrimaryExp
 		def.codeGen(s);
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use a class literal as a condition");
-	}
-
-	/**
-	*/
 	public override Expression fold()
 	{
 		def = def.fold();
@@ -11090,8 +10933,6 @@ class ParenExp : PrimaryExp
 		return ret;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		exp = exp.fold();
@@ -11205,8 +11046,6 @@ abstract class ForComprehension : AstNode
 
 	protected abstract Statement rewrite(Statement innerStmt);
 	
-	/**
-	*/
 	public abstract ForComprehension fold();
 }
 
@@ -11261,8 +11100,6 @@ class ForeachComprehension : ForComprehension
 		return (new ForeachStatement(location, indices, container, innerStmt)).fold();
 	}
 
-	/**
-	*/
 	public override ForComprehension fold()
 	{
 		foreach(ref exp; container)
@@ -11344,8 +11181,6 @@ class ForNumComprehension : ForComprehension
 		return (new NumericForStatement(location, index, lo, hi, step, innerStmt)).fold();
 	}
 	
-	/**
-	*/
 	public override ForComprehension fold()
 	{
 		lo = lo.fold();
@@ -11398,8 +11233,6 @@ class IfComprehension : AstNode
 		return (new IfStatement(location, endLocation, null, condition, innerStmt, null)).fold();
 	}
 	
-	/**
-	*/
 	public IfComprehension fold()
 	{
 		condition = condition.fold();
@@ -11595,13 +11428,6 @@ class TableCtorExp : PrimaryExp
 		s.pushTempReg(destReg);
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use a table constructor as a condition");
-	}
-
-	/**
-	*/
 	public override TableCtorExp fold()
 	{
 		foreach(ref field; fields)
@@ -11740,13 +11566,6 @@ class ArrayCtorExp : PrimaryExp
 		s.pushTempReg(destReg);
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use an array constructor as a condition");
-	}
-
-	/**
-	*/
 	public override Expression fold()
 	{
 		foreach(ref value; values)
@@ -11836,13 +11655,6 @@ class ArrayComprehension : PrimaryExp
 		s.pushTempReg(destReg);
 	}
 	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
-	}
-	
-	/**
-	*/
 	public override Expression fold()
 	{
 		exp = exp.fold;
@@ -11933,13 +11745,6 @@ class TableComprehension : PrimaryExp
 		s.pushTempReg(destReg);
 	}
 	
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use an array comprehension as a condition");
-	}
-	
-	/**
-	*/
 	public override Expression fold()
 	{
 		key = key.fold();
@@ -11982,13 +11787,6 @@ class NamespaceCtorExp : PrimaryExp
 		def.codeGen(s);
 	}
 
-	public InstRef* codeCondition(FuncState s)
-	{
-		throw new MDCompileException(location, "Cannot use namespace constructor as a condition");
-	}
-
-	/**
-	*/
 	public override Expression fold()
 	{
 		def = def.fold();
@@ -12056,8 +11854,6 @@ class YieldExp : PrimaryExp
 		return true;
 	}
 
-	/**
-	*/
 	public override Expression fold()
 	{
 		foreach(ref arg; args)
@@ -12147,7 +11943,7 @@ class SuperCallExp : PrimaryExp
 	public override Expression fold()
 	{
 		method = method.fold();
-		
+
 		if(method.isConstant && !method.isString)
 			throw new MDCompileException(method.location, "Method name must be a string");
 

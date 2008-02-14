@@ -417,10 +417,10 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 				signal(s, &interruptHandler);
 			}
 			
-			signal(SIGINT, &interruptHandler);
+			auto oldInterrupt = signal(SIGINT, &interruptHandler);
 
 			scope(exit)
-				signal(SIGINT, SIG_DFL);
+				signal(SIGINT, oldInterrupt);
 
 			bool couldBeDecl()
 			{

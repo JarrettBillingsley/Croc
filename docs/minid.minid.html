@@ -263,7 +263,7 @@ flags.
 <span class="currsymbol">NewContext</span>
 <script>explorer.outline.addDecl('NewContext');</script>
 
-(uint <span class="funcparam">libs</span> = cast(uint)255);
+(uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)255);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -567,7 +567,7 @@ Just like toJSON, this is parameterized on the character type of the output, and
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sun Nov 18 11:04:08 2007
+			on Thu Feb 14 15:53:03 2008
 
 		</td></tr>
 	</table>
@@ -575,9 +575,9 @@ Just like toJSON, this is parameterized on the character type of the output, and
 <script>
 	explorer.packageExplorer.addModuleFull("minid.minid");
 	explorer.packageExplorer.addModuleFull("minid.types");
-	explorer.packageExplorer.addModuleFull("minid.bind");
 	explorer.packageExplorer.addModuleFull("minid.compiler");
-	explorer.packageExplorer.addModuleFull("minid.utils");</script>
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.bind");</script>
 </body></html>
 
 

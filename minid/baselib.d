@@ -272,7 +272,20 @@ class BaseLib
 
 	int mdtoString(MDState s, uint numParams)
 	{
-		s.push(s.valueToString(s.getParam(0u)));
+		auto val = s.getParam(0u);
+		
+		if(val.isInt())
+		{
+			char style = 'd';
+
+			if(numParams > 1)
+				style = s.getParam!(char)(1);
+
+			s.push(Integer.toString32(val.as!(int), cast(Integer.Style)style));
+		}
+		else
+			s.push(s.valueToString(s.getParam(0u)));
+
 		return 1;
 	}
 	
@@ -312,7 +325,7 @@ class BaseLib
 	int toBool(MDState s, uint numParams)
 	{
 		s.push(s.getParam(0u).isTrue());
-		return 1;	
+		return 1;
 	}
 	
 	int toInt(MDState s, uint numParams)

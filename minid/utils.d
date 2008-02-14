@@ -791,5 +791,13 @@ See if a string starts with another string.  Useful.
 */
 public bool startsWith(T)(T[] string, T[] pattern)
 {
-	return string.length > pattern.length && string[0 .. pattern.length] == pattern[];
+	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
+}
+
+/**
+See if a string ends with another string.  Also useful.
+*/
+public bool endsWith(T)(T[] string, T[] pattern)
+{
+	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
