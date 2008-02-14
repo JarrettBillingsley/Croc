@@ -5346,7 +5346,21 @@ final class MDState : MDBaseObject
 	public final bool hasMethod(ref MDValue val, MDString methodName)
 	{
 		MDValue proto = void;
-		return lookupMethod(val, methodName, proto) !is null;
+		auto method = lookupMethod(val, methodName, proto);
+
+		return method !is null && method.mType == MDValue.Type.Function;
+	}
+
+	public final bool hasField(ref MDValue val, MDString fieldName)
+	{
+		if(val.mType == MDValue.Type.Table)
+			return val.mTable[MDValue(fieldName)].mType != MDValue.Type.Null;
+		else if(val.mType == MDValue.Type.Object)
+			return val.mObject[fieldName] !is null;
+		else if(val.mType == MDValue.Type.Namespace)
+			return val.mNamespace[fieldName] !is null;
+		else
+			return false;
 	}
 
 	// ===================================================================================
@@ -6863,7 +6877,8 @@ final class MDState : MDBaseObject
 	
 	protected final MDValue operatorField(MDValue* RS, MDValue* RT)
 	{
-		assert(RT.mType == MDValue.Type.String, "field: non-string field");
+		if(RT.mType != MDValue.Type.String)
+			throwRuntimeException("Field name must be a string, not '{}'", RT.typeString());
 
 		MDValue tryMM(MDRuntimeException delegate() ex)
 		{
@@ -6917,7 +6932,7 @@ final class MDState : MDBaseObject
 				MDValue* v = RS.mObject[RT.mString];
 
 				if(v is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from {}", RT.toString(), RS.typeString());});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent field '{}' from {}", RT.toString(), RS.typeString());});
 
 				return *v;
 
@@ -6925,7 +6940,7 @@ final class MDState : MDBaseObject
 				MDValue* v = RS.mNamespace[RT.mString];
 
 				if(v is null)
-					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent member '{}' from namespace {}", RT.toString(), RS.mNamespace.nameString);});
+					return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to access nonexistent field '{}' from namespace {}", RT.toString(), RS.mNamespace.nameString);});
 
 				return *v;
 
@@ -6936,7 +6951,8 @@ final class MDState : MDBaseObject
 
 	protected final void operatorFieldAssign(MDValue* RD, MDValue* RS, MDValue* RT)
 	{
-		assert(RS.isString(), "fielda: non-string field");
+		if(RS.mType != MDValue.Type.String)
+			throwRuntimeException("Field name must be a string, not '{}'", RS.typeString());
 
 		void tryMM(MDRuntimeException delegate() ex)
 		{
@@ -7028,7 +7044,7 @@ final class MDState : MDBaseObject
 				return;
 
 			default:
-				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to index assign a value of type '{}'", RD.typeString());});
+				return tryMM({return new MDRuntimeException(startTraceback(), "Attempting to field assign a value of type '{}'", RD.typeString());});
 		}
 	}
 

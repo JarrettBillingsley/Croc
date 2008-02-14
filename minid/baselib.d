@@ -78,6 +78,7 @@ class BaseLib
 
 		// Reflection-esque stuff
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &lib.fieldsOf,              "fieldsOf");
+		globals["hasField"d] =        new MDClosure(globals.ns, &lib.hasField,              "hasField");
 		globals["hasMethod"d] =       new MDClosure(globals.ns, &lib.hasMethod,             "hasMethod");
 		globals["attributesOf"d] =    new MDClosure(globals.ns, &lib.attributesOf,          "attributesOf");
 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &lib.hasAttributes,         "hasAttributes");
@@ -453,6 +454,12 @@ class BaseLib
 		else
 			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
 
+		return 1;
+	}
+	
+	int hasField(MDState s, uint numParams)
+	{
+		s.push(s.hasField(s.getParam(0u), s.getParam!(MDString)(1)));
 		return 1;
 	}
 
