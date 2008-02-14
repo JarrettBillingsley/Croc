@@ -3505,6 +3505,117 @@ const char[][] AstTagNames =
     AstTag.TableComprehension:   "TableComprehension"
 ];
 
+const char[][] NiceAstTagNames =
+[
+	AstTag.Other:                "<unknown node type>",
+	AstTag.ObjectDef:            "object definition",
+	AstTag.FuncDef:              "function definition",
+	AstTag.NamespaceDef:         "namespace definition",
+    AstTag.Module:               "module",
+    AstTag.ModuleDecl:           "module declaration",
+    AstTag.ImportStmt:           "import statement",
+    AstTag.BlockStmt:            "block statement",
+    AstTag.ScopeStmt:            "scope statement",
+    AstTag.ExpressionStmt:       "expression statement",
+    AstTag.FuncDecl:             "function declaration",
+    AstTag.ObjectDecl:           "object declaration",
+    AstTag.NamespaceDecl:        "namespace declaration",
+    AstTag.VarDecl:              "variable declaration",
+    AstTag.IfStmt:               "'if' statement",
+    AstTag.WhileStmt:            "'while' statement",
+    AstTag.DoWhileStmt:          "'do-while' statement",
+    AstTag.ForStmt:              "'for' statement",
+    AstTag.ForNumStmt:           "numeric 'for' statement",
+    AstTag.ForeachStmt:          "'foreach' statement",
+    AstTag.SwitchStmt:           "'switch' statement",
+    AstTag.CaseStmt:             "'case' statement",
+    AstTag.DefaultStmt:          "'default' statement",
+    AstTag.ContinueStmt:         "'continue' statement",
+    AstTag.BreakStmt:            "'break' statement",
+    AstTag.ReturnStmt:           "'return' statement",
+    AstTag.TryStmt:              "'try-catch-finally' statement",
+    AstTag.ThrowStmt:            "'throw' statement",
+    AstTag.Assign:               "assignment",
+    AstTag.AddAssign:            "addition assignment",
+    AstTag.SubAssign:            "subtraction assignment",
+    AstTag.CatAssign:            "concatenation assignment",
+    AstTag.MulAssign:            "multiplication assignment",
+    AstTag.DivAssign:            "division assignment",
+    AstTag.ModAssign:            "modulo assignment",
+    AstTag.OrAssign:             "bitwise 'or' assignment",
+    AstTag.XorAssign:            "bitwise 'xor' assignment",
+    AstTag.AndAssign:            "bitwise 'and' assignment",
+    AstTag.ShlAssign:            "left-shift assignment",
+    AstTag.ShrAssign:            "right-shift assignment",
+    AstTag.UShrAssign:           "unsigned right-shift assignment",
+    AstTag.CondAssign:           "conditional assignment",
+    AstTag.CondExp:              "conditional expression",
+    AstTag.IncExp:               "increment expression",
+    AstTag.DecExp:               "decrement expression",
+    AstTag.OrOrExp:              "logical 'or' expression",
+    AstTag.AndAndExp:            "logical 'and' expression",
+    AstTag.OrExp:                "bitwise 'or' expression",
+    AstTag.XorExp:               "bitwise 'xor' expression",
+    AstTag.AndExp:               "bitwise 'and' expression",
+    AstTag.EqualExp:             "equality expression",
+    AstTag.NotEqualExp:          "inequality expression",
+    AstTag.IsExp:                "identity expression",
+    AstTag.NotIsExp:             "non-identity expression",
+    AstTag.LTExp:                "less-than expression",
+    AstTag.LEExp:                "less-or-equals expression",
+    AstTag.GTExp:                "greater-than expression",
+    AstTag.GEExp:                "greater-or-equals expression",
+    AstTag.Cmp3Exp:              "three-way comparison expression",
+    AstTag.AsExp:                "'as' expression",
+    AstTag.InExp:                "'in' expression",
+    AstTag.NotInExp:             "'!in' expression",
+    AstTag.ShlExp:               "left-shift expression",
+    AstTag.ShrExp:               "right-shift expression",
+    AstTag.UShrExp:              "unsigned right-shift expression",
+    AstTag.AddExp:               "addition expression",
+    AstTag.SubExp:               "subtraction expression",
+    AstTag.CatExp:               "concatenation expression",
+    AstTag.MulExp:               "multiplication expression",
+    AstTag.DivExp:               "division expression",
+    AstTag.ModExp:               "modulo expression",
+    AstTag.NegExp:               "negation expression",
+    AstTag.NotExp:               "logical 'not' expression",
+    AstTag.ComExp:               "bitwise complement expression",
+    AstTag.LenExp:               "length expression",
+    AstTag.VargLenExp:           "vararg length expression",
+    AstTag.CoroutineExp:         "coroutine expression",
+    AstTag.DotExp:               "dot expression",
+    AstTag.DotSuperExp:          "dot-super expression",
+    AstTag.IndexExp:             "index expression",
+    AstTag.VargIndexExp:         "vararg index expression",
+    AstTag.SliceExp:             "slice expression",
+    AstTag.VargSliceExp:         "vararg slice expression",
+    AstTag.CallExp:              "call expression",
+    AstTag.MethodCallExp:        "method call expression",
+    AstTag.IdentExp:             "identifier expression",
+    AstTag.ThisExp:              "'this' expression",
+    AstTag.NullExp:              "'null' expression",
+    AstTag.BoolExp:              "boolean constant expression",
+    AstTag.VarargExp:            "'vararg' expression",
+    AstTag.IntExp:               "integer constant expression",
+    AstTag.FloatExp:             "float constant expression",
+    AstTag.CharExp:              "character constant expression",
+    AstTag.StringExp:            "string constant expression",
+    AstTag.FuncLiteralExp:       "function literal expression",
+    AstTag.ObjectLiteralExp:     "object literal expression",
+    AstTag.ParenExp:             "parenthesized expression",
+    AstTag.TableCtorExp:         "table constructor expression",
+    AstTag.ArrayCtorExp:         "array constructor expression",
+    AstTag.NamespaceCtorExp:     "namespace constructor expression",
+    AstTag.YieldExp:             "yield expression",
+    AstTag.SuperCallExp:         "super call expression",
+    AstTag.ForeachComprehension: "'foreach' comprehension",
+    AstTag.ForNumComprehension:  "numeric 'for' comprehension",
+    AstTag.IfComprehension:      "'if' comprehension",
+    AstTag.ArrayComprehension:   "array comprehension",
+    AstTag.TableComprehension:   "table comprehension"
+];
+
 private Op AstTagToOpcode(AstTag tag)
 {
 	switch(tag)
@@ -7267,7 +7378,7 @@ abstract class Expression : AstNode
 			throw e;
 		}
 	}
-	
+
 	/**
 	Returns whether or not this expression has side effects.  If this returns false,
 	checkToNothing will throw an error.
@@ -7292,6 +7403,25 @@ abstract class Expression : AstNode
 	false, checkMultRet will throw an error.
 	*/
 	public bool isMultRet()
+	{
+		return false;
+	}
+
+	/**
+	Ensure that this expression can be the left-hand side of an assignment.  If it can't,
+	throws an exception.
+	*/
+	public void checkLHS()
+	{
+		if(!isLHS())
+			throw new MDCompileException(location, "{} cannot be the target of an assignment", NiceAstTagNames[type]);
+	}
+
+	/**
+	Returns whether this expression can be the left-hand side of an assignment.  If this
+	returns false, checkLHS will throw an error.
+	*/
+	public bool isLHS()
 	{
 		return false;
 	}
@@ -7471,16 +7601,7 @@ class Assignment : Expression
 	public override void codeGen(FuncState s)
 	{
 		foreach(exp; lhs)
-		{
-			if(cast(ThisExp)exp)
-				throw new MDCompileException(exp.location, "'this' cannot be the target of an assignment");
-
-			if(cast(VargLengthExp)exp)
-				throw new MDCompileException(exp.location, "'#vararg' cannot be the target of an assignment");
-				
-			if(exp.isConstant)
-				throw new MDCompileException(exp.location, "constant values cannot be the target of an assignment");
-		}
+			exp.checkLHS();
 
 		if(lhs.length == 1)
 		{
@@ -7611,14 +7732,13 @@ class OpEqExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
-		if(lhs.isConstant)
-			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
-			
-		if(cast(VargLengthExp)lhs)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
-			
-		if(type == AstTag.CondAssign && cast(ThisExp)lhs)
-			throw new MDCompileException(location, "'this' cannot be the target of a conditional assignment");
+		if(type == AstTag.CondAssign)
+			lhs.checkLHS();
+		else
+		{
+			if(!cast(ThisExp)lhs)
+				lhs.checkLHS();
+		}
 
 		lhs.codeGen(s);
 		s.pushSource(lhs.endLocation.line);
@@ -7702,12 +7822,9 @@ class CatEqExp : Expression
 	{
 		assert(collapsed is true, "CatEqExp codeGen not collapsed");
 		assert(operands.length >= 1, "CatEqExp codeGen not enough ops");
-		
-		if(lhs.isConstant)
-			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
-			
-		if(cast(VargLengthExp)lhs)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+
+		if(!cast(ThisExp)lhs)
+			lhs.checkLHS();
 
 		lhs.codeGen(s);
 		s.pushSource(lhs.endLocation.line);
@@ -7776,11 +7893,8 @@ class IncExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
-		if(exp.isConstant)
-			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
-
-		if(cast(VargLengthExp)exp)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+		if(!cast(ThisExp)exp)
+			exp.checkLHS();
 
 		exp.codeGen(s);
 		s.pushSource(exp.endLocation.line);
@@ -7831,11 +7945,8 @@ class DecExp : Expression
 
 	public override void codeGen(FuncState s)
 	{
-		if(exp.isConstant)
-			throw new MDCompileException(location, "constant values cannot be the target of an assignment");
-
-		if(cast(VargLengthExp)exp)
-			throw new MDCompileException(location, "'#vararg' cannot be the target of an assignment");
+		if(!cast(ThisExp)exp)
+			exp.checkLHS();
 
 		exp.codeGen(s);
 		s.pushSource(exp.endLocation.line);
@@ -9774,6 +9885,11 @@ class DotExp : PostfixExp
 
 		return this;
 	}
+	
+	public override bool isLHS()
+	{
+		return true;
+	}
 }
 
 /**
@@ -10051,6 +10167,11 @@ class IndexExp : PostfixExp
 
 		return this;
 	}
+	
+	public override bool isLHS()
+	{
+		return true;
+	}
 }
 
 /**
@@ -10090,6 +10211,11 @@ class VargIndexExp : PostfixExp
 			throw new MDCompileException(index.location, "index of a vararg indexing must be an integer");
 
 		return this;
+	}
+	
+	public override bool isLHS()
+	{
+		return true;
 	}
 }
 
@@ -10157,6 +10283,11 @@ class SliceExp : PostfixExp
 		}
 
 		return this;
+	}
+	
+	public override bool isLHS()
+	{
+		return true;
 	}
 }
 
@@ -10341,7 +10472,7 @@ class IdentExp : PrimaryExp
 	{
 		return new IdentExp(Identifier.parse(l));
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.pushVar(name);
@@ -10358,6 +10489,11 @@ class IdentExp : PrimaryExp
 		s.freeExpTempRegs(&reg);
 
 		return ret;
+	}
+	
+	public override bool isLHS()
+	{
+		return true;
 	}
 }
 
