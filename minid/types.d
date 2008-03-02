@@ -3498,7 +3498,7 @@ final class MDContext
 	*/
 	public _Globals globals;
 
-	public this()
+	package this()
 	{
 		globals.mGlobals = new MDNamespace();
 		globals.mGlobals["_G"d] = MDValue(globals.mGlobals);
@@ -6090,17 +6090,17 @@ final class MDState : MDBaseObject
 		if(method.mType != MDValue.Type.Function)
 		{
 			method = getMM(*RT, MMRev[operation]);
-			
+
 			if(method.mType != MDValue.Type.Function)
 			{
 				if(MMCommutative[operation])
 				{
 					method = getMM(*RS, MMRev[operation]);
-					
+
 					if(method.mType != MDValue.Type.Function)
 					{
 						method = getMM(*RT, operation);
-						
+
 						if(method.mType != MDValue.Type.Function)
 							throwRuntimeException("Cannot perform arithmetic ({}) on a '{}' and a '{}'", MetaNames[operation], RS.typeString(), RT.typeString());
 						else

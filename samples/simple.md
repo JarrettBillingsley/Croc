@@ -1,17 +1,24 @@
 module simple
 
-namespace N
+import os : PerfCounter
+
+local a = []
+local timer = PerfCounter.clone()
+
+for(iter: 0 .. 10)
 {
-	x = 3
+	timer.start()
 	
-	function f()
+	for(i: 0 .. 1_000_000)
 	{
-		writefln("hi! {}", x)
+		a.expand();a.expand();a.expand();a.expand();
+		a.expand();a.expand();a.expand();a.expand();
 	}
+
+	timer.stop()
+	writefln("Native: {:f8}s", timer.seconds())
+	io.stdout.flush()
 }
-
-N.f()
-
 /+
 /*object BaseProp
 {

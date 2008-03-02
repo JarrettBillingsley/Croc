@@ -280,8 +280,7 @@ template toJSON(U)
 		MDValue root = r;
 
 		scope cond = new GrowBuffer();
-		scope formatter = new Layout!(U);
-		scope printer = new Print!(U)(formatter, cond);
+		scope printer = new Print!(U)(Formatter!(U), cond);
 
 		toJSONImpl!(U)(null, root, pretty, printer);
 
@@ -314,7 +313,7 @@ Params:
 	pretty = If true, inserts newlines and indentation in the output to make it more human-readable.
 		If false, elides all nonsignificant whitespace to make it as short as possible for transmission.
 		Defaults to false.
-		
+
 Examples:
 -----
 import tango.io.Stdout;

@@ -31,71 +31,65 @@ import tango.math.GammaFunction;
 import tango.math.Random;
 import tango.math.IEEE;
 
-class MathLib
+final class MathLib
 {
-	private static MathLib lib;
-	
-	static this()
+static:
+	public void init(MDContext context)
 	{
-		lib = new MathLib();
-	}
-	
-	private this()
-	{
-		
-	}
+		context.setModuleLoader("math", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto lib = s.getParam!(MDNamespace)(1);
 
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("math"d, context.globals.ns);
+			lib.addList
+			(
+				"e"d,         tango.math.Math.E,
+				"pi"d,        tango.math.Math.PI,
+				"nan"d,       mdfloat.nan,
+				"infinity"d,  mdfloat.infinity,
+				"intMin"d,    int.min,
+				"intMax"d,    int.max,
+				"floatMin"d,  mdfloat.min,
+				"floatMax"d,  mdfloat.max,
+				"intSize"d,   int.sizeof,
+				"floatSize"d, mdfloat.sizeof,
+				"abs"d,       new MDClosure(lib, &abs,     "math.abs"),
+				"sin"d,       new MDClosure(lib, &sin,     "math.sin"),
+				"cos"d,       new MDClosure(lib, &cos,     "math.cos"),
+				"tan"d,       new MDClosure(lib, &tan,     "math.tan"),
+				"asin"d,      new MDClosure(lib, &asin,    "math.asin"),
+				"acos"d,      new MDClosure(lib, &acos,    "math.acos"),
+				"atan"d,      new MDClosure(lib, &atan,    "math.atan"),
+				"atan2"d,     new MDClosure(lib, &atan2,   "math.atan2"),
+				"sqrt"d,      new MDClosure(lib, &sqrt,    "math.sqrt"),
+				"cbrt"d,      new MDClosure(lib, &cbrt,    "math.cbrt"),
+				"pow"d,       new MDClosure(lib, &pow,     "math.pow"),
+				"exp"d,       new MDClosure(lib, &exp,     "math.exp"),
+				"ln"d,        new MDClosure(lib, &ln,      "math.ln"),
+				"log2"d,      new MDClosure(lib, &log2,    "math.log2"),
+				"log10"d,     new MDClosure(lib, &log10,   "math.log10"),
+				"hypot"d,     new MDClosure(lib, &hypot,   "math.hypot"),
+				"lgamma"d,    new MDClosure(lib, &lgamma,  "math.lgamma"),
+				"gamma"d,     new MDClosure(lib, &gamma,   "math.gamma"),
+				"ceil"d,      new MDClosure(lib, &ceil,    "math.ceil"),
+				"floor"d,     new MDClosure(lib, &floor,   "math.floor"),
+				"round"d,     new MDClosure(lib, &round,   "math.round"),
+				"trunc"d,     new MDClosure(lib, &trunc,   "math.trunc"),
+				"isNan"d,     new MDClosure(lib, &isNan,   "math.isNan"),
+				"isInf"d,     new MDClosure(lib, &isInf,   "math.isInf"),
+				"sign"d,      new MDClosure(lib, &sign,    "math.sign"),
+				"rand"d,      new MDClosure(lib, &rand,    "math.rand"),
+				"frand"d,     new MDClosure(lib, &frand,   "math.frand"),
+				"max"d,       new MDClosure(lib, &max,     "math.max"),
+				"min"d,       new MDClosure(lib, &min,     "math.min")
+			);
 
-		namespace.addList
-		(
-			"e"d,         tango.math.Math.E,
-			"pi"d,        tango.math.Math.PI,
-			"nan"d,       mdfloat.nan,
-			"infinity"d,  mdfloat.infinity,
-			"intMin"d,    int.min,
-			"intMax"d,    int.max,
-			"floatMin"d,  mdfloat.min,
-			"floatMax"d,  mdfloat.max,
-			"intSize"d,   int.sizeof,
-			"floatSize"d, mdfloat.sizeof,
-			"abs"d,       new MDClosure(namespace, &lib.abs,     "math.abs"),
-			"sin"d,       new MDClosure(namespace, &lib.sin,     "math.sin"),
-			"cos"d,       new MDClosure(namespace, &lib.cos,     "math.cos"),
-			"tan"d,       new MDClosure(namespace, &lib.tan,     "math.tan"),
-			"asin"d,      new MDClosure(namespace, &lib.asin,    "math.asin"),
-			"acos"d,      new MDClosure(namespace, &lib.acos,    "math.acos"),
-			"atan"d,      new MDClosure(namespace, &lib.atan,    "math.atan"),
-			"atan2"d,     new MDClosure(namespace, &lib.atan2,   "math.atan2"),
-			"sqrt"d,      new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
-			"cbrt"d,      new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
-			"pow"d,       new MDClosure(namespace, &lib.pow,     "math.pow"),
-			"exp"d,       new MDClosure(namespace, &lib.exp,     "math.exp"),
-			"ln"d,        new MDClosure(namespace, &lib.ln,      "math.ln"),
-			"log2"d,      new MDClosure(namespace, &lib.log2,    "math.log2"),
-			"log10"d,     new MDClosure(namespace, &lib.log10,   "math.log10"),
-			"hypot"d,     new MDClosure(namespace, &lib.hypot,   "math.hypot"),
-			"lgamma"d,    new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
-			"gamma"d,     new MDClosure(namespace, &lib.gamma,   "math.gamma"),
-			"ceil"d,      new MDClosure(namespace, &lib.ceil,    "math.ceil"),
-			"floor"d,     new MDClosure(namespace, &lib.floor,   "math.floor"),
-			"round"d,     new MDClosure(namespace, &lib.round,   "math.round"),
-			"trunc"d,     new MDClosure(namespace, &lib.trunc,   "math.trunc"),
-			"isNan"d,     new MDClosure(namespace, &lib.isNan,   "math.isNan"),
-			"isInf"d,     new MDClosure(namespace, &lib.isInf,   "math.isInf"),
-			"sign"d,      new MDClosure(namespace, &lib.sign,    "math.sign"),
-			"rand"d,      new MDClosure(namespace, &lib.rand,    "math.rand"),
-			"frand"d,     new MDClosure(namespace, &lib.frand,   "math.frand"),
-			"max"d,       new MDClosure(namespace, &lib.max,     "math.max"),
-			"min"d,       new MDClosure(namespace, &lib.min,     "math.min")
-		);
-		
-		context.globals["math"d] = namespace;
+			return 0;
+		}, "math"));
+
+		context.importModule("math");
 	}
 
-	static mdfloat getFloat(MDState s, uint i)
+	mdfloat getFloat(MDState s, uint i)
 	{
 		if(s.isParam!("int")(i))
 			return s.getParam!(int)(i);

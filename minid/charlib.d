@@ -28,42 +28,31 @@ import minid.types;
 import tango.stdc.ctype;
 import Uni = tango.text.Unicode;
 
-class CharLib
+final class CharLib
 {
-	private static CharLib lib;
-	
-	static this()
+static:
+	public void init(MDContext context)
 	{
-		lib = new CharLib();
-	}
-	
-	private this()
-	{
-		
-	}
+		auto methods = new MDNamespace("char"d, context.globals.ns);
 
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("char"d, context.globals.ns);
-		
-		namespace.addList
+		methods.addList
 		(
-			"toLower"d,    new MDClosure(namespace, &lib.toLower,     "char.toLower"),
-			"toUpper"d,    new MDClosure(namespace, &lib.toUpper,     "char.toUpper"),
-			"isAlpha"d,    new MDClosure(namespace, &lib.isAlpha,     "char.isAlpha"),
-			"isAlNum"d,    new MDClosure(namespace, &lib.isAlNum,     "char.isAlNum"),
-			"isLower"d,    new MDClosure(namespace, &lib.isLower,     "char.isLower"),
-			"isUpper"d,    new MDClosure(namespace, &lib.isUpper,     "char.isUpper"),
-			"isDigit"d,    new MDClosure(namespace, &lib.isDigit,     "char.isDigit"),
-			"isCtrl"d,     new MDClosure(namespace, &lib.isCtrl,      "char.isCtrl"),
-			"isPunct"d,    new MDClosure(namespace, &lib.isPunct,     "char.isPunct"),
-			"isSpace"d,    new MDClosure(namespace, &lib.isSpace,     "char.isSpace"),
-			"isHexDigit"d, new MDClosure(namespace, &lib.isHexDigit,  "char.isHexDigit"),
-			"isAscii"d,    new MDClosure(namespace, &lib.isAscii,     "char.isAscii"),
-			"isValid"d,    new MDClosure(namespace, &lib.isValid,     "char.isValid")
+			"toLower"d,    new MDClosure(methods, &toLower,     "char.toLower"),
+			"toUpper"d,    new MDClosure(methods, &toUpper,     "char.toUpper"),
+			"isAlpha"d,    new MDClosure(methods, &isAlpha,     "char.isAlpha"),
+			"isAlNum"d,    new MDClosure(methods, &isAlNum,     "char.isAlNum"),
+			"isLower"d,    new MDClosure(methods, &isLower,     "char.isLower"),
+			"isUpper"d,    new MDClosure(methods, &isUpper,     "char.isUpper"),
+			"isDigit"d,    new MDClosure(methods, &isDigit,     "char.isDigit"),
+			"isCtrl"d,     new MDClosure(methods, &isCtrl,      "char.isCtrl"),
+			"isPunct"d,    new MDClosure(methods, &isPunct,     "char.isPunct"),
+			"isSpace"d,    new MDClosure(methods, &isSpace,     "char.isSpace"),
+			"isHexDigit"d, new MDClosure(methods, &isHexDigit,  "char.isHexDigit"),
+			"isAscii"d,    new MDClosure(methods, &isAscii,     "char.isAscii"),
+			"isValid"d,    new MDClosure(methods, &isValid,     "char.isValid")
 		);
-		
-		context.setMetatable(MDValue.Type.Char, namespace);
+
+		context.setMetatable(MDValue.Type.Char, methods);
 	}
 
 	int toLower(MDState s, uint numParams)
@@ -146,9 +135,4 @@ class CharLib
 		s.push(c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF));
 		return 1;
 	}
-}
-
-public void init()
-{
-
 }

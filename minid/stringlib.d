@@ -32,61 +32,58 @@ import tango.core.Array;
 import Text = tango.text.Util;
 import Uni = tango.text.Unicode;
 
-class StringLib
+final class StringLib
 {
-	private static StringLib lib;
-	
-	static this()
+static:
+	public void init(MDContext context)
 	{
-		lib = new StringLib();
-	}
-	
-	private this()
-	{
+		context.setModuleLoader("string", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto lib = s.getParam!(MDNamespace)(1);
+
+			lib.addList
+			(
+				"join"d, new MDClosure(lib, &join, "string.join")
+			);
+
+			auto methods = new MDNamespace("string"d, s.context.globals.ns);
+
+			Iterator* iter = new Iterator;
+			iter.iter = new MDClosure(methods, &iter.iterator, "string.iterator");
+			iter.iterReverse = new MDClosure(methods, &iter.iteratorReverse, "string.iteratorReverse");
+
+			methods.addList
+			(
+				"opApply"d,     new MDClosure(methods, &iter.apply,  "string.opApply"),
+				"toInt"d,       new MDClosure(methods, &toInt,       "string.toInt"),
+				"toFloat"d,     new MDClosure(methods, &toFloat,     "string.toFloat"),
+				"compare"d,     new MDClosure(methods, &compare,     "string.compare"),
+				"icompare"d,    new MDClosure(methods, &icompare,    "string.icompare"),
+				"find"d,        new MDClosure(methods, &find,        "string.find"),
+				"ifind"d,       new MDClosure(methods, &ifind,       "string.ifind"),
+				"rfind"d,       new MDClosure(methods, &rfind,       "string.rfind"),
+				"irfind"d,      new MDClosure(methods, &irfind,      "string.irfind"),
+				"toLower"d,     new MDClosure(methods, &toLower,     "string.toLower"),
+				"toUpper"d,     new MDClosure(methods, &toUpper,     "string.toUpper"),
+				"repeat"d,      new MDClosure(methods, &repeat,      "string.repeat"),
+				"split"d,       new MDClosure(methods, &split,       "string.split"),
+				"splitLines"d,  new MDClosure(methods, &splitLines,  "string.splitLines"),
+				"strip"d,       new MDClosure(methods, &strip,       "string.strip"),
+				"lstrip"d,      new MDClosure(methods, &lstrip,      "string.lstrip"),
+				"rstrip"d,      new MDClosure(methods, &rstrip,      "string.rstrip"),
+				"replace"d,     new MDClosure(methods, &replace,     "string.replace"),
+				"startsWith"d,  new MDClosure(methods, &startsWith,  "string.startsWith"),
+				"endsWith"d,    new MDClosure(methods, &endsWith,    "string.endsWith"),
+				"istartsWith"d, new MDClosure(methods, &istartsWith, "string.istartsWith"),
+				"iendsWith"d,   new MDClosure(methods, &iendsWith,   "string.iendsWith")
+			);
+
+			s.context.setMetatable(MDValue.Type.String, methods);
+
+			return 0;
+		}, "string"));
 		
-	}
-
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("string"d, context.globals.ns);
-
-		Iterator* iter = new Iterator;
-		iter.iter = new MDClosure(namespace, &iter.iterator, "string.iterator");
-		iter.iterReverse = new MDClosure(namespace, &iter.iteratorReverse, "string.iteratorReverse");
-
-		namespace.addList
-		(
-			"opApply"d,     new MDClosure(namespace, &iter.apply,      "string.opApply"),
-			"toInt"d,       new MDClosure(namespace, &lib.toInt,       "string.toInt"),
-			"toFloat"d,     new MDClosure(namespace, &lib.toFloat,     "string.toFloat"),
-			"compare"d,     new MDClosure(namespace, &lib.compare,     "string.compare"),
-			"icompare"d,    new MDClosure(namespace, &lib.icompare,    "string.icompare"),
-			"find"d,        new MDClosure(namespace, &lib.find,        "string.find"),
-			"ifind"d,       new MDClosure(namespace, &lib.ifind,       "string.ifind"),
-			"rfind"d,       new MDClosure(namespace, &lib.rfind,       "string.rfind"),
-			"irfind"d,      new MDClosure(namespace, &lib.irfind,      "string.irfind"),
-			"toLower"d,     new MDClosure(namespace, &lib.toLower,     "string.toLower"),
-			"toUpper"d,     new MDClosure(namespace, &lib.toUpper,     "string.toUpper"),
-			"repeat"d,      new MDClosure(namespace, &lib.repeat,      "string.repeat"),
-			"split"d,       new MDClosure(namespace, &lib.split,       "string.split"),
-			"splitLines"d,  new MDClosure(namespace, &lib.splitLines,  "string.splitLines"),
-			"strip"d,       new MDClosure(namespace, &lib.strip,       "string.strip"),
-			"lstrip"d,      new MDClosure(namespace, &lib.lstrip,      "string.lstrip"),
-			"rstrip"d,      new MDClosure(namespace, &lib.rstrip,      "string.rstrip"),
-			"replace"d,     new MDClosure(namespace, &lib.replace,     "string.replace"),
-			"startsWith"d,  new MDClosure(namespace, &lib.startsWith,  "string.startsWith"),
-			"endsWith"d,    new MDClosure(namespace, &lib.endsWith,    "string.endsWith"),
-			"istartsWith"d, new MDClosure(namespace, &lib.istartsWith, "string.istartsWith"),
-			"iendsWith"d,   new MDClosure(namespace, &lib.iendsWith,   "string.iendsWith")
-		);
-
-		context.globals["string"d] = MDNamespace.create
-		(
-			"string"d, context.globals.ns,
-			"join"d, new MDClosure(context.globals.ns, &lib.join, "string.join")
-		);
-		
-		context.setMetatable(MDValue.Type.String, namespace);
+		context.importModule("string");
 	}
 
 	int toInt(MDState s, uint numParams)

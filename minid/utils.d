@@ -780,7 +780,7 @@ public template Itoa(int i)
 {
 	static if(i < 0)
 		const char[] Itoa = "-" ~ Itoa!(-i);
-	else static if(i > 10)
+	else static if(i >= 10)
 		const char[] Itoa = Itoa!(i / 10) ~ "0123456789"[i % 10];
 	else
 		const char[] Itoa = "" ~ "0123456789"[i % 10];

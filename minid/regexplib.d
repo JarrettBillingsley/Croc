@@ -29,10 +29,10 @@ import minid.utils;
 
 import tango.text.Regex;
 
-class RegexpLib
+final class RegexpLib
 {
 	private MDRegexpClass regexpClass;
-
+	
 	private this(MDObject _Object)
 	{
 		regexpClass = new MDRegexpClass(_Object);
@@ -40,46 +40,51 @@ class RegexpLib
 
 	public static void init(MDContext context)
 	{
-		MDNamespace namespace = new MDNamespace("regexp"d, context.globals.ns);
+		context.setModuleLoader("regexp", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto regexpLib = new RegexpLib(s.context.globals.get!(MDObject)("Object"d));
 
-		auto lib = new RegexpLib(context.globals.get!(MDObject)("Object"d));
+			auto lib = s.getParam!(MDNamespace)(1);
 
-		namespace.addList
-		(
-			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
-			"url"d,        tango.text.Regex.url,
-			"alpha"d,      r"^[a-zA-Z_]+$"d,
-			"space"d,      r"^\s+$"d,
-			"digit"d,      r"^\d+$"d,
-			"hexdigit"d,   r"^[0-9A-Fa-f]+$"d,
-			"octdigit"d,   r"^[0-7]+$"d,
-			"symbol"d,     r"^[\(\)\[\]\.,;=<>\+\-\*/&\^]+$"d,
+			lib.addList
+			(
+				"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
+				"url"d,        tango.text.Regex.url,
+				"alpha"d,      r"^[a-zA-Z_]+$"d,
+				"space"d,      r"^\s+$"d,
+				"digit"d,      r"^\d+$"d,
+				"hexdigit"d,   r"^[0-9A-Fa-f]+$"d,
+				"octdigit"d,   r"^[0-7]+$"d,
+				"symbol"d,     r"^[\(\)\[\]\.,;=<>\+\-\*/&\^]+$"d,
 
-			"chinese"d,    "^[\u4e00-\u9fa5]+$"d,
-			"cnPhone"d,    r"\d{3}-\d{8}|\d{4}-\d{7}"d,
-			"cnMobile"d,   r"^((\(\d{2,3}\))|(\d{3}\-))?13\d{9}$"d,
-			"cnZip"d,      r"^\d{6}$"d,
-			"cnIDcard"d,   r"\d{15}|\d{18}"d,
+				"chinese"d,    "^[\u4e00-\u9fa5]+$"d,
+				"cnPhone"d,    r"\d{3}-\d{8}|\d{4}-\d{7}"d,
+				"cnMobile"d,   r"^((\(\d{2,3}\))|(\d{3}\-))?13\d{9}$"d,
+				"cnZip"d,      r"^\d{6}$"d,
+				"cnIDcard"d,   r"\d{15}|\d{18}"d,
 
-			"usPhone"d,    r"^((1-)?\d{3}-)?\d{3}-\d{4}$"d,
-			"usZip"d,      r"^\d{5}$"d,
+				"usPhone"d,    r"^((1-)?\d{3}-)?\d{3}-\d{4}$"d,
+				"usZip"d,      r"^\d{5}$"d,
 
-			"compile"d,    new MDClosure(namespace, &lib.compile,    "regexp.compile"),
-			"test"d,       new MDClosure(namespace, &lib.test,       "regexp.test"),
-			"replace"d,    new MDClosure(namespace, &lib.replace,    "regexp.replace"),
-			"split"d,      new MDClosure(namespace, &lib.split,      "regexp.split"),
-			"match"d,      new MDClosure(namespace, &lib.match,      "regexp.match")
-		);
+				"compile"d,    new MDClosure(lib, &regexpLib.compile, "regexp.compile"),
+				"test"d,       new MDClosure(lib, &test,              "regexp.test"),
+				"replace"d,    new MDClosure(lib, &regexpLib.replace, "regexp.replace"),
+				"split"d,      new MDClosure(lib, &split,             "regexp.split"),
+				"match"d,      new MDClosure(lib, &match,             "regexp.match")
+			);
 
-		context.globals["regexp"d] = namespace;
+			return 0;
+		}, "regexp"));
+
+		context.importModule("regexp");
 	}
 
-	int test(MDState s, uint numParams)
+	static int test(MDState s, uint numParams)
 	{
 		char[] pattern = s.getParam!(char[])(0);
 		char[] src = s.getParam!(char[])(1);
 		char[] attributes = "";
-		
+
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
@@ -111,7 +116,7 @@ class RegexpLib
 				temp.constructor(m);
 
 				s.callWith(rep, 1, s.getContext(), temp);
-				
+
 				return s.pop!(char[]);
 			}, attributes)));
 		}
@@ -119,12 +124,12 @@ class RegexpLib
 		return 1;
 	}
 
-	int split(MDState s, uint numParams)
+	static int split(MDState s, uint numParams)
 	{
 		char[] pattern = s.getParam!(char[])(0);
 		char[] src = s.getParam!(char[])(1);
 		char[] attributes = "";
-		
+
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 
@@ -132,12 +137,12 @@ class RegexpLib
 		return 1;
 	}
 
-	int match(MDState s, uint numParams)
+	static int match(MDState s, uint numParams)
 	{
 		char[] pattern = s.getParam!(char[])(0);
 		char[] src = s.getParam!(char[])(1);
 		char[] attributes = "";
-		
+
 		if(numParams > 2)
 			attributes = s.getParam!(char[])(2);
 

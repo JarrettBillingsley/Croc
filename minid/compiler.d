@@ -9454,6 +9454,11 @@ class LengthExp : UnaryExp
 
 		return this;
 	}
+	
+	public override bool isLHS()
+	{
+		return true;
+	}
 }
 
 /**

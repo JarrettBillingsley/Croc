@@ -328,7 +328,7 @@ SimpleFunctionDeclaration:
 
 FunctionBody:
 	Parameters (Statement | '=' Expression)
-	
+
 Parameters:
 	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
@@ -419,9 +419,10 @@ Assignment:
 AssignmentLHS:
 	Identifier
 	// Note - for these, the PostfixExpression must start with Identifier, 'this', or '#'.
+	PostfixExpression '[' ']'
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' Identifier
+	DotExpression
 
 Expression:
 	ConditionalExpression
@@ -497,16 +498,20 @@ UnaryExpression:
 PostfixExpression:
 	PrimaryExpression
 	CallExpression
-	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' ']'
+	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' (Identifier | 'super' | '(' Expression ')')
+	PostfixExpression '.' 'super'
+	DotExpression
+
+DotExpression:
+	PostfixExpression '.' (Identifier | '(' Expression ')')
 
 CallExpression:
-	PostfixExpression '.' Identifier '(' [Arguments] ')'
-	PostfixExpression '.' Identifier '(' 'with' Arguments ')'
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
+	DotExpression '(' [Arguments] ')'
+	DotExpression '(' 'with' Arguments ')'
 	'super' '.' (Identifier | '(' Expression ')') '(' [Arguments] ')'
 
 Arguments:

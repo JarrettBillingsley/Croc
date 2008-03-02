@@ -35,95 +35,92 @@ import tango.io.Print;
 import tango.io.Stdout;
 import utf = tango.text.convert.Utf;
 
-class BaseLib
+final class BaseLib
 {
-	private static BaseLib lib;
-	private static MDString[] typeStrings;
+static:
+	private MDString[] typeStrings;
 
 	static this()
 	{
-		lib = new BaseLib();
-
 		typeStrings = new MDString[MDValue.Type.max + 1];
 
 		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
 			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
 	}
 
-	public static void init(MDContext context)
+	public void init(MDContext context)
 	{
 		auto globals = context.globals;
 
 		auto _Object = new MDObject("Object");
-		_Object["clone"] = MDValue(new MDClosure(globals.ns, &lib.objectClone, "Object.clone"));
+		_Object["clone"] = MDValue(new MDClosure(globals.ns, &objectClone, "Object.clone"));
 		globals["Object"d] = _Object;
 
 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
 
 		// Really basic stuff
-		globals["assert"d] =          new MDClosure(globals.ns, &lib.mdassert,              "assert");
-		globals["getTraceback"d] =    new MDClosure(globals.ns, &lib.getTraceback,          "getTraceback");
-		globals["typeof"d] =          new MDClosure(globals.ns, &lib.mdtypeof,              "typeof");
-		globals["haltThread"d] =      new MDClosure(globals.ns, &lib.haltThread,            "haltThread");
-		globals["currentThread"d] =   new MDClosure(globals.ns, &lib.currentThread,         "currentThread");
-		globals["setModuleLoader"d] = new MDClosure(globals.ns, &lib.setModuleLoader,       "setModuleLoader");
-		globals["reloadModule"d] =    new MDClosure(globals.ns, &lib.reloadModule,          "reloadModule");
-		globals["removeKey"d] =       new MDClosure(globals.ns, &lib.removeKey,             "removeKey");
-		globals["rawSet"d] =          new MDClosure(globals.ns, &lib.rawSet,                "rawSet");
-		globals["rawGet"d] =          new MDClosure(globals.ns, &lib.rawGet,                "rawGet");
+		globals["assert"d] =          new MDClosure(globals.ns, &mdassert,              "assert");
+		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
+		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
+		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
+		globals["currentThread"d] =   new MDClosure(globals.ns, &currentThread,         "currentThread");
+		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
+		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
+		globals["removeKey"d] =       new MDClosure(globals.ns, &removeKey,             "removeKey");
+		globals["rawSet"d] =          new MDClosure(globals.ns, &rawSet,                "rawSet");
+		globals["rawGet"d] =          new MDClosure(globals.ns, &rawGet,                "rawGet");
 
 		// Functional stuff
-		globals["curry"d] =           new MDClosure(globals.ns, &lib.curry,                 "curry");
-		globals["bindContext"d] =     new MDClosure(globals.ns, &lib.bindContext,           "bindContext");
+		globals["curry"d] =           new MDClosure(globals.ns, &curry,                 "curry");
+		globals["bindContext"d] =     new MDClosure(globals.ns, &bindContext,           "bindContext");
 
 		// Reflection-esque stuff
-		globals["fieldsOf"d] =        new MDClosure(globals.ns, &lib.fieldsOf,              "fieldsOf");
-		globals["hasField"d] =        new MDClosure(globals.ns, &lib.hasField,              "hasField");
-		globals["hasMethod"d] =       new MDClosure(globals.ns, &lib.hasMethod,             "hasMethod");
-		globals["attributesOf"d] =    new MDClosure(globals.ns, &lib.attributesOf,          "attributesOf");
-		globals["hasAttributes"d] =   new MDClosure(globals.ns, &lib.hasAttributes,         "hasAttributes");
-		globals["isNull"d] =          new MDClosure(globals.ns, &lib.isParam!("null"),      "isNull");
-		globals["isBool"d] =          new MDClosure(globals.ns, &lib.isParam!("bool"),      "isBool");
-		globals["isInt"d] =           new MDClosure(globals.ns, &lib.isParam!("int"),       "isInt");
-		globals["isFloat"d] =         new MDClosure(globals.ns, &lib.isParam!("float"),     "isFloat");
-		globals["isChar"d] =          new MDClosure(globals.ns, &lib.isParam!("char"),      "isChar");
-		globals["isString"d] =        new MDClosure(globals.ns, &lib.isParam!("string"),    "isString");
-		globals["isTable"d] =         new MDClosure(globals.ns, &lib.isParam!("table"),     "isTable");
-		globals["isArray"d] =         new MDClosure(globals.ns, &lib.isParam!("array"),     "isArray");
-		globals["isFunction"d] =      new MDClosure(globals.ns, &lib.isParam!("function"),  "isFunction");
-		globals["isObject"d] =        new MDClosure(globals.ns, &lib.isParam!("object"),    "isObject");
-		globals["isNamespace"d] =     new MDClosure(globals.ns, &lib.isParam!("namespace"), "isNamespace");
-		globals["isThread"d] =        new MDClosure(globals.ns, &lib.isParam!("thread"),    "isThread");
+		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
+		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
+		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
+		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
+		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
+		globals["isNull"d] =          new MDClosure(globals.ns, &isParam!("null"),      "isNull");
+		globals["isBool"d] =          new MDClosure(globals.ns, &isParam!("bool"),      "isBool");
+		globals["isInt"d] =           new MDClosure(globals.ns, &isParam!("int"),       "isInt");
+		globals["isFloat"d] =         new MDClosure(globals.ns, &isParam!("float"),     "isFloat");
+		globals["isChar"d] =          new MDClosure(globals.ns, &isParam!("char"),      "isChar");
+		globals["isString"d] =        new MDClosure(globals.ns, &isParam!("string"),    "isString");
+		globals["isTable"d] =         new MDClosure(globals.ns, &isParam!("table"),     "isTable");
+		globals["isArray"d] =         new MDClosure(globals.ns, &isParam!("array"),     "isArray");
+		globals["isFunction"d] =      new MDClosure(globals.ns, &isParam!("function"),  "isFunction");
+		globals["isObject"d] =        new MDClosure(globals.ns, &isParam!("object"),    "isObject");
+		globals["isNamespace"d] =     new MDClosure(globals.ns, &isParam!("namespace"), "isNamespace");
+		globals["isThread"d] =        new MDClosure(globals.ns, &isParam!("thread"),    "isThread");
 
 		// Conversions
-		globals["toString"d] =        new MDClosure(globals.ns, &lib.mdtoString,            "toString");
-		globals["rawToString"d] =     new MDClosure(globals.ns, &lib.rawToString,           "rawToString");
-		globals["toBool"d] =          new MDClosure(globals.ns, &lib.toBool,                "toBool");
-		globals["toInt"d] =           new MDClosure(globals.ns, &lib.toInt,                 "toInt");
-		globals["toFloat"d] =         new MDClosure(globals.ns, &lib.toFloat,               "toFloat");
-		globals["toChar"d] =          new MDClosure(globals.ns, &lib.toChar,                "toChar");
-		globals["format"d] =          new MDClosure(globals.ns, &lib.mdformat,              "format");
+		globals["toString"d] =        new MDClosure(globals.ns, &mdtoString,            "toString");
+		globals["rawToString"d] =     new MDClosure(globals.ns, &rawToString,           "rawToString");
+		globals["toBool"d] =          new MDClosure(globals.ns, &toBool,                "toBool");
+		globals["toInt"d] =           new MDClosure(globals.ns, &toInt,                 "toInt");
+		globals["toFloat"d] =         new MDClosure(globals.ns, &toFloat,               "toFloat");
+		globals["toChar"d] =          new MDClosure(globals.ns, &toChar,                "toChar");
+		globals["format"d] =          new MDClosure(globals.ns, &mdformat,              "format");
 		
 		// Console IO
-		globals["writefln"d] =        new MDClosure(globals.ns, &lib.mdwritefln,            "writefln");
-		globals["writef"d] =          new MDClosure(globals.ns, &lib.mdwritef,              "writef");
-		globals["writeln"d] =         new MDClosure(globals.ns, &lib.writeln,               "writeln");
-		globals["write"d] =           new MDClosure(globals.ns, &lib.write,                 "write");
-		//globals["readf"d] =           new MDClosure(globals.ns, &lib.readf,                 "readf");
-		globals["readln"d] =          new MDClosure(globals.ns, &lib.readln,                "readln");
+		globals["writefln"d] =        new MDClosure(globals.ns, &mdwritefln,            "writefln");
+		globals["writef"d] =          new MDClosure(globals.ns, &mdwritef,              "writef");
+		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
+		globals["write"d] =           new MDClosure(globals.ns, &write,                 "write");
+		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
 
 		// Dynamic compilation stuff
-		globals["loadString"d] =      new MDClosure(globals.ns, &lib.loadString,            "loadString");
-		globals["eval"d] =            new MDClosure(globals.ns, &lib.eval,                  "eval");
-		globals["loadJSON"d] =        new MDClosure(globals.ns, &lib.loadJSON,              "loadJSON");
-		globals["toJSON"d] =          new MDClosure(globals.ns, &lib.toJSON,                "toJSON");
+		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
+		globals["eval"d] =            new MDClosure(globals.ns, &eval,                  "eval");
+		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
+		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
 
 		// The Namespace type's metatable
 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
 
 		namespace.addList
 		(
-			"opApply"d, new MDClosure(namespace, &lib.namespaceApply,  "namespace.opApply")
+			"opApply"d, new MDClosure(namespace, &namespaceApply,  "namespace.opApply")
 		);
 
 		context.setMetatable(MDValue.Type.Namespace, namespace);
@@ -133,16 +130,16 @@ class BaseLib
 
 		thread.addList
 		(
-			"reset"d,       new MDClosure(thread, &lib.threadReset, "thread.reset"),
-			"state"d,       new MDClosure(thread, &lib.threadState, "thread.state"),
-			"isInitial"d,   new MDClosure(thread, &lib.isInitial,   "thread.isInitial"),
-			"isRunning"d,   new MDClosure(thread, &lib.isRunning,   "thread.isRunning"),
-			"isWaiting"d,   new MDClosure(thread, &lib.isWaiting,   "thread.isWaiting"),
-			"isSuspended"d, new MDClosure(thread, &lib.isSuspended, "thread.isSuspended"),
-			"isDead"d,      new MDClosure(thread, &lib.isDead,      "thread.isDead"),
-			"opApply"d,     new MDClosure(thread, &lib.threadApply, "thread.opApply",
+			"reset"d,       new MDClosure(thread, &threadReset, "thread.reset"),
+			"state"d,       new MDClosure(thread, &threadState, "thread.state"),
+			"isInitial"d,   new MDClosure(thread, &isInitial,   "thread.isInitial"),
+			"isRunning"d,   new MDClosure(thread, &isRunning,   "thread.isRunning"),
+			"isWaiting"d,   new MDClosure(thread, &isWaiting,   "thread.isWaiting"),
+			"isSuspended"d, new MDClosure(thread, &isSuspended, "thread.isSuspended"),
+			"isDead"d,      new MDClosure(thread, &isDead,      "thread.isDead"),
+			"opApply"d,     new MDClosure(thread, &threadApply, "thread.opApply",
 			[
-				MDValue(new MDClosure(thread, &lib.threadIterator, "thread.iterator"))
+				MDValue(new MDClosure(thread, &threadIterator, "thread.iterator"))
 			])
 		);
 
@@ -153,15 +150,15 @@ class BaseLib
 		
 		func.addList
 		(
-			"environment"d, new MDClosure(func, &lib.functionEnvironment, "function.environment"),
-			"isNative"d,    new MDClosure(func, &lib.functionIsNative,    "function.isNative"),
-			"numParams"d,   new MDClosure(func, &lib.functionNumParams,   "function.numParams"),
-			"isVararg"d,    new MDClosure(func, &lib.functionIsVararg,    "function.isVararg")
+			"environment"d, new MDClosure(func, &functionEnvironment, "function.environment"),
+			"isNative"d,    new MDClosure(func, &functionIsNative,    "function.isNative"),
+			"numParams"d,   new MDClosure(func, &functionNumParams,   "function.numParams"),
+			"isVararg"d,    new MDClosure(func, &functionIsVararg,    "function.isVararg")
 		);
 
 		context.setMetatable(MDValue.Type.Function, func);
 	}
-	
+
 	int objectClone(MDState s, uint numParams)
 	{
 		auto self = s.getContext!(MDObject);
@@ -233,16 +230,6 @@ class BaseLib
 		return 0;
 	}
 
-	/*int readf(MDState s, uint numParams)
-	{
-		MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), din));
-		
-		foreach(ref v; ret)
-			s.push(v);
-			
-		return ret.length;
-	}*/
-	
 	int readln(MDState s, uint numParams)
 	{
 		s.push(Cin.copyln());

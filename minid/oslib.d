@@ -48,14 +48,16 @@ else version(Posix)
 else
 	static assert(false, "No valid platform defined");
 
-class OSLib
+final class OSLib
 {
-	private static MDValue YearString;
-	private static MDValue MonthString;
-	private static MDValue DayString;
-	private static MDValue HourString;
-	private static MDValue MinString;
-	private static MDValue SecString;
+static:
+	private MDValue YearString;
+	private MDValue MonthString;
+	private MDValue DayString;
+	private MDValue HourString;
+	private MDValue MinString;
+	private MDValue SecString;
+	version(Windows) ulong performanceFreq;
 
 	static this()
 	{
@@ -65,14 +67,6 @@ class OSLib
 		HourString = new MDString("hour"d);
 		MinString = new MDString("min"d);
 		SecString = new MDString("sec"d);
-	}
-	
-	private MDPerfCounterClass perfCounterClass;
-	version(Windows) ulong performanceFreq;
-	
-	private this(MDObject _Object)
-	{
-		perfCounterClass = new MDPerfCounterClass(_Object);
 
 		version(Windows)
 		{
@@ -81,24 +75,29 @@ class OSLib
 		}
 	}
 
-	public static void init(MDContext context)
+	public void init(MDContext context)
 	{
-		MDNamespace namespace = new MDNamespace("os"d, context.globals.ns);
+		context.setModuleLoader("os", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto perfCounterClass = new MDPerfCounterClass(s.context.globals.get!(MDObject)("Object"d));
+
+			auto lib = s.getParam!(MDNamespace)(1);
+
+			lib.addList
+			(
+				"PerfCounter"d,  perfCounterClass,
+				"microTime"d,    new MDClosure(lib, &microTime,  "os.microTime"),
+				"system"d,       new MDClosure(lib, &system,     "os.system"),
+				"getEnv"d,       new MDClosure(lib, &getEnv,     "os.getEnv"),
+				"dateString"d,   new MDClosure(lib, &dateString, "os.dateString"),
+				"dateTime"d,     new MDClosure(lib, &dateTime,   "os.dateTime"),
+				"culture"d,      new MDClosure(lib, &culture,    "os.culture")
+			);
+
+			return 0;
+		}, "os"));
 		
-		auto lib = new OSLib(context.globals.get!(MDObject)("Object"d));
-
-		namespace.addList
-		(
-			"PerfCounter"d,  lib.perfCounterClass,
-			"microTime"d,    new MDClosure(namespace, &lib.microTime,  "os.microTime"),
-			"system"d,       new MDClosure(namespace, &lib.system,     "os.system"),
-			"getEnv"d,       new MDClosure(namespace, &lib.getEnv,     "os.getEnv"),
-			"dateString"d,   new MDClosure(namespace, &lib.dateString, "os.dateString"),
-			"dateTime"d,     new MDClosure(namespace, &lib.dateTime,   "os.dateTime"),
-			"culture"d,      new MDClosure(namespace, &lib.culture,    "os.culture")
-		);
-
-		context.globals["os"d] = namespace;
+		context.importModule("os");
 	}
 
 	int microTime(MDState s, uint numParams)
@@ -198,7 +197,7 @@ class OSLib
 		return 1;
 	}
 
-	static Time TableToTime(MDState s, MDTable tab)
+	Time TableToTime(MDState s, MDTable tab)
 	{
 		MDValue table = MDValue(tab);
 		Time time;
@@ -211,7 +210,7 @@ class OSLib
 			MDValue hour = idx(table, HourString);
 			MDValue min = idx(table, MinString);
 			MDValue sec = idx(table, SecString);
-			
+
 			if(!year.isInt() || !month.isInt() || !day.isInt())
 				s.throwRuntimeException("year, month, and day fields in time table must exist and must be integers");
 
@@ -220,11 +219,11 @@ class OSLib
 			else
 				time = Gregorian.generic.toTime(year.as!(int), month.as!(int), day.as!(int), 0, 0, 0, 0, 0);
 		}
-		
+
 		return time;
 	}
 
-	static MDTable DateTimeToTable(MDState s, DateTime time, MDTable dest)
+	MDTable DateTimeToTable(MDState s, DateTime time, MDTable dest)
 	{
 		if(dest is null)
 			dest = new MDTable();
@@ -246,6 +245,17 @@ class OSLib
 
 	static class MDPerfCounterClass : MDObject
 	{
+		static class MDPerfCounter : MDObject
+		{
+			protected StopWatch mWatch;
+			protected mdfloat mTime = 0;
+			
+			public this(MDObject owner)
+			{
+				super("PerfCounter", owner);
+			}
+		}
+
 		public this(MDObject owner)
 		{
 			super("PerfCounter", owner);
@@ -269,68 +279,33 @@ class OSLib
 
 		public int start(MDState s, uint numParams)
 		{
-			s.getContext!(MDPerfCounter).start();
+			s.getContext!(MDPerfCounter).mWatch.start();
 			return 0;
 		}
 
 		public int stop(MDState s, uint numParams)
 		{
-			s.getContext!(MDPerfCounter).stop();
+			auto self = s.getContext!(MDPerfCounter);
+			self.mTime = self.mWatch.stop();
 			return 0;
 		}
 
 		public int seconds(MDState s, uint numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).seconds());
+			s.push(s.getContext!(MDPerfCounter).mTime);
 			return 1;
 		}
-		
+
 		public int millisecs(MDState s, uint numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).millisecs());
+			s.push(s.getContext!(MDPerfCounter).mTime * 1_000);
 			return 1;
 		}
 
 		public int microsecs(MDState s, uint numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).microsecs());
+			s.push(s.getContext!(MDPerfCounter).mTime * 1_000_000);
 			return 1;
-		}
-	}
-
-	static class MDPerfCounter : MDObject
-	{
-		protected StopWatch mWatch;
-		protected mdfloat mTime = 0;
-
-		public this(MDObject owner)
-		{
-			super("PerfCounter", owner);
-		}
-
-		public final void start()
-		{
-			mWatch.start();
-		}
-
-		public final void stop()
-		{
-			mTime = mWatch.stop();
-		}
-
-		public final mdfloat seconds()
-		{
-			return mTime;
-		}
-
-		public final mdfloat millisecs()
-		{
-			return mTime * 1000;
-		}
-
-		public final mdfloat microsecs()
-		{
-			return mTime * 1000000;
 		}
 	}
 }

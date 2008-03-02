@@ -25,49 +25,43 @@ module minid.tablelib;
 
 import minid.types;
 
-class TableLib
+final class TableLib
 {
-	private static TableLib lib;
-	
-	static this()
+static:
+	public void init(MDContext context)
 	{
-		lib = new TableLib();
-	}
-	
-	private this()
-	{
-		
-	}
+		context.setModuleLoader("table", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto lib = s.getParam!(MDNamespace)(1);
 
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("table"d, context.globals.ns);
+			lib.addList
+			(
+				"dup"d,    new MDClosure(lib, &staticDup,    "table.dup"),
+				"keys"d,   new MDClosure(lib, &staticKeys,   "table.keys"),
+				"values"d, new MDClosure(lib, &staticValues, "table.values"),
+				"apply"d,  new MDClosure(lib, &staticApply,  "table.apply"),
+				"each"d,   new MDClosure(lib, &staticEach,   "table.each"),
+				"set"d,    new MDClosure(lib, &set,          "table.set"),
+				"get"d,    new MDClosure(lib, &get,          "table.get")
+			);
 
-		namespace.addList
-		(
-			"dup"d,     new MDClosure(namespace, &lib.dup,    "table.dup"),
-			"keys"d,    new MDClosure(namespace, &lib.keys,   "table.keys"),
-			"values"d,  new MDClosure(namespace, &lib.values, "table.values"),
-			"opApply"d, new MDClosure(namespace, &lib.apply,  "table.opApply"),
-			"each"d,    new MDClosure(namespace, &lib.each,   "table.each")
-		);
-		
-		context.setMetatable(MDValue.Type.Table, namespace);
-		
-		MDNamespace table = new MDNamespace("table"d, context.globals.ns);
+			auto methods = new MDNamespace("table"d, s.context.globals.ns);
 
-		table.addList
-		(
-			"dup"d,    new MDClosure(table, &lib.staticDup,    "table.dup"),
-			"keys"d,   new MDClosure(table, &lib.staticKeys,   "table.keys"),
-			"values"d, new MDClosure(table, &lib.staticValues, "table.values"),
-			"apply"d,  new MDClosure(table, &lib.staticApply,  "table.apply"),
-			"each"d,   new MDClosure(table, &lib.staticEach,   "table.each"),
-			"set"d,    new MDClosure(table, &lib.set,          "table.set"),
-			"get"d,    new MDClosure(table, &lib.get,          "table.get")
-		);
+			methods.addList
+			(
+				"dup"d,     new MDClosure(methods, &dup,    "table.dup"),
+				"keys"d,    new MDClosure(methods, &keys,   "table.keys"),
+				"values"d,  new MDClosure(methods, &values, "table.values"),
+				"opApply"d, new MDClosure(methods, &apply,  "table.opApply"),
+				"each"d,    new MDClosure(methods, &each,   "table.each")
+			);
 
-		context.globals["table"d] = table;
+			s.context.setMetatable(MDValue.Type.Table, methods);
+
+			return 0;
+		}, "table"));
+
+		context.importModule("table");
 	}
 	
 	int dupImpl(MDState s, MDTable t)

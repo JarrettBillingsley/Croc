@@ -78,134 +78,139 @@ class IOLib
 		Append = 8,
 		OutNew = Out | New
 	}
-	
+
 	public static void init(MDContext context)
 	{
-		MDNamespace namespace = new MDNamespace("io"d, context.globals.ns);
-
-		auto lib = new IOLib(context.globals.get!(MDObject)("Object"d));
-
-		namespace.addList
-		(
-			"InputStream"d,  lib.inputStreamClass,
-			"OutputStream"d, lib.outputStreamClass,
-			"Stream"d,       lib.streamClass,
-
-			"stdin"d,        lib.inputStreamClass.nativeClone(Cin.stream),
-			"stdout"d,       lib.outputStreamClass.nativeClone(Cout.stream),
-			"stderr"d,       lib.outputStreamClass.nativeClone(Cerr.stream),
-
-			"FileMode"d,     MDTable.create
+		context.setModuleLoader("io", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto ioLib = new IOLib(s.context.globals.get!(MDObject)("Object"d));
+			
+			auto lib = s.getParam!(MDNamespace)(1);
+	
+			lib.addList
 			(
-				"In"d,       cast(int)FileMode.In,
-				"Out"d,      cast(int)FileMode.Out,
-				"New"d,      cast(int)FileMode.New,
-				"Append"d,   cast(int)FileMode.Append,
-				"OutNew"d,   cast(int)FileMode.OutNew
-			),
+				"InputStream"d,  ioLib.inputStreamClass,
+				"OutputStream"d, ioLib.outputStreamClass,
+				"Stream"d,       ioLib.streamClass,
 
-			"File"d,         new MDClosure(namespace, &lib.File,        "io.File"),
-			"rename"d,       new MDClosure(namespace, &lib.rename,      "io.rename"),
-			"remove"d,       new MDClosure(namespace, &lib.remove,      "io.remove"),
-			"copy"d,         new MDClosure(namespace, &lib.copy,        "io.copy"),
-			"size"d,         new MDClosure(namespace, &lib.size,        "io.size"),
-			"exists"d,       new MDClosure(namespace, &lib.exists,      "io.exists"),
-			"isFile"d,       new MDClosure(namespace, &lib.isFile,      "io.isFile"),
-			"isDir"d,        new MDClosure(namespace, &lib.isDir,       "io.isDir"),
-			"currentDir"d,   new MDClosure(namespace, &lib.currentDir,  "io.currentDir"),
-			"changeDir"d,    new MDClosure(namespace, &lib.changeDir,   "io.changeDir"),
-			"makeDir"d,      new MDClosure(namespace, &lib.makeDir,     "io.makeDir"),
-			"removeDir"d,    new MDClosure(namespace, &lib.removeDir,   "io.removeDir"),
-			"listFiles"d,    new MDClosure(namespace, &lib.listFiles,   "io.listFiles"),
-			"listDirs"d,     new MDClosure(namespace, &lib.listDirs,    "io.listDirs"),
-			"readFile"d,     new MDClosure(namespace, &lib.readFile,    "io.readFile"),
-			"writeFile"d,    new MDClosure(namespace, &lib.writeFile,   "io.writeFile")
-		);
-		
-		context.globals["io"d] = namespace;
+				"stdin"d,        ioLib.inputStreamClass.nativeClone(Cin.stream),
+				"stdout"d,       ioLib.outputStreamClass.nativeClone(Cout.stream),
+				"stderr"d,       ioLib.outputStreamClass.nativeClone(Cerr.stream),
+	
+				"FileMode"d,     MDTable.create
+				(
+					"In"d,       cast(int)FileMode.In,
+					"Out"d,      cast(int)FileMode.Out,
+					"New"d,      cast(int)FileMode.New,
+					"Append"d,   cast(int)FileMode.Append,
+					"OutNew"d,   cast(int)FileMode.OutNew
+				),
+	
+				"File"d,         new MDClosure(lib, &ioLib.File,        "io.File"),
+				"rename"d,       new MDClosure(lib, &rename,      "io.rename"),
+				"remove"d,       new MDClosure(lib, &remove,      "io.remove"),
+				"copy"d,         new MDClosure(lib, &copy,        "io.copy"),
+				"size"d,         new MDClosure(lib, &size,        "io.size"),
+				"exists"d,       new MDClosure(lib, &exists,      "io.exists"),
+				"isFile"d,       new MDClosure(lib, &isFile,      "io.isFile"),
+				"isDir"d,        new MDClosure(lib, &isDir,       "io.isDir"),
+				"currentDir"d,   new MDClosure(lib, &currentDir,  "io.currentDir"),
+				"changeDir"d,    new MDClosure(lib, &changeDir,   "io.changeDir"),
+				"makeDir"d,      new MDClosure(lib, &makeDir,     "io.makeDir"),
+				"removeDir"d,    new MDClosure(lib, &removeDir,   "io.removeDir"),
+				"listFiles"d,    new MDClosure(lib, &listFiles,   "io.listFiles"),
+				"listDirs"d,     new MDClosure(lib, &listDirs,    "io.listDirs"),
+				"readFile"d,     new MDClosure(lib, &readFile,    "io.readFile"),
+				"writeFile"d,    new MDClosure(lib, &writeFile,   "io.writeFile")
+			);
+
+			return 0;
+		}, "io"));
+
+		context.importModule("io");
 	}
 
-	int rename(MDState s, uint numParams)
+	static int rename(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.rename(s.getParam!(char[])(1)));
 		return 0;
 	}
-	
-	int remove(MDState s, uint numParams)
+
+	static int remove(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.remove());
 		return 0;
 	}
-	
-	int copy(MDState s, uint numParams)
+
+	static int copy(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(1));
 		s.safeCode(fp.copy(s.getParam!(char[])(0)));
 		return 0;
 	}
-	
-	int size(MDState s, uint numParams)
+
+	static int size(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(cast(int)s.safeCode(fp.fileSize()));
 		return 1;
 	}
-	
-	int exists(MDState s, uint numParams)
+
+	static int exists(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(cast(bool)fp.exists());
 		return 1;
 	}
-	
-	int isFile(MDState s, uint numParams)
+
+	static int isFile(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(s.safeCode(!fp.isFolder()));
 		return 1;
 	}
 
-	int isDir(MDState s, uint numParams)
+	static int isDir(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.push(s.safeCode(fp.isFolder()));
 		return 1;
 	}
-	
-	int currentDir(MDState s, uint numParams)
+
+	static int currentDir(MDState s, uint numParams)
 	{
 		s.push(s.safeCode(FileSystem.getDirectory()));
 		return 1;
 	}
-	
-	int changeDir(MDState s, uint numParams)
+
+	static int changeDir(MDState s, uint numParams)
 	{
 		char[] path = s.getParam!(char[])(0);
 		s.safeCode(FileSystem.setDirectory(path));
 		return 0;
 	}
-	
-	int makeDir(MDState s, uint numParams)
+
+	static int makeDir(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
-		
+
 		if(!fp.isAbsolute())
 			fp.prepend(FileSystem.getDirectory());
 
 		s.safeCode(fp.create());
 		return 0;
 	}
-	
-	int removeDir(MDState s, uint numParams)
+
+	static int removeDir(MDState s, uint numParams)
 	{
 		scope fp = FilePath(s.getParam!(char[])(0));
 		s.safeCode(fp.remove());
 		return 0;
 	}
-	
-	int listFiles(MDState s, uint numParams)
+
+	static int listFiles(MDState s, uint numParams)
 	{
 		char[] path = s.getParam!(char[])(0);
 		char[][] listing;
@@ -213,7 +218,7 @@ class IOLib
 		if(numParams == 1)
 		{
 			scope fp = FilePath(path);
-			
+
 			s.safeCode
 			({
 				foreach(info; fp)
@@ -235,7 +240,7 @@ class IOLib
 					if(!info.folder)
 					{
 						char[] fullName = info.path ~ info.name;
-						
+
 						if(patternMatch(fullName, filter))
 							listing ~= fullName;
 					}
@@ -246,8 +251,8 @@ class IOLib
 		s.push(MDArray.fromArray(listing));
 		return 1;
 	}
-	
-	int listDirs(MDState s, uint numParams)
+
+	static int listDirs(MDState s, uint numParams)
 	{
 		char[] path = s.getParam!(char[])(0);
 		char[][] listing;
@@ -277,7 +282,7 @@ class IOLib
 					if(info.folder)
 					{
 						char[] fullName = info.path ~ info.name;
-						
+
 						if(patternMatch(fullName, filter))
 							listing ~= fullName;
 					}
@@ -289,10 +294,10 @@ class IOLib
 		return 1;
 	}
 
-	int readFile(MDState s, uint numParams)
+	static int readFile(MDState s, uint numParams)
 	{
 		auto name = s.getParam!(char[])(0);
-		
+
 		if(numParams == 1 || s.getParam!(bool)(1) == false)
 		{
 			scope file = s.safeCode(new UnicodeFile!(dchar)(name, Encoding.Unknown));
@@ -302,18 +307,18 @@ class IOLib
 		{
 			scope file = s.safeCode(new .File(name));
 			ubyte[] data = s.safeCode(cast(ubyte[])file.read());
-			
+
 			foreach(ref d; data)
 				if(d > 0x7f)
 					d = '?';
-					
+
 			s.push(new MDString(cast(char[])data));
 		}
 
 		return 1;
 	}
-	
-	int writeFile(MDState s, uint numParams)
+
+	static int writeFile(MDState s, uint numParams)
 	{
 		auto name = s.getParam!(char[])(0);
 		auto data = s.getParam!(MDString)(1).mData;
@@ -384,7 +389,6 @@ class IOLib
 				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "InputStream.readDChar"),
 				"readString"d,  new MDClosure(mFields, &readString,        "InputStream.readString"),
 				"readln"d,      new MDClosure(mFields, &readln,            "InputStream.readln"),
-// 				"readf"d,       new MDClosumFieldsods, &readf,           	"InputStream.readf"),
 				"readChars"d,   new MDClosure(mFields, &readChars,         "InputStream.readChars"),
 				"opApply"d,     new MDClosure(mFields, &apply,             "InputStream.opApply")
 			);
@@ -419,17 +423,6 @@ class IOLib
 			s.push(ret);
 			return 1;
 		}
-
-// 		public int readf(MDState s, uint numParams)
-// 		{
-// 			MDStream i = s.getContext!(MDInputStream);
-// 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
-//
-// 			foreach(ref v; ret)
-// 				s.push(v);
-//
-// 			return ret.length;
-// 		}
 
 		public int readChars(MDState s, uint numParams)
 		{
@@ -696,7 +689,6 @@ class IOLib
 				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "Stream.readDChar"),
 				"readString"d,  new MDClosure(mFields, &readString,        "Stream.readString"),
 				"readln"d,      new MDClosure(mFields, &readln,            "Stream.readln"),
-// 				"readf"d,       new MDClosumFieldsods, &readf,             "Stream.readf"),
 				"readChars"d,   new MDClosure(mFields, &readChars,         "Stream.readChars"),
 				"opApply"d,     new MDClosure(mFields, &apply,             "Stream.opApply"),
 
@@ -758,17 +750,6 @@ class IOLib
 			s.push(ret);
 			return 1;
 		}
-
-// 		public int readf(MDState s, uint numParams)
-// 		{
-// 			MDStream i = s.getContext!(MDStream);
-// 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
-// 
-// 			foreach(ref v; ret)
-// 				s.push(v);
-//
-// 			return ret.length;
-// 		}
 
 		public int readChars(MDState s, uint numParams)
 		{

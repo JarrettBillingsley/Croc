@@ -31,69 +31,65 @@ import tango.math.Math;
 
 final class ArrayLib
 {
-	private static ArrayLib lib;
-	
-	private this()
+static:
+	public void init(MDContext context)
 	{
+		context.setModuleLoader("array", context.newClosure(function int(MDState s, uint numParams)
+		{
+			auto lib = s.getParam!(MDNamespace)(1);
 
-	}
-	
-	static this()
-	{
-		lib = new ArrayLib();
-	}
+			lib.addList
+			(
+				"new"d,      new MDClosure(lib, &newArray, "array.new"),
+				"range"d,    new MDClosure(lib, &range,    "array.range")
+			);
 
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("array"d, context.globals.ns);
+			auto methods = new MDNamespace("array"d, s.context.globals.ns);
 
-		namespace.addList
-		(
-			"sort"d,     new MDClosure(namespace, &lib.sort,     "array.sort"),
-			"reverse"d,  new MDClosure(namespace, &lib.reverse,  "array.reverse"),
-			"dup"d,      new MDClosure(namespace, &lib.dup,      "array.dup"),
-			"length"d,   new MDClosure(namespace, &lib.length,   "array.length"),
-			"opApply"d,  new MDClosure(namespace, &lib.opApply,  "array.opApply",
-			[
-				MDValue(new MDClosure(namespace, &lib.iterator,        "array.iterator")),
-				MDValue(new MDClosure(namespace, &lib.iteratorReverse, "array.iteratorReverse"))
-			]),
-			"expand"d,   new MDClosure(namespace, &lib.expand,   "array.expand"),
-			"toString"d, new MDClosure(namespace, &lib.toString, "array.toString"),
-			"apply"d,    new MDClosure(namespace, &lib.apply,    "array.apply"),
-			"map"d,      new MDClosure(namespace, &lib.map,      "array.map"),
-			"reduce"d,   new MDClosure(namespace, &lib.reduce,   "array.reduce"),
-			"each"d,     new MDClosure(namespace, &lib.each,     "array.each"),
-			"filter"d,   new MDClosure(namespace, &lib.filter,   "array.filter"),
-			"find"d,     new MDClosure(namespace, &lib.find,     "array.find"),
-			"findIf"d,   new MDClosure(namespace, &lib.findIf,   "array.findIf"),
-			"bsearch"d,  new MDClosure(namespace, &lib.bsearch,  "array.bsearch"),
-			"pop"d,      new MDClosure(namespace, &lib.pop,      "array.pop"),
-			"set"d,      new MDClosure(namespace, &lib.set,      "array.set"),
-			"min"d,      new MDClosure(namespace, &lib.min,      "array.min"),
-			"max"d,      new MDClosure(namespace, &lib.max,      "array.max"),
-			"extreme"d,  new MDClosure(namespace, &lib.extreme,  "array.extreme"),
-			"any"d,      new MDClosure(namespace, &lib.any,      "array.any"),
-			"all"d,      new MDClosure(namespace, &lib.all,      "array.all"),
-			"fill"d,     new MDClosure(namespace, &lib.fill,     "array.fill"),
-			"append"d,   new MDClosure(namespace, &lib.append,   "array.append"),
-			"flatten"d,  new MDClosure(namespace, &lib.flatten,  "array.flatten"),
-			"makeHeap"d, new MDClosure(namespace, &lib.makeHeap, "array.makeHeap"),
-			"pushHeap"d, new MDClosure(namespace, &lib.pushHeap, "array.pushHeap"),
-			"popHeap"d,  new MDClosure(namespace, &lib.popHeap,  "array.popHeap"),
-			"sortHeap"d, new MDClosure(namespace, &lib.sortHeap, "array.sortHeap"),
-			"count"d,    new MDClosure(namespace, &lib.count,    "array.count"),
-			"countIf"d,  new MDClosure(namespace, &lib.countIf,  "array.countIf")
-		);
+			methods.addList
+			(
+				"sort"d,     new MDClosure(methods, &sort,     "array.sort"),
+				"reverse"d,  new MDClosure(methods, &reverse,  "array.reverse"),
+				"dup"d,      new MDClosure(methods, &dup,      "array.dup"),
+				"opApply"d,  new MDClosure(methods, &opApply,  "array.opApply",
+				[
+					MDValue(new MDClosure(methods, &iterator,        "array.iterator")),
+					MDValue(new MDClosure(methods, &iteratorReverse, "array.iteratorReverse"))
+				]),
+				"expand"d,   new MDClosure(methods, &expand,   "array.expand"),
+				"toString"d, new MDClosure(methods, &toString, "array.toString"),
+				"apply"d,    new MDClosure(methods, &apply,    "array.apply"),
+				"map"d,      new MDClosure(methods, &map,      "array.map"),
+				"reduce"d,   new MDClosure(methods, &reduce,   "array.reduce"),
+				"each"d,     new MDClosure(methods, &each,     "array.each"),
+				"filter"d,   new MDClosure(methods, &filter,   "array.filter"),
+				"find"d,     new MDClosure(methods, &find,     "array.find"),
+				"findIf"d,   new MDClosure(methods, &findIf,   "array.findIf"),
+				"bsearch"d,  new MDClosure(methods, &bsearch,  "array.bsearch"),
+				"pop"d,      new MDClosure(methods, &pop,      "array.pop"),
+				"set"d,      new MDClosure(methods, &set,      "array.set"),
+				"min"d,      new MDClosure(methods, &min,      "array.min"),
+				"max"d,      new MDClosure(methods, &max,      "array.max"),
+				"extreme"d,  new MDClosure(methods, &extreme,  "array.extreme"),
+				"any"d,      new MDClosure(methods, &any,      "array.any"),
+				"all"d,      new MDClosure(methods, &all,      "array.all"),
+				"fill"d,     new MDClosure(methods, &fill,     "array.fill"),
+				"append"d,   new MDClosure(methods, &append,   "array.append"),
+				"flatten"d,  new MDClosure(methods, &flatten,  "array.flatten"),
+				"makeHeap"d, new MDClosure(methods, &makeHeap, "array.makeHeap"),
+				"pushHeap"d, new MDClosure(methods, &pushHeap, "array.pushHeap"),
+				"popHeap"d,  new MDClosure(methods, &popHeap,  "array.popHeap"),
+				"sortHeap"d, new MDClosure(methods, &sortHeap, "array.sortHeap"),
+				"count"d,    new MDClosure(methods, &count,    "array.count"),
+				"countIf"d,  new MDClosure(methods, &countIf,  "array.countIf")
+			);
 
-		context.globals["array"d] = MDNamespace.create
-		(
-			"array"d,    context.globals.ns,
-			"new"d,      new MDClosure(context.globals.ns, &lib.newArray, "array.new"),
-			"range"d,    new MDClosure(context.globals.ns, &lib.range,    "array.range")
-		);
+			s.context.setMetatable(MDValue.Type.Array, methods);
 
-		context.setMetatable(MDValue.Type.Array, namespace);
+			return 0;
+		}, "array"));
+
+		context.importModule("array");
 	}
 
 	int newArray(MDState s, uint numParams)
@@ -214,20 +210,6 @@ final class ArrayLib
 	int dup(MDState s, uint numParams)
 	{
 		s.push(s.getContext!(MDArray).dup);
-		return 1;
-	}
-	
-	int length(MDState s, uint numParams)
-	{
-		MDArray arr = s.getContext!(MDArray);
-		int length = s.getParam!(int)(0);
-
-		if(length < 0)
-			s.throwRuntimeException("Invalid length: {}", length);
-
-		arr.length = length;
-
-		s.push(arr);
 		return 1;
 	}
 

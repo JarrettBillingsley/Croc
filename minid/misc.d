@@ -34,6 +34,8 @@ import tango.stdc.ctype;
 import tango.text.convert.Layout;
 import tango.core.Vararg;
 
+// Why do we create this seemingly useless template?
+// So we can get a static instance of a Layout based on a type.  Fun.
 template Formatter(T)
 {
 	package Layout!(T) Formatter;
@@ -435,117 +437,3 @@ package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) print
 
 	printer.flush();
 }
-
-/*
-package MDValue[] unformatImpl(MDState s, dchar[] formatStr, Stream input)
-{
-	MDValue[] output;
-
-	void outputValue(ref MDValue val)
-	{
-		output ~= val;
-	}
-
-	int begin = 0;
-
-	for(int i = 0; i < formatStr.length; i++)
-	{
-		dchar c = formatStr[i];
-
-		void nextChar()
-		{
-			i++;
-
-			if(i >= formatStr.length)
-				s.throwRuntimeException("Unterminated format specifier");
-
-			c = formatStr[i];
-		}
-
-		if(c == '%')
-		{
-			nextChar();
-
-			if(c == '%')
-				continue;
-
-			while(true)
-			{
-				switch(c)
-				{
-					case '-', '+', '#', '0', ' ':
-						nextChar();
-						continue;
-
-					default:
-						break;
-				}
-
-				break;
-			}
-
-			if(c == '*')
-				s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-			else if(std.ctype.isdigit(c))
-			{
-				do
-					nextChar();
-				while(std.ctype.isdigit(c))
-			}
-
-			if(c == '.')
-			{
-				nextChar();
-
-				if(c == '*')
-					s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-				else if(std.ctype.isdigit(c))
-				{
-					do
-						nextChar();
-					while(std.ctype.isdigit(c))
-				}
-			}
-			
-			char[] fmt = utf.toString(formatStr[begin .. i + 1]);
-			MDValue val;
-
-			switch(c)
-			{
-				case 'd', 'i', 'b', 'o', 'x', 'X':
-					int v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-					mdfloat f;
-					input.readf(fmt, &f);
-					val = f;
-					break;
-
-				case 'r', 's':
-					char[] v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'c':
-					char v;
-					input.readf(fmt, &v);
-					val = cast(dchar)v;
-					break;
-
-				default:
-					// unsupported: %p
-					s.throwRuntimeException("Unsupported format specifier '%c'", c);
-			}
-
-			outputValue(val);
-			begin = i + 1;
-		}
-	}
-
-	return output;
-}
-*/
