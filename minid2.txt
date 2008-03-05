@@ -88,6 +88,9 @@ Token:
 	','
 	';'
 	'#'
+	'\\'
+	'->'
+	'$'
 	EOF
 
 Identifier:
@@ -508,6 +511,7 @@ DotExpression:
 	PostfixExpression '.' (Identifier | '(' Expression ')')
 
 CallExpression:
+	PostfixExpression '$' Expression
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
 	DotExpression '(' [Arguments] ')'
@@ -530,6 +534,7 @@ PrimaryExpression:
 	StringLiteral
 	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
+	'\\' (Identifier | 'vararg' | Parameters) '->' Expression
 	'object' [Identifier] [':' Expression] '{' {ObjectMember} '}'
 	'(' Expression ')'
 	TableCtorExp

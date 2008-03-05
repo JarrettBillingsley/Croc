@@ -271,6 +271,9 @@ struct Token
 		Semicolon,
 		Length,
 		Question,
+		Backslash,
+		Arrow,
+		Dollar,
 
 		Ident,
 		CharLiteral,
@@ -371,6 +374,9 @@ struct Token
 		Type.Semicolon: ";",
 		Type.Length: "#",
 		Type.Question: "?",
+		Type.Backslash: "\\",
+		Type.Arrow: "->",
+		Type.Dollar: "$",
 
 		Type.Ident: "Identifier",
 		Type.CharLiteral: "Char Literal",
@@ -1137,6 +1143,11 @@ class Lexer
 					{
 						nextChar();
 						mTok.type = Token.Type.Dec;
+					}
+					else if(mCharacter == '>')
+					{
+						nextChar();
+						mTok.type = Token.Type.Arrow;
 					}
 					else
 						mTok.type = Token.Type.Sub;
@@ -4051,6 +4062,39 @@ class FuncDef : AstNode
 			name = new Identifier(location, "<literal at " ~ utf.toString32(location.toString()) ~ ">");
 
 		return parseBody(l, location, name);
+	}
+	
+	/**
+	Parse a Haskell-style function literal, like "\f -> f + 1" or "\(a, b) -> a(b)".
+	*/
+	public static FuncDef parseHaskell(Lexer l)
+	{
+		auto location = l.expect(Token.Type.Backslash).location;
+		auto name = new Identifier(location, "<literal at " ~ utf.toString32(location.toString()) ~ ">");
+
+		bool isVararg;
+		Param[] params;
+
+		if(l.type == Token.Type.Ident)
+		{
+			isVararg = false;
+			params = [Param(new Identifier(l.loc, "this"), null),
+				Param(Identifier.parse(l), null)];
+		}
+		else if(l.type == Token.Type.Vararg)
+		{
+			l.next();
+			isVararg = true;
+			params = [Param(new Identifier(l.loc, "this"), null)];
+		}
+		else
+			params = parseParams(l, isVararg);
+
+		l.expect(Token.Type.Arrow);
+
+		Statement code = new ReturnStatement(Expression.parse(l));
+
+		return new FuncDef(location, name, params, isVararg, code, null);
 	}
 
 	/**
@@ -9564,6 +9608,12 @@ abstract class PostfixExp : UnaryExp
 						exp = new DotExp(exp, subExp);
 					}
 					continue;
+					
+				case Token.Type.Dollar:
+					l.next();
+					Expression arg = Expression.parse(l);
+					exp = new CallExp(arg.endLocation, exp, null, [arg]);
+					continue;
 
 				case Token.Type.LParen:
 					if(exp.endLocation.line != l.loc.line)
@@ -10256,6 +10306,7 @@ class PrimaryExp : Expression
 			case Token.Type.FloatLiteral:           exp = FloatExp.parse(l); break;
 			case Token.Type.StringLiteral:          exp = StringExp.parse(l); break;
 			case Token.Type.Function:               exp = FuncLiteralExp.parse(l); break;
+			case Token.Type.Backslash:              exp = FuncLiteralExp.parseHaskell(l); break;
 			case Token.Type.Object:                 exp = ObjectLiteralExp.parse(l); break;
 			case Token.Type.LParen:                 exp = ParenExp.parse(l); break;
 			case Token.Type.LBrace:                 exp = TableCtorExp.parse(l); break;
@@ -10821,6 +10872,15 @@ class FuncLiteralExp : PrimaryExp
 	{
 		auto location = l.loc;
 		auto def = FuncDef.parseLiteral(l);
+		return new FuncLiteralExp(location, def);
+	}
+	
+	/**
+	*/
+	public static FuncLiteralExp parseHaskell(Lexer l)
+	{
+		auto location = l.loc;
+		auto def = FuncDef.parseHaskell(l);
 		return new FuncLiteralExp(location, def);
 	}
 
