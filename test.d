@@ -19,7 +19,7 @@ void main()
 			LoadArc(ctx);
 
 		ctx.addImportPath(`samples`);
-		ctx.importModule("speed");
+		ctx.importModule("simple");
 	}
 	catch(MDException e)
 	{

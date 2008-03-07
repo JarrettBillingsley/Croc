@@ -116,7 +116,7 @@ Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed ty
 */
 template realType(T)
 {
-	static if(is(T Base == typedef))
+	static if(is(T Base == typedef) || is(T Base == enum))
 		alias realType!(Base) realType;
 	else
 		alias T realType;
@@ -770,7 +770,7 @@ public template Itoa(int i)
 {
 	static if(i < 0)
 		const char[] Itoa = "-" ~ Itoa!(-i);
-	else static if(i > 10)
+	else static if(i >= 10)
 		const char[] Itoa = Itoa!(i / 10) ~ "0123456789"[i % 10];
 	else
 		const char[] Itoa = "" ~ "0123456789"[i % 10];

@@ -685,7 +685,7 @@ align(1) struct MDValue
 		{
 			return mType == Type.Bool;
 		}
-		else static if(isIntType!(T))
+		else static if(isIntType!(realType!(T)))
 		{
 			return mType == Type.Int;
 		}
@@ -886,9 +886,9 @@ align(1) struct MDValue
 		{
 			return mBool;
 		}
-		else static if(isIntType!(T))
+		else static if(isIntType!(realType!(T)))
 		{
-			return mInt;
+			return cast(T)mInt;
 		}
 		else static if(isFloatType!(T))
 		{
@@ -981,7 +981,7 @@ align(1) struct MDValue
 			mType = Type.Bool;
 			mBool = src;
 		}
-		else static if(isIntType!(T))
+		else static if(isIntType!(realType!(T)))
 		{
 			mType = Type.Int;
 			mInt = cast(int)src;

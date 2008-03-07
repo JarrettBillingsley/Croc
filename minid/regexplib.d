@@ -52,7 +52,7 @@ class RegexpLib
 		namespace.addList
 		(
 			"email"d,      r"\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*"d,
-			"url"d,        tango.text.Regex.url,
+			"url"d,        r"(([h|H][t|T]|[f|F])[t|T][p|P]([s|S]?)\:\/\/|~/|/)?([\w]+:\w+@)?(([a-zA-Z]{1}([\w\-]+\.)+([\w]{2,5}))(:[\d]{1,5})?)?((/?\w+/)+|/?)(\w+\.[\w]{3,4})?([,]\w+)*((\?\w+=\w+)?(&\w+=\w+)*([,]\w*)*)?",
 			"alpha"d,      r"^[a-zA-Z_]+$"d,
 			"space"d,      r"^\s+$"d,
 			"digit"d,      r"^\d+$"d,
@@ -81,44 +81,45 @@ class RegexpLib
 
 	int test(MDState s, uint numParams)
 	{
-		char[] pattern = s.getParam!(char[])(0);
-		char[] src = s.getParam!(char[])(1);
-		char[] attributes = "";
-		
-		if(numParams > 2)
-			attributes = s.getParam!(char[])(2);
+		auto pattern = s.getParam!(MDString)(0).mData;
+		auto src = s.getParam!(MDString)(1).mData;
+		dchar[] attributes = "";
 
-		s.push(s.safeCode(cast(bool)Regex(pattern, attributes).test(src)));
+		if(numParams > 2)
+			attributes = s.getParam!(MDString)(2).mData;
+
+		scope rx = s.safeCode(Regexd(pattern, attributes));
+		s.push(s.safeCode(cast(bool)rx.test(src)));
 		return 1;
 	}
 
 	int replace(MDState s, uint numParams)
 	{
-		char[] pattern = s.getParam!(char[])(0);
-		char[] src = s.getParam!(char[])(1);
-		char[] attributes = "";
+		auto pattern = s.getParam!(MDString)(0).mData;
+		auto src = s.getParam!(MDString)(1).mData;
+		dchar[] attributes = "";
 
 		if(numParams > 3)
-			attributes = s.getParam!(char[])(3);
+			attributes = s.getParam!(MDString)(3).mData;
+			
+		scope rx = s.safeCode(Regexd(pattern, attributes));
 
 		if(s.isParam!("string")(2))
 		{
-			char[] rep = s.getParam!(char[])(2);
-			s.push(s.safeCode(Regex(pattern, attributes).replace(src, rep)));
+			auto rep = s.getParam!(MDString)(2).mData;
+			s.push(s.safeCode(rx.replaceAll(src, rep)));
 		}
 		else
 		{
-			MDClosure rep = s.getParam!(MDClosure)(2);
-			scope MDRegexp temp = regexpClass.newInstance();
+			auto rep = s.getParam!(MDClosure)(2);
+			scope temp = regexpClass.newInstance();
 
-			s.push(s.safeCode(sub(src, pattern, (Regex m)
+			s.push(s.safeCode(rx.replaceAll(src, (Regexd m)
 			{
-				temp.constructor(m);
-				
+				temp.mRegexp = m;
 				s.easyCall(rep, 1, s.getContext(), temp);
-				
-				return s.pop!(char[]);
-			}, attributes)));
+				return s.pop!(MDString).mData;
+			})));
 		}
 
 		return 1;
@@ -126,37 +127,63 @@ class RegexpLib
 
 	int split(MDState s, uint numParams)
 	{
-		char[] pattern = s.getParam!(char[])(0);
-		char[] src = s.getParam!(char[])(1);
-		char[] attributes = "";
-		
-		if(numParams > 2)
-			attributes = s.getParam!(char[])(2);
+		auto pattern = s.getParam!(MDString)(0).mData;
+		auto src = s.getParam!(MDString)(1).mData;
+		dchar[] attributes = "";
 
-		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).split(src))));
+		if(numParams > 2)
+			attributes = s.getParam!(MDString)(2).mData;
+
+		scope rx = s.safeCode(Regexd(pattern, attributes));
+		s.push(MDArray.fromArray(s.safeCode(rx.split(src))));
 		return 1;
 	}
 
 	int match(MDState s, uint numParams)
 	{
-		char[] pattern = s.getParam!(char[])(0);
-		char[] src = s.getParam!(char[])(1);
-		char[] attributes = "";
-		
-		if(numParams > 2)
-			attributes = s.getParam!(char[])(2);
+		auto pattern = s.getParam!(MDString)(0).mData;
+		auto src = s.getParam!(MDString)(1).mData;
+		dchar[] attributes = "";
 
-		s.push(MDArray.fromArray(s.safeCode(Regex(pattern, attributes).match(src))));
+		if(numParams > 2)
+			attributes = s.getParam!(MDString)(2).mData;
+
+		bool global = false;
+		
+		foreach(c; attributes)
+		{
+			if(c is 'g')
+			{
+				global = true;
+				break;
+			}
+		}
+		
+		scope r = s.safeCode(Regexd(pattern, attributes));
+		dchar[][] matches;
+
+		if(global)
+		{
+			for(auto cont = s.safeCode(r.test(src)); cont; cont = s.safeCode(r.test()))
+				matches ~= r.match(0);
+		}
+		else
+		{
+			if(s.safeCode(r.test(src)))
+				matches ~= r.match(0);
+		}
+
+		s.push(MDArray.fromArray(matches));
 		return 1;
 	}
 
 	int compile(MDState s, uint numParams)
 	{
-		char[] pattern = s.getParam!(char[])(0);
-		char[] attributes = "";
+		auto pattern = s.getParam!(MDString)(0).mData;
+		dchar[] attributes = "";
 
 		if(numParams > 1)
-			attributes = s.getParam!(char[])(1);
+			attributes = s.getParam!(MDString)(1).mData;
 
 		s.push(s.safeCode(regexpClass.newInstance(pattern, attributes)));
 		return 1;
@@ -164,6 +191,19 @@ class RegexpLib
 
 	static class MDRegexpClass : MDClass
 	{
+		MDClosure iteratorClosure;
+
+		static class MDRegexp : MDInstance
+		{
+			protected Regexd mRegexp;
+			protected bool mGlobal = false;
+
+			public this(MDClass owner)
+			{
+				super(owner);
+			}
+		}
+
 		public this()
 		{
 			super("Regexp", null);
@@ -189,85 +229,143 @@ class RegexpLib
 			return new MDRegexp(this);
 		}
 
-		protected MDRegexp newInstance(char[] pattern, char[] attributes)
+		protected MDRegexp newInstance(dchar[] pattern, dchar[] attributes)
 		{
-			MDRegexp n = newInstance();
-			n.constructor(pattern,attributes);
+			auto n = newInstance();
+			n.mRegexp = Regexd(pattern, attributes);
+
+			foreach(c; attributes)
+			{
+				if(c is 'g')
+				{
+					n.mGlobal = true;
+					break;
+				}
+			}
+
+			return n;
+		}
+		
+		protected MDRegexp newInstance(Regexd rxp)
+		{
+			auto n = newInstance();
+			n.mRegexp = rxp;
+			n.mGlobal = true;
 			return n;
 		}
 
 		public int test(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(r.test(s.getParam!(char[])(0)));
+			auto r = s.getContext!(MDRegexp).mRegexp;
+			
+			if(numParams > 0)
+				s.push(s.safeCode(r.test(s.getParam!(MDString)(0).mData)));
+			else
+				s.push(s.safeCode(r.test()));
 			return 1;
 		}
 
 		public int match(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
+			auto r = s.getContext!(MDRegexp).mRegexp;
 
 			if(s.isParam!("int")(0))
-				s.push(r.match(s.getParam!(int)(0)));
+				s.push(s.safeCode(r.match(s.getParam!(int)(0))));
 			else
-				s.push(MDArray.fromArray(r.match(s.getParam!(char[])(0))));
+			{
+				auto src = s.getParam!(MDString)(0).mData;
+				dchar[][] matches;
+
+				if(s.getContext!(MDRegexp).mGlobal)
+				{
+					for(auto cont = s.safeCode(r.test(src)); cont; cont = s.safeCode(r.test()))
+						matches ~= r.match(0);
+				}
+				else
+				{
+					if(s.safeCode(r.test(src)))
+						matches ~= r.match(0);
+				}
+
+				s.push(MDArray.fromArray(matches));
+			}
 
 			return 1;
 		}
 
 		public int search(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			char[] str = s.getParam!(char[])(0);
-
-			r.search(str);
+			auto r = s.getContext!(MDRegexp);
+			s.safeCode(r.mRegexp.search(s.getParam!(MDString)(0).mData));
 			s.push(r);
 			return 1;
 		}
-		
+
 		public int pre(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(r.pre());
+			s.push(s.safeCode(s.getContext!(MDRegexp).mRegexp.pre()));
 			return 1;
 		}
 
 		public int post(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(r.post());
+			s.push(s.safeCode(s.getContext!(MDRegexp).mRegexp.post()));
 			return 1;
 		}
 
 		public int replace(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(r.replace(s.getParam!(char[])(0), s.getParam!(char[])(1)));
+			auto r = s.getContext!(MDRegexp).mRegexp;
+			auto src = s.getParam!(MDString)(0).mData;
+
+			if(s.isParam!("string")(1))
+			{
+				auto rep = s.getParam!(MDString)(1).mData;
+				s.push(s.safeCode(r.replaceAll(src, rep)));
+			}
+			else
+			{
+				auto rep = s.getParam!(MDClosure)(2);
+				scope temp = newInstance();
+
+				s.push(s.safeCode(r.replaceAll(src, (Regexd m)
+				{
+					temp.mRegexp = m;
+					s.easyCall(rep, 1, s.getContext(), temp);
+					return s.pop!(MDString).mData;
+				})));
+			}
+
 			return 1;
 		}
 
 		public int split(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(MDArray.fromArray(r.split(s.getParam!(char[])(0))));
+			auto r = s.getContext!(MDRegexp).mRegexp;
+			s.push(MDArray.fromArray(s.safeCode(r.split(s.getParam!(MDString)(0).mData))));
 			return 1;
 		}
 
 		public int find(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
-			s.push(r.find(s.getParam!(char[])(0)));
+			auto r = s.getContext!(MDRegexp).mRegexp;
+			auto str = s.getParam!(MDString)(0).mData;
+			
+			int pos = -1;
+
+			if(s.safeCode(r.test(str)))
+				pos = s.safeCode(r.match(0)).ptr - str.ptr;
+
+			s.push(pos);
 			return 1;
 		}
 
-		MDClosure iteratorClosure;
-
 		int iterator(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
+			auto r = s.getContext!(MDRegexp);
 			int index = s.getParam!(int)(0) + 1;
 
-			if(!r.test())
+			if(!s.safeCode(r.mRegexp.test()))
 				return 0;
 
 			s.push(index);
@@ -277,81 +375,10 @@ class RegexpLib
 
 		public int apply(MDState s, uint numParams)
 		{
-			MDRegexp r = s.getContext!(MDRegexp);
 			s.push(iteratorClosure);
-			s.push(r);
+			s.push(s.getContext!(MDRegexp));
 			s.push(-1);
 			return 3;
-		}
-	}
-
-	static class MDRegexp : MDInstance
-	{
-		protected Regex mRegexp;
-
-		public this(MDClass owner)
-		{
-			super(owner);
-		}
-
-		public void constructor(char[] pattern, char[] attributes)
-		{
-			mRegexp = new Regex(pattern, attributes);
-		}
-
-		public void constructor(Regex rxp)
-		{
-			mRegexp = rxp;
-		}
-
-		char[] match(uint n)
-		{
-			return mRegexp.match(n);
-		}
-		
-		char[] pre()
-		{
-			return mRegexp.pre();
-		}
-
-		char[] post()
-		{
-			return mRegexp.post();
-		}
-
-		public bool test(char[] str)
-		{
-			return cast(bool)mRegexp.test(str);
-		}
-		
-		public bool test()
-		{
-			return cast(bool)mRegexp.test();
-		}
-
-		int find(char[] str)
-		{
-			return mRegexp.find(str);
-		}
-
-		char[][] split(char[] str)
-		{
-			return mRegexp.split(str);
-		}
-
-		char[][] match(char[] str)
-		{
-			return mRegexp.match(str);
-		}
-
-		char[] replace(char[] str, char[] format)
-		{
-			return mRegexp.replace(str,format);
-		}
-		
-		void search(char[] str)
-		{
-			mRegexp.search(str);
 		}
 	}
 }
