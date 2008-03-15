@@ -29,6 +29,8 @@ import minid.utils;
 
 import tango.text.Regex;
 
+private alias RegExpT!(dchar) Regexd;
+
 class RegexpLib
 {
 	private static RegexpLib lib;
