@@ -2242,7 +2242,7 @@ class MDClass : MDObject
 
 	/**
 	Creates a new class.
-	
+
 	Params:
 		guessedName = The name of the class.  This is called "guessed" mostly because in MiniD code, classes
 			do not have any intrinsic name associated with them, and sometimes the compiler will generate a
@@ -3210,7 +3210,7 @@ used to run code.
 You can create multiple, independent MiniD execution contexts.  These are not the same as states.  A state
 is simply a thread of execution, and there can be multiple states associated with a single context.
 When you create a context, a default state (its "main thread") is created for you.  This thread can spawn
-other threads with the creation of coroutines.  
+other threads with the creation of coroutines.
 
 A context is useful for creating a "sandbox."  What you can do is create a context, and only load into it
 libraries which you know are safe.  Then you can execute untrusted code in this sandbox, and it won't have
@@ -3650,7 +3650,7 @@ final class MDState : MDObject
 		will begin execution.
 		*/
 		Initial,
-		
+
 		/**
 		Means that the coroutine resumed another coroutine and is waiting for it to yield or return.
 		*/
@@ -4530,7 +4530,7 @@ final class MDState : MDObject
 	{
 		binaryReflOp(MM.AndEq, &a, &b);
 	}
-	
+
 	/// ditto
 	public final void oreq(ref MDValue a, ref MDValue b)
 	{
@@ -5446,7 +5446,7 @@ final class MDState : MDObject
 		call(funcSlot, 1, 1);
 		return pop();
 	}
-
+	
 	protected final void reflOp(MM operation, MDValue* RD, MDValue* RS)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("ReflArith");
@@ -5503,10 +5503,10 @@ final class MDState : MDObject
 			{
 				f1 = RD.mFloat;
 				f2 = RS.mFloat;
-				
-				RD.mType = MDValue.Type.Float;
 
 				_float:
+				RD.mType = MDValue.Type.Float;
+
 				switch(operation)
 				{
 					case MM.AddEq: RD.mFloat = f1 + f2; return;
