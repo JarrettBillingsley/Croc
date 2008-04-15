@@ -855,13 +855,37 @@ class BaseLib
 		
 		public int opSlice(MDState s, uint numParams)
 		{
-			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)]);
+			int lo, hi;
+			
+			if(s.isParam!("null")(0))
+				lo = 0;
+			else
+				lo = s.getParam!(int)(0);
+
+			if(s.isParam!("null")(1))
+				hi = -1;
+			else
+				hi = s.getParam!(int)(1);
+
+			s.push(s.getContext!(MDStringBuffer)()[lo .. hi]);
 			return 1;
 		}
 		
 		public int opSliceAssign(MDState s, uint numParams)
 		{
-			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
+			int lo, hi;
+			
+			if(s.isParam!("null")(0))
+				lo = 0;
+			else
+				lo = s.getParam!(int)(0);
+
+			if(s.isParam!("null")(1))
+				hi = -1;
+			else
+				hi = s.getParam!(int)(1);
+
+			s.getContext!(MDStringBuffer)()[lo .. hi] = s.getParam!(dchar[])(2);
 			return 0;
 		}
 		
@@ -1029,7 +1053,7 @@ class BaseLib
 			if(hi < 0)
 				hi += mLength;
 
-			if(lo < 0 || lo > hi || hi >= mLength)
+			if(lo < 0 || lo > hi || hi > mLength)
 				throw new MDException("Invalid indices: {} .. {}", lo, hi);
 
 			return mBuffer[lo .. hi];
@@ -1043,7 +1067,7 @@ class BaseLib
 			if(hi < 0)
 				hi += mLength;
 
-			if(lo < 0 || lo > hi || hi >= mLength)
+			if(lo < 0 || lo > hi || hi > mLength)
 				throw new MDException("Invalid indices: {} .. {}", lo, hi);
 
 			if(hi - lo != s.length)
