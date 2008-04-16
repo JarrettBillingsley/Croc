@@ -31,6 +31,7 @@ import tango.stdc.stringz;
 import tango.sys.Environment;
 import tango.text.locale.Convert;
 import tango.text.locale.Core;
+import tango.time.Clock;
 import tango.time.Time;
 import tango.time.StopWatch;
 import tango.time.WallClock;
@@ -168,6 +169,8 @@ class OSLib
 
 		if(numParams > 1 && !s.isParam!("null")(1))
 			time = TableToTime(s, s.getParam!(MDTable)(1));
+		else if(format == "R")
+			time = Clock.now;
 		else
 			time = WallClock.now;
 
