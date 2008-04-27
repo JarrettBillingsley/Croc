@@ -47,6 +47,7 @@ import minid.utils;
 //debug = VARACTIVATE;
 //debug = WRITECODE;
 //debug = SHOWME;
+//debug = PRINTEXPSTACK;
 
 /**
 Compile a source code file into a binary module.  Takes the path to the source file and returns
@@ -120,6 +121,9 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 		{
 			fs.showMe(); Stdout.flush;
 		}
+		
+		debug(PRINTEXPSTACK)
+			fs.printExpStack();
 	}
 
 	return fs.toFuncDef();
@@ -159,6 +163,9 @@ public MDFuncDef compileExpression(dchar[] source, char[] name)
 		{
 			fs.showMe(); Stdout.flush;
 		}
+		
+		debug(PRINTEXPSTACK)
+			fs.printExpStack();
 	}
 
 	return fs.toFuncDef();
@@ -2335,6 +2342,7 @@ class FuncState
 				
 				codeR(line, Op.VargIndexAssign, 0, dest.index, src.index);
 				freeExpTempRegs(src);
+				freeExpTempRegs(dest);
 				break;
 
 			case ExpType.Sliced:
@@ -2408,6 +2416,7 @@ class FuncState
 
 			case ExpType.IndexedVararg:
 				codeR(line, Op.VargIndex, dest, src.index, 0);
+				freeExpTempRegs(src);
 				break;
 
 			case ExpType.Sliced:
@@ -2615,6 +2624,7 @@ class FuncState
 
 			case ExpType.IndexedVararg:
 				codeR(line, Op.VargIndexAssign, 0, dest.index, srcReg);
+				freeExpTempRegs(dest);
 				break;
 				
 			case ExpType.Sliced:
@@ -2757,6 +2767,9 @@ class FuncState
 				break;
 
 			case ExpType.IndexedVararg:
+				if(cleanup)
+					freeExpTempRegs(e);
+
 				temp.index = pushRegister();
 				temp.isTempReg = true;
 				codeR(line, Op.VargIndex, temp.index, e.index, 0);
@@ -2821,6 +2834,9 @@ class FuncState
 				break;
 				
 			case ExpType.SlicedVararg:
+				if(cleanup)
+					freeExpTempRegs(e);
+					
 				codeI(line, Op.VargSlice, e.index, 2);
 				temp.index = e.index;
 				break;
@@ -4588,7 +4604,9 @@ class Module : AstNode
 			{
 				showMe(); fs.showMe(); Stdout.flush;
 			}
-			//fs.printExpStack();
+			
+			debug(PRINTEXPSTACK)
+				fs.printExpStack();
 		}
 
 		assert(fs.mExpSP == 0, "module - not all expressions have been popped");

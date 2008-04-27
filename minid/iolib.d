@@ -732,7 +732,7 @@ class IOLib
 			s.push(s.safeCode(s.getContext!(MDStream).mInput.readVal!(T)()));
 			return 1;
 		}
-		
+
 		public int readString(MDState s, uint numParams)
 		{
 			s.push(s.safeCode(s.getContext!(MDStream).mInput.readString()));
@@ -767,43 +767,50 @@ class IOLib
 
 		public int writeVal(T)(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeVal!(T)(s.getParam!(T)(0))));
+			s.safeCode(s.getContext!(MDStream).mOutput.writeVal!(T)(s.getParam!(T)(0)));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int writeString(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeString(s.getParam!(dchar[])(0))));
+			s.safeCode(s.getContext!(MDStream).mOutput.writeString(s.getParam!(dchar[])(0)));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int write(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.write(s, s.getAllParams())));
+			s.safeCode(s.getContext!(MDStream).mOutput.write(s, s.getAllParams()));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int writeln(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeln(s, s.getAllParams())));
+			s.safeCode(s.getContext!(MDStream).mOutput.writeln(s, s.getAllParams()));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int writef(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writef(s, s.getAllParams())));
+			s.safeCode(s.getContext!(MDStream).mOutput.writef(s, s.getAllParams()));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int writefln(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writefln(s, s.getAllParams())));
+			s.safeCode(s.getContext!(MDStream).mOutput.writefln(s, s.getAllParams()));
+			s.push(s.getContext());
 			return 1;
 		}
 
 		public int writeChars(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeChars(s.getParam!(char[])(0))));
+			s.safeCode(s.getContext!(MDStream).mOutput.writeChars(s.getParam!(char[])(0)));
+			s.push(s.getContext());
 			return 1;
 		}
 
@@ -814,13 +821,15 @@ class IOLib
 			if(numParams > 1)
 				pretty = s.getParam!(bool)(1);
 
-			s.push(s.getContext!(MDStream).mOutput.writeJSON(s, s.getParam(0u), pretty));
+			s.getContext!(MDStream).mOutput.writeJSON(s, s.getParam(0u), pretty);
+			s.push(s.getContext());
 			return 1;
 		}
-		
+
 		public int flush(MDState s, uint numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.flush()));
+			s.safeCode(s.getContext!(MDStream).mOutput.flush());
+			s.push(s.getContext());
 			return 1;
 		}
 

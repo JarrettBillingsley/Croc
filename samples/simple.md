@@ -1,19 +1,5 @@
 module simple
 
-function g()
-{
-	return 5
-}
-
-function f()
-{
-	return
-	g()
-}
-
-writeln((f()))
-
-/+
 /*object BaseProp
 {
 	function get()
@@ -31,6 +17,7 @@ object Bah : BaseProp
 	function set(owner, value)
 		writefln("Setting bah's value to ", value, ".")
 }
+
 
 function getMethod(T, name) = name in fieldsOf(T) ? T.(name) : null
 
@@ -84,6 +71,7 @@ writeln(t.x)
 t.x = 10
 writeln(t.x)
 
+/*
 function shuffle(arr)
 	for(i: 0 .. #arr)
 	{
@@ -129,7 +117,7 @@ writeln(Deck.dealCard())
 writeln(Deck.dealCard())
 */
 // Making sure finally blocks are executed.
-{
+/+{
 	local function f()
 	{
 		try
@@ -730,7 +718,7 @@ writeln(Deck.dealCard())
 	
 	foreach(i, v; array)
 		writefln("arr[", i, "] = ", v)
-	
+
 	array ~= ["foo", "far"]
 	
 	writefln()

@@ -4814,7 +4814,7 @@ final class MDState : MDBaseObject
 	{
 		throwRuntimeException(fmt, _arguments, _argptr);
 	}
-	
+
 	// ditto
 	public final void throwRuntimeException(char[] fmt, TypeInfo[] arguments, va_list argptr)
 	{
@@ -5536,16 +5536,9 @@ final class MDState : MDBaseObject
 				actualReturns = closure.native.dg(this, numParams - 1);
 			}
 			catch(MDRuntimeException e)
-			{
-				//callEpilogue(false);
 				throw e;
-			}
 			catch(MDException e)
-			{
-				Location loc = startTraceback();
-				callEpilogue(false);
-				throw new MDRuntimeException(loc, &e.value);
-			}
+				throw new MDRuntimeException(startTraceback(), &e.value);
 			catch(MDHaltException e)
 			{
 				if(mNativeCallDepth > 0)
@@ -5556,7 +5549,7 @@ final class MDState : MDBaseObject
 					
 				saveResults(null);
 				callEpilogue(true);
-				
+
 				if(mARIndex > 0)
 					throw e;
 					
@@ -8676,10 +8669,10 @@ final class MDState : MDBaseObject
 				depth--;
 
 				callEpilogue(false);
+				mContext.mTraceback ~= getDebugLocation();
 
 				if(depth > 0)
 				{
-					mContext.mTraceback ~= getDebugLocation();
 					constTable = mCurrentAR.func.script.func.mConstants;
 					env = mCurrentAR.func.environment;
 					stackBase = mCurrentAR.base;
