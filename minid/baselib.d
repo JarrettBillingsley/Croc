@@ -33,12 +33,14 @@ import tango.io.Console;
 import tango.io.GrowBuffer;
 import tango.io.Print;
 import tango.io.Stdout;
+import tango.stdc.ctype;
 import utf = tango.text.convert.Utf;
 
 final class BaseLib
 {
 static:
 	private MDString[] typeStrings;
+	private MDString toStringStr;
 
 	static this()
 	{
@@ -46,6 +48,8 @@ static:
 
 		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
 			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
+			
+		toStringStr = new MDString("toString"d);
 	}
 
 	public void init(MDContext context)
@@ -108,6 +112,7 @@ static:
 		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
 		globals["write"d] =           new MDClosure(globals.ns, &write,                 "write");
 		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
+		globals["dumpVal"d] =         new MDClosure(globals.ns, &dumpVal,               "dumpVal");
 
 		// Dynamic compilation stuff
 		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
@@ -227,6 +232,167 @@ static:
 		}
 
 		Stdout.flush;
+		return 0;
+	}
+
+	int dumpVal(MDState s, uint numParams)
+	{
+		void outputRepr(ref MDValue v)
+		{
+			if(s.hasPendingHalt())
+				throw new MDHaltException();
+	
+			static bool[MDBaseObject] shown;
+	
+			void escape(dchar c)
+			{
+				switch(c)
+				{
+					case '\'': Stdout(`\'`); break;
+					case '\"': Stdout(`\"`); break;
+					case '\\': Stdout(`\\`); break;
+					case '\a': Stdout(`\a`); break;
+					case '\b': Stdout(`\b`); break;
+					case '\f': Stdout(`\f`); break;
+					case '\n': Stdout(`\n`); break;
+					case '\r': Stdout(`\r`); break;
+					case '\t': Stdout(`\t`); break;
+					case '\v': Stdout(`\v`); break;
+	
+					default:
+						if(c <= 0x7f && isprint(c))
+							Stdout(c);
+						else if(c <= 0xFFFF)
+							Stdout.format("\\u{:x4}", cast(uint)c);
+						else
+							Stdout.format("\\U{:x8}", cast(uint)c);
+						break;
+				}
+			}
+			
+			void delegate(MDArray) outputArray;
+			void delegate(MDTable) outputTable;
+	
+			void outputArray_(MDArray a)
+			{
+				if(a in shown)
+				{
+					Stdout("[...]");
+					return;
+				}
+	
+				shown[a] = true;
+				
+				scope(exit)
+					shown.remove(a);
+	
+				Stdout('[');
+	
+				if(a.length > 0)
+				{
+					outputRepr(*a[0]);
+	
+					for(int i = 1; i < a.length; i++)
+					{
+						if(s.hasPendingHalt())
+							throw new MDHaltException();
+	
+						Stdout(", ");
+						outputRepr(*a[i]);
+					}
+				}
+	
+				Stdout(']');
+			}
+	
+			void outputTable_(MDTable t)
+			{
+				if(t in shown)
+				{
+					Stdout("{...}");
+					return;
+				}
+	
+				shown[t] = true;
+	
+				Stdout('{');
+	
+				if(t.length > 0)
+				{
+					if(t.length == 1)
+					{
+						foreach(k, v; t)
+						{
+							if(s.hasPendingHalt())
+								throw new MDHaltException();
+					
+							Stdout('[');
+							outputRepr(k);
+							Stdout("] = ");
+							outputRepr(v);
+						}
+					}
+					else
+					{
+						bool first = true;
+	
+						foreach(k, v; t)
+						{
+							if(first)
+								first = !first;
+							else
+								Stdout(", ");
+								
+							if(s.hasPendingHalt())
+								throw new MDHaltException();
+	
+							Stdout('[');
+							outputRepr(k);
+							Stdout("] = ");
+							outputRepr(v);
+						}
+					}
+				}
+	
+				Stdout('}');
+
+				shown.remove(t);
+			}
+	
+			outputArray = &outputArray_;
+			outputTable = &outputTable_;
+	
+			if(v.isString)
+			{
+				Stdout('"');
+				
+				auto s = v.as!(MDString);
+	
+				for(int i = 0; i < s.length; i++)
+					escape(s[i]);
+	
+				Stdout('"');
+			}
+			else if(v.isChar)
+			{
+				Stdout("'");
+				escape(v.as!(dchar));
+				Stdout("'");
+			}
+			else if(v.isArray)
+				outputArray(v.as!(MDArray));
+			else if(v.isTable)
+			{
+				if(s.hasMethod(v, toStringStr))
+					Stdout(s.valueToString(v));
+				else
+					outputTable(v.as!(MDTable));
+			}
+			else
+				Stdout(s.valueToString(v));
+		}
+
+		outputRepr(s.getParam(0u));
 		return 0;
 	}
 

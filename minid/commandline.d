@@ -78,13 +78,11 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 
 	private Print!(char) mOutput;
 	private LineIterator!(char) mInput;
-	private MDString mToStringStr;
 
 	public this(Print!(char) output, InputStream inputStream)
 	{
 		mOutput = output;
 		mInput = new LineIterator!(char)(inputStream);
-		mToStringStr = new MDString("toString"d);
 	}
 
 	public this(OutputStream outputStream, InputStream inputStream)
@@ -104,160 +102,6 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 		mOutput("\t")(progname)(" [flags] [filename [args]]").newline;
 
 		mOutput(Usage);
-	}
-
-	private void outputRepr(MDState state, ref MDValue v)
-	{
-		if(state.hasPendingHalt())
-			throw new MDHaltException();
-
-		static bool[MDBaseObject] shown;
-
-		void escape(dchar c)
-		{
-			switch(c)
-			{
-				case '\'': mOutput(`\'`); break;
-				case '\"': mOutput(`\"`); break;
-				case '\\': mOutput(`\\`); break;
-				case '\a': mOutput(`\a`); break;
-				case '\b': mOutput(`\b`); break;
-				case '\f': mOutput(`\f`); break;
-				case '\n': mOutput(`\n`); break;
-				case '\r': mOutput(`\r`); break;
-				case '\t': mOutput(`\t`); break;
-				case '\v': mOutput(`\v`); break;
-
-				default:
-					if(c <= 0x7f && isprint(c))
-						mOutput(c);
-					else if(c <= 0xFFFF)
-						mOutput.format("\\u{:x4}", cast(uint)c);
-					else
-						mOutput.format("\\U{:x8}", cast(uint)c);
-					break;
-			}
-		}
-		
-		void delegate(MDArray) outputArray;
-		void delegate(MDTable) outputTable;
-
-		void outputArray_(MDArray a)
-		{
-			if(a in shown)
-			{
-				mOutput("[...]");
-				return;
-			}
-			
-			shown[a] = true;
-
-			mOutput('[');
-
-			if(a.length > 0)
-			{
-				outputRepr(state, *a[0]);
-				
-				for(int i = 1; i < a.length; i++)
-				{
-					if(state.hasPendingHalt())
-						throw new MDHaltException();
-
-					mOutput(", ");
-					outputRepr(state, *a[i]);
-				}
-			}
-
-			mOutput(']');
-			
-			shown.remove(a);
-		}
-
-		void outputTable_(MDTable t)
-		{
-			if(t in shown)
-			{
-				mOutput("{...}");
-				return;
-			}
-
-			shown[t] = true;
-
-			mOutput('{');
-
-			if(t.length > 0)
-			{
-				if(t.length == 1)
-				{
-					foreach(k, v; t)
-					{
-						if(state.hasPendingHalt())
-							throw new MDHaltException();
-				
-						mOutput('[');
-						outputRepr(state, k);
-						mOutput("] = ");
-						outputRepr(state, v);
-					}
-				}
-				else
-				{
-					bool first = true;
-
-					foreach(k, v; t)
-					{
-						if(first)
-							first = !first;
-						else
-							mOutput(", ");
-							
-						if(state.hasPendingHalt())
-							throw new MDHaltException();
-
-						mOutput('[');
-						outputRepr(state, k);
-						mOutput("] = ");
-						outputRepr(state, v);
-					}
-				}
-			}
-
-			mOutput('}');
-
-			shown.remove(t);
-		}
-
-		outputArray = &outputArray_;
-		outputTable = &outputTable_;
-
-		if(v.isString)
-		{
-			mOutput('"');
-			
-			auto s = v.as!(MDString);
-
-			for(int i = 0; i < s.length; i++)
-				escape(s[i]);
-
-			mOutput('"');
-		}
-		else if(v.isChar)
-		{
-			mOutput("'");
-			escape(v.as!(dchar));
-			mOutput("'");
-		}
-		else if(v.isArray)
-			outputArray(v.as!(MDArray));
-		else if(v.isTable)
-		{
-			if(state.hasMethod(v, mToStringStr))
-				mOutput(state.valueToString(v));
-			else
-				outputTable(v.as!(MDTable));
-		}
-		else
-			mOutput(state.valueToString(v));
 	}
 
 	void run(char[][] args = null, MDContext ctx = null)
@@ -388,21 +232,8 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 					return 0;
 				}, "exit"
 			);
-
-			MDClosure reprFunc = ctx.newClosure
-			(
-				(MDState s, uint numParams)
-				{
-					outputRepr(s, s.getParam(0u));
-					
-					if(numParams == 1 || (numParams > 1 && s.getParam!(bool)(1)))
-						mOutput.newline;
-
-					return 0;
-				}, "repr"
-			);
 			
-			ctx.globals["repr"d] = reprFunc;
+			auto reprFunc = ctx.globals["dumpVal"d];
 
 			mOutput("Use the \"exit()\" function to end.").newline;
 			mOutput(Prompt1)();
