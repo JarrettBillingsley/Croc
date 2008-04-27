@@ -1005,7 +1005,7 @@ private T GetParameter(T)(MDState s, int index)
 		return s.getParam!(T)(index);
 }
 
-private T ToDType(T)(ref MDValue v)
+public T ToDType(T)(ref MDValue v)
 {
 	static if(is(T : Object) && !is(T : MDObject))
 	{
@@ -1024,7 +1024,7 @@ private T ToDType(T)(ref MDValue v)
 		return v.to!(T);
 }
 
-private MDValue ToMiniDType(T)(T v)
+public MDValue ToMiniDType(T)(T v)
 {
 	static if(is(T : Object) && !is(T : MDObject))
 	{
