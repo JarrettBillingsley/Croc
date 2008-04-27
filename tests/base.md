@@ -13,7 +13,6 @@ try f.readf("%"); catch(e){ writefln("BO"); }
 writefln("{,-5}", 10);
 writefln("{} {} {}", null, true, []);
 writefln("{} {} {} {} {}", 4, 5.6, 'h', "hi", 7);
-writefln("{:10E}", 5);
 writefln("{r}", []);
 writefln("{{");
 writefln("{}");

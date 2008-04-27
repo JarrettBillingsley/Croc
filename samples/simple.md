@@ -1,6 +1,5 @@
 module simple;
 
-/+
 if(false)
 {
 	import arc.draw.color : Color;
@@ -1003,4 +1002,4 @@ co(3, 4);
 				break;
 		}
 	}
-}+/
+}
