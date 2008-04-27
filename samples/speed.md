@@ -47,7 +47,7 @@ local t1
 
 local function foo() return;
 
-local class Tester
+local object Tester
 {
 	x
 
@@ -199,8 +199,8 @@ local class Tester
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			Tester(); Tester(); Tester(); Tester()
-			Tester(); Tester(); Tester(); Tester()
+			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
+			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
 		}
 
 		:endTimer("instantiations\t")
@@ -232,4 +232,5 @@ local class Tester
 	}
 }
 
-Tester().test()
+function main()
+	Tester.test()

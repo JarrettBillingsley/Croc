@@ -192,7 +192,9 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			{
 				try
 				{
-					if(ctx.loadModuleFromFile(state, utf.toString32(inputFile), params) is null)
+					if(auto ns = ctx.loadModuleFromFile(state, utf.toString32(inputFile)))
+						runMain(state, ns, params);
+					else
 						mOutput.formatln("Error: could not find module '{}'", inputFile);
 				}
 				catch(MDException e)
@@ -204,7 +206,10 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			else
 			{
 				try
-					ctx.initializeModule(state, def, params);
+				{
+					auto ns = ctx.initializeModule(state, def);
+					runMain(state, ns, params);
+				}
 				catch(MDException e)
 				{
 					mOutput.formatln("Error: {}", e);

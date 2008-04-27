@@ -23,18 +23,21 @@ function test()
 	return #l1
 }
 
-local n = 1
-
-if(#vararg > 0)
-	n = toInt(vararg[0])
-
-for(i : 0 .. n)
+function main(N)
 {
-	if(!test())
-	{
-		writefln("failed")
-		return
-	}
-}
+	local n = 1
 
-writefln("oki doki")
+	if(isString(N))
+		n = toInt(N)
+
+	for(i : 0 .. n)
+	{
+		if(!test())
+		{
+			writefln("failed")
+			return
+		}
+	}
+
+	writefln("oki doki")
+}

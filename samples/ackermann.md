@@ -8,15 +8,18 @@ local function Ack(M, N)
 	else
 		return Ack(M - 1, Ack(M, (N - 1)))
 
-local n = 1
-
-if(#vararg > 0)
+function main(N)
 {
-	n = toInt(vararg[0])
+	local n = 1
 
-	if(n < 1)
-		n = 1
+	if(isString(N))
+	{
+		n = toInt(N)
+
+		if(n < 1)
+			n = 1
+	}
+
+	writefln("n = ", n)
+	writefln("Ack(3, ", n, "): ", Ack(3, n))
 }
-
-writefln("n = ", n)
-writefln("Ack(3, ", n, "): ", Ack(3, n))

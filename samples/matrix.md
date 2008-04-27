@@ -39,16 +39,19 @@ function mmult(rows, cols, m1, m2, m3)
 	return m3
 }
 
-local n = 1
+function main(N)
+{
+	local n = 1
 
-if(#vararg > 0)
-	n = toInt(vararg[0])
+	if(isString(N))
+		n = toInt(N)
 
-local m1 = mkmatrix(SIZE, SIZE)
-local m2 = mkmatrix(SIZE, SIZE)
-local mm = mkmatrix(SIZE, SIZE)
+	local m1 = mkmatrix(SIZE, SIZE)
+	local m2 = mkmatrix(SIZE, SIZE)
+	local mm = mkmatrix(SIZE, SIZE)
 
-for(i: 0 .. n)
-	mmult(SIZE, SIZE, m1, m2, mm)
+	for(i: 0 .. n)
+		mmult(SIZE, SIZE, m1, m2, mm)
 
-writefln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4])
+	writefln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4])
+}

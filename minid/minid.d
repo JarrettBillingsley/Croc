@@ -122,7 +122,8 @@ enum MDStdlib
 
 /**
 Initializes a new MiniD context and loads any specified standard libraries into it.  Each new
-context is also given a new MDState as its main thread.
+context is also given a new MDState as its main thread.  The base library is always loaded into
+the context.
 
 Params:
 	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
@@ -172,17 +173,15 @@ Params:
 	s = The state that will be used to initialize the module after it has been compiled.
 		The module will be loaded into the global namespace of this state's context as well.
 	source = The source code of the module, exactly as it would appear in a file.
-	params = An optional list of parameters.  These are passed as the variadic parameters
-		to the top-level module function.  Defaults to null (no parameters).
 	name = The name which takes the place of the filename, used by the compiler to report
 		error messages.  Defaults to "&lt;module string&gt;".
 
 Returns:
 	The top-level namespace of the module.
 */
-public MDNamespace loadModuleString(MDState s, dchar[] source, MDValue[] params = null, char[] name = "<module string>")
+public MDNamespace loadModuleString(MDState s, dchar[] source, char[] name = "<module string>")
 {
-	return s.context.initializeModule(s, compileModule(source, name), params);
+	return s.context.initializeModule(s, compileModule(source, name));
 }
 
 /**
@@ -342,6 +341,20 @@ alias writeJSON!(wchar) writeJSONw;
 /// ditto
 alias writeJSON!(dchar) writeJSONd;
 
+public void runMain(MDState s, MDNamespace ns, MDValue[] params...)
+{
+	if(auto main = "main"d in ns)
+	{
+		auto funcReg = s.push(main);
+		s.push(ns);
+		
+		foreach(param; params)
+			s.push(param);
+
+		s.rawCall(funcReg, 0);
+	}
+}
+
 static this()
 {
 	// manual dynamic linking to get around circular dependencies.. funtimes.
@@ -359,8 +372,8 @@ private MDModuleDef tryPath(FilePath path, char[][] elems)
 	if(!fp.exists())
 		return null;
 
-	scope sourceName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".md"));
-	scope binaryName = FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".mdm"));
+	scope sourceName = new FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".md"));
+	scope binaryName = new FilePath(FilePath.join(fp.toString(), elems[$ - 1] ~ ".mdm"));
 
 	MDModuleDef def = null;
 

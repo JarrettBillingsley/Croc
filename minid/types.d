@@ -3658,7 +3658,7 @@ final class MDContext
 		return commonModuleLoad(name, s);
 	}
 
-	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name, MDValue[] params)
+	public final MDNamespace loadModuleFromFile(MDState s, dchar[] name)
 	{
 		assert(tryPath !is null, "MDGlobalState tryPath not initialized");
 		char[][] elements = split(utf.toString(name), "."c);
@@ -3683,7 +3683,7 @@ final class MDContext
 			if(def.mName != name)
 				throw new MDException("Attempting to load module \"{}\", but module declaration says \"{}\"", name, def.name);
 
-			return initializeModule(s, def, params);
+			return initializeModule(s, def);
 		}
 
 		return null;
@@ -3718,7 +3718,7 @@ final class MDContext
 		}
 
 		// OK, now let's try to load a source or binary module file
-		if(MDNamespace ns = loadModuleFromFile(s, name, null))
+		if(MDNamespace ns = loadModuleFromFile(s, name))
 		{
 			mLoadedModules[name] = ns;
 			return ns;
@@ -3771,19 +3771,14 @@ final class MDContext
 	Returns:
 		The namespace of the module.
 	*/
-	public final MDNamespace initializeModule(MDState s, MDModuleDef def, MDValue[] params)
+	public final MDNamespace initializeModule(MDState s, MDModuleDef def)
 	{
 		MDNamespace modNS = findNamespace(s, def.name);
 
 		MDClosure cl = new MDClosure(modNS, def.mFunc);
-		uint funcReg = s.push(cl);
-		s.push(modNS);
-
-		foreach(ref val; params)
-			s.push(val);
 
 		try
-			s.rawCall(funcReg, 0);
+			s.callWith(cl, 0, MDValue(modNS));
 		catch(MDException e)
 			throw new MDException("Error loading module \"{}\":\n\t{}", def.name, e.toString());
 

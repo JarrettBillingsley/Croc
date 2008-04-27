@@ -1,6 +1,6 @@
 module thread
 
-local function Set(vararg)
+function Set(vararg)
 {
 	local ret = {}
 
@@ -12,7 +12,7 @@ local function Set(vararg)
 
 // A class which encapsulates a thread's body, a message queue, and timed wait
 // functionality.
-local class Thread
+object Thread
 {
 	mBody
 	mWaitTime
@@ -21,8 +21,8 @@ local class Thread
 	mMessageTail
 
 	// Construct a thread with a coroutine body.
-	this(body)
-		:mBody = body
+	function clone(body) =
+		object : this { mBody = body }
 
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
@@ -96,7 +96,7 @@ local class Thread
 
 // Pass this function a set of Threads (i.e. a table where the keys == values).
 // This function only returns when all the threads have exited.
-local function scheduler(threads)
+function scheduler(threads)
 {
 	// Very clever function.  It handles "system calls", which are yielded values
 	// from coroutines.  It then can resume the threads and tailcall itself, making
@@ -149,51 +149,54 @@ local function scheduler(threads)
 }
 
 // Wait for 'duration' seconds.  Can be float or int.
-local function wait(duration)
+function wait(duration)
 	yield("Wait", duration)
 
 // Send the message 'value' to Thread 'dest'.
-local function send(dest, value)
+function send(dest, value)
 	yield("Send", dest, value)
 
 // Receive a message from any thread.
-local function receive() = yield("Receive")
+function receive() = yield("Receive")
 
 // Example producer-consumer code with message-passing for synchronization.
-local N = 100
-
-local producer, consumer
-
-producer = Thread(coroutine function()
+function main()
 {
-	while(true)
+	local N = 100
+	
+	local producer, consumer
+	
+	producer = Thread.clone(coroutine function()
 	{
-		wait(0.3 + math.rand(0, 100) / 100.0)
+		while(true)
+		{
+			wait(0.3 + math.rand(0, 100) / 100.0)
 
-		local item = { type = "Item", value = math.abs(math.rand() % 10) }
-		local msg = receive()
-		assert(msg.type == "Empty")
-		writefln("Producer produced {}.", item.value)
-		send(consumer, item)
-	}
-})
+			local item = { type = "Item", value = math.abs(math.rand() % 10) }
+			local msg = receive()
+			assert(msg.type == "Empty")
+			writefln("Producer produced {}.", item.value)
+			send(consumer, item)
+		}
+	})
 
-consumer = Thread(coroutine function()
-{
-	local empty = { type = "Empty" }
-
-	for(i: 0 .. N)
-		send(producer, empty)
-
-	while(true)
+	consumer = Thread.clone(coroutine function()
 	{
-		local msg = receive()
-		wait(0.3 + math.rand(0, 100) / 100.0)
-		assert(msg.type == "Item")
-		send(producer, empty)
-		writefln("Consumer consumed {}.", msg.value)
-	}
-})
-
-scheduler(Set(producer, consumer))
-writefln("Finished.")
+		local empty = { type = "Empty" }
+	
+		for(i: 0 .. N)
+			send(producer, empty)
+	
+		while(true)
+		{
+			local msg = receive()
+			wait(0.3 + math.rand(0, 100) / 100.0)
+			assert(msg.type == "Item")
+			send(producer, empty)
+			writefln("Consumer consumed {}.", msg.value)
+		}
+	})
+	
+	scheduler(Set(producer, consumer))
+	writefln("Finished.")
+}

@@ -73,6 +73,7 @@ static:
 		globals["removeKey"d] =       new MDClosure(globals.ns, &removeKey,             "removeKey");
 		globals["rawSet"d] =          new MDClosure(globals.ns, &rawSet,                "rawSet");
 		globals["rawGet"d] =          new MDClosure(globals.ns, &rawGet,                "rawGet");
+		globals["runMain"d] =         new MDClosure(globals.ns, &runMain,               "runMain");
 
 		// Functional stuff
 		globals["curry"d] =           new MDClosure(globals.ns, &curry,                 "curry");
@@ -393,6 +394,10 @@ static:
 		}
 
 		outputRepr(s.getParam(0u));
+		
+		if(numParams == 1 || (numParams > 1 && s.getParam!(bool)(1)))
+			Stdout.newline;
+
 		return 0;
 	}
 
@@ -905,6 +910,24 @@ static:
 			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
 
 		return 1;
+	}
+	
+	int runMain(MDState s, uint numParams)
+	{
+		auto ns = s.getParam!(MDNamespace)(0);
+
+		if(auto main = "main"d in ns)
+		{
+			auto funcReg = s.push(main);
+			s.push(ns);
+
+			for(uint i = 1; i < numParams; i++)
+				s.push(s.getParam(i));
+
+			s.rawCall(funcReg, 0);
+		}
+		
+		return 0;
 	}
 	
 	int haltThread(MDState s, uint numParams)

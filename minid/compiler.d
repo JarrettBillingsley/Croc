@@ -4584,7 +4584,8 @@ class Module : AstNode
 		def.mName = join(modDecl.names, "."d);
 
 		FuncState fs = new FuncState(location, "module " ~ modDecl.names[$ - 1]);
-		fs.mIsVararg = true;
+		// trying out the main() thing.
+		//fs.mIsVararg = true;
 
 		try
 		{
