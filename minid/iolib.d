@@ -106,7 +106,7 @@ class IOLib
 					"OutNew"d,   cast(int)FileMode.OutNew
 				),
 	
-				"File"d,         new MDClosure(lib, &ioLib.File,        "io.File"),
+				"File"d,         new MDClosure(lib, &ioLib.File,  "io.File"),
 				"rename"d,       new MDClosure(lib, &rename,      "io.rename"),
 				"remove"d,       new MDClosure(lib, &remove,      "io.remove"),
 				"copy"d,         new MDClosure(lib, &copy,        "io.copy"),

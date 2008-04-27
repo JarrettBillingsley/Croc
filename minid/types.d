@@ -4287,7 +4287,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
@@ -4329,7 +4329,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
@@ -4372,7 +4372,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
@@ -4414,7 +4414,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
@@ -4462,7 +4462,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
@@ -4508,7 +4508,7 @@ final class MDState : MDBaseObject
 			return mStackIndex - funcSlot;
 		else
 		{
-			mStackIndex = funcSlot + numReturns;
+			mStackIndex = mCurrentAR.base + funcSlot + numReturns;
 			return numReturns;
 		}
 	}
