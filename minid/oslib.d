@@ -183,12 +183,23 @@ class OSLib
 	
 	int dateTime(MDState s, uint numParams)
 	{
+		bool useGMT = false;
 		MDTable t = null;
-		
-		if(numParams > 0)
-			t = s.getParam!(MDTable)(0);
 
-		s.push(DateTimeToTable(s, WallClock.toDate, t));
+		if(numParams > 0)
+		{
+			if(s.isParam!("bool")(0))
+			{
+				useGMT = s.getParam!(bool)(0);
+				
+				if(numParams > 1)
+					t = s.getParam!(MDTable)(1);
+			}
+			else
+				t = s.getParam!(MDTable)(0);
+		}
+
+		s.push(DateTimeToTable(s, useGMT ? Clock.toDate : WallClock.toDate, t));
 		return 1;
 	}
 	
