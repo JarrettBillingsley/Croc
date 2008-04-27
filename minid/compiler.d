@@ -6940,8 +6940,10 @@ class ReturnStatement : Statement
 		}
 		else
 		{
-			if(l.loc.line != location.line)
-				throw new MDCompileException(l.loc, "No-value returns must be followed by semicolons");
+			// Not really possible for something to be on the next line since we check for a
+			// statement terminator..?
+			//if(l.loc.line != location.line)
+			//	throw new MDCompileException(l.loc, "No-value returns must be followed by semicolons");
 
 			List!(Expression) exprs;
 			exprs.add(Expression.parse(l));
@@ -9612,12 +9614,16 @@ abstract class PostfixExp : UnaryExp
 				case Token.Type.Dollar:
 					l.next();
 					Expression arg = Expression.parse(l);
-					exp = new CallExp(arg.endLocation, exp, null, [arg]);
+
+					if(cast(DotExp)exp)
+						exp = new MethodCallExp(arg.endLocation, exp, null, [arg]);
+					else
+						exp = new CallExp(arg.endLocation, exp, null, [arg]);
 					continue;
 
 				case Token.Type.LParen:
 					if(exp.endLocation.line != l.loc.line)
-						throw new MDCompileException(l.loc, "ambiguous left-paren (chained call or beginning of new statement?)");
+						throw new MDCompileException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
 
 					l.next();
 
@@ -11355,8 +11361,6 @@ class TableCtorExp : PrimaryExp
 
 		if(l.type != terminator)
 		{
-			bool lastWasPlain = false;
-
 			void parseField()
 			{
 				Expression k;
@@ -11372,15 +11376,12 @@ class TableCtorExp : PrimaryExp
 						l.expect(Token.Type.Assign);
 
 						v = Expression.parse(l);
-						
-						lastWasPlain = true;
 						break;
 
 					case Token.Type.Function:
 						FuncDef fd = FuncDef.parseSimple(l);
 						k = new StringExp(fd.location, fd.name.name);
 						v = new FuncLiteralExp(fd.location, fd);
-						lastWasPlain = false;
 						break;
 
 					default:
@@ -11388,20 +11389,23 @@ class TableCtorExp : PrimaryExp
 						l.expect(Token.Type.Assign);
 						k = new StringExp(id.location, id.name);
 						v = Expression.parse(l);
-						lastWasPlain = false;
 						break;
 				}
 
 				addPair(k, v);
 			}
-
+			
+			bool firstWasBracketed = l.type == Token.Type.LBracket;
 			parseField();
 
-			if(!isAttr && lastWasPlain && l.type == Token.Type.For)
+			if(!isAttr && firstWasBracketed)
 			{
-				auto forComp = ForComprehension.parse(l);
-				auto endLocation = l.expect(terminator).location;
-				return new TableComprehension(location, endLocation, fields[0][0], fields[0][1], forComp);
+				if(l.type == Token.Type.For)
+				{
+					auto forComp = ForComprehension.parse(l);
+					auto endLocation = l.expect(terminator).location;
+					return new TableComprehension(location, endLocation, fields[0][0], fields[0][1], forComp);
+				}
 			}
 
 			while(l.type != terminator)
@@ -11974,15 +11978,26 @@ class SuperCallExp : PrimaryExp
 			method = Expression.parse(l);
 			l.expect(Token.Type.RParen);
 		}
-
-		l.expect(Token.Type.LParen);
-
+		
 		Expression[] args;
+		Location endLocation;
 
-		if(l.type != Token.Type.RParen)
-			args = Expression.parseArguments(l);
+		if(l.type == Token.Type.LParen)
+		{
+			l.next();
 
-		auto endLocation = l.expect(Token.Type.RParen).location;
+			if(l.type != Token.Type.RParen)
+				args = Expression.parseArguments(l);
+
+			endLocation = l.expect(Token.Type.RParen).location;
+		}
+		else
+		{
+			l.expect(Token.Type.Dollar);
+			args ~= Expression.parse(l);
+			endLocation = args[0].endLocation;
+		}
+
 		return new SuperCallExp(location, endLocation, method, args);
 	}
 

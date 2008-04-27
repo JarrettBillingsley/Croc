@@ -306,7 +306,7 @@ DeclarationStatement:
 	[AttributeTable] OtherDeclaration
 	
 AttributeTable:
-	'</' [TableField {',' TableField}] '/>'
+	'</' [TableField {[','] TableField}] '/>'
 
 OtherDeclaration:
 	FunctionDeclaration
@@ -386,7 +386,6 @@ BreakStatement:
 	'break' StatementTerminator
 	
 ReturnStatement:
-	'return' ';'
 	'return' [Expression {',' Expression}] StatementTerminator
 	
 TryCatchStatement:
@@ -511,12 +510,14 @@ DotExpression:
 	PostfixExpression '.' (Identifier | '(' Expression ')')
 
 CallExpression:
-	PostfixExpression '$' Expression
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
+	PostfixExpression '$' Expression
 	DotExpression '(' [Arguments] ')'
 	DotExpression '(' 'with' Arguments ')'
+	DotExpression '$' Expression
 	'super' '.' (Identifier | '(' Expression ')') '(' [Arguments] ')'
+	'super' '.' (Identifier | '(' Expression ')') '$' Expression
 
 Arguments:
 	Expression {',' Arguments}
@@ -543,16 +544,12 @@ PrimaryExpression:
 	'yield' '(' [Arguments] ')'
 
 ArrayLiteral:
-	'[' ']'
-	'[' Expression ']'
-	'[' Expression [','] Expression {[','] Expression} ']'
+	'[' [Expression {[','] Expression}] ']'
 	'[' Expression ForComprehension ']'
 
 TableCtorExp:
-	'{' '}'
-	'{' TableField '}'
-	'{' TableField [','] TableField {[','] TableField} '}'
-	'{' PlainTableField ForComprehension ']'
+	'{' [TableField {[','] TableField}] '}'
+	'{' PlainTableField ForComprehension '}'
 
 TableField:
 	Identifier '=' Expression

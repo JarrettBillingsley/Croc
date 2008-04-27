@@ -2369,8 +2369,9 @@ class MDObject : MDBaseObject
 	{
 		for(auto o = this; o !is null; o = o.mProto)
 		{
-			if(auto ptr = index in o.mFields)
-				return ptr;
+			if(o.mFields)
+				if(auto ptr = index in o.mFields)
+					return ptr;
 		}
 
 		return null;
@@ -2389,6 +2390,9 @@ class MDObject : MDBaseObject
 	*/
 	public void opIndexAssign(ref MDValue value, MDString index)
 	{
+		if(mFields is null)
+			mFields = new MDNamespace();
+
 		mFields[index] = value;
 	}
 
@@ -2413,6 +2417,9 @@ class MDObject : MDBaseObject
 	*/
 	public MDNamespace fields()
 	{
+		if(mFields is null)
+			mFields = new MDNamespace();
+			
 		return mFields;
 	}
 
@@ -2454,13 +2461,16 @@ class MDObject : MDBaseObject
 	{
 		for(MDObject o = this; o !is null; o = o.mProto)
 		{
-			if(auto ptr = index in o.mFields)
+			if(o.mFields)
 			{
-				owner = o;
-				return ptr;
+				if(auto ptr = index in o.mFields)
+				{
+					owner = o;
+					return ptr;
+				}
 			}
 		}
-		
+
 		return null;
 	}
 }
@@ -5527,7 +5537,7 @@ final class MDState : MDBaseObject
 			}
 			catch(MDRuntimeException e)
 			{
-				callEpilogue(false);
+				//callEpilogue(false);
 				throw e;
 			}
 			catch(MDException e)
