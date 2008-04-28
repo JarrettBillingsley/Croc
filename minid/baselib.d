@@ -48,7 +48,7 @@ static:
 
 		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
 			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
-			
+
 		toStringStr = new MDString("toString"d);
 	}
 

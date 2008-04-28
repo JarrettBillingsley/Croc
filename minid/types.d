@@ -435,7 +435,7 @@ align(1) struct MDValue
 	{
 		if(this.mType != other.mType)
 			return false;
-			
+
 		switch(this.mType)
 		{
 			case Type.Null:
@@ -538,7 +538,7 @@ align(1) struct MDValue
 
 		return -1;
 	}
-	
+
 	/**
 	Overridden to allow the use of MDValues as AA keys.
 	*/
@@ -1065,7 +1065,7 @@ align(1) struct MDValue
 		else static if(is(T : MDString))
 		{
 			mType = Type.String;
-			mString = src;	
+			mString = src;
 		}
 		else static if(is(T : MDTable))
 		{
@@ -1200,7 +1200,7 @@ align(1) struct MDValue
 		{
 			case Type.Null:
 				break;
-				
+
 			case Type.Bool:
 				Deserialize(s, ret.mBool);
 				break;
@@ -3168,6 +3168,7 @@ class MDFuncDef
 	package bool mIsVararg;
 	package dchar[] mGuessedName;
 	package uint mNumParams;
+	package uint[] mParamMasks;
 	package uint mNumUpvals;
 	package uint mStackSize;
 	package MDFuncDef[] mInnerFuncs;
@@ -3199,6 +3200,7 @@ class MDFuncDef
 		Serialize(s, mIsVararg);
 		Serialize(s, mGuessedName);
 		Serialize(s, mNumParams);
+		Serialize(s, mParamMasks);
 		Serialize(s, mNumUpvals);
 		Serialize(s, mStackSize);
 		Serialize(s, mConstants);
@@ -3233,6 +3235,7 @@ class MDFuncDef
 		Deserialize(s, ret.mIsVararg);
 		Deserialize(s, ret.mGuessedName);
 		Deserialize(s, ret.mNumParams);
+		Deserialize(s, ret.mParamMasks);
 		Deserialize(s, ret.mNumUpvals);
 		Deserialize(s, ret.mStackSize);
 		Deserialize(s, ret.mConstants);
@@ -7420,7 +7423,7 @@ final class MDState : MDBaseObject
 					case Op.MulEq: reflOp(MM.MulEq, get(i.rd), get(i.rs)); break;
 					case Op.DivEq: reflOp(MM.DivEq, get(i.rd), get(i.rs)); break;
 					case Op.ModEq: reflOp(MM.ModEq, get(i.rd), get(i.rs)); break;
-					
+
 					// Inc/Dec
 					case Op.Inc: opIncrement(get(i.rd)); break;
 					case Op.Dec: opDecrement(get(i.rd)); break;
@@ -7990,7 +7993,7 @@ final class MDState : MDBaseObject
 								int numReturns = mCurrentAR.numReturns;
 
 								popAR();
-	
+
 								{
 									scope(failure)
 										--depth;
@@ -8363,6 +8366,25 @@ final class MDState : MDBaseObject
 						mSavedCallDepth = depth;
 						mState = State.Suspended;
 						return;
+						
+					case Op.CheckParams:
+						foreach(idx, mask; mCurrentAR.func.script.func.mParamMasks)
+							if(!(mask & (1 << mStack[stackBase + idx].type)))
+								throwRuntimeException("Parameter {}: type '{}' is not allowed", idx, mStack[stackBase + idx].typeString);
+						break;
+
+					case Op.CheckObjParam:
+						RS = mStack[stackBase + i.rs];
+						RT = *get(i.rt);
+						
+						assert(RS.mType == MDValue.Type.Object, "oops.  why wasn't this checked?");
+
+						if(RT.mType != MDValue.Type.Object)
+							throwRuntimeException("Parameter {}: object constraint type must be 'object', not '{}'", i.rs, RT.typeString());
+
+						if(!RS.mObject.derivesFrom(RT.mObject))
+							throwRuntimeException("Parameter {}: type '{}' is not allowed", i.rs, RS.typeString());
+						break;
 
 					// Array and List Operations
 					case Op.Length:
@@ -8664,7 +8686,9 @@ final class MDState : MDBaseObject
 				depth--;
 
 				callEpilogue(false);
-				mContext.mTraceback ~= getDebugLocation();
+				
+				if(mCurrentAR.func !is null)
+					mContext.mTraceback ~= getDebugLocation();
 
 				if(depth > 0)
 				{

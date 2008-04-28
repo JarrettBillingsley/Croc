@@ -333,8 +333,32 @@ FunctionBody:
 	Parameters (Statement | '=' Expression)
 
 Parameters:
-	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
+	'(' [('this' ':' Type | Parameter) {',' Parameter} [',' 'vararg']] ')'
 	'(' 'vararg' ')'
+
+Parameter:
+	Identifier [':' Type] ['=' Expression]
+	
+Type:
+	BasicType
+	'!' 'null'
+	'any'
+
+BasicType:
+	BasicType '|' BasicType
+	'null'
+	'bool'
+	'int'
+	'float'
+	'char'
+	'string'
+	'table'
+	'array'
+	'function'
+	'object' [(Identifier {'.' Identifier}) | ('(' Expression')')]
+	Identifier {'.' Identifier}
+	'namespace'
+	'thread'
 
 ObjectDeclaration:
 	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'

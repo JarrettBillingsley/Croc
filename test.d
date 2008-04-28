@@ -3,6 +3,8 @@ module test;
 import minid.minid;
 import minid.types;
 //import minid.bind;
+
+import tango.core.Memory;
 import tango.io.Stdout;
 
 //version = Arc;
@@ -13,8 +15,7 @@ void main()
 
 	try
 	{
-		auto chunk = new ubyte[1024 * 1024 * 4];
-		delete chunk;
+		GC.reserve(1024 * 1024 * 4);
 
 		ctx = NewContext();
 		

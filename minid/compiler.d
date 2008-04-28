@@ -1687,6 +1687,7 @@ class FuncState
 	protected Location mLocation;
 	protected MDValue[] mConstants;
 	protected uint mNumParams;
+	protected uint[] mParamMasks;
 	protected uint mStackSize;
 	protected Instruction[] mCode;
 	protected uint[] mLineInfo;
@@ -3152,7 +3153,7 @@ class FuncState
 		i.opcode = opcode;
 		i.rd = dest;
 		i.imm = offs;
-		
+
 		debug(WRITECODE) Stdout.formatln(i.toString());
 
 		mLineInfo ~= line;
@@ -3239,6 +3240,7 @@ class FuncState
 			
 		ret.mConstants = mConstants;
 		ret.mNumParams = mNumParams;
+		ret.mParamMasks = mParamMasks;
 		ret.mNumUpvals = mUpvals.length;
 		ret.mStackSize = mStackSize + 1;
 		ret.mCode = mCode;
@@ -3307,6 +3309,11 @@ class Identifier
 			strings[i] = ident.name;
 
 		return join(strings, "."d);
+	}
+	
+	public override char[] toString()
+	{
+		return Utf.toString(name);
 	}
 }
 
@@ -3956,6 +3963,25 @@ class ObjectDef : AstNode
 	}
 }
 
+enum TypeMask
+{
+	Null =      (1 << cast(uint)MDValue.Type.Null),
+	Bool =      (1 << cast(uint)MDValue.Type.Bool),
+	Int =       (1 << cast(uint)MDValue.Type.Int),
+	Float =     (1 << cast(uint)MDValue.Type.Float),
+	Char =      (1 << cast(uint)MDValue.Type.Char),
+
+	String =    (1 << cast(uint)MDValue.Type.String),
+	Table =     (1 << cast(uint)MDValue.Type.Table),
+	Array =     (1 << cast(uint)MDValue.Type.Array),
+	Function =  (1 << cast(uint)MDValue.Type.Function),
+	Object =    (1 << cast(uint)MDValue.Type.Object),
+	Namespace = (1 << cast(uint)MDValue.Type.Namespace),
+	Thread =    (1 << cast(uint)MDValue.Type.Thread),
+
+	Any = Null | Bool | Int | Float | Char | String | Table | Array | Function | Object | Namespace | Thread
+}
+
 /**
 Similar to ObjectDef, this class represents the common attributes of both function literals
 and function declarations.
@@ -3972,6 +3998,20 @@ class FuncDef : AstNode
 		*/
 		Identifier name;
 		
+		/**
+		The type mask of the parameter, that is, what basic types can be passed to it.
+		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
+		set to 0; the codegen does not check for this so it's up to you.
+		*/
+		uint typeMask = TypeMask.Any;
+
+		/**
+		If typeMask allows objects, this can be a list of expressions which should evaluate
+		at runtime to object types that this parameter can accept.  This is an optional
+		list.  If typeMask does not allow objects, this should be empty.
+		*/
+		Expression[] objectTypes;
+
 		/**
 		The default value for the parameter.  This can be null, in which case it will have
 		no default value.
@@ -3991,7 +4031,7 @@ class FuncDef : AstNode
 	at least one element long, and element 0 will always be the 'this' parameter.
 	*/
 	public Param[] params;
-	
+
 	/**
 	Indicates whether or not this function is variadic.
 	*/
@@ -4094,14 +4134,14 @@ class FuncDef : AstNode
 		if(l.type == Token.Type.Ident)
 		{
 			isVararg = false;
-			params = [Param(new Identifier(l.loc, "this"), null),
-				Param(Identifier.parse(l), null)];
+			params = [Param(new Identifier(l.loc, "this"), TypeMask.Any, null),
+				Param(Identifier.parse(l), TypeMask.Any, null)];
 		}
 		else if(l.type == Token.Type.Vararg)
 		{
 			l.next();
 			isVararg = true;
-			params = [Param(new Identifier(l.loc, "this"), null)];
+			params = [Param(new Identifier(l.loc, "this"), TypeMask.Any, null)];
 		}
 		else
 			params = parseParams(l, isVararg);
@@ -4127,37 +4167,226 @@ class FuncDef : AstNode
 	{
 		Param[] ret = new Param[1];
 
-		ret[0].name = new Identifier(l.loc, "this");
+// 		void showTypeMask(uint p)
+// 		{
+// 			Stdout("Param ")(p)(": ");
+// 
+// 			auto tm = ret[p].typeMask;
+// 
+// 			for(uint t = 0; tm; tm >>= 1, t++)
+// 				if(tm & 1)
+// 					Stdout(MDValue.typeString(cast(MDValue.Type)t))(" ");
+// 
+// 			foreach(exp; ret[p].objectTypes)
+// 				Stdout(exp.toString())(" ");
+// 
+// 			Stdout.newline();
+// 		}
 
-		l.expect(Token.Type.LParen);
-
-		while(l.type != Token.Type.RParen)
+		void parseParam()
 		{
-			if(l.type == Token.Type.Vararg)
-			{
-				isVararg = true;
-				l.next();
-				break;
-			}
+			Param p;
+			p.name = Identifier.parse(l);
 
-			Identifier name = Identifier.parse(l);
-			Expression defValue = null;
+			if(l.type == Token.Type.Colon)
+			{
+				l.next();
+				p.typeMask = parseType(l, p.objectTypes);
+			}
 
 			if(l.type == Token.Type.Assign)
 			{
 				l.next();
-				defValue = Expression.parse(l);
+				p.defValue = Expression.parse(l);
 			}
 
-			ret ~= Param(name, defValue);
+			ret ~= p;
+			
+// 			showTypeMask(ret.length - 1);
+		}
 
-			if(l.type == Token.Type.RParen)
-				break;
+		l.expect(Token.Type.LParen);
 
-			l.expect(Token.Type.Comma);
+		ret[0].name = new Identifier(l.loc, "this");
+
+		if(l.type == Token.Type.This)
+		{
+			l.next();
+			l.expect(Token.Type.Colon);
+			ret[0].typeMask = parseType(l, ret[0].objectTypes);
+			
+// 			showTypeMask(0);
+
+			while(l.type == Token.Type.Comma)
+			{
+				l.next();
+
+				if(l.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					l.next();
+					break;
+				}
+
+				parseParam();
+			}
+		}
+		else if(l.type == Token.Type.Vararg)
+		{
+			isVararg = true;
+			l.next();
+		}
+		else if(l.type != Token.Type.RParen)
+		{
+			parseParam();
+
+			while(l.type == Token.Type.Comma)
+			{
+				l.next();
+
+				if(l.type == Token.Type.Vararg)
+				{
+					isVararg = true;
+					l.next();
+					break;
+				}
+
+				parseParam();
+			}
 		}
 
 		l.expect(Token.Type.RParen);
+		return ret;
+	}
+	
+	/**
+	Parse a parameter type.  This corresponds to the Type element of the grammar.
+	Returns the type mask, as well as an optional list of object types that this
+	parameter can accept in the objectTypes parameter.
+	*/
+	public static uint parseType(Lexer l, out Expression[] objectTypes)
+	{
+		uint ret = 0;
+
+		void addConstraint(MDValue.Type t)
+		{
+			if((ret & (1 << cast(uint)t)) && t != MDValue.Type.Object)
+				throw new MDCompileException(l.loc, "Duplicate parameter type constraint for type '{}'", MDValue.typeString(t));
+
+			ret |= 1 << cast(uint)t;
+		}
+		
+		Expression parseIdentList(Token t)
+		{
+			l.next();
+			auto t2 = l.expect(Token.Type.Ident);
+			Expression exp = new DotExp(new IdentExp(t.location, t.stringValue), new StringExp(t2.location, t2.stringValue));
+
+			while(l.type == Token.Type.Dot)
+			{
+				l.next();
+				t2 = l.expect(Token.Type.Ident);
+				exp = new DotExp(exp, new StringExp(t2.location, t2.stringValue));
+			}
+			
+			return exp;
+		}
+
+		void parseSingleType()
+		{
+			switch(l.type)
+			{
+				case Token.Type.Null:      addConstraint(MDValue.Type.Null);      l.next(); break;
+				case Token.Type.Function:  addConstraint(MDValue.Type.Function);  l.next(); break;
+				case Token.Type.Namespace: addConstraint(MDValue.Type.Namespace); l.next(); break;
+				
+				case Token.Type.Object:
+					l.next();
+
+					addConstraint(MDValue.Type.Object);
+
+					if(l.type == Token.Type.LParen)
+					{
+						l.next();
+						objectTypes ~= Expression.parse(l);
+						l.expect(Token.Type.RParen);
+					}
+					else if(l.type == Token.Type.Ident)
+					{
+						auto t = l.expect(Token.Type.Ident);
+						
+						if(l.type == Token.Type.Dot)
+						{
+							addConstraint(MDValue.Type.Object);
+							objectTypes ~= parseIdentList(t);
+						}
+						else
+						{
+							addConstraint(MDValue.Type.Object);
+							objectTypes ~= new IdentExp(t.location, t.stringValue);
+							break;
+						}
+					}
+
+					break;
+				
+				default:
+					auto t = l.expect(Token.Type.Ident);
+
+					if(l.type == Token.Type.Dot)
+					{
+						addConstraint(MDValue.Type.Object);
+						objectTypes ~= parseIdentList(t);
+					}
+					else
+					{
+						switch(t.stringValue)
+						{
+							case "bool":   addConstraint(MDValue.Type.Bool); break;
+							case "int":    addConstraint(MDValue.Type.Int); break;
+							case "float":  addConstraint(MDValue.Type.Float); break;
+							case "char":   addConstraint(MDValue.Type.Char); break;
+							case "string": addConstraint(MDValue.Type.String); break;
+							case "table":  addConstraint(MDValue.Type.Table); break;
+							case "array":  addConstraint(MDValue.Type.Array); break;
+							case "thread": addConstraint(MDValue.Type.Thread); break;
+
+							default:
+								addConstraint(MDValue.Type.Object);
+								objectTypes ~= new IdentExp(t.location, t.stringValue);
+								break;
+						}
+					}
+					break;
+			}
+		}
+
+		if(l.type == Token.Type.Not)
+		{
+			l.next();
+			l.expect(Token.Type.Null);
+			ret = TypeMask.Any ^ TypeMask.Null;
+		}
+		else if(l.type == Token.Type.Ident && l.tok.stringValue == "any")
+		{
+			l.next();
+			ret = TypeMask.Any;
+		}
+		else
+		{
+			while(true)
+			{
+				parseSingleType();
+
+				if(l.type == Token.Type.Or)
+					l.next;
+				else
+					break;
+			}
+		}
+		
+		assert(ret !is 0);
+
 		return ret;
 	}
 
@@ -4167,15 +4396,36 @@ class FuncDef : AstNode
 
 		fs.mIsVararg = isVararg;
 		fs.mNumParams = params.length;
+		
+		bool needParamCheck = false;
 
 		foreach(p; params)
+		{
 			fs.insertLocal(p.name);
+			fs.mParamMasks ~= p.typeMask;
+			
+			if(p.typeMask != TypeMask.Any)
+				needParamCheck = true;
+		}
 
 		fs.activateLocals(params.length);
 
 		foreach(p; params)
 			if(p.defValue !is null)
 				(new OpEqExp(p.name.location, p.name.location, AstTag.CondAssign, new IdentExp(p.name), p.defValue)).codeGen(fs);
+
+		if(needParamCheck)
+			fs.codeI(code.location.line, Op.CheckParams, 0, 0);
+			
+		foreach(idx, p; params)
+			foreach(t; p.objectTypes)
+			{
+				t.codeGen(fs);
+				Exp src;
+				fs.popSource(t.endLocation.line, src);
+				fs.freeExpTempRegs(&src);
+				fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
+			}
 
 		code.codeGen(fs);
 		fs.codeI(code.endLocation.line, Op.Ret, 0, 1);
@@ -9846,6 +10096,11 @@ class DotExp : PostfixExp
 	{
 		return true;
 	}
+	
+	public override char[] toString()
+	{
+		return op.toString() ~ "." ~ name.toString();	
+	}
 }
 
 /**
@@ -10438,6 +10693,11 @@ class IdentExp : PrimaryExp
 	{
 		return true;
 	}
+	
+	public override char[] toString()
+	{
+		return name.toString();	
+	}
 }
 
 /**
@@ -10870,6 +11130,11 @@ class StringExp : PrimaryExp
 	public override dchar[] asString()
 	{
 		return value;
+	}
+	
+	public override char[] toString()
+	{
+		return Utf.toString(value);
 	}
 }
 
