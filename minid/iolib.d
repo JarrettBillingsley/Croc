@@ -66,8 +66,8 @@ class IOLib
 	private this(MDObject _Object)
 	{
 		inputStreamClass = new MDInputStreamClass(_Object);
-		outputStreamClass = new MDOutputStreamClass(_Object);
 		streamClass = new MDStreamClass(_Object);
+		outputStreamClass = new MDOutputStreamClass(_Object, inputStreamClass, streamClass);
 	}
 
 	enum FileMode
@@ -498,12 +498,16 @@ class IOLib
 	static class MDOutputStreamClass : MDObject
 	{
 		private Layout!(char) mLayout;
+		private MDInputStreamClass mInputStreamClass;
+		private MDStreamClass mStreamClass;
 
-		public this(MDObject owner)
+		public this(MDObject owner, MDInputStreamClass inputStreamClass, MDStreamClass streamClass)
 		{
 			super("OutputStream", owner);
 
 			mLayout = new Layout!(char)();
+			mInputStreamClass = inputStreamClass;
+			mStreamClass = streamClass;
 
 			mFields.addList
 			(
@@ -522,7 +526,8 @@ class IOLib
 				"writefln"d,    new MDClosure(mFields, &writefln,          "OutputStream.writefln"),
 				"writeChars"d,  new MDClosure(mFields, &writeChars,        "OutputStream.writeChars"),
 				"writeJSON"d,   new MDClosure(mFields, &writeJSON,         "OutputStream.writeJSON"),
-				"flush"d,       new MDClosure(mFields, &flush,             "OutputStream.flush")
+				"flush"d,       new MDClosure(mFields, &flush,             "OutputStream.flush"),
+				"copy"d,        new MDClosure(mFields, &copy,              "OutputStream.copy")
 			);
 			
 			mFields["clone"d] = MDValue.nullValue;
@@ -589,6 +594,23 @@ class IOLib
 		public int flush(MDState s, uint numParams)
 		{
 			s.push(s.safeCode(s.getContext!(MDOutputStream).flush()));
+			return 1;
+		}
+		
+		public int copy(MDState s, uint numParams)
+		{
+			auto o = s.getParam!(MDObject)(0);
+			
+			InputStream stream;
+
+			if(auto i = cast(MDInputStream)o)
+				stream = i.mInput;
+			else if(auto s = cast(MDStream)o)
+				stream = s.mInput.mInput;
+			else
+				s.throwRuntimeException("object must be either an InputStream or a Stream, not a '{}'", s.getParam(0u).typeString());
+
+			s.push(s.getContext!(MDOutputStream).copy(stream));
 			return 1;
 		}
 	}
@@ -667,6 +689,12 @@ class IOLib
 		public MDOutputStream flush()
 		{
 			mOutput.flush();
+			return this;
+		}
+		
+		public MDOutputStream copy(InputStream s)
+		{
+			mOutput.copy(s);
 			return this;
 		}
 	}
