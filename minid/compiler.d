@@ -111,9 +111,15 @@ public MDFuncDef compileStatements(dchar[] source, char[] name)
 			stmt.fold().codeGen(fs);
 	
 		if(stmts.length == 0)
+		{
 			fs.codeI(1, Op.Ret, 0, 1);
+			fs.popScope(1);
+		}
 		else
+		{
 			fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
+			fs.popScope(stmts[$ - 1].endLocation.line);
+		}
 	}
 	finally
 	{
@@ -156,6 +162,7 @@ public MDFuncDef compileExpression(dchar[] source, char[] name)
 	{
 		ret.codeGen(fs);
 		fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
+		fs.popScope(ret.endLocation.line);
 	}
 	finally
 	{
@@ -1697,6 +1704,8 @@ class FuncState
 	{
 		dchar[] name;
 		Location location;
+		uint pcStart;
+		uint pcEnd;
 		uint reg;
 		bool isActive;
 	}
@@ -1992,6 +2001,7 @@ class FuncState
 		{
 			debug(VARACTIVATE) Stdout.formatln("activating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
 			mLocVars[i].isActive = true;
+			mLocVars[i].pcStart = mCode.length;
 		}
 	}
 
@@ -2004,6 +2014,7 @@ class FuncState
 				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
 				popRegister(mLocVars[i].reg);
 				mLocVars[i].isActive = false;
+				mLocVars[i].pcEnd = mCode.length;
 			}
 		}
 	}
@@ -2273,7 +2284,7 @@ class FuncState
 			popRegister(e.index3);
 			e.isTempReg3 = false;
 		}
-			
+
 		if(e.isTempReg2)
 		{
 			popRegister(e.index2);
@@ -3183,7 +3194,7 @@ class FuncState
 		}
 
 		foreach(v; mLocVars)
-			Stdout.formatln("{}Local {} (at {}, reg {})", repeat("\t", tab + 1), v.name, v.location.toString(), v.reg);
+			Stdout.formatln("{}Local {} (at {}, reg {}, PC {}-{})", repeat("\t", tab + 1), v.name, v.location.toString(), v.reg, v.pcStart, v.pcEnd);
 
 		foreach(i, u; mUpvals)
 			Stdout.formatln("{}Upvalue {}: {} : {} ({})", repeat("\t", tab + 1), i, u.name, u.index, u.isUpvalue ? "upval" : "local");
@@ -3253,7 +3264,9 @@ class FuncState
 			with(mLocVars[i])
 			{
 				ret.mLocVarDescs[i].name = name;
-				ret.mLocVarDescs[i].location = location;
+				//ret.mLocVarDescs[i].location = location;
+				ret.mLocVarDescs[i].pcStart = pcStart;
+				ret.mLocVarDescs[i].pcEnd = pcEnd;
 				ret.mLocVarDescs[i].reg = reg;
 			}
 		}
@@ -4076,7 +4089,7 @@ class FuncDef : AstNode
 	{
 		bool isVararg;
 		Param[] params = parseParams(l, isVararg);
-		
+
 		Statement code;
 
 		if(l.type == Token.Type.Assign)
@@ -4396,7 +4409,7 @@ class FuncDef : AstNode
 
 		fs.mIsVararg = isVararg;
 		fs.mNumParams = params.length;
-		
+
 		bool needParamCheck = false;
 
 		foreach(p; params)
@@ -4848,6 +4861,7 @@ class Module : AstNode
 			}
 
 			fs.codeI(endLocation.line, Op.Ret, 0, 1);
+			fs.popScope(endLocation.line);
 		}
 		finally
 		{

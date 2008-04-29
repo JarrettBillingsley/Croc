@@ -316,7 +316,7 @@ const dchar[][] MetaNames =
 	MM.XorEq:        "opXorAssign",
 ];
 
-const MM[] MMRev = 
+const MM[] MMRev =
 [
 	MM.Add:  MM.Add_r,
 	MM.Sub:  MM.Sub_r,
@@ -415,7 +415,7 @@ align(1) struct MDValue
 		private MDNamespace mNamespace;
 		private MDState mThread;
 	}
-	
+
 	/**
 	The "constructor" for the struct.  It's templated based on the parameter, and all it does is
 	call opAssign, so see opAssign for more info.
@@ -565,7 +565,7 @@ align(1) struct MDValue
 				return mBaseObj.toHash();
 		}
 	}
-	
+
 	/**
 	Gets the length of the MDValue, which will fail (throw an exception) if getting the length
 	makes no sense for the MDValue's type.  Does not call opLength metamethods.
@@ -1144,7 +1144,7 @@ align(1) struct MDValue
 
 			case Type.Int:
 				return Integer.toString(mInt);
-				
+
 			case Type.Float:
 				return Float.toString(mFloat);
 				
@@ -1189,7 +1189,7 @@ align(1) struct MDValue
 				assert(false, "MDValue.serialize()");
 		}
 	}
-	
+
 	package static MDValue deserialize(IReader s)
 	{
 		MDValue ret;
@@ -1222,11 +1222,11 @@ align(1) struct MDValue
 				Deserialize(s, data);
 				ret.mString = new MDString(data);
 				break;
-				
+
 			default:
 				assert(false, "MDValue.deserialize()");
 		}
-		
+
 		return ret;
 	}
 }
@@ -2482,7 +2482,7 @@ Namespaces are kind of like tables, but have somewhat different semantics.  They
 values; only string keys are allowed.  Namespaces may hold null values, so assigning a null value to a key-value
 pair does not remove that pair from the namespace.  Accessing a key-value pair which has not yet been inserted
 will throw an exception instead of returning null as tables do.  Namespaces can have a name.  Lastly namespaces
-can also have a parent namespace, which is used in global lookup.  
+can also have a parent namespace, which is used in global lookup.
 
 Namespaces are used as symbol tables throughout MiniD.  Modules, packages, class fields, and class methods are all
 held in namespaces.  They are also used as function closure environments.  When global lookup reaches the closure's
@@ -2701,7 +2701,7 @@ final class MDNamespace : MDBaseObject
 				ret[i] = MDValue(v.key);
 				i++;
 			}
-	
+
 			return ret;
 		}
 		else
@@ -2755,7 +2755,7 @@ final class MDNamespace : MDBaseObject
 	public MDValue* opIndex(dchar[] key)
 	{
 		scope str = MDString.newTemp(key);
-		
+
 		version(MDExperimentalNamespaces)
 		{
 			Slot* slot = lookup(str);
@@ -2935,7 +2935,7 @@ final class MDNamespace : MDBaseObject
 		protected Slot* lookup(MDString key)
 		{
 			hash_t h = key.toHash() % mSlots.length;
-	
+
 			if(mSlots[h].key is null)
 				return null;
 	
@@ -2996,7 +2996,7 @@ final class MDNamespace : MDBaseObject
 			for(mColSlot = 0; mColSlot < mSlots.length; mColSlot++)
 				if(mSlots[mColSlot].key is null)
 					return;
-	
+
 			assert(false, "MDNamespace.moveColSlot");
 		}
 	}
@@ -3174,17 +3174,6 @@ class MDFuncDef
 	package MDFuncDef[] mInnerFuncs;
 	package MDValue[] mConstants;
 	package Instruction[] mCode;
-	package uint[] mLineInfo;
-	package dchar[][] mUpvalNames;
-
-	struct LocVarDesc
-	{
-		dchar[] name;
-		Location location;
-		uint reg;
-	}
-
-	package LocVarDesc[] mLocVarDescs;
 
 	struct SwitchTable
 	{
@@ -3193,6 +3182,20 @@ class MDFuncDef
 	}
 
 	package SwitchTable[] mSwitchTables;
+
+	// Debug info.
+	package uint[] mLineInfo;
+	package dchar[][] mUpvalNames;
+
+	struct LocVarDesc
+	{
+		dchar[] name;
+		uint pcStart;
+		uint pcEnd;
+		uint reg;
+	}
+
+	package LocVarDesc[] mLocVarDescs;
 
 	package void serialize(IWriter s)
 	{
@@ -3338,9 +3341,9 @@ class DynLib
 		
 		auto initProc = cast(InitProc)getProc("MDInitialize");
 		initProc(std.gc.getGCHandle());
-		
+
 		mLoadModuleProc = cast(LoadModuleProc)getProc("MDLoadModule");
-		
+
 		DynLibs[this] = true;
 		LibsByName[name] = this;
 	}
@@ -3604,7 +3607,7 @@ final class MDContext
 
 	/**
 	Import a given module.  The process goes something like this.
-	
+
 	1. See if the module has been loaded.  Module names are case sensitive.  If the module name is found
 		in the internal list of loaded modules, the process stops here.
 
@@ -4237,7 +4240,7 @@ final class MDState : MDBaseObject
 
 	/**
 	Very similar to the easyCall method, this will call a method of any object.
-	
+
 	Params:
 		val = The object whose method you would like to call.
 		methodName = The name of the method to call.
@@ -4665,7 +4668,7 @@ final class MDState : MDBaseObject
 
 	/**
 	Gets the value of a parameter off the stack.  
-	
+
 	Params:
 		index = The index of the parameter to get.  Throws an error if this index is invalid.
 		
@@ -4777,7 +4780,7 @@ final class MDState : MDBaseObject
 	the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
 	an exception that derives from Exception, it throws a new MDException with the original exception's message as the
 	message.  
-	
+
 	safeCode() is templated to allow any return value.  
 	
 	Params:
@@ -5497,7 +5500,7 @@ final class MDState : MDBaseObject
 				}
 
 				assert(thread.mStackIndex >= numRets, "thread finished resuming stack underflow");
-				
+
 				saveResults(thread.mStack[thread.mStackIndex - numRets .. thread.mStackIndex]);
 				thread.mStackIndex -= numRets;
 
@@ -6015,7 +6018,7 @@ final class MDState : MDBaseObject
 	protected final MDValue binOp(MM operation, MDValue* RS, MDValue* RT)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Arith");
-		
+
 		mdfloat f1 = void;
 		mdfloat f2 = void;
 
@@ -7297,7 +7300,7 @@ final class MDState : MDBaseObject
 				return MDValue(MDArray.concat(vals));
 		}
 	}
-	
+
 	protected final void operatorCatAssign(MDValue* dest, MDValue[] vals)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("CatEq");
@@ -7477,7 +7480,7 @@ final class MDState : MDBaseObject
 
 						*get(i.rd) = cast(bool)i.rs;
 						break;
-	
+
 					case Op.LoadNull:
 						debug(TIMINGS) scope _profiler_ = new Profiler("LoadNull");
 
@@ -7612,7 +7615,7 @@ final class MDState : MDBaseObject
 										if(method.mType != MDValue.Type.Function)
 										{
 											method = getMM(RT, MM.Cmp);
-											
+
 											if(method.mType == MDValue.Type.Function)
 												negate = true;
 										}
@@ -7882,7 +7885,7 @@ final class MDState : MDBaseObject
 							close(0);
 							callEpilogue(true);
 							--depth;
-	
+
 							if(depth == 0)
 								return;
 	
@@ -8265,7 +8268,7 @@ final class MDState : MDBaseObject
 							
 						*get(i.rd) = mStack[mCurrentAR.vargBase + index];
 						break;
-						
+
 					case Op.VargIndexAssign:
 						debug(TIMINGS) scope _profiler_ = new Profiler("VargIndexAssign");
 						int numVarargs = stackBase - mCurrentAR.vargBase;

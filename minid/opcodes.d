@@ -240,7 +240,7 @@ align(1) struct Instruction
 {
 	const uint locMaskSize = 2;
 	const uint locMask = Mask!(locMaskSize) << (16 - locMaskSize);
-	
+
 	const uint locLocal =  0;
 	const uint locConst =  0b01 << (16 - locMaskSize);
 	const uint locUpval =  0b10 << (16 - locMaskSize);
@@ -315,6 +315,7 @@ align(1) struct Instruction
 			case Op.Cmp:             return Format.convert("cmp {}, {}", cr(rs), cr(rt));
 			case Op.Cmp3:            return Format.convert("cmp3 {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Com:             return Format.convert("com {}, {}", cr(rd), cr(rs));
+			case Op.Dec:             return Format.convert("dec {}", cr(rd));
 			case Op.Div:             return Format.convert("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:           return Format.convert("diveq {}, {}", cr(rd), cr(rs));
 			case Op.EndFinal:        return "endfinal";
@@ -325,6 +326,7 @@ align(1) struct Instruction
 			case Op.ForLoop:         return Format.convert("forloop {}, {}", cr(rd), imm);
 			case Op.Import:          return Format.convert("import r{}, {}", rd, cr(rs));
 			case Op.In:              return Format.convert("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Inc:             return Format.convert("inc {}", cr(rd));
 			case Op.Index:           return Format.convert("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.IndexAssign:     return Format.convert("idxa {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Is:              return Format.convert("is {}, {}", cr(rs), cr(rt));
@@ -391,7 +393,7 @@ align(1) struct Instruction
 			case Op.Xor:             return Format.convert("xor {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.XorEq:           return Format.convert("xoreq {}, {}", cr(rd), cr(rs));
 			case Op.Yield:           return Format.convert("yield r{}, {}, {}", rd, rs, rt);
-			default:                 return Format.convert("??? opcode = ", opcode);
+			default:                 return Format.convert("??? opcode = {}", opcode);
 		}
 	}
 	
