@@ -46,6 +46,7 @@ import minid.oslib;
 import minid.regexplib;
 import minid.stringlib;
 import minid.tablelib;
+import minid.timelib;
 
 import tango.io.FilePath;
 import tango.io.Print;
@@ -106,13 +107,18 @@ enum MDStdlib
 	Regular expressions.
 	*/
 	Regexp =  128,
+	
+	/**
+	Time functions.
+	*/
+	Time = 256,
 
 	/**
-	This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
-	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+	This flag is an OR of Array, Char, Math, String, Table, Regexp, and Time.  It represents
+	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	*/
-	Safe = Array | Char | Math | String | Table | Regexp,
+	Safe = Array | Char | Math | String | Table | Regexp | Time,
 
 	/**
 	All available standard libraries.
@@ -145,6 +151,7 @@ MDContext NewContext(uint libs = MDStdlib.All)
 	if(libs & MDStdlib.Char)
 		CharLib.init(ret);
 
+	// IO needs to be loaded before OS.  AGHL.
 	if(libs & MDStdlib.IO)
 		IOLib.init(ret);
 
@@ -162,6 +169,9 @@ MDContext NewContext(uint libs = MDStdlib.All)
 
 	if(libs & MDStdlib.Table)
 		TableLib.init(ret);
+		
+	if(libs & MDStdlib.Time)
+		TimeLib.init(ret);
 
 	return ret;
 }
