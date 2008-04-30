@@ -44,6 +44,7 @@ import tango.io.UnicodeFile;
 import tango.text.convert.Layout;
 import tango.text.stream.LineIterator;
 import tango.util.PathUtil;
+import Utf = tango.text.convert.Utf;
 
 class IOLib
 {
@@ -396,7 +397,7 @@ class IOLib
 			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		protected MDInputStream nativeClone(InputStream input)
+		package MDInputStream nativeClone(InputStream input)
 		{
 			return new MDInputStream(this, input);
 		}
@@ -433,10 +434,12 @@ class IOLib
 		private int iterator(MDState s, uint numParams)
 		{
 			int index = s.getParam!(int)(0) + 1;
-			char[] ret = s.safeCode(s.getContext!(MDInputStream).readln());
+			auto line = s.safeCode(s.getContext!(MDInputStream).readln());
 
-			if(ret.ptr is null)
+			if(line.ptr is null)
 				return 0;
+
+			auto ret = s.safeCode(Utf.toString32(line));
 
 			s.push(index);
 			s.push(ret);
@@ -533,7 +536,7 @@ class IOLib
 			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		protected MDOutputStream nativeClone(OutputStream output)
+		package MDOutputStream nativeClone(OutputStream output)
 		{
 			return new MDOutputStream(this, output);
 		}
@@ -610,7 +613,7 @@ class IOLib
 			else
 				s.throwRuntimeException("object must be either an InputStream or a Stream, not a '{}'", s.getParam(0u).typeString());
 
-			s.push(s.getContext!(MDOutputStream).copy(stream));
+			s.push(s.safeCode(s.getContext!(MDOutputStream).copy(stream)));
 			return 1;
 		}
 	}
