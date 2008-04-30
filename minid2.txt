@@ -106,6 +106,7 @@ IdentifierChar:
 
 Keyword:
 	'as'
+	'assert'
 	'break'
 	'case'
 	'catch'
@@ -269,6 +270,7 @@ StatementTerminator:
 	']' // not consumed
 
 Statement:
+	AssertStatement
 	ImportStatement
 	BlockStatement
 	ExpressionStatement
@@ -284,6 +286,9 @@ Statement:
 	ReturnStatement
 	TryCatchStatement
 	ThrowStatement
+	
+AssertStatement:
+	'assert' '(' Expression [',' Expression] ')' StatementTerminator
 
 ImportStatement:
 	'import' [Identifier '='] Identifier {'.' Identifier} [SelectiveImports] StatementTerminator

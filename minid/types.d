@@ -6223,10 +6223,10 @@ final class MDState : MDBaseObject
 			{
 				f1 = RD.mFloat;
 				f2 = RS.mFloat;
-				
+
+				_float:				
 				RD.mType = MDValue.Type.Float;
 
-				_float:
 				switch(operation)
 				{
 					case MM.AddEq: RD.mFloat = f1 + f2; return;

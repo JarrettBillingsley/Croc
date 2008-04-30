@@ -29,15 +29,16 @@ module minid.compiler;
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.core.Exception;
-import tango.text.Util;
-import utf = tango.text.convert.Utf;
-import tango.io.Stdout;
+import tango.io.FileConduit;
+import tango.io.FilePath;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.Reader;
-import tango.io.FileConduit;
+import tango.io.Stdout;
 import tango.io.UnicodeFile;
-import tango.io.FilePath;
+import tango.text.convert.Format;
+import tango.text.Util;
 import Uni = tango.text.Unicode;
+import utf = tango.text.convert.Utf;
 
 import minid.types;
 import minid.opcodes;
@@ -197,6 +198,7 @@ struct Token
 	public static enum Type
 	{
 		As,
+		Assert,
 		Break,
 		Case,
 		Catch,
@@ -300,6 +302,7 @@ struct Token
 	public static const dchar[][] tokenStrings =
 	[
 		Type.As: "as",
+		Type.Assert: "assert",
 		Type.Break: "break",
 		Type.Case: "case",
 		Type.Catch: "catch",
@@ -3338,6 +3341,7 @@ enum AstTag
 	NamespaceDef,
 	Module,
 	ModuleDecl,
+	AssertStmt,
 	ImportStmt,
 	BlockStmt,
 	ScopeStmt,
@@ -3449,6 +3453,7 @@ const char[][] AstTagNames =
 	AstTag.NamespaceDef:         "NamespaceDef",
     AstTag.Module:               "Module",
     AstTag.ModuleDecl:           "ModuleDecl",
+    AstTag.AssertStmt:           "AssertStmt",
     AstTag.ImportStmt:           "ImportStmt",
     AstTag.BlockStmt:            "BlockStmt",
     AstTag.ScopeStmt:            "ScopeStmt",
@@ -3560,6 +3565,7 @@ const char[][] NiceAstTagNames =
 	AstTag.NamespaceDef:         "namespace definition",
     AstTag.Module:               "module",
     AstTag.ModuleDecl:           "module declaration",
+    AstTag.AssertStmt:           "assert statement",
     AstTag.ImportStmt:           "import statement",
     AstTag.BlockStmt:            "block statement",
     AstTag.ScopeStmt:            "scope statement",
@@ -5028,6 +5034,7 @@ abstract class Statement : AstNode
 				else
 					return CompoundStatement.parse(l);
 
+			case Token.Type.Assert:   return AssertStatement.parse(l);
 			case Token.Type.Break:    return BreakStatement.parse(l);
 			case Token.Type.Continue: return ContinueStatement.parse(l);
 			case Token.Type.Do:       return DoWhileStatement.parse(l);
@@ -5052,6 +5059,75 @@ abstract class Statement : AstNode
 	public abstract void codeGen(FuncState s);
 	
 	public abstract Statement fold();
+}
+
+/**
+This node represents an assertion statement.
+*/
+class AssertStatement : Statement
+{
+	/**
+	A required expression that is the condition checked by the assertion.
+	*/
+	public Expression cond;
+
+	/**
+	An optional message that will be used if the assertion fails.  This member
+	can be null, in which case a message will be generated for the assertion
+	based on its location.  If it's not null, it must evaluate to a string.
+	*/
+	public Expression msg;
+	
+	/**
+	*/
+	public this(Location location, Location endLocation, Expression cond, Expression msg = null)
+	{
+		super(location, endLocation, AstTag.AssertStmt);
+		this.cond = cond;
+		this.msg = msg;
+	}
+	
+	public static AssertStatement parse(Lexer l)
+	{
+		auto location = l.expect(Token.Type.Assert).location;
+		l.expect(Token.Type.LParen);
+		
+		auto cond = Expression.parse(l);
+		Expression msg;
+
+		if(l.type == Token.Type.Comma)
+		{
+			l.next();
+			msg = Expression.parse(l);
+		}
+		
+		auto endLocation = l.expect(Token.Type.RParen).location;
+		l.statementTerm();
+		
+		return new AssertStatement(location, endLocation, cond, msg);
+	}
+	
+	public override void codeGen(FuncState s)
+	{
+		if(msg is null)
+			msg = new StringExp(location, Utf.toString32(Format.convert("Assertion failure at {}", location)));
+
+		auto c = new NotExp(cond.location, cond);
+		auto t = new ThrowStatement(msg.location, msg);
+		auto i = new IfStatement(location, endLocation, null, c, t, null);
+		
+		i.fold().codeGen(s);
+	}
+
+	public override Statement fold()
+	{
+		cond = cond.fold();
+
+		if(msg)
+			msg = msg.fold();
+
+		return this;
+	}
 }
 
 /**
