@@ -191,7 +191,7 @@ Returns:
 */
 public MDNamespace loadModuleString(MDState s, dchar[] source, char[] name = "<module string>")
 {
-	return s.context.initializeModule(s, compileModule(source, name));
+	return s.context.initializeModule(s, Compiler().compileModule(source, name));
 }
 
 /**
@@ -219,7 +219,7 @@ public uint loadStatementString(MDState s, dchar[] source, MDNamespace ns = null
 	if(ns is null)
 		ns = s.context.globals.ns;
 
-	MDFuncDef def = compileStatements(source, name);
+	MDFuncDef def = Compiler().compileStatements(source, name);
 	MDClosure cl = new MDClosure(ns, def);
 
 	uint funcReg = s.push(cl);
@@ -246,7 +246,7 @@ public MDValue eval(MDState s, dchar[] source, MDNamespace ns = null)
 	if(ns is null)
 		ns = s.context.globals.ns;
 		
-	auto cl = new MDClosure(ns, compileExpression(source, "<loaded by eval>"));
+	auto cl = new MDClosure(ns, Compiler().compileExpression(source, "<loaded by eval>"));
 
 	s.callWith(cl, 1, MDValue(ns));
 	return s.pop();
@@ -257,7 +257,7 @@ public uint evalMultRet(MDState s, dchar[] source, MDNamespace ns = null)
 	if(ns is null)
 		ns = s.context.globals.ns;
 
-	auto cl = new MDClosure(ns, compileExpression(source, "<loaded by eval>"));
+	auto cl = new MDClosure(ns, Compiler().compileExpression(source, "<loaded by eval>"));
 
 	return s.callWith(cl, -1, MDValue(ns));
 }
@@ -392,12 +392,12 @@ private MDModuleDef tryPath(FilePath path, char[][] elems)
 		if(binaryName.exists())
 		{
 			if(sourceName.modified() > binaryName.modified())
-				def = compileModule(sourceName.toString());
+				def = Compiler().compileModule(sourceName.toString());
 			else
 				def = MDModuleDef.loadFromFile(binaryName.toString());
 		}
 		else
-			def = compileModule(sourceName.toString());
+			def = Compiler().compileModule(sourceName.toString());
 	}
 	else
 	{

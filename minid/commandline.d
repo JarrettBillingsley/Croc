@@ -179,7 +179,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			MDModuleDef def;
 
 			if(inputFile.length >= 3 && inputFile[$ - 3 .. $] == ".md")
-				def = compileModule(inputFile);
+				def = Compiler().compileModule(inputFile);
 			else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
 				def = MDModuleDef.loadFromFile(inputFile);
 
@@ -277,7 +277,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			{
 				try
 				{
-					auto def = compileStatements(utf.toString32(buffer), "stdin");
+					auto def = Compiler().compileStatements(utf.toString32(buffer), "stdin");
 					state.call(ctx.newClosure(def), 0);
 				}
 				catch(MDCompileException e2)
@@ -325,7 +325,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 					{
 						mOutput(" => ");
 						returnBuffer.length = 0;
-						
+
 						for(uint i = 0; i < numRets; i++)
 							returnBuffer ~= state.pop();
 

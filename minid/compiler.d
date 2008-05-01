@@ -50,147 +50,170 @@ import minid.utils;
 //debug = SHOWME;
 //debug = PRINTEXPSTACK;
 
-/**
-Compile a source code file into a binary module.  Takes the path to the source file and returns
-the compiled module, which can be loaded into a context.
-
-You shouldn't have to deal with this function that much.  Most of the time the compilation of
-modules should be handled for you by the import system in MDContext.
-*/
-public MDModuleDef compileModule(char[] filename)
+struct Compiler
 {
-	scope path = FilePath(filename);
-	return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
-}
-
-/**
-Compile a module from a string containing the source code.
-
-Params:
-	source = The source code as a string.
-	name = The name which should be used as the source name in compiler error message.  Takes the
-		place of the filename when compiling from a source file.
-
-Returns:
-	The compiled module.
-*/
-public MDModuleDef compileModule(dchar[] source, char[] name)
-{
-	scope lexer = new Lexer(name, source);
-	return Module.parse(lexer).codeGen();
-}
-
-/**
-Compile a list of statements into a function body which takes a variadic number of arguments.  Kind
-of like a module without the module statement.  
-
-Params:
-	source = The source code as a string.
-	name = The name to use as the source name for compilation errors.
-		
-Returns:
-	The compiled function.
-*/
-public MDFuncDef compileStatements(dchar[] source, char[] name)
-{
-	scope lexer = new Lexer(name, source);
-	List!(Statement) s;
-
-	while(lexer.type != Token.Type.EOF)
-		s.add(Statement.parse(lexer));
-
-	lexer.expect(Token.Type.EOF);
-
-	Statement[] stmts = s.toArray();
-
-	FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name));
-	fs.mIsVararg = true;
-	
-	try
+	enum
 	{
-		foreach(stmt; stmts)
-			stmt.fold().codeGen(fs);
+		None = 0,
+		
+		ParameterConstraints = 1,
+		Asserts = 2,
+
+		All = ParameterConstraints | Asserts
+	}
+
+	private	uint mFlags;
 	
-		if(stmts.length == 0)
+	public static Compiler opCall(uint flags = All)
+	{
+		Compiler ret;
+		ret.mFlags = flags;
+		
+		return ret;
+	}
+
+	/**
+	Compile a source code file into a binary module.  Takes the path to the source file and returns
+	the compiled module, which can be loaded into a context.
+	
+	You shouldn't have to deal with this function that much.  Most of the time the compilation of
+	modules should be handled for you by the import system in MDContext.
+	*/
+	public MDModuleDef compileModule(char[] filename)
+	{
+		scope path = FilePath(filename);
+		return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
+	}
+	
+	/**
+	Compile a module from a string containing the source code.
+	
+	Params:
+		source = The source code as a string.
+		name = The name which should be used as the source name in compiler error message.  Takes the
+			place of the filename when compiling from a source file.
+	
+	Returns:
+		The compiled module.
+	*/
+	public MDModuleDef compileModule(dchar[] source, char[] name)
+	{
+		scope lexer = new Lexer(name, source);
+		return Module.parse(lexer).codeGen(this);
+	}
+	
+	/**
+	Compile a list of statements into a function body which takes a variadic number of arguments.  Kind
+	of like a module without the module statement.  
+	
+	Params:
+		source = The source code as a string.
+		name = The name to use as the source name for compilation errors.
+			
+	Returns:
+		The compiled function.
+	*/
+	public MDFuncDef compileStatements(dchar[] source, char[] name)
+	{
+		scope lexer = new Lexer(name, source);
+		List!(Statement) s;
+	
+		while(lexer.type != Token.Type.EOF)
+			s.add(Statement.parse(lexer));
+	
+		lexer.expect(Token.Type.EOF);
+	
+		Statement[] stmts = s.toArray();
+	
+		FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		fs.mIsVararg = true;
+		
+		try
 		{
-			fs.codeI(1, Op.Ret, 0, 1);
-			fs.popScope(1);
+			foreach(stmt; stmts)
+				stmt.fold().codeGen(fs);
+		
+			if(stmts.length == 0)
+			{
+				fs.codeI(1, Op.Ret, 0, 1);
+				fs.popScope(1);
+			}
+			else
+			{
+				fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
+				fs.popScope(stmts[$ - 1].endLocation.line);
+			}
 		}
+		finally
+		{
+			debug(SHOWME)
+			{
+				fs.showMe(); Stdout.flush;
+			}
+			
+			debug(PRINTEXPSTACK)
+				fs.printExpStack();
+		}
+	
+		return fs.toFuncDef();
+	}
+	
+	/**
+	Compile a single expression into a function which returns the value of that expression when called.
+	
+	Params:
+		source = The source code as a string.
+		name = The name to use as the source name for compilation errors.
+		
+	Returns:
+		The compiled function.
+	*/
+	public MDFuncDef compileExpression(dchar[] source, char[] name)
+	{
+		scope lexer = new Lexer(name, source);
+		Expression e = Expression.parse(lexer);
+	
+		if(lexer.type != Token.Type.EOF)
+			throw new MDCompileException(lexer.loc, "Extra unexpected code after expression");
+			
+		FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		fs.mIsVararg = true;
+	
+		auto ret = (new ReturnStatement(e)).fold();
+	
+		try
+		{
+			ret.codeGen(fs);
+			fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
+			fs.popScope(ret.endLocation.line);
+		}
+		finally
+		{
+			debug(SHOWME)
+			{
+				fs.showMe(); Stdout.flush;
+			}
+			
+			debug(PRINTEXPSTACK)
+				fs.printExpStack();
+		}
+	
+		return fs.toFuncDef();
+	}
+	
+	/**
+	Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
+	function.
+	*/
+	public MDValue loadJSON(dchar[] source)
+	{
+		scope lexer = new Lexer("JSON", source, true);
+	
+		if(lexer.type == Token.Type.LBrace)
+			return TableCtorExp.parseJSON(lexer);
 		else
-		{
-			fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
-			fs.popScope(stmts[$ - 1].endLocation.line);
-		}
+			return ArrayCtorExp.parseJSON(lexer);
 	}
-	finally
-	{
-		debug(SHOWME)
-		{
-			fs.showMe(); Stdout.flush;
-		}
-		
-		debug(PRINTEXPSTACK)
-			fs.printExpStack();
-	}
-
-	return fs.toFuncDef();
-}
-
-/**
-Compile a single expression into a function which returns the value of that expression when called.
-
-Params:
-	source = The source code as a string.
-	name = The name to use as the source name for compilation errors.
-	
-Returns:
-	The compiled function.
-*/
-public MDFuncDef compileExpression(dchar[] source, char[] name)
-{
-	scope lexer = new Lexer(name, source);
-	Expression e = Expression.parse(lexer);
-
-	if(lexer.type != Token.Type.EOF)
-		throw new MDCompileException(lexer.loc, "Extra unexpected code after expression");
-		
-	FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name));
-	fs.mIsVararg = true;
-
-	auto ret = (new ReturnStatement(e)).fold();
-
-	try
-	{
-		ret.codeGen(fs);
-		fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
-		fs.popScope(ret.endLocation.line);
-	}
-	finally
-	{
-		debug(SHOWME)
-		{
-			fs.showMe(); Stdout.flush;
-		}
-		
-		debug(PRINTEXPSTACK)
-			fs.printExpStack();
-	}
-
-	return fs.toFuncDef();
-}
-
-/**
-Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
-function.
-*/
-public MDValue loadJSON(dchar[] source)
-{
-	scope lexer = new Lexer("JSON", source, true);
-
-	if(lexer.type == Token.Type.LBrace)
-		return TableCtorExp.parseJSON(lexer);
-	else
-		return ArrayCtorExp.parseJSON(lexer);
 }
 
 struct Token
@@ -1686,6 +1709,7 @@ class FuncState
 		protected bool hasUpval = false;
 	}
 
+	protected Compiler* mCompiler;
 	protected FuncState mParent;
 	protected Scope* mScope;
 	protected int mFreeReg = 0;
@@ -1738,7 +1762,7 @@ class FuncState
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
 
-	public this(Location location, dchar[] guessedName, FuncState parent = null)
+	public this(Location location, dchar[] guessedName, FuncState parent = null, Compiler* compiler = null)
 	{
 		mLocation = location;
 		mGuessedName = guessedName;
@@ -1755,6 +1779,16 @@ class FuncState
 			insertLocal(new Identifier(mLocation, "this"));
 			activateLocals(1);
 		}
+		
+		if(compiler is null)
+			mCompiler = mParent.mCompiler;
+		else
+			mCompiler = compiler;
+	}
+	
+	public uint compileFlags()
+	{
+		return mCompiler.mFlags;
 	}
 	
 	public bool isTopLevel()
@@ -4433,18 +4467,21 @@ class FuncDef : AstNode
 			if(p.defValue !is null)
 				(new OpEqExp(p.name.location, p.name.location, AstTag.CondAssign, new IdentExp(p.name), p.defValue)).codeGen(fs);
 
-		if(needParamCheck)
-			fs.codeI(code.location.line, Op.CheckParams, 0, 0);
-			
-		foreach(idx, p; params)
-			foreach(t; p.objectTypes)
-			{
-				t.codeGen(fs);
-				Exp src;
-				fs.popSource(t.endLocation.line, src);
-				fs.freeExpTempRegs(&src);
-				fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
-			}
+		if(s.compileFlags & Compiler.ParameterConstraints)
+		{
+			if(needParamCheck)
+				fs.codeI(code.location.line, Op.CheckParams, 0, 0);
+				
+			foreach(idx, p; params)
+				foreach(t; p.objectTypes)
+				{
+					t.codeGen(fs);
+					Exp src;
+					fs.popSource(t.endLocation.line, src);
+					fs.freeExpTempRegs(&src);
+					fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
+				}
+		}
 
 		code.codeGen(fs);
 		fs.codeI(code.endLocation.line, Op.Ret, 0, 1);
@@ -4628,7 +4665,7 @@ class NamespaceDef : AstNode
 	{
 		/*
 		Rewrite:
-		
+
 		namespace N
 		{
 			function f() {}
@@ -4846,13 +4883,13 @@ class Module : AstNode
 		return new Module(location, l.loc, modDecl, statements.toArray());
 	}
 	
-	public MDModuleDef codeGen()
+	public MDModuleDef codeGen(Compiler* compiler)
 	{
 		MDModuleDef def = new MDModuleDef();
 
 		def.mName = join(modDecl.names, "."d);
 
-		FuncState fs = new FuncState(location, "module " ~ modDecl.names[$ - 1]);
+		FuncState fs = new FuncState(location, "module " ~ modDecl.names[$ - 1], null, compiler);
 		// trying out the main() thing.
 		//fs.mIsVararg = true;
 
@@ -5109,14 +5146,17 @@ class AssertStatement : Statement
 	
 	public override void codeGen(FuncState s)
 	{
-		if(msg is null)
-			msg = new StringExp(location, Utf.toString32(Format.convert("Assertion failure at {}", location)));
-
-		auto c = new NotExp(cond.location, cond);
-		auto t = new ThrowStatement(msg.location, msg);
-		auto i = new IfStatement(location, endLocation, null, c, t, null);
-		
-		i.fold().codeGen(s);
+		if(s.compileFlags & Compiler.Asserts)
+		{
+			if(msg is null)
+				msg = new StringExp(location, Utf.toString32(Format.convert("Assertion failure at {}", location)));
+	
+			auto c = new NotExp(cond.location, cond);
+			auto t = new ThrowStatement(msg.location, msg);
+			auto i = new IfStatement(location, endLocation, null, c, t, null);
+			
+			i.fold().codeGen(s);
+		}
 	}
 
 	public override Statement fold()

@@ -63,7 +63,6 @@ static:
 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
 
 		// Really basic stuff
-		globals["assert"d] =          new MDClosure(globals.ns, &mdassert,              "assert");
 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
 		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
 		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
@@ -465,21 +464,6 @@ static:
 		return 1;
 	}
 
-	int mdassert(MDState s, uint numParams)
-	{
-		MDValue condition = s.getParam(0u);
-
-		if(condition.isFalse())
-		{
-			if(numParams == 1)
-				s.throwRuntimeException("Assertion Failed!");
-			else
-				s.throwRuntimeException("Assertion Failed: {}", s.getParam(1u).toString());
-		}
-		
-		return 0;
-	}
-	
 	int toBool(MDState s, uint numParams)
 	{
 		s.push(s.getParam(0u).isTrue());
@@ -840,14 +824,14 @@ static:
 		else
 			name = "<loaded by loadString>";
 
-		MDFuncDef def = compileStatements(s.getParam!(dchar[])(0), name);
+		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
 		s.push(new MDClosure(s.environment(1), def));
 		return 1;
 	}
 	
 	int eval(MDState s, uint numParams)
 	{
-		MDFuncDef def = compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
+		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
 		MDNamespace env;
 
 		if(s.callDepth() > 1)
@@ -861,7 +845,7 @@ static:
 	
 	int loadJSON(MDState s, uint numParams)
 	{
-		s.push(.loadJSON(s.getParam!(dchar[])(0)));
+		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
 
