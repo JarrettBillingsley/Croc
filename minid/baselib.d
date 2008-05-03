@@ -78,6 +78,8 @@ static:
 		globals["bindContext"d] =     new MDClosure(globals.ns, &bindContext,           "bindContext");
 
 		// Reflection-esque stuff
+		globals["findGlobal"d] =      new MDClosure(globals.ns, &findGlobal,            "findGlobal");
+		globals["isSet"d] =           new MDClosure(globals.ns, &isSet,                 "isSet");
 		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
 		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
@@ -418,6 +420,24 @@ static:
 
 		formatImpl(s, s.getAllParams(), &sink);
 		s.push(ret);
+		return 1;
+	}
+
+	int findGlobal(MDState s, uint numParams)
+	{
+		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
+		
+		if(ns is null)
+			s.pushNull();
+		else
+			s.push(ns);
+			
+		return 1;
+	}
+
+	int isSet(MDState s, uint numParams)
+	{
+		s.push(s.findGlobal(s.getParam!(MDString)(0), 1) !is null);
 		return 1;
 	}
 
@@ -818,29 +838,37 @@ static:
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
+		auto env = s.context.globals.ns;
 
 		if(numParams > 1)
-			name = s.getParam!(char[])(1);
+		{
+			if(s.isParam!("string")(1))
+			{
+				name = s.getParam!(char[])(1);
+
+				if(numParams > 2)
+					env = s.getParam!(MDNamespace)(2);
+			}
+			else
+				env = s.getParam!(MDNamespace)(1);
+		}
 		else
 			name = "<loaded by loadString>";
 
 		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
-		s.push(new MDClosure(s.environment(1), def));
+		s.push(new MDClosure(env, def));
 		return 1;
 	}
 	
 	int eval(MDState s, uint numParams)
 	{
 		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
-		MDNamespace env;
+		MDNamespace env = s.context.globals.ns;
 
-		if(s.callDepth() > 1)
-			env = s.environment(1);
-		else
-			env = s.context.globals.ns;
+		if(numParams > 1)
+			env = s.getParam!(MDNamespace)(1);
 
-		s.call(new MDClosure(env, def), 1);
-		return 1;
+		return s.call(new MDClosure(env, def), -1);
 	}
 	
 	int loadJSON(MDState s, uint numParams)

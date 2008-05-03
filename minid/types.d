@@ -4835,13 +4835,19 @@ final class MDState : MDBaseObject
 	*/
 	public final MDNamespace environment(int depth = 0)
 	{
-		if(mARIndex < 1)
-			throw new MDException("MDState.environment() - no current environment");
-
-		if(depth < 0 || mARIndex - depth < 1)
+		if(mARIndex < 1 || depth < 0 || mARIndex - depth < 1)
 			return mContext.globals.ns;
 		else
 			return mActRecs[mARIndex - depth].func.environment;
+	}
+	
+	public final MDNamespace findGlobal(MDString name, int depth = 0)
+	{
+		for(auto ns = environment(depth); ns !is null; ns = ns.mParent)
+			if(ns[name] !is null)
+				return ns;
+
+		return null;
 	}
 
 	/**
@@ -6224,7 +6230,7 @@ final class MDState : MDBaseObject
 				f1 = RD.mFloat;
 				f2 = RS.mFloat;
 
-				_float:				
+				_float:
 				RD.mType = MDValue.Type.Float;
 
 				switch(operation)
