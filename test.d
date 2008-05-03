@@ -23,7 +23,7 @@ void main()
 			LoadArc(ctx);
 
 		ctx.addImportPath(`samples`);
-		ctx.importModule("simple");
+		runMain(ctx.mainThread, ctx.importModule("simple"));
 	}
 	catch(MDException e)
 	{

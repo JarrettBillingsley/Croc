@@ -32,6 +32,8 @@ subject to the following restrictions:
 
 module minid.types;
 
+import Float = tango.text.convert.Float;
+import Integer = tango.text.convert.Integer;
 import tango.core.Array;
 import tango.core.Thread;
 import tango.core.Traits : ParameterTupleOf;
@@ -47,16 +49,14 @@ import tango.io.protocol.Writer;
 import tango.io.Stdout;
 import tango.stdc.string : memcmp;
 import tango.text.Ascii;
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
-import utf = tango.text.convert.Utf;
+import tango.text.convert.Format;
 import tango.text.Util;
+import utf = tango.text.convert.Utf;
 
 import minid.opcodes;
 import minid.utils;
 
 // debug = STACKINDEX;
-// debug = CALLEPILOGUE;
 
 /**
 The root of the MiniD exception hierarchy.
@@ -85,7 +85,7 @@ class MDException : Exception
 	*/
 	public this(char[] fmt, TypeInfo[] arguments, va_list argptr)
 	{
-		char[] msg = Stdout.layout.convert(arguments, argptr, fmt);
+		char[] msg = Format.convert(arguments, argptr, fmt);
 		value = new MDString(msg);
 		super(msg);
 	}
@@ -134,7 +134,7 @@ class MDCompileException : MDException
 	*/
 	public this(Location loc, char[] fmt, ...)
 	{
-		super("{}: {}", loc.toString(), Stdout.layout.convert(_arguments, _argptr, fmt));
+		super("{}: {}", loc.toString(), Format.convert(_arguments, _argptr, fmt));
 	}
 }
 
@@ -186,7 +186,7 @@ class MDRuntimeException : MDException
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("{}: {}", location.toString(), msg);
+		return Format.convert("{}: {}", location.toString(), msg);
 	}
 }
 
@@ -1672,9 +1672,9 @@ class MDClosure : MDBaseObject
 	public char[] toString()
 	{
 		if(mIsNative)
-			return Stdout.layout.convert("native function {}", native.name);
+			return Format.convert("native function {}", native.name);
 		else
-			return Stdout.layout.convert("script function {}({})", script.func.mGuessedName, script.func.mLocation.toString());
+			return Format.convert("script function {}({})", script.func.mGuessedName, script.func.mLocation.toString());
 	}
 
 	/**
@@ -1914,7 +1914,7 @@ class MDTable : MDBaseObject
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("table 0x{:X8}", cast(size_t)cast(void*)this);
+		return Format.convert("table 0x{:X8}", cast(size_t)cast(void*)this);
 	}
 }
 
@@ -2245,7 +2245,7 @@ class MDArray : MDBaseObject
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("array 0x{:X8}", cast(void*)this);
+		return Format.convert("array 0x{:X8}", cast(void*)this);
 	}
 
 	private static MDArray concat(MDValue[] values)
@@ -2428,7 +2428,7 @@ class MDObject : MDBaseObject
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("object {} (0x{:X8})", mGuessedName, cast(void*)this);
+		return Format.convert("object {} (0x{:X8})", mGuessedName, cast(void*)this);
 	}
 	
 	/**
@@ -2912,7 +2912,7 @@ final class MDNamespace : MDBaseObject
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("namespace {}", nameString());
+		return Format.convert("namespace {}", nameString());
 	}
 	
 	/**
@@ -3035,9 +3035,9 @@ struct Location
 	public char[] toString()
 	{
 		if(line == -1 && column == -1)
-			return Stdout.layout.convert("{}(native)", fileName);
+			return Format.convert("{}(native)", fileName);
 		else
-			return Stdout.layout.convert("{}({}:{})", fileName, line, column);
+			return Format.convert("{}({}:{})", fileName, line, column);
 	}
 }
 
@@ -3834,10 +3834,10 @@ final class MDContext
 		if(mTraceback.length == 0)
 			return "";
 
-		char[] ret = Stdout.layout.convert("Traceback: {}", mTraceback[0].toString());
+		char[] ret = Format.convert("Traceback: {}", mTraceback[0].toString());
 
 		foreach(ref loc; mTraceback[1 .. $])
-			ret = Stdout.layout.convert("{}\n\tat {}", ret, loc.toString());
+			ret = Format.convert("{}\n\tat {}", ret, loc.toString());
 
 		mTraceback.length = 0;
 
@@ -3860,8 +3860,10 @@ final class MDState : MDBaseObject
 		uint funcSlot;
 		MDClosure func;
 		Instruction* pc;
-		uint numReturns;
+		int numReturns;
 		MDObject proto;
+		uint numTailcalls;
+		MDValue[] results;
 	}
 
 	struct TryRecord
@@ -3931,7 +3933,6 @@ final class MDState : MDBaseObject
 
 	private MDValue[] mResults;
 	private uint mResultIndex = 0;
-	private int[] mResultsLengths;
 
 	private MDUpval* mUpvalHead;
 
@@ -4005,7 +4006,7 @@ final class MDState : MDBaseObject
 	*/
 	public char[] toString()
 	{
-		return Stdout.layout.convert("thread 0x{:X8}", cast(void*)this);
+		return Format.convert("thread 0x{:X8}", cast(void*)this);
 	}
 
 	/**
@@ -4110,7 +4111,7 @@ final class MDState : MDBaseObject
 	public void popMulti(T...)(out T rets)
 	{
 		static assert(T.length > 0, "popMulti must have at least one output");
-		
+
 		foreach_reverse(i, Type; T)
 			rets[i] = pop!(Type)();
 	}
@@ -4667,7 +4668,7 @@ final class MDState : MDBaseObject
 	}
 
 	/**
-	Gets the value of a parameter off the stack.  
+	Gets the value of a parameter off the stack.
 
 	Params:
 		index = The index of the parameter to get.  Throws an error if this index is invalid.
@@ -4835,10 +4836,24 @@ final class MDState : MDBaseObject
 	*/
 	public final MDNamespace environment(int depth = 0)
 	{
-		if(mARIndex < 1 || depth < 0 || mARIndex - depth < 1)
+		if(depth < 0)
+			throwRuntimeException("Negative depths are not allowed");
+		else if(mARIndex == 0)
 			return mContext.globals.ns;
-		else
-			return mActRecs[mARIndex - depth].func.environment;
+		else if(depth == 0)
+			return mCurrentAR.func.environment;
+			
+		for(int idx = mARIndex; idx > 0; idx--)
+		{
+			if(depth == 0)
+				return mActRecs[idx].func.environment;
+			else if(depth <= mActRecs[idx].numTailcalls)
+				throwRuntimeException("Attempting to get environment of function whose activation record was overwritten by a tail call");
+
+			depth -= (mActRecs[idx].numTailcalls + 1);
+		}
+
+		return mContext.globals.ns;
 	}
 	
 	public final MDNamespace findGlobal(MDString name, int depth = 0)
@@ -4861,7 +4876,7 @@ final class MDState : MDBaseObject
 
 	/**
 	Get a string representation of any MiniD value.  This is different from MDValue.toString() in that it will call
-	any toString metamethods defined for the object.  
+	any toString metamethods defined for the object.
 	
 	Params:
 		The value to get a string representation of.
@@ -5186,6 +5201,7 @@ final class MDState : MDBaseObject
 		*mCurrentAR = mActRecs[mARIndex - 1];
 		mCurrentAR.funcSlot = first;
 		mCurrentAR.numReturns = numReturns;
+		mCurrentAR.results = null;
 		mStackIndex += values.length;
 		checkStack(mStackIndex);
 		
@@ -5389,6 +5405,10 @@ final class MDState : MDBaseObject
 		mContext.mTraceback.length = 0;
 		auto loc = getDebugLocation();
 		mContext.mTraceback ~= loc;
+
+		for(int i = 0; i < mCurrentAR.numTailcalls; i++)
+			mContext.mTraceback ~= Location("<tailcall>", 0, 0);
+
 		return loc;
 	}
 
@@ -5415,7 +5435,7 @@ final class MDState : MDBaseObject
 
 	protected final void badParamError(uint index, char[] fmt, ...)
 	{
-		throwRuntimeException("Bad argument {}: {}", index + 1, Stdout.layout.convert(_arguments, _argptr, fmt));
+		throwRuntimeException("Bad argument {}: {}", index + 1, Format.convert(_arguments, _argptr, fmt));
 	}
 
 	protected final bool callPrologue(uint slot, int numReturns, int numParams, MDValue proto = MDValue.nullValue)
@@ -5447,6 +5467,7 @@ final class MDState : MDBaseObject
 				mCurrentAR.savedTop = mStackIndex;
 				mCurrentAR.funcSlot = slot;
 				mCurrentAR.numReturns = numReturns;
+				mCurrentAR.results = null;
 
 				mStackIndex = slot + numParams + 1;
 
@@ -5543,9 +5564,16 @@ final class MDState : MDBaseObject
 				actualReturns = closure.native.dg(this, numParams - 1);
 			}
 			catch(MDRuntimeException e)
+			{
+				callEpilogue(false);
 				throw e;
+			}
 			catch(MDException e)
-				throw new MDRuntimeException(startTraceback(), &e.value);
+			{
+				Location loc = startTraceback();
+				callEpilogue(false);
+				throw new MDRuntimeException(loc, &e.value);
+			}
 			catch(MDHaltException e)
 			{
 				if(mNativeCallDepth > 0)
@@ -5553,7 +5581,7 @@ final class MDState : MDBaseObject
 					callEpilogue(false);
 					throw e;
 				}
-					
+
 				saveResults(null);
 				callEpilogue(true);
 
@@ -5633,7 +5661,9 @@ final class MDState : MDBaseObject
 			mCurrentAR.func = closure;
 			mCurrentAR.pc = funcDef.mCode.ptr;
 			mCurrentAR.numReturns = numReturns;
+			mCurrentAR.results = null;
 			mCurrentAR.proto = proto.isNull() ? null : proto.mObject;
+			mCurrentAR.numTailcalls = 0;
 
 			mStackIndex = base + funcDef.mStackSize;
 
@@ -5661,6 +5691,7 @@ final class MDState : MDBaseObject
 		mCurrentAR.funcSlot = returnSlot;
 		mCurrentAR.func = closure;
 		mCurrentAR.numReturns = numReturns;
+		mCurrentAR.results = null;
 		mCurrentAR.savedTop = mStackIndex;
 		mCurrentAR.proto = proto.isNull() ? null : proto.mObject;
 	}
@@ -5671,11 +5702,8 @@ final class MDState : MDBaseObject
 		int numExpRets = mCurrentAR.numReturns;
 
 		bool isMultRet = false;
-		
-		MDValue[] results;
-		
-		if(needResults)
-			results = loadResults();
+
+		auto results = loadResults();
 
 		if(numExpRets == -1)
 		{
@@ -5700,16 +5728,14 @@ final class MDState : MDBaseObject
 			}
 		}
 		else
-		{
 			mNumYields = 0;
-		}
 
 		if(mARIndex == 0)
 		{
 			mState = State.Dead;
 			mShouldHalt = false;
 		}
-
+		
 		if(isMultRet)
 			mStackIndex = destSlot + numExpRets;
 		else
@@ -5731,19 +5757,14 @@ final class MDState : MDBaseObject
 		}
 		
 		mResults[mResultIndex .. mResultIndex + results.length] = results[];
+		mCurrentAR.results = mResults[mResultIndex .. mResultIndex + results.length];
 		mResultIndex += results.length;
-		mResultsLengths ~= results.length;
 	}
 
 	protected final MDValue[] loadResults()
 	{
-		assert(mResultsLengths.length > 0);//, "Script result stack underflow");
-
-		int len = mResultsLengths[$ - 1];
-		mResultsLengths.length = mResultsLengths.length - 1;
-
-		MDValue[] ret = mResults[mResultIndex - len .. mResultIndex];
-		mResultIndex -= len;
+		auto ret = mCurrentAR.results;
+		mResultIndex -= ret.length;
 		return ret;
 	}
 
@@ -7904,7 +7925,6 @@ final class MDState : MDBaseObject
 	
 					case Op.Throw:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Throw");
-
 						throwRuntimeException(get(i.rs));
 						break;
 
@@ -7995,25 +8015,28 @@ final class MDState : MDBaseObject
 								funcReg += stackBase;
 	
 								int destReg = mCurrentAR.funcSlot;
-	
+
 								for(int j = 0; j < numParams + 2; j++)
 									mStack[destReg + j] = mStack[funcReg + j];
 	
 								int numReturns = mCurrentAR.numReturns;
+								auto tc = mCurrentAR.numTailcalls + 1;
 
 								popAR();
 
 								{
 									scope(failure)
 										--depth;
-	
-									if(callPrologue2(method.mFunction, destReg, numReturns, destReg, numParams + 1, proto) == false)
+
+									if(callPrologue2(method.mFunction, destReg, numReturns, destReg, numParams + 1, proto))
+										mCurrentAR.numTailcalls = tc;
+									else
 										--depth;
 								}
-	
+
 								if(depth == 0)
 									return;
-	
+
 								constTable = mCurrentAR.func.script.func.mConstants;
 								env = mCurrentAR.func.environment;
 								stackBase = mCurrentAR.base;
@@ -8073,14 +8096,17 @@ final class MDState : MDBaseObject
 								mStack[destReg + j] = mStack[funcReg + j];
 
 							int numReturns = mCurrentAR.numReturns;
+							auto tc = mCurrentAR.numTailcalls + 1;
 
 							popAR();
-
+							
 							{
 								scope(failure)
 									--depth;
 
-								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams, proto) == false)
+								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams, proto))
+									mCurrentAR.numTailcalls = tc;
+								else
 									--depth;
 							}
 
@@ -8135,7 +8161,7 @@ final class MDState : MDBaseObject
 						}
 						else
 						{
-							assert(call.opcode == Op.Tailcall, "Op.Method invalid call opcode");
+							assert(call.opcode == Op.Tailcall, "Op.Precall invalid call opcode");
 							close(0);
 
 							int funcReg = call.rd;
@@ -8154,6 +8180,7 @@ final class MDState : MDBaseObject
 								mStack[destReg + j] = mStack[funcReg + j];
 
 							int numReturns = mCurrentAR.numReturns;
+							auto tc = mCurrentAR.numTailcalls + 1;
 
 							popAR();
 
@@ -8161,7 +8188,9 @@ final class MDState : MDBaseObject
 								scope(failure)
 									--depth;
 
-								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams) == false)
+								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams))
+									mCurrentAR.numTailcalls = tc;
+								else
 									--depth;
 							}
 
@@ -8361,6 +8390,7 @@ final class MDState : MDBaseObject
 						*mCurrentAR = mActRecs[mARIndex - 1];
 						mCurrentAR.funcSlot = firstValue;
 						mCurrentAR.numReturns = i.rt - 1;
+						mCurrentAR.results = null;
 
 						uint numValues = i.rs - 1;
 
@@ -8695,9 +8725,14 @@ final class MDState : MDBaseObject
 				depth--;
 
 				callEpilogue(false);
-				
+
 				if(mCurrentAR.func !is null)
+				{
 					mContext.mTraceback ~= getDebugLocation();
+
+					for(int call = 0; call < mCurrentAR.numTailcalls; call++)
+						mContext.mTraceback ~= Location("<tailcall>", 0, 0);
+				}
 
 				if(depth > 0)
 				{

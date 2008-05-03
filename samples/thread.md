@@ -27,7 +27,7 @@ object Thread
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
 	function beginWait(duration)
-		:mWaitTime = os.microTime() + toInt(duration * 1000000)
+		:mWaitTime = time.microTime() + toInt(duration * 1000000)
 
 	// Add a message to this thread's message queue.
 	function send(value)
@@ -88,7 +88,7 @@ object Thread
 		else if(:mWaitTime is null)
 			return false
 		else
-			return os.microTime() < :mWaitTime
+			return time.microTime() < :mWaitTime
 
 	// Returns whether the thread has completed or not.
 	function isDead() = :mBody.isDead()
