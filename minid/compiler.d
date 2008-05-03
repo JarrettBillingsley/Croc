@@ -4220,22 +4220,6 @@ class FuncDef : AstNode
 	{
 		Param[] ret = new Param[1];
 
-// 		void showTypeMask(uint p)
-// 		{
-// 			Stdout("Param ")(p)(": ");
-// 
-// 			auto tm = ret[p].typeMask;
-// 
-// 			for(uint t = 0; tm; tm >>= 1, t++)
-// 				if(tm & 1)
-// 					Stdout(MDValue.typeString(cast(MDValue.Type)t))(" ");
-// 
-// 			foreach(exp; ret[p].objectTypes)
-// 				Stdout(exp.toString())(" ");
-// 
-// 			Stdout.newline();
-// 		}
-
 		void parseParam()
 		{
 			Param p;
@@ -4254,8 +4238,6 @@ class FuncDef : AstNode
 			}
 
 			ret ~= p;
-			
-// 			showTypeMask(ret.length - 1);
 		}
 
 		l.expect(Token.Type.LParen);
@@ -4267,8 +4249,6 @@ class FuncDef : AstNode
 			l.next();
 			l.expect(Token.Type.Colon);
 			ret[0].typeMask = parseType(l, ret[0].objectTypes);
-			
-// 			showTypeMask(0);
 
 			while(l.type == Token.Type.Comma)
 			{
@@ -4500,9 +4480,41 @@ class FuncDef : AstNode
 
 	public FuncDef fold()
 	{
-		foreach(ref p; params)
+		foreach(i, ref p; params)
 			if(p.defValue !is null)
+			{
 				p.defValue = p.defValue.fold();
+				
+				if(p.defValue.isConstant)
+				{
+					MDValue.Type type;
+					
+					if(p.defValue.isNull)
+						type = MDValue.Type.Null;
+					else if(p.defValue.isBool)
+						type = MDValue.Type.Bool;
+					else if(p.defValue.isInt)
+						type = MDValue.Type.Int;
+					else if(p.defValue.isFloat)
+						type = MDValue.Type.Float;
+					else if(p.defValue.isChar)
+						type = MDValue.Type.Char;
+					else if(p.defValue.isString)
+						type = MDValue.Type.String;
+					else
+						assert(false);
+						
+					if(!(p.typeMask & (1 << type)))
+					{
+						if(i == 0)
+							throw new MDCompileException(p.defValue.location,
+								"'this' parameter: Default parameter of type '{}' is not allowed", MDValue.typeString(type));
+						else
+							throw new MDCompileException(p.defValue.location,
+								"Parameter {}: Default parameter of type '{}' is not allowed", i - 1, MDValue.typeString(type));
+					}
+				}
+			}
 
 		code = code.fold();
 		
@@ -10009,7 +10021,7 @@ abstract class PostfixExp : UnaryExp
 						exp = new DotExp(exp, subExp);
 					}
 					continue;
-					
+
 				case Token.Type.Dollar:
 					l.next();
 					Expression[] args;

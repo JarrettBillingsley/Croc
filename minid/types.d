@@ -5756,6 +5756,8 @@ final class MDState : MDBaseObject
 			}
 		}
 		
+		assert(mCurrentAR.results.ptr is null);
+
 		mResults[mResultIndex .. mResultIndex + results.length] = results[];
 		mCurrentAR.results = mResults[mResultIndex .. mResultIndex + results.length];
 		mResultIndex += results.length;
@@ -5764,6 +5766,7 @@ final class MDState : MDBaseObject
 	protected final MDValue[] loadResults()
 	{
 		auto ret = mCurrentAR.results;
+		mCurrentAR.results = null;
 		mResultIndex -= ret.length;
 		return ret;
 	}
@@ -8409,7 +8412,12 @@ final class MDState : MDBaseObject
 					case Op.CheckParams:
 						foreach(idx, mask; mCurrentAR.func.script.func.mParamMasks)
 							if(!(mask & (1 << mStack[stackBase + idx].type)))
-								throwRuntimeException("Parameter {}: type '{}' is not allowed", idx, mStack[stackBase + idx].typeString);
+							{
+								if(idx == 0)
+									throwRuntimeException("'this' parameter: type '{}' is not allowed", mStack[stackBase].typeString);
+								else
+									throwRuntimeException("Parameter {}: type '{}' is not allowed", idx - 1, mStack[stackBase + idx].typeString);
+							}
 						break;
 
 					case Op.CheckObjParam:
