@@ -35,6 +35,7 @@ import tango.io.FileConduit;
 import tango.io.FilePath;
 import tango.io.FileScan;
 import tango.io.FileSystem;
+import tango.io.MappedBuffer;
 import tango.io.model.IConduit;
 import tango.io.Print;
 import tango.io.protocol.Reader;
@@ -364,7 +365,7 @@ class IOLib
 		else
 			f = s.safeCode(new FileConduit(s.getParam!(char[])(0), parseFileMode(s.getParam!(int)(1))));
 
-		s.push(streamClass.nativeClone(f, f));
+		s.push(streamClass.nativeClone(new MappedBuffer(f)));
 		return 1;
 	}
 
@@ -753,9 +754,9 @@ class IOLib
 			mFields["clone"d] = MDValue.nullValue;
 		}
 
-		protected MDStream nativeClone(Conduit conduit, IConduit.Seek seeker = null)
+		protected MDStream nativeClone(IConduit conduit)
 		{
-			return new MDStream(this, conduit, seeker);
+			return new MDStream(this, conduit);
 		}
 
 		public int readVal(T)(MDState s, uint numParams)
@@ -929,20 +930,22 @@ class IOLib
 	
 	class MDStream : MDObject
 	{
-		private Conduit mConduit;
+		private IConduit mConduit;
 		private MDInputStream mInput;
 		private MDOutputStream mOutput;
 		private IConduit.Seek mSeeker;
 
-		public this(MDStreamClass owner, Conduit conduit, IConduit.Seek seeker = null)
+		public this(MDStreamClass owner, IConduit conduit)
 		{
 			super("Stream", owner);
 
 			mConduit = conduit;
-			auto b = new Buffer(mConduit);
-			mInput = inputStreamClass.nativeClone(b);
-			mOutput = outputStreamClass.nativeClone(b);
-			mSeeker = seeker;
+
+			if(auto seeker = cast(IConduit.Seek)conduit)
+				mSeeker = seeker;
+
+			mInput = inputStreamClass.nativeClone(conduit);
+			mOutput = outputStreamClass.nativeClone(conduit);
 		}
 
 		public void seek(int pos, IConduit.Seek.Anchor whence)
@@ -976,9 +979,8 @@ class IOLib
 			if(mSeeker is null)
 				throw new MDException("Stream {} is not seekable.", mConduit);
 
-			ulong pos, ret;
-			pos = mSeeker.seek(0, IConduit.Seek.Anchor.Current);
-			ret = mSeeker.seek(0, IConduit.Seek.Anchor.End);
+			ulong pos = mSeeker.seek(0, IConduit.Seek.Anchor.Current);
+			ulong ret = mSeeker.seek(0, IConduit.Seek.Anchor.End);
 			mSeeker.seek(pos, IConduit.Seek.Anchor.Begin);
 			return ret;
 		}
