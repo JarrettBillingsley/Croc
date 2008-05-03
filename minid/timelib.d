@@ -84,10 +84,11 @@ static:
 			lib.addList
 			(
 				"PerfCounter"d,  perfCounterClass,
-				"microTime"d,    new MDClosure(lib, &microTime,  "os.microTime"),
-				"dateString"d,   new MDClosure(lib, &dateString, "os.dateString"),
-				"dateTime"d,     new MDClosure(lib, &dateTime,   "os.dateTime"),
-				"culture"d,      new MDClosure(lib, &culture,    "os.culture")
+				"microTime"d,    new MDClosure(lib, &microTime,  "times.microTime"),
+				"dateString"d,   new MDClosure(lib, &dateString, "time.dateString"),
+				"dateTime"d,     new MDClosure(lib, &dateTime,   "time.dateTime"),
+				"culture"d,      new MDClosure(lib, &culture,    "time.culture"),
+				"timestamp"d,    new MDClosure(lib, &timestamp,  "time.timestamp")
 			);
 
 			return 0;
@@ -218,6 +219,12 @@ static:
 		}
 		
 		return dest;
+	}
+	
+	int timestamp(MDState s, uint numParams)
+	{
+		s.push(cast(int)(Clock.now - Time.epoch1970).seconds);
+		return 1;
 	}
 
 	static class MDPerfCounterClass : MDObject

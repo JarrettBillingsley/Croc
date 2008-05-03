@@ -62,9 +62,10 @@ function field(x, y) = x.(y)
 function fielda(x, y, z) x.(y) = z
 
 function superof(x) = x.super
-function classof(x) = x.class
 
 function fieldGetter(name) = function(x) = x.(name)
 function fieldSetter(name) = function(x, value) x.(name) = value
 function indexer(idx) = function(x) = x[idx]
 function indexAssigner(idx) = function(x, value) x[idx] = value
+function slicer(lo, hi) = function(x) = x[lo .. hi]
+function sliceAssigner(lo, hi) = function(x, value) x[lo .. hi] = value

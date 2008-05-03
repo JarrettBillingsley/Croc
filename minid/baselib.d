@@ -64,7 +64,6 @@ static:
 
 		// Really basic stuff
 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
-		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
 		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
 		globals["currentThread"d] =   new MDClosure(globals.ns, &currentThread,         "currentThread");
 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
@@ -79,6 +78,7 @@ static:
 		globals["bindContext"d] =     new MDClosure(globals.ns, &bindContext,           "bindContext");
 
 		// Reflection-esque stuff
+		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
 		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
 		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
@@ -105,14 +105,14 @@ static:
 		globals["toFloat"d] =         new MDClosure(globals.ns, &toFloat,               "toFloat");
 		globals["toChar"d] =          new MDClosure(globals.ns, &toChar,                "toChar");
 		globals["format"d] =          new MDClosure(globals.ns, &mdformat,              "format");
-		
+
 		// Console IO
-		globals["writefln"d] =        new MDClosure(globals.ns, &mdwritefln,            "writefln");
-		globals["writef"d] =          new MDClosure(globals.ns, &mdwritef,              "writef");
-		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
 		globals["write"d] =           new MDClosure(globals.ns, &write,                 "write");
-		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
+		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
+		globals["writef"d] =          new MDClosure(globals.ns, &mdwritef,              "writef");
+		globals["writefln"d] =        new MDClosure(globals.ns, &mdwritefln,            "writefln");
 		globals["dumpVal"d] =         new MDClosure(globals.ns, &dumpVal,               "dumpVal");
+		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
 
 		// Dynamic compilation stuff
 		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");

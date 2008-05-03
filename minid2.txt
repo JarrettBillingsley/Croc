@@ -541,12 +541,12 @@ DotExpression:
 CallExpression:
 	PostfixExpression '(' [Arguments] ')'
 	PostfixExpression '(' 'with' Arguments ')'
-	PostfixExpression '$' Expression
+	PostfixExpression '$' Expression {',' Expression}
 	DotExpression '(' [Arguments] ')'
 	DotExpression '(' 'with' Arguments ')'
-	DotExpression '$' Expression
+	DotExpression '$' Expression {',' Expression}
 	'super' '.' (Identifier | '(' Expression ')') '(' [Arguments] ')'
-	'super' '.' (Identifier | '(' Expression ')') '$' Expression
+	'super' '.' (Identifier | '(' Expression ')') '$' Expression {',' Expression}
 
 Arguments:
 	Expression {',' Arguments}

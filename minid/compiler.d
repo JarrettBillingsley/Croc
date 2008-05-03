@@ -10012,12 +10012,19 @@ abstract class PostfixExp : UnaryExp
 					
 				case Token.Type.Dollar:
 					l.next();
-					Expression arg = Expression.parse(l);
+					Expression[] args;
+					args ~= Expression.parse(l);
+					
+					while(l.type == Token.Type.Comma)
+					{
+						l.next();
+						args ~= Expression.parse(l);
+					}
 
 					if(cast(DotExp)exp)
-						exp = new MethodCallExp(arg.endLocation, exp, null, [arg]);
+						exp = new MethodCallExp(args[$ - 1].endLocation, exp, null, args);
 					else
-						exp = new CallExp(arg.endLocation, exp, null, [arg]);
+						exp = new CallExp(args[$ - 1].endLocation, exp, null, args);
 					continue;
 
 				case Token.Type.LParen:
@@ -12409,7 +12416,14 @@ class SuperCallExp : PrimaryExp
 		{
 			l.expect(Token.Type.Dollar);
 			args ~= Expression.parse(l);
-			endLocation = args[0].endLocation;
+			
+			while(l.type == Token.Type.Comma)
+			{
+				l.next();
+				args ~= Expression.parse(l);
+			}
+
+			endLocation = args[$ - 1].endLocation;
 		}
 
 		return new SuperCallExp(location, endLocation, method, args);

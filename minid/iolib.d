@@ -421,7 +421,7 @@ class IOLib
 			if(ret.ptr is null)
 				s.throwRuntimeException("Stream has no more data.");
 
-			s.push(ret);
+			s.push(s.safeCode(Utf.toString32(ret)));
 			return 1;
 		}
 
