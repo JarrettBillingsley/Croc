@@ -426,12 +426,12 @@ static:
 	int findGlobal(MDState s, uint numParams)
 	{
 		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
-		
+
 		if(ns is null)
 			s.pushNull();
 		else
 			s.push(ns);
-			
+
 		return 1;
 	}
 
@@ -838,7 +838,7 @@ static:
 	int loadString(MDState s, uint numParams)
 	{
 		char[] name;
-		auto env = s.context.globals.ns;
+		MDNamespace env;
 
 		if(numParams > 1)
 		{
@@ -848,12 +848,17 @@ static:
 
 				if(numParams > 2)
 					env = s.getParam!(MDNamespace)(2);
+				else
+					env = s.environment(1);
 			}
 			else
 				env = s.getParam!(MDNamespace)(1);
 		}
 		else
+		{
 			name = "<loaded by loadString>";
+			env = s.environment(1);
+		}
 
 		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
 		s.push(new MDClosure(env, def));
@@ -863,10 +868,12 @@ static:
 	int eval(MDState s, uint numParams)
 	{
 		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
-		MDNamespace env = s.context.globals.ns;
+		MDNamespace env;
 
 		if(numParams > 1)
 			env = s.getParam!(MDNamespace)(1);
+		else
+			env = s.environment(1);
 
 		return s.call(new MDClosure(env, def), -1);
 	}
@@ -995,28 +1002,28 @@ static:
 		{
 			super("StringBuffer", owner);
 
-			iteratorClosure = new MDClosure(mFields, &iterator, "StringBuffer.iterator");
-			iteratorReverseClosure = new MDClosure(mFields, &iteratorReverse, "StringBuffer.iteratorReverse");
-			auto catEq = new MDClosure(mFields, &opCatAssign, "StringBuffer.opCatAssign");
+			iteratorClosure = new MDClosure(fields, &iterator, "StringBuffer.iterator");
+			iteratorReverseClosure = new MDClosure(fields, &iteratorReverse, "StringBuffer.iteratorReverse");
+			auto catEq = new MDClosure(fields, &opCatAssign, "StringBuffer.opCatAssign");
 
-			mFields.addList
+			fields.addList
 			(
-				"clone"d,          new MDClosure(mFields, &clone,          "StringBuffer.clone"),
+				"clone"d,          new MDClosure(fields, &clone,          "StringBuffer.clone"),
 				"append"d,         catEq,
 				"opCatAssign"d,    catEq,
-				"insert"d,         new MDClosure(mFields, &insert,         "StringBuffer.insert"),
-				"remove"d,         new MDClosure(mFields, &remove,         "StringBuffer.remove"),
-				"toString"d,       new MDClosure(mFields, &toString,       "StringBuffer.toString"),
-				"opLengthAssign"d, new MDClosure(mFields, &opLengthAssign, "StringBuffer.opLengthAssign"),
-				"opLength"d,       new MDClosure(mFields, &opLength,       "StringBuffer.opLength"),
-				"opIndex"d,        new MDClosure(mFields, &opIndex,        "StringBuffer.opIndex"),
-				"opIndexAssign"d,  new MDClosure(mFields, &opIndexAssign,  "StringBuffer.opIndexAssign"),
-				"opApply"d,        new MDClosure(mFields, &opApply,        "StringBuffer.opApply"),
-				"opSlice"d,        new MDClosure(mFields, &opSlice,        "StringBuffer.opSlice"),
-				"opSliceAssign"d,  new MDClosure(mFields, &opSliceAssign,  "StringBuffer.opSliceAssign"),
-				"reserve"d,        new MDClosure(mFields, &reserve,        "StringBuffer.reserve"),
-				"format"d,         new MDClosure(mFields, &format,         "StringBuffer.format"),
-				"formatln"d,       new MDClosure(mFields, &formatln,       "StringBuffer.formatln")
+				"insert"d,         new MDClosure(fields, &insert,         "StringBuffer.insert"),
+				"remove"d,         new MDClosure(fields, &remove,         "StringBuffer.remove"),
+				"toString"d,       new MDClosure(fields, &toString,       "StringBuffer.toString"),
+				"opLengthAssign"d, new MDClosure(fields, &opLengthAssign, "StringBuffer.opLengthAssign"),
+				"opLength"d,       new MDClosure(fields, &opLength,       "StringBuffer.opLength"),
+				"opIndex"d,        new MDClosure(fields, &opIndex,        "StringBuffer.opIndex"),
+				"opIndexAssign"d,  new MDClosure(fields, &opIndexAssign,  "StringBuffer.opIndexAssign"),
+				"opApply"d,        new MDClosure(fields, &opApply,        "StringBuffer.opApply"),
+				"opSlice"d,        new MDClosure(fields, &opSlice,        "StringBuffer.opSlice"),
+				"opSliceAssign"d,  new MDClosure(fields, &opSliceAssign,  "StringBuffer.opSliceAssign"),
+				"reserve"d,        new MDClosure(fields, &reserve,        "StringBuffer.reserve"),
+				"format"d,         new MDClosure(fields, &format,         "StringBuffer.format"),
+				"formatln"d,       new MDClosure(fields, &formatln,       "StringBuffer.formatln")
 			);
 		}
 

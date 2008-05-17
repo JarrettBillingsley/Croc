@@ -119,17 +119,17 @@ final class OSLib
 		{
 			super("Process", owner);
 			
-			mFields.addList
+			fields.addList
 			(
-				"clone"d,     new MDClosure(mFields, &clone,     "Process.clone"),
-				"isRunning"d, new MDClosure(mFields, &isRunning, "Process.isRunning"),
-				"workDir"d,   new MDClosure(mFields, &workDir,   "Process.workDir"),
-				"stdin"d,     new MDClosure(mFields, &stdin,     "Process.stdin"),
-				"stdout"d,    new MDClosure(mFields, &stdout,    "Process.stdout"),
-				"stderr"d,    new MDClosure(mFields, &stderr,    "Process.stderr"),
-				"execute"d,   new MDClosure(mFields, &execute,   "Process.execute"),
-				"wait"d,      new MDClosure(mFields, &wait,      "Process.wait"),
-				"kill"d,      new MDClosure(mFields, &kill,      "Process.kill")
+				"clone"d,     new MDClosure(fields, &clone,     "Process.clone"),
+				"isRunning"d, new MDClosure(fields, &isRunning, "Process.isRunning"),
+				"workDir"d,   new MDClosure(fields, &workDir,   "Process.workDir"),
+				"stdin"d,     new MDClosure(fields, &stdin,     "Process.stdin"),
+				"stdout"d,    new MDClosure(fields, &stdout,    "Process.stdout"),
+				"stderr"d,    new MDClosure(fields, &stderr,    "Process.stderr"),
+				"execute"d,   new MDClosure(fields, &execute,   "Process.execute"),
+				"wait"d,      new MDClosure(fields, &wait,      "Process.wait"),
+				"kill"d,      new MDClosure(fields, &kill,      "Process.kill")
 			);
 		}
 		

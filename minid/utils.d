@@ -801,3 +801,37 @@ public bool endsWith(T)(T[] string, T[] pattern)
 {
 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
+
+template isFinalImpl(T, char[] funcName)
+{
+	alias ParameterTupleOf!(mixin(T.stringof ~ "." ~ funcName)) _Params;
+	alias ReturnTypeOf!(mixin(T.stringof ~ "." ~ funcName)) _ReturnType;
+	mixin("alias typeof(new class T { override _ReturnType " ~ funcName ~
+		"(_Params _params) { return super." ~ funcName ~ "(_params); } }) res;");
+}
+
+/**
+Given a class type and a method name, tells whether that method is final or not.
+Thanks Tomasz Stachowiak.
+*/
+template isFinal(T, char[] funcName)
+{
+	const bool isFinal = !is(isFinal_!(T, funcName).res);
+}
+
+unittest
+{
+	static class Foo
+	{
+		final void func1(int a, float b) {}
+		void func2(int a, float b) {}
+
+		final char[] func3(int a, float b) { return null; }
+		char[] func4(int a, float b) { return null; }
+	}
+
+	assert(isFinal!(Foo, "func1"));
+	assert(!isFinal!(Foo, "func2"));
+	assert(isFinal!(Foo, "func3"));
+	assert(!isFinal!(Foo, "func4"));
+}

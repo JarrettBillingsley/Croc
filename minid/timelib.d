@@ -244,14 +244,14 @@ static:
 		{
 			super("PerfCounter", owner);
 
-			mFields.addList
+			fields.addList
 			(
-				"clone"d,     new MDClosure(mFields, &clone,     "PerfCounter.clone"),
-				"start"d,     new MDClosure(mFields, &start,     "PerfCounter.start"),
-				"stop"d,      new MDClosure(mFields, &stop,      "PerfCounter.stop"),
-				"seconds"d,   new MDClosure(mFields, &seconds,   "PerfCounter.seconds"),
-				"millisecs"d, new MDClosure(mFields, &millisecs, "PerfCounter.millisecs"),
-				"microsecs"d, new MDClosure(mFields, &microsecs, "PerfCounter.microsecs")
+				"clone"d,     new MDClosure(fields, &clone,     "PerfCounter.clone"),
+				"start"d,     new MDClosure(fields, &start,     "PerfCounter.start"),
+				"stop"d,      new MDClosure(fields, &stop,      "PerfCounter.stop"),
+				"seconds"d,   new MDClosure(fields, &seconds,   "PerfCounter.seconds"),
+				"millisecs"d, new MDClosure(fields, &millisecs, "PerfCounter.millisecs"),
+				"microsecs"d, new MDClosure(fields, &microsecs, "PerfCounter.microsecs")
 			);
 		}
 

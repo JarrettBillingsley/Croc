@@ -1,140 +1,137 @@
-module benchmark.chameneos;
+module benchmark.chameneos
 
 // n = 1_000_000, 15.816 sec (meh)
 // laptop: 10.398
 
-local args = [vararg];
-local N = 1_000_000;
+local N = 1_000_000
 
-if(#args > 0)
-{
-	try
-		N = toInt(args[0]);
-	catch(e) {}
-}
-
-local first, second;
-local blue = 1;
-local red = 2;
-local yellow = 3;
-local faded = 4;
+local first, second
+local blue = 1
+local red = 2
+local yellow = 3
+local faded = 4
 
 function meet(me)
 {
 	while(second)
-		yield();
+		yield()
 
-	local other = first;
+	local other = first
 
 	if(other)
 	{
-		first = null;
-		second = me;
+		first = null
+		second = me
 	}
 	else
 	{
-		local n = N - 1;
+		local n = N - 1
 
 		if(n < 0)
-			return;
+			return
 
-		N = n;
-		first = me;
+		N = n
+		first = me
 
 		do
 		{
-			yield();
-			other = second;
+			yield()
+			other = second
 		} while(!other)
 
-		second = null;
+		second = null
 
-		yield();
+		yield()
 	}
 
-	return other;
+	return other
 }
 
-function creature(color)
-{
-	return coroutine function()
+function creature(color) =
+	coroutine function()
 	{
-		local me = color;
+		local me = color
 
 		for(met : 0 .. 1_000_000_001)
 		{
-			local other = meet(me);
+			local other = meet(me)
 
 			if(!other)
-				return met;
+				return met
 
 			if(me != other)
 			{
 				if(me == blue)
 				{
 					if(other == red)
-						me = yellow;
+						me = yellow
 					else
-						me = red;
+						me = red
 				}
 				else if(me == red)
 				{
 					if(other == blue)
-						me = yellow;
+						me = yellow
 					else
-						me = blue;
+						me = blue
 				}
 				else
 				{
 					if(other == blue)
-						me = red;
+						me = red
 					else
-						me = blue;
+						me = blue
 				}
 			}
 		}
-	};
-}
+	}
 
 function schedule(threads)
 {
-	local numThreads = #threads;
-	local meetings = 0;
+	local numThreads = #threads
+	local meetings = 0
 
 	while(true)
 	{
 		for(i : 0 .. numThreads)
 		{
-			local thr = threads[i];
+			local thr = threads[i]
 
 			if(!thr)
-				return meetings;
+				return meetings
 
 			if(!thr.isDead())
 			{
-				local met = thr();
-	
+				local met = thr()
+
 				if(met)
 				{
-					meetings += met;
-					threads[i] = null;
+					meetings += met
+					threads[i] = null
 				}
 			}
 		}
 	}
 }
 
-local time = os.microTime();
+function main(n)
+{
+	if(isString(n))
+		try N = toInt(n); catch(e) {}
 
-local threads =
-[
-	creature(blue),
-	creature(red),
-	creature(yellow),
-	creature(blue)
-];
+	local timer = time.PerfCounter.clone()
+	timer.start()
 
-writefln((schedule(threads)));
+	local threads =
+	[
+		creature(blue),
+		creature(red),
+		creature(yellow),
+		creature(blue)
+	]
 
-time = os.microTime() - time;
-writefln("Took ", time / 1000000.0, " sec");
+	writefln((schedule(threads)))
+
+	timer.stop()
+	writefln("Took {} sec", timer.seconds())
+}

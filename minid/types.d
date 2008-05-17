@@ -457,7 +457,7 @@ align(1) struct MDValue
 				return (this.mBaseObj is other.mBaseObj);
 		}
 	}
-	
+
 	/**
 	This is mostly overridden for using MDValues as AA keys.  You probably shouldn't use this for
 	comparing MDValues in general, because (1) it will return 'less' or 'greater' for values which are
@@ -817,7 +817,7 @@ align(1) struct MDValue
 				
 			alias typeof(T.init.keys[0]) KeyType;
 			alias typeof(T.init.values[0]) ValueType;
-			
+
 			foreach(ref k, ref v; mTable)
 				if(!k.canCastTo!(KeyType) || !v.canCastTo!(ValueType))
 					return false;
@@ -1263,7 +1263,7 @@ The class that represents the MiniD 'string' type.
 
 This holds an immutable string.  The hash for this string is calculated once upon creation,
 improving speed when used as the key to an AA (which, in MiniD, is very often -- all namespaces
-use MDStrings as keys).  Immutability also avoids the problem of using a string as an AA key
+use MDStrings as keys).  Immutability also avoids the problem of using a string as a key
 and then changing it, which would result in undefined behavior.
 */
 class MDString : MDBaseObject
@@ -1311,7 +1311,7 @@ class MDString : MDBaseObject
 	{
 		mType = MDValue.Type.String;
 	}
-	
+
 	/**
 	Gets the length of the string in characters (codepoints?  code units?  it's all so confusing).
 	*/
@@ -2028,7 +2028,7 @@ class MDArray : MDBaseObject
 		n.mData = mData.dup;
 		return n;
 	}
-	
+
 	/**
 	Compares this array to another array.  Comparison works just like on D arrays.  As long as the
 	length and data are identical, the arrays will compare equal.  If all the elements of both arrays
@@ -2112,7 +2112,7 @@ class MDArray : MDBaseObject
 
 		return result;
 	}
-	
+
 	/**
 	Concatenates two arrays into a new array.  The data is always copied from
 	the source arrays.
@@ -2228,7 +2228,7 @@ class MDArray : MDBaseObject
 	{
 		uint start = block * Instruction.arraySetFields;
 		uint end = start + data.length;
-		
+
 		// Since Op.SetArray can use a variadic number of values, the number
 		// of elements actually added to the array in the array constructor
 		// may exceed the size with which the array was created.  So it should be
@@ -2340,8 +2340,6 @@ class MDObject : MDBaseObject
 
 		mGuessedName = guessedName.dup;
 		mProto = proto;
-
-		mFields = new MDNamespace();
 	}
 
 	/**

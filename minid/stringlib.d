@@ -66,6 +66,7 @@ static:
 				"toLower"d,     new MDClosure(methods, &toLower,     "string.toLower"),
 				"toUpper"d,     new MDClosure(methods, &toUpper,     "string.toUpper"),
 				"repeat"d,      new MDClosure(methods, &repeat,      "string.repeat"),
+				"reverse"d,     new MDClosure(methods, &reverse,     "string.reverse"),
 				"split"d,       new MDClosure(methods, &split,       "string.split"),
 				"splitLines"d,  new MDClosure(methods, &splitLines,  "string.splitLines"),
 				"strip"d,       new MDClosure(methods, &strip,       "string.strip"),
@@ -223,6 +224,12 @@ static:
 			s.throwRuntimeException("Invalid number of repetitions: {}", numTimes);
 
 		s.push(Text.repeat(src, numTimes));
+		return 1;
+	}
+	
+	int reverse(MDState s, uint numParams)
+	{
+		s.push(s.getContext!(MDString)().mData.dup.reverse);
 		return 1;
 	}
 

@@ -210,22 +210,22 @@ final class RegexpLib
 		{
 			super("Regexp", owner);
 
-			iteratorClosure = new MDClosure(mFields, &iterator, "Regexp.iterator");
+			iteratorClosure = new MDClosure(fields, &iterator, "Regexp.iterator");
 
-			mFields.addList
+			fields.addList
 			(
-				"test"d,    new MDClosure(mFields, &test,    "Regexp.test"),
-				"search"d,  new MDClosure(mFields, &search,  "Regexp.search"),
-				"match"d,   new MDClosure(mFields, &match,   "Regexp.match"),
-				"pre"d,     new MDClosure(mFields, &pre,     "Regexp.pre"),
-				"post"d,    new MDClosure(mFields, &post,    "Regexp.post"),
-				"find"d,    new MDClosure(mFields, &find,    "Regexp.find"),
-				"split"d,   new MDClosure(mFields, &split,   "Regexp.split"),
-				"replace"d, new MDClosure(mFields, &replace, "Regexp.replace"),
-				"opApply"d, new MDClosure(mFields, &apply,   "Regexp.opApply")
+				"test"d,    new MDClosure(fields, &test,    "Regexp.test"),
+				"search"d,  new MDClosure(fields, &search,  "Regexp.search"),
+				"match"d,   new MDClosure(fields, &match,   "Regexp.match"),
+				"pre"d,     new MDClosure(fields, &pre,     "Regexp.pre"),
+				"post"d,    new MDClosure(fields, &post,    "Regexp.post"),
+				"find"d,    new MDClosure(fields, &find,    "Regexp.find"),
+				"split"d,   new MDClosure(fields, &split,   "Regexp.split"),
+				"replace"d, new MDClosure(fields, &replace, "Regexp.replace"),
+				"opApply"d, new MDClosure(fields, &apply,   "Regexp.opApply")
 			);
 			
-			mFields["clone"d] = MDValue.nullValue;
+			fields()["clone"d] = MDValue.nullValue;
 		}
 
 		public MDRegexp nativeClone()

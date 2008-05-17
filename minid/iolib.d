@@ -377,25 +377,25 @@ class IOLib
 		{
 			super("InputStream", owner);
 
-			mIteratorClosure = new MDClosure(mFields, &iterator, "InputStream.iterator");
+			mIteratorClosure = new MDClosure(fields, &iterator, "InputStream.iterator");
 
-			mFields.addList
+			fields.addList
 			(
-				"readByte"d,    new MDClosure(mFields, &readVal!(ubyte),   "InputStream.readByte"),
-				"readShort"d,   new MDClosure(mFields, &readVal!(ushort),  "InputStream.readShort"),
-				"readInt"d,     new MDClosure(mFields, &readVal!(int),     "InputStream.readInt"),
-				"readFloat"d,   new MDClosure(mFields, &readVal!(float),   "InputStream.readFloat"),
-				"readDouble"d,  new MDClosure(mFields, &readVal!(double),  "InputStream.readDouble"),
-				"readChar"d,    new MDClosure(mFields, &readVal!(char),    "InputStream.readChar"),
-				"readWChar"d,   new MDClosure(mFields, &readVal!(wchar),   "InputStream.readWChar"),
-				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "InputStream.readDChar"),
-				"readString"d,  new MDClosure(mFields, &readString,        "InputStream.readString"),
-				"readln"d,      new MDClosure(mFields, &readln,            "InputStream.readln"),
-				"readChars"d,   new MDClosure(mFields, &readChars,         "InputStream.readChars"),
-				"opApply"d,     new MDClosure(mFields, &apply,             "InputStream.opApply")
+				"readByte"d,    new MDClosure(fields, &readVal!(ubyte),   "InputStream.readByte"),
+				"readShort"d,   new MDClosure(fields, &readVal!(ushort),  "InputStream.readShort"),
+				"readInt"d,     new MDClosure(fields, &readVal!(int),     "InputStream.readInt"),
+				"readFloat"d,   new MDClosure(fields, &readVal!(float),   "InputStream.readFloat"),
+				"readDouble"d,  new MDClosure(fields, &readVal!(double),  "InputStream.readDouble"),
+				"readChar"d,    new MDClosure(fields, &readVal!(char),    "InputStream.readChar"),
+				"readWChar"d,   new MDClosure(fields, &readVal!(wchar),   "InputStream.readWChar"),
+				"readDChar"d,   new MDClosure(fields, &readVal!(dchar),   "InputStream.readDChar"),
+				"readString"d,  new MDClosure(fields, &readString,        "InputStream.readString"),
+				"readln"d,      new MDClosure(fields, &readln,            "InputStream.readln"),
+				"readChars"d,   new MDClosure(fields, &readChars,         "InputStream.readChars"),
+				"opApply"d,     new MDClosure(fields, &apply,             "InputStream.opApply")
 			);
 			
-			mFields["clone"d] = MDValue.nullValue;
+			fields()["clone"d] = MDValue.nullValue;
 		}
 
 		package MDInputStream nativeClone(InputStream input)
@@ -513,28 +513,28 @@ class IOLib
 			mInputStreamClass = inputStreamClass;
 			mStreamClass = streamClass;
 
-			mFields.addList
+			fields.addList
 			(
-				"writeByte"d,   new MDClosure(mFields, &writeVal!(ubyte),  "OutputStream.writeByte"),
-				"writeShort"d,  new MDClosure(mFields, &writeVal!(ushort), "OutputStream.writeShort"),
-				"writeInt"d,    new MDClosure(mFields, &writeVal!(int),    "OutputStream.writeInt"),
-				"writeFloat"d,  new MDClosure(mFields, &writeVal!(float),  "OutputStream.writeFloat"),
-				"writeDouble"d, new MDClosure(mFields, &writeVal!(double), "OutputStream.writeDouble"),
-				"writeChar"d,   new MDClosure(mFields, &writeVal!(char),   "OutputStream.writeChar"),
-				"writeWChar"d,  new MDClosure(mFields, &writeVal!(wchar),  "OutputStream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mFields, &writeVal!(dchar),  "OutputStream.writeDChar"),
-				"writeString"d, new MDClosure(mFields, &writeString,       "OutputStream.writeString"),
-				"write"d,       new MDClosure(mFields, &write,             "OutputStream.write"),
-				"writeln"d,     new MDClosure(mFields, &writeln,           "OutputStream.writeln"),
-				"writef"d,      new MDClosure(mFields, &writef,            "OutputStream.writef"),
-				"writefln"d,    new MDClosure(mFields, &writefln,          "OutputStream.writefln"),
-				"writeChars"d,  new MDClosure(mFields, &writeChars,        "OutputStream.writeChars"),
-				"writeJSON"d,   new MDClosure(mFields, &writeJSON,         "OutputStream.writeJSON"),
-				"flush"d,       new MDClosure(mFields, &flush,             "OutputStream.flush"),
-				"copy"d,        new MDClosure(mFields, &copy,              "OutputStream.copy")
+				"writeByte"d,   new MDClosure(fields, &writeVal!(ubyte),  "OutputStream.writeByte"),
+				"writeShort"d,  new MDClosure(fields, &writeVal!(ushort), "OutputStream.writeShort"),
+				"writeInt"d,    new MDClosure(fields, &writeVal!(int),    "OutputStream.writeInt"),
+				"writeFloat"d,  new MDClosure(fields, &writeVal!(float),  "OutputStream.writeFloat"),
+				"writeDouble"d, new MDClosure(fields, &writeVal!(double), "OutputStream.writeDouble"),
+				"writeChar"d,   new MDClosure(fields, &writeVal!(char),   "OutputStream.writeChar"),
+				"writeWChar"d,  new MDClosure(fields, &writeVal!(wchar),  "OutputStream.writeWChar"),
+				"writeDChar"d,  new MDClosure(fields, &writeVal!(dchar),  "OutputStream.writeDChar"),
+				"writeString"d, new MDClosure(fields, &writeString,       "OutputStream.writeString"),
+				"write"d,       new MDClosure(fields, &write,             "OutputStream.write"),
+				"writeln"d,     new MDClosure(fields, &writeln,           "OutputStream.writeln"),
+				"writef"d,      new MDClosure(fields, &writef,            "OutputStream.writef"),
+				"writefln"d,    new MDClosure(fields, &writefln,          "OutputStream.writefln"),
+				"writeChars"d,  new MDClosure(fields, &writeChars,        "OutputStream.writeChars"),
+				"writeJSON"d,   new MDClosure(fields, &writeJSON,         "OutputStream.writeJSON"),
+				"flush"d,       new MDClosure(fields, &flush,             "OutputStream.flush"),
+				"copy"d,        new MDClosure(fields, &copy,              "OutputStream.copy")
 			);
 			
-			mFields["clone"d] = MDValue.nullValue;
+			fields()["clone"d] = MDValue.nullValue;
 		}
 
 		package MDOutputStream nativeClone(OutputStream output)
@@ -709,49 +709,49 @@ class IOLib
 		{
 			super("Stream", owner);
 
-			mFields.addList
+			fields.addList
 			(
-				"readByte"d,    new MDClosure(mFields, &readVal!(ubyte),   "Stream.readByte"),
-				"readShort"d,   new MDClosure(mFields, &readVal!(ushort),  "Stream.readShort"),
-				"readInt"d,     new MDClosure(mFields, &readVal!(int),     "Stream.readInt"),
-				"readFloat"d,   new MDClosure(mFields, &readVal!(float),   "Stream.readFloat"),
-				"readDouble"d,  new MDClosure(mFields, &readVal!(double),  "Stream.readDouble"),
-				"readChar"d,    new MDClosure(mFields, &readVal!(char),    "Stream.readChar"),
-				"readWChar"d,   new MDClosure(mFields, &readVal!(wchar),   "Stream.readWChar"),
-				"readDChar"d,   new MDClosure(mFields, &readVal!(dchar),   "Stream.readDChar"),
-				"readString"d,  new MDClosure(mFields, &readString,        "Stream.readString"),
-				"readln"d,      new MDClosure(mFields, &readln,            "Stream.readln"),
-				"readChars"d,   new MDClosure(mFields, &readChars,         "Stream.readChars"),
-				"opApply"d,     new MDClosure(mFields, &apply,             "Stream.opApply"),
+				"readByte"d,    new MDClosure(fields, &readVal!(ubyte),   "Stream.readByte"),
+				"readShort"d,   new MDClosure(fields, &readVal!(ushort),  "Stream.readShort"),
+				"readInt"d,     new MDClosure(fields, &readVal!(int),     "Stream.readInt"),
+				"readFloat"d,   new MDClosure(fields, &readVal!(float),   "Stream.readFloat"),
+				"readDouble"d,  new MDClosure(fields, &readVal!(double),  "Stream.readDouble"),
+				"readChar"d,    new MDClosure(fields, &readVal!(char),    "Stream.readChar"),
+				"readWChar"d,   new MDClosure(fields, &readVal!(wchar),   "Stream.readWChar"),
+				"readDChar"d,   new MDClosure(fields, &readVal!(dchar),   "Stream.readDChar"),
+				"readString"d,  new MDClosure(fields, &readString,        "Stream.readString"),
+				"readln"d,      new MDClosure(fields, &readln,            "Stream.readln"),
+				"readChars"d,   new MDClosure(fields, &readChars,         "Stream.readChars"),
+				"opApply"d,     new MDClosure(fields, &apply,             "Stream.opApply"),
 
-				"writeByte"d,   new MDClosure(mFields, &writeVal!(ubyte),  "Stream.writeByte"),
-				"writeShort"d,  new MDClosure(mFields, &writeVal!(ushort), "Stream.writeShort"),
-				"writeInt"d,    new MDClosure(mFields, &writeVal!(int),    "Stream.writeInt"),
-				"writeFloat"d,  new MDClosure(mFields, &writeVal!(float),  "Stream.writeFloat"),
-				"writeDouble"d, new MDClosure(mFields, &writeVal!(double), "Stream.writeDouble"),
-				"writeChar"d,   new MDClosure(mFields, &writeVal!(char),   "Stream.writeChar"),
-				"writeWChar"d,  new MDClosure(mFields, &writeVal!(wchar),  "Stream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mFields, &writeVal!(dchar),  "Stream.writeDChar"),
-				"writeString"d, new MDClosure(mFields, &writeString,       "Stream.writeString"),
-				"write"d,       new MDClosure(mFields, &write,             "Stream.write"),
-				"writeln"d,     new MDClosure(mFields, &writeln,           "Stream.writeln"),
-				"writef"d,      new MDClosure(mFields, &writef,            "Stream.writef"),
-				"writefln"d,    new MDClosure(mFields, &writefln,          "Stream.writefln"),
-				"writeChars"d,  new MDClosure(mFields, &writeChars,        "Stream.writeChars"),
-				"writeJSON"d,   new MDClosure(mFields, &writeJSON,         "Stream.writeJSON"),
-				"flush"d,       new MDClosure(mFields, &flush,             "Stream.flush"),
+				"writeByte"d,   new MDClosure(fields, &writeVal!(ubyte),  "Stream.writeByte"),
+				"writeShort"d,  new MDClosure(fields, &writeVal!(ushort), "Stream.writeShort"),
+				"writeInt"d,    new MDClosure(fields, &writeVal!(int),    "Stream.writeInt"),
+				"writeFloat"d,  new MDClosure(fields, &writeVal!(float),  "Stream.writeFloat"),
+				"writeDouble"d, new MDClosure(fields, &writeVal!(double), "Stream.writeDouble"),
+				"writeChar"d,   new MDClosure(fields, &writeVal!(char),   "Stream.writeChar"),
+				"writeWChar"d,  new MDClosure(fields, &writeVal!(wchar),  "Stream.writeWChar"),
+				"writeDChar"d,  new MDClosure(fields, &writeVal!(dchar),  "Stream.writeDChar"),
+				"writeString"d, new MDClosure(fields, &writeString,       "Stream.writeString"),
+				"write"d,       new MDClosure(fields, &write,             "Stream.write"),
+				"writeln"d,     new MDClosure(fields, &writeln,           "Stream.writeln"),
+				"writef"d,      new MDClosure(fields, &writef,            "Stream.writef"),
+				"writefln"d,    new MDClosure(fields, &writefln,          "Stream.writefln"),
+				"writeChars"d,  new MDClosure(fields, &writeChars,        "Stream.writeChars"),
+				"writeJSON"d,   new MDClosure(fields, &writeJSON,         "Stream.writeJSON"),
+				"flush"d,       new MDClosure(fields, &flush,             "Stream.flush"),
 
-				"seek"d,        new MDClosure(mFields, &seek,              "Stream.seek"),
-				"position"d,    new MDClosure(mFields, &position,          "Stream.position"),
-				"size"d,        new MDClosure(mFields, &size,              "Stream.size"),
-				"close"d,       new MDClosure(mFields, &close,             "Stream.close"),
-				"isOpen"d,      new MDClosure(mFields, &isOpen,            "Stream.isOpen"),
+				"seek"d,        new MDClosure(fields, &seek,              "Stream.seek"),
+				"position"d,    new MDClosure(fields, &position,          "Stream.position"),
+				"size"d,        new MDClosure(fields, &size,              "Stream.size"),
+				"close"d,       new MDClosure(fields, &close,             "Stream.close"),
+				"isOpen"d,      new MDClosure(fields, &isOpen,            "Stream.isOpen"),
 
-				"input"d,       new MDClosure(mFields, &input,             "Stream.input"),
-				"output"d,      new MDClosure(mFields, &output,            "Stream.output")
+				"input"d,       new MDClosure(fields, &input,             "Stream.input"),
+				"output"d,      new MDClosure(fields, &output,            "Stream.output")
 			);
 			
-			mFields["clone"d] = MDValue.nullValue;
+			fields()["clone"d] = MDValue.nullValue;
 		}
 
 		protected MDStream nativeClone(IConduit conduit)

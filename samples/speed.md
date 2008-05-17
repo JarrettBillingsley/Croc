@@ -52,11 +52,11 @@ local object Tester
 	x
 
 	function beginTimer()
-		t1 = os.microTime()
+		t1 = time.microTime()
 
 	function endTimer(s)
 	{
-		t1 = os.microTime() - t1
+		t1 = time.microTime() - t1
 		local mps = toFloat(oneMillion) / t1
 		writefln("MiniD {} := {:f5}", s, mps)
 	}
