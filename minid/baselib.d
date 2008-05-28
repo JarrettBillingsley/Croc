@@ -749,7 +749,7 @@ static:
 
 		s.push(s.getUpvalue(0u));
 		s.push(thread);
-		s.push(0);
+		s.push(-1);
 		return 3;
 	}
 

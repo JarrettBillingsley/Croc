@@ -7012,12 +7012,11 @@ class SwitchStatement : Statement
 		l.expect(Token.Type.LBrace);
 
 		List!(CaseStatement) cases;
+		
+		cases.add(CaseStatement.parse(l));
 
 		while(l.type == Token.Type.Case)
 			cases.add(CaseStatement.parse(l));
-
-		if(cases.length == 0)
-			throw new MDCompileException(location, "Switch statement must have at least one case statement");
 
 		DefaultStatement caseDefault;
 

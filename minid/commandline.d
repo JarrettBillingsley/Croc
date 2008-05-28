@@ -67,12 +67,6 @@ you may be given a ... prompt.  That means you need to type more to make
 the code complete.  Once you enter enough code to make it complete, the
 code will be run.  If there is an error, the code buffer is cleared.
 To end interactive mode, use the \"exit()\" function.
-
-In interactive mode, you will also have access to a function \"repr()\"
-which will print out a readable representation of a variable, more
-readable than what you get from toString() anyway.  The first param is
-the value to output; the optional second param should be 'true' to output
-a newline after printing the value, or 'false' not to.  Defaults to true.
 ";
 /+ Stupid editor has issues with multiline strings. "+/
 
@@ -245,7 +239,7 @@ a newline after printing the value, or 'false' not to.  Defaults to true.
 			
 			// static so the interrupt can access it.
 			static bool didHalt = false;
-			
+
 			static extern(C) void interruptHandler(int s)
 			{
 				state.pendingHalt();
