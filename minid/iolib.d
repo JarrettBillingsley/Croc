@@ -27,20 +27,16 @@ import minid.misc;
 import minid.types;
 import minid.utils;
 
-import tango.io.Buffer;
 import tango.io.Conduit;
 import tango.io.Console;
 import tango.io.File;
 import tango.io.FileConduit;
 import tango.io.FilePath;
-import tango.io.FileScan;
 import tango.io.FileSystem;
-import tango.io.MappedBuffer;
 import tango.io.model.IConduit;
 import tango.io.Print;
 import tango.io.protocol.Reader;
 import tango.io.protocol.Writer;
-import tango.io.Stdout;
 import tango.io.UnicodeFile;
 import tango.text.convert.Layout;
 import tango.text.stream.LineIterator;
@@ -335,10 +331,7 @@ class IOLib
 		{
 			FileConduit.Style s = DefaultFileStyle;
 
-			s.access = cast(FileConduit.Access)0;
-
-			if(mode & FileMode.In)
-				s.access |= FileConduit.Access.Read;
+			s.access = FileConduit.Access.Read;
 
 			if(mode & FileMode.Out)
 				s.access |= FileConduit.Access.Write;
@@ -365,7 +358,7 @@ class IOLib
 		else
 			f = s.safeCode(new FileConduit(s.getParam!(char[])(0), parseFileMode(s.getParam!(int)(1))));
 
-		s.push(streamClass.nativeClone(new MappedBuffer(f)));
+		s.push(streamClass.nativeClone(f));
 		return 1;
 	}
 
@@ -740,6 +733,7 @@ class IOLib
 				"writeChars"d,  new MDClosure(fields, &writeChars,        "Stream.writeChars"),
 				"writeJSON"d,   new MDClosure(fields, &writeJSON,         "Stream.writeJSON"),
 				"flush"d,       new MDClosure(fields, &flush,             "Stream.flush"),
+				"copy"d,        new MDClosure(fields, &copy,              "Stream.copy"),
 
 				"seek"d,        new MDClosure(fields, &seek,              "Stream.seek"),
 				"position"d,    new MDClosure(fields, &position,          "Stream.position"),
@@ -861,6 +855,24 @@ class IOLib
 		public int flush(MDState s, uint numParams)
 		{
 			s.safeCode(s.getContext!(MDStream).mOutput.flush());
+			s.push(s.getContext());
+			return 1;
+		}
+		
+		public int copy(MDState s, uint numParams)
+		{
+			auto o = s.getParam!(MDObject)(0);
+
+			InputStream stream;
+
+			if(auto i = cast(MDInputStream)o)
+				stream = i.mInput;
+			else if(auto s = cast(MDStream)o)
+				stream = s.mInput.mInput;
+			else
+				s.throwRuntimeException("object must be either an InputStream or a Stream, not a '{}'", s.getParam(0u).typeString());
+
+			s.safeCode(s.getContext!(MDStream).mOutput.copy(stream));
 			s.push(s.getContext());
 			return 1;
 		}

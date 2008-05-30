@@ -56,10 +56,12 @@ static:
 	{
 		auto globals = context.globals;
 
+		// Object
 		auto _Object = new MDObject("Object");
 		_Object["clone"] = MDValue(new MDClosure(globals.ns, &objectClone, "Object.clone"));
 		globals["Object"d] = _Object;
 
+		// StringBuffer
 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
 
 		// Really basic stuff
@@ -82,10 +84,11 @@ static:
 		globals["isSet"d] =           new MDClosure(globals.ns, &isSet,                 "isSet");
 		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
+		globals["allFieldsOf"d] =     new MDClosure(globals.ns, &allFieldsOf,           "allFieldsOf");
 		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
 		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
-		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
+		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
 		globals["isNull"d] =          new MDClosure(globals.ns, &isParam!("null"),      "isNull");
 		globals["isBool"d] =          new MDClosure(globals.ns, &isParam!("bool"),      "isBool");
 		globals["isInt"d] =           new MDClosure(globals.ns, &isParam!("int"),       "isInt");
@@ -100,19 +103,19 @@ static:
 		globals["isThread"d] =        new MDClosure(globals.ns, &isParam!("thread"),    "isThread");
 
 		// Conversions
-		globals["toString"d] =        new MDClosure(globals.ns, &mdtoString,            "toString");
+		globals["toString"d] =        new MDClosure(globals.ns, &toString,              "toString");
 		globals["rawToString"d] =     new MDClosure(globals.ns, &rawToString,           "rawToString");
 		globals["toBool"d] =          new MDClosure(globals.ns, &toBool,                "toBool");
 		globals["toInt"d] =           new MDClosure(globals.ns, &toInt,                 "toInt");
 		globals["toFloat"d] =         new MDClosure(globals.ns, &toFloat,               "toFloat");
 		globals["toChar"d] =          new MDClosure(globals.ns, &toChar,                "toChar");
-		globals["format"d] =          new MDClosure(globals.ns, &mdformat,              "format");
+		globals["format"d] =          new MDClosure(globals.ns, &format,                "format");
 
 		// Console IO
 		globals["write"d] =           new MDClosure(globals.ns, &write,                 "write");
 		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
-		globals["writef"d] =          new MDClosure(globals.ns, &mdwritef,              "writef");
-		globals["writefln"d] =        new MDClosure(globals.ns, &mdwritefln,            "writefln");
+		globals["writef"d] =          new MDClosure(globals.ns, &writef,                "writef");
+		globals["writefln"d] =        new MDClosure(globals.ns, &writefln,              "writefln");
 		globals["dumpVal"d] =         new MDClosure(globals.ns, &dumpVal,               "dumpVal");
 		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
 
@@ -166,47 +169,450 @@ static:
 		context.setMetatable(MDValue.Type.Function, func);
 	}
 
+	// ===================================================================================================================================
+	// Object
+
 	int objectClone(MDState s, uint numParams)
 	{
 		auto self = s.getContext!(MDObject);
 		s.push(new MDObject(self.name, self));
 		return 1;
 	}
+	
+	// ===================================================================================================================================
+	// Basic functions
 
-	int mdwritefln(MDState s, uint numParams)
+	int getTraceback(MDState s, uint numParams)
 	{
-		char[256] buffer = void;
-		char[] buf = buffer;
-
-		uint sink(dchar[] data)
-		{
-			buf = utf.toString(data, buf);
-			Stdout(buf);
-			return data.length;
-		}
-
-		formatImpl(s, s.getAllParams(), &sink);
-		Stdout.newline;
-		return 0;
+		s.push(new MDString(s.context.getTracebackString()));
+		return 1;
 	}
 
-	int mdwritef(MDState s, uint numParams)
+	int haltThread(MDState s, uint numParams)
 	{
-		char[256] buffer = void;
-		char[] buf = buffer;
-
-		uint sink(dchar[] data)
+		if(numParams == 0)
+			s.halt();
+		else
 		{
-			buf = utf.toString(data, buf);
-			Stdout(buf);
-			return data.length;
+			auto thread = s.getParam!(MDState)(0);
+			thread.pendingHalt();
+			s.call(thread, 0);
 		}
 
-		formatImpl(s, s.getAllParams(), &sink);
-		Stdout.flush;
 		return 0;
 	}
 	
+	int currentThread(MDState s, uint numParams)
+	{
+		if(s is s.context.mainThread)
+			s.pushNull();
+		else
+			s.push(s);
+
+		return 1;
+	}
+	
+	int setModuleLoader(MDState s, uint numParams)
+	{
+		s.context.setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
+		return 0;
+	}
+
+	int reloadModule(MDState s, uint numParams)
+	{
+		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
+		return 1;
+	}
+
+	int removeKey(MDState s, uint numParams)
+	{
+		MDValue container = s.getParam(0u);
+
+		if(container.isTable())
+		{
+			MDValue key = s.getParam(1u);
+			
+			if(key.isNull)
+				s.throwRuntimeException("Table key cannot be null");
+				
+			container.as!(MDTable).remove(key);
+		}
+		else if(container.isNamespace())
+		{
+			MDNamespace ns = container.as!(MDNamespace);
+			MDString key = s.getParam!(MDString)(1);
+
+			if(!(key in ns))
+				s.throwRuntimeException("Key '{}' does not exist in namespace '{}'", key, ns.nameString());
+
+			ns.remove(key);
+		}
+		else
+			s.throwRuntimeException("Container must be a table or namespace");
+
+		return 0;
+	}
+
+	int rawSet(MDState s, uint numParams)
+	{
+		if(s.isParam!("table")(0))
+			s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
+		else if(s.isParam!("object")(0))
+			s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)] = s.getParam(2u);
+		else
+			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+
+		return 0;
+	}
+
+	int rawGet(MDState s, uint numParams)
+	{
+		if(s.isParam!("table")(0))
+			s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
+		else if(s.isParam!("object")(0))
+			s.push(s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)]);
+		else
+			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+
+		return 1;
+	}
+
+	int runMain(MDState s, uint numParams)
+	{
+		auto ns = s.getParam!(MDNamespace)(0);
+
+		if(auto main = "main"d in ns)
+		{
+			if(!main.isFunction())
+				return 0;
+
+			auto funcReg = s.push(main);
+			s.push(ns);
+
+			for(uint i = 1; i < numParams; i++)
+				s.push(s.getParam(i));
+
+			s.rawCall(funcReg, 0);
+		}
+		
+		return 0;
+	}
+
+	// ===================================================================================================================================
+	// Functional stuff
+
+	int curry(MDState s, uint numParams)
+	{
+		struct Closure
+		{
+			MDClosure func;
+			MDValue val;
+
+			int call(MDState s, uint numParams)
+			{
+				uint funcReg = s.push(func);
+				s.push(s.getContext());
+				s.push(val);
+				
+				for(uint i = 0; i < numParams; i++)
+					s.push(s.getParam(i));
+					
+				return s.rawCall(funcReg, -1);
+			}
+		}
+		
+		auto cl = new Closure;
+		cl.func = s.getParam!(MDClosure)(0);
+		cl.val = s.getParam(1u);
+		
+		s.push(new MDClosure(cl.func.environment, &cl.call, "curryClosure"));
+		return 1;
+	}
+	
+	int bindContext(MDState s, uint numParams)
+	{
+		struct Closure
+		{
+			MDClosure func;
+			MDValue context;
+
+			int call(MDState s, uint numParams)
+			{
+				uint funcReg = s.push(func);
+				s.push(context);
+
+				for(uint i = 0; i < numParams; i++)
+					s.push(s.getParam(i));
+
+				return s.rawCall(funcReg, -1);
+			}
+		}
+
+		auto cl = new Closure;
+		cl.func = s.getParam!(MDClosure)(0);
+		cl.context = s.getParam(1u);
+
+		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
+		return 1;
+	}
+
+	// ===================================================================================================================================
+	// Reflection-esque stuff
+
+	int findGlobal(MDState s, uint numParams)
+	{
+		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
+
+		if(ns is null)
+			s.pushNull();
+		else
+			s.push(ns);
+
+		return 1;
+	}
+
+	int isSet(MDState s, uint numParams)
+	{
+		s.push(s.findGlobal(s.getParam!(MDString)(0), 1) !is null);
+		return 1;
+	}
+	
+	int mdtypeof(MDState s, uint numParams)
+	{
+		s.push(s.getParam(0u).typeString());
+		return 1;
+	}
+
+	int fieldsOf(MDState s, uint numParams)
+	{
+		if(s.isParam!("object")(0))
+			s.push(s.getParam!(MDObject)(0).fields);
+		else
+			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
+
+		return 1;
+	}
+	
+	int allFieldsOf(MDState s, uint numParams)
+	{
+		auto o = s.getParam!(MDObject)(0);
+
+		struct iter
+		{
+			MDObject obj;
+			
+			int iter(MDState s, uint numParams)
+			{
+				s.yield(0);
+
+				for(auto o = obj; o !is null; o = o.proto)
+					foreach(k, v; o.fields)
+						s.yield(0, MDValue(k), v);
+						
+				return 0;
+			}
+		}
+		
+		auto i = new iter;
+		i.obj = o;
+		s.push(new MDState(s.context, new MDClosure(s.context.globals.ns, &i.iter, "allFieldsOf")));
+		
+		return 1;
+	}
+
+	int hasField(MDState s, uint numParams)
+	{
+		s.push(s.hasField(s.getParam(0u), s.getParam!(MDString)(1)));
+		return 1;
+	}
+
+	int hasMethod(MDState s, uint numParams)
+	{
+		s.push(s.hasMethod(s.getParam(0u), s.getParam!(MDString)(1)));
+		return 1;
+	}
+
+	int hasAttributes(MDState s, uint numParams)
+	{
+		MDTable ret;
+
+		if(s.isParam!("function")(0))
+			ret = s.getParam!(MDClosure)(0).attributes;
+		else if(s.isParam!("object")(0))
+			ret = s.getParam!(MDObject)(0).attributes;
+		else if(s.isParam!("namespace")(0))
+			ret = s.getParam!(MDNamespace)(0).attributes;
+
+		s.push(ret !is null);
+		return 1;
+	}
+
+	int attributesOf(MDState s, uint numParams)
+	{
+		MDTable ret;
+
+		if(s.isParam!("function")(0))
+			ret = s.getParam!(MDClosure)(0).attributes;
+		else if(s.isParam!("object")(0))
+			ret = s.getParam!(MDObject)(0).attributes;
+		else if(s.isParam!("namespace")(0))
+			ret = s.getParam!(MDNamespace)(0).attributes;
+		else
+			s.throwRuntimeException("Expected function, class, or namespace, not '{}'", s.getParam(0u).typeString());
+
+		if(ret is null)
+			s.pushNull();
+		else
+			s.push(ret);
+
+		return 1;
+	}
+	
+	int isParam(char[] type)(MDState s, uint numParams)
+	{
+		s.push(s.isParam!(type)(0));
+		return 1;
+	}
+
+	// ===================================================================================================================================
+	// Conversions
+
+	int toString(MDState s, uint numParams)
+	{
+		auto val = s.getParam(0u);
+		
+		if(val.isInt())
+		{
+			char style = 'd';
+
+			if(numParams > 1)
+				style = s.getParam!(char)(1);
+
+			s.push(Integer.toString32(val.as!(int), cast(Integer.Style)style));
+		}
+		else
+			s.push(s.valueToString(s.getParam(0u)));
+
+		return 1;
+	}
+
+	int rawToString(MDState s, uint numParams)
+	{
+		s.push(s.getParam(0u).toString());
+		return 1;
+	}
+
+	int toBool(MDState s, uint numParams)
+	{
+		s.push(s.getParam(0u).isTrue());
+		return 1;
+	}
+	
+	int toInt(MDState s, uint numParams)
+	{
+		MDValue val = s.getParam(0u);
+
+		switch(val.type)
+		{
+			case MDValue.Type.Bool:
+				s.push(cast(int)val.as!(bool));
+				break;
+
+			case MDValue.Type.Int:
+				s.push(val.as!(int));
+				break;
+
+			case MDValue.Type.Float:
+				s.push(cast(int)val.as!(mdfloat));
+				break;
+
+			case MDValue.Type.Char:
+				s.push(cast(int)val.as!(dchar));
+				break;
+				
+			case MDValue.Type.String:
+				s.push(s.safeCode(Integer.parse(val.as!(dchar[]), 10)));
+				break;
+				
+			default:
+				s.throwRuntimeException("Cannot convert type '{}' to int", val.typeString());
+		}
+
+		return 1;
+	}
+	
+	int toFloat(MDState s, uint numParams)
+	{
+		MDValue val = s.getParam(0u);
+
+		switch(val.type)
+		{
+			case MDValue.Type.Bool:
+				s.push(cast(mdfloat)val.as!(bool));
+				break;
+
+			case MDValue.Type.Int:
+				s.push(cast(mdfloat)val.as!(int));
+				break;
+
+			case MDValue.Type.Float:
+				s.push(val.as!(mdfloat));
+				break;
+
+			case MDValue.Type.Char:
+				s.push(cast(mdfloat)val.as!(dchar));
+				break;
+
+			case MDValue.Type.String:
+				s.push(s.safeCode(Float.parse(val.as!(dchar[]))));
+				break;
+
+			default:
+				s.throwRuntimeException("Cannot convert type '{}' to float", val.typeString());
+		}
+
+		return 1;
+	}
+	
+	int toChar(MDState s, uint numParams)
+	{
+		s.push(cast(dchar)s.getParam!(int)(0));
+		return 1;
+	}
+
+	int format(MDState s, uint numParams)
+	{
+		dchar[] ret;
+
+		uint sink(dchar[] data)
+		{
+			ret ~= data;
+			return data.length;
+		}
+
+		formatImpl(s, s.getAllParams(), &sink);
+		s.push(ret);
+		return 1;
+	}
+	
+	// ===================================================================================================================================
+	// Console IO
+
+	int write(MDState s, uint numParams)
+	{
+		char[256] buffer = void;
+		char[] buf = buffer;
+
+		for(uint i = 0; i < numParams; i++)
+		{
+			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
+			Stdout(buf);
+		}
+
+		Stdout.flush;
+		return 0;
+	}
+
 	int writeln(MDState s, uint numParams)
 	{
 		char[256] buffer = void;
@@ -221,19 +627,38 @@ static:
 		Stdout.newline;
 		return 0;
 	}
-
-	int write(MDState s, uint numParams)
+	
+	int writef(MDState s, uint numParams)
 	{
 		char[256] buffer = void;
 		char[] buf = buffer;
 
-		for(uint i = 0; i < numParams; i++)
+		uint sink(dchar[] data)
 		{
-			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
+			buf = utf.toString(data, buf);
 			Stdout(buf);
+			return data.length;
 		}
 
+		formatImpl(s, s.getAllParams(), &sink);
 		Stdout.flush;
+		return 0;
+	}
+
+	int writefln(MDState s, uint numParams)
+	{
+		char[256] buffer = void;
+		char[] buf = buffer;
+
+		uint sink(dchar[] data)
+		{
+			buf = utf.toString(data, buf);
+			Stdout(buf);
+			return data.length;
+		}
+
+		formatImpl(s, s.getAllParams(), &sink);
+		Stdout.newline;
 		return 0;
 	}
 
@@ -408,159 +833,77 @@ static:
 		return 1;
 	}
 
-	int mdformat(MDState s, uint numParams)
-	{
-		dchar[] ret;
+	// ===================================================================================================================================
+	// Dynamic Compilation
 
-		uint sink(dchar[] data)
+	int loadString(MDState s, uint numParams)
+	{
+		char[] name;
+		MDNamespace env;
+
+		if(numParams > 1)
 		{
-			ret ~= data;
-			return data.length;
-		}
+			if(s.isParam!("string")(1))
+			{
+				name = s.getParam!(char[])(1);
 
-		formatImpl(s, s.getAllParams(), &sink);
-		s.push(ret);
-		return 1;
-	}
-
-	int findGlobal(MDState s, uint numParams)
-	{
-		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
-
-		if(ns is null)
-			s.pushNull();
-		else
-			s.push(ns);
-
-		return 1;
-	}
-
-	int isSet(MDState s, uint numParams)
-	{
-		s.push(s.findGlobal(s.getParam!(MDString)(0), 1) !is null);
-		return 1;
-	}
-
-	int mdtypeof(MDState s, uint numParams)
-	{
-		s.push(s.getParam(0u).typeString());
-		return 1;
-	}
-
-	int mdtoString(MDState s, uint numParams)
-	{
-		auto val = s.getParam(0u);
-		
-		if(val.isInt())
-		{
-			char style = 'd';
-
-			if(numParams > 1)
-				style = s.getParam!(char)(1);
-
-			s.push(Integer.toString32(val.as!(int), cast(Integer.Style)style));
+				if(numParams > 2)
+					env = s.getParam!(MDNamespace)(2);
+				else
+					env = s.environment(1);
+			}
+			else
+				env = s.getParam!(MDNamespace)(1);
 		}
 		else
-			s.push(s.valueToString(s.getParam(0u)));
-
-		return 1;
-	}
-	
-	int rawToString(MDState s, uint numParams)
-	{
-		s.push(s.getParam(0u).toString());
-		return 1;
-	}
-
-	int getTraceback(MDState s, uint numParams)
-	{
-		s.push(new MDString(s.context.getTracebackString()));
-		return 1;
-	}
-	
-	int isParam(char[] type)(MDState s, uint numParams)
-	{
-		s.push(s.isParam!(type)(0));
-		return 1;
-	}
-
-	int toBool(MDState s, uint numParams)
-	{
-		s.push(s.getParam(0u).isTrue());
-		return 1;
-	}
-	
-	int toInt(MDState s, uint numParams)
-	{
-		MDValue val = s.getParam(0u);
-
-		switch(val.type)
 		{
-			case MDValue.Type.Bool:
-				s.push(cast(int)val.as!(bool));
-				break;
-
-			case MDValue.Type.Int:
-				s.push(val.as!(int));
-				break;
-
-			case MDValue.Type.Float:
-				s.push(cast(int)val.as!(mdfloat));
-				break;
-
-			case MDValue.Type.Char:
-				s.push(cast(int)val.as!(dchar));
-				break;
-				
-			case MDValue.Type.String:
-				s.push(s.safeCode(Integer.parse(val.as!(dchar[]), 10)));
-				break;
-				
-			default:
-				s.throwRuntimeException("Cannot convert type '{}' to int", val.typeString());
+			name = "<loaded by loadString>";
+			env = s.environment(1);
 		}
 
+		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
+		s.push(new MDClosure(env, def));
 		return 1;
 	}
 	
-	int toFloat(MDState s, uint numParams)
+	int eval(MDState s, uint numParams)
 	{
-		MDValue val = s.getParam(0u);
+		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
+		MDNamespace env;
 
-		switch(val.type)
-		{
-			case MDValue.Type.Bool:
-				s.push(cast(mdfloat)val.as!(bool));
-				break;
+		if(numParams > 1)
+			env = s.getParam!(MDNamespace)(1);
+		else
+			env = s.environment(1);
 
-			case MDValue.Type.Int:
-				s.push(cast(mdfloat)val.as!(int));
-				break;
-
-			case MDValue.Type.Float:
-				s.push(val.as!(mdfloat));
-				break;
-
-			case MDValue.Type.Char:
-				s.push(cast(mdfloat)val.as!(dchar));
-				break;
-
-			case MDValue.Type.String:
-				s.push(s.safeCode(Float.parse(val.as!(dchar[]))));
-				break;
-
-			default:
-				s.throwRuntimeException("Cannot convert type '{}' to float", val.typeString());
-		}
-
-		return 1;
+		return s.call(new MDClosure(env, def), -1);
 	}
 	
-	int toChar(MDState s, uint numParams)
+	int loadJSON(MDState s, uint numParams)
 	{
-		s.push(cast(dchar)s.getParam!(int)(0));
+		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
+
+	int toJSON(MDState s, uint numParams)
+	{
+		MDValue root = s.getParam(0u);
+		bool pretty = false;
+
+		if(numParams > 1)
+			pretty = s.getParam!(bool)(1);
+
+		scope cond = new GrowBuffer();
+		scope printer = new Print!(dchar)(FormatterD, cond);
+
+		toJSONImpl(s, root, pretty, printer);
+
+		s.push(cast(dchar[])cond.slice());
+		return 1;
+	}
+
+	// ===================================================================================================================================
+	// Namespace metatable
 
 	int namespaceIterator(MDState s, uint numParams)
 	{
@@ -592,92 +935,19 @@ static:
 		s.push(s.context.newClosure(&namespaceIterator, "namespaceIterator", upvalues));
 		return 1;
 	}
-	
-	int removeKey(MDState s, uint numParams)
+
+	// ===================================================================================================================================
+	// Thread metatable
+
+	int threadReset(MDState s, uint numParams)
 	{
-		MDValue container = s.getParam(0u);
+		MDClosure cl;
 
-		if(container.isTable())
-		{
-			MDValue key = s.getParam(1u);
-			
-			if(key.isNull)
-				s.throwRuntimeException("Table key cannot be null");
-				
-			container.as!(MDTable).remove(key);
-		}
-		else if(container.isNamespace())
-		{
-			MDNamespace ns = container.as!(MDNamespace);
-			MDString key = s.getParam!(MDString)(1);
+		if(numParams > 0)
+			cl = s.getParam!(MDClosure)(0);
 
-			if(!(key in ns))
-				s.throwRuntimeException("Key '{}' does not exist in namespace '{}'", key, ns.nameString());
-
-			ns.remove(key);
-		}
-		else
-			s.throwRuntimeException("Container must be a table or namespace");
-
+		s.getContext!(MDState).reset(cl);
 		return 0;
-	}
-
-	int fieldsOf(MDState s, uint numParams)
-	{
-		if(s.isParam!("object")(0))
-			s.push(s.getParam!(MDObject)(0).fields);
-		else
-			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
-
-		return 1;
-	}
-	
-	int hasField(MDState s, uint numParams)
-	{
-		s.push(s.hasField(s.getParam(0u), s.getParam!(MDString)(1)));
-		return 1;
-	}
-
-	int hasMethod(MDState s, uint numParams)
-	{
-		s.push(s.hasMethod(s.getParam(0u), s.getParam!(MDString)(1)));
-		return 1;
-	}
-
-	int attributesOf(MDState s, uint numParams)
-	{
-		MDTable ret;
-
-		if(s.isParam!("function")(0))
-			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("object")(0))
-			ret = s.getParam!(MDObject)(0).attributes;
-		else if(s.isParam!("namespace")(0))
-			ret = s.getParam!(MDNamespace)(0).attributes;
-		else
-			s.throwRuntimeException("Expected function, class, or namespace, not '{}'", s.getParam(0u).typeString());
-
-		if(ret is null)
-			s.pushNull();
-		else
-			s.push(ret);
-
-		return 1;
-	}
-	
-	int hasAttributes(MDState s, uint numParams)
-	{
-		MDTable ret;
-
-		if(s.isParam!("function")(0))
-			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("object")(0))
-			ret = s.getParam!(MDObject)(0).attributes;
-		else if(s.isParam!("namespace")(0))
-			ret = s.getParam!(MDNamespace)(0).attributes;
-
-		s.push(ret !is null);
-		return 1;
 	}
 
 	int threadState(MDState s, uint numParams)
@@ -753,216 +1023,9 @@ static:
 		return 3;
 	}
 
-	int threadReset(MDState s, uint numParams)
-	{
-		MDClosure cl;
+	// ===================================================================================================================================
+	// Function metatable
 
-		if(numParams > 0)
-			cl = s.getParam!(MDClosure)(0);
-
-		s.getContext!(MDState).reset(cl);
-		return 0;
-	}
-	
-	int currentThread(MDState s, uint numParams)
-	{
-		if(s is s.context.mainThread)
-			s.pushNull();
-		else
-			s.push(s);
-
-		return 1;
-	}
-
-	int curry(MDState s, uint numParams)
-	{
-		struct Closure
-		{
-			MDClosure func;
-			MDValue val;
-
-			int call(MDState s, uint numParams)
-			{
-				uint funcReg = s.push(func);
-				s.push(s.getContext());
-				s.push(val);
-				
-				for(uint i = 0; i < numParams; i++)
-					s.push(s.getParam(i));
-					
-				return s.rawCall(funcReg, -1);
-			}
-		}
-		
-		auto cl = new Closure;
-		cl.func = s.getParam!(MDClosure)(0);
-		cl.val = s.getParam(1u);
-		
-		s.push(new MDClosure(cl.func.environment, &cl.call, "curryClosure"));
-		return 1;
-	}
-	
-	int bindContext(MDState s, uint numParams)
-	{
-		struct Closure
-		{
-			MDClosure func;
-			MDValue context;
-
-			int call(MDState s, uint numParams)
-			{
-				uint funcReg = s.push(func);
-				s.push(context);
-
-				for(uint i = 0; i < numParams; i++)
-					s.push(s.getParam(i));
-
-				return s.rawCall(funcReg, -1);
-			}
-		}
-
-		auto cl = new Closure;
-		cl.func = s.getParam!(MDClosure)(0);
-		cl.context = s.getParam(1u);
-
-		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
-		return 1;
-	}
-	
-	int reloadModule(MDState s, uint numParams)
-	{
-		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
-		return 1;
-	}
-
-	int loadString(MDState s, uint numParams)
-	{
-		char[] name;
-		MDNamespace env;
-
-		if(numParams > 1)
-		{
-			if(s.isParam!("string")(1))
-			{
-				name = s.getParam!(char[])(1);
-
-				if(numParams > 2)
-					env = s.getParam!(MDNamespace)(2);
-				else
-					env = s.environment(1);
-			}
-			else
-				env = s.getParam!(MDNamespace)(1);
-		}
-		else
-		{
-			name = "<loaded by loadString>";
-			env = s.environment(1);
-		}
-
-		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
-		s.push(new MDClosure(env, def));
-		return 1;
-	}
-	
-	int eval(MDState s, uint numParams)
-	{
-		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
-		MDNamespace env;
-
-		if(numParams > 1)
-			env = s.getParam!(MDNamespace)(1);
-		else
-			env = s.environment(1);
-
-		return s.call(new MDClosure(env, def), -1);
-	}
-	
-	int loadJSON(MDState s, uint numParams)
-	{
-		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
-		return 1;
-	}
-
-	int toJSON(MDState s, uint numParams)
-	{
-		MDValue root = s.getParam(0u);
-		bool pretty = false;
-
-		if(numParams > 1)
-			pretty = s.getParam!(bool)(1);
-
-		scope cond = new GrowBuffer();
-		scope printer = new Print!(dchar)(FormatterD, cond);
-
-		toJSONImpl(s, root, pretty, printer);
-
-		s.push(cast(dchar[])cond.slice());
-		return 1;
-	}
-
-	int setModuleLoader(MDState s, uint numParams)
-	{
-		s.context.setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
-		return 0;
-	}
-	
-	int rawSet(MDState s, uint numParams)
-	{
-		if(s.isParam!("table")(0))
-			s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
-		else if(s.isParam!("object")(0))
-			s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)] = s.getParam(2u);
-		else
-			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
-
-		return 0;
-	}
-	
-	int rawGet(MDState s, uint numParams)
-	{
-		if(s.isParam!("table")(0))
-			s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
-		else if(s.isParam!("object")(0))
-			s.push(s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)]);
-		else
-			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
-
-		return 1;
-	}
-	
-	int runMain(MDState s, uint numParams)
-	{
-		auto ns = s.getParam!(MDNamespace)(0);
-
-		if(auto main = "main"d in ns)
-		{
-			auto funcReg = s.push(main);
-			s.push(ns);
-
-			for(uint i = 1; i < numParams; i++)
-				s.push(s.getParam(i));
-
-			s.rawCall(funcReg, 0);
-		}
-		
-		return 0;
-	}
-	
-	int haltThread(MDState s, uint numParams)
-	{
-		if(numParams == 0)
-			s.halt();
-		else
-		{
-			auto thread = s.getParam!(MDState)(0);
-			thread.pendingHalt();
-			s.call(thread, 0);
-		}
-
-		return 0;
-	}
-	
 	int functionEnvironment(MDState s, uint numParams)
 	{
 		MDClosure cl = s.getContext!(MDClosure);
@@ -992,6 +1055,9 @@ static:
 		s.push(s.getContext!(MDClosure).isVararg);
 		return 1;
 	}
+
+	// ===================================================================================================================================
+	// StringBuffer
 
 	static class MDStringBufferClass : MDObject
 	{

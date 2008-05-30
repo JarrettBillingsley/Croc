@@ -40,9 +40,7 @@ static:
 				"keys"d,   new MDClosure(lib, &staticKeys,   "table.keys"),
 				"values"d, new MDClosure(lib, &staticValues, "table.values"),
 				"apply"d,  new MDClosure(lib, &staticApply,  "table.apply"),
-				"each"d,   new MDClosure(lib, &staticEach,   "table.each"),
-				"set"d,    new MDClosure(lib, &set,          "table.set"),
-				"get"d,    new MDClosure(lib, &get,          "table.get")
+				"each"d,   new MDClosure(lib, &staticEach,   "table.each")
 			);
 
 			auto methods = new MDNamespace("table"d, s.context.globals.ns);
@@ -178,17 +176,5 @@ static:
 	int staticEach(MDState s, uint numParams)
 	{
 		return eachImpl(s, s.getParam!(MDTable)(0), s.getParam!(MDClosure)(1));
-	}
-	
-	int set(MDState s, uint numParams)
-	{
-		s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
-		return 0;
-	}
-	
-	int get(MDState s, uint numParams)
-	{
-		s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
-		return 1;
 	}
 }

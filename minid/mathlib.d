@@ -46,12 +46,15 @@ static:
 				"pi"d,        tango.math.Math.PI,
 				"nan"d,       mdfloat.nan,
 				"infinity"d,  mdfloat.infinity,
+    
+				"intSize"d,   int.sizeof,
 				"intMin"d,    int.min,
 				"intMax"d,    int.max,
+
+				"floatSize"d, mdfloat.sizeof,
 				"floatMin"d,  mdfloat.min,
 				"floatMax"d,  mdfloat.max,
-				"intSize"d,   int.sizeof,
-				"floatSize"d, mdfloat.sizeof,
+
 				"abs"d,       new MDClosure(lib, &abs,     "math.abs"),
 				"sin"d,       new MDClosure(lib, &sin,     "math.sin"),
 				"cos"d,       new MDClosure(lib, &cos,     "math.cos"),
@@ -295,7 +298,7 @@ static:
 
 			case 1:
 				auto max = s.getParam!(int)(0);
-				
+
 				if(max == 0)
 					s.throwRuntimeException("Maximum value may not be 0");
 
@@ -354,7 +357,6 @@ static:
 			case 2:
 				if(s.cmp(s.getParam(0u), s.getParam(1u)) > 0)
 					s.pop();
-
 				break;
 
 			default:
@@ -388,7 +390,6 @@ static:
 			case 2:
 				if(s.cmp(s.getParam(0u), s.getParam(1u)) < 0)
 					s.pop();
-
 				break;
 
 			default:
