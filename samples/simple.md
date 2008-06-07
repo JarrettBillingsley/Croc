@@ -1,6 +1,7 @@
 module simple
 
-/*object BaseProp
+/*
+object BaseProp
 {
 	function get()
 		throw "No get implemented"
@@ -117,7 +118,7 @@ writeln(Deck.dealCard())
 writeln(Deck.dealCard())
 */
 // Making sure finally blocks are executed.
-/+{
+{
 	local function f()
 	{
 		try
@@ -219,7 +220,7 @@ writeln(Deck.dealCard())
 	local forEach = coroutine function forEach(t)
 	{
 		yield()
-	
+
 		foreach(k, v; t)
 			yield(k, v)
 	}
@@ -274,12 +275,12 @@ writeln(Deck.dealCard())
 			local prop = :_props[key]
 
 			if(prop is null)
-				throw format("Property '{}' does not exist in {}", key, rawToString(T))
+				throw format("Property '{}' does not exist in {r}", key, T)
 
 			local getter = prop.getter
 
 			if(getter is null)
-				throw format("Property '{}' has no getter in {}", key, rawToString(T))
+				throw format("Property '{}' has no getter in {r}", key, T)
 
 			return getter(with this)
 		}
@@ -289,12 +290,12 @@ writeln(Deck.dealCard())
 			local prop = :_props[key]
 
 			if(prop is null)
-				throw format("Property '{}' does not exist in {}", key, rawToString(T))
+				throw format("Property '{}' does not exist in {r}", key, T)
 
 			local setter = prop.setter
 
 			if(setter is null)
-				throw format("Property '{}' has no setter in {}", key, rawToString(T))
+				throw format("Property '{}' has no setter in {r}", key, T)
 
 			setter(with this, value)
 		}
@@ -823,4 +824,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/
+}

@@ -2327,7 +2327,7 @@ class MDObject : MDBaseObject
 		guessedName = The name of the class.  This is called "guessed" mostly because in MiniD code, classes
 			do not have any intrinsic name associated with them, and sometimes the compiler will generate a
 			name for an anonymous class.  For any classes that you create from native code, though, you'll
-			probably given them a real name.
+			probably give them a real name.
 
 		baseClass = An optional base class from which this one should derive.  If you skip this parameter or
 			pass null, the class will have no base class.  Otherwise, it will copy the fields and methods
@@ -2899,7 +2899,7 @@ final class MDNamespace : MDBaseObject
 			dchar[] s = mParent.nameString();
 
 			if(s.length > 0)
-				ret = mParent.nameString() ~ "." ~ ret;
+				ret = s ~ "." ~ ret;
 		}
 
 		return ret;
@@ -4442,7 +4442,7 @@ final class MDState : MDBaseObject
 				throwRuntimeException("No implementation of method '{}' for type '{}'", name, val.typeString());
 
 			push(method);
-			push(val);
+			push(val); // WORGN -- should be 'this', not the proto
 			push(methodName);
 			numParams++;
 		}
@@ -4853,7 +4853,7 @@ final class MDState : MDBaseObject
 
 		return mContext.globals.ns;
 	}
-	
+
 	public final MDNamespace findGlobal(MDString name, int depth = 0)
 	{
 		for(auto ns = environment(depth); ns !is null; ns = ns.mParent)
@@ -4875,7 +4875,7 @@ final class MDState : MDBaseObject
 	/**
 	Get a string representation of any MiniD value.  This is different from MDValue.toString() in that it will call
 	any toString metamethods defined for the object.
-	
+
 	Params:
 		The value to get a string representation of.
 		
@@ -6004,7 +6004,7 @@ final class MDState : MDBaseObject
 	protected final MDValue* getMM(ref MDValue obj, MM method, out MDValue owner)
 	{
 		MDValue* m;
-		
+
 		switch(obj.mType)
 		{
 			case MDValue.Type.Table:
@@ -7383,29 +7383,19 @@ final class MDState : MDBaseObject
 		{
 			MDValue RS;
 			MDValue RT;
-			
-			MDValue* get(uint index, MDValue* environment = null)
+
+			MDValue* get(uint index)
 			{
 				switch(index & Instruction.locMask)
 				{
 					case Instruction.locLocal:
 						assert((stackBase + (index & ~Instruction.locMask)) < mStack.length, "invalid based stack index");
-
-						if(environment)
-							*environment = env;
-
 						return &mStack[stackBase + (index & ~Instruction.locMask)];
 
 					case Instruction.locConst:
-						if(environment)
-							*environment = env;
-
 						return &constTable[index & ~Instruction.locMask];
 
 					case Instruction.locUpval:
-						if(environment)
-							*environment = env;
-
 						return mCurrentAR.func.script.upvals[index & ~Instruction.locMask].value;
 
 					default:
@@ -7414,15 +7404,8 @@ final class MDState : MDBaseObject
 						MDString name = constTable[index & ~Instruction.locMask].mString;
 
 						for(auto ns = env; ns !is null; ns = ns.mParent)
-						{
 							if(auto glob = ns[name])
-							{
-								if(environment)
-									*environment = ns;
-
 								return glob;
-							}
-						}
 
 						throwRuntimeException("Attempting to get nonexistent global '{}'", name);
 				}
@@ -7433,7 +7416,7 @@ final class MDState : MDBaseObject
 				if(mShouldHalt)
 					throw new MDHaltException();
 
-				Instruction i = *mCurrentAR.pc;
+				Instruction* i = mCurrentAR.pc;
 				mCurrentAR.pc++;
 
 				switch(i.opcode)
@@ -7562,7 +7545,7 @@ final class MDState : MDBaseObject
 						break;
 
 					case Op.Cmp:
-						Instruction jump = *mCurrentAR.pc;
+						Instruction* jump = mCurrentAR.pc;
 						mCurrentAR.pc++;
 
 						int cmpValue = compare(get(i.rs), get(i.rt));
@@ -7599,7 +7582,7 @@ final class MDState : MDBaseObject
 						RS = *get(i.rs);
 						RT = *get(i.rt);
 
-						Instruction jump = *mCurrentAR.pc;
+						Instruction* jump = mCurrentAR.pc;
 						mCurrentAR.pc++;
 
 						int cmpValue = 1;
@@ -7696,7 +7679,7 @@ final class MDState : MDBaseObject
 					case Op.Is:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Is");
 
-						Instruction jump = *mCurrentAR.pc;
+						Instruction* jump = mCurrentAR.pc;
 						mCurrentAR.pc++;
 
 						assert(jump.opcode == Op.Je, "invalid 'is' jump");
@@ -7709,7 +7692,7 @@ final class MDState : MDBaseObject
 					case Op.IsTrue:
 						debug(TIMINGS) scope _profiler_ = new Profiler("IsTrue");
 
-						Instruction jump = *mCurrentAR.pc;
+						Instruction* jump = mCurrentAR.pc;
 						mCurrentAR.pc++;
 
 						assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
@@ -7806,7 +7789,7 @@ final class MDState : MDBaseObject
 					case Op.Foreach:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Foreach");
 
-						Instruction jump = *mCurrentAR.pc;
+						Instruction* jump = mCurrentAR.pc;
 						mCurrentAR.pc++;
 	
 						uint rd = i.rd;
@@ -7931,12 +7914,12 @@ final class MDState : MDBaseObject
 
 					// Function Calling
 				//{
-					//Instruction call = void;
+					//Instruction* call = void;
 
 					case Op.Method, Op.MethodNC, Op.SuperMethod:
 						debug(TIMINGS) scope _profiler_ = new Profiler("Method");
 
-						Instruction call = *mCurrentAR.pc;
+						Instruction* call = mCurrentAR.pc;
 						mCurrentAR.pc++;
 						assert(i.rd == call.rd, "Op.Method");
 
@@ -7959,7 +7942,7 @@ final class MDState : MDBaseObject
 
 						MDValue proto = void;
 						MDValue* method = lookupMethod(RS, RT.mString, proto);
-						
+
 						if(method is null)
 						{
 							method = getMM(RS, MM.Method, proto);
@@ -7973,7 +7956,7 @@ final class MDState : MDBaseObject
 								mStack[stackBase + i.rd] = mStack[stackBase + i.rd + 1];
 
 							mStack[stackBase + i.rd + 1] = RT;
-							
+
 							if(call.opcode == Op.Call)
 							{
 								int funcReg = call.rd;
@@ -7986,7 +7969,7 @@ final class MDState : MDBaseObject
 									mStackIndex = funcReg + numParams + 1;
 
 								int returnSlot = call.rd + stackBase;
-								
+
 								if(callPrologue2(method.mFunction, returnSlot, numResults, returnSlot, numParams + 1, proto))
 								{
 									depth++;
@@ -8121,88 +8104,73 @@ final class MDState : MDBaseObject
 
 						break;
 
-					case Op.Precall:
-						debug(TIMINGS) scope _profiler_ = new Profiler("Precall");
+					case Op.Call:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Call");
 
-						if(i.rt == 1)
-							RS = *get(i.rs, &mStack[stackBase + i.rd + 1]);
+						int funcReg = i.rd;
+						int numParams = i.rs - 1;
+						int numResults = i.rt - 1;
+
+						if(numParams == -1)
+							numParams = mStackIndex - stackBase - funcReg - 1;
 						else
-							RS = *get(i.rs);
+							mStackIndex = funcReg + numParams + 1;
 
-						if(i.rd != i.rs)
-							mStack[stackBase + i.rd] = RS;
-
-						Instruction call = *mCurrentAR.pc;
-						mCurrentAR.pc++;
-
-					//_commonCall:
-						if(call.opcode == Op.Call)
+						if(callPrologue(funcReg, numResults, numParams))
 						{
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-							int numResults = call.rt - 1;
-
-							if(numParams == -1)
-								numParams = mStackIndex - stackBase - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-
-							if(callPrologue(funcReg, numResults, numParams))
-							{
-								depth++;
-								constTable = mCurrentAR.func.script.func.mConstants;
-								env = mCurrentAR.func.environment;
-								stackBase = mCurrentAR.base;
-							}
-							else
-							{
-								if(numResults >= 0)
-									mStackIndex = mCurrentAR.savedTop;
-							}
-						}
-						else
-						{
-							assert(call.opcode == Op.Tailcall, "Op.Precall invalid call opcode");
-							close(0);
-
-							int funcReg = call.rd;
-							int numParams = call.rs - 1;
-
-							if(numParams == -1)
-								numParams = mStackIndex - stackBase - funcReg - 1;
-							else
-								mStackIndex = funcReg + numParams + 1;
-
-							funcReg += stackBase;
-
-							int destReg = mCurrentAR.funcSlot;
-
-							for(int j = 0; j < numParams + 1; j++)
-								mStack[destReg + j] = mStack[funcReg + j];
-
-							int numReturns = mCurrentAR.numReturns;
-							auto tc = mCurrentAR.numTailcalls + 1;
-
-							popAR();
-
-							{
-								scope(failure)
-									--depth;
-
-								if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams))
-									mCurrentAR.numTailcalls = tc;
-								else
-									--depth;
-							}
-
-							if(depth == 0)
-								return;
-
+							depth++;
 							constTable = mCurrentAR.func.script.func.mConstants;
 							env = mCurrentAR.func.environment;
 							stackBase = mCurrentAR.base;
 						}
+						else
+						{
+							if(numResults >= 0)
+								mStackIndex = mCurrentAR.savedTop;
+						}
+						break;
 
+					case Op.Tailcall:
+						debug(TIMINGS) scope _profiler_ = new Profiler("Tailcall");
+
+						close(0);
+
+						int funcReg = i.rd;
+						int numParams = i.rs - 1;
+
+						if(numParams == -1)
+							numParams = mStackIndex - stackBase - funcReg - 1;
+						else
+							mStackIndex = funcReg + numParams + 1;
+
+						funcReg += stackBase;
+
+						int destReg = mCurrentAR.funcSlot;
+
+						for(int j = 0; j < numParams + 1; j++)
+							mStack[destReg + j] = mStack[funcReg + j];
+
+						int numReturns = mCurrentAR.numReturns;
+						auto tc = mCurrentAR.numTailcalls + 1;
+
+						popAR();
+
+						{
+							scope(failure)
+								--depth;
+
+							if(callPrologue(destReg - mCurrentAR.base, numReturns, numParams))
+								mCurrentAR.numTailcalls = tc;
+							else
+								--depth;
+						}
+
+						if(depth == 0)
+							return;
+
+						constTable = mCurrentAR.func.script.func.mConstants;
+						env = mCurrentAR.func.environment;
+						stackBase = mCurrentAR.base;
 						break;
 				//}
 
@@ -8584,7 +8552,7 @@ final class MDState : MDBaseObject
 
 						*get(i.rd) = n;
 						break;
-						
+
 					case Op.SetEnv:
 						debug(TIMINGS) scope _profiler_ = new Profiler("SetEnv");
 						get(i.rd).mFunction.environment = get(i.rs).mNamespace;
@@ -8687,12 +8655,6 @@ final class MDState : MDBaseObject
 					case Op.Jlt:
 						assert(false, "lone conditional jump instruction");
 						
-					case Op.Call:
-						assert(false, "lone call instruction");
-
-					case Op.Tailcall:
-						assert(false, "lone tailcall instruction");
-
 					default:
 						throwRuntimeException("Unimplemented opcode \"{}\"", i.toString());
 				}

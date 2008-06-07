@@ -10341,7 +10341,7 @@ class MethodCallExp : PostfixExp
 		Expression.codeGenListToNextReg(s, args);
 
 		Op opcode;
-		
+
 		if(context is null)
 			opcode = isSuperCall ? Op.SuperMethod : Op.Method;
 		else
@@ -10389,8 +10389,8 @@ class CallExp : PostfixExp
 {
 	/**
 	The context to be used when calling the function.  This corresponds to 'x' in
-	the expression "f(with x)".  If this member is null, there is no custom
-	context and the context will be determined automatically.
+	the expression "f(with x)".  If this member is null, a context of 'null' will
+	be passed to the function.
 	*/
 	public Expression context;
 	
@@ -10411,28 +10411,26 @@ class CallExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		uint funcReg = s.nextRegister();
-		Exp src;
 
 		op.codeGen(s);
+		s.popMoveTo(op.endLocation.line, funcReg);
 
-		s.popSource(op.endLocation.line, src);
-		s.freeExpTempRegs(&src);
 		assert(s.nextRegister() == funcReg);
 
 		s.pushRegister();
 		uint thisReg = s.nextRegister();
 
 		if(context)
-		{
 			context.codeGen(s);
-			s.popMoveTo(op.endLocation.line, thisReg);
-		}
+		else
+			s.pushNull();
 
+		s.popMoveTo(op.endLocation.line, thisReg);
 		s.pushRegister();
 
 		Expression.codeGenListToNextReg(s, args);
 
-		s.codeR(op.endLocation.line, Op.Precall, funcReg, src.index, (context is null) ? 1 : 0);
+		//s.codeR(op.endLocation.line, Op.Precall, funcReg, src.index, 0);
 		s.popRegister(thisReg);
 
 		if(args.length == 0)
@@ -11405,11 +11403,7 @@ class ParenExp : PrimaryExp
 		l.expect(Token.Type.LParen);
 		auto exp = Expression.parse(l);
 		Location endLocation = l.expect(Token.Type.RParen).location;
-
-		if(exp.isMultRet())
-			return new ParenExp(location, endLocation, exp);
-		else
-			return exp;
+		return new ParenExp(location, endLocation, exp);
 	}
 
 	public override void codeGen(FuncState s)
@@ -11439,6 +11433,12 @@ class ParenExp : PrimaryExp
 	public override Expression fold()
 	{
 		exp = exp.fold();
+		
+		if(exp.isMultRet())
+			return this;
+		else
+			return exp;
+
 		return this;
 	}
 }
