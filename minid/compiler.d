@@ -2063,7 +2063,7 @@ class FuncState
 
 	public uint pushRegister()
 	{
-		debug(REGPUSHPOP) Stdout.formatln("push ", mFreeReg);
+		debug(REGPUSHPOP) Stdout.formatln("push {}", mFreeReg);
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
@@ -2078,7 +2078,7 @@ class FuncState
 	public void popRegister(uint r)
 	{
 		mFreeReg--;
-		debug(REGPUSHPOP) Stdout.formatln("pop ", mFreeReg, ", ", r);
+		debug(REGPUSHPOP) Stdout.formatln("pop {}, {}", mFreeReg, r);
 
 		assert(mFreeReg >= 0, "temp reg underflow");
 		assert(mFreeReg == r, "reg not freed in order");
@@ -5332,6 +5332,7 @@ class ImportStatement : Statement
 			expr.codeGen(s);
 			Exp src;
 			s.popSource(location.line, src);
+			s.freeExpTempRegs(&src);
 
 			s.codeR(location.line, Op.Import, importReg, src.index, 0);
 
