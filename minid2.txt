@@ -416,7 +416,7 @@ BreakStatement:
 	
 ReturnStatement:
 	'return' [Expression {',' Expression}] StatementTerminator
-	
+
 TryCatchStatement:
 	'try' Statement (('catch' '(' Identifier ')' Statement) || ('finally' Statement))
 	
@@ -539,17 +539,20 @@ DotExpression:
 	PostfixExpression '.' (Identifier | '(' Expression ')')
 
 CallExpression:
-	PostfixExpression '(' [Arguments] ')'
-	PostfixExpression '(' 'with' Arguments ')'
-	PostfixExpression '$' Expression {',' Expression}
-	DotExpression '(' [Arguments] ')'
-	DotExpression '(' 'with' Arguments ')'
-	DotExpression '$' Expression {',' Expression}
-	'super' '.' (Identifier | '(' Expression ')') '(' [Arguments] ')'
-	'super' '.' (Identifier | '(' Expression ')') '$' Expression {',' Expression}
+	PostfixExpression ArgumentsWith
+	DotExpression ArgumentsWith
+	'super' '.' (Identifier | '(' Expression ')') Arguments
+
+ArgumentsWith:
+	Arguments
+	'(' 'with' ExpressionList ')'
 
 Arguments:
-	Expression {',' Arguments}
+	'(' [ExpressionList] ')'
+	'$' ExpressionList
+
+ExpressionList:
+	Expression {',' Expression}
 
 PrimaryExpression:
 	Identifier

@@ -84,7 +84,7 @@ struct Compiler
 		scope path = FilePath(filename);
 		return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
 	}
-	
+
 	/**
 	Compile a module from a string containing the source code.
 	
@@ -9053,7 +9053,7 @@ class CmpExp : BinaryExp
 
 		exp1 = ShiftExp.parse(l);
 
-		while(true)
+// 		while(true)
 		{
 			switch(l.type)
 			{
@@ -9061,37 +9061,43 @@ class CmpExp : BinaryExp
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.LTExp, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				case Token.Type.LE:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.LEExp, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				case Token.Type.GT:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.GTExp, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				case Token.Type.GE:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.GEExp, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				case Token.Type.As:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new AsExp(location, exp2.endLocation, exp1, exp2);
-					continue;
-					
+					break;
+// 					continue;
+
 				case Token.Type.In:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new InExp(location, exp2.endLocation, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				case Token.Type.Not:
 					if(l.peek.type != Token.Type.In)
@@ -9101,19 +9107,21 @@ class CmpExp : BinaryExp
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new NotInExp(location, exp2.endLocation, exp1, exp2);
-					continue;
-					
+					break;
+// 					continue;
+
 				case Token.Type.Cmp3:
 					l.next();
 					exp2 = ShiftExp.parse(l);
 					exp1 = new Cmp3Exp(location, exp2.endLocation, exp1, exp2);
-					continue;
+					break;
+// 					continue;
 
 				default:
 					break;
 			}
 
-			break;
+// 			break;
 		}
 
 		return exp1;

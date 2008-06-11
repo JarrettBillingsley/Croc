@@ -4127,6 +4127,10 @@ final class MDState : MDBaseObject
 			foreach(param; params)
 				push(param);
 
+			mNativeCallDepth++;
+			scope(exit)
+				mNativeCallDepth--;
+
 			if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length + 1))
 				execute();
 
@@ -4156,6 +4160,10 @@ final class MDState : MDBaseObject
 
 			foreach(param; params)
 				push(param);
+				
+			mNativeCallDepth++;
+			scope(exit)
+				mNativeCallDepth--;
 
 			if(callPrologue(funcSlot, numReturns, params.length + 1))
 				execute();
@@ -4204,6 +4212,10 @@ final class MDState : MDBaseObject
 
 			foreach(param; params)
 				push(param);
+				
+			mNativeCallDepth++;
+			scope(exit)
+				mNativeCallDepth--;
 
 			if(callPrologue2(func, paramSlot, numReturns, paramSlot, params.length + 1))
 				execute();
@@ -4223,6 +4235,10 @@ final class MDState : MDBaseObject
 
 			foreach(param; params)
 				push(param);
+				
+			mNativeCallDepth++;
+			scope(exit)
+				mNativeCallDepth--;
 
 			if(callPrologue(funcSlot, numReturns, params.length + 1))
 				execute();
@@ -4279,6 +4295,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4321,6 +4341,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4364,6 +4388,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4406,6 +4434,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4454,6 +4486,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4500,6 +4536,10 @@ final class MDState : MDBaseObject
 
 		foreach(param; params)
 			push(param);
+			
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(funcSlot, numReturns, numParams, proto))
 			execute();
@@ -4550,6 +4590,10 @@ final class MDState : MDBaseObject
 	{
 		auto numParams = mStackIndex - mCurrentAR.base - slot - 1;
 		assert(numParams >= 1, "call - must have at least context");
+		
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
 
 		if(callPrologue(slot, numReturns, numParams))
 			execute();
@@ -4568,9 +4612,13 @@ final class MDState : MDBaseObject
 	{
 		assert(numParams >= 1, "call - must have at least context");
 
+		mNativeCallDepth++;
+		scope(exit)
+			mNativeCallDepth--;
+
 		if(callPrologue(slot, numReturns, numParams))
 			execute();
-			
+
 		if(numReturns == -1)
 			return mStackIndex - (mCurrentAR.base + slot);
 		else
@@ -4891,11 +4939,6 @@ final class MDState : MDBaseObject
 		
 		if(method.mType != MDValue.Type.Function)
 			return new MDString(value.toString());
-
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
 
 		callWith(method.mFunction, 1, value);
 		MDValue ret = pop();
@@ -5275,11 +5318,6 @@ final class MDState : MDBaseObject
 				if(apply.mType != MDValue.Type.Function)
 					s.throwRuntimeException("No implementation of {} for type '{}'", MetaNames[MM.Apply], iter.typeString());
 
-				s.mNativeCallDepth++;
-
-				scope(exit)
-					s.mNativeCallDepth--;
-					
 				auto funcReg = s.push(apply);
 				s.push(iter);
 				s.push(obj);
@@ -6146,11 +6184,6 @@ final class MDState : MDBaseObject
 				swap = true;
 		}
 
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
-
 		uint funcSlot = push(method);
 		
 		if(swap)
@@ -6183,11 +6216,6 @@ final class MDState : MDBaseObject
 
 		if(method.mType != MDValue.Type.Function)
 			throwRuntimeException("Cannot perform negation on a '{}'", RS.typeString());
-
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
 
 		uint funcSlot = push(method);
 		push(RS);
@@ -6274,17 +6302,12 @@ final class MDState : MDBaseObject
 		if(method.mType != MDValue.Type.Function)
 			throwRuntimeException("Cannot perform arithmetic ({}) on a '{}' and a '{}'", MetaNames[operation], RD.typeString(), RS.typeString());
 
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
-
 		uint funcSlot = push(method);
 		push(RD);
 		push(RS);
 		rawCall(funcSlot, 0);
 	}
-	
+
 	protected final void opIncrement(MDValue* RD)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Increment");
@@ -6300,17 +6323,12 @@ final class MDState : MDBaseObject
 			if(method.mType != MDValue.Type.Function)
 				throwRuntimeException("Cannot perform increment on a '{}'", RD.typeString());
 
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
 			uint funcSlot = push(method);
 			push(RD);
 			rawCall(funcSlot, 0);
 		}
 	}
-	
+
 	protected final void opDecrement(MDValue* RD)
 	{
 		debug(TIMINGS) scope _profiler_ = new Profiler("Decrement");
@@ -6325,11 +6343,6 @@ final class MDState : MDBaseObject
 
 			if(method.mType != MDValue.Type.Function)
 				throwRuntimeException("Cannot perform decrement on a '{}'", RD.typeString());
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(RD);
@@ -6388,11 +6401,6 @@ final class MDState : MDBaseObject
 				swap = true;
 		}
 
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
-
 		uint funcSlot = push(method);
 
 		if(swap)
@@ -6422,11 +6430,6 @@ final class MDState : MDBaseObject
 
 		if(method.mType != MDValue.Type.Function)
 			throwRuntimeException("Cannot perform complement on a '{}'", RS.typeString());
-
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
 
 		uint funcSlot = push(method);
 		push(RS);
@@ -6458,11 +6461,6 @@ final class MDState : MDBaseObject
 
 		if(method.mType != MDValue.Type.Function)
 			throwRuntimeException("Cannot perform bitwise arithmetic ({}) on a '{}' and a '{}'", MetaNames[operation], RD.typeString(), RS.typeString());
-
-		mNativeCallDepth++;
-
-		scope(exit)
-			mNativeCallDepth--;
 
 		uint funcSlot = push(method);
 		push(RD);
@@ -6543,11 +6541,6 @@ final class MDState : MDBaseObject
 
 						if(method.mType == MDValue.Type.Function)
 						{
-							mNativeCallDepth++;
-
-							scope(exit)
-								mNativeCallDepth--;
-
 							uint funcReg = push(method);
 							
 							if(negate)
@@ -6592,11 +6585,6 @@ final class MDState : MDBaseObject
 
 				negate = true;
 			}
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcReg = push(method);
 			
@@ -6654,11 +6642,6 @@ final class MDState : MDBaseObject
 				if(method.mType != MDValue.Type.Function)
 					throwRuntimeException("No {} metamethod for type '{}'", MetaNames[MM.In], RT.typeString());
 
-				mNativeCallDepth++;
-
-				scope(exit)
-					mNativeCallDepth--;
-
 				uint funcSlot = push(method);
 				push(RT);
 				push(RS);
@@ -6685,11 +6668,6 @@ final class MDState : MDBaseObject
 
 				if(method.mType == MDValue.Type.Function)
 				{
-					mNativeCallDepth++;
-
-					scope(exit)
-						mNativeCallDepth--;
-
 					uint funcReg = push(method);
 					push(RS);
 					rawCall(funcReg, 1);
@@ -6723,11 +6701,6 @@ final class MDState : MDBaseObject
 
 				if(method.mType == MDValue.Type.Function)
 				{
-					mNativeCallDepth++;
-
-					scope(exit)
-						mNativeCallDepth--;
-
 					uint funcReg = push(method);
 					push(RD);
 					push(RS);
@@ -6747,11 +6720,6 @@ final class MDState : MDBaseObject
 
 			if(method.mType != MDValue.Type.Function)
 				throw ex();
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(RS);
@@ -6804,11 +6772,6 @@ final class MDState : MDBaseObject
 
 					if(method.mType == MDValue.Type.Function)
 					{
-						mNativeCallDepth++;
-
-						scope(exit)
-							mNativeCallDepth--;
-
 						uint funcSlot = push(method);
 						push(RS);
 						push(RT);
@@ -6834,11 +6797,6 @@ final class MDState : MDBaseObject
 
 			if(method.mType != MDValue.Type.Function)
 				throw ex();
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(RD);
@@ -6878,11 +6836,6 @@ final class MDState : MDBaseObject
 
 					if(method.mType == MDValue.Type.Function)
 					{
-						mNativeCallDepth++;
-
-						scope(exit)
-							mNativeCallDepth--;
-
 						uint funcSlot = push(method);
 						push(RD);
 						push(RS);
@@ -6919,11 +6872,6 @@ final class MDState : MDBaseObject
 			if(method.mType != MDValue.Type.Function)
 				throw ex();
 
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
 			uint funcSlot = push(method);
 			push(RS);
 			push(RT);
@@ -6943,11 +6891,6 @@ final class MDState : MDBaseObject
 
 					if(method.mType == MDValue.Type.Function)
 					{
-						mNativeCallDepth++;
-
-						scope(exit)
-							mNativeCallDepth--;
-
 						uint funcSlot = push(method);
 						push(RS);
 						push(RT);
@@ -6993,11 +6936,6 @@ final class MDState : MDBaseObject
 			if(method.isFunction() == false)
 				throw ex();
 
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
-
 			uint funcSlot = push(method);
 			push(RD);
 			push(RS);
@@ -7018,11 +6956,6 @@ final class MDState : MDBaseObject
 
 					if(method.isFunction())
 					{
-						mNativeCallDepth++;
-
-						scope(exit)
-							mNativeCallDepth--;
-
 						uint funcSlot = push(method);
 						push(RD);
 						push(RS);
@@ -7051,11 +6984,6 @@ final class MDState : MDBaseObject
 
 					if(method.isFunction())
 					{
-						mNativeCallDepth++;
-
-						scope(exit)
-							mNativeCallDepth--;
-
 						uint funcSlot = push(method);
 						push(RD);
 						push(RS);
@@ -7088,11 +7016,6 @@ final class MDState : MDBaseObject
 
 			if(method.mType != MDValue.Type.Function)
 				throw ex();
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(src);
@@ -7191,11 +7114,6 @@ final class MDState : MDBaseObject
 
 			if(method.mType != MDValue.Type.Function)
 				throw ex();
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			uint funcSlot = push(method);
 			push(RD);
@@ -7316,11 +7234,6 @@ final class MDState : MDBaseObject
 				foreach(val; vals)
 					push(val);
 
-				mNativeCallDepth++;
-
-				scope(exit)
-					mNativeCallDepth--;
-
 				rawCall(funcSlot, 1);
 				return pop();
 			}
@@ -7358,11 +7271,6 @@ final class MDState : MDBaseObject
 
 			foreach(val; vals)
 				push(val);
-
-			mNativeCallDepth++;
-
-			scope(exit)
-				mNativeCallDepth--;
 
 			rawCall(funcSlot, 0);
 		}
@@ -7633,11 +7541,6 @@ final class MDState : MDBaseObject
 
 										if(method.mType == MDValue.Type.Function)
 										{
-											mNativeCallDepth++;
-
-											scope(exit)
-												mNativeCallDepth--;
-
 											uint funcReg = push(method);
 											
 											if(negate)
@@ -7802,11 +7705,6 @@ final class MDState : MDBaseObject
 
 							if(apply.mType != MDValue.Type.Function)
 								throwRuntimeException("No implementation of {} for type '{}'", MetaNames[MM.Apply], src.typeString());
-
-							mNativeCallDepth++;
-
-							scope(exit)
-								mNativeCallDepth--;
 
 							mStack[stackBase + rd + 2] = mStack[stackBase + rd + 1];
 							mStack[stackBase + rd + 1] = src;
