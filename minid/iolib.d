@@ -333,7 +333,7 @@ class IOLib
 
 			s.access = FileConduit.Access.Read;
 
-			if(mode & FileMode.Out)
+			if((mode & FileMode.Out) || (mode & FileMode.Append))
 				s.access |= FileConduit.Access.Write;
 
 			s.open = cast(FileConduit.Open)0;
