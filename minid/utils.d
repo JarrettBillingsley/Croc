@@ -157,7 +157,7 @@ unittest
 	assert(isStringType!(dchar[]));
 	assert(!isStringType!(int));
 	assert(!isStringType!(Object));
-	
+
 	assert(isCharType!(char));
 	assert(isCharType!(wchar));
 	assert(isCharType!(dchar));
@@ -660,10 +660,10 @@ public template NameOfFunc(alias f)
 	const char[] NameOfFunc = (&f).stringof[2 .. $];
 }
 
-unittest
+debug
 {
-	static void foo(){}
-	assert(NameOfFunc!(foo) == "foo");
+	private void _foo_(){}
+	static assert(NameOfFunc!(_foo_) == "_foo_", "Oh noes, NameOfFunc needs to be updated.");
 }
 
 /**

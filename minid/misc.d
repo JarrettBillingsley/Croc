@@ -158,6 +158,12 @@ package void formatImpl(MDState s, MDValue[] params, uint delegate(dchar[]) sink
 						sink("{");
 						continue;
 					}
+
+					if(c == dchar.init)
+					{
+						sink("{missing or misplaced '}'}{");
+						break;
+					}
 					
 					addChar('{');
 					
