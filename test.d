@@ -63,11 +63,13 @@ nuint arrayToString(MDThread* t, nuint numParams)
 		{
 			auto c = getChar(t, -1);
 			pop(t);
+			buf.addChar('\'');
 			buf.addChar(c);
+			buf.addChar('\'');
 		}
 		else
 		{
-			pushToString(t, -1);
+			pushToString(t, -1, true);
 			insert(t, -2);
 			pop(t);
 			buf.addTop();

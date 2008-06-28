@@ -589,6 +589,29 @@ public void pop(MDThread* t, size_t n = 1)
 }
 
 /**
+Given an index, returns the absolute index that corresponds to it.  This is useful for converting
+relative (negative) indices to indices that will never change.  If the index is already absolute,
+just returns it.  Throws an error if the index is out of range.
+*/
+public nint absIndex(MDThread* t, nint idx)
+{
+	return cast(nint)fakeToRel(t, idx);
+}
+
+/**
+Sees if a given stack index (negative or positive) is valid.  Valid positive stack indices range
+from [0 .. stackSize(t)$(RPAREN).  Valid negative stack indices range from [-stackSize(t) .. 0$(RPAREN).
+
+*/
+public bool isValidIndex(MDThread* t, nint idx)
+{
+	if(idx < 0)
+		return idx >= -stackSize(t);
+	else
+		return idx < stackSize(t);
+}
+
+/**
 Calls the object at the given _slot.  The parameters (including 'this') are assumed to be all the
 values after that _slot to the top of the stack.
 
@@ -2391,6 +2414,7 @@ public bool hasMethod(MDThread* t, nint obj, dchar[] methodName)
 // TODO: imports
 // TODO: foreach loops
 // TODO: tracebacks
+// TODO: thread halting
 
 // TODO: get/set attrs
 // TODO: get/set finalizers for objects
@@ -2617,6 +2641,26 @@ private void checkNumParams(MDThread* t, size_t n)
 		throwException(t, "Not enough parameters (expected {}, only have {})", n, stackSize(t) - 1);
 }
 
+private RelStack fakeToRel(MDThread* t, nint fake)
+{
+	assert(t.stackIndex > t.stackBase);
+
+	auto size = stackSize(t);
+
+	if(fake < 0)
+		fake += size;
+
+	if(fake < 0 || fake >= size)
+		throwException(t, "Invalid index");
+
+	return cast(RelStack)fake;
+}
+
+private AbsStack fakeToAbs(MDThread* t, nint fake)
+{
+	return fakeToRel(t, fake) + t.stackBase;
+}
+
 private MDValue[] getLocals(MDThread* t)
 {
 	return t.stack[t.stackBase .. t.stackIndex];
@@ -2640,11 +2684,6 @@ private MDNamespace* getEnv(MDThread* t, size_t depth = 0)
 	}
 
 	return t.vm.globals;
-}
-
-private AbsStack fakeToAbs(MDThread* t, nint fake)
-{
-	return fakeToRel(t, fake) + t.stackBase;
 }
 
 private size_t commonCall(MDThread* t, AbsStack slot, nint numReturns, bool isScript)
@@ -3925,21 +3964,6 @@ private MDValue superofImpl(MDThread* t, MDValue* v)
 	assert(false);
 }
 
-private RelStack fakeToRel(MDThread* t, nint fake)
-{
-	assert(t.stackIndex > t.stackBase);
-
-	auto size = stackSize(t);
-
-	if(fake < 0)
-		fake += size;
-
-	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid index");
-
-	return cast(RelStack)fake;
-}
-
 // Internal funcs
 private void savePtr(MDThread* t, ref MDValue* ptr, out bool shouldLoad)
 {
@@ -4071,7 +4095,7 @@ private MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MD
 			return getMethod(v.mNamespace, name);
 
 		default:
-			getMethod(t, v.type, name);
+			return getMethod(t, v.type, name);
 	}
 
 	assert(false);

@@ -1,7 +1,6 @@
 module simple
 
-local a = [1, 2, 3, "hi", 5]
-writeln(format("{} {}", a, 4));
+curry(4)
 
 /+
 /*

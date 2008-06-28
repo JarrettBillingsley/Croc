@@ -212,7 +212,58 @@ public struct StrBuffer
 
 public void checkAnyParam(MDThread* t, nint index)
 {
-	
+	if(!isValidIndex(t, index))
+		throwException(t, "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+}
+
+public bool checkBoolParam(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+
+	if(!isBool(t, index))
+		paramTypeError(t, index, "bool");
+
+	return getBool(t, index);
+}
+
+public mdint checkIntParam(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+
+	if(!isInt(t, index))
+		paramTypeError(t, index, "int");
+
+	return getInt(t, index);
+}
+
+public mdfloat checkFloatParam(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+
+	if(!isFloat(t, index))
+		paramTypeError(t, index, "float");
+
+	return getFloat(t, index);
+}
+
+public dchar checkCharParam(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+
+	if(!isChar(t, index))
+		paramTypeError(t, index, "char");
+
+	return getChar(t, index);
+}
+
+public dchar[] checkStringParam(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+
+	if(!isString(t, index))
+		paramTypeError(t, index, "string");
+
+	return getString(t, index);
 }
 
 public T* checkObjParam(T, bool strict = true)(MDThread* t, nint index, dchar[] name)
@@ -245,6 +296,99 @@ public void checkObjParam(bool strict = true)(MDThread* t, nint index, dchar[] n
 	}
 
 	pop(t);
+}
+
+// EPOCH FAIL.
+public void checkParam(MDThread* t, nint index, nuint typeMask)
+{
+	assert(typeMask != 0, "typemask must be something");
+
+	checkAnyParam(t, index);
+
+	if(!((1 << type(t, index)) & typeMask))
+	{
+		auto buf = StrBuffer(t);
+
+		bool first = true;
+
+		for(auto type = cast(uint)MDValue.Type.Null; type <= cast(uint)MDValue.Type.NativeObj; type++)
+		{
+			if(!(typeMask & (1 << type)))
+				continue;
+
+			if(first)
+				first = false;
+			else
+				buf.addChar('|');
+
+			buf.addString(MDValue.typeString(cast(MDValue.Type)type));
+		}
+		
+		buf.finish();
+
+		paramTypeError(t, index, getString(t, -1));
+	}
+}
+
+private void paramTypeError(MDThread* t, nint index, dchar[] expected)
+{
+	pushTypeString(t, index);
+	throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
+}
+
+public bool optBoolParam(MDThread* t, nint index, bool def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isBool(t, index))
+		paramTypeError(t, index, "bool");
+
+	return getBool(t, index);
+}
+
+public mdint optIntParam(MDThread* t, nint index, mdint def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isInt(t, index))
+		paramTypeError(t, index, "int");
+
+	return getInt(t, index);
+}
+
+public mdfloat optFloatParam(MDThread* t, nint index, mdfloat def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isFloat(t, index))
+		paramTypeError(t, index, "float");
+
+	return getFloat(t, index);
+}
+
+public dchar optCharParam(MDThread* t, nint index, dchar def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isChar(t, index))
+		paramTypeError(t, index, "char");
+
+	return getChar(t, index);
+}
+
+public dchar[] optStringParam(MDThread* t, nint index, dchar[] def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isString(t, index))
+		paramTypeError(t, index, "string");
+
+	return getString(t, index);
 }
 
 public T* getMembers(T)(MDThread* t, nint index)
