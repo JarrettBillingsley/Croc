@@ -5,7 +5,7 @@ and as such can't hold implementation-specific functionality.  For that, look
 in the minid.misc module.
 
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -37,17 +37,12 @@ import tango.io.Print;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
 import tango.io.Stdout;
+import tango.stdc.stdlib;
 import tango.stdc.string;
 import tango.text.convert.Utf;
 import tango.text.Util;
 import tango.time.StopWatch;
 import Uni = tango.text.Unicode;
-
-/**
-This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
-the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
-*/
-alias double mdfloat;
 
 /**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
@@ -116,7 +111,7 @@ Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed ty
 */
 template realType(T)
 {
-	static if(is(T Base == typedef))
+	static if(is(T Base == typedef) || is(T Base == enum))
 		alias realType!(Base) realType;
 	else
 		alias T realType;
@@ -157,7 +152,7 @@ unittest
 	assert(isStringType!(dchar[]));
 	assert(!isStringType!(int));
 	assert(!isStringType!(Object));
-
+	
 	assert(isCharType!(char));
 	assert(isCharType!(wchar));
 	assert(isCharType!(dchar));
@@ -286,11 +281,6 @@ template MakeVersion(uint major, uint minor)
 }
 
 /**
-The current version of MiniD.  (this is kind of buried here)
-*/
-const uint MiniDVersion = MakeVersion!(1, 1);
-
-/**
 See if T is a type that can't be automatically serialized.
 */
 template isInvalidSerializeType(T)
@@ -350,7 +340,7 @@ template TypeSerializeMethod(T)
 			else
 				const TypeSerializeMethod = SerializeMethod.Tuple;
 		}
-	}
+	} // TODO: check for unions instead of in IsInvalidSerializeType, to see if they have a custom method.
 	else
 		const TypeSerializeMethod = SerializeMethod.Chunk;
 }
@@ -802,36 +792,39 @@ public bool endsWith(T)(T[] string, T[] pattern)
 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
 
-template isFinalImpl(T, char[] funcName)
-{
-	alias ParameterTupleOf!(mixin(T.stringof ~ "." ~ funcName)) _Params;
-	alias ReturnTypeOf!(mixin(T.stringof ~ "." ~ funcName)) _ReturnType;
-	mixin("alias typeof(new class T { override _ReturnType " ~ funcName ~
-		"(_Params _params) { return super." ~ funcName ~ "(_params); } }) res;");
-}
+// Buggy.
 
-/**
-Given a class type and a method name, tells whether that method is final or not.
-Thanks Tomasz Stachowiak.
-*/
-template isFinal(T, char[] funcName)
-{
-	const bool isFinal = !is(isFinal_!(T, funcName).res);
-}
-
-unittest
-{
-	static class Foo
-	{
-		final void func1(int a, float b) {}
-		void func2(int a, float b) {}
-
-		final char[] func3(int a, float b) { return null; }
-		char[] func4(int a, float b) { return null; }
-	}
-
-	assert(isFinal!(Foo, "func1"));
-	assert(!isFinal!(Foo, "func2"));
-	assert(isFinal!(Foo, "func3"));
-	assert(!isFinal!(Foo, "func4"));
-}
+// template isFinalImpl(T, char[] funcName)
+// {
+// 	alias ParameterTupleOf!(mixin(T.stringof ~ "." ~ funcName)) _Params;
+// 	alias ReturnTypeOf!(mixin(T.stringof ~ "." ~ funcName)) _ReturnType;
+// 	mixin("alias typeof(new class T { override _ReturnType " ~ funcName ~
+// 		"(_Params _params) { return super." ~ funcName ~ "(_params); } }) res;");
+// }
+// 
+// /**
+// Given a class type and a method name, tells whether that method is final or not.
+// Thanks Tomasz Stachowiak.
+// */
+// template isFinal(T, char[] funcName)
+// {
+// 	pragma(msg, isFinalImpl!(T, funcName).res.stringof);
+// 	const bool isFinal = !is(isFinalImpl!(T, funcName).res);
+// }
+//
+// private void unit_test()
+// {
+// 	static class Foo
+// 	{
+// 		final void func1(int a, float b) {}
+// 		void func2(int a, float b) {}
+//
+// 		final char[] func3(int a, float b) { return null; }
+// 		char[] func4(int a, float b) { return null; }
+// 	}
+//
+// 	static assert(isFinal!(Foo, "func1"));
+// 	static assert(!isFinal!(Foo, "func2"));
+// 	static assert(isFinal!(Foo, "func3"));
+// 	static assert(!isFinal!(Foo, "func4"));
+// }

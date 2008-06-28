@@ -19,7 +19,7 @@ and as such can't hold implementation-specific functionality.  For that, look
 in the minid.misc module.
 <br><br>
 <b>License:</b><br>
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 <br><br>
 
 This software is provided 'as-is', without any express or implied warranty.
@@ -48,22 +48,6 @@ subject to the following restrictions:
 
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">alias 
-<span class="currsymbol">mdfloat</span>
-<script>explorer.outline.addDecl('mdfloat');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
-the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
-<br><br>
-
-</dd>
-
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">template 
 <span class="currsymbol">isStringType</span>
@@ -346,21 +330,6 @@ Thanks to Frits van Bommel for the original code.
 <dl></dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">const uint 
-<span class="currsymbol">MiniDVersion</span>
-<script>explorer.outline.addDecl('MiniDVersion');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The current version of MiniD.  (this is kind of buried here)
-<br><br>
 
 </dd>
 
@@ -684,27 +653,6 @@ built into the compiler or something.
 <br><br>
 
 </dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isFinal</span>
-<script>explorer.outline.addDecl('isFinal');</script>
-
-(T,char[] funcName)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Given a class type and a method name, tells whether that method is final or not.
-Thanks Tomasz Stachowiak.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -713,17 +661,20 @@ Thanks Tomasz Stachowiak.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Jun 13 09:57:37 2008
+			on Fri Jun 27 20:33:19 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.minid");
-	explorer.packageExplorer.addModuleFull("minid.types");
-	explorer.packageExplorer.addModuleFull("minid.compiler");
 	explorer.packageExplorer.addModuleFull("minid.utils");
-	explorer.packageExplorer.addModuleFull("minid.bind");</script>
+	explorer.packageExplorer.addModuleFull("minid.vm");
+	explorer.packageExplorer.addModuleFull("minid.gc");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.alloc");
+	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.interpreter");
+	explorer.packageExplorer.addModuleFull("minid.ex");</script>
 </body></html>
 
 

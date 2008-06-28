@@ -1,4 +1,4 @@
-module benchmark.cheapconcurrency
+module cheapconcurrency
 
 // n = 3000, 3.566 sec (very good, and on my desktop at that!!)
 // on my laptop: 1.128 sec!!
@@ -21,14 +21,14 @@ function link(n)
 	}
 }
 
-function main(N)
-{
+//function main(N)
+//{
 	local n = 3000
 
-	if(isString(N))
-		try n = toInt(N); catch(e) {}
+//	if(isString(N))
+//		try n = toInt(N); catch(e) {}
 
-	local timer = time.PerfCounter.clone()
+	local timer = Timer.clone()
 	timer.start()
 
 	local cofunc = coroutine link
@@ -42,4 +42,4 @@ function main(N)
 
 	timer.stop()
 	writefln("Took {} sec", timer.seconds())
-}
+//}

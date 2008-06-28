@@ -1,2 +1,3 @@
-@cd ..
-@call compile.bat
+@echo off
+cd ..
+call compile.bat

@@ -1,0 +1,1 @@
+@rebuild -debug -Dqdocs -candydoc -explicit -clean -c minid/utils.d minid/vm.d minid/gc.d minid/types.d minid/alloc.d minid/api.d minid/interpreter.d minid/ex.d

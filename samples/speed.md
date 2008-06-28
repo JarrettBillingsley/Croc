@@ -1,5 +1,13 @@
 module speed;
 
+local x = 1 << 30
+x <<= 6
+
+if(x == 0)
+	writeln("32-bit ints")
+else
+	writeln("64-bit ints ")
+
 /*
 Taken from the Io speed test.
 On my desktop.
@@ -42,21 +50,21 @@ MiniD version            := "1.0"
 // values in millions per second
 */
 
-local oneMillion = 1_000_000 // 2 + 2 = 5 for large values of 2
-local t1
+local t1 = 12345
+local oneMillion = 5_000_000
 
-local function foo() return;
+local function foo() {}
 
 local object Tester
 {
 	x
 
 	function beginTimer()
-		t1 = time.microTime()
+		t1 = microTime()
 
 	function endTimer(s)
 	{
-		t1 = time.microTime() - t1
+		t1 = microTime() - t1
 		local mps = toFloat(oneMillion) / t1
 		writefln("MiniD {} := {:f5}", s, mps)
 	}
@@ -208,13 +216,12 @@ local object Tester
 
 	function test()
 	{
-// 		writefln()
-// 		:testReflIntMath()
-// 		:testReflFloatMath()
-// 		writefln()
-// 		:testIntMath()
-// 		:testFloatMath()
-// 		writefln()
+		:testReflIntMath()
+		:testReflFloatMath()
+		writefln()
+		:testIntMath()
+		:testFloatMath()
+		writefln()
 		:testLocals()
 		:testSetLocals()
 		writefln()
@@ -223,14 +230,13 @@ local object Tester
 		writefln()
 		:testBlock()
 		:testInstantiations()
-
-		writefln()
-		writefln("MiniD version\t\t := \"2.0 beta\"")
-		writefln()
-		writefln("// values in millions per second")
-		writefln()
+//
+// 		writefln()
+// 		writefln("MiniD version\t\t := \"2.0 beta\"")
+// 		writefln()
+// 		writefln("// values in millions per second")
 	}
 }
 
-function main()
+//function main()
 	Tester.test()

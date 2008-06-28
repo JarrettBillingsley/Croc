@@ -1,2 +1,3 @@
-@cd..
-@call run.bat
+@echo off
+cd ..
+call run.bat

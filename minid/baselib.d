@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,10 +23,13 @@ subject to the following restrictions:
 
 module minid.baselib;
 
-import minid.compiler;
+import minid.ex;
+import minid.interpreter;
 import minid.misc;
+import minid.obj;
+import minid.string;
 import minid.types;
-import minid.utils;
+import minid.vm;
 
 import Integer = tango.text.convert.Integer;
 import tango.io.Console;
@@ -36,159 +39,151 @@ import tango.io.Stdout;
 import tango.stdc.ctype;
 import utf = tango.text.convert.Utf;
 
-final class BaseLib
+private void register(MDThread* t, dchar[] name, NativeFunc func)
+{
+	newFunction(t, func, name);
+	newGlobal(t, name);
+}
+
+struct BaseLib
 {
 static:
-	private MDString[] typeStrings;
-	private MDString toStringStr;
-
-	static this()
+	public void init(MDThread* t)
 	{
-		typeStrings = new MDString[MDValue.Type.max + 1];
-
-		for(uint i = MDValue.Type.min; i <= MDValue.Type.max; i++)
-			typeStrings[i] = new MDString(MDValue.typeString(cast(MDValue.Type)i));
-
-		toStringStr = new MDString("toString"d);
-	}
-
-	public void init(MDContext context)
-	{
-		auto globals = context.globals;
-
 		// Object
-		auto _Object = new MDObject("Object");
-		_Object["clone"] = MDValue(new MDClosure(globals.ns, &objectClone, "Object.clone"));
-		globals["Object"d] = _Object;
+		auto s = pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
+		newFunction(t, &objectClone, "Object.clone");
+		fielda(t, s, "clone");
+		newGlobal(t, "Object");
 
-		// StringBuffer
-		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
-
+// 		// StringBuffer
+// 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
+// 
 		// Really basic stuff
-		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
-		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
-		globals["currentThread"d] =   new MDClosure(globals.ns, &currentThread,         "currentThread");
-		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
-		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
-		globals["removeKey"d] =       new MDClosure(globals.ns, &removeKey,             "removeKey");
-		globals["rawSet"d] =          new MDClosure(globals.ns, &rawSet,                "rawSet");
-		globals["rawGet"d] =          new MDClosure(globals.ns, &rawGet,                "rawGet");
-		globals["runMain"d] =         new MDClosure(globals.ns, &runMain,               "runMain");
+// 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
+// 		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
+		register(t, "currentThread", &currentThread);
+// 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
+// 		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
+// 		globals["removeKey"d] =       new MDClosure(globals.ns, &removeKey,             "removeKey");
+		register(t, "rawSet", &rawSet);
+		register(t, "rawGet", &rawGet);
+		register(t, "runMain", &runMain);
 
-		// Functional stuff
-		globals["curry"d] =           new MDClosure(globals.ns, &curry,                 "curry");
-		globals["bindContext"d] =     new MDClosure(globals.ns, &bindContext,           "bindContext");
-
-		// Reflection-esque stuff
-		globals["findGlobal"d] =      new MDClosure(globals.ns, &findGlobal,            "findGlobal");
-		globals["isSet"d] =           new MDClosure(globals.ns, &isSet,                 "isSet");
-		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
-		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
-		globals["allFieldsOf"d] =     new MDClosure(globals.ns, &allFieldsOf,           "allFieldsOf");
-		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
-		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
-		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
-		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
-		globals["isNull"d] =          new MDClosure(globals.ns, &isParam!("null"),      "isNull");
-		globals["isBool"d] =          new MDClosure(globals.ns, &isParam!("bool"),      "isBool");
-		globals["isInt"d] =           new MDClosure(globals.ns, &isParam!("int"),       "isInt");
-		globals["isFloat"d] =         new MDClosure(globals.ns, &isParam!("float"),     "isFloat");
-		globals["isChar"d] =          new MDClosure(globals.ns, &isParam!("char"),      "isChar");
-		globals["isString"d] =        new MDClosure(globals.ns, &isParam!("string"),    "isString");
-		globals["isTable"d] =         new MDClosure(globals.ns, &isParam!("table"),     "isTable");
-		globals["isArray"d] =         new MDClosure(globals.ns, &isParam!("array"),     "isArray");
-		globals["isFunction"d] =      new MDClosure(globals.ns, &isParam!("function"),  "isFunction");
-		globals["isObject"d] =        new MDClosure(globals.ns, &isParam!("object"),    "isObject");
-		globals["isNamespace"d] =     new MDClosure(globals.ns, &isParam!("namespace"), "isNamespace");
-		globals["isThread"d] =        new MDClosure(globals.ns, &isParam!("thread"),    "isThread");
-
-		// Conversions
-		globals["toString"d] =        new MDClosure(globals.ns, &toString,              "toString");
-		globals["rawToString"d] =     new MDClosure(globals.ns, &rawToString,           "rawToString");
-		globals["toBool"d] =          new MDClosure(globals.ns, &toBool,                "toBool");
-		globals["toInt"d] =           new MDClosure(globals.ns, &toInt,                 "toInt");
-		globals["toFloat"d] =         new MDClosure(globals.ns, &toFloat,               "toFloat");
-		globals["toChar"d] =          new MDClosure(globals.ns, &toChar,                "toChar");
-		globals["format"d] =          new MDClosure(globals.ns, &format,                "format");
+// 		// Functional stuff
+		register(t, "curry", &curry);
+		register(t, "bindContext", &bindContext);
+// 
+// 		// Reflection-esque stuff
+// 		globals["findGlobal"d] =      new MDClosure(globals.ns, &findGlobal,            "findGlobal");
+// 		globals["isSet"d] =           new MDClosure(globals.ns, &isSet,                 "isSet");
+// 		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
+// 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
+// 		globals["allFieldsOf"d] =     new MDClosure(globals.ns, &allFieldsOf,           "allFieldsOf");
+// 		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
+// 		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
+// 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
+// 		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
+// 		globals["isNull"d] =          new MDClosure(globals.ns, &isParam!("null"),      "isNull");
+// 		globals["isBool"d] =          new MDClosure(globals.ns, &isParam!("bool"),      "isBool");
+// 		globals["isInt"d] =           new MDClosure(globals.ns, &isParam!("int"),       "isInt");
+// 		globals["isFloat"d] =         new MDClosure(globals.ns, &isParam!("float"),     "isFloat");
+// 		globals["isChar"d] =          new MDClosure(globals.ns, &isParam!("char"),      "isChar");
+// 		globals["isString"d] =        new MDClosure(globals.ns, &isParam!("string"),    "isString");
+// 		globals["isTable"d] =         new MDClosure(globals.ns, &isParam!("table"),     "isTable");
+// 		globals["isArray"d] =         new MDClosure(globals.ns, &isParam!("array"),     "isArray");
+// 		globals["isFunction"d] =      new MDClosure(globals.ns, &isParam!("function"),  "isFunction");
+// 		globals["isObject"d] =        new MDClosure(globals.ns, &isParam!("object"),    "isObject");
+// 		globals["isNamespace"d] =     new MDClosure(globals.ns, &isParam!("namespace"), "isNamespace");
+// 		globals["isThread"d] =        new MDClosure(globals.ns, &isParam!("thread"),    "isThread");
+// 
+// 		// Conversions
+		register(t, "toString", &toString);
+		register(t, "rawToString", &rawToString);
+		register(t, "toBool", &toBool);
+		register(t, "toInt", &toInt);
+		register(t, "toFloat", &toFloat);
+		register(t, "toChar", &toChar);
+		register(t, "format", &format);
 
 		// Console IO
-		globals["write"d] =           new MDClosure(globals.ns, &write,                 "write");
-		globals["writeln"d] =         new MDClosure(globals.ns, &writeln,               "writeln");
-		globals["writef"d] =          new MDClosure(globals.ns, &writef,                "writef");
-		globals["writefln"d] =        new MDClosure(globals.ns, &writefln,              "writefln");
-		globals["dumpVal"d] =         new MDClosure(globals.ns, &dumpVal,               "dumpVal");
-		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
+		register(t, "write", &write);
+		register(t, "writeln", &writeln);
+		register(t, "writef", &writef);
+		register(t, "writefln", &writefln);
+// 		globals["dumpVal"d] =         new MDClosure(globals.ns, &dumpVal,               "dumpVal");
+// 		globals["readln"d] =          new MDClosure(globals.ns, &readln,                "readln");
 
-		// Dynamic compilation stuff
-		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
-		globals["eval"d] =            new MDClosure(globals.ns, &eval,                  "eval");
-		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
-		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
-
-		// The Namespace type's metatable
-		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
-
-		namespace.addList
-		(
-			"opApply"d, new MDClosure(namespace, &namespaceApply,  "namespace.opApply")
-		);
-
-		context.setMetatable(MDValue.Type.Namespace, namespace);
-
-		// The Thread type's metatable
-		MDNamespace thread = new MDNamespace("thread"d, globals.ns);
-
-		thread.addList
-		(
-			"reset"d,       new MDClosure(thread, &threadReset, "thread.reset"),
-			"state"d,       new MDClosure(thread, &threadState, "thread.state"),
-			"isInitial"d,   new MDClosure(thread, &isInitial,   "thread.isInitial"),
-			"isRunning"d,   new MDClosure(thread, &isRunning,   "thread.isRunning"),
-			"isWaiting"d,   new MDClosure(thread, &isWaiting,   "thread.isWaiting"),
-			"isSuspended"d, new MDClosure(thread, &isSuspended, "thread.isSuspended"),
-			"isDead"d,      new MDClosure(thread, &isDead,      "thread.isDead"),
-			"opApply"d,     new MDClosure(thread, &threadApply, "thread.opApply",
-			[
-				MDValue(new MDClosure(thread, &threadIterator, "thread.iterator"))
-			])
-		);
-
-		context.setMetatable(MDValue.Type.Thread, thread);
-
-		// The Function type's metatable
-		MDNamespace func = new MDNamespace("function"d, globals.ns);
-		
-		func.addList
-		(
-			"environment"d, new MDClosure(func, &functionEnvironment, "function.environment"),
-			"isNative"d,    new MDClosure(func, &functionIsNative,    "function.isNative"),
-			"numParams"d,   new MDClosure(func, &functionNumParams,   "function.numParams"),
-			"isVararg"d,    new MDClosure(func, &functionIsVararg,    "function.isVararg")
-		);
-
-		context.setMetatable(MDValue.Type.Function, func);
+// 		// Dynamic compilation stuff
+// 		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
+// 		globals["eval"d] =            new MDClosure(globals.ns, &eval,                  "eval");
+// 		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
+// 		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
+// 
+// 		// The Namespace type's metatable
+// 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
+// 
+// 		namespace.addList
+// 		(
+// 			"opApply"d, new MDClosure(namespace, &namespaceApply,  "namespace.opApply")
+// 		);
+// 
+// 		context.setMetatable(MDValue.Type.Namespace, namespace);
+// 
+// 		// The Thread type's metatable
+// 		MDNamespace thread = new MDNamespace("thread"d, globals.ns);
+// 
+// 		thread.addList
+// 		(
+// 			"reset"d,       new MDClosure(thread, &threadReset, "thread.reset"),
+// 			"state"d,       new MDClosure(thread, &threadState, "thread.state"),
+// 			"isInitial"d,   new MDClosure(thread, &isInitial,   "thread.isInitial"),
+// 			"isRunning"d,   new MDClosure(thread, &isRunning,   "thread.isRunning"),
+// 			"isWaiting"d,   new MDClosure(thread, &isWaiting,   "thread.isWaiting"),
+// 			"isSuspended"d, new MDClosure(thread, &isSuspended, "thread.isSuspended"),
+// 			"isDead"d,      new MDClosure(thread, &isDead,      "thread.isDead"),
+// 			"opApply"d,     new MDClosure(thread, &threadApply, "thread.opApply",
+// 			[
+// 				MDValue(new MDClosure(thread, &threadIterator, "thread.iterator"))
+// 			])
+// 		);
+// 
+// 		context.setMetatable(MDValue.Type.Thread, thread);
+// 
+// 		// The Function type's metatable
+// 		MDNamespace func = new MDNamespace("function"d, globals.ns);
+// 		
+// 		func.addList
+// 		(
+// 			"environment"d, new MDClosure(func, &functionEnvironment, "function.environment"),
+// 			"isNative"d,    new MDClosure(func, &functionIsNative,    "function.isNative"),
+// 			"numParams"d,   new MDClosure(func, &functionNumParams,   "function.numParams"),
+// 			"isVararg"d,    new MDClosure(func, &functionIsVararg,    "function.isVararg")
+// 		);
+// 
+// 		context.setMetatable(MDValue.Type.Function, func);
 	}
 
 	// ===================================================================================================================================
 	// Object
 
-	int objectClone(MDState s, uint numParams)
+	size_t objectClone(MDThread* t, size_t numParams)
 	{
-		auto self = s.getContext!(MDObject);
-		s.push(new MDObject(self.name, self));
+		newObject(t, 0);
 		return 1;
 	}
 	
+/*
 	// ===================================================================================================================================
 	// Basic functions
 
-	int getTraceback(MDState s, uint numParams)
+	size_t getTraceback(MDThread* t, size_t numParams)
 	{
 		s.push(new MDString(s.context.getTracebackString()));
 		return 1;
 	}
 
-	int haltThread(MDState s, uint numParams)
+	size_t haltThread(MDThread* t, size_t numParams)
 	{
 		if(numParams == 0)
 			s.halt();
@@ -201,30 +196,32 @@ static:
 
 		return 0;
 	}
-	
-	int currentThread(MDState s, uint numParams)
+*/
+
+	size_t currentThread(MDThread* t, size_t numParams)
 	{
-		if(s is s.context.mainThread)
-			s.pushNull();
+		if(t is mainThread(getVM(t)))
+			pushNull(t);
 		else
-			s.push(s);
+			pushThread(t, t);
 
 		return 1;
 	}
-	
-	int setModuleLoader(MDState s, uint numParams)
+
+/*
+	size_t setModuleLoader(MDThread* t, size_t numParams)
 	{
 		s.context.setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
 		return 0;
 	}
 
-	int reloadModule(MDState s, uint numParams)
+	size_t reloadModule(MDThread* t, size_t numParams)
 	{
 		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
 		return 1;
 	}
 
-	int removeKey(MDState s, uint numParams)
+	size_t removeKey(MDThread* t, size_t numParams)
 	{
 		MDValue container = s.getParam(0u);
 
@@ -252,114 +249,119 @@ static:
 
 		return 0;
 	}
+*/
 
-	int rawSet(MDState s, uint numParams)
+	size_t rawSet(MDThread* t, size_t numParams)
 	{
-		if(s.isParam!("table")(0))
-			s.getParam!(MDTable)(0)[s.getParam(1u)] = s.getParam(2u);
-		else if(s.isParam!("object")(0))
-			s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)] = s.getParam(2u);
+		if(numParams < 3)
+			throwException(t, "3 parameters expected; only got {}", numParams);
+
+		if(isTable(t, 1))
+			idxa(t, 1, true);
+		else if(isObject(t, 1))
+			fielda(t, 1, true);
 		else
-			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+		{
+			pushTypeString(t, 1);
+			throwException(t, "'table' or 'object' expected, not '{}'", getString(t, -1));
+		}
 
 		return 0;
 	}
 
-	int rawGet(MDState s, uint numParams)
+	size_t rawGet(MDThread* t, size_t numParams)
 	{
-		if(s.isParam!("table")(0))
-			s.push(s.getParam!(MDTable)(0)[s.getParam(1u)]);
-		else if(s.isParam!("object")(0))
-			s.push(s.getParam!(MDObject)(0)[s.getParam!(MDString)(1)]);
+		if(numParams < 2)
+			throwException(t, "2 parameters expected; only got {}", numParams);
+
+		if(isTable(t, 1))
+			idx(t, 1, true);
+		else if(isObject(t, 1))
+			field(t, 1, true);
 		else
-			s.throwRuntimeException("'table' or 'object' expected, not '{}'", s.getParam(0u).typeString());
+		{
+			pushTypeString(t, 1);
+			throwException(t, "'table' or 'object' expected, not '{}'", getString(t, -1));
+		}
 
 		return 1;
 	}
 
-	int runMain(MDState s, uint numParams)
+	size_t runMain(MDThread* t, size_t numParams)
 	{
-		auto ns = s.getParam!(MDNamespace)(0);
+		if(!isNamespace(t, 1))
+			throwException(t, "namespace expected");
 
-		if(auto main = "main"d in ns)
+		auto main = field(t, 1, "main");
+
+		if(isFunction(t, main))
 		{
-			if(!main.isFunction())
-				return 0;
+			dup(t, 1);
+			
+			for(size_t i = 2; i <= numParams; i++)
+				dup(t, i);
 
-			auto funcReg = s.push(main);
-			s.push(ns);
-
-			for(uint i = 1; i < numParams; i++)
-				s.push(s.getParam(i));
-
-			s.rawCall(funcReg, 0);
+			rawCall(t, main, 0);
 		}
-		
+
 		return 0;
 	}
 
 	// ===================================================================================================================================
 	// Functional stuff
 
-	int curry(MDState s, uint numParams)
+	size_t curry(MDThread* t, size_t numParams)
 	{
-		struct Closure
+		static size_t call(MDThread* t, size_t numParams)
 		{
-			MDClosure func;
-			MDValue val;
+			auto funcReg = getUpval(t, 0);
+			dup(t, 0);
+			getUpval(t, 1);
 
-			int call(MDState s, uint numParams)
-			{
-				uint funcReg = s.push(func);
-				s.push(s.getContext());
-				s.push(val);
-				
-				for(uint i = 0; i < numParams; i++)
-					s.push(s.getParam(i));
-					
-				return s.rawCall(funcReg, -1);
-			}
-		}
-		
-		auto cl = new Closure;
-		cl.func = s.getParam!(MDClosure)(0);
-		cl.val = s.getParam(1u);
-		
-		s.push(new MDClosure(cl.func.environment, &cl.call, "curryClosure"));
-		return 1;
-	}
-	
-	int bindContext(MDState s, uint numParams)
-	{
-		struct Closure
-		{
-			MDClosure func;
-			MDValue context;
+			for(size_t i = 1; i <= numParams; i++)
+				dup(t, i);
 
-			int call(MDState s, uint numParams)
-			{
-				uint funcReg = s.push(func);
-				s.push(context);
-
-				for(uint i = 0; i < numParams; i++)
-					s.push(s.getParam(i));
-
-				return s.rawCall(funcReg, -1);
-			}
+			return rawCall(t, funcReg, -1);
 		}
 
-		auto cl = new Closure;
-		cl.func = s.getParam!(MDClosure)(0);
-		cl.context = s.getParam(1u);
+		if(numParams != 2)
+			throwException(t, "need function and context");
 
-		s.push(new MDClosure(cl.func.environment, &cl.call, "bound function"));
+		if(!isFunction(t, 1))
+			throwException(t, "function expected");
+
+		newFunction(t, &call, "curryClosure", 2);
 		return 1;
 	}
 
+	size_t bindContext(MDThread* t, size_t numParams)
+	{
+		static size_t call(MDThread* t, size_t numParams)
+		{
+			auto funcReg = getUpval(t, 0);
+			getUpval(t, 1);
+
+			for(size_t i = 1; i <= numParams; i++)
+				dup(t, i);
+
+			return rawCall(t, funcReg, -1);
+		}
+
+		if(numParams != 2)
+			throwException(t, "need function and context");
+
+		if(!isFunction(t, 1))
+			throwException(t, "function expected");
+
+		newFunction(t, &call, "boundFunction", 2);
+		return 1;
+	}
+
+/*
 	// ===================================================================================================================================
 	// Reflection-esque stuff
 
-	int findGlobal(MDState s, uint numParams)
+	size_t findGlobal(MDThread* t, size_t numParams)
 	{
 		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
 
@@ -371,19 +373,19 @@ static:
 		return 1;
 	}
 
-	int isSet(MDState s, uint numParams)
+	size_t isSet(MDThread* t, size_t numParams)
 	{
 		s.push(s.findGlobal(s.getParam!(MDString)(0), 1) !is null);
 		return 1;
 	}
 	
-	int mdtypeof(MDState s, uint numParams)
+	size_t mdtypeof(MDThread* t, size_t numParams)
 	{
 		s.push(s.getParam(0u).typeString());
 		return 1;
 	}
 
-	int fieldsOf(MDState s, uint numParams)
+	size_t fieldsOf(MDThread* t, size_t numParams)
 	{
 		if(s.isParam!("object")(0))
 			s.push(s.getParam!(MDObject)(0).fields);
@@ -393,7 +395,7 @@ static:
 		return 1;
 	}
 	
-	int allFieldsOf(MDState s, uint numParams)
+	size_t allFieldsOf(MDThread* t, size_t numParams)
 	{
 		auto o = s.getParam!(MDObject)(0);
 
@@ -401,7 +403,7 @@ static:
 		{
 			MDObject obj;
 			
-			int iter(MDState s, uint numParams)
+			size_t iter(MDThread* t, size_t numParams)
 			{
 				s.yield(0);
 
@@ -420,19 +422,19 @@ static:
 		return 1;
 	}
 
-	int hasField(MDState s, uint numParams)
+	size_t hasField(MDThread* t, size_t numParams)
 	{
 		s.push(s.hasField(s.getParam(0u), s.getParam!(MDString)(1)));
 		return 1;
 	}
 
-	int hasMethod(MDState s, uint numParams)
+	size_t hasMethod(MDThread* t, size_t numParams)
 	{
 		s.push(s.hasMethod(s.getParam(0u), s.getParam!(MDString)(1)));
 		return 1;
 	}
 
-	int hasAttributes(MDState s, uint numParams)
+	size_t hasAttributes(MDThread* t, size_t numParams)
 	{
 		MDTable ret;
 
@@ -447,7 +449,7 @@ static:
 		return 1;
 	}
 
-	int attributesOf(MDState s, uint numParams)
+	size_t attributesOf(MDThread* t, size_t numParams)
 	{
 		MDTable ret;
 
@@ -476,193 +478,142 @@ static:
 
 	// ===================================================================================================================================
 	// Conversions
-
-	int toString(MDState s, uint numParams)
+*/
+	size_t toString(MDThread* t, size_t numParams)
 	{
-		auto val = s.getParam(0u);
-		
-		if(val.isInt())
+		if(isInt(t, 1))
 		{
 			char style = 'd';
 
 			if(numParams > 1)
-				style = s.getParam!(char)(1);
-
-			s.push(Integer.toString32(val.as!(int), cast(Integer.Style)style));
+				style = getChar(t, 2);
+				
+			dchar[80] buffer = void;
+			pushString(t, Integer.format(buffer, getInt(t, 1), cast(Integer.Style)style)); // TODO: make this safe
 		}
 		else
-			s.push(s.valueToString(s.getParam(0u)));
+			pushToString(t, 1);
 
 		return 1;
 	}
 
-	int rawToString(MDState s, uint numParams)
+	size_t rawToString(MDThread* t, size_t numParams)
 	{
-		s.push(s.getParam(0u).toString());
+		pushToString(t, 1, true);
 		return 1;
 	}
 
-	int toBool(MDState s, uint numParams)
+	size_t toBool(MDThread* t, size_t numParams)
 	{
-		s.push(s.getParam(0u).isTrue());
+		pushBool(t, isTrue(t, 1));
 		return 1;
 	}
-	
-	int toInt(MDState s, uint numParams)
-	{
-		MDValue val = s.getParam(0u);
 
-		switch(val.type)
+	size_t toInt(MDThread* t, size_t numParams)
+	{
+		switch(type(t, 1))
 		{
-			case MDValue.Type.Bool:
-				s.push(cast(int)val.as!(bool));
-				break;
-
-			case MDValue.Type.Int:
-				s.push(val.as!(int));
-				break;
-
-			case MDValue.Type.Float:
-				s.push(cast(int)val.as!(mdfloat));
-				break;
-
-			case MDValue.Type.Char:
-				s.push(cast(int)val.as!(dchar));
-				break;
-				
-			case MDValue.Type.String:
-				s.push(s.safeCode(Integer.parse(val.as!(dchar[]), 10)));
-				break;
-				
-			default:
-				s.throwRuntimeException("Cannot convert type '{}' to int", val.typeString());
-		}
-
-		return 1;
-	}
-	
-	int toFloat(MDState s, uint numParams)
-	{
-		MDValue val = s.getParam(0u);
-
-		switch(val.type)
-		{
-			case MDValue.Type.Bool:
-				s.push(cast(mdfloat)val.as!(bool));
-				break;
-
-			case MDValue.Type.Int:
-				s.push(cast(mdfloat)val.as!(int));
-				break;
-
-			case MDValue.Type.Float:
-				s.push(val.as!(mdfloat));
-				break;
-
-			case MDValue.Type.Char:
-				s.push(cast(mdfloat)val.as!(dchar));
-				break;
-
-			case MDValue.Type.String:
-				s.push(s.safeCode(Float.parse(val.as!(dchar[]))));
-				break;
+			case MDValue.Type.Bool:   pushInt(t, cast(mdint)getBool(t, 1)); break;
+			case MDValue.Type.Int:    dup(t, 1); break;
+			case MDValue.Type.Float:  pushInt(t, cast(mdint)getFloat(t, 1)); break;
+			case MDValue.Type.Char:   pushInt(t, cast(mdint)getChar(t, 1)); break;
+			case MDValue.Type.String: pushInt(t, cast(mdint)Integer.parse(getString(t, 1), 10)); break; // TODO: make this safe
 
 			default:
-				s.throwRuntimeException("Cannot convert type '{}' to float", val.typeString());
+				pushTypeString(t, 1);
+				throwException(t, "Cannot convert type '{}' to int", getString(t, -1));
 		}
 
 		return 1;
 	}
-	
-	int toChar(MDState s, uint numParams)
-	{
-		s.push(cast(dchar)s.getParam!(int)(0));
-		return 1;
-	}
 
-	int format(MDState s, uint numParams)
+	size_t toFloat(MDThread* t, size_t numParams)
 	{
-		dchar[] ret;
-
-		uint sink(dchar[] data)
+		switch(type(t, 1))
 		{
-			ret ~= data;
-			return data.length;
+			case MDValue.Type.Bool: pushFloat(t, cast(mdfloat)getBool(t, 1)); break;
+			case MDValue.Type.Int: pushFloat(t, cast(mdfloat)getInt(t, 1)); break;
+			case MDValue.Type.Float: dup(t, 1); break;
+			case MDValue.Type.Char: pushFloat(t, cast(mdfloat)getChar(t, 1)); break;
+			case MDValue.Type.String: pushFloat(t, cast(mdfloat)Float.parse(getString(t, 1))); break; // TODO: make this safe
+
+			default:
+				pushTypeString(t, 1);
+				throwException(t, "Cannot convert type '{}' to float", getString(t, -1));
 		}
 
-		formatImpl(s, s.getAllParams(), &sink);
-		s.push(ret);
 		return 1;
 	}
-	
+
+	size_t toChar(MDThread* t, size_t numParams)
+	{
+		pushChar(t, cast(dchar)getInt(t, 1));
+		return 1;
+	}
+
+	size_t format(MDThread* t, size_t numParams)
+	{
+		auto buf = StrBuffer(t);
+		formatImpl(t, numParams, &buf.sink);
+		buf.finish();
+		return 1;
+	}
+
 	// ===================================================================================================================================
 	// Console IO
 
-	int write(MDState s, uint numParams)
+	size_t write(MDThread* t, size_t numParams)
 	{
-		char[256] buffer = void;
-		char[] buf = buffer;
-
-		for(uint i = 0; i < numParams; i++)
+		for(size_t i = 1; i <= numParams; i++)
 		{
-			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
-			Stdout(buf);
+			pushToString(t, i);
+			Stdout.format("{}", getString(t, -1));
 		}
 
 		Stdout.flush;
 		return 0;
 	}
 
-	int writeln(MDState s, uint numParams)
+	size_t writeln(MDThread* t, size_t numParams)
 	{
-		char[256] buffer = void;
-		char[] buf = buffer;
-
-		for(uint i = 0; i < numParams; i++)
+		for(size_t i = 1; i <= numParams; i++)
 		{
-			buf = utf.toString(s.valueToString(s.getParam(i)).mData, buf);
-			Stdout(buf);
+			pushToString(t, i);
+			Stdout.format("{}", getString(t, -1));
 		}
 
 		Stdout.newline;
 		return 0;
 	}
-	
-	int writef(MDState s, uint numParams)
-	{
-		char[256] buffer = void;
-		char[] buf = buffer;
 
+	size_t writef(MDThread* t, size_t numParams)
+	{
 		uint sink(dchar[] data)
 		{
-			buf = utf.toString(data, buf);
-			Stdout(buf);
+			Stdout.format("{}", data);
 			return data.length;
 		}
 
-		formatImpl(s, s.getAllParams(), &sink);
+		formatImpl(t, numParams, &sink);
 		Stdout.flush;
 		return 0;
 	}
 
-	int writefln(MDState s, uint numParams)
+	size_t writefln(MDThread* t, size_t numParams)
 	{
-		char[256] buffer = void;
-		char[] buf = buffer;
-
 		uint sink(dchar[] data)
 		{
-			buf = utf.toString(data, buf);
-			Stdout(buf);
+			Stdout.format("{}", data);
 			return data.length;
 		}
 
-		formatImpl(s, s.getAllParams(), &sink);
+		formatImpl(t, numParams, &sink);
 		Stdout.newline;
 		return 0;
 	}
 
-	int dumpVal(MDState s, uint numParams)
+/*
+	size_t dumpVal(MDThread* t, size_t numParams)
 	{
 		void outputRepr(ref MDValue v)
 		{
@@ -827,16 +778,17 @@ static:
 		return 0;
 	}
 
-	int readln(MDState s, uint numParams)
+	size_t readln(MDThread* t, size_t numParams)
 	{
 		s.push(Cin.copyln());
 		return 1;
 	}
 
+/*
 	// ===================================================================================================================================
 	// Dynamic Compilation
 
-	int loadString(MDState s, uint numParams)
+	size_t loadString(MDThread* t, size_t numParams)
 	{
 		char[] name;
 		MDNamespace env;
@@ -866,7 +818,7 @@ static:
 		return 1;
 	}
 	
-	int eval(MDState s, uint numParams)
+	size_t eval(MDThread* t, size_t numParams)
 	{
 		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
 		MDNamespace env;
@@ -879,13 +831,13 @@ static:
 		return s.call(new MDClosure(env, def), -1);
 	}
 	
-	int loadJSON(MDState s, uint numParams)
+	size_t loadJSON(MDThread* t, size_t numParams)
 	{
 		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
 
-	int toJSON(MDState s, uint numParams)
+	size_t toJSON(MDThread* t, size_t numParams)
 	{
 		MDValue root = s.getParam(0u);
 		bool pretty = false;
@@ -905,7 +857,7 @@ static:
 	// ===================================================================================================================================
 	// Namespace metatable
 
-	int namespaceIterator(MDState s, uint numParams)
+	size_t namespaceIterator(MDThread* t, size_t numParams)
 	{
 		MDNamespace namespace = s.getUpvalue!(MDNamespace)(0);
 		MDArray keys = s.getUpvalue!(MDArray)(1);
@@ -923,7 +875,7 @@ static:
 		return 2;
 	}
 
-	int namespaceApply(MDState s, uint numParams)
+	size_t namespaceApply(MDThread* t, size_t numParams)
 	{
 		MDNamespace ns = s.getContext!(MDNamespace);
 
@@ -939,7 +891,7 @@ static:
 	// ===================================================================================================================================
 	// Thread metatable
 
-	int threadReset(MDState s, uint numParams)
+	size_t threadReset(MDThread* t, size_t numParams)
 	{
 		MDClosure cl;
 
@@ -950,43 +902,43 @@ static:
 		return 0;
 	}
 
-	int threadState(MDState s, uint numParams)
+	size_t threadState(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).stateString());
 		return 1;
 	}
 	
-	int isInitial(MDState s, uint numParams)
+	size_t isInitial(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Initial);
 		return 1;
 	}
 
-	int isRunning(MDState s, uint numParams)
+	size_t isRunning(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Running);
 		return 1;
 	}
 
-	int isWaiting(MDState s, uint numParams)
+	size_t isWaiting(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Waiting);
 		return 1;
 	}
 
-	int isSuspended(MDState s, uint numParams)
+	size_t isSuspended(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Suspended);
 		return 1;
 	}
 
-	int isDead(MDState s, uint numParams)
+	size_t isDead(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDState).state() == MDState.State.Dead);
 		return 1;
 	}
 	
-	int threadIterator(MDState s, uint numParams)
+	size_t threadIterator(MDThread* t, size_t numParams)
 	{
 		MDState thread = s.getContext!(MDState);
 		int index = s.getParam!(int)(0);
@@ -1004,7 +956,7 @@ static:
 		return numRets;
 	}
 
-	int threadApply(MDState s, uint numParams)
+	size_t threadApply(MDThread* t, size_t numParams)
 	{
 		MDState thread = s.getContext!(MDState);
 		MDValue init = s.getParam(0u);
@@ -1026,7 +978,7 @@ static:
 	// ===================================================================================================================================
 	// Function metatable
 
-	int functionEnvironment(MDState s, uint numParams)
+	size_t functionEnvironment(MDThread* t, size_t numParams)
 	{
 		MDClosure cl = s.getContext!(MDClosure);
 		
@@ -1038,19 +990,19 @@ static:
 		return 1;
 	}
 	
-	int functionIsNative(MDState s, uint numParams)
+	size_t functionIsNative(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDClosure).isNative);
 		return 1;
 	}
 	
-	int functionNumParams(MDState s, uint numParams)
+	size_t functionNumParams(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDClosure).numParams);
 		return 1;
 	}
 	
-	int functionIsVararg(MDState s, uint numParams)
+	size_t functionIsVararg(MDThread* t, size_t numParams)
 	{
 		s.push(s.getContext!(MDClosure).isVararg);
 		return 1;
@@ -1093,7 +1045,7 @@ static:
 			);
 		}
 
-		public int clone(MDState s, uint numParams)
+		public size_t clone(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer ret;
 
@@ -1113,7 +1065,7 @@ static:
 			return 1;
 		}
 
-		public int opCatAssign(MDState s, uint numParams)
+		public size_t opCatAssign(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			
@@ -1143,7 +1095,7 @@ static:
 			return 0;
 		}
 
-		public int insert(MDState s, uint numparams)
+		public size_t insert(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			MDValue param = s.getParam(1u);
@@ -1169,7 +1121,7 @@ static:
 			return 0;
 		}
 
-		public int remove(MDState s, uint numParams)
+		public size_t remove(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			uint start = s.getParam!(uint)(0);
@@ -1182,13 +1134,13 @@ static:
 			return 0;
 		}
 		
-		public int toString(MDState s, uint numParams)
+		public size_t toString(MDThread* t, size_t numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer).toMDString());
 			return 1;
 		}
 		
-		public int opLengthAssign(MDState s, uint numParams)
+		public size_t opLengthAssign(MDThread* t, size_t numParams)
 		{
 			int newLen = s.getParam!(int)(0);
 			
@@ -1199,25 +1151,25 @@ static:
 			return 0;
 		}
 
-		public int opLength(MDState s, uint numParams)
+		public size_t opLength(MDThread* t, size_t numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer).length);
 			return 1;
 		}
 		
-		public int opIndex(MDState s, uint numParams)
+		public size_t opIndex(MDThread* t, size_t numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)]);
 			return 1;
 		}
 
-		public int opIndexAssign(MDState s, uint numParams)
+		public size_t opIndexAssign(MDThread* t, size_t numParams)
 		{
 			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)] = s.getParam!(dchar)(1);
 			return 0;
 		}
 
-		public int iterator(MDState s, uint numParams)
+		public size_t iterator(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			int index = s.getParam!(int)(0);
@@ -1233,7 +1185,7 @@ static:
 			return 2;
 		}
 		
-		public int iteratorReverse(MDState s, uint numParams)
+		public size_t iteratorReverse(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			int index = s.getParam!(int)(0);
@@ -1249,7 +1201,7 @@ static:
 			return 2;
 		}
 		
-		public int opApply(MDState s, uint numParams)
+		public size_t opApply(MDThread* t, size_t numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 
@@ -1268,26 +1220,26 @@ static:
 
 			return 3;
 		}
-		
-		public int opSlice(MDState s, uint numParams)
+
+		public size_t opSlice(MDThread* t, size_t numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)]);
 			return 1;
 		}
 		
-		public int opSliceAssign(MDState s, uint numParams)
+		public size_t opSliceAssign(MDThread* t, size_t numParams)
 		{
 			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
 			return 0;
 		}
 
-		public int reserve(MDState s, uint numParams)
+		public size_t reserve(MDThread* t, size_t numParams)
 		{
 			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
 			return 0;
 		}
 		
-		public int format(MDState s, uint numParams)
+		public size_t format(MDThread* t, size_t numParams)
 		{
 			auto self = s.getContext!(MDStringBuffer);
 
@@ -1301,7 +1253,7 @@ static:
 			return 0;
 		}
 
-		public int formatln(MDState s, uint numParams)
+		public size_t formatln(MDThread* t, size_t numParams)
 		{
 			auto self = s.getContext!(MDStringBuffer);
 
@@ -1511,4 +1463,6 @@ static:
 				mBuffer.length = mBuffer.length + length;
 		}
 	}
+
+*/
 }

@@ -1,353 +1,174 @@
-module test;
+module dtest;
 
-import minid.minid;
-import minid.types;
-//import minid.bind;
-
-import tango.core.Memory;
 import tango.io.Stdout;
+debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correctly
 
-//version = Arc;
+import minid.api;
+import minid.ex;
+
+// TODO: Object finalizers...
 
 void main()
 {
-	MDContext ctx;
+	scope(exit) Stdout.flush;
 
-	try
-	{
-		GC.reserve(1024 * 1024 * 4);
+	auto vm = new MDVM;
+	auto t = openVM(vm);
 
-		ctx = NewContext();
-		
-		version(Arc)
-			LoadArc(ctx);
+	// This is all stdlib crap!
+	newNamespace(t, "array");
+	newFunction(t, &arrayToString, "array.toString");
+	fielda(t, -2, "toString");
+	setTypeMT(t, MDValue.Type.Array);
+	newFunction(t, &microTime, "microTime");
+	newGlobal(t, "microTime");
+	Timer.init(t);
 
-		ctx.addImportPath(`samples`);
-		runMain(ctx.mainThread, ctx.importModule("simple"));
-	}
-	catch(MDException e)
-	{
-		Stdout.formatln("Error: {}", e);
-		Stdout.formatln("{}", ctx.getTracebackString());
-	}
-	catch(Exception e)
-	{
-		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
-		Stdout.formatln("{}", ctx.getTracebackString());
-	}
+	lookupCT!("Timer")(t);
+
+		auto funcReg = loadFunc(t, `samples\simple.md`);
+		pushNull(t);
+		rawCall(t, funcReg, 0);
+
+	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm));
+	gc(vm);
+	Stdout.formatln("{} bytes after.", bytesAllocated(vm));
+
+	closeVM(vm);
+	delete vm;
 }
 
-version(Arc)
+nuint arrayToString(MDThread* t, nuint numParams)
 {
-	import arc.draw.color;
-	import arc.draw.image;
-	import arc.draw.shape;
-	import arc.font;
-	import arc.input;
-	import arc.math.point;
-	import arc.math.rect;
-	import arc.math.size;
-	import arc.sound;
-	import arc.texture;
-	import arc.time;
-	import arc.window;
-	
-	void LoadArc(MDContext ctx)
+	auto buf = StrBuffer(t);
+	buf.addChar('[');
+
+	auto length = len(t, 0);
+
+	for(nuint i = 0; i < length; i++)
 	{
-		static class MyTexture
+		pushInt(t, i);
+		idx(t, 0);
+
+		if(isString(t, -1))
 		{
-			private arc.texture.Texture mTex;
-	
-			public this(char[] filename)
-			{
-				mTex = Texture(filename);
-			}
-	
-			public this(Size size, Color color)
-			{
-				mTex = Texture(size, color);
-			}
-	
-			public Size getSize()
-			{
-				return mTex.getSize();
-			}
-			
-			public Size getTextureSize()
-			{
-				return mTex.getTextureSize();
-			}
-	
-			uint getID()
-			{
-				return mTex.getID();
-			}
-	
-			char[] getFile()
-			{
-				return mTex.getFile();
-			}
+			// this is GC-safe since the string is stored in the array
+			auto s = getString(t, -1);
+			pop(t);
+			buf.addChar('"');
+			buf.addString(s);
+			buf.addChar('"');
 		}
-	
-		static void myEnableTexturing(MyTexture t)
+		else if(isChar(t, -1))
 		{
-			arc.texture.enableTexturing(t.mTex);
+			auto c = getChar(t, -1);
+			pop(t);
+			buf.addChar(c);
 		}
-		
-		static void myDrawImage(MyTexture t, Point pos, Size size = Size(float.nan, float.nan), Point piv = Point(0, 0), float angle = 0, Color color = Color.White)
+		else
 		{
-			arc.draw.image.drawImage(t.mTex, pos, size, piv, angle, color);
+			pushToString(t, -1);
+			insert(t, -2);
+			pop(t);
+			buf.addTop();
 		}
+
+		if(i < length - 1)
+			buf.addString(", ");
+	}
+
+	buf.addChar(']');
+	buf.finish();
+
+	return 1;
+}
+
+private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
+private extern(Windows) int QueryPerformanceCounter(ulong* count);
+ulong performanceFreq;
+
+static this()
+{
+	if(!QueryPerformanceFrequency(&performanceFreq))
+		performanceFreq = 0x7fffffffffffffffL;
+}
+
+nuint microTime(MDThread* t, nuint numParams)
+{
+	ulong time;
+	QueryPerformanceCounter(&time);
+
+	if(time < 0x8637BD05AF6L)
+		pushInt(t, cast(mdint)((time * 1_000_000) / performanceFreq));
+	else
+		pushInt(t, cast(mdint)((time / performanceFreq) * 1_000_000));
+
+	return 1;
+}
+
+import tango.time.StopWatch;
+struct Timer
+{
+static:
+	private Members* getThis(MDThread* t)
+	{
+		return checkObjParam!(Members)(t, 0, "Timer");
+	}
 	
-		static void myDrawImageTopLeft(MyTexture t, Point pos, Size size = Size(float.nan, float.nan), Color color = Color.White)
+	void init(MDThread* t)
+	{
+		CreateObject(t, "Timer", (CreateObject* o)
 		{
-			arc.draw.image.drawImageTopLeft(t.mTex, pos, size, color);
-		}
-	
-		static void myDrawImageSubsection(MyTexture t, Point pos, Point rightBottom, Color color = Color.White)
-		{
-			arc.draw.image.drawImageSubsection(t.mTex, pos, rightBottom, color);
-		}
-	
-		WrapModule("arc.draw.color", ctx)
-			.type(WrapClass!(Color,
-					void function(int, int, int),
-					void function(int, int, int, int),
-					void function(float, float, float),
-					void function(float, float, float, float))()
-				.method!(Color.setR)()
-				.method!(Color.setG)()
-				.method!(Color.setB)()
-				.method!(Color.setA)()
-				.method!(Color.getR)()
-				.method!(Color.getG)()
-				.method!(Color.getB)()
-				.method!(Color.getA)()
-				.method!(Color.setGLColor)());
-				
-		WrapModule("arc.draw.image", ctx)
-			.func!(myDrawImage, "drawImage")()
-			.func!(myDrawImageTopLeft, "drawImageTopLeft")()
-			.func!(myDrawImageSubsection, "drawImageSubsection")();
-			
-		WrapModule("arc.draw.shape", ctx)
-			.func!(arc.draw.shape.drawPixel)()
-			.func!(arc.draw.shape.drawLine)()
-			.func!(arc.draw.shape.drawCircle)()
-			.func!(arc.draw.shape.drawRectangle)();
-			//.func!(arc.draw.shape.drawPolygon)();
-	
-		WrapModule("arc.font", ctx)
-			.func!(arc.font.open)()
-			.func!(arc.font.close)()
-			.type(WrapClass!(Font, void function(char[], int))()
-				.method!(Font.getWidth!(dchar))()
-				.method!(Font.getWidthLastLine!(dchar))()
-				.method!(Font.getHeight)()
-				.method!(Font.getLineSkip)()
-				.method!(Font.setLineGap)()
-				.method!(Font.draw, void function(dchar[], Point, Color))()
-				.method!(Font.calculateIndex!(dchar))());
-	
-		WrapModule("arc.input", ctx)
-			.func!(arc.input.open)()
-			.func!(arc.input.close)()
-			.func!(arc.input.process)()
-			.func!(arc.input.setKeyboardRepeat)()
-			.func!(arc.input.keyPressed)()
-			.func!(arc.input.keyReleased)()
-			.func!(arc.input.keyDown)()
-			.func!(arc.input.keyUp)()
-			.func!(arc.input.charHit)()
-			.func!(arc.input.lastChars)()
-			.func!(arc.input.mouseButtonPressed)()
-			.func!(arc.input.mouseButtonReleased)()
-			.func!(arc.input.mouseButtonDown)()
-			.func!(arc.input.mouseButtonUp)()
-			.func!(arc.input.mouseX)()
-			.func!(arc.input.mouseY)()
-			.func!(arc.input.mousePos)()
-			.func!(arc.input.mouseOldX)()
-			.func!(arc.input.mouseOldY)()
-			.func!(arc.input.mouseOldPos)()
-			.func!(arc.input.mouseMotion)()
-			.func!(arc.input.defaultCursorVisible)()
-			.func!(arc.input.wheelUp)()
-			.func!(arc.input.wheelDown)()
-			.type(WrapClass!(JoystickException, void function(char[]))())
-			.func!(arc.input.numJoysticks)()
-			.func!(arc.input.openJoysticks)()
-			.func!(arc.input.closeJoysticks)()
-			.func!(arc.input.joyButtonDown)()
-			.func!(arc.input.joyButtonUp)()
-			.func!(arc.input.joyButtonPressed)()
-			.func!(arc.input.joyButtonReleased)()
-			.func!(arc.input.joyAxisMoved)()
-			.func!(arc.input.numJoystickButtons)()
-			.func!(arc.input.numJoystickAxes)()
-			.func!(arc.input.joystickName)()
-			.func!(arc.input.isJoystickOpen)()
-			.func!(arc.input.setAxisThreshold)()
-			.func!(arc.input.lostFocus)()
-			.func!(arc.input.quit)()
-			.func!(arc.input.isQuit)()
-			.custom("key", MDTable.create
-			(
-				"Quit", ARC_QUIT,
-				"Up", ARC_UP,
-				"Down", ARC_DOWN,
-				"Left", ARC_LEFT,
-				"Right", ARC_RIGHT,
-				"Esc", ARC_ESCAPE
-			))
-			.custom("mouse", MDTable.create
-			(
-				"Any", ANYBUTTON,
-				"Left", LEFT,
-				"Middle", MIDDLE,
-				"Right", RIGHT,
-				"WheelUp", WHEELUP,
-				"WheelDown", WHEELDOWN
-			));
-	
-		WrapModule("arc.math.point", ctx)
-			.type(WrapClass!(Point, void function(float, float))()
-				.method!(Point.set)()
-				.method!(Point.angle)()
-				.method!(Point.length)()
-				.method!(Point.toUtf8, "toString")()
-				.method!(Point.maxComponent)()
-				.method!(Point.minComponent)()
-				.method!(Point.opNeg)()
-				.method!(Point.cross)()
-				.method!(Point.dot)()
-				.method!(Point.scale)()
-				// apply
-				.method!(Point.lengthSquared)()
-				.method!(Point.normalise, "normalize")()
-				.method!(Point.normaliseCopy, "normalizeCopy")()
-				.method!(Point.rotate)()
-				.method!(Point.rotateCopy)()
-				.method!(Point.abs)()
-				.method!(Point.absCopy)()
-				.method!(Point.clamp)()
-				.method!(Point.randomise, "randomize")()
-				.method!(Point.distance)()
-				.method!(Point.distanceSquared)()
-				.method!(Point.getX)()
-				.method!(Point.getY)()
-				.method!(Point.setX)()
-				.method!(Point.setY)()
-				.method!(Point.addX)()
-				.method!(Point.addY)()
-				.method!(Point.above)()
-				.method!(Point.below)()
-				.method!(Point.left)()
-				.method!(Point.right)());
-				
-		WrapModule("arc.math.rect", ctx)
-			.type(WrapClass!(Rect,
-					void function(float, float, float, float),
-					void function(Point, Size),
-					void function(Size),
-					void function(float, float))()
-				.method!(Rect.getBottomRight)()
-				.method!(Rect.getTop)()
-				.method!(Rect.getLeft)()
-				.method!(Rect.getBottom)()
-				.method!(Rect.getRight)()
-				.method!(Rect.getPosition)()
-				.method!(Rect.getSize)()
-				.method!(Rect.move)()
-				.method!(Rect.contains)()
-				.method!(Rect.intersects)());
-	
-		WrapModule("arc.math.size", ctx)
-			.type(WrapClass!(Size, void function(float, float))()
-				.method!(Size.set)()
-				.method!(Size.toUtf8, "toString")()
-				.method!(Size.maxComponent)()
-				.method!(Size.minComponent)()
-				.method!(Size.opNeg)()
-				.method!(Size.scale)()
-				.method!(Size.abs)()
-				.method!(Size.absCopy)()
-				.method!(Size.clamp)()
-				.method!(Size.randomise, "randomize")()
-				.method!(Size.getWidth)()
-				.method!(Size.getHeight)()
-				.method!(Size.setWidth)()
-				.method!(Size.setHeight)()
-				.method!(Size.addW)()
-				.method!(Size.addH)());
-	
-		WrapModule("arc.sound", ctx)
-			.func!(arc.sound.open)()
-			.func!(arc.sound.close)()
-			.func!(arc.sound.process)()
-			.func!(arc.sound.on)()
-			.func!(arc.sound.off)()
-			.func!(arc.sound.isSoundOn)()
-			.type(WrapClass!(Sound, void function(SoundFile))()
-				.method!(Sound.getSound)()
-				.method!(Sound.setSound)()
-				.method!(Sound.setGain)()
-				.method!(Sound.getPitch)()
-				.method!(Sound.setPitch)()
-				.method!(Sound.getVolume)()
-				.method!(Sound.setVolume)()
-				.method!(Sound.getLooping)()
-				.method!(Sound.setLoop)()
-				.method!(Sound.getPaused)()
-				.method!(Sound.setPaused)()
-				.method!(Sound.play)()
-				.method!(Sound.pause)()
-				.method!(Sound.seek)()
-				.method!(Sound.tell)()
-				.method!(Sound.stop)()
-				.method!(Sound.updateBuffers)()
-				.method!(Sound.process)())
-			.type(WrapClass!(SoundFile, void function(char[]))()
-				.method!(SoundFile.getFrequency)()
-				.method!(SoundFile.getBuffers, "getBuffersList", uint[] function())()
-				.method!(SoundFile.getBuffersLength)()
-				.method!(SoundFile.getBuffersPerSecond)()
-				.method!(SoundFile.getLength)()
-				.method!(SoundFile.getSize)()
-				.method!(SoundFile.getSource)()
-				.method!(SoundFile.getBuffers, uint[] function(int, int))()
-				.method!(SoundFile.allocBuffers)()
-				.method!(SoundFile.freeBuffers)()
-				.method!(SoundFile.print)());
-	
-		WrapModule("arc.texture", ctx)
-			.func!(arc.texture.incrementTextureCount)()
-			.func!(arc.texture.assignTextureID)()
-			.func!(arc.texture.load)()
-			.func!(myEnableTexturing, "enableTexturing")()
-			.type("Texture", WrapClass!(MyTexture,
-					void function(char[]),
-					void function(Size, Color))()
-				.method!(MyTexture.getID)()
-				.method!(MyTexture.getFile)()
-				.method!(MyTexture.getSize)()
-				.method!(MyTexture.getTextureSize)());
-	
-		WrapModule("arc.time", ctx)
-			.func!(arc.time.open)()
-			.func!(arc.time.close)()
-			.func!(arc.time.process)()
-			.func!(arc.time.sleep)()
-			.func!(arc.time.elapsedMilliseconds)()
-			.func!(arc.time.elapsedSeconds)()
-			.func!(arc.time.fps)()
-			.func!(arc.time.limitFPS)()
-			.func!(arc.time.getTime)();
-				
-		WrapModule("arc.window", ctx)
-			.func!(arc.window.open)()
-			.func!(arc.window.close)()
-			.func!(arc.window.clear)()
-			.func!(arc.window.swap)();
+			o.method("clone", &clone);
+			o.method("start", &start);
+			o.method("stop", &stop);
+			o.method("seconds", &seconds);
+			o.method("millisecs", &millisecs);
+			o.method("microsecs", &microsecs);
+		});
+	}
+
+	struct Members
+	{
+		protected StopWatch mWatch;
+		protected mdfloat mTime = 0;
+	}
+
+	nuint clone(MDThread* t, nuint numParams)
+	{
+		newObject(t, 0, null, 0, Members.sizeof);
+		*getMembers!(Members)(t, -1) = Members.init;
+		return 1;
+	}
+
+	nuint start(MDThread* t, nuint numParams)
+	{
+		getThis(t).mWatch.start();
+		return 0;
+	}
+
+	nuint stop(MDThread* t, nuint numParams)
+	{
+		auto members = getThis(t);
+		members.mTime = members.mWatch.stop();
+		return 0;
+	}
+
+	nuint seconds(MDThread* t, nuint numParams)
+	{
+		pushFloat(t, getThis(t).mTime);
+		return 1;
+	}
+
+	nuint millisecs(MDThread* t, nuint numParams)
+	{
+		pushFloat(t, getThis(t).mTime * 1_000);
+		return 1;
+	}
+
+	nuint microsecs(MDThread* t, nuint numParams)
+	{
+		pushFloat(t, getThis(t).mTime * 1_000_000);
+		return 1;
 	}
 }

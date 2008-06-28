@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -140,8 +140,8 @@ AndEq.............R: dest, src, n/a
 Append............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
-Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
-CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
+Cat...............R: dest, src, num values (NOT variadic)
+CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: n/a, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Close.............I: reg start, n/a
@@ -198,7 +198,7 @@ Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
-Precall...........R: dest, src, n/a
+Precall...........R: dest, src, lookup (0 = no, 1 = yes)
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
@@ -362,7 +362,7 @@ align(1) struct Instruction
 			case Op.OrEq:            return Format.convert("oreq {}, {}", cr(rd), cr(rs));
 			case Op.PopCatch:        return "popcatch";
 			case Op.PopFinally:      return "popfinally";
-			case Op.Precall:         return Format.convert("precall r{}, {}", rd, cr(rs));
+			case Op.Precall:         return Format.convert("precall r{}, {}, {}", rd, cr(rs), rt);
 			case Op.PushCatch:       return Format.convert("pushcatch r{}, {}", rd, imm);
 			case Op.PushFinally:     return Format.convert("pushfinal {}", imm);
 			case Op.Ret:             return Format.convert("ret r{}, {}", rd, uimm);
@@ -395,6 +395,8 @@ align(1) struct Instruction
 			case Op.Yield:           return Format.convert("yield r{}, {}, {}", rd, rs, rt);
 			default:                 return Format.convert("??? opcode = {}", opcode);
 		}
+		
+		assert(false);
 	}
 	
 	private const bool SerializeAsChunk = true;
