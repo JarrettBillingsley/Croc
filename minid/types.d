@@ -7981,7 +7981,7 @@ final class MDState : MDBaseObject
 							auto tc = mCurrentAR.numTailcalls + 1;
 
 							popAR();
-							
+	
 							{
 								scope(failure)
 									--depth;
@@ -8342,33 +8342,12 @@ final class MDState : MDBaseObject
 						break;
 
 					case Op.Cat:
-						int numElems = i.rt - 1;
-						MDValue[] vals;
-
-						if(numElems == -1)
-						{
-							vals = mStack[stackBase + i.rs .. mStackIndex];
-							mStackIndex = mCurrentAR.savedTop;
-							debug(STACKINDEX) Stdout.formatln("Op.Cat set mStackIndex to {}", mStackIndex);
-						}
-						else
-							vals = mStack[stackBase + i.rs .. stackBase + i.rs + numElems];
-							
+						auto vals = mStack[stackBase + i.rs .. stackBase + i.rs + i.rt];
 						*get(i.rd) = operatorCat(vals);
 						break;
 
 					case Op.CatEq:
-						int numElems = i.rt - 1;
-						MDValue[] vals;
-						
-						if(numElems == -1)
-						{
-							vals = mStack[stackBase + i.rs .. mStackIndex];
-							mStackIndex = mCurrentAR.savedTop;
-						}
-						else
-							vals = mStack[stackBase + i.rs .. stackBase + i.rs + numElems];
-
+						auto vals = mStack[stackBase + i.rs .. stackBase + i.rs + i.rt];
 						operatorCatAssign(get(i.rd), vals);
 						break;
 

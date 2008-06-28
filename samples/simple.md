@@ -1,5 +1,10 @@
 module simple
 
+local a = [1, 2, 3, 4, 5]
+a[0 .. 2] = a[1 .. 3]
+dumpVal(a)
+
+/+
 /*
 object BaseProp
 {
@@ -824,4 +829,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}
+}+/

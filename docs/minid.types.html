@@ -135,7 +135,7 @@ where values of any type can be thrown as exceptions, it has a public member whi
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(MDValue * <span class="funcparam">val</span>);
+<dt><span class="decl">this(MDValue* <span class="funcparam">val</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -262,7 +262,7 @@ This class includes a location of where the exception was thrown.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(Location <span class="funcparam">loc</span>, MDValue * <span class="funcparam">val</span>);
+<dt><span class="decl">this(Location <span class="funcparam">loc</span>, MDValue* <span class="funcparam">val</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -405,7 +405,7 @@ a double-precision floating-point value, the largest type that it can hold).
 <span class="currsymbol">opEquals</span>
 <script>explorer.outline.addDecl('opEquals');</script>
 
-(MDValue * <span class="funcparam">other</span>);
+(MDValue* <span class="funcparam">other</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -422,7 +422,7 @@ a double-precision floating-point value, the largest type that it can hold).
 <span class="currsymbol">opCmp</span>
 <script>explorer.outline.addDecl('opCmp');</script>
 
-(MDValue * <span class="funcparam">other</span>);
+(MDValue* <span class="funcparam">other</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -444,7 +444,7 @@ a double-precision floating-point value, the largest type that it can hold).
 <span class="currsymbol">compare</span>
 <script>explorer.outline.addDecl('compare');</script>
 
-(MDValue * <span class="funcparam">other</span>);
+(MDValue* <span class="funcparam">other</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -856,7 +856,7 @@ a double-precision floating-point value, the largest type that it can hold).
 <br><br>
 This holds an immutable string.  The hash for this string is calculated once upon creation,
 improving speed when used as the key to an AA (which, in MiniD, is very often -- all namespaces
-use MDStrings as keys).  Immutability also avoids the problem of using a string as an AA key
+use MDStrings as keys).  Immutability also avoids the problem of using a string as a key
 and then changing it, which would result in undefined behavior.
 <br><br>
 
@@ -1195,7 +1195,7 @@ an explicit context with the 'with' keyword, its environment will be passed as t
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">this(MDNamespace <span class="funcparam">environment</span>, int delegate(MDState, uint) <span class="funcparam">dg</span>, dchar[] <span class="funcparam">name</span>, MDValue[] <span class="funcparam">upvals</span> = null);
-<br>this(MDNamespace <span class="funcparam">environment</span>, int(* <span class="funcparam">func</span>)(MDState, uint), dchar[] <span class="funcparam">name</span>, MDValue[] <span class="funcparam">upvals</span> = null);
+<br>this(MDNamespace <span class="funcparam">environment</span>, int function(MDState, uint) <span class="funcparam">func</span>, dchar[] <span class="funcparam">name</span>, MDValue[] <span class="funcparam">upvals</span> = null);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1228,7 +1228,7 @@ All native functions which interact with the API follow the same signature.  The
                
 <td>The <span class="funcparam">name</span> of the function, which will be used in error messages and when its toString is called.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">MDValue [] <span class="funcparam">upvals</span></td>
+<td nowrap valign="top" style="padding-right: 8px">MDValue[] <span class="funcparam">upvals</span></td>
 
                
 <td>An optional array of MDValues which serve as the upvalues to the closure.  In MiniD, upvalues
@@ -1507,7 +1507,7 @@ table, and accessing a key which doesn't exist will return a <b>null</b> value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIn_r</span>
 <script>explorer.outline.addDecl('opIn_r');</script>
 
@@ -1523,7 +1523,7 @@ table, and accessing a key which doesn't exist will return a <b>null</b> value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
@@ -1725,7 +1725,7 @@ This is a very simple and straightforward class.  It's basically a mutable, resi
 <span class="currsymbol">sort</span>
 <script>explorer.outline.addDecl('sort');</script>
 
-(bool delegate(MDValue , MDValue ) <span class="funcparam">predicate</span>);
+(bool delegate(MDValue, MDValue) <span class="funcparam">predicate</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1919,7 +1919,7 @@ This is a very simple and straightforward class.  It's basically a mutable, resi
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
@@ -2097,7 +2097,7 @@ references to each of these namespaces.
 <td>The name of the class.  This is called "guessed" mostly because in MiniD code, classes
 			do not have any intrinsic name associated with them, and sometimes the compiler will generate a
 			name for an anonymous class.  For any classes that you create from native code, though, you'll
-			probably given them a real name.</td></tr>
+			probably give them a real name.</td></tr>
 <tr>
 <td nowrap valign="top" style="padding-right: 8px">baseClass</td>
 
@@ -2147,12 +2147,12 @@ references to each of these namespaces.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
 (MDString <span class="funcparam">index</span>);
-<br>MDValue * 
+<br>MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
@@ -2435,12 +2435,12 @@ namespace, all the way up the chain of namespaces until either the global is fou
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIn_r</span>
 <script>explorer.outline.addDecl('opIn_r');</script>
 
 (MDString <span class="funcparam">key</span>);
-<br>MDValue * 
+<br>MDValue* 
 <span class="currsymbol">opIn_r</span>
 <script>explorer.outline.addDecl('opIn_r');</script>
 
@@ -2513,12 +2513,12 @@ namespace, all the way up the chain of namespaces until either the global is fou
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue * 
+<dt><span class="decl">MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
 (MDString <span class="funcparam">key</span>);
-<br>MDValue * 
+<br>MDValue* 
 <span class="currsymbol">opIndex</span>
 <script>explorer.outline.addDecl('opIndex');</script>
 
@@ -2598,7 +2598,7 @@ namespace, all the way up the chain of namespaces until either the global is fou
 <span class="currsymbol">opApply</span>
 <script>explorer.outline.addDecl('opApply');</script>
 
-(int delegate(ref MDString, ref MDValue ) <span class="funcparam">dg</span>);
+(int delegate(ref MDString, ref MDValue) <span class="funcparam">dg</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2692,7 +2692,7 @@ a piece of code.  Used by the compiler and in runtime debug locations.
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static Location  
+<dt><span class="decl">static Location 
 <span class="currsymbol">opCall</span>
 <script>explorer.outline.addDecl('opCall');</script>
 
@@ -3063,12 +3063,12 @@ a flags parameter, which is a bit more compact.
 <span class="currsymbol">newClosure</span>
 <script>explorer.outline.addDecl('newClosure');</script>
 
-(int delegate(MDState, uint) <span class="funcparam">dg</span>, dchar[] <span class="funcparam">name</span>, MDValue [] <span class="funcparam">upvals</span> = null);
+(int delegate(MDState, uint) <span class="funcparam">dg</span>, dchar[] <span class="funcparam">name</span>, MDValue[] <span class="funcparam">upvals</span> = null);
 <br>final MDClosure 
 <span class="currsymbol">newClosure</span>
 <script>explorer.outline.addDecl('newClosure');</script>
 
-(int(* <span class="funcparam">func</span>)(MDState, uint), dchar[] <span class="funcparam">name</span>, MDValue [] <span class="funcparam">upvals</span> = null);
+(int function(MDState, uint) <span class="funcparam">func</span>, dchar[] <span class="funcparam">name</span>, MDValue[] <span class="funcparam">upvals</span> = null);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3202,7 +3202,7 @@ The namespace which holds the module'<span class="funcparam">s</span> symbols.
 <span class="currsymbol">initializeModule</span>
 <script>explorer.outline.addDecl('initializeModule');</script>
 
-(MDState <span class="funcparam">s</span>, MDModuleDef <span class="funcparam">def</span>, MDValue [] <span class="funcparam">params</span>);
+(MDState <span class="funcparam">s</span>, MDModuleDef <span class="funcparam">def</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3222,7 +3222,7 @@ The namespace which holds the module'<span class="funcparam">s</span> symbols.
                
 <td>The module definition, which was compiled from source or loaded from a file.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">MDValue [] <span class="funcparam">params</span></td>
+<td nowrap valign="top" style="padding-right: 8px">params</td>
 
                
 <td>An array of parameters which will be passed as varargs to the top-level function.</td></tr>
@@ -3608,31 +3608,15 @@ The number of return values from this call.  If the numReturns parameter was &gt
 
 (T...)(ref MDValue <span class="funcparam">val</span>, dchar[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>, T <span class="funcparam">params</span>);
 <br>uint 
-<span class="currsymbol">
 <span class="currsymbol">callMethod</span>
 <script>explorer.outline.addDecl('callMethod');</script>
 
-</span>
-<script>explorer.outline.addDecl('
-<span class="currsymbol">callMethod</span>
-<script>explorer.outline.addDecl('callMethod');</script>
-
-');</script>
-
-(T...)(ref MDValue <span class="funcparam"><span class="funcparam">val</span></span>, MDString <span class="funcparam"><span class="funcparam">methodName</span></span>, int <span class="funcparam"><span class="funcparam">numReturns</span></span>, T <span class="funcparam"><span class="funcparam">params</span></span>);
+(T...)(ref MDValue <span class="funcparam">val</span>, MDString <span class="funcparam">methodName</span>, int <span class="funcparam">numReturns</span>, T <span class="funcparam">params</span>);
 <br>uint 
-<span class="currsymbol">
 <span class="currsymbol">callMethodWith</span>
 <script>explorer.outline.addDecl('callMethodWith');</script>
 
-</span>
-<script>explorer.outline.addDecl('
-<span class="currsymbol">callMethodWith</span>
-<script>explorer.outline.addDecl('callMethodWith');</script>
-
-');</script>
-
-(T...)(ref MDValue <span class="funcparam"><span class="funcparam">val</span></span>, MDString <span class="funcparam"><span class="funcparam">methodName</span></span>, int <span class="funcparam"><span class="funcparam">numReturns</span></span>, MDValue <span class="funcparam"><span class="funcparam">context</span></span>, T <span class="funcparam"><span class="funcparam">params</span></span>);
+(T...)(ref MDValue <span class="funcparam">val</span>, MDString <span class="funcparam">methodName</span>, int <span class="funcparam">numReturns</span>, MDValue <span class="funcparam">context</span>, T <span class="funcparam">params</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3866,7 +3850,7 @@ The context, whose type is templated to whatever you'd like.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue [] 
+<dt><span class="decl">final MDValue[] 
 <span class="currsymbol">getParams</span>
 <script>explorer.outline.addDecl('getParams');</script>
 
@@ -3900,7 +3884,7 @@ An array containing the parameter values.  Because of the way the stack works, t
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue [] 
+<dt><span class="decl">final MDValue[] 
 <span class="currsymbol">getAllParams</span>
 <script>explorer.outline.addDecl('getAllParams');</script>
 
@@ -3995,7 +3979,7 @@ Whatever the code parameter returns.
 <span class="currsymbol">throwRuntimeException</span>
 <script>explorer.outline.addDecl('throwRuntimeException');</script>
 
-(MDValue * <span class="funcparam">val</span>);
+(MDValue* <span class="funcparam">val</span>);
 <br>final void 
 <span class="currsymbol">throwRuntimeException</span>
 <script>explorer.outline.addDecl('throwRuntimeException');</script>
@@ -4123,7 +4107,7 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">idx</span>
 <script>explorer.outline.addDecl('idx');</script>
 
@@ -4155,7 +4139,7 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">len</span>
 <script>explorer.outline.addDecl('len');</script>
 
@@ -4187,7 +4171,7 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">slice</span>
 <script>explorer.outline.addDecl('slice');</script>
 
@@ -4219,27 +4203,27 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">add</span>
 <script>explorer.outline.addDecl('add');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">sub</span>
 <script>explorer.outline.addDecl('sub');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">mul</span>
 <script>explorer.outline.addDecl('mul');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">div</span>
 <script>explorer.outline.addDecl('div');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">mod</span>
 <script>explorer.outline.addDecl('mod');</script>
 
@@ -4255,7 +4239,7 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">neg</span>
 <script>explorer.outline.addDecl('neg');</script>
 
@@ -4307,32 +4291,32 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">and</span>
 <script>explorer.outline.addDecl('and');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">or</span>
 <script>explorer.outline.addDecl('or');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">xor</span>
 <script>explorer.outline.addDecl('xor');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">shl</span>
 <script>explorer.outline.addDecl('shl');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">shr</span>
 <script>explorer.outline.addDecl('shr');</script>
 
 (ref MDValue <span class="funcparam">a</span>, ref MDValue <span class="funcparam">b</span>);
-<br>final MDValue  
+<br>final MDValue 
 <span class="currsymbol">ushr</span>
 <script>explorer.outline.addDecl('ushr');</script>
 
@@ -4352,7 +4336,7 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">com</span>
 <script>explorer.outline.addDecl('com');</script>
 
@@ -4409,11 +4393,11 @@ The string representation of the <span class="funcparam">value</span>.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">final MDValue  
+<dt><span class="decl">final MDValue 
 <span class="currsymbol">cat</span>
 <script>explorer.outline.addDecl('cat');</script>
 
-(MDValue [] <span class="funcparam">vals</span>);
+(MDValue[] <span class="funcparam">vals</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -4430,7 +4414,7 @@ The string representation of the <span class="funcparam">value</span>.
 <span class="currsymbol">cateq</span>
 <script>explorer.outline.addDecl('cateq');</script>
 
-(ref MDValue <span class="funcparam">dest</span>, MDValue [] <span class="funcparam">vals</span>);
+(ref MDValue <span class="funcparam">dest</span>, MDValue[] <span class="funcparam">vals</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -4537,7 +4521,7 @@ The number of return values to be popped off the stack.  If numReturns was -1, t
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Feb 14 15:53:03 2008
+			on Fri Jun 13 09:57:35 2008
 
 		</td></tr>
 	</table>

@@ -50,5 +50,5 @@ void main(char[][] args)
 		return;
 	}
 
-	compileModule(args[1]).writeToFile(args[1] ~ "m");
+	Compiler().compileModule(args[1]).writeToFile(args[1] ~ "m");
 }

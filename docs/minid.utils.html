@@ -229,7 +229,7 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <span class="currsymbol">hasUnions</span>
 <script>explorer.outline.addDecl('hasUnions');</script>
 
-(T,uint Idx = 0)</span></dt>
+(T,size_t Idx = 0)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
@@ -669,6 +669,42 @@ built into the compiler or something.
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">endsWith</span>
+<script>explorer.outline.addDecl('endsWith');</script>
+
+(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>See if a string ends with another string.  Also useful.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">isFinal</span>
+<script>explorer.outline.addDecl('isFinal');</script>
+
+(T,char[] funcName)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given a class type and a method name, tells whether that method is final or not.
+Thanks Tomasz Stachowiak.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl></dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -677,7 +713,7 @@ built into the compiler or something.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Feb 14 15:53:05 2008
+			on Fri Jun 13 09:57:37 2008
 
 		</td></tr>
 	</table>

@@ -219,6 +219,25 @@ flags.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">
+<span class="currsymbol">Time</span>
+<script>explorer.outline.addDecl('Time');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">Time</span>
+<script>explorer.outline.addDecl('Time');</script>
+
+ functions.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
 <span class="currsymbol">Safe</span>
 <script>explorer.outline.addDecl('Safe');</script>
 
@@ -226,8 +245,8 @@ flags.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
-	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+<dd>This flag is an OR of Array, Char, Math, String, Table, Regexp, and Time.  It represents
+	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	
 <br><br>
@@ -263,13 +282,14 @@ flags.
 <span class="currsymbol">NewContext</span>
 <script>explorer.outline.addDecl('NewContext');</script>
 
-(uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)255);
+(uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)511);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
 <dd>Initializes a new MiniD context and loads any specified standard libraries into it.  Each new
-context is also given a new MDState as its main thread.
+context is also given a new MDState as its main thread.  The base library is always loaded into
+the context.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -291,7 +311,7 @@ The newly-created context, into which you can import code and from which you can
 <span class="currsymbol">loadModuleString</span>
 <script>explorer.outline.addDecl('loadModuleString');</script>
 
-(MDState <span class="funcparam">s</span>, dchar[] <span class="funcparam">source</span>, MDValue [] <span class="funcparam">params</span> = null, char[] <span class="funcparam">name</span> = "&lt;module string&gt;");
+(MDState <span class="funcparam">s</span>, dchar[] <span class="funcparam">source</span>, char[] <span class="funcparam">name</span> = "&lt;module string&gt;");
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -311,12 +331,6 @@ The newly-created context, into which you can import code and from which you can
                
 <td>The <span class="funcparam">source</span> code of the module, exactly as it would appear in a file.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">MDValue [] <span class="funcparam">params</span></td>
-
-               
-<td>An optional list of parameters.  These are passed as the variadic parameters
-		to the top-level module function.  Defaults to <b>null</b> (no parameters).</td></tr>
-<tr>
 <td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
@@ -334,7 +348,7 @@ The top-level namespace of the module.
 <span class="currsymbol">loadStatementString</span>
 <script>explorer.outline.addDecl('loadStatementString');</script>
 
-(MDState <span class="funcparam">s</span>, dchar[] <span class="funcparam">source</span>, MDNamespace <span class="funcparam">ns</span> = cast(MDNamespace)null, MDValue [] <span class="funcparam">params</span> = null, char[] <span class="funcparam">name</span> = "&lt;statement string&gt;");
+(MDState <span class="funcparam">s</span>, dchar[] <span class="funcparam">source</span>, MDNamespace <span class="funcparam">ns</span> = cast(MDNamespace)null, MDValue[] <span class="funcparam">params</span> = null, char[] <span class="funcparam">name</span> = "&lt;statement string&gt;");
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -361,7 +375,7 @@ state'<span class="funcparam">s</span> stack).  This is equivalent to the "loadS
 <td>The namespace which will be used as the context in which the statements will be evaluated.
 		Defaults to the global namespace of the state'<span class="funcparam">s</span> owning context.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">MDValue [] <span class="funcparam">params</span></td>
+<td nowrap valign="top" style="padding-right: 8px">MDValue[] <span class="funcparam">params</span></td>
 
                
 <td>An optional list of parameters.  These are passed as the variadic parameters
@@ -382,7 +396,7 @@ The number of return values which the compiled function has returned.  These can
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue  
+<dt><span class="decl">MDValue 
 <span class="currsymbol">eval</span>
 <script>explorer.outline.addDecl('eval');</script>
 
@@ -567,7 +581,7 @@ Just like toJSON, this is parameterized on the character type of the output, and
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Feb 14 15:53:03 2008
+			on Fri Jun 13 09:57:35 2008
 
 		</td></tr>
 	</table>

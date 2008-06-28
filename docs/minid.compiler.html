@@ -51,133 +51,6 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDModuleDef 
-<span class="currsymbol">compileModule</span>
-<script>explorer.outline.addDecl('compileModule');</script>
-
-(char[] <span class="funcparam">filename</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compile a source code file into a binary module.  Takes the path to the source file and returns
-the compiled module, which can be loaded into a context.
-<br><br>
-You shouldn't have to deal with this function that much.  Most of the time the compilation of
-modules should be handled for you by the import system in MDContext.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDModuleDef 
-<span class="currsymbol">compileModule</span>
-<script>explorer.outline.addDecl('compileModule');</script>
-
-(dchar[] <span class="funcparam">source</span>, char[] <span class="funcparam">name</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compile a module from a string containing the <span class="funcparam">source</span> code.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">source</span></td>
-
-               
-<td>The <span class="funcparam">source</span> code as a string.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The <span class="funcparam">name</span> which should be used as the <span class="funcparam">source</span> <span class="funcparam">name</span> in compiler error message.  Takes the
-		place of the filename when compiling from a <span class="funcparam">source</span> file.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The compiled module.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDFuncDef 
-<span class="currsymbol">compileStatements</span>
-<script>explorer.outline.addDecl('compileStatements');</script>
-
-(dchar[] <span class="funcparam">source</span>, char[] <span class="funcparam">name</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compile a list of statements into a function body which takes a variadic number of arguments.  Kind
-of like a module without the module statement.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">source</span></td>
-
-               
-<td>The <span class="funcparam">source</span> code as a string.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The <span class="funcparam">name</span> to use as the <span class="funcparam">source</span> <span class="funcparam">name</span> for compilation errors.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The compiled function.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDFuncDef 
-<span class="currsymbol">compileExpression</span>
-<script>explorer.outline.addDecl('compileExpression');</script>
-
-(dchar[] <span class="funcparam">source</span>, char[] <span class="funcparam">name</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compile a single expression into a function which returns the value of that expression when called.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">source</span></td>
-
-               
-<td>The <span class="funcparam">source</span> code as a string.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The <span class="funcparam">name</span> to use as the <span class="funcparam">source</span> <span class="funcparam">name</span> for compilation errors.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The compiled function.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDValue  
-<span class="currsymbol">loadJSON</span>
-<script>explorer.outline.addDecl('loadJSON');</script>
-
-(dchar[] <span class="funcparam">source</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
-function.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
 <span class="currsymbol">AstNode</span>
 <script>explorer.outline.addDecl('AstNode');</script>
@@ -593,6 +466,42 @@ and function declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">typeMask</span>
+<script>explorer.outline.addDecl('typeMask');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The type mask of the parameter, that is, what basic types can be passed to it.
+		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
+		set to 0; the codegen does not check for this so it's up to you.
+		
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Expression[] 
+<span class="currsymbol">objectTypes</span>
+<script>explorer.outline.addDecl('objectTypes');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>If typeMask allows objects, this can be a list of expressions which should evaluate
+		at runtime to object types that this parameter can accept.  This is an optional
+		list.  If typeMask does not allow objects, this should be empty.
+		
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Expression 
 <span class="currsymbol">defValue</span>
 <script>explorer.outline.addDecl('defValue');</script>
@@ -791,7 +700,23 @@ The completed function definition.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static Param [] 
+<dt><span class="decl">static FuncDef 
+<span class="currsymbol">parseHaskell</span>
+<script>explorer.outline.addDecl('parseHaskell');</script>
+
+(Lexer <span class="funcparam">l</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Parse a Haskell-style function literal, like "\f -&gt; f + 1" or "\(a, b) -&gt; a(b)".
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static Param[] 
 <span class="currsymbol">parseParams</span>
 <script>explorer.outline.addDecl('parseParams');</script>
 
@@ -816,6 +741,24 @@ The completed function definition.
 </table><br>
 <b>Returns:</b><br>
 An array of Param structs.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static uint 
+<span class="currsymbol">parseType</span>
+<script>explorer.outline.addDecl('parseType');</script>
+
+(Lexer <span class="funcparam">l</span>, out Expression[] <span class="funcparam">objectTypes</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Parse a parameter type.  This corresponds to the Type element of the grammar.
+	Returns the type mask, as well as an optional list of object types that this
+	parameter can accept in the <span class="funcparam">objectTypes</span> parameter.
 	
 <br><br>
 
@@ -1261,6 +1204,70 @@ when a module is compiled.
 			in a ScopeStatement.  Else, the raw block statement will be returned.</td></tr>
 </table><br>
 
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">class 
+<span class="currsymbol">AssertStatement</span>
+<script>explorer.outline.addDecl('AssertStatement');</script>
+
+: minid.compiler.Statement;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This node represents an assertion statement.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Expression 
+<span class="currsymbol">cond</span>
+<script>explorer.outline.addDecl('cond');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>A required expression that is the condition checked by the assertion.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Expression 
+<span class="currsymbol">msg</span>
+<script>explorer.outline.addDecl('msg');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>An optional message that will be used if the assertion fails.  This member
+	can be <b>null</b>, in which case a message will be generated for the assertion
+	based on its location.  If it's not <b>null</b>, it must evaluate to a string.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(Location <span class="funcparam">location</span>, Location <span class="funcparam">endLocation</span>, Expression <span class="funcparam">cond</span>, Expression <span class="funcparam">msg</span> = null);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
 </dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
@@ -4622,7 +4629,16 @@ operands.
 
 
 <script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(Location <span class="funcparam">location</span>, Location <span class="funcparam">endLocation</span>, Expression <span class="funcparam">left</span>, Expression <span class="funcparam">right</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+</dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
 
@@ -4643,7 +4659,16 @@ operands.
 
 
 <script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(Location <span class="funcparam">location</span>, Location <span class="funcparam">endLocation</span>, Expression <span class="funcparam">left</span>, Expression <span class="funcparam">right</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+</dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
 
@@ -4664,7 +4689,16 @@ operands.
 
 
 <script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(Location <span class="funcparam">location</span>, Location <span class="funcparam">endLocation</span>, Expression <span class="funcparam">left</span>, Expression <span class="funcparam">right</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+</dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
 
@@ -5387,16 +5421,12 @@ operand becomes the expression to which the postfix expression becomes attached.
 <script>explorer.outline.addDecl('context');</script>
 
  to be used when calling the function.  This corresponds to 'x' in
-	the expression "f(with x)".  If this member is <b>null</b>, there is no custom
-	
+	the expression "f(with x)".  If this member is <b>null</b>, a 
 <span class="currsymbol">context</span>
 <script>explorer.outline.addDecl('context');</script>
 
- and the 
-<span class="currsymbol">context</span>
-<script>explorer.outline.addDecl('context');</script>
-
- will be determined automatically.
+ of '<b>null</b>' will
+	be passed to the function.
 	
 <br><br>
 
@@ -5715,7 +5745,7 @@ value, including constants and literals.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -5891,7 +5921,7 @@ value, including constants and literals.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -5970,7 +6000,7 @@ value, including constants and literals.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -6152,7 +6182,7 @@ vararg[x .. y]).
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -6231,7 +6261,7 @@ vararg[x .. y]).
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -6310,7 +6340,7 @@ vararg[x .. y]).
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -6375,6 +6405,19 @@ vararg[x .. y]).
 <dt><span class="decl">static FuncLiteralExp 
 <span class="currsymbol">parse</span>
 <script>explorer.outline.addDecl('parse');</script>
+
+(Lexer <span class="funcparam">l</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static FuncLiteralExp 
+<span class="currsymbol">parseHaskell</span>
+<script>explorer.outline.addDecl('parseHaskell');</script>
 
 (Lexer <span class="funcparam">l</span>);
 </span></dt>
@@ -6851,7 +6894,7 @@ same thing, really.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -6930,7 +6973,7 @@ same thing, really.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static MDValue  
+<dt><span class="decl">static MDValue 
 <span class="currsymbol">parseJSON</span>
 <script>explorer.outline.addDecl('parseJSON');</script>
 
@@ -7304,7 +7347,7 @@ same thing, really.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Feb 14 15:53:04 2008
+			on Fri Jun 13 09:57:36 2008
 
 		</td></tr>
 	</table>

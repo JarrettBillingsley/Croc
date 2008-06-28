@@ -7384,6 +7384,7 @@ class ReturnStatement : Statement
 				exprs[0].codeGen(s);
 				s.popToRegisters(endLocation.line, firstReg, -1);
 				s.makeTailcall();
+				s.codeI(endLocation.line, Op.Ret, firstReg, 0);
 			}
 			else
 			{
@@ -7727,7 +7728,7 @@ abstract class Expression : AstNode
 		return args.toArray();
 	}
 
-	public static void codeGenListToNextReg(FuncState s, Expression[] exprs)
+	public static void codeGenListToNextReg(FuncState s, Expression[] exprs, bool allowMultRet = true)
 	{
 		if(exprs.length == 0)
 			return;
@@ -7736,7 +7737,7 @@ abstract class Expression : AstNode
 			uint firstReg = s.nextRegister();
 			exprs[0].codeGen(s);
 
-			if(exprs[0].isMultRet())
+			if(allowMultRet && exprs[0].isMultRet())
 				s.popToRegisters(exprs[0].endLocation.line, firstReg, -1);
 			else
 				s.popMoveTo(exprs[0].endLocation.line, firstReg);
@@ -7756,7 +7757,7 @@ abstract class Expression : AstNode
 				e.codeGen(s);
 
 				// has to be -2 because i _is not the index in the array_ but the _index in the slice_
-				if(i == exprs.length - 2 && e.isMultRet())
+				if(allowMultRet && i == exprs.length - 2 && e.isMultRet())
 					s.popToRegisters(e.endLocation.line, lastReg, -1);
 				else
 					s.popMoveTo(e.endLocation.line, lastReg);
@@ -8219,14 +8220,10 @@ class CatEqExp : Expression
 		s.popSource(lhs.endLocation.line, src1);
 
 		uint firstReg = s.nextRegister();
-		Expression.codeGenListToNextReg(s, operands);
+		Expression.codeGenListToNextReg(s, operands, false);
 
 		s.freeExpTempRegs(&src1);
-		
-		if(operands[$ - 1].isMultRet())
-			s.popReflexOp(endLocation.line, Op.CatEq, src1.index, firstReg, 0);
-		else
-			s.popReflexOp(endLocation.line, Op.CatEq, src1.index, firstReg, operands.length + 1);
+		s.popReflexOp(endLocation.line, Op.CatEq, src1.index, firstReg, operands.length);
 	}
 
 	public override Expression fold()
@@ -9482,12 +9479,9 @@ class CatExp : BinaryExp
 
 		uint firstReg = s.nextRegister();
 
-		Expression.codeGenListToNextReg(s, operands);
+		Expression.codeGenListToNextReg(s, operands, false);
 
-		if(operands[$ - 1].isMultRet())
-			s.pushBinOp(endLocation.line, Op.Cat, firstReg, 0);
-		else
-			s.pushBinOp(endLocation.line, Op.Cat, firstReg, operands.length + 1);
+		s.pushBinOp(endLocation.line, Op.Cat, firstReg, operands.length);
 	}
 
 	public override Expression fold()
