@@ -45,6 +45,36 @@ subject to the following restrictions:
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">alias 
+<span class="currsymbol">nint</span>
+<script>explorer.outline.addDecl('nint');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The native signed integer type on this platform.  This is the same as ptrdiff_t but with a better name.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">alias 
+<span class="currsymbol">nuint</span>
+<script>explorer.outline.addDecl('nuint');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">alias 
 <span class="currsymbol">mdint</span>
 <script>explorer.outline.addDecl('mdint');</script>
 
@@ -101,7 +131,7 @@ the MDForceShortInts version, it will force MiniD to use 32-bit integers even on
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>An alias for the type signature of a native function.
+<dd>An alias for the type signature of a native function.  It is defined as nuint function(MDThread*, nuint).
 <br><br>
 
 </dd>
@@ -132,7 +162,7 @@ the MDForceShortInts version, it will force MiniD to use 32-bit integers even on
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Jun 27 20:33:21 2008
+			on Sat Jun 28 22:13:13 2008
 
 		</td></tr>
 	</table>

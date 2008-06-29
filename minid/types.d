@@ -23,7 +23,9 @@ subject to the following restrictions:
 
 module minid.types;
 
-import tango.core.Thread;
+version(MDRestrictedCoro) {} else
+	import tango.core.Thread;
+
 import tango.text.convert.Layout;
 
 import minid.alloc;
@@ -48,15 +50,19 @@ The native unsigned integer type on this platform.  This is the same as size_t b
 public alias size_t nuint;
 
 /**
-The underlying D type used to store the MiniD 'int' type.  Also used throughout the API.
-Defaults to the native word-sized integer type (ptrdiff_t).  If you define the MDForceLongInts
-version, it will force MiniD to use 64-bit integers even on 32-bit platforms.  If you define
-the MDForceShortInts version, it will force MiniD to use 32-bit integers even on 64-bit platforms.
+The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
+type (ptrdiff_t).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
+even on 32-bit platforms.  If you define the MDForceShortInts version, it will force MiniD to use 32-bit
+integers even on 64-bit platforms.
 */
 version(MDForceLongInts)
 {
 	version(MDForceShortInts)
-		static assert(false, "Defining both MDForceLongInts and MDForceShortInts is illegal");
+	{
+		pragma(msg, "The 'MDForceLongInts' and 'MDForceShortInts' versions are mutually exclusive.");
+		pragma(msg, "Please define one or the other (or neither), not both.\n");
+		static assert(false, "FAILCOPTER.");
+	}
 
 	public alias long mdint;
 }
@@ -84,34 +90,69 @@ An alias for the type signature of a native function.  It is defined as nuint fu
 public alias nuint function(MDThread*, nuint) NativeFunc;
 
 /**
-
+The MiniD exception type.  This is the type that is thrown whenever you throw an exception from within
+MiniD, or when you use the throwException API call.  You can't directly instantiate this class, though,
+since it would be bad if you did (the interpreter needs to keep track of some internal state, which
+throwException does).  See throwException and catchException in minid.interpreter for more info
+on MiniD exception handling.
 */
 class MDException : Exception
 {
-	public this(char[] msg)
+	package this(char[] msg)
 	{
 		super(msg);
 	}
 }
 
-class MDCompileException : MDException
+/**
+An exception type representing a compilation error.  The message will be in the form "filename(line:column):
+error message".  Again, you can't directly instantiate this exception type.
+*/
+final class MDCompileException : MDException
 {
-	bool atEOF = false;
-	bool solitaryExpression = false;
+	/**
+	Indicates whether the compiler threw this at the end of the file or not.  If this is
+	true, this might be because the compiler ran out of input, in which case the code could
+	be made to compile by adding more code.
+	*/
+	public bool atEOF = false;
 	
-	public this(char[] msg)
+	/**
+	Indicates whether the compiler threw this because of a statement that consisted of a no-effect expression.
+	If true, the code might be able to be compiled and evaluated as an expression.
+	*/
+	public bool solitaryExpression = false;
+
+	package this(char[] msg)
 	{
 		super(msg);
 	}
 }
 
-class MDHaltException : Exception
+/**
+This is a semi-internal exception type.  Normally you won't need to know about it or catch it.  This is
+thrown when a coroutine (thread) needs to be halted.  It should never propagate out of the coroutine.
+The only time you might encounter it is if, in the middle of a native MiniD function, one of these
+is thrown, you might be able to catch it and clean up some resources, but you should rethrow it.
+
+Like the other exception types, you can't instantiate this directly, but you can halt threads with the
+"haltThread" function in minid.interpreter.
+*/
+final class MDHaltException : Exception
 {
-	public this()
+	package this()
 	{
 		super("MiniD interpreter halted");
 	}
 }
+
+version(MDRestrictedCoro)
+	version(MDExtendedCoro)
+	{
+		pragma(msg, "The 'MDRestrictedCoro' and 'MDExtendedCoro' versions are mutually exclusive.");
+		pragma(msg, "Please define one or the other (or neither), not both.\n");
+		static assert(false, "FAILCOPTER.");
+	}
 
 // ================================================================================================================================================
 // Package
@@ -555,16 +596,26 @@ align(1) struct MDThread
 	package MDVM* vm;
 	package bool shouldHalt = false;
 
-	// References a Fiber object
-	package MDNativeObj* coroFiber;
 	package MDFunction* coroFunc;
 	package State state = State.Initial;
 	package size_t numYields;
 
-	package Fiber getFiber()
+	version(MDExtendedCoro) {} else
 	{
-		assert(coroFiber !is null);
-		return cast(Fiber)cast(void*)coroFiber.obj;
+		package size_t savedCallDepth;
+		package size_t nativeCallDepth = 0;
+	}
+
+	version(MDRestrictedCoro) {} else
+	{
+		// References a Fiber object
+		package MDNativeObj* coroFiber;
+
+		package Fiber getFiber()
+		{
+			assert(coroFiber !is null);
+			return cast(Fiber)cast(void*)coroFiber.obj;
+		}
 	}
 }
 

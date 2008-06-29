@@ -100,6 +100,6 @@ static:
 		alloc.freeArray(t.tryRecs);
 		alloc.free(t);
 	}
-	
-	private bool[Fiber] fiberPool;
+
+// 	private bool[Fiber] fiberPool;
 }

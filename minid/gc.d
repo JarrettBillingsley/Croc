@@ -259,8 +259,11 @@ private void markObj(MDVM* vm, MDThread* o)
 	if(o.coroFunc)
 		markObj(vm, o.coroFunc);
 
-	if(o.coroFiber)
-		markObj(vm, o.coroFiber);
+	version(MDRestrictedCoro) {} else
+	{
+		if(o.coroFiber)
+			markObj(vm, o.coroFiber);
+	}
 }
 
 // Mark a native object.

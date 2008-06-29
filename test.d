@@ -25,7 +25,7 @@ void main()
 
 	lookupCT!("Timer")(t);
 
-		auto funcReg = loadFunc(t, `samples\simple.md`);
+		auto funcReg = loadFunc(t, `benchmark\cheapconcurrency.md`);
 		pushNull(t);
 		rawCall(t, funcReg, 0);
 

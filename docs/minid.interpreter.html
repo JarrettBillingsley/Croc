@@ -720,6 +720,39 @@ values, an error is thrown.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">absIndex</span>
+<script>explorer.outline.addDecl('absIndex');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given an index, returns the absolute index that corresponds to it.  This is useful for converting
+relative (negative) indices to indices that will never change.  If the index is already absolute,
+just returns it.  Throws an error if the index is out of range.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">isValidIndex</span>
+<script>explorer.outline.addDecl('isValidIndex');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if a given stack index (negative or positive) is valid.  Valid positive stack indices range
+from [0 .. stackSize(<span class="funcparam">t</span>).  Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">uint 
 <span class="currsymbol">rawCall</span>
 <script>explorer.outline.addDecl('rawCall');</script>
@@ -2639,8 +2672,8 @@ Works just like the
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">superof</span>
-<script>explorer.outline.addDecl('superof');</script>
+<span class="currsymbol">superOf</span>
+<script>explorer.outline.addDecl('superOf');</script>
 
 (MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
 </span></dt>
@@ -2916,7 +2949,7 @@ that object will succeed.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Jun 27 20:33:22 2008
+			on Sat Jun 28 22:13:14 2008
 
 		</td></tr>
 	</table>
