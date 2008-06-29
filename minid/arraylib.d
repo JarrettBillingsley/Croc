@@ -23,16 +23,17 @@ subject to the following restrictions:
 
 module minid.arraylib;
 
-import minid.types;
-import minid.utils;
 import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
-final class ArrayLib
+import minid.interpreter;
+import minid.types;
+
+struct ArrayLib
 {
 static:
-	public void init(MDContext context)
+	public void init(MDThread* t)
 	{
 		context.setModuleLoader("array", context.newClosure(function int(MDState s, uint numParams)
 		{

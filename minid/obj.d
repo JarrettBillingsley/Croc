@@ -89,6 +89,19 @@ static:
 
 		return false;
 	}
+	
+	package MDNamespace* fieldsOf(MDObject* o)
+	{
+		return o.fields;
+	}
+	
+	package bool next(MDObject* o, ref nint idx, ref MDString** key, ref MDValue* val)
+	{
+		if(o.fields is null)
+			return false;
+
+		return o.fields.data.next(idx, key, val);
+	}
 
 	// ================================================================================================================================================
 	// Private

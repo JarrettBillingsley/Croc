@@ -1,6 +1,6 @@
 module simple
 
-curry(4)
+
 
 /+
 /*

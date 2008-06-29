@@ -1154,6 +1154,19 @@ public dchar[] getString(MDThread* t, nint slot)
 	return v.mString.toString32();
 }
 
+public MDThread* getThread(MDThread* t, nint slot)
+{
+	auto v = getValue(t, slot);
+
+	if(v.type != MDValue.Type.Thread)
+	{
+		pushTypeString(t, slot);
+		throwException(t, "getThread - expected 'thread' but got '{}'", getString(t, -1));
+	}
+
+	return v.mThread;
+}
+
 /**
 Returns the native D object at the given _slot, or throws an error if it isn'_t one.
 */
@@ -2234,9 +2247,9 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public nint superof(MDThread* t, nint slot)
+public nint superOf(MDThread* t, nint slot)
 {
-	return push(t, superofImpl(t, getValue(t, slot)));
+	return push(t, superOfImpl(t, getValue(t, slot)));
 }
 
 /**
@@ -2350,6 +2363,17 @@ public void setTypeMT(MDThread* t, MDValue.Type type)
 	pop(t);
 }
 
+public nint fieldsOf(MDThread* t, nint obj)
+{
+	if(auto o = getObject(t, obj))
+		return pushNamespace(t, .obj.fieldsOf(o));
+
+	pushTypeString(t, obj);
+	throwException(t, "fieldsOf - Expected 'object', not '{}'", getString(t, -1));
+	
+	assert(false);
+}
+
 /**
 Sees if the object at the stack index `obj` has a field with the given name.  Does not take opField
 metamethods into account.  Because of that, only works for tables, objects, and namespaces.  If
@@ -2410,15 +2434,74 @@ public bool hasMethod(MDThread* t, nint obj, dchar[] methodName)
 	return method !is null;
 }
 
+public nint getFuncEnv(MDThread* t, nint func)
+{
+	if(auto f = getFunction(t, func))
+		return pushNamespace(t, f.environment);
+	
+	pushTypeString(t, func);
+	throwException(t, "getFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+	
+	assert(false);
+}
+
+public void setFuncEnv(MDThread* t, nint func)
+{
+	checkNumParams(t, 1);
+
+	auto ns = getNamespace(t, -1);
+
+	if(ns is null)
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFuncEnv - Expected 'namespace' for environment, not '{}'", getString(t, -1));
+	}
+	
+	auto f = getFunction(t, func);
+	
+	if(f is null)
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+	}
+	
+	f.environment = ns;
+}
+
+public void resetThread(MDThread* t, nint slot, bool newFunction = false)
+{
+	if(state(t) != MDThread.State.Dead)
+		throwException(t, "Attempting to reset a {} coroutine (must be dead)", stateString(t));
+
+	if(newFunction)
+	{
+		checkNumParams(t, 1);
+		
+		if(!isFunction(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+		}
+		
+		t.coroFunc = getFunction(t, -1);
+		pop(t);
+	}
+
+	if(t.coroFiber)
+		t.getFiber().reset();
+
+	t.state = MDThread.State.Initial;
+}
+
 // TODO: 'yield'
+// TODO: thread halting
+
 // TODO: imports
 // TODO: foreach loops
 // TODO: tracebacks
-// TODO: thread halting
 
 // TODO: get/set attrs
 // TODO: get/set finalizers for objects
-// TODO: get/set function env
 
 debug
 {
@@ -2597,16 +2680,6 @@ package MDNamespace* getNamespace(MDThread* t, nint slot)
 		return null;
 }
 
-package MDThread* getThread(MDThread* t, nint slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Thread)
-		return v.mThread;
-	else
-		return null;
-}
-
 package MDNativeObj* getNative(MDThread* t, nint slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
@@ -2617,12 +2690,7 @@ package MDNativeObj* getNative(MDThread* t, nint slot)
 		return null;
 }
 
-// ================================================================================================================================================
-// Private
-// ================================================================================================================================================
-
-// Stack manipulation
-private nint push(MDThread* t, ref MDValue val)
+package nint push(MDThread* t, ref MDValue val)
 {
 	assert(!((&val >= t.stack.ptr) && (&val < t.stack.ptr + t.stack.length)), "trying to push a value that's on the stack");
 	checkStack(t, t.stackIndex);
@@ -2632,6 +2700,11 @@ private nint push(MDThread* t, ref MDValue val)
 	return cast(nint)(t.stackIndex - 1 - t.stackBase);
 }
 
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
+
+// Stack manipulation
 private void checkNumParams(MDThread* t, size_t n)
 {
 	assert(t.stackIndex > t.stackBase);
@@ -3939,7 +4012,7 @@ private bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 	return o.type == MDValue.Type.Object && obj.derivesFrom(o.mObject, p.mObject);
 }
 
-private MDValue superofImpl(MDThread* t, MDValue* v)
+private MDValue superOfImpl(MDThread* t, MDValue* v)
 {
 	if(v.type == MDValue.Type.Object)
 	{
@@ -4244,8 +4317,6 @@ private bool callPrologue(MDThread* t, AbsStack slot, nint numReturns, size_t nu
 				throw e;
 			}
 			// Don't have to handle halt exceptions; they can't propagate out of a thread
-
-			assert((thread.stackIndex - thread.currentAR.base) >= numRets, "thread finished resuming stack underflow");
 
 			saveResults(t, thread, thread.stackIndex - numRets, numRets);
 			thread.stackIndex -= numRets;
@@ -5844,15 +5915,8 @@ private void execute(MDThread* t, size_t depth = 1)
 				// Class stuff
 				case Op.As:
 					RS = *get(i.rs);
-					RT = *get(i.rt);
 
-					if(RT.type != MDValue.Type.Object)
-					{
-						typeString(t, &RT);
-						throwException(t, "Attempted to use 'as' with a '{}' as the type, not 'object'", getString(t, -1));
-					}
-
-					if(RS.type == MDValue.Type.Object && obj.derivesFrom(RS.mObject, RT.mObject))
+					if(asImpl(t, &RS, get(i.rt)))
 						*get(i.rd) = RS;
 					else
 						*get(i.rd) = MDValue.nullValue;
@@ -5860,27 +5924,7 @@ private void execute(MDThread* t, size_t depth = 1)
 					break;
 
 				case Op.SuperOf:
-					RS = *get(i.rs);
-
-					if(RS.type == MDValue.Type.Object)
-					{
-						if(auto p = RS.mObject.proto)
-							*get(i.rd) = p;
-						else
-							*get(i.rd) = MDValue.nullValue;
-					}
-					else if(RS.type == MDValue.Type.Namespace)
-					{
-						if(auto p = RS.mNamespace.parent)
-							*get(i.rd) = p;
-						else
-							*get(i.rd) = MDValue.nullValue;
-					}
-					else
-					{
-						typeString(t, &RS);
-						throwException(t, "Can only get super of objects and namespaces, not '{}'", getString(t, -1));
-					}
+					*get(i.rd) = superOfImpl(t, get(i.rs));
 					break;
 
 				case Op.Je:

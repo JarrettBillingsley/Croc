@@ -4,7 +4,6 @@ import tango.io.Stdout;
 debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correctly
 
 import minid.api;
-import minid.ex;
 
 // TODO: Object finalizers...
 

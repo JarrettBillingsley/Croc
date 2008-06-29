@@ -198,6 +198,21 @@ struct Hash(K, V)
 		return null;
 	}
 	
+	package bool next(ref ptrdiff_t idx, ref K* key, ref V* val)
+	{
+		for(idx++; idx < mNodes.length; idx++)
+		{
+			if(mNodes[idx].used)
+			{
+				key = &mNodes[idx].key;
+				val = &mNodes[idx].value;
+				return true;
+			}
+		}
+
+		return false;
+	}
+	
 	package int opApply(int delegate(ref K, ref V) dg)
 	{
 		foreach(ref node; mNodes)

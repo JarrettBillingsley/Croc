@@ -23,14 +23,6 @@ subject to the following restrictions:
 
 module minid.baselib;
 
-import minid.ex;
-import minid.interpreter;
-import minid.misc;
-import minid.obj;
-import minid.string;
-import minid.types;
-import minid.vm;
-
 import Integer = tango.text.convert.Integer;
 import tango.io.Console;
 import tango.io.GrowBuffer;
@@ -38,6 +30,16 @@ import tango.io.Print;
 import tango.io.Stdout;
 import tango.stdc.ctype;
 import utf = tango.text.convert.Utf;
+
+import minid.ex;
+import minid.func;
+import minid.interpreter;
+import minid.misc;
+import minid.namespace;
+import minid.obj;
+import minid.string;
+import minid.types;
+import minid.vm;
 
 private void register(MDThread* t, dchar[] name, NativeFunc func, size_t numUpvals = 0)
 {
@@ -56,48 +58,49 @@ static:
 		fielda(t, s, "clone");
 		newGlobal(t, "Object");
 
-// 		// StringBuffer
+		// StringBuffer
 // 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
-// 
+
 		// Really basic stuff
 // 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
 // 		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
 		register(t, "currentThread", &currentThread);
 // 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
 // 		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
-// 		globals["removeKey"d] =       new MDClosure(globals.ns, &removeKey,             "removeKey");
+		register(t, "removeKey", &removeKey);
 		register(t, "rawSet", &rawSet);
 		register(t, "rawGet", &rawGet);
 		register(t, "runMain", &runMain);
 
-// 		// Functional stuff
+		// Functional stuff
 		register(t, "curry", &curry);
 		register(t, "bindContext", &bindContext);
-// 
-// 		// Reflection-esque stuff
-// 		globals["findGlobal"d] =      new MDClosure(globals.ns, &findGlobal,            "findGlobal");
-// 		globals["isSet"d] =           new MDClosure(globals.ns, &isSet,                 "isSet");
-// 		globals["typeof"d] =          new MDClosure(globals.ns, &mdtypeof,              "typeof");
-// 		globals["fieldsOf"d] =        new MDClosure(globals.ns, &fieldsOf,              "fieldsOf");
-// 		globals["allFieldsOf"d] =     new MDClosure(globals.ns, &allFieldsOf,           "allFieldsOf");
-// 		globals["hasField"d] =        new MDClosure(globals.ns, &hasField,              "hasField");
-// 		globals["hasMethod"d] =       new MDClosure(globals.ns, &hasMethod,             "hasMethod");
+
+		// Reflection-esque stuff
+		register(t, "findGlobal", &findGlobal);
+		register(t, "isSet", &isSet);
+		register(t, "typeof", &mdtypeof);
+		register(t, "fieldsOf", &fieldsOf);
+		register(t, "allFieldsOf", &allFieldsOf);
+		register(t, "hasField", &hasField);
+		register(t, "hasMethod", &hasMethod);
 // 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
 // 		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
-// 		globals["isNull"d] =          new MDClosure(globals.ns, &isParam!("null"),      "isNull");
-// 		globals["isBool"d] =          new MDClosure(globals.ns, &isParam!("bool"),      "isBool");
-// 		globals["isInt"d] =           new MDClosure(globals.ns, &isParam!("int"),       "isInt");
-// 		globals["isFloat"d] =         new MDClosure(globals.ns, &isParam!("float"),     "isFloat");
-// 		globals["isChar"d] =          new MDClosure(globals.ns, &isParam!("char"),      "isChar");
-// 		globals["isString"d] =        new MDClosure(globals.ns, &isParam!("string"),    "isString");
-// 		globals["isTable"d] =         new MDClosure(globals.ns, &isParam!("table"),     "isTable");
-// 		globals["isArray"d] =         new MDClosure(globals.ns, &isParam!("array"),     "isArray");
-// 		globals["isFunction"d] =      new MDClosure(globals.ns, &isParam!("function"),  "isFunction");
-// 		globals["isObject"d] =        new MDClosure(globals.ns, &isParam!("object"),    "isObject");
-// 		globals["isNamespace"d] =     new MDClosure(globals.ns, &isParam!("namespace"), "isNamespace");
-// 		globals["isThread"d] =        new MDClosure(globals.ns, &isParam!("thread"),    "isThread");
-// 
-// 		// Conversions
+		register(t, "isNull", &isParam!(MDValue.Type.Null));
+		register(t, "isBool", &isParam!(MDValue.Type.Bool));
+		register(t, "isInt", &isParam!(MDValue.Type.Int));
+		register(t, "isFloat", &isParam!(MDValue.Type.Float));
+		register(t, "isChar", &isParam!(MDValue.Type.Char));
+		register(t, "isString", &isParam!(MDValue.Type.String));
+		register(t, "isTable", &isParam!(MDValue.Type.Table));
+		register(t, "isArray", &isParam!(MDValue.Type.Array));
+		register(t, "isFunction", &isParam!(MDValue.Type.Function));
+		register(t, "isObject", &isParam!(MDValue.Type.Object));
+		register(t, "isNamespace", &isParam!(MDValue.Type.Namespace));
+		register(t, "isThread", &isParam!(MDValue.Type.Thread));
+		register(t, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
+
+		// Conversions
 		register(t, "toString", &toString);
 		register(t, "rawToString", &rawToString);
 		register(t, "toBool", &toBool);
@@ -117,54 +120,45 @@ static:
 
 // 		register(t, "readln", &readln);
 
-// 		// Dynamic compilation stuff
+		// Dynamic compilation stuff
 // 		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
 // 		globals["eval"d] =            new MDClosure(globals.ns, &eval,                  "eval");
 // 		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
 // 		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
-// 
-// 		// The Namespace type's metatable
-// 		MDNamespace namespace = new MDNamespace("namespace"d, globals.ns);
-// 
-// 		namespace.addList
-// 		(
-// 			"opApply"d, new MDClosure(namespace, &namespaceApply,  "namespace.opApply")
-// 		);
-// 
-// 		context.setMetatable(MDValue.Type.Namespace, namespace);
-// 
-// 		// The Thread type's metatable
-// 		MDNamespace thread = new MDNamespace("thread"d, globals.ns);
-// 
-// 		thread.addList
-// 		(
-// 			"reset"d,       new MDClosure(thread, &threadReset, "thread.reset"),
-// 			"state"d,       new MDClosure(thread, &threadState, "thread.state"),
-// 			"isInitial"d,   new MDClosure(thread, &isInitial,   "thread.isInitial"),
-// 			"isRunning"d,   new MDClosure(thread, &isRunning,   "thread.isRunning"),
-// 			"isWaiting"d,   new MDClosure(thread, &isWaiting,   "thread.isWaiting"),
-// 			"isSuspended"d, new MDClosure(thread, &isSuspended, "thread.isSuspended"),
-// 			"isDead"d,      new MDClosure(thread, &isDead,      "thread.isDead"),
-// 			"opApply"d,     new MDClosure(thread, &threadApply, "thread.opApply",
-// 			[
-// 				MDValue(new MDClosure(thread, &threadIterator, "thread.iterator"))
-// 			])
-// 		);
-// 
-// 		context.setMetatable(MDValue.Type.Thread, thread);
-// 
-// 		// The Function type's metatable
-// 		MDNamespace func = new MDNamespace("function"d, globals.ns);
-// 		
-// 		func.addList
-// 		(
-// 			"environment"d, new MDClosure(func, &functionEnvironment, "function.environment"),
-// 			"isNative"d,    new MDClosure(func, &functionIsNative,    "function.isNative"),
-// 			"numParams"d,   new MDClosure(func, &functionNumParams,   "function.numParams"),
-// 			"isVararg"d,    new MDClosure(func, &functionIsVararg,    "function.isVararg")
-// 		);
-// 
-// 		context.setMetatable(MDValue.Type.Function, func);
+
+		// The Namespace type's metatable
+		newNamespace(t, "namespace");
+		
+		newFunction(t, &namespaceApply, "namespace.opApply"); fielda(t, -2, "opApply");
+
+		setTypeMT(t, MDValue.Type.Namespace);
+
+		// The Thread type's metatable
+		newNamespace(t, "thread");
+
+		newFunction(t, &threadReset, "thread.reset");       fielda(t, -2, "reset");
+		newFunction(t, &threadState, "thread.state");       fielda(t, -2, "state");
+		newFunction(t, &isInitial,   "thread.isInitial");   fielda(t, -2, "isInitial");
+		newFunction(t, &isRunning,   "thread.isRunning");   fielda(t, -2, "isRunning");
+		newFunction(t, &isWaiting,   "thread.isWaiting");   fielda(t, -2, "isWaiting");
+		newFunction(t, &isSuspended, "thread.isSuspended"); fielda(t, -2, "isSuspended");
+		newFunction(t, &isDead,      "thread.isDead");      fielda(t, -2, "isDead");
+
+		newFunction(t, &threadIterator, "thread.iterator");
+		newFunction(t, &threadApply, "thread.opApply", 1);
+		fielda(t, -2, "opApply");
+
+		setTypeMT(t, MDValue.Type.Thread);
+
+		// The Function type's metatable
+		newNamespace(t, "function");
+
+		newFunction(t, &functionEnvironment, "function.environment"); fielda(t, -2, "environment");
+		newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
+		newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
+		newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
+
+		setTypeMT(t, MDValue.Type.Function);
 	}
 
 	// ===================================================================================================================================
@@ -210,7 +204,6 @@ static:
 
 		return 1;
 	}
-
 /*
 	nuint setModuleLoader(MDThread* t, nuint numParams)
 	{
@@ -223,36 +216,36 @@ static:
 		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
 		return 1;
 	}
-
+*/
 	nuint removeKey(MDThread* t, nuint numParams)
 	{
-		MDValue container = s.getParam(0u);
+		checkAnyParam(t, 1);
 
-		if(container.isTable())
+		if(isTable(t, 1))
 		{
-			MDValue key = s.getParam(1u);
-			
-			if(key.isNull)
-				s.throwRuntimeException("Table key cannot be null");
-				
-			container.as!(MDTable).remove(key);
+			checkAnyParam(t, 2);
+			dup(t, 2);
+			pushNull(t);
+			idxa(t, 1);
 		}
-		else if(container.isNamespace())
+		else if(isNamespace(t, 1))
 		{
-			MDNamespace ns = container.as!(MDNamespace);
-			MDString key = s.getParam!(MDString)(1);
+			checkStringParam(t, 2);
 
-			if(!(key in ns))
-				s.throwRuntimeException("Key '{}' does not exist in namespace '{}'", key, ns.nameString());
+			if(!opin(t, 2, 1))
+			{
+				pushToString(t, 2);
+				throwException(t, "Key '{}' does not exist in namespace '{}'", getString(t, 2), getString(t, -1));
+			}
 
-			ns.remove(key);
+			// TODO: is this OK?
+			namespace.remove(getNamespace(t, 1), getStringObj(t, 2));
 		}
 		else
-			s.throwRuntimeException("Container must be a table or namespace");
-
+			paramTypeError(t, 1, "table|namespace");
+			
 		return 0;
 	}
-*/
 
 	nuint rawSet(MDThread* t, nuint numParams)
 	{
@@ -349,83 +342,110 @@ static:
 		return 1;
 	}
 
-/*
 	// ===================================================================================================================================
 	// Reflection-esque stuff
 
 	nuint findGlobal(MDThread* t, nuint numParams)
 	{
-		auto ns = s.findGlobal(s.getParam!(MDString)(0), 1);
-
-		if(ns is null)
-			s.pushNull();
-		else
-			s.push(ns);
+		if(!.findGlobal(t, checkStringParam(t, 1)))
+			pushNull(t);
 
 		return 1;
 	}
 
 	nuint isSet(MDThread* t, nuint numParams)
 	{
-		s.push(s.findGlobal(s.getParam!(MDString)(0), 1) !is null);
+		if(!.findGlobal(t, checkStringParam(t, 1)))
+			pushBool(t, false);
+		else
+		{
+			pop(t);
+			pushBool(t, true);
+		}
+
 		return 1;
 	}
-	
+
 	nuint mdtypeof(MDThread* t, nuint numParams)
 	{
-		s.push(s.getParam(0u).typeString());
+		checkAnyParam(t, 1);
+		pushString(t, MDValue.typeString(type(t, 1)));
 		return 1;
 	}
 
 	nuint fieldsOf(MDThread* t, nuint numParams)
 	{
-		if(s.isParam!("object")(0))
-			s.push(s.getParam!(MDObject)(0).fields);
-		else
-			s.throwRuntimeException("Expected object, not '{}'", s.getParam(0u).typeString());
-
+		checkObjParam(t, 1);
+		.fieldsOf(t, 1);
 		return 1;
 	}
-	
+
 	nuint allFieldsOf(MDThread* t, nuint numParams)
 	{
-		auto o = s.getParam!(MDObject)(0);
-
-		struct iter
+		// Upvalue 0 is the current object
+		// Upvalue 1 is the current index into the namespace
+		static nuint iter(MDThread* t, nuint numParams)
 		{
-			MDObject obj;
-			
-			nuint iter(MDThread* t, nuint numParams)
-			{
-				s.yield(0);
+			getUpval(t, 0);
+			auto o = getObject(t, -1);
 
-				for(auto o = obj; o !is null; o = o.proto)
-					foreach(k, v; o.fields)
-						s.yield(0, MDValue(k), v);
-						
-				return 0;
+			getUpval(t, 1);
+			ptrdiff_t index = getInt(t, -1);
+
+			MDString** key = void;
+			MDValue* value = void;
+
+			if(!obj.next(o, index, key, value))
+			{
+				superOf(t, -2);
+
+				if(isNull(t, -1))
+					return 0;
+
+				setUpval(t, 0);
+				pushInt(t, -1);
+				setUpval(t, 1);
+				pop(t, 2);
+
+				// try again
+				return iter(t, numParams);
 			}
+			
+			pop(t, 2);
+
+			pushInt(t, index);
+			setUpval(t, 1);
+	
+			pushStringObj(t, *key);
+			push(t, *value);
+
+			return 2;
 		}
-		
-		auto i = new iter;
-		i.obj = o;
-		s.push(new MDState(s.context, new MDClosure(s.context.globals.ns, &i.iter, "allFieldsOf")));
-		
+
+		checkParam(t, 1, MDValue.Type.Object);
+		dup(t, 1);
+		pushInt(t, -1);
+		newFunction(t, &iter, "allFieldsOfIter", 2);
 		return 1;
 	}
 
 	nuint hasField(MDThread* t, nuint numParams)
 	{
-		s.push(s.hasField(s.getParam(0u), s.getParam!(MDString)(1)));
+		checkAnyParam(t, 1);
+		auto n = checkStringParam(t, 2);
+		pushBool(t, .hasField(t, 1, n));
 		return 1;
 	}
 
 	nuint hasMethod(MDThread* t, nuint numParams)
 	{
-		s.push(s.hasMethod(s.getParam(0u), s.getParam!(MDString)(1)));
+		checkAnyParam(t, 1);
+		auto n = checkStringParam(t, 2);
+		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
 	}
 
+/*
 	nuint hasAttributes(MDThread* t, nuint numParams)
 	{
 		MDTable ret;
@@ -461,16 +481,17 @@ static:
 
 		return 1;
 	}
-	
-	int isParam(char[] type)(MDState s, uint numParams)
+*/
+	nuint isParam(MDValue.Type Type)(MDThread* t, nuint numParams)
 	{
-		s.push(s.isParam!(type)(0));
+		checkAnyParam(t, 1);
+		pushBool(t, type(t, 1) == Type);
 		return 1;
 	}
 
 	// ===================================================================================================================================
 	// Conversions
-*/
+
 	nuint toString(MDThread* t, nuint numParams)
 	{
 		checkAnyParam(t, 1);
@@ -732,7 +753,7 @@ static:
 // 						{
 // 							if(s.hasPendingHalt())
 // 								throw new MDHaltException();
-// 
+//
 // 							Stdout('[');
 // 							outputRepr(k);
 // 							Stdout("] = ");
@@ -782,7 +803,7 @@ static:
 			}
 			else if(isArray(t, v))
 				outputArray(v);
-			else if(isTable(t, v) && !hasMethod(t, v, "toString"))
+			else if(isTable(t, v) && !.hasMethod(t, v, "toString"))
 				outputTable(v);
 			else
 			{
@@ -879,35 +900,38 @@ static:
 
 	// ===================================================================================================================================
 	// Namespace metatable
-
-	nuint namespaceIterator(MDThread* t, nuint numParams)
-	{
-		MDNamespace namespace = s.getUpvalue!(MDNamespace)(0);
-		MDArray keys = s.getUpvalue!(MDArray)(1);
-		int index = s.getUpvalue!(int)(2);
-
-		index++;
-		s.setUpvalue(2u, index);
-
-		if(index >= keys.length)
-			return 0;
-
-		s.push(keys[index]);
-		s.push(namespace[keys[index].as!(MDString)]);
-
-		return 2;
-	}
-
+*/
 	nuint namespaceApply(MDThread* t, nuint numParams)
 	{
-		MDNamespace ns = s.getContext!(MDNamespace);
+		static nuint iter(MDThread* t, nuint numParams)
+		{
+			getUpval(t, 0);
+			auto ns = getNamespace(t, -1);
+			pop(t);
+	
+			getUpval(t, 1);
+			ptrdiff_t index = getInt(t, -1);
+			pop(t);
+	
+			MDString** key = void;
+			MDValue* value = void;
+	
+			if(!namespace.next(ns, index, key, value))
+				return 0;
+	
+			pushInt(t, index);
+			setUpval(t, 1);
+	
+			pushStringObj(t, *key);
+			push(t, *value);
+	
+			return 2;
+		}
 
-		MDValue[3] upvalues;
-		upvalues[0] = ns;
-		upvalues[1] = ns.keys;
-		upvalues[2] = -1;
-
-		s.push(s.context.newClosure(&namespaceIterator, "namespaceIterator", upvalues));
+		checkParam(t, 0, MDValue.Type.Namespace);
+		dup(t, 0);
+		pushInt(t, -1);
+		newFunction(t, &iter, "namespaceIterator", 2);
 		return 1;
 	}
 
@@ -916,85 +940,100 @@ static:
 
 	nuint threadReset(MDThread* t, nuint numParams)
 	{
-		MDClosure cl;
+		checkParam(t, 0, MDValue.Type.Thread);
 
-		if(numParams > 0)
-			cl = s.getParam!(MDClosure)(0);
+		if(optParam(t, 1, MDValue.Type.Function))
+		{
+			dup(t, 1);
+			resetThread(t, 0, true);
+		}
+		else
+			resetThread(t, 0);
 
-		s.getContext!(MDState).reset(cl);
 		return 0;
 	}
 
 	nuint threadState(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).stateString());
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushInt(t, state(getThread(t, 0)));
 		return 1;
 	}
-	
+
 	nuint isInitial(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).state() == MDState.State.Initial);
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushBool(t, state(getThread(t, 0)) == MDThread.State.Initial);
 		return 1;
 	}
 
 	nuint isRunning(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).state() == MDState.State.Running);
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushBool(t, state(getThread(t, 0)) == MDThread.State.Running);
 		return 1;
 	}
 
 	nuint isWaiting(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).state() == MDState.State.Waiting);
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushBool(t, state(getThread(t, 0)) == MDThread.State.Waiting);
 		return 1;
 	}
 
 	nuint isSuspended(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).state() == MDState.State.Suspended);
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushBool(t, state(getThread(t, 0)) == MDThread.State.Suspended);
 		return 1;
 	}
 
 	nuint isDead(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDState).state() == MDState.State.Dead);
+		checkParam(t, 0, MDValue.Type.Thread);
+		pushBool(t, state(getThread(t, 0)) == MDThread.State.Dead);
 		return 1;
 	}
 	
 	nuint threadIterator(MDThread* t, nuint numParams)
 	{
-		MDState thread = s.getContext!(MDState);
-		int index = s.getParam!(int)(0);
-		index++;
+		checkParam(t, 0, MDValue.Type.Thread);
+		auto thread = getThread(t, 0);
 
-		s.push(index);
-		
-		uint threadIdx = s.push(thread);
-		s.pushNull();
-		uint numRets = s.rawCall(threadIdx, -1) + 1;
+		pushInt(t, checkIntParam(t, 1) + 1);
 
-		if(thread.state == MDState.State.Dead)
+		auto slot = pushThread(t, thread);
+		pushNull(t);
+		auto numRets = rawCall(t, slot, -1);
+
+		if(state(thread) == MDThread.State.Dead)
 			return 0;
 
-		return numRets;
+		return numRets + 1;
 	}
 
 	nuint threadApply(MDThread* t, nuint numParams)
 	{
-		MDState thread = s.getContext!(MDState);
-		MDValue init = s.getParam(0u);
+		checkParam(t, 0, MDValue.Type.Thread);
+		auto haveParam = isValidIndex(t, 1);
+		auto thread = getThread(t, 0);
 
-		if(thread.state != MDState.State.Initial)
-			s.throwRuntimeException("Iterated coroutine must be in the initial state");
+		if(state(thread) != MDThread.State.Initial)
+			throwException(t, "Iterated coroutine must be in the initial state");
 
-		uint funcReg = s.push(thread);
-		s.push(thread);
-		s.push(init);
-		s.rawCall(funcReg, 0);
+		auto slot = pushThread(t, thread);
+		dup(t);
 
-		s.push(s.getUpvalue(0u));
-		s.push(thread);
-		s.push(-1);
+		if(haveParam)
+			dup(t, 1);
+		else
+			pushNull(t);
+
+		rawCall(t, slot, 0);
+
+		getUpval(t, 0);
+		pushThread(t, thread);
+		pushInt(t, -1);
 		return 3;
 	}
 
@@ -1003,34 +1042,40 @@ static:
 
 	nuint functionEnvironment(MDThread* t, nuint numParams)
 	{
-		MDClosure cl = s.getContext!(MDClosure);
-		
-		s.push(cl.environment);
+		checkParam(t, 0, MDValue.Type.Function);
+		getFuncEnv(t, 0);
 
 		if(numParams > 0)
-			cl.environment = s.getParam!(MDNamespace)(0);
+		{
+			checkParam(t, 1, MDValue.Type.Namespace);
+			dup(t, 1);
+			setFuncEnv(t, 0);
+		}
 
 		return 1;
 	}
-	
+
 	nuint functionIsNative(MDThread* t, nuint numParams)
 	{
-		s.push(s.getContext!(MDClosure).isNative);
-		return 1;
-	}
-	
-	nuint functionNumParams(MDThread* t, nuint numParams)
-	{
-		s.push(s.getContext!(MDClosure).numParams);
-		return 1;
-	}
-	
-	nuint functionIsVararg(MDThread* t, nuint numParams)
-	{
-		s.push(s.getContext!(MDClosure).isVararg);
+		checkParam(t, 0, MDValue.Type.Function);
+		pushBool(t, func.isNative(getFunction(t, 0)));
 		return 1;
 	}
 
+	nuint functionNumParams(MDThread* t, nuint numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushInt(t, func.numParams(getFunction(t, 0)));
+		return 1;
+	}
+
+	nuint functionIsVararg(MDThread* t, nuint numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushBool(t, func.isVararg(getFunction(t, 0)));
+		return 1;
+	}
+/*
 	// ===================================================================================================================================
 	// StringBuffer
 
@@ -1083,7 +1128,7 @@ static:
 			}
 			else
 				ret = new MDStringBuffer(this);
-				
+
 			s.push(ret);
 			return 1;
 		}
@@ -1128,7 +1173,7 @@ static:
 				if(param.isObject)
 				{
 					MDStringBuffer other = cast(MDStringBuffer)param.as!(MDObject);
-					
+
 					if(other)
 					{
 						i.insert(s.getParam!(int)(0), other);
@@ -1398,7 +1443,7 @@ static:
 
 			mLength -= (end - start);
 		}
-		
+
 		public MDString toMDString()
 		{
 			return new MDString(mBuffer[0 .. mLength]);

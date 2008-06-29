@@ -72,6 +72,27 @@ static:
 			alloc.free(f, ScriptClosureSize(f.numUpvals));
 	}
 	
+	package bool isNative(MDFunction* f)
+	{
+		return f.isNative;
+	}
+	
+	package nint numParams(MDFunction* f)
+	{
+		if(f.isNative)
+			return 0;
+		else
+			return f.scriptFunc.numParams;
+	}
+	
+	package bool isVararg(MDFunction* f)
+	{
+		if(f.isNative)
+			return true;
+		else
+			return f.scriptFunc.isVararg;
+	}
+
 	// ================================================================================================================================================
 	// Private
 	// ================================================================================================================================================

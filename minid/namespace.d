@@ -76,6 +76,11 @@ static:
 		return ns.data.lookup(key) !is null;
 	}
 	
+	package bool next(MDNamespace* ns, ref nint idx, ref MDString** key, ref MDValue* val)
+	{
+		return ns.data.next(idx, key, val);
+	}
+	
 	package size_t length(MDNamespace* ns)
 	{
 		return ns.data.length();

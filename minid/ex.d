@@ -27,7 +27,8 @@ import tango.core.Tuple;
 import tango.stdc.ctype;
 import tango.text.Util;
 
-import minid.api;
+import minid.interpreter;
+import minid.types;
 
 // ================================================================================================================================================
 // Public
@@ -266,74 +267,58 @@ public dchar[] checkStringParam(MDThread* t, nint index)
 	return getString(t, index);
 }
 
+public void checkObjParam()(MDThread* t, nint index)
+{
+	checkAnyParam(t, index);
+	
+	if(!isObject(t, index))
+		paramTypeError(t, index, "object");
+}
+
+public void checkObjParam(bool strict = true)(MDThread* t, nint index, dchar[] name)
+{
+	index = absIndex(t, index);
+	checkObjParam(t, index);
+
+	lookup(t, name);
+
+	if(!as(t, index, -1) || (strict ? opis(t, index, -1) : false))
+	{
+		pushTypeString(t, index);
+
+		if(index == 0)
+			throwException(t, "Expected instance of object {} for 'this', not {}", name, getString(t, -1));
+		else
+			throwException(t, "Expected instance of object {} for parameter {}, not {}", name, index, getString(t, -1));
+	}
+
+	pop(t);
+}
+
 public T* checkObjParam(T, bool strict = true)(MDThread* t, nint index, dchar[] name)
 {
 	checkObjParam!(strict)(t, index, name);
 	return getMembers!(T)(t, index);
 }
 
-public void checkObjParam(bool strict = true)(MDThread* t, nint index, dchar[] name)
+public void checkParam(MDThread* t, nint index, MDValue.Type type)
 {
-	if(index < 0)
-		index = stackSize(t) + index;
-
-	if(!isObject(t, index))
-	{
-		if(index == 0)
-			throwException(t, "'this' is not an object");
-		else
-			throwException(t, "Parameter {} is not an object", index);
-	}
-
-	lookup(t, name);
-
-	if(!as(t, index, -1) || (strict ? opis(t, index, -1) : false))
-	{
-		if(index == 0)
-			throwException(t, "'this' is not an instance of {}", name);
-		else
-			throwException(t, "Parameter {} is not an instance of {}", name);
-	}
-
-	pop(t);
-}
-
-// EPOCH FAIL.
-public void checkParam(MDThread* t, nint index, nuint typeMask)
-{
-	assert(typeMask != 0, "typemask must be something");
+	assert(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj, "invalid type");
 
 	checkAnyParam(t, index);
 
-	if(!((1 << type(t, index)) & typeMask))
-	{
-		auto buf = StrBuffer(t);
-
-		bool first = true;
-
-		for(auto type = cast(uint)MDValue.Type.Null; type <= cast(uint)MDValue.Type.NativeObj; type++)
-		{
-			if(!(typeMask & (1 << type)))
-				continue;
-
-			if(first)
-				first = false;
-			else
-				buf.addChar('|');
-
-			buf.addString(MDValue.typeString(cast(MDValue.Type)type));
-		}
-		
-		buf.finish();
-
-		paramTypeError(t, index, getString(t, -1));
-	}
+	if(.type(t, index) != type)
+		paramTypeError(t, index, MDValue.typeString(type));
 }
 
-private void paramTypeError(MDThread* t, nint index, dchar[] expected)
+public void paramTypeError(MDThread* t, nint index, dchar[] expected)
 {
 	pushTypeString(t, index);
-	throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
+
+	if(index == 0)
+		throwException(t, "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
+	else
+		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
 }
 
 public bool optBoolParam(MDThread* t, nint index, bool def)
@@ -389,6 +374,17 @@ public dchar[] optStringParam(MDThread* t, nint index, dchar[] def)
 		paramTypeError(t, index, "string");
 
 	return getString(t, index);
+}
+
+public bool optParam(MDThread* t, nint index, MDValue.Type type)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return false;
+
+	if(.type(t, index) != type)
+		paramTypeError(t, index, MDValue.typeString(type));
+
+	return true;
 }
 
 public T* getMembers(T)(MDThread* t, nint index)
