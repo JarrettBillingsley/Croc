@@ -54,8 +54,6 @@ public struct CreateObject
 
 		if(stackSize(t) > co.idx + 1)
 			pop(t, stackSize(t) - co.idx - 1);
-
-		newGlobal(t, name);
 	}
 
 	public void method(dchar[] name, NativeFunc f)

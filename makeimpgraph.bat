@@ -1,1 +1,1 @@
-@dimple dtest | dot -Tpng -ograph.png
+@dimple test | dot -Tpng -ograph.png

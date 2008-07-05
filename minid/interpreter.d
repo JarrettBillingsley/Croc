@@ -2272,8 +2272,6 @@ This function obviously does not return.
 */
 public void throwException(MDThread* t)
 {
-	//debug *(cast(byte*)null) = 0;
-
 	if(t.vm.isThrowing)
 		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
 		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
@@ -2479,24 +2477,24 @@ public void setFuncEnv(MDThread* t, nint func)
 public void resetThread(MDThread* t, nint slot, bool newFunction = false)
 {
 	if(state(t) != MDThread.State.Dead)
-		throwException(t, "Attempting to reset a {} coroutine (must be dead)", stateString(t));
+		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(t));
 
 	if(newFunction)
 	{
 		checkNumParams(t, 1);
-		
+
 		auto f = getFunction(t, -1);
 
 		if(f is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, "Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+			throwException(t, "resetThread - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
 		version(MDRestrictedCoro)
 		{
 			if(f.isNative)
-				throwException(t, "newThread - Native functions may not be used as the body of a coroutine");
+				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
 		}
 
 		t.coroFunc = f;
@@ -2515,7 +2513,41 @@ public void resetThread(MDThread* t, nint slot, bool newFunction = false)
 	t.state = MDThread.State.Initial;
 }
 
-// TODO: 'yield'
+version(MDRestrictedCoro) {} else
+{
+	public size_t yield(MDThread* t, size_t numVals, nint numReturns)
+	{
+		checkNumParams(t, numVals);
+
+		if(t is t.vm.mainThread)
+			throwException(t, "yield - Attempting to yield out of the main thread");
+
+		version(MDExtendedCoro) {} else
+		{
+			if(t.coroFiber is null)
+				throwException(t, "yield - Attempting to yield out of a script coroutine");
+		}
+
+		if(Fiber.getThis() !is t.getFiber())
+			throwException(t, "yield - Attempting to yield the wrong thread");
+
+		if(numReturns < -1)
+			throwException(t, "yield - invalid number of returns (must be >= -1)");
+
+		auto slot = t.stackIndex - numVals;
+
+		yieldImpl(t, slot, numReturns, numVals);
+
+		if(numReturns == -1)
+			return t.stackIndex - slot;
+		else
+		{
+			t.stackIndex = slot + numReturns;
+			return numReturns;
+		}
+	}
+}
+
 // TODO: thread halting
 
 // TODO: imports
@@ -2546,7 +2578,7 @@ debug
 		Stdout("-----Stack Dump-----").newline;
 
 		auto tmp = t.stackBase;
-		t.stackBase = cast(AbsStack)0;
+		t.stackBase = 0;
 		auto top = t.stackIndex;
 
 		for(size_t i = 0; i < top; i++)
@@ -2555,14 +2587,14 @@ debug
 			{
 				pushToString(t, i, true);
 				pushTypeString(t, i);
-				Stdout.formatln("[{,3}:{,4}]: {}: {}", i, cast(int)i - cast(int)tmp, getString(t, -2), getString(t, -1));
+				Stdout.formatln("[{,3}:{,4}]: {}: {}", i, cast(nint)i - cast(nint)tmp, getString(t, -2), getString(t, -1));
 				pop(t, 2);
 			}
 			else
-				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(int)i - cast(int)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
+				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(nint)i - cast(nint)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
 		}
 
-		t.stackBase = cast(AbsStack)tmp;
+		t.stackBase = tmp;
 
 		Stdout.newline;
 	}
@@ -2729,7 +2761,7 @@ package nint push(MDThread* t, ref MDValue val)
 // Stack manipulation
 private void checkNumParams(MDThread* t, size_t n)
 {
-	assert(t.stackIndex > t.stackBase);
+	assert(t.stackIndex > t.stackBase, (printStack(t), printCallStack(t), "fail."));
 
 	// Don'_t count 'this'
 	if((stackSize(t) - 1) < n)
@@ -2746,7 +2778,7 @@ private RelStack fakeToRel(MDThread* t, nint fake)
 		fake += size;
 
 	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid index");
+		throwException(t, "Invalid index {} (size = {})", fake, size);
 
 	return cast(RelStack)fake;
 }
@@ -2869,13 +2901,9 @@ private nint typeString(MDThread* t, MDValue* v)
 			return pushString(t, MDValue.typeString(v.type));
 
 		case MDValue.Type.Object:
-			// LEAVE ME UP HERE PLZ
-			auto n = v.mObject.name;
-			// KTHXbye
-			pushString(t, MDValue.typeString(MDValue.Type.Object));
-			pushChar(t, ' ');
-			pushStringObj(t, n);
-			return cat(t, 3);
+			// LEAVE ME UP HERE PLZ, don't inline, thx.
+			auto n = v.mObject.name.toString32();
+			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Object), n);
 
 		case MDValue.Type.NativeObj:
 			pushString(t, MDValue.typeString(MDValue.Type.NativeObj));
@@ -4124,16 +4152,71 @@ version(MDRestrictedCoro) {} else
 	}
 }
 
+private bool yieldImpl(MDThread* t, AbsStack firstValue, nint numReturns, nint numValues)
+{
+	auto ar = pushAR(t);
+
+	assert(t.arIndex > 1);
+	*ar = t.actRecs[t.arIndex - 2];
+
+	ar.returnSlot = firstValue;
+	ar.numReturns = numReturns;
+	ar.firstResult = 0;
+	ar.numResults = 0;
+
+	if(numValues == -1)
+		t.numYields = t.stackIndex - firstValue;
+	else
+	{
+		t.stackIndex = firstValue + numValues;
+		t.numYields = numValues;
+	}
+
+	version(MDExtendedCoro) {} else
+		t.savedCallDepth = depth;
+
+	t.state = MDThread.State.Suspended;
+
+	version(MDRestrictedCoro)
+		return true;
+	else version(MDExtendedCoro)
+	{
+		Fiber.yield();
+		t.state = MDThread.State.Running;
+		callEpilogue(t, true);
+		return false;
+	}
+	else
+	{
+		if(t.coroFunc.isNative)
+		{
+			Fiber.yield();
+			t.state = MDThread.State.Running;
+			callEpilogue(t, true);
+			return false;
+		}
+		else
+			return true;
+	}	
+}
+
 private nuint resume(MDThread* t, size_t numParams)
 {
 	version(MDExtendedCoro)
 	{
-		if(t.coroFiber is null)
-			t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t));
-		else
-			(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
-	
-		t.getFiber().call();
+		if(t.state == MDThread.State.Initial)
+		{
+			if(t.coroFiber is null)
+				t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t));
+			else
+				(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
+		}
+
+		try
+			t.getFiber().call();
+		catch(Object o)
+			throw o;
+		
 		return t.numYields;
 	}
 	else version(MDRestrictedCoro)
@@ -4173,8 +4256,6 @@ private nuint resume(MDThread* t, size_t numParams)
 				assert(result == true, "resume callPrologue must return true");
 				execute(t);
 			}
-
-			return t.numYields;
 		}
 		else
 		{
@@ -4188,9 +4269,9 @@ private nuint resume(MDThread* t, size_t numParams)
 				callEpilogue(t, true);
 				execute(t, t.savedCallDepth);
 			}
-	
-			return t.numYields;
 		}
+
+		return t.numYields;
 	}
 }
 
@@ -4525,7 +4606,7 @@ private void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack retur
 	ar.proto = proto is null ? null : proto.proto;
 	ar.numTailcalls = 0;
 	
-	t.stackBase = t.currentAR.base;
+	t.stackBase = ar.base;
 }
 
 private void callEpilogue(MDThread* t, bool needResults)
@@ -4629,7 +4710,7 @@ private void popAR(MDThread* t)
 	else
 	{
 		t.currentAR = null;
-		t.stackBase = cast(AbsStack)0;
+		t.stackBase = 0;
 	}
 }
 
@@ -4862,7 +4943,6 @@ private void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS
 	// mm
 	bool swap = false;
 
-	debug Stdout.formatln("stack = {}, RS = {}", t.stack.ptr, RS);
 	auto method = getMM(t, RS, operation);
 
 	if(method is null)
@@ -5072,7 +5152,6 @@ private void throwImpl(MDThread* t, MDValue* ex)
 	t.vm.isThrowing = true;
 
 	// TODO: create traceback here
-
 	throw new MDException(msg);
 }
 
@@ -5562,16 +5641,20 @@ private void execute(MDThread* t, size_t depth = 1)
 						auto prevAR = t.currentAR - 1;
 						close(t, prevAR.base);
 
-						ptrdiff_t diff = cast(ptrdiff_t)(t.currentAR.returnSlot - prevAR.returnSlot);
+						auto diff = cast(ptrdiff_t)(t.currentAR.returnSlot - prevAR.returnSlot);
 
 						auto tc = prevAR.numTailcalls + 1;
+						t.currentAR.numReturns = prevAR.numReturns;
 						*prevAR = *t.currentAR;
 						prevAR.numTailcalls = tc;
-
 						prevAR.base -= diff;
 						prevAR.savedTop -= diff;
 						prevAR.vargBase -= diff;
 						prevAR.returnSlot -= diff;
+
+						popAR(t);
+
+						//memmove(&t.stack[prevAR.returnSlot], &t.stack[prevAR.returnSlot + diff], (prevAR.savedTop - prevAR.returnSlot) * MDValue.sizeof);
 
 						for(auto idx = prevAR.returnSlot; idx < prevAR.savedTop; idx++)
 							t.stack[idx] = t.stack[idx + diff];
@@ -5736,68 +5819,83 @@ private void execute(MDThread* t, size_t depth = 1)
 					break;
 
 				case Op.Yield:
+					if(t is t.vm.mainThread)
+						throwException(t, "Attempting to yield out of the main thread");
+
 					version(MDRestrictedCoro)
 					{
 						if(t.nativeCallDepth > 0)
 							throwException(t, "Attempting to yield across native / metamethod call boundary");
-					}
-					else version(MDExtendedCoro) {} else
-					{
-						if(t.nativeCallDepth > 0 && (t.coroFunc !is null && !t.coroFunc.isNative))
-							throwException(t, "Attempting to yield from script coroutine across native / metamethod call boundary");
-					}
-
-					auto firstValue = stackBase + i.rd;
-					auto ar = pushAR(t);
-
-					assert(t.arIndex > 1);
-					*ar = t.actRecs[t.arIndex - 2];
-
-					ar.returnSlot = firstValue;
-					ar.numReturns = i.rt - 1;
-					ar.firstResult = 0;
-					ar.numResults = 0;
-
-					if(i.rs == 0)
-						t.numYields = t.stackIndex - firstValue;
-					else
-					{
-						t.stackIndex = firstValue + i.rs - 1;
-						t.numYields = i.rs - 1;
-					}
-					
-					version(MDExtendedCoro) {} else
-						t.savedCallDepth = depth;
-
-					t.state = MDThread.State.Suspended;
-
-					version(MDRestrictedCoro)
+							
+						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
 						return;
+					}
 					else version(MDExtendedCoro)
 					{
-						Fiber.yield();
-						t.state = MDThread.State.Running;
-						callEpilogue(t, true);
-						break;
+						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
 					}
 					else
 					{
-						if(t.coroFunc.isNative)
-						{
-							Fiber.yield();
-							t.state = MDThread.State.Running;
-							callEpilogue(t, true);
-							break;
-						}
-						else
+						if(t.nativeCallDepth > 0 && !t.coroFunc.isNative)
+							throwException(t, "Attempting to yield from script coroutine across native / metamethod call boundary");
+
+						if(yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1))
 							return;
 					}
 
+					break;
+
+// 					auto firstValue = stackBase + i.rd;
+// 					auto ar = pushAR(t);
+//
+// 					assert(t.arIndex > 1);
+// 					*ar = t.actRecs[t.arIndex - 2];
+//
+// 					ar.returnSlot = firstValue;
+// 					ar.numReturns = i.rt - 1;
+// 					ar.firstResult = 0;
+// 					ar.numResults = 0;
+//
+// 					if(i.rs == 0)
+// 						t.numYields = t.stackIndex - firstValue;
+// 					else
+// 					{
+// 						t.stackIndex = firstValue + i.rs - 1;
+// 						t.numYields = i.rs - 1;
+// 					}
+// 
+// 					version(MDExtendedCoro) {} else
+// 						t.savedCallDepth = depth;
+// 
+// 					t.state = MDThread.State.Suspended;
+// 
+// 					version(MDRestrictedCoro)
+// 						return;
+// 					else version(MDExtendedCoro)
+// 					{
+// 						Fiber.yield();
+// 						t.state = MDThread.State.Running;
+// 						callEpilogue(t, true);
+// 						break;
+// 					}
+// 					else
+// 					{
+// 						if(t.coroFunc.isNative)
+// 						{
+// 							Fiber.yield();
+// 							t.state = MDThread.State.Running;
+// 							callEpilogue(t, true);
+// 							break;
+// 						}
+// 						else
+// 							return;
+// 					}
+
 				case Op.CheckParams:
+					auto val = &t.stack[stackBase];
+
 					foreach(idx, mask; t.currentAR.func.scriptFunc.paramMasks)
 					{
-						auto val = &t.stack[(stackBase + idx)];
-
 						if(!(mask & (1 << val.type)))
 						{
 							typeString(t, val);
@@ -5807,6 +5905,8 @@ private void execute(MDThread* t, size_t depth = 1)
 							else
 								throwException(t, "Parameter {}: type '{}' is not allowed", idx, getString(t, -1));
 						}
+
+						val++;
 					}
 					break;
 

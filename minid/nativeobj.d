@@ -41,27 +41,16 @@ static:
 	
 		auto ret = vm.alloc.allocate!(MDNativeObj);
 		ret.obj = obj;
-	
-		// What's with the tempObj?  Well there's a tiny (but nonzero) possibility
-		// that, upon inserting the native object into nativeObjs, it will cause the
-		// host to perform a GC sweep.  Since this native object may or may not
-		// be referenced in the main program until it's inserted into the table (which
-		// wouldn't be till *after* the GC sweep), the object could get collected
-		// before we even insert it.  So we put it in tempObj to expose at least
-		// one reference to the object to the D host.
-		// Multiple GCs are fun.
-		vm.tempObj = obj;
 		vm.nativeObjs[obj] = ret;
-		vm.tempObj = null;
-	
+
 		return ret;
 	}
-	
+
 	// Free a native object.
 	package void free(MDVM* vm, MDNativeObj* obj)
 	{
 		assert(obj.obj in vm.nativeObjs);
-	
+
 		vm.nativeObjs.remove(obj.obj);
 		vm.alloc.free(obj);
 	}

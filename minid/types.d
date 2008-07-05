@@ -146,13 +146,25 @@ final class MDHaltException : Exception
 	}
 }
 
+/**
+A string constant indicating the level of coroutine support compiled in.  Is one of "Restricted",
+"Normal", or "Extended".
+*/
 version(MDRestrictedCoro)
+{
 	version(MDExtendedCoro)
 	{
 		pragma(msg, "The 'MDRestrictedCoro' and 'MDExtendedCoro' versions are mutually exclusive.");
 		pragma(msg, "Please define one or the other (or neither), not both.\n");
 		static assert(false, "FAILCOPTER.");
 	}
+
+	const char[] MDCoroSupport = "Restricted";
+}
+else version(MDExtendedCoro)
+	const char[] MDCoroSupport = "Extended";
+else
+	const char[] MDCoroSupport = "Normal";
 
 // ================================================================================================================================================
 // Package
@@ -717,8 +729,13 @@ align(1) struct MDVM
 
 	// The following members are allocated on the D heap.
 	package MDNativeObj*[Object] nativeObjs;
-	package Object tempObj;
 	package Layout!(dchar) formatter;
+
+	version(MDRestrictedCoro) {} else
+	{
+		version(MDPoolFibers)
+			package bool[Fiber] fiberPool;
+	}
 }
 
 package enum MM

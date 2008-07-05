@@ -26,7 +26,8 @@ subject to the following restrictions:
 
 module minid.thread;
 
-import tango.core.Thread;
+version(MDRestrictedCoro) {} else
+	import tango.core.Thread;
 
 import minid.nativeobj;
 import minid.types;
@@ -67,30 +68,40 @@ static:
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
 		
-// 		if(fiberPool.length > 0)
-// 		{
-// 			Fiber f = void;
-// 			
-// 			foreach(fiber, _; fiberPool)
-// 			{
-// 				f = fiber;
-// 				break;
-// 			}
-// 
-// 			fiberPool.remove(f);
-// 			t.coroFiber = nativeobj.create(vm, f);
-// 		}
+		version(MDRestrictedCoro) {} else
+		{
+			version(MDPoolFibers)
+			{
+				if(vm.fiberPool.length > 0)
+				{
+					Fiber f = void;
+
+					foreach(fiber, _; vm.fiberPool)
+					{
+						f = fiber;
+						break;
+					}
+
+					vm.fiberPool.remove(f);
+					t.coroFiber = nativeobj.create(vm, f);
+				}
+			}
+		}
 
 		return t;
 	}
 
-	package
-
 	// Free a thread object.
 	package void free(MDThread* t)
 	{
-// 		if(t.coroFiber)
-// 			fiberPool[cast(Fiber)cast(void*)t.coroFiber.obj] = true;
+		version(MDRestrictedCoro) {} else
+		{
+			version(MDPoolFibers)
+			{
+				if(t.coroFiber)
+					t.vm.fiberPool[t.getFiber()] = true;
+			}
+		}
 
 		auto alloc = &t.vm.alloc;
 
@@ -100,6 +111,4 @@ static:
 		alloc.freeArray(t.tryRecs);
 		alloc.free(t);
 	}
-
-// 	private bool[Fiber] fiberPool;
 }

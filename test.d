@@ -7,6 +7,21 @@ import minid.api;
 
 // TODO: Object finalizers...
 
+/*
+Import:
+
+1.  See if already loaded.
+
+2.  See if that name is taken.
+
+3.  Look for .md and .mdm.  If found, create closure with new namespace ace env, call.
+	if it succeeds, put that namespace in the owning namespace.
+	
+4.  Look for custom loader.  If founc, call with new namespace as param, and if it succeeds, put ns in owning ns.
+
+5.  [Optional] Look for dynlib, same procedure as 4.
+*/
+
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -23,9 +38,7 @@ void main()
 	newGlobal(t, "microTime");
 	Timer.init(t);
 
-	lookupCT!("Timer")(t);
-
-		auto funcReg = loadFunc(t, `benchmark\cheapconcurrency.md`);
+		auto funcReg = loadFunc(t, `samples\simple.md`);
 		pushNull(t);
 		rawCall(t, funcReg, 0);
 
@@ -115,7 +128,7 @@ static:
 	{
 		return checkObjParam!(Members)(t, 0, "Timer");
 	}
-	
+
 	void init(MDThread* t)
 	{
 		CreateObject(t, "Timer", (CreateObject* o)
@@ -127,6 +140,8 @@ static:
 			o.method("millisecs", &millisecs);
 			o.method("microsecs", &microsecs);
 		});
+
+		newGlobal(t, "Timer");
 	}
 
 	struct Members

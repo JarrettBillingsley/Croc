@@ -1,7 +1,5 @@
 module simple
 
-
-
 /+
 /*
 object BaseProp
@@ -219,7 +217,7 @@ writeln(Deck.dealCard())
 		writefln(v)
 
 	writefln()
-	
+
 	local forEach = coroutine function forEach(t)
 	{
 		yield()
