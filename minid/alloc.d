@@ -179,13 +179,16 @@ align(1) struct Allocator
 			a = null;
 		}
 	}
-	
+
 	template realloc(T)
 	{
 		debug(LEAK_DETECTOR)
 		{
 			void* realloc(void* p, size_t oldSize, size_t newSize)
 			{
+				if(oldSize > 0 && !(p in _memBlocks))
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap!");
+
 				auto ret = reallocImpl(p, oldSize, newSize);
 
 				if(newSize == 0)
@@ -202,7 +205,7 @@ align(1) struct Allocator
 						_memBlocks[ret] = MemBlock(newSize, typeid(T));
 					}
 				}
-				
+
 				return ret;
 			}
 		}

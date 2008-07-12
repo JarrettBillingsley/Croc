@@ -26,23 +26,16 @@ subject to the following restrictions:
 
 module minid.compiler;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
-import tango.core.Exception;
-import tango.io.FileConduit;
-import tango.io.FilePath;
-import tango.io.protocol.model.IReader;
-import tango.io.protocol.Reader;
-import tango.io.Stdout;
-import tango.io.UnicodeFile;
-import tango.text.convert.Format;
-import tango.text.Util;
-import Uni = tango.text.Unicode;
-import utf = tango.text.convert.Utf;
+import tango.core.Vararg;
 
+import tango.io.FilePath;
+import tango.io.UnicodeFile;
+
+import minid.alloc;
+import minid.compilertypes;
+import minid.interpreter;
+import minid.lexer;
 import minid.types;
-import minid.opcodes;
-import minid.utils;
 
 //debug = REGPUSHPOP;
 //debug = VARACTIVATE;
@@ -50,39 +43,142 @@ import minid.utils;
 //debug = SHOWME;
 //debug = PRINTEXPSTACK;
 
-struct Compiler
+scope class Compiler : ICompiler
 {
+	mixin ICompilerMixin;
+
 	enum
 	{
 		None = 0,
-		
-		ParameterConstraints = 1,
+		TypeConstraints = 1,
 		Asserts = 2,
 
-		All = ParameterConstraints | Asserts
+		All = TypeConstraints | Asserts
 	}
 
+	private MDThread* t;
 	private	uint mFlags;
-	
-	public static Compiler opCall(uint flags = All)
+	private bool mIsEof;
+	private bool mIsLoneStmt;
+	private Lexer mLexer;
+
+// ================================================================================================================================================
+// Public
+// ================================================================================================================================================
+
+	public this(MDThread* t, uint flags = All)
 	{
-		Compiler ret;
-		ret.mFlags = flags;
-		
-		return ret;
+		this.t = t;
+		mFlags = flags;
+		mLexer = Lexer(this);
 	}
 
+	public void setFlags(uint flags)
+	{
+		mFlags = flags;
+	}
+
+	public override bool asserts()
+	{
+		return (mFlags & Asserts) != 0;
+	}
+
+	public override bool typeConstraints()
+	{
+		return (mFlags & TypeConstraints) != 0;
+	}
+
+	public override bool isEof()
+	{
+		return mIsEof;
+	}
+	
+	public override bool isLoneStmt()
+	{
+		return mIsLoneStmt;
+	}
+
+	public override void exception(ref CompileLoc loc, dchar[] msg, ...)
+	{
+		vexception(loc, msg, _arguments, _argptr);
+	}
+
+	public override void eofException(ref CompileLoc loc, dchar[] msg, ...)
+	{
+		mIsEof = true;
+		vexception(loc, msg, _arguments, _argptr);
+	}
+
+	public override void loneStmtException(ref CompileLoc loc, dchar[] msg, ...)
+	{
+		mIsLoneStmt = true;
+		vexception(loc, msg, _arguments, _argptr);
+	}
+	
+	public override MDThread* thread()
+	{
+		return t;
+	}
+	
+	public override Allocator* alloc()
+	{
+		return &t.vm.alloc;
+	}
+
+	public void tokensOf(char[] filename)
+	{
+		scope path = new FilePath(filename);
+		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
+		auto src = file.read();
+
+		scope(exit)
+			delete src;
+
+		mLexer.begin(Utf.toString32(filename), src);
+	}
+
+	public int opApply(int delegate(ref Lexer) dg)
+	{
+		while(mLexer.type != Token.EOF)
+		{
+			if(auto res = dg(mLexer))
+			{
+				mLexer.end();
+				return res;
+			}
+
+			mLexer.next();
+		}
+
+		mLexer.end();
+		return 0;
+	}
+
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
+
+	private void vexception(ref CompileLoc loc, dchar[] msg, TypeInfo[] arguments, va_list argptr)
+	{
+		pushVFormat(t, msg, arguments, argptr);
+		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
+		insert(t, -2);
+		cat(t, 2);
+		throwException(t);
+	}
+/+
 	/**
 	Compile a source code file into a binary module.  Takes the path to the source file and returns
 	the compiled module, which can be loaded into a context.
-	
+
 	You shouldn't have to deal with this function that much.  Most of the time the compilation of
 	modules should be handled for you by the import system in MDContext.
 	*/
-	public MDModuleDef compileModule(char[] filename)
+	public OldFuncDef* compileModule(char[] filename)
 	{
-		scope path = FilePath(filename);
-		return compileModule((new UnicodeFile!(dchar)(path, Encoding.Unknown)).read(), path.file);
+		scope path = new FilePath(filename);
+		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
+		return compileModule(file.read(), path.file);
 	}
 
 	/**
@@ -96,7 +192,7 @@ struct Compiler
 	Returns:
 		The compiled module.
 	*/
-	public MDModuleDef compileModule(dchar[] source, char[] name)
+	public OldFuncDef* compileModule(dchar[] source, char[] name)
 	{
 		scope lexer = new Lexer(name, source);
 		return Module.parse(lexer).codeGen(this);
@@ -113,7 +209,7 @@ struct Compiler
 	Returns:
 		The compiled function.
 	*/
-	public MDFuncDef compileStatements(dchar[] source, char[] name)
+	public OldFuncDef* compileStatements(dchar[] source, char[] name)
 	{
 		scope lexer = new Lexer(name, source);
 		List!(Statement) s;
@@ -125,7 +221,7 @@ struct Compiler
 	
 		Statement[] stmts = s.toArray();
 	
-		FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		FuncState fs = new FuncState(OldLocation(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
 		fs.mIsVararg = true;
 		
 		try
@@ -168,15 +264,15 @@ struct Compiler
 	Returns:
 		The compiled function.
 	*/
-	public MDFuncDef compileExpression(dchar[] source, char[] name)
+	public OldFuncDef* compileExpression(dchar[] source, char[] name)
 	{
 		scope lexer = new Lexer(name, source);
 		Expression e = Expression.parse(lexer);
 	
 		if(lexer.type != Token.Type.EOF)
-			throw new MDCompileException(lexer.loc, "Extra unexpected code after expression");
+			throw new OldCompileException(lexer.loc, "Extra unexpected code after expression");
 			
-		FuncState fs = new FuncState(Location(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		FuncState fs = new FuncState(OldLocation(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
 		fs.mIsVararg = true;
 	
 		auto ret = (new ReturnStatement(e)).fold();
@@ -214,8 +310,10 @@ struct Compiler
 		else
 			return ArrayCtorExp.parseJSON(lexer);
 	}
++/
 }
 
+/+
 struct Token
 {
 	public static enum Type
@@ -447,6 +545,8 @@ struct Token
 			case Type.FloatLiteral:  return "Float Literal: " ~ Float.toString(floatValue);
 			default:                 return utf.toString(tokenStrings[cast(uint)type]);
 		}
+		
+		assert(false);
 	}
 
 	public void expect(Type t)
@@ -457,7 +557,7 @@ struct Token
 	
 	public void expected(dchar[] message)
 	{
-		auto e = new MDCompileException(location, "'{}' expected; found '{}' instead", message, tokenStrings[type]);
+		auto e = new OldCompileException(location, "'{}' expected; found '{}' instead", message, tokenStrings[type]);
 		e.atEOF = type == Type.EOF;
 		throw e;
 	}
@@ -484,6 +584,8 @@ struct Token
 			default:
 				return false;
 		}
+		
+		assert(false);
 	}
 
 	public Type type;
@@ -496,13 +598,13 @@ struct Token
 		public mdfloat floatValue;
 	}
 
-	public Location location;
+	public OldLocation location;
 }
 
 class Lexer
 {
 	protected dchar[] mSource;
-	protected Location mLoc;
+	protected OldLocation mLoc;
 	protected size_t mPosition;
 	protected dchar mCharacter;
 	protected dchar mLookaheadCharacter;
@@ -515,7 +617,7 @@ class Lexer
 
 	public this(char[] name, dchar[] source, bool isJSON = false)
 	{
-		mLoc = Location(utf.toString32(name), 1, 0);
+		mLoc = OldLocation(utf.toString32(name), 1, 0);
 
 		mSource = source;
 		mPosition = 0;
@@ -535,7 +637,7 @@ class Lexer
 		return &mTok;
 	}
 	
-	public final Location loc()
+	public final OldLocation loc()
 	{
 		return mTok.location;
 	}
@@ -577,7 +679,7 @@ class Lexer
 			else if(mTok.type == Token.Type.Semicolon)
 				next();
 			else
-				throw new MDCompileException(mLoc, "Statement terminator expected, not '{}'", mTok.toString());
+				throw new OldCompileException(mLoc, "Statement terminator expected, not '{}'", mTok.toString());
 		}
 	}
 
@@ -658,12 +760,12 @@ class Lexer
 		assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "hexDigitToInt");
 
 		if(c >= '0' && c <= '9')
-			return c - '0';
+			return cast(ubyte)(c - '0');
 
 		if(Uni.isUpper(c))
-			return c - 'A' + 10;
+			return cast(ubyte)(c - 'A' + 10);
 		else
-			return c - 'a' + 10;
+			return cast(ubyte)(c - 'a' + 10);
 	}
 
 	protected final dchar readChar()
@@ -716,7 +818,7 @@ class Lexer
 
 	protected final bool readNumLiteral(bool prependPoint, out mdfloat fret, out int iret)
 	{
-		Location beginning = mLoc;
+		OldLocation beginning = mLoc;
 		dchar[100] buf;
 		uint i = 0;
 
@@ -745,7 +847,7 @@ class Lexer
 						nextChar();
 
 						if(!isBinaryDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Binary digit expected, not '{}'", mCharacter);
+							throw new OldCompileException(mLoc, "Binary digit expected, not '{}'", mCharacter);
 
 						while(isBinaryDigit() || mCharacter == '_')
 						{
@@ -758,7 +860,7 @@ class Lexer
 						try
 							iret = Integer.toInt(buf[0 .. i], 2);
 						catch(IllegalArgumentException e)
-							throw new MDCompileException(beginning, e.toString());
+							throw new OldCompileException(beginning, e.toString());
 
 						return true;
 
@@ -766,7 +868,7 @@ class Lexer
 						nextChar();
 
 						if(!isOctalDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Octal digit expected, not '{}'", mCharacter);
+							throw new OldCompileException(mLoc, "Octal digit expected, not '{}'", mCharacter);
 
 						while(isOctalDigit() || mCharacter == '_')
 						{
@@ -779,7 +881,7 @@ class Lexer
 						try
 							iret = Integer.toInt(buf[0 .. i], 8);
 						catch(IllegalArgumentException e)
-							throw new MDCompileException(beginning, e.toString());
+							throw new OldCompileException(beginning, e.toString());
 
 						return true;
 
@@ -787,7 +889,7 @@ class Lexer
 						nextChar();
 
 						if(!isHexDigit() && mCharacter != '_')
-							throw new MDCompileException(mLoc, "Hexadecimal digit expected, not '{}'", mCharacter);
+							throw new OldCompileException(mLoc, "Hexadecimal digit expected, not '{}'", mCharacter);
 
 						while(isHexDigit() || mCharacter == '_')
 						{
@@ -800,7 +902,7 @@ class Lexer
 						try
 							iret = Integer.toInt(buf[0 .. i], 16);
 						catch(IllegalArgumentException e)
-							throw new MDCompileException(beginning, e.toString());
+							throw new OldCompileException(beginning, e.toString());
 
 						return true;
 
@@ -857,7 +959,7 @@ class Lexer
 			else
 			{
 				// REACHABLE?
-				throw new MDCompileException(mLoc, "Floating point literal '{}' must have at least one digit after decimal point", buf[0 .. i]);
+				throw new OldCompileException(mLoc, "Floating point literal '{}' must have at least one digit after decimal point", buf[0 .. i]);
 			}
 		}
 		
@@ -885,7 +987,7 @@ class Lexer
 				}
 
 				if(!isDecimalDigit() && mCharacter != '_')
-					throw new MDCompileException(mLoc, "Exponent value expected in float literal '{}'", buf[0 .. i]);
+					throw new OldCompileException(mLoc, "Exponent value expected in float literal '{}'", buf[0 .. i]);
 
 				while(isDecimalDigit() || mCharacter == '_')
 				{
@@ -911,7 +1013,7 @@ class Lexer
 			try
 				iret = Integer.toInt(buf[0 .. i], 10);
 			catch(IllegalArgumentException e)
-				throw new MDCompileException(beginning, e.toString());
+				throw new OldCompileException(beginning, e.toString());
 
 			return true;
 		}
@@ -920,13 +1022,13 @@ class Lexer
 			try
 				fret = Float.toFloat(utf.toString(buf[0 .. i]));
 			catch(IllegalArgumentException e)
-				throw new MDCompileException(beginning, e.toString());
+				throw new OldCompileException(beginning, e.toString());
 
 			return false;
 		}
 	}
 
-	protected final dchar readEscapeSequence(Location beginning)
+	protected final dchar readEscapeSequence(OldLocation beginning)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -935,7 +1037,7 @@ class Lexer
 			for(uint i = 0; i < num; i++)
 			{
 				if(isHexDigit() == false)
-					throw new MDCompileException(mLoc, "Hexadecimal escape digits expected");
+					throw new OldCompileException(mLoc, "Hexadecimal escape digits expected");
 
 				ret <<= 4;
 				ret |= hexDigitToInt(mCharacter);
@@ -952,7 +1054,7 @@ class Lexer
 		nextChar();
 		if(isEOF())
 		{
-			auto e = new MDCompileException(beginning, "Unterminated string or character literal");
+			auto e = new OldCompileException(beginning, "Unterminated string or character literal");
 			e.atEOF = true;
 			throw e;
 		}
@@ -985,7 +1087,7 @@ class Lexer
 				uint x = readHexDigits(2);
 
 				if(x > 0x7F)
-					throw new MDCompileException(mLoc, "Hexadecimal escape sequence too large");
+					throw new OldCompileException(mLoc, "Hexadecimal escape sequence too large");
 
 				ret = cast(dchar)x;
 				break;
@@ -996,7 +1098,7 @@ class Lexer
 				uint x = readHexDigits(4);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					throw new MDCompileException(mLoc, "Unicode escape '\\u{:x4}' is illegal", x);
+					throw new OldCompileException(mLoc, "Unicode escape '\\u{:x4}' is illegal", x);
 
 				ret = cast(dchar)x;
 				break;
@@ -1007,17 +1109,17 @@ class Lexer
 				uint x = readHexDigits(8);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					throw new MDCompileException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
+					throw new OldCompileException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
 				if(isValidUniChar(cast(dchar)x) == false)
-					throw new MDCompileException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
+					throw new OldCompileException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
 				break;
 
 			default:
 				if(!isDecimalDigit())
-					throw new MDCompileException(mLoc, "Invalid string escape sequence '\\{}'", mCharacter);
+					throw new OldCompileException(mLoc, "Invalid string escape sequence '\\{}'", mCharacter);
 
 				// Decimal char
 				int numch = 0;
@@ -1030,7 +1132,7 @@ class Lexer
 				} while(++numch < 3 && isDecimalDigit());
 
 				if(c > 0x7F)
-					throw new MDCompileException(mLoc, "Numeric escape sequence too large");
+					throw new OldCompileException(mLoc, "Numeric escape sequence too large");
 
 				ret = cast(dchar)c;
 				break;
@@ -1041,7 +1143,7 @@ class Lexer
 
 	protected final dchar[] readStringLiteral(bool escape)
 	{
-		Location beginning = mLoc;
+		OldLocation beginning = mLoc;
 
 		List!(dchar) buf;
 		dchar delimiter = mCharacter;
@@ -1053,7 +1155,7 @@ class Lexer
 		{
 			if(isEOF())
 			{
-				auto e = new MDCompileException(beginning, "Unterminated string literal");
+				auto e = new OldCompileException(beginning, "Unterminated string literal");
 				e.atEOF = true;
 				throw e;
 			}
@@ -1104,14 +1206,14 @@ class Lexer
 
 	protected final dchar readCharLiteral()
 	{
-		Location beginning = mLoc;
+		OldLocation beginning = mLoc;
 		dchar ret;
 
 		assert(mCharacter == '\'', "char literal must start with single quote");
 		nextChar();
 
 		if(isEOF())
-			throw new MDCompileException(beginning, "Unterminated character literal");
+			throw new OldCompileException(beginning, "Unterminated character literal");
 
 		switch(mCharacter)
 		{
@@ -1126,7 +1228,7 @@ class Lexer
 		}
 
 		if(mCharacter != '\'')
-			throw new MDCompileException(beginning, "Unterminated character literal");
+			throw new OldCompileException(beginning, "Unterminated character literal");
 
 		nextChar();
 
@@ -1135,7 +1237,7 @@ class Lexer
 
 	protected final void nextToken()
 	{
-		Location tokenLoc;
+		OldLocation tokenLoc;
 
 		scope(exit)
 			mTok.location = tokenLoc;
@@ -1263,7 +1365,7 @@ class Lexer
 									continue;
 
 								case '\0', dchar.init:
-									throw new MDCompileException(tokenLoc, "Unterminated /* */ comment");
+									throw new OldCompileException(tokenLoc, "Unterminated /* */ comment");
 
 								default:
 									break;
@@ -1311,7 +1413,7 @@ class Lexer
 									continue;
 
 								case '\0', dchar.init:
-									throw new MDCompileException(tokenLoc, "Unterminated /+ +/ comment");
+									throw new OldCompileException(tokenLoc, "Unterminated /+ +/ comment");
 
 								default:
 									break;
@@ -1538,7 +1640,7 @@ class Lexer
 					nextChar();
 
 					if(mCharacter != '\"')
-						throw new MDCompileException(tokenLoc, "'@' expected to be followed by '\"'");
+						throw new OldCompileException(tokenLoc, "'@' expected to be followed by '\"'");
 
 					mTok.stringValue = readStringLiteral(false);
 					mTok.type = Token.Type.StringLiteral;
@@ -1591,7 +1693,7 @@ class Lexer
 						while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
 						if(s.length >= 2 && s[0 .. 2] == "__")
-							throw new MDCompileException(tokenLoc, "'{}': Identifiers starting with two underscores are reserved", s);
+							throw new OldCompileException(tokenLoc, "'{}': Identifiers starting with two underscores are reserved", s);
 
 						Token.Type* t = (s in Token.stringToType);
 
@@ -1615,7 +1717,7 @@ class Lexer
 						Token.Type* t = (s in Token.stringToType);
 
 						if(t is null)
-							throw new MDCompileException(tokenLoc, "Invalid token '{}'", s);
+							throw new OldCompileException(tokenLoc, "Invalid token '{}'", s);
 						else
 							mTok.type = *t;
 
@@ -1718,7 +1820,7 @@ class FuncState
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
-	protected Location mLocation;
+	protected OldLocation mLocation;
 	protected MDValue[] mConstants;
 	protected uint mNumParams;
 	protected uint[] mParamMasks;
@@ -1730,7 +1832,7 @@ class FuncState
 	struct LocVarDesc
 	{
 		dchar[] name;
-		Location location;
+		OldLocation location;
 		uint pcStart;
 		uint pcEnd;
 		uint reg;
@@ -1762,7 +1864,7 @@ class FuncState
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
 
-	public this(Location location, dchar[] guessedName, FuncState parent = null, Compiler* compiler = null)
+	public this(OldLocation location, dchar[] guessedName, FuncState parent = null, Compiler* compiler = null)
 	{
 		mLocation = location;
 		mGuessedName = guessedName;
@@ -1799,7 +1901,7 @@ class FuncState
 	public uint tagLocal(uint val)
 	{
 		if((val & ~Instruction.locMask) > MaxRegisters)
-			throw new MDCompileException(mLocation, "Too many locals");
+			throw new OldCompileException(mLocation, "Too many locals");
 
 		return (val & ~Instruction.locMask) | Instruction.locLocal;
 	}
@@ -1807,7 +1909,7 @@ class FuncState
 	public uint tagConst(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants");
+			throw new OldCompileException(mLocation, "Too many constants");
 
 		return (val & ~Instruction.locMask) | Instruction.locConst;
 	}
@@ -1815,7 +1917,7 @@ class FuncState
 	public uint tagUpval(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxUpvalues)
-			throw new MDCompileException(mLocation, "Too many upvalues");
+			throw new OldCompileException(mLocation, "Too many upvalues");
 
 		return (val & ~Instruction.locMask) | Instruction.locUpval;
 	}
@@ -1823,7 +1925,7 @@ class FuncState
 	public uint tagGlobal(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants");
+			throw new OldCompileException(mLocation, "Too many constants");
 			
 		return (val & ~Instruction.locMask) | Instruction.locGlobal;
 	}
@@ -1869,9 +1971,9 @@ class FuncState
 						reloc = pushRegister();
 
 						if(isLocalTag(index.index))
-							codeR(line, Op.MoveLocal, reloc, index.index, 0);
+							codeR(line, Op.MoveLocal, cast(ushort)reloc, cast(ushort)index.index, 0);
 						else
-							codeR(line, Op.Move, reloc, index.index, 0);
+							codeR(line, Op.Move, cast(ushort)reloc, cast(ushort)index.index, 0);
 					}
 
 					if(e.index == index.index)
@@ -1931,7 +2033,7 @@ class FuncState
 	public void beginSwitch(uint line, uint srcReg)
 	{
 		SwitchDesc* sd = new SwitchDesc;
-		sd.switchPC = codeR(line, Op.Switch, 0, srcReg, 0);
+		sd.switchPC = codeR(line, Op.Switch, 0, cast(ushort)srcReg, 0);
 		sd.prev = mSwitch;
 		mSwitch = sd;
 	}
@@ -1943,10 +2045,10 @@ class FuncState
 		mSwitch = mSwitch.prev;
 
 		mSwitchTables ~= desc;
-		mCode[desc.switchPC].rt = mSwitchTables.length - 1;
+		mCode[desc.switchPC].rt = cast(ushort)(mSwitchTables.length - 1);
 	}
 
-	public int* addCase(Location location, Expression v)
+	public int* addCase(OldLocation location, Expression v)
 	{
 		assert(mSwitch !is null);
 
@@ -1970,13 +2072,13 @@ class FuncState
 		int* oldOffset = (val in mSwitch.offsets);
 
 		if(oldOffset !is null)
-			throw new MDCompileException(location, "Duplicate case value '{}'", val);
+			throw new OldCompileException(location, "Duplicate case value '{}'", val);
 
 		mSwitch.offsets[val] = 0;
 		return (val in mSwitch.offsets);
 	}
 
-	public void addDefault(Location location)
+	public void addDefault(OldLocation location)
 	{
 		assert(mSwitch !is null);
 		assert(mSwitch.defaultOffset == -1);
@@ -2015,7 +2117,7 @@ class FuncState
 
 		if(index != -1)
 		{
-			throw new MDCompileException(ident.location, "Local '{}' conflicts with previous definition at {}",
+			throw new OldCompileException(ident.location, "Local '{}' conflicts with previous definition at {}",
 				ident.name, mLocVars[index].location.toString());
 		}
 
@@ -2067,7 +2169,7 @@ class FuncState
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
-			throw new MDCompileException(mLocation, "Too many registers");
+			throw new OldCompileException(mLocation, "Too many registers");
 
 		if(mFreeReg > mStackSize)
 			mStackSize = mFreeReg;
@@ -2222,7 +2324,7 @@ class FuncState
 				s.mUpvals ~= ud;
 
 				if(mUpvals.length >= MaxUpvalues)
-					throw new MDCompileException(mLocation, "Too many upvalues in function");
+					throw new OldCompileException(mLocation, "Too many upvalues in function");
 
 				return s.mUpvals.length - 1;
 			}
@@ -3041,10 +3143,10 @@ class FuncState
 		return i;
 	}
 
-	public void codeContinue(Location location)
+	public void codeContinue(OldLocation location)
 	{
 		if(mScope.continueScope is null)
-			throw new MDCompileException(location, "No continuable control structure");
+			throw new OldCompileException(location, "No continuable control structure");
 
 		if(mScope.continueScope.hasUpval)
 			codeClose(location.line, mScope.continueScope.regStart);
@@ -3055,10 +3157,10 @@ class FuncState
 		mScope.continueScope.continues = i;
 	}
 
-	public void codeBreak(Location location)
+	public void codeBreak(OldLocation location)
 	{
 		if(mScope.breakScope is null)
-			throw new MDCompileException(location, "No breakable control structure");
+			throw new OldCompileException(location, "No breakable control structure");
 
 		if(mScope.breakScope.hasUpval)
 			codeClose(location.line, mScope.breakScope.regStart);
@@ -3079,7 +3181,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3094,7 +3196,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3109,7 +3211,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3124,7 +3226,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3139,7 +3241,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3156,7 +3258,7 @@ class FuncState
 		mConstants ~= v;
 
 		if(mConstants.length >= MaxConstants)
-			throw new MDCompileException(mLocation, "Too many constants in function");
+			throw new OldCompileException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -3273,9 +3375,9 @@ class FuncState
 			Stdout.formatln("{}[{,3}:{,4}] {}", repeat("\t", tab + 1), i, mLineInfo[i], inst.toString());
 	}
 
-	protected MDFuncDef toFuncDef()
+	protected OldFuncDef* toFuncDef()
 	{
-		MDFuncDef ret = new MDFuncDef();
+		auto ret = new OldFuncDef;
 
 		ret.mIsVararg = mIsVararg;
 		ret.mLocation = mLocation;
@@ -3331,9 +3433,9 @@ class FuncState
 class Identifier
 {
 	public dchar[] name;
-	public Location location;
+	public OldLocation location;
 
-	public this(Location location, dchar[] name)
+	public this(OldLocation location, dchar[] name)
 	{
 		this.name = name;
 		this.location = location;
@@ -3485,110 +3587,110 @@ const char[][] AstTagNames =
 	AstTag.ObjectDef:            "ObjectDef",
 	AstTag.FuncDef:              "FuncDef",
 	AstTag.NamespaceDef:         "NamespaceDef",
-    AstTag.Module:               "Module",
-    AstTag.ModuleDecl:           "ModuleDecl",
-    AstTag.AssertStmt:           "AssertStmt",
-    AstTag.ImportStmt:           "ImportStmt",
-    AstTag.BlockStmt:            "BlockStmt",
-    AstTag.ScopeStmt:            "ScopeStmt",
-    AstTag.ExpressionStmt:       "ExpressionStmt",
-    AstTag.FuncDecl:             "FuncDecl",
-    AstTag.ObjectDecl:           "ObjectDecl",
-    AstTag.NamespaceDecl:        "NamespaceDecl",
-    AstTag.VarDecl:              "VarDecl",
-    AstTag.IfStmt:               "IfStmt",
-    AstTag.WhileStmt:            "WhileStmt",
-    AstTag.DoWhileStmt:          "DoWhileStmt",
-    AstTag.ForStmt:              "ForStmt",
-    AstTag.ForNumStmt:           "ForNumStmt",
-    AstTag.ForeachStmt:          "ForeachStmt",
-    AstTag.SwitchStmt:           "SwitchStmt",
-    AstTag.CaseStmt:             "CaseStmt",
-    AstTag.DefaultStmt:          "DefaultStmt",
-    AstTag.ContinueStmt:         "ContinueStmt",
-    AstTag.BreakStmt:            "BreakStmt",
-    AstTag.ReturnStmt:           "ReturnStmt",
-    AstTag.TryStmt:              "TryStmt",
-    AstTag.ThrowStmt:            "ThrowStmt",
-    AstTag.Assign:               "Assign",
-    AstTag.AddAssign:            "AddAssign",
-    AstTag.SubAssign:            "SubAssign",
-    AstTag.CatAssign:            "CatAssign",
-    AstTag.MulAssign:            "MulAssign",
-    AstTag.DivAssign:            "DivAssign",
-    AstTag.ModAssign:            "ModAssign",
-    AstTag.OrAssign:             "OrAssign",
-    AstTag.XorAssign:            "XorAssign",
-    AstTag.AndAssign:            "AndAssign",
-    AstTag.ShlAssign:            "ShlAssign",
-    AstTag.ShrAssign:            "ShrAssign",
-    AstTag.UShrAssign:           "UShrAssign",
-    AstTag.CondAssign:           "CondAssign",
-    AstTag.CondExp:              "CondExp",
-    AstTag.IncExp:               "IncExp",
-    AstTag.DecExp:               "DecExp",
-    AstTag.OrOrExp:              "OrOrExp",
-    AstTag.AndAndExp:            "AndAndExp",
-    AstTag.OrExp:                "OrExp",
-    AstTag.XorExp:               "XorExp",
-    AstTag.AndExp:               "AndExp",
-    AstTag.EqualExp:             "EqualExp",
-    AstTag.NotEqualExp:          "NotEqualExp",
-    AstTag.IsExp:                "IsExp",
-    AstTag.NotIsExp:             "NotIsExp",
-    AstTag.LTExp:                "LTExp",
-    AstTag.LEExp:                "LEExp",
-    AstTag.GTExp:                "GTExp",
-    AstTag.GEExp:                "GEExp",
-    AstTag.Cmp3Exp:              "Cmp3Exp",
-    AstTag.AsExp:                "AsExp",
-    AstTag.InExp:                "InExp",
-    AstTag.NotInExp:             "NotInExp",
-    AstTag.ShlExp:               "ShlExp",
-    AstTag.ShrExp:               "ShrExp",
-    AstTag.UShrExp:              "UShrExp",
-    AstTag.AddExp:               "AddExp",
-    AstTag.SubExp:               "SubExp",
-    AstTag.CatExp:               "CatExp",
-    AstTag.MulExp:               "MulExp",
-    AstTag.DivExp:               "DivExp",
-    AstTag.ModExp:               "ModExp",
-    AstTag.NegExp:               "NegExp",
-    AstTag.NotExp:               "NotExp",
-    AstTag.ComExp:               "ComExp",
-    AstTag.LenExp:               "LenExp",
-    AstTag.VargLenExp:           "VargLenExp",
-    AstTag.CoroutineExp:         "CoroutineExp",
-    AstTag.DotExp:               "DotExp",
-    AstTag.DotSuperExp:          "DotSuperExp",
-    AstTag.IndexExp:             "IndexExp",
-    AstTag.VargIndexExp:         "VargIndexExp",
-    AstTag.SliceExp:             "SliceExp",
-    AstTag.VargSliceExp:         "VargSliceExp",
-    AstTag.CallExp:              "CallExp",
-    AstTag.MethodCallExp:        "MethodCallExp",
-    AstTag.IdentExp:             "IdentExp",
-    AstTag.ThisExp:              "ThisExp",
-    AstTag.NullExp:              "NullExp",
-    AstTag.BoolExp:              "BoolExp",
-    AstTag.VarargExp:            "VarargExp",
-    AstTag.IntExp:               "IntExp",
-    AstTag.FloatExp:             "FloatExp",
-    AstTag.CharExp:              "CharExp",
-    AstTag.StringExp:            "StringExp",
-    AstTag.FuncLiteralExp:       "FuncLiteralExp",
-    AstTag.ObjectLiteralExp:     "ObjectLiteralExp",
-    AstTag.ParenExp:             "ParenExp",
-    AstTag.TableCtorExp:         "TableCtorExp",
-    AstTag.ArrayCtorExp:         "ArrayCtorExp",
-    AstTag.NamespaceCtorExp:     "NamespaceCtorExp",
-    AstTag.YieldExp:             "YieldExp",
-    AstTag.SuperCallExp:         "SuperCallExp",
-    AstTag.ForeachComprehension: "ForeachComprehension",
-    AstTag.ForNumComprehension:  "ForNumComprehension",
-    AstTag.IfComprehension:      "IfComprehension",
-    AstTag.ArrayComprehension:   "ArrayComprehension",
-    AstTag.TableComprehension:   "TableComprehension"
+	AstTag.Module:               "Module",
+	AstTag.ModuleDecl:           "ModuleDecl",
+	AstTag.AssertStmt:           "AssertStmt",
+	AstTag.ImportStmt:           "ImportStmt",
+	AstTag.BlockStmt:            "BlockStmt",
+	AstTag.ScopeStmt:            "ScopeStmt",
+	AstTag.ExpressionStmt:       "ExpressionStmt",
+	AstTag.FuncDecl:             "FuncDecl",
+	AstTag.ObjectDecl:           "ObjectDecl",
+	AstTag.NamespaceDecl:        "NamespaceDecl",
+	AstTag.VarDecl:              "VarDecl",
+	AstTag.IfStmt:               "IfStmt",
+	AstTag.WhileStmt:            "WhileStmt",
+	AstTag.DoWhileStmt:          "DoWhileStmt",
+	AstTag.ForStmt:              "ForStmt",
+	AstTag.ForNumStmt:           "ForNumStmt",
+	AstTag.ForeachStmt:          "ForeachStmt",
+	AstTag.SwitchStmt:           "SwitchStmt",
+	AstTag.CaseStmt:             "CaseStmt",
+	AstTag.DefaultStmt:          "DefaultStmt",
+	AstTag.ContinueStmt:         "ContinueStmt",
+	AstTag.BreakStmt:            "BreakStmt",
+	AstTag.ReturnStmt:           "ReturnStmt",
+	AstTag.TryStmt:              "TryStmt",
+	AstTag.ThrowStmt:            "ThrowStmt",
+	AstTag.Assign:               "Assign",
+	AstTag.AddAssign:            "AddAssign",
+	AstTag.SubAssign:            "SubAssign",
+	AstTag.CatAssign:            "CatAssign",
+	AstTag.MulAssign:            "MulAssign",
+	AstTag.DivAssign:            "DivAssign",
+	AstTag.ModAssign:            "ModAssign",
+	AstTag.OrAssign:             "OrAssign",
+	AstTag.XorAssign:            "XorAssign",
+	AstTag.AndAssign:            "AndAssign",
+	AstTag.ShlAssign:            "ShlAssign",
+	AstTag.ShrAssign:            "ShrAssign",
+	AstTag.UShrAssign:           "UShrAssign",
+	AstTag.CondAssign:           "CondAssign",
+	AstTag.CondExp:              "CondExp",
+	AstTag.IncExp:               "IncExp",
+	AstTag.DecExp:               "DecExp",
+	AstTag.OrOrExp:              "OrOrExp",
+	AstTag.AndAndExp:            "AndAndExp",
+	AstTag.OrExp:                "OrExp",
+	AstTag.XorExp:               "XorExp",
+	AstTag.AndExp:               "AndExp",
+	AstTag.EqualExp:             "EqualExp",
+	AstTag.NotEqualExp:          "NotEqualExp",
+	AstTag.IsExp:                "IsExp",
+	AstTag.NotIsExp:             "NotIsExp",
+	AstTag.LTExp:                "LTExp",
+	AstTag.LEExp:                "LEExp",
+	AstTag.GTExp:                "GTExp",
+	AstTag.GEExp:                "GEExp",
+	AstTag.Cmp3Exp:              "Cmp3Exp",
+	AstTag.AsExp:                "AsExp",
+	AstTag.InExp:                "InExp",
+	AstTag.NotInExp:             "NotInExp",
+	AstTag.ShlExp:               "ShlExp",
+	AstTag.ShrExp:               "ShrExp",
+	AstTag.UShrExp:              "UShrExp",
+	AstTag.AddExp:               "AddExp",
+	AstTag.SubExp:               "SubExp",
+	AstTag.CatExp:               "CatExp",
+	AstTag.MulExp:               "MulExp",
+	AstTag.DivExp:               "DivExp",
+	AstTag.ModExp:               "ModExp",
+	AstTag.NegExp:               "NegExp",
+	AstTag.NotExp:               "NotExp",
+	AstTag.ComExp:               "ComExp",
+	AstTag.LenExp:               "LenExp",
+	AstTag.VargLenExp:           "VargLenExp",
+	AstTag.CoroutineExp:         "CoroutineExp",
+	AstTag.DotExp:               "DotExp",
+	AstTag.DotSuperExp:          "DotSuperExp",
+	AstTag.IndexExp:             "IndexExp",
+	AstTag.VargIndexExp:         "VargIndexExp",
+	AstTag.SliceExp:             "SliceExp",
+	AstTag.VargSliceExp:         "VargSliceExp",
+	AstTag.CallExp:              "CallExp",
+	AstTag.MethodCallExp:        "MethodCallExp",
+	AstTag.IdentExp:             "IdentExp",
+	AstTag.ThisExp:              "ThisExp",
+	AstTag.NullExp:              "NullExp",
+	AstTag.BoolExp:              "BoolExp",
+	AstTag.VarargExp:            "VarargExp",
+	AstTag.IntExp:               "IntExp",
+	AstTag.FloatExp:             "FloatExp",
+	AstTag.CharExp:              "CharExp",
+	AstTag.StringExp:            "StringExp",
+	AstTag.FuncLiteralExp:       "FuncLiteralExp",
+	AstTag.ObjectLiteralExp:     "ObjectLiteralExp",
+	AstTag.ParenExp:             "ParenExp",
+	AstTag.TableCtorExp:         "TableCtorExp",
+	AstTag.ArrayCtorExp:         "ArrayCtorExp",
+	AstTag.NamespaceCtorExp:     "NamespaceCtorExp",
+	AstTag.YieldExp:             "YieldExp",
+	AstTag.SuperCallExp:         "SuperCallExp",
+	AstTag.ForeachComprehension: "ForeachComprehension",
+	AstTag.ForNumComprehension:  "ForNumComprehension",
+	AstTag.IfComprehension:      "IfComprehension",
+	AstTag.ArrayComprehension:   "ArrayComprehension",
+	AstTag.TableComprehension:   "TableComprehension"
 ];
 
 const char[][] NiceAstTagNames =
@@ -3597,110 +3699,110 @@ const char[][] NiceAstTagNames =
 	AstTag.ObjectDef:            "object definition",
 	AstTag.FuncDef:              "function definition",
 	AstTag.NamespaceDef:         "namespace definition",
-    AstTag.Module:               "module",
-    AstTag.ModuleDecl:           "module declaration",
-    AstTag.AssertStmt:           "assert statement",
-    AstTag.ImportStmt:           "import statement",
-    AstTag.BlockStmt:            "block statement",
-    AstTag.ScopeStmt:            "scope statement",
-    AstTag.ExpressionStmt:       "expression statement",
-    AstTag.FuncDecl:             "function declaration",
-    AstTag.ObjectDecl:           "object declaration",
-    AstTag.NamespaceDecl:        "namespace declaration",
-    AstTag.VarDecl:              "variable declaration",
-    AstTag.IfStmt:               "'if' statement",
-    AstTag.WhileStmt:            "'while' statement",
-    AstTag.DoWhileStmt:          "'do-while' statement",
-    AstTag.ForStmt:              "'for' statement",
-    AstTag.ForNumStmt:           "numeric 'for' statement",
-    AstTag.ForeachStmt:          "'foreach' statement",
-    AstTag.SwitchStmt:           "'switch' statement",
-    AstTag.CaseStmt:             "'case' statement",
-    AstTag.DefaultStmt:          "'default' statement",
-    AstTag.ContinueStmt:         "'continue' statement",
-    AstTag.BreakStmt:            "'break' statement",
-    AstTag.ReturnStmt:           "'return' statement",
-    AstTag.TryStmt:              "'try-catch-finally' statement",
-    AstTag.ThrowStmt:            "'throw' statement",
-    AstTag.Assign:               "assignment",
-    AstTag.AddAssign:            "addition assignment",
-    AstTag.SubAssign:            "subtraction assignment",
-    AstTag.CatAssign:            "concatenation assignment",
-    AstTag.MulAssign:            "multiplication assignment",
-    AstTag.DivAssign:            "division assignment",
-    AstTag.ModAssign:            "modulo assignment",
-    AstTag.OrAssign:             "bitwise 'or' assignment",
-    AstTag.XorAssign:            "bitwise 'xor' assignment",
-    AstTag.AndAssign:            "bitwise 'and' assignment",
-    AstTag.ShlAssign:            "left-shift assignment",
-    AstTag.ShrAssign:            "right-shift assignment",
-    AstTag.UShrAssign:           "unsigned right-shift assignment",
-    AstTag.CondAssign:           "conditional assignment",
-    AstTag.CondExp:              "conditional expression",
-    AstTag.IncExp:               "increment expression",
-    AstTag.DecExp:               "decrement expression",
-    AstTag.OrOrExp:              "logical 'or' expression",
-    AstTag.AndAndExp:            "logical 'and' expression",
-    AstTag.OrExp:                "bitwise 'or' expression",
-    AstTag.XorExp:               "bitwise 'xor' expression",
-    AstTag.AndExp:               "bitwise 'and' expression",
-    AstTag.EqualExp:             "equality expression",
-    AstTag.NotEqualExp:          "inequality expression",
-    AstTag.IsExp:                "identity expression",
-    AstTag.NotIsExp:             "non-identity expression",
-    AstTag.LTExp:                "less-than expression",
-    AstTag.LEExp:                "less-or-equals expression",
-    AstTag.GTExp:                "greater-than expression",
-    AstTag.GEExp:                "greater-or-equals expression",
-    AstTag.Cmp3Exp:              "three-way comparison expression",
-    AstTag.AsExp:                "'as' expression",
-    AstTag.InExp:                "'in' expression",
-    AstTag.NotInExp:             "'!in' expression",
-    AstTag.ShlExp:               "left-shift expression",
-    AstTag.ShrExp:               "right-shift expression",
-    AstTag.UShrExp:              "unsigned right-shift expression",
-    AstTag.AddExp:               "addition expression",
-    AstTag.SubExp:               "subtraction expression",
-    AstTag.CatExp:               "concatenation expression",
-    AstTag.MulExp:               "multiplication expression",
-    AstTag.DivExp:               "division expression",
-    AstTag.ModExp:               "modulo expression",
-    AstTag.NegExp:               "negation expression",
-    AstTag.NotExp:               "logical 'not' expression",
-    AstTag.ComExp:               "bitwise complement expression",
-    AstTag.LenExp:               "length expression",
-    AstTag.VargLenExp:           "vararg length expression",
-    AstTag.CoroutineExp:         "coroutine expression",
-    AstTag.DotExp:               "dot expression",
-    AstTag.DotSuperExp:          "dot-super expression",
-    AstTag.IndexExp:             "index expression",
-    AstTag.VargIndexExp:         "vararg index expression",
-    AstTag.SliceExp:             "slice expression",
-    AstTag.VargSliceExp:         "vararg slice expression",
-    AstTag.CallExp:              "call expression",
-    AstTag.MethodCallExp:        "method call expression",
-    AstTag.IdentExp:             "identifier expression",
-    AstTag.ThisExp:              "'this' expression",
-    AstTag.NullExp:              "'null' expression",
-    AstTag.BoolExp:              "boolean constant expression",
-    AstTag.VarargExp:            "'vararg' expression",
-    AstTag.IntExp:               "integer constant expression",
-    AstTag.FloatExp:             "float constant expression",
-    AstTag.CharExp:              "character constant expression",
-    AstTag.StringExp:            "string constant expression",
-    AstTag.FuncLiteralExp:       "function literal expression",
-    AstTag.ObjectLiteralExp:     "object literal expression",
-    AstTag.ParenExp:             "parenthesized expression",
-    AstTag.TableCtorExp:         "table constructor expression",
-    AstTag.ArrayCtorExp:         "array constructor expression",
-    AstTag.NamespaceCtorExp:     "namespace constructor expression",
-    AstTag.YieldExp:             "yield expression",
-    AstTag.SuperCallExp:         "super call expression",
-    AstTag.ForeachComprehension: "'foreach' comprehension",
-    AstTag.ForNumComprehension:  "numeric 'for' comprehension",
-    AstTag.IfComprehension:      "'if' comprehension",
-    AstTag.ArrayComprehension:   "array comprehension",
-    AstTag.TableComprehension:   "table comprehension"
+	AstTag.Module:               "module",
+	AstTag.ModuleDecl:           "module declaration",
+	AstTag.AssertStmt:           "assert statement",
+	AstTag.ImportStmt:           "import statement",
+	AstTag.BlockStmt:            "block statement",
+	AstTag.ScopeStmt:            "scope statement",
+	AstTag.ExpressionStmt:       "expression statement",
+	AstTag.FuncDecl:             "function declaration",
+	AstTag.ObjectDecl:           "object declaration",
+	AstTag.NamespaceDecl:        "namespace declaration",
+	AstTag.VarDecl:              "variable declaration",
+	AstTag.IfStmt:               "'if' statement",
+	AstTag.WhileStmt:            "'while' statement",
+	AstTag.DoWhileStmt:          "'do-while' statement",
+	AstTag.ForStmt:              "'for' statement",
+	AstTag.ForNumStmt:           "numeric 'for' statement",
+	AstTag.ForeachStmt:          "'foreach' statement",
+	AstTag.SwitchStmt:           "'switch' statement",
+	AstTag.CaseStmt:             "'case' statement",
+	AstTag.DefaultStmt:          "'default' statement",
+	AstTag.ContinueStmt:         "'continue' statement",
+	AstTag.BreakStmt:            "'break' statement",
+	AstTag.ReturnStmt:           "'return' statement",
+	AstTag.TryStmt:              "'try-catch-finally' statement",
+	AstTag.ThrowStmt:            "'throw' statement",
+	AstTag.Assign:               "assignment",
+	AstTag.AddAssign:            "addition assignment",
+	AstTag.SubAssign:            "subtraction assignment",
+	AstTag.CatAssign:            "concatenation assignment",
+	AstTag.MulAssign:            "multiplication assignment",
+	AstTag.DivAssign:            "division assignment",
+	AstTag.ModAssign:            "modulo assignment",
+	AstTag.OrAssign:             "bitwise 'or' assignment",
+	AstTag.XorAssign:            "bitwise 'xor' assignment",
+	AstTag.AndAssign:            "bitwise 'and' assignment",
+	AstTag.ShlAssign:            "left-shift assignment",
+	AstTag.ShrAssign:            "right-shift assignment",
+	AstTag.UShrAssign:           "unsigned right-shift assignment",
+	AstTag.CondAssign:           "conditional assignment",
+	AstTag.CondExp:              "conditional expression",
+	AstTag.IncExp:               "increment expression",
+	AstTag.DecExp:               "decrement expression",
+	AstTag.OrOrExp:              "logical 'or' expression",
+	AstTag.AndAndExp:            "logical 'and' expression",
+	AstTag.OrExp:                "bitwise 'or' expression",
+	AstTag.XorExp:               "bitwise 'xor' expression",
+	AstTag.AndExp:               "bitwise 'and' expression",
+	AstTag.EqualExp:             "equality expression",
+	AstTag.NotEqualExp:          "inequality expression",
+	AstTag.IsExp:                "identity expression",
+	AstTag.NotIsExp:             "non-identity expression",
+	AstTag.LTExp:                "less-than expression",
+	AstTag.LEExp:                "less-or-equals expression",
+	AstTag.GTExp:                "greater-than expression",
+	AstTag.GEExp:                "greater-or-equals expression",
+	AstTag.Cmp3Exp:              "three-way comparison expression",
+	AstTag.AsExp:                "'as' expression",
+	AstTag.InExp:                "'in' expression",
+	AstTag.NotInExp:             "'!in' expression",
+	AstTag.ShlExp:               "left-shift expression",
+	AstTag.ShrExp:               "right-shift expression",
+	AstTag.UShrExp:              "unsigned right-shift expression",
+	AstTag.AddExp:               "addition expression",
+	AstTag.SubExp:               "subtraction expression",
+	AstTag.CatExp:               "concatenation expression",
+	AstTag.MulExp:               "multiplication expression",
+	AstTag.DivExp:               "division expression",
+	AstTag.ModExp:               "modulo expression",
+	AstTag.NegExp:               "negation expression",
+	AstTag.NotExp:               "logical 'not' expression",
+	AstTag.ComExp:               "bitwise complement expression",
+	AstTag.LenExp:               "length expression",
+	AstTag.VargLenExp:           "vararg length expression",
+	AstTag.CoroutineExp:         "coroutine expression",
+	AstTag.DotExp:               "dot expression",
+	AstTag.DotSuperExp:          "dot-super expression",
+	AstTag.IndexExp:             "index expression",
+	AstTag.VargIndexExp:         "vararg index expression",
+	AstTag.SliceExp:             "slice expression",
+	AstTag.VargSliceExp:         "vararg slice expression",
+	AstTag.CallExp:              "call expression",
+	AstTag.MethodCallExp:        "method call expression",
+	AstTag.IdentExp:             "identifier expression",
+	AstTag.ThisExp:              "'this' expression",
+	AstTag.NullExp:              "'null' expression",
+	AstTag.BoolExp:              "boolean constant expression",
+	AstTag.VarargExp:            "'vararg' expression",
+	AstTag.IntExp:               "integer constant expression",
+	AstTag.FloatExp:             "float constant expression",
+	AstTag.CharExp:              "character constant expression",
+	AstTag.StringExp:            "string constant expression",
+	AstTag.FuncLiteralExp:       "function literal expression",
+	AstTag.ObjectLiteralExp:     "object literal expression",
+	AstTag.ParenExp:             "parenthesized expression",
+	AstTag.TableCtorExp:         "table constructor expression",
+	AstTag.ArrayCtorExp:         "array constructor expression",
+	AstTag.NamespaceCtorExp:     "namespace constructor expression",
+	AstTag.YieldExp:             "yield expression",
+	AstTag.SuperCallExp:         "super call expression",
+	AstTag.ForeachComprehension: "'foreach' comprehension",
+	AstTag.ForNumComprehension:  "numeric 'for' comprehension",
+	AstTag.IfComprehension:      "'if' comprehension",
+	AstTag.ArrayComprehension:   "array comprehension",
+	AstTag.TableComprehension:   "table comprehension"
 ];
 
 private Op AstTagToOpcode(AstTag tag)
@@ -3762,12 +3864,12 @@ abstract class AstNode
 	/**
 	The location of the beginning of this node.
 	*/
-	public Location location;
+	public OldLocation location;
 
 	/**
 	The location of the end of this node.
 	*/
-	public Location endLocation;
+	public OldLocation endLocation;
 	
 	/**
 	The tag indicating what kind of node this actually is.  You can switch on this
@@ -3784,7 +3886,7 @@ abstract class AstNode
 		endLocation = The location of the end of this node.
 		type = The type of this node.
 	*/
-	public this(Location location, Location endLocation, AstTag type)
+	public this(OldLocation location, OldLocation endLocation, AstTag type)
 	{
 		this.location = location;
 		this.endLocation = endLocation;
@@ -3859,7 +3961,7 @@ class ObjectDef : AstNode
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
+	public this(OldLocation location, OldLocation endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.ObjectDef);
 		this.name = name;
@@ -3909,7 +4011,7 @@ class ObjectDef : AstNode
 		void addField(Identifier name, Expression v)
 		{
 			if(name.name in fieldMap)
-				throw new MDCompileException(name.location, "Redeclaration of field '{}'", name.name);
+				throw new OldCompileException(name.location, "Redeclaration of field '{}'", name.name);
 
 			fieldMap[name.name] = true;
 			fields ~= Field(name.name, v);
@@ -3952,7 +4054,7 @@ class ObjectDef : AstNode
 					break;
 
 				case Token.Type.EOF:
-					auto e = new MDCompileException(l.loc, "Object at {} is missing its closing brace", location.toString());
+					auto e = new OldCompileException(l.loc, "Object at {} is missing its closing brace", location.toString());
 					e.atEOF = true;
 					throw e;
 
@@ -4031,8 +4133,10 @@ enum TypeMask
 	Object =    (1 << cast(uint)MDValue.Type.Object),
 	Namespace = (1 << cast(uint)MDValue.Type.Namespace),
 	Thread =    (1 << cast(uint)MDValue.Type.Thread),
+	Nativeobj = (1 << cast(uint)MDValue.Type.Nativeobj),
 
-	Any = Null | Bool | Int | Float | Char | String | Table | Array | Function | Object | Namespace | Thread
+	NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Object | Namespace | Thread | Nativeobj,
+	Any = Null | NotNull
 }
 
 /**
@@ -4103,7 +4207,7 @@ class FuncDef : AstNode
 
 	/**
 	*/
-	public this(Location location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
+	public this(OldLocation location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
 	{
 		super(location, code.endLocation, AstTag.FuncDef);
 		this.params = params;
@@ -4125,7 +4229,7 @@ class FuncDef : AstNode
 	Returns:
 		The completed function definition.
 	*/
-	public static FuncDef parseBody(Lexer l, Location location, Identifier name, TableCtorExp attrs = null)
+	public static FuncDef parseBody(Lexer l, OldLocation location, Identifier name, TableCtorExp attrs = null)
 	{
 		bool isVararg;
 		Param[] params = parseParams(l, isVararg);
@@ -4304,7 +4408,7 @@ class FuncDef : AstNode
 		void addConstraint(MDValue.Type t)
 		{
 			if((ret & (1 << cast(uint)t)) && t != MDValue.Type.Object)
-				throw new MDCompileException(l.loc, "Duplicate parameter type constraint for type '{}'", MDValue.typeString(t));
+				throw new OldCompileException(l.loc, "Duplicate parameter type constraint for type '{}'", MDValue.typeString(t));
 
 			ret |= 1 << cast(uint)t;
 		}
@@ -4375,14 +4479,15 @@ class FuncDef : AstNode
 					{
 						switch(t.stringValue)
 						{
-							case "bool":   addConstraint(MDValue.Type.Bool); break;
-							case "int":    addConstraint(MDValue.Type.Int); break;
-							case "float":  addConstraint(MDValue.Type.Float); break;
-							case "char":   addConstraint(MDValue.Type.Char); break;
-							case "string": addConstraint(MDValue.Type.String); break;
-							case "table":  addConstraint(MDValue.Type.Table); break;
-							case "array":  addConstraint(MDValue.Type.Array); break;
-							case "thread": addConstraint(MDValue.Type.Thread); break;
+							case "bool":      addConstraint(MDValue.Type.Bool); break;
+							case "int":       addConstraint(MDValue.Type.Int); break;
+							case "float":     addConstraint(MDValue.Type.Float); break;
+							case "char":      addConstraint(MDValue.Type.Char); break;
+							case "string":    addConstraint(MDValue.Type.String); break;
+							case "table":     addConstraint(MDValue.Type.Table); break;
+							case "array":     addConstraint(MDValue.Type.Array); break;
+							case "thread":    addConstraint(MDValue.Type.Thread); break;
+							case "nativeobj": addConstraint(MDValue.Type.Nativeobj); break;
 
 							default:
 								addConstraint(MDValue.Type.Object);
@@ -4398,7 +4503,7 @@ class FuncDef : AstNode
 		{
 			l.next();
 			l.expect(Token.Type.Null);
-			ret = TypeMask.Any ^ TypeMask.Null;
+			ret = TypeMask.NotNull;
 		}
 		else if(l.type == Token.Type.Ident && l.tok.stringValue == "any")
 		{
@@ -4507,10 +4612,10 @@ class FuncDef : AstNode
 					if(!(p.typeMask & (1 << type)))
 					{
 						if(i == 0)
-							throw new MDCompileException(p.defValue.location,
+							throw new OldCompileException(p.defValue.location,
 								"'this' parameter: Default parameter of type '{}' is not allowed", MDValue.typeString(type));
 						else
-							throw new MDCompileException(p.defValue.location,
+							throw new OldCompileException(p.defValue.location,
 								"Parameter {}: Default parameter of type '{}' is not allowed", i - 1, MDValue.typeString(type));
 					}
 				}
@@ -4572,7 +4677,7 @@ class NamespaceDef : AstNode
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
+	public this(OldLocation location, OldLocation endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.NamespaceDef);
 		this.name = name;
@@ -4614,7 +4719,7 @@ class NamespaceDef : AstNode
 		void addField(dchar[] name, Expression v)
 		{
 			if(name in fields)
-				throw new MDCompileException(v.location, "Redeclaration of member '{}'", name);
+				throw new OldCompileException(v.location, "Redeclaration of member '{}'", name);
 
 			fields[name] = v;
 		}
@@ -4646,7 +4751,7 @@ class NamespaceDef : AstNode
 					break;
 
 				case Token.Type.EOF:
-					auto e = new MDCompileException(l.loc, "Namespace at {} is missing its closing brace", location.toString());
+					auto e = new OldCompileException(l.loc, "Namespace at {} is missing its closing brace", location.toString());
 					e.atEOF = true;
 					throw e;
 
@@ -4870,7 +4975,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(Location location, Location endLocation, ModuleDeclaration modDecl, Statement[] statements)
+	public this(OldLocation location, OldLocation endLocation, ModuleDeclaration modDecl, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.Module);
 		this.modDecl = modDecl;
@@ -4895,15 +5000,12 @@ class Module : AstNode
 		return new Module(location, l.loc, modDecl, statements.toArray());
 	}
 	
-	public MDModuleDef codeGen(Compiler* compiler)
+	public OldFuncDef* codeGen(Compiler* compiler)
 	{
-		MDModuleDef def = new MDModuleDef();
+		auto def = new OldFuncDef;
 
 		def.mName = join(modDecl.names, "."d);
-
-		FuncState fs = new FuncState(location, "module " ~ modDecl.names[$ - 1], null, compiler);
-		// trying out the main() thing.
-		//fs.mIsVararg = true;
+		auto fs = new FuncState(location, "module " ~ modDecl.names[$ - 1], null, compiler);
 
 		try
 		{
@@ -4963,7 +5065,7 @@ class ModuleDeclaration : AstNode
 
 	/**
 	*/
-	public this(Location location, Location endLocation, dchar[][] names, TableCtorExp attrs)
+	public this(OldLocation location, OldLocation endLocation, dchar[][] names, TableCtorExp attrs)
 	{
 		super(location, endLocation, AstTag.ModuleDecl);
 		this.names = names;
@@ -5027,7 +5129,7 @@ The base class for all statements.
 */
 abstract class Statement : AstNode
 {
-	public this(Location location, Location endLocation, AstTag type)
+	public this(OldLocation location, OldLocation endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -5098,7 +5200,7 @@ abstract class Statement : AstNode
 			case Token.Type.While:    return WhileStatement.parse(l);
 
 			case Token.Type.Semicolon:
-				throw new MDCompileException(l.loc, "Empty statements ( ';' ) are not allowed (use {{} for an empty statement)");
+				throw new OldCompileException(l.loc, "Empty statements ( ';' ) are not allowed (use {{} for an empty statement)");
 
 			default:
 				l.tok.expected("Statement");
@@ -5129,7 +5231,7 @@ class AssertStatement : Statement
 	
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression cond, Expression msg = null)
+	public this(OldLocation location, OldLocation endLocation, Expression cond, Expression msg = null)
 	{
 		super(location, endLocation, AstTag.AssertStmt);
 		this.cond = cond;
@@ -5216,7 +5318,7 @@ class ImportStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
+	public this(OldLocation location, OldLocation endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
 		super(location, endLocation, AstTag.ImportStmt);
 		this.importName = importName;
@@ -5305,14 +5407,14 @@ class ImportStatement : Statement
 		foreach(i, sym; symbols)
 		{
 			if(importName !is null && sym.name == importName.name)
-				throw new MDCompileException(sym.location, "Variable '{}' conflicts with previous definition at {}",
+				throw new OldCompileException(sym.location, "Variable '{}' conflicts with previous definition at {}",
 					sym.name, importName.location.toString());
 
 			foreach(sym2; symbols[0 .. i])
 			{
 				if(sym.name == sym2.name)
 				{
-					throw new MDCompileException(sym.location, "Variable '{}' conflicts with previous definition at {}",
+					throw new OldCompileException(sym.location, "Variable '{}' conflicts with previous definition at {}",
 						sym.name, sym2.location.toString());
 				}
 			}
@@ -5377,7 +5479,7 @@ class ImportStatement : Statement
 		expr = expr.fold();
 		
 		if(expr.isConstant() && !expr.isString())
-			throw new MDCompileException(expr.location, "Import expression must evaluate to a string");
+			throw new OldCompileException(expr.location, "Import expression must evaluate to a string");
 
 		return this;
 	}
@@ -5438,7 +5540,7 @@ class ExpressionStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression expr)
+	public this(OldLocation location, OldLocation endLocation, Expression expr)
 	{
 		super(location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
@@ -5509,7 +5611,7 @@ abstract class DeclStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Protection protection)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Protection protection)
 	{
 		super(location, endLocation, type);
 		this.protection = protection;
@@ -5532,7 +5634,7 @@ abstract class DeclStatement : Statement
 				{
 					case Token.Type.Ident:
 						if(attrs !is null)
-							throw new MDCompileException(l.loc, "Cannot attach attributes to variables");
+							throw new OldCompileException(l.loc, "Cannot attach attributes to variables");
 
 						VarDecl ret = VarDecl.parse(l);
 						l.statementTerm();
@@ -5548,7 +5650,7 @@ abstract class DeclStatement : Statement
 						return NamespaceDecl.parse(l, attrs);
 
 					default:
-						throw new MDCompileException(l.loc, "Illegal token '{}' after '{}'", l.peek.toString(), l.tok.toString());
+						throw new OldCompileException(l.loc, "Illegal token '{}' after '{}'", l.peek.toString(), l.tok.toString());
 				}
 
 			case Token.Type.Function:
@@ -5585,7 +5687,7 @@ class ObjectDecl : DeclStatement
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(Location location, Protection protection, ObjectDef def)
+	public this(OldLocation location, Protection protection, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectDecl, protection);
 		this.def = def;
@@ -5666,7 +5768,7 @@ class VarDecl : DeclStatement
 	/**
 	The protection parameter must be either Protection.Local or Protection.Global.
 	*/
-	public this(Location location, Location endLocation, Protection protection, Identifier[] names, Expression initializer)
+	public this(OldLocation location, OldLocation endLocation, Protection protection, Identifier[] names, Expression initializer)
 	{
 		super(location, endLocation, AstTag.VarDecl, protection);
 		this.names = names;
@@ -5721,7 +5823,7 @@ class VarDecl : DeclStatement
 			{
 				if(n.name == n2.name)
 				{
-					throw new MDCompileException(n.location, "Variable '{}' conflicts with previous definition at {}",
+					throw new OldCompileException(n.location, "Variable '{}' conflicts with previous definition at {}",
 						n.name, n2.location.toString());
 				}
 			}
@@ -5824,7 +5926,7 @@ class FuncDecl : DeclStatement
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(Location location, Protection protection, FuncDef def)
+	public this(OldLocation location, Protection protection, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncDecl, protection);
 
@@ -5898,7 +6000,7 @@ class NamespaceDecl : DeclStatement
 	/**
 	The protection parameter can be any level of protection.
 	*/
-	public this(Location location, Protection protection, NamespaceDef def)
+	public this(OldLocation location, Protection protection, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceDecl, protection);
 
@@ -5971,7 +6073,7 @@ class CompoundStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Statement[] statements)
+	public this(OldLocation location, OldLocation endLocation, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
@@ -6037,7 +6139,7 @@ class IfStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
+	public this(OldLocation location, OldLocation endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(location, endLocation, AstTag.IfStmt);
 
@@ -6178,7 +6280,7 @@ class WhileStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Identifier condVar, Expression condition, Statement code)
+	public this(OldLocation location, Identifier condVar, Expression condition, Statement code)
 	{
 		super(location, code.endLocation, AstTag.WhileStmt);
 
@@ -6313,7 +6415,7 @@ class DoWhileStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Statement code, Expression condition)
+	public this(OldLocation location, OldLocation endLocation, Statement code, Expression condition)
 	{
 		super(location, endLocation, AstTag.DoWhileStmt);
 
@@ -6444,7 +6546,7 @@ class ForStatement : Statement
 
 	/**
 	*/
-	public this(Location location, ForInitializer[] init, Expression cond, Expression[] inc, Statement code)
+	public this(OldLocation location, ForInitializer[] init, Expression cond, Expression[] inc, Statement code)
 	{
 		super(location, endLocation, AstTag.ForStmt);
 
@@ -6684,7 +6786,7 @@ class NumericForStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	public this(OldLocation location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForNumStmt);
 
@@ -6756,18 +6858,18 @@ class NumericForStatement : Statement
 		step = step.fold();
 
 		if(lo.isConstant && !lo.isInt)
-			throw new MDCompileException(lo.location, "Low value of a numeric for loop must be an integer");
+			throw new OldCompileException(lo.location, "Low value of a numeric for loop must be an integer");
 
 		if(hi.isConstant && !hi.isInt)
-			throw new MDCompileException(hi.location, "High value of a numeric for loop must be an integer");
+			throw new OldCompileException(hi.location, "High value of a numeric for loop must be an integer");
 
 		if(step.isConstant)
 		{
 			if(!step.isInt)
-				throw new MDCompileException(step.location, "Step value of a numeric for loop must be an integer");
+				throw new OldCompileException(step.location, "Step value of a numeric for loop must be an integer");
 
 			if(step.asInt() == 0)
-				throw new MDCompileException(step.location, "Step value of a numeric for loop may not be 0");
+				throw new OldCompileException(step.location, "Step value of a numeric for loop may not be 0");
 		}
 
 		code = code.fold();
@@ -6802,7 +6904,7 @@ class ForeachStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Identifier[] indices, Expression[] container, Statement code)
+	public this(OldLocation location, Identifier[] indices, Expression[] container, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForeachStmt);
 
@@ -6811,7 +6913,7 @@ class ForeachStatement : Statement
 		this.code = code;
 	}
 
-	private static Identifier dummyIndex(Location l)
+	private static Identifier dummyIndex(OldLocation l)
 	{
 		static uint counter = 0;
 		return new Identifier(l, "__dummy"d ~ Integer.toString32(counter++));
@@ -6849,7 +6951,7 @@ class ForeachStatement : Statement
 		}
 
 		if(container.length > 3)
-			throw new MDCompileException(location, "'foreach' may have a maximum of three container expressions");
+			throw new OldCompileException(location, "'foreach' may have a maximum of three container expressions");
 
 		l.expect(Token.Type.RParen);
 
@@ -6992,7 +7094,7 @@ class SwitchStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression condition, CaseStatement[] cases, DefaultStatement caseDefault)
+	public this(OldLocation location, OldLocation endLocation, Expression condition, CaseStatement[] cases, DefaultStatement caseDefault)
 	{
 		super(location, endLocation, AstTag.SwitchStmt);
 		this.condition = condition;
@@ -7122,7 +7224,7 @@ class CaseStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[] conditions, Statement code)
+	public this(OldLocation location, OldLocation endLocation, Expression[] conditions, Statement code)
 	{
 		super(location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
@@ -7206,7 +7308,7 @@ class DefaultStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Statement code)
+	public this(OldLocation location, OldLocation endLocation, Statement code)
 	{
 		super(location, endLocation, AstTag.DefaultStmt);
 		this.code = code;
@@ -7252,7 +7354,7 @@ class ContinueStatement : Statement
 {
 	/**
 	*/
-	public this(Location location)
+	public this(OldLocation location)
 	{
 		super(location, location, AstTag.ContinueStmt);
 	}
@@ -7284,7 +7386,7 @@ class BreakStatement : Statement
 {
 	/**
 	*/
-	public this(Location location)
+	public this(OldLocation location)
 	{
 		super(location, location, AstTag.BreakStmt);
 	}
@@ -7321,7 +7423,7 @@ class ReturnStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[] exprs)
+	public this(OldLocation location, OldLocation endLocation, Expression[] exprs)
 	{
 		super(location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
@@ -7354,7 +7456,7 @@ class ReturnStatement : Statement
 			// Not really possible for something to be on the next line since we check for a
 			// statement terminator..?
 			//if(l.loc.line != location.line)
-			//	throw new MDCompileException(l.loc, "No-value returns must be followed by semicolons");
+			//	throw new OldCompileException(l.loc, "No-value returns must be followed by semicolons");
 
 			List!(Expression) exprs;
 			exprs.add(Expression.parse(l));
@@ -7440,7 +7542,7 @@ class TryCatchStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
+	public this(OldLocation location, OldLocation endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
 	{
 		super(location, endLocation, AstTag.TryStmt);
 
@@ -7460,7 +7562,7 @@ class TryCatchStatement : Statement
 		Identifier catchVar;
 		Statement catchBody;
 
-		Location endLocation;
+		OldLocation endLocation;
 
 		if(l.type == Token.Type.Catch)
 		{
@@ -7486,7 +7588,7 @@ class TryCatchStatement : Statement
 
 		if(catchBody is null && finallyBody is null)
 		{
-			auto e = new MDCompileException(location, "Try statement must be followed by a catch, finally, or both");
+			auto e = new OldCompileException(location, "Try statement must be followed by a catch, finally, or both");
 			e.atEOF = true;
 			throw e;
 		}
@@ -7599,7 +7701,7 @@ class ThrowStatement : Statement
 
 	/**
 	*/
-	public this(Location location, Expression exp)
+	public this(OldLocation location, Expression exp)
 	{
 		super(location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
@@ -7641,7 +7743,7 @@ abstract class Expression : AstNode
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type)
+	public this(OldLocation location, OldLocation endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -7774,7 +7876,7 @@ abstract class Expression : AstNode
 
 	public InstRef* codeCondition(FuncState s)
 	{
-		throw new MDCompileException(location, "{} cannot be used as a condition", niceString());
+		throw new OldCompileException(location, "{} cannot be used as a condition", niceString());
 	}
 
 	/**
@@ -7785,7 +7887,7 @@ abstract class Expression : AstNode
 	{
 		if(!hasSideEffects())
 		{
-			auto e = new MDCompileException(location, "{} cannot exist on its own", niceString());
+			auto e = new OldCompileException(location, "{} cannot exist on its own", niceString());
 			e.solitaryExpression = true;
 			throw e;
 		}
@@ -7807,7 +7909,7 @@ abstract class Expression : AstNode
 	public void checkMultRet()
 	{
 		if(isMultRet() == false)
-			throw new MDCompileException(location, "{} cannot be the source of a multi-target assignment", niceString());
+			throw new OldCompileException(location, "{} cannot be the source of a multi-target assignment", niceString());
 	}
 
 	/**
@@ -7826,7 +7928,7 @@ abstract class Expression : AstNode
 	public void checkLHS()
 	{
 		if(!isLHS())
-			throw new MDCompileException(location, "{} cannot be the target of an assignment", niceString());
+			throw new OldCompileException(location, "{} cannot be the target of an assignment", niceString());
 	}
 
 	/**
@@ -7975,7 +8077,7 @@ class Assignment : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[] lhs, Expression rhs)
+	public this(OldLocation location, OldLocation endLocation, Expression[] lhs, Expression rhs)
 	{
 		super(location, endLocation, AstTag.Assign);
 		this.lhs = lhs;
@@ -8080,7 +8182,7 @@ class OpEqExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression lhs, Expression rhs)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
 		super(location, endLocation, type);
 		this.lhs = lhs;
@@ -8198,7 +8300,7 @@ class CatEqExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression lhs, Expression rhs)
+	public this(OldLocation location, OldLocation endLocation, Expression lhs, Expression rhs)
 	{
 		super(location, endLocation, AstTag.CatAssign);
 		this.lhs = lhs;
@@ -8261,7 +8363,7 @@ class IncExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression exp)
+	public this(OldLocation location, OldLocation endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.IncExp);
 		this.exp = exp;
@@ -8306,7 +8408,7 @@ class DecExp : Expression
 	
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression exp)
+	public this(OldLocation location, OldLocation endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.DecExp);
 		this.exp = exp;
@@ -8361,7 +8463,7 @@ class CondExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression cond, Expression op1, Expression op2)
+	public this(OldLocation location, OldLocation endLocation, Expression cond, Expression op1, Expression op2)
 	{
 		super(location, endLocation, AstTag.CondExp);
 		this.cond = cond;
@@ -8498,7 +8600,7 @@ abstract class BinaryExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression op1, Expression op2)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type);
 		this.op1 = op1;
@@ -8539,7 +8641,7 @@ class OrOrExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrOrExp, left, right);
 	}
@@ -8635,7 +8737,7 @@ class AndAndExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndAndExp, left, right);
 	}
@@ -8732,7 +8834,7 @@ class OrExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrExp, left, right);
 	}
@@ -8769,7 +8871,7 @@ class OrExp : BinaryExp
 		if(op1.isConstant && op2.isConstant)
 		{
 			if(!op1.isInt || !op2.isInt)
-				throw new MDCompileException(location, "Bitwise Or must be performed on integers");
+				throw new OldCompileException(location, "Bitwise Or must be performed on integers");
 
 			return new IntExp(location, op1.asInt() | op2.asInt());
 		}
@@ -8785,7 +8887,7 @@ class XorExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.XorExp, left, right);
 	}
@@ -8822,7 +8924,7 @@ class XorExp : BinaryExp
 		if(op1.isConstant && op2.isConstant)
 		{
 			if(!op1.isInt || !op2.isInt)
-				throw new MDCompileException(location, "Bitwise Xor must be performed on integers");
+				throw new OldCompileException(location, "Bitwise Xor must be performed on integers");
 
 			return new IntExp(location, op1.asInt() ^ op2.asInt());
 		}
@@ -8838,7 +8940,7 @@ class AndExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndExp, left, right);
 	}
@@ -8847,7 +8949,7 @@ class AndExp : BinaryExp
 	*/
 	public static Expression parse(Lexer l)
 	{
-		Location location = l.loc;
+		OldLocation location = l.loc;
 
 		Expression exp1;
 		Expression exp2;
@@ -8875,7 +8977,7 @@ class AndExp : BinaryExp
 		if(op1.isConstant && op2.isConstant)
 		{
 			if(!op1.isInt || !op2.isInt)
-				throw new MDCompileException(location, "Bitwise And must be performed on integers");
+				throw new OldCompileException(location, "Bitwise And must be performed on integers");
 
 			return new IntExp(location, op1.asInt() & op2.asInt());
 		}
@@ -8891,7 +8993,7 @@ class EqualExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9019,7 +9121,7 @@ class EqualExp : BinaryExp
 			if(type == AstTag.IsExp || type == AstTag.NotIsExp)
 				return new BoolExp(location, !isTrue);
 			else
-				throw new MDCompileException(location, "Cannot compare different types");
+				throw new OldCompileException(location, "Cannot compare different types");
 		}
 
 		return this;
@@ -9033,7 +9135,7 @@ class CmpExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression op1, Expression op2)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type, op1, op2);
 	}
@@ -9185,7 +9287,7 @@ class CmpExp : BinaryExp
 			else if(op1.isString && op2.isString)
 				cmpVal = dcmp(op1.asString(), op2.asString());
 			else
-				throw new MDCompileException(location, "Invalid compile-time comparison");
+				throw new OldCompileException(location, "Invalid compile-time comparison");
 
 			switch(type)
 			{
@@ -9208,10 +9310,10 @@ class AsExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		if(left.isConstant() || right.isConstant())
-			throw new MDCompileException(location, "Neither argument of an 'as' expression may be a constant");
+			throw new OldCompileException(location, "Neither argument of an 'as' expression may be a constant");
 
 		super(location, endLocation, AstTag.AsExp, left, right);
 	}
@@ -9224,7 +9326,7 @@ class InExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.InExp, left, right);
 	}
@@ -9237,7 +9339,7 @@ class NotInExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.NotInExp, left, right);
 	}
@@ -9250,7 +9352,7 @@ class Cmp3Exp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.Cmp3Exp, left, right);
 	}
@@ -9275,7 +9377,7 @@ class Cmp3Exp : BinaryExp
 			else if(op1.isString && op2.isString)
 				cmpVal = dcmp(op1.asString(), op2.asString());
 			else
-				throw new MDCompileException(location, "Invalid compile-time comparison");
+				throw new OldCompileException(location, "Invalid compile-time comparison");
 
 			return new IntExp(location, cmpVal);
 		}
@@ -9291,7 +9393,7 @@ class ShiftExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9347,7 +9449,7 @@ class ShiftExp : BinaryExp
 		if(op1.isConstant && op2.isConstant)
 		{
 			if(!op1.isInt || !op2.isInt)
-				throw new MDCompileException(location, "Bitshifting must be performed on integers");
+				throw new OldCompileException(location, "Bitshifting must be performed on integers");
 
 			switch(type)
 			{
@@ -9369,7 +9471,7 @@ class AddExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9448,7 +9550,7 @@ class AddExp : BinaryExp
 				}
 			}
 
-			throw new MDCompileException(location, "Addition and Subtraction must be performed on numbers");
+			throw new OldCompileException(location, "Addition and Subtraction must be performed on numbers");
 		}
 
 		return this;
@@ -9465,7 +9567,7 @@ class CatExp : BinaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.CatExp, left, right);
 	}
@@ -9552,7 +9654,7 @@ class MulExp : BinaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression left, Expression right)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9616,13 +9718,13 @@ class MulExp : BinaryExp
 
 					case AstTag.DivExp:
 						if(op2.asInt == 0)
-							throw new MDCompileException(location, "Division by 0");
+							throw new OldCompileException(location, "Division by 0");
 
 						return new IntExp(location, op1.asInt() / op2.asInt());
 
 					case AstTag.ModExp:
 						if(op2.asInt == 0)
-							throw new MDCompileException(location, "Modulo by 0");
+							throw new OldCompileException(location, "Modulo by 0");
 
 						return new IntExp(location, op1.asInt() % op2.asInt());
 
@@ -9639,13 +9741,13 @@ class MulExp : BinaryExp
 
 					case AstTag.DivExp:
 						if(op2.asFloat() == 0.0)
-							throw new MDCompileException(location, "Division by 0");
+							throw new OldCompileException(location, "Division by 0");
 
 						return new FloatExp(location, op1.asFloat() / op2.asFloat());
 
 					case AstTag.ModExp:
 						if(op2.asFloat() == 0.0)
-							throw new MDCompileException(location, "Modulo by 0");
+							throw new OldCompileException(location, "Modulo by 0");
 
 						return new FloatExp(location, op1.asFloat() % op2.asFloat());
 
@@ -9653,7 +9755,7 @@ class MulExp : BinaryExp
 				}
 			}
 				
-			throw new MDCompileException(location, "Multiplication, Division, and Modulo must be performed on numbers");
+			throw new OldCompileException(location, "Multiplication, Division, and Modulo must be performed on numbers");
 		}
 
 		return this;
@@ -9673,7 +9775,7 @@ abstract class UnaryExp : Expression
 
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression operand)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type);
 		op = operand;
@@ -9753,7 +9855,7 @@ class NegExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Expression operand)
+	public this(OldLocation location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.NegExp, operand);
 	}
@@ -9782,7 +9884,7 @@ class NegExp : UnaryExp
 				return op;
 			}
 
-			throw new MDCompileException(location, "Negation must be performed on numbers");
+			throw new OldCompileException(location, "Negation must be performed on numbers");
 		}
 
 		return this;
@@ -9796,7 +9898,7 @@ class NotExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Expression operand)
+	public this(OldLocation location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.NotExp, operand);
 	}
@@ -9851,7 +9953,7 @@ class ComExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Expression operand)
+	public this(OldLocation location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.ComExp, operand);
 	}
@@ -9874,7 +9976,7 @@ class ComExp : UnaryExp
 				return op;
 			}
 
-			throw new MDCompileException(location, "Bitwise complement must be performed on integers");
+			throw new OldCompileException(location, "Bitwise complement must be performed on integers");
 		}
 
 		return this;
@@ -9888,7 +9990,7 @@ class LengthExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Expression operand)
+	public this(OldLocation location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.LenExp, operand);
 	}
@@ -9908,7 +10010,7 @@ class LengthExp : UnaryExp
 			if(op.isString)
 				return new IntExp(location, op.asString().length);
 
-			throw new MDCompileException(location, "Length must be performed on a string at compile time");
+			throw new OldCompileException(location, "Length must be performed on a string at compile time");
 		}
 
 		return this;
@@ -9927,7 +10029,7 @@ class VargLengthExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation)
+	public this(OldLocation location, OldLocation endLocation)
 	{
 		super(location, endLocation, AstTag.VargLenExp, null);
 	}
@@ -9935,7 +10037,7 @@ class VargLengthExp : UnaryExp
 	public override void codeGen(FuncState s)
 	{
 		if(!s.mIsVararg)
-			throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
+			throw new OldCompileException(location, "'vararg' cannot be used in a non-variadic function");
 
 		s.pushVargLen(endLocation.line);
 	}
@@ -9953,7 +10055,7 @@ class CoroutineExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Expression operand)
+	public this(OldLocation location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.CoroutineExp, operand);
 	}
@@ -9980,7 +10082,7 @@ abstract class PostfixExp : UnaryExp
 {
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type, Expression operand)
+	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type, operand);
 	}
@@ -10043,7 +10145,7 @@ abstract class PostfixExp : UnaryExp
 
 				case Token.Type.LParen:
 					if(exp.endLocation.line != l.loc.line)
-						throw new MDCompileException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
+						throw new OldCompileException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
 
 					l.next();
 
@@ -10078,7 +10180,7 @@ abstract class PostfixExp : UnaryExp
 					Expression loIndex;
 					Expression hiIndex;
 
-					Location endLocation;
+					OldLocation endLocation;
 
 					if(l.type == Token.Type.RBracket)
 					{
@@ -10198,7 +10300,7 @@ class DotExp : PostfixExp
 	public static Expression parseMemberExp(Lexer l)
 	{
 		auto loc = l.expect(Token.Type.Colon).location;
-		Location endLoc;
+		OldLocation endLoc;
 		Expression exp;
 
 		if(l.type == Token.Type.LParen)
@@ -10238,7 +10340,7 @@ class DotExp : PostfixExp
 		name = name.fold();
 		
 		if(name.isConstant && !name.isString)
-			throw new MDCompileException(name.location, "Field name must be a string");
+			throw new OldCompileException(name.location, "Field name must be a string");
 
 		return this;
 	}
@@ -10261,7 +10363,7 @@ class DotSuperExp : PostfixExp
 {
 	/**
 	*/
-	public this(Location endLocation, Expression operand)
+	public this(OldLocation endLocation, Expression operand)
 	{
 		super(operand.location, endLocation, AstTag.DotSuperExp, operand);
 	}
@@ -10298,7 +10400,7 @@ class MethodCallExp : PostfixExp
 
 	/**
 	*/
-	public this(Location endLocation, Expression operand, Expression context, Expression[] args)
+	public this(OldLocation endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(operand.location, endLocation, AstTag.MethodCallExp, operand);
 		this.context = context;
@@ -10404,7 +10506,7 @@ class CallExp : PostfixExp
 
 	/**
 	*/
-	public this(Location endLocation, Expression operand, Expression context, Expression[] args)
+	public this(OldLocation endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(operand.location, endLocation, AstTag.CallExp, operand);
 		this.context = context;
@@ -10480,7 +10582,7 @@ class IndexExp : PostfixExp
 
 	/**
 	*/
-	public this(Location endLocation, Expression operand, Expression index)
+	public this(OldLocation endLocation, Expression operand, Expression index)
 	{
 		super(operand.location, endLocation, AstTag.IndexExp, operand);
 		this.index = index;
@@ -10504,7 +10606,7 @@ class IndexExp : PostfixExp
 		if(op.isConstant && index.isConstant)
 		{
 			if(!op.isString || !index.isInt)
-				throw new MDCompileException(location, "Can only index strings with integers at compile time");
+				throw new OldCompileException(location, "Can only index strings with integers at compile time");
 
 			int idx = index.asInt();
 
@@ -10512,7 +10614,7 @@ class IndexExp : PostfixExp
 				idx += op.asString.length;
 
 			if(idx < 0 || idx >= op.asString.length)
-				throw new MDCompileException(location, "Invalid string index");
+				throw new OldCompileException(location, "Invalid string index");
 
 			return new CharExp(location, op.asString[idx]);
 		}
@@ -10538,7 +10640,7 @@ class VargIndexExp : PostfixExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression index)
+	public this(OldLocation location, OldLocation endLocation, Expression index)
 	{
 		super(location, endLocation, AstTag.VargIndexExp, null);
 		this.index = index;
@@ -10547,7 +10649,7 @@ class VargIndexExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		if(!s.mIsVararg)
-			throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
+			throw new OldCompileException(location, "'vararg' cannot be used in a non-variadic function");
 
 		index.codeGen(s);
 		s.popVargIndex(endLocation.line);
@@ -10558,7 +10660,7 @@ class VargIndexExp : PostfixExp
 		index = index.fold();
 
 		if(index.isConstant && !index.isInt)
-			throw new MDCompileException(index.location, "index of a vararg indexing must be an integer");
+			throw new OldCompileException(index.location, "index of a vararg indexing must be an integer");
 
 		return this;
 	}
@@ -10588,7 +10690,7 @@ class SliceExp : PostfixExp
 
 	/**
 	*/
-	public this(Location endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	public this(OldLocation endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
 		super(operand.location, endLocation, AstTag.SliceExp, operand);
 		this.loIndex = loIndex;
@@ -10612,7 +10714,7 @@ class SliceExp : PostfixExp
 		if(op.isConstant && loIndex.isConstant && hiIndex.isConstant)
 		{
 			if(!op.isString || !loIndex.isInt || !hiIndex.isInt)
-				throw new MDCompileException(location, "Can only slice strings with integers at compile time");
+				throw new OldCompileException(location, "Can only slice strings with integers at compile time");
 
 			dchar[] str = op.asString();
 			int l = loIndex.asInt();
@@ -10625,7 +10727,7 @@ class SliceExp : PostfixExp
 				h += str.length;
 
 			if(l < 0 || l >= str.length || h < 0 || h >= str.length || l > h)
-				throw new MDCompileException(location, "Invalid slice indices");
+				throw new OldCompileException(location, "Invalid slice indices");
 
 			return new StringExp(location, str[l .. h]);
 		}
@@ -10656,7 +10758,7 @@ class VargSliceExp : PostfixExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression loIndex, Expression hiIndex)
+	public this(OldLocation location, OldLocation endLocation, Expression loIndex, Expression hiIndex)
 	{
 		super(location, endLocation, AstTag.VargSliceExp, null);
 		this.loIndex = loIndex;
@@ -10666,7 +10768,7 @@ class VargSliceExp : PostfixExp
 	public override void codeGen(FuncState s)
 	{
 		if(!s.mIsVararg)
-			throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
+			throw new OldCompileException(location, "'vararg' cannot be used in a non-variadic function");
 
 		uint reg = s.nextRegister();
 		Expression.codeGenListToNextReg(s, [loIndex, hiIndex]);
@@ -10680,10 +10782,10 @@ class VargSliceExp : PostfixExp
 		hiIndex = hiIndex.fold();
 		
 		if(loIndex.isConstant && !(loIndex.isNull || loIndex.isInt))
-			throw new MDCompileException(loIndex.location, "low index of vararg slice must be null or int");
+			throw new OldCompileException(loIndex.location, "low index of vararg slice must be null or int");
 			
 		if(hiIndex.isConstant && !(hiIndex.isNull || hiIndex.isInt))
-			throw new MDCompileException(hiIndex.location, "high index of vararg slice must be null or int");
+			throw new OldCompileException(hiIndex.location, "high index of vararg slice must be null or int");
 
 		return this;
 	}
@@ -10702,14 +10804,14 @@ class PrimaryExp : Expression
 {
 	/**
 	*/
-	public this(Location location, AstTag type)
+	public this(OldLocation location, AstTag type)
 	{
 		super(location, location, type);
 	}
 	
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag type)
+	public this(OldLocation location, OldLocation endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -10798,7 +10900,7 @@ class IdentExp : PrimaryExp
 	/**
 	Create an ident exp from a location and name directly.
 	*/
-	public this(Location location, dchar[] name)
+	public this(OldLocation location, dchar[] name)
 	{
 		super(location, AstTag.IdentExp);
 		this.name = new Identifier(location, name);
@@ -10856,7 +10958,7 @@ class ThisExp : PrimaryExp
 {
 	/**
 	*/
-	public this(Location location)
+	public this(OldLocation location)
 	{
 		super(location, AstTag.ThisExp);
 	}
@@ -10895,7 +10997,7 @@ class NullExp : PrimaryExp
 {
 	/**
 	*/
-	public this(Location location)
+	public this(OldLocation location)
 	{
 		super(location, AstTag.NullExp);
 	}
@@ -10950,7 +11052,7 @@ class BoolExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, bool value)
+	public this(OldLocation location, bool value)
 	{
 		super(location, AstTag.BoolExp);
 		this.value = value;
@@ -11015,7 +11117,7 @@ class VarargExp : PrimaryExp
 {
 	/**
 	*/
-	public this(Location location)
+	public this(OldLocation location)
 	{
 		super(location, AstTag.VarargExp);
 	}
@@ -11031,7 +11133,7 @@ class VarargExp : PrimaryExp
 	public override void codeGen(FuncState s)
 	{
 		if(s.mIsVararg == false)
-			throw new MDCompileException(location, "'vararg' cannot be used in a non-variadic function");
+			throw new OldCompileException(location, "'vararg' cannot be used in a non-variadic function");
 
 		s.pushVararg();
 	}
@@ -11054,7 +11156,7 @@ class CharExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, dchar value)
+	public this(OldLocation location, dchar value)
 	{
 		super(location, AstTag.CharExp);
 		this.value = value;
@@ -11106,7 +11208,7 @@ class IntExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, int value)
+	public this(OldLocation location, int value)
 	{
 		super(location, AstTag.IntExp);
 		this.value = value;
@@ -11172,7 +11274,7 @@ class FloatExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, mdfloat value)
+	public this(OldLocation location, mdfloat value)
 	{
 		super(location, AstTag.FloatExp);
 		this.value = value;
@@ -11233,7 +11335,7 @@ class StringExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, dchar[] value)
+	public this(OldLocation location, dchar[] value)
 	{
 		super(location, AstTag.StringExp);
 		this.value = value;
@@ -11299,7 +11401,7 @@ class FuncLiteralExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, FuncDef def)
+	public this(OldLocation location, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncLiteralExp);
 		this.def = def;
@@ -11347,7 +11449,7 @@ class ObjectLiteralExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, ObjectDef def)
+	public this(OldLocation location, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectLiteralExp);
 		this.def = def;
@@ -11388,7 +11490,7 @@ class ParenExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression exp)
+	public this(OldLocation location, OldLocation endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.ParenExp);
 		this.exp = exp;
@@ -11405,7 +11507,7 @@ class ParenExp : PrimaryExp
 
 		l.expect(Token.Type.LParen);
 		auto exp = Expression.parse(l);
-		Location endLocation = l.expect(Token.Type.RParen).location;
+		OldLocation endLocation = l.expect(Token.Type.RParen).location;
 		return new ParenExp(location, endLocation, exp);
 	}
 
@@ -11464,7 +11566,7 @@ abstract class ForComprehension : AstNode
 
 	/**
 	*/
-	public this(Location location, Location endLocation, AstTag tag)
+	public this(OldLocation location, OldLocation endLocation, AstTag tag)
 	{
 		super(location, endLocation, tag);
 	}
@@ -11494,7 +11596,7 @@ abstract class ForComprehension : AstNode
 		if(l.type == Token.Type.DotDot)
 		{
 			if(names.length > 1)
-				throw new MDCompileException(loc, "Numeric for comprehension may only have one index");
+				throw new OldCompileException(loc, "Numeric for comprehension may only have one index");
 				
 			l.next();
 			auto exp2 = Expression.parse(l);
@@ -11534,7 +11636,7 @@ abstract class ForComprehension : AstNode
 			}
 
 			if(container.length > 3)
-				throw new MDCompileException(container[0].location, "Too many expressions in container");
+				throw new OldCompileException(container[0].location, "Too many expressions in container");
 
 			IfComprehension ifComp;
 
@@ -11571,7 +11673,7 @@ class ForeachComprehension : ForComprehension
 
 	/**
 	*/
-	public this(Location location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	public this(OldLocation location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -11643,7 +11745,7 @@ class ForNumComprehension : ForComprehension
 
 	/**
 	*/	
-	public this(Location location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	public this(OldLocation location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -11718,7 +11820,7 @@ class IfComprehension : AstNode
 
 	/**
 	*/
-	public this(Location location, Expression condition)
+	public this(OldLocation location, Expression condition)
 	{
 		super(location, condition.endLocation, AstTag.IfComprehension);
 		
@@ -11759,7 +11861,7 @@ class TableCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[2][] fields)
+	public this(OldLocation location, OldLocation endLocation, Expression[2][] fields)
 	{
 		super(location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
@@ -11958,7 +12060,7 @@ class ArrayCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[] values)
+	public this(OldLocation location, OldLocation endLocation, Expression[] values)
 	{
 		super(location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
@@ -12029,7 +12131,7 @@ class ArrayCtorExp : PrimaryExp
 	public override void codeGen(FuncState s)
 	{
 		if(values.length > maxFields)
-			throw new MDCompileException(location, "Array constructor has too many fields (more than {})", maxFields);
+			throw new OldCompileException(location, "Array constructor has too many fields (more than {})", maxFields);
 
 		uint min(uint a, uint b)
 		{
@@ -12097,7 +12199,7 @@ class ArrayComprehension : PrimaryExp
 	
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression exp, ForComprehension forComp)
+	public this(OldLocation location, OldLocation endLocation, Expression exp, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.ArrayComprehension);
 
@@ -12190,7 +12292,7 @@ class TableComprehension : PrimaryExp
 	
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression key, Expression value, ForComprehension forComp)
+	public this(OldLocation location, OldLocation endLocation, Expression key, Expression value, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.TableComprehension);
 
@@ -12211,7 +12313,7 @@ class TableComprehension : PrimaryExp
 
 			this(TableComprehension _outer, uint reg)
 			{
-				super(Location(""), Location(""), AstTag.Other);
+				super(OldLocation(""), OldLocation(""), AstTag.Other);
 				mOuter = _outer;
 				mReg = reg;
 			}
@@ -12271,7 +12373,7 @@ class NamespaceCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, NamespaceDef def)
+	public this(OldLocation location, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceCtorExp);
 		this.def = def;
@@ -12310,7 +12412,7 @@ class YieldExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression[] args)
+	public this(OldLocation location, OldLocation endLocation, Expression[] args)
 	{
 		super(location, endLocation, AstTag.YieldExp);
 		this.args = args;
@@ -12385,7 +12487,7 @@ class SuperCallExp : PrimaryExp
 
 	/**
 	*/
-	public this(Location location, Location endLocation, Expression method, Expression[] args)
+	public this(OldLocation location, OldLocation endLocation, Expression method, Expression[] args)
 	{
 		super(location, endLocation, AstTag.SuperCallExp);
 		this.method = method;
@@ -12415,7 +12517,7 @@ class SuperCallExp : PrimaryExp
 		}
 		
 		Expression[] args;
-		Location endLocation;
+		OldLocation endLocation;
 
 		if(l.type == Token.Type.LParen)
 		{
@@ -12467,11 +12569,11 @@ class SuperCallExp : PrimaryExp
 		method = method.fold();
 
 		if(method.isConstant && !method.isString)
-			throw new MDCompileException(method.location, "Method name must be a string");
+			throw new OldCompileException(method.location, "Method name must be a string");
 
 		foreach(ref arg; args)
 			arg = arg.fold();
 
 		return this;
 	}
-}
+} +/

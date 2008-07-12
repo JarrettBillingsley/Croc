@@ -15,10 +15,16 @@ function sing(i = 99)
 		return sing(i - 1)
 }
 
-sing()*/
+sing()
 
-array.range(99, -1).apply(\v->format("{} {} of beer on the wall, {} {1} of beer.
+array.range(9, -1).apply(\v->format("{} {} of beer on the wall, {} {1} of beer.
 {}, {} {} of beer on the wall.\n",v==0?"No more":toString(v),v==1?"bottle":"bottles",
 v==0?"no more":toString(v),v==0?"Go to the store and buy some more":
 "Take one down and pass it around",v==0?"99":v==1?"no more":toString(v-1),v==2?"bottle":
-"bottles")).each(\(_,v)->writeln(v))
+"bottles")).each(\(_,v)->writeln(v))*/
+
+[format("{} {} of beer on the wall, {} {1} of beer.\n{}, {} {} of beer on the wall.\n",
+v==0?"No more":toString(v),v==1?"bottle":"bottles",v==0?"no more":toString(v),
+v==0?"Go to the store and buy some more":"Take one down and pass it around",
+v==0?"99":v==1?"no more":toString(v-1),v==2?"bottle":"bottles") for v in 100 .. 0]
+.each(\(_,v)->writeln(v))

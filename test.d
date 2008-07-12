@@ -1,9 +1,13 @@
-module dtest;
+module test;
 
 import tango.io.Stdout;
 debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correctly
 
 import minid.api;
+
+import minid.ast;
+import minid.compiler;
+import minid.lexer;
 
 // TODO: Object finalizers...
 
@@ -16,7 +20,7 @@ Import:
 
 3.  Look for .md and .mdm.  If found, create closure with new namespace ace env, call.
 	if it succeeds, put that namespace in the owning namespace.
-	
+
 4.  Look for custom loader.  If founc, call with new namespace as param, and if it succeeds, put ns in owning ns.
 
 5.  [Optional] Look for dynlib, same procedure as 4.
@@ -29,18 +33,24 @@ void main()
 	auto vm = new MDVM;
 	auto t = openVM(vm);
 
-	// This is all stdlib crap!
-	newNamespace(t, "array");
-	newFunction(t, &arrayToString, "array.toString");
-	fielda(t, -2, "toString");
-	setTypeMT(t, MDValue.Type.Array);
-	newFunction(t, &microTime, "microTime");
-	newGlobal(t, "microTime");
-	Timer.init(t);
+	scope c = new Compiler(t);
+	c.tokensOf(`samples\test.md`);
 
-		auto funcReg = loadFunc(t, `samples\simple.md`);
-		pushNull(t);
-		rawCall(t, funcReg, 0);
+	foreach(ref l; c)
+		Stdout.formatln("{}", Token.strings[l.type]);
+
+// 	// This is all stdlib crap!
+// 	newNamespace(t, "array");
+// 	newFunction(t, &arrayToString, "array.toString");
+// 	fielda(t, -2, "toString");
+// 	setTypeMT(t, MDValue.Type.Array);
+// 	newFunction(t, &microTime, "microTime");
+// 	newGlobal(t, "microTime");
+// 	Timer.init(t);
+//
+// 		auto funcReg = loadFunc(t, `samples\simple.md`);
+// 		pushNull(t);
+// 		rawCall(t, funcReg, 0);
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm));
 	gc(vm);

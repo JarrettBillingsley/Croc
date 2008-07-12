@@ -125,7 +125,7 @@ public void closeVM(MDVM* vm)
 				auto block = vm.alloc._memBlocks[obj];
 				Stdout.formatln("Unfreed object: address 0x{:X}, length {} bytes, type {}", obj, block.len, block.ti);
 			}
-			
+
 			foreach(ptr, block; vm.alloc._memBlocks)
 				Stdout.formatln("Unfreed block of memory: address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
 		}
