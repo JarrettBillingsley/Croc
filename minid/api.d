@@ -49,7 +49,7 @@ import minid.baselib;
 /**
 The default memory-allocation function, which uses the C allocator.
 */
-public void* DefaultMemFunc(void* ctx, void* p, size_t oldSize, size_t newSize)
+public void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 {
 	if(newSize == 0)
 	{
@@ -184,7 +184,7 @@ import tango.io.protocol.Reader;
 import tango.io.Stdout;
 import tango.stdc.stdlib;
 import tango.stdc.stringz;
-public nint loadFunc(MDThread* t, char[] filename)
+public word loadFunc(MDThread* t, char[] filename)
 {
 	if(system(toStringz("minidc " ~ filename)) != 0)
 		throw new Exception("failcopter");

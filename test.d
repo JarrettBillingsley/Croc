@@ -60,14 +60,14 @@ void main()
 	delete vm;
 }
 
-nuint arrayToString(MDThread* t, nuint numParams)
+uword arrayToString(MDThread* t, uword numParams)
 {
 	auto buf = StrBuffer(t);
 	buf.addChar('[');
 
 	auto length = len(t, 0);
 
-	for(nuint i = 0; i < length; i++)
+	for(uword i = 0; i < length; i++)
 	{
 		pushInt(t, i);
 		idx(t, 0);
@@ -117,7 +117,7 @@ static this()
 		performanceFreq = 0x7fffffffffffffffL;
 }
 
-nuint microTime(MDThread* t, nuint numParams)
+uword microTime(MDThread* t, uword numParams)
 {
 	ulong time;
 	QueryPerformanceCounter(&time);
@@ -160,39 +160,39 @@ static:
 		protected mdfloat mTime = 0;
 	}
 
-	nuint clone(MDThread* t, nuint numParams)
+	uword clone(MDThread* t, uword numParams)
 	{
 		newObject(t, 0, null, 0, Members.sizeof);
 		*getMembers!(Members)(t, -1) = Members.init;
 		return 1;
 	}
 
-	nuint start(MDThread* t, nuint numParams)
+	uword start(MDThread* t, uword numParams)
 	{
 		getThis(t).mWatch.start();
 		return 0;
 	}
 
-	nuint stop(MDThread* t, nuint numParams)
+	uword stop(MDThread* t, uword numParams)
 	{
 		auto members = getThis(t);
 		members.mTime = members.mWatch.stop();
 		return 0;
 	}
 
-	nuint seconds(MDThread* t, nuint numParams)
+	uword seconds(MDThread* t, uword numParams)
 	{
 		pushFloat(t, getThis(t).mTime);
 		return 1;
 	}
 
-	nuint millisecs(MDThread* t, nuint numParams)
+	uword millisecs(MDThread* t, uword numParams)
 	{
 		pushFloat(t, getThis(t).mTime * 1_000);
 		return 1;
 	}
 
-	nuint microsecs(MDThread* t, nuint numParams)
+	uword microsecs(MDThread* t, uword numParams)
 	{
 		pushFloat(t, getThis(t).mTime * 1_000_000);
 		return 1;

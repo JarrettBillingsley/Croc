@@ -83,7 +83,7 @@ scope class List(T)
 {
 	private Allocator* mAlloc;
 	private T[] mData;
-	private size_t mIndex = 0;
+	private uword mIndex = 0;
 
 	package this(Allocator* alloc)
 	{
@@ -111,12 +111,12 @@ scope class List(T)
 
 	alias add opCatAssign;
 
-	public T opIndex(size_t index)
+	public T opIndex(uword index)
 	{
 		return mData[index];
 	}
 
-	public void length(size_t l)
+	public void length(uword l)
 	{
 		mIndex = l;
 
@@ -124,7 +124,7 @@ scope class List(T)
 			mAlloc.resizeArray(mData, mIndex);
 	}
 
-	public size_t length()
+	public uword length()
 	{
 		return mIndex;
 	}
@@ -150,7 +150,7 @@ scope class List(T)
 		return result;
 	}
 	
-	public int opApply(int delegate(size_t, ref T) dg)
+	public int opApply(int delegate(uword, ref T) dg)
 	{
 		int result = 0;
 

@@ -74,7 +74,7 @@ public void gc(MDVM* vm)
 /**
 Find out how many bytes of memory the given VM has allocated.
 */
-public size_t bytesAllocated(MDVM* vm)
+public uword bytesAllocated(MDVM* vm)
 {
 	return vm.alloc.totalBytes;
 }

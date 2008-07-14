@@ -38,7 +38,7 @@ static:
 	// ================================================================================================================================================
 	
 	// Create a new array object of the given length.
-	package MDArray* create(ref Allocator alloc, size_t size)
+	package MDArray* create(ref Allocator alloc, uword size)
 	{
 		auto a = alloc.allocate!(MDArray);
 		a.data = allocData!(false)(alloc, size);
@@ -59,7 +59,7 @@ static:
 	}
 	
 	// Resize an array object.
-	package void resize(ref Allocator alloc, MDArray* a, size_t newSize)
+	package void resize(ref Allocator alloc, MDArray* a, uword newSize)
 	{
 		if(newSize == a.slice.length)
 			return;
@@ -85,7 +85,7 @@ static:
 	}
 	
 	// Slice an array object to create a new array object that references the source's data.
-	package MDArray* slice(ref Allocator alloc, MDArray* a, size_t lo, size_t hi)
+	package MDArray* slice(ref Allocator alloc, MDArray* a, uword lo, uword hi)
 	{
 		auto n = alloc.allocate!(MDArray);
 		n.data = a.data;
@@ -95,7 +95,7 @@ static:
 	}
 
 	// Assign an entire other array into a slice of the destination array.  Handles overlapping copies as well.
-	package void sliceAssign(MDArray* a, size_t lo, size_t hi, MDArray* other)
+	package void sliceAssign(MDArray* a, uword lo, uword hi, MDArray* other)
 	{
 		auto dest = a.slice[lo .. hi];
 		auto src = other.slice;
@@ -111,7 +111,7 @@ static:
 	}
 
 	// Sets a block of values (only called by the SetArray instruction in the interpreter).
-	package void setBlock(ref Allocator alloc, MDArray* a, size_t block, MDValue[] data)
+	package void setBlock(ref Allocator alloc, MDArray* a, uword block, MDValue[] data)
 	{
 		auto start = block * Instruction.arraySetFields;
 		auto end = start + data.length;
@@ -176,10 +176,10 @@ static:
 	// Allocate an MDArrayData object that will have at least 'size' elements allocated.
 	// overallocate only controls whether over-allocation will be done for large (> 1 page)
 	// arrays.
-	private MDArrayData* allocData(bool overallocate)(ref Allocator alloc, size_t size)
+	private MDArrayData* allocData(bool overallocate)(ref Allocator alloc, uword size)
 	{
 		const BigArraySize = overallocate ? "size + (size / 10)" : "size";
-		size_t realSize = void;
+		uword realSize = void;
 
 		if(size <= ElemsInPage)
 		{
@@ -198,7 +198,7 @@ static:
 	}
 
 	// Figure out the size of an MDArrayData object given that it has 'length' items.
-	private size_t DataSize(size_t length)
+	private uword DataSize(uword length)
 	{
 		return MDArrayData.sizeof + (MDValue.sizeof * length);
 	}
@@ -206,7 +206,7 @@ static:
 	// Returns closest power of 2 that is >= n.  The 'ct' template parameter should
 	// be true if you want to evaluate at compile time; at runtime it uses a faster
 	// bitwise intrinsic function.
-	private size_t largerPow2(bool ct = false)(size_t n)
+	private uword largerPow2(bool ct = false)(uword n)
 	{
 		static if(ct)
 		{
@@ -215,7 +215,7 @@ static:
 			else if(!(n & (n - 1)))
 				return n;
 		
-			size_t ret = 1;
+			uword ret = 1;
 
 			while(n)
 			{
@@ -236,11 +236,11 @@ static:
 	
 	// The size of a memory page.  I'm just guessing that most OSes use 4k pages.
 	// Please change this as necessary.
-	private const size_t PageSize = 4096;
+	private const uword PageSize = 4096;
 	
 	// How many elements can fit within an array data object that's only one page.
-	private const size_t ElemsInPage = (PageSize - MDArrayData.sizeof) / MDValue.sizeof;
+	private const uword ElemsInPage = (PageSize - MDArrayData.sizeof) / MDValue.sizeof;
 	
 	// The largest power of 2 that's < ElemsInPage.
-	private const size_t LargestPow2 = largerPow2!(true)(ElemsInPage) >> 1;
+	private const uword LargestPow2 = largerPow2!(true)(ElemsInPage) >> 1;
 }

@@ -257,7 +257,7 @@ To end interactive mode, use the \"exit()\" function.
 				if(buffer.length == 0)
 					return false;
 
-				size_t i = 0;
+				uword i = 0;
 
 				for( ; i < buffer.length && Uni.isWhitespace(buffer[i]); i++)
 				{}

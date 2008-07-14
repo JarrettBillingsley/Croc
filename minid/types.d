@@ -42,12 +42,12 @@ debug import tango.text.convert.Format;
 /**
 The native signed integer type on this platform.  This is the same as ptrdiff_t but with a better name.
 */
-public alias ptrdiff_t nint;
+public alias ptrdiff_t word;
 
 /**
-The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
+The native unsigned integer type on this platform.  This is the same as uword but with a better name.
 */
-public alias size_t nuint;
+public alias size_t uword;
 
 /**
 The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
@@ -69,7 +69,7 @@ version(MDForceLongInts)
 else version(MDForceShortInts)
 	public alias int mdint;
 else
-	public alias nint mdint;
+	public alias word mdint;
 
 static assert(mdint.sizeof >= 4, "mdint must be at least 32 bits");
 static assert((cast(mdint)-1) < (cast(mdint)0), "mdint must be signed");
@@ -85,9 +85,9 @@ The current version of MiniD.
 public const uint MiniDVersion = MakeVersion!(2, 0);
 
 /**
-An alias for the type signature of a native function.  It is defined as nuint function(MDThread*, nuint).
+An alias for the type signature of a native function.  It is defined as uword function(MDThread*, uword).
 */
-public alias nuint function(MDThread*, nuint) NativeFunc;
+public alias uword function(MDThread*, uword) NativeFunc;
 
 /**
 The MiniD exception type.  This is the type that is thrown whenever you throw an exception from within
@@ -448,8 +448,8 @@ align(1) struct MDBaseObject
 align(1) struct MDString
 {
 	mixin MDObjectMixin!(MDValue.Type.String);
-	package size_t hash;
-	package size_t length;
+	package uword hash;
+	package uword length;
 
 	package dchar[] toString32()
 	{
@@ -466,7 +466,7 @@ align(1) struct MDTable
 align(1) struct MDArrayData
 {
 	mixin MDObjectMixin!(MDValue.Type.ArrayData);
-	package size_t length;
+	package uword length;
 
 	package MDValue[] toArray()
 	{
@@ -488,7 +488,7 @@ align(1) struct MDFunction
 	package bool isNative;
 	package MDNamespace* environment;
 	package MDString* name;
-	package size_t numUpvals;
+	package uword numUpvals;
 	package MDTable* attrs;
 
 	union
@@ -517,8 +517,8 @@ align(1) struct MDObject
 	package MDObject* proto;
 	package MDNamespace* fields;
 	package MDTable* attrs;
-	package size_t numValues;
-	package size_t extraBytes;
+	package uword numValues;
+	package uword extraBytes;
 
 	package MDValue[] extraValues()
 	{
@@ -540,8 +540,8 @@ align(1) struct MDNamespace
 	package MDTable* attrs;
 }
 
-package alias size_t AbsStack;
-package alias size_t RelStack;
+package alias uword AbsStack;
+package alias uword RelStack;
 
 align(1) struct ActRecord
 {
@@ -551,18 +551,18 @@ align(1) struct ActRecord
 	package AbsStack returnSlot;
 	package MDFunction* func;
 	package Instruction* pc;
-	package nint numReturns;
+	package word numReturns;
 	package MDObject* proto;
-	package size_t numTailcalls;
-	package size_t firstResult;
-	package size_t numResults;
+	package uword numTailcalls;
+	package uword firstResult;
+	package uword numResults;
 }
 
 align(1) struct TryRecord
 {
 	package bool isCatch;
 	package RelStack catchVarSlot;
-	package size_t actRecord;
+	package uword actRecord;
 	package Instruction* pc;
 }
 
@@ -590,18 +590,18 @@ align(1) struct MDThread
 
 	package TryRecord[] tryRecs;
 	package TryRecord* currentTR;
-	package size_t trIndex = 0;
+	package uword trIndex = 0;
 
 	package ActRecord[] actRecs;
 	package ActRecord* currentAR;
-	package size_t arIndex = 0;
+	package uword arIndex = 0;
 
 	package MDValue[] stack;
 	package AbsStack stackIndex;
 	package AbsStack stackBase;
 
 	package MDValue[] results;
-	package size_t resultIndex = 0;
+	package uword resultIndex = 0;
 
 	package MDUpval* upvalHead;
 	
@@ -610,12 +610,12 @@ align(1) struct MDThread
 
 	package MDFunction* coroFunc;
 	package State state = State.Initial;
-	package size_t numYields;
+	package uword numYields;
 
 	version(MDExtendedCoro) {} else
 	{
-		package size_t savedCallDepth;
-		package size_t nativeCallDepth = 0;
+		package uword savedCallDepth;
+		package uword nativeCallDepth = 0;
 	}
 
 	version(MDRestrictedCoro) {} else
@@ -693,7 +693,7 @@ align(1) struct MDFuncDef
 
 	align(1) struct SwitchTable
 	{
-		package Hash!(MDValue, nint) offsets;
+		package Hash!(MDValue, word) offsets;
 		package int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
 	}
 

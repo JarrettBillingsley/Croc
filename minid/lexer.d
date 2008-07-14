@@ -297,12 +297,12 @@ struct Token
 struct Lexer
 {
 	private ICompiler mCompiler;
-	private nint mStringTab;
+	private word mStringTab;
 	private CompileLoc mLoc;
 	private dchar[] mSource;
 	private bool mIsJSON;
 
-	private size_t mPosition;
+	private uword mPosition;
 	private dchar mCharacter;
 	private dchar mLookaheadCharacter;
 	private bool mHaveLookahead;

@@ -605,7 +605,7 @@ class Lexer
 {
 	protected dchar[] mSource;
 	protected OldLocation mLoc;
-	protected size_t mPosition;
+	protected uword mPosition;
 	protected dchar mCharacter;
 	protected dchar mLookaheadCharacter;
 	protected bool mHaveLookahead = false;

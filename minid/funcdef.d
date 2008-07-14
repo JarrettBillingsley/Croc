@@ -214,10 +214,10 @@ static:
 		Deserialize(s, ret.numParams);
 		
 		// TODO: and this
-		size_t len;
+		uword len;
 		Deserialize(s, len);
-		ret.paramMasks = vm.alloc.allocArray!(size_t)(len);
-		s.buffer.readExact(ret.paramMasks.ptr, ret.paramMasks.length * size_t.sizeof);
+		ret.paramMasks = vm.alloc.allocArray!(uword)(len);
+		s.buffer.readExact(ret.paramMasks.ptr, ret.paramMasks.length * uword.sizeof);
 
 		Deserialize(s, ret.numUpvals);
 		Deserialize(s, ret.stackSize);
@@ -236,8 +236,8 @@ static:
 		// TODO: isPure
 
 		Deserialize(s, len);
-		ret.lineInfo = vm.alloc.allocArray!(size_t)(len);
-		s.buffer.readExact(ret.lineInfo.ptr, ret.lineInfo.length * size_t.sizeof);
+		ret.lineInfo = vm.alloc.allocArray!(uword)(len);
+		s.buffer.readExact(ret.lineInfo.ptr, ret.lineInfo.length * uword.sizeof);
 
 		// TODO: and this
 		Deserialize(s, len);
@@ -272,10 +272,10 @@ static:
 		{
 			Deserialize(s, len);
 
-			for(size_t i = 0; i < len; i++)
+			for(uword i = 0; i < len; i++)
 			{
 				MDValue key;
-				nint value;
+				word value;
 
 				deserialize(vm, &key, s);
 				Deserialize(s, value);

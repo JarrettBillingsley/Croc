@@ -49,7 +49,7 @@ static:
 	}
 
 	// Create a native function.
-	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDString* name, NativeFunc func, size_t numUpvals)
+	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDString* name, NativeFunc func, uword numUpvals)
 	{
 		auto f = alloc.allocate!(MDFunction)(NativeClosureSize(numUpvals));
 		f.isNative = true;
@@ -77,7 +77,7 @@ static:
 		return f.isNative;
 	}
 	
-	package nint numParams(MDFunction* f)
+	package word numParams(MDFunction* f)
 	{
 		if(f.isNative)
 			return 0;
@@ -97,12 +97,12 @@ static:
 	// Private
 	// ================================================================================================================================================
 	
-	private size_t ScriptClosureSize(size_t numUpvals)
+	private uword ScriptClosureSize(uword numUpvals)
 	{
 		return MDFunction.sizeof + ((MDUpval*).sizeof * numUpvals);
 	}
 	
-	private size_t NativeClosureSize(size_t numUpvals)
+	private uword NativeClosureSize(uword numUpvals)
 	{
 		return MDFunction.sizeof + (MDValue.sizeof * numUpvals);
 	}

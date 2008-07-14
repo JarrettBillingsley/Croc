@@ -41,7 +41,7 @@ import minid.string;
 import minid.types;
 import minid.vm;
 
-private void register(MDThread* t, dchar[] name, NativeFunc func, size_t numUpvals = 0)
+private void register(MDThread* t, dchar[] name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);
 	newGlobal(t, name);
@@ -164,7 +164,7 @@ static:
 	// ===================================================================================================================================
 	// Object
 
-	nuint objectClone(MDThread* t, nuint numParams)
+	uword objectClone(MDThread* t, uword numParams)
 	{
 		newObject(t, 0);
 		return 1;
@@ -174,13 +174,13 @@ static:
 	// ===================================================================================================================================
 	// Basic functions
 
-	nuint getTraceback(MDThread* t, nuint numParams)
+	uword getTraceback(MDThread* t, uword numParams)
 	{
 		s.push(new MDString(s.context.getTracebackString()));
 		return 1;
 	}
 
-	nuint haltThread(MDThread* t, nuint numParams)
+	uword haltThread(MDThread* t, uword numParams)
 	{
 		if(numParams == 0)
 			s.halt();
@@ -195,7 +195,7 @@ static:
 	}
 */
 
-	nuint currentThread(MDThread* t, nuint numParams)
+	uword currentThread(MDThread* t, uword numParams)
 	{
 		if(t is mainThread(getVM(t)))
 			pushNull(t);
@@ -205,19 +205,19 @@ static:
 		return 1;
 	}
 /*
-	nuint setModuleLoader(MDThread* t, nuint numParams)
+	uword setModuleLoader(MDThread* t, uword numParams)
 	{
 		s.context.setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
 		return 0;
 	}
 
-	nuint reloadModule(MDThread* t, nuint numParams)
+	uword reloadModule(MDThread* t, uword numParams)
 	{
 		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
 		return 1;
 	}
 */
-	nuint removeKey(MDThread* t, nuint numParams)
+	uword removeKey(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 
@@ -247,7 +247,7 @@ static:
 		return 0;
 	}
 
-	nuint rawSet(MDThread* t, nuint numParams)
+	uword rawSet(MDThread* t, uword numParams)
 	{
 		if(numParams < 3)
 			throwException(t, "3 parameters expected; only got {}", numParams);
@@ -265,7 +265,7 @@ static:
 		return 0;
 	}
 
-	nuint rawGet(MDThread* t, nuint numParams)
+	uword rawGet(MDThread* t, uword numParams)
 	{
 		if(numParams < 2)
 			throwException(t, "2 parameters expected; only got {}", numParams);
@@ -283,7 +283,7 @@ static:
 		return 1;
 	}
 
-	nuint runMain(MDThread* t, nuint numParams)
+	uword runMain(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Namespace);
 
@@ -301,15 +301,15 @@ static:
 	// ===================================================================================================================================
 	// Functional stuff
 
-	nuint curry(MDThread* t, nuint numParams)
+	uword curry(MDThread* t, uword numParams)
 	{
-		static nuint call(MDThread* t, nuint numParams)
+		static uword call(MDThread* t, uword numParams)
 		{
 			auto funcReg = getUpval(t, 0);
 			dup(t, 0);
 			getUpval(t, 1);
 
-			for(size_t i = 1; i <= numParams; i++)
+			for(uword i = 1; i <= numParams; i++)
 				dup(t, i);
 
 			return rawCall(t, funcReg, -1);
@@ -322,14 +322,14 @@ static:
 		return 1;
 	}
 
-	nuint bindContext(MDThread* t, nuint numParams)
+	uword bindContext(MDThread* t, uword numParams)
 	{
-		static nuint call(MDThread* t, nuint numParams)
+		static uword call(MDThread* t, uword numParams)
 		{
 			auto funcReg = getUpval(t, 0);
 			getUpval(t, 1);
 
-			for(size_t i = 1; i <= numParams; i++)
+			for(uword i = 1; i <= numParams; i++)
 				dup(t, i);
 
 			return rawCall(t, funcReg, -1);
@@ -345,7 +345,7 @@ static:
 	// ===================================================================================================================================
 	// Reflection-esque stuff
 
-	nuint findGlobal(MDThread* t, nuint numParams)
+	uword findGlobal(MDThread* t, uword numParams)
 	{
 		if(!.findGlobal(t, checkStringParam(t, 1)))
 			pushNull(t);
@@ -353,7 +353,7 @@ static:
 		return 1;
 	}
 
-	nuint isSet(MDThread* t, nuint numParams)
+	uword isSet(MDThread* t, uword numParams)
 	{
 		if(!.findGlobal(t, checkStringParam(t, 1)))
 			pushBool(t, false);
@@ -366,25 +366,25 @@ static:
 		return 1;
 	}
 
-	nuint mdtypeof(MDThread* t, nuint numParams)
+	uword mdtypeof(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		pushString(t, MDValue.typeString(type(t, 1)));
 		return 1;
 	}
 
-	nuint fieldsOf(MDThread* t, nuint numParams)
+	uword fieldsOf(MDThread* t, uword numParams)
 	{
 		checkObjParam(t, 1);
 		.fieldsOf(t, 1);
 		return 1;
 	}
 
-	nuint allFieldsOf(MDThread* t, nuint numParams)
+	uword allFieldsOf(MDThread* t, uword numParams)
 	{
 		// Upvalue 0 is the current object
 		// Upvalue 1 is the current index into the namespace
-		static nuint iter(MDThread* t, nuint numParams)
+		static uword iter(MDThread* t, uword numParams)
 		{
 			getUpval(t, 0);
 			auto o = getObject(t, -1);
@@ -429,7 +429,7 @@ static:
 		return 1;
 	}
 
-	nuint hasField(MDThread* t, nuint numParams)
+	uword hasField(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		auto n = checkStringParam(t, 2);
@@ -437,7 +437,7 @@ static:
 		return 1;
 	}
 
-	nuint hasMethod(MDThread* t, nuint numParams)
+	uword hasMethod(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		auto n = checkStringParam(t, 2);
@@ -446,7 +446,7 @@ static:
 	}
 
 /*
-	nuint hasAttributes(MDThread* t, nuint numParams)
+	uword hasAttributes(MDThread* t, uword numParams)
 	{
 		MDTable ret;
 
@@ -461,7 +461,7 @@ static:
 		return 1;
 	}
 
-	nuint attributesOf(MDThread* t, nuint numParams)
+	uword attributesOf(MDThread* t, uword numParams)
 	{
 		MDTable ret;
 
@@ -482,7 +482,7 @@ static:
 		return 1;
 	}
 */
-	nuint isParam(MDValue.Type Type)(MDThread* t, nuint numParams)
+	uword isParam(MDValue.Type Type)(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		pushBool(t, type(t, 1) == Type);
@@ -492,7 +492,7 @@ static:
 	// ===================================================================================================================================
 	// Conversions
 
-	nuint toString(MDThread* t, nuint numParams)
+	uword toString(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 
@@ -512,21 +512,21 @@ static:
 		return 1;
 	}
 
-	nuint rawToString(MDThread* t, nuint numParams)
+	uword rawToString(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		pushToString(t, 1, true);
 		return 1;
 	}
 
-	nuint toBool(MDThread* t, nuint numParams)
+	uword toBool(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		pushBool(t, isTrue(t, 1));
 		return 1;
 	}
 
-	nuint toInt(MDThread* t, nuint numParams)
+	uword toInt(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 
@@ -546,7 +546,7 @@ static:
 		return 1;
 	}
 
-	nuint toFloat(MDThread* t, nuint numParams)
+	uword toFloat(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 
@@ -566,13 +566,13 @@ static:
 		return 1;
 	}
 
-	nuint toChar(MDThread* t, nuint numParams)
+	uword toChar(MDThread* t, uword numParams)
 	{
 		pushChar(t, cast(dchar)checkIntParam(t, 1));
 		return 1;
 	}
 
-	nuint format(MDThread* t, nuint numParams)
+	uword format(MDThread* t, uword numParams)
 	{
 		auto buf = StrBuffer(t);
 		formatImpl(t, numParams, &buf.sink);
@@ -583,9 +583,9 @@ static:
 	// ===================================================================================================================================
 	// Console IO
 
-	nuint write(MDThread* t, nuint numParams)
+	uword write(MDThread* t, uword numParams)
 	{
-		for(size_t i = 1; i <= numParams; i++)
+		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
 			Stdout(getString(t, -1));
@@ -595,9 +595,9 @@ static:
 		return 0;
 	}
 
-	nuint writeln(MDThread* t, nuint numParams)
+	uword writeln(MDThread* t, uword numParams)
 	{
-		for(size_t i = 1; i <= numParams; i++)
+		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
 			Stdout(getString(t, -1));
@@ -607,7 +607,7 @@ static:
 		return 0;
 	}
 
-	nuint writef(MDThread* t, nuint numParams)
+	uword writef(MDThread* t, uword numParams)
 	{
 		uint sink(dchar[] data)
 		{
@@ -620,7 +620,7 @@ static:
 		return 0;
 	}
 
-	nuint writefln(MDThread* t, nuint numParams)
+	uword writefln(MDThread* t, uword numParams)
 	{
 		uint sink(dchar[] data)
 		{
@@ -633,14 +633,14 @@ static:
 		return 0;
 	}
 
-	nuint dumpVal(MDThread* t, nuint numParams)
+	uword dumpVal(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
 		auto newline = optBoolParam(t, 2, true);
 
 		auto shown = getUpval(t, 0);
 
-		void outputRepr(nint v)
+		void outputRepr(word v)
 		{
 			v = absIndex(t, v);
 
@@ -674,7 +674,7 @@ static:
 				}
 			}
 
-			void outputArray(nint arr)
+			void outputArray(word arr)
 			{
 				if(opin(t, arr, shown))
 				{
@@ -704,7 +704,7 @@ static:
 					outputRepr(-1);
 					pop(t);
 
-					for(size_t i = 1; i < length; i++)
+					for(uword i = 1; i < length; i++)
 					{
 						// TODO: this
 // 						if(s.hasPendingHalt())
@@ -721,7 +721,7 @@ static:
 				Stdout(']');
 			}
 
-			void outputTable(nint tab)
+			void outputTable(word tab)
 			{
 				if(opin(t, tab, shown))
 				{
@@ -822,7 +822,7 @@ static:
 	}
 
 /*
-	nuint readln(MDThread* t, nuint numParams)
+	uword readln(MDThread* t, uword numParams)
 	{
 		pushString(t, Cin.copyln());
 		return 1;
@@ -832,7 +832,7 @@ static:
 	// ===================================================================================================================================
 	// Dynamic Compilation
 
-	nuint loadString(MDThread* t, nuint numParams)
+	uword loadString(MDThread* t, uword numParams)
 	{
 		char[] name;
 		MDNamespace env;
@@ -862,7 +862,7 @@ static:
 		return 1;
 	}
 	
-	nuint eval(MDThread* t, nuint numParams)
+	uword eval(MDThread* t, uword numParams)
 	{
 		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
 		MDNamespace env;
@@ -875,13 +875,13 @@ static:
 		return s.call(new MDClosure(env, def), -1);
 	}
 	
-	nuint loadJSON(MDThread* t, nuint numParams)
+	uword loadJSON(MDThread* t, uword numParams)
 	{
 		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
 
-	nuint toJSON(MDThread* t, nuint numParams)
+	uword toJSON(MDThread* t, uword numParams)
 	{
 		MDValue root = s.getParam(0u);
 		bool pretty = false;
@@ -901,9 +901,9 @@ static:
 	// ===================================================================================================================================
 	// Namespace metatable
 */
-	nuint namespaceApply(MDThread* t, nuint numParams)
+	uword namespaceApply(MDThread* t, uword numParams)
 	{
-		static nuint iter(MDThread* t, nuint numParams)
+		static uword iter(MDThread* t, uword numParams)
 		{
 			getUpval(t, 0);
 			auto ns = getNamespace(t, -1);
@@ -938,7 +938,7 @@ static:
 	// ===================================================================================================================================
 	// Thread metatable
 
-	nuint threadReset(MDThread* t, nuint numParams)
+	uword threadReset(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 
@@ -953,49 +953,49 @@ static:
 		return 0;
 	}
 
-	nuint threadState(MDThread* t, nuint numParams)
+	uword threadState(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushInt(t, state(getThread(t, 0)));
 		return 1;
 	}
 
-	nuint isInitial(MDThread* t, nuint numParams)
+	uword isInitial(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, state(getThread(t, 0)) == MDThread.State.Initial);
 		return 1;
 	}
 
-	nuint isRunning(MDThread* t, nuint numParams)
+	uword isRunning(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, state(getThread(t, 0)) == MDThread.State.Running);
 		return 1;
 	}
 
-	nuint isWaiting(MDThread* t, nuint numParams)
+	uword isWaiting(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, state(getThread(t, 0)) == MDThread.State.Waiting);
 		return 1;
 	}
 
-	nuint isSuspended(MDThread* t, nuint numParams)
+	uword isSuspended(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, state(getThread(t, 0)) == MDThread.State.Suspended);
 		return 1;
 	}
 
-	nuint isDead(MDThread* t, nuint numParams)
+	uword isDead(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, state(getThread(t, 0)) == MDThread.State.Dead);
 		return 1;
 	}
 	
-	nuint threadIterator(MDThread* t, nuint numParams)
+	uword threadIterator(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		auto thread = getThread(t, 0);
@@ -1012,7 +1012,7 @@ static:
 		return numRets + 1;
 	}
 
-	nuint threadApply(MDThread* t, nuint numParams)
+	uword threadApply(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		auto haveParam = isValidIndex(t, 1);
@@ -1040,7 +1040,7 @@ static:
 	// ===================================================================================================================================
 	// Function metatable
 
-	nuint functionEnvironment(MDThread* t, nuint numParams)
+	uword functionEnvironment(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		getFuncEnv(t, 0);
@@ -1055,21 +1055,21 @@ static:
 		return 1;
 	}
 
-	nuint functionIsNative(MDThread* t, nuint numParams)
+	uword functionIsNative(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, func.isNative(getFunction(t, 0)));
 		return 1;
 	}
 
-	nuint functionNumParams(MDThread* t, nuint numParams)
+	uword functionNumParams(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushInt(t, func.numParams(getFunction(t, 0)));
 		return 1;
 	}
 
-	nuint functionIsVararg(MDThread* t, nuint numParams)
+	uword functionIsVararg(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, func.isVararg(getFunction(t, 0)));
@@ -1113,7 +1113,7 @@ static:
 			);
 		}
 
-		public nuint clone(MDThread* t, nuint numParams)
+		public uword clone(MDThread* t, uword numParams)
 		{
 			MDStringBuffer ret;
 
@@ -1133,7 +1133,7 @@ static:
 			return 1;
 		}
 
-		public nuint opCatAssign(MDThread* t, nuint numParams)
+		public uword opCatAssign(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			
@@ -1163,7 +1163,7 @@ static:
 			return 0;
 		}
 
-		public nuint insert(MDThread* t, nuint numParams)
+		public uword insert(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			MDValue param = s.getParam(1u);
@@ -1189,7 +1189,7 @@ static:
 			return 0;
 		}
 
-		public nuint remove(MDThread* t, nuint numParams)
+		public uword remove(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			uint start = s.getParam!(uint)(0);
@@ -1202,13 +1202,13 @@ static:
 			return 0;
 		}
 		
-		public nuint toString(MDThread* t, nuint numParams)
+		public uword toString(MDThread* t, uword numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer).toMDString());
 			return 1;
 		}
 		
-		public nuint opLengthAssign(MDThread* t, nuint numParams)
+		public uword opLengthAssign(MDThread* t, uword numParams)
 		{
 			int newLen = s.getParam!(int)(0);
 			
@@ -1219,25 +1219,25 @@ static:
 			return 0;
 		}
 
-		public nuint opLength(MDThread* t, nuint numParams)
+		public uword opLength(MDThread* t, uword numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer).length);
 			return 1;
 		}
 		
-		public nuint opIndex(MDThread* t, nuint numParams)
+		public uword opIndex(MDThread* t, uword numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)]);
 			return 1;
 		}
 
-		public nuint opIndexAssign(MDThread* t, nuint numParams)
+		public uword opIndexAssign(MDThread* t, uword numParams)
 		{
 			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)] = s.getParam!(dchar)(1);
 			return 0;
 		}
 
-		public nuint iterator(MDThread* t, nuint numParams)
+		public uword iterator(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			int index = s.getParam!(int)(0);
@@ -1253,7 +1253,7 @@ static:
 			return 2;
 		}
 		
-		public nuint iteratorReverse(MDThread* t, nuint numParams)
+		public uword iteratorReverse(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			int index = s.getParam!(int)(0);
@@ -1269,7 +1269,7 @@ static:
 			return 2;
 		}
 		
-		public nuint opApply(MDThread* t, nuint numParams)
+		public uword opApply(MDThread* t, uword numParams)
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 
@@ -1289,25 +1289,25 @@ static:
 			return 3;
 		}
 
-		public nuint opSlice(MDThread* t, nuint numParams)
+		public uword opSlice(MDThread* t, uword numParams)
 		{
 			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)]);
 			return 1;
 		}
 		
-		public nuint opSliceAssign(MDThread* t, nuint numParams)
+		public uword opSliceAssign(MDThread* t, uword numParams)
 		{
 			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
 			return 0;
 		}
 
-		public nuint reserve(MDThread* t, nuint numParams)
+		public uword reserve(MDThread* t, uword numParams)
 		{
 			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
 			return 0;
 		}
 		
-		public nuint format(MDThread* t, nuint numParams)
+		public uword format(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDStringBuffer);
 
@@ -1321,7 +1321,7 @@ static:
 			return 0;
 		}
 
-		public nuint formatln(MDThread* t, nuint numParams)
+		public uword formatln(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDStringBuffer);
 
@@ -1340,7 +1340,7 @@ static:
 	static class MDStringBuffer : MDObject
 	{
 		protected dchar[] mBuffer;
-		protected size_t mLength = 0;
+		protected uword mLength = 0;
 
 		public this(MDStringBufferClass owner)
 		{
@@ -1348,7 +1348,7 @@ static:
 			mBuffer = new dchar[32];
 		}
 
-		public this(MDStringBufferClass owner, size_t size)
+		public this(MDStringBufferClass owner, uword size)
 		{
 			super("StringBuffer", owner);
 			mBuffer = new dchar[size];

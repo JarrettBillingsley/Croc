@@ -35,14 +35,14 @@ import minid.interpreter;
 import minid.types;
 import minid.utils;
 
-package void formatImpl(MDThread* t, size_t numParams, uint delegate(dchar[]) sink)
+package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sink)
 {
 	void outputInvalid(dchar[] fmt)
 	{
 		t.vm.formatter.convert(sink, fmt, "{invalid index}");
 	}
 
-	void output(dchar[] fmt, size_t param, bool isRaw)
+	void output(dchar[] fmt, uword param, bool isRaw)
 	{
 		switch(type(t, param))
 		{
@@ -66,7 +66,7 @@ package void formatImpl(MDThread* t, size_t numParams, uint delegate(dchar[]) si
 
 	bool[64] used;
 
-	for(size_t paramIndex = 1; paramIndex <= numParams; paramIndex++)
+	for(uword paramIndex = 1; paramIndex <= numParams; paramIndex++)
 	{
 		if(used[paramIndex])
 			continue;
@@ -81,7 +81,7 @@ package void formatImpl(MDThread* t, size_t numParams, uint delegate(dchar[]) si
 		auto formatStrIndex = paramIndex;
 		auto autoIndex = paramIndex + 1;
 
-		for(size_t i = 0; i < formatStr.length; i++)
+		for(uword i = 0; i < formatStr.length; i++)
 		{
 			auto c = formatStr[i];
 
@@ -96,7 +96,7 @@ package void formatImpl(MDThread* t, size_t numParams, uint delegate(dchar[]) si
 			}
 
 			dchar[32] format = void;
-			size_t iFormat = 0;
+			uword iFormat = 0;
 
 			void addChar(dchar c)
 			{

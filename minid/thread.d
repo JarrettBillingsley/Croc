@@ -55,7 +55,7 @@ static:
 		t.stackIndex = cast(AbsStack)1; // So that there is a 'this' at top-level.
 		t.results = alloc.allocArray!(MDValue)(8);
 
-		t.tryRecs[0].actRecord = size_t.max;
+		t.tryRecs[0].actRecord = uword.max;
 
 		t.vm = vm;
 

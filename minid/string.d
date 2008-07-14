@@ -78,7 +78,7 @@ static:
 		return false;	
 	}
 	
-	package MDString* slice(MDVM* vm, MDString* s, size_t lo, size_t hi)
+	package MDString* slice(MDVM* vm, MDString* s, uword lo, uword hi)
 	{
 		return create(vm, s.toString32()[lo .. hi]);
 	}
@@ -87,7 +87,7 @@ static:
 	// Private
 	// ================================================================================================================================================
 	
-	private size_t StringSize(size_t length)
+	private uword StringSize(uword length)
 	{
 		return MDString.sizeof + (dchar.sizeof * length);
 	}

@@ -35,7 +35,7 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package MDObject* create(ref Allocator alloc, MDString* name, MDObject* proto, size_t numValues = 0, size_t extraBytes = 0)
+	package MDObject* create(ref Allocator alloc, MDString* name, MDObject* proto, uword numValues = 0, uword extraBytes = 0)
 	{
 		auto o = alloc.allocate!(MDObject)(ObjectSize(numValues, extraBytes));
 		o.name = name;
@@ -95,7 +95,7 @@ static:
 		return o.fields;
 	}
 	
-	package bool next(MDObject* o, ref nint idx, ref MDString** key, ref MDValue* val)
+	package bool next(MDObject* o, ref word idx, ref MDString** key, ref MDValue* val)
 	{
 		if(o.fields is null)
 			return false;
@@ -107,7 +107,7 @@ static:
 	// Private
 	// ================================================================================================================================================
 
-	private size_t ObjectSize(size_t numValues, size_t extraBytes)
+	private uword ObjectSize(uword numValues, uword extraBytes)
 	{
 		return MDObject.sizeof + (numValues * MDValue.sizeof) + extraBytes;
 	}

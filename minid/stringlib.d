@@ -121,7 +121,7 @@ static:
 	int find(MDState s, uint numParams)
 	{
 		dchar[] src = s.getContext!(MDString).mData;
-		size_t result;
+		uword result;
 
 		if(s.isParam!("string")(0))
 			result = Text.locatePattern(src, s.getParam!(MDString)(0).mData);
@@ -139,7 +139,7 @@ static:
 	{
 		dchar[32] buf1, buf2;
 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		size_t result;
+		uword result;
 
 		if(s.isParam!("string")(0))
 			result = Text.locatePattern(src, Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
@@ -156,7 +156,7 @@ static:
 	int rfind(MDState s, uint numParams)
 	{
 		dchar[] src = s.getContext!(MDString).mData;
-		size_t result;
+		uword result;
 
 		if(s.isParam!("string")(0))
 			result = Text.locatePatternPrior(src, s.getParam!(MDString)(0).mData);
@@ -174,7 +174,7 @@ static:
 	{
 		dchar[32] buf1, buf2;
 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		size_t result;
+		uword result;
 
 		if(s.isParam!("string")(0))
 			result = Text.locatePatternPrior(src, Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
@@ -285,7 +285,7 @@ static:
 	int lstrip(MDState s, uint numParams)
 	{
 		dchar[] str = s.getContext!(MDString).mData;
-		size_t i;
+		uword i;
 
 		for(i = 0; i < str.length && Uni.isWhitespace(str[i]); i++){}
 

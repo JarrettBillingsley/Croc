@@ -76,12 +76,12 @@ static:
 		return ns.data.lookup(key) !is null;
 	}
 	
-	package bool next(MDNamespace* ns, ref nint idx, ref MDString** key, ref MDValue* val)
+	package bool next(MDNamespace* ns, ref word idx, ref MDString** key, ref MDValue* val)
 	{
 		return ns.data.next(idx, key, val);
 	}
 	
-	package size_t length(MDNamespace* ns)
+	package uword length(MDNamespace* ns)
 	{
 		return ns.data.length();
 	}

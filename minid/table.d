@@ -34,7 +34,7 @@ static:
 	// ================================================================================================================================================
 
 	// Create a new table object with `size` slots preallocated in it.
-	package MDTable* create(ref Allocator alloc, size_t size = 0)
+	package MDTable* create(ref Allocator alloc, uword size = 0)
 	{
 		auto t = alloc.allocate!(MDTable);
 		t.data.prealloc(alloc, size);
@@ -72,7 +72,7 @@ static:
 		return t.data.lookup(key) !is null;
 	}
 	
-	package size_t length(MDTable* t)
+	package uword length(MDTable* t)
 	{
 		return t.data.length();
 	}

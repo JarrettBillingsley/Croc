@@ -38,7 +38,7 @@ public struct CreateObject
 {
 	private MDThread* t;
 	private dchar[] name;
-	private nint idx;
+	private word idx;
 
 	public static void opCall(MDThread* t, dchar[] name, void delegate(CreateObject*) dg)
 	{
@@ -87,8 +87,8 @@ auto strIdx = buf.finish();
 public struct StrBuffer
 {
 	private MDThread* t;
-	private size_t numPieces;
-	private size_t pos;
+	private uword numPieces;
+	private uword pos;
 	private dchar[512] data;
 
 	/**
@@ -177,7 +177,7 @@ public struct StrBuffer
 	Indicate that the string building is complete.  This function will leave just the finished string
 	on top of the stack.  The StrBuffer will also be in a state to build a new string if you so desire.
 	*/
-	public nint finish()
+	public word finish()
 	{
 		flush();
 
@@ -209,13 +209,13 @@ public struct StrBuffer
 	}
 }
 
-public void checkAnyParam(MDThread* t, nint index)
+public void checkAnyParam(MDThread* t, word index)
 {
 	if(!isValidIndex(t, index))
 		throwException(t, "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
-public bool checkBoolParam(MDThread* t, nint index)
+public bool checkBoolParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -225,7 +225,7 @@ public bool checkBoolParam(MDThread* t, nint index)
 	return getBool(t, index);
 }
 
-public mdint checkIntParam(MDThread* t, nint index)
+public mdint checkIntParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -235,7 +235,7 @@ public mdint checkIntParam(MDThread* t, nint index)
 	return getInt(t, index);
 }
 
-public mdfloat checkFloatParam(MDThread* t, nint index)
+public mdfloat checkFloatParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -245,7 +245,7 @@ public mdfloat checkFloatParam(MDThread* t, nint index)
 	return getFloat(t, index);
 }
 
-public dchar checkCharParam(MDThread* t, nint index)
+public dchar checkCharParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -255,7 +255,7 @@ public dchar checkCharParam(MDThread* t, nint index)
 	return getChar(t, index);
 }
 
-public dchar[] checkStringParam(MDThread* t, nint index)
+public dchar[] checkStringParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -265,7 +265,7 @@ public dchar[] checkStringParam(MDThread* t, nint index)
 	return getString(t, index);
 }
 
-public void checkObjParam()(MDThread* t, nint index)
+public void checkObjParam()(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 	
@@ -273,7 +273,7 @@ public void checkObjParam()(MDThread* t, nint index)
 		paramTypeError(t, index, "object");
 }
 
-public void checkObjParam(bool strict = true)(MDThread* t, nint index, dchar[] name)
+public void checkObjParam(bool strict = true)(MDThread* t, word index, dchar[] name)
 {
 	index = absIndex(t, index);
 	checkObjParam(t, index);
@@ -293,13 +293,13 @@ public void checkObjParam(bool strict = true)(MDThread* t, nint index, dchar[] n
 	pop(t);
 }
 
-public T* checkObjParam(T, bool strict = true)(MDThread* t, nint index, dchar[] name)
+public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, dchar[] name)
 {
 	checkObjParam!(strict)(t, index, name);
 	return getMembers!(T)(t, index);
 }
 
-public void checkParam(MDThread* t, nint index, MDValue.Type type)
+public void checkParam(MDThread* t, word index, MDValue.Type type)
 {
 	assert(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj, "invalid type");
 
@@ -309,7 +309,7 @@ public void checkParam(MDThread* t, nint index, MDValue.Type type)
 		paramTypeError(t, index, MDValue.typeString(type));
 }
 
-public void paramTypeError(MDThread* t, nint index, dchar[] expected)
+public void paramTypeError(MDThread* t, word index, dchar[] expected)
 {
 	pushTypeString(t, index);
 
@@ -319,7 +319,7 @@ public void paramTypeError(MDThread* t, nint index, dchar[] expected)
 		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
 }
 
-public bool optBoolParam(MDThread* t, nint index, bool def)
+public bool optBoolParam(MDThread* t, word index, bool def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -330,7 +330,7 @@ public bool optBoolParam(MDThread* t, nint index, bool def)
 	return getBool(t, index);
 }
 
-public mdint optIntParam(MDThread* t, nint index, mdint def)
+public mdint optIntParam(MDThread* t, word index, mdint def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -341,7 +341,7 @@ public mdint optIntParam(MDThread* t, nint index, mdint def)
 	return getInt(t, index);
 }
 
-public mdfloat optFloatParam(MDThread* t, nint index, mdfloat def)
+public mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -352,7 +352,7 @@ public mdfloat optFloatParam(MDThread* t, nint index, mdfloat def)
 	return getFloat(t, index);
 }
 
-public dchar optCharParam(MDThread* t, nint index, dchar def)
+public dchar optCharParam(MDThread* t, word index, dchar def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -363,7 +363,7 @@ public dchar optCharParam(MDThread* t, nint index, dchar def)
 	return getChar(t, index);
 }
 
-public dchar[] optStringParam(MDThread* t, nint index, dchar[] def)
+public dchar[] optStringParam(MDThread* t, word index, dchar[] def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -374,7 +374,7 @@ public dchar[] optStringParam(MDThread* t, nint index, dchar[] def)
 	return getString(t, index);
 }
 
-public bool optParam(MDThread* t, nint index, MDValue.Type type)
+public bool optParam(MDThread* t, word index, MDValue.Type type)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return false;
@@ -385,7 +385,7 @@ public bool optParam(MDThread* t, nint index, MDValue.Type type)
 	return true;
 }
 
-public T* getMembers(T)(MDThread* t, nint index)
+public T* getMembers(T)(MDThread* t, word index)
 {
 	auto ret = getExtraBytes(t, index);
 	assert(ret.length == T.sizeof);
@@ -422,12 +422,12 @@ Params:
 Returns:
 	The stack index of the looked-up value.
 */
-public nint lookup(MDThread* t, dchar[] name)
+public word lookup(MDThread* t, dchar[] name)
 {
 	validateName(t, name);
 
 	bool isFirst = true;
-	nint idx = void;
+	word idx = void;
 
 	foreach(n; name.delimiters("."d))
 	{
@@ -457,7 +457,7 @@ parameter instead of a normal parameter.
 Returns:
 	The stack index of the looked-up value.
 */
-public nint lookupCT(char[] name)(MDThread* t)
+public word lookupCT(char[] name)(MDThread* t)
 {
 	mixin(NameToAPICalls!(name));
 	return idx;
@@ -480,7 +480,7 @@ private void validateName(MDThread* t, dchar[] name)
 	if(name.length == 0)
 		throwException(t, "Cannot use an empty string for a name");
 
-	size_t idx = 0;
+	uword idx = 0;
 
 	void ident()
 	{
@@ -517,9 +517,9 @@ private template IsIdentChar(char c)
 	const IsIdentChar = IsIdentBeginChar!(c) || (c >= '0' && c <= '9');
 }
 
-private template ValidateNameCTImpl(char[] name, size_t start = 0)
+private template ValidateNameCTImpl(char[] name, uword start = 0)
 {
-	private template IdentLoop(size_t idx)
+	private template IdentLoop(uword idx)
 	{
 		static if(idx < name.length && IsIdentChar!(name[idx]))
 			const IdentLoop = IdentLoop!(idx + 1);
