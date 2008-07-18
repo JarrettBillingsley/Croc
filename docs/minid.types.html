@@ -45,8 +45,8 @@ subject to the following restrictions:
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">alias 
-<span class="currsymbol">nint</span>
-<script>explorer.outline.addDecl('nint');</script>
+<span class="currsymbol">word</span>
+<script>explorer.outline.addDecl('word');</script>
 
 ;
 </span></dt>
@@ -60,15 +60,19 @@ subject to the following restrictions:
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">alias 
-<span class="currsymbol">nuint</span>
-<script>explorer.outline.addDecl('nuint');</script>
+<span class="currsymbol">uword</span>
+<script>explorer.outline.addDecl('uword');</script>
 
 ;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
+<dd>The native unsigned integer type on this platform.  This is the same as 
+<span class="currsymbol">uword</span>
+<script>explorer.outline.addDecl('uword');</script>
+
+ but with a better name.
 <br><br>
 
 </dd>
@@ -131,7 +135,7 @@ integers even on 64-bit platforms.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>An alias for the type signature of a native function.  It is defined as nuint function(MDThread*, nuint).
+<dd>An alias for the type signature of a native function.  It is defined as uword function(MDThread*, uword).
 <br><br>
 
 </dd>
@@ -268,7 +272,7 @@ Like the other exception types, you can't instantiate this directly, but you can
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Wed Jul  2 12:33:04 2008
+			on Mon Jul 14 10:20:28 2008
 
 		</td></tr>
 	</table>

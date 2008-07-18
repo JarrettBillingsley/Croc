@@ -76,7 +76,7 @@ string building since the stack may grow, so be sure to use absolute (positive) 
 A typical use looks something like this:
 
 -----
-auto buf = ex.StrBuffer(t);
+auto buf = StrBuffer(t);
 buf.addString(someString);
 buf.addChar(someChar);
 // ...
@@ -401,7 +401,7 @@ This functions behaves just as though you were evaluating this expression in Min
 metamethods are respected.
 
 -----
-auto slot = ex.lookup(t, "time.Timer");
+auto slot = lookup(t, "time.Timer");
 pushNull(t);
 methodCall(t, slot, "clone", 1);
 // We now have an instance of time.Timer on top of the stack.
@@ -411,7 +411,7 @@ If you want to set a long _name, such as "foo.bar.baz.quux", you just _lookup ev
 use 'fielda' to set it:
 
 -----
-auto slot = ex.lookup(t, "foo.bar.baz");
+auto slot = lookup(t, "foo.bar.baz");
 pushInt(t, 5);
 fielda(t, slot, "quux");
 -----

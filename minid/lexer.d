@@ -292,6 +292,11 @@ struct Token
 
 		assert(false);
 	}
+	
+	public dchar[] typeString()
+	{
+		return strings[type];
+	}
 }
 
 struct Lexer
@@ -436,10 +441,10 @@ struct Lexer
 	}
 
 // ================================================================================================================================================
-// Private
+// Package
 // ================================================================================================================================================
 
-	private dchar[] newString(dchar[] data)
+	package dchar[] newString(dchar[] data)
 	{
 		auto s = string.create(mCompiler.thread.vm, data);
 		pushStringObj(mCompiler.thread, s);
@@ -447,6 +452,10 @@ struct Lexer
 		idxa(mCompiler.thread, mStringTab);
 		return s.toString32();
 	}
+
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
 
 	private bool isEOF()
 	{
@@ -941,7 +950,7 @@ struct Lexer
 		// Skip end quote
 		nextChar();
 
-		return buf.toArray();
+		return newString(buf.toArray());
 	}
 
 	private dchar readCharLiteral()

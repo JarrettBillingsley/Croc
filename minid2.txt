@@ -335,11 +335,11 @@ SimpleFunctionDeclaration:
 	'function' Identifier FunctionBody
 
 FunctionBody:
-	Parameters (Statement | '=' Expression)
+	'(' Parameters ')' (Statement | '=' Expression)
 
 Parameters:
-	'(' [('this' ':' Type | Parameter) {',' Parameter} [',' 'vararg']] ')'
-	'(' 'vararg' ')'
+	[('this' ':' Type | Parameter) {',' Parameter} [',' 'vararg']]
+	'vararg'
 
 Parameter:
 	Identifier [':' Type] ['=' Expression]
@@ -479,26 +479,29 @@ XorExpression:
 	XorExpression '^' AndExpression
 
 AndExpression:
+	CompareExpression
+	AndExpression '&' CompareExpression
+
+CompareExpression:
+	ShiftExpression
 	EqualExpression
-	AndExpression '&' EqualExpression
+	RelExpression
 
 EqualExpression:
-	RelExpression
-	EqualExpression '==' RelExpression
-	EqualExpression '!=' RelExpression
-	EqualExpression 'is' RelExpression
-	EqualExpression '!' 'is' RelExpression
+	ShiftExpression '==' ShiftExpression
+	ShiftExpression '!=' ShiftExpression
+	ShiftExpression 'is' ShiftExpression
+	ShiftExpression '!' 'is' ShiftExpression
 
 RelExpression:
-	ShiftExpression
-	RelExpression 'as' ShiftExpression
-	RelExpression 'in' ShiftExpression
-	RelExpression '!' 'in' ShiftExpression
-	RelExpression '<' ShiftExpression
-	RelExpression '<=' ShiftExpression
-	RelExpression '>' ShiftExpression
-	RelExpression '>=' ShiftExpression
-	RelExpression '<=>' ShiftExpression
+	ShiftExpression '<' ShiftExpression
+	ShiftExpression '<=' ShiftExpression
+	ShiftExpression '>' ShiftExpression
+	ShiftExpression '>=' ShiftExpression
+	ShiftExpression '<=>' ShiftExpression
+	ShiftExpression 'as' ShiftExpression
+	ShiftExpression 'in' ShiftExpression
+	ShiftExpression '!' 'in' ShiftExpression
 
 ShiftExpression:
 	AddExpression
@@ -567,7 +570,7 @@ PrimaryExpression:
 	StringLiteral
 	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
-	'\\' (Identifier | 'vararg' | Parameters) '->' Expression
+	'\\' Parameters '->' Expression
 	'object' [Identifier] [':' Expression] '{' {ObjectMember} '}'
 	'(' Expression ')'
 	TableCtorExp

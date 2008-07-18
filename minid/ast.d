@@ -24,10 +24,13 @@ subject to the following restrictions:
 module minid.ast;
 
 import minid.compilertypes;
+import minid.opcodes;
+import minid.types;
 
 const char[][] AstTagNames =
 [
 	"Unknown",
+	"Identifier",
 	
 	"ObjectDef",
 	"FuncDef",
@@ -61,22 +64,22 @@ const char[][] AstTagNames =
 	"TryStmt",
 	"ThrowStmt",
 
-	"Assign",
-	"AddAssign",
-	"SubAssign",
-	"CatAssign",
-	"MulAssign",
-	"DivAssign",
-	"ModAssign",
-	"OrAssign",
-	"XorAssign",
-	"AndAssign",
-	"ShlAssign",
-	"ShrAssign",
-	"UShrAssign",
-	"CondAssign",
-	"IncExp",
-	"DecExp",
+	"AssignStmt",
+	"AddAssignStmt",
+	"SubAssignStmt",
+	"CatAssignStmt",
+	"MulAssignStmt",
+	"DivAssignStmt",
+	"ModAssignStmt",
+	"OrAssignStmt",
+	"XorAssignStmt",
+	"AndAssignStmt",
+	"ShlAssignStmt",
+	"ShrAssignStmt",
+	"UShrAssignStmt",
+	"CondAssignStmt",
+	"IncStmt",
+	"DecStmt",
 
 	"CondExp",
 	"OrOrExp",
@@ -136,6 +139,7 @@ const char[][] AstTagNames =
 	"NamespaceCtorExp",
 	"YieldExp",
 	"SuperCallExp",
+
 	"ForeachComprehension",
 	"ForNumComprehension",
 	"IfComprehension",
@@ -158,6 +162,7 @@ mixin("enum AstTag {" ~ genEnumMembers() ~ "}");
 const char[][] NiceAstTagNames =
 [
 	AstTag.Unknown:              "<unknown node type>",
+	AstTag.Identifier:           "identifier",
 
 	AstTag.ObjectDef:            "object definition",
 	AstTag.FuncDef:              "function definition",
@@ -191,22 +196,22 @@ const char[][] NiceAstTagNames =
 	AstTag.TryStmt:              "'try-catch-finally' statement",
 	AstTag.ThrowStmt:            "'throw' statement",
 
-	AstTag.Assign:               "assignment",
-	AstTag.AddAssign:            "addition assignment",
-	AstTag.SubAssign:            "subtraction assignment",
-	AstTag.CatAssign:            "concatenation assignment",
-	AstTag.MulAssign:            "multiplication assignment",
-	AstTag.DivAssign:            "division assignment",
-	AstTag.ModAssign:            "modulo assignment",
-	AstTag.OrAssign:             "bitwise 'or' assignment",
-	AstTag.XorAssign:            "bitwise 'xor' assignment",
-	AstTag.AndAssign:            "bitwise 'and' assignment",
-	AstTag.ShlAssign:            "left-shift assignment",
-	AstTag.ShrAssign:            "right-shift assignment",
-	AstTag.UShrAssign:           "unsigned right-shift assignment",
-	AstTag.CondAssign:           "conditional assignment",
-	AstTag.IncExp:               "increment",
-	AstTag.DecExp:               "decrement",
+	AstTag.AssignStmt:           "assignment",
+	AstTag.AddAssignStmt:        "addition assignment",
+	AstTag.SubAssignStmt:        "subtraction assignment",
+	AstTag.CatAssignStmt:        "concatenation assignment",
+	AstTag.MulAssignStmt:        "multiplication assignment",
+	AstTag.DivAssignStmt:        "division assignment",
+	AstTag.ModAssignStmt:        "modulo assignment",
+	AstTag.OrAssignStmt:         "bitwise 'or' assignment",
+	AstTag.XorAssignStmt:        "bitwise 'xor' assignment",
+	AstTag.AndAssignStmt:        "bitwise 'and' assignment",
+	AstTag.ShlAssignStmt:        "left-shift assignment",
+	AstTag.ShrAssignStmt:        "right-shift assignment",
+	AstTag.UShrAssignStmt:       "unsigned right-shift assignment",
+	AstTag.CondAssignStmt:       "conditional assignment",
+	AstTag.IncStmt:              "increment",
+	AstTag.DecStmt:              "decrement",
 
 	AstTag.CondExp:              "conditional expression",
 	AstTag.OrOrExp:              "logical 'or' expression",
@@ -291,10 +296,16 @@ abstract class AstNode : IAstNode
 	public CompileLoc endLocation;
 
 	/**
-	The tag indicating what kind of node this actually is.  You can switch on this
-	to walk an AST.
+	The tag indicating what kind of node this actually is.
 	*/
 	public AstTag type;
+
+	new(uword size, ICompiler c)
+	{
+		auto ret = cast(AstNode)c.alloc().allocArray!(void)(size).ptr;
+		c.addNode(ret);
+		return cast(void*)ret;
+	}
 
 	/**
 	The base constructor, but since this class is abstract, this can only be
@@ -339,5 +350,2784 @@ abstract class AstNode : IAstNode
 			return cast(T)cast(void*)this;
 
 		return null;
+	}
+}
+
+/**
+This node represents an identifier.  This isn't the same as an IdentExp, as identifiers can
+be used in non-expression contexts (such as names in declarations).
+*/
+class Identifier : AstNode
+{
+	public dchar[] name;
+
+	public this(CompileLoc location, dchar[] name)
+	{
+		super(location, location, AstTag.Identifier);
+		this.name = name;
+	}
+}
+
+/**
+This node represents the guts of an object literal.  This node does not directly correspond
+to a single grammar element; rather it represents the common attributes of both object
+literals and object declarations.
+*/
+class ObjectDef : AstNode
+{
+	/**
+	Represents a single field in the object.  Remember that methods are fields too.
+	*/
+	struct Field
+	{
+		/**
+		The name of the field.  This corresponds to either the name of a data member or
+		the name of a method.
+		*/
+		dchar[] name;
+		
+		/**
+		The initializer of the field.  This will never be null.  If a field is declared in
+		an object but not given a value, a NullExp will be inserted into this field.
+		*/
+		Expression initializer;
+	}
+
+	/**
+	The name of the object.  This field can be null, which indicates that the name of the
+	object will be taken from its base object at runtime.
+	*/
+	public Identifier name;
+
+	/**
+	The base object from which this object derives.  This field will never be null.  If
+	no base object is specified, it is given the value of an IdentExp with the identifier
+	"Object".
+	*/
+	public Expression baseObject;
+	
+	/**
+	The fields in this object, in the order they were declared.  See the Field struct above.
+	*/
+	public Field[] fields;
+
+	/**
+	Optional attribute table for this object.  This member can be null.
+	*/
+	public TableCtorExp attrs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
+	{
+		super(location, endLocation, AstTag.ObjectDef);
+		this.name = name;
+		this.baseObject = baseObject;
+		this.fields = fields;
+		this.attrs = attrs;
+	}
+}
+
+/**
+Similar to ObjectDef, this class represents the common attributes of both function literals
+and function declarations.
+*/
+class FuncDef : AstNode
+{
+	enum TypeMask
+	{
+		Null =      (1 << cast(uint)MDValue.Type.Null),
+		Bool =      (1 << cast(uint)MDValue.Type.Bool),
+		Int =       (1 << cast(uint)MDValue.Type.Int),
+		Float =     (1 << cast(uint)MDValue.Type.Float),
+		Char =      (1 << cast(uint)MDValue.Type.Char),
+
+		String =    (1 << cast(uint)MDValue.Type.String),
+		Table =     (1 << cast(uint)MDValue.Type.Table),
+		Array =     (1 << cast(uint)MDValue.Type.Array),
+		Function =  (1 << cast(uint)MDValue.Type.Function),
+		Object =    (1 << cast(uint)MDValue.Type.Object),
+		Namespace = (1 << cast(uint)MDValue.Type.Namespace),
+		Thread =    (1 << cast(uint)MDValue.Type.Thread),
+		NativeObj = (1 << cast(uint)MDValue.Type.NativeObj),
+
+		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Object | Namespace | Thread | NativeObj,
+		Any = Null | NotNull
+	}
+
+	/**
+	Represents a parameter to the function.
+	*/
+	struct Param
+	{
+		/**
+		The name of the parameter.
+		*/
+		Identifier name;
+
+		/**
+		The type mask of the parameter, that is, what basic types can be passed to it.
+		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
+		set to 0; the codegen does not check for this so it's up to you.
+		*/
+		uint typeMask = TypeMask.Any;
+
+		/**
+		If typeMask allows objects, this can be a list of expressions which should evaluate
+		at runtime to object types that this parameter can accept.  This is an optional
+		list.  If typeMask does not allow objects, this should be empty.
+		*/
+		Expression[] objectTypes;
+
+		/**
+		The default value for the parameter.  This can be null, in which case it will have
+		no default value.
+		*/
+		Expression defValue;
+	}
+
+	/**
+	The name of the function.  This will never be null.  In the case of function literals
+	without names, this will be filled with an auto-generated name based off the location of
+	where the literal occurred.
+	*/
+	public Identifier name;
+	
+	/**
+	The list of parameters to the function.  See the Param struct above.  This will always be
+	at least one element long, and element 0 will always be the 'this' parameter.
+	*/
+	public Param[] params;
+
+	/**
+	Indicates whether or not this function is variadic.
+	*/
+	public bool isVararg;
+	
+	/**
+	The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
+	is a ReturnStmt with one expression, the expression that is the lambda's body.
+	*/
+	public Statement code;
+
+	/**
+	Optional attribute table for this function.  This can be null.
+	*/
+	public TableCtorExp attrs;
+
+	/**
+	*/
+	public this(CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
+	{
+		super(location, code.endLocation, AstTag.FuncDef);
+		this.params = params;
+		this.isVararg = isVararg;
+		this.code = code;
+		this.name = name;
+		this.attrs = attrs;
+	}
+}
+
+/**
+Like the ObjectDef and FuncDef classes, this represents the common attributes of both
+namespace literals and declarations.
+*/
+class NamespaceDef : AstNode
+{
+	/**
+	Represents a single field in the namespace.  Remember that functions are fields too.
+	*/
+	struct Field
+	{
+		/**
+		The name of the field.  This corresponds to either the name of a data member or
+		the name of a function.
+		*/
+		dchar[] name;
+		
+		/**
+		The initializer of the field.  This will never be null.  If a field is declared in
+		a namespace but not given a value, a NullExp will be inserted into this field.
+		*/
+		Expression initializer;
+	}
+
+	/**
+	The name of the namespace.  This field will never be null.
+	*/
+	public Identifier name;
+	
+	/**
+	The namespace which will become the parent of this namespace.  This field can be null,
+	in which case the namespace's parent will be set to the environment of the current function.
+	*/
+	public Expression parent;
+
+	/**
+	The fields in this namespace, in an arbitrary order.  See the Field struct above.
+	*/
+	public Field[] fields;
+	
+	/**
+	Optional attribute table for this namespace.  This member can be null.
+	*/
+	public TableCtorExp attrs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
+	{
+		super(location, endLocation, AstTag.NamespaceDef);
+		this.name = name;
+		this.parent = parent;
+		this.fields = fields;
+		this.attrs = attrs;
+	}
+}
+
+/**
+Represents a MiniD module.  This node forms the root of an AST when a module is compiled.
+*/
+class Module : AstNode
+{
+	/**
+	The module declaration.  This will never be null.
+	*/
+	public ModuleDecl modDecl;
+
+	/**
+	A list of 0 or more statements which make up the body of the module.
+	*/
+	public Statement[] statements;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, ModuleDecl modDecl, Statement[] statements)
+	{
+		super(location, endLocation, AstTag.Module);
+		this.modDecl = modDecl;
+		this.statements = statements;
+	}
+}
+
+/**
+This node represents the module declaration that comes at the top of every module.
+*/
+class ModuleDecl : AstNode
+{
+	/**
+	The name of this module.  This is an array of strings, each element of which is one
+	piece of a dotted name.  This array will always be at least one element long.
+	*/
+	public dchar[][] names;
+	
+	/**
+	An optional attribute table to attach to the module.
+	*/
+	public TableCtorExp attrs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, dchar[][] names, TableCtorExp attrs)
+	{
+		super(location, endLocation, AstTag.ModuleDecl);
+		this.names = names;
+		this.attrs = attrs;
+	}
+}
+
+/**
+The base class for all statements.
+*/
+abstract class Statement : AstNode
+{
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
+	{
+		super(location, endLocation, type);
+	}
+}
+
+/**
+Defines the types of protection possible for object, function, namespace, and variable
+declarations.
+*/
+enum Protection
+{
+	/**
+	This indicates "default" protection, which means global at module-level scope and local
+	everywhere else.
+	*/
+	Default,
+	
+	/**
+	This forces local protection.
+	*/
+	Local,
+	
+	/**
+	This forces global protection.
+	*/
+	Global
+}
+
+/**
+The abstract base class for the declaration statements.
+*/
+abstract class DeclStmt : Statement
+{
+	/**
+	What protection level this declaration uses.
+	*/
+	public Protection protection;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Protection protection)
+	{
+		super(location, endLocation, type);
+		this.protection = protection;
+	}
+}
+
+/**
+This node represents a function declaration.  Note that there are some places in the
+grammar which look like function declarations (like inside objects and namespaces) but
+which actually are just syntactic sugar.  This is for actual declarations.
+*/
+class FuncDecl : DeclStmt
+{
+	/**
+	The "guts" of the function declaration.
+	*/
+	public FuncDef def;
+
+	/**
+	The protection parameter can be any kind of protection.
+	*/
+	public this(CompileLoc location, Protection protection, FuncDef def)
+	{
+		super(location, def.endLocation, AstTag.FuncDecl, protection);
+		this.def = def;
+	}
+}
+
+/**
+This node represents an object declaration.
+*/
+class ObjectDecl : DeclStmt
+{
+	/**
+	The actual "guts" of the object.
+	*/
+	public ObjectDef def;
+
+	/**
+	The protection parameter can be any kind of protection.
+	*/
+	public this(CompileLoc location, Protection protection, ObjectDef def)
+	{
+		super(location, def.endLocation, AstTag.ObjectDecl, protection);
+		this.def = def;
+	}
+}
+
+/**
+This node represents a namespace declaration.
+*/
+class NamespaceDecl : DeclStmt
+{
+	/**
+	The "guts" of the namespace.
+	*/
+	public NamespaceDef def;
+
+	/**
+	The protection parameter can be any level of protection.
+	*/
+	public this(CompileLoc location, Protection protection, NamespaceDef def)
+	{
+		super(location, def.endLocation, AstTag.NamespaceDecl, protection);
+		this.def = def;
+	}
+}
+
+/**
+Represents local and global variable declarations.
+*/
+class VarDecl : DeclStmt
+{
+	/**
+	The list of names to be declared.  This will always have at least one name.
+	*/
+	public Identifier[] names;
+	
+	/**
+	The initializer for the variables.  This can be null, in which case the variables
+	will be initialized to null.  If this is non-null and there is more than one name,
+	this must be a multi-return expression, such as a function call, vararg etc.
+	*/
+	public Expression initializer;
+
+	/**
+	The protection parameter must be either Protection.Local or Protection.Global.
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression initializer)
+	{
+		super(location, endLocation, AstTag.VarDecl, protection);
+		this.names = names;
+		this.initializer = initializer;
+	}
+}
+
+/**
+This node represents an assertion statement.
+*/
+class AssertStmt : Statement
+{
+	/**
+	A required expression that is the condition checked by the assertion.
+	*/
+	public Expression cond;
+
+	/**
+	An optional message that will be used if the assertion fails.  This member
+	can be null, in which case a message will be generated for the assertion
+	based on its location.  If it's not null, it must evaluate to a string.
+	*/
+	public Expression msg;
+	
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
+	{
+		super(location, endLocation, AstTag.AssertStmt);
+		this.cond = cond;
+		this.msg = msg;
+	}
+}
+
+/**
+This node represents an import statement.
+*/
+class ImportStmt : Statement
+{
+	/**
+	An optional renaming of the import.  This member can be null, in which case no renaming
+	is done.  In the code "import x = y;", this member corresponds to "x".
+	*/
+	public Identifier importName;
+	
+	/**
+	The expression which evaluates to a string containing the name of the module to import.
+	The statement "import a.b.c" is actually syntactic sugar for "import("a.b.c")", so expr
+	will be a StringExp in this case.  This expression is checked (if it's constant) to ensure
+	that it's a string when constant folding occurs.
+	*/
+	public Expression expr;
+
+	/**
+	An optional list of symbols to import from the module.  In the code "import x : a, b, c",
+	this corresponds to "a, b, c".
+	*/
+	public Identifier[] symbols;
+	
+	/**
+	A parallel array to the symbols array.  This holds the names of the symbols as they should
+	be called in this module.  The code "import x : a, b" is sugar for "import x : a = a, b = b".
+	In the code "import x : y = a, z = b", this array corresponds to "y, z".
+	*/
+	public Identifier[] symbolNames;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
+	{
+		super(location, endLocation, AstTag.ImportStmt);
+		this.importName = importName;
+		this.expr = expr;
+		this.symbols = symbols;
+		this.symbolNames = symbolNames;
+	}
+}
+
+/**
+This node represents a block statement (i.e. one surrounded by curly braces).
+*/
+class BlockStmt : Statement
+{
+	/**
+	The list of statements contained in the braces.
+	*/
+	public Statement[] statements;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Statement[] statements)
+	{
+		super(location, endLocation, AstTag.BlockStmt);
+		this.statements = statements;
+	}
+}
+
+/**
+A node which doesn't correspond to a grammar element.  This indicates a new nested scope.
+An example of where this would be used is in an anonymous scope with some code in it.  All it
+does is affects the codegen of the contained statement by beginning a new scope before it
+and ending the scope after it.
+*/
+class ScopeStmt : Statement
+{
+	/**
+	The statement contained within this scope.  Typically a block statement, but can
+	be anything.
+	*/
+	public Statement statement;
+
+	/**
+	*/
+	public this(Statement statement)
+	{
+		super(statement.location, statement.endLocation, AstTag.ScopeStmt);
+		this.statement = statement;
+	}
+}
+
+/**
+A statement that holds a side-effecting expression to be evaluated as a statement,
+such as a function call, assignment etc.
+*/
+class ExpressionStmt : Statement
+{
+	/**
+	The expression to be evaluated for this statement.  This must be a side-effecting
+	expression, including function calls, yields, and assignments.  Conditional (?:)
+	expressions and logical or and logical and (|| and &&) expressions are also allowed,
+	providing at least one component is side-effecting.
+
+	This class does $(B not) check that this expression is side-effecting; that is up to
+	you.
+	*/
+	public Expression expr;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression expr)
+	{
+		super(location, endLocation, AstTag.ExpressionStmt);
+		this.expr = expr;
+	}
+	
+	/**
+	*/
+	public this(Expression expr)
+	{
+		super(expr.location, expr.endLocation, AstTag.ExpressionStmt);
+		this.expr = expr;
+	}
+}
+
+/**
+This node represents an if statement.
+*/
+class IfStmt : Statement
+{
+	/**
+	An optional variable to declare inside the statement's condition which will take on
+	the value of the condition.  In the code "if(local x = y < z){}", this corresponds
+	to "x".  This member may be null, in which case there is no variable there.
+	*/
+	public Identifier condVar;
+	
+	/**
+	The condition to test.
+	*/
+	public Expression condition;
+	
+	/**
+	The code to execute if the condition evaluates to true.
+	*/
+	public Statement ifBody;
+
+	/**
+	If there is an else clause, this is the code to execute if the condition evaluates to
+	false.  If there is no else clause, this member is null.
+	*/
+	public Statement elseBody;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
+	{
+		super(location, endLocation, AstTag.IfStmt);
+
+		this.condVar = condVar;
+		this.condition = condition;
+		this.ifBody = ifBody;
+		this.elseBody = elseBody;
+	}
+}
+
+/**
+This node represents a while loop.
+*/
+class WhileStmt : Statement
+{
+	/**
+	An optional variable to declare inside the statement's condition which will take on
+	the value of the condition.  In the code "while(local x = y < z){}", this corresponds
+	to "x".  This member may be null, in which case there is no variable there.
+	*/
+	public Identifier condVar;
+	
+	/**
+	The condition to test.
+	*/
+	public Expression condition;
+	
+	/**
+	The code inside the loop.
+	*/
+	public Statement code;
+
+	/**
+	*/
+	public this(CompileLoc location, Identifier condVar, Expression condition, Statement code)
+	{
+		super(location, code.endLocation, AstTag.WhileStmt);
+
+		this.condVar = condVar;
+		this.condition = condition;
+		this.code = code;
+	}
+}
+
+/**
+This node corresponds to a do-while loop.
+*/
+class DoWhileStmt : Statement
+{
+	/**
+	The code inside the loop.
+	*/
+	public Statement code;
+	
+	/**
+	The condition to test at the end of the loop.
+	*/
+	public Expression condition;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Statement code, Expression condition)
+	{
+		super(location, endLocation, AstTag.DoWhileStmt);
+
+		this.code = code;
+		this.condition = condition;
+	}
+}
+
+/**
+This node represents a C-style for loop.
+*/
+class ForStmt : Statement
+{
+	/**
+	There are two types of initializers possible in the first clause of the for loop header:
+	variable declarations and expression statements.  This struct holds one or the other.
+	*/
+	struct Init
+	{
+		/**
+		If true, the 'decl' member should be used; else, the 'init' member should be used.
+		*/
+		bool isDecl = false;
+
+		union
+		{
+			/**
+			If isDecl is false, this holds an expression statement to be evaluated at the beginning
+			of the loop.
+			*/
+			Statement stmt;
+
+			/**
+			If isDecl is true, this holds a variable declaration to be performed at the
+			beginning of the loop.
+			*/
+			VarDecl decl;
+		}
+	}
+
+	/**
+	A list of 0 or more initializers (the first clause of the foreach header).
+	*/
+	public Init[] init;
+	
+	/**
+	The condition to test at the beginning of each iteration of the loop.  This can be
+	null, in which case the only way to get out of the loop is to break, return, or
+	throw an exception.
+	*/
+	public Expression condition;
+	
+	/**
+	A list of 0 or more increment expression statements to be evaluated at the end of
+	each iteration of the loop.
+	*/
+	public Statement[] increment;
+
+	/**
+	The code inside the loop.
+	*/
+	public Statement code;
+
+	/**
+	*/
+	public this(CompileLoc location, Init[] init, Expression cond, Statement[] inc, Statement code)
+	{
+		super(location, endLocation, AstTag.ForStmt);
+
+		this.init = init;
+		this.condition = cond;
+		this.increment = inc;
+		this.code = code;
+	}
+}
+
+/**
+This node represents a numeric for loop, i.e. "for(i: 0 .. 10){}".
+*/
+class ForNumStmt : Statement
+{
+	/**
+	The name of the index variable.
+	*/
+	public Identifier index;
+	
+	/**
+	The lower bound of the loop (the value before the "..").  If constant, it must be an
+	int.
+	*/
+	public Expression lo;
+
+	/**
+	The upper bound of the loop (the value after the "..").  If constant, it must be an
+	int.
+	*/
+	public Expression hi;
+
+	/**
+	The step value of the loop.  If specified, this is the value after the comma after the
+	upper bound.  If not specified, this is given an IntExp of value 1.  This member is
+	never null.  If constant, it must be an int.
+	*/
+	public Expression step;
+	
+	/**
+	The code inside the loop.
+	*/
+	public Statement code;
+
+	/**
+	*/
+	public this(CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	{
+		super(location, code.endLocation, AstTag.ForNumStmt);
+
+		this.index = index;
+		this.lo = lo;
+		this.hi = hi;
+		this.step = step;
+		this.code = code;
+	}
+}
+
+/**
+This node represents a foreach loop.
+*/
+class ForeachStmt : Statement
+{
+	/**
+	The list of index names (the names before the semicolon).  This list is always at least
+	two elements long.  This is because when you write a foreach loop with only one index,
+	an implicit dummy index is inserted before it.
+	*/
+	public Identifier[] indices;
+	
+	/**
+	The container (the stuff after the semicolon).  This array can be 1, 2, or 3 elements
+	long.  Semantically, the first element is the "iterator", the second the "state", and
+	the third the "index".  However MiniD will automatically call opApply on the "iterator"
+	if it's not a function, so this can function like a foreach loop in D.
+	*/
+	public Expression[] container;
+	
+	/**
+	The code inside the loop.
+	*/
+	public Statement code;
+
+	/**
+	*/
+	public this(CompileLoc location, Identifier[] indices, Expression[] container, Statement code)
+	{
+		super(location, code.endLocation, AstTag.ForeachStmt);
+
+		this.indices = indices;
+		this.container = container;
+		this.code = code;
+	}
+}
+
+/**
+This node represents a switch statement.
+*/
+class SwitchStmt : Statement
+{
+	/**
+	The value to switch on.
+	*/
+	public Expression condition;
+	
+	/**
+	A list of cases.  This is always at least one element long.
+	*/
+	public CaseStmt[] cases;
+	
+	/**
+	An optional default case.  This member can be null.
+	*/
+	public DefaultStmt caseDefault;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
+	{
+		super(location, endLocation, AstTag.SwitchStmt);
+		this.condition = condition;
+		this.cases = cases;
+		this.caseDefault = caseDefault;
+	}
+}
+
+/**
+This node represents a single case statement within a switch statement.
+*/
+class CaseStmt : Statement
+{
+	/**
+	The list of values which will cause execution to jump to this case.  In the code
+	"case 1, 2, 3:" this corresponds to "1, 2, 3".  This will always be at least one element
+	long.
+	*/
+	public Expression[] conditions;
+	
+	/**
+	The code of the case statement.
+	*/
+	public Statement code;
+
+// 	protected List!(InstRef*) mDynJumps;
+// 	protected List!(int*) mConstJumps;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] conditions, Statement code)
+	{
+		super(location, endLocation, AstTag.CaseStmt);
+		this.conditions = conditions;
+		this.code = code;
+	}
+}
+
+/**
+This node represents the default case in a switch statement.
+*/
+class DefaultStmt : Statement
+{
+	/**
+	The code of the statement.
+	*/
+	public Statement code;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Statement code)
+	{
+		super(location, endLocation, AstTag.DefaultStmt);
+		this.code = code;
+	}
+}
+
+/**
+This node represents a continue statement.
+*/
+class ContinueStmt : Statement
+{
+	/**
+	*/
+	public this(CompileLoc location)
+	{
+		super(location, location, AstTag.ContinueStmt);
+	}
+}
+
+/**
+This node represents a break statement.
+*/
+class BreakStmt : Statement
+{
+	/**
+	*/
+	public this(CompileLoc location)
+	{
+		super(location, location, AstTag.BreakStmt);
+	}
+}
+
+/**
+This node represents a return statement.
+*/
+class ReturnStmt : Statement
+{
+	/**
+	The list of expressions to return.  This array may have 0 or more elements.
+	*/
+	public Expression[] exprs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] exprs)
+	{
+		super(location, endLocation, AstTag.ReturnStmt);
+		this.exprs = exprs;
+	}
+}
+
+/**
+This node represents a try-catch-finally statement.  It holds not only the try clause,
+but either or both the catch and finally clauses.
+*/
+class TryStmt : Statement
+{
+	/**
+	The body of code to try.
+	*/
+	public Statement tryBody;
+	
+	/**
+	The variable to use in the catch block.  In the code "try{}catch(e){}", this corresponds
+	to 'e'.  This member can be null, in which case there is no catch block (and therefore
+	there must be a finally block).  If this member is non-null, catchBody must also be
+	non-null.
+	*/
+	public Identifier catchVar;
+
+	/**
+	The body of the catch block.  If this member is non-null, catchVar must also be non-null.
+	If this member is null, finallyBody must be non-null.
+	*/
+	public Statement catchBody;
+
+	/**
+	The body of the finally block.  If this member is null, catchVar and catchBody must be
+	non-null.
+	*/
+	public Statement finallyBody;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
+	{
+		super(location, endLocation, AstTag.TryStmt);
+
+		this.tryBody = tryBody;
+		this.catchVar = catchVar;
+		this.catchBody = catchBody;
+		this.finallyBody = finallyBody;
+	}
+}
+
+/**
+This node represents a throw statement.
+*/
+class ThrowStmt : Statement
+{
+	/**
+	The value that should be thrown.
+	*/
+	public Expression exp;
+
+	/**
+	*/
+	public this(CompileLoc location, Expression exp)
+	{
+		super(location, exp.endLocation, AstTag.ThrowStmt);
+		this.exp = exp;
+	}
+}
+
+/**
+This node represents normal assignment, either single- or multi-target.
+*/
+class AssignStmt : Statement
+{
+	/**
+	The list of destination expressions.  This list always has at least one element.
+	This list must contain only expressions which can be LHSes.  That will be checked
+	at codegen time.
+	*/
+	public Expression[] lhs;
+
+	/**
+	The right-hand side of the assignment.  If lhs.length > 1, this must be a multi-value
+	giving expression, meaning either a function call, vararg, sliced vararg, or yield
+	expression.  Otherwise, it can be any kind of expression.
+	*/
+	public Expression rhs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.AssignStmt);
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+}
+
+/**
+This node handles the common features of the reflexive assignments, as well as conditional assignment (?=).
+*/
+abstract class OpAssignStmt : Statement
+{
+	/**
+	The left-hand-side of the assignment.  This may not be a constant value or '#vararg', and if
+	this is a conditional assignment, it may not be 'this'.  These conditions will be checked at
+	codegen.
+	*/
+	public Expression lhs;
+
+	/**
+	The right-hand-side of the assignment.
+	*/
+	public Expression rhs;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, type);
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+}
+
+/**
+This node represents addition assignment (+=).
+*/
+class AddAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.AddAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents subtraction assignment (-=).
+*/
+class SubAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.SubAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents concatenation assignment (~=).
+*/
+class CatAssignStmt : Statement
+{
+	/**
+	The left-hand-side of the assignment.  The same constraints apply here as for other
+	reflexive assignments.
+	*/
+	public Expression lhs;
+
+	/**
+	The right-hand-side of the assignment.
+	*/
+	public Expression rhs;
+
+	private Expression[] operands;
+	private bool collapsed = false;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.CatAssignStmt);
+		this.lhs = lhs;
+		this.rhs = rhs;
+	}
+}
+
+/**
+This node represents multiplication assignment (*=).
+*/
+class MulAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.MulAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents division assignment (/=).
+*/
+class DivAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.DivAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents modulo assignment (%=).
+*/
+class ModAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.ModAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise OR assignment (|=).
+*/
+class OrAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.OrAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise XOR assignment (^=).
+*/
+class XorAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.XorAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise AND assignment (&=).
+*/
+class AndAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.AndAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise left-shift assignment (<<=).
+*/
+class ShlAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.ShlAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise right-shift assignment (>>=).
+*/
+class ShrAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.ShrAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents bitwise unsigned right-shift assignment (>>>=).
+*/
+class UShrAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.UShrAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents conditional assignment (?=).
+*/
+class CondAssignStmt : OpAssignStmt
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	{
+		super(location, endLocation, AstTag.CondAssignStmt, lhs, rhs);
+	}
+}
+
+/**
+This node represents an increment, either prefix or postfix (++a or a++).
+*/
+class IncStmt : Statement
+{
+	/**
+	The expression to modify.  The same constraints apply as for reflexive assignments.
+	*/
+	public Expression exp;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
+	{
+		super(location, endLocation, AstTag.IncStmt);
+		this.exp = exp;
+	}
+}
+
+/**
+This node represents a decrement, either prefix or postfix (--a or a--).
+*/
+class DecStmt : Statement
+{
+	/**
+	The expression to modify.  The same constraints apply as for reflexive assignments.
+	*/
+	public Expression exp;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
+	{
+		super(location, endLocation, AstTag.DecStmt);
+		this.exp = exp;
+	}
+}
+
+/**
+The base class for all expressions.
+*/
+abstract class Expression : AstNode
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
+	{
+		super(location, endLocation, type);
+	}
+
+	/**
+	Ensure that this expression can be evaluated to nothing, i.e. that it can exist
+	on its own.  Throws an exception if not.
+	*/
+	public void checkToNothing(ICompiler c)
+	{
+		if(!hasSideEffects())
+			c.loneStmtException(location, "{} cannot exist on its own", niceString());
+	}
+
+	/**
+	Returns whether or not this expression has side effects.  If this returns false,
+	checkToNothing will throw an error.
+	*/
+	public bool hasSideEffects()
+	{
+		return false;
+	}
+
+	/**
+	Ensure that this expression can give multiple return values.  If it can't, throws an
+	exception.
+	*/
+	public void checkMultRet(ICompiler c)
+	{
+		if(!isMultRet())
+			c.exception(location, "{} cannot be the source of a multi-target assignment", niceString());
+	}
+
+	/**
+	Returns whether this expression can give multiple return values.  If this returns
+	false, checkMultRet will throw an error.
+	*/
+	public bool isMultRet()
+	{
+		return false;
+	}
+
+	/**
+	Ensure that this expression can be the left-hand side of an assignment.  If it can't,
+	throws an exception.
+	*/
+	public void checkLHS(ICompiler c)
+	{
+		if(!isLHS())
+			c.exception(location, "{} cannot be the target of an assignment", niceString());
+	}
+
+	/**
+	Returns whether this expression can be the left-hand side of an assignment.  If this
+	returns false, checkLHS will throw an error.
+	*/
+	public bool isLHS()
+	{
+		return false;
+	}
+
+	/**
+	Returns whether this expression is a constant value.
+	*/
+	public bool isConstant()
+	{
+		return false;
+	}
+
+	/**
+	Returns whether this expression is 'null'.
+	*/
+	public bool isNull()
+	{
+		return false;
+	}
+
+	/**
+	Returns whether this expression is a boolean constant.
+	*/
+	public bool isBool()
+	{
+		return false;
+	}
+
+	/**
+	Returns this expression as a boolean constant, if possible.  assert(false)s
+	otherwise.
+	*/
+	public bool asBool()
+	{
+		assert(false);
+	}
+
+	/**
+	Returns whether this expression is an integer constant.
+	*/
+	public bool isInt()
+	{
+		return false;
+	}
+
+	/**
+	Returns this expression as an integer constant, if possible.  assert(false)s
+	otherwise.
+	*/
+	public int asInt()
+	{
+		assert(false);
+	}
+
+	/**
+	Returns whether this expression is a floating point constant.
+	*/
+	public bool isFloat()
+	{
+		return false;
+	}
+
+	/**
+	Returns this expression as a floating point constant, if possible.  assert(false)s
+	otherwise.
+	*/
+	public mdfloat asFloat()
+	{
+		assert(false);
+	}
+
+	/**
+	Returns whether this expression is a character constant.
+	*/
+	public bool isChar()
+	{
+		return false;
+	}
+
+	/**
+	Returns this expression as a character constant, if possible.  assert(false)s
+	otherwise.
+	*/
+	public dchar asChar()
+	{
+		assert(false);
+	}
+
+	/**
+	Returns whether this expression is a string constant.
+	*/
+	public bool isString()
+	{
+		return false;
+	}
+
+	/**
+	Returns this expression as a string constant, if possible.  assert(false)s
+	otherwise.
+	*/
+	public dchar[] asString()
+	{
+		assert(false);
+	}
+
+	/**
+	If this expression is a constant value, returns whether this expression would evaluate
+	as true according to MiniD's definition of truth.  Otherwise returns false.
+	*/
+	public bool isTrue()
+	{
+		return false;
+	}
+}
+
+/**
+This node represents a conditional (?:) expression.
+*/
+class CondExp : Expression
+{
+	/**
+	The first expression, which comes before the question mark.
+	*/
+	public Expression cond;
+	
+	/**
+	The second expression, which comes between the question mark and the colon.
+	*/
+	public Expression op1;
+
+	/**
+	The third expression, which comes after the colon.
+	*/
+	public Expression op2;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
+	{
+		super(location, endLocation, AstTag.CondExp);
+		this.cond = cond;
+		this.op1 = op1;
+		this.op2 = op2;
+	}
+
+	public override bool hasSideEffects()
+	{
+		return cond.hasSideEffects() || op1.hasSideEffects() || op2.hasSideEffects();
+	}
+}
+
+/**
+The base class for binary expressions.  Many of them share some or all of their code
+generation phases, as well has having other similar properties.
+*/
+abstract class BinaryExp : Expression
+{
+	/**
+	The left-hand operand.
+	*/
+	public Expression op1;
+	
+	/**
+	The right-hand operand.
+	*/
+	public Expression op2;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
+	{
+		super(location, endLocation, type);
+		this.op1 = op1;
+		this.op2 = op2;
+	}
+}
+
+private const BinExpMixin =
+"public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)"
+"{"
+	"super(location, endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), left, right);"
+"}";
+
+/**
+This node represents a logical or (||) expression.
+*/
+class OrOrExp : BinaryExp
+{
+	mixin(BinExpMixin);
+
+	public override bool hasSideEffects()
+	{
+		return op1.hasSideEffects() || op2.hasSideEffects();
+	}
+}
+
+/**
+This node represents a logical or (||) expression.
+*/
+class AndAndExp : BinaryExp
+{
+	mixin(BinExpMixin);
+
+	public override bool hasSideEffects()
+	{
+		return op1.hasSideEffects() || op2.hasSideEffects();
+	}
+}
+
+/**
+This node represents a bitwise or expression.
+*/
+class OrExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a bitwise xor expression.
+*/
+class XorExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a bitwise and expression.
+*/
+class AndExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents an equality (==) expression.
+*/
+class EqualExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents an inequality (!=) expression.
+*/
+class NotEqualExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents an identity (is) expression.
+*/
+class IsExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a nonidentity (!is) expression.
+*/
+class NotIsExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a less-than (<) comparison.
+*/
+class LTExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a less-than-or-equals (<=) comparison.
+*/
+class LEExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a greater-than (>) comparison.
+*/
+class GTExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a greater-than-or-equals (>=) comparison.
+*/
+class GEExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a three-way comparison (<=>) expression.
+*/
+class Cmp3Exp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents an 'as' expression.
+*/
+class AsExp : BinaryExp
+{
+	mixin(BinExpMixin);
+
+// TODO: put this check somewhere else
+// 		if(left.isConstant() || right.isConstant())
+// 			throw new OldCompileException(location, "Neither argument of an 'as' expression may be a constant");
+}
+
+/**
+This node represents an 'in' expression.
+*/
+class InExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a '!in' expression.
+*/
+class NotInExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a bitwise left-shift (<<) expression.
+*/
+class ShlExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a bitwise right-shift (>>) expression.
+*/
+class ShrExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a bitwise unsigned right-shift (>>>) expression.
+*/
+class UShrExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents an addition (+) expression.
+*/
+class AddExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a subtraction (-) expression.
+*/
+class SubExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a concatenation (~) expression.
+*/
+class CatExp : BinaryExp
+{
+	private Expression[] operands;
+	private bool collapsed = false;
+
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a multiplication (*) expression.
+*/
+class MulExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a division (/) expression.
+*/
+class DivExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a modulo (%) expression.
+*/
+class ModExp : BinaryExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This class is the base class for unary expressions.  These tend to share some code
+generation, as well as all having a single operand.
+*/
+abstract class UnExp : Expression
+{
+	/**
+	The operand of the expression.
+	*/
+	public Expression op;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	{
+		super(location, endLocation, type);
+		op = operand;
+	}
+}
+
+private const UnExpMixin =
+"public this(CompileLoc location, Expression operand)"
+"{"
+	"super(location, operand.endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), operand);"
+"}";
+
+/**
+This node represents a negation (-a).
+*/
+class NegExp : UnExp
+{
+	mixin(UnExpMixin);
+}
+
+/**
+This node represents a logical not expression (!a).
+*/
+class NotExp : UnExp
+{
+	mixin(UnExpMixin);
+}
+
+/**
+This node represents a bitwise complement expression (~a).
+*/
+class ComExp : UnExp
+{
+	mixin(UnExpMixin);
+}
+
+/**
+This node represents a length expression (#a).
+*/
+class LenExp : UnExp
+{
+	mixin(UnExpMixin);
+	
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+This node represents the coroutine expression (coroutine a).
+*/
+class CoroutineExp : UnExp
+{
+	mixin(UnExpMixin);
+}
+
+/**
+This class is the base class for postfix expressions, that is expressions which kind of
+attach to the end of other expressions.  It inherits from UnExp, so that the single
+operand becomes the expression to which the postfix expression becomes attached.
+*/
+abstract class PostfixExp : UnExp
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	{
+		super(location, endLocation, type, operand);
+	}
+}
+
+/**
+This node represents dot expressions, in both the dot-ident (a.x) and dot-expression
+(a.(expr)) forms.  These correspond to field access.
+*/
+class DotExp : PostfixExp
+{
+	/**
+	The name.  This can be any expression, as long as it evaluates to a string.  An
+	expression like "a.x" is sugar for "a.("x")", so this will be a string literal
+	in that case.
+	*/
+	public Expression name;
+
+	/**
+	*/
+	public this(Expression operand, Expression name)
+	{
+		super(operand.location, name.endLocation, AstTag.DotExp, operand);
+		this.name = name;
+	}
+	
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+This node corresponds to the super expression (a.super).
+*/
+class DotSuperExp : PostfixExp
+{
+	public this(CompileLoc endLocation, Expression operand)
+	{
+		super(operand.location, endLocation, AstTag.DotSuperExp, operand);
+	}
+}
+
+/**
+This node corresponds to an indexing operation (a[x]).
+*/
+class IndexExp : PostfixExp
+{
+	/**
+	The index of the operation (the value inside the brackets).
+	*/
+	public Expression index;
+
+	/**
+	*/
+	public this(CompileLoc endLocation, Expression operand, Expression index)
+	{
+		super(operand.location, endLocation, AstTag.IndexExp, operand);
+		this.index = index;
+	}
+
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+This node corresponds to a slicing operation (a[x .. y]).
+*/
+class SliceExp : PostfixExp
+{
+	/**
+	The low index of the slice.  If no low index is given, this will be a NullExp.
+	This member will therefore never be null.
+	*/
+	public Expression loIndex;
+	
+	/**
+	The high index of the slice.  If no high index is given, this will be a NullExp.
+	This member will therefore never be null.
+	*/
+	public Expression hiIndex;
+
+	/**
+	*/
+	public this(CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	{
+		super(operand.location, endLocation, AstTag.SliceExp, operand);
+		this.loIndex = loIndex;
+		this.hiIndex = hiIndex;
+	}
+
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+This node corresponds to a non-method function call (f()).
+*/
+class CallExp : PostfixExp
+{
+	/**
+	The context to be used when calling the function.  This corresponds to 'x' in
+	the expression "f(with x)".  If this member is null, a context of 'null' will
+	be passed to the function.
+	*/
+	public Expression context;
+	
+	/**
+	The list of arguments to be passed to the function.  This can be 0 or more elements.
+	*/
+	public Expression[] args;
+
+	/**
+	*/
+	public this(CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
+	{
+		super(operand.location, endLocation, AstTag.CallExp, operand);
+		this.context = context;
+		this.args = args;
+	}
+
+	public override bool hasSideEffects()
+	{
+		return true;
+	}
+
+	public override bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+This class corresponds to a method call in either form (a.f() or a.("f")()).
+*/
+class MethodCallExp : PostfixExp
+{
+	/**
+	The context to be used when calling the method.  This corresponds to 'x' in
+	the expression "a.f(with x)".  If this member is null, there is no custom
+	context and the context will be determined automatically.
+	*/
+	public Expression context;
+	
+	/**
+	The list of argument to pass to the method.  This can have 0 or more elements.
+	*/
+	public Expression[] args;
+
+	/**
+	*/
+	public this(CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
+	{
+		super(operand.location, endLocation, AstTag.MethodCallExp, operand);
+		this.context = context;
+		this.args = args;
+	}
+	
+	public override bool hasSideEffects()
+	{
+		return true;
+	}
+
+	public override bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+The base class for primary expressions.
+*/
+class PrimaryExp : Expression
+{
+	/**
+	*/
+	public this(CompileLoc location, AstTag type)
+	{
+		super(location, location, type);
+	}
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
+	{
+		super(location, endLocation, type);
+	}
+}
+
+/**
+An identifier expression.  These can refer to locals, upvalues, or globals.
+*/
+class IdentExp : PrimaryExp
+{
+	/**
+	The identifier itself.
+	*/
+	public Identifier name;
+
+	/**
+	Create an ident exp from an identifier object.
+	*/
+	public this(Identifier i)
+	{
+		super(i.location, AstTag.IdentExp);
+		this.name = i;
+	}
+
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+Represents the ubiquitous 'this' variable.
+*/
+class ThisExp : PrimaryExp
+{
+	/**
+	*/
+	public this(CompileLoc location)
+	{
+		super(location, AstTag.ThisExp);
+	}
+}
+
+/**
+Represents the 'null' literal.
+*/
+class NullExp : PrimaryExp
+{
+	/**
+	*/
+	public this(CompileLoc location)
+	{
+		super(location, AstTag.NullExp);
+	}
+	
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return false;
+	}
+
+	public override bool isNull()
+	{
+		return true;
+	}
+}
+
+/**
+Represents either a 'true' or 'false' literal.
+*/
+class BoolExp : PrimaryExp
+{
+	/**
+	The actual value of the literal.
+	*/
+	public bool value;
+
+	/**
+	*/
+	public this(CompileLoc location, bool value)
+	{
+		super(location, AstTag.BoolExp);
+		this.value = value;
+	}
+
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return value;
+	}
+
+	public override bool isBool()
+	{
+		return true;
+	}
+
+	public override bool asBool()
+	{
+		return value;
+	}
+}
+
+/**
+Represents the 'vararg' exp outside of a special form (i.e. not #vararg, vararg[x], or
+vararg[x .. y]).
+*/
+class VarargExp : PrimaryExp
+{
+	/**
+	*/
+	public this(CompileLoc location)
+	{
+		super(location, AstTag.VarargExp);
+	}
+
+	public bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+This node represents the variadic-length expression (#vararg).
+*/
+class VargLenExp : PrimaryExp
+{
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation)
+	{
+		super(location, endLocation, AstTag.VargLenExp);
+	}
+}
+
+/**
+This node corresponds to a variadic indexing operation (vararg[x]).
+*/
+class VargIndexExp : PrimaryExp
+{
+	/**
+	The index of the operation (the value inside the brackets).
+	*/
+	public Expression index;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression index)
+	{
+		super(location, endLocation, AstTag.VargIndexExp);
+		this.index = index;
+	}
+
+	public override bool isLHS()
+	{
+		return true;
+	}
+}
+
+/**
+This node represents a variadic slice operation (vararg[x .. y]).
+*/
+class VargSliceExp : PrimaryExp
+{
+	/**
+	The low index of the slice.
+	*/
+	public Expression loIndex;
+	
+	/**
+	The high index of the slice.
+	*/
+	public Expression hiIndex;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
+	{
+		super(location, endLocation, AstTag.VargSliceExp);
+		this.loIndex = loIndex;
+		this.hiIndex = hiIndex;
+	}
+
+	public override bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+Represents an integer literal.
+*/
+class IntExp : PrimaryExp
+{
+	/**
+	The actual value of the literal.
+	*/
+	public int value;
+
+	/**
+	*/
+	public this(CompileLoc location, int value)
+	{
+		super(location, AstTag.IntExp);
+		this.value = value;
+	}
+
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return (value != 0);
+	}
+
+	public override bool isInt()
+	{
+		return true;
+	}
+
+	public override int asInt()
+	{
+		return value;
+	}
+
+	public override mdfloat asFloat()
+	{
+		return cast(mdfloat)value;
+	}
+}
+
+/**
+Represents a floating-point literal.
+*/
+class FloatExp : PrimaryExp
+{
+	/**
+	The actual value of the literal.
+	*/
+	public mdfloat value;
+
+	/**
+	*/
+	public this(CompileLoc location, mdfloat value)
+	{
+		super(location, AstTag.FloatExp);
+		this.value = value;
+	}
+
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return (value != 0.0);
+	}
+
+	public override bool isFloat()
+	{
+		return true;
+	}
+
+	public override mdfloat asFloat()
+	{
+		return value;
+	}
+}
+
+/**
+Represents a character literal.
+*/
+class CharExp : PrimaryExp
+{
+	/**
+	The actual character of the literal.
+	*/
+	public dchar value;
+
+	/**
+	*/
+	public this(CompileLoc location, dchar value)
+	{
+		super(location, AstTag.CharExp);
+		this.value = value;
+	}
+
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return (value != 0);
+	}
+
+	public override bool isChar()
+	{
+		return true;
+	}
+
+	public override dchar asChar()
+	{
+		return value;
+	}
+}
+
+/**
+Represents a string literal.
+*/
+class StringExp : PrimaryExp
+{
+	/**
+	The actual value of the literal.
+	*/
+	public dchar[] value;
+
+	/**
+	*/
+	public this(CompileLoc location, dchar[] value)
+	{
+		super(location, AstTag.StringExp);
+		this.value = value;
+	}
+
+	public override bool isConstant()
+	{
+		return true;
+	}
+
+	public override bool isTrue()
+	{
+		return true;
+	}
+
+	public override bool isString()
+	{
+		return true;
+	}
+
+	public override dchar[] asString()
+	{
+		return value;
+	}
+}
+
+/**
+Represents a function literal.
+*/
+class FuncLiteralExp : PrimaryExp
+{
+	/**
+	The actual "guts" of the function.
+	*/
+	public FuncDef def;
+
+	/**
+	*/
+	public this(CompileLoc location, FuncDef def)
+	{
+		super(location, def.endLocation, AstTag.FuncLiteralExp);
+		this.def = def;
+	}
+}
+
+/**
+Represents an object literal.
+*/
+class ObjectLiteralExp : PrimaryExp
+{
+	/**
+	The actual "guts" of the object.
+	*/
+	public ObjectDef def;
+
+	/**
+	*/
+	public this(CompileLoc location, ObjectDef def)
+	{
+		super(location, def.endLocation, AstTag.ObjectLiteralExp);
+		this.def = def;
+	}
+}
+
+/**
+Represents an expression inside a pair of parentheses.  Besides controlling order-of-
+operations, this expression will make a multiple-return-value expression return exactly
+one result instead.  Thus 'vararg' can give 0 or more values but '(vararg)' gives
+exactly one (null in the case that there are no varargs).
+*/
+class ParenExp : PrimaryExp
+{
+	/**
+	The parenthesized expression.
+	*/
+	public Expression exp;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
+	{
+		super(location, endLocation, AstTag.ParenExp);
+		this.exp = exp;
+	}
+}
+
+/**
+This node represents either a table literal or an attribute table.  Both are the
+same thing, really.
+*/
+class TableCtorExp : PrimaryExp
+{
+	struct Field
+	{
+		Expression key;
+		Expression value;
+	}
+
+	/**
+	An array of fields.  The first value in each element is the key; the second the value.
+	*/
+	public Field[] fields;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Field[] fields)
+	{
+		super(location, endLocation, AstTag.TableCtorExp);
+		this.fields = fields;
+	}
+}
+
+/**
+This node represents an array literal.
+*/
+class ArrayCtorExp : PrimaryExp
+{
+	/**
+	The list of values.
+	*/
+	public Expression[] values;
+
+	protected const uint maxFields = Instruction.arraySetFields * Instruction.rtMax;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] values)
+	{
+		super(location, endLocation, AstTag.ArrayCtorExp);
+		this.values = values;
+	}
+}
+
+/**
+This node represents a namespace literal.
+*/
+class NamespaceCtorExp : PrimaryExp
+{
+	/**
+	The actual "guts" of the namespace.
+	*/
+	public NamespaceDef def;
+
+	/**
+	*/
+	public this(CompileLoc location, NamespaceDef def)
+	{
+		super(location, def.endLocation, AstTag.NamespaceCtorExp);
+		this.def = def;
+	}
+}
+
+/**
+This node represents a yield expression, such as "yield(1, 2, 3)".
+*/
+class YieldExp : PrimaryExp
+{
+	/**
+	The arguments inside the yield expression.
+	*/
+	public Expression[] args;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] args)
+	{
+		super(location, endLocation, AstTag.YieldExp);
+		this.args = args;
+	}
+
+	public bool hasSideEffects()
+	{
+		return true;
+	}
+
+	public bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+This node represents a super call exp, such as "super.f()" or "super.("f")()"
+(the former is sugar for the latter).
+*/
+class SuperCallExp : PrimaryExp
+{
+	/**
+	The method name.  This can be any expression as long as it evaluates to a string.
+	*/
+	public Expression method;
+	
+	/**
+	The arguments to pass to the function.
+	*/
+	public Expression[] args;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression method, Expression[] args)
+	{
+		super(location, endLocation, AstTag.SuperCallExp);
+		this.method = method;
+		this.args = args;
+	}
+
+	public bool hasSideEffects()
+	{
+		return true;
+	}
+
+	public bool isMultRet()
+	{
+		return true;
+	}
+}
+
+/**
+This is the base class for both numeric and generic for comprehensions inside array
+and table comprehensions.
+*/
+abstract class ForComprehension : AstNode
+{
+	/**
+	Optional if comprehension that follows this.  This member may be null.
+	*/
+	public IfComprehension ifComp;
+
+	/**
+	Optional for comprehension that follows this.  This member may be null.
+	*/
+	public ForComprehension forComp;
+
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, AstTag tag)
+	{
+		super(location, endLocation, tag);
+	}
+}
+
+/**
+This node represents a foreach comprehension in an array or table comprehension, i.e.
+in the code "[x for x in a]", it represents "for x in a".
+*/
+class ForeachComprehension : ForComprehension
+{
+	/**
+	These members are the same as for a ForeachStmt.
+	*/
+	public Identifier[] indices;
+	
+	/// ditto
+	public Expression[] container;
+
+	/**
+	*/
+	public this(CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				super(location, forComp.endLocation, AstTag.ForeachComprehension);
+			else
+				super(location, ifComp.endLocation, AstTag.ForeachComprehension);
+		}
+		else if(forComp)
+			super(location, forComp.endLocation, AstTag.ForeachComprehension);
+		else
+			super(location, container[$ - 1].endLocation, AstTag.ForeachComprehension);
+
+		this.indices = indices;
+		this.container = container;
+		this.ifComp = ifComp;
+		this.forComp = forComp;
+	}
+}
+
+/**
+This node represents a numeric for comprehension in an array or table comprehension, i.e.
+in the code "[x for x in 0 .. 10]" this represents "for x in 0 .. 10".
+*/
+class ForNumComprehension : ForComprehension
+{
+	/**
+	These members are the same as for a ForNumStmt.
+	*/
+	public Identifier index;
+	
+	/// ditto
+	public Expression lo;
+	
+	/// ditto
+	public Expression hi;
+	
+	/// ditto
+	public Expression step;
+
+	/**
+	*/	
+	public this(CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	{
+		if(ifComp)
+		{
+			if(forComp)
+				super(location, forComp.endLocation, AstTag.ForNumComprehension);
+			else
+				super(location, ifComp.endLocation, AstTag.ForNumComprehension);
+		}
+		else if(forComp)
+			super(location, forComp.endLocation, AstTag.ForNumComprehension);
+		else if(step)
+			super(location, step.endLocation, AstTag.ForNumComprehension);
+		else
+			super(location, hi.endLocation, AstTag.ForNumComprehension);
+
+		this.index = index;
+		this.lo = lo;
+		this.hi = hi;
+		
+		if(step is null)
+		{
+			// TODO: put this somewhere else
+			//this.step = new IntExp(location, 1);
+		}
+		else
+			this.step = step;
+
+		this.ifComp = ifComp;
+		this.forComp = forComp;
+	}
+}
+
+/**
+This node represents an if comprehension an an array or table comprehension, i.e.
+in the code "[x for x in a if x < 10]", this represents "if x < 10".
+*/
+class IfComprehension : AstNode
+{
+	/**
+	The condition to test.
+	*/
+	public Expression condition;
+
+	/**
+	*/
+	public this(CompileLoc location, Expression condition)
+	{
+		super(location, condition.endLocation, AstTag.IfComprehension);
+		this.condition = condition;
+	}
+}
+
+/**
+This node represents an array comprehension, such as "[x for x in a]".
+*/
+class ArrayComprehension : PrimaryExp
+{
+	/**
+	The expression which is executed as the innermost thing in the loop and whose values
+	are used to construct the array.
+	*/
+	public Expression exp;
+	
+	/**
+	The root of the comprehension tree.
+	*/
+	public ForComprehension forComp;
+	
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
+	{
+		super(location, endLocation, AstTag.ArrayComprehension);
+
+		this.exp = exp;
+		this.forComp = forComp;
+	}
+}
+
+/**
+This node represents a table comprehension, such as "{[v] = k for k, v in a}".
+*/
+class TableComprehension : PrimaryExp
+{
+	/**
+	The key expression.  This is the thing in the brackets at the beginning.
+	*/
+	public Expression key;
+
+	/**
+	The value expression.  This is the thing after the equals sign at the beginning.
+	*/
+	public Expression value;
+	
+	/**
+	The root of the comprehension tree.
+	*/
+	public ForComprehension forComp;
+	
+	/**
+	*/
+	public this(CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
+	{
+		super(location, endLocation, AstTag.TableComprehension);
+
+		this.key = key;
+		this.value = value;
+		this.forComp = forComp;
 	}
 }

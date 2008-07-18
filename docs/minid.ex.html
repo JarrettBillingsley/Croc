@@ -66,7 +66,7 @@ string building since the stack may grow, so be sure to use absolute (positive) 
 A typical use looks something like this:
 <br><br>
 
-<pre class="d_code"><font color=blue>auto</font> buf = ex.<u>StrBuffer</u>(t);
+<pre class="d_code"><font color=blue>auto</font> buf = <u>StrBuffer</u>(t);
 buf.addString(someString);
 buf.addChar(someChar);
 <font color=green>// ...
@@ -201,7 +201,7 @@ This functions behaves just as though you were evaluating this expression in Min
 metamethods are respected.
 <br><br>
 
-<pre class="d_code"><font color=blue>auto</font> slot = ex.<u>lookup</u>(<i>t</i>, <font color=red>"time.Timer"</font>);
+<pre class="d_code"><font color=blue>auto</font> slot = <u>lookup</u>(<i>t</i>, <font color=red>"time.Timer"</font>);
 pushNull(<i>t</i>);
 methodCall(<i>t</i>, slot, <font color=red>"clone"</font>, 1);
 <font color=green>// We now have an instance of time.Timer on top of the stack.
@@ -211,7 +211,7 @@ If you want to set a long name, such as "foo.bar.baz.quux", you just lookup ever
 use 'fielda' to set it:
 <br><br>
 
-<pre class="d_code"><font color=blue>auto</font> slot = ex.<u>lookup</u>(<i>t</i>, <font color=red>"foo.bar.baz"</font>);
+<pre class="d_code"><font color=blue>auto</font> slot = <u>lookup</u>(<i>t</i>, <font color=red>"foo.bar.baz"</font>);
 pushInt(<i>t</i>, 5);
 fielda(<i>t</i>, slot, <font color=red>"quux"</font>);
 </pre>
@@ -231,7 +231,7 @@ The stack index of the looked-up value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">nint 
+<dt><span class="decl">word 
 <span class="currsymbol">lookupCT</span>
 <script>explorer.outline.addDecl('lookupCT');</script>
 
@@ -258,7 +258,7 @@ The stack index of the looked-up value.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Wed Jul  2 12:33:05 2008
+			on Mon Jul 14 10:20:30 2008
 
 		</td></tr>
 	</table>

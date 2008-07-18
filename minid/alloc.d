@@ -139,10 +139,13 @@ align(1) struct Allocator
 			return null;
 
 		auto ret = (cast(T*)realloc!(T[])(null, 0, size * T.sizeof))[0 .. size];
-		ret[] = T.init;
+		
+		static if(!is(T == void))
+			ret[] = T.init;
+
 		return ret;
 	}
-	
+
 	package void resizeArray(T)(ref T[] arr, size_t newLen)
 	{
 		if(newLen == 0)
@@ -157,8 +160,11 @@ align(1) struct Allocator
 		auto oldLen = arr.length;
 		arr = (cast(T*)realloc!(T[])(arr.ptr, oldLen * T.sizeof, newLen * T.sizeof))[0 .. newLen];
 
-		if(newLen > oldLen)
-			arr[oldLen .. newLen] = T.init;
+		static if(!is(T == void))
+		{
+			if(newLen > oldLen)
+				arr[oldLen .. newLen] = T.init;
+		}
 	}
 
 	package T[] dupArray(T)(T[] a)

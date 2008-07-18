@@ -35,6 +35,7 @@ import minid.alloc;
 import minid.compilertypes;
 import minid.interpreter;
 import minid.lexer;
+import minid.parser;
 import minid.types;
 
 //debug = REGPUSHPOP;
@@ -61,6 +62,7 @@ scope class Compiler : ICompiler
 	private bool mIsEof;
 	private bool mIsLoneStmt;
 	private Lexer mLexer;
+	private Parser mParser;
 
 // ================================================================================================================================================
 // Public
@@ -71,6 +73,7 @@ scope class Compiler : ICompiler
 		this.t = t;
 		mFlags = flags;
 		mLexer = Lexer(this);
+		mParser = Parser(this, &mLexer);
 	}
 
 	public void setFlags(uint flags)
@@ -195,7 +198,7 @@ scope class Compiler : ICompiler
 	public OldFuncDef* compileModule(dchar[] source, char[] name)
 	{
 		scope lexer = new Lexer(name, source);
-		return Module.parse(lexer).codeGen(this);
+		return parseModule(lexer).codeGen(this);
 	}
 	
 	/**
@@ -214,14 +217,14 @@ scope class Compiler : ICompiler
 		scope lexer = new Lexer(name, source);
 		List!(Statement) s;
 	
-		while(lexer.type != Token.Type.EOF)
-			s.add(Statement.parse(lexer));
+		while(lexer.type != Token.EOF)
+			s.add(parseStatement(lexer));
 	
-		lexer.expect(Token.Type.EOF);
+		lexer.expect(Token.EOF);
 	
 		Statement[] stmts = s.toArray();
 	
-		FuncState fs = new FuncState(OldLocation(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		FuncState fs = new FuncState(CompileLoc(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
 		fs.mIsVararg = true;
 		
 		try
@@ -267,15 +270,15 @@ scope class Compiler : ICompiler
 	public OldFuncDef* compileExpression(dchar[] source, char[] name)
 	{
 		scope lexer = new Lexer(name, source);
-		Expression e = Expression.parse(lexer);
+		Expression e = parseExpression(lexer);
 	
-		if(lexer.type != Token.Type.EOF)
+		if(lexer.type != Token.EOF)
 			throw new OldCompileException(lexer.loc, "Extra unexpected code after expression");
 			
-		FuncState fs = new FuncState(OldLocation(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
+		FuncState fs = new FuncState(CompileLoc(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
 		fs.mIsVararg = true;
 	
-		auto ret = (new ReturnStatement(e)).fold();
+		auto ret = (new ReturnStmt(e)).fold();
 	
 		try
 		{
@@ -305,10 +308,10 @@ scope class Compiler : ICompiler
 	{
 		scope lexer = new Lexer("JSON", source, true);
 	
-		if(lexer.type == Token.Type.LBrace)
-			return TableCtorExp.parseJSON(lexer);
+		if(lexer.type == Token.LBrace)
+			return parseTableCtorExpJSON(lexer);
 		else
-			return ArrayCtorExp.parseJSON(lexer);
+			return parseArrayCtorExpJSON(lexer);
 	}
 +/
 }
@@ -566,19 +569,19 @@ struct Token
 	{
 		switch(type)
 		{
-			case Token.Type.AddEq,
-				Token.Type.SubEq,
-				Token.Type.CatEq,
-				Token.Type.MulEq,
-				Token.Type.DivEq,
-				Token.Type.ModEq,
-				Token.Type.ShlEq,
-				Token.Type.ShrEq,
-				Token.Type.UShrEq,
-				Token.Type.OrEq,
-				Token.Type.XorEq,
-				Token.Type.AndEq,
-				Token.Type.DefaultEq:
+			case Token.AddEq,
+				Token.SubEq,
+				Token.CatEq,
+				Token.MulEq,
+				Token.DivEq,
+				Token.ModEq,
+				Token.ShlEq,
+				Token.ShrEq,
+				Token.UShrEq,
+				Token.OrEq,
+				Token.XorEq,
+				Token.AndEq,
+				Token.DefaultEq:
 				return true;
 
 			default:
@@ -598,13 +601,13 @@ struct Token
 		public mdfloat floatValue;
 	}
 
-	public OldLocation location;
+	public CompileLoc location;
 }
 
 class Lexer
 {
 	protected dchar[] mSource;
-	protected OldLocation mLoc;
+	protected CompileLoc mLoc;
 	protected uword mPosition;
 	protected dchar mCharacter;
 	protected dchar mLookaheadCharacter;
@@ -617,7 +620,7 @@ class Lexer
 
 	public this(char[] name, dchar[] source, bool isJSON = false)
 	{
-		mLoc = OldLocation(utf.toString32(name), 1, 0);
+		mLoc = CompileLoc(utf.toString32(name), 1, 0);
 
 		mSource = source;
 		mPosition = 0;
@@ -637,7 +640,7 @@ class Lexer
 		return &mTok;
 	}
 	
-	public final OldLocation loc()
+	public final CompileLoc loc()
 	{
 		return mTok.location;
 	}
@@ -652,7 +655,7 @@ class Lexer
 		mTok.expect(t);
 		Token ret = mTok;
 
-		if(t != Token.Type.EOF)
+		if(t != Token.EOF)
 			next();
 
 		return ret;
@@ -661,11 +664,11 @@ class Lexer
 	public final bool isStatementTerm()
 	{
 		return mNewlineSinceLastTok ||
-			mTok.type == Token.Type.EOF ||
-			mTok.type == Token.Type.Semicolon ||
-			mTok.type == Token.Type.RBrace ||
-			mTok.type == Token.Type.RParen ||
-			mTok.type == Token.Type.RBracket;
+			mTok.type == Token.EOF ||
+			mTok.type == Token.Semicolon ||
+			mTok.type == Token.RBrace ||
+			mTok.type == Token.RParen ||
+			mTok.type == Token.RBracket;
 	}
 
 	public final void statementTerm()
@@ -674,9 +677,9 @@ class Lexer
 			return;
 		else
 		{
-			if(mTok.type == Token.Type.EOF || mTok.type == Token.Type.RBrace || mTok.type == Token.Type.RParen || mTok.type == Token.Type.RBracket)
+			if(mTok.type == Token.EOF || mTok.type == Token.RBrace || mTok.type == Token.RParen || mTok.type == Token.RBracket)
 				return;
-			else if(mTok.type == Token.Type.Semicolon)
+			else if(mTok.type == Token.Semicolon)
 				next();
 			else
 				throw new OldCompileException(mLoc, "Statement terminator expected, not '{}'", mTok.toString());
@@ -818,7 +821,7 @@ class Lexer
 
 	protected final bool readNumLiteral(bool prependPoint, out mdfloat fret, out int iret)
 	{
-		OldLocation beginning = mLoc;
+		CompileLoc beginning = mLoc;
 		dchar[100] buf;
 		uint i = 0;
 
@@ -1028,7 +1031,7 @@ class Lexer
 		}
 	}
 
-	protected final dchar readEscapeSequence(OldLocation beginning)
+	protected final dchar readEscapeSequence(CompileLoc beginning)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -1143,7 +1146,7 @@ class Lexer
 
 	protected final dchar[] readStringLiteral(bool escape)
 	{
-		OldLocation beginning = mLoc;
+		CompileLoc beginning = mLoc;
 
 		List!(dchar) buf;
 		dchar delimiter = mCharacter;
@@ -1206,7 +1209,7 @@ class Lexer
 
 	protected final dchar readCharLiteral()
 	{
-		OldLocation beginning = mLoc;
+		CompileLoc beginning = mLoc;
 		dchar ret;
 
 		assert(mCharacter == '\'', "char literal must start with single quote");
@@ -1237,7 +1240,7 @@ class Lexer
 
 	protected final void nextToken()
 	{
-		OldLocation tokenLoc;
+		CompileLoc tokenLoc;
 
 		scope(exit)
 			mTok.location = tokenLoc;
@@ -1261,15 +1264,15 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.AddEq;
+						mTok.type = Token.AddEq;
 					}
 					else if(mCharacter == '+')
 					{
 						nextChar();
-						mTok.type = Token.Type.Inc;
+						mTok.type = Token.Inc;
 					}
 					else
-						mTok.type = Token.Type.Add;
+						mTok.type = Token.Add;
 
 					return;
 
@@ -1279,20 +1282,20 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.SubEq;
+						mTok.type = Token.SubEq;
 					}
 					else if(mCharacter == '-')
 					{
 						nextChar();
-						mTok.type = Token.Type.Dec;
+						mTok.type = Token.Dec;
 					}
 					else if(mCharacter == '>')
 					{
 						nextChar();
-						mTok.type = Token.Type.Arrow;
+						mTok.type = Token.Arrow;
 					}
 					else
-						mTok.type = Token.Type.Sub;
+						mTok.type = Token.Sub;
 
 					return;
 
@@ -1302,10 +1305,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.CatEq;
+						mTok.type = Token.CatEq;
 					}
 					else
-						mTok.type = Token.Type.Cat;
+						mTok.type = Token.Cat;
 
 					return;
 
@@ -1315,10 +1318,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.MulEq;
+						mTok.type = Token.MulEq;
 					}
 					else
-						mTok.type = Token.Type.Mul;
+						mTok.type = Token.Mul;
 
 					return;
 
@@ -1328,7 +1331,7 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.DivEq;
+						mTok.type = Token.DivEq;
 						return;
 					}
 					else if(mCharacter == '/')
@@ -1339,7 +1342,7 @@ class Lexer
 					else if(mCharacter == '>')
 					{
 						nextChar();
-						mTok.type = Token.Type.RAttr;
+						mTok.type = Token.RAttr;
 						return;	
 					}
 					else if(mCharacter == '*')
@@ -1424,7 +1427,7 @@ class Lexer
 					}
 					else
 					{
-						mTok.type = Token.Type.Div;
+						mTok.type = Token.Div;
 						return;
 					}
 
@@ -1436,10 +1439,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.ModEq;
+						mTok.type = Token.ModEq;
 					}
 					else
-						mTok.type = Token.Type.Mod;
+						mTok.type = Token.Mod;
 
 					return;
 
@@ -1453,10 +1456,10 @@ class Lexer
 						if(mCharacter == '>')
 						{
 							nextChar();
-							mTok.type = Token.Type.Cmp3;
+							mTok.type = Token.Cmp3;
 						}
 						else
-							mTok.type = Token.Type.LE;
+							mTok.type = Token.LE;
 					}
 					else if(mCharacter == '<')
 					{
@@ -1465,18 +1468,18 @@ class Lexer
 						if(mCharacter == '=')
 						{
 							nextChar();
-							mTok.type = Token.Type.ShlEq;
+							mTok.type = Token.ShlEq;
 						}
 						else
-							mTok.type = Token.Type.Shl;
+							mTok.type = Token.Shl;
 					}
 					else if(mCharacter == '/')
 					{
 						nextChar();
-						mTok.type = Token.Type.LAttr;
+						mTok.type = Token.LAttr;
 					}
 					else
-						mTok.type = Token.Type.LT;
+						mTok.type = Token.LT;
 
 					return;
 
@@ -1486,7 +1489,7 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.GE;
+						mTok.type = Token.GE;
 					}
 					else if(mCharacter == '>')
 					{
@@ -1495,7 +1498,7 @@ class Lexer
 						if(mCharacter == '=')
 						{
 							nextChar();
-							mTok.type = Token.Type.ShrEq;
+							mTok.type = Token.ShrEq;
 						}
 						else if(mCharacter == '>')
 						{
@@ -1504,16 +1507,16 @@ class Lexer
 							if(mCharacter == '=')
 							{
 								nextChar();
-								mTok.type = Token.Type.UShrEq;
+								mTok.type = Token.UShrEq;
 							}
 							else
-								mTok.type = Token.Type.UShr;
+								mTok.type = Token.UShr;
 						}
 						else
-							mTok.type = Token.Type.Shr;
+							mTok.type = Token.Shr;
 					}
 					else
-						mTok.type = Token.Type.GT;
+						mTok.type = Token.GT;
 
 					return;
 
@@ -1523,15 +1526,15 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.AndEq;
+						mTok.type = Token.AndEq;
 					}
 					else if(mCharacter == '&')
 					{
 						nextChar();
-						mTok.type = Token.Type.AndAnd;
+						mTok.type = Token.AndAnd;
 					}
 					else
-						mTok.type = Token.Type.And;
+						mTok.type = Token.And;
 
 					return;
 
@@ -1541,15 +1544,15 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.OrEq;
+						mTok.type = Token.OrEq;
 					}
 					else if(mCharacter == '|')
 					{
 						nextChar();
-						mTok.type = Token.Type.OrOr;
+						mTok.type = Token.OrOr;
 					}
 					else
-						mTok.type = Token.Type.Or;
+						mTok.type = Token.Or;
 
 					return;
 
@@ -1559,10 +1562,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.XorEq;
+						mTok.type = Token.XorEq;
 					}
 					else
-						mTok.type = Token.Type.Xor;
+						mTok.type = Token.Xor;
 
 					return;
 
@@ -1572,10 +1575,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.EQ;
+						mTok.type = Token.EQ;
 					}
 					else
-						mTok.type = Token.Type.Assign;
+						mTok.type = Token.Assign;
 
 					return;
 
@@ -1588,15 +1591,15 @@ class Lexer
 						bool b = readNumLiteral(true, mTok.floatValue, dummy);
 						assert(b == false, "literal must be float");
 
-						mTok.type = Token.Type.FloatLiteral;
+						mTok.type = Token.FloatLiteral;
 					}
 					else if(mCharacter == '.')
 					{
 						nextChar();
-						mTok.type = Token.Type.DotDot;
+						mTok.type = Token.DotDot;
 					}
 					else
-						mTok.type = Token.Type.Dot;
+						mTok.type = Token.Dot;
 
 					return;
 
@@ -1606,10 +1609,10 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.NE;
+						mTok.type = Token.NE;
 					}
 					else
-						mTok.type = Token.Type.Not;
+						mTok.type = Token.Not;
 
 					return;
 					
@@ -1619,21 +1622,21 @@ class Lexer
 					if(mCharacter == '=')
 					{
 						nextChar();
-						mTok.type = Token.Type.DefaultEq;
+						mTok.type = Token.DefaultEq;
 					}
 					else
-						mTok.type = Token.Type.Question;
+						mTok.type = Token.Question;
 
 					return;
 
 				case '\"':
 					mTok.stringValue = readStringLiteral(true);
-					mTok.type = Token.Type.StringLiteral;
+					mTok.type = Token.StringLiteral;
 					return;
 
 				case '`':
 					mTok.stringValue = readStringLiteral(false);
-					mTok.type = Token.Type.StringLiteral;
+					mTok.type = Token.StringLiteral;
 					return;
 
 				case '@':
@@ -1643,16 +1646,16 @@ class Lexer
 						throw new OldCompileException(tokenLoc, "'@' expected to be followed by '\"'");
 
 					mTok.stringValue = readStringLiteral(false);
-					mTok.type = Token.Type.StringLiteral;
+					mTok.type = Token.StringLiteral;
 					return;
 
 				case '\'':
 					mTok.intValue = readCharLiteral();
-					mTok.type = Token.Type.CharLiteral;
+					mTok.type = Token.CharLiteral;
 					return;
 
 				case '\0', dchar.init:
-					mTok.type = Token.Type.EOF;
+					mTok.type = Token.EOF;
 					return;
 
 				default:
@@ -1671,12 +1674,12 @@ class Lexer
 						if(isInt == false)
 						{
 							mTok.floatValue = fval;
-							mTok.type = Token.Type.FloatLiteral;
+							mTok.type = Token.FloatLiteral;
 						}
 						else
 						{
 							mTok.intValue = ival;
-							mTok.type = Token.Type.IntLiteral;
+							mTok.type = Token.IntLiteral;
 						}
 
 						return;
@@ -1699,7 +1702,7 @@ class Lexer
 
 						if(t is null)
 						{
-							mTok.type = Token.Type.Ident;
+							mTok.type = Token.Ident;
 							mTok.stringValue = s;
 						}
 						else
@@ -1820,7 +1823,7 @@ class FuncState
 
 	protected bool mIsVararg;
 	protected FuncState[] mInnerFuncs;
-	protected OldLocation mLocation;
+	protected CompileLoc mLocation;
 	protected MDValue[] mConstants;
 	protected uint mNumParams;
 	protected uint[] mParamMasks;
@@ -1832,7 +1835,7 @@ class FuncState
 	struct LocVarDesc
 	{
 		dchar[] name;
-		OldLocation location;
+		CompileLoc location;
 		uint pcStart;
 		uint pcEnd;
 		uint reg;
@@ -1864,7 +1867,7 @@ class FuncState
 	// ..and are then transfered to this array when they are done.
 	protected SwitchDesc*[] mSwitchTables;
 
-	public this(OldLocation location, dchar[] guessedName, FuncState parent = null, Compiler* compiler = null)
+	public this(CompileLoc location, dchar[] guessedName, FuncState parent = null, Compiler* compiler = null)
 	{
 		mLocation = location;
 		mGuessedName = guessedName;
@@ -2048,7 +2051,7 @@ class FuncState
 		mCode[desc.switchPC].rt = cast(ushort)(mSwitchTables.length - 1);
 	}
 
-	public int* addCase(OldLocation location, Expression v)
+	public int* addCase(CompileLoc location, Expression v)
 	{
 		assert(mSwitch !is null);
 
@@ -2078,7 +2081,7 @@ class FuncState
 		return (val in mSwitch.offsets);
 	}
 
-	public void addDefault(OldLocation location)
+	public void addDefault(CompileLoc location)
 	{
 		assert(mSwitch !is null);
 		assert(mSwitch.defaultOffset == -1);
@@ -3143,7 +3146,7 @@ class FuncState
 		return i;
 	}
 
-	public void codeContinue(OldLocation location)
+	public void codeContinue(CompileLoc location)
 	{
 		if(mScope.continueScope is null)
 			throw new OldCompileException(location, "No continuable control structure");
@@ -3157,7 +3160,7 @@ class FuncState
 		mScope.continueScope.continues = i;
 	}
 
-	public void codeBreak(OldLocation location)
+	public void codeBreak(CompileLoc location)
 	{
 		if(mScope.breakScope is null)
 			throw new OldCompileException(location, "No breakable control structure");
@@ -3433,9 +3436,9 @@ class FuncState
 class Identifier
 {
 	public dchar[] name;
-	public OldLocation location;
+	public CompileLoc location;
 
-	public this(OldLocation location, dchar[] name)
+	public this(CompileLoc location, dchar[] name)
 	{
 		this.name = name;
 		this.location = location;
@@ -3443,15 +3446,15 @@ class Identifier
 
 	public static Identifier parse(Lexer l)
 	{
-		with(l.expect(Token.Type.Ident))
+		with(l.expect(Token.Ident))
 			return new Identifier(location, stringValue);
 	}
 	
 	public static dchar[] parseName(Lexer l)
 	{
-		with(l.expect(Token.Type.Ident))
+		with(l.expect(Token.Ident))
 			return stringValue;
-	}		
+	}
 
 	public static dchar[] toLongString(Identifier[] idents)
 	{
@@ -3864,12 +3867,12 @@ abstract class AstNode
 	/**
 	The location of the beginning of this node.
 	*/
-	public OldLocation location;
+	public CompileLoc location;
 
 	/**
 	The location of the end of this node.
 	*/
-	public OldLocation endLocation;
+	public CompileLoc endLocation;
 	
 	/**
 	The tag indicating what kind of node this actually is.  You can switch on this
@@ -3886,7 +3889,7 @@ abstract class AstNode
 		endLocation = The location of the end of this node.
 		type = The type of this node.
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		this.location = location;
 		this.endLocation = endLocation;
@@ -3961,7 +3964,7 @@ class ObjectDef : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
+	public this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.ObjectDef);
 		this.name = name;
@@ -3986,24 +3989,24 @@ class ObjectDef : AstNode
 	*/
 	public static ObjectDef parse(Lexer l, bool nameOptional, TableCtorExp attrs = null)
 	{
-		auto location = l.expect(Token.Type.Object).location;
+		auto location = l.expect(Token.Object).location;
 
 		Identifier name;
 
-		if(!nameOptional || l.type == Token.Type.Ident)
-			name = Identifier.parse(l);
+		if(!nameOptional || l.type == Token.Ident)
+			name = parseIdentifier();
 
 		Expression baseObject;
 
-		if(l.type == Token.Type.Colon)
+		if(l.type == Token.Colon)
 		{
 			l.next();
-			baseObject = Expression.parse(l);
+			baseObject = parseExpression();
 		}
 		else
 			baseObject = new IdentExp(l.loc, "Object");
 
-		l.expect(Token.Type.LBrace);
+		l.expect(Token.LBrace);
 
 		bool[dchar[]] fieldMap;
 		Field[] fields;
@@ -4023,28 +4026,28 @@ class ObjectDef : AstNode
 			addField(m.name, new FuncLiteralExp(m.location, m));
 		}
 
-		while(l.type != Token.Type.RBrace)
+		while(l.type != Token.RBrace)
 		{
 			switch(l.type)
 			{
-				case Token.Type.LAttr:
-					auto attr = TableCtorExp.parseAttrs(l);
-					addMethod(FuncDef.parseSimple(l, attr));
+				case Token.LAttr:
+					auto attr = parseTableCtorExpAttrs();
+					addMethod(parseFuncDefSimple(l, attr));
 					break;
 
-				case Token.Type.Function:
-					addMethod(FuncDef.parseSimple(l));
+				case Token.Function:
+					addMethod(parseFuncDefSimple());
 					break;
 
-				case Token.Type.Ident:
-					Identifier id = Identifier.parse(l);
+				case Token.Ident:
+					Identifier id = parseIdentifier();
 
 					Expression v;
 
-					if(l.type == Token.Type.Assign)
+					if(l.type == Token.Assign)
 					{
 						l.next();
-						v = Expression.parse(l);
+						v = parseExpression();
 					}
 					else
 						v = new NullExp(id.location);
@@ -4053,7 +4056,7 @@ class ObjectDef : AstNode
 					addField(id, v);
 					break;
 
-				case Token.Type.EOF:
+				case Token.EOF:
 					auto e = new OldCompileException(l.loc, "Object at {} is missing its closing brace", location.toString());
 					e.atEOF = true;
 					throw e;
@@ -4063,7 +4066,7 @@ class ObjectDef : AstNode
 			}
 		}
 
-		l.tok.expect(Token.Type.RBrace);
+		l.tok.expect(Token.RBrace);
 		auto endLocation = l.loc;
 		l.next();
 
@@ -4196,7 +4199,7 @@ class FuncDef : AstNode
 	
 	/**
 	The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
-	is a ReturnStatement with one expression, the expression that is the lambda's body.
+	is a ReturnStmt with one expression, the expression that is the lambda's body.
 	*/
 	public Statement code;
 	
@@ -4207,7 +4210,7 @@ class FuncDef : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
+	public this(CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
 	{
 		super(location, code.endLocation, AstTag.FuncDef);
 		this.params = params;
@@ -4229,20 +4232,20 @@ class FuncDef : AstNode
 	Returns:
 		The completed function definition.
 	*/
-	public static FuncDef parseBody(Lexer l, OldLocation location, Identifier name, TableCtorExp attrs = null)
+	public static FuncDef parseBody(Lexer l, CompileLoc location, Identifier name, TableCtorExp attrs = null)
 	{
 		bool isVararg;
 		Param[] params = parseParams(l, isVararg);
 
 		Statement code;
 
-		if(l.type == Token.Type.Assign)
+		if(l.type == Token.Assign)
 		{
 			l.next;
-			code = new ReturnStatement(Expression.parse(l));
+			code = new ReturnStmt(parseExpression());
 		}
 		else
-			code = Statement.parse(l);
+			code = parseStatement();
 
 		return new FuncDef(location, name, params, isVararg, code, attrs);
 	}
@@ -4253,8 +4256,8 @@ class FuncDef : AstNode
 	*/
 	public static FuncDef parseSimple(Lexer l, TableCtorExp attrs = null)
 	{
-		auto location = l.expect(Token.Type.Function).location;
-		auto name = Identifier.parse(l);
+		auto location = l.expect(Token.Function).location;
+		auto name = parseIdentifier();
 
 		return parseBody(l, location, name, attrs);
 	}
@@ -4265,12 +4268,12 @@ class FuncDef : AstNode
 	*/
 	public static FuncDef parseLiteral(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Function).location;
+		auto location = l.expect(Token.Function).location;
 
 		Identifier name;
 
-		if(l.type == Token.Type.Ident)
-			name = Identifier.parse(l);
+		if(l.type == Token.Ident)
+			name = parseIdentifier();
 		else
 			name = new Identifier(location, "<literal at " ~ utf.toString32(location.toString()) ~ ">");
 
@@ -4282,19 +4285,19 @@ class FuncDef : AstNode
 	*/
 	public static FuncDef parseHaskell(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Backslash).location;
+		auto location = l.expect(Token.Backslash).location;
 		auto name = new Identifier(location, "<literal at " ~ utf.toString32(location.toString()) ~ ">");
 
 		bool isVararg;
 		Param[] params;
 
-		if(l.type == Token.Type.Ident)
+		if(l.type == Token.Ident)
 		{
 			isVararg = false;
 			params = [Param(new Identifier(l.loc, "this"), TypeMask.Any, null),
-				Param(Identifier.parse(l), TypeMask.Any, null)];
+				Param(parseIdentifier(), TypeMask.Any, null)];
 		}
-		else if(l.type == Token.Type.Vararg)
+		else if(l.type == Token.Vararg)
 		{
 			l.next();
 			isVararg = true;
@@ -4303,9 +4306,9 @@ class FuncDef : AstNode
 		else
 			params = parseParams(l, isVararg);
 
-		l.expect(Token.Type.Arrow);
+		l.expect(Token.Arrow);
 
-		Statement code = new ReturnStatement(Expression.parse(l));
+		Statement code = new ReturnStmt(parseExpression());
 
 		return new FuncDef(location, name, params, isVararg, code, null);
 	}
@@ -4327,38 +4330,38 @@ class FuncDef : AstNode
 		void parseParam()
 		{
 			Param p;
-			p.name = Identifier.parse(l);
+			p.name = parseIdentifier();
 
-			if(l.type == Token.Type.Colon)
+			if(l.type == Token.Colon)
 			{
 				l.next();
 				p.typeMask = parseType(l, p.objectTypes);
 			}
 
-			if(l.type == Token.Type.Assign)
+			if(l.type == Token.Assign)
 			{
 				l.next();
-				p.defValue = Expression.parse(l);
+				p.defValue = parseExpression();
 			}
 
 			ret ~= p;
 		}
 
-		l.expect(Token.Type.LParen);
+		l.expect(Token.LParen);
 
 		ret[0].name = new Identifier(l.loc, "this");
 
-		if(l.type == Token.Type.This)
+		if(l.type == Token.This)
 		{
 			l.next();
-			l.expect(Token.Type.Colon);
+			l.expect(Token.Colon);
 			ret[0].typeMask = parseType(l, ret[0].objectTypes);
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
 
-				if(l.type == Token.Type.Vararg)
+				if(l.type == Token.Vararg)
 				{
 					isVararg = true;
 					l.next();
@@ -4368,20 +4371,20 @@ class FuncDef : AstNode
 				parseParam();
 			}
 		}
-		else if(l.type == Token.Type.Vararg)
+		else if(l.type == Token.Vararg)
 		{
 			isVararg = true;
 			l.next();
 		}
-		else if(l.type != Token.Type.RParen)
+		else if(l.type != Token.RParen)
 		{
 			parseParam();
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
 
-				if(l.type == Token.Type.Vararg)
+				if(l.type == Token.Vararg)
 				{
 					isVararg = true;
 					l.next();
@@ -4392,7 +4395,7 @@ class FuncDef : AstNode
 			}
 		}
 
-		l.expect(Token.Type.RParen);
+		l.expect(Token.RParen);
 		return ret;
 	}
 	
@@ -4416,13 +4419,13 @@ class FuncDef : AstNode
 		Expression parseIdentList(Token t)
 		{
 			l.next();
-			auto t2 = l.expect(Token.Type.Ident);
+			auto t2 = l.expect(Token.Ident);
 			Expression exp = new DotExp(new IdentExp(t.location, t.stringValue), new StringExp(t2.location, t2.stringValue));
 
-			while(l.type == Token.Type.Dot)
+			while(l.type == Token.Dot)
 			{
 				l.next();
-				t2 = l.expect(Token.Type.Ident);
+				t2 = l.expect(Token.Ident);
 				exp = new DotExp(exp, new StringExp(t2.location, t2.stringValue));
 			}
 			
@@ -4433,26 +4436,26 @@ class FuncDef : AstNode
 		{
 			switch(l.type)
 			{
-				case Token.Type.Null:      addConstraint(MDValue.Type.Null);      l.next(); break;
-				case Token.Type.Function:  addConstraint(MDValue.Type.Function);  l.next(); break;
-				case Token.Type.Namespace: addConstraint(MDValue.Type.Namespace); l.next(); break;
+				case Token.Null:      addConstraint(MDValue.Type.Null);      l.next(); break;
+				case Token.Function:  addConstraint(MDValue.Type.Function);  l.next(); break;
+				case Token.Namespace: addConstraint(MDValue.Type.Namespace); l.next(); break;
 				
-				case Token.Type.Object:
+				case Token.Object:
 					l.next();
 
 					addConstraint(MDValue.Type.Object);
 
-					if(l.type == Token.Type.LParen)
+					if(l.type == Token.LParen)
 					{
 						l.next();
-						objectTypes ~= Expression.parse(l);
-						l.expect(Token.Type.RParen);
+						objectTypes ~= parseExpression();
+						l.expect(Token.RParen);
 					}
-					else if(l.type == Token.Type.Ident)
+					else if(l.type == Token.Ident)
 					{
-						auto t = l.expect(Token.Type.Ident);
+						auto t = l.expect(Token.Ident);
 						
-						if(l.type == Token.Type.Dot)
+						if(l.type == Token.Dot)
 						{
 							addConstraint(MDValue.Type.Object);
 							objectTypes ~= parseIdentList(t);
@@ -4468,9 +4471,9 @@ class FuncDef : AstNode
 					break;
 				
 				default:
-					auto t = l.expect(Token.Type.Ident);
+					auto t = l.expect(Token.Ident);
 
-					if(l.type == Token.Type.Dot)
+					if(l.type == Token.Dot)
 					{
 						addConstraint(MDValue.Type.Object);
 						objectTypes ~= parseIdentList(t);
@@ -4499,13 +4502,13 @@ class FuncDef : AstNode
 			}
 		}
 
-		if(l.type == Token.Type.Not)
+		if(l.type == Token.Not)
 		{
 			l.next();
-			l.expect(Token.Type.Null);
+			l.expect(Token.Null);
 			ret = TypeMask.NotNull;
 		}
-		else if(l.type == Token.Type.Ident && l.tok.stringValue == "any")
+		else if(l.type == Token.Ident && l.tok.stringValue == "any")
 		{
 			l.next();
 			ret = TypeMask.Any;
@@ -4516,7 +4519,7 @@ class FuncDef : AstNode
 			{
 				parseSingleType();
 
-				if(l.type == Token.Type.Or)
+				if(l.type == Token.Or)
 					l.next;
 				else
 					break;
@@ -4677,7 +4680,7 @@ class NamespaceDef : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
+	public this(CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
 	{
 		super(location, endLocation, AstTag.NamespaceDef);
 		this.name = name;
@@ -4699,20 +4702,20 @@ class NamespaceDef : AstNode
 	public static NamespaceDef parse(Lexer l, TableCtorExp attrs = null)
 	{
 		auto location = l.loc;
-		l.expect(Token.Type.Namespace);
+		l.expect(Token.Namespace);
 
-		Identifier name = Identifier.parse(l);
+		Identifier name = parseIdentifier();
 		Expression parent;
 
-		if(l.type == Token.Type.Colon)
+		if(l.type == Token.Colon)
 		{
 			l.next();
-			parent = Expression.parse(l);
+			parent = parseExpression();
 		}
 		else
 			parent = null;
 
-		l.expect(Token.Type.LBrace);
+		l.expect(Token.LBrace);
 
 		Expression[dchar[]] fields;
 
@@ -4724,24 +4727,24 @@ class NamespaceDef : AstNode
 			fields[name] = v;
 		}
 
-		while(l.type != Token.Type.RBrace)
+		while(l.type != Token.RBrace)
 		{
 			switch(l.type)
 			{
-				case Token.Type.Function:
-					FuncDef fd = FuncDef.parseSimple(l);
+				case Token.Function:
+					FuncDef fd = parseFuncDefSimple();
 					addField(fd.name.name, new FuncLiteralExp(fd.location, fd));
 					break;
 
-				case Token.Type.Ident:
-					Identifier id = Identifier.parse(l);
+				case Token.Ident:
+					Identifier id = parseIdentifier();
 
 					Expression v;
 
-					if(l.type == Token.Type.Assign)
+					if(l.type == Token.Assign)
 					{
 						l.next();
-						v = Expression.parse(l);
+						v = parseExpression();
 					}
 					else
 						v = new NullExp(id.location);
@@ -4750,7 +4753,7 @@ class NamespaceDef : AstNode
 					addField(id.name, v);
 					break;
 
-				case Token.Type.EOF:
+				case Token.EOF:
 					auto e = new OldCompileException(l.loc, "Namespace at {} is missing its closing brace", location.toString());
 					e.atEOF = true;
 					throw e;
@@ -4771,7 +4774,7 @@ class NamespaceDef : AstNode
 			i++;
 		}
 
-		l.tok.expect(Token.Type.RBrace);
+		l.tok.expect(Token.RBrace);
 		auto endLocation = l.loc;
 		l.next();
 
@@ -4876,7 +4879,7 @@ class NamespaceDef : AstNode
 				{
 					// name.fieldname = fieldinitializer
 					auto lhs = new DotExp(new IdentExp(mName), new StringExp(field.initializer.location, field.name));
-					auto assig = new Assignment(field.initializer.location, field.initializer.endLocation, [lhs], field.initializer);
+					auto assig = new Assign(field.initializer.location, field.initializer.endLocation, [lhs], field.initializer);
 					assig.codeGen(s);
 				}
 			}
@@ -4887,7 +4890,7 @@ class NamespaceDef : AstNode
 			}
 		};
 
-		auto innerFuncBody = new CompoundStatement(location, endLocation, [cast(Statement)innerLoop]);
+		auto innerFuncBody = new BlockStmt(location, endLocation, [cast(Statement)innerLoop]);
 		auto innerFuncName = new Identifier(location, "__temp");
 		auto innerFuncDef = new FuncDef(location, innerFuncName, null, false, innerFuncBody);
 		auto innerFuncDecl = new FuncDecl(location, Protection.Local, innerFuncDef);
@@ -4923,10 +4926,10 @@ class NamespaceDef : AstNode
 			}
 		};
 
-		auto innerFuncCall = new ExpressionStatement(location, endLocation, new CallExp(endLocation, new IdentExp(innerFuncName), null, null));
-		auto ret = new ReturnStatement(new IdentExp(name));
+		auto innerFuncCall = new ExpressionStmt(location, endLocation, new CallExp(endLocation, new IdentExp(innerFuncName), null, null));
+		auto ret = new ReturnStmt(new IdentExp(name));
 
-		auto funcBody = new CompoundStatement(location, endLocation,
+		auto funcBody = new BlockStmt(location, endLocation,
 		[
 			cast(Statement)localVar,
 			innerFuncDecl,
@@ -4966,7 +4969,7 @@ class Module : AstNode
 	/**
 	The module declaration.  This will never be null.
 	*/
-	public ModuleDeclaration modDecl;
+	public ModuleDecl modDecl;
 	
 	/**
 	A list of 0 or more statements which make up the body of the module.
@@ -4975,7 +4978,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, ModuleDeclaration modDecl, Statement[] statements)
+	public this(CompileLoc location, CompileLoc endLocation, ModuleDecl modDecl, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.Module);
 		this.modDecl = modDecl;
@@ -4988,18 +4991,18 @@ class Module : AstNode
 	public static Module parse(Lexer l)
 	{
 		auto location = l.loc;
-		auto modDecl = ModuleDeclaration.parse(l);
+		auto modDecl = parseModuleDecl();
 
 		List!(Statement) statements;
 
-		while(l.type != Token.Type.EOF)
-			statements.add(Statement.parse(l));
+		while(l.type != Token.EOF)
+			statements.add(parseStatement());
 
-		l.tok.expect(Token.Type.EOF);
+		l.tok.expect(Token.EOF);
 
 		return new Module(location, l.loc, modDecl, statements.toArray());
 	}
-	
+
 	public OldFuncDef* codeGen(Compiler* compiler)
 	{
 		auto def = new OldFuncDef;
@@ -5050,7 +5053,7 @@ class Module : AstNode
 /**
 This node represents the module declaration that comes at the top of every module.
 */
-class ModuleDeclaration : AstNode
+class ModuleDecl : AstNode
 {
 	/**
 	The name of this module.  This is an array of strings, each element of which is one
@@ -5065,7 +5068,7 @@ class ModuleDeclaration : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, dchar[][] names, TableCtorExp attrs)
+	public this(CompileLoc location, CompileLoc endLocation, dchar[][] names, TableCtorExp attrs)
 	{
 		super(location, endLocation, AstTag.ModuleDecl);
 		this.names = names;
@@ -5075,30 +5078,30 @@ class ModuleDeclaration : AstNode
 	/**
 	Parse a module declaration.
 	*/
-	public static ModuleDeclaration parse(Lexer l)
+	public static ModuleDecl parse(Lexer l)
 	{
 		auto location = l.loc;
 
 		TableCtorExp attrs;
 
-		if(l.type == Token.Type.LAttr)
-			attrs = TableCtorExp.parseAttrs(l);
+		if(l.type == Token.LAttr)
+			attrs = parseTableCtorExpAttrs();
 
-		l.expect(Token.Type.Module);
+		l.expect(Token.Module);
 
 		dchar[][] names;
-		names ~= Identifier.parseName(l);
+		names ~= parseIdentifierName();
 
-		while(l.type == Token.Type.Dot)
+		while(l.type == Token.Dot)
 		{
 			l.next();
-			names ~= Identifier.parseName(l);
+			names ~= parseIdentifierName();
 		}
 
 		auto endLocation = l.loc;
 		l.statementTerm();
 
-		return new ModuleDeclaration(location, endLocation, names, attrs);
+		return new ModuleDecl(location, endLocation, names, attrs);
 	}
 
 	public void codeGen(FuncState s)
@@ -5115,7 +5118,7 @@ class ModuleDeclaration : AstNode
 		s.codeR(attrs.location.line, Op.SetAttrs, 0, src.index, 0);
 	}
 
-	public ModuleDeclaration fold()
+	public ModuleDecl fold()
 	{
 		if(attrs)
 			attrs = attrs.fold();
@@ -5129,7 +5132,7 @@ The base class for all statements.
 */
 abstract class Statement : AstNode
 {
-	public this(OldLocation location, OldLocation endLocation, AstTag type)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -5140,66 +5143,66 @@ abstract class Statement : AstNode
 	Params:
 		l = The lexer to use.
 		needScope = If true, and the statement is a block statement, the block will be wrapped
-			in a ScopeStatement.  Else, the raw block statement will be returned.
+			in a ScopeStmt.  Else, the raw block statement will be returned.
 	*/
 	public static Statement parse(Lexer l, bool needScope = true)
 	{
 		switch(l.type)
 		{
 			case
-				Token.Type.CharLiteral,
-				Token.Type.Dec,
-				Token.Type.False,
-				Token.Type.FloatLiteral,
-				Token.Type.Ident,
-				Token.Type.Inc,
-				Token.Type.IntLiteral,
-				Token.Type.LBracket,
-				Token.Type.Length,
-				Token.Type.LParen,
-				Token.Type.Null,
-				Token.Type.Or,
-				Token.Type.StringLiteral,
-				Token.Type.Super,
-				Token.Type.This,
-				Token.Type.True,
-				Token.Type.Vararg,
-				Token.Type.Yield,
-				Token.Type.Colon:
+				Token.CharLiteral,
+				Token.Dec,
+				Token.False,
+				Token.FloatLiteral,
+				Token.Ident,
+				Token.Inc,
+				Token.IntLiteral,
+				Token.LBracket,
+				Token.Length,
+				Token.LParen,
+				Token.Null,
+				Token.Or,
+				Token.StringLiteral,
+				Token.Super,
+				Token.This,
+				Token.True,
+				Token.Vararg,
+				Token.Yield,
+				Token.Colon:
 
-				return ExpressionStatement.parse(l);
+				return parseExpressionStmt();
 
 			case
-				Token.Type.Object,
-				Token.Type.Function,
-				Token.Type.Global,
-				Token.Type.LAttr,
-				Token.Type.Local,
-				Token.Type.Namespace:
+				Token.Object,
+				Token.Function,
+				Token.Global,
+				Token.LAttr,
+				Token.Local,
+				Token.Namespace:
 
-				return DeclStatement.parse(l);
+				return parseDeclStmt();
 
-			case Token.Type.LBrace:
+			case Token.LBrace:
 				if(needScope)
-					return new ScopeStatement(CompoundStatement.parse(l));
+					return new ScopeStmt(parseBlockStmt());
 				else
-					return CompoundStatement.parse(l);
+					return parseBlockStmt();
 
-			case Token.Type.Assert:   return AssertStatement.parse(l);
-			case Token.Type.Break:    return BreakStatement.parse(l);
-			case Token.Type.Continue: return ContinueStatement.parse(l);
-			case Token.Type.Do:       return DoWhileStatement.parse(l);
-			case Token.Type.For:      return ForStatement.parse(l);
-			case Token.Type.Foreach:  return ForeachStatement.parse(l);
-			case Token.Type.If:       return IfStatement.parse(l);
-			case Token.Type.Import:   return ImportStatement.parse(l);
-			case Token.Type.Return:   return ReturnStatement.parse(l);
-			case Token.Type.Switch:   return SwitchStatement.parse(l);
-			case Token.Type.Throw:    return ThrowStatement.parse(l);
-			case Token.Type.Try:      return TryCatchStatement.parse(l);
-			case Token.Type.While:    return WhileStatement.parse(l);
+			case Token.Assert:   return parseAssertStmt();
+			case Token.Break:    return parseBreakStmt();
+			case Token.Continue: return parseContinueStmt();
+			case Token.Do:       return parseDoWhileStmt();
+			case Token.For:      return parseForStmt();
+			case Token.Foreach:  return parseForeachStmt();
+			case Token.If:       return parseIfStmt();
+			case Token.Import:   return parseImportStmt();
+			case Token.Return:   return parseReturnStmt();
+			case Token.Switch:   return parseSwitchStmt();
+			case Token.Throw:    return parseThrowStmt();
+			case Token.Try:      return parseTryStmt();
+			case Token.While:    return parseWhileStmt();
 
-			case Token.Type.Semicolon:
+			case Token.Semicolon:
 				throw new OldCompileException(l.loc, "Empty statements ( ';' ) are not allowed (use {{} for an empty statement)");
 
 			default:
@@ -5215,7 +5218,7 @@ abstract class Statement : AstNode
 /**
 This node represents an assertion statement.
 */
-class AssertStatement : Statement
+class AssertStmt : Statement
 {
 	/**
 	A required expression that is the condition checked by the assertion.
@@ -5231,31 +5234,31 @@ class AssertStatement : Statement
 	
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression cond, Expression msg = null)
+	public this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
 	{
 		super(location, endLocation, AstTag.AssertStmt);
 		this.cond = cond;
 		this.msg = msg;
 	}
 	
-	public static AssertStatement parse(Lexer l)
+	public static AssertStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Assert).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.Assert).location;
+		l.expect(Token.LParen);
 		
-		auto cond = Expression.parse(l);
+		auto cond = parseExpression();
 		Expression msg;
 
-		if(l.type == Token.Type.Comma)
+		if(l.type == Token.Comma)
 		{
 			l.next();
-			msg = Expression.parse(l);
+			msg = parseExpression();
 		}
 		
-		auto endLocation = l.expect(Token.Type.RParen).location;
+		auto endLocation = l.expect(Token.RParen).location;
 		l.statementTerm();
 		
-		return new AssertStatement(location, endLocation, cond, msg);
+		return new AssertStmt(location, endLocation, cond, msg);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -5266,8 +5269,8 @@ class AssertStatement : Statement
 				msg = new StringExp(location, Utf.toString32(Format.convert("Assertion failure at {}", location)));
 	
 			auto c = new NotExp(cond.location, cond);
-			auto t = new ThrowStatement(msg.location, msg);
-			auto i = new IfStatement(location, endLocation, null, c, t, null);
+			auto t = new ThrowStmt(msg.location, msg);
+			auto i = new IfStmt(location, endLocation, null, c, t, null);
 			
 			i.fold().codeGen(s);
 		}
@@ -5287,7 +5290,7 @@ class AssertStatement : Statement
 /**
 This node represents an import statement.
 */
-class ImportStatement : Statement
+class ImportStmt : Statement
 {
 	/**
 	An optional renaming of the import.  This member can be null, in which case no renaming
@@ -5318,7 +5321,7 @@ class ImportStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
+	public this(CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
 		super(location, endLocation, AstTag.ImportStmt);
 		this.importName = importName;
@@ -5330,35 +5333,35 @@ class ImportStatement : Statement
 	/**
 	Parse an import statement.
 	*/
-	public static ImportStatement parse(Lexer l)
+	public static ImportStmt parse(Lexer l)
 	{
 		auto location = l.loc;
 
-		l.expect(Token.Type.Import);
+		l.expect(Token.Import);
 
 		Identifier importName;
 		Expression expr;
 		
-		if(l.type == Token.Type.Ident && l.peek.type == Token.Type.Assign)
+		if(l.type == Token.Ident && l.peek.type == Token.Assign)
 		{
-			importName = Identifier.parse(l);
+			importName = parseIdentifier();
 			l.next();
 		}
 
-		if(l.type == Token.Type.LParen)
+		if(l.type == Token.LParen)
 		{
 			l.next();
-			expr = Expression.parse(l);
-			l.expect(Token.Type.RParen);
+			expr = parseExpression();
+			l.expect(Token.RParen);
 		}
 		else
 		{
-			dchar[] name = Identifier.parseName(l);
+			dchar[] name = parseIdentifierName();
 
-			while(l.type == Token.Type.Dot)
+			while(l.type == Token.Dot)
 			{
 				l.next();
-				name ~= "." ~ Identifier.parseName(l);
+				name ~= "." ~ parseIdentifierName();
 			}
 
 			expr = new StringExp(location, name);
@@ -5369,13 +5372,13 @@ class ImportStatement : Statement
 		
 		void parseSelectiveImport()
 		{
-			auto id = Identifier.parse(l);
+			auto id = parseIdentifier();
 			
-			if(l.type == Token.Type.Assign)
+			if(l.type == Token.Assign)
 			{
 				l.next();
 				symbolNames ~= id;
-				symbols ~= Identifier.parse(l);
+				symbols ~= parseIdentifier();
 			}
 			else
 			{
@@ -5384,13 +5387,13 @@ class ImportStatement : Statement
 			}
 		}
 
-		if(l.type == Token.Type.Colon)
+		if(l.type == Token.Colon)
 		{
 			l.next();
 
 			parseSelectiveImport();
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
 				parseSelectiveImport();
@@ -5399,7 +5402,7 @@ class ImportStatement : Statement
 		
 		auto endLocation = l.loc;
 		l.statementTerm();
-		return new ImportStatement(location, endLocation, importName, expr, symbols, symbolNames);
+		return new ImportStmt(location, endLocation, importName, expr, symbols, symbolNames);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -5491,7 +5494,7 @@ An example of where this would be used is in an anonymous scope with some code i
 does is affects the codegen of the contained statement by beginning a new scope before it
 and ending the scope after it.
 */
-class ScopeStatement : Statement
+class ScopeStmt : Statement
 {
 	/**
 	The statement contained within this scope.  Typically a block statement, but can
@@ -5525,7 +5528,7 @@ class ScopeStatement : Statement
 A statement that holds a side-effecting expression to be evaluated as a statement,
 such as a function call, assignment etc.
 */
-class ExpressionStatement : Statement
+class ExpressionStmt : Statement
 {
 	/**
 	The expression to be evaluated for this statement.  This must be a side-effecting
@@ -5540,7 +5543,7 @@ class ExpressionStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression expr)
+	public this(CompileLoc location, CompileLoc endLocation, Expression expr)
 	{
 		super(location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
@@ -5549,14 +5552,14 @@ class ExpressionStatement : Statement
 	/**
 	Parse an expression statement.
 	*/
-	public static ExpressionStatement parse(Lexer l)
+	public static ExpressionStmt parse(Lexer l)
 	{
 		auto location = l.loc;
-		auto exp = Expression.parseStatement(l);
+		auto exp = parseStatementExpr();
 		auto endLocation = l.loc;
 		l.statementTerm();
 
-		return new ExpressionStatement(location, endLocation, exp);
+		return new ExpressionStmt(location, endLocation, exp);
 	}
 
 	public override void codeGen(FuncState s)
@@ -5602,7 +5605,7 @@ enum Protection
 /**
 The abstract base class for the declaration statements.
 */
-abstract class DeclStatement : Statement
+abstract class DeclStmt : Statement
 {
 	/**
 	What protection level this declaration uses.
@@ -5611,7 +5614,7 @@ abstract class DeclStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Protection protection)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Protection protection)
 	{
 		super(location, endLocation, type);
 		this.protection = protection;
@@ -5625,46 +5628,46 @@ abstract class DeclStatement : Statement
 		attrs = An optional attribute table to attach to the declaration.  If the declaration
 			is a variable declaration and this is non-null, an error will be thrown.
 	*/
-	public static DeclStatement parse(Lexer l, TableCtorExp attrs = null)
+	public static DeclStmt parse(Lexer l, TableCtorExp attrs = null)
 	{
 		switch(l.type)
 		{
-			case Token.Type.Local, Token.Type.Global:
+			case Token.Local, Token.Global:
 				switch(l.peek.type)
 				{
-					case Token.Type.Ident:
+					case Token.Ident:
 						if(attrs !is null)
 							throw new OldCompileException(l.loc, "Cannot attach attributes to variables");
 
-						VarDecl ret = VarDecl.parse(l);
+						VarDecl ret = parseVarDecl();
 						l.statementTerm();
 						return ret;
 					
-					case Token.Type.Function:
-		            	return FuncDecl.parse(l, attrs);
+					case Token.Function:
+		            	return parseFuncDecl(l, attrs);
 
-					case Token.Type.Object:
-						return ObjectDecl.parse(l, attrs);
+					case Token.Object:
+						return parseObjectDecl(l, attrs);
 
-					case Token.Type.Namespace:
-						return NamespaceDecl.parse(l, attrs);
+					case Token.Namespace:
+						return parseNamespaceDecl(l, attrs);
 
 					default:
 						throw new OldCompileException(l.loc, "Illegal token '{}' after '{}'", l.peek.toString(), l.tok.toString());
 				}
 
-			case Token.Type.Function:
-				return FuncDecl.parse(l, attrs);
+			case Token.Function:
+				return parseFuncDecl(l, attrs);
 
-			case Token.Type.Object:
-				return ObjectDecl.parse(l, attrs);
+			case Token.Object:
+				return parseObjectDecl(l, attrs);
 
-			case Token.Type.Namespace:
-				return NamespaceDecl.parse(l, attrs);
+			case Token.Namespace:
+				return parseNamespaceDecl(l, attrs);
 
-			case Token.Type.LAttr:
+			case Token.LAttr:
 				if(attrs is null)
-					return DeclStatement.parse(l, TableCtorExp.parseAttrs(l));
+					return parseDeclStmt(l, parseTableCtorExpAttrs());
 				else
 					l.tok.expected("Declaration");
 
@@ -5677,7 +5680,7 @@ abstract class DeclStatement : Statement
 /**
 This node represents an object declaration.
 */
-class ObjectDecl : DeclStatement
+class ObjectDecl : DeclStmt
 {
 	/**
 	The actual "guts" of the object.
@@ -5687,7 +5690,7 @@ class ObjectDecl : DeclStatement
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(OldLocation location, Protection protection, ObjectDef def)
+	public this(CompileLoc location, Protection protection, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectDecl, protection);
 		this.def = def;
@@ -5705,18 +5708,18 @@ class ObjectDecl : DeclStatement
 		auto location = l.loc;
 		auto protection = Protection.Default;
 
-		if(l.type == Token.Type.Global)
+		if(l.type == Token.Global)
 		{
 			protection = Protection.Global;
 			l.next();
 		}
-		else if(l.type == Token.Type.Local)
+		else if(l.type == Token.Local)
 		{
 			protection = Protection.Local;
 			l.next();
 		}
 
-		return new ObjectDecl(location, protection, ObjectDef.parse(l, false, attrs));
+		return new ObjectDecl(location, protection, parseObjectDef(l, false, attrs));
 	}
 
 	public override void codeGen(FuncState s)
@@ -5751,7 +5754,7 @@ class ObjectDecl : DeclStatement
 /**
 Represents local and global variable declarations.
 */
-class VarDecl : DeclStatement
+class VarDecl : DeclStmt
 {
 	/**
 	The list of names to be declared.  This will always have at least one name.
@@ -5768,7 +5771,7 @@ class VarDecl : DeclStatement
 	/**
 	The protection parameter must be either Protection.Local or Protection.Global.
 	*/
-	public this(OldLocation location, OldLocation endLocation, Protection protection, Identifier[] names, Expression initializer)
+	public this(CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression initializer)
 	{
 		super(location, endLocation, AstTag.VarDecl, protection);
 		this.names = names;
@@ -5783,31 +5786,31 @@ class VarDecl : DeclStatement
 		auto location = l.loc;
 		auto protection = Protection.Local;
 
-		if(l.type == Token.Type.Global)
+		if(l.type == Token.Global)
 		{
 			protection = Protection.Global;
 			l.next();
 		}
 		else
-			l.expect(Token.Type.Local);
+			l.expect(Token.Local);
 
 		Identifier[] names;
-		names ~= Identifier.parse(l);
+		names ~= parseIdentifier();
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			names ~= Identifier.parse(l);
+			names ~= parseIdentifier();
 		}
 		
 		auto endLocation = names[$ - 1].location;
 
 		Expression initializer;
 
-		if(l.type == Token.Type.Assign)
+		if(l.type == Token.Assign)
 		{
 			l.next();
-			initializer = Expression.parse(l);
+			initializer = parseExpression();
 			endLocation = initializer.endLocation;
 		}
 
@@ -5916,7 +5919,7 @@ This node represents a function declaration.  Note that there are some places in
 grammar which look like function declarations (like inside objects and namespaces) but
 which actually are just syntactic sugar.  This is for actual declarations.
 */
-class FuncDecl : DeclStatement
+class FuncDecl : DeclStmt
 {
 	/**
 	The "guts" of the function declaration.
@@ -5926,7 +5929,7 @@ class FuncDecl : DeclStatement
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(OldLocation location, Protection protection, FuncDef def)
+	public this(CompileLoc location, Protection protection, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncDecl, protection);
 
@@ -5945,18 +5948,18 @@ class FuncDecl : DeclStatement
 		auto location = l.loc;
 		auto protection = Protection.Default;
 
-		if(l.type == Token.Type.Global)
+		if(l.type == Token.Global)
 		{
 			protection = Protection.Global;
 			l.next();
 		}
-		else if(l.type == Token.Type.Local)
+		else if(l.type == Token.Local)
 		{
 			protection = Protection.Local;
 			l.next();
 		}
 
-		return new FuncDecl(location, protection, FuncDef.parseSimple(l, attrs));
+		return new FuncDecl(location, protection, parseFuncDefSimple(l, attrs));
 	}
 	
 	public override void codeGen(FuncState s)
@@ -5990,7 +5993,7 @@ class FuncDecl : DeclStatement
 /**
 This node represents a namespace declaration.
 */
-class NamespaceDecl : DeclStatement
+class NamespaceDecl : DeclStmt
 {
 	/**
 	The "guts" of the namespace.
@@ -6000,7 +6003,7 @@ class NamespaceDecl : DeclStatement
 	/**
 	The protection parameter can be any level of protection.
 	*/
-	public this(OldLocation location, Protection protection, NamespaceDef def)
+	public this(CompileLoc location, Protection protection, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceDecl, protection);
 
@@ -6019,18 +6022,18 @@ class NamespaceDecl : DeclStatement
 		auto location = l.loc;
 		auto protection = Protection.Default;
 
-		if(l.type == Token.Type.Global)
+		if(l.type == Token.Global)
 		{
 			protection = Protection.Global;
 			l.next();
 		}
-		else if(l.type == Token.Type.Local)
+		else if(l.type == Token.Local)
 		{
 			protection = Protection.Local;
 			l.next();
 		}
 
-		return new NamespaceDecl(location, protection, NamespaceDef.parse(l, attrs));
+		return new NamespaceDecl(location, protection, parseNamespaceDef(l, attrs));
 	}
 	
 	public override void codeGen(FuncState s)
@@ -6064,7 +6067,7 @@ class NamespaceDecl : DeclStatement
 /**
 This node represents a block statement (i.e. one surrounded by curly braces).
 */
-class CompoundStatement : Statement
+class BlockStmt : Statement
 {
 	/**
 	The list of statements contained in the braces.
@@ -6073,7 +6076,7 @@ class CompoundStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Statement[] statements)
+	public this(CompileLoc location, CompileLoc endLocation, Statement[] statements)
 	{
 		super(location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
@@ -6081,17 +6084,17 @@ class CompoundStatement : Statement
 
 	/**
 	*/
-	public static CompoundStatement parse(Lexer l)
+	public static BlockStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.LBrace).location;
+		auto location = l.expect(Token.LBrace).location;
 
 		List!(Statement) statements;
 
-		while(l.type != Token.Type.RBrace)
-			statements.add(Statement.parse(l));
+		while(l.type != Token.RBrace)
+			statements.add(parseStatement());
 
-		auto endLocation = l.expect(Token.Type.RBrace).location;
-		return new CompoundStatement(location, endLocation, statements.toArray());
+		auto endLocation = l.expect(Token.RBrace).location;
+		return new BlockStmt(location, endLocation, statements.toArray());
 	}
 
 	public override void codeGen(FuncState s)
@@ -6100,7 +6103,7 @@ class CompoundStatement : Statement
 			st.codeGen(s);
 	}
 
-	public override CompoundStatement fold()
+	public override BlockStmt fold()
 	{
 		foreach(ref statement; statements)
 			statement = statement.fold();
@@ -6112,7 +6115,7 @@ class CompoundStatement : Statement
 /**
 This node represents an if statement.
 */
-class IfStatement : Statement
+class IfStmt : Statement
 {
 	/**
 	An optional variable to declare inside the statement's condition which will take on
@@ -6139,7 +6142,7 @@ class IfStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
+	public this(CompileLoc location, CompileLoc endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(location, endLocation, AstTag.IfStmt);
 
@@ -6151,36 +6154,36 @@ class IfStatement : Statement
 
 	/**
 	*/
-	public static IfStatement parse(Lexer l)
+	public static IfStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.If).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.If).location;
+		l.expect(Token.LParen);
 
 		Identifier condVar;
 
-		if(l.type == Token.Type.Local)
+		if(l.type == Token.Local)
 		{
 			l.next();
-			condVar = Identifier.parse(l);
-			l.expect(Token.Type.Assign);
+			condVar = parseIdentifier();
+			l.expect(Token.Assign);
 		}
 
-		auto condition = Expression.parse(l);
-		l.expect(Token.Type.RParen);
-		auto ifBody = Statement.parse(l);
+		auto condition = parseExpression();
+		l.expect(Token.RParen);
+		auto ifBody = parseStatement();
 
 		Statement elseBody;
 
 		auto endLocation = ifBody.endLocation;
 
-		if(l.type == Token.Type.Else)
+		if(l.type == Token.Else)
 		{
 			l.next();
-			elseBody = Statement.parse(l);
+			elseBody = parseStatement();
 			endLocation = elseBody.endLocation;
 		}
 
-		return new IfStatement(location, endLocation, condVar, condition, ifBody, elseBody);
+		return new IfStmt(location, endLocation, condVar, condition, ifBody, elseBody);
 	}
 
 	public override void codeGen(FuncState s)
@@ -6248,7 +6251,7 @@ class IfStatement : Statement
 				if(elseBody)
 					return elseBody;
 				else
-					return new CompoundStatement(location, endLocation, null);
+					return new BlockStmt(location, endLocation, null);
 			}
 		}
 
@@ -6259,7 +6262,7 @@ class IfStatement : Statement
 /**
 This node represents a while loop.
 */
-class WhileStatement : Statement
+class WhileStmt : Statement
 {
 	/**
 	An optional variable to declare inside the statement's condition which will take on
@@ -6280,7 +6283,7 @@ class WhileStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, Identifier condVar, Expression condition, Statement code)
+	public this(CompileLoc location, Identifier condVar, Expression condition, Statement code)
 	{
 		super(location, code.endLocation, AstTag.WhileStmt);
 
@@ -6291,24 +6294,24 @@ class WhileStatement : Statement
 
 	/**
 	*/
-	public static WhileStatement parse(Lexer l)
+	public static WhileStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.While).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.While).location;
+		l.expect(Token.LParen);
 		
 		Identifier condVar;
 
-		if(l.type == Token.Type.Local)
+		if(l.type == Token.Local)
 		{
 			l.next();
-			condVar = Identifier.parse(l);
-			l.expect(Token.Type.Assign);
+			condVar = parseIdentifier();
+			l.expect(Token.Assign);
 		}
 
-		auto condition = Expression.parse(l);
-		l.expect(Token.Type.RParen);
-		auto code = Statement.parse(l, false);
-		return new WhileStatement(location, condVar, condition, code);
+		auto condition = parseExpression();
+		l.expect(Token.RParen);
+		auto code = parseStatement(l, false);
+		return new WhileStmt(location, condVar, condition, code);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -6392,7 +6395,7 @@ class WhileStatement : Statement
 		code = code.fold();
 
 		if(condition.isConstant && !condition.isTrue)
-			return new CompoundStatement(location, endLocation, null);
+			return new BlockStmt(location, endLocation, null);
 
 		return this;
 	}
@@ -6401,7 +6404,7 @@ class WhileStatement : Statement
 /**
 This node corresponds to a do-while loop.
 */
-class DoWhileStatement : Statement
+class DoWhileStmt : Statement
 {
 	/**
 	The code inside the loop.
@@ -6415,7 +6418,7 @@ class DoWhileStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Statement code, Expression condition)
+	public this(CompileLoc location, CompileLoc endLocation, Statement code, Expression condition)
 	{
 		super(location, endLocation, AstTag.DoWhileStmt);
 
@@ -6425,17 +6428,17 @@ class DoWhileStatement : Statement
 
 	/**
 	*/
-	public static DoWhileStatement parse(Lexer l)
+	public static DoWhileStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Do).location;
-		auto doBody = Statement.parse(l, false);
+		auto location = l.expect(Token.Do).location;
+		auto doBody = parseStatement(l, false);
 
-		l.expect(Token.Type.While);
-		l.expect(Token.Type.LParen);
+		l.expect(Token.While);
+		l.expect(Token.LParen);
 
-		auto condition = Expression.parse(l);
-		auto endLocation = l.expect(Token.Type.RParen).location;
-		return new DoWhileStatement(location, endLocation, doBody, condition);
+		auto condition = parseExpression();
+		auto endLocation = l.expect(Token.RParen).location;
+		return new DoWhileStmt(location, endLocation, doBody, condition);
 	}
 
 	public override void codeGen(FuncState s)
@@ -6492,7 +6495,7 @@ class DoWhileStatement : Statement
 /**
 This node represents a C-style for loop.
 */
-class ForStatement : Statement
+class ForStmt : Statement
 {
 	/**
 	There are two types of initializers possible in the first clause of the for loop header:
@@ -6546,7 +6549,7 @@ class ForStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, ForInitializer[] init, Expression cond, Expression[] inc, Statement code)
+	public this(CompileLoc location, ForInitializer[] init, Expression cond, Expression[] inc, Statement code)
 	{
 		super(location, endLocation, AstTag.ForStmt);
 
@@ -6562,8 +6565,8 @@ class ForStatement : Statement
 	*/
 	public static Statement parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.For).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.For).location;
+		l.expect(Token.LParen);
 
 		ForInitializer[] init;
 
@@ -6571,84 +6574,84 @@ class ForStatement : Statement
 		{
 			init.length = init.length + 1;
 
-			if(l.type == Token.Type.Local)
+			if(l.type == Token.Local)
 			{
 				init[$ - 1].isDecl = true;
-				init[$ - 1].decl = VarDecl.parse(l);
+				init[$ - 1].decl = parseVarDecl();
 			}
 			else
-				init[$ - 1].init = Expression.parseStatement(l);
+				init[$ - 1].init = parseStatementExpr();
 		}
 
-		if(l.type == Token.Type.Semicolon)
+		if(l.type == Token.Semicolon)
 			l.next();
-		else if(l.type == Token.Type.Ident && (l.peek.type == Token.Type.Colon || l.peek.type == Token.Type.Semicolon))
+		else if(l.type == Token.Ident && (l.peek.type == Token.Colon || l.peek.type == Token.Semicolon))
 		{
-			auto index = Identifier.parse(l);
+			auto index = parseIdentifier();
 
 			l.next();
 
-			auto lo = Expression.parse(l);
-			l.expect(Token.Type.DotDot);
-			auto hi = Expression.parse(l);
+			auto lo = parseExpression();
+			l.expect(Token.DotDot);
+			auto hi = parseExpression();
 
 			Expression step;
 
-			if(l.type == Token.Type.Comma)
+			if(l.type == Token.Comma)
 			{
 				l.next();
-				step = Expression.parse(l);
+				step = parseExpression();
 			}
 			else
 				step = new IntExp(location, 1);
 
-			l.expect(Token.Type.RParen);
+			l.expect(Token.RParen);
 
-			auto code = Statement.parse(l);
-			return new NumericForStatement(location, index, lo, hi, step, code);
+			auto code = parseStatement();
+			return new ForNumStmt(location, index, lo, hi, step, code);
 		}
 		else
 		{
 			parseInitializer();
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
 				parseInitializer();
 			}
 
-			l.expect(Token.Type.Semicolon);
+			l.expect(Token.Semicolon);
 		}
 
 		Expression condition;
 
-		if(l.type == Token.Type.Semicolon)
+		if(l.type == Token.Semicolon)
 			l.next();
 		else
 		{
-			condition = Expression.parse(l);
-			l.expect(Token.Type.Semicolon);
+			condition = parseExpression();
+			l.expect(Token.Semicolon);
 		}
 
 		Expression[] increment;
 
-		if(l.type == Token.Type.RParen)
+		if(l.type == Token.RParen)
 			l.next();
 		else
 		{
-			increment ~= Expression.parseStatement(l);
+			increment ~= parseStatementExpr();
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
-				increment ~= Expression.parseStatement(l);
+				increment ~= parseStatementExpr();
 			}
 
-			l.expect(Token.Type.RParen);
+			l.expect(Token.RParen);
 		}
 
-		auto code = Statement.parse(l, false);
-		return new ForStatement(location, init, condition, increment, code);
+		auto code = parseStatement(l, false);
+		return new ForStmt(location, init, condition, increment, code);
 	}
 
 	public override void codeGen(FuncState s)
@@ -6736,13 +6739,13 @@ class ForStatement : Statement
 						if(i.isDecl)
 							inits ~= i.decl;
 						else
-							inits ~= new ExpressionStatement(i.init.location, i.init.endLocation, i.init);
+							inits ~= new ExpressionStmt(i.init.location, i.init.endLocation, i.init);
 					}
 
-					return new ScopeStatement(new CompoundStatement(location, endLocation, inits));
+					return new ScopeStmt(new BlockStmt(location, endLocation, inits));
 				}
 				else
-					return new CompoundStatement(location, endLocation, null);
+					return new BlockStmt(location, endLocation, null);
 			}
 		}
 
@@ -6753,7 +6756,7 @@ class ForStatement : Statement
 /**
 This node represents a numeric for loop, i.e. "for(i: 0 .. 10){}".
 */
-class NumericForStatement : Statement
+class ForNumStmt : Statement
 {
 	/**
 	The name of the index variable.
@@ -6786,7 +6789,7 @@ class NumericForStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	public this(CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForNumStmt);
 
@@ -6880,7 +6883,7 @@ class NumericForStatement : Statement
 /**
 This node represents a foreach loop.
 */
-class ForeachStatement : Statement
+class ForeachStmt : Statement
 {
 	/**
 	The list of index names (the names before the semicolon).  This list is always at least
@@ -6904,7 +6907,7 @@ class ForeachStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, Identifier[] indices, Expression[] container, Statement code)
+	public this(CompileLoc location, Identifier[] indices, Expression[] container, Statement code)
 	{
 		super(location, code.endLocation, AstTag.ForeachStmt);
 
@@ -6913,7 +6916,7 @@ class ForeachStatement : Statement
 		this.code = code;
 	}
 
-	private static Identifier dummyIndex(OldLocation l)
+	private static Identifier dummyIndex(CompileLoc l)
 	{
 		static uint counter = 0;
 		return new Identifier(l, "__dummy"d ~ Integer.toString32(counter++));
@@ -6921,42 +6924,42 @@ class ForeachStatement : Statement
 
 	/**
 	*/
-	public static ForeachStatement parse(Lexer l)
+	public static ForeachStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Foreach).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.Foreach).location;
+		l.expect(Token.LParen);
 
 		Identifier[] indices;
 
-		indices ~= Identifier.parse(l);
+		indices ~= parseIdentifier();
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			indices ~= Identifier.parse(l);
+			indices ~= parseIdentifier();
 		}
 
 		if(indices.length == 1)
 			indices = dummyIndex(indices[0].location) ~ indices;
 
-		l.expect(Token.Type.Semicolon);
+		l.expect(Token.Semicolon);
 
 		Expression[] container;
-		container ~= Expression.parse(l);
+		container ~= parseExpression();
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			container ~= Expression.parse(l);
+			container ~= parseExpression();
 		}
 
 		if(container.length > 3)
 			throw new OldCompileException(location, "'foreach' may have a maximum of three container expressions");
 
-		l.expect(Token.Type.RParen);
+		l.expect(Token.RParen);
 
-		auto code = Statement.parse(l);
-		return new ForeachStatement(location, indices, container, code);
+		auto code = parseStatement();
+		return new ForeachStmt(location, indices, container, code);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7075,7 +7078,7 @@ class ForeachStatement : Statement
 /**
 This node represents a switch statement.
 */
-class SwitchStatement : Statement
+class SwitchStmt : Statement
 {
 	/**
 	The value to switch on.
@@ -7085,16 +7088,16 @@ class SwitchStatement : Statement
 	/**
 	A list of cases.  This is always at least one element long.
 	*/
-	public CaseStatement[] cases;
+	public CaseStmt[] cases;
 	
 	/**
 	An optional default case.  This member can be null.
 	*/
-	public DefaultStatement caseDefault;
+	public DefaultStmt caseDefault;
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression condition, CaseStatement[] cases, DefaultStatement caseDefault)
+	public this(CompileLoc location, CompileLoc endLocation, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
 	{
 		super(location, endLocation, AstTag.SwitchStmt);
 		this.condition = condition;
@@ -7104,30 +7107,30 @@ class SwitchStatement : Statement
 
 	/**
 	*/
-	public static SwitchStatement parse(Lexer l)
+	public static SwitchStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Switch).location;
-		l.expect(Token.Type.LParen);
+		auto location = l.expect(Token.Switch).location;
+		l.expect(Token.LParen);
 
-		auto condition = Expression.parse(l);
+		auto condition = parseExpression();
 
-		l.expect(Token.Type.RParen);
-		l.expect(Token.Type.LBrace);
+		l.expect(Token.RParen);
+		l.expect(Token.LBrace);
 
-		List!(CaseStatement) cases;
+		List!(CaseStmt) cases;
 		
-		cases.add(CaseStatement.parse(l));
+		cases.add(parseCaseStmt());
 
-		while(l.type == Token.Type.Case)
-			cases.add(CaseStatement.parse(l));
+		while(l.type == Token.Case)
+			cases.add(parseCaseStmt());
 
-		DefaultStatement caseDefault;
+		DefaultStmt caseDefault;
 
-		if(l.type == Token.Type.Default)
-			caseDefault = DefaultStatement.parse(l);
+		if(l.type == Token.Default)
+			caseDefault = parseDefaultStmt();
 
-		auto endLocation = l.expect(Token.Type.RBrace).location;
-		return new SwitchStatement(location, endLocation, condition, cases.toArray(), caseDefault);
+		auto endLocation = l.expect(Token.RBrace).location;
+		return new SwitchStmt(location, endLocation, condition, cases.toArray(), caseDefault);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7135,7 +7138,7 @@ class SwitchStatement : Statement
 		struct Case
 		{
 			Expression expr;
-			CaseStatement stmt;
+			CaseStmt stmt;
 		}
 
 		List!(Case) constCases;
@@ -7205,7 +7208,7 @@ class SwitchStatement : Statement
 /**
 This node represents a single case statement within a switch statement.
 */
-class CaseStatement : Statement
+class CaseStmt : Statement
 {
 	/**
 	The list of values which will cause execution to jump to this case.  In the code
@@ -7224,7 +7227,7 @@ class CaseStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[] conditions, Statement code)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] conditions, Statement code)
 	{
 		super(location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
@@ -7233,30 +7236,30 @@ class CaseStatement : Statement
 
 	/**
 	*/
-	public static CaseStatement parse(Lexer l)
+	public static CaseStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Case).location;
+		auto location = l.expect(Token.Case).location;
 
 		List!(Expression) conditions;
-		conditions.add(Expression.parse(l));
+		conditions.add(parseExpression());
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			conditions.add(Expression.parse(l));
+			conditions.add(parseExpression());
 		}
 
-		l.expect(Token.Type.Colon);
+		l.expect(Token.Colon);
 
 		List!(Statement) statements;
 
-		while(l.type != Token.Type.Case && l.type != Token.Type.Default && l.type != Token.Type.RBrace)
-			statements.add(Statement.parse(l));
+		while(l.type != Token.Case && l.type != Token.Default && l.type != Token.RBrace)
+			statements.add(parseStatement());
 
 		auto endLocation = l.loc;
 
-		auto code = new ScopeStatement(new CompoundStatement(location, endLocation, statements.toArray()));
-		return new CaseStatement(location, endLocation, conditions.toArray(), code);
+		auto code = new ScopeStmt(new BlockStmt(location, endLocation, statements.toArray()));
+		return new CaseStmt(location, endLocation, conditions.toArray(), code);
 	}
 	
 	private void addDynJump(InstRef* i)
@@ -7286,7 +7289,7 @@ class CaseStatement : Statement
 		code.codeGen(s);
 	}
 
-	public override CaseStatement fold()
+	public override CaseStmt fold()
 	{
 		foreach(ref cond; conditions)
 			cond = cond.fold();
@@ -7299,7 +7302,7 @@ class CaseStatement : Statement
 /**
 This node represents the default case in a switch statement.
 */
-class DefaultStatement : Statement
+class DefaultStmt : Statement
 {
 	/**
 	The code of the statement.
@@ -7308,7 +7311,7 @@ class DefaultStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Statement code)
+	public this(CompileLoc location, CompileLoc endLocation, Statement code)
 	{
 		super(location, endLocation, AstTag.DefaultStmt);
 		this.code = code;
@@ -7316,22 +7319,22 @@ class DefaultStatement : Statement
 
 	/**
 	*/
-	public static DefaultStatement parse(Lexer l)
+	public static DefaultStmt parse(Lexer l)
 	{
 		auto location = l.loc;
 
-		l.expect(Token.Type.Default);
-		l.expect(Token.Type.Colon);
+		l.expect(Token.Default);
+		l.expect(Token.Colon);
 
 		List!(Statement) statements;
 
-		while(l.type != Token.Type.RBrace)
-			statements.add(Statement.parse(l));
+		while(l.type != Token.RBrace)
+			statements.add(parseStatement());
 
 		auto endLocation = l.loc;
 
-		auto code = new ScopeStatement(new CompoundStatement(location, endLocation, statements.toArray()));
-		return new DefaultStatement(location, endLocation, code);
+		auto code = new ScopeStmt(new BlockStmt(location, endLocation, statements.toArray()));
+		return new DefaultStmt(location, endLocation, code);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -7340,7 +7343,7 @@ class DefaultStatement : Statement
 		code.codeGen(s);
 	}
 
-	public override DefaultStatement fold()
+	public override DefaultStmt fold()
 	{
 		code = code.fold();
 		return this;
@@ -7350,22 +7353,22 @@ class DefaultStatement : Statement
 /**
 This node represents a continue statement.
 */
-class ContinueStatement : Statement
+class ContinueStmt : Statement
 {
 	/**
 	*/
-	public this(OldLocation location)
+	public this(CompileLoc location)
 	{
 		super(location, location, AstTag.ContinueStmt);
 	}
 
 	/**
 	*/
-	public static ContinueStatement parse(Lexer l)
+	public static ContinueStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Continue).location;
+		auto location = l.expect(Token.Continue).location;
 		l.statementTerm();
-		return new ContinueStatement(location);
+		return new ContinueStmt(location);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7382,22 +7385,22 @@ class ContinueStatement : Statement
 /**
 This node represents a break statement.
 */
-class BreakStatement : Statement
+class BreakStmt : Statement
 {
 	/**
 	*/
-	public this(OldLocation location)
+	public this(CompileLoc location)
 	{
 		super(location, location, AstTag.BreakStmt);
 	}
 
 	/**
 	*/
-	public static BreakStatement parse(Lexer l)
+	public static BreakStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Break).location;
+		auto location = l.expect(Token.Break).location;
 		l.statementTerm();
-		return new BreakStatement(location);
+		return new BreakStmt(location);
 	}
 
 	public override void codeGen(FuncState s)
@@ -7414,7 +7417,7 @@ class BreakStatement : Statement
 /**
 This node represents a return statement.
 */
-class ReturnStatement : Statement
+class ReturnStmt : Statement
 {
 	/**
 	The list of expressions to return.  This array may have 0 or more elements.
@@ -7423,7 +7426,7 @@ class ReturnStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[] exprs)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] exprs)
 	{
 		super(location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
@@ -7441,15 +7444,15 @@ class ReturnStatement : Statement
 
 	/**
 	*/
-	public static ReturnStatement parse(Lexer l)
+	public static ReturnStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Return).location;
+		auto location = l.expect(Token.Return).location;
 
 		if(l.isStatementTerm())
 		{
 			auto endLocation = l.loc;
 			l.statementTerm();
-			return new ReturnStatement(location, endLocation, null);
+			return new ReturnStmt(location, endLocation, null);
 		}
 		else
 		{
@@ -7459,17 +7462,17 @@ class ReturnStatement : Statement
 			//	throw new OldCompileException(l.loc, "No-value returns must be followed by semicolons");
 
 			List!(Expression) exprs;
-			exprs.add(Expression.parse(l));
+			exprs.add(parseExpression());
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
-				exprs.add(Expression.parse(l));
+				exprs.add(parseExpression());
 			}
 
 			auto endLocation = exprs.toArray()[$ - 1].endLocation;
 			l.statementTerm();
-			return new ReturnStatement(location, endLocation, exprs.toArray());
+			return new ReturnStmt(location, endLocation, exprs.toArray());
 		}
 	}
 	
@@ -7513,7 +7516,7 @@ class ReturnStatement : Statement
 This node represents a try-catch-finally statement.  It holds not only the try clause,
 but either or both the catch and finally clauses.
 */
-class TryCatchStatement : Statement
+class TryStmt : Statement
 {
 	/**
 	The body of code to try.
@@ -7542,7 +7545,7 @@ class TryCatchStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
+	public this(CompileLoc location, CompileLoc endLocation, Statement tryBody, Identifier catchVar, Statement catchBody, Statement finallyBody)
 	{
 		super(location, endLocation, AstTag.TryStmt);
 
@@ -7554,35 +7557,35 @@ class TryCatchStatement : Statement
 
 	/**
 	*/
-	public static TryCatchStatement parse(Lexer l)
+	public static TryStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Try).location;
-		auto tryBody = new ScopeStatement(Statement.parse(l));
+		auto location = l.expect(Token.Try).location;
+		auto tryBody = new ScopeStmt(parseStatement());
 
 		Identifier catchVar;
 		Statement catchBody;
 
-		OldLocation endLocation;
+		CompileLoc endLocation;
 
-		if(l.type == Token.Type.Catch)
+		if(l.type == Token.Catch)
 		{
 			l.next();
-			l.expect(Token.Type.LParen);
+			l.expect(Token.LParen);
 
-			catchVar = Identifier.parse(l);
+			catchVar = parseIdentifier();
 
-			l.expect(Token.Type.RParen);
+			l.expect(Token.RParen);
 
-			catchBody = new ScopeStatement(Statement.parse(l));
+			catchBody = new ScopeStmt(parseStatement());
 			endLocation = catchBody.endLocation;
 		}
 
 		Statement finallyBody;
 
-		if(l.type == Token.Type.Finally)
+		if(l.type == Token.Finally)
 		{
 			l.next();
-			finallyBody = new ScopeStatement(Statement.parse(l));
+			finallyBody = new ScopeStmt(parseStatement());
 			endLocation = finallyBody.endLocation;
 		}
 
@@ -7593,7 +7596,7 @@ class TryCatchStatement : Statement
 			throw e;
 		}
 
-		return new TryCatchStatement(location, endLocation, tryBody, catchVar, catchBody, finallyBody);
+		return new TryStmt(location, endLocation, tryBody, catchVar, catchBody, finallyBody);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -7692,7 +7695,7 @@ class TryCatchStatement : Statement
 /**
 This node represents a throw statement.
 */
-class ThrowStatement : Statement
+class ThrowStmt : Statement
 {
 	/**
 	The value that should be thrown.
@@ -7701,7 +7704,7 @@ class ThrowStatement : Statement
 
 	/**
 	*/
-	public this(OldLocation location, Expression exp)
+	public this(CompileLoc location, Expression exp)
 	{
 		super(location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
@@ -7709,12 +7712,12 @@ class ThrowStatement : Statement
 
 	/**
 	*/
-	public static ThrowStatement parse(Lexer l)
+	public static ThrowStmt parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Throw).location;
-		auto exp = Expression.parse(l);
+		auto location = l.expect(Token.Throw).location;
+		auto exp = parseExpression();
 		l.statementTerm();
-		return new ThrowStatement(location, exp);
+		return new ThrowStmt(location, exp);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -7743,7 +7746,7 @@ abstract class Expression : AstNode
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -7754,7 +7757,7 @@ abstract class Expression : AstNode
 	*/
 	public static Expression parse(Lexer l)
 	{
-		return CondExp.parse(l);
+		return parseCondExp();
 	}
 
 	/**
@@ -7767,45 +7770,45 @@ abstract class Expression : AstNode
 		auto location = l.loc;
 		Expression exp;
 
-		if(l.type == Token.Type.Inc)
+		if(l.type == Token.Inc)
 		{
 			l.next();
-			exp = PrimaryExp.parse(l);
+			exp = parsePrimaryExp();
 			exp = new IncExp(location, location, exp);
 		}
-		else if(l.type == Token.Type.Dec)
+		else if(l.type == Token.Dec)
 		{
 			l.next();
-			exp = PrimaryExp.parse(l);
+			exp = parsePrimaryExp();
 			exp = new DecExp(location, location, exp);
 		}
 		else
 		{
-			if(l.type == Token.Type.Length)
-				exp = UnaryExp.parse(l);
+			if(l.type == Token.Length)
+				exp = parseUnExp();
 			else
-				exp = PrimaryExp.parse(l);
+				exp = parsePrimaryExp();
 
 			if(l.tok.isOpAssign())
-				exp = OpEqExp.parse(l, exp);
-			else if(l.type == Token.Type.Assign || l.type == Token.Type.Comma)
-				exp = Assignment.parse(l, exp);
-			else if(l.type == Token.Type.Inc)
+				exp = parseOpEqExp(l, exp);
+			else if(l.type == Token.Assign || l.type == Token.Comma)
+				exp = parseAssign(l, exp);
+			else if(l.type == Token.Inc)
 			{
 				l.next();
 				exp = new IncExp(location, location, exp);
 			}
-			else if(l.type == Token.Type.Dec)
+			else if(l.type == Token.Dec)
 			{
 				l.next();
 				exp = new DecExp(location, location, exp);
 			}
-			else if(l.type == Token.Type.OrOr)
-				exp = OrOrExp.parse(l, exp);
-			else if(l.type == Token.Type.AndAnd)
-				exp = AndAndExp.parse(l, exp);
-			else if(l.type == Token.Type.Question)
-				exp = CondExp.parse(l, exp);
+			else if(l.type == Token.OrOr)
+				exp = parseOrOrExp(l, exp);
+			else if(l.type == Token.AndAnd)
+				exp = parseAndAndExp(l, exp);
+			else if(l.type == Token.Question)
+				exp = parseCondExp(l, exp);
 		}
 
 		exp.checkToNothing();
@@ -7819,12 +7822,12 @@ abstract class Expression : AstNode
 	public static Expression[] parseArguments(Lexer l)
 	{
 		List!(Expression) args;
-		args.add(Expression.parse(l));
+		args.add(parseExpression());
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			args.add(Expression.parse(l));
+			args.add(parseExpression());
 		}
 
 		return args.toArray();
@@ -8059,7 +8062,7 @@ abstract class Expression : AstNode
 /**
 This node represents normal assignment, either single- or multi-target.
 */
-class Assignment : Expression
+class Assign : Expression
 {
 	/**
 	The list of destination expressions.  This list always has at least one element.
@@ -8077,7 +8080,7 @@ class Assignment : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[] lhs, Expression rhs)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression rhs)
 	{
 		super(location, endLocation, AstTag.Assign);
 		this.lhs = lhs;
@@ -8094,7 +8097,7 @@ class Assignment : Expression
 		item on the left-hand-side.  Therefore this function parses everything $(I but)
 		the first item on the left-hand-side.
 	*/
-	public static Assignment parse(Lexer l, Expression firstLHS)
+	public static Assign parse(Lexer l, Expression firstLHS)
 	{
 		auto location = l.loc;
 
@@ -8103,17 +8106,17 @@ class Assignment : Expression
 
 		lhs ~= firstLHS;
 
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			lhs ~= PrimaryExp.parse(l);
+			lhs ~= parsePrimaryExp();
 		}
 
-		l.expect(Token.Type.Assign);
+		l.expect(Token.Assign);
 
-		rhs = Expression.parse(l);
+		rhs = parseExpression();
 
-		return new Assignment(location, rhs.endLocation, lhs, rhs);
+		return new Assign(location, rhs.endLocation, lhs, rhs);
 	}
 	
 	public override void codeGen(FuncState s)
@@ -8182,7 +8185,7 @@ class OpEqExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression lhs, Expression rhs)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
 		super(location, endLocation, type);
 		this.lhs = lhs;
@@ -8207,28 +8210,28 @@ class OpEqExp : Expression
 
 		switch(l.type)
 		{
-			case Token.Type.AddEq:     type = AstTag.AddAssign;  goto _commonParse;
-			case Token.Type.SubEq:     type = AstTag.SubAssign;  goto _commonParse;
-			case Token.Type.MulEq:     type = AstTag.MulAssign;  goto _commonParse;
-			case Token.Type.DivEq:     type = AstTag.DivAssign;  goto _commonParse;
-			case Token.Type.ModEq:     type = AstTag.ModAssign;  goto _commonParse;
-			case Token.Type.ShlEq:     type = AstTag.ShlAssign;  goto _commonParse;
-			case Token.Type.ShrEq:     type = AstTag.ShrAssign;  goto _commonParse;
-			case Token.Type.UShrEq:    type = AstTag.UShrAssign; goto _commonParse;
-			case Token.Type.OrEq:      type = AstTag.OrAssign;   goto _commonParse;
-			case Token.Type.XorEq:     type = AstTag.XorAssign;  goto _commonParse;
-			case Token.Type.AndEq:     type = AstTag.AndAssign;  goto _commonParse;
-			case Token.Type.DefaultEq: type = AstTag.CondAssign;
+			case Token.AddEq:     type = AstTag.AddAssign;  goto _commonParse;
+			case Token.SubEq:     type = AstTag.SubAssign;  goto _commonParse;
+			case Token.MulEq:     type = AstTag.MulAssign;  goto _commonParse;
+			case Token.DivEq:     type = AstTag.DivAssign;  goto _commonParse;
+			case Token.ModEq:     type = AstTag.ModAssign;  goto _commonParse;
+			case Token.ShlEq:     type = AstTag.ShlAssign;  goto _commonParse;
+			case Token.ShrEq:     type = AstTag.ShrAssign;  goto _commonParse;
+			case Token.UShrEq:    type = AstTag.UShrAssign; goto _commonParse;
+			case Token.OrEq:      type = AstTag.OrAssign;   goto _commonParse;
+			case Token.XorEq:     type = AstTag.XorAssign;  goto _commonParse;
+			case Token.AndEq:     type = AstTag.AndAssign;  goto _commonParse;
+			case Token.DefaultEq: type = AstTag.CondAssign;
 
 			_commonParse:
 				l.next();
-				exp2 = Expression.parse(l);
+				exp2 = parseExpression();
 				exp1 = new OpEqExp(location, exp2.endLocation, type, exp1, exp2);
 				break;
 				
-			case Token.Type.CatEq:
+			case Token.CatEq:
 				l.next();
-				exp2 = Expression.parse(l);
+				exp2 = parseExpression();
 				exp1 = new CatEqExp(location, exp2.endLocation, exp1, exp2);
 				break;
 
@@ -8300,7 +8303,7 @@ class CatEqExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression lhs, Expression rhs)
+	public this(CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(location, endLocation, AstTag.CatAssign);
 		this.lhs = lhs;
@@ -8363,7 +8366,7 @@ class IncExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression exp)
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.IncExp);
 		this.exp = exp;
@@ -8408,7 +8411,7 @@ class DecExp : Expression
 	
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression exp)
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.DecExp);
 		this.exp = exp;
@@ -8463,7 +8466,7 @@ class CondExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression cond, Expression op1, Expression op2)
+	public this(CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
 	{
 		super(location, endLocation, AstTag.CondExp);
 		this.cond = cond;
@@ -8489,15 +8492,15 @@ class CondExp : Expression
 		Expression exp3;
 
 		if(exp1 is null)
-			exp1 = OrOrExp.parse(l);
+			exp1 = parseOrOrExp();
 
-		while(l.type == Token.Type.Question)
+		while(l.type == Token.Question)
 		{
 			l.next();
 
-			exp2 = Expression.parse(l);
-			l.expect(Token.Type.Colon);
-			exp3 = CondExp.parse(l);
+			exp2 = parseExpression();
+			l.expect(Token.Colon);
+			exp3 = parseCondExp();
 			exp1 = new CondExp(location, exp3.endLocation, exp1, exp2, exp3);
 
 			location = l.loc;
@@ -8600,7 +8603,7 @@ abstract class BinaryExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression op1, Expression op2)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type);
 		this.op1 = op1;
@@ -8641,7 +8644,7 @@ class OrOrExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrOrExp, left, right);
 	}
@@ -8663,13 +8666,13 @@ class OrOrExp : BinaryExp
 		Expression exp2;
 
 		if(exp1 is null)
-			exp1 = AndAndExp.parse(l);
+			exp1 = parseAndAndExp();
 
-		while(l.type == Token.Type.OrOr)
+		while(l.type == Token.OrOr)
 		{
 			l.next();
 
-			exp2 = AndAndExp.parse(l);
+			exp2 = parseAndAndExp();
 			exp1 = new OrOrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -8737,7 +8740,7 @@ class AndAndExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndAndExp, left, right);
 	}
@@ -8759,13 +8762,13 @@ class AndAndExp : BinaryExp
 		Expression exp2;
 
 		if(exp1 is null)
-			exp1 = OrExp.parse(l);
+			exp1 = parseOrExp();
 
-		while(l.type == Token.Type.AndAnd)
+		while(l.type == Token.AndAnd)
 		{
 			l.next();
 
-			exp2 = OrExp.parse(l);
+			exp2 = parseOrExp();
 			exp1 = new AndAndExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -8834,7 +8837,7 @@ class OrExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.OrExp, left, right);
 	}
@@ -8848,13 +8851,13 @@ class OrExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = XorExp.parse(l);
+		exp1 = parseXorExp();
 
-		while(l.type == Token.Type.Or)
+		while(l.type == Token.Or)
 		{
 			l.next();
 
-			exp2 = XorExp.parse(l);
+			exp2 = parseXorExp();
 			exp1 = new OrExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -8887,7 +8890,7 @@ class XorExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.XorExp, left, right);
 	}
@@ -8901,13 +8904,13 @@ class XorExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = AndExp.parse(l);
+		exp1 = parseAndExp();
 
-		while(l.type == Token.Type.Xor)
+		while(l.type == Token.Xor)
 		{
 			l.next();
 
-			exp2 = AndExp.parse(l);
+			exp2 = parseAndExp();
 			exp1 = new XorExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -8940,7 +8943,7 @@ class AndExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.AndExp, left, right);
 	}
@@ -8949,18 +8952,18 @@ class AndExp : BinaryExp
 	*/
 	public static Expression parse(Lexer l)
 	{
-		OldLocation location = l.loc;
+		CompileLoc location = l.loc;
 
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = EqualExp.parse(l);
+		exp1 = parseEqualExp();
 
-		while(l.type == Token.Type.And)
+		while(l.type == Token.And)
 		{
 			l.next();
 
-			exp2 = EqualExp.parse(l);
+			exp2 = parseEqualExp();
 			exp1 = new AndExp(location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
@@ -8993,7 +8996,7 @@ class EqualExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9007,7 +9010,7 @@ class EqualExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = CmpExp.parse(l);
+		exp1 = parseCmpExp();
 
 		while(true)
 		{
@@ -9015,15 +9018,15 @@ class EqualExp : BinaryExp
 
 			switch(l.type)
 			{
-				case Token.Type.EQ, Token.Type.NE:
-					type = (l.type == Token.Type.EQ ? AstTag.EqualExp : AstTag.NotEqualExp);
+				case Token.EQ, Token.NE:
+					type = (l.type == Token.EQ ? AstTag.EqualExp : AstTag.NotEqualExp);
 					l.next();
-					exp2 = CmpExp.parse(l);
+					exp2 = parseCmpExp();
 					exp1 = new EqualExp(location, exp2.endLocation, type, exp1, exp2);
 					continue;
 
-				case Token.Type.Not:
-					if(l.peek.type != Token.Type.Is)
+				case Token.Not:
+					if(l.peek.type != Token.Is)
 						break;
 
 					l.next();
@@ -9031,12 +9034,12 @@ class EqualExp : BinaryExp
 					type = AstTag.NotIsExp;
 					goto _doIs;
 
-				case Token.Type.Is:
+				case Token.Is:
 					type = AstTag.IsExp;
 					l.next();
 
 				_doIs:
-					exp2 = CmpExp.parse(l);
+					exp2 = parseCmpExp();
 					exp1 = new EqualExp(location, exp2.endLocation, type, exp1, exp2);
 					continue;
 
@@ -9135,7 +9138,7 @@ class CmpExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression op1, Expression op2)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(location, endLocation, type, op1, op2);
 	}
@@ -9151,68 +9154,68 @@ class CmpExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = ShiftExp.parse(l);
+		exp1 = parseShiftExp();
 
 // 		while(true)
 		{
 			switch(l.type)
 			{
-				case Token.Type.LT:
+				case Token.LT:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.LTExp, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.LE:
+				case Token.LE:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.LEExp, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.GT:
+				case Token.GT:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.GTExp, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.GE:
+				case Token.GE:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new CmpExp(location, exp2.endLocation, AstTag.GEExp, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.As:
+				case Token.As:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new AsExp(location, exp2.endLocation, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.In:
+				case Token.In:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new InExp(location, exp2.endLocation, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.Not:
-					if(l.peek.type != Token.Type.In)
+				case Token.Not:
+					if(l.peek.type != Token.In)
 						break;
 
 					l.next();
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new NotInExp(location, exp2.endLocation, exp1, exp2);
 					break;
 // 					continue;
 
-				case Token.Type.Cmp3:
+				case Token.Cmp3:
 					l.next();
-					exp2 = ShiftExp.parse(l);
+					exp2 = parseShiftExp();
 					exp1 = new Cmp3Exp(location, exp2.endLocation, exp1, exp2);
 					break;
 // 					continue;
@@ -9310,7 +9313,7 @@ class AsExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		if(left.isConstant() || right.isConstant())
 			throw new OldCompileException(location, "Neither argument of an 'as' expression may be a constant");
@@ -9326,7 +9329,7 @@ class InExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.InExp, left, right);
 	}
@@ -9339,7 +9342,7 @@ class NotInExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.NotInExp, left, right);
 	}
@@ -9352,7 +9355,7 @@ class Cmp3Exp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.Cmp3Exp, left, right);
 	}
@@ -9393,7 +9396,7 @@ class ShiftExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9407,27 +9410,27 @@ class ShiftExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = AddExp.parse(l);
+		exp1 = parseAddExp();
 
 		while(true)
 		{
 			switch(l.type)
 			{
-				case Token.Type.Shl:
+				case Token.Shl:
 					l.next();
-					exp2 = AddExp.parse(l);
+					exp2 = parseAddExp();
 					exp1 = new ShiftExp(location, exp2.endLocation, AstTag.ShlExp, exp1, exp2);
 					continue;
 
-				case Token.Type.Shr:
+				case Token.Shr:
 					l.next();
-					exp2 = AddExp.parse(l);
+					exp2 = parseAddExp();
 					exp1 = new ShiftExp(location, exp2.endLocation, AstTag.ShrExp, exp1, exp2);
 					continue;
 
-				case Token.Type.UShr:
+				case Token.UShr:
 					l.next();
-					exp2 = AddExp.parse(l);
+					exp2 = parseAddExp();
 					exp1 = new ShiftExp(location, exp2.endLocation, AstTag.UShrExp, exp1, exp2);
 					continue;
 
@@ -9471,7 +9474,7 @@ class AddExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9487,27 +9490,27 @@ class AddExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = MulExp.parse(l);
+		exp1 = parseMulExp();
 
 		while(true)
 		{
 			switch(l.type)
 			{
-				case Token.Type.Add:
+				case Token.Add:
 					l.next();
-					exp2 = MulExp.parse(l);
+					exp2 = parseMulExp();
 					exp1 = new AddExp(location, exp2.endLocation, AstTag.AddExp, exp1, exp2);
 					continue;
 
-				case Token.Type.Sub:
+				case Token.Sub:
 					l.next();
-					exp2 = MulExp.parse(l);
+					exp2 = parseMulExp();
 					exp1 = new AddExp(location, exp2.endLocation, AstTag.SubExp, exp1, exp2);
 					continue;
 
-				case Token.Type.Cat:
+				case Token.Cat:
 					l.next();
-					exp2 = MulExp.parse(l);
+					exp2 = parseMulExp();
 					exp1 = new CatExp(location, exp2.endLocation, exp1, exp2);
 					continue;
 
@@ -9567,7 +9570,7 @@ class CatExp : BinaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, Expression left, Expression right)
 	{
 		super(location, endLocation, AstTag.CatExp, left, right);
 	}
@@ -9654,7 +9657,7 @@ class MulExp : BinaryExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression left, Expression right)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(location, endLocation, type, left, right);
 	}
@@ -9668,27 +9671,27 @@ class MulExp : BinaryExp
 		Expression exp1;
 		Expression exp2;
 
-		exp1 = UnaryExp.parse(l);
+		exp1 = parseUnExp();
 
 		while(true)
 		{
 			switch(l.type)
 			{
-				case Token.Type.Mul:
+				case Token.Mul:
 					l.next();
-					exp2 = UnaryExp.parse(l);
+					exp2 = parseUnExp();
 					exp1 = new MulExp(location, exp2.endLocation, AstTag.MulExp, exp1, exp2);
 					continue;
 
-				case Token.Type.Div:
+				case Token.Div:
 					l.next();
-					exp2 = UnaryExp.parse(l);
+					exp2 = parseUnExp();
 					exp1 = new MulExp(location, exp2.endLocation, AstTag.DivExp, exp1, exp2);
 					continue;
 
-				case Token.Type.Mod:
+				case Token.Mod:
 					l.next();
-					exp2 = UnaryExp.parse(l);
+					exp2 = parseUnExp();
 					exp1 = new MulExp(location, exp2.endLocation, AstTag.ModExp, exp1, exp2);
 					continue;
 
@@ -9766,7 +9769,7 @@ class MulExp : BinaryExp
 This class is the base class for unary expressions.  These tend to share some code
 generation, as well as all having a single operand.
 */
-abstract class UnaryExp : Expression
+abstract class UnExp : Expression
 {
 	/**
 	The operand of the expression.
@@ -9775,7 +9778,7 @@ abstract class UnaryExp : Expression
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression operand)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type);
 		op = operand;
@@ -9793,27 +9796,27 @@ abstract class UnaryExp : Expression
 
 		switch(l.type)
 		{
-			case Token.Type.Sub:
+			case Token.Sub:
 				l.next();
-				exp = UnaryExp.parse(l);
+				exp = parseUnExp();
 				exp = new NegExp(location, exp);
 				break;
 
-			case Token.Type.Not:
+			case Token.Not:
 				l.next();
-				exp = UnaryExp.parse(l);
+				exp = parseUnExp();
 				exp = new NotExp(location, exp);
 				break;
 
-			case Token.Type.Cat:
+			case Token.Cat:
 				l.next();
-				exp = UnaryExp.parse(l);
+				exp = parseUnExp();
 				exp = new ComExp(location, exp);
 				break;
 
-			case Token.Type.Length:
+			case Token.Length:
 				l.next();
-				exp = UnaryExp.parse(l);
+				exp = parseUnExp();
 
 				if(cast(VarargExp)exp)
 					exp = new VargLengthExp(location, exp.endLocation);
@@ -9821,14 +9824,14 @@ abstract class UnaryExp : Expression
 					exp = new LengthExp(location, exp);
 				break;
 
-			case Token.Type.Coroutine:
+			case Token.Coroutine:
 				l.next();
-				exp = UnaryExp.parse(l);
+				exp = parseUnExp();
 				exp = new CoroutineExp(exp.endLocation, exp);
 				break;
 
 			default:
-				exp = PrimaryExp.parse(l);
+				exp = parsePrimaryExp();
 				break;
 		}
 
@@ -9851,11 +9854,11 @@ abstract class UnaryExp : Expression
 /**
 This node represents a negation (-a).
 */
-class NegExp : UnaryExp
+class NegExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, Expression operand)
+	public this(CompileLoc location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.NegExp, operand);
 	}
@@ -9894,11 +9897,11 @@ class NegExp : UnaryExp
 /**
 This node represents a logical not expression (!a).
 */
-class NotExp : UnaryExp
+class NotExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, Expression operand)
+	public this(CompileLoc location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.NotExp, operand);
 	}
@@ -9949,11 +9952,11 @@ class NotExp : UnaryExp
 /**
 This node represents a bitwise complement expression (~a).
 */
-class ComExp : UnaryExp
+class ComExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, Expression operand)
+	public this(CompileLoc location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.ComExp, operand);
 	}
@@ -9986,11 +9989,11 @@ class ComExp : UnaryExp
 /**
 This node represents a length expression (#a).
 */
-class LengthExp : UnaryExp
+class LengthExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, Expression operand)
+	public this(CompileLoc location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.LenExp, operand);
 	}
@@ -10025,11 +10028,11 @@ class LengthExp : UnaryExp
 /**
 This node represents the variadic-length expression (#vararg).
 */
-class VargLengthExp : UnaryExp
+class VargLengthExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation)
+	public this(CompileLoc location, CompileLoc endLocation)
 	{
 		super(location, endLocation, AstTag.VargLenExp, null);
 	}
@@ -10051,11 +10054,11 @@ class VargLengthExp : UnaryExp
 /**
 This node represents the coroutine expression (coroutine a).
 */
-class CoroutineExp : UnaryExp
+class CoroutineExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, Expression operand)
+	public this(CompileLoc location, Expression operand)
 	{
 		super(location, operand.endLocation, AstTag.CoroutineExp, operand);
 	}
@@ -10075,14 +10078,14 @@ class CoroutineExp : UnaryExp
 
 /**
 This class is the base class for postfix expressions, that is expressions which kind of
-attach to the end of other expressions.  It inherits from UnaryExp, so that the single
+attach to the end of other expressions.  It inherits from UnExp, so that the single
 operand becomes the expression to which the postfix expression becomes attached.
 */
-abstract class PostfixExp : UnaryExp
+abstract class PostfixExp : UnExp
 {
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type, Expression operand)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
 		super(location, endLocation, type, operand);
 	}
@@ -10103,15 +10106,15 @@ abstract class PostfixExp : UnaryExp
 
 			switch(l.type)
 			{
-				case Token.Type.Dot:
+				case Token.Dot:
 					l.next();
 
-					if(l.type == Token.Type.Ident)
+					if(l.type == Token.Ident)
 					{
-						auto ie = IdentExp.parse(l);
+						auto ie = parseIdentExp();
 						exp = new DotExp(exp, new StringExp(ie.location, ie.name.name));
 					}
-					else if(l.type == Token.Type.Super)
+					else if(l.type == Token.Super)
 					{
 						auto endLocation = l.loc;
 						l.next();
@@ -10119,22 +10122,22 @@ abstract class PostfixExp : UnaryExp
 					}
 					else
 					{
-						l.expect(Token.Type.LParen);
-						auto subExp = Expression.parse(l);
-						l.expect(Token.Type.RParen);
+						l.expect(Token.LParen);
+						auto subExp = parseExpression();
+						l.expect(Token.RParen);
 						exp = new DotExp(exp, subExp);
 					}
 					continue;
 
-				case Token.Type.Dollar:
+				case Token.Dollar:
 					l.next();
 					Expression[] args;
-					args ~= Expression.parse(l);
+					args ~= parseExpression();
 					
-					while(l.type == Token.Type.Comma)
+					while(l.type == Token.Comma)
 					{
 						l.next();
-						args ~= Expression.parse(l);
+						args ~= parseExpression();
 					}
 
 					if(cast(DotExp)exp)
@@ -10143,7 +10146,7 @@ abstract class PostfixExp : UnaryExp
 						exp = new CallExp(args[$ - 1].endLocation, exp, null, args);
 					continue;
 
-				case Token.Type.LParen:
+				case Token.LParen:
 					if(exp.endLocation.line != l.loc.line)
 						throw new OldCompileException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
 
@@ -10152,18 +10155,18 @@ abstract class PostfixExp : UnaryExp
 					Expression context;
 					Expression[] args;
 
-					if(l.type == Token.Type.With)
+					if(l.type == Token.With)
 					{
 						l.next();
 
-						args = Expression.parseArguments(l);
+						args = parseExpressionArguments();
 						context = args[0];
 						args = args[1 .. $];
 					}
-					else if(l.type != Token.Type.RParen)
-						args = Expression.parseArguments(l);
+					else if(l.type != Token.RParen)
+						args = parseExpressionArguments();
 
-					l.tok.expect(Token.Type.RParen);
+					l.tok.expect(Token.RParen);
 					auto endLocation = l.loc;
 					l.next();
 					
@@ -10174,15 +10177,15 @@ abstract class PostfixExp : UnaryExp
 
 					continue;
 
-				case Token.Type.LBracket:
+				case Token.LBracket:
 					l.next();
 
 					Expression loIndex;
 					Expression hiIndex;
 
-					OldLocation endLocation;
+					CompileLoc endLocation;
 
-					if(l.type == Token.Type.RBracket)
+					if(l.type == Token.RBracket)
 					{
 						// a[]
 						loIndex = new NullExp(l.loc);
@@ -10195,12 +10198,12 @@ abstract class PostfixExp : UnaryExp
 						else
 							exp = new SliceExp(endLocation, exp, loIndex, hiIndex);
 					}
-					else if(l.type == Token.Type.DotDot)
+					else if(l.type == Token.DotDot)
 					{
 						loIndex = new NullExp(l.loc);
 						l.next();
 
-						if(l.type == Token.Type.RBracket)
+						if(l.type == Token.RBracket)
 						{
 							// a[ .. ]
 							hiIndex = new NullExp(l.loc);
@@ -10210,8 +10213,8 @@ abstract class PostfixExp : UnaryExp
 						else
 						{
 							// a[ .. 0]
-							hiIndex = Expression.parse(l);
-							l.tok.expect(Token.Type.RBracket);
+							hiIndex = parseExpression();
+							l.tok.expect(Token.RBracket);
 							endLocation = l.loc;
 							l.next();
 						}
@@ -10223,13 +10226,13 @@ abstract class PostfixExp : UnaryExp
 					}
 					else
 					{
-						loIndex = Expression.parse(l);
+						loIndex = parseExpression();
 
-						if(l.type == Token.Type.DotDot)
+						if(l.type == Token.DotDot)
 						{
 							l.next();
 
-							if(l.type == Token.Type.RBracket)
+							if(l.type == Token.RBracket)
 							{
 								// a[0 .. ]
 								hiIndex = new NullExp(l.loc);
@@ -10239,8 +10242,8 @@ abstract class PostfixExp : UnaryExp
 							else
 							{
 								// a[0 .. 0]
-								hiIndex = Expression.parse(l);
-								l.tok.expect(Token.Type.RBracket);
+								hiIndex = parseExpression();
+								l.tok.expect(Token.RBracket);
 								endLocation = l.loc;
 								l.next();
 							}
@@ -10253,7 +10256,7 @@ abstract class PostfixExp : UnaryExp
 						else
 						{
 							// a[0]
-							l.tok.expect(Token.Type.RBracket);
+							l.tok.expect(Token.RBracket);
 							endLocation = l.loc;
 							l.next();
 							
@@ -10299,18 +10302,18 @@ class DotExp : PostfixExp
 	*/
 	public static Expression parseMemberExp(Lexer l)
 	{
-		auto loc = l.expect(Token.Type.Colon).location;
-		OldLocation endLoc;
+		auto loc = l.expect(Token.Colon).location;
+		CompileLoc endLoc;
 		Expression exp;
 
-		if(l.type == Token.Type.LParen)
+		if(l.type == Token.LParen)
 		{
 			l.next();
-			exp = Expression.parse(l);
-			endLoc = l.expect(Token.Type.RParen).location;
+			exp = parseExpression();
+			endLoc = l.expect(Token.RParen).location;
 			exp = new DotExp(new ThisExp(loc), exp);
 		}
-		else if(l.type == Token.Type.Super)
+		else if(l.type == Token.Super)
 		{
 			endLoc = l.loc;
 			l.next();
@@ -10319,7 +10322,7 @@ class DotExp : PostfixExp
 		else
 		{
 			endLoc = l.loc;
-			auto name = Identifier.parseName(l);
+			auto name = parseIdentifierName();
 			exp = new DotExp(new ThisExp(loc), new StringExp(endLoc, name));
 		}
 		
@@ -10363,7 +10366,7 @@ class DotSuperExp : PostfixExp
 {
 	/**
 	*/
-	public this(OldLocation endLocation, Expression operand)
+	public this(CompileLoc endLocation, Expression operand)
 	{
 		super(operand.location, endLocation, AstTag.DotSuperExp, operand);
 	}
@@ -10400,7 +10403,7 @@ class MethodCallExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation endLocation, Expression operand, Expression context, Expression[] args)
+	public this(CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(operand.location, endLocation, AstTag.MethodCallExp, operand);
 		this.context = context;
@@ -10506,7 +10509,7 @@ class CallExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation endLocation, Expression operand, Expression context, Expression[] args)
+	public this(CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(operand.location, endLocation, AstTag.CallExp, operand);
 		this.context = context;
@@ -10582,7 +10585,7 @@ class IndexExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation endLocation, Expression operand, Expression index)
+	public this(CompileLoc endLocation, Expression operand, Expression index)
 	{
 		super(operand.location, endLocation, AstTag.IndexExp, operand);
 		this.index = index;
@@ -10640,7 +10643,7 @@ class VargIndexExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression index)
+	public this(CompileLoc location, CompileLoc endLocation, Expression index)
 	{
 		super(location, endLocation, AstTag.VargIndexExp, null);
 		this.index = index;
@@ -10690,7 +10693,7 @@ class SliceExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	public this(CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
 		super(operand.location, endLocation, AstTag.SliceExp, operand);
 		this.loIndex = loIndex;
@@ -10758,7 +10761,7 @@ class VargSliceExp : PostfixExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression loIndex, Expression hiIndex)
+	public this(CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
 	{
 		super(location, endLocation, AstTag.VargSliceExp, null);
 		this.loIndex = loIndex;
@@ -10804,14 +10807,14 @@ class PrimaryExp : Expression
 {
 	/**
 	*/
-	public this(OldLocation location, AstTag type)
+	public this(CompileLoc location, AstTag type)
 	{
 		super(location, location, type);
 	}
 	
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag type)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(location, endLocation, type);
 	}
@@ -10827,29 +10830,29 @@ class PrimaryExp : Expression
 
 		switch(l.type)
 		{
-			case Token.Type.Ident:                  exp = IdentExp.parse(l); break;
-			case Token.Type.This:                   exp = ThisExp.parse(l); break;
-			case Token.Type.Null:                   exp = NullExp.parse(l); break;
-			case Token.Type.True, Token.Type.False: exp = BoolExp.parse(l); break;
-			case Token.Type.Vararg:                 exp = VarargExp.parse(l); break;
-			case Token.Type.CharLiteral:            exp = CharExp.parse(l); break;
-			case Token.Type.IntLiteral:             exp = IntExp.parse(l); break;
-			case Token.Type.FloatLiteral:           exp = FloatExp.parse(l); break;
-			case Token.Type.StringLiteral:          exp = StringExp.parse(l); break;
-			case Token.Type.Function:               exp = FuncLiteralExp.parse(l); break;
-			case Token.Type.Backslash:              exp = FuncLiteralExp.parseHaskell(l); break;
-			case Token.Type.Object:                 exp = ObjectLiteralExp.parse(l); break;
-			case Token.Type.LParen:                 exp = ParenExp.parse(l); break;
-			case Token.Type.LBrace:                 exp = TableCtorExp.parse(l); break;
-			case Token.Type.LBracket:               exp = ArrayCtorExp.parse(l); break;
-			case Token.Type.Namespace:              exp = NamespaceCtorExp.parse(l); break;
-			case Token.Type.Yield:                  exp = YieldExp.parse(l); break;
-			case Token.Type.Super:                  exp = SuperCallExp.parse(l); break;
-			case Token.Type.Colon:                  exp = DotExp.parseMemberExp(l); break;
+			case Token.Ident:                  exp = parseIdentExp(); break;
+			case Token.This:                   exp = parseThisExp(); break;
+			case Token.Null:                   exp = parseNullExp(); break;
+			case Token.True, Token.False: exp = parseBoolExp(); break;
+			case Token.Vararg:                 exp = parseVarargExp(); break;
+			case Token.CharLiteral:            exp = parseCharExp(); break;
+			case Token.IntLiteral:             exp = parseIntExp(); break;
+			case Token.FloatLiteral:           exp = parseFloatExp(); break;
+			case Token.StringLiteral:          exp = parseStringExp(); break;
+			case Token.Function:               exp = parseFuncLiteralExp(); break;
+			case Token.Backslash:              exp = parseFuncLiteralExpHaskell(); break;
+			case Token.Object:                 exp = parseObjectLiteralExp(); break;
+			case Token.LParen:                 exp = parseParenExp(); break;
+			case Token.LBrace:                 exp = parseTableCtorExp(); break;
+			case Token.LBracket:               exp = parseArrayCtorExp(); break;
+			case Token.Namespace:              exp = parseNamespaceCtorExp(); break;
+			case Token.Yield:                  exp = parseYieldExp(); break;
+			case Token.Super:                  exp = parseSuperCallExp(); break;
+			case Token.Colon:                  exp = parseDotExpMemberExp(); break;
 			default: l.tok.expected("Expression");
 		}
 
-		return PostfixExp.parse(l, exp);
+		return parsePostfixExp(l, exp);
 	}
 
 	/**
@@ -10862,13 +10865,13 @@ class PrimaryExp : Expression
 
 		switch(l.type)
 		{
-			case Token.Type.Null:                   ret = NullExp.parseJSON(l); break;
-			case Token.Type.True, Token.Type.False: ret = BoolExp.parseJSON(l); break;
-			case Token.Type.IntLiteral:             ret = IntExp.parseJSON(l); break;
-			case Token.Type.FloatLiteral:           ret = FloatExp.parseJSON(l); break;
-			case Token.Type.StringLiteral:          ret = StringExp.parseJSON(l); break;
-			case Token.Type.LBrace:                 ret = TableCtorExp.parseJSON(l); break;
-			case Token.Type.LBracket:               ret = ArrayCtorExp.parseJSON(l); break;
+			case Token.Null:                   ret = parseNullExpJSON(); break;
+			case Token.True, Token.False: ret = parseBoolExpJSON(); break;
+			case Token.IntLiteral:             ret = parseIntExpJSON(); break;
+			case Token.FloatLiteral:           ret = parseFloatExpJSON(); break;
+			case Token.StringLiteral:          ret = parseStringExpJSON(); break;
+			case Token.LBrace:                 ret = parseTableCtorExpJSON(); break;
+			case Token.LBracket:               ret = parseArrayCtorExpJSON(); break;
 			default: l.tok.expected("Expression");
 		}
 
@@ -10900,7 +10903,7 @@ class IdentExp : PrimaryExp
 	/**
 	Create an ident exp from a location and name directly.
 	*/
-	public this(OldLocation location, dchar[] name)
+	public this(CompileLoc location, dchar[] name)
 	{
 		super(location, AstTag.IdentExp);
 		this.name = new Identifier(location, name);
@@ -10919,7 +10922,7 @@ class IdentExp : PrimaryExp
 	*/
 	public static IdentExp parse(Lexer l)
 	{
-		return new IdentExp(Identifier.parse(l));
+		return new IdentExp(parseIdentifier());
 	}
 
 	public override void codeGen(FuncState s)
@@ -10958,7 +10961,7 @@ class ThisExp : PrimaryExp
 {
 	/**
 	*/
-	public this(OldLocation location)
+	public this(CompileLoc location)
 	{
 		super(location, AstTag.ThisExp);
 	}
@@ -10967,7 +10970,7 @@ class ThisExp : PrimaryExp
 	*/
 	public static ThisExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.This))
+		with(l.expect(Token.This))
 			return new ThisExp(location);
 	}
 	
@@ -10997,7 +11000,7 @@ class NullExp : PrimaryExp
 {
 	/**
 	*/
-	public this(OldLocation location)
+	public this(CompileLoc location)
 	{
 		super(location, AstTag.NullExp);
 	}
@@ -11006,7 +11009,7 @@ class NullExp : PrimaryExp
 	*/
 	public static NullExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.Null))
+		with(l.expect(Token.Null))
 			return new NullExp(location);
 	}
 
@@ -11015,7 +11018,7 @@ class NullExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		l.expect(Token.Type.Null);
+		l.expect(Token.Null);
 		return MDValue.nullValue;
 	}
 
@@ -11052,7 +11055,7 @@ class BoolExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, bool value)
+	public this(CompileLoc location, bool value)
 	{
 		super(location, AstTag.BoolExp);
 		this.value = value;
@@ -11062,11 +11065,11 @@ class BoolExp : PrimaryExp
 	*/
 	public static BoolExp parse(Lexer l)
 	{
-		if(l.type == Token.Type.True)
-			with(l.expect(Token.Type.True))
+		if(l.type == Token.True)
+			with(l.expect(Token.True))
 				return new BoolExp(location, true);
 		else
-			with(l.expect(Token.Type.False))
+			with(l.expect(Token.False))
 				return new BoolExp(location, false);
 	}
 	
@@ -11075,11 +11078,11 @@ class BoolExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		if(l.type == Token.Type.True)
-			with(l.expect(Token.Type.True))
+		if(l.type == Token.True)
+			with(l.expect(Token.True))
 				return MDValue(true);
 		else
-			with(l.expect(Token.Type.False))
+			with(l.expect(Token.False))
 				return MDValue(false);
 	}
 	
@@ -11117,7 +11120,7 @@ class VarargExp : PrimaryExp
 {
 	/**
 	*/
-	public this(OldLocation location)
+	public this(CompileLoc location)
 	{
 		super(location, AstTag.VarargExp);
 	}
@@ -11126,7 +11129,7 @@ class VarargExp : PrimaryExp
 	*/
 	public static VarargExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.Vararg))
+		with(l.expect(Token.Vararg))
 			return new VarargExp(location);
 	}
 
@@ -11156,7 +11159,7 @@ class CharExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, dchar value)
+	public this(CompileLoc location, dchar value)
 	{
 		super(location, AstTag.CharExp);
 		this.value = value;
@@ -11166,7 +11169,7 @@ class CharExp : PrimaryExp
 	*/
 	public static CharExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.CharLiteral))
+		with(l.expect(Token.CharLiteral))
 			return new CharExp(location, intValue);
 	}
 	
@@ -11208,7 +11211,7 @@ class IntExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, int value)
+	public this(CompileLoc location, int value)
 	{
 		super(location, AstTag.IntExp);
 		this.value = value;
@@ -11218,7 +11221,7 @@ class IntExp : PrimaryExp
 	*/
 	public static IntExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.IntLiteral))
+		with(l.expect(Token.IntLiteral))
 			return new IntExp(location, intValue);
 	}
 
@@ -11227,7 +11230,7 @@ class IntExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		with(l.expect(Token.Type.IntLiteral))
+		with(l.expect(Token.IntLiteral))
 			return MDValue(intValue);
 	}
 	
@@ -11274,7 +11277,7 @@ class FloatExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, mdfloat value)
+	public this(CompileLoc location, mdfloat value)
 	{
 		super(location, AstTag.FloatExp);
 		this.value = value;
@@ -11284,7 +11287,7 @@ class FloatExp : PrimaryExp
 	*/
 	public static FloatExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.FloatLiteral))
+		with(l.expect(Token.FloatLiteral))
 			return new FloatExp(location, floatValue);
 	}
 
@@ -11293,7 +11296,7 @@ class FloatExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		with(l.expect(Token.Type.FloatLiteral))
+		with(l.expect(Token.FloatLiteral))
 			return MDValue(floatValue);
 	}
 	
@@ -11335,7 +11338,7 @@ class StringExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, dchar[] value)
+	public this(CompileLoc location, dchar[] value)
 	{
 		super(location, AstTag.StringExp);
 		this.value = value;
@@ -11345,7 +11348,7 @@ class StringExp : PrimaryExp
 	*/
 	public static StringExp parse(Lexer l)
 	{
-		with(l.expect(Token.Type.StringLiteral))
+		with(l.expect(Token.StringLiteral))
 			return new StringExp(location, stringValue);
 	}
 
@@ -11354,7 +11357,7 @@ class StringExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		with(l.expect(Token.Type.StringLiteral))
+		with(l.expect(Token.StringLiteral))
 			return MDValue(stringValue);
 	}
 	
@@ -11401,7 +11404,7 @@ class FuncLiteralExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, FuncDef def)
+	public this(CompileLoc location, FuncDef def)
 	{
 		super(location, def.endLocation, AstTag.FuncLiteralExp);
 		this.def = def;
@@ -11412,7 +11415,7 @@ class FuncLiteralExp : PrimaryExp
 	public static FuncLiteralExp parse(Lexer l)
 	{
 		auto location = l.loc;
-		auto def = FuncDef.parseLiteral(l);
+		auto def = parseFuncDefLiteral();
 		return new FuncLiteralExp(location, def);
 	}
 	
@@ -11421,7 +11424,7 @@ class FuncLiteralExp : PrimaryExp
 	public static FuncLiteralExp parseHaskell(Lexer l)
 	{
 		auto location = l.loc;
-		auto def = FuncDef.parseHaskell(l);
+		auto def = parseFuncDefHaskell();
 		return new FuncLiteralExp(location, def);
 	}
 
@@ -11449,7 +11452,7 @@ class ObjectLiteralExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, ObjectDef def)
+	public this(CompileLoc location, ObjectDef def)
 	{
 		super(location, def.endLocation, AstTag.ObjectLiteralExp);
 		this.def = def;
@@ -11460,7 +11463,7 @@ class ObjectLiteralExp : PrimaryExp
 	public static ObjectLiteralExp parse(Lexer l)
 	{
 		auto location = l.loc;
-		return new ObjectLiteralExp(location, ObjectDef.parse(l, true));
+		return new ObjectLiteralExp(location, parseObjectDef(l, true));
 	}
 
 	public override void codeGen(FuncState s)
@@ -11490,7 +11493,7 @@ class ParenExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression exp)
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(location, endLocation, AstTag.ParenExp);
 		this.exp = exp;
@@ -11505,9 +11508,9 @@ class ParenExp : PrimaryExp
 	{
 		auto location = l.loc;
 
-		l.expect(Token.Type.LParen);
-		auto exp = Expression.parse(l);
-		OldLocation endLocation = l.expect(Token.Type.RParen).location;
+		l.expect(Token.LParen);
+		auto exp = parseExpression();
+		CompileLoc endLocation = l.expect(Token.RParen).location;
 		return new ParenExp(location, endLocation, exp);
 	}
 
@@ -11566,7 +11569,7 @@ abstract class ForComprehension : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, AstTag tag)
+	public this(CompileLoc location, CompileLoc endLocation, AstTag tag)
 	{
 		super(location, endLocation, tag);
 	}
@@ -11578,46 +11581,46 @@ abstract class ForComprehension : AstNode
 	*/
 	public static ForComprehension parse(Lexer l)
 	{
-		auto loc = l.expect(Token.Type.For).location;
+		auto loc = l.expect(Token.For).location;
 		
 		Identifier[] names;
-		names ~= Identifier.parse(l);
+		names ~= parseIdentifier();
 		
-		while(l.type == Token.Type.Comma)
+		while(l.type == Token.Comma)
 		{
 			l.next();
-			names ~= Identifier.parse(l);
+			names ~= parseIdentifier();
 		}
 		
-		l.expect(Token.Type.In);
+		l.expect(Token.In);
 		
-		auto exp = Expression.parse(l);
+		auto exp = parseExpression();
 		
-		if(l.type == Token.Type.DotDot)
+		if(l.type == Token.DotDot)
 		{
 			if(names.length > 1)
 				throw new OldCompileException(loc, "Numeric for comprehension may only have one index");
 				
 			l.next();
-			auto exp2 = Expression.parse(l);
+			auto exp2 = parseExpression();
 			
 			Expression step;
 
-			if(l.type == Token.Type.Comma)
+			if(l.type == Token.Comma)
 			{
 				l.next();
-				step = Expression.parse(l);
+				step = parseExpression();
 			}
 			
 			IfComprehension ifComp;
 
-			if(l.type == Token.Type.If)
-				ifComp = IfComprehension.parse(l);
+			if(l.type == Token.If)
+				ifComp = parseIfComprehension();
 				
 			ForComprehension forComp;
 
-			if(l.type == Token.Type.For)
-				forComp = ForComprehension.parse(l);
+			if(l.type == Token.For)
+				forComp = parseForComprehension();
 
 			return new ForNumComprehension(loc, names[0], exp, exp2, step, ifComp, forComp);
 		}
@@ -11627,12 +11630,12 @@ abstract class ForComprehension : AstNode
 			container ~= exp;
 			
 			if(names.length == 1)
-				names = ForeachStatement.dummyIndex(names[0].location) ~ names;
+				names = ForeachStmt.dummyIndex(names[0].location) ~ names;
 
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
-				container ~= Expression.parse(l);
+				container ~= parseExpression();
 			}
 
 			if(container.length > 3)
@@ -11640,13 +11643,13 @@ abstract class ForComprehension : AstNode
 
 			IfComprehension ifComp;
 
-			if(l.type == Token.Type.If)
-				ifComp = IfComprehension.parse(l);
+			if(l.type == Token.If)
+				ifComp = parseIfComprehension();
 
 			ForComprehension forComp;
 
-			if(l.type == Token.Type.For)
-				forComp = ForComprehension.parse(l);
+			if(l.type == Token.For)
+				forComp = parseForComprehension();
 
 			return new ForeachComprehension(loc, names, container, ifComp, forComp);
 		}
@@ -11664,7 +11667,7 @@ in the code "[x for x in a]", it represents "for x in a".
 class ForeachComprehension : ForComprehension
 {
 	/**
-	These members are the same as for a ForeachStatement.
+	These members are the same as for a ForeachStmt.
 	*/
 	public Identifier[] indices;
 	
@@ -11673,7 +11676,7 @@ class ForeachComprehension : ForComprehension
 
 	/**
 	*/
-	public this(OldLocation location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	public this(CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -11705,7 +11708,7 @@ class ForeachComprehension : ForComprehension
 		else if(forComp)
 			innerStmt = forComp.rewrite(innerStmt);
 
-		return (new ForeachStatement(location, indices, container, innerStmt)).fold();
+		return (new ForeachStmt(location, indices, container, innerStmt)).fold();
 	}
 
 	public override ForComprehension fold()
@@ -11730,7 +11733,7 @@ in the code "[x for x in 0 .. 10]" this represents "for x in 0 .. 10".
 class ForNumComprehension : ForComprehension
 {
 	/**
-	These members are the same as for a NumericForStatement.
+	These members are the same as for a ForNumStmt.
 	*/
 	public Identifier index;
 	
@@ -11745,7 +11748,7 @@ class ForNumComprehension : ForComprehension
 
 	/**
 	*/	
-	public this(OldLocation location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	public this(CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -11786,7 +11789,7 @@ class ForNumComprehension : ForComprehension
 		else if(forComp)
 			innerStmt = forComp.rewrite(innerStmt);
 			
-		return (new NumericForStatement(location, index, lo, hi, step, innerStmt)).fold();
+		return (new ForNumStmt(location, index, lo, hi, step, innerStmt)).fold();
 	}
 	
 	public override ForComprehension fold()
@@ -11820,7 +11823,7 @@ class IfComprehension : AstNode
 
 	/**
 	*/
-	public this(OldLocation location, Expression condition)
+	public this(CompileLoc location, Expression condition)
 	{
 		super(location, condition.endLocation, AstTag.IfComprehension);
 		
@@ -11831,14 +11834,14 @@ class IfComprehension : AstNode
 	*/
 	public static IfComprehension parse(Lexer l)
 	{
-		auto loc = l.expect(Token.Type.If).location;
-		auto condition = Expression.parse(l);
+		auto loc = l.expect(Token.If).location;
+		auto condition = parseExpression();
 		return new IfComprehension(loc, condition);
 	}
 	
 	protected Statement rewrite(Statement innerStmt)
 	{
-		return (new IfStatement(location, endLocation, null, condition, innerStmt, null)).fold();
+		return (new IfStmt(location, endLocation, null, condition, innerStmt, null)).fold();
 	}
 	
 	public IfComprehension fold()
@@ -11861,7 +11864,7 @@ class TableCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[2][] fields)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[2][] fields)
 	{
 		super(location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
@@ -11874,13 +11877,13 @@ class TableCtorExp : PrimaryExp
 
 		if(isAttr)
 		{
-			l.expect(Token.Type.LAttr);
-			terminator = Token.Type.RAttr;
+			l.expect(Token.LAttr);
+			terminator = Token.RAttr;
 		}
 		else
 		{
-			l.expect(Token.Type.LBrace);
-			terminator = Token.Type.RBrace;
+			l.expect(Token.LBrace);
+			terminator = Token.RBrace;
 		}
 
 		Expression[2][] fields = new Expression[2][8];
@@ -11905,41 +11908,41 @@ class TableCtorExp : PrimaryExp
 
 				switch(l.type)
 				{
-					case Token.Type.LBracket:
+					case Token.LBracket:
 						l.next();
-						k = Expression.parse(l);
+						k = parseExpression();
 
-						l.expect(Token.Type.RBracket);
-						l.expect(Token.Type.Assign);
+						l.expect(Token.RBracket);
+						l.expect(Token.Assign);
 
-						v = Expression.parse(l);
+						v = parseExpression();
 						break;
 
-					case Token.Type.Function:
-						FuncDef fd = FuncDef.parseSimple(l);
+					case Token.Function:
+						FuncDef fd = parseFuncDefSimple();
 						k = new StringExp(fd.location, fd.name.name);
 						v = new FuncLiteralExp(fd.location, fd);
 						break;
 
 					default:
-						Identifier id = Identifier.parse(l);
-						l.expect(Token.Type.Assign);
+						Identifier id = parseIdentifier();
+						l.expect(Token.Assign);
 						k = new StringExp(id.location, id.name);
-						v = Expression.parse(l);
+						v = parseExpression();
 						break;
 				}
 
 				addPair(k, v);
 			}
 			
-			bool firstWasBracketed = l.type == Token.Type.LBracket;
+			bool firstWasBracketed = l.type == Token.LBracket;
 			parseField();
 
 			if(!isAttr && firstWasBracketed)
 			{
-				if(l.type == Token.Type.For)
+				if(l.type == Token.For)
 				{
-					auto forComp = ForComprehension.parse(l);
+					auto forComp = parseForComprehension();
 					auto endLocation = l.expect(terminator).location;
 					return new TableComprehension(location, endLocation, fields[0][0], fields[0][1], forComp);
 				}
@@ -11947,7 +11950,7 @@ class TableCtorExp : PrimaryExp
 
 			while(l.type != terminator)
 			{
-				if(l.type == Token.Type.Comma)
+				if(l.type == Token.Comma)
 					l.next();
 
 				parseField();
@@ -11980,31 +11983,31 @@ class TableCtorExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		l.expect(Token.Type.LBrace);
+		l.expect(Token.LBrace);
 
 		MDTable ret = new MDTable();
 
-		if(l.type != Token.Type.RBrace)
+		if(l.type != Token.RBrace)
 		{
 			void parseField()
 			{
-				MDValue k = StringExp.parseJSON(l);
-				l.expect(Token.Type.Colon);
-				MDValue v = PrimaryExp.parseJSON(l);
+				MDValue k = parseStringExpJSON();
+				l.expect(Token.Colon);
+				MDValue v = parsePrimaryExpJSON();
 
 				ret[k] = v;
 			}
 
 			parseField();
 
-			while(l.type != Token.Type.RBrace)
+			while(l.type != Token.RBrace)
 			{
-				l.expect(Token.Type.Comma);
+				l.expect(Token.Comma);
 				parseField();
 			}
 		}
 
-		l.tok.expect(Token.Type.RBrace);
+		l.tok.expect(Token.RBrace);
 		l.next();
 
 		return MDValue(ret);
@@ -12060,7 +12063,7 @@ class ArrayCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[] values)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] values)
 	{
 		super(location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
@@ -12072,35 +12075,35 @@ class ArrayCtorExp : PrimaryExp
 	{
 		auto location = l.loc;
 
-		l.expect(Token.Type.LBracket);
+		l.expect(Token.LBracket);
 
 		List!(Expression) values;
 
-		if(l.type != Token.Type.RBracket)
+		if(l.type != Token.RBracket)
 		{
-			auto exp = Expression.parse(l);
+			auto exp = parseExpression();
 			
-			if(l.type == Token.Type.For)
+			if(l.type == Token.For)
 			{
-				auto forComp = ForComprehension.parse(l);
-				auto endLocation = l.expect(Token.Type.RBracket).location;
+				auto forComp = parseForComprehension();
+				auto endLocation = l.expect(Token.RBracket).location;
 				return new ArrayComprehension(location, endLocation, exp, forComp);
 			}
 			else
 			{
 				values.add(exp);
 
-				while(l.type != Token.Type.RBracket)
+				while(l.type != Token.RBracket)
 				{
-					if(l.type == Token.Type.Comma)
+					if(l.type == Token.Comma)
 						l.next();
 
-					values.add(Expression.parse(l));
+					values.add(parseExpression());
 				}
 			}
 		}
 
-		auto endLocation = l.expect(Token.Type.RBracket).location;
+		auto endLocation = l.expect(Token.RBracket).location;
 		return new ArrayCtorExp(location, endLocation, values.toArray());
 	}
 
@@ -12109,22 +12112,22 @@ class ArrayCtorExp : PrimaryExp
 	*/
 	public static MDValue parseJSON(Lexer l)
 	{
-		l.expect(Token.Type.LBracket);
+		l.expect(Token.LBracket);
 
 		MDArray ret = new MDArray(0);
 
-		if(l.type != Token.Type.RBracket)
+		if(l.type != Token.RBracket)
 		{
-			ret ~= PrimaryExp.parseJSON(l);
+			ret ~= parsePrimaryExpJSON();
 
-			while(l.type != Token.Type.RBracket)
+			while(l.type != Token.RBracket)
 			{
-				l.expect(Token.Type.Comma);
-				ret ~= PrimaryExp.parseJSON(l);
+				l.expect(Token.Comma);
+				ret ~= parsePrimaryExpJSON();
 			}
 		}
 
-		l.expect(Token.Type.RBracket);
+		l.expect(Token.RBracket);
 		return MDValue(ret);
 	}
 	
@@ -12199,7 +12202,7 @@ class ArrayComprehension : PrimaryExp
 	
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression exp, ForComprehension forComp)
+	public this(CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.ArrayComprehension);
 
@@ -12255,7 +12258,7 @@ class ArrayComprehension : PrimaryExp
 			public override InstRef* codeCondition(FuncState s) { assert(false); }
 		};
 
-		auto stmt = new ExpressionStatement(location, endLocation, exp);
+		auto stmt = new ExpressionStmt(location, endLocation, exp);
 
 		forComp.rewrite(stmt).codeGen(s);
 		s.pushTempReg(destReg);
@@ -12292,7 +12295,7 @@ class TableComprehension : PrimaryExp
 	
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression key, Expression value, ForComprehension forComp)
+	public this(CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
 	{
 		super(location, endLocation, AstTag.TableComprehension);
 
@@ -12300,7 +12303,7 @@ class TableComprehension : PrimaryExp
 		this.value = value;
 		this.forComp = forComp;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		uint destReg = s.pushRegister();
@@ -12313,7 +12316,7 @@ class TableComprehension : PrimaryExp
 
 			this(TableComprehension _outer, uint reg)
 			{
-				super(OldLocation(""), OldLocation(""), AstTag.Other);
+				super(CompileLoc(""), CompileLoc(""), AstTag.Other);
 				mOuter = _outer;
 				mReg = reg;
 			}
@@ -12345,7 +12348,7 @@ class TableComprehension : PrimaryExp
 			public override InstRef* codeCondition(FuncState s) { assert(false); }
 		};
 
-		auto stmt = new ExpressionStatement(location, endLocation, exp);
+		auto stmt = new ExpressionStmt(location, endLocation, exp);
 
 		forComp.rewrite(stmt).codeGen(s);
 		s.pushTempReg(destReg);
@@ -12373,7 +12376,7 @@ class NamespaceCtorExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, NamespaceDef def)
+	public this(CompileLoc location, NamespaceDef def)
 	{
 		super(location, def.endLocation, AstTag.NamespaceCtorExp);
 		this.def = def;
@@ -12384,7 +12387,7 @@ class NamespaceCtorExp : PrimaryExp
 	public static NamespaceCtorExp parse(Lexer l)
 	{
 		auto location = l.loc;
-		auto def = NamespaceDef.parse(l);
+		auto def = parseNamespaceDef();
 		return new NamespaceCtorExp(location, def);
 	}
 
@@ -12412,7 +12415,7 @@ class YieldExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression[] args)
+	public this(CompileLoc location, CompileLoc endLocation, Expression[] args)
 	{
 		super(location, endLocation, AstTag.YieldExp);
 		this.args = args;
@@ -12424,15 +12427,15 @@ class YieldExp : PrimaryExp
 	{
 		auto location = l.loc;
 
-		l.expect(Token.Type.Yield);
-		l.expect(Token.Type.LParen);
+		l.expect(Token.Yield);
+		l.expect(Token.LParen);
 
 		Expression[] args;
 
-		if(l.type != Token.Type.RParen)
-			args = Expression.parseArguments(l);
+		if(l.type != Token.RParen)
+			args = parseExpressionArguments();
 
-		auto endLocation = l.expect(Token.Type.RParen).location;
+		auto endLocation = l.expect(Token.RParen).location;
 		return new YieldExp(location, endLocation, args);
 	}
 	
@@ -12487,7 +12490,7 @@ class SuperCallExp : PrimaryExp
 
 	/**
 	*/
-	public this(OldLocation location, OldLocation endLocation, Expression method, Expression[] args)
+	public this(CompileLoc location, CompileLoc endLocation, Expression method, Expression[] args)
 	{
 		super(location, endLocation, AstTag.SuperCallExp);
 		this.method = method;
@@ -12498,45 +12501,45 @@ class SuperCallExp : PrimaryExp
 	*/
 	public static SuperCallExp parse(Lexer l)
 	{
-		auto location = l.expect(Token.Type.Super).location;
+		auto location = l.expect(Token.Super).location;
 
 		Expression method;
 
 		l.next();
 
-		if(l.type == Token.Type.Ident)
+		if(l.type == Token.Ident)
 		{
-			with(l.expect(Token.Type.Ident))
+			with(l.expect(Token.Ident))
 				method = new StringExp(location, stringValue);
 		}
 		else
 		{
-			l.expect(Token.Type.LParen);
-			method = Expression.parse(l);
-			l.expect(Token.Type.RParen);
+			l.expect(Token.LParen);
+			method = parseExpression();
+			l.expect(Token.RParen);
 		}
 		
 		Expression[] args;
-		OldLocation endLocation;
+		CompileLoc endLocation;
 
-		if(l.type == Token.Type.LParen)
+		if(l.type == Token.LParen)
 		{
 			l.next();
 
-			if(l.type != Token.Type.RParen)
-				args = Expression.parseArguments(l);
+			if(l.type != Token.RParen)
+				args = parseExpressionArguments();
 
-			endLocation = l.expect(Token.Type.RParen).location;
+			endLocation = l.expect(Token.RParen).location;
 		}
 		else
 		{
-			l.expect(Token.Type.Dollar);
-			args ~= Expression.parse(l);
+			l.expect(Token.Dollar);
+			args ~= parseExpression();
 			
-			while(l.type == Token.Type.Comma)
+			while(l.type == Token.Comma)
 			{
 				l.next();
-				args ~= Expression.parse(l);
+				args ~= parseExpression();
 			}
 
 			endLocation = args[$ - 1].endLocation;

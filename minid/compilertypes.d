@@ -26,6 +26,7 @@ module minid.compilertypes;
 import minid.alloc;
 import minid.types;
 
+// Location, duh.
 struct CompileLoc
 {
 	dchar[] file;
@@ -33,6 +34,7 @@ struct CompileLoc
 	uint col;
 }
 
+// Abstract the compiler for other phases to be able to refer to it non-circularly
 interface ICompiler
 {
 	bool asserts();
@@ -47,6 +49,7 @@ interface ICompiler
 	void addNode(IAstNode node);
 }
 
+// Common compiler stuff
 template ICompilerMixin()
 {
 	private IAstNode mHead;
@@ -58,12 +61,14 @@ template ICompilerMixin()
 	}
 }
 
+// Abstract AST nodes for the compiler to be able to deal with them
 interface IAstNode
 {
 	void next(IAstNode n);
 	IAstNode next();
 }
 
+// Common AST node stuff
 template IAstNodeMixin()
 {
 	private IAstNode mNext;
@@ -79,6 +84,8 @@ template IAstNodeMixin()
 	}
 }
 
+// Dynamically-sized list.  When you use .toArray(), it hands off the reference to its
+// data, meaning that you now own the data and must clean it up.
 scope class List(T)
 {
 	private Allocator* mAlloc;
@@ -92,7 +99,8 @@ scope class List(T)
 
 	~this()
 	{
-		mAlloc.freeArray(mData);
+		if(mData.length)
+			mAlloc.freeArray(mData);
 	}
 
 	public void add(T item)
@@ -107,6 +115,12 @@ scope class List(T)
 
 		mData[mIndex] = item;
 		mIndex++;
+	}
+	
+	public void add(T[] items)
+	{
+		foreach(ref i; items)
+			add(i);
 	}
 
 	alias add opCatAssign;
@@ -132,6 +146,8 @@ scope class List(T)
 	public T[] toArray()
 	{
 		mAlloc.resizeArray(mData, mIndex);
+		auto ret = mData;
+		mData = null;
 		return mData;
 	}
 
