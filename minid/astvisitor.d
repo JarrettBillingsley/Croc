@@ -158,6 +158,8 @@ debug class TestVisitor : Visitor
 
 		foreach(stmt; m.statements)
 			visit(stmt);
+			
+		Stdout.newline;
 
 		return m;
 	}
@@ -297,5 +299,136 @@ debug class TestVisitor : Visitor
 		Stdout("/>").newline;
 
 		return attrs;
+	}
+	
+	public override FuncLiteralExp visit(FuncLiteralExp e)
+	{
+		visit(e.def);
+		return e;
+	}
+	
+	public override FuncDef visit(FuncDef d)
+	{
+		Stdout("function ");
+		visit(d.name);
+		Stdout("(");
+
+		if(d.params.length > 0)
+		{
+			visit(d.params[0].name);
+
+			foreach(ref param; d.params[1 .. $])
+			{
+				Stdout(", ");
+				visit(param.name);
+			}
+		}
+		
+		Stdout(")");
+
+		visit(d.code);
+
+		return d;
+	}
+	
+	public override FuncDecl visit(FuncDecl d)
+	{
+		if(d.protection == Protection.Local)
+			Stdout("local ");
+		else
+			Stdout("global ");
+			
+		visit(d.def);
+		
+		return d;
+	}
+	
+	public override BlockStmt visit(BlockStmt s)
+	{
+		Stdout("{").newline;
+		
+		foreach(stmt; s.statements)
+		{
+			visit(stmt);
+			Stdout.newline;
+		}
+
+		Stdout("}").newline;
+		
+		return s;
+	}
+	
+	public override RawNamespaceExp visit(RawNamespaceExp e)
+	{
+		Stdout("raw_namespace ");
+		visit(e.name);
+		
+		if(e.parent)
+		{
+			Stdout(" : ");
+			visit(e.parent);
+		}
+		
+		return e;
+	}
+	
+	public override AssignStmt visit(AssignStmt s)
+	{
+		visit(s.lhs[0]);
+		
+		foreach(lhs; s.lhs[1 .. $])
+		{
+			Stdout(", ");
+			visit(lhs);
+		}
+		
+		Stdout(" = ");
+		visit(s.rhs);
+		
+		return s;
+	}
+	
+	public override DotExp visit(DotExp e)
+	{
+		visit(e.op);
+		Stdout(".(");
+		visit(e.name);
+		Stdout(")");
+
+		return e;
+	}
+	
+	public override ScopeStmt visit(ScopeStmt s)
+	{
+		visit(s.statement);
+		return s;
+	}
+	
+	public override FuncEnvStmt visit(FuncEnvStmt s)
+	{
+		Stdout("funcenv ");
+		visit(s.funcName);
+		Stdout(", ");
+		visit(s.envName);
+		return s;
+	}
+	
+	public override ReturnStmt visit(ReturnStmt s)
+	{
+		if(s.exprs.length == 0)
+			Stdout("return");
+		else
+		{
+			Stdout("return ");
+			visit(s.exprs[0]);
+			
+			foreach(exp; s.exprs[1 .. $])
+			{
+				Stdout(", ");
+				visit(exp);
+			}
+		}
+		
+		return s;
 	}
 }

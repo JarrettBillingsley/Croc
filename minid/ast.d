@@ -81,6 +81,7 @@ const char[][] AstTagNames =
 	"CondAssignStmt",
 	"IncStmt",
 	"DecStmt",
+	"FuncEnvStmt",
 
 	"CondExp",
 	"OrOrExp",
@@ -140,6 +141,7 @@ const char[][] AstTagNames =
 	"NamespaceCtorExp",
 	"YieldExp",
 	"SuperCallExp",
+	"RawNamespaceExp",
 
 	"ForeachComprehension",
 	"ForNumComprehension",
@@ -1748,6 +1750,30 @@ class DecStmt : Statement
 }
 
 /**
+This node does not represent a grammar element, but rather a transient node type used when rewriting
+the AST.  It's used to set a function's environment.
+*/
+class FuncEnvStmt : Statement
+{
+	/**
+	*/
+	public Identifier funcName;
+	
+	/**
+	*/
+	public Identifier envName;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, Identifier funcName, Identifier envName)
+	{
+		super(c, location, location, AstTag.FuncEnvStmt);
+		this.funcName = funcName;
+		this.envName = envName;
+	}
+}
+
+/**
 The base class for all expressions.
 */
 abstract class Expression : AstNode
@@ -3087,6 +3113,35 @@ class SuperCallExp : PrimaryExp
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(args);
+	}
+}
+
+/**
+This node does not correspond to a grammar element, but rather a transient node used
+when rewriting the AST.  This represents the sort of "core" of a namespace definition.
+*/
+class RawNamespaceExp : PrimaryExp
+{
+	/**
+	*/
+	public Identifier name;
+	
+	/**
+	*/
+	public Expression parent;
+	
+	/**
+	*/
+	public TableCtorExp attrs;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, Identifier name, Expression parent, TableCtorExp attrs)
+	{
+		super(c, location, AstTag.RawNamespaceExp);
+		this.name = name;
+		this.parent = parent;
+		this.attrs = attrs;
 	}
 }
 

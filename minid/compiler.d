@@ -172,6 +172,9 @@ scope class Compiler : ICompiler
 
 		scope sem = new Semantic(this);
 		mod = sem.visit(mod);
+		
+		scope test = new TestVisitor(this);
+		test.visit(mod);
 	}
 
 // ================================================================================================================================================
@@ -4812,7 +4815,7 @@ class NamespaceDef : AstNode
 		
 		(function <namespace N>()
 		{
-			local namespace N {}
+			local raw_namespace N {} // raw so it doesn't get rewritten
 
 			local function __temp()
 			{
@@ -4824,8 +4827,6 @@ class NamespaceDef : AstNode
 
 			return N
 		})()
-		
-		OMFG is this complex.
 		*/
 
 		auto localVar = new VarDecl(location, endLocation, Protection.Local, [name], new class(this) Expression
@@ -4894,7 +4895,6 @@ class NamespaceDef : AstNode
 			{
 				foreach(field; mOuter.fields)
 				{
-					// name.fieldname = fieldinitializer
 					auto lhs = new DotExp(new IdentExp(mName), new StringExp(field.initializer.location, field.name));
 					auto assig = new Assign(field.initializer.location, field.initializer.endLocation, [lhs], field.initializer);
 					assig.codeGen(s);

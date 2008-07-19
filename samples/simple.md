@@ -1,5 +1,8 @@
 module simple
 
+
+
+/+
 /*
 object BaseProp
 {
@@ -825,4 +828,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}
+}+/

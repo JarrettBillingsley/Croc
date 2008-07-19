@@ -31,9 +31,16 @@ import minid.utils;
 
 class Semantic : IdentityVisitor
 {
+	private word mFuncDepth = 0;
+
 	public this(ICompiler c)
 	{
 		super(c);
+	}
+	
+	public bool isTopLevel()
+	{
+		return mFuncDepth == 0;
 	}
 
 	alias Visitor.visit visit;
@@ -63,6 +70,11 @@ class Semantic : IdentityVisitor
 	
 	public override FuncDef visit(FuncDef d)
 	{
+		mFuncDepth++;
+
+		scope(exit)
+			mFuncDepth--;
+
 		foreach(i, ref p; d.params)
 		{
 			if(p.defValue is null)
@@ -107,7 +119,7 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 	
-	public override NamespaceDef visit(NamespaceDef d)
+	public override Expression visit(NamespaceDef d)
 	{
 		if(d.parent)
 			visit(d.parent);
@@ -118,7 +130,83 @@ class Semantic : IdentityVisitor
 		if(d.attrs)
 			d.attrs = visit(d.attrs);
 
-		return d;
+		/*
+		Rewrite:
+
+		namespace N
+		{
+			function f() {}
+		}
+		
+		as:
+		
+		(function <namespace N>()
+		{
+			local raw_namespace N {} // raw so it doesn't get rewritten
+
+			local function __temp()
+			{
+				N.f = function f() {}
+			}
+
+			funcenv __temp, N
+			__temp()
+
+			return N
+		})()
+		*/
+		
+		scope funcBody = new List!(Statement)(c.alloc);
+
+		{
+			// local raw_namespace N {}
+			{
+				scope dummy = new List!(Identifier)(c.alloc);
+				dummy ~= d.name;
+				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent, d.attrs);
+				funcBody ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, dummy.toArray(), init);
+			}
+	
+			// local function __temp()
+			Identifier innerFuncName;
+	
+			{
+				// {
+				//     N.f = function f() {}
+				// }
+	
+				scope stmts = new List!(Statement)(c.alloc);
+	
+				foreach(field; d.fields)
+				{
+					scope lhs = new List!(Expression)(c.alloc);
+					lhs ~= new(c) DotExp(c, new(c) IdentExp(c, d.name), new(c) StringExp(c, field.initializer.location, field.name));
+					stmts ~= new(c) AssignStmt(c, field.initializer.location, field.initializer.endLocation, lhs.toArray(), field.initializer);
+				}
+	
+				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
+				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
+				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, null, false, innerFuncBody);
+				funcBody ~= new(c) FuncDecl(c, d.location, Protection.Local, innerFuncDef);
+			}
+	
+			// funcenv __temp, N
+			funcBody ~= new(c) FuncEnvStmt(c, d.location, innerFuncName, d.name);
+			
+			// __temp()
+			funcBody ~= new(c) ExpressionStmt(c, d.location, d.endLocation, new(c) CallExp(c, d.endLocation, new(c) IdentExp(c, innerFuncName), null, null));
+	
+			// return N
+			{
+				scope dummy = new List!(Expression)(c.alloc);
+				dummy ~= new(c) IdentExp(c, d.name);
+				funcBody ~= new(c) ReturnStmt(c, d.location, d.location, dummy.toArray());
+			}
+		}
+
+		auto funcDef = new(c) FuncDef(c, d.location, d.name, null, false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
+		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
+		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
 	}
 
 	public override ModuleDecl visit(ModuleDecl m)
@@ -181,10 +269,34 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override NamespaceDecl visit(NamespaceDecl d)
+	public override Statement visit(NamespaceDecl d)
 	{
-		d.def = visit(d.def);
-		return d;
+		Expression exp = visit(d.def);
+
+		auto prot = d.protection;
+
+		if(prot == Protection.Default)
+			prot = isTopLevel() ? Protection.Global : Protection.Local;
+
+		scope names = new List!(Identifier)(c.alloc);
+		names ~= d.def.name;
+
+		if(prot == Protection.Local)
+		{
+			scope lhs = new List!(Expression)(c.alloc);
+			lhs ~= new(c) IdentExp(c, d.def.name);
+
+			scope temp = new List!(Statement)(c.alloc);
+			temp ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, names.toArray(), null);
+			temp ~= new(c) AssignStmt(c, d.location, d.endLocation, lhs.toArray(), exp);
+
+			return new(c) BlockStmt(c, d.location, d.endLocation, temp.toArray());
+		}
+		else
+		{
+			assert(prot == Protection.Global);
+			return new(c) VarDecl(c, d.location, d.endLocation, Protection.Global, names.toArray(), exp);
+		}
 	}
 	
 	public override BlockStmt visit(BlockStmt s)
@@ -1107,10 +1219,9 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override NamespaceCtorExp visit(NamespaceCtorExp e)
+	public override Expression visit(NamespaceCtorExp e)
 	{
-		e.def = visit(e.def);
-		return e;
+		return visit(e.def);
 	}
 	
 	public override Expression visit(ParenExp e)
