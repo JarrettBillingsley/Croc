@@ -714,7 +714,8 @@ align(1) struct MDFuncDef
 	package LocVarDesc[] locVarDescs;
 }
 
-align(1) struct MDVM
+// please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.
+struct MDVM
 {
 	package Allocator alloc;
 
@@ -727,7 +728,7 @@ align(1) struct MDVM
 	package MDValue exception;
 	package bool isThrowing;
 
-	// The following members are allocated on the D heap.
+	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
 	package Layout!(dchar) formatter;
 

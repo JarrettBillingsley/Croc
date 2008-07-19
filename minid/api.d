@@ -92,9 +92,7 @@ Returns:
 public MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = null)
 {
 	openVMImpl(vm, memFunc, ctx);
-
 	BaseLib.init(vm.mainThread);
-
 	return mainThread(vm);
 }
 
@@ -122,7 +120,7 @@ public void closeVM(MDVM* vm)
 		{
 			for(auto obj = vm.alloc.gcHead; obj !is null; obj = obj.next)
 			{
-				auto block = vm.alloc._memBlocks[obj];
+				auto block = vm.alloc._memBlocks.lookup(obj);
 				Stdout.formatln("Unfreed object: address 0x{:X}, length {} bytes, type {}", obj, block.len, block.ti);
 			}
 
@@ -135,7 +133,7 @@ public void closeVM(MDVM* vm)
 
 	vm.alloc.freeArray(vm.metaTabs);
 	vm.alloc.freeArray(vm.metaStrings);
-	vm.stringTab.clear(vm.alloc); // can't hurt.
+	vm.stringTab.clear(vm.alloc);
 	vm.alloc.freeArray(vm.traceback);
 
 	debug if(vm.alloc.totalBytes != 0)
@@ -148,9 +146,11 @@ public void closeVM(MDVM* vm)
 
 		throw new Exception(Format("There are {} unfreed bytes!", vm.alloc.totalBytes));
 	}
+	
+	debug(LEAK_DETECTOR)
+		vm.alloc._memBlocks.clear(vm.alloc);
 
 	delete vm.formatter;
-
 	*vm = MDVM.init;
 }
 

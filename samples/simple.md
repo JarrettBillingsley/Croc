@@ -1,6 +1,5 @@
 module simple
 
-/+
 /*
 object BaseProp
 {
@@ -118,6 +117,7 @@ writeln(Deck.dealCard())
 writeln(Deck.dealCard())
 writeln(Deck.dealCard())
 */
+
 // Making sure finally blocks are executed.
 {
 	local function f()
@@ -717,7 +717,7 @@ writeln(Deck.dealCard())
 	local array = [7, 9, 2, 3, 6]
 	
 	array.sort()
-	
+
 	foreach(i, v; array)
 		writefln("arr[", i, "] = ", v)
 
@@ -825,4 +825,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/
+}

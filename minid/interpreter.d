@@ -5845,52 +5845,6 @@ private void execute(MDThread* t, uword depth = 1)
 
 					break;
 
-// 					auto firstValue = stackBase + i.rd;
-// 					auto ar = pushAR(t);
-//
-// 					assert(t.arIndex > 1);
-// 					*ar = t.actRecs[t.arIndex - 2];
-//
-// 					ar.returnSlot = firstValue;
-// 					ar.numReturns = i.rt - 1;
-// 					ar.firstResult = 0;
-// 					ar.numResults = 0;
-//
-// 					if(i.rs == 0)
-// 						t.numYields = t.stackIndex - firstValue;
-// 					else
-// 					{
-// 						t.stackIndex = firstValue + i.rs - 1;
-// 						t.numYields = i.rs - 1;
-// 					}
-// 
-// 					version(MDExtendedCoro) {} else
-// 						t.savedCallDepth = depth;
-// 
-// 					t.state = MDThread.State.Suspended;
-// 
-// 					version(MDRestrictedCoro)
-// 						return;
-// 					else version(MDExtendedCoro)
-// 					{
-// 						Fiber.yield();
-// 						t.state = MDThread.State.Running;
-// 						callEpilogue(t, true);
-// 						break;
-// 					}
-// 					else
-// 					{
-// 						if(t.coroFunc.isNative)
-// 						{
-// 							Fiber.yield();
-// 							t.state = MDThread.State.Running;
-// 							callEpilogue(t, true);
-// 							break;
-// 						}
-// 						else
-// 							return;
-// 					}
-
 				case Op.CheckParams:
 					auto val = &t.stack[stackBase];
 
@@ -5911,7 +5865,7 @@ private void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.CheckObjParam:
-					RS = t.stack[(stackBase + i.rs)];
+					RS = t.stack[stackBase + i.rs];
 					RT = *get(i.rt);
 
 					assert(RS.type == MDValue.Type.Object, "oops.  why wasn't this checked?");
@@ -5932,11 +5886,11 @@ private void execute(MDThread* t, uword depth = 1)
 				// Array and List Operations
 				case Op.Length: lenImpl(t, get(i.rd), get(i.rs)); break;
 				case Op.LengthAssign: lenaImpl(t, get(i.rd), get(i.rs)); break;
-				case Op.Append: array.append(t.vm.alloc, t.stack[(stackBase + i.rd)].mArray, get(i.rs)); break;
+				case Op.Append: array.append(t.vm.alloc, t.stack[stackBase + i.rd].mArray, get(i.rs)); break;
 
 				case Op.SetArray:
 					auto sliceBegin = stackBase + i.rd + 1;
-					auto a = t.stack[(stackBase + i.rd)].mArray;
+					auto a = t.stack[stackBase + i.rd].mArray;
 
 					if(i.rs == 0)
 					{

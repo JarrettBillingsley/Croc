@@ -91,13 +91,15 @@ align(1) struct Allocator
 
 	debug(LEAK_DETECTOR)
 	{
+		import minid.hash;
+
 		struct MemBlock
 		{
 			size_t len;
 			TypeInfo ti;
 		}
 
-		MemBlock[void*] _memBlocks;
+		Hash!(void*, MemBlock) _memBlocks;
 	}
 
 	package T* allocate(T)(size_t size = T.sizeof)
@@ -190,29 +192,42 @@ align(1) struct Allocator
 	{
 		debug(LEAK_DETECTOR)
 		{
-			void* realloc(void* p, size_t oldSize, size_t newSize)
+			// Do this so that the leak detector does not cause infinite recursion and also so it doesn't mess with the totalBytes
+			static if(is(T == Hash!(void*, MemBlock).Node[]))
 			{
-				if(oldSize > 0 && !(p in _memBlocks))
-					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap!");
-
-				auto ret = reallocImpl(p, oldSize, newSize);
-
-				if(newSize == 0)
-					_memBlocks.remove(p);
-				else if(oldSize == 0)
-					_memBlocks[ret] = MemBlock(newSize, typeid(T));
-				else
+				void* realloc(void* p, size_t oldSize, size_t newSize)
 				{
-					if(p is ret)
-						_memBlocks[ret].len = newSize;
+					auto ret = memFunc(ctx, p, oldSize, newSize);
+					assert(newSize == 0 || ret !is null, "allocation function should never return null");
+					return ret;
+				}
+			}
+			else
+			{
+				void* realloc(void* p, size_t oldSize, size_t newSize)
+				{
+					if(oldSize > 0 && _memBlocks.lookup(p) is null)
+						throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap!");
+	
+					auto ret = reallocImpl(p, oldSize, newSize);
+	
+					if(newSize == 0)
+						_memBlocks.remove(p);
+					else if(oldSize == 0)
+						*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
 					else
 					{
-						_memBlocks.remove(p);
-						_memBlocks[ret] = MemBlock(newSize, typeid(T));
+						if(p is ret)
+							_memBlocks.lookup(ret).len = newSize;
+						else
+						{
+							_memBlocks.remove(p);
+							*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
+						}
 					}
+	
+					return ret;
 				}
-
-				return ret;
 			}
 		}
 		else

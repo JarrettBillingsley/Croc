@@ -47,6 +47,7 @@ interface ICompiler
 	MDThread* thread();
 	Allocator* alloc();
 	void addNode(IAstNode node);
+	dchar[] newString(dchar[] s);
 }
 
 // Common compiler stuff
@@ -66,6 +67,8 @@ interface IAstNode
 {
 	void next(IAstNode n);
 	IAstNode next();
+	void[] toVoidArray();
+	void cleanup(ref Allocator alloc);
 }
 
 // Common AST node stuff
@@ -81,6 +84,11 @@ template IAstNodeMixin()
 	override IAstNode next()
 	{
 		return mNext;
+	}
+	
+	override void[] toVoidArray()
+	{
+		return (cast(void*)this)[0 .. this.classinfo.init.length];
 	}
 }
 
@@ -148,7 +156,8 @@ scope class List(T)
 		mAlloc.resizeArray(mData, mIndex);
 		auto ret = mData;
 		mData = null;
-		return mData;
+		mIndex = 0;
+		return ret;
 	}
 
 	public int opApply(int delegate(ref T) dg)

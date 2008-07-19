@@ -32,12 +32,16 @@ void main()
 
 	auto vm = new MDVM;
 	auto t = openVM(vm);
+	
+	uword memSize;
 
-	scope c = new Compiler(t);
-	c.tokensOf(`samples\test.md`);
-
-	foreach(ref l; c)
-		Stdout.formatln("{}", Token.strings[l.type]);
+	{
+		scope c = new Compiler(t);
+		c.testParse(`samples\simple.md`);
+		memSize = bytesAllocated(vm);
+	}
+	
+	Stdout.formatln("Compilation used {} bytes of non-GC'ed memory", memSize - bytesAllocated(vm));
 
 // 	// This is all stdlib crap!
 // 	newNamespace(t, "array");
@@ -52,9 +56,9 @@ void main()
 // 		pushNull(t);
 // 		rawCall(t, funcReg, 0);
 
-	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm));
+	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm)).flush;
 	gc(vm);
-	Stdout.formatln("{} bytes after.", bytesAllocated(vm));
+	Stdout.formatln("{} bytes after.", bytesAllocated(vm)).flush;
 
 	closeVM(vm);
 	delete vm;

@@ -62,7 +62,7 @@ struct Parser
 	public Identifier parseIdentifier()
 	{
 		with(l.expect(Token.Ident))
-			return new(c) Identifier(loc, stringValue);
+			return new(c) Identifier(c, loc, stringValue);
 	}
 	
 	/**
@@ -97,7 +97,7 @@ struct Parser
 
 		l.expect(Token.EOF);
 
-		return new(c) Module(location, l.loc, modDecl, statements.toArray());
+		return new(c) Module(c, location, l.loc, modDecl, statements.toArray());
 	}
 	
 	/**
@@ -126,7 +126,7 @@ struct Parser
 		auto endLocation = l.loc;
 		l.statementTerm();
 
-		return new(c) ModuleDecl(location, endLocation, names.toArray(), attrs);
+		return new(c) ModuleDecl(c, location, endLocation, names.toArray(), attrs);
 	}
 	
 	/**
@@ -175,7 +175,7 @@ struct Parser
 
 			case Token.LBrace:
 				if(needScope)
-					return new(c) ScopeStmt(parseBlockStmt());
+					return new(c) ScopeStmt(c, parseBlockStmt());
 				else
 					return parseBlockStmt();
 
@@ -302,7 +302,7 @@ struct Parser
 			endLocation = initializer.endLocation;
 		}
 
-		return new(c) VarDecl(location, endLocation, protection, namesArr, initializer);
+		return new(c) VarDecl(c, location, endLocation, protection, namesArr, initializer);
 	}
 
 	/**
@@ -327,7 +327,7 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) FuncDecl(location, protection, parseSimpleFuncDef(attrs));
+		return new(c) FuncDecl(c, location, protection, parseSimpleFuncDef(attrs));
 	}
 	
 	/**
@@ -358,12 +358,12 @@ struct Parser
 			dummy ~= parseExpression();
 			auto arr = dummy.toArray();
 
-			code = new(c) ReturnStmt(arr[0].location, arr[0].endLocation, arr);
+			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
 		}
 		else
 			code = parseStatement();
 
-		return new(c) FuncDef(location, name, params, isVararg, code, attrs);
+		return new(c) FuncDef(c, location, name, params, isVararg, code, attrs);
 	}
 	
 	/**
@@ -412,7 +412,7 @@ struct Parser
 		}
 
 		Param thisParam;
-		thisParam.name = new(c) Identifier(l.loc, l.newString("this"));
+		thisParam.name = new(c) Identifier(c, l.loc, c.newString("this"));
 
 		if(l.type == Token.This)
 		{
@@ -489,13 +489,13 @@ struct Parser
 		{
 			l.next();
 			auto t2 = l.expect(Token.Ident);
-			auto exp = new(c) DotExp(new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue)), new(c) StringExp(t2.loc, t2.stringValue));
+			auto exp = new(c) DotExp(c, new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue)), new(c) StringExp(c, t2.loc, t2.stringValue));
 
 			while(l.type == Token.Dot)
 			{
 				l.next();
 				t2 = l.expect(Token.Ident);
-				exp = new(c) DotExp(exp, new(c) StringExp(t2.loc, t2.stringValue));
+				exp = new(c) DotExp(c, exp, new(c) StringExp(c, t2.loc, t2.stringValue));
 			}
 
 			return exp;
@@ -532,7 +532,7 @@ struct Parser
 						else
 						{
 							addConstraint(MDValue.Type.Object);
-							objTypes ~= new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue));
+							objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
 						}
 					}
 					else
@@ -564,7 +564,7 @@ struct Parser
 
 							default:
 								addConstraint(MDValue.Type.Object);
-								objTypes ~= new(c) IdentExp(new(c) Identifier(t.loc, t.stringValue));
+								objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
 								break;
 						}
 					}
@@ -650,10 +650,10 @@ struct Parser
 			dummy ~= parseExpression();
 			auto arr = dummy.toArray();
 
-			code = new(c) ReturnStmt(arr[0].location, arr[0].endLocation, arr);
+			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
 		}
 
-		return new(c) FuncDef(location, name, params, isVararg, code, null);
+		return new(c) FuncDef(c, location, name, params, isVararg, code, null);
 	}
 
 	/**
@@ -678,7 +678,7 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) ObjectDecl(location, protection, parseObjectDef(false, attrs));
+		return new(c) ObjectDecl(c, location, protection, parseObjectDef(false, attrs));
 	}
 	
 	/**
@@ -711,7 +711,7 @@ struct Parser
 			baseObject = parseExpression();
 		}
 		else
-			baseObject = new(c) IdentExp(new(c) Identifier(l.loc, l.newString("Object")));
+			baseObject = new(c) IdentExp(c, new(c) Identifier(c, l.loc, c.newString("Object")));
 
 		l.expect(Token.LBrace);
 
@@ -740,7 +740,7 @@ struct Parser
 
 		void addMethod(FuncDef m)
 		{
-			addField(m.name, new(c) FuncLiteralExp(m.location, m));
+			addField(m.name, new(c) FuncLiteralExp(c, m.location, m));
 		}
 
 		while(l.type != Token.RBrace)
@@ -767,7 +767,7 @@ struct Parser
 						v = parseExpression();
 					}
 					else
-						v = new(c) NullExp(id.location);
+						v = new(c) NullExp(c, id.location);
 
 					l.statementTerm();
 					addField(id, v);
@@ -782,7 +782,7 @@ struct Parser
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ObjectDef(location, endLocation, name, baseObject, fields.toArray(), attrs);
+		return new(c) ObjectDef(c, location, endLocation, name, baseObject, fields.toArray(), attrs);
 	}
 
 	/**
@@ -807,7 +807,7 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) NamespaceDecl(location, protection, parseNamespaceDef(attrs));
+		return new(c) NamespaceDecl(c, location, protection, parseNamespaceDef(attrs));
 	}
 	
 	/**
@@ -864,7 +864,7 @@ struct Parser
 			{
 				case Token.Function:
 					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(fd.location, fd));
+					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd));
 					break;
 
 				case Token.Ident:
@@ -879,7 +879,7 @@ struct Parser
 						v = parseExpression();
 					}
 					else
-						v = new(c) NullExp(loc);
+						v = new(c) NullExp(c, loc);
 
 					l.statementTerm();
 					addField(fieldName, v);
@@ -895,7 +895,7 @@ struct Parser
 
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) NamespaceDef(location, endLocation, name, parent, fields.toArray(), attrs);
+		return new(c) NamespaceDef(c, location, endLocation, name, parent, fields.toArray(), attrs);
 	}
 
 	/**
@@ -910,7 +910,7 @@ struct Parser
 			statements ~= parseStatement();
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) BlockStmt(location, endLocation, statements.toArray());
+		return new(c) BlockStmt(c, location, endLocation, statements.toArray());
 	}
 
 	/**
@@ -932,7 +932,7 @@ struct Parser
 		auto endLocation = l.expect(Token.RParen).loc;
 		l.statementTerm();
 
-		return new(c) AssertStmt(location, endLocation, cond, msg);
+		return new(c) AssertStmt(c, location, endLocation, cond, msg);
 	}
 
 	/**
@@ -941,7 +941,7 @@ struct Parser
 	{
 		auto location = l.expect(Token.Break).loc;
 		l.statementTerm();
-		return new(c) BreakStmt(location);
+		return new(c) BreakStmt(c, location);
 	}
 
 	/**
@@ -950,7 +950,7 @@ struct Parser
 	{
 		auto location = l.expect(Token.Continue).loc;
 		l.statementTerm();
-		return new(c) ContinueStmt(location);
+		return new(c) ContinueStmt(c, location);
 	}
 
 	/**
@@ -965,7 +965,7 @@ struct Parser
 
 		auto condition = parseExpression();
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) DoWhileStmt(location, endLocation, doBody, condition);
+		return new(c) DoWhileStmt(c, location, endLocation, doBody, condition);
 	}
 
 	/**
@@ -1018,12 +1018,12 @@ struct Parser
 				step = parseExpression();
 			}
 			else
-				step = new(c) IntExp(location, 1);
+				step = new(c) IntExp(c, l.loc, 1);
 
 			l.expect(Token.RParen);
 
 			auto code = parseStatement();
-			return new(c) ForNumStmt(location, index, lo, hi, step, code);
+			return new(c) ForNumStmt(c, location, index, lo, hi, step, code);
 		}
 
 		parseInitializer();
@@ -1064,7 +1064,7 @@ struct Parser
 		}
 
 		auto code = parseStatement(false);
-		return new(c) ForStmt(location, init.toArray(), condition, increment.toArray(), code);
+		return new(c) ForStmt(c, location, init.toArray(), condition, increment.toArray(), code);
 	}
 	
 	/**
@@ -1100,7 +1100,7 @@ struct Parser
 
 		l.expect(Token.Semicolon);
 
-		Expression[] container;
+		scope container = new List!(Expression)(c.alloc);
 		container ~= parseExpression();
 
 		while(l.type == Token.Comma)
@@ -1115,7 +1115,7 @@ struct Parser
 		l.expect(Token.RParen);
 
 		auto code = parseStatement();
-		return new(c) ForeachStmt(location, indices.toArray(), container, code);
+		return new(c) ForeachStmt(c, location, indicesArr, container.toArray(), code);
 	}
 
 	/**
@@ -1149,7 +1149,7 @@ struct Parser
 			endLocation = elseBody.endLocation;
 		}
 
-		return new(c) IfStmt(location, endLocation, condVar, condition, ifBody, elseBody);
+		return new(c) IfStmt(c, location, endLocation, condVar, condition, ifBody, elseBody);
 	}
 
 	/**
@@ -1190,7 +1190,7 @@ struct Parser
 			}
 
 			auto arr = name.toArray();
-			expr = new(c) StringExp(location, l.newString(arr));
+			expr = new(c) StringExp(c, location, c.newString(arr));
 			c.alloc.freeArray(arr);
 		}
 
@@ -1229,7 +1229,7 @@ struct Parser
 
 		auto endLocation = l.loc;
 		l.statementTerm();
-		return new(c) ImportStmt(location, endLocation, importName, expr, symbols.toArray(), symbolNames.toArray());
+		return new(c) ImportStmt(c, location, endLocation, importName, expr, symbols.toArray(), symbolNames.toArray());
 	}
 
 	/**
@@ -1242,11 +1242,11 @@ struct Parser
 		{
 			auto endLocation = l.loc;
 			l.statementTerm();
-			return new(c) ReturnStmt(location, endLocation, null);
+			return new(c) ReturnStmt(c, location, endLocation, null);
 		}
 		else
 		{
-			assert(l.loc.line != location.line);
+			assert(l.loc.line == location.line);
 
 			scope exprs = new List!(Expression)(c.alloc);
 			exprs ~= parseExpression();
@@ -1260,7 +1260,7 @@ struct Parser
 			auto arr = exprs.toArray();
 			auto endLocation = arr[$ - 1].endLocation;
 			l.statementTerm();
-			return new(c) ReturnStmt(location, endLocation, arr);
+			return new(c) ReturnStmt(c, location, endLocation, arr);
 		}
 	}
 	
@@ -1289,7 +1289,7 @@ struct Parser
 			caseDefault = parseDefaultStmt();
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) SwitchStmt(location, endLocation, condition, cases.toArray(), caseDefault);
+		return new(c) SwitchStmt(c, location, endLocation, condition, cases.toArray(), caseDefault);
 	}
 
 	/**
@@ -1316,8 +1316,8 @@ struct Parser
 
 		auto endLocation = l.loc;
 
-		auto code = new(c) ScopeStmt(new(c) BlockStmt(location, endLocation, statements.toArray()));
-		return new(c) CaseStmt(location, endLocation, conditions.toArray(), code);
+		auto code = new(c) ScopeStmt(c, new(c) BlockStmt(c, location, endLocation, statements.toArray()));
+		return new(c) CaseStmt(c, location, endLocation, conditions.toArray(), code);
 	}
 	
 	/**
@@ -1336,8 +1336,8 @@ struct Parser
 
 		auto endLocation = l.loc;
 
-		auto code = new(c) ScopeStmt(new(c) BlockStmt(location, endLocation, statements.toArray()));
-		return new(c) DefaultStmt(location, endLocation, code);
+		auto code = new(c) ScopeStmt(c, new(c) BlockStmt(c, location, endLocation, statements.toArray()));
+		return new(c) DefaultStmt(c, location, endLocation, code);
 	}
 
 	/**
@@ -1347,7 +1347,7 @@ struct Parser
 		auto location = l.expect(Token.Throw).loc;
 		auto exp = parseExpression();
 		l.statementTerm();
-		return new(c) ThrowStmt(location, exp);
+		return new(c) ThrowStmt(c, location, exp);
 	}
 
 	/**
@@ -1355,7 +1355,7 @@ struct Parser
 	public TryStmt parseTryStmt()
 	{
 		auto location = l.expect(Token.Try).loc;
-		auto tryBody = new(c) ScopeStmt(parseStatement());
+		auto tryBody = new(c) ScopeStmt(c, parseStatement());
 
 		Identifier catchVar;
 		Statement catchBody;
@@ -1371,7 +1371,7 @@ struct Parser
 
 			l.expect(Token.RParen);
 
-			catchBody = new(c) ScopeStmt(parseStatement());
+			catchBody = new(c) ScopeStmt(c, parseStatement());
 			endLocation = catchBody.endLocation;
 		}
 
@@ -1380,14 +1380,14 @@ struct Parser
 		if(l.type == Token.Finally)
 		{
 			l.next();
-			finallyBody = new(c) ScopeStmt(parseStatement());
+			finallyBody = new(c) ScopeStmt(c, parseStatement());
 			endLocation = finallyBody.endLocation;
 		}
 
 		if(catchBody is null && finallyBody is null)
 			c.eofException(location, "Try statement must be followed by a catch, finally, or both");
 
-		return new(c) TryStmt(location, endLocation, tryBody, catchVar, catchBody, finallyBody);
+		return new(c) TryStmt(c, location, endLocation, tryBody, catchVar, catchBody, finallyBody);
 	}
 	
 	/**
@@ -1409,7 +1409,7 @@ struct Parser
 		auto condition = parseExpression();
 		l.expect(Token.RParen);
 		auto code = parseStatement(false);
-		return new(c) WhileStmt(location, condVar, condition, code);
+		return new(c) WhileStmt(c, location, condVar, condition, code);
 	}
 
 	/**
@@ -1424,12 +1424,12 @@ struct Parser
 		if(l.type == Token.Inc)
 		{
 			l.next();
-			return new(c) IncStmt(location, location, parsePrimaryExp());
+			return new(c) IncStmt(c, location, location, parsePrimaryExp());
 		}
 		else if(l.type == Token.Dec)
 		{
 			l.next();
-			return new(c) DecStmt(location, location, parsePrimaryExp());
+			return new(c) DecStmt(c, location, location, parsePrimaryExp());
 		}
 
 		Expression exp;
@@ -1446,12 +1446,12 @@ struct Parser
 		else if(l.type == Token.Inc)
 		{
 			l.next();
-			return new(c) IncStmt(location, location, exp);
+			return new(c) IncStmt(c, location, location, exp);
 		}
 		else if(l.type == Token.Dec)
 		{
 			l.next();
-			return new(c) DecStmt(location, location, exp);
+			return new(c) DecStmt(c, location, location, exp);
 		}
 		else if(l.type == Token.OrOr)
 			exp = parseOrOrExp(exp);
@@ -1461,7 +1461,7 @@ struct Parser
 			exp = parseCondExp(exp);
 
 		exp.checkToNothing(c);
-		return new(c) ExpressionStmt(exp);
+		return new(c) ExpressionStmt(c, exp);
 	}
 	
 	/**
@@ -1489,7 +1489,7 @@ struct Parser
 		l.expect(Token.Assign);
 
 		auto rhs = parseExpression();
-		return new(c) AssignStmt(location, rhs.endLocation, lhs.toArray(), rhs);
+		return new(c) AssignStmt(c, location, rhs.endLocation, lhs.toArray(), rhs);
 	}
 
 	/**
@@ -1510,7 +1510,7 @@ struct Parser
 			"case Token." ~ tok ~ ":"
 				"l.next();"
 				"auto exp2 = parseExpression();"
-				"return new(c) " ~ type ~ "(location, exp2.endLocation, exp1, exp2);";
+				"return new(c) " ~ type ~ "(c, location, exp2.endLocation, exp1, exp2);";
 		}
 
 		mixin(
@@ -1569,7 +1569,7 @@ struct Parser
 			exp2 = parseExpression();
 			l.expect(Token.Colon);
 			exp3 = parseCondExp();
-			exp1 = new(c) CondExp(location, exp3.endLocation, exp1, exp2, exp3);
+			exp1 = new(c) CondExp(c, location, exp3.endLocation, exp1, exp2, exp3);
 
 			location = l.loc;
 		}
@@ -1600,7 +1600,7 @@ struct Parser
 			l.next();
 
 			exp2 = parseAndAndExp();
-			exp1 = new(c) OrOrExp(location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) OrOrExp(c, location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -1631,7 +1631,7 @@ struct Parser
 			l.next();
 
 			exp2 = parseOrExp();
-			exp1 = new(c) AndAndExp(location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) AndAndExp(c, location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -1655,7 +1655,7 @@ struct Parser
 			l.next();
 
 			exp2 = parseXorExp();
-			exp1 = new(c) OrExp(location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) OrExp(c, location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -1679,7 +1679,7 @@ struct Parser
 			l.next();
 
 			exp2 = parseAndExp();
-			exp1 = new(c) XorExp(location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) XorExp(c, location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -1703,7 +1703,7 @@ struct Parser
 			l.next();
 
 			exp2 = parseCmpExp();
-			exp1 = new(c) AndExp(location, exp2.endLocation, exp1, exp2);
+			exp1 = new(c) AndExp(c, location, exp2.endLocation, exp1, exp2);
 
 			location = l.loc;
 		}
@@ -1727,13 +1727,13 @@ struct Parser
 			case Token.EQ:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) EqualExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) EqualExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.NE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) NotEqualExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) NotEqualExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.Not:
@@ -1742,14 +1742,14 @@ struct Parser
 					l.next();
 					l.next();
 					exp2 = parseShiftExp();
-					exp1 = new(c) NotIsExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) NotIsExp(c, location, exp2.endLocation, exp1, exp2);
 				}
 				else if(l.peek.type == Token.In)
 				{
 					l.next();
 					l.next();
 					exp2 = parseShiftExp();
-					exp1 = new(c) NotInExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) NotInExp(c, location, exp2.endLocation, exp1, exp2);
 				}
 				// no, there should not be an 'else' here
 
@@ -1758,49 +1758,49 @@ struct Parser
 			case Token.Is:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) IsExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) IsExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.LT:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) LTExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) LTExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.LE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) LEExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) LEExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.GT:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) GTExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) GTExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.GE:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) GEExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) GEExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.As:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) AsExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) AsExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.In:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) InExp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) InExp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			case Token.Cmp3:
 				l.next();
 				exp2 = parseShiftExp();
-				exp1 = new(c) Cmp3Exp(location, exp2.endLocation, exp1, exp2);
+				exp1 = new(c) Cmp3Exp(c, location, exp2.endLocation, exp1, exp2);
 				break;
 
 			default:
@@ -1826,19 +1826,19 @@ struct Parser
 				case Token.Shl:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) ShlExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ShlExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Shr:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) ShrExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ShrExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.UShr:
 					l.next();
 					exp2 = parseAddExp();
-					exp1 = new(c) UShrExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) UShrExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -1869,19 +1869,19 @@ struct Parser
 				case Token.Add:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) AddExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) AddExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Sub:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) SubExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) SubExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Cat:
 					l.next();
 					exp2 = parseMulExp();
-					exp1 = new(c) CatExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) CatExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -1910,19 +1910,19 @@ struct Parser
 				case Token.Mul:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) MulExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) MulExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Div:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) DivExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) DivExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				case Token.Mod:
 					l.next();
 					exp2 = parseUnExp();
-					exp1 = new(c) ModExp(location, exp2.endLocation, exp1, exp2);
+					exp1 = new(c) ModExp(c, location, exp2.endLocation, exp1, exp2);
 					continue;
 
 				default:
@@ -1950,19 +1950,19 @@ struct Parser
 			case Token.Sub:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) NegExp(location, exp);
+				exp = new(c) NegExp(c, location, exp);
 				break;
 
 			case Token.Not:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) NotExp(location, exp);
+				exp = new(c) NotExp(c, location, exp);
 				break;
 
 			case Token.Cat:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) ComExp(location, exp);
+				exp = new(c) ComExp(c, location, exp);
 				break;
 
 			case Token.Length:
@@ -1970,15 +1970,15 @@ struct Parser
 				exp = parseUnExp();
 
 				if(exp.as!(VarargExp))
-					exp = new(c) VargLenExp(location, exp.endLocation);
+					exp = new(c) VargLenExp(c, location, exp.endLocation);
 				else
-					exp = new(c) LenExp(location, exp);
+					exp = new(c) LenExp(c, location, exp);
 				break;
 
 			case Token.Coroutine:
 				l.next();
 				exp = parseUnExp();
-				exp = new(c) CoroutineExp(exp.endLocation, exp);
+				exp = new(c) CoroutineExp(c, exp.endLocation, exp);
 				break;
 
 			default:
@@ -2031,7 +2031,7 @@ struct Parser
 	*/
 	public IdentExp parseIdentExp()
 	{
-		return new(c) IdentExp(parseIdentifier());
+		return new(c) IdentExp(c, parseIdentifier());
 	}
 	
 	/**
@@ -2039,7 +2039,7 @@ struct Parser
 	public ThisExp parseThisExp()
 	{
 		with(l.expect(Token.This))
-			return new(c) ThisExp(loc);
+			return new(c) ThisExp(c, loc);
 	}
 	
 	/**
@@ -2047,7 +2047,7 @@ struct Parser
 	public NullExp parseNullExp()
 	{
 		with(l.expect(Token.Null))
-			return new(c) NullExp(loc);
+			return new(c) NullExp(c, loc);
 	}
 	
 	/**
@@ -2057,11 +2057,11 @@ struct Parser
 		auto loc = l.loc;
 
 		if(l.type == Token.True)
-			return new(c) BoolExp(loc, true);
+			return new(c) BoolExp(c, loc, true);
 		else
 		{
 			l.expect(Token.False);
-			return new(c) BoolExp(loc, false);
+			return new(c) BoolExp(c, loc, false);
 		}
 	}
 	
@@ -2070,7 +2070,7 @@ struct Parser
 	public VarargExp parseVarargExp()
 	{
 		with(l.expect(Token.Vararg))
-			return new(c) VarargExp(loc);
+			return new(c) VarargExp(c, loc);
 	}
 	
 	/**
@@ -2078,7 +2078,7 @@ struct Parser
 	public CharExp parseCharExp()
 	{
 		with(l.expect(Token.CharLiteral))
-			return new(c) CharExp(loc, intValue);
+			return new(c) CharExp(c, loc, intValue);
 	}
 	
 	/**
@@ -2086,7 +2086,7 @@ struct Parser
 	public IntExp parseIntExp()
 	{
 		with(l.expect(Token.IntLiteral))
-			return new(c) IntExp(loc, intValue);
+			return new(c) IntExp(c, loc, intValue);
 	}
 	
 	/**
@@ -2094,7 +2094,7 @@ struct Parser
 	public FloatExp parseFloatExp()
 	{
 		with(l.expect(Token.FloatLiteral))
-			return new(c) FloatExp(loc, floatValue);
+			return new(c) FloatExp(c, loc, floatValue);
 	}
 	
 	/**
@@ -2102,7 +2102,7 @@ struct Parser
 	public StringExp parseStringExp()
 	{
 		with(l.expect(Token.StringLiteral))
-			return new(c) StringExp(loc, stringValue);
+			return new(c) StringExp(c, loc, stringValue);
 	}
 	
 	/**
@@ -2111,7 +2111,7 @@ struct Parser
 	{
 		auto location = l.loc;
 		auto def = parseFuncLiteral();
-		return new(c) FuncLiteralExp(location, def);
+		return new(c) FuncLiteralExp(c, location, def);
 	}
 	
 	/**
@@ -2120,7 +2120,7 @@ struct Parser
 	{
 		auto location = l.loc;
 		auto def = parseHaskellFuncLiteral();
-		return new(c) FuncLiteralExp(location, def);
+		return new(c) FuncLiteralExp(c, location, def);
 	}
 	
 	/**
@@ -2128,7 +2128,7 @@ struct Parser
 	public ObjectLiteralExp parseObjectLiteralExp()
 	{
 		auto location = l.loc;
-		return new(c) ObjectLiteralExp(location, parseObjectDef(true));
+		return new(c) ObjectLiteralExp(c, location, parseObjectDef(true));
 	}
 	
 	/**
@@ -2139,7 +2139,7 @@ struct Parser
 		auto location = l.expect(Token.LParen).loc;
 		auto exp = parseExpression();
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) ParenExp(location, endLocation, exp);
+		return new(c) ParenExp(c, location, endLocation, exp);
 	}
 
 	/**
@@ -2174,7 +2174,7 @@ struct Parser
 			{
 				auto forComp = parseForComprehension();
 				auto endLocation = l.expect(Token.RBracket).loc;
-				return new(c) ArrayComprehension(location, endLocation, exp, forComp);
+				return new(c) ArrayComprehension(c, location, endLocation, exp, forComp);
 			}
 			else
 			{
@@ -2191,7 +2191,7 @@ struct Parser
 		}
 
 		auto endLocation = l.expect(Token.RBracket).loc;
-		return new(c) ArrayCtorExp(location, endLocation, values.toArray());
+		return new(c) ArrayCtorExp(c, location, endLocation, values.toArray());
 	}
 	
 	/**
@@ -2200,7 +2200,7 @@ struct Parser
 	{
 		auto location = l.loc;
 		auto def = parseNamespaceDef();
-		return new(c) NamespaceCtorExp(location, def);
+		return new(c) NamespaceCtorExp(c, location, def);
 	}
 	
 	/**
@@ -2216,7 +2216,7 @@ struct Parser
 			args = parseArguments();
 
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) YieldExp(location, endLocation, args);
+		return new(c) YieldExp(c, location, endLocation, args);
 	}
 
 	/**
@@ -2232,7 +2232,7 @@ struct Parser
 		if(l.type == Token.Ident)
 		{
 			with(l.expect(Token.Ident))
-				method = new(c) StringExp(location, stringValue);
+				method = new(c) StringExp(c, location, stringValue);
 		}
 		else
 		{
@@ -2270,7 +2270,7 @@ struct Parser
 			endLocation = args[$ - 1].endLocation;
 		}
 
-		return new(c) SuperCallExp(location, endLocation, method, args);
+		return new(c) SuperCallExp(c, location, endLocation, method, args);
 	}
 	
 	/**
@@ -2287,19 +2287,19 @@ struct Parser
 			l.next();
 			auto exp = parseExpression();
 			endLoc = l.expect(Token.RParen).loc;
-			return new(c) DotExp(new(c) ThisExp(loc), exp);
+			return new(c) DotExp(c, new(c) ThisExp(c, loc), exp);
 		}
 		else if(l.type == Token.Super)
 		{
 			endLoc = l.loc;
 			l.next();
-			return new(c) DotSuperExp(endLoc, new(c) ThisExp(loc));
+			return new(c) DotSuperExp(c, endLoc, new(c) ThisExp(c, loc));
 		}
 		else
 		{
 			endLoc = l.loc;
 			auto name = parseName();
-			return new(c) DotExp(new(c) ThisExp(loc), new(c) StringExp(endLoc, name));
+			return new(c) DotExp(c, new(c) ThisExp(c, loc), new(c) StringExp(c, endLoc, name));
 		}
 	}
 	
@@ -2325,20 +2325,20 @@ struct Parser
 					{
 						auto loc = l.loc;
 						auto name = parseName();
-						exp = new(c) DotExp(exp, new(c) StringExp(loc, name));
+						exp = new(c) DotExp(c, exp, new(c) StringExp(c, loc, name));
 					}
 					else if(l.type == Token.Super)
 					{
 						auto endLocation = l.loc;
 						l.next();
-						exp = new(c) DotSuperExp(endLocation, exp);
+						exp = new(c) DotSuperExp(c, endLocation, exp);
 					}
 					else
 					{
 						l.expect(Token.LParen);
 						auto subExp = parseExpression();
 						l.expect(Token.RParen);
-						exp = new(c) DotExp(exp, subExp);
+						exp = new(c) DotExp(c, exp, subExp);
 					}
 					continue;
 
@@ -2357,9 +2357,9 @@ struct Parser
 					auto arr = args.toArray();
 
 					if(exp.as!(DotExp))
-						exp = new(c) MethodCallExp(arr[$ - 1].endLocation, exp, null, arr);
+						exp = new(c) MethodCallExp(c, arr[$ - 1].endLocation, exp, null, arr);
 					else
-						exp = new(c) CallExp(arr[$ - 1].endLocation, exp, null, arr);
+						exp = new(c) CallExp(c, arr[$ - 1].endLocation, exp, null, arr);
 					continue;
 
 				case Token.LParen:
@@ -2389,9 +2389,9 @@ struct Parser
 					auto endLocation = l.expect(Token.RParen).loc;
 
 					if(exp.as!(DotExp))
-						exp = new(c) MethodCallExp(endLocation, exp, context, args);
+						exp = new(c) MethodCallExp(c, endLocation, exp, context, args);
 					else
-						exp = new(c) CallExp(endLocation, exp, context, args);
+						exp = new(c) CallExp(c, endLocation, exp, context, args);
 
 					continue;
 
@@ -2405,19 +2405,19 @@ struct Parser
 					if(l.type == Token.RBracket)
 					{
 						// a[]
-						loIndex = new(c) NullExp(l.loc);
-						hiIndex = new(c) NullExp(l.loc);
+						loIndex = new(c) NullExp(c, l.loc);
+						hiIndex = new(c) NullExp(c, l.loc);
 						endLocation = l.expect(Token.RBracket).loc;
 					}
 					else if(l.type == Token.DotDot)
 					{
-						loIndex = new(c) NullExp(l.loc);
+						loIndex = new(c) NullExp(c, l.loc);
 						l.next();
 
 						if(l.type == Token.RBracket)
 						{
 							// a[ .. ]
-							hiIndex = new(c) NullExp(l.loc);
+							hiIndex = new(c) NullExp(c, l.loc);
 							endLocation = l.expect(Token.RBracket).loc;
 						}
 						else
@@ -2438,7 +2438,7 @@ struct Parser
 							if(l.type == Token.RBracket)
 							{
 								// a[0 .. ]
-								hiIndex = new(c) NullExp(l.loc);
+								hiIndex = new(c) NullExp(c, l.loc);
 								endLocation = l.expect(Token.RBracket).loc;
 							}
 							else
@@ -2454,9 +2454,9 @@ struct Parser
 							endLocation = l.expect(Token.RBracket).loc;
 
 							if(exp.as!(VarargExp))
-								exp = new(c) VargIndexExp(location, endLocation, loIndex);
+								exp = new(c) VargIndexExp(c, location, endLocation, loIndex);
 							else
-								exp = new(c) IndexExp(endLocation, exp, loIndex);
+								exp = new(c) IndexExp(c, endLocation, exp, loIndex);
 
 							// continue here since this isn't a slice
 							continue;
@@ -2464,9 +2464,9 @@ struct Parser
 					}
 
 					if(exp.as!(VarargExp))
-						exp = new(c) VargSliceExp(location, endLocation, loIndex, hiIndex);
+						exp = new(c) VargSliceExp(c, location, endLocation, loIndex, hiIndex);
 					else
-						exp = new(c) SliceExp(endLocation, exp, loIndex, hiIndex);
+						exp = new(c) SliceExp(c, endLocation, exp, loIndex, hiIndex);
 					continue;
 
 				default:
@@ -2514,6 +2514,8 @@ struct Parser
 				l.next();
 				step = parseExpression();
 			}
+			else
+				step = new(c) IntExp(c, l.loc, 1);
 
 			IfComprehension ifComp;
 
@@ -2529,7 +2531,7 @@ struct Parser
 			auto name = arr[0];
 			c.alloc.freeArray(arr);
 
-			return new(c) ForNumComprehension(loc, name, exp, exp2, step, ifComp, forComp);
+			return new(c) ForNumComprehension(c, loc, name, exp, exp2, step, ifComp, forComp);
 		}
 		else
 		{
@@ -2570,7 +2572,7 @@ struct Parser
 			if(l.type == Token.For)
 				forComp = parseForComprehension();
 
-			return new(c) ForeachComprehension(loc, namesArr, container.toArray(), ifComp, forComp);
+			return new(c) ForeachComprehension(c, loc, namesArr, container.toArray(), ifComp, forComp);
 		}
 	}
 	
@@ -2580,7 +2582,7 @@ struct Parser
 	{
 		auto loc = l.expect(Token.If).loc;
 		auto condition = parseExpression();
-		return new(c) IfComprehension(loc, condition);
+		return new(c) IfComprehension(c, loc, condition);
 	}
 
 // ================================================================================================================================================
@@ -2627,14 +2629,14 @@ struct Parser
 
 					case Token.Function:
 						auto fd = parseSimpleFuncDef();
-						k = new(c) StringExp(fd.location, fd.name.name);
-						v = new(c) FuncLiteralExp(fd.location, fd);
+						k = new(c) StringExp(c, fd.location, fd.name.name);
+						v = new(c) FuncLiteralExp(c, fd.location, fd);
 						break;
 
 					default:
 						Identifier id = parseIdentifier();
 						l.expect(Token.Assign);
-						k = new(c) StringExp(id.location, id.name);
+						k = new(c) StringExp(c, id.location, id.name);
 						v = parseExpression();
 						break;
 				}
@@ -2657,7 +2659,7 @@ struct Parser
 					auto value = dummy[0].value;
 					c.alloc.freeArray(dummy);
 
-					return new(c) TableComprehension(location, endLocation, key, value, forComp);
+					return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
 				}
 			}
 
@@ -2671,18 +2673,18 @@ struct Parser
 		}
 
 		auto endLocation = l.expect(terminator).loc;
-		return new(c) TableCtorExp(location, endLocation, fields.toArray());
+		return new(c) TableCtorExp(c, location, endLocation, fields.toArray());
 	}
 
 	private Identifier dummyForeachIndex(CompileLoc loc)
 	{
 		dchar[50] dest;
-		return new(c) Identifier(loc, l.newString(c.thread.vm.formatter.sprint(dest, "__dummy{}", dummyNameCounter++)));
+		return new(c) Identifier(c, loc, c.newString(c.thread.vm.formatter.sprint(dest, "__dummy{}", dummyNameCounter++)));
 	}
 	
 	private Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
 		dchar[128] dest;
-		return new(c) Identifier(loc, l.newString(c.thread.vm.formatter.sprint(dest, "<literal at {}({}:{})>", loc.file, loc.line, loc.col)));
+		return new(c) Identifier(c, loc, c.newString(c.thread.vm.formatter.sprint(dest, "<literal at {}({}:{})>", loc.file, loc.line, loc.col)));
 	}
 }

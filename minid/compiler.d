@@ -32,10 +32,13 @@ import tango.io.FilePath;
 import tango.io.UnicodeFile;
 
 import minid.alloc;
+import minid.astvisitor;
 import minid.compilertypes;
 import minid.interpreter;
 import minid.lexer;
 import minid.parser;
+import minid.semantic;
+import minid.string;
 import minid.types;
 
 //debug = REGPUSHPOP;
@@ -63,6 +66,7 @@ scope class Compiler : ICompiler
 	private bool mIsLoneStmt;
 	private Lexer mLexer;
 	private Parser mParser;
+	private word mStringTab;
 
 // ================================================================================================================================================
 // Public
@@ -74,6 +78,23 @@ scope class Compiler : ICompiler
 		mFlags = flags;
 		mLexer = Lexer(this);
 		mParser = Parser(this, &mLexer);
+		
+		mStringTab = newTable(t);
+	}
+
+	~this()
+	{
+		for(auto n = mHead, next = n.next; n !is null; n = next)
+		{
+			n.cleanup(t.vm.alloc);
+			auto arr = n.toVoidArray();
+			t.vm.alloc.freeArray(arr);
+
+			next = n.next;
+		}
+
+		assert(stackSize(t) - 1 == mStringTab, "OH NO String table is not in the right place!");
+		pop(t);
 	}
 
 	public void setFlags(uint flags)
@@ -122,13 +143,22 @@ scope class Compiler : ICompiler
 	{
 		return t;
 	}
-	
+
 	public override Allocator* alloc()
 	{
 		return &t.vm.alloc;
 	}
+	
+	public override dchar[] newString(dchar[] data)
+	{
+		auto s = string.create(t.vm, data);
+		pushStringObj(t, s);
+		pushBool(t, true);
+		idxa(t, mStringTab);
+		return s.toString32();
+	}
 
-	public void tokensOf(char[] filename)
+	public void testParse(char[] filename)
 	{
 		scope path = new FilePath(filename);
 		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
@@ -138,23 +168,10 @@ scope class Compiler : ICompiler
 			delete src;
 
 		mLexer.begin(Utf.toString32(filename), src);
-	}
+		auto mod = mParser.parseModule();
 
-	public int opApply(int delegate(ref Lexer) dg)
-	{
-		while(mLexer.type != Token.EOF)
-		{
-			if(auto res = dg(mLexer))
-			{
-				mLexer.end();
-				return res;
-			}
-
-			mLexer.next();
-		}
-
-		mLexer.end();
-		return 0;
+		scope sem = new Semantic(this);
+		mod = sem.visit(mod);
 	}
 
 // ================================================================================================================================================
@@ -230,7 +247,7 @@ scope class Compiler : ICompiler
 		try
 		{
 			foreach(stmt; stmts)
-				stmt.fold().codeGen(fs);
+				visit(stmt).codeGen(fs);
 		
 			if(stmts.length == 0)
 			{
@@ -4109,13 +4126,13 @@ class ObjectDef : AstNode
 
 	public ObjectDef fold()
 	{
-		baseObject = baseObject.fold();
+		baseObject = visit(baseObject);
 
 		foreach(ref field; fields)
-			field.initializer = field.initializer.fold();
+			field.initializer = field.visit(initializer);
 
 		if(attrs)
-			attrs = attrs.fold();
+			attrs = visit(attrs);
 
 		return this;
 	}
@@ -4279,7 +4296,7 @@ class FuncDef : AstNode
 
 		return parseBody(l, location, name);
 	}
-	
+
 	/**
 	Parse a Haskell-style function literal, like "\f -> f + 1" or "\(a, b) -> a(b)".
 	*/
@@ -4591,7 +4608,7 @@ class FuncDef : AstNode
 		foreach(i, ref p; params)
 			if(p.defValue !is null)
 			{
-				p.defValue = p.defValue.fold();
+				p.defValue = p.visit(defValue);
 				
 				if(p.defValue.isConstant)
 				{
@@ -4624,10 +4641,10 @@ class FuncDef : AstNode
 				}
 			}
 
-		code = code.fold();
+		code = visit(code);
 		
 		if(attrs)
-			attrs = attrs.fold();
+			attrs = visit(attrs);
 
 		return this;
 	}
@@ -4948,13 +4965,13 @@ class NamespaceDef : AstNode
 	public NamespaceDef fold()
 	{
 		if(parent)
-			parent.fold();
+			visit(parent);
 
 		foreach(ref field; fields)
-			field.initializer = field.initializer.fold();
+			field.initializer = field.visit(initializer);
 
 		if(attrs)
-			attrs = attrs.fold();
+			attrs = visit(attrs);
 
 		return this;
 	}
@@ -5016,7 +5033,7 @@ class Module : AstNode
 
 			foreach(ref s; statements)
 			{
-				s = s.fold();
+				s = visit(s);
 				s.codeGen(fs);
 			}
 
@@ -5121,7 +5138,7 @@ class ModuleDecl : AstNode
 	public ModuleDecl fold()
 	{
 		if(attrs)
-			attrs = attrs.fold();
+			attrs = visit(attrs);
 
 		return this;
 	}
@@ -5211,7 +5228,7 @@ abstract class Statement : AstNode
 	}
 
 	public abstract void codeGen(FuncState s);
-	
+
 	public abstract Statement fold();
 }
 
@@ -5272,16 +5289,16 @@ class AssertStmt : Statement
 			auto t = new ThrowStmt(msg.location, msg);
 			auto i = new IfStmt(location, endLocation, null, c, t, null);
 			
-			i.fold().codeGen(s);
+			visit(i).codeGen(s);
 		}
 	}
 
 	public override Statement fold()
 	{
-		cond = cond.fold();
+		cond = visit(cond);
 
 		if(msg)
-			msg = msg.fold();
+			msg = visit(msg);
 
 		return this;
 	}
@@ -5479,7 +5496,7 @@ class ImportStmt : Statement
 
 	public override Statement fold()
 	{
-		expr = expr.fold();
+		expr = visit(expr);
 		
 		if(expr.isConstant() && !expr.isString())
 			throw new OldCompileException(expr.location, "Import expression must evaluate to a string");
@@ -5519,7 +5536,7 @@ class ScopeStmt : Statement
 	
 	public override Statement fold()
 	{
-		statement = statement.fold();
+		statement = visit(statement);
 		return this;
 	}
 }
@@ -5574,7 +5591,7 @@ class ExpressionStmt : Statement
 
 	public override Statement fold()
 	{
-		expr = expr.fold();
+		expr = visit(expr);
 		return this;
 	}
 }
@@ -5746,7 +5763,7 @@ class ObjectDecl : DeclStmt
 
 	public override Statement fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -5908,7 +5925,7 @@ class VarDecl : DeclStmt
 	public override VarDecl fold()
 	{
 		if(initializer)
-			initializer = initializer.fold();
+			initializer = visit(initializer);
 	
 		return this;
 	}
@@ -5985,7 +6002,7 @@ class FuncDecl : DeclStmt
 
 	public override Statement fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -6059,7 +6076,7 @@ class NamespaceDecl : DeclStmt
 
 	public override Statement fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -6106,7 +6123,7 @@ class BlockStmt : Statement
 	public override BlockStmt fold()
 	{
 		foreach(ref statement; statements)
-			statement = statement.fold();
+			statement = visit(statement);
 
 		return this;
 	}
@@ -6236,11 +6253,11 @@ class IfStmt : Statement
 
 	public override Statement fold()
 	{
-		condition = condition.fold();
-		ifBody = ifBody.fold();
+		condition = visit(condition);
+		ifBody = visit(ifBody);
 
 		if(elseBody)
-			elseBody = elseBody.fold();
+			elseBody = visit(elseBody);
 
 		if(condition.isConstant)
 		{
@@ -6391,8 +6408,8 @@ class WhileStmt : Statement
 
 	public override Statement fold()
 	{
-		condition = condition.fold();
-		code = code.fold();
+		condition = visit(condition);
+		code = visit(code);
 
 		if(condition.isConstant && !condition.isTrue)
 			return new BlockStmt(location, endLocation, null);
@@ -6482,8 +6499,8 @@ class DoWhileStmt : Statement
 
 	public override Statement fold()
 	{
-		code = code.fold();
-		condition = condition.fold();
+		code = visit(code);
+		condition = visit(condition);
 
 		if(condition.isConstant && !condition.isTrue)
 			return code;
@@ -6711,18 +6728,18 @@ class ForStmt : Statement
 		foreach(ref i; init)
 		{
 			if(i.isDecl)
-				i.decl = i.decl.fold();
+				i.decl = i.visit(decl);
 			else
-				i.init = i.init.fold();
+				i.init = i.visit(init);
 		}
 
 		if(condition)
-			condition = condition.fold();
+			condition = visit(condition);
 
 		foreach(ref inc; increment)
-			inc = inc.fold();
+			inc = visit(inc);
 
-		code = code.fold();
+		code = visit(code);
 
 		if(condition && condition.isConstant)
 		{
@@ -6856,9 +6873,9 @@ class ForNumStmt : Statement
 	
 	public override Statement fold()
 	{
-		lo = lo.fold();
-		hi = hi.fold();
-		step = step.fold();
+		lo = visit(lo);
+		hi = visit(hi);
+		step = visit(step);
 
 		if(lo.isConstant && !lo.isInt)
 			throw new OldCompileException(lo.location, "Low value of a numeric for loop must be an integer");
@@ -6875,7 +6892,7 @@ class ForNumStmt : Statement
 				throw new OldCompileException(step.location, "Step value of a numeric for loop may not be 0");
 		}
 
-		code = code.fold();
+		code = visit(code);
 		return this;
 	}
 }
@@ -7068,9 +7085,9 @@ class ForeachStmt : Statement
 	public override Statement fold()
 	{
 		foreach(ref c; container)
-			c = c.fold();
+			c = visit(c);
 
-		code = code.fold();
+		code = visit(code);
 		return this;
 	}
 }
@@ -7193,13 +7210,13 @@ class SwitchStmt : Statement
 
 	public override Statement fold()
 	{
-		condition = condition.fold();
+		condition = visit(condition);
 
 		foreach(ref c; cases)
-			c = c.fold();
+			c = visit(c);
 
 		if(caseDefault)
-			caseDefault = caseDefault.fold();
+			caseDefault = visit(caseDefault);
 
 		return this;
 	}
@@ -7292,9 +7309,9 @@ class CaseStmt : Statement
 	public override CaseStmt fold()
 	{
 		foreach(ref cond; conditions)
-			cond = cond.fold();
+			cond = visit(cond);
 
-		code = code.fold();
+		code = visit(code);
 		return this;
 	}
 }
@@ -7345,7 +7362,7 @@ class DefaultStmt : Statement
 
 	public override DefaultStmt fold()
 	{
-		code = code.fold();
+		code = visit(code);
 		return this;
 	}
 }
@@ -7506,7 +7523,7 @@ class ReturnStmt : Statement
 	public override Statement fold()
 	{
 		foreach(ref exp; exprs)
-			exp = exp.fold();
+			exp = visit(exp);
 
 		return this;
 	}
@@ -7680,13 +7697,13 @@ class TryStmt : Statement
 
 	public override Statement fold()
 	{
-		tryBody = tryBody.fold();
+		tryBody = visit(tryBody);
 
 		if(catchBody)
-			catchBody = catchBody.fold();
+			catchBody = visit(catchBody);
 
 		if(finallyBody)
-			finallyBody = finallyBody.fold();
+			finallyBody = visit(finallyBody);
 
 		return this;
 	}
@@ -7734,7 +7751,7 @@ class ThrowStmt : Statement
 
 	public override Statement fold()
 	{
-		exp = exp.fold();
+		exp = visit(exp);
 		return this;
 	}
 }
@@ -8158,9 +8175,9 @@ class Assign : Expression
 	public override Expression fold()
 	{
 		foreach(ref exp; lhs)
-			exp = exp.fold();
+			exp = visit(exp);
 
-		rhs = rhs.fold();
+		rhs = visit(rhs);
 		return this;
 	}
 }
@@ -8275,8 +8292,8 @@ class OpEqExp : Expression
 
 	public override Expression fold()
 	{
-		lhs = lhs.fold();
-		rhs = rhs.fold();
+		lhs = visit(lhs);
+		rhs = visit(rhs);
 
 		return this;
 	}
@@ -8333,8 +8350,8 @@ class CatEqExp : Expression
 
 	public override Expression fold()
 	{
-		lhs = lhs.fold();
-		rhs = rhs.fold();
+		lhs = visit(lhs);
+		rhs = visit(rhs);
 
 		auto catExp = cast(CatExp)rhs;
 
@@ -8394,7 +8411,7 @@ class IncExp : Expression
 
 	public override Expression fold()
 	{
-		exp = exp.fold();
+		exp = visit(exp);
 		return this;
 	}
 }
@@ -8439,7 +8456,7 @@ class DecExp : Expression
 
 	public override Expression fold()
 	{
-		exp = exp.fold();
+		exp = visit(exp);
 		return this;
 	}
 }
@@ -8568,9 +8585,9 @@ class CondExp : Expression
 	
 	public override Expression fold()
 	{
-		cond = cond.fold();
-		op1 = op1.fold();
-		op2 = op2.fold();
+		cond = visit(cond);
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(cond.isConstant)
 		{
@@ -8718,8 +8735,8 @@ class OrOrExp : BinaryExp
 	
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant)
 		{
@@ -8815,8 +8832,8 @@ class AndAndExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant)
 		{
@@ -8868,8 +8885,8 @@ class OrExp : BinaryExp
 	
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -8921,8 +8938,8 @@ class XorExp : BinaryExp
 	
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 		
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -8974,8 +8991,8 @@ class AndExp : BinaryExp
 	
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9088,8 +9105,8 @@ class EqualExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 		
 		bool isTrue = type == AstTag.EqualExp || type == AstTag.IsExp;
 		
@@ -9272,8 +9289,8 @@ class CmpExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9362,8 +9379,8 @@ class Cmp3Exp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9446,8 +9463,8 @@ class ShiftExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9526,8 +9543,8 @@ class AddExp : BinaryExp
 	
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9591,8 +9608,8 @@ class CatExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		assert(collapsed is false, "repeated CatExp fold");
 		collapsed = true;
@@ -9707,8 +9724,8 @@ class MulExp : BinaryExp
 
 	public override Expression fold()
 	{
-		op1 = op1.fold();
-		op2 = op2.fold();
+		op1 = visit(op1);
+		op2 = visit(op2);
 
 		if(op1.isConstant && op2.isConstant)
 		{
@@ -9871,7 +9888,7 @@ class NegExp : UnExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(op.isConstant)
 		{
@@ -9914,7 +9931,7 @@ class NotExp : UnExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(op.isConstant)
 			return new BoolExp(location, !op.isTrue);
@@ -9969,7 +9986,7 @@ class ComExp : UnExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(op.isConstant)
 		{
@@ -10006,7 +10023,7 @@ class LengthExp : UnExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(op.isConstant)
 		{
@@ -10071,7 +10088,7 @@ class CoroutineExp : UnExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 		return this;
 	}
 }
@@ -10339,8 +10356,8 @@ class DotExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
-		name = name.fold();
+		op = visit(op);
+		name = visit(name);
 		
 		if(name.isConstant && !name.isString)
 			throw new OldCompileException(name.location, "Field name must be a string");
@@ -10379,7 +10396,7 @@ class DotSuperExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 		return this;
 	}
 }
@@ -10478,13 +10495,13 @@ class MethodCallExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(context)
-			context = context.fold();
+			context = visit(context);
 
 		foreach(ref arg; args)
-			arg = arg.fold();
+			arg = visit(arg);
 
 		return this;
 	}
@@ -10561,13 +10578,13 @@ class CallExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
+		op = visit(op);
 
 		if(context)
-			context = context.fold();
+			context = visit(context);
 
 		foreach(ref arg; args)
-			arg = arg.fold();
+			arg = visit(arg);
 
 		return this;
 	}
@@ -10603,8 +10620,8 @@ class IndexExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
-		index = index.fold();
+		op = visit(op);
+		index = visit(index);
 
 		if(op.isConstant && index.isConstant)
 		{
@@ -10660,14 +10677,14 @@ class VargIndexExp : PostfixExp
 
 	public override Expression fold()
 	{
-		index = index.fold();
+		index = visit(index);
 
 		if(index.isConstant && !index.isInt)
 			throw new OldCompileException(index.location, "index of a vararg indexing must be an integer");
 
 		return this;
 	}
-	
+
 	public override bool isLHS()
 	{
 		return true;
@@ -10684,7 +10701,7 @@ class SliceExp : PostfixExp
 	This member will therefore never be null.
 	*/
 	public Expression loIndex;
-	
+
 	/**
 	The high index of the slice.  If no high index is given, this will be a NullExp.
 	This member will therefore never be null.
@@ -10699,7 +10716,7 @@ class SliceExp : PostfixExp
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		uint reg = s.nextRegister();
@@ -10710,9 +10727,9 @@ class SliceExp : PostfixExp
 
 	public override Expression fold()
 	{
-		op = op.fold();
-		loIndex = loIndex.fold();
-		hiIndex = hiIndex.fold();
+		op = visit(op);
+		loIndex = visit(loIndex);
+		hiIndex = visit(hiIndex);
 
 		if(op.isConstant && loIndex.isConstant && hiIndex.isConstant)
 		{
@@ -10781,8 +10798,8 @@ class VargSliceExp : PostfixExp
 
 	public override Expression fold()
 	{
-		loIndex = loIndex.fold();
-		hiIndex = hiIndex.fold();
+		loIndex = visit(loIndex);
+		hiIndex = visit(hiIndex);
 		
 		if(loIndex.isConstant && !(loIndex.isNull || loIndex.isInt))
 			throw new OldCompileException(loIndex.location, "low index of vararg slice must be null or int");
@@ -11172,7 +11189,7 @@ class CharExp : PrimaryExp
 		with(l.expect(Token.CharLiteral))
 			return new CharExp(location, intValue);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		s.pushChar(value);
@@ -11435,7 +11452,7 @@ class FuncLiteralExp : PrimaryExp
 
 	public override FuncLiteralExp fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -11473,7 +11490,7 @@ class ObjectLiteralExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -11540,7 +11557,7 @@ class ParenExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		exp = exp.fold();
+		exp = visit(exp);
 		
 		if(exp.isMultRet())
 			return this;
@@ -11714,13 +11731,13 @@ class ForeachComprehension : ForComprehension
 	public override ForComprehension fold()
 	{
 		foreach(ref exp; container)
-			exp = exp.fold();
+			exp = visit(exp);
 
 		if(ifComp)
-			ifComp = ifComp.fold();
+			ifComp = visit(ifComp);
 
 		if(forComp)
-			forComp = forComp.fold();
+			forComp = visit(forComp);
 
 		return this;
 	}
@@ -11794,17 +11811,17 @@ class ForNumComprehension : ForComprehension
 	
 	public override ForComprehension fold()
 	{
-		lo = lo.fold();
-		hi = hi.fold();
+		lo = visit(lo);
+		hi = visit(hi);
 		
 		if(step)
-			step = step.fold();
+			step = visit(step);
 			
 		if(ifComp)
-			ifComp = ifComp.fold();
+			ifComp = visit(ifComp);
 
 		if(forComp)
-			forComp = forComp.fold();
+			forComp = visit(forComp);
 			
 		return this;
 	}
@@ -11846,7 +11863,7 @@ class IfComprehension : AstNode
 	
 	public IfComprehension fold()
 	{
-		condition = condition.fold();
+		condition = visit(condition);
 		return this;
 	}
 }
@@ -12178,7 +12195,7 @@ class ArrayCtorExp : PrimaryExp
 	public override Expression fold()
 	{
 		foreach(ref value; values)
-			value = value.fold();
+			value = visit(value);
 
 		return this;
 	}
@@ -12267,7 +12284,7 @@ class ArrayComprehension : PrimaryExp
 	public override Expression fold()
 	{
 		exp = exp.fold;
-		forComp = forComp.fold();
+		forComp = visit(forComp);
 		
 		return this;
 	}
@@ -12356,9 +12373,9 @@ class TableComprehension : PrimaryExp
 	
 	public override Expression fold()
 	{
-		key = key.fold();
-		value = value.fold();
-		forComp = forComp.fold();
+		key = visit(key);
+		value = visit(value);
+		forComp = visit(forComp);
 		
 		return this;
 	}
@@ -12398,7 +12415,7 @@ class NamespaceCtorExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		def = def.fold();
+		def = visit(def);
 		return this;
 	}
 }
@@ -12438,7 +12455,7 @@ class YieldExp : PrimaryExp
 		auto endLocation = l.expect(Token.RParen).location;
 		return new YieldExp(location, endLocation, args);
 	}
-	
+
 	public override void codeGen(FuncState s)
 	{
 		uint firstReg = s.nextRegister();
@@ -12466,7 +12483,7 @@ class YieldExp : PrimaryExp
 	public override Expression fold()
 	{
 		foreach(ref arg; args)
-			arg = arg.fold();
+			arg = visit(arg);
 
 		return this;
 	}
@@ -12569,13 +12586,13 @@ class SuperCallExp : PrimaryExp
 
 	public override Expression fold()
 	{
-		method = method.fold();
+		method = visit(method);
 
 		if(method.isConstant && !method.isString)
 			throw new OldCompileException(method.location, "Method name must be a string");
 
 		foreach(ref arg; args)
-			arg = arg.fold();
+			arg = visit(arg);
 
 		return this;
 	}

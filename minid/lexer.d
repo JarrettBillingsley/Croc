@@ -30,8 +30,6 @@ import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
 import minid.compilertypes;
-import minid.interpreter;
-import minid.string;
 import minid.types;
 import minid.utils;
 
@@ -302,7 +300,6 @@ struct Token
 struct Lexer
 {
 	private ICompiler mCompiler;
-	private word mStringTab;
 	private CompileLoc mLoc;
 	private dchar[] mSource;
 	private bool mIsJSON;
@@ -330,8 +327,6 @@ struct Lexer
 
 	public void begin(dchar[] name, dchar[] source, bool isJSON = false)
 	{
-		mStringTab = newTable(mCompiler.thread);
-
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
 		mIsJSON = isJSON;
@@ -348,12 +343,6 @@ struct Lexer
 				nextChar();
 
 		next();
-	}
-
-	public void end()
-	{
-		assert(stackSize(mCompiler.thread) - 1 == mStringTab, "OH NO String table is not in the right place!");
-		pop(mCompiler.thread);
 	}
 
 	public Token* tok()
@@ -438,19 +427,6 @@ struct Lexer
 		}
 		else
 			nextToken();
-	}
-
-// ================================================================================================================================================
-// Package
-// ================================================================================================================================================
-
-	package dchar[] newString(dchar[] data)
-	{
-		auto s = string.create(mCompiler.thread.vm, data);
-		pushStringObj(mCompiler.thread, s);
-		pushBool(mCompiler.thread, true);
-		idxa(mCompiler.thread, mStringTab);
-		return s.toString32();
 	}
 
 // ================================================================================================================================================
@@ -772,7 +748,7 @@ struct Lexer
 		else
 		{
 			try
-				fret = Float.toFloat(Utf.toString(buf[0 .. i]));
+				fret = Float.toFloat(buf[0 .. i]);
 			catch(IllegalArgumentException e)
 				mCompiler.exception(beginning, "Invalid floating point literal");
 
@@ -949,8 +925,12 @@ struct Lexer
 
 		// Skip end quote
 		nextChar();
+		
+		auto arr = buf.toArray();
+		auto ret = mCompiler.newString(arr);
+		mCompiler.alloc.freeArray(arr);
 
-		return newString(buf.toArray());
+		return ret;
 	}
 
 	private dchar readCharLiteral()
@@ -1443,7 +1423,7 @@ struct Lexer
 						else
 						{
 							mTok.type = Token.Ident;
-							mTok.stringValue = newString(s);
+							mTok.stringValue = mCompiler.newString(s);
 						}
 
 						return;

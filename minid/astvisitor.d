@@ -23,3 +23,279 @@ subject to the following restrictions:
 
 module minid.astvisitor;
 
+import minid.ast;
+import minid.compilertypes;
+
+template returnType(char[] tag)
+{
+	static if(is(typeof(mixin(tag)) : Statement))
+		alias Statement returnType;
+	else static if(is(typeof(mixin(tag)) : Expression))
+		alias Expression returnType;
+	else
+		alias AstNode returnType;
+}
+
+char[] generateVisitMethods()
+{
+	char[] ret;
+
+	foreach(tag; AstTagNames)
+		ret ~= "public returnType!(\"" ~ tag ~ "\") visit(" ~ tag ~ " node){ throw new Exception(\"no visit method implemented for AST node '" ~ tag ~ "'\"); }\n";
+
+	return ret;
+}
+
+char[] generateDispatchFunctions()
+{
+	char[] ret;
+
+	foreach(tag; AstTagNames)
+		ret ~= "public static returnType!(\"" ~ tag ~ "\") visit" ~ tag ~ "(Visitor visitor, " ~ tag ~ " c) { return visitor.visit(c); }\n";
+
+	return ret;
+}
+
+char[] generateDispatchTable()
+{
+	char[] ret = "private static const void*[] dispatchTable = [";
+
+	foreach(tag; AstTagNames)
+		ret ~= "cast(void*)&visit" ~ tag ~ ",\n";
+
+	return ret[0 .. $ - 2] ~ "];"; // slice away last ",\n"
+}
+
+abstract class Visitor
+{
+	mixin(generateVisitMethods());
+	mixin(generateDispatchFunctions());
+	mixin(generateDispatchTable());
+	static assert(dispatchTable.length == AstTagNames.length, "vtable length doesn't match number of AST tags");
+
+	protected ICompiler c;
+
+	public this(ICompiler c)
+	{
+		this.c = c;
+	}
+
+	public final Statement visit(Statement n)
+	{
+		return visitS(n);
+	}
+
+	public final Expression visit(Expression n)
+	{
+		return visitE(n);
+	}
+
+	public final AstNode visit(AstNode n)
+	{
+		return visitN(n);
+	}
+
+	public final Statement visitS(Statement n)
+	{
+		return cast(Statement)cast(void*)dispatch(n);
+	}
+
+	public final Expression visitE(Expression n)
+	{
+		return cast(Expression)cast(void*)dispatch(n);
+	}
+
+	public final AstNode visitN(AstNode n)
+	{
+		return dispatch(n);
+	}
+	
+	protected final AstNode function(Visitor, AstNode) getDispatchFunction()(AstNode n)
+	{
+		return cast(AstNode function(Visitor, AstNode))dispatchTable[n.type];
+	}
+
+	protected final AstNode dispatch(AstNode n)
+	{
+		return getDispatchFunction(n)(this, n);
+	}
+}
+
+char[] generateIdentityVisitMethods()
+{
+	char[] ret;
+
+	foreach(tag; AstTagNames)
+		ret ~= "public override returnType!(\"" ~ tag ~ "\") visit(" ~ tag ~ " node){ return node; }\n";
+
+	return ret;
+}
+
+abstract class IdentityVisitor : Visitor
+{
+	mixin(generateIdentityVisitMethods());
+	
+	public this(ICompiler c)
+	{
+		super(c);
+	}
+}
+
+debug class TestVisitor : Visitor
+{
+	import tango.io.Stdout;
+
+	public this(ICompiler c)
+	{
+		super(c);
+	}
+
+	alias Visitor.visit visit;
+
+	public override Module visit(Module m)
+	{
+		visit(m.modDecl);
+
+		foreach(stmt; m.statements)
+			visit(stmt);
+
+		return m;
+	}
+	
+	public override ModuleDecl visit(ModuleDecl m)
+	{
+		if(m.attrs)
+			visitAttrs(m.attrs);
+			
+		Stdout("module ");
+
+		bool first = true;
+
+		foreach(name; m.names)
+		{
+			if(first)
+				first = false;
+			else
+				Stdout(".");
+				
+			Stdout(name);
+		}
+		
+		Stdout.newline;
+		
+		return m;
+	}
+	
+	public override ExpressionStmt visit(ExpressionStmt s)
+	{
+		visit(s.expr);
+		Stdout.newline;
+		return s;
+	}
+	
+	public override CallExp visit(CallExp e)
+	{
+		visit(e.op);
+		Stdout("(");
+		
+		if(e.context)
+		{
+			Stdout("with ");
+			visit(e.context);
+			
+			if(e.args.length > 0)
+				Stdout(", ");
+		}
+		
+		bool first = true;
+		
+		foreach(arg; e.args)
+		{
+			if(first)
+				first = false;
+			else
+				Stdout(",");
+			
+			visit(arg);
+		}
+		
+		Stdout(")");
+		return e;
+	}
+	
+	public override IdentExp visit(IdentExp e)
+	{
+		visit(e.name);
+		return e;
+	}
+	
+	public override Identifier visit(Identifier i)
+	{
+		Stdout(i.name);
+		return i;
+	}
+	
+	public override IntExp visit(IntExp e)
+	{
+		Stdout(e.value);
+		return e;
+	}
+
+	public override StringExp visit(StringExp e)
+	{
+		Stdout("\"");
+
+		foreach(c; e.value)
+		{
+			if(c < ' ')
+				Stdout("\\x{:x2}", c);
+			else if(c > 0x7f)
+				Stdout("\\U{:X8}", c);
+			else
+				Stdout(c);
+		}
+
+		Stdout("\"");
+
+		return e;
+	}
+	
+	public override VarDecl visit(VarDecl d)
+	{
+		if(d.protection == Protection.Local)
+			Stdout("local ");
+		else if(d.protection == Protection.Global)
+			Stdout("global ");
+		else
+			Stdout("??? ");
+			
+		bool first = true;
+		
+		foreach(name; d.names)
+		{
+			if(first)
+				first = false;
+			else
+				Stdout(", ");
+
+			visit(name);
+		}
+
+		if(d.initializer)
+		{
+			Stdout(" = ");
+			visit(d.initializer);
+		}
+		
+		return d;
+	}
+
+	public TableCtorExp visitAttrs(TableCtorExp attrs)
+	{
+		Stdout("</").newline;
+		visit(attrs);
+		Stdout("/>").newline;
+
+		return attrs;
+	}
+}
