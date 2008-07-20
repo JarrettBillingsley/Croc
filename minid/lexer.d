@@ -287,8 +287,6 @@ struct Token
 			default:
 				return false;
 		}
-
-		assert(false);
 	}
 	
 	public dchar[] typeString()

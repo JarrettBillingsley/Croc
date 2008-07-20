@@ -84,13 +84,15 @@ scope class Compiler : ICompiler
 
 	~this()
 	{
-		for(auto n = mHead, next = n.next; n !is null; n = next)
+		for(auto n = mHead; n !is null; )
 		{
+			auto next = n.next;
+
 			n.cleanup(t.vm.alloc);
 			auto arr = n.toVoidArray();
 			t.vm.alloc.freeArray(arr);
 
-			next = n.next;
+			n = next;
 		}
 
 		assert(stackSize(t) - 1 == mStringTab, "OH NO String table is not in the right place!");

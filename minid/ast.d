@@ -142,6 +142,8 @@ const char[][] AstTagNames =
 	"YieldExp",
 	"SuperCallExp",
 	"RawNamespaceExp",
+	"InternalArrayComp",
+	"InternalTableComp",
 
 	"ForeachComprehension",
 	"ForNumComprehension",
@@ -1001,7 +1003,7 @@ class IfStmt : Statement
 	the value of the condition.  In the code "if(local x = y < z){}", this corresponds
 	to "x".  This member may be null, in which case there is no variable there.
 	*/
-	public Identifier condVar;
+	public IdentExp condVar;
 	
 	/**
 	The condition to test.
@@ -1021,7 +1023,7 @@ class IfStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier condVar, Expression condition, Statement ifBody, Statement elseBody)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, IdentExp condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(c, location, endLocation, AstTag.IfStmt);
 
@@ -1042,7 +1044,7 @@ class WhileStmt : Statement
 	the value of the condition.  In the code "while(local x = y < z){}", this corresponds
 	to "x".  This member may be null, in which case there is no variable there.
 	*/
-	public Identifier condVar;
+	public IdentExp condVar;
 	
 	/**
 	The condition to test.
@@ -1056,7 +1058,7 @@ class WhileStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier condVar, Expression condition, Statement code)
+	public this(ICompiler c, CompileLoc location, IdentExp condVar, Expression condition, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.WhileStmt);
 
@@ -3142,6 +3144,38 @@ class RawNamespaceExp : PrimaryExp
 		this.name = name;
 		this.parent = parent;
 		this.attrs = attrs;
+	}
+}
+
+/**
+An internal AST node that is what TableComprehensions get transformed into during the semantic pass.
+*/
+class InternalTableComp : PrimaryExp
+{
+	/**
+	*/
+	public Statement loop;
+
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement loop)
+	{
+		super(c, location, endLocation, AstTag.InternalTableComp);
+		this.loop = loop;
+	}
+}
+
+/**
+An internal AST node that is what ArrayComprehensions get transformed into during the semantic pass.
+*/
+class InternalArrayComp : PrimaryExp
+{
+	/**
+	*/
+	public Statement loop;
+
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement loop)
+	{
+		super(c, location, endLocation, AstTag.InternalArrayComp);
+		this.loop = loop;
 	}
 }
 

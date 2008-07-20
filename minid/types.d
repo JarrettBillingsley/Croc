@@ -244,8 +244,6 @@ align(1) struct MDValue
 
 			default: assert(false);
 		}
-
-		assert(false);
 	}
 
 	package static MDValue nullValue = { type : Type.Null, mInt : 0 };
@@ -295,8 +293,6 @@ align(1) struct MDValue
 			case Type.Char: return this.mChar == other.mChar;
 			default: return (this.mBaseObj is other.mBaseObj);
 		}
-		
-		assert(false);
 	}
 	
 	package bool isFalse()
@@ -413,10 +409,8 @@ align(1) struct MDValue
 			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
 			default: assert(false);
 		}
-		
-		assert(false);
 	}
-	
+
 	hash_t toHash()
 	{
 		switch(type)
@@ -429,8 +423,6 @@ align(1) struct MDValue
 			case Type.String: return mString.hash;
 			default:          return cast(hash_t)cast(void*)mBaseObj;
 		}
-
-		assert(false);
 	}
 }
 

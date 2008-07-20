@@ -37,10 +37,10 @@ void main()
 
 	{
 		scope c = new Compiler(t);
-		c.testParse(`samples\simple.md`);
+		c.testParse(`samples/simple.md`);
 		memSize = bytesAllocated(vm);
 	}
-	
+
 	Stdout.formatln("Compilation used {} bytes of non-GC'ed memory", memSize - bytesAllocated(vm));
 
 // 	// This is all stdlib crap!
@@ -52,7 +52,7 @@ void main()
 // 	newGlobal(t, "microTime");
 // 	Timer.init(t);
 //
-// 		auto funcReg = loadFunc(t, `samples\simple.md`);
+// 		auto funcReg = loadFunc(t, `samples/simple.md`);
 // 		pushNull(t);
 // 		rawCall(t, funcReg, 0);
 

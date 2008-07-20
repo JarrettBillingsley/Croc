@@ -56,7 +56,7 @@ struct Parser
 		with(l.expect(Token.Ident))
 			return stringValue;
 	}
-	
+
 	/**
 	*/
 	public Identifier parseIdentifier()
@@ -1125,12 +1125,12 @@ struct Parser
 		auto location = l.expect(Token.If).loc;
 		l.expect(Token.LParen);
 
-		Identifier condVar;
+		IdentExp condVar;
 
 		if(l.type == Token.Local)
 		{
 			l.next();
-			condVar = parseIdentifier();
+			condVar = parseIdentExp();
 			l.expect(Token.Assign);
 		}
 
@@ -1397,12 +1397,12 @@ struct Parser
 		auto location = l.expect(Token.While).loc;
 		l.expect(Token.LParen);
 
-		Identifier condVar;
+		IdentExp condVar;
 
 		if(l.type == Token.Local)
 		{
 			l.next();
-			condVar = parseIdentifier();
+			condVar = parseIdentExp();
 			l.expect(Token.Assign);
 		}
 
@@ -1531,8 +1531,6 @@ struct Parser
 			~ makeCase("DefaultEq", "CondAssignStmt") ~
 			"default: assert(false, \"OpEqExp parse switch\");"
 		"}");
-
-		assert(false);
 	}
 
 	/**
@@ -2473,8 +2471,6 @@ struct Parser
 					return exp;
 			}
 		}
-		
-		assert(false);
 	}
 	
 	/**
@@ -2678,13 +2674,17 @@ struct Parser
 
 	private Identifier dummyForeachIndex(CompileLoc loc)
 	{
-		dchar[50] dest;
-		return new(c) Identifier(c, loc, c.newString(c.thread.vm.formatter.sprint(dest, "__dummy{}", dummyNameCounter++)));
+		pushFormat(c.thread, "__dummy{}", dummyNameCounter++);
+		auto str = c.newString(getString(c.thread, -1));
+		pop(c.thread);
+		return new(c) Identifier(c, loc, str);
 	}
 	
 	private Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
-		dchar[128] dest;
-		return new(c) Identifier(c, loc, c.newString(c.thread.vm.formatter.sprint(dest, "<literal at {}({}:{})>", loc.file, loc.line, loc.col)));
+		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);
+		auto str = c.newString(getString(c.thread, -1));
+		pop(c.thread);
+		return new(c) Identifier(c, loc, str);
 	}
 }

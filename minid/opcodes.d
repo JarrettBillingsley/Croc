@@ -395,8 +395,6 @@ align(1) struct Instruction
 			case Op.Yield:           return Format.convert("yield r{}, {}, {}", rd, rs, rt);
 			default:                 return Format.convert("??? opcode = {}", opcode);
 		}
-		
-		assert(false);
 	}
 	
 	private const bool SerializeAsChunk = true;

@@ -24,8 +24,8 @@ subject to the following restrictions:
 module minid.baselib;
 
 import Integer = tango.text.convert.Integer;
+import tango.io.Buffer;
 import tango.io.Console;
-import tango.io.GrowBuffer;
 import tango.io.Print;
 import tango.io.Stdout;
 import tango.stdc.ctype;
@@ -498,13 +498,13 @@ static:
 
 		if(isInt(t, 1))
 		{
-			char style = 'd';
+			dchar[1] style = "d";
 
 			if(numParams > 1)
-				style = getChar(t, 2);
+				style[0] = getChar(t, 2);
 
 			dchar[80] buffer = void;
-			pushString(t, Integer.format(buffer, getInt(t, 1), cast(Integer.Style)style)); // TODO: make this safe
+			pushString(t, Integer.format(buffer, getInt(t, 1), style)); // TODO: make this safe
 		}
 		else
 			pushToString(t, 1);

@@ -26,6 +26,7 @@ module minid.semantic;
 import minid.ast;
 import minid.astvisitor;
 import minid.compilertypes;
+import minid.interpreter;
 import minid.types;
 import minid.utils;
 
@@ -115,6 +116,19 @@ class Semantic : IdentityVisitor
 
 		if(d.attrs)
 			d.attrs = visit(d.attrs);
+
+		scope defaults = new List!(Statement)(c.alloc);
+
+		foreach(ref p; d.params)
+			if(p.defValue !is null)
+				defaults ~= new(c) CondAssignStmt(c, p.name.location, p.name.location, new(c) IdentExp(c, p.name), p.defValue);
+
+		if(defaults.length > 0)
+		{
+			defaults ~= d.code;
+			auto arr = defaults.toArray();
+			d.code = new(c) BlockStmt(c, arr[0].location, arr[$ - 1].endLocation, arr);
+		}
 
 		return d;
 	}
@@ -223,6 +237,13 @@ class Semantic : IdentityVisitor
 
 		if(s.msg)
 			s.msg = visit(s.msg);
+		else
+		{
+			pushFormat(c.thread, "Assertion failure at {}({}:{})", s.location.file, s.location.line, s.location.col);
+			auto str = c.newString(getString(c.thread, -1));
+			pop(c.thread);
+			s.msg = new(c) StringExp(c, s.location, str);
+		}
 
 		return s;
 	}
@@ -318,11 +339,23 @@ class Semantic : IdentityVisitor
 		if(s.condition.isConstant)
 		{
 			if(s.condition.isTrue)
-				return s.ifBody;
+			{
+				if(s.condVar is null)
+					return new(c) ScopeStmt(c, s.ifBody);
+
+				scope names = new List!(Identifier)(c.alloc);
+				names ~= s.condVar.name;
+
+				scope temp = new List!(Statement)(c.alloc);
+				temp ~= new(c) VarDecl(c, s.condVar.location, s.condVar.endLocation, Protection.Local, names.toArray(), s.condition);
+				temp ~= s.ifBody;
+
+				return new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, temp.toArray()));
+			}
 			else
 			{
 				if(s.elseBody)
-					return s.elseBody;
+					return new(c) ScopeStmt(c, s.elseBody);
 				else
 					return new(c) BlockStmt(c, s.location, s.endLocation, null);
 			}
@@ -330,7 +363,7 @@ class Semantic : IdentityVisitor
 
 		return s;
 	}
-	
+
 	public override Statement visit(WhileStmt s)
 	{
 		s.condition = visit(s.condition);
@@ -728,7 +761,7 @@ class Semantic : IdentityVisitor
 				case AstTag.LEExp: return new(c) BoolExp(c, e.location, cmpVal <= 0);
 				case AstTag.GTExp: return new(c) BoolExp(c, e.location, cmpVal > 0);
 				case AstTag.GEExp: return new(c) BoolExp(c, e.location, cmpVal >= 0);
-				default: assert(false, "CmpExp fold");
+				default: assert(false, "BaseCmpExp fold");
 			}
 		}
 
@@ -847,14 +880,16 @@ class Semantic : IdentityVisitor
 	
 	public override Expression visit(CatExp e)
 	{
+		if(e.collapsed)
+			return e;
+			
+		e.collapsed = true;
+
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
 
 		// Collapse
 		{
-			assert(e.collapsed is false, "repeated CatExp fold");
-			e.collapsed = true;
-
 			scope tmp = new List!(Expression)(c.alloc);
 
 			if(auto l = e.op1.as!(CatExp))
@@ -1270,6 +1305,8 @@ class Semantic : IdentityVisitor
 
 		foreach(ref arg; e.args)
 			arg = visit(arg);
+
+		// TODO: look at this?  change the way codegen is done?
 
 		return e;
 	}

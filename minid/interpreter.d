@@ -2415,8 +2415,6 @@ public bool hasField(MDThread* t, word obj, dchar[] fieldName)
 		default:
 			return false;
 	}
-
-	assert(false);
 }
 
 /**
@@ -2931,8 +2929,6 @@ private word typeString(MDThread* t, MDValue* v)
 
 		default: assert(false);
 	}
-
-	assert(false);
 }
 
 private MDValue* lookupGlobal(MDString* name, MDNamespace* env)
@@ -3034,8 +3030,6 @@ private word toStringImpl(MDThread* t, MDValue v, bool raw)
 				default: assert(false);
 			}
 	}
-
-	assert(false);
 }
 
 private bool inImpl(MDThread* t, MDValue* item, MDValue* container)
@@ -3087,8 +3081,6 @@ private bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 			pop(t);
 			return ret;
 	}
-	
-	assert(false);
 }
 
 private void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
@@ -4300,8 +4292,6 @@ private MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MD
 		default:
 			return getMethod(t, v.type, name);
 	}
-
-	assert(false);
 }
 
 private MDFunction* getMM(MDThread* t, MDValue* obj, MM method)
@@ -4328,8 +4318,6 @@ private MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* pr
 		default:
 			return getMethod(t, obj.type, name);
 	}
-
-	assert(false);
 }
 
 private MDFunction* getMethod(MDObject* obj, MDString* name, out MDObject* proto)
@@ -4467,8 +4455,6 @@ private bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword num
 			*func = method;
 			return callPrologue2(t, method, slot, numReturns, slot + 1, numParams, proto);
 	}
-
-	assert(false);
 }
 
 private bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
