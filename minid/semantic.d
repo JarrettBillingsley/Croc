@@ -1064,7 +1064,8 @@ class Semantic : IdentityVisitor
 			case AstTag.NotIsExp:    auto old = e.as!(NotIsExp);    return new(c) IsExp(c, e.location, e.endLocation, old.op1, old.op2);
 			case AstTag.InExp:       auto old = e.as!(InExp);       return new(c) NotInExp(c, e.location, e.endLocation, old.op1, old.op2);
 			case AstTag.NotInExp:    auto old = e.as!(NotInExp);    return new(c) InExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotExp:      return e.op;
+
+			// TODO: what about multiple 'not's?  "!!x"
 
 			default:
 				break;
@@ -1316,16 +1317,175 @@ class Semantic : IdentityVisitor
 		e.key = visit(e.key);
 		e.value = visit(e.value);
 		e.forComp = visitForComp(e.forComp);
-		return e;
+
+		/*
+		Rewrite:
+		
+		x = {[v] = k for k, v in y if v < 10}
+
+		as:
+
+		x = (function()
+		{
+			local __temp = {}
+
+			foreach(k, v; y)
+				if(v < 10)
+					__temp[v] = k
+
+			return __temp
+		})()
+		*/
+
+		// (function()
+		scope funcBody = new List!(Statement)(c.alloc);
+
+		{
+			auto __temp = new(c) Identifier(c, e.location, c.newString("__temp"));
+
+			// local __temp = {}
+			{
+				scope dummy = new List!(Identifier)(c.alloc);
+				dummy ~= __temp;
+				auto init = new(c) TableCtorExp(c, e.location, e.endLocation, null);
+				funcBody ~= new(c) VarDecl(c, e.location, e.endLocation, Protection.Local, dummy.toArray(), init);
+			}
+
+			// foreach(i; y)
+			//     if(i < 10)
+			//         __temp[v] = k
+			{
+				scope dummy = new List!(Expression)(c.alloc);
+				dummy ~= new(c) IndexExp(c, e.endLocation, new(c) IdentExp(c, __temp), e.key);
+				auto idxa = new(c) AssignStmt(c, e.location, e.endLocation, dummy.toArray(), e.value);
+				funcBody ~= rewriteForComp(e.forComp, idxa);
+			}
+
+
+			// return __temp
+			{
+				scope dummy = new List!(Expression)(c.alloc);
+				dummy ~= new(c) IdentExp(c, __temp);
+				funcBody ~= new(c) ReturnStmt(c, e.location, e.location, dummy.toArray());
+			}
+		}
+
+		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
+		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("table")(e.location), null, false, _body);
+		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
+		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
 	}
 
-	public override ArrayComprehension visit(ArrayComprehension e)
+	public override Expression visit(ArrayComprehension e)
 	{
 		e.exp = visit(e.exp);
 		e.forComp = visitForComp(e.forComp);
-		return e;
+
+		/*
+		Rewrite:
+		
+		x = [i for i in y if i < 10]
+		
+		as:
+
+		x = (function()
+		{
+			local __temp = []
+
+			foreach(i; y)
+				if(i < 10)
+					append __temp, i
+
+			return __temp
+		})()
+		*/
+
+		// (function()
+		scope funcBody = new List!(Statement)(c.alloc);
+
+		{
+			auto __temp = new(c) Identifier(c, e.location, c.newString("__temp"));
+
+			// local __temp = []
+			{
+				scope dummy = new List!(Identifier)(c.alloc);
+				dummy ~= __temp;
+				auto init = new(c) ArrayCtorExp(c, e.location, e.endLocation, null);
+				funcBody ~= new(c) VarDecl(c, e.location, e.endLocation, Protection.Local, dummy.toArray(), init);
+			}
+
+			// append __temp, i
+			auto append = new(c) AppendStmt(c, e.location, __temp, e.exp);
+
+			// foreach(i; y)
+			//     if(i < 10)
+			funcBody ~= rewriteForComp(e.forComp, append);
+
+			// return __temp
+			{
+				scope dummy = new List!(Expression)(c.alloc);
+				dummy ~= new(c) IdentExp(c, __temp);
+				funcBody ~= new(c) ReturnStmt(c, e.location, e.location, dummy.toArray());
+			}
+		}
+
+		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
+		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("array")(e.location), null, false, _body);
+		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
+		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
+	}
+
+	private Statement rewriteForComp(ForComprehension e, Statement inner)
+	{
+		if(auto x = e.as!(ForeachComprehension))
+			return rewrite(x, inner);
+		else
+		{
+			auto x = e.as!(ForNumComprehension);
+			assert(x !is null);
+			return rewrite(x, inner);
+		}
+	}
+
+	private Statement rewrite(ForeachComprehension e, Statement inner)
+	{
+		if(e.ifComp)
+		{
+			if(e.forComp)
+				inner = rewrite(e.ifComp, rewriteForComp(e.forComp, inner));
+			else
+				inner = rewrite(e.ifComp, inner);
+		}
+		else if(e.forComp)
+			inner = rewriteForComp(e.forComp, inner);
+
+		auto indices = e.indices;
+		auto cont = e.container;
+		e.indices = null;
+		e.container = null;
+		return new(c) ForeachStmt(c, e.location, indices, cont, inner);
+	}
+
+	private Statement rewrite(ForNumComprehension e, Statement inner)
+	{
+		if(e.ifComp)
+		{
+			if(e.forComp)
+				inner = rewrite(e.ifComp, rewriteForComp(e.forComp, inner));
+			else
+				inner = rewrite(e.ifComp, inner);
+		}
+		else if(e.forComp)
+			inner = rewriteForComp(e.forComp, inner);
+
+		return new(c) ForNumStmt(c, e.location, e.index, e.lo, e.hi, e.step, inner);
 	}
 	
+	private Statement rewrite(IfComprehension e, Statement inner)
+	{
+		return new(c) IfStmt(c, e.location, e.endLocation, null, e.condition, inner, null);
+	}
+
 	public ForComprehension visitForComp(ForComprehension e)
 	{
 		if(auto x = e.as!(ForeachComprehension))
@@ -1373,5 +1533,13 @@ class Semantic : IdentityVisitor
 	{
 		e.condition = visit(e.condition);
 		return e;
+	}
+
+	package Identifier dummyComprehensionName(dchar[] type)(CompileLoc loc)
+	{
+		pushFormat(c.thread, "<" ~ type ~ " comprehension at {}({}:{})>", loc.file, loc.line, loc.col);
+		auto str = c.newString(getString(c.thread, -1));
+		pop(c.thread);
+		return new(c) Identifier(c, loc, str);
 	}
 }

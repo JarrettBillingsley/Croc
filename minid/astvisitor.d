@@ -431,4 +431,108 @@ debug class TestVisitor : Visitor
 		
 		return s;
 	}
+	
+	public override Expression visit(ArrayCtorExp e)
+	{
+		Stdout("[");
+		
+		foreach(f; e.values)
+			visit(f);
+			
+		Stdout("]");
+
+		return e;
+	}
+	
+	public override Statement visit(ForeachStmt s)
+	{
+		Stdout("foreach(");
+		visit(s.indices[0]);
+
+		foreach(idx; s.indices[1 .. $])
+		{
+			Stdout(", ");
+			visit(idx);
+		}
+
+		Stdout("; ");
+		visit(s.container[0]);
+
+		foreach(con; s.container[1 .. $])
+		{
+			Stdout(", ");
+			visit(con);
+		}
+
+		Stdout(")");
+		visit(s.code);
+		return s;
+	}
+
+	public override Statement visit(IfStmt s)
+	{
+		Stdout("if(");
+
+		if(s.condVar)
+		{
+			Stdout("local ");
+			visit(s.condVar);
+			Stdout(" = ");
+		}
+
+		visit(s.condition);
+		Stdout(")");
+		visit(s.ifBody);
+
+		if(s.elseBody)
+		{
+			Stdout("else");
+			visit(s.elseBody);
+		}
+		
+		return s;
+	}
+	
+	public override Expression visit(LTExp e)
+	{
+		visit(e.op1);
+		Stdout(" < ");
+		visit(e.op2);
+		return e;
+	}
+	
+	public override Statement visit(AppendStmt s)
+	{
+		Stdout("append ");
+		visit(s.arrayName);
+		Stdout(", ");
+		visit(s.value);
+		return s;
+	}
+	
+	public override Expression visit(TableCtorExp e)
+	{
+		Stdout("{");
+		
+		foreach(ref f; e.fields)
+		{
+			Stdout("[");
+			visit(f.key);
+			Stdout("] = ");
+			visit(f.value);
+			Stdout(",");
+		}
+		
+		Stdout("}");
+		return e;
+	}
+	
+	public override Expression visit(IndexExp e)
+	{
+		visit(e.op);
+		Stdout("[");
+		visit(e.index);
+		Stdout("]");
+		return e;	
+	}
 }

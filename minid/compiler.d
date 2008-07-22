@@ -174,9 +174,9 @@ scope class Compiler : ICompiler
 
 		scope sem = new Semantic(this);
 		mod = sem.visit(mod);
-		
-		scope test = new TestVisitor(this);
-		test.visit(mod);
+
+		//scope test = new TestVisitor(this);
+		//test.visit(mod);
 	}
 
 // ================================================================================================================================================

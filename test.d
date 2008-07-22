@@ -32,7 +32,7 @@ void main()
 
 	auto vm = new MDVM;
 	auto t = openVM(vm);
-	
+
 	uword memSize;
 
 	{
@@ -52,7 +52,7 @@ void main()
 // 	newGlobal(t, "microTime");
 // 	Timer.init(t);
 //
-// 		auto funcReg = loadFunc(t, `samples/simple.md`);
+// 		auto funcReg = loadFunc(t, `samples/speed.md`);
 // 		pushNull(t);
 // 		rawCall(t, funcReg, 0);
 

@@ -2759,7 +2759,7 @@ package word push(MDThread* t, ref MDValue val)
 // Stack manipulation
 private void checkNumParams(MDThread* t, uword n)
 {
-	assert(t.stackIndex > t.stackBase, (printStack(t), printCallStack(t), "fail."));
+	debug assert(t.stackIndex > t.stackBase, (printStack(t), printCallStack(t), "fail."));
 
 	// Don'_t count 'this'
 	if((stackSize(t) - 1) < n)

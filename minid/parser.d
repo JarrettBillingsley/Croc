@@ -2679,7 +2679,7 @@ struct Parser
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);
 	}
-	
+
 	private Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);

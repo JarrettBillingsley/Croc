@@ -82,6 +82,7 @@ const char[][] AstTagNames =
 	"IncStmt",
 	"DecStmt",
 	"FuncEnvStmt",
+	"AppendStmt",
 
 	"CondExp",
 	"OrOrExp",
@@ -142,8 +143,6 @@ const char[][] AstTagNames =
 	"YieldExp",
 	"SuperCallExp",
 	"RawNamespaceExp",
-	"InternalArrayComp",
-	"InternalTableComp",
 
 	"ForeachComprehension",
 	"ForNumComprehension",
@@ -1776,6 +1775,31 @@ class FuncEnvStmt : Statement
 }
 
 /**
+This node is an internal node used when rewriting array comprehensions.  It is used to append the
+values of the comprehension onto the array being built, and differs from a CatAssignStmt in that
+arrays will be appended as single elements, rather than having their elements concatenated.
+*/
+class AppendStmt : Statement
+{
+	/**
+	*/
+	public Identifier arrayName;
+
+	/**
+	*/
+	public Expression value;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, Identifier arrayName, Expression value)
+	{
+		super(c, location, location, AstTag.AppendStmt);
+		this.arrayName = arrayName;
+		this.value = value;
+	}
+}
+
+/**
 The base class for all expressions.
 */
 abstract class Expression : AstNode
@@ -3144,38 +3168,6 @@ class RawNamespaceExp : PrimaryExp
 		this.name = name;
 		this.parent = parent;
 		this.attrs = attrs;
-	}
-}
-
-/**
-An internal AST node that is what TableComprehensions get transformed into during the semantic pass.
-*/
-class InternalTableComp : PrimaryExp
-{
-	/**
-	*/
-	public Statement loop;
-
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement loop)
-	{
-		super(c, location, endLocation, AstTag.InternalTableComp);
-		this.loop = loop;
-	}
-}
-
-/**
-An internal AST node that is what ArrayComprehensions get transformed into during the semantic pass.
-*/
-class InternalArrayComp : PrimaryExp
-{
-	/**
-	*/
-	public Statement loop;
-
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement loop)
-	{
-		super(c, location, endLocation, AstTag.InternalArrayComp);
-		this.loop = loop;
 	}
 }
 
