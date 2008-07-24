@@ -2438,17 +2438,32 @@ public bool hasMethod(MDThread* t, word obj, dchar[] methodName)
 	return method !is null;
 }
 
+/**
+Pushes the environment namespace of a function closure.
+
+Params:
+	func = The stack index of the function whose environment is to be retrieved.
+	
+Returns:
+	The stack index of the newly-pushed environment namespace.
+*/
 public word getFuncEnv(MDThread* t, word func)
 {
 	if(auto f = getFunction(t, func))
 		return pushNamespace(t, f.environment);
-	
+
 	pushTypeString(t, func);
 	throwException(t, "getFuncEnv - Expected 'function', not '{}'", getString(t, -1));
-	
+
 	assert(false);
 }
 
+/**
+Sets the namespace at the top of the stack as the environment namespace of a function closure.
+
+Params:
+	func = The stack index of the function whose environment is to be set.
+*/
 public void setFuncEnv(MDThread* t, word func)
 {
 	checkNumParams(t, 1);
@@ -2460,18 +2475,27 @@ public void setFuncEnv(MDThread* t, word func)
 		pushTypeString(t, -1);
 		throwException(t, "setFuncEnv - Expected 'namespace' for environment, not '{}'", getString(t, -1));
 	}
-	
+
 	auto f = getFunction(t, func);
-	
+
 	if(f is null)
 	{
 		pushTypeString(t, -1);
 		throwException(t, "setFuncEnv - Expected 'function', not '{}'", getString(t, -1));
 	}
-	
+
 	f.environment = ns;
 }
 
+/**
+Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
+
+Params:
+	slot = The stack index of the thread to be reset.  It must be in the 'dead' state.
+	newFunction = If true, a function should be on top of the stack which should serve as the new body of the
+		coroutine.  The default is false, in which case the coroutine will use the function with which it was
+		created.
+*/
 public void resetThread(MDThread* t, word slot, bool newFunction = false)
 {
 	if(state(t) != MDThread.State.Dead)
@@ -2513,6 +2537,41 @@ public void resetThread(MDThread* t, word slot, bool newFunction = false)
 
 version(MDRestrictedCoro) {} else
 {
+	/**
+	Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
+	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
+	extended mode, it will always work.
+	
+	You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
+	a VM.
+	
+	This function works very similarly to the call functions.  You push the values that you want to yield on the stack,
+	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
+	resumed with, and that many values will be on the stack.
+
+	Example:
+-----
+// Let's translate `x = yield(5, "hi")` into API calls.
+
+// 1. Push the values to be yielded.
+pushInt(t, 5);
+pushString(t, "hi");
+
+// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
+yield(t, 2, 1);
+
+// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
+// stack is back the way it was when we started.
+setGlobal(t, "x");
+-----
+
+	Params:
+		numVals = The number of values that you are yielding.  These values should be on top of the stack, in order.
+		numReturns = The number of return values you are expecting, or -1 for as many returns as you can get.
+
+	Returns:
+		How many values were returned.  If numReturns was >= 0, this is the same as numReturns.
+	*/
 	public uword yield(MDThread* t, uword numVals, word numReturns)
 	{
 		checkNumParams(t, numVals);
@@ -2672,6 +2731,14 @@ package word pushNamespace(MDThread* t, MDNamespace* o)
 	return push(t, MDValue(o));
 }
 
+package word pushFuncDef(MDThread* t, MDFuncDef* o)
+{
+	MDValue v;
+	v.type = MDValue.Type.FuncDef;
+	v.mBaseObj = cast(MDBaseObject*)o;
+	return push(t, v);
+}
+
 package MDString* getStringObj(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
@@ -2738,6 +2805,16 @@ package MDNativeObj* getNative(MDThread* t, word slot)
 
 	if(v.type == MDValue.Type.NativeObj)
 		return v.mNativeObj;
+	else
+		return null;
+}
+
+package MDFuncDef* getFuncDef(MDThread* t, word slot)
+{
+	auto v = &t.stack[fakeToAbs(t, slot)];
+
+	if(v.type == MDValue.Type.FuncDef)
+		return cast(MDFuncDef*)v.mBaseObj;
 	else
 		return null;
 }

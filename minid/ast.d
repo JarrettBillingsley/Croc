@@ -83,6 +83,7 @@ const char[][] AstTagNames =
 	"DecStmt",
 	"FuncEnvStmt",
 	"AppendStmt",
+	"TypecheckStmt",
 
 	"CondExp",
 	"OrOrExp",
@@ -141,7 +142,6 @@ const char[][] AstTagNames =
 	"ArrayCtorExp",
 	"NamespaceCtorExp",
 	"YieldExp",
-	"SuperCallExp",
 	"RawNamespaceExp",
 
 	"ForeachComprehension",
@@ -274,7 +274,6 @@ const char[][] NiceAstTagNames =
 	AstTag.ArrayCtorExp:         "array constructor expression",
 	AstTag.NamespaceCtorExp:     "namespace constructor expression",
 	AstTag.YieldExp:             "yield expression",
-	AstTag.SuperCallExp:         "super call expression",
 
 	AstTag.ForeachComprehension: "'foreach' comprehension",
 	AstTag.ForNumComprehension:  "numeric 'for' comprehension",
@@ -547,7 +546,19 @@ class FuncDef : AstNode
 	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
 	{
 		super(c, location, code.endLocation, AstTag.FuncDef);
-		this.params = params;
+		
+		if(params.length == 0)
+		{
+			scope dummy = new List!(Param)(c.alloc);
+			dummy ~= Param(new(c) Identifier(c, location, c.newString("this")));
+			this.params = dummy.toArray();
+		}
+		else
+		{
+			assert(params[0].name.name == "this");
+			this.params = params;
+		}
+
 		this.isVararg = isVararg;
 		this.code = code;
 		this.name = name;
@@ -1299,24 +1310,27 @@ This node represents a single case statement within a switch statement.
 */
 class CaseStmt : Statement
 {
+	struct CaseCond
+	{
+		Expression exp;
+		uint dynJump;
+	}
+
 	/**
 	The list of values which will cause execution to jump to this case.  In the code
 	"case 1, 2, 3:" this corresponds to "1, 2, 3".  This will always be at least one element
 	long.
 	*/
-	public Expression[] conditions;
-	
+	public CaseCond[] conditions;
+
 	/**
 	The code of the case statement.
 	*/
 	public Statement code;
 
-// 	protected List!(InstRef*) mDynJumps;
-// 	protected List!(int*) mConstJumps;
-
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] conditions, Statement code)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Statement code)
 	{
 		super(c, location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
@@ -1783,7 +1797,7 @@ class AppendStmt : Statement
 {
 	/**
 	*/
-	public Identifier arrayName;
+	public IdentExp arrayName;
 
 	/**
 	*/
@@ -1791,11 +1805,29 @@ class AppendStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier arrayName, Expression value)
+	public this(ICompiler c, CompileLoc location, IdentExp arrayName, Expression value)
 	{
 		super(c, location, location, AstTag.AppendStmt);
 		this.arrayName = arrayName;
 		this.value = value;
+	}
+}
+
+/**
+This node is an internal node inserted in function bodies if parameter type checking is enabled.
+*/
+class TypecheckStmt : Statement
+{
+	/**
+	*/
+	public FuncDef def;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, FuncDef def)
+	{
+		super(c, location, location, AstTag.TypecheckStmt);
+		this.def = def;
 	}
 }
 
@@ -2523,24 +2555,35 @@ This class corresponds to a method call in either form (a.f() or a.("f")()).
 class MethodCallExp : PostfixExp
 {
 	/**
+	*/
+	public Expression method;
+
+	/**
 	The context to be used when calling the method.  This corresponds to 'x' in
 	the expression "a.f(with x)".  If this member is null, there is no custom
 	context and the context will be determined automatically.
 	*/
 	public Expression context;
-	
+
 	/**
 	The list of argument to pass to the method.  This can have 0 or more elements.
 	*/
 	public Expression[] args;
 
 	/**
+	If this member is true, 'op' will be null (and will be interpreted as a "this").
 	*/
-	public this(ICompiler c, CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
+	public bool isSuperCall;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression context, Expression[] args, bool isSuperCall)
 	{
-		super(c, operand.location, endLocation, AstTag.MethodCallExp, operand);
+		super(c, location, endLocation, AstTag.MethodCallExp, operand);
+		this.method = method;
 		this.context = context;
 		this.args = args;
+		this.isSuperCall = isSuperCall;
 	}
 	
 	public override bool hasSideEffects()
@@ -3082,47 +3125,6 @@ class YieldExp : PrimaryExp
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] args)
 	{
 		super(c, location, endLocation, AstTag.YieldExp);
-		this.args = args;
-	}
-
-	public bool hasSideEffects()
-	{
-		return true;
-	}
-
-	public bool isMultRet()
-	{
-		return true;
-	}
-	
-	override void cleanup(ref Allocator alloc)
-	{
-		alloc.freeArray(args);
-	}
-}
-
-/**
-This node represents a super call exp, such as "super.f()" or "super.("f")()"
-(the former is sugar for the latter).
-*/
-class SuperCallExp : PrimaryExp
-{
-	/**
-	The method name.  This can be any expression as long as it evaluates to a string.
-	*/
-	public Expression method;
-	
-	/**
-	The arguments to pass to the function.
-	*/
-	public Expression[] args;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression method, Expression[] args)
-	{
-		super(c, location, endLocation, AstTag.SuperCallExp);
-		this.method = method;
 		this.args = args;
 	}
 

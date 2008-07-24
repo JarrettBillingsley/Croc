@@ -41,7 +41,7 @@ static:
 		f.environment = env;
 		f.name = def.name;
 		f.numUpvals = def.numUpvals;
-	
+
 		f.scriptFunc = def;
 		f.scriptUpvals()[] = null;
 

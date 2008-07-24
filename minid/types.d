@@ -105,31 +105,6 @@ class MDException : Exception
 }
 
 /**
-An exception type representing a compilation error.  The message will be in the form "filename(line:column):
-error message".  Again, you can't directly instantiate this exception type.
-*/
-final class MDCompileException : MDException
-{
-	/**
-	Indicates whether the compiler threw this at the end of the file or not.  If this is
-	true, this might be because the compiler ran out of input, in which case the code could
-	be made to compile by adding more code.
-	*/
-	public bool atEOF = false;
-	
-	/**
-	Indicates whether the compiler threw this because of a statement that consisted of a no-effect expression.
-	If true, the code might be able to be compiled and evaluated as an expression.
-	*/
-	public bool solitaryExpression = false;
-
-	package this(char[] msg)
-	{
-		super(msg);
-	}
-}
-
-/**
 This is a semi-internal exception type.  Normally you won't need to know about it or catch it.  This is
 thrown when a coroutine (thread) needs to be halted.  It should never propagate out of the coroutine.
 The only time you might encounter it is if, in the middle of a native MiniD function, one of these
@@ -631,17 +606,17 @@ align(1) struct MDNativeObj
 
 align(1) struct Location
 {
+	public MDString* file;
 	// yes, these are 32 bits
 	package int line = 1;
-	package int column = 1;
-	public MDString* fileName;
+	package int col = 1;
 
-	public static Location opCall(MDString* fileName, int line = 1, int column = 1)
+	public static Location opCall(MDString* file, int line = 1, int col = 1)
 	{
-		Location l;
-		l.fileName = fileName;
+		Location l = void;
+		l.file = file;
 		l.line = line;
-		l.column = column;
+		l.col = col;
 		return l;
 	}
 

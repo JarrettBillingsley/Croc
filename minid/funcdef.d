@@ -135,164 +135,164 @@ static:
 		}
 	}
 
-	package void serialize(MDFuncDef* fd, IWriter s)
-	{
-		Serialize(s, fd.location.line);
-		Serialize(s, fd.location.column);
-		Serialize(s, fd.location.fileName.toString32());
-
-		Serialize(s, fd.isVararg);
-		Serialize(s, fd.name.toString32());
-		Serialize(s, fd.numParams);
-		Serialize(s, fd.paramMasks);
-		Serialize(s, fd.numUpvals);
-		Serialize(s, fd.stackSize);
-		
-		Serialize(s, fd.constants.length);
-
-		foreach(ref c; fd.constants)
-			serialize(&c, s);
-
-		Serialize(s, fd.code);
-		// TODO: isPure
-		Serialize(s, fd.lineInfo);
-
-		Serialize(s, fd.upvalNames.length);
-
-		foreach(name; fd.upvalNames)
-			Serialize(s, name.toString32());
-
-		Serialize(s, fd.locVarDescs.length);
-
-		foreach(ref desc; fd.locVarDescs)
-		{
-			Serialize(s, desc.name.toString32());
-			Serialize(s, desc.pcStart);
-			Serialize(s, desc.pcEnd);
-			Serialize(s, desc.reg);
-		}
-
-		Serialize(s, fd.switchTables.length);
-
-		foreach(ref st; fd.switchTables)
-		{
-			Serialize(s, st.offsets.length);
-
-			foreach(ref k, v; st.offsets)
-			{
-				serialize(&k, s);
-				Serialize(s, v);
-			}
-
-			Serialize(s, st.defaultOffset);
-		}
-		
-		Serialize(s, fd.innerFuncs.length);
-		
-		foreach(inner; fd.innerFuncs)
-			funcdef.serialize(inner, s);
-	}
-
-	package MDFuncDef* deserialize(MDVM* vm, IReader s)
-	{
-		auto ret = funcdef.create(vm.alloc);
-
-		Deserialize(s, ret.location.line);
-		Deserialize(s, ret.location.column);
-
-		// TODO: change this
-		dchar[] str;
-		Deserialize(s, str);
-		ret.location.fileName = string.create(vm, str);
-
-		Deserialize(s, ret.isVararg);
-
-		// TODO: and this
-		Deserialize(s, str);
-		ret.name = string.create(vm, str);
-
-		Deserialize(s, ret.numParams);
-		
-		// TODO: and this
-		uword len;
-		Deserialize(s, len);
-		ret.paramMasks = vm.alloc.allocArray!(uword)(len);
-		s.buffer.readExact(ret.paramMasks.ptr, ret.paramMasks.length * uword.sizeof);
-
-		Deserialize(s, ret.numUpvals);
-		Deserialize(s, ret.stackSize);
-
-		Deserialize(s, len);
-		ret.constants = vm.alloc.allocArray!(MDValue)(len);
-
-		foreach(ref c; ret.constants)
-			deserialize(vm, &c, s);
-
-		// TODO: and this
-		Deserialize(s, len);
-		ret.code = vm.alloc.allocArray!(Instruction)(len);
-		s.buffer.readExact(ret.code.ptr, ret.code.length * Instruction.sizeof);
-
-		// TODO: isPure
-
-		Deserialize(s, len);
-		ret.lineInfo = vm.alloc.allocArray!(uword)(len);
-		s.buffer.readExact(ret.lineInfo.ptr, ret.lineInfo.length * uword.sizeof);
-
-		// TODO: and this
-		Deserialize(s, len);
-		ret.upvalNames = vm.alloc.allocArray!(MDString*)(len);
-
-		foreach(ref name; ret.upvalNames)
-		{
-			// TODO: and this
-			Deserialize(s, str);
-			name = string.create(vm, str);
-		}
-		
-		// TODO: and this
-		Deserialize(s, len);
-		ret.locVarDescs = vm.alloc.allocArray!(MDFuncDef.LocVarDesc)(len);
-
-		foreach(ref desc; ret.locVarDescs)
-		{
-			// TODO: and this
-			Deserialize(s, str);
-			desc.name = string.create(vm, str);
-
-			Deserialize(s, desc.pcStart);
-			Deserialize(s, desc.pcEnd);
-			Deserialize(s, desc.reg);
-		}
-
-		Deserialize(s, len);
-		ret.switchTables = vm.alloc.allocArray!(MDFuncDef.SwitchTable)(len);
-
-		foreach(ref st; ret.switchTables)
-		{
-			Deserialize(s, len);
-
-			for(uword i = 0; i < len; i++)
-			{
-				MDValue key;
-				word value;
-
-				deserialize(vm, &key, s);
-				Deserialize(s, value);
-
-				*st.offsets.insert(vm.alloc, key) = value;
-			}
-
-			Deserialize(s, st.defaultOffset);
-		}
-
-		// TODO: aaaaand this.
-		Deserialize(s, len);
-		ret.innerFuncs = vm.alloc.allocArray!(MDFuncDef*)(len);
-
-		foreach(ref inner; ret.innerFuncs)
-			inner = funcdef.deserialize(vm, s);
-
-		return ret;
-	}
+// 	package void serialize(MDFuncDef* fd, IWriter s)
+// 	{
+// 		Serialize(s, fd.location.line);
+// 		Serialize(s, fd.location.col);
+// 		Serialize(s, fd.location.file.toString32());
+// 
+// 		Serialize(s, fd.isVararg);
+// 		Serialize(s, fd.name.toString32());
+// 		Serialize(s, fd.numParams);
+// 		Serialize(s, fd.paramMasks);
+// 		Serialize(s, fd.numUpvals);
+// 		Serialize(s, fd.stackSize);
+// 		
+// 		Serialize(s, fd.constants.length);
+// 
+// 		foreach(ref c; fd.constants)
+// 			serialize(&c, s);
+// 
+// 		Serialize(s, fd.code);
+// 		// TODO: isPure
+// 		Serialize(s, fd.lineInfo);
+// 
+// 		Serialize(s, fd.upvalNames.length);
+// 
+// 		foreach(name; fd.upvalNames)
+// 			Serialize(s, name.toString32());
+// 
+// 		Serialize(s, fd.locVarDescs.length);
+// 
+// 		foreach(ref desc; fd.locVarDescs)
+// 		{
+// 			Serialize(s, desc.name.toString32());
+// 			Serialize(s, desc.pcStart);
+// 			Serialize(s, desc.pcEnd);
+// 			Serialize(s, desc.reg);
+// 		}
+// 
+// 		Serialize(s, fd.switchTables.length);
+// 
+// 		foreach(ref st; fd.switchTables)
+// 		{
+// 			Serialize(s, st.offsets.length);
+// 
+// 			foreach(ref k, v; st.offsets)
+// 			{
+// 				serialize(&k, s);
+// 				Serialize(s, v);
+// 			}
+// 
+// 			Serialize(s, st.defaultOffset);
+// 		}
+// 		
+// 		Serialize(s, fd.innerFuncs.length);
+// 		
+// 		foreach(inner; fd.innerFuncs)
+// 			funcdef.serialize(inner, s);
+// 	}
+// 
+// 	package MDFuncDef* deserialize(MDVM* vm, IReader s)
+// 	{
+// 		auto ret = funcdef.create(vm.alloc);
+// 
+// 		Deserialize(s, ret.location.line);
+// 		Deserialize(s, ret.location.col);
+// 
+// 		// TODO: change this
+// 		dchar[] str;
+// 		Deserialize(s, str);
+// 		ret.location.file = string.create(vm, str);
+// 
+// 		Deserialize(s, ret.isVararg);
+// 
+// 		// TODO: and this
+// 		Deserialize(s, str);
+// 		ret.name = string.create(vm, str);
+// 
+// 		Deserialize(s, ret.numParams);
+// 		
+// 		// TODO: and this
+// 		uword len;
+// 		Deserialize(s, len);
+// 		ret.paramMasks = vm.alloc.allocArray!(uword)(len);
+// 		s.buffer.readExact(ret.paramMasks.ptr, ret.paramMasks.length * uword.sizeof);
+// 
+// 		Deserialize(s, ret.numUpvals);
+// 		Deserialize(s, ret.stackSize);
+// 
+// 		Deserialize(s, len);
+// 		ret.constants = vm.alloc.allocArray!(MDValue)(len);
+// 
+// 		foreach(ref c; ret.constants)
+// 			deserialize(vm, &c, s);
+// 
+// 		// TODO: and this
+// 		Deserialize(s, len);
+// 		ret.code = vm.alloc.allocArray!(Instruction)(len);
+// 		s.buffer.readExact(ret.code.ptr, ret.code.length * Instruction.sizeof);
+// 
+// 		// TODO: isPure
+// 
+// 		Deserialize(s, len);
+// 		ret.lineInfo = vm.alloc.allocArray!(uword)(len);
+// 		s.buffer.readExact(ret.lineInfo.ptr, ret.lineInfo.length * uword.sizeof);
+// 
+// 		// TODO: and this
+// 		Deserialize(s, len);
+// 		ret.upvalNames = vm.alloc.allocArray!(MDString*)(len);
+// 
+// 		foreach(ref name; ret.upvalNames)
+// 		{
+// 			// TODO: and this
+// 			Deserialize(s, str);
+// 			name = string.create(vm, str);
+// 		}
+// 		
+// 		// TODO: and this
+// 		Deserialize(s, len);
+// 		ret.locVarDescs = vm.alloc.allocArray!(MDFuncDef.LocVarDesc)(len);
+// 
+// 		foreach(ref desc; ret.locVarDescs)
+// 		{
+// 			// TODO: and this
+// 			Deserialize(s, str);
+// 			desc.name = string.create(vm, str);
+// 
+// 			Deserialize(s, desc.pcStart);
+// 			Deserialize(s, desc.pcEnd);
+// 			Deserialize(s, desc.reg);
+// 		}
+// 
+// 		Deserialize(s, len);
+// 		ret.switchTables = vm.alloc.allocArray!(MDFuncDef.SwitchTable)(len);
+// 
+// 		foreach(ref st; ret.switchTables)
+// 		{
+// 			Deserialize(s, len);
+// 
+// 			for(uword i = 0; i < len; i++)
+// 			{
+// 				MDValue key;
+// 				word value;
+// 
+// 				deserialize(vm, &key, s);
+// 				Deserialize(s, value);
+// 
+// 				*st.offsets.insert(vm.alloc, key) = value;
+// 			}
+// 
+// 			Deserialize(s, st.defaultOffset);
+// 		}
+// 
+// 		// TODO: aaaaand this.
+// 		Deserialize(s, len);
+// 		ret.innerFuncs = vm.alloc.allocArray!(MDFuncDef*)(len);
+// 
+// 		foreach(ref inner; ret.innerFuncs)
+// 			inner = funcdef.deserialize(vm, s);
+// 
+// 		return ret;
+// 	}
 }

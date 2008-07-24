@@ -244,6 +244,7 @@ private void markObj(MDVM* vm, MDThread* o)
 		mixin(CondMark!("val"));
 	}
 
+	// this really needed?
 	o.stack[o.stackIndex .. $] = MDValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])
@@ -284,7 +285,7 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 {
 	o.marked = vm.alloc.markVal;
 
-	markObj(vm, o.location.fileName);
+	markObj(vm, o.location.file);
 	markObj(vm, o.name);
 
 	foreach(f; o.innerFuncs)

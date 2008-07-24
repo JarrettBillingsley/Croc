@@ -154,7 +154,7 @@ public void closeVM(MDVM* vm)
 	*vm = MDVM.init;
 }
 
-align(1) struct FileHeader
+/* align(1) struct FileHeader
 {
 	uint magic = FOURCC!("MinD");
 	uint _version = MiniDVersion;
@@ -196,4 +196,4 @@ public word loadFunc(MDThread* t, char[] filename)
 	Deserialize(r, name);
 	auto fd = funcdef.deserialize(t.vm, r);
 	return pushFunction(t, func.create(t.vm.alloc, t.vm.globals, fd));
-}
+} */

@@ -461,6 +461,8 @@ struct Parser
 				parseParam();
 			}
 		}
+		else
+			ret ~= thisParam;
 
 		return ret.toArray();
 	}
@@ -1298,13 +1300,14 @@ struct Parser
 	{
 		auto location = l.expect(Token.Case).loc;
 
-		scope conditions = new List!(Expression)(c.alloc);
-		conditions ~= parseExpression();
+		alias CaseStmt.CaseCond CaseCond;
+		scope conditions = new List!(CaseCond)(c.alloc);
+		conditions ~= CaseCond(parseExpression());
 
 		while(l.type == Token.Comma)
 		{
 			l.next();
-			conditions ~= parseExpression();
+			conditions ~= CaseCond(parseExpression());
 		}
 
 		l.expect(Token.Colon);
@@ -2219,7 +2222,7 @@ struct Parser
 
 	/**
 	*/
-	public SuperCallExp parseSuperCallExp()
+	public MethodCallExp parseSuperCallExp()
 	{
 		auto location = l.expect(Token.Super).loc;
 
@@ -2268,7 +2271,7 @@ struct Parser
 			endLocation = args[$ - 1].endLocation;
 		}
 
-		return new(c) SuperCallExp(c, location, endLocation, method, args);
+		return new(c) MethodCallExp(c, location, endLocation, null, method, null, args, true);
 	}
 	
 	/**
@@ -2354,8 +2357,8 @@ struct Parser
 
 					auto arr = args.toArray();
 
-					if(exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, arr[$ - 1].endLocation, exp, null, arr);
+					if(auto dot = exp.as!(DotExp))
+						exp = new(c) MethodCallExp(c, dot.location, arr[$ - 1].endLocation, dot.op, dot.name, null, arr, false);
 					else
 						exp = new(c) CallExp(c, arr[$ - 1].endLocation, exp, null, arr);
 					continue;
@@ -2386,8 +2389,8 @@ struct Parser
 
 					auto endLocation = l.expect(Token.RParen).loc;
 
-					if(exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, endLocation, exp, context, args);
+					if(auto dot = exp.as!(DotExp))
+						exp = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, context, args, false);
 					else
 						exp = new(c) CallExp(c, endLocation, exp, context, args);
 

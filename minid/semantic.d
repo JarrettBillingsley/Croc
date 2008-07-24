@@ -117,16 +117,19 @@ class Semantic : IdentityVisitor
 		if(d.attrs)
 			d.attrs = visit(d.attrs);
 
-		scope defaults = new List!(Statement)(c.alloc);
+		scope extra = new List!(Statement)(c.alloc);
 
 		foreach(ref p; d.params)
 			if(p.defValue !is null)
-				defaults ~= new(c) CondAssignStmt(c, p.name.location, p.name.location, new(c) IdentExp(c, p.name), p.defValue);
+				extra ~= new(c) CondAssignStmt(c, p.name.location, p.name.location, new(c) IdentExp(c, p.name), p.defValue);
 
-		if(defaults.length > 0)
+		if(c.typeConstraints())
+			extra ~= new(c) TypecheckStmt(c, d.code.location, d);
+
+		if(extra.length > 0)
 		{
-			defaults ~= d.code;
-			auto arr = defaults.toArray();
+			extra ~= d.code;
+			auto arr = extra.toArray();
 			d.code = new(c) BlockStmt(c, arr[0].location, arr[$ - 1].endLocation, arr);
 		}
 
@@ -200,6 +203,7 @@ class Semantic : IdentityVisitor
 	
 				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
 				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
+
 				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, null, false, innerFuncBody);
 				funcBody ~= new(c) FuncDecl(c, d.location, Protection.Local, innerFuncDef);
 			}
@@ -231,8 +235,11 @@ class Semantic : IdentityVisitor
 		return m;
 	}
 
-	public override AssertStmt visit(AssertStmt s)
+	public override Statement visit(AssertStmt s)
 	{
+		if(!c.asserts())
+			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+
 		s.cond = visit(s.cond);
 
 		if(s.msg)
@@ -245,7 +252,9 @@ class Semantic : IdentityVisitor
 			s.msg = new(c) StringExp(c, s.location, str);
 		}
 
-		return s;
+		auto cond = new(c) NotExp(c, s.cond.location, s.cond);
+		auto t = new(c) ThrowStmt(c, s.msg.location, s.msg);
+		return new(c) IfStmt(c, s.location, s.endLocation, null, cond, t, null);
 	}
 
 	public override ImportStmt visit(ImportStmt s)
@@ -273,6 +282,10 @@ class Semantic : IdentityVisitor
 	public override ObjectDecl visit(ObjectDecl d)
 	{
 		d.def = visit(d.def);
+		
+		if(d.protection == Protection.Default)
+			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
+			
 		return d;
 	}
 
@@ -287,6 +300,10 @@ class Semantic : IdentityVisitor
 	public override FuncDecl visit(FuncDecl d)
 	{
 		d.def = visit(d.def);
+		
+		if(d.protection == Protection.Default)
+			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
+
 		return d;
 	}
 
@@ -482,7 +499,7 @@ class Semantic : IdentityVisitor
 	public override CaseStmt visit(CaseStmt s)
 	{
 		foreach(ref cond; s.conditions)
-			cond = visit(cond);
+			cond.exp = visit(cond.exp);
 
 		s.code = visit(s.code);
 		return s;
@@ -548,7 +565,17 @@ class Semantic : IdentityVisitor
 	public override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
 	public override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
 	public override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
-	public override CondAssignStmt visit(CondAssignStmt s) { return visitOpAssign(s); }
+
+	public override CondAssignStmt visit(CondAssignStmt s)
+	{
+		s.lhs = visit(s.lhs);
+		s.rhs = visit(s.rhs);
+
+		if(s.rhs.isConstant() && s.rhs.isNull())
+			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+
+		return s;
+	}
 
 	public override CatAssignStmt visit(CatAssignStmt s)
 	{
@@ -882,7 +909,7 @@ class Semantic : IdentityVisitor
 	{
 		if(e.collapsed)
 			return e;
-			
+
 		e.collapsed = true;
 
 		e.op1 = visit(e.op1);
@@ -930,7 +957,7 @@ class Semantic : IdentityVisitor
 						else
 							tempStr ~= op.asChar();
 					}
-					
+
 					newOperands ~= new(c) StringExp(c, e.location, c.newString(tempStr.toArray()));
 					
 					i = j - 1;
@@ -998,7 +1025,7 @@ class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(ModExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1132,7 +1159,13 @@ class Semantic : IdentityVisitor
 	
 	public override Expression visit(MethodCallExp e)
 	{
-		e.op = visit(e.op);
+		if(e.op)
+			e.op = visit(e.op);
+			
+		e.method = visit(e.method);
+
+		if(e.method.isConstant && !e.method.isString)
+			c.exception(e.method.location, "Method name must be a string");
 
 		if(e.context)
 			e.context = visit(e.context);
@@ -1269,7 +1302,7 @@ class Semantic : IdentityVisitor
 		else
 			return e.exp;
 	}
-	
+
 	public override TableCtorExp visit(TableCtorExp e)
 	{
 		foreach(ref field; e.fields)
@@ -1297,21 +1330,6 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override SuperCallExp visit(SuperCallExp e)
-	{
-		e.method = visit(e.method);
-
-		if(e.method.isConstant && !e.method.isString)
-			c.exception(e.method.location, "Method name must be a string");
-
-		foreach(ref arg; e.args)
-			arg = visit(arg);
-
-		// TODO: look at this?  change the way codegen is done?
-
-		return e;
-	}
-
 	public override TableComprehension visit(TableComprehension e)
 	{
 		e.key = visit(e.key);
@@ -1405,6 +1423,7 @@ class Semantic : IdentityVisitor
 
 		{
 			auto __temp = new(c) Identifier(c, e.location, c.newString("__temp"));
+			auto __tempExp = new(c) IdentExp(c, __temp);
 
 			// local __temp = []
 			{
@@ -1415,7 +1434,7 @@ class Semantic : IdentityVisitor
 			}
 
 			// append __temp, i
-			auto append = new(c) AppendStmt(c, e.location, __temp, e.exp);
+			auto append = new(c) AppendStmt(c, e.location, __tempExp, e.exp);
 
 			// foreach(i; y)
 			//     if(i < 10)
@@ -1424,7 +1443,7 @@ class Semantic : IdentityVisitor
 			// return __temp
 			{
 				scope dummy = new List!(Expression)(c.alloc);
-				dummy ~= new(c) IdentExp(c, __temp);
+				dummy ~= __tempExp;
 				funcBody ~= new(c) ReturnStmt(c, e.location, e.location, dummy.toArray());
 			}
 		}

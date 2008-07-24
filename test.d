@@ -33,28 +33,28 @@ void main()
 	auto vm = new MDVM;
 	auto t = openVM(vm);
 
+	// This is all stdlib crap!
+	newNamespace(t, "array");
+	newFunction(t, &arrayToString, "array.toString");
+	fielda(t, -2, "toString");
+	setTypeMT(t, MDValue.Type.Array);
+	newFunction(t, &microTime, "microTime");
+	newGlobal(t, "microTime");
+	Timer.init(t);
+
 	uword memSize;
+	word funcReg;
 
 	{
 		scope c = new Compiler(t);
-		c.testParse(`samples/simple.md`);
+		funcReg = c.testParse(`samples/simple.md`);
 		memSize = bytesAllocated(vm);
 	}
 
 	Stdout.formatln("Compilation used {} bytes of non-GC'ed memory", memSize - bytesAllocated(vm));
 
-// 	// This is all stdlib crap!
-// 	newNamespace(t, "array");
-// 	newFunction(t, &arrayToString, "array.toString");
-// 	fielda(t, -2, "toString");
-// 	setTypeMT(t, MDValue.Type.Array);
-// 	newFunction(t, &microTime, "microTime");
-// 	newGlobal(t, "microTime");
-// 	Timer.init(t);
-//
-// 		auto funcReg = loadFunc(t, `samples/speed.md`);
-// 		pushNull(t);
-// 		rawCall(t, funcReg, 0);
+ 		pushNull(t);
+ 		rawCall(t, funcReg, 0);
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm)).flush;
 	gc(vm);

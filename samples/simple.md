@@ -1,8 +1,5 @@
 module simple
 
-local x = {[v] = k for k, v in y if v < 10}
-
-/+
 /*
 object BaseProp
 {
@@ -828,4 +825,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/
+}

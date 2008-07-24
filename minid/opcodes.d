@@ -29,7 +29,7 @@ const uint MaxRegisters = Instruction.rsMax;
 const uint MaxConstants = Instruction.rsMax;
 const uint MaxUpvalues = Instruction.rsMax;
 
-enum Op : uint
+enum Op : ushort
 {
 	Add,
 	AddEq,
@@ -145,7 +145,7 @@ CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: n/a, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Close.............I: reg start, n/a
-Closure...........R: dest, index of funcdef, attrs reg + 1 (0 means no attrs)
+Closure...........R: dest, index of funcdef, n/a
 CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
@@ -263,7 +263,7 @@ align(1) struct Instruction
 
 	const uint arraySetFields = 30;
 
-	ushort opcode;
+	Op opcode;
 	ushort rd;
 
 	union
@@ -309,7 +309,7 @@ align(1) struct Instruction
 			case Op.CheckObjParam:   return Format.convert("checkobjparm r{}, {}", rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Close:           return Format.convert("close r{}", rd);
-			case Op.Closure:         return Format.convert("closure {}, {}, {}", cr(rd), rs, rt);
+			case Op.Closure:         return Format.convert("closure {}, {}", cr(rd), rs);
 			case Op.CondMove:        return Format.convert("cmov {}, {}", cr(rd), cr(rs));
 			case Op.Coroutine:       return Format.convert("coroutine {}, {}", cr(rd), cr(rs));
 			case Op.Cmp:             return Format.convert("cmp {}, {}", cr(rs), cr(rt));
