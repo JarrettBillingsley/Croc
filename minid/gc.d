@@ -42,7 +42,7 @@ import minid.types;
 /**
 Runs the garbage collector of the VM if necessary.
 
-This will perform a garbage collection only if a sufficient number of objects have been allocated since
+This will perform a garbage collection only if a sufficient amount of memory has been allocated since
 the last collection.
 
 Params:
@@ -50,11 +50,11 @@ Params:
 */
 public void maybeGC(MDVM* vm)
 {
-	if(vm.alloc.gcCount >= vm.alloc.gcLimit)
+	if(vm.alloc.totalBytes >= vm.alloc.gcLimit)
 	{
 		gc(vm);
 
-		if(vm.alloc.gcCount > (vm.alloc.gcLimit >> 1))
+		if(vm.alloc.totalBytes > (vm.alloc.gcLimit >> 1))
 			vm.alloc.gcLimit <<= 1;
 	}
 }
@@ -285,31 +285,51 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 {
 	o.marked = vm.alloc.markVal;
 
-	markObj(vm, o.location.file);
-	markObj(vm, o.name);
+	if(o.location.file)
+		markObj(vm, o.location.file);
+		
+	if(o.name)
+		markObj(vm, o.name);
 
 	foreach(f; o.innerFuncs)
-		markObj(vm, f);
+		if(f)
+			markObj(vm, f);
 
 	foreach(ref val; o.constants)
 	{
-		mixin(CondMark!("val"));
+		if(val.isObject())
+		{
+			auto obj = val.toGCObject();
+
+			if(obj && obj.marked != vm.alloc.markVal)
+				markObj(vm, obj);
+		}
 	}
 
 	foreach(ref st; o.switchTables)
+	{
 		foreach(key, _; st.offsets)
 		{
-			mixin(CondMark!("key"));
+			if(key.isObject())
+			{
+				auto obj = key.toGCObject();
+
+				if(obj && obj.marked != vm.alloc.markVal)
+					markObj(vm, obj);
+			}
 		}
+	}
 
 	foreach(name; o.upvalNames)
-		markObj(vm, name);
+		if(name)
+			markObj(vm, name);
 
-	foreach(desc; o.locVarDescs)
-		markObj(vm, desc.name);
+	foreach(ref desc; o.locVarDescs)
+		if(desc.name)
+			markObj(vm, desc.name);
 
-	// Don't need to mark the cached func here, since if we're marking this func def,
-	// we must have marked its cached func (if any).
+	if(o.cachedFunc)
+		markObj(vm, o.cachedFunc);
 }
 
 // Perform the mark phase of garbage collection.

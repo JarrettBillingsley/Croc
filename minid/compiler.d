@@ -156,8 +156,8 @@ scope class Compiler : ICompiler
 		
 		scope(failure)
 		{
-			assert(stackSize(t) - 1 == mStringTab, "OH NO String table is not in the right place!");
-			pop(t);
+			if(stackSize(t) >= mStringTab + 1)
+				pop(t, stackSize(t) - mStringTab);
 		}
 
 		scope path = new FilePath(filename);

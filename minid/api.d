@@ -93,6 +93,7 @@ public MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx =
 {
 	openVMImpl(vm, memFunc, ctx);
 	BaseLib.init(vm.mainThread);
+	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return mainThread(vm);
 }
 
@@ -113,24 +114,6 @@ public void closeVM(MDVM* vm)
 	assert(vm.mainThread !is null, "Attempting to close an already-closed VM");
 
 	freeAll(vm);
-
-	debug if(vm.alloc.gcCount != 0)
-	{
-		debug(LEAK_DETECTOR)
-		{
-			for(auto obj = vm.alloc.gcHead; obj !is null; obj = obj.next)
-			{
-				auto block = vm.alloc._memBlocks.lookup(obj);
-				Stdout.formatln("Unfreed object: address 0x{:X}, length {} bytes, type {}", obj, block.len, block.ti);
-			}
-
-			foreach(ptr, block; vm.alloc._memBlocks)
-				Stdout.formatln("Unfreed block of memory: address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
-		}
-
-		throw new Exception(Format("There are {} uncollected objects!", vm.alloc.gcCount));
-	}
-
 	vm.alloc.freeArray(vm.metaTabs);
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);
@@ -154,27 +137,7 @@ public void closeVM(MDVM* vm)
 	*vm = MDVM.init;
 }
 
-/* align(1) struct FileHeader
-{
-	uint magic = FOURCC!("MinD");
-	uint _version = MiniDVersion;
-
-	version(X86_64)
-		ubyte platformBits = 64;
-	else
-		ubyte platformBits = 32;
-
-	version(BigEndian)
-		ubyte endianness = 1;
-	else
-		ubyte endianness = 0;
-
-	ubyte[6] _padding;
-
-	static const bool SerializeAsChunk = true;
-}
-
-static assert(FileHeader.sizeof == 16);
+/*
 
 import minid.misc;
 import minid.func;

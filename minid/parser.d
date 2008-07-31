@@ -472,11 +472,11 @@ struct Parser
 	Returns the type mask, as well as an optional list of object types that this
 	parameter can accept in the objectTypes parameter.
 	*/
-	public uint parseParamType(out Expression[] objectTypes)
+	public ushort parseParamType(out Expression[] objectTypes)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
-		uint ret = 0;
+		ushort ret = 0;
 		scope objTypes = new List!(Expression)(c.alloc);
 
 		void addConstraint(MDValue.Type t)

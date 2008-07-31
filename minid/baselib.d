@@ -644,9 +644,8 @@ static:
 		{
 			v = absIndex(t, v);
 
-			// TODO: this
-// 			if(s.hasPendingHalt())
-// 				throw new MDHaltException();
+			if(hasPendingHalt(t))
+				haltThread(t);
 
 			void escape(dchar c)
 			{
@@ -706,9 +705,8 @@ static:
 
 					for(uword i = 1; i < length; i++)
 					{
-						// TODO: this
-// 						if(s.hasPendingHalt())
-// 							throw new MDHaltException();
+						if(hasPendingHalt(t))
+							haltThread(t);
 
 						Stdout(", ");
 						pushInt(t, i);

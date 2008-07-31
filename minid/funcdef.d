@@ -61,82 +61,85 @@ static:
 
 		alloc.free(fd);
 	}
-
-	private void serialize(MDValue* v, IWriter s)
-	{
-		Serialize(s, v.type);
-
-		switch(v.type)
-		{
-			case MDValue.Type.Null:
-				break;
-
-			case MDValue.Type.Bool:
-				Serialize(s, v.mBool);
-				break;
-
-			case MDValue.Type.Int:
-				Serialize(s, v.mInt);
-				break;
-
-			case MDValue.Type.Float:
-				Serialize(s, v.mFloat);
-				break;
-
-			case MDValue.Type.Char:
-				Serialize(s, v.mChar);
-				break;
-
-			case MDValue.Type.String:
-				Serialize(s, v.mString.toString32());
-				break;
-
-			default:
-				assert(false, "MDValue.serialize()");
-		}
-	}
 	
-	private void deserialize(MDVM* vm, MDValue* v, IReader s)
-	{
-		Deserialize(s, v.type);
-
-		switch(v.type)
-		{
-			case MDValue.Type.Null:
-				break;
-
-			case MDValue.Type.Bool:
-				Deserialize(s, v.mBool);
-				break;
-
-			case MDValue.Type.Int:
-				int x;
-				Deserialize(s, x);
-				v.mInt = x;
-				break;
-
-			case MDValue.Type.Float:
-				Deserialize(s, v.mFloat);
-				break;
-
-			case MDValue.Type.Char:
-				Deserialize(s, v.mChar);
-				break;
-
-			case MDValue.Type.String:
-				// TODO: change this
-				dchar[] str;
-				Deserialize(s, str);
-				v.mString = string.create(vm, str);
-				break;
-
-			default:
-				assert(false, "MDValue.deserialize()");
-		}
-	}
-
+	// TODO: func def [de]serialization
+// 	private void writeString(IWriter s, MDString* str)
+// 	{
+// 		auto data = str.toString32();
+// 		s.put(data.length);
+// 		s.buffer.append(data.ptr, data.length * dchar.sizeof);
+// 	}
+// 
+// 	private MDString* readString(MDVM* vm, IReader s)
+// 	{
+// 		uword len;
+// 		s.get(len);
+// 
+// 		auto data = vm.alloc.allocArray!(dchar)(len);
+// 		scope(exit) vm.alloc.freeArray(data);
+// 
+// 		s.buffer.readExact(data.ptr, data.length * dchar.sizeof);
+// 		return string.create(vm, data);
+// 	}
+// 
+// 	private void serialize(MDValue* v, IWriter s)
+// 	{
+// 		Serialize(s, v.type);
+// 
+// 		switch(v.type)
+// 		{
+// 			case MDValue.Type.Null:   break;
+// 			case MDValue.Type.Bool:   Serialize(s, v.mBool); break;
+// 			case MDValue.Type.Int:    Serialize(s, v.mInt); break;
+// 			case MDValue.Type.Float:  Serialize(s, v.mFloat); break;
+// 			case MDValue.Type.Char:   Serialize(s, v.mChar); break;
+// 			case MDValue.Type.String: writeString(s, v.mString); break;
+// 			default: assert(false, "MDValue.serialize()");
+// 		}
+// 	}
+// 	
+// 	private void deserialize(MDVM* vm, MDValue* v, IReader s)
+// 	{
+// 		Deserialize(s, v.type);
+// 
+// 		switch(v.type)
+// 		{
+// 			case MDValue.Type.Null:   break;
+// 			case MDValue.Type.Bool:   Deserialize(s, v.mBool); break;
+// 			case MDValue.Type.Int:    Deserialize(s, v.mInt); break;
+// 			case MDValue.Type.Float:  Deserialize(s, v.mFloat); break;
+// 			case MDValue.Type.Char:   Deserialize(s, v.mChar); break;
+// 			case MDValue.Type.String: v.mString = readString(vm, s); break;
+// 			default: assert(false, "deserialize MDValue");
+// 		}
+// 	}
+// 
+// 	align(1) struct FileHeader
+// 	{
+// 		uint magic = FOURCC!("MinD");
+// 		uint _version = MiniDVersion;
+// 
+// 		version(X86_64)
+// 			ubyte platformBits = 64;
+// 		else
+// 			ubyte platformBits = 32;
+// 
+// 		version(BigEndian)
+// 			ubyte endianness = 1;
+// 		else
+// 			ubyte endianness = 0;
+// 			
+// 		ubyte intSize = mdint.sizeof;
+// 		ubyte floatSize = mdfloat.sizeof;
+// 
+// 		ubyte[4] _padding;
+// 	}
+// 	
+// 	static assert(FileHeader.sizeof == 16);
+// 
 // 	package void serialize(MDFuncDef* fd, IWriter s)
 // 	{
+// 		s.buffer.append(&FileHeader.init, FileHeader.sizeof);
 // 		Serialize(s, fd.location.line);
 // 		Serialize(s, fd.location.col);
 // 		Serialize(s, fd.location.file.toString32());
@@ -147,14 +150,14 @@ static:
 // 		Serialize(s, fd.paramMasks);
 // 		Serialize(s, fd.numUpvals);
 // 		Serialize(s, fd.stackSize);
-// 		
+// 
 // 		Serialize(s, fd.constants.length);
 // 
 // 		foreach(ref c; fd.constants)
 // 			serialize(&c, s);
 // 
 // 		Serialize(s, fd.code);
-// 		// TODO: isPure
+// 		Serialize(s, fd.isPure);
 // 		Serialize(s, fd.lineInfo);
 // 
 // 		Serialize(s, fd.upvalNames.length);
@@ -193,27 +196,25 @@ static:
 // 			funcdef.serialize(inner, s);
 // 	}
 // 
-// 	package MDFuncDef* deserialize(MDVM* vm, IReader s)
+// 	package word deserialize(MDThread* t, IReader s)
 // 	{
-// 		auto ret = funcdef.create(vm.alloc);
+// 		auto ret = funcdef.create(t.vm.alloc);
+// 		pushFuncDef(t, ret);
 // 
 // 		Deserialize(s, ret.location.line);
 // 		Deserialize(s, ret.location.col);
 // 
-// 		// TODO: change this
 // 		dchar[] str;
 // 		Deserialize(s, str);
 // 		ret.location.file = string.create(vm, str);
 // 
 // 		Deserialize(s, ret.isVararg);
 // 
-// 		// TODO: and this
 // 		Deserialize(s, str);
 // 		ret.name = string.create(vm, str);
 // 
 // 		Deserialize(s, ret.numParams);
 // 		
-// 		// TODO: and this
 // 		uword len;
 // 		Deserialize(s, len);
 // 		ret.paramMasks = vm.alloc.allocArray!(uword)(len);
@@ -228,7 +229,6 @@ static:
 // 		foreach(ref c; ret.constants)
 // 			deserialize(vm, &c, s);
 // 
-// 		// TODO: and this
 // 		Deserialize(s, len);
 // 		ret.code = vm.alloc.allocArray!(Instruction)(len);
 // 		s.buffer.readExact(ret.code.ptr, ret.code.length * Instruction.sizeof);
@@ -239,24 +239,20 @@ static:
 // 		ret.lineInfo = vm.alloc.allocArray!(uword)(len);
 // 		s.buffer.readExact(ret.lineInfo.ptr, ret.lineInfo.length * uword.sizeof);
 // 
-// 		// TODO: and this
 // 		Deserialize(s, len);
 // 		ret.upvalNames = vm.alloc.allocArray!(MDString*)(len);
 // 
 // 		foreach(ref name; ret.upvalNames)
 // 		{
-// 			// TODO: and this
 // 			Deserialize(s, str);
 // 			name = string.create(vm, str);
 // 		}
 // 		
-// 		// TODO: and this
 // 		Deserialize(s, len);
 // 		ret.locVarDescs = vm.alloc.allocArray!(MDFuncDef.LocVarDesc)(len);
 // 
 // 		foreach(ref desc; ret.locVarDescs)
 // 		{
-// 			// TODO: and this
 // 			Deserialize(s, str);
 // 			desc.name = string.create(vm, str);
 // 
@@ -286,7 +282,6 @@ static:
 // 			Deserialize(s, st.defaultOffset);
 // 		}
 // 
-// 		// TODO: aaaaand this.
 // 		Deserialize(s, len);
 // 		ret.innerFuncs = vm.alloc.allocArray!(MDFuncDef*)(len);
 // 

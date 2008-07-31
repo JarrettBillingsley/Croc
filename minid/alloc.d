@@ -83,9 +83,7 @@ align(1) struct Allocator
 
 	package GCObject* gcHead = null;
 
-	// TODO: make the GC work on thresholds of bytes, remove object counts
-	package int gcCount = 0;
-	package int gcLimit = 128;
+	package size_t gcLimit = size_t.max;
 	package bool markVal = true;
 	package size_t totalBytes = 0;
 
@@ -131,7 +129,6 @@ align(1) struct Allocator
 			OKASFPOKASMVMVmavpmasvmo();
 		}
 
-		gcCount--;
 		realloc!(T)(o, size, 0);
 	}
 
@@ -246,6 +243,5 @@ align(1) struct Allocator
 	{
 		o.next = gcHead;
 		gcHead = o;
-		gcCount++;
 	}
 }

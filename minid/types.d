@@ -167,9 +167,9 @@ package template isValidMDValueType(T)
 			is(T == MDValue*);
 }
 
-align(1) struct MDValue
+struct MDValue
 {
-	enum Type
+	enum Type : uint
 	{
 		// Value Types
 		Null,
@@ -407,12 +407,12 @@ template MDObjectMixin(uint type)
 	package MDValue.Type mType = cast(MDValue.Type)type;
 }
 
-align(1) struct MDBaseObject
+struct MDBaseObject
 {
 	mixin MDObjectMixin!(MDValue.Type.Null);
 }
 
-align(1) struct MDString
+struct MDString
 {
 	mixin MDObjectMixin!(MDValue.Type.String);
 	package uword hash;
@@ -424,13 +424,13 @@ align(1) struct MDString
 	}
 }
 
-align(1) struct MDTable
+struct MDTable
 {
 	mixin MDObjectMixin!(MDValue.Type.Table);
 	package Hash!(MDValue, MDValue) data;
 }
 
-align(1) struct MDArrayData
+struct MDArrayData
 {
 	mixin MDObjectMixin!(MDValue.Type.ArrayData);
 	package uword length;
@@ -441,7 +441,7 @@ align(1) struct MDArrayData
 	}
 }
 
-align(1) struct MDArray
+struct MDArray
 {
 	mixin MDObjectMixin!(MDValue.Type.Array);
 	package MDArrayData* data;
@@ -449,7 +449,7 @@ align(1) struct MDArray
 	package bool isSlice;
 }
 
-align(1) struct MDFunction
+struct MDFunction
 {
 	mixin MDObjectMixin!(MDValue.Type.Function);
 	package bool isNative;
@@ -477,7 +477,7 @@ align(1) struct MDFunction
 	static assert((MDFuncDef*).sizeof == NativeFunc.sizeof);
 }
 
-align(1) struct MDObject
+struct MDObject
 {
 	mixin MDObjectMixin!(MDValue.Type.Object);
 	package MDString* name;
@@ -498,7 +498,7 @@ align(1) struct MDObject
 	}
 }
 
-align(1) struct MDNamespace
+struct MDNamespace
 {
 	mixin MDObjectMixin!(MDValue.Type.Namespace);
 	package Hash!(MDString*, MDValue) data;
@@ -510,7 +510,7 @@ align(1) struct MDNamespace
 package alias uword AbsStack;
 package alias uword RelStack;
 
-align(1) struct ActRecord
+struct ActRecord
 {
 	package AbsStack base;
 	package AbsStack savedTop;
@@ -525,7 +525,7 @@ align(1) struct ActRecord
 	package uword numResults;
 }
 
-align(1) struct TryRecord
+struct TryRecord
 {
 	package bool isCatch;
 	package RelStack catchVarSlot;
@@ -533,7 +533,7 @@ align(1) struct TryRecord
 	package Instruction* pc;
 }
 
-align(1) struct MDThread
+struct MDThread
 {
 	mixin MDObjectMixin!(MDValue.Type.Thread);
 
@@ -598,13 +598,13 @@ align(1) struct MDThread
 	}
 }
 
-align(1) struct MDNativeObj
+struct MDNativeObj
 {
 	mixin MDObjectMixin!(MDValue.Type.NativeObj);
 	package Object obj;
 }
 
-align(1) struct Location
+struct Location
 {
 	public MDString* file;
 	// yes, these are 32 bits
@@ -629,7 +629,7 @@ align(1) struct Location
 // 	}
 }
 
-align(1) struct MDUpval
+struct MDUpval
 {
 	mixin MDObjectMixin!(MDValue.Type.Upvalue);
 
@@ -640,7 +640,7 @@ align(1) struct MDUpval
 }
 
 // The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
-align(1) struct MDFuncDef
+struct MDFuncDef
 {
 	mixin MDObjectMixin!(MDValue.Type.FuncDef);
 
@@ -648,7 +648,7 @@ align(1) struct MDFuncDef
 	package bool isVararg;
 	package MDString* name;
 	package uint numParams;
-	package uint[] paramMasks; // TODO: make this short
+	package ushort[] paramMasks;
 	package uint numUpvals;
 	package uint stackSize;
 	package MDFuncDef*[] innerFuncs;
@@ -658,7 +658,7 @@ align(1) struct MDFuncDef
 	package bool isPure;
 	package MDFunction* cachedFunc;
 
-	align(1) struct SwitchTable
+	struct SwitchTable
 	{
 		package Hash!(MDValue, word) offsets;
 		package int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
@@ -670,7 +670,7 @@ align(1) struct MDFuncDef
 	package uint[] lineInfo;
 	package MDString*[] upvalNames;
 
-	align(1) struct LocVarDesc
+	struct LocVarDesc
 	{
 		package MDString* name;
 		package uint pcStart;
@@ -681,7 +681,7 @@ align(1) struct MDFuncDef
 	package LocVarDesc[] locVarDescs;
 }
 
-// please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.
+// please don't this struct, it'll mess up the D GC when it tries to look inside for pointers.
 struct MDVM
 {
 	package Allocator alloc;

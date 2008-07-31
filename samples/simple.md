@@ -1,5 +1,8 @@
 module simple
 
+
+
+/+
 /*
 object BaseProp
 {
@@ -18,7 +21,6 @@ object Bah : BaseProp
 	function set(owner, value)
 		writefln("Setting bah's value to ", value, ".")
 }
-
 
 function getMethod(T, name) = name in fieldsOf(T) ? T.(name) : null
 
@@ -825,4 +827,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}
+}+/

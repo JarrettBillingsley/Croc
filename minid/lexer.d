@@ -868,7 +868,6 @@ struct Lexer
 	{
 		auto beginning = mLoc;
 
-		// TODO: hm.
 		scope buf = new List!(dchar)(mCompiler.alloc);
 		dchar delimiter = mCharacter;
 

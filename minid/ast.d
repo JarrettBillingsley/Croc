@@ -460,7 +460,7 @@ and function declarations.
 */
 class FuncDef : AstNode
 {
-	enum TypeMask
+	enum TypeMask : ushort
 	{
 		Null =      (1 << cast(uint)MDValue.Type.Null),
 		Bool =      (1 << cast(uint)MDValue.Type.Bool),
@@ -496,7 +496,7 @@ class FuncDef : AstNode
 		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
 		set to 0; the codegen does not check for this so it's up to you.
 		*/
-		uint typeMask = TypeMask.Any;
+		ushort typeMask = TypeMask.Any;
 
 		/**
 		If typeMask allows objects, this can be a list of expressions which should evaluate

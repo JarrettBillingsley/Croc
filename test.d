@@ -42,16 +42,12 @@ void main()
 	newGlobal(t, "microTime");
 	Timer.init(t);
 
-	uword memSize;
 	word funcReg;
 
 	{
 		scope c = new Compiler(t);
 		funcReg = c.testParse(`samples/simple.md`);
-		memSize = bytesAllocated(vm);
 	}
-
-	Stdout.formatln("Compilation used {} bytes of non-GC'ed memory", memSize - bytesAllocated(vm));
 
  		pushNull(t);
  		rawCall(t, funcReg, 0);

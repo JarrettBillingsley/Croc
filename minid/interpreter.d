@@ -2541,7 +2541,7 @@ version(MDRestrictedCoro) {} else
 	Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
 	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
 	extended mode, it will always work.
-	
+
 	You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
 	a VM.
 	
@@ -2605,13 +2605,126 @@ setGlobal(t, "x");
 	}
 }
 
-// TODO: thread halting
+/**
+Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
+otherwise, places a pending halt on the thread.
+*/
+public void haltThread(MDThread* t)
+{
+	if(state(t) == MDThread.State.Running)
+		throw new MDHaltException();
+	else
+		pendingHalt(t);
+}
+
+/**
+Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
+*/
+public void pendingHalt(MDThread* t)
+{
+	if(state(t) != MDThread.State.Dead && t.arIndex > 0)
+		t.shouldHalt = true;
+}
+
+/**
+Sees if the given thread has a pending halt.
+*/
+public bool hasPendingHalt(MDThread* t)
+{
+	return t.shouldHalt;
+}
+
+/**
+Gets the attributes table of the given object and pushes it onto the stack.  Pushes null if the given
+object has no attributes.  Throws an error if the object is not a function, object, or namespace.
+
+Params:
+	obj = The stack index of the object whose attributes table is to be retrieved.
+	
+Returns:
+	The stack index of the newly-pushed value (either the attributes table, or null if it has none).
+*/
+public word getAttributes(MDThread* t, word obj)
+{
+	MDTable* attrs;
+
+	if(auto f = getFunction(t, obj))
+		attrs = f.attrs;
+	else if(auto o = getObject(t, obj))
+		attrs = o.attrs;
+	else if(auto n = getNamespace(t, obj))
+		attrs = n.attrs;
+	else
+	{
+		pushTypeString(t, obj);
+		throwException(t, "Can only get attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+	}
+
+	if(attrs is null)
+		return pushNull(t);
+	else
+		return pushTable(t, attrs);
+}
+
+/**
+Pops the table off the top of the stack and sets it as the attributes table of the given object.  The
+value at the top of the stack can also be null, in which case it will remove the attributes table
+from the given object.  Throws an error if the given object is not a function, object, or namespace,
+or if the value at the top of the stack is neither a table nor null.
+
+Params:
+	obj = The stack index of the object whose attributes table is to be set.
+*/
+public void setAttributes(MDThread* t, word obj)
+{
+	checkNumParams(t, 1);
+	auto attrs = getTable(t, -1);
+
+	if(attrs is null && !isNull(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "'table' or 'null' expected for attributes, not '{}'", getString(t, -1));
+	}
+
+	if(auto f = getFunction(t, obj))
+		f.attrs = attrs;
+	else if(auto o = getObject(t, obj))
+		o.attrs = attrs;
+	else if(auto n = getNamespace(t, obj))
+		n.attrs = attrs;
+	else
+	{
+		pushTypeString(t, obj);
+		throwException(t, "Can only set attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+	}
+}
+
+/**
+Sees whether or not the given object has attributes.  Always returns false if the given object is
+not a function, object, or namespace.
+
+Params:
+	obj = The stack index of the object to test.
+	
+Returns:
+	True if the object has an attributes table; false otherwise.
+*/
+public bool hasAttributes(MDThread* t, word obj)
+{
+	if(auto f = getFunction(t, obj))
+		return f.attrs !is null;
+	else if(auto o = getObject(t, obj))
+		return o.attrs !is null;
+	else if(auto n = getNamespace(t, obj))
+		return n.attrs !is null;
+	else
+		return false;
+}
 
 // TODO: imports
 // TODO: foreach loops
 // TODO: tracebacks
-
-// TODO: get/set attrs
+// TODO: some more ops for some objects, like namespaces?  removeKey?
 // TODO: get/set finalizers for objects
 
 debug
@@ -3064,7 +3177,10 @@ private word toStringImpl(MDThread* t, MDValue v, bool raw)
 					if(f.isNative)
 						return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString32());
 					else
-						return pushFormat(t, "script {} {}({})", MDValue.typeString(MDValue.Type.Function), f.name.toString32(), /* script.func.mLocation.toString() */ "POOPY PEE!"); // TODO: this.
+					{
+						auto loc = f.scriptFunc.location;
+						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString32(), loc.file.toString32(), loc.line, loc.col);
+					}
 
 				case MDValue.Type.Object: return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Object), v.mObject.name.toString32(), cast(void*)v.mObject);
 				case MDValue.Type.Namespace:
@@ -6047,29 +6163,38 @@ private void execute(MDThread* t, uword depth = 1)
 
 				case Op.Closure:
 					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.rs];
-					auto n = func.create(t.vm.alloc, env, newDef);
-					auto upvals = n.scriptUpvals();
-					auto currentUpvals = t.currentAR.func.scriptUpvals();
 
-					for(uword index = 0; index < newDef.numUpvals; index++)
+					if(newDef.isPure)
 					{
-						assert(t.currentAR.pc.opcode == Op.Move, "invalid closure upvalue op");
+						if(newDef.cachedFunc is null)
+							newDef.cachedFunc = func.create(t.vm.alloc, env, newDef);
 
-						if(t.currentAR.pc.rd == 0)
-							upvals[index] = findUpvalue(t, t.currentAR.pc.rs);
-						else
+						*get(i.rd) = newDef.cachedFunc;
+					}
+					else
+					{
+						auto n = func.create(t.vm.alloc, env, newDef);
+						auto upvals = n.scriptUpvals();
+						auto currentUpvals = t.currentAR.func.scriptUpvals();
+
+						for(uword index = 0; index < newDef.numUpvals; index++)
 						{
-							assert(t.currentAR.pc.rd == 1, "invalid closure upvalue rd");
-							upvals[index] = currentUpvals[t.currentAR.pc.uimm];
+							assert(t.currentAR.pc.opcode == Op.Move, "invalid closure upvalue op");
+
+							if(t.currentAR.pc.rd == 0)
+								upvals[index] = findUpvalue(t, t.currentAR.pc.rs);
+							else
+							{
+								assert(t.currentAR.pc.rd == 1, "invalid closure upvalue rd");
+								upvals[index] = currentUpvals[t.currentAR.pc.uimm];
+							}
+
+							t.currentAR.pc++;
 						}
 
-						t.currentAR.pc++;
+						*get(i.rd) = n;
 					}
 
-					if(i.rt != 0)
-						n.attrs = get(i.rt - 1).mTable;
-
-					*get(i.rd) = n;
 					maybeGC(t.vm);
 					break;
 
