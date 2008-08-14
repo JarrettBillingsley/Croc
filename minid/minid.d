@@ -51,7 +51,6 @@ import tango.io.FilePath;
 import tango.io.Print;
 import tango.io.Stdout;
 import tango.io.FileSystem;
-import tango.io.GrowBuffer;
 import tango.text.convert.Layout;
 
 /**

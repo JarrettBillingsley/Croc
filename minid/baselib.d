@@ -29,8 +29,8 @@ import minid.types;
 import minid.utils;
 
 import Integer = tango.text.convert.Integer;
+import tango.io.Buffer;
 import tango.io.Console;
-import tango.io.GrowBuffer;
 import tango.io.Print;
 import tango.io.Stdout;
 import utf = tango.text.convert.Utf;

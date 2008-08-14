@@ -28,7 +28,7 @@ import minid.utils;
 
 import math = tango.math.Math;
 import tango.math.GammaFunction;
-import tango.math.Random;
+import tango.math.random.Kiss;
 import tango.math.IEEE;
 
 class MathLib
@@ -287,7 +287,7 @@ class MathLib
 
 	int rand(MDState s, uint numParams)
 	{
-		uint num = Random.shared.next();
+		uint num = Kiss.shared.toInt();
 
 		switch(numParams)
 		{
@@ -306,13 +306,13 @@ class MathLib
 				s.push(cast(int)(num % (hi - lo)) + lo);
 				break;
 		}
-		
+
 		return 1;
 	}
 
 	int frand(MDState s, uint numParams)
 	{
-		auto num = cast(mdfloat)Random.shared.next() / uint.max;
+		auto num = cast(mdfloat)Kiss.shared.toInt() / uint.max;
 
 		switch(numParams)
 		{
