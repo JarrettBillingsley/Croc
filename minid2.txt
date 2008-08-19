@@ -91,6 +91,7 @@ Token:
 	'\\'
 	'->'
 	'$'
+	'@'
 	EOF
 
 Identifier:
@@ -260,7 +261,7 @@ Module:
 	ModuleDeclaration {Statement} EOF
 
 ModuleDeclaration:
-	[AttributeTable] 'module' Identifier {'.' Identifier} StatementTerminator
+	[Decorators] 'module' Identifier {'.' Identifier} StatementTerminator
 
 StatementTerminator:
 	';'
@@ -308,10 +309,13 @@ ExpressionStatement:
 
 DeclarationStatement:
 	VariableDeclaration StatementTerminator
-	[AttributeTable] OtherDeclaration
+	[Decorators] OtherDeclaration
 	
-AttributeTable:
-	'</' [TableField {[','] TableField}] '/>'
+Decorators:
+	Decorator {Decorator}
+
+Decorator:
+	'@' Identifier {'.' Identifier} ['(' ('with' Expression [',' ExpressionList] | [ExpressionList]) ')']
 
 OtherDeclaration:
 	FunctionDeclaration
@@ -369,7 +373,7 @@ ObjectDeclaration:
 	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'
 
 ObjectMember:
-	[AttributeTable] SimpleFunctionDeclaration
+	[Decorators] SimpleFunctionDeclaration
 	Identifier ['=' Expression] StatementTerminator
 
 NamespaceDeclaration:
@@ -548,7 +552,7 @@ CallExpression:
 
 ArgumentsWith:
 	Arguments
-	'(' 'with' ExpressionList ')'
+	'(' 'with' Expression [',' ExpressionList] ')'
 
 Arguments:
 	'(' [ExpressionList] ')'

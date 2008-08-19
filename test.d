@@ -18,7 +18,7 @@ Import:
 
 2.  See if that name is taken.
 
-3.  Look for .md and .mdm.  If found, create closure with new namespace ace env, call.
+3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
 	if it succeeds, put that namespace in the owning namespace.
 
 4.  Look for custom loader.  If founc, call with new namespace as param, and if it succeeds, put ns in owning ns.
@@ -46,10 +46,10 @@ void main()
 
 	{
 		scope c = new Compiler(t);
-		funcReg = c.testParse(`samples/simple.md`);
+		funcReg = c.compileModule(`samples/simple.md`);
 	}
 
- 		pushNull(t);
+ 		getFuncEnv(t, funcReg);
  		rawCall(t, funcReg, 0);
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm)).flush;

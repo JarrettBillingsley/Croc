@@ -246,13 +246,6 @@ final class FuncState
 		mLocation = location;
 		mName = name;
 		mParent = parent;
-
-		if(parent is null)
-		{
-			mNumParams = 1;
-			insertLocal(new(c) Identifier(c, mLocation, c.newString("this")));
-			activateLocals(1);
-		}
 	}
 
 	~this()
@@ -1652,7 +1645,10 @@ final class FuncState
 		mInnerFuncs = null;
 
 		if(ret.innerFuncs.length > 0)
+		{
+			insert(t, -1 - ret.innerFuncs.length);
 			pop(t, ret.innerFuncs.length);
+		}
 
 		ret.constants = mConstants;
 		mConstants = null;
@@ -1745,45 +1741,75 @@ class Codegen : Visitor
 	}
 
 	alias Visitor.visit visit;
-	
-	public word codegenModule(Module m)
+
+	public void codegenStatements(FuncDef d)
 	{
-		visit(m);
-		assert(isFunction(c.thread, -1));
-		return stackSize(c.thread) - 1;
+		scope fs_ = new FuncState(c, d.location, d.name.name, null);
+
+		{
+			fs = fs_;
+			scope(exit)
+				fs = null;
+
+			fs.mIsVararg = d.isVararg;
+			fs.mNumParams = d.params.length;
+
+			Scope scop = void;
+			fs.pushScope(scop);
+				foreach(ref p; d.params)
+				{
+					fs.insertLocal(p.name);
+					fs.mParamMasks.append(c.alloc, p.typeMask);
+				}
+
+				fs.activateLocals(d.params.length);
+
+				visit(d.code);
+				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 1);
+			fs.popScope(d.code.endLocation.line);
+		}
+
+		auto def = fs_.toFuncDef();
+		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
+		insert(c.thread, -2);
+		pop(c.thread);
 	}
 
 	public override Module visit(Module m)
 	{
-		pushString(c.thread, m.modDecl.names[0]);
+		pushString(c.thread, m.names[0]);
 
-		foreach(n; m.modDecl.names[1 .. $])
+		foreach(n; m.names[1 .. $])
 		{
 			pushChar(c.thread, '.');
 			pushString(c.thread, n);
 		}
 
-		cat(c.thread, (2 * m.modDecl.names.length) - 1);
+		cat(c.thread, (2 * m.names.length) - 1);
 		auto name = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 
 		scope fs_ = new FuncState(c, m.location, name, null);
-		fs = fs_;
-
-		scope(exit)
-			fs = null;
 
 		try
 		{
+			fs = fs_;
+			scope(exit)
+				fs = null;
+
+			fs.mNumParams = 1;
+			fs.insertLocal(new(c) Identifier(c, m.location, c.newString("this")));
+			fs.activateLocals(1);
+
 			Scope scop = void;
 			fs.pushScope(scop);
-				visit(m.modDecl);
-
 				foreach(stmt; m.statements)
 					visit(stmt);
 
 				fs.codeI(m.endLocation.line, Op.Ret, 0, 1);
 			fs.popScope(m.endLocation.line);
+			
+			assert(fs.mExpSP == 0, "module - not all expressions have been popped");
 		}
 		finally
 		{
@@ -1791,15 +1817,14 @@ class Codegen : Visitor
 				fs.printExpStack();
 		}
 
-		assert(fs.mExpSP == 0, "module - not all expressions have been popped");
-
 		auto def = fs_.toFuncDef();
-		pop(c.thread);
 		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
+		insert(c.thread, -2);
+		pop(c.thread);
 
 		return m;
 	}
-	
+
 	public override ObjectDef visit(ObjectDef d)
 	{
 		visit(d.baseObject);
@@ -1822,15 +1847,6 @@ class Codegen : Visitor
 			fs.freeExpTempRegs(val);
 		}
 
-		if(d.attrs)
-		{
-			visit(d.attrs);
-			Exp src;
-			fs.popSource(d.location.line, src);
-			fs.freeExpTempRegs(src);
-			fs.codeR(d.location.line, Op.SetAttrs, destReg, src.index, 0);
-		}
-
 		fs.pushTempReg(destReg);
 		return d;
 	}
@@ -1839,9 +1855,6 @@ class Codegen : Visitor
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
 		
-		if(d.attrs)
-			inner.mIsPure = false;
-
 		{
 			fs = inner;
 			scope(exit)
@@ -1868,19 +1881,10 @@ class Codegen : Visitor
 		auto destReg = fs.pushRegister();
 		fs.codeClosure(inner, destReg);
 
-		if(d.attrs)
-		{
-			visit(d.attrs);
-			Exp src;
-			fs.popSource(d.location.line, src);
-			fs.freeExpTempRegs(src);
-			fs.codeR(d.location.line, Op.SetAttrs, destReg, src.index, 0);
-		}
-
 		fs.pushTempReg(destReg);
 		return d;
 	}
-	
+
 	public override TypecheckStmt visit(TypecheckStmt s)
 	{
 		alias FuncDef.TypeMask TypeMask;
@@ -1913,22 +1917,22 @@ class Codegen : Visitor
 		return s;
 	}
 
-	public override ModuleDecl visit(ModuleDecl d)
-	{
-		if(d.attrs is null)
-			return d;
-			
-		visit(d.attrs);
-		Exp src;
-		fs.popSource(d.attrs.location.line, src);
-		fs.freeExpTempRegs(src);
+// 	public override ModuleDecl visit(ModuleDecl d)
+// 	{
+// 		if(d.attrs is null)
+// 			return d;
+// 
+// 		visit(d.attrs);
+// 		Exp src;
+// 		fs.popSource(d.attrs.location.line, src);
+// 		fs.freeExpTempRegs(src);
+// 
+// 		// rd = 0 means 'this', i.e. the module.
+// 		fs.codeR(d.attrs.location.line, Op.SetAttrs, 0, src.index, 0);
+// 
+// 		return d;
+// 	}
 
-		// rd = 0 means 'this', i.e. the module.
-		fs.codeR(d.attrs.location.line, Op.SetAttrs, 0, src.index, 0);
-
-		return d;
-	}
-	
 	public override ImportStmt visit(ImportStmt s)
 	{
 		foreach(i, sym; s.symbols)

@@ -39,7 +39,6 @@ const char[][] AstTagNames =
 
 	"Module",
 
-	"ModuleDecl",
 	"FuncDecl",
 	"ObjectDecl",
 	"NamespaceDecl",
@@ -174,7 +173,6 @@ const char[][] NiceAstTagNames =
 
 	AstTag.Module:               "module",
 
-	AstTag.ModuleDecl:           "module declaration",
 	AstTag.FuncDecl:             "function declaration",
 	AstTag.ObjectDecl:           "object declaration",
 	AstTag.NamespaceDecl:        "namespace declaration",
@@ -433,19 +431,13 @@ class ObjectDef : AstNode
 	public Field[] fields;
 
 	/**
-	Optional attribute table for this object.  This member can be null.
 	*/
-	public TableCtorExp attrs;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseObject, Field[] fields, TableCtorExp attrs = null)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseObject, Field[] fields)
 	{
 		super(c, location, endLocation, AstTag.ObjectDef);
 		this.name = name;
 		this.baseObject = baseObject;
 		this.fields = fields;
-		this.attrs = attrs;
 	}
 
 	override void cleanup(ref Allocator alloc)
@@ -537,34 +529,19 @@ class FuncDef : AstNode
 	public Statement code;
 
 	/**
-	Optional attribute table for this function.  This can be null.
 	*/
-	public TableCtorExp attrs;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code, TableCtorExp attrs = null)
+	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.FuncDef);
-		
-		if(params.length == 0)
-		{
-			scope dummy = new List!(Param)(c.alloc);
-			dummy ~= Param(new(c) Identifier(c, location, c.newString("this")));
-			this.params = dummy.toArray();
-		}
-		else
-		{
-			assert(params[0].name.name == "this");
-			this.params = params;
-		}
 
+		assert(params.length > 0 && params[0].name.name == "this");
+
+		this.params = params;
 		this.isVararg = isVararg;
 		this.code = code;
 		this.name = name;
-		this.attrs = attrs;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		foreach(ref p; params)
@@ -615,21 +592,15 @@ class NamespaceDef : AstNode
 	public Field[] fields;
 	
 	/**
-	Optional attribute table for this namespace.  This member can be null.
 	*/
-	public TableCtorExp attrs;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields, TableCtorExp attrs = null)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
 	{
 		super(c, location, endLocation, AstTag.NamespaceDef);
 		this.name = name;
 		this.parent = parent;
 		this.fields = fields;
-		this.attrs = attrs;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(fields);
@@ -642,10 +613,11 @@ Represents a MiniD module.  This node forms the root of an AST when a module is 
 class Module : AstNode
 {
 	/**
-	The module declaration.  This will never be null.
+	The name of this module.  This is an array of strings, each element of which is one
+	piece of a dotted name.  This array will always be at least one element long.
 	*/
-	public ModuleDecl modDecl;
-
+	public dchar[][] names;
+	
 	/**
 	A list of 0 or more statements which make up the body of the module.
 	*/
@@ -653,47 +625,17 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, ModuleDecl modDecl, Statement[] statements)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, dchar[][] names, Statement[] statements)
 	{
 		super(c, location, endLocation, AstTag.Module);
-		this.modDecl = modDecl;
+		this.names = names;
 		this.statements = statements;
 	}
 	
 	override void cleanup(ref Allocator alloc)
 	{
-		alloc.freeArray(statements);
-	}
-}
-
-/**
-This node represents the module declaration that comes at the top of every module.
-*/
-class ModuleDecl : AstNode
-{
-	/**
-	The name of this module.  This is an array of strings, each element of which is one
-	piece of a dotted name.  This array will always be at least one element long.
-	*/
-	public dchar[][] names;
-	
-	/**
-	An optional attribute table to attach to the module.
-	*/
-	public TableCtorExp attrs;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, dchar[][] names, TableCtorExp attrs)
-	{
-		super(c, location, endLocation, AstTag.ModuleDecl);
-		this.names = names;
-		this.attrs = attrs;
-	}
-	
-	override void cleanup(ref Allocator alloc)
-	{
 		alloc.freeArray(names);
+		alloc.freeArray(statements);
 	}
 }
 
@@ -3035,8 +2977,7 @@ class ParenExp : PrimaryExp
 }
 
 /**
-This node represents either a table literal or an attribute table.  Both are the
-same thing, really.
+This node represents a table literal.
 */
 class TableCtorExp : PrimaryExp
 {
@@ -3160,16 +3101,11 @@ class RawNamespaceExp : PrimaryExp
 	
 	/**
 	*/
-	public TableCtorExp attrs;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, Identifier name, Expression parent, TableCtorExp attrs)
+	public this(ICompiler c, CompileLoc location, Identifier name, Expression parent)
 	{
 		super(c, location, AstTag.RawNamespaceExp);
 		this.name = name;
 		this.parent = parent;
-		this.attrs = attrs;
 	}
 }
 

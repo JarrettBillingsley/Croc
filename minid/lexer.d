@@ -132,8 +132,6 @@ struct Token
 		RBracket,
 		LBrace,
 		RBrace,
-		LAttr,
-		RAttr,
 		Colon,
 		Comma,
 		Semicolon,
@@ -142,6 +140,7 @@ struct Token
 		Backslash,
 		Arrow,
 		Dollar,
+		At,
 
 		Ident,
 		CharLiteral,
@@ -236,8 +235,6 @@ struct Token
 		RBracket: "]",
 		LBrace: "{",
 		RBrace: "}",
-		LAttr: "</",
-		RAttr: "/>",
 		Colon: ":",
 		Comma: ",",
 		Semicolon: ";",
@@ -246,6 +243,7 @@ struct Token
 		Backslash: "\\",
 		Arrow: "->",
 		Dollar: "$",
+		At: "@",
 
 		Ident: "Identifier",
 		CharLiteral: "Char Literal",
@@ -1057,12 +1055,6 @@ struct Lexer
 						while(!isEOL())
 							nextChar();
 					}
-					else if(mCharacter == '>')
-					{
-						nextChar();
-						mTok.type = Token.RAttr;
-						return;	
-					}
 					else if(mCharacter == '*')
 					{
 						nextChar();
@@ -1190,11 +1182,6 @@ struct Lexer
 						}
 						else
 							mTok.type = Token.Shl;
-					}
-					else if(mCharacter == '/')
-					{
-						nextChar();
-						mTok.type = Token.LAttr;
 					}
 					else
 						mTok.type = Token.LT;
@@ -1360,11 +1347,14 @@ struct Lexer
 				case '@':
 					nextChar();
 
-					if(mCharacter != '\"')
-						mCompiler.exception(mTok.loc, "'@' expected to be followed by '\"'");
+					if(mCharacter == '\"')
+					{
+						mTok.stringValue = readStringLiteral(false);
+						mTok.type = Token.StringLiteral;
+					}
+					else
+						mTok.type = Token.At;
 
-					mTok.stringValue = readStringLiteral(false);
-					mTok.type = Token.StringLiteral;
 					return;
 
 				case '\'':

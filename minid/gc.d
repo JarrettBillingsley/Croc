@@ -328,7 +328,7 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 		if(desc.name)
 			markObj(vm, desc.name);
 
-	if(o.cachedFunc)
+	if(o.cachedFunc && o.cachedFunc.marked != vm.alloc.markVal)
 		markObj(vm, o.cachedFunc);
 }
 

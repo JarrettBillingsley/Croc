@@ -48,23 +48,18 @@ class Semantic : IdentityVisitor
 	
 	public override Module visit(Module m)
 	{
-		visit(m.modDecl);
-
 		foreach(ref stmt; m.statements)
 			stmt = visit(stmt);
-			
+
 		return m;
 	}
-	
+
 	public override ObjectDef visit(ObjectDef d)
 	{
 		d.baseObject = visit(d.baseObject);
 
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);
-
-		if(d.attrs)
-			d.attrs = visit(d.attrs);
 
 		return d;
 	}
@@ -114,9 +109,6 @@ class Semantic : IdentityVisitor
 
 		d.code = visit(d.code);
 
-		if(d.attrs)
-			d.attrs = visit(d.attrs);
-
 		scope extra = new List!(Statement)(c.alloc);
 
 		foreach(ref p; d.params)
@@ -144,9 +136,6 @@ class Semantic : IdentityVisitor
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);
 
-		if(d.attrs)
-			d.attrs = visit(d.attrs);
-
 		/*
 		Rewrite:
 
@@ -154,9 +143,9 @@ class Semantic : IdentityVisitor
 		{
 			function f() {}
 		}
-		
+
 		as:
-		
+
 		(function <namespace N>()
 		{
 			local raw_namespace N {} // raw so it doesn't get rewritten
@@ -180,7 +169,7 @@ class Semantic : IdentityVisitor
 			{
 				scope dummy = new List!(Identifier)(c.alloc);
 				dummy ~= d.name;
-				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent, d.attrs);
+				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent);
 				funcBody ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, dummy.toArray(), init);
 			}
 	
@@ -225,14 +214,6 @@ class Semantic : IdentityVisitor
 		auto funcDef = new(c) FuncDef(c, d.location, d.name, null, false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
 		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
 		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
-	}
-
-	public override ModuleDecl visit(ModuleDecl m)
-	{
-		if(m.attrs)
-			m.attrs = visit(m.attrs);
-
-		return m;
 	}
 
 	public override Statement visit(AssertStmt s)
@@ -285,7 +266,7 @@ class Semantic : IdentityVisitor
 		
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
-			
+
 		return d;
 	}
 
@@ -293,6 +274,9 @@ class Semantic : IdentityVisitor
 	{
 		if(d.initializer)
 			d.initializer = visit(d.initializer);
+			
+		if(d.protection == Protection.Default)
+			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
 
 		return d;
 	}
@@ -1100,7 +1084,7 @@ class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(ComExp e)
 	{
 		e.op = visit(e.op);

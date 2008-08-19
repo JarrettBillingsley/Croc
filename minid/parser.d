@@ -29,6 +29,12 @@ import minid.interpreter;
 import minid.lexer;
 import minid.types;
 
+struct Decorators
+{
+	CallExp exp;
+	Expression* dest;
+}
+
 struct Parser
 {
 	private ICompiler c;
@@ -88,29 +94,10 @@ struct Parser
 	public Module parseModule()
 	{
 		auto location = l.loc;
-		auto modDecl = parseModuleDecl();
+		Decorators dec;
 
-		scope statements = new List!(Statement)(c.alloc);
-
-		while(l.type != Token.EOF)
-			statements ~= parseStatement();
-
-		l.expect(Token.EOF);
-
-		return new(c) Module(c, location, l.loc, modDecl, statements.toArray());
-	}
-	
-	/**
-	Parse a module declaration.
-	*/
-	public ModuleDecl parseModuleDecl()
-	{
-		auto location = l.loc;
-
-		TableCtorExp attrs;
-
-		if(l.type == Token.LAttr)
-			attrs = parseAttrTable();
+		if(l.type == Token.At)
+			dec = parseDecorators();
 
 		l.expect(Token.Module);
 
@@ -126,9 +113,65 @@ struct Parser
 		auto endLocation = l.loc;
 		l.statementTerm();
 
-		return new(c) ModuleDecl(c, location, endLocation, names.toArray(), attrs);
+		scope statements = new List!(Statement)(c.alloc);
+
+		while(l.type != Token.EOF)
+			statements ~= parseStatement();
+
+		l.expect(Token.EOF);
+		
+		if(dec.exp !is null)
+		{
+			*dec.dest = new(c) ThisExp(c, l.loc);
+			statements ~= new(c) ExpressionStmt(c, dec.exp.location, dec.exp.endLocation, dec.exp);
+		}
+
+		return new(c) Module(c, location, l.loc, names.toArray(), statements.toArray());
 	}
-	
+
+	/**
+	Parse a list of statements into a function definition that takes a variadic number of arguments.
+
+	Params:
+		name = The name to use for error messages and debug locations.
+	*/
+	public FuncDef parseStatements(dchar[] name)
+	{
+		auto location = l.loc;
+
+		scope statements = new List!(Statement)(c.alloc);
+
+		while(l.type != Token.EOF)
+			statements ~= parseStatement();
+
+		auto endLocation = statements.length > 0 ? statements[statements.length - 1].endLocation : location;
+		auto code = new(c) BlockStmt(c, location, endLocation, statements.toArray());
+		scope params = new List!(FuncDef.Param)(c.alloc);
+		params ~= FuncDef.Param(new(c) Identifier(c, l.loc, c.newString("this")));
+		return new(c) FuncDef(c, location, new(c) Identifier(c, location, c.newString(name)), params.toArray(), true, code);
+	}
+
+	/**
+	Parse an expression into a function definition that takes a variadic number of arguments and returns the value
+	of the expression when called.
+
+	Params:
+		name = The name to use for error messages and debug locations.
+	*/
+	public FuncDef parseExpressionFunc(dchar[] name)
+	{
+		auto location = l.loc;
+
+		scope statements = new List!(Statement)(c.alloc);
+		scope exprs = new List!(Expression)(c.alloc);
+		exprs ~= parseExpression();
+		statements ~= new(c) ReturnStmt(c, exprs[0].location, exprs[0].endLocation, exprs.toArray());
+		auto code = new(c) BlockStmt(c, location, statements[0].endLocation, statements.toArray());
+		scope params = new List!(FuncDef.Param)(c.alloc);
+		params ~= FuncDef.Param(new(c) Identifier(c, l.loc, c.newString("this")));
+		return new(c) FuncDef(c, location, new(c) Identifier(c, location, c.newString(name)), params.toArray(), true, code);
+	}
+
 	/**
 	Parse a statement.
 	
@@ -167,9 +210,9 @@ struct Parser
 				Token.Object,
 				Token.Function,
 				Token.Global,
-				Token.LAttr,
 				Token.Local,
-				Token.Namespace:
+				Token.Namespace,
+				Token.At:
 
 				return parseDeclStmt();
 
@@ -214,7 +257,117 @@ struct Parser
 	
 	/**
 	*/
-	public DeclStmt parseDeclStmt(TableCtorExp attrs = null)
+	public Decorators parseDecorators()
+	{
+		CallExp parseDecorator()
+		{
+			l.expect(Token.At);
+
+			Expression name = parseIdentExp();
+
+			while(l.type == Token.Dot)
+			{
+				l.next();
+				auto tok = l.expect(Token.Ident);
+				name = new(c) DotExp(c, name, new(c) StringExp(c, tok.loc, tok.stringValue));
+			}
+
+			Expression context;
+
+			scope args = new List!(Expression)(c.alloc);
+			args ~= cast(Expression)null;
+
+			CompileLoc endLocation;
+
+			if(l.type == Token.LParen)
+			{
+				l.next();
+
+				if(l.type == Token.With)
+				{
+					l.next();
+					context = parseExpression();
+
+					if(l.type == Token.Comma)
+					{
+						l.next();
+						auto temp = parseArguments();
+						args ~= temp;
+						c.alloc.freeArray(temp);
+					}
+				}
+				else if(l.type != Token.RParen)
+				{
+					auto temp = parseArguments();
+					args ~= temp;
+					c.alloc.freeArray(temp);
+				}
+				
+				endLocation = l.expect(Token.RParen).loc;
+			}
+
+			return new(c) CallExp(c, endLocation, name, context, args.toArray());
+		}
+
+		Decorators ret;
+		ret.exp = parseDecorator();
+		ret.dest = &ret.exp.args[0];
+		
+		while(l.type == Token.At)
+		{
+			auto e = parseDecorator();
+			*ret.dest = e;
+			ret.dest = &e.args[0];
+			ret.exp = e;	
+		}
+
+		return ret;
+	}
+	
+	/**
+	*/
+	public DeclStmt parseDeclStmt()
+	{
+		Decorators dec;
+		
+		if(l.type == Token.At)
+			dec = parseDecorators();
+			
+		auto stmt = parseBaseDeclStmt();
+		
+		if(dec.expr !is null)
+		{
+			if(stmt.as!(VarDecl))
+				c.exception(stmt.location, "Cannot put decorators on variable declarations");
+				
+			scope names = new List!(Identifier)(c.alloc);
+
+			if(auto f = stmt.as!(FuncDecl))
+			{
+				*dec.dest = new(c) FuncLiteralExp(c, f.def.location, f.def);
+				names ~= f.name;
+			}
+			else if(auto o = stmt.as!(ObjectDecl))
+			{
+				*dec.dest = new(c) ObjectLiteralExp(c, o.def.location, o.def);
+				assert(o.name !is null);
+				names ~= o.name;
+			}
+			else if(auto n = stmt.as!(NamespaceDecl))
+			{
+				*dec.dest = new(c) NamespaceLiteralExp(c, n.def.location, n.def);
+				names ~= n.name;
+			}
+			else
+				assert(false);
+
+			stmt = new(c) VarDecl(c, dec.exp.location, stmt.endLocation,
+		}
+		
+		return stmt;
+	}
+
+	public DeclStmt parseBaseDeclStmt()
 	{
 		switch(l.type)
 		{
@@ -222,48 +375,39 @@ struct Parser
 				switch(l.peek.type)
 				{
 					case Token.Ident:
-						if(attrs !is null)
-							c.exception(l.loc, "Cannot attach attributes to variables");
-
 						auto ret = parseVarDecl();
 						l.statementTerm();
 						return ret;
 
 					case Token.Function:
-		            	return parseFuncDecl(attrs);
+		            	return parseFuncDecl();
 
 					case Token.Object:
-						return parseObjectDecl(attrs);
+						return parseObjectDecl();
 
 					case Token.Namespace:
-						return parseNamespaceDecl(attrs);
+						return parseNamespaceDecl();
 
 					default:
 						c.exception(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
 			case Token.Function:
-				return parseFuncDecl(attrs);
+				return parseFuncDecl();
 
 			case Token.Object:
-				return parseObjectDecl(attrs);
+				return parseObjectDecl();
 
 			case Token.Namespace:
-				return parseNamespaceDecl(attrs);
-
-			case Token.LAttr:
-				if(attrs is null)
-					return parseDeclStmt(parseAttrTable());
-				else
-					l.expected("Declaration");
+				return parseNamespaceDecl();
 
 			default:
 				l.expected("Declaration");
 		}
-		
+
 		assert(false);
 	}
-	
+
 	/**
 	Parse a local or global variable declaration.
 	*/
@@ -307,11 +451,8 @@ struct Parser
 
 	/**
 	Parse a function declaration, optional protection included.
-
-	Params:
-		attrs = An optional attribute table to attach to the function.
 	*/
-	public FuncDecl parseFuncDecl(TableCtorExp attrs = null)
+	public FuncDecl parseFuncDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -327,7 +468,7 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) FuncDecl(c, location, protection, parseSimpleFuncDef(attrs));
+		return new(c) FuncDecl(c, location, protection, parseSimpleFuncDef());
 	}
 	
 	/**
@@ -336,12 +477,11 @@ struct Parser
 	Params:
 		location = Where the function actually started.
 		name = The name of the function.  Must be non-null.
-		attrs = The optional attribute table.
 
 	Returns:
 		The completed function definition.
 	*/
-	public FuncDef parseFuncBody(CompileLoc location, Identifier name, TableCtorExp attrs = null)
+	public FuncDef parseFuncBody(CompileLoc location, Identifier name)
 	{
 		l.expect(Token.LParen);
 		bool isVararg;
@@ -363,7 +503,7 @@ struct Parser
 		else
 			code = parseStatement();
 
-		return new(c) FuncDef(c, location, name, params, isVararg, code, attrs);
+		return new(c) FuncDef(c, location, name, params, isVararg, code);
 	}
 	
 	/**
@@ -411,16 +551,19 @@ struct Parser
 			ret ~= p;
 		}
 
-		Param thisParam;
-		thisParam.name = new(c) Identifier(c, l.loc, c.newString("this"));
+		ret ~= Param(new(c) Identifier(c, l.loc, c.newString("this")));
 
-		if(l.type == Token.This)
+		if(l.type == Token.This || l.type == Token.Ident)
 		{
-			l.next();
-			l.expect(Token.Colon);
-
-			thisParam.typeMask = parseParamType(thisParam.objectTypes);
-			ret ~= thisParam;
+			if(l.type == Token.This)
+			{
+				l.next();
+				l.expect(Token.Colon);
+	
+				ret[0].typeMask = parseParamType(ret[0].objectTypes);
+			}
+			else
+				parseParam();
 
 			while(l.type == Token.Comma)
 			{
@@ -438,31 +581,9 @@ struct Parser
 		}
 		else if(l.type == Token.Vararg)
 		{
-			ret ~= thisParam;
 			isVararg = true;
 			l.next();
 		}
-		else if(l.type == Token.Ident)
-		{
-			ret ~= thisParam;
-			parseParam();
-
-			while(l.type == Token.Comma)
-			{
-				l.next();
-
-				if(l.type == Token.Vararg)
-				{
-					isVararg = true;
-					l.next();
-					break;
-				}
-
-				parseParam();
-			}
-		}
-		else
-			ret ~= thisParam;
 
 		return ret.toArray();
 	}
@@ -537,7 +658,7 @@ struct Parser
 							objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
 						}
 					}
-					else
+					else if(l.type != Token.Or)
 						l.expected("object type");
 
 					break;
@@ -607,11 +728,11 @@ struct Parser
 	Parse a simple function declaration.  This is basically a function declaration without
 	any preceding 'local' or 'global'.  The function must have a name.
 	*/
-	public FuncDef parseSimpleFuncDef(TableCtorExp attrs = null)
+	public FuncDef parseSimpleFuncDef()
 	{
 		auto location = l.expect(Token.Function).loc;
 		auto name = parseIdentifier();
-		return parseFuncBody(location, name, attrs);
+		return parseFuncBody(location, name);
 	}
 	
 	/**
@@ -655,16 +776,13 @@ struct Parser
 			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
 		}
 
-		return new(c) FuncDef(c, location, name, params, isVararg, code, null);
+		return new(c) FuncDef(c, location, name, params, isVararg, code);
 	}
 
 	/**
 	Parse an object declaration, optional protection included.
-
-	Params:
-		attrs = An optional attribute table to attach to the declaration.
 	*/
-	public ObjectDecl parseObjectDecl(TableCtorExp attrs = null)
+	public ObjectDecl parseObjectDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -680,7 +798,7 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) ObjectDecl(c, location, protection, parseObjectDef(false, attrs));
+		return new(c) ObjectDecl(c, location, protection, parseObjectDef(false));
 	}
 	
 	/**
@@ -689,14 +807,11 @@ struct Parser
 	Params:
 		nameOptional = If true, the name is optional (such as with object literal expressions).
 			Otherwise, the name is required (such as with object declarations).
-		attrs = An optional attribute table to associate with the object.  This is here
-			because an attribute table must first be parsed before the compiler can determine
-			what kind of declaration follows it.
 
 	Returns:
 		An instance of ObjectDef.
 	*/
-	public ObjectDef parseObjectDef(bool nameOptional, TableCtorExp attrs = null)
+	public ObjectDef parseObjectDef(bool nameOptional)
 	{
 		auto location = l.expect(Token.Object).loc;
 
@@ -749,11 +864,6 @@ struct Parser
 		{
 			switch(l.type)
 			{
-				case Token.LAttr:
-					auto attr = parseAttrTable();
-					addMethod(parseSimpleFuncDef(attr));
-					break;
-
 				case Token.Function:
 					addMethod(parseSimpleFuncDef());
 					break;
@@ -784,16 +894,13 @@ struct Parser
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ObjectDef(c, location, endLocation, name, baseObject, fields.toArray(), attrs);
+		return new(c) ObjectDef(c, location, endLocation, name, baseObject, fields.toArray());
 	}
 
 	/**
 	Parse a namespace declaration, optional protection included.
-
-	Params:
-		attrs = An optional attribute table to attach to the namespace.
 	*/
-	public NamespaceDecl parseNamespaceDecl(TableCtorExp attrs = null)
+	public NamespaceDecl parseNamespaceDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -809,19 +916,16 @@ struct Parser
 			l.next();
 		}
 
-		return new(c) NamespaceDecl(c, location, protection, parseNamespaceDef(attrs));
+		return new(c) NamespaceDecl(c, location, protection, parseNamespaceDef());
 	}
 	
 	/**
 	Parse a namespace.  Both literals and declarations require a name.
 	
-	Params:
-		attrs = The optional attribute table to attach to this namespace.
-
 	Returns:
 		An instance of this class.
 	*/
-	public NamespaceDef parseNamespaceDef(TableCtorExp attrs = null)
+	public NamespaceDef parseNamespaceDef()
 	{
 		auto location = l.loc;
 		l.expect(Token.Namespace);
@@ -897,7 +1001,7 @@ struct Parser
 
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) NamespaceDef(c, location, endLocation, name, parent, fields.toArray(), attrs);
+		return new(c) NamespaceDef(c, location, endLocation, name, parent, fields.toArray());
 	}
 
 	/**
@@ -2147,18 +2251,79 @@ struct Parser
 	*/
 	public Expression parseTableCtorExp()
 	{
-		return parseTableImpl(false);
+		auto location = l.expect(Token.LBrace).loc;
+
+		alias TableCtorExp.Field Field;
+		scope fields = new List!(Field)(c.alloc);
+
+		if(l.type != Token.RBrace)
+		{
+			void parseField()
+			{
+				Expression k;
+				Expression v;
+
+				switch(l.type)
+				{
+					case Token.LBracket:
+						l.next();
+						k = parseExpression();
+
+						l.expect(Token.RBracket);
+						l.expect(Token.Assign);
+
+						v = parseExpression();
+						break;
+
+					case Token.Function:
+						auto fd = parseSimpleFuncDef();
+						k = new(c) StringExp(c, fd.location, fd.name.name);
+						v = new(c) FuncLiteralExp(c, fd.location, fd);
+						break;
+
+					default:
+						Identifier id = parseIdentifier();
+						l.expect(Token.Assign);
+						k = new(c) StringExp(c, id.location, id.name);
+						v = parseExpression();
+						break;
+				}
+				
+				fields ~= Field(k, v);
+			}
+			
+			bool firstWasBracketed = l.type == Token.LBracket;
+			parseField();
+
+			if(firstWasBracketed)
+			{
+				if(l.type == Token.For)
+				{
+					auto forComp = parseForComprehension();
+					auto endLocation = l.expect(Token.RBrace).loc;
+					
+					auto dummy = fields.toArray();
+					auto key = dummy[0].key;
+					auto value = dummy[0].value;
+					c.alloc.freeArray(dummy);
+
+					return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
+				}
+			}
+
+			while(l.type != Token.RBrace)
+			{
+				if(l.type == Token.Comma)
+					l.next();
+
+				parseField();
+			}
+		}
+
+		auto endLocation = l.expect(Token.RBrace).loc;
+		return new(c) TableCtorExp(c, location, endLocation, fields.toArray());
 	}
 
-	/**
-	Parse an attribute table.  The only difference is the delimiters (</ /> instead
-	of { }).
-	*/
-	public TableCtorExp parseAttrTable()
-	{
-		return cast(TableCtorExp)cast(void*)parseTableImpl(true);
-	}
-	
 	/**
 	*/
 	public PrimaryExp parseArrayCtorExp()
@@ -2587,93 +2752,6 @@ struct Parser
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
-
-	private Expression parseTableImpl(bool isAttr)
-	{
-		auto location = l.loc;
-		uint terminator;
-
-		if(isAttr)
-		{
-			l.expect(Token.LAttr);
-			terminator = Token.RAttr;
-		}
-		else
-		{
-			l.expect(Token.LBrace);
-			terminator = Token.RBrace;
-		}
-
-		alias TableCtorExp.Field Field;
-		scope fields = new List!(Field)(c.alloc);
-
-		if(l.type != terminator)
-		{
-			void parseField()
-			{
-				Expression k;
-				Expression v;
-
-				switch(l.type)
-				{
-					case Token.LBracket:
-						l.next();
-						k = parseExpression();
-
-						l.expect(Token.RBracket);
-						l.expect(Token.Assign);
-
-						v = parseExpression();
-						break;
-
-					case Token.Function:
-						auto fd = parseSimpleFuncDef();
-						k = new(c) StringExp(c, fd.location, fd.name.name);
-						v = new(c) FuncLiteralExp(c, fd.location, fd);
-						break;
-
-					default:
-						Identifier id = parseIdentifier();
-						l.expect(Token.Assign);
-						k = new(c) StringExp(c, id.location, id.name);
-						v = parseExpression();
-						break;
-				}
-				
-				fields ~= Field(k, v);
-			}
-			
-			bool firstWasBracketed = l.type == Token.LBracket;
-			parseField();
-
-			if(!isAttr && firstWasBracketed)
-			{
-				if(l.type == Token.For)
-				{
-					auto forComp = parseForComprehension();
-					auto endLocation = l.expect(terminator).loc;
-					
-					auto dummy = fields.toArray();
-					auto key = dummy[0].key;
-					auto value = dummy[0].value;
-					c.alloc.freeArray(dummy);
-
-					return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
-				}
-			}
-
-			while(l.type != terminator)
-			{
-				if(l.type == Token.Comma)
-					l.next();
-
-				parseField();
-			}
-		}
-
-		auto endLocation = l.expect(terminator).loc;
-		return new(c) TableCtorExp(c, location, endLocation, fields.toArray());
-	}
 
 	private Identifier dummyForeachIndex(CompileLoc loc)
 	{

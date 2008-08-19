@@ -1,9 +1,31 @@
+@foo(5)
 module simple
 
+function foo(o, x)
+{
+	writefln("got {} and {}", o, x)
+	return o
+}
 
+writeln(this)
 
 /+
-/*
+function attrs(o: object|namespace|function, tab: table)
+{
+	writeln("set attributes!")//nativeSetAttrs(o, tab)
+	return o
+}
+
+@attrs({
+	foo = "bar"
+	baz = 5
+})
+object Foo
+{
+
+}
+
+
 object BaseProp
 {
 	function get()

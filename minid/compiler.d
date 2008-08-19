@@ -150,16 +150,24 @@ scope class Compiler : ICompiler
 		return s.toString32();
 	}
 
-	public word testParse(char[] filename)
-	{
-		mStringTab = newTable(t);
-		
-		scope(failure)
-		{
-			if(stackSize(t) >= mStringTab + 1)
-				pop(t, stackSize(t) - mStringTab);
-		}
+	/**
+	Compile a source code file into a function closure.  Takes the path to the source file, compiles
+	that file, and pushes the top-level closure onto the stack.  The environment of the closure is
+	just set to the global namespace of the compiler's thread; you must create and set a namespace
+	for the module function before calling it.
 
+	You shouldn't have to deal with this function that much.  Most of the time the compilation of
+	modules should be handled for you by the import system.
+	
+	Params:
+		filename = The filename of the source file to compile.
+		
+	Returns:
+		The stack index of the newly-pushed function closure that represents the top-level function
+		of the module.
+	*/
+	public word compileModule(char[] filename)
+	{
 		scope path = new FilePath(filename);
 		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
 		auto src = file.read();
@@ -167,19 +175,93 @@ scope class Compiler : ICompiler
 		scope(exit)
 			delete src;
 
-		mLexer.begin(Utf.toString32(filename), src);
-		auto mod = mParser.parseModule();
+		dchar[256] buffer = void;
+		uint ate = void;
+		auto s = Utf.toString32(filename, buffer, &ate);
 
-		scope sem = new Semantic(this);
-		mod = sem.visit(mod);
+		// Ellipsis!
+		if(ate < filename.length && s.length >= 3)
+			s[$ - 3 .. $] = "...";
 
-		scope cg = new Codegen(this);
-		mod = cg.visit(mod);
+		return compileModule(src, s);
+	}
 
-		insert(t, -2);
-		pop(t);
-		
-		return stackSize(t) - 1;
+	/**
+	Same as above, but compiles from a string holding the source rather than from a file.
+
+	Params:
+		source = The source code as a string.
+		name = The name which should be used as the source name in compiler error message.  Takes the
+			place of the filename when compiling from a source file.
+
+	Returns:
+		The stack index of the newly-pushed function closure that represents the top-level function
+		of the module.
+	*/
+	public word compileModule(dchar[] source, dchar[] name)
+	{
+		return commonCompile(
+		{
+			mLexer.begin(name, source);
+			auto mod = mParser.parseModule();
+
+			scope sem = new Semantic(this);
+			mod = sem.visit(mod);
+
+			scope cg = new Codegen(this);
+			cg.visit(mod);
+		});
+	}
+	
+	/**
+	Compile a list of statements into a function which takes a variadic number of arguments.  The environment
+	of the compiled function closure is set to the globals of the compiler's thread.
+
+	Params:
+		source = The source code as a string.
+		name = The name to use as the source name for compilation errors.
+
+	Returns:
+		The stack index of the newly-pushed function closure.
+	*/
+	public word compileStatements(dchar[] source, dchar[] name)
+	{
+		return commonCompile(
+		{
+			mLexer.begin(name, source);
+			auto fd = mParser.parseStatements(name);
+
+			scope sem = new Semantic(this);
+			fd = sem.visit(fd);
+
+			scope cg = new Codegen(this);
+			cg.codegenStatements(fd);
+		});
+	}
+	
+	/**
+	Compile a single expression into a function which returns the value of that expression when called.
+
+	Params:
+		source = The source code as a string.
+		name = The name to use as the source name for compilation errors.
+
+	Returns:
+		The stack index of the newly-pushed function closure.
+	*/
+	public word compileExpression(dchar[] source, dchar[] name)
+	{
+		return commonCompile(
+		{
+			mLexer.begin(name, source);
+			auto fd = mParser.parseExpressionFunc(name);
+
+			scope sem = new Semantic(this);
+			fd = sem.visit(fd);
+
+			scope cg = new Codegen(this);
+			cg.codegenStatements(fd);
+		});
 	}
 
 // ================================================================================================================================================
@@ -194,137 +276,26 @@ scope class Compiler : ICompiler
 		cat(t, 2);
 		throwException(t);
 	}
+
+	private word commonCompile(void delegate() dg)
+	{
+		mStringTab = newTable(t);
+
+		scope(failure)
+		{
+			if(stackSize(t) >= mStringTab + 1)
+				pop(t, stackSize(t) - mStringTab);
+		}
+
+		dg();
+
+		insert(t, -2);
+		pop(t);
+
+		return stackSize(t) - 1;
+	}
+
 /+
-	/**
-	Compile a source code file into a binary module.  Takes the path to the source file and returns
-	the compiled module, which can be loaded into a context.
-
-	You shouldn't have to deal with this function that much.  Most of the time the compilation of
-	modules should be handled for you by the import system in MDContext.
-	*/
-	public OldFuncDef* compileModule(char[] filename)
-	{
-		scope path = new FilePath(filename);
-		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
-		return compileModule(file.read(), path.file);
-	}
-
-	/**
-	Compile a module from a string containing the source code.
-	
-	Params:
-		source = The source code as a string.
-		name = The name which should be used as the source name in compiler error message.  Takes the
-			place of the filename when compiling from a source file.
-	
-	Returns:
-		The compiled module.
-	*/
-	public OldFuncDef* compileModule(dchar[] source, char[] name)
-	{
-		scope lexer = new Lexer(name, source);
-		return parseModule(lexer).codeGen(this);
-	}
-	
-	/**
-	Compile a list of statements into a function body which takes a variadic number of arguments.  Kind
-	of like a module without the module statement.  
-	
-	Params:
-		source = The source code as a string.
-		name = The name to use as the source name for compilation errors.
-			
-	Returns:
-		The compiled function.
-	*/
-	public OldFuncDef* compileStatements(dchar[] source, char[] name)
-	{
-		scope lexer = new Lexer(name, source);
-		List!(Statement) s;
-	
-		while(lexer.type != Token.EOF)
-			s.add(parseStatement(lexer));
-	
-		lexer.expect(Token.EOF);
-	
-		Statement[] stmts = s.toArray();
-	
-		FuncState fs = new FuncState(CompileLoc(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
-		fs.mIsVararg = true;
-		
-		try
-		{
-			foreach(stmt; stmts)
-				visit(stmt).codeGen(fs);
-		
-			if(stmts.length == 0)
-			{
-				fs.codeI(1, Op.Ret, 0, 1);
-				fs.popScope(1);
-			}
-			else
-			{
-				fs.codeI(stmts[$ - 1].endLocation.line, Op.Ret, 0, 1);
-				fs.popScope(stmts[$ - 1].endLocation.line);
-			}
-		}
-		finally
-		{
-			debug(SHOWME)
-			{
-				fs.showMe(); Stdout.flush;
-			}
-			
-			debug(PRINTEXPSTACK)
-				fs.printExpStack();
-		}
-	
-		return fs.toFuncDef();
-	}
-	
-	/**
-	Compile a single expression into a function which returns the value of that expression when called.
-	
-	Params:
-		source = The source code as a string.
-		name = The name to use as the source name for compilation errors.
-		
-	Returns:
-		The compiled function.
-	*/
-	public OldFuncDef* compileExpression(dchar[] source, char[] name)
-	{
-		scope lexer = new Lexer(name, source);
-		Expression e = parseExpression(lexer);
-	
-		if(lexer.type != Token.EOF)
-			throw new OldCompileException(lexer.loc, "Extra unexpected code after expression");
-			
-		FuncState fs = new FuncState(CompileLoc(utf.toString32(name), 1, 1), utf.toString32(name), null, this);
-		fs.mIsVararg = true;
-	
-		auto ret = (new ReturnStmt(e)).fold();
-	
-		try
-		{
-			ret.codeGen(fs);
-			fs.codeI(ret.endLocation.line, Op.Ret, 0, 1);
-			fs.popScope(ret.endLocation.line);
-		}
-		finally
-		{
-			debug(SHOWME)
-			{
-				fs.showMe(); Stdout.flush;
-			}
-			
-			debug(PRINTEXPSTACK)
-				fs.printExpStack();
-		}
-	
-		return fs.toFuncDef();
-	}
-	
 	/**
 	Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
 	function.

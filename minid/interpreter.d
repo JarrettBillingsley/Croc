@@ -359,6 +359,10 @@ public word newObject(MDThread* t, word proto, dchar[] name = null, uword numVal
 	return pushObject(t, obj.create(t.vm.alloc, n, p, numValues, extraBytes));
 }
 
+/**
+Same as above, except it uses the global Object as the prototype.  The new object is left on the
+top of the stack.
+*/
 public word newObject(MDThread* t, dchar[] name = null, uword numValues = 0, uword extraBytes = 0)
 {
 	pushGlobal(t, "Object");
@@ -2324,7 +2328,7 @@ one of the "normal" types -- the "internal" types are illegal and an error will 
 
 Params:
 	type = The type whose metatable is to be pushed.
-	
+
 Returns:
 	The stack index of the newly-pushed value (null if the type has no metatable, or a namespace if it does).
 */
@@ -2365,10 +2369,20 @@ public void setTypeMT(MDThread* t, MDValue.Type type)
 		pushTypeString(t, -1);
 		throwException(t, "setTypeMT - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
 	}
-	
+
 	pop(t);
 }
 
+/**
+Gets the fields namespace of the 'object' at the given slot.  Throws an exception if the object at the given
+slot is not an object.
+
+Params:
+	obj = The stack index of the object whose fields are to be retrieved.
+	
+Returns:
+	The stack index of the newly-pushed fields namespace.
+*/
 public word fieldsOf(MDThread* t, word obj)
 {
 	if(auto o = getObject(t, obj))
@@ -2376,7 +2390,7 @@ public word fieldsOf(MDThread* t, word obj)
 
 	pushTypeString(t, obj);
 	throwException(t, "fieldsOf - Expected 'object', not '{}'", getString(t, -1));
-	
+
 	assert(false);
 }
 
@@ -2426,7 +2440,7 @@ that object will succeed.
 Params:
 	obj = The stack index of the obejct to test.
 	methodName = The name of the method to look up.
-	
+
 Returns:
 	true if the method can be called on `obj`; false otherwise.
 */
@@ -2443,7 +2457,7 @@ Pushes the environment namespace of a function closure.
 
 Params:
 	func = The stack index of the function whose environment is to be retrieved.
-	
+
 Returns:
 	The stack index of the newly-pushed environment namespace.
 */
@@ -2640,7 +2654,7 @@ object has no attributes.  Throws an error if the object is not a function, obje
 
 Params:
 	obj = The stack index of the object whose attributes table is to be retrieved.
-	
+
 Returns:
 	The stack index of the newly-pushed value (either the attributes table, or null if it has none).
 */
@@ -2705,7 +2719,7 @@ not a function, object, or namespace.
 
 Params:
 	obj = The stack index of the object to test.
-	
+
 Returns:
 	True if the object has an attributes table; false otherwise.
 */
@@ -2730,10 +2744,10 @@ public bool hasAttributes(MDThread* t, word obj)
 debug
 {
 	import tango.io.Stdout;
-	
+
 	/**
 	$(B Debug mode only.)  Print out the contents of the stack to Stdout in the following format:
-	
+
 -----
 [xxx:yyyy]: val: type
 -----
@@ -6079,17 +6093,6 @@ private void execute(MDThread* t, uword depth = 1)
 					else
 						array.setBlock(t.vm.alloc, a, i.rt, t.stack[sliceBegin .. sliceBegin + i.rs - 1]);
 
-					break;
-
-				case Op.SetAttrs:
-					auto RD = get(i.rd);
-
-					if(RD.type == MDValue.Type.Object)
-						RD.mObject.attrs = get(i.rs).mTable;
-					else if(RD.type == MDValue.Type.Namespace)
-						RD.mNamespace.attrs = get(i.rs).mTable;
-					else
-						assert(false, "invalid setattrs dest");
 					break;
 
 				case Op.Cat:

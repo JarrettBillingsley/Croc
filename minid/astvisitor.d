@@ -154,21 +154,6 @@ debug class TestVisitor : Visitor
 
 	public override Module visit(Module m)
 	{
-		visit(m.modDecl);
-
-		foreach(stmt; m.statements)
-			visit(stmt);
-			
-		Stdout.newline;
-
-		return m;
-	}
-	
-	public override ModuleDecl visit(ModuleDecl m)
-	{
-		if(m.attrs)
-			visitAttrs(m.attrs);
-			
 		Stdout("module ");
 
 		bool first = true;
@@ -179,15 +164,20 @@ debug class TestVisitor : Visitor
 				first = false;
 			else
 				Stdout(".");
-				
+
 			Stdout(name);
 		}
-		
+
 		Stdout.newline;
-		
+
+		foreach(stmt; m.statements)
+			visit(stmt);
+			
+		Stdout.newline;
+
 		return m;
 	}
-	
+
 	public override ExpressionStmt visit(ExpressionStmt s)
 	{
 		visit(s.expr);
@@ -292,15 +282,6 @@ debug class TestVisitor : Visitor
 		return d;
 	}
 
-	public TableCtorExp visitAttrs(TableCtorExp attrs)
-	{
-		Stdout("</").newline;
-		visit(attrs);
-		Stdout("/>").newline;
-
-		return attrs;
-	}
-	
 	public override FuncLiteralExp visit(FuncLiteralExp e)
 	{
 		visit(e.def);
