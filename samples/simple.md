@@ -1,31 +1,33 @@
-@foo(5)
 module simple
 
-function foo(o, x)
+function freep(o, x)
 {
-	writefln("got {} and {}", o, x)
+	writeln("freep! ", o)
 	return o
 }
 
-writeln(this)
-
-/+
 function attrs(o: object|namespace|function, tab: table)
 {
-	writeln("set attributes!")//nativeSetAttrs(o, tab)
+	writefln("set attributes for {}!", o)//nativeSetAttrs(o, tab)
+	dumpVal(tab)
 	return o
 }
 
+@freep(5)
 @attrs({
 	foo = "bar"
 	baz = 5
 })
-object Foo
+local object Foo
 {
-
+	@freep(10)
+	function foobar() {}
 }
 
+writeln(Foo)
+writeln(Foo.foobar)
 
+/+
 object BaseProp
 {
 	function get()

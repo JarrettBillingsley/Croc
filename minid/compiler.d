@@ -204,7 +204,7 @@ scope class Compiler : ICompiler
 		{
 			mLexer.begin(name, source);
 			auto mod = mParser.parseModule();
-
+			
 			scope sem = new Semantic(this);
 			mod = sem.visit(mod);
 

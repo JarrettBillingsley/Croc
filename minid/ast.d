@@ -39,10 +39,8 @@ const char[][] AstTagNames =
 
 	"Module",
 
-	"FuncDecl",
-	"ObjectDecl",
-	"NamespaceDecl",
 	"VarDecl",
+	"OtherDecl",
 
 	"AssertStmt",
 	"ImportStmt",
@@ -173,10 +171,8 @@ const char[][] NiceAstTagNames =
 
 	AstTag.Module:               "module",
 
-	AstTag.FuncDecl:             "function declaration",
-	AstTag.ObjectDecl:           "object declaration",
-	AstTag.NamespaceDecl:        "namespace declaration",
 	AstTag.VarDecl:              "variable declaration",
+	AstTag.OtherDecl:            "declaration",
 
 	AstTag.AssertStmt:           "assert statement",
 	AstTag.ImportStmt:           "import statement",
@@ -693,68 +689,6 @@ abstract class DeclStmt : Statement
 }
 
 /**
-This node represents a function declaration.  Note that there are some places in the
-grammar which look like function declarations (like inside objects and namespaces) but
-which actually are just syntactic sugar.  This is for actual declarations.
-*/
-class FuncDecl : DeclStmt
-{
-	/**
-	The "guts" of the function declaration.
-	*/
-	public FuncDef def;
-
-	/**
-	The protection parameter can be any kind of protection.
-	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, FuncDef def)
-	{
-		super(c, location, def.endLocation, AstTag.FuncDecl, protection);
-		this.def = def;
-	}
-}
-
-/**
-This node represents an object declaration.
-*/
-class ObjectDecl : DeclStmt
-{
-	/**
-	The actual "guts" of the object.
-	*/
-	public ObjectDef def;
-
-	/**
-	The protection parameter can be any kind of protection.
-	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, ObjectDef def)
-	{
-		super(c, location, def.endLocation, AstTag.ObjectDecl, protection);
-		this.def = def;
-	}
-}
-
-/**
-This node represents a namespace declaration.
-*/
-class NamespaceDecl : DeclStmt
-{
-	/**
-	The "guts" of the namespace.
-	*/
-	public NamespaceDef def;
-
-	/**
-	The protection parameter can be any level of protection.
-	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def)
-	{
-		super(c, location, def.endLocation, AstTag.NamespaceDecl, protection);
-		this.def = def;
-	}
-}
-
-/**
 Represents local and global variable declarations.
 */
 class VarDecl : DeclStmt
@@ -772,7 +706,6 @@ class VarDecl : DeclStmt
 	public Expression initializer;
 
 	/**
-	The protection parameter must be either Protection.Local or Protection.Global.
 	*/
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression initializer)
 	{
@@ -780,12 +713,96 @@ class VarDecl : DeclStmt
 		this.names = names;
 		this.initializer = initializer;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(names);
 	}
 }
+
+/**
+*/
+class OtherDecl : DeclStmt
+{
+	/**
+	*/
+	public Identifier name;
+
+	/**
+	*/
+	public Expression expr;
+	
+	/**
+	*/
+	public this(ICompiler c, Protection protection, Identifier name, Expression expr)
+	{
+		super(c, expr.location, expr.endLocation, AstTag.OtherDecl, protection);
+		this.name = name;
+		this.expr = expr;
+	}
+}
+
+// /**
+// This node represents a function declaration.  Note that there are some places in the
+// grammar which look like function declarations (like inside objects and namespaces) but
+// which actually are just syntactic sugar.  This is for actual declarations.
+// */
+// class FuncDecl : DeclStmt
+// {
+// 	/**
+// 	The "guts" of the function declaration.
+// 	*/
+// 	public FuncDef def;
+// 
+// 	/**
+// 	The protection parameter can be any kind of protection.
+// 	*/
+// 	public this(ICompiler c, CompileLoc location, Protection protection, FuncDef def)
+// 	{
+// 		super(c, location, def.endLocation, AstTag.FuncDecl, protection);
+// 		this.def = def;
+// 	}
+// }
+// 
+// /**
+// This node represents an object declaration.
+// */
+// class ObjectDecl : DeclStmt
+// {
+// 	/**
+// 	The actual "guts" of the object.
+// 	*/
+// 	public ObjectDef def;
+// 
+// 	/**
+// 	The protection parameter can be any kind of protection.
+// 	*/
+// 	public this(ICompiler c, CompileLoc location, Protection protection, ObjectDef def)
+// 	{
+// 		super(c, location, def.endLocation, AstTag.ObjectDecl, protection);
+// 		this.def = def;
+// 	}
+// }
+// 
+// /**
+// This node represents a namespace declaration.
+// */
+// class NamespaceDecl : DeclStmt
+// {
+// 	/**
+// 	The "guts" of the namespace.
+// 	*/
+// 	public NamespaceDef def;
+// 
+// 	/**
+// 	The protection parameter can be any level of protection.
+// 	*/
+// 	public this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def)
+// 	{
+// 		super(c, location, def.endLocation, AstTag.NamespaceDecl, protection);
+// 		this.def = def;
+// 	}
+// }
 
 /**
 This node represents an assertion statement.

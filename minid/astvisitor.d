@@ -281,6 +281,27 @@ debug class TestVisitor : Visitor
 		
 		return d;
 	}
+	
+	public override OtherDecl visit(OtherDecl d)
+	{
+		if(d.protection == Protection.Local)
+			Stdout("local ")(d.name.name).newline;
+		else if(d.protection == Protection.Global)
+			Stdout("global ");
+		else
+			Stdout("??? ");
+			
+		Stdout(d.name.name)(" = ");
+		visit(d.expr);
+		Stdout.newline;
+		return d;
+	}
+	
+	public override ObjectLiteralExp visit(ObjectLiteralExp e)
+	{
+		visit(e.def);
+		return e;
+	}
 
 	public override FuncLiteralExp visit(FuncLiteralExp e)
 	{
@@ -288,17 +309,35 @@ debug class TestVisitor : Visitor
 		return e;
 	}
 	
+	public override ObjectDef visit(ObjectDef d)
+	{
+		Stdout("object ");
+		visit(d.name);
+		Stdout(" : ");
+		visit(d.baseObject);
+		Stdout(" {").newline;
+		
+		foreach(ref f; d.fields)
+		{
+			Stdout(f.name)(" = ");
+			visit(f.initializer);
+		}
+		
+		Stdout("}");
+		return d;
+	}
+
 	public override FuncDef visit(FuncDef d)
 	{
 		Stdout("function ");
 		visit(d.name);
 		Stdout("(");
 
-		if(d.params.length > 0)
+		if(d.params.length > 1)
 		{
-			visit(d.params[0].name);
+			visit(d.params[1].name);
 
-			foreach(ref param; d.params[1 .. $])
+			foreach(ref param; d.params[2 .. $])
 			{
 				Stdout(", ");
 				visit(param.name);
@@ -311,19 +350,7 @@ debug class TestVisitor : Visitor
 
 		return d;
 	}
-	
-	public override FuncDecl visit(FuncDecl d)
-	{
-		if(d.protection == Protection.Local)
-			Stdout("local ");
-		else
-			Stdout("global ");
-			
-		visit(d.def);
-		
-		return d;
-	}
-	
+
 	public override BlockStmt visit(BlockStmt s)
 	{
 		Stdout("{").newline;

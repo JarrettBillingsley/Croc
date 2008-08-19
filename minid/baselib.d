@@ -742,7 +742,7 @@ static:
 				
 				auto length = len(t, tab);
 
-				// TODO: this
+				// TODO: this, _efficiently._
 // 				if(length > 0)
 // 				{
 // 					if(length == 1)

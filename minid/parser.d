@@ -265,6 +265,7 @@ struct Parser
 
 			Expression name = parseIdentExp();
 
+			// TODO: make dotted decorator calls behave as method calls?
 			while(l.type == Token.Dot)
 			{
 				l.next();
@@ -302,7 +303,7 @@ struct Parser
 					args ~= temp;
 					c.alloc.freeArray(temp);
 				}
-				
+
 				endLocation = l.expect(Token.RParen).loc;
 			}
 
@@ -318,7 +319,6 @@ struct Parser
 			auto e = parseDecorator();
 			*ret.dest = e;
 			ret.dest = &e.args[0];
-			ret.exp = e;	
 		}
 
 		return ret;
@@ -329,39 +329,21 @@ struct Parser
 	public DeclStmt parseDeclStmt()
 	{
 		Decorators dec;
-		
+
 		if(l.type == Token.At)
 			dec = parseDecorators();
-			
+
 		auto stmt = parseBaseDeclStmt();
 		
-		if(dec.expr !is null)
+		if(dec.exp !is null)
 		{
 			if(stmt.as!(VarDecl))
 				c.exception(stmt.location, "Cannot put decorators on variable declarations");
-				
-			scope names = new List!(Identifier)(c.alloc);
 
-			if(auto f = stmt.as!(FuncDecl))
-			{
-				*dec.dest = new(c) FuncLiteralExp(c, f.def.location, f.def);
-				names ~= f.name;
-			}
-			else if(auto o = stmt.as!(ObjectDecl))
-			{
-				*dec.dest = new(c) ObjectLiteralExp(c, o.def.location, o.def);
-				assert(o.name !is null);
-				names ~= o.name;
-			}
-			else if(auto n = stmt.as!(NamespaceDecl))
-			{
-				*dec.dest = new(c) NamespaceLiteralExp(c, n.def.location, n.def);
-				names ~= n.name;
-			}
-			else
-				assert(false);
+			auto o = stmt.as!(OtherDecl);
 
-			stmt = new(c) VarDecl(c, dec.exp.location, stmt.endLocation,
+			*dec.dest = o.expr;
+			o.expr = dec.exp;
 		}
 		
 		return stmt;
@@ -379,27 +361,17 @@ struct Parser
 						l.statementTerm();
 						return ret;
 
-					case Token.Function:
-		            	return parseFuncDecl();
-
-					case Token.Object:
-						return parseObjectDecl();
-
-					case Token.Namespace:
-						return parseNamespaceDecl();
+					case Token.Function:  return parseFuncDecl();
+					case Token.Object:    return parseObjectDecl();
+					case Token.Namespace: return parseNamespaceDecl();
 
 					default:
 						c.exception(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
-			case Token.Function:
-				return parseFuncDecl();
-
-			case Token.Object:
-				return parseObjectDecl();
-
-			case Token.Namespace:
-				return parseNamespaceDecl();
+			case Token.Function:  return parseFuncDecl();
+			case Token.Object:    return parseObjectDecl();
+			case Token.Namespace: return parseNamespaceDecl();
 
 			default:
 				l.expected("Declaration");
@@ -452,7 +424,7 @@ struct Parser
 	/**
 	Parse a function declaration, optional protection included.
 	*/
-	public FuncDecl parseFuncDecl()
+	public OtherDecl parseFuncDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -467,8 +439,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-
-		return new(c) FuncDecl(c, location, protection, parseSimpleFuncDef());
+		
+		auto def = parseSimpleFuncDef();
+		return new(c) OtherDecl(c, protection, def.name, new(c) FuncLiteralExp(c, location, def));
 	}
 	
 	/**
@@ -782,7 +755,7 @@ struct Parser
 	/**
 	Parse an object declaration, optional protection included.
 	*/
-	public ObjectDecl parseObjectDecl()
+	public OtherDecl parseObjectDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -797,8 +770,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-
-		return new(c) ObjectDecl(c, location, protection, parseObjectDef(false));
+		
+		auto def = parseObjectDef(false);
+		return new(c) OtherDecl(c, protection, def.name, new(c) ObjectLiteralExp(c, location, def));
 	}
 	
 	/**
@@ -867,6 +841,14 @@ struct Parser
 				case Token.Function:
 					addMethod(parseSimpleFuncDef());
 					break;
+					
+				case Token.At:
+					auto dec = parseDecorators();
+					auto fd = parseSimpleFuncDef();
+					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
+					*dec.dest = lit;
+					addField(fd.name, dec.exp);
+					break;
 
 				case Token.Ident:
 					auto id = parseIdentifier();
@@ -900,7 +882,7 @@ struct Parser
 	/**
 	Parse a namespace declaration, optional protection included.
 	*/
-	public NamespaceDecl parseNamespaceDecl()
+	public OtherDecl parseNamespaceDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -915,8 +897,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-
-		return new(c) NamespaceDecl(c, location, protection, parseNamespaceDef());
+		
+		auto def = parseNamespaceDef();
+		return new(c) OtherDecl(c, protection, def.name, new(c) NamespaceCtorExp(c, location, def));
 	}
 	
 	/**

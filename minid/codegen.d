@@ -1917,22 +1917,6 @@ class Codegen : Visitor
 		return s;
 	}
 
-// 	public override ModuleDecl visit(ModuleDecl d)
-// 	{
-// 		if(d.attrs is null)
-// 			return d;
-// 
-// 		visit(d.attrs);
-// 		Exp src;
-// 		fs.popSource(d.attrs.location.line, src);
-// 		fs.freeExpTempRegs(src);
-// 
-// 		// rd = 0 means 'this', i.e. the module.
-// 		fs.codeR(d.attrs.location.line, Op.SetAttrs, 0, src.index, 0);
-// 
-// 		return d;
-// 	}
-
 	public override ImportStmt visit(ImportStmt s)
 	{
 		foreach(i, sym; s.symbols)
@@ -2028,44 +2012,25 @@ class Codegen : Visitor
 		return s;
 	}
 	
-	public override ObjectDecl visit(ObjectDecl d)
+	public override OtherDecl visit(OtherDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.def.name);
+			fs.insertLocal(d.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
+			fs.pushVar(d.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
+			fs.pushNewGlobal(d.name);
 		}
 
-		visit(d.def);
+		visit(d.expr);
 		fs.popAssign(d.endLocation.line);
 		return d;
 	}
-	
-	public override FuncDecl visit(FuncDecl d)
-	{
-		if(d.protection == Protection.Local)
-		{
-			fs.insertLocal(d.def.name);
-			fs.activateLocals(1);
-			fs.pushVar(d.def.name);
-		}
-		else
-		{
-			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.def.name);
-		}
 
-		visit(d.def);
-		fs.popAssign(d.endLocation.line);
-		return d;
-	}
-	
 	public override VarDecl visit(VarDecl d)
 	{
 		// Check for name conflicts within the definition

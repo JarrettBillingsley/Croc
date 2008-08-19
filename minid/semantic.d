@@ -194,7 +194,8 @@ class Semantic : IdentityVisitor
 				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
 
 				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, null, false, innerFuncBody);
-				funcBody ~= new(c) FuncDecl(c, d.location, Protection.Local, innerFuncDef);
+				auto lit = new(c) FuncLiteralExp(c, d.location, innerFuncDef);
+				funcBody ~= new(c) OtherDecl(c, Protection.Local, innerFuncName, lit);
 			}
 	
 			// funcenv __temp, N
@@ -260,67 +261,27 @@ class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override ObjectDecl visit(ObjectDecl d)
-	{
-		d.def = visit(d.def);
-		
-		if(d.protection == Protection.Default)
-			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
-
-		return d;
-	}
-
 	public override VarDecl visit(VarDecl d)
 	{
 		if(d.initializer)
 			d.initializer = visit(d.initializer);
-			
+
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
 
 		return d;
 	}
 
-	public override FuncDecl visit(FuncDecl d)
+	public override OtherDecl visit(OtherDecl d)
 	{
-		d.def = visit(d.def);
-		
+		d.expr = visit(d.expr);
+
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
 
 		return d;
 	}
 
-	public override Statement visit(NamespaceDecl d)
-	{
-		Expression exp = visit(d.def);
-
-		auto prot = d.protection;
-
-		if(prot == Protection.Default)
-			prot = isTopLevel() ? Protection.Global : Protection.Local;
-
-		scope names = new List!(Identifier)(c.alloc);
-		names ~= d.def.name;
-
-		if(prot == Protection.Local)
-		{
-			scope lhs = new List!(Expression)(c.alloc);
-			lhs ~= new(c) IdentExp(c, d.def.name);
-
-			scope temp = new List!(Statement)(c.alloc);
-			temp ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, names.toArray(), null);
-			temp ~= new(c) AssignStmt(c, d.location, d.endLocation, lhs.toArray(), exp);
-
-			return new(c) BlockStmt(c, d.location, d.endLocation, temp.toArray());
-		}
-		else
-		{
-			assert(prot == Protection.Global);
-			return new(c) VarDecl(c, d.location, d.endLocation, Protection.Global, names.toArray(), exp);
-		}
-	}
-	
 	public override BlockStmt visit(BlockStmt s)
 	{
 		foreach(ref stmt; s.statements)
@@ -870,7 +831,7 @@ class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(SubExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1140,7 +1101,7 @@ class Semantic : IdentityVisitor
 		e.op = visit(e.op);
 		return e;
 	}
-	
+
 	public override Expression visit(MethodCallExp e)
 	{
 		if(e.op)
