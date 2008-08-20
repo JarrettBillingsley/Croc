@@ -1,31 +1,7 @@
 module simple
 
-function freep(o, x)
-{
-	writeln("freep! ", o)
-	return o
-}
-
-function attrs(o: object|namespace|function, tab: table)
-{
-	writefln("set attributes for {}!", o)//nativeSetAttrs(o, tab)
-	dumpVal(tab)
-	return o
-}
-
-@freep(5)
-@attrs({
-	foo = "bar"
-	baz = 5
-})
-local object Foo
-{
-	@freep(10)
-	function foobar() {}
-}
-
-writeln(Foo)
-writeln(Foo.foobar)
+function f() return 1, 2, 3
+writeln(eval("f()"))
 
 /+
 object BaseProp

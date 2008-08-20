@@ -31,6 +31,7 @@ import tango.io.Stdout;
 import tango.stdc.ctype;
 import utf = tango.text.convert.Utf;
 
+import minid.compiler;
 import minid.ex;
 import minid.func;
 import minid.interpreter;
@@ -63,7 +64,7 @@ static:
 
 		// Really basic stuff
 // 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
-// 		globals["haltThread"d] =      new MDClosure(globals.ns, &haltThread,            "haltThread");
+		register(t, "haltThread", &haltThread);
 		register(t, "currentThread", &currentThread);
 // 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
 // 		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
@@ -84,8 +85,9 @@ static:
 		register(t, "allFieldsOf", &allFieldsOf);
 		register(t, "hasField", &hasField);
 		register(t, "hasMethod", &hasMethod);
-// 		globals["hasAttributes"d] =   new MDClosure(globals.ns, &hasAttributes,         "hasAttributes");
-// 		globals["attributesOf"d] =    new MDClosure(globals.ns, &attributesOf,          "attributesOf");
+		register(t, "attrs", &attrs);
+		register(t, "hasAttributes", &hasAttributes);
+		register(t, "attributesOf", &attributesOf);
 		register(t, "isNull", &isParam!(MDValue.Type.Null));
 		register(t, "isBool", &isParam!(MDValue.Type.Bool));
 		register(t, "isInt", &isParam!(MDValue.Type.Int));
@@ -117,12 +119,11 @@ static:
 
 		newTable(t);
 		register(t, "dumpVal", &dumpVal, 1);
-
-// 		register(t, "readln", &readln);
+		register(t, "readln", &readln);
 
 		// Dynamic compilation stuff
-// 		globals["loadString"d] =      new MDClosure(globals.ns, &loadString,            "loadString");
-// 		globals["eval"d] =            new MDClosure(globals.ns, &eval,                  "eval");
+		register(t, "loadString", &loadString);
+		register(t, "eval", &eval);
 // 		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
 // 		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
 
@@ -170,30 +171,32 @@ static:
 		return 1;
 	}
 	
-/*
+
 	// ===================================================================================================================================
 	// Basic functions
-
+/*
 	uword getTraceback(MDThread* t, uword numParams)
 	{
 		s.push(new MDString(s.context.getTracebackString()));
 		return 1;
 	}
-
+*/
 	uword haltThread(MDThread* t, uword numParams)
 	{
 		if(numParams == 0)
-			s.halt();
+			.haltThread(t);
 		else
 		{
-			auto thread = s.getParam!(MDState)(0);
-			thread.pendingHalt();
-			s.call(thread, 0);
+			auto thread = getThread(t, 1);
+			pendingHalt(thread);
+
+			auto reg = pushThread(t, thread);
+			pushNull(t);
+			rawCall(t, reg, 0);
 		}
 
 		return 0;
 	}
-*/
 
 	uword currentThread(MDThread* t, uword numParams)
 	{
@@ -444,44 +447,30 @@ static:
 		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
 	}
+	
+	uword attrs(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		checkParam(t, 2, MDValue.Type.Table);
+		dup(t, 2);
+		setAttributes(t, 1);
+		dup(t, 1);
+		return 1;
+	}
 
-/*
 	uword hasAttributes(MDThread* t, uword numParams)
 	{
-		MDTable ret;
-
-		if(s.isParam!("function")(0))
-			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("object")(0))
-			ret = s.getParam!(MDObject)(0).attributes;
-		else if(s.isParam!("namespace")(0))
-			ret = s.getParam!(MDNamespace)(0).attributes;
-
-		s.push(ret !is null);
+		checkAnyParam(t, 1);
+		pushBool(t, .hasAttributes(t, 1));
 		return 1;
 	}
 
 	uword attributesOf(MDThread* t, uword numParams)
 	{
-		MDTable ret;
-
-		if(s.isParam!("function")(0))
-			ret = s.getParam!(MDClosure)(0).attributes;
-		else if(s.isParam!("object")(0))
-			ret = s.getParam!(MDObject)(0).attributes;
-		else if(s.isParam!("namespace")(0))
-			ret = s.getParam!(MDNamespace)(0).attributes;
-		else
-			s.throwRuntimeException("Expected function, class, or namespace, not '{}'", s.getParam(0u).typeString());
-
-		if(ret is null)
-			s.pushNull();
-		else
-			s.push(ret);
-
-		return 1;
+		checkAnyParam(t, 1);
+		return getAttributes(t, 1);
 	}
-*/
+
 	uword isParam(MDValue.Type Type)(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
@@ -645,7 +634,7 @@ static:
 			v = absIndex(t, v);
 
 			if(hasPendingHalt(t))
-				haltThread(t);
+				.haltThread(t);
 
 			void escape(dchar c)
 			{
@@ -706,7 +695,7 @@ static:
 					for(uword i = 1; i < length; i++)
 					{
 						if(hasPendingHalt(t))
-							haltThread(t);
+							.haltThread(t);
 
 						Stdout(", ");
 						pushInt(t, i);
@@ -819,60 +808,80 @@ static:
 		return 0;
 	}
 
-/*
 	uword readln(MDThread* t, uword numParams)
 	{
-		pushString(t, Cin.copyln());
+		char[] s;
+		Cin.readln(s);
+
+		dchar[128] dbuf = void;
+		uint ate = 0;
+		auto outbuf = StrBuffer(t);
+
+		while(ate < s.length)
+			outbuf.addString(utf.toString32(s[ate .. $], dbuf, &ate));
+
+		outbuf.finish();
 		return 1;
 	}
 
-/*
 	// ===================================================================================================================================
 	// Dynamic Compilation
 
 	uword loadString(MDThread* t, uword numParams)
 	{
-		char[] name;
-		MDNamespace env;
+		auto code = checkStringParam(t, 1);
+		dchar[] name = "<loaded by loadString>";
 
 		if(numParams > 1)
 		{
-			if(s.isParam!("string")(1))
+			if(isString(t, 2))
 			{
-				name = s.getParam!(char[])(1);
+				name = getString(t, 2);
 
 				if(numParams > 2)
-					env = s.getParam!(MDNamespace)(2);
+				{
+					checkParam(t, 3, MDValue.Type.Namespace);
+					dup(t, 3);
+				}
 				else
-					env = s.environment(1);
+					pushEnvironment(t, 1);
 			}
 			else
-				env = s.getParam!(MDNamespace)(1);
+			{
+				checkParam(t, 2, MDValue.Type.Namespace);
+				dup(t, 2);
+			}
 		}
 		else
-		{
-			name = "<loaded by loadString>";
-			env = s.environment(1);
-		}
-
-		MDFuncDef def = Compiler().compileStatements(s.getParam!(dchar[])(0), name);
-		s.push(new MDClosure(env, def));
+			pushEnvironment(t, 1);
+			
+		scope c = new Compiler(t);
+		c.compileStatements(code, name);
+		insert(t, -2);
+		setFuncEnv(t, -2);
 		return 1;
 	}
-	
+
 	uword eval(MDThread* t, uword numParams)
 	{
-		MDFuncDef def = Compiler().compileExpression(s.getParam!(dchar[])(0), "<loaded by eval>");
-		MDNamespace env;
+		auto code = checkStringParam(t, 1);
+		scope c = new Compiler(t);
+		c.compileExpression(code, "<loaded by eval>");
 
 		if(numParams > 1)
-			env = s.getParam!(MDNamespace)(1);
+		{
+			checkParam(t, 2, MDValue.Type.Namespace);
+			dup(t, 2);
+		}
 		else
-			env = s.environment(1);
+			pushEnvironment(t, 1);
 
-		return s.call(new MDClosure(env, def), -1);
+		setFuncEnv(t, -2);
+		pushNull(t);
+		return rawCall(t, -2, -1);
 	}
-	
+
+/*
 	uword loadJSON(MDThread* t, uword numParams)
 	{
 		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
@@ -895,10 +904,10 @@ static:
 		s.push(cast(dchar[])cond.slice());
 		return 1;
 	}
-
+*/
 	// ===================================================================================================================================
 	// Namespace metatable
-*/
+
 	uword namespaceApply(MDThread* t, uword numParams)
 	{
 		static uword iter(MDThread* t, uword numParams)
@@ -908,7 +917,7 @@ static:
 			pop(t);
 	
 			getUpval(t, 1);
-			ptrdiff_t index = getInt(t, -1);
+			word index = getInt(t, -1);
 			pop(t);
 	
 			MDString** key = void;
@@ -1255,7 +1264,7 @@ static:
 		{
 			MDStringBuffer i = s.getContext!(MDStringBuffer);
 			int index = s.getParam!(int)(0);
-			
+
 			index--;
 	
 			if(index < 0)

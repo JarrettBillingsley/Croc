@@ -681,7 +681,7 @@ struct MDFuncDef
 	package LocVarDesc[] locVarDescs;
 }
 
-// please don't this struct, it'll mess up the D GC when it tries to look inside for pointers.
+// please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.
 struct MDVM
 {
 	package Allocator alloc;
@@ -694,6 +694,13 @@ struct MDVM
 	package Location[] traceback;
 	package MDValue exception;
 	package bool isThrowing;
+
+// 	package Hash!(MDString*, MDNamespace*) modules;
+// 	package Hash!(MDString*, MDFunction*) loaders;
+// 	package Hash!(MDString*, bool) loadingModules;
+// 	package MDString* importPath;
+
+	package MDFunction*[] loaders;
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;

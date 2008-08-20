@@ -21,7 +21,8 @@ Import:
 3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
 	if it succeeds, put that namespace in the owning namespace.
 
-4.  Look for custom loader.  If founc, call with new namespace as param, and if it succeeds, put ns in owning ns.
+4.  Look for custom loader.  If found, call with name of module to get loader func.
+	call that with new namespace as env, and if it succeeds, put ns in owning ns.
 
 5.  [Optional] Look for dynlib, same procedure as 4.
 */

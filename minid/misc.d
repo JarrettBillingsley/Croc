@@ -29,6 +29,7 @@ module minid.misc;
 import Integer = tango.text.convert.Integer;
 import tango.stdc.ctype;
 import tango.text.convert.Utf;
+import tango.io.Print;
 
 import minid.alloc;
 import minid.interpreter;
@@ -207,3 +208,193 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sin
 		}
 	}
 }
+
+/+
+// Expects root to be at the top of the stack
+package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
+{
+	auto root = stackSize(t) - 1;
+	auto cycles = newTable(t);
+
+	int indent = 0;
+
+	void newline(int dir = 0)
+	{
+		printer.newline;
+
+		if(dir > 0)
+			indent++;
+		else if(dir < 0)
+			indent--;
+
+		for(int i = indent; i > 0; i--)
+			printer.print("\t");
+	}
+
+	void delegate() outputTable;
+	void delegate() outputArray;
+	void delegate() outputValue;
+
+	void _outputTable()
+	{
+		printer.print("{");
+
+		if(pretty)
+			newline(1);
+
+		bool first = true;
+
+		foreach(k, ref v; t)
+		{
+			if(!k.isString())
+				exception("All keys in a JSON table must be strings");
+
+			if(first)
+				first = false;
+			else
+			{
+				printer.print(",");
+
+				if(pretty)
+					newline();
+			}
+
+			outputValue(k);
+
+			if(pretty)
+				printer.print(": ");
+			else
+				printer.print(":");
+
+			outputValue(v);
+		}
+
+		if(pretty)
+			newline(-1);
+
+		printer.print("}");
+	}
+
+	void _outputArray(MDArray a)
+	{
+		printer.print("[");
+
+		bool first = true;
+
+		foreach(ref v; a)
+		{
+			if(first)
+				first = false;
+			else
+			{
+				if(pretty)
+					printer.print(", ");
+				else
+					printer.print(",");
+			}
+
+			outputValue(v);
+		}
+
+		printer.print("]");
+	}
+
+	void _outputValue(ref MDValue v)
+	{
+		switch(v.type)
+		{
+			case MDValue.Type.Null:
+				printer.print("null");
+				break;
+
+			case MDValue.Type.Bool:
+				printer.print(v.isFalse() ? "false" : "true");
+				break;
+
+			case MDValue.Type.Int:
+				printer.format("{}", v.as!(int));
+				break;
+
+			case MDValue.Type.Float:
+				printer.format("{}", v.as!(double));
+				break;
+
+			case MDValue.Type.Char:
+				printer.print("\"");
+				printer.print(v.as!(dchar));
+				printer.print("\"");
+				break;
+
+			case MDValue.Type.String:
+				printer.print('"');
+
+				foreach(c; v.as!(MDString).mData)
+				{
+					switch(c)
+					{
+						case '\b': printer.print("\\b"); break;
+						case '\f': printer.print("\\f"); break;
+						case '\n': printer.print("\\n"); break;
+						case '\r': printer.print("\\r"); break;
+						case '\t': printer.print("\\t"); break;
+
+						case '"', '\\', '/':
+							printer.print("\\");
+							printer.print(c);
+							break;
+
+						default:
+							if(c > 0x7f)
+								printer.format("\\u{:x4}", cast(int)c);
+							else
+								printer.print(c);
+
+							break;
+					}
+				}
+
+				printer.print('"');
+				break;
+
+			case MDValue.Type.Table:
+				if(v in cycles)
+					exception("Table is cyclically referenced");
+
+				cycles[v] = true;
+
+				scope(exit)
+					cycles.remove(v);
+
+				outputTable(v.as!(MDTable));
+				break;
+
+			case MDValue.Type.Array:
+				if(v in cycles)
+					exception("Array is cyclically referenced");
+
+				cycles[v] = true;
+
+				scope(exit)
+					cycles.remove(v);
+
+				outputArray(v.as!(MDArray));
+				break;
+
+			default:
+				exception("Type '{}' is not a valid type for conversion to JSON", v.typeString());
+		}
+	}
+
+	outputTable = &_outputTable;
+	outputArray = &_outputArray;
+	outputValue = &_outputValue;
+
+	if(root.isArray())
+		outputArray(root.as!(MDArray));
+	else if(root.isTable())
+		outputTable(root.as!(MDTable));
+	else
+		exception("Root element must be either a table or an array, not a '{}'", root.typeString());
+
+	printer.flush();
+}+/

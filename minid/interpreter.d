@@ -1166,6 +1166,14 @@ public dchar[] getString(MDThread* t, word slot)
 	return v.mString.toString32();
 }
 
+/**
+Returns the thread object at the given _slot, or throws an error if it isn'_t one.
+
+The returned thread object points into the MiniD heap, and as such, if no reference to it is
+held from the MiniD heap or stack, it may be collected, so be sure not to store the reference
+away into a D data structure and then let the thread have its references dropped in MiniD.
+This is really meant for access to threads so that you can call thread functions on them.
+*/
 public MDThread* getThread(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
@@ -2473,7 +2481,8 @@ public word getFuncEnv(MDThread* t, word func)
 }
 
 /**
-Sets the namespace at the top of the stack as the environment namespace of a function closure.
+Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
+that namespace off the stack.
 
 Params:
 	func = The stack index of the function whose environment is to be set.
@@ -2499,6 +2508,7 @@ public void setFuncEnv(MDThread* t, word func)
 	}
 
 	f.environment = ns;
+	pop(t);
 }
 
 /**
@@ -2671,7 +2681,7 @@ public word getAttributes(MDThread* t, word obj)
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, "Can only get attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+		throwException(t, "getAttributes - Can only get attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
 	}
 
 	if(attrs is null)
@@ -2697,7 +2707,7 @@ public void setAttributes(MDThread* t, word obj)
 	if(attrs is null && !isNull(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "'table' or 'null' expected for attributes, not '{}'", getString(t, -1));
+		throwException(t, "setAttributes - 'table' or 'null' expected for attributes, not '{}'", getString(t, -1));
 	}
 
 	if(auto f = getFunction(t, obj))
@@ -2709,7 +2719,7 @@ public void setAttributes(MDThread* t, word obj)
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, "Can only set attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+		throwException(t, "setAttributes - Can only set attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
 	}
 }
 
@@ -2733,6 +2743,31 @@ public bool hasAttributes(MDThread* t, word obj)
 		return n.attrs !is null;
 	else
 		return false;
+}
+
+public word importModule(MDThread* t, dchar[] name)
+{
+	pushString(t, name);
+	importModule(t, -1);
+	insert(t, -2);
+	pop(t);
+	return stackSize(t) - 1;
+}
+
+public word importModule(MDThread* t, word name)
+{
+	auto str = getStringObj(t, name);
+	
+	if(str is null)
+	{
+		pushTypeString(t, name);
+		throwException(t, "importModule - name must be a 'string', not a '{}'", getString(t, -1));
+	}
+
+	pushNull(t);
+	importImpl(t, str, t.stackIndex - 1);
+
+	return stackSize(t) - 1;
 }
 
 // TODO: imports
@@ -5346,6 +5381,39 @@ private void throwImpl(MDThread* t, MDValue* ex)
 
 	// TODO: create traceback here
 	throw new MDException(msg);
+}
+
+private void importImpl(MDThread* t, MDString* name, AbsStack dest)
+{
+	// 1.  See if already loaded.
+
+	// 	2.  See if that name is taken.
+
+	// 	3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
+	// 		if it succeeds, put that namespace in the owning namespace.
+
+	// 	4.  Look for custom loader.  If found, call with name of module to get loader func.
+	// 		call that with new namespace as env, and if it succeeds, put ns in owning ns.
+
+	// 	5.  [Optional] Look for dynlib, same procedure as 4.
+	foreach(loader; t.vm.loaders)
+	{
+		auto reg = pushFunction(t, loader);
+		pushNull(t);
+		pushStringObj(t, name);
+		rawCall(t, reg, 1);
+
+		if(isNamespace(t, -1))
+		{
+			t.stack[dest] = t.stack[t.stackIndex - 1];
+			break;
+		}
+	}
+
+	pop(t);
+
+	if(t.stack[dest].type != MDValue.Type.Namespace)
+		throwException(t, "Error loading module '{}': could not find anything to load", name.toString32());
 }
 
 private void execute(MDThread* t, uword depth = 1)
