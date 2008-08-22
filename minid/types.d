@@ -695,13 +695,6 @@ struct MDVM
 	package MDValue exception;
 	package bool isThrowing;
 
-// 	package Hash!(MDString*, MDNamespace*) modules;
-// 	package Hash!(MDString*, MDFunction*) loaders;
-// 	package Hash!(MDString*, bool) loadingModules;
-// 	package MDString* importPath;
-
-	package MDFunction*[] loaders;
-
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
 	package Layout!(dchar) formatter;

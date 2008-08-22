@@ -1,7 +1,10 @@
 module simple
 
-function f() return 1, 2, 3
-writeln(eval("f()"))
+writeln(modules.loaders)
+
+import operator
+
+writeln(operator.add(3, 4))
 
 /+
 object BaseProp

@@ -54,20 +54,19 @@ static:
 	public void init(MDThread* t)
 	{
 		// Object
-		auto s = pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
-		newFunction(t, &objectClone, "Object.clone");
-		fielda(t, s, "clone");
+		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
+			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
 		newGlobal(t, "Object");
 
 		// StringBuffer
 // 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
 
 		// Really basic stuff
-// 		globals["getTraceback"d] =    new MDClosure(globals.ns, &getTraceback,          "getTraceback");
+// 		register(t, "getTraceback", &getTraceback);
 		register(t, "haltThread", &haltThread);
 		register(t, "currentThread", &currentThread);
-// 		globals["setModuleLoader"d] = new MDClosure(globals.ns, &setModuleLoader,       "setModuleLoader");
-// 		globals["reloadModule"d] =    new MDClosure(globals.ns, &reloadModule,          "reloadModule");
+// 		register(t, "setModuleLoader", &setModuleLoader);
+// 		register(t, "reloadModule", &reloadModule);
 		register(t, "removeKey", &removeKey);
 		register(t, "rawSet", &rawSet);
 		register(t, "rawGet", &rawGet);
@@ -124,53 +123,47 @@ static:
 		// Dynamic compilation stuff
 		register(t, "loadString", &loadString);
 		register(t, "eval", &eval);
-// 		globals["loadJSON"d] =        new MDClosure(globals.ns, &loadJSON,              "loadJSON");
-// 		globals["toJSON"d] =          new MDClosure(globals.ns, &toJSON,                "toJSON");
+// 		register(t, "loadJSON", &loadJSON);
+// 		register(t, "toJSON", &toJSON);
 
 		// The Namespace type's metatable
 		newNamespace(t, "namespace");
-		
-		newFunction(t, &namespaceApply, "namespace.opApply"); fielda(t, -2, "opApply");
-
+			newFunction(t, &namespaceApply, "namespace.opApply"); fielda(t, -2, "opApply");
 		setTypeMT(t, MDValue.Type.Namespace);
 
 		// The Thread type's metatable
 		newNamespace(t, "thread");
-
-		newFunction(t, &threadReset, "thread.reset");       fielda(t, -2, "reset");
-		newFunction(t, &threadState, "thread.state");       fielda(t, -2, "state");
-		newFunction(t, &isInitial,   "thread.isInitial");   fielda(t, -2, "isInitial");
-		newFunction(t, &isRunning,   "thread.isRunning");   fielda(t, -2, "isRunning");
-		newFunction(t, &isWaiting,   "thread.isWaiting");   fielda(t, -2, "isWaiting");
-		newFunction(t, &isSuspended, "thread.isSuspended"); fielda(t, -2, "isSuspended");
-		newFunction(t, &isDead,      "thread.isDead");      fielda(t, -2, "isDead");
-
-		newFunction(t, &threadIterator, "thread.iterator");
-		newFunction(t, &threadApply, "thread.opApply", 1);
-		fielda(t, -2, "opApply");
-
+			newFunction(t, &threadReset, "thread.reset");       fielda(t, -2, "reset");
+			newFunction(t, &threadState, "thread.state");       fielda(t, -2, "state");
+			newFunction(t, &isInitial,   "thread.isInitial");   fielda(t, -2, "isInitial");
+			newFunction(t, &isRunning,   "thread.isRunning");   fielda(t, -2, "isRunning");
+			newFunction(t, &isWaiting,   "thread.isWaiting");   fielda(t, -2, "isWaiting");
+			newFunction(t, &isSuspended, "thread.isSuspended"); fielda(t, -2, "isSuspended");
+			newFunction(t, &isDead,      "thread.isDead");      fielda(t, -2, "isDead");
+	
+			newFunction(t, &threadIterator, "thread.iterator");
+			newFunction(t, &threadApply, "thread.opApply", 1);
+			fielda(t, -2, "opApply");
 		setTypeMT(t, MDValue.Type.Thread);
 
 		// The Function type's metatable
 		newNamespace(t, "function");
-
-		newFunction(t, &functionEnvironment, "function.environment"); fielda(t, -2, "environment");
-		newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
-		newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
-		newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
-
+			newFunction(t, &functionEnvironment, "function.environment"); fielda(t, -2, "environment");
+			newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
+			newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
+			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
 		setTypeMT(t, MDValue.Type.Function);
 	}
 
 	// ===================================================================================================================================
 	// Object
 
+	// function clone() = object : this {}
 	uword objectClone(MDThread* t, uword numParams)
 	{
 		newObject(t, 0);
 		return 1;
 	}
-	
 
 	// ===================================================================================================================================
 	// Basic functions

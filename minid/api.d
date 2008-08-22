@@ -136,27 +136,3 @@ public void closeVM(MDVM* vm)
 	delete vm.formatter;
 	*vm = MDVM.init;
 }
-
-/*
-
-import minid.misc;
-import minid.func;
-import minid.funcdef;
-import tango.io.FileConduit;
-import tango.io.protocol.Reader;
-import tango.io.Stdout;
-import tango.stdc.stdlib;
-import tango.stdc.stringz;
-public word loadFunc(MDThread* t, char[] filename)
-{
-	if(system(toStringz("minidc " ~ filename)) != 0)
-		throw new Exception("failcopter");
-	scope f = new FileConduit(filename ~ "m", FileConduit.ReadExisting);
-	scope r = new Reader(f);
-	FileHeader header;
-	Deserialize(r, header);
-	dchar[] name;
-	Deserialize(r, name);
-	auto fd = funcdef.deserialize(t.vm, r);
-	return pushFunction(t, func.create(t.vm.alloc, t.vm.globals, fd));
-} */

@@ -23,10 +23,15 @@ subject to the following restrictions:
 
 module minid.vm;
 
+import tango.io.FilePath;
 import tango.stdc.stdlib;
 import tango.text.convert.Layout;
+import tango.text.convert.Utf;
+import tango.text.Util;
 
 import minid.alloc;
+import minid.compiler;
+import minid.ex;
 import minid.gc;
 import minid.namespace;
 import minid.string;
@@ -46,9 +51,157 @@ public MDThread* mainThread(MDVM* vm)
 	return vm.mainThread;
 }
 
+public uword checkLoaded(MDThread* t, uword numParams)
+{
+	checkStringParam(t, 1);
+	pushGlobal(t, "loaded");
+	dup(t, 1);
+	idx(t, -2);
+	return 1;
+}
+
+public uword checkCircular(MDThread* t, uword numParams)
+{
+	checkStringParam(t, 1);
+	pushGlobal(t, "loading");
+	dup(t, 1);
+	idx(t, -2);
+
+	if(!isNull(t, -1))
+		throwException(t, "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", getString(t, 1));
+
+	return 0;
+}
+
+public uword customLoad(MDThread* t, uword numParams)
+{
+	checkStringParam(t, 1);
+	pushGlobal(t, "customLoaders");
+	dup(t, 1);
+	idx(t, -2);
+	
+	if(isFunction(t, -1) || isNamespace(t, -1))
+		return 1;
+		
+	return 0;
+}
+
+public uword checkTaken(MDThread* t, uword numParams)
+{
+	auto name = checkStringParam(t, 1);
+	
+	pushGlobal(t, "_G");
+
+	foreach(segment; name.delimiters("."d))
+	{
+		pushString(t, segment);
+		
+		if(opin(t, -1, -2))
+		{
+			field(t, -2);
+			
+			// TODO: Better error message here
+			if(!isNamespace(t, -1))
+				throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
+				
+			insert(t, -2);
+			pop(t);
+		}
+		else
+			return 0;
+	}
+
+	return 0;
+}
+
+// TODO: try to make this not allocate memory?
+public uword loadFiles(MDThread* t, uword numParams)
+{
+	auto name = toString(checkStringParam(t, 1));
+	auto pos = name.locatePrior('.');
+	char[] packages;
+	char[] modName;
+
+	if(pos == name.length)
+	{
+		packages = "";
+		modName = name;
+	}
+	else
+	{
+		packages = name[0 .. pos];
+		modName = name[pos + 1 .. $];
+	}
+
+	// safe since this string is held in the modules namespace
+	pushGlobal(t, "path");
+	auto paths = toString(getString(t, -1));
+	pop(t);
+
+	outerLoop: foreach(path; paths.delimiters(";"))
+	{
+		scope p = new FilePath(path);
+
+		if(!p.exists())
+			continue;
+
+		foreach(piece; packages.delimiters("."))
+		{
+			p.append(piece);
+
+			if(!p.exists())
+				continue outerLoop;
+		}
+
+		scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
+		scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
+		
+		if(src.exists())
+		{
+			if(bin.exists())
+			{
+				if(src.modified() > bin.modified())
+				{
+					scope c = new Compiler(t);
+					c.compileModule(src.toString());
+					return 1;
+				}
+				else
+				{
+					assert(false, "unimplemented");
+				}
+			}
+			else
+			{
+				scope c = new Compiler(t);
+				c.compileModule(src.toString());
+				return 1;
+			}
+		}
+		else if(bin.exists())
+		{
+			assert(false, "unimplemented");
+		}
+	}
+
+	return 0;
+}
+
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================
+
+// 	1.  See if already loaded.
+
+// 	2.  See if that name is taken.
+
+// 	3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
+// 		if it succeeds, put that namespace in the owning namespace.
+
+// 	4.  Look for custom loader.  If found, call with name of module to get loader func.
+// 		call that with new namespace as env, and if it succeeds, put ns in owning ns.
+
+// 	5.  [Optional] Look for dynlib, same procedure as 4.
 
 package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 {
@@ -67,9 +220,44 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
 	vm.formatter = new Layout!(dchar)();
 
-	auto mt = vm.mainThread;
+	auto t = vm.mainThread;
 
 	// _G = _G._G = _G._G._G = _G._G._G._G = ...
-	pushNamespace(mt, vm.globals);
-	newGlobal(mt, "_G");
+	pushNamespace(t, vm.globals);
+	newGlobal(t, "_G");
+
+	// Set up default import handlers
+	auto ns = newNamespace(t, "modules");
+		pushString(t, "path");
+		pushString(t, ".");
+		fielda(t, ns);
+
+		pushString(t, "loaded");
+		newTable(t);
+		fielda(t, ns);
+
+		pushString(t, "loading");
+		newTable(t);
+		fielda(t, ns);
+		
+		pushString(t, "customLoaders");
+		newTable(t);
+		fielda(t, ns);
+
+		pushString(t, "loaders");
+			dup(t, ns); newFunctionWithEnv(t, &checkLoaded, "checkLoaded");
+			dup(t, ns); newFunctionWithEnv(t, &checkCircular, "checkCircular");
+			dup(t, ns); newFunctionWithEnv(t, &customLoad, "customLoad");
+			dup(t, ns); newFunctionWithEnv(t, &checkTaken, "checkTaken");
+			dup(t, ns); newFunctionWithEnv(t, &loadFiles, "loadFiles");
+
+			version(MDDynLibs)
+			{
+				dup(t, ns); newFunctionWithEnv(t, &loadDynlib, "loadDynlib");
+				newArrayFromStack(t, 6);
+			}
+			else
+				newArrayFromStack(t, 5);
+		fielda(t, ns);
+	newGlobal(t, "modules");
 }

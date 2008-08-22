@@ -31,6 +31,7 @@ version(MDRestrictedCoro) {} else
 
 import tango.core.Vararg;
 import tango.stdc.string;
+import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
 import minid.array;
@@ -179,17 +180,37 @@ public word newTable(MDThread* t, uword size = 0)
 Creates a new array object and pushes it onto the stack.
 
 Params:
-	length = The length of the new array.
+	len = The length of the new array.
 
 Returns:
 	The stack index of the newly-created array.
 */
-public word newArray(MDThread* t, uword length)
+public word newArray(MDThread* t, uword len)
 {
 	maybeGC(t.vm);
-	return pushArray(t, array.create(t.vm.alloc, length));
+	return pushArray(t, array.create(t.vm.alloc, len));
 }
 
+/**
+Creates a new array object using values at the top of the stack.  Pops those values and pushes
+the new array onto the stack.
+
+Params:
+	len = How many values on the stack to be put into the array, and the length of the resulting
+		array.
+
+Returns:
+	The stack index of the newly-created array.
+*/
+public word newArrayFromStack(MDThread* t, uword len)
+{
+	checkNumParams(t, len);
+	maybeGC(t.vm);
+	auto a = array.create(t.vm.alloc, len);
+	a.slice[] = t.stack[t.stackIndex - len .. t.stackIndex];
+	pop(t, len);
+	return pushArray(t, a);
+}
 
 /**
 Creates a new native closure and pushes it onto the stack.
@@ -2745,6 +2766,16 @@ public bool hasAttributes(MDThread* t, word obj)
 		return false;
 }
 
+/**
+Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
+module's namespace onto the stack.
+
+Params:
+	name = The name of the module to be imported.
+
+Returns:
+	The stack index of the imported module's namespace.
+*/
 public word importModule(MDThread* t, dchar[] name)
 {
 	pushString(t, name);
@@ -2754,6 +2785,15 @@ public word importModule(MDThread* t, dchar[] name)
 	return stackSize(t) - 1;
 }
 
+/**
+Same as above, but uses a name on the stack rather than one provided as a parameter.
+
+Params:
+	name = The stack index of the string holding the name of the module to be imported.
+	
+Returns:
+	The stack index of the imported module's namespace.
+*/
 public word importModule(MDThread* t, word name)
 {
 	auto str = getStringObj(t, name);
@@ -2770,7 +2810,6 @@ public word importModule(MDThread* t, word name)
 	return stackSize(t) - 1;
 }
 
-// TODO: imports
 // TODO: foreach loops
 // TODO: tracebacks
 // TODO: some more ops for some objects, like namespaces?  removeKey?
@@ -2836,6 +2875,9 @@ debug
 	absolute stack index of where its variadic args (if any) begin; $(I retSlot) is the absolute stack index where return
 	values (if any) will started to be copied upon that function returning; and $(I numRets) being the number of returns that
 	the calling function expects it to return (-1 meaning "as many as possible").
+	
+	This only prints out the current thread's call stack.  It does not take coroutine resumes and yields into account (since
+	that's pretty much impossible).
 	*/
 	public void printCallStack(MDThread* t)
 	{
@@ -3233,37 +3275,14 @@ private word toStringImpl(MDThread* t, MDValue v, bool raw)
 
 				case MDValue.Type.Object: return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Object), v.mObject.name.toString32(), cast(void*)v.mObject);
 				case MDValue.Type.Namespace:
-					uword namespaceName(MDNamespace* ns)
-					{
-						if(ns.name.length == 0)
-							return 0;
-
-						uword n = 0;
-
-						if(ns.parent)
-						{
-							auto ret = namespaceName(ns.parent);
-
-							if(ret > 0)
-							{
-								pushChar(t, '.');
-								n = ret + 1;
-							}
-						}
-
-						pushStringObj(t, ns.name);
-						n++;
-
-						return n;
-					}
-					
 					if(raw)
 						return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
 					else
 					{
 						pushString(t, MDValue.typeString(MDValue.Type.Namespace));
 						pushChar(t, ' ');
-						return cat(t, namespaceName(v.mNamespace) + 2);
+						pushNamespaceNamestring(t, v.mNamespace);
+						return cat(t, 3);
 					}
 
 				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
@@ -5370,9 +5389,89 @@ private MDUpval* findUpvalue(MDThread* t, uword num)
 	return ret;
 }
 
+private word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
+{
+	uword namespaceName(MDNamespace* ns)
+	{
+		if(ns.name.length == 0)
+			return 0;
+
+		uword n = 0;
+
+		if(ns.parent)
+		{
+			auto ret = namespaceName(ns.parent);
+
+			if(ret > 0)
+			{
+				pushChar(t, '.');
+				n = ret + 1;
+			}
+		}
+
+		pushStringObj(t, ns.name);
+		n++;
+
+		return n;
+	}
+	
+	auto x = namespaceName(ns);
+	
+	if(x == 0)
+		return pushString(t, "");
+	else
+		return cat(t, x);
+}
+
+private void pushDebugLoc(MDThread* t)
+{
+	if(t.currentAR is null)
+		pushString(t, "<no location available>");
+	else
+	{
+		pushNamespaceNamestring(t, t.currentAR.func.environment);
+		
+		if(getString(t, -1) == "")
+			dup(t);
+		else
+			pushChar(t, '.');
+
+		pushStringObj(t, t.currentAR.func.name);
+
+		if(t.currentAR.func.isNative)
+		{
+			pushString(t, "(native)");
+			cat(t, 4);
+		}
+		else
+		{
+			auto def = t.currentAR.func.scriptFunc;
+
+			word line = -1;
+			uword instructionIndex = t.currentAR.pc - def.code.ptr - 1;
+
+			if(instructionIndex < def.lineInfo.length)
+				line = def.lineInfo[instructionIndex];
+				
+			pushChar(t, '(');
+			
+			if(line == -1)
+				pushChar(t, '?');
+			else
+				pushFormat(t, "{}", line);
+
+			pushChar(t, ')');
+			cat(t, 6);
+		}
+	}
+}
+
 private void throwImpl(MDThread* t, MDValue* ex)
 {
+	pushDebugLoc(t);
+	pushString(t, ": ");
 	toStringImpl(t, *ex, true);
+	cat(t, 3);
 	auto msg = Utf.toString(getString(t, -1));
 	pop(t);
 
@@ -5385,34 +5484,67 @@ private void throwImpl(MDThread* t, MDValue* ex)
 
 private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 {
-	// 1.  See if already loaded.
+	pushGlobal(t, "modules");
+	auto loaders = field(t, -1, "loaders");
+	auto num = len(t, -1);
 
-	// 	2.  See if that name is taken.
-
-	// 	3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
-	// 		if it succeeds, put that namespace in the owning namespace.
-
-	// 	4.  Look for custom loader.  If found, call with name of module to get loader func.
-	// 		call that with new namespace as env, and if it succeeds, put ns in owning ns.
-
-	// 	5.  [Optional] Look for dynlib, same procedure as 4.
-	foreach(loader; t.vm.loaders)
+	for(uword i = 0; i < num; i++)
 	{
-		auto reg = pushFunction(t, loader);
+		auto reg = pushInt(t, i);
+		idx(t, loaders);
 		pushNull(t);
 		pushStringObj(t, name);
 		rawCall(t, reg, 1);
 
-		if(isNamespace(t, -1))
+		if(isFunction(t, -1) || isNamespace(t, -1))
 		{
 			t.stack[dest] = t.stack[t.stackIndex - 1];
+			pop(t);
 			break;
 		}
+
+		pop(t);
 	}
 
-	pop(t);
+	pop(t, 2);
+	
+	if(t.stack[dest].type == MDValue.Type.Function)
+	{
+		auto reg = pushFunction(t, t.stack[dest].mFunction);
 
-	if(t.stack[dest].type != MDValue.Type.Namespace)
+		// Make the namespace
+		pushGlobal(t, "_G");
+
+		foreach(segment; name.toString32().delimiters("."d))
+		{
+			pushString(t, segment);
+
+			if(opin(t, -1, -2))
+				field(t, -2);
+			else
+			{
+				pop(t);
+				newNamespace(t, -1, segment);
+				dup(t);
+				fielda(t, -3, segment);
+			}
+
+			insert(t, -2);
+			pop(t);
+		}
+
+		// Set the environment (also used as 'this')
+		dup(t);
+		setFuncEnv(t, reg);
+		
+		auto ns = getNamespace(t, -1);
+
+		// Call it
+		rawCall(t, reg, 0);
+		
+		t.stack[dest] = ns;
+	}
+	else if(t.stack[dest].type != MDValue.Type.Namespace)
 		throwException(t, "Error loading module '{}': could not find anything to load", name.toString32());
 }
 
@@ -5543,24 +5675,16 @@ private void execute(MDThread* t, uword depth = 1)
 
 				// Logical and Control Flow
 				case Op.Import:
-					// TODO: this.
-					assert(false, "Op.Import unimplemented");
-// 					assert(t.stackIndex == t.currentAR.savedTop, "import: stack index not at top");
-//
-// 					RS = get(i.rs);
-//
-// 					if(RS.type != MDValue.Type.String)
-// 					{
-// 						typeString(t, &RS);
-// 						throwException(t, "Import expression must be a string value, not '{}'", getString(t, -1));
-// 					}
-//
-// 					try
-// 						t.stack[stackBase + i.rd] = importModule(t, RS.mString);
-// 					catch(MDRuntimeException e)
-// 						throw e;
-// 					catch(MDException e)
-// 						throw new MDRuntimeException(startTraceback(), &e.value);
+					RS = *get(i.rs);
+
+					if(RS.type != MDValue.Type.String)
+					{
+						typeString(t, &RS);
+						throwException(t, "Import expression must be a string value, not '{}'", getString(t, -1));
+					}
+
+					importImpl(t, RS.mString, stackBase + i.rd);
+					break;
 
 				case Op.Not: *get(i.rd) = get(i.rs).isFalse(); break;
 
