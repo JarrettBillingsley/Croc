@@ -33,6 +33,7 @@ void main()
 
 	auto vm = new MDVM;
 	auto t = openVM(vm);
+	loadStdlibs(t);
 
 	// This is all stdlib crap!
 	newNamespace(t, "array");

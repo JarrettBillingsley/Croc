@@ -191,18 +191,6 @@ public uword loadFiles(MDThread* t, uword numParams)
 // Package
 // ================================================================================================================================================
 
-// 	1.  See if already loaded.
-
-// 	2.  See if that name is taken.
-
-// 	3.  Look for .md and .mdm.  If found, create closure with new namespace env, call.
-// 		if it succeeds, put that namespace in the owning namespace.
-
-// 	4.  Look for custom loader.  If found, call with name of module to get loader func.
-// 		call that with new namespace as env, and if it succeeds, put ns in owning ns.
-
-// 	5.  [Optional] Look for dynlib, same procedure as 4.
-
 package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 {
 	assert(vm.mainThread is null, "Attempting to reopen an already-open VM");

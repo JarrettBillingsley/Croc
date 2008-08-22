@@ -2145,7 +2145,10 @@ struct Parser
 		auto loc = l.loc;
 
 		if(l.type == Token.True)
+		{
+			l.expect(Token.True);
 			return new(c) BoolExp(c, loc, true);
+		}
 		else
 		{
 			l.expect(Token.False);

@@ -41,6 +41,7 @@ debug
 }
 
 import minid.baselib;
+import minid.charlib;
 
 // ================================================================================================================================================
 // Public
@@ -95,6 +96,106 @@ public MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx =
 	BaseLib.init(vm.mainThread);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return mainThread(vm);
+}
+
+/**
+This enumeration is used with the NewContext function to specify which standard libraries you
+want to load into the new context.  The base library is always loaded, so there is no
+flag for it.  You can choose which libraries you want to load by ORing together multiple
+flags.
+*/
+public enum MDStdlib
+{
+	/**
+	Nothing but the base library will be loaded if you specify this flag.
+	*/
+	None =      0,
+
+	/**
+	Array manipulation.
+	*/
+	Array =     1,
+
+	/**
+	Character classification.
+	*/
+	Char =      2,
+
+	/**
+	Stream-based input and output.
+	*/
+	IO =        4,
+
+	/**
+	Standard math functions.
+	*/
+	Math =      8,
+
+	/**
+	String manipulation.
+	*/
+	String =   16,
+
+	/**
+	Table manipulation.
+	*/
+	Table =    32,
+
+	/**
+	OS-specific functionality.
+	*/
+	OS =       64,
+
+	/**
+	Regular expressions.
+	*/
+	Regexp =  128,
+
+	/**
+	This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
+	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+	or OS libraries to do bad things.
+	*/
+	Safe = Array | Char | Math | String | Table | Regexp,
+
+	/**
+	All available standard libraries.
+	*/
+	All = Safe | IO | OS,
+}
+
+/**
+Load the standard libraries into the context of the given thread.  
+
+Params:
+	libs = An ORing together of any standard libraries you want to load (see the MDStdlib enum).
+		Defaults to MDStdlib.All.
+*/
+public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
+{
+// 	if(libs & MDStdlib.Array)
+// 		ArrayLib.init(ret);
+
+	if(libs & MDStdlib.Char)
+		CharLib.init(t);
+
+// 	if(libs & MDStdlib.IO)
+// 		IOLib.init(ret);
+// 
+// 	if(libs & MDStdlib.Math)
+// 		MathLib.init(ret);
+// 
+// 	if(libs & MDStdlib.OS)
+// 		OSLib.init(ret);
+// 
+// 	if(libs & MDStdlib.Regexp)
+// 		RegexpLib.init(ret);
+// 
+// 	if(libs & MDStdlib.String)
+// 		StringLib.init(ret);
+// 
+// 	if(libs & MDStdlib.Table)
+// 		TableLib.init(ret);
 }
 
 /**

@@ -2810,6 +2810,54 @@ public word importModule(MDThread* t, word name)
 	return stackSize(t) - 1;
 }
 
+/**
+An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
+could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
+for writing native MiniD libraries.
+
+Say you had a function which opened a file:
+
+-----
+File f = OpenFile("filename");
+-----
+
+Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
+stack traces about) exceptions which derive from MDException, any exceptions that this throws would just percolate
+up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
+you call a lot of native functions.
+
+Instead, you can wrap the call to this unsafe function with a call to safeCode().
+
+-----
+File f = safeCode(t, OpenFile("filename"));
+-----
+
+What safeCode() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
+the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
+an exception that derives from Exception, it throws a new MDException with the original exception's message as the
+message.
+
+safeCode() is templated to allow any return value.
+
+Params:
+	code = The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
+		safeCode.
+
+Returns:
+	Whatever the code parameter returns.
+*/
+public T safeCode(T)(MDThread* t, lazy T code)
+{
+	try
+		return code;
+	catch(MDException e)
+		throw e;
+	catch(Exception e)
+		throwException(t, "{}", e);
+		
+	assert(false);
+}
+
 // TODO: foreach loops
 // TODO: tracebacks
 // TODO: some more ops for some objects, like namespaces?  removeKey?

@@ -1,10 +1,6 @@
 module simple
 
-writeln(modules.loaders)
 
-import operator
-
-writeln(operator.add(3, 4))
 
 /+
 object BaseProp
