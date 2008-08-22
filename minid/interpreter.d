@@ -2854,8 +2854,29 @@ public T safeCode(T)(MDThread* t, lazy T code)
 		throw e;
 	catch(Exception e)
 		throwException(t, "{}", e);
-		
+
 	assert(false);
+}
+
+/**
+Fills the array at the given index with the value at the top of the stack and pop that value.
+
+Params:
+	arr = The stack index of the array object to fill.
+*/
+public void fillArray(MDThread* t, word arr)
+{
+	checkNumParams(t, 1);
+	auto a = getArray(t, arr);
+
+	if(a is null)
+	{
+		pushTypeString(t, arr);
+		throwException(t, "fillArray - arr must be an array, not a '{}'", getString(t, -1));
+	}
+
+	a.slice[] = t.stack[t.stackIndex - 1];
+	pop(t);
 }
 
 // TODO: foreach loops

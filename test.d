@@ -36,10 +36,6 @@ void main()
 	loadStdlibs(t);
 
 	// This is all stdlib crap!
-	newNamespace(t, "array");
-	newFunction(t, &arrayToString, "array.toString");
-	fielda(t, -2, "toString");
-	setTypeMT(t, MDValue.Type.Array);
 	newFunction(t, &microTime, "microTime");
 	newGlobal(t, "microTime");
 	Timer.init(t);
@@ -60,53 +56,6 @@ void main()
 
 	closeVM(vm);
 	delete vm;
-}
-
-uword arrayToString(MDThread* t, uword numParams)
-{
-	auto buf = StrBuffer(t);
-	buf.addChar('[');
-
-	auto length = len(t, 0);
-
-	for(uword i = 0; i < length; i++)
-	{
-		pushInt(t, i);
-		idx(t, 0);
-
-		if(isString(t, -1))
-		{
-			// this is GC-safe since the string is stored in the array
-			auto s = getString(t, -1);
-			pop(t);
-			buf.addChar('"');
-			buf.addString(s);
-			buf.addChar('"');
-		}
-		else if(isChar(t, -1))
-		{
-			auto c = getChar(t, -1);
-			pop(t);
-			buf.addChar('\'');
-			buf.addChar(c);
-			buf.addChar('\'');
-		}
-		else
-		{
-			pushToString(t, -1, true);
-			insert(t, -2);
-			pop(t);
-			buf.addTop();
-		}
-
-		if(i < length - 1)
-			buf.addString(", ");
-	}
-
-	buf.addChar(']');
-	buf.finish();
-
-	return 1;
 }
 
 private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);

@@ -27,6 +27,7 @@ import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
+import minid.ex;
 import minid.interpreter;
 import minid.types;
 
@@ -35,88 +36,85 @@ struct ArrayLib
 static:
 	public void init(MDThread* t)
 	{
-		context.setModuleLoader("array", context.newClosure(function int(MDState s, uint numParams)
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
+
+		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			auto lib = s.getParam!(MDNamespace)(1);
+			newFunction(t, &array_new, "new");
+			newGlobal(t, "new");
+			newFunction(t, &range, "range");
+			newGlobal(t, "range");
 
-			lib.addList
-			(
-				"new"d,      new MDClosure(lib, &newArray, "array.new"),
-				"range"d,    new MDClosure(lib, &range,    "array.range")
-			);
+			newNamespace(t, "array");
+				newFunction(t, &sort, "sort"); fielda(t, -2, "sort");
+				newFunction(t, &reverse, "reverse"); fielda(t, -2, "reverse");
+				newFunction(t, &array_dup, "dup"); fielda(t, -2, "dup");
 
-			auto methods = new MDNamespace("array"d, s.context.globals.ns);
+					newFunction(t, &iterator, "iterator");
+					newFunction(t, &iteratorReverse, "iteratorReverse");
+				newFunction(t, &opApply, "opApply", 2);
+				fielda(t, -2, "opApply");
 
-			methods.addList
-			(
-				"sort"d,     new MDClosure(methods, &sort,     "array.sort"),
-				"reverse"d,  new MDClosure(methods, &reverse,  "array.reverse"),
-				"dup"d,      new MDClosure(methods, &dup,      "array.dup"),
-				"opApply"d,  new MDClosure(methods, &opApply,  "array.opApply",
-				[
-					MDValue(new MDClosure(methods, &iterator,        "array.iterator")),
-					MDValue(new MDClosure(methods, &iteratorReverse, "array.iteratorReverse"))
-				]),
-				"expand"d,   new MDClosure(methods, &expand,   "array.expand"),
-				"toString"d, new MDClosure(methods, &toString, "array.toString"),
-				"apply"d,    new MDClosure(methods, &apply,    "array.apply"),
-				"map"d,      new MDClosure(methods, &map,      "array.map"),
-				"reduce"d,   new MDClosure(methods, &reduce,   "array.reduce"),
-				"each"d,     new MDClosure(methods, &each,     "array.each"),
-				"filter"d,   new MDClosure(methods, &filter,   "array.filter"),
-				"find"d,     new MDClosure(methods, &find,     "array.find"),
-				"findIf"d,   new MDClosure(methods, &findIf,   "array.findIf"),
-				"bsearch"d,  new MDClosure(methods, &bsearch,  "array.bsearch"),
-				"pop"d,      new MDClosure(methods, &pop,      "array.pop"),
-				"set"d,      new MDClosure(methods, &set,      "array.set"),
-				"min"d,      new MDClosure(methods, &min,      "array.min"),
-				"max"d,      new MDClosure(methods, &max,      "array.max"),
-				"extreme"d,  new MDClosure(methods, &extreme,  "array.extreme"),
-				"any"d,      new MDClosure(methods, &any,      "array.any"),
-				"all"d,      new MDClosure(methods, &all,      "array.all"),
-				"fill"d,     new MDClosure(methods, &fill,     "array.fill"),
-				"append"d,   new MDClosure(methods, &append,   "array.append"),
-				"flatten"d,  new MDClosure(methods, &flatten,  "array.flatten"),
-				"makeHeap"d, new MDClosure(methods, &makeHeap, "array.makeHeap"),
-				"pushHeap"d, new MDClosure(methods, &pushHeap, "array.pushHeap"),
-				"popHeap"d,  new MDClosure(methods, &popHeap,  "array.popHeap"),
-				"sortHeap"d, new MDClosure(methods, &sortHeap, "array.sortHeap"),
-				"count"d,    new MDClosure(methods, &count,    "array.count"),
-				"countIf"d,  new MDClosure(methods, &countIf,  "array.countIf")
-			);
-
-			s.context.setMetatable(MDValue.Type.Array, methods);
+				newFunction(t, &expand, "expand"); fielda(t, -2, "expand");
+				newFunction(t, &toString, "toString"); fielda(t, -2, "toString");
+// 				newFunction(t, &apply, "apply"); fielda(t, -2, "apply");
+// 				newFunction(t, &map, "map"); fielda(t, -2, "map");
+// 				newFunction(t, &reduce, "reduce"); fielda(t, -2, "reduce");
+// 				newFunction(t, &each, "each"); fielda(t, -2, "each");
+// 				newFunction(t, &filter, "filter"); fielda(t, -2, "filter");
+// 				newFunction(t, &find, "find"); fielda(t, -2, "find");
+// 				newFunction(t, &findIf, "findIf"); fielda(t, -2, "findIf");
+// 				newFunction(t, &bsearch, "bsearch"); fielda(t, -2, "bsearch");
+// 				newFunction(t, &pop, "pop"); fielda(t, -2, "pop");
+// 				newFunction(t, &set, "set"); fielda(t, -2, "set");
+// 				newFunction(t, &min, "min"); fielda(t, -2, "min");
+// 				newFunction(t, &max, "max"); fielda(t, -2, "max");
+// 				newFunction(t, &extreme, "extreme"); fielda(t, -2, "extreme");
+// 				newFunction(t, &any, "any"); fielda(t, -2, "any");
+// 				newFunction(t, &all, "all"); fielda(t, -2, "all");
+// 				newFunction(t, &fill, "fill"); fielda(t, -2, "fill");
+// 				newFunction(t, &append, "append"); fielda(t, -2, "append");
+// 				newFunction(t, &flatten, "flatten"); fielda(t, -2, "flatten");
+// 				newFunction(t, &makeHeap, "makeHeap"); fielda(t, -2, "makeHeap");
+// 				newFunction(t, &pushHeap, "pushHeap"); fielda(t, -2, "pushHeap");
+// 				newFunction(t, &popHeap, "popHeap"); fielda(t, -2, "popHeap");
+// 				newFunction(t, &sortHeap, "sortHeap"); fielda(t, -2, "sortHeap");
+// 				newFunction(t, &count, "count"); fielda(t, -2, "count");
+// 				newFunction(t, &countIf, "countIf"); fielda(t, -2, "countIf");
+			setTypeMT(t, MDValue.Type.Array);
 
 			return 0;
-		}, "array"));
+		}, "array");
+		
+		fielda(t, -2, "array");
 
-		context.importModule("array");
+		importModule(t, "array");
 	}
 
-	int newArray(MDState s, uint numParams)
+	uword array_new(MDThread* t, uword numParams)
 	{
-		int length = s.getParam!(int)(0);
-		
+		auto length = checkIntParam(t, 1);
+
 		if(length < 0)
-			s.throwRuntimeException("Invalid length: {}", length);
-			
-		if(numParams == 1)
-			s.push(new MDArray(length));
-		else
+			throwException(t, "Invalid length: {}", length);
+
+		newArray(t, length);
+
+		if(numParams > 1)
 		{
-			MDArray arr = new MDArray(length);
-			arr[] = s.getParam(1u);
-			s.push(arr);
+			dup(t, 2);
+			fillArray(t, -2);
 		}
 
 		return 1;
 	}
-	
-	int range(MDState s, uint numParams)
+
+	uword range(MDThread* t, uword numParams)
 	{
-		int v1 = s.getParam!(int)(0);
-		int v2;
-		int step = 1;
+		auto v1 = checkIntParam(t, 1);
+		mdint v2;
+		mdint step = 1;
 
 		if(numParams == 1)
 		{
@@ -124,66 +122,82 @@ static:
 			v1 = 0;
 		}
 		else if(numParams == 2)
-			v2 = s.getParam!(int)(1);
+			v2 = checkIntParam(t, 2);
 		else
 		{
-			v2 = s.getParam!(int)(1);
-			step = s.getParam!(int)(2);
+			v2 = checkIntParam(t, 2);
+			step = checkIntParam(t, 3);
 		}
 
 		if(step <= 0)
-			s.throwRuntimeException("Step may not be negative or 0");
-		
-		int range = abs(v2 - v1);
-		int size = range / step;
+			throwException(t, "Step may not be negative or 0");
+
+		mdint range = abs(v2 - v1);
+		mdint size = range / step;
 
 		if((range % step) != 0)
 			size++;
 
-		MDArray ret = new MDArray(size);
-		
-		int val = v1;
+		newArray(t, size);
+		auto a = getArray(t, -1);
+
+		auto val = v1;
 
 		if(v2 < v1)
 		{
-			for(int i = 0; val > v2; i++, val -= step)
-				*ret[i] = val;
+			for(mdint i = 0; val > v2; i++, val -= step)
+				a.slice[i] = val;
 		}
 		else
 		{
-			for(int i = 0; val < v2; i++, val += step)
-				*ret[i] = val;
+			for(mdint i = 0; val < v2; i++, val += step)
+				a.slice[i] = val;
 		}
 
-		s.push(ret);
 		return 1;
 	}
 
-	int sort(MDState s, uint numParams)
+	uword sort(MDThread* t, uword numParams)
 	{
-		MDArray arr = s.getContext!(MDArray);
+		checkParam(t, 0, MDValue.Type.Array);
 
 		bool delegate(MDValue, MDValue) pred;
 
-		MDClosure sortFunc;
-
 		if(numParams > 0)
 		{
-			if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+			if(isString(t, 1) && getString(t, 1) == "reverse"d)
 			{
 				pred = (MDValue v1, MDValue v2)
 				{
-					return s.cmp(v1, v2) > 0;
+					push(t, v1);
+					push(t, v2);
+					auto v = cmp(t, -2, -1);
+					pop(t, 2);
+					return v > 0;
 				};
 			}
 			else
 			{
-				sortFunc = s.getParam!(MDClosure)(0);
+				checkParam(t, 1, MDValue.Type.Function);
+				dup(t);
 
 				pred = (MDValue v1, MDValue v2)
 				{
-					s.call(sortFunc, 1, v1, v2);
-					return s.pop!(int)() < 0;
+					auto reg = dup(t);
+					pushNull(t);
+					push(t, v1);
+					push(t, v2);
+					rawCall(t, reg, 1);
+					
+					if(!isInt(t, -1))
+					{
+						pushTypeString(t, -1);
+						throwException(t, "comparison function expected to return 'int', not '{}'", getString(t, -1));
+					}
+					
+					auto v = getInt(t, -1);
+					pop(t);
+					return v < 0;
 				};
 			}
 		}
@@ -191,114 +205,144 @@ static:
 		{
 			pred = (MDValue v1, MDValue v2)
 			{
-				return s.cmp(v1, v2) < 0;
+				push(t, v1);
+				push(t, v2);
+				auto v = cmp(t, -2, -1);
+				pop(t, 2);
+				return v < 0;
 			};
 		}
-
-		arr.sort(pred);
-		s.push(arr);
-		return 1;
-	}
-
-	int reverse(MDState s, uint numParams)
-	{
-		MDArray arr = s.getContext!(MDArray);
-		arr.reverse();
-		s.push(arr);
-		return 1;
-	}
-	
-	int dup(MDState s, uint numParams)
-	{
-		s.push(s.getContext!(MDArray).dup);
-		return 1;
-	}
-
-	int iterator(MDState s, uint numParams)
-	{
-		MDArray array = s.getContext!(MDArray);
-		int index = s.getParam!(int)(0);
-
-		index++;
 		
-		if(index >= array.length)
+		.sort(getArray(t, 0).slice, pred);
+		dup(t, 0);
+		return 1;
+	}
+
+	uword reverse(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Array);
+		getArray(t, 0).slice.reverse;
+		dup(t, 0);
+		return 1;
+	}
+
+	uword array_dup(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Array);
+		newArray(t, len(t, 0));
+		getArray(t, -1).slice[] = getArray(t, 0).slice[];
+		return 1;
+	}
+
+	uword iterator(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Array);
+		auto index = checkIntParam(t, 1) + 1;
+
+		if(index >= len(t, 0))
 			return 0;
-			
-		s.push(index);
-		s.push(array[index]);
-		
+
+		pushInt(t, index);
+		dup(t);
+		idx(t, 0);
+
 		return 2;
 	}
 
-	int iteratorReverse(MDState s, uint numParams)
+	uword iteratorReverse(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		int index = s.getParam!(int)(0);
-		
-		index--;
+		checkParam(t, 0, MDValue.Type.Array);
+		auto index = checkIntParam(t, 1) - 1;
 
 		if(index < 0)
 			return 0;
-			
-		s.push(index);
-		s.push(array[index]);
-		
+
+		pushInt(t, index);
+		dup(t);
+		idx(t, 0);
+
 		return 2;
 	}
 
-	int opApply(MDState s, uint numParams)
+	uword opApply(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
+		checkParam(t, 0, MDValue.Type.Array);
 
-		if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+		if(isString(t, 1) && getString(t, 1) == "reverse")
 		{
-			s.push(s.getUpvalue(1u));
-			s.push(array);
-			s.push(cast(int)array.length);
+			getUpval(t, 1);
+			dup(t, 0);
+			pushInt(t, len(t, 0));
 		}
 		else
 		{
-			s.push(s.getUpvalue(0u));
-			s.push(array);
-			s.push(-1);
+			getUpval(t, 0);
+			dup(t, 0);
+			pushInt(t, -1);
 		}
 
 		return 3;
 	}
-	
-	int expand(MDState s, uint numParams)
+
+	uword expand(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		
-		for(int i = 0; i < array.length; i++)
-			s.push(array[i]);
-			
-		return array.length;
+		checkParam(t, 0, MDValue.Type.Array);
+		auto a = getArray(t, 0);
+
+		foreach(ref val; a.slice)
+			push(t, val);
+
+		return a.slice.length;
 	}
-	
-	int toString(MDState s, uint numParams)
+
+	uword toString(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		
-		char[] str = "[";
-
-		for(int i = 0; i < array.length; i++)
+		auto buf = StrBuffer(t);
+		buf.addChar('[');
+	
+		auto length = len(t, 0);
+	
+		for(uword i = 0; i < length; i++)
 		{
-			if(array[i].isString())
-				str ~= '"' ~ array[i].as!(MDString).asUTF8() ~ '"';
+			pushInt(t, i);
+			idx(t, 0);
+	
+			if(isString(t, -1))
+			{
+				// this is GC-safe since the string is stored in the array
+				auto s = getString(t, -1);
+				pop(t);
+				buf.addChar('"');
+				buf.addString(s);
+				buf.addChar('"');
+			}
+			else if(isChar(t, -1))
+			{
+				auto c = getChar(t, -1);
+				pop(t);
+				buf.addChar('\'');
+				buf.addChar(c);
+				buf.addChar('\'');
+			}
 			else
-				str ~= array[i].toString();
-			
-			if(i < array.length - 1)
-				str ~= ", ";
+			{
+				pushToString(t, -1, true);
+				insert(t, -2);
+				pop(t);
+				buf.addTop();
+			}
+	
+			if(i < length - 1)
+				buf.addString(", ");
 		}
-
-		s.push(str ~ "]");
-		
+	
+		buf.addChar(']');
+		buf.finish();
+	
 		return 1;
 	}
-	
-	int apply(MDState s, uint numParams)
+/+
+	uword apply(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDClosure func = s.getParam!(MDClosure)(0);
@@ -314,7 +358,7 @@ static:
 		return 1;
 	}
 	
-	int map(MDState s, uint numParams)
+	uword map(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDClosure func = s.getParam!(MDClosure)(0);
@@ -332,7 +376,7 @@ static:
 		return 1;
 	}
 	
-	int reduce(MDState s, uint numParams)
+	uword reduce(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDClosure func = s.getParam!(MDClosure)(0);
@@ -356,7 +400,7 @@ static:
 		return 1;
 	}
 	
-	int each(MDState s, uint numParams)
+	uword each(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDClosure func = s.getParam!(MDClosure)(0);
@@ -376,7 +420,7 @@ static:
 		return 1;
 	}
 	
-	int filter(MDState s, uint numParams)
+	uword filter(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDClosure func = s.getParam!(MDClosure)(0);
@@ -404,7 +448,7 @@ static:
 		return 1;
 	}
 	
-	int find(MDState s, uint numParams)
+	uword find(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDValue val = s.getParam(0u);
@@ -422,7 +466,7 @@ static:
 		return 1;
 	}
 	
-	int findIf(MDState s, uint numParams)
+	uword findIf(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray);
 		auto cl = s.getParam!(MDClosure)(0);
@@ -442,7 +486,7 @@ static:
 		return 1;
 	}
 	
-	int bsearch(MDState s, uint numParams)
+	uword bsearch(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		MDValue val = s.getParam(0u);
@@ -481,7 +525,7 @@ static:
 		return 1;
 	}
 	
-	int pop(MDState s, uint numParams)
+	uword pop(MDThread* t, uword numParams)
 	{
 		MDArray array = s.getContext!(MDArray);
 		int index = -1;
@@ -508,7 +552,7 @@ static:
 		return 1;
 	}
 	
-	int set(MDState s, uint numParams)
+	uword set(MDThread* t, uword numParams)
 	{
 		auto array = s.getContext!(MDArray);
 
@@ -562,23 +606,23 @@ static:
 		return 1;
 	}
 
-	int min(MDState s, uint numParams)
+	uword min(MDThread* t, uword numParams)
 	{
 		return minMaxImpl(s, 0, false);
 	}
 
-	int max(MDState s, uint numParams)
+	uword max(MDThread* t, uword numParams)
 	{
 		return minMaxImpl(s, 0, true);
 	}
 	
-	int extreme(MDState s, uint numParams)
+	uword extreme(MDThread* t, uword numParams)
 	{
 		s.getParam!(MDClosure)(0);
 		return minMaxImpl(s, numParams, false);
 	}
 	
-	int all(MDState s, uint numParams)
+	uword all(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray);
 
@@ -613,7 +657,7 @@ static:
 		return 1;
 	}
 	
-	int any(MDState s, uint numParams)
+	uword any(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray);
 
@@ -648,13 +692,13 @@ static:
 		return 1;
 	}
 	
-	int fill(MDState s, uint numParams)
+	uword fill(MDThread* t, uword numParams)
 	{
 		s.getContext!(MDArray)()[] = s.getParam(0u);
 		return 0;
 	}
 
-	int append(MDState s, uint numParams)
+	uword append(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 
@@ -664,7 +708,7 @@ static:
 		return 0;
 	}
 	
-	int flatten(MDState s, uint numParams)
+	uword flatten(MDThread* t, uword numParams)
 	{
 		bool[MDArray] flattening;
 		auto ret = new MDArray(0);
@@ -692,7 +736,7 @@ static:
 		return 1;
 	}
 	
-	int makeHeap(MDState s, uint numParams)
+	uword makeHeap(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 		.makeHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
@@ -700,7 +744,7 @@ static:
 		return 1;
 	}
 
-	int pushHeap(MDState s, uint numParams)
+	uword pushHeap(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 		auto val = s.getParam(0u);
@@ -709,7 +753,7 @@ static:
 		return 1;
 	}
 
-	int popHeap(MDState s, uint numParams)
+	uword popHeap(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 
@@ -721,7 +765,7 @@ static:
 		return 1;
 	}
 
-	int sortHeap(MDState s, uint numParams)
+	uword sortHeap(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 		.sortHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
@@ -729,7 +773,7 @@ static:
 		return 1;
 	}
 	
-	int count(MDState s, uint numParams)
+	uword count(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 		auto val = s.getParam(0u);
@@ -752,7 +796,7 @@ static:
 		return 1;
 	}
 
-	int countIf(MDState s, uint numParams)
+	uword countIf(MDThread* t, uword numParams)
 	{
 		auto self = s.getContext!(MDArray)();
 		auto cl = s.getParam!(MDClosure)(0);
@@ -765,4 +809,5 @@ static:
 		
 		return 1;
 	}
++/
 }

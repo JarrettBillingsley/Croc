@@ -1,6 +1,7 @@
 module simple
 
-
+writeln([1, 2, 3])
+writeln([1, 2, 3].expand())
 
 /+
 object BaseProp

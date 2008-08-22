@@ -40,6 +40,7 @@ debug
 	import tango.io.Stdout;
 }
 
+import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
 
@@ -173,8 +174,8 @@ Params:
 */
 public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 {
-// 	if(libs & MDStdlib.Array)
-// 		ArrayLib.init(ret);
+	if(libs & MDStdlib.Array)
+		ArrayLib.init(t);
 
 	if(libs & MDStdlib.Char)
 		CharLib.init(t);
