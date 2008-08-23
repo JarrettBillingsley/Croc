@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -42,55 +42,54 @@ static:
 
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			newFunction(t, &array_new, "new");
-			newGlobal(t, "new");
-			newFunction(t, &range, "range");
-			newGlobal(t, "range");
+			newFunction(t, &array_new, "new");     newGlobal(t, "new");
+			newFunction(t, &range,     "range");   newGlobal(t, "range");
 
 			newNamespace(t, "array");
-				newFunction(t, &sort, "sort"); fielda(t, -2, "sort");
-				newFunction(t, &reverse, "reverse"); fielda(t, -2, "reverse");
-				newFunction(t, &array_dup, "dup"); fielda(t, -2, "dup");
+				newFunction(t, &sort,      "sort");       fielda(t, -2, "sort");
+				newFunction(t, &reverse,   "reverse");    fielda(t, -2, "reverse");
+				newFunction(t, &array_dup, "dup");        fielda(t, -2, "dup");
 
-					newFunction(t, &iterator, "iterator");
+					newFunction(t, &iterator,        "iterator");
 					newFunction(t, &iteratorReverse, "iteratorReverse");
-				newFunction(t, &opApply, "opApply", 2); fielda(t, -2, "opApply");
+				newFunction(t, &opApply,   "opApply", 2); fielda(t, -2, "opApply");
 
-				newFunction(t, &expand, "expand"); fielda(t, -2, "expand");
-				newFunction(t, &toString, "toString"); fielda(t, -2, "toString");
-				newFunction(t, &apply, "apply"); fielda(t, -2, "apply");
-				newFunction(t, &map, "map"); fielda(t, -2, "map");
-				newFunction(t, &reduce, "reduce"); fielda(t, -2, "reduce");
-				newFunction(t, &each, "each"); fielda(t, -2, "each");
-				newFunction(t, &filter, "filter"); fielda(t, -2, "filter");
-				newFunction(t, &find, "find"); fielda(t, -2, "find");
-				newFunction(t, &findIf, "findIf"); fielda(t, -2, "findIf");
-				newFunction(t, &bsearch, "bsearch"); fielda(t, -2, "bsearch");
-				newFunction(t, &array_pop, "pop"); fielda(t, -2, "pop");
-				newFunction(t, &set, "set"); fielda(t, -2, "set");
-				newFunction(t, &min, "min"); fielda(t, -2, "min");
-				newFunction(t, &max, "max"); fielda(t, -2, "max");
-				newFunction(t, &extreme, "extreme"); fielda(t, -2, "extreme");
-				newFunction(t, &any, "any"); fielda(t, -2, "any");
-				newFunction(t, &all, "all"); fielda(t, -2, "all");
-				newFunction(t, &fill, "fill"); fielda(t, -2, "fill");
-				newFunction(t, &append, "append"); fielda(t, -2, "append");
+				newFunction(t, &expand,    "expand");     fielda(t, -2, "expand");
+				newFunction(t, &toString,  "toString");   fielda(t, -2, "toString");
+				newFunction(t, &apply,     "apply");      fielda(t, -2, "apply");
+				newFunction(t, &map,       "map");        fielda(t, -2, "map");
+				newFunction(t, &reduce,    "reduce");     fielda(t, -2, "reduce");
+				newFunction(t, &each,      "each");       fielda(t, -2, "each");
+				newFunction(t, &filter,    "filter");     fielda(t, -2, "filter");
+				newFunction(t, &find,      "find");       fielda(t, -2, "find");
+				newFunction(t, &findIf,    "findIf");     fielda(t, -2, "findIf");
+				newFunction(t, &bsearch,   "bsearch");    fielda(t, -2, "bsearch");
+				newFunction(t, &array_pop, "pop");        fielda(t, -2, "pop");
+				newFunction(t, &set,       "set");        fielda(t, -2, "set");
+				newFunction(t, &min,       "min");        fielda(t, -2, "min");
+				newFunction(t, &max,       "max");        fielda(t, -2, "max");
+				newFunction(t, &extreme,   "extreme");    fielda(t, -2, "extreme");
+				newFunction(t, &any,       "any");        fielda(t, -2, "any");
+				newFunction(t, &all,       "all");        fielda(t, -2, "all");
+				newFunction(t, &fill,      "fill");       fielda(t, -2, "fill");
+				newFunction(t, &append,    "append");     fielda(t, -2, "append");
 
 					newTable(t);
-				newFunction(t, &flatten, "flatten", 1); fielda(t, -2, "flatten");
+				newFunction(t, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
 
-				newFunction(t, &makeHeap, "makeHeap"); fielda(t, -2, "makeHeap");
-				newFunction(t, &pushHeap, "pushHeap"); fielda(t, -2, "pushHeap");
-				newFunction(t, &popHeap, "popHeap"); fielda(t, -2, "popHeap");
-				newFunction(t, &sortHeap, "sortHeap"); fielda(t, -2, "sortHeap");
-				newFunction(t, &count, "count"); fielda(t, -2, "count");
-				newFunction(t, &countIf, "countIf"); fielda(t, -2, "countIf");
+				newFunction(t, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
+				newFunction(t, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
+				newFunction(t, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
+				newFunction(t, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
+				newFunction(t, &count,     "count");      fielda(t, -2, "count");
+				newFunction(t, &countIf,   "countIf");    fielda(t, -2, "countIf");
 			setTypeMT(t, MDValue.Type.Array);
 
 			return 0;
 		}, "array");
 
 		fielda(t, -2, "array");
+		pop(t);
 
 		importModule(t, "array");
 	}

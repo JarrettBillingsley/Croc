@@ -23,75 +23,78 @@ subject to the following restrictions:
 
 module minid.mathlib;
 
-import minid.types;
-import minid.utils;
-
 import math = tango.math.Math;
 import tango.math.GammaFunction;
 import tango.math.Random;
 import tango.math.IEEE;
 
-final class MathLib
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+
+struct MathLib
 {
 static:
-	public void init(MDContext context)
+	public void init(MDThread* t)
 	{
-		context.setModuleLoader("math", context.newClosure(function int(MDState s, uint numParams)
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
+		
+		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			auto lib = s.getParam!(MDNamespace)(1);
+			pushFloat(t, math.E);           newGlobal(t, "e");
+			pushFloat(t, math.PI);          newGlobal(t, "pi");
+			pushFloat(t, mdfloat.nan);      newGlobal(t, "nan");
+			pushFloat(t, mdfloat.infinity); newGlobal(t, "infinity");
 
-			lib.addList
-			(
-				"e"d,         tango.math.Math.E,
-				"pi"d,        tango.math.Math.PI,
-				"nan"d,       mdfloat.nan,
-				"infinity"d,  mdfloat.infinity,
-    
-				"intSize"d,   int.sizeof,
-				"intMin"d,    int.min,
-				"intMax"d,    int.max,
+			pushInt(t, mdint.sizeof);       newGlobal(t, "intSize");
+			pushInt(t, mdint.min);          newGlobal(t, "intMin");
+			pushInt(t, mdint.max);          newGlobal(t, "intMax");
 
-				"floatSize"d, mdfloat.sizeof,
-				"floatMin"d,  mdfloat.min,
-				"floatMax"d,  mdfloat.max,
+			pushInt(t, mdfloat.sizeof);     newGlobal(t, "floatSize");
+			pushFloat(t, mdfloat.min);      newGlobal(t, "floatMin");
+			pushFloat(t, mdfloat.max);      newGlobal(t, "floatMax");
 
-				"abs"d,       new MDClosure(lib, &abs,     "math.abs"),
-				"sin"d,       new MDClosure(lib, &sin,     "math.sin"),
-				"cos"d,       new MDClosure(lib, &cos,     "math.cos"),
-				"tan"d,       new MDClosure(lib, &tan,     "math.tan"),
-				"asin"d,      new MDClosure(lib, &asin,    "math.asin"),
-				"acos"d,      new MDClosure(lib, &acos,    "math.acos"),
-				"atan"d,      new MDClosure(lib, &atan,    "math.atan"),
-				"atan2"d,     new MDClosure(lib, &atan2,   "math.atan2"),
-				"sqrt"d,      new MDClosure(lib, &sqrt,    "math.sqrt"),
-				"cbrt"d,      new MDClosure(lib, &cbrt,    "math.cbrt"),
-				"pow"d,       new MDClosure(lib, &pow,     "math.pow"),
-				"exp"d,       new MDClosure(lib, &exp,     "math.exp"),
-				"ln"d,        new MDClosure(lib, &ln,      "math.ln"),
-				"log2"d,      new MDClosure(lib, &log2,    "math.log2"),
-				"log10"d,     new MDClosure(lib, &log10,   "math.log10"),
-				"hypot"d,     new MDClosure(lib, &hypot,   "math.hypot"),
-				"lgamma"d,    new MDClosure(lib, &lgamma,  "math.lgamma"),
-				"gamma"d,     new MDClosure(lib, &gamma,   "math.gamma"),
-				"ceil"d,      new MDClosure(lib, &ceil,    "math.ceil"),
-				"floor"d,     new MDClosure(lib, &floor,   "math.floor"),
-				"round"d,     new MDClosure(lib, &round,   "math.round"),
-				"trunc"d,     new MDClosure(lib, &trunc,   "math.trunc"),
-				"isNan"d,     new MDClosure(lib, &isNan,   "math.isNan"),
-				"isInf"d,     new MDClosure(lib, &isInf,   "math.isInf"),
-				"sign"d,      new MDClosure(lib, &sign,    "math.sign"),
-				"rand"d,      new MDClosure(lib, &rand,    "math.rand"),
-				"frand"d,     new MDClosure(lib, &frand,   "math.frand"),
-				"max"d,       new MDClosure(lib, &max,     "math.max"),
-				"min"d,       new MDClosure(lib, &min,     "math.min")
-			);
+// 			newFunction(t, &abs, "abs");       newGlobal(t, "abs");
+// 			newFunction(t, &sin, "sin");       newGlobal(t, "sin");
+// 			newFunction(t, &cos, "cos");       newGlobal(t, "cos");
+// 			newFunction(t, &tan, "tan");       newGlobal(t, "tan");
+// 			newFunction(t, &asin, "asin");     newGlobal(t, "asin");
+// 			newFunction(t, &acos, "acos");     newGlobal(t, "acos");
+// 			newFunction(t, &atan, "atan");     newGlobal(t, "atan");
+// 			newFunction(t, &atan2, "atan2");   newGlobal(t, "atan2");
+// 			newFunction(t, &sqrt, "sqrt");     newGlobal(t, "sqrt");
+// 			newFunction(t, &cbrt, "cbrt");     newGlobal(t, "cbrt");
+// 			newFunction(t, &pow, "pow");       newGlobal(t, "pow");
+// 			newFunction(t, &exp, "exp");       newGlobal(t, "exp");
+// 			newFunction(t, &ln, "ln");         newGlobal(t, "ln");
+// 			newFunction(t, &log2, "log2");     newGlobal(t, "log2");
+// 			newFunction(t, &log10, "log10");   newGlobal(t, "log10");
+// 			newFunction(t, &hypot, "hypot");   newGlobal(t, "hypot");
+// 			newFunction(t, &lgamma, "lgamma"); newGlobal(t, "lgamma");
+// 			newFunction(t, &gamma, "gamma");   newGlobal(t, "gamma");
+// 			newFunction(t, &ceil, "ceil");     newGlobal(t, "ceil");
+// 			newFunction(t, &floor, "floor");   newGlobal(t, "floor");
+// 			newFunction(t, &round, "round");   newGlobal(t, "round");
+// 			newFunction(t, &trunc, "trunc");   newGlobal(t, "trunc");
+// 			newFunction(t, &isNan, "isNan");   newGlobal(t, "isNan");
+// 			newFunction(t, &isInf, "isInf");   newGlobal(t, "isInf");
+// 			newFunction(t, &sign, "sign");     newGlobal(t, "sign");
+// 			newFunction(t, &rand, "rand");     newGlobal(t, "rand");
+// 			newFunction(t, &frand, "frand");   newGlobal(t, "frand");
+// 			newFunction(t, &max, "max");       newGlobal(t, "max");
+// 			newFunction(t, &min, "min");       newGlobal(t, "min");
 
 			return 0;
-		}, "math"));
+		}, "math");
 
-		context.importModule("math");
+		fielda(t, -2, "math");
+		pop(t);
+
+		importModule(t, "math");
 	}
 
+/+
 	mdfloat getFloat(MDState s, uint i)
 	{
 		if(s.isParam!("int")(i))
@@ -409,4 +412,5 @@ static:
 
 		return 1;
 	}
++/
 }

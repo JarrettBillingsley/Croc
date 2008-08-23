@@ -1,7 +1,5 @@
 module simple
 
-
-
 /+
 object BaseProp
 {

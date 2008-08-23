@@ -43,6 +43,7 @@ debug
 import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
+import minid.mathlib;
 
 // ================================================================================================================================================
 // Public
@@ -183,9 +184,9 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 // 	if(libs & MDStdlib.IO)
 // 		IOLib.init(ret);
 // 
-// 	if(libs & MDStdlib.Math)
-// 		MathLib.init(ret);
-// 
+	if(libs & MDStdlib.Math)
+		MathLib.init(t);
+
 // 	if(libs & MDStdlib.OS)
 // 		OSLib.init(ret);
 // 
