@@ -1686,6 +1686,21 @@ public void idxa(MDThread* t, word container, bool raw = false)
 	pop(t, 2);
 }
 
+public word idxi(MDThread* t, word container, mdint idx, bool raw = false)
+{
+	auto c = absIndex(t, container);
+	pushInt(t, idx);
+	return .idx(t, c, raw);
+}
+
+public void idxai(MDThread* t, word container, mdint idx, bool raw = false)
+{
+	auto c = absIndex(t, container);
+	pushInt(t, idx);
+	insert(t, -2);
+	idxa(t, c, raw);
+}
+
 /**
 Get a _field with the given _name from the _container at the given index.  Pushes the result onto the stack.
 
@@ -3102,6 +3117,11 @@ package word push(MDThread* t, ref MDValue val)
 	return cast(word)(t.stackIndex - 1 - t.stackBase);
 }
 
+package MDValue* getValue(MDThread* t, word slot)
+{
+	return &t.stack[fakeToAbs(t, slot)];
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
@@ -3223,11 +3243,6 @@ private bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue
 
 		return callPrologue2(t, method, slot, numReturns, slot, numParams + 1, proto);
 	}
-}
-
-private MDValue* getValue(MDThread* t, word slot)
-{
-	return &t.stack[fakeToAbs(t, slot)];
 }
 
 private word typeString(MDThread* t, MDValue* v)
@@ -4493,9 +4508,6 @@ private bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word n
 		t.stackIndex = firstValue + numValues;
 		t.numYields = numValues;
 	}
-
-	version(MDExtendedCoro) {} else
-		t.savedCallDepth = depth;
 
 	t.state = MDThread.State.Suspended;
 
@@ -6280,7 +6292,8 @@ private void execute(MDThread* t, uword depth = 1)
 					{
 						if(t.nativeCallDepth > 0)
 							throwException(t, "Attempting to yield across native / metamethod call boundary");
-							
+
+						t.savedCallDepth = depth;
 						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
 						return;
 					}
@@ -6293,6 +6306,7 @@ private void execute(MDThread* t, uword depth = 1)
 						if(t.nativeCallDepth > 0 && !t.coroFunc.isNative)
 							throwException(t, "Attempting to yield from script coroutine across native / metamethod call boundary");
 
+						t.savedCallDepth = depth;
 						if(yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1))
 							return;
 					}

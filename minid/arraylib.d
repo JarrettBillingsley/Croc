@@ -27,6 +27,7 @@ import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
+import minid.array;
 import minid.ex;
 import minid.interpreter;
 import minid.types;
@@ -58,23 +59,23 @@ static:
 
 				newFunction(t, &expand, "expand"); fielda(t, -2, "expand");
 				newFunction(t, &toString, "toString"); fielda(t, -2, "toString");
-// 				newFunction(t, &apply, "apply"); fielda(t, -2, "apply");
-// 				newFunction(t, &map, "map"); fielda(t, -2, "map");
-// 				newFunction(t, &reduce, "reduce"); fielda(t, -2, "reduce");
-// 				newFunction(t, &each, "each"); fielda(t, -2, "each");
-// 				newFunction(t, &filter, "filter"); fielda(t, -2, "filter");
-// 				newFunction(t, &find, "find"); fielda(t, -2, "find");
-// 				newFunction(t, &findIf, "findIf"); fielda(t, -2, "findIf");
-// 				newFunction(t, &bsearch, "bsearch"); fielda(t, -2, "bsearch");
-// 				newFunction(t, &pop, "pop"); fielda(t, -2, "pop");
-// 				newFunction(t, &set, "set"); fielda(t, -2, "set");
-// 				newFunction(t, &min, "min"); fielda(t, -2, "min");
-// 				newFunction(t, &max, "max"); fielda(t, -2, "max");
-// 				newFunction(t, &extreme, "extreme"); fielda(t, -2, "extreme");
-// 				newFunction(t, &any, "any"); fielda(t, -2, "any");
-// 				newFunction(t, &all, "all"); fielda(t, -2, "all");
-// 				newFunction(t, &fill, "fill"); fielda(t, -2, "fill");
-// 				newFunction(t, &append, "append"); fielda(t, -2, "append");
+				newFunction(t, &apply, "apply"); fielda(t, -2, "apply");
+				newFunction(t, &map, "map"); fielda(t, -2, "map");
+				newFunction(t, &reduce, "reduce"); fielda(t, -2, "reduce");
+				newFunction(t, &each, "each"); fielda(t, -2, "each");
+				newFunction(t, &filter, "filter"); fielda(t, -2, "filter");
+				newFunction(t, &find, "find"); fielda(t, -2, "find");
+				newFunction(t, &findIf, "findIf"); fielda(t, -2, "findIf");
+				newFunction(t, &bsearch, "bsearch"); fielda(t, -2, "bsearch");
+				newFunction(t, &array_pop, "pop"); fielda(t, -2, "pop");
+				newFunction(t, &set, "set"); fielda(t, -2, "set");
+				newFunction(t, &min, "min"); fielda(t, -2, "min");
+				newFunction(t, &max, "max"); fielda(t, -2, "max");
+				newFunction(t, &extreme, "extreme"); fielda(t, -2, "extreme");
+				newFunction(t, &any, "any"); fielda(t, -2, "any");
+				newFunction(t, &all, "all"); fielda(t, -2, "all");
+				newFunction(t, &fill, "fill"); fielda(t, -2, "fill");
+				newFunction(t, &append, "append"); fielda(t, -2, "append");
 // 				newFunction(t, &flatten, "flatten"); fielda(t, -2, "flatten");
 // 				newFunction(t, &makeHeap, "makeHeap"); fielda(t, -2, "makeHeap");
 // 				newFunction(t, &pushHeap, "pushHeap"); fielda(t, -2, "pushHeap");
@@ -86,7 +87,7 @@ static:
 
 			return 0;
 		}, "array");
-		
+
 		fielda(t, -2, "array");
 
 		importModule(t, "array");
@@ -341,373 +342,460 @@ static:
 	
 		return 1;
 	}
-/+
+
 	uword apply(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDClosure func = s.getParam!(MDClosure)(0);
-		MDValue arrayVal = array;
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
+		
+		auto data = getArray(t, 0).slice;
 
-		foreach(i, v; array)
+		foreach(i, ref v; data)
 		{
-			s.callWith(func, 1, arrayVal, v);
-			array[i] = s.pop();
+			auto reg = dup(t, 1);
+			dup(t, 0);
+			push(t, v);
+			rawCall(t, reg, 1);
+			idxai(t, -2, i, true);
+			pop(t);
 		}
 
-		s.push(array);
+		dup(t, 0);
 		return 1;
 	}
-	
+
 	uword map(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDClosure func = s.getParam!(MDClosure)(0);
-		MDValue arrayVal = array;
-		
-		MDArray ret = new MDArray(array.length);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
+		newArray(t, len(t, 0));
+		auto data = getArray(t, -1).slice;
 
-		foreach(i, v; array)
+		foreach(i, ref v; getArray(t, 0).slice)
 		{
-			s.callWith(func, 1, arrayVal, v);
-			ret[i] = s.pop();
+			auto reg = dup(t, 1);
+			dup(t, 0);
+			push(t, v);
+			rawCall(t, reg, 1);
+			idxai(t, -2, i, true);
+			pop(t);
 		}
 
-		s.push(ret);
 		return 1;
 	}
-	
+
 	uword reduce(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDClosure func = s.getParam!(MDClosure)(0);
-		MDValue arrayVal = array;
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
+		uword length = len(t, 0);
 
-		if(array.length == 0)
+		if(length == 0)
 		{
-			s.pushNull();
+			pushNull(t);
 			return 1;
 		}
 
-		MDValue ret = array[0];
-		
-		for(int i = 1; i < array.length; i++)
+		idxi(t, 0, 0, true);
+
+		for(uword i = 1; i < length; i++)
 		{
-			s.callWith(func, 1, arrayVal, ret, array[i]);
-			ret = s.pop();
+			dup(t, 1);
+			insert(t, -2);
+			pushNull(t);
+			insert(t, -2);
+			idxi(t, 0, i, true);
+			rawCall(t, -4, 1);
 		}
-		
-		s.push(ret);
+
 		return 1;
 	}
-	
+
 	uword each(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDClosure func = s.getParam!(MDClosure)(0);
-		MDValue arrayVal = array;
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
 
-		foreach(i, v; array)
+		foreach(i, ref v; getArray(t, 0).slice)
 		{
-			s.callWith(func, 1, arrayVal, i, v);
-
-			MDValue ret = s.pop();
-		
-			if(ret.isBool() && ret.as!(bool)() == false)
+			dup(t, 1);
+			dup(t, 0);
+			pushInt(t, i);
+			push(t, v);
+			rawCall(t, -4, 1);
+			
+			if(isBool(t, -1) && getBool(t, -1) == false)
 				break;
 		}
-
-		s.push(array);
+		
+		dup(t, 0);
 		return 1;
 	}
-	
+
 	uword filter(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDClosure func = s.getParam!(MDClosure)(0);
-		MDValue arrayVal = array;
-		
-		MDArray retArray = new MDArray(array.length / 2);
-		uint retIdx = 0;
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
 
-		foreach(i, v; array)
+		auto newLen = len(t, 0) / 2;
+		auto retArray = newArray(t, newLen);
+		uword retIdx = 0;
+
+		foreach(i, ref v; getArray(t, 0).slice)
 		{
-			s.callWith(func, 1, arrayVal, i, v);
-
-			if(s.pop!(bool)() == true)
+			dup(t, 1);
+			dup(t, 0);
+			pushInt(t, i);
+			push(t, v);
+			rawCall(t, -4, 1);
+			
+			if(!isBool(t, -1))
 			{
-				if(retIdx >= retArray.length)
-					retArray.length = retArray.length + 10;
+				pushTypeString(t, -1);
+				throwException(t, "filter function expected to return 'bool', not '{}'", getString(t, -1));
+			}
 
-				retArray[retIdx] = v;
+			if(getBool(t, -1))
+			{
+				if(retIdx >= newLen)
+				{
+					pushInt(t, newLen + 10);
+					lena(t, retArray);
+				}
+
+				push(t, v);
+				idxai(t, retArray, retIdx, true);
 				retIdx++;
 			}
+			
+			pop(t);
 		}
-		
-		retArray.length = retIdx;
-		s.push(retArray);
+  
+		pushInt(t, retIdx);
+		lena(t, retArray);
+		dup(t, retArray);
 		return 1;
 	}
-	
+
 	uword find(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDValue val = s.getParam(0u);
-		
-		foreach(i, v; array)
+		checkParam(t, 0, MDValue.Type.Array);
+		checkAnyParam(t, 1);
+
+		foreach(i, ref v; getArray(t, 0).slice)
 		{
-			if(val.type == v.type && s.cmp(val, v) == 0)
+			push(t, v);
+
+			if(type(t, 1) == v.type && cmp(t, 1, -1) == 0)
 			{
-				s.push(i);
+				pushInt(t, i);
 				return 1;
 			}
 		}
-		
-		s.push(array.length);
+
+		pushLen(t, 0);
 		return 1;
 	}
-	
+
 	uword findIf(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray);
-		auto cl = s.getParam!(MDClosure)(0);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
 		
-		foreach(i, v; self)
+		foreach(i, ref v; getArray(t, 0).slice)
 		{
-			s.call(cl, 1, v);
-
-			if(s.pop!(bool))
+			auto reg = dup(t, 1);
+			pushNull(t);
+			push(t, v);
+			rawCall(t, reg, 1);
+			
+			if(!isBool(t, -1))
 			{
-				s.push(i);
+				pushTypeString(t, -1);
+				throwException(t, "find function expected to return 'bool', not '{}'", getString(t, -1));
+			}
+			
+			if(getBool(t, -1))
+			{
+				pushInt(t, i);
 				return 1;
 			}
-		}
 
-		s.push(self.length);
+			pop(t);
+		}
+		
+		pushLen(t, 0);
 		return 1;
 	}
-	
+
 	uword bsearch(MDThread* t, uword numParams)
 	{
-		MDArray array = s.getContext!(MDArray);
-		MDValue val = s.getParam(0u);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkAnyParam(t, 1);
 
-		uint lo = 0;
-		uint hi = array.length - 1;
-		uint mid = (lo + hi) >> 1;
+		uword lo = 0;
+		uword hi = len(t, 0) - 1;
+		uword mid = (lo + hi) >> 1;
 
 		while((hi - lo) > 8)
 		{
-			int cmp = s.cmp(val, *array[mid]);
-			
+			idxi(t, 0, mid, true);
+			auto cmp = cmp(t, 1, -1);
+			pop(t);
+
 			if(cmp == 0)
 			{
-				s.push(mid);
+				pushInt(t, mid);
 				return 1;
 			}
 			else if(cmp < 0)
 				hi = mid;
 			else
 				lo = mid;
-				
+
 			mid = (lo + hi) >> 1;
 		}
 
-		for(int i = lo; i <= hi; i++)
+		for(auto i = lo; i <= hi; i++)
 		{
-			if(val.compare(array[i]) == 0)
+			idxi(t, 0, i, true);
+
+			if(cmp(t, 1, -1) == 0)
 			{
-				s.push(i);
+				pushInt(t, i);
 				return 1;
 			}
+			
+			pop(t);
 		}
 
-		s.push(array.length);
+		pushLen(t, 0);
 		return 1;
 	}
-	
-	uword pop(MDThread* t, uword numParams)
-	{
-		MDArray array = s.getContext!(MDArray);
-		int index = -1;
 
-		if(array.length == 0)
-			s.throwRuntimeException("Array is empty");
+	uword array_pop(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Array);
+		word index = -1;
+		auto data = getArray(t, 0).slice;
+
+		if(data.length == 0)
+			throwException(t, "Array is empty");
 
 		if(numParams > 0)
-			index = s.getParam!(int)(0);
+			index = checkIntParam(t, 1);
 
 		if(index < 0)
-			index += array.length;
+			index += data.length;
 
-		if(index < 0 || index >= array.length)
-			s.throwRuntimeException("Invalid array index: {}", index);
+		if(index < 0 || index >= data.length)
+			throwException(t, "Invalid array index: {}", index);
 
-		s.push(array[index]);
+		idxi(t, 0, index, true);
 
-		for(int i = index; i < array.length - 1; i++)
-			array[i] = *array[i + 1];
-
-		array.length = array.length - 1;
-
+		for(uword i = index; i < data.length - 1; i++)
+			data[i] = data[i + 1];
+			
+		getArray(t, 0).slice.length = data.length - 1;
 		return 1;
 	}
-	
+
 	uword set(MDThread* t, uword numParams)
 	{
-		auto array = s.getContext!(MDArray);
+		checkParam(t, 0, MDValue.Type.Array);
+		auto a = getArray(t, 0);
 
-		array.length = numParams;
-		
-		for(uint i = 0; i < numParams; i++)
-			array[i] = s.getParam(i);
+		array.resize(t.vm.alloc, a, numParams);
 
-		s.push(array);
+		for(uword i = 0; i < numParams; i++)
+			a.slice[i] = *getValue(t, i + 1);
+
+		dup(t, 0);
 		return 1;
 	}
-	
-	int minMaxImpl(MDState s, uint numParams, bool max)
-	{
-		auto self = s.getContext!(MDArray);
-		
-		if(self.length == 0)
-			s.throwRuntimeException("Array is empty");
 
-		auto extreme = self[0];
+	uword minMaxImpl(MDThread* t, uword numParams, bool max)
+	{
+		checkParam(t, 0, MDValue.Type.Array);
+		auto data = getArray(t, 0).slice;
+
+		if(data.length == 0)
+			throwException(t, "Array is empty");
+
+		auto extreme = data[0];
 
 		if(numParams > 0)
 		{
-			auto compare = s.getParam!(MDClosure)(0);
-
-			for(int i = 1; i < self.length; i++)
+			for(uword i = 1; i < data.length; i++)
 			{
-				s.call(compare, 1, self[i], extreme);
-
-				if(s.pop!(bool))
-					extreme = self[i];
+				dup(t, 1);
+				pushNull(t);
+				idxi(t, 0, i, true);
+				push(t, extreme);
+				rawCall(t, -4, 1);
+				
+				if(!isBool(t, -1))
+				{
+					pushTypeString(t, -1);
+					throwException(t, "extrema function should return 'bool', not '{}'", getString(t, -1));
+				}
+				
+				if(getBool(t, -1))
+					extreme = data[i];
+					
+				pop(t);
 			}
+			
+			push(t, extreme);
 		}
 		else
 		{
+			idxi(t, 0, 0, true);
+
 			if(max)
 			{
-				for(int i = 1; i < self.length; i++)
-					if(s.cmp(*self[i], *extreme) > 0)
-						extreme = self[i];
+				for(uword i = 1; i < data.length; i++)
+				{
+					idxi(t, 0, i, true);
+
+					if(cmp(t, -1, -2) > 0)
+						insert(t, -2);
+
+					pop(t);
+				}
 			}
 			else
 			{
-				for(int i = 1; i < self.length; i++)
-					if(s.cmp(*self[i], *extreme) < 0)
-						extreme = self[i];
+				for(uword i = 1; i < data.length; i++)
+				{
+					idxi(t, 0, i, true);
+
+					if(cmp(t, -1, -2) < 0)
+						insert(t, -2);
+
+					pop(t);
+				}
 			}
 		}
 
-		s.push(extreme);
 		return 1;
 	}
 
 	uword min(MDThread* t, uword numParams)
 	{
-		return minMaxImpl(s, 0, false);
+		return minMaxImpl(t, 0, false);
 	}
 
 	uword max(MDThread* t, uword numParams)
 	{
-		return minMaxImpl(s, 0, true);
+		return minMaxImpl(t, 0, true);
 	}
-	
+
 	uword extreme(MDThread* t, uword numParams)
 	{
-		s.getParam!(MDClosure)(0);
-		return minMaxImpl(s, numParams, false);
+		checkParam(t, 1, MDValue.Type.Function);
+		return minMaxImpl(t, numParams, false);
 	}
-	
+
 	uword all(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray);
+		checkParam(t, 0, MDValue.Type.Array);
 
 		if(numParams > 0)
 		{
-			auto pred = s.getParam!(MDClosure)(0);
+			checkParam(t, 1, MDValue.Type.Function);
 			
-			foreach(ref v; self)
+			foreach(ref v; getArray(t, 0).slice)
 			{
-				s.call(pred, 1, v);
-				
-				if(s.pop().isFalse)
+				dup(t, 1);
+				pushNull(t);
+				push(t, v);
+				rawCall(t, -3, 1);
+
+				if(!isTrue(t, -1))
 				{
-					s.push(false);
+					pushBool(t, false);
 					return 1;
 				}
+
+				pop(t);
 			}
 		}
 		else
 		{
-			foreach(ref v; self)
+			foreach(ref v; getArray(t, 0).slice)
 			{
-				if(v.isFalse)
+				if(v.isFalse())
 				{
-					s.push(false);
+					pushBool(t, false);
 					return 1;
 				}
 			}
 		}
 
-		s.push(true);
+		pushBool(t, true);
 		return 1;
 	}
 	
 	uword any(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray);
+		checkParam(t, 0, MDValue.Type.Array);
 
 		if(numParams > 0)
 		{
-			auto pred = s.getParam!(MDClosure)(0);
+			checkParam(t, 1, MDValue.Type.Function);
 			
-			foreach(ref v; self)
+			foreach(ref v; getArray(t, 0).slice)
 			{
-				s.call(pred, 1, v);
-				
-				if(s.pop().isTrue)
+				dup(t, 1);
+				pushNull(t);
+				push(t, v);
+				rawCall(t, -3, 1);
+
+				if(isTrue(t, -1))
 				{
-					s.push(true);
+					pushBool(t, true);
 					return 1;
 				}
+
+				pop(t);
 			}
 		}
 		else
 		{
-			foreach(ref v; self)
+			foreach(ref v; getArray(t, 0).slice)
 			{
-				if(v.isTrue)
+				if(!v.isFalse())
 				{
-					s.push(true);
+					pushBool(t, true);
 					return 1;
 				}
 			}
 		}
 
-		s.push(false);
+		pushBool(t, false);
 		return 1;
 	}
-	
+
 	uword fill(MDThread* t, uword numParams)
 	{
-		s.getContext!(MDArray)()[] = s.getParam(0u);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkAnyParam(t, 1);
+		dup(t, 1);
+		fillArray(t, 0);
 		return 0;
 	}
 
 	uword append(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
+		checkParam(t, 0, MDValue.Type.Array);
 
 		for(uint i = 0; i < numParams; i++)
 			self ~= s.getParam(i);
 
 		return 0;
 	}
-	
+/+
 	uword flatten(MDThread* t, uword numParams)
 	{
 		bool[MDArray] flattening;

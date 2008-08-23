@@ -1,7 +1,8 @@
 module simple
 
-writeln([1, 2, 3])
-writeln([1, 2, 3].expand())
+local a = [1, 2, 3, 4, 5]
+a.fill(0)
+writeln(a)
 
 /+
 object BaseProp

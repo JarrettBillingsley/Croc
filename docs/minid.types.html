@@ -157,69 +157,6 @@ throwException does).  See throwException and catchException in minid.interprete
 on MiniD exception handling.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
-<span class="currsymbol">MDCompileException</span>
-<script>explorer.outline.addDecl('MDCompileException');</script>
-
-: minid.types.MDException;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>An exception type representing a compilation error.  The message will be in the form "filename(line:column):
-error message".  Again, you can't directly instantiate this exception type.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">atEOF</span>
-<script>explorer.outline.addDecl('atEOF');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Indicates whether the compiler threw this at the end of the file or not.  If this is
-	<b>true</b>, this might be because the compiler ran out of input, in which case the code could
-	be made to compile by adding more code.
-	
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">solitaryExpression</span>
-<script>explorer.outline.addDecl('solitaryExpression');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Indicates whether the compiler threw this because of a statement that consisted of a no-effect expression.
-	If <b>true</b>, the code might be able to be compiled and evaluated as an expression.
-	
-<br><br>
-
-</dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -240,12 +177,6 @@ is thrown, you might be able to catch it and clean up some resources, but you sh
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in minid.interpreter.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -272,7 +203,7 @@ Like the other exception types, you can't instantiate this directly, but you can
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Mon Jul 14 10:20:28 2008
+			on Fri Aug 22 12:01:44 2008
 
 		</td></tr>
 	</table>

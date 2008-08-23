@@ -106,6 +106,240 @@ The passed-in pointer.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">enum 
+<span class="currsymbol">MDStdlib</span>
+<script>explorer.outline.addDecl('MDStdlib');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This enumeration is used with the NewContext function to specify which standard libraries you
+want to load into the new context.  The base library is always loaded, so there is no
+flag for it.  You can choose which libraries you want to load by ORing together multiple
+flags.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">None</span>
+<script>explorer.outline.addDecl('None');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Nothing but the base library will be loaded if you specify this flag.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Array</span>
+<script>explorer.outline.addDecl('Array');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">Array</span>
+<script>explorer.outline.addDecl('Array');</script>
+
+ manipulation.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Char</span>
+<script>explorer.outline.addDecl('Char');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Character classification.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">IO</span>
+<script>explorer.outline.addDecl('IO');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Stream-based input and output.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Math</span>
+<script>explorer.outline.addDecl('Math');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Standard math functions.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">String</span>
+<script>explorer.outline.addDecl('String');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">String</span>
+<script>explorer.outline.addDecl('String');</script>
+
+ manipulation.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Table</span>
+<script>explorer.outline.addDecl('Table');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">Table</span>
+<script>explorer.outline.addDecl('Table');</script>
+
+ manipulation.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">OS</span>
+<script>explorer.outline.addDecl('OS');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">OS</span>
+<script>explorer.outline.addDecl('OS');</script>
+
+-specific functionality.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Regexp</span>
+<script>explorer.outline.addDecl('Regexp');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Regular expressions.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Safe</span>
+<script>explorer.outline.addDecl('Safe');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
+	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+	or OS libraries to do bad things.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">All</span>
+<script>explorer.outline.addDecl('All');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">All</span>
+<script>explorer.outline.addDecl('All');</script>
+
+ available standard libraries.
+	
+<br><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">loadStdlibs</span>
+<script>explorer.outline.addDecl('loadStdlibs');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)255);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Load the standard libraries into the context of the given thread.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">libs</span></td>
+
+               
+<td>An ORing together of any standard libraries you want to load (see the MDStdlib enum).
+		Defaults to MDStdlib.All.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
 <span class="currsymbol">closeVM</span>
 <script>explorer.outline.addDecl('closeVM');</script>
@@ -141,17 +375,13 @@ with the VM.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Mon Jul 14 10:20:29 2008
+			on Fri Aug 22 12:03:22 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.utils");
 	explorer.packageExplorer.addModuleFull("minid.vm");
-	explorer.packageExplorer.addModuleFull("minid.gc");
-	explorer.packageExplorer.addModuleFull("minid.types");
-	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
 	explorer.packageExplorer.addModuleFull("minid.ex");</script>
