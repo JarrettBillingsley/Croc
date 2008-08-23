@@ -40,15 +40,7 @@ void main()
 	newGlobal(t, "microTime");
 	Timer.init(t);
 
-	word funcReg;
-
-	{
-		scope c = new Compiler(t);
-		funcReg = c.compileModule(`samples/simple.md`);
-	}
-
- 		getFuncEnv(t, funcReg);
- 		rawCall(t, funcReg, 0);
+		importModule(t, "samples.simple");
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm)).flush;
 	gc(vm);

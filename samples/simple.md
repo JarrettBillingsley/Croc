@@ -1,4 +1,4 @@
-module simple
+module samples.simple
 
 /+
 object BaseProp
