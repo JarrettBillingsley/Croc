@@ -54,8 +54,7 @@ static:
 
 					newFunction(t, &iterator, "iterator");
 					newFunction(t, &iteratorReverse, "iteratorReverse");
-				newFunction(t, &opApply, "opApply", 2);
-				fielda(t, -2, "opApply");
+				newFunction(t, &opApply, "opApply", 2); fielda(t, -2, "opApply");
 
 				newFunction(t, &expand, "expand"); fielda(t, -2, "expand");
 				newFunction(t, &toString, "toString"); fielda(t, -2, "toString");
@@ -76,13 +75,16 @@ static:
 				newFunction(t, &all, "all"); fielda(t, -2, "all");
 				newFunction(t, &fill, "fill"); fielda(t, -2, "fill");
 				newFunction(t, &append, "append"); fielda(t, -2, "append");
-// 				newFunction(t, &flatten, "flatten"); fielda(t, -2, "flatten");
-// 				newFunction(t, &makeHeap, "makeHeap"); fielda(t, -2, "makeHeap");
-// 				newFunction(t, &pushHeap, "pushHeap"); fielda(t, -2, "pushHeap");
-// 				newFunction(t, &popHeap, "popHeap"); fielda(t, -2, "popHeap");
-// 				newFunction(t, &sortHeap, "sortHeap"); fielda(t, -2, "sortHeap");
-// 				newFunction(t, &count, "count"); fielda(t, -2, "count");
-// 				newFunction(t, &countIf, "countIf"); fielda(t, -2, "countIf");
+
+					newTable(t);
+				newFunction(t, &flatten, "flatten", 1); fielda(t, -2, "flatten");
+
+				newFunction(t, &makeHeap, "makeHeap"); fielda(t, -2, "makeHeap");
+				newFunction(t, &pushHeap, "pushHeap"); fielda(t, -2, "pushHeap");
+				newFunction(t, &popHeap, "popHeap"); fielda(t, -2, "popHeap");
+				newFunction(t, &sortHeap, "sortHeap"); fielda(t, -2, "sortHeap");
+				newFunction(t, &count, "count"); fielda(t, -2, "count");
+				newFunction(t, &countIf, "countIf"); fielda(t, -2, "countIf");
 			setTypeMT(t, MDValue.Type.Array);
 
 			return 0;
@@ -789,113 +791,208 @@ static:
 	uword append(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
+		auto a = getArray(t, 0);
+		
+		if(numParams == 0)
+			return 0;
+			
+		auto oldlen = a.slice.length;
+		array.resize(t.vm.alloc, a, a.slice.length + numParams);
 
-		for(uint i = 0; i < numParams; i++)
-			self ~= s.getParam(i);
+		for(uword i = oldlen, j = 1; i < a.slice.length; i++, j++)
+			a.slice[i] = *getValue(t, j);
 
 		return 0;
 	}
-/+
+
 	uword flatten(MDThread* t, uword numParams)
 	{
-		bool[MDArray] flattening;
-		auto ret = new MDArray(0);
+		checkParam(t, 0, MDValue.Type.Array);
+		auto flattening = getUpval(t, 0);
 
-		void flatten(MDArray a)
+		auto ret = newArray(t, 0);
+
+		void flatten(word arr)
 		{
-			if(a in flattening)
-				s.throwRuntimeException("Attempting to flatten a self-referencing array");
+			auto a = absIndex(t, arr);
 
-			flattening[a] = true;
-			
-			foreach(ref val; a)
+			if(opin(t, a, flattening))
+				throwException(t, "Attempting to flatten a self-referencing array");
+
+			dup(t, a);
+			pushBool(t, true);
+			idxa(t, flattening);
+
+			scope(exit)
 			{
-				if(val.isArray)
-					flatten(val.as!(MDArray));
-				else
-					ret ~= val;
+				dup(t, a);
+				pushNull(t);
+				idxa(t, flattening);
 			}
 
-			flattening.remove(a);
+			foreach(ref val; getArray(t, a).slice)
+			{
+				if(val.type == MDValue.Type.Array)
+					flatten(pushArray(t, val.mArray));
+				else
+				{
+					dup(t, ret);
+					push(t, val);
+					cateq(t, 1);
+					pop(t);
+				}
+			}
 		}
-		
-		flatten(s.getContext!(MDArray)());
-		s.push(ret);
+
+		flatten(0);
+		dup(t, ret);
 		return 1;
 	}
-	
+
 	uword makeHeap(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
-		.makeHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
-		s.push(self);
+		checkParam(t, 0, MDValue.Type.Array);
+		auto a = getArray(t, 0);
+
+		.makeHeap(a.slice, (ref MDValue a, ref MDValue b)
+		{
+			push(t, a);
+			push(t, b);
+			auto ret = cmp(t, -2, -1) < 0;
+			pop(t, 2);
+			return ret;
+		});
+
+		dup(t, 0);
 		return 1;
 	}
 
 	uword pushHeap(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
-		auto val = s.getParam(0u);
-		.pushHeap(self.mData, val, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
-		s.push(self);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkAnyParam(t, 1);
+		auto a = getArray(t, 0);
+
+		.pushHeap(a.slice, *getValue(t, 1), (ref MDValue a, ref MDValue b)
+		{
+			push(t, a);
+			push(t, b);
+			auto ret = cmp(t, -2, -1) < 0;
+			pop(t, 2);
+			return ret;
+		});
+
+		dup(t, 0);
 		return 1;
 	}
 
 	uword popHeap(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
+		checkParam(t, 0, MDValue.Type.Array);
 
-		if(self.length == 0)
-			s.throwRuntimeException("Array is empty");
+		if(len(t, 0) == 0)
+			throwException(t, "Array is empty");
 
-		s.push(self[0]);
-		.popHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
+		idxi(t, 0, 0, true);
+
+		.popHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
+		{
+			push(t, a);
+			push(t, b);
+			auto ret = cmp(t, -2, -1) < 0;
+			pop(t, 2);
+			return ret;
+		});
+
 		return 1;
 	}
 
 	uword sortHeap(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
-		.sortHeap(self.mData, (ref MDValue a, ref MDValue b) { return s.cmp(a, b) < 0; });
-		s.push(self);
+		checkParam(t, 0, MDValue.Type.Array);
+
+		.sortHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
+		{
+			push(t, a);
+			push(t, b);
+			auto ret = cmp(t, -2, -1) < 0;
+			pop(t, 2);
+			return ret;
+		});
+
+		dup(t, 0);
 		return 1;
 	}
-	
+
 	uword count(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
-		auto val = s.getParam(0u);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkAnyParam(t, 1);
 
 		bool delegate(MDValue, MDValue) pred;
 
 		if(numParams > 1)
 		{
-			auto cl = s.getParam!(MDClosure)(1);
+			checkParam(t, 2, MDValue.Type.Function);
+
 			pred = (MDValue a, MDValue b)
 			{
-				s.call(cl, 1, a, b);
-				return s.pop!(bool)();
+				auto reg = dup(t, 2);
+				pushNull(t);
+				push(t, a);
+				push(t, b);
+				rawCall(t, reg, 1);
+				
+				if(!isBool(t, -1))
+				{
+					pushTypeString(t, -1);
+					throwException(t, "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+				}
+				
+				auto ret = getBool(t, -1);
+				pop(t);
+				return ret;
 			};
 		}
 		else
-			pred = (MDValue a, MDValue b) { return s.cmp(a, b) == 0; };
+		{
+			pred = (MDValue a, MDValue b)
+			{
+				push(t, a);
+				push(t, b);
+				auto ret = cmp(t, -2, -1) == 0;
+				pop(t, 2);
+				return ret;
+			};
+		}
 
-		s.push(.count(self.mData, val, pred));
+		pushInt(t, .count(getArray(t, 0).slice, *getValue(t, 1), pred));
 		return 1;
 	}
 
 	uword countIf(MDThread* t, uword numParams)
 	{
-		auto self = s.getContext!(MDArray)();
-		auto cl = s.getParam!(MDClosure)(0);
+		checkParam(t, 0, MDValue.Type.Array);
+		checkParam(t, 1, MDValue.Type.Function);
 
-		s.push(.countIf(self.mData, (MDValue a)
+		pushInt(t, .countIf(getArray(t, 0).slice, (MDValue a)
 		{
-			s.call(cl, 1, a);
-			return s.pop!(bool)();
+			auto reg = dup(t, 1);
+			pushNull(t);
+			push(t, a);
+			rawCall(t, reg, 1);
+
+			if(!isBool(t, -1))
+			{
+				pushTypeString(t, -1);
+				throwException(t, "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+			}
+	
+			auto ret = getBool(t, -1);
+			pop(t);
+			return ret;
 		}));
 		
 		return 1;
 	}
-+/
 }

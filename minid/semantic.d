@@ -528,7 +528,10 @@ class Semantic : IdentityVisitor
 		s.rhs = visit(s.rhs);
 
 		if(auto catExp = s.rhs.as!(CatExp))
+		{
 			s.operands = catExp.operands;
+			catExp.operands = null;
+		}
 		else
 		{
 			scope dummy = new List!(Expression)(c.alloc);
@@ -883,9 +886,13 @@ class Semantic : IdentityVisitor
 
 		auto ops = e.operands;
 
-		for(word i = 0; i < ops.length - 1; i++)
+		for(word i = 0; i < ops.length; i++)
 		{
-			if(ops[i].isConstant && ops[i + 1].isConstant)
+			// this first case can only happen when the last item in the array can't be folded.  otherwise i will be set to ops.length - 1,
+			// incremented, and the loop will break.
+			if(i == ops.length - 1)
+				newOperands ~= ops[i];
+			else if(ops[i].isConstant && ops[i + 1].isConstant)
 			{
 				if((ops[i].isString || ops[i].isChar) && (ops[i + 1].isString || ops[i + 1].isChar))
 				{

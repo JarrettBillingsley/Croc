@@ -115,10 +115,10 @@ static:
 		register(t, "writeln", &writeln);
 		register(t, "writef", &writef);
 		register(t, "writefln", &writefln);
-
-		newTable(t);
-		register(t, "dumpVal", &dumpVal, 1);
 		register(t, "readln", &readln);
+
+			newTable(t);
+		register(t, "dumpVal", &dumpVal, 1);
 
 		// Dynamic compilation stuff
 		register(t, "loadString", &loadString);
@@ -141,9 +141,8 @@ static:
 			newFunction(t, &isSuspended, "thread.isSuspended"); fielda(t, -2, "isSuspended");
 			newFunction(t, &isDead,      "thread.isDead");      fielda(t, -2, "isDead");
 	
-			newFunction(t, &threadIterator, "thread.iterator");
-			newFunction(t, &threadApply, "thread.opApply", 1);
-			fielda(t, -2, "opApply");
+				newFunction(t, &threadIterator, "thread.iterator");
+			newFunction(t, &threadApply, "thread.opApply", 1); fielda(t, -2, "opApply");
 		setTypeMT(t, MDValue.Type.Thread);
 
 		// The Function type's metatable

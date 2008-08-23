@@ -5624,6 +5624,14 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 		rawCall(t, reg, 0);
 		
 		t.stack[dest] = ns;
+		
+		// Add it to the loaded table
+		pushGlobal(t, "modules");
+		field(t, -1, "loaded");
+		pushStringObj(t, name);
+		pushNamespace(t, ns);
+		idxa(t, -3);
+		pop(t, 2);
 	}
 	else if(t.stack[dest].type != MDValue.Type.Namespace)
 		throwException(t, "Error loading module '{}': could not find anything to load", name.toString32());
@@ -5953,12 +5961,14 @@ private void execute(MDThread* t, uword depth = 1)
 					tr.isCatch = true;
 					tr.catchVarSlot = cast(RelStack)i.rd;
 					tr.pc = t.currentAR.pc + i.imm;
+					tr.actRecord = t.arIndex;
 					break;
 
 				case Op.PushFinally:
 					auto tr = pushTR(t);
 					tr.isCatch = false;
 					tr.pc = t.currentAR.pc + i.imm;
+					tr.actRecord = t.arIndex;
 					break;
 
 				case Op.PopCatch: popTR(t); break;
@@ -6567,7 +6577,7 @@ private void execute(MDThread* t, uword depth = 1)
 	}
 	catch(MDException e)
 	{
-		while(depth > 0)
+		while(depth > 0 && t.trIndex > 0)
 		{
 			while(t.currentTR.actRecord is t.arIndex)
 			{
