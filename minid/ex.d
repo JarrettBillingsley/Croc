@@ -183,7 +183,11 @@ public struct StrBuffer
 
 		auto num = numPieces;
 		numPieces = 0;
-		return cat(t, num);
+		
+		if(num == 0)
+			return pushString(t, "");
+		else
+			return cat(t, num);
 	}
 
 	private void flush()

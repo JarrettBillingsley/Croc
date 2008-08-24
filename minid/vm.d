@@ -104,8 +104,7 @@ public uword checkTaken(MDThread* t, uword numParams)
 			if(!isNamespace(t, -1))
 				throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
 				
-			insert(t, -2);
-			pop(t);
+			insertAndPop(t, -2);
 		}
 		else
 			return 0;

@@ -2795,8 +2795,7 @@ public word importModule(MDThread* t, dchar[] name)
 {
 	pushString(t, name);
 	importModule(t, -1);
-	insert(t, -2);
-	pop(t);
+	insertAndPop(t, -2);
 	return stackSize(t) - 1;
 }
 
@@ -5588,7 +5587,7 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 	}
 
 	pop(t, 2);
-	
+
 	if(t.stack[dest].type == MDValue.Type.Function)
 	{
 		auto reg = pushFunction(t, t.stack[dest].mFunction);
@@ -5610,8 +5609,7 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 				fielda(t, -3, segment);
 			}
 
-			insert(t, -2);
-			pop(t);
+			insertAndPop(t, -2);
 		}
 
 		// Set the environment (also used as 'this')

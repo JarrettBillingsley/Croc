@@ -1,5 +1,7 @@
 module samples.simple
 
+
+
 /+
 object BaseProp
 {

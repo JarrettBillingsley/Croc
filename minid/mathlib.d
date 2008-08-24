@@ -32,6 +32,12 @@ import minid.ex;
 import minid.interpreter;
 import minid.types;
 
+private void register(MDThread* t, dchar[] name, NativeFunc func, uword numUpvals = 0)
+{
+	newFunction(t, func, name, numUpvals);
+	newGlobal(t, name);
+}
+
 struct MathLib
 {
 static:
@@ -42,48 +48,48 @@ static:
 		
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			pushFloat(t, math.E);           newGlobal(t, "e");
-			pushFloat(t, math.PI);          newGlobal(t, "pi");
-			pushFloat(t, mdfloat.nan);      newGlobal(t, "nan");
-			pushFloat(t, mdfloat.infinity); newGlobal(t, "infinity");
+			pushFloat(t, math.E);              newGlobal(t, "e");
+			pushFloat(t, math.PI);             newGlobal(t, "pi");
+			pushFloat(t, mdfloat.nan);         newGlobal(t, "nan");
+			pushFloat(t, mdfloat.infinity);    newGlobal(t, "infinity");
 
-			pushInt(t, mdint.sizeof);       newGlobal(t, "intSize");
-			pushInt(t, mdint.min);          newGlobal(t, "intMin");
-			pushInt(t, mdint.max);          newGlobal(t, "intMax");
+			pushInt(t, mdint.sizeof);          newGlobal(t, "intSize");
+			pushInt(t, mdint.min);             newGlobal(t, "intMin");
+			pushInt(t, mdint.max);             newGlobal(t, "intMax");
 
-			pushInt(t, mdfloat.sizeof);     newGlobal(t, "floatSize");
-			pushFloat(t, mdfloat.min);      newGlobal(t, "floatMin");
-			pushFloat(t, mdfloat.max);      newGlobal(t, "floatMax");
-
-			newFunction(t, &abs, "abs");       newGlobal(t, "abs");
-			newFunction(t, &sin, "sin");       newGlobal(t, "sin");
-			newFunction(t, &cos, "cos");       newGlobal(t, "cos");
-			newFunction(t, &tan, "tan");       newGlobal(t, "tan");
-			newFunction(t, &asin, "asin");     newGlobal(t, "asin");
-			newFunction(t, &acos, "acos");     newGlobal(t, "acos");
-			newFunction(t, &atan, "atan");     newGlobal(t, "atan");
-			newFunction(t, &atan2, "atan2");   newGlobal(t, "atan2");
-			newFunction(t, &sqrt, "sqrt");     newGlobal(t, "sqrt");
-			newFunction(t, &cbrt, "cbrt");     newGlobal(t, "cbrt");
-			newFunction(t, &pow, "pow");       newGlobal(t, "pow");
-			newFunction(t, &exp, "exp");       newGlobal(t, "exp");
-			newFunction(t, &ln, "ln");         newGlobal(t, "ln");
-			newFunction(t, &log2, "log2");     newGlobal(t, "log2");
-			newFunction(t, &log10, "log10");   newGlobal(t, "log10");
-			newFunction(t, &hypot, "hypot");   newGlobal(t, "hypot");
-			newFunction(t, &lgamma, "lgamma"); newGlobal(t, "lgamma");
-			newFunction(t, &gamma, "gamma");   newGlobal(t, "gamma");
-			newFunction(t, &ceil, "ceil");     newGlobal(t, "ceil");
-			newFunction(t, &floor, "floor");   newGlobal(t, "floor");
-			newFunction(t, &round, "round");   newGlobal(t, "round");
-			newFunction(t, &trunc, "trunc");   newGlobal(t, "trunc");
-			newFunction(t, &isNan, "isNan");   newGlobal(t, "isNan");
-			newFunction(t, &isInf, "isInf");   newGlobal(t, "isInf");
-			newFunction(t, &sign, "sign");     newGlobal(t, "sign");
-			newFunction(t, &rand, "rand");     newGlobal(t, "rand");
-			newFunction(t, &frand, "frand");   newGlobal(t, "frand");
-			newFunction(t, &max, "max");       newGlobal(t, "max");
-			newFunction(t, &min, "min");       newGlobal(t, "min");
+			pushInt(t, mdfloat.sizeof);        newGlobal(t, "floatSize");
+			pushFloat(t, mdfloat.min);         newGlobal(t, "floatMin");
+			pushFloat(t, mdfloat.max);         newGlobal(t, "floatMax");
+			
+			register(t, "abs", &abs);
+			register(t, "sin", &sin);
+			register(t, "cos", &cos);
+			register(t, "tan", &tan);
+			register(t, "asin", &asin);
+			register(t, "acos", &acos);
+			register(t, "atan", &atan);
+			register(t, "atan2", &atan2);
+			register(t, "sqrt", &sqrt);
+			register(t, "cbrt", &cbrt);
+			register(t, "pow", &pow);
+			register(t, "exp", &exp);
+			register(t, "ln", &ln);
+			register(t, "log2", &log2);
+			register(t, "log10", &log10);
+			register(t, "hypot", &hypot);
+			register(t, "lgamma", &lgamma);
+			register(t, "gamma", &gamma);
+			register(t, "ceil", &ceil);
+			register(t, "floor", &floor);
+			register(t, "round", &round);
+			register(t, "trunc", &trunc);
+			register(t, "isNan", &isNan);
+			register(t, "isInf", &isInf);
+			register(t, "sign", &sign);
+			register(t, "rand", &rand);
+			register(t, "frand", &frand);
+			register(t, "max", &max);
+			register(t, "min", &min);
 
 			return 0;
 		}, "math");

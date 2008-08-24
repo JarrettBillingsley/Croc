@@ -512,8 +512,7 @@ final class FuncState
 			.pushString(t, "Duplicate case value '");
 			push(t, val);
 			pushToString(t, -1);
-			insert(t, -2);
-			pop(t);
+			insertAndPop(t, -2);
 			.pushChar(t, '\'');
 			cat(t, 3);
 			c.exception(location, getString(t, -1));
@@ -1645,10 +1644,7 @@ final class FuncState
 		mInnerFuncs = null;
 
 		if(ret.innerFuncs.length > 0)
-		{
-			insert(t, -1 - ret.innerFuncs.length);
-			pop(t, ret.innerFuncs.length);
-		}
+			insertAndPop(t, -1 - ret.innerFuncs.length);
 
 		ret.constants = mConstants;
 		mConstants = null;
@@ -1771,8 +1767,7 @@ class Codegen : Visitor
 
 		auto def = fs_.toFuncDef();
 		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
-		insert(c.thread, -2);
-		pop(c.thread);
+		insertAndPop(c.thread, -2);
 	}
 
 	public override Module visit(Module m)
@@ -1819,8 +1814,7 @@ class Codegen : Visitor
 
 		auto def = fs_.toFuncDef();
 		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
-		insert(c.thread, -2);
-		pop(c.thread);
+		insertAndPop(c.thread, -2);
 
 		return m;
 	}

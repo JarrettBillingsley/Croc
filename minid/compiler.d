@@ -288,10 +288,7 @@ scope class Compiler : ICompiler
 		}
 
 		dg();
-
-		insert(t, -2);
-		pop(t);
-
+		insertAndPop(t, -2);
 		return stackSize(t) - 1;
 	}
 

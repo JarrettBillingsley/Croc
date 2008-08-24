@@ -270,7 +270,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
-		if(isString(t, 1) && getString(t, 1) == "reverse")
+		if(numParams > 0 && isString(t, 1) && getString(t, 1) == "reverse")
 		{
 			getUpval(t, 1);
 			dup(t, 0);
@@ -329,8 +329,7 @@ static:
 			else
 			{
 				pushToString(t, -1, true);
-				insert(t, -2);
-				pop(t);
+				insertAndPop(t, -2);
 				buf.addTop();
 			}
 	
