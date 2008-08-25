@@ -506,7 +506,7 @@ public word newThread(MDThread* t, word func)
 }
 
 /**
-Push the given thread onto this thread's stack.
+Pushes the given thread onto this thread's stack.
 
 Params:
 	o = The thread to push.
@@ -520,7 +520,7 @@ public word pushThread(MDThread* t, MDThread* o)
 }
 
 /**
-Push a reference to a native (D) object onto the stack.
+Pushes a reference to a native (D) object onto the stack.
 
 Params:
 	o = The object to push.
@@ -535,7 +535,7 @@ public word pushNativeObj(MDThread* t, Object o)
 }
 
 /**
-Duplicate a value at the given stack index and push it onto the stack.
+Duplicates a value at the given stack index and pushes it onto the stack.
 
 Params:
 	slot = The _slot to duplicate.  Defaults to -1, which means the top of the stack.
@@ -552,7 +552,27 @@ public word dup(MDThread* t, word slot = -1)
 }
 
 /**
-Insert the value at the top of the stack into the given _slot, shifting up the values in that _slot
+Swaps the two values at the given swap indices.  The second index defaults to the top-of-stack.
+
+Params:
+	first = The first stack index.
+	second = The second stack index.
+*/
+public void swap(MDThread* t, word first, word second = -1)
+{
+	auto f = fakeToAbs(t, first);
+	auto s = fakeToAbs(t, second);
+
+	if(f == s)
+		return;
+
+	auto tmp = t.stack[f];
+	t.stack[f] = t.stack[s];
+	t.stack[s] = tmp;
+}
+
+/**
+Inserts the value at the top of the stack into the given _slot, shifting up the values in that _slot
 and everything after it up by a _slot.  This means the stack will stay the same size.  Similar to a
 "rotate" operation common to many stack machines.
 
@@ -604,7 +624,7 @@ public void insertAndPop(MDThread* t, word slot)
 }
 
 /**
-Pop a number of items off the stack.  Throws an error if you try to pop more items than there are
+Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
 on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
 values, an error is thrown.
 

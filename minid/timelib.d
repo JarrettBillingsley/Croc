@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,16 +23,19 @@ subject to the following restrictions:
 
 module minid.timelib;
 
-import minid.types;
-import minid.utils;
-
 import tango.text.locale.Convert;
 import tango.text.locale.Core;
-import tango.time.Clock;
-import tango.time.Time;
-import tango.time.StopWatch;
-import tango.time.WallClock;
 import tango.time.chrono.Gregorian;
+import tango.time.Clock;
+import tango.time.StopWatch;
+import tango.time.Time;
+import tango.time.WallClock;
+import Utf = tango.text.convert.Utf;
+
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+import minid.utils;
 
 version(Windows)
 {
@@ -46,249 +49,295 @@ else version(Posix)
 else
 	static assert(false, "No valid platform defined");
 
-final class TimeLib
+struct TimeLib
 {
 static:
-	private MDValue YearString;
-	private MDValue MonthString;
-	private MDValue DayString;
-	private MDValue HourString;
-	private MDValue MinString;
-	private MDValue SecString;
-	version(Windows) ulong performanceFreq;
-
-	static this()
+	version(Windows)
 	{
-		YearString = new MDString("year"d);
-		MonthString = new MDString("month"d);
-		DayString = new MDString("day"d);
-		HourString = new MDString("hour"d);
-		MinString = new MDString("min"d);
-		SecString = new MDString("sec"d);
+		ulong performanceFreq;
 
-		version(Windows)
+		static this()
 		{
 			if(!QueryPerformanceFrequency(&performanceFreq))
 				performanceFreq = 0x7fffffffffffffffL;
 		}
 	}
 
-	public void init(MDContext context)
+	public void init(MDThread* t)
 	{
-		context.setModuleLoader("time", context.newClosure(function int(MDState s, uint numParams)
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
+		
+		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			auto perfCounterClass = new MDPerfCounterClass(s.context.globals.get!(MDObject)("Object"d));
-
-			auto lib = s.getParam!(MDNamespace)(1);
-
-			lib.addList
-			(
-				"PerfCounter"d,  perfCounterClass,
-				"microTime"d,    new MDClosure(lib, &microTime,  "times.microTime"),
-				"dateString"d,   new MDClosure(lib, &dateString, "time.dateString"),
-				"dateTime"d,     new MDClosure(lib, &dateTime,   "time.dateTime"),
-				"culture"d,      new MDClosure(lib, &culture,    "time.culture"),
-				"timestamp"d,    new MDClosure(lib, &timestamp,  "time.timestamp")
-			);
+			Timer.init(t);
+			newFunction(t, &microTime,  "microTime");  newGlobal(t, "microTime");
+			newFunction(t, &dateString, "dateString"); newGlobal(t, "dateString");
+			newFunction(t, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
+			newFunction(t, &culture,    "culture");    newGlobal(t, "culture");
+			newFunction(t, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
 
 			return 0;
-		}, "time"));
+		}, "time");
 
-		context.importModule("time");
+		fielda(t, -2, "time");
+		pop(t);
+
+		importModule(t, "time");
 	}
-
-	int microTime(MDState s, uint numParams)
+	
+	uword microTime(MDThread* t, uword numParams)
 	{
 		version(Windows)
 		{
 			ulong time;
 			QueryPerformanceCounter(&time);
-
+		
 			if(time < 0x8637BD05AF6L)
-				s.push((time * 1_000_000) / performanceFreq);
+				pushInt(t, cast(mdint)((time * 1_000_000) / performanceFreq));
 			else
-				s.push((time / performanceFreq) * 1_000_000);
+				pushInt(t, cast(mdint)((time / performanceFreq) * 1_000_000));
 		}
 		else
 		{
 			timeval tv;
 			gettimeofday(&tv, null);
-			s.push(tv.tv_sec * 1_000_000L + tv.tv_usec);
+			pushInt(t, cast(mdint)(tv.tv_sec * 1_000_000L + tv.tv_usec));
 		}
-		
+
 		return 1;
 	}
-	
-	int dateString(MDState s, uint numParams)
+
+	uword dateString(MDThread* t, uword numParams)
 	{
-		Time time;
-		char[40] buffer;
-		char[] format = "G";
-		Culture culture = null;
+		char[] format = numParams > 0 ? GetFormat(t, 1) : "G";
 
-		if(numParams > 0)
-			format = s.getParam!(char[])(0);
+		Time time = void;
 
-		if(numParams > 1 && !s.isParam!("null")(1))
-			time = TableToTime(s, s.getParam!(MDTable)(1));
+		if(numParams > 1 && !isNull(t, 2))
+			time = TableToTime(t, 2);
 		else if(format == "R")
 			time = Clock.now;
 		else
 			time = WallClock.now;
 
-		if(numParams > 2)
-			culture = s.safeCode(Culture.getCulture(s.getParam!(char[])(2)));
+		Culture culture = null;
 
-		s.push(s.safeCode(formatDateTime(buffer, time, format, culture)));
+		if(numParams > 2)
+		{
+			char[24] buf = void;
+			auto name = StrToCulture(t, 1, buf);
+			culture = safeCode(t, Culture.getCulture(name));
+		}
+
+		char[40] buffer;
+		auto ret = safeCode(t, formatDateTime(buffer, time, format, culture));
+
+		dchar[40] outbuf;
+		uint ate = 0;
+		pushString(t, Utf.toString32(ret, outbuf, &ate));
 		return 1;
 	}
 	
-	int dateTime(MDState s, uint numParams)
+	uword dateTime(MDThread* t, uword numParams)
 	{
 		bool useGMT = false;
-		MDTable t = null;
-		
-		if(numParams > 0)
+		word tab;
+
+		if(numParams == 0)
+			tab = newTable(t);
+		else if(isBool(t, 1))
 		{
-			if(s.isParam!("bool")(0))
+			useGMT = getBool(t, 1);
+
+			if(numParams > 1)
 			{
-				useGMT = s.getParam!(bool)(0);
-				
-				if(numParams > 1)
-					t = s.getParam!(MDTable)(1);
+				checkParam(t, 2, MDValue.Type.Table);
+				tab = 2;
 			}
 			else
-				t = s.getParam!(MDTable)(0);
+				tab = newTable(t);
+		}
+		else
+		{
+			checkParam(t, 1, MDValue.Type.Table);
+			tab = 1;
 		}
 
-		s.push(DateTimeToTable(s, useGMT ? Clock.toDate : WallClock.toDate, t));
+		DateTimeToTable(t, useGMT ? Clock.toDate : WallClock.toDate, tab);
+		dup(t, tab);
 		return 1;
 	}
 
-	int culture(MDState s, uint numParams)
+	uword culture(MDThread* t, uword numParams)
 	{
-		s.push(Culture.current.name);
+		CultureToStr(t, Culture.current.name);
 
 		if(numParams > 0)
-			Culture.current = s.safeCode(Culture.getCulture(s.getParam!(char[])(0)));
+		{
+			char[24] buf = void;
+			auto name = StrToCulture(t, 1, buf);
+			Culture.current = safeCode(t, Culture.getCulture(name));
+		}
 
 		return 1;
 	}
 
-	Time TableToTime(MDState s, MDTable tab)
+	// longest possible is 5 chars * 4 bytes per char = 20 bytes?
+	char[] StrToCulture(MDThread* t, word slot, char[24] outbuf)
 	{
-		MDValue table = MDValue(tab);
-		Time time;
+		checkStringParam(t, slot);
 
-		with(s)
+		if(len(t, slot) != 5)
+			throwException(t, "Culture name {} is not supported.", getString(t, slot));
+
+		uint ate = 0;
+		return Utf.toString(getString(t, slot), outbuf, &ate);
+	}
+
+	word CultureToStr(MDThread* t, char[] culture)
+	{
+		// eh, let's be safe..
+		dchar[8] buf;
+		uint ate = 0;
+		return pushString(t, Utf.toString32(culture, buf, &ate));
+	}
+	
+	char[] GetFormat(MDThread* t, word slot)
+	{
+		switch(checkStringParam(t, slot))
 		{
-			MDValue year = idx(table, YearString);
-			MDValue month = idx(table, MonthString);
-			MDValue day = idx(table, DayString);
-			MDValue hour = idx(table, HourString);
-			MDValue min = idx(table, MinString);
-			MDValue sec = idx(table, SecString);
+			case "d": return "d";
+			case "D": return "D";
+			case "t": return "t";
+			case "T": return "T";
+			case "g": return "g";
+			case "G": return "G";
+			case "M": return "M";
+			case "R": return "R";
+			case "s": return "s";
+			case "Y": return "Y";
 
-			if(!year.isInt() || !month.isInt() || !day.isInt())
-				s.throwRuntimeException("year, month, and day fields in time table must exist and must be integers");
-
-			if(hour.isInt() && min.isInt() && sec.isInt())
-				time = Gregorian.generic.toTime(year.as!(int), month.as!(int), day.as!(int), hour.as!(int), min.as!(int), sec.as!(int), 0, 0);
-			else
-				time = Gregorian.generic.toTime(year.as!(int), month.as!(int), day.as!(int), 0, 0, 0, 0, 0);
+			default:
+				throwException(t, "invalid format string");
 		}
+		
+		assert(false);
+	}
+
+	Time TableToTime(MDThread* t, word tab)
+	{
+		auto year = field(t, tab, "year");
+		auto month = field(t, tab, "month");
+		auto day = field(t, tab, "day");
+		auto hour = field(t, tab, "hour");
+		auto min = field(t, tab, "min");
+		auto sec = field(t, tab, "sec");
+
+		if(!isInt(t, year) || !isInt(t, month) || !isInt(t, day))
+			throwException(t, "year, month, and day fields in time table must exist and must be integers");
+			
+		Time time = void;
+
+		if(isInt(t, hour) && isInt(t, min) && isInt(t, sec))
+			time = Gregorian.generic.toTime(getInt(t, year), getInt(t, month), getInt(t, day), getInt(t, hour), getInt(t, min), getInt(t, sec), 0, 0);
+		else
+			time = Gregorian.generic.toTime(getInt(t, year), getInt(t, month), getInt(t, day), 0, 0, 0, 0, 0);
+			
+		pop(t, 6);
 
 		return time;
 	}
 
-	MDTable DateTimeToTable(MDState s, DateTime time, MDTable dest)
+	void DateTimeToTable(MDThread* t, DateTime time, word dest)
 	{
-		if(dest is null)
-			dest = new MDTable();
-
-		MDValue table = dest;
-
-		with(s)
-		{
-			idxa(table, YearString, MDValue(time.date.year));
-			idxa(table, MonthString, MDValue(time.date.month));
-			idxa(table, DayString, MDValue(time.date.day));
-			idxa(table, HourString, MDValue(time.time.hours));
-			idxa(table, MinString, MDValue(time.time.minutes));
-			idxa(table, SecString, MDValue(time.time.seconds));
-		}
-		
-		return dest;
+// 		dest = absIndex(t, dest);
+// 
+// 		if(isNull(t, dest))
+// 		{
+// 			newTable(t);
+// 			swap(t, dest);
+// 			pop(t);
+// 		}
+// 
+		pushInt(t, time.date.year);    fielda(t, dest, "year");
+		pushInt(t, time.date.month);   fielda(t, dest, "month");
+		pushInt(t, time.date.day);     fielda(t, dest, "day");
+		pushInt(t, time.time.hours);   fielda(t, dest, "hour");
+		pushInt(t, time.time.minutes); fielda(t, dest, "min");
+		pushInt(t, time.time.seconds); fielda(t, dest, "sec");
 	}
-	
-	int timestamp(MDState s, uint numParams)
+
+	uword timestamp(MDThread* t, uword numParams)
 	{
-		s.push(cast(int)(Clock.now - Time.epoch1970).seconds);
+		pushInt(t, cast(mdint)(Clock.now - Time.epoch1970).seconds);
 		return 1;
 	}
 
-	static class MDPerfCounterClass : MDObject
+	static struct Timer
 	{
-		static class MDPerfCounter : MDObject
+	static:
+		private Members* getThis(MDThread* t)
+		{
+			return checkObjParam!(Members)(t, 0, "Timer");
+		}
+	
+		void init(MDThread* t)
+		{
+			CreateObject(t, "Timer", (CreateObject* o)
+			{
+				o.method("clone", &clone);
+				o.method("start", &start);
+				o.method("stop", &stop);
+				o.method("seconds", &seconds);
+				o.method("millisecs", &millisecs);
+				o.method("microsecs", &microsecs);
+			});
+	
+			newGlobal(t, "Timer");
+		}
+	
+		struct Members
 		{
 			protected StopWatch mWatch;
 			protected mdfloat mTime = 0;
-			
-			public this(MDObject owner)
-			{
-				super("PerfCounter", owner);
-			}
 		}
-
-		public this(MDObject owner)
+	
+		uword clone(MDThread* t, uword numParams)
 		{
-			super("PerfCounter", owner);
-
-			fields.addList
-			(
-				"clone"d,     new MDClosure(fields, &clone,     "PerfCounter.clone"),
-				"start"d,     new MDClosure(fields, &start,     "PerfCounter.start"),
-				"stop"d,      new MDClosure(fields, &stop,      "PerfCounter.stop"),
-				"seconds"d,   new MDClosure(fields, &seconds,   "PerfCounter.seconds"),
-				"millisecs"d, new MDClosure(fields, &millisecs, "PerfCounter.millisecs"),
-				"microsecs"d, new MDClosure(fields, &microsecs, "PerfCounter.microsecs")
-			);
-		}
-
-		public int clone(MDState s, uint numParams)
-		{
-			s.push(new MDPerfCounter(this));
+			newObject(t, 0, null, 0, Members.sizeof);
+			*getMembers!(Members)(t, -1) = Members.init;
 			return 1;
 		}
-
-		public int start(MDState s, uint numParams)
+	
+		uword start(MDThread* t, uword numParams)
 		{
-			s.getContext!(MDPerfCounter).mWatch.start();
+			getThis(t).mWatch.start();
 			return 0;
 		}
-
-		public int stop(MDState s, uint numParams)
+	
+		uword stop(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDPerfCounter);
-			self.mTime = self.mWatch.stop();
+			auto members = getThis(t);
+			members.mTime = members.mWatch.stop();
 			return 0;
 		}
-
-		public int seconds(MDState s, uint numParams)
+	
+		uword seconds(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).mTime);
+			pushFloat(t, getThis(t).mTime);
 			return 1;
 		}
-
-		public int millisecs(MDState s, uint numParams)
+	
+		uword millisecs(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).mTime * 1_000);
+			pushFloat(t, getThis(t).mTime * 1_000);
 			return 1;
 		}
-
-		public int microsecs(MDState s, uint numParams)
+	
+		uword microsecs(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDPerfCounter).mTime * 1_000_000);
+			pushFloat(t, getThis(t).mTime * 1_000_000);
 			return 1;
 		}
 	}

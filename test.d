@@ -35,12 +35,7 @@ void main()
 	auto t = openVM(vm);
 	loadStdlibs(t);
 
-	// This is all stdlib crap!
-	newFunction(t, &microTime, "microTime");
-	newGlobal(t, "microTime");
-	Timer.init(t);
-
-		importModule(t, "samples.simple");
+	importModule(t, "samples.simple");
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(vm)).flush;
 	gc(vm);
@@ -48,96 +43,4 @@ void main()
 
 	closeVM(vm);
 	delete vm;
-}
-
-private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
-private extern(Windows) int QueryPerformanceCounter(ulong* count);
-ulong performanceFreq;
-
-static this()
-{
-	if(!QueryPerformanceFrequency(&performanceFreq))
-		performanceFreq = 0x7fffffffffffffffL;
-}
-
-uword microTime(MDThread* t, uword numParams)
-{
-	ulong time;
-	QueryPerformanceCounter(&time);
-
-	if(time < 0x8637BD05AF6L)
-		pushInt(t, cast(mdint)((time * 1_000_000) / performanceFreq));
-	else
-		pushInt(t, cast(mdint)((time / performanceFreq) * 1_000_000));
-
-	return 1;
-}
-
-import tango.time.StopWatch;
-struct Timer
-{
-static:
-	private Members* getThis(MDThread* t)
-	{
-		return checkObjParam!(Members)(t, 0, "Timer");
-	}
-
-	void init(MDThread* t)
-	{
-		CreateObject(t, "Timer", (CreateObject* o)
-		{
-			o.method("clone", &clone);
-			o.method("start", &start);
-			o.method("stop", &stop);
-			o.method("seconds", &seconds);
-			o.method("millisecs", &millisecs);
-			o.method("microsecs", &microsecs);
-		});
-
-		newGlobal(t, "Timer");
-	}
-
-	struct Members
-	{
-		protected StopWatch mWatch;
-		protected mdfloat mTime = 0;
-	}
-
-	uword clone(MDThread* t, uword numParams)
-	{
-		newObject(t, 0, null, 0, Members.sizeof);
-		*getMembers!(Members)(t, -1) = Members.init;
-		return 1;
-	}
-
-	uword start(MDThread* t, uword numParams)
-	{
-		getThis(t).mWatch.start();
-		return 0;
-	}
-
-	uword stop(MDThread* t, uword numParams)
-	{
-		auto members = getThis(t);
-		members.mTime = members.mWatch.stop();
-		return 0;
-	}
-
-	uword seconds(MDThread* t, uword numParams)
-	{
-		pushFloat(t, getThis(t).mTime);
-		return 1;
-	}
-
-	uword millisecs(MDThread* t, uword numParams)
-	{
-		pushFloat(t, getThis(t).mTime * 1_000);
-		return 1;
-	}
-
-	uword microsecs(MDThread* t, uword numParams)
-	{
-		pushFloat(t, getThis(t).mTime * 1_000_000);
-		return 1;
-	}
 }
