@@ -59,7 +59,7 @@ static:
 
 // 			"Process"d,      osLib.processClass,
 			newFunction(t, &system, "system"); newGlobal(t, "system");
-			newFunction(t, &system, "getEnv"); newGlobal(t, "getEnv");
+			newFunction(t, &getEnv, "getEnv"); newGlobal(t, "getEnv");
 
 			return 0;
 		}, "os");
@@ -76,8 +76,24 @@ static:
 			pushBool(t, .system(null) ? true : false);
 		else
 		{
-			pushInt(t, .system(toStringz(
-			s.push(.system(toStringz(s.getParam!(char[])(0))));
+			auto cmd = checkStringParam(t, 1);
+
+			if(cmd.length < 128)
+			{
+				char[128] buf = void;
+				buf[0 .. cmd.length] = cmd[];
+				buf[cmd.length] = 0;
+				pushInt(t, .system(buf.ptr));
+			}
+			else
+			{
+				auto arr = t.vm.alloc.allocArray!(char)(cmd.length + 1);
+				scope(exit) t.vm.alloc.freeArray(arr);
+				arr[0 .. cmd.length] = cmd[];
+				arr[cmd.length] = 0;
+				pushInt(t, .system(arr.ptr));
+			}
+		}
 
 		return 1;
 	}
@@ -97,19 +113,14 @@ static:
 		}
 		else
 		{
-			char[] def = null;
-			
-			if(numParams > 1)
-				def = s.getParam!(char[])(1);
-
-			char[] val = Environment.get(s.getParam!(char[])(0), def);
+			auto val = Environment.get(checkStringParam(t, 1), optStringParam(t, 2, null));
 
 			if(val is null)
-				s.pushNull();
+				pushNull(t);
 			else
-				s.push(val);
+				pushString(t, val);
 		}
-		
+
 		return 1;
 	}
 
