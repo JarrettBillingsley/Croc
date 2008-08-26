@@ -194,7 +194,7 @@ struct MDValue
 		ArrayData
 	}
 
-	package static dchar[] typeString(MDValue.Type t)
+	package static char[] typeString(MDValue.Type t)
 	{
 		switch(t)
 		{
@@ -374,7 +374,7 @@ struct MDValue
 			case Type.Int:       return Format("{}", mInt);
 			case Type.Float:     return Format("{}", mFloat);
 			case Type.Char:      return Format("'{}'", mChar);
-			case Type.String:    return Format("\"{}\"", mString.toString32());
+			case Type.String:    return Format("\"{}\"", mString.toString());
 			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
 			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
 			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
@@ -417,10 +417,11 @@ struct MDString
 	mixin MDObjectMixin!(MDValue.Type.String);
 	package uword hash;
 	package uword length;
+	package uword cpLength;
 
-	package dchar[] toString32()
+	package char[] toString()
 	{
-		return (cast(dchar*)(this + 1))[0 .. this.length];
+		return (cast(char*)(this + 1))[0 .. this.length];
 	}
 }
 
@@ -546,7 +547,7 @@ struct MDThread
 		Dead
 	}
 
-	static dchar[][5] StateStrings =
+	static char[][5] StateStrings =
 	[
 		State.Initial: "initial",
 		State.Waiting: "waiting",
@@ -689,7 +690,7 @@ struct MDVM
 	package MDNamespace* globals;
 	package MDThread* mainThread;
 	package MDNamespace*[] metaTabs;
-	package Hash!(dchar[], MDString*) stringTab;
+	package Hash!(char[], MDString*) stringTab;
 	package MDString*[] metaStrings;
 	package Location[] traceback;
 	package MDValue exception;
@@ -697,7 +698,7 @@ struct MDVM
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
-	package Layout!(dchar) formatter;
+	package Layout!(char) formatter;
 
 	version(MDRestrictedCoro) {} else
 	{
@@ -765,7 +766,7 @@ package enum MM
 	XorEq
 }
 
-package const dchar[][] MetaNames =
+package const char[][] MetaNames =
 [
 	MM.Add:          "opAdd",
 	MM.Add_r:        "opAdd_r",

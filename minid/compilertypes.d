@@ -29,7 +29,7 @@ import minid.types;
 // Location, duh.
 struct CompileLoc
 {
-	dchar[] file;
+	char[] file;
 	uint line;
 	uint col;
 }
@@ -41,13 +41,13 @@ interface ICompiler
 	bool typeConstraints();
 	bool isEof();
 	bool isLoneStmt();
-	void exception(ref CompileLoc loc, dchar[] msg, ...);
-	void eofException(ref CompileLoc loc, dchar[] msg, ...);
-	void loneStmtException(ref CompileLoc loc, dchar[] msg, ...);
+	void exception(ref CompileLoc loc, char[] msg, ...);
+	void eofException(ref CompileLoc loc, char[] msg, ...);
+	void loneStmtException(ref CompileLoc loc, char[] msg, ...);
 	MDThread* thread();
 	Allocator* alloc();
 	void addNode(IAstNode node);
-	dchar[] newString(dchar[] s);
+	char[] newString(char[] s);
 }
 
 // Common compiler stuff

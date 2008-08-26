@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,64 +23,78 @@ subject to the following restrictions:
 
 module minid.oslib;
 
-import minid.iolib;
-import minid.types;
-import minid.utils;
-
 import tango.stdc.stdlib;
 import tango.stdc.stringz;
 import tango.sys.Environment;
 import tango.sys.Process;
 
-final class OSLib
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+import minid.utils;
+
+struct OSLib
 {
-	private MDProcessClass processClass;
-	private IOLib.MDInputStreamClass inputStreamClass;
-	private IOLib.MDOutputStreamClass outputStreamClass;
+static:
+// 	private MDProcessClass processClass;
+// 	private IOLib.MDInputStreamClass inputStreamClass;
+// 	private IOLib.MDOutputStreamClass outputStreamClass;
 
-	private this(MDObject _Object, MDNamespace ioLib)
+// 	private this(MDObject _Object, MDNamespace ioLib)
+// 	{
+// 		processClass = new MDProcessClass(_Object);
+// 		inputStreamClass = ioLib["InputStream"d].to!(IOLib.MDInputStreamClass);
+// 		outputStreamClass = ioLib["OutputStream"d].to!(IOLib.MDOutputStreamClass);
+// 	}
+// 
+	public void init(MDThread* t)
 	{
-		processClass = new MDProcessClass(_Object);
-		inputStreamClass = ioLib["InputStream"d].to!(IOLib.MDInputStreamClass);
-		outputStreamClass = ioLib["OutputStream"d].to!(IOLib.MDOutputStreamClass);
-	}
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
 
-	public static void init(MDContext context)
-	{
-		context.setModuleLoader("os", context.newClosure(function int(MDState s, uint numParams)
+		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			auto ioLib = s.context.importModule("io");
-			auto osLib = new OSLib(s.context.globals.get!(MDObject)("Object"d), ioLib);
+// 			auto ioLib = importModule(t, "io");
+// 			auto osLib = new OSLib(s.context.globals.get!(MDObject)("Object"d), ioLib);
 
-			auto lib = s.getParam!(MDNamespace)(1);
-
-			lib.addList
-			(
-				"Process"d,      osLib.processClass,
-				"system"d,       new MDClosure(lib, &system,     "os.system"),
-				"getEnv"d,       new MDClosure(lib, &getEnv,     "os.getEnv")
-			);
+// 			"Process"d,      osLib.processClass,
+			newFunction(t, &system, "system"); newGlobal(t, "system");
+			newFunction(t, &system, "getEnv"); newGlobal(t, "getEnv");
 
 			return 0;
-		}, "os"));
+		}, "os");
+		
+		fielda(t, -2, "os");
+		pop(t);
 
-		context.importModule("os");
+		importModule(t, "os");
 	}
 
-	static int system(MDState s, uint numParams)
+	uword system(MDThread* t, uword numParams)
 	{
 		if(numParams == 0)
-			s.push(.system(null) ? true : false);
+			pushBool(t, .system(null) ? true : false);
 		else
+		{
+			pushInt(t, .system(toStringz(
 			s.push(.system(toStringz(s.getParam!(char[])(0))));
 
 		return 1;
 	}
 
-	static int getEnv(MDState s, uint numParams)
+	uword getEnv(MDThread* t, uword numParams)
 	{
 		if(numParams == 0)
-			s.push(Environment.get());
+		{
+			newTable(t);
+
+			foreach(k, v; Environment.get())
+			{
+				pushString(t, k);
+				pushString(t, v);
+				idxa(t, -3);
+			}
+		}
 		else
 		{
 			char[] def = null;
@@ -99,6 +113,7 @@ final class OSLib
 		return 1;
 	}
 
+/+
 	class MDProcessClass : MDObject
 	{
 		static class MDProcess : MDObject
@@ -133,19 +148,19 @@ final class OSLib
 			);
 		}
 		
-		public int clone(MDState s, uint numParams)
+		public uword clone(MDThread* t, uword numParams)
 		{
 			s.push(new MDProcess(this));
 			return 1;
 		}
 		
-		public int isRunning(MDState s, uint numParams)
+		public uword isRunning(MDThread* t, uword numParams)
 		{
 			s.push(s.safeCode(s.getContext!(MDProcess)().mProcess.isRunning()));
 			return 1;
 		}
 		
-		public int workDir(MDState s, uint numParams)
+		public uword workDir(MDThread* t, uword numParams)
 		{
 			if(numParams == 0)
 			{
@@ -157,7 +172,7 @@ final class OSLib
 			return 0;
 		}
 
-		public int execute(MDState s, uint numParams)
+		public uword execute(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDProcess);
 
@@ -178,7 +193,7 @@ final class OSLib
 			return 0;
 		}
 		
-		public int stdin(MDState s, uint numParams)
+		public uword stdin(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDProcess);
 
@@ -189,7 +204,7 @@ final class OSLib
 			return 1;
 		}
 		
-		public int stdout(MDState s, uint numParams)
+		public uword stdout(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDProcess);
 
@@ -200,7 +215,7 @@ final class OSLib
 			return 1;
 		}
 		
-		public int stderr(MDState s, uint numParams)
+		public uword stderr(MDThread* t, uword numParams)
 		{
 			auto self = s.getContext!(MDProcess);
 
@@ -211,7 +226,7 @@ final class OSLib
 			return 1;
 		}
 		
-		public int wait(MDState s, uint numParams)
+		public uword wait(MDThread* t, uword numParams)
 		{
 			auto res = s.safeCode(s.getContext!(MDProcess)().mProcess.wait());
 			
@@ -228,10 +243,11 @@ final class OSLib
 			return 2;
 		}
 
-		public int kill(MDState s, uint numParams)
+		public uword kill(MDThread* t, uword numParams)
 		{
 			s.safeCode(s.getContext!(MDProcess)().mProcess.kill());
 			return 0;
 		}
 	}
++/
 }

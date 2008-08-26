@@ -51,7 +51,64 @@ public MDThread* mainThread(MDVM* vm)
 	return vm.mainThread;
 }
 
-public uword checkLoaded(MDThread* t, uword numParams)
+// ================================================================================================================================================
+// Package
+// ================================================================================================================================================
+
+package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
+{
+	assert(vm.mainThread is null, "Attempting to reopen an already-open VM");
+
+	vm.alloc.memFunc = memFunc;
+	vm.alloc.ctx = ctx;
+
+	vm.metaTabs = vm.alloc.allocArray!(MDNamespace*)(MDValue.Type.max + 1);
+	vm.metaStrings = vm.alloc.allocArray!(MDString*)(MetaNames.length);
+
+	foreach(i, str; MetaNames)
+		vm.metaStrings[i] = string.create(vm, str);
+
+	vm.mainThread = thread.create(vm);
+	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
+	vm.formatter = new Layout!(char)();
+
+	auto t = vm.mainThread;
+
+	// _G = _G._G = _G._G._G = _G._G._G._G = ...
+	pushNamespace(t, vm.globals);
+	newGlobal(t, "_G");
+
+	// Set up the modules module
+	auto ns = newNamespace(t, "modules");
+		pushString(t, "."); fielda(t, ns, "path");
+		newTable(t);        fielda(t, ns, "loading");
+		newTable(t);        fielda(t, ns, "customLoaders");
+
+		newTable(t);
+			// integrate 'modules' itself into the module loading system
+			dup(t, ns);
+			fielda(t, -2, "modules");
+		fielda(t, ns, "loaded");
+
+		pushString(t, "loaders");
+			dup(t, ns); newFunctionWithEnv(t, &checkLoaded, "checkLoaded");
+			dup(t, ns); newFunctionWithEnv(t, &checkCircular, "checkCircular");
+			dup(t, ns); newFunctionWithEnv(t, &customLoad, "customLoad");
+			dup(t, ns); newFunctionWithEnv(t, &checkTaken, "checkTaken");
+			dup(t, ns); newFunctionWithEnv(t, &loadFiles, "loadFiles");
+
+			version(MDDynLibs)
+			{
+				dup(t, ns); newFunctionWithEnv(t, &loadDynlib, "loadDynlib");
+				newArrayFromStack(t, 6);
+			}
+			else
+				newArrayFromStack(t, 5);
+		fielda(t, ns);
+	newGlobal(t, "modules");
+}
+
+package uword checkLoaded(MDThread* t, uword numParams)
 {
 	checkStringParam(t, 1);
 	pushGlobal(t, "loaded");
@@ -60,7 +117,7 @@ public uword checkLoaded(MDThread* t, uword numParams)
 	return 1;
 }
 
-public uword checkCircular(MDThread* t, uword numParams)
+package uword checkCircular(MDThread* t, uword numParams)
 {
 	checkStringParam(t, 1);
 	pushGlobal(t, "loading");
@@ -73,7 +130,7 @@ public uword checkCircular(MDThread* t, uword numParams)
 	return 0;
 }
 
-public uword customLoad(MDThread* t, uword numParams)
+package uword customLoad(MDThread* t, uword numParams)
 {
 	checkStringParam(t, 1);
 	pushGlobal(t, "customLoaders");
@@ -86,13 +143,13 @@ public uword customLoad(MDThread* t, uword numParams)
 	return 0;
 }
 
-public uword checkTaken(MDThread* t, uword numParams)
+package uword checkTaken(MDThread* t, uword numParams)
 {
 	auto name = checkStringParam(t, 1);
 	
 	pushGlobal(t, "_G");
 
-	foreach(segment; name.delimiters("."d))
+	foreach(segment; name.delimiters("."))
 	{
 		pushString(t, segment);
 		
@@ -114,9 +171,9 @@ public uword checkTaken(MDThread* t, uword numParams)
 }
 
 // TODO: try to make this not allocate memory?
-public uword loadFiles(MDThread* t, uword numParams)
+package uword loadFiles(MDThread* t, uword numParams)
 {
-	auto name = toString(checkStringParam(t, 1));
+	auto name = checkStringParam(t, 1);
 	auto pos = name.locatePrior('.');
 	char[] packages;
 	char[] modName;
@@ -134,7 +191,7 @@ public uword loadFiles(MDThread* t, uword numParams)
 
 	// safe since this string is held in the modules namespace
 	pushGlobal(t, "path");
-	auto paths = toString(getString(t, -1));
+	auto paths = getString(t, -1);
 	pop(t);
 
 	outerLoop: foreach(path; paths.delimiters(";"))
@@ -184,67 +241,4 @@ public uword loadFiles(MDThread* t, uword numParams)
 	}
 
 	return 0;
-}
-
-// ================================================================================================================================================
-// Package
-// ================================================================================================================================================
-
-package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
-{
-	assert(vm.mainThread is null, "Attempting to reopen an already-open VM");
-
-	vm.alloc.memFunc = memFunc;
-	vm.alloc.ctx = ctx;
-
-	vm.metaTabs = vm.alloc.allocArray!(MDNamespace*)(MDValue.Type.max + 1);
-	vm.metaStrings = vm.alloc.allocArray!(MDString*)(MetaNames.length);
-
-	foreach(i, str; MetaNames)
-		vm.metaStrings[i] = string.create(vm, str);
-
-	vm.mainThread = thread.create(vm);
-	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
-	vm.formatter = new Layout!(dchar)();
-
-	auto t = vm.mainThread;
-
-	// _G = _G._G = _G._G._G = _G._G._G._G = ...
-	pushNamespace(t, vm.globals);
-	newGlobal(t, "_G");
-
-	// Set up default import handlers
-	auto ns = newNamespace(t, "modules");
-		pushString(t, "path");
-		pushString(t, ".");
-		fielda(t, ns);
-
-		pushString(t, "loaded");
-		newTable(t);
-		fielda(t, ns);
-
-		pushString(t, "loading");
-		newTable(t);
-		fielda(t, ns);
-		
-		pushString(t, "customLoaders");
-		newTable(t);
-		fielda(t, ns);
-
-		pushString(t, "loaders");
-			dup(t, ns); newFunctionWithEnv(t, &checkLoaded, "checkLoaded");
-			dup(t, ns); newFunctionWithEnv(t, &checkCircular, "checkCircular");
-			dup(t, ns); newFunctionWithEnv(t, &customLoad, "customLoad");
-			dup(t, ns); newFunctionWithEnv(t, &checkTaken, "checkTaken");
-			dup(t, ns); newFunctionWithEnv(t, &loadFiles, "loadFiles");
-
-			version(MDDynLibs)
-			{
-				dup(t, ns); newFunctionWithEnv(t, &loadDynlib, "loadDynlib");
-				newArrayFromStack(t, 6);
-			}
-			else
-				newArrayFromStack(t, 5);
-		fielda(t, ns);
-	newGlobal(t, "modules");
 }

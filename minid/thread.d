@@ -1,7 +1,4 @@
 /******************************************************************************
-Macros:
-	RPAREN = )
-
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

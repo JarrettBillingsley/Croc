@@ -43,6 +43,7 @@ import tango.text.convert.Utf;
 import tango.text.Util;
 import tango.time.StopWatch;
 import Uni = tango.text.Unicode;
+import Utf = tango.text.convert.Utf;
 
 /**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
@@ -234,6 +235,24 @@ int dcmp(dchar[] s1, dchar[] s2)
 }
 
 /**
+Compares char[] strings stupidly (just by character value, not lexicographically).
+*/
+int scmp(char[] s1, char[] s2)
+{
+	auto len = s1.length;
+
+	if(s2.length < len)
+		len = s2.length;
+
+	auto result = mismatch(s1.ptr, s2.ptr, len);
+
+	if(result == len)
+		return Compare3(s1.length, s2.length);
+	else
+		return Compare3(s1[result], s2[result]);
+}
+
+/**
 Compares dchar[] strings stupidly, but case-insensitively.
 */
 int idcmp(dchar[] s1, dchar[] s2)
@@ -261,6 +280,59 @@ See if a given Unicode character is valid.
 bool isValidUniChar(dchar c)
 {
 	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
+}
+
+size_t verify(char[] s)
+{
+	size_t ret = 0;
+	
+	foreach(dchar c; s)
+		ret++;
+		
+	return ret;
+}
+
+char[] uniSlice(char[] s, size_t lo, size_t hi)
+{
+	if(lo == hi)
+		return null;
+
+	auto tmp = s;
+	uint realLo = 0;
+
+	for(size_t i = 0; i < lo; i++)
+	{
+		uint ate = 0;
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+		realLo += ate;
+	}
+
+	uint realHi = realLo;
+
+	for(size_t i = lo; i < hi; i++)
+	{
+		uint ate = 0;
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+		realHi += ate;
+	}
+	
+	return s[realLo .. realHi];
+}
+
+dchar uniCharAt(char[] s, size_t idx)
+{
+	auto tmp = s;
+	uint ate = 0;
+
+	for(size_t i = 0; i < idx; i++)
+	{
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+	}
+
+	return decode(tmp, ate);
 }
 
 /**

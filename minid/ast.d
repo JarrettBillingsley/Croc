@@ -374,9 +374,9 @@ be used in non-expression contexts (such as names in declarations).
 */
 class Identifier : AstNode
 {
-	public dchar[] name;
+	public char[] name;
 
-	public this(ICompiler c, CompileLoc location, dchar[] name)
+	public this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.Identifier);
 		this.name = name;
@@ -399,7 +399,7 @@ class ObjectDef : AstNode
 		The name of the field.  This corresponds to either the name of a data member or
 		the name of a method.
 		*/
-		dchar[] name;
+		char[] name;
 		
 		/**
 		The initializer of the field.  This will never be null.  If a field is declared in
@@ -562,7 +562,7 @@ class NamespaceDef : AstNode
 		The name of the field.  This corresponds to either the name of a data member or
 		the name of a function.
 		*/
-		dchar[] name;
+		char[] name;
 		
 		/**
 		The initializer of the field.  This will never be null.  If a field is declared in
@@ -612,7 +612,7 @@ class Module : AstNode
 	The name of this module.  This is an array of strings, each element of which is one
 	piece of a dotted name.  This array will always be at least one element long.
 	*/
-	public dchar[][] names;
+	public char[][] names;
 	
 	/**
 	A list of 0 or more statements which make up the body of the module.
@@ -621,7 +621,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, dchar[][] names, Statement[] statements)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement[] statements)
 	{
 		super(c, location, endLocation, AstTag.Module);
 		this.names = names;
@@ -1955,7 +1955,7 @@ abstract class Expression : AstNode
 	Returns this expression as a string constant, if possible.  assert(false)s
 	otherwise.
 	*/
-	public dchar[] asString()
+	public char[] asString()
 	{
 		assert(false);
 	}
@@ -2902,11 +2902,11 @@ class StringExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public dchar[] value;
+	public char[] value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, dchar[] value)
+	public this(ICompiler c, CompileLoc location, char[] value)
 	{
 		super(c, location, AstTag.StringExp);
 		this.value = value;
@@ -2927,7 +2927,7 @@ class StringExp : PrimaryExp
 		return true;
 	}
 
-	public override dchar[] asString()
+	public override char[] asString()
 	{
 		return value;
 	}

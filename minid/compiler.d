@@ -1,9 +1,6 @@
 /******************************************************************************
-The MiniD compiler.  This is, unsurprisingly, the largest part of the implementation,
-although it has a very small public interface.
-
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -114,18 +111,18 @@ scope class Compiler : ICompiler
 		return mIsLoneStmt;
 	}
 
-	public override void exception(ref CompileLoc loc, dchar[] msg, ...)
+	public override void exception(ref CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, msg, _arguments, _argptr);
 	}
 
-	public override void eofException(ref CompileLoc loc, dchar[] msg, ...)
+	public override void eofException(ref CompileLoc loc, char[] msg, ...)
 	{
 		mIsEof = true;
 		vexception(loc, msg, _arguments, _argptr);
 	}
 
-	public override void loneStmtException(ref CompileLoc loc, dchar[] msg, ...)
+	public override void loneStmtException(ref CompileLoc loc, char[] msg, ...)
 	{
 		mIsLoneStmt = true;
 		vexception(loc, msg, _arguments, _argptr);
@@ -141,13 +138,13 @@ scope class Compiler : ICompiler
 		return &t.vm.alloc;
 	}
 	
-	public override dchar[] newString(dchar[] data)
+	public override char[] newString(char[] data)
 	{
 		auto s = string.create(t.vm, data);
 		pushStringObj(t, s);
 		pushBool(t, true);
 		idxa(t, mStringTab);
-		return s.toString32();
+		return s.toString();
 	}
 
 	/**
@@ -169,13 +166,13 @@ scope class Compiler : ICompiler
 	public word compileModule(char[] filename)
 	{
 		scope path = new FilePath(filename);
-		scope file = new UnicodeFile!(dchar)(path, Encoding.Unknown);
+		scope file = new UnicodeFile!(char)(path, Encoding.Unknown);
 		auto src = file.read();
 
 		scope(exit)
 			delete src;
 
-		dchar[256] buffer = void;
+		/*dchar[256] buffer = void;
 		uint ate = void;
 		auto s = Utf.toString32(filename, buffer, &ate);
 
@@ -183,7 +180,9 @@ scope class Compiler : ICompiler
 		if(ate < filename.length && s.length >= 3)
 			s[$ - 3 .. $] = "...";
 
-		return compileModule(src, s);
+		return compileModule(src, s);*/
+
+		return compileModule(src, filename);
 	}
 
 	/**
@@ -198,7 +197,7 @@ scope class Compiler : ICompiler
 		The stack index of the newly-pushed function closure that represents the top-level function
 		of the module.
 	*/
-	public word compileModule(dchar[] source, dchar[] name)
+	public word compileModule(char[] source, char[] name)
 	{
 		return commonCompile(
 		{
@@ -224,7 +223,7 @@ scope class Compiler : ICompiler
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileStatements(dchar[] source, dchar[] name)
+	public word compileStatements(char[] source, char[] name)
 	{
 		return commonCompile(
 		{
@@ -249,7 +248,7 @@ scope class Compiler : ICompiler
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileExpression(dchar[] source, dchar[] name)
+	public word compileExpression(char[] source, char[] name)
 	{
 		return commonCompile(
 		{
@@ -268,7 +267,7 @@ scope class Compiler : ICompiler
 // Private
 // ================================================================================================================================================
 
-	private void vexception(ref CompileLoc loc, dchar[] msg, TypeInfo[] arguments, va_list argptr)
+	private void vexception(ref CompileLoc loc, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{
 		pushVFormat(t, msg, arguments, argptr);
 		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
@@ -297,7 +296,7 @@ scope class Compiler : ICompiler
 	Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
 	function.
 	*/
-	public MDValue loadJSON(dchar[] source)
+	public MDValue loadJSON(char[] source)
 	{
 		scope lexer = new Lexer("JSON", source, true);
 	

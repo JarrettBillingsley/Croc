@@ -714,7 +714,7 @@ class Semantic : IdentityVisitor
 		else if(op1.isChar && op2.isChar)
 			cmpVal = Compare3(op1.asChar, op2.asChar);
 		else if(op1.isString && op2.isString)
-			cmpVal = dcmp(op1.asString(), op2.asString());
+			cmpVal = scmp(op1.asString(), op2.asString());
 		else
 			c.exception(op1.location, "Invalid compile-time comparison");
 			
@@ -882,7 +882,7 @@ class Semantic : IdentityVisitor
 
 		// Const fold
 		scope newOperands = new List!(Expression)(c.alloc);
-		scope tempStr = new List!(dchar)(c.alloc);
+		scope tempStr = new List!(char)(c.alloc);
 
 		auto ops = e.operands;
 
@@ -1506,7 +1506,7 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 
-	package Identifier dummyComprehensionName(dchar[] type)(CompileLoc loc)
+	package Identifier dummyComprehensionName(char[] type)(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<" ~ type ~ " comprehension at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));

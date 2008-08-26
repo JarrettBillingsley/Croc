@@ -125,18 +125,20 @@ static:
 
 		if(numParams > 2)
 		{
-			char[24] buf = void;
-			auto name = StrToCulture(t, 1, buf);
+			auto name = StrToCulture(t, 1);
 			culture = safeCode(t, Culture.getCulture(name));
 		}
 
 		char[40] buffer;
 		auto ret = safeCode(t, formatDateTime(buffer, time, format, culture));
 
-		dchar[40] outbuf;
+		pushString(t, ret);
+		return 1;
+
+		/*char[40] outbuf;
 		uint ate = 0;
 		pushString(t, Utf.toString32(ret, outbuf, &ate));
-		return 1;
+		return 1;*/
 	}
 	
 	uword dateTime(MDThread* t, uword numParams)
@@ -175,8 +177,7 @@ static:
 
 		if(numParams > 0)
 		{
-			char[24] buf = void;
-			auto name = StrToCulture(t, 1, buf);
+			auto name = StrToCulture(t, 1);
 			Culture.current = safeCode(t, Culture.getCulture(name));
 		}
 
@@ -184,23 +185,23 @@ static:
 	}
 
 	// longest possible is 5 chars * 4 bytes per char = 20 bytes?
-	char[] StrToCulture(MDThread* t, word slot, char[24] outbuf)
+	char[] StrToCulture(MDThread* t, word slot)
 	{
 		checkStringParam(t, slot);
 
 		if(len(t, slot) != 5)
 			throwException(t, "Culture name {} is not supported.", getString(t, slot));
 
-		uint ate = 0;
-		return Utf.toString(getString(t, slot), outbuf, &ate);
+		return getString(t, slot);
 	}
 
 	word CultureToStr(MDThread* t, char[] culture)
 	{
 		// eh, let's be safe..
-		dchar[8] buf;
+		return pushString(t, culture);
+		/*dchar[8] buf;
 		uint ate = 0;
-		return pushString(t, Utf.toString32(culture, buf, &ate));
+		return pushString(t, Utf.toString32(culture, buf, &ate));*/
 	}
 	
 	char[] GetFormat(MDThread* t, word slot)

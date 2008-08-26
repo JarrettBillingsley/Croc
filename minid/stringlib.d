@@ -54,7 +54,7 @@ static:
 				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
 				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
 				newFunction(t, &compare,     "compare");     fielda(t, -2, "compare");
-				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
+// 				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
 				newFunction(t, &find,        "find");        fielda(t, -2, "find");
 // 				newFunction(t, &ifind,       "ifind");       fielda(t, -2, "ifind");
 				newFunction(t, &rfind,       "rfind");       fielda(t, -2, "rfind");
@@ -141,15 +141,15 @@ static:
 
 	uword compare(MDThread* t, uword numParams)
 	{
-		pushInt(t, dcmp(checkStringParam(t, 0), checkStringParam(t, 1)));
+		pushInt(t, scmp(checkStringParam(t, 0), checkStringParam(t, 1)));
 		return 1;
 	}
 
-	uword icompare(MDThread* t, uword numParams)
-	{
-		pushInt(t, idcmp(checkStringParam(t, 0), checkStringParam(t, 1)));
-		return 1;
-	}
+// 	uword icompare(MDThread* t, uword numParams)
+// 	{
+// 		pushInt(t, idcmp(checkStringParam(t, 0), checkStringParam(t, 1)));
+// 		return 1;
+// 	}
 
 	uword find(MDThread* t, uword numParams)
 	{
@@ -158,7 +158,20 @@ static:
 		if(isString(t, 1))
 			pushInt(t, src.locatePattern(getString(t, 1)));
 		else if(isChar(t, 1))
-			pushInt(t, src.locate(getChar(t, 1)));
+		{
+			auto ch = getChar(t, 1);
+
+			foreach(i, dchar c; src)
+			{
+				if(c == ch)
+				{
+					pushInt(t, i);
+					return 1;
+				}
+			}
+			
+			pushInt(t, src.length);
+		}
 		else
 		{
 			pushTypeString(t, 1);
@@ -193,7 +206,20 @@ static:
 		if(isString(t, 1))
 			pushInt(t, src.locatePatternPrior(getString(t, 1)));
 		else if(isChar(t, 1))
-			pushInt(t, src.locatePrior(getChar(t, 1)));
+		{
+			auto ch = getChar(t, 1);
+
+			foreach_reverse(i, dchar c; src)
+			{
+				if(c == ch)
+				{
+					pushInt(t, i);
+					return 1;
+				}
+			}
+
+			pushInt(t, src.length);
+		}
 		else
 		{
 			pushTypeString(t, 1);
@@ -226,13 +252,15 @@ static:
 		auto src = checkStringParam(t, 0);
 		auto buf = StrBuffer(t);
 		
-		foreach(c; src)
+		foreach(dchar c; src)
 		{
 			dchar[1] inbuf = void;
 			dchar[4] outbuf = void;
 			
 			inbuf[0] = c;
-			buf.addString(Uni.toLower(inbuf[], outbuf[]));
+			
+			foreach(ch; Uni.toLower(inbuf, outbuf))
+				buf.addChar(ch);
 		}
 
 		buf.finish();
@@ -244,13 +272,15 @@ static:
 		auto src = checkStringParam(t, 0);
 		auto buf = StrBuffer(t);
 		
-		foreach(c; src)
+		foreach(dchar c; src)
 		{
 			dchar[1] inbuf = void;
 			dchar[4] outbuf = void;
 			
 			inbuf[0] = c;
-			buf.addString(Uni.toUpper(inbuf[], outbuf[]));
+			
+			foreach(ch; Uni.toUpper(inbuf, outbuf))
+				buf.addChar(ch);
 		}
 
 		buf.finish();
@@ -285,21 +315,19 @@ static:
 			dup(t, 0);
 		else if(src.length <= 256)
 		{
-			dchar[256] buf = void;
-
-			for(uword i = 0, j = src.length - 1; i < src.length; i++, j--)
-				buf[i] = src[j];
-
-			pushString(t, buf[0 .. src.length]);
+			char[256] buf = void;
+			auto s = buf[0 .. src.length];
+			s[] = src[];
+			s.reverse;
+			pushString(t, s);
 		}
 		else
 		{
-			auto tmp = t.vm.alloc.allocArray!(dchar)(src.length);
+			auto tmp = t.vm.alloc.allocArray!(char)(src.length);
 			scope(exit) t.vm.alloc.freeArray(tmp);
-
-			for(uword i = 0, j = src.length - 1; i < src.length; i++, j--)
-				tmp[i] = src[j];
-
+			
+			tmp[] = src[];
+			tmp.reverse;
 			pushString(t, tmp);
 		}
 
@@ -328,7 +356,7 @@ static:
 		}
 		else
 		{
-			foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"d))
+			foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
 			{
 				if(piece.length > 0)
 				{

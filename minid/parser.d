@@ -57,7 +57,7 @@ struct Parser
 
 	/**
 	*/
-	public dchar[] parseName()
+	public char[] parseName()
 	{
 		with(l.expect(Token.Ident))
 			return stringValue;
@@ -101,7 +101,7 @@ struct Parser
 
 		l.expect(Token.Module);
 
-		scope names = new List!(dchar[])(c.alloc);
+		scope names = new List!(char[])(c.alloc);
 		names ~= parseName();
 
 		while(l.type == Token.Dot)
@@ -135,7 +135,7 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseStatements(dchar[] name)
+	public FuncDef parseStatements(char[] name)
 	{
 		auto location = l.loc;
 
@@ -158,7 +158,7 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseExpressionFunc(dchar[] name)
+	public FuncDef parseExpressionFunc(char[] name)
 	{
 		auto location = l.loc;
 
@@ -932,7 +932,7 @@ struct Parser
 		alias NamespaceDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(dchar[] name, Expression v)
+		void addField(char[] name, Expression v)
 		{
 			pushString(c.thread, name);
 
@@ -1267,7 +1267,7 @@ struct Parser
 		}
 		else
 		{
-			scope name = new List!(dchar)(c.alloc);
+			scope name = new List!(char)(c.alloc);
 
 			name ~= parseName();
 

@@ -167,7 +167,7 @@ static:
 
 		if(numParams > 0)
 		{
-			if(isString(t, 1) && getString(t, 1) == "reverse"d)
+			if(isString(t, 1) && getString(t, 1) == "reverse")
 			{
 				pred = (MDValue v1, MDValue v2)
 				{

@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -32,7 +32,7 @@ import minid.ex;
 import minid.interpreter;
 import minid.types;
 
-private void register(MDThread* t, dchar[] name, NativeFunc func, uword numUpvals = 0)
+private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);
 	newGlobal(t, name);

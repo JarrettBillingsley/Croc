@@ -40,7 +40,7 @@ struct Token
 	union
 	{
 		public bool boolValue;
-		public dchar[] stringValue;
+		public char[] stringValue;
 		public mdint intValue;
 		public mdfloat floatValue;
 	}
@@ -150,7 +150,7 @@ struct Token
 		EOF
 	}
 
-	public static const dchar[][] strings =
+	public static const char[][] strings =
 	[
 		As: "as",
 		Assert: "assert",
@@ -253,7 +253,7 @@ struct Token
 		EOF: "<EOF>"
 	];
 
-	public static uint[dchar[]] stringToType;
+	public static uint[char[]] stringToType;
 
 	static this()
 	{
@@ -287,7 +287,7 @@ struct Token
 		}
 	}
 	
-	public dchar[] typeString()
+	public char[] typeString()
 	{
 		return strings[type];
 	}
@@ -297,7 +297,7 @@ struct Lexer
 {
 	private ICompiler mCompiler;
 	private CompileLoc mLoc;
-	private dchar[] mSource;
+	private char[] mSource;
 	private bool mIsJSON;
 
 	private uword mPosition;
@@ -321,7 +321,7 @@ struct Lexer
 // Public
 // ================================================================================================================================================
 
-	public void begin(dchar[] name, dchar[] source, bool isJSON = false)
+	public void begin(char[] name, char[] source, bool isJSON = false)
 	{
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
@@ -334,7 +334,7 @@ struct Lexer
 
 		nextChar();
 
-		if(mSource.startsWith("#!"d))
+		if(mSource.startsWith("#!"))
 			while(!isEOL())
 				nextChar();
 
@@ -369,7 +369,7 @@ struct Lexer
 		return ret;
 	}
 
-	public void expected(dchar[] message)
+	public void expected(char[] message)
 	{
 		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.exception;
 		dg(mTok.loc, "'{}' expected; found '{}' instead", message, Token.strings[mTok.type]);
@@ -862,11 +862,11 @@ struct Lexer
 		return ret;
 	}
 
-	private dchar[] readStringLiteral(bool escape)
+	private char[] readStringLiteral(bool escape)
 	{
 		auto beginning = mLoc;
 
-		scope buf = new List!(dchar)(mCompiler.alloc);
+		scope buf = new List!(char)(mCompiler.alloc);
 		dchar delimiter = mCharacter;
 
 		// Skip opening quote
@@ -1402,7 +1402,7 @@ struct Lexer
 
 						auto s = mSource[start .. mPosition - 1];
 
-						if(s.startsWith("__"d))
+						if(s.startsWith("__"))
 							mCompiler.exception(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);
 
 						if(auto t = (s in Token.stringToType))
@@ -1417,8 +1417,11 @@ struct Lexer
 					}
 					else
 					{
-						dchar[1] buf;
-						buf[0] = mCharacter;
+						if(mCharacter > 0x7f)
+							mCompiler.exception(mTok.loc, "Invalid token '{}'", mCharacter);
+
+						char[1] buf;
+						buf[0] = cast(char)mCharacter;
 						auto s = buf[];
 
 						nextChar();

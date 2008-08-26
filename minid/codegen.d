@@ -201,7 +201,7 @@ final class FuncState
 
 	package CompileLoc mLocation;
 	package bool mIsVararg;
-	package dchar[] mName;
+	package char[] mName;
 	package uint mNumParams;
 	package ushort[] mParamMasks;
 
@@ -209,7 +209,7 @@ final class FuncState
 	{
 		package bool isUpvalue;
 		package uint index;
-		package dchar[] name;
+		package char[] name;
 	}
 
 	package UpvalDesc[] mUpvals;
@@ -227,7 +227,7 @@ final class FuncState
 
 	struct LocVarDesc
 	{
-		package dchar[] name;
+		package char[] name;
 		package uint pcStart;
 		package uint pcEnd;
 		package uint reg;
@@ -238,7 +238,7 @@ final class FuncState
 
 	package LocVarDesc[] mLocVars;
 
-	package this(ICompiler c, CompileLoc location, dchar[] name, FuncState parent = null)
+	package this(ICompiler c, CompileLoc location, char[] name, FuncState parent = null)
 	{
 		this.c = c;
 		this.t = c.thread;
@@ -325,7 +325,7 @@ final class FuncState
 		mScope.continueScope = mScope;
 	}
 	
-	package int searchLocal(dchar[] name, out uint reg)
+	package int searchLocal(char[] name, out uint reg)
 	{
 		for(int i = mLocVars.length - 1; i >= 0; i--)
 		{
@@ -689,7 +689,7 @@ final class FuncState
 		pushConst(codeCharConst(value));
 	}
 
-	public void pushString(dchar[] value)
+	public void pushString(char[] value)
 	{
 		pushConst(codeStringConst(value));
 	}
@@ -1559,7 +1559,7 @@ final class FuncState
 		return codeConst(MDValue(x));
 	}
 
-	public int codeStringConst(dchar[] s)
+	public int codeStringConst(char[] s)
 	{
 		return codeConst(MDValue(string.create(t.vm, s)));
 	}
@@ -1690,7 +1690,7 @@ final class FuncState
 		Stdout.formatln("Num params: {} Vararg: {} Stack size: {}", mNumParams, mIsVararg, mStackSize);
 
 		foreach(i, s; mInnerFuncs)
-			Stdout.formatln("\tInner Func {}: {}", i, s.name.toString32());
+			Stdout.formatln("\tInner Func {}: {}", i, s.name.toString());
 
 		foreach(i, ref t; mSwitchTables)
 		{
@@ -1717,7 +1717,7 @@ final class FuncState
 				case MDValue.Type.Int:    Stdout.formatln("\tConst {}: {}", i, c.mInt); break;
 				case MDValue.Type.Float:  Stdout.formatln("\tConst {}: {:f6}f", i, c.mFloat); break;
 				case MDValue.Type.Char:   Stdout.formatln("\tConst {}: '{}'", i, c.mChar); break;
-				case MDValue.Type.String: Stdout.formatln("\tConst {}: \"{}\"", i, c.mString.toString32()); break;
+				case MDValue.Type.String: Stdout.formatln("\tConst {}: \"{}\"", i, c.mString.toString()); break;
 				default: assert(false);
 			}
 		}
@@ -1772,19 +1772,7 @@ class Codegen : Visitor
 
 	public override Module visit(Module m)
 	{
-		pushString(c.thread, m.names[0]);
-
-		foreach(n; m.names[1 .. $])
-		{
-			pushChar(c.thread, '.');
-			pushString(c.thread, n);
-		}
-
-		cat(c.thread, (2 * m.names.length) - 1);
-		auto name = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-
-		scope fs_ = new FuncState(c, m.location, name, null);
+		scope fs_ = new FuncState(c, m.location, c.newString("<top-level>"), null);
 
 		try
 		{

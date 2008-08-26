@@ -1,7 +1,7 @@
 /******************************************************************************
 License:
 Copyright (c) 2007 ideage lsina@126.com
-and Copyright (c) 2007 Jarrett Billingsley
+and Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the

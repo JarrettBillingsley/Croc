@@ -29,6 +29,7 @@ import minid.types;
 
 import tango.stdc.ctype;
 import Uni = tango.text.Unicode;
+import Utf = tango.text.convert.Utf;
 
 struct CharLib
 {
@@ -55,8 +56,8 @@ static:
 
 	uword toLower(MDThread* t, uword numParams)
 	{
-		dchar[1] inbuf;
-		dchar[4] outbuf;
+		dchar[1] inbuf = void;
+		dchar[4] outbuf = void;
 		inbuf[0] = checkCharParam(t, 0);
 		pushChar(t, safeCode(t, Uni.toLower(inbuf, outbuf)[0]));
 		return 1;
@@ -64,8 +65,8 @@ static:
 
 	uword toUpper(MDThread* t, uword numParams)
 	{
-		dchar[1] inbuf;
-		dchar[4] outbuf;
+		dchar[1] inbuf = void;
+		dchar[4] outbuf = void;
 		inbuf[0] = checkCharParam(t, 0);
 		pushChar(t, safeCode(t, Uni.toUpper(inbuf, outbuf)[0]));
 		return 1;
@@ -133,8 +134,7 @@ static:
 
 	uword isValid(MDThread* t, uword numParams)
 	{
-		auto c = checkCharParam(t, 0);
-		pushBool(t, c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF));
+		pushBool(t, Utf.isValid(checkCharParam(t, 0)));
 		return 1;
 	}
 }

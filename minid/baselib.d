@@ -42,7 +42,7 @@ import minid.string;
 import minid.types;
 import minid.vm;
 
-private void register(MDThread* t, dchar[] name, NativeFunc func, uword numUpvals = 0)
+private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);
 	newGlobal(t, name);
@@ -479,12 +479,12 @@ static:
 
 		if(isInt(t, 1))
 		{
-			dchar[1] style = "d";
+			char[1] style = "d";
 
 			if(numParams > 1)
 				style[0] = getChar(t, 2);
 
-			dchar[80] buffer = void;
+			char[80] buffer = void;
 			pushString(t, Integer.format(buffer, getInt(t, 1), style)); // TODO: make this safe
 		}
 		else
@@ -590,7 +590,7 @@ static:
 
 	uword writef(MDThread* t, uword numParams)
 	{
-		uint sink(dchar[] data)
+		uint sink(char[] data)
 		{
 			Stdout(data);
 			return data.length;
@@ -603,7 +603,7 @@ static:
 
 	uword writefln(MDThread* t, uword numParams)
 	{
-		uint sink(dchar[] data)
+		uint sink(char[] data)
 		{
 			Stdout(data);
 			return data.length;
@@ -804,8 +804,10 @@ static:
 	{
 		char[] s;
 		Cin.readln(s);
+		pushString(t, s);
+		return 1;
 
-		dchar[128] dbuf = void;
+		/*char[128] dbuf = void;
 		uint ate = 0;
 		auto outbuf = StrBuffer(t);
 
@@ -813,7 +815,7 @@ static:
 			outbuf.addString(utf.toString32(s[ate .. $], dbuf, &ate));
 
 		outbuf.finish();
-		return 1;
+		return 1;*/
 	}
 
 	// ===================================================================================================================================
@@ -822,7 +824,7 @@ static:
 	uword loadString(MDThread* t, uword numParams)
 	{
 		auto code = checkStringParam(t, 1);
-		dchar[] name = "<loaded by loadString>";
+		char[] name = "<loaded by loadString>";
 
 		if(numParams > 1)
 		{

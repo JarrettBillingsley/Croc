@@ -26,6 +26,7 @@ module minid.ex;
 import tango.core.Tuple;
 import tango.stdc.ctype;
 import tango.text.Util;
+import Utf = tango.text.convert.Utf;
 
 import minid.interpreter;
 import minid.types;
@@ -37,10 +38,10 @@ import minid.types;
 public struct CreateObject
 {
 	private MDThread* t;
-	private dchar[] name;
+	private char[] name;
 	private word idx;
 
-	public static void opCall(MDThread* t, dchar[] name, void delegate(CreateObject*) dg)
+	public static void opCall(MDThread* t, char[] name, void delegate(CreateObject*) dg)
 	{
 		CreateObject co;
 		co.t = t;
@@ -56,9 +57,9 @@ public struct CreateObject
 			pop(t, stackSize(t) - co.idx - 1);
 	}
 
-	public void method(dchar[] name, NativeFunc f)
+	public void method(char[] name, NativeFunc f)
 	{
-		newFunction(t, f, this.name ~ cast(dchar)'.' ~ name);
+		newFunction(t, f, this.name ~ name);
 		fielda(t, idx, name);
 	}
 }
@@ -89,7 +90,7 @@ public struct StrBuffer
 	private MDThread* t;
 	private uword numPieces;
 	private uword pos;
-	private dchar[512] data;
+	private char[512] data;
 
 	/**
 	Create an instance of this struct.  The struct is bound to a single thread.
@@ -106,19 +107,25 @@ public struct StrBuffer
 	*/
 	public void addChar(dchar c)
 	{
-		if(pos >= data.length)
+		dchar[1] inbuf = void;
+		inbuf[0] = c;
+		char[4] outbuf = void;
+		uint ate = 0;
+		auto s = Utf.toString(inbuf, outbuf, &ate);
+
+		if(pos + s.length - 1 >= data.length)
 			flush();
 
-		data[pos] = c;
-		pos++;
+		data[pos .. pos + s.length] = s[];
+		pos += s.length;
 	}
 
 	/**
 	Add a string to the internal buffer.
 	*/
-	public void addString(dchar[] s)
+	public void addString(char[] s)
 	{
-		foreach(c; s)
+		foreach(dchar c; s)
 			addChar(c);
 	}
 
@@ -167,7 +174,7 @@ public struct StrBuffer
 	A convenience function for hooking up to the Tango IO and formatting facilities.  You can pass
 	"&buf._sink" to many Tango functions that expect a _sink function for string data.
 	*/
-	public uint sink(dchar[] s)
+	public uint sink(char[] s)
 	{
 		addString(s);
 		return s.length;
@@ -259,7 +266,7 @@ public dchar checkCharParam(MDThread* t, word index)
 	return getChar(t, index);
 }
 
-public dchar[] checkStringParam(MDThread* t, word index)
+public char[] checkStringParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -277,7 +284,7 @@ public void checkObjParam()(MDThread* t, word index)
 		paramTypeError(t, index, "object");
 }
 
-public void checkObjParam(bool strict = true)(MDThread* t, word index, dchar[] name)
+public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] name)
 {
 	index = absIndex(t, index);
 	checkObjParam(t, index);
@@ -297,7 +304,7 @@ public void checkObjParam(bool strict = true)(MDThread* t, word index, dchar[] n
 	pop(t);
 }
 
-public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, dchar[] name)
+public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, char[] name)
 {
 	checkObjParam!(strict)(t, index, name);
 	return getMembers!(T)(t, index);
@@ -313,7 +320,7 @@ public void checkParam(MDThread* t, word index, MDValue.Type type)
 		paramTypeError(t, index, MDValue.typeString(type));
 }
 
-public void paramTypeError(MDThread* t, word index, dchar[] expected)
+public void paramTypeError(MDThread* t, word index, char[] expected)
 {
 	pushTypeString(t, index);
 
@@ -367,7 +374,7 @@ public dchar optCharParam(MDThread* t, word index, dchar def)
 	return getChar(t, index);
 }
 
-public dchar[] optStringParam(MDThread* t, word index, dchar[] def)
+public char[] optStringParam(MDThread* t, word index, char[] def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -426,14 +433,14 @@ Params:
 Returns:
 	The stack index of the looked-up value.
 */
-public word lookup(MDThread* t, dchar[] name)
+public word lookup(MDThread* t, char[] name)
 {
 	validateName(t, name);
 
 	bool isFirst = true;
 	word idx = void;
 
-	foreach(n; name.delimiters("."d))
+	foreach(n; name.delimiters("."))
 	{
 		if(isFirst)
 		{
@@ -474,7 +481,7 @@ public word lookupCT(char[] name)(MDThread* t)
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*".  Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be
 // synchronized, or it'd have to be created in the VM object which is just dumb.
-private void validateName(MDThread* t, dchar[] name)
+private void validateName(MDThread* t, char[] name)
 {
 	void wrongFormat()
 	{

@@ -36,14 +36,14 @@ import minid.interpreter;
 import minid.types;
 import minid.utils;
 
-package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sink)
+package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
 {
-	void outputInvalid(dchar[] fmt)
+	void outputInvalid(char[] fmt)
 	{
 		t.vm.formatter.convert(sink, fmt, "{invalid index}");
 	}
 
-	void output(dchar[] fmt, uword param, bool isRaw)
+	void output(char[] fmt, uword param, bool isRaw)
 	{
 		switch(type(t, param))
 		{
@@ -91,15 +91,15 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sin
 				i++;
 
 				if(i >= formatStr.length)
-					c = dchar.init;
+					c = char.init;
 				else
 					c = formatStr[i];
 			}
 
-			dchar[32] format = void;
+			char[32] format = void;
 			uword iFormat = 0;
 
-			void addChar(dchar c)
+			void addChar(char c)
 			{
 				if(iFormat >= format.length)
 					throwException(t, "Format specifier too long in parameter {}", formatStrIndex);
@@ -110,7 +110,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sin
 			// TODO: make this a little more efficient; output all the data between format specifiers as a chunk
 			if(c != '{')
 			{
-				dchar[1] buf = void;
+				char[1] buf = void;
 				buf[0] = c;
 				sink(buf);
 				continue;
@@ -124,7 +124,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(dchar[]) sin
 				continue;
 			}
 
-			if(c == dchar.init)
+			if(c == char.init)
 			{
 				sink("{missing or misplaced '}'}{");
 				break;

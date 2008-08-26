@@ -64,7 +64,7 @@ Gets a string representation of the current coroutine state of the thread.
 
 The string returned is not on the MiniD heap, it's just a string literal.
 */
-public dchar[] stateString(MDThread* t)
+public char[] stateString(MDThread* t)
 {
 	return MDThread.StateStrings[t.state];
 }
@@ -113,7 +113,7 @@ public word pushChar(MDThread* t, dchar v)
 }
 
 /// ditto
-public word pushString(MDThread* t, dchar[] v)
+public word pushString(MDThread* t, char[] v)
 {
 	return pushStringObj(t, string.create(t.vm, v));
 }
@@ -129,7 +129,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushFormat(MDThread* t, dchar[] fmt, ...)
+public word pushFormat(MDThread* t, char[] fmt, ...)
 {
 	return pushVFormat(t, fmt, _arguments, _argptr);
 }
@@ -145,11 +145,11 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushVFormat(MDThread* t, dchar[] fmt, TypeInfo[] arguments, va_list argptr)
+public word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
 {
 	uword numPieces = 0;
 
-	uint sink(dchar[] data)
+	uint sink(char[] data)
 	{
 		pushString(t, data);
 		numPieces++;
@@ -249,7 +249,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-public word newFunction(MDThread* t, NativeFunc func, dchar[] name, uword numUpvals = 0)
+public word newFunction(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
 	pushEnvironment(t);
 	return newFunctionWithEnv(t, func, name, numUpvals);
@@ -274,7 +274,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-public word newFunctionWithEnv(MDThread* t, NativeFunc func, dchar[] name, uword numUpvals = 0)
+public word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
 	checkNumParams(t, numUpvals + 1);
 
@@ -344,7 +344,7 @@ Params:
 Returns:
 	The stack index of the newly-created object.
 */
-public word newObject(MDThread* t, word proto, dchar[] name = null, uword numValues = 0, uword extraBytes = 0)
+public word newObject(MDThread* t, word proto, char[] name = null, uword numValues = 0, uword extraBytes = 0)
 {
 	MDObject* p = void;
 
@@ -384,7 +384,7 @@ public word newObject(MDThread* t, word proto, dchar[] name = null, uword numVal
 Same as above, except it uses the global Object as the prototype.  The new object is left on the
 top of the stack.
 */
-public word newObject(MDThread* t, dchar[] name = null, uword numValues = 0, uword extraBytes = 0)
+public word newObject(MDThread* t, char[] name = null, uword numValues = 0, uword extraBytes = 0)
 {
 	pushGlobal(t, "Object");
 	auto p = getObject(t, -1);
@@ -420,7 +420,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespace(MDThread* t, dchar[] name)
+public word newNamespace(MDThread* t, char[] name)
 {
 	auto ret = newNamespaceNoParent(t, name);
 	getNamespace(t, ret).parent = getEnv(t);
@@ -438,7 +438,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespace(MDThread* t, word parent, dchar[] name)
+public word newNamespace(MDThread* t, word parent, char[] name)
 {
 	MDNamespace* p = void;
 
@@ -469,7 +469,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespaceNoParent(MDThread* t, dchar[] name)
+public word newNamespaceNoParent(MDThread* t, char[] name)
 {
 	maybeGC(t.vm);
 	return pushNamespace(t, namespace.create(t.vm.alloc, string.create(t.vm, name), null));
@@ -760,7 +760,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-public uword methodCall(MDThread* t, word slot, dchar[] name, word numReturns, bool customThis = false)
+public uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
 {
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
@@ -850,7 +850,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-public uword superCall(MDThread* t, word slot, dchar[] name, word numReturns)
+public uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 {
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
@@ -1194,7 +1194,7 @@ MiniD stack, there is no guarantee that the string data will be valid (MiniD mig
 has no knowledge of the reference held by D).  If you need the string value for a longer period of time,
 you should dup it.
 */
-public dchar[] getString(MDThread* t, word slot)
+public char[] getString(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1204,7 +1204,7 @@ public dchar[] getString(MDThread* t, word slot)
 		throwException(t, "getString - expected 'string' but got '{}'", getString(t, -1));
 	}
 
-	return v.mString.toString32();
+	return v.mString.toString();
 }
 
 /**
@@ -1389,7 +1389,7 @@ Params:
 Returns:
 	The index of the newly-pushed value.
 */
-public word pushGlobal(MDThread* t, dchar[] name)
+public word pushGlobal(MDThread* t, char[] name)
 {
 	pushString(t, name);
 	return getGlobal(t);
@@ -1418,7 +1418,7 @@ public word getGlobal(MDThread* t)
 	auto g = lookupGlobal(v.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, "getGlobal - Attempting to get a nonexistent global '{}'", v.mString.toString32());
+		throwException(t, "getGlobal - Attempting to get a nonexistent global '{}'", v.mString.toString());
 
 	*v = *g;
 	return stackSize(t) - 1;
@@ -1436,7 +1436,7 @@ environment and goes up the chain.
 Params:
 	name = The _name of the global to set.
 */
-public void setGlobal(MDThread* t, dchar[] name)
+public void setGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
@@ -1463,7 +1463,7 @@ public void setGlobal(MDThread* t)
 	auto g = lookupGlobal(n.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, "setGlobal - Attempting to set a nonexistent global '{}'", n.mString.toString32());
+		throwException(t, "setGlobal - Attempting to set a nonexistent global '{}'", n.mString.toString());
 
 	*g = t.stack[t.stackIndex - 1];
 	pop(t, 2);
@@ -1479,7 +1479,7 @@ in the current environment if it succeeds.
 Params:
 	name = The _name of the global to set.
 */
-public void newGlobal(MDThread* t, dchar[] name)
+public void newGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
@@ -1506,7 +1506,7 @@ public void newGlobal(MDThread* t)
 	auto env = getEnv(t);
 
 	if(namespace.contains(env, n.mString))
-		throwException(t, "newGlobal - Attempting to declare a global '{}' that already exists", n.mString.toString32());
+		throwException(t, "newGlobal - Attempting to declare a global '{}' that already exists", n.mString.toString());
 
 	namespace.set(t.vm.alloc, env, n.mString, &t.stack[t.stackIndex - 1]);
 	pop(t, 2);
@@ -1528,7 +1528,7 @@ Returns:
 	true if the global was found, in which case the containing namespace is on the stack.  False otherwise,
 	in which case nothing will be on the stack.
 */
-public bool findGlobal(MDThread* t, dchar[] name, uword depth = 0)
+public bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 {
 	auto n = string.create(t.vm, name);
 
@@ -1741,7 +1741,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word field(MDThread* t, word container, dchar[] name, bool raw = false)
+public word field(MDThread* t, word container, char[] name, bool raw = false)
 {
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
@@ -1790,7 +1790,7 @@ Params:
 	name = The _name of the field to set.
 	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
 */
-public void fielda(MDThread* t, word container, dchar[] name, bool raw = false)
+public void fielda(MDThread* t, word container, char[] name, bool raw = false)
 {
 	checkNumParams(t, 1);
 	auto c = fakeToAbs(t, container);
@@ -2352,7 +2352,7 @@ public void throwException(MDThread* t)
 A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
 pushVFormat on the arguments and then throwException.
 */
-public void throwException(MDThread* t, dchar[] fmt, ...)
+public void throwException(MDThread* t, char[] fmt, ...)
 {
 	pushVFormat(t, fmt, _arguments, _argptr);
 	throwException(t);
@@ -2472,7 +2472,7 @@ Params:
 Returns:
 	true if the field exists in `obj`; false otherwise.
 */
-public bool hasField(MDThread* t, word obj, dchar[] fieldName)
+public bool hasField(MDThread* t, word obj, char[] fieldName)
 {
 	auto name = string.create(t.vm, fieldName);
 
@@ -2508,7 +2508,7 @@ Params:
 Returns:
 	true if the method can be called on `obj`; false otherwise.
 */
-public bool hasMethod(MDThread* t, word obj, dchar[] methodName)
+public bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
 	MDObject* proto = void;
 	auto n = string.create(t.vm, methodName);
@@ -2811,7 +2811,7 @@ Params:
 Returns:
 	The stack index of the imported module's namespace.
 */
-public word importModule(MDThread* t, dchar[] name)
+public word importModule(MDThread* t, char[] name)
 {
 	pushString(t, name);
 	importModule(t, -1);
@@ -2991,7 +2991,7 @@ debug
 		{
 			with(t.actRecs[i])
 			{
-				Stdout.formatln("Record {}", func.name.toString32());
+				Stdout.formatln("Record {}", func.name.toString());
 				Stdout.formatln("\tBase: {}", base);
 				Stdout.formatln("\tSaved Top: {}", savedTop);
 				Stdout.formatln("\tVararg Base: {}", vargBase);
@@ -3250,7 +3250,7 @@ private bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue
 		if(method is null)
 		{
 			typeString(t, lookup);
-			throwException(t, "No implementation of method '{}' or {} for type '{}'", methodName.toString32(), MetaNames[MM.Method], getString(t, -1));
+			throwException(t, "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
 		}
 
 		if(customThis)
@@ -3284,7 +3284,7 @@ private word typeString(MDThread* t, MDValue* v)
 
 		case MDValue.Type.Object:
 			// LEAVE ME UP HERE PLZ, don't inline, thx.
-			auto n = v.mObject.name.toString32();
+			auto n = v.mObject.name.toString();
 			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Object), n);
 
 		case MDValue.Type.NativeObj:
@@ -3293,7 +3293,8 @@ private word typeString(MDThread* t, MDValue* v)
 
 			if(auto o = v.mNativeObj.obj)
 			{
-				dchar[96] buffer = void;
+				pushString(t, o.classinfo.name);
+				/*dchar[96] buffer = void;
 
 				// The 'ate' parameter will prevent toString32 from reallocating the buffer on the heap.
 				auto n = o.classinfo.name;
@@ -3304,7 +3305,7 @@ private word typeString(MDThread* t, MDValue* v)
 				if(ate < n.length && s.length >= 3)
 					s[$ - 3 .. $] = "...";
 
-				pushString(t, s);
+				pushString(t, s);*/
 			}
 			else
 				pushString(t, "(??? null)");
@@ -3326,18 +3327,20 @@ private MDValue* lookupGlobal(MDString* name, MDNamespace* env)
 
 private word toStringImpl(MDThread* t, MDValue v, bool raw)
 {
-	dchar[80] buffer = void;
+	char[80] buffer = void;
 
 	switch(v.type)
 	{
 		case MDValue.Type.Null:  return pushString(t, "null");
-		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true"d : "false"d);
+		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
 		case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
 		case MDValue.Type.Float: return pushString(t, Float.truncate(Float.format(buffer, v.mFloat, 6)));
 
 		case MDValue.Type.Char:
-			buffer[0] = v.mChar;
-			return pushString(t, buffer[0 .. 1]);
+			dchar[1] inbuf = void;
+			inbuf[0] = v.mChar;
+			uint ate = 0;
+			return pushString(t, Utf.toString(inbuf, buffer, &ate));
 
 		case MDValue.Type.String:
 			return push(t, v);
@@ -3369,14 +3372,14 @@ private word toStringImpl(MDThread* t, MDValue v, bool raw)
 					auto f = v.mFunction;
 
 					if(f.isNative)
-						return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString32());
+						return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString());
 					else
 					{
 						auto loc = f.scriptFunc.location;
-						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString32(), loc.file.toString32(), loc.line, loc.col);
+						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
 					}
 
-				case MDValue.Type.Object: return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Object), v.mObject.name.toString32(), cast(void*)v.mObject);
+				case MDValue.Type.Object: return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Object), v.mObject.name.toString(), cast(void*)v.mObject);
 				case MDValue.Type.Namespace:
 					if(raw)
 						return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
@@ -3481,12 +3484,12 @@ private void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* ke
 			auto str = container.mString;
 
 			if(index < 0)
-				index += str.length;
+				index += str.cpLength;
 
-			if(index < 0 || index >= str.length)
-				throwException(t, "Invalid string index {} (length is {})", key.mInt, str.length);
+			if(index < 0 || index >= str.cpLength)
+				throwException(t, "Invalid string index {} (length is {})", key.mInt, str.cpLength);
 
-			*dest = str.toString32()[cast(uword)index];
+			*dest = string.charAt(str, cast(uword)index);
 			return;
 
 		case MDValue.Type.Table:
@@ -3567,7 +3570,7 @@ private void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString*
 					return;
 
 				typeString(t, container);
-				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString32(), getString(t, -1));
+				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
 			}
 
 			return *dest = *v;
@@ -3581,7 +3584,7 @@ private void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString*
 					return;
 
 				toStringImpl(t, *container, false);
-				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString32(), getString(t, -1));
+				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
 			}
 
 			return *dest = *v;
@@ -3591,7 +3594,7 @@ private void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString*
 				return;
 				
 			typeString(t, container);
-			throwException(t, "Attempting to access field '{}' from a value of type '{}'", name.toString32(), getString(t, -1));
+			throwException(t, "Attempting to access field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -3630,7 +3633,7 @@ private void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to assign field '{}' into a value of type '{}'", name.toString32(), getString(t, -1));
+			throwException(t, "Attempting to assign field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -3771,7 +3774,7 @@ private void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 {
 	switch(src.type)
 	{
-		case MDValue.Type.String:    return *dest = cast(mdint)src.mString.length;
+		case MDValue.Type.String:    return *dest = cast(mdint)src.mString.cpLength;
 		case MDValue.Type.Array:     return *dest = cast(mdint)src.mArray.slice.length;
 		case MDValue.Type.Namespace: return *dest = cast(mdint)namespace.length(src.mNamespace);
 
@@ -3847,7 +3850,7 @@ private void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MD
 			if(lo.type == MDValue.Type.Null && hi.type == MDValue.Type.Null)
 				return *dest = *src;
 
-			if(!correctIndices(loIndex, hiIndex, lo, hi, str.length))
+			if(!correctIndices(loIndex, hiIndex, lo, hi, str.cpLength))
 			{
 				auto hisave = *hi;
 				typeString(t, lo);
@@ -3855,8 +3858,8 @@ private void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MD
 				throwException(t, "Attempting to slice a string with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > str.length || hiIndex < 0 || hiIndex > str.length)
-				throwException(t, "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.length);
+			if(loIndex > hiIndex || loIndex < 0 || loIndex > str.cpLength || hiIndex < 0 || hiIndex > str.cpLength)
+				throwException(t, "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
 			return *dest = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -5390,23 +5393,27 @@ private void arrayConcat(MDThread* t, MDValue[] vals, uword len)
 
 private void stringConcat(MDThread* t, MDValue[] vals, uword len)
 {
-	auto tmpBuffer = t.vm.alloc.allocArray!(dchar)(len);
+	auto tmpBuffer = t.vm.alloc.allocArray!(char)(len);
 
 	uword i = 0;
 
 	foreach(ref v; vals)
 	{
+		char[] s = void;
+
 		if(v.type == MDValue.Type.String)
-		{
-			auto s = v.mString;
-			tmpBuffer[i .. i + s.length] = s.toString32()[];
-			i += s.length;
-		}
+			s = v.mString.toString();			
 		else
 		{
-			tmpBuffer[i] = v.mChar;
-			i++;
+			dchar[1] inbuf = void;
+			inbuf[0] = v.mChar;
+			char[4] outbuf = void;
+			uint ate = 0;
+			s = Utf.toString(inbuf, outbuf, &ate);
 		}
+
+		tmpBuffer[i .. i + s.length] = s[];
+		i += s.length;
 	}
 
 	vals[$ - 1] = string.create(t.vm, tmpBuffer);
@@ -5493,7 +5500,7 @@ private word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 {
 	uword namespaceName(MDNamespace* ns)
 	{
-		if(ns.name.length == 0)
+		if(ns.name.cpLength == 0)
 			return 0;
 
 		uword n = 0;
@@ -5572,7 +5579,7 @@ private void throwImpl(MDThread* t, MDValue* ex)
 	pushString(t, ": ");
 	toStringImpl(t, *ex, true);
 	cat(t, 3);
-	auto msg = Utf.toString(getString(t, -1));
+	auto msg = getString(t, -1); // TODO: should this be dup'ed?
 	pop(t);
 
 	t.vm.exception = *ex;
@@ -5615,7 +5622,7 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 		// Make the namespace
 		pushGlobal(t, "_G");
 
-		foreach(segment; name.toString32().delimiters("."d))
+		foreach(segment; name.toString().delimiters("."))
 		{
 			pushString(t, segment);
 
@@ -5652,7 +5659,7 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 		pop(t, 2);
 	}
 	else if(t.stack[dest].type != MDValue.Type.Namespace)
-		throwException(t, "Error loading module '{}': could not find anything to load", name.toString32());
+		throwException(t, "Error loading module '{}': could not find anything to load", name.toString());
 }
 
 private void execute(MDThread* t, uword depth = 1)
@@ -5695,7 +5702,7 @@ private void execute(MDThread* t, uword depth = 1)
 						if(auto glob = namespace.get(ns, name))
 							return glob;
 
-					throwException(t, "Attempting to get nonexistent global '{}'", name.toString32());
+					throwException(t, "Attempting to get nonexistent global '{}'", name.toString());
 			}
 
 			assert(false);
@@ -5775,7 +5782,7 @@ private void execute(MDThread* t, uword depth = 1)
 					auto name = constTable[i.rt & ~Instruction.locMask].mString;
 
 					if(namespace.contains(env, name))
-						throwException(t, "Attempting to create global '{}' that already exists", name.toString32());
+						throwException(t, "Attempting to create global '{}' that already exists", name.toString());
 
 					namespace.set(t.vm.alloc, env, name, get(i.rs));
 					break;
