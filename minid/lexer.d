@@ -494,7 +494,12 @@ struct Lexer
 		if(mPosition >= mSource.length)
 			return dchar.init;
 		else
-			return mSource[mPosition++];
+		{
+			uint ate = 0;
+			auto ret = Utf.decode(mSource[mPosition .. $], ate);
+			mPosition += ate;
+			return ret;
+		}
 	}
 
 	private dchar lookaheadChar()
@@ -832,7 +837,7 @@ struct Lexer
 				if(x == 0xFFFE || x == 0xFFFF)
 					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
-				if(!isValidUniChar(cast(dchar)x))
+				if(!Utf.isValid(cast(dchar)x))
 					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
@@ -868,6 +873,9 @@ struct Lexer
 
 		scope buf = new List!(char)(mCompiler.alloc);
 		dchar delimiter = mCharacter;
+		
+		// to be safe..
+		char[6] utfbuf = void;
 
 		// Skip opening quote
 		nextChar();
@@ -888,7 +896,7 @@ struct Lexer
 					if(!escape)
 						goto default;
 
-					buf ~= readEscapeSequence(beginning);
+					buf ~= Utf.encode(utfbuf, readEscapeSequence(beginning));
 					continue;
 
 				default:
@@ -896,7 +904,7 @@ struct Lexer
 					{
 						if(lookaheadChar() == delimiter)
 						{
-							buf ~= delimiter;
+							buf ~= Utf.encode(utfbuf, delimiter);
 							nextChar();
 							nextChar();
 						}
@@ -908,7 +916,7 @@ struct Lexer
 						if(escape && mCharacter == delimiter)
 							break;
 
-						buf ~= mCharacter;
+						buf ~= Utf.encode(utfbuf, mCharacter);
 						nextChar();
 					}
 
@@ -920,12 +928,11 @@ struct Lexer
 
 		// Skip end quote
 		nextChar();
-		
-		auto arr = buf.toArray();
-		auto ret = mCompiler.newString(arr);
-		mCompiler.alloc.freeArray(arr);
 
-		return ret;
+		auto arr = buf.toArray();
+		auto s = mCompiler.newString(arr);
+		mCompiler.alloc.freeArray(arr);
+		return s;
 	}
 
 	private dchar readCharLiteral()
@@ -1394,13 +1401,18 @@ struct Lexer
 					}
 					else if(isAlpha() || mCharacter == '_')
 					{
-						auto start = mPosition - 1;
+						scope buf = new List!(char)(mCompiler.alloc);
+						char[6] utfbuf = void;
 
 						do
+						{
+							buf ~= Utf.encode(utfbuf, mCharacter);
 							nextChar();
-						while(isAlpha() || isDecimalDigit() || mCharacter == '_');
+						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
-						auto s = mSource[start .. mPosition - 1];
+						auto arr = buf.toArray();
+						auto s = mCompiler.newString(arr);
+						mCompiler.alloc.freeArray(arr);
 
 						if(s.startsWith("__"))
 							mCompiler.exception(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);
@@ -1420,7 +1432,7 @@ struct Lexer
 						if(mCharacter > 0x7f)
 							mCompiler.exception(mTok.loc, "Invalid token '{}'", mCharacter);
 
-						char[1] buf;
+						char[1] buf = void;
 						buf[0] = cast(char)mCharacter;
 						auto s = buf[];
 

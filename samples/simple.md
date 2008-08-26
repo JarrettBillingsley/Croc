@@ -1,8 +1,6 @@
 module samples.simple
 
-writeln(modules.loaded.modules)
-import modules
-writeln(modules.loaded.modules)
+
 
 /+
 object BaseProp

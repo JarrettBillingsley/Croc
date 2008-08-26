@@ -274,14 +274,6 @@ int idcmp(dchar[] s1, dchar[] s2)
 		return Compare3(s1[result], s2[result]);
 }
 
-/**
-See if a given Unicode character is valid.
-*/
-bool isValidUniChar(dchar c)
-{
-	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
-}
-
 size_t verify(char[] s)
 {
 	size_t ret = 0;
