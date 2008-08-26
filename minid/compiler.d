@@ -172,16 +172,6 @@ scope class Compiler : ICompiler
 		scope(exit)
 			delete src;
 
-		/*dchar[256] buffer = void;
-		uint ate = void;
-		auto s = Utf.toString32(filename, buffer, &ate);
-
-		// Ellipsis!
-		if(ate < filename.length && s.length >= 3)
-			s[$ - 3 .. $] = "...";
-
-		return compileModule(src, s);*/
-
 		return compileModule(src, filename);
 	}
 

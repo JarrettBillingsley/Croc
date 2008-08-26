@@ -107,11 +107,9 @@ public struct StrBuffer
 	*/
 	public void addChar(dchar c)
 	{
-		dchar[1] inbuf = void;
-		inbuf[0] = c;
 		char[4] outbuf = void;
 		uint ate = 0;
-		auto s = Utf.toString(inbuf, outbuf, &ate);
+		auto s = Utf.toString((&c)[0 .. 1], outbuf, &ate);
 
 		if(pos + s.length - 1 >= data.length)
 			flush();

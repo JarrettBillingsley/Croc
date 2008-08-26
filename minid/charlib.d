@@ -56,19 +56,17 @@ static:
 
 	uword toLower(MDThread* t, uword numParams)
 	{
-		dchar[1] inbuf = void;
 		dchar[4] outbuf = void;
-		inbuf[0] = checkCharParam(t, 0);
-		pushChar(t, safeCode(t, Uni.toLower(inbuf, outbuf)[0]));
+		dchar c = checkCharParam(t, 0);
+		pushChar(t, safeCode(t, Uni.toLower((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 
 	uword toUpper(MDThread* t, uword numParams)
 	{
-		dchar[1] inbuf = void;
 		dchar[4] outbuf = void;
-		inbuf[0] = checkCharParam(t, 0);
-		pushChar(t, safeCode(t, Uni.toUpper(inbuf, outbuf)[0]));
+		dchar c = checkCharParam(t, 0);
+		pushChar(t, safeCode(t, Uni.toUpper((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 

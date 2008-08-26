@@ -254,12 +254,9 @@ static:
 		
 		foreach(dchar c; src)
 		{
-			dchar[1] inbuf = void;
 			dchar[4] outbuf = void;
 			
-			inbuf[0] = c;
-			
-			foreach(ch; Uni.toLower(inbuf, outbuf))
+			foreach(ch; Uni.toLower((&c)[0 .. 1], outbuf))
 				buf.addChar(ch);
 		}
 
@@ -274,12 +271,9 @@ static:
 		
 		foreach(dchar c; src)
 		{
-			dchar[1] inbuf = void;
 			dchar[4] outbuf = void;
 			
-			inbuf[0] = c;
-			
-			foreach(ch; Uni.toUpper(inbuf, outbuf))
+			foreach(ch; Uni.toUpper((&c)[0 .. 1], outbuf))
 				buf.addChar(ch);
 		}
 

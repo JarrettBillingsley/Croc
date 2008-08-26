@@ -173,7 +173,7 @@ static:
 
 	uword culture(MDThread* t, uword numParams)
 	{
-		CultureToStr(t, Culture.current.name);
+		pushString(t, Culture.current.name);
 
 		if(numParams > 0)
 		{
@@ -195,15 +195,6 @@ static:
 		return getString(t, slot);
 	}
 
-	word CultureToStr(MDThread* t, char[] culture)
-	{
-		// eh, let's be safe..
-		return pushString(t, culture);
-		/*dchar[8] buf;
-		uint ate = 0;
-		return pushString(t, Utf.toString32(culture, buf, &ate));*/
-	}
-	
 	char[] GetFormat(MDThread* t, word slot)
 	{
 		switch(checkStringParam(t, slot))

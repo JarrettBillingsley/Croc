@@ -3292,21 +3292,7 @@ private word typeString(MDThread* t, MDValue* v)
 			pushChar(t, ' ');
 
 			if(auto o = v.mNativeObj.obj)
-			{
 				pushString(t, o.classinfo.name);
-				/*dchar[96] buffer = void;
-
-				// The 'ate' parameter will prevent toString32 from reallocating the buffer on the heap.
-				auto n = o.classinfo.name;
-				uint ate = void;
-				auto s = Utf.toString32(n, buffer, &ate);
-
-				// Ellipsis!
-				if(ate < n.length && s.length >= 3)
-					s[$ - 3 .. $] = "...";
-
-				pushString(t, s);*/
-			}
 			else
 				pushString(t, "(??? null)");
 
