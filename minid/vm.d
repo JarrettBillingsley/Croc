@@ -170,7 +170,6 @@ package uword checkTaken(MDThread* t, uword numParams)
 	return 0;
 }
 
-// TODO: try to make this not allocate memory?
 package uword loadFiles(MDThread* t, uword numParams)
 {
 	auto name = checkStringParam(t, 1);
@@ -209,6 +208,7 @@ package uword loadFiles(MDThread* t, uword numParams)
 				continue outerLoop;
 		}
 
+		// TODO: try to make this not allocate memory?
 		scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
 		scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
 		

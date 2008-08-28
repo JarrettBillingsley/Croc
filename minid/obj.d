@@ -95,7 +95,7 @@ static:
 		return o.fields;
 	}
 	
-	package bool next(MDObject* o, ref word idx, ref MDString** key, ref MDValue* val)
+	package bool next(MDObject* o, ref uword idx, ref MDString** key, ref MDValue* val)
 	{
 		if(o.fields is null)
 			return false;

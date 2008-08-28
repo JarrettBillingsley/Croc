@@ -44,6 +44,9 @@ static:
 			newFunction(t, &staticValues, "values"); newGlobal(t, "values");
 			newFunction(t, &staticApply,  "apply");  newGlobal(t, "apply");
 			newFunction(t, &staticEach,   "each");   newGlobal(t, "each");
+			newFunction(t, &remove,       "remove"); newGlobal(t, "remove");
+			newFunction(t, &set,          "set");    newGlobal(t, "set");
+			newFunction(t, &get,          "get");    newGlobal(t, "get");
 
 			newNamespace(t, "table");
 				newFunction(t, &tableDup,     "dup");     fielda(t, -2, "dup");
@@ -346,5 +349,83 @@ static:
 
 		checkParam(t, 2, MDValue.Type.Function);
 		return eachImpl(t, 1, 2);
+	}
+	
+	uword remove(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 2);
+
+		if(isTable(t, 1))
+		{
+			checkAnyParam(t, 2);
+			dup(t, 2);
+			pushNull(t);
+			idxa(t, 1);
+		}
+		else if(isNamespace(t, 1))
+		{
+			checkStringParam(t, 2);
+
+			if(!opin(t, 2, 1))
+			{
+				pushToString(t, 2);
+				throwException(t, "Key '{}' does not exist in namespace '{}'", getString(t, 2), getString(t, -1));
+			}
+
+			// TODO: this should probably be covered by a public API function
+			namespace.remove(getNamespace(t, 1), getStringObj(t, 2));
+		}
+		else
+			paramTypeError(t, 1, "table|namespace");
+			
+		return 0;
+	}
+
+	uword set(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 3);
+
+		if(isTable(t, 1))
+		{
+			checkAnyParam(t, 2);
+			checkAnyParam(t, 3);
+			dup(t, 2);
+			dup(t, 3);
+			idxa(t, 1, true);
+		}
+		else if(isNamespace(t, 1))
+		{
+			checkStringParam(t, 2);
+			checkAnyParam(t, 3);
+			dup(t, 2);
+			dup(t, 3);
+			fielda(t, 1, true);
+		}
+		else
+			paramTypeError(t, 1, "table|namespace");
+
+		return 0;
+	}
+
+	uword get(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 2);
+
+		if(isTable(t, 1))
+		{
+			checkAnyParam(t, 2);
+			dup(t, 2);
+			idx(t, 1, true);
+		}
+		else if(isNamespace(t, 1))
+		{
+			checkStringParam(t, 2);
+			dup(t, 2);
+			field(t, 1, true);
+		}
+		else
+			paramTypeError(t, 1, "table|namespace");
+
+		return 1;
 	}
 }

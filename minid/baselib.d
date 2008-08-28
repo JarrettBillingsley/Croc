@@ -67,9 +67,6 @@ static:
 		register(t, "currentThread", &currentThread);
 // 		register(t, "setModuleLoader", &setModuleLoader);
 // 		register(t, "reloadModule", &reloadModule);
-		register(t, "removeKey", &removeKey);
-		register(t, "rawSet", &rawSet);
-		register(t, "rawGet", &rawGet);
 		register(t, "runMain", &runMain);
 
 		// Functional stuff
@@ -84,6 +81,8 @@ static:
 		register(t, "allFieldsOf", &allFieldsOf);
 		register(t, "hasField", &hasField);
 		register(t, "hasMethod", &hasMethod);
+		register(t, "rawSetField", &rawSetField);
+		register(t, "rawGetField", &rawGetField);
 		register(t, "attrs", &attrs);
 		register(t, "hasAttributes", &hasAttributes);
 		register(t, "attributesOf", &attributesOf);
@@ -207,72 +206,7 @@ static:
 		return 1;
 	}
 */
-	uword removeKey(MDThread* t, uword numParams)
-	{
-		checkAnyParam(t, 1);
-
-		if(isTable(t, 1))
-		{
-			checkAnyParam(t, 2);
-			dup(t, 2);
-			pushNull(t);
-			idxa(t, 1);
-		}
-		else if(isNamespace(t, 1))
-		{
-			checkStringParam(t, 2);
-
-			if(!opin(t, 2, 1))
-			{
-				pushToString(t, 2);
-				throwException(t, "Key '{}' does not exist in namespace '{}'", getString(t, 2), getString(t, -1));
-			}
-
-			// TODO: is this OK?
-			namespace.remove(getNamespace(t, 1), getStringObj(t, 2));
-		}
-		else
-			paramTypeError(t, 1, "table|namespace");
-			
-		return 0;
-	}
-
-	uword rawSet(MDThread* t, uword numParams)
-	{
-		if(numParams < 3)
-			throwException(t, "3 parameters expected; only got {}", numParams);
-
-		if(isTable(t, 1))
-			idxa(t, 1, true);
-		else if(isObject(t, 1))
-			fielda(t, 1, true);
-		else
-		{
-			pushTypeString(t, 1);
-			throwException(t, "'table' or 'object' expected, not '{}'", getString(t, -1));
-		}
-
-		return 0;
-	}
-
-	uword rawGet(MDThread* t, uword numParams)
-	{
-		if(numParams < 2)
-			throwException(t, "2 parameters expected; only got {}", numParams);
-
-		if(isTable(t, 1))
-			idx(t, 1, true);
-		else if(isObject(t, 1))
-			field(t, 1, true);
-		else
-		{
-			pushTypeString(t, 1);
-			throwException(t, "'table' or 'object' expected, not '{}'", getString(t, -1));
-		}
-
-		return 1;
-	}
-
+	
 	uword runMain(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Namespace);
@@ -414,7 +348,7 @@ static:
 
 		checkParam(t, 1, MDValue.Type.Object);
 		dup(t, 1);
-		pushInt(t, -1);
+		pushInt(t, 0);
 		newFunction(t, &iter, "allFieldsOfIter", 2);
 		return 1;
 	}
@@ -435,6 +369,26 @@ static:
 		return 1;
 	}
 	
+	uword rawSetField(MDThread* t, uword numParams)
+	{
+		checkObjParam(t, 1);
+		checkStringParam(t, 2);
+		checkAnyParam(t, 3);
+		dup(t, 2);
+		dup(t, 3);
+		fielda(t, 1, true);
+		return 0;
+	}
+
+	uword rawGetField(MDThread* t, uword numParams)
+	{
+		checkObjParam(t, 1);
+		checkStringParam(t, 2);
+		dup(t, 2);
+		field(t, 1, true);
+		return 1;
+	}
+
 	uword attrs(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
@@ -480,7 +434,7 @@ static:
 				style[0] = getChar(t, 2);
 
 			char[80] buffer = void;
-			pushString(t, Integer.format(buffer, getInt(t, 1), style)); // TODO: make this safe
+			pushString(t, safeCode(t, Integer.format(buffer, getInt(t, 1), style)));
 		}
 		else
 			pushToString(t, 1);
@@ -512,7 +466,7 @@ static:
 			case MDValue.Type.Int:    dup(t, 1); break;
 			case MDValue.Type.Float:  pushInt(t, cast(mdint)getFloat(t, 1)); break;
 			case MDValue.Type.Char:   pushInt(t, cast(mdint)getChar(t, 1)); break;
-			case MDValue.Type.String: pushInt(t, cast(mdint)Integer.parse(getString(t, 1), 10)); break; // TODO: make this safe
+			case MDValue.Type.String: pushInt(t, safeCode(t, cast(mdint)Integer.parse(getString(t, 1), 10))); break;
 
 			default:
 				pushTypeString(t, 1);
@@ -532,7 +486,7 @@ static:
 			case MDValue.Type.Int: pushFloat(t, cast(mdfloat)getInt(t, 1)); break;
 			case MDValue.Type.Float: dup(t, 1); break;
 			case MDValue.Type.Char: pushFloat(t, cast(mdfloat)getChar(t, 1)); break;
-			case MDValue.Type.String: pushFloat(t, cast(mdfloat)Float.parse(getString(t, 1))); break; // TODO: make this safe
+			case MDValue.Type.String: pushFloat(t, safeCode(t, cast(mdfloat)Float.parse(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);

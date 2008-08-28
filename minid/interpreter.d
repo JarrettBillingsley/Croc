@@ -5565,7 +5565,8 @@ private void throwImpl(MDThread* t, MDValue* ex)
 	pushString(t, ": ");
 	toStringImpl(t, *ex, true);
 	cat(t, 3);
-	auto msg = getString(t, -1); // TODO: should this be dup'ed?
+	// dup'ing since we're removing the only MiniD reference and handing it off to D
+	auto msg = getString(t, -1).dup;
 	pop(t);
 
 	t.vm.exception = *ex;

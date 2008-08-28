@@ -198,7 +198,7 @@ struct Hash(K, V)
 		return null;
 	}
 	
-	package bool next(ref ptrdiff_t idx, ref K* key, ref V* val)
+	package bool next(ref size_t idx, ref K* key, ref V* val)
 	{
 		for(; idx < mNodes.length; idx++)
 		{
