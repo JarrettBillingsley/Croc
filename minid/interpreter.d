@@ -1982,7 +1982,7 @@ less efficient than just getting a number and negating it.
 
 Params:
 	o = The slot of the value to negate.
-	
+
 Returns:
 	The stack index of the newly-pushed result.
 */
@@ -6538,25 +6538,25 @@ private void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.Namespace:
-					RS = *get(i.rs);
+					auto name = constTable[i.rs].mString;
 					RT = *get(i.rt);
 
 					if(RT.type == MDValue.Type.Null)
-						*get(i.rd) = namespace.create(t.vm.alloc, RS.mString);
+						*get(i.rd) = namespace.create(t.vm.alloc, name);
 					else if(RT.type != MDValue.Type.Namespace)
 					{
 						typeString(t, &RT);
-						toStringImpl(t, RS, false);
+						pushStringObj(t, name);
 						throwException(t, "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else
-						*get(i.rd) = namespace.create(t.vm.alloc, RS.mString, RT.mNamespace);
+						*get(i.rd) = namespace.create(t.vm.alloc, name, RT.mNamespace);
 
 					maybeGC(t.vm);
 					break;
 
 				case Op.NamespaceNP:
-					auto tmp = namespace.create(t.vm.alloc, get(i.rs).mString, env);
+					auto tmp = namespace.create(t.vm.alloc, constTable[i.rs].mString, env);
 					*get(i.rd) = tmp;
 					maybeGC(t.vm);
 					break;

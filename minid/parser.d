@@ -459,6 +459,10 @@ struct Parser
 		l.expect(Token.LParen);
 		bool isVararg;
 		auto params = parseFuncParams(isVararg);
+
+		scope(failure)
+			c.alloc.freeArray(params);
+
 		l.expect(Token.RParen);
 
 		Statement code;
@@ -736,6 +740,9 @@ struct Parser
 
 		bool isVararg;
 		auto params = parseFuncParams(isVararg);
+
+		scope(failure)
+			c.alloc.freeArray(params);
 
 		l.expect(Token.Arrow);
 

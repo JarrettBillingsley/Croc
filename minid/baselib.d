@@ -126,11 +126,6 @@ static:
 // 		register(t, "loadJSON", &loadJSON);
 // 		register(t, "toJSON", &toJSON);
 
-		// The Namespace type's metatable
-		newNamespace(t, "namespace");
-			newFunction(t, &namespaceApply, "namespace.opApply"); fielda(t, -2, "opApply");
-		setTypeMT(t, MDValue.Type.Namespace);
-
 		// The Thread type's metatable
 		newNamespace(t, "thread");
 			newFunction(t, &threadReset, "thread.reset");       fielda(t, -2, "reset");
@@ -899,42 +894,6 @@ static:
 		return 1;
 	}
 */
-	// ===================================================================================================================================
-	// Namespace metatable
-
-	uword namespaceApply(MDThread* t, uword numParams)
-	{
-		static uword iter(MDThread* t, uword numParams)
-		{
-			getUpval(t, 0);
-			auto ns = getNamespace(t, -1);
-			pop(t);
-	
-			getUpval(t, 1);
-			word index = getInt(t, -1);
-			pop(t);
-	
-			MDString** key = void;
-			MDValue* value = void;
-	
-			if(!namespace.next(ns, index, key, value))
-				return 0;
-	
-			pushInt(t, index);
-			setUpval(t, 1);
-	
-			pushStringObj(t, *key);
-			push(t, *value);
-	
-			return 2;
-		}
-
-		checkParam(t, 0, MDValue.Type.Namespace);
-		dup(t, 0);
-		pushInt(t, -1);
-		newFunction(t, &iter, "namespaceIterator", 2);
-		return 1;
-	}
 
 	// ===================================================================================================================================
 	// Thread metatable

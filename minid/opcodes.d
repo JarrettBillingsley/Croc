@@ -347,8 +347,8 @@ align(1) struct Instruction
 			case Op.MoveLocal:       return Format.convert("movl {}, {}", cr(rd), cr(rs));
 			case Op.Mul:             return Format.convert("mul {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.MulEq:           return Format.convert("muleq {}, {}", cr(rd), cr(rs));
-			case Op.Namespace:       return Format.convert("namespace {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.NamespaceNP:     return Format.convert("namespacenp {}, {}", cr(rd), cr(rs));
+			case Op.Namespace:       return Format.convert("namespace {}, c{}, {}", cr(rd), rs, cr(rt));
+			case Op.NamespaceNP:     return Format.convert("namespacenp {}, c{}", cr(rd), rs);
 			case Op.Neg:             return Format.convert("neg {}, {}", cr(rd), cr(rs));
 			case Op.NewArray:        return Format.convert("newarr r{}, {}", rd, imm);
 			case Op.NewGlobal:       return Format.convert("newg {}, {}", cr(rs), cr(rt));

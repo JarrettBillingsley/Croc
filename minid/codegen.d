@@ -2102,7 +2102,7 @@ class Codegen : Visitor
 		
 		return d;
 	}
-	
+
 	public override BlockStmt visit(BlockStmt s)
 	{
 		foreach(st; s.statements)
@@ -2776,6 +2776,24 @@ class Codegen : Visitor
 		return s;
 	}
 	
+	public override FuncEnvStmt visit(FuncEnvStmt s)
+	{
+		Exp exp;
+		
+		fs.pushVar(s.funcName);
+		fs.popSource(s.location.line, exp);
+		fs.freeExpTempRegs(exp);
+		auto funcIdx = exp.index;
+
+		fs.pushVar(s.envName);
+		fs.popSource(s.location.line, exp);
+		fs.freeExpTempRegs(exp);
+		auto envIdx = exp.index;
+		
+		fs.codeR(s.endLocation.line, Op.SetEnv, funcIdx, envIdx, 0);
+		return s;
+	}
+
 	public override CondExp visit(CondExp e)
 	{
 		auto temp = fs.pushRegister();
@@ -3162,6 +3180,30 @@ class Codegen : Visitor
 		return e;
 	}
 	
+	public override RawNamespaceExp visit(RawNamespaceExp e)
+	{
+		auto nameIdx = fs.codeStringConst(e.name.name);
+
+		if(e.parent is null)
+		{
+			auto exp = fs.pushExp();
+			exp.type = ExpType.NeedsDest;
+			exp.index = fs.codeR(e.location.line, Op.NamespaceNP, 0, nameIdx, 0);
+		}
+		else
+		{
+			visit(e.parent);
+			Exp src;
+			fs.popSource(e.location.line, src);
+			fs.freeExpTempRegs(src);
+			auto exp = fs.pushExp();
+			exp.type = ExpType.NeedsDest;
+			exp.index = fs.codeR(e.location.line, Op.Namespace, 0, nameIdx, src.index);
+		}
+
+		return e;
+	}
+
 	public override TableCtorExp visit(TableCtorExp e)
 	{
 		auto destReg = fs.pushRegister();
@@ -3185,7 +3227,7 @@ class Codegen : Visitor
 
 		return e;
 	}
-	
+
 	public override ArrayCtorExp visit(ArrayCtorExp e)
 	{
 		if(e.values.length > ArrayCtorExp.maxFields)
@@ -3229,7 +3271,7 @@ class Codegen : Visitor
 		
 		return e;
 	}
-	
+
 	public override AppendStmt visit(AppendStmt s)
 	{
 		visit(s.arrayName);

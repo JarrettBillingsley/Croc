@@ -43,6 +43,7 @@ debug
 import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
+import minid.hashlib;
 import minid.mathlib;
 import minid.oslib;
 import minid.stringlib;
@@ -142,9 +143,9 @@ public enum MDStdlib
 	String =   16,
 
 	/**
-	Table manipulation.
+	Hash (table and namespace) manipulation.
 	*/
-	Table =    32,
+	Hash =    32,
 
 	/**
 	OS-specific functionality.
@@ -162,11 +163,11 @@ public enum MDStdlib
 	Time = 256,
 
 	/**
-	This flag is an OR of Array, Char, Math, String, Table, Regexp, and Time.  It represents
+	This flag is an OR of Array, Char, Math, String, Hash, Regexp, and Time.  It represents
 	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	*/
-	Safe = Array | Char | Math | String | Table | Regexp | Time,
+	Safe = Array | Char | Math | String | Hash | Regexp | Time,
 
 	/**
 	All available standard libraries.
@@ -204,8 +205,8 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 	if(libs & MDStdlib.String)
 		StringLib.init(t);
 
-// 	if(libs & MDStdlib.Table)
-// 		TableLib.init(ret);
+	if(libs & MDStdlib.Hash)
+		HashLib.init(t);
 
 	if(libs & MDStdlib.Time)
 		TimeLib.init(t);

@@ -1,6 +1,12 @@
 module samples.simple
 
+local namespace ns {x = 5; y = 10}
 
+writeln(hash.keys(ns))
+writeln(hash.values(ns))
+//hash.dup(ns)
+
+foreach(k, v; ns) writefln("{}: {}", k, v)
 
 /+
 object BaseProp

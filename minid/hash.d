@@ -200,12 +200,13 @@ struct Hash(K, V)
 	
 	package bool next(ref ptrdiff_t idx, ref K* key, ref V* val)
 	{
-		for(idx++; idx < mNodes.length; idx++)
+		for(; idx < mNodes.length; idx++)
 		{
 			if(mNodes[idx].used)
 			{
 				key = &mNodes[idx].key;
 				val = &mNodes[idx].value;
+				idx++;
 				return true;
 			}
 		}

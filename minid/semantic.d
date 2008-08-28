@@ -193,7 +193,9 @@ class Semantic : IdentityVisitor
 				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
 				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
 
-				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, null, false, innerFuncBody);
+				scope params = new List!(FuncDef.Param)(c.alloc);
+				params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
+				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, params.toArray(), false, innerFuncBody);
 				auto lit = new(c) FuncLiteralExp(c, d.location, innerFuncDef);
 				funcBody ~= new(c) OtherDecl(c, Protection.Local, innerFuncName, lit);
 			}
@@ -212,7 +214,9 @@ class Semantic : IdentityVisitor
 			}
 		}
 
-		auto funcDef = new(c) FuncDef(c, d.location, d.name, null, false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
+		scope params = new List!(FuncDef.Param)(c.alloc);
+		params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
+		auto funcDef = new(c) FuncDef(c, d.location, d.name, params.toArray(), false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
 		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
 		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
 	}
@@ -1341,7 +1345,9 @@ class Semantic : IdentityVisitor
 		}
 
 		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
-		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("table")(e.location), null, false, _body);
+		scope params = new List!(FuncDef.Param)(c.alloc);
+		params ~= FuncDef.Param(new(c) Identifier(c, e.location, c.newString("this")));
+		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("table")(e.location), params.toArray(), false, _body);
 		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
 		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
 	}
@@ -1401,7 +1407,9 @@ class Semantic : IdentityVisitor
 		}
 
 		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
-		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("array")(e.location), null, false, _body);
+		scope params = new List!(FuncDef.Param)(c.alloc);
+		params ~= FuncDef.Param(new(c) Identifier(c, e.location, c.newString("this")));
+		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("array")(e.location), params.toArray(), false, _body);
 		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
 		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
 	}
