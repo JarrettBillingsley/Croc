@@ -314,7 +314,7 @@ static:
 			auto o = getObject(t, -1);
 
 			getUpval(t, 1);
-			ptrdiff_t index = getInt(t, -1);
+			uword index = getInt(t, -1);
 
 			MDString** key = void;
 			MDValue* value = void;

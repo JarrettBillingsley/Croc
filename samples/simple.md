@@ -1,7 +1,7 @@
 module samples.simple
 
-function main()
-	writeln("main!")
+
+writefln("Took {} s", t.seconds())
 
 /+
 object BaseProp

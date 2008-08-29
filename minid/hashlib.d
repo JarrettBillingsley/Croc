@@ -153,9 +153,9 @@ static:
 	{
 		getUpval(t, 0);
 		auto tab = getTable(t, -1);
-		
+
 		getUpval(t, 1);
-		word idx = getInt(t, -1);
+		uword idx = getInt(t, -1);
 
 		MDValue* k = void, v = void;
 
@@ -177,7 +177,7 @@ static:
 		auto ns = getNamespace(t, -1);
 
 		getUpval(t, 1);
-		word idx = getInt(t, -1);
+		uword idx = getInt(t, -1);
 
 		MDString** k = void;
 		MDValue* v = void;
@@ -247,7 +247,7 @@ static:
 		if(isTable(t, slot))
 		{
 			auto tab = getTable(t, slot);
-			word idx = 0;
+			uword idx = 0;
 
 			while(tab.data.next(idx, k, v))
 				if(!guts())
@@ -256,7 +256,7 @@ static:
 		else
 		{
 			auto ns = getNamespace(t, slot);
-			word idx = 0;
+			uword idx = 0;
 			
 			MDString** s = void;
 			MDValue val = void;

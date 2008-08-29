@@ -51,10 +51,12 @@ import minid.utils;
 // Public
 // ================================================================================================================================================
 
+public:
+
 /**
 Gets the current coroutine state of the thread as a member of the MDThread.State enumeration.
 */
-public MDThread.State state(MDThread* t)
+MDThread.State state(MDThread* t)
 {
 	return t.state;
 }
@@ -64,7 +66,7 @@ Gets a string representation of the current coroutine state of the thread.
 
 The string returned is not on the MiniD heap, it's just a string literal.
 */
-public char[] stateString(MDThread* t)
+char[] stateString(MDThread* t)
 {
 	return MDThread.StateStrings[t.state];
 }
@@ -72,7 +74,7 @@ public char[] stateString(MDThread* t)
 /**
 Gets the VM that the thread is associated with.
 */
-public MDVM* getVM(MDThread* t)
+MDVM* getVM(MDThread* t)
 {
 	return t.vm;
 }
@@ -83,37 +85,37 @@ These push a value of the given type onto the stack.
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word pushNull(MDThread* t)
+word pushNull(MDThread* t)
 {
 	return push(t, MDValue.nullValue);
 }
 
 /// ditto
-public word pushBool(MDThread* t, bool v)
+word pushBool(MDThread* t, bool v)
 {
 	return push(t, MDValue(v));
 }
 
 /// ditto
-public word pushInt(MDThread* t, mdint v)
+word pushInt(MDThread* t, mdint v)
 {
 	return push(t, MDValue(v));
 }
 
 /// ditto
-public word pushFloat(MDThread* t, mdfloat v)
+word pushFloat(MDThread* t, mdfloat v)
 {
 	return push(t, MDValue(v));
 }
 
 /// ditto
-public word pushChar(MDThread* t, dchar v)
+word pushChar(MDThread* t, dchar v)
 {
 	return push(t, MDValue(v));
 }
 
 /// ditto
-public word pushString(MDThread* t, char[] v)
+word pushString(MDThread* t, char[] v)
 {
 	return pushStringObj(t, string.create(t.vm, v));
 }
@@ -129,7 +131,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushFormat(MDThread* t, char[] fmt, ...)
+word pushFormat(MDThread* t, char[] fmt, ...)
 {
 	return pushVFormat(t, fmt, _arguments, _argptr);
 }
@@ -145,7 +147,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
+word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
 {
 	uword numPieces = 0;
 
@@ -170,7 +172,7 @@ Params:
 Returns:
 	The stack index of the newly-created table.
 */
-public word newTable(MDThread* t, uword size = 0)
+word newTable(MDThread* t, uword size = 0)
 {
 	maybeGC(t.vm);
 	return pushTable(t, table.create(t.vm.alloc, size));
@@ -185,7 +187,7 @@ Params:
 Returns:
 	The stack index of the newly-created array.
 */
-public word newArray(MDThread* t, uword len)
+word newArray(MDThread* t, uword len)
 {
 	maybeGC(t.vm);
 	return pushArray(t, array.create(t.vm.alloc, len));
@@ -202,7 +204,7 @@ Params:
 Returns:
 	The stack index of the newly-created array.
 */
-public word newArrayFromStack(MDThread* t, uword len)
+word newArrayFromStack(MDThread* t, uword len)
 {
 	checkNumParams(t, len);
 	maybeGC(t.vm);
@@ -249,7 +251,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-public word newFunction(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
+word newFunction(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
 	pushEnvironment(t);
 	return newFunctionWithEnv(t, func, name, numUpvals);
@@ -274,7 +276,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-public word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
+word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
 	checkNumParams(t, numUpvals + 1);
 
@@ -344,7 +346,7 @@ Params:
 Returns:
 	The stack index of the newly-created object.
 */
-public word newObject(MDThread* t, word proto, char[] name = null, uword numValues = 0, uword extraBytes = 0)
+word newObject(MDThread* t, word proto, char[] name = null, uword numValues = 0, uword extraBytes = 0)
 {
 	MDObject* p = void;
 
@@ -384,7 +386,7 @@ public word newObject(MDThread* t, word proto, char[] name = null, uword numValu
 Same as above, except it uses the global Object as the prototype.  The new object is left on the
 top of the stack.
 */
-public word newObject(MDThread* t, char[] name = null, uword numValues = 0, uword extraBytes = 0)
+word newObject(MDThread* t, char[] name = null, uword numValues = 0, uword extraBytes = 0)
 {
 	pushGlobal(t, "Object");
 	auto p = getObject(t, -1);
@@ -420,7 +422,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespace(MDThread* t, char[] name)
+word newNamespace(MDThread* t, char[] name)
 {
 	auto ret = newNamespaceNoParent(t, name);
 	getNamespace(t, ret).parent = getEnv(t);
@@ -438,7 +440,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespace(MDThread* t, word parent, char[] name)
+word newNamespace(MDThread* t, word parent, char[] name)
 {
 	MDNamespace* p = void;
 
@@ -469,7 +471,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-public word newNamespaceNoParent(MDThread* t, char[] name)
+word newNamespaceNoParent(MDThread* t, char[] name)
 {
 	maybeGC(t.vm);
 	return pushNamespace(t, namespace.create(t.vm.alloc, string.create(t.vm, name), null));
@@ -485,7 +487,7 @@ Params:
 Returns:
 	The stack index of the newly-created thread.
 */
-public word newThread(MDThread* t, word func)
+word newThread(MDThread* t, word func)
 {
 	auto f = getFunction(t, func);
 
@@ -514,7 +516,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word pushThread(MDThread* t, MDThread* o)
+word pushThread(MDThread* t, MDThread* o)
 {
 	return push(t, MDValue(o));
 }
@@ -528,7 +530,7 @@ Params:
 Returns:
 	The index of the newly-pushed value.
 */
-public word pushNativeObj(MDThread* t, Object o)
+word pushNativeObj(MDThread* t, Object o)
 {
 	maybeGC(t.vm);
 	return push(t, MDValue(nativeobj.create(t.vm, o)));
@@ -543,7 +545,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed _slot.
 */
-public word dup(MDThread* t, word slot = -1)
+word dup(MDThread* t, word slot = -1)
 {
 	auto s = fakeToAbs(t, slot);
 	auto ret = pushNull(t);
@@ -558,7 +560,7 @@ Params:
 	first = The first stack index.
 	second = The second stack index.
 */
-public void swap(MDThread* t, word first, word second = -1)
+void swap(MDThread* t, word first, word second = -1)
 {
 	auto f = fakeToAbs(t, first);
 	auto s = fakeToAbs(t, second);
@@ -584,7 +586,7 @@ Params:
 	slot = The _slot in which the value at the top will be inserted.  If this refers to the top of the
 		stack, this function does nothing.
 */
-public void insert(MDThread* t, word slot)
+void insert(MDThread* t, word slot)
 {
 	checkNumParams(t, 1);
 	auto s = fakeToAbs(t, slot);
@@ -608,7 +610,7 @@ Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never
 
 If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
 */
-public void insertAndPop(MDThread* t, word slot)
+void insertAndPop(MDThread* t, word slot)
 {
 	checkNumParams(t, 1);
 	auto s = fakeToAbs(t, slot);
@@ -631,7 +633,7 @@ values, an error is thrown.
 Params:
 	n = The number of items to _pop.  Defaults to 1.  Must be greater than 0.
 */
-public void pop(MDThread* t, uword n = 1)
+void pop(MDThread* t, uword n = 1)
 {
 	assert(n > 0);
 
@@ -646,7 +648,7 @@ Given an index, returns the absolute index that corresponds to it.  This is usef
 relative (negative) indices to indices that will never change.  If the index is already absolute,
 just returns it.  Throws an error if the index is out of range.
 */
-public word absIndex(MDThread* t, word idx)
+word absIndex(MDThread* t, word idx)
 {
 	return cast(word)fakeToRel(t, idx);
 }
@@ -656,7 +658,7 @@ Sees if a given stack index (negative or positive) is valid.  Valid positive sta
 from [0 .. stackSize(t)$(RPAREN).  Valid negative stack indices range from [-stackSize(t) .. 0$(RPAREN).
 
 */
-public bool isValidIndex(MDThread* t, word idx)
+bool isValidIndex(MDThread* t, word idx)
 {
 	if(idx < 0)
 		return idx >= -stackSize(t);
@@ -704,7 +706,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-public uword rawCall(MDThread* t, word slot, word numReturns)
+uword rawCall(MDThread* t, word slot, word numReturns)
 {
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
@@ -760,7 +762,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-public uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
+uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
 {
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
@@ -783,7 +785,7 @@ Same as above, but expects the name of the method to be on top of the stack (aft
 
 The parameters and return value are the same as above.
 */
-public uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
+uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
 {
 	checkNumParams(t, 1);
 	auto absSlot = fakeToAbs(t, slot);
@@ -850,7 +852,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-public uword superCall(MDThread* t, word slot, char[] name, word numReturns)
+uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 {
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
@@ -886,7 +888,7 @@ Same as above, but expects the method name to be at the top of the stack (after 
 
 The parameters and return value are the same as above.
 */
-public uword superCall(MDThread* t, word slot, word numReturns)
+uword superCall(MDThread* t, word slot, word numReturns)
 {
 	// Get the method name
 	checkNumParams(t, 1);
@@ -937,7 +939,7 @@ This function will fail if called at top-level (that is, outside of any executin
 Params:
 	idx = The index of the upvalue to set.
 */
-public void setUpval(MDThread* t, uword idx)
+void setUpval(MDThread* t, uword idx)
 {
 	if(t.arIndex == 0)
 		throwException(t, "setUpval - No function to set upvalue (can't call this function at top level)");
@@ -964,7 +966,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getUpval(MDThread* t, uword idx)
+word getUpval(MDThread* t, uword idx)
 {
 	if(t.arIndex == 0)
 		throwException(t, "getUpval - No function to get upvalue (can't call this function at top level)");
@@ -982,7 +984,7 @@ public word getUpval(MDThread* t, uword idx)
 /**
 Sees if the value at the given _slot is null.
 */
-public bool isNull(MDThread* t, word slot)
+bool isNull(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Null;
 }
@@ -990,7 +992,7 @@ public bool isNull(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a bool.
 */
-public bool isBool(MDThread* t, word slot)
+bool isBool(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Bool;
 }
@@ -998,7 +1000,7 @@ public bool isBool(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is an int.
 */
-public bool isInt(MDThread* t, word slot)
+bool isInt(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Int;
 }
@@ -1006,7 +1008,7 @@ public bool isInt(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a float.
 */
-public bool isFloat(MDThread* t, word slot)
+bool isFloat(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Float;
 }
@@ -1014,7 +1016,7 @@ public bool isFloat(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is an int or a float.
 */
-public bool isNum(MDThread* t, word slot)
+bool isNum(MDThread* t, word slot)
 {
 	auto type = type(t, slot);
 	return type == MDValue.Type.Int || type == MDValue.Type.Float;
@@ -1023,7 +1025,7 @@ public bool isNum(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a char.
 */
-public bool isChar(MDThread* t, word slot)
+bool isChar(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Char;
 }
@@ -1031,7 +1033,7 @@ public bool isChar(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a string.
 */
-public bool isString(MDThread* t, word slot)
+bool isString(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.String;
 }
@@ -1039,7 +1041,7 @@ public bool isString(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a table.
 */
-public bool isTable(MDThread* t, word slot)
+bool isTable(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Table;
 }
@@ -1047,7 +1049,7 @@ public bool isTable(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is an array.
 */
-public bool isArray(MDThread* t, word slot)
+bool isArray(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Array;
 }
@@ -1055,7 +1057,7 @@ public bool isArray(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a function.
 */
-public bool isFunction(MDThread* t, word slot)
+bool isFunction(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Function;
 }
@@ -1063,7 +1065,7 @@ public bool isFunction(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is an object.
 */
-public bool isObject(MDThread* t, word slot)
+bool isObject(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Object;
 }
@@ -1071,7 +1073,7 @@ public bool isObject(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a namespace.
 */
-public bool isNamespace(MDThread* t, word slot)
+bool isNamespace(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Namespace;
 }
@@ -1079,7 +1081,7 @@ public bool isNamespace(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a thread.
 */
-public bool isThread(MDThread* t, word slot)
+bool isThread(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.Thread;
 }
@@ -1087,7 +1089,7 @@ public bool isThread(MDThread* t, word slot)
 /**
 Sees if the value at the given _slot is a native object.
 */
-public bool isNativeObj(MDThread* t, word slot)
+bool isNativeObj(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.NativeObj;
 }
@@ -1097,7 +1099,7 @@ Gets the truth value of the value at the given _slot.  null, false, integer 0, f
 and character '\0' are considered false; everything else is considered true.  This is the same behavior
 as within the language.
 */
-public bool isTrue(MDThread* t, word slot)
+bool isTrue(MDThread* t, word slot)
 {
 	return !getValue(t, slot).isFalse();
 }
@@ -1105,7 +1107,7 @@ public bool isTrue(MDThread* t, word slot)
 /**
 Gets the _type of the value at the given _slot.
 */
-public MDValue.Type type(MDThread* t, word slot)
+MDValue.Type type(MDThread* t, word slot)
 {
 	return getValue(t, slot).type;
 }
@@ -1116,7 +1118,7 @@ Pushes the string representation of the type of the value at the given _slot.
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushTypeString(MDThread* t, word slot)
+word pushTypeString(MDThread* t, word slot)
 {
 	return typeString(t, getValue(t, slot));
 }
@@ -1124,7 +1126,7 @@ public word pushTypeString(MDThread* t, word slot)
 /**
 Returns the boolean value at the given _slot, or throws an error if it isn'_t one.
 */
-public bool getBool(MDThread* t, word slot)
+bool getBool(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1140,7 +1142,7 @@ public bool getBool(MDThread* t, word slot)
 /**
 Returns the integer value at the given _slot, or throws an error if it isn'_t one.
 */
-public mdint getInt(MDThread* t, word slot)
+mdint getInt(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1156,7 +1158,7 @@ public mdint getInt(MDThread* t, word slot)
 /**
 Returns the float value at the given _slot, or throws an error if it isn'_t one.
 */
-public mdfloat getFloat(MDThread* t, word slot)
+mdfloat getFloat(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1172,7 +1174,7 @@ public mdfloat getFloat(MDThread* t, word slot)
 /**
 Returns the character value at the given _slot, or throws an error if it isn'_t one.
 */
-public dchar getChar(MDThread* t, word slot)
+dchar getChar(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1194,7 +1196,7 @@ MiniD stack, there is no guarantee that the string data will be valid (MiniD mig
 has no knowledge of the reference held by D).  If you need the string value for a longer period of time,
 you should dup it.
 */
-public char[] getString(MDThread* t, word slot)
+char[] getString(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1215,7 +1217,7 @@ held from the MiniD heap or stack, it may be collected, so be sure not to store 
 away into a D data structure and then let the thread have its references dropped in MiniD.
 This is really meant for access to threads so that you can call thread functions on them.
 */
-public MDThread* getThread(MDThread* t, word slot)
+MDThread* getThread(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1231,7 +1233,7 @@ public MDThread* getThread(MDThread* t, word slot)
 /**
 Returns the native D object at the given _slot, or throws an error if it isn'_t one.
 */
-public Object getNativeObj(MDThread* t, word slot)
+Object getNativeObj(MDThread* t, word slot)
 {
 	auto v = getValue(t, slot);
 
@@ -1254,7 +1256,7 @@ Params:
 Returns:
 	The number of extra values associated with the given object.
 */
-public uword numExtraVals(MDThread* t, word slot)
+uword numExtraVals(MDThread* t, word slot)
 {
 	if(auto o = getObject(t, slot))
 		return o.numValues;
@@ -1278,7 +1280,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word pushExtraVal(MDThread* t, word slot, uword idx)
+word pushExtraVal(MDThread* t, word slot, uword idx)
 {
 	if(auto o = getObject(t, slot))
 	{
@@ -1305,7 +1307,7 @@ Params:
 	slot = The object whose value is to be set.
 	idx = The index of the extra value to set.
 */
-public void setExtraVal(MDThread* t, word slot, uword idx)
+void setExtraVal(MDThread* t, word slot, uword idx)
 {
 	checkNumParams(t, 1);
 
@@ -1337,7 +1339,7 @@ Params:
 Returns:
 	A void array of the data, or null if the object has none.
 */
-public void[] getExtraBytes(MDThread* t, word slot)
+void[] getExtraBytes(MDThread* t, word slot)
 {
 	if(auto o = getObject(t, slot))
 	{
@@ -1372,7 +1374,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed environment.
 */
-public word pushEnvironment(MDThread* t, uword depth = 0)
+word pushEnvironment(MDThread* t, uword depth = 0)
 {
 	return pushNamespace(t, getEnv(t, depth));
 }
@@ -1389,7 +1391,7 @@ Params:
 Returns:
 	The index of the newly-pushed value.
 */
-public word pushGlobal(MDThread* t, char[] name)
+word pushGlobal(MDThread* t, char[] name)
 {
 	pushString(t, name);
 	return getGlobal(t);
@@ -1403,7 +1405,7 @@ global if found.
 Returns:
 	The index of the retrieved value (the stack top).
 */
-public word getGlobal(MDThread* t)
+word getGlobal(MDThread* t)
 {
 	checkNumParams(t, 1);
 
@@ -1436,7 +1438,7 @@ environment and goes up the chain.
 Params:
 	name = The _name of the global to set.
 */
-public void setGlobal(MDThread* t, char[] name)
+void setGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
@@ -1448,7 +1450,7 @@ public void setGlobal(MDThread* t, char[] name)
 Same as above, but expects the name of the global to be on the stack just below the value to set.
 Pops both the name and the value.
 */
-public void setGlobal(MDThread* t)
+void setGlobal(MDThread* t)
 {
 	checkNumParams(t, 2);
 
@@ -1479,7 +1481,7 @@ in the current environment if it succeeds.
 Params:
 	name = The _name of the global to set.
 */
-public void newGlobal(MDThread* t, char[] name)
+void newGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
@@ -1491,7 +1493,7 @@ public void newGlobal(MDThread* t, char[] name)
 Same as above, but expects the name of the global to be on the stack under the value to be set.  Pops
 both the name and the value off the stack.
 */
-public void newGlobal(MDThread* t)
+void newGlobal(MDThread* t)
 {
 	checkNumParams(t, 2);
 
@@ -1528,7 +1530,7 @@ Returns:
 	true if the global was found, in which case the containing namespace is on the stack.  False otherwise,
 	in which case nothing will be on the stack.
 */
-public bool findGlobal(MDThread* t, char[] name, uword depth = 0)
+bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 {
 	auto n = string.create(t.vm, name);
 
@@ -1549,7 +1551,7 @@ Find how many calls deep the currently-executing function is nested.  Tailcalls 
 
 If called at top-level, returns 0.
 */
-public uword callDepth(MDThread* t)
+uword callDepth(MDThread* t)
 {
 	uword depth = 0;
 
@@ -1566,7 +1568,7 @@ Valid negative stack indices range from [-_stackSize(t) .. 0$(RPAREN).
 Note that 'this' (stack index 0 or -_stackSize(t)) may not be overwritten or changed, although it can be used
 with functions that don'_t modify their argument.
 */
-public uword stackSize(MDThread* t)
+uword stackSize(MDThread* t)
 {
 	assert(t.stackIndex > t.stackBase);
 	return t.stackIndex - t.stackBase;
@@ -1583,7 +1585,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-public word pushToString(MDThread* t, word slot, bool raw = false)
+word pushToString(MDThread* t, word slot, bool raw = false)
 {
 	// Dereferencing so that we don'_t potentially push an invalid stack object.
 	auto v = *getValue(t, slot);
@@ -1600,7 +1602,7 @@ Params:
 Returns:
 	true if item is in container, false otherwise.
 */
-public bool opin(MDThread* t, word item, word container)
+bool opin(MDThread* t, word item, word container)
 {
 	return inImpl(t, getValue(t, item), getValue(t, container));
 }
@@ -1616,7 +1618,7 @@ Params:
 Returns:
 	The comparison value.
 */
-public word cmp(MDThread* t, word a, word b)
+word cmp(MDThread* t, word a, word b)
 {
 	return compareImpl(t, getValue(t, a), getValue(t, b));
 }
@@ -1632,7 +1634,7 @@ Params:
 Returns:
 	true if equal, false otherwise.
 */
-public bool equals(MDThread* t, word a, word b)
+bool equals(MDThread* t, word a, word b)
 {
 	return equalsImpl(t, getValue(t, a), getValue(t, b));
 }
@@ -1647,7 +1649,7 @@ Params:
 Returns:
 	true if identical, false otherwise.
 */
-public bool opis(MDThread* t, word a, word b)
+bool opis(MDThread* t, word a, word b)
 {
 	return cast(bool)getValue(t, a).opEquals(*getValue(t, b));
 }
@@ -1672,7 +1674,7 @@ Params:
 Returns:
 	The stack index that contains the result (the top of the stack).
 */
-public word idx(MDThread* t, word container, bool raw = false)
+word idx(MDThread* t, word container, bool raw = false)
 {
 	checkNumParams(t, 1);
 	auto slot = t.stackIndex - 1;
@@ -1698,7 +1700,7 @@ pop(t);
 Params:
 	container = The stack index of the _container object.
 */
-public void idxa(MDThread* t, word container, bool raw = false)
+void idxa(MDThread* t, word container, bool raw = false)
 {
 	checkNumParams(t, 2);
 	auto slot = t.stackIndex - 2;
@@ -1706,14 +1708,14 @@ public void idxa(MDThread* t, word container, bool raw = false)
 	pop(t, 2);
 }
 
-public word idxi(MDThread* t, word container, mdint idx, bool raw = false)
+word idxi(MDThread* t, word container, mdint idx, bool raw = false)
 {
 	auto c = absIndex(t, container);
 	pushInt(t, idx);
 	return .idx(t, c, raw);
 }
 
-public void idxai(MDThread* t, word container, mdint idx, bool raw = false)
+void idxai(MDThread* t, word container, mdint idx, bool raw = false)
 {
 	auto c = absIndex(t, container);
 	pushInt(t, idx);
@@ -1741,7 +1743,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word field(MDThread* t, word container, char[] name, bool raw = false)
+word field(MDThread* t, word container, char[] name, bool raw = false)
 {
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
@@ -1759,7 +1761,7 @@ Params:
 Returns:
 	The stack index of the retrieved _field value.
 */
-public word field(MDThread* t, word container, bool raw = false)
+word field(MDThread* t, word container, bool raw = false)
 {
 	checkNumParams(t, 1);
 
@@ -1790,7 +1792,7 @@ Params:
 	name = The _name of the field to set.
 	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
 */
-public void fielda(MDThread* t, word container, char[] name, bool raw = false)
+void fielda(MDThread* t, word container, char[] name, bool raw = false)
 {
 	checkNumParams(t, 1);
 	auto c = fakeToAbs(t, container);
@@ -1808,7 +1810,7 @@ Params:
 	container = The stack index of the _container object.
 	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
 */
-public void fielda(MDThread* t, word container, bool raw = false)
+void fielda(MDThread* t, word container, bool raw = false)
 {
 	checkNumParams(t, 2);
 
@@ -1830,7 +1832,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed length.
 */
-public word pushLen(MDThread* t, word slot)
+word pushLen(MDThread* t, word slot)
 {
 	auto o = fakeToAbs(t, slot);
 	pushNull(t);
@@ -1848,7 +1850,7 @@ Params:
 Returns:
 	The length of the object.
 */
-public mdint len(MDThread* t, word slot)
+mdint len(MDThread* t, word slot)
 {
 	pushLen(t, slot);
 
@@ -1870,7 +1872,7 @@ value.  Calls opLengthAssign metamethods.
 Params:
 	slot = The _slot of the object whose length is to be set.
 */
-public void lena(MDThread* t, word slot)
+void lena(MDThread* t, word slot)
 {
 	checkNumParams(t, 1);
 	auto o = fakeToAbs(t, slot);
@@ -1886,7 +1888,7 @@ of the _slice operation is pushed.
 Params:
 	container = The slot of the object to be sliced.
 */
-public word slice(MDThread* t, word container)
+word slice(MDThread* t, word container)
 {
 	checkNumParams(t, 2);
 	auto slot = t.stackIndex - 2;
@@ -1903,7 +1905,7 @@ Both indices and the value are popped.
 Params:
 	container = The slot of the object to be slice-assigned.
 */
-public void slicea(MDThread* t, word container)
+void slicea(MDThread* t, word container)
 {
 	checkNumParams(t, 3);
 	auto slot = t.stackIndex - 3;
@@ -1925,7 +1927,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word add(MDThread* t, word a, word b)
+word add(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -1935,7 +1937,7 @@ public word add(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word sub(MDThread* t, word a, word b)
+word sub(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -1945,7 +1947,7 @@ public word sub(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word mul(MDThread* t, word a, word b)
+word mul(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -1955,7 +1957,7 @@ public word mul(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word div(MDThread* t, word a, word b)
+word div(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -1965,7 +1967,7 @@ public word div(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word mod(MDThread* t, word a, word b)
+word mod(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -1986,7 +1988,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word neg(MDThread* t, word o)
+word neg(MDThread* t, word o)
 {
 	auto oslot = fakeToAbs(t, o);
 	pushNull(t);
@@ -2004,7 +2006,7 @@ rather than to use these methods.  Use these only if you need the MiniD semantic
 Params:
 	o = The slot of the object to perform the reflexive operation on.
 */
-public void addeq(MDThread* t, word o)
+void addeq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2013,7 +2015,7 @@ public void addeq(MDThread* t, word o)
 }
 
 /// ditto
-public void subeq(MDThread* t, word o)
+void subeq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2022,7 +2024,7 @@ public void subeq(MDThread* t, word o)
 }
 
 /// ditto
-public void muleq(MDThread* t, word o)
+void muleq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2031,7 +2033,7 @@ public void muleq(MDThread* t, word o)
 }
 
 /// ditto
-public void diveq(MDThread* t, word o)
+void diveq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2040,7 +2042,7 @@ public void diveq(MDThread* t, word o)
 }
 
 /// ditto
-public void modeq(MDThread* t, word o)
+void modeq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2062,7 +2064,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word and(MDThread* t, word a, word b)
+word and(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2072,7 +2074,7 @@ public word and(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word or(MDThread* t, word a, word b)
+word or(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2082,7 +2084,7 @@ public word or(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word xor(MDThread* t, word a, word b)
+word xor(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2092,7 +2094,7 @@ public word xor(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word shl(MDThread* t, word a, word b)
+word shl(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2102,7 +2104,7 @@ public word shl(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word shr(MDThread* t, word a, word b)
+word shr(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2112,7 +2114,7 @@ public word shr(MDThread* t, word a, word b)
 }
 
 /// ditto
-public word ushr(MDThread* t, word a, word b)
+word ushr(MDThread* t, word a, word b)
 {
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
@@ -2133,7 +2135,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-public word com(MDThread* t, word o)
+word com(MDThread* t, word o)
 {
 	auto oslot = fakeToAbs(t, o);
 	pushNull(t);
@@ -2151,7 +2153,7 @@ rather than to use these methods.  Use these only if you need the MiniD semantic
 Params:
 	o = The slot of the object to perform the reflexive operation on.
 */
-public void andeq(MDThread* t, word o)
+void andeq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2160,7 +2162,7 @@ public void andeq(MDThread* t, word o)
 }
 
 /// ditto
-public void oreq(MDThread* t, word o)
+void oreq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2169,7 +2171,7 @@ public void oreq(MDThread* t, word o)
 }
 
 /// ditto
-public void xoreq(MDThread* t, word o)
+void xoreq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2178,7 +2180,7 @@ public void xoreq(MDThread* t, word o)
 }
 
 /// ditto
-public void shleq(MDThread* t, word o)
+void shleq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2187,7 +2189,7 @@ public void shleq(MDThread* t, word o)
 }
 
 /// ditto
-public void shreq(MDThread* t, word o)
+void shreq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2196,7 +2198,7 @@ public void shreq(MDThread* t, word o)
 }
 
 /// ditto
-public void ushreq(MDThread* t, word o)
+void ushreq(MDThread* t, word o)
 {
 	checkNumParams(t, 1);
 	auto oslot = fakeToAbs(t, o);
@@ -2225,7 +2227,7 @@ Params:
 Returns:
 	The stack index of the resulting object.
 */
-public word cat(MDThread* t, uword num)
+word cat(MDThread* t, uword num)
 {
 	if(num == 0)
 		throwException(t, "cat - Cannot concatenate 0 things");
@@ -2261,7 +2263,7 @@ setGlobal(t, "x"); // value on the stack may be different, so set it
 Params:
 	num = How many values are on the RHS to be appended.
 */
-public void cateq(MDThread* t, uword num)
+void cateq(MDThread* t, uword num)
 {
 	if(num == 0)
 		throwException(t, "cateq - Cannot append 0 things");
@@ -2285,7 +2287,7 @@ Params:
 Returns:
 	true if obj is an 'object' and it derives from proto.  False otherwise.
 */
-public bool as(MDThread* t, word obj, word proto)
+bool as(MDThread* t, word obj, word proto)
 {
 	return asImpl(t, getValue(t, obj), getValue(t, proto));
 }
@@ -2296,7 +2298,7 @@ Increments the value at the given _slot.  Calls opInc metamethods.
 Params:
 	slot = The stack index of the value to increment.
 */
-public void inc(MDThread* t, word slot)
+void inc(MDThread* t, word slot)
 {
 	incImpl(t, getValue(t, slot));
 }
@@ -2307,7 +2309,7 @@ Decrements the value at the given _slot.  Calls opDec metamethods.
 Params:
 	slot = The stack index of the value to decrement.
 */
-public void dec(MDThread* t, word slot)
+void dec(MDThread* t, word slot)
 {
 	decImpl(t, getValue(t, slot));
 }
@@ -2323,7 +2325,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word superOf(MDThread* t, word slot)
+word superOf(MDThread* t, word slot)
 {
 	return push(t, superOfImpl(t, getValue(t, slot)));
 }
@@ -2338,7 +2340,7 @@ catchException.  If you try, an Exception will be thrown -- that is, an instance
 
 This function obviously does not return.
 */
-public void throwException(MDThread* t)
+void throwException(MDThread* t)
 {
 	if(t.vm.isThrowing)
 		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
@@ -2352,7 +2354,7 @@ public void throwException(MDThread* t)
 A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
 pushVFormat on the arguments and then throwException.
 */
-public void throwException(MDThread* t, char[] fmt, ...)
+void throwException(MDThread* t, char[] fmt, ...)
 {
 	pushVFormat(t, fmt, _arguments, _argptr);
 	throwException(t);
@@ -2375,7 +2377,7 @@ some reason, that sounds funny.  "Error: there is no error!")
 Returns:
 	The stack index of the newly-pushed exception object.
 */
-public word catchException(MDThread* t)
+word catchException(MDThread* t)
 {
 	if(!t.vm.isThrowing)
 		throwException(t, "catchException - Attempting to catch an exception when none is in flight");
@@ -2396,7 +2398,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value (null if the type has no metatable, or a namespace if it does).
 */
-public word pushTypeMT(MDThread* t, MDValue.Type type)
+word pushTypeMT(MDThread* t, MDValue.Type type)
 {
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj))
 		throwException(t, "pushTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
@@ -2415,7 +2417,7 @@ neither null nor a namespace.
 Params:
 	type = The type whose metatable is to be set.
 */
-public void setTypeMT(MDThread* t, MDValue.Type type)
+void setTypeMT(MDThread* t, MDValue.Type type)
 {
 	checkNumParams(t, 1);
 
@@ -2447,7 +2449,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed fields namespace.
 */
-public word fieldsOf(MDThread* t, word obj)
+word fieldsOf(MDThread* t, word obj)
 {
 	if(auto o = getObject(t, obj))
 		return pushNamespace(t, .obj.fieldsOf(o));
@@ -2472,7 +2474,7 @@ Params:
 Returns:
 	true if the field exists in `obj`; false otherwise.
 */
-public bool hasField(MDThread* t, word obj, char[] fieldName)
+bool hasField(MDThread* t, word obj, char[] fieldName)
 {
 	auto name = string.create(t.vm, fieldName);
 
@@ -2508,7 +2510,7 @@ Params:
 Returns:
 	true if the method can be called on `obj`; false otherwise.
 */
-public bool hasMethod(MDThread* t, word obj, char[] methodName)
+bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
 	MDObject* proto = void;
 	auto n = string.create(t.vm, methodName);
@@ -2525,7 +2527,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed environment namespace.
 */
-public word getFuncEnv(MDThread* t, word func)
+word getFuncEnv(MDThread* t, word func)
 {
 	if(auto f = getFunction(t, func))
 		return pushNamespace(t, f.environment);
@@ -2543,7 +2545,7 @@ that namespace off the stack.
 Params:
 	func = The stack index of the function whose environment is to be set.
 */
-public void setFuncEnv(MDThread* t, word func)
+void setFuncEnv(MDThread* t, word func)
 {
 	checkNumParams(t, 1);
 
@@ -2576,7 +2578,7 @@ Params:
 		coroutine.  The default is false, in which case the coroutine will use the function with which it was
 		created.
 */
-public void resetThread(MDThread* t, word slot, bool newFunction = false)
+void resetThread(MDThread* t, word slot, bool newFunction = false)
 {
 	if(state(t) != MDThread.State.Dead)
 		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(t));
@@ -2652,7 +2654,7 @@ setGlobal(t, "x");
 	Returns:
 		How many values were returned.  If numReturns was >= 0, this is the same as numReturns.
 	*/
-	public uword yield(MDThread* t, uword numVals, word numReturns)
+	uword yield(MDThread* t, uword numVals, word numReturns)
 	{
 		checkNumParams(t, numVals);
 
@@ -2689,7 +2691,7 @@ setGlobal(t, "x");
 Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
 otherwise, places a pending halt on the thread.
 */
-public void haltThread(MDThread* t)
+void haltThread(MDThread* t)
 {
 	if(state(t) == MDThread.State.Running)
 		throw new MDHaltException();
@@ -2700,7 +2702,7 @@ public void haltThread(MDThread* t)
 /**
 Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
 */
-public void pendingHalt(MDThread* t)
+void pendingHalt(MDThread* t)
 {
 	if(state(t) != MDThread.State.Dead && t.arIndex > 0)
 		t.shouldHalt = true;
@@ -2709,7 +2711,7 @@ public void pendingHalt(MDThread* t)
 /**
 Sees if the given thread has a pending halt.
 */
-public bool hasPendingHalt(MDThread* t)
+bool hasPendingHalt(MDThread* t)
 {
 	return t.shouldHalt;
 }
@@ -2724,7 +2726,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value (either the attributes table, or null if it has none).
 */
-public word getAttributes(MDThread* t, word obj)
+word getAttributes(MDThread* t, word obj)
 {
 	MDTable* attrs;
 
@@ -2755,7 +2757,7 @@ or if the value at the top of the stack is neither a table nor null.
 Params:
 	obj = The stack index of the object whose attributes table is to be set.
 */
-public void setAttributes(MDThread* t, word obj)
+void setAttributes(MDThread* t, word obj)
 {
 	checkNumParams(t, 1);
 	auto attrs = getTable(t, -1);
@@ -2789,7 +2791,7 @@ Params:
 Returns:
 	True if the object has an attributes table; false otherwise.
 */
-public bool hasAttributes(MDThread* t, word obj)
+bool hasAttributes(MDThread* t, word obj)
 {
 	if(auto f = getFunction(t, obj))
 		return f.attrs !is null;
@@ -2811,7 +2813,7 @@ Params:
 Returns:
 	The stack index of the imported module's namespace.
 */
-public word importModule(MDThread* t, char[] name)
+word importModule(MDThread* t, char[] name)
 {
 	pushString(t, name);
 	importModule(t, -1);
@@ -2828,7 +2830,7 @@ Params:
 Returns:
 	The stack index of the imported module's namespace.
 */
-public word importModule(MDThread* t, word name)
+word importModule(MDThread* t, word name)
 {
 	auto str = getStringObj(t, name);
 	
@@ -2880,7 +2882,7 @@ Params:
 Returns:
 	Whatever the code parameter returns.
 */
-public T safeCode(T)(MDThread* t, lazy T code)
+T safeCode(T)(MDThread* t, lazy T code)
 {
 	try
 		return code;
@@ -2898,7 +2900,7 @@ Fills the array at the given index with the value at the top of the stack and po
 Params:
 	arr = The stack index of the array object to fill.
 */
-public void fillArray(MDThread* t, word arr)
+void fillArray(MDThread* t, word arr)
 {
 	checkNumParams(t, 1);
 	auto a = getArray(t, arr);
@@ -2933,7 +2935,7 @@ debug
 	stack frame (negative numbers for lower slots, 0 is the first slot of the stack frame); $(I val) is a raw string
 	representation of the value in that slot; and $(I type) is the type of that value.
 	*/
-	public void printStack(MDThread* t)
+	void printStack(MDThread* t)
 	{
 		Stdout.newline;
 		Stdout("-----Stack Dump-----").newline;
@@ -2982,7 +2984,7 @@ debug
 	This only prints out the current thread's call stack.  It does not take coroutine resumes and yields into account (since
 	that's pretty much impossible).
 	*/
-	public void printCallStack(MDThread* t)
+	void printCallStack(MDThread* t)
 	{
 		Stdout.newline;
 		Stdout("-----Call Stack-----").newline;
@@ -3008,37 +3010,39 @@ debug
 // Package
 // ================================================================================================================================================
 
-package word pushStringObj(MDThread* t, MDString* o)
+package:
+
+word pushStringObj(MDThread* t, MDString* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushTable(MDThread* t, MDTable* o)
+word pushTable(MDThread* t, MDTable* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushArray(MDThread* t, MDArray* o)
+word pushArray(MDThread* t, MDArray* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushFunction(MDThread* t, MDFunction* o)
+word pushFunction(MDThread* t, MDFunction* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushObject(MDThread* t, MDObject* o)
+word pushObject(MDThread* t, MDObject* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushNamespace(MDThread* t, MDNamespace* o)
+word pushNamespace(MDThread* t, MDNamespace* o)
 {
 	return push(t, MDValue(o));
 }
 
-package word pushFuncDef(MDThread* t, MDFuncDef* o)
+word pushFuncDef(MDThread* t, MDFuncDef* o)
 {
 	MDValue v;
 	v.type = MDValue.Type.FuncDef;
@@ -3046,7 +3050,7 @@ package word pushFuncDef(MDThread* t, MDFuncDef* o)
 	return push(t, v);
 }
 
-package MDString* getStringObj(MDThread* t, word slot)
+MDString* getStringObj(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3056,7 +3060,7 @@ package MDString* getStringObj(MDThread* t, word slot)
 		return null;
 }
 
-package MDTable* getTable(MDThread* t, word slot)
+MDTable* getTable(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3066,7 +3070,7 @@ package MDTable* getTable(MDThread* t, word slot)
 		return null;
 }
 
-package MDArray* getArray(MDThread* t, word slot)
+MDArray* getArray(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3076,7 +3080,7 @@ package MDArray* getArray(MDThread* t, word slot)
 		return null;
 }
 
-package MDFunction* getFunction(MDThread* t, word slot)
+MDFunction* getFunction(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3086,7 +3090,7 @@ package MDFunction* getFunction(MDThread* t, word slot)
 		return null;
 }
 
-package MDObject* getObject(MDThread* t, word slot)
+MDObject* getObject(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3096,7 +3100,7 @@ package MDObject* getObject(MDThread* t, word slot)
 		return null;
 }
 
-package MDNamespace* getNamespace(MDThread* t, word slot)
+MDNamespace* getNamespace(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3106,7 +3110,7 @@ package MDNamespace* getNamespace(MDThread* t, word slot)
 		return null;
 }
 
-package MDNativeObj* getNative(MDThread* t, word slot)
+MDNativeObj* getNative(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3116,7 +3120,7 @@ package MDNativeObj* getNative(MDThread* t, word slot)
 		return null;
 }
 
-package MDFuncDef* getFuncDef(MDThread* t, word slot)
+MDFuncDef* getFuncDef(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
@@ -3126,7 +3130,7 @@ package MDFuncDef* getFuncDef(MDThread* t, word slot)
 		return null;
 }
 
-package word push(MDThread* t, ref MDValue val)
+word push(MDThread* t, ref MDValue val)
 {
 	assert(!((&val >= t.stack.ptr) && (&val < t.stack.ptr + t.stack.length)), "trying to push a value that's on the stack");
 	checkStack(t, t.stackIndex);
@@ -3136,7 +3140,7 @@ package word push(MDThread* t, ref MDValue val)
 	return cast(word)(t.stackIndex - 1 - t.stackBase);
 }
 
-package MDValue* getValue(MDThread* t, word slot)
+MDValue* getValue(MDThread* t, word slot)
 {
 	return &t.stack[fakeToAbs(t, slot)];
 }
@@ -3145,8 +3149,10 @@ package MDValue* getValue(MDThread* t, word slot)
 // Private
 // ================================================================================================================================================
 
+private:
+
 // Stack manipulation
-private void checkNumParams(MDThread* t, uword n)
+void checkNumParams(MDThread* t, uword n)
 {
 	debug assert(t.stackIndex > t.stackBase, (printStack(t), printCallStack(t), "fail."));
 
@@ -3155,7 +3161,7 @@ private void checkNumParams(MDThread* t, uword n)
 		throwException(t, "Not enough parameters (expected {}, only have {})", n, stackSize(t) - 1);
 }
 
-private RelStack fakeToRel(MDThread* t, word fake)
+RelStack fakeToRel(MDThread* t, word fake)
 {
 	assert(t.stackIndex > t.stackBase);
 
@@ -3170,17 +3176,17 @@ private RelStack fakeToRel(MDThread* t, word fake)
 	return cast(RelStack)fake;
 }
 
-private AbsStack fakeToAbs(MDThread* t, word fake)
+AbsStack fakeToAbs(MDThread* t, word fake)
 {
 	return fakeToRel(t, fake) + t.stackBase;
 }
 
-private MDValue[] getLocals(MDThread* t)
+MDValue[] getLocals(MDThread* t)
 {
 	return t.stack[t.stackBase .. t.stackIndex];
 }
 
-private MDNamespace* getEnv(MDThread* t, uword depth = 0)
+MDNamespace* getEnv(MDThread* t, uword depth = 0)
 {
 	if(t.arIndex == 0)
 		return t.vm.globals;
@@ -3200,7 +3206,7 @@ private MDNamespace* getEnv(MDThread* t, uword depth = 0)
 	return t.vm.globals;
 }
 
-private uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScript)
+uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScript)
 {
 	version(MDExtendedCoro) {} else
 	{
@@ -3222,7 +3228,7 @@ private uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScr
 	}
 }
 
-private bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup, MDString* methodName, word numReturns, uword numParams, bool customThis)
+bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup, MDString* methodName, word numReturns, uword numParams, bool customThis)
 {
 	MDObject* proto = void;
 	auto method = lookupMethod(t, lookup, methodName, proto);
@@ -3264,7 +3270,7 @@ private bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue
 	}
 }
 
-private word typeString(MDThread* t, MDValue* v)
+word typeString(MDThread* t, MDValue* v)
 {
 	switch(v.type)
 	{
@@ -3302,7 +3308,7 @@ private word typeString(MDThread* t, MDValue* v)
 	}
 }
 
-private MDValue* lookupGlobal(MDString* name, MDNamespace* env)
+MDValue* lookupGlobal(MDString* name, MDNamespace* env)
 {
 	for(auto ns = env; ns !is null; ns = ns.parent)
 		if(auto glob = namespace.get(ns, name))
@@ -3311,7 +3317,7 @@ private MDValue* lookupGlobal(MDString* name, MDNamespace* env)
 	return null;
 }
 
-private word toStringImpl(MDThread* t, MDValue v, bool raw)
+word toStringImpl(MDThread* t, MDValue v, bool raw)
 {
 	char[80] buffer = void;
 
@@ -3385,7 +3391,7 @@ private word toStringImpl(MDThread* t, MDValue v, bool raw)
 	}
 }
 
-private bool inImpl(MDThread* t, MDValue* item, MDValue* container)
+bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 {
 	switch(container.type)
 	{
@@ -3436,7 +3442,7 @@ private bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 	}
 }
 
-private void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
+void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
 {
 	switch(container.type)
 	{
@@ -3490,7 +3496,7 @@ private void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* ke
 	}
 }
 
-private void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
+void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
 {
 	switch(container.type)
 	{
@@ -3525,21 +3531,21 @@ private void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* va
 	}
 }
 
-private word commonField(MDThread* t, AbsStack container, bool raw)
+word commonField(MDThread* t, AbsStack container, bool raw)
 {
 	auto slot = t.stackIndex - 1;
 	fieldImpl(t, &t.stack[slot], &t.stack[container], t.stack[slot].mString, raw);
 	return stackSize(t) - 1;
 }
 
-private void commonFielda(MDThread* t, AbsStack container, bool raw)
+void commonFielda(MDThread* t, AbsStack container, bool raw)
 {
 	auto slot = t.stackIndex - 2;
 	fieldaImpl(t, &t.stack[container], t.stack[slot].mString, &t.stack[slot + 1], raw);
 	pop(t, 2);
 }
 
-private void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, bool raw)
+void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, bool raw)
 {
 	switch(container.type)
 	{
@@ -3584,7 +3590,7 @@ private void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString*
 	}
 }
 
-private void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value, bool raw)
+void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value, bool raw)
 {
 	switch(container.type)
 	{
@@ -3623,7 +3629,7 @@ private void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue
 	}
 }
 
-private mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
+mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 {
 	if(a.type == MDValue.Type.Int)
 	{
@@ -3682,7 +3688,7 @@ private mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 	assert(false);
 }
 
-private bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
+bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 {
 	if(a.type != b.type)
 		return false;
@@ -3701,7 +3707,7 @@ private bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 	return false;
 }
 
-private bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
+bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 {
 	if(a.type == MDValue.Type.Int)
 	{
@@ -3756,7 +3762,7 @@ private bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 	assert(false);
 }
 
-private void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
+void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 {
 	switch(src.type)
 	{
@@ -3776,7 +3782,7 @@ private void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 	}
 }
 
-private void lenaImpl(MDThread* t, MDValue* dest, MDValue* len)
+void lenaImpl(MDThread* t, MDValue* dest, MDValue* len)
 {
 	switch(dest.type)
 	{
@@ -3803,7 +3809,7 @@ private void lenaImpl(MDThread* t, MDValue* dest, MDValue* len)
 	}
 }
 
-private void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* hi)
+void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* hi)
 {
 	switch(src.type)
 	{
@@ -3858,7 +3864,7 @@ private void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MD
 	}
 }
 
-private void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDValue* value)
+void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDValue* value)
 {
 	switch(container.type)
 	{
@@ -3900,7 +3906,7 @@ private void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* h
 	}
 }
 
-private void binOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
+void binOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
 {
 	mdfloat f1 = void;
 	mdfloat f2 = void;
@@ -3972,7 +3978,7 @@ private void binOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MD
 	return commonBinOpMM(t, operation, dest, RS, RT);
 }
 
-private void reflBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
+void reflBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
 {
 	mdfloat f1 = void;
 	mdfloat f2 = void;
@@ -4049,7 +4055,7 @@ private void reflBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* sr
 	throwException(t, "Cannot perform the reflexive arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
 }
 
-private void negImpl(MDThread* t, MDValue* dest, MDValue* src)
+void negImpl(MDThread* t, MDValue* dest, MDValue* src)
 {
 	if(src.type == MDValue.Type.Int)
 		return *dest = -src.mInt;
@@ -4063,7 +4069,7 @@ private void negImpl(MDThread* t, MDValue* dest, MDValue* src)
 	throwException(t, "Cannot perform negation on a '{}'", getString(t, -1));
 }
 
-private void binaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
+void binaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
 {
 	if(RS.type == MDValue.Type.Int && RT.type == MDValue.Type.Int)
 	{
@@ -4082,7 +4088,7 @@ private void binaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* 
 	return commonBinOpMM(t, operation, dest, RS, RT);
 }
 
-private void reflBinaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
+void reflBinaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
 {
 	if(dest.type == MDValue.Type.Int && src.type == MDValue.Type.Int)
 	{
@@ -4107,7 +4113,7 @@ private void reflBinaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDVal
 	throwException(t, "Cannot perform reflexive binary operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
 }
 
-private void comImpl(MDThread* t, MDValue* dest, MDValue* src)
+void comImpl(MDThread* t, MDValue* dest, MDValue* src)
 {
 	if(src.type == MDValue.Type.Int)
 		return *dest = ~src.mInt;
@@ -4119,7 +4125,7 @@ private void comImpl(MDThread* t, MDValue* dest, MDValue* src)
 	throwException(t, "Cannot perform bitwise complement on a '{}'", getString(t, -1));
 }
 
-private void incImpl(MDThread* t, MDValue* dest)
+void incImpl(MDThread* t, MDValue* dest)
 {
 	if(dest.type == MDValue.Type.Int)
 		dest.mInt++;
@@ -4135,7 +4141,7 @@ private void incImpl(MDThread* t, MDValue* dest)
 	}
 }
 
-private void decImpl(MDThread* t, MDValue* dest)
+void decImpl(MDThread* t, MDValue* dest)
 {
 	if(dest.type == MDValue.Type.Int)
 		dest.mInt--;
@@ -4151,7 +4157,7 @@ private void decImpl(MDThread* t, MDValue* dest)
 	}
 }
 
-private void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
+void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 {
 	auto slot = firstSlot;
 	auto endSlot = slot + num;
@@ -4347,7 +4353,7 @@ private void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 	*dest = stack[slot];
 }
 
-private void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
+void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
 {
 	assert(num >= 2);
 
@@ -4408,7 +4414,7 @@ private void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
 	}
 }
 
-private bool asImpl(MDThread* t, MDValue* o, MDValue* p)
+bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 {
 	if(p.type != MDValue.Type.Object)
 	{
@@ -4419,7 +4425,7 @@ private bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 	return o.type == MDValue.Type.Object && obj.derivesFrom(o.mObject, p.mObject);
 }
 
-private MDValue superOfImpl(MDThread* t, MDValue* v)
+MDValue superOfImpl(MDThread* t, MDValue* v)
 {
 	if(v.type == MDValue.Type.Object)
 	{
@@ -4445,7 +4451,7 @@ private MDValue superOfImpl(MDThread* t, MDValue* v)
 }
 
 // Internal funcs
-private void savePtr(MDThread* t, ref MDValue* ptr, out bool shouldLoad)
+void savePtr(MDThread* t, ref MDValue* ptr, out bool shouldLoad)
 {
 	if(ptr >= t.stack.ptr && ptr < t.stack.ptr + t.stack.length)
 	{
@@ -4454,18 +4460,18 @@ private void savePtr(MDThread* t, ref MDValue* ptr, out bool shouldLoad)
 	}
 }
 
-private void loadPtr(MDThread* t, ref MDValue* ptr)
+void loadPtr(MDThread* t, ref MDValue* ptr)
 {
 	ptr = cast(MDValue*)(cast(uword)ptr + cast(uword)t.stack.ptr);
 }
 
-private void checkStack(MDThread* t, AbsStack idx)
+void checkStack(MDThread* t, AbsStack idx)
 {
 	if(idx >= t.stack.length)
 		stackSize(t, idx * 2);
 }
 
-private void stackSize(MDThread* t, uword size)
+void stackSize(MDThread* t, uword size)
 {
 	auto oldBase = t.stack.ptr;
 	t.vm.alloc.resizeArray(t.stack, size);
@@ -4478,17 +4484,17 @@ private void stackSize(MDThread* t, uword size)
 
 version(MDRestrictedCoro) {} else
 {
-	private class ThreadFiber : Fiber
+	class ThreadFiber : Fiber
 	{
-		private MDThread* t;
+		MDThread* t;
 	
-		private this(MDThread* t)
+		this(MDThread* t)
 		{
 			super(&run);
 			this.t = t;
 		}
 	
-		private void run()
+		void run()
 		{
 			assert(t.state == MDThread.State.Initial);
 			t.stack[0] = t.coroFunc;
@@ -4497,7 +4503,7 @@ version(MDRestrictedCoro) {} else
 	}
 }
 
-private bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues)
+bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues)
 {
 	auto ar = pushAR(t);
 
@@ -4542,7 +4548,7 @@ private bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word n
 	}	
 }
 
-private uword resume(MDThread* t, uword numParams)
+uword resume(MDThread* t, uword numParams)
 {
 	version(MDExtendedCoro)
 	{
@@ -4617,13 +4623,13 @@ private uword resume(MDThread* t, uword numParams)
 	}
 }
 
-private MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
+MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
 {
 	assert(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj);
 	return t.vm.metaTabs[type];
 }
 
-private MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDObject* proto)
+MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDObject* proto)
 {
 	switch(v.type)
 	{
@@ -4644,13 +4650,13 @@ private MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MD
 	}
 }
 
-private MDFunction* getMM(MDThread* t, MDValue* obj, MM method)
+MDFunction* getMM(MDThread* t, MDValue* obj, MM method)
 {
 	MDObject* dummy = void;
 	return getMM(t, obj, method, dummy);
 }
 
-private MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* proto)
+MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* proto)
 {
 	auto name = t.vm.metaStrings[method];
 
@@ -4670,7 +4676,7 @@ private MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* pr
 	}
 }
 
-private MDFunction* getMethod(MDObject* obj, MDString* name, out MDObject* proto)
+MDFunction* getMethod(MDObject* obj, MDString* name, out MDObject* proto)
 {
 	auto ret = .obj.getField(obj, name, proto);
 
@@ -4680,7 +4686,7 @@ private MDFunction* getMethod(MDObject* obj, MDString* name, out MDObject* proto
 		return ret.mFunction;
 }
 
-private MDFunction* getMethod(MDTable* tab, MDString* name)
+MDFunction* getMethod(MDTable* tab, MDString* name)
 {
 	auto ret = table.get(tab, MDValue(name));
 
@@ -4690,7 +4696,7 @@ private MDFunction* getMethod(MDTable* tab, MDString* name)
 		return ret.mFunction;
 }
 
-private MDFunction* getMethod(MDNamespace* ns, MDString* name)
+MDFunction* getMethod(MDNamespace* ns, MDString* name)
 {
 	auto ret = namespace.get(ns, name);
 
@@ -4700,7 +4706,7 @@ private MDFunction* getMethod(MDNamespace* ns, MDString* name)
 		return ret.mFunction;
 }
 
-private MDFunction* getMethod(MDThread* t, MDValue.Type type, MDString* name)
+MDFunction* getMethod(MDThread* t, MDValue.Type type, MDString* name)
 {
 	auto mt = getMetatable(t, type);
 
@@ -4716,7 +4722,7 @@ private MDFunction* getMethod(MDThread* t, MDValue.Type type, MDString* name)
 }
 
 // Calling and execution
-private bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, MDObject* proto)
+bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, MDObject* proto)
 {
 	assert(numParams > 0);
 	auto func = &t.stack[slot];
@@ -4807,7 +4813,7 @@ private bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword num
 	}
 }
 
-private bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
+bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
 {
 	if(!func.isNative)
 	{
@@ -4924,7 +4930,7 @@ private bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, w
 	}
 }
 
-private void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
+void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
 {
 	t.stackIndex = paramSlot + numParams;
 	checkStack(t, t.stackIndex);
@@ -4945,7 +4951,7 @@ private void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack retur
 	t.stackBase = ar.base;
 }
 
-private void callEpilogue(MDThread* t, bool needResults)
+void callEpilogue(MDThread* t, bool needResults)
 {
 	auto destSlot = t.currentAR.returnSlot;
 	auto numExpRets = t.currentAR.numReturns;
@@ -4993,7 +4999,7 @@ private void callEpilogue(MDThread* t, bool needResults)
 	}
 }
 
-private void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
+void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
 {
 	if(num == 0)
 		return;
@@ -5011,7 +5017,7 @@ private void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
 	t.resultIndex += num;
 }
 
-private MDValue[] loadResults(MDThread* t)
+MDValue[] loadResults(MDThread* t)
 {
 	auto first = t.currentAR.firstResult;
 	auto num = t.currentAR.numResults;
@@ -5022,7 +5028,7 @@ private MDValue[] loadResults(MDThread* t)
 	return ret;
 }
 
-private ActRecord* pushAR(MDThread* t)
+ActRecord* pushAR(MDThread* t)
 {
 	if(t.arIndex >= t.actRecs.length)
 		t.vm.alloc.resizeArray(t.actRecs, t.actRecs.length * 2);
@@ -5032,7 +5038,7 @@ private ActRecord* pushAR(MDThread* t)
 	return t.currentAR;
 }
 
-private void popAR(MDThread* t)
+void popAR(MDThread* t)
 {
 	t.arIndex--;
 	t.currentAR.func = null;
@@ -5050,7 +5056,7 @@ private void popAR(MDThread* t)
 	}
 }
 
-private TryRecord* pushTR(MDThread* t)
+TryRecord* pushTR(MDThread* t)
 {
 	if(t.trIndex >= t.tryRecs.length)
 		t.vm.alloc.resizeArray(t.tryRecs, t.tryRecs.length * 2);
@@ -5097,7 +5103,7 @@ template tryMMPushes(int numParams, int n = 1)
 template tryMMImpl(int numParams, bool hasDest)
 {
 	const char[] tryMMImpl =
-	"private bool tryMM(MDThread* t, MM mm, " ~ (hasDest? "MDValue* dest, " : "") ~ tryMMParams!(numParams) ~ ")\n"
+	"bool tryMM(MDThread* t, MM mm, " ~ (hasDest? "MDValue* dest, " : "") ~ tryMMParams!(numParams) ~ ")\n"
 	"{\n"
 	"	auto method = getMM(t, src1, mm);\n"
 	"\n"
@@ -5141,7 +5147,7 @@ template tryMM(int numParams, bool hasDest)
 	alias tryMM_shim!(numParams, hasDest).tryMM tryMM;
 }
 
-private mdint commonCompare(MDThread* t, MDFunction* method, MDValue* a, MDValue* b)
+mdint commonCompare(MDThread* t, MDFunction* method, MDValue* a, MDValue* b)
 {
 	auto asave = *a;
 	auto bsave = *b;
@@ -5163,7 +5169,7 @@ private mdint commonCompare(MDThread* t, MDFunction* method, MDValue* a, MDValue
 	return ret.mInt;
 }
 
-private bool commonEquals(MDThread* t, MDFunction* method, MDValue* a, MDValue* b)
+bool commonEquals(MDThread* t, MDFunction* method, MDValue* a, MDValue* b)
 {
 	auto asave = *a;
 	auto bsave = *b;
@@ -5185,7 +5191,7 @@ private bool commonEquals(MDThread* t, MDFunction* method, MDValue* a, MDValue* 
 	return ret.mBool;
 }
 
-private void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
+void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
 {
 	auto v = table.get(container.mTable, *key);
 
@@ -5219,7 +5225,7 @@ private void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValu
 	}
 }
 
-private void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
+void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
 {
 	if(key.type == MDValue.Type.Null)
 	{
@@ -5245,7 +5251,7 @@ private void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValu
 	}
 }
 
-private bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, MDValue* hi, uword len)
+bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, MDValue* hi, uword len)
 {
 	if(lo.type == MDValue.Type.Null)
 		loIndex = 0;
@@ -5274,7 +5280,7 @@ private bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, M
 	return true;
 }
 
-private void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
+void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
 {
 	// mm
 	bool swap = false;
@@ -5344,7 +5350,7 @@ private void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS
 	pop(t);
 }
 
-private void arrayConcat(MDThread* t, MDValue[] vals, uword len)
+void arrayConcat(MDThread* t, MDValue[] vals, uword len)
 {
 	if(vals.length == 2 && vals[0].type == MDValue.Type.Array)
 	{
@@ -5377,7 +5383,7 @@ private void arrayConcat(MDThread* t, MDValue[] vals, uword len)
 	vals[$ - 1] = ret;
 }
 
-private void stringConcat(MDThread* t, MDValue[] vals, uword len)
+void stringConcat(MDThread* t, MDValue[] vals, uword len)
 {
 	auto tmpBuffer = t.vm.alloc.allocArray!(char)(len);
 
@@ -5406,7 +5412,7 @@ private void stringConcat(MDThread* t, MDValue[] vals, uword len)
 	t.vm.alloc.freeArray(tmpBuffer);
 }
 
-private void arrayAppend(MDThread* t, MDValue[] vals)
+void arrayAppend(MDThread* t, MDValue[] vals)
 {
 	uword len = 0;
 
@@ -5440,7 +5446,7 @@ private void arrayAppend(MDThread* t, MDValue[] vals)
 	}
 }
 
-private void close(MDThread* t, AbsStack index)
+void close(MDThread* t, AbsStack index)
 {
 	auto base = &t.stack[index];
 
@@ -5459,7 +5465,7 @@ private void close(MDThread* t, AbsStack index)
 	}
 }
 
-private MDUpval* findUpvalue(MDThread* t, uword num)
+MDUpval* findUpvalue(MDThread* t, uword num)
 {
 	auto slot = &t.stack[t.currentAR.base + num];
 
@@ -5482,7 +5488,7 @@ private MDUpval* findUpvalue(MDThread* t, uword num)
 	return ret;
 }
 
-private word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
+word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 {
 	uword namespaceName(MDNamespace* ns)
 	{
@@ -5516,7 +5522,7 @@ private word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 		return cat(t, x);
 }
 
-private void pushDebugLoc(MDThread* t)
+void pushDebugLoc(MDThread* t)
 {
 	if(t.currentAR is null)
 		pushString(t, "<no location available>");
@@ -5559,7 +5565,7 @@ private void pushDebugLoc(MDThread* t)
 	}
 }
 
-private void throwImpl(MDThread* t, MDValue* ex)
+void throwImpl(MDThread* t, MDValue* ex)
 {
 	pushDebugLoc(t);
 	pushString(t, ": ");
@@ -5576,7 +5582,7 @@ private void throwImpl(MDThread* t, MDValue* ex)
 	throw new MDException(msg);
 }
 
-private void importImpl(MDThread* t, MDString* name, AbsStack dest)
+void importImpl(MDThread* t, MDString* name, AbsStack dest)
 {
 	pushGlobal(t, "modules");
 	auto loaders = field(t, -1, "loaders");
@@ -5649,7 +5655,7 @@ private void importImpl(MDThread* t, MDString* name, AbsStack dest)
 		throwException(t, "Error loading module '{}': could not find anything to load", name.toString());
 }
 
-private void execute(MDThread* t, uword depth = 1)
+void execute(MDThread* t, uword depth = 1)
 {
 	MDException currentException = null;
 	bool isReturning = false;

@@ -46,6 +46,7 @@ import minid.charlib;
 import minid.hashlib;
 import minid.mathlib;
 import minid.oslib;
+import minid.regexplib;
 import minid.stringlib;
 import minid.timelib;
 
@@ -199,9 +200,9 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 	if(libs & MDStdlib.OS)
 		OSLib.init(t);
 
-// 	if(libs & MDStdlib.Regexp)
-// 		RegexpLib.init(ret);
-// 
+	if(libs & MDStdlib.Regexp)
+		RegexpLib.init(t);
+
 	if(libs & MDStdlib.String)
 		StringLib.init(t);
 

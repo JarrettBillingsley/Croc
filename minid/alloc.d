@@ -89,7 +89,8 @@ align(1) struct Allocator
 
 	debug(LEAK_DETECTOR)
 	{
-		import minid.hash;
+		// Trick dimple into thinking there's no import (which there isn't, really).
+		mixin("import minid.hash;");
 
 		struct MemBlock
 		{

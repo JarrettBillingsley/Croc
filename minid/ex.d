@@ -57,9 +57,9 @@ public struct CreateObject
 			pop(t, stackSize(t) - co.idx - 1);
 	}
 
-	public void method(char[] name, NativeFunc f)
+	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
-		newFunction(t, f, this.name ~ name);
+		newFunction(t, f, this.name ~ name, numUpvals);
 		fielda(t, idx, name);
 	}
 }
