@@ -286,18 +286,18 @@ struct RegexpLib
 				{
 					for(auto cont = safeCode(t, rex.test(src)); cont; cont = safeCode(t, rex.test()))
 					{
-						dup(t, matches);
+						//dup(t, matches);
 						pushString(t, rex.match(0));
-						cateq(t, 1);
+						cateq(t, matches, 1);
 					}
 				}
 				else
 				{
 					if(safeCode(t, rex.test(src)))
 					{
-						dup(t, matches);
+						//dup(t, matches);
 						pushString(t, rex.match(0));
-						cateq(t, 1);
+						cateq(t, matches, 1);
 					}
 				}
 			}
@@ -377,17 +377,17 @@ struct RegexpLib
 	        {
 	            tmp = rex.pre();
 	            
-	            dup(t, ret);
+	            //dup(t, ret);
 	            pushString(t, tmp[lastStart .. $]);
-	            cateq(t, 1);
+	            cateq(t, ret, 1);
 
 	            lastStart = r.match(0).ptr - str.ptr;
 	            tmp = rex.post();
 	        }
 
-			dup(t, ret);
+			//dup(t, ret);
 			pushString(t, tmp);
-			cateq(t, 1);
+			cateq(t, ret, 1);
 
 			return 1;
 		}

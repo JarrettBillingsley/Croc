@@ -364,8 +364,8 @@ struct MDValue
 		assert(isObject());
 		return cast(GCObject*)mBaseObj;
 	}
-	
-	debug char[] toString()
+
+	char[] toString()
 	{
 		switch(type)
 		{

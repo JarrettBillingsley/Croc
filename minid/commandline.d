@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,22 +23,25 @@ subject to the following restrictions:
 
 module minid.commandline;
 
-private import minid.compiler;
-private import minid.minid;
-private import minid.types;
-private import minid.utils;
+import tango.io.Console;
+import tango.io.model.IConduit;
+import tango.io.Print;
+import tango.io.Stdout;
+import tango.stdc.ctype;
+import tango.stdc.signal;
+import tango.text.convert.Layout;
+import tango.text.stream.LineIterator;
+import tango.text.Util;
+import Uni = tango.text.Unicode;
+import Utf = tango.text.convert.Utf;
 
-private import tango.io.Print;
-private import tango.io.model.IConduit;
-private import tango.text.convert.Layout;
-private import tango.text.stream.LineIterator;
-private import tango.stdc.ctype;
-private import tango.stdc.signal;
-private import Uni = tango.text.Unicode;
+import minid.compiler;
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+import minid.utils;
 
-private import utf = tango.text.convert.Utf;
-
-public class CommandLine
+struct CommandLine
 {
 	const char[] Prompt1 = ">>> ";
 	const char[] Prompt2 = "... ";
@@ -72,16 +75,23 @@ To end interactive mode, use the \"exit()\" function.
 
 	private Print!(char) mOutput;
 	private LineIterator!(char) mInput;
-
-	public this(Print!(char) output, InputStream inputStream)
+	
+	public static CommandLine opCall(Print!(char) output, InputStream input)
 	{
-		mOutput = output;
-		mInput = new LineIterator!(char)(inputStream);
+		CommandLine ret;
+		ret.mOutput = output;
+		ret.mInput = new LineIterator!(char)(input);
+		return ret;
 	}
-
-	public this(OutputStream outputStream, InputStream inputStream)
+	
+	public static CommandLine opCall(OutputStream output, InputStream input)
 	{
-		this(new Print!(char)(new Layout!(char), outputStream), inputStream);
+		return opCall(new Print!(char)(new Layout!(char), output), input);
+	}
+	
+	public static CommandLine opCall()
+	{
+		return opCall(Stdout, Cin.stream);
 	}
 
 	private void printVersion()
@@ -94,122 +104,107 @@ To end interactive mode, use the \"exit()\" function.
 		printVersion();
 		mOutput("Usage:").newline;
 		mOutput("\t")(progname)(" [flags] [filename [args]]").newline;
-
 		mOutput(Usage);
 	}
 
-	void run(char[][] args = null, MDContext ctx = null)
+	void run(MDThread* t, char[][] args = null)
 	{
 		bool printedVersion = false;
+		bool printedUsage = false;
 		bool interactive = false;
 		char[] inputFile;
-		char[][] scriptArgs;
-		char[][] importPaths;
 		char[] progname = (args.length > 0) ? args[0] : "";
 
 		if(args.length == 1 || args == null)
-		{
 			interactive = true;
-		}
-		
+
 		_argLoop: for(int i = 1; i < args.length; i++)
 		{
 			switch(args[i])
 			{
-			case "-i":
-				interactive = true;
-				break;
-
-			case "-v":
-				if(printedVersion == false)
-				{
-					printedVersion = true;
-					printVersion();
-				}
-				break;
-				
-			case "-h":
-				printUsage(progname);
-				return;
-				
-			case "-I":
-				i++;
-				
-				if(i >= args.length)
-				{
-					mOutput("-I must be followed by a path").newline;
-					printUsage(progname);
+				case "-i":
+					interactive = true;
+					break;
+	
+				case "-v":
+					if(!printedVersion)
+					{
+						printedVersion = true;
+						printVersion();
+					}
+					break;
+					
+				case "-h":
+					if(!printedUsage)
+					{
+						printedUsage = true;
+						printUsage(progname);
+					}
 					return;
-				}
-				
-				importPaths ~= args[i];
-				break;
+					
+				case "-I":
+					i++;
+					
+					if(i >= args.length)
+					{
+						mOutput("-I must be followed by a path").newline;
+						printUsage(progname);
+						return;
+					}
+					
+					pushGlobal(t, "modules");
+					field(t, -1, "path");
+					pushChar(t, ';');
+					pushString(t, args[i]);
+					cateq(t, -3, 2);
+					fielda(t, -2, "path");
+					pop(t);
+					break;
 
-			default:
-				if(args[i][0] == '-')
-				{
-					mOutput("Unknown flag '{}'.", args[i]);
-					return;
-				}
-
-				inputFile = args[i];
-				scriptArgs = args[i + 1 .. $];
-				break _argLoop;
+				default:
+					if(args[i][0] == '-')
+					{
+						mOutput("Unknown flag '{}'.", args[i]);
+						return;
+					}
+	
+					inputFile = args[i];
+					args = args[i + 1 .. $];
+					break _argLoop;
 			}
 		}
 
-		if(ctx is null)
-			ctx = NewContext();
-		
 		// static so it can be accessed by the signal handler
-		static MDState state;
-		state = ctx.mainThread();
-
-		foreach(path; importPaths)
-			ctx.addImportPath(path);
+// 		static MDState state;
+// 		state = ctx.mainThread();
 
 		if(inputFile.length > 0)
 		{
-			MDModuleDef def;
+			word reg;
 
-			if(inputFile.length >= 3 && inputFile[$ - 3 .. $] == ".md")
-				def = Compiler().compileModule(inputFile);
-			else if(inputFile.length >= 4 && inputFile[$ - 4 .. $] == ".mdm")
-				def = MDModuleDef.loadFromFile(inputFile);
-
-			MDValue[] params = new MDValue[scriptArgs.length];
-
-			foreach(i, arg; scriptArgs)
-				params[i] = arg;
-
-			if(def is null)
-			{
-				try
-				{
-					if(auto ns = ctx.loadModuleFromFile(state, utf.toString32(inputFile)))
-						runMain(state, ns, params);
-					else
-						mOutput.formatln("Error: could not find module '{}'", inputFile);
-				}
-				catch(MDException e)
-				{
-					mOutput.formatln("Error: {}", e);
-					mOutput.formatln("{}", ctx.getTracebackString());
-				}
-			}
+			if(!inputFile.endsWith(".md") && !inputFile.endsWith(".mdm"))
+				reg = importModule(t, inputFile);
 			else
 			{
-				try
+				if(inputFile.endsWith(".md"))
 				{
-					auto ns = ctx.initializeModule(state, def);
-					runMain(state, ns, params);
+					scope c = new Compiler(t);
+					c.compileModule(inputFile);
 				}
-				catch(MDException e)
-				{
-					mOutput.formatln("Error: {}", e);
-					mOutput.formatln("{}", ctx.getTracebackString());
-				}
+				else
+					throwException(t, "Deserializing mdms is not implemented");
+
+				reg = initModule(t, funcName(t, -1));
 			}
+
+			pushNull(t);
+			pushGlobal(t, "runMain");
+			swap(t, -3);
+
+			foreach(a; args)
+				pushString(t, a);
+
+			rawCall(t, reg, 0);
 		}
 
 		if(interactive)
@@ -217,71 +212,59 @@ To end interactive mode, use the \"exit()\" function.
 			if(!printedVersion)
 				printVersion();
 
-			dchar[1024] utf32buffer;
-			List!(MDValue) returnBuffer;
-
 			char[] buffer;
 			bool run = true;
 
-			ctx.globals["exit"d] = ctx.newClosure
-			(
-				(MDState s, uint numParams)
-				{
-					run = false;
-					return 0;
-				}, "exit"
-			);
-			
-			auto reprFunc = ctx.globals["dumpVal"d];
+// 			newFunction(t, function uword(MDThread* t, uword numParams)
+// 				{
+// 					run = false;
+// 					return 0;
+// 				}, "exit");
+// 			newGlobal(t, "exit");
 
 			mOutput("Use the \"exit()\" function to end.").newline;
 			mOutput(Prompt1)();
-			
+
 			// static so the interrupt can access it.
-			static bool didHalt = false;
-
-			static extern(C) void interruptHandler(int s)
-			{
-				state.pendingHalt();
-				didHalt = true;
-				signal(s, &interruptHandler);
-			}
-			
-			auto oldInterrupt = signal(SIGINT, &interruptHandler);
-
-			scope(exit)
-				signal(SIGINT, oldInterrupt);
+// 			static bool didHalt = false;
+			bool didHalt = false;
+//
+// 			static extern(C) void interruptHandler(int s)
+// 			{
+// 				state.pendingHalt();
+// 				didHalt = true;
+// 				signal(s, &interruptHandler);
+// 			}
+//
+// 			auto oldInterrupt = signal(SIGINT, &interruptHandler);
+//
+// 			scope(exit)
+// 				signal(SIGINT, oldInterrupt);
 
 			bool couldBeDecl()
 			{
-				if(buffer.length == 0)
-					return false;
-
-				uword i = 0;
-
-				for( ; i < buffer.length && Uni.isWhitespace(buffer[i]); i++)
-				{}
-				
-				auto temp = buffer[i .. $];
-
+				auto temp = buffer.triml();
 				return temp.startsWith("function") || temp.startsWith("object") || temp.startsWith("namespace");
 			}
 
 			bool tryAsStatement(Exception e = null)
 			{
+				scope c = new Compiler(t);
+				word reg;
+
 				try
+					reg = c.compileStatements(buffer, "stdin");
+				catch(MDException e2)
 				{
-					auto def = Compiler().compileStatements(utf.toString32(buffer), "stdin");
-					state.call(ctx.newClosure(def), 0);
-				}
-				catch(MDCompileException e2)
-				{
-					if(e2.atEOF)
+					catchException(t);
+					pop(t);
+
+					if(c.isEof())
 					{
-						mOutput(Prompt2)();
+						mOutput(Prompt2).flush;
 						return true;
 					}
-					else if(e2.solitaryExpression)
+					else if(c.isLoneStmt())
 					{
 						if(e)
 						{
@@ -289,20 +272,25 @@ To end interactive mode, use the \"exit()\" function.
 							mOutput.formatln("Error: {}", e);
 							mOutput.formatln("When attempting to evaluate as a statement:");
 						}
+					}
 
-						mOutput.formatln("Error: {}", e2);
-						mOutput.newline;
-					}
-					else
-					{
-						mOutput.formatln("Error: {}", e2);
-						mOutput.newline;
-					}
+					mOutput.formatln("Error: {}", e2).newline;
+					
+					return false;
+				}
+
+				try
+				{
+					pushNull(t);
+					rawCall(t, reg, 0);
 				}
 				catch(MDException e2)
 				{
+					catchException(t);
+					pop(t);
+
 					mOutput.formatln("Error: {}", e2);
-					mOutput.formatln("{}", ctx.getTracebackString());
+// 					mOutput.formatln("{}", ctx.getTracebackString());
 					mOutput.newline;
 				}
 
@@ -311,34 +299,17 @@ To end interactive mode, use the \"exit()\" function.
 			
 			bool tryAsExpression()
 			{
+				scope c = new Compiler(t);
+				word reg;
+
 				try
+					reg = c.compileExpression(buffer, "stdin");
+				catch(MDException e)
 				{
-					auto numRets = evalMultRet(state, utf.toString32(buffer, utf32buffer));
+					catchException(t);
+					pop(t);
 
-					if(numRets > 0)
-					{
-						mOutput(" => ");
-						returnBuffer.length = 0;
-
-						for(uint i = 0; i < numRets; i++)
-							returnBuffer ~= state.pop();
-
-						auto returns = returnBuffer.toArray();
-						
-						state.call(reprFunc, 0, returns[$ - 1], false);
-
-						foreach_reverse(val; returns[0 .. $ - 1])
-						{
-							mOutput(", ");
-							state.call(reprFunc, 0, val, false);
-						}
-						
-						mOutput.newline;
-					}
-				}
-				catch(MDCompileException e)
-				{
-					if(e.atEOF)
+					if(c.isEof())
 					{
 						mOutput(Prompt2)();
 						return true;
@@ -346,10 +317,48 @@ To end interactive mode, use the \"exit()\" function.
 					else
 						return tryAsStatement(e);
 				}
+				
+				try
+				{
+					pushNull(t);
+					auto numRets = rawCall(t, reg, -1);
+
+					if(numRets > 0)
+					{
+						mOutput(" => ");
+// 						returnBuffer.length = 0;
+// 
+// 						for(uint i = 0; i < numRets; i++)
+// 							returnBuffer ~= state.pop();
+// 
+// 						auto returns = returnBuffer.toArray();
+
+						bool first = true;
+
+						for(word i = stackSize(t) - numRets; i < stackSize(t); i++)
+						{
+							if(first)
+								first = false;
+							else
+								mOutput(", ");
+
+							reg = pushGlobal(t, "dumpVal");
+							pushNull(t);
+							dup(t, i);
+							pushBool(t, false);
+							rawCall(t, reg, 0);
+						}
+
+						mOutput.newline;
+					}
+				}
 				catch(MDException e)
 				{
+					catchException(t);
+					pop(t);
+
 					mOutput.formatln("Error: {}", e);
-					mOutput.formatln("{}", ctx.getTracebackString());
+// 					mOutput.formatln("{}", ctx.getTracebackString());
 					mOutput.newline;
 				}
 
@@ -358,7 +367,7 @@ To end interactive mode, use the \"exit()\" function.
 
 			while(run)
 			{
-				char[] line = mInput.next();
+				auto line = mInput.next();
 
 				if(line.ptr is null)
 				{

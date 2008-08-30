@@ -55,6 +55,7 @@ static:
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
 // 			auto ioLib = importModule(t, "io");
+			// Don't forget to pop ioLib!
 // 			auto osLib = new OSLib(s.context.globals.get!(MDObject)("Object"d), ioLib);
 
 // 			"Process"d,      osLib.processClass,

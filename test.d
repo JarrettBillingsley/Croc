@@ -17,7 +17,7 @@ void main()
 
 	try
 	{
-		importModule(t, "samples.simple");
+		importModule(t, "samples.arrays");
 		pop(t);
 	}
 	catch(MDException e)

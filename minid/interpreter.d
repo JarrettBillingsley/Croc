@@ -554,13 +554,15 @@ word dup(MDThread* t, word slot = -1)
 }
 
 /**
-Swaps the two values at the given swap indices.  The second index defaults to the top-of-stack.
+Swaps the two values at the given swap indices.  The first index defaults to the second-from-top
+value.  The second index defaults to the top-of-stack.  So, if you call swap with no indices, it will
+swap the top two values.
 
 Params:
 	first = The first stack index.
 	second = The second stack index.
 */
-void swap(MDThread* t, word first, word second = -1)
+void swap(MDThread* t, word first = -2, word second = -1)
 {
 	auto f = fakeToAbs(t, first);
 	auto s = fakeToAbs(t, second);
@@ -2246,33 +2248,30 @@ word cat(MDThread* t, uword num)
 }
 
 /**
-Performs concatenation-assignment.  num is how many values there are on the right-hand side and is expected to
-be at least 1.  The RHS values are on the top of the stack.  The destination is the slot immediately before the
-RHS values.  Pops the RHS values off the stack, leaving the destination.
+Performs concatenation-assignment.  dest is the stack slot of the destination object (the object to
+append to).  num is how many values there are on the right-hand side and is expected to be at least 1.
+The RHS values are on the top of the stack.  Pops the RHS values off the stack.
 
 -----
 // x ~= "Hi, " ~ name ~ "!"
-pushGlobal(t, "x"); // destination comes first
+auto dest = pushGlobal(t, "x");
 pushString(t, "Hi ");
 pushGlobal(t, "name");
 pushString(t, "!");
-cateq(t, 3); // 3 rhs values
-setGlobal(t, "x"); // value on the stack may be different, so set it
+cateq(t, dest, 3); // 3 rhs values
+setGlobal(t, "x"); // have to put the new value back (since it's a string)
 -----
 
 Params:
 	num = How many values are on the RHS to be appended.
 */
-void cateq(MDThread* t, uword num)
+void cateq(MDThread* t, word dest, uword num)
 {
 	if(num == 0)
 		throwException(t, "cateq - Cannot append 0 things");
 
-	checkNumParams(t, num + 1);
-
-	auto slot = t.stackIndex - (num + 1);
-
-	catEqImpl(t, slot, num + 1);
+	checkNumParams(t, num);
+	catEqImpl(t, &t.stack[fakeToAbs(t, dest)], t.stackIndex - num, num);
 	pop(t, num);
 }
 
@@ -2570,6 +2569,23 @@ void setFuncEnv(MDThread* t, word func)
 }
 
 /**
+Gets the name of the function at the given stack index.  This is the name given in the declaration
+of the function if it's a script function, or the name given to newFunction for native functions.
+Some functions, like top-level module functions and nameless function literals, have automatically-
+generated names which always start and end with angle brackets ($(LT) and $(GT)).
+*/
+char[] funcName(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return f.name.toString();
+	
+	pushTypeString(t, func);
+	throwException(t, "funcName - Expected 'function', not '{}'", getString(t, -1));
+	
+	assert(false);
+}
+
+/**
 Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
 
 Params:
@@ -2844,6 +2860,102 @@ word importModule(MDThread* t, word name)
 	importImpl(t, str, t.stackIndex - 1);
 
 	return stackSize(t) - 1;
+}
+
+/**
+Initialize a module.  This expects a function to be on top of the stack which represents the
+top-level function of the module.  It will create a namespace in the global namespace hierarchy
+for the module, set the function's environment as that namespace, and call the function with that
+namespace as 'this' and with the module's name as the first parameter.  The function is not expected
+to return anything.  After the function completes, the namespace is added to the modules.loaded table.
+
+This is a relatively low-level API and you probably won't be using it that much.  Note that it does not
+check to see if another module of the same name is already loaded, so it'll just merge with any existing
+module.
+
+The function on the stack is popped and in its place, the namespace of the newly-initialized module
+is pushed.
+
+Params:
+	name = The name of the module in dotted-identifier form.
+
+Returns:
+	The stack index of the newly-pushed module namespace.
+*/
+word initModule(MDThread* t, char[] name)
+{
+	pushString(t, name);
+	return initModule(t);
+}
+
+/**
+Same as above, except that it expects the name to be on top of the stack as well (so the function is
+at -2 and the name is at -1).
+*/
+word initModule(MDThread* t)
+{
+	checkNumParams(t, 2);
+	auto func = absIndex(t, -2);
+
+	if(!isFunction(t, func))
+	{
+		pushTypeString(t, func);
+		throwException(t, "initModule - 'function' expected for module loader, not '{}'", getString(t, -1));
+	}
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "initModule - 'string' expected for name, not '{}'", getString(t, -1));
+	}
+
+	auto name = getString(t, -1);
+
+	// Make the namespace
+	pushGlobal(t, "_G");
+
+	foreach(segment; name.delimiters("."))
+	{
+		pushString(t, segment);
+
+		if(opin(t, -1, -2))
+		{
+			field(t, -2);
+			
+			// TODO: Better error message here
+			if(!isNamespace(t, -1))
+				throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
+		}
+		else
+		{
+			pop(t);
+			newNamespace(t, -1, segment);
+			dup(t);
+			fielda(t, -3, segment);
+		}
+
+		insertAndPop(t, -2);
+	}
+
+	auto ns = getNamespace(t, -1);
+
+	// Set the environment (also used as 'this')
+	swap(t);
+	dup(t, -2);
+	setFuncEnv(t, func);
+
+	// Call it with the name as the first param
+	rawCall(t, func, 0);
+
+	// Add it to the loaded table
+	pushGlobal(t, "modules");
+	field(t, -1, "loaded");
+	pushString(t, name);
+	pushNamespace(t, ns);
+	idxa(t, -3);
+	pop(t, 2);
+	
+	return pushNamespace(t, ns);
 }
 
 /**
@@ -3928,7 +4040,7 @@ void binOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* R
 					if(i2 == 0)
 						throwException(t, "Integer modulo by zero");
 
-					return MDValue(i1 % i2);
+					return *dest = i1 % i2;
 
 				case MM.Div:
 					if(i2 == 0)
@@ -4189,7 +4301,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 				if(idx > (slot + 1))
 				{
-					stringConcat(t, stack[slot .. idx], len);
+					stringConcat(t, stack[slot], stack[slot + 1 .. idx], len);
 					slot = idx - 1;
 				}
 
@@ -4353,23 +4465,20 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 	*dest = stack[slot];
 }
 
-void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
+void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 {
-	assert(num >= 2);
+	assert(num >= 1);
 
-	// dest is stack[firstSlot]
 	auto slot = firstSlot;
 	auto endSlot = slot + num;
 	auto stack = t.stack;
-
-	auto dest = &t.stack[slot];
 
 	switch(dest.type)
 	{
 		case MDValue.Type.String, MDValue.Type.Char:
 			uword len = dest.type == MDValue.Type.Char ? 1 : dest.mString.length;
 
-			for(uword idx = slot + 1; idx < endSlot; idx++)
+			for(uword idx = slot; idx < endSlot; idx++)
 			{
 				if(stack[idx].type == MDValue.Type.String)
 					len += stack[idx].mString.length;
@@ -4381,13 +4490,21 @@ void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
 					throwException(t, "Can't append a '{}' to a 'string/char'", getString(t, -1));
 				}
 			}
-			
-			stringConcat(t, stack[slot .. endSlot], len);
-			stack[slot] = stack[endSlot - 1];
+
+			auto first = *dest;
+			bool shouldLoad = void;
+			savePtr(t, dest, shouldLoad);
+
+			stringConcat(t, first, stack[slot .. endSlot], len);
+
+			if(shouldLoad)
+				loadPtr(t, dest);
+
+			*dest = stack[endSlot - 1];
 			return;
 
 		case MDValue.Type.Array:
-			return arrayAppend(t, stack[slot .. endSlot]);
+			return arrayAppend(t, dest.mArray, stack[slot .. endSlot]);
 
 		case MDValue.Type.Object, MDValue.Type.Table:
 			auto method = getMM(t, dest, MM.CatEq);
@@ -4398,13 +4515,26 @@ void catEqImpl(MDThread* t, AbsStack firstSlot, uword num)
 				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.CatEq], getString(t, -1));
 			}
 
+			bool shouldLoad = void;
+			savePtr(t, dest, shouldLoad);
+
+			checkStack(t, t.stackIndex);
+			
+			if(shouldLoad)
+				loadPtr(t, dest);
+			
+			for(auto i = t.stackIndex; i > firstSlot; i--)
+				t.stack[i] = t.stack[i - 1];
+				
+			t.stack[firstSlot] = *dest;
+
 			version(MDExtendedCoro) {} else
 			{
 				t.nativeCallDepth++;
 				scope(exit) t.nativeCallDepth--;
 			}
 
-			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num, null))
+			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1, null))
 				execute(t);
 			return;
 
@@ -4446,7 +4576,7 @@ MDValue superOfImpl(MDThread* t, MDValue* v)
 		typeString(t, v);
 		throwException(t, "Can only get super of objects and namespaces, not values of type '{}'", getString(t, -1));
 	}
-		
+
 	assert(false);
 }
 
@@ -4947,7 +5077,7 @@ void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, w
 	ar.savedTop = t.stackIndex;
 	ar.proto = proto is null ? null : proto.proto;
 	ar.numTailcalls = 0;
-	
+
 	t.stackBase = ar.base;
 }
 
@@ -5384,18 +5514,18 @@ void arrayConcat(MDThread* t, MDValue[] vals, uword len)
 	vals[$ - 1] = ret;
 }
 
-void stringConcat(MDThread* t, MDValue[] vals, uword len)
+void stringConcat(MDThread* t, MDValue first, MDValue[] vals, uword len)
 {
 	auto tmpBuffer = t.vm.alloc.allocArray!(char)(len);
-
+	scope(exit) t.vm.alloc.freeArray(tmpBuffer);
 	uword i = 0;
 
-	foreach(ref v; vals)
+	void add(ref MDValue v)
 	{
 		char[] s = void;
 
 		if(v.type == MDValue.Type.String)
-			s = v.mString.toString();			
+			s = v.mString.toString();
 		else
 		{
 			dchar[1] inbuf = void;
@@ -5409,13 +5539,17 @@ void stringConcat(MDThread* t, MDValue[] vals, uword len)
 		i += s.length;
 	}
 
+	add(first);
+
+	foreach(ref v; vals)
+		add(v);
+
 	vals[$ - 1] = string.create(t.vm, tmpBuffer);
-	t.vm.alloc.freeArray(tmpBuffer);
 }
 
-void arrayAppend(MDThread* t, MDValue[] vals)
+void arrayAppend(MDThread* t, MDArray* a, MDValue[] vals)
 {
-	uword len = 0;
+	uword len = a.slice.length;
 
 	foreach(ref val; vals)
 	{
@@ -5425,23 +5559,20 @@ void arrayAppend(MDThread* t, MDValue[] vals)
 			len++;
 	}
 
-	auto ret = vals[0].mArray;
-	uword i = ret.slice.length;
+	uword i = a.slice.length;
+	array.resize(t.vm.alloc, a, len);
 
-	array.resize(t.vm.alloc, ret, len);
-
-	foreach(ref v; vals[1 .. $])
+	foreach(ref v; vals)
 	{
 		if(v.type == MDValue.Type.Array)
 		{
-			auto a = v.mArray;
-
-			ret.slice[i .. i + a.slice.length] = a.slice[];
-			i += a.slice.length;
+			auto arr = v.mArray;
+			a.slice[i .. i + arr.slice.length] = arr.slice[];
+			i += arr.slice.length;
 		}
 		else
 		{
-			ret.slice[i] = v;
+			a.slice[i] = v;
 			i++;
 		}
 	}
@@ -5614,46 +5745,11 @@ void importImpl(MDThread* t, MDString* name, AbsStack dest)
 
 	if(t.stack[dest].type == MDValue.Type.Function)
 	{
-		auto reg = pushFunction(t, t.stack[dest].mFunction);
-
-		// Make the namespace
-		pushGlobal(t, "_G");
-
-		foreach(segment; name.toString().delimiters("."))
-		{
-			pushString(t, segment);
-
-			if(opin(t, -1, -2))
-				field(t, -2);
-			else
-			{
-				pop(t);
-				newNamespace(t, -1, segment);
-				dup(t);
-				fielda(t, -3, segment);
-			}
-
-			insertAndPop(t, -2);
-		}
-
-		// Set the environment (also used as 'this')
-		dup(t);
-		setFuncEnv(t, reg);
-		auto ns = getNamespace(t, -1);
-
-		// Call it with the name as the first param
+		pushFunction(t, t.stack[dest].mFunction);
 		pushStringObj(t, name);
-		rawCall(t, reg, 0);
-		
-		t.stack[dest] = ns;
-		
-		// Add it to the loaded table
-		pushGlobal(t, "modules");
-		field(t, -1, "loaded");
-		pushStringObj(t, name);
-		pushNamespace(t, ns);
-		idxa(t, -3);
-		pop(t, 2);
+		initModule(t);
+		t.stack[dest] = getNamespace(t, -1);
+		pop(t);
 	}
 	else if(t.stack[dest].type != MDValue.Type.Namespace)
 		throwException(t, "Error loading module '{}': could not find anything to load", name.toString());
@@ -6408,8 +6504,7 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.CatEq:
-					assert(i.rd == i.rs - 1);
-					catEqImpl(t, stackBase + i.rd, i.rt + 1);
+					catEqImpl(t, get(i.rd), stackBase + i.rs, i.rt);
 					maybeGC(t.vm);
 					break;
 

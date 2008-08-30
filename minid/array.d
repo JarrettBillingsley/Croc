@@ -36,7 +36,7 @@ static:
 	// ================================================================================================================================================
 	// Package
 	// ================================================================================================================================================
-	
+
 	// Create a new array object of the given length.
 	package MDArray* create(ref Allocator alloc, uword size)
 	{
@@ -57,7 +57,7 @@ static:
 	{
 		alloc.free(d, DataSize(d.length));
 	}
-	
+
 	// Resize an array object.
 	package void resize(ref Allocator alloc, MDArray* a, uword newSize)
 	{
@@ -77,13 +77,13 @@ static:
 				d[0 .. a.slice.length] = a.slice[];
 				d[a.slice.length .. $] = MDValue.init;
 				a.slice = d;
-				
+
 				// We reallocated so this array is not a slice, even if it used to be.
 				a.isSlice = false;
 			}
 		}
 	}
-	
+
 	// Slice an array object to create a new array object that references the source's data.
 	package MDArray* slice(ref Allocator alloc, MDArray* a, uword lo, uword hi)
 	{
@@ -193,7 +193,6 @@ static:
 
 		auto ret = alloc.allocate!(MDArrayData)(DataSize(realSize));
 		ret.length = realSize;
-		
 		return ret;
 	}
 

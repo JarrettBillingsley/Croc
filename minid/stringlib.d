@@ -342,7 +342,7 @@ static:
 				
 				if(num >= 50)
 				{
-					cateq(t, num);
+					cateq(t, ret, num);
 					num = 0;
 				}
 			}
@@ -358,7 +358,7 @@ static:
 
 					if(num >= 50)
 					{
-						cateq(t, num);
+						cateq(t, ret, num);
 						num = 0;
 					}
 				}
@@ -366,7 +366,7 @@ static:
 		}
 
 		if(num > 0)
-			cateq(t, num);
+			cateq(t, ret, num);
 
 		return 1;
 	}
@@ -384,13 +384,13 @@ static:
 			
 			if(num >= 50)
 			{
-				cateq(t, num);
+				cateq(t, ret, num);
 				num = 0;
 			}
 		}
 
 		if(num > 0)
-			cateq(t, num);
+			cateq(t, ret, num);
 
 		return 1;
 	}

@@ -231,6 +231,7 @@ package uword loadFiles(MDThread* t, uword numParams)
 			{
 				scope c = new Compiler(t);
 				c.compileModule(src.toString());
+				Stdout.formatln("{}", funcName(t, -1));
 				return 1;
 			}
 		}

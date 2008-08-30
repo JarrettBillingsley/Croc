@@ -594,8 +594,8 @@ static:
 
 		for(uword i = index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
-			
-		getArray(t, 0).slice.length = data.length - 1;
+
+		array.resize(t.vm.alloc, getArray(t, 0), data.length - 1);
 		return 1;
 	}
 
@@ -833,10 +833,8 @@ static:
 					flatten(pushArray(t, val.mArray));
 				else
 				{
-					dup(t, ret);
 					push(t, val);
-					cateq(t, 1);
-					pop(t);
+					cateq(t, ret, 1);
 				}
 			}
 		}

@@ -224,11 +224,11 @@ static:
 				{
 					if(info.folder is isFolder)
 					{
-						dup(t, listing);
+						//dup(t, listing);
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
-						cateq(t, 1);
+						cateq(t, listing, 1);
 					}
 				}
 			}());
@@ -250,9 +250,9 @@ static:
 						
 						if(patternMatch(fullName, filter))
 						{
-							dup(t, listing);
-							insert(t, -2);
-							cateq(t, 1);
+							//dup(t, listing);
+							//insert(t, -2);
+							cateq(t, listing, 1);
 						}
 						else
 							pop(t);

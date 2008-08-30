@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,14 +23,17 @@ subject to the following restrictions:
 
 module mdcl;
 
-import minid.commandline;
-
-import tango.core.Memory;
 import tango.io.Stdout;
 import tango.io.Console;
 
+import minid.api;
+import minid.commandline;
+
 void main(char[][] args)
 {
-	GC.reserve(1024 * 1024 * 4);
-	(new CommandLine(Stdout, Cin.stream)).run(args);
+	MDVM vm;
+	auto t = openVM(&vm);
+	loadStdlibs(t);
+
+	CommandLine().run(t, args);
 }

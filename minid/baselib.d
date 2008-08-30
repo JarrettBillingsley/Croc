@@ -206,17 +206,20 @@ static:
 		return 1;
 	}
 */
-	
+
 	uword runMain(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Namespace);
 
-		auto main = field(t, 1, "main");
-
-		if(isFunction(t, main))
+		if(.hasField(t, 1, "main"))
 		{
-			insert(t, 1);
-			rawCall(t, 1, 0);
+			auto main = field(t, 1, "main");
+	
+			if(isFunction(t, main))
+			{
+				insert(t, 1);
+				rawCall(t, 1, 0);
+			}
 		}
 
 		return 0;

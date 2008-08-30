@@ -23,6 +23,12 @@ subject to the following restrictions:
 
 module minid.codegen;
 
+// debug = REGPUSHPOP;
+// debug = VARACTIVATE;
+// debug = WRITECODE;
+// debug = SHOWME;
+// debug = PRINTEXPSTACK;
+
 debug import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
@@ -38,12 +44,6 @@ import minid.opcodes;
 import minid.string;
 import minid.types;
 import minid.utils;
-
-// debug = REGPUSHPOP;
-// debug = VARACTIVATE;
-// debug = WRITECODE;
-// debug = SHOWME;
-// debug = PRINTEXPSTACK;
 
 private Op AstTagToOpcode(AstTag tag)
 {
@@ -1684,7 +1684,7 @@ final class FuncState
 		return ret;
 	}
 
-	debug public void showMe()
+	debug(SHOWME) public void showMe()
 	{
 		Stdout.formatln("Function at {}({}:{}) (guessed name: {})", mLocation.file, mLocation.line, mLocation.col, mName);
 		Stdout.formatln("Num params: {} Vararg: {} Stack size: {}", mNumParams, mIsVararg, mStackSize);

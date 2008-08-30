@@ -1,4 +1,4 @@
-module arrays
+module samples.arrays
 
 function test()
 {

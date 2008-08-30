@@ -1,5 +1,10 @@
 module samples.simple
 
+function main(x, y)
+	writefln("bar! {} {}", x, y)
+
+writeln("foo.")
+
 /+
 /*
 object BaseProp
