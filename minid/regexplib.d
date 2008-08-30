@@ -216,7 +216,7 @@ struct RegexpLib
 				o.method("replace", &replace);
 
 					newFunction(t, &iterator, "Regexp.iterator");
-				o.method("opApply", &apply, 1);
+				o.method("opApply", &opApply, 1);
 			});
 			
 			newGlobal(t, "Regexp");
@@ -248,12 +248,9 @@ struct RegexpLib
 			pushGlobal(t, "Regexp");
 			auto ret = newObject(t, -1, null, 2);
 
-			pushNativeObj(t, new Regex(pat, attrs));
-			setExtraVal(t, ret, Members.regex);
+			pushNativeObj(t, new Regex(pat, attrs));        setExtraVal(t, ret, Members.regex);
+			pushBool(t, attrs.locate('g') != attrs.length); setExtraVal(t, ret, Members.global);
 
-			pushBool(t, attrs.locate('g') != attrs.length);
-			setExtraVal(t, ret, Members.global);
-			
 			return 1;
 		}
 
@@ -423,8 +420,9 @@ struct RegexpLib
 			return 2;
 		}
 
-		public uword apply(MDThread* t, uword numParams)
+		public uword opApply(MDThread* t, uword numParams)
 		{
+			checkObjParam(t, 0, "Regexp");
 			getUpval(t, 0);
 			dup(t, 0);
 			pushInt(t, -1);

@@ -16,7 +16,9 @@ void main()
 	loadStdlibs(t);
 
 	try
+	{
 		importModule(t, "samples.simple");
+	}
 	catch(MDException e)
 	{
 		auto ex = catchException(t);

@@ -44,6 +44,7 @@ import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
 import minid.hashlib;
+import minid.iolib;
 import minid.mathlib;
 import minid.oslib;
 import minid.regexplib;
@@ -191,9 +192,9 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 	if(libs & MDStdlib.Char)
 		CharLib.init(t);
 
-// 	if(libs & MDStdlib.IO)
-// 		IOLib.init(ret);
-// 
+	if(libs & MDStdlib.IO)
+		IOLib.init(t);
+
 	if(libs & MDStdlib.Math)
 		MathLib.init(t);
 

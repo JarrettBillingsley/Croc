@@ -1,7 +1,6 @@
 module samples.simple
 
 
-writefln("Took {} s", t.seconds())
 
 /+
 object BaseProp

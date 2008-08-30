@@ -310,31 +310,37 @@ static:
 		// Upvalue 1 is the current index into the namespace
 		static uword iter(MDThread* t, uword numParams)
 		{
-			getUpval(t, 0);
-			auto o = getObject(t, -1);
-
-			getUpval(t, 1);
-			uword index = getInt(t, -1);
-
 			MDString** key = void;
 			MDValue* value = void;
+			uword index = void;
 
-			if(!obj.next(o, index, key, value))
+			while(true)
 			{
-				superOf(t, -2);
+				getUpval(t, 0);
+				auto o = getObject(t, -1);
 
-				if(isNull(t, -1))
-					return 0;
+				getUpval(t, 1);
+				index = getInt(t, -1);
 
-				setUpval(t, 0);
-				pushInt(t, -1);
-				setUpval(t, 1);
-				pop(t, 2);
+				if(!obj.next(o, index, key, value))
+				{
+					superOf(t, -2);
+	
+					if(isNull(t, -1))
+						return 0;
+	
+					setUpval(t, 0);
+					pushInt(t, -1);
+					setUpval(t, 1);
+					pop(t, 2);
+	
+					// try again
+					continue;
+				}
 
-				// try again
-				return iter(t, numParams);
+				break;
 			}
-			
+
 			pop(t, 2);
 
 			pushInt(t, index);

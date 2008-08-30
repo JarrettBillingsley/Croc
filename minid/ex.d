@@ -59,7 +59,7 @@ public struct CreateObject
 
 	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
-		newFunction(t, f, this.name ~ name, numUpvals);
+		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
 	}
 }
