@@ -77,9 +77,8 @@ struct RegexpLib
 		}, "regexp");
 
 		fielda(t, -2, "regexp");
-		pop(t);
-
 		importModule(t, "regexp");
+		pop(t, 3);
 	}
 
 // 	static uword test(MDThread* t, uword numParams)

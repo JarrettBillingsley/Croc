@@ -1,8 +1,7 @@
 module samples.simple
 
-
-
 /+
+/*
 object BaseProp
 {
 	function get()
@@ -38,7 +37,7 @@ function mixinProperties(T, vararg)
 			return prop.get(this)
 
 		if(oldField is null)
-			return rawGet(this, name)
+			return rawGetField(this, name)
 		else
 			return oldField(with this, name)
 	}
@@ -49,7 +48,7 @@ function mixinProperties(T, vararg)
 			return prop.set(this, value)
 
 		if(oldFieldAssign is null)
-			rawSet(this, name, value)
+			rawSetField(this, name, value)
 		else
 			return oldFieldAssign(with this, name, value)
 	}
@@ -149,28 +148,24 @@ writeln(Deck.dealCard())
 
 // Importing stuff.
 {
-	local function loadMod(name, ns)
+	local function loadMod(name: string)
 	{
 		assert(name == "mod")
 
-		ns.x = "I'm x"
+		global x = "I'm x"
 
-		ns.foo = function foo()
+		global function foo()
 			writefln("foo")
 
-		ns.bar = function bar(x) = x[0]
+		global function bar(x) = x[0]
 
-		ns.baz = function baz()
+		global function baz()
 			writefln(x)
-
-		foreach(k, v; ns)
-			if(isFunction(v))
-				v.environment(ns)
 	}
 
-	setModuleLoader("mod", loadMod)
+	modules.customLoaders.mod = loadMod
 
-	import mod : foo, bar
+	import mod: foo, bar
 	foo()
 	writefln(bar([5]))
 	mod.baz()
@@ -229,7 +224,7 @@ writeln(Deck.dealCard())
 	
 	foreach(_, k, v; forEach, {hi = 1, bye = 2})
 		writefln("key: ", k, ", value: ", v)
-	
+
 	writefln()
 }
 
@@ -596,7 +591,7 @@ writeln(Deck.dealCard())
 		writefln("test[", k, "] = ", v)
 
 	writefln()
-	
+
 	foreach(k, v; test, "reverse")
 		writefln("test[", k, "] = ", v)
 
@@ -630,7 +625,7 @@ writeln(Deck.dealCard())
 		writefln("str[", k, "] = ", v)
 	
 	writefln()
-	
+
 	foreach(k, v; "hello", "reverse")
 		writefln("str[", k, "] = ", v)
 	
@@ -709,7 +704,7 @@ writeln(Deck.dealCard())
 	}
 	catch(e)
 		writefln("caught: ", e)
-	
+
 	writefln()
 }
 
@@ -728,7 +723,7 @@ writeln(Deck.dealCard())
 	
 	foreach(i, v; array)
 		writefln("arr[", i, "] = ", v)
-	
+
 	writefln()
 }
 
@@ -745,11 +740,8 @@ writeln(Deck.dealCard())
 	}
 
 	vargs()
-	
 	writefln()
-	
 	vargs(2, 3, 5, "foo", "bar")
-	
 	writefln()
 }
 
@@ -789,25 +781,23 @@ writeln(Deck.dealCard())
 	}
 	
 	writefln()
-	
+
 	local object A
 	{
 		mValue
 
-		function clone(value) = object : this { mValue = value }
+		function clone(value) =
+			object : this { mValue = value }
 
-		function opCmp(other)
-		{
-			assert(other as A)
-			return :mValue <=> other.mValue
-		}
+		function opCmp(other: A) =
+			:mValue <=> other.mValue
 	}
 
 	local a1 = A.clone(1)
 	local a2 = A.clone(2)
 	local a3 = A.clone(3)
 
-	for(s : 1 .. 4)
+	for(s: 1 .. 4)
 	{
 		local ss = A.clone(s)
 	
@@ -816,7 +806,7 @@ writeln(Deck.dealCard())
 			case a1:
 				writefln(1)
 				break
-	
+
 			case a2:
 				writefln(2)
 				break

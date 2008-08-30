@@ -95,9 +95,8 @@ static:
 		}, "math");
 
 		fielda(t, -2, "math");
-		pop(t);
-
 		importModule(t, "math");
+		pop(t, 3);
 	}
 
 	mdfloat get_float(MDThread* t, word i)
@@ -335,7 +334,7 @@ static:
 				if(hi == lo)
 					throwException(t, "Low and high values must be different");
 
-				pushInt(t, cast(mdint)(num % (hi - lo)) + lo);
+				pushInt(t, (cast(uword)num % (hi - lo)) + lo);
 				break;
 		}
 

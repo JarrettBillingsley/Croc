@@ -79,9 +79,8 @@ static:
 		}, "string");
 		
 		fielda(t, -2, "string");
-		pop(t);
-
 		importModule(t, "string");
+		pop(t, 3);
 	}
 
 	uword join(MDThread* t, uword numParams)
@@ -356,7 +355,7 @@ static:
 				{
 					pushString(t, piece);
 					num++;
-					
+
 					if(num >= 50)
 					{
 						cateq(t, num);

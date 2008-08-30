@@ -64,11 +64,10 @@ static:
 		}, "hash");
 
 		fielda(t, -2, "hash");
-		pop(t);
-
 		importModule(t, "hash");
+		pop(t, 3);
 	}
-	
+
 	uword dupImpl(MDThread* t, word slot)
 	{
 		auto tab = getTable(t, slot);

@@ -89,9 +89,8 @@ static:
 		}, "array");
 
 		fielda(t, -2, "array");
-		pop(t);
-
 		importModule(t, "array");
+		pop(t, 3);
 	}
 
 	uword array_new(MDThread* t, uword numParams)

@@ -3692,7 +3692,7 @@ bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 {
 	if(a.type != b.type)
 		return false;
-		
+
 	if(a.opEquals(*b))
 		return true;
 
@@ -3703,7 +3703,7 @@ bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 		else if(auto method = getMM(t, b, MM.Cmp))
 			return commonCompare(t, method, b, a) == 0;
 	}
-
+	
 	return false;
 }
 
@@ -4563,7 +4563,7 @@ uword resume(MDThread* t, uword numParams)
 		try
 			t.getFiber().call();
 		catch(Object o)
-			throw o;
+			throw o; // wut?
 		
 		return t.numYields;
 	}
@@ -5244,11 +5244,12 @@ void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value
 		else
 			table.remove(container.mTable, *key);
 	}
-	else
+	else if(value.type != MDValue.Type.Null)
 	{
 		if(raw || !tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
 			table.set(t.vm.alloc, container.mTable, *key, *value);
 	}
+	// otherwise, do nothing (val is null and it doesn't exist)
 }
 
 bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, MDValue* hi, uword len)
@@ -5567,10 +5568,13 @@ void pushDebugLoc(MDThread* t)
 
 void throwImpl(MDThread* t, MDValue* ex)
 {
-	pushDebugLoc(t);
-	pushString(t, ": ");
+	// doing this backwards since ex can be on the stack - don't want stack to move underneath us
 	toStringImpl(t, *ex, true);
+	pushString(t, ": ");
+	pushDebugLoc(t);
+	swap(t, -3);
 	cat(t, 3);
+
 	// dup'ing since we're removing the only MiniD reference and handing it off to D
 	auto msg = getString(t, -1).dup;
 	pop(t);
@@ -5635,10 +5639,10 @@ void importImpl(MDThread* t, MDString* name, AbsStack dest)
 		// Set the environment (also used as 'this')
 		dup(t);
 		setFuncEnv(t, reg);
-		
 		auto ns = getNamespace(t, -1);
 
-		// Call it
+		// Call it with the name as the first param
+		pushStringObj(t, name);
 		rawCall(t, reg, 0);
 		
 		t.stack[dest] = ns;
@@ -5834,7 +5838,7 @@ void execute(MDThread* t, uword depth = 1)
 					t.currentAR.pc++;
 					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'swcmp' jump");
 
-					if(switchCmpImpl(t, get(i.rs), get(i.rt)) == 0)
+					if(switchCmpImpl(t, get(i.rs), get(i.rt)))
 						t.currentAR.pc += jump.imm;
 
 					break;
@@ -6604,7 +6608,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				if(tr.isCatch)
 				{
-					auto base = stackBase + tr.catchVarSlot;
+					auto base = t.stackBase + tr.catchVarSlot;
 
 					t.stack[base] = t.vm.exception;
 					t.vm.exception = MDValue.nullValue;

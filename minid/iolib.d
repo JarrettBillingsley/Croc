@@ -128,9 +128,8 @@ static:
 		}, "io");
 
 		fielda(t, -2, "io");
-		pop(t);
-
 		importModule(t, "io");
+		pop(t, 3);
 	}
 
 	uword rename(MDThread* t, uword numParams)

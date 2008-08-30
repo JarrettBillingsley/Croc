@@ -81,11 +81,10 @@ static:
 		}, "time");
 
 		fielda(t, -2, "time");
-		pop(t);
-
 		importModule(t, "time");
+		pop(t, 3);
 	}
-	
+
 	uword microTime(MDThread* t, uword numParams)
 	{
 		version(Windows)

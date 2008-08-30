@@ -65,9 +65,8 @@ static:
 		}, "os");
 		
 		fielda(t, -2, "os");
-		pop(t);
-
 		importModule(t, "os");
+		pop(t, 3);
 	}
 
 	uword system(MDThread* t, uword numParams)
