@@ -21,7 +21,7 @@ local function makeCumulative(arr)
 {
 	local sum = 0.0
 
-	for(i : 0 .. #arr)
+	for(i: 0 .. #arr)
 	{
 		sum += arr[i][1]
 		arr[i][1] = sum
@@ -149,10 +149,10 @@ function main(N)
 	local timer = time.PerfCounter.clone()
 	timer.start()
 
-	makeRepeatFasta("ONE", "Homo sapiens alu", alu, n * 2)
-	makeRandomFasta("TWO", "IUB ambiguity codes", iub, n * 3)
-	makeRandomFasta("THREE", "Homo sapiens frequency", homosapiens, n * 5)
-
+		makeRepeatFasta("ONE", "Homo sapiens alu", alu, n * 2)
+		makeRandomFasta("TWO", "IUB ambiguity codes", iub, n * 3)
+		makeRandomFasta("THREE", "Homo sapiens frequency", homosapiens, n * 5)
+	
 	timer.stop()
 	writefln("Took {} sec", timer.seconds())
 }

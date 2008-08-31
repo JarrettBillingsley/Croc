@@ -21,14 +21,14 @@ function link(n)
 	}
 }
 
-//function main(N)
-//{
+function main(N)
+{
 	local n = 3000
 
-//	if(isString(N))
-//		try n = toInt(N); catch(e) {}
+	if(isString(N))
+		try n = toInt(N); catch(e) {}
 
-	local timer = Timer.clone()
+	local timer = time.Timer.clone()
 	timer.start()
 
 	local cofunc = coroutine link
@@ -42,4 +42,4 @@ function link(n)
 
 	timer.stop()
 	writefln("Took {} sec", timer.seconds())
-//}
+}

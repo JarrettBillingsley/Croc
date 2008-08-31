@@ -2985,6 +2985,20 @@ the code returns.  If it throws an exception derived from MDException, it rethro
 an exception that derives from Exception, it throws a new MDException with the original exception's message as the
 message.
 
+If you want to wrap statements, you can use a delegate literal:
+
+-----
+safeCode(t,
+{
+	stmt1;
+	stmt2;
+	stmt3;
+}());
+-----
+
+Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
+parameter.  If you don't put the parens there, it will never actually call the delegate.
+
 safeCode() is templated to allow any return value.
 
 Params:

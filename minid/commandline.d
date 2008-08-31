@@ -174,10 +174,6 @@ To end interactive mode, use the \"exit()\" function.
 			}
 		}
 
-		// static so it can be accessed by the signal handler
-// 		static MDState state;
-// 		state = ctx.mainThread();
-
 		if(inputFile.length > 0)
 		{
 			word reg;
@@ -192,7 +188,7 @@ To end interactive mode, use the \"exit()\" function.
 					c.compileModule(inputFile);
 				}
 				else
-					throwException(t, "Deserializing mdms is not implemented");
+					throwException(t, "Deserializing mdms is not implemented"); // TODO: this
 
 				reg = initModule(t, funcName(t, -1));
 			}
@@ -213,33 +209,38 @@ To end interactive mode, use the \"exit()\" function.
 				printVersion();
 
 			char[] buffer;
-			bool run = true;
 
-// 			newFunction(t, function uword(MDThread* t, uword numParams)
-// 				{
-// 					run = false;
-// 					return 0;
-// 				}, "exit");
-// 			newGlobal(t, "exit");
+			// static so exit can access it.
+			static bool run;
+			run = true;
+
+			newFunction(t, function uword(MDThread* t, uword numParams)
+				{
+					run = false;
+					return 0;
+				}, "exit");
+			newGlobal(t, "exit");
 
 			mOutput("Use the \"exit()\" function to end.").newline;
 			mOutput(Prompt1)();
 
-			// static so the interrupt can access it.
-// 			static bool didHalt = false;
-			bool didHalt = false;
-//
-// 			static extern(C) void interruptHandler(int s)
-// 			{
-// 				state.pendingHalt();
-// 				didHalt = true;
-// 				signal(s, &interruptHandler);
-// 			}
-//
-// 			auto oldInterrupt = signal(SIGINT, &interruptHandler);
-//
-// 			scope(exit)
-// 				signal(SIGINT, oldInterrupt);
+			// static so the interrupt handler can access it.
+			static bool didHalt = false;
+			didHalt = false;
+			static MDThread* thread;
+			thread = t;
+
+			static extern(C) void interruptHandler(int s)
+			{
+				pendingHalt(thread);
+				didHalt = true;
+				signal(s, &interruptHandler);
+			}
+
+			auto oldInterrupt = signal(SIGINT, &interruptHandler);
+
+			scope(exit)
+				signal(SIGINT, oldInterrupt);
 
 			bool couldBeDecl()
 			{
@@ -326,12 +327,6 @@ To end interactive mode, use the \"exit()\" function.
 					if(numRets > 0)
 					{
 						mOutput(" => ");
-// 						returnBuffer.length = 0;
-// 
-// 						for(uint i = 0; i < numRets; i++)
-// 							returnBuffer ~= state.pop();
-// 
-// 						auto returns = returnBuffer.toArray();
 
 						bool first = true;
 
@@ -388,18 +383,20 @@ To end interactive mode, use the \"exit()\" function.
 
 				buffer ~= '\n' ~ line;
 
-				if(couldBeDecl())
+				try
 				{
-					if(tryAsStatement())
-						continue;
+					if(couldBeDecl())
+					{
+						if(tryAsStatement())
+							continue;
+					}
+					else
+					{
+						if(tryAsExpression())
+							continue;
+					}
 				}
-				else
-				{
-					if(tryAsExpression())
-						continue;
-				}
-				
-				if(didHalt)
+				catch(MDHaltException e)
 				{
 					mOutput.formatln("Halted by keyboard interrupt.");
 					didHalt = false;

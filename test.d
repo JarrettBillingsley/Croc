@@ -17,7 +17,11 @@ void main()
 
 	try
 	{
-		importModule(t, "samples.arrays");
+		importModule(t, "benchmark.binarytrees");
+		pushNull(t);
+		pushGlobal(t, "runMain");
+		swap(t, -3);
+		rawCall(t, -3, 0);
 		pop(t);
 	}
 	catch(MDException e)

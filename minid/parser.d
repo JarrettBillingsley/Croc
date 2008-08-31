@@ -165,6 +165,10 @@ struct Parser
 		scope statements = new List!(Statement)(c.alloc);
 		scope exprs = new List!(Expression)(c.alloc);
 		exprs ~= parseExpression();
+		
+		if(l.type != Token.EOF)
+			c.exception(l.loc, "Extra unexpected code after expression");
+
 		statements ~= new(c) ReturnStmt(c, exprs[0].location, exprs[0].endLocation, exprs.toArray());
 		auto code = new(c) BlockStmt(c, location, statements[0].endLocation, statements.toArray());
 		scope params = new List!(FuncDef.Param)(c.alloc);

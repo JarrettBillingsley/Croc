@@ -100,7 +100,7 @@ function main(N)
 	if(isString(N))
 		try n = toInt(N); catch(e) {}
 
-	local timer = time.PerfCounter.clone()
+	local timer = time.Timer.clone()
 	timer.start()
 
 	writefln("Pfannkuchen({}) = {}", n, fannkuch(n))

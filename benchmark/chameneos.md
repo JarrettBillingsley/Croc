@@ -119,7 +119,7 @@ function main(n)
 	if(isString(n))
 		try N = toInt(n); catch(e) {}
 
-	local timer = time.PerfCounter.clone()
+	local timer = time.Timer.clone()
 	timer.start()
 
 	local threads =

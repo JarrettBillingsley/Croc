@@ -68,7 +68,11 @@ static:
 		else
 		{
 			if(!a.isSlice && newSize <= a.data.length)
+			{
+				auto len = a.slice.length;
 				a.slice = a.data.toArray()[0 .. newSize];
+				a.slice[len .. $] = MDValue.init;
+			}
 			else
 			{
 				a.data = allocData!(true)(alloc, newSize);
@@ -115,17 +119,17 @@ static:
 	{
 		auto start = block * Instruction.arraySetFields;
 		auto end = start + data.length;
-		
+
 		// Since Op.SetArray can use a variadic number of values, the number
 		// of elements actually added to the array in the array constructor
 		// may exceed the size with which the array was created.  So it should be
 		// resized.
 		if(end > a.slice.length)
 			array.resize(alloc, a, end);
-			
+
 		a.slice[start .. end] = data[];
 	}
-	
+
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
 	package bool contains(MDArray* a, ref MDValue v)
 	{
@@ -193,6 +197,7 @@ static:
 
 		auto ret = alloc.allocate!(MDArrayData)(DataSize(realSize));
 		ret.length = realSize;
+		ret.toArray()[] = MDValue.init;
 		return ret;
 	}
 

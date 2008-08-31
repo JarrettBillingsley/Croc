@@ -29,7 +29,7 @@ module minid.codegen;
 // debug = SHOWME;
 // debug = PRINTEXPSTACK;
 
-debug import tango.io.Stdout;
+import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
 import minid.alloc;

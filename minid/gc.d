@@ -159,7 +159,7 @@ private void markObj(MDVM* vm, MDArray* o)
 	o.marked = vm.alloc.markVal;
 	o.data.marked = vm.alloc.markVal;
 
-	foreach(ref val; o.slice)
+	foreach(i, ref val; o.slice)
 	{
 		mixin(CondMark!("val"));
 	}

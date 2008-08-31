@@ -33,7 +33,7 @@ import minid.hash;
 import minid.opcodes;
 import minid.utils;
 
-debug import tango.text.convert.Format;
+import tango.text.convert.Format;
 
 // ================================================================================================================================================
 // Public
@@ -172,24 +172,24 @@ struct MDValue
 	enum Type : uint
 	{
 		// Value Types
-		Null,
+		Null, // 0
 		Bool,
 		Int,
 		Float,
 		Char,
 
 		// Reference Types
-		String,
+		String, // 5
 		Table,
 		Array,
 		Function,
-		Object,
+		Object, // 9
 		Namespace,
 		Thread,
 		NativeObj,
 
 		// Internal types
-		Upvalue,
+		Upvalue, // 13
 		FuncDef,
 		ArrayData
 	}
