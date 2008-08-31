@@ -51,6 +51,14 @@ public MDThread* mainThread(MDVM* vm)
 	return vm.mainThread;
 }
 
+/**
+Find out how many bytes of memory the given VM has allocated.
+*/
+public uword bytesAllocated(MDVM* vm)
+{
+	return vm.alloc.totalBytes;
+}
+
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================

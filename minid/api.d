@@ -230,7 +230,7 @@ public void closeVM(MDVM* vm)
 {
 	assert(vm.mainThread !is null, "Attempting to close an already-closed VM");
 
-	freeAll(vm);
+	freeAll(vm.mainThread);
 	vm.alloc.freeArray(vm.metaTabs);
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);

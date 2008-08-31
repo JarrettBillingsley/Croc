@@ -485,6 +485,7 @@ struct MDObject
 	package MDObject* proto;
 	package MDNamespace* fields;
 	package MDTable* attrs;
+	package MDFunction* finalizer;
 	package uword numValues;
 	package uword extraBytes;
 

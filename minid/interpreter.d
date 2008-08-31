@@ -34,6 +34,7 @@ import tango.stdc.string;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
+import minid.alloc;
 import minid.array;
 import minid.func;
 import minid.gc;
@@ -77,6 +78,41 @@ Gets the VM that the thread is associated with.
 MDVM* getVM(MDThread* t)
 {
 	return t.vm;
+}
+
+/**
+Runs the garbage collector if necessary.
+
+This will perform a garbage collection only if a sufficient amount of memory has been allocated since
+the last collection.
+
+Params:
+	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+		in order to be able to call finalization methods.
+*/
+public void maybeGC(MDThread* t)
+{
+	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
+	{
+		gc(t);
+
+		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
+			t.vm.alloc.gcLimit <<= 1;
+	}
+}
+
+/**
+Runs the garbage collector unconditionally.
+
+Params:
+	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+		in order to be able to call finalization methods.
+*/
+public void gc(MDThread* t)
+{
+	mark(t.vm);
+	sweep(t.vm);
+	runFinalizers(t);
 }
 
 /**
@@ -159,7 +195,7 @@ word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
 	}
 
 	t.vm.formatter.convert(&sink, arguments, argptr, fmt);
-	maybeGC(t.vm);
+	maybeGC(t);
 	return cat(t, numPieces);
 }
 
@@ -174,7 +210,7 @@ Returns:
 */
 word newTable(MDThread* t, uword size = 0)
 {
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushTable(t, table.create(t.vm.alloc, size));
 }
 
@@ -189,7 +225,7 @@ Returns:
 */
 word newArray(MDThread* t, uword len)
 {
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushArray(t, array.create(t.vm.alloc, len));
 }
 
@@ -207,7 +243,7 @@ Returns:
 word newArrayFromStack(MDThread* t, uword len)
 {
 	checkNumParams(t, len);
-	maybeGC(t.vm);
+	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
 	a.slice[] = t.stack[t.stackIndex - len .. t.stackIndex];
 	pop(t, len);
@@ -288,7 +324,7 @@ word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpva
 		throwException(t, "newFunctionWithEnv - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
-	maybeGC(t.vm);
+	maybeGC(t);
 
 	auto f = .func.create(t.vm.alloc, env, string.create(t.vm, name), func, numUpvals);
 	f.nativeUpvals()[] = getLocals(t)[$ - 1 - numUpvals .. $ - 1];
@@ -378,7 +414,7 @@ word newObject(MDThread* t, word proto, char[] name = null, uword numValues = 0,
 	else
 		n = string.create(t.vm, name);
 
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushObject(t, obj.create(t.vm.alloc, n, p, numValues, extraBytes));
 }
 
@@ -406,7 +442,7 @@ word newObject(MDThread* t, char[] name = null, uword numValues = 0, uword extra
 	else
 		n = string.create(t.vm, name);
 
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushObject(t, obj.create(t.vm.alloc, n, p, numValues, extraBytes));
 }
 
@@ -473,7 +509,7 @@ Returns:
 */
 word newNamespaceNoParent(MDThread* t, char[] name)
 {
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushNamespace(t, namespace.create(t.vm.alloc, string.create(t.vm, name), null));
 }
 
@@ -503,7 +539,7 @@ word newThread(MDThread* t, word func)
 			throwException(t, "newThread - Native functions may not be used as the body of a coroutine");
 	}
 
-	maybeGC(t.vm);
+	maybeGC(t);
 	return pushThread(t, thread.create(t.vm, f));
 }
 
@@ -532,7 +568,7 @@ Returns:
 */
 word pushNativeObj(MDThread* t, Object o)
 {
-	maybeGC(t.vm);
+	maybeGC(t);
 	return push(t, MDValue(nativeobj.create(t.vm, o)));
 }
 
@@ -2438,6 +2474,48 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	pop(t);
 }
 
+word pushFinalizer(MDThread* t, word obj)
+{
+	if(auto o = getObject(t, obj))
+	{
+		if(o.finalizer)
+			return pushFunction(t, o.finalizer);
+		else
+			return pushNull(t);
+	}
+	
+	pushTypeString(t, obj);
+	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+	
+	assert(false);
+}
+
+void setFinalizer(MDThread* t, word obj)
+{
+	checkNumParams(t, 1);
+
+	if(!(isNull(t, -1) || isFunction(t, -1)))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+	}
+	
+	auto o = getObject(t, obj);
+
+	if(o is null)
+	{
+		pushTypeString(t, obj);
+		throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+	}
+
+	if(isNull(t, -1))
+		o.finalizer = null;
+	else
+		o.finalizer = getFunction(t, -1);
+
+	pop(t);
+}
+
 /**
 Gets the fields namespace of the 'object' at the given slot.  Throws an exception if the object at the given
 slot is not an object.
@@ -3021,7 +3099,7 @@ T safeCode(T)(MDThread* t, lazy T code)
 }
 
 /**
-Fills the array at the given index with the value at the top of the stack and pop that value.
+Fills the array at the given index with the value at the top of the stack and pops that value.
 
 Params:
 	arr = The stack index of the array object to fill.
@@ -3137,6 +3215,75 @@ debug
 // ================================================================================================================================================
 
 package:
+
+// Free all objects.
+void freeAll(MDThread* t)
+{
+	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
+	{
+		auto cur = *pcur;
+
+		if((cast(MDBaseObject*)cur).mType == MDValue.Type.Object)
+		{
+			auto oo = cast(MDObject*)cur;
+
+			if(oo.finalizer && ((cur.flags & GCBits.Finalized) == 0))
+			{
+				*pcur = cur.next;
+
+				cur.flags |= GCBits.Finalized;
+				cur.next = t.vm.alloc.finalizable;
+				t.vm.alloc.finalizable = cur;
+			}
+			else
+				pcur = &cur.next;
+		}
+		else
+			pcur = &cur.next;
+	}
+	
+	runFinalizers(t);
+	assert(t.vm.alloc.finalizable is null);
+
+	GCObject* next = void;
+
+	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
+	{
+		next = cur.next;
+		free(t.vm, cur);
+	}
+}
+
+void runFinalizers(MDThread* t)
+{
+	if(t.vm.alloc.finalizable)
+	{
+		for(auto pcur = &t.vm.alloc.finalizable; *pcur !is null; )
+		{
+			auto cur = *pcur;
+			auto o = cast(MDObject*)cur;
+
+			*pcur = cur.next;
+			cur.next = t.vm.alloc.gcHead;
+			t.vm.alloc.gcHead = cur;
+
+			cur.flags = (cur.flags & ~GCBits.Marked) | !t.vm.alloc.markVal;
+
+			// sanity check
+			if(o.finalizer)
+			{
+				auto oldLimit = t.vm.alloc.gcLimit;
+				t.vm.alloc.gcLimit = typeof(t.vm.alloc.gcLimit).max;
+
+				auto reg = pushFunction(t, o.finalizer);
+				pushObject(t, o);
+				rawCall(t, reg, 0);
+
+				t.vm.alloc.gcLimit = oldLimit;
+			}
+		}
+	}
+}
 
 word pushStringObj(MDThread* t, MDString* o)
 {
@@ -3343,7 +3490,7 @@ uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScript)
 	if(isScript)
 		execute(t);
 
-	maybeGC(t.vm);
+	maybeGC(t);
 
 	if(numReturns == -1)
 		return t.stackIndex - slot;
@@ -6514,12 +6661,12 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.Cat:
 					catImpl(t, get(i.rd), stackBase + i.rs, i.rt);
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.CatEq:
 					catEqImpl(t, get(i.rd), stackBase + i.rs, i.rt);
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.Index: idxImpl(t, get(i.rd), get(i.rs), get(i.rt), false); break;
@@ -6572,12 +6719,12 @@ void execute(MDThread* t, uword depth = 1)
 				// Value Creation
 				case Op.NewArray:
 					t.stack[stackBase + i.rd] = array.create(t.vm.alloc, i.uimm);
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.NewTable:
 					t.stack[stackBase + i.rd] = table.create(t.vm.alloc);
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.Closure:
@@ -6614,7 +6761,7 @@ void execute(MDThread* t, uword depth = 1)
 						*get(i.rd) = n;
 					}
 
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.SetEnv: get(i.rd).mFunction.environment = get(i.rs).mNamespace; break;
@@ -6636,7 +6783,7 @@ void execute(MDThread* t, uword depth = 1)
 							*get(i.rd) = obj.create(t.vm.alloc, RS.mString, RT.mObject);
 					}
 
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.Coroutine:
@@ -6672,13 +6819,13 @@ void execute(MDThread* t, uword depth = 1)
 					else
 						*get(i.rd) = namespace.create(t.vm.alloc, name, RT.mNamespace);
 
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				case Op.NamespaceNP:
 					auto tmp = namespace.create(t.vm.alloc, constTable[i.rs].mString, env);
 					*get(i.rd) = tmp;
-					maybeGC(t.vm);
+					maybeGC(t);
 					break;
 
 				// Class stuff

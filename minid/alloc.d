@@ -29,6 +29,8 @@ import tango.stdc.string;
 // Public
 // ================================================================================================================================================
 
+public:
+
 /**
 The type of the memory allocation function that the MiniD library uses to allocate, reallocate, and free memory.
 You pass a memory allocation function when you create a VM, and all allocations by the VM go through that function.
@@ -59,16 +61,24 @@ Returns:
 	If a deallocation was requested, should return null.  Otherwise, should return a $(B non-null) pointer.  If memory cannot
 	be allocated, the memory allocation function should throw an exception, not return null.
 */
-public alias void* function(void* ctx, void* p, size_t oldSize, size_t newSize) MemFunc;
+alias void* function(void* ctx, void* p, size_t oldSize, size_t newSize) MemFunc;
 
 // ================================================================================================================================================
 // package
 // ================================================================================================================================================
 
+package:
+
+enum GCBits
+{
+	Marked = 0x1,
+	Finalized = 0x8
+}
+
 template GCMixin()
 {
 	package GCObject* next;
-	package uint marked; // uint for future possibilities (more flags than just 'marked')
+	package uint flags;
 }
 
 align(1) struct GCObject
@@ -82,9 +92,11 @@ align(1) struct Allocator
 	package void* ctx;
 
 	package GCObject* gcHead = null;
+	package GCObject* finalizable = null;
 
+	// Init to max so that no collection cycles happen until the VM is fully initialized
 	package size_t gcLimit = size_t.max;
-	package bool markVal = true;
+	package uint markVal = GCBits.Marked;
 	package size_t totalBytes = 0;
 
 	debug(LEAK_DETECTOR)
@@ -106,8 +118,9 @@ align(1) struct Allocator
 		auto ret = cast(T*)realloc!(T)(null, 0, size);
 		*ret = T.init;
 
-		ret.marked = !markVal;
-		addToList(cast(GCObject*)ret);
+		ret.flags |= !markVal;
+		(cast(GCObject*)ret).next = gcHead;
+		gcHead = cast(GCObject*)ret;
 
 		return ret;
 	}
@@ -117,7 +130,8 @@ align(1) struct Allocator
 		auto ret = cast(T*)realloc!(T)(null, 0, size);
 		memcpy(ret, o, size);
 
-		addToList(cast(GCObject*)ret);
+		(cast(GCObject*)ret).next = gcHead;
+		gcHead = cast(GCObject*)ret;
 
 		return ret;
 	}
@@ -238,11 +252,5 @@ align(1) struct Allocator
 		assert(newSize == 0 || ret !is null, "allocation function should never return null");
 		totalBytes += newSize - oldSize;
 		return ret;
-	}
-	
-	private void addToList(GCObject* o)
-	{
-		o.next = gcHead;
-		gcHead = o;
 	}
 }

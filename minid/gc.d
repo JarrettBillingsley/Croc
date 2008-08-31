@@ -36,62 +36,91 @@ import minid.thread;
 import minid.types;
 
 // ================================================================================================================================================
-// Public
-// ================================================================================================================================================
-
-/**
-Runs the garbage collector of the VM if necessary.
-
-This will perform a garbage collection only if a sufficient amount of memory has been allocated since
-the last collection.
-
-Params:
-	vm = The VM whose garbage is to be collected.
-*/
-public void maybeGC(MDVM* vm)
-{
-	if(vm.alloc.totalBytes >= vm.alloc.gcLimit)
-	{
-		gc(vm);
-
-		if(vm.alloc.totalBytes > (vm.alloc.gcLimit >> 1))
-			vm.alloc.gcLimit <<= 1;
-	}
-}
-
-/**
-Runs the VM's garbage collector unconditionally.
-
-Params:
-	vm = The VM whose garbage is to be collected.
-*/
-public void gc(MDVM* vm)
-{
-	mark(vm);
-	sweep(vm);
-}
-
-/**
-Find out how many bytes of memory the given VM has allocated.
-*/
-public uword bytesAllocated(MDVM* vm)
-{
-	return vm.alloc.totalBytes;
-}
-
-// ================================================================================================================================================
 // Package
 // ================================================================================================================================================
 
-// Free all objects.
-package void freeAll(MDVM* vm)
-{
-	GCObject* next = void;
+package:
 
-	for(auto cur = vm.alloc.gcHead; cur !is null; cur = next)
+// Perform the mark phase of garbage collection.
+void mark(MDVM* vm)
+{
+	foreach(mt; vm.metaTabs)
+		if(mt)
+			markObj(vm, mt);
+
+	foreach(s; vm.metaStrings)
+		markObj(vm, s);
+
+	markObj(vm, vm.globals);
+	markObj(vm, vm.mainThread);
+	
+	if(vm.isThrowing)
 	{
-		next = cur.next;
-		free(vm, cur);
+		mixin(CondMark!("vm.exception"));
+	}
+}
+
+// Perform the sweep phase of garbage collection.
+void sweep(MDVM* vm)
+{
+	auto markVal = vm.alloc.markVal;
+
+	for(auto pcur = &vm.alloc.gcHead; *pcur !is null; )
+	{
+		auto cur = *pcur;
+
+		if((cur.flags & GCBits.Marked) ^ markVal)
+		{
+			*pcur = cur.next;
+			free(vm, cur);
+		}
+		else
+			pcur = &cur.next;
+	}
+
+	vm.stringTab.minimize(vm.alloc);
+
+	if(markVal == 0)
+		vm.alloc.markVal = GCBits.Marked;
+	else
+		vm.alloc.markVal = 0;
+}
+
+debug import tango.io.Stdout;
+
+// Free an object.
+void free(MDVM* vm, GCObject* o)
+{
+	switch((cast(MDBaseObject*)o).mType)
+	{
+		case MDValue.Type.String:    string.free(vm, cast(MDString*)o); return;
+		case MDValue.Type.Table:     table.free(vm.alloc, cast(MDTable*)o); return;
+		case MDValue.Type.Array:     array.free(vm.alloc, cast(MDArray*)o); return;
+		case MDValue.Type.Function:  func.free(vm.alloc, cast(MDFunction*)o); return;
+
+		case MDValue.Type.Object:
+			auto oo = cast(MDObject*)o;
+
+			if(oo.finalizer && ((o.flags & GCBits.Finalized) == 0))
+			{
+				o.flags |= GCBits.Finalized;
+				o.next = vm.alloc.finalizable;
+				vm.alloc.finalizable = o;
+			}
+			else
+				obj.free(vm.alloc, cast(MDObject*)o);
+				
+			return;
+
+		case MDValue.Type.Namespace: namespace.free(vm.alloc, cast(MDNamespace*)o); return;
+		case MDValue.Type.Thread:    thread.free(cast(MDThread*)o); return;
+		case MDValue.Type.NativeObj: nativeobj.free(vm, cast(MDNativeObj*)o); return;
+
+		case MDValue.Type.Upvalue:   vm.alloc.free(cast(MDUpval*)o); return;
+		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
+		case MDValue.Type.ArrayData: array.freeData(vm.alloc, cast(MDArrayData*)o); return;
+
+		default: debug Stdout.formatln("{}", (cast(MDBaseObject*)o).mType); assert(false);
 	}
 }
 
@@ -99,27 +128,29 @@ package void freeAll(MDVM* vm)
 // Private
 // ================================================================================================================================================
 
+private:
+
 // For marking MDValues.  Marks it only if it's an object.
-private template CondMark(char[] name)
+template CondMark(char[] name)
 {
 	const CondMark =
 	"if(" ~ name ~ ".isObject())
 	{
 		auto obj = " ~ name ~ ".toGCObject();
 
-		if(obj.marked != vm.alloc.markVal)
+		if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
 			markObj(vm, obj);
 	}";
 }
 
 // Dynamically dispatch the appropriate marking method at runtime from a GCObject*.
-private void markObj(MDVM* vm, GCObject* o)
+void markObj(MDVM* vm, GCObject* o)
 {
 	switch((cast(MDBaseObject*)o).mType)
 	{
 		case MDValue.Type.String, MDValue.Type.NativeObj:
 			// These are trivial, just mark them here.
-			o.marked = vm.alloc.markVal;
+			o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 			return;
 
 		case MDValue.Type.Table:     markObj(vm, cast(MDTable*)o); return;
@@ -136,15 +167,15 @@ private void markObj(MDVM* vm, GCObject* o)
 }
 
 // Mark a string.
-private void markObj(MDVM* vm, MDString* o)
+void markObj(MDVM* vm, MDString* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }
 
 // Mark a table.
-private void markObj(MDVM* vm, MDTable* o)
+void markObj(MDVM* vm, MDTable* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	foreach(ref key, ref val; o.data)
 	{
@@ -154,21 +185,21 @@ private void markObj(MDVM* vm, MDTable* o)
 }
 
 // Mark an array.
-private void markObj(MDVM* vm, MDArray* o)
+void markObj(MDVM* vm, MDArray* o)
 {
-	o.marked = vm.alloc.markVal;
-	o.data.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
+	o.data.flags = (o.data.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
-	foreach(i, ref val; o.slice)
+	foreach(ref val; o.slice)
 	{
 		mixin(CondMark!("val"));
 	}
 }
 
 // Mark a function.
-private void markObj(MDVM* vm, MDFunction* o)
+void markObj(MDVM* vm, MDFunction* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 	markObj(vm, o.environment);
 
 	if(o.name)
@@ -194,14 +225,15 @@ private void markObj(MDVM* vm, MDFunction* o)
 }
 
 // Mark an object.
-private void markObj(MDVM* vm, MDObject* o)
+void markObj(MDVM* vm, MDObject* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
-	if(o.name)        markObj(vm, o.name);
-	if(o.proto)       markObj(vm, o.proto);
-	if(o.fields)      markObj(vm, o.fields);
-	if(o.attrs)       markObj(vm, o.attrs);
+	if(o.name)      markObj(vm, o.name);
+	if(o.proto)     markObj(vm, o.proto);
+	if(o.fields)    markObj(vm, o.fields);
+	if(o.attrs)     markObj(vm, o.attrs);
+	if(o.finalizer) markObj(vm, o.finalizer);
 
 	foreach(ref val; o.extraValues())
 	{
@@ -210,9 +242,9 @@ private void markObj(MDVM* vm, MDObject* o)
 }
 
 // Mark a namespace.
-private void markObj(MDVM* vm, MDNamespace* o)
+void markObj(MDVM* vm, MDNamespace* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	foreach(key, ref val; o.data)
 	{
@@ -227,9 +259,9 @@ private void markObj(MDVM* vm, MDNamespace* o)
 }
 
 // Mark a thread.
-private void markObj(MDVM* vm, MDThread* o)
+void markObj(MDVM* vm, MDThread* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	foreach(ref ar; o.actRecs[0 .. o.arIndex])
 	{
@@ -268,22 +300,22 @@ private void markObj(MDVM* vm, MDThread* o)
 }
 
 // Mark a native object.
-private void markObj(MDVM* vm, MDNativeObj* o)
+void markObj(MDVM* vm, MDNativeObj* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }
 
 // Mark an upvalue.
-private void markObj(MDVM* vm, MDUpval* o)
+void markObj(MDVM* vm, MDUpval* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 	mixin(CondMark!("o.value"));
 }
 
 // Mark a function definition.
-private void markObj(MDVM* vm, MDFuncDef* o)
+void markObj(MDVM* vm, MDFuncDef* o)
 {
-	o.marked = vm.alloc.markVal;
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	if(o.location.file)
 		markObj(vm, o.location.file);
@@ -301,7 +333,7 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 		{
 			auto obj = val.toGCObject();
 
-			if(obj && obj.marked != vm.alloc.markVal)
+			if(obj && ((obj.flags & GCBits.Marked) ^ vm.alloc.markVal))
 				markObj(vm, obj);
 		}
 	}
@@ -314,7 +346,7 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 			{
 				auto obj = key.toGCObject();
 
-				if(obj && obj.marked != vm.alloc.markVal)
+				if(obj && ((obj.flags & GCBits.Marked) ^ vm.alloc.markVal))
 					markObj(vm, obj);
 			}
 		}
@@ -328,69 +360,6 @@ private void markObj(MDVM* vm, MDFuncDef* o)
 		if(desc.name)
 			markObj(vm, desc.name);
 
-	if(o.cachedFunc && o.cachedFunc.marked != vm.alloc.markVal)
+	if(o.cachedFunc && ((o.cachedFunc.flags & GCBits.Marked) ^ vm.alloc.markVal))
 		markObj(vm, o.cachedFunc);
-}
-
-// Perform the mark phase of garbage collection.
-private void mark(MDVM* vm)
-{
-	foreach(mt; vm.metaTabs)
-		if(mt)
-			markObj(vm, mt);
-
-	foreach(s; vm.metaStrings)
-		markObj(vm, s);
-
-	markObj(vm, vm.globals);
-	markObj(vm, vm.mainThread);
-	
-	if(vm.isThrowing)
-	{
-		mixin(CondMark!("vm.exception"));
-	}
-}
-
-// Perform the sweep phase of garbage collection.
-private void sweep(MDVM* vm)
-{
-	for(auto pcur = &vm.alloc.gcHead; *pcur !is null; )
-	{
-		auto cur = *pcur;
-
-		if(cur.marked != vm.alloc.markVal)
-		{
-			*pcur = cur.next;
-			free(vm, cur);
-		}
-		else
-			pcur = &cur.next;
-	}
-
-	vm.stringTab.minimize(vm.alloc);
-	vm.alloc.markVal = !vm.alloc.markVal;
-}
-
-debug import tango.io.Stdout;
-
-// Free an object.
-private void free(MDVM* vm, GCObject* o)
-{
-	switch((cast(MDBaseObject*)o).mType)
-	{
-		case MDValue.Type.String:    string.free(vm, cast(MDString*)o); return;
-		case MDValue.Type.Table:     table.free(vm.alloc, cast(MDTable*)o); return;
-		case MDValue.Type.Array:     array.free(vm.alloc, cast(MDArray*)o); return;
-		case MDValue.Type.Function:  func.free(vm.alloc, cast(MDFunction*)o); return;
-		case MDValue.Type.Object:    obj.free(vm.alloc, cast(MDObject*)o); return;
-		case MDValue.Type.Namespace: namespace.free(vm.alloc, cast(MDNamespace*)o); return;
-		case MDValue.Type.Thread:    thread.free(cast(MDThread*)o); return;
-		case MDValue.Type.NativeObj: nativeobj.free(vm, cast(MDNativeObj*)o); return;
-
-		case MDValue.Type.Upvalue:   vm.alloc.free(cast(MDUpval*)o); return;
-		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
-		case MDValue.Type.ArrayData: array.freeData(vm.alloc, cast(MDArrayData*)o); return;
-
-		default: debug Stdout.formatln("{}", (cast(MDBaseObject*)o).mType); assert(false);
-	}
 }

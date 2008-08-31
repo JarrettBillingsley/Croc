@@ -42,6 +42,10 @@ static:
 		o.proto = proto;
 		o.numValues = numValues;
 		o.extraBytes = extraBytes;
+		
+		if(o.proto)
+			o.finalizer = o.proto.finalizer;
+			
 		return o;
 	}
 

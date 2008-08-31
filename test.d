@@ -5,8 +5,6 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 
 import minid.api;
 
-// TODO: Object finalizers...
-
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -17,12 +15,11 @@ void main()
 
 	try
 	{
-		importModule(t, "benchmark.binarytrees");
+		importModule(t, "samples.simple");
 		pushNull(t);
 		pushGlobal(t, "runMain");
 		swap(t, -3);
 		rawCall(t, -3, 0);
-		pop(t);
 	}
 	catch(MDException e)
 	{
@@ -36,7 +33,7 @@ void main()
 	}
 
 	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(&vm)).flush;
-	gc(&vm);
+	gc(t);
 	Stdout.formatln("{} bytes after.", bytesAllocated(&vm)).flush;
 
 	closeVM(&vm);
