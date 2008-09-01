@@ -286,7 +286,6 @@ struct RegexpLib
 				{
 					for(auto cont = safeCode(t, rex.test(src)); cont; cont = safeCode(t, rex.test()))
 					{
-						//dup(t, matches);
 						pushString(t, rex.match(0));
 						cateq(t, matches, 1);
 					}

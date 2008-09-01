@@ -67,7 +67,6 @@ static:
 // 		register(t, "getTraceback", &getTraceback);
 		register(t, "haltThread", &haltThread);
 		register(t, "currentThread", &currentThread);
-// 		register(t, "setModuleLoader", &setModuleLoader);
 // 		register(t, "reloadModule", &reloadModule);
 		register(t, "runMain", &runMain);
 
@@ -196,12 +195,6 @@ static:
 		return 1;
 	}
 /*
-	uword setModuleLoader(MDThread* t, uword numParams)
-	{
-		s.context.setModuleLoader(s.getParam!(dchar[])(0), s.getParam!(MDClosure)(1));
-		return 0;
-	}
-
 	uword reloadModule(MDThread* t, uword numParams)
 	{
 		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));

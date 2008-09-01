@@ -150,7 +150,7 @@ writeln(Deck.dealCard())
 
 // Importing stuff.
 {
-	local function loadMod(name: string)
+	modules.customLoaders.mod = function loadMod(name: string)
 	{
 		assert(name == "mod")
 
@@ -164,8 +164,6 @@ writeln(Deck.dealCard())
 		global function baz()
 			writefln(x)
 	}
-
-	modules.customLoaders.mod = loadMod
 
 	import mod: foo, bar
 	foo()

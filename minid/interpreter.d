@@ -29,6 +29,8 @@ import Integer = tango.text.convert.Integer;
 version(MDRestrictedCoro) {} else
 	import tango.core.Thread;
 
+import tango.core.Traits;
+import tango.core.Tuple;
 import tango.core.Vararg;
 import tango.stdc.string;
 import tango.text.Util;
@@ -3119,9 +3121,129 @@ void fillArray(MDThread* t, word arr)
 	pop(t);
 }
 
-// TODO: foreach loops
 // TODO: tracebacks
 // TODO: some more ops for some objects, like namespaces?  removeKey?
+
+struct foreachLoop
+{
+	MDThread* t;
+	uword numSlots;
+	
+	public static foreachLoop opCall(MDThread* t, uword numSlots)
+	{
+		foreachLoop ret = void;
+		ret.t = t;
+		ret.numSlots = numSlots;
+		return ret;
+	}
+
+	int opApply(T)(T dg)
+	{
+		alias Unique!(ParameterTupleOf!(T)) TypeTest;
+		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");
+		alias ParameterTupleOf!(T) Indices;
+
+		static if(Indices.length == 1)
+		{
+			const numIndices = 2;
+			const numParams = 1;
+		}
+		else
+		{
+			const numIndices = Indices.length;
+			const numParams = Indices.length;
+		}
+
+		if(numSlots < 1 || numSlots > 3)
+			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
+
+		checkNumParams(t, numSlots);
+		
+		// Make sure we have 3 stack slots for our temp data area
+		if(numSlots < 3)
+		{
+			pushNull(t);
+			
+			if(numSlots < 2)
+				pushNull(t);
+		}
+
+		// ..and make sure to clean up
+		scope(success)
+			pop(t, 3);
+
+		// Get opApply, if necessary
+		auto src = absIndex(t, -3);
+		auto srcObj = &t.stack[t.stackIndex - 3];
+
+		if(srcObj.type != MDValue.Type.Function)
+		{
+			auto method = getMM(t, srcObj, MM.Apply);
+
+			if(method is null)
+			{
+				typeString(t, srcObj);
+				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+			}
+			
+			version(MDExtendedCoro) {} else
+			{
+				t.nativeCallDepth++;
+				scope(exit) t.nativeCallDepth--;
+			}
+
+			auto reg = pushFunction(t, method);
+			dup(t, src);
+			dup(t, src + 1);
+			rawCall(t, reg, 3);
+			
+			swap(t, src + 2);
+			pop(t);
+			swap(t, src + 1);
+			pop(t);
+			swap(t, src);
+			pop(t);
+		}
+		
+		// Set up the indices tuple
+		Indices idx;
+
+		static if(Indices.length == 1)
+			idx[i] = stackSize(t) + 1;
+		else
+		{
+			foreach(i, T; Indices)
+				idx[i] = stackSize(t) + i;
+		}
+
+		// Do the loop
+		while(true)
+		{
+			auto funcReg = dup(t, src);
+			dup(t, src + 1);
+			dup(t, src + 2);
+			rawCall(t, funcReg, numIndices);
+			
+			if(isNull(t, funcReg))
+			{
+				pop(t, numIndices);
+				break;
+			}
+				
+			dup(t, funcReg);
+			swap(t, src + 2);
+			pop(t);
+
+			auto ret = dg(idx);
+			pop(t, numIndices);
+
+			if(ret)
+				return ret;
+		}
+
+		return 0;
+	}
+}
 
 debug
 {

@@ -133,11 +133,6 @@ static:
 
 		pushString(t, ret);
 		return 1;
-
-		/*char[40] outbuf;
-		uint ate = 0;
-		pushString(t, Utf.toString32(ret, outbuf, &ate));
-		return 1;*/
 	}
 	
 	uword dateTime(MDThread* t, uword numParams)
@@ -242,15 +237,6 @@ static:
 
 	void DateTimeToTable(MDThread* t, DateTime time, word dest)
 	{
-// 		dest = absIndex(t, dest);
-// 
-// 		if(isNull(t, dest))
-// 		{
-// 			newTable(t);
-// 			swap(t, dest);
-// 			pop(t);
-// 		}
-// 
 		pushInt(t, time.date.year);    fielda(t, dest, "year");
 		pushInt(t, time.date.month);   fielda(t, dest, "month");
 		pushInt(t, time.date.day);     fielda(t, dest, "day");

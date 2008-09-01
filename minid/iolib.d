@@ -224,7 +224,6 @@ static:
 				{
 					if(info.folder is isFolder)
 					{
-						//dup(t, listing);
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
@@ -249,11 +248,7 @@ static:
 						auto fullName = getString(t, -1);
 						
 						if(patternMatch(fullName, filter))
-						{
-							//dup(t, listing);
-							//insert(t, -2);
 							cateq(t, listing, 1);
-						}
 						else
 							pop(t);
 					}
