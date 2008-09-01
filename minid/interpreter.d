@@ -3122,7 +3122,6 @@ void fillArray(MDThread* t, word arr)
 // TODO: foreach loops
 // TODO: tracebacks
 // TODO: some more ops for some objects, like namespaces?  removeKey?
-// TODO: get/set finalizers for objects
 
 debug
 {

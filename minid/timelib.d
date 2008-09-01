@@ -268,11 +268,12 @@ static:
 	static struct Timer
 	{
 	static:
-		private Members* getThis(MDThread* t)
+		struct Members
 		{
-			return checkObjParam!(Members)(t, 0, "Timer");
+			protected StopWatch mWatch;
+			protected mdfloat mTime = 0;
 		}
-	
+
 		void init(MDThread* t)
 		{
 			CreateObject(t, "Timer", (CreateObject* o)
@@ -284,23 +285,22 @@ static:
 				o.method("millisecs", &millisecs);
 				o.method("microsecs", &microsecs);
 			});
-	
+
 			newGlobal(t, "Timer");
 		}
-	
-		struct Members
+
+		private Members* getThis(MDThread* t)
 		{
-			protected StopWatch mWatch;
-			protected mdfloat mTime = 0;
+			return checkObjParam!(Members)(t, 0, "Timer");
 		}
-	
+
 		uword clone(MDThread* t, uword numParams)
 		{
 			newObject(t, 0, null, 0, Members.sizeof);
 			*getMembers!(Members)(t, -1) = Members.init;
 			return 1;
 		}
-	
+
 		uword start(MDThread* t, uword numParams)
 		{
 			getThis(t).mWatch.start();

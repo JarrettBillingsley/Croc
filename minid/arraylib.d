@@ -269,7 +269,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
-		if(numParams > 0 && isString(t, 1) && getString(t, 1) == "reverse")
+		if(optStringParam(t, 1, "") == "reverse")
 		{
 			getUpval(t, 1);
 			dup(t, 0);

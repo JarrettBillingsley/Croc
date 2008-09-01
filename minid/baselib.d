@@ -29,7 +29,8 @@ import tango.io.Console;
 import tango.io.Print;
 import tango.io.Stdout;
 import tango.stdc.ctype;
-import utf = tango.text.convert.Utf;
+import tango.stdc.string;
+import Utf = tango.text.convert.Utf;
 
 import minid.compiler;
 import minid.ex;
@@ -40,6 +41,7 @@ import minid.namespace;
 import minid.obj;
 import minid.string;
 import minid.types;
+import minid.utils;
 import minid.vm;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
@@ -59,7 +61,7 @@ static:
 		newGlobal(t, "Object");
 
 		// StringBuffer
-// 		globals["StringBuffer"d] =    new MDStringBufferClass(_Object);
+		StringBufferObj.init(t);
 
 		// Really basic stuff
 // 		register(t, "getTraceback", &getTraceback);
@@ -998,462 +1000,439 @@ static:
 		pushBool(t, func.isVararg(getFunction(t, 0)));
 		return 1;
 	}
-/*
+
 	// ===================================================================================================================================
 	// StringBuffer
 
-	static class MDStringBufferClass : MDObject
+	struct StringBufferObj
 	{
-		MDClosure iteratorClosure;
-		MDClosure iteratorReverseClosure;
-
-		public this(MDObject owner)
+	static:
+		struct Members
 		{
-			super("StringBuffer", owner);
-
-			iteratorClosure = new MDClosure(fields, &iterator, "StringBuffer.iterator");
-			iteratorReverseClosure = new MDClosure(fields, &iteratorReverse, "StringBuffer.iteratorReverse");
-			auto catEq = new MDClosure(fields, &opCatAssign, "StringBuffer.opCatAssign");
-
-			fields.addList
-			(
-				"clone"d,          new MDClosure(fields, &clone,          "StringBuffer.clone"),
-				"append"d,         catEq,
-				"opCatAssign"d,    catEq,
-				"insert"d,         new MDClosure(fields, &insert,         "StringBuffer.insert"),
-				"remove"d,         new MDClosure(fields, &remove,         "StringBuffer.remove"),
-				"toString"d,       new MDClosure(fields, &toString,       "StringBuffer.toString"),
-				"opLengthAssign"d, new MDClosure(fields, &opLengthAssign, "StringBuffer.opLengthAssign"),
-				"opLength"d,       new MDClosure(fields, &opLength,       "StringBuffer.opLength"),
-				"opIndex"d,        new MDClosure(fields, &opIndex,        "StringBuffer.opIndex"),
-				"opIndexAssign"d,  new MDClosure(fields, &opIndexAssign,  "StringBuffer.opIndexAssign"),
-				"opApply"d,        new MDClosure(fields, &opApply,        "StringBuffer.opApply"),
-				"opSlice"d,        new MDClosure(fields, &opSlice,        "StringBuffer.opSlice"),
-				"opSliceAssign"d,  new MDClosure(fields, &opSliceAssign,  "StringBuffer.opSliceAssign"),
-				"reserve"d,        new MDClosure(fields, &reserve,        "StringBuffer.reserve"),
-				"format"d,         new MDClosure(fields, &format,         "StringBuffer.format"),
-				"formatln"d,       new MDClosure(fields, &formatln,       "StringBuffer.formatln")
-			);
+			dchar[] data;
+			uword length = 0;
 		}
 
-		public uword clone(MDThread* t, uword numParams)
+		void init(MDThread* t)
 		{
-			MDStringBuffer ret;
+			CreateObject(t, "StringBuffer", (CreateObject* o)
+			{
+					newFunction(t, &finalizer, "StringBuffer.finalizer");
+				o.method("clone",          &clone, 1);
+
+				o.method("append",         &opCatAssign);
+				o.method("insert",         &insert);
+				o.method("remove",         &remove);
+				o.method("toString",       &toString);
+				o.method("opLengthAssign", &opLengthAssign);
+				o.method("opLength",       &opLength);
+				o.method("opIndex",        &opIndex);
+				o.method("opIndexAssign",  &opIndexAssign);
+				o.method("opSlice",        &opSlice);
+				o.method("opSliceAssign",  &opSliceAssign);
+				o.method("reserve",        &reserve);
+				o.method("format",         &format);
+				o.method("formatln",       &formatln);
+
+					newFunction(t, &iterator, "StringBuffer.iterator");
+					newFunction(t, &iteratorReverse, "StringBuffer.iteratorReverse");
+				o.method("opApply", &opApply, 2);
+			});
+
+			field(t, -1, "append");
+			fielda(t, -2, "opCatAssign");
+
+			newGlobal(t, "StringBuffer");
+		}
+
+		private Members* getThis(MDThread* t)
+		{
+			return checkObjParam!(Members)(t, 0, "StringBuffer");
+		}
+
+		private void resize(MDThread* t, Members* memb, uword length)
+		{
+			if(length > (memb.data.length - memb.length))
+				t.vm.alloc.resizeArray(memb.data, memb.data.length + length);
+		}
+		
+		private void append(MDThread* t, Members* memb, char[] str, uword cpLength)
+		{
+			resize(t, memb, cpLength);
+			uint ate = 0;
+			Utf.toString32(str, memb.data[memb.length .. $], &ate);
+			assert(ate == str.length);
+			memb.length += cpLength;
+		}
+
+		uword finalizer(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			t.vm.alloc.resizeArray(memb.data, 0);
+			memb.length = 0;
+			return 0;
+		}
+
+		uword clone(MDThread* t, uword numParams)
+		{
+			auto ret = newObject(t, 0, null, 0, Members.sizeof);
+			auto memb = getMembers!(Members)(t, ret);
+			*memb = Members.init;
 
 			if(numParams > 0)
 			{
-				if(s.isParam!("int")(0))
-					ret = new MDStringBuffer(this, s.getParam!(uint)(0));
-				else if(s.isParam!("string")(0))
-					ret = new MDStringBuffer(this, s.getParam!(dchar[])(0));
+				if(isInt(t, 1))
+				{
+					auto size = getInt(t, 1);
+
+					if(size < 0)
+						throwException(t, "Size must be >= 0, not {}", size);
+
+					t.vm.alloc.resizeArray(memb.data, size);
+				}
+				else if(isString(t, 1))
+				{
+					auto length = len(t, 1);
+					t.vm.alloc.resizeArray(memb.data, length);
+					memb.length = length;
+					auto str = getString(t, 1);
+					uint ate = 0;
+					Utf.toString32(str, memb.data, &ate);
+				}
 				else
-					s.throwRuntimeException("'int' or 'string' expected for constructor, not '{}'", s.getParam(0u).typeString());
+					paramTypeError(t, 1, "int|string");
 			}
 			else
-				ret = new MDStringBuffer(this);
-
-			s.push(ret);
-			return 1;
-		}
-
-		public uword opCatAssign(MDThread* t, uword numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			
-			for(uint j = 0; j < numParams; j++)
-			{
-				MDValue param = s.getParam(j);
-
-				if(param.isObj)
-				{
-					if(param.isObject)
-					{
-						MDStringBuffer other = cast(MDStringBuffer)param.as!(MDObject);
-		
-						if(other)
-						{
-							i.append(other);
-							continue;
-						}
-					}
-		
-					i.append(s.valueToString(param));
-				}
-				else
-					i.append(param.toString());
-			}
-			
-			return 0;
-		}
-
-		public uword insert(MDThread* t, uword numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			MDValue param = s.getParam(1u);
-
-			if(param.isObj)
-			{
-				if(param.isObject)
-				{
-					MDStringBuffer other = cast(MDStringBuffer)param.as!(MDObject);
-
-					if(other)
-					{
-						i.insert(s.getParam!(int)(0), other);
-						return 0;
-					}
-				}
+				t.vm.alloc.resizeArray(memb.data, 32);
 				
-				i.insert(s.getParam!(int)(0), s.valueToString(param));
+			getUpval(t, 0);
+			setFinalizer(t, -2);
+
+			return 1;
+		}
+
+		uword opCatAssign(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto sb = pushGlobal(t, "StringBuffer");
+
+			for(uword i = 1; i <= numParams; i++)
+			{
+				if(as(t, i, sb))
+				{
+					auto other = getMembers!(Members)(t, i);
+					resize(t, memb, other.length);
+					memb.data[memb.length .. $] = other.data[0 .. other.length];
+					memb.length += other.length;
+				}
+				else
+				{
+					pushToString(t, i);
+					auto str = getStringObj(t, -1);
+					append(t, memb, str.toString(), str.cpLength);
+					pop(t);
+				}
+			}
+
+			return 0;
+		}
+
+		uword insert(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto idx = checkIntParam(t, 1);
+			checkAnyParam(t, 2);
+
+			if(idx < 0 || idx > memb.length)
+				throwException(t, "Invalid index {} (valid indices are [0 .. {}])", idx, memb.length);
+
+			pushGlobal(t, "StringBuffer");
+
+			if(as(t, 2, -1))
+			{
+				auto other = getMembers!(Members)(t, 2);
+				resize(t, memb, other.length);
+				memmove(&memb.data[idx + other.length], &memb.data[idx], other.length * dchar.sizeof);
+				memb.data[idx .. idx + other.length] = other.data[0 .. other.length];
+				memb.length += other.length;
 			}
 			else
-				i.insert(s.getParam!(int)(0), param.toString());
+			{
+				pushToString(t, 2);
+				auto str = getStringObj(t, -1);
+				resize(t, memb, str.cpLength);
+				memmove(&memb.data[idx + str.cpLength], &memb.data[idx], str.cpLength * dchar.sizeof);
+				uint ate = 0;
+				Utf.toString32(str.toString(), memb.data[idx .. idx + str.cpLength], &ate);
+				assert(ate == str.toString().length);
+				memb.length += str.cpLength;
+			}
 
 			return 0;
 		}
 
-		public uword remove(MDThread* t, uword numParams)
+		uword remove(MDThread* t, uword numParams)
 		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			uint start = s.getParam!(uint)(0);
-			uint end = start + 1;
+			auto memb = getThis(t);
 
-			if(numParams > 1)
-				end = s.getParam!(uint)(1);
+			// start is in the range [0 .. memb.length]
+			// end is in the range [start .. memb.length]
+			// if start == end, no-op.
 
-			i.remove(start, end);
-			return 0;
-		}
-		
-		public uword toString(MDThread* t, uword numParams)
-		{
-			s.push(s.getContext!(MDStringBuffer).toMDString());
-			return 1;
-		}
-		
-		public uword opLengthAssign(MDThread* t, uword numParams)
-		{
-			int newLen = s.getParam!(int)(0);
-			
-			if(newLen < 0)
-				s.throwRuntimeException("Invalid length ({})", newLen);
+			auto start = checkIntParam(t, 1);
 
-			s.getContext!(MDStringBuffer).length = newLen;
-			return 0;
-		}
+			if(start < 0)
+				start += memb.length;
 
-		public uword opLength(MDThread* t, uword numParams)
-		{
-			s.push(s.getContext!(MDStringBuffer).length);
-			return 1;
-		}
-		
-		public uword opIndex(MDThread* t, uword numParams)
-		{
-			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)]);
-			return 1;
-		}
+			if(start < 0 || start > memb.length)
+				throwException(t, "Invalid start index: {} (buffer length: {})", start, memb.length);
 
-		public uword opIndexAssign(MDThread* t, uword numParams)
-		{
-			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0)] = s.getParam!(dchar)(1);
-			return 0;
-		}
+			auto end = optIntParam(t, 2, start + 1);
 
-		public uword iterator(MDThread* t, uword numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			int index = s.getParam!(int)(0);
+			if(end < 0)
+				end += memb.length;
 
-			index++;
+			if(end < start || end > memb.length)
+				throwException(t, "Invalid indices: {} .. {} (buffer length: {})", start, end, memb.length);
 
-			if(index >= i.length)
+			if(start == end)
 				return 0;
 
-			s.push(index);
-			s.push(i[index]);
+			memmove(&memb.data[start], &memb.data[end], (memb.length - end) * dchar.sizeof);
+			memb.length -= (end - start);
+
+			if(memb.length < (memb.data.length >> 2))
+				t.vm.alloc.resizeArray(memb.data, memb.data.length >> 2);
+
+			return 0;
+		}
+
+		uword toString(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			pushFormat(t, "{}", memb.data[0 .. memb.length]);
+			return 1;
+		}
+
+		uword opLengthAssign(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto newLen = checkIntParam(t, 1);
+
+			if(newLen < 0)
+				throwException(t, "Invalid length: {}", newLen);
+
+			auto oldLen = memb.length;
+			memb.length = newLen;
+
+			if(memb.length > memb.data.length)
+				t.vm.alloc.resizeArray(memb.data, memb.length);
+
+			if(newLen > oldLen)
+				memb.data[oldLen .. newLen] = dchar.init;
+
+			return 0;
+		}
+
+		uword opLength(MDThread* t, uword numParams)
+		{
+			pushInt(t, getThis(t).length);
+			return 1;
+		}
+
+		uword opIndex(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto index = checkIntParam(t, 1);
+
+			if(index < 0)
+				index += memb.length;
+
+			if(index < 0 || index >= memb.length)
+				throwException(t, "Invalid index: {} (buffer length: {})", index, memb.length);
+
+			pushChar(t, memb.data[index]);
+			return 1;
+		}
+
+		uword opIndexAssign(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto index = checkIntParam(t, 1);
+			auto ch = checkCharParam(t, 2);
+
+			if(index < 0)
+				index += memb.length;
+
+			if(index < 0 || index >= memb.length)
+				throwException(t, "Invalid index: {} (buffer length: {})", index, memb.length);
+
+			memb.data[index] = ch;
+			return 0;
+		}
+
+		uword iterator(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto index = checkIntParam(t, 1) + 1;
+
+			if(index >= memb.length)
+				return 0;
+
+			pushInt(t, index);
+			pushChar(t, memb.data[index]);
 
 			return 2;
 		}
-		
-		public uword iteratorReverse(MDThread* t, uword numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
-			int index = s.getParam!(int)(0);
 
-			index--;
-	
+		uword iteratorReverse(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto index = checkIntParam(t, 1) - 1;
+
 			if(index < 0)
 				return 0;
-				
-			s.push(index);
-			s.push(i[index]);
-			
+
+			pushInt(t, index);
+			pushChar(t, memb.data[index]);
+
 			return 2;
 		}
-		
-		public uword opApply(MDThread* t, uword numParams)
-		{
-			MDStringBuffer i = s.getContext!(MDStringBuffer);
 
-			if(s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+		uword opApply(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+
+			if(optStringParam(t, 1, "") == "reverse")
 			{
-				s.push(iteratorReverseClosure);
-				s.push(i);
-				s.push(cast(int)i.length);
+				getUpval(t, 1);
+				dup(t, 0);
+				pushInt(t, memb.length);
 			}
 			else
 			{
-				s.push(iteratorClosure);
-				s.push(i);
-				s.push(-1);
+				getUpval(t, 0);
+				dup(t, 0);
+				pushInt(t, -1);
 			}
 
 			return 3;
 		}
 
-		public uword opSlice(MDThread* t, uword numParams)
+		uword opSlice(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)]);
+			auto memb = getThis(t);
+			auto lo = checkIntParam(t, 1);
+			auto hi = checkIntParam(t, 2);
+
+			if(lo < 0)
+				lo += memb.length;
+
+			if(lo < 0 || lo > memb.length)
+				throwException(t, "Invalid low index: {} (buffer length: {})", lo, memb.length);
+
+			if(hi < 0)
+				hi += memb.length;
+
+			if(hi < lo || hi > memb.length)
+				throwException(t, "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, memb.length);
+
+			pushFormat(t, "{}", memb.data[lo .. hi]);
 			return 1;
 		}
-		
-		public uword opSliceAssign(MDThread* t, uword numParams)
-		{
-			s.getContext!(MDStringBuffer)()[s.getParam!(int)(0) .. s.getParam!(int)(1)] = s.getParam!(dchar[])(2);
-			return 0;
-		}
 
-		public uword reserve(MDThread* t, uword numParams)
+		uword opSliceAssign(MDThread* t, uword numParams)
 		{
-			s.getContext!(MDStringBuffer).reserve(s.getParam!(uint)(0));
-			return 0;
-		}
-		
-		public uword format(MDThread* t, uword numParams)
-		{
-			auto self = s.getContext!(MDStringBuffer);
+			auto memb = getThis(t);
+			auto lo = checkIntParam(t, 1);
+			auto hi = checkIntParam(t, 2);
+			checkAnyParam(t, 3);
 
-			uint sink(dchar[] data)
+			if(lo < 0)
+				lo += memb.length;
+
+			if(lo < 0 || lo > memb.length)
+				throwException(t, "Invalid low index: {} (buffer length: {})", lo, memb.length);
+
+			if(hi < 0)
+				hi += memb.length;
+
+			if(hi < lo || hi > memb.length)
+				throwException(t, "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, memb.length);
+
+			auto sliceLen = hi - lo;
+
+			if(isChar(t, 3))
+				memb.data[lo .. hi] = getChar(t, 3);
+			else if(isString(t, 3))
 			{
-				self.append(data);
+				auto str = getStringObj(t, 3);
+
+				if(str.cpLength != sliceLen)
+					throwException(t, "Slice length ({}) does not match length of string ({})", sliceLen, str.cpLength);
+
+				uint ate = 0;
+				Utf.toString32(str.toString(), memb.data[lo .. hi], &ate);
+				assert(ate == str.toString().length);
+			}
+			else
+			{
+				pushGlobal(t, "StringBuffer");
+				
+				if(as(t, 3, -1))
+				{
+					auto other = getMembers!(Members)(t, 3);
+					
+					if(other.length != sliceLen)
+						throwException(t, "Slice length ({}) does not match length of string buffer ({})", sliceLen, other.length);
+						
+					memb.data[lo .. hi] = other.data[0 .. other.length];
+				}
+				else
+					paramTypeError(t, 3, "char|string|StringBuffer");
+			}
+
+			return 0;
+		}
+
+		uword reserve(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto newLen = checkIntParam(t, 1);
+
+			if(newLen > memb.data.length)
+				t.vm.alloc.resizeArray(memb.data, newLen);
+
+			return 0;
+		}
+
+		uword format(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+
+			uint sink(char[] data)
+			{
+				append(t, memb, data, verify(data));
 				return data.length;
 			}
 
-			formatImpl(s, s.getAllParams(), &sink);
+			formatImpl(t, numParams, &sink);
 			return 0;
 		}
 
-		public uword formatln(MDThread* t, uword numParams)
+		uword formatln(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDStringBuffer);
+			auto memb = getThis(t);
 
-			uint sink(dchar[] data)
+			uint sink(char[] data)
 			{
-				self.append(data);
+				append(t, memb, data, verify(data));
 				return data.length;
 			}
 
-			formatImpl(s, s.getAllParams(), &sink);
-			self.append("\n"d);
+			formatImpl(t, numParams, &sink);
+			append(t, memb, "\n", 1);
 			return 0;
 		}
 	}
-
-	static class MDStringBuffer : MDObject
-	{
-		protected dchar[] mBuffer;
-		protected uword mLength = 0;
-
-		public this(MDStringBufferClass owner)
-		{
-			super("StringBuffer", owner);
-			mBuffer = new dchar[32];
-		}
-
-		public this(MDStringBufferClass owner, uword size)
-		{
-			super("StringBuffer", owner);
-			mBuffer = new dchar[size];
-		}
-
-		public this(MDStringBufferClass owner, dchar[] data)
-		{
-			super("StringBuffer", owner);
-			mBuffer = data;
-			mLength = mBuffer.length;
-		}
-		
-		public void append(MDStringBuffer other)
-		{
-			resize(other.mLength);
-			mBuffer[mLength .. mLength + other.mLength] = other.mBuffer[0 .. other.mLength];
-			mLength += other.mLength;
-		}
-
-		public void append(MDString str)
-		{
-			resize(str.mData.length);
-			mBuffer[mLength .. mLength + str.mData.length] = str.mData[];
-			mLength += str.mData.length;
-		}
-		
-		public void append(char[] s)
-		{
-			append(utf.toString32(s));
-		}
-		
-		public void append(dchar[] s)
-		{
-			resize(s.length);
-			mBuffer[mLength .. mLength + s.length] = s[];
-			mLength += s.length;
-		}
-		
-		public void insert(int offset, MDStringBuffer other)
-		{
-			if(offset > mLength)
-				throw new MDException("Offset out of bounds: {}", offset);
-
-			resize(other.mLength);
-			
-			for(int i = mLength + other.mLength - 1, j = mLength - 1; j >= offset; i--, j--)
-				mBuffer[i] = mBuffer[j];
-				
-			mBuffer[offset .. offset + other.mLength] = other.mBuffer[0 .. other.mLength];
-			mLength += other.mLength;
-		}
-		
-		public void insert(int offset, MDString str)
-		{
-			if(offset > mLength)
-				throw new MDException("Offset out of bounds: {}", offset);
-
-			resize(str.mData.length);
-
-			for(int i = mLength + str.mData.length - 1, j = mLength - 1; j >= offset; i--, j--)
-				mBuffer[i] = mBuffer[j];
-
-			mBuffer[offset .. offset + str.mData.length] = str.mData[];
-			mLength += str.mData.length;
-		}
-
-		public void insert(int offset, char[] s)
-		{
-			if(offset > mLength)
-				throw new MDException("Offset out of bounds: {}", offset);
-
-			dchar[] str = utf.toString32(s);
-			resize(str.length);
-
-			for(int i = mLength + str.length - 1, j = mLength - 1; j >= offset; i--, j--)
-				mBuffer[i] = mBuffer[j];
-
-			mBuffer[offset .. offset + str.length] = str[];
-			mLength += str.length;
-		}
-		
-		public void remove(uint start, uint end)
-		{
-			if(end > mLength)
-				end = mLength;
-
-			if(start > mLength || start > end)
-				throw new MDException("Invalid indices: {} .. {}", start, end);
-
-			for(int i = start, j = end; j < mLength; i++, j++)
-				mBuffer[i] = mBuffer[j];
-
-			mLength -= (end - start);
-		}
-
-		public MDString toMDString()
-		{
-			return new MDString(mBuffer[0 .. mLength]);
-		}
-		
-		public void length(uint len)
-		{
-			uint oldLength = mLength;
-			mLength = len;
-
-			if(mLength > mBuffer.length)
-				mBuffer.length = mLength;
-				
-			if(mLength > oldLength)
-				mBuffer[oldLength .. mLength] = dchar.init;
-		}
-		
-		public uint length()
-		{
-			return mLength;
-		}
-		
-		public dchar opIndex(int index)
-		{
-			if(index < 0)
-				index += mLength;
-
-			if(index < 0 || index >= mLength)
-				throw new MDException("Invalid index: {}", index);
-
-			return mBuffer[index];
-		}
-
-		public void opIndexAssign(dchar c, int index)
-		{
-			if(index < 0)
-				index += mLength;
-
-			if(index >= mLength)
-				throw new MDException("Invalid index: {}", index);
-
-			mBuffer[index] = c;
-		}
-
-		public dchar[] opSlice(int lo, int hi)
-		{
-			if(lo < 0)
-				lo += mLength;
-
-			if(hi < 0)
-				hi += mLength;
-
-			if(lo < 0 || lo > hi || hi >= mLength)
-				throw new MDException("Invalid indices: {} .. {}", lo, hi);
-
-			return mBuffer[lo .. hi];
-		}
-
-		public void opSliceAssign(dchar[] s, int lo, int hi)
-		{
-			if(lo < 0)
-				lo += mLength;
-
-			if(hi < 0)
-				hi += mLength;
-
-			if(lo < 0 || lo > hi || hi >= mLength)
-				throw new MDException("Invalid indices: {} .. {}", lo, hi);
-
-			if(hi - lo != s.length)
-				throw new MDException("Slice length ({}) does not match length of string ({})", hi - lo, s.length);
-
-			mBuffer[lo .. hi] = s[];
-		}
-		
-		public void reserve(int size)
-		{
-			if(size > mBuffer.length)
-				mBuffer.length = size;
-		}
-
-		protected void resize(uint length)
-		{
-			if(length > (mBuffer.length - mLength))
-				mBuffer.length = mBuffer.length + length;
-		}
-	}
-
-*/
 }
