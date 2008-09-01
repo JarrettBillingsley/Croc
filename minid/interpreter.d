@@ -3121,14 +3121,63 @@ void fillArray(MDThread* t, word arr)
 	pop(t);
 }
 
-// TODO: tracebacks
-// TODO: some more ops for some objects, like namespaces?  removeKey?
+/**
+This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
+It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
+manipulations.
 
+To use this, first you push the container -- what you would normally put on the right side
+of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
+values, and if the first value is not a function, opApply is called on it with the second
+value as a user parameter.
+
+Then you can create an instance of this struct using the static opCall and iterate over it
+with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
+stack slots that hold those values.  You can break out of the loop just as you'd expect,
+and you can perform any manipulations you'd like in the loop body.
+
+Example:
+-----
+// 1. Push the container.  We're just iterating through modules.customLoaders.
+lookup(t, "modules.customLoaders");
+
+// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
+// of items in the container.  We only pushed one value for the container, so we pass 1.
+// Note that you must specify the index types (which must all be word), or else D can't infer
+// the types for them.
+
+foreach(word k, word v; foreachLoop(t, 1))
+{
+	// 3. Do whatever you want with k and v.
+	pushToString(t, k);
+	pushToString(t, v);
+	Stdout.formatln("{}: {}", getString(t, -2), getString(t, -1));
+	
+	// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
+	pop(t, 2);
+}
+-----
+
+Note a few things: the foreach loop will pop the container off the stack, so the above code is
+stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
+pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
+foreachLoop keeps internal loop data there, but stack indices that were valid before the loop started
+will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
+like in MiniD where an implicit index will be inserted before that one, and you will get the second
+indices in v instead of the first.
+*/
 struct foreachLoop
 {
 	MDThread* t;
 	uword numSlots;
+
+	/**
+	The struct constructor.
 	
+	Params:
+		numSlots = How many slots on top of the stack should be interpreted as the container.  Must be
+			1, 2, or 3.
+	*/
 	public static foreachLoop opCall(MDThread* t, uword numSlots)
 	{
 		foreachLoop ret = void;
@@ -3137,7 +3186,12 @@ struct foreachLoop
 		return ret;
 	}
 
-	int opApply(T)(T dg)
+	/**
+	The function that makes everything work.  This is templated to allow any number of indices, but
+	the downside to that is that you must specify the types of the indices in the foreach loop that
+	iterates over this structure.  All the indices must be of type 'word'.
+	*/
+	public int opApply(T)(T dg)
 	{
 		alias Unique!(ParameterTupleOf!(T)) TypeTest;
 		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");
@@ -3209,7 +3263,7 @@ struct foreachLoop
 		Indices idx;
 
 		static if(Indices.length == 1)
-			idx[i] = stackSize(t) + 1;
+			idx[0] = stackSize(t) + 1;
 		else
 		{
 			foreach(i, T; Indices)
@@ -3244,6 +3298,9 @@ struct foreachLoop
 		return 0;
 	}
 }
+
+// TODO: tracebacks
+// TODO: some more ops for some objects, like namespaces?  removeKey?
 
 debug
 {
