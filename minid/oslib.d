@@ -54,11 +54,10 @@ static:
 
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-// 			auto ioLib = importModule(t, "io");
-			// Don't forget to pop ioLib!
-// 			auto osLib = new OSLib(s.context.globals.get!(MDObject)("Object"d), ioLib);
+			importModule(t, "io");
+			pop(t);
 
-// 			"Process"d,      osLib.processClass,
+			ProcessObj.init(t);
 			newFunction(t, &system, "system"); newGlobal(t, "system");
 			newFunction(t, &getEnv, "getEnv"); newGlobal(t, "getEnv");
 
@@ -124,141 +123,210 @@ static:
 		return 1;
 	}
 
-/+
-	class MDProcessClass : MDObject
+	struct ProcessObj
 	{
-		static class MDProcess : MDObject
+	static:
+		enum Members
 		{
-			protected Process mProcess;
-			protected MDObject mStdin;
-			protected MDObject mStdout;
-			protected MDObject mStderr;
+			process,
+			stdin,
+			stdout,
+			stderr
+		}
 
-			public this(MDObject owner)
+		public static void init(MDThread* t)
+		{
+			CreateObject(t, "Process", (CreateObject* o)
 			{
-				super("Process", owner);
-				mProcess = new Process();
-			}
+				o.method("clone",     &clone);
+				o.method("isRunning", &isRunning);
+				o.method("workDir",   &workDir);
+				o.method("stdin",     &stdin);
+				o.method("stdout",    &stdout);
+				o.method("stderr",    &stderr);
+				o.method("execute",   &execute);
+				o.method("wait",      &wait);
+				o.method("kill",      &kill);
+			});
+
+			newGlobal(t, "Process");
 		}
 
-		public this(MDObject owner)
+		Process getProcess(MDThread* t)
 		{
-			super("Process", owner);
-			
-			fields.addList
-			(
-				"clone"d,     new MDClosure(fields, &clone,     "Process.clone"),
-				"isRunning"d, new MDClosure(fields, &isRunning, "Process.isRunning"),
-				"workDir"d,   new MDClosure(fields, &workDir,   "Process.workDir"),
-				"stdin"d,     new MDClosure(fields, &stdin,     "Process.stdin"),
-				"stdout"d,    new MDClosure(fields, &stdout,    "Process.stdout"),
-				"stderr"d,    new MDClosure(fields, &stderr,    "Process.stderr"),
-				"execute"d,   new MDClosure(fields, &execute,   "Process.execute"),
-				"wait"d,      new MDClosure(fields, &wait,      "Process.wait"),
-				"kill"d,      new MDClosure(fields, &kill,      "Process.kill")
-			);
+			checkObjParam(t, 0, "Process");
+			pushExtraVal(t, 0, Members.process);
+			auto ret = cast(Process)getNativeObj(t, -1);
+			assert(ret !is null);
+			pop(t);
+			return ret;
 		}
-		
+
 		public uword clone(MDThread* t, uword numParams)
 		{
-			s.push(new MDProcess(this));
+			newObject(t, 0, null, 4);
+			pushNativeObj(t, new Process());
+			setExtraVal(t, -2, Members.process);
 			return 1;
 		}
-		
+
 		public uword isRunning(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDProcess)().mProcess.isRunning()));
+			auto p = getProcess(t);
+			pushBool(t, safeCode(t, p.isRunning()));
 			return 1;
 		}
 		
 		public uword workDir(MDThread* t, uword numParams)
 		{
+			auto p = getProcess(t);
+
 			if(numParams == 0)
 			{
-				s.push(s.safeCode(s.getContext!(MDProcess)().mProcess.workDir()));
+				pushString(t, safeCode(t, p.workDir));
 				return 1;
 			}
 
-			s.safeCode(s.getContext!(MDProcess)().mProcess.workDir(s.getParam!(char[])(0)));
+			safeCode(t, p.workDir = checkStringParam(t, 1));
 			return 0;
 		}
 
 		public uword execute(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDProcess);
+			auto p = getProcess(t);
 
 			char[][char[]] env = null;
 
 			if(numParams > 1)
-				env = s.getParam!(char[][char[]])(1);
+			{
+				checkParam(t, 2, MDValue.Type.Table);
+				dup(t, 2);
 
-			if(s.isParam!("string")(0))
-				s.safeCode(self.mProcess.execute(s.getParam!(char[])(0), env));
+				foreach(word k, word v; foreachLoop(t, 1))
+				{
+					if(!isString(t, k) || !isString(t, v))
+						throwException(t, "env parameter must be a table mapping from strings to strings");
+
+					env[getString(t, k)] = getString(t, v);
+				}
+			}
+			
+			if(isString(t, 1))
+				safeCode(t, p.execute(getString(t, 1), env));
 			else
-				s.safeCode(self.mProcess.execute(s.getParam!(char[][])(0), env));
+			{
+				checkParam(t, 1, MDValue.Type.Array);
+				auto num = len(t, 1);
+				auto cmd = new char[][num];
+		
+				for(uword i = 0; i < num; i++)
+				{
+					idxi(t, 1, i);
+					
+					if(!isString(t, -1))
+						throwException(t, "cmd parameter must be an array of strings");
+						
+					cmd[i] = getString(t, -1);
+					pop(t);
+				}
 
-			self.mStdin = null;
-			self.mStdout = null;
-			self.mStderr = null;
+				safeCode(t, p.execute(cmd, env));
+			}
+
+			pushNull(t);
+			dup(t);
+			setExtraVal(t, 0, Members.stdin);
+			dup(t);
+			setExtraVal(t, 0, Members.stdout);
+			setExtraVal(t, 0, Members.stderr);
 
 			return 0;
 		}
 		
 		public uword stdin(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDProcess);
+			auto p = getProcess(t);
 
-			if(!self.mStdin)
-				self.mStdin = outputStreamClass.nativeClone(self.mProcess.stdin.output);
+			pushExtraVal(t, 0, Members.stdin);
+			
+			if(isNull(t, -1))
+			{
+				pop(t);
+				lookupCT!("io.OutputStream")(t);
+				pushNull(t);
+				pushNativeObj(t, cast(Object)p.stdin.output);
+				methodCall(t, -3, "clone", 1);
+				dup(t);
+				setExtraVal(t, 0, Members.stdin);
+			}
 
-			s.push(self.mStdin);
 			return 1;
 		}
 		
 		public uword stdout(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDProcess);
+			auto p = getProcess(t);
 
-			if(!self.mStdout)
-				self.mStdout = inputStreamClass.nativeClone(self.mProcess.stdout.input);
+			pushExtraVal(t, 0, Members.stdout);
+			
+			if(isNull(t, -1))
+			{
+				pop(t);
+				lookupCT!("io.InputStream")(t);
+				pushNull(t);
+				pushNativeObj(t, cast(Object)p.stdout.input);
+				methodCall(t, -3, "clone", 1);
+				dup(t);
+				setExtraVal(t, 0, Members.stdout);
+			}
 
-			s.push(self.mStdout);
 			return 1;
 		}
 		
 		public uword stderr(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDProcess);
+			auto p = getProcess(t);
 
-			if(!self.mStderr)
-				self.mStderr = inputStreamClass.nativeClone(self.mProcess.stderr.input);
+			pushExtraVal(t, 0, Members.stderr);
+			
+			if(isNull(t, -1))
+			{
+				pop(t);
+				lookupCT!("io.InputStream")(t);
+				pushNull(t);
+				pushNativeObj(t, cast(Object)p.stderr.input);
+				methodCall(t, -3, "clone", 1);
+				dup(t);
+				setExtraVal(t, 0, Members.stderr);
+			}
 
-			s.push(self.mStderr);
 			return 1;
 		}
 		
 		public uword wait(MDThread* t, uword numParams)
 		{
-			auto res = s.safeCode(s.getContext!(MDProcess)().mProcess.wait());
-			
+			auto p = getProcess(t);
+			auto res = safeCode(t, p.wait());
+
 			switch(res.reason)
 			{
-				case Process.Result.Exit:     s.push("exit"); break;
-				case Process.Result.Signal:   s.push("signal"); break;
-				case Process.Result.Stop:     s.push("stop"); break;
-				case Process.Result.Continue: s.push("continue"); break;
-				case Process.Result.Error:    s.push("error"); break;
+				case Process.Result.Exit:     pushString(t, "exit"); break;
+				case Process.Result.Signal:   pushString(t, "signal"); break;
+				case Process.Result.Stop:     pushString(t, "stop"); break;
+				case Process.Result.Continue: pushString(t, "continue"); break;
+				case Process.Result.Error:    pushString(t, "error"); break;
+				default: assert(false);
 			}
 
-			s.push(res.status);
+			pushInt(t, res.status);
 			return 2;
 		}
 
 		public uword kill(MDThread* t, uword numParams)
 		{
-			s.safeCode(s.getContext!(MDProcess)().mProcess.kill());
+			auto p = getProcess(t);
+			safeCode(t, p.kill());
 			return 0;
 		}
 	}
-+/
 }

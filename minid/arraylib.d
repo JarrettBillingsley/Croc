@@ -273,7 +273,7 @@ static:
 		{
 			getUpval(t, 1);
 			dup(t, 0);
-			pushInt(t, len(t, 0));
+			pushLen(t, 0);
 		}
 		else
 		{

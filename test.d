@@ -15,20 +15,11 @@ void main()
 
 	try
 	{
-// 		importModule(t, "samples.simple");
-// 		pushNull(t);
-// 		pushGlobal(t, "runMain");
-// 		swap(t, -3);
-// 		rawCall(t, -3, 0);
-
-		lookup(t, "modules.customLoaders");
-
-		foreach(word v; foreachLoop(t, 1))
-		{
-			pushToString(t, v);
-			Stdout.formatln("{}", getString(t, -1));
-			pop(t);
-		}
+		importModule(t, "samples.simple");
+		pushNull(t);
+		pushGlobal(t, "runMain");
+		swap(t, -3);
+		rawCall(t, -3, 0);
 	}
 	catch(MDException e)
 	{
