@@ -1340,8 +1340,8 @@ static:
 		uword opSlice(MDThread* t, uword numParams)
 		{
 			auto memb = getThis(t);
-			auto lo = checkIntParam(t, 1);
-			auto hi = checkIntParam(t, 2);
+			auto lo = optIntParam(t, 1, 0);
+			auto hi = optIntParam(t, 2, -1);
 
 			if(lo < 0)
 				lo += memb.length;
@@ -1362,8 +1362,8 @@ static:
 		uword opSliceAssign(MDThread* t, uword numParams)
 		{
 			auto memb = getThis(t);
-			auto lo = checkIntParam(t, 1);
-			auto hi = checkIntParam(t, 2);
+			auto lo = optIntParam(t, 1, 0);
+			auto hi = optIntParam(t, 2, -1);
 			checkAnyParam(t, 3);
 
 			if(lo < 0)

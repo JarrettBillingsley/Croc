@@ -3777,7 +3777,14 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 		case MDValue.Type.Null:  return pushString(t, "null");
 		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
 		case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
-		case MDValue.Type.Float: return pushString(t, Float.truncate(Float.format(buffer, v.mFloat, 6)));
+		case MDValue.Type.Float:
+			auto str = Float.format(buffer, v.mFloat, 6);
+			auto tmp = Float.truncate(str);
+
+			if(tmp.locate('.') == tmp.length)
+				tmp = str[0 .. tmp.length + 2];
+
+			return pushString(t, tmp);
 
 		case MDValue.Type.Char:
 			dchar[1] inbuf = void;
@@ -5474,11 +5481,19 @@ void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
 		return;
 
 	if((t.results.length - t.resultIndex) < num)
-		t.vm.alloc.resizeArray(t.results, t.results.length * 2);
+	{
+		auto newLen = t.results.length * 2;
+		
+		if(newLen - t.resultIndex < num)
+			newLen = t.resultIndex + num;
+
+		t.vm.alloc.resizeArray(t.results, newLen);
+	}
 
 	assert(t.currentAR.firstResult is 0 && t.currentAR.numResults is 0);
 
-	t.results[t.resultIndex .. t.resultIndex + num] = from.stack[first .. first + num];
+	auto tmp = from.stack[first .. first + num];
+	t.results[t.resultIndex .. t.resultIndex + num] = tmp;
 
 	t.currentAR.firstResult = t.resultIndex;
 	t.currentAR.numResults = num;

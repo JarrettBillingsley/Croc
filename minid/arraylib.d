@@ -356,7 +356,7 @@ static:
 			push(t, v);
 			rawCall(t, reg, 1);
 			idxai(t, -2, i, true);
-			pop(t);
+			//pop(t);
 		}
 
 		dup(t, 0);
@@ -377,7 +377,7 @@ static:
 			push(t, v);
 			rawCall(t, reg, 1);
 			idxai(t, -2, i, true);
-			pop(t);
+			//pop(t);
 		}
 
 		return 1;
