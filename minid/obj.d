@@ -45,7 +45,7 @@ static:
 		
 		if(o.proto)
 			o.finalizer = o.proto.finalizer;
-			
+
 		return o;
 	}
 
@@ -94,8 +94,11 @@ static:
 		return false;
 	}
 	
-	package MDNamespace* fieldsOf(MDObject* o)
+	package MDNamespace* fieldsOf(MDVM* vm, MDObject* o)
 	{
+		if(o.fields is null)
+			o.fields = namespace.create(vm.alloc, string.create(vm, ""));
+
 		return o.fields;
 	}
 	

@@ -31,7 +31,7 @@ import minid.types;
 
 struct Decorators
 {
-	CallExp exp;
+	Expression exp;
 	Expression* dest;
 }
 
@@ -263,13 +263,12 @@ struct Parser
 	*/
 	public Decorators parseDecorators()
 	{
-		CallExp parseDecorator()
+		Expression parseDecorator(out Expression* dest)
 		{
 			l.expect(Token.At);
 
 			Expression name = parseIdentExp();
 
-			// TODO: make dotted decorator calls behave as method calls?
 			while(l.type == Token.Dot)
 			{
 				l.next();
@@ -311,18 +310,29 @@ struct Parser
 				endLocation = l.expect(Token.RParen).loc;
 			}
 
-			return new(c) CallExp(c, endLocation, name, context, args.toArray());
+			if(auto dot = name.as!(DotExp))
+			{
+				auto ret = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, null, args.toArray(), false);
+				dest = &ret.args[0];
+				return ret;
+			}
+			else
+			{
+				auto ret = new(c) CallExp(c, endLocation, name, context, args.toArray());
+				dest = &ret.args[0];
+				return ret;
+			}
 		}
 
 		Decorators ret;
-		ret.exp = parseDecorator();
-		ret.dest = &ret.exp.args[0];
-		
+		ret.exp = parseDecorator(ret.dest);
+
 		while(l.type == Token.At)
 		{
-			auto e = parseDecorator();
+			Expression* dest;
+			auto e = parseDecorator(dest);
 			*ret.dest = e;
-			ret.dest = &e.args[0];
+			ret.dest = dest;
 		}
 
 		return ret;

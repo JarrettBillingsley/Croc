@@ -221,7 +221,7 @@ scope class Compiler : ICompiler
 			auto fd = mParser.parseStatements(name);
 
 			scope sem = new Semantic(this);
-			fd = sem.visit(fd);
+			fd = sem.visitStatements(fd);
 
 			scope cg = new Codegen(this);
 			cg.codegenStatements(fd);

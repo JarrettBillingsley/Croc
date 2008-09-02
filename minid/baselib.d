@@ -331,7 +331,7 @@ static:
 					pushInt(t, -1);
 					setUpval(t, 1);
 					pop(t, 2);
-	
+
 					// try again
 					continue;
 				}
@@ -413,7 +413,8 @@ static:
 	uword attributesOf(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
-		return getAttributes(t, 1);
+		getAttributes(t, 1);
+		return 1;
 	}
 
 	uword isParam(MDValue.Type Type)(MDThread* t, uword numParams)
@@ -673,47 +674,79 @@ static:
 				}
 
 				Stdout('{');
-				
+
 				auto length = len(t, tab);
 
-				// TODO: this, _efficiently._
-// 				if(length > 0)
-// 				{
-// 					if(length == 1)
-// 					{
-// 						foreach(k, v; t)
-// 						{
-// 							if(s.hasPendingHalt())
-// 								throw new MDHaltException();
-//
-// 							Stdout('[');
-// 							outputRepr(k);
-// 							Stdout("] = ");
-// 							outputRepr(v);
-// 						}
-// 					}
-// 					else
-// 					{
-// 						bool first = true;
-// 	
-// 						foreach(k, v; t)
-// 						{
-// 							if(first)
-// 								first = !first;
-// 							else
-// 								Stdout(", ");
-// 								
-// 							if(s.hasPendingHalt())
-// 								throw new MDHaltException();
-// 	
-// 							Stdout('[');
-// 							outputRepr(k);
-// 							Stdout("] = ");
-// 							outputRepr(v);
-// 						}
-// 					}
-// 				}
-				Stdout('!');
+				if(length > 0)
+				{
+					bool first = true;
+					dup(t, tab);
+
+					foreach(word k, word v; foreachLoop(t, 1))
+					{
+						if(first)
+							first = !first;
+						else
+							Stdout(", ");
+
+						if(hasPendingHalt(t))
+							.haltThread(t);
+
+						Stdout('[');
+						outputRepr(k);
+						Stdout("] = ");
+						dup(t, v);
+						outputRepr(-1);
+						pop(t);
+					}
+				}
+
+				Stdout('}');
+			}
+			
+			void outputNamespace(word ns)
+			{
+				if(opin(t, ns, shown))
+				{
+					pushToString(t, ns);
+					Stdout(getString(t, -1))(" {...}");
+					pop(t);
+					return;
+				}
+				
+				dup(t, ns);
+				pushBool(t, true);
+				idxa(t, shown);
+				
+				scope(exit)
+				{
+					dup(t, ns);
+					pushNull(t);
+					idxa(t, shown);
+				}
+
+				pushToString(t, ns);
+				Stdout(getString(t, -1))(" {").newline;
+				pop(t);
+
+				auto length = len(t, ns);
+
+				if(length > 0)
+				{
+					dup(t, ns);
+
+					foreach(word k, word v; foreachLoop(t, 1))
+					{
+						if(hasPendingHalt(t))
+							.haltThread(t);
+
+						Stdout(getString(t, k))(" = ");
+						dup(t, v);
+						outputRepr(-1);
+						pop(t);
+						Stdout.newline;
+					}
+				}
 
 				Stdout('}');
 			}
@@ -737,6 +770,8 @@ static:
 				outputArray(v);
 			else if(isTable(t, v) && !.hasMethod(t, v, "toString"))
 				outputTable(v);
+			else if(isNamespace(t, v))
+				outputNamespace(v);
 			else
 			{
 				pushToString(t, v);
@@ -759,16 +794,6 @@ static:
 		Cin.readln(s);
 		pushString(t, s);
 		return 1;
-
-		/*char[128] dbuf = void;
-		uint ate = 0;
-		auto outbuf = StrBuffer(t);
-
-		while(ate < s.length)
-			outbuf.addString(utf.toString32(s[ate .. $], dbuf, &ate));
-
-		outbuf.finish();
-		return 1;*/
 	}
 
 	// ===================================================================================================================================

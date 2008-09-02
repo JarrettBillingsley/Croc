@@ -203,6 +203,7 @@ package uword loadFiles(MDThread* t, uword numParams)
 
 	outerLoop: foreach(path; paths.delimiters(";"))
 	{
+		// TODO: try to make this not allocate memory?  Is this possible?
 		scope p = new FilePath(path);
 
 		if(!p.exists())
@@ -216,7 +217,6 @@ package uword loadFiles(MDThread* t, uword numParams)
 				continue outerLoop;
 		}
 
-		// TODO: try to make this not allocate memory?
 		scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
 		scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
 		

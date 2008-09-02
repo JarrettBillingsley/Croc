@@ -53,6 +53,11 @@ class Semantic : IdentityVisitor
 
 		return m;
 	}
+	
+	public FuncDef visitStatements(FuncDef d)
+	{
+		return visitFuncDef(d);	
+	}
 
 	public override ObjectDef visit(ObjectDef d)
 	{
@@ -63,14 +68,19 @@ class Semantic : IdentityVisitor
 
 		return d;
 	}
-	
+
 	public override FuncDef visit(FuncDef d)
 	{
 		mFuncDepth++;
 
 		scope(exit)
 			mFuncDepth--;
+			
+		return visitFuncDef(d);
+	}
 
+	public FuncDef visitFuncDef(FuncDef d)
+	{
 		foreach(i, ref p; d.params)
 		{
 			if(p.defValue is null)

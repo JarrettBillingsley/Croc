@@ -2531,7 +2531,7 @@ Returns:
 word fieldsOf(MDThread* t, word obj)
 {
 	if(auto o = getObject(t, obj))
-		return pushNamespace(t, .obj.fieldsOf(o));
+		return pushNamespace(t, .obj.fieldsOf(t.vm, o));
 
 	pushTypeString(t, obj);
 	throwException(t, "fieldsOf - Expected 'object', not '{}'", getString(t, -1));
@@ -3212,7 +3212,7 @@ struct foreachLoop
 			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
 
 		checkNumParams(t, numSlots);
-		
+
 		// Make sure we have 3 stack slots for our temp data area
 		if(numSlots < 3)
 		{
