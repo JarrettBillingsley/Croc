@@ -2943,102 +2943,6 @@ word importModule(MDThread* t, word name)
 }
 
 /**
-Initialize a module.  This expects a function to be on top of the stack which represents the
-top-level function of the module.  It will create a namespace in the global namespace hierarchy
-for the module, set the function's environment as that namespace, and call the function with that
-namespace as 'this' and with the module's name as the first parameter.  The function is not expected
-to return anything.  After the function completes, the namespace is added to the modules.loaded table.
-
-This is a relatively low-level API and you probably won't be using it that much.  Note that it does not
-check to see if another module of the same name is already loaded, so it'll just merge with any existing
-module.
-
-The function on the stack is popped and in its place, the namespace of the newly-initialized module
-is pushed.
-
-Params:
-	name = The name of the module in dotted-identifier form.
-
-Returns:
-	The stack index of the newly-pushed module namespace.
-*/
-word initModule(MDThread* t, char[] name)
-{
-	pushString(t, name);
-	return initModule(t);
-}
-
-/**
-Same as above, except that it expects the name to be on top of the stack as well (so the function is
-at -2 and the name is at -1).
-*/
-word initModule(MDThread* t)
-{
-	checkNumParams(t, 2);
-	auto func = absIndex(t, -2);
-
-	if(!isFunction(t, func))
-	{
-		pushTypeString(t, func);
-		throwException(t, "initModule - 'function' expected for module loader, not '{}'", getString(t, -1));
-	}
-
-	if(!isString(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwException(t, "initModule - 'string' expected for name, not '{}'", getString(t, -1));
-	}
-
-	auto name = getString(t, -1);
-
-	// Make the namespace
-	pushGlobal(t, "_G");
-
-	foreach(segment; name.delimiters("."))
-	{
-		pushString(t, segment);
-
-		if(opin(t, -1, -2))
-		{
-			field(t, -2);
-			
-			// TODO: Better error message here
-			if(!isNamespace(t, -1))
-				throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
-		}
-		else
-		{
-			pop(t);
-			newNamespace(t, -1, segment);
-			dup(t);
-			fielda(t, -3, segment);
-		}
-
-		insertAndPop(t, -2);
-	}
-
-	auto ns = getNamespace(t, -1);
-
-	// Set the environment (also used as 'this')
-	swap(t);
-	dup(t, -2);
-	setFuncEnv(t, func);
-
-	// Call it with the name as the first param
-	rawCall(t, func, 0);
-
-	// Add it to the loaded table
-	pushGlobal(t, "modules");
-	field(t, -1, "loaded");
-	pushString(t, name);
-	pushNamespace(t, ns);
-	idxa(t, -3);
-	pop(t, 2);
-	
-	return pushNamespace(t, ns);
-}
-
-/**
 An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
 could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
 for writing native MiniD libraries.
@@ -3119,6 +3023,25 @@ void fillArray(MDThread* t, word arr)
 
 	a.slice[] = t.stack[t.stackIndex - 1];
 	pop(t);
+}
+
+/**
+Removes all items from the given namespace object.
+
+Params:
+	ns = The stack index of the namespace object to clear.
+*/
+void clearNamespace(MDThread* t, word ns)
+{
+	auto n = getNamespace(t, ns);
+	
+	if(n is null)
+	{
+		pushTypeString(t, ns);
+		throwException(t, "clearNamespace - ns must be a namespace, not a '{}'", getString(t, -1));
+	}
+
+	namespace.clear(t.vm.alloc, n);
 }
 
 /**
@@ -5351,7 +5274,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 	{
 		// Native function
 		nativeCallPrologue(t, func, returnSlot, numReturns, paramSlot, numParams, proto);
-		
+
 		uword actualReturns = void;
 
 		try
@@ -6074,39 +5997,15 @@ void throwImpl(MDThread* t, MDValue* ex)
 void importImpl(MDThread* t, MDString* name, AbsStack dest)
 {
 	pushGlobal(t, "modules");
-	auto loaders = field(t, -1, "loaders");
-	auto num = len(t, -1);
-
-	for(uword i = 0; i < num; i++)
-	{
-		auto reg = pushInt(t, i);
-		idx(t, loaders);
-		pushNull(t);
-		pushStringObj(t, name);
-		rawCall(t, reg, 1);
-
-		if(isFunction(t, -1) || isNamespace(t, -1))
-		{
-			t.stack[dest] = t.stack[t.stackIndex - 1];
-			pop(t);
-			break;
-		}
-
-		pop(t);
-	}
-
-	pop(t, 2);
-
-	if(t.stack[dest].type == MDValue.Type.Function)
-	{
-		pushFunction(t, t.stack[dest].mFunction);
-		pushStringObj(t, name);
-		initModule(t);
-		t.stack[dest] = getNamespace(t, -1);
-		pop(t);
-	}
-	else if(t.stack[dest].type != MDValue.Type.Namespace)
-		throwException(t, "Error loading module '{}': could not find anything to load", name.toString());
+	field(t, -1, "load");
+	insertAndPop(t, -2);
+	pushNull(t);
+	pushStringObj(t, name);
+	rawCall(t, -3, 1);
+	
+	assert(isNamespace(t, -1));
+	t.stack[dest] = getNamespace(t, -1);
+	pop(t);
 }
 
 void execute(MDThread* t, uword depth = 1)

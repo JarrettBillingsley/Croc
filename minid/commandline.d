@@ -190,7 +190,13 @@ To end interactive mode, use the \"exit()\" function.
 				else
 					throwException(t, "Deserializing mdms is not implemented"); // TODO: this
 
-				reg = initModule(t, funcName(t, -1));
+				lookup(t, "modules.initModule");
+				swap(t);
+				pushNull(t);
+				swap(t);
+				pushString(t, funcName(t, -1));
+				rawCall(t, -4, 1);
+				reg = stackSize(t) - 1;
 			}
 
 			pushNull(t);

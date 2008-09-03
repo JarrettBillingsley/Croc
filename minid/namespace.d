@@ -70,6 +70,12 @@ static:
 		ns.data.remove(key);
 	}
 	
+	// Clears all items from the namespace.
+	package void clear(ref Allocator alloc, MDNamespace* ns)
+	{
+		ns.data.clear(alloc);
+	}
+	
 	// Returns `true` if the key exists in the table.
 	package bool contains(MDNamespace* ns, MDString* key)
 	{

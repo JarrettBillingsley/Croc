@@ -67,7 +67,6 @@ static:
 // 		register(t, "getTraceback", &getTraceback);
 		register(t, "haltThread", &haltThread);
 		register(t, "currentThread", &currentThread);
-// 		register(t, "reloadModule", &reloadModule);
 		register(t, "runMain", &runMain);
 
 		// Functional stuff
@@ -194,13 +193,6 @@ static:
 
 		return 1;
 	}
-/*
-	uword reloadModule(MDThread* t, uword numParams)
-	{
-		s.push(s.context.reloadModule(s.getParam!(MDString)(0).mData, s));
-		return 1;
-	}
-*/
 
 	uword runMain(MDThread* t, uword numParams)
 	{
