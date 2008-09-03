@@ -124,7 +124,7 @@ static:
 		register(t, "loadString", &loadString);
 		register(t, "eval", &eval);
 // 		register(t, "loadJSON", &loadJSON);
-// 		register(t, "toJSON", &toJSON);
+		register(t, "toJSON", &toJSON);
 
 		// The Thread type's metatable
 		newNamespace(t, "thread");
@@ -859,24 +859,33 @@ static:
 		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
 		return 1;
 	}
-
+*/
 	uword toJSON(MDThread* t, uword numParams)
 	{
-		MDValue root = s.getParam(0u);
-		bool pretty = false;
+		static scope class CleanupBuffer : GrowBuffer
+		{
+			this(uint size = 1024, uint increment = 1024)
+			{
+				super(size, increment);
+			}
+			
+			~this()
+			{
+				delete data;
+			}
+		}
 
-		if(numParams > 1)
-			pretty = s.getParam!(bool)(1);
+		checkAnyParam(t, 1);
+		auto pretty = optBoolParam(t, 2, false);
 
-		scope cond = new GrowBuffer();
-		scope printer = new Print!(dchar)(FormatterD, cond);
+		scope buf = new CleanupBuffer();
+		scope printer = new Print!(char)(t.vm.formatter, buf);
 
-		toJSONImpl(s, root, pretty, printer);
+		toJSONImpl(t, 1, pretty, printer);
 
-		s.push(cast(dchar[])cond.slice());
+		pushString(t, safeCode(t, cast(char[])buf.slice()));
 		return 1;
 	}
-*/
 
 	// ===================================================================================================================================
 	// Thread metatable

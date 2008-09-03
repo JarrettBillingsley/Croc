@@ -552,7 +552,7 @@ static:
 				o.method("writef",      &writef);
 				o.method("writefln",    &writefln);
 				o.method("writeChars",  &writeChars);
-// 				o.method("writeJSON",   &writeJSON);
+				o.method("writeJSON",   &writeJSON);
 				o.method("flush",       &flush);
 				o.method("copy",        &copy);
 			});
@@ -710,22 +710,15 @@ static:
 			return 1;
 		}
 
-// 		public uword writeJSON(MDThread* t, uword numParams)
-// 		{
-// 			bool pretty = false;
-// 
-// 			if(numParams > 1)
-// 				pretty = s.getParam!(bool)(1);
-// 
-// 			s.push(s.getContext!(MDOutputStream).writeJSON(s, s.getParam(0u), pretty));
-// 			return 1;
-// 		}
-//
-// 		public MDOutputStream writeJSON(MDState s, MDValue root, bool pretty = false)
-// 		{
-// 			toJSONImpl(s, root, pretty, mPrint);
-// 			return this;
-// 		}
+		public uword writeJSON(MDThread* t, uword numParams)
+		{
+			auto p = getPrint(t);
+			checkAnyParam(t, 1);
+			auto pretty = optBoolParam(t, 2, false);
+			toJSONImpl(t, 1, pretty, p);
+			dup(t, 0);
+			return 1;
+		}
 
 		public uword flush(MDThread* t, uword numParams)
 		{
@@ -818,7 +811,7 @@ static:
 				o.method("writef", &writef);
 				o.method("writefln", &writefln);
 				o.method("writeChars", &writeChars);
-// 				o.method("writeJSON", &writeJSON);
+				o.method("writeJSON", &writeJSON);
 				o.method("flush", &flush);
 				o.method("copy", &copy);
 
@@ -1008,14 +1001,20 @@ static:
 			return 1;
 		}
 
-// 		public uword writeJSON(MDThread* t, uword numParams)
-// 		{
-// 			pushOutput(t);
-// 			swap(t, 0);
-// 			OutputStreamObj.writeJSON(t, numParams);
-// 			pop(t);
-// 			return 1;
-// 		}
+		public uword writeJSON(MDThread* t, uword numParams)
+		{
+			checkAnyParam(t, 1);
+
+			// Have to set up the stack so that OutputStream.writeJSON doesn't see 'this' on it
+			if(numParams == 1)
+				pushNull(t);
+
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeJSON(t, numParams);
+			pop(t);
+			return 1;
+		}
 
 		public uword flush(MDThread* t, uword numParams)
 		{

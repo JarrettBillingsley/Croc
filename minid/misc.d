@@ -209,16 +209,15 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 	}
 }
 
-/+
 // Expects root to be at the top of the stack
-package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
+package void toJSONImpl(T)(MDThread* t, word root, bool pretty, Print!(T) printer)
 {
-	auto root = stackSize(t) - 1;
+	root = absIndex(t, root);
 	auto cycles = newTable(t);
 
-	int indent = 0;
+	word indent = 0;
 
-	void newline(int dir = 0)
+	void newline(word dir = 0)
 	{
 		printer.newline;
 
@@ -227,15 +226,13 @@ package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
 		else if(dir < 0)
 			indent--;
 
-		for(int i = indent; i > 0; i--)
+		for(word i = indent; i > 0; i--)
 			printer.print("\t");
 	}
 
-	void delegate() outputTable;
-	void delegate() outputArray;
-	void delegate() outputValue;
+	void delegate(word) outputValue;
 
-	void _outputTable()
+	void outputTable(word tab)
 	{
 		printer.print("{");
 
@@ -243,11 +240,12 @@ package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
 			newline(1);
 
 		bool first = true;
+		dup(t, tab);
 
-		foreach(k, ref v; t)
+		foreach(word k, word v; foreachLoop(t, 1))
 		{
-			if(!k.isString())
-				exception("All keys in a JSON table must be strings");
+			if(!isString(t, k))
+				throwException(t, "All keys in a JSON table must be strings");
 
 			if(first)
 				first = false;
@@ -275,17 +273,15 @@ package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
 		printer.print("}");
 	}
 
-	void _outputArray(MDArray a)
+	void outputArray(word arr)
 	{
 		printer.print("[");
 
-		bool first = true;
+		auto l = len(t, arr);
 
-		foreach(ref v; a)
+		for(word i = 0; i < l; i++)
 		{
-			if(first)
-				first = false;
-			else
+			if(i > 0)
 			{
 				if(pretty)
 					printer.print(", ");
@@ -293,108 +289,127 @@ package void toJSONImpl(T)(MDThread* t, bool pretty, Print!(T) printer)
 					printer.print(",");
 			}
 
-			outputValue(v);
+			outputValue(idxi(t, arr, i));
+			pop(t);
 		}
 
 		printer.print("]");
 	}
-
-	void _outputValue(ref MDValue v)
+	
+	void outputChar(dchar c)
 	{
-		switch(v.type)
+		switch(c)
+		{
+			case '\b': printer.print("\\b"); return;
+			case '\f': printer.print("\\f"); return;
+			case '\n': printer.print("\\n"); return;
+			case '\r': printer.print("\\r"); return;
+			case '\t': printer.print("\\t"); return;
+
+			case '"', '\\', '/':
+				printer.print("\\");
+				printer.print(c);
+				return;
+
+			default:
+				if(c > 0x7f)
+					printer.format("\\u{:x4}", cast(int)c);
+				else
+					printer.print(c);
+
+				return;
+		}
+	}
+
+	void _outputValue(word idx)
+	{
+		switch(type(t, idx))
 		{
 			case MDValue.Type.Null:
 				printer.print("null");
 				break;
 
 			case MDValue.Type.Bool:
-				printer.print(v.isFalse() ? "false" : "true");
+				printer.print(getBool(t, idx) ? "true" : "false");
 				break;
 
 			case MDValue.Type.Int:
-				printer.format("{}", v.as!(int));
+				printer.format("{}", getInt(t, idx));
 				break;
 
 			case MDValue.Type.Float:
-				printer.format("{}", v.as!(double));
+				printer.format("{}", getFloat(t, idx));
 				break;
 
 			case MDValue.Type.Char:
-				printer.print("\"");
-				printer.print(v.as!(dchar));
-				printer.print("\"");
+				printer.print('"');
+				outputChar(getChar(t, idx));
+				printer.print('"');
 				break;
 
 			case MDValue.Type.String:
 				printer.print('"');
 
-				foreach(c; v.as!(MDString).mData)
-				{
-					switch(c)
-					{
-						case '\b': printer.print("\\b"); break;
-						case '\f': printer.print("\\f"); break;
-						case '\n': printer.print("\\n"); break;
-						case '\r': printer.print("\\r"); break;
-						case '\t': printer.print("\\t"); break;
-
-						case '"', '\\', '/':
-							printer.print("\\");
-							printer.print(c);
-							break;
-
-						default:
-							if(c > 0x7f)
-								printer.format("\\u{:x4}", cast(int)c);
-							else
-								printer.print(c);
-
-							break;
-					}
-				}
+				foreach(dchar c; getString(t, idx))
+					outputChar(c);
 
 				printer.print('"');
 				break;
 
 			case MDValue.Type.Table:
-				if(v in cycles)
-					exception("Table is cyclically referenced");
+				if(opin(t, idx, cycles))
+					throwException(t, "Table is cyclically referenced");
 
-				cycles[v] = true;
+				dup(t, idx);
+				pushBool(t, true);
+				idxa(t, cycles);
 
 				scope(exit)
-					cycles.remove(v);
+				{
+					dup(t, idx);
+					pushNull(t);
+					idxa(t, cycles);
+				}
 
-				outputTable(v.as!(MDTable));
+				outputTable(idx);
 				break;
 
 			case MDValue.Type.Array:
-				if(v in cycles)
-					exception("Array is cyclically referenced");
+				if(opin(t, idx, cycles))
+					throwException(t, "Array is cyclically referenced");
 
-				cycles[v] = true;
+				dup(t, idx);
+				pushBool(t, true);
+				idxa(t, cycles);
 
 				scope(exit)
-					cycles.remove(v);
+				{
+					dup(t, idx);
+					pushNull(t);
+					idxa(t, cycles);
+				}
 
-				outputArray(v.as!(MDArray));
+				outputArray(idx);
 				break;
 
 			default:
-				exception("Type '{}' is not a valid type for conversion to JSON", v.typeString());
+				pushTypeString(t, idx);
+				throwException(t, "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
 		}
 	}
 
-	outputTable = &_outputTable;
-	outputArray = &_outputArray;
 	outputValue = &_outputValue;
 
-	if(root.isArray())
-		outputArray(root.as!(MDArray));
-	else if(root.isTable())
-		outputTable(root.as!(MDTable));
+	if(isArray(t, root))
+		outputArray(root);
+	else if(isTable(t, root))
+		outputTable(root);
 	else
-		exception("Root element must be either a table or an array, not a '{}'", root.typeString());
+	{
+		pushTypeString(t, root);
+		throwException(t, "Root element must be either a table or an array, not a '{}'", getString(t, -1));
+	}
 
 	printer.flush();
-}+/
+	pop(t);
+}
