@@ -252,6 +252,19 @@ scope class Compiler : ICompiler
 			cg.codegenStatements(fd);
 		});
 	}
+	
+	/**
+	Parses a JSON string into a MiniD value, pushes that value onto the stack, and returns the
+	index of the newly-pushed value.
+	*/
+	public word loadJSON(char[] source)
+	{
+		return commonCompile(
+		{
+			mLexer.begin("JSON", source, true);
+			mParser.parseJSON();
+		});
+	}
 
 // ================================================================================================================================================
 // Private
@@ -280,20 +293,4 @@ scope class Compiler : ICompiler
 		insertAndPop(t, -2);
 		return stackSize(t) - 1;
 	}
-
-/+
-	/**
-	Parses a JSON string into a MiniD value and returns that value.  Just like the MiniD baselib
-	function.
-	*/
-	public MDValue loadJSON(char[] source)
-	{
-		scope lexer = new Lexer("JSON", source, true);
-	
-		if(lexer.type == Token.LBrace)
-			return parseTableCtorExpJSON(lexer);
-		else
-			return parseArrayCtorExpJSON(lexer);
-	}
-+/
 }

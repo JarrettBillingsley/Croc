@@ -116,7 +116,7 @@ static:
 		// Dynamic compilation stuff
 		register(t, "loadString", &loadString);
 		register(t, "eval", &eval);
-// 		register(t, "loadJSON", &loadJSON);
+		register(t, "loadJSON", &loadJSON);
 		register(t, "toJSON", &toJSON);
 
 		// The Function type's metatable
@@ -771,13 +771,14 @@ static:
 		return rawCall(t, -2, -1);
 	}
 
-/*
 	uword loadJSON(MDThread* t, uword numParams)
 	{
-		s.push(Compiler().loadJSON(s.getParam!(dchar[])(0)));
+		auto code = checkStringParam(t, 1);
+		scope c = new Compiler(t);
+		c.loadJSON(code);
 		return 1;
 	}
-*/
+
 	uword toJSON(MDThread* t, uword numParams)
 	{
 		static scope class CleanupBuffer : GrowBuffer

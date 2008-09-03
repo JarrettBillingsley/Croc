@@ -175,6 +175,14 @@ struct Parser
 		params ~= FuncDef.Param(new(c) Identifier(c, l.loc, c.newString("this")));
 		return new(c) FuncDef(c, location, new(c) Identifier(c, location, c.newString(name)), params.toArray(), true, code);
 	}
+	
+	public word parseJSON()
+	{
+		if(l.type == Token.LBrace)
+			return parseTableCtorExpJSON();
+		else
+			return parseArrayCtorExpJSON();
+	}
 
 	/**
 	Parse a statement.
@@ -2135,7 +2143,25 @@ struct Parser
 
 		return parsePostfixExp(exp);
 	}
-	
+
+	public word parsePrimaryExpJSON()
+	{
+		switch(l.type)
+		{
+			case Token.Null:          pushNull(c.thread); l.next(); break;
+			case Token.True:          pushBool(c.thread, true); l.next(); break;
+			case Token.False:         pushBool(c.thread, false); l.next(); break;
+			case Token.IntLiteral:    pushInt(c.thread, l.tok.intValue); l.next(); break;
+			case Token.FloatLiteral:  pushFloat(c.thread, l.tok.floatValue); l.next(); break;
+			case Token.StringLiteral: pushString(c.thread, l.tok.stringValue); l.next(); break;
+			case Token.LBrace:        return parseTableCtorExpJSON();
+			case Token.LBracket:      return parseArrayCtorExpJSON();
+			default: l.expected("Expression");
+		}
+
+		return stackSize(c.thread) - 1;
+	}
+
 	/**
 	*/
 	public IdentExp parseIdentExp()
@@ -2333,6 +2359,36 @@ struct Parser
 
 	/**
 	*/
+	public word parseTableCtorExpJSON()
+	{
+		l.expect(Token.LBrace);
+		newTable(c.thread);
+
+		if(l.type != Token.RBrace)
+		{
+			void parseField()
+			{
+				auto name = l.expect(Token.StringLiteral).stringValue;
+				l.expect(Token.Colon);
+				parsePrimaryExpJSON();
+				fielda(c.thread, -2, name);
+			}
+
+			parseField();
+
+			while(l.type != Token.RBrace)
+			{
+				l.expect(Token.Comma);
+				parseField();
+			}
+		}
+
+		l.expect(Token.RBrace);
+		return stackSize(c.thread) - 1;
+	}
+
+	/**
+	*/
 	public PrimaryExp parseArrayCtorExp()
 	{
 		auto location = l.expect(Token.LBracket).loc;
@@ -2365,6 +2421,30 @@ struct Parser
 
 		auto endLocation = l.expect(Token.RBracket).loc;
 		return new(c) ArrayCtorExp(c, location, endLocation, values.toArray());
+	}
+	
+	/**
+	*/
+	public word parseArrayCtorExpJSON()
+	{
+		l.expect(Token.LBracket);
+		newArray(c.thread, 0);
+
+		if(l.type != Token.RBracket)
+		{
+			parsePrimaryExpJSON();
+			cateq(c.thread, -2, 1);
+
+			while(l.type != Token.RBracket)
+			{
+				l.expect(Token.Comma);
+				parsePrimaryExpJSON();
+				cateq(c.thread, -2, 1);
+			}
+		}
+
+		l.expect(Token.RBracket);
+		return stackSize(c.thread) - 1;
 	}
 	
 	/**
