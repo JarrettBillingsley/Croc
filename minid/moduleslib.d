@@ -43,6 +43,7 @@ static:
 			dup(t, ns); newFunctionWithEnv(t, &load,       "load");       fielda(t, ns, "load");
 			dup(t, ns); newFunctionWithEnv(t, &reload,     "reload");     fielda(t, ns, "reload");
 			dup(t, ns); newFunctionWithEnv(t, &initModule, "initModule"); fielda(t, ns, "initModule");
+			dup(t, ns); newFunctionWithEnv(t, &runMain,    "runMain");    fielda(t, ns, "runMain");
 
 
 			newTable(t);
@@ -96,6 +97,38 @@ static:
 
 		pop(t, 2);
 		return commonLoad(t, name);
+	}
+	
+	package uword commonLoad(MDThread* t, char[] name)
+	{
+		auto loaders = pushGlobal(t, "loaders");
+		auto num = len(t, -1);
+	
+		for(uword i = 0; i < num; i++)
+		{
+			auto reg = pushInt(t, i);
+			idx(t, loaders);
+			pushNull(t);
+			pushString(t, name);
+			rawCall(t, reg, 1);
+			
+			if(isFunction(t, -1))
+			{
+				pushGlobal(t, "initModule");
+				swap(t);
+				pushNull(t);
+				swap(t);
+				pushString(t, name);
+				return rawCall(t, -4, 1);
+			}
+			else if(isNamespace(t, -1))
+				return 1;
+
+			pop(t);
+		}
+
+		throwException(t, "Error loading module '{}': could not find anything to load", name);
+		assert(false);
 	}
 	
 	package uword initModule(MDThread* t, uword numParams)
@@ -152,36 +185,22 @@ static:
 		return 1;
 	}
 
-	package uword commonLoad(MDThread* t, char[] name)
+	uword runMain(MDThread* t, uword numParams)
 	{
-		auto loaders = pushGlobal(t, "loaders");
-		auto num = len(t, -1);
-	
-		for(uword i = 0; i < num; i++)
-		{
-			auto reg = pushInt(t, i);
-			idx(t, loaders);
-			pushNull(t);
-			pushString(t, name);
-			rawCall(t, reg, 1);
-			
-			if(isFunction(t, -1))
-			{
-				pushGlobal(t, "initModule");
-				swap(t);
-				pushNull(t);
-				swap(t);
-				pushString(t, name);
-				return rawCall(t, -4, 1);
-			}
-			else if(isNamespace(t, -1))
-				return 1;
+		checkParam(t, 1, MDValue.Type.Namespace);
 
-			pop(t);
+		if(hasField(t, 1, "main"))
+		{
+			auto main = field(t, 1, "main");
+	
+			if(isFunction(t, main))
+			{
+				insert(t, 1);
+				rawCall(t, 1, 0);
+			}
 		}
 
-		throwException(t, "Error loading module '{}': could not find anything to load", name);
-		assert(false);
+		return 0;
 	}
 
 	package uword checkCircular(MDThread* t, uword numParams)

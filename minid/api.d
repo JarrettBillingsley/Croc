@@ -49,6 +49,7 @@ import minid.mathlib;
 import minid.oslib;
 import minid.regexplib;
 import minid.stringlib;
+import minid.threadlib;
 import minid.timelib;
 
 // ================================================================================================================================================
@@ -102,6 +103,7 @@ public MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx =
 {
 	openVMImpl(vm, memFunc, ctx);
 	BaseLib.init(vm.mainThread);
+	ThreadLib.init(vm.mainThread);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return mainThread(vm);
 }

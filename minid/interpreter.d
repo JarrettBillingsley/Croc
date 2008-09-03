@@ -5933,7 +5933,7 @@ word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 
 void pushDebugLoc(MDThread* t)
 {
-	if(t.currentAR is null)
+	if(t.currentAR is null || t.currentAR.func is null)
 		pushString(t, "<no location available>");
 	else
 	{

@@ -17,7 +17,7 @@ void main()
 	{
 		importModule(t, "samples.simple");
 		pushNull(t);
-		pushGlobal(t, "runMain");
+		lookup(t, "modules.runMain");
 		swap(t, -3);
 		rawCall(t, -3, 0);
 	}

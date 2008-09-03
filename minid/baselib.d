@@ -63,12 +63,6 @@ static:
 		// StringBuffer
 		StringBufferObj.init(t);
 
-		// Really basic stuff
-// 		register(t, "getTraceback", &getTraceback);
-		register(t, "haltThread", &haltThread);
-		register(t, "currentThread", &currentThread);
-		register(t, "runMain", &runMain);
-
 		// Functional stuff
 		register(t, "curry", &curry);
 		register(t, "bindContext", &bindContext);
@@ -125,20 +119,6 @@ static:
 // 		register(t, "loadJSON", &loadJSON);
 		register(t, "toJSON", &toJSON);
 
-		// The Thread type's metatable
-		newNamespace(t, "thread");
-			newFunction(t, &threadReset, "thread.reset");       fielda(t, -2, "reset");
-			newFunction(t, &threadState, "thread.state");       fielda(t, -2, "state");
-			newFunction(t, &isInitial,   "thread.isInitial");   fielda(t, -2, "isInitial");
-			newFunction(t, &isRunning,   "thread.isRunning");   fielda(t, -2, "isRunning");
-			newFunction(t, &isWaiting,   "thread.isWaiting");   fielda(t, -2, "isWaiting");
-			newFunction(t, &isSuspended, "thread.isSuspended"); fielda(t, -2, "isSuspended");
-			newFunction(t, &isDead,      "thread.isDead");      fielda(t, -2, "isDead");
-	
-				newFunction(t, &threadIterator, "thread.iterator");
-			newFunction(t, &threadApply, "thread.opApply", 1); fielda(t, -2, "opApply");
-		setTypeMT(t, MDValue.Type.Thread);
-
 		// The Function type's metatable
 		newNamespace(t, "function");
 			newFunction(t, &functionEnvironment, "function.environment"); fielda(t, -2, "environment");
@@ -156,60 +136,6 @@ static:
 	{
 		newObject(t, 0);
 		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Basic functions
-/*
-	uword getTraceback(MDThread* t, uword numParams)
-	{
-		s.push(new MDString(s.context.getTracebackString()));
-		return 1;
-	}
-*/
-	uword haltThread(MDThread* t, uword numParams)
-	{
-		if(numParams == 0)
-			.haltThread(t);
-		else
-		{
-			auto thread = getThread(t, 1);
-			pendingHalt(thread);
-
-			auto reg = pushThread(t, thread);
-			pushNull(t);
-			rawCall(t, reg, 0);
-		}
-
-		return 0;
-	}
-
-	uword currentThread(MDThread* t, uword numParams)
-	{
-		if(t is mainThread(getVM(t)))
-			pushNull(t);
-		else
-			pushThread(t, t);
-
-		return 1;
-	}
-
-	uword runMain(MDThread* t, uword numParams)
-	{
-		checkParam(t, 1, MDValue.Type.Namespace);
-
-		if(.hasField(t, 1, "main"))
-		{
-			auto main = field(t, 1, "main");
-	
-			if(isFunction(t, main))
-			{
-				insert(t, 1);
-				rawCall(t, 1, 0);
-			}
-		}
-
-		return 0;
 	}
 
 	// ===================================================================================================================================
@@ -877,108 +803,6 @@ static:
 
 		pushString(t, safeCode(t, cast(char[])buf.slice()));
 		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Thread metatable
-
-	uword threadReset(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-
-		if(optParam(t, 1, MDValue.Type.Function))
-		{
-			dup(t, 1);
-			resetThread(t, 0, true);
-		}
-		else
-			resetThread(t, 0);
-
-		return 0;
-	}
-
-	uword threadState(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushInt(t, state(getThread(t, 0)));
-		return 1;
-	}
-
-	uword isInitial(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushBool(t, state(getThread(t, 0)) == MDThread.State.Initial);
-		return 1;
-	}
-
-	uword isRunning(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushBool(t, state(getThread(t, 0)) == MDThread.State.Running);
-		return 1;
-	}
-
-	uword isWaiting(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushBool(t, state(getThread(t, 0)) == MDThread.State.Waiting);
-		return 1;
-	}
-
-	uword isSuspended(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushBool(t, state(getThread(t, 0)) == MDThread.State.Suspended);
-		return 1;
-	}
-
-	uword isDead(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		pushBool(t, state(getThread(t, 0)) == MDThread.State.Dead);
-		return 1;
-	}
-	
-	uword threadIterator(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		auto thread = getThread(t, 0);
-
-		pushInt(t, checkIntParam(t, 1) + 1);
-
-		auto slot = pushThread(t, thread);
-		pushNull(t);
-		auto numRets = rawCall(t, slot, -1);
-
-		if(state(thread) == MDThread.State.Dead)
-			return 0;
-
-		return numRets + 1;
-	}
-
-	uword threadApply(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		auto haveParam = isValidIndex(t, 1);
-		auto thread = getThread(t, 0);
-
-		if(state(thread) != MDThread.State.Initial)
-			throwException(t, "Iterated coroutine must be in the initial state");
-
-		auto slot = pushThread(t, thread);
-		dup(t);
-
-		if(haveParam)
-			dup(t, 1);
-		else
-			pushNull(t);
-
-		rawCall(t, slot, 0);
-
-		getUpval(t, 0);
-		pushThread(t, thread);
-		pushInt(t, -1);
-		return 3;
 	}
 
 	// ===================================================================================================================================

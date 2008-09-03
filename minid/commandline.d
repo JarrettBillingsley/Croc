@@ -200,7 +200,7 @@ To end interactive mode, use the \"exit()\" function.
 			}
 
 			pushNull(t);
-			pushGlobal(t, "runMain");
+			lookup(t, "modules.runMain");
 			swap(t, -3);
 
 			foreach(a; args)
