@@ -389,15 +389,12 @@ struct Lexer
 	{
 		if(mNewlineSinceLastTok)
 			return;
+		else if(mTok.type == Token.EOF || mTok.type == Token.RBrace || mTok.type == Token.RParen || mTok.type == Token.RBracket)
+			return;
+		else if(mTok.type == Token.Semicolon)
+			next();
 		else
-		{
-			if(mTok.type == Token.EOF || mTok.type == Token.RBrace || mTok.type == Token.RParen || mTok.type == Token.RBracket)
-				return;
-			else if(mTok.type == Token.Semicolon)
-				next();
-			else
-				mCompiler.exception(mLoc, "Statement terminator expected, not '{}'", Token.strings[mTok.type]);
-		}
+			mCompiler.exception(mLoc, "Statement terminator expected, not '{}'", Token.strings[mTok.type]);
 	}
 
 	public Token peek()

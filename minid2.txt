@@ -287,7 +287,8 @@ Statement:
 	ReturnStatement
 	TryCatchStatement
 	ThrowStatement
-	
+	Assignment
+
 AssertStatement:
 	'assert' '(' Expression [',' Expression] ')' StatementTerminator
 
@@ -426,10 +427,6 @@ TryCatchStatement:
 	
 ThrowStatement:
 	'throw' Expression StatementTerminator
-
-BaseExpression:
-	Assignment
-	Expression
 
 Assignment:
 	AssignmentLHS {',' AssignmentLHS} '=' Expression

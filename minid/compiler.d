@@ -259,11 +259,11 @@ scope class Compiler : ICompiler
 	*/
 	public word loadJSON(char[] source)
 	{
-		return commonCompile(
-		{
+		//return commonCompile(
+		//{
 			mLexer.begin("JSON", source, true);
-			mParser.parseJSON();
-		});
+			return mParser.parseJSON();
+		//});
 	}
 
 // ================================================================================================================================================
