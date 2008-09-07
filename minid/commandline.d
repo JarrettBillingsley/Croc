@@ -381,13 +381,16 @@ To end interactive mode, use the \"exit()\" function.
 						break;
 				}
 
-				if(buffer.length is 0 && line.length is 0)
+				if(buffer.length is 0 && line.trim().length is 0)
 				{
 					mOutput(Prompt1)();
 					continue;
 				}
 
-				buffer ~= '\n' ~ line;
+				if(buffer.length == 0)
+					buffer ~= line;
+				else
+					buffer ~= '\n' ~ line;
 
 				try
 				{

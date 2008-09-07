@@ -2,17 +2,8 @@
 This module contains scary template stuff to make it possible to wrap D functions,
 classes, and structs and expose them as functions and types in MiniD.
 
-Bugs:
-When wrapping structs, or when using functions which take structs as arguments, if a
-struct type has any private fields, it will fail.  Unfortunately D doesn't seem to
-provide any way to step around the private members, and also trying to get the .init
-of most structs causes a forward declaration error, so it's a bug that forces another
-bug.
-
-Arrays of wrapped structs/classes are not yet supported.
-
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -32,13 +23,16 @@ subject to the following restrictions:
 
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
+
 module minid.bind;
 
-import minid.types;
-import minid.utils;
 import tango.core.Traits;
 import tango.core.Tuple;
-import utf = tango.text.convert.Utf;
+
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+import minid.utils;
 
 /**
 Used to wrap a module that is exposed to MiniD.  A module can contain any number of functions, classes, structs,
