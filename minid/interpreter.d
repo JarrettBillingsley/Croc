@@ -3034,7 +3034,7 @@ Params:
 void clearNamespace(MDThread* t, word ns)
 {
 	auto n = getNamespace(t, ns);
-	
+
 	if(n is null)
 	{
 		pushTypeString(t, ns);
@@ -3042,6 +3042,25 @@ void clearNamespace(MDThread* t, word ns)
 	}
 
 	namespace.clear(t.vm.alloc, n);
+}
+
+/**
+Removes all items from the given table object.
+
+Params:
+	tab = The stack index of the table object to clear.
+*/
+void clearTable(MDThread* t, word tab)
+{
+	auto tb = getTable(t, tab);
+
+	if(tb is null)
+	{
+		pushTypeString(t, tab);
+		throwException(t, "clearTable - tab must be a table, not a '{}'", getString(t, -1));
+	}
+
+	table.clear(t.vm.alloc, tb);
 }
 
 /**
@@ -3200,7 +3219,7 @@ struct foreachLoop
 			dup(t, src + 1);
 			dup(t, src + 2);
 			rawCall(t, funcReg, numIndices);
-			
+
 			if(isNull(t, funcReg))
 			{
 				pop(t, numIndices);
@@ -3965,7 +3984,7 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 		default:
 			if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &MDValue(name)))
 				return;
-				
+
 			typeString(t, container);
 			throwException(t, "Attempting to access field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
 	}

@@ -492,6 +492,11 @@ static:
 		auto newline = optBoolParam(t, 2, true);
 
 		auto shown = getUpval(t, 0);
+		
+		assert(len(t, shown) == 0);
+
+		scope(exit)
+			clearTable(t, shown);
 
 		void outputRepr(word v)
 		{

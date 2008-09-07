@@ -122,7 +122,21 @@ static:
 				return rawCall(t, -4, 1);
 			}
 			else if(isNamespace(t, -1))
+			{
+				pushGlobal(t, "loaded");
+				pushString(t, name);
+
+				if(!opin(t, -1, -2))
+				{
+					dup(t, -3);
+					idxa(t, -3);
+					pop(t);
+				}
+				else
+					pop(t, 2);
+
 				return 1;
+			}
 
 			pop(t);
 		}

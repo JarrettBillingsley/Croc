@@ -65,6 +65,11 @@ static:
 	{
 		t.data.remove(key);
 	}
+	
+	package void clear(ref Allocator alloc, MDTable* t)
+	{
+		t.data.clear(alloc);
+	}
 
 	// Returns `true` if the key exists in the table.
 	package bool contains(MDTable* t, ref MDValue key)
