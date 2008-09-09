@@ -4896,7 +4896,7 @@ void stackSize(MDThread* t, uword size)
 	auto newBase = t.stack.ptr;
 
 	if(newBase !is oldBase)
-		for(auto uv = t.upvalHead; uv !is null; uv = uv.next)
+		for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
 			uv.value = (uv.value - oldBase) + newBase;
 }
 
@@ -5321,7 +5321,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 					callEpilogue(t, false);
 					throw e;
 				}
-				
+
 				return false;
 			}
 			else
@@ -5408,13 +5408,10 @@ void callEpilogue(MDThread* t, bool needResults)
 		t.shouldHalt = false;
 		t.stackIndex = destSlot + numExpRets;
 	}
+	else if(isMultRet || t.currentAR.savedTop < destSlot + numExpRets)
+		t.stackIndex = destSlot + numExpRets;
 	else
-	{
-		if(isMultRet)
-			t.stackIndex = destSlot + numExpRets;
-		else
-			t.stackIndex = t.currentAR.savedTop;
-	}
+		t.stackIndex = t.currentAR.savedTop;
 }
 
 void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
@@ -5425,7 +5422,7 @@ void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
 	if((t.results.length - t.resultIndex) < num)
 	{
 		auto newLen = t.results.length * 2;
-		
+
 		if(newLen - t.resultIndex < num)
 			newLen = t.resultIndex + num;
 
@@ -5436,7 +5433,6 @@ void saveResults(MDThread* t, MDThread* from, AbsStack first, uword num)
 
 	auto tmp = from.stack[first .. first + num];
 	t.results[t.resultIndex .. t.resultIndex + num] = tmp;
-
 	t.currentAR.firstResult = t.resultIndex;
 	t.currentAR.numResults = num;
 
@@ -5880,14 +5876,7 @@ void close(MDThread* t, AbsStack index)
 
 	for(auto uv = t.upvalHead; uv !is null && uv.value >= base; uv = t.upvalHead)
 	{
-		t.upvalHead = uv.next;
-
-		if(uv.prev)
-			uv.prev.next = uv.next;
-
-		if(uv.next)
-			uv.next.prev = uv.prev;
-
+		t.upvalHead = uv.nextuv;
 		uv.closedValue = *uv.value;
 		uv.value = &uv.closedValue;
 	}
@@ -5896,23 +5885,16 @@ void close(MDThread* t, AbsStack index)
 MDUpval* findUpvalue(MDThread* t, uword num)
 {
 	auto slot = &t.stack[t.currentAR.base + num];
-
-	for(auto uv = t.upvalHead; uv !is null && uv.value >= slot; uv = uv.next)
-	{
+	auto puv = &t.upvalHead;
+	
+	for(auto uv = *puv; uv !is null && uv.value >= slot; puv = &uv.nextuv, uv = *puv)
 		if(uv.value is slot)
 			return uv;
-	}
 
 	auto ret = t.vm.alloc.allocate!(MDUpval)();
 	ret.value = slot;
-
-	if(t.upvalHead !is null)
-	{
-		ret.next = t.upvalHead;
-		ret.next.prev = ret;
-	}
-
-	t.upvalHead = ret;
+	ret.nextuv = *puv;
+	*puv = ret;
 	return ret;
 }
 

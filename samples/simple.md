@@ -1,7 +1,25 @@
 module samples.simple
 
+import io: stdout, stderr
 
+local width
 
+function writeHeader(w)
+	width = w
+
+function writePixel()
+{
+// 	writeln(width)
+	stdout.flush()
+	if(5 == width) {}
+}
+
+function main()
+{
+	writeHeader(100)
+	writeln(width)
+	writePixel()
+}
 /+
 /*
 object BaseProp

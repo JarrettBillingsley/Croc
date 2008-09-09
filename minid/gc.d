@@ -284,7 +284,7 @@ void markObj(MDVM* vm, MDThread* o)
 		mixin(CondMark!("val"));
 	}
 
-	for(auto uv = o.upvalHead; uv !is null; uv = uv.next)
+	for(auto uv = o.upvalHead; uv !is null; uv = uv.nextuv)
 	{
 		mixin(CondMark!("uv.value"));
 	}

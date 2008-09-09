@@ -311,7 +311,7 @@ static:
 	
 			scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
 			scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
-			
+
 			if(src.exists())
 			{
 				if(bin.exists())
@@ -339,7 +339,7 @@ static:
 				assert(false, "unimplemented");
 			}
 		}
-	
+
 		return 0;
 	}
 }

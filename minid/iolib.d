@@ -613,14 +613,14 @@ static:
 			auto w = getWriter(t);
 
 			static if(isIntType!(T))
-				auto val = checkIntParam(t, 1);
+				T val = checkIntParam(t, 1);
 			else static if(isFloatType!(T))
-				auto val = checkFloatParam(t, 1);
+				T val = checkFloatParam(t, 1);
 			else static if(isCharType!(T))
-				auto val = checkCharParam(t, 1);
+				T val = checkCharParam(t, 1);
 			else
 				static assert(false);
-				
+
 			safeCode(t, w.put(val));
 			dup(t, 0);
 			return 1;

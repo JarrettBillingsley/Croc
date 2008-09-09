@@ -637,8 +637,7 @@ struct MDUpval
 
 	package MDValue* value;
 	package MDValue closedValue;
-	package MDUpval* next;
-	package MDUpval* prev;
+	package MDUpval* nextuv;
 }
 
 // The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
