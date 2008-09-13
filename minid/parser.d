@@ -540,7 +540,7 @@ struct Parser
 			{
 				l.next();
 				p.defValue = parseExpression();
-				
+
 				// Having a default parameter implies allowing null as a parameter type
 				p.typeMask |= TypeMask.Null;
 			}
@@ -549,21 +549,9 @@ struct Parser
 
 			ret ~= p;
 		}
-
-		ret ~= Param(new(c) Identifier(c, l.loc, c.newString("this")));
-
-		if(l.type == Token.This || l.type == Token.Ident)
+		
+		void parseRestOfParams()
 		{
-			if(l.type == Token.This)
-			{
-				l.next();
-				l.expect(Token.Colon);
-	
-				ret[0].typeMask = parseParamType(ret[0].objectTypes);
-			}
-			else
-				parseParam();
-
 			while(l.type == Token.Comma)
 			{
 				l.next();
@@ -578,15 +566,41 @@ struct Parser
 				parseParam();
 			}
 		}
-		else if(l.type == Token.Vararg)
+
+		if(l.type == Token.This)
 		{
-			isVararg = true;
+			Param p = void;
+			p.name = new(c) Identifier(c, l.loc, c.newString("this"));
+
 			l.next();
+			l.expect(Token.Colon);
+			p.typeMask = parseParamType(p.objectTypes);
+			p.defValue = null;
+
+			ret ~= p;
+
+			if(l.type == Token.Comma)
+				parseRestOfParams();
+		}
+		else
+		{
+			ret ~= Param(new(c) Identifier(c, l.loc, c.newString("this")));
+
+			if(l.type == Token.Ident)
+			{
+				parseParam();
+				parseRestOfParams();
+			}
+			else if(l.type == Token.Vararg)
+			{
+				isVararg = true;
+				l.next();
+			}
 		}
 
 		return ret.toArray();
 	}
-	
+
 	/**
 	Parse a parameter type.  This corresponds to the Type element of the grammar.
 	Returns the type mask, as well as an optional list of object types that this
@@ -645,7 +659,7 @@ struct Parser
 					else if(l.type == Token.Ident)
 					{
 						auto t = l.expect(Token.Ident);
-						
+
 						if(l.type == Token.Dot)
 						{
 							addConstraint(MDValue.Type.Object);
@@ -661,7 +675,7 @@ struct Parser
 						l.expected("object type");
 
 					break;
-				
+
 				default:
 					auto t = l.expect(Token.Ident);
 

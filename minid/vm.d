@@ -50,6 +50,15 @@ public MDThread* mainThread(MDVM* vm)
 }
 
 /**
+Gets the current thread object of the VM, that is, which thread is currently in the running state.
+If no threads are in the running state, returns the main thread.
+*/
+public MDThread* currentThread(MDVM* vm)
+{
+	return vm.curThread;
+}
+
+/**
 Find out how many bytes of memory the given VM has allocated.
 */
 public uword bytesAllocated(MDVM* vm)
@@ -75,6 +84,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 		vm.metaStrings[i] = string.create(vm, str);
 
 	vm.mainThread = thread.create(vm);
+	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
 	vm.formatter = new Layout!(char)();
 

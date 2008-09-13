@@ -45,13 +45,13 @@ The native signed integer type on this platform.  This is the same as ptrdiff_t 
 public alias ptrdiff_t word;
 
 /**
-The native unsigned integer type on this platform.  This is the same as uword but with a better name.
+The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
 */
 public alias size_t uword;
 
 /**
 The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
-type (ptrdiff_t).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
+type (ptrdiff_t or word).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
 even on 32-bit platforms.  If you define the MDForceShortInts version, it will force MiniD to use 32-bit
 integers even on 64-bit platforms.
 */
@@ -75,7 +75,8 @@ static assert(mdint.sizeof >= 4, "mdint must be at least 32 bits");
 static assert((cast(mdint)-1) < (cast(mdint)0), "mdint must be signed");
 
 /**
-The underlying D type used to store the MiniD 'float' type.  Defaults to 'double'.
+The underlying D type used to store the MiniD 'float' type.  Defaults to 'double'.  If you change it, you will end
+up with a functional but nonstandard implementation.
 */
 public alias double mdfloat;
 
@@ -145,28 +146,6 @@ else
 // Package
 // ================================================================================================================================================
 
-package template isValidMDValueType(T)
-{
-	static if(is(T == typedef) || is(T == enum))
-		const isValidMDValueType = isValidMDValueType!(realType!(T));
-	else
-		const isValidMDValueType =
-			is(T == bool) ||
-			isIntType!(T) ||
-			isFloatType!(T) ||
-			isCharType!(T) ||
-			is(T == MDString*) ||
-			is(T == MDTable*) ||
-			is(T == MDArray*) ||
-			is(T == MDFunction*) ||
-			is(T == MDObject*) ||
-			is(T == MDNamespace*) ||
-			is(T == MDThread*) ||
-			is(T == MDBaseObject*) ||
-			is(T == MDValue) ||
-			is(T == MDValue*);
-}
-
 struct MDValue
 {
 	enum Type : uint
@@ -187,9 +166,10 @@ struct MDValue
 		Namespace,
 		Thread,
 		NativeObj,
+		WeakRef,
 
 		// Internal types
-		Upvalue, // 13
+		Upvalue, // 14
 		FuncDef,
 		ArrayData
 	}
@@ -198,23 +178,24 @@ struct MDValue
 	{
 		switch(t)
 		{
-			case Type.Null: return "null";
-			case Type.Bool: return "bool";
-			case Type.Int: return "int";
-			case Type.Float: return "float";
-			case Type.Char: return "char";
+			case Type.Null:      return "null";
+			case Type.Bool:      return "bool";
+			case Type.Int:       return "int";
+			case Type.Float:     return "float";
+			case Type.Char:      return "char";
 
-			case Type.String: return "string";
-			case Type.Table: return "table";
-			case Type.Array: return "array";
-			case Type.Function: return "function";
-			case Type.Object: return "object";
+			case Type.String:    return "string";
+			case Type.Table:     return "table";
+			case Type.Array:     return "array";
+			case Type.Function:  return "function";
+			case Type.Object:    return "object";
 			case Type.Namespace: return "namespace";
-			case Type.Thread: return "thread";
+			case Type.Thread:    return "thread";
 			case Type.NativeObj: return "nativeobj";
+			case Type.WeakRef:   return "weakref";
 
-			case Type.Upvalue: return "upvalue";
-			case Type.FuncDef: return "funcdef";
+			case Type.Upvalue:   return "upvalue";
+			case Type.FuncDef:   return "funcdef";
 			case Type.ArrayData: return "arraydata";
 
 			default: assert(false);
@@ -241,6 +222,7 @@ struct MDValue
 		package MDNamespace* mNamespace;
 		package MDThread* mThread;
 		package MDNativeObj* mNativeObj;
+		package MDWeakRef* mWeakRef;
 	}
 
 	package static MDValue opCall(T)(T t)
@@ -249,7 +231,7 @@ struct MDValue
 		ret = t;
 		return ret;
 	}
-	
+
 	/*
 	Returns true if this and the other value are exactly the same type and the same value.  The semantics
 	of this are exactly the same as the 'is' expression in MiniD.
@@ -269,7 +251,7 @@ struct MDValue
 			default: return (this.mBaseObj is other.mBaseObj);
 		}
 	}
-	
+
 	package bool isFalse()
 	{
 		return (type == Type.Null) || (type == Type.Bool && mBool == false) ||
@@ -346,6 +328,12 @@ struct MDValue
 	{
 		type = Type.NativeObj;
 		mNativeObj = src;
+	}
+	
+	package void opAssign(MDWeakRef* src)
+	{
+		type = Type.WeakRef;
+		mWeakRef = src;
 	}
 
 	package void opAssign(MDBaseObject* src)
@@ -606,6 +594,12 @@ struct MDNativeObj
 	package Object obj;
 }
 
+struct MDWeakRef
+{
+	mixin MDObjectMixin!(MDValue.Type.WeakRef);
+	package MDBaseObject* obj;
+}
+
 struct Location
 {
 	public MDString* file;
@@ -695,6 +689,8 @@ struct MDVM
 	package Location[] traceback;
 	package MDValue exception;
 	package bool isThrowing;
+	package MDThread* curThread;
+	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;

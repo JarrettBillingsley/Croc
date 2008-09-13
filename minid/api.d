@@ -236,6 +236,7 @@ public void closeVM(MDVM* vm)
 	vm.alloc.freeArray(vm.metaTabs);
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);
+	vm.weakRefTab.clear(vm.alloc);
 	vm.alloc.freeArray(vm.traceback);
 
 	debug if(vm.alloc.totalBytes != 0)

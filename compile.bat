@@ -1,3 +1,3 @@
 @echo off
-build test.d -clean -debug -g -unittest -w -version=MDExtendedCoro
+build test.d -clean -debug -g -unittest -version=MDExtendedCoro
 rem build test.d -clean -release -w -version=MDExtendedCoro

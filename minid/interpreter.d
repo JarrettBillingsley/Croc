@@ -49,6 +49,7 @@ import minid.table;
 import minid.thread;
 import minid.types;
 import minid.utils;
+import minid.weakref;
 
 // ================================================================================================================================================
 // Public
@@ -572,6 +573,35 @@ word pushNativeObj(MDThread* t, Object o)
 {
 	maybeGC(t);
 	return push(t, MDValue(nativeobj.create(t.vm, o)));
+}
+
+/**
+Pushes a weak reference to the object at the given stack index onto the stack.  For value types (null,
+bool, int, float, and char), weak references are unnecessary, and in these cases the value will simply
+be pushed.  Otherwise the pushed value will be a weak reference object.
+
+Params:
+	idx = The stack index of the object to get a weak reference of.
+	
+Returns:
+	The stack index of the newly-pushed value.
+*/
+word pushWeakRef(MDThread* t, word idx)
+{
+	switch(type(t, idx))
+	{
+		case
+			MDValue.Type.Null,
+			MDValue.Type.Bool,
+			MDValue.Type.Int,
+			MDValue.Type.Float,
+			MDValue.Type.Char:
+
+			return dup(t, idx);
+
+		default:
+			return pushWeakRefObj(t, weakref.create(t.vm, getValue(t, idx).mBaseObj));
+	}
 }
 
 /**
@@ -2437,7 +2467,7 @@ Returns:
 */
 word pushTypeMT(MDThread* t, MDValue.Type type)
 {
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj))
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
 		throwException(t, "pushTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
@@ -2458,7 +2488,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 {
 	checkNumParams(t, 1);
 
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj))
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
 		throwException(t, "setTypeMT - Cannot set metatable for type '{}'", MDValue.typeString(type));
 
 	auto v = getValue(t, -1);
@@ -3064,6 +3094,32 @@ void clearTable(MDThread* t, word tab)
 }
 
 /**
+Dereferences the weak reference object at the given stack index and pushes the value it
+refers to.  If the value it refers to has been collected, pushes "null" instead.
+
+Params:
+	idx = The stack index of the weak reference object to dereference.
+	
+Returns:
+	The stack index of the newly-pushed value.
+*/
+word deref(MDThread* t, word idx)
+{
+	auto r = getWeakRef(t, idx);
+
+	if(r is null)
+	{
+		pushTypeString(t, idx);
+		throwException(t, "deref - idx must be a weakref, not a '{}'", getString(t, -1));
+	}
+
+	if(auto o = r.obj)
+		return push(t, MDValue(o));
+	else
+		return pushNull(t);
+}
+
+/**
 This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
 It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
 manipulations.
@@ -3361,7 +3417,7 @@ void freeAll(MDThread* t)
 		else
 			pcur = &cur.next;
 	}
-	
+
 	runFinalizers(t);
 	assert(t.vm.alloc.finalizable is null);
 
@@ -3431,6 +3487,11 @@ word pushObject(MDThread* t, MDObject* o)
 }
 
 word pushNamespace(MDThread* t, MDNamespace* o)
+{
+	return push(t, MDValue(o));
+}
+
+word pushWeakRefObj(MDThread* t, MDWeakRef* o)
 {
 	return push(t, MDValue(o));
 }
@@ -3509,6 +3570,16 @@ MDNativeObj* getNative(MDThread* t, word slot)
 
 	if(v.type == MDValue.Type.NativeObj)
 		return v.mNativeObj;
+	else
+		return null;
+}
+
+MDWeakRef* getWeakRef(MDThread* t, word slot)
+{
+	auto v = &t.stack[fakeToAbs(t, slot)];
+
+	if(v.type == MDValue.Type.WeakRef)
+		return v.mWeakRef;
 	else
 		return null;
 }
@@ -3677,7 +3748,8 @@ word typeString(MDThread* t, MDValue* v)
 			MDValue.Type.Array,
 			MDValue.Type.Function,
 			MDValue.Type.Namespace,
-			MDValue.Type.Thread:
+			MDValue.Type.Thread,
+			MDValue.Type.WeakRef:
 			
 			return pushString(t, MDValue.typeString(v.type));
 
@@ -4911,7 +4983,7 @@ version(MDRestrictedCoro) {} else
 			super(&run);
 			this.t = t;
 		}
-	
+
 		void run()
 		{
 			assert(t.state == MDThread.State.Initial);
@@ -4949,6 +5021,7 @@ bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues
 	{
 		Fiber.yield();
 		t.state = MDThread.State.Running;
+		t.vm.curThread = t;
 		callEpilogue(t, true);
 		return false;
 	}
@@ -4958,12 +5031,13 @@ bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues
 		{
 			Fiber.yield();
 			t.state = MDThread.State.Running;
+			t.vm.curThread = t;
 			callEpilogue(t, true);
 			return false;
 		}
 		else
 			return true;
-	}	
+	}
 }
 
 uword resume(MDThread* t, uword numParams)
@@ -4978,11 +5052,7 @@ uword resume(MDThread* t, uword numParams)
 				(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
 		}
 
-		try
-			t.getFiber().call();
-		catch(Object o)
-			throw o; // wut?
-		
+		t.getFiber().call();
 		return t.numYields;
 	}
 	else version(MDRestrictedCoro)
@@ -5043,7 +5113,7 @@ uword resume(MDThread* t, uword numParams)
 
 MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
 {
-	assert(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj);
+	assert(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef);
 	return t.vm.metaTabs[type];
 }
 
@@ -5199,7 +5269,10 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				t.state = MDThread.State.Waiting;
 
 				scope(exit)
+				{
 					t.state = savedState;
+					t.vm.curThread = t;
+				}
 
 				numRets = resume(thread, numParams);
 			}
@@ -5303,6 +5376,11 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 				t.nativeCallDepth++;
 				scope(exit) t.nativeCallDepth--;
 			}
+			
+			auto savedState = t.state;
+			t.state = MDThread.State.Running;
+			t.vm.curThread = t;
+			scope(exit) t.state = savedState;
 
 			actualReturns = func.nativeFunc(t, numParams - 1);
 		}
@@ -5407,8 +5485,11 @@ void callEpilogue(MDThread* t, bool needResults)
 		t.state = MDThread.State.Dead;
 		t.shouldHalt = false;
 		t.stackIndex = destSlot + numExpRets;
+		
+		if(t is t.vm.mainThread)
+			t.vm.curThread = t;
 	}
-	else if(isMultRet || t.currentAR.savedTop < destSlot + numExpRets)
+	else if(isMultRet || t.currentAR.savedTop < destSlot + numExpRets) // second case happens in native -> native calls
 		t.stackIndex = destSlot + numExpRets;
 	else
 		t.stackIndex = t.currentAR.savedTop;
@@ -5755,13 +5836,13 @@ void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValu
 
 	if(swap)
 	{
-		push(t, *RT);
-		push(t, *RS);
+		push(t, RTsave);
+		push(t, RSsave);
 	}
 	else
 	{
-		push(t, *RS);
-		push(t, *RT);
+		push(t, RSsave);
+		push(t, RTsave);
 	}
 
 	rawCall(t, funcSlot, 1);
@@ -6018,6 +6099,7 @@ void execute(MDThread* t, uword depth = 1)
 
 	_exceptionRetry:
 	t.state = MDThread.State.Running;
+	t.vm.curThread = t;
 
 	_reentry:
 	auto stackBase = t.stackBase;

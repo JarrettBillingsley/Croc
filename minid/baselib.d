@@ -59,6 +59,8 @@ static:
 		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
 		newGlobal(t, "Object");
+		
+		register(t, "collect", &collect);
 
 		// StringBuffer
 		StringBufferObj.init(t);
@@ -102,6 +104,7 @@ static:
 		register(t, "toFloat", &toFloat);
 		register(t, "toChar", &toChar);
 		register(t, "format", &format);
+		register(t, "weakref", &weakref);
 
 		// Console IO
 		register(t, "write", &write);
@@ -126,6 +129,11 @@ static:
 			newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
 			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
 		setTypeMT(t, MDValue.Type.Function);
+
+		// The WeakRef type's metatable
+		newNamespace(t, "weakref");
+			newFunction(t, &weakrefDeref,        "weakref.deref");        fielda(t, -2, "deref");
+		setTypeMT(t, MDValue.Type.WeakRef);
 	}
 
 	// ===================================================================================================================================
@@ -136,6 +144,12 @@ static:
 	{
 		newObject(t, 0);
 		return 1;
+	}
+
+	uword collect(MDThread* t, uword numParams)
+	{
+		gc(t);
+		return 0;
 	}
 
 	// ===================================================================================================================================
@@ -430,6 +444,13 @@ static:
 		auto buf = StrBuffer(t);
 		formatImpl(t, numParams, &buf.sink);
 		buf.finish();
+		return 1;
+	}
+	
+	uword weakref(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		pushWeakRef(t, 1);
 		return 1;
 	}
 
@@ -847,6 +868,16 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, func.isVararg(getFunction(t, 0)));
+		return 1;
+	}
+
+	// ===================================================================================================================================
+	// WeakRef metatable
+
+	uword weakrefDeref(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.WeakRef);
+		deref(t, 0);
 		return 1;
 	}
 

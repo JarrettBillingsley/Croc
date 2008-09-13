@@ -34,6 +34,7 @@ import minid.string;
 import minid.table;
 import minid.thread;
 import minid.types;
+import minid.weakref;
 
 // ================================================================================================================================================
 // Package
@@ -79,6 +80,7 @@ void sweep(MDVM* vm)
 	}
 
 	vm.stringTab.minimize(vm.alloc);
+	vm.weakRefTab.minimize(vm.alloc);
 
 	if(markVal == 0)
 		vm.alloc.markVal = GCBits.Marked;
@@ -91,6 +93,12 @@ debug import tango.io.Stdout;
 // Free an object.
 void free(MDVM* vm, GCObject* o)
 {
+	if(auto r = vm.weakRefTab.lookup(cast(MDBaseObject*)o))
+	{
+		(*r).obj = null;
+		vm.weakRefTab.remove(cast(MDBaseObject*)o);
+	}
+
 	switch((cast(MDBaseObject*)o).mType)
 	{
 		case MDValue.Type.String:    string.free(vm, cast(MDString*)o); return;
@@ -115,6 +123,7 @@ void free(MDVM* vm, GCObject* o)
 		case MDValue.Type.Namespace: namespace.free(vm.alloc, cast(MDNamespace*)o); return;
 		case MDValue.Type.Thread:    thread.free(cast(MDThread*)o); return;
 		case MDValue.Type.NativeObj: nativeobj.free(vm, cast(MDNativeObj*)o); return;
+		case MDValue.Type.WeakRef:   weakref.free(vm, cast(MDWeakRef*)o); return;
 
 		case MDValue.Type.Upvalue:   vm.alloc.free(cast(MDUpval*)o); return;
 		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
@@ -148,7 +157,7 @@ void markObj(MDVM* vm, GCObject* o)
 {
 	switch((cast(MDBaseObject*)o).mType)
 	{
-		case MDValue.Type.String, MDValue.Type.NativeObj:
+		case MDValue.Type.String, MDValue.Type.NativeObj, MDValue.Type.WeakRef:
 			// These are trivial, just mark them here.
 			o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 			return;
@@ -301,6 +310,12 @@ void markObj(MDVM* vm, MDThread* o)
 
 // Mark a native object.
 void markObj(MDVM* vm, MDNativeObj* o)
+{
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
+}
+
+// Mark a weak reference.
+void markObj(MDVM* vm, MDWeakRef* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }

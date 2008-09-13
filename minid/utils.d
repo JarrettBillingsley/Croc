@@ -777,6 +777,15 @@ public bool endsWith(T)(T[] string, T[] pattern)
 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
 
+// TomS!
+template isExpressionTuple(T...)
+{
+	static if (is(void function(T)))
+		const bool isExpressionTuple = false;
+	else
+		const bool isExpressionTuple = true;
+}
+
 // Buggy.
 
 // template isFinalImpl(T, char[] funcName)

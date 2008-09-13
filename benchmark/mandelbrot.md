@@ -2,7 +2,7 @@ module benchmark.mandelbrot
 
 import io: stdout, stderr
 
-if(false)
+if(true)
 {
 	global function writeHeader(w, h)
 		writefln("P4\n{} {}", w, h)

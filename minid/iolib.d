@@ -613,11 +613,11 @@ static:
 			auto w = getWriter(t);
 
 			static if(isIntType!(T))
-				T val = checkIntParam(t, 1);
+				T val = cast(T)checkIntParam(t, 1);
 			else static if(isFloatType!(T))
-				T val = checkFloatParam(t, 1);
+				T val = cast(T)checkFloatParam(t, 1);
 			else static if(isCharType!(T))
-				T val = checkCharParam(t, 1);
+				T val = cast(T)checkCharParam(t, 1);
 			else
 				static assert(false);
 

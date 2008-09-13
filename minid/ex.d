@@ -310,7 +310,7 @@ public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, char[] n
 
 public void checkParam(MDThread* t, word index, MDValue.Type type)
 {
-	assert(type >= MDValue.Type.Null && type <= MDValue.Type.NativeObj, "invalid type");
+	assert(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef, "invalid type");
 
 	checkAnyParam(t, index);
 

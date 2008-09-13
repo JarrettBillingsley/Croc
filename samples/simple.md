@@ -1,24 +1,244 @@
 module samples.simple
 
-import io: stdout, stderr
-
-local width
-
-function writeHeader(w)
-	width = w
-
-function writePixel()
 {
-// 	writeln(width)
-	stdout.flush()
-	if(5 == width) {}
+	local keys = function opIndexAssign(k, v) hash.set(this, weakref(k), v)
+	local vals = function opIndexAssign(k, v) hash.set(this, k, weakref(v))
+	local both = function opIndexAssign(k, v) hash.set(this, weakref(k), weakref(v))
+
+	function weaktab(kind: char = 'v')
+	{
+		if(kind == 'k')
+			return { opIndexAssign = keys }
+		else if(kind == 'v')
+			return { opIndexAssign = vals }
+		else if(kind == 'b')
+			return { opIndexAssign = both }
+		else
+			throw "invalid weak table type"
+	}
+}
+
+local t = weaktab()
+
+t[5] = [2, 3, 4]
+writeln(t[5].deref())
+collect()
+writeln(t[5].deref())
+
+// object Foo
+// {
+// 	x = 0
+// 	y = 0
+// 
+// 	function clone(x: int, y: int)
+// 	{
+// 		local ret = super.clone()
+// 		ret.clone = null
+// 		ret.x = x
+// 		ret.y = y
+// 		return ret
+// 	}
+// 
+// 	function write()
+// 	{
+// 		assert(this !is Foo, "Method may not be called on the class that holds it")
+// 		writefln("Foo: {}, {}", :x, :y)
+// 	}
+// 
+// 	function opAdd(other: Foo)
+// 	{
+// 		assert(this !is Foo && other !is Foo, "Method may not be called on the class that holds it")
+// 		return Foo.clone(:x + other.x, :y + other.y)
+// 	}
+// }
+// 
+// object Bar : Foo
+// {
+// 	z = 1337
+// 
+// 	function clone() = super.clone(-1, -10)
+// 
+// 	function write()
+// 	{
+// 		assert(this !is Bar, "method may not be called on the class that holds it")
+// 		writefln("Bar: {}, {}, {}", :x, :y, :z)
+// 	}
+// }
+// 
+// local f = Foo.clone(5, 10)
+// f.write();
+// (f + Foo.clone(15, 20)).write()
+// local b = Bar.clone()
+// b.write();
+// (f + b).write()
+
+/+
+// import arc.draw.color: Color
+// import arc.draw.image: drawImage, drawImageTopLeft
+// import arc.draw.shape: drawCircle, drawRectangle, drawLine, drawPixel
+// import arc.font: Font
+import arc.input: key, mouse
+// import arc.math.point: Point
+// import arc.math.size: Size
+// import arc.sound: Sound, SoundFile
+// import arc.texture: Texture
+import arc.time
+import arc.window
+
+import time: microTime
+
+object ParticleGen
+{
+	mParticles = null
+	mFreeParticles = null
+	mRate
+	mGravity
+	mLife
+	mLast
+
+	function clone(rate: int|float, gravity: int|float = 0.05, life: int|float = 2.5)
+	{
+		local ret = super.clone()
+
+		ret.mRate = toFloat(rate)
+		ret.mGravity = toFloat(gravity)
+		ret.mLife = toInt(life * 1_000_000)
+		ret.mLast = microTime()
+
+		return ret
+	}
+
+	function generate(pos)
+	{
+		local time = microTime()
+
+		if((time - :mLast) < :mRate)
+			return
+
+		local ang = math.rand(360)
+
+		local part
+
+		if(:mFreeParticles is null)
+			part = { color = Color(1.0, 1.0, 1.0) }
+		else
+		{
+			part = :mFreeParticles
+			:mFreeParticles = part.next
+		}
+
+		part.pos = pos
+		part.vx = math.sin(ang) * math.frand(1.5)
+		part.vy = math.cos(ang) * math.frand(1.5)
+		part.color.setR(1.0)
+		part.color.setG(0.0)
+		part.color.setB(0.0)
+		part.color.setA(1.0)
+		part.start = time
+		part.next = :mParticles
+		:mParticles = part
+
+		:mLast = time;
+	}
+
+	function process()
+	{
+		if(:mParticles is null)
+			return;
+
+		local time = microTime()
+
+		for(local v = :mParticles, local old = null; v !is null; )
+		{
+			local t = time - v.start
+
+			if((time - v.start) > :mLife)
+			{
+				if(old is null)
+					:mParticles = v.next
+				else
+					old.next = v.next
+
+				local temp = v.next
+				v.next = :mFreeParticles
+				:mFreeParticles = v
+				v = temp
+				continue
+			}
+
+			v.color.setA(1.0 - (t / toFloat(:mLife)))
+
+			v.vy -= :mGravity;
+			v.pos.y -= v.vy;
+			v.pos.x += v.vx;
+
+			if(v.pos.x < 0 || v.pos.x > arc.window.getWidth() || v.pos.y > arc.window.getHeight())
+			{
+				if(old is null)
+					:mParticles = v.next
+				else
+					old.next = v.next
+
+				local temp = v.next
+				v.next = :mFreeParticles
+				:mFreeParticles = v
+				v = temp
+				continue
+			}
+
+			drawCircle(v.pos, 2, 8, v.color, true)
+			old = v
+			v = v.next
+		}
+	}
 }
 
 function main()
 {
-	writeHeader(100)
-	writeln(width)
-	writePixel()
+	writefln("hi!")
+
+	arc.window.open("Hello world", 800, 600, false)
+	arc.input.open()
+// 	arc.font.open()
+	arc.time.open()
+// 	arc.sound.open()
+
+// 	local font = Font.clone("arial.ttf", 12)
+// 	local font2 = Font.clone("arial.ttf", 32)
+// 	local origin = Point.clone(0.0, 0.0)
+// 	local white = Color.clone(255, 255, 255)
+
+// 	local pg = ParticleGen.clone(1000)
+
+// 	arc.input.defaultCursorVisible(false)
+
+	while(!arc.input.keyDown(key.Quit) && !arc.input.keyDown(key.Esc))
+	{
+		arc.input.process()
+		arc.window.clear()
+		arc.time.process()
+// 		arc.sound.process()
+
+// 		if(arc.input.mouseButtonDown(mouse.Left))
+// 			pg.generate(arc.input.mousePos())
+
+// 		pg.process()
+
+// 		drawCircle(arc.input.mousePos(), 6, 10, white, false)
+
+// 		font.draw(toString(arc.time.fps()), origin, white)
+// 		font.draw(toString(pg.mParticles is null), Point.clone(0.0, 16.0), white)
+		arc.time.limitFPS(60)
+		arc.window.swap()
+	}
+
+// 	arc.sound.close()
+	arc.time.close()
+// 	arc.font.close()
+	arc.input.close()
+	arc.window.close()
+
+	writefln("bye!")
 }
 /+
 /*
@@ -834,4 +1054,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/
+}+/+/
