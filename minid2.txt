@@ -369,6 +369,8 @@ BasicType:
 	Identifier {'.' Identifier}
 	'namespace'
 	'thread'
+	'nativeobj'
+	'weakref'
 
 ObjectDeclaration:
 	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'
@@ -379,7 +381,7 @@ ObjectMember:
 
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
-	
+
 NamespaceMember:
 	SimpleFunctionDeclaration
 	Identifier ['=' Expression] StatementTerminator

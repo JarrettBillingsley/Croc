@@ -781,8 +781,6 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	// TODO: maybe do folding of 'in'?
-
 	public override Expression visit(ShlExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1059,6 +1057,7 @@ class Semantic : IdentityVisitor
 			case AstTag.NotInExp:    auto old = e.as!(NotInExp);    return new(c) InExp(c, e.location, e.endLocation, old.op1, old.op2);
 
 			// TODO: what about multiple 'not's?  "!!x"
+			// TODO: and AndAnd and OrOr exps?
 
 			default:
 				break;

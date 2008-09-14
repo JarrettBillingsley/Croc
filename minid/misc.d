@@ -27,9 +27,11 @@ subject to the following restrictions:
 module minid.misc;
 
 import Integer = tango.text.convert.Integer;
-import tango.stdc.ctype;
-import tango.text.convert.Utf;
 import tango.io.Print;
+import tango.stdc.ctype;
+import tango.stdc.stdlib;
+import tango.text.convert.Utf;
+import tango.text.Util;
 
 import minid.alloc;
 import minid.interpreter;
@@ -38,32 +40,31 @@ import minid.utils;
 
 package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
 {
-	void outputInvalid(char[] fmt)
-	{
-		t.vm.formatter.convert(sink, fmt, "{invalid index}");
-	}
-
 	void output(char[] fmt, uword param, bool isRaw)
 	{
-		switch(type(t, param))
-		{
-			case MDValue.Type.Null:   t.vm.formatter.convert(sink, fmt, "null"); return;
-			case MDValue.Type.Bool:   t.vm.formatter.convert(sink, fmt, getBool(t, param)); return;
-			case MDValue.Type.Int:    t.vm.formatter.convert(sink, fmt, getInt(t, param)); return;
-			case MDValue.Type.Float:  t.vm.formatter.convert(sink, fmt, getFloat(t, param)); return;
-			case MDValue.Type.Char:   t.vm.formatter.convert(sink, fmt, getChar(t, param)); return;
-			case MDValue.Type.String: t.vm.formatter.convert(sink, fmt, getString(t, param)); return;
+		pushToString(t, param, isRaw);
 
-			default:
-				pushToString(t, param, isRaw);
-				t.vm.formatter.convert(sink, fmt, getString(t, -1));
-				pop(t);
-				return;
+		if(fmt[1] == 'r' || isdigit(fmt[1]))
+		{
+			auto begin = 2;
+
+			for(; begin < fmt.length; begin++)
+				if(fmt[begin] != 'r' && !isdigit(fmt[begin]))
+					break;
+
+			auto tmp = (cast(char*) alloca(fmt.length - begin + 1))[0 .. fmt.length - begin + 1];
+			tmp[0] = '{';
+			tmp[1 .. $] = fmt[begin .. $];
+			t.vm.formatter.convert(sink, tmp, getString(t, -1));
 		}
+		else
+			t.vm.formatter.convert(sink, fmt, getString(t, -1));
+
+		pop(t);
 	}
 
 	if(numParams > 64)
-		throwException(t, "Too many parameters to format");
+		throwException(t, "Too many parameters to format (maximum of 64)");
 
 	bool[64] used;
 
@@ -81,130 +82,59 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 		auto formatStr = getString(t, paramIndex);
 		auto formatStrIndex = paramIndex;
 		auto autoIndex = paramIndex + 1;
+		uword begin = 0;
 
-		for(uword i = 0; i < formatStr.length; i++)
+		while(begin < formatStr.length)
 		{
-			auto c = formatStr[i];
+			auto fmtBegin = formatStr.locate('{', begin);
 
-			void nextChar()
+			t.vm.formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
+			begin = fmtBegin;
+
+			if(fmtBegin == formatStr.length)
+				break;
+
+			auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
+
+			if(fmtEnd == formatStr.length)
 			{
-				i++;
-
-				if(i >= formatStr.length)
-					c = char.init;
-				else
-					c = formatStr[i];
-			}
-
-			char[32] format = void;
-			uword iFormat = 0;
-
-			void addChar(char c)
-			{
-				if(iFormat >= format.length)
-					throwException(t, "Format specifier too long in parameter {}", formatStrIndex);
-
-				format[iFormat++] = c;
-			}
-
-			// TODO: make this a little more efficient; output all the data between format specifiers as a chunk
-			if(c != '{')
-			{
-				char[1] buf = void;
-				buf[0] = c;
-				sink(buf);
-				continue;
-			}
-
-			nextChar();
-
-			if(c == '{')
-			{
-				sink("{");
-				continue;
-			}
-
-			if(c == char.init)
-			{
-				sink("{missing or misplaced '}'}{");
+				t.vm.formatter.convert(sink, "{}{}", "{missing or misplaced '}'}", formatStr[fmtBegin .. $]);
 				break;
 			}
 
-			addChar('{');
+			fmtEnd++;
 
+			auto fmtSpec = formatStr[fmtBegin .. fmtEnd];
+			
 			bool isRaw = false;
 
-			if(c == 'r')
-			{
+			if(fmtSpec[1] == 'r')
 				isRaw = true;
-				nextChar();
-			}
 
 			auto index = autoIndex;
 
-			if(isdigit(c))
+			if(fmtSpec.length > 2 && (isRaw ? isdigit(fmtSpec[2]) : isdigit(fmtSpec[1])))
 			{
-				auto begin = i;
+				uword j = 2;
 
-				while(isdigit(c))
-					nextChar();
+				for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
+				{}
 
-				auto offset = Integer.atoi(formatStr[begin .. begin + i]);
+				auto offset = Integer.atoi(fmtSpec[2 .. j]);
 				index = formatStrIndex + offset + 1;
 			}
 			else
 				autoIndex++;
 
-			if(c == ',')
-			{
-				addChar(',');
-				nextChar();
-
-				if(c == '-')
-				{
-					addChar('-');
-					nextChar();
-				}
-
-				if(!isdigit(c))
-					throwException(t, "Format width must have at least one digit in parameter {}", formatStrIndex);
-
-				while(isdigit(c))
-				{
-					addChar(c);
-					nextChar();
-				}
-			}
-
-			if(c == ':')
-			{
-				addChar(':');
-				nextChar();
-
-				while(i < formatStr.length && c != '}')
-				{
-					addChar(c);
-					nextChar();
-				}
-			}
-
-			if(c != '}')
-			{
-				sink("{missing or misplaced '}'}");
-				sink(format[0 .. iFormat]);
-				i--;
-				continue;
-			}
-
-			addChar('}');
-
-			if(index < used.length)
-				used[index] = true;
-
 			if(index > numParams)
-				outputInvalid(format[0 .. iFormat]);
+				t.vm.formatter.convert(sink, "{}", "{invalid index}");
 			else
-				output(format[0 .. iFormat], index, isRaw);
+			{
+				used[index] = true;
+				output(fmtSpec, index, isRaw);
+			}
+
+			begin = fmtEnd;
 		}
 	}
 }

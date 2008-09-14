@@ -23,12 +23,15 @@ subject to the following restrictions:
 
 module minid.moduleslib;
 
+import tango.io.FileConduit;
 import tango.io.FilePath;
+import tango.io.protocol.Reader;
 import tango.text.Util;
 
 import minid.compiler;
 import minid.ex;
 import minid.interpreter;
+import minid.serialization;
 import minid.types;
 
 struct ModulesLib
@@ -161,7 +164,6 @@ static:
 			{
 				field(t, -2);
 				
-				// TODO: Better error message here
 				if(!isNamespace(t, -1))
 					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
 			}
@@ -257,7 +259,6 @@ static:
 			{
 				field(t, -2);
 				
-				// TODO: Better error message here
 				if(!isNamespace(t, -1))
 					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
 					
@@ -324,7 +325,10 @@ static:
 					}
 					else
 					{
-						assert(false, "unimplemented");
+						scope fc = new FileConduit(bin.toString(), FileConduit.ReadExisting);
+						scope r = new Reader(fc);
+						deserializeModule(t, r);
+						return 1;
 					}
 				}
 				else
@@ -336,7 +340,10 @@ static:
 			}
 			else if(bin.exists())
 			{
-				assert(false, "unimplemented");
+				scope fc = new FileConduit(bin.toString(), FileConduit.ReadExisting);
+				scope r = new Reader(fc);
+				deserializeModule(t, r);
+				return 1;
 			}
 		}
 

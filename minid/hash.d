@@ -56,25 +56,12 @@ struct Hash(K, V)
 		V value;
 		Node* next;
 		bool used;
-
-		debug char[] toString()
-		{
-			if(used)
-				return Stdout.layout.convert("<{} => {}>", key, value);
-			else
-				return "<>";
-		}
 	}
 
 	private Node[] mNodes;
 	private uint mHashMask;
 	private Node* mColBucket;
 	private size_t mSize;
-
-	debug void printNodes()
-	{
-		Stdout.formatln("{}", mNodes);
-	}
 
 	package void prealloc(ref Allocator alloc, size_t size)
 	{

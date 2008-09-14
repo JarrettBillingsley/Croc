@@ -2706,8 +2706,16 @@ Params:
 */
 void resetThread(MDThread* t, word slot, bool newFunction = false)
 {
-	if(state(t) != MDThread.State.Dead)
-		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(t));
+	auto other = getThread(t, slot);
+
+	if(other is null)
+	{
+		pushTypeString(t, slot);
+		throwException(t, "resetThread - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
+	}
+
+	if(state(other) != MDThread.State.Dead)
+		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
@@ -2727,20 +2735,20 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
 		}
 
-		t.coroFunc = f;
+		other.coroFunc = f;
 		pop(t);
 	}
 
 	version(MDRestrictedCoro) {} else
 	{
-		if(t.coroFiber)
+		if(other.coroFiber)
 		{
-			assert(t.getFiber().state == Fiber.State.TERM);
-			t.getFiber().reset();
+			assert(other.getFiber().state == Fiber.State.TERM);
+			other.getFiber().reset();
 		}
 	}
 
-	t.state = MDThread.State.Initial;
+	other.state = MDThread.State.Initial;
 }
 
 version(MDRestrictedCoro) {} else
@@ -3857,6 +3865,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 
 				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
 				case MDValue.Type.NativeObj: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.NativeObj), cast(void*)v.mNativeObj.obj);
+				case MDValue.Type.WeakRef: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.WeakRef), cast(void*)v.mWeakRef);
 
 				default: assert(false);
 			}
@@ -6140,7 +6149,7 @@ void execute(MDThread* t, uword depth = 1)
 		while(true)
 		{
 			if(t.shouldHalt)
-				throw new MDHaltException(); // TODO: maybe just allocate this once?
+				throw new MDHaltException();
 
 			auto i = t.currentAR.pc;
 			t.currentAR.pc++;
@@ -7030,9 +7039,9 @@ void execute(MDThread* t, uword depth = 1)
 	}
 	catch(MDException e)
 	{
-		while(depth > 0 && t.trIndex > 0)
+		while(depth > 0)
 		{
-			while(t.currentTR.actRecord is t.arIndex)
+			while(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)
 			{
 				auto tr = *t.currentTR;
 				popTR(t);

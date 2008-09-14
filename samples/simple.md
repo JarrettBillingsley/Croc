@@ -1,35 +1,10 @@
 module samples.simple
 
-{
-	local keys = function opIndexAssign(k, v) hash.set(this, weakref(k), v)
-	local vals = function opIndexAssign(k, v) hash.set(this, k, weakref(v))
-	local both = function opIndexAssign(k, v) hash.set(this, weakref(k), weakref(v))
-
-	function weaktab(kind: char = 'v')
-	{
-		if(kind == 'k')
-			return { opIndexAssign = keys }
-		else if(kind == 'v')
-			return { opIndexAssign = vals }
-		else if(kind == 'b')
-			return { opIndexAssign = both }
-		else
-			throw "invalid weak table type"
-	}
-}
-
-local t = weaktab()
-
-t[5] = [2, 3, 4]
-writeln(t[5].deref())
-collect()
-writeln(t[5].deref())
-
 // object Foo
 // {
 // 	x = 0
 // 	y = 0
-// 
+//
 // 	function clone(x: int, y: int)
 // 	{
 // 		local ret = super.clone()
@@ -55,7 +30,7 @@ writeln(t[5].deref())
 // object Bar : Foo
 // {
 // 	z = 1337
-// 
+//
 // 	function clone() = super.clone(-1, -10)
 // 
 // 	function write()

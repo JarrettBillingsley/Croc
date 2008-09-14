@@ -370,6 +370,7 @@ struct MDValue
 			case Type.Namespace: return Format("namespace {:X8}", cast(void*)mNamespace);
 			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
 			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
+			case Type.WeakRef:   return Format("weakref {:X8}", cast(void*)mWeakRef);
 			default: assert(false);
 		}
 	}

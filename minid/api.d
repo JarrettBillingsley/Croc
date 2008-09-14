@@ -28,6 +28,7 @@ public
 	import minid.alloc;
 	import minid.ex;
 	import minid.gc;
+	import minid.serialization;
 	import minid.types;
 	import minid.utils;
 	import minid.vm;

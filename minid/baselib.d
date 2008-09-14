@@ -95,6 +95,7 @@ static:
 		register(t, "isNamespace", &isParam!(MDValue.Type.Namespace));
 		register(t, "isThread", &isParam!(MDValue.Type.Thread));
 		register(t, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
+		register(t, "isWeakRef", &isParam!(MDValue.Type.WeakRef));
 
 		// Conversions
 		register(t, "toString", &toString);
@@ -104,7 +105,6 @@ static:
 		register(t, "toFloat", &toFloat);
 		register(t, "toChar", &toChar);
 		register(t, "format", &format);
-		register(t, "weakref", &weakref);
 
 		// Console IO
 		register(t, "write", &write);
@@ -130,7 +130,10 @@ static:
 			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
 		setTypeMT(t, MDValue.Type.Function);
 
-		// The WeakRef type's metatable
+		// Weak reference stuff
+		register(t, "weakref", &weakref);
+		register(t, "deref", &deref);
+
 		newNamespace(t, "weakref");
 			newFunction(t, &weakrefDeref,        "weakref.deref");        fielda(t, -2, "deref");
 		setTypeMT(t, MDValue.Type.WeakRef);
@@ -255,7 +258,7 @@ static:
 				if(!obj.next(o, index, key, value))
 				{
 					superOf(t, -2);
-	
+
 					if(isNull(t, -1))
 						return 0;
 	
@@ -444,13 +447,6 @@ static:
 		auto buf = StrBuffer(t);
 		formatImpl(t, numParams, &buf.sink);
 		buf.finish();
-		return 1;
-	}
-	
-	uword weakref(MDThread* t, uword numParams)
-	{
-		checkAnyParam(t, 1);
-		pushWeakRef(t, 1);
 		return 1;
 	}
 
@@ -647,7 +643,7 @@ static:
 
 				Stdout('}');
 			}
-			
+
 			void outputNamespace(word ns)
 			{
 				if(opin(t, ns, shown))
@@ -657,11 +653,11 @@ static:
 					pop(t);
 					return;
 				}
-				
+
 				dup(t, ns);
 				pushBool(t, true);
 				idxa(t, shown);
-				
+
 				scope(exit)
 				{
 					dup(t, ns);
@@ -670,7 +666,7 @@ static:
 				}
 
 				pushToString(t, ns);
-				Stdout(getString(t, -1))(" {").newline;
+				Stdout(getString(t, -1))(" { ");
 				pop(t);
 
 				auto length = len(t, ns);
@@ -678,21 +674,27 @@ static:
 				if(length > 0)
 				{
 					dup(t, ns);
+					bool first = true;
 
 					foreach(word k, word v; foreachLoop(t, 1))
 					{
 						if(hasPendingHalt(t))
 							.haltThread(t);
 
-						Stdout(getString(t, k))(" = ");
-						dup(t, v);
-						outputRepr(-1);
-						pop(t);
-						Stdout.newline;
+						if(first)
+							first = false;
+						else
+							Stdout(", ");
+
+						Stdout(getString(t, k));
+// 						dup(t, v);
+// 						outputRepr(-1);
+// 						pop(t);
+// 						Stdout.newline;
 					}
 				}
 
-				Stdout('}');
+				Stdout(" }");
 			}
 
 			if(isString(t, v))
@@ -872,12 +874,46 @@ static:
 	}
 
 	// ===================================================================================================================================
-	// WeakRef metatable
+	// Weak reference stuff
+
+	uword weakref(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		pushWeakRef(t, 1);
+		return 1;
+	}
+
+	uword deref(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		
+		switch(type(t, 1))
+		{
+			case
+				MDValue.Type.Null,
+				MDValue.Type.Bool,
+				MDValue.Type.Int,
+				MDValue.Type.Float,
+				MDValue.Type.Char:
+				
+				dup(t, 1);
+				return 1;
+				
+			case MDValue.Type.WeakRef:
+				.deref(t, 1);
+				return 1;
+
+			default:
+				paramTypeError(t, 1, "null|bool|int|float|char|weakref");
+		}
+
+		assert(false);
+	}
 
 	uword weakrefDeref(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.WeakRef);
-		deref(t, 0);
+		.deref(t, 0);
 		return 1;
 	}
 

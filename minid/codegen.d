@@ -569,7 +569,6 @@ final class FuncState
 			auto index = &mExpStack[i];
 			uint reloc = uint.max;
 
-			// TODO: debug this, this doesn't look right.
 			for(int j = mExpSP - numVals; j < i; j++)
 			{
 				auto e = &mExpStack[j];

@@ -24,8 +24,10 @@ subject to the following restrictions:
 module minid.commandline;
 
 import tango.io.Console;
+import tango.io.FileConduit;
 import tango.io.model.IConduit;
 import tango.io.Print;
+import tango.io.protocol.Reader;
 import tango.io.Stdout;
 import tango.stdc.ctype;
 import tango.stdc.signal;
@@ -38,6 +40,7 @@ import Utf = tango.text.convert.Utf;
 import minid.compiler;
 import minid.ex;
 import minid.interpreter;
+import minid.serialization;
 import minid.types;
 import minid.utils;
 
@@ -188,7 +191,11 @@ To end interactive mode, use the \"exit()\" function.
 					c.compileModule(inputFile);
 				}
 				else
-					throwException(t, "Deserializing mdms is not implemented"); // TODO: this
+				{
+					scope fc = new FileConduit(inputFile, FileConduit.ReadExisting);
+					scope r = new Reader(fc);
+					deserializeModule(t, r);
+				}
 
 				lookup(t, "modules.initModule");
 				swap(t);
@@ -303,7 +310,7 @@ To end interactive mode, use the \"exit()\" function.
 
 				return false;
 			}
-			
+
 			bool tryAsExpression()
 			{
 				scope c = new Compiler(t);
@@ -324,7 +331,7 @@ To end interactive mode, use the \"exit()\" function.
 					else
 						return tryAsStatement(e);
 				}
-				
+
 				try
 				{
 					pushNull(t);
@@ -366,8 +373,13 @@ To end interactive mode, use the \"exit()\" function.
 				return false;
 			}
 
+			auto stackIdx = stackSize(t);
+
 			while(run)
 			{
+				if(auto diff = stackSize(t) - stackIdx)
+					pop(t, diff);
+
 				auto line = mInput.next();
 
 				if(line.ptr is null)

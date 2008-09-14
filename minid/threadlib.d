@@ -116,7 +116,7 @@ static:
 	uword state(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
-		pushInt(t, .state(getThread(t, 0)));
+		pushString(t, .stateString(getThread(t, 0)));
 		return 1;
 	}
 
