@@ -204,7 +204,7 @@ static:
 
 	uword findGlobal(MDThread* t, uword numParams)
 	{
-		if(!.findGlobal(t, checkStringParam(t, 1)))
+		if(!.findGlobal(t, checkStringParam(t, 1), 1))
 			pushNull(t);
 
 		return 1;
@@ -212,7 +212,7 @@ static:
 
 	uword isSet(MDThread* t, uword numParams)
 	{
-		if(!.findGlobal(t, checkStringParam(t, 1)))
+		if(!.findGlobal(t, checkStringParam(t, 1), 1))
 			pushBool(t, false);
 		else
 		{

@@ -1,5 +1,122 @@
 module samples.simple
 
+function bad(name: string) = findGlobal(name)
+bad("x")
+
+/+
+global NodeType =
+{
+	Add = 0,
+	Mul = 1,
+	Var = 2,
+	Num = 3
+}
+
+object ExpNode
+{
+	function clone(type: int)
+	{
+		local ret = super.clone()
+		ret.type = type
+		return ret
+	}
+
+	function opAdd(other: ExpNode) = AddNode(this, other)
+	function opMul(other: ExpNode) = MulNode(this, other)
+}
+
+object Var : ExpNode
+{
+	function clone(name: string)
+	{
+		local ret = super.clone(NodeType.Var)
+		ret.type = NodeType.Var
+		ret.name = name
+		return ret
+	}
+
+	function toString() = :name
+}
+
+Var.opCall = Var.clone
+
+object Num : ExpNode
+{
+	function clone(val: int|float)
+	{
+		local ret = super.clone(NodeType.Num)
+		ret.type = NodeType.Num
+		ret.val = toFloat(val)
+		return ret
+	}
+
+	function toString() = toString(:val)
+}
+
+Num.opCall = Num.clone
+
+object AddNode : ExpNode
+{
+	function clone(left: ExpNode, right: ExpNode)
+	{
+		local ret = super.clone(NodeType.Add)
+		ret.left = left
+		ret.right = right
+		return ret
+	}
+
+	function toString() = format("({} + {})", :left, :right)
+}
+
+AddNode.opCall = AddNode.clone
+
+object MulNode : ExpNode
+{
+	function clone(left: ExpNode, right: ExpNode)
+	{
+		local ret = super.clone(NodeType.Mul)
+		ret.left = left
+		ret.right = right
+		return ret
+	}
+
+	function toString() = format("({} * {})", :left, :right)
+}
+
+MulNode.opCall = MulNode.clone
+
+function searchVars(n: ExpNode, vars: table)
+{
+	switch(n.type)
+	{
+		case NodeType.Var:
+			vars[n.name] = true;
+			break;
+
+		case NodeType.Add, NodeType.Mul:
+			searchVars(n.left, vars)
+			searchVars(n.right, vars)
+			break;
+
+		default:
+			break;
+	}
+}
+
+function compileExp(root: ExpNode)
+{
+	local vars = {}
+	searchVars(root, vars)
+	local params = string.join(vars.keys().sort(), ", ")
+	return loadString("return \\" ~ params ~ " -> " ~ root.toString())()
+}
+
+local exp = (Num(4) + Var("x")) * (Var("y") + Num(3))
+writeln(exp)
+
+local f = compileExp(exp)
+writeln(f(3, 4))
+
 // object Foo
 // {
 // 	x = 0
@@ -1029,4 +1146,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/+/
+}+/+/+/

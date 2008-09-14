@@ -3665,7 +3665,7 @@ MDNamespace* getEnv(MDThread* t, uword depth = 0)
 	else if(depth == 0)
 		return t.currentAR.func.environment;
 
-	for(word idx = t.arIndex; idx > 0; idx--)
+	for(word idx = t.arIndex - 1; idx >= 0; idx--)
 	{
 		if(depth == 0)
 			return t.actRecs[cast(uword)idx].func.environment;
@@ -5299,7 +5299,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 			return false;
 
 		default:
-			auto method = getMM(t, func, MM.Call);
+			auto method = getMM(t, func, MM.Call, proto);
 
 			if(method is null)
 			{
