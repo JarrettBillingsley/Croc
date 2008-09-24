@@ -1,14 +1,16 @@
 module samples.simple
 
-function bad(name: string) = findGlobal(name)
-bad("x")
-
 /+
-global NodeType =
+function Enum(name: string, vararg)
 {
-	Add = 0,
-	Mul = 1,
-	Var = 2,
+
+}
+
+namespace NodeType
+{
+	Add = 0
+	Mul = 1
+	Var = 2
 	Num = 3
 }
 

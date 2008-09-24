@@ -3371,49 +3371,18 @@ class Codegen : Visitor
 			case AstTag.ParenExp:    return codeCondition(e.as!(ParenExp));
 
 			default:
-// 				if(auto be = cast(BinaryExp)e)
-// 				{
-					auto temp = fs.nextRegister();
-					visit(e);
-					fs.popMoveTo(e.endLocation.line, temp);
+				auto temp = fs.nextRegister();
+				visit(e);
+				fs.popMoveTo(e.endLocation.line, temp);
 
-					fs.codeR(e.endLocation.line, Op.IsTrue, 0, temp, 0);
+				fs.codeR(e.endLocation.line, Op.IsTrue, 0, temp, 0);
 
-					InstRef ret;
-					ret.trueList = fs.makeJump(e.endLocation.line, Op.Je);
-					return ret;
-// 				}
-// 				else if(auto ue = cast(UnExp)e)
-// 				{
-// 					auto temp = fs.nextRegister();
-// 					visit(e);
-// 					fs.popMoveTo(ue.endLocation.line, temp);
-// 
-// 					fs.codeR(ue.endLocation.line, Op.IsTrue, 0, temp, 0);
-// 
-// 					InstRef ret;
-// 					ret.trueList = fs.makeJump(ue.endLocation.line, Op.Je);
-// 					return ret;
-// 				}
-// 				else if(auto pe = cast(PrimaryExp)e)
-// 				{
-// 					auto temp = fs.nextRegister();
-// 					visit(e);
-// 					fs.popMoveTo(pe.endLocation.line, temp);
-//
-// 					fs.codeR(pe.endLocation.line, Op.IsTrue, 0, temp, 0);
-//
-// 					InstRef ret;
-// 					ret.trueList = fs.makeJump(pe.endLocation.line, Op.Je);
-// 					return ret;
-// 				}
-//
-// 				c.exception(e.location, "{} cannot be used as a condition", e.niceString());
+				InstRef ret;
+				ret.trueList = fs.makeJump(e.endLocation.line, Op.Je);
+				return ret;
 		}
-
-// 		assert(false);
 	}
-	
+
 	package InstRef codeCondition(CondExp e)
 	{
 		auto c = codeCondition(e.cond);

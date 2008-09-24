@@ -59,7 +59,7 @@ static:
 		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
 		newGlobal(t, "Object");
-		
+
 		register(t, "collect", &collect);
 
 		// StringBuffer
@@ -128,6 +128,7 @@ static:
 			newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
 			newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
 			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
+			newFunction(t, &functionName,        "function.name");        fielda(t, -2, "name");
 		setTypeMT(t, MDValue.Type.Function);
 
 		// Weak reference stuff
@@ -307,7 +308,7 @@ static:
 		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
 	}
-	
+
 	uword rawSetField(MDThread* t, uword numParams)
 	{
 		checkObjParam(t, 1);
@@ -687,10 +688,6 @@ static:
 							Stdout(", ");
 
 						Stdout(getString(t, k));
-// 						dup(t, v);
-// 						outputRepr(-1);
-// 						pop(t);
-// 						Stdout.newline;
 					}
 				}
 
@@ -700,7 +697,7 @@ static:
 			if(isString(t, v))
 			{
 				Stdout('"');
-				
+
 				foreach(c; getString(t, v))
 					escape(c);
 
@@ -727,7 +724,7 @@ static:
 		}
 
 		outputRepr(1);
-		
+
 		if(newline)
 			Stdout.newline;
 
@@ -871,6 +868,13 @@ static:
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, func.isVararg(getFunction(t, 0)));
 		return 1;
+	}
+	
+	uword functionName(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushString(t, funcName(t, 0));
+		return 1;	
 	}
 
 	// ===================================================================================================================================

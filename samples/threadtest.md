@@ -1,4 +1,4 @@
-module thread
+module threadtest
 
 function Set(vararg)
 {
@@ -35,15 +35,11 @@ object Thread
 		local n = { value = value }
 
 		if(:mMessageTail is null)
-		{
 			:mMessageHead = n
-			:mMessageTail = n
-		}
 		else
-		{
 			:mMessageTail.next = n
-			:mMessageTail = n
-		}
+
+		:mMessageTail = n
 	}
 
 	// Try to pop a message off this thread's message queue.  Returns 'false' if there
@@ -76,10 +72,10 @@ object Thread
 			:mNeedMessage = false
 			local ok, value = :receive()
 			assert(ok)
-			return :mBody(value)
+			return (:mBody)(value)
 		}
 		else
-			return :mBody(vararg)
+			return (:mBody)(vararg)
 
 	// Returns a bool, whether this thread is waiting, either on a message or on a timer.
 	function isWaiting()
@@ -163,9 +159,9 @@ function receive() = yield("Receive")
 function main()
 {
 	local N = 100
-	
+
 	local producer, consumer
-	
+
 	producer = Thread.clone(coroutine function()
 	{
 		while(true)
@@ -183,10 +179,10 @@ function main()
 	consumer = Thread.clone(coroutine function()
 	{
 		local empty = { type = "Empty" }
-	
+
 		for(i: 0 .. N)
 			send(producer, empty)
-	
+
 		while(true)
 		{
 			local msg = receive()
@@ -196,7 +192,7 @@ function main()
 			writefln("Consumer consumed {}.", msg.value)
 		}
 	})
-	
+
 	scheduler(Set(producer, consumer))
 	writefln("Finished.")
 }
