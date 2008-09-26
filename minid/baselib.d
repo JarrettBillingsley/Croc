@@ -77,6 +77,7 @@ static:
 		register(t, "allFieldsOf", &allFieldsOf);
 		register(t, "hasField", &hasField);
 		register(t, "hasMethod", &hasMethod);
+		register(t, "findField", &findField);
 		register(t, "rawSetField", &rawSetField);
 		register(t, "rawGetField", &rawGetField);
 		register(t, "attrs", &attrs);
@@ -307,6 +308,29 @@ static:
 		auto n = checkStringParam(t, 2);
 		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
+	}
+	
+	uword findField(MDThread* t, uword numParams)
+	{
+		checkObjParam(t, 1);
+		checkStringParam(t, 2);
+
+		while(!isNull(t, 1))
+		{
+			auto fields = .fieldsOf(t, 1);
+
+			if(opin(t, 2, fields))
+			{
+				dup(t, 1);
+				return 1;
+			}
+
+			superOf(t, 1);
+			swap(t, 1);
+			pop(t, 2);
+		}
+		
+		return 0;
 	}
 
 	uword rawSetField(MDThread* t, uword numParams)
