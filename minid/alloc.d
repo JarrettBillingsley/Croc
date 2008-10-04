@@ -86,6 +86,12 @@ align(1) struct GCObject
 	mixin GCMixin;
 }
 
+void append(T)(ref T[] arr, Allocator* alloc, ref T item)
+{
+	alloc.resizeArray(arr, arr.length + 1);
+	arr[$ - 1] = item;
+}
+
 align(1) struct Allocator
 {
 	package MemFunc memFunc;

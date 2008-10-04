@@ -183,12 +183,6 @@ struct SwitchDesc
 	package SwitchDesc* prev;
 }
 
-private void append(T)(ref T[] arr, Allocator* alloc, ref T item)
-{
-	alloc.resizeArray(arr, arr.length + 1);
-	arr[$ - 1] = item;
-}
-
 final class FuncState
 {
 	package ICompiler c;

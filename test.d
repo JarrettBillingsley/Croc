@@ -20,7 +20,7 @@ void main()
 
 	try
 	{
-		importModule(t, "tests.compiler.compiler");
+		importModule(t, "samples.simple");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);
@@ -30,6 +30,9 @@ void main()
 	{
 		auto ex = catchException(t);
 		Stdout.formatln("Error: {}", e);
+		
+		auto tb = getTraceback(t);
+		Stdout.formatln("{}", getString(t, tb));
 	}
 	catch(Exception e)
 	{

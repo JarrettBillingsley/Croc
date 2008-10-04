@@ -2456,6 +2456,52 @@ word catchException(MDThread* t)
 }
 
 /**
+After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
+thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
+and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
+that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
+work across native functionc calls, in which case the name of the function will be noted but no line number will be
+given since that would be impossible; instead it is marked as "(native)".
+
+When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
+sort of form:
+
+-----
+Traceback: function.that.threw.exception(9)
+        at function.that.called.it(23)
+        at <5 tailcalls>(?)
+        at some.native.function(native)
+-----
+
+Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
+native API manipulations cause an error.
+
+When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
+this function is called again, you will get an empty string.
+
+Returns:
+	The stack index of the newly-pushed traceback string.
+*/
+word getTraceback(MDThread* t)
+{
+	if(t.vm.traceback.length == 0)
+		return pushString(t, "");
+
+	pushString(t, "Traceback: ");
+	pushDebugLocStr(t, t.vm.traceback[0]);
+
+	foreach(ref l; t.vm.traceback[1 .. $])
+	{
+		pushString(t, "\n        at ");
+		pushDebugLocStr(t, l);
+	}
+
+	auto ret = cat(t, t.vm.traceback.length * 2);
+	t.vm.alloc.resizeArray(t.vm.traceback, 0);
+	return ret;
+}
+
+/**
 Push the metatable for the given type.  If the type has no metatable, pushes null.  The type given must be
 one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
 
@@ -3305,7 +3351,6 @@ struct foreachLoop
 	}
 }
 
-// TODO: tracebacks
 // TODO: some more ops for some objects, like namespaces?  removeKey?
 
 debug
@@ -5273,7 +5318,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 					numParams--;
 					saveResults(thread, t, slot + 2, numParams);
 				}
-			
+
 				auto savedState = t.state;
 				t.state = MDThread.State.Waiting;
 
@@ -5385,7 +5430,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 				t.nativeCallDepth++;
 				scope(exit) t.nativeCallDepth--;
 			}
-			
+
 			auto savedState = t.state;
 			t.state = MDThread.State.Running;
 			t.vm.curThread = t;
@@ -5395,6 +5440,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		}
 		catch(MDException e)
 		{
+			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
 			callEpilogue(t, false);
 			throw e;
 		}
@@ -6013,7 +6059,7 @@ word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 
 		return n;
 	}
-	
+
 	auto x = namespaceName(ns);
 	
 	if(x == 0)
@@ -6022,14 +6068,14 @@ word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 		return cat(t, x);
 }
 
-void pushDebugLoc(MDThread* t)
+Location getDebugLoc(MDThread* t)
 {
 	if(t.currentAR is null || t.currentAR.func is null)
-		pushString(t, "<no location available>");
+		return Location(string.create(t.vm, "<no location available>"), 0, Location.Type.Unknown);
 	else
 	{
 		pushNamespaceNamestring(t, t.currentAR.func.environment);
-		
+
 		if(getString(t, -1) == "")
 			dup(t);
 		else
@@ -6037,11 +6083,12 @@ void pushDebugLoc(MDThread* t)
 
 		pushStringObj(t, t.currentAR.func.name);
 
+		cat(t, 3);
+		auto s = getStringObj(t, -1);
+		pop(t);
+
 		if(t.currentAR.func.isNative)
-		{
-			pushString(t, "(native)");
-			cat(t, 4);
-		}
+			return Location(s, 0, Location.Type.Native);
 		else
 		{
 			auto def = t.currentAR.func.scriptFunc;
@@ -6051,18 +6098,78 @@ void pushDebugLoc(MDThread* t)
 
 			if(instructionIndex < def.lineInfo.length)
 				line = def.lineInfo[instructionIndex];
-				
-			pushChar(t, '(');
-			
-			if(line == -1)
-				pushChar(t, '?');
-			else
-				pushFormat(t, "{}", line);
 
-			pushChar(t, ')');
-			cat(t, 6);
+			return Location(s, line, Location.Type.Script);
 		}
 	}
+}
+
+void pushDebugLocStr(MDThread* t, ref Location loc)
+{
+	if(loc.col == Location.Type.Unknown)
+		pushString(t, "<no location available>");
+	else
+	{
+		pushStringObj(t, loc.file);
+
+		if(loc.col == Location.Type.Native)
+		{
+			pushString(t, "(native)");
+			cat(t, 2);
+		}
+		else
+		{
+			pushChar(t, '(');
+
+			if(loc.line == -1)
+				pushChar(t, '?');
+			else
+				pushFormat(t, "{}", loc.line);
+				
+			pushChar(t, ')');
+
+			cat(t, 4);
+		}
+	}
+// 	if(t.currentAR is null || t.currentAR.func is null)
+// 		pushString(t, "<no location available>");
+// 	else
+// 	{
+// 		pushNamespaceNamestring(t, t.currentAR.func.environment);
+//
+// 		if(getString(t, -1) == "")
+// 			dup(t);
+// 		else
+// 			pushChar(t, '.');
+//
+// 		pushStringObj(t, t.currentAR.func.name);
+//
+// 		if(t.currentAR.func.isNative)
+// 		{
+// 			pushString(t, "(native)");
+// 			cat(t, 4);
+// 		}
+// 		else
+// 		{
+// 			auto def = t.currentAR.func.scriptFunc;
+//
+// 			word line = -1;
+// 			uword instructionIndex = t.currentAR.pc - def.code.ptr - 1;
+//
+// 			if(instructionIndex < def.lineInfo.length)
+// 				line = def.lineInfo[instructionIndex];
+//
+// 			pushChar(t, '(');
+//
+// 			if(line == -1)
+// 				pushChar(t, '?');
+// 			else
+// 				pushFormat(t, "{}", line);
+//
+// 			pushChar(t, ')');
+// 			cat(t, 6);
+// 		}
+// 	}
 }
 
 void throwImpl(MDThread* t, MDValue* ex)
@@ -6070,9 +6177,11 @@ void throwImpl(MDThread* t, MDValue* ex)
 	// doing this backwards since ex can be on the stack - don't want stack to move underneath us
 	toStringImpl(t, *ex, true);
 	pushString(t, ": ");
-	pushDebugLoc(t);
+	pushDebugLocStr(t, getDebugLoc(t));
 	swap(t, -3);
 	cat(t, 3);
+
+	t.vm.alloc.resizeArray(t.vm.traceback, 0);
 
 	// dup'ing since we're removing the only MiniD reference and handing it off to D
 	auto msg = getString(t, -1).dup;
@@ -6080,8 +6189,6 @@ void throwImpl(MDThread* t, MDValue* ex)
 
 	t.vm.exception = *ex;
 	t.vm.isThrowing = true;
-
-	// TODO: create traceback here
 	throw new MDException(msg);
 }
 
@@ -7064,17 +7171,19 @@ void execute(MDThread* t, uword depth = 1)
 				}
 			}
 
+			if(t.currentAR && t.currentAR.func !is null)
+			{
+				t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
+
+				if(t.currentAR.numTailcalls > 0)
+				{
+					pushFormat(t, "<{} tailcalls>", t.currentAR.numTailcalls);
+					t.vm.traceback.append(&t.vm.alloc, Location(getStringObj(t, -1), -1, Location.Type.Script));
+					pop(t);
+				}
+			}
+
 			callEpilogue(t, false);
-
-// TODO: this
-// 			if(t.currentAR.func !is null)
-// 			{
-// 				mContext.mTraceback ~= getDebugLocation();
-//
-// 				for(int call = 0; call < mCurrentAR.numTailcalls; call++)
-// 					mContext.mTraceback ~= Location("<tailcall>", 0, 0);
-// 			}
-
 			depth--;
 		}
 
@@ -7103,5 +7212,3 @@ void execute(MDThread* t, uword depth = 1)
 		return;
 	}
 }
-
-const Unimpl = "assert(false, \"unimplemented!\");";

@@ -309,7 +309,7 @@ char[] uniSlice(char[] s, size_t lo, size_t hi)
 		tmp = tmp[ate .. $];
 		realHi += ate;
 	}
-	
+
 	return s[realLo .. realHi];
 }
 
@@ -325,6 +325,20 @@ dchar uniCharAt(char[] s, size_t idx)
 	}
 
 	return decode(tmp, ate);
+}
+
+size_t uniFakeToReal(char[] s, size_t fake)
+{
+	auto tmp = s;
+	uint ate = 0;
+	
+	for(size_t i = 0; i < fake; i++)
+	{
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+	}
+	
+	return tmp.ptr - s.ptr;
 }
 
 /**

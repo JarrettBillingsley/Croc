@@ -608,6 +608,13 @@ struct MDWeakRef
 
 struct Location
 {
+	enum Type
+	{
+		Unknown = -2,
+		Native = -1,
+		Script = 0	
+	}
+
 	public MDString* file;
 	// yes, these are 32 bits
 	package int line = 1;

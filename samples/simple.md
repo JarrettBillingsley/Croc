@@ -1,5 +1,15 @@
 module samples.simple
 
+function freep(x: int)
+{
+	if(x == 0)
+		throw "hi"
+		
+	return freep(x - 1)
+}
+
+freep(5)
+
 /+
 function Enum(name: string, vararg)
 {
@@ -533,14 +543,14 @@ writeln(Deck.dealCard())
 	local countDown = coroutine function countDown(x)
 	{
 		yield()
-		
+
 		while(x > 0)
 		{
 			yield(x)
 			x--
 		}
 	}
-	
+
 	foreach(v; countDown, 5)
 		writefln(v)
 

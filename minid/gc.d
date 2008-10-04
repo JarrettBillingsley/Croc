@@ -51,6 +51,9 @@ void mark(MDVM* vm)
 
 	foreach(s; vm.metaStrings)
 		markObj(vm, s);
+		
+	foreach(ref l; vm.traceback)
+		markObj(vm, l.file);
 
 	markObj(vm, vm.globals);
 	markObj(vm, vm.mainThread);

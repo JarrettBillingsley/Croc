@@ -153,22 +153,40 @@ static:
 	uword find(MDThread* t, uword numParams)
 	{
 		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, 0);
+
+		if(start < 0)
+		{
+			start += srcLen;
+
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start >= srcLen)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
 
 		if(isString(t, 1))
-			pushInt(t, src.locatePattern(getString(t, 1)));
+			pushInt(t, src.locatePattern(getString(t, 1), start));
 		else if(isChar(t, 1))
 		{
 			auto ch = getChar(t, 1);
 
-			foreach(i, dchar c; src)
+			uword startIdx = uniFakeToReal(src, start);
+
+			foreach(i, dchar c; src[startIdx .. $])
 			{
 				if(c == ch)
 				{
-					pushInt(t, i);
+					pushInt(t, i + start);
 					return 1;
 				}
 			}
-			
+
 			pushInt(t, src.length);
 		}
 		else
@@ -185,30 +203,47 @@ static:
 // 		dchar[32] buf1, buf2;
 // 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
 // 		uword result;
-// 
+//
 // 		if(s.isParam!("string")(0))
 // 			result = src.locatePattern(Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
 // 		else if(s.isParam!("char")(0))
 // 			result = src.locate(Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
 // 		else
 // 			s.throwRuntimeException("Second parameter must be string or int");
-// 			
+//
 // 		s.push(result);
-// 
+//
 // 		return 1;
 // 	}
 
 	uword rfind(MDThread* t, uword numParams)
 	{
 		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, srcLen);
+
+		if(start < 0)
+		{
+			start += srcLen;
+
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start <= 0)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
 
 		if(isString(t, 1))
-			pushInt(t, src.locatePatternPrior(getString(t, 1)));
+			pushInt(t, src.locatePatternPrior(getString(t, 1), start));
 		else if(isChar(t, 1))
 		{
 			auto ch = getChar(t, 1);
+			uword startIdx = uniFakeToReal(src, start);
 
-			foreach_reverse(i, dchar c; src)
+			foreach_reverse(i, dchar c; src[0 .. startIdx])
 			{
 				if(c == ch)
 				{

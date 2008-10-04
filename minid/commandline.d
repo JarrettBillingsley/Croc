@@ -304,7 +304,10 @@ To end interactive mode, use the \"exit()\" function.
 					pop(t);
 
 					mOutput.formatln("Error: {}", e2);
-// 					mOutput.formatln("{}", ctx.getTracebackString());
+					
+					auto tb = getTraceback(t);
+					mOutput.formatln("{}", getString(t, tb));
+					pop(t);
 					mOutput.newline;
 				}
 

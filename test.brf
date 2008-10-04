@@ -4,5 +4,4 @@ test.d
 -g
 -unittest
 -version=MDExtendedCoro
--cov
 -debug=LEAK_DETECTOR
