@@ -259,6 +259,9 @@ final class FuncState
 		t.vm.alloc.freeArray(mLineInfo);
 		t.vm.alloc.freeArray(mLocVars);
 
+		for(auto s = mSwitch; s !is null; s = s.prev)
+			s.offsets.clear(*c.alloc);
+
 		foreach(ref s; mSwitchTables)
 			s.offsets.clear(*c.alloc);
 
@@ -291,7 +294,12 @@ final class FuncState
 			s.continueScope = mScope.continueScope;
 		}
 		else
+		{
+			// leave these all in here, have to initialize void-initialized scopes
 			s.enclosing = null;
+			s.breakScope = null;
+			s.continueScope = null;
+		}
 
 		s.breaks = NoJump;
 		s.continues = NoJump;
@@ -1900,7 +1908,7 @@ class Codegen : Visitor
 
 	public override ImportStmt visit(ImportStmt s)
 	{
-		foreach(i, sym; s.symbols)
+		foreach(i, sym; s.symbolNames)
 		{
 			if(s.importName !is null && sym.name == s.importName.name)
 			{
@@ -2458,7 +2466,7 @@ class Codegen : Visitor
 
 		return s;
 	}
-	
+
 	public override SwitchStmt visit(SwitchStmt s)
 	{
 		Scope scop = void;
@@ -2503,7 +2511,7 @@ class Codegen : Visitor
 
 		return s;
 	}
-	
+
 	public override CaseStmt visit(CaseStmt s)
 	{
 		foreach(c; s.conditions)

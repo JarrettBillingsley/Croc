@@ -1641,7 +1641,11 @@ struct Parser
 		while(l.type == Token.Comma)
 		{
 			l.next();
-			lhs ~= parsePrimaryExp();
+			
+			if(l.type == Token.Length)
+				lhs ~= parseUnExp();
+			else
+				lhs ~= parsePrimaryExp();
 		}
 
 		l.expect(Token.Assign);

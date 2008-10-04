@@ -4,6 +4,17 @@ module tests.compiler.compiler
 import FRACK = tests.dummy: xxx = XXX, YYY
 import("tests.dummy")
 
+function xpass(s: string)
+{
+	try
+	{
+		loadString(s)
+		return
+	}
+	catch(e)
+		throw "Expected to pass but failed"
+}
+
 function xfail(s: string)
 {
 	try
@@ -187,10 +198,10 @@ xfailex(`eval("4 + 5 5")`)
 loadJSON("{}")
 xfail("for(;;);")
 xfail("while(false)")
-loadString("@foo.bar.baz @quux function f() {}")
-loadString("@foo(with 5, 2, 3) function f() {}")
+xpass("@foo.bar.baz @quux function f() {}")
+xpass("@foo(with 5, 2, 3) function f() {}")
 xfail("@foo local x")
-loadString("local function f(){} local object O{} local namespace N{}")
+xpass("local function f(){} local object O{} local namespace N{}")
 xfail("local for")
 xfail("@foo for")
 global function BRAK(){}
@@ -203,11 +214,11 @@ xfail("f = function(x: object 4){}")
 foo = function(x: bool|float|char|table|array|thread|nativeobj|weakref, y: A){}
 foo = function freep(x: !null, y: any){}
 xfail(`f = \x -> yield`)
-loadString("global object O:I{ @foo function foo() {} }")
+xpass("global object O:I{ @foo function foo() {} }")
 xfail("object O { x = 5; x }")
 xfail("object O {")
 xfail("object O {5}")
-loadString("global namespace N:M{x; function y(){}}")
+xpass("global namespace N:M{x; function y(){}}")
 xfail("namespace N { x = 5; x }")
 xfail("namespace N {")
 xfail("namespace N {5}")
@@ -221,8 +232,8 @@ if(local x = true){}else{}
 xfail("return 3 return")
 xfail("try{}")
 while(local x = false){}
-loadString(`x = super.foo(); super.("foo")(3); super.f $ 5, 5; y = :y`)
-loadString(`:("x") = 5; :super.x = 5`)
+xpass(`x = super.foo(); super.("foo")(3); super.f $ 5, 5; y = :y`)
+xpass(`:("x") = 5; :super.x = 5`)
 xfail("++for")
 loadJSON(`[null, true, false, 4, 4.5, [], {"x":5, "y":10}]`)
 xfailex(`loadJSON("[freep]")`)
@@ -346,23 +357,50 @@ A = [x for k, v in {} if k !is null for i in 0 .. 10]
 A = [x for k in 0 .. 0 if k !is null for i in 0 .. 10]
 
 // codegen
+xfail("local x; local x")
+{ local function fork() { local a = []; for(i: 0 .. 10) a ~= \->i  } }
+switch(5) { case null, 3.5, 'x', "hi": break; default: break; }
+xfail("switch(5) { case 3: case 3: break; }")
+{
+	local z = 0;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	(function()
+	{
+		local x, y;
+		foo = function() return 1, 2, 3;
+		x = [0, 0, 0]
+		y = 0
+		x[y], y = foo()
+		x[z], z = foo()
+	})()
+}
+xpass("global x, y = foo(); x.x, y.x = foo(); vararg[x], vararg[y] = foo()")
+xpass("arr[0 .. 10], arr[11 .. 20] = foo(); #arr1, #arr2 = foo()")
+xpass("global x = false; global y = vararg[0]; global z = #a; global w = vararg")
+xpass("global x = vararg[]; x = a[0]; x = #a; x = vararg; x = vararg[]")
+xpass("local x; x = vararg; x = vararg[]; return foo()")
+xfail("continue")
+for(i: 0 .. 1) { local f = \->i; continue }
+xfail("break")
+for(i: 0 .. 1) { local f = \->i; break }
+xfail("import foo = bar: foo = baz")
+xfail("import foo: bar = baz, baz = qus")
+xpass("import foo: bar, baz")
+xfail("local x, x")
+xpass("global x, y")
+xpass("if(local x = foo()){}else{}")
+xpass("while(local x = true){}while(local x = foo()){}while(foo()){}")
+xpass("do{}while(foo())")
+xpass("for(local x = 5, foo(); bar(); baz++, quux++){}")
+xpass("foreach(k, v; a, b, c){}foreach(k, v; a, b()){}foreach(k, v; a()){}")
+xpass("switch(4){case foo(): break;}")
+xpass("return x, foo()")
+xpass("try{}finally{}")
+xfail("function foo() = #vararg")
+xpass("foo(bar, baz())")
+xfail("function foo() = vararg[0]")
+xfail("function foo() = vararg[]")
+xfail("function foo() = vararg")
+xpass("a = [1, 2, foo()]")
+xpass("yield(foo())")
+xpass("if(x?y:z){}if(this){}if((foo())){}")

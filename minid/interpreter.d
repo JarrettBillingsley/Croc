@@ -6618,18 +6618,15 @@ void execute(MDThread* t, uword depth = 1)
 
 					isReturning = true;
 
-					if(t.trIndex > 0)
+					while(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)
 					{
-						while(t.currentTR.actRecord is t.arIndex)
-						{
-							auto tr = *t.currentTR;
-							popTR(t);
+						auto tr = *t.currentTR;
+						popTR(t);
 
-							if(!tr.isCatch)
-							{
-								t.currentAR.pc = tr.pc;
-								goto _exceptionRetry;
-							}
+						if(!tr.isCatch)
+						{
+							t.currentAR.pc = tr.pc;
+							goto _exceptionRetry;
 						}
 					}
 
