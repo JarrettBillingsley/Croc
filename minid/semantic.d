@@ -109,12 +109,7 @@ class Semantic : IdentityVisitor
 				assert(false);
 
 			if(!(p.typeMask & (1 << type)))
-			{
-				if(i == 0)
-					c.exception(p.defValue.location, "'this' parameter: Default parameter of type '{}' is not allowed", MDValue.typeString(type));
-				else
-					c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, MDValue.typeString(type));
-			}
+				c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, MDValue.typeString(type));
 		}
 
 		d.code = visit(d.code);
@@ -909,10 +904,10 @@ class Semantic : IdentityVisitor
 				if((ops[i].isString || ops[i].isChar) && (ops[i + 1].isString || ops[i + 1].isChar))
 				{
 					word j = i + 2;
-					
+
 					for(; j < ops.length && (ops[j].isString || ops[j].isChar); j++)
 					{}
-					
+
 					// j points to first non-const non-string non-char operand
 					foreach(op; ops[i .. j])
 					{
@@ -922,8 +917,11 @@ class Semantic : IdentityVisitor
 							tempStr ~= op.asChar();
 					}
 
-					newOperands ~= new(c) StringExp(c, e.location, c.newString(tempStr.toArray()));
-					
+					auto dat = tempStr.toArray();
+					auto str = c.newString(dat);
+					c.alloc.freeArray(dat);
+					newOperands ~= new(c) StringExp(c, e.location, str);
+
 					i = j - 1;
 				}
 				else
@@ -1229,7 +1227,7 @@ class Semantic : IdentityVisitor
 			if(h < 0)
 				h += str.length;
 
-			if(l < 0 || l >= str.length || h < 0 || h >= str.length || l > h)
+			if(l > h || l < 0 || l > str.length || h < 0 || h > str.length)
 				c.exception(e.location, "Invalid slice indices");
 
 			return new(c) StringExp(c, e.location, c.newString(str[l .. h]));

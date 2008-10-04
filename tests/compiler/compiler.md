@@ -29,6 +29,7 @@ object O {}
 function foo(x = null, y = true, z = 'x') { return 1, 2, 3 }
 namespace N {}
 assert(true, "foo")
+assert(true)
 foo()
 while(false){}
 do{}while(false)
@@ -239,6 +240,110 @@ A = [x for x in 0 .. 10, 3]
 xfail("x = [x for x in `hello`, 4, 43, 2]")
 
 // semantic
+foo = function(x = freep(), y: int = 5, z = 4.5, w = "hai"){}
+xfail("function foo(x: int = 'x'){}")
+xfail("import(5)")
+if(false){}else{}
+if(foo is foo){}
+while(true){break}
+do{break}while(true)
+for(;true;){break}
+xfail("for(i: 4.5 .. 5){}")
+xfail("for(i: 4 .. 5.5){}")
+xfail("for(i: 4 .. 5, 4.5){}")
+xfail("for(i: 4 .. 5, 0){}")
+O ?= null
+O = "hi"
+O ~= 'x' ~ O
+O = false ? 1 : 2
+O = O ? O : O
+O = true || true
+O = false || false
+O = O || O
+O = true && true
+O = false && false
+O = O && O
+O = 3 | 4
+xfail("x = 3 | 4.5")
+O = 3 ^ 4
+xfail("x = 3 ^ 4.5")
+O = 3 & 4
+xfail("x = 3 & 4.5")
+O = null is null
+O = true is true
+O = 3.4 is 3.4
+O = 3.0 == 3
+O = 'x' is 'x'
+O = "hi" is "hi"
+O = 3 is 'x'
+xfail("x = 4 == null")
+O = null < null
+O = 3 < 4
+O = 3 < 4.5
+O = "x" < "y"
+xfail("x = 4 < `u`")
+O = O <=> O
+O = O as Object
+xfail("x = 4 as 5")
+O = 3 << 4
+xfail("x = 3 << 4.5")
+O = 3 >> 4
+xfail("x = 3 >> 4.5")
+O = 3 >>> 4
+xfail("x = 3 >>> 4.5")
+O = 3 - 4
+O = 3.4 - 4
+xfail("x = 3 - 'x'")
+O = 'x' ~ 'y' ~ 'z' ~ 'w'
+O = 3 * 4
+O = 3.4 * 4
+xfail("x = 3 * 'x'")
+O = 3 / 4
+O = 3.4 / 4
+xfail("x = 3 / 'x'")
+xfail("x = 3 / 0")
+O = 3 % 4
+O = 3.4 % 4
+xfail("x = 3 % 'x'")
+xfail("x = 3 % 0")
+O = -3
+O = -3.4
+xfail("x = -'x'")
+O = !true
+O = 5
+A = !(3 < O)
+A = !(3 <= O)
+A = !(3 > O)
+A = !(3 >= O)
+A = !(3 == O)
+A = !(3 != O)
+A = !(3 is O)
+A = !(3 !is O)
+O = 'x'
+A = !(O in "hello")
+A = !(O !in "hello")
+if(!(A && A)){}
+if(!(A || A)){}
+O = ~5
+xfail("x = ~'x'")
+xfail("x = #4")
+xfail("x.(4) = 5")
+xfail("x.(5)()")
+xfail("x = 4[5]")
+O = "hello"[3]
+O = "hello"[-1]
+xfail("x = `hello`[53]")
+xfail("x = vararg['x']")
+xfail("x = 4[5..6]")
+O = "hello"[2 .. 4]
+O = "hello"[-3 .. -1]
+O = "hello"[]
+xfail("x = `hello`[3 .. 235]")
+xfail("x = vararg[3.4 ..]")
+xfail("x = vararg[.. 3.4]")
+O = (function(){}())
+A = [x for k, v in {} if k !is null for i in 0 .. 10]
+A = [x for k in 0 .. 0 if k !is null for i in 0 .. 10]
 
 // codegen
 
