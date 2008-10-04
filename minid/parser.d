@@ -230,7 +230,11 @@ struct Parser
 
 			case Token.LBrace:
 				if(needScope)
-					return new(c) ScopeStmt(c, parseBlockStmt());
+				{
+					// don't inline this; memory management stuff.
+					auto stmt = parseBlockStmt();
+					return new(c) ScopeStmt(c, stmt);
+				}
 				else
 					return parseBlockStmt();
 
@@ -428,8 +432,10 @@ struct Parser
 		}
 
 		auto namesArr = names.toArray();
-
 		auto endLocation = namesArr[$ - 1].location;
+
+		scope(failure)
+			c.alloc.freeArray(namesArr);
 
 		Expression initializer;
 
@@ -519,6 +525,10 @@ struct Parser
 		alias FuncDef.Param Param;
 		alias FuncDef.TypeMask TypeMask;
 		scope ret = new List!(Param)(c.alloc);
+		
+		scope(failure)
+			foreach(ref p; ret)
+				c.alloc.freeArray(p.objectTypes);
 
 		void parseParam()
 		{
@@ -549,7 +559,7 @@ struct Parser
 
 			ret ~= p;
 		}
-		
+
 		void parseRestOfParams()
 		{
 			while(l.type == Token.Comma)
@@ -1158,16 +1168,18 @@ struct Parser
 			auto code = parseStatement();
 			return new(c) ForNumStmt(c, location, index, lo, hi, step, code);
 		}
-
-		parseInitializer();
-
-		while(l.type == Token.Comma)
+		else
 		{
-			l.next();
 			parseInitializer();
-		}
 
-		l.expect(Token.Semicolon);
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				parseInitializer();
+			}
+	
+			l.expect(Token.Semicolon);
+		}
 
 		Expression condition;
 
@@ -1230,6 +1242,9 @@ struct Parser
 		}
 		else
 			indicesArr = indices.toArray();
+
+		scope(failure)
+			c.alloc.freeArray(indicesArr);
 
 		l.expect(Token.Semicolon);
 
@@ -1392,6 +1407,10 @@ struct Parser
 
 			auto arr = exprs.toArray();
 			auto endLocation = arr[$ - 1].endLocation;
+			
+			scope(failure)
+				c.alloc.freeArray(arr);
+				
 			l.statementTerm();
 			return new(c) ReturnStmt(c, location, endLocation, arr);
 		}
@@ -1489,7 +1508,8 @@ struct Parser
 	public TryStmt parseTryStmt()
 	{
 		auto location = l.expect(Token.Try).loc;
-		auto tryBody = new(c) ScopeStmt(c, parseStatement());
+		auto tryBodyStmt = parseStatement();
+		auto tryBody = new(c) ScopeStmt(c, tryBodyStmt);
 
 		Identifier catchVar;
 		Statement catchBody;
@@ -1505,7 +1525,8 @@ struct Parser
 
 			l.expect(Token.RParen);
 
-			catchBody = new(c) ScopeStmt(c, parseStatement());
+			auto catchBodyStmt = parseStatement();
+			catchBody = new(c) ScopeStmt(c, catchBodyStmt);
 			endLocation = catchBody.endLocation;
 		}
 
@@ -1514,7 +1535,8 @@ struct Parser
 		if(l.type == Token.Finally)
 		{
 			l.next();
-			finallyBody = new(c) ScopeStmt(c, parseStatement());
+			auto finallyBodyStmt = parseStatement();
+			finallyBody = new(c) ScopeStmt(c, finallyBodyStmt);
 			endLocation = finallyBody.endLocation;
 		}
 
@@ -1558,12 +1580,14 @@ struct Parser
 		if(l.type == Token.Inc)
 		{
 			l.next();
-			return new(c) IncStmt(c, location, location, parsePrimaryExp());
+			auto exp = parsePrimaryExp();
+			return new(c) IncStmt(c, location, location, exp);
 		}
 		else if(l.type == Token.Dec)
 		{
 			l.next();
-			return new(c) DecStmt(c, location, location, parsePrimaryExp());
+			auto exp = parsePrimaryExp();
+			return new(c) DecStmt(c, location, location, exp);
 		}
 
 		Expression exp;
@@ -2181,7 +2205,8 @@ struct Parser
 	*/
 	public IdentExp parseIdentExp()
 	{
-		return new(c) IdentExp(c, parseIdentifier());
+		auto id = parseIdentifier();
+		return new(c) IdentExp(c, id);
 	}
 	
 	/**
@@ -2281,7 +2306,8 @@ struct Parser
 	public ObjectLiteralExp parseObjectLiteralExp()
 	{
 		auto location = l.loc;
-		return new(c) ObjectLiteralExp(c, location, parseObjectDef(true));
+		auto def = parseObjectDef(true);
+		return new(c) ObjectLiteralExp(c, location, def);
 	}
 	
 	/**
@@ -2815,6 +2841,9 @@ struct Parser
 			}
 			else
 				namesArr = names.toArray();
+				
+			scope(failure)
+				c.alloc.freeArray(namesArr);
 				
 			scope container = new List!(Expression)(c.alloc);
 			container ~= exp;

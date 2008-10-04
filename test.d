@@ -20,7 +20,7 @@ void main()
 
 	try
 	{
-		importModule(t, "samples.simple");
+		importModule(t, "tests.compiler.compiler");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);

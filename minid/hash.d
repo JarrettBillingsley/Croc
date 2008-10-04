@@ -46,7 +46,7 @@ struct Hash(K, V)
 	}
 
 	private const UseHash = isStringType!(K);
-	
+
 	struct Node
 	{
 		static if(UseHash)
@@ -75,6 +75,11 @@ struct Hash(K, V)
 
 	package V* insert(ref Allocator alloc, K key)
 	{
+		uint hash = mixin(HashMethod!("key"));
+
+		if(auto val = lookup(key, hash))
+			return val;
+
 		auto colBucket = getColBucket();
 
 		if(colBucket is null)
@@ -83,11 +88,6 @@ struct Hash(K, V)
 			colBucket = getColBucket();
 			assert(colBucket !is null);
 		}
-
-		uint hash = mixin(HashMethod!("key"));
-
-		if(auto val = lookup(key, hash))
-			return val;
 
 		auto mainPosNode = &mNodes[hash & mHashMask];
 
@@ -113,6 +113,8 @@ struct Hash(K, V)
 				mainPosNode.next = null;
 			}
 		}
+		else
+			mainPosNode.next = null;
 
 		static if(UseHash)
 			mainPosNode.hash = hash;
@@ -120,9 +122,10 @@ struct Hash(K, V)
 		mainPosNode.key = key;
 		mainPosNode.used = true;
 		mSize++;
+
 		return &mainPosNode.value;
 	}
-	
+
 	package bool remove(K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
@@ -164,7 +167,7 @@ struct Hash(K, V)
 			return false;
 		}
 	}
-	
+
 	package V* lookup(K key)
 	{
 		if(mNodes.length == 0)
@@ -184,7 +187,7 @@ struct Hash(K, V)
 
 		return null;
 	}
-	
+
 	package bool next(ref size_t idx, ref K* key, ref V* val)
 	{
 		for(; idx < mNodes.length; idx++)
@@ -200,7 +203,7 @@ struct Hash(K, V)
 
 		return false;
 	}
-	
+
 	package int opApply(int delegate(ref K, ref V) dg)
 	{
 		foreach(ref node; mNodes)
@@ -270,7 +273,7 @@ struct Hash(K, V)
 		else
 			resizeArray(alloc, 4);
 	}
-	
+
 	private void resizeArray(ref Allocator alloc, size_t newSize)
 	{
 		auto oldNodes = mNodes;

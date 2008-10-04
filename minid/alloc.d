@@ -101,6 +101,8 @@ align(1) struct Allocator
 
 	debug(LEAK_DETECTOR)
 	{
+		pragma(msg, "Compiling MiniD with the leak detector enabled.");
+
 		// Trick dimple into thinking there's no import (which there isn't, really).
 		mixin("import minid.hash;");
 

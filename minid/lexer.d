@@ -286,7 +286,7 @@ struct Token
 				return false;
 		}
 	}
-	
+
 	public char[] typeString()
 	{
 		return strings[type];
@@ -654,6 +654,14 @@ struct Lexer
 					hasPoint = true;
 					add(mCharacter);
 					nextChar();
+					
+					if(isDecimalDigit())
+					{
+						add(mCharacter);
+						nextChar();
+					}
+					else if(mCharacter == '_')
+						nextChar();
 				}
 				else
 				{
@@ -663,7 +671,6 @@ struct Lexer
 			}
 			else if(mCharacter == '_')
 			{
-				//REACHABLE?
 				nextChar();
 				continue;
 			}
@@ -672,23 +679,6 @@ struct Lexer
 				break;
 		}
 
-		if(hasPoint)
-		{
-			if(isDecimalDigit())
-			{
-				add(mCharacter);
-				nextChar();
-			}
-			else if(mCharacter == '_')
-				nextChar();
-			else
-			{
-				// REACHABLE?
-				//throw new OldCompileException(mLoc, "Floating point literal '{}' must have at least one digit after decimal point", buf[0 .. i]);
-				assert(false);
-			}
-		}
-		
 		bool hasExponent = false;
 
 		while(true)
@@ -870,7 +860,7 @@ struct Lexer
 
 		scope buf = new List!(char)(mCompiler.alloc);
 		dchar delimiter = mCharacter;
-		
+
 		// to be safe..
 		char[6] utfbuf = void;
 

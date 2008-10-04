@@ -412,6 +412,11 @@ struct MDString
 	{
 		return (cast(char*)(this + 1))[0 .. this.length];
 	}
+	
+	package uint toHash()
+	{
+		return hash;
+	}
 }
 
 struct MDTable

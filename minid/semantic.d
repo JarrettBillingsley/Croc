@@ -1045,19 +1045,30 @@ class Semantic : IdentityVisitor
 
 		switch(e.op.type)
 		{
-			case AstTag.LTExp:       auto old = e.as!(LTExp);       return new(c) GEExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.LEExp:       auto old = e.as!(LEExp);       return new(c) GTExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.GTExp:       auto old = e.as!(GTExp);       return new(c) LEExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.GEExp:       auto old = e.as!(GEExp);       return new(c) LTExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.EqualExp:    auto old = e.as!(EqualExp);    return new(c) NotEqualExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotEqualExp: auto old = e.as!(NotEqualExp); return new(c) EqualExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.IsExp:       auto old = e.as!(IsExp);       return new(c) NotIsExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotIsExp:    auto old = e.as!(NotIsExp);    return new(c) IsExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.InExp:       auto old = e.as!(InExp);       return new(c) NotInExp(c, e.location, e.endLocation, old.op1, old.op2);
-			case AstTag.NotInExp:    auto old = e.as!(NotInExp);    return new(c) InExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.LTExp:       auto old = e.op.as!(LTExp);       return new(c) GEExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.LEExp:       auto old = e.op.as!(LEExp);       return new(c) GTExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.GTExp:       auto old = e.op.as!(GTExp);       return new(c) LEExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.GEExp:       auto old = e.op.as!(GEExp);       return new(c) LTExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.EqualExp:    auto old = e.op.as!(EqualExp);    return new(c) NotEqualExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotEqualExp: auto old = e.op.as!(NotEqualExp); return new(c) EqualExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.IsExp:       auto old = e.op.as!(IsExp);       return new(c) NotIsExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotIsExp:    auto old = e.op.as!(NotIsExp);    return new(c) IsExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.InExp:       auto old = e.op.as!(InExp);       return new(c) NotInExp(c, e.location, e.endLocation, old.op1, old.op2);
+			case AstTag.NotInExp:    auto old = e.op.as!(NotInExp);    return new(c) InExp(c, e.location, e.endLocation, old.op1, old.op2);
+
+			case AstTag.AndAndExp:
+				auto old = e.op.as!(AndAndExp);
+				auto op1 = visit(new(c) NotExp(c, old.op1.location, old.op1));
+				auto op2 = visit(new(c) NotExp(c, old.op2.location, old.op2));
+				return new(c) OrOrExp(c, e.location, e.endLocation, op1, op2);
+
+			case AstTag.OrOrExp:
+				auto old = e.op.as!(OrOrExp);
+				auto op1 = visit(new(c) NotExp(c, old.op1.location, old.op1));
+				auto op2 = visit(new(c) NotExp(c, old.op2.location, old.op2));
+				return new(c) AndAndExp(c, e.location, e.endLocation, op1, op2);
 
 			// TODO: what about multiple 'not's?  "!!x"
-			// TODO: and AndAnd and OrOr exps?
 
 			default:
 				break;
