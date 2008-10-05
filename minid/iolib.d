@@ -23,10 +23,10 @@ subject to the following restrictions:
 
 module minid.iolib;
 
-import tango.io.Conduit;
+import tango.io.device.Conduit;
 import tango.io.Console;
 import tango.io.File;
-import tango.io.FileConduit;
+import tango.io.device.FileConduit;
 import tango.io.FilePath;
 import tango.io.FileSystem;
 import tango.io.model.IConduit;

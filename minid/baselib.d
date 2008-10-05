@@ -24,6 +24,7 @@ subject to the following restrictions:
 module minid.baselib;
 
 import Integer = tango.text.convert.Integer;
+import Float = tango.text.convert.Float;
 import tango.io.Buffer;
 import tango.io.Console;
 import tango.io.Print;

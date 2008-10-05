@@ -41,6 +41,8 @@ debug
 	import tango.io.Stdout;
 }
 
+import tango.stdc.stdlib;
+
 import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
