@@ -40,6 +40,15 @@ import minid.utils;
 
 public:
 
+/**
+Serializes the function object at the given index into the provided writer as a module.  Serializing a function as a module
+outputs the platform-dependent MiniD module header before outputting the function, so that upon subsequent loads of the module,
+the platform can be correctly detected.
+
+Params:
+	idx = The stack index of the function object to serialize.  The function must be a script function with no upvalues.
+	s = The writer object to be used to serialize the function.
+*/
 void serializeModule(MDThread* t, word idx, IWriter s)
 {
 	auto func = getFunction(t, idx);
@@ -56,6 +65,15 @@ void serializeModule(MDThread* t, word idx, IWriter s)
 	serializeAsModule(func.scriptFunc, s);
 }
 
+/**
+Inverse of the above, which means it expects for there to be a module header at the beginning of the stream.  If the module
+header of the stream does not match the module header for the platform that is loading the module, the load will fail.
+A closure of the deserialized function is created with the current environment as its environment and is pushed onto the
+given thread's stack.
+
+Params:
+	s = The reader object that holds the data stream from which the function will be deserialized.
+*/
 word deserializeModule(MDThread* t, IReader s)
 {
 	auto def = deserializeAsModule(t, s);
@@ -65,6 +83,9 @@ word deserializeModule(MDThread* t, IReader s)
 	return stackSize(t) - 1;
 }
 
+/**
+Same as serializeModule but does not output the module header.
+*/
 void serializeFunction(MDThread* t, word idx, IWriter s)
 {
 	auto func = getFunction(t, idx);
@@ -81,6 +102,9 @@ void serializeFunction(MDThread* t, word idx, IWriter s)
 	serialize(func.scriptFunc, s);
 }
 
+/**
+Same as deserializeModule but does not expect for there to be a module header.
+*/
 word deserializeFunction(MDThread* t, IReader s)
 {
 	auto def = deserialize(t, s);

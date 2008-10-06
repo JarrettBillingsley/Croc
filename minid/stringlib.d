@@ -176,7 +176,7 @@ static:
 		{
 			auto ch = getChar(t, 1);
 
-			uword startIdx = uniFakeToReal(src, start);
+			uword startIdx = uniCPIdxToByte(src, start);
 
 			foreach(i, dchar c; src[startIdx .. $])
 			{
@@ -241,7 +241,7 @@ static:
 		else if(isChar(t, 1))
 		{
 			auto ch = getChar(t, 1);
-			uword startIdx = uniFakeToReal(src, start);
+			uword startIdx = uniCPIdxToByte(src, start);
 
 			foreach_reverse(i, dchar c; src[0 .. startIdx])
 			{

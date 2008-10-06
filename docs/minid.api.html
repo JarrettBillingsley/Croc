@@ -224,18 +224,18 @@ flags.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">
-<span class="currsymbol">Table</span>
-<script>explorer.outline.addDecl('Table');</script>
+<span class="currsymbol">Hash</span>
+<script>explorer.outline.addDecl('Hash');</script>
 
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
 <dd>
-<span class="currsymbol">Table</span>
-<script>explorer.outline.addDecl('Table');</script>
+<span class="currsymbol">Hash</span>
+<script>explorer.outline.addDecl('Hash');</script>
 
- manipulation.
+ (table and namespace) manipulation.
 	
 <br><br>
 
@@ -277,6 +277,25 @@ flags.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">
+<span class="currsymbol">Time</span>
+<script>explorer.outline.addDecl('Time');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>
+<span class="currsymbol">Time</span>
+<script>explorer.outline.addDecl('Time');</script>
+
+ functions.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
 <span class="currsymbol">Safe</span>
 <script>explorer.outline.addDecl('Safe');</script>
 
@@ -284,8 +303,8 @@ flags.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>This flag is an OR of Array, Char, Math, String, Table, and Regexp.  It represents all
-	the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
+<dd>This flag is an OR of Array, Char, Math, String, Hash, Regexp, and Time.  It represents
+	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	
 <br><br>
@@ -321,7 +340,7 @@ flags.
 <span class="currsymbol">loadStdlibs</span>
 <script>explorer.outline.addDecl('loadStdlibs');</script>
 
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)255);
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)511);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -375,16 +394,24 @@ with the VM.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Aug 22 12:03:22 2008
+			on Sun Oct  5 22:36:46 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.vm");
+	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.ast");
+	explorer.packageExplorer.addModuleFull("minid.bind");
+	explorer.packageExplorer.addModuleFull("minid.commandline");
+	explorer.packageExplorer.addModuleFull("minid.compiler");
+	explorer.packageExplorer.addModuleFull("minid.ex");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
-	explorer.packageExplorer.addModuleFull("minid.ex");</script>
+	explorer.packageExplorer.addModuleFull("minid.serialization");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
 

@@ -274,16 +274,22 @@ int idcmp(dchar[] s1, dchar[] s2)
 		return Compare3(s1[result], s2[result]);
 }
 
+/**
+Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
+*/
 size_t verify(char[] s)
 {
 	size_t ret = 0;
-	
+
 	foreach(dchar c; s)
 		ret++;
-		
+
 	return ret;
 }
 
+/**
+Slice a UTF-8 string using codepoint indices.
+*/
 char[] uniSlice(char[] s, size_t lo, size_t hi)
 {
 	if(lo == hi)
@@ -313,6 +319,9 @@ char[] uniSlice(char[] s, size_t lo, size_t hi)
 	return s[realLo .. realHi];
 }
 
+/**
+Get the character in a UTF-8 string at the given codepoint index.
+*/
 dchar uniCharAt(char[] s, size_t idx)
 {
 	auto tmp = s;
@@ -327,7 +336,10 @@ dchar uniCharAt(char[] s, size_t idx)
 	return decode(tmp, ate);
 }
 
-size_t uniFakeToReal(char[] s, size_t fake)
+/**
+Convert a codepoint index into a UTF-8 string into a byte index.
+*/
+size_t uniCPIdxToByte(char[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;

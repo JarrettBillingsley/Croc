@@ -68,11 +68,7 @@ subject to the following restrictions:
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The native unsigned integer type on this platform.  This is the same as 
-<span class="currsymbol">uword</span>
-<script>explorer.outline.addDecl('uword');</script>
-
- but with a better name.
+<dd>The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
 <br><br>
 
 </dd>
@@ -88,7 +84,7 @@ subject to the following restrictions:
 
 
 <dd>The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
-type (ptrdiff_t).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
+type (ptrdiff_t or word).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
 even on 32-bit platforms.  If you define the MDForceShortInts version, it will force MiniD to use 32-bit
 integers even on 64-bit platforms.
 <br><br>
@@ -105,7 +101,8 @@ integers even on 64-bit platforms.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The underlying D type used to store the MiniD 'float' type.  Defaults to 'double'.
+<dd>The underlying D type used to store the MiniD 'float' type.  Defaults to 'double'.  If you change it, you will end
+up with a functional but nonstandard implementation.
 <br><br>
 
 </dd>
@@ -203,20 +200,24 @@ Like the other exception types, you can't instantiate this directly, but you can
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Aug 22 12:01:44 2008
+			on Sun Oct  5 22:36:50 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.utils");
-	explorer.packageExplorer.addModuleFull("minid.vm");
-	explorer.packageExplorer.addModuleFull("minid.gc");
-	explorer.packageExplorer.addModuleFull("minid.types");
 	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.ast");
+	explorer.packageExplorer.addModuleFull("minid.bind");
+	explorer.packageExplorer.addModuleFull("minid.commandline");
+	explorer.packageExplorer.addModuleFull("minid.compiler");
+	explorer.packageExplorer.addModuleFull("minid.ex");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
-	explorer.packageExplorer.addModuleFull("minid.ex");</script>
+	explorer.packageExplorer.addModuleFull("minid.serialization");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
 

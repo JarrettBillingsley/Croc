@@ -2552,22 +2552,24 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	pop(t);
 }
 
-word pushFinalizer(MDThread* t, word obj)
-{
-	if(auto o = getObject(t, obj))
-	{
-		if(o.finalizer)
-			return pushFunction(t, o.finalizer);
-		else
-			return pushNull(t);
-	}
-	
-	pushTypeString(t, obj);
-	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
-	
-	assert(false);
-}
+/**
+Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
+about to be collected by the garbage collector and is used to clean up limited resources associated with it
+(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
+as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
+ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
+the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+function will $(B not) be run again.
 
+When you clone objects from this object, their finalizer will be set to the same function.
+
+This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
+function from an object, the value at the top of the stack can be null.
+
+Params:
+	obj = The object whose finalizer is to be set.
+*/
 void setFinalizer(MDThread* t, word obj)
 {
 	checkNumParams(t, 1);
@@ -2577,7 +2579,7 @@ void setFinalizer(MDThread* t, word obj)
 		pushTypeString(t, -1);
 		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
 	}
-	
+
 	auto o = getObject(t, obj);
 
 	if(o is null)
@@ -2592,6 +2594,32 @@ void setFinalizer(MDThread* t, word obj)
 		o.finalizer = getFunction(t, -1);
 
 	pop(t);
+}
+
+/**
+Pushes the finalizer function associated with the given object, or null if no finalizer is set for
+that object.
+
+Params:
+	obj = The object whose finalizer is to be retrieved.
+
+Returns:
+	The stack index of the newly-pushed finalizer function (or null if the object has none).
+*/
+word pushFinalizer(MDThread* t, word obj)
+{
+	if(auto o = getObject(t, obj))
+	{
+		if(o.finalizer)
+			return pushFunction(t, o.finalizer);
+		else
+			return pushNull(t);
+	}
+
+	pushTypeString(t, obj);
+	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+
+	assert(false);
 }
 
 /**
@@ -6373,6 +6401,16 @@ void execute(MDThread* t, uword depth = 1)
 							default: assert(false, "invalid 'cmp' jump");
 						}
 					}
+					break;
+					
+				case Op.Equals:
+					auto jump = t.currentAR.pc;
+					t.currentAR.pc++;
+
+					auto cmpValue = equalsImpl(t, get(i.rs), get(i.rt));
+
+					if(cmpValue == cast(bool)jump.rd)
+						t.currentAR.pc += jump.imm;
 					break;
 
 				case Op.Cmp3:

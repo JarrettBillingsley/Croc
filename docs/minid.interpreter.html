@@ -40,9 +40,8 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 <br><br>
 
+$(DDOC_MODULE_MEMBERS 
 
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">State 
 <span class="currsymbol">state</span>
@@ -63,7 +62,7 @@ subject to the following restrictions:
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">dchar[] 
+<dt><span class="decl">char[] 
 <span class="currsymbol">stateString</span>
 <script>explorer.outline.addDecl('stateString');</script>
 
@@ -91,6 +90,56 @@ The string returned is not on the MiniD heap, it's just a string literal.
 
 <dd>Gets the VM that the thread is associated with.
 <br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">maybeGC</span>
+<script>explorer.outline.addDecl('maybeGC');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Runs the garbage collector if necessary.
+<br><br>
+This will perform a garbage collection only if a sufficient amount of memory has been allocated since
+the last collection.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">MDThread* <span class="funcparam">t</span></td>
+
+               
+<td>The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+		in order to be able to call finalization methods.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">gc</span>
+<script>explorer.outline.addDecl('gc');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Runs the garbage collector unconditionally.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">MDThread* <span class="funcparam">t</span></td>
+
+               
+<td>The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+		in order to be able to call finalization methods.</td></tr>
+</table><br>
 
 </dd>
 
@@ -124,7 +173,7 @@ The string returned is not on the MiniD heap, it's just a string literal.
 <span class="currsymbol">pushString</span>
 <script>explorer.outline.addDecl('pushString');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">v</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">v</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -142,7 +191,7 @@ The stack index of the newly-pushed value.
 <span class="currsymbol">pushFormat</span>
 <script>explorer.outline.addDecl('pushFormat');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">fmt</span>,...);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">fmt</span>,...);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -152,7 +201,7 @@ calls it), except that the destination buffer is a MiniD string.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">fmt</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">fmt</span></td>
 
                
 <td>The Tango-style format string.
@@ -169,7 +218,7 @@ The stack index of the newly-pushed string.
 <span class="currsymbol">pushVFormat</span>
 <script>explorer.outline.addDecl('pushVFormat');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">fmt</span>, TypeInfo[] <span class="funcparam">arguments</span>, void* <span class="funcparam">argptr</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">fmt</span>, TypeInfo[] <span class="funcparam">arguments</span>, void* <span class="funcparam">argptr</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -178,7 +227,7 @@ The stack index of the newly-pushed string.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">fmt</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">fmt</span></td>
 
                
 <td>The Tango-style format string.</td></tr>
@@ -281,7 +330,7 @@ The stack index of the newly-created array.
 <span class="currsymbol">newFunction</span>
 <script>explorer.outline.addDecl('newFunction');</script>
 
-(MDThread* <span class="funcparam">t</span>, uint function(MDThread*, uint) <span class="funcparam">func</span>, dchar[] <span class="funcparam">name</span>, uint <span class="funcparam">numUpvals</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, uint function(MDThread*, uint) <span class="funcparam">func</span>, char[] <span class="funcparam">name</span>, uint <span class="funcparam">numUpvals</span> = cast(uint)0);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -323,7 +372,7 @@ To use a different environment, see newFunctionWithEnv.
                
 <td>The native function to be used in the closure.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name to be given to the function.  This is just the 'debug' name that
@@ -348,7 +397,7 @@ The stack index of the newly-created closure.
 <span class="currsymbol">newFunctionWithEnv</span>
 <script>explorer.outline.addDecl('newFunctionWithEnv');</script>
 
-(MDThread* <span class="funcparam">t</span>, uint function(MDThread*, uint) <span class="funcparam">func</span>, dchar[] <span class="funcparam">name</span>, uint <span class="funcparam">numUpvals</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, uint function(MDThread*, uint) <span class="funcparam">func</span>, char[] <span class="funcparam">name</span>, uint <span class="funcparam">numUpvals</span> = cast(uint)0);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -371,7 +420,7 @@ the environment namespace after step 1, and step 2 would call
                
 <td>The native function to be used in the closure.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name to be given to the function.  This is just the 'debug' name that
@@ -396,7 +445,7 @@ The stack index of the newly-created closure.
 <span class="currsymbol">newObject</span>
 <script>explorer.outline.addDecl('newObject');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">proto</span>, dchar[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">proto</span>, char[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -450,7 +499,7 @@ for these references.
 		in the base library and which lives in the global namespace) will be used.  Otherwise it must
 		be an object.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the new object.  If this parameter is <b>null</b> or the empty string, the name will
@@ -477,7 +526,7 @@ The stack index of the newly-created object.
 <span class="currsymbol">newObject</span>
 <script>explorer.outline.addDecl('newObject');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -493,7 +542,7 @@ top of the stack.
 <span class="currsymbol">newNamespace</span>
 <script>explorer.outline.addDecl('newNamespace');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -506,7 +555,7 @@ as in MiniD when you declare a namespace without an explicit parent.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the namespace.</td></tr>
@@ -522,7 +571,7 @@ The stack index of the newly-created namespace.
 <span class="currsymbol">newNamespace</span>
 <script>explorer.outline.addDecl('newNamespace');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">parent</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">parent</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -537,7 +586,7 @@ The stack index of the newly-created namespace.
 <td>The stack index of the parent.  The parent can be <b>null</b>, in which case
 		the new namespace will not have a parent.  Otherwise it must be a namespace.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the namespace.</td></tr>
@@ -553,7 +602,7 @@ The stack index of the newly-created namespace.
 <span class="currsymbol">newNamespaceNoParent</span>
 <script>explorer.outline.addDecl('newNamespaceNoParent');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -566,7 +615,7 @@ This function expects no values to be on the stack.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the namespace.</td></tr>
@@ -613,7 +662,7 @@ The stack index of the newly-created thread.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Push the given thread onto this thread's stack.
+<dd>Pushes the given thread onto this thread's stack.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -638,7 +687,7 @@ The stack index of the newly-pushed value.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Push a reference to a native (D) object onto the stack.
+<dd>Pushes a reference to a native (D) object onto the stack.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -655,6 +704,33 @@ The index of the newly-pushed value.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
+<span class="currsymbol">pushWeakRef</span>
+<script>explorer.outline.addDecl('pushWeakRef');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes a weak reference to the object at the given stack index onto the stack.  For value types (<b>null</b>,
+bool, int, float, and char), weak references are unnecessary, and in these cases the value will simply
+be pushed.  Otherwise the pushed value will be a weak reference object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the object to get a weak reference of.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
 <span class="currsymbol">dup</span>
 <script>explorer.outline.addDecl('dup');</script>
 
@@ -663,7 +739,7 @@ The index of the newly-pushed value.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Duplicate a value at the given stack index and push it onto the stack.
+<dd>Duplicates a value at the given stack index and pushes it onto the stack.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -680,6 +756,47 @@ The stack index of the newly-pushed slot.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">first</span> = -2, int <span class="funcparam">second</span> = -1);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Swaps the two values at the given 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ indices.  The <span class="funcparam">first</span> index defaults to the <span class="funcparam">second</span>-from-top
+value.  The <span class="funcparam">second</span> index defaults to the top-of-stack.  So, if you call 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ with no indices, it will
+
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ the top two values.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">first</span></td>
+
+               
+<td>The <span class="funcparam">first</span> stack index.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">second</span></td>
+
+               
+<td>The <span class="funcparam">second</span> stack index.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
 <span class="currsymbol">insert</span>
 <script>explorer.outline.addDecl('insert');</script>
 
@@ -688,7 +805,7 @@ The stack index of the newly-pushed slot.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Insert the value at the top of the stack into the given slot, shifting up the values in that slot
+<dd>Inserts the value at the top of the stack into the given slot, shifting up the values in that slot
 and everything after it up by a slot.  This means the stack will stay the same size.  Similar to a
 "rotate" operation common to many stack machines.
 <br><br>
@@ -740,7 +857,7 @@ If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but no
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pop a number of items off the stack.  Throws an error if you try to 
+<dd>Pops a number of items off the stack.  Throws an error if you try to 
 <span class="currsymbol">pop</span>
 <script>explorer.outline.addDecl('pop');</script>
 
@@ -862,7 +979,7 @@ The number of return values given by the function.  If <span class="funcparam">n
 <span class="currsymbol">methodCall</span>
 <script>explorer.outline.addDecl('methodCall');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, dchar[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -903,7 +1020,7 @@ The process of calling a method is very similar to calling a normal function.
                
 <td>The slot containing the object on which the method will be called.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the method to call.</td></tr>
@@ -951,7 +1068,7 @@ The parameters and return value are the same as above.
 <span class="currsymbol">superCall</span>
 <script>explorer.outline.addDecl('superCall');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, dchar[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -993,7 +1110,7 @@ The process of performing a supercall is not really that much different from oth
                
 <td>The first empty slot.  There should be another one on top of it.  Then come any parameters.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the method to call.</td></tr>
@@ -1403,7 +1520,7 @@ The stack index of the newly-pushed string.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">dchar[] 
+<dt><span class="decl">char[] 
 <span class="currsymbol">getString</span>
 <script>explorer.outline.addDecl('getString');</script>
 
@@ -1614,7 +1731,7 @@ The stack index of the newly-pushed environment.
 <span class="currsymbol">pushGlobal</span>
 <script>explorer.outline.addDecl('pushGlobal');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1627,7 +1744,7 @@ function's environment and goes up the chain.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the global to get.</td></tr>
@@ -1663,7 +1780,7 @@ The index of the retrieved value (the stack top).
 <span class="currsymbol">setGlobal</span>
 <script>explorer.outline.addDecl('setGlobal');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1679,7 +1796,7 @@ environment and goes up the chain.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the global to set.</td></tr>
@@ -1708,7 +1825,7 @@ Pops both the name and the value.
 <span class="currsymbol">newGlobal</span>
 <script>explorer.outline.addDecl('newGlobal');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1722,7 +1839,7 @@ in the current environment if it succeeds.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the global to set.</td></tr>
@@ -1751,7 +1868,7 @@ both the name and the value off the stack.
 <span class="currsymbol">findGlobal</span>
 <script>explorer.outline.addDecl('findGlobal');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>, uint <span class="funcparam">depth</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>, uint <span class="funcparam">depth</span> = cast(uint)0);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1764,7 +1881,7 @@ but you can change where the lookup starts by using the <span class="funcparam">
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the global to look for.</td></tr>
@@ -2047,7 +2164,7 @@ pop(<i>t</i>);
 <span class="currsymbol">field</span>
 <script>explorer.outline.addDecl('field');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, dchar[] <span class="funcparam">name</span>, bool <span class="funcparam">raw</span> = false);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, char[] <span class="funcparam">name</span>, bool <span class="funcparam">raw</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2070,7 +2187,7 @@ pop(<i>t</i>);
                
 <td>The stack index of the container object.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the field to get.</td></tr>
@@ -2122,7 +2239,7 @@ The stack index of the retrieved field value.
 <span class="currsymbol">fielda</span>
 <script>explorer.outline.addDecl('fielda');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, dchar[] <span class="funcparam">name</span>, bool <span class="funcparam">raw</span> = false);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, char[] <span class="funcparam">name</span>, bool <span class="funcparam">raw</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2146,7 +2263,7 @@ pop(<i>t</i>);
                
 <td>The stack index of the container object.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The name of the field to set.</td></tr>
@@ -2625,22 +2742,22 @@ The stack index of the resulting object.
 <span class="currsymbol">cateq</span>
 <script>explorer.outline.addDecl('cateq');</script>
 
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">num</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">dest</span>, uint <span class="funcparam">num</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Performs concatenation-assignment.  <span class="funcparam">num</span> is how many values there are on the right-hand side and is expected to
-be at least 1.  The RHS values are on the top of the stack.  The destination is the slot immediately before the
-RHS values.  Pops the RHS values off the stack, leaving the destination.
+<dd>Performs concatenation-assignment.  <span class="funcparam">dest</span> is the stack slot of the destination object (the object to
+append to).  <span class="funcparam">num</span> is how many values there are on the right-hand side and is expected to be at least 1.
+The RHS values are on the top of the stack.  Pops the RHS values off the stack.
 <br><br>
 <pre class="d_code"><font color=green>// x ~= "Hi, " ~ name ~ "!"
-</font>pushGlobal(<i>t</i>, <font color=red>"x"</font>); <font color=green>// destination comes first
-</font>pushString(<i>t</i>, <font color=red>"Hi "</font>);
+</font><font color=blue>auto</font> <i>dest</i> = pushGlobal(<i>t</i>, <font color=red>"x"</font>);
+pushString(<i>t</i>, <font color=red>"Hi "</font>);
 pushGlobal(<i>t</i>, <font color=red>"name"</font>);
 pushString(<i>t</i>, <font color=red>"!"</font>);
-<u>cateq</u>(<i>t</i>, 3); <font color=green>// 3 rhs values
-</font>setGlobal(<i>t</i>, <font color=red>"x"</font>); <font color=green>// value on the stack may be different, so set it
+<u>cateq</u>(<i>t</i>, <i>dest</i>, 3); <font color=green>// 3 rhs values
+</font>setGlobal(<i>t</i>, <font color=red>"x"</font>); <font color=green>// have to put the new value back (since it's a string)
 </font></pre>
 
 <br><br>
@@ -2788,7 +2905,7 @@ This function obviously does not return.
 <span class="currsymbol">throwException</span>
 <script>explorer.outline.addDecl('throwException');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">fmt</span>,...);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">fmt</span>,...);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2833,6 +2950,47 @@ The stack index of the newly-pushed exception object.
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getTraceback</span>
+<script>explorer.outline.addDecl('getTraceback');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+$(DDOC_DECL_DD After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
+thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
+and it will be noted when this happens (in the traceback you'll see something like "&lt;4 tailcalls&gt;(?)" to indicate
+that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
+work across native functionc calls, in which case the name of the function will be noted but no line number will be
+given since that would be impossible; instead it is marked as "(native)".
+<br><br>
+When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
+sort of form:
+<br><br>
+
+<pre class="d_code"></pre>
+<b>Traceback:</b><br>
+function.that.threw.exception(9)
+        at function.that.called.it(23)
+        at &lt;5 tailcalls&gt;(?)
+        at some.native.function(native)
+<pre class="d_code">
+Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
+native API manipulations cause an error.
+
+When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
+this function is called again, you will get an empty string.
+
+</pre>
+<b>Returns:</b><br>
+The stack index of the newly-pushed traceback string.
+<br><br>
+<br><br>
+<br><br>
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
@@ -2885,6 +3043,68 @@ neither <b>null</b> nor a namespace.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setFinalizer</span>
+<script>explorer.outline.addDecl('setFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
+about to be collected by the garbage collector and is used to clean up limited resources associated with it
+(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
+as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
+ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
+the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+function will <b>not</b> be run again.
+<br><br>
+When you clone objects from this object, their finalizer will be set to the same function.
+<br><br>
+
+This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
+function from an object, the value at the top of the stack can be <b>null</b>.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+
+               
+<td>The object whose finalizer is to be set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">pushFinalizer</span>
+<script>explorer.outline.addDecl('pushFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the finalizer function associated with the given object, or <b>null</b> if no finalizer is set for
+that object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+
+               
+<td>The object whose finalizer is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed finalizer function (or <b>null</b> if the object has none).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
 <span class="currsymbol">fieldsOf</span>
 <script>explorer.outline.addDecl('fieldsOf');</script>
@@ -2915,7 +3135,7 @@ The stack index of the newly-pushed fields namespace.
 <span class="currsymbol">hasField</span>
 <script>explorer.outline.addDecl('hasField');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, dchar[] <span class="funcparam">fieldName</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, char[] <span class="funcparam">fieldName</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2933,7 +3153,7 @@ succeed.
                
 <td>The stack index of the object to test.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">fieldName</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">fieldName</span></td>
 
                
 <td>The name of the field to look up.</td></tr>
@@ -2949,7 +3169,7 @@ succeed.
 <span class="currsymbol">hasMethod</span>
 <script>explorer.outline.addDecl('hasMethod');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, dchar[] <span class="funcparam">methodName</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, char[] <span class="funcparam">methodName</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2966,7 +3186,7 @@ that object will succeed.
                
 <td>The stack index of the obejct to test.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">methodName</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">methodName</span></td>
 
                
 <td>The name of the method to look up.</td></tr>
@@ -3022,6 +3242,25 @@ that namespace off the stack.
                
 <td>The stack index of the function whose environment is to be set.</td></tr>
 </table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">funcName</span>
+<script>explorer.outline.addDecl('funcName');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the name of the function at the given stack index.  This is the name given in the declaration
+of the function if it's a script function, or the name given to newFunction for native functions.
+Some functions, like top-level module functions and nameless function literals, have automatically-
+generated names which always start and end with angle brackets (&lt; and &gt;
+).
+<br><br>
 
 </dd>
 
@@ -3252,7 +3491,7 @@ True if the object has an attributes table; <b>false</b> otherwise.
 <span class="currsymbol">importModule</span>
 <script>explorer.outline.addDecl('importModule');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3262,7 +3501,7 @@ module's namespace onto the stack.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The <span class="funcparam">name</span> of the module to be imported.</td></tr>
@@ -3344,6 +3583,21 @@ an exception that derives from Exception, it throws a new MDException with the o
 message.
 <br><br>
 
+If you want to wrap statements, you can use a delegate literal:
+<br><br>
+
+<pre class="d_code"><u>safeCode</u>(t,
+{
+	stmt1;
+	stmt2;
+	stmt3;
+}());
+</pre>
+
+Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
+parameter.  If you don't put the parens there, it will never actually call the delegate.
+<br><br>
+
 
 <span class="currsymbol">safeCode</span>
 <script>explorer.outline.addDecl('safeCode');</script>
@@ -3379,7 +3633,7 @@ Whatever the code parameter returns.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Fills the array at the given index with the value at the top of the stack and pop that value.
+<dd>Fills the array at the given index with the value at the top of the stack and pops that value.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -3388,6 +3642,185 @@ Whatever the code parameter returns.
                
 <td>The stack index of the array object to fill.</td></tr>
 </table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">clearNamespace</span>
+<script>explorer.outline.addDecl('clearNamespace');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">ns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes all items from the given namespace object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">ns</span></td>
+
+               
+<td>The stack index of the namespace object to clear.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">clearTable</span>
+<script>explorer.outline.addDecl('clearTable');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">tab</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes all items from the given table object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">tab</span></td>
+
+               
+<td>The stack index of the table object to clear.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">deref</span>
+<script>explorer.outline.addDecl('deref');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Dereferences the weak reference object at the given stack index and pushes the value it
+refers to.  If the value it refers to has been collected, pushes "<b>null</b>" instead.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the weak reference object to dereference.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">foreachLoop</span>
+<script>explorer.outline.addDecl('foreachLoop');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
+It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
+manipulations.
+<br><br>
+To use this, first you push the container -- what you would normally put on the right side
+of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
+values, and if the first value is not a function, opApply is called on it with the second
+value as a user parameter.
+<br><br>
+
+Then you can create an instance of this struct using the static opCall and iterate over it
+with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
+stack slots that hold those values.  You can break out of the loop just as you'd expect,
+and you can perform any manipulations you'd like in the loop body.
+
+<br><br>
+<b>Example:</b><br>
+<pre class="d_code"><font color=green>// 1. Push the container.  We're just iterating through modules.customLoaders.
+</font>lookup(t, <font color=red>"modules.customLoaders"</font>);
+
+<font color=green>// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
+</font><font color=green>// of items in the container.  We only pushed one value for the container, so we pass 1.
+</font><font color=green>// Note that you must specify the index types (which must all be word), or else D can't infer
+</font><font color=green>// the types for them.
+</font>
+<font color=blue>foreach</font>(word k, word v; <u>foreachLoop</u>(t, 1))
+{
+	<font color=green>// 3. Do whatever you want with k and v.
+</font>	pushToString(t, k);
+	pushToString(t, v);
+	Stdout.formatln(<font color=red>"{}: {}"</font>, getString(t, -2), getString(t, -1));
+
+	<font color=green>// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
+</font>	pop(t, 2);
+}
+</pre>
+
+Note a few things: the foreach loop will pop the container off the stack, so the above code is
+stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
+pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
+
+<span class="currsymbol">foreachLoop</span>
+<script>explorer.outline.addDecl('foreachLoop');</script>
+
+ keeps internal loop data there, but stack indices that were valid before the loop started
+will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
+like in MiniD where an implicit index will be inserted before that one, and you will get the second
+indices in v instead of the first.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static foreachLoop 
+<span class="currsymbol">opCall</span>
+<script>explorer.outline.addDecl('opCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numSlots</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The struct constructor.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numSlots</span></td>
+
+               
+<td>How many slots on top of the stack should be interpreted as the container.  Must be
+			1, 2, or 3.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">opApply</span>
+<script>explorer.outline.addDecl('opApply');</script>
+
+(T)(T <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The function that makes everything work.  This is templated to allow any number of indices, but
+	the downside to that is that you must specify the types of the indices in the foreach loop that
+	iterates over this structure.  All the indices must be of type 'word'.
+	
+<br><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
 
 </dd>
 
@@ -3448,24 +3881,29 @@ Whatever the code parameter returns.
 <br><br>
 
 </dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </td></tr>
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Aug 22 12:03:23 2008
+			on Sun Oct  5 22:36:49 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.vm");
+	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.ast");
+	explorer.packageExplorer.addModuleFull("minid.bind");
+	explorer.packageExplorer.addModuleFull("minid.commandline");
+	explorer.packageExplorer.addModuleFull("minid.compiler");
+	explorer.packageExplorer.addModuleFull("minid.ex");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
-	explorer.packageExplorer.addModuleFull("minid.ex");</script>
+	explorer.packageExplorer.addModuleFull("minid.serialization");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
 

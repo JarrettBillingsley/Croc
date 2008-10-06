@@ -115,7 +115,7 @@ buf.addChar(someChar);
 <span class="currsymbol">addString</span>
 <script>explorer.outline.addDecl('addString');</script>
 
-(dchar[] <span class="funcparam">s</span>);
+(char[] <span class="funcparam">s</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -149,7 +149,7 @@ buf.addChar(someChar);
 <span class="currsymbol">sink</span>
 <script>explorer.outline.addDecl('sink');</script>
 
-(dchar[] <span class="funcparam">s</span>);
+(char[] <span class="funcparam">s</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -184,11 +184,228 @@ buf.addChar(someChar);
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">checkAnyParam</span>
+<script>explorer.outline.addDecl('checkAnyParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Check that there is any parameter at the given <span class="funcparam">index</span>.  You can use this to ensure that a minimum number
+of parameters were passed to your function.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">checkBoolParam</span>
+<script>explorer.outline.addDecl('checkBoolParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+<br>int 
+<span class="currsymbol">checkIntParam</span>
+<script>explorer.outline.addDecl('checkIntParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+<br>double 
+<span class="currsymbol">checkFloatParam</span>
+<script>explorer.outline.addDecl('checkFloatParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+<br>dchar 
+<span class="currsymbol">checkCharParam</span>
+<script>explorer.outline.addDecl('checkCharParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+<br>char[] 
+<span class="currsymbol">checkStringParam</span>
+<script>explorer.outline.addDecl('checkStringParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>These all check that a parameter of the given type was passed at the given <span class="funcparam">index</span>, and return the value
+of that parameter.  Very simple.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">checkObjParam</span>
+<script>explorer.outline.addDecl('checkObjParam');</script>
+
+()(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the parameter at the given index is an object.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">checkObjParam</span>
+<script>explorer.outline.addDecl('checkObjParam');</script>
+
+(bool strict = true)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the parameter at the given index is an object of the type given by name.  name must
+be a dotted-identifier name suitable for passing into lookup().
+<br><br>
+The optional strict template parameter controls whether the base object (the object referred to
+by name) is allowed.  If strict is <b>false</b>, the base object is allowed; otherwise, only objects derived
+from it are allowed.  The default is for strict to be <b>true</b> (the latter behavior).
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">index</td>
+
+               
+<td>The stack index of the parameter to check.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">name</td>
+
+               
+<td>The name of the object from which the given parameter must be derived.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">T* 
+<span class="currsymbol">checkObjParam</span>
+<script>explorer.outline.addDecl('checkObjParam');</script>
+
+(T, bool strict = true)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as above, but also takes a template type parameter that should be a struct the same size as the
+given object's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">checkParam</span>
+<script>explorer.outline.addDecl('checkParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, Type <span class="funcparam">type</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the parameter at the given <span class="funcparam">index</span> is of the given <span class="funcparam">type</span>.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">paramTypeError</span>
+<script>explorer.outline.addDecl('paramTypeError');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, char[] <span class="funcparam">expected</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Throws an informative exception about the parameter at the given <span class="funcparam">index</span>, telling the parameter <span class="funcparam">index</span> ('this' for
+parameter 0), the <span class="funcparam">expected</span> type, and the actual type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">optBoolParam</span>
+<script>explorer.outline.addDecl('optBoolParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, bool <span class="funcparam">def</span>);
+<br>int 
+<span class="currsymbol">optIntParam</span>
+<script>explorer.outline.addDecl('optIntParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, int <span class="funcparam">def</span>);
+<br>double 
+<span class="currsymbol">optFloatParam</span>
+<script>explorer.outline.addDecl('optFloatParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, double <span class="funcparam">def</span>);
+<br>dchar 
+<span class="currsymbol">optCharParam</span>
+<script>explorer.outline.addDecl('optCharParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, dchar <span class="funcparam">def</span>);
+<br>char[] 
+<span class="currsymbol">optStringParam</span>
+<script>explorer.outline.addDecl('optStringParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, char[] <span class="funcparam">def</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>These all get an optional parameter of the given type at the given <span class="funcparam">index</span>.  If no parameter was passed to that
+<span class="funcparam">index</span> or if '<b>null</b>' was passed, '<span class="funcparam">def</span>' is returned; otherwise, the passed parameter must match the given type
+and its value is returned.  This is the same behavior as in MiniD.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">optParam</span>
+<script>explorer.outline.addDecl('optParam');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, Type <span class="funcparam">type</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Similar to above, but works for any <span class="funcparam">type</span>.  Returns <b>false</b> to mean that no parameter was passed,
+and <b>true</b> to mean that one was.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">T* 
+<span class="currsymbol">getMembers</span>
+<script>explorer.outline.addDecl('getMembers');</script>
+
+(T)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>For the object at the given index, gets the extra bytes and returns them cast to a pointer to the
+given type.  Asserts that the number of extra bytes is the same as the size of the given type, but
+this should not be used as a foolproof way of identifying the type of objects.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
 <span class="currsymbol">lookup</span>
 <script>explorer.outline.addDecl('lookup');</script>
 
-(MDThread* <span class="funcparam">t</span>, dchar[] <span class="funcparam">name</span>);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -219,7 +436,7 @@ fielda(<i>t</i>, slot, <font color=red>"quux"</font>);
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">dchar[] <span class="funcparam">name</span></td>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
 <td>The dot-separated name of the value to look up.</td></tr>
@@ -258,16 +475,24 @@ The stack index of the looked-up value.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Aug 22 12:03:24 2008
+			on Sun Oct  5 22:36:48 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.vm");
+	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.ast");
+	explorer.packageExplorer.addModuleFull("minid.bind");
+	explorer.packageExplorer.addModuleFull("minid.commandline");
+	explorer.packageExplorer.addModuleFull("minid.compiler");
+	explorer.packageExplorer.addModuleFull("minid.ex");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
-	explorer.packageExplorer.addModuleFull("minid.ex");</script>
+	explorer.packageExplorer.addModuleFull("minid.serialization");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
 

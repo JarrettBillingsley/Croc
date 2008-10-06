@@ -188,7 +188,7 @@ public struct StrBuffer
 
 		auto num = numPieces;
 		numPieces = 0;
-		
+
 		if(num == 0)
 			return pushString(t, "");
 		else
@@ -218,12 +218,20 @@ public struct StrBuffer
 	}
 }
 
+/**
+Check that there is any parameter at the given index.  You can use this to ensure that a minimum number
+of parameters were passed to your function.
+*/
 public void checkAnyParam(MDThread* t, word index)
 {
 	if(!isValidIndex(t, index))
 		throwException(t, "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
+/**
+These all check that a parameter of the given type was passed at the given index, and return the value
+of that parameter.  Very simple.
+*/
 public bool checkBoolParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -234,6 +242,7 @@ public bool checkBoolParam(MDThread* t, word index)
 	return getBool(t, index);
 }
 
+/// ditto
 public mdint checkIntParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -244,6 +253,7 @@ public mdint checkIntParam(MDThread* t, word index)
 	return getInt(t, index);
 }
 
+/// ditto
 public mdfloat checkFloatParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -254,6 +264,7 @@ public mdfloat checkFloatParam(MDThread* t, word index)
 	return getFloat(t, index);
 }
 
+/// ditto
 public dchar checkCharParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -264,6 +275,7 @@ public dchar checkCharParam(MDThread* t, word index)
 	return getChar(t, index);
 }
 
+/// ditto
 public char[] checkStringParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
@@ -274,14 +286,29 @@ public char[] checkStringParam(MDThread* t, word index)
 	return getString(t, index);
 }
 
+/**
+Checks that the parameter at the given index is an object.
+*/
 public void checkObjParam()(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
-	
+
 	if(!isObject(t, index))
 		paramTypeError(t, index, "object");
 }
 
+/**
+Checks that the parameter at the given index is an object of the type given by name.  name must
+be a dotted-identifier name suitable for passing into lookup().  
+
+The optional strict template parameter controls whether the base object (the object referred to
+by name) is allowed.  If strict is false, the base object is allowed; otherwise, only objects derived
+from it are allowed.  The default is for strict to be true (the latter behavior).
+
+Params:
+	index = The stack index of the parameter to check.
+	name = The name of the object from which the given parameter must be derived.
+*/
 public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] name)
 {
 	index = absIndex(t, index);
@@ -302,12 +329,19 @@ public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] na
 	pop(t);
 }
 
+/**
+Same as above, but also takes a template type parameter that should be a struct the same size as the
+given object's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
+*/
 public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, char[] name)
 {
 	checkObjParam!(strict)(t, index, name);
 	return getMembers!(T)(t, index);
 }
 
+/**
+Checks that the parameter at the given index is of the given type.
+*/
 public void checkParam(MDThread* t, word index, MDValue.Type type)
 {
 	assert(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef, "invalid type");
@@ -318,6 +352,10 @@ public void checkParam(MDThread* t, word index, MDValue.Type type)
 		paramTypeError(t, index, MDValue.typeString(type));
 }
 
+/**
+Throws an informative exception about the parameter at the given index, telling the parameter index ('this' for
+parameter 0), the expected type, and the actual type.
+*/
 public void paramTypeError(MDThread* t, word index, char[] expected)
 {
 	pushTypeString(t, index);
@@ -328,6 +366,11 @@ public void paramTypeError(MDThread* t, word index, char[] expected)
 		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
 }
 
+/**
+These all get an optional parameter of the given type at the given index.  If no parameter was passed to that
+index or if 'null' was passed, 'def' is returned; otherwise, the passed parameter must match the given type
+and its value is returned.  This is the same behavior as in MiniD.
+*/
 public bool optBoolParam(MDThread* t, word index, bool def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -339,6 +382,7 @@ public bool optBoolParam(MDThread* t, word index, bool def)
 	return getBool(t, index);
 }
 
+/// ditto
 public mdint optIntParam(MDThread* t, word index, mdint def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -350,6 +394,7 @@ public mdint optIntParam(MDThread* t, word index, mdint def)
 	return getInt(t, index);
 }
 
+/// ditto
 public mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -361,6 +406,7 @@ public mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
 	return getFloat(t, index);
 }
 
+/// ditto
 public dchar optCharParam(MDThread* t, word index, dchar def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -372,6 +418,7 @@ public dchar optCharParam(MDThread* t, word index, dchar def)
 	return getChar(t, index);
 }
 
+/// ditto
 public char[] optStringParam(MDThread* t, word index, char[] def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -383,6 +430,10 @@ public char[] optStringParam(MDThread* t, word index, char[] def)
 	return getString(t, index);
 }
 
+/**
+Similar to above, but works for any type.  Returns false to mean that no parameter was passed,
+and true to mean that one was.
+*/
 public bool optParam(MDThread* t, word index, MDValue.Type type)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
@@ -394,6 +445,11 @@ public bool optParam(MDThread* t, word index, MDValue.Type type)
 	return true;
 }
 
+/**
+For the object at the given index, gets the extra bytes and returns them cast to a pointer to the
+given type.  Asserts that the number of extra bytes is the same as the size of the given type, but
+this should not be used as a foolproof way of identifying the type of objects.
+*/
 public T* getMembers(T)(MDThread* t, word index)
 {
 	auto ret = getExtraBytes(t, index);

@@ -53,6 +53,7 @@ enum Op : ushort
 	Div,
 	DivEq,
 	EndFinal,
+	Equals,
 	Field,
 	FieldAssign,
 	For,
@@ -154,6 +155,7 @@ Dec...............R: dest, n/a, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
+Equals............R: n/a, src, src
 Field.............R: dest, src, index
 FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
@@ -317,6 +319,7 @@ align(1) struct Instruction
 			case Op.Div:             return Format("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:           return Format("diveq {}, {}", cr(rd), cr(rs));
 			case Op.EndFinal:        return "endfinal";
+			case Op.Equals:          return Format("equals {}, {}", cr(rs), cr(rt));
 			case Op.Field:           return Format("field {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.FieldAssign:     return Format("fielda {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.For:             return Format("for {}, {}", cr(rd), imm);

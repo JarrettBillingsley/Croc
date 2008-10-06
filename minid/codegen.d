@@ -65,8 +65,8 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.OrExp: return Op.Or;
 		case AstTag.XorExp: return Op.Xor;
 		case AstTag.AndExp: return Op.And;
-		case AstTag.EqualExp: return Op.Cmp;
-		case AstTag.NotEqualExp: return Op.Cmp;
+		case AstTag.EqualExp: return Op.Equals;
+		case AstTag.NotEqualExp: return Op.Equals;
 		case AstTag.IsExp: return Op.Is;
 		case AstTag.NotIsExp: return Op.Is;
 		case AstTag.LTExp: return Op.Cmp;

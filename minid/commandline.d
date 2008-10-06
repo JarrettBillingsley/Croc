@@ -44,6 +44,14 @@ import minid.serialization;
 import minid.types;
 import minid.utils;
 
+/**
+This struct encapsulates a MiniD command-line interpreter.  This is the CLI that
+MDCL uses, so you can actually embed an MDCL-like interpreter in your application
+by using this struct.
+
+This struct installs a signal handler that catches Ctrl+C (SIGINT) signals.  It restores
+the old signal handler when it exits.
+*/
 struct CommandLine
 {
 	const char[] Prompt1 = ">>> ";
@@ -78,7 +86,17 @@ To end interactive mode, use the \"exit()\" function.
 
 	private Print!(char) mOutput;
 	private LineIterator!(char) mInput;
+
+	/**
+	Construct an instance of the CLI.
 	
+	Params:
+		output = The Print object to which output will be sent.
+		input = The InputStream from which user input will be gathered.
+		
+	Returns:
+		An initialized instance of CommandLine.
+	*/
 	public static CommandLine opCall(Print!(char) output, InputStream input)
 	{
 		CommandLine ret;
@@ -87,11 +105,19 @@ To end interactive mode, use the \"exit()\" function.
 		return ret;
 	}
 	
+	/**
+	Same as above, but takes a raw OutputStream for the output instead of
+	a Print instance.
+	*/
 	public static CommandLine opCall(OutputStream output, InputStream input)
 	{
 		return opCall(new Print!(char)(new Layout!(char), output), input);
 	}
 	
+	/**
+	Constructs a default instance of CommandLine which uses stdin for the input
+	and stdout for the output.
+	*/
 	public static CommandLine opCall()
 	{
 		return opCall(Stdout, Cin.stream);
@@ -101,7 +127,7 @@ To end interactive mode, use the \"exit()\" function.
 	{
 		mOutput("MiniD Command-Line interpreter 2.0 beta").newline;
 	}
-	
+
 	private void printUsage(char[] progname)
 	{
 		printVersion();
@@ -110,7 +136,18 @@ To end interactive mode, use the \"exit()\" function.
 		mOutput(Usage);
 	}
 
-	void run(MDThread* t, char[][] args = null)
+	/**
+	After you've created an instance of this struct, call this method on it.  The arguments
+	are the arguments that would be passed to MDCL, including the program name as item 0.
+	This function returns when the user exits the interpreter (by using the exit() function,
+	usually).
+	
+	Params:
+		t = The thread to use for this CLI.
+		args = The arguments to the interpreter.  Defaults to null, in which case no arguments
+			will be passed.
+	*/
+	public void run(MDThread* t, char[][] args = null)
 	{
 		bool printedVersion = false;
 		bool printedUsage = false;

@@ -39,17 +39,42 @@ import minid.semantic;
 import minid.string;
 import minid.types;
 
+/**
+This class encapsulates all the functionality needed for compiling MiniD code.
+*/
 scope class Compiler : ICompiler
 {
 	mixin ICompilerMixin;
 
+	/**
+	An enumeration of flags that can be passed to the compiler to change its behavior.
+	*/
 	enum
 	{
+		/**
+		Do not generate code for any optional features.
+		*/
 		None = 0,
+		
+		/**
+		Generate code to check parameter type constraints.
+		*/
 		TypeConstraints = 1,
+		
+		/**
+		Generate code for assert statements.
+		*/
 		Asserts = 2,
 
-		All = TypeConstraints | Asserts
+		/**
+		Generate debug info.  Currently always on.
+		*/
+		Debug = 4,
+
+		/**
+		Generate code for all optional features.
+		*/
+		All = TypeConstraints | Asserts | Debug
 	}
 
 	private MDThread* t;
@@ -64,6 +89,15 @@ scope class Compiler : ICompiler
 // Public
 // ================================================================================================================================================
 
+	/**
+	Constructs a compiler.  The given thread will be used to hold temporary data structures,
+	to throw exceptions, and to return the functions that result from compilation.
+
+	Params:
+		t = The thread with which this compiler will be associated.
+		flags = A bitwise or of any code-generation flags you want to use for this compiler.
+			Defaults to All.
+	*/
 	public this(MDThread* t, uint flags = All)
 	{
 		this.t = t;
@@ -86,26 +120,60 @@ scope class Compiler : ICompiler
 		}
 	}
 
+	/**
+	Set the compiler's code-generation flags.
+	*/
 	public void setFlags(uint flags)
 	{
 		mFlags = flags;
 	}
 
+	/**
+	Returns whether or not code for asserts should be generated.
+	*/
 	public override bool asserts()
 	{
 		return (mFlags & Asserts) != 0;
 	}
 
+	/**
+	Returns whether or not code for parameter type constraint checking should be generated.
+	*/
 	public override bool typeConstraints()
 	{
 		return (mFlags & TypeConstraints) != 0;
 	}
 
+	/**
+	Returns whether or not the most recently-thrown exception was thrown due to an unexpected end-of-file.
+	As an example, this is used by MDCL (that is, minid.commandline) to detect when more code must be entered
+	to complete a code segment.  A simple example of use:
+	
+-----
+scope c = new Compiler(t);
+
+try
+	c.compileExpression(someCode, "test");
+catch(MDException e)
+{
+	auto ex = catchException(t);
+	
+	if(c.isEof())
+	{
+		// error was caused by an unexpected end-of-file
+	}
+}
+-----
+	*/
 	public override bool isEof()
 	{
 		return mIsEof;
 	}
 	
+	/**
+	Returns whether or not the most recently-thrown exception was thrown due to a no-effect expression being used
+	as a statement (yes, this method has a horrible name).  Its use is identical to isEof().
+	*/
 	public override bool isLoneStmt()
 	{
 		return mIsLoneStmt;
@@ -127,7 +195,7 @@ scope class Compiler : ICompiler
 		mIsLoneStmt = true;
 		vexception(loc, msg, _arguments, _argptr);
 	}
-	
+
 	public override MDThread* thread()
 	{
 		return t;
@@ -137,7 +205,7 @@ scope class Compiler : ICompiler
 	{
 		return &t.vm.alloc;
 	}
-	
+
 	public override char[] newString(char[] data)
 	{
 		auto s = string.create(t.vm, data);
@@ -155,10 +223,10 @@ scope class Compiler : ICompiler
 
 	You shouldn't have to deal with this function that much.  Most of the time the compilation of
 	modules should be handled for you by the import system.
-	
+
 	Params:
 		filename = The filename of the source file to compile.
-		
+
 	Returns:
 		The stack index of the newly-pushed function closure that represents the top-level function
 		of the module.
@@ -193,7 +261,7 @@ scope class Compiler : ICompiler
 		{
 			mLexer.begin(name, source);
 			auto mod = mParser.parseModule();
-			
+
 			scope sem = new Semantic(this);
 			mod = sem.visit(mod);
 
@@ -201,7 +269,7 @@ scope class Compiler : ICompiler
 			cg.visit(mod);
 		});
 	}
-	
+
 	/**
 	Compile a list of statements into a function which takes a variadic number of arguments.  The environment
 	of the compiled function closure is set to the globals of the compiler's thread.
@@ -227,7 +295,7 @@ scope class Compiler : ICompiler
 			cg.codegenStatements(fd);
 		});
 	}
-	
+
 	/**
 	Compile a single expression into a function which returns the value of that expression when called.
 
@@ -252,7 +320,7 @@ scope class Compiler : ICompiler
 			cg.codegenStatements(fd);
 		});
 	}
-	
+
 	/**
 	Parses a JSON string into a MiniD value, pushes that value onto the stack, and returns the
 	index of the newly-pushed value.
