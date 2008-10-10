@@ -86,6 +86,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.mainThread = thread.create(vm);
 	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
+	vm.registry = namespace.create(vm.alloc, string.create(vm, "<registry>"));
 	vm.formatter = new Layout!(char)();
 
 	auto t = vm.mainThread;

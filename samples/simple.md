@@ -1,28 +1,28 @@
 module samples.simple
 
-function freep(x: int)
+
+
+/*
+function enum(name: string, vararg)
 {
-	if(x == 0)
-		throw "hi"
-		
-	return freep(x - 1)
+	local sb = StringBuffer.clone()
+
+	sb.append("namespace ", name, "\n{\n")
+
+	for(i: 0 .. #vararg)
+		sb.append("\t", vararg[i], " = ", i, "\n")
+
+	sb.append("}")
+
+	loadString(sb.toString())()
 }
 
-freep(5)
-
-/+
-function Enum(name: string, vararg)
-{
-
-}
-
-namespace NodeType
-{
-	Add = 0
-	Mul = 1
-	Var = 2
-	Num = 3
-}
+enum("NodeType",
+	"Add",
+	"Mul",
+	"Var",
+	"Num"
+)
 
 object ExpNode
 {
@@ -33,6 +33,7 @@ object ExpNode
 		return ret
 	}
 
+	function opCall(vararg) = :clone(vararg)
 	function opAdd(other: ExpNode) = AddNode(this, other)
 	function opMul(other: ExpNode) = MulNode(this, other)
 }
@@ -42,7 +43,6 @@ object Var : ExpNode
 	function clone(name: string)
 	{
 		local ret = super.clone(NodeType.Var)
-		ret.type = NodeType.Var
 		ret.name = name
 		return ret
 	}
@@ -50,14 +50,11 @@ object Var : ExpNode
 	function toString() = :name
 }
 
-Var.opCall = Var.clone
-
 object Num : ExpNode
 {
 	function clone(val: int|float)
 	{
 		local ret = super.clone(NodeType.Num)
-		ret.type = NodeType.Num
 		ret.val = toFloat(val)
 		return ret
 	}
@@ -65,37 +62,28 @@ object Num : ExpNode
 	function toString() = toString(:val)
 }
 
-Num.opCall = Num.clone
-
-object AddNode : ExpNode
+object BinNode : ExpNode
 {
-	function clone(left: ExpNode, right: ExpNode)
+	function clone(type: int, left: ExpNode, right: ExpNode)
 	{
-		local ret = super.clone(NodeType.Add)
+		local ret = super.clone(type)
 		ret.left = left
 		ret.right = right
 		return ret
 	}
+}
 
+object AddNode : BinNode
+{
+	function clone(left: ExpNode, right: ExpNode) = super.clone(NodeType.Add, left, right)
 	function toString() = format("({} + {})", :left, :right)
 }
 
-AddNode.opCall = AddNode.clone
-
-object MulNode : ExpNode
+object MulNode : BinNode
 {
-	function clone(left: ExpNode, right: ExpNode)
-	{
-		local ret = super.clone(NodeType.Mul)
-		ret.left = left
-		ret.right = right
-		return ret
-	}
-
+	function clone(left: ExpNode, right: ExpNode) = super.clone(NodeType.Mul, left, right)
 	function toString() = format("({} * {})", :left, :right)
 }
-
-MulNode.opCall = MulNode.clone
 
 function searchVars(n: ExpNode, vars: table)
 {
@@ -120,7 +108,7 @@ function compileExp(root: ExpNode)
 	local vars = {}
 	searchVars(root, vars)
 	local params = string.join(vars.keys().sort(), ", ")
-	return loadString("return \\" ~ params ~ " -> " ~ root.toString())()
+	return eval("\\" ~ params ~ " -> " ~ root.toString())
 }
 
 local exp = (Num(4) + Var("x")) * (Var("y") + Num(3))
@@ -128,6 +116,8 @@ writeln(exp)
 
 local f = compileExp(exp)
 writeln(f(3, 4))
+
+*/
 
 // object Foo
 // {
@@ -148,27 +138,27 @@ writeln(f(3, 4))
 // 		assert(this !is Foo, "Method may not be called on the class that holds it")
 // 		writefln("Foo: {}, {}", :x, :y)
 // 	}
-// 
+//
 // 	function opAdd(other: Foo)
 // 	{
 // 		assert(this !is Foo && other !is Foo, "Method may not be called on the class that holds it")
 // 		return Foo.clone(:x + other.x, :y + other.y)
 // 	}
 // }
-// 
+//
 // object Bar : Foo
 // {
 // 	z = 1337
 //
 // 	function clone() = super.clone(-1, -10)
-// 
+//
 // 	function write()
 // 	{
 // 		assert(this !is Bar, "method may not be called on the class that holds it")
 // 		writefln("Bar: {}, {}, {}", :x, :y, :z)
 // 	}
 // }
-// 
+//
 // local f = Foo.clone(5, 10)
 // f.write();
 // (f + Foo.clone(15, 20)).write()
@@ -965,7 +955,7 @@ writeln(Deck.dealCard())
 	
 	foreach(k, v; "hello")
 		writefln("str[", k, "] = ", v)
-	
+
 	writefln()
 
 	foreach(k, v; "hello", "reverse")
@@ -1158,4 +1148,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/+/+/
+}+/+/

@@ -29,11 +29,11 @@ function count(n = 0) =
 function izip(vararg)
 {
 	if(#vararg == 0)
-		return function() = null
+		return \-> null
 
 	local args = [vararg]
 	local n = #args
-	local lengths = args.map(function(x) = #x)
+	local lengths = args.map(\x -> #x)
 	local temp = array.new(n)
 
 	local function iterator(index)
@@ -43,14 +43,14 @@ function izip(vararg)
 		for(i: 0 .. n)
 		{
 			if(index >= lengths[i])
-				return;
+				return
 
 			temp[i] = args[i][index]
 		}
-		
+
 		return index, temp.expand()
 	}
-	
+
 	return iterator, null, -1
 }
 
@@ -64,7 +64,7 @@ function generator(x, extra = null) =
 		local function loop(idx0, vararg)
 		{
 			if(idx0 is null)
-				return;
+				return
 
 			yield(idx0, vararg)
 
@@ -84,7 +84,7 @@ function repeat(x, times)
 			index++
 
 			if(index >= times)
-				return;
+				return
 
 			return index, x
 		}
@@ -97,11 +97,11 @@ function iter(callable, sentinel)
 	local function iterator(index)
 	{
 		index++
-		
+
 		local ret = callable()
 
 		if(ret is sentinel)
-			return;
+			return
 
 		return index, ret
 	}
@@ -111,7 +111,7 @@ function iter(callable, sentinel)
 
 function imap(func, vararg)
 {
-	local iterables = [vararg].apply(generator).each(function(i, v) v())
+	local iterables = [vararg].apply(generator).each(\i, v -> v())
 	local args = array.new(#iterables)
 
 	local function iterator(index)
@@ -123,7 +123,7 @@ function imap(func, vararg)
 			dummy, args[i] = iterables[i]()
 
 			if(iterables[i].isDead())
-				return;
+				return
 		}
 
 		return index + 1, func(args.expand())

@@ -39,9 +39,10 @@ struct ModulesLib
 static:
 	public void init(MDThread* t)
 	{
+		newTable(t); setRegistryVar(t, "modules.loading");
+
 		auto ns = newNamespace(t, "modules");
 			pushString(t, "."); fielda(t, ns, "path");
-			newTable(t);        fielda(t, ns, "loading");
 			newTable(t);        fielda(t, ns, "customLoaders");
 			dup(t, ns); newFunctionWithEnv(t, &load,       "load");       fielda(t, ns, "load");
 			dup(t, ns); newFunctionWithEnv(t, &reload,     "reload");     fielda(t, ns, "reload");
@@ -56,22 +57,21 @@ static:
 			fielda(t, ns, "loaded");
 
 			pushString(t, "loaders");
-				dup(t, ns); newFunctionWithEnv(t, &checkCircular, "checkCircular");
 				dup(t, ns); newFunctionWithEnv(t, &customLoad,    "customLoad");
 				dup(t, ns); newFunctionWithEnv(t, &checkTaken,    "checkTaken");
 				dup(t, ns); newFunctionWithEnv(t, &loadFiles,     "loadFiles");
-	
+
 				version(MDDynLibs)
 				{
 					dup(t, ns); newFunctionWithEnv(t, &loadDynlib, "loadDynlib");
-					newArrayFromStack(t, 5);
+					newArrayFromStack(t, 4);
 				}
 				else
-					newArrayFromStack(t, 4);
+					newArrayFromStack(t, 3);
 			fielda(t, ns);
 		newGlobal(t, "modules");
 	}
-	
+
 	package uword load(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
@@ -101,12 +101,22 @@ static:
 		pop(t, 2);
 		return commonLoad(t, name);
 	}
-	
+
 	package uword commonLoad(MDThread* t, char[] name)
 	{
+		checkCircular(t, name);
+		
+		scope(exit)
+		{
+			getRegistryVar(t, "modules.loading");
+			pushNull(t);
+			fielda(t, -2, name);
+			pop(t);	
+		}
+
 		auto loaders = pushGlobal(t, "loaders");
 		auto num = len(t, -1);
-	
+
 		for(uword i = 0; i < num; i++)
 		{
 			auto reg = pushInt(t, i);
@@ -114,7 +124,7 @@ static:
 			pushNull(t);
 			pushString(t, name);
 			rawCall(t, reg, 1);
-			
+
 			if(isFunction(t, -1))
 			{
 				pushGlobal(t, "initModule");
@@ -147,7 +157,7 @@ static:
 		throwException(t, "Error loading module '{}': could not find anything to load", name);
 		assert(false);
 	}
-	
+
 	package uword initModule(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Function);
@@ -219,32 +229,19 @@ static:
 		return 0;
 	}
 
-	package uword checkCircular(MDThread* t, uword numParams)
-	{
-		checkStringParam(t, 1);
-		pushGlobal(t, "loading");
-		dup(t, 1);
-		idx(t, -2);
-	
-		if(!isNull(t, -1))
-			throwException(t, "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", getString(t, 1));
-	
-		return 0;
-	}
-	
 	package uword customLoad(MDThread* t, uword numParams)
 	{
 		checkStringParam(t, 1);
 		pushGlobal(t, "customLoaders");
 		dup(t, 1);
 		idx(t, -2);
-		
+
 		if(isFunction(t, -1) || isNamespace(t, -1))
 			return 1;
 			
 		return 0;
 	}
-	
+
 	package uword checkTaken(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
@@ -349,4 +346,19 @@ static:
 
 		return 0;
 	}
+	
+	private void checkCircular(MDThread* t, char[] name)
+	{
+		getRegistryVar(t, "modules.loading");
+		field(t, -1, name);
+
+		if(!isNull(t, -1))
+			throwException(t, "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", name);
+
+		pop(t);
+		pushBool(t, true);
+		fielda(t, -2, name);
+		pop(t);
+	}
+
 }

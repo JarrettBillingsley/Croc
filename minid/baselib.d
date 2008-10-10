@@ -265,7 +265,7 @@ static:
 						return 0;
 	
 					setUpval(t, 0);
-					pushInt(t, -1);
+					pushInt(t, 0);
 					setUpval(t, 1);
 					pop(t, 2);
 

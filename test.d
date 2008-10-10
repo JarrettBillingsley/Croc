@@ -4,8 +4,9 @@ import tango.io.Stdout;
 debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correctly
 
 import minid.api;
+import minid.bind;
 
-// version = TestArc;
+version = TestArc;
 
 void main()
 {
@@ -30,7 +31,7 @@ void main()
 	{
 		auto ex = catchException(t);
 		Stdout.formatln("Error: {}", e);
-		
+
 		auto tb = getTraceback(t);
 		Stdout.formatln("{}", getString(t, tb));
 	}
@@ -147,7 +148,7 @@ static:
 				WrapValue!("WheelDown", WHEELDOWN)
 			)
 		)(t);
-		
+
 		WrapModule!
 		(
 			"arc.math.point",

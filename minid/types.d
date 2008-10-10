@@ -704,6 +704,7 @@ struct MDVM
 	package bool isThrowing;
 	package MDThread* curThread;
 	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
+	package MDNamespace* registry;
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;

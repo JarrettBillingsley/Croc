@@ -3181,7 +3181,7 @@ refers to.  If the value it refers to has been collected, pushes "null" instead.
 
 Params:
 	idx = The stack index of the weak reference object to dereference.
-	
+
 Returns:
 	The stack index of the newly-pushed value.
 */
@@ -3377,6 +3377,18 @@ struct foreachLoop
 
 		return 0;
 	}
+}
+
+/**
+Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
+from native code and which native code may use for any purpose.
+
+Returns:
+	The stack index of the newly-pushed namespace.
+*/
+word pushRegistry(MDThread* t)
+{
+	return pushNamespace(t, t.vm.registry);
 }
 
 // TODO: some more ops for some objects, like namespaces?  removeKey?

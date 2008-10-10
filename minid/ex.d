@@ -528,6 +528,32 @@ public word lookupCT(char[] name)(MDThread* t)
 	return idx;
 }
 
+/**
+Pushes the variable that is stored in the registry with the given name onto the stack.  An error will be thrown if the variable
+does not exist in the registry.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+public word getRegistryVar(MDThread* t, char[] name)
+{
+	pushRegistry(t);
+	field(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
+}
+
+/**
+Pops the value off the top of the stack and sets it into the given registry variable.
+*/
+public void setRegistryVar(MDThread* t, char[] name)
+{
+	pushRegistry(t);
+	swap(t);
+	fielda(t, -2, name);
+	pop(t);
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================

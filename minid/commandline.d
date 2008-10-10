@@ -218,39 +218,54 @@ To end interactive mode, use the \"exit()\" function.
 		{
 			word reg;
 
-			if(!inputFile.endsWith(".md") && !inputFile.endsWith(".mdm"))
-				reg = importModule(t, inputFile);
-			else
+			try
 			{
-				if(inputFile.endsWith(".md"))
-				{
-					scope c = new Compiler(t);
-					c.compileModule(inputFile);
-				}
+				if(!inputFile.endsWith(".md") && !inputFile.endsWith(".mdm"))
+					reg = importModule(t, inputFile);
 				else
 				{
-					scope fc = new FileConduit(inputFile, FileConduit.ReadExisting);
-					scope r = new Reader(fc);
-					deserializeModule(t, r);
+					if(inputFile.endsWith(".md"))
+					{
+						scope c = new Compiler(t);
+						c.compileModule(inputFile);
+					}
+					else
+					{
+						scope fc = new FileConduit(inputFile, FileConduit.ReadExisting);
+						scope r = new Reader(fc);
+						deserializeModule(t, r);
+					}
+
+					lookup(t, "modules.initModule");
+					swap(t);
+					pushNull(t);
+					swap(t);
+					pushString(t, funcName(t, -1));
+					rawCall(t, -4, 1);
+					reg = stackSize(t) - 1;
 				}
 
-				lookup(t, "modules.initModule");
-				swap(t);
 				pushNull(t);
-				swap(t);
-				pushString(t, funcName(t, -1));
-				rawCall(t, -4, 1);
-				reg = stackSize(t) - 1;
+				lookup(t, "modules.runMain");
+				swap(t, -3);
+
+				foreach(a; args)
+					pushString(t, a);
+
+				rawCall(t, reg, 0);
 			}
+			catch(MDException e)
+			{
+				catchException(t);
+				pop(t);
 
-			pushNull(t);
-			lookup(t, "modules.runMain");
-			swap(t, -3);
+				mOutput.formatln("Error: {}", e);
 
-			foreach(a; args)
-				pushString(t, a);
-
-			rawCall(t, reg, 0);
+				auto tb = getTraceback(t);
+				mOutput.formatln("{}", getString(t, tb));
+				pop(t);
+				mOutput.newline;
+			}
 		}
 
 		if(interactive)
@@ -406,7 +421,10 @@ To end interactive mode, use the \"exit()\" function.
 					pop(t);
 
 					mOutput.formatln("Error: {}", e);
-// 					mOutput.formatln("{}", ctx.getTracebackString());
+					
+					auto tb = getTraceback(t);
+					mOutput.formatln("{}", getString(t, tb));
+					pop(t);
 					mOutput.newline;
 				}
 

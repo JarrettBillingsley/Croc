@@ -370,7 +370,7 @@ static:
 
 		if(numParams > 0)
 		{
-			foreach(piece; src.delimiters(checkStringParam(t, 1)))
+			foreach(piece; src.patterns(checkStringParam(t, 1)))
 			{
 				pushString(t, piece);
 				num++;

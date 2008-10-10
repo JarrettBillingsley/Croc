@@ -91,13 +91,13 @@ private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t
 // 		}
 		else static if(is(typeof(member.isStruct)))
 		{
-
-
-			dchar[] name = utf.toUtf32(member.Name);
-			ns[name] = MDValue(new member.Class());
+			member.init(t);
+			fielda(t, -2, member.Name);
 		}
-		else
+		else static if(isModule)
 			static assert(false, "Invalid member type '" ~ member.stringof ~ "' in wrapped module '" ~ name ~ "'");
+		else
+			static assert(false, "Invalid member type '" ~ member.stringof ~ "' in wrapped namespace '" ~ name ~ "'");
 	}
 }
 
@@ -190,21 +190,21 @@ private template WrappedFunc(alias func, char[] name, funcType)
 				{
 					static if(is(ReturnTypeOf!(funcType) == void))
 					{
-						func();
+						safeCode(t, func());
 						return 0;
 					}
 					else
 					{
-						superPush(t, func());
+						superPush(t, safeCode(t, func()));
 						return 1;
 					}
 				}
 			}
-	
+
 			foreach(i, arg; args)
 			{
 				const argNum = i + 1;
-	
+
 				if(i < numParams)
 					getParameter(t, argNum, args[i]);
 
@@ -214,7 +214,7 @@ private template WrappedFunc(alias func, char[] name, funcType)
 					{
 						static if(is(ReturnTypeOf!(funcType) == void))
 						{
-							safeCode(t, func(args[0 .. argNum]));
+							safeCode(t, safeCode(t, func(args[0 .. argNum])));
 							return 0;
 						}
 						else
@@ -598,20 +598,20 @@ struct WrapModule
 
 				ns[k] = v;
 			}
-	
+
 			return 0;
 		}
 	}
-	
+
 	private Loader* loader;
 
 	/**
 	Creates an instance of this struct so you can start wrapping a module.
-	
+
 	Params:
 		name = The name of the module to expose to MiniD.  This can be a multi-part name, with dots (like "foo.bar").
 		context = The MiniD context to load this module into.
-		
+
 	Returns:
 		An instance of this struct ready to have members added.
 	*/
@@ -631,13 +631,13 @@ struct WrapModule
 
 	/**
 	Wrap a function and insert it into this module's namespace.  This must be a non-member D function.
-	
+
 	Params:
 		f = An alias to the function you want to wrap.
 		name = The name to call it in MiniD.  Defaults to the D function name.
 		funcType = The type of the function to wrap.  This defaults to typeof(f), but you'll need to specify this
 			explicitly if you're wrapping an overloaded function, in order to select the proper overload.
-			
+
 	Returns:
 		A chaining reference to this module.
 	*/
@@ -655,7 +655,7 @@ struct WrapModule
 		const name = NameOfFunc!(f);
 		const name32 = ToUTF32!(name);
 		loader.namespace[name32] = MDValue(new MDClosure(loader.namespace, &WrappedFunc!(f, name, funcType), name32));
-		
+
 		return this;
 	}
 
