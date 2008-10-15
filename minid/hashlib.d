@@ -349,34 +349,18 @@ static:
 		checkParam(t, 2, MDValue.Type.Function);
 		return eachImpl(t, 1, 2);
 	}
-	
+
 	uword remove(MDThread* t, uword numParams)
 	{
-		checkAnyParam(t, 2);
-
 		if(isTable(t, 1))
-		{
 			checkAnyParam(t, 2);
-			dup(t, 2);
-			pushNull(t);
-			idxa(t, 1);
-		}
 		else if(isNamespace(t, 1))
-		{
 			checkStringParam(t, 2);
-
-			if(!opin(t, 2, 1))
-			{
-				pushToString(t, 2);
-				throwException(t, "Key '{}' does not exist in namespace '{}'", getString(t, 2), getString(t, -1));
-			}
-
-			// TODO: this should probably be covered by a public API function
-			namespace.remove(getNamespace(t, 1), getStringObj(t, 2));
-		}
 		else
 			paramTypeError(t, 1, "table|namespace");
-			
+
+		dup(t, 2);
+		removeKey(t, 1);
 		return 0;
 	}
 

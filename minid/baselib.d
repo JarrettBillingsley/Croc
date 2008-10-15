@@ -34,10 +34,8 @@ import Utf = tango.text.convert.Utf;
 
 import minid.compiler;
 import minid.ex;
-import minid.func;
 import minid.interpreter;
 import minid.misc;
-import minid.namespace;
 import minid.obj;
 import minid.string;
 import minid.types;
@@ -876,24 +874,24 @@ static:
 	uword functionIsNative(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
-		pushBool(t, func.isNative(getFunction(t, 0)));
+		pushBool(t, funcIsNative(t, 0));
 		return 1;
 	}
 
 	uword functionNumParams(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
-		pushInt(t, func.numParams(getFunction(t, 0)));
+		pushInt(t, funcNumParams(t, 0));
 		return 1;
 	}
 
 	uword functionIsVararg(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
-		pushBool(t, func.isVararg(getFunction(t, 0)));
+		pushBool(t, funcIsVararg(t, 0));
 		return 1;
 	}
-	
+
 	uword functionName(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);

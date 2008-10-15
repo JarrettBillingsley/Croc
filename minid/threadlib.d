@@ -38,7 +38,7 @@ static:
 		
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-// 			newFunction(t, &traceback, "traceback"); newGlobal(t, "traceback");
+			newFunction(t, &traceback, "traceback"); newGlobal(t, "traceback");
 			newFunction(t, &halt,      "halt");      newGlobal(t, "halt");
 			newFunction(t, &current,   "current");   newGlobal(t, "current");
 
@@ -62,14 +62,13 @@ static:
 		importModule(t, "thread");
 		pop(t, 3);
 	}
-	
-/*
+
 	uword traceback(MDThread* t, uword numParams)
 	{
-		s.push(new MDString(s.context.getTracebackString()));
+		getTraceback(t);
 		return 1;
 	}
-*/
+
 	uword halt(MDThread* t, uword numParams)
 	{
 		if(numParams == 0)

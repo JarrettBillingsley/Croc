@@ -57,31 +57,115 @@ import minid.weakref;
 
 public:
 
+// VM-related functions
+
 /**
-Gets the current coroutine state of the thread as a member of the MDThread.State enumeration.
+Push the metatable for the given type.  If the type has no metatable, pushes null.  The type given must be
+one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
+
+Params:
+	type = The type whose metatable is to be pushed.
+
+Returns:
+	The stack index of the newly-pushed value (null if the type has no metatable, or a namespace if it does).
 */
-MDThread.State state(MDThread* t)
+word pushTypeMT(MDThread* t, MDValue.Type type)
 {
-	return t.state;
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
+		throwException(t, "pushTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
+
+	if(auto ns = t.vm.metaTabs[cast(uword)type])
+		return pushNamespace(t, ns);
+	else
+		return pushNull(t);
 }
 
 /**
-Gets a string representation of the current coroutine state of the thread.
+Sets the metatable for the given type to the namespace or null at the top of the stack.  Throws an
+error if the type given is one of the "internal" types, or if the value at the top of the stack is
+neither null nor a namespace.
 
-The string returned is not on the MiniD heap, it's just a string literal.
+Params:
+	type = The type whose metatable is to be set.
 */
-char[] stateString(MDThread* t)
+void setTypeMT(MDThread* t, MDValue.Type type)
 {
-	return MDThread.StateStrings[t.state];
+	checkNumParams(t, 1);
+
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
+		throwException(t, "setTypeMT - Cannot set metatable for type '{}'", MDValue.typeString(type));
+
+	auto v = getValue(t, -1);
+
+	if(v.type == MDValue.Type.Namespace)
+		t.vm.metaTabs[cast(uword)type] = v.mNamespace;
+	else if(v.type == MDValue.Type.Null)
+		t.vm.metaTabs[cast(uword)type] = null;
+	else
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setTypeMT - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
+	}
+
+	pop(t);
 }
 
 /**
-Gets the VM that the thread is associated with.
+Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
+module's namespace onto the stack.
+
+Params:
+	name = The name of the module to be imported.
+
+Returns:
+	The stack index of the imported module's namespace.
 */
-MDVM* getVM(MDThread* t)
+word importModule(MDThread* t, char[] name)
 {
-	return t.vm;
+	pushString(t, name);
+	importModule(t, -1);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
 }
+
+/**
+Same as above, but uses a name on the stack rather than one provided as a parameter.
+
+Params:
+	name = The stack index of the string holding the name of the module to be imported.
+
+Returns:
+	The stack index of the imported module's namespace.
+*/
+word importModule(MDThread* t, word name)
+{
+	auto str = getStringObj(t, name);
+
+	if(str is null)
+	{
+		pushTypeString(t, name);
+		throwException(t, "importModule - name must be a 'string', not a '{}'", getString(t, -1));
+	}
+
+	pushNull(t);
+	importImpl(t, str, t.stackIndex - 1);
+
+	return stackSize(t) - 1;
+}
+
+/**
+Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
+from native code and which native code may use for any purpose.
+
+Returns:
+	The stack index of the newly-pushed namespace.
+*/
+word pushRegistry(MDThread* t)
+{
+	return pushNamespace(t, t.vm.registry);
+}
+
+// GC-related stuff
 
 /**
 Runs the garbage collector if necessary.
@@ -117,6 +201,119 @@ public void gc(MDThread* t)
 	sweep(t.vm);
 	runFinalizers(t);
 }
+
+// Stack manipulation
+
+/**
+Duplicates a value at the given stack index and pushes it onto the stack.
+
+Params:
+	slot = The _slot to duplicate.  Defaults to -1, which means the top of the stack.
+
+Returns:
+	The stack index of the newly-pushed _slot.
+*/
+word dup(MDThread* t, word slot = -1)
+{
+	auto s = fakeToAbs(t, slot);
+	auto ret = pushNull(t);
+	t.stack[t.stackIndex - 1] = t.stack[s];
+	return ret;
+}
+
+/**
+Swaps the two values at the given swap indices.  The first index defaults to the second-from-top
+value.  The second index defaults to the top-of-stack.  So, if you call swap with no indices, it will
+swap the top two values.
+
+Params:
+	first = The first stack index.
+	second = The second stack index.
+*/
+void swap(MDThread* t, word first = -2, word second = -1)
+{
+	auto f = fakeToAbs(t, first);
+	auto s = fakeToAbs(t, second);
+
+	if(f == s)
+		return;
+
+	auto tmp = t.stack[f];
+	t.stack[f] = t.stack[s];
+	t.stack[s] = tmp;
+}
+
+/**
+Inserts the value at the top of the stack into the given _slot, shifting up the values in that _slot
+and everything after it up by a _slot.  This means the stack will stay the same size.  Similar to a
+"rotate" operation common to many stack machines.
+
+Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
+
+If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
+
+Params:
+	slot = The _slot in which the value at the top will be inserted.  If this refers to the top of the
+		stack, this function does nothing.
+*/
+void insert(MDThread* t, word slot)
+{
+	checkNumParams(t, 1);
+	auto s = fakeToAbs(t, slot);
+
+	if(s == t.stackBase)
+		throwException(t, "insert - Cannot use 'this' as the destination");
+
+	if(s == t.stackIndex - 1)
+		return;
+
+	auto tmp = t.stack[t.stackIndex - 1];
+	memmove(&t.stack[s + 1], &t.stack[s], (t.stackIndex - s - 1) * MDValue.sizeof);
+	t.stack[s] = tmp;
+}
+
+/**
+Similar to insert, but combines the insertion with a pop operation that pops everything after the
+newly-inserted value off the stack.
+
+Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
+
+If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
+*/
+void insertAndPop(MDThread* t, word slot)
+{
+	checkNumParams(t, 1);
+	auto s = fakeToAbs(t, slot);
+
+	if(s == t.stackBase)
+		throwException(t, "insert - Cannot use 'this' as the destination");
+
+	if(s == t.stackIndex - 1)
+		return;
+
+	t.stack[s] = t.stack[t.stackIndex - 1];
+	t.stackIndex = s + 1;
+}
+
+/**
+Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
+on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
+values, an error is thrown.
+
+Params:
+	n = The number of items to _pop.  Defaults to 1.  Must be greater than 0.
+*/
+void pop(MDThread* t, uword n = 1)
+{
+	assert(n > 0);
+
+	if(n > (t.stackIndex - (t.stackBase + 1)))
+		throwException(t, "pop - Stack underflow");
+
+	t.stackIndex -= n;
+}
+
+// Pushing values onto the stack
 
 /**
 These push a value of the given type onto the stack.
@@ -604,114 +801,7 @@ word pushWeakRef(MDThread* t, word idx)
 	}
 }
 
-/**
-Duplicates a value at the given stack index and pushes it onto the stack.
-
-Params:
-	slot = The _slot to duplicate.  Defaults to -1, which means the top of the stack.
-
-Returns:
-	The stack index of the newly-pushed _slot.
-*/
-word dup(MDThread* t, word slot = -1)
-{
-	auto s = fakeToAbs(t, slot);
-	auto ret = pushNull(t);
-	t.stack[t.stackIndex - 1] = t.stack[s];
-	return ret;
-}
-
-/**
-Swaps the two values at the given swap indices.  The first index defaults to the second-from-top
-value.  The second index defaults to the top-of-stack.  So, if you call swap with no indices, it will
-swap the top two values.
-
-Params:
-	first = The first stack index.
-	second = The second stack index.
-*/
-void swap(MDThread* t, word first = -2, word second = -1)
-{
-	auto f = fakeToAbs(t, first);
-	auto s = fakeToAbs(t, second);
-
-	if(f == s)
-		return;
-
-	auto tmp = t.stack[f];
-	t.stack[f] = t.stack[s];
-	t.stack[s] = tmp;
-}
-
-/**
-Inserts the value at the top of the stack into the given _slot, shifting up the values in that _slot
-and everything after it up by a _slot.  This means the stack will stay the same size.  Similar to a
-"rotate" operation common to many stack machines.
-
-Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
-
-If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
-
-Params:
-	slot = The _slot in which the value at the top will be inserted.  If this refers to the top of the
-		stack, this function does nothing.
-*/
-void insert(MDThread* t, word slot)
-{
-	checkNumParams(t, 1);
-	auto s = fakeToAbs(t, slot);
-
-	if(s == t.stackBase)
-		throwException(t, "insert - Cannot use 'this' as the destination");
-
-	if(s == t.stackIndex - 1)
-		return;
-
-	auto tmp = t.stack[t.stackIndex - 1];
-	memmove(&t.stack[s + 1], &t.stack[s], (t.stackIndex - s - 1) * MDValue.sizeof);
-	t.stack[s] = tmp;
-}
-
-/**
-Similar to insert, but combines the insertion with a pop operation that pops everything after the
-newly-inserted value off the stack.
-
-Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
-
-If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
-*/
-void insertAndPop(MDThread* t, word slot)
-{
-	checkNumParams(t, 1);
-	auto s = fakeToAbs(t, slot);
-
-	if(s == t.stackBase)
-		throwException(t, "insert - Cannot use 'this' as the destination");
-
-	if(s == t.stackIndex - 1)
-		return;
-
-	t.stack[s] = t.stack[t.stackIndex - 1];
-	t.stackIndex = s + 1;
-}
-
-/**
-Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
-on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
-values, an error is thrown.
-
-Params:
-	n = The number of items to _pop.  Defaults to 1.  Must be greater than 0.
-*/
-void pop(MDThread* t, uword n = 1)
-{
-	assert(n > 0);
-
-	if(n > (t.stackIndex - (t.stackBase + 1)))
-		throwException(t, "pop - Stack underflow");
-
-	t.stackIndex -= n;
-}
+// Stack queries
 
 /**
 Given an index, returns the absolute index that corresponds to it.  This is useful for converting
@@ -734,321 +824,6 @@ bool isValidIndex(MDThread* t, word idx)
 		return idx >= -stackSize(t);
 	else
 		return idx < stackSize(t);
-}
-
-/**
-Calls the object at the given _slot.  The parameters (including 'this') are assumed to be all the
-values after that _slot to the top of the stack.
-
-The 'this' parameter is, according to the language specification, null if no explicit context is given.
-You must still push this null value, however.
-
-An example of calling a function:
-
------
-// Let's translate `x = f(5, "hi")` into API calls.
-
-// 1. Push the function (or any callable object -- like objects, threads).
-auto slot = pushGlobal(t, "f");
-
-// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
-// put a 'with', so 'null' will be used as the context.
-pushNull(t);
-
-// 3. Push any params.
-pushInt(t, 5);
-pushString(t, "hi");
-
-// 4. Call it.
-rawCall(t, slot, 1);
-
-// 5. Do something with the return values.  setGlobal pops the return value off the stack, so now the
-// stack is back the way it was when we started.
-setGlobal(t, "x");
------
-
-Params:
-	slot = The _slot containing the object to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
-
-Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
-	not exactly useful since you already know it).
-*/
-uword rawCall(MDThread* t, word slot, word numReturns)
-{
-	auto absSlot = fakeToAbs(t, slot);
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwException(t, "rawCall - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwException(t, "rawCall - invalid number of returns (must be >= -1)");
-
-	return commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams, null));
-}
-
-/**
-Calls a method of an object at the given _slot.  The parameters (including a spot for 'this') are assumed
-to be all the values after that _slot to the top of the stack.
-
-This function behaves identically to a method call within the language, including calling opMethod
-metamethods if the method is not found.
-
-The process of calling a method is very similar to calling a normal function.
-
------
-// Let's translate `o.f(3)` into API calls.
-
-// 1. Push the object on which the method will be called.
-auto slot = pushGlobal(t, "o");
-
-// 2. Make room for 'this'.  If you want to call the method with a custom 'this', push it here.
-// Otherwise, we'll let MiniD figure out the 'this' and we can just push null.
-pushNull(t);
-
-// 3. Push any params.
-pushInt(t, 3);
-
-// 4. Call it with the method name.  We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
-methodCall(t, slot, "f", 0);
-
-// We didn'_t ask for any return values, so the stack is how it was before we began.
------
-
-Params:
-	slot = The _slot containing the object on which the method will be called.
-	name = The _name of the method to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
-	customThis = If true, the 'this' parameter you push after the object will be respected and
-		passed as 'this' to the method (though the method will still be looked up in the object).
-		The default is false, where the context will be determined automatically (i.e. it's
-		the object on which the method is being called).
-
-Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
-	not exactly useful since you already know it).
-*/
-uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
-{
-	auto absSlot = fakeToAbs(t, slot);
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
-
-	auto self = &t.stack[absSlot];
-	auto methodName = string.create(t.vm, name);
-
-	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
-	return commonCall(t, absSlot, numReturns, tmp);
-}
-
-/**
-Same as above, but expects the name of the method to be on top of the stack (after the parameters).
-
-The parameters and return value are the same as above.
-*/
-uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
-{
-	checkNumParams(t, 1);
-	auto absSlot = fakeToAbs(t, slot);
-
-	if(!isString(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwException(t, "methodCall - Method name must be a string, not a '{}'", getString(t, -1));
-	}
-
-	auto methodName = t.stack[t.stackIndex - 1].mString;
-	pop(t);
-
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
-
-	auto self = &t.stack[absSlot];
-
-	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
-	return commonCall(t, absSlot, numReturns, tmp);
-}
-
-/**
-Performs a super call.  This function will only work if the currently-executing function was called as
-a method of a value of type 'object'.
-
-This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
-thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
-It will fill them in (and what it puts in them is really kind of scary).  Regardless, when the super method is
-called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
-
-The process of performing a supercall is not really that much different from other kinds of calls.
-
------
-// Let's translate `super.f(3)` into API calls.
-
-// 1. Push a null.
-auto slot = pushNull(t);
-
-// 2. Push another null.  You can'_t call a super method with a custom 'this'.
-pushNull(t);
-
-// 3. Push any params.
-pushInt(t, 3);
-
-// 4. Call it with the method name.
-superCall(t, slot, "f", 0);
-
-// We didn'_t ask for any return values, so the stack is how it was before we began.
------
-
-Params:
-	slot = The first empty _slot.  There should be another one on top of it.  Then come any parameters.
-	name = The _name of the method to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
-
-Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
-	not exactly useful since you already know it).
-*/
-uword superCall(MDThread* t, word slot, char[] name, word numReturns)
-{
-	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
-
-	// Get num params
-	auto absSlot = fakeToAbs(t, slot);
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwException(t, "superCall - invalid number of returns (must be >= -1)");
-
-	// Get this
-	auto _this = &t.stack[t.stackBase];
-
-	if(_this.type != MDValue.Type.Object)
-	{
-		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
-	}
-
-	// Do the call
-	auto methodName = string.create(t.vm, name);
-	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
-	return commonCall(t, absSlot, numReturns, ret);
-}
-
-/**
-Same as above, but expects the method name to be at the top of the stack (after the parameters).
-
-The parameters and return value are the same as above.
-*/
-uword superCall(MDThread* t, word slot, word numReturns)
-{
-	// Get the method name
-	checkNumParams(t, 1);
-	auto absSlot = fakeToAbs(t, slot);
-
-	if(!isString(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwException(t, "superCall - Method name must be a string, not a '{}'", getString(t, -1));
-	}
-
-	auto methodName = t.stack[t.stackIndex - 1].mString;
-	pop(t);
-
-	// Invalid call?
-	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
-
-	// Get num params
-	auto numParams = t.stackIndex - (absSlot + 1);
-
-	if(numParams < 1)
-		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
-
-	if(numReturns < -1)
-		throwException(t, "superCall - invalid number of returns (must be >= -1)");
-
-	// Get this
-	auto _this = &t.stack[t.stackBase];
-
-	if(_this.type != MDValue.Type.Object)
-	{
-		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
-	}
-
-	// Do the call
-	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
-	return commonCall(t, absSlot, numReturns, ret);
-}
-
-/**
-Sets an upvalue in the currently-executing closure.  The upvalue is set to the value on top of the
-stack, which is popped.
-
-This function will fail if called at top-level (that is, outside of any executing closures).
-
-Params:
-	idx = The index of the upvalue to set.
-*/
-void setUpval(MDThread* t, uword idx)
-{
-	if(t.arIndex == 0)
-		throwException(t, "setUpval - No function to set upvalue (can't call this function at top level)");
-
-	checkNumParams(t, 1);
-
-	auto upvals = t.currentAR.func.nativeUpvals();
-
-	if(idx >= upvals.length)
-		throwException(t, "setUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
-
-	upvals[idx] = *getValue(t, -1);
-	pop(t);
-}
-
-/**
-Pushes an upvalue from the currently-executing closure.
-
-This function will fail if called at top-level (that is, outside of any executing closures).
-
-Params:
-	idx = The index of the upvalue to set.
-	
-Returns:
-	The stack index of the newly-pushed value.
-*/
-word getUpval(MDThread* t, uword idx)
-{
-	if(t.arIndex == 0)
-		throwException(t, "getUpval - No function to get upvalue (can't call this function at top level)");
-
-	assert(t.currentAR.func.isNative, "getUpval used on a non-native func");
-
-	auto upvals = t.currentAR.func.nativeUpvals();
-
-	if(idx >= upvals.length)
-		throwException(t, "getUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
-
-	return push(t, upvals[idx]);
 }
 
 /**
@@ -1165,6 +940,14 @@ bool isNativeObj(MDThread* t, word slot)
 }
 
 /**
+Sees if the value at the given _slot is a weak reference.
+*/
+bool isWeakRef(MDThread* t, word slot)
+{
+	return type(t, slot) == MDValue.Type.WeakRef;
+}
+
+/**
 Gets the truth value of the value at the given _slot.  null, false, integer 0, floating point 0.0,
 and character '\0' are considered false; everything else is considered true.  This is the same behavior
 as within the language.
@@ -1180,17 +963,6 @@ Gets the _type of the value at the given _slot.
 MDValue.Type type(MDThread* t, word slot)
 {
 	return getValue(t, slot).type;
-}
-
-/**
-Pushes the string representation of the type of the value at the given _slot.
-
-Returns:
-	The stack index of the newly-pushed string.
-*/
-word pushTypeString(MDThread* t, word slot)
-{
-	return typeString(t, getValue(t, slot));
 }
 
 /**
@@ -1316,115 +1088,416 @@ Object getNativeObj(MDThread* t, word slot)
 	return v.mNativeObj.obj;
 }
 
+// Statements
+
 /**
-Finds out how many extra values an object has (see newObject for info on that).  Throws an error
-if the value at the given _slot isn'_t an object.
+An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
+could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
+for writing native MiniD libraries.
+
+Say you had a function which opened a file:
+
+-----
+File f = OpenFile("filename");
+-----
+
+Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
+stack traces about) exceptions which derive from MDException, any exceptions that this throws would just percolate
+up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
+you call a lot of native functions.
+
+Instead, you can wrap the call to this unsafe function with a call to safeCode().
+
+-----
+File f = safeCode(t, OpenFile("filename"));
+-----
+
+What safeCode() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
+the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
+an exception that derives from Exception, it throws a new MDException with the original exception's message as the
+message.
+
+If you want to wrap statements, you can use a delegate literal:
+
+-----
+safeCode(t,
+{
+	stmt1;
+	stmt2;
+	stmt3;
+}());
+-----
+
+Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
+parameter.  If you don't put the parens there, it will never actually call the delegate.
+
+safeCode() is templated to allow any return value.
 
 Params:
-	slot = The stack index of the object whose number of values is to be retrieved.
+	code = The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
+		safeCode.
 
 Returns:
-	The number of extra values associated with the given object.
+	Whatever the code parameter returns.
 */
-uword numExtraVals(MDThread* t, word slot)
+T safeCode(T)(MDThread* t, lazy T code)
 {
-	if(auto o = getObject(t, slot))
-		return o.numValues;
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "numExtraVals - expected 'object' but got '{}'", getString(t, -1));
-	}
-		
+	try
+		return code;
+	catch(MDException e)
+		throw e;
+	catch(Exception e)
+		throwException(t, "{}", e);
+
 	assert(false);
 }
 
 /**
-Pushes the idx th extra value from the object at the given _slot.  Throws an error if the value at
-the given _slot isn'_t an object, or if the index is out of bounds.
+This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
+It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
+manipulations.
+
+To use this, first you push the container -- what you would normally put on the right side
+of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
+values, and if the first value is not a function, opApply is called on it with the second
+value as a user parameter.
+
+Then you can create an instance of this struct using the static opCall and iterate over it
+with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
+stack slots that hold those values.  You can break out of the loop just as you'd expect,
+and you can perform any manipulations you'd like in the loop body.
+
+Example:
+-----
+// 1. Push the container.  We're just iterating through modules.customLoaders.
+lookup(t, "modules.customLoaders");
+
+// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
+// of items in the container.  We only pushed one value for the container, so we pass 1.
+// Note that you must specify the index types (which must all be word), or else D can't infer
+// the types for them.
+
+foreach(word k, word v; foreachLoop(t, 1))
+{
+	// 3. Do whatever you want with k and v.
+	pushToString(t, k);
+	pushToString(t, v);
+	Stdout.formatln("{}: {}", getString(t, -2), getString(t, -1));
+
+	// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
+	pop(t, 2);
+}
+-----
+
+Note a few things: the foreach loop will pop the container off the stack, so the above code is
+stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
+pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
+foreachLoop keeps internal loop data there, but stack indices that were valid before the loop started
+will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
+like in MiniD where an implicit index will be inserted before that one, and you will get the second
+indices in v instead of the first.
+*/
+struct foreachLoop
+{
+	MDThread* t;
+	uword numSlots;
+
+	/**
+	The struct constructor.
+	
+	Params:
+		numSlots = How many slots on top of the stack should be interpreted as the container.  Must be
+			1, 2, or 3.
+	*/
+	public static foreachLoop opCall(MDThread* t, uword numSlots)
+	{
+		foreachLoop ret = void;
+		ret.t = t;
+		ret.numSlots = numSlots;
+		return ret;
+	}
+
+	/**
+	The function that makes everything work.  This is templated to allow any number of indices, but
+	the downside to that is that you must specify the types of the indices in the foreach loop that
+	iterates over this structure.  All the indices must be of type 'word'.
+	*/
+	public int opApply(T)(T dg)
+	{
+		alias Unique!(ParameterTupleOf!(T)) TypeTest;
+		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");
+		alias ParameterTupleOf!(T) Indices;
+
+		static if(Indices.length == 1)
+		{
+			const numIndices = 2;
+			const numParams = 1;
+		}
+		else
+		{
+			const numIndices = Indices.length;
+			const numParams = Indices.length;
+		}
+
+		if(numSlots < 1 || numSlots > 3)
+			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
+
+		checkNumParams(t, numSlots);
+
+		// Make sure we have 3 stack slots for our temp data area
+		if(numSlots < 3)
+		{
+			pushNull(t);
+			
+			if(numSlots < 2)
+				pushNull(t);
+		}
+
+		// ..and make sure to clean up
+		scope(success)
+			pop(t, 3);
+
+		// Get opApply, if necessary
+		auto src = absIndex(t, -3);
+		auto srcObj = &t.stack[t.stackIndex - 3];
+
+		if(srcObj.type != MDValue.Type.Function)
+		{
+			auto method = getMM(t, srcObj, MM.Apply);
+
+			if(method is null)
+			{
+				typeString(t, srcObj);
+				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+			}
+			
+			version(MDExtendedCoro) {} else
+			{
+				t.nativeCallDepth++;
+				scope(exit) t.nativeCallDepth--;
+			}
+
+			auto reg = pushFunction(t, method);
+			dup(t, src);
+			dup(t, src + 1);
+			rawCall(t, reg, 3);
+			
+			swap(t, src + 2);
+			pop(t);
+			swap(t, src + 1);
+			pop(t);
+			swap(t, src);
+			pop(t);
+		}
+		
+		// Set up the indices tuple
+		Indices idx;
+
+		static if(Indices.length == 1)
+			idx[0] = stackSize(t) + 1;
+		else
+		{
+			foreach(i, T; Indices)
+				idx[i] = stackSize(t) + i;
+		}
+
+		// Do the loop
+		while(true)
+		{
+			auto funcReg = dup(t, src);
+			dup(t, src + 1);
+			dup(t, src + 2);
+			rawCall(t, funcReg, numIndices);
+
+			if(isNull(t, funcReg))
+			{
+				pop(t, numIndices);
+				break;
+			}
+				
+			dup(t, funcReg);
+			swap(t, src + 2);
+			pop(t);
+
+			auto ret = dg(idx);
+			pop(t, numIndices);
+
+			if(ret)
+				return ret;
+		}
+
+		return 0;
+	}
+}
+
+// Exception-related functions
+
+/**
+Throw a MiniD exception using the value at the top of the stack as the exception object.  Any type can
+be thrown.  This will throw an actual D exception of type MDException as well, which can be caught in D
+as normal ($(B Important:) see catchException for information on catching them).
+
+You cannot use this function if another exception is still in flight, that is, it has not yet been caught with
+catchException.  If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
+
+This function obviously does not return.
+*/
+void throwException(MDThread* t)
+{
+	if(t.vm.isThrowing)
+		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
+		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
+
+	checkNumParams(t, 1);
+	throwImpl(t, &t.stack[t.stackIndex - 1]);
+}
+
+/**
+A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
+pushVFormat on the arguments and then throwException.
+*/
+void throwException(MDThread* t, char[] fmt, ...)
+{
+	pushVFormat(t, fmt, _arguments, _argptr);
+	throwException(t);
+}
+
+/**
+When catching MiniD exceptions (those derived from MDException) in D, MiniD doesn'_t know that you've actually caught
+one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
+D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
+you $(B must call this function).  This informs MiniD that you have caught the exception that was in flight, and
+pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
+
+Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
+might be garbage from a half-completed operation.  So you might want to store the size of the stack before a '_try'
+block, then restore it in the 'catch' block so that the stack will be in a consistent state.
+
+An exception must be in flight for this function to work.  If none is in flight, a MiniD exception is thrown. (For
+some reason, that sounds funny.  "Error: there is no error!")
+
+Returns:
+	The stack index of the newly-pushed exception object.
+*/
+word catchException(MDThread* t)
+{
+	if(!t.vm.isThrowing)
+		throwException(t, "catchException - Attempting to catch an exception when none is in flight");
+
+	auto ret = push(t, t.vm.exception);
+	t.vm.exception = MDValue.nullValue;
+	t.vm.isThrowing = false;
+	return ret;
+}
+
+/**
+After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
+thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
+and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
+that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
+work across native functionc calls, in which case the name of the function will be noted but no line number will be
+given since that would be impossible; instead it is marked as "(native)".
+
+When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
+sort of form:
+
+-----
+Traceback: function.that.threw.exception(9)
+        at function.that.called.it(23)
+        at <5 tailcalls>(?)
+        at some.native.function(native)
+-----
+
+Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
+native API manipulations cause an error.
+
+When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
+this function is called again, you will get an empty string.
+
+Returns:
+	The stack index of the newly-pushed traceback string.
+*/
+word getTraceback(MDThread* t)
+{
+	if(t.vm.traceback.length == 0)
+		return pushString(t, "");
+
+	pushString(t, "Traceback: ");
+	pushDebugLocStr(t, t.vm.traceback[0]);
+
+	foreach(ref l; t.vm.traceback[1 .. $])
+	{
+		pushString(t, "\n        at ");
+		pushDebugLocStr(t, l);
+	}
+
+	auto ret = cat(t, t.vm.traceback.length * 2);
+	t.vm.alloc.resizeArray(t.vm.traceback, 0);
+	return ret;
+}
+
+// Variable-related functions
+
+/**
+Sets an upvalue in the currently-executing closure.  The upvalue is set to the value on top of the
+stack, which is popped.
+
+This function will fail if called at top-level (that is, outside of any executing closures).
 
 Params:
-	slot = The object whose value is to be retrieved.
-	idx = The index of the extra value to get.
+	idx = The index of the upvalue to set.
+*/
+void setUpval(MDThread* t, uword idx)
+{
+	if(t.arIndex == 0)
+		throwException(t, "setUpval - No function to set upvalue (can't call this function at top level)");
 
+	checkNumParams(t, 1);
+
+	auto upvals = t.currentAR.func.nativeUpvals();
+
+	if(idx >= upvals.length)
+		throwException(t, "setUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+
+	upvals[idx] = *getValue(t, -1);
+	pop(t);
+}
+
+/**
+Pushes an upvalue from the currently-executing closure.
+
+This function will fail if called at top-level (that is, outside of any executing closures).
+
+Params:
+	idx = The index of the upvalue to set.
+	
 Returns:
 	The stack index of the newly-pushed value.
 */
-word pushExtraVal(MDThread* t, word slot, uword idx)
+word getUpval(MDThread* t, uword idx)
 {
-	if(auto o = getObject(t, slot))
-	{
-		if(idx > o.numValues)
-			throwException(t, "pushExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
+	if(t.arIndex == 0)
+		throwException(t, "getUpval - No function to get upvalue (can't call this function at top level)");
 
-		return push(t, o.extraValues()[idx]);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "pushExtraVal - expected 'object' but got '{}'", getString(t, -1));
-	}
-		
-	assert(false);
+	assert(t.currentAR.func.isNative, "getUpval used on a non-native func");
+
+	auto upvals = t.currentAR.func.nativeUpvals();
+
+	if(idx >= upvals.length)
+		throwException(t, "getUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+
+	return push(t, upvals[idx]);
 }
 
 /**
-Pops the value off the top of the stack and places it in the idx th extra value in the object at the
-given _slot.  Throws an error if the value at the given _slot isn'_t an object, or if the index is out
-of bounds.
-
-Params:
-	slot = The object whose value is to be set.
-	idx = The index of the extra value to set.
-*/
-void setExtraVal(MDThread* t, word slot, uword idx)
-{
-	checkNumParams(t, 1);
-
-	if(auto o = getObject(t, slot))
-	{
-		if(idx > o.numValues)
-			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
-
-		o.extraValues()[idx] = t.stack[t.stackIndex - 1];
-		pop(t);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "setExtraVal - expected 'object' but got '{}'", getString(t, -1));
-	}
-}
-
-/**
-Gets a void array of the extra bytes associated with the object at the given _slot.  If the object has
-no extra bytes, returns null.  Throws an error if the value at the given _slot isn'_t an object.
-
-The returned void array points into the MiniD heap, so you should not store the returned reference
-anywhere.
-
-Params:
-	slot = The object whose data is to be retrieved.
+Pushes the string representation of the type of the value at the given _slot.
 
 Returns:
-	A void array of the data, or null if the object has none.
+	The stack index of the newly-pushed string.
 */
-void[] getExtraBytes(MDThread* t, word slot)
+word pushTypeString(MDThread* t, word slot)
 {
-	if(auto o = getObject(t, slot))
-	{
-		if(o.extraBytes == 0)
-			return null;
-
-		return o.extraData();
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "getExtraBytes - expected 'object' but got '{}'", getString(t, -1));
-	}
-		
-	assert(false);
+	return typeString(t, getValue(t, slot));
 }
 
 /**
@@ -1616,6 +1689,482 @@ bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 	return false;
 }
 
+// Table-related functions
+
+/**
+Removes all items from the given table object.
+
+Params:
+	tab = The stack index of the table object to clear.
+*/
+void clearTable(MDThread* t, word tab)
+{
+	auto tb = getTable(t, tab);
+
+	if(tb is null)
+	{
+		pushTypeString(t, tab);
+		throwException(t, "clearTable - tab must be a table, not a '{}'", getString(t, -1));
+	}
+
+	table.clear(t.vm.alloc, tb);
+}
+
+// Array-related functions
+
+/**
+Fills the array at the given index with the value at the top of the stack and pops that value.
+
+Params:
+	arr = The stack index of the array object to fill.
+*/
+void fillArray(MDThread* t, word arr)
+{
+	checkNumParams(t, 1);
+	auto a = getArray(t, arr);
+
+	if(a is null)
+	{
+		pushTypeString(t, arr);
+		throwException(t, "fillArray - arr must be an array, not a '{}'", getString(t, -1));
+	}
+
+	a.slice[] = t.stack[t.stackIndex - 1];
+	pop(t);
+}
+
+// Function-related functions
+
+/**
+Pushes the environment namespace of a function closure.
+
+Params:
+	func = The stack index of the function whose environment is to be retrieved.
+
+Returns:
+	The stack index of the newly-pushed environment namespace.
+*/
+word getFuncEnv(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return pushNamespace(t, f.environment);
+
+	pushTypeString(t, func);
+	throwException(t, "getFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
+that namespace off the stack.
+
+Params:
+	func = The stack index of the function whose environment is to be set.
+*/
+void setFuncEnv(MDThread* t, word func)
+{
+	checkNumParams(t, 1);
+
+	auto ns = getNamespace(t, -1);
+
+	if(ns is null)
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFuncEnv - Expected 'namespace' for environment, not '{}'", getString(t, -1));
+	}
+
+	auto f = getFunction(t, func);
+
+	if(f is null)
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+	}
+
+	f.environment = ns;
+	pop(t);
+}
+
+/**
+Gets the name of the function at the given stack index.  This is the name given in the declaration
+of the function if it's a script function, or the name given to newFunction for native functions.
+Some functions, like top-level module functions and nameless function literals, have automatically-
+generated names which always start and end with angle brackets ($(LT) and $(GT)).
+*/
+char[] funcName(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return f.name.toString();
+
+	pushTypeString(t, func);
+	throwException(t, "funcName - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets the number of parameters that the function at the given stack index takes.  This is the number
+of non-variadic arguments, not including 'this'.  For native functions, always returns 0.
+*/
+uword funcNumParams(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return .func.numParams(f);
+
+	pushTypeString(t, func);
+	throwException(t, "funcNumParams - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets whether or not the given function takes variadic arguments.  For native functions, always returns
+true.
+*/
+bool funcIsVararg(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return .func.isVararg(f);
+
+	pushTypeString(t, func);
+	throwException(t, "funcIsVararg - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets whether or not the given function is a native function.
+*/
+bool funcIsNative(MDThread* t, word func)
+{
+	if(auto f = getFunction(t, func))
+		return .func.isNative(f);
+
+	pushTypeString(t, func);
+	throwException(t, "funcIsNative - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+// Object-specific functions
+
+/**
+Finds out how many extra values an object has (see newObject for info on that).  Throws an error
+if the value at the given _slot isn'_t an object.
+
+Params:
+	slot = The stack index of the object whose number of values is to be retrieved.
+
+Returns:
+	The number of extra values associated with the given object.
+*/
+uword numExtraVals(MDThread* t, word slot)
+{
+	if(auto o = getObject(t, slot))
+		return o.numValues;
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "numExtraVals - expected 'object' but got '{}'", getString(t, -1));
+	}
+		
+	assert(false);
+}
+
+/**
+Pushes the idx th extra value from the object at the given _slot.  Throws an error if the value at
+the given _slot isn'_t an object, or if the index is out of bounds.
+
+Params:
+	slot = The object whose value is to be retrieved.
+	idx = The index of the extra value to get.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+word pushExtraVal(MDThread* t, word slot, uword idx)
+{
+	if(auto o = getObject(t, slot))
+	{
+		if(idx > o.numValues)
+			throwException(t, "pushExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
+
+		return push(t, o.extraValues()[idx]);
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "pushExtraVal - expected 'object' but got '{}'", getString(t, -1));
+	}
+		
+	assert(false);
+}
+
+/**
+Pops the value off the top of the stack and places it in the idx th extra value in the object at the
+given _slot.  Throws an error if the value at the given _slot isn'_t an object, or if the index is out
+of bounds.
+
+Params:
+	slot = The object whose value is to be set.
+	idx = The index of the extra value to set.
+*/
+void setExtraVal(MDThread* t, word slot, uword idx)
+{
+	checkNumParams(t, 1);
+
+	if(auto o = getObject(t, slot))
+	{
+		if(idx > o.numValues)
+			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
+
+		o.extraValues()[idx] = t.stack[t.stackIndex - 1];
+		pop(t);
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "setExtraVal - expected 'object' but got '{}'", getString(t, -1));
+	}
+}
+
+/**
+Gets a void array of the extra bytes associated with the object at the given _slot.  If the object has
+no extra bytes, returns null.  Throws an error if the value at the given _slot isn'_t an object.
+
+The returned void array points into the MiniD heap, so you should not store the returned reference
+anywhere.
+
+Params:
+	slot = The object whose data is to be retrieved.
+
+Returns:
+	A void array of the data, or null if the object has none.
+*/
+void[] getExtraBytes(MDThread* t, word slot)
+{
+	if(auto o = getObject(t, slot))
+	{
+		if(o.extraBytes == 0)
+			return null;
+
+		return o.extraData();
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "getExtraBytes - expected 'object' but got '{}'", getString(t, -1));
+	}
+		
+	assert(false);
+}
+
+/**
+Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
+about to be collected by the garbage collector and is used to clean up limited resources associated with it
+(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
+as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
+ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
+the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+function will $(B not) be run again.
+
+When you clone objects from this object, their finalizer will be set to the same function.
+
+This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
+function from an object, the value at the top of the stack can be null.
+
+Params:
+	obj = The object whose finalizer is to be set.
+*/
+void setFinalizer(MDThread* t, word obj)
+{
+	checkNumParams(t, 1);
+
+	if(!(isNull(t, -1) || isFunction(t, -1)))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+	}
+
+	auto o = getObject(t, obj);
+
+	if(o is null)
+	{
+		pushTypeString(t, obj);
+		throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+	}
+
+	if(isNull(t, -1))
+		o.finalizer = null;
+	else
+		o.finalizer = getFunction(t, -1);
+
+	pop(t);
+}
+
+/**
+Pushes the finalizer function associated with the given object, or null if no finalizer is set for
+that object.
+
+Params:
+	obj = The object whose finalizer is to be retrieved.
+
+Returns:
+	The stack index of the newly-pushed finalizer function (or null if the object has none).
+*/
+word pushFinalizer(MDThread* t, word obj)
+{
+	if(auto o = getObject(t, obj))
+	{
+		if(o.finalizer)
+			return pushFunction(t, o.finalizer);
+		else
+			return pushNull(t);
+	}
+
+	pushTypeString(t, obj);
+	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets the name of the object at the given stack index.
+*/
+char[] objName(MDThread* t, word obj)
+{
+	if(auto o = getObject(t, obj))
+		return o.name.toString();
+
+	pushTypeString(t, obj);
+	throwException(t, "objName - Expected 'object', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+// Namespace-related functions
+
+/**
+Removes all items from the given namespace object.
+
+Params:
+	ns = The stack index of the namespace object to clear.
+*/
+void clearNamespace(MDThread* t, word ns)
+{
+	auto n = getNamespace(t, ns);
+
+	if(n is null)
+	{
+		pushTypeString(t, ns);
+		throwException(t, "clearNamespace - ns must be a namespace, not a '{}'", getString(t, -1));
+	}
+
+	namespace.clear(t.vm.alloc, n);
+}
+
+/**
+Removes the key value at the top of the stack from the given object.  The key value
+is popped.  The object must be a namespace or table.
+*/
+void removeKey(MDThread* t, word obj)
+{
+	checkNumParams(t, 1);
+
+	if(auto tab = getTable(t, obj))
+	{
+		pushTable(t, tab);
+		dup(t, -2);
+		pushNull(t);
+		idxa(t, -3);
+		pop(t, 2);
+	}
+	else if(auto ns = getNamespace(t, obj))
+	{
+		if(!isString(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "removeKey - key must be a string, not a '{}'", getString(t, -1));
+		}
+
+		if(!opin(t, -1, obj))
+		{
+			pushToString(t, obj);
+			throwException(t, "removeKey - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
+		}
+
+		namespace.remove(ns, getStringObj(t, -1));
+		pop(t);
+	}
+	else
+	{
+		pushTypeString(t, obj);
+		throwException(t, "removeKey - obj must be a namespace or table, not a '{}'", getString(t, -1));
+	}
+}
+
+/**
+Gets the name of the namespace at the given stack index.
+*/
+char[] namespaceName(MDThread* t, word ns)
+{
+	if(auto n = getNamespace(t, ns))
+		return n.name.toString();
+
+	pushTypeString(t, ns);
+	throwException(t, "namespaceName - Expected 'namespace', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Pushes the "full" name of the given namespace, which includes all the parent namespace name components,
+separated by dots.
+
+Returns:
+	The stack index of the newly-pushed name string.
+*/
+word namespaceFullname(MDThread* t, word ns)
+{
+	if(auto n = getNamespace(t, ns))
+		return pushNamespaceNamestring(t, n);
+
+	pushTypeString(t, ns);
+	throwException(t, "namespaceFullname - Expected 'namespace', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+// Thread-specific stuff
+
+/**
+Gets the current coroutine state of the thread as a member of the MDThread.State enumeration.
+*/
+MDThread.State state(MDThread* t)
+{
+	return t.state;
+}
+
+/**
+Gets a string representation of the current coroutine state of the thread.
+
+The string returned is not on the MiniD heap, it's just a string literal.
+*/
+char[] stateString(MDThread* t)
+{
+	return MDThread.StateStrings[t.state];
+}
+
+/**
+Gets the VM that the thread is associated with.
+*/
+MDVM* getVM(MDThread* t)
+{
+	return t.vm;
+}
+
 /**
 Find how many calls deep the currently-executing function is nested.  Tailcalls are taken into account.
 
@@ -1645,6 +2194,191 @@ uword stackSize(MDThread* t)
 }
 
 /**
+Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
+
+Params:
+	slot = The stack index of the thread to be reset.  It must be in the 'dead' state.
+	newFunction = If true, a function should be on top of the stack which should serve as the new body of the
+		coroutine.  The default is false, in which case the coroutine will use the function with which it was
+		created.
+*/
+void resetThread(MDThread* t, word slot, bool newFunction = false)
+{
+	auto other = getThread(t, slot);
+
+	if(other is null)
+	{
+		pushTypeString(t, slot);
+		throwException(t, "resetThread - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
+	}
+
+	if(state(other) != MDThread.State.Dead)
+		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+
+	if(newFunction)
+	{
+		checkNumParams(t, 1);
+
+		auto f = getFunction(t, -1);
+
+		if(f is null)
+		{
+			pushTypeString(t, -1);
+			throwException(t, "resetThread - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+		}
+
+		version(MDRestrictedCoro)
+		{
+			if(f.isNative)
+				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
+		}
+
+		other.coroFunc = f;
+		pop(t);
+	}
+
+	version(MDRestrictedCoro) {} else
+	{
+		if(other.coroFiber)
+		{
+			assert(other.getFiber().state == Fiber.State.TERM);
+			other.getFiber().reset();
+		}
+	}
+
+	other.state = MDThread.State.Initial;
+}
+
+version(MDRestrictedCoro) {} else
+{
+	/**
+	Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
+	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
+	extended mode, it will always work.
+
+	You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
+	a VM.
+	
+	This function works very similarly to the call functions.  You push the values that you want to yield on the stack,
+	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
+	resumed with, and that many values will be on the stack.
+
+	Example:
+-----
+// Let's translate `x = yield(5, "hi")` into API calls.
+
+// 1. Push the values to be yielded.
+pushInt(t, 5);
+pushString(t, "hi");
+
+// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
+yield(t, 2, 1);
+
+// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
+// stack is back the way it was when we started.
+setGlobal(t, "x");
+-----
+
+	Params:
+		numVals = The number of values that you are yielding.  These values should be on top of the stack, in order.
+		numReturns = The number of return values you are expecting, or -1 for as many returns as you can get.
+
+	Returns:
+		How many values were returned.  If numReturns was >= 0, this is the same as numReturns.
+	*/
+	uword yield(MDThread* t, uword numVals, word numReturns)
+	{
+		checkNumParams(t, numVals);
+
+		if(t is t.vm.mainThread)
+			throwException(t, "yield - Attempting to yield out of the main thread");
+
+		version(MDExtendedCoro) {} else
+		{
+			if(t.coroFiber is null)
+				throwException(t, "yield - Attempting to yield out of a script coroutine");
+		}
+
+		if(Fiber.getThis() !is t.getFiber())
+			throwException(t, "yield - Attempting to yield the wrong thread");
+
+		if(numReturns < -1)
+			throwException(t, "yield - invalid number of returns (must be >= -1)");
+
+		auto slot = t.stackIndex - numVals;
+
+		yieldImpl(t, slot, numReturns, numVals);
+
+		if(numReturns == -1)
+			return t.stackIndex - slot;
+		else
+		{
+			t.stackIndex = slot + numReturns;
+			return numReturns;
+		}
+	}
+}
+
+/**
+Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
+otherwise, places a pending halt on the thread.
+*/
+void haltThread(MDThread* t)
+{
+	if(state(t) == MDThread.State.Running)
+		throw new MDHaltException();
+	else
+		pendingHalt(t);
+}
+
+/**
+Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
+*/
+void pendingHalt(MDThread* t)
+{
+	if(state(t) != MDThread.State.Dead && t.arIndex > 0)
+		t.shouldHalt = true;
+}
+
+/**
+Sees if the given thread has a pending halt.
+*/
+bool hasPendingHalt(MDThread* t)
+{
+	return t.shouldHalt;
+}
+
+// Weakref-related functions
+
+/**
+Dereferences the weak reference object at the given stack index and pushes the value it
+refers to.  If the value it refers to has been collected, pushes "null" instead.
+
+Params:
+	idx = The stack index of the weak reference object to dereference.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+word deref(MDThread* t, word idx)
+{
+	auto r = getWeakRef(t, idx);
+
+	if(r is null)
+	{
+		pushTypeString(t, idx);
+		throwException(t, "deref - idx must be a weakref, not a '{}'", getString(t, -1));
+	}
+
+	if(auto o = r.obj)
+		return push(t, MDValue(o));
+	else
+		return pushNull(t);
+}
+
+// Atomic MiniD operations
+
+/**
 Push a string representation of any MiniD value onto the stack.
 
 Params:
@@ -1668,7 +2402,7 @@ See if item is in container.  Works like the MiniD 'in' operator.  Calls opIn me
 Params:
 	item = The _item to look for (the lhs of 'in').
 	container = The _object in which to look (the rhs of 'in').
-	
+
 Returns:
 	true if item is in container, false otherwise.
 */
@@ -2397,230 +3131,273 @@ word superOf(MDThread* t, word slot)
 	return push(t, superOfImpl(t, getValue(t, slot)));
 }
 
-/**
-Throw a MiniD exception using the value at the top of the stack as the exception object.  Any type can
-be thrown.  This will throw an actual D exception of type MDException as well, which can be caught in D
-as normal ($(B Important:) see catchException for information on catching them).
-
-You cannot use this function if another exception is still in flight, that is, it has not yet been caught with
-catchException.  If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
-
-This function obviously does not return.
-*/
-void throwException(MDThread* t)
-{
-	if(t.vm.isThrowing)
-		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
-		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
-
-	checkNumParams(t, 1);
-	throwImpl(t, &t.stack[t.stackIndex - 1]);
-}
+// Function calling
 
 /**
-A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
-pushVFormat on the arguments and then throwException.
-*/
-void throwException(MDThread* t, char[] fmt, ...)
-{
-	pushVFormat(t, fmt, _arguments, _argptr);
-	throwException(t);
-}
+Calls the object at the given _slot.  The parameters (including 'this') are assumed to be all the
+values after that _slot to the top of the stack.
 
-/**
-When catching MiniD exceptions (those derived from MDException) in D, MiniD doesn'_t know that you've actually caught
-one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
-D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
-you $(B must call this function).  This informs MiniD that you have caught the exception that was in flight, and
-pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
+The 'this' parameter is, according to the language specification, null if no explicit context is given.
+You must still push this null value, however.
 
-Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
-might be garbage from a half-completed operation.  So you might want to store the size of the stack before a '_try'
-block, then restore it in the 'catch' block so that the stack will be in a consistent state.
-
-An exception must be in flight for this function to work.  If none is in flight, a MiniD exception is thrown. (For
-some reason, that sounds funny.  "Error: there is no error!")
-
-Returns:
-	The stack index of the newly-pushed exception object.
-*/
-word catchException(MDThread* t)
-{
-	if(!t.vm.isThrowing)
-		throwException(t, "catchException - Attempting to catch an exception when none is in flight");
-
-	auto ret = push(t, t.vm.exception);
-	t.vm.exception = MDValue.nullValue;
-	t.vm.isThrowing = false;
-	return ret;
-}
-
-/**
-After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
-thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
-and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
-that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
-work across native functionc calls, in which case the name of the function will be noted but no line number will be
-given since that would be impossible; instead it is marked as "(native)".
-
-When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
-sort of form:
+An example of calling a function:
 
 -----
-Traceback: function.that.threw.exception(9)
-        at function.that.called.it(23)
-        at <5 tailcalls>(?)
-        at some.native.function(native)
+// Let's translate `x = f(5, "hi")` into API calls.
+
+// 1. Push the function (or any callable object -- like objects, threads).
+auto slot = pushGlobal(t, "f");
+
+// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
+// put a 'with', so 'null' will be used as the context.
+pushNull(t);
+
+// 3. Push any params.
+pushInt(t, 5);
+pushString(t, "hi");
+
+// 4. Call it.
+rawCall(t, slot, 1);
+
+// 5. Do something with the return values.  setGlobal pops the return value off the stack, so now the
+// stack is back the way it was when we started.
+setGlobal(t, "x");
 -----
 
-Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
-native API manipulations cause an error.
-
-When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
-this function is called again, you will get an empty string.
+Params:
+	slot = The _slot containing the object to call.
+	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
 
 Returns:
-	The stack index of the newly-pushed traceback string.
+	The number of return values given by the function.  If numReturns was -1, this is exactly how
+	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	not exactly useful since you already know it).
 */
-word getTraceback(MDThread* t)
+uword rawCall(MDThread* t, word slot, word numReturns)
 {
-	if(t.vm.traceback.length == 0)
-		return pushString(t, "");
+	auto absSlot = fakeToAbs(t, slot);
+	auto numParams = t.stackIndex - (absSlot + 1);
 
-	pushString(t, "Traceback: ");
-	pushDebugLocStr(t, t.vm.traceback[0]);
+	if(numParams < 1)
+		throwException(t, "rawCall - too few parameters (must have at least 1 for the context)");
 
-	foreach(ref l; t.vm.traceback[1 .. $])
-	{
-		pushString(t, "\n        at ");
-		pushDebugLocStr(t, l);
-	}
+	if(numReturns < -1)
+		throwException(t, "rawCall - invalid number of returns (must be >= -1)");
 
-	auto ret = cat(t, t.vm.traceback.length * 2);
-	t.vm.alloc.resizeArray(t.vm.traceback, 0);
-	return ret;
+	return commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams, null));
 }
 
 /**
-Push the metatable for the given type.  If the type has no metatable, pushes null.  The type given must be
-one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
+Calls a method of an object at the given _slot.  The parameters (including a spot for 'this') are assumed
+to be all the values after that _slot to the top of the stack.
+
+This function behaves identically to a method call within the language, including calling opMethod
+metamethods if the method is not found.
+
+The process of calling a method is very similar to calling a normal function.
+
+-----
+// Let's translate `o.f(3)` into API calls.
+
+// 1. Push the object on which the method will be called.
+auto slot = pushGlobal(t, "o");
+
+// 2. Make room for 'this'.  If you want to call the method with a custom 'this', push it here.
+// Otherwise, we'll let MiniD figure out the 'this' and we can just push null.
+pushNull(t);
+
+// 3. Push any params.
+pushInt(t, 3);
+
+// 4. Call it with the method name.  We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
+methodCall(t, slot, "f", 0);
+
+// We didn'_t ask for any return values, so the stack is how it was before we began.
+-----
 
 Params:
-	type = The type whose metatable is to be pushed.
+	slot = The _slot containing the object on which the method will be called.
+	name = The _name of the method to call.
+	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
+	customThis = If true, the 'this' parameter you push after the object will be respected and
+		passed as 'this' to the method (though the method will still be looked up in the object).
+		The default is false, where the context will be determined automatically (i.e. it's
+		the object on which the method is being called).
 
 Returns:
-	The stack index of the newly-pushed value (null if the type has no metatable, or a namespace if it does).
+	The number of return values given by the function.  If numReturns was -1, this is exactly how
+	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	not exactly useful since you already know it).
 */
-word pushTypeMT(MDThread* t, MDValue.Type type)
+uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
 {
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, "pushTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
+	auto absSlot = fakeToAbs(t, slot);
+	auto numParams = t.stackIndex - (absSlot + 1);
 
-	if(auto ns = t.vm.metaTabs[cast(uword)type])
-		return pushNamespace(t, ns);
-	else
-		return pushNull(t);
+	if(numParams < 1)
+		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
+
+	if(numReturns < -1)
+		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
+
+	auto self = &t.stack[absSlot];
+	auto methodName = string.create(t.vm, name);
+
+	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
+	return commonCall(t, absSlot, numReturns, tmp);
 }
 
 /**
-Sets the metatable for the given type to the namespace or null at the top of the stack.  Throws an
-error if the type given is one of the "internal" types, or if the value at the top of the stack is
-neither null nor a namespace.
+Same as above, but expects the name of the method to be on top of the stack (after the parameters).
 
-Params:
-	type = The type whose metatable is to be set.
+The parameters and return value are the same as above.
 */
-void setTypeMT(MDThread* t, MDValue.Type type)
+uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
 {
 	checkNumParams(t, 1);
+	auto absSlot = fakeToAbs(t, slot);
 
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, "setTypeMT - Cannot set metatable for type '{}'", MDValue.typeString(type));
-
-	auto v = getValue(t, -1);
-
-	if(v.type == MDValue.Type.Namespace)
-		t.vm.metaTabs[cast(uword)type] = v.mNamespace;
-	else if(v.type == MDValue.Type.Null)
-		t.vm.metaTabs[cast(uword)type] = null;
-	else
+	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setTypeMT - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
+		throwException(t, "methodCall - Method name must be a string, not a '{}'", getString(t, -1));
 	}
 
+	auto methodName = t.stack[t.stackIndex - 1].mString;
 	pop(t);
+
+	auto numParams = t.stackIndex - (absSlot + 1);
+
+	if(numParams < 1)
+		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
+
+	if(numReturns < -1)
+		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
+
+	auto self = &t.stack[absSlot];
+
+	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
+	return commonCall(t, absSlot, numReturns, tmp);
 }
 
 /**
-Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
-about to be collected by the garbage collector and is used to clean up limited resources associated with it
-(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
-as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
-garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
-ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
-the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
-function will $(B not) be run again.
+Performs a super call.  This function will only work if the currently-executing function was called as
+a method of a value of type 'object'.
 
-When you clone objects from this object, their finalizer will be set to the same function.
+This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
+thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
+It will fill them in (and what it puts in them is really kind of scary).  Regardless, when the super method is
+called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
 
-This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
-function from an object, the value at the top of the stack can be null.
+The process of performing a supercall is not really that much different from other kinds of calls.
 
-Params:
-	obj = The object whose finalizer is to be set.
-*/
-void setFinalizer(MDThread* t, word obj)
-{
-	checkNumParams(t, 1);
+-----
+// Let's translate `super.f(3)` into API calls.
 
-	if(!(isNull(t, -1) || isFunction(t, -1)))
-	{
-		pushTypeString(t, -1);
-		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
-	}
+// 1. Push a null.
+auto slot = pushNull(t);
 
-	auto o = getObject(t, obj);
+// 2. Push another null.  You can'_t call a super method with a custom 'this'.
+pushNull(t);
 
-	if(o is null)
-	{
-		pushTypeString(t, obj);
-		throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
-	}
+// 3. Push any params.
+pushInt(t, 3);
 
-	if(isNull(t, -1))
-		o.finalizer = null;
-	else
-		o.finalizer = getFunction(t, -1);
+// 4. Call it with the method name.
+superCall(t, slot, "f", 0);
 
-	pop(t);
-}
-
-/**
-Pushes the finalizer function associated with the given object, or null if no finalizer is set for
-that object.
+// We didn'_t ask for any return values, so the stack is how it was before we began.
+-----
 
 Params:
-	obj = The object whose finalizer is to be retrieved.
+	slot = The first empty _slot.  There should be another one on top of it.  Then come any parameters.
+	name = The _name of the method to call.
+	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
 
 Returns:
-	The stack index of the newly-pushed finalizer function (or null if the object has none).
+	The number of return values given by the function.  If numReturns was -1, this is exactly how
+	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	not exactly useful since you already know it).
 */
-word pushFinalizer(MDThread* t, word obj)
+uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 {
-	if(auto o = getObject(t, obj))
+	// Invalid call?
+	if(t.arIndex == 0 || t.currentAR.proto is null)
+		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
+
+	// Get num params
+	auto absSlot = fakeToAbs(t, slot);
+	auto numParams = t.stackIndex - (absSlot + 1);
+
+	if(numParams < 1)
+		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
+
+	if(numReturns < -1)
+		throwException(t, "superCall - invalid number of returns (must be >= -1)");
+
+	// Get this
+	auto _this = &t.stack[t.stackBase];
+
+	if(_this.type != MDValue.Type.Object)
 	{
-		if(o.finalizer)
-			return pushFunction(t, o.finalizer);
-		else
-			return pushNull(t);
+		pushTypeString(t, 0);
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
 	}
 
-	pushTypeString(t, obj);
-	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
-
-	assert(false);
+	// Do the call
+	auto methodName = string.create(t.vm, name);
+	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	return commonCall(t, absSlot, numReturns, ret);
 }
+
+/**
+Same as above, but expects the method name to be at the top of the stack (after the parameters).
+
+The parameters and return value are the same as above.
+*/
+uword superCall(MDThread* t, word slot, word numReturns)
+{
+	// Get the method name
+	checkNumParams(t, 1);
+	auto absSlot = fakeToAbs(t, slot);
+
+	if(!isString(t, -1))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "superCall - Method name must be a string, not a '{}'", getString(t, -1));
+	}
+
+	auto methodName = t.stack[t.stackIndex - 1].mString;
+	pop(t);
+
+	// Invalid call?
+	if(t.arIndex == 0 || t.currentAR.proto is null)
+		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
+
+	// Get num params
+	auto numParams = t.stackIndex - (absSlot + 1);
+
+	if(numParams < 1)
+		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
+
+	if(numReturns < -1)
+		throwException(t, "superCall - invalid number of returns (must be >= -1)");
+
+	// Get this
+	auto _this = &t.stack[t.stackBase];
+
+	if(_this.type != MDValue.Type.Object)
+	{
+		pushTypeString(t, 0);
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
+	}
+
+	// Do the call
+	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	return commonCall(t, absSlot, numReturns, ret);
+}
+
+// Reflective functions
 
 /**
 Gets the fields namespace of the 'object' at the given slot.  Throws an exception if the object at the given
@@ -2628,7 +3405,7 @@ slot is not an object.
 
 Params:
 	obj = The stack index of the object whose fields are to be retrieved.
-	
+
 Returns:
 	The stack index of the newly-pushed fields namespace.
 */
@@ -2699,229 +3476,6 @@ bool hasMethod(MDThread* t, word obj, char[] methodName)
 	auto n = string.create(t.vm, methodName);
 	auto method = lookupMethod(t, getValue(t, obj), n, proto);
 	return method !is null;
-}
-
-/**
-Pushes the environment namespace of a function closure.
-
-Params:
-	func = The stack index of the function whose environment is to be retrieved.
-
-Returns:
-	The stack index of the newly-pushed environment namespace.
-*/
-word getFuncEnv(MDThread* t, word func)
-{
-	if(auto f = getFunction(t, func))
-		return pushNamespace(t, f.environment);
-
-	pushTypeString(t, func);
-	throwException(t, "getFuncEnv - Expected 'function', not '{}'", getString(t, -1));
-
-	assert(false);
-}
-
-/**
-Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
-that namespace off the stack.
-
-Params:
-	func = The stack index of the function whose environment is to be set.
-*/
-void setFuncEnv(MDThread* t, word func)
-{
-	checkNumParams(t, 1);
-
-	auto ns = getNamespace(t, -1);
-
-	if(ns is null)
-	{
-		pushTypeString(t, -1);
-		throwException(t, "setFuncEnv - Expected 'namespace' for environment, not '{}'", getString(t, -1));
-	}
-
-	auto f = getFunction(t, func);
-
-	if(f is null)
-	{
-		pushTypeString(t, -1);
-		throwException(t, "setFuncEnv - Expected 'function', not '{}'", getString(t, -1));
-	}
-
-	f.environment = ns;
-	pop(t);
-}
-
-/**
-Gets the name of the function at the given stack index.  This is the name given in the declaration
-of the function if it's a script function, or the name given to newFunction for native functions.
-Some functions, like top-level module functions and nameless function literals, have automatically-
-generated names which always start and end with angle brackets ($(LT) and $(GT)).
-*/
-char[] funcName(MDThread* t, word func)
-{
-	if(auto f = getFunction(t, func))
-		return f.name.toString();
-	
-	pushTypeString(t, func);
-	throwException(t, "funcName - Expected 'function', not '{}'", getString(t, -1));
-	
-	assert(false);
-}
-
-/**
-Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
-
-Params:
-	slot = The stack index of the thread to be reset.  It must be in the 'dead' state.
-	newFunction = If true, a function should be on top of the stack which should serve as the new body of the
-		coroutine.  The default is false, in which case the coroutine will use the function with which it was
-		created.
-*/
-void resetThread(MDThread* t, word slot, bool newFunction = false)
-{
-	auto other = getThread(t, slot);
-
-	if(other is null)
-	{
-		pushTypeString(t, slot);
-		throwException(t, "resetThread - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
-	}
-
-	if(state(other) != MDThread.State.Dead)
-		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(other));
-
-	if(newFunction)
-	{
-		checkNumParams(t, 1);
-
-		auto f = getFunction(t, -1);
-
-		if(f is null)
-		{
-			pushTypeString(t, -1);
-			throwException(t, "resetThread - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
-		}
-
-		version(MDRestrictedCoro)
-		{
-			if(f.isNative)
-				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
-		}
-
-		other.coroFunc = f;
-		pop(t);
-	}
-
-	version(MDRestrictedCoro) {} else
-	{
-		if(other.coroFiber)
-		{
-			assert(other.getFiber().state == Fiber.State.TERM);
-			other.getFiber().reset();
-		}
-	}
-
-	other.state = MDThread.State.Initial;
-}
-
-version(MDRestrictedCoro) {} else
-{
-	/**
-	Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
-	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
-	extended mode, it will always work.
-
-	You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
-	a VM.
-	
-	This function works very similarly to the call functions.  You push the values that you want to yield on the stack,
-	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
-	resumed with, and that many values will be on the stack.
-
-	Example:
------
-// Let's translate `x = yield(5, "hi")` into API calls.
-
-// 1. Push the values to be yielded.
-pushInt(t, 5);
-pushString(t, "hi");
-
-// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
-yield(t, 2, 1);
-
-// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
-// stack is back the way it was when we started.
-setGlobal(t, "x");
------
-
-	Params:
-		numVals = The number of values that you are yielding.  These values should be on top of the stack, in order.
-		numReturns = The number of return values you are expecting, or -1 for as many returns as you can get.
-
-	Returns:
-		How many values were returned.  If numReturns was >= 0, this is the same as numReturns.
-	*/
-	uword yield(MDThread* t, uword numVals, word numReturns)
-	{
-		checkNumParams(t, numVals);
-
-		if(t is t.vm.mainThread)
-			throwException(t, "yield - Attempting to yield out of the main thread");
-
-		version(MDExtendedCoro) {} else
-		{
-			if(t.coroFiber is null)
-				throwException(t, "yield - Attempting to yield out of a script coroutine");
-		}
-
-		if(Fiber.getThis() !is t.getFiber())
-			throwException(t, "yield - Attempting to yield the wrong thread");
-
-		if(numReturns < -1)
-			throwException(t, "yield - invalid number of returns (must be >= -1)");
-
-		auto slot = t.stackIndex - numVals;
-
-		yieldImpl(t, slot, numReturns, numVals);
-
-		if(numReturns == -1)
-			return t.stackIndex - slot;
-		else
-		{
-			t.stackIndex = slot + numReturns;
-			return numReturns;
-		}
-	}
-}
-
-/**
-Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
-otherwise, places a pending halt on the thread.
-*/
-void haltThread(MDThread* t)
-{
-	if(state(t) == MDThread.State.Running)
-		throw new MDHaltException();
-	else
-		pendingHalt(t);
-}
-
-/**
-Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
-*/
-void pendingHalt(MDThread* t)
-{
-	if(state(t) != MDThread.State.Dead && t.arIndex > 0)
-		t.shouldHalt = true;
-}
-
-/**
-Sees if the given thread has a pending halt.
-*/
-bool hasPendingHalt(MDThread* t)
-{
-	return t.shouldHalt;
 }
 
 /**
@@ -3011,399 +3565,6 @@ bool hasAttributes(MDThread* t, word obj)
 		return false;
 }
 
-/**
-Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
-module's namespace onto the stack.
-
-Params:
-	name = The name of the module to be imported.
-
-Returns:
-	The stack index of the imported module's namespace.
-*/
-word importModule(MDThread* t, char[] name)
-{
-	pushString(t, name);
-	importModule(t, -1);
-	insertAndPop(t, -2);
-	return stackSize(t) - 1;
-}
-
-/**
-Same as above, but uses a name on the stack rather than one provided as a parameter.
-
-Params:
-	name = The stack index of the string holding the name of the module to be imported.
-	
-Returns:
-	The stack index of the imported module's namespace.
-*/
-word importModule(MDThread* t, word name)
-{
-	auto str = getStringObj(t, name);
-	
-	if(str is null)
-	{
-		pushTypeString(t, name);
-		throwException(t, "importModule - name must be a 'string', not a '{}'", getString(t, -1));
-	}
-
-	pushNull(t);
-	importImpl(t, str, t.stackIndex - 1);
-
-	return stackSize(t) - 1;
-}
-
-/**
-An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
-could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
-for writing native MiniD libraries.
-
-Say you had a function which opened a file:
-
------
-File f = OpenFile("filename");
------
-
-Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
-stack traces about) exceptions which derive from MDException, any exceptions that this throws would just percolate
-up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
-you call a lot of native functions.
-
-Instead, you can wrap the call to this unsafe function with a call to safeCode().
-
------
-File f = safeCode(t, OpenFile("filename"));
------
-
-What safeCode() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
-the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
-an exception that derives from Exception, it throws a new MDException with the original exception's message as the
-message.
-
-If you want to wrap statements, you can use a delegate literal:
-
------
-safeCode(t,
-{
-	stmt1;
-	stmt2;
-	stmt3;
-}());
------
-
-Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
-parameter.  If you don't put the parens there, it will never actually call the delegate.
-
-safeCode() is templated to allow any return value.
-
-Params:
-	code = The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
-		safeCode.
-
-Returns:
-	Whatever the code parameter returns.
-*/
-T safeCode(T)(MDThread* t, lazy T code)
-{
-	try
-		return code;
-	catch(MDException e)
-		throw e;
-	catch(Exception e)
-		throwException(t, "{}", e);
-
-	assert(false);
-}
-
-/**
-Fills the array at the given index with the value at the top of the stack and pops that value.
-
-Params:
-	arr = The stack index of the array object to fill.
-*/
-void fillArray(MDThread* t, word arr)
-{
-	checkNumParams(t, 1);
-	auto a = getArray(t, arr);
-
-	if(a is null)
-	{
-		pushTypeString(t, arr);
-		throwException(t, "fillArray - arr must be an array, not a '{}'", getString(t, -1));
-	}
-
-	a.slice[] = t.stack[t.stackIndex - 1];
-	pop(t);
-}
-
-/**
-Removes all items from the given namespace object.
-
-Params:
-	ns = The stack index of the namespace object to clear.
-*/
-void clearNamespace(MDThread* t, word ns)
-{
-	auto n = getNamespace(t, ns);
-
-	if(n is null)
-	{
-		pushTypeString(t, ns);
-		throwException(t, "clearNamespace - ns must be a namespace, not a '{}'", getString(t, -1));
-	}
-
-	namespace.clear(t.vm.alloc, n);
-}
-
-/**
-Removes all items from the given table object.
-
-Params:
-	tab = The stack index of the table object to clear.
-*/
-void clearTable(MDThread* t, word tab)
-{
-	auto tb = getTable(t, tab);
-
-	if(tb is null)
-	{
-		pushTypeString(t, tab);
-		throwException(t, "clearTable - tab must be a table, not a '{}'", getString(t, -1));
-	}
-
-	table.clear(t.vm.alloc, tb);
-}
-
-/**
-Dereferences the weak reference object at the given stack index and pushes the value it
-refers to.  If the value it refers to has been collected, pushes "null" instead.
-
-Params:
-	idx = The stack index of the weak reference object to dereference.
-
-Returns:
-	The stack index of the newly-pushed value.
-*/
-word deref(MDThread* t, word idx)
-{
-	auto r = getWeakRef(t, idx);
-
-	if(r is null)
-	{
-		pushTypeString(t, idx);
-		throwException(t, "deref - idx must be a weakref, not a '{}'", getString(t, -1));
-	}
-
-	if(auto o = r.obj)
-		return push(t, MDValue(o));
-	else
-		return pushNull(t);
-}
-
-/**
-This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
-It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
-manipulations.
-
-To use this, first you push the container -- what you would normally put on the right side
-of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
-values, and if the first value is not a function, opApply is called on it with the second
-value as a user parameter.
-
-Then you can create an instance of this struct using the static opCall and iterate over it
-with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
-stack slots that hold those values.  You can break out of the loop just as you'd expect,
-and you can perform any manipulations you'd like in the loop body.
-
-Example:
------
-// 1. Push the container.  We're just iterating through modules.customLoaders.
-lookup(t, "modules.customLoaders");
-
-// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
-// of items in the container.  We only pushed one value for the container, so we pass 1.
-// Note that you must specify the index types (which must all be word), or else D can't infer
-// the types for them.
-
-foreach(word k, word v; foreachLoop(t, 1))
-{
-	// 3. Do whatever you want with k and v.
-	pushToString(t, k);
-	pushToString(t, v);
-	Stdout.formatln("{}: {}", getString(t, -2), getString(t, -1));
-	
-	// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
-	pop(t, 2);
-}
------
-
-Note a few things: the foreach loop will pop the container off the stack, so the above code is
-stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
-pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
-foreachLoop keeps internal loop data there, but stack indices that were valid before the loop started
-will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
-like in MiniD where an implicit index will be inserted before that one, and you will get the second
-indices in v instead of the first.
-*/
-struct foreachLoop
-{
-	MDThread* t;
-	uword numSlots;
-
-	/**
-	The struct constructor.
-	
-	Params:
-		numSlots = How many slots on top of the stack should be interpreted as the container.  Must be
-			1, 2, or 3.
-	*/
-	public static foreachLoop opCall(MDThread* t, uword numSlots)
-	{
-		foreachLoop ret = void;
-		ret.t = t;
-		ret.numSlots = numSlots;
-		return ret;
-	}
-
-	/**
-	The function that makes everything work.  This is templated to allow any number of indices, but
-	the downside to that is that you must specify the types of the indices in the foreach loop that
-	iterates over this structure.  All the indices must be of type 'word'.
-	*/
-	public int opApply(T)(T dg)
-	{
-		alias Unique!(ParameterTupleOf!(T)) TypeTest;
-		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");
-		alias ParameterTupleOf!(T) Indices;
-
-		static if(Indices.length == 1)
-		{
-			const numIndices = 2;
-			const numParams = 1;
-		}
-		else
-		{
-			const numIndices = Indices.length;
-			const numParams = Indices.length;
-		}
-
-		if(numSlots < 1 || numSlots > 3)
-			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
-
-		checkNumParams(t, numSlots);
-
-		// Make sure we have 3 stack slots for our temp data area
-		if(numSlots < 3)
-		{
-			pushNull(t);
-			
-			if(numSlots < 2)
-				pushNull(t);
-		}
-
-		// ..and make sure to clean up
-		scope(success)
-			pop(t, 3);
-
-		// Get opApply, if necessary
-		auto src = absIndex(t, -3);
-		auto srcObj = &t.stack[t.stackIndex - 3];
-
-		if(srcObj.type != MDValue.Type.Function)
-		{
-			auto method = getMM(t, srcObj, MM.Apply);
-
-			if(method is null)
-			{
-				typeString(t, srcObj);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
-			}
-			
-			version(MDExtendedCoro) {} else
-			{
-				t.nativeCallDepth++;
-				scope(exit) t.nativeCallDepth--;
-			}
-
-			auto reg = pushFunction(t, method);
-			dup(t, src);
-			dup(t, src + 1);
-			rawCall(t, reg, 3);
-			
-			swap(t, src + 2);
-			pop(t);
-			swap(t, src + 1);
-			pop(t);
-			swap(t, src);
-			pop(t);
-		}
-		
-		// Set up the indices tuple
-		Indices idx;
-
-		static if(Indices.length == 1)
-			idx[0] = stackSize(t) + 1;
-		else
-		{
-			foreach(i, T; Indices)
-				idx[i] = stackSize(t) + i;
-		}
-
-		// Do the loop
-		while(true)
-		{
-			auto funcReg = dup(t, src);
-			dup(t, src + 1);
-			dup(t, src + 2);
-			rawCall(t, funcReg, numIndices);
-
-			if(isNull(t, funcReg))
-			{
-				pop(t, numIndices);
-				break;
-			}
-				
-			dup(t, funcReg);
-			swap(t, src + 2);
-			pop(t);
-
-			auto ret = dg(idx);
-			pop(t, numIndices);
-
-			if(ret)
-				return ret;
-		}
-
-		return 0;
-	}
-}
-
-/**
-Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
-from native code and which native code may use for any purpose.
-
-Returns:
-	The stack index of the newly-pushed namespace.
-*/
-word pushRegistry(MDThread* t)
-{
-	return pushNamespace(t, t.vm.registry);
-}
-
-// TODO:
-// function:
-// 	[ ] num params
-// 	[ ] is vararg
-// 	[ ] is native
-// 
-// object:
-// 	[ ] get name
-//
-// namespace:
-// 	[ ] removing
-// 	[ ] get name
-
 debug
 {
 	import tango.io.Stdout;
@@ -3464,7 +3625,7 @@ debug
 	absolute stack index of where its variadic args (if any) begin; $(I retSlot) is the absolute stack index where return
 	values (if any) will started to be copied upon that function returning; and $(I numRets) being the number of returns that
 	the calling function expects it to return (-1 meaning "as many as possible").
-	
+
 	This only prints out the current thread's call stack.  It does not take coroutine resumes and yields into account (since
 	that's pretty much impossible).
 	*/
