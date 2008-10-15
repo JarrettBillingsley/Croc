@@ -3391,7 +3391,18 @@ word pushRegistry(MDThread* t)
 	return pushNamespace(t, t.vm.registry);
 }
 
-// TODO: some more ops for some objects, like namespaces?  removeKey?
+// TODO:
+// function:
+// 	[ ] num params
+// 	[ ] is vararg
+// 	[ ] is native
+// 
+// object:
+// 	[ ] get name
+//
+// namespace:
+// 	[ ] removing
+// 	[ ] get name
 
 debug
 {
