@@ -6,7 +6,7 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 import minid.api;
 import minid.bind;
 
-version = TestArc;
+//version = TestArc;
 
 void main()
 {
@@ -153,9 +153,10 @@ static:
 		(
 			"arc.math.point",
 
-			WrapClass!
+			WrapType!
 			(
 				Point,
+				"Point",
 				WrapCtors!(void function(float, float)),
 
 				WrapMethod!(Point.set),

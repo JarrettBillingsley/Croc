@@ -247,7 +247,7 @@ static:
 		{
 			MDString** key = void;
 			MDValue* value = void;
-			uword index = void;
+			uword index = 0;
 
 			while(true)
 			{
@@ -431,7 +431,7 @@ static:
 			case MDValue.Type.Int:    dup(t, 1); break;
 			case MDValue.Type.Float:  pushInt(t, cast(mdint)getFloat(t, 1)); break;
 			case MDValue.Type.Char:   pushInt(t, cast(mdint)getChar(t, 1)); break;
-			case MDValue.Type.String: pushInt(t, safeCode(t, cast(mdint)Integer.parse(getString(t, 1), 10))); break;
+			case MDValue.Type.String: pushInt(t, safeCode(t, cast(mdint)Integer.toLong(getString(t, 1), 10))); break;
 
 			default:
 				pushTypeString(t, 1);
@@ -451,7 +451,7 @@ static:
 			case MDValue.Type.Int: pushFloat(t, cast(mdfloat)getInt(t, 1)); break;
 			case MDValue.Type.Float: dup(t, 1); break;
 			case MDValue.Type.Char: pushFloat(t, cast(mdfloat)getChar(t, 1)); break;
-			case MDValue.Type.String: pushFloat(t, safeCode(t, cast(mdfloat)Float.parse(getString(t, 1)))); break;
+			case MDValue.Type.String: pushFloat(t, safeCode(t, cast(mdfloat)Float.toFloat(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);

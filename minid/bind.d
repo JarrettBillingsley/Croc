@@ -33,7 +33,9 @@ import Utf = tango.text.convert.Utf;
 import minid.ex;
 import minid.interpreter;
 import minid.types;
-import minid.utils : isCharType, NameOfFunc, realType, isStringType, isIntType, isFloatType, isArrayType, isAAType, isExpressionTuple;
+import minid.utils : isCharType, NameOfFunc, realType, isStringType, isIntType,
+					isFloatType, isArrayType, isAAType, isExpressionTuple,
+					QSort;
 
 public void WrapModule(char[] name, Members...)(MDThread* t)
 {
@@ -48,6 +50,11 @@ public void WrapModule(char[] name, Members...)(MDThread* t)
 
 	fielda(t, -2, name);
 	pop(t, 2);
+}
+
+public void WrapGlobals(Members...)(MDThread* t)
+{
+	commonNamespace!("", true, Members)(t);
 }
 
 private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t)
@@ -84,14 +91,9 @@ private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t
 			else
 				fielda(t, -2, member.Name);
 		}
-// 		else static if(is(typeof(member.isClass)))
-// 		{
-// 			dchar[] name = utf.toUtf32(member.Name);
-// 			ns[name] = MDValue(member.makeClass());
-// 		}
-		else static if(is(typeof(member.isStruct)))
+		else static if(is(typeof(member.isClass)))
 		{
-			member.init(t);
+			member.init!(name)(t);
 			fielda(t, -2, member.Name);
 		}
 		else static if(isModule)
@@ -99,11 +101,6 @@ private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t
 		else
 			static assert(false, "Invalid member type '" ~ member.stringof ~ "' in wrapped namespace '" ~ name ~ "'");
 	}
-}
-
-public void WrapGlobals(Members...)(MDThread* t)
-{
-	commonNamespace!("<globals>", true, Members)(t);
 }
 
 /**
@@ -155,13 +152,321 @@ public struct WrapValue(char[] name, value...)
 	alias value Value;
 }
 
+public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
+{
+	// Why did I restrict this, again?
+// 	static assert(!is(Type == Object), "Wrapping Object is not allowed");
+
+	static assert(is(Type == class) || is(Type == struct), "Cannot wrap type " ~ Type.stringof);
+
+	const bool isClass = true;
+	const char[] Name = name;
+	const char[] typeName = NameOfType!(Type);
+	alias GetCtors!(Members) Ctors;
+	static assert(Ctors.length <= 1, "Cannot have more than one WrapCtors instance in wrapped type parameters for type " ~ typeName);
+	
+	static if(Ctors.length == 1)
+	{
+		// alias Ctors[0].Types blah; doesn't parse right
+		alias Ctors[0] DUMMY;
+		alias DUMMY.Types CleanCtors;
+	}
+	else
+		alias Tuple!() CleanCtors;
+
+	public word init(char[] moduleName)(MDThread* t)
+	{
+		getWrappedClass(t, typeid(Type));
+
+		if(!isNull(t, -1))
+			throwException(t, "Native type " ~ typeName ~ " cannot be wrapped more than once");
+
+		pop(t);
+
+		static if(is(Type == class))
+		{
+			alias BaseTypeTupleOf!(Type)[0] BaseClass;
+
+			static if(!is(BaseClass == Object))
+				auto base = getWrappedClass(t, typeid(BaseClass));
+			else
+				auto base = pushNull(t);
+
+			pushClassObj!(Type, moduleName, name)(t, base);
+		}
+		else
+			pushStructObj!(Type, moduleName, name)(t);
+			
+		const TypeName = moduleName ~ "." ~ name;
+
+		foreach(i, member; Members)
+		{
+			static if(is(typeof(member.isMethod)))
+			{
+				auto f = &WrappedMethod!(member.Func, member.FuncType, Type, TypeName);
+				newFunction(t, f, name ~ "." ~ member.Name);
+				fielda(t, -2, member.Name);
+			}
+			else static if(is(typeof(member.isProperty)))
+			{
+				auto f = &WrappedProperty!(member.Func, member.Name, member.FuncType, Type, TypeName);
+				newFunction(t, f, name ~ "." ~ member.Name);
+				fielda(t, -2, member.Name);
+			}
+			else static if(is(typeof(member.isCtors)))
+			{
+				// ignore
+			}
+			else
+				static assert(false, "Invalid member type '" ~ typeof(member).stringof ~ "' in wrapped type '" ~ typeName ~ "'");
+		}
+
+		newFunction(t, &clone, name ~ ".clone");
+		fielda(t, -2, "clone");
+
+		setWrappedClass(t, typeid(Type));
+		return stackSize(t) - 1;
+	}
+
+	static if(CleanCtors.length == 0)
+	{
+		static if(is(Type == class))
+			static assert(is(typeof(new Type())), "Cannot call default constructor for class " ~ typeName ~ "; please wrap a constructor explicitly");
+		else
+			static assert(is(typeof(Type())), "Cannot call default constructor for struct " ~ typeName ~ "; please wrap a constructor explicitly");
+
+		private static uword clone(MDThread* t, uword numParams)
+		{
+			newObject(t, 0, null, 1);
+
+			static if(is(Type == class))
+				pushNativeObj(t, new Type());
+			else
+				pushNativeObj(t, new StructWrapper!(Type)(Type()));
+
+			setExtraVal(t, -2, 0);
+			return 1;
+		}
+	}
+	else
+	{
+		private static uword clone(MDThread* t, uword numParams)
+		{
+			static if(is(Type == class))
+			{
+				static if(is(typeof(new Type())))
+					const minArgs = 0;
+				else
+					const minArgs = ParameterTupleOf!(CleanCtors[0]).length;
+			}
+			else
+			{
+				static if(is(typeof(Type())))
+					const minArgs = 0;
+				else
+					const minArgs = ParameterTupleOf!(CleanCtors[0]).length;
+			}
+
+			const maxArgs = ParameterTupleOf!(CleanCtors[$ - 1]).length;
+
+			if(numParams < minArgs)
+				throwException(t, "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+
+			if(numParams > maxArgs)
+				numParams = maxArgs;
+
+			static if(minArgs == 0)
+			{
+				if(numParams == 0)
+				{
+					newObject(t, 0, null, 1);
+
+					static if(is(Type == class))
+						pushNativeObj(t, new Type());
+					else
+						pushNativeObj(t, new StructWrapper!(Type)(Type()));
+						
+					setExtraVal(t, -2, 0);
+					return 1;
+				}
+			}
+
+			static if(is(ClassType == class))
+				const Switch = CtorCases!(CleanCtors);
+			else
+				const Switch = StructCtorCases!(CleanCtors);
+
+			mixin(Switch);
+
+			auto first = pushChar(t, '(');
+
+			if(numParams > 0)
+			{
+				pushTypeString(t, 1);
+
+				for(uword i = 2; i <= numParams; i++)
+				{
+					pushString(t, ", ");
+					pushTypeString(t, i);
+				}
+			}
+	
+			pushChar(t, ')');
+			cat(t, stackSize(t) - first);
+			throwException(t, "Parameter list {} passed to constructor does not match any wrapped constructors", getString(t, -1));
+		}
+	}
+}
+
+public struct WrapCtors(T...)
+{
+	static assert(T.length > 0, "WrapCtors must be instantiated with at least one type");
+	const bool isCtors = true;
+	alias Unique!(QSort!(SortByNumParams, T)) Types;
+}
+
+public struct WrapMethod(alias func)
+{
+	const bool isMethod = true;
+	const char[] Name = NameOfFunc!(func);
+	alias func Func;
+	alias typeof(&func) FuncType;
+}
+
+public struct WrapMethod(alias func, char[] name)
+{
+	const bool isMethod = true;
+	const char[] Name = name;
+	alias func Func;
+	alias typeof(&func) FuncType;
+}
+
+public struct WrapMethod(alias func, funcType)
+{
+	const bool isMethod = true;
+	const char[] Name = NameOfFunc!(func);
+	alias func Func;
+	alias funcType FuncType;
+}
+
+public struct WrapMethod(alias func, char[] name, funcType)
+{
+	const bool isMethod = true;
+	const char[] Name = name;
+	alias func Func;
+	alias funcType FuncType;
+}
+
+word getWrappedClass(MDThread* t, TypeInfo ti)
+{
+	pushWrappedClasses(t);
+	pushNativeObj(t, ti);
+
+	if(!opin(t, -1, -2))
+	{
+		pop(t, 2);
+		return pushNull(t);
+	}
+
+	idx(t, -2);
+	insertAndPop(t, -3);
+	return stackSize(t) - 1;
+}
+
+void setWrappedClass(MDThread* t, TypeInfo ti)
+{
+	pushWrappedClasses(t);
+	pushNativeObj(t, ti);
+	dup(t, -3);
+	idxa(t, -3);
+	pop(t);
+}
+
+word pushWrappedClasses(MDThread* t)
+{
+	auto reg = pushRegistry(t);
+	pushString(t, "minid.bind.WrappedClasses");
+
+	if(!opin(t, -1, -2))
+	{
+		newTable(t);
+		swap(t);
+		dup(t, -2);
+		idxa(t, reg);
+	}
+	else
+		idx(t, reg);
+		
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
+}
+
+word pushStructObj(Type, char[] ModName, char[] StructName)(MDThread* t)
+{
+	const FullName = ModName ~ "." ~ StructName;
+
+	static uword getField(MDThread* t, uword numParams)
+	{
+		auto self = checkStructSelf!(Type, FullName)(t);
+		auto fieldName = checkStringParam(t, 1);
+
+		const Switch = GetStructField!(Type);
+		mixin(Switch);
+
+		return 1;
+	}
+
+	static uword setField(MDThread* t, uword numParams)
+	{
+		auto self = checkStructSelf!(Type, FullName)(t);
+		auto fieldName = checkStringParam(t, 1);
+
+		const Switch = SetStructField!(Type);
+		mixin(Switch);
+
+		return 0;
+	}
+
+	auto ret = newObject(t, StructName);
+		newFunction(t, &getField, StructName ~ ".opField");       fielda(t, ret, "opField");
+		newFunction(t, &setField, StructName ~ ".opFieldAssign"); fielda(t, ret, "opFieldAssign");
+	return ret;
+}
+
+private class StructWrapper(T)
+{
+	T inst;
+	
+	this(T t)
+	{
+		inst = t;
+	}
+}
+
+static Type* checkStructSelf(Type, char[] FullName)(MDThread* t)
+{
+	checkObjParam(t, 0, FullName);
+	pushExtraVal(t, 0, 0);
+	auto ret = &(cast(StructWrapper!(Type))cast(void*)getNativeObj(t, -1)).inst;
+	pop(t);
+	return ret;
+}
+
+static Type checkClassSelf(Type, char[] FullName)(MDThread* t)
+{
+	checkObjParam(t, 0, FullName);
+	pushExtraVal(t, 0, 0);
+	auto ret = cast(Type)cast(void*)getNativeObj(t, -1);
+	pop(t);
+	return ret;
+}
+
 private template WrappedFunc(alias func, char[] name, funcType)
 {
 	static uword WrappedFunc(MDThread* t, uword numParams)
 	{
-		ParameterTupleOf!(funcType) args;
 		const minArgs = MinArgs!(func);
-		const maxArgs = args.length;
+		const maxArgs = NumParams!(funcType);
 
 		if(numParams < minArgs)
 			throwException(t, "At least" ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
@@ -169,7 +474,7 @@ private template WrappedFunc(alias func, char[] name, funcType)
 		if(numParams > maxArgs)
 			numParams = maxArgs;
 	
-		static if(args.length == 0)
+		static if(NumParams!(funcType) == 0)
 		{
 			static if(is(ReturnTypeOf!(funcType) == void))
 			{
@@ -184,6 +489,8 @@ private template WrappedFunc(alias func, char[] name, funcType)
 		}
 		else
 		{
+			ParameterTupleOf!(funcType) args;
+
 			static if(minArgs == 0)
 			{
 				if(numParams == 0)
@@ -231,6 +538,88 @@ private template WrappedFunc(alias func, char[] name, funcType)
 	}
 }
 
+private uword WrappedMethod(alias func, funcType, Type, char[] FullName)(MDThread* t, uword numParams)
+{
+	const char[] name = NameOfFunc!(func);
+	const minArgs = MinArgs!(func);
+	const maxArgs = NumParams!(funcType);
+
+	if(numParams < minArgs)
+		throwException(t, "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+
+	if(numParams > maxArgs)
+		numParams = maxArgs;
+
+	static if(is(Type == class))
+		auto self = checkClassSelf!(Type, FullName)(t);
+	else
+		auto self = checkStructSelf!(Type, FullName)(t);
+
+	assert(self !is null, "Invalid 'this' parameter passed to method " ~ Type.stringof ~ "." ~ name);
+
+	static if(NumParams!(funcType) == 0)
+	{
+		static if(is(ReturnTypeOf!(funcType) == void))
+		{
+			mixin("safeCode(t, self." ~ name ~ "());");
+			return 0;
+		}
+		else
+		{
+			mixin("superPush(t, safeCode(t, self." ~ name ~ "()));");
+			return 1;
+		}
+	}
+	else
+	{
+		ParameterTupleOf!(funcType) args;
+
+		static if(minArgs == 0)
+		{
+			if(numParams == 0)
+			{
+				static if(is(ReturnTypeOf!(funcType) == void))
+				{
+					mixin("safeCode(t, self." ~  name ~ "());");
+					return 0;
+				}
+				else
+				{
+					mixin("superPush(t, safeCode(t, self." ~ name ~ "()));");
+					return 1;
+				}
+			}
+		}
+
+		foreach(i, arg; args)
+		{
+			const argNum = i + 1;
+
+			if(i < numParams)
+				getParameter(t, argNum, args[i]);
+
+			static if(argNum >= minArgs && argNum <= maxArgs)
+			{
+				if(argNum == numParams)
+				{
+					static if(is(ReturnTypeOf!(funcType) == void))
+					{
+						mixin("safeCode(t, self." ~ name ~ "(args[0 .. argNum]));");
+						return 0;
+					}
+					else
+					{
+						mixin("superPush(t, safeCode(t, self." ~ name ~ "(args[0 .. argNum])));");
+						return 1;
+					}
+				}
+			}
+		}
+	}
+
+	assert(false, "WrappedMethod (" ~ name ~ ") should never ever get here.");
+}
+
 private void getParameter(T)(MDThread* t, word index, ref T ret)
 {
 	static if(is(T : Object))
@@ -244,12 +633,21 @@ private void getParameter(T)(MDThread* t, word index, ref T ret)
 // 		assert(ret !is null, "Class instance parameter is null");
 // 		return ret;
 	}
-// 	else static if(is(T == struct))
-// 	{
-// 		return s.getParam!(WrappedStruct!(T))(index).inst;
-// 	}
+	else static if(is(T == struct))
+	{
+		checkObjParam(t, index);
+		pushExtraVal(t, index, 0);
+		auto ret = cast(StructWrapper!(T))getNativeObj(t, -1);
+		
+		if(ret is null)
+			paramTypeError(t, index, "object");
+			
+		pop(t);
+
+		ret = ret.inst;
+	}
 	else
-		return ret = to!(T)(t, index);
+		ret = to!(T)(t, index);
 }
 
 private word superPush(Type)(MDThread* t, Type val)
@@ -301,6 +699,17 @@ private word superPush(Type)(MDThread* t, Type val)
 // 		mType = Type.Object;
 // 		mObject = src;
 // 	}
+	else static if(is(T == struct))
+	{
+		getWrappedClass(t, typeid(T));
+		
+		if(isNull(t, -1))
+			throwException(t, "Cannot convert struct {} to a MiniD value; struct has not been wrapped", typeid(T));
+
+		auto inst = new WrappedStruct!(T)(cls);
+		inst.inst = v;
+		return MDValue(inst);
+	}
 	else static if(is(T == MDThread*))
 		return pushThread(t, cast(T)val);
 	else
@@ -563,6 +972,179 @@ private template InitOf(T)
 	}
 	else
 		alias Tuple!(T.init) InitOf;
+}
+
+private template NameOfType(T)
+{
+	const char[] NameOfType = T.stringof;
+}
+
+private class Fribble {}
+private struct Frobble {}
+
+static assert(NameOfType!(Fribble) == "Fribble", "NameOfType doesn't work for classes (got " ~ NameOfType!(Fribble) ~ ")");
+static assert(NameOfType!(Frobble) == "Frobble", "NameOfType doesn't work for structs (got " ~ NameOfType!(Frobble) ~ ")");
+
+private template CtorCases(Ctors...)
+{
+	const CtorCases = "switch(numParams) { default: throwException(t, \"Invalid number of parameters ({})\", numParams);\n"
+		~ CtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
+}
+
+private template CtorCasesImpl(int num, int idx, Ctors...)
+{
+	static if(Ctors.length == 0)
+		const CtorCasesImpl = "";
+	else static if(NumParams!(Ctors[0]) != num)
+		const CtorCasesImpl = "break;\ncase " ~ NumParams!(Ctors[0]).stringof ~ ":\n" ~ CtorCasesImpl!(NumParams!(Ctors[0]), idx, Ctors);
+	else
+	{
+		const CtorCasesImpl = "if(TypesMatch!(ParameterTupleOf!(CleanCtors[" ~ idx.stringof ~ "]))(t))
+{
+	ParameterTupleOf!(CleanCtors[" ~ idx.stringof ~ "]) params;
+
+	foreach(i, arg; params)
+		getParameter(t, i + 1, params[i]);
+		
+	newObject(t, 0, null, 1);
+	pushNativeObj(t, new Type(params));
+	setExtraVal(t, -2, 0);
+	return 1;
+}\n\n" ~ CtorCasesImpl!(num, idx + 1, Ctors[1 .. $]);
+	}
+}
+
+private template StructCtorCases(Ctors...)
+{
+	const StructCtorCases = "switch(numParams) { default: throwException(t, \"Invalid number of parameters ({})\", numParams);\n"
+		~ StructCtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
+}
+
+private template StructCtorCasesImpl(int num, int idx, Ctors...)
+{
+	static if(Ctors.length == 0)
+		const StructCtorCasesImpl = "";
+	else static if(NumParams!(Ctors[0]) != num)
+		const StructCtorCasesImpl = "break;\ncase " ~ NumParams!(Ctors[0]).stringof ~ ":\n" ~ StructCtorCasesImpl!(NumParams!(Ctors[0]), idx, Ctors);
+	else
+	{
+		const StructCtorCasesImpl = "if(TypesMatch!(ParameterTupleOf!(CleanCtors[" ~ idx.stringof ~ "]))(t))
+{
+	ParameterTupleOf!(CleanCtors[" ~ idx.stringof ~ "]) params;
+
+	foreach(i, arg; params)
+		getParameter(t, i + 1, params[i]);
+
+	newObject(t, 0, null, 1);
+	pushNativeObj(t, new StructWrapper!(Type)(Type(params)));
+	setExtraVal(t, -2, 0);
+	//self.updateFields();
+	return 1;
+}\n\n" ~ StructCtorCasesImpl!(num, idx + 1, Ctors[1 .. $]);
+	}
+}
+
+private template NumParams(T)
+{
+	const NumParams = ParameterTupleOf!(T).length;
+}
+
+private template SortByNumParams(T1, T2)
+{
+	const SortByNumParams = cast(int)ParameterTupleOf!(T1).length - cast(int)ParameterTupleOf!(T2).length;
+}
+
+private template GetCtors(T...)
+{
+	static if(T.length == 0)
+		alias Tuple!() GetCtors;
+	else static if(is(typeof(T[0].isCtors)))
+		alias Tuple!(T[0], GetCtors!(T[1 .. $])) GetCtors;
+	else
+		alias GetCtors!(T[1 .. $]) GetCtors;
+}
+
+private template GetStructField(T)
+{
+	const GetStructField =
+	"switch(fieldName)"
+	"{"
+		"default:"
+			"throwException(t, \"Attempting to access nonexistent field '{}' from type " ~ T.stringof ~ "\", fieldName);\n"
+		~ GetStructFieldImpl!(FieldNames!(T)) ~
+	"}";
+}
+
+private template GetStructFieldImpl(Fields...)
+{
+	static if(Fields.length == 0)
+		const GetStructFieldImpl = "";
+	else
+	{
+		const GetStructFieldImpl =
+		"case \"" ~ Fields[0] ~ "\": superPush(t, self." ~ Fields[0] ~ "); break;\n"
+		~ GetStructFieldImpl!(Fields[1 .. $]);
+	}
+}
+
+private template SetStructField(T)
+{
+	const SetStructField =
+	"switch(fieldName)"
+	"{"
+		"default:"
+			"throwException(t, \"Attempting to access nonexistent field '{}' from type " ~ T.stringof ~ "\", fieldName);\n"
+		~ SetStructFieldImpl!(FieldNames!(T)) ~
+	"}";
+}
+
+private template SetStructFieldImpl(Fields...)
+{
+	static if(Fields.length == 0)
+		const SetStructFieldImpl = "";
+	else
+	{
+		const SetStructFieldImpl =
+		"case \"" ~ Fields[0] ~ "\": getParameter(t, 1, self." ~ Fields[0] ~ "); break;\n"
+		~ SetStructFieldImpl!(Fields[1 .. $]);
+	}
+}
+
+private bool TypesMatch(T...)(MDThread* t)
+{
+	foreach(i, type; T)
+	{
+		if(!canCastTo!(type)(t, i + 1))
+			return false;
+		else
+		{
+			static if(isFloatType!(type))
+			{
+				if(isInt(t, i + 1))
+					return false;
+			}
+		}
+	}
+
+	return true;
+}
+
+public template FieldNames(S, int idx = 0)
+{
+	static if(idx >= S.tupleof.length)
+		alias Tuple!() FieldNames;
+	else
+		alias Tuple!(GetLastName!(S.tupleof[idx].stringof), FieldNames!(S, idx + 1)) FieldNames;
+}
+
+private template GetLastName(char[] fullName, int idx = fullName.length - 1)
+{
+	static if(idx < 0)
+		const char[] GetLastName = fullName;
+	else static if(fullName[idx] == '.')
+		const char[] GetLastName = fullName[idx + 1 .. $];
+	else
+		const char[] GetLastName = GetLastName!(fullName, idx - 1);
 }
 
 /+
@@ -1207,7 +1789,7 @@ private class WrappedStructClass(T) : MDClass
 	{
 		return new WrappedStruct!(T)(this);
 	}
-	
+
 	private int getField(MDState s, uint numParams)
 	{
 		T* self = &s.getContext!(WrappedStruct!(T)).inst;
