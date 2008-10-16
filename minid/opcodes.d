@@ -93,6 +93,7 @@ enum Op : ushort
 	Not,
 	NotIn,
 	Object,
+	ObjParamFail,
 	Or,
 	OrEq,
 	PopCatch,
@@ -142,7 +143,7 @@ As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, num values (NOT variadic)
 CatEq.............R: dest, src, num values (NOT variadic)
-CheckObjParam.....R: n/a, index of parameter, object type
+CheckObjParam.....R: dest, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, n/a
@@ -195,6 +196,7 @@ NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
 Object............R: dest, name const index, proto object
+ObjParamFail......R: n/a, src, n/a
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
@@ -306,7 +308,7 @@ align(1) struct Instruction
 			case Op.Call:            return Format("call r{}, {}, {}", rd, rs, rt);
 			case Op.Cat:             return Format("cat {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CatEq:           return Format("cateq {}, r{}, {}", cr(rd), rs, rt);
-			case Op.CheckObjParam:   return Format("checkobjparm r{}, {}", rs, cr(rt));
+			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Close:           return Format("close r{}", rd);
 			case Op.Closure:         return Format("closure {}, {}", cr(rd), rs);
@@ -359,6 +361,7 @@ align(1) struct Instruction
 			case Op.Not:             return Format("not {}, {}", cr(rd), cr(rs));
 			case Op.NotIn:           return Format("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Object:          return Format("object {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ObjParamFail:    return Format("objparamfail {}", cr(rs));
 			case Op.Or:              return Format("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.OrEq:            return Format("oreq {}, {}", cr(rd), cr(rs));
 			case Op.PopCatch:        return "popcatch";

@@ -7143,11 +7143,23 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Parameter {}: object constraint type must be 'object', not '{}'", i.rs, getString(t, -1));
 					}
 
-					if(!obj.derivesFrom(RS.mObject, RT.mObject))
-					{
-						typeString(t, &RS);
+					*get(i.rd) = obj.derivesFrom(RS.mObject, RT.mObject);
+
+// 					if(!obj.derivesFrom(RS.mObject, RT.mObject))
+// 					{
+// 						typeString(t, &RS);
+// 						throwException(t, "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
+// 					}
+					break;
+					
+				case Op.ObjParamFail:
+					typeString(t, &t.stack[stackBase + i.rs]);
+
+					if(i.rs == 0)
+						throwException(t, "'this' parameter: type '{}' is not allowed", getString(t, -1));
+					else
 						throwException(t, "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
-					}
+						
 					break;
 
 				// Array and List Operations

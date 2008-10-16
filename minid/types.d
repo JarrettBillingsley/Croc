@@ -628,14 +628,6 @@ struct Location
 		l.col = col;
 		return l;
 	}
-
-// 	public char[] toString()
-// 	{
-// 		if(line == -1 && column == -1)
-// 			return Format("{}(native)", fileName);
-// 		else
-// 			return Format("{}({}:{})", fileName, line, column);
-// 	}
 }
 
 struct MDUpval

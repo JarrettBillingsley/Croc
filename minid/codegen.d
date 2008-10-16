@@ -1887,13 +1887,24 @@ class Codegen : Visitor
 
 		foreach(idx, ref p; s.def.params)
 		{
-			foreach(t; p.objectTypes)
+			if(p.objectTypes.length > 0)
 			{
-				visit(t);
-				Exp src;
-				fs.popSource(t.endLocation.line, src);
-				fs.freeExpTempRegs(src);
-				fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
+				InstRef success;
+
+				foreach(t; p.objectTypes)
+				{
+					visit(t);
+					Exp src;
+					fs.popSource(t.endLocation.line, src);
+					fs.freeExpTempRegs(src);
+					auto temp = fs.tagLocal(fs.nextRegister());
+					fs.codeR(t.endLocation.line, Op.CheckObjParam, temp, fs.tagLocal(idx), src.index);
+					fs.codeR(t.endLocation.line, Op.Cmp, 0, temp, fs.tagConst(fs.codeBoolConst(true)));
+					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op.Je));
+				}
+
+				fs.codeR(p.objectTypes[$ - 1].endLocation.line, Op.ObjParamFail, 0, fs.tagLocal(idx), 0);
+				fs.patchTrueToHere(success);
 			}
 		}
 		
