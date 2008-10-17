@@ -45,7 +45,7 @@ static:
 	{
 		pushGlobal(t, "modules");
 		field(t, -1, "customLoaders");
-		
+
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
 			pushFloat(t, math.E);              newGlobal(t, "e");
@@ -294,7 +294,7 @@ static:
 		auto base = get_float(t, 1);
 
 		if(isInt(t, 2))
-			pushFloat(t, math.pow(cast(real)base, getInt(t, 2)));
+			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
 		else
 			pushFloat(t, math.pow(base, get_float(t, 2)));
 

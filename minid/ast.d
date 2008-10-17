@@ -1904,7 +1904,7 @@ abstract class Expression : AstNode
 	Returns this expression as an integer constant, if possible.  assert(false)s
 	otherwise.
 	*/
-	public int asInt()
+	public mdint asInt()
 	{
 		assert(false);
 	}
@@ -2805,7 +2805,7 @@ class IntExp : PrimaryExp
 		return true;
 	}
 
-	public override int asInt()
+	public override mdint asInt()
 	{
 		return value;
 	}
