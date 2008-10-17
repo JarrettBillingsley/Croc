@@ -537,7 +537,7 @@ Returns:
 */
 public word getRegistryVar(MDThread* t, char[] name)
 {
-	pushRegistry(t);
+	getRegistry(t);
 	field(t, -1, name);
 	insertAndPop(t, -2);
 	return stackSize(t) - 1;
@@ -548,7 +548,7 @@ Pops the value off the top of the stack and sets it into the given registry vari
 */
 public void setRegistryVar(MDThread* t, char[] name)
 {
-	pushRegistry(t);
+	getRegistry(t);
 	swap(t);
 	fielda(t, -2, name);
 	pop(t);

@@ -28,6 +28,7 @@ import tango.io.Buffer;
 import tango.io.Console;
 import tango.io.Print;
 import tango.io.Stdout;
+import tango.math.Math;
 import tango.stdc.ctype;
 import tango.stdc.string;
 import Utf = tango.text.convert.Utf;
@@ -53,12 +54,12 @@ struct BaseLib
 static:
 	public void init(MDThread* t)
 	{
+		register(t, "collectGarbage", &collectGarbage);
+
 		// Object
 		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
 		newGlobal(t, "Object");
-
-		register(t, "collect", &collect);
 
 		// StringBuffer
 		StringBufferObj.init(t);
@@ -139,6 +140,12 @@ static:
 		setTypeMT(t, MDValue.Type.WeakRef);
 	}
 
+	uword collectGarbage(MDThread* t, uword numParams)
+	{
+		pushInt(t, gc(t));
+		return 1;
+	}
+
 	// ===================================================================================================================================
 	// Object
 
@@ -149,12 +156,6 @@ static:
 		return 1;
 	}
 
-	uword collect(MDThread* t, uword numParams)
-	{
-		gc(t);
-		return 0;
-	}
-
 	// ===================================================================================================================================
 	// Functional stuff
 
@@ -162,19 +163,16 @@ static:
 	{
 		static uword call(MDThread* t, uword numParams)
 		{
-			auto funcReg = getUpval(t, 0);
+			getUpval(t, 0);
 			dup(t, 0);
 			getUpval(t, 1);
-
-			for(uword i = 1; i <= numParams; i++)
-				dup(t, i);
-
-			return rawCall(t, funcReg, -1);
+			rotateAll(t, 3);
+			return rawCall(t, 1, -1);
 		}
 
 		checkParam(t, 1, MDValue.Type.Function);
 		checkAnyParam(t, 2);
-
+		setStackSize(t, 3);
 		newFunction(t, &call, "curryClosure", 2);
 		return 1;
 	}
@@ -183,18 +181,15 @@ static:
 	{
 		static uword call(MDThread* t, uword numParams)
 		{
-			auto funcReg = getUpval(t, 0);
+			getUpval(t, 0);
 			getUpval(t, 1);
-
-			for(uword i = 1; i <= numParams; i++)
-				dup(t, i);
-
-			return rawCall(t, funcReg, -1);
+			rotateAll(t, 2);
+			return rawCall(t, 1, -1);
 		}
-		
+
 		checkParam(t, 1, MDValue.Type.Function);
 		checkAnyParam(t, 2);
-
+		setStackSize(t, 3);
 		newFunction(t, &call, "boundFunction", 2);
 		return 1;
 	}
@@ -243,14 +238,16 @@ static:
 		// Upvalue 1 is the current index into the namespace
 		static uword iter(MDThread* t, uword numParams)
 		{
+			MDObject* o = void;
 			MDString** key = void;
 			MDValue* value = void;
 			uword index = 0;
 
 			while(true)
 			{
+				// Get the next field
 				getUpval(t, 0);
-				auto o = getObject(t, -1);
+				o = getObject(t, -1);
 
 				getUpval(t, 1);
 				index = getInt(t, -1);
@@ -261,7 +258,7 @@ static:
 
 					if(isNull(t, -1))
 						return 0;
-	
+
 					setUpval(t, 0);
 					pushInt(t, 0);
 					setUpval(t, 1);
@@ -271,24 +268,43 @@ static:
 					continue;
 				}
 
+				// See if we've already seen this field
+				getUpval(t, 2);
+				pushStringObj(t, *key);
+
+				if(opin(t, -1, -2))
+				{
+					pushInt(t, index);
+					setUpval(t, 1);
+					pop(t, 4);
+
+					// We have, try again
+					continue;
+				}
+
+				// Mark the field as seen
+				pushBool(t, true);
+				idxa(t, -3);
+				pop(t, 3);
+
 				break;
 			}
 
-			pop(t, 2);
-
 			pushInt(t, index);
 			setUpval(t, 1);
-	
+
 			pushStringObj(t, *key);
 			push(t, *value);
+			pushObject(t, o);
 
-			return 2;
+			return 3;
 		}
 
 		checkParam(t, 1, MDValue.Type.Object);
 		dup(t, 1);
 		pushInt(t, 0);
-		newFunction(t, &iter, "allFieldsOfIter", 2);
+		newTable(t);
+		newFunction(t, &iter, "allFieldsOfIter", 3);
 		return 1;
 	}
 
@@ -307,7 +323,7 @@ static:
 		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
 	}
-	
+
 	uword findField(MDThread* t, uword numParams)
 	{
 		checkObjParam(t, 1);
@@ -327,7 +343,7 @@ static:
 			swap(t, 1);
 			pop(t, 2);
 		}
-		
+
 		return 0;
 	}
 
@@ -532,7 +548,7 @@ static:
 		auto newline = optBoolParam(t, 2, true);
 
 		auto shown = getUpval(t, 0);
-		
+
 		assert(len(t, shown) == 0);
 
 		scope(exit)
@@ -591,7 +607,7 @@ static:
 				}
 
 				Stdout('[');
-				
+
 				auto length = len(t, arr);
 
 				if(length > 0)
@@ -896,7 +912,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushString(t, funcName(t, 0));
-		return 1;	
+		return 1;
 	}
 
 	// ===================================================================================================================================
@@ -912,7 +928,7 @@ static:
 	uword deref(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
-		
+
 		switch(type(t, 1))
 		{
 			case
@@ -921,10 +937,10 @@ static:
 				MDValue.Type.Int,
 				MDValue.Type.Float,
 				MDValue.Type.Char:
-				
+
 				dup(t, 1);
 				return 1;
-				
+
 			case MDValue.Type.WeakRef:
 				.deref(t, 1);
 				return 1;
@@ -997,7 +1013,7 @@ static:
 			if(length > (memb.data.length - memb.length))
 				t.vm.alloc.resizeArray(memb.data, memb.data.length + length);
 		}
-		
+
 		private void append(MDThread* t, Members* memb, char[] str, uword cpLength)
 		{
 			resize(t, memb, cpLength);
@@ -1030,12 +1046,12 @@ static:
 					if(size < 0)
 						throwException(t, "Size must be >= 0, not {}", size);
 
-					t.vm.alloc.resizeArray(memb.data, size);
+					t.vm.alloc.resizeArray(memb.data, max(32, size));
 				}
 				else if(isString(t, 1))
 				{
 					auto length = len(t, 1);
-					t.vm.alloc.resizeArray(memb.data, length);
+					t.vm.alloc.resizeArray(memb.data, max(32, length));
 					memb.length = length;
 					auto str = getString(t, 1);
 					uint ate = 0;
@@ -1046,7 +1062,7 @@ static:
 			}
 			else
 				t.vm.alloc.resizeArray(memb.data, 32);
-				
+
 			getUpval(t, 0);
 			setFinalizer(t, -2);
 
@@ -1060,7 +1076,7 @@ static:
 
 			for(uword i = 1; i <= numParams; i++)
 			{
-				if(as(t, i, sb))
+				if(as(t, i, sb) && !opis(t, i, sb))
 				{
 					auto other = getMembers!(Members)(t, i);
 					resize(t, memb, other.length);
@@ -1085,12 +1101,15 @@ static:
 			auto idx = checkIntParam(t, 1);
 			checkAnyParam(t, 2);
 
+			if(idx < 0)
+				idx += memb.length;
+
 			if(idx < 0 || idx > memb.length)
 				throwException(t, "Invalid index {} (valid indices are [0 .. {}])", idx, memb.length);
 
 			pushGlobal(t, "StringBuffer");
 
-			if(as(t, 2, -1))
+			if(as(t, 2, -1) && !opis(t, 2, -1))
 			{
 				auto other = getMembers!(Members)(t, 2);
 				resize(t, memb, other.length);
@@ -1320,14 +1339,14 @@ static:
 			else
 			{
 				pushGlobal(t, "StringBuffer");
-				
-				if(as(t, 3, -1))
+
+				if(as(t, 3, -1) && !opis(t, 3, -1))
 				{
 					auto other = getMembers!(Members)(t, 3);
-					
+
 					if(other.length != sliceLen)
 						throwException(t, "Slice length ({}) does not match length of string buffer ({})", sliceLen, other.length);
-						
+
 					memb.data[lo .. hi] = other.data[0 .. other.length];
 				}
 				else

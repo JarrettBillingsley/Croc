@@ -384,7 +384,7 @@ void setWrappedClass(MDThread* t, TypeInfo ti)
 
 word pushWrappedClasses(MDThread* t)
 {
-	auto reg = pushRegistry(t);
+	auto reg = getRegistry(t);
 	pushString(t, "minid.bind.WrappedClasses");
 
 	if(!opin(t, -1, -2))

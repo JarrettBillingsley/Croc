@@ -166,10 +166,10 @@ static:
 			push(t, *v);
 			return 2;
 		}
-		
+
 		return 0;
 	}
-	
+
 	uword namespaceIterator(MDThread* t, uword numParams)
 	{
 		getUpval(t, 0);
@@ -189,7 +189,7 @@ static:
 			push(t, *v);
 			return 2;
 		}
-		
+
 		return 0;
 	}
 
@@ -207,7 +207,7 @@ static:
 			pushInt(t, 0);
 			newFunction(t, &namespaceIterator, "iterator", 2);
 		}
-		
+
 		return 1;
 	}
 	

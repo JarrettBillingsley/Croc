@@ -155,7 +155,7 @@ static:
 		Process getProcess(MDThread* t)
 		{
 			checkObjParam(t, 0, "Process");
-			pushExtraVal(t, 0, Members.process);
+			getExtraVal(t, 0, Members.process);
 			auto ret = cast(Process)getNativeObj(t, -1);
 			assert(ret !is null);
 			pop(t);
@@ -247,7 +247,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			pushExtraVal(t, 0, Members.stdin);
+			getExtraVal(t, 0, Members.stdin);
 			
 			if(isNull(t, -1))
 			{
@@ -267,7 +267,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			pushExtraVal(t, 0, Members.stdout);
+			getExtraVal(t, 0, Members.stdout);
 			
 			if(isNull(t, -1))
 			{
@@ -287,7 +287,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			pushExtraVal(t, 0, Members.stderr);
+			getExtraVal(t, 0, Members.stderr);
 			
 			if(isNull(t, -1))
 			{

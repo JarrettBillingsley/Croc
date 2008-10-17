@@ -230,10 +230,10 @@ struct RegexpLib
 		private Regex getThis(MDThread* t, out bool isGlobal)
 		{
 			checkObjParam(t, 0, "Regexp");
-			pushExtraVal(t, 0, Members.global);
+			getExtraVal(t, 0, Members.global);
 			isGlobal = getBool(t, -1);
 			pop(t);
-			pushExtraVal(t, 0, Members.regex);
+			getExtraVal(t, 0, Members.regex);
 			auto ret = cast(Regex)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -375,7 +375,7 @@ struct RegexpLib
 	        foreach(r; rex.search(str))
 	        {
 	            tmp = rex.pre();
-	            
+
 	            //dup(t, ret);
 	            pushString(t, tmp[lastStart .. $]);
 	            cateq(t, ret, 1);

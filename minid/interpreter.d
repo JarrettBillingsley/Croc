@@ -57,6 +57,7 @@ import minid.weakref;
 
 public:
 
+// ================================================================================================================================================
 // VM-related functions
 
 /**
@@ -69,10 +70,10 @@ Params:
 Returns:
 	The stack index of the newly-pushed value (null if the type has no metatable, or a namespace if it does).
 */
-word pushTypeMT(MDThread* t, MDValue.Type type)
+word getTypeMT(MDThread* t, MDValue.Type type)
 {
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, "pushTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
+		throwException(t, "getTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
 		return pushNamespace(t, ns);
@@ -160,11 +161,12 @@ from native code and which native code may use for any purpose.
 Returns:
 	The stack index of the newly-pushed namespace.
 */
-word pushRegistry(MDThread* t)
+word getRegistry(MDThread* t)
 {
 	return pushNamespace(t, t.vm.registry);
 }
 
+// ================================================================================================================================================
 // GC-related stuff
 
 /**
@@ -176,16 +178,23 @@ the last collection.
 Params:
 	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.
+
+Returns:
+	The number of bytes collected, which may be 0.
 */
 public void maybeGC(MDThread* t)
 {
+	uword ret = 0;
+
 	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
 	{
-		gc(t);
+		ret = gc(t);
 
 		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
 			t.vm.alloc.gcLimit <<= 1;
 	}
+
+	return ret;
 }
 
 /**
@@ -194,14 +203,22 @@ Runs the garbage collector unconditionally.
 Params:
 	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.
+
+Returns:
+	The number of bytes collected by this collection cycle.
 */
-public void gc(MDThread* t)
+public uword gc(MDThread* t)
 {
+	auto beforeSize = t.vm.alloc.totalBytes;
+
 	mark(t.vm);
 	sweep(t.vm);
 	runFinalizers(t);
+
+	return beforeSize - t.vm.alloc.totalBytes;
 }
 
+// ================================================================================================================================================
 // Stack manipulation
 
 /**
@@ -296,6 +313,68 @@ void insertAndPop(MDThread* t, word slot)
 }
 
 /**
+A more generic version of insert.  This allows you to rotate the dist items within the top
+numSlots items on the stack.  The top dist items become the bottom dist items within that range
+of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a rotate with
+5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the dist parameter is 1,
+it behaves just like insert.
+
+Attempting to rotate more values than there are on the stack (excluding 'this') will throw an error.
+
+If the distance is an even multiple of the number of slots, or if you rotate 0 or 1 slots, this
+function is a no-op.
+*/
+void rotate(MDThread* t, uword numSlots, uword dist)
+{
+	if(numSlots > (stackSize(t) - 1))
+		throwException(t, "rotate - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+
+	if(numSlots == 0)
+		return;
+
+	if(dist >= numSlots)
+		dist %= numSlots;
+
+	if(dist == 0)
+		return;
+
+	dist = numSlots - dist;
+	auto slots = t.stack[t.stackIndex - numSlots .. t.stackIndex];
+	uword c = 0;
+
+	for(uword v = 0; c < slots.length; v++)
+	{
+		auto i = v;
+		auto j = v + dist;
+		auto tmp = slots[v];
+		c++;
+
+		while(j != v)
+		{
+			slots[i] = slots[j];
+			i = j;
+			j += dist;
+
+			if(j >= slots.length)
+				j -= slots.length;
+
+			c++;
+		}
+
+		slots[i] = tmp;
+	}
+}
+
+/**
+Rotates all stack slots (excluding 'this').  This is the same as calling rotate with a numSlots
+parameter of stackSize(_t) - 1.
+*/
+void rotateAll(MDThread* t, uword dist)
+{
+	rotate(t, stackSize(t) - 1, dist);
+}
+
+/**
 Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
 on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
 values, an error is thrown.
@@ -305,7 +384,8 @@ Params:
 */
 void pop(MDThread* t, uword n = 1)
 {
-	assert(n > 0);
+	if(n == 0)
+		throwException(t, "pop - Trying to pop zero items");
 
 	if(n > (t.stackIndex - (t.stackBase + 1)))
 		throwException(t, "pop - Stack underflow");
@@ -313,6 +393,32 @@ void pop(MDThread* t, uword n = 1)
 	t.stackIndex -= n;
 }
 
+/**
+Sets the thread's stack size to an absolute value.  The new stack size must be at least 1 (which
+would leave 'this' on the stack and nothing else).  If the new stack size is smaller than the old
+one, the old values are simply discarded.  If the new stack size is larger than the old one, the
+new slots are filled with null.  Throws an error if you try to set the stack size to 0.
+
+Params:
+	newSize = The new stack size.  Must be greater than 0.
+*/
+void setStackSize(MDThread* t, uword newSize)
+{
+	if(newSize == 0)
+		throwException(t, "setStackSize - newSize must be nonzero");
+
+	auto curSize = stackSize(t);
+
+	if(newSize != curSize)
+	{
+		t.stackIndex = t.stackBase + newSize + 1; // include 'this'
+
+		if(newSize > curSize)
+			t.stack[t.stackBase + curSize .. t.stackIndex] = MDValue.nullValue;
+	}
+}
+
+// ================================================================================================================================================
 // Pushing values onto the stack
 
 /**
@@ -748,7 +854,7 @@ Pushes the given thread onto this thread's stack.
 
 Params:
 	o = The thread to push.
-	
+
 Returns:
 	The stack index of the newly-pushed value.
 */
@@ -779,7 +885,7 @@ be pushed.  Otherwise the pushed value will be a weak reference object.
 
 Params:
 	idx = The stack index of the object to get a weak reference of.
-	
+
 Returns:
 	The stack index of the newly-pushed value.
 */
@@ -801,6 +907,7 @@ word pushWeakRef(MDThread* t, word idx)
 	}
 }
 
+// ================================================================================================================================================
 // Stack queries
 
 /**
@@ -958,7 +1065,8 @@ bool isTrue(MDThread* t, word slot)
 }
 
 /**
-Gets the _type of the value at the given _slot.
+Gets the _type of the value at the given _slot.  Value types are given by the MDValue.Type
+enumeration defined in minid.types.
 */
 MDValue.Type type(MDThread* t, word slot)
 {
@@ -1011,6 +1119,28 @@ mdfloat getFloat(MDThread* t, word slot)
 	}
 
 	return v.mFloat;
+}
+
+/**
+Returns the numerical value at the given _slot.  This always returns an mdfloat, and will
+implicitly cast int values to floats.  Throws an error if the value is neither an int
+nor a float.
+*/
+mdfloat getNum(MDThread* t, word slot)
+{
+	auto v = getValue(t, slot);
+
+	if(v.type == MDValue.Type.Float)
+		return v.mFloat;
+	else if(v.type == MDValue.Type.Int)
+		return v.mInt;
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "getNum - expected 'float' or 'int' but got '{}'", getString(t, -1));
+	}
+
+	assert(false);
 }
 
 /**
@@ -1088,6 +1218,7 @@ Object getNativeObj(MDThread* t, word slot)
 	return v.mNativeObj.obj;
 }
 
+// ================================================================================================================================================
 // Statements
 
 /**
@@ -1204,7 +1335,7 @@ struct foreachLoop
 
 	/**
 	The struct constructor.
-	
+
 	Params:
 		numSlots = How many slots on top of the stack should be interpreted as the container.  Must be
 			1, 2, or 3.
@@ -1289,7 +1420,7 @@ struct foreachLoop
 			swap(t, src);
 			pop(t);
 		}
-		
+
 		// Set up the indices tuple
 		Indices idx;
 
@@ -1314,7 +1445,7 @@ struct foreachLoop
 				pop(t, numIndices);
 				break;
 			}
-				
+
 			dup(t, funcReg);
 			swap(t, src + 2);
 			pop(t);
@@ -1330,10 +1461,11 @@ struct foreachLoop
 	}
 }
 
+// ================================================================================================================================================
 // Exception-related functions
 
 /**
-Throw a MiniD exception using the value at the top of the stack as the exception object.  Any type can
+Throws a MiniD exception using the value at the top of the stack as the exception object.  Any type can
 be thrown.  This will throw an actual D exception of type MDException as well, which can be caught in D
 as normal ($(B Important:) see catchException for information on catching them).
 
@@ -1354,7 +1486,7 @@ void throwException(MDThread* t)
 
 /**
 A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
-pushVFormat on the arguments and then throwException.
+pushVFormat on the arguments and then calling throwException.
 */
 void throwException(MDThread* t, char[] fmt, ...)
 {
@@ -1370,7 +1502,7 @@ you $(B must call this function).  This informs MiniD that you have caught the e
 pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
 
 Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
-might be garbage from a half-completed operation.  So you might want to store the size of the stack before a '_try'
+might be garbage from a half-completed operation.  So you might want to store the size of the stack before a 'try'
 block, then restore it in the 'catch' block so that the stack will be in a consistent state.
 
 An exception must be in flight for this function to work.  If none is in flight, a MiniD exception is thrown. (For
@@ -1436,6 +1568,7 @@ word getTraceback(MDThread* t)
 	return ret;
 }
 
+// ================================================================================================================================================
 // Variable-related functions
 
 /**
@@ -1470,7 +1603,7 @@ This function will fail if called at top-level (that is, outside of any executin
 
 Params:
 	idx = The index of the upvalue to set.
-	
+
 Returns:
 	The stack index of the newly-pushed value.
 */
@@ -1689,6 +1822,7 @@ bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 	return false;
 }
 
+// ================================================================================================================================================
 // Table-related functions
 
 /**
@@ -1710,6 +1844,7 @@ void clearTable(MDThread* t, word tab)
 	table.clear(t.vm.alloc, tb);
 }
 
+// ================================================================================================================================================
 // Array-related functions
 
 /**
@@ -1733,6 +1868,7 @@ void fillArray(MDThread* t, word arr)
 	pop(t);
 }
 
+// ================================================================================================================================================
 // Function-related functions
 
 /**
@@ -1847,7 +1983,8 @@ bool funcIsNative(MDThread* t, word func)
 	assert(false);
 }
 
-// Object-specific functions
+// ================================================================================================================================================
+// Object-related functions
 
 /**
 Finds out how many extra values an object has (see newObject for info on that).  Throws an error
@@ -1868,7 +2005,7 @@ uword numExtraVals(MDThread* t, word slot)
 		pushTypeString(t, slot);
 		throwException(t, "numExtraVals - expected 'object' but got '{}'", getString(t, -1));
 	}
-		
+
 	assert(false);
 }
 
@@ -1883,19 +2020,19 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-word pushExtraVal(MDThread* t, word slot, uword idx)
+word getExtraVal(MDThread* t, word slot, uword idx)
 {
 	if(auto o = getObject(t, slot))
 	{
 		if(idx > o.numValues)
-			throwException(t, "pushExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
+			throwException(t, "getExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
 
 		return push(t, o.extraValues()[idx]);
 	}
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "pushExtraVal - expected 'object' but got '{}'", getString(t, -1));
+		throwException(t, "getExtraVal - expected 'object' but got '{}'", getString(t, -1));
 	}
 		
 	assert(false);
@@ -2014,7 +2151,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed finalizer function (or null if the object has none).
 */
-word pushFinalizer(MDThread* t, word obj)
+word getFinalizer(MDThread* t, word obj)
 {
 	if(auto o = getObject(t, obj))
 	{
@@ -2025,7 +2162,7 @@ word pushFinalizer(MDThread* t, word obj)
 	}
 
 	pushTypeString(t, obj);
-	throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+	throwException(t, "getFinalizer - Expected 'object', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2044,6 +2181,7 @@ char[] objName(MDThread* t, word obj)
 	assert(false);
 }
 
+// ================================================================================================================================================
 // Namespace-related functions
 
 /**
@@ -2137,6 +2275,7 @@ word namespaceFullname(MDThread* t, word ns)
 	assert(false);
 }
 
+// ================================================================================================================================================
 // Thread-specific stuff
 
 /**
@@ -2348,6 +2487,7 @@ bool hasPendingHalt(MDThread* t)
 	return t.shouldHalt;
 }
 
+// ================================================================================================================================================
 // Weakref-related functions
 
 /**
@@ -2376,6 +2516,7 @@ word deref(MDThread* t, word idx)
 		return pushNull(t);
 }
 
+// ================================================================================================================================================
 // Atomic MiniD operations
 
 /**
@@ -2474,6 +2615,7 @@ pop(t);
 
 Params:
 	container = The stack index of the _container object.
+	raw = If true, no opIndex metamethods will be called.  Defaults to false.
 
 Returns:
 	The stack index that contains the result (the top of the stack).
@@ -2503,6 +2645,7 @@ pop(t);
 
 Params:
 	container = The stack index of the _container object.
+	raw = If true, no opIndex metamethods will be called.  Defaults to false.
 */
 void idxa(MDThread* t, word container, bool raw = false)
 {
@@ -2512,6 +2655,18 @@ void idxa(MDThread* t, word container, bool raw = false)
 	pop(t, 2);
 }
 
+/**
+Shortcut for the common case where you need to index a _container with an integer index.  Pushes
+the indexed value.
+
+Params:
+	container = The stack index of the _container object.
+	idx = The integer index.
+	raw = If true, no opIndex metamethods will be called.  Defaults to false.
+
+Returns:
+	The stack index of the newly-pushed indexed value.
+*/
 word idxi(MDThread* t, word container, mdint idx, bool raw = false)
 {
 	auto c = absIndex(t, container);
@@ -2519,6 +2674,15 @@ word idxi(MDThread* t, word container, mdint idx, bool raw = false)
 	return .idx(t, c, raw);
 }
 
+/**
+Shortcut for the common case where you need to index-assign a _container with an integer index.  Pops
+the value at the top of the stack and assigns it into the _container at the given index.
+
+Params:
+	container = The stack index of the _container object.
+	idx = The integer index.
+	raw = If true, no opIndexAssign metamethods will be called.  Defaults to false.
+*/
 void idxai(MDThread* t, word container, mdint idx, bool raw = false)
 {
 	auto c = absIndex(t, container);
@@ -2727,7 +2891,7 @@ get the values and do the computation in D.
 Params:
 	a = The slot of the first value.
 	b = The slot of the second value.
-	
+
 Returns:
 	The stack index of the newly-pushed result.
 */
@@ -3131,6 +3295,7 @@ word superOf(MDThread* t, word slot)
 	return push(t, superOfImpl(t, getValue(t, slot)));
 }
 
+// ================================================================================================================================================
 // Function calling
 
 /**
@@ -3397,6 +3562,7 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
+// ================================================================================================================================================
 // Reflective functions
 
 /**
@@ -3564,6 +3730,9 @@ bool hasAttributes(MDThread* t, word obj)
 	else
 		return false;
 }
+
+// ================================================================================================================================================
+// Debugging functions
 
 debug
 {
@@ -5243,10 +5412,10 @@ version(MDRestrictedCoro) {} else
 	class ThreadFiber : Fiber
 	{
 		MDThread* t;
-	
+
 		this(MDThread* t)
 		{
-			super(&run);
+			super(&run, 16384); // TODO: provide the stack size as a user-settable value
 			this.t = t;
 		}
 
@@ -7144,12 +7313,6 @@ void execute(MDThread* t, uword depth = 1)
 					}
 
 					*get(i.rd) = obj.derivesFrom(RS.mObject, RT.mObject);
-
-// 					if(!obj.derivesFrom(RS.mObject, RT.mObject))
-// 					{
-// 						typeString(t, &RS);
-// 						throwException(t, "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
-// 					}
 					break;
 					
 				case Op.ObjParamFail:

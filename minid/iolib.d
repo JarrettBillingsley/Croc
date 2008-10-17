@@ -395,7 +395,7 @@ static:
 		private Reader getReader(MDThread* t)
 		{
 			checkObjParam(t, 0, "InputStream");
-			pushExtraVal(t, 0, Members.reader);
+			getExtraVal(t, 0, Members.reader);
 			auto ret = cast(Reader)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -404,7 +404,7 @@ static:
 		private LineIterator!(char) getLines(MDThread* t)
 		{
 			checkObjParam(t, 0, "InputStream");
-			pushExtraVal(t, 0, Members.lines);
+			getExtraVal(t, 0, Members.lines);
 			auto ret = cast(LineIterator!(char))cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -584,7 +584,7 @@ static:
 		private Writer getWriter(MDThread* t)
 		{
 			checkObjParam(t, 0, "OutputStream");
-			pushExtraVal(t, 0, Members.writer);
+			getExtraVal(t, 0, Members.writer);
 			auto ret = cast(Writer)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -593,7 +593,7 @@ static:
 		private Print!(char) getPrint(MDThread* t)
 		{
 			checkObjParam(t, 0, "OutputStream");
-			pushExtraVal(t, 0, Members.print);
+			getExtraVal(t, 0, Members.print);
 			auto ret = cast(Print!(char))cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -602,7 +602,7 @@ static:
 		private OutputStream getOutput(MDThread* t)
 		{
 			checkObjParam(t, 0, "OutputStream");
-			pushExtraVal(t, 0, Members.output);
+			getExtraVal(t, 0, Members.output);
 			auto ret = cast(OutputStream)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -738,7 +738,7 @@ static:
 			if(as(t, 1, -1))
 			{
 				pop(t);
-				pushExtraVal(t, 1, InputStreamObj.Members.input);
+				getExtraVal(t, 1, InputStreamObj.Members.input);
 				stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
 				pop(t);
 			}
@@ -750,8 +750,8 @@ static:
 				if(as(t, 1, -1))
 				{
 					pop(t);
-					pushExtraVal(t, 1, StreamObj.Members.input);
-					pushExtraVal(t, -1, InputStreamObj.Members.input);
+					getExtraVal(t, 1, StreamObj.Members.input);
+					getExtraVal(t, -1, InputStreamObj.Members.input);
 					stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
 					pop(t, 2);
 				}
@@ -868,19 +868,19 @@ static:
 		word pushInput(MDThread* t)
 		{
 			checkObjParam(t, 0, "Stream");
-			return pushExtraVal(t, 0, Members.input);
+			return getExtraVal(t, 0, Members.input);
 		}
 
 		word pushOutput(MDThread* t)
 		{
 			checkObjParam(t, 0, "Stream");
-			return pushExtraVal(t, 0, Members.output);
+			return getExtraVal(t, 0, Members.output);
 		}
 
 		IConduit.Seek getSeeker(MDThread* t)
 		{
 			checkObjParam(t, 0, "Stream");
-			pushExtraVal(t, 0, Members.seeker);
+			getExtraVal(t, 0, Members.seeker);
 			
 			if(isNull(t, -1))
 				throwException(t, "Stream is not seekable.");
@@ -893,7 +893,7 @@ static:
 		IConduit getConduit(MDThread* t)
 		{
 			checkObjParam(t, 0, "Stream");
-			pushExtraVal(t, 0, Members.conduit);
+			getExtraVal(t, 0, Members.conduit);
 			auto ret = cast(IConduit)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
@@ -1049,8 +1049,8 @@ static:
 			else
 				throwException(t, "Invalid seek type '{}'", whence);
 
-			pushExtraVal(t, 0, Members.input);
-			pushExtraVal(t, -1, InputStreamObj.Members.input);
+			getExtraVal(t, 0, Members.input);
+			getExtraVal(t, -1, InputStreamObj.Members.input);
 			(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
 
 			return 0;
@@ -1068,8 +1068,8 @@ static:
 			else
 			{
 				safeCode(t, seeker.seek(checkIntParam(t, 1), IConduit.Seek.Anchor.Begin));
-				pushExtraVal(t, 0, Members.input);
-				pushExtraVal(t, -1, InputStreamObj.Members.input);
+				getExtraVal(t, 0, Members.input);
+				getExtraVal(t, -1, InputStreamObj.Members.input);
 				(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
 				return 0;
 			}
@@ -1090,7 +1090,7 @@ static:
 		public uword close(MDThread* t, uword numParams)
 		{
 			pushOutput(t);
-			pushExtraVal(t, -1, OutputStreamObj.Members.output);
+			getExtraVal(t, -1, OutputStreamObj.Members.output);
 			try (cast(OutputStream)cast(void*)getNativeObj(t, -1)).flush(); catch{}
 			getConduit(t).close();
 			return 0;
@@ -1105,14 +1105,14 @@ static:
 		public uword input(MDThread* t, uword numParams)
 		{
 			checkObjParam(t, 0, "Stream");
-			pushExtraVal(t, 0, Members.input);
+			getExtraVal(t, 0, Members.input);
 			return 1;
 		}
 
 		public uword output(MDThread* t, uword numParams)
 		{
 			checkObjParam(t, 0, "Stream");
-			pushExtraVal(t, 0, Members.output);
+			getExtraVal(t, 0, Members.output);
 			return 1;
 		}
 	}

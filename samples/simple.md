@@ -6,7 +6,7 @@ t.start()
 local x = 5
 
 for(i: 0 .. 10_000_000)
-	x *= 3
+	x += 3
 
 t.stop()
 writefln("Took {:f6} seconds", t.seconds())
