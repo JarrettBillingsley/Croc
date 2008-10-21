@@ -467,6 +467,40 @@ The stack index of the looked-up value.
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getRegistryVar</span>
+<script>explorer.outline.addDecl('getRegistryVar');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the variable that is stored in the registry with the given <span class="funcparam">name</span> onto the stack.  An error will be thrown if the variable
+does not exist in the registry.
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setRegistryVar</span>
+<script>explorer.outline.addDecl('setRegistryVar');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pops the value off the top of the stack and sets it into the given registry variable.
+<br><br>
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -475,7 +509,7 @@ The stack index of the looked-up value.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sun Oct  5 22:36:48 2008
+			on Tue Oct 21 16:53:19 2008
 
 		</td></tr>
 	</table>

@@ -43,52 +43,121 @@ subject to the following restrictions:
 $(DDOC_MODULE_MEMBERS 
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">State 
-<span class="currsymbol">state</span>
-<script>explorer.outline.addDecl('state');</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getTypeMT</span>
+<script>explorer.outline.addDecl('getTypeMT');</script>
 
-(MDThread* <span class="funcparam">t</span>);
+(MDThread* <span class="funcparam">t</span>, Type <span class="funcparam">type</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the current coroutine 
-<span class="currsymbol">state</span>
-<script>explorer.outline.addDecl('state');</script>
+<dd>Push the metatable for the given <span class="funcparam">type</span>.  If the <span class="funcparam">type</span> has no metatable, pushes <b>null</b>.  The <span class="funcparam">type</span> given must be
+one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">Type <span class="funcparam">type</span></td>
 
- of the thread as a member of the MDThread.State enumeration.
+               
+<td>The <span class="funcparam">type</span> whose metatable is to be pushed.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value (<b>null</b> if the <span class="funcparam">type</span> has no metatable, or a namespace if it does).
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">char[] 
-<span class="currsymbol">stateString</span>
-<script>explorer.outline.addDecl('stateString');</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setTypeMT</span>
+<script>explorer.outline.addDecl('setTypeMT');</script>
 
-(MDThread* <span class="funcparam">t</span>);
+(MDThread* <span class="funcparam">t</span>, Type <span class="funcparam">type</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets a string representation of the current coroutine state of the thread.
+<dd>Sets the metatable for the given <span class="funcparam">type</span> to the namespace or <b>null</b> at the top of the stack.  Throws an
+error if the <span class="funcparam">type</span> given is one of the "internal" types, or if the value at the top of the stack is
+neither <b>null</b> nor a namespace.
 <br><br>
-The string returned is not on the MiniD heap, it's just a string literal.
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">Type <span class="funcparam">type</span></td>
+
+               
+<td>The <span class="funcparam">type</span> whose metatable is to be set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">importModule</span>
+<script>explorer.outline.addDecl('importModule');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Import a module with the given <span class="funcparam">name</span>.  Works just like the import statement in MiniD.  Pushes the
+module's namespace onto the stack.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>The <span class="funcparam">name</span> of the module to be imported.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the imported module's namespace.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">MDVM* 
-<span class="currsymbol">getVM</span>
-<script>explorer.outline.addDecl('getVM');</script>
+<dt><span class="decl">int 
+<span class="currsymbol">importModule</span>
+<script>explorer.outline.addDecl('importModule');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as above, but uses a <span class="funcparam">name</span> on the stack rather than one provided as a parameter.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">name</span></td>
+
+               
+<td>The stack index of the string holding the <span class="funcparam">name</span> of the module to be imported.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the imported module's namespace.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getRegistry</span>
+<script>explorer.outline.addDecl('getRegistry');</script>
 
 (MDThread* <span class="funcparam">t</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the VM that the thread is associated with.
+<dd>Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
+from native code and which native code may use for any purpose.
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed namespace.
 <br><br>
 
 </dd>
@@ -117,11 +186,14 @@ the last collection.
 <td>The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.</td></tr>
 </table><br>
+<b>Returns:</b><br>
+The number of bytes collected, which may be 0.
+<br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
+<dt><span class="decl">uint 
 <span class="currsymbol">gc</span>
 <script>explorer.outline.addDecl('gc');</script>
 
@@ -139,6 +211,241 @@ the last collection.
                
 <td>The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The number of bytes collected by this collection cycle.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">dup</span>
+<script>explorer.outline.addDecl('dup');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span> = -1);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Duplicates a value at the given stack index and pushes it onto the stack.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The slot to duplicate.  Defaults to -1, which means the top of the stack.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed slot.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">first</span> = -2, int <span class="funcparam">second</span> = -1);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Swaps the two values at the given 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ indices.  The <span class="funcparam">first</span> index defaults to the <span class="funcparam">second</span>-from-top
+value.  The <span class="funcparam">second</span> index defaults to the top-of-stack.  So, if you call 
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ with no indices, it will
+
+<span class="currsymbol">swap</span>
+<script>explorer.outline.addDecl('swap');</script>
+
+ the top two values.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">first</span></td>
+
+               
+<td>The <span class="funcparam">first</span> stack index.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">second</span></td>
+
+               
+<td>The <span class="funcparam">second</span> stack index.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">insert</span>
+<script>explorer.outline.addDecl('insert');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Inserts the value at the top of the stack into the given slot, shifting up the values in that slot
+and everything after it up by a slot.  This means the stack will stay the same size.  Similar to a
+"rotate" operation common to many stack machines.
+<br><br>
+Throws an error if '<span class="funcparam">slot</span>' corresponds to the 'this' parameter.  'this' can never be modified.
+<br><br>
+
+If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The slot in which the value at the top will be inserted.  If this refers to the top of the
+		stack, this function does nothing.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">insertAndPop</span>
+<script>explorer.outline.addDecl('insertAndPop');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Similar to insert, but combines the insertion with a pop operation that pops everything after the
+newly-inserted value off the stack.
+<br><br>
+Throws an error if '<span class="funcparam">slot</span>' corresponds to the 'this' parameter.  'this' can never be modified.
+<br><br>
+
+If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">rotate</span>
+<script>explorer.outline.addDecl('rotate');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numSlots</span>, uint <span class="funcparam">dist</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>A more generic version of insert.  This allows you to 
+<span class="currsymbol">rotate</span>
+<script>explorer.outline.addDecl('rotate');</script>
+
+ the <span class="funcparam">dist</span> items within the top
+<span class="funcparam">numSlots</span> items on the stack.  The top <span class="funcparam">dist</span> items become the bottom <span class="funcparam">dist</span> items within that range
+of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a 
+<span class="currsymbol">rotate</span>
+<script>explorer.outline.addDecl('rotate');</script>
+
+ with
+5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the <span class="funcparam">dist</span> parameter is 1,
+it behaves just like insert.
+<br><br>
+Attempting to 
+<span class="currsymbol">rotate</span>
+<script>explorer.outline.addDecl('rotate');</script>
+
+ more values than there are on the stack (excluding 'this') will throw an error.
+<br><br>
+
+If the distance is an even multiple of the number of slots, or if you 
+<span class="currsymbol">rotate</span>
+<script>explorer.outline.addDecl('rotate');</script>
+
+ 0 or 1 slots, this
+function is a no-op.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">rotateAll</span>
+<script>explorer.outline.addDecl('rotateAll');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">dist</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Rotates all stack slots (excluding 'this').  This is the same as calling rotate with a numSlots
+parameter of stackSize(t) - 1.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">pop</span>
+<script>explorer.outline.addDecl('pop');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">n</span> = cast(uint)1);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pops a number of items off the stack.  Throws an error if you try to 
+<span class="currsymbol">pop</span>
+<script>explorer.outline.addDecl('pop');</script>
+
+ more items than there are
+on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to 
+<span class="currsymbol">pop</span>
+<script>explorer.outline.addDecl('pop');</script>
+
+ 2
+values, an error is thrown.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">n</span></td>
+
+               
+<td>The number of items to pop.  Defaults to 1.  Must be greater than 0.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setStackSize</span>
+<script>explorer.outline.addDecl('setStackSize');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">newSize</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets the thread's stack size to an absolute value.  The new stack size must be at least 1 (which
+would leave 'this' on the stack and nothing else).  If the new stack size is smaller than the old
+one, the old values are simply discarded.  If the new stack size is larger than the old one, the
+new slots are filled with <b>null</b>.  Throws an error if you try to set the stack size to 0.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">newSize</span></td>
+
+               
+<td>The new stack size.  Must be greater than 0.</td></tr>
 </table><br>
 
 </dd>
@@ -731,156 +1038,6 @@ The stack index of the newly-pushed value.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">dup</span>
-<script>explorer.outline.addDecl('dup');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span> = -1);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Duplicates a value at the given stack index and pushes it onto the stack.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The slot to duplicate.  Defaults to -1, which means the top of the stack.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed slot.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">first</span> = -2, int <span class="funcparam">second</span> = -1);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Swaps the two values at the given 
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
- indices.  The <span class="funcparam">first</span> index defaults to the <span class="funcparam">second</span>-from-top
-value.  The <span class="funcparam">second</span> index defaults to the top-of-stack.  So, if you call 
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
- with no indices, it will
-
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
- the top two values.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">first</span></td>
-
-               
-<td>The <span class="funcparam">first</span> stack index.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">second</span></td>
-
-               
-<td>The <span class="funcparam">second</span> stack index.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">insert</span>
-<script>explorer.outline.addDecl('insert');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Inserts the value at the top of the stack into the given slot, shifting up the values in that slot
-and everything after it up by a slot.  This means the stack will stay the same size.  Similar to a
-"rotate" operation common to many stack machines.
-<br><br>
-Throws an error if '<span class="funcparam">slot</span>' corresponds to the 'this' parameter.  'this' can never be modified.
-<br><br>
-
-If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The slot in which the value at the top will be inserted.  If this refers to the top of the
-		stack, this function does nothing.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">insertAndPop</span>
-<script>explorer.outline.addDecl('insertAndPop');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Similar to insert, but combines the insertion with a pop operation that pops everything after the
-newly-inserted value off the stack.
-<br><br>
-Throws an error if '<span class="funcparam">slot</span>' corresponds to the 'this' parameter.  'this' can never be modified.
-<br><br>
-
-If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">pop</span>
-<script>explorer.outline.addDecl('pop');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">n</span> = cast(uint)1);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pops a number of items off the stack.  Throws an error if you try to 
-<span class="currsymbol">pop</span>
-<script>explorer.outline.addDecl('pop');</script>
-
- more items than there are
-on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to 
-<span class="currsymbol">pop</span>
-<script>explorer.outline.addDecl('pop');</script>
-
- 2
-values, an error is thrown.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">n</span></td>
-
-               
-<td>The number of items to pop.  Defaults to 1.  Must be greater than 0.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
 <span class="currsymbol">absIndex</span>
 <script>explorer.outline.addDecl('absIndex');</script>
 
@@ -908,293 +1065,6 @@ just returns it.  Throws an error if the index is out of range.
 
 <dd>Sees if a given stack index (negative or positive) is valid.  Valid positive stack indices range
 from [0 .. stackSize(<span class="funcparam">t</span>).  Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">rawCall</span>
-<script>explorer.outline.addDecl('rawCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Calls the object at the given slot.  The parameters (including 'this') are assumed to be all the
-values after that slot to the top of the stack.
-<br><br>
-The 'this' parameter is, according to the language specification, <b>null</b> if no explicit context is given.
-You must still push this <b>null</b> value, however.
-<br><br>
-
-An example of calling a function:
-<br><br>
-
-<pre class="d_code"><font color=green>// Let's translate `x = f(5, "hi")` into API calls.
-</font>
-<font color=green>// 1. Push the function (or any callable object -- like objects, threads).
-</font><font color=blue>auto</font> <i>slot</i> = pushGlobal(<i>t</i>, <font color=red>"f"</font>);
-
-<font color=green>// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
-</font><font color=green>// put a 'with', so 'null' will be used as the context.
-</font>pushNull(<i>t</i>);
-
-<font color=green>// 3. Push any params.
-</font>pushInt(<i>t</i>, 5);
-pushString(<i>t</i>, <font color=red>"hi"</font>);
-
-<font color=green>// 4. Call it.
-</font><u>rawCall</u>(<i>t</i>, <i>slot</i>, 1);
-
-<font color=green>// 5. Do something with the return values.  setGlobal pops the return value off the stack, so now the
-</font><font color=green>// stack is back the way it was when we started.
-</font>setGlobal(<i>t</i>, <font color=red>"x"</font>);
-</pre>
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The slot containing the object to call.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
-
-               
-<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
-	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
-	not exactly useful since you already know it).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">methodCall</span>
-<script>explorer.outline.addDecl('methodCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Calls a method of an object at the given slot.  The parameters (including a spot for 'this') are assumed
-to be all the values after that slot to the top of the stack.
-<br><br>
-This function behaves identically to a method call within the language, including calling opMethod
-metamethods if the method is not found.
-<br><br>
-
-The process of calling a method is very similar to calling a normal function.
-<br><br>
-
-<pre class="d_code"><font color=green>// Let's translate `o.f(3)` into API calls.
-</font>
-<font color=green>// 1. Push the object on which the method will be called.
-</font><font color=blue>auto</font> <i>slot</i> = pushGlobal(<i>t</i>, <font color=red>"o"</font>);
-
-<font color=green>// 2. Make room for 'this'.  If you want to call the method with a custom 'this', push it here.
-</font><font color=green>// Otherwise, we'll let MiniD figure out the 'this' and we can just push null.
-</font>pushNull(<i>t</i>);
-
-<font color=green>// 3. Push any params.
-</font>pushInt(<i>t</i>, 3);
-
-<font color=green>// 4. Call it with the method name.  We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
-</font><u>methodCall</u>(<i>t</i>, <i>slot</i>, <font color=red>"f"</font>, 0);
-
-<font color=green>// We didn'_t ask for any return values, so the stack is how it was before we began.
-</font></pre>
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The slot containing the object on which the method will be called.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The name of the method to call.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
-
-               
-<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">customThis</span></td>
-
-               
-<td>If <b>true</b>, the 'this' parameter you push after the object will be respected and
-		passed as 'this' to the method (though the method will still be looked up in the object).
-		The default is <b>false</b>, where the context will be determined automatically (i.e. it's
-		the object on which the method is being called).</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
-	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
-	not exactly useful since you already know it).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">methodCall</span>
-<script>explorer.outline.addDecl('methodCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Same as above, but expects the name of the method to be on top of the stack (after the parameters).
-<br><br>
-The parameters and return value are the same as above.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">superCall</span>
-<script>explorer.outline.addDecl('superCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Performs a super call.  This function will only work if the currently-executing function was called as
-a method of a value of type 'object'.
-<br><br>
-This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
-thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
-It will fill them in (and what it puts in them is really kind of scary).  Regardless, when the super method is
-called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
-<br><br>
-
-The process of performing a supercall is not really that much different from other kinds of calls.
-<br><br>
-
-<pre class="d_code"><font color=green>// Let's translate `super.f(3)` into API calls.
-</font>
-<font color=green>// 1. Push a null.
-</font><font color=blue>auto</font> <i>slot</i> = pushNull(<i>t</i>);
-
-<font color=green>// 2. Push another null.  You can'_t call a super method with a custom 'this'.
-</font>pushNull(<i>t</i>);
-
-<font color=green>// 3. Push any params.
-</font>pushInt(<i>t</i>, 3);
-
-<font color=green>// 4. Call it with the method name.
-</font><u>superCall</u>(<i>t</i>, <i>slot</i>, <font color=red>"f"</font>, 0);
-
-<font color=green>// We didn'_t ask for any return values, so the stack is how it was before we began.
-</font></pre>
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The first empty slot.  There should be another one on top of it.  Then come any parameters.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The name of the method to call.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
-
-               
-<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
-	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
-	not exactly useful since you already know it).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">superCall</span>
-<script>explorer.outline.addDecl('superCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Same as above, but expects the method name to be at the top of the stack (after the parameters).
-<br><br>
-The parameters and return value are the same as above.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setUpval</span>
-<script>explorer.outline.addDecl('setUpval');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">idx</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sets an upvalue in the currently-executing closure.  The upvalue is set to the value on top of the
-stack, which is popped.
-<br><br>
-This function will fail if called at top-level (that is, outside of any executing closures).
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
-
-               
-<td>The index of the upvalue to set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">getUpval</span>
-<script>explorer.outline.addDecl('getUpval');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">idx</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes an upvalue from the currently-executing closure.
-<br><br>
-This function will fail if called at top-level (that is, outside of any executing closures).
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
-
-               
-<td>The index of the upvalue to set.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed value.
 <br><br>
 
 </dd>
@@ -1411,6 +1281,21 @@ The stack index of the newly-pushed value.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">bool 
+<span class="currsymbol">isWeakRef</span>
+<script>explorer.outline.addDecl('isWeakRef');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if the value at the given slot is a weak reference.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
 <span class="currsymbol">isTrue</span>
 <script>explorer.outline.addDecl('isTrue');</script>
 
@@ -1436,25 +1321,8 @@ as within the language.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the type of the value at the given slot.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">pushTypeString</span>
-<script>explorer.outline.addDecl('pushTypeString');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes the string representation of the type of the value at the given slot.
-<br><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed string.
+<dd>Gets the type of the value at the given slot.  Value types are given by the MDValue.Type
+enumeration defined in minid.types.
 <br><br>
 
 </dd>
@@ -1500,6 +1368,23 @@ The stack index of the newly-pushed string.
 
 
 <dd>Returns the float value at the given slot, or throws an error if it isn't one.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">double 
+<span class="currsymbol">getNum</span>
+<script>explorer.outline.addDecl('getNum');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Returns the numerical value at the given slot.  This always returns an mdfloat, and will
+implicitly cast int values to floats.  Throws an error if the value is neither an int
+nor a float.
 <br><br>
 
 </dd>
@@ -1576,55 +1461,362 @@ This is really meant for access to threads so that you can call thread functions
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">numExtraVals</span>
-<script>explorer.outline.addDecl('numExtraVals');</script>
+<dt><span class="decl">T 
+<span class="currsymbol">safeCode</span>
+<script>explorer.outline.addDecl('safeCode');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+(T)(MDThread* <span class="funcparam">t</span>, lazy T <span class="funcparam">code</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Finds out how many extra values an object has (see newObject for info on that).  Throws an error
-if the value at the given slot isn't an object.
+<dd>An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
+could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
+for writing native MiniD libraries.
+<br><br>
+Say you had a function which opened a file:
+<br><br>
+
+<pre class="d_code">File f = OpenFile(<font color=red>"filename"</font>);
+</pre>
+
+Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
+stack traces about) exceptions which derive from MDException, any exceptions that this throws would just percolate
+up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
+you call a lot of native functions.
+<br><br>
+
+Instead, you can wrap the call to this unsafe function with a call to 
+<span class="currsymbol">safeCode</span>
+<script>explorer.outline.addDecl('safeCode');</script>
+
+().
+<br><br>
+
+<pre class="d_code">File f = <u>safeCode</u>(t, OpenFile(<font color=red>"filename"</font>));
+</pre>
+
+What 
+<span class="currsymbol">safeCode</span>
+<script>explorer.outline.addDecl('safeCode');</script>
+
+() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
+the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
+an exception that derives from Exception, it throws a new MDException with the original exception's message as the
+message.
+<br><br>
+
+If you want to wrap statements, you can use a delegate literal:
+<br><br>
+
+<pre class="d_code"><u>safeCode</u>(t,
+{
+	stmt1;
+	stmt2;
+	stmt3;
+}());
+</pre>
+
+Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
+parameter.  If you don't put the parens there, it will never actually call the delegate.
+<br><br>
+
+
+<span class="currsymbol">safeCode</span>
+<script>explorer.outline.addDecl('safeCode');</script>
+
+() is templated to allow any return value.
+
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+<td nowrap valign="top" style="padding-right: 8px">code</td>
 
                
-<td>The stack index of the object whose number of values is to be retrieved.</td></tr>
+<td>The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
+		
+<span class="currsymbol">safeCode</span>
+<script>explorer.outline.addDecl('safeCode');</script>
+
+.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-The number of extra values associated with the given object.
+Whatever the code parameter returns.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">foreachLoop</span>
+<script>explorer.outline.addDecl('foreachLoop');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
+It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
+manipulations.
+<br><br>
+To use this, first you push the container -- what you would normally put on the right side
+of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
+values, and if the first value is not a function, opApply is called on it with the second
+value as a user parameter.
+<br><br>
+
+Then you can create an instance of this struct using the static opCall and iterate over it
+with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
+stack slots that hold those values.  You can break out of the loop just as you'd expect,
+and you can perform any manipulations you'd like in the loop body.
+
+<br><br>
+<b>Example:</b><br>
+<pre class="d_code"><font color=green>// 1. Push the container.  We're just iterating through modules.customLoaders.
+</font>lookup(t, <font color=red>"modules.customLoaders"</font>);
+
+<font color=green>// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
+</font><font color=green>// of items in the container.  We only pushed one value for the container, so we pass 1.
+</font><font color=green>// Note that you must specify the index types (which must all be word), or else D can't infer
+</font><font color=green>// the types for them.
+</font>
+<font color=blue>foreach</font>(word k, word v; <u>foreachLoop</u>(t, 1))
+{
+	<font color=green>// 3. Do whatever you want with k and v.
+</font>	pushToString(t, k);
+	pushToString(t, v);
+	Stdout.formatln(<font color=red>"{}: {}"</font>, getString(t, -2), getString(t, -1));
+
+	<font color=green>// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
+</font>	pop(t, 2);
+}
+</pre>
+
+Note a few things: the foreach loop will pop the container off the stack, so the above code is
+stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
+pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
+
+<span class="currsymbol">foreachLoop</span>
+<script>explorer.outline.addDecl('foreachLoop');</script>
+
+ keeps internal loop data there, but stack indices that were valid before the loop started
+will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
+like in MiniD where an implicit index will be inserted before that one, and you will get the second
+indices in v instead of the first.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static foreachLoop 
+<span class="currsymbol">opCall</span>
+<script>explorer.outline.addDecl('opCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numSlots</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The struct constructor.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numSlots</span></td>
+
+               
+<td>How many slots on top of the stack should be interpreted as the container.  Must be
+			1, 2, or 3.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">opApply</span>
+<script>explorer.outline.addDecl('opApply');</script>
+
+(T)(T <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The function that makes everything work.  This is templated to allow any number of indices, but
+	the downside to that is that you must specify the types of the indices in the foreach loop that
+	iterates over this structure.  All the indices must be of type 'word'.
+	
+<br><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">throwException</span>
+<script>explorer.outline.addDecl('throwException');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Throws a MiniD exception using the value at the top of the stack as the exception object.  Any type can
+be thrown.  This will throw an actual D exception of type MDException as well, which can be caught in D
+as normal (<b>Important:</b> see catchException for information on catching them).
+<br><br>
+You cannot use this function if another exception is still in flight, that is, it has not yet been caught with
+catchException.  If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
+<br><br>
+
+This function obviously does not return.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">throwException</span>
+<script>explorer.outline.addDecl('throwException');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">fmt</span>,...);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
+pushVFormat on the arguments and then calling 
+<span class="currsymbol">throwException</span>
+<script>explorer.outline.addDecl('throwException');</script>
+
+.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">pushExtraVal</span>
-<script>explorer.outline.addDecl('pushExtraVal');</script>
+<span class="currsymbol">catchException</span>
+<script>explorer.outline.addDecl('catchException');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, uint <span class="funcparam">idx</span>);
+(MDThread* <span class="funcparam">t</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pushes the <span class="funcparam">idx</span> th extra value from the object at the given slot.  Throws an error if the value at
-the given slot isn't an object, or if the index is out of bounds.
+<dd>When catching MiniD exceptions (those derived from MDException) in D, MiniD doesn't know that you've actually caught
+one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
+D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
+you <b>must call this function</b>.  This informs MiniD that you have caught the exception that was in flight, and
+pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
+<br><br>
+Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
+might be garbage from a half-completed operation.  So you might want to store the size of the stack before a 'try'
+block, then restore it in the 'catch' block so that the stack will be in a consistent state.
+<br><br>
+
+An exception must be in flight for this function to work.  If none is in flight, a MiniD exception is thrown. (For
+some reason, that sounds funny.  "Error: there is no error!")
+
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed exception object.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getTraceback</span>
+<script>explorer.outline.addDecl('getTraceback');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+$(DDOC_DECL_DD After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
+thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
+and it will be noted when this happens (in the traceback you'll see something like "&lt;4 tailcalls&gt;(?)" to indicate
+that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
+work across native functionc calls, in which case the name of the function will be noted but no line number will be
+given since that would be impossible; instead it is marked as "(native)".
+<br><br>
+When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
+sort of form:
+<br><br>
+
+<pre class="d_code"></pre>
+<b>Traceback:</b><br>
+function.that.threw.exception(9)
+        at function.that.called.it(23)
+        at &lt;5 tailcalls&gt;(?)
+        at some.native.function(native)
+<pre class="d_code">
+Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
+native API manipulations cause an error.
+
+When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
+this function is called again, you will get an empty string.
+
+</pre>
+<b>Returns:</b><br>
+The stack index of the newly-pushed traceback string.
+<br><br>
+<br><br>
+<br><br>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setUpval</span>
+<script>explorer.outline.addDecl('setUpval');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets an upvalue in the currently-executing closure.  The upvalue is set to the value on top of the
+stack, which is popped.
+<br><br>
+This function will fail if called at top-level (that is, outside of any executing closures).
+
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The object whose value is to be retrieved.</td></tr>
-<tr>
 <td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
 
                
-<td>The index of the extra value to get.</td></tr>
+<td>The index of the upvalue to set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getUpval</span>
+<script>explorer.outline.addDecl('getUpval');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes an upvalue from the currently-executing closure.
+<br><br>
+This function will fail if called at top-level (that is, outside of any executing closures).
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
+
+               
+<td>The index of the upvalue to set.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index of the newly-pushed value.
@@ -1633,60 +1825,19 @@ The stack index of the newly-pushed value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setExtraVal</span>
-<script>explorer.outline.addDecl('setExtraVal');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, uint <span class="funcparam">idx</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pops the value off the top of the stack and places it in the <span class="funcparam">idx</span> th extra value in the object at the
-given slot.  Throws an error if the value at the given slot isn't an object, or if the index is out
-of bounds.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The object whose value is to be set.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
-
-               
-<td>The index of the extra value to set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void[] 
-<span class="currsymbol">getExtraBytes</span>
-<script>explorer.outline.addDecl('getExtraBytes');</script>
+<dt><span class="decl">int 
+<span class="currsymbol">pushTypeString</span>
+<script>explorer.outline.addDecl('pushTypeString');</script>
 
 (MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets a void array of the extra bytes associated with the object at the given slot.  If the object has
-no extra bytes, returns <b>null</b>.  Throws an error if the value at the given slot isn't an object.
+<dd>Pushes the string representation of the type of the value at the given slot.
 <br><br>
-The returned void array points into the MiniD heap, so you should not store the returned reference
-anywhere.
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The object whose data is to be retrieved.</td></tr>
-</table><br>
 <b>Returns:</b><br>
-A void array of the data, or <b>null</b> if the object has none.
+The stack index of the newly-pushed string.
 <br><br>
 
 </dd>
@@ -1901,6 +2052,480 @@ but you can change where the lookup starts by using the <span class="funcparam">
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">clearTable</span>
+<script>explorer.outline.addDecl('clearTable');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">tab</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes all items from the given table object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">tab</span></td>
+
+               
+<td>The stack index of the table object to clear.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">fillArray</span>
+<script>explorer.outline.addDecl('fillArray');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">arr</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Fills the array at the given index with the value at the top of the stack and pops that value.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">arr</span></td>
+
+               
+<td>The stack index of the array object to fill.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getFuncEnv</span>
+<script>explorer.outline.addDecl('getFuncEnv');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the environment namespace of a function closure.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">func</span></td>
+
+               
+<td>The stack index of the function whose environment is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed environment namespace.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setFuncEnv</span>
+<script>explorer.outline.addDecl('setFuncEnv');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
+that namespace off the stack.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">func</span></td>
+
+               
+<td>The stack index of the function whose environment is to be set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">funcName</span>
+<script>explorer.outline.addDecl('funcName');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the name of the function at the given stack index.  This is the name given in the declaration
+of the function if it's a script function, or the name given to newFunction for native functions.
+Some functions, like top-level module functions and nameless function literals, have automatically-
+generated names which always start and end with angle brackets (&lt; and &gt;
+).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">funcNumParams</span>
+<script>explorer.outline.addDecl('funcNumParams');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the number of parameters that the function at the given stack index takes.  This is the number
+of non-variadic arguments, not including 'this'.  For native functions, always returns 0.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">funcIsVararg</span>
+<script>explorer.outline.addDecl('funcIsVararg');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets whether or not the given function takes variadic arguments.  For native functions, always returns
+<b>true</b>.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">funcIsNative</span>
+<script>explorer.outline.addDecl('funcIsNative');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets whether or not the given function is a native function.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">numExtraVals</span>
+<script>explorer.outline.addDecl('numExtraVals');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Finds out how many extra values an object has (see newObject for info on that).  Throws an error
+if the value at the given slot isn't an object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The stack index of the object whose number of values is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The number of extra values associated with the given object.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getExtraVal</span>
+<script>explorer.outline.addDecl('getExtraVal');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, uint <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the <span class="funcparam">idx</span> th extra value from the object at the given slot.  Throws an error if the value at
+the given slot isn't an object, or if the index is out of bounds.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The object whose value is to be retrieved.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
+
+               
+<td>The index of the extra value to get.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setExtraVal</span>
+<script>explorer.outline.addDecl('setExtraVal');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, uint <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pops the value off the top of the stack and places it in the <span class="funcparam">idx</span> th extra value in the object at the
+given slot.  Throws an error if the value at the given slot isn't an object, or if the index is out
+of bounds.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The object whose value is to be set.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
+
+               
+<td>The index of the extra value to set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void[] 
+<span class="currsymbol">getExtraBytes</span>
+<script>explorer.outline.addDecl('getExtraBytes');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets a void array of the extra bytes associated with the object at the given slot.  If the object has
+no extra bytes, returns <b>null</b>.  Throws an error if the value at the given slot isn't an object.
+<br><br>
+The returned void array points into the MiniD heap, so you should not store the returned reference
+anywhere.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The object whose data is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+A void array of the data, or <b>null</b> if the object has none.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setFinalizer</span>
+<script>explorer.outline.addDecl('setFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
+about to be collected by the garbage collector and is used to clean up limited resources associated with it
+(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
+as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
+ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
+the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+function will <b>not</b> be run again.
+<br><br>
+When you clone objects from this object, their finalizer will be set to the same function.
+<br><br>
+
+This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
+function from an object, the value at the top of the stack can be <b>null</b>.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+
+               
+<td>The object whose finalizer is to be set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getFinalizer</span>
+<script>explorer.outline.addDecl('getFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the finalizer function associated with the given object, or <b>null</b> if no finalizer is set for
+that object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+
+               
+<td>The object whose finalizer is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed finalizer function (or <b>null</b> if the object has none).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">objName</span>
+<script>explorer.outline.addDecl('objName');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the name of the object at the given stack index.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">clearNamespace</span>
+<script>explorer.outline.addDecl('clearNamespace');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">ns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes all items from the given namespace object.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">ns</span></td>
+
+               
+<td>The stack index of the namespace object to clear.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">removeKey</span>
+<script>explorer.outline.addDecl('removeKey');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes the key value at the top of the stack from the given object.  The key value
+is popped.  The object must be a namespace or table.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">namespaceName</span>
+<script>explorer.outline.addDecl('namespaceName');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">ns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the name of the namespace at the given stack index.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">namespaceFullname</span>
+<script>explorer.outline.addDecl('namespaceFullname');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">ns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the "full" name of the given namespace, which includes all the parent namespace name components,
+separated by dots.
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed name string.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">State 
+<span class="currsymbol">state</span>
+<script>explorer.outline.addDecl('state');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the current coroutine 
+<span class="currsymbol">state</span>
+<script>explorer.outline.addDecl('state');</script>
+
+ of the thread as a member of the MDThread.State enumeration.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">stateString</span>
+<script>explorer.outline.addDecl('stateString');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets a string representation of the current coroutine state of the thread.
+<br><br>
+The string returned is not on the MiniD heap, it's just a string literal.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">MDVM* 
+<span class="currsymbol">getVM</span>
+<script>explorer.outline.addDecl('getVM');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the VM that the thread is associated with.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">uint 
 <span class="currsymbol">callDepth</span>
 <script>explorer.outline.addDecl('callDepth');</script>
@@ -1932,6 +2557,177 @@ Valid negative stack indices range from [-stackSize(<span class="funcparam">t</s
 <br><br>
 Note that 'this' (stack index 0 or -stackSize(<span class="funcparam">t</span>)) may not be overwritten or changed, although it can be used
 with functions that don't modify their argument.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">resetThread</span>
+<script>explorer.outline.addDecl('resetThread');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, bool <span class="funcparam">newFunction</span> = false);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The stack index of the thread to be reset.  It must be in the 'dead' state.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">newFunction</span></td>
+
+               
+<td>If <b>true</b>, a function should be on top of the stack which should serve as the new body of the
+		coroutine.  The default is <b>false</b>, in which case the coroutine will use the function with which it was
+		created.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">yield</span>
+<script>explorer.outline.addDecl('yield');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numVals</span>, int <span class="funcparam">numReturns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
+	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
+	extended mode, it will always work.
+<br><br>
+You cannot 
+<span class="currsymbol">yield</span>
+<script>explorer.outline.addDecl('yield');</script>
+
+ out of a thread that is not currently executing, nor can you 
+<span class="currsymbol">yield</span>
+<script>explorer.outline.addDecl('yield');</script>
+
+ out of the main thread of
+	a VM.
+<br><br>
+
+	This function works very similarly to the call functions.  You push the values that you want to 
+<span class="currsymbol">yield</span>
+<script>explorer.outline.addDecl('yield');</script>
+
+ on the stack,
+	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
+	resumed with, and that many values will be on the stack.
+
+<br><br>
+<b>Example:</b><br>
+<pre class="d_code"><font color=green>// Let's translate `x = yield(5, "hi")` into API calls.
+</font>
+<font color=green>// 1. Push the values to be yielded.
+</font>pushInt(<i>t</i>, 5);
+pushString(<i>t</i>, <font color=red>"hi"</font>);
+
+<font color=green>// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
+</font><u>yield</u>(<i>t</i>, 2, 1);
+
+<font color=green>// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
+</font><font color=green>// stack is back the way it was when we started.
+</font>setGlobal(<i>t</i>, <font color=red>"x"</font>);
+</pre>
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numVals</span></td>
+
+               
+<td>The number of values that you are yielding.  These values should be on top of the stack, in order.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
+
+               
+<td>The number of return values you are expecting, or -1 for as many returns as you can get.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+How many values were returned.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span>.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">haltThread</span>
+<script>explorer.outline.addDecl('haltThread');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
+otherwise, places a pending halt on the thread.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">pendingHalt</span>
+<script>explorer.outline.addDecl('pendingHalt');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">hasPendingHalt</span>
+<script>explorer.outline.addDecl('hasPendingHalt');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if the given thread has a pending halt.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">deref</span>
+<script>explorer.outline.addDecl('deref');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Dereferences the weak reference object at the given stack index and pushes the value it
+refers to.  If the value it refers to has been collected, pushes "<b>null</b>" instead.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the weak reference object to dereference.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
 <br><br>
 
 </dd>
@@ -2118,6 +2914,11 @@ pop(<i>t</i>);
 
                
 <td>The stack index of the container object.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">raw</span></td>
+
+               
+<td>If <b>true</b>, no opIndex metamethods will be called.  Defaults to <b>false</b>.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index that contains the result (the top of the stack).
@@ -2155,6 +2956,80 @@ pop(<i>t</i>);
 
                
 <td>The stack index of the container object.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">raw</span></td>
+
+               
+<td>If <b>true</b>, no opIndex metamethods will be called.  Defaults to <b>false</b>.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">idxi</span>
+<script>explorer.outline.addDecl('idxi');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, int <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Shortcut for the common case where you need to index a container with an integer index.  Pushes
+the indexed value.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">container</span></td>
+
+               
+<td>The stack index of the container object.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The integer index.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">raw</span></td>
+
+               
+<td>If <b>true</b>, no opIndex metamethods will be called.  Defaults to <b>false</b>.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed indexed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">idxai</span>
+<script>explorer.outline.addDecl('idxai');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, int <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Shortcut for the common case where you need to index-assign a container with an integer index.  Pops
+the value at the top of the stack and assigns it into the container at the given index.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">container</span></td>
+
+               
+<td>The stack index of the container object.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The integer index.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">raw</span></td>
+
+               
+<td>If <b>true</b>, no opIndexAssign metamethods will be called.  Defaults to <b>false</b>.</td></tr>
 </table><br>
 
 </dd>
@@ -2878,228 +3753,234 @@ The stack index of the newly-pushed value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">throwException</span>
-<script>explorer.outline.addDecl('throwException');</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">rawCall</span>
+<script>explorer.outline.addDecl('rawCall');</script>
 
-(MDThread* <span class="funcparam">t</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Throw a MiniD exception using the value at the top of the stack as the exception object.  Any type can
-be thrown.  This will throw an actual D exception of type MDException as well, which can be caught in D
-as normal (<b>Important:</b> see catchException for information on catching them).
+<dd>Calls the object at the given slot.  The parameters (including 'this') are assumed to be all the
+values after that slot to the top of the stack.
 <br><br>
-You cannot use this function if another exception is still in flight, that is, it has not yet been caught with
-catchException.  If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
-<br><br>
-
-This function obviously does not return.
+The 'this' parameter is, according to the language specification, <b>null</b> if no explicit context is given.
+You must still push this <b>null</b> value, however.
 <br><br>
 
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">throwException</span>
-<script>explorer.outline.addDecl('throwException');</script>
-
-(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">fmt</span>,...);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
-pushVFormat on the arguments and then 
-<span class="currsymbol">throwException</span>
-<script>explorer.outline.addDecl('throwException');</script>
-
-.
+An example of calling a function:
 <br><br>
 
-</dd>
+<pre class="d_code"><font color=green>// Let's translate `x = f(5, "hi")` into API calls.
+</font>
+<font color=green>// 1. Push the function (or any callable object -- like objects, threads).
+</font><font color=blue>auto</font> <i>slot</i> = pushGlobal(<i>t</i>, <font color=red>"f"</font>);
 
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">catchException</span>
-<script>explorer.outline.addDecl('catchException');</script>
+<font color=green>// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
+</font><font color=green>// put a 'with', so 'null' will be used as the context.
+</font>pushNull(<i>t</i>);
 
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
+<font color=green>// 3. Push any params.
+</font>pushInt(<i>t</i>, 5);
+pushString(<i>t</i>, <font color=red>"hi"</font>);
 
+<font color=green>// 4. Call it.
+</font><u>rawCall</u>(<i>t</i>, <i>slot</i>, 1);
 
-<dd>When catching MiniD exceptions (those derived from MDException) in D, MiniD doesn't know that you've actually caught
-one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
-D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
-you <b>must call this function</b>.  This informs MiniD that you have caught the exception that was in flight, and
-pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
-<br><br>
-Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
-might be garbage from a half-completed operation.  So you might want to store the size of the stack before a 'try'
-block, then restore it in the 'catch' block so that the stack will be in a consistent state.
-<br><br>
-
-An exception must be in flight for this function to work.  If none is in flight, a MiniD exception is thrown. (For
-some reason, that sounds funny.  "Error: there is no error!")
-
-<br><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed exception object.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">getTraceback</span>
-<script>explorer.outline.addDecl('getTraceback');</script>
-
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-$(DDOC_DECL_DD After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
-thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
-and it will be noted when this happens (in the traceback you'll see something like "&lt;4 tailcalls&gt;(?)" to indicate
-that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
-work across native functionc calls, in which case the name of the function will be noted but no line number will be
-given since that would be impossible; instead it is marked as "(native)".
-<br><br>
-When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
-sort of form:
-<br><br>
-
-<pre class="d_code"></pre>
-<b>Traceback:</b><br>
-function.that.threw.exception(9)
-        at function.that.called.it(23)
-        at &lt;5 tailcalls&gt;(?)
-        at some.native.function(native)
-<pre class="d_code">
-Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
-native API manipulations cause an error.
-
-When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
-this function is called again, you will get an empty string.
-
+<font color=green>// 5. Do something with the return values.  setGlobal pops the return value off the stack, so now the
+</font><font color=green>// stack is back the way it was when we started.
+</font>setGlobal(<i>t</i>, <font color=red>"x"</font>);
 </pre>
-<b>Returns:</b><br>
-The stack index of the newly-pushed traceback string.
-<br><br>
-<br><br>
-<br><br>
 
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">pushTypeMT</span>
-<script>explorer.outline.addDecl('pushTypeMT');</script>
-
-(MDThread* <span class="funcparam">t</span>, Type <span class="funcparam">type</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Push the metatable for the given <span class="funcparam">type</span>.  If the <span class="funcparam">type</span> has no metatable, pushes <b>null</b>.  The <span class="funcparam">type</span> given must be
-one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">Type <span class="funcparam">type</span></td>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The <span class="funcparam">type</span> whose metatable is to be pushed.</td></tr>
+<td>The slot containing the object to call.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
+
+               
+<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-The stack index of the newly-pushed value (<b>null</b> if the <span class="funcparam">type</span> has no metatable, or a namespace if it does).
+The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
+	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
+	not exactly useful since you already know it).
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setTypeMT</span>
-<script>explorer.outline.addDecl('setTypeMT');</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">methodCall</span>
+<script>explorer.outline.addDecl('methodCall');</script>
 
-(MDThread* <span class="funcparam">t</span>, Type <span class="funcparam">type</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Sets the metatable for the given <span class="funcparam">type</span> to the namespace or <b>null</b> at the top of the stack.  Throws an
-error if the <span class="funcparam">type</span> given is one of the "internal" types, or if the value at the top of the stack is
-neither <b>null</b> nor a namespace.
+<dd>Calls a method of an object at the given slot.  The parameters (including a spot for 'this') are assumed
+to be all the values after that slot to the top of the stack.
 <br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">Type <span class="funcparam">type</span></td>
-
-               
-<td>The <span class="funcparam">type</span> whose metatable is to be set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setFinalizer</span>
-<script>explorer.outline.addDecl('setFinalizer');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
-about to be collected by the garbage collector and is used to clean up limited resources associated with it
-(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
-as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
-garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
-ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
-the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
-function will <b>not</b> be run again.
-<br><br>
-When you clone objects from this object, their finalizer will be set to the same function.
+This function behaves identically to a method call within the language, including calling opMethod
+metamethods if the method is not found.
 <br><br>
 
-This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
-function from an object, the value at the top of the stack can be <b>null</b>.
+The process of calling a method is very similar to calling a normal function.
+<br><br>
+
+<pre class="d_code"><font color=green>// Let's translate `o.f(3)` into API calls.
+</font>
+<font color=green>// 1. Push the object on which the method will be called.
+</font><font color=blue>auto</font> <i>slot</i> = pushGlobal(<i>t</i>, <font color=red>"o"</font>);
+
+<font color=green>// 2. Make room for 'this'.  If you want to call the method with a custom 'this', push it here.
+</font><font color=green>// Otherwise, we'll let MiniD figure out the 'this' and we can just push null.
+</font>pushNull(<i>t</i>);
+
+<font color=green>// 3. Push any params.
+</font>pushInt(<i>t</i>, 3);
+
+<font color=green>// 4. Call it with the method name.  We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
+</font><u>methodCall</u>(<i>t</i>, <i>slot</i>, <font color=red>"f"</font>, 0);
+
+<font color=green>// We didn'_t ask for any return values, so the stack is how it was before we began.
+</font></pre>
 
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The object whose finalizer is to be set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">pushFinalizer</span>
-<script>explorer.outline.addDecl('pushFinalizer');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes the finalizer function associated with the given object, or <b>null</b> if no finalizer is set for
-that object.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+<td>The slot containing the object on which the method will be called.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
-<td>The object whose finalizer is to be retrieved.</td></tr>
+<td>The name of the method to call.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
+
+               
+<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">customThis</span></td>
+
+               
+<td>If <b>true</b>, the 'this' parameter you push after the object will be respected and
+		passed as 'this' to the method (though the method will still be looked up in the object).
+		The default is <b>false</b>, where the context will be determined automatically (i.e. it's
+		the object on which the method is being called).</td></tr>
 </table><br>
 <b>Returns:</b><br>
-The stack index of the newly-pushed finalizer function (or <b>null</b> if the object has none).
+The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
+	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
+	not exactly useful since you already know it).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">methodCall</span>
+<script>explorer.outline.addDecl('methodCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>, bool <span class="funcparam">customThis</span> = false);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as above, but expects the name of the method to be on top of the stack (after the parameters).
+<br><br>
+The parameters and return value are the same as above.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">superCall</span>
+<script>explorer.outline.addDecl('superCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, char[] <span class="funcparam">name</span>, int <span class="funcparam">numReturns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Performs a super call.  This function will only work if the currently-executing function was called as
+a method of a value of type 'object'.
+<br><br>
+This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
+thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
+It will fill them in (and what it puts in them is really kind of scary).  Regardless, when the super method is
+called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
+<br><br>
+
+The process of performing a supercall is not really that much different from other kinds of calls.
+<br><br>
+
+<pre class="d_code"><font color=green>// Let's translate `super.f(3)` into API calls.
+</font>
+<font color=green>// 1. Push a null.
+</font><font color=blue>auto</font> <i>slot</i> = pushNull(<i>t</i>);
+
+<font color=green>// 2. Push another null.  You can'_t call a super method with a custom 'this'.
+</font>pushNull(<i>t</i>);
+
+<font color=green>// 3. Push any params.
+</font>pushInt(<i>t</i>, 3);
+
+<font color=green>// 4. Call it with the method name.
+</font><u>superCall</u>(<i>t</i>, <i>slot</i>, <font color=red>"f"</font>, 0);
+
+<font color=green>// We didn'_t ask for any return values, so the stack is how it was before we began.
+</font></pre>
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
+
+               
+<td>The first empty slot.  There should be another one on top of it.  Then come any parameters.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>The name of the method to call.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
+
+               
+<td>How many return values you want.  Can be -1, which means you'll get all returns.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The number of return values given by the function.  If <span class="funcparam">numReturns</span> was -1, this is exactly how
+	many returns the function gave.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span> (and
+	not exactly useful since you already know it).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">superCall</span>
+<script>explorer.outline.addDecl('superCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, int <span class="funcparam">numReturns</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as above, but expects the method name to be at the top of the stack (after the parameters).
+<br><br>
+The parameters and return value are the same as above.
 <br><br>
 
 </dd>
@@ -3199,218 +4080,6 @@ that object will succeed.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">getFuncEnv</span>
-<script>explorer.outline.addDecl('getFuncEnv');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes the environment namespace of a function closure.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">func</span></td>
-
-               
-<td>The stack index of the function whose environment is to be retrieved.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed environment namespace.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setFuncEnv</span>
-<script>explorer.outline.addDecl('setFuncEnv');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
-that namespace off the stack.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">func</span></td>
-
-               
-<td>The stack index of the function whose environment is to be set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">char[] 
-<span class="currsymbol">funcName</span>
-<script>explorer.outline.addDecl('funcName');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">func</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Gets the name of the function at the given stack index.  This is the name given in the declaration
-of the function if it's a script function, or the name given to newFunction for native functions.
-Some functions, like top-level module functions and nameless function literals, have automatically-
-generated names which always start and end with angle brackets (&lt; and &gt;
-).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">resetThread</span>
-<script>explorer.outline.addDecl('resetThread');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>, bool <span class="funcparam">newFunction</span> = false);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
-
-               
-<td>The stack index of the thread to be reset.  It must be in the 'dead' state.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">newFunction</span></td>
-
-               
-<td>If <b>true</b>, a function should be on top of the stack which should serve as the new body of the
-		coroutine.  The default is <b>false</b>, in which case the coroutine will use the function with which it was
-		created.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">yield</span>
-<script>explorer.outline.addDecl('yield');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numVals</span>, int <span class="funcparam">numReturns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
-	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
-	extended mode, it will always work.
-<br><br>
-You cannot 
-<span class="currsymbol">yield</span>
-<script>explorer.outline.addDecl('yield');</script>
-
- out of a thread that is not currently executing, nor can you 
-<span class="currsymbol">yield</span>
-<script>explorer.outline.addDecl('yield');</script>
-
- out of the main thread of
-	a VM.
-<br><br>
-
-	This function works very similarly to the call functions.  You push the values that you want to 
-<span class="currsymbol">yield</span>
-<script>explorer.outline.addDecl('yield');</script>
-
- on the stack,
-	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
-	resumed with, and that many values will be on the stack.
-
-<br><br>
-<b>Example:</b><br>
-<pre class="d_code"><font color=green>// Let's translate `x = yield(5, "hi")` into API calls.
-</font>
-<font color=green>// 1. Push the values to be yielded.
-</font>pushInt(<i>t</i>, 5);
-pushString(<i>t</i>, <font color=red>"hi"</font>);
-
-<font color=green>// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
-</font><u>yield</u>(<i>t</i>, 2, 1);
-
-<font color=green>// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
-</font><font color=green>// stack is back the way it was when we started.
-</font>setGlobal(<i>t</i>, <font color=red>"x"</font>);
-</pre>
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numVals</span></td>
-
-               
-<td>The number of values that you are yielding.  These values should be on top of the stack, in order.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
-
-               
-<td>The number of return values you are expecting, or -1 for as many returns as you can get.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-How many values were returned.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span>.
-	
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">haltThread</span>
-<script>explorer.outline.addDecl('haltThread');</script>
-
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
-otherwise, places a pending halt on the thread.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">pendingHalt</span>
-<script>explorer.outline.addDecl('pendingHalt');</script>
-
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">hasPendingHalt</span>
-<script>explorer.outline.addDecl('hasPendingHalt');</script>
-
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if the given thread has a pending halt.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
 <span class="currsymbol">getAttributes</span>
 <script>explorer.outline.addDecl('getAttributes');</script>
 
@@ -3487,344 +4156,6 @@ True if the object has an attributes table; <b>false</b> otherwise.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">importModule</span>
-<script>explorer.outline.addDecl('importModule');</script>
-
-(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Import a module with the given <span class="funcparam">name</span>.  Works just like the import statement in MiniD.  Pushes the
-module's namespace onto the stack.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
-
-               
-<td>The <span class="funcparam">name</span> of the module to be imported.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the imported module's namespace.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">importModule</span>
-<script>explorer.outline.addDecl('importModule');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">name</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Same as above, but uses a <span class="funcparam">name</span> on the stack rather than one provided as a parameter.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">name</span></td>
-
-               
-<td>The stack index of the string holding the <span class="funcparam">name</span> of the module to be imported.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the imported module's namespace.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">T 
-<span class="currsymbol">safeCode</span>
-<script>explorer.outline.addDecl('safeCode');</script>
-
-(T)(MDThread* <span class="funcparam">t</span>, lazy T <span class="funcparam">code</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
-could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
-for writing native MiniD libraries.
-<br><br>
-Say you had a function which opened a file:
-<br><br>
-
-<pre class="d_code">File f = OpenFile(<font color=red>"filename"</font>);
-</pre>
-
-Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
-stack traces about) exceptions which derive from MDException, any exceptions that this throws would just percolate
-up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
-you call a lot of native functions.
-<br><br>
-
-Instead, you can wrap the call to this unsafe function with a call to 
-<span class="currsymbol">safeCode</span>
-<script>explorer.outline.addDecl('safeCode');</script>
-
-().
-<br><br>
-
-<pre class="d_code">File f = <u>safeCode</u>(t, OpenFile(<font color=red>"filename"</font>));
-</pre>
-
-What 
-<span class="currsymbol">safeCode</span>
-<script>explorer.outline.addDecl('safeCode');</script>
-
-() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
-the code returns.  If it throws an exception derived from MDException, it rethrows the exception.  And if it throws
-an exception that derives from Exception, it throws a new MDException with the original exception's message as the
-message.
-<br><br>
-
-If you want to wrap statements, you can use a delegate literal:
-<br><br>
-
-<pre class="d_code"><u>safeCode</u>(t,
-{
-	stmt1;
-	stmt2;
-	stmt3;
-}());
-</pre>
-
-Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
-parameter.  If you don't put the parens there, it will never actually call the delegate.
-<br><br>
-
-
-<span class="currsymbol">safeCode</span>
-<script>explorer.outline.addDecl('safeCode');</script>
-
-() is templated to allow any return value.
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">code</td>
-
-               
-<td>The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
-		
-<span class="currsymbol">safeCode</span>
-<script>explorer.outline.addDecl('safeCode');</script>
-
-.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-Whatever the code parameter returns.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">fillArray</span>
-<script>explorer.outline.addDecl('fillArray');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">arr</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Fills the array at the given index with the value at the top of the stack and pops that value.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">arr</span></td>
-
-               
-<td>The stack index of the array object to fill.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">clearNamespace</span>
-<script>explorer.outline.addDecl('clearNamespace');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">ns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Removes all items from the given namespace object.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">ns</span></td>
-
-               
-<td>The stack index of the namespace object to clear.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">clearTable</span>
-<script>explorer.outline.addDecl('clearTable');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">tab</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Removes all items from the given table object.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">tab</span></td>
-
-               
-<td>The stack index of the table object to clear.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">deref</span>
-<script>explorer.outline.addDecl('deref');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Dereferences the weak reference object at the given stack index and pushes the value it
-refers to.  If the value it refers to has been collected, pushes "<b>null</b>" instead.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
-
-               
-<td>The stack index of the weak reference object to dereference.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed value.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">struct 
-<span class="currsymbol">foreachLoop</span>
-<script>explorer.outline.addDecl('foreachLoop');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>This structure is meant to be used as a helper to perform a MiniD-style foreach loop.
-It preserves the semantics of the MiniD foreach loop and handles the foreach/opApply protocol
-manipulations.
-<br><br>
-To use this, first you push the container -- what you would normally put on the right side
-of the semicolon in a foreach loop in MiniD.  Just like in MiniD, this is one, two, or three
-values, and if the first value is not a function, opApply is called on it with the second
-value as a user parameter.
-<br><br>
-
-Then you can create an instance of this struct using the static opCall and iterate over it
-with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
-stack slots that hold those values.  You can break out of the loop just as you'd expect,
-and you can perform any manipulations you'd like in the loop body.
-
-<br><br>
-<b>Example:</b><br>
-<pre class="d_code"><font color=green>// 1. Push the container.  We're just iterating through modules.customLoaders.
-</font>lookup(t, <font color=red>"modules.customLoaders"</font>);
-
-<font color=green>// 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
-</font><font color=green>// of items in the container.  We only pushed one value for the container, so we pass 1.
-</font><font color=green>// Note that you must specify the index types (which must all be word), or else D can't infer
-</font><font color=green>// the types for them.
-</font>
-<font color=blue>foreach</font>(word k, word v; <u>foreachLoop</u>(t, 1))
-{
-	<font color=green>// 3. Do whatever you want with k and v.
-</font>	pushToString(t, k);
-	pushToString(t, v);
-	Stdout.formatln(<font color=red>"{}: {}"</font>, getString(t, -2), getString(t, -1));
-
-	<font color=green>// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
-</font>	pop(t, 2);
-}
-</pre>
-
-Note a few things: the foreach loop will pop the container off the stack, so the above code is
-stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
-pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
-
-<span class="currsymbol">foreachLoop</span>
-<script>explorer.outline.addDecl('foreachLoop');</script>
-
- keeps internal loop data there, but stack indices that were valid before the loop started
-will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
-like in MiniD where an implicit index will be inserted before that one, and you will get the second
-indices in v instead of the first.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static foreachLoop 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numSlots</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The struct constructor.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numSlots</span></td>
-
-               
-<td>How many slots on top of the stack should be interpreted as the container.  Must be
-			1, 2, or 3.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">opApply</span>
-<script>explorer.outline.addDecl('opApply');</script>
-
-(T)(T <span class="funcparam">dg</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The function that makes everything work.  This is templated to allow any number of indices, but
-	the downside to that is that you must specify the types of the indices in the foreach loop that
-	iterates over this structure.  All the indices must be of type 'word'.
-	
-<br><br>
-
-</dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
 <span class="currsymbol">printStack</span>
 <script>explorer.outline.addDecl('printStack');</script>
@@ -3886,7 +4217,7 @@ indices in v instead of the first.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sun Oct  5 22:36:49 2008
+			on Tue Oct 21 16:53:19 2008
 
 		</td></tr>
 	</table>
