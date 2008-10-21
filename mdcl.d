@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,18 +23,17 @@ subject to the following restrictions:
 
 module mdcl;
 
-import minid.commandline;
-
 import tango.io.Stdout;
 import tango.io.Console;
 
+import minid.api;
+import minid.commandline;
+
 void main(char[][] args)
 {
-	// This seemingly pointless code forces the GC to reserve some extra memory
-	// from the start in order to improve performance upon subsequent allocations.
-	// This is until the Tango GC gets a .reserve function or the like.
-	auto chunk = new ubyte[1024 * 1024 * 4];
-	delete chunk;
-	
-	(new CommandLine(Stdout, Cin.stream)).run(args);
+	MDVM vm;
+	auto t = openVM(&vm);
+	loadStdlibs(t);
+
+	CommandLine().run(t, args);
 }

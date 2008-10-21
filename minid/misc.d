@@ -3,7 +3,7 @@ This holds miscellaneous functionality used in the internal library and also
 as part of the extended API.  There are no public functions in here yet.
 
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -26,236 +26,128 @@ subject to the following restrictions:
 
 module minid.misc;
 
+import Integer = tango.text.convert.Integer;
+import tango.io.Print;
+import tango.stdc.ctype;
+import tango.stdc.stdlib;
+import tango.text.convert.Utf;
+import tango.text.Util;
+
+import minid.alloc;
+import minid.interpreter;
 import minid.types;
 import minid.utils;
 
-import tango.io.Print;
-import tango.stdc.ctype;
-import tango.text.convert.Layout;
-import tango.core.Vararg;
-
-template Formatter(T)
+package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
 {
-	package Layout!(T) Formatter;
-}
-
-alias Formatter!(char) FormatterC;
-alias Formatter!(wchar) FormatterW;
-alias Formatter!(dchar) FormatterD;
-
-static this()
-{
-	FormatterC = new Layout!(char);
-	FormatterW = new Layout!(wchar);
-	FormatterD = new Layout!(dchar);
-}
-
-package void formatImpl(MDState s, MDValue[] params, uint delegate(dchar[]) sink)
-{
-	void output(dchar[] fmt, MDValue* param, bool isRaw)
+	void output(char[] fmt, uword param, bool isRaw)
 	{
-		if(param is null)
-			FormatterD.convert(sink, fmt, "{invalid index}");
-		else
+		pushToString(t, param, isRaw);
+
+		if(fmt[1] == 'r' || isdigit(fmt[1]))
 		{
-			switch(param.type)
-			{
-				case MDValue.Type.Null:
-					FormatterD.convert(sink, fmt, "null");
+			auto begin = 2;
+
+			for(; begin < fmt.length; begin++)
+				if(fmt[begin] != 'r' && !isdigit(fmt[begin]))
 					break;
 
-				case MDValue.Type.Bool:
-					FormatterD.convert(sink, fmt, param.as!(bool) ? "true" : "false");
-					break;
-
-				case MDValue.Type.Int:
-					FormatterD.convert(sink, fmt, param.as!(int));
-					break;
-
-				case MDValue.Type.Float:
-					FormatterD.convert(sink, fmt, param.as!(mdfloat));
-					break;
-
-				case MDValue.Type.Char:
-					FormatterD.convert(sink, fmt, param.as!(dchar));
-					break;
-
-				case MDValue.Type.String:
-					FormatterD.convert(sink, fmt, param.as!(dchar[]));
-					break;
-
-				default:
-					if(isRaw)
-						FormatterD.convert(sink, fmt, param.toString());
-					else
-						FormatterD.convert(sink, fmt, s.valueToString(*param).asUTF32());
-					break;
-			}
+			auto tmp = (cast(char*) alloca(fmt.length - begin + 1))[0 .. fmt.length - begin + 1];
+			tmp[0] = '{';
+			tmp[1 .. $] = fmt[begin .. $];
+			t.vm.formatter.convert(sink, tmp, getString(t, -1));
 		}
+		else
+			t.vm.formatter.convert(sink, fmt, getString(t, -1));
+
+		pop(t);
 	}
-	
-	if(params.length > 64)
-		s.throwRuntimeException("Too many parameters to format");
+
+	if(numParams > 64)
+		throwException(t, "Too many parameters to format (maximum of 64)");
 
 	bool[64] used;
 
-	for(int paramIndex = 0; paramIndex < params.length; paramIndex++)
+	for(uword paramIndex = 1; paramIndex <= numParams; paramIndex++)
 	{
 		if(used[paramIndex])
 			continue;
 
-  		if(!params[paramIndex].isString())
-			output("{}", &params[paramIndex], false);
-		else
+  		if(!isString(t, paramIndex))
+  		{
+			output("{}", paramIndex, false);
+			continue;
+		}
+
+		auto formatStr = getString(t, paramIndex);
+		auto formatStrIndex = paramIndex;
+		auto autoIndex = paramIndex + 1;
+		uword begin = 0;
+
+		while(begin < formatStr.length)
 		{
-			MDString formatStr = params[paramIndex].as!(MDString);
-			int formatStrIndex = paramIndex;
-			int autoIndex = paramIndex + 1;
+			auto fmtBegin = formatStr.locate('{', begin);
 
-			MDValue* getParam(int index)
+			t.vm.formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
+			begin = fmtBegin;
+
+			if(fmtBegin == formatStr.length)
+				break;
+
+			auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
+
+			if(fmtEnd == formatStr.length)
 			{
-				if(index >= params.length)
-					return null;
-
-				return &params[index];
+				t.vm.formatter.convert(sink, "{}{}", "{missing or misplaced '}'}", formatStr[fmtBegin .. $]);
+				break;
 			}
 
-			for(int i = 0; i < formatStr.length; i++)
+			fmtEnd++;
+
+			auto fmtSpec = formatStr[fmtBegin .. fmtEnd];
+			
+			bool isRaw = false;
+
+			if(fmtSpec[1] == 'r')
+				isRaw = true;
+
+			auto index = autoIndex;
+
+			if(fmtSpec.length > 2 && (isRaw ? isdigit(fmtSpec[2]) : isdigit(fmtSpec[1])))
 			{
-				dchar c = formatStr[i];
+				uword j = 2;
 
-				void nextChar()
-				{
-					i++;
+				for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
+				{}
 
-					if(i >= formatStr.length)
-						c = dchar.init;
-					else
-						c = formatStr[i];
-				}
-
-				dchar[20] format = void;
-				int iFormat = 0;
-
-				void addChar(dchar c)
-				{
-					if(iFormat >= format.length)
-						s.throwRuntimeException("Format specifier too long in parameter {}", formatStrIndex);
-
-					format[iFormat++] = c;
-				}
-
-				if(c != '{')
-					sink([c]);
-				else
-				{
-					nextChar();
-
-					if(c == '{')
-					{
-						sink("{");
-						continue;
-					}
-					
-					addChar('{');
-					
-					bool isRaw = false;
-
-					if(c == 'r')
-					{
-						isRaw = true;
-						nextChar();
-					}
-					
-					int index = autoIndex;
-
-					if(c == '-' || isdigit(c))
-					{
-						int begin = i;
-
-						if(!isdigit(c))
-							s.throwRuntimeException("Format index must have at least one digit in parameter {}", formatStrIndex);
-
-						while(isdigit(c))
-							nextChar();
-
-						int offset = Integer.atoi(formatStr.sliceData(begin, i));
-						
-						index = formatStrIndex + offset + 1;
-					}
-					else
-						autoIndex++;
-					
-					if(c == ',')
-					{
-						addChar(',');
-						nextChar();
-						
-						if(c == '-')
-						{
-							addChar('-');
-							nextChar();
-						}
-						
-						if(!isdigit(c))
-							s.throwRuntimeException("Format width must have at least one digit in parameter {}", formatStrIndex);
-
-						while(isdigit(c))
-						{
-							addChar(c);
-							nextChar();
-						}
-					}
-					
-					if(c == ':')
-					{
-						addChar(':');
-						nextChar();
-
-						while(c != '}')
-						{
-							addChar(c);
-							nextChar();
-						}
-					}
-					
-					if(c != '}')
-					{
-						sink("{missing or misplaced '}'}");
-						sink(format[0 .. iFormat]);
-						i--;
-						continue;
-					}
-
-					addChar('}');
-					used[index] = true;
-
-					output(format[0 .. iFormat], getParam(index), isRaw);
-				}
+				auto offset = Integer.atoi(fmtSpec[2 .. j]);
+				index = formatStrIndex + offset + 1;
 			}
+			else
+				autoIndex++;
+
+			if(index > numParams)
+				t.vm.formatter.convert(sink, "{}", "{invalid index}");
+			else
+			{
+				used[index] = true;
+				output(fmtSpec, index, isRaw);
+			}
+
+			begin = fmtEnd;
 		}
 	}
 }
 
-package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) printer)
+// Expects root to be at the top of the stack
+package void toJSONImpl(T)(MDThread* t, word root, bool pretty, Print!(T) printer)
 {
-	void throwByState(char[] fmt, ...)
-	{
-		s.throwRuntimeException(fmt, _arguments, _argptr);
-	}
-	
-	void throwNormal(char[] fmt, ...)
-	{
-		throw new MDException(fmt, _arguments, _argptr);
-	}
-	
-	void delegate(char[], ...) exception = s is null ? &throwNormal : &throwByState;
+	root = absIndex(t, root);
+	auto cycles = newTable(t);
 
-	bool[MDValue] cycles;
+	word indent = 0;
 
-	int indent = 0;
-
-	void newline(int dir = 0)
+	void newline(word dir = 0)
 	{
 		printer.newline;
 
@@ -264,15 +156,13 @@ package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) print
 		else if(dir < 0)
 			indent--;
 
-		for(int i = indent; i > 0; i--)
+		for(word i = indent; i > 0; i--)
 			printer.print("\t");
 	}
 
-	void delegate(MDTable) outputTable;
-	void delegate(MDArray) outputArray;
-	void delegate(ref MDValue) outputValue;
+	void delegate(word) outputValue;
 
-	void _outputTable(MDTable t)
+	void outputTable(word tab)
 	{
 		printer.print("{");
 
@@ -280,11 +170,12 @@ package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) print
 			newline(1);
 
 		bool first = true;
+		dup(t, tab);
 
-		foreach(k, ref v; t)
+		foreach(word k, word v; foreachLoop(t, 1))
 		{
-			if(!k.isString())
-				exception("All keys in a JSON table must be strings");
+			if(!isString(t, k))
+				throwException(t, "All keys in a JSON table must be strings");
 
 			if(first)
 				first = false;
@@ -312,17 +203,15 @@ package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) print
 		printer.print("}");
 	}
 
-	void _outputArray(MDArray a)
+	void outputArray(word arr)
 	{
 		printer.print("[");
 
-		bool first = true;
+		auto l = len(t, arr);
 
-		foreach(ref v; a)
+		for(word i = 0; i < l; i++)
 		{
-			if(first)
-				first = false;
-			else
+			if(i > 0)
 			{
 				if(pretty)
 					printer.print(", ");
@@ -330,222 +219,127 @@ package void toJSONImpl(T)(MDState s, MDValue root, bool pretty, Print!(T) print
 					printer.print(",");
 			}
 
-			outputValue(v);
+			outputValue(idxi(t, arr, i));
+			pop(t);
 		}
 
 		printer.print("]");
 	}
-
-	void _outputValue(ref MDValue v)
+	
+	void outputChar(dchar c)
 	{
-		switch(v.type)
+		switch(c)
+		{
+			case '\b': printer.print("\\b"); return;
+			case '\f': printer.print("\\f"); return;
+			case '\n': printer.print("\\n"); return;
+			case '\r': printer.print("\\r"); return;
+			case '\t': printer.print("\\t"); return;
+
+			case '"', '\\', '/':
+				printer.print("\\");
+				printer.print(c);
+				return;
+
+			default:
+				if(c > 0x7f)
+					printer.format("\\u{:x4}", cast(int)c);
+				else
+					printer.print(c);
+
+				return;
+		}
+	}
+
+	void _outputValue(word idx)
+	{
+		switch(type(t, idx))
 		{
 			case MDValue.Type.Null:
 				printer.print("null");
 				break;
 
 			case MDValue.Type.Bool:
-				printer.print(v.isFalse() ? "false" : "true");
+				printer.print(getBool(t, idx) ? "true" : "false");
 				break;
 
 			case MDValue.Type.Int:
-				printer.format("{}", v.as!(int));
+				printer.format("{}", getInt(t, idx));
 				break;
 
 			case MDValue.Type.Float:
-				printer.format("{}", v.as!(double));
+				printer.format("{}", getFloat(t, idx));
 				break;
 
 			case MDValue.Type.Char:
-				printer.print("\"");
-				printer.print(v.as!(dchar));
-				printer.print("\"");
+				printer.print('"');
+				outputChar(getChar(t, idx));
+				printer.print('"');
 				break;
 
 			case MDValue.Type.String:
 				printer.print('"');
 
-				foreach(c; v.as!(MDString).mData)
-				{
-					switch(c)
-					{
-						case '\b': printer.print("\\b"); break;
-						case '\f': printer.print("\\f"); break;
-						case '\n': printer.print("\\n"); break;
-						case '\r': printer.print("\\r"); break;
-						case '\t': printer.print("\\t"); break;
-
-						case '"', '\\', '/':
-							printer.print("\\");
-							printer.print(c);
-							break;
-
-						default:
-							if(c > 0x7f)
-								printer.format("\\u{:x4}", cast(int)c);
-							else
-								printer.print(c);
-
-							break;
-					}
-				}
+				foreach(dchar c; getString(t, idx))
+					outputChar(c);
 
 				printer.print('"');
 				break;
 
 			case MDValue.Type.Table:
-				if(v in cycles)
-					exception("Table is cyclically referenced");
+				if(opin(t, idx, cycles))
+					throwException(t, "Table is cyclically referenced");
 
-				cycles[v] = true;
+				dup(t, idx);
+				pushBool(t, true);
+				idxa(t, cycles);
 
 				scope(exit)
-					cycles.remove(v);
+				{
+					dup(t, idx);
+					pushNull(t);
+					idxa(t, cycles);
+				}
 
-				outputTable(v.as!(MDTable));
+				outputTable(idx);
 				break;
 
 			case MDValue.Type.Array:
-				if(v in cycles)
-					exception("Array is cyclically referenced");
+				if(opin(t, idx, cycles))
+					throwException(t, "Array is cyclically referenced");
 
-				cycles[v] = true;
+				dup(t, idx);
+				pushBool(t, true);
+				idxa(t, cycles);
 
 				scope(exit)
-					cycles.remove(v);
+				{
+					dup(t, idx);
+					pushNull(t);
+					idxa(t, cycles);
+				}
 
-				outputArray(v.as!(MDArray));
+				outputArray(idx);
 				break;
 
 			default:
-				exception("Type '{}' is not a valid type for conversion to JSON", v.typeString());
+				pushTypeString(t, idx);
+				throwException(t, "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
 		}
 	}
 
-	outputTable = &_outputTable;
-	outputArray = &_outputArray;
 	outputValue = &_outputValue;
 
-	if(root.isArray())
-		outputArray(root.as!(MDArray));
-	else if(root.isTable())
-		outputTable(root.as!(MDTable));
+	if(isArray(t, root))
+		outputArray(root);
+	else if(isTable(t, root))
+		outputTable(root);
 	else
-		exception("Root element must be either a table or an array, not a '{}'", root.typeString());
+	{
+		pushTypeString(t, root);
+		throwException(t, "Root element must be either a table or an array, not a '{}'", getString(t, -1));
+	}
 
 	printer.flush();
+	pop(t);
 }
-
-/*
-package MDValue[] unformatImpl(MDState s, dchar[] formatStr, Stream input)
-{
-	MDValue[] output;
-
-	void outputValue(ref MDValue val)
-	{
-		output ~= val;
-	}
-
-	int begin = 0;
-
-	for(int i = 0; i < formatStr.length; i++)
-	{
-		dchar c = formatStr[i];
-
-		void nextChar()
-		{
-			i++;
-
-			if(i >= formatStr.length)
-				s.throwRuntimeException("Unterminated format specifier");
-
-			c = formatStr[i];
-		}
-
-		if(c == '%')
-		{
-			nextChar();
-
-			if(c == '%')
-				continue;
-
-			while(true)
-			{
-				switch(c)
-				{
-					case '-', '+', '#', '0', ' ':
-						nextChar();
-						continue;
-
-					default:
-						break;
-				}
-
-				break;
-			}
-
-			if(c == '*')
-				s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-			else if(std.ctype.isdigit(c))
-			{
-				do
-					nextChar();
-				while(std.ctype.isdigit(c))
-			}
-
-			if(c == '.')
-			{
-				nextChar();
-
-				if(c == '*')
-					s.throwRuntimeException("Variable length (*) formatting specifiers are unsupported");
-				else if(std.ctype.isdigit(c))
-				{
-					do
-						nextChar();
-					while(std.ctype.isdigit(c))
-				}
-			}
-			
-			char[] fmt = utf.toString(formatStr[begin .. i + 1]);
-			MDValue val;
-
-			switch(c)
-			{
-				case 'd', 'i', 'b', 'o', 'x', 'X':
-					int v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'e', 'E', 'f', 'F', 'g', 'G', 'a', 'A':
-					mdfloat f;
-					input.readf(fmt, &f);
-					val = f;
-					break;
-
-				case 'r', 's':
-					char[] v;
-					input.readf(fmt, &v);
-					val = v;
-					break;
-
-				case 'c':
-					char v;
-					input.readf(fmt, &v);
-					val = cast(dchar)v;
-					break;
-
-				default:
-					// unsupported: %p
-					s.throwRuntimeException("Unsupported format specifier '%c'", c);
-			}
-
-			outputValue(val);
-			begin = i + 1;
-		}
-	}
-
-	return output;
-}
-*/

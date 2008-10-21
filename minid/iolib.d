@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,47 +23,45 @@ subject to the following restrictions:
 
 module minid.iolib;
 
-import minid.misc;
-import minid.types;
-import minid.utils;
-
-import tango.io.Buffer;
 import tango.io.Conduit;
 import tango.io.Console;
+import tango.io.File;
 import tango.io.FileConduit;
 import tango.io.FilePath;
-import tango.io.FileScan;
 import tango.io.FileSystem;
 import tango.io.model.IConduit;
 import tango.io.Print;
 import tango.io.protocol.Reader;
 import tango.io.protocol.Writer;
-import tango.io.Stdout;
+import tango.io.UnicodeFile;
 import tango.text.convert.Layout;
 import tango.text.stream.LineIterator;
 import tango.util.PathUtil;
+import Utf = tango.text.convert.Utf;
 
-class IOLib
+import minid.ex;
+import minid.interpreter;
+import minid.misc;
+import minid.types;
+import minid.utils;
+
+struct IOLib
 {
-	private static IOLib lib;
-	private static MDInputStreamClass inputStreamClass;
-	private static MDOutputStreamClass outputStreamClass;
-	private static MDStreamClass streamClass;
-	
+static:
+	private const FileConduit.Style DefaultFileStyle;
+
 	static this()
 	{
-		lib = new IOLib();
-		inputStreamClass = new MDInputStreamClass();
-		outputStreamClass = new MDOutputStreamClass();
-		streamClass = new MDStreamClass();
+		DefaultFileStyle = FileConduit.Style
+		(
+			FileConduit.ReadExisting.access,
+			FileConduit.ReadExisting.open,
+			FileConduit.Share.ReadWrite,
+			FileConduit.ReadExisting.cache
+		);
 	}
 
-	private this()
-	{
-
-	}
-
-	enum FileMode
+	enum FileMode : mdint
 	{
 		In = 1,
 		Out = 2,
@@ -71,225 +69,260 @@ class IOLib
 		Append = 8,
 		OutNew = Out | New
 	}
-	
-	public static void init(MDContext context)
+
+	public void init(MDThread* t)
 	{
-		MDNamespace namespace = new MDNamespace("io"d, context.globals.ns);
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
 
-		namespace.addList
-		(
-			"InputStream"d,  lib.inputStreamClass,
-			"OutputStream"d, lib.outputStreamClass,
-			"Stream"d,       lib.streamClass,
+		newFunction(t, function uword(MDThread* t, uword numParams)
+		{
+			InputStreamObj.init(t);
+			OutputStreamObj.init(t);
+			StreamObj.init(t);
 
- 			"stdin"d,        lib.inputStreamClass.newInstance(Cin.stream),
- 			"stdout"d,       lib.outputStreamClass.newInstance(Cout.stream),
- 			"stderr"d,       lib.outputStreamClass.newInstance(Cerr.stream),
+				pushGlobal(t, "InputStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cin.stream);
+				methodCall(t, -3, "clone", 1);
+			newGlobal(t, "stdin");
 
-			"FileMode"d,     MDTable.create
-			(
-				"In"d,       cast(int)FileMode.In,
-				"Out"d,      cast(int)FileMode.Out,
-				"New"d,      cast(int)FileMode.New,
-				"Append"d,   cast(int)FileMode.Append,
-				"OutNew"d,   cast(int)FileMode.OutNew
-			),
+				pushGlobal(t, "OutputStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cout.stream);
+				methodCall(t, -3, "clone", 1);
+			newGlobal(t, "stdout");
 
-			"File"d,         new MDClosure(namespace, &lib.File,        "io.File"),
-			"rename"d,       new MDClosure(namespace, &lib.rename,      "io.rename"),
-			"remove"d,       new MDClosure(namespace, &lib.remove,      "io.remove"),
-			"copy"d,         new MDClosure(namespace, &lib.copy,        "io.copy"),
-			"size"d,         new MDClosure(namespace, &lib.size,        "io.size"),
-			"exists"d,       new MDClosure(namespace, &lib.exists,      "io.exists"),
-			"isFile"d,       new MDClosure(namespace, &lib.isFile,      "io.isFile"),
-			"isDir"d,        new MDClosure(namespace, &lib.isDir,       "io.isDir"),
-			"currentDir"d,   new MDClosure(namespace, &lib.currentDir,  "io.currentDir"),
-			"changeDir"d,    new MDClosure(namespace, &lib.changeDir,   "io.changeDir"),
-			"makeDir"d,      new MDClosure(namespace, &lib.makeDir,     "io.makeDir"),
-			"removeDir"d,    new MDClosure(namespace, &lib.removeDir,   "io.removeDir"),
-			"listFiles"d,    new MDClosure(namespace, &lib.listFiles,   "io.listFiles"),
-			"listDirs"d,     new MDClosure(namespace, &lib.listDirs,    "io.listDirs")
-		);
-		
-		context.globals["io"d] = namespace;
+				pushGlobal(t, "OutputStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cerr.stream);
+				methodCall(t, -3, "clone", 1);
+			newGlobal(t, "stderr");
+
+			newTable(t, 5);
+				pushString(t, "In");     pushInt(t, FileMode.In);     fielda(t, -3);
+				pushString(t, "Out");    pushInt(t, FileMode.Out);    fielda(t, -3);
+				pushString(t, "New");    pushInt(t, FileMode.New);    fielda(t, -3);
+				pushString(t, "Append"); pushInt(t, FileMode.Append); fielda(t, -3);
+				pushString(t, "OutNew"); pushInt(t, FileMode.OutNew); fielda(t, -3);
+			newGlobal(t, "FileMode");
+
+			newFunction(t, &File, "File");             newGlobal(t, "File");
+			newFunction(t, &rename, "rename");         newGlobal(t, "rename");
+			newFunction(t, &remove, "remove");         newGlobal(t, "remove");
+			newFunction(t, &copy, "copy");             newGlobal(t, "copy");
+			newFunction(t, &size, "size");             newGlobal(t, "size");
+			newFunction(t, &exists, "exists");         newGlobal(t, "exists");
+			newFunction(t, &isFile, "isFile");         newGlobal(t, "isFile");
+			newFunction(t, &isDir, "isDir");           newGlobal(t, "isDir");
+			newFunction(t, &currentDir, "currentDir"); newGlobal(t, "currentDir");
+			newFunction(t, &changeDir, "changeDir");   newGlobal(t, "changeDir");
+			newFunction(t, &makeDir, "makeDir");       newGlobal(t, "makeDir");
+			newFunction(t, &removeDir, "removeDir");   newGlobal(t, "removeDir");
+			newFunction(t, &listFiles, "listFiles");   newGlobal(t, "listFiles");
+			newFunction(t, &listDirs, "listDirs");     newGlobal(t, "listDirs");
+			newFunction(t, &readFile, "readFile");     newGlobal(t, "readFile");
+			newFunction(t, &writeFile, "writeFile");   newGlobal(t, "writeFile");
+
+			return 0;
+		}, "io");
+
+		fielda(t, -2, "io");
+		importModule(t, "io");
+		pop(t, 3);
 	}
 
-	int rename(MDState s, uint numParams)
+	uword rename(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.safeCode(fp.rename(s.getParam!(char[])(1)));
+		scope fp = new FilePath(checkStringParam(t, 1));
+		safeCode(t, fp.rename(checkStringParam(t, 2)));
 		return 0;
 	}
-	
-	int remove(MDState s, uint numParams)
+
+	uword remove(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.safeCode(fp.remove());
+		scope fp = new FilePath(checkStringParam(t, 1));
+		safeCode(t, fp.remove());
 		return 0;
 	}
-	
-	int copy(MDState s, uint numParams)
+
+	uword copy(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(1));
-		s.safeCode(fp.copy(s.getParam!(char[])(0)));
+		scope fp = new FilePath(checkStringParam(t, 2));
+		safeCode(t, fp.copy(checkStringParam(t, 1)));
 		return 0;
 	}
-	
-	int size(MDState s, uint numParams)
+
+	uword size(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.push(cast(int)s.safeCode(fp.fileSize()));
-		return 1;
-	}
-	
-	int exists(MDState s, uint numParams)
-	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.push(cast(bool)fp.exists());
-		return 1;
-	}
-	
-	int isFile(MDState s, uint numParams)
-	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.push(s.safeCode(!fp.isFolder()));
+		scope fp = new FilePath(checkStringParam(t, 1));
+		pushInt(t, cast(mdint)safeCode(t, fp.fileSize()));
 		return 1;
 	}
 
-	int isDir(MDState s, uint numParams)
+	uword exists(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.push(s.safeCode(fp.isFolder()));
+		scope fp = new FilePath(checkStringParam(t, 1));
+		pushBool(t, fp.exists());
 		return 1;
 	}
-	
-	int currentDir(MDState s, uint numParams)
+
+	uword isFile(MDThread* t, uword numParams)
 	{
-		s.push(s.safeCode(FileSystem.getDirectory()));
+		scope fp = new FilePath(checkStringParam(t, 1));
+		pushBool(t, safeCode(t, !fp.isFolder()));
 		return 1;
 	}
-	
-	int changeDir(MDState s, uint numParams)
+
+	uword isDir(MDThread* t, uword numParams)
 	{
-		char[] path = s.getParam!(char[])(0);
-		s.safeCode(FileSystem.setDirectory(path));
+		scope fp = new FilePath(checkStringParam(t, 1));
+		pushBool(t, safeCode(t, !fp.isFolder()));
+		return 1;
+	}
+
+	uword currentDir(MDThread* t, uword numParams)
+	{
+		pushString(t, safeCode(t, FileSystem.getDirectory()));
+		return 1;
+	}
+
+	uword changeDir(MDThread* t, uword numParams)
+	{
+		safeCode(t, FileSystem.setDirectory(checkStringParam(t, 1)));
 		return 0;
 	}
-	
-	int makeDir(MDState s, uint numParams)
+
+	uword makeDir(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		
+		scope fp = new FilePath(checkStringParam(t, 1));
+
 		if(!fp.isAbsolute())
 			fp.prepend(FileSystem.getDirectory());
 
-		s.safeCode(fp.create());
+		safeCode(t, fp.create());
+		return 0;
+	}
+
+	uword removeDir(MDThread* t, uword numParams)
+	{
+		scope fp = new FilePath(checkStringParam(t, 1));
+		safeCode(t, fp.remove());
 		return 0;
 	}
 	
-	int removeDir(MDState s, uint numParams)
+	uword listImpl(MDThread* t, uword numParams, bool isFolder)
 	{
-		scope fp = new FilePath(s.getParam!(char[])(0));
-		s.safeCode(fp.remove());
-		return 0;
-	}
-	
-	int listFiles(MDState s, uint numParams)
-	{
-		char[] path = s.getParam!(char[])(0);
-		char[][] listing;
+		scope fp = new FilePath(checkStringParam(t, 1));
+		auto listing = newArray(t, 0);
 
 		if(numParams == 1)
 		{
-			scope fp = new FilePath(path);
-			
-			s.safeCode
-			({
-				foreach(info; fp)
+			safeCode(t,
+			{
+				foreach(ref info; fp)
 				{
-					if(!info.folder)
-						listing ~= (info.path ~ info.name);
+					if(info.folder is isFolder)
+					{
+						pushString(t, info.path);
+						pushString(t, info.name);
+						cat(t, 2);
+						cateq(t, listing, 1);
+					}
 				}
 			}());
 		}
 		else
 		{
-			char[] filter = s.getParam!(char[])(1);
-			scope fp = new FilePath(path);
+			auto filter = checkStringParam(t, 2);
 
-			s.safeCode
-			({
-				foreach(info; fp)
+			safeCode(t,
+			{
+				foreach(ref info; fp)
 				{
-					if(!info.folder)
+					if(info.folder is isFolder)
 					{
-						char[] fullName = info.path ~ info.name;
+						pushString(t, info.path);
+						pushString(t, info.name);
+						cat(t, 2);
+						auto fullName = getString(t, -1);
 						
 						if(patternMatch(fullName, filter))
-							listing ~= fullName;
+							cateq(t, listing, 1);
+						else
+							pop(t);
 					}
 				}
 			}());
 		}
 
-		s.push(MDArray.fromArray(listing));
 		return 1;
 	}
-	
-	int listDirs(MDState s, uint numParams)
+
+	uword listFiles(MDThread* t, uword numParams)
 	{
-		char[] path = s.getParam!(char[])(0);
-		char[][] listing;
+		return listImpl(t, numParams, false);
+	}
 
-		if(numParams == 1)
+	uword listDirs(MDThread* t, uword numParams)
+	{
+		return listImpl(t, numParams, true);
+	}
+
+	uword readFile(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+
+		if(numParams == 1 || checkBoolParam(t, 2) == false)
 		{
-			scope fp = new FilePath(path);
-
-			s.safeCode
-			({
-				foreach(info; fp)
-				{
-					if(info.folder)
-						listing ~= (info.path ~ info.name);
-				}
+			safeCode(t,
+			{
+				scope file = new UnicodeFile!(char)(name, Encoding.Unknown);
+				pushString(t, file.read());
 			}());
 		}
 		else
 		{
-			char[] filter = s.getParam!(char[])(1);
-			scope fp = new FilePath(path);
+			safeCode(t,
+			{
+				scope file = new .File(name);
+				auto data = cast(ubyte[])file.read();
 
-			s.safeCode
-			({
-				foreach(info; fp)
-				{
-					if(info.folder)
-					{
-						char[] fullName = info.path ~ info.name;
-						
-						if(patternMatch(fullName, filter))
-							listing ~= fullName;
-					}
-				}
+				scope(exit)
+					delete data;
+
+				foreach(ref c; data)
+					if(c > 0x7f)
+						c = '?';
+
+				pushString(t, cast(char[])data);
 			}());
 		}
 
-		s.push(MDArray.fromArray(listing));
 		return 1;
 	}
 
-	int File(MDState s, uint numParams)
+	uword writeFile(MDThread* t, uword numParams)
 	{
-		FileConduit.Style parseFileMode(int mode)
+		auto name = checkStringParam(t, 1);
+		auto data = checkStringParam(t, 2);
+
+		safeCode(t,
 		{
-			FileConduit.Style s;
-			s.share = FileConduit.Share.ReadWrite;
-			s.cache = FileConduit.Cache.Stream;
+			scope file = new UnicodeFile!(char)(name, Encoding.UTF_8N);
+			file.write(data);
+		}());
 
-			s.access = cast(FileConduit.Access)0;
+		return 0;
+	}
 
-			if(mode & FileMode.In)
-				s.access |= FileConduit.Access.Read;
+	uword File(MDThread* t, uword numParams)
+	{
+		FileConduit.Style parseFileMode(mdint mode)
+		{
+			FileConduit.Style s = DefaultFileStyle;
+
+			s.access = FileConduit.Access.Read;
 
 			if(mode & FileMode.Out)
 				s.access |= FileConduit.Access.Write;
@@ -309,650 +342,778 @@ class IOLib
 			return s;
 		}
 
-		FileConduit f;
+		safeCode(t,
+		{
+			auto name = checkStringParam(t, 1);
 
-		if(numParams == 1)
-			f = s.safeCode(new FileConduit(s.getParam!(char[])(0)));
-		else
-			f = s.safeCode(new FileConduit(s.getParam!(char[])(0), parseFileMode(s.getParam!(int)(1))));
+			auto f = numParams == 1
+				? new FileConduit(name, DefaultFileStyle)
+				: new FileConduit(name, parseFileMode(checkIntParam(t, 2)));
+				
+			pushGlobal(t, "Stream");
+			pushNull(t);
+			pushNativeObj(t, f);
+			methodCall(t, -3, "clone", 1);
+		}());
 
-		s.push(streamClass.newInstance(f, f));
 		return 1;
 	}
 
-	static class MDInputStreamClass : MDClass
+	struct InputStreamObj
 	{
-		private MDClosure mIteratorClosure;
-
-		public this()
+	static:
+		enum Members
 		{
-			super("InputStream", null);
-
-			mIteratorClosure = new MDClosure(mMethods, &iterator, "InputStream.iterator");
-
-			mMethods.addList
-			(
-				"readByte"d,    new MDClosure(mMethods, &readVal!(ubyte),   "InputStream.readByte"),
-				"readShort"d,   new MDClosure(mMethods, &readVal!(ushort),  "InputStream.readShort"),
-				"readInt"d,     new MDClosure(mMethods, &readVal!(int),     "InputStream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &readVal!(float),   "InputStream.readFloat"),
-				"readDouble"d,  new MDClosure(mMethods, &readVal!(double),  "InputStream.readDouble"),
-				"readChar"d,    new MDClosure(mMethods, &readVal!(char),    "InputStream.readChar"),
-				"readWChar"d,   new MDClosure(mMethods, &readVal!(wchar),   "InputStream.readWChar"),
-				"readDChar"d,   new MDClosure(mMethods, &readVal!(dchar),   "InputStream.readDChar"),
-				"readString"d,  new MDClosure(mMethods, &readString,        "InputStream.readString"),
-				"readln"d,      new MDClosure(mMethods, &readln,            "InputStream.readln"),
-// 				"readf"d,       new MDClosure(mMethods, &readf,           	"InputStream.readf"),
-				"readChars"d,   new MDClosure(mMethods, &readChars,         "InputStream.readChars"),
-				"opApply"d,     new MDClosure(mMethods, &apply,             "InputStream.opApply")
-			);
+			input,
+			reader,
+			lines
 		}
 
-		public override MDInputStream newInstance()
+		public void init(MDThread* t)
 		{
-			return new MDInputStream(this);
+			CreateObject(t, "InputStream", (CreateObject* o)
+			{
+				o.method("clone", &clone);
+				o.method("readByte", &readVal!(ubyte));
+				o.method("readShort", &readVal!(ushort));
+				o.method("readInt", &readVal!(int));
+				o.method("readFloat", &readVal!(float));
+				o.method("readDouble", &readVal!(double));
+				o.method("readChar", &readVal!(char));
+				o.method("readWChar", &readVal!(wchar));
+				o.method("readDChar", &readVal!(dchar));
+				o.method("readString", &readString);
+				o.method("readln", &readln);
+				o.method("readChars", &readChars);
+					newFunction(t, &iterator, "InputStream.iterator");
+				o.method("opApply", &opApply, 1);
+			});
+
+			newGlobal(t, "InputStream");
+		}
+		
+		private Reader getReader(MDThread* t)
+		{
+			checkObjParam(t, 0, "InputStream");
+			getExtraVal(t, 0, Members.reader);
+			auto ret = cast(Reader)cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
+		}
+		
+		private LineIterator!(char) getLines(MDThread* t)
+		{
+			checkObjParam(t, 0, "InputStream");
+			getExtraVal(t, 0, Members.lines);
+			auto ret = cast(LineIterator!(char))cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
 		}
 
-		protected MDInputStream newInstance(InputStream input)
+		public uword clone(MDThread* t, uword numParams)
 		{
-			MDInputStream n = newInstance();
-			n.constructor(input);
-			return n;
-		}
+			checkParam(t, 1, MDValue.Type.NativeObj);
+			auto input = cast(InputStream)getNativeObj(t, 1);
+			
+			if(input is null)
+				throwException(t, "instances of InputStream may only be created using instances of the Tango InputStream");
 
-		public int readVal(T)(MDState s, uint numParams)
-		{
-			s.push(s.safeCode(s.getContext!(MDInputStream)().readVal!(T)()));
+			auto reader = new Reader(input);
+			auto lines = new LineIterator!(char)(input);
+			
+			pushGlobal(t, "InputStream");
+			auto ret = newObject(t, -1, null, 3);
+			
+			pushNativeObj(t, cast(Object)input); setExtraVal(t, ret, Members.input);
+			pushNativeObj(t, reader);            setExtraVal(t, ret, Members.reader);
+			pushNativeObj(t, lines);             setExtraVal(t, ret, Members.lines);
+
 			return 1;
 		}
 
-		public int readString(MDState s, uint numParams)
+		public uword readVal(T)(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDInputStream).readString()));
+			auto r = getReader(t);
+			T val = void;
+			safeCode(t, r.get(val));
+
+			static if(isIntType!(T))
+				pushInt(t, val);
+			else static if(isFloatType!(T))
+				pushFloat(t, val);
+			else static if(isCharType!(T))
+				pushChar(t, val);
+			else
+				static assert(false);
+
 			return 1;
 		}
 
-		public int readln(MDState s, uint numParams)
+		public uword readString(MDThread* t, uword numParams)
 		{
-			char[] ret = s.safeCode(s.getContext!(MDInputStream).readln());
+			auto r = getReader(t);
+
+			safeCode(t,
+			{
+				uint length = void;
+				r.get(length);
+				
+				auto dat = t.vm.alloc.allocArray!(char)(length);
+				
+				scope(exit)
+					t.vm.alloc.freeArray(dat);
+					
+				r.buffer.readExact(dat.ptr, length * char.sizeof);
+				pushString(t, dat);
+			}());
+
+			return 1;
+		}
+
+		public uword readln(MDThread* t, uword numParams)
+		{
+			auto ret = safeCode(t, getLines(t).next());
 
 			if(ret.ptr is null)
-				s.throwRuntimeException("Stream has no more data.");
+				throwException(t, "Stream has no more data.");
 
-			s.push(ret);
+			pushString(t, ret);
 			return 1;
 		}
 
-// 		public int readf(MDState s, uint numParams)
-// 		{
-// 			MDStream i = s.getContext!(MDInputStream);
-// 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
-//
-// 			foreach(ref v; ret)
-// 				s.push(v);
-//
-// 			return ret.length;
-// 		}
-
-		public int readChars(MDState s, uint numParams)
+		public uword readChars(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDInputStream).readChars(s.getParam!(int)(0))));
+			auto r = getReader(t);
+			auto num = checkIntParam(t, 1);
+
+			safeCode(t,
+			{
+				auto dat = t.vm.alloc.allocArray!(char)(num);
+				
+				scope(exit)
+					t.vm.alloc.freeArray(dat);
+					
+				r.buffer.readExact(dat.ptr, num * char.sizeof);
+				pushString(t, dat);
+			}());
+
 			return 1;
 		}
 
-		private int iterator(MDState s, uint numParams)
+		private uword iterator(MDThread* t, uword numParams)
 		{
-			int index = s.getParam!(int)(0) + 1;
-			char[] ret = s.safeCode(s.getContext!(MDInputStream).readln());
+			auto index = checkIntParam(t, 1) + 1;
+			auto line = safeCode(t, getLines(t).next());
 
-			if(ret.ptr is null)
+			if(line.ptr is null)
 				return 0;
 
-			s.push(index);
-			s.push(ret);
-
+			pushInt(t, index);
+			pushString(t, line);
 			return 2;
 		}
 
-		public int apply(MDState s, uint numParams)
+		public uword opApply(MDThread* t, uword numParams)
 		{
-			s.push(mIteratorClosure);
-			s.push(s.getContext!(MDInputStream));
-			s.push(0);
+			checkObjParam(t, 0, "InputStream");
+			getUpval(t, 0);
+			dup(t, 0);
+			pushInt(t, 0);
 			return 3;
 		}
 	}
 
-	static class MDInputStream : MDInstance
+	struct OutputStreamObj
 	{
-		private InputStream mInput;
-		private Reader mReader;
-		private LineIterator!(char) mLines;
-
-		public this(MDInputStreamClass owner)
+	static:
+		enum Members
 		{
-			super(owner);
+			output,
+			writer,
+			print
+		}
+
+		public void init(MDThread* t)
+		{
+			CreateObject(t, "OutputStream", (CreateObject* o)
+			{
+				o.method("clone",       &clone);
+				o.method("writeByte",   &writeVal!(ubyte));
+				o.method("writeShort",  &writeVal!(ushort));
+				o.method("writeInt",    &writeVal!(int));
+				o.method("writeFloat",  &writeVal!(float));
+				o.method("writeDouble", &writeVal!(double));
+				o.method("writeChar",   &writeVal!(char));
+				o.method("writeWChar",  &writeVal!(wchar));
+				o.method("writeDChar",  &writeVal!(dchar));
+				o.method("writeString", &writeString);
+				o.method("write",       &write);
+				o.method("writeln",     &writeln);
+				o.method("writef",      &writef);
+				o.method("writefln",    &writefln);
+				o.method("writeChars",  &writeChars);
+				o.method("writeJSON",   &writeJSON);
+				o.method("flush",       &flush);
+				o.method("copy",        &copy);
+			});
+
+			newGlobal(t, "OutputStream");
+		}
+
+		public uword clone(MDThread* t, uword numParams)
+		{
+			checkParam(t, 1, MDValue.Type.NativeObj);
+			auto output = cast(OutputStream)getNativeObj(t, 1);
+
+			if(output is null)
+				throwException(t, "instances of OutputStream may only be created using instances of the Tango OutputStream");
+
+			auto writer = new Writer(output);
+			auto print = new Print!(char)(t.vm.formatter, output);
+
+			pushGlobal(t, "OutputStream");
+			auto ret = newObject(t, -1, null, 3);
+
+			pushNativeObj(t, cast(Object)output); setExtraVal(t, ret, Members.output);
+			pushNativeObj(t, writer);             setExtraVal(t, ret, Members.writer);
+			pushNativeObj(t, print);              setExtraVal(t, ret, Members.print);
+
+			return 1;
 		}
 		
-		public void constructor(InputStream input)
+		private Writer getWriter(MDThread* t)
 		{
-			mInput = input;
-			mReader = new Reader(mInput);
-			mLines = new LineIterator!(char)(mInput);
-		}
-
-		public T readVal(T)()
-		{
-			T val;
-			mReader.get(val);
-			return val;
+			checkObjParam(t, 0, "OutputStream");
+			getExtraVal(t, 0, Members.writer);
+			auto ret = cast(Writer)cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
 		}
 		
-		public dchar[] readString()
+		private Print!(char) getPrint(MDThread* t)
 		{
-			dchar[] s;
-			Deserialize(mReader, s);
-			return s;
+			checkObjParam(t, 0, "OutputStream");
+			getExtraVal(t, 0, Members.print);
+			auto ret = cast(Print!(char))cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
+		}
+		
+		private OutputStream getOutput(MDThread* t)
+		{
+			checkObjParam(t, 0, "OutputStream");
+			getExtraVal(t, 0, Members.output);
+			auto ret = cast(OutputStream)cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
 		}
 
-		public char[] readln()
+		public uword writeVal(T)(MDThread* t, uword numParams)
 		{
-			return mLines.next();
+			auto w = getWriter(t);
+
+			static if(isIntType!(T))
+				T val = cast(T)checkIntParam(t, 1);
+			else static if(isFloatType!(T))
+				T val = cast(T)checkFloatParam(t, 1);
+			else static if(isCharType!(T))
+				T val = cast(T)checkCharParam(t, 1);
+			else
+				static assert(false);
+
+			safeCode(t, w.put(val));
+			dup(t, 0);
+			return 1;
 		}
 
-		public MDString readChars(uint length)
+		public uword writeString(MDThread* t, uword numParams)
 		{
-			char[] data = new char[length];
-			mReader.buffer.readExact(data.ptr, length * char.sizeof);
-			return new MDString(data);
-		}
-	}
-
-	static class MDOutputStreamClass : MDClass
-	{
-		private Layout!(char) mLayout;
-
-		public this()
-		{
-			super("OutputStream", null);
-
-			mLayout = new Layout!(char)();
+			auto w = getWriter(t);
+			auto str = checkStringParam(t, 1);
 			
-			mMethods.addList
-			(
-				"writeByte"d,   new MDClosure(mMethods, &writeVal!(ubyte),  "OutputStream.writeByte"),
-				"writeShort"d,  new MDClosure(mMethods, &writeVal!(ushort), "OutputStream.writeShort"),
-				"writeInt"d,    new MDClosure(mMethods, &writeVal!(int),    "OutputStream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &writeVal!(float),  "OutputStream.writeFloat"),
-				"writeDouble"d, new MDClosure(mMethods, &writeVal!(double), "OutputStream.writeDouble"),
-				"writeChar"d,   new MDClosure(mMethods, &writeVal!(char),   "OutputStream.writeChar"),
-				"writeWChar"d,  new MDClosure(mMethods, &writeVal!(wchar),  "OutputStream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mMethods, &writeVal!(dchar),  "OutputStream.writeDChar"),
-				"writeString"d, new MDClosure(mMethods, &writeString,       "OutputStream.writeString"),
-				"write"d,       new MDClosure(mMethods, &write,             "OutputStream.write"),
-				"writeln"d,     new MDClosure(mMethods, &writeln,           "OutputStream.writeln"),
-				"writef"d,      new MDClosure(mMethods, &writef,            "OutputStream.writef"),
-				"writefln"d,    new MDClosure(mMethods, &writefln,          "OutputStream.writefln"),
-				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "OutputStream.writeChars"),
-				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "OutputStream.writeJSON"),
-				"flush"d,       new MDClosure(mMethods, &flush,             "OutputStream.flush")
-			);
-		}
+			safeCode(t,
+			{
+				w.put(str.length);
+				w.buffer.append(str.ptr, str.length * char.sizeof);
+			}());
 
-		public override MDOutputStream newInstance()
-		{
-			return new MDOutputStream(this);
-		}
-
-		protected MDOutputStream newInstance(OutputStream output)
-		{
-			MDOutputStream n = newInstance();
-			n.constructor(output);
-			return n;
-		}
-
-		public int writeVal(T)(MDState s, uint numParams)
-		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream)().writeVal!(T)(s.getParam!(T)(0))));
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writeString(MDState s, uint numParams)
+		public uword write(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).writeString(s.getParam!(dchar[])(0))));
+			auto p = getPrint(t);
+
+			for(uword i = 1; i <= numParams; i++)
+			{
+				pushToString(t, i);
+				safeCode(t, p.print(getString(t, -1)));
+				pop(t);
+			}
+
+			dup(t, 0);
 			return 1;
 		}
 
-		public int write(MDState s, uint numParams)
+		public uword writeln(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).write(s, s.getAllParams())));
+			auto p = getPrint(t);
+
+			for(uword i = 1; i <= numParams; i++)
+			{
+				pushToString(t, i);
+				safeCode(t, p.print(getString(t, -1)));
+				pop(t);
+			}
+			
+			safeCode(t, p.newline());
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writeln(MDState s, uint numParams)
+		public uword writef(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).writeln(s, s.getAllParams())));
+			auto p = getPrint(t);
+
+			safeCode(t, formatImpl(t, numParams, (char[] s)
+			{
+				p.print(s);
+				return s.length;
+			}));
+			
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writef(MDState s, uint numParams)
+		public uword writefln(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).writef(s, s.getAllParams())));
+			auto p = getPrint(t);
+
+			safeCode(t, formatImpl(t, numParams, (char[] s)
+			{
+				p.print(s);
+				return s.length;
+			}));
+
+			safeCode(t, p.newline());
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writefln(MDState s, uint numParams)
+		public uword writeChars(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).writefln(s, s.getAllParams())));
+			auto w = getWriter(t);
+			auto str = checkStringParam(t, 1);
+			safeCode(t, w.buffer.append(str.ptr, str.length * char.sizeof));
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writeChars(MDState s, uint numParams)
+		public uword writeJSON(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).writeChars(s.getParam!(char[])(0))));
+			auto p = getPrint(t);
+			checkAnyParam(t, 1);
+			auto pretty = optBoolParam(t, 2, false);
+			toJSONImpl(t, 1, pretty, p);
+			dup(t, 0);
 			return 1;
 		}
 
-		public int writeJSON(MDState s, uint numParams)
+		public uword flush(MDThread* t, uword numParams)
 		{
-			bool pretty = false;
-
-			if(numParams > 1)
-				pretty = s.getParam!(bool)(1);
-
-			s.push(s.getContext!(MDOutputStream).writeJSON(s, s.getParam(0u), pretty));
+			safeCode(t, getOutput(t).flush());
+			dup(t, 0);
 			return 1;
 		}
 
-		public int flush(MDState s, uint numParams)
+		public uword copy(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDOutputStream).flush()));
-			return 1;
-		}
-	}
-	
-	static class MDOutputStream : MDInstance
-	{
-		private Layout!(char) mLayout;
-		private OutputStream mOutput;
-		private Writer mWriter;
-		private Print!(char) mPrint;
+			auto o = getOutput(t);
+			checkObjParam(t, 1);
 
-		public this(MDOutputStreamClass owner)
-		{
-			super(owner);
-			mLayout = owner.mLayout;
-		}
+			InputStream stream;
+			pushGlobal(t, "InputStream");
 
-		public void constructor(OutputStream output)
-		{
-			mOutput = output;
-			mWriter = new Writer(mOutput);
-			mPrint = new Print!(char)(mLayout, mOutput);
-		}
-
-		public MDOutputStream writeVal(T)(T val)
-		{
-			mWriter.put(val);
-			return this;
-		}
-
-		public MDOutputStream writeString(dchar[] s)
-		{
-			Serialize(mWriter, s);
-			return this;
-		}
-
-		public MDOutputStream write(MDState s, MDValue[] params)
-		{
-			foreach(ref val; params)
-				mPrint.print(s.valueToString(val).mData);
+			if(as(t, 1, -1))
+			{
+				pop(t);
+				getExtraVal(t, 1, InputStreamObj.Members.input);
+				stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
+				pop(t);
+			}
+			else
+			{
+				pop(t);
+				pushGlobal(t, "Stream");
 				
-			return this;
-		}
-
-		public MDOutputStream writeln(MDState s, MDValue[] params)
-		{
-			foreach(ref val; params)
-				mPrint.print(s.valueToString(val).mData);
-
-			mPrint.newline;
-			return this;
-		}
-
-		public MDOutputStream writef(MDState s, MDValue[] params)
-		{
-			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
-			return this;
-		}
-
-		public MDOutputStream writefln(MDState s, MDValue[] params)
-		{
-			formatImpl(s, params, (dchar[] data) { mPrint.print(data); return data.length; });
-			mPrint.newline;
-			return this;
-		}
-
-		public MDOutputStream writeChars(char[] data)
-		{
-			mWriter.buffer.append(data.ptr, data.length * char.sizeof);
-			return this;
-		}
-
-		public MDOutputStream writeJSON(MDState s, MDValue root, bool pretty = false)
-		{
-			toJSONImpl(s, root, pretty, mPrint);
-			return this;
-		}
-
-		public MDOutputStream flush()
-		{
-			mOutput.flush();
-			return this;
+				if(as(t, 1, -1))
+				{
+					pop(t);
+					getExtraVal(t, 1, StreamObj.Members.input);
+					getExtraVal(t, -1, InputStreamObj.Members.input);
+					stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
+					pop(t, 2);
+				}
+				else
+				{
+					pushTypeString(t, 1);
+					throwException(t, "object must be either an InputStream or a Stream, not a '{}'", getString(t, -1));
+				}
+			}
+			
+			safeCode(t, o.copy(stream));
+			dup(t, 0);
+			return 1;
 		}
 	}
 
-	static class MDStreamClass : MDClass
+	struct StreamObj
 	{
-		public this()
+	static:
+		enum Members
 		{
-			super("Stream", null);
-
-			mMethods.addList
-			(
-				"readByte"d,    new MDClosure(mMethods, &readVal!(ubyte),   "Stream.readByte"),
-				"readShort"d,   new MDClosure(mMethods, &readVal!(ushort),  "Stream.readShort"),
-				"readInt"d,     new MDClosure(mMethods, &readVal!(int),     "Stream.readInt"),
-				"readFloat"d,   new MDClosure(mMethods, &readVal!(float),   "Stream.readFloat"),
-				"readDouble"d,  new MDClosure(mMethods, &readVal!(double),  "Stream.readDouble"),
-				"readChar"d,    new MDClosure(mMethods, &readVal!(char),    "Stream.readChar"),
-				"readWChar"d,   new MDClosure(mMethods, &readVal!(wchar),   "Stream.readWChar"),
-				"readDChar"d,   new MDClosure(mMethods, &readVal!(dchar),   "Stream.readDChar"),
-				"readString"d,  new MDClosure(mMethods, &readString,        "Stream.readString"),
-				"readln"d,      new MDClosure(mMethods, &readln,            "Stream.readln"),
-// 				"readf"d,       new MDClosure(mMethods, &readf,             "Stream.readf"),
-				"readChars"d,   new MDClosure(mMethods, &readChars,         "Stream.readChars"),
-				"opApply"d,     new MDClosure(mMethods, &apply,             "Stream.opApply"),
-
-				"writeByte"d,   new MDClosure(mMethods, &writeVal!(ubyte),  "Stream.writeByte"),
-				"writeShort"d,  new MDClosure(mMethods, &writeVal!(ushort), "Stream.writeShort"),
-				"writeInt"d,    new MDClosure(mMethods, &writeVal!(int),    "Stream.writeInt"),
-				"writeFloat"d,  new MDClosure(mMethods, &writeVal!(float),  "Stream.writeFloat"),
-				"writeDouble"d, new MDClosure(mMethods, &writeVal!(double), "Stream.writeDouble"),
-				"writeChar"d,   new MDClosure(mMethods, &writeVal!(char),   "Stream.writeChar"),
-				"writeWChar"d,  new MDClosure(mMethods, &writeVal!(wchar),  "Stream.writeWChar"),
-				"writeDChar"d,  new MDClosure(mMethods, &writeVal!(dchar),  "Stream.writeDChar"),
-				"writeString"d, new MDClosure(mMethods, &writeString,       "Stream.writeString"),
-				"write"d,       new MDClosure(mMethods, &write,             "Stream.write"),
-				"writeln"d,     new MDClosure(mMethods, &writeln,           "Stream.writeln"),
-				"writef"d,      new MDClosure(mMethods, &writef,            "Stream.writef"),
-				"writefln"d,    new MDClosure(mMethods, &writefln,          "Stream.writefln"),
-				"writeChars"d,  new MDClosure(mMethods, &writeChars,        "Stream.writeChars"),
-				"writeJSON"d,   new MDClosure(mMethods, &writeJSON,         "Stream.writeJSON"),
-				"flush"d,       new MDClosure(mMethods, &flush,             "Stream.flush"),
-
-				"seek"d,        new MDClosure(mMethods, &seek,              "Stream.seek"),
-				"position"d,    new MDClosure(mMethods, &position,          "Stream.position"),
-				"size"d,        new MDClosure(mMethods, &size,              "Stream.size"),
-				"close"d,       new MDClosure(mMethods, &close,             "Stream.close"),
-				"isOpen"d,      new MDClosure(mMethods, &isOpen,            "Stream.isOpen"),
-
-				"input"d,       new MDClosure(mMethods, &input,             "Stream.input"),
-				"output"d,      new MDClosure(mMethods, &output,            "Stream.output")
-			);
+			conduit,
+			input,
+			output,
+			seeker	
 		}
 
-		public override MDStream newInstance()
+		public void init(MDThread* t)
 		{
-			return new MDStream(this);
-		}
-		
-		protected MDStream newInstance(Conduit conduit, IConduit.Seek seeker = null)
-		{
-			MDStream n = newInstance();
-			n.constructor(conduit, seeker);
-			return n;
-		}
+			CreateObject(t, "Stream", (CreateObject* o)
+			{
+				o.method("clone", &clone);
+				o.method("readByte", &readVal!(ubyte));
+				o.method("readShort", &readVal!(ushort));
+				o.method("readInt", &readVal!(int));
+				o.method("readFloat", &readVal!(float));
+				o.method("readDouble", &readVal!(double));
+				o.method("readChar", &readVal!(char));
+				o.method("readWChar", &readVal!(wchar));
+				o.method("readDChar", &readVal!(dchar));
+				o.method("readString", &readString);
+				o.method("readln", &readln);
+				o.method("readChars", &readChars);
+				o.method("opApply", &opApply);
 
-		public int readVal(T)(MDState s, uint numParams)
-		{
-			s.push(s.safeCode(s.getContext!(MDStream).mInput.readVal!(T)()));
-			return 1;
+				o.method("writeByte", &writeVal!(ubyte));
+				o.method("writeShort", &writeVal!(ushort));
+				o.method("writeInt", &writeVal!(int));
+				o.method("writeFloat", &writeVal!(float));
+				o.method("writeDouble", &writeVal!(double));
+				o.method("writeChar", &writeVal!(char));
+				o.method("writeWChar", &writeVal!(wchar));
+				o.method("writeDChar", &writeVal!(dchar));
+				o.method("writeString", &writeString);
+				o.method("write", &write);
+				o.method("writeln", &writeln);
+				o.method("writef", &writef);
+				o.method("writefln", &writefln);
+				o.method("writeChars", &writeChars);
+				o.method("writeJSON", &writeJSON);
+				o.method("flush", &flush);
+				o.method("copy", &copy);
+
+				o.method("seek", &seek);
+				o.method("position", &position);
+				o.method("size", &size);
+				o.method("close", &close);
+				o.method("isOpen", &isOpen);
+
+				o.method("input", &input);
+				o.method("output", &output);
+			});
+			
+			newGlobal(t, "Stream");
 		}
 		
-		public int readString(MDState s, uint numParams)
+		public uword clone(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mInput.readString()));
-			return 1;
-		}
-		
-		public int readln(MDState s, uint numParams)
-		{
-			auto self = s.getContext!(MDStream);
-			char[] ret = s.safeCode(self.mInput.readln());
+			checkParam(t, 1, MDValue.Type.NativeObj);
+			auto conduit = cast(IConduit)getNativeObj(t, 1);
 
-			if(ret.ptr is null)
-				s.throwRuntimeException("Stream {} has no more data.", self.mConduit);
+			if(conduit is null)
+				throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
 
-			s.push(ret);
-			return 1;
-		}
+			auto seeker = cast(IConduit.Seek)conduit;
 
-// 		public int readf(MDState s, uint numParams)
-// 		{
-// 			MDStream i = s.getContext!(MDStream);
-// 			MDValue[] ret = s.safeCode(baseUnFormat(s, s.getParam!(dchar[])(0), i.mStream));
-// 
-// 			foreach(ref v; ret)
-// 				s.push(v);
-//
-// 			return ret.length;
-// 		}
+			pushGlobal(t, "Stream");
+			auto ret = newObject(t, -1, null, 4);
 
-		public int readChars(MDState s, uint numParams)
-		{
-			s.push(s.safeCode(s.getContext!(MDStream).mInput.readChars(s.getParam!(int)(0))));
+			pushNativeObj(t, cast(Object)conduit); setExtraVal(t, ret, Members.conduit);
+			
+			if(seeker is null)
+				pushNull(t);
+			else
+				pushNativeObj(t, cast(Object)seeker);
+				
+			setExtraVal(t, ret, Members.seeker);
+
+				pushGlobal(t, "InputStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)conduit);
+				methodCall(t, -3, "clone", 1);
+			setExtraVal(t, ret, Members.input);
+
+				pushGlobal(t, "OutputStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)conduit);
+				methodCall(t, -3, "clone", 1);
+			setExtraVal(t, ret, Members.output);
+
 			return 1;
 		}
 		
-		public int apply(MDState s, uint numParams)
+		word pushInput(MDThread* t)
 		{
-			s.push(inputStreamClass.mIteratorClosure);
-			s.push(s.getContext!(MDStream).mInput);
-			s.push(0);
-			return 3;
+			checkObjParam(t, 0, "Stream");
+			return getExtraVal(t, 0, Members.input);
 		}
 
-		public int writeVal(T)(MDState s, uint numParams)
+		word pushOutput(MDThread* t)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeVal!(T)(s.getParam!(T)(0))));
+			checkObjParam(t, 0, "Stream");
+			return getExtraVal(t, 0, Members.output);
+		}
+
+		IConduit.Seek getSeeker(MDThread* t)
+		{
+			checkObjParam(t, 0, "Stream");
+			getExtraVal(t, 0, Members.seeker);
+			
+			if(isNull(t, -1))
+				throwException(t, "Stream is not seekable.");
+
+			auto ret = cast(IConduit.Seek)cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
+		}
+
+		IConduit getConduit(MDThread* t)
+		{
+			checkObjParam(t, 0, "Stream");
+			getExtraVal(t, 0, Members.conduit);
+			auto ret = cast(IConduit)cast(void*)getNativeObj(t, -1);
+			pop(t);
+			return ret;
+		}
+
+		public uword readVal(T)(MDThread* t, uword numParams)
+		{
+			pushInput(t);
+			swap(t, 0);
+			pop(t);
+			return InputStreamObj.readVal!(T)(t, numParams);
+		}
+
+		public uword readString(MDThread* t, uword numParams)
+		{
+			pushInput(t);
+			swap(t, 0);
+			pop(t);
+			return InputStreamObj.readString(t, numParams);
+		}
+
+		public uword readln(MDThread* t, uword numParams)
+		{
+			pushInput(t);
+			swap(t, 0);
+			pop(t);
+			return InputStreamObj.readln(t, numParams);
+		}
+
+		public uword readChars(MDThread* t, uword numParams)
+		{
+			pushInput(t);
+			swap(t, 0);
+			pop(t);
+			return InputStreamObj.readChars(t, numParams);
+		}
+
+		public uword opApply(MDThread* t, uword numParams)
+		{
+			pushInput(t);
+			pushNull(t);
+			return methodCall(t, -2, "opApply", -1);
+		}
+
+		public uword writeVal(T)(MDThread* t, uword numParams)
+		{
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeVal!(T)(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writeString(MDState s, uint numParams)
+		public uword writeString(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeString(s.getParam!(dchar[])(0))));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeString(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int write(MDState s, uint numParams)
+		public uword write(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.write(s, s.getAllParams())));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.write(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writeln(MDState s, uint numParams)
+		public uword writeln(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeln(s, s.getAllParams())));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeln(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writef(MDState s, uint numParams)
+		public uword writef(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writef(s, s.getAllParams())));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writef(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writefln(MDState s, uint numParams)
+		public uword writefln(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writefln(s, s.getAllParams())));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writefln(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writeChars(MDState s, uint numParams)
+		public uword writeChars(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.writeChars(s.getParam!(char[])(0))));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeChars(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int writeJSON(MDState s, uint numParams)
+		public uword writeJSON(MDThread* t, uword numParams)
 		{
-			bool pretty = false;
+			checkAnyParam(t, 1);
 
-			if(numParams > 1)
-				pretty = s.getParam!(bool)(1);
+			// Have to set up the stack so that OutputStream.writeJSON doesn't see 'this' on it
+			if(numParams == 1)
+				pushNull(t);
 
-			s.push(s.getContext!(MDStream).mOutput.writeJSON(s, s.getParam(0u), pretty));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.writeJSON(t, numParams);
+			pop(t);
+			return 1;
+		}
+
+		public uword flush(MDThread* t, uword numParams)
+		{
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.flush(t, numParams);
+			pop(t);
 			return 1;
 		}
 		
-		public int flush(MDState s, uint numParams)
+		public uword copy(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).mOutput.flush()));
+			pushOutput(t);
+			swap(t, 0);
+			OutputStreamObj.copy(t, numParams);
+			pop(t);
 			return 1;
 		}
 
-		public int seek(MDState s, uint numParams)
+		public uword seek(MDThread* t, uword numParams)
 		{
-			auto self = s.getContext!(MDStream);
-			int pos = s.getParam!(int)(0);
-			dchar whence = s.getParam!(dchar)(1);
+			auto seeker = getSeeker(t);
+			auto pos = checkIntParam(t, 1);
+			auto whence = checkCharParam(t, 2);
 
 			if(whence == 'b')
-				s.safeCode(self.seek(pos, IConduit.Seek.Anchor.Begin));
+				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.Begin));
 			else if(whence == 'c')
-				s.safeCode(self.seek(pos, IConduit.Seek.Anchor.Current));
+				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.Current));
 			else if(whence == 'e')
-				s.safeCode(self.seek(pos, IConduit.Seek.Anchor.End));
+				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.End));
 			else
-				s.throwRuntimeException("Invalid seek type '{}'", whence);
+				throwException(t, "Invalid seek type '{}'", whence);
+
+			getExtraVal(t, 0, Members.input);
+			getExtraVal(t, -1, InputStreamObj.Members.input);
+			(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
 
 			return 0;
 		}
 
-		public int position(MDState s, uint numParams)
+		public uword position(MDThread* t, uword numParams)
 		{
+			auto seeker = getSeeker(t);
+
 			if(numParams == 0)
 			{
-				s.push(s.safeCode(s.getContext!(MDStream).position()));
+				pushInt(t, safeCode(t, cast(mdint)seeker.seek(0, IConduit.Seek.Anchor.Current)));
 				return 1;
 			}
 			else
 			{
-				s.safeCode(s.getContext!(MDStream).position(s.getParam!(int)(0)));
+				safeCode(t, seeker.seek(checkIntParam(t, 1), IConduit.Seek.Anchor.Begin));
+				getExtraVal(t, 0, Members.input);
+				getExtraVal(t, -1, InputStreamObj.Members.input);
+				(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
 				return 0;
 			}
 		}
 
-		public int size(MDState s, uint numParams)
+		public uword size(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).size()));
+			auto seeker = getSeeker(t);
+
+			auto pos = seeker.seek(0, IConduit.Seek.Anchor.Current);
+			auto ret = seeker.seek(0, IConduit.Seek.Anchor.End);
+			seeker.seek(pos, IConduit.Seek.Anchor.Begin);
+
+			pushInt(t, cast(mdint)ret);
 			return 1;
 		}
 
-		public int close(MDState s, uint numParams)
+		public uword close(MDThread* t, uword numParams)
 		{
-			s.safeCode(s.getContext!(MDStream).close());
+			pushOutput(t);
+			getExtraVal(t, -1, OutputStreamObj.Members.output);
+			try (cast(OutputStream)cast(void*)getNativeObj(t, -1)).flush(); catch{}
+			getConduit(t).close();
 			return 0;
 		}
 
-		public int isOpen(MDState s, uint numParams)
+		public uword isOpen(MDThread* t, uword numParams)
 		{
-			s.push(s.safeCode(s.getContext!(MDStream).isOpen()));
+			pushBool(t, getConduit(t).isAlive());
 			return 1;
 		}
 
-		public int input(MDState s, uint numParams)
+		public uword input(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDStream).mInput);
+			checkObjParam(t, 0, "Stream");
+			getExtraVal(t, 0, Members.input);
 			return 1;
 		}
-		
-		public int output(MDState s, uint numParams)
+
+		public uword output(MDThread* t, uword numParams)
 		{
-			s.push(s.getContext!(MDStream).mOutput);
+			checkObjParam(t, 0, "Stream");
+			getExtraVal(t, 0, Members.output);
 			return 1;
-		}
-	}
-	
-	static class MDStream : MDInstance
-	{
-		private Conduit mConduit;
-		private MDInputStream mInput;
-		private MDOutputStream mOutput;
-		private IConduit.Seek mSeeker;
-
-		public this(MDStreamClass owner)
-		{
-			super(owner);
-		}
-
-		public void constructor(Conduit conduit, IConduit.Seek seeker = null)
-		{
-			mConduit = conduit;
-			auto b = new Buffer(mConduit);
-			mInput = inputStreamClass.newInstance(b);
-			mOutput = outputStreamClass.newInstance(b);
-			mSeeker = seeker;
-		}
-
-		public void seek(uint pos, IConduit.Seek.Anchor whence)
-		{
-			if(mSeeker is null)
-				throw new MDException("Stream {} is not seekable.", mConduit);
-
-			mSeeker.seek(pos, whence);
-			mInput.mInput.clear();
-		}
-
-		public void position(uint pos)
-		{
-			if(mSeeker is null)
-				throw new MDException("Stream {} is not seekable.", mConduit);
-
-			mSeeker.seek(pos, IConduit.Seek.Anchor.Begin);
-			mInput.mInput.clear();
-		}
-
-		public int position()
-		{
-			if(mSeeker is null)
-				throw new MDException("Stream {} is not seekable.", mConduit);
-
-			return mSeeker.seek(0, IConduit.Seek.Anchor.Current);
-		}
-
-		public int size()
-		{
-			if(mSeeker is null)
-				throw new MDException("Stream {} is not seekable.", mConduit);
-
-			ulong pos, ret;
-			pos = mSeeker.seek(0, IConduit.Seek.Anchor.Current);
-			ret = mSeeker.seek(0, IConduit.Seek.Anchor.End);
-			mSeeker.seek(pos, IConduit.Seek.Anchor.Begin);
-			return ret;
-		}
-
-		public void close()
-		{
-			try mOutput.flush(); catch{}
-			mConduit.close();
-		}
-
-		public bool isOpen()
-		{
-			return mConduit.isAlive();
 		}
 	}
 }

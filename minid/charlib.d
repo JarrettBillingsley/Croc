@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,124 +23,116 @@ subject to the following restrictions:
 
 module minid.charlib;
 
+import minid.ex;
+import minid.interpreter;
 import minid.types;
 
 import tango.stdc.ctype;
 import Uni = tango.text.Unicode;
+import Utf = tango.text.convert.Utf;
 
-class CharLib
+struct CharLib
 {
-	private static CharLib lib;
-	
-	static this()
+static:
+	public void init(MDThread* t)
 	{
-		lib = new CharLib();
-	}
-	
-	private this()
-	{
-		
-	}
-
-	public static void init(MDContext context)
-	{
-		MDNamespace namespace = new MDNamespace("char"d, context.globals.ns);
-		
-		namespace.addList
-		(
-			"toLower"d,    new MDClosure(namespace, &lib.toLower,     "char.toLower"),
-			"toUpper"d,    new MDClosure(namespace, &lib.toUpper,     "char.toUpper"),
-			"isAlpha"d,    new MDClosure(namespace, &lib.isAlpha,     "char.isAlpha"),
-			"isAlNum"d,    new MDClosure(namespace, &lib.isAlNum,     "char.isAlNum"),
-			"isLower"d,    new MDClosure(namespace, &lib.isLower,     "char.isLower"),
-			"isUpper"d,    new MDClosure(namespace, &lib.isUpper,     "char.isUpper"),
-			"isDigit"d,    new MDClosure(namespace, &lib.isDigit,     "char.isDigit"),
-			"isCtrl"d,     new MDClosure(namespace, &lib.isCtrl,      "char.isCtrl"),
-			"isPunct"d,    new MDClosure(namespace, &lib.isPunct,     "char.isPunct"),
-			"isSpace"d,    new MDClosure(namespace, &lib.isSpace,     "char.isSpace"),
-			"isHexDigit"d, new MDClosure(namespace, &lib.isHexDigit,  "char.isHexDigit"),
-			"isAscii"d,    new MDClosure(namespace, &lib.isAscii,     "char.isAscii")
-		);
-		
-		context.setMetatable(MDValue.Type.Char, namespace);
+		newNamespace(t, "char");
+			newFunction(t, &toLower, "char.toLower");       fielda(t, -2, "toLower");
+			newFunction(t, &toLower, "char.toLower");       fielda(t, -2, "toLower");
+			newFunction(t, &toUpper, "char.toUpper");       fielda(t, -2, "toUpper");
+			newFunction(t, &isAlpha, "char.isAlpha");       fielda(t, -2, "isAlpha");
+			newFunction(t, &isAlNum, "char.isAlNum");       fielda(t, -2, "isAlNum");
+			newFunction(t, &isLower, "char.isLower");       fielda(t, -2, "isLower");
+			newFunction(t, &isUpper, "char.isUpper");       fielda(t, -2, "isUpper");
+			newFunction(t, &isDigit, "char.isDigit");       fielda(t, -2, "isDigit");
+			newFunction(t, &isCtrl, "char.isCtrl");         fielda(t, -2, "isCtrl");
+			newFunction(t, &isPunct, "char.isPunct");       fielda(t, -2, "isPunct");
+			newFunction(t, &isSpace, "char.isSpace");       fielda(t, -2, "isSpace");
+			newFunction(t, &isHexDigit, "char.isHexDigit"); fielda(t, -2, "isHexDigit");
+			newFunction(t, &isAscii, "char.isAscii");       fielda(t, -2, "isAscii");
+			newFunction(t, &isValid, "char.isValid");       fielda(t, -2, "isValid");
+		setTypeMT(t, MDValue.Type.Char);
 	}
 
-	int toLower(MDState s, uint numParams)
+	uword toLower(MDThread* t, uword numParams)
 	{
-		dchar[1] buf;
-		s.push(s.safeCode(Uni.toLower([s.getContext!(dchar)], buf)[0]));
+		dchar[4] outbuf = void;
+		dchar c = checkCharParam(t, 0);
+		pushChar(t, safeCode(t, Uni.toLower((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 
-	int toUpper(MDState s, uint numParams)
+	uword toUpper(MDThread* t, uword numParams)
 	{
-		dchar[1] buf;
-		s.push(s.safeCode(Uni.toUpper([s.getContext!(dchar)], buf)[0]));
+		dchar[4] outbuf = void;
+		dchar c = checkCharParam(t, 0);
+		pushChar(t, safeCode(t, Uni.toUpper((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 
-	int isAlpha(MDState s, uint numParams)
+	uword isAlpha(MDThread* t, uword numParams)
 	{
-		s.push(Uni.isLetter(s.getContext!(dchar)));
+		pushBool(t, Uni.isLetter(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	int isAlNum(MDState s, uint numParams)
+	uword isAlNum(MDThread* t, uword numParams)
 	{
-		s.push(Uni.isLetterOrDigit(s.getContext!(dchar)));
-		return 1;
-	}
-	
-	int isLower(MDState s, uint numParams)
-	{
-		s.push(Uni.isLower(s.getContext!(dchar)));
+		pushBool(t, Uni.isLetterOrDigit(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	int isUpper(MDState s, uint numParams)
+	uword isLower(MDThread* t, uword numParams)
 	{
-		s.push(Uni.isUpper(s.getContext!(dchar)));
+		pushBool(t, Uni.isLower(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	int isDigit(MDState s, uint numParams)
+	uword isUpper(MDThread* t, uword numParams)
 	{
-		s.push(Uni.isDigit(s.getContext!(dchar)));
+		pushBool(t, Uni.isUpper(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	int isCtrl(MDState s, uint numParams)
+	uword isDigit(MDThread* t, uword numParams)
 	{
-		s.push(cast(bool)iscntrl(s.getContext!(dchar)));
+		pushBool(t, Uni.isDigit(checkCharParam(t, 0)));
 		return 1;
 	}
-	
-	int isPunct(MDState s, uint numParams)
-	{
-		s.push(cast(bool)ispunct(s.getContext!(dchar)));
-		return 1;
-	}
-	
-	int isSpace(MDState s, uint numParams)
-	{
-		s.push(cast(bool)isspace(s.getContext!(dchar)));
-		return 1;
-	}
-	
-	int isHexDigit(MDState s, uint numParams)
-	{
-		s.push(cast(bool)isxdigit(s.getContext!(dchar)));
-		return 1;
-	}
-	
-	int isAscii(MDState s, uint numParams)
-	{
-		s.push(s.getContext!(dchar) <= 0x7f);
-		return 1;
-	}
-}
 
-public void init()
-{
+	uword isCtrl(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)iscntrl(checkCharParam(t, 0)));
+		return 1;
+	}
 
+	uword isPunct(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)ispunct(checkCharParam(t, 0)));
+		return 1;
+	}
+
+	uword isSpace(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)isspace(checkCharParam(t, 0)));
+		return 1;
+	}
+
+	uword isHexDigit(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)isxdigit(checkCharParam(t, 0)));
+		return 1;
+	}
+
+	uword isAscii(MDThread* t, uword numParams)
+	{
+		pushBool(t, checkCharParam(t, 0) <= 0x7f);
+		return 1;
+	}
+
+	uword isValid(MDThread* t, uword numParams)
+	{
+		pushBool(t, Utf.isValid(checkCharParam(t, 0)));
+		return 1;
+	}
 }

@@ -23,16 +23,16 @@ subject to the following restrictions:
 
 module minidc;
 
-import minid.compiler;
-import minid.types;
-import minid.utils;
-
+import tango.io.FileConduit;
 import tango.io.Stdout;
+import tango.io.protocol.Writer;
+
+import minid.api;
+import minid.compiler;
 
 void printUsage()
 {
 	Stdout.formatln("MiniD Compiler v{}.{}", MiniDVersion >> 16, MiniDVersion & 0xFFFF).newline;
-	Stdout.newline;
 	Stdout("Usage:").newline;
 	Stdout("\tminidc filename").newline;
 	Stdout.newline;
@@ -50,5 +50,18 @@ void main(char[][] args)
 		return;
 	}
 
-	compileModule(args[1]).writeToFile(args[1] ~ "m");
+	MDVM vm;
+	auto t = openVM(&vm);
+
+	scope(exit)
+		closeVM(&vm);
+
+	scope c = new Compiler(t);
+	c.compileModule(args[1]);
+
+	scope fc = new FileConduit(args[1] ~ "m", FileConduit.WriteCreate);
+	scope w = new Writer(fc);
+	serializeModule(t, -1, w);
+	w.flush();
+	fc.close();
 }

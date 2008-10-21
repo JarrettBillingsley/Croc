@@ -1,33 +1,16 @@
-module factorial;
+module factorial
 
-function Y(g)
-{
-	local a = function(f) f(f);
-
-	return a(function(f)
-	{
-		return g(function(x)
-		{
-			local c = f(f);
-			return c(x);
-		});
-	});
-}
+// See if you can figure out what this means.  I sure as hell can't.
+function Y(g) = (function a(f) = f(f))(function(f) = g(function(x) = f(f)(x)))
 
 // factorial without recursion
-function F(f)
+function F(f) = function(n) = n == 0 ? 1 : n * f(n - 1)
+
+global factorial = Y(F) // factorial is the fixed point of F
+
+function main()
 {
-	return function (n)
-	{
-		if(n == 0)
-			return 1;
-		else
-			return n * f(n - 1);
-	};
+	// now test it
+	for(i: 1 .. 10)
+		writefln(i, "! = ", factorial(i))
 }
-
-local factorial = Y(F); // factorial is the fixed point of F
-
-// now test it
-for(i: 3 .. 18)
-	writefln(i, "! = ", factorial(i));

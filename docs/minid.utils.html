@@ -19,7 +19,7 @@ and as such can't hold implementation-specific functionality.  For that, look
 in the minid.misc module.
 <br><br>
 <b>License:</b><br>
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 <br><br>
 
 This software is provided 'as-is', without any express or implied warranty.
@@ -49,22 +49,6 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">alias 
-<span class="currsymbol">mdfloat</span>
-<script>explorer.outline.addDecl('mdfloat');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
-the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">template 
 <span class="currsymbol">isStringType</span>
 <script>explorer.outline.addDecl('isStringType');</script>
@@ -75,12 +59,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 
 <dd>Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -96,12 +74,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <dd>Sees if a type is char, wchar, or dchar.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -115,12 +87,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 
 <dd>Sees if a type is a signed or unsigned byte, short, int, or long.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -136,12 +102,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <dd>Sees if a type is float, double, or real.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -155,12 +115,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 
 <dd>Sees if a type is an array.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -176,12 +130,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <dd>Sees if a type is an associative array.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -195,12 +143,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 
 <dd>Sees if a type is a pointer.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -216,12 +158,6 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <dd>Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -229,19 +165,13 @@ the extra precision and want to save some space/speed in the MiniD struct, you c
 <span class="currsymbol">hasUnions</span>
 <script>explorer.outline.addDecl('hasUnions');</script>
 
-(T,uint Idx = 0)</span></dt>
+(T,size_t Idx = 0)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
 <dd>Determine if a given aggregate type contains any unions, explicit or anonymous.
 Thanks to Frits van Bommel for the original code.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -277,6 +207,21 @@ Thanks to Frits van Bommel for the original code.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
+<span class="currsymbol">scmp</span>
+<script>explorer.outline.addDecl('scmp');</script>
+
+(char[] <span class="funcparam">s1</span>, char[] <span class="funcparam">s2</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Compares char[] strings stupidly (just by character value, not lexicographically).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
 <span class="currsymbol">idcmp</span>
 <script>explorer.outline.addDecl('idcmp');</script>
 
@@ -291,16 +236,61 @@ Thanks to Frits van Bommel for the original code.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">isValidUniChar</span>
-<script>explorer.outline.addDecl('isValidUniChar');</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">verify</span>
+<script>explorer.outline.addDecl('verify');</script>
 
-(dchar <span class="funcparam">c</span>);
+(char[] <span class="funcparam">s</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>See if a given Unicode character is valid.
+<dd>Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">uniSlice</span>
+<script>explorer.outline.addDecl('uniSlice');</script>
+
+(char[] <span class="funcparam">s</span>, uint <span class="funcparam">lo</span>, uint <span class="funcparam">hi</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Slice a UTF-8 string using codepoint indices.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">dchar 
+<span class="currsymbol">uniCharAt</span>
+<script>explorer.outline.addDecl('uniCharAt');</script>
+
+(char[] <span class="funcparam">s</span>, uint <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Get the character in a UTF-8 string at the given codepoint index.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">uniCPIdxToByte</span>
+<script>explorer.outline.addDecl('uniCPIdxToByte');</script>
+
+(char[] <span class="funcparam">s</span>, uint <span class="funcparam">fake</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Convert a codepoint index into a UTF-8 string into a byte index.
 <br><br>
 
 </dd>
@@ -321,12 +311,6 @@ Thanks to Frits van Bommel for the original code.
  code out of a four-character string.  This is I guess for little-endian platforms..
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -339,156 +323,6 @@ Thanks to Frits van Bommel for the original code.
 
 
 <dd>Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">const uint 
-<span class="currsymbol">MiniDVersion</span>
-<script>explorer.outline.addDecl('MiniDVersion');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The current version of MiniD.  (this is kind of buried here)
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isInvalidSerializeType</span>
-<script>explorer.outline.addDecl('isInvalidSerializeType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>See if T is a type that can't be automatically serialized.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">enum 
-<span class="currsymbol">SerializeMethod</span>
-<script>explorer.outline.addDecl('SerializeMethod');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The different ways data can be serialized and deserialized.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">TypeSerializeMethod</span>
-<script>explorer.outline.addDecl('TypeSerializeMethod');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Given a type, determine how to serialize or deserialize a value of that type.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">Serialize</span>
-<script>explorer.outline.addDecl('Serialize');</script>
-
-(T)(IWriter <span class="funcparam">s</span>, T <span class="funcparam">value</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Write out a value to a stream.  This will automatically write out nested arrays and entire structures.
-Pointers, functions, delegates, interfaces, unions, and AAs can't be serialized.
-<br><br>
-For arrays, it will try to write the biggest chunks at a time possible.  So if you write out an int[],
-or an S[] where S is a struct type marked as SerializeAsChunk, it will write out all the data in the
-array at once.  Otherwise, it'll write out the array element-by-element.
-<br><br>
-
-For structs, the following methods are tried:
-<ol><li>If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
-	   
-<span class="currsymbol">Serialize</span>
-<script>explorer.outline.addDecl('Serialize');</script>
-
-/Deserialize will call those.</li>
-	<li>If the struct has a "const bool SerializeAsChunk = <b>true</b>" declaration in the struct, then it will
-	   serialize instances of the struct as chunks of memory.</li>
-	<li>As a last resort, it will try to write out the struct member-by-member.  If the struct has any
-	   unions (explicit or anonymous), the struct will not be able to be automatically serialized, and
-	   you will either have to make it chunk-serializable or provide custom serialization methods.</li>
-</ol>
-<br><br>
-
-For classes, it will expect for there to be custom serialize/deserialize methods.
-<br><br>
-
-For all other types, it will just write them out.  All other types are also considered chunk-serializable,
-so arrays of them will be serialized in one call.
-<br><br>
-
-If your struct or class declares custom serialize/deserialize methods, it must declare both or neither.
-These methods must always follow the form:
-<br><br>
-
-<pre class="d_code"><font color=blue>void</font> serialize(IWriter);
-<font color=blue>static</font> T deserialize(IReader);
-</pre>
-
-where T is your custom type.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">Deserialize</span>
-<script>explorer.outline.addDecl('Deserialize');</script>
-
-(T)(IReader <span class="funcparam">s</span>, out T <span class="funcparam">dest</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>The opposite of Serialize().  The same rules apply here as with Serialize().
 <br><br>
 
 </dd>
@@ -510,34 +344,6 @@ the final output will show the name of the profile, how many times it was instan
 total time in milliseconds, and the average time per instance in milliseconds.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">struct 
-<span class="currsymbol">List</span>
-<script>explorer.outline.addDecl('List');</script>
-
-(T);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
-over-allocates for arrays, but I don't like relying on implementation-specific features.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -551,12 +357,6 @@ over-allocates for arrays, but I don't like relying on implementation-specific f
 
 <dd>Gets the name of a function alias.
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -573,12 +373,6 @@ over-allocates for arrays, but I don't like relying on implementation-specific f
 for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
 same type as the tuple's elements, and return &lt;0 for A &lt; B, 0 for A == B, and &gt;0 for A &gt; B (just like opCmp).
 <br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
 
 </dd>
 
@@ -627,12 +421,6 @@ same type as the tuple's elements, and return &lt;0 for A &lt; B, 0 for A == B, 
 built into the compiler or something.
 <br><br>
 
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
@@ -647,11 +435,35 @@ built into the compiler or something.
 <dd>Convert an integer to a string at compile time.
 <br><br>
 
+</dd>
 
-<script>explorer.outline.incSymbolLevel();</script>
-<dl></dl>
-<script>explorer.outline.decSymbolLevel();</script>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">startsWith</span>
+<script>explorer.outline.addDecl('startsWith');</script>
 
+(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>See if a string starts with another string.  Useful.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">endsWith</span>
+<script>explorer.outline.addDecl('endsWith');</script>
+
+(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>See if a string ends with another string.  Also useful.
+<br><br>
 
 </dd>
 </dl>
@@ -662,17 +474,24 @@ built into the compiler or something.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sun Nov 18 11:04:10 2007
+			on Sun Oct  5 22:36:50 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.minid");
-	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.alloc");
+	explorer.packageExplorer.addModuleFull("minid.api");
+	explorer.packageExplorer.addModuleFull("minid.ast");
 	explorer.packageExplorer.addModuleFull("minid.bind");
+	explorer.packageExplorer.addModuleFull("minid.commandline");
 	explorer.packageExplorer.addModuleFull("minid.compiler");
-	explorer.packageExplorer.addModuleFull("minid.utils");</script>
+	explorer.packageExplorer.addModuleFull("minid.ex");
+	explorer.packageExplorer.addModuleFull("minid.interpreter");
+	explorer.packageExplorer.addModuleFull("minid.serialization");
+	explorer.packageExplorer.addModuleFull("minid.types");
+	explorer.packageExplorer.addModuleFull("minid.utils");
+	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
 

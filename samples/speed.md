@@ -1,5 +1,13 @@
 module speed;
 
+local x = 1 << 30
+x <<= 6
+
+if(x == 0)
+	writeln("32-bit ints")
+else
+	writeln("64-bit ints ")
+
 /*
 Taken from the Io speed test.
 On my desktop.
@@ -42,199 +50,193 @@ MiniD version            := "1.0"
 // values in millions per second
 */
 
-local oneMillion = 5_000_00; // 2 + 2 = 5 for large values of 2
-local t1;
+local t1 = 12345
+local oneMillion = 5_000_000
 
-class Tester
+local function foo() {}
+
+local object Tester
 {
-	x;
-
-	function foo()
-	{
-		return 1;
-	}
+	x
 
 	function beginTimer()
-	{
-		t1 = os.microTime();
-	}
+		t1 = microTime()
 
 	function endTimer(s)
 	{
-		local mps = toFloat(oneMillion) / ((os.microTime() - t1));
-		writefln("MiniD {} := {}", s, mps);
+		t1 = microTime() - t1
+		local mps = toFloat(oneMillion) / t1
+		writefln("MiniD {} := {:f5}", s, mps)
 	}
-	
+
 	function testIntMath()
 	{
-		this.beginTimer();
-		local x = 0;
-		local y = 5;
-		local z = 10;
+		:beginTimer()
+		local x = 0
+		local y = 5
+		local z = 10
 
 		for(i: 0 .. oneMillion / 8)
 		{
-			x = y + z; x = y + z; x = y + z; x = y + z;
-			x = y + z; x = y + z; x = y + z; x = y + z;
+			x = y + z; x = y + z; x = y + z; x = y + z
+			x = y + z; x = y + z; x = y + z; x = y + z
 		}
 
-		this.endTimer("intMath\t\t");
+		:endTimer("intMath\t\t")
 	}
 
 	function testFloatMath()
 	{
-		this.beginTimer();
-		local x = 0.0;
-		local y = 5.0;
-		local z = 10.0;
+		:beginTimer()
+		local x = 0.0
+		local y = 5.0
+		local z = 10.0
 
 		for(i: 0 .. oneMillion / 8)
 		{
-			x = y + z; x = y + z; x = y + z; x = y + z;
-			x = y + z; x = y + z; x = y + z; x = y + z;
+			x = y + z; x = y + z; x = y + z; x = y + z
+			x = y + z; x = y + z; x = y + z; x = y + z
 		}
 
-		this.endTimer("floatMath\t\t");
+		:endTimer("floatMath\t\t")
 	}
 
 	function testReflIntMath()
 	{
-		this.beginTimer();
-		local x = 0;
-		local y = 5;
+		:beginTimer()
+		local x = 0
+		local y = 5
 
 		for(i: 0 .. oneMillion / 8)
 		{
-			x += y; x += y; x += y; x += y;
-			x += y; x += y; x += y; x += y;
+			x += y; x += y; x += y; x += y
+			x += y; x += y; x += y; x += y
 		}
 
-		this.endTimer("reflIntMath\t");
+		:endTimer("reflIntMath\t")
 	}
 
 	function testReflFloatMath()
 	{
-		this.beginTimer();
-		local x = 0.0;
-		local y = 5.0;
+		:beginTimer()
+		local x = 0.0
+		local y = 5.0
 
 		for(i: 0 .. oneMillion / 8)
 		{
-			x += y; x += y; x += y; x += y;
-			x += y; x += y; x += y; x += y;
+			x += y; x += y; x += y; x += y
+			x += y; x += y; x += y; x += y
 		}
 
-		this.endTimer("reflFloatMath\t");
+		:endTimer("reflFloatMath\t")
 	}
 
 	function testLocals()
 	{
-		this.beginTimer();
-		local v = 1;
-		local y;
+		:beginTimer()
+		local v = 1
+		local y
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			y = v; y = v;  y = v; y = v;
-			y = v; y = v;  y = v; y = v;
+			y = v; y = v;  y = v; y = v
+			y = v; y = v;  y = v; y = v
 		}
 
-		this.endTimer("localAccesses\t");
+		:endTimer("localAccesses\t")
 	}
 
 	function testSetLocals()
 	{
-		this.beginTimer();
-		local v = 1;
+		:beginTimer()
+		local v = 1
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			v = 1; v = 2; v = 3; v = 4;
-			v = 1; v = 2; v = 3; v = 4;
+			v = 1; v = 2; v = 3; v = 4
+			v = 1; v = 2; v = 3; v = 4
 		}
 
-		this.endTimer("localSets\t\t");
+		:endTimer("localSets\t\t")
 	}
 
 	function testSlot()
 	{
-		this.beginTimer();
-		this.x = 1;
-		local y;
+		:beginTimer()
+		:x = 1
+		local y
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			y = this.x; y = this.x; y = this.x; y = this.x;
-			y = this.x; y = this.x; y = this.x; y = this.x;
+			y = :x; y = :x; y = :x; y = :x
+			y = :x; y = :x; y = :x; y = :x
 		}
 
-		this.endTimer("slotAccesses\t");
+		:endTimer("slotAccesses\t")
 	}
 
 	function testSetSlot()
 	{
-		this.beginTimer();
+		:beginTimer()
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			this.x = 1; this.x = 2; this.x = 3; this.x = 4;
-			this.x = 1; this.x = 2; this.x = 3; this.x = 4;
+			:x = 1; :x = 2; :x = 3; :x = 4
+			:x = 1; :x = 2; :x = 3; :x = 4;
 		}
 
-		this.endTimer("slotSets\t\t");
+		:endTimer("slotSets\t\t")
 	}
 
 	function testBlock()
 	{
-		this.beginTimer();
+		:beginTimer()
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			this.foo(); this.foo(); this.foo(); this.foo();
-			this.foo(); this.foo(); this.foo(); this.foo();
+			foo(); foo(); foo(); foo()
+			foo(); foo(); foo(); foo()
 		}
 
-		this.endTimer("blockActivations\t");
+		:endTimer("blockActivations\t")
 	}
 
 	function testInstantiations()
 	{
-		this.beginTimer();
+		:beginTimer()
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			Tester(); Tester(); Tester(); Tester();
-			Tester(); Tester(); Tester(); Tester();
+			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
+			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
 		}
 
-		this.endTimer("instantiations\t");
+		:endTimer("instantiations\t")
 	}
 
 	function test()
 	{
-		writefln();
-		this.testReflIntMath();
-		this.testReflFloatMath();
-		writefln();
-		this.testIntMath();
-		this.testFloatMath();
-		writefln();
-		this.testLocals();
-		this.testSetLocals();
-		writefln();
-		this.testSlot();
-		this.testSetSlot();
-		writefln();
-		this.testBlock();
-		this.testInstantiations();
-		
-		writefln();
-		writefln("MiniD version\t\t := \"1.0\"");
-		writefln();
-		writefln("// values in millions per second");
-		writefln();
+		:testReflIntMath()
+		:testReflFloatMath()
+		writefln()
+		:testIntMath()
+		:testFloatMath()
+		writefln()
+		:testLocals()
+		:testSetLocals()
+		writefln()
+		:testSlot()
+		:testSetSlot()
+		writefln()
+		:testBlock()
+		:testInstantiations()
+//
+// 		writefln()
+// 		writefln("MiniD version\t\t := \"2.0 beta\"")
+// 		writefln()
+// 		writefln("// values in millions per second")
 	}
 }
 
-
-Tester().test();
+//function main()
+	Tester.test()

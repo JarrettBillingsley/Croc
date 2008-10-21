@@ -1,83 +1,89 @@
-module wc;
+module wc
 
-local w_total = 0;
-local l_total = 0;
-local c_total = 0;
-local dictionary = { };
-
-local args = [vararg];
-
-if(#args == 0)
-	return;
-
-writefln("   lines   words   bytes  file");
-
-foreach(arg; args)
+function main()
 {
-	local w_cnt = 0;
-	local l_cnt = 0;
-	local inword = false;
-
-	local c_cnt = io.size(arg);
-
-	local f = io.File(arg);
-	local buf = "";
-
-	foreach(line; f)
+	local w_total = 0
+	local l_total = 0
+	local c_total = 0
+	local dictionary = {}
+	
+	if(#vararg == 0)
+		return
+	
+	writefln("   lines   words   bytes  file")
+	
+	for(iarg: 0 .. #vararg)
 	{
-		foreach(c; line)
+		local arg = vararg[iarg]
+	
+		local w_cnt = 0
+		local l_cnt = 0
+		local inword = false
+	
+		local c_cnt = io.size(arg)
+	
+		local f = io.readFile(arg)
+		local wstart = 0
+	
+		foreach(j, c; f)
 		{
 			if(c == '\n')
-				++l_cnt;
+				++l_cnt
 	
 			if(c.isDigit())
 			{
-				if(inword)
-					buf ~= c;
+				//if(inword)
+				//	buf ~= c
 			}
-			else if(c.isAlpha())
+			else if(c.isAlpha() || c == '\'')
 			{
 				if(!inword)
 				{
-					buf = toString(c);
-					inword = true;
-					++w_cnt;
+					wstart = j
+					inword = true
+					w_cnt++
 				}
 				else
-					buf ~= c;
+					{}//buf ~= c
 			}
 			else if(inword)
 			{
-				local val = dictionary[buf];
-				
-				if(val is null)
-				{
-					dictionary[buf] = 1;
-					buf = "";
-				}
-				else
-					dictionary[buf] += 1;
+				local word = f[wstart .. j].toLower();
+				local val = dictionary[word]
 	
-				inword = false;
+				if(val is null)
+					dictionary[word] = 1
+				else
+					dictionary[word] += 1
+	
+				inword = false
 			}
 		}
+	
+		if(inword)
+		{
+			local word = f[wstart .. j].toLower();
+			local val = dictionary[word]
+	
+			if(val is null)
+				dictionary[word] = 1
+			else
+				dictionary[word] += 1
+		}
+	
+		writefln("{,8}{,8}{,8}  {}\n", l_cnt, w_cnt, c_cnt, arg)
+		l_total += l_cnt
+		w_total += w_cnt
+		c_total += c_cnt
 	}
 	
-	f.close();
-
-	if(inword)
-		dictionary[buf] += 1;
-
-	writefln("{,8}{,8}{,8}  {}\n", l_cnt, w_cnt, c_cnt, arg);
-	l_total += l_cnt;
-	w_total += w_cnt;
-	c_total += c_cnt;
+	if(#vararg > 1)
+		writefln("--------------------------------------\n{,8}{,8}{,8}  total", l_total, w_total, c_total)
+	
+	writefln("--------------------------------------")
+	
+	local results = dictionary.keys().apply(function(v) = [v, dictionary[v]]).sort(function(a, b) = b[1] <=> a[1])
+	
+	foreach(word; results)
+		writefln("{,5} {}", word[1], word[0])
 }
-
-if(#args > 1)
-	writefln("--------------------------------------\n{,8}{,8}{,8}  total", l_total, w_total, c_total);
-
-writefln("--------------------------------------");
-
-foreach(word; dictionary.keys().sort())
-	writefln("{,3} {}", dictionary[word], word);

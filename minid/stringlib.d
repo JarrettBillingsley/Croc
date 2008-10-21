@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,410 +23,532 @@ subject to the following restrictions:
 
 module minid.stringlib;
 
-import minid.types;
-import minid.utils;
-
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.core.Array;
-import Text = tango.text.Util;
+import tango.text.Util;
 import Uni = tango.text.Unicode;
 
-class StringLib
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+import minid.utils;
+
+struct StringLib
 {
-	private static StringLib lib;
-	
-	static this()
+static:
+	public void init(MDThread* t)
 	{
-		lib = new StringLib();
-	}
-	
-	private this()
-	{
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
+
+		newFunction(t, function uword(MDThread* t, uword numParams)
+		{
+			newFunction(t, &join, "join"); newGlobal(t, "join");
+
+			newNamespace(t, "string");
+					newFunction(t, &iterator,        "iterator");
+					newFunction(t, &iteratorReverse, "iteratorReverse");
+				newFunction(t, &opApply,     "opApply", 2);  fielda(t, -2, "opApply");
+
+				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
+				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
+				newFunction(t, &compare,     "compare");     fielda(t, -2, "compare");
+// 				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
+				newFunction(t, &find,        "find");        fielda(t, -2, "find");
+// 				newFunction(t, &ifind,       "ifind");       fielda(t, -2, "ifind");
+				newFunction(t, &rfind,       "rfind");       fielda(t, -2, "rfind");
+// 				newFunction(t, &irfind,      "irfind");      fielda(t, -2, "irfind");
+				newFunction(t, &toLower,     "toLower");     fielda(t, -2, "toLower");
+				newFunction(t, &toUpper,     "toUpper");     fielda(t, -2, "toUpper");
+				newFunction(t, &repeat,      "repeat");      fielda(t, -2, "repeat");
+				newFunction(t, &reverse,     "reverse");     fielda(t, -2, "reverse");
+				newFunction(t, &split,       "split");       fielda(t, -2, "split");
+				newFunction(t, &splitLines,  "splitLines");  fielda(t, -2, "splitLines");
+				newFunction(t, &strip,       "strip");       fielda(t, -2, "strip");
+				newFunction(t, &lstrip,      "lstrip");      fielda(t, -2, "lstrip");
+				newFunction(t, &rstrip,      "rstrip");      fielda(t, -2, "rstrip");
+				newFunction(t, &replace,     "replace");     fielda(t, -2, "replace");
+				newFunction(t, &startsWith,  "startsWith");  fielda(t, -2, "startsWith");
+				newFunction(t, &endsWith,    "endsWith");    fielda(t, -2, "endsWith");
+// 				newFunction(t, &istartsWith, "istartsWith"); fielda(t, -2, "istartsWith");
+// 				newFunction(t, &iendsWith,   "iendsWith");   fielda(t, -2, "iendsWith");
+			setTypeMT(t, MDValue.Type.String);
+
+			return 0;
+		}, "string");
 		
+		fielda(t, -2, "string");
+		importModule(t, "string");
+		pop(t, 3);
 	}
 
-	public static void init(MDContext context)
+	uword join(MDThread* t, uword numParams)
 	{
-		MDNamespace namespace = new MDNamespace("string"d, context.globals.ns);
+		checkParam(t, 1, MDValue.Type.Array);
+		checkStringParam(t, 2);
+		auto data = getArray(t, 1).slice;
 
-		Iterator* iter = new Iterator;
-		iter.iter = new MDClosure(namespace, &iter.iterator, "string.iterator");
-		iter.iterReverse = new MDClosure(namespace, &iter.iteratorReverse, "string.iteratorReverse");
+		if(data.length == 0)
+		{
+			pushString(t, "");
+			return 1;
+		}
 
-		namespace.addList
-		(
-			"opApply"d,     new MDClosure(namespace, &iter.apply,      "string.opApply"),
-			"toInt"d,       new MDClosure(namespace, &lib.toInt,       "string.toInt"),
-			"toFloat"d,     new MDClosure(namespace, &lib.toFloat,     "string.toFloat"),
-			"compare"d,     new MDClosure(namespace, &lib.compare,     "string.compare"),
-			"icompare"d,    new MDClosure(namespace, &lib.icompare,    "string.icompare"),
-			"find"d,        new MDClosure(namespace, &lib.find,        "string.find"),
-			"ifind"d,       new MDClosure(namespace, &lib.ifind,       "string.ifind"),
-			"rfind"d,       new MDClosure(namespace, &lib.rfind,       "string.rfind"),
-			"irfind"d,      new MDClosure(namespace, &lib.irfind,      "string.irfind"),
-			"toLower"d,     new MDClosure(namespace, &lib.toLower,     "string.toLower"),
-			"toUpper"d,     new MDClosure(namespace, &lib.toUpper,     "string.toUpper"),
-			"repeat"d,      new MDClosure(namespace, &lib.repeat,      "string.repeat"),
-			"split"d,       new MDClosure(namespace, &lib.split,       "string.split"),
-			"splitLines"d,  new MDClosure(namespace, &lib.splitLines,  "string.splitLines"),
-			"strip"d,       new MDClosure(namespace, &lib.strip,       "string.strip"),
-			"lstrip"d,      new MDClosure(namespace, &lib.lstrip,      "string.lstrip"),
-			"rstrip"d,      new MDClosure(namespace, &lib.rstrip,      "string.rstrip"),
-			"replace"d,     new MDClosure(namespace, &lib.replace,     "string.replace"),
-			"startsWith"d,  new MDClosure(namespace, &lib.startsWith,  "string.startsWith"),
-			"endsWith"d,    new MDClosure(namespace, &lib.endsWith,    "string.endsWith"),
-			"istartsWith"d, new MDClosure(namespace, &lib.istartsWith, "string.istartsWith"),
-			"iendsWith"d,   new MDClosure(namespace, &lib.iendsWith,   "string.iendsWith")
-		);
-
-		context.globals["string"d] = MDNamespace.create
-		(
-			"string"d, context.globals.ns,
-			"join"d, new MDClosure(context.globals.ns, &lib.join, "string.join")
-		);
+		auto buf = StrBuffer(t);
 		
-		context.setMetatable(MDValue.Type.String, namespace);
+		idxi(t, 1, 0);
+		
+		if(!isString(t, -1))
+			throwException(t, "Array element 0 is not a string");
+			
+		buf.addTop();
+
+		foreach(i, ref val; data[1 .. $])
+		{
+			if(val.type != MDValue.Type.String)
+				throwException(t, "Array element {} is not a string", i + 1);
+
+			dup(t, 2);
+			buf.addTop();
+			pushStringObj(t, val.mString);
+			buf.addTop();
+		}
+
+		buf.finish();
+		return 1;
 	}
 
-	int toInt(MDState s, uint numParams)
+	uword toInt(MDThread* t, uword numParams)
 	{
-		dchar[] src = s.getContext!(MDString).mData;
+		auto src = checkStringParam(t, 0);
 
 		int base = 10;
 
 		if(numParams > 0)
-			base = s.getParam!(int)(0);
+			base = cast(int)getInt(t, 1);
 
-		s.push(s.safeCode(Integer.toInt(src, base)));
+		pushInt(t, safeCode(t, Integer.toInt(src, base)));
 		return 1;
 	}
 
-	int toFloat(MDState s, uint numParams)
+	uword toFloat(MDThread* t, uword numParams)
 	{
-		s.push(s.safeCode(Float.toFloat(s.getContext!(MDString).mData)));
+		pushFloat(t, safeCode(t, Float.toFloat(checkStringParam(t, 0))));
 		return 1;
 	}
 
-	int compare(MDState s, uint numParams)
+	uword compare(MDThread* t, uword numParams)
 	{
-		s.push(s.getContext!(MDString).opCmp(s.getParam!(MDString)(0).mData));
+		pushInt(t, scmp(checkStringParam(t, 0), checkStringParam(t, 1)));
 		return 1;
 	}
 
-	int icompare(MDState s, uint numParams)
+// 	uword icompare(MDThread* t, uword numParams)
+// 	{
+// 		pushInt(t, idcmp(checkStringParam(t, 0), checkStringParam(t, 1)));
+// 		return 1;
+// 	}
+
+	uword find(MDThread* t, uword numParams)
 	{
-		s.push(idcmp(s.getContext!(MDString).mData, s.getParam!(MDString)(0).mData));
-		return 1;
-	}
+		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, 0);
 
-	int find(MDState s, uint numParams)
-	{
-		dchar[] src = s.getContext!(MDString).mData;
-		size_t result;
+		if(start < 0)
+		{
+			start += srcLen;
 
-		if(s.isParam!("string")(0))
-			result = Text.locatePattern(src, s.getParam!(MDString)(0).mData);
-		else if(s.isParam!("char")(0))
-			result = Text.locate(src, s.getParam!(dchar)(0));
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start >= srcLen)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
+
+		if(isString(t, 1))
+			pushInt(t, src.locatePattern(getString(t, 1), start));
+		else if(isChar(t, 1))
+		{
+			auto ch = getChar(t, 1);
+
+			uword startIdx = uniCPIdxToByte(src, start);
+
+			foreach(i, dchar c; src[startIdx .. $])
+			{
+				if(c == ch)
+				{
+					pushInt(t, i + start);
+					return 1;
+				}
+			}
+
+			pushInt(t, src.length);
+		}
 		else
-			s.throwRuntimeException("Parameter must be string or char");
-
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
-
-		return 1;
-	}
-
-	int ifind(MDState s, uint numParams)
-	{
-		dchar[32] buf1, buf2;
-		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		size_t result;
-
-		if(s.isParam!("string")(0))
-			result = Text.locatePattern(src, Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
-		else if(s.isParam!("char")(0))
-			result = Text.locate(src, Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
-		else
-			s.throwRuntimeException("Second parameter must be string or int");
-			
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
-
-		return 1;
-	}
-	
-	int rfind(MDState s, uint numParams)
-	{
-		dchar[] src = s.getContext!(MDString).mData;
-		size_t result;
-
-		if(s.isParam!("string")(0))
-			result = Text.locatePatternPrior(src, s.getParam!(MDString)(0).mData);
-		else if(s.isParam!("char")(0))
-			result = Text.locatePrior(src, s.getParam!(dchar)(0));
-		else
-			s.throwRuntimeException("Second parameter must be string or int");
-
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+		{
+			pushTypeString(t, 1);
+			throwException(t, "Parameter must be 'string' or 'char', not '{}'", getString(t, -1));
+		}
 
 		return 1;
 	}
 
-	int irfind(MDState s, uint numParams)
-	{
-		dchar[32] buf1, buf2;
-		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		size_t result;
+// 	uword ifind(MDThread* t, uword numParams)
+// 	{
+// 		dchar[32] buf1, buf2;
+// 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
+// 		uword result;
+//
+// 		if(s.isParam!("string")(0))
+// 			result = src.locatePattern(Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
+// 		else if(s.isParam!("char")(0))
+// 			result = src.locate(Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
+// 		else
+// 			s.throwRuntimeException("Second parameter must be string or int");
+//
+// 		s.push(result);
+//
+// 		return 1;
+// 	}
 
-		if(s.isParam!("string")(0))
-			result = Text.locatePatternPrior(src, Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
-		else if(s.isParam!("char")(0))
-			result = Text.locatePrior(src, Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
+	uword rfind(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, srcLen);
+
+		if(start < 0)
+		{
+			start += srcLen;
+
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start <= 0)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
+
+		if(isString(t, 1))
+			pushInt(t, src.locatePatternPrior(getString(t, 1), start));
+		else if(isChar(t, 1))
+		{
+			auto ch = getChar(t, 1);
+			uword startIdx = uniCPIdxToByte(src, start);
+
+			foreach_reverse(i, dchar c; src[0 .. startIdx])
+			{
+				if(c == ch)
+				{
+					pushInt(t, i);
+					return 1;
+				}
+			}
+
+			pushInt(t, src.length);
+		}
 		else
-			s.throwRuntimeException("Second parameter must be string or int");
-			
-		if(result == src.length)
-			s.push(-1);
-		else
-			s.push(result);
+		{
+			pushTypeString(t, 1);
+			throwException(t, "Parameter must be 'string' or 'char', not '{}'", getString(t, -1));
+		}
 
 		return 1;
 	}
 
-	int toLower(MDState s, uint numParams)
+// 	uword irfind(MDThread* t, uword numParams)
+// 	{
+// 		dchar[32] buf1, buf2;
+// 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
+// 		uword result;
+// 
+// 		if(s.isParam!("string")(0))
+// 			result = src.locatePatternPrior(Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
+// 		else if(s.isParam!("char")(0))
+// 			result = src.locatePrior(Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
+// 		else
+// 			s.throwRuntimeException("Second parameter must be string or int");
+// 
+// 		s.push(result);
+// 
+// 		return 1;
+// 	}
+
+	uword toLower(MDThread* t, uword numParams)
 	{
-		MDString src = s.getContext!(MDString);
-		dchar[] dest = Uni.toLower(src.mData);
-
-		if(dest is src.mData)
-			s.push(src);
-		else
-			s.push(new MDString(dest));
-
-		return 1;
-	}
-	
-	int toUpper(MDState s, uint numParams)
-	{
-		MDString src = s.getContext!(MDString);
-
-		dchar[] dest = Uni.toUpper(src.mData);
+		auto src = checkStringParam(t, 0);
+		auto buf = StrBuffer(t);
 		
-		if(dest is src.mData)
-			s.push(src);
-		else
-			s.push(new MDString(dest));
+		foreach(dchar c; src)
+		{
+			dchar[4] outbuf = void;
+			
+			foreach(ch; Uni.toLower((&c)[0 .. 1], outbuf))
+				buf.addChar(ch);
+		}
 
+		buf.finish();
 		return 1;
 	}
-	
-	int repeat(MDState s, uint numParams)
+
+	uword toUpper(MDThread* t, uword numParams)
 	{
-		dchar[] src = s.getContext!(MDString).mData;
-		int numTimes = s.getParam!(int)(0);
+		auto src = checkStringParam(t, 0);
+		auto buf = StrBuffer(t);
+		
+		foreach(dchar c; src)
+		{
+			dchar[4] outbuf = void;
+			
+			foreach(ch; Uni.toUpper((&c)[0 .. 1], outbuf))
+				buf.addChar(ch);
+		}
+
+		buf.finish();
+		return 1;
+	}
+
+	uword repeat(MDThread* t, uword numParams)
+	{
+		checkStringParam(t, 0);
+		auto numTimes = checkIntParam(t, 1);
 
 		if(numTimes < 0)
-			s.throwRuntimeException("Invalid number of repetitions: {}", numTimes);
+			throwException(t, "Invalid number of repetitions: {}", numTimes);
 
-		s.push(Text.repeat(src, numTimes));
-		return 1;
-	}
+		auto buf = StrBuffer(t);
 
-	int join(MDState s, uint numParams)
-	{
-		MDArray array = s.getParam!(MDArray)(0);
-		dchar[] sep = s.getParam!(MDString)(1).mData;
-
-		dchar[][] strings = new dchar[][array.length];
-
-		foreach(i, val; array)
+		for(mdint i = 0; i < numTimes; i++)
 		{
-			if(!val.isString())
-				s.throwRuntimeException("Array element {} is not a string", i);
-
-			strings[i] = val.as!(MDString).mData;
+			dup(t, 0);
+			buf.addTop();
 		}
 
-		s.push(Text.join(strings, sep));
+		buf.finish();
 		return 1;
 	}
-	
-	int split(MDState s, uint numParams)
+
+	uword reverse(MDThread* t, uword numParams)
 	{
-		dchar[] src = s.getContext!(MDString).mData;
-		dchar[][] ret;
+		auto src = checkStringParam(t, 0);
+
+		if(src.length <= 1)
+			dup(t, 0);
+		else if(src.length <= 256)
+		{
+			char[256] buf = void;
+			auto s = buf[0 .. src.length];
+			s[] = src[];
+			s.reverse;
+			pushString(t, s);
+		}
+		else
+		{
+			auto tmp = t.vm.alloc.allocArray!(char)(src.length);
+			scope(exit) t.vm.alloc.freeArray(tmp);
+			
+			tmp[] = src[];
+			tmp.reverse;
+			pushString(t, tmp);
+		}
+
+		return 1;
+	}
+
+	uword split(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 0);
+		auto ret = newArray(t, 0);
+		uword num = 0;
 
 		if(numParams > 0)
-			ret = Text.split(src, s.getParam!(MDString)(0).mData);
-		else
 		{
-			ret = Text.delimit(src, " \t\v\r\n\f\u2028\u2029"d);
-			uint num = ret.removeIf((dchar[] elem) { return elem.length == 0; });
-			ret = ret[0 .. num];
-		}
-
-		s.push(MDArray.fromArray(ret));
-		return 1;
-	}
-
-	int splitLines(MDState s, uint numParams)
-	{
-		s.push(MDArray.fromArray(Text.splitLines(s.getContext!(MDString).mData)));
-		return 1;
-	}
-	
-	int strip(MDState s, uint numParams)
-	{
-		s.push(Text.trim(s.getContext!(MDString).mData));
-		return 1;
-	}
-
-	int lstrip(MDState s, uint numParams)
-	{
-		dchar[] str = s.getContext!(MDString).mData;
-		size_t i;
-
-		for(i = 0; i < str.length && Uni.isWhitespace(str[i]); i++){}
-
-		s.push(str[i .. $]);
-		return 1;
-	}
-
-	int rstrip(MDState s, uint numParams)
-	{
-		dchar[] str = s.getContext!(MDString).mData;
-		int i;
-
-		for(i = str.length - 1; i >= 0 && Uni.isWhitespace(str[i]); i--){}
-
-		s.push(str[0 .. i + 1]);
-		return 1;
-	}
-
-	int replace(MDState s, uint numParams)
-	{
-		s.push(Text.substitute(s.getContext!(MDString).mData, s.getParam!(MDString)(0).mData, s.getParam!(MDString)(1).mData));
-		return 1;
-	}
-	
-	struct Iterator
-	{
-		MDClosure iter;
-		MDClosure iterReverse;
-
-		int iterator(MDState s, uint numParams)
-		{
-			MDString string = s.getContext!(MDString);
-			int index = s.getParam!(int)(0);
-
-			index++;
-
-			if(index >= string.length)
-				return 0;
-
-			s.push(index);
-			s.push(string[index]);
-
-			return 2;
-		}
-
-		int iteratorReverse(MDState s, uint numParams)
-		{
-			MDString string = s.getContext!(MDString);
-			int index = s.getParam!(int)(0);
-
-			index--;
-
-			if(index < 0)
-				return 0;
-
-			s.push(index);
-			s.push(string[index]);
-
-			return 2;
-		}
-
-		int apply(MDState s, uint numParams)
-		{
-			MDString string = s.getContext!(MDString);
-
-			if(numParams > 0 && s.isParam!("string")(0) && s.getParam!(MDString)(0) == "reverse"d)
+			foreach(piece; src.patterns(checkStringParam(t, 1)))
 			{
-				s.push(iterReverse);
-				s.push(string);
-				s.push(cast(int)string.length);
+				pushString(t, piece);
+				num++;
+				
+				if(num >= 50)
+				{
+					cateq(t, ret, num);
+					num = 0;
+				}
 			}
-			else
-			{
-				s.push(iter);
-				s.push(string);
-				s.push(-1);
-			}
-
-			return 3;
 		}
-	}
-
-	int startsWith(MDState s, uint numParams)
-	{
-		auto string = s.getContext!(MDString);
-		auto pattern = s.getParam!(MDString)(0);
-
-		if(pattern.length > string.length)
-			s.push(false);
 		else
-			s.push(string.mData[0 .. pattern.length] == pattern.mData[]);
+		{
+			foreach(piece; src.delimiters(" \t\v\r\n\f\u2028\u2029"))
+			{
+				if(piece.length > 0)
+				{
+					pushString(t, piece);
+					num++;
 
-		return 1;
-	}
-	
-	int endsWith(MDState s, uint numParams)
-	{
-		auto string = s.getContext!(MDString);
-		auto pattern = s.getParam!(MDString)(0);
+					if(num >= 50)
+					{
+						cateq(t, ret, num);
+						num = 0;
+					}
+				}
+			}
+		}
 
-		if(pattern.length > string.length)
-			s.push(false);
-		else
-			s.push(string.mData[$ - pattern.length .. $] == pattern.mData[]);
-
-		return 1;
-	}
-	
-	int istartsWith(MDState s, uint numParams)
-	{
-		dchar[32] buf1, buf2;
-		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
-
-		if(pattern.length > string.length)
-			s.push(false);
-		else
-			s.push(string[0 .. pattern.length] == pattern[]);
+		if(num > 0)
+			cateq(t, ret, num);
 
 		return 1;
 	}
 
-	int iendsWith(MDState s, uint numParams)
+	uword splitLines(MDThread* t, uword numParams)
 	{
-		dchar[32] buf1, buf2;
-		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
-		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
+		auto src = checkStringParam(t, 0);
+		auto ret = newArray(t, 0);
+		uword num = 0;
 
-		if(pattern.length > string.length)
-			s.push(false);
-		else
-			s.push(string[$ - pattern.length .. $] == pattern[]);
+		foreach(line; src.lines())
+		{
+			pushString(t, line);
+			num++;
+			
+			if(num >= 50)
+			{
+				cateq(t, ret, num);
+				num = 0;
+			}
+		}
+
+		if(num > 0)
+			cateq(t, ret, num);
 
 		return 1;
 	}
+
+	uword strip(MDThread* t, uword numParams)
+	{
+		pushString(t, checkStringParam(t, 0).trim());
+		return 1;
+	}
+
+	uword lstrip(MDThread* t, uword numParams)
+	{
+		pushString(t, checkStringParam(t, 0).triml());
+		return 1;
+	}
+
+	uword rstrip(MDThread* t, uword numParams)
+	{
+		pushString(t, checkStringParam(t, 0).trimr());
+		return 1;
+	}
+
+	uword replace(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 0);
+		auto from = checkStringParam(t, 1);
+		auto to = checkStringParam(t, 2);
+		auto buf = StrBuffer(t);
+
+		foreach(piece; src.patterns(from, to))
+			buf.addString(piece);
+
+		buf.finish();
+		return 1;
+	}
+
+	uword iterator(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.String);
+		auto index = checkIntParam(t, 1) + 1;
+
+		if(index >= len(t, 0))
+			return 0;
+
+		pushInt(t, index);
+		dup(t);
+		idx(t, 0);
+
+		return 2;
+	}
+
+	uword iteratorReverse(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.String);
+		auto index = checkIntParam(t, 1) - 1;
+
+		if(index < 0)
+			return 0;
+
+		pushInt(t, index);
+		dup(t);
+		idx(t, 0);
+
+		return 2;
+	}
+
+	uword opApply(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.String);
+
+		if(optStringParam(t, 1, "") == "reverse")
+		{
+			getUpval(t, 1);
+			dup(t, 0);
+			pushLen(t, 0);
+		}
+		else
+		{
+			getUpval(t, 0);
+			dup(t, 0);
+			pushInt(t, -1);
+		}
+
+		return 3;
+	}
+
+	uword startsWith(MDThread* t, uword numParams)
+	{
+		pushBool(t, .startsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
+		return 1;
+	}
+
+	uword endsWith(MDThread* t, uword numParams)
+	{
+		pushBool(t, .endsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
+		return 1;
+	}
+
+// 	uword istartsWith(MDThread* t, uword numParams)
+// 	{
+// 		dchar[32] buf1, buf2;
+// 		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
+// 		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
+// 
+// 		if(pattern.length > string.length)
+// 			s.push(false);
+// 		else
+// 			s.push(string[0 .. pattern.length] == pattern[]);
+// 
+// 		return 1;
+// 	}
+// 
+// 	uword iendsWith(MDThread* t, uword numParams)
+// 	{
+// 		dchar[32] buf1, buf2;
+// 		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
+// 		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
+// 
+// 		if(pattern.length > string.length)
+// 			s.push(false);
+// 		else
+// 			s.push(string[$ - pattern.length .. $] == pattern[]);
+// 
+// 		return 1;
+// 	}
 }

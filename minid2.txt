@@ -88,6 +88,10 @@ Token:
 	','
 	';'
 	'#'
+	'\\'
+	'->'
+	'$'
+	'@'
 	EOF
 
 Identifier:
@@ -103,9 +107,9 @@ IdentifierChar:
 
 Keyword:
 	'as'
+	'assert'
 	'break'
 	'case'
-	'class'
 	'catch'
 	'continue'
 	'coroutine'
@@ -126,6 +130,7 @@ Keyword:
 	'module'
 	'namespace'
 	'null'
+	'object'
 	'return'
 	'super'
 	'switch'
@@ -166,10 +171,10 @@ EscapeSequence:
 	'\ ' DecimalDigit [DecimalDigit [DecimalDigit]]
 
 WysiwygString:
-	'@"' {Character | EndOfLine} '"'
+	'@"' {Character | EndOfLine | '""'} '"'
 
 AltWysiwygString:
-	'`' {Character | EndOfLine} '`'
+	'`' {Character | EndOfLine | '``'} '`'
 
 IntLiteral:
 	Decimal
@@ -256,9 +261,17 @@ Module:
 	ModuleDeclaration {Statement} EOF
 
 ModuleDeclaration:
-	'module' Identifier {'.' Identifier} ';'
+	[Decorators] 'module' Identifier {'.' Identifier} StatementTerminator
+
+StatementTerminator:
+	';'
+	EndOfLine // not consumed
+	'}' // not consumed
+	')' // not consumed
+	']' // not consumed
 
 Statement:
+	AssertStatement
 	ImportStatement
 	BlockStatement
 	ExpressionStatement
@@ -274,27 +287,46 @@ Statement:
 	ReturnStatement
 	TryCatchStatement
 	ThrowStatement
+	Assignment
+
+AssertStatement:
+	'assert' '(' Expression [',' Expression] ')' StatementTerminator
 
 ImportStatement:
-	'import' Identifier {'.' Identifier} [':' Identifier {',' Identifier}] ';'
-	'import' '(' Expression ')' [':' Identifier {',' Identifier}] ';'
+	'import' [Identifier '='] Identifier {'.' Identifier} [SelectiveImports] StatementTerminator
+	'import' [Identifier '='] '(' Expression ')' [SelectiveImports] StatementTerminator
+
+SelectiveImports:
+	':' SelectiveImport {',' SelectiveImport}
+
+SelectiveImport:
+	[Identifier '='] Identifier
 
 BlockStatement:
 	'{' {Statement} '}'
-	
+
 ExpressionStatement:
-	BaseExpression ';'
+	BaseExpression StatementTerminator
 
 DeclarationStatement:
-	VariableDeclaration ';'
+	VariableDeclaration StatementTerminator
+	[Decorators] OtherDeclaration
+	
+Decorators:
+	Decorator {Decorator}
+
+Decorator:
+	'@' Identifier {'.' Identifier} ['(' ('with' Expression [',' ExpressionList] | [ExpressionList]) ')']
+
+OtherDeclaration:
 	FunctionDeclaration
-	ClassDeclaration
+	ObjectDeclaration
 	NamespaceDeclaration
 
 VariableDeclaration:
 	LocalVarDeclaration
 	GlobalVarDeclaration
-	
+
 LocalVarDeclaration:
 	'local' Identifier {',' Identifier} ['=' Expression]
 
@@ -305,39 +337,67 @@ FunctionDeclaration:
 	['local' | 'global'] SimpleFunctionDeclaration
 
 SimpleFunctionDeclaration:
-	'function' Identifier Parameters BlockStatement
-	
+	'function' Identifier FunctionBody
+
+FunctionBody:
+	'(' Parameters ')' (Statement | '=' Expression)
+
 Parameters:
-	'(' [Identifier ['=' Expression] {',' Identifier ['=' Expression]} [',' 'vararg']] ')'
-	'(' 'vararg' ')'
+	[('this' ':' Type | Parameter) {',' Parameter} [',' 'vararg']]
+	'vararg'
 
-ClassDeclaration:
-	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
-
-ClassMember:
-	SimpleFunctionDeclaration
-	Identifier ['=' Expression] ';'
-	'this' Parameters BlockStatement
+Parameter:
+	Identifier [':' Type] ['=' Expression]
 	
+Type:
+	BasicType
+	'!' 'null'
+	'any'
+
+BasicType:
+	BasicType '|' BasicType
+	'null'
+	'bool'
+	'int'
+	'float'
+	'char'
+	'string'
+	'table'
+	'array'
+	'function'
+	'object' [(Identifier {'.' Identifier}) | ('(' Expression')')]
+	Identifier {'.' Identifier}
+	'namespace'
+	'thread'
+	'nativeobj'
+	'weakref'
+
+ObjectDeclaration:
+	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'
+
+ObjectMember:
+	[Decorators] SimpleFunctionDeclaration
+	Identifier ['=' Expression] StatementTerminator
+
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
-	
+
 NamespaceMember:
 	SimpleFunctionDeclaration
-	Identifier ['=' Expression] ';'
+	Identifier ['=' Expression] StatementTerminator
 
 IfStatement:
-	'if' '(' Expression ')' Statement ['else' Statement]
+	'if' '(' ['local' Identifier '='] Expression ')' Statement ['else' Statement]
 
 WhileStatement:
-	'while' '(' Expression ')' Statement
+	'while' '(' ['local' Identifier '='] Expression ')' Statement
 
 DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
 
 ForStatement:
 	'for' '(' [ForInitializer {',' ForInitializer}] ';' [Expression] ';' [BaseExpression {',' BaseExpression}] ')' Statement
-	'for' '(' Identifier ':' Expression '..' Expression [',' Expression] ')' Statement
+	'for' '(' Identifier (':' | ';') Expression '..' Expression [',' Expression] ')' Statement
 
 ForInitializer:
 	BaseExpression
@@ -351,28 +411,24 @@ SwitchStatement:
 
 CaseStatement:
 	'case' Expression {',' Expression} ':' {Statement}
-	
+
 DefaultStatement:
 	'default' ':' {Statement}
 	
 ContinueStatement:
-	'continue' ';'
+	'continue' StatementTerminator
 
 BreakStatement:
-	'break' ';'
+	'break' StatementTerminator
 	
 ReturnStatement:
-	'return' [Expression {',' Expression}] ';'
-	
+	'return' [Expression {',' Expression}] StatementTerminator
+
 TryCatchStatement:
 	'try' Statement (('catch' '(' Identifier ')' Statement) || ('finally' Statement))
 	
 ThrowStatement:
-	'throw' Expression ';'
-
-BaseExpression:
-	Assignment
-	Expression
+	'throw' Expression StatementTerminator
 
 Assignment:
 	AssignmentLHS {',' AssignmentLHS} '=' Expression
@@ -396,10 +452,11 @@ Assignment:
 
 AssignmentLHS:
 	Identifier
-	// Note - for these, the PostfixExpression must start with Identifier or with 'this'.
+	// Note - for these, the PostfixExpression must start with Identifier, 'this', or '#'.
+	PostfixExpression '[' ']'
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' Identifier
+	DotExpression
 
 Expression:
 	ConditionalExpression
@@ -425,26 +482,29 @@ XorExpression:
 	XorExpression '^' AndExpression
 
 AndExpression:
+	CompareExpression
+	AndExpression '&' CompareExpression
+
+CompareExpression:
+	ShiftExpression
 	EqualExpression
-	AndExpression '&' EqualExpression
+	RelExpression
 
 EqualExpression:
-	RelExpression
-	EqualExpression '==' RelExpression
-	EqualExpression '!=' RelExpression
-	EqualExpression 'is' RelExpression
-	EqualExpression '!' 'is' RelExpression
+	ShiftExpression '==' ShiftExpression
+	ShiftExpression '!=' ShiftExpression
+	ShiftExpression 'is' ShiftExpression
+	ShiftExpression '!' 'is' ShiftExpression
 
 RelExpression:
-	ShiftExpression
-	RelExpression 'as' ShiftExpression
-	RelExpression 'in' ShiftExpression
-	RelExpression '!' 'in' ShiftExpression
-	RelExpression '<' ShiftExpression
-	RelExpression '<=' ShiftExpression
-	RelExpression '>' ShiftExpression
-	RelExpression '>=' ShiftExpression
-	RelExpression '<=>' ShiftExpression
+	ShiftExpression '<' ShiftExpression
+	ShiftExpression '<=' ShiftExpression
+	ShiftExpression '>' ShiftExpression
+	ShiftExpression '>=' ShiftExpression
+	ShiftExpression '<=>' ShiftExpression
+	ShiftExpression 'as' ShiftExpression
+	ShiftExpression 'in' ShiftExpression
+	ShiftExpression '!' 'in' ShiftExpression
 
 ShiftExpression:
 	AddExpression
@@ -474,14 +534,31 @@ UnaryExpression:
 
 PostfixExpression:
 	PrimaryExpression
+	CallExpression
+	PostfixExpression '[' ']'
 	PostfixExpression '[' Expression ']'
 	PostfixExpression '[' [Expression] '..' [Expression] ']'
-	PostfixExpression '.' (Identifier | 'super' | 'class')
-	PostfixExpression '(' [Arguments] ')'
-	PostfixExpression '(' 'with' Arguments ')'
+	PostfixExpression '.' 'super'
+	DotExpression
+
+DotExpression:
+	PostfixExpression '.' (Identifier | '(' Expression ')')
+
+CallExpression:
+	PostfixExpression ArgumentsWith
+	DotExpression ArgumentsWith
+	'super' '.' (Identifier | '(' Expression ')') Arguments
+
+ArgumentsWith:
+	Arguments
+	'(' 'with' Expression [',' ExpressionList] ')'
 
 Arguments:
-	Expression {',' Arguments}
+	'(' [ExpressionList] ')'
+	'$' ExpressionList
+
+ExpressionList:
+	Expression {',' Expression}
 
 PrimaryExpression:
 	Identifier
@@ -494,25 +571,35 @@ PrimaryExpression:
 	FloatLiteral
 	CharLiteral
 	StringLiteral
-	'function' [Identifier] Parameters (BlockStatement | Expression)
-	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
+	':' (Identifier | 'super' | '(' Expression ')')
+	'function' [Identifier] FunctionBody
+	'\\' Parameters '->' Expression
+	'object' [Identifier] [':' Expression] '{' {ObjectMember} '}'
 	'(' Expression ')'
-	TableCtor
-	ArrayCtor
-	NamespaceCtor
+	TableCtorExp
+	ArrayLiteral
+	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 	'yield' '(' [Arguments] ')'
-	'super' ['.' Identifier] '(' [Arguments] ')'
 
-TableCtor:
-	'{' [TableField {',' TableField}] '}'
+ArrayLiteral:
+	'[' [Expression {[','] Expression}] ']'
+	'[' Expression ForComprehension ']'
+
+TableCtorExp:
+	'{' [TableField {[','] TableField}] '}'
+	'{' PlainTableField ForComprehension '}'
 
 TableField:
 	Identifier '=' Expression
-	'[' Expression ']' '=' Expression
+	PlainTableField
 	SimpleFunctionDeclaration
 
-ArrayCtor:
-	'[' [Expression {',' Expression}] ']'
-	
-NamespaceCtor:
-	'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
+PlainTableField:
+	'[' Expression ']' '=' Expression
+
+ForComprehension:
+	'for' Identifier {',' Identifier} 'in' Expression [',' Expression [',' Expression]] [IfComprehension] [ForComprehension]
+	'for' Identifier 'in' Expression '..' Expression [',' Expression] [IfComprehension] [ForComprehension]
+
+IfComprehension:
+	'if' Expression

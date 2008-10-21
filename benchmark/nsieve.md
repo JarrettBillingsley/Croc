@@ -1,44 +1,43 @@
-module benchmark.nsieve;
+module benchmark.nsieve
 
 // n = 9, 13.79 sec
 // laptop: 7.718 sec (rather nice)
 
 function nsieve(m)
 {
-	local isPrime = array.new(m, true);
-	local count = 0;
+	local isPrime = array.new(m, true)
+	local count = 0
 
-	for(i : 2 .. m)
+	for(i: 2 .. m)
 	{
 		if(isPrime[i])
 		{
 			for(k : i + i .. m, i)
-				isPrime[k] = false;
+				isPrime[k] = false
 
-			++count;
+			count++
 		}
 	}
 
-	return count;
+	return count
 }
 
-local args = [vararg];
-local n = 9;
-
-if(#args > 0)
+function main(N)
 {
-	try
-		n = toInt(args[0]);
-	catch(e) {}
+	local n = 9
+
+	if(isString(N))
+		try n = toInt(N); catch(e) {}
+
+	local timer = time.Timer.clone()
+	timer.start()
+
+		for(i: 0 .. 3)
+		{
+			local m = 10000 << (n - i)
+			writefln("Primes up to {,8} {,8}", m, nsieve(m))
+		}
+
+	timer.stop()
+	writefln("Took {} sec", timer.seconds())
 }
-
-local time = os.microTime();
-
-	for(i : 0 .. 3)
-	{
-		local m = 10000 << (n - i);
-		writefln("Primes up to {,8} {,8}", m, nsieve(m));
-	}
-	
-time = os.microTime() - time;
-writefln("Took ", time / 1000000.0, " sec");

@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,315 +23,405 @@ subject to the following restrictions:
 
 module minid.mathlib;
 
-import minid.types;
-import minid.utils;
-
 import math = tango.math.Math;
 import tango.math.GammaFunction;
-import tango.math.random.Kiss;
 import tango.math.IEEE;
+import tango.math.random.Kiss;
 
-class MathLib
+import minid.ex;
+import minid.interpreter;
+import minid.types;
+
+private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
-	private static MathLib lib;
-	
-	static this()
-	{
-		lib = new MathLib();
-	}
-	
-	private this()
-	{
-		
-	}
+	newFunction(t, func, name, numUpvals);
+	newGlobal(t, name);
+}
 
-	public static void init(MDContext context)
+struct MathLib
+{
+static:
+	public void init(MDThread* t)
 	{
-		MDNamespace namespace = new MDNamespace("math"d, context.globals.ns);
+		pushGlobal(t, "modules");
+		field(t, -1, "customLoaders");
 
-		namespace.addList
-		(
-			"e"d,         tango.math.Math.E,
-			"pi"d,        tango.math.Math.PI,
-			"nan"d,       mdfloat.nan,
-			"infinity"d,  mdfloat.infinity,
-			"int_min"d,   int.min,
-			"int_max"d,   int.max,
-			"float_min"d, mdfloat.min,
-			"float_max"d, mdfloat.max,
-			"abs"d,       new MDClosure(namespace, &lib.abs,     "math.abs"),
-			"sin"d,       new MDClosure(namespace, &lib.sin,     "math.sin"),
-			"cos"d,       new MDClosure(namespace, &lib.cos,     "math.cos"),
-			"tan"d,       new MDClosure(namespace, &lib.tan,     "math.tan"),
-			"asin"d,      new MDClosure(namespace, &lib.asin,    "math.asin"),
-			"acos"d,      new MDClosure(namespace, &lib.acos,    "math.acos"),
-			"atan"d,      new MDClosure(namespace, &lib.atan,    "math.atan"),
-			"atan2"d,     new MDClosure(namespace, &lib.atan2,   "math.atan2"),
-			"sqrt"d,      new MDClosure(namespace, &lib.sqrt,    "math.sqrt"),
-			"cbrt"d,      new MDClosure(namespace, &lib.cbrt,    "math.cbrt"),
-			"pow"d,       new MDClosure(namespace, &lib.pow,     "math.pow"),
-			"exp"d,       new MDClosure(namespace, &lib.exp,     "math.exp"),
-			"ln"d,        new MDClosure(namespace, &lib.ln,      "math.ln"),
-			"log2"d,      new MDClosure(namespace, &lib.log2,    "math.log2"),
-			"log10"d,     new MDClosure(namespace, &lib.log10,   "math.log10"),
-			"hypot"d,     new MDClosure(namespace, &lib.hypot,   "math.hypot"),
-			"lgamma"d,    new MDClosure(namespace, &lib.lgamma,  "math.lgamma"),
-			"gamma"d,     new MDClosure(namespace, &lib.gamma,   "math.gamma"),
-			"ceil"d,      new MDClosure(namespace, &lib.ceil,    "math.ceil"),
-			"floor"d,     new MDClosure(namespace, &lib.floor,   "math.floor"),
-			"round"d,     new MDClosure(namespace, &lib.round,   "math.round"),
-			"trunc"d,     new MDClosure(namespace, &lib.trunc,   "math.trunc"),
-			"isNan"d,     new MDClosure(namespace, &lib.isNan,   "math.isNan"),
-			"isInf"d,     new MDClosure(namespace, &lib.isInf,   "math.isInf"),
-			"sign"d,      new MDClosure(namespace, &lib.sign,    "math.sign"),
-			"rand"d,      new MDClosure(namespace, &lib.rand,    "math.rand"),
-			"frand"d,     new MDClosure(namespace, &lib.frand,   "math.frand")
-		);
-		
-		context.globals["math"d] = namespace;
-	}
-
-	static mdfloat getFloat(MDState s, uint i)
-	{
-		if(s.isParam!("int")(i))
-			return s.getParam!(int)(i);
-		else if(s.isParam!("float")(i))
-			return s.getParam!(mdfloat)(i);
-		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(i).typeString());
-	}
-
-	int abs(MDState s, uint numParams)
-	{
-		if(s.isParam!("int")(0))
-			s.push(math.abs(s.getParam!(int)(0)));
-		else if(s.isParam!("float")(0))
-			s.push(math.abs(s.getParam!(mdfloat)(0)));
-		else
-			s.throwRuntimeException("Expected 'int' or 'float', not '{}'", s.getParam(0u).typeString());
-
-		return 1;
-	}
-	
-	int sin(MDState s, uint numParams)
-	{
-		s.push(math.sin(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int cos(MDState s, uint numParams)
-	{
-		s.push(math.cos(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int tan(MDState s, uint numParams)
-	{
-		s.push(math.tan(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int asin(MDState s, uint numParams)
-	{
-		s.push(math.asin(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int acos(MDState s, uint numParams)
-	{
-		s.push(math.acos(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int atan(MDState s, uint numParams)
-	{
-		s.push(math.atan(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int atan2(MDState s, uint numParams)
-	{
-		s.push(math.atan2(getFloat(s, 0), getFloat(s, 1)));
-		return 1;
-	}
-	
-	int sqrt(MDState s, uint numParams)
-	{
-		s.push(math.sqrt(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int cbrt(MDState s, uint numParams)
-	{
-		s.push(math.cbrt(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int exp(MDState s, uint numParams)
-	{
-		s.push(math.exp(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int ln(MDState s, uint numParams)
-	{
-		s.push(math.log(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int log2(MDState s, uint numParams)
-	{
-		s.push(math.log2(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int log10(MDState s, uint numParams)
-	{
-		s.push(math.log10(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int hypot(MDState s, uint numParams)
-	{
-		s.push(math.hypot(getFloat(s, 0), getFloat(s, 1)));
-		return 1;
-	}
-	
-	int lgamma(MDState s, uint numParams)
-	{
-		s.push(logGamma(getFloat(s, 0)));
-		return 1;
-	}
-
-	int gamma(MDState s, uint numParams)
-	{
-		s.push(.gamma(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int ceil(MDState s, uint numParams)
-	{
-		s.push(math.ceil(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int floor(MDState s, uint numParams)
-	{
-		s.push(math.floor(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int round(MDState s, uint numParams)
-	{
-		s.push(cast(int)math.round(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int trunc(MDState s, uint numParams)
-	{
-		s.push(cast(int)math.trunc(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int isNan(MDState s, uint numParams)
-	{
-		s.push(cast(bool)math.isNaN(getFloat(s, 0)));
-		return 1;
-	}
-
-	int isInf(MDState s, uint numParams)
-	{
-		s.push(cast(bool)math.isInfinity(getFloat(s, 0)));
-		return 1;
-	}
-	
-	int sign(MDState s, uint numParams)
-	{
-		if(s.isParam!("int")(0))
+		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			int val = s.getParam!(int)(0);
+			pushFloat(t, math.E);              newGlobal(t, "e");
+			pushFloat(t, math.PI);             newGlobal(t, "pi");
+			pushFloat(t, mdfloat.nan);         newGlobal(t, "nan");
+			pushFloat(t, mdfloat.infinity);    newGlobal(t, "infinity");
 
-			if(val < 0)
-				s.push(-1);
-			else if(val > 0)
-				s.push(1);
-			else
-				s.push(0);
-		}
-		else
-		{
-			mdfloat val = s.getParam!(mdfloat)(0);
+			pushInt(t, mdint.sizeof);          newGlobal(t, "intSize");
+			pushInt(t, mdint.min);             newGlobal(t, "intMin");
+			pushInt(t, mdint.max);             newGlobal(t, "intMax");
 
-			if(val < 0)
-				s.push(-1);
-			else if(val > 0)
-				s.push(1);
-			else
-				s.push(0);
-		}
-		
-		return 1;
-	}
-	
-	int pow(MDState s, uint numParams)
-	{
-		mdfloat base = getFloat(s, 0);
-		
-		if(s.isParam!("int")(1))
-			s.push(math.pow(cast(real)base, s.getParam!(int)(1)));
-		else
-			s.push(math.pow(base, getFloat(s, 1)));
+			pushInt(t, mdfloat.sizeof);        newGlobal(t, "floatSize");
+			pushFloat(t, mdfloat.min);         newGlobal(t, "floatMin");
+			pushFloat(t, mdfloat.max);         newGlobal(t, "floatMax");
 			
+			register(t, "abs", &abs);
+			register(t, "sin", &sin);
+			register(t, "cos", &cos);
+			register(t, "tan", &tan);
+			register(t, "asin", &asin);
+			register(t, "acos", &acos);
+			register(t, "atan", &atan);
+			register(t, "atan2", &atan2);
+			register(t, "sqrt", &sqrt);
+			register(t, "cbrt", &cbrt);
+			register(t, "pow", &pow);
+			register(t, "exp", &exp);
+			register(t, "ln", &ln);
+			register(t, "log2", &log2);
+			register(t, "log10", &log10);
+			register(t, "hypot", &hypot);
+			register(t, "lgamma", &lgamma);
+			register(t, "gamma", &gamma);
+			register(t, "ceil", &ceil);
+			register(t, "floor", &floor);
+			register(t, "round", &round);
+			register(t, "trunc", &trunc);
+			register(t, "isNan", &isNan);
+			register(t, "isInf", &isInf);
+			register(t, "sign", &sign);
+			register(t, "rand", &rand);
+			register(t, "frand", &frand);
+			register(t, "max", &max);
+			register(t, "min", &min);
+
+			return 0;
+		}, "math");
+
+		fielda(t, -2, "math");
+		importModule(t, "math");
+		pop(t, 3);
+	}
+
+	mdfloat get_float(MDThread* t, word i)
+	{
+		if(isInt(t, i))
+			return getInt(t, i);
+		else if(isFloat(t, i))
+			return getFloat(t, i);
+		else
+		{
+			pushTypeString(t, i);
+			throwException(t, "Expected 'int' or 'float', not '{}'", getString(t, -1));
+		}
+		
+		assert(false);
+	}
+
+	uword abs(MDThread* t, uword numParams)
+	{
+		if(isInt(t, 1))
+			pushInt(t, math.abs(getInt(t, 1)));
+		else if(isFloat(t, 1))
+			pushFloat(t, math.abs(getFloat(t, 1)));
+		else
+		{
+			pushTypeString(t, 1);
+			throwException(t, "Expected 'int' or 'float', not '{}'", getString(t, -1));
+		}
+
 		return 1;
 	}
 
-	int rand(MDState s, uint numParams)
+	uword sin(MDThread* t, uword numParams)
 	{
-		uint num = Kiss.shared.toInt();
+		pushFloat(t, math.sin(get_float(t, 1)));
+		return 1;
+	}
+
+	uword cos(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.cos(get_float(t, 1)));
+		return 1;
+	}
+
+	uword tan(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.tan(get_float(t, 1)));
+		return 1;
+	}
+
+	uword asin(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.asin(get_float(t, 1)));
+		return 1;
+	}
+
+	uword acos(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.acos(get_float(t, 1)));
+		return 1;
+	}
+
+	uword atan(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.atan(get_float(t, 1)));
+		return 1;
+	}
+
+	uword atan2(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.atan2(get_float(t, 1), get_float(t, 2)));
+		return 1;
+	}
+
+	uword sqrt(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.sqrt(get_float(t, 1)));
+		return 1;
+	}
+
+	uword cbrt(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.cbrt(get_float(t, 1)));
+		return 1;
+	}
+
+	uword exp(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.exp(get_float(t, 1)));
+		return 1;
+	}
+
+	uword ln(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.log(get_float(t, 1)));
+		return 1;
+	}
+
+	uword log2(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.log2(get_float(t, 1)));
+		return 1;
+	}
+
+	uword log10(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.log10(get_float(t, 1)));
+		return 1;
+	}
+
+	uword hypot(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.hypot(get_float(t, 1), get_float(t, 2)));
+		return 1;
+	}
+
+	uword lgamma(MDThread* t, uword numParams)
+	{
+		pushFloat(t, logGamma(get_float(t, 1)));
+		return 1;
+	}
+
+	uword gamma(MDThread* t, uword numParams)
+	{
+		pushFloat(t, .gamma(get_float(t, 1)));
+		return 1;
+	}
+
+	uword ceil(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.ceil(get_float(t, 1)));
+		return 1;
+	}
+
+	uword floor(MDThread* t, uword numParams)
+	{
+		pushFloat(t, math.floor(get_float(t, 1)));
+		return 1;
+	}
+
+	uword round(MDThread* t, uword numParams)
+	{
+		pushInt(t, cast(mdint)math.round(get_float(t, 1)));
+		return 1;
+	}
+
+	uword trunc(MDThread* t, uword numParams)
+	{
+		pushInt(t, cast(mdint)math.trunc(get_float(t, 1)));
+		return 1;
+	}
+
+	uword isNan(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)math.isNaN(get_float(t, 1)));
+		return 1;
+	}
+
+	uword isInf(MDThread* t, uword numParams)
+	{
+		pushBool(t, cast(bool)math.isInfinity(get_float(t, 1)));
+		return 1;
+	}
+
+	uword sign(MDThread* t, uword numParams)
+	{
+		if(isInt(t, 1))
+		{
+			auto val = getInt(t, 1);
+
+			if(val < 0)
+				pushInt(t, -1);
+			else if(val > 0)
+				pushInt(t, 1);
+			else
+				pushInt(t, 0);
+		}
+		else
+		{
+			auto val = getFloat(t, 1);
+
+			if(val < 0)
+				pushInt(t, -1);
+			else if(val > 0)
+				pushInt(t, 1);
+			else
+				pushInt(t, 0);
+		}
+		
+		return 1;
+	}
+	
+	uword pow(MDThread* t, uword numParams)
+	{
+		auto base = get_float(t, 1);
+
+		if(isInt(t, 2))
+			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
+		else
+			pushFloat(t, math.pow(base, get_float(t, 2)));
+
+		return 1;
+	}
+
+	uword rand(MDThread* t, uword numParams)
+	{
+		// uint is the return type of Kiss.toInt
+		static if(uint.sizeof < mdint.sizeof)
+		{
+			mdint num = Kiss.shared.toInt();
+			num |= (cast(ulong)Kiss.shared.toInt()) << 32;
+		}
+		else
+			mdint num = Kiss.shared.toInt();
 
 		switch(numParams)
 		{
 			case 0:
-				s.push(cast(int)num);
+				pushInt(t, num);
 				break;
 
 			case 1:
-				s.push(cast(uint)num % s.getParam!(int)(0));
+				auto max = getInt(t, 1);
+
+				if(max == 0)
+					throwException(t, "Maximum value may not be 0");
+
+				pushInt(t, cast(uword)num % max);
 				break;
 
 			default:
-				int lo = s.getParam!(int)(0);
-				int hi = s.getParam!(int)(1);
+				auto lo = getInt(t, 1);
+				auto hi = getInt(t, 2);
 
-				s.push(cast(int)(num % (hi - lo)) + lo);
+				if(hi == lo)
+					throwException(t, "Low and high values must be different");
+
+				pushInt(t, (cast(uword)num % (hi - lo)) + lo);
 				break;
 		}
 
 		return 1;
 	}
 
-	int frand(MDState s, uint numParams)
+	uword frand(MDThread* t, uword numParams)
 	{
 		auto num = cast(mdfloat)Kiss.shared.toInt() / uint.max;
 
 		switch(numParams)
 		{
 			case 0:
-				s.push(num);
+				pushFloat(t, num);
 				break;
 
 			case 1:
-				s.push(num * s.getParam!(mdfloat)(0));
+				pushFloat(t, num * getFloat(t, 1));
 				break;
 
 			default:
-				auto lo = s.getParam!(mdfloat)(0);
-				auto hi = s.getParam!(mdfloat)(1);
+				auto lo = getFloat(t, 1);
+				auto hi = getFloat(t, 2);
 
-				s.push((num * (hi - lo)) + lo);
+				pushFloat(t, (num * (hi - lo)) + lo);
 				break;
 		}
-		
+
+		return 1;
+	}
+
+	uword max(MDThread* t, uword numParams)
+	{
+		switch(numParams)
+		{
+			case 0:
+				throwException(t, "At least one parameter required");
+
+			case 1:
+				break;
+
+			case 2:
+				if(cmp(t, 1, 2) > 0)
+					pop(t);
+				break;
+
+			default:
+				word m = 1;
+
+				for(uword i = 2; i <= numParams; i++)
+					if(cmp(t, i, m) > 0)
+						m = i;
+
+				dup(t, m);
+				break;
+		}
+
+		return 1;
+	}
+
+	uword min(MDThread* t, uword numParams)
+	{
+		switch(numParams)
+		{
+			case 0:
+				throwException(t, "At least one parameter required");
+
+			case 1:
+				break;
+
+			case 2:
+				if(cmp(t, 1, 2) < 0)
+					pop(t);
+				break;
+
+			default:
+				word m = 1;
+
+				for(uword i = 2; i <= numParams; i++)
+					if(cmp(t, i, m) < 0)
+						m = i;
+
+				dup(t, m);
+				break;
+		}
+
+
 		return 1;
 	}
 }

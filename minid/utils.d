@@ -5,7 +5,7 @@ and as such can't hold implementation-specific functionality.  For that, look
 in the minid.misc module.
 
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -37,17 +37,13 @@ import tango.io.Print;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
 import tango.io.Stdout;
+import tango.stdc.stdlib;
 import tango.stdc.string;
 import tango.text.convert.Utf;
 import tango.text.Util;
 import tango.time.StopWatch;
 import Uni = tango.text.Unicode;
-
-/**
-This alias defines what the MiniD 'float' type uses.  By default and according to the MiniD spec, it's double, but if you don't need
-the extra precision and want to save some space/speed in the MiniD struct, you can alias it to float instead.
-*/
-alias double mdfloat;
+import Utf = tango.text.convert.Utf;
 
 /**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
@@ -239,6 +235,24 @@ int dcmp(dchar[] s1, dchar[] s2)
 }
 
 /**
+Compares char[] strings stupidly (just by character value, not lexicographically).
+*/
+int scmp(char[] s1, char[] s2)
+{
+	auto len = s1.length;
+
+	if(s2.length < len)
+		len = s2.length;
+
+	auto result = mismatch(s1.ptr, s2.ptr, len);
+
+	if(result == len)
+		return Compare3(s1.length, s2.length);
+	else
+		return Compare3(s1[result], s2[result]);
+}
+
+/**
 Compares dchar[] strings stupidly, but case-insensitively.
 */
 int idcmp(dchar[] s1, dchar[] s2)
@@ -261,11 +275,82 @@ int idcmp(dchar[] s1, dchar[] s2)
 }
 
 /**
-See if a given Unicode character is valid.
+Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
 */
-bool isValidUniChar(dchar c)
+size_t verify(char[] s)
 {
-	return c < 0xD800 || (c > 0xDFFF && c <= 0x10FFFF);
+	size_t ret = 0;
+
+	foreach(dchar c; s)
+		ret++;
+
+	return ret;
+}
+
+/**
+Slice a UTF-8 string using codepoint indices.
+*/
+char[] uniSlice(char[] s, size_t lo, size_t hi)
+{
+	if(lo == hi)
+		return null;
+
+	auto tmp = s;
+	uint realLo = 0;
+
+	for(size_t i = 0; i < lo; i++)
+	{
+		uint ate = 0;
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+		realLo += ate;
+	}
+
+	uint realHi = realLo;
+
+	for(size_t i = lo; i < hi; i++)
+	{
+		uint ate = 0;
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+		realHi += ate;
+	}
+
+	return s[realLo .. realHi];
+}
+
+/**
+Get the character in a UTF-8 string at the given codepoint index.
+*/
+dchar uniCharAt(char[] s, size_t idx)
+{
+	auto tmp = s;
+	uint ate = 0;
+
+	for(size_t i = 0; i < idx; i++)
+	{
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+	}
+
+	return decode(tmp, ate);
+}
+
+/**
+Convert a codepoint index into a UTF-8 string into a byte index.
+*/
+size_t uniCPIdxToByte(char[] s, size_t fake)
+{
+	auto tmp = s;
+	uint ate = 0;
+	
+	for(size_t i = 0; i < fake; i++)
+	{
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+	}
+	
+	return tmp.ptr - s.ptr;
 }
 
 /**
@@ -283,211 +368,6 @@ Make a version with the major number in the upper 16 bits and the minor in the l
 template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
-}
-
-/**
-The current version of MiniD.  (this is kind of buried here)
-*/
-const uint MiniDVersion = MakeVersion!(1, 1);
-
-/**
-See if T is a type that can't be automatically serialized.
-*/
-template isInvalidSerializeType(T)
-{
-	const bool isInvalidSerializeType = isPointerType!(T) || is(T == function) || is(T == delegate) ||
-		is(T == interface) || is(T == union) || isAAType!(T);
-}
-
-/**
-The different ways data can be serialized and deserialized.
-*/
-enum SerializeMethod
-{
-	Invalid,
-	Vector,
-	Sequence,
-	Custom,
-	Tuple,
-	Chunk
-}
-
-/**
-Given a type, determine how to serialize or deserialize a value of that type.
-*/
-template TypeSerializeMethod(T)
-{
-	static if(isInvalidSerializeType!(T))
-		const TypeSerializeMethod = SerializeMethod.Invalid;
-	else static if(isArrayType!(T))
-	{
-		static if(TypeSerializeMethod!(typeof(T[0])) == SerializeMethod.Invalid)
-			const TypeSerializeMethod = SerializeMethod.Invalid;
-		else static if(TypeSerializeMethod!(typeof(T[0])) == SerializeMethod.Chunk)
-			const TypeSerializeMethod = SerializeMethod.Vector;
-		else
-			const TypeSerializeMethod = SerializeMethod.Sequence;
-	}
-	else static if(is(T == class))
-		const TypeSerializeMethod = SerializeMethod.Custom;
-	else static if(is(T == struct))
-	{
-		static if(is(typeof(T.SerializeAsChunk)))
-			const TypeSerializeMethod = SerializeMethod.Chunk;
-		else
-		{
-			static if(is(typeof(T.serialize)))
-			{
-				static if(is(typeof(T.deserialize)))
-					const TypeSerializeMethod = SerializeMethod.Custom;
-				else
-					const TypeSerializeMethod = SerializeMethod.Invalid;
-			}
-			else static if(is(typeof(T.deserialize)))
-				const TypeSerializeMethod = SerializeMethod.Invalid;
-			else static if(hasUnions!(T))
-				const TypeSerializeMethod = SerializeMethod.Invalid;
-			else
-				const TypeSerializeMethod = SerializeMethod.Tuple;
-		}
-	}
-	else
-		const TypeSerializeMethod = SerializeMethod.Chunk;
-}
-
-/**
-Write out a value to a stream.  This will automatically write out nested arrays and entire structures.
-Pointers, functions, delegates, interfaces, unions, and AAs can't be serialized.
-
-For arrays, it will try to write the biggest chunks at a time possible.  So if you write out an int[],
-or an S[] where S is a struct type marked as SerializeAsChunk, it will write out all the data in the
-array at once.  Otherwise, it'll write out the array element-by-element.
-
-For structs, the following methods are tried:
-$(OL
-	$(LI If the struct has both "void serialize(IWriter)" and "static T deserialize(IReader)" methods,
-	   Serialize/Deserialize will call those.)
-	$(LI If the struct has a "const bool SerializeAsChunk = true" declaration in the struct, then it will
-	   serialize instances of the struct as chunks of memory.)
-	$(LI As a last resort, it will try to write out the struct member-by-member.  If the struct has any
-	   unions (explicit or anonymous), the struct will not be able to be automatically serialized, and
-	   you will either have to make it chunk-serializable or provide custom serialization methods.)
-)
-
-For classes, it will expect for there to be custom serialize/deserialize methods.
-
-For all other types, it will just write them out.  All other types are also considered chunk-serializable,
-so arrays of them will be serialized in one call.
-
-If your struct or class declares custom serialize/deserialize methods, it must declare both or neither.
-These methods must always follow the form:
-
----
-void serialize(IWriter);
-static T deserialize(IReader);
----
-	
-where T is your custom type.
-*/
-void Serialize(T)(IWriter s, T value)
-{
-	const method = TypeSerializeMethod!(T);
-
-	static if(method == SerializeMethod.Invalid)
-	{
-		pragma(msg, "Error: Type '" ~ T.stringof ~ "' cannot be serialized.");
-		INVALID_TYPE();
-	}
-	else static if(method == SerializeMethod.Vector)
-	{
-		static if(is(T == dchar[]) || is(T == wchar[]))
-		{
-			s.put(toString(value));
-		}
-		else
-		{
-			s.put(value.length);
-			s.buffer.append((cast(void*)value.ptr)[0 .. typeof(T[0]).sizeof * value.length]);
-		}
-	}
-	else static if(method == SerializeMethod.Sequence)
-	{
-		s.put(value.length);
-
-		foreach(v; value)
-			Serialize(s, v);
-	}
-	else static if(method == SerializeMethod.Custom)
-	{
-		value.serialize(s);
-	}
-	else static if(method == SerializeMethod.Tuple)
-	{
-		foreach(member; value.tupleof)
-			Serialize(s, member);
-	}
-	else
-	{
-		static assert(method == SerializeMethod.Chunk, "Serialize");
-		s.buffer.append(&value, T.sizeof);
-	}
-}
-
-/**
-The opposite of Serialize().  The same rules apply here as with Serialize().
-*/
-void Deserialize(T)(IReader s, out T dest)
-{
-	const method = TypeSerializeMethod!(T);
-
-	static if(method == SerializeMethod.Invalid)
-	{
-		pragma(msg, "Error: Type '" ~ T.stringof ~ "' cannot be deserialized.");
-		INVALID_TYPE();
-	}
-	else static if(method == SerializeMethod.Vector)
-	{
-		static if(is(T == dchar[]) || is(T == wchar[]))
-		{
-			char[] str;
-			s.get(str);
-
-			static if(is(T == dchar[]))
-				dest = toString32(str);
-			else
-				dest = toString16(str);
-		}
-		else
-		{
-			size_t length;
-			s.get(length);
-			dest.length = length;
-			s.buffer.read((cast(void*)dest.ptr)[0 .. typeof(T[0]).sizeof * dest.length]);
-		}
-	}
-	else static if(method == SerializeMethod.Sequence)
-	{
-		size_t len;
-		s.get(len);
-		dest.length = len;
-
-		foreach(ref v; dest)
-			Deserialize(s, v);
-	}
-	else static if(method == SerializeMethod.Custom)
-	{
-		dest = T.deserialize(s);
-	}
-	else static if(method == SerializeMethod.Tuple)
-	{
-		foreach(member; dest.tupleof)
-			Deserialize(s, member);
-	}
-	else
-	{
-		static assert(method == SerializeMethod.Chunk, "Deserialize");
-		s.buffer.readExact(&dest, T.sizeof);
-	}
 }
 
 /**
@@ -532,14 +412,14 @@ scope class Profiler
 	{
 		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
 	}
-	
-	debug(TIMINGS) 
+
+	debug(TIMINGS)
 	{
 		static this()
 		{
 			init("timings.txt");
 		}
-	
+
 		static ~this()
 		{
 			mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
@@ -574,86 +454,20 @@ scope class Profiler
 }
 
 /**
-Just a simple list type for building up arrays a little more efficiently.  I know, the runtime automatically
-over-allocates for arrays, but I don't like relying on implementation-specific features.
-*/
-struct List(T)
-{
-	private T[] mData;
-	private uint mIndex = 0;
-
-	public void add(T item)
-	{
-		if(mIndex >= mData.length)
-		{
-			if(mData.length == 0)
-				mData.length = 10;
-			else
-				mData.length = mData.length * 2;
-		}
-
-		mData[mIndex] = item;
-		mIndex++;
-	}
-	
-	public T opIndex(uint index)
-	{
-		return mData[index];
-	}
-	
-	public uint length()
-	{
-		return mIndex;
-	}
-
-	public T[] toArray()
-	{
-		return mData[0 .. mIndex];
-	}
-	
-	public int opApply(int delegate(ref T) dg)
-	{
-		int result = 0;
-
-		foreach(ref v; mData[0 .. mIndex])
-		{
-			result = dg(v);
-			
-			if(result)
-				break;
-		}
-		
-		return result;
-	}
-	
-	public int opApply(int delegate(size_t, ref T) dg)
-	{
-		int result = 0;
-
-		foreach(i, ref v; mData[0 .. mIndex])
-		{
-			result = dg(i, v);
-			
-			if(result)
-				break;
-		}
-		
-		return result;
-	}
-}
-
-/**
 Gets the name of a function alias.
 */
 public template NameOfFunc(alias f)
 {
-	const char[] NameOfFunc = (&f).stringof[2 .. $];
+	version(LDC)
+		const char[] NameOfFunc = (&f).stringof[1 .. $];
+	else
+		const char[] NameOfFunc = (&f).stringof[2 .. $];
 }
 
-unittest
+debug
 {
-	static void foo(){}
-	assert(NameOfFunc!(foo) == "foo");
+	private void _foo_(){}
+	static assert(NameOfFunc!(_foo_) == "_foo_", "Oh noes, NameOfFunc needs to be updated.");
 }
 
 /**
@@ -775,3 +589,65 @@ public template Itoa(int i)
 	else
 		const char[] Itoa = "" ~ "0123456789"[i % 10];
 }
+
+/**
+See if a string starts with another string.  Useful.
+*/
+public bool startsWith(T)(T[] string, T[] pattern)
+{
+	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
+}
+
+/**
+See if a string ends with another string.  Also useful.
+*/
+public bool endsWith(T)(T[] string, T[] pattern)
+{
+	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
+}
+
+// TomS!
+template isExpressionTuple(T...)
+{
+	static if (is(void function(T)))
+		const bool isExpressionTuple = false;
+	else
+		const bool isExpressionTuple = true;
+}
+
+// Buggy.
+
+// template isFinalImpl(T, char[] funcName)
+// {
+// 	alias ParameterTupleOf!(mixin(T.stringof ~ "." ~ funcName)) _Params;
+// 	alias ReturnTypeOf!(mixin(T.stringof ~ "." ~ funcName)) _ReturnType;
+// 	mixin("alias typeof(new class T { override _ReturnType " ~ funcName ~
+// 		"(_Params _params) { return super." ~ funcName ~ "(_params); } }) res;");
+// }
+// 
+// /**
+// Given a class type and a method name, tells whether that method is final or not.
+// Thanks Tomasz Stachowiak.
+// */
+// template isFinal(T, char[] funcName)
+// {
+// 	pragma(msg, isFinalImpl!(T, funcName).res.stringof);
+// 	const bool isFinal = !is(isFinalImpl!(T, funcName).res);
+// }
+//
+// private void unit_test()
+// {
+// 	static class Foo
+// 	{
+// 		final void func1(int a, float b) {}
+// 		void func2(int a, float b) {}
+//
+// 		final char[] func3(int a, float b) { return null; }
+// 		char[] func4(int a, float b) { return null; }
+// 	}
+//
+// 	static assert(isFinal!(Foo, "func1"));
+// 	static assert(!isFinal!(Foo, "func2"));
+// 	static assert(isFinal!(Foo, "func3"));
+// 	static assert(!isFinal!(Foo, "func4"));
+// }

@@ -1,6 +1,6 @@
 /******************************************************************************
 License:
-Copyright (c) 2007 Jarrett Billingsley
+Copyright (c) 2008 Jarrett Billingsley
 
 This software is provided 'as-is', without any express or implied warranty.
 In no event will the authors be held liable for any damages arising from the
@@ -23,24 +23,25 @@ subject to the following restrictions:
 
 module minid.opcodes;
 
-import tango.io.Stdout;
+import tango.text.convert.Format;
 
 const uint MaxRegisters = Instruction.rsMax;
 const uint MaxConstants = Instruction.rsMax;
 const uint MaxUpvalues = Instruction.rsMax;
 
-enum Op : uint
+enum Op : ushort
 {
 	Add,
 	AddEq,
 	And,
 	AndEq,
+	Append,
 	As,
 	Call,
 	Cat,
 	CatEq,
-	Class,
-	ClassOf,
+	CheckObjParam,
+	CheckParams,
 	Close,
 	Closure,
 	CondMove,
@@ -48,14 +49,19 @@ enum Op : uint
 	Cmp,
 	Cmp3,
 	Com,
+	Dec,
 	Div,
 	DivEq,
 	EndFinal,
+	Equals,
+	Field,
+	FieldAssign,
 	For,
 	Foreach,
 	ForLoop,
 	Import,
 	In,
+	Inc,
 	Index,
 	IndexAssign,
 	Is,
@@ -65,11 +71,13 @@ enum Op : uint
 	Jlt,
 	Jmp,
 	Length,
+	LengthAssign,
 	LoadBool,
 	LoadConst,
 	LoadNull,
 	LoadNulls,
 	Method,
+	MethodNC,
 	Mod,
 	ModEq,
 	Move,
@@ -77,21 +85,24 @@ enum Op : uint
 	Mul,
 	MulEq,
 	Namespace,
+	NamespaceNP,
 	Neg,
 	NewArray,
 	NewGlobal,
 	NewTable,
 	Not,
 	NotIn,
+	Object,
+	ObjParamFail,
 	Or,
 	OrEq,
 	PopCatch,
 	PopFinally,
-	Precall,
 	PushCatch,
 	PushFinally,
 	Ret,
 	SetArray,
+	SetEnv,
 	Shl,
 	ShlEq,
 	Shr,
@@ -100,7 +111,8 @@ enum Op : uint
 	SliceAssign,
 	Sub,
 	SubEq,
-	Super,
+	SuperMethod,
+	SuperOf,
 	Switch,
 	SwitchCmp,
 	Tailcall,
@@ -108,6 +120,10 @@ enum Op : uint
 	UShr,
 	UShrEq,
 	Vararg,
+	VargIndex,
+	VargIndexAssign,
+	VargLen,
+	VargSlice,
 	Xor,
 	XorEq,
 	Yield
@@ -121,27 +137,33 @@ Add...............R: dest, src, src
 AddEq.............R: dest, src, n/a
 And...............R: dest, src, src
 AndEq.............R: dest, src, n/a
+Append............R: dest, src, n/a
 As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
-Cat...............R: dest, src, num values + 1 (0 = use all to end of stack)
-CatEq.............R: dest, src, num values + 1 (0 = use all to end of stack)
-Class.............R: dest, name const index, base class
-ClassOf...........R: dest, src, n/a
+Cat...............R: dest, src, num values (NOT variadic)
+CatEq.............R: dest, src, num values (NOT variadic)
+CheckObjParam.....R: dest, index of parameter, object type
+CheckParams.......I: n/a, n/a
 Close.............I: reg start, n/a
-Closure...........I: dest, index of funcdef
+Closure...........R: dest, index of funcdef, n/a
 CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
 Cmp3..............R: dest, src, src
 Com...............R: dest, src, n/a
+Dec...............R: dest, n/a, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
 EndFinal..........I: n/a, n/a
+Equals............R: n/a, src, src
+Field.............R: dest, src, index
+FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
 Foreach...........I: base reg, num indices
 ForLoop...........J: base reg, branch offset
 Import............R: dest, name src, n/a
 In................R: dest, src value, src object
+Inc...............R: dest, n/a, n/a
 Index.............R: dest, src object, src index
 IndexAssign.......R: dest object, dest index, src
 Is................R: n/a, src, src
@@ -151,11 +173,13 @@ Jle...............J: isTrue, branch offset
 Jlt...............J: isTrue, branch offset
 Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
+LengthAssign......R: dest, src, n/a
 LoadBool..........R: dest, 1/0, n/a
 LoadConst.........R: dest local, src const, n/a
 LoadNull..........I: dest, n/a
 LoadNulls.........I: dest, num regs
-Method............R: base reg, object to index, const index of method name
+Method............R: base reg, object to index, method name
+MethodNC..........R: base reg, object to index, method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
@@ -163,21 +187,24 @@ MoveLocal.........R: dest local, src local, n/a
 Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
 Namespace.........R: dest, name const index, parent namespace
+NamespaceNP.......R: dest, name const index, n/a
 Neg...............R: dest, src, n/a
 NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
+Object............R: dest, name const index, proto object
+ObjParamFail......R: n/a, src, n/a
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
-Precall...........R: dest, src, lookup (0 = no, 1 = yes)
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
+SetEnv............R: dest, src, n/a
 Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
 Shr...............R: dest, src, src
@@ -186,7 +213,8 @@ Slice.............R: dest, src, n/a (indices are at src + 1 and src + 2)
 SliceAssign.......R: dest, src, n/a (indices are at dest + 1 and dest + 2)
 Sub...............R: dest, src, src
 SubEq.............R: dest, src, n/a
-Super.............R: dest, src, n/a
+SuperMethod.......R: base reg, object to index, method name
+SuperOf...........R: dest, src, n/a
 Switch............R: n/a, src, index of switch table
 SwitchCmp.........R: n/a, src, src
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
@@ -194,6 +222,10 @@ Throw.............R: n/a, src, n/a
 UShr..............R: dest, src, src
 UShrEq............R: dest, src, n/a
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
+VargIndex.........R: dest, idx, n/a
+VargIndexAssign...R: n/a, idx, src
+VargLen...........R: dest, n/a, n/a
+VargSlice.........I: base reg, num rets + 1 (0 = return all to end of stack; indices are at base reg and base reg + 1)
 Xor...............R: dest, src, src
 XorEq.............R: dest, src, n/a
 Yield.............R: register of first yielded value, num values + 1, num results + 1 (both, 0 = to end of stack)
@@ -208,7 +240,7 @@ align(1) struct Instruction
 {
 	const uint locMaskSize = 2;
 	const uint locMask = Mask!(locMaskSize) << (16 - locMaskSize);
-	
+
 	const uint locLocal =  0;
 	const uint locConst =  0b01 << (16 - locMaskSize);
 	const uint locUpval =  0b10 << (16 - locMaskSize);
@@ -231,7 +263,7 @@ align(1) struct Instruction
 
 	const uint arraySetFields = 30;
 
-	ushort opcode;
+	Op opcode;
 	ushort rd;
 
 	union
@@ -254,98 +286,114 @@ align(1) struct Instruction
 			uint val = v & ~locMask;
 
 			if(loc == locLocal)
-				return Stdout.layout.convert("r{}", val);
+				return Format("r{}", val);
 			else if(loc == locConst)
-				return Stdout.layout.convert("c{}", val);
+				return Format("c{}", val);
 			else if(loc == locUpval)
-				return Stdout.layout.convert("u{}", val);
+				return Format("u{}", val);
 			else
-				return Stdout.layout.convert("g{}", val);
+				return Format("g{}", val);
 		}
 
 		switch(opcode)
 		{
-			case Op.Add:           return Stdout.layout.convert("add {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.AddEq:         return Stdout.layout.convert("addeq {}, {}", cr(rd), cr(rs));
-			case Op.And:           return Stdout.layout.convert("and {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.AndEq:         return Stdout.layout.convert("andeq {}, {}", cr(rd), cr(rs));
-			case Op.As:            return Stdout.layout.convert("as {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Call:          return Stdout.layout.convert("call r{}, {}, {}", rd, rs, rt);
-			case Op.Cat:           return Stdout.layout.convert("cat {}, r{}, {}", cr(rd), rs, rt);
-			case Op.CatEq:         return Stdout.layout.convert("cateq {}, r{}, {}", cr(rd), rs, rt);
-			case Op.Class:         return Stdout.layout.convert("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ClassOf:       return Stdout.layout.convert("classof {}, {}", cr(rd), cr(rs));
-			case Op.Close:         return Stdout.layout.convert("close r{}", rd);
-			case Op.Closure:       return Stdout.layout.convert("closure {}, {}", cr(rd), uimm);
-			case Op.CondMove:      return Stdout.layout.convert("cmov {}, {}", cr(rd), cr(rs));
-			case Op.Coroutine:     return Stdout.layout.convert("coroutine {}, {}", cr(rd), cr(rs));
-			case Op.Cmp:           return Stdout.layout.convert("cmp {}, {}", cr(rs), cr(rt));
-			case Op.Cmp3:          return Stdout.layout.convert("cmp3 {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Com:           return Stdout.layout.convert("com {}, {}", cr(rd), cr(rs));
-			case Op.Div:           return Stdout.layout.convert("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.DivEq:         return Stdout.layout.convert("diveq {}, {}", cr(rd), cr(rs));
-			case Op.EndFinal:      return "endfinal";
-			case Op.For:           return Stdout.layout.convert("for {}, {}", cr(rd), imm);
-			case Op.Foreach:       return Stdout.layout.convert("foreach r{}, {}", rd, uimm);
-			case Op.ForLoop:       return Stdout.layout.convert("forloop {}, {}", cr(rd), imm);
-			case Op.Import:        return Stdout.layout.convert("import r{}, {}", rd, cr(rs));
-			case Op.In:            return Stdout.layout.convert("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Index:         return Stdout.layout.convert("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.IndexAssign:   return Stdout.layout.convert("idxa {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Is:            return Stdout.layout.convert("is {}, {}", cr(rs), cr(rt));
-			case Op.IsTrue:        return Stdout.layout.convert("istrue {}", cr(rs));
-			case Op.Je:            return Stdout.layout.convert((rd == 0) ? "jne {}" : "je {}", imm);
-			case Op.Jle:           return Stdout.layout.convert((rd == 0) ? "jgt {}" : "jle {}", imm);
-			case Op.Jlt:           return Stdout.layout.convert((rd == 0) ? "jge {}" : "jlt {}", imm);
-			case Op.Jmp:           return (rd == 0) ? "nop" : Stdout.layout.convert("jmp {}", imm);
-			case Op.Length:        return Stdout.layout.convert("len {}, {}", cr(rd), cr(rs));
-			case Op.LoadBool:      return Stdout.layout.convert("lb {}, {}", cr(rd), rs);
-			case Op.LoadConst:     return Stdout.layout.convert("lc {}, {}", cr(rd), cr(rs));
-			case Op.LoadNull:      return Stdout.layout.convert("lnull {}", cr(rd));
-			case Op.LoadNulls:     return Stdout.layout.convert("lnulls r{}, {}", rd, uimm);
-			case Op.Method:        return Stdout.layout.convert("method r{}, {}, c{}", rd, cr(rs), rt);
-			case Op.Mod:           return Stdout.layout.convert("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ModEq:         return Stdout.layout.convert("modeq {}, {}", cr(rd), cr(rs));
-			case Op.Move:          return Stdout.layout.convert("mov {}, {}", cr(rd), cr(rs));
-			case Op.MoveLocal:     return Stdout.layout.convert("movl {}, {}", cr(rd), cr(rs));
-			case Op.Mul:           return Stdout.layout.convert("mul {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.MulEq:         return Stdout.layout.convert("muleq {}, {}", cr(rd), cr(rs));
-			case Op.Namespace:     return Stdout.layout.convert("namespace {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Neg:           return Stdout.layout.convert("neg {}, {}", cr(rd), cr(rs));
-			case Op.NewArray:      return Stdout.layout.convert("newarr r{}, {}", rd, imm);
-			case Op.NewGlobal:     return Stdout.layout.convert("newg {}, {}", cr(rs), cr(rt));
-			case Op.NewTable:      return Stdout.layout.convert("newtab r{}", rd);
-			case Op.Not:           return Stdout.layout.convert("not {}, {}", cr(rd), cr(rs));
-			case Op.NotIn:         return Stdout.layout.convert("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Or:            return Stdout.layout.convert("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.OrEq:          return Stdout.layout.convert("oreq {}, {}", cr(rd), cr(rs));
-			case Op.PopCatch:      return "popcatch";
-			case Op.PopFinally:    return "popfinally";
-			case Op.Precall:       return Stdout.layout.convert("precall r{}, {}, {}", rd, cr(rs), rt);
-			case Op.PushCatch:     return Stdout.layout.convert("pushcatch r{}, {}", rd, imm);
-			case Op.PushFinally:   return Stdout.layout.convert("pushfinal {}", imm);
-			case Op.Ret:           return Stdout.layout.convert("ret r{}, {}", rd, uimm);
-			case Op.SetArray:      return Stdout.layout.convert("setarray r{}, {}, block {}", rd, rs, rt);
-			case Op.Shl:           return Stdout.layout.convert("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ShlEq:         return Stdout.layout.convert("shleq {}, {}", cr(rd), cr(rs));
-			case Op.Shr:           return Stdout.layout.convert("shr {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ShrEq:         return Stdout.layout.convert("shreq {}, {}", cr(rd), cr(rs));
-			case Op.Slice:         return Stdout.layout.convert("slice {}, r{}", cr(rd), rs);
-			case Op.SliceAssign:   return Stdout.layout.convert("slicea r{}, {}", rd, cr(rs));
-			case Op.Super:         return Stdout.layout.convert("super {}, {}", cr(rd), cr(rs));
-			case Op.Sub:           return Stdout.layout.convert("sub {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.SubEq:         return Stdout.layout.convert("subeq {}, {}", cr(rd), cr(rs));
-			case Op.Switch:        return Stdout.layout.convert("switch {}, {}", cr(rs), rt);
-			case Op.SwitchCmp:     return Stdout.layout.convert("swcmp {}, {}", cr(rs), cr(rt));
-			case Op.Tailcall:      return Stdout.layout.convert("tcall r{}, {}", rd, rs);
-			case Op.Throw:         return Stdout.layout.convert("throw {}", cr(rs));
-			case Op.UShr:          return Stdout.layout.convert("ushr {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.UShrEq:        return Stdout.layout.convert("ushreq {}, {}", cr(rd), cr(rs));
-			case Op.Vararg:        return Stdout.layout.convert("varg r{}, {}", rd, uimm);
-			case Op.Xor:           return Stdout.layout.convert("xor {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.XorEq:         return Stdout.layout.convert("xoreq {}, {}", cr(rd), cr(rs));
-			case Op.Yield:         return Stdout.layout.convert("yield r{}, {}, {}", rd, rs, rt);
-			default:               return Stdout.layout.convert("??? opcode = ", opcode);
+			case Op.Add:             return Format("add {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.AddEq:           return Format("addeq {}, {}", cr(rd), cr(rs));
+			case Op.And:             return Format("and {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.AndEq:           return Format("andeq {}, {}", cr(rd), cr(rs));
+			case Op.Append:          return Format("append {}, {}", cr(rd), cr(rs));
+			case Op.As:              return Format("as {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Call:            return Format("call r{}, {}, {}", rd, rs, rt);
+			case Op.Cat:             return Format("cat {}, r{}, {}", cr(rd), rs, rt);
+			case Op.CatEq:           return Format("cateq {}, r{}, {}", cr(rd), rs, rt);
+			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
+			case Op.CheckParams:     return "checkparams";
+			case Op.Close:           return Format("close r{}", rd);
+			case Op.Closure:         return Format("closure {}, {}", cr(rd), rs);
+			case Op.CondMove:        return Format("cmov {}, {}", cr(rd), cr(rs));
+			case Op.Coroutine:       return Format("coroutine {}, {}", cr(rd), cr(rs));
+			case Op.Cmp:             return Format("cmp {}, {}", cr(rs), cr(rt));
+			case Op.Cmp3:            return Format("cmp3 {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Com:             return Format("com {}, {}", cr(rd), cr(rs));
+			case Op.Dec:             return Format("dec {}", cr(rd));
+			case Op.Div:             return Format("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.DivEq:           return Format("diveq {}, {}", cr(rd), cr(rs));
+			case Op.EndFinal:        return "endfinal";
+			case Op.Equals:          return Format("equals {}, {}", cr(rs), cr(rt));
+			case Op.Field:           return Format("field {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.FieldAssign:     return Format("fielda {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.For:             return Format("for {}, {}", cr(rd), imm);
+			case Op.Foreach:         return Format("foreach r{}, {}", rd, uimm);
+			case Op.ForLoop:         return Format("forloop {}, {}", cr(rd), imm);
+			case Op.Import:          return Format("import r{}, {}", rd, cr(rs));
+			case Op.In:              return Format("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Inc:             return Format("inc {}", cr(rd));
+			case Op.Index:           return Format("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.IndexAssign:     return Format("idxa {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Is:              return Format("is {}, {}", cr(rs), cr(rt));
+			case Op.IsTrue:          return Format("istrue {}", cr(rs));
+			case Op.Je:              return Format((rd == 0) ? "jne {}" : "je {}", imm);
+			case Op.Jle:             return Format((rd == 0) ? "jgt {}" : "jle {}", imm);
+			case Op.Jlt:             return Format((rd == 0) ? "jge {}" : "jlt {}", imm);
+			case Op.Jmp:             return (rd == 0) ? "nop" : Format("jmp {}", imm);
+			case Op.Length:          return Format("len {}, {}", cr(rd), cr(rs));
+			case Op.LengthAssign:    return Format("lena {}, {}", cr(rd), cr(rs));
+			case Op.LoadBool:        return Format("lb {}, {}", cr(rd), rs);
+			case Op.LoadConst:       return Format("lc {}, {}", cr(rd), cr(rs));
+			case Op.LoadNull:        return Format("lnull {}", cr(rd));
+			case Op.LoadNulls:       return Format("lnulls r{}, {}", rd, uimm);
+			case Op.Method:          return Format("method r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.MethodNC:        return Format("methodnc r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.Mod:             return Format("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ModEq:           return Format("modeq {}, {}", cr(rd), cr(rs));
+			case Op.Move:            return Format("mov {}, {}", cr(rd), cr(rs));
+			case Op.MoveLocal:       return Format("movl {}, {}", cr(rd), cr(rs));
+			case Op.Mul:             return Format("mul {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.MulEq:           return Format("muleq {}, {}", cr(rd), cr(rs));
+			case Op.Namespace:       return Format("namespace {}, c{}, {}", cr(rd), rs, cr(rt));
+			case Op.NamespaceNP:     return Format("namespacenp {}, c{}", cr(rd), rs);
+			case Op.Neg:             return Format("neg {}, {}", cr(rd), cr(rs));
+			case Op.NewArray:        return Format("newarr r{}, {}", rd, imm);
+			case Op.NewGlobal:       return Format("newg {}, {}", cr(rs), cr(rt));
+			case Op.NewTable:        return Format("newtab r{}", rd);
+			case Op.Not:             return Format("not {}, {}", cr(rd), cr(rs));
+			case Op.NotIn:           return Format("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.Object:          return Format("object {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ObjParamFail:    return Format("objparamfail {}", cr(rs));
+			case Op.Or:              return Format("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.OrEq:            return Format("oreq {}, {}", cr(rd), cr(rs));
+			case Op.PopCatch:        return "popcatch";
+			case Op.PopFinally:      return "popfinally";
+			case Op.PushCatch:       return Format("pushcatch r{}, {}", rd, imm);
+			case Op.PushFinally:     return Format("pushfinal {}", imm);
+			case Op.Ret:             return Format("ret r{}, {}", rd, uimm);
+			case Op.SetArray:        return Format("setarray r{}, {}, block {}", rd, rs, rt);
+			case Op.SetEnv:          return Format("setenv {}, {}", cr(rd), cr(rs));
+			case Op.Shl:             return Format("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ShlEq:           return Format("shleq {}, {}", cr(rd), cr(rs));
+			case Op.Shr:             return Format("shr {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ShrEq:           return Format("shreq {}, {}", cr(rd), cr(rs));
+			case Op.Slice:           return Format("slice {}, r{}", cr(rd), rs);
+			case Op.SliceAssign:     return Format("slicea r{}, {}", rd, cr(rs));
+			case Op.Sub:             return Format("sub {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.SubEq:           return Format("subeq {}, {}", cr(rd), cr(rs));
+			case Op.SuperMethod:     return Format("smethod r{}, {}, {}", rd, cr(rs), cr(rt));
+			case Op.SuperOf:         return Format("superof {}, {}", cr(rd), cr(rs));
+			case Op.Switch:          return Format("switch {}, {}", cr(rs), rt);
+			case Op.SwitchCmp:       return Format("swcmp {}, {}", cr(rs), cr(rt));
+			case Op.Tailcall:        return Format("tcall r{}, {}", rd, rs);
+			case Op.Throw:           return Format("throw {}", cr(rs));
+			case Op.UShr:            return Format("ushr {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.UShrEq:          return Format("ushreq {}, {}", cr(rd), cr(rs));
+			case Op.Vararg:          return Format("varg r{}, {}", rd, uimm);
+			case Op.VargIndex:       return Format("vargidx {}, {}", cr(rd), cr(rs));
+			case Op.VargIndexAssign: return Format("vargidxa {}, {}", cr(rd), cr(rs));
+			case Op.VargLen:         return Format("varglen {}", cr(rd));
+			case Op.VargSlice:       return Format("vargslice r{}, {}", rd, uimm);
+			case Op.Xor:             return Format("xor {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.XorEq:           return Format("xoreq {}, {}", cr(rd), cr(rs));
+			case Op.Yield:           return Format("yield r{}, {}, {}", rd, rs, rt);
+			default:                 return Format("??? opcode = {}", opcode);
 		}
 	}
 	
