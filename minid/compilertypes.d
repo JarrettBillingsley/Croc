@@ -162,31 +162,19 @@ scope class List(T)
 
 	public int opApply(int delegate(ref T) dg)
 	{
-		int result = 0;
-
 		foreach(ref v; mData[0 .. mIndex])
-		{
-			result = dg(v);
-			
-			if(result)
-				break;
-		}
+			if(auto result = dg(v))
+				return result;
 		
-		return result;
+		return 0;
 	}
 	
 	public int opApply(int delegate(uword, ref T) dg)
 	{
-		int result = 0;
-
 		foreach(i, ref v; mData[0 .. mIndex])
-		{
-			result = dg(i, v);
-			
-			if(result)
-				break;
-		}
+			if(auto result = dg(i, v))
+				return result;
 		
-		return result;
+		return 0;
 	}
 }

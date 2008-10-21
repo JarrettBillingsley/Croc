@@ -458,7 +458,10 @@ Gets the name of a function alias.
 */
 public template NameOfFunc(alias f)
 {
-	const char[] NameOfFunc = (&f).stringof[2 .. $];
+	version(LDC)
+		const char[] NameOfFunc = (&f).stringof[1 .. $];
+	else
+		const char[] NameOfFunc = (&f).stringof[2 .. $];
 }
 
 debug

@@ -239,13 +239,13 @@ static:
 
 	uword round(MDThread* t, uword numParams)
 	{
-		pushInt(t, cast(int)math.round(get_float(t, 1)));
+		pushInt(t, cast(mdint)math.round(get_float(t, 1)));
 		return 1;
 	}
 
 	uword trunc(MDThread* t, uword numParams)
 	{
-		pushInt(t, cast(int)math.trunc(get_float(t, 1)));
+		pushInt(t, cast(mdint)math.trunc(get_float(t, 1)));
 		return 1;
 	}
 

@@ -346,7 +346,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
-		
+
 		auto data = getArray(t, 0).slice;
 
 		foreach(i, ref v; data)
@@ -355,8 +355,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			idxai(t, -2, i, true);
-			//pop(t);
+			idxai(t, 0, i, true);
 		}
 
 		dup(t, 0);
@@ -367,7 +366,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
-		newArray(t, len(t, 0));
+		auto newArr = newArray(t, len(t, 0));
 		auto data = getArray(t, -1).slice;
 
 		foreach(i, ref v; getArray(t, 0).slice)
@@ -376,8 +375,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			idxai(t, -2, i, true);
-			//pop(t);
+			idxai(t, newArr, i, true);
 		}
 
 		return 1;

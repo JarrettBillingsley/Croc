@@ -830,18 +830,18 @@ package const char[][] MetaNames =
 package const MM[] MMRev =
 [
 	MM.Add:  MM.Add_r,
-	MM.And:  MM.And_r,
-	MM.Cat:  MM.Cat_r,
+	MM.Sub:  MM.Sub_r,
+	MM.Mul:  MM.Mul_r,
 	MM.Div:  MM.Div_r,
 	MM.Mod:  MM.Mod_r,
-	MM.Mul:  MM.Mul_r,
+	MM.Cat:  MM.Cat_r,
+	MM.And:  MM.And_r,
 	MM.Or:   MM.Or_r,
+	MM.Xor:  MM.Xor_r,
 	MM.Shl:  MM.Shl_r,
 	MM.Shr:  MM.Shr_r,
-	MM.Sub:  MM.Sub_r,
 	MM.UShr: MM.UShr_r,
-	MM.Xor:  MM.Xor_r,
-	
+
 	MM.max:  cast(MM)-1
 ];
 

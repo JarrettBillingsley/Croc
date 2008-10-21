@@ -138,7 +138,7 @@ struct Exp
 
 	debug char[] toString()
 	{
-		static const char[][] typeNames = 
+		static const char[][] typeNames =
 		[
 			ExpType.Null: "Null",
 			ExpType.True: "True",
@@ -1689,6 +1689,9 @@ final class FuncState
 	{
 		Stdout.formatln("Function at {}({}:{}) (guessed name: {})", mLocation.file, mLocation.line, mLocation.col, mName);
 		Stdout.formatln("Num params: {} Vararg: {} Stack size: {}", mNumParams, mIsVararg, mStackSize);
+		
+		foreach(i, m; mParamMasks)
+			Stdout.formatln("\tParam {} mask: {:b}", i, m);
 
 		foreach(i, s; mInnerFuncs)
 			Stdout.formatln("\tInner Func {}: {}", i, s.name.toString());
@@ -1907,7 +1910,7 @@ class Codegen : Visitor
 				fs.patchTrueToHere(success);
 			}
 		}
-		
+
 		return s;
 	}
 

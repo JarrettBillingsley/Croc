@@ -539,7 +539,7 @@ struct Lexer
 		}
 	}
 
-	private bool readNumLiteral(bool prependPoint, out mdfloat fret, out int iret)
+	private bool readNumLiteral(bool prependPoint, out mdfloat fret, out mdint iret)
 	{
 		auto beginning = mLoc;
 		dchar[128] buf;
@@ -1286,7 +1286,7 @@ struct Lexer
 
 					if(isDecimalDigit())
 					{
-						int dummy;
+						mdint dummy;
 						bool b = readNumLiteral(true, mTok.floatValue, dummy);
 						assert(!b, "literal must be float");
 
@@ -1369,7 +1369,7 @@ struct Lexer
 					else if(isDecimalDigit())
 					{
 						mdfloat fval;
-						int ival;
+						mdint ival;
 
 						bool isInt = readNumLiteral(false, fval, ival);
 

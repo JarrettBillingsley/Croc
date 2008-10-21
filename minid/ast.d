@@ -2780,11 +2780,11 @@ class IntExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public int value;
+	public mdint value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, int value)
+	public this(ICompiler c, CompileLoc location, mdint value)
 	{
 		super(c, location, AstTag.IntExp);
 		this.value = value;

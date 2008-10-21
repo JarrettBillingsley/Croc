@@ -48,7 +48,7 @@ static:
 			dup(t, ns); newFunctionWithEnv(t, &reload,     "reload");     fielda(t, ns, "reload");
 			dup(t, ns); newFunctionWithEnv(t, &initModule, "initModule"); fielda(t, ns, "initModule");
 			dup(t, ns); newFunctionWithEnv(t, &runMain,    "runMain");    fielda(t, ns, "runMain");
-
+			dup(t, ns); newFunctionWithEnv(t, &compile,    "compile");    fielda(t, ns, "compile");
 
 			newTable(t);
 				// integrate 'modules' itself into the module loading system
@@ -105,13 +105,13 @@ static:
 	package uword commonLoad(MDThread* t, char[] name)
 	{
 		checkCircular(t, name);
-		
+
 		scope(exit)
 		{
 			getRegistryVar(t, "modules.loading");
 			pushNull(t);
 			fielda(t, -2, name);
-			pop(t);	
+			pop(t);
 		}
 
 		auto loaders = pushGlobal(t, "loaders");
@@ -165,7 +165,7 @@ static:
 
 		// Make the namespace
 		pushGlobal(t, "_G");
-	
+
 		foreach(segment; name.delimiters("."))
 		{
 			pushString(t, segment);
@@ -173,7 +173,7 @@ static:
 			if(opin(t, -1, -2))
 			{
 				field(t, -2);
-				
+
 				if(!isNamespace(t, -1))
 					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
 			}
@@ -187,7 +187,7 @@ static:
 
 			insertAndPop(t, -2);
 		}
-		
+
 		if(len(t, -1) > 0)
 			clearNamespace(t, -1);
 
@@ -218,7 +218,7 @@ static:
 		if(hasField(t, 1, "main"))
 		{
 			auto main = field(t, 1, "main");
-	
+
 			if(isFunction(t, main))
 			{
 				insert(t, 1);
@@ -227,6 +227,15 @@ static:
 		}
 
 		return 0;
+	}
+
+	uword compile(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 1);
+		auto name = optStringParam(t, 2, "<loaded by modules.compile>");
+		scope c = new Compiler(t);
+		c.compileModule(src, name);
+		return 1;
 	}
 
 	package uword customLoad(MDThread* t, uword numParams)
@@ -238,43 +247,43 @@ static:
 
 		if(isFunction(t, -1) || isNamespace(t, -1))
 			return 1;
-			
+
 		return 0;
 	}
 
 	package uword checkTaken(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		
+
 		pushGlobal(t, "_G");
-	
+
 		foreach(segment; name.delimiters("."))
 		{
 			pushString(t, segment);
-			
+
 			if(opin(t, -1, -2))
 			{
 				field(t, -2);
-				
+
 				if(!isNamespace(t, -1))
 					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
-					
+
 				insertAndPop(t, -2);
 			}
 			else
 				return 0;
 		}
-	
+
 		return 0;
 	}
-	
+
 	package uword loadFiles(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
 		auto pos = name.locatePrior('.');
 		char[] packages;
 		char[] modName;
-	
+
 		if(pos == name.length)
 		{
 			packages = "";
@@ -346,7 +355,7 @@ static:
 
 		return 0;
 	}
-	
+
 	private void checkCircular(MDThread* t, char[] name)
 	{
 		getRegistryVar(t, "modules.loading");

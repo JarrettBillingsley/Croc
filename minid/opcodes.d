@@ -98,7 +98,6 @@ enum Op : ushort
 	OrEq,
 	PopCatch,
 	PopFinally,
-	Precall,
 	PushCatch,
 	PushFinally,
 	Ret,
@@ -201,7 +200,6 @@ Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
-Precall...........R: dest, src, lookup (0 = no, 1 = yes)
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
@@ -366,7 +364,6 @@ align(1) struct Instruction
 			case Op.OrEq:            return Format("oreq {}, {}", cr(rd), cr(rs));
 			case Op.PopCatch:        return "popcatch";
 			case Op.PopFinally:      return "popfinally";
-			case Op.Precall:         return Format("precall r{}, {}, {}", rd, cr(rs), rt);
 			case Op.PushCatch:       return Format("pushcatch r{}, {}", rd, imm);
 			case Op.PushFinally:     return Format("pushfinal {}", imm);
 			case Op.Ret:             return Format("ret r{}, {}", rd, uimm);

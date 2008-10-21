@@ -3803,7 +3803,7 @@ debug
 		Stdout.newline;
 		Stdout("-----Call Stack-----").newline;
 
-		for(int i = t.arIndex - 1; i >= 0; i--)
+		for(uword i = t.arIndex - 1; i >= 0; i--)
 		{
 			with(t.actRecs[i])
 			{
@@ -5169,16 +5169,16 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 							typeString(t, &stack[slot + 1]);
 							throwException(t, "Can't concatenate an 'object/table' with a '{}'", getString(t, -1));
 						}
-	
+
 						method = getMM(t, &stack[slot + 1], MM.Cat_r);
-	
+
 						if(method is null)
 						{
 							typeString(t, &t.stack[slot]);
 							typeString(t, &t.stack[slot + 1]);
 							throwException(t, "Can't concatenate '{}' and '{}", getString(t, -2), getString(t, -1));
 						}
-	
+
 						swap = true;
 					}
 				}
@@ -5203,7 +5203,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 				// stack might have changed.
 				stack = t.stack;
-				
+
 				slot++;
 				stack[slot] = stack[t.stackIndex - 1];
 				pop(t);
@@ -7302,19 +7302,23 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.CheckObjParam:
 					RS = t.stack[stackBase + i.rs];
-					RT = *get(i.rt);
-
-					assert(RS.type == MDValue.Type.Object, "oops.  why wasn't this checked?");
-
-					if(RT.type != MDValue.Type.Object)
-					{
-						typeString(t, &RT);
-						throwException(t, "Parameter {}: object constraint type must be 'object', not '{}'", i.rs, getString(t, -1));
-					}
-
-					*get(i.rd) = obj.derivesFrom(RS.mObject, RT.mObject);
-					break;
 					
+					if(RS.type != MDValue.Type.Object)
+						*get(i.rd) = true;
+					else
+					{
+						RT = *get(i.rt);
+
+						if(RT.type != MDValue.Type.Object)
+						{
+							typeString(t, &RT);
+							throwException(t, "Parameter {}: object constraint type must be 'object', not '{}'", i.rs, getString(t, -1));
+						}
+
+						*get(i.rd) = obj.derivesFrom(RS.mObject, RT.mObject);
+					}
+					break;
+
 				case Op.ObjParamFail:
 					typeString(t, &t.stack[stackBase + i.rs]);
 
