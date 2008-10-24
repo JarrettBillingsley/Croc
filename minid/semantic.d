@@ -142,31 +142,28 @@ class Semantic : IdentityVisitor
 			field.initializer = visit(field.initializer);
 
 		/*
-		Rewrite:
+		To codegen:
 
 		namespace N
 		{
 			function f() {}
+			g = 5
+			h = function() {}
 		}
 
-		as:
+		Do it as:
 
-		(function <namespace N>()
+		local temp = raw_namespace N
+		??? N = temp
+		foreach(field)
 		{
-			local raw_namespace N {} // raw so it doesn't get rewritten
-
-			local function __temp()
-			{
-				N.f = function f() {}
-			}
-
-			funcenv __temp, N
-			__temp()
-
-			return N
-		})()
+			local temp2 = field.initializer
+			funcenv temp2, temp
+			temp.(field.name) = temp2
+		}
+		evaluate_to temp
 		*/
-		
+
 		scope funcBody = new List!(Statement)(c.alloc);
 
 		{
@@ -485,7 +482,7 @@ class Semantic : IdentityVisitor
 
 		return s;
 	}
-	
+
 	public override ThrowStmt visit(ThrowStmt s)
 	{
 		s.exp = visit(s.exp);
@@ -1309,178 +1306,14 @@ class Semantic : IdentityVisitor
 		e.key = visit(e.key);
 		e.value = visit(e.value);
 		e.forComp = visitForComp(e.forComp);
-
-		/*
-		Rewrite:
-		
-		x = {[v] = k for k, v in y if v < 10}
-
-		as:
-
-		x = (function()
-		{
-			local __temp = {}
-
-			foreach(k, v; y)
-				if(v < 10)
-					__temp[v] = k
-
-			return __temp
-		})()
-		*/
-
-		// (function()
-		scope funcBody = new List!(Statement)(c.alloc);
-
-		{
-			auto __temp = new(c) Identifier(c, e.location, c.newString("__temp"));
-
-			// local __temp = {}
-			{
-				scope dummy = new List!(Identifier)(c.alloc);
-				dummy ~= __temp;
-				auto init = new(c) TableCtorExp(c, e.location, e.endLocation, null);
-				funcBody ~= new(c) VarDecl(c, e.location, e.endLocation, Protection.Local, dummy.toArray(), init);
-			}
-
-			// foreach(i; y)
-			//     if(i < 10)
-			//         __temp[v] = k
-			{
-				scope dummy = new List!(Expression)(c.alloc);
-				dummy ~= new(c) IndexExp(c, e.endLocation, new(c) IdentExp(c, __temp), e.key);
-				auto idxa = new(c) AssignStmt(c, e.location, e.endLocation, dummy.toArray(), e.value);
-				funcBody ~= rewriteForComp(e.forComp, idxa);
-			}
-
-
-			// return __temp
-			{
-				scope dummy = new List!(Expression)(c.alloc);
-				dummy ~= new(c) IdentExp(c, __temp);
-				funcBody ~= new(c) ReturnStmt(c, e.location, e.location, dummy.toArray());
-			}
-		}
-
-		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
-		scope params = new List!(FuncDef.Param)(c.alloc);
-		params ~= FuncDef.Param(new(c) Identifier(c, e.location, c.newString("this")));
-		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("table")(e.location), params.toArray(), false, _body);
-		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
-		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
+		return e;
 	}
 
 	public override Expression visit(ArrayComprehension e)
 	{
 		e.exp = visit(e.exp);
 		e.forComp = visitForComp(e.forComp);
-
-		/*
-		Rewrite:
-		
-		x = [i for i in y if i < 10]
-		
-		as:
-
-		x = (function()
-		{
-			local __temp = []
-
-			foreach(i; y)
-				if(i < 10)
-					append __temp, i
-
-			return __temp
-		})()
-		*/
-
-		// (function()
-		scope funcBody = new List!(Statement)(c.alloc);
-
-		{
-			auto __temp = new(c) Identifier(c, e.location, c.newString("__temp"));
-			auto __tempExp = new(c) IdentExp(c, __temp);
-
-			// local __temp = []
-			{
-				scope dummy = new List!(Identifier)(c.alloc);
-				dummy ~= __temp;
-				auto init = new(c) ArrayCtorExp(c, e.location, e.endLocation, null);
-				funcBody ~= new(c) VarDecl(c, e.location, e.endLocation, Protection.Local, dummy.toArray(), init);
-			}
-
-			// append __temp, i
-			auto append = new(c) AppendStmt(c, e.location, __tempExp, e.exp);
-
-			// foreach(i; y)
-			//     if(i < 10)
-			funcBody ~= rewriteForComp(e.forComp, append);
-
-			// return __temp
-			{
-				scope dummy = new List!(Expression)(c.alloc);
-				dummy ~= __tempExp;
-				funcBody ~= new(c) ReturnStmt(c, e.location, e.location, dummy.toArray());
-			}
-		}
-
-		auto _body = new(c) BlockStmt(c, e.location, e.endLocation, funcBody.toArray());
-		scope params = new List!(FuncDef.Param)(c.alloc);
-		params ~= FuncDef.Param(new(c) Identifier(c, e.location, c.newString("this")));
-		auto funcDef = new(c) FuncDef(c, e.location, dummyComprehensionName!("array")(e.location), params.toArray(), false, _body);
-		auto funcExp = new(c) FuncLiteralExp(c, e.location, funcDef);
-		return new(c) CallExp(c, e.endLocation, funcExp, null, null);
-	}
-
-	private Statement rewriteForComp(ForComprehension e, Statement inner)
-	{
-		if(auto x = e.as!(ForeachComprehension))
-			return rewrite(x, inner);
-		else
-		{
-			auto x = e.as!(ForNumComprehension);
-			assert(x !is null);
-			return rewrite(x, inner);
-		}
-	}
-
-	private Statement rewrite(ForeachComprehension e, Statement inner)
-	{
-		if(e.ifComp)
-		{
-			if(e.forComp)
-				inner = rewrite(e.ifComp, rewriteForComp(e.forComp, inner));
-			else
-				inner = rewrite(e.ifComp, inner);
-		}
-		else if(e.forComp)
-			inner = rewriteForComp(e.forComp, inner);
-
-		auto indices = e.indices;
-		auto cont = e.container;
-		e.indices = null;
-		e.container = null;
-		return new(c) ForeachStmt(c, e.location, indices, cont, inner);
-	}
-
-	private Statement rewrite(ForNumComprehension e, Statement inner)
-	{
-		if(e.ifComp)
-		{
-			if(e.forComp)
-				inner = rewrite(e.ifComp, rewriteForComp(e.forComp, inner));
-			else
-				inner = rewrite(e.ifComp, inner);
-		}
-		else if(e.forComp)
-			inner = rewriteForComp(e.forComp, inner);
-
-		return new(c) ForNumStmt(c, e.location, e.index, e.lo, e.hi, e.step, inner);
-	}
-	
-	private Statement rewrite(IfComprehension e, Statement inner)
-	{
-		return new(c) IfStmt(c, e.location, e.endLocation, null, e.condition, inner, null);
+		return e;
 	}
 
 	public ForComprehension visitForComp(ForComprehension e)
@@ -1530,13 +1363,5 @@ class Semantic : IdentityVisitor
 	{
 		e.condition = visit(e.condition);
 		return e;
-	}
-
-	package Identifier dummyComprehensionName(char[] type)(CompileLoc loc)
-	{
-		pushFormat(c.thread, "<" ~ type ~ " comprehension at {}({}:{})>", loc.file, loc.line, loc.col);
-		auto str = c.newString(getString(c.thread, -1));
-		pop(c.thread);
-		return new(c) Identifier(c, loc, str);
 	}
 }

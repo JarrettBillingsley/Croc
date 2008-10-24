@@ -2128,48 +2128,56 @@ class Codegen : Visitor
 	
 	public override IfStmt visit(IfStmt s)
 	{
+		if(s.elseBody)
+			visitIf(s.location, s.endLocation, s.elseBody.location, s.condVar, s.condition, { visit(s.ifBody); }, { visit(s.elseBody); });
+		else
+			visitIf(s.location, s.endLocation, s.endLocation, s.condVar, s.condition, { visit(s.ifBody); }, null);
+
+		return s;
+	}
+
+	public void visitIf(CompileLoc location, CompileLoc endLocation, CompileLoc elseLocation, IdentExp condVar, Expression condition, void delegate() genBody, void delegate() genElse)
+	{
 		Scope scop = void;
 		fs.pushScope(scop);
-		
+
 		InstRef i = void;
 
-		if(s.condVar !is null)
+		if(condVar !is null)
 		{
 			auto destReg = fs.nextRegister();
-			visit(s.condition);
-			fs.popMoveTo(s.location.line, destReg);
-			fs.insertLocal(s.condVar.name);
+			visit(condition);
+			fs.popMoveTo(location.line, destReg);
+			fs.insertLocal(condVar.name);
 			fs.activateLocals(1);
 
-			i = codeCondition(s.condVar);
+			i = codeCondition(condVar);
 		}
 		else
-			i = codeCondition(s.condition);
+			i = codeCondition(condition);
 
 		fs.invertJump(i);
 		fs.patchTrueToHere(i);
-		visit(s.ifBody);
+		genBody();
 
-		if(s.elseBody)
+		if(genElse !is null)
 		{
-			fs.popScope(s.ifBody.endLocation.line);
+			fs.popScope(elseLocation.line);
 
-			auto j = fs.makeJump(s.elseBody.location.line);
+			auto j = fs.makeJump(elseLocation.line);
 			fs.patchFalseToHere(i);
 
 			fs.pushScope(scop);
-				visit(s.elseBody);
-			fs.popScope(s.endLocation.line);
+				genElse();
+			fs.popScope(endLocation.line);
 
 			fs.patchJumpToHere(j);
 		}
 		else
 		{
-			fs.popScope(s.ifBody.endLocation.line);
+			fs.popScope(endLocation.line);
 			fs.patchFalseToHere(i);
 		}
-
-		return s;
 	}
 	
 	public override WhileStmt visit(WhileStmt s)
@@ -2331,6 +2339,12 @@ class Codegen : Visitor
 	
 	public override ForNumStmt visit(ForNumStmt s)
 	{
+		visitForNum(s.location, s.endLocation, s.lo, s.hi, s.step, s.index, { visit(s.code); });
+		return s;
+	}
+
+	public void visitForNum(CompileLoc location, CompileLoc endLocation, Expression lo, Expression hi, Expression step, Identifier index, void delegate() genBody)
+	{
 		auto baseReg = fs.nextRegister();
 
 		Scope scop = void;
@@ -2339,47 +2353,51 @@ class Codegen : Visitor
 			fs.setContinuable();
 
 			auto loIndex = fs.nextRegister();
-			visit(s.lo);
-			fs.popMoveTo(s.lo.location.line, loIndex);
+			visit(lo);
+			fs.popMoveTo(lo.location.line, loIndex);
 			fs.pushRegister();
 
 			auto hiIndex = fs.nextRegister();
-			visit(s.hi);
-			fs.popMoveTo(s.hi.location.line, hiIndex);
+			visit(hi);
+			fs.popMoveTo(hi.location.line, hiIndex);
 			fs.pushRegister();
 
 			auto stepIndex = fs.nextRegister();
-			visit(s.step);
-			fs.popMoveTo(s.step.location.line, stepIndex);
+			visit(step);
+			fs.popMoveTo(step.location.line, stepIndex);
 			fs.pushRegister();
 
-			auto beginJump = fs.makeFor(s.location.line, baseReg);
+			auto beginJump = fs.makeFor(location.line, baseReg);
 			auto beginLoop = fs.here();
 
-			fs.insertLocal(s.index);
+			fs.insertLocal(index);
 			fs.activateLocals(1);
 
-			visit(s.code);
+			genBody();
 
-			fs.closeUpvals(s.endLocation.line);
+			fs.closeUpvals(endLocation.line);
 			fs.patchContinuesToHere();
 
 			fs.patchJumpToHere(beginJump);
 
-			auto gotoBegin = fs.makeForLoop(s.endLocation.line, baseReg);
+			auto gotoBegin = fs.makeForLoop(endLocation.line, baseReg);
 			fs.patchJumpTo(gotoBegin, beginLoop);
 
 			fs.patchBreaksToHere();
-		fs.popScope(s.endLocation.line);
+		fs.popScope(endLocation.line);
 
 		fs.popRegister(stepIndex);
 		fs.popRegister(hiIndex);
 		fs.popRegister(loIndex);
+	}
 
+	public override ForeachStmt visit(ForeachStmt s)
+	{
+		visitForeach(s.location, s.endLocation, s.indices, s.container, { visit(s.code); });
 		return s;
 	}
-	
-	public override ForeachStmt visit(ForeachStmt s)
+
+	public void visitForeach(CompileLoc location, CompileLoc endLocation, Identifier[] indices, Expression[] container, void delegate() genBody)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -2388,91 +2406,89 @@ class Codegen : Visitor
 
 			auto baseReg = fs.nextRegister();
 			auto generator = fs.nextRegister();
-			visit(s.container[0]);
-			
+			visit(container[0]);
+
 			uint invState = void;
 			uint control = void;
 
-			if(s.container.length == 3)
+			if(container.length == 3)
 			{
-				fs.popMoveTo(s.container[0].location.line, generator);
+				fs.popMoveTo(container[0].location.line, generator);
 				fs.pushRegister();
 
 				invState = fs.nextRegister();
-				visit(s.container[1]);
-				fs.popMoveTo(s.container[1].location.line, invState);
+				visit(container[1]);
+				fs.popMoveTo(container[1].location.line, invState);
 				fs.pushRegister();
 
 				control = fs.nextRegister();
-				visit(s.container[2]);
-				fs.popMoveTo(s.container[2].location.line, control);
+				visit(container[2]);
+				fs.popMoveTo(container[2].location.line, control);
 				fs.pushRegister();
 			}
-			else if(s.container.length == 2)
+			else if(container.length == 2)
 			{
-				fs.popMoveTo(s.container[0].location.line, generator);
+				fs.popMoveTo(container[0].location.line, generator);
 				fs.pushRegister();
 
 				invState = fs.nextRegister();
-				visit(s.container[1]);
+				visit(container[1]);
 
-				if(s.container[1].isMultRet())
+				if(container[1].isMultRet())
 				{
-					fs.popToRegisters(s.container[1].location.line, invState, 2);
+					fs.popToRegisters(container[1].location.line, invState, 2);
 					fs.pushRegister();
 					control = fs.pushRegister();
 				}
 				else
 				{
-					fs.popMoveTo(s.container[1].location.line, invState);
+					fs.popMoveTo(container[1].location.line, invState);
 					fs.pushRegister();
 					control = fs.pushRegister();
-					fs.codeNulls(s.container[1].location.line, control, 1);
+					fs.codeNulls(container[1].location.line, control, 1);
 				}
 			}
 			else
 			{
-				if(s.container[0].isMultRet())
+				if(container[0].isMultRet())
 				{
-					fs.popToRegisters(s.container[0].location.line, generator, 3);
+					fs.popToRegisters(container[0].location.line, generator, 3);
 					fs.pushRegister();
 					invState = fs.pushRegister();
 					control = fs.pushRegister();
 				}
 				else
 				{
-					fs.popMoveTo(s.container[0].location.line, generator);
+					fs.popMoveTo(container[0].location.line, generator);
 					fs.pushRegister();
 					invState = fs.pushRegister();
 					control = fs.pushRegister();
-					fs.codeNulls(s.container[0].endLocation.line, invState, 2);
+					fs.codeNulls(container[0].endLocation.line, invState, 2);
 				}
 			}
 
-			auto beginJump = fs.makeJump(s.location.line);
+			auto beginJump = fs.makeJump(location.line);
 			auto beginLoop = fs.here();
 
-			foreach(i; s.indices)
+			foreach(i; indices)
 				fs.insertLocal(i);
 
-			fs.activateLocals(s.indices.length);
-			visit(s.code);
+			fs.activateLocals(indices.length);
+			genBody();
 
 			fs.patchJumpToHere(beginJump);
-			fs.closeUpvals(s.endLocation.line);
+			fs.closeUpvals(endLocation.line);
 			fs.patchContinuesToHere();
-			fs.codeI(s.endLocation.line, Op.Foreach, baseReg, s.indices.length);
-			
-			auto gotoBegin = fs.makeJump(s.endLocation.line, Op.Je);
+			fs.codeI(endLocation.line, Op.Foreach, baseReg, indices.length);
+
+			auto gotoBegin = fs.makeJump(endLocation.line, Op.Je);
 			fs.patchJumpTo(gotoBegin, beginLoop);
 			fs.patchBreaksToHere();
-		fs.popScope(s.endLocation.line);
+		fs.popScope(endLocation.line);
 
 		fs.popRegister(control);
 		fs.popRegister(invState);
 		fs.popRegister(generator);
-
-		return s;
 	}
 
 	public override SwitchStmt visit(SwitchStmt s)
@@ -3287,25 +3303,6 @@ class Codegen : Visitor
 		return e;
 	}
 
-	public override AppendStmt visit(AppendStmt s)
-	{
-		visit(s.arrayName);
-		fs.pushSource(s.arrayName.endLocation.line);
-
-		Exp src1;
-		fs.popSource(s.arrayName.endLocation.line, src1);
-		visit(s.value);
-		Exp src2;
-		fs.popSource(s.endLocation.line, src2);
-
-		fs.freeExpTempRegs(src2);
-		fs.freeExpTempRegs(src1);
-
-		fs.popReflexOp(s.endLocation.line, Op.Append, src1.index, src2.index);
-
-		return s;
-	}
-	
 	public override YieldExp visit(YieldExp e)
 	{
 		auto firstReg = fs.nextRegister();
@@ -3319,6 +3316,136 @@ class Codegen : Visitor
 		else
 			fs.pushYield(e.endLocation.line, firstReg, e.args.length + 1);
 			
+		return e;
+	}
+
+	public override TableComprehension visit(TableComprehension e)
+	{
+		auto tempReg = fs.pushRegister();
+		fs.codeI(e.location.line, Op.NewTable, tempReg, 0);
+
+		visitForComp(e.forComp,
+		{
+			visit(e.key);
+			Exp src1;
+			fs.popSource(e.key.location.line, src1);
+			visit(e.value);
+			Exp src2;
+			fs.popSource(e.value.location.line, src2);
+			fs.freeExpTempRegs(src2);
+			fs.freeExpTempRegs(src1);
+			fs.codeR(e.key.location.line, Op.IndexAssign, tempReg, src1.index, src2.index);
+		});
+
+		fs.pushTempReg(tempReg);
+		return e;
+	}
+	
+	public override ArrayComprehension visit(ArrayComprehension e)
+	{
+		auto tempReg = fs.pushRegister();
+		fs.codeI(e.location.line, Op.NewArray, tempReg, 0);
+
+		visitForComp(e.forComp,
+		{
+			visit(e.exp);
+			Exp src;
+			fs.popSource(e.exp.location.line, src);
+			fs.freeExpTempRegs(src);
+			fs.codeR(e.exp.location.line, Op.Append, tempReg, src.index, 0);
+		});
+
+		fs.pushTempReg(tempReg);
+		return e;
+	}
+
+	public ForComprehension visitForComp(ForComprehension e, void delegate() inner)
+	{
+		if(auto x = e.as!(ForeachComprehension))
+			return visit(x, inner);
+		else
+		{
+			auto x = e.as!(ForNumComprehension);
+			assert(x !is null);
+			return visit(x, inner);
+		}
+	}
+
+	public ForeachComprehension visit(ForeachComprehension e, void delegate() inner)
+	{
+		auto newInner = inner;
+
+		if(e.ifComp)
+		{
+			if(e.forComp)
+			{
+				newInner =
+				{
+					visit(e.ifComp,
+					{
+						visitForComp(e.forComp, inner);
+					});
+				};
+			}
+			else
+			{
+				newInner =
+				{
+					visit(e.ifComp, inner);
+				};
+			}
+		}
+		else if(e.forComp)
+		{
+			newInner =
+			{
+				visitForComp(e.forComp, inner);
+			};
+		}
+
+		visitForeach(e.location, e.endLocation, e.indices, e.container, inner);
+		return e;
+	}
+
+	public ForNumComprehension visit(ForNumComprehension e, void delegate() inner)
+	{
+		auto newInner = inner;
+
+		if(e.ifComp)
+		{
+			if(e.forComp)
+			{
+				newInner =
+				{
+					visit(e.ifComp,
+					{
+						visitForComp(e.forComp, inner);
+					});
+				};
+			}
+			else
+			{
+				newInner =
+				{
+					visit(e.ifComp, inner);
+				};
+			}
+		}
+		else if(e.forComp)
+		{
+			newInner =
+			{
+				visitForComp(e.forComp, inner);
+			};
+		}
+
+		visitForNum(e.location, e.endLocation, e.lo, e.hi, e.step, e.index, newInner);
+		return e;
+	}
+
+	public IfComprehension visit(IfComprehension e, void delegate() inner)
+	{
+		visitIf(e.location, e.endLocation, e.endLocation, null, e.condition, inner, null);
 		return e;
 	}
 

@@ -28,6 +28,7 @@ import tango.stdc.ctype;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
+import minid.compiler;
 import minid.interpreter;
 import minid.types;
 
@@ -552,6 +553,96 @@ public void setRegistryVar(MDThread* t, char[] name)
 	swap(t);
 	fielda(t, -2, name);
 	pop(t);
+}
+
+/**
+Similar to the _loadString function in the MiniD base library, this compiles some statements
+into a function that takes variadic arguments and pushes that function onto the stack.
+
+Params:
+	code = The source _code of the function.  This should be one or more statements.
+	customEnv = If true, expects the value on top of the stack to be a namespace which will be
+		set as the environment of the new function.  The namespace will be replaced.  Defaults
+		to false, in which case the current function's environment will be used.
+	name = The _name to give the function.  Defaults to "<loaded by loadString>".
+	
+Returns:
+	The stack index of the newly-compiled function.
+*/
+public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
+{
+	if(customEnv)
+	{
+		if(!isNamespace(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+		}
+	}
+	else
+		pushEnvironment(t);
+
+	{
+		scope c = new Compiler(t);
+		c.compileStatements(code, name);
+	}
+
+	swap(t);
+	setFuncEnv(t, -2);
+
+	return stackSize(t) - 1;
+}
+
+/**
+This is a quick way to run some MiniD code.  Basically this just calls loadString and then runs
+the resulting function with no parameters.  This function's parameters are the same as loadString's.
+*/
+public void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
+{
+	loadString(t, code, customEnv, name);
+	pushNull(t);
+	rawCall(t, -2, 0);
+}
+
+/**
+Similar to the _eval function in the MiniD base library, this compiles an expression, evaluates it,
+and leaves the result(s) on the stack.  
+
+Params:
+	code = The source _code of the expression.
+	numReturns = How many return values you want from the expression.  Defaults to 1.  Works just like
+		the _numReturns parameter of the call functions; -1 gets all return values.
+	customEnv = If true, expects the value on top of the stack to be a namespace which will be
+		used as the environment of the expression.  The namespace will be replaced.  Defaults
+		to false, in which case the current function's environment will be used.
+		
+Returns:
+	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
+	returned.
+*/
+public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
+{
+	if(customEnv)
+	{
+		if(!isNamespace(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+		}
+	}
+	else
+		pushEnvironment(t);
+
+	{
+		scope c = new Compiler(t);
+		c.compileExpression(code, "<loaded by eval>");
+	}
+
+	swap(t);
+	setFuncEnv(t, -2);
+
+	pushNull(t);
+	return rawCall(t, -2, numReturns);
 }
 
 // ================================================================================================================================================

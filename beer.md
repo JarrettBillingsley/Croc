@@ -27,4 +27,4 @@ v==0?"no more":toString(v),v==0?"Go to the store and buy some more":
 v==0?"No more":toString(v),v==1?"bottle":"bottles",v==0?"no more":toString(v),
 v==0?"Go to the store and buy some more":"Take one down and pass it around",
 v==0?"99":v==1?"no more":toString(v-1),v==2?"bottle":"bottles") for v in 100 .. 0]
-.each(\(_,v)->writeln(v))
+.each(\_,v->writeln(v))

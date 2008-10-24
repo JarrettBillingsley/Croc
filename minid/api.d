@@ -1,4 +1,7 @@
 /******************************************************************************
+This module publicly imports the following modules: minid.alloc, minid.ex,
+minid.interpreter, minid.serialization, minid.types, minid.utils, and minid.vm.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
@@ -27,12 +30,11 @@ public
 {
 	import minid.alloc;
 	import minid.ex;
-	import minid.gc;
+	import minid.interpreter;
 	import minid.serialization;
 	import minid.types;
 	import minid.utils;
 	import minid.vm;
-	import minid.interpreter;
 }
 
 debug
@@ -90,7 +92,9 @@ library can perform formatting without allocating memory later.
 
 Params:
 	vm = The VM object to initialize.  $(B This object must have been allocated somewhere in D
-		memory) (either on the stack or with 'new').
+		memory) (either on the stack or with 'new').  If it's not in D's memory, you must inform
+		the D GC of its existence, or else D will blindly collect objects that the MiniD VM
+		references.
 	memFunc = The memory allocation function to use to allocate this VM.  The VM's allocation
 		function will be set to this after creation.  Defaults to DefaultMemFunc, which uses
 		the C allocator.
@@ -123,7 +127,7 @@ public enum MDStdlib
 	None =      0,
 
 	/**
-	Array manipulation.
+	_Array manipulation.
 	*/
 	Array =     1,
 
@@ -143,17 +147,17 @@ public enum MDStdlib
 	Math =      8,
 
 	/**
-	String manipulation.
+	_String manipulation.
 	*/
 	String =   16,
 
 	/**
-	Hash (table and namespace) manipulation.
+	_Hash (table and namespace) manipulation.
 	*/
 	Hash =    32,
 
 	/**
-	OS-specific functionality.
+	_OS-specific functionality.
 	*/
 	OS =       64,
 
@@ -163,7 +167,7 @@ public enum MDStdlib
 	Regexp =  128,
 	
 	/**
-	Time functions.
+	_Time functions.
 	*/
 	Time = 256,
 
@@ -175,7 +179,7 @@ public enum MDStdlib
 	Safe = Array | Char | Math | String | Hash | Regexp | Time,
 
 	/**
-	All available standard libraries.
+	_All available standard libraries.
 	*/
 	All = Safe | IO | OS,
 }

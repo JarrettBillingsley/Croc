@@ -6512,54 +6512,15 @@ void pushDebugLocStr(MDThread* t, ref Location loc)
 			cat(t, 4);
 		}
 	}
-// 	if(t.currentAR is null || t.currentAR.func is null)
-// 		pushString(t, "<no location available>");
-// 	else
-// 	{
-// 		pushNamespaceNamestring(t, t.currentAR.func.environment);
-//
-// 		if(getString(t, -1) == "")
-// 			dup(t);
-// 		else
-// 			pushChar(t, '.');
-//
-// 		pushStringObj(t, t.currentAR.func.name);
-//
-// 		if(t.currentAR.func.isNative)
-// 		{
-// 			pushString(t, "(native)");
-// 			cat(t, 4);
-// 		}
-// 		else
-// 		{
-// 			auto def = t.currentAR.func.scriptFunc;
-//
-// 			word line = -1;
-// 			uword instructionIndex = t.currentAR.pc - def.code.ptr - 1;
-//
-// 			if(instructionIndex < def.lineInfo.length)
-// 				line = def.lineInfo[instructionIndex];
-//
-// 			pushChar(t, '(');
-//
-// 			if(line == -1)
-// 				pushChar(t, '?');
-// 			else
-// 				pushFormat(t, "{}", line);
-//
-// 			pushChar(t, ')');
-// 			cat(t, 6);
-// 		}
-// 	}
 }
 
 void throwImpl(MDThread* t, MDValue* ex)
 {
-	// doing this backwards since ex can be on the stack - don't want stack to move underneath us
-	toStringImpl(t, *ex, true);
-	pushString(t, ": ");
+	auto exSave = *ex;
+
 	pushDebugLocStr(t, getDebugLoc(t));
-	swap(t, -3);
+	pushString(t, ": ");
+	toStringImpl(t, exSave, true);
 	cat(t, 3);
 
 	t.vm.alloc.resizeArray(t.vm.traceback, 0);
@@ -6568,7 +6529,7 @@ void throwImpl(MDThread* t, MDValue* ex)
 	auto msg = getString(t, -1).dup;
 	pop(t);
 
-	t.vm.exception = *ex;
+	t.vm.exception = exSave;
 	t.vm.isThrowing = true;
 	throw new MDException(msg);
 }
@@ -6755,7 +6716,7 @@ void execute(MDThread* t, uword depth = 1)
 						}
 					}
 					break;
-					
+
 				case Op.Equals:
 					auto jump = t.currentAR.pc;
 					t.currentAR.pc++;
@@ -7098,7 +7059,7 @@ void execute(MDThread* t, uword depth = 1)
 
 						goto _reentry;
 					}
-					
+
 					// Do nothing for native calls.  The following return instruction will catch it.
 					break;
 			}
@@ -7130,7 +7091,7 @@ void execute(MDThread* t, uword depth = 1)
 
 					close(t, stackBase);
 					callEpilogue(t, true);
-					
+
 					depth--;
 
 					if(depth == 0)

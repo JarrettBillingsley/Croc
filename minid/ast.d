@@ -79,7 +79,6 @@ const char[][] AstTagNames =
 	"IncStmt",
 	"DecStmt",
 	"FuncEnvStmt",
-	"AppendStmt",
 	"TypecheckStmt",
 
 	"CondExp",
@@ -973,7 +972,7 @@ class IfStmt : Statement
 	to "x".  This member may be null, in which case there is no variable there.
 	*/
 	public IdentExp condVar;
-	
+
 	/**
 	The condition to test.
 	*/
@@ -1165,7 +1164,7 @@ class ForNumStmt : Statement
 	never null.  If constant, it must be an int.
 	*/
 	public Expression step;
-	
+
 	/**
 	The code inside the loop.
 	*/
@@ -1744,31 +1743,6 @@ class FuncEnvStmt : Statement
 		super(c, location, location, AstTag.FuncEnvStmt);
 		this.funcName = funcName;
 		this.envName = envName;
-	}
-}
-
-/**
-This node is an internal node used when rewriting array comprehensions.  It is used to append the
-values of the comprehension onto the array being built, and differs from a CatAssignStmt in that
-arrays will be appended as single elements, rather than having their elements concatenated.
-*/
-class AppendStmt : Statement
-{
-	/**
-	*/
-	public IdentExp arrayName;
-
-	/**
-	*/
-	public Expression value;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, IdentExp arrayName, Expression value)
-	{
-		super(c, location, location, AstTag.AppendStmt);
-		this.arrayName = arrayName;
-		this.value = value;
 	}
 }
 
@@ -3271,12 +3245,12 @@ class ArrayComprehension : PrimaryExp
 	are used to construct the array.
 	*/
 	public Expression exp;
-	
+
 	/**
 	The root of the comprehension tree.
 	*/
 	public ForComprehension forComp;
-	
+
 	/**
 	*/
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
