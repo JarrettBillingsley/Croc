@@ -211,7 +211,9 @@ final class FuncState
 	package MDFuncDef*[] mInnerFuncs;
 	package MDValue[] mConstants;
 	package Instruction[] mCode;
-	
+
+	package uint mNamespaceReg = 0;
+
 	// Purity starts off true, and if any accesses to upvalues or globals occur, it goes false.
 	// Also goes false if any nested func is impure.
 	package bool mIsPure = true;
@@ -1362,7 +1364,7 @@ final class FuncState
 			mIsPure = false;
 
 		auto line = fs.mLocation.line;
-		codeR(line, Op.Closure, destReg, mInnerFuncs.length, 0);
+		codeR(line, Op.Closure, destReg, mInnerFuncs.length, mNamespaceReg);
 
 		foreach(ref ud; fs.mUpvals)
 			codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
@@ -1370,6 +1372,18 @@ final class FuncState
 		auto fd = fs.toFuncDef();
 		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
 		mInnerFuncs[$ - 1] = fd;
+	}
+	
+	public void beginNamespace(uint reg)
+	{
+		assert(mNamespaceReg == 0);
+		mNamespaceReg = reg;
+	}
+	
+	public void endNamespace()
+	{
+		assert(mNamespaceReg != 0);
+		mNamespaceReg = 0;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1792,10 +1806,16 @@ class Codegen : Visitor
 			fs.pushScope(scop);
 				foreach(stmt; m.statements)
 					visit(stmt);
+					
+				if(m.decorator)
+				{
+					visitDecorator(m.decorator, { fs.pushThis(); });
+					fs.popToNothing();
+				}
 
 				fs.codeI(m.endLocation.line, Op.Ret, 0, 1);
 			fs.popScope(m.endLocation.line);
-			
+
 			assert(fs.mExpSP == 0, "module - not all expressions have been popped");
 		}
 		finally
@@ -1813,6 +1833,15 @@ class Codegen : Visitor
 
 	public override ObjectDef visit(ObjectDef d)
 	{
+		auto reg = objectDefBegin(d);
+		objectDefEnd(d, reg);
+		fs.pushTempReg(reg);
+
+		return d;
+	}
+
+	public uint objectDefBegin(ObjectDef d)
+	{
 		visit(d.baseObject);
 		Exp base;
 		fs.popSource(d.location.line, base);
@@ -1822,6 +1851,55 @@ class Codegen : Visitor
 		auto nameConst = d.name is null ? fs.tagConst(fs.codeNullConst()) : fs.tagConst(fs.codeStringConst(d.name.name));
 		fs.codeR(d.location.line, Op.Object, destReg, nameConst, base.index);
 
+		return destReg;
+	}
+
+	public void objectDefEnd(ObjectDef d, uint destReg)
+	{
+		foreach(ref field; d.fields)
+		{
+			auto index = fs.tagConst(fs.codeStringConst(field.name));
+
+			visit(field.initializer);
+			Exp val;
+			fs.popSource(field.initializer.endLocation.line, val);
+			fs.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
+			fs.freeExpTempRegs(val);
+		}
+	}
+	
+	public override NamespaceDef visit(NamespaceDef d)
+	{
+		auto reg = namespaceDefBegin(d);
+		namespaceDefEnd(d, reg);
+		fs.pushTempReg(reg);
+
+		return d;
+	}
+
+	public uint namespaceDefBegin(NamespaceDef d)
+	{
+		auto destReg = fs.pushRegister();
+		auto nameConst = fs.codeStringConst(d.name.name);
+
+		if(d.parent is null)
+			fs.codeR(d.location.line, Op.NamespaceNP, destReg, nameConst, 0);
+		else
+		{
+			visit(d.parent);
+			Exp src;
+			fs.popSource(d.location.line, src);
+			fs.freeExpTempRegs(src);
+			fs.codeR(d.location.line, Op.Namespace, destReg, nameConst, src.index);
+		}
+		
+		fs.beginNamespace(destReg);
+
+		return destReg;
+	}
+
+	public void namespaceDefEnd(NamespaceDef d, uint destReg)
+	{
 		foreach(ref field; d.fields)
 		{
 			auto index = fs.tagConst(fs.codeStringConst(field.name));
@@ -1833,10 +1911,9 @@ class Codegen : Visitor
 			fs.freeExpTempRegs(val);
 		}
 
-		fs.pushTempReg(destReg);
-		return d;
+		fs.endNamespace();
 	}
-	
+
 	public override FuncDef visit(FuncDef d)
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
@@ -2008,23 +2085,138 @@ class Codegen : Visitor
 		debug assert(fs.mFreeReg == freeRegCheck, "not all regs freed");
 		return s;
 	}
-	
-	public override OtherDecl visit(OtherDecl d)
+
+	public void visitDecorator(Decorator d, void delegate() obj)
+	{
+		uword genArgs()
+		{
+			auto firstReg = fs.nextRegister();
+		
+			if(d.nextDec)
+			{
+				visitDecorator(d.nextDec, obj);
+				fs.popMoveTo(d.nextDec.endLocation.line, firstReg);
+			}
+			else
+			{
+				obj();
+				fs.popMoveTo(d.location.line, firstReg);
+			}
+
+			fs.pushRegister();
+			codeGenListToNextReg(d.args);
+			fs.popRegister(firstReg);
+
+			if(d.args.length == 0)
+				return 3;
+			else if(d.args[$ - 1].isMultRet())
+				return 0;
+			else
+				return d.args.length + 3;
+		}
+
+		if(auto dot = d.func.as!(DotExp))
+			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, d.context, &genArgs);
+		else
+			visitCall(d.endLocation, d.func, d.context, &genArgs);
+	}
+
+	public override FuncDecl visit(FuncDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
-			fs.insertLocal(d.name);
+			fs.insertLocal(d.def.name);
 			fs.activateLocals(1);
-			fs.pushVar(d.name);
+			fs.pushVar(d.def.name);
 		}
 		else
 		{
 			assert(d.protection == Protection.Global);
-			fs.pushNewGlobal(d.name);
+			fs.pushNewGlobal(d.def.name);
 		}
 
-		visit(d.expr);
+		visit(d.def);
 		fs.popAssign(d.endLocation.line);
+
+		if(d.decorator)
+		{
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.popAssign(d.endLocation.line);
+		}
+
+		return d;
+	}
+
+	public override ObjectDecl visit(ObjectDecl d)
+	{
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty object in d.name
+		auto reg = objectDefBegin(d.def);
+		fs.pushTempReg(reg);
+		fs.popAssign(d.location.line);
+
+		// evaluate rest of decl
+		auto checkReg = fs.pushRegister();
+		assert(checkReg == reg, "register failcopter");
+		objectDefEnd(d.def, reg);
+		fs.popRegister(reg);
+
+		if(d.decorator)
+		{
+			// reassign decorated object into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.popAssign(d.endLocation.line);
+		}
+
+		return d;
+	}
+	
+	public override NamespaceDecl visit(NamespaceDecl d)
+	{
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty namespace in d.name
+		auto reg = namespaceDefBegin(d.def);
+		fs.pushTempReg(reg);
+		fs.popAssign(d.location.line);
+
+		// evaluate rest of decl
+		auto checkReg = fs.pushRegister();
+		assert(checkReg == reg, "register failcopter");
+		namespaceDefEnd(d.def, reg);
+		fs.popRegister(reg);
+
+		if(d.decorator)
+		{
+			// reassign decorated namespace into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.popAssign(d.endLocation.line);
+		}
+
 		return d;
 	}
 
@@ -2994,92 +3186,110 @@ class Codegen : Visitor
 	
 	public override MethodCallExp visit(MethodCallExp e)
 	{
+		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, e.context, delegate uword()
+		{
+			codeGenListToNextReg(e.args);
+
+			if(e.args.length == 0)
+				return 2;
+			else if(e.args[$ - 1].isMultRet())
+				return 0;
+			else
+				return e.args.length + 2;
+		});
+
+		return e;
+	}
+
+	public void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, Expression context, uword delegate() genArgs)
+	{
 		auto funcReg = fs.nextRegister();
 		Exp src;
 
-		if(e.isSuperCall)
+		if(isSuperCall)
 			fs.pushThis();
 		else
-			visit(e.op);
+			visit(op);
 
-		fs.popSource(e.location.line, src);
+		fs.popSource(location.line, src);
 		fs.freeExpTempRegs(src);
 		assert(fs.nextRegister() == funcReg);
 
 		fs.pushRegister();
 
 		Exp meth;
-		visit(e.method);
-		fs.popSource(e.method.endLocation.line, meth);
+		visit(method);
+		fs.popSource(method.endLocation.line, meth);
 		fs.freeExpTempRegs(meth);
 
 		auto thisReg = fs.nextRegister();
 
-		if(e.context)
+		if(context)
 		{
-			assert(!e.isSuperCall);
-			visit(e.context);
-			fs.popMoveTo(e.context.endLocation.line, thisReg);
+			assert(!isSuperCall);
+			visit(context);
+			fs.popMoveTo(context.endLocation.line, thisReg);
 		}
 
 		fs.pushRegister();
 
-		codeGenListToNextReg(e.args);
+		auto numRets = genArgs();
 
 		Op opcode = void;
 
-		if(e.context is null)
-			opcode = e.isSuperCall ? Op.SuperMethod : Op.Method;
+		if(context is null)
+			opcode = isSuperCall ? Op.SuperMethod : Op.Method;
 		else
 			opcode = Op.MethodNC;
 
-		fs.codeR(e.endLocation.line, opcode, funcReg, src.index, meth.index);
+		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
 		fs.popRegister(thisReg);
-
-		if(e.args.length == 0)
-			fs.pushCall(e.endLocation.line, funcReg, 2);
-		else if(e.args[$ - 1].isMultRet())
-			fs.pushCall(e.endLocation.line, funcReg, 0);
-		else
-			fs.pushCall(e.endLocation.line, funcReg, e.args.length + 2);
-
-		return e;
+		fs.pushCall(endLocation.line, funcReg, numRets);
 	}
 	
 	public override CallExp visit(CallExp e)
 	{
+		visitCall(e.endLocation, e.op, e.context, delegate uword()
+		{
+			codeGenListToNextReg(e.args);
+
+			if(e.args.length == 0)
+				return 2;
+			else if(e.args[$ - 1].isMultRet())
+				return 0;
+			else
+				return e.args.length + 2;
+		});
+
+		return e;
+	}
+
+	public void visitCall(CompileLoc endLocation, Expression op, Expression context, uword delegate() genArgs)
+	{
 		auto funcReg = fs.nextRegister();
 
-		visit(e.op);
-		fs.popMoveTo(e.op.endLocation.line, funcReg);
+		visit(op);
+		fs.popMoveTo(op.endLocation.line, funcReg);
 
 		assert(fs.nextRegister() == funcReg);
 
 		fs.pushRegister();
 		auto thisReg = fs.nextRegister();
 
-		if(e.context)
-			visit(e.context);
+		if(context)
+			visit(context);
 		else
 			fs.pushNull();
 
-		fs.popMoveTo(e.op.endLocation.line, thisReg);
+		fs.popMoveTo(op.endLocation.line, thisReg);
 		fs.pushRegister();
 
-		codeGenListToNextReg(e.args);
+		auto numRets = genArgs();
 
 		fs.popRegister(thisReg);
-
-		if(e.args.length == 0)
-			fs.pushCall(e.endLocation.line, funcReg, 2);
-		else if(e.args[$ - 1].isMultRet())
-			fs.pushCall(e.endLocation.line, funcReg, 0);
-		else
-			fs.pushCall(e.endLocation.line, funcReg, e.args.length + 2);
-
-		return e;
+		fs.pushCall(endLocation.line, funcReg, numRets);
 	}
-	
+
 	public override IndexExp visit(IndexExp e)
 	{
 		visit(e.op);
@@ -3195,6 +3405,12 @@ class Codegen : Visitor
 		return e;
 	}
 	
+	public override NamespaceCtorExp visit(NamespaceCtorExp e)
+	{
+		visit(e.def);
+		return e;
+	}
+	
 	public override ParenExp visit(ParenExp e)
 	{
 		assert(e.exp.isMultRet(), "ParenExp codeGen not multret");
@@ -3211,30 +3427,6 @@ class Codegen : Visitor
 		return e;
 	}
 	
-	public override RawNamespaceExp visit(RawNamespaceExp e)
-	{
-		auto nameIdx = fs.codeStringConst(e.name.name);
-
-		if(e.parent is null)
-		{
-			auto exp = fs.pushExp();
-			exp.type = ExpType.NeedsDest;
-			exp.index = fs.codeR(e.location.line, Op.NamespaceNP, 0, nameIdx, 0);
-		}
-		else
-		{
-			visit(e.parent);
-			Exp src;
-			fs.popSource(e.location.line, src);
-			fs.freeExpTempRegs(src);
-			auto exp = fs.pushExp();
-			exp.type = ExpType.NeedsDest;
-			exp.index = fs.codeR(e.location.line, Op.Namespace, 0, nameIdx, src.index);
-		}
-
-		return e;
-	}
-
 	public override TableCtorExp visit(TableCtorExp e)
 	{
 		auto destReg = fs.pushRegister();
@@ -3493,7 +3685,7 @@ class Codegen : Visitor
 
 	// ---------------------------------------------------------------------------
 	// Condition codegen
-	
+
 	package InstRef codeCondition(Expression e)
 	{
 		switch(e.type)
@@ -3663,7 +3855,7 @@ class Codegen : Visitor
 		visit(e.exp);
 		fs.popMoveTo(e.endLocation.line, temp);
 		fs.codeR(e.endLocation.line, Op.IsTrue, 0, temp, 0);
-		
+
 		InstRef ret;
 		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, true);
 		return ret;

@@ -145,7 +145,7 @@ CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: dest, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Close.............I: reg start, n/a
-Closure...........R: dest, index of funcdef, n/a
+Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
 CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
@@ -309,7 +309,7 @@ align(1) struct Instruction
 			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Close:           return Format("close r{}", rd);
-			case Op.Closure:         return Format("closure {}, {}", cr(rd), rs);
+			case Op.Closure:         return rt == 0 ? Format("closure {}, {}", cr(rd), rs) : Format("closure {}, {}, r{}", cr(rd), rs, rt);
 			case Op.CondMove:        return Format("cmov {}, {}", cr(rd), cr(rs));
 			case Op.Coroutine:       return Format("coroutine {}, {}", cr(rd), cr(rs));
 			case Op.Cmp:             return Format("cmp {}, {}", cr(rs), cr(rt));

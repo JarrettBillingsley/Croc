@@ -29,12 +29,6 @@ import minid.interpreter;
 import minid.lexer;
 import minid.types;
 
-struct Decorators
-{
-	Expression exp;
-	Expression* dest;
-}
-
 struct Parser
 {
 	private ICompiler c;
@@ -94,7 +88,7 @@ struct Parser
 	public Module parseModule()
 	{
 		auto location = l.loc;
-		Decorators dec;
+		Decorator dec;
 
 		if(l.type == Token.At)
 			dec = parseDecorators();
@@ -119,14 +113,7 @@ struct Parser
 			statements ~= parseStatement();
 
 		l.expect(Token.EOF);
-		
-		if(dec.exp !is null)
-		{
-			*dec.dest = new(c) ThisExp(c, l.loc);
-			statements ~= new(c) ExpressionStmt(c, dec.exp.location, dec.exp.endLocation, dec.exp);
-		}
-
-		return new(c) Module(c, location, l.loc, names.toArray(), statements.toArray());
+		return new(c) Module(c, location, l.loc, names.toArray(), statements.toArray(), dec);
 	}
 
 	/**
@@ -273,27 +260,25 @@ struct Parser
 	
 	/**
 	*/
-	public Decorators parseDecorators()
+	public Decorator parseDecorators()
 	{
-		Expression parseDecorator(out Expression* dest)
+		Decorator parseDecorator()
 		{
 			l.expect(Token.At);
 
-			Expression name = parseIdentExp();
+			Expression func = parseIdentExp();
 
 			while(l.type == Token.Dot)
 			{
 				l.next();
 				auto tok = l.expect(Token.Ident);
-				name = new(c) DotExp(c, name, new(c) StringExp(c, tok.loc, tok.stringValue));
+				func = new(c) DotExp(c, func, new(c) StringExp(c, tok.loc, tok.stringValue));
 			}
 
-			Expression context;
-
 			scope args = new List!(Expression)(c.alloc);
-			args ~= cast(Expression)null;
 
-			CompileLoc endLocation;
+			Expression context;
+			CompileLoc endLocation = void;
 
 			if(l.type == Token.LParen)
 			{
@@ -321,83 +306,57 @@ struct Parser
 
 				endLocation = l.expect(Token.RParen).loc;
 			}
-
-			if(auto dot = name.as!(DotExp))
-			{
-				auto ret = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, null, args.toArray(), false);
-				dest = &ret.args[0];
-				return ret;
-			}
 			else
-			{
-				auto ret = new(c) CallExp(c, endLocation, name, context, args.toArray());
-				dest = &ret.args[0];
-				return ret;
-			}
+				endLocation = func.endLocation;
+
+			return new(c) Decorator(c, func.location, endLocation, func, context, args.toArray(), null);
 		}
 
-		Decorators ret;
-		ret.exp = parseDecorator(ret.dest);
+		auto first = parseDecorator();
+		auto cur = first;
 
 		while(l.type == Token.At)
 		{
-			Expression* dest;
-			auto e = parseDecorator(dest);
-			*ret.dest = e;
-			ret.dest = dest;
+			cur.nextDec = parseDecorator();
+			cur = cur.nextDec;
 		}
 
-		return ret;
+		return first;
 	}
-	
+
 	/**
 	*/
-	public DeclStmt parseDeclStmt()
+	public Statement parseDeclStmt()
 	{
-		Decorators dec;
+		Decorator deco;
 
 		if(l.type == Token.At)
-			dec = parseDecorators();
+			deco = parseDecorators();
 
-		auto stmt = parseBaseDeclStmt();
-		
-		if(dec.exp !is null)
-		{
-			if(stmt.as!(VarDecl))
-				c.exception(stmt.location, "Cannot put decorators on variable declarations");
-
-			auto o = stmt.as!(OtherDecl);
-
-			*dec.dest = o.expr;
-			o.expr = dec.exp;
-		}
-		
-		return stmt;
-	}
-
-	public DeclStmt parseBaseDeclStmt()
-	{
 		switch(l.type)
 		{
 			case Token.Local, Token.Global:
 				switch(l.peek.type)
 				{
 					case Token.Ident:
+						if(deco !is null)
+							c.exception(l.loc, "Cannot put decorators on variable declarations");
+
 						auto ret = parseVarDecl();
 						l.statementTerm();
 						return ret;
 
-					case Token.Function:  return parseFuncDecl();
-					case Token.Object:    return parseObjectDecl();
-					case Token.Namespace: return parseNamespaceDecl();
+					case Token.Function:  return parseFuncDecl(deco);
+					case Token.Object:    return parseObjectDecl(deco);
+					case Token.Namespace: return parseNamespaceDecl(deco);
 
 					default:
 						c.exception(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
-			case Token.Function:  return parseFuncDecl();
-			case Token.Object:    return parseObjectDecl();
-			case Token.Namespace: return parseNamespaceDecl();
+			case Token.Function:  return parseFuncDecl(deco);
+			case Token.Object:    return parseObjectDecl(deco);
+			case Token.Namespace: return parseNamespaceDecl(deco);
 
 			default:
 				l.expected("Declaration");
@@ -452,7 +411,7 @@ struct Parser
 	/**
 	Parse a function declaration, optional protection included.
 	*/
-	public OtherDecl parseFuncDecl()
+	public FuncDecl parseFuncDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -467,9 +426,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-		
+
 		auto def = parseSimpleFuncDef();
-		return new(c) OtherDecl(c, protection, def.name, new(c) FuncLiteralExp(c, location, def));
+		return new(c) FuncDecl(c, location, protection, def, deco);
 	}
 	
 	/**
@@ -809,7 +768,7 @@ struct Parser
 	/**
 	Parse an object declaration, optional protection included.
 	*/
-	public OtherDecl parseObjectDecl()
+	public ObjectDecl parseObjectDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -824,9 +783,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-		
+
 		auto def = parseObjectDef(false);
-		return new(c) OtherDecl(c, protection, def.name, new(c) ObjectLiteralExp(c, location, def));
+		return new(c) ObjectDecl(c, location, protection, def, deco);
 	}
 	
 	/**
@@ -900,8 +859,19 @@ struct Parser
 					auto dec = parseDecorators();
 					auto fd = parseSimpleFuncDef();
 					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
-					*dec.dest = lit;
-					addField(fd.name, dec.exp);
+
+					scope args = new List!(Expression)(c.alloc);
+					args ~= lit;
+					args ~= dec.args;
+					
+					Expression call;
+
+					if(auto f = dec.func.as!(DotExp))
+						call = new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
+					else
+						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
+
+					addField(fd.name, call);
 					break;
 
 				case Token.Ident:
@@ -936,7 +906,7 @@ struct Parser
 	/**
 	Parse a namespace declaration, optional protection included.
 	*/
-	public OtherDecl parseNamespaceDecl()
+	public NamespaceDecl parseNamespaceDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -951,9 +921,9 @@ struct Parser
 			protection = Protection.Local;
 			l.next();
 		}
-		
+
 		auto def = parseNamespaceDef();
-		return new(c) OtherDecl(c, protection, def.name, new(c) NamespaceCtorExp(c, location, def));
+		return new(c) NamespaceDecl(c, location, protection, def, deco);
 	}
 	
 	/**
@@ -1008,6 +978,25 @@ struct Parser
 				case Token.Function:
 					auto fd = parseSimpleFuncDef();
 					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd));
+					break;
+
+				case Token.At:
+					auto dec = parseDecorators();
+					auto fd = parseSimpleFuncDef();
+					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
+
+					scope args = new List!(Expression)(c.alloc);
+					args ~= lit;
+					args ~= dec.args;
+
+					Expression call;
+
+					if(auto f = dec.func.as!(DotExp))
+						call = new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
+					else
+						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
+
+					addField(fd.name.name, call);
 					break;
 
 				case Token.Ident:

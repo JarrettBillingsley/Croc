@@ -50,6 +50,9 @@ class Semantic : IdentityVisitor
 	{
 		foreach(ref stmt; m.statements)
 			stmt = visit(stmt);
+			
+		if(m.decorator)
+			m.decorator = visit(m.decorator);
 
 		return m;
 	}
@@ -57,16 +60,6 @@ class Semantic : IdentityVisitor
 	public FuncDef visitStatements(FuncDef d)
 	{
 		return visitFuncDef(d);	
-	}
-
-	public override ObjectDef visit(ObjectDef d)
-	{
-		d.baseObject = visit(d.baseObject);
-
-		foreach(ref field; d.fields)
-			field.initializer = visit(field.initializer);
-
-		return d;
 	}
 
 	public override FuncDef visit(FuncDef d)
@@ -133,7 +126,17 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 	
-	public override Expression visit(NamespaceDef d)
+	public override ObjectDef visit(ObjectDef d)
+	{
+		d.baseObject = visit(d.baseObject);
+
+		foreach(ref field; d.fields)
+			field.initializer = visit(field.initializer);
+
+		return d;
+	}
+
+	public override NamespaceDef visit(NamespaceDef d)
 	{
 		if(d.parent)
 			visit(d.parent);
@@ -141,86 +144,88 @@ class Semantic : IdentityVisitor
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);
 
-		/*
-		To codegen:
+		return d;
 
-		namespace N
-		{
-			function f() {}
-			g = 5
-			h = function() {}
-		}
-
-		Do it as:
-
-		local temp = raw_namespace N
-		??? N = temp
-		foreach(field)
-		{
-			local temp2 = field.initializer
-			funcenv temp2, temp
-			temp.(field.name) = temp2
-		}
-		evaluate_to temp
-		*/
-
-		scope funcBody = new List!(Statement)(c.alloc);
-
-		{
-			// local raw_namespace N {}
-			{
-				scope dummy = new List!(Identifier)(c.alloc);
-				dummy ~= d.name;
-				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent);
-				funcBody ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, dummy.toArray(), init);
-			}
-	
-			// local function __temp()
-			Identifier innerFuncName;
-	
-			{
-				// {
-				//     N.f = function f() {}
-				// }
-	
-				scope stmts = new List!(Statement)(c.alloc);
-	
-				foreach(field; d.fields)
-				{
-					scope lhs = new List!(Expression)(c.alloc);
-					lhs ~= new(c) DotExp(c, new(c) IdentExp(c, d.name), new(c) StringExp(c, field.initializer.location, field.name));
-					stmts ~= new(c) AssignStmt(c, field.initializer.location, field.initializer.endLocation, lhs.toArray(), field.initializer);
-				}
-	
-				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
-				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
-
-				scope params = new List!(FuncDef.Param)(c.alloc);
-				params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
-				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, params.toArray(), false, innerFuncBody);
-				auto lit = new(c) FuncLiteralExp(c, d.location, innerFuncDef);
-				funcBody ~= new(c) OtherDecl(c, Protection.Local, innerFuncName, lit);
-			}
-	
-			// funcenv __temp, N
-			funcBody ~= new(c) FuncEnvStmt(c, d.location, innerFuncName, d.name);
-			
-			// __temp()
-			funcBody ~= new(c) ExpressionStmt(c, d.location, d.endLocation, new(c) CallExp(c, d.endLocation, new(c) IdentExp(c, innerFuncName), null, null));
-	
-			// return N
-			{
-				scope dummy = new List!(Expression)(c.alloc);
-				dummy ~= new(c) IdentExp(c, d.name);
-				funcBody ~= new(c) ReturnStmt(c, d.location, d.location, dummy.toArray());
-			}
-		}
-
-		scope params = new List!(FuncDef.Param)(c.alloc);
-		params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
-		auto funcDef = new(c) FuncDef(c, d.location, d.name, params.toArray(), false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
-		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
-		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
+// 		/*
+// 		To codegen:
+// 
+// 		namespace N
+// 		{
+// 			function f() {}
+// 			g = 5
+// 			h = function() {}
+// 		}
+// 
+// 		Do it as:
+// 
+// 		local temp = raw_namespace N
+// 		??? N = temp
+// 		each field
+// 		{
+// 			local temp2 = field.initializer
+// 			if(field.initializer is func literal) funcenv temp2, temp
+// 			temp.(field.name) = temp2
+// 		}
+// 		evaluate_to temp
+// 		*/
+// 
+// 		scope funcBody = new List!(Statement)(c.alloc);
+// 
+// 		{
+// 			// local raw_namespace N {}
+// 			{
+// 				scope dummy = new List!(Identifier)(c.alloc);
+// 				dummy ~= d.name;
+// 				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent);
+// 				funcBody ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, dummy.toArray(), init);
+// 			}
+// 	
+// 			// local function __temp()
+// 			Identifier innerFuncName;
+// 	
+// 			{
+// 				// {
+// 				//     N.f = function f() {}
+// 				// }
+// 	
+// 				scope stmts = new List!(Statement)(c.alloc);
+// 	
+// 				foreach(field; d.fields)
+// 				{
+// 					scope lhs = new List!(Expression)(c.alloc);
+// 					lhs ~= new(c) DotExp(c, new(c) IdentExp(c, d.name), new(c) StringExp(c, field.initializer.location, field.name));
+// 					stmts ~= new(c) AssignStmt(c, field.initializer.location, field.initializer.endLocation, lhs.toArray(), field.initializer);
+// 				}
+//
+// 				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
+// 				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
+//
+// 				scope params = new List!(FuncDef.Param)(c.alloc);
+// 				params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
+// 				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, params.toArray(), false, innerFuncBody);
+// 				auto lit = new(c) FuncLiteralExp(c, d.location, innerFuncDef);
+// 				funcBody ~= new(c) OtherDecl(c, Protection.Local, innerFuncName, lit);
+// 			}
+//
+// 			// funcenv __temp, N
+// 			funcBody ~= new(c) FuncEnvStmt(c, d.location, innerFuncName, d.name);
+//
+// 			// __temp()
+// 			funcBody ~= new(c) ExpressionStmt(c, d.location, d.endLocation, new(c) CallExp(c, d.endLocation, new(c) IdentExp(c, innerFuncName), null, null));
+//
+// 			// return N
+// 			{
+// 				scope dummy = new List!(Expression)(c.alloc);
+// 				dummy ~= new(c) IdentExp(c, d.name);
+// 				funcBody ~= new(c) ReturnStmt(c, d.location, d.location, dummy.toArray());
+// 			}
+// 		}
+//
+// 		scope params = new List!(FuncDef.Param)(c.alloc);
+// 		params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
+// 		auto funcDef = new(c) FuncDef(c, d.location, d.name, params.toArray(), false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
+// 		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
+// 		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
 	}
 
 	public override Statement visit(AssertStmt s)
@@ -242,7 +247,7 @@ class Semantic : IdentityVisitor
 
 		auto cond = new(c) NotExp(c, s.cond.location, s.cond);
 		auto t = new(c) ThrowStmt(c, s.msg.location, s.msg);
-		return new(c) IfStmt(c, s.location, s.endLocation, null, cond, t, null);
+		return visit(new(c) IfStmt(c, s.location, s.endLocation, null, cond, t, null));
 	}
 
 	public override ImportStmt visit(ImportStmt s)
@@ -277,13 +282,55 @@ class Semantic : IdentityVisitor
 
 		return d;
 	}
-
-	public override OtherDecl visit(OtherDecl d)
+	
+	public override Decorator visit(Decorator d)
 	{
-		d.expr = visit(d.expr);
+		d.func = visit(d.func);
 
+		foreach(ref a; d.args)
+			a = visit(a);
+
+		if(d.nextDec)
+			d.nextDec = visit(d.nextDec);
+
+		return d;
+	}
+
+	public override FuncDecl visit(FuncDecl d)
+	{
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
+
+		d.def = visit(d.def);
+
+		if(d.decorator !is null)
+			d.decorator = visit(d.decorator);
+
+		return d;
+	}
+
+	public override ObjectDecl visit(ObjectDecl d)
+	{
+		if(d.protection == Protection.Default)
+			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
+
+		d.def = visit(d.def);
+
+		if(d.decorator !is null)
+			d.decorator = visit(d.decorator);
+
+		return d;
+	}
+
+	public override NamespaceDecl visit(NamespaceDecl d)
+	{
+		if(d.protection == Protection.Default)
+			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
+
+		d.def = visit(d.def);
+
+		if(d.decorator !is null)
+			d.decorator = visit(d.decorator);
 
 		return d;
 	}
@@ -1132,7 +1179,7 @@ class Semantic : IdentityVisitor
 	{
 		if(e.op)
 			e.op = visit(e.op);
-			
+
 		e.method = visit(e.method);
 
 		if(e.method.isConstant && !e.method.isString)
@@ -1259,9 +1306,10 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(NamespaceCtorExp e)
+	public override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
-		return visit(e.def);
+		e.def = visit(e.def);
+		return e;
 	}
 	
 	public override Expression visit(ParenExp e)

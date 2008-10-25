@@ -7380,16 +7380,21 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.Closure:
 					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.rs];
 
+					auto funcEnv = env;
+
+					if(i.rt != 0)
+						funcEnv = t.stack[stackBase + i.rt].mNamespace;
+
 					if(newDef.isPure)
 					{
 						if(newDef.cachedFunc is null)
-							newDef.cachedFunc = func.create(t.vm.alloc, env, newDef);
+							newDef.cachedFunc = func.create(t.vm.alloc, funcEnv, newDef);
 
 						*get(i.rd) = newDef.cachedFunc;
 					}
 					else
 					{
-						auto n = func.create(t.vm.alloc, env, newDef);
+						auto n = func.create(t.vm.alloc, funcEnv, newDef);
 						auto upvals = n.scriptUpvals();
 						auto currentUpvals = t.currentAR.func.scriptUpvals();
 

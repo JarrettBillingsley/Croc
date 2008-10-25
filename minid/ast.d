@@ -32,15 +32,18 @@ const char[][] AstTagNames =
 [
 	"Unknown",
 	"Identifier",
-	
+
 	"ObjectDef",
 	"FuncDef",
 	"NamespaceDef",
 
 	"Module",
+	"Decorator",
 
 	"VarDecl",
-	"OtherDecl",
+	"FuncDecl",
+	"ObjectDecl",
+	"NamespaceDecl",
 
 	"AssertStmt",
 	"ImportStmt",
@@ -138,7 +141,6 @@ const char[][] AstTagNames =
 	"ArrayCtorExp",
 	"NamespaceCtorExp",
 	"YieldExp",
-	"RawNamespaceExp",
 
 	"ForeachComprehension",
 	"ForNumComprehension",
@@ -169,9 +171,12 @@ const char[][] NiceAstTagNames =
 	AstTag.NamespaceDef:         "namespace definition",
 
 	AstTag.Module:               "module",
+	AstTag.Decorator:            "decorator",
 
 	AstTag.VarDecl:              "variable declaration",
-	AstTag.OtherDecl:            "declaration",
+	AstTag.FuncDecl:             "function declaration",
+	AstTag.ObjectDecl:           "object declaration",
+	AstTag.NamespaceDecl:        "namespace declaration",
 
 	AstTag.AssertStmt:           "assert statement",
 	AstTag.ImportStmt:           "import statement",
@@ -574,7 +579,7 @@ class NamespaceDef : AstNode
 	The name of the namespace.  This field will never be null.
 	*/
 	public Identifier name;
-	
+
 	/**
 	The namespace which will become the parent of this namespace.  This field can be null,
 	in which case the namespace's parent will be set to the environment of the current function.
@@ -585,7 +590,7 @@ class NamespaceDef : AstNode
 	The fields in this namespace, in an arbitrary order.  See the Field struct above.
 	*/
 	public Field[] fields;
-	
+
 	/**
 	*/
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
@@ -612,19 +617,24 @@ class Module : AstNode
 	piece of a dotted name.  This array will always be at least one element long.
 	*/
 	public char[][] names;
-	
+
 	/**
 	A list of 0 or more statements which make up the body of the module.
 	*/
 	public Statement[] statements;
+	
+	/**
+	*/
+	public Decorator decorator;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement[] statements)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement[] statements, Decorator decorator)
 	{
 		super(c, location, endLocation, AstTag.Module);
 		this.names = names;
 		this.statements = statements;
+		this.decorator = decorator;
 	}
 	
 	override void cleanup(ref Allocator alloc)
@@ -669,29 +679,15 @@ enum Protection
 }
 
 /**
-The abstract base class for the declaration statements.
+Represents local and global variable declarations.
 */
-abstract class DeclStmt : Statement
+class VarDecl : Statement
 {
 	/**
 	What protection level this declaration uses.
 	*/
 	public Protection protection;
 
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Protection protection)
-	{
-		super(c, location, endLocation, type);
-		this.protection = protection;
-	}
-}
-
-/**
-Represents local and global variable declarations.
-*/
-class VarDecl : DeclStmt
-{
 	/**
 	The list of names to be declared.  This will always have at least one name.
 	*/
@@ -708,7 +704,8 @@ class VarDecl : DeclStmt
 	*/
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression initializer)
 	{
-		super(c, location, endLocation, AstTag.VarDecl, protection);
+		super(c, location, endLocation, AstTag.VarDecl);
+		this.protection = protection;
 		this.names = names;
 		this.initializer = initializer;
 	}
@@ -721,87 +718,135 @@ class VarDecl : DeclStmt
 
 /**
 */
-class OtherDecl : DeclStmt
+class Decorator : AstNode
 {
 	/**
 	*/
-	public Identifier name;
-
-	/**
-	*/
-	public Expression expr;
+	public Expression func;
 	
 	/**
 	*/
-	public this(ICompiler c, Protection protection, Identifier name, Expression expr)
+	public Expression context;
+
+	/**
+	*/
+	public Expression[] args;
+
+	/**
+	*/
+	public Decorator nextDec;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression func, Expression context, Expression[] args, Decorator nextDec)
 	{
-		super(c, expr.location, expr.endLocation, AstTag.OtherDecl, protection);
-		this.name = name;
-		this.expr = expr;
+		super(c, location, endLocation, AstTag.Decorator);
+		this.func = func;
+		this.context = context;
+		this.args = args;
+		this.nextDec = nextDec;
+	}
+
+	override void cleanup(ref Allocator alloc)
+	{
+		alloc.freeArray(args);
 	}
 }
 
-// /**
-// This node represents a function declaration.  Note that there are some places in the
-// grammar which look like function declarations (like inside objects and namespaces) but
-// which actually are just syntactic sugar.  This is for actual declarations.
-// */
-// class FuncDecl : DeclStmt
-// {
-// 	/**
-// 	The "guts" of the function declaration.
-// 	*/
-// 	public FuncDef def;
-// 
-// 	/**
-// 	The protection parameter can be any kind of protection.
-// 	*/
-// 	public this(ICompiler c, CompileLoc location, Protection protection, FuncDef def)
-// 	{
-// 		super(c, location, def.endLocation, AstTag.FuncDecl, protection);
-// 		this.def = def;
-// 	}
-// }
-// 
-// /**
-// This node represents an object declaration.
-// */
-// class ObjectDecl : DeclStmt
-// {
-// 	/**
-// 	The actual "guts" of the object.
-// 	*/
-// 	public ObjectDef def;
-// 
-// 	/**
-// 	The protection parameter can be any kind of protection.
-// 	*/
-// 	public this(ICompiler c, CompileLoc location, Protection protection, ObjectDef def)
-// 	{
-// 		super(c, location, def.endLocation, AstTag.ObjectDecl, protection);
-// 		this.def = def;
-// 	}
-// }
-// 
-// /**
-// This node represents a namespace declaration.
-// */
-// class NamespaceDecl : DeclStmt
-// {
-// 	/**
-// 	The "guts" of the namespace.
-// 	*/
-// 	public NamespaceDef def;
-// 
-// 	/**
-// 	The protection parameter can be any level of protection.
-// 	*/
-// 	public this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def)
-// 	{
-// 		super(c, location, def.endLocation, AstTag.NamespaceDecl, protection);
-// 		this.def = def;
-// 	}
-// }
+/**
+This node represents a function declaration.  Note that there are some places in the
+grammar which look like function declarations (like inside objects and namespaces) but
+which actually are just syntactic sugar.  This is for actual declarations.
+*/
+class FuncDecl : Statement
+{
+	/**
+	What protection level this declaration uses.
+	*/
+	public Protection protection;
+
+	/**
+	The "guts" of the function declaration.
+	*/
+	public FuncDef def;
+
+	/**
+	*/
+	public Decorator decorator;
+
+	/**
+	The protection parameter can be any kind of protection.
+	*/
+	public this(ICompiler c, CompileLoc location, Protection protection, FuncDef def, Decorator decorator)
+	{
+		super(c, location, def.endLocation, AstTag.FuncDecl);
+		this.protection = protection;
+		this.def = def;
+		this.decorator = decorator;
+	}
+}
+
+/**
+This node represents an object declaration.
+*/
+class ObjectDecl : Statement
+{
+	/**
+	What protection level this declaration uses.
+	*/
+	public Protection protection;
+
+	/**
+	The actual "guts" of the object.
+	*/
+	public ObjectDef def;
+	
+	/**
+	*/
+	public Decorator decorator;
+
+	/**
+	The protection parameter can be any kind of protection.
+	*/
+	public this(ICompiler c, CompileLoc location, Protection protection, ObjectDef def, Decorator decorator)
+	{
+		super(c, location, def.endLocation, AstTag.ObjectDecl);
+		this.protection = protection;
+		this.def = def;
+		this.decorator = decorator;
+	}
+}
+
+/**
+This node represents a namespace declaration.
+*/
+class NamespaceDecl : Statement
+{
+	/**
+	What protection level this declaration uses.
+	*/
+	public Protection protection;
+
+	/**
+	The "guts" of the namespace.
+	*/
+	public NamespaceDef def;
+	
+	/**
+	*/
+	public Decorator decorator;
+
+	/**
+	The protection parameter can be any level of protection.
+	*/
+	public this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
+	{
+		super(c, location, def.endLocation, AstTag.NamespaceDecl);
+		this.protection = protection;
+		this.def = def;
+		this.decorator = decorator;
+	}
+}
 
 /**
 This node represents an assertion statement.
@@ -3073,30 +3118,6 @@ class YieldExp : PrimaryExp
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(args);
-	}
-}
-
-/**
-This node does not correspond to a grammar element, but rather a transient node used
-when rewriting the AST.  This represents the sort of "core" of a namespace definition.
-*/
-class RawNamespaceExp : PrimaryExp
-{
-	/**
-	*/
-	public Identifier name;
-	
-	/**
-	*/
-	public Expression parent;
-	
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, Identifier name, Expression parent)
-	{
-		super(c, location, AstTag.RawNamespaceExp);
-		this.name = name;
-		this.parent = parent;
 	}
 }
 

@@ -1,6 +1,8 @@
 module samples.simple
 
 
+
+/+
 /*
 function enum(name: string, vararg)
 {
@@ -165,7 +167,7 @@ writeln(f(3, 4))
 // b.write();
 // (f + b).write()
 
-/+
+/*
 // import arc.draw.color: Color
 // import arc.draw.image: drawImage, drawImageTopLeft
 // import arc.draw.shape: drawCircle, drawRectangle, drawLine, drawPixel
@@ -333,7 +335,8 @@ function main()
 
 	writefln("bye!")
 }
-/+
+*/
+
 /*
 object BaseProp
 {
@@ -1147,4 +1150,4 @@ writeln(Deck.dealCard())
 				break
 		}
 	}
-}+/+/
+}+/
