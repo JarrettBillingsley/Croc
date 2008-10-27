@@ -23,6 +23,7 @@ subject to the following restrictions:
 
 module minid.baselib;
 
+import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.io.Buffer;
 import tango.io.Console;
