@@ -24,7 +24,7 @@ subject to the following restrictions:
 module minid.commandline;
 
 import tango.io.Console;
-import tango.io.FileConduit;
+import tango.io.device.FileConduit;
 import tango.io.model.IConduit;
 import tango.io.Print;
 import tango.io.protocol.Reader;

@@ -23,7 +23,7 @@ subject to the following restrictions:
 
 module minidc;
 
-import tango.io.FileConduit;
+import tango.io.device.FileConduit;
 import tango.io.Stdout;
 import tango.io.protocol.Writer;
 

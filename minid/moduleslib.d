@@ -23,7 +23,7 @@ subject to the following restrictions:
 
 module minid.moduleslib;
 
-import tango.io.FileConduit;
+import tango.io.device.FileConduit;
 import tango.io.FilePath;
 import tango.io.protocol.Reader;
 import tango.text.Util;

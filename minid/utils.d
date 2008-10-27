@@ -32,7 +32,7 @@ import tango.core.Traits;
 import tango.core.Tuple;
 import tango.core.Vararg;
 import tango.io.Buffer;
-import tango.io.FileConduit;
+import tango.io.device.FileConduit;
 import tango.io.Print;
 import tango.io.protocol.model.IReader;
 import tango.io.protocol.model.IWriter;
