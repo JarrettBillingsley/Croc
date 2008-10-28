@@ -486,14 +486,17 @@ static:
 			auto r = getReader(t);
 			auto num = checkIntParam(t, 1);
 
+			if(num < 0 || num > uword.max)
+				throwException(t, "Invalid number of characters ({})", num);
+
 			safeCode(t,
 			{
-				auto dat = t.vm.alloc.allocArray!(char)(num);
-				
+				auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
+
 				scope(exit)
 					t.vm.alloc.freeArray(dat);
-					
-				r.buffer.readExact(dat.ptr, num * char.sizeof);
+
+				r.buffer.readExact(dat.ptr, cast(uword)num * char.sizeof);
 				pushString(t, dat);
 			}());
 

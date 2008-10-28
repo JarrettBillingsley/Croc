@@ -217,7 +217,7 @@ static:
 			{
 				checkParam(t, 1, MDValue.Type.Array);
 				auto num = len(t, 1);
-				auto cmd = new char[][num];
+				auto cmd = new char[][cast(uword)num];
 		
 				for(uword i = 0; i < num; i++)
 				{

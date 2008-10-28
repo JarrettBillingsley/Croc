@@ -50,28 +50,11 @@ The native unsigned integer type on this platform.  This is the same as size_t b
 public alias size_t uword;
 
 /**
-The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
-type (ptrdiff_t or word).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
-even on 32-bit platforms.  If you define the MDForceShortInts version, it will force MiniD to use 32-bit
-integers even on 64-bit platforms.
+The underlying D type used to store the MiniD 'int' type.  Defaults to 'long' (64-bit signed integer).  If you
+change it, you will end up with a functional but nonstandard implementation.
 */
-version(MDForceLongInts)
-{
-	version(MDForceShortInts)
-	{
-		pragma(msg, "The 'MDForceLongInts' and 'MDForceShortInts' versions are mutually exclusive.");
-		pragma(msg, "Please define one or the other (or neither), not both.\n");
-		static assert(false, "FAILCOPTER.");
-	}
+public alias long mdint;
 
-	public alias long mdint;
-}
-else version(MDForceShortInts)
-	public alias int mdint;
-else
-	public alias word mdint;
-
-static assert(mdint.sizeof >= 4, "mdint must be at least 32 bits");
 static assert((cast(mdint)-1) < (cast(mdint)0), "mdint must be signed");
 
 /**

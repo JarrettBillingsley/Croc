@@ -1225,12 +1225,12 @@ class Semantic : IdentityVisitor
 			if(idx < 0 || idx >= e.op.asString.length)
 				c.exception(e.location, "Invalid string index");
 
-			return new(c) CharExp(c, e.location, e.op.asString[idx]);
+			return new(c) CharExp(c, e.location, e.op.asString[cast(uword)idx]);
 		}
 
 		return e;
 	}
-	
+
 	public override Expression visit(VargIndexExp e)
 	{
 		e.index = visit(e.index);
@@ -1240,7 +1240,7 @@ class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(SliceExp e)
 	{
 		e.op = visit(e.op);
@@ -1253,7 +1253,7 @@ class Semantic : IdentityVisitor
 				c.exception(e.location, "Can only slice strings with integers at compile time");
 
 			auto str = e.op.asString();
-			word l, h;
+			mdint l, h;
 
 			if(e.loIndex.isInt)
 				l = e.loIndex.asInt();
@@ -1274,7 +1274,7 @@ class Semantic : IdentityVisitor
 			if(l > h || l < 0 || l > str.length || h < 0 || h > str.length)
 				c.exception(e.location, "Invalid slice indices");
 
-			return new(c) StringExp(c, e.location, c.newString(str[l .. h]));
+			return new(c) StringExp(c, e.location, c.newString(str[cast(uword)l .. cast(uword)h]));
 		}
 
 		return e;

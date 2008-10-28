@@ -171,12 +171,12 @@ static:
 		}
 
 		if(isString(t, 1))
-			pushInt(t, src.locatePattern(getString(t, 1), start));
+			pushInt(t, src.locatePattern(getString(t, 1), cast(uword)start));
 		else if(isChar(t, 1))
 		{
 			auto ch = getChar(t, 1);
 
-			uword startIdx = uniCPIdxToByte(src, start);
+			uword startIdx = uniCPIdxToByte(src, cast(uword)start);
 
 			foreach(i, dchar c; src[startIdx .. $])
 			{
@@ -221,6 +221,9 @@ static:
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
 		auto start = optIntParam(t, 2, srcLen);
+		
+		if(start > srcLen)
+			throwException(t, "Invalid start index: {}", start);
 
 		if(start < 0)
 		{
@@ -230,18 +233,18 @@ static:
 				throwException(t, "Invalid start index {}", start);
 		}
 
-		if(start <= 0)
+		if(start == 0)
 		{
 			pushInt(t, srcLen);
 			return 1;
 		}
 
 		if(isString(t, 1))
-			pushInt(t, src.locatePatternPrior(getString(t, 1), start));
+			pushInt(t, src.locatePatternPrior(getString(t, 1), cast(uword)start));
 		else if(isChar(t, 1))
 		{
 			auto ch = getChar(t, 1);
-			uword startIdx = uniCPIdxToByte(src, start);
+			uword startIdx = uniCPIdxToByte(src, cast(uword)start);
 
 			foreach_reverse(i, dchar c; src[0 .. startIdx])
 			{

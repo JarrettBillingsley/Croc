@@ -2563,7 +2563,7 @@ Params:
 Returns:
 	The comparison value.
 */
-word cmp(MDThread* t, word a, word b)
+mdint cmp(MDThread* t, word a, word b)
 {
 	return compareImpl(t, getValue(t, a), getValue(t, b));
 }
@@ -3255,6 +3255,11 @@ Returns:
 bool as(MDThread* t, word obj, word proto)
 {
 	return asImpl(t, getValue(t, obj), getValue(t, proto));
+}
+
+bool strictlyAs(MDThread* t, word obj, word proto)
+{
+	return !opis(t, obj, proto) && asImpl(t, getValue(t, obj), getValue(t, proto));
 }
 
 /**
@@ -4229,7 +4234,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 			auto str = Float.format(buffer, v.mFloat, 6);
 			auto tmp = Float.truncate(str);
 
-			if(tmp.locate('.') == tmp.length)
+			if(tmp.locate('.') == tmp.length && str.length >= tmp.length + 2)
 				tmp = str[0 .. tmp.length + 2];
 
 			return pushString(t, tmp);
@@ -7148,7 +7153,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					*get(i.rd) = t.stack[t.currentAR.vargBase + index];
+					*get(i.rd) = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
 
 				case Op.VargIndexAssign:
@@ -7170,7 +7175,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					t.stack[t.currentAR.vargBase + index] = *get(i.rt);
+					t.stack[t.currentAR.vargBase + cast(uword)index] = *get(i.rt);
 					break;
 
 				case Op.VargSlice:
@@ -7189,9 +7194,9 @@ void execute(MDThread* t, uword depth = 1)
 					if(lo > hi || lo < 0 || lo > numVarargs || hi < 0 || hi > numVarargs)
 						throwException(t, "Invalid vararg slice indices [{} .. {}]", lo, hi);
 
-					auto sliceSize = hi - lo;
-					auto src = stackBase + lo;
-					auto dest = stackBase + i.rd;
+					auto sliceSize = cast(uword)(hi - lo);
+					auto src = stackBase + cast(uword)lo;
+					auto dest = stackBase + cast(uword)i.rd;
 
 					uword numNeeded = void;
 

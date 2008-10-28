@@ -276,7 +276,7 @@ struct RegexpLib
 			if(numParams == 0)
 				pushString(t, safeCode(t, rex.match(0)));
 			else if(isInt(t, 1))
-				pushString(t, safeCode(t, rex.match(getInt(t, 1))));
+				pushString(t, safeCode(t, rex.match(cast(uword)getInt(t, 1))));
 			else
 			{
 				auto src = checkStringParam(t, 1);

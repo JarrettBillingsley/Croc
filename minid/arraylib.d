@@ -97,10 +97,10 @@ static:
 	{
 		auto length = checkIntParam(t, 1);
 
-		if(length < 0)
+		if(length < 0 || length > uword.max)
 			throwException(t, "Invalid length: {}", length);
 
-		newArray(t, length);
+		newArray(t, cast(uword)length);
 
 		if(numParams > 1)
 		{
@@ -138,20 +138,23 @@ static:
 
 		if((range % step) != 0)
 			size++;
+			
+		if(size > uword.max)
+			throwException(t, "Array is too big");
 
-		newArray(t, size);
+		newArray(t, cast(uword)size);
 		auto a = getArray(t, -1);
 
 		auto val = v1;
 
 		if(v2 < v1)
 		{
-			for(mdint i = 0; val > v2; i++, val -= step)
+			for(uword i = 0; val > v2; i++, val -= step)
 				a.slice[i] = val;
 		}
 		else
 		{
-			for(mdint i = 0; val < v2; i++, val += step)
+			for(uword i = 0; val < v2; i++, val += step)
 				a.slice[i] = val;
 		}
 
@@ -230,7 +233,7 @@ static:
 	uword array_dup(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
-		newArray(t, len(t, 0));
+		newArray(t, cast(uword)len(t, 0)); // this should be fine?  since arrays can't be longer than uword.max
 		getArray(t, -1).slice[] = getArray(t, 0).slice[];
 		return 1;
 	}
@@ -366,7 +369,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
-		auto newArr = newArray(t, len(t, 0));
+		auto newArr = newArray(t, cast(uword)len(t, 0));
 		auto data = getArray(t, -1).slice;
 
 		foreach(i, ref v; getArray(t, 0).slice)
@@ -385,7 +388,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
-		uword length = len(t, 0);
+		uword length = cast(uword)len(t, 0);
 
 		if(length == 0)
 		{
@@ -435,7 +438,7 @@ static:
 		checkParam(t, 1, MDValue.Type.Function);
 
 		auto newLen = len(t, 0) / 2;
-		auto retArray = newArray(t, newLen);
+		auto retArray = newArray(t, cast(uword)newLen);
 		uword retIdx = 0;
 
 		foreach(i, ref v; getArray(t, 0).slice)
@@ -456,7 +459,8 @@ static:
 			{
 				if(retIdx >= newLen)
 				{
-					pushInt(t, newLen + 10);
+					newLen += 10;
+					pushInt(t, newLen);
 					lena(t, retArray);
 				}
 
@@ -531,7 +535,7 @@ static:
 		checkAnyParam(t, 1);
 
 		uword lo = 0;
-		uword hi = len(t, 0) - 1;
+		uword hi = cast(uword)len(t, 0) - 1;
 		uword mid = (lo + hi) >> 1;
 
 		while((hi - lo) > 8)
@@ -573,7 +577,7 @@ static:
 	uword array_pop(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
-		word index = -1;
+		mdint index = -1;
 		auto data = getArray(t, 0).slice;
 
 		if(data.length == 0)
@@ -590,7 +594,7 @@ static:
 
 		idxi(t, 0, index, true);
 
-		for(uword i = index; i < data.length - 1; i++)
+		for(uword i = cast(uword)index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
 
 		array.resize(t.vm.alloc, getArray(t, 0), data.length - 1);

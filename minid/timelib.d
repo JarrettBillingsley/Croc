@@ -226,9 +226,12 @@ static:
 		Time time = void;
 
 		if(isInt(t, hour) && isInt(t, min) && isInt(t, sec))
-			time = Gregorian.generic.toTime(getInt(t, year), getInt(t, month), getInt(t, day), getInt(t, hour), getInt(t, min), getInt(t, sec), 0, 0);
+		{
+			time = Gregorian.generic.toTime(cast(uint)getInt(t, year), cast(uint)getInt(t, month), cast(uint)getInt(t, day),
+				cast(uint)getInt(t, hour), cast(uint)getInt(t, min), cast(uint)getInt(t, sec), 0, 0);
+		}
 		else
-			time = Gregorian.generic.toTime(getInt(t, year), getInt(t, month), getInt(t, day), 0, 0, 0, 0, 0);
+			time = Gregorian.generic.toTime(cast(uint)getInt(t, year), cast(uint)getInt(t, month), cast(uint)getInt(t, day), 0, 0, 0, 0, 0);
 			
 		pop(t, 6);
 

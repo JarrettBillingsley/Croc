@@ -288,6 +288,23 @@ public char[] checkStringParam(MDThread* t, word index)
 }
 
 /**
+Checks that the parameter at the given index is an int or a float, and returns the value as a float,
+casting ints to floats as necessary.
+*/
+public mdfloat checkNumParam(MDThread* t, word index)
+{
+	checkAnyParam(t, index);
+
+	if(isInt(t, index))
+		return cast(mdfloat)getInt(t, index);
+	else if(isFloat(t, index))
+		return getFloat(t, index);
+
+	paramTypeError(t, index, "int|float");
+	assert(false);
+}
+
+/**
 Checks that the parameter at the given index is an object.
 */
 public void checkObjParam()(MDThread* t, word index)
@@ -317,7 +334,7 @@ public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] na
 
 	lookup(t, name);
 
-	if(!as(t, index, -1) || (strict ? opis(t, index, -1) : false))
+	if(strict ? !strictlyAs(t, index, -1) : !as(t, index, -1))
 	{
 		pushTypeString(t, index);
 

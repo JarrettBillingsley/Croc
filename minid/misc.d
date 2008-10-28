@@ -98,7 +98,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 
 			if(fmtEnd == formatStr.length)
 			{
-				t.vm.formatter.convert(sink, "{}{}", "{missing or misplaced '}'}", formatStr[fmtBegin .. $]);
+				t.vm.formatter.convert(sink, "{{missing or misplaced '}'}{}", formatStr[fmtBegin .. $]);
 				break;
 			}
 

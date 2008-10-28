@@ -42,6 +42,7 @@ import minid.obj;
 import minid.string;
 import minid.types;
 import minid.utils;
+import minid.vector;
 import minid.vm;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
@@ -61,6 +62,9 @@ static:
 		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
 		newGlobal(t, "Object");
+
+		// Vector
+		VectorObj.init(t);
 
 		// StringBuffer
 		StringBufferObj.init(t);
@@ -251,7 +255,7 @@ static:
 				o = getObject(t, -1);
 
 				getUpval(t, 1);
-				index = getInt(t, -1);
+				index = cast(uword)getInt(t, -1);
 
 				if(!obj.next(o, index, key, value))
 				{
@@ -983,8 +987,8 @@ static:
 				o.method("insert",         &insert);
 				o.method("remove",         &remove);
 				o.method("toString",       &toString);
-				o.method("opLengthAssign", &opLengthAssign);
 				o.method("opLength",       &opLength);
+				o.method("opLengthAssign", &opLengthAssign);
 				o.method("opIndex",        &opIndex);
 				o.method("opIndexAssign",  &opIndexAssign);
 				o.method("opSlice",        &opSlice);
@@ -1026,7 +1030,7 @@ static:
 
 		uword finalizer(MDThread* t, uword numParams)
 		{
-			auto memb = getThis(t);
+			auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 			t.vm.alloc.resizeArray(memb.data, 0);
 			memb.length = 0;
 			return 0;
@@ -1044,14 +1048,14 @@ static:
 				{
 					auto size = getInt(t, 1);
 
-					if(size < 0)
-						throwException(t, "Size must be >= 0, not {}", size);
+					if(size < 0 || size > uword.max)
+						throwException(t, "Invalid size ({})", size);
 
-					t.vm.alloc.resizeArray(memb.data, max(32, size));
+					t.vm.alloc.resizeArray(memb.data, max(32, cast(uword)size));
 				}
 				else if(isString(t, 1))
 				{
-					auto length = len(t, 1);
+					auto length = cast(uword)len(t, 1);
 					t.vm.alloc.resizeArray(memb.data, max(32, length));
 					memb.length = length;
 					auto str = getString(t, 1);
@@ -1077,7 +1081,7 @@ static:
 
 			for(uword i = 1; i <= numParams; i++)
 			{
-				if(as(t, i, sb) && !opis(t, i, sb))
+				if(strictlyAs(t, i, sb))
 				{
 					auto other = getMembers!(Members)(t, i);
 					resize(t, memb, other.length);
@@ -1110,12 +1114,12 @@ static:
 
 			pushGlobal(t, "StringBuffer");
 
-			if(as(t, 2, -1) && !opis(t, 2, -1))
+			if(strictlyAs(t, 2, -1))
 			{
 				auto other = getMembers!(Members)(t, 2);
 				resize(t, memb, other.length);
-				memmove(&memb.data[idx + other.length], &memb.data[idx], other.length * dchar.sizeof);
-				memb.data[idx .. idx + other.length] = other.data[0 .. other.length];
+				memmove(&memb.data[cast(uword)idx + other.length], &memb.data[cast(uword)idx], other.length * dchar.sizeof);
+				memb.data[cast(uword)idx .. cast(uword)idx + other.length] = other.data[0 .. other.length];
 				memb.length += other.length;
 			}
 			else
@@ -1123,9 +1127,9 @@ static:
 				pushToString(t, 2);
 				auto str = getStringObj(t, -1);
 				resize(t, memb, str.cpLength);
-				memmove(&memb.data[idx + str.cpLength], &memb.data[idx], str.cpLength * dchar.sizeof);
+				memmove(&memb.data[cast(uword)idx + str.cpLength], &memb.data[cast(uword)idx], str.cpLength * dchar.sizeof);
 				uint ate = 0;
-				Utf.toString32(str.toString(), memb.data[idx .. idx + str.cpLength], &ate);
+				Utf.toString32(str.toString(), memb.data[cast(uword)idx .. cast(uword)idx + str.cpLength], &ate);
 				assert(ate == str.toString().length);
 				memb.length += str.cpLength;
 			}
@@ -1160,7 +1164,7 @@ static:
 			if(start == end)
 				return 0;
 
-			memmove(&memb.data[start], &memb.data[end], (memb.length - end) * dchar.sizeof);
+			memmove(&memb.data[cast(uword)start], &memb.data[cast(uword)end], (memb.length - cast(uword)end) * dchar.sizeof);
 			memb.length -= (end - start);
 
 			if(memb.length < (memb.data.length >> 2))
@@ -1181,17 +1185,17 @@ static:
 			auto memb = getThis(t);
 			auto newLen = checkIntParam(t, 1);
 
-			if(newLen < 0)
-				throwException(t, "Invalid length: {}", newLen);
+			if(newLen < 0 || newLen > uword.max)
+				throwException(t, "Invalid length ({})", newLen);
 
 			auto oldLen = memb.length;
-			memb.length = newLen;
+			memb.length = cast(uword)newLen;
 
 			if(memb.length > memb.data.length)
 				t.vm.alloc.resizeArray(memb.data, memb.length);
 
 			if(newLen > oldLen)
-				memb.data[oldLen .. newLen] = dchar.init;
+				memb.data[oldLen .. cast(uword)newLen] = dchar.init;
 
 			return 0;
 		}
@@ -1213,7 +1217,7 @@ static:
 			if(index < 0 || index >= memb.length)
 				throwException(t, "Invalid index: {} (buffer length: {})", index, memb.length);
 
-			pushChar(t, memb.data[index]);
+			pushChar(t, memb.data[cast(uword)index]);
 			return 1;
 		}
 
@@ -1229,7 +1233,7 @@ static:
 			if(index < 0 || index >= memb.length)
 				throwException(t, "Invalid index: {} (buffer length: {})", index, memb.length);
 
-			memb.data[index] = ch;
+			memb.data[cast(uword)index] = ch;
 			return 0;
 		}
 
@@ -1242,7 +1246,7 @@ static:
 				return 0;
 
 			pushInt(t, index);
-			pushChar(t, memb.data[index]);
+			pushChar(t, memb.data[cast(uword)index]);
 
 			return 2;
 		}
@@ -1256,7 +1260,7 @@ static:
 				return 0;
 
 			pushInt(t, index);
-			pushChar(t, memb.data[index]);
+			pushChar(t, memb.data[cast(uword)index]);
 
 			return 2;
 		}
@@ -1299,7 +1303,7 @@ static:
 			if(hi < lo || hi > memb.length)
 				throwException(t, "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, memb.length);
 
-			pushFormat(t, "{}", memb.data[lo .. hi]);
+			pushFormat(t, "{}", memb.data[cast(uword)lo .. cast(uword)hi]);
 			return 1;
 		}
 
@@ -1325,7 +1329,7 @@ static:
 			auto sliceLen = hi - lo;
 
 			if(isChar(t, 3))
-				memb.data[lo .. hi] = getChar(t, 3);
+				memb.data[cast(uword)lo .. cast(uword)hi] = getChar(t, 3);
 			else if(isString(t, 3))
 			{
 				auto str = getStringObj(t, 3);
@@ -1334,21 +1338,21 @@ static:
 					throwException(t, "Slice length ({}) does not match length of string ({})", sliceLen, str.cpLength);
 
 				uint ate = 0;
-				Utf.toString32(str.toString(), memb.data[lo .. hi], &ate);
+				Utf.toString32(str.toString(), memb.data[cast(uword)lo .. cast(uword)hi], &ate);
 				assert(ate == str.toString().length);
 			}
 			else
 			{
 				pushGlobal(t, "StringBuffer");
 
-				if(as(t, 3, -1) && !opis(t, 3, -1))
+				if(strictlyAs(t, 3, -1))
 				{
 					auto other = getMembers!(Members)(t, 3);
 
 					if(other.length != sliceLen)
 						throwException(t, "Slice length ({}) does not match length of string buffer ({})", sliceLen, other.length);
 
-					memb.data[lo .. hi] = other.data[0 .. other.length];
+					memb.data[cast(uword)lo .. cast(uword)hi] = other.data[0 .. other.length];
 				}
 				else
 					paramTypeError(t, 3, "char|string|StringBuffer");
@@ -1363,7 +1367,7 @@ static:
 			auto newLen = checkIntParam(t, 1);
 
 			if(newLen > memb.data.length)
-				t.vm.alloc.resizeArray(memb.data, newLen);
+				t.vm.alloc.resizeArray(memb.data, cast(uword)min(uword.max, newLen));
 
 			return 0;
 		}

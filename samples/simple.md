@@ -1,6 +1,31 @@
 module samples.simple
 
+function add(a: array, b: array)
+{
+	local c = array.new(#a)
 
+	for(i: 0 .. #a)
+		c[i] = a[i] + b[i]
+}
+
+local a = array.new(1_000_000, 1)
+local b = array.new(1_000_000, 2)
+local t = time.Timer.clone()
+
+t.start()
+local c = add(a, b)
+t.stop()
+
+writefln("took {} msec", t.millisecs())
+
+local v = Vector.clone("i64", 1_000_000, 1)
+local u = Vector.clone("i64", 1_000_000, 2)
+
+t.start()
+local w = u + v
+t.stop()
+
+writefln("took {} msec", t.millisecs())
 
 /+
 /*

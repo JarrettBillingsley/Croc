@@ -2249,7 +2249,7 @@ struct Parser
 	public CharExp parseCharExp()
 	{
 		with(l.expect(Token.CharLiteral))
-			return new(c) CharExp(c, loc, intValue);
+			return new(c) CharExp(c, loc, cast(dchar)intValue);
 	}
 	
 	/**

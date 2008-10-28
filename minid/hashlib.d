@@ -154,7 +154,7 @@ static:
 		auto tab = getTable(t, -1);
 
 		getUpval(t, 1);
-		uword idx = getInt(t, -1);
+		uword idx = cast(uword)getInt(t, -1);
 
 		MDValue* k = void, v = void;
 
@@ -176,7 +176,7 @@ static:
 		auto ns = getNamespace(t, -1);
 
 		getUpval(t, 1);
-		uword idx = getInt(t, -1);
+		uword idx = cast(uword)getInt(t, -1);
 
 		MDString** k = void;
 		MDValue* v = void;
