@@ -247,8 +247,8 @@ struct RegexpLib
 			pushGlobal(t, "Regexp");
 			auto ret = newObject(t, -1, null, 2);
 
-			pushNativeObj(t, new Regex(pat, attrs));        setExtraVal(t, ret, Members.regex);
-			pushBool(t, attrs.locate('g') != attrs.length); setExtraVal(t, ret, Members.global);
+			pushNativeObj(t, safeCode(t, new Regex(pat, attrs))); setExtraVal(t, ret, Members.regex);
+			pushBool(t, attrs.locate('g') != attrs.length);       setExtraVal(t, ret, Members.global);
 
 			return 1;
 		}

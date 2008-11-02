@@ -1,31 +1,10 @@
 module samples.simple
 
-function add(a: array, b: array)
-{
-	local c = array.new(#a)
+local v = Vector.clone("i8", 16, \i -> math.rand(20)).sort()
+writeln(v)
+v ~= Vector.clone("i8", 4, 0)
+writeln(v)
 
-	for(i: 0 .. #a)
-		c[i] = a[i] + b[i]
-}
-
-local a = array.new(1_000_000, 1)
-local b = array.new(1_000_000, 2)
-local t = time.Timer.clone()
-
-t.start()
-local c = add(a, b)
-t.stop()
-
-writefln("took {} msec", t.millisecs())
-
-local v = Vector.clone("i64", 1_000_000, 1)
-local u = Vector.clone("i64", 1_000_000, 2)
-
-t.start()
-local w = u + v
-t.stop()
-
-writefln("took {} msec", t.millisecs())
 
 /+
 /*
@@ -1159,7 +1138,7 @@ writeln(Deck.dealCard())
 	for(s: 1 .. 4)
 	{
 		local ss = A.clone(s)
-	
+
 		switch(ss)
 		{
 			case a1:
@@ -1169,7 +1148,7 @@ writeln(Deck.dealCard())
 			case a2:
 				writefln(2)
 				break
-	
+
 			case a3:
 				writefln(3)
 				break
