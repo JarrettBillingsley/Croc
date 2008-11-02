@@ -1,7 +1,5 @@
 module samples.simple
 
-local v = Vector.range("i32", 1, 11)
-
 
 /+
 /*

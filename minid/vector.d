@@ -139,11 +139,10 @@ static:
 		CreateObject(t, "Vector", (CreateObject* o)
 		{
 				newFunction(t, &finalizer, "Vector.finalizer");
-				dup(t);
-				dup(t);
 			o.method("clone",          &clone, 1);
-			o.method("dup",            &vec_dup, 1);
-			o.method("range",          &range, 1);
+			o.method("dup",            &vec_dup);
+			o.method("range",          &range);
+			o.method("fromArray",      &fromArray);
 
 			o.method("apply",          &apply);
 			o.method("fill",           &fill);
@@ -154,7 +153,7 @@ static:
 			o.method("min",            &min);
 			o.method("pop",            &vec_pop);
 			o.method("product",        &product);
-// 			o.method("remove",         &remove);
+			o.method("remove",         &remove);
 			o.method("reverse",        &reverse);
 			o.method("sort",           &sort);
 			o.method("sum",            &sum);
@@ -167,7 +166,7 @@ static:
 			o.method("opLengthAssign", &opLengthAssign);
 			o.method("opIndex",        &opIndex);
 			o.method("opIndexAssign",  &opIndexAssign);
-// 			o.method("opSlice",        &opSlice);
+			o.method("opSlice",        &opSlice);
 // 			o.method("opSliceAssign",  &opSliceAssign);
 
 			o.method("opAdd",          &opAdd);
@@ -276,8 +275,6 @@ static:
 			dup(t, 3);
 			methodCall(t, -3, "fill", 0);
 		}
-		else
-			(cast(byte*)memb.data)[0 .. memb.length * memb.type.itemSize] = 0;
 
 		return 1;
 	}
@@ -286,24 +283,19 @@ static:
 	{
 		auto memb = getThis(t);
 
-		auto base = pushGlobal(t, "Vector");
-		auto ret = newObject(t, base, null, 0, Members.sizeof);
-		auto newMemb = getMembers!(Members)(t, ret);
-		*newMemb = Members.init;
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		pushString(t, typeNames[memb.type.code]);
+		pushInt(t, memb.length);
+		methodCall(t, -4, "clone", 1);
 
-		newMemb.type = memb.type;
-		newMemb.length = memb.length;
-
+		auto newMemb = getMembers!(Members)(t, -1);
 		auto byteSize = memb.length * memb.type.itemSize;
-		newMemb.data = t.vm.alloc.allocArray!(void)(byteSize).ptr;
 		(cast(byte*)newMemb.data)[0 .. byteSize] = (cast(byte*)memb.data)[0 .. byteSize];
-
-		getUpval(t, 0);
-		setFinalizer(t, ret);
 
 		return 1;
 	}
-	
+
 	uword range(MDThread* t, uword numParams)
 	{
 		auto type = checkStringParam(t, 1);
@@ -330,18 +322,12 @@ static:
 
 		Members* makeObj(long size)
 		{
-			auto ret = newObject(t, 0, null, 0, Members.sizeof);
-			auto memb = getMembers!(Members)(t, ret);
-			*memb = Members.init;
-
-			memb.type = ts;
-			memb.length = cast(uword)size;
-			memb.data = t.vm.alloc.allocArray!(void)(cast(uword)size * memb.type.itemSize).ptr;
-
-			getUpval(t, 0);
-			setFinalizer(t, ret);
-
-			return memb;
+			pushGlobal(t, "Vector");
+			pushNull(t);
+			pushString(t, type);
+			pushInt(t, cast(mdint)size);
+			methodCall(t, -4, "clone", 1);
+			return getMembers!(Members)(t, -1);
 		}
 
 		switch(ts.code)
@@ -523,6 +509,26 @@ static:
 		return 1;
 	}
 
+	uword fromArray(MDThread* t, uword numParams)
+	{
+		auto code = checkStringParam(t, 1);
+		checkAnyParam(t, 2);
+
+		if(code == "c" && !isArray(t, 2))
+			checkStringParam(t, 2);
+		else
+			checkParam(t, 2, MDValue.Type.Array);
+			
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		dup(t, 1);
+		pushLen(t, 2);
+		dup(t, 2);
+		methodCall(t, -5, "clone", 1);
+		
+		return 1;
+	}
+
 	uword apply(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
@@ -571,7 +577,7 @@ static:
 		dup(t, 0);
 		return 1;
 	}
-	
+
 	void fillImpl(MDThread* t, Members* memb, word idx, uword lo, uword hi)
 	{
 		if(isFunction(t, idx))
@@ -646,7 +652,7 @@ static:
 				default: assert(false);
 			}
 		}
-		else
+		else if(isNum(t, idx) || isChar(t, idx))
 		{
 			switch(memb.type.code)
 			{
@@ -661,6 +667,90 @@ static:
 				case TypeCode.f32: auto val = checkNumParam(t, idx);  (cast(float*)memb.data)[lo .. hi] = cast(float)val;   break;
 				case TypeCode.f64: auto val = checkNumParam(t, idx);  (cast(double*)memb.data)[lo .. hi] = cast(double)val; break;
 				case TypeCode.c:   auto val = checkCharParam(t, idx); (cast(dchar*)memb.data)[lo .. hi] = cast(dchar)val;   break;
+				default: assert(false);
+			}
+		}
+		else
+		{
+			if(memb.type.code == TypeCode.c && !isArray(t, idx))
+				checkStringParam(t, idx);
+			else
+				checkParam(t, idx, MDValue.Type.Array);
+
+			if(len(t, idx) != memb.length)
+				throwException(t, "Length of vector ({}) and length of array ({}) do not match", memb.length, len(t, idx));
+
+			switch(memb.type.code)
+			{
+				case
+					TypeCode.i8,
+					TypeCode.i16,
+					TypeCode.i32,
+					TypeCode.i64,
+					TypeCode.u8,
+					TypeCode.u16,
+					TypeCode.u32,
+					TypeCode.u64:
+
+					for(uword i = 0; i < memb.length; i++)
+					{
+						idxi(t, idx, i);
+
+						if(!isInt(t, -1))
+						{
+							pushTypeString(t, -1);
+							throwException(t, "array element {} expected to be 'int', not '{}'", i, getString(t, -1));
+						}
+
+						memb.type.setItem(t, memb, i, -1);
+						pop(t);
+					}
+					break;
+
+				case TypeCode.f32, TypeCode.f64:
+					for(uword i = 0; i < memb.length; i++)
+					{
+						idxi(t, idx, i);
+
+						if(!isNum(t, -1))
+						{
+							pushTypeString(t, -1);
+							throwException(t, "array element {} expected to be 'int' or 'float', not '{}'", i, getString(t, -1));
+						}
+
+						memb.type.setItem(t, memb, i, -1);
+						pop(t);
+					}
+					break;
+
+				case TypeCode.c:
+					if(isArray(t, idx))
+					{
+						for(uword i = 0; i < memb.length; i++)
+						{
+							idxi(t, idx, i);
+		
+							if(!isChar(t, -1))
+							{
+								pushTypeString(t, -1);
+								throwException(t, "array element {} expected to be 'char', not '{}'", i, getString(t, -1));
+							}
+		
+							memb.type.setItem(t, memb, i, -1);
+							pop(t);
+						}
+					}
+					else
+					{
+						foreach(i, dchar c; getString(t, idx))
+						{
+							pushChar(t, c);
+							memb.type.setItem(t, memb, i, -1);
+							pop(t);
+						}
+					}
+					break;
+	
 				default: assert(false);
 			}
 		}
@@ -781,7 +871,7 @@ static:
 
 		return 1;
 	}
-	
+
 	uword vec_pop(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
@@ -810,7 +900,6 @@ static:
 		memb.data = data.ptr;
 
 		return 1;
-	
 	}
 
 	uword product(MDThread* t, uword numParams)
@@ -839,6 +928,46 @@ static:
 		return 1;
 	}
 	
+	uword remove(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+
+		if(memb.length == 0)
+			throwException(t, "Vector is empty");
+
+		auto start = checkIntParam(t, 1);
+
+		if(start < 0)
+			start += memb.length;
+
+		if(start < 0 || start > memb.length)
+			throwException(t, "Invalid start index: {} (length: {})", start, memb.length);
+
+		auto end = optIntParam(t, 2, start + 1);
+
+		if(end < 0)
+			end += memb.length;
+
+		if(end < start || end > memb.length)
+			throwException(t, "Invalid indices: {} .. {} (length: {})", start, end, memb.length);
+
+		if(start == end)
+			return 0;
+
+		auto isize = memb.type.itemSize;
+		auto data = memb.data[0 .. memb.length * isize];
+		
+		if(end < memb.length)
+			memmove(&data[cast(uword)start * isize], &data[cast(uword)end * isize], cast(uint)((memb.length - end) * isize));
+
+		auto diff = end - start;
+		t.vm.alloc.resizeArray(data, cast(uword)((memb.length - diff) * isize));
+		memb.length -= diff;
+		memb.data = data.ptr;
+
+		return 1;
+	}
+
 	uword reverse(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
@@ -1064,6 +1193,37 @@ static:
 		return 0;
 	}
 	
+	uword opSlice(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto lo = optIntParam(t, 1, 0);
+		auto hi = optIntParam(t, 2, -1);
+
+		if(lo < 0)
+			lo += memb.length;
+
+		if(lo < 0 || lo > memb.length)
+			throwException(t, "Invalid low index: {} (length: {})", lo, memb.length);
+
+		if(hi < 0)
+			hi += memb.length;
+
+		if(hi < lo || hi > memb.length)
+			throwException(t, "Invalid slice indices: {} .. {} (length: {})", lo, hi, memb.length);
+
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		pushString(t, typeNames[memb.type.code]);
+		pushInt(t, hi - lo);
+		methodCall(t, -4, "clone", 1);
+		
+		auto other = getMembers!(Members)(t, -1);
+		auto isize = memb.type.itemSize;
+		(cast(byte*)other.data)[0 .. other.length * isize] = (cast(byte*)memb.data)[cast(uword)lo * isize .. cast(uword)hi * isize];
+		
+		return 1;
+	}
+
 	uword iterator(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
