@@ -145,9 +145,10 @@ static:
 			o.method("fromArray",      &fromArray);
 
 			o.method("apply",          &apply);
+			o.method("copyRange",      &copyRange);
 			o.method("fill",           &fill);
 			o.method("fillRange",      &fillRange);
-// 			o.method("insert",         &vec_insert);
+			o.method("insert",         &vec_insert);
 			o.method("map",            &map);
 			o.method("max",            &max);
 			o.method("min",            &min);
@@ -167,7 +168,6 @@ static:
 			o.method("opIndex",        &opIndex);
 			o.method("opIndexAssign",  &opIndexAssign);
 			o.method("opSlice",        &opSlice);
-// 			o.method("opSliceAssign",  &opSliceAssign);
 
 			o.method("opAdd",          &opAdd);
 			o.method("opAddAssign",    &opAddAssign);
@@ -204,6 +204,9 @@ static:
 
 		field(t, -1, "opMul");
 		fielda(t, -2, "opMul_r");
+		
+		field(t, -1, "fillRange");
+		fielda(t, -2, "opSliceAssign");
 
 		newGlobal(t, "Vector");
 	}
@@ -577,10 +580,76 @@ static:
 		dup(t, 0);
 		return 1;
 	}
+	
+	uword copyRange(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto lo = optIntParam(t, 1, 0);
+		auto hi = optIntParam(t, 2, memb.length);
+
+		if(lo < 0)
+			lo += memb.length;
+
+		if(lo < 0 || lo > memb.length)
+			throwException(t, "Invalid destination low index: {} (length: {})", lo, memb.length);
+
+		if(hi < 0)
+			hi += memb.length;
+
+		if(hi < lo || hi > memb.length)
+			throwException(t, "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, memb.length);
+
+		pushGlobal(t, "Vector");
+
+		if(!strictlyAs(t, 3, -1))
+			paramTypeError(t, 3, "object Vector");
+
+		pop(t);
+
+		auto other = getMembers!(Members)(t, 3);
+		auto lo2 = optIntParam(t, 4, 0);
+		auto hi2 = optIntParam(t, 5, lo2 + (hi - lo));
+
+		if(lo2 < 0)
+			lo2 += other.length;
+
+		if(lo2 < 0 || lo2 > other.length)
+			throwException(t, "Invalid source low index: {} (length: {})", lo2, other.length);
+
+		if(hi2 < 0)
+			hi2 += other.length;
+
+		if(hi2 < lo2 || hi2 > other.length)
+			throwException(t, "Invalid source slice indices: {} .. {} (length: {})", lo2, hi2, other.length);
+
+		if((hi - lo) != (hi2 - lo2))
+			throwException(t, "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
+
+		auto isize = memb.type.itemSize;
+		(cast(byte*)memb.data)[cast(uword)lo * isize .. cast(uword)hi * isize] = (cast(byte*)other.data)[cast(uword)lo2 * isize .. cast(uword)hi2 * isize];
+
+		dup(t, 0);
+		return 1;
+	}
 
 	void fillImpl(MDThread* t, Members* memb, word idx, uword lo, uword hi)
 	{
-		if(isFunction(t, idx))
+		pushGlobal(t, "Vector");
+
+		if(strictlyAs(t, idx, -1))
+		{
+			auto other = getMembers!(Members)(t, idx);
+
+			if(memb.type !is other.type)
+				throwException(t, "Attempting to fill a vector of type '{}' using a vector of type '{}'", typeNames[memb.type.code], typeNames[other.type.code]);
+
+			if(other.length != (hi - lo))
+				throwException(t, "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.length);
+
+			auto isize = memb.type.itemSize;
+			(cast(byte*)memb.data)[lo * isize .. hi * isize] = (cast(byte*)other.data)[0 .. other.length * isize];
+		}
+		else if(isFunction(t, idx))
 		{
 			void callFunc(uword i)
 			{
@@ -677,8 +746,8 @@ static:
 			else
 				checkParam(t, idx, MDValue.Type.Array);
 
-			if(len(t, idx) != memb.length)
-				throwException(t, "Length of vector ({}) and length of array ({}) do not match", memb.length, len(t, idx));
+			if(len(t, idx) != (hi - lo))
+				throwException(t, "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, idx));
 
 			switch(memb.type.code)
 			{
@@ -692,14 +761,14 @@ static:
 					TypeCode.u32,
 					TypeCode.u64:
 
-					for(uword i = 0; i < memb.length; i++)
+					for(uword i = lo, ai = 0; i < hi; i++, ai++)
 					{
-						idxi(t, idx, i);
+						idxi(t, idx, ai);
 
 						if(!isInt(t, -1))
 						{
 							pushTypeString(t, -1);
-							throwException(t, "array element {} expected to be 'int', not '{}'", i, getString(t, -1));
+							throwException(t, "array element {} expected to be 'int', not '{}'", ai, getString(t, -1));
 						}
 
 						memb.type.setItem(t, memb, i, -1);
@@ -708,14 +777,14 @@ static:
 					break;
 
 				case TypeCode.f32, TypeCode.f64:
-					for(uword i = 0; i < memb.length; i++)
+					for(uword i = lo, ai = 0; i < hi; i++, ai++)
 					{
-						idxi(t, idx, i);
+						idxi(t, idx, ai);
 
 						if(!isNum(t, -1))
 						{
 							pushTypeString(t, -1);
-							throwException(t, "array element {} expected to be 'int' or 'float', not '{}'", i, getString(t, -1));
+							throwException(t, "array element {} expected to be 'int' or 'float', not '{}'", ai, getString(t, -1));
 						}
 
 						memb.type.setItem(t, memb, i, -1);
@@ -724,36 +793,36 @@ static:
 					break;
 
 				case TypeCode.c:
+					auto ddat = (cast(dchar*)memb.data)[lo .. hi];
+
 					if(isArray(t, idx))
 					{
-						for(uword i = 0; i < memb.length; i++)
+						for(uword i = lo, ai = 0; i < hi; i++, ai++)
 						{
-							idxi(t, idx, i);
-		
+							idxi(t, idx, ai);
+
 							if(!isChar(t, -1))
 							{
 								pushTypeString(t, -1);
-								throwException(t, "array element {} expected to be 'char', not '{}'", i, getString(t, -1));
+								throwException(t, "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
 							}
-		
-							memb.type.setItem(t, memb, i, -1);
+
+							ddat[ai] = getChar(t, -1);
 							pop(t);
 						}
 					}
 					else
 					{
 						foreach(i, dchar c; getString(t, idx))
-						{
-							pushChar(t, c);
-							memb.type.setItem(t, memb, i, -1);
-							pop(t);
-						}
+							ddat[i] = c;
 					}
 					break;
-	
+
 				default: assert(false);
 			}
 		}
+		
+		pop(t);
 	}
 
 	uword fill(MDThread* t, uword numParams)
@@ -784,6 +853,108 @@ static:
 			throwException(t, "Invalid range indices ({} .. {})", lo, hi);
 
 		fillImpl(t, memb, 3, cast(uword)lo, cast(uword)hi);
+
+		dup(t, 0);
+		return 1;
+	}
+	
+	uword vec_insert(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto idx = checkIntParam(t, 1);
+		checkAnyParam(t, 2);
+		
+		if(idx < 0)
+			idx += memb.length;
+			
+		if(idx < 0 || idx > memb.length)
+			throwException(t, "Invalid index: {} (length: {})", idx, memb.length);
+
+		void[] doResize(long otherLen)
+		{
+			long totalLen = memb.length + otherLen;
+
+			if(totalLen > uword.max)
+				throwException(t, "Invalid size ({})", totalLen);
+
+			auto oldLen = memb.length;
+			memb.length = cast(uword)totalLen;
+			auto isize = memb.type.itemSize;
+			auto tmp = memb.data[0 .. oldLen * isize];
+			t.vm.alloc.resizeArray(tmp, cast(uword)totalLen * isize);
+			memb.data = tmp.ptr;
+
+			if(idx < oldLen)
+			{
+				auto end = idx + otherLen;
+				auto numLeft = oldLen - idx;
+				memmove(&tmp[cast(uword)end * isize], &tmp[cast(uword)idx * isize], cast(uint)(numLeft * isize));
+			}
+
+			return tmp;
+		}
+
+		pushGlobal(t, "Vector");
+
+		if(strictlyAs(t, 2, -1))
+		{
+			auto other = getMembers!(Members)(t, 2);
+
+			if(memb.type !is other.type)
+				throwException(t, "Attempting to insert a Vector of type '{}' into a Vector of type '{}'", typeNames[other.type.code], typeNames[memb.type.code]);
+
+			auto tmp = doResize(other.length);
+			auto isize = memb.type.itemSize;
+			memcpy(&tmp[cast(uword)idx * isize], other.data, other.length * isize);
+		}
+		else
+		{
+			if(memb.type.code == TypeCode.c && isString(t, 2))
+			{
+				auto cpLen = len(t, 2);
+
+				if(cpLen != 0)
+				{
+					auto str = getString(t, 2);
+					doResize(cpLen);
+					auto dstr = (cast(dchar*)memb.data)[cast(uword)idx .. memb.length];
+
+					foreach(i, dchar c; str)
+						dstr[i] = c;
+				}
+			}
+			else
+			{
+				switch(memb.type.code)
+				{
+					case
+						TypeCode.i8,
+						TypeCode.i16,
+						TypeCode.i32,
+						TypeCode.i64,
+						TypeCode.u8,
+						TypeCode.u16,
+						TypeCode.u32,
+						TypeCode.u64:
+
+						checkIntParam(t, 2);
+						break;
+
+					case TypeCode.f32, TypeCode.f64:
+						checkNumParam(t, 2);
+						break;
+
+					case TypeCode.c:
+						checkCharParam(t, 2);
+						break;
+
+					default: assert(false);
+				}
+
+				doResize(1);
+				memb.type.setItem(t, memb, cast(uword)idx, 2);
+			}
+		}
 
 		dup(t, 0);
 		return 1;
@@ -927,7 +1098,7 @@ static:
 		pushFloat(t, res);
 		return 1;
 	}
-	
+
 	uword remove(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
@@ -952,11 +1123,14 @@ static:
 			throwException(t, "Invalid indices: {} .. {} (length: {})", start, end, memb.length);
 
 		if(start == end)
-			return 0;
+		{
+			dup(t, 0);
+			return 1;
+		}
 
 		auto isize = memb.type.itemSize;
 		auto data = memb.data[0 .. memb.length * isize];
-		
+
 		if(end < memb.length)
 			memmove(&data[cast(uword)start * isize], &data[cast(uword)end * isize], cast(uint)((memb.length - end) * isize));
 
@@ -965,6 +1139,7 @@ static:
 		memb.length -= diff;
 		memb.data = data.ptr;
 
+		dup(t, 0);
 		return 1;
 	}
 
@@ -1197,7 +1372,7 @@ static:
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
-		auto hi = optIntParam(t, 2, -1);
+		auto hi = optIntParam(t, 2, memb.length);
 
 		if(lo < 0)
 			lo += memb.length;
@@ -1216,11 +1391,11 @@ static:
 		pushString(t, typeNames[memb.type.code]);
 		pushInt(t, hi - lo);
 		methodCall(t, -4, "clone", 1);
-		
+
 		auto other = getMembers!(Members)(t, -1);
 		auto isize = memb.type.itemSize;
 		(cast(byte*)other.data)[0 .. other.length * isize] = (cast(byte*)memb.data)[cast(uword)lo * isize .. cast(uword)hi * isize];
-		
+
 		return 1;
 	}
 
@@ -1807,6 +1982,7 @@ static:
 				}
 			}
 
+			dup(t, 0);
 			return 0;
 		}`; /+ " +/
 	}
