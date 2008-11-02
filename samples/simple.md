@@ -1,9 +1,6 @@
 module samples.simple
 
-local v = Vector.clone("i8", 16, \i -> math.rand(20)).sort()
-writeln(v)
-v ~= Vector.clone("i8", 4, 0)
-writeln(v)
+local v = Vector.range("i32", 1, 11)
 
 
 /+

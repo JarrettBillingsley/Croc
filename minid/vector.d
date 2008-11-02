@@ -1,5 +1,30 @@
+/******************************************************************************
+License:
+Copyright (c) 2008 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
 
 module minid.vector;
+
+import tango.math.Math;
+import tango.stdc.string;
 
 import minid.ex;
 import minid.interpreter;
@@ -118,7 +143,7 @@ static:
 				dup(t);
 			o.method("clone",          &clone, 1);
 			o.method("dup",            &vec_dup, 1);
-// 			o.method("range",          &range, 1);
+			o.method("range",          &range, 1);
 
 			o.method("apply",          &apply);
 			o.method("fill",           &fill);
@@ -127,7 +152,7 @@ static:
 			o.method("map",            &map);
 			o.method("max",            &max);
 			o.method("min",            &min);
-// 			o.method("pop",            &vec_pop);
+			o.method("pop",            &vec_pop);
 			o.method("product",        &product);
 // 			o.method("remove",         &remove);
 			o.method("reverse",        &reverse);
@@ -275,6 +300,225 @@ static:
 
 		getUpval(t, 0);
 		setFinalizer(t, ret);
+
+		return 1;
+	}
+	
+	uword range(MDThread* t, uword numParams)
+	{
+		auto type = checkStringParam(t, 1);
+
+		TypeStruct* ts;
+
+		switch(type)
+		{
+			case "i8" : ts = &typeStructs[TypeCode.i8];  break;
+			case "i16": ts = &typeStructs[TypeCode.i16]; break;
+			case "i32": ts = &typeStructs[TypeCode.i32]; break;
+			case "i64": ts = &typeStructs[TypeCode.i64]; break;
+			case "u8" : ts = &typeStructs[TypeCode.u8];  break;
+			case "u16": ts = &typeStructs[TypeCode.u16]; break;
+			case "u32": ts = &typeStructs[TypeCode.u32]; break;
+			case "u64": ts = &typeStructs[TypeCode.u64]; break;
+			case "f32": ts = &typeStructs[TypeCode.f32]; break;
+			case "f64": ts = &typeStructs[TypeCode.f64]; break;
+			case "c"  : ts = &typeStructs[TypeCode.c];   break;
+
+			default:
+				throwException(t, "Invalid type code '{}'", type);
+		}
+
+		Members* makeObj(long size)
+		{
+			auto ret = newObject(t, 0, null, 0, Members.sizeof);
+			auto memb = getMembers!(Members)(t, ret);
+			*memb = Members.init;
+
+			memb.type = ts;
+			memb.length = cast(uword)size;
+			memb.data = t.vm.alloc.allocArray!(void)(cast(uword)size * memb.type.itemSize).ptr;
+
+			getUpval(t, 0);
+			setFinalizer(t, ret);
+
+			return memb;
+		}
+
+		switch(ts.code)
+		{
+			case
+				TypeCode.i8,
+				TypeCode.i16,
+				TypeCode.i32,
+				TypeCode.i64,
+				TypeCode.u8,
+				TypeCode.u16,
+				TypeCode.u32,
+				TypeCode.u64:
+
+				auto v1 = checkIntParam(t, 2);
+				mdint v2 = void;
+				mdint step = 1;
+
+				if(numParams == 2)
+				{
+					v2 = v1;
+					v1 = 0;
+				}
+				else if(numParams == 3)
+					v2 = checkIntParam(t, 3);
+				else
+				{
+					v2 = checkIntParam(t, 3);
+					step = checkIntParam(t, 4);
+				}
+
+				if(step <= 0)
+					throwException(t, "Step may not be negative or 0");
+
+				mdint range = abs(v2 - v1);
+				long size = range / step;
+
+				if((range % step) != 0)
+					size++;
+
+				if(size > uword.max)
+					throwException(t, "Vector is too big");
+
+				auto ret = makeObj(size);
+				auto val = v1;
+
+				if(v2 < v1)
+				{
+					for(uword i = 0; val > v2; i++, val -= step)
+					{
+						pushInt(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+				else
+				{
+					for(uword i = 0; val < v2; i++, val += step)
+					{
+						pushInt(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+
+				break;
+
+			case TypeCode.f32, TypeCode.f64:
+				auto v1 = checkNumParam(t, 2);
+				mdfloat v2 = void;
+				mdfloat step = 1;
+
+				if(numParams == 2)
+				{
+					v2 = v1;
+					v1 = 0;
+				}
+				else if(numParams == 3)
+					v2 = checkNumParam(t, 3);
+				else
+				{
+					v2 = checkNumParam(t, 3);
+					step = checkNumParam(t, 4);
+				}
+
+				if(step <= 0)
+					throwException(t, "Step may not be negative or 0");
+
+				auto range = abs(v2 - v1);
+				long size = cast(long)(range / step);
+
+				if((range % step) != 0)
+					size++;
+
+				if(size > uword.max)
+					throwException(t, "Vector is too big");
+
+				auto ret = makeObj(size);
+				auto val = v1;
+
+				if(v2 < v1)
+				{
+					for(uword i = 0; i < size; i++, val -= step)
+					{
+						pushFloat(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+				else
+				{
+					for(uword i = 0; i < size; i++, val += step)
+					{
+						pushFloat(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+
+				break;
+
+			case TypeCode.c:
+				auto v1 = checkCharParam(t, 2);
+				dchar v2 = void;
+				mdint step = 1;
+
+				if(numParams == 2)
+				{
+					v2 = v1;
+					v1 = '\0';
+				}
+				else if(numParams == 3)
+					v2 = checkCharParam(t, 3);
+				else
+				{
+					v2 = checkCharParam(t, 3);
+					step = checkIntParam(t, 4);
+				}
+
+				if(step <= 0)
+					throwException(t, "Step may not be negative or 0");
+
+				long range = abs(cast(int)v2 - cast(int)v1);
+				long size = range / step;
+
+				if((range % step) != 0)
+					size++;
+
+				if(size > uword.max)
+					throwException(t, "Vector is too big");
+
+				auto ret = makeObj(size);
+				auto val = v1;
+
+				if(v2 < v1)
+				{
+					for(uword i = 0; val > v2; i++, val -= step)
+					{
+						pushChar(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+				else
+				{
+					for(uword i = 0; val < v2; i++, val += step)
+					{
+						pushChar(t, val);
+						ret.type.setItem(t, ret, i, -1);
+						pop(t);
+					}
+				}
+
+				break;
+
+			default: assert(false);
+		}
 
 		return 1;
 	}
@@ -536,6 +780,37 @@ static:
 		}
 
 		return 1;
+	}
+	
+	uword vec_pop(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		
+		if(memb.length == 0)
+			throwException(t, "Vector is empty");
+
+		auto index = optIntParam(t, 1, -1);
+
+		if(index < 0)
+			index += memb.length;
+
+		if(index < 0 || index >= memb.length)
+			throwException(t, "Invalid index: {}", index);
+
+		memb.type.getItem(t, memb, cast(uword)index);
+
+		auto isize = memb.type.itemSize;
+		auto data = memb.data[0 .. memb.length * isize];
+
+		if(index < memb.length - 1)
+			memmove(&data[cast(uword)index * isize], &data[(cast(uword)index + 1) * isize], cast(uint)((memb.length - index - 1) * isize));
+
+		t.vm.alloc.resizeArray(data, (memb.length - 1) * isize);
+		memb.length--;
+		memb.data = data.ptr;
+
+		return 1;
+	
 	}
 
 	uword product(MDThread* t, uword numParams)
