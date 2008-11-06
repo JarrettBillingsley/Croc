@@ -1,6 +1,5 @@
 module samples.simple
 
-
 /+
 /*
 function enum(name: string, vararg)

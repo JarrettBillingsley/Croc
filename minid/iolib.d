@@ -125,6 +125,9 @@ static:
 			newFunction(t, &listDirs, "listDirs");     newGlobal(t, "listDirs");
 			newFunction(t, &readFile, "readFile");     newGlobal(t, "readFile");
 			newFunction(t, &writeFile, "writeFile");   newGlobal(t, "writeFile");
+			
+				newFunction(t, &linesIterator, "linesIterator");
+			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
 
 			return 0;
 		}, "io");
@@ -317,6 +320,42 @@ static:
 
 		return 0;
 	}
+	
+	uword linesIterator(MDThread* t, uword numParams)
+	{
+		getExtraVal(t, 0, StreamObj.Fields.input);
+		auto lines = (cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).lines;
+
+		auto index = checkIntParam(t, 1) + 1;
+		auto line = safeCode(t, lines.next());
+
+		if(line.ptr is null)
+		{
+			dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "close", 0);
+			return 0;
+		}
+
+		pushInt(t, index);
+		pushString(t, line);
+		return 2;
+	}
+
+	uword lines(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+		
+		pushGlobal(t, "File");
+		pushNull(t);
+		pushString(t, name);
+		rawCall(t, -3, 1);
+		
+		pushInt(t, 0);
+		getUpval(t, 0);
+		
+		return 3;
+	}
 
 	uword File(MDThread* t, uword numParams)
 	{
@@ -397,6 +436,7 @@ static:
 				o.method("readln", &readln);
 				o.method("readChars", &readChars);
 				o.method("readVector", &readVector);
+				o.method("clear", &clear);
 
 					newFunction(t, &iterator, "InputStream.iterator");
 				o.method("opApply", &opApply, 1);
@@ -552,6 +592,13 @@ static:
 
 			return 1;
 		}
+		
+		private uword clear(MDThread* t, uword numParams)
+		{
+			getThis(t).stream.clear();
+			dup(t, 0);
+			return 1;
+		}
 
 		private uword iterator(MDThread* t, uword numParams)
 		{
@@ -604,6 +651,7 @@ static:
 				o.method("writeByte",   &writeVal!(ubyte));
 				o.method("writeShort",  &writeVal!(ushort));
 				o.method("writeInt",    &writeVal!(int));
+				o.method("writeLong",   &writeVal!(long));
 				o.method("writeFloat",  &writeVal!(float));
 				o.method("writeDouble", &writeVal!(double));
 				o.method("writeChar",   &writeVal!(char));
@@ -616,6 +664,7 @@ static:
 				o.method("writefln",    &writefln);
 				o.method("writeChars",  &writeChars);
 				o.method("writeJSON",   &writeJSON);
+				o.method("writeVector", &writeVector);
 				o.method("flush",       &flush);
 				o.method("copy",        &copy);
 			});
@@ -661,7 +710,7 @@ static:
 			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, ret, Fields.stream);
 			pushNativeObj(t, memb.writer);             setExtraVal(t, ret, Fields.writer);
 			pushNativeObj(t, memb.print);              setExtraVal(t, ret, Fields.print);
-			
+
 			getUpval(t, 0);
 			setFinalizer(t, ret);
 
@@ -703,12 +752,12 @@ static:
 
 		public uword write(MDThread* t, uword numParams)
 		{
-			auto memb = getThis(t);
+			auto p = getThis(t).print;
 
 			for(uword i = 1; i <= numParams; i++)
 			{
 				pushToString(t, i);
-				safeCode(t, memb.print.print(getString(t, -1)));
+				safeCode(t, p.print(getString(t, -1)));
 				pop(t);
 			}
 
@@ -718,27 +767,27 @@ static:
 
 		public uword writeln(MDThread* t, uword numParams)
 		{
-			auto memb = getThis(t);
+			auto p = getThis(t).print;
 
 			for(uword i = 1; i <= numParams; i++)
 			{
 				pushToString(t, i);
-				safeCode(t, memb.print.print(getString(t, -1)));
+				safeCode(t, p.print(getString(t, -1)));
 				pop(t);
 			}
 
-			safeCode(t, memb.print.newline());
+			safeCode(t, p.newline());
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writef(MDThread* t, uword numParams)
 		{
-			auto memb = getThis(t);
+			auto p = getThis(t).print;
 
 			safeCode(t, formatImpl(t, numParams, (char[] s)
 			{
-				memb.print.print(s);
+				p.print(s);
 				return s.length;
 			}));
 
@@ -748,15 +797,15 @@ static:
 
 		public uword writefln(MDThread* t, uword numParams)
 		{
-			auto memb = getThis(t);
+			auto p = getThis(t).print;
 
 			safeCode(t, formatImpl(t, numParams, (char[] s)
 			{
-				memb.print.print(s);
+				p.print(s);
 				return s.length;
 			}));
 
-			safeCode(t, memb.print.newline());
+			safeCode(t, p.newline());
 			dup(t, 0);
 			return 1;
 		}
@@ -776,6 +825,31 @@ static:
 			checkAnyParam(t, 1);
 			auto pretty = optBoolParam(t, 2, false);
 			toJSONImpl(t, 1, pretty, memb.print);
+			dup(t, 0);
+			return 1;
+		}
+		
+		public uword writeVector(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			auto vecMemb = checkObjParam!(VectorObj.Members)(t, 1, "Vector");
+			auto lo = optIntParam(t, 2, 0);
+			auto hi = optIntParam(t, 3, vecMemb.length);
+			
+			if(lo < 0)
+				lo += vecMemb.length;
+
+			if(lo < 0 || lo > vecMemb.length)
+				throwException(t, "Invalid low index: {} (vector length: {})", lo, vecMemb.length);
+
+			if(hi < 0)
+				hi += vecMemb.length;
+
+			if(hi < lo || hi > vecMemb.length)
+				throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
+
+			auto isize = vecMemb.type.itemSize;
+			memb.buf.append(vecMemb.data[cast(uword)lo * isize .. cast(uword)hi * isize]);
 			dup(t, 0);
 			return 1;
 		}
@@ -808,19 +882,15 @@ static:
 				if(strictlyAs(t, 1, -1))
 				{
 					pop(t);
-					getExtraVal(t, 1, StreamObj.Members.input);
-					getExtraVal(t, -1, InputStreamObj.Members.input);
-					stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
-					pop(t, 2);
+					getExtraVal(t, 1, StreamObj.Fields.input);
+					stream = (cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream;
+					pop(t);
 				}
 				else
-				{
-					pushTypeString(t, 1);
-					throwException(t, "object must be either an InputStream or a Stream, not a '{}'", getString(t, -1));
-				}
+					paramTypeError(t, 1, "InputStream|Stream");
 			}
-			
-			safeCode(t, o.copy(stream));
+
+			safeCode(t, memb.stream.copy(stream));
 			dup(t, 0);
 			return 1;
 		}
@@ -829,22 +899,33 @@ static:
 	struct StreamObj
 	{
 	static:
-		enum Members
+		enum Fields
 		{
 			conduit,
 			input,
 			output,
-			seeker	
+			seeker
+		}
+		
+		struct Members
+		{
+			bool closed;
+			bool dirty;
+			IConduit conduit;
+			IConduit.Seek seeker;
 		}
 
 		public void init(MDThread* t)
 		{
 			CreateObject(t, "Stream", (CreateObject* o)
 			{
-				o.method("clone", &clone);
+					newFunction(t, &finalizer, "Stream.finalizer");
+				o.method("clone", &clone, 1);
+
 				o.method("readByte", &readVal!(ubyte));
 				o.method("readShort", &readVal!(ushort));
 				o.method("readInt", &readVal!(int));
+				o.method("readLong", &readVal!(long));
 				o.method("readFloat", &readVal!(float));
 				o.method("readDouble", &readVal!(double));
 				o.method("readChar", &readVal!(char));
@@ -853,11 +934,14 @@ static:
 				o.method("readString", &readString);
 				o.method("readln", &readln);
 				o.method("readChars", &readChars);
+				o.method("readVector", &readVector);
+				o.method("clear", &clear);
 				o.method("opApply", &opApply);
 
 				o.method("writeByte", &writeVal!(ubyte));
 				o.method("writeShort", &writeVal!(ushort));
 				o.method("writeInt", &writeVal!(int));
+				o.method("writeLong", &writeVal!(long));
 				o.method("writeFloat", &writeVal!(float));
 				o.method("writeDouble", &writeVal!(double));
 				o.method("writeChar", &writeVal!(char));
@@ -870,6 +954,7 @@ static:
 				o.method("writefln", &writefln);
 				o.method("writeChars", &writeChars);
 				o.method("writeJSON", &writeJSON);
+				o.method("writeVector", &writeVector);
 				o.method("flush", &flush);
 				o.method("copy", &copy);
 
@@ -885,80 +970,119 @@ static:
 			
 			newGlobal(t, "Stream");
 		}
+
+		uword finalizer(MDThread* t, uword numParams)
+		{
+			auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+
+			if(!memb.closed)
+			{
+				memb.closed = true;
+
+				if(memb.dirty)
+				{
+					memb.dirty = false;
+					getExtraVal(t, 0, Fields.output);
+					(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+					pop(t);
+				}
+
+				memb.conduit.close();
+			}
+			
+			return 0;
+		}
 		
 		public uword clone(MDThread* t, uword numParams)
 		{
-			checkParam(t, 1, MDValue.Type.NativeObj);
-			auto conduit = cast(IConduit)getNativeObj(t, 1);
+			checkAnyParam(t, 1);
+			word ret;
 
-			if(conduit is null)
-				throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
+			if(isNativeObj(t, 1))
+			{
+				auto conduit = cast(IConduit)getNativeObj(t, 1);
 
-			auto seeker = cast(IConduit.Seek)conduit;
+				if(conduit is null)
+					throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
 
-			pushGlobal(t, "Stream");
-			auto ret = newObject(t, -1, null, 4);
+				pushGlobal(t, "Stream");
+				ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
+				auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
 
-			pushNativeObj(t, cast(Object)conduit); setExtraVal(t, ret, Members.conduit);
+				memb.closed = false;
+				memb.dirty = false;
+				memb.seeker = cast(IConduit.Seek)conduit;
 
-			if(seeker is null)
-				pushNull(t);
+				if(auto b = cast(Buffered)conduit)
+					memb.conduit = b.buffer;
+				else
+					memb.conduit = new Buffer(conduit);
+
+				pushNativeObj(t, cast(Object)memb.conduit); setExtraVal(t, ret, Fields.conduit);
+
+				if(memb.seeker is null)
+					pushNull(t);
+				else
+					pushNativeObj(t, cast(Object)memb.seeker);
+
+				setExtraVal(t, ret, Fields.seeker);
+
+					pushGlobal(t, "InputStream");
+					pushNull(t);
+					pushNativeObj(t, cast(Object)memb.conduit);
+					methodCall(t, -3, "clone", 1);
+				setExtraVal(t, ret, Fields.input);
+
+					pushGlobal(t, "OutputStream");
+					pushNull(t);
+					pushNativeObj(t, cast(Object)memb.conduit);
+					methodCall(t, -3, "clone", 1);
+				setExtraVal(t, ret, Fields.output);
+			}
 			else
-				pushNativeObj(t, cast(Object)seeker);
-				
-			setExtraVal(t, ret, Members.seeker);
+			{
+				// make input/output stream constructor
+				assert(false);
+			}
 
-				pushGlobal(t, "InputStream");
-				pushNull(t);
-				pushNativeObj(t, cast(Object)conduit);
-				methodCall(t, -3, "clone", 1);
-			setExtraVal(t, ret, Members.input);
-
-				pushGlobal(t, "OutputStream");
-				pushNull(t);
-				pushNativeObj(t, cast(Object)conduit);
-				methodCall(t, -3, "clone", 1);
-			setExtraVal(t, ret, Members.output);
-
+			getUpval(t, 0);
+			setFinalizer(t, ret);
 			return 1;
 		}
 		
 		word pushInput(MDThread* t)
 		{
-			checkObjParam(t, 0, "Stream");
-			return getExtraVal(t, 0, Members.input);
+			return getExtraVal(t, 0, Fields.input);
 		}
 
 		word pushOutput(MDThread* t)
 		{
-			checkObjParam(t, 0, "Stream");
-			return getExtraVal(t, 0, Members.output);
+			return getExtraVal(t, 0, Fields.output);
 		}
 
-		IConduit.Seek getSeeker(MDThread* t)
+		Members* getThis(MDThread* t)
 		{
-			checkObjParam(t, 0, "Stream");
-			getExtraVal(t, 0, Members.seeker);
-			
-			if(isNull(t, -1))
-				throwException(t, "Stream is not seekable.");
-
-			auto ret = cast(IConduit.Seek)cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
+			return checkObjParam!(Members)(t, 0, "Stream");
 		}
-
-		IConduit getConduit(MDThread* t)
+		
+		void checkDirty(MDThread* t, Members* memb)
 		{
-			checkObjParam(t, 0, "Stream");
-			getExtraVal(t, 0, Members.conduit);
-			auto ret = cast(IConduit)cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
+			if(memb.dirty)
+			{
+				memb.dirty = false;
+				pushOutput(t);
+				(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+				pop(t);
+				pushInput(t);
+				(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
+				pop(t);
+			}
 		}
 
 		public uword readVal(T)(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
 			pushInput(t);
 			swap(t, 0);
 			pop(t);
@@ -967,6 +1091,8 @@ static:
 
 		public uword readString(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
 			pushInput(t);
 			swap(t, 0);
 			pop(t);
@@ -975,6 +1101,8 @@ static:
 
 		public uword readln(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
 			pushInput(t);
 			swap(t, 0);
 			pop(t);
@@ -983,14 +1111,40 @@ static:
 
 		public uword readChars(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
 			pushInput(t);
 			swap(t, 0);
 			pop(t);
 			return InputStreamObj.readChars(t, numParams);
 		}
+		
+		public uword readVector(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
+			
+			setStackSize(t, 3);
+
+			pushInput(t);
+			swap(t, 0);
+			pop(t);
+			return InputStreamObj.readVector(t, numParams);
+		}
+		
+		public uword clear(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			pushInput(t);
+			(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
+			dup(t, 0);
+			return 1;
+		}
 
 		public uword opApply(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			checkDirty(t, memb);
 			pushInput(t);
 			pushNull(t);
 			return methodCall(t, -2, "opApply", -1);
@@ -998,6 +1152,8 @@ static:
 
 		public uword writeVal(T)(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writeVal!(T)(t, numParams);
@@ -1007,6 +1163,8 @@ static:
 
 		public uword writeString(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writeString(t, numParams);
@@ -1016,6 +1174,8 @@ static:
 
 		public uword write(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.write(t, numParams);
@@ -1025,6 +1185,8 @@ static:
 
 		public uword writeln(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writeln(t, numParams);
@@ -1034,6 +1196,8 @@ static:
 
 		public uword writef(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writef(t, numParams);
@@ -1043,6 +1207,8 @@ static:
 
 		public uword writefln(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writefln(t, numParams);
@@ -1052,6 +1218,8 @@ static:
 
 		public uword writeChars(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.writeChars(t, numParams);
@@ -1061,11 +1229,12 @@ static:
 
 		public uword writeJSON(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			checkAnyParam(t, 1);
 
-			// Have to set up the stack so that OutputStream.writeJSON doesn't see 'this' on it
-			if(numParams == 1)
-				pushNull(t);
+			// Have to set up the stack so that OutputStream.writeJSON sees optional params correctly
+			setStackSize(t, 3);
 
 			pushOutput(t);
 			swap(t, 0);
@@ -1074,17 +1243,33 @@ static:
 			return 1;
 		}
 
-		public uword flush(MDThread* t, uword numParams)
+		public uword writeVector(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
+			
+			setStackSize(t, 4);
 			pushOutput(t);
 			swap(t, 0);
-			OutputStreamObj.flush(t, numParams);
+			OutputStreamObj.writeVector(t, numParams);
 			pop(t);
 			return 1;
 		}
-		
+
+		public uword flush(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			memb.dirty = false;
+			pushOutput(t);
+			(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+			dup(t, 0);
+			return 1;
+		}
+
 		public uword copy(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+			memb.dirty = true;
 			pushOutput(t);
 			swap(t, 0);
 			OutputStreamObj.copy(t, numParams);
@@ -1094,52 +1279,74 @@ static:
 
 		public uword seek(MDThread* t, uword numParams)
 		{
-			auto seeker = getSeeker(t);
+			auto memb = getThis(t);
+
+			if(memb.seeker is null)
+				throwException(t, "Stream is not seekable.");
+
 			auto pos = checkIntParam(t, 1);
 			auto whence = checkCharParam(t, 2);
+			
+			pushOutput(t);
+			(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+			pop(t);
+			pushInput(t);
+			(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
+			pop(t);
+			
+			memb.dirty = false;
 
 			if(whence == 'b')
-				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.Begin));
+				safeCode(t, memb.seeker.seek(pos, IConduit.Seek.Anchor.Begin));
 			else if(whence == 'c')
-				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.Current));
+				safeCode(t, memb.seeker.seek(pos, IConduit.Seek.Anchor.Current));
 			else if(whence == 'e')
-				safeCode(t, seeker.seek(pos, IConduit.Seek.Anchor.End));
+				safeCode(t, memb.seeker.seek(pos, IConduit.Seek.Anchor.End));
 			else
 				throwException(t, "Invalid seek type '{}'", whence);
 
-			getExtraVal(t, 0, Members.input);
-			getExtraVal(t, -1, InputStreamObj.Members.input);
-			(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
-
-			return 0;
+			dup(t, 0);
+			return 1;
 		}
 
 		public uword position(MDThread* t, uword numParams)
 		{
-			auto seeker = getSeeker(t);
+			auto memb = getThis(t);
+
+			if(memb.seeker is null)
+				throwException(t, "Stream is not seekable.");
 
 			if(numParams == 0)
 			{
-				pushInt(t, safeCode(t, cast(mdint)seeker.seek(0, IConduit.Seek.Anchor.Current)));
+				pushInt(t, safeCode(t, cast(mdint)memb.seeker.seek(0, IConduit.Seek.Anchor.Current)));
 				return 1;
 			}
 			else
 			{
-				safeCode(t, seeker.seek(checkIntParam(t, 1), IConduit.Seek.Anchor.Begin));
-				getExtraVal(t, 0, Members.input);
-				getExtraVal(t, -1, InputStreamObj.Members.input);
-				(cast(InputStream)cast(void*)getNativeObj(t, -1)).clear();
+				pushOutput(t);
+				(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+				pop(t);
+				pushInput(t);
+				(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
+				pop(t);
+
+				memb.dirty = false;
+
+				safeCode(t, memb.seeker.seek(checkIntParam(t, 1), IConduit.Seek.Anchor.Begin));
 				return 0;
 			}
 		}
 
 		public uword size(MDThread* t, uword numParams)
 		{
-			auto seeker = getSeeker(t);
+			auto memb = getThis(t);
 
-			auto pos = seeker.seek(0, IConduit.Seek.Anchor.Current);
-			auto ret = seeker.seek(0, IConduit.Seek.Anchor.End);
-			seeker.seek(pos, IConduit.Seek.Anchor.Begin);
+			if(memb.seeker is null)
+				throwException(t, "Stream is not seekable.");
+
+			auto pos = memb.seeker.seek(0, IConduit.Seek.Anchor.Current);
+			auto ret = memb.seeker.seek(0, IConduit.Seek.Anchor.End);
+			memb.seeker.seek(pos, IConduit.Seek.Anchor.Begin);
 
 			pushInt(t, cast(mdint)ret);
 			return 1;
@@ -1147,30 +1354,36 @@ static:
 
 		public uword close(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+
+			memb.closed = true;
+
 			pushOutput(t);
-			getExtraVal(t, -1, OutputStreamObj.Members.output);
-			try (cast(OutputStream)cast(void*)getNativeObj(t, -1)).flush(); catch{}
-			getConduit(t).close();
+			(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+			pop(t);
+
+			memb.dirty = false;
+			memb.conduit.close();
 			return 0;
 		}
 
 		public uword isOpen(MDThread* t, uword numParams)
 		{
-			pushBool(t, getConduit(t).isAlive());
+			pushBool(t, !getThis(t).closed);
 			return 1;
 		}
 
 		public uword input(MDThread* t, uword numParams)
 		{
 			checkObjParam(t, 0, "Stream");
-			getExtraVal(t, 0, Members.input);
+			getExtraVal(t, 0, Fields.input);
 			return 1;
 		}
 
 		public uword output(MDThread* t, uword numParams)
 		{
 			checkObjParam(t, 0, "Stream");
-			getExtraVal(t, 0, Members.output);
+			getExtraVal(t, 0, Fields.output);
 			return 1;
 		}
 	}
