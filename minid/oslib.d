@@ -235,8 +235,8 @@ static:
 
 			pushNull(t);
 			dup(t);
-			setExtraVal(t, 0, Members.stdin);
 			dup(t);
+			setExtraVal(t, 0, Members.stdin);
 			setExtraVal(t, 0, Members.stdout);
 			setExtraVal(t, 0, Members.stderr);
 

@@ -23,6 +23,7 @@ subject to the following restrictions:
 
 module minid.iolib;
 
+import tango.io.Buffer;
 import tango.io.Console;
 import tango.io.device.Conduit;
 import tango.io.device.FileConduit;
@@ -44,6 +45,7 @@ import minid.interpreter;
 import minid.misc;
 import minid.types;
 import minid.utils;
+import minid.vector;
 
 struct IOLib
 {
@@ -54,7 +56,7 @@ static:
 	{
 		DefaultFileStyle = FileConduit.Style
 		(
-			FileConduit.ReadExisting.access,
+			FileConduit.Access.Read,
 			FileConduit.ReadExisting.open,
 			FileConduit.Share.ReadWrite,
 			FileConduit.ReadExisting.cache
@@ -320,7 +322,7 @@ static:
 	{
 		FileConduit.Style parseFileMode(mdint mode)
 		{
-			FileConduit.Style s = DefaultFileStyle;
+			auto s = DefaultFileStyle;
 
 			s.access = FileConduit.Access.Read;
 
@@ -362,11 +364,19 @@ static:
 	struct InputStreamObj
 	{
 	static:
-		enum Members
+		enum Fields
 		{
-			input,
+			stream,
 			reader,
 			lines
+		}
+
+		struct Members
+		{
+			InputStream stream;
+			IReader reader;
+			LineIterator!(char) lines;
+			IBuffer buf;
 		}
 
 		public void init(MDThread* t)
@@ -377,6 +387,7 @@ static:
 				o.method("readByte", &readVal!(ubyte));
 				o.method("readShort", &readVal!(ushort));
 				o.method("readInt", &readVal!(int));
+				o.method("readLong", &readVal!(long));
 				o.method("readFloat", &readVal!(float));
 				o.method("readDouble", &readVal!(double));
 				o.method("readChar", &readVal!(char));
@@ -385,6 +396,8 @@ static:
 				o.method("readString", &readString);
 				o.method("readln", &readln);
 				o.method("readChars", &readChars);
+				o.method("readVector", &readVector);
+
 					newFunction(t, &iterator, "InputStream.iterator");
 				o.method("opApply", &opApply, 1);
 			});
@@ -392,50 +405,40 @@ static:
 			newGlobal(t, "InputStream");
 		}
 		
-		private Reader getReader(MDThread* t)
+		private Members* getThis(MDThread* t)
 		{
-			checkObjParam(t, 0, "InputStream");
-			getExtraVal(t, 0, Members.reader);
-			auto ret = cast(Reader)cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
-		}
-		
-		private LineIterator!(char) getLines(MDThread* t)
-		{
-			checkObjParam(t, 0, "InputStream");
-			getExtraVal(t, 0, Members.lines);
-			auto ret = cast(LineIterator!(char))cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
+			return checkObjParam!(Members)(t, 0, "InputStream");
 		}
 
 		public uword clone(MDThread* t, uword numParams)
 		{
 			checkParam(t, 1, MDValue.Type.NativeObj);
 			auto input = cast(InputStream)getNativeObj(t, 1);
-			
+
 			if(input is null)
 				throwException(t, "instances of InputStream may only be created using instances of the Tango InputStream");
-
-			auto reader = new Reader(input);
-			auto lines = new LineIterator!(char)(input);
-			
+				
 			pushGlobal(t, "InputStream");
-			auto ret = newObject(t, -1, null, 3);
-			
-			pushNativeObj(t, cast(Object)input); setExtraVal(t, ret, Members.input);
-			pushNativeObj(t, reader);            setExtraVal(t, ret, Members.reader);
-			pushNativeObj(t, lines);             setExtraVal(t, ret, Members.lines);
+			auto ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
+			auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
+
+			memb.buf = Buffer.share(input);
+			memb.stream = memb.buf;
+			memb.reader = new Reader(memb.buf);
+			memb.lines = new LineIterator!(char)(memb.buf);
+
+			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, ret, Fields.stream);
+			pushNativeObj(t, memb.reader);             setExtraVal(t, ret, Fields.reader);
+			pushNativeObj(t, memb.lines);              setExtraVal(t, ret, Fields.lines);
 
 			return 1;
 		}
 
 		public uword readVal(T)(MDThread* t, uword numParams)
 		{
-			auto r = getReader(t);
+			auto memb = getThis(t);
 			T val = void;
-			safeCode(t, r.get(val));
+			safeCode(t, memb.reader.get(val));
 
 			static if(isIntType!(T))
 				pushInt(t, val);
@@ -451,19 +454,19 @@ static:
 
 		public uword readString(MDThread* t, uword numParams)
 		{
-			auto r = getReader(t);
+			auto memb = getThis(t);
 
 			safeCode(t,
 			{
-				uint length = void;
-				r.get(length);
-				
+				uword length = void;
+				memb.reader.get(length);
+
 				auto dat = t.vm.alloc.allocArray!(char)(length);
-				
+
 				scope(exit)
 					t.vm.alloc.freeArray(dat);
-					
-				r.buffer.readExact(dat.ptr, length * char.sizeof);
+
+				memb.buf.readExact(dat.ptr, length * char.sizeof);
 				pushString(t, dat);
 			}());
 
@@ -472,7 +475,7 @@ static:
 
 		public uword readln(MDThread* t, uword numParams)
 		{
-			auto ret = safeCode(t, getLines(t).next());
+			auto ret = safeCode(t, getThis(t).lines.next());
 
 			if(ret.ptr is null)
 				throwException(t, "Stream has no more data.");
@@ -483,7 +486,7 @@ static:
 
 		public uword readChars(MDThread* t, uword numParams)
 		{
-			auto r = getReader(t);
+			auto memb = getThis(t);
 			auto num = checkIntParam(t, 1);
 
 			if(num < 0 || num > uword.max)
@@ -496,9 +499,56 @@ static:
 				scope(exit)
 					t.vm.alloc.freeArray(dat);
 
-				r.buffer.readExact(dat.ptr, cast(uword)num * char.sizeof);
+				memb.buf.readExact(dat.ptr, cast(uword)num * char.sizeof);
 				pushString(t, dat);
 			}());
+
+			return 1;
+		}
+
+		public uword readVector(MDThread* t, uword numParams)
+		{
+			auto memb = getThis(t);
+			checkAnyParam(t, 1);
+
+			mdint size = void;
+			VectorObj.Members* vecMemb = void;
+
+			if(isString(t, 1))
+			{
+				auto type = getString(t, 1);
+				size = checkIntParam(t, 2);
+
+				pushGlobal(t, "Vector");
+				pushNull(t);
+				pushString(t, type);
+				pushInt(t, size);
+				methodCall(t, -4, "clone", 1);
+
+				vecMemb = getMembers!(VectorObj.Members)(t, -1);
+			}
+			else
+			{
+				pushGlobal(t, "Vector");
+
+				if(!strictlyAs(t, 1, -1))
+					paramTypeError(t, 1, "object Vector");
+
+				vecMemb = getMembers!(VectorObj.Members)(t, -1);
+				size = optIntParam(t, 2, vecMemb.length);
+
+				if(size != vecMemb.length)
+				{
+					dup(t, 1);
+					pushNull(t);
+					pushInt(t, size);
+					methodCall(t, -3, "opLengthAssign", 0);
+				}
+
+				dup(t, 1);
+			}
+
+			memb.buf.readExact(vecMemb.data, cast(uword)size * vecMemb.type.itemSize);
 
 			return 1;
 		}
@@ -506,7 +556,7 @@ static:
 		private uword iterator(MDThread* t, uword numParams)
 		{
 			auto index = checkIntParam(t, 1) + 1;
-			auto line = safeCode(t, getLines(t).next());
+			auto line = safeCode(t, getThis(t).lines.next());
 
 			if(line.ptr is null)
 				return 0;
@@ -529,18 +579,28 @@ static:
 	struct OutputStreamObj
 	{
 	static:
-		enum Members
+		enum Fields
 		{
-			output,
+			stream,
 			writer,
 			print
+		}
+		
+		struct Members
+		{
+			OutputStream stream;
+			IWriter writer;
+			Print!(char) print;
+			IBuffer buf;
 		}
 
 		public void init(MDThread* t)
 		{
 			CreateObject(t, "OutputStream", (CreateObject* o)
 			{
-				o.method("clone",       &clone);
+					newFunction(t, &finalizer, "OutputStream.finalizer");
+				o.method("clone",       &clone, 1);
+
 				o.method("writeByte",   &writeVal!(ubyte));
 				o.method("writeShort",  &writeVal!(ushort));
 				o.method("writeInt",    &writeVal!(int));
@@ -562,6 +622,24 @@ static:
 
 			newGlobal(t, "OutputStream");
 		}
+		
+		uword finalizer(MDThread* t, uword numParams)
+		{
+			auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+			
+			if(memb.stream !is null)
+			{
+				memb.stream.flush();
+				memb.stream = null;
+			}
+
+			return 0;
+		}
+		
+		Members* getThis(MDThread* t)
+		{
+			return checkObjParam!(Members)(t, 0, "OutputStream");
+		}
 
 		public uword clone(MDThread* t, uword numParams)
 		{
@@ -571,49 +649,28 @@ static:
 			if(output is null)
 				throwException(t, "instances of OutputStream may only be created using instances of the Tango OutputStream");
 
-			auto writer = new Writer(output);
-			auto print = new Print!(char)(t.vm.formatter, output);
-
 			pushGlobal(t, "OutputStream");
-			auto ret = newObject(t, -1, null, 3);
+			auto ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
+			auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
 
-			pushNativeObj(t, cast(Object)output); setExtraVal(t, ret, Members.output);
-			pushNativeObj(t, writer);             setExtraVal(t, ret, Members.writer);
-			pushNativeObj(t, print);              setExtraVal(t, ret, Members.print);
+			memb.buf = Buffer.share(output);
+			memb.stream = memb.buf;
+			memb.writer = new Writer(memb.buf);
+			memb.print = new Print!(char)(t.vm.formatter, memb.buf);
+
+			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, ret, Fields.stream);
+			pushNativeObj(t, memb.writer);             setExtraVal(t, ret, Fields.writer);
+			pushNativeObj(t, memb.print);              setExtraVal(t, ret, Fields.print);
+			
+			getUpval(t, 0);
+			setFinalizer(t, ret);
 
 			return 1;
-		}
-		
-		private Writer getWriter(MDThread* t)
-		{
-			checkObjParam(t, 0, "OutputStream");
-			getExtraVal(t, 0, Members.writer);
-			auto ret = cast(Writer)cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
-		}
-		
-		private Print!(char) getPrint(MDThread* t)
-		{
-			checkObjParam(t, 0, "OutputStream");
-			getExtraVal(t, 0, Members.print);
-			auto ret = cast(Print!(char))cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
-		}
-		
-		private OutputStream getOutput(MDThread* t)
-		{
-			checkObjParam(t, 0, "OutputStream");
-			getExtraVal(t, 0, Members.output);
-			auto ret = cast(OutputStream)cast(void*)getNativeObj(t, -1);
-			pop(t);
-			return ret;
 		}
 
 		public uword writeVal(T)(MDThread* t, uword numParams)
 		{
-			auto w = getWriter(t);
+			auto memb = getThis(t);
 
 			static if(isIntType!(T))
 				T val = cast(T)checkIntParam(t, 1);
@@ -624,20 +681,20 @@ static:
 			else
 				static assert(false);
 
-			safeCode(t, w.put(val));
+			safeCode(t, memb.writer.put(val));
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writeString(MDThread* t, uword numParams)
 		{
-			auto w = getWriter(t);
+			auto memb = getThis(t);
 			auto str = checkStringParam(t, 1);
-			
+
 			safeCode(t,
 			{
-				w.put(str.length);
-				w.buffer.append(str.ptr, str.length * char.sizeof);
+				memb.writer.put(str.length);
+				memb.buf.append(str.ptr, str.length * char.sizeof);
 			}());
 
 			dup(t, 0);
@@ -646,12 +703,12 @@ static:
 
 		public uword write(MDThread* t, uword numParams)
 		{
-			auto p = getPrint(t);
+			auto memb = getThis(t);
 
 			for(uword i = 1; i <= numParams; i++)
 			{
 				pushToString(t, i);
-				safeCode(t, p.print(getString(t, -1)));
+				safeCode(t, memb.print.print(getString(t, -1)));
 				pop(t);
 			}
 
@@ -661,96 +718,94 @@ static:
 
 		public uword writeln(MDThread* t, uword numParams)
 		{
-			auto p = getPrint(t);
+			auto memb = getThis(t);
 
 			for(uword i = 1; i <= numParams; i++)
 			{
 				pushToString(t, i);
-				safeCode(t, p.print(getString(t, -1)));
+				safeCode(t, memb.print.print(getString(t, -1)));
 				pop(t);
 			}
-			
-			safeCode(t, p.newline());
+
+			safeCode(t, memb.print.newline());
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writef(MDThread* t, uword numParams)
 		{
-			auto p = getPrint(t);
+			auto memb = getThis(t);
 
 			safeCode(t, formatImpl(t, numParams, (char[] s)
 			{
-				p.print(s);
+				memb.print.print(s);
 				return s.length;
 			}));
-			
+
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writefln(MDThread* t, uword numParams)
 		{
-			auto p = getPrint(t);
+			auto memb = getThis(t);
 
 			safeCode(t, formatImpl(t, numParams, (char[] s)
 			{
-				p.print(s);
+				memb.print.print(s);
 				return s.length;
 			}));
 
-			safeCode(t, p.newline());
+			safeCode(t, memb.print.newline());
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writeChars(MDThread* t, uword numParams)
 		{
-			auto w = getWriter(t);
+			auto memb = getThis(t);
 			auto str = checkStringParam(t, 1);
-			safeCode(t, w.buffer.append(str.ptr, str.length * char.sizeof));
+			safeCode(t, memb.buf.append(str.ptr, str.length * char.sizeof));
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword writeJSON(MDThread* t, uword numParams)
 		{
-			auto p = getPrint(t);
+			auto memb = getThis(t);
 			checkAnyParam(t, 1);
 			auto pretty = optBoolParam(t, 2, false);
-			toJSONImpl(t, 1, pretty, p);
+			toJSONImpl(t, 1, pretty, memb.print);
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword flush(MDThread* t, uword numParams)
 		{
-			safeCode(t, getOutput(t).flush());
+			safeCode(t, getThis(t).buf.flush());
 			dup(t, 0);
 			return 1;
 		}
 
 		public uword copy(MDThread* t, uword numParams)
 		{
-			auto o = getOutput(t);
+			auto memb = getThis(t);
 			checkObjParam(t, 1);
 
 			InputStream stream;
 			pushGlobal(t, "InputStream");
 
-			if(as(t, 1, -1))
+			if(strictlyAs(t, 1, -1))
 			{
 				pop(t);
-				getExtraVal(t, 1, InputStreamObj.Members.input);
-				stream = cast(InputStream)cast(void*)getNativeObj(t, -1);
-				pop(t);
+				stream = (cast(InputStreamObj.Members*)getExtraBytes(t, 1).ptr).stream;
 			}
 			else
 			{
 				pop(t);
 				pushGlobal(t, "Stream");
-				
-				if(as(t, 1, -1))
+
+				if(strictlyAs(t, 1, -1))
 				{
 					pop(t);
 					getExtraVal(t, 1, StreamObj.Members.input);
@@ -845,7 +900,7 @@ static:
 			auto ret = newObject(t, -1, null, 4);
 
 			pushNativeObj(t, cast(Object)conduit); setExtraVal(t, ret, Members.conduit);
-			
+
 			if(seeker is null)
 				pushNull(t);
 			else

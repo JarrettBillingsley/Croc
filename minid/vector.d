@@ -149,6 +149,7 @@ static:
 			o.method("fill",           &fill);
 			o.method("fillRange",      &fillRange);
 			o.method("insert",         &vec_insert);
+			o.method("itemSize",       &itemSize);
 			o.method("map",            &map);
 			o.method("max",            &max);
 			o.method("min",            &min);
@@ -957,6 +958,12 @@ static:
 		}
 
 		dup(t, 0);
+		return 1;
+	}
+	
+	uword itemSize(MDThread* t, uword numParams)
+	{
+		pushInt(t, getThis(t).type.itemSize);
 		return 1;
 	}
 
