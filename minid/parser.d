@@ -206,7 +206,7 @@ struct Parser
 				return parseExpressionStmt();
 
 			case
-				Token.Object,
+				Token.Class,
 				Token.Function,
 				Token.Global,
 				Token.Local,
@@ -347,7 +347,7 @@ struct Parser
 						return ret;
 
 					case Token.Function:  return parseFuncDecl(deco);
-					case Token.Object:    return parseObjectDecl(deco);
+					case Token.Class:     return parseClassDecl(deco);
 					case Token.Namespace: return parseNamespaceDecl(deco);
 
 					default:
@@ -355,7 +355,7 @@ struct Parser
 				}
 
 			case Token.Function:  return parseFuncDecl(deco);
-			case Token.Object:    return parseObjectDecl(deco);
+			case Token.Class:     return parseClassDecl(deco);
 			case Token.Namespace: return parseNamespaceDecl(deco);
 
 			default:
@@ -487,7 +487,7 @@ struct Parser
 		
 		scope(failure)
 			foreach(ref p; ret)
-				c.alloc.freeArray(p.objectTypes);
+				c.alloc.freeArray(p.classTypes);
 
 		void parseParam()
 		{
@@ -497,12 +497,12 @@ struct Parser
 			if(l.type == Token.Colon)
 			{
 				l.next();
-				p.typeMask = parseParamType(p.objectTypes);
+				p.typeMask = parseParamType(p.classTypes);
 			}
 			else
 			{
 				p.typeMask = TypeMask.Any;
-				p.objectTypes = null;
+				p.classTypes = null;
 			}
 
 			if(l.type == Token.Assign)
@@ -543,7 +543,7 @@ struct Parser
 
 			l.next();
 			l.expect(Token.Colon);
-			p.typeMask = parseParamType(p.objectTypes);
+			p.typeMask = parseParamType(p.classTypes);
 			p.defValue = null;
 
 			ret ~= p;
@@ -572,10 +572,10 @@ struct Parser
 
 	/**
 	Parse a parameter type.  This corresponds to the Type element of the grammar.
-	Returns the type mask, as well as an optional list of object types that this
-	parameter can accept in the objectTypes parameter.
+	Returns the type mask, as well as an optional list of class types that this
+	parameter can accept in the classTypes parameter.
 	*/
-	public ushort parseParamType(out Expression[] objectTypes)
+	public ushort parseParamType(out Expression[] classTypes)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
@@ -584,7 +584,7 @@ struct Parser
 
 		void addConstraint(MDValue.Type t)
 		{
-			if((ret & (1 << cast(uint)t)) && t != MDValue.Type.Object)
+			if((ret & (1 << cast(uint)t)) && t != MDValue.Type.Instance)
 				c.exception(l.loc, "Duplicate parameter type constraint for type '{}'", MDValue.typeString(t));
 
 			ret |= 1 << cast(uint)t;
@@ -613,44 +613,14 @@ struct Parser
 				case Token.Null:      addConstraint(MDValue.Type.Null);      l.next(); break;
 				case Token.Function:  addConstraint(MDValue.Type.Function);  l.next(); break;
 				case Token.Namespace: addConstraint(MDValue.Type.Namespace); l.next(); break;
-
-				case Token.Object:
-					l.next();
-
-					addConstraint(MDValue.Type.Object);
-
-					if(l.type == Token.LParen)
-					{
-						l.next();
-						objTypes ~= parseExpression();
-						l.expect(Token.RParen);
-					}
-					else if(l.type == Token.Ident)
-					{
-						auto t = l.expect(Token.Ident);
-
-						if(l.type == Token.Dot)
-						{
-							addConstraint(MDValue.Type.Object);
-							objTypes ~= parseIdentList(t);
-						}
-						else
-						{
-							addConstraint(MDValue.Type.Object);
-							objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
-						}
-					}
-					else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen)
-						l.expected("object type");
-
-					break;
+				case Token.Class:     addConstraint(MDValue.Type.Class);     l.next(); break;
 
 				default:
 					auto t = l.expect(Token.Ident);
 
 					if(l.type == Token.Dot)
 					{
-						addConstraint(MDValue.Type.Object);
+						addConstraint(MDValue.Type.Instance);
 						objTypes ~= parseIdentList(t);
 					}
 					else
@@ -667,9 +637,40 @@ struct Parser
 							case "thread":    addConstraint(MDValue.Type.Thread); break;
 							case "nativeobj": addConstraint(MDValue.Type.NativeObj); break;
 							case "weakref":   addConstraint(MDValue.Type.WeakRef); break;
+							
+							case "instance":	
+								l.next();
+
+								addConstraint(MDValue.Type.Instance);
+			
+								if(l.type == Token.LParen)
+								{
+									l.next();
+									objTypes ~= parseExpression();
+									l.expect(Token.RParen);
+								}
+								else if(l.type == Token.Ident)
+								{
+									auto tt = l.expect(Token.Ident);
+
+									if(l.type == Token.Dot)
+									{
+										addConstraint(MDValue.Type.Instance);
+										objTypes ~= parseIdentList(tt);
+									}
+									else
+									{
+										addConstraint(MDValue.Type.Instance);
+										objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, tt.loc, tt.stringValue));
+									}
+								}
+								else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen)
+									l.expected("class type");
+
+								break;
 
 							default:
-								addConstraint(MDValue.Type.Object);
+								addConstraint(MDValue.Type.Instance);
 								objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, t.loc, t.stringValue));
 								break;
 						}
@@ -703,7 +704,7 @@ struct Parser
 		}
 
 		assert(ret !is 0);
-		objectTypes = objTypes.toArray();
+		classTypes = objTypes.toArray();
 		return ret;
 	}
 
@@ -766,9 +767,9 @@ struct Parser
 	}
 
 	/**
-	Parse an object declaration, optional protection included.
+	Parse a class declaration, optional protection included.
 	*/
-	public ObjectDecl parseObjectDecl(Decorator deco)
+	public ClassDecl parseClassDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -784,38 +785,45 @@ struct Parser
 			l.next();
 		}
 
-		auto def = parseObjectDef(false);
-		return new(c) ObjectDecl(c, location, protection, def, deco);
+		auto def = parseClassDef(false);
+		return new(c) ClassDecl(c, location, protection, def, deco);
 	}
 	
 	/**
-	Parse an object definition.  
+	Parse a class definition.  
 	
 	Params:
-		nameOptional = If true, the name is optional (such as with object literal expressions).
-			Otherwise, the name is required (such as with object declarations).
+		nameOptional = If true, the name is optional (such as with class literal expressions).
+			Otherwise, the name is required (such as with class declarations).
 
 	Returns:
-		An instance of ObjectDef.
+		An instance of ClassDef.
 	*/
-	public ObjectDef parseObjectDef(bool nameOptional)
+	public ClassDef parseClassDef(bool nameOptional)
 	{
-		auto location = l.expect(Token.Object).loc;
+		auto location = l.expect(Token.Class).loc;
 
 		Identifier name;
 
-		if(!nameOptional || l.type == Token.Ident)
+		if(nameOptional)
+		{
+			if(l.type == Token.Ident)
+				name = parseIdentifier();
+			else
+				name = dummyClassLiteralName(location);
+		}
+		else
 			name = parseIdentifier();
 
-		Expression baseObject;
+		Expression baseClass;
 
 		if(l.type == Token.Colon)
 		{
 			l.next();
-			baseObject = parseExpression();
+			baseClass = parseExpression();
 		}
 		else
-			baseObject = new(c) IdentExp(c, new(c) Identifier(c, l.loc, c.newString("Object")));
+			baseClass = new(c) IdentExp(c, new(c) Identifier(c, l.loc, c.newString("Object")));
 
 		l.expect(Token.LBrace);
 
@@ -824,7 +832,7 @@ struct Parser
 		scope(exit)
 			pop(c.thread);
 
-		alias ObjectDef.Field Field;
+		alias ClassDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
 		void addField(Identifier name, Expression v)
@@ -855,9 +863,23 @@ struct Parser
 					addMethod(parseSimpleFuncDef());
 					break;
 					
+				case Token.This:
+					auto loc = l.expect(Token.This).loc;
+					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))));
+					break;
+
 				case Token.At:
 					auto dec = parseDecorators();
-					auto fd = parseSimpleFuncDef();
+					FuncDef fd = void;
+
+					if(l.type == Token.Function)
+						fd = parseSimpleFuncDef();
+					else
+					{
+						auto loc = l.expect(Token.This).loc;
+						fd = parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor")));
+					}
+
 					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
 
 					scope args = new List!(Expression)(c.alloc);
@@ -892,15 +914,15 @@ struct Parser
 					break;
 
 				case Token.EOF:
-					c.eofException(location, "Object is missing its closing brace");
+					c.eofException(location, "Class is missing its closing brace");
 
 				default:
-					l.expected("Object method or field");
+					l.expected("Class method or field");
 			}
 		}
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) ObjectDef(c, location, endLocation, name, baseObject, fields.toArray());
+		return new(c) ClassDef(c, location, endLocation, name, baseClass, fields.toArray());
 	}
 
 	/**
@@ -2160,7 +2182,7 @@ struct Parser
 			case Token.StringLiteral:          exp = parseStringExp(); break;
 			case Token.Function:               exp = parseFuncLiteralExp(); break;
 			case Token.Backslash:              exp = parseHaskellFuncLiteralExp(); break;
-			case Token.Object:                 exp = parseObjectLiteralExp(); break;
+			case Token.Class:                  exp = parseClassLiteralExp(); break;
 			case Token.LParen:                 exp = parseParenExp(); break;
 			case Token.LBrace:                 exp = parseTableCtorExp(); break;
 			case Token.LBracket:               exp = parseArrayCtorExp(); break;
@@ -2284,7 +2306,7 @@ struct Parser
 		auto def = parseFuncLiteral();
 		return new(c) FuncLiteralExp(c, location, def);
 	}
-	
+
 	/**
 	*/
 	public FuncLiteralExp parseHaskellFuncLiteralExp()
@@ -2296,11 +2318,11 @@ struct Parser
 	
 	/**
 	*/
-	public ObjectLiteralExp parseObjectLiteralExp()
+	public ClassLiteralExp parseClassLiteralExp()
 	{
 		auto location = l.loc;
-		auto def = parseObjectDef(true);
-		return new(c) ObjectLiteralExp(c, location, def);
+		auto def = parseClassDef(true);
+		return new(c) ClassLiteralExp(c, location, def);
 	}
 	
 	/**
@@ -2513,20 +2535,25 @@ struct Parser
 		auto location = l.expect(Token.Super).loc;
 
 		Expression method;
-
-		l.next();
-
-		if(l.type == Token.Ident)
+		
+		if(l.type == Token.Dot)
 		{
-			with(l.expect(Token.Ident))
-				method = new(c) StringExp(c, location, stringValue);
+			l.next();
+	
+			if(l.type == Token.Ident)
+			{
+				with(l.expect(Token.Ident))
+					method = new(c) StringExp(c, location, stringValue);
+			}
+			else
+			{
+				l.expect(Token.LParen);
+				method = parseExpression();
+				l.expect(Token.RParen);
+			}
 		}
 		else
-		{
-			l.expect(Token.LParen);
-			method = parseExpression();
-			l.expect(Token.RParen);
-		}
+			method = new(c) StringExp(c, location, c.newString("constructor"));
 
 		Expression[] args;
 		CompileLoc endLocation;
@@ -2888,6 +2915,14 @@ struct Parser
 	private Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);
+		auto str = c.newString(getString(c.thread, -1));
+		pop(c.thread);
+		return new(c) Identifier(c, loc, str);
+	}
+
+	private Identifier dummyClassLiteralName(CompileLoc loc)
+	{
+		pushFormat(c.thread, "<class at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);

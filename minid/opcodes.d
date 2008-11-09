@@ -42,6 +42,7 @@ enum Op : ushort
 	CatEq,
 	CheckObjParam,
 	CheckParams,
+	Class,
 	Close,
 	Closure,
 	CondMove,
@@ -92,7 +93,6 @@ enum Op : ushort
 	NewTable,
 	Not,
 	NotIn,
-	Object,
 	ObjParamFail,
 	Or,
 	OrEq,
@@ -144,6 +144,7 @@ Cat...............R: dest, src, num values (NOT variadic)
 CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: dest, index of parameter, object type
 CheckParams.......I: n/a, n/a
+Class.............R: dest, name const index, base class
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
 CondMove..........R: dest, src, n/a
@@ -194,7 +195,6 @@ NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
 NotIn.............R: dest, src value, src object
-Object............R: dest, name const index, proto object
 ObjParamFail......R: n/a, src, n/a
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
@@ -308,6 +308,7 @@ align(1) struct Instruction
 			case Op.CatEq:           return Format("cateq {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
+			case Op.Class:           return Format("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Close:           return Format("close r{}", rd);
 			case Op.Closure:         return rt == 0 ? Format("closure {}, {}", cr(rd), rs) : Format("closure {}, {}, r{}", cr(rd), rs, rt);
 			case Op.CondMove:        return Format("cmov {}, {}", cr(rd), cr(rs));
@@ -358,7 +359,6 @@ align(1) struct Instruction
 			case Op.NewTable:        return Format("newtab r{}", rd);
 			case Op.Not:             return Format("not {}, {}", cr(rd), cr(rs));
 			case Op.NotIn:           return Format("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.Object:          return Format("object {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ObjParamFail:    return Format("objparamfail {}", cr(rs));
 			case Op.Or:              return Format("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.OrEq:            return Format("oreq {}, {}", cr(rd), cr(rs));

@@ -310,7 +310,7 @@ To end interactive mode, use the \"exit()\" function.
 			bool couldBeDecl()
 			{
 				auto temp = buffer.triml();
-				return temp.startsWith("function") || temp.startsWith("object") || temp.startsWith("namespace") || temp.startsWith("@");
+				return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace") || temp.startsWith("@");
 			}
 
 			bool tryAsStatement(Exception e = null)

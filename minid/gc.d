@@ -25,11 +25,12 @@ module minid.gc;
 
 import minid.alloc;
 import minid.array;
+import minid.classobj;
 import minid.func;
 import minid.funcdef;
+import minid.instance;
 import minid.namespace;
 import minid.nativeobj;
-import minid.obj;
 import minid.string;
 import minid.table;
 import minid.thread;
@@ -109,19 +110,20 @@ void free(MDVM* vm, GCObject* o)
 		case MDValue.Type.Table:     table.free(vm.alloc, cast(MDTable*)o); return;
 		case MDValue.Type.Array:     array.free(vm.alloc, cast(MDArray*)o); return;
 		case MDValue.Type.Function:  func.free(vm.alloc, cast(MDFunction*)o); return;
+		case MDValue.Type.Class:     classobj.free(vm.alloc, cast(MDClass*)o); return;
 
-		case MDValue.Type.Object:
-			auto oo = cast(MDObject*)o;
+		case MDValue.Type.Instance:
+			auto i = cast(MDInstance*)o;
 
-			if(oo.finalizer && ((o.flags & GCBits.Finalized) == 0))
+			if(i.finalizer && ((o.flags & GCBits.Finalized) == 0))
 			{
 				o.flags |= GCBits.Finalized;
 				o.next = vm.alloc.finalizable;
 				vm.alloc.finalizable = o;
 			}
 			else
-				obj.free(vm.alloc, cast(MDObject*)o);
-				
+				instance.free(vm.alloc, i);
+
 			return;
 
 		case MDValue.Type.Namespace: namespace.free(vm.alloc, cast(MDNamespace*)o); return;
@@ -169,7 +171,8 @@ void markObj(MDVM* vm, GCObject* o)
 		case MDValue.Type.Table:     markObj(vm, cast(MDTable*)o); return;
 		case MDValue.Type.Array:     markObj(vm, cast(MDArray*)o); return;
 		case MDValue.Type.Function:  markObj(vm, cast(MDFunction*)o); return;
-		case MDValue.Type.Object:    markObj(vm, cast(MDObject*)o); return;
+		case MDValue.Type.Class:     markObj(vm, cast(MDClass*)o); return;
+		case MDValue.Type.Instance:  markObj(vm, cast(MDInstance*)o); return;
 		case MDValue.Type.Namespace: markObj(vm, cast(MDNamespace*)o); return;
 		case MDValue.Type.Thread:    markObj(vm, cast(MDThread*)o); return;
 
@@ -237,15 +240,26 @@ void markObj(MDVM* vm, MDFunction* o)
 	}
 }
 
-// Mark an object.
-void markObj(MDVM* vm, MDObject* o)
+// Mark a class.
+void markObj(MDVM* vm, MDClass* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	if(o.name)      markObj(vm, o.name);
-	if(o.proto)     markObj(vm, o.proto);
+	if(o.parent)    markObj(vm, o.parent);
 	if(o.fields)    markObj(vm, o.fields);
 	if(o.attrs)     markObj(vm, o.attrs);
+	if(o.allocator) markObj(vm, o.allocator);
+	if(o.finalizer) markObj(vm, o.finalizer);
+}
+
+// Mark an instance.
+void markObj(MDVM* vm, MDInstance* o)
+{
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
+
+	if(o.parent)    markObj(vm, o.parent);
+	if(o.fields)    markObj(vm, o.fields);
 	if(o.finalizer) markObj(vm, o.finalizer);
 
 	foreach(ref val; o.extraValues())

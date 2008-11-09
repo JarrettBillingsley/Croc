@@ -33,7 +33,7 @@ const char[][] AstTagNames =
 	"Unknown",
 	"Identifier",
 
-	"ObjectDef",
+	"ClassDef",
 	"FuncDef",
 	"NamespaceDef",
 
@@ -42,7 +42,7 @@ const char[][] AstTagNames =
 
 	"VarDecl",
 	"FuncDecl",
-	"ObjectDecl",
+	"ClassDecl",
 	"NamespaceDecl",
 
 	"AssertStmt",
@@ -135,7 +135,7 @@ const char[][] AstTagNames =
 	"CharExp",
 	"StringExp",
 	"FuncLiteralExp",
-	"ObjectLiteralExp",
+	"ClassLiteralExp",
 	"ParenExp",
 	"TableCtorExp",
 	"ArrayCtorExp",
@@ -166,7 +166,7 @@ const char[][] NiceAstTagNames =
 	AstTag.Unknown:              "<unknown node type>",
 	AstTag.Identifier:           "identifier",
 
-	AstTag.ObjectDef:            "object definition",
+	AstTag.ClassDef:             "class definition",
 	AstTag.FuncDef:              "function definition",
 	AstTag.NamespaceDef:         "namespace definition",
 
@@ -175,7 +175,7 @@ const char[][] NiceAstTagNames =
 
 	AstTag.VarDecl:              "variable declaration",
 	AstTag.FuncDecl:             "function declaration",
-	AstTag.ObjectDecl:           "object declaration",
+	AstTag.ClassDecl:            "class declaration",
 	AstTag.NamespaceDecl:        "namespace declaration",
 
 	AstTag.AssertStmt:           "assert statement",
@@ -266,7 +266,7 @@ const char[][] NiceAstTagNames =
 	AstTag.CharExp:              "character constant expression",
 	AstTag.StringExp:            "string constant expression",
 	AstTag.FuncLiteralExp:       "function literal expression",
-	AstTag.ObjectLiteralExp:     "object literal expression",
+	AstTag.ClassLiteralExp:      "class literal expression",
 	AstTag.ParenExp:             "parenthesized expression",
 	AstTag.TableCtorExp:         "table constructor expression",
 	AstTag.ArrayCtorExp:         "array constructor expression",
@@ -388,14 +388,14 @@ class Identifier : AstNode
 }
 
 /**
-This node represents the guts of an object literal.  This node does not directly correspond
-to a single grammar element; rather it represents the common attributes of both object
-literals and object declarations.
+This node represents the guts of an class literal.  This node does not directly correspond
+to a single grammar element; rather it represents the common attributes of both class
+literals and class declarations.
 */
-class ObjectDef : AstNode
+class ClassDef : AstNode
 {
 	/**
-	Represents a single field in the object.  Remember that methods are fields too.
+	Represents a single field in the class.  Remember that methods are fields too.
 	*/
 	struct Field
 	{
@@ -407,36 +407,35 @@ class ObjectDef : AstNode
 		
 		/**
 		The initializer of the field.  This will never be null.  If a field is declared in
-		an object but not given a value, a NullExp will be inserted into this field.
+		a class but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
 	}
 
 	/**
-	The name of the object.  This field can be null, which indicates that the name of the
-	object will be taken from its base object at runtime.
+	The name of the class.  This field will never be null.
 	*/
 	public Identifier name;
 
 	/**
-	The base object from which this object derives.  This field will never be null.  If
-	no base object is specified, it is given the value of an IdentExp with the identifier
+	The base class from which this class derives.  This field will never be null.  If
+	no base class is specified, it is given the value of an IdentExp with the identifier
 	"Object".
 	*/
-	public Expression baseObject;
+	public Expression baseClass;
 	
 	/**
-	The fields in this object, in the order they were declared.  See the Field struct above.
+	The fields in this class, in the order they were declared.  See the Field struct above.
 	*/
 	public Field[] fields;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseObject, Field[] fields)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
 	{
-		super(c, location, endLocation, AstTag.ObjectDef);
+		super(c, location, endLocation, AstTag.ClassDef);
 		this.name = name;
-		this.baseObject = baseObject;
+		this.baseClass = baseClass;
 		this.fields = fields;
 	}
 
@@ -447,7 +446,7 @@ class ObjectDef : AstNode
 }
 
 /**
-Similar to ObjectDef, this class represents the common attributes of both function literals
+Similar to ClassDef, this class represents the common attributes of both function literals
 and function declarations.
 */
 class FuncDef : AstNode
@@ -464,12 +463,14 @@ class FuncDef : AstNode
 		Table =     (1 << cast(uint)MDValue.Type.Table),
 		Array =     (1 << cast(uint)MDValue.Type.Array),
 		Function =  (1 << cast(uint)MDValue.Type.Function),
-		Object =    (1 << cast(uint)MDValue.Type.Object),
+		Class =     (1 << cast(uint)MDValue.Type.Class),
+		Instance =  (1 << cast(uint)MDValue.Type.Instance),
 		Namespace = (1 << cast(uint)MDValue.Type.Namespace),
 		Thread =    (1 << cast(uint)MDValue.Type.Thread),
 		NativeObj = (1 << cast(uint)MDValue.Type.NativeObj),
+		WeakRef =   (1 << cast(uint)MDValue.Type.WeakRef),
 
-		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Object | Namespace | Thread | NativeObj,
+		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Class | Instance | Namespace | Thread | NativeObj | WeakRef,
 		Any = Null | NotNull
 	}
 
@@ -491,11 +492,11 @@ class FuncDef : AstNode
 		ushort typeMask = TypeMask.Any;
 
 		/**
-		If typeMask allows objects, this can be a list of expressions which should evaluate
-		at runtime to object types that this parameter can accept.  This is an optional
-		list.  If typeMask does not allow objects, this should be empty.
+		If typeMask allows instances, this can be a list of expressions which should evaluate
+		at runtime to class types that this parameter can accept.  This is an optional
+		list.  If typeMask does not allow instances, this should be empty.
 		*/
-		Expression[] objectTypes;
+		Expression[] classTypes;
 
 		/**
 		The default value for the parameter.  This can be null, in which case it will have
@@ -545,14 +546,14 @@ class FuncDef : AstNode
 	override void cleanup(ref Allocator alloc)
 	{
 		foreach(ref p; params)
-			alloc.freeArray(p.objectTypes);
+			alloc.freeArray(p.classTypes);
 
 		alloc.freeArray(params);
 	}
 }
 
 /**
-Like the ObjectDef and FuncDef classes, this represents the common attributes of both
+Like the ClassDef and FuncDef classes, this represents the common attributes of both
 namespace literals and declarations.
 */
 class NamespaceDef : AstNode
@@ -656,7 +657,7 @@ abstract class Statement : AstNode
 }
 
 /**
-Defines the types of protection possible for object, function, namespace, and variable
+Defines the types of protection possible for class, function, namespace, and variable
 declarations.
 */
 enum Protection
@@ -755,7 +756,7 @@ class Decorator : AstNode
 
 /**
 This node represents a function declaration.  Note that there are some places in the
-grammar which look like function declarations (like inside objects and namespaces) but
+grammar which look like function declarations (like inside classes and namespaces) but
 which actually are just syntactic sugar.  This is for actual declarations.
 */
 class FuncDecl : Statement
@@ -787,9 +788,9 @@ class FuncDecl : Statement
 }
 
 /**
-This node represents an object declaration.
+This node represents a class declaration.
 */
-class ObjectDecl : Statement
+class ClassDecl : Statement
 {
 	/**
 	What protection level this declaration uses.
@@ -797,9 +798,9 @@ class ObjectDecl : Statement
 	public Protection protection;
 
 	/**
-	The actual "guts" of the object.
+	The actual "guts" of the class.
 	*/
-	public ObjectDef def;
+	public ClassDef def;
 	
 	/**
 	*/
@@ -808,9 +809,9 @@ class ObjectDecl : Statement
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, ObjectDef def, Decorator decorator)
+	public this(ICompiler c, CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
 	{
-		super(c, location, def.endLocation, AstTag.ObjectDecl);
+		super(c, location, def.endLocation, AstTag.ClassDecl);
 		this.protection = protection;
 		this.def = def;
 		this.decorator = decorator;
@@ -2972,20 +2973,20 @@ class FuncLiteralExp : PrimaryExp
 }
 
 /**
-Represents an object literal.
+Represents a class literal.
 */
-class ObjectLiteralExp : PrimaryExp
+class ClassLiteralExp : PrimaryExp
 {
 	/**
-	The actual "guts" of the object.
+	The actual "guts" of the class.
 	*/
-	public ObjectDef def;
+	public ClassDef def;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, ObjectDef def)
+	public this(ICompiler c, CompileLoc location, ClassDef def)
 	{
-		super(c, location, def.endLocation, AstTag.ObjectLiteralExp);
+		super(c, location, def.endLocation, AstTag.ClassLiteralExp);
 		this.def = def;
 	}
 }

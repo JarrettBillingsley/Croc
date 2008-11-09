@@ -145,14 +145,15 @@ align(1) struct MDValue
 		Table,
 		Array,
 		Function,
-		Object, // 9
+		Class,
+		Instance, // 10
 		Namespace,
 		Thread,
 		NativeObj,
 		WeakRef,
 
 		// Internal types
-		Upvalue, // 14
+		Upvalue, // 15
 		FuncDef,
 		ArrayData
 	}
@@ -171,7 +172,8 @@ align(1) struct MDValue
 			case Type.Table:     return "table";
 			case Type.Array:     return "array";
 			case Type.Function:  return "function";
-			case Type.Object:    return "object";
+			case Type.Class:     return "class";
+			case Type.Instance:  return "instance";
 			case Type.Namespace: return "namespace";
 			case Type.Thread:    return "thread";
 			case Type.NativeObj: return "nativeobj";
@@ -201,7 +203,8 @@ align(1) struct MDValue
 		package MDTable* mTable;
 		package MDArray* mArray;
 		package MDFunction* mFunction;
-		package MDObject* mObject;
+		package MDClass* mClass;
+		package MDInstance* mInstance;
 		package MDNamespace* mNamespace;
 		package MDThread* mThread;
 		package MDNativeObj* mNativeObj;
@@ -289,12 +292,18 @@ align(1) struct MDValue
 		mFunction = src;
 	}
 	
-	package void opAssign(MDObject* src)
+	package void opAssign(MDClass* src)
 	{
-		type = Type.Object;
-		mObject = src;
+		type = Type.Class;
+		mClass = src;
 	}
 	
+	package void opAssign(MDInstance* src)
+	{
+		type = Type.Instance;
+		mInstance = src;
+	}
+
 	package void opAssign(MDNamespace* src)
 	{
 		type = Type.Namespace;
@@ -349,7 +358,8 @@ align(1) struct MDValue
 			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
 			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
 			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
-			case Type.Object:    return Format("object {:X8}", cast(void*)mObject);
+			case Type.Class:     return Format("class {:X8}", cast(void*)mClass);
+			case Type.Instance:  return Format("instance {:X8}", cast(void*)mInstance);
 			case Type.Namespace: return Format("namespace {:X8}", cast(void*)mNamespace);
 			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
 			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
@@ -455,17 +465,26 @@ struct MDFunction
 	static assert((MDFuncDef*).sizeof == NativeFunc.sizeof);
 }
 
-struct MDObject
+struct MDClass
 {
-	mixin MDObjectMixin!(MDValue.Type.Object);
+	mixin MDObjectMixin!(MDValue.Type.Class);
 	package MDString* name;
-	package MDObject* proto;
+	package MDClass* parent;
 	package MDNamespace* fields;
 	package MDTable* attrs;
+	package MDFunction* allocator;
+	package MDFunction* finalizer;
+}
+
+struct MDInstance
+{
+	mixin MDObjectMixin!(MDValue.Type.Instance);
+	package MDClass* parent;
+	package MDNamespace* fields;
 	package MDFunction* finalizer;
 	package uword numValues;
 	package uword extraBytes;
-
+	
 	package MDValue[] extraValues()
 	{
 		return (cast(MDValue*)(this + 1))[0 .. numValues];
@@ -498,7 +517,7 @@ struct ActRecord
 	package MDFunction* func;
 	package Instruction* pc;
 	package word numReturns;
-	package MDObject* proto;
+	package MDClass* proto;
 	package uword numTailcalls;
 	package uword firstResult;
 	package uword numResults;

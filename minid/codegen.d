@@ -1831,30 +1831,30 @@ class Codegen : Visitor
 		return m;
 	}
 
-	public override ObjectDef visit(ObjectDef d)
+	public override ClassDef visit(ClassDef d)
 	{
-		auto reg = objectDefBegin(d);
-		objectDefEnd(d, reg);
+		auto reg = classDefBegin(d);
+		classDefEnd(d, reg);
 		fs.pushTempReg(reg);
 
 		return d;
 	}
 
-	public uint objectDefBegin(ObjectDef d)
+	public uint classDefBegin(ClassDef d)
 	{
-		visit(d.baseObject);
+		visit(d.baseClass);
 		Exp base;
 		fs.popSource(d.location.line, base);
 		fs.freeExpTempRegs(base);
 
 		auto destReg = fs.pushRegister();
-		auto nameConst = d.name is null ? fs.tagConst(fs.codeNullConst()) : fs.tagConst(fs.codeStringConst(d.name.name));
-		fs.codeR(d.location.line, Op.Object, destReg, nameConst, base.index);
+		auto nameConst = fs.tagConst(fs.codeStringConst(d.name.name));
+		fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
 
 		return destReg;
 	}
 
-	public void objectDefEnd(ObjectDef d, uint destReg)
+	public void classDefEnd(ClassDef d, uint destReg)
 	{
 		foreach(ref field; d.fields)
 		{
@@ -1967,11 +1967,11 @@ class Codegen : Visitor
 
 		foreach(idx, ref p; s.def.params)
 		{
-			if(p.objectTypes.length > 0)
+			if(p.classTypes.length > 0)
 			{
 				InstRef success;
 
-				foreach(t; p.objectTypes)
+				foreach(t; p.classTypes)
 				{
 					visit(t);
 					Exp src;
@@ -1983,7 +1983,7 @@ class Codegen : Visitor
 					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op.Je));
 				}
 
-				fs.codeR(p.objectTypes[$ - 1].endLocation.line, Op.ObjParamFail, 0, fs.tagLocal(idx), 0);
+				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op.ObjParamFail, 0, fs.tagLocal(idx), 0);
 				fs.patchTrueToHere(success);
 			}
 		}
@@ -2148,7 +2148,7 @@ class Codegen : Visitor
 		return d;
 	}
 
-	public override ObjectDecl visit(ObjectDecl d)
+	public override ClassDecl visit(ClassDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
@@ -2162,20 +2162,20 @@ class Codegen : Visitor
 			fs.pushNewGlobal(d.def.name);
 		}
 
-		// put empty object in d.name
-		auto reg = objectDefBegin(d.def);
+		// put empty class in d.name
+		auto reg = classDefBegin(d.def);
 		fs.pushTempReg(reg);
 		fs.popAssign(d.location.line);
 
 		// evaluate rest of decl
 		auto checkReg = fs.pushRegister();
 		assert(checkReg == reg, "register failcopter");
-		objectDefEnd(d.def, reg);
+		classDefEnd(d.def, reg);
 		fs.popRegister(reg);
 
 		if(d.decorator)
 		{
-			// reassign decorated object into name
+			// reassign decorated class into name
 			fs.pushVar(d.def.name);
 			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
 			fs.popAssign(d.endLocation.line);
@@ -3399,7 +3399,7 @@ class Codegen : Visitor
 		return e;
 	}
 	
-	public override ObjectLiteralExp visit(ObjectLiteralExp e)
+	public override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		visit(e.def);
 		return e;

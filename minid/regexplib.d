@@ -194,7 +194,7 @@ struct RegexpLib
 	static struct RegexpObj
 	{
 	static:
-		enum Members
+		enum Fields
 		{
 			regex,
 			global
@@ -202,23 +202,32 @@ struct RegexpLib
 
 		public void init(MDThread* t)
 		{
-			CreateObject(t, "Regexp", (CreateObject* o)
+			CreateClass(t, "Regexp", (CreateClass* c)
 			{
-				o.method("clone", &clone);
-				o.method("test", &test);
-				o.method("search", &search);
-				o.method("match", &match);
-				o.method("pre", &pre);
-				o.method("post", &post);
-				o.method("find", &find);
-				o.method("split", &split);
-				o.method("replace", &replace);
+				c.method("constructor", &constructor);
+				c.method("test", &test);
+				c.method("search", &search);
+				c.method("match", &match);
+				c.method("pre", &pre);
+				c.method("post", &post);
+				c.method("find", &find);
+				c.method("split", &split);
+				c.method("replace", &replace);
 
 					newFunction(t, &iterator, "Regexp.iterator");
-				o.method("opApply", &opApply, 1);
+				c.method("opApply", &opApply, 1);
 			});
 			
+			newFunction(t, &allocator, "Regexp.allocator");
+			setAllocator(t, -2);
+
 			newGlobal(t, "Regexp");
+		}
+		
+		uword allocator(MDThread* t, uword numParams)
+		{
+			newInstance(t, 0, Fields.max + 1);
+			return 1;
 		}
 		
 		private Regex getThis(MDThread* t)
@@ -229,28 +238,27 @@ struct RegexpLib
 
 		private Regex getThis(MDThread* t, out bool isGlobal)
 		{
-			checkObjParam(t, 0, "Regexp");
-			getExtraVal(t, 0, Members.global);
+			checkInstParam(t, 0, "Regexp");
+			getExtraVal(t, 0, Fields.global);
 			isGlobal = getBool(t, -1);
 			pop(t);
-			getExtraVal(t, 0, Members.regex);
+			getExtraVal(t, 0, Fields.regex);
 			auto ret = cast(Regex)cast(void*)getNativeObj(t, -1);
 			pop(t);
 			return ret;
 		}
 
-		public uword clone(MDThread* t, uword numParams)
+		public uword constructor(MDThread* t, uword numParams)
 		{
+			checkInstParam(t, 0, "Regexp");
+
 			auto pat = checkStringParam(t, 1);
 			auto attrs = optStringParam(t, 2, "");
 
-			pushGlobal(t, "Regexp");
-			auto ret = newObject(t, -1, null, 2);
+			pushNativeObj(t, safeCode(t, new Regex(pat, attrs))); setExtraVal(t, 0, Fields.regex);
+			pushBool(t, attrs.locate('g') != attrs.length);       setExtraVal(t, 0, Fields.global);
 
-			pushNativeObj(t, safeCode(t, new Regex(pat, attrs))); setExtraVal(t, ret, Members.regex);
-			pushBool(t, attrs.locate('g') != attrs.length);       setExtraVal(t, ret, Members.global);
-
-			return 1;
+			return 0;
 		}
 
 		public uword test(MDThread* t, uword numParams)
@@ -420,7 +428,7 @@ struct RegexpLib
 
 		public uword opApply(MDThread* t, uword numParams)
 		{
-			checkObjParam(t, 0, "Regexp");
+			checkInstParam(t, 0, "Regexp");
 			getUpval(t, 0);
 			dup(t, 0);
 			pushInt(t, -1);

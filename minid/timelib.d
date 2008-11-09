@@ -257,7 +257,7 @@ static:
 	static struct Timer
 	{
 	static:
-		struct Members
+		align(1) struct Members
 		{
 			protected StopWatch mWatch;
 			protected mdfloat mTime = 0;
@@ -265,28 +265,30 @@ static:
 
 		void init(MDThread* t)
 		{
-			CreateObject(t, "Timer", (CreateObject* o)
+			CreateClass(t, "Timer", (CreateClass* c)
 			{
-				o.method("clone", &clone);
-				o.method("start", &start);
-				o.method("stop", &stop);
-				o.method("seconds", &seconds);
-				o.method("millisecs", &millisecs);
-				o.method("microsecs", &microsecs);
+				c.method("start", &start);
+				c.method("stop", &stop);
+				c.method("seconds", &seconds);
+				c.method("millisecs", &millisecs);
+				c.method("microsecs", &microsecs);
 			});
+
+			newFunction(t, &allocator, "Timer.allocator");
+			setAllocator(t, -2);
 
 			newGlobal(t, "Timer");
 		}
 
 		private Members* getThis(MDThread* t)
 		{
-			return checkObjParam!(Members)(t, 0, "Timer");
+			return checkInstParam!(Members)(t, 0, "Timer");
 		}
 
-		uword clone(MDThread* t, uword numParams)
+		uword allocator(MDThread* t, uword numParams)
 		{
-			newObject(t, 0, null, 0, Members.sizeof);
-			*getMembers!(Members)(t, -1) = Members.init;
+			newInstance(t, 0, 0, Members.sizeof);
+			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
 			return 1;
 		}
 

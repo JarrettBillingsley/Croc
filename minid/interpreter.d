@@ -38,11 +38,12 @@ import Utf = tango.text.convert.Utf;
 
 import minid.alloc;
 import minid.array;
+import minid.classobj;
 import minid.func;
 import minid.gc;
+import minid.instance;
 import minid.namespace;
 import minid.nativeobj;
-import minid.obj;
 import minid.opcodes;
 import minid.string;
 import minid.table;
@@ -688,68 +689,70 @@ Params:
 Returns:
 	The stack index of the newly-created object.
 */
-word newObject(MDThread* t, word proto, char[] name = null, uword numValues = 0, uword extraBytes = 0)
+word newClass(MDThread* t, word base, char[] name)
 {
-	MDObject* p = void;
+	MDClass* b = void;
 
-	if(isNull(t, proto))
+	if(isNull(t, base))
 	{
 		pushGlobal(t, "Object");
-		p = getObject(t, -1);
+		b = getClass(t, -1);
 
-		if(p is null)
+		if(b is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, "newObject - 'Object' is not an object; it is a '{}'!", getString(t, -1));
+			throwException(t, "newClass - 'Object' is not a class; it is a '{}'!", getString(t, -1));
 		}
 
 		pop(t);
 	}
-	else if(auto o = getObject(t, proto))
-		p = o;
+	else if(auto c = getClass(t, base))
+		b = c;
 	else
 	{
-		pushTypeString(t, proto);
-		throwException(t, "newObject - Proto must be null or object", getString(t, -1));
+		pushTypeString(t, base);
+		throwException(t, "newClass - Base must be 'null' or 'class', not '{}'", getString(t, -1));
 	}
 
-	MDString* n = void;
-
-	if(name.ptr is null || name.length == 0)
-		n = p.name;
-	else
-		n = string.create(t.vm, name);
-
 	maybeGC(t);
-	return pushObject(t, obj.create(t.vm.alloc, n, p, numValues, extraBytes));
+	return pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, name), b));
 }
 
 /**
-Same as above, except it uses the global Object as the prototype.  The new object is left on the
+Same as above, except it uses the global Object as the base.  The new class is left on the
 top of the stack.
 */
-word newObject(MDThread* t, char[] name = null, uword numValues = 0, uword extraBytes = 0)
+word newClass(MDThread* t, char[] name)
 {
 	pushGlobal(t, "Object");
-	auto p = getObject(t, -1);
+	auto b = getClass(t, -1);
 
-	if(p is null)
+	if(b is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "newObject - 'Object' is not an object; it is a '{}'!", getString(t, -1));
+		throwException(t, "newClass - 'Object' is not a class; it is a '{}'!", getString(t, -1));
 	}
 
 	pop(t);
-
-	MDString* n = void;
-
-	if(name.ptr is null || name.length == 0)
-		n = p.name;
-	else
-		n = string.create(t.vm, name);
-
 	maybeGC(t);
-	return pushObject(t, obj.create(t.vm.alloc, n, p, numValues, extraBytes));
+	return pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, name), b));
+}
+
+/**
+TODO: doc me
+*/
+word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes = 0)
+{
+	auto b = getClass(t, base);
+	
+	if(b is null)
+	{
+		pushTypeString(t, base);
+		throwException(t, "newInstance - expected 'class' for base, not '{}'", getString(t, -1));
+	}
+	
+	maybeGC(t);
+	return pushInstance(t, instance.create(t.vm.alloc, b, numValues, extraBytes));
 }
 
 /**
@@ -1015,11 +1018,19 @@ bool isFunction(MDThread* t, word slot)
 }
 
 /**
-Sees if the value at the given _slot is an object.
+Sees if the value at the given _slot is a class.
 */
-bool isObject(MDThread* t, word slot)
+bool isClass(MDThread* t, word slot)
 {
-	return type(t, slot) == MDValue.Type.Object;
+	return type(t, slot) == MDValue.Type.Class;
+}
+
+/**
+Sees if the value at the given _slot is an instance.
+*/
+bool isInstance(MDThread* t, word slot)
+{
+	return type(t, slot) == MDValue.Type.Instance;
 }
 
 /**
@@ -1984,138 +1995,28 @@ bool funcIsNative(MDThread* t, word func)
 }
 
 // ================================================================================================================================================
-// Object-related functions
+// Class-related functions
 
 /**
-Finds out how many extra values an object has (see newObject for info on that).  Throws an error
-if the value at the given _slot isn'_t an object.
-
-Params:
-	slot = The stack index of the object whose number of values is to be retrieved.
-
-Returns:
-	The number of extra values associated with the given object.
-*/
-uword numExtraVals(MDThread* t, word slot)
-{
-	if(auto o = getObject(t, slot))
-		return o.numValues;
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "numExtraVals - expected 'object' but got '{}'", getString(t, -1));
-	}
-
-	assert(false);
-}
-
-/**
-Pushes the idx th extra value from the object at the given _slot.  Throws an error if the value at
-the given _slot isn'_t an object, or if the index is out of bounds.
-
-Params:
-	slot = The object whose value is to be retrieved.
-	idx = The index of the extra value to get.
-
-Returns:
-	The stack index of the newly-pushed value.
-*/
-word getExtraVal(MDThread* t, word slot, uword idx)
-{
-	if(auto o = getObject(t, slot))
-	{
-		if(idx > o.numValues)
-			throwException(t, "getExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
-
-		return push(t, o.extraValues()[idx]);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "getExtraVal - expected 'object' but got '{}'", getString(t, -1));
-	}
-		
-	assert(false);
-}
-
-/**
-Pops the value off the top of the stack and places it in the idx th extra value in the object at the
-given _slot.  Throws an error if the value at the given _slot isn'_t an object, or if the index is out
-of bounds.
-
-Params:
-	slot = The object whose value is to be set.
-	idx = The index of the extra value to set.
-*/
-void setExtraVal(MDThread* t, word slot, uword idx)
-{
-	checkNumParams(t, 1);
-
-	if(auto o = getObject(t, slot))
-	{
-		if(idx > o.numValues)
-			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, o.numValues);
-
-		o.extraValues()[idx] = t.stack[t.stackIndex - 1];
-		pop(t);
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "setExtraVal - expected 'object' but got '{}'", getString(t, -1));
-	}
-}
-
-/**
-Gets a void array of the extra bytes associated with the object at the given _slot.  If the object has
-no extra bytes, returns null.  Throws an error if the value at the given _slot isn'_t an object.
-
-The returned void array points into the MiniD heap, so you should not store the returned reference
-anywhere.
-
-Params:
-	slot = The object whose data is to be retrieved.
-
-Returns:
-	A void array of the data, or null if the object has none.
-*/
-void[] getExtraBytes(MDThread* t, word slot)
-{
-	if(auto o = getObject(t, slot))
-	{
-		if(o.extraBytes == 0)
-			return null;
-
-		return o.extraData();
-	}
-	else
-	{
-		pushTypeString(t, slot);
-		throwException(t, "getExtraBytes - expected 'object' but got '{}'", getString(t, -1));
-	}
-		
-	assert(false);
-}
-
-/**
-Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
-about to be collected by the garbage collector and is used to clean up limited resources associated with it
+Sets the finalizer function for the given class.  The finalizer of a class is called when an instance of that class
+is about to be collected by the garbage collector and is used to clean up limited resources associated with it
 (i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
 as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
 garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
-ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
-the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+ever be called once for each instance.  If the finalizer function causes the instance to be "resurrected", that is
+the instance is reattached to the application's memory graph, it will still eventually be collected but its finalizer
 function will $(B not) be run again.
 
-When you clone objects from this object, their finalizer will be set to the same function.
+Instances get the finalizer from the class that they are an instance of.  If you instantiate a class, and then
+change its finalizer, the instances that were already created will use the old finalizer.
 
 This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
-function from an object, the value at the top of the stack can be null.
+function from a class, the value at the top of the stack can be null.
 
 Params:
-	obj = The object whose finalizer is to be set.
+	cls = The class whose finalizer is to be set.
 */
-void setFinalizer(MDThread* t, word obj)
+void setFinalizer(MDThread* t, word cls)
 {
 	checkNumParams(t, 1);
 
@@ -2125,59 +2026,221 @@ void setFinalizer(MDThread* t, word obj)
 		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
 	}
 
-	auto o = getObject(t, obj);
+	auto c = getClass(t, cls);
 
-	if(o is null)
+	if(c is null)
 	{
-		pushTypeString(t, obj);
-		throwException(t, "pushFinalizer - Expected 'object', not '{}'", getString(t, -1));
+		pushTypeString(t, cls);
+		throwException(t, "setFinalizer - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(isNull(t, -1))
-		o.finalizer = null;
+		c.finalizer = null;
 	else
-		o.finalizer = getFunction(t, -1);
+		c.finalizer = getFunction(t, -1);
 
 	pop(t);
 }
 
 /**
-Pushes the finalizer function associated with the given object, or null if no finalizer is set for
-that object.
+Pushes the finalizer function associated with the given class, or null if no finalizer is set for
+that class.
 
 Params:
-	obj = The object whose finalizer is to be retrieved.
+	cls = The class whose finalizer is to be retrieved.
 
 Returns:
-	The stack index of the newly-pushed finalizer function (or null if the object has none).
+	The stack index of the newly-pushed finalizer function (or null if the class has none).
 */
-word getFinalizer(MDThread* t, word obj)
+word getFinalizer(MDThread* t, word cls)
 {
-	if(auto o = getObject(t, obj))
+	if(auto c = getClass(t, cls))
 	{
-		if(o.finalizer)
-			return pushFunction(t, o.finalizer);
+		if(c.finalizer)
+			return pushFunction(t, c.finalizer);
 		else
 			return pushNull(t);
 	}
 
-	pushTypeString(t, obj);
-	throwException(t, "getFinalizer - Expected 'object', not '{}'", getString(t, -1));
+	pushTypeString(t, cls);
+	throwException(t, "getFinalizer - Expected 'class', not '{}'", getString(t, -1));
 
 	assert(false);
 }
 
 /**
-Gets the name of the object at the given stack index.
+TODO: doc me
 */
-char[] objName(MDThread* t, word obj)
+void setAllocator(MDThread* t, word cls)
 {
-	if(auto o = getObject(t, obj))
-		return o.name.toString();
+	checkNumParams(t, 1);
 
-	pushTypeString(t, obj);
-	throwException(t, "objName - Expected 'object', not '{}'", getString(t, -1));
+	if(!(isNull(t, -1) || isFunction(t, -1)))
+	{
+		pushTypeString(t, -1);
+		throwException(t, "setAllocator - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+	}
 
+	auto c = getClass(t, cls);
+
+	if(c is null)
+	{
+		pushTypeString(t, cls);
+		throwException(t, "setAllocator - Expected 'class', not '{}'", getString(t, -1));
+	}
+
+	if(isNull(t, -1))
+		c.allocator = null;
+	else
+		c.allocator = getFunction(t, -1);
+
+	pop(t);
+}
+
+/**
+TODO: doc me
+*/
+word getAllocator(MDThread* t, word cls)
+{
+	if(auto c = getClass(t, cls))
+	{
+		if(c.allocator)
+			return pushFunction(t, c.allocator);
+		else
+			return pushNull(t);
+	}
+
+	pushTypeString(t, cls);
+	throwException(t, "getAllocator - Expected 'class', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets the name of the class at the given stack index.
+*/
+char[] className(MDThread* t, word cls)
+{
+	if(auto c = getClass(t, cls))
+		return c.name.toString();
+
+	pushTypeString(t, cls);
+	throwException(t, "className - Expected 'class', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+// ================================================================================================================================================
+// Instance-related functions
+
+/**
+Finds out how many extra values an instance has (see newInstance for info on that).  Throws an error
+if the value at the given _slot isn'_t an instance.
+
+Params:
+	slot = The stack index of the instance whose number of values is to be retrieved.
+
+Returns:
+	The number of extra values associated with the given instance.
+*/
+uword numExtraVals(MDThread* t, word slot)
+{
+	if(auto i = getInstance(t, slot))
+		return i.numValues;
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "numExtraVals - expected 'instance' but got '{}'", getString(t, -1));
+	}
+
+	assert(false);
+}
+
+/**
+Pushes the idx th extra value from the instance at the given _slot.  Throws an error if the value at
+the given _slot isn'_t an instance, or if the index is out of bounds.
+
+Params:
+	slot = The instance whose value is to be retrieved.
+	idx = The index of the extra value to get.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+word getExtraVal(MDThread* t, word slot, uword idx)
+{
+	if(auto i = getInstance(t, slot))
+	{
+		if(idx > i.numValues)
+			throwException(t, "getExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+
+		return push(t, i.extraValues()[idx]);
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "getExtraVal - expected 'instance' but got '{}'", getString(t, -1));
+	}
+		
+	assert(false);
+}
+
+/**
+Pops the value off the top of the stack and places it in the idx th extra value in the instance at the
+given _slot.  Throws an error if the value at the given _slot isn'_t an instance, or if the index is out
+of bounds.
+
+Params:
+	slot = The instance whose value is to be set.
+	idx = The index of the extra value to set.
+*/
+void setExtraVal(MDThread* t, word slot, uword idx)
+{
+	checkNumParams(t, 1);
+
+	if(auto i = getInstance(t, slot))
+	{
+		if(idx > i.numValues)
+			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+
+		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
+		pop(t);
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "setExtraVal - expected 'instance' but got '{}'", getString(t, -1));
+	}
+}
+
+/**
+Gets a void array of the extra bytes associated with the instance at the given _slot.  If the instance has
+no extra bytes, returns null.  Throws an error if the value at the given _slot isn'_t an instance.
+
+The returned void array points into the MiniD heap, so you should not store the returned reference
+anywhere.
+
+Params:
+	slot = The instance whose data is to be retrieved.
+
+Returns:
+	A void array of the data, or null if the instance has none.
+*/
+void[] getExtraBytes(MDThread* t, word slot)
+{
+	if(auto i = getInstance(t, slot))
+	{
+		if(i.extraBytes == 0)
+			return null;
+
+		return i.extraData();
+	}
+	else
+	{
+		pushTypeString(t, slot);
+		throwException(t, "getExtraBytes - expected 'instance' but got '{}'", getString(t, -1));
+	}
+		
 	assert(false);
 }
 
@@ -3242,24 +3305,19 @@ void cateq(MDThread* t, word dest, uword num)
 }
 
 /**
-Returns whether or not obj is an 'object' and derives from proto.  Throws an error if proto is not an object.
+Returns whether or not obj is an 'instance' and derives from base.  Throws an error if base is not a class.
 Works just like the as operator in MiniD.
 
 Params:
 	obj = The stack index of the value to test.
-	proto = The stack index of the _proto object.  Must be an 'object'.
+	base = The stack index of the _base class.  Must be a 'class'.
 
 Returns:
-	true if obj is an 'object' and it derives from proto.  False otherwise.
+	true if obj is an 'instance' and it derives from base.  False otherwise.
 */
-bool as(MDThread* t, word obj, word proto)
+bool as(MDThread* t, word obj, word base)
 {
-	return asImpl(t, getValue(t, obj), getValue(t, proto));
-}
-
-bool strictlyAs(MDThread* t, word obj, word proto)
-{
-	return !opis(t, obj, proto) && asImpl(t, getValue(t, obj), getValue(t, proto));
+	return asImpl(t, getValue(t, obj), getValue(t, base));
 }
 
 /**
@@ -3285,12 +3343,13 @@ void dec(MDThread* t, word slot)
 }
 
 /**
-Gets the proto object of objects or the parent namespace of namespaces and pushes it onto the stack.
-Throws an error if the value at the given _slot is neither an object nor a namespace.  Pushes null if
-the object or namespace has no proto or parent.  Works just like "x.super" in MiniD.
+Gets the class of instances, base class of classes, or the parent namespace of namespaces and
+pushes it onto the stack. Throws an error if the value at the given _slot is not a class, instance,
+or namespace.  Works just like "x.super" in MiniD.  For classes and namespaces, pushes null if
+there is no base or parent.
 
 Params:
-	slot = The stack index of the object or namespace whose proto or parent to get.
+	slot = The stack index of the instance, class, or namespace whose class, base, or parent to get.
 
 Returns:
 	The stack index of the newly-pushed value.
@@ -3315,7 +3374,7 @@ An example of calling a function:
 -----
 // Let's translate `x = f(5, "hi")` into API calls.
 
-// 1. Push the function (or any callable object -- like objects, threads).
+// 1. Push the function (or any callable object -- like instances, threads).
 auto slot = pushGlobal(t, "f");
 
 // 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
@@ -3452,7 +3511,7 @@ uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = fals
 
 /**
 Performs a super call.  This function will only work if the currently-executing function was called as
-a method of a value of type 'object'.
+a method of a value of type 'instance'.
 
 This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
 thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
@@ -3493,7 +3552,7 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 {
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
+		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto absSlot = fakeToAbs(t, slot);
@@ -3508,10 +3567,10 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 	// Get this
 	auto _this = &t.stack[t.stackBase];
 
-	if(_this.type != MDValue.Type.Object)
+	if(_this.type != MDValue.Type.Instance)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3542,7 +3601,7 @@ uword superCall(MDThread* t, word slot, word numReturns)
 
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super object");
+		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto numParams = t.stackIndex - (absSlot + 1);
@@ -3556,10 +3615,10 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	// Get this
 	auto _this = &t.stack[t.stackBase];
 
-	if(_this.type != MDValue.Type.Object)
+	if(_this.type != MDValue.Type.Instance)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3571,32 +3630,34 @@ uword superCall(MDThread* t, word slot, word numReturns)
 // Reflective functions
 
 /**
-Gets the fields namespace of the 'object' at the given slot.  Throws an exception if the object at the given
-slot is not an object.
+Gets the fields namespace of the class or instance at the given slot.  Throws an exception if
+the value at the given slot is not a class or instance.
 
 Params:
-	obj = The stack index of the object whose fields are to be retrieved.
+	obj = The stack index of the value whose fields are to be retrieved.
 
 Returns:
 	The stack index of the newly-pushed fields namespace.
 */
 word fieldsOf(MDThread* t, word obj)
 {
-	if(auto o = getObject(t, obj))
-		return pushNamespace(t, .obj.fieldsOf(t.vm, o));
+	if(auto c = getClass(t, obj))
+		return pushNamespace(t, classobj.fieldsOf(c));
+	else if(auto i = getInstance(t, obj))
+		return pushNamespace(t, instance.fieldsOf(t.vm.alloc, i));
 
 	pushTypeString(t, obj);
-	throwException(t, "fieldsOf - Expected 'object', not '{}'", getString(t, -1));
+	throwException(t, "fieldsOf - Expected 'class' or 'instance', not '{}'", getString(t, -1));
 
 	assert(false);
 }
 
 /**
 Sees if the object at the stack index `obj` has a field with the given name.  Does not take opField
-metamethods into account.  Because of that, only works for tables, objects, and namespaces.  If
-the object at the stack index `obj` is not one of those types, always returns false.  If this function
-returns true, you are guaranteed that accessing a field of the given name on the given object will
-succeed.
+metamethods into account.  Because of that, only works for tables, classes, instances, and namespaces.
+If the object at the stack index `obj` is not one of those types, always returns false.  If this
+function returns true, you are guaranteed that accessing a field of the given name on the given object
+will succeed.
 
 Params:
 	obj = The stack index of the object to test.
@@ -3616,9 +3677,11 @@ bool hasField(MDThread* t, word obj, char[] fieldName)
 		case MDValue.Type.Table:
 			return table.get(v.mTable, MDValue(name)) !is null;
 
-		case MDValue.Type.Object:
-			MDObject* dummy;
-			return .obj.getField(v.mObject, name, dummy) !is null;
+		case MDValue.Type.Class:
+			return classobj.getField(v.mClass, name) !is null;
+
+		case MDValue.Type.Instance:
+			return instance.getField(v.mInstance, name) !is null;
 
 		case MDValue.Type.Namespace:
 			return namespace.get(v.mNamespace, name) !is null;
@@ -3643,15 +3706,13 @@ Returns:
 */
 bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
-	MDObject* proto = void;
-	auto n = string.create(t.vm, methodName);
-	auto method = lookupMethod(t, getValue(t, obj), n, proto);
-	return method !is null;
+	MDClass* dummy = void;
+	return lookupMethod(t, getValue(t, obj), string.create(t.vm, methodName), dummy) !is null;
 }
 
 /**
 Gets the attributes table of the given object and pushes it onto the stack.  Pushes null if the given
-object has no attributes.  Throws an error if the object is not a function, object, or namespace.
+object has no attributes.  Throws an error if the object is not a function, class, or namespace.
 
 Params:
 	obj = The stack index of the object whose attributes table is to be retrieved.
@@ -3665,14 +3726,14 @@ word getAttributes(MDThread* t, word obj)
 
 	if(auto f = getFunction(t, obj))
 		attrs = f.attrs;
-	else if(auto o = getObject(t, obj))
-		attrs = o.attrs;
+	else if(auto c = getClass(t, obj))
+		attrs = c.attrs;
 	else if(auto n = getNamespace(t, obj))
 		attrs = n.attrs;
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, "getAttributes - Can only get attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+		throwException(t, "getAttributes - Can only get attributes of functions, classes, and namespaces, not '{}'", getString(t, -1));
 	}
 
 	if(attrs is null)
@@ -3684,7 +3745,7 @@ word getAttributes(MDThread* t, word obj)
 /**
 Pops the table off the top of the stack and sets it as the attributes table of the given object.  The
 value at the top of the stack can also be null, in which case it will remove the attributes table
-from the given object.  Throws an error if the given object is not a function, object, or namespace,
+from the given object.  Throws an error if the given object is not a function, class, or namespace,
 or if the value at the top of the stack is neither a table nor null.
 
 Params:
@@ -3703,20 +3764,20 @@ void setAttributes(MDThread* t, word obj)
 
 	if(auto f = getFunction(t, obj))
 		f.attrs = attrs;
-	else if(auto o = getObject(t, obj))
-		o.attrs = attrs;
+	else if(auto c = getClass(t, obj))
+		c.attrs = attrs;
 	else if(auto n = getNamespace(t, obj))
 		n.attrs = attrs;
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, "setAttributes - Can only set attributes of functions, objects, and namespaces, not '{}'", getString(t, -1));
+		throwException(t, "setAttributes - Can only set attributes of functions, classes, and namespaces, not '{}'", getString(t, -1));
 	}
 }
 
 /**
 Sees whether or not the given object has attributes.  Always returns false if the given object is
-not a function, object, or namespace.
+not a function, class, or namespace.
 
 Params:
 	obj = The stack index of the object to test.
@@ -3728,8 +3789,8 @@ bool hasAttributes(MDThread* t, word obj)
 {
 	if(auto f = getFunction(t, obj))
 		return f.attrs !is null;
-	else if(auto o = getObject(t, obj))
-		return o.attrs !is null;
+	else if(auto c = getClass(t, obj))
+		return c.attrs !is null;
 	else if(auto n = getNamespace(t, obj))
 		return n.attrs !is null;
 	else
@@ -3838,11 +3899,11 @@ void freeAll(MDThread* t)
 	{
 		auto cur = *pcur;
 
-		if((cast(MDBaseObject*)cur).mType == MDValue.Type.Object)
+		if((cast(MDBaseObject*)cur).mType == MDValue.Type.Instance)
 		{
-			auto oo = cast(MDObject*)cur;
+			auto i = cast(MDInstance*)cur;
 
-			if(oo.finalizer && ((cur.flags & GCBits.Finalized) == 0))
+			if(i.finalizer && ((cur.flags & GCBits.Finalized) == 0))
 			{
 				*pcur = cur.next;
 
@@ -3876,7 +3937,7 @@ void runFinalizers(MDThread* t)
 		for(auto pcur = &t.vm.alloc.finalizable; *pcur !is null; )
 		{
 			auto cur = *pcur;
-			auto o = cast(MDObject*)cur;
+			auto i = cast(MDInstance*)cur;
 
 			*pcur = cur.next;
 			cur.next = t.vm.alloc.gcHead;
@@ -3885,14 +3946,14 @@ void runFinalizers(MDThread* t)
 			cur.flags = (cur.flags & ~GCBits.Marked) | !t.vm.alloc.markVal;
 
 			// sanity check
-			if(o.finalizer)
+			if(i.finalizer)
 			{
 				auto oldLimit = t.vm.alloc.gcLimit;
 				t.vm.alloc.gcLimit = typeof(t.vm.alloc.gcLimit).max;
 
-				auto reg = pushFunction(t, o.finalizer);
-				pushObject(t, o);
-				rawCall(t, reg, 0);
+				pushFunction(t, i.finalizer);
+				pushInstance(t, i);
+				rawCall(t, -2, 0);
 
 				t.vm.alloc.gcLimit = oldLimit;
 			}
@@ -3920,7 +3981,12 @@ word pushFunction(MDThread* t, MDFunction* o)
 	return push(t, MDValue(o));
 }
 
-word pushObject(MDThread* t, MDObject* o)
+word pushClass(MDThread* t, MDClass* o)
+{
+	return push(t, MDValue(o));
+}
+
+word pushInstance(MDThread* t, MDInstance* o)
 {
 	return push(t, MDValue(o));
 }
@@ -3983,12 +4049,22 @@ MDFunction* getFunction(MDThread* t, word slot)
 		return null;
 }
 
-MDObject* getObject(MDThread* t, word slot)
+MDClass* getClass(MDThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
-	if(v.type == MDValue.Type.Object)
-		return v.mObject;
+	if(v.type == MDValue.Type.Class)
+		return v.mClass;
+	else
+		return null;
+}
+
+MDInstance* getInstance(MDThread* t, word slot)
+{
+	auto v = &t.stack[fakeToAbs(t, slot)];
+
+	if(v.type == MDValue.Type.Instance)
+		return v.mInstance;
 	else
 		return null;
 }
@@ -4133,7 +4209,7 @@ uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScript)
 
 bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup, MDString* methodName, word numReturns, uword numParams, bool customThis)
 {
-	MDObject* proto = void;
+	MDClass* proto;
 	auto method = lookupMethod(t, lookup, methodName, proto);
 
 	// Idea is like this:
@@ -4192,10 +4268,15 @@ word typeString(MDThread* t, MDValue* v)
 			
 			return pushString(t, MDValue.typeString(v.type));
 
-		case MDValue.Type.Object:
+		case MDValue.Type.Class:
 			// LEAVE ME UP HERE PLZ, don't inline, thx.
-			auto n = v.mObject.name.toString();
-			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Object), n);
+			auto n = v.mClass.name.toString();
+			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Class), n);
+
+		case MDValue.Type.Instance:
+			// don't inline me either.
+			auto n = v.mInstance.parent.name.toString();
+			return pushFormat(t, "{} of {}", MDValue.typeString(MDValue.Type.Instance), n);
 
 		case MDValue.Type.NativeObj:
 			pushString(t, MDValue.typeString(MDValue.Type.NativeObj));
@@ -4282,7 +4363,8 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
 					}
 
-				case MDValue.Type.Object: return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Object), v.mObject.name.toString(), cast(void*)v.mObject);
+				case MDValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
+				case MDValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", MDValue.typeString(MDValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
 				case MDValue.Type.Namespace:
 					if(raw)
 						return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
@@ -4465,8 +4547,19 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 			// This is right, tables do not have separate opField capabilities.
 			return tableIdxImpl(t, dest, container, &MDValue(name), raw);
 
-		case MDValue.Type.Object:
-			auto v = obj.getField(container.mObject, name);
+		case MDValue.Type.Class:
+			auto v = classobj.getField(container.mClass, name);
+
+			if(v is null)
+			{
+				typeString(t, container);
+				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+			}
+
+			return *dest = *v;
+
+		case MDValue.Type.Instance:
+			auto v = instance.getField(container.mInstance, name);
 
 			if(v is null)
 			{
@@ -4478,6 +4571,7 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 			}
 
 			return *dest = *v;
+
 
 		case MDValue.Type.Namespace:
 			auto v = namespace.get(container.mNamespace, name);
@@ -4510,21 +4604,24 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 			// This is right, tables do not have separate opField capabilities.
 			return tableIdxaImpl(t, container, &MDValue(name), value, raw);
 
-		case MDValue.Type.Object:
-			auto o = container.mObject;
+		case MDValue.Type.Class:
+			return classobj.setField(t.vm.alloc, container.mClass, name, value);
 
-			MDObject* owner = void;
-			auto field = obj.getField(o, name, owner);
+		case MDValue.Type.Instance:
+			auto i = container.mInstance;
+
+			MDValue owner;
+			auto field = instance.getField(i, name, owner);
 
 			if(field is null)
 			{
 				if(!raw && tryMM!(3, false)(t, MM.FieldAssign, container, &MDValue(name), value))
 					return;
 				else
-					obj.setField(t.vm, o, name, value);
+					instance.setField(t.vm.alloc, i, name, value);
 			}
-			else if(owner !is o)
-				obj.setField(t.vm, o, name, value);
+			else if(owner != MDValue(i))
+				instance.setField(t.vm.alloc, i, name, value);
 			else
 				*field = *value;
 			return;
@@ -4572,7 +4669,7 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 
 				return string.compare(a.mString, b.mString);
 
-			case MDValue.Type.Table, MDValue.Type.Object:
+			case MDValue.Type.Table, MDValue.Type.Instance:
 				if(auto method = getMM(t, a, MM.Cmp))
 					return commonCompare(t, method, a, b);
 				else if(auto method = getMM(t, b, MM.Cmp))
@@ -4582,12 +4679,12 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 			default: break; // break to error
 		}
 	}
-	else if((a.type == MDValue.Type.Object || a.type == MDValue.Type.Table))
+	else if((a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table))
 	{
 		if(auto method = getMM(t, a, MM.Cmp))
 			return commonCompare(t, method, a, b);
 	}
-	else if((b.type == MDValue.Type.Object || b.type == MDValue.Type.Table))
+	else if((b.type == MDValue.Type.Instance || b.type == MDValue.Type.Table))
 	{
 		if(auto method = getMM(t, b, MM.Cmp))
 			return -commonCompare(t, method, b, a);
@@ -4608,7 +4705,7 @@ bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 	if(a.opEquals(*b))
 		return true;
 
-	if(a.type == MDValue.Type.Object || a.type == MDValue.Type.Table)
+	if(a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table)
 	{
 		if(auto method = getMM(t, a, MM.Cmp))
 			return commonCompare(t, method, a, b) == 0;
@@ -4646,7 +4743,7 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 			// Interning is fun.  We don'_t have to do a string comparison at all.
 			case MDValue.Type.String: return a.mString is b.mString;
 
-			case MDValue.Type.Table, MDValue.Type.Object:
+			case MDValue.Type.Table, MDValue.Type.Instance:
 				if(auto method = getMM(t, a, MM.Equals))
 					return commonEquals(t, method, a, b);
 				else if(auto method = getMM(t, b, MM.Equals))
@@ -4656,12 +4753,12 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 			default: break; // break to error
 		}
 	}
-	else if((a.type == MDValue.Type.Object || a.type == MDValue.Type.Table))
+	else if((a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table))
 	{
 		if(auto method = getMM(t, a, MM.Equals))
 			return commonEquals(t, method, a, b);
 	}
-	else if((b.type == MDValue.Type.Object || b.type == MDValue.Type.Table))
+	else if((b.type == MDValue.Type.Instance || b.type == MDValue.Type.Table))
 	{
 		if(auto method = getMM(t, b, MM.Equals))
 			return commonEquals(t, method, b, a);
@@ -5110,7 +5207,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 				if(stack[slot + 1].type == MDValue.Type.Array)
 					goto array;
-				else if(stack[slot + 1].type == MDValue.Type.Object || stack[slot + 1].type == MDValue.Type.Table)
+				else if(stack[slot + 1].type == MDValue.Type.Instance || stack[slot + 1].type == MDValue.Type.Table)
 					goto cat_r;
 				else
 				{
@@ -5127,7 +5224,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				{
 					if(stack[idx].type == MDValue.Type.Array)
 						len += stack[idx].mArray.slice.length;
-					else if(stack[idx].type == MDValue.Type.Object || stack[idx].type == MDValue.Type.Table)
+					else if(stack[idx].type == MDValue.Type.Instance || stack[idx].type == MDValue.Type.Table)
 					{
 						method = getMM(t, &stack[idx], MM.Cat_r);
 
@@ -5152,7 +5249,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				assert(method !is null);
 				goto cat_r;
 
-			case MDValue.Type.Object, MDValue.Type.Table:
+			case MDValue.Type.Instance, MDValue.Type.Table:
 				if(stack[slot + 1].type == MDValue.Type.Array)
 				{
 					method = getMM(t, &stack[slot], MM.Cat);
@@ -5169,10 +5266,10 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 					if(method is null)
 					{
-						if(stack[slot + 1].type != MDValue.Type.Object && stack[slot + 1].type != MDValue.Type.Table)
+						if(stack[slot + 1].type != MDValue.Type.Instance && stack[slot + 1].type != MDValue.Type.Table)
 						{
 							typeString(t, &stack[slot + 1]);
-							throwException(t, "Can't concatenate an 'object/table' with a '{}'", getString(t, -1));
+							throwException(t, "Can't concatenate an 'instance/table' with a '{}'", getString(t, -1));
 						}
 
 						method = getMM(t, &stack[slot + 1], MM.Cat_r);
@@ -5218,7 +5315,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				// Basic
 				if(stack[slot + 1].type == MDValue.Type.Array)
 					goto array;
-				else if(stack[slot + 1].type == MDValue.Type.Object || stack[slot + 1].type == MDValue.Type.Table)
+				else if(stack[slot + 1].type == MDValue.Type.Instance || stack[slot + 1].type == MDValue.Type.Table)
 					goto cat_r;
 				else
 				{
@@ -5306,7 +5403,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 		case MDValue.Type.Array:
 			return arrayAppend(t, dest.mArray, stack[slot .. endSlot]);
 
-		case MDValue.Type.Object, MDValue.Type.Table:
+		case MDValue.Type.Instance, MDValue.Type.Table:
 			auto method = getMM(t, dest, MM.CatEq);
 			
 			if(method is null)
@@ -5346,24 +5443,26 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 {
-	if(p.type != MDValue.Type.Object)
+	if(p.type != MDValue.Type.Class)
 	{
 		typeString(t, p);
-		throwException(t, "Attempting to use 'as' with a '{}' instead of an 'object' as the type", getString(t, -1));
+		throwException(t, "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
 	}
 
-	return o.type == MDValue.Type.Object && obj.derivesFrom(o.mObject, p.mObject);
+	return o.type == MDValue.Type.Instance && instance.derivesFrom(o.mInstance, p.mClass);
 }
 
 MDValue superOfImpl(MDThread* t, MDValue* v)
 {
-	if(v.type == MDValue.Type.Object)
+	if(v.type == MDValue.Type.Class)
 	{
-		if(auto p = v.mObject.proto)
+		if(auto p = v.mClass.parent)
 			return MDValue(p);
 		else
 			return MDValue.nullValue;
 	}
+	else if(v.type == MDValue.Type.Instance)
+		return MDValue(v.mInstance.parent);
 	else if(v.type == MDValue.Type.Namespace)
 	{
 		if(auto p = v.mNamespace.parent)
@@ -5374,7 +5473,7 @@ MDValue superOfImpl(MDThread* t, MDValue* v)
 	else
 	{
 		typeString(t, v);
-		throwException(t, "Can only get super of objects and namespaces, not values of type '{}'", getString(t, -1));
+		throwException(t, "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -5557,12 +5656,15 @@ MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
 	return t.vm.metaTabs[type];
 }
 
-MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDObject* proto)
+MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* proto)
 {
 	switch(v.type)
 	{
-		case MDValue.Type.Object:
-			return getMethod(v.mObject, name, proto);
+		case MDValue.Type.Class:
+			return getMethod(v.mClass, name, proto);
+
+		case MDValue.Type.Instance:
+			return getMethod(v.mInstance, name, proto);
 
 		case MDValue.Type.Table:
 			if(auto ret = getMethod(v.mTable, name))
@@ -5580,18 +5682,18 @@ MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDObject* 
 
 MDFunction* getMM(MDThread* t, MDValue* obj, MM method)
 {
-	MDObject* dummy = void;
+	MDClass* dummy = void;
 	return getMM(t, obj, method, dummy);
 }
 
-MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* proto)
+MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDClass* proto)
 {
 	auto name = t.vm.metaStrings[method];
 
 	switch(obj.type)
 	{
-		case MDValue.Type.Object:
-			return getMethod(obj.mObject, name, proto);
+		case MDValue.Type.Instance:
+			return getMethod(obj.mInstance, name, proto);
 
 		case MDValue.Type.Table:
 			if(auto ret = getMethod(obj.mTable, name))
@@ -5604,14 +5706,35 @@ MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDObject* proto)
 	}
 }
 
-MDFunction* getMethod(MDObject* obj, MDString* name, out MDObject* proto)
+MDFunction* getMethod(MDClass* cls, MDString* name, out MDClass* proto)
 {
-	auto ret = .obj.getField(obj, name, proto);
+	auto ret = classobj.getField(cls, name, proto);
 
 	if(ret is null || ret.type != MDValue.Type.Function)
 		return null;
 	else
 		return ret.mFunction;
+}
+
+MDFunction* getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
+{
+	MDValue dummy;
+	auto ret = instance.getField(inst, name, dummy);
+
+	if(ret is null || ret.type != MDValue.Type.Function)
+		return null;
+	else
+	{
+		if(dummy == MDValue(inst))
+			proto = inst.parent;
+		else
+		{
+			assert(dummy.type == MDValue.Type.Class);
+			proto = dummy.mClass;
+		}
+
+		return ret.mFunction;
+	}
 }
 
 MDFunction* getMethod(MDTable* tab, MDString* name)
@@ -5650,7 +5773,7 @@ MDFunction* getMethod(MDThread* t, MDValue.Type type, MDString* name)
 }
 
 // Calling and execution
-bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, MDObject* proto)
+bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, MDClass* proto)
 {
 	assert(numParams > 0);
 	auto func = &t.stack[slot];
@@ -5659,6 +5782,78 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 	{
 		case MDValue.Type.Function:
 			return callPrologue2(t, func.mFunction, slot, numReturns, slot + 1, numParams, proto);
+			
+		case MDValue.Type.Class:
+			auto cls = func.mClass;
+			
+			if(cls.allocator)
+			{
+				version(MDExtendedCoro) {} else
+				{
+					t.nativeCallDepth++;
+					scope(exit) t.nativeCallDepth--;
+				}
+
+				pushFunction(t, cls.allocator);
+				pushClass(t, cls);
+				rawCall(t, -2, 1);
+				
+				if(!isInstance(t, -1))
+				{
+					pushTypeString(t, -1);
+					throwException(t, "class allocator expected to return an 'instance', not a '{}'", getString(t, -1));
+				}
+			}
+			else
+				newInstance(t, slot - t.stackBase);
+				
+			auto inst = getInstance(t, -1);
+			pop(t);
+
+			// call any constructor
+			auto ctor = classobj.getField(cls, string.create(t.vm, "constructor"));
+
+			if(ctor !is null)
+			{
+				if(ctor.type != MDValue.Type.Function)
+				{
+					typeString(t, ctor);
+					throwException(t, "class constructor expected to be a 'function', not '{}'", getString(t, -1));
+				}
+
+				version(MDExtendedCoro) {} else
+				{
+					t.nativeCallDepth++;
+					scope(exit) t.nativeCallDepth--;
+				}
+
+				t.stack[slot + 1] = inst;
+				pushFunction(t, ctor.mFunction);
+				insert(t, -numParams - 1);
+				
+				if(callPrologue(t, slot + 1, 0, numParams, cls))
+					execute(t);
+			}
+
+			// set up dummy AR to handle returns
+			auto ar = pushAR(t);
+
+			ar.base = slot;
+			ar.savedTop = t.stackIndex;
+			ar.vargBase = slot;
+			ar.returnSlot = slot;
+			ar.func = null;
+			ar.pc = null;
+			ar.numReturns = numReturns;
+			ar.proto = null;
+			ar.numTailcalls = 0;
+			ar.firstResult = 0;
+			ar.numResults = 0;
+
+			pushInstance(t, inst);
+			saveResults(t, t, t.stackIndex - 1, 1);
+			callEpilogue(t, true);
+			return false;
 
 		case MDValue.Type.Thread:
 			auto thread = func.mThread;
@@ -5744,7 +5939,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 	}
 }
 
-bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
+bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
 	if(!func.isNative)
 	{
@@ -5793,7 +5988,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		ar.numReturns = numReturns;
 		ar.firstResult = 0;
 		ar.numResults = 0;
-		ar.proto = proto is null ? null : proto.proto;
+		ar.proto = proto is null ? null : proto.parent;
 		ar.numTailcalls = 0;
 		ar.savedTop = ar.base + funcDef.stackSize;
 
@@ -5867,7 +6062,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 	}
 }
 
-void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDObject* proto)
+void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
 	t.stackIndex = paramSlot + numParams;
 	checkStack(t, t.stackIndex);
@@ -5882,7 +6077,7 @@ void nativeCallPrologue(MDThread* t, MDFunction* closure, AbsStack returnSlot, w
 	ar.firstResult = 0;
 	ar.numResults = 0;
 	ar.savedTop = t.stackIndex;
-	ar.proto = proto is null ? null : proto.proto;
+	ar.proto = proto is null ? null : proto.parent;
 	ar.numTailcalls = 0;
 
 	t.stackBase = ar.base;
@@ -6966,12 +7161,12 @@ void execute(MDThread* t, uword depth = 1)
 					else
 					{
 						if(t.currentAR.proto is null)
-							throwException(t, "Attempting to perform a supercall in a function where there is no super object");
+							throwException(t, "Attempting to perform a supercall in a function where there is no super class");
 
-						if(self.type != MDValue.Type.Object)
+						if(self.type != MDValue.Type.Instance)
 						{
 							typeString(t, self);
-							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'object'", getString(t, -1));
+							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
 						}
 
 						RS = t.currentAR.proto;
@@ -7269,19 +7464,19 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.CheckObjParam:
 					RS = t.stack[stackBase + i.rs];
 					
-					if(RS.type != MDValue.Type.Object)
+					if(RS.type != MDValue.Type.Instance)
 						*get(i.rd) = true;
 					else
 					{
 						RT = *get(i.rt);
 
-						if(RT.type != MDValue.Type.Object)
+						if(RT.type != MDValue.Type.Class)
 						{
 							typeString(t, &RT);
-							throwException(t, "Parameter {}: object constraint type must be 'object', not '{}'", i.rs, getString(t, -1));
+							throwException(t, "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
 						}
 
-						*get(i.rd) = obj.derivesFrom(RS.mObject, RT.mObject);
+						*get(i.rd) = instance.derivesFrom(RS.mInstance, RT.mClass);
 					}
 					break;
 
@@ -7426,22 +7621,17 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.SetEnv: get(i.rd).mFunction.environment = get(i.rs).mNamespace; break;
 
-				case Op.Object:
+				case Op.Class:
 					RS = *get(i.rs);
 					RT = *get(i.rt);
 
-					if(RT.type != MDValue.Type.Object)
+					if(RT.type != MDValue.Type.Class)
 					{
 						typeString(t, &RT);
-						throwException(t, "Attempting to derive an object from a value of type '{}'", getString(t, -1));
+						throwException(t, "Attempting to derive a class from a value of type '{}'", getString(t, -1));
 					}
 					else
-					{
-						if(RS.type == MDValue.Type.Null)
-							*get(i.rd) = obj.create(t.vm.alloc, RT.mObject.name, RT.mObject);
-						else
-							*get(i.rd) = obj.create(t.vm.alloc, RS.mString, RT.mObject);
-					}
+						*get(i.rd) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
 
 					maybeGC(t);
 					break;

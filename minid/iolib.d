@@ -86,19 +86,19 @@ static:
 				pushGlobal(t, "InputStream");
 				pushNull(t);
 				pushNativeObj(t, cast(Object)Cin.stream);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 			newGlobal(t, "stdin");
 
 				pushGlobal(t, "OutputStream");
 				pushNull(t);
 				pushNativeObj(t, cast(Object)Cout.stream);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 			newGlobal(t, "stdout");
 
 				pushGlobal(t, "OutputStream");
 				pushNull(t);
 				pushNativeObj(t, cast(Object)Cerr.stream);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 			newGlobal(t, "stderr");
 
 			newTable(t, 5);
@@ -125,7 +125,7 @@ static:
 			newFunction(t, &listDirs, "listDirs");     newGlobal(t, "listDirs");
 			newFunction(t, &readFile, "readFile");     newGlobal(t, "readFile");
 			newFunction(t, &writeFile, "writeFile");   newGlobal(t, "writeFile");
-			
+
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
 
@@ -394,7 +394,7 @@ static:
 			pushGlobal(t, "Stream");
 			pushNull(t);
 			pushNativeObj(t, f);
-			methodCall(t, -3, "clone", 1);
+			rawCall(t, -3, 1);
 		}());
 
 		return 1;
@@ -410,7 +410,7 @@ static:
 			lines
 		}
 
-		struct Members
+		align(1) struct Members
 		{
 			InputStream stream;
 			IReader reader;
@@ -420,58 +420,66 @@ static:
 
 		public void init(MDThread* t)
 		{
-			CreateObject(t, "InputStream", (CreateObject* o)
+			CreateClass(t, "InputStream", (CreateClass* c)
 			{
-				o.method("clone", &clone);
-				o.method("readByte", &readVal!(ubyte));
-				o.method("readShort", &readVal!(ushort));
-				o.method("readInt", &readVal!(int));
-				o.method("readLong", &readVal!(long));
-				o.method("readFloat", &readVal!(float));
-				o.method("readDouble", &readVal!(double));
-				o.method("readChar", &readVal!(char));
-				o.method("readWChar", &readVal!(wchar));
-				o.method("readDChar", &readVal!(dchar));
-				o.method("readString", &readString);
-				o.method("readln", &readln);
-				o.method("readChars", &readChars);
-				o.method("readVector", &readVector);
-				o.method("clear", &clear);
+				c.method("constructor", &constructor);
+				c.method("readByte", &readVal!(ubyte));
+				c.method("readShort", &readVal!(ushort));
+				c.method("readInt", &readVal!(int));
+				c.method("readLong", &readVal!(long));
+				c.method("readFloat", &readVal!(float));
+				c.method("readDouble", &readVal!(double));
+				c.method("readChar", &readVal!(char));
+				c.method("readWChar", &readVal!(wchar));
+				c.method("readDChar", &readVal!(dchar));
+				c.method("readString", &readString);
+				c.method("readln", &readln);
+				c.method("readChars", &readChars);
+				c.method("readVector", &readVector);
+				c.method("clear", &clear);
 
 					newFunction(t, &iterator, "InputStream.iterator");
-				o.method("opApply", &opApply, 1);
+				c.method("opApply", &opApply, 1);
 			});
+			
+			newFunction(t, &allocator, "InputStream.allocator");
+			setAllocator(t, -2);
 
 			newGlobal(t, "InputStream");
 		}
-		
+
 		private Members* getThis(MDThread* t)
 		{
-			return checkObjParam!(Members)(t, 0, "InputStream");
+			return checkInstParam!(Members)(t, 0, "InputStream");
+		}
+		
+		uword allocator(MDThread* t, uword numParams)
+		{
+			newInstance(t, 0, Fields.max + 1, Members.sizeof);
+			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+			return 1;
 		}
 
-		public uword clone(MDThread* t, uword numParams)
+		public uword constructor(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+
 			checkParam(t, 1, MDValue.Type.NativeObj);
 			auto input = cast(InputStream)getNativeObj(t, 1);
 
 			if(input is null)
 				throwException(t, "instances of InputStream may only be created using instances of the Tango InputStream");
-				
-			pushGlobal(t, "InputStream");
-			auto ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
-			auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
 
 			memb.buf = Buffer.share(input);
 			memb.stream = memb.buf;
 			memb.reader = new Reader(memb.buf);
 			memb.lines = new LineIterator!(char)(memb.buf);
 
-			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, ret, Fields.stream);
-			pushNativeObj(t, memb.reader);             setExtraVal(t, ret, Fields.reader);
-			pushNativeObj(t, memb.lines);              setExtraVal(t, ret, Fields.lines);
+			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
+			pushNativeObj(t, memb.reader);             setExtraVal(t, 0, Fields.reader);
+			pushNativeObj(t, memb.lines);              setExtraVal(t, 0, Fields.lines);
 
-			return 1;
+			return 0;
 		}
 
 		public uword readVal(T)(MDThread* t, uword numParams)
@@ -563,7 +571,7 @@ static:
 				pushNull(t);
 				pushString(t, type);
 				pushInt(t, size);
-				methodCall(t, -4, "clone", 1);
+				rawCall(t, -4, 1);
 
 				vecMemb = getMembers!(VectorObj.Members)(t, -1);
 			}
@@ -571,8 +579,8 @@ static:
 			{
 				pushGlobal(t, "Vector");
 
-				if(!strictlyAs(t, 1, -1))
-					paramTypeError(t, 1, "object Vector");
+				if(!as(t, 1, -1))
+					paramTypeError(t, 1, "Vector");
 
 				vecMemb = getMembers!(VectorObj.Members)(t, -1);
 				size = optIntParam(t, 2, vecMemb.length);
@@ -615,7 +623,7 @@ static:
 
 		public uword opApply(MDThread* t, uword numParams)
 		{
-			checkObjParam(t, 0, "InputStream");
+			checkInstParam(t, 0, "InputStream");
 			getUpval(t, 0);
 			dup(t, 0);
 			pushInt(t, 0);
@@ -633,7 +641,7 @@ static:
 			print
 		}
 		
-		struct Members
+		align(1) struct Members
 		{
 			OutputStream stream;
 			IWriter writer;
@@ -643,35 +651,46 @@ static:
 
 		public void init(MDThread* t)
 		{
-			CreateObject(t, "OutputStream", (CreateObject* o)
+			CreateClass(t, "OutputStream", (CreateClass* c)
 			{
-					newFunction(t, &finalizer, "OutputStream.finalizer");
-				o.method("clone",       &clone, 1);
-
-				o.method("writeByte",   &writeVal!(ubyte));
-				o.method("writeShort",  &writeVal!(ushort));
-				o.method("writeInt",    &writeVal!(int));
-				o.method("writeLong",   &writeVal!(long));
-				o.method("writeFloat",  &writeVal!(float));
-				o.method("writeDouble", &writeVal!(double));
-				o.method("writeChar",   &writeVal!(char));
-				o.method("writeWChar",  &writeVal!(wchar));
-				o.method("writeDChar",  &writeVal!(dchar));
-				o.method("writeString", &writeString);
-				o.method("write",       &write);
-				o.method("writeln",     &writeln);
-				o.method("writef",      &writef);
-				o.method("writefln",    &writefln);
-				o.method("writeChars",  &writeChars);
-				o.method("writeJSON",   &writeJSON);
-				o.method("writeVector", &writeVector);
-				o.method("flush",       &flush);
-				o.method("copy",        &copy);
+				c.method("constructor", &constructor);
+				c.method("writeByte",   &writeVal!(ubyte));
+				c.method("writeShort",  &writeVal!(ushort));
+				c.method("writeInt",    &writeVal!(int));
+				c.method("writeLong",   &writeVal!(long));
+				c.method("writeFloat",  &writeVal!(float));
+				c.method("writeDouble", &writeVal!(double));
+				c.method("writeChar",   &writeVal!(char));
+				c.method("writeWChar",  &writeVal!(wchar));
+				c.method("writeDChar",  &writeVal!(dchar));
+				c.method("writeString", &writeString);
+				c.method("write",       &write);
+				c.method("writeln",     &writeln);
+				c.method("writef",      &writef);
+				c.method("writefln",    &writefln);
+				c.method("writeChars",  &writeChars);
+				c.method("writeJSON",   &writeJSON);
+				c.method("writeVector", &writeVector);
+				c.method("flush",       &flush);
+				c.method("copy",        &copy);
 			});
+			
+			newFunction(t, &allocator, "OutputStream.allocator");
+			setAllocator(t, -2);
+			
+			newFunction(t, &finalizer, "OutputStream.finalizer");
+			setFinalizer(t, -2);
 
 			newGlobal(t, "OutputStream");
 		}
 		
+		uword allocator(MDThread* t, uword numParams)
+		{
+			newInstance(t, 0, Fields.max + 1, Members.sizeof);
+			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+			return 1;
+		}
+
 		uword finalizer(MDThread* t, uword numParams)
 		{
 			auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
@@ -687,34 +706,29 @@ static:
 		
 		Members* getThis(MDThread* t)
 		{
-			return checkObjParam!(Members)(t, 0, "OutputStream");
+			return checkInstParam!(Members)(t, 0, "OutputStream");
 		}
 
-		public uword clone(MDThread* t, uword numParams)
+		public uword constructor(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+
 			checkParam(t, 1, MDValue.Type.NativeObj);
 			auto output = cast(OutputStream)getNativeObj(t, 1);
 
 			if(output is null)
 				throwException(t, "instances of OutputStream may only be created using instances of the Tango OutputStream");
 
-			pushGlobal(t, "OutputStream");
-			auto ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
-			auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
-
 			memb.buf = Buffer.share(output);
 			memb.stream = memb.buf;
 			memb.writer = new Writer(memb.buf);
 			memb.print = new Print!(char)(t.vm.formatter, memb.buf);
 
-			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, ret, Fields.stream);
-			pushNativeObj(t, memb.writer);             setExtraVal(t, ret, Fields.writer);
-			pushNativeObj(t, memb.print);              setExtraVal(t, ret, Fields.print);
+			pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
+			pushNativeObj(t, memb.writer);             setExtraVal(t, 0, Fields.writer);
+			pushNativeObj(t, memb.print);              setExtraVal(t, 0, Fields.print);
 
-			getUpval(t, 0);
-			setFinalizer(t, ret);
-
-			return 1;
+			return 0;
 		}
 
 		public uword writeVal(T)(MDThread* t, uword numParams)
@@ -832,7 +846,7 @@ static:
 		public uword writeVector(MDThread* t, uword numParams)
 		{
 			auto memb = getThis(t);
-			auto vecMemb = checkObjParam!(VectorObj.Members)(t, 1, "Vector");
+			auto vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
 			auto lo = optIntParam(t, 2, 0);
 			auto hi = optIntParam(t, 3, vecMemb.length);
 			
@@ -864,12 +878,12 @@ static:
 		public uword copy(MDThread* t, uword numParams)
 		{
 			auto memb = getThis(t);
-			checkObjParam(t, 1);
+			checkInstParam(t, 1);
 
 			InputStream stream;
 			pushGlobal(t, "InputStream");
 
-			if(strictlyAs(t, 1, -1))
+			if(as(t, 1, -1))
 			{
 				pop(t);
 				stream = (cast(InputStreamObj.Members*)getExtraBytes(t, 1).ptr).stream;
@@ -879,7 +893,7 @@ static:
 				pop(t);
 				pushGlobal(t, "Stream");
 
-				if(strictlyAs(t, 1, -1))
+				if(as(t, 1, -1))
 				{
 					pop(t);
 					getExtraVal(t, 1, StreamObj.Fields.input);
@@ -907,9 +921,9 @@ static:
 			seeker
 		}
 		
-		struct Members
+		align(1) struct Members
 		{
-			bool closed;
+			bool closed = true;
 			bool dirty;
 			IConduit conduit;
 			IConduit.Seek seeker;
@@ -917,58 +931,70 @@ static:
 
 		public void init(MDThread* t)
 		{
-			CreateObject(t, "Stream", (CreateObject* o)
+			CreateClass(t, "Stream", (CreateClass* c)
 			{
-					newFunction(t, &finalizer, "Stream.finalizer");
-				o.method("clone", &clone, 1);
+				c.method("constructor", &constructor);
 
-				o.method("readByte", &readVal!(ubyte));
-				o.method("readShort", &readVal!(ushort));
-				o.method("readInt", &readVal!(int));
-				o.method("readLong", &readVal!(long));
-				o.method("readFloat", &readVal!(float));
-				o.method("readDouble", &readVal!(double));
-				o.method("readChar", &readVal!(char));
-				o.method("readWChar", &readVal!(wchar));
-				o.method("readDChar", &readVal!(dchar));
-				o.method("readString", &readString);
-				o.method("readln", &readln);
-				o.method("readChars", &readChars);
-				o.method("readVector", &readVector);
-				o.method("clear", &clear);
-				o.method("opApply", &opApply);
+				c.method("readByte", &readVal!(ubyte));
+				c.method("readShort", &readVal!(ushort));
+				c.method("readInt", &readVal!(int));
+				c.method("readLong", &readVal!(long));
+				c.method("readFloat", &readVal!(float));
+				c.method("readDouble", &readVal!(double));
+				c.method("readChar", &readVal!(char));
+				c.method("readWChar", &readVal!(wchar));
+				c.method("readDChar", &readVal!(dchar));
+				c.method("readString", &readString);
+				c.method("readln", &readln);
+				c.method("readChars", &readChars);
+				c.method("readVector", &readVector);
+				c.method("clear", &clear);
+				c.method("opApply", &opApply);
 
-				o.method("writeByte", &writeVal!(ubyte));
-				o.method("writeShort", &writeVal!(ushort));
-				o.method("writeInt", &writeVal!(int));
-				o.method("writeLong", &writeVal!(long));
-				o.method("writeFloat", &writeVal!(float));
-				o.method("writeDouble", &writeVal!(double));
-				o.method("writeChar", &writeVal!(char));
-				o.method("writeWChar", &writeVal!(wchar));
-				o.method("writeDChar", &writeVal!(dchar));
-				o.method("writeString", &writeString);
-				o.method("write", &write);
-				o.method("writeln", &writeln);
-				o.method("writef", &writef);
-				o.method("writefln", &writefln);
-				o.method("writeChars", &writeChars);
-				o.method("writeJSON", &writeJSON);
-				o.method("writeVector", &writeVector);
-				o.method("flush", &flush);
-				o.method("copy", &copy);
+				c.method("writeByte", &writeVal!(ubyte));
+				c.method("writeShort", &writeVal!(ushort));
+				c.method("writeInt", &writeVal!(int));
+				c.method("writeLong", &writeVal!(long));
+				c.method("writeFloat", &writeVal!(float));
+				c.method("writeDouble", &writeVal!(double));
+				c.method("writeChar", &writeVal!(char));
+				c.method("writeWChar", &writeVal!(wchar));
+				c.method("writeDChar", &writeVal!(dchar));
+				c.method("writeString", &writeString);
+				c.method("write", &write);
+				c.method("writeln", &writeln);
+				c.method("writef", &writef);
+				c.method("writefln", &writefln);
+				c.method("writeChars", &writeChars);
+				c.method("writeJSON", &writeJSON);
+				c.method("writeVector", &writeVector);
+				c.method("flush", &flush);
+				c.method("copy", &copy);
 
-				o.method("seek", &seek);
-				o.method("position", &position);
-				o.method("size", &size);
-				o.method("close", &close);
-				o.method("isOpen", &isOpen);
+				c.method("seek", &seek);
+				c.method("position", &position);
+				c.method("size", &size);
+				c.method("close", &close);
+				c.method("isOpen", &isOpen);
 
-				o.method("input", &input);
-				o.method("output", &output);
+				c.method("input", &input);
+				c.method("output", &output);
 			});
 			
+			newFunction(t, &allocator, "Stream.allocator");
+			setAllocator(t, -2);
+			
+			newFunction(t, &finalizer, "Stream.finalizer");
+			setFinalizer(t, -2);
+
 			newGlobal(t, "Stream");
+		}
+
+		uword allocator(MDThread* t, uword numParams)
+		{
+			newInstance(t, 0, Fields.max + 1, Members.sizeof);
+			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+			return 1;
 		}
 
 		uword finalizer(MDThread* t, uword numParams)
@@ -992,9 +1018,11 @@ static:
 			
 			return 0;
 		}
-		
-		public uword clone(MDThread* t, uword numParams)
+
+		public uword constructor(MDThread* t, uword numParams)
 		{
+			auto memb = getThis(t);
+
 			checkAnyParam(t, 1);
 			word ret;
 
@@ -1005,10 +1033,6 @@ static:
 				if(conduit is null)
 					throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
 
-				pushGlobal(t, "Stream");
-				ret = newObject(t, -1, null, Fields.max + 1, Members.sizeof);
-				auto memb = cast(Members*)getExtraBytes(t, ret).ptr;
-
 				memb.closed = false;
 				memb.dirty = false;
 				memb.seeker = cast(IConduit.Seek)conduit;
@@ -1018,26 +1042,26 @@ static:
 				else
 					memb.conduit = new Buffer(conduit);
 
-				pushNativeObj(t, cast(Object)memb.conduit); setExtraVal(t, ret, Fields.conduit);
+				pushNativeObj(t, cast(Object)memb.conduit); setExtraVal(t, 0, Fields.conduit);
 
 				if(memb.seeker is null)
 					pushNull(t);
 				else
 					pushNativeObj(t, cast(Object)memb.seeker);
 
-				setExtraVal(t, ret, Fields.seeker);
+				setExtraVal(t, 0, Fields.seeker);
 
 					pushGlobal(t, "InputStream");
 					pushNull(t);
 					pushNativeObj(t, cast(Object)memb.conduit);
-					methodCall(t, -3, "clone", 1);
-				setExtraVal(t, ret, Fields.input);
+					rawCall(t, -3, 1);
+				setExtraVal(t, 0, Fields.input);
 
 					pushGlobal(t, "OutputStream");
 					pushNull(t);
 					pushNativeObj(t, cast(Object)memb.conduit);
-					methodCall(t, -3, "clone", 1);
-				setExtraVal(t, ret, Fields.output);
+					rawCall(t, -3, 1);
+				setExtraVal(t, 0, Fields.output);
 			}
 			else
 			{
@@ -1045,9 +1069,7 @@ static:
 				assert(false);
 			}
 
-			getUpval(t, 0);
-			setFinalizer(t, ret);
-			return 1;
+			return 0;
 		}
 		
 		word pushInput(MDThread* t)
@@ -1062,7 +1084,7 @@ static:
 
 		Members* getThis(MDThread* t)
 		{
-			return checkObjParam!(Members)(t, 0, "Stream");
+			return checkInstParam!(Members)(t, 0, "Stream");
 		}
 		
 		void checkDirty(MDThread* t, Members* memb)
@@ -1375,14 +1397,14 @@ static:
 
 		public uword input(MDThread* t, uword numParams)
 		{
-			checkObjParam(t, 0, "Stream");
+			checkInstParam(t, 0, "Stream");
 			getExtraVal(t, 0, Fields.input);
 			return 1;
 		}
 
 		public uword output(MDThread* t, uword numParams)
 		{
-			checkObjParam(t, 0, "Stream");
+			checkInstParam(t, 0, "Stream");
 			getExtraVal(t, 0, Fields.output);
 			return 1;
 		}

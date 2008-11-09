@@ -36,26 +36,26 @@ import minid.types;
 // Public
 // ================================================================================================================================================
 
-public struct CreateObject
+public struct CreateClass
 {
 	private MDThread* t;
 	private char[] name;
 	private word idx;
 
-	public static void opCall(MDThread* t, char[] name, void delegate(CreateObject*) dg)
+	public static void opCall(MDThread* t, char[] name, void delegate(CreateClass*) dg)
 	{
-		CreateObject co;
+		CreateClass co;
 		co.t = t;
 		co.name = name;
-		co.idx = newObject(t, name);
+		co.idx = newClass(t, name);
 
 		dg(&co);
 
 		if(co.idx >= stackSize(t))
-			throwException(t, "You popped the object {} before it could be finished!", name);
+			throwException(t, "You popped the class {} before it could be finished!", name);
 
 		if(stackSize(t) > co.idx + 1)
-			pop(t, stackSize(t) - co.idx - 1);
+			setStackSize(t, co.idx + 1);
 	}
 
 	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
@@ -305,43 +305,39 @@ public mdfloat checkNumParam(MDThread* t, word index)
 }
 
 /**
-Checks that the parameter at the given index is an object.
+Checks that the parameter at the given index is an instance.
 */
-public void checkObjParam()(MDThread* t, word index)
+public void checkInstParam()(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
-	if(!isObject(t, index))
-		paramTypeError(t, index, "object");
+	if(!isInstance(t, index))
+		paramTypeError(t, index, "instance");
 }
 
 /**
-Checks that the parameter at the given index is an object of the type given by name.  name must
-be a dotted-identifier name suitable for passing into lookup().  
-
-The optional strict template parameter controls whether the base object (the object referred to
-by name) is allowed.  If strict is false, the base object is allowed; otherwise, only objects derived
-from it are allowed.  The default is for strict to be true (the latter behavior).
+Checks that the parameter at the given index is an instance of the class given by name.  name must
+be a dotted-identifier name suitable for passing into lookup().
 
 Params:
 	index = The stack index of the parameter to check.
-	name = The name of the object from which the given parameter must be derived.
+	name = The name of the class from which the given parameter must be derived.
 */
-public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] name)
+public void checkInstParam()(MDThread* t, word index, char[] name)
 {
 	index = absIndex(t, index);
-	checkObjParam(t, index);
+	checkInstParam(t, index);
 
 	lookup(t, name);
 
-	if(strict ? !strictlyAs(t, index, -1) : !as(t, index, -1))
+	if(!as(t, index, -1))
 	{
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwException(t, "Expected instance of object {} for 'this', not {}", name, getString(t, -1));
+			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwException(t, "Expected instance of object {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -349,11 +345,11 @@ public void checkObjParam(bool strict = true)(MDThread* t, word index, char[] na
 
 /**
 Same as above, but also takes a template type parameter that should be a struct the same size as the
-given object's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
+given instance's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
 */
-public T* checkObjParam(T, bool strict = true)(MDThread* t, word index, char[] name)
+public T* checkInstParam(T)(MDThread* t, word index, char[] name)
 {
-	checkObjParam!(strict)(t, index, name);
+	checkInstParam(t, index, name);
 	return getMembers!(T)(t, index);
 }
 
@@ -464,14 +460,20 @@ public bool optParam(MDThread* t, word index, MDValue.Type type)
 }
 
 /**
-For the object at the given index, gets the extra bytes and returns them cast to a pointer to the
-given type.  Asserts that the number of extra bytes is the same as the size of the given type, but
-this should not be used as a foolproof way of identifying the type of objects.
+For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
+given type.  Checks that the number of extra bytes is at least the size of the given type, but
+this should not be used as a foolproof way of identifying the type of instances.
 */
 public T* getMembers(T)(MDThread* t, word index)
 {
 	auto ret = getExtraBytes(t, index);
-	assert(ret.length == T.sizeof);
+
+	if(ret.length < T.sizeof)
+	{
+		pushTypeString(t, index);
+		throwException(t, "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
+	}
+
 	return cast(T*)ret.ptr;
 }
 
@@ -486,7 +488,7 @@ metamethods are respected.
 -----
 auto slot = lookup(t, "time.Timer");
 pushNull(t);
-methodCall(t, slot, "clone", 1);
+rawCall(t, slot, 1);
 // We now have an instance of time.Timer on top of the stack.
 -----
 

@@ -34,11 +34,12 @@ import tango.stdc.ctype;
 import tango.stdc.string;
 import Utf = tango.text.convert.Utf;
 
+import minid.classobj;
 import minid.compiler;
 import minid.ex;
+import minid.instance;
 import minid.interpreter;
 import minid.misc;
-import minid.obj;
 import minid.string;
 import minid.types;
 import minid.utils;
@@ -59,8 +60,7 @@ static:
 		register(t, "collectGarbage", &collectGarbage);
 
 		// Object
-		pushObject(t, obj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
-			newFunction(t, &objectClone, "Object.clone"); fielda(t, -2, "clone");
+		pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 		newGlobal(t, "Object");
 
 		// Vector
@@ -96,7 +96,8 @@ static:
 		register(t, "isTable", &isParam!(MDValue.Type.Table));
 		register(t, "isArray", &isParam!(MDValue.Type.Array));
 		register(t, "isFunction", &isParam!(MDValue.Type.Function));
-		register(t, "isObject", &isParam!(MDValue.Type.Object));
+		register(t, "isClass", &isParam!(MDValue.Type.Class));
+		register(t, "isInstance", &isParam!(MDValue.Type.Instance));
 		register(t, "isNamespace", &isParam!(MDValue.Type.Namespace));
 		register(t, "isThread", &isParam!(MDValue.Type.Thread));
 		register(t, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
@@ -148,16 +149,6 @@ static:
 	uword collectGarbage(MDThread* t, uword numParams)
 	{
 		pushInt(t, gc(t));
-		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Object
-
-	// function clone() = object : this {}
-	uword objectClone(MDThread* t, uword numParams)
-	{
-		newObject(t, 0);
 		return 1;
 	}
 
@@ -232,8 +223,13 @@ static:
 
 	uword fieldsOf(MDThread* t, uword numParams)
 	{
-		checkObjParam(t, 1);
-		.fieldsOf(t, 1);
+		checkAnyParam(t, 1);
+		
+		if(isClass(t, 1) || isInstance(t, 1))
+			.fieldsOf(t, 1);
+		else
+			paramTypeError(t, 1, "class|instance");
+
 		return 1;
 	}
 
@@ -243,7 +239,8 @@ static:
 		// Upvalue 1 is the current index into the namespace
 		static uword iter(MDThread* t, uword numParams)
 		{
-			MDObject* o = void;
+			MDInstance* i;
+			MDClass* c;
 			MDString** key = void;
 			MDValue* value = void;
 			uword index = 0;
@@ -252,12 +249,26 @@ static:
 			{
 				// Get the next field
 				getUpval(t, 0);
-				o = getObject(t, -1);
 
 				getUpval(t, 1);
 				index = cast(uword)getInt(t, -1);
+				
+				bool haveField = void;
 
-				if(!obj.next(o, index, key, value))
+				if(isInstance(t, -2))
+				{
+					i = getInstance(t, -2);
+					c = null;
+					haveField = instance.next(i, index, key, value);
+				}
+				else
+				{
+					c = getClass(t, -2);
+					i = null;
+					haveField = classobj.next(c, index, key, value);
+				}
+
+				if(!haveField)
 				{
 					superOf(t, -2);
 
@@ -300,12 +311,20 @@ static:
 
 			pushStringObj(t, *key);
 			push(t, *value);
-			pushObject(t, o);
+			
+			if(i is null)
+				pushClass(t, c);
+			else
+				pushInstance(t, i);
 
 			return 3;
 		}
 
-		checkParam(t, 1, MDValue.Type.Object);
+		checkAnyParam(t, 1);
+		
+		if(!isClass(t, 1) && !isInstance(t, 1))
+			paramTypeError(t, 1, "class|instance");
+
 		dup(t, 1);
 		pushInt(t, 0);
 		newTable(t);
@@ -331,7 +350,11 @@ static:
 
 	uword findField(MDThread* t, uword numParams)
 	{
-		checkObjParam(t, 1);
+		checkAnyParam(t, 1);
+		
+		if(!isInstance(t, 1) && !isClass(t, 1))
+			paramTypeError(t, 1, "class|instance");
+
 		checkStringParam(t, 2);
 
 		while(!isNull(t, 1))
@@ -354,7 +377,7 @@ static:
 
 	uword rawSetField(MDThread* t, uword numParams)
 	{
-		checkObjParam(t, 1);
+		checkInstParam(t, 1);
 		checkStringParam(t, 2);
 		checkAnyParam(t, 3);
 		dup(t, 2);
@@ -365,7 +388,7 @@ static:
 
 	uword rawGetField(MDThread* t, uword numParams)
 	{
-		checkObjParam(t, 1);
+		checkInstParam(t, 1);
 		checkStringParam(t, 2);
 		dup(t, 2);
 		field(t, 1, true);
@@ -978,29 +1001,33 @@ static:
 
 		void init(MDThread* t)
 		{
-			CreateObject(t, "StringBuffer", (CreateObject* o)
+			CreateClass(t, "StringBuffer", (CreateClass* c)
 			{
-					newFunction(t, &finalizer, "StringBuffer.finalizer");
-				o.method("clone",          &clone, 1);
-
-				o.method("append",         &opCatAssign);
-				o.method("insert",         &insert);
-				o.method("remove",         &remove);
-				o.method("toString",       &toString);
-				o.method("opLength",       &opLength);
-				o.method("opLengthAssign", &opLengthAssign);
-				o.method("opIndex",        &opIndex);
-				o.method("opIndexAssign",  &opIndexAssign);
-				o.method("opSlice",        &opSlice);
-				o.method("opSliceAssign",  &opSliceAssign);
-				o.method("reserve",        &reserve);
-				o.method("format",         &format);
-				o.method("formatln",       &formatln);
+				c.method("constructor",    &constructor);
+				c.method("append",         &opCatAssign);
+				c.method("insert",         &insert);
+				c.method("remove",         &remove);
+				c.method("toString",       &toString);
+				c.method("opLength",       &opLength);
+				c.method("opLengthAssign", &opLengthAssign);
+				c.method("opIndex",        &opIndex);
+				c.method("opIndexAssign",  &opIndexAssign);
+				c.method("opSlice",        &opSlice);
+				c.method("opSliceAssign",  &opSliceAssign);
+				c.method("reserve",        &reserve);
+				c.method("format",         &format);
+				c.method("formatln",       &formatln);
 
 					newFunction(t, &iterator, "StringBuffer.iterator");
 					newFunction(t, &iteratorReverse, "StringBuffer.iteratorReverse");
-				o.method("opApply", &opApply, 2);
+				c.method("opApply", &opApply, 2);
 			});
+			
+			newFunction(t, &allocator, "StringBuffer.allocator");
+			setAllocator(t, -2);
+			
+			newFunction(t, &finalizer, "StringBuffer.finalizer");
+			setFinalizer(t, -2);
 
 			field(t, -1, "append");
 			fielda(t, -2, "opCatAssign");
@@ -1010,7 +1037,7 @@ static:
 
 		private Members* getThis(MDThread* t)
 		{
-			return checkObjParam!(Members)(t, 0, "StringBuffer");
+			return checkInstParam!(Members)(t, 0, "StringBuffer");
 		}
 
 		private void resize(MDThread* t, Members* memb, uword length)
@@ -1027,6 +1054,13 @@ static:
 			assert(ate == str.length);
 			memb.length += cpLength;
 		}
+		
+		uword allocator(MDThread* t, uword numParams)
+		{
+			newInstance(t, 0, 0, Members.sizeof);
+			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+			return 1;
+		}
 
 		uword finalizer(MDThread* t, uword numParams)
 		{
@@ -1036,11 +1070,9 @@ static:
 			return 0;
 		}
 
-		uword clone(MDThread* t, uword numParams)
+		uword constructor(MDThread* t, uword numParams)
 		{
-			auto ret = newObject(t, 0, null, 0, Members.sizeof);
-			auto memb = getMembers!(Members)(t, ret);
-			*memb = Members.init;
+			auto memb = getMembers!(Members)(t, 0);
 
 			if(numParams > 0)
 			{
@@ -1068,9 +1100,6 @@ static:
 			else
 				t.vm.alloc.resizeArray(memb.data, 32);
 
-			getUpval(t, 0);
-			setFinalizer(t, -2);
-
 			return 1;
 		}
 
@@ -1081,7 +1110,7 @@ static:
 
 			for(uword i = 1; i <= numParams; i++)
 			{
-				if(strictlyAs(t, i, sb))
+				if(as(t, i, sb))
 				{
 					auto other = getMembers!(Members)(t, i);
 					resize(t, memb, other.length);
@@ -1114,7 +1143,7 @@ static:
 
 			pushGlobal(t, "StringBuffer");
 
-			if(strictlyAs(t, 2, -1))
+			if(as(t, 2, -1))
 			{
 				auto other = getMembers!(Members)(t, 2);
 				resize(t, memb, other.length);
@@ -1345,7 +1374,7 @@ static:
 			{
 				pushGlobal(t, "StringBuffer");
 
-				if(strictlyAs(t, 3, -1))
+				if(as(t, 3, -1))
 				{
 					auto other = getMembers!(Members)(t, 3);
 

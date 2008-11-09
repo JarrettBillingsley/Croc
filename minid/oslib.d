@@ -36,17 +36,6 @@ import minid.utils;
 struct OSLib
 {
 static:
-// 	private MDProcessClass processClass;
-// 	private IOLib.MDInputStreamClass inputStreamClass;
-// 	private IOLib.MDOutputStreamClass outputStreamClass;
-
-// 	private this(MDObject _Object, MDNamespace ioLib)
-// 	{
-// 		processClass = new MDProcessClass(_Object);
-// 		inputStreamClass = ioLib["InputStream"d].to!(IOLib.MDInputStreamClass);
-// 		outputStreamClass = ioLib["OutputStream"d].to!(IOLib.MDOutputStreamClass);
-// 	}
-// 
 	public void init(MDThread* t)
 	{
 		pushGlobal(t, "modules");
@@ -126,7 +115,7 @@ static:
 	struct ProcessObj
 	{
 	static:
-		enum Members
+		enum Fields
 		{
 			process,
 			stdin,
@@ -136,38 +125,47 @@ static:
 
 		public static void init(MDThread* t)
 		{
-			CreateObject(t, "Process", (CreateObject* o)
+			CreateClass(t, "Process", (CreateClass* c)
 			{
-				o.method("clone",     &clone);
-				o.method("isRunning", &isRunning);
-				o.method("workDir",   &workDir);
-				o.method("stdin",     &stdin);
-				o.method("stdout",    &stdout);
-				o.method("stderr",    &stderr);
-				o.method("execute",   &execute);
-				o.method("wait",      &wait);
-				o.method("kill",      &kill);
+				c.method("constructor", &constructor);
+				c.method("isRunning",   &isRunning);
+				c.method("workDir",     &workDir);
+				c.method("stdin",       &stdin);
+				c.method("stdout",      &stdout);
+				c.method("stderr",      &stderr);
+				c.method("execute",     &execute);
+				c.method("wait",        &wait);
+				c.method("kill",        &kill);
 			});
+			
+			newFunction(t, &allocator, "Process.allocator");
+			setAllocator(t, -2);
 
 			newGlobal(t, "Process");
 		}
 
 		Process getProcess(MDThread* t)
 		{
-			checkObjParam(t, 0, "Process");
-			getExtraVal(t, 0, Members.process);
+			checkInstParam(t, 0, "Process");
+			getExtraVal(t, 0, Fields.process);
 			auto ret = cast(Process)getNativeObj(t, -1);
 			assert(ret !is null);
 			pop(t);
 			return ret;
 		}
-
-		public uword clone(MDThread* t, uword numParams)
+		
+		uword allocator(MDThread* t, uword numParams)
 		{
-			newObject(t, 0, null, 4);
-			pushNativeObj(t, new Process());
-			setExtraVal(t, -2, Members.process);
+			newInstance(t, 0, Fields.max + 1);
 			return 1;
+		}
+
+		public uword constructor(MDThread* t, uword numParams)
+		{
+			checkInstParam(t, 0, "Process");
+			pushNativeObj(t, new Process());
+			setExtraVal(t, 0, Fields.process);
+			return 0;
 		}
 
 		public uword isRunning(MDThread* t, uword numParams)
@@ -176,7 +174,7 @@ static:
 			pushBool(t, safeCode(t, p.isRunning()));
 			return 1;
 		}
-		
+
 		public uword workDir(MDThread* t, uword numParams)
 		{
 			auto p = getProcess(t);
@@ -218,14 +216,14 @@ static:
 				checkParam(t, 1, MDValue.Type.Array);
 				auto num = len(t, 1);
 				auto cmd = new char[][cast(uword)num];
-		
+
 				for(uword i = 0; i < num; i++)
 				{
 					idxi(t, 1, i);
 					
 					if(!isString(t, -1))
 						throwException(t, "cmd parameter must be an array of strings");
-						
+
 					cmd[i] = getString(t, -1);
 					pop(t);
 				}
@@ -236,9 +234,9 @@ static:
 			pushNull(t);
 			dup(t);
 			dup(t);
-			setExtraVal(t, 0, Members.stdin);
-			setExtraVal(t, 0, Members.stdout);
-			setExtraVal(t, 0, Members.stderr);
+			setExtraVal(t, 0, Fields.stdin);
+			setExtraVal(t, 0, Fields.stdout);
+			setExtraVal(t, 0, Fields.stderr);
 
 			return 0;
 		}
@@ -247,7 +245,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			getExtraVal(t, 0, Members.stdin);
+			getExtraVal(t, 0, Fields.stdin);
 			
 			if(isNull(t, -1))
 			{
@@ -255,9 +253,9 @@ static:
 				lookupCT!("io.OutputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 				dup(t);
-				setExtraVal(t, 0, Members.stdin);
+				setExtraVal(t, 0, Fields.stdin);
 			}
 
 			return 1;
@@ -267,7 +265,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			getExtraVal(t, 0, Members.stdout);
+			getExtraVal(t, 0, Fields.stdout);
 			
 			if(isNull(t, -1))
 			{
@@ -275,9 +273,9 @@ static:
 				lookupCT!("io.InputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 				dup(t);
-				setExtraVal(t, 0, Members.stdout);
+				setExtraVal(t, 0, Fields.stdout);
 			}
 
 			return 1;
@@ -287,7 +285,7 @@ static:
 		{
 			auto p = getProcess(t);
 
-			getExtraVal(t, 0, Members.stderr);
+			getExtraVal(t, 0, Fields.stderr);
 			
 			if(isNull(t, -1))
 			{
@@ -295,9 +293,9 @@ static:
 				lookupCT!("io.InputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
-				methodCall(t, -3, "clone", 1);
+				rawCall(t, -3, 1);
 				dup(t);
-				setExtraVal(t, 0, Members.stderr);
+				setExtraVal(t, 0, Fields.stderr);
 			}
 
 			return 1;
@@ -306,6 +304,17 @@ static:
 		public uword wait(MDThread* t, uword numParams)
 		{
 			auto p = getProcess(t);
+			
+			getExtraVal(t, 0, Fields.stdin);
+			
+			if(!isNull(t, -1))
+			{
+				pushNull(t);
+				methodCall(t, -2, "flush", 0);
+			}
+			else
+				pop(t);
+
 			auto res = safeCode(t, p.wait());
 
 			switch(res.reason)

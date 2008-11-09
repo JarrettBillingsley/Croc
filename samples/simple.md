@@ -1,10 +1,12 @@
 module samples.simple
 
+
+
 /+
 /*
 function enum(name: string, vararg)
 {
-	local sb = StringBuffer.clone()
+	local sb = StringBuffer()
 
 	sb.append("namespace ", name, "\n{\n")
 
@@ -23,64 +25,56 @@ enum("NodeType",
 	"Num"
 )
 
-object ExpNode
+class ExpNode
 {
-	function clone(type: int)
-	{
-		local ret = super.clone()
-		ret.type = type
-		return ret
-	}
+	this(type: int)
+		:type = type
 
-	function opCall(vararg) = :clone(vararg)
 	function opAdd(other: ExpNode) = AddNode(this, other)
 	function opMul(other: ExpNode) = MulNode(this, other)
 }
 
-object Var : ExpNode
+class Var : ExpNode
 {
-	function clone(name: string)
+	this(name: string)
 	{
-		local ret = super.clone(NodeType.Var)
-		ret.name = name
-		return ret
+		super(NodeType.Var)
+		:name = name
 	}
 
 	function toString() = :name
 }
 
-object Num : ExpNode
+class Num : ExpNode
 {
-	function clone(val: int|float)
+	this(val: int|float)
 	{
-		local ret = super.clone(NodeType.Num)
-		ret.val = toFloat(val)
-		return ret
+		super(NodeType.Num)
+		:val = toFloat(val)
 	}
 
 	function toString() = toString(:val)
 }
 
-object BinNode : ExpNode
+class BinNode : ExpNode
 {
-	function clone(type: int, left: ExpNode, right: ExpNode)
+	this(type: int, left: ExpNode, right: ExpNode)
 	{
-		local ret = super.clone(type)
-		ret.left = left
-		ret.right = right
-		return ret
+		super(type)
+		:left = left
+		:right = right
 	}
 }
 
-object AddNode : BinNode
+class AddNode : BinNode
 {
-	function clone(left: ExpNode, right: ExpNode) = super.clone(NodeType.Add, left, right)
+	this(left: ExpNode, right: ExpNode) super(NodeType.Add, left, right)
 	function toString() = format("({} + {})", :left, :right)
 }
 
-object MulNode : BinNode
+class MulNode : BinNode
 {
-	function clone(left: ExpNode, right: ExpNode) = super.clone(NodeType.Mul, left, right)
+	this(left: ExpNode, right: ExpNode) super(NodeType.Mul, left, right)
 	function toString() = format("({} * {})", :left, :right)
 }
 
@@ -115,55 +109,7 @@ writeln(exp)
 
 local f = compileExp(exp)
 writeln(f(3, 4))
-
 */
-
-// object Foo
-// {
-// 	x = 0
-// 	y = 0
-//
-// 	function clone(x: int, y: int)
-// 	{
-// 		local ret = super.clone()
-// 		ret.clone = null
-// 		ret.x = x
-// 		ret.y = y
-// 		return ret
-// 	}
-// 
-// 	function write()
-// 	{
-// 		assert(this !is Foo, "Method may not be called on the class that holds it")
-// 		writefln("Foo: {}, {}", :x, :y)
-// 	}
-//
-// 	function opAdd(other: Foo)
-// 	{
-// 		assert(this !is Foo && other !is Foo, "Method may not be called on the class that holds it")
-// 		return Foo.clone(:x + other.x, :y + other.y)
-// 	}
-// }
-//
-// object Bar : Foo
-// {
-// 	z = 1337
-//
-// 	function clone() = super.clone(-1, -10)
-//
-// 	function write()
-// 	{
-// 		assert(this !is Bar, "method may not be called on the class that holds it")
-// 		writefln("Bar: {}, {}, {}", :x, :y, :z)
-// 	}
-// }
-//
-// local f = Foo.clone(5, 10)
-// f.write();
-// (f + Foo.clone(15, 20)).write()
-// local b = Bar.clone()
-// b.write();
-// (f + b).write()
 
 /*
 // import arc.draw.color: Color
@@ -336,7 +282,7 @@ function main()
 */
 
 /*
-object BaseProp
+class BaseProp
 {
 	function get()
 		throw "No get implemented"
@@ -345,13 +291,13 @@ object BaseProp
 		throw "No set implemented"
 }
 
-object Bah : BaseProp
+class Bah : BaseProp
 {
 	function get(owner)
-		writefln("Getting bah's value.")
+		writeln("Getting bah's value.")
 
 	function set(owner, value)
-		writefln("Setting bah's value to ", value, ".")
+		writefln("Setting bah's value to {}.", value)
 }
 
 function getMethod(T, name) = name in fieldsOf(T) ? T.(name) : null
@@ -391,65 +337,20 @@ function mixinProperties(T, vararg)
 		properties[vararg[i]] = vararg[i + 1]
 }
 
-object Test
+class Test
 {
 	function opField(name) = format("property {}", name)
 	//x = 0
 }
 
-mixinProperties(Test, "bah", Bah.clone())
+mixinProperties(Test, "bah", Bah())
 
-local t = Test.clone()
+local t = Test()
 writeln(t.bah)
 t.bah = 5
 writeln(t.x)
 t.x = 10
 writeln(t.x)
-
-/*
-function shuffle(arr)
-	for(i: 0 .. #arr)
-	{
-		local idx = math.rand(#arr)
-		local tmp = arr[i]
-		arr[i] = arr[idx]
-		arr[idx] = tmp
-	}
-
-object Deck
-{
-	function init()
-	{
-		:cards = []
-
-		foreach(suit; ["H", "D", "C", "S"])
-			for(val: 2 .. 14)
-			{
-				local tmp = toString(val) ~ suit
-				:cards ~= tmp
-			}
-	}
-
-	function shuffle() shuffle(:cards)
-	function dealCard() = :cards.pop()
-
-	function show()
-	{
-		foreach(card; :cards)
-			write(card, " ")
-
-		writeln()
-	}
-}
-
-Deck.init()
-Deck.show()
-Deck.shuffle()
-Deck.show()
-
-writeln(Deck.dealCard())
-writeln(Deck.dealCard())
-writeln(Deck.dealCard())
 */
 
 // Making sure finally blocks are executed.
@@ -507,13 +408,13 @@ writeln(Deck.dealCard())
 
 // Super calls.
 {
-	local object Base
+	local class Base
 	{
 		function fork()
 			writefln("Base fork.")
 	}
 
-	local object Derived : Base
+	local class Derived : Base
 	{
 		function fork()
 		{
@@ -522,7 +423,7 @@ writeln(Deck.dealCard())
 		}
 	}
 
-	local d = Derived.clone()
+	local d = Derived()
 	d.fork()
 
 	writefln()
@@ -575,7 +476,7 @@ writeln(Deck.dealCard())
 	writefln(recurse(5))
 	writefln()
 
-	local object A
+	local class A
 	{
 		function f(x)
 		{
@@ -645,13 +546,13 @@ writeln(Deck.dealCard())
 	}
 	
 	// Create an object to test out.
-	local object PropTest
+	local class PropTest
 	{
 		mX = 0
 		mY = 0
 		mName = ""
 
-		function clone(name) = object : this { mName = name }
+		this(name) :mName = name
 		function toString() = format("name = '", :mName, "' x = ", :mX, " y = ", :mY)
 	}
 
@@ -678,7 +579,7 @@ writeln(Deck.dealCard())
 	)
 	
 	// Create an instance and try it out.
-	local p = PropTest.clone("hello")
+	local p = PropTest("hello")
 	
 	writefln(p)
 	p.x = 46
@@ -697,12 +598,12 @@ writeln(Deck.dealCard())
 
 // Some containers.
 {
-	local object PQ
+	local class PQ
 	{
 		mData
 		mLength = 0
 
-		function clone() = object : this { mData = array.new(15) }
+		this() :mData = array.new(15)
 
 		function insert(data)
 		{
@@ -786,7 +687,7 @@ writeln(Deck.dealCard())
 		function hasData() = :mLength != 0
 	}
 
-	local object Stack
+	local class Stack
 	{
 		mHead = null
 
@@ -807,7 +708,7 @@ writeln(Deck.dealCard())
 		function hasData() = :mHead !is null
 	}
 
-	local object Queue
+	local class Queue
 	{
 		mHead = null
 		mTail = null
@@ -843,7 +744,7 @@ writeln(Deck.dealCard())
 
 	writefln("Priority queue (heap)")
 
-	local prioQ = PQ.clone()
+	local prioQ = PQ()
 
 	for(i : 0 .. 10)
 		prioQ.insert(math.rand(0, 20))
@@ -854,7 +755,7 @@ writeln(Deck.dealCard())
 	writefln()
 	writefln("Stack")
 
-	local stack = Stack.clone()
+	local stack = Stack()
 
 	for(i : 0 .. 5)
 		stack.push(i + 1)
@@ -865,7 +766,7 @@ writeln(Deck.dealCard())
 	writefln()
 	writefln("Queue")
 
-	local queue = Queue.clone()
+	local queue = Queue()
 	
 	for(i : 0 .. 5)
 		queue.push(i + 1)
@@ -878,11 +779,11 @@ writeln(Deck.dealCard())
 
 // opApply tests.
 {
-	local object Test
+	local class Test
 	{
 		mData = [4, 5, 6]
 
-		function clone() = object : this { mData = :mData.dup() }
+		this() :mData = :mData.dup()
 
 		function opApply(extra)
 		{
@@ -917,7 +818,7 @@ writeln(Deck.dealCard())
 		}
 	}
 	
-	local test = Test.clone()
+	local test = Test()
 	
 	foreach(k, v; test)
 		writefln("test[", k, "] = ", v)
@@ -1114,24 +1015,24 @@ writeln(Deck.dealCard())
 	
 	writefln()
 
-	local object A
+	local class A
 	{
 		mValue
 
-		function clone(value) =
-			object : this { mValue = value }
+		this(value)
+			:mValue = value
 
 		function opCmp(other: A) =
 			:mValue <=> other.mValue
 	}
 
-	local a1 = A.clone(1)
-	local a2 = A.clone(2)
-	local a3 = A.clone(3)
+	local a1 = A(1)
+	local a2 = A(2)
+	local a3 = A(3)
 
 	for(s: 1 .. 4)
 	{
-		local ss = A.clone(s)
+		local ss = A(s)
 
 		switch(ss)
 		{

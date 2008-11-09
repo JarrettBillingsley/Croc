@@ -45,7 +45,7 @@ static:
 		u64,
 		f32,
 		f64,
-		c
+// 		c
 	}
 
 	const char[][] typeNames =
@@ -60,7 +60,7 @@ static:
 		"u64",
 		"f32",
 		"f64",
-		"c"
+// 		"c"
 	];
 
 	const ubyte[] sizes =
@@ -101,8 +101,8 @@ static:
 	word get_f64(MDThread* t, Members* memb, uword idx)            { return pushFloat(t, (cast(double*)memb.data)[idx]); }
 	void set_f64(MDThread* t, Members* memb, uword idx, word item) { (cast(double*)memb.data)[idx] = cast(double)getNum(t, item); }
 
-	word get_c(MDThread* t, Members* memb, uword idx)              { return pushChar(t, (cast(dchar*)memb.data)[idx]); }
-	void set_c(MDThread* t, Members* memb, uword idx, word item)   { (cast(dchar*)memb.data)[idx] = cast(dchar)getChar(t, item); }
+// 	word get_c(MDThread* t, Members* memb, uword idx)              { return pushChar(t, (cast(dchar*)memb.data)[idx]); }
+// 	void set_c(MDThread* t, Members* memb, uword idx, word item)   { (cast(dchar*)memb.data)[idx] = cast(dchar)getChar(t, item); }
 
 	struct TypeStruct
 	{
@@ -124,10 +124,10 @@ static:
 		{ TypeCode.u64, sizes[TypeCode.u64], &get_u64, &set_u64 },
 		{ TypeCode.f32, sizes[TypeCode.f32], &get_f32, &set_f32 },
 		{ TypeCode.f64, sizes[TypeCode.f64], &get_f64, &set_f64 },
-		{ TypeCode.c,   sizes[TypeCode.c],   &get_c,   &set_c }
+// 		{ TypeCode.c,   sizes[TypeCode.c],   &get_c,   &set_c }
 	];
 
-	struct Members
+	align(1) struct Members
 	{
 		void* data;
 		uword length;
@@ -136,66 +136,71 @@ static:
 
 	void init(MDThread* t)
 	{
-		CreateObject(t, "Vector", (CreateObject* o)
+		CreateClass(t, "Vector", (CreateClass* c)
 		{
-				newFunction(t, &finalizer, "Vector.finalizer");
-			o.method("clone",          &clone, 1);
-			o.method("dup",            &vec_dup);
-			o.method("range",          &range);
-			o.method("fromArray",      &fromArray);
+			c.method("constructor",    &constructor);
+			c.method("dup",            &vec_dup);
+			c.method("range",          &range);
+			c.method("fromArray",      &fromArray);
 
-			o.method("apply",          &apply);
-			o.method("copyRange",      &copyRange);
-			o.method("fill",           &fill);
-			o.method("fillRange",      &fillRange);
-			o.method("insert",         &vec_insert);
-			o.method("itemSize",       &itemSize);
-			o.method("map",            &map);
-			o.method("max",            &max);
-			o.method("min",            &min);
-			o.method("pop",            &vec_pop);
-			o.method("product",        &product);
-			o.method("remove",         &remove);
-			o.method("reverse",        &reverse);
-			o.method("sort",           &sort);
-			o.method("sum",            &sum);
-			o.method("toArray",        &toArray);
-			o.method("toString",       &toString);
-			o.method("toStringValue",  &toStringValue);
-			o.method("type",           &type);
+			c.method("apply",          &apply);
+			c.method("copyRange",      &copyRange);
+			c.method("fill",           &fill);
+			c.method("fillRange",      &fillRange);
+			c.method("insert",         &vec_insert);
+			c.method("itemSize",       &itemSize);
+			c.method("map",            &map);
+			c.method("max",            &max);
+			c.method("min",            &min);
+			c.method("pop",            &vec_pop);
+			c.method("product",        &product);
+			c.method("remove",         &remove);
+			c.method("reverse",        &reverse);
+			c.method("sort",           &sort);
+			c.method("sum",            &sum);
+			c.method("toArray",        &toArray);
+			c.method("toString",       &toString);
+// 			c.method("toStringValue",  &toStringValue);
+			c.method("type",           &type);
 
-			o.method("opLength",       &opLength);
-			o.method("opLengthAssign", &opLengthAssign);
-			o.method("opIndex",        &opIndex);
-			o.method("opIndexAssign",  &opIndexAssign);
-			o.method("opSlice",        &opSlice);
+			c.method("opLength",       &opLength);
+			c.method("opLengthAssign", &opLengthAssign);
+			c.method("opIndex",        &opIndex);
+			c.method("opIndexAssign",  &opIndexAssign);
+			c.method("opSlice",        &opSlice);
 
-			o.method("opAdd",          &opAdd);
-			o.method("opAddAssign",    &opAddAssign);
-			o.method("opSub",          &opSub);
-			o.method("opSub_r",        &opSub_r);
-			o.method("opSubAssign",    &opSubAssign);
-			o.method("revSub",         &revSub);
-			o.method("opCat",          &opCat);
-			o.method("opCat_r",        &opCat_r);
-			o.method("opCatAssign",    &opCatAssign);
-			o.method("opMul",          &opMul);
-			o.method("opMulAssign",    &opMulAssign);
-			o.method("opDiv",          &opDiv);
-			o.method("opDiv_r",        &opDiv_r);
-			o.method("opDivAssign",    &opDivAssign);
-			o.method("revDiv",         &revDiv);
-			o.method("opMod",          &opMod);
-			o.method("opMod_r",        &opMod_r);
-			o.method("opModAssign",    &opModAssign);
-			o.method("revMod",         &revMod);
+			c.method("opAdd",          &opAdd);
+			c.method("opAddAssign",    &opAddAssign);
+			c.method("opSub",          &opSub);
+			c.method("opSub_r",        &opSub_r);
+			c.method("opSubAssign",    &opSubAssign);
+			c.method("revSub",         &revSub);
+			c.method("opCat",          &opCat);
+			c.method("opCat_r",        &opCat_r);
+			c.method("opCatAssign",    &opCatAssign);
+			c.method("opMul",          &opMul);
+			c.method("opMulAssign",    &opMulAssign);
+			c.method("opDiv",          &opDiv);
+			c.method("opDiv_r",        &opDiv_r);
+			c.method("opDivAssign",    &opDivAssign);
+			c.method("revDiv",         &revDiv);
+			c.method("opMod",          &opMod);
+			c.method("opMod_r",        &opMod_r);
+			c.method("opModAssign",    &opModAssign);
+			c.method("revMod",         &revMod);
 
-			o.method("opEquals",       &opEquals);
+			c.method("opEquals",       &opEquals);
 
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
-			o.method("opApply", &opApply, 2);
+			c.method("opApply", &opApply, 2);
 		});
+		
+		newFunction(t, &allocator, "Vector.allocator");
+		setAllocator(t, -2);
+
+		newFunction(t, &finalizer, "Vector.finalizer");
+		setFinalizer(t, -2);
 
 		field(t, -1, "opCatAssign");
 		fielda(t, -2, "append");
@@ -214,14 +219,26 @@ static:
 
 	private Members* getThis(MDThread* t)
 	{
-		return checkObjParam!(Members)(t, 0, "Vector");
+		auto ret = checkInstParam!(Members)(t, 0, "Vector");
+		
+		if(ret.type is null)
+			throwException(t, "Attempting to call a method on an uninitialized Vector");
+			
+		return ret;
+	}
+
+	uword allocator(MDThread* t, uword numParams)
+	{
+		newInstance(t, 0, 0, Members.sizeof);
+		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+		return 1;
 	}
 
 	uword finalizer(MDThread* t, uword numParams)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
-		if(memb.data !is null)
+		if(memb.type !is null && memb.data !is null)
 		{
 			auto tmp = memb.data[0 .. memb.length * memb.type.itemSize];
 			t.vm.alloc.freeArray(tmp);
@@ -232,8 +249,14 @@ static:
 		return 0;
 	}
 
-	uword clone(MDThread* t, uword numParams)
+	uword constructor(MDThread* t, uword numParams)
 	{
+		// don't use getThis here or else you'll get errors upon construction
+		auto memb = checkInstParam!(Members)(t, 0, "Vector");
+		
+		if(memb.type !is null)
+			throwException(t, "Attempting to reinitialize an already-initialized Vector");
+
 		auto type = checkStringParam(t, 1);
 		auto size = optIntParam(t, 2, 0);
 		auto haveFiller = isValidIndex(t, 3);
@@ -255,32 +278,25 @@ static:
 			case "u64": ts = &typeStructs[TypeCode.u64]; break;
 			case "f32": ts = &typeStructs[TypeCode.f32]; break;
 			case "f64": ts = &typeStructs[TypeCode.f64]; break;
-			case "c"  : ts = &typeStructs[TypeCode.c];   break;
+// 			case "c"  : ts = &typeStructs[TypeCode.c];   break;
 
 			default:
 				throwException(t, "Invalid type code '{}'", type);
 		}
 
-		auto ret = newObject(t, 0, null, 0, Members.sizeof);
-		auto memb = getMembers!(Members)(t, ret);
-		*memb = Members.init;
-
 		memb.type = ts;
 		memb.length = cast(uword)size;
 		memb.data = t.vm.alloc.allocArray!(void)(cast(uword)size * memb.type.itemSize).ptr;
 
-		getUpval(t, 0);
-		setFinalizer(t, ret);
-
 		if(haveFiller)
 		{
-			dup(t, ret);
+			dup(t, 0);
 			pushNull(t);
 			dup(t, 3);
 			methodCall(t, -3, "fill", 0);
 		}
 
-		return 1;
+		return 0;
 	}
 
 	uword vec_dup(MDThread* t, uword numParams)
@@ -291,7 +307,7 @@ static:
 		pushNull(t);
 		pushString(t, typeNames[memb.type.code]);
 		pushInt(t, memb.length);
-		methodCall(t, -4, "clone", 1);
+		rawCall(t, -4, 1);
 
 		auto newMemb = getMembers!(Members)(t, -1);
 		auto byteSize = memb.length * memb.type.itemSize;
@@ -318,7 +334,7 @@ static:
 			case "u64": ts = &typeStructs[TypeCode.u64]; break;
 			case "f32": ts = &typeStructs[TypeCode.f32]; break;
 			case "f64": ts = &typeStructs[TypeCode.f64]; break;
-			case "c"  : ts = &typeStructs[TypeCode.c];   break;
+// 			case "c"  : ts = &typeStructs[TypeCode.c];   break;
 
 			default:
 				throwException(t, "Invalid type code '{}'", type);
@@ -330,7 +346,7 @@ static:
 			pushNull(t);
 			pushString(t, type);
 			pushInt(t, cast(mdint)size);
-			methodCall(t, -4, "clone", 1);
+			rawCall(t, -4, 1);
 			return getMembers!(Members)(t, -1);
 		}
 
@@ -453,59 +469,59 @@ static:
 
 				break;
 
-			case TypeCode.c:
-				auto v1 = checkCharParam(t, 2);
-				dchar v2 = void;
-				mdint step = 1;
-
-				if(numParams == 2)
-				{
-					v2 = v1;
-					v1 = '\0';
-				}
-				else if(numParams == 3)
-					v2 = checkCharParam(t, 3);
-				else
-				{
-					v2 = checkCharParam(t, 3);
-					step = checkIntParam(t, 4);
-				}
-
-				if(step <= 0)
-					throwException(t, "Step may not be negative or 0");
-
-				long range = abs(cast(int)v2 - cast(int)v1);
-				long size = range / step;
-
-				if((range % step) != 0)
-					size++;
-
-				if(size > uword.max)
-					throwException(t, "Vector is too big");
-
-				auto ret = makeObj(size);
-				auto val = v1;
-
-				if(v2 < v1)
-				{
-					for(uword i = 0; val > v2; i++, val -= step)
-					{
-						pushChar(t, val);
-						ret.type.setItem(t, ret, i, -1);
-						pop(t);
-					}
-				}
-				else
-				{
-					for(uword i = 0; val < v2; i++, val += step)
-					{
-						pushChar(t, val);
-						ret.type.setItem(t, ret, i, -1);
-						pop(t);
-					}
-				}
-
-				break;
+// 			case TypeCode.c:
+// 				auto v1 = checkCharParam(t, 2);
+// 				dchar v2 = void;
+// 				mdint step = 1;
+// 
+// 				if(numParams == 2)
+// 				{
+// 					v2 = v1;
+// 					v1 = '\0';
+// 				}
+// 				else if(numParams == 3)
+// 					v2 = checkCharParam(t, 3);
+// 				else
+// 				{
+// 					v2 = checkCharParam(t, 3);
+// 					step = checkIntParam(t, 4);
+// 				}
+// 
+// 				if(step <= 0)
+// 					throwException(t, "Step may not be negative or 0");
+// 
+// 				long range = abs(cast(int)v2 - cast(int)v1);
+// 				long size = range / step;
+// 
+// 				if((range % step) != 0)
+// 					size++;
+// 
+// 				if(size > uword.max)
+// 					throwException(t, "Vector is too big");
+// 
+// 				auto ret = makeObj(size);
+// 				auto val = v1;
+// 
+// 				if(v2 < v1)
+// 				{
+// 					for(uword i = 0; val > v2; i++, val -= step)
+// 					{
+// 						pushChar(t, val);
+// 						ret.type.setItem(t, ret, i, -1);
+// 						pop(t);
+// 					}
+// 				}
+// 				else
+// 				{
+// 					for(uword i = 0; val < v2; i++, val += step)
+// 					{
+// 						pushChar(t, val);
+// 						ret.type.setItem(t, ret, i, -1);
+// 						pop(t);
+// 					}
+// 				}
+// 
+// 				break;
 
 			default: assert(false);
 		}
@@ -518,18 +534,18 @@ static:
 		auto code = checkStringParam(t, 1);
 		checkAnyParam(t, 2);
 
-		if(code == "c" && !isArray(t, 2))
-			checkStringParam(t, 2);
-		else
+// 		if(code == "c" && !isArray(t, 2))
+// 			checkStringParam(t, 2);
+// 		else
 			checkParam(t, 2, MDValue.Type.Array);
-			
+
 		pushGlobal(t, "Vector");
 		pushNull(t);
 		dup(t, 1);
 		pushLen(t, 2);
 		dup(t, 2);
-		methodCall(t, -5, "clone", 1);
-		
+		rawCall(t, -5, 1);
+
 		return 1;
 	}
 
@@ -571,9 +587,9 @@ static:
 				doLoop(&isNum, "'int' or 'float'");
 				break;
 
-			case TypeCode.c:
-				doLoop(&isChar, "'char'");
-				break;
+// 			case TypeCode.c:
+// 				doLoop(&isChar, "'char'");
+// 				break;
 
 			default: assert(false);
 		}
@@ -602,8 +618,8 @@ static:
 
 		pushGlobal(t, "Vector");
 
-		if(!strictlyAs(t, 3, -1))
-			paramTypeError(t, 3, "object Vector");
+		if(!as(t, 3, -1))
+			paramTypeError(t, 3, "Vector");
 
 		pop(t);
 
@@ -637,7 +653,7 @@ static:
 	{
 		pushGlobal(t, "Vector");
 
-		if(strictlyAs(t, idx, -1))
+		if(as(t, idx, -1))
 		{
 			auto other = getMembers!(Members)(t, idx);
 
@@ -703,21 +719,21 @@ static:
 					}
 					break;
 
-				case TypeCode.c:
-					for(uword i = lo; i < hi; i++)
-					{
-						callFunc(i);
-
-						if(!isChar(t, -1))
-						{
-							pushTypeString(t, -1);
-							throwException(t, "filler function expected to return a 'char', not '{}'", getString(t, -1));
-						}
-
-						memb.type.setItem(t, memb, i, -1);
-						pop(t);
-					}
-					break;
+// 				case TypeCode.c:
+// 					for(uword i = lo; i < hi; i++)
+// 					{
+// 						callFunc(i);
+// 
+// 						if(!isChar(t, -1))
+// 						{
+// 							pushTypeString(t, -1);
+// 							throwException(t, "filler function expected to return a 'char', not '{}'", getString(t, -1));
+// 						}
+// 
+// 						memb.type.setItem(t, memb, i, -1);
+// 						pop(t);
+// 					}
+// 					break;
 
 				default: assert(false);
 			}
@@ -736,15 +752,15 @@ static:
 				case TypeCode.u64: auto val = checkIntParam(t, idx);  (cast(ulong*)memb.data)[lo .. hi] = cast(ulong)val;   break;
 				case TypeCode.f32: auto val = checkNumParam(t, idx);  (cast(float*)memb.data)[lo .. hi] = cast(float)val;   break;
 				case TypeCode.f64: auto val = checkNumParam(t, idx);  (cast(double*)memb.data)[lo .. hi] = cast(double)val; break;
-				case TypeCode.c:   auto val = checkCharParam(t, idx); (cast(dchar*)memb.data)[lo .. hi] = cast(dchar)val;   break;
+// 				case TypeCode.c:   auto val = checkCharParam(t, idx); (cast(dchar*)memb.data)[lo .. hi] = cast(dchar)val;   break;
 				default: assert(false);
 			}
 		}
 		else
 		{
-			if(memb.type.code == TypeCode.c && !isArray(t, idx))
-				checkStringParam(t, idx);
-			else
+// 			if(memb.type.code == TypeCode.c && !isArray(t, idx))
+// 				checkStringParam(t, idx);
+// 			else
 				checkParam(t, idx, MDValue.Type.Array);
 
 			if(len(t, idx) != (hi - lo))
@@ -793,31 +809,31 @@ static:
 					}
 					break;
 
-				case TypeCode.c:
-					auto ddat = (cast(dchar*)memb.data)[lo .. hi];
-
-					if(isArray(t, idx))
-					{
-						for(uword i = lo, ai = 0; i < hi; i++, ai++)
-						{
-							idxi(t, idx, ai);
-
-							if(!isChar(t, -1))
-							{
-								pushTypeString(t, -1);
-								throwException(t, "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
-							}
-
-							ddat[ai] = getChar(t, -1);
-							pop(t);
-						}
-					}
-					else
-					{
-						foreach(i, dchar c; getString(t, idx))
-							ddat[i] = c;
-					}
-					break;
+// 				case TypeCode.c:
+// 					auto ddat = (cast(dchar*)memb.data)[lo .. hi];
+// 
+// 					if(isArray(t, idx))
+// 					{
+// 						for(uword i = lo, ai = 0; i < hi; i++, ai++)
+// 						{
+// 							idxi(t, idx, ai);
+// 
+// 							if(!isChar(t, -1))
+// 							{
+// 								pushTypeString(t, -1);
+// 								throwException(t, "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
+// 							}
+// 
+// 							ddat[ai] = getChar(t, -1);
+// 							pop(t);
+// 						}
+// 					}
+// 					else
+// 					{
+// 						foreach(i, dchar c; getString(t, idx))
+// 							ddat[i] = c;
+// 					}
+// 					break;
 
 				default: assert(false);
 			}
@@ -897,7 +913,7 @@ static:
 
 		pushGlobal(t, "Vector");
 
-		if(strictlyAs(t, 2, -1))
+		if(as(t, 2, -1))
 		{
 			auto other = getMembers!(Members)(t, 2);
 
@@ -910,21 +926,21 @@ static:
 		}
 		else
 		{
-			if(memb.type.code == TypeCode.c && isString(t, 2))
-			{
-				auto cpLen = len(t, 2);
-
-				if(cpLen != 0)
-				{
-					auto str = getString(t, 2);
-					doResize(cpLen);
-					auto dstr = (cast(dchar*)memb.data)[cast(uword)idx .. memb.length];
-
-					foreach(i, dchar c; str)
-						dstr[i] = c;
-				}
-			}
-			else
+// 			if(memb.type.code == TypeCode.c && isString(t, 2))
+// 			{
+// 				auto cpLen = len(t, 2);
+// 
+// 				if(cpLen != 0)
+// 				{
+// 					auto str = getString(t, 2);
+// 					doResize(cpLen);
+// 					auto dstr = (cast(dchar*)memb.data)[cast(uword)idx .. memb.length];
+// 
+// 					foreach(i, dchar c; str)
+// 						dstr[i] = c;
+// 				}
+// 			}
+// 			else
 			{
 				switch(memb.type.code)
 				{
@@ -945,9 +961,9 @@ static:
 						checkNumParam(t, 2);
 						break;
 
-					case TypeCode.c:
-						checkCharParam(t, 2);
-						break;
+// 					case TypeCode.c:
+// 						checkCharParam(t, 2);
+// 						break;
 
 					default: assert(false);
 				}
@@ -1017,7 +1033,7 @@ static:
 			case TypeCode.u64: pushInt(t, cast(mdint)minMaxImpl!(">")(cast(ulong*)memb.data, memb.length)); break;
 			case TypeCode.f32: pushFloat(t, minMaxImpl!(">")(cast(float*)memb.data, memb.length));          break;
 			case TypeCode.f64: pushFloat(t, minMaxImpl!(">")(cast(double*)memb.data, memb.length));         break;
-			case TypeCode.c:   pushChar(t, minMaxImpl!(">")(cast(dchar*)memb.data, memb.length));           break;
+// 			case TypeCode.c:   pushChar(t, minMaxImpl!(">")(cast(dchar*)memb.data, memb.length));           break;
 			default: assert(false);
 		}
 
@@ -1043,7 +1059,7 @@ static:
 			case TypeCode.u64: pushInt(t, cast(mdint)minMaxImpl!("<")(cast(ulong*)memb.data, memb.length)); break;
 			case TypeCode.f32: pushFloat(t, minMaxImpl!("<")(cast(float*)memb.data, memb.length));          break;
 			case TypeCode.f64: pushFloat(t, minMaxImpl!("<")(cast(double*)memb.data, memb.length));         break;
-			case TypeCode.c:   pushChar(t, minMaxImpl!("<")(cast(dchar*)memb.data, memb.length));           break;
+// 			case TypeCode.c:   pushChar(t, minMaxImpl!("<")(cast(dchar*)memb.data, memb.length));           break;
 			default: assert(false);
 		}
 
@@ -1098,7 +1114,7 @@ static:
 			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res *= val;  break;
 			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res *= val;  break;
 			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res *= val; break;
-			case TypeCode.c:   throwException(t, "cannot get the product of a character vector");
+// 			case TypeCode.c:   throwException(t, "cannot get the product of a character vector");
 			default: assert(false);
 		}
 
@@ -1185,7 +1201,7 @@ static:
 			case TypeCode.u64: (cast(ulong*)memb.data)[0 .. memb.length].sort;  break;
 			case TypeCode.f32: (cast(float*)memb.data)[0 .. memb.length].sort;  break;
 			case TypeCode.f64: (cast(double*)memb.data)[0 .. memb.length].sort; break;
-			case TypeCode.c:   (cast(dchar*)memb.data)[0 .. memb.length].sort;  break;
+// 			case TypeCode.c:   (cast(dchar*)memb.data)[0 .. memb.length].sort;  break;
 			default: assert(false);
 		}
 
@@ -1211,7 +1227,7 @@ static:
 			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res += val;  break;
 			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res += val;  break;
 			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res += val; break;
-			case TypeCode.c:   throwException(t, "cannot get the sum of a character vector");
+// 			case TypeCode.c:   throwException(t, "cannot get the sum of a character vector");
 			default: assert(false);
 		}
 
@@ -1264,16 +1280,16 @@ static:
 		return 1;
 	}
 
-	uword toStringValue(MDThread* t, uword numParams)
-	{
-		auto memb = getThis(t);
-
-		if(memb.type.code != TypeCode.c)
-			throwException(t, "toStringValue may only be called on character vectors, not '{}' vectors", typeNames[memb.type.code]);
-
-		pushFormat(t, "{}", (cast(dchar*)memb.data)[0 .. memb.length]);
-		return 1;
-	}
+// 	uword toStringValue(MDThread* t, uword numParams)
+// 	{
+// 		auto memb = getThis(t);
+// 
+// 		if(memb.type.code != TypeCode.c)
+// 			throwException(t, "toStringValue may only be called on character vectors, not '{}' vectors", typeNames[memb.type.code]);
+// 
+// 		pushFormat(t, "{}", (cast(dchar*)memb.data)[0 .. memb.length]);
+// 		return 1;
+// 	}
 
 	uword type(MDThread* t, uword numParams)
 	{
@@ -1364,9 +1380,9 @@ static:
 				checkNumParam(t, 2);
 				break;
 
-			case TypeCode.c:
-				checkCharParam(t, 2);
-				break;
+// 			case TypeCode.c:
+// 				checkCharParam(t, 2);
+// 				break;
 
 			default: assert(false);
 		}
@@ -1397,7 +1413,7 @@ static:
 		pushNull(t);
 		pushString(t, typeNames[memb.type.code]);
 		pushInt(t, hi - lo);
-		methodCall(t, -4, "clone", 1);
+		rawCall(t, -4, 1);
 
 		auto other = getMembers!(Members)(t, -1);
 		auto isize = memb.type.itemSize;
@@ -1461,7 +1477,7 @@ static:
 
 		pushGlobal(t, "Vector");
 
-		if(!strictlyAs(t, 1, -1))
+		if(!as(t, 1, -1))
 		{
 			pushTypeString(t, 1);
 			throwException(t, "Attempting to compare a Vector to a '{}'", getString(t, -1));
@@ -1496,7 +1512,7 @@ static:
 		
 		pushGlobal(t, "Vector");
 		
-		if(strictlyAs(t, 1, -1))
+		if(as(t, 1, -1))
 		{
 			auto other = getMembers!(Members)(t, 1);
 
@@ -1506,7 +1522,7 @@ static:
 			pushNull(t);
 			pushString(t, typeNames[memb.type.code]);
 			pushInt(t, memb.length + other.length);
-			methodCall(t, -4, "clone", 1);
+			rawCall(t, -4, 1);
 
 			auto ret = getMembers!(Members)(t, -1);
 			auto retData = (cast(byte*)ret.data)[0 .. ret.length * ret.type.itemSize];
@@ -1529,14 +1545,14 @@ static:
 					TypeCode.u32,
 					TypeCode.u64:                checkIntParam(t, 1); break;
 				case TypeCode.f32, TypeCode.f64: checkNumParam(t, 1); break;
-				case TypeCode.c:                 checkCharParam(t, 1); break;
+// 				case TypeCode.c:                 checkCharParam(t, 1); break;
 				default: assert(false);
 			}
 
 			pushNull(t);
 			pushString(t, typeNames[memb.type.code]);
 			pushInt(t, memb.length + 1);
-			methodCall(t, -4, "clone", 1);
+			rawCall(t, -4, 1);
 
 			auto ret = getMembers!(Members)(t, -1);
 			auto retData = (cast(byte*)ret.data)[0 .. ret.length * ret.type.itemSize];
@@ -1566,7 +1582,7 @@ static:
 				TypeCode.u32,
 				TypeCode.u64:                checkIntParam(t, 1); break;
 			case TypeCode.f32, TypeCode.f64: checkNumParam(t, 1); break;
-			case TypeCode.c:                 checkCharParam(t, 1); break;
+// 			case TypeCode.c:                 checkCharParam(t, 1); break;
 			default: assert(false);
 		}
 
@@ -1574,7 +1590,7 @@ static:
 		pushNull(t);
 		pushString(t, typeNames[memb.type.code]);
 		pushInt(t, memb.length + 1);
-		methodCall(t, -4, "clone", 1);
+		rawCall(t, -4, 1);
 
 		auto ret = getMembers!(Members)(t, -1);
 		auto retData = (cast(byte*)ret.data)[0 .. ret.length * ret.type.itemSize];
@@ -1596,7 +1612,7 @@ static:
 
 		for(uword i = 1; i <= numParams; i++)
 		{
-			if(strictlyAs(t, i, -1))
+			if(as(t, i, -1))
 			{
 				auto other = getMembers!(Members)(t, i);
 
@@ -1619,7 +1635,7 @@ static:
 						TypeCode.u32,
 						TypeCode.u64:                checkIntParam(t, i);  break;
 					case TypeCode.f32, TypeCode.f64: checkNumParam(t, i);  break;
-					case TypeCode.c:                 checkCharParam(t, i); break;
+// 					case TypeCode.c:                 checkCharParam(t, i); break;
 					default: assert(false);
 				}
 
@@ -1641,7 +1657,7 @@ static:
 
 		for(uword i = 1; i <= numParams; i++)
 		{
-			if(strictlyAs(t, i, -1))
+			if(as(t, i, -1))
 			{
 				auto other = getMembers!(Members)(t, i);
 				auto otherData = (cast(byte*)other.data)[0 .. other.length * isize];
@@ -1667,37 +1683,37 @@ static:
 
 			pushGlobal(t, "Vector");
 
-			if(strictlyAs(t, 1, -1))
+			if(as(t, 1, -1))
 			{
 				auto other = getMembers!(Members)(t, 1);
 
 				if(other.length != memb.length)
 					throwException(t, "Cannot perform operation on vectors of different lengths");
 
-				if(memb.type.code == TypeCode.c)
-				{
-					switch(other.type.code)
-					{
-						case TypeCode.i8, TypeCode.i16, TypeCode.i64, TypeCode.u8, TypeCode.u16, TypeCode.u64:
-							for(uword i = 0; i < memb.length; i++)
-							{
-								other.type.getItem(t, other, i);
-								(cast(dchar*)memb.data)[i] ` ~ op ~ `= getInt(t, -1);
-								pop(t);
-							}
-							break;
-
-						case TypeCode.i32, TypeCode.u32:
-							(cast(dchar*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(dchar*)other.data)[0 .. other.length];
-							break;
-
-						case TypeCode.f32, TypeCode.f64, TypeCode.c:
-							throwException(t, "Character vectors may only be used with integer vectors for this operation");
-
-						default: assert(false);
-					}
-				}
-				else
+// 				if(memb.type.code == TypeCode.c)
+// 				{
+// 					switch(other.type.code)
+// 					{
+// 						case TypeCode.i8, TypeCode.i16, TypeCode.i64, TypeCode.u8, TypeCode.u16, TypeCode.u64:
+// 							for(uword i = 0; i < memb.length; i++)
+// 							{
+// 								other.type.getItem(t, other, i);
+// 								(cast(dchar*)memb.data)[i] ` ~ op ~ `= getInt(t, -1);
+// 								pop(t);
+// 							}
+// 							break;
+// 
+// 						case TypeCode.i32, TypeCode.u32:
+// 							(cast(dchar*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(dchar*)other.data)[0 .. other.length];
+// 							break;
+// 
+// 						case TypeCode.f32, TypeCode.f64, TypeCode.c:
+// 							throwException(t, "Character vectors may only be used with integer vectors for this operation");
+// 
+// 						default: assert(false);
+// 					}
+// 				}
+// 				else
 				{
 					if(other.type !is memb.type)
 						throwException(t, "Cannot perform operation on vectors of types '{}' and '{}'", typeNames[memb.type.code], typeNames[other.type.code]);
@@ -1732,7 +1748,7 @@ static:
 					case TypeCode.u64: auto val = checkIntParam(t, 1); (cast(ulong*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(ulong)val;  break;
 					case TypeCode.f32: auto val = checkNumParam(t, 1); (cast(float*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(float)val;  break;
 					case TypeCode.f64: auto val = checkNumParam(t, 1); (cast(double*)memb.data)[0 .. memb.length] ` ~ op ~ `= cast(double)val; break;
-					case TypeCode.c:   auto val = checkIntParam(t, 1); (cast(dchar*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(uint)val;   break;
+// 					case TypeCode.c:   auto val = checkIntParam(t, 1); (cast(dchar*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(uint)val;   break;
 					default: assert(false);
 				}
 			}
@@ -1758,11 +1774,11 @@ static:
 
 			pushGlobal(t, "Vector");
 
-			if(strictlyAs(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
-			{
-				first = 1;
-				second = 0;
-			}
+// 			if(as(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
+// 			{
+// 				first = 1;
+// 				second = 0;
+// 			}
 
 			pop(t);
 
@@ -1796,11 +1812,11 @@ static:
 
 			pushGlobal(t, "Vector");
 
-			if(strictlyAs(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
-			{
-				first = 1;
-				second = 0;
-			}
+// 			if(as(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
+// 			{
+// 				first = 1;
+// 				second = 0;
+// 			}
 
 			pop(t);
 
@@ -1830,13 +1846,13 @@ static:
 		{
 			auto memb = getThis(t);
 
-			if(memb.type.code == TypeCode.c)
-				throwException(t, "Cannot perform operation on character vectors");
+// 			if(memb.type.code == TypeCode.c)
+// 				throwException(t, "Cannot perform operation on character vectors");
 
 			checkAnyParam(t, 1);
 			pushGlobal(t, "Vector");
 
-			if(strictlyAs(t, 1, -1))
+			if(as(t, 1, -1))
 			{
 				auto other = getMembers!(Members)(t, 1);
 

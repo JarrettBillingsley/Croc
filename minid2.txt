@@ -111,6 +111,7 @@ Keyword:
 	'break'
 	'case'
 	'catch'
+	'class'
 	'continue'
 	'coroutine'
 	'default'
@@ -130,7 +131,6 @@ Keyword:
 	'module'
 	'namespace'
 	'null'
-	'object'
 	'return'
 	'super'
 	'switch'
@@ -320,7 +320,7 @@ Decorator:
 
 OtherDeclaration:
 	FunctionDeclaration
-	ObjectDeclaration
+	ClassDeclaration
 	NamespaceDeclaration
 
 VariableDeclaration:
@@ -365,18 +365,20 @@ BasicType:
 	'table'
 	'array'
 	'function'
-	'object' [(Identifier {'.' Identifier}) | ('(' Expression')')]
+	'class'
+	'instance' [(Identifier {'.' Identifier}) | ('(' Expression')')]
 	Identifier {'.' Identifier}
 	'namespace'
 	'thread'
 	'nativeobj'
 	'weakref'
 
-ObjectDeclaration:
-	['local' | 'global'] 'object' Identifier [':' Expression] '{' {ObjectMember} '}'
+ClassDeclaration:
+	['local' | 'global'] 'class' Identifier [':' Expression] '{' {ClassMember} '}'
 
-ObjectMember:
+ClassMember:
 	[Decorators] SimpleFunctionDeclaration
+	[Decorators] 'this' FunctionBody
 	Identifier ['=' Expression] StatementTerminator
 
 NamespaceDeclaration:
@@ -547,7 +549,7 @@ DotExpression:
 CallExpression:
 	PostfixExpression ArgumentsWith
 	DotExpression ArgumentsWith
-	'super' '.' (Identifier | '(' Expression ')') Arguments
+	'super' ['.' (Identifier | '(' Expression ')')] Arguments
 
 ArgumentsWith:
 	Arguments
@@ -574,7 +576,7 @@ PrimaryExpression:
 	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
 	'\\' Parameters '->' Expression
-	'object' [Identifier] [':' Expression] '{' {ObjectMember} '}'
+	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	TableCtorExp
 	ArrayLiteral

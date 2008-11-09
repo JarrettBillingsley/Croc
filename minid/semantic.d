@@ -126,9 +126,9 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 	
-	public override ObjectDef visit(ObjectDef d)
+	public override ClassDef visit(ClassDef d)
 	{
-		d.baseObject = visit(d.baseObject);
+		d.baseClass = visit(d.baseClass);
 
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);
@@ -309,7 +309,7 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override ObjectDecl visit(ObjectDecl d)
+	public override ClassDecl visit(ClassDecl d)
 	{
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
@@ -1300,7 +1300,7 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override ObjectLiteralExp visit(ObjectLiteralExp e)
+	public override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		e.def = visit(e.def);
 		return e;

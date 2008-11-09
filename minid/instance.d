@@ -21,101 +21,104 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.obj;
+module minid.instance;
+
+import tango.math.Math;
 
 import minid.alloc;
+import minid.classobj;
 import minid.namespace;
 import minid.string;
 import minid.types;
 
-struct obj
+struct instance
 {
 static:
 	// ================================================================================================================================================
 	// Package
 	// ================================================================================================================================================
 
-	package MDObject* create(ref Allocator alloc, MDString* name, MDObject* proto, uword numValues = 0, uword extraBytes = 0)
+	package MDInstance* create(ref Allocator alloc, MDClass* parent, uword numValues = 0, uword extraBytes = 0)
 	{
-		auto o = alloc.allocate!(MDObject)(ObjectSize(numValues, extraBytes));
-		o.name = name;
-		o.proto = proto;
-		o.numValues = numValues;
-		o.extraBytes = extraBytes;
-		
-		if(o.proto)
-			o.finalizer = o.proto.finalizer;
+		auto i = alloc.allocate!(MDInstance)(InstanceSize(numValues, extraBytes));
+		i.parent = parent;
+		i.numValues = numValues;
+		i.extraBytes = extraBytes;
+		i.finalizer = parent.finalizer;
 
-		return o;
+		return i;
 	}
 
-	package void free(ref Allocator alloc, MDObject* o)
+	package void free(ref Allocator alloc, MDInstance* i)
 	{
-		alloc.free(o, ObjectSize(o.numValues, o.extraBytes));
-	}
-	
-	package MDValue* getField(MDObject* o, MDString* name)
-	{
-		MDObject* dummy = void;
-		return getField(o, name, dummy);
+		alloc.free(i, InstanceSize(i.numValues, i.extraBytes));
 	}
 
-	package MDValue* getField(MDObject* o, MDString* name, out MDObject* proto)
+	package MDValue* getField(MDInstance* i, MDString* name)
 	{
-		for(auto obj = o; obj !is null; obj = obj.proto)
+		MDValue dummy;
+		return getField(i, name, dummy);
+	}
+
+	package MDValue* getField(MDInstance* i, MDString* name, out MDValue owner)
+	{
+		if(i.fields !is null)
 		{
-			if(obj.fields !is null)
+			if(auto ret = namespace.get(i.fields, name))
 			{
-				if(auto ret = namespace.get(obj.fields, name))
-				{
-					proto = obj;
-					return ret;
-				}
+				owner = i;
+				return ret;
 			}
 		}
 
-		return null;
+		MDClass* dummy;
+		auto ret = classobj.getField(i.parent, name, dummy);
+
+		if(dummy !is null)
+			owner = dummy;
+
+		return ret;
 	}
-	
-	package void setField(MDVM* vm, MDObject* o, MDString* name, MDValue* value)
+
+	package void setField(ref Allocator alloc, MDInstance* i, MDString* name, MDValue* value)
 	{
-		if(o.fields is null)
-			o.fields = namespace.create(vm.alloc, string.create(vm, ""));
-			
-		namespace.set(vm.alloc, o.fields, name, value);
+		if(i.fields is null)
+			i.fields = namespace.create(alloc, i.parent.name);
+
+		namespace.set(alloc, i.fields, name, value);
 	}
-	
-	package bool derivesFrom(MDObject* o, MDObject* p)
+
+	package bool derivesFrom(MDInstance* i, MDClass* c)
 	{
-		for( ; o !is null; o = o.proto)
-			if(o is p)
+		for(auto o = i.parent; o !is null; o = o.parent)
+			if(o is c)
 				return true;
 
 		return false;
 	}
-	
-	package MDNamespace* fieldsOf(MDVM* vm, MDObject* o)
-	{
-		if(o.fields is null)
-			o.fields = namespace.create(vm.alloc, string.create(vm, ""));
 
-		return o.fields;
-	}
-	
-	package bool next(MDObject* o, ref uword idx, ref MDString** key, ref MDValue* val)
+	package MDNamespace* fieldsOf(ref Allocator alloc, MDInstance* i)
 	{
-		if(o.fields is null)
+		if(i.fields is null)
+			i.fields = namespace.create(alloc, i.parent.name);
+
+		return i.fields;
+	}
+
+	package bool next(MDInstance* i, ref uword idx, ref MDString** key, ref MDValue* val)
+	{
+		if(i.fields is null)
 			return false;
 
-		return o.fields.data.next(idx, key, val);
+		return i.fields.data.next(idx, key, val);
 	}
 
 	// ================================================================================================================================================
 	// Private
 	// ================================================================================================================================================
 
-	private uword ObjectSize(uword numValues, uword extraBytes)
+	private uword InstanceSize(uword numValues, uword extraBytes)
 	{
-		return MDObject.sizeof + (numValues * MDValue.sizeof) + extraBytes;
+		return MDInstance.sizeof + (numValues * MDValue.sizeof) + extraBytes;
 	}
 }
