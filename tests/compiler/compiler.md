@@ -36,7 +36,7 @@ function xfailex(s: string)
 }
 
 // ast
-object O {}
+class O {}
 function foo(x = null, y = true, z = 'x') { return 1, 2, 3 }
 namespace N {}
 assert(true, "foo")
@@ -111,12 +111,12 @@ O = Object as Object
 O = 'x' in "hello"
 O = 'x' !in "hello"
 O = coroutine foo
-O = object{}
+O = class{}
 O.x = 5
 O.x = O.x
 N = O.super
 O, N = foo()
-O = object{ function f(){ return this } }
+O = class{ function f(){ return this } }
 O.f()
 O.("f")()
 O, N = O.f()
@@ -201,23 +201,23 @@ xfail("while(false)")
 xpass("@foo.bar.baz @quux function f() {}")
 xpass("@foo(with 5, 2, 3) function f() {}")
 xfail("@foo local x")
-xpass("local function f(){} local object O{} local namespace N{}")
+xpass("local function f(){} local class O{} local namespace N{}")
 xfail("local for")
 xfail("@foo for")
 global function BRAK(){}
 xfail("f = function(x, y) { greep }")
 foo = function(this: int, x, vararg) = 5
 xfail("f = function(x: int|int){}")
-foo = function(x: object A.B.C, y: null|function|namespace|object){}
-foo = function(x: object(A), y: A.B, z: object A){}
-xfail("f = function(x: object 4){}")
+foo = function(x: instance A.B.C, y: null|function|namespace|class|instance){}
+foo = function(x: instance(A), y: A.B, z: instance A){}
+xfail("f = function(x: instance 4){}")
 foo = function(x: bool|float|char|table|array|thread|nativeobj|weakref, y: A){}
 foo = function freep(x: !null, y: any){}
 xfail(`f = \x -> yield`)
-xpass("global object O:I{ @foo function foo() {} }")
-xfail("object O { x = 5; x }")
-xfail("object O {")
-xfail("object O {5}")
+xpass("global class O:I{ @foo function foo() {} }")
+xfail("class O { x = 5; x }")
+xfail("class O {")
+xfail("class O {5}")
 xpass("global namespace N:M{x; function y(){}}")
 xfail("namespace N { x = 5; x }")
 xfail("namespace N {")

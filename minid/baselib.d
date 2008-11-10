@@ -62,7 +62,7 @@ static:
 		// Object
 		pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
 		newGlobal(t, "Object");
-
+		
 		// Vector
 		VectorObj.init(t);
 
@@ -151,7 +151,7 @@ static:
 		pushInt(t, gc(t));
 		return 1;
 	}
-
+	
 	// ===================================================================================================================================
 	// Functional stuff
 
@@ -237,6 +237,7 @@ static:
 	{
 		// Upvalue 0 is the current object
 		// Upvalue 1 is the current index into the namespace
+		// Upvalue 2 is the duplicates table
 		static uword iter(MDThread* t, uword numParams)
 		{
 			MDInstance* i;
@@ -252,25 +253,26 @@ static:
 
 				getUpval(t, 1);
 				index = cast(uword)getInt(t, -1);
-				
+				pop(t);
+
 				bool haveField = void;
 
-				if(isInstance(t, -2))
+				if(isInstance(t, -1))
 				{
-					i = getInstance(t, -2);
+					i = getInstance(t, -1);
 					c = null;
 					haveField = instance.next(i, index, key, value);
 				}
 				else
 				{
-					c = getClass(t, -2);
+					c = getClass(t, -1);
 					i = null;
 					haveField = classobj.next(c, index, key, value);
 				}
 
 				if(!haveField)
 				{
-					superOf(t, -2);
+					superOf(t, -1);
 
 					if(isNull(t, -1))
 						return 0;
@@ -278,7 +280,7 @@ static:
 					setUpval(t, 0);
 					pushInt(t, 0);
 					setUpval(t, 1);
-					pop(t, 2);
+					pop(t);
 
 					// try again
 					continue;
@@ -292,7 +294,7 @@ static:
 				{
 					pushInt(t, index);
 					setUpval(t, 1);
-					pop(t, 4);
+					pop(t, 3);
 
 					// We have, try again
 					continue;
@@ -1059,6 +1061,11 @@ static:
 		{
 			newInstance(t, 0, 0, Members.sizeof);
 			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+
+			dup(t);
+			pushNull(t);
+			rotateAll(t, 3);
+			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
 

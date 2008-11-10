@@ -39,12 +39,15 @@ static:
 	// if two string objects are identical, they are also equal.
 	package MDString* create(MDVM* vm, char[] data)
 	{
-		auto cpLen = verify(data);
+		// We don't have to verify the string if it already exists in the string table,
+		// because if it does, it means it's a legal string.
 		auto h = jhash(data);
 
 		if(auto s = vm.stringTab.lookup(data, h))
 			return *s;
 
+		// _Now_ we verify it.
+		auto cpLen = verify(data);
 		auto ret = vm.alloc.allocate!(MDString)(StringSize(data.length));
 		ret.hash = h;
 		ret.length = data.length;

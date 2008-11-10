@@ -1,70 +1,62 @@
 module speed;
 
-local x = 1 << 30
-x <<= 6
-
-if(x == 0)
-	writeln("32-bit ints")
-else
-	writeln("64-bit ints ")
-
 /*
 Taken from the Io speed test.
 On my desktop.
 
-Python reflIntMath       := 12.32
+Python reflIntMath       := 11.85
 Python reflFloatMath     := 8.65
 
 Python intMath           := 12.79
-Python floatMath         := 8.65
+Python floatMath         := 9.14
 
-Python localAccesses     := 26.60
-Python localSets         := 24.63
+Python localAccesses     := 26.74
+Python localSets         := 24.51
 
-Python slotAccesses      := 9.71
-Python slotSets          := 8.65
+Python slotAccesses      := 7.28
+Python slotSets          := 8.21
 
-Python blockActivations  := 2.99
-Python instantiations    := 2.64
+Python blockActivations  := 2.76
+Python instantiations    := 2.46
 Python version           := "2.5.0 final 0"
 
 // values in millions per second
 
-MiniD reflIntMath        := 21.35
-MiniD reflFloatMath      := 21.24
+MiniD reflIntMath        := 22.890733
+MiniD reflFloatMath      := 22.586314
 
-MiniD intMath            := 13.85
-MiniD floatMath          := 12.71
+MiniD intMath            := 17.48588
+MiniD floatMath          := 18.944848
 
-MiniD localAccesses      := 38.08
-MiniD localSets          := 41.84
+MiniD localAccesses      := 38.003451
+MiniD localSets          := 40.715949
 
-MiniD slotAccesses       := 5.03
-MiniD slotSets           := 4.96
+MiniD slotAccesses       := 10.479171
+MiniD slotSets           := 8.803344
 
-MiniD blockActivations   := 1.98
-MiniD instantiations     := 0.45
+MiniD blockActivations   := 3.809599
+MiniD instantiations     := 1.265678
 
-MiniD version            := "1.0"
+MiniD version            := "2.0 beta"
 
 // values in millions per second
 */
 
-local t1 = 12345
+local t1
 local oneMillion = 5_000_000
 
 local function foo() {}
 
-local object Tester
+local class Tester
 {
 	x
 
 	function beginTimer()
-		t1 = microTime()
+		t1 = time.microTime()
 
 	function endTimer(s)
 	{
-		t1 = microTime() - t1
+		t1 = time.microTime() - t1
 		local mps = toFloat(oneMillion) / t1
 		writefln("MiniD {} := {:f5}", s, mps)
 	}
@@ -207,8 +199,8 @@ local object Tester
 
 		for(i : 0 .. oneMillion / 8)
 		{
-			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
-			Tester.clone(); Tester.clone(); Tester.clone(); Tester.clone()
+			Tester(); Tester(); Tester(); Tester()
+			Tester(); Tester(); Tester(); Tester()
 		}
 
 		:endTimer("instantiations\t")
@@ -230,13 +222,13 @@ local object Tester
 		writefln()
 		:testBlock()
 		:testInstantiations()
-//
-// 		writefln()
-// 		writefln("MiniD version\t\t := \"2.0 beta\"")
-// 		writefln()
-// 		writefln("// values in millions per second")
+
+		writefln()
+		writefln("MiniD version\t\t := \"2.0 beta\"")
+		writefln()
+		writefln("// values in millions per second")
 	}
 }
 
-//function main()
+function main()
 	Tester.test()

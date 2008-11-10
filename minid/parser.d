@@ -637,12 +637,10 @@ struct Parser
 							case "thread":    addConstraint(MDValue.Type.Thread); break;
 							case "nativeobj": addConstraint(MDValue.Type.NativeObj); break;
 							case "weakref":   addConstraint(MDValue.Type.WeakRef); break;
-							
-							case "instance":	
-								l.next();
 
+							case "instance":
 								addConstraint(MDValue.Type.Instance);
-			
+
 								if(l.type == Token.LParen)
 								{
 									l.next();

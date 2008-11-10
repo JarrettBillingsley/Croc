@@ -82,7 +82,7 @@ static:
 			InputStreamObj.init(t);
 			OutputStreamObj.init(t);
 			StreamObj.init(t);
-
+			
 				pushGlobal(t, "InputStream");
 				pushNull(t);
 				pushNativeObj(t, cast(Object)Cin.stream);
@@ -457,6 +457,11 @@ static:
 		{
 			newInstance(t, 0, Fields.max + 1, Members.sizeof);
 			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+
+			dup(t);
+			pushNull(t);
+			rotateAll(t, 3);
+			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
 
@@ -688,6 +693,11 @@ static:
 		{
 			newInstance(t, 0, Fields.max + 1, Members.sizeof);
 			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+
+			dup(t);
+			pushNull(t);
+			rotateAll(t, 3);
+			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
 
@@ -994,6 +1004,11 @@ static:
 		{
 			newInstance(t, 0, Fields.max + 1, Members.sizeof);
 			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+
+			dup(t);
+			pushNull(t);
+			rotateAll(t, 3);
+			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
 

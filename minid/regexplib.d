@@ -227,6 +227,11 @@ struct RegexpLib
 		uword allocator(MDThread* t, uword numParams)
 		{
 			newInstance(t, 0, Fields.max + 1);
+
+			dup(t);
+			pushNull(t);
+			rotateAll(t, 3);
+			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
 		

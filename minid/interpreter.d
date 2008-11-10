@@ -339,30 +339,42 @@ void rotate(MDThread* t, uword numSlots, uword dist)
 	if(dist == 0)
 		return;
 
-	dist = numSlots - dist;
 	auto slots = t.stack[t.stackIndex - numSlots .. t.stackIndex];
-	uword c = 0;
 
-	for(uword v = 0; c < slots.length; v++)
+	if(dist <= 8)
 	{
-		auto i = v;
-		auto j = v + dist;
-		auto tmp = slots[v];
-		c++;
+		MDValue[8] temp = void;
+		temp[0 .. dist] = slots[$ - dist .. $];
+		auto numOthers = numSlots - dist;
+		memmove(&slots[$ - numOthers], &slots[0], numOthers * MDValue.sizeof);
+		slots[0 .. dist] = temp[0 .. dist];
+	}
+	else
+	{
+		dist = numSlots - dist;
+		uword c = 0;
 
-		while(j != v)
+		for(uword v = 0; c < slots.length; v++)
 		{
-			slots[i] = slots[j];
-			i = j;
-			j += dist;
-
-			if(j >= slots.length)
-				j -= slots.length;
-
+			auto i = v;
+			auto j = v + dist;
+			auto tmp = slots[v];
 			c++;
-		}
 
-		slots[i] = tmp;
+			while(j != v)
+			{
+				slots[i] = slots[j];
+				i = j;
+				j += dist;
+
+				if(j >= slots.length)
+					j -= slots.length;
+
+				c++;
+			}
+
+			slots[i] = tmp;
+		}
 	}
 }
 
@@ -5661,7 +5673,10 @@ MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* p
 	switch(v.type)
 	{
 		case MDValue.Type.Class:
-			return getMethod(v.mClass, name, proto);
+			if(auto ret = getMethod(v.mClass, name, proto))
+				return ret;
+
+			goto default;
 
 		case MDValue.Type.Instance:
 			return getMethod(v.mInstance, name, proto);
@@ -5782,10 +5797,10 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 	{
 		case MDValue.Type.Function:
 			return callPrologue2(t, func.mFunction, slot, numReturns, slot + 1, numParams, proto);
-			
+
 		case MDValue.Type.Class:
 			auto cls = func.mClass;
-			
+
 			if(cls.allocator)
 			{
 				version(MDExtendedCoro) {} else
@@ -5794,65 +5809,61 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 					scope(exit) t.nativeCallDepth--;
 				}
 
-				pushFunction(t, cls.allocator);
-				pushClass(t, cls);
-				rawCall(t, -2, 1);
-				
-				if(!isInstance(t, -1))
+				t.stack[slot] = cls.allocator;
+				t.stack[slot + 1] = cls;
+				rawCall(t, slot - t.stackBase, 1);
+
+				if(!isInstance(t, slot - t.stackBase))
 				{
-					pushTypeString(t, -1);
+					pushTypeString(t, slot - t.stackBase);
 					throwException(t, "class allocator expected to return an 'instance', not a '{}'", getString(t, -1));
 				}
 			}
 			else
-				newInstance(t, slot - t.stackBase);
-				
-			auto inst = getInstance(t, -1);
-			pop(t);
-
-			// call any constructor
-			auto ctor = classobj.getField(cls, string.create(t.vm, "constructor"));
-
-			if(ctor !is null)
 			{
-				if(ctor.type != MDValue.Type.Function)
+				auto inst = instance.create(t.vm.alloc, cls);
+
+				// call any constructor
+				auto ctor = classobj.getField(cls, string.create(t.vm, "constructor"));
+
+				if(ctor !is null)
 				{
-					typeString(t, ctor);
-					throwException(t, "class constructor expected to be a 'function', not '{}'", getString(t, -1));
+					if(ctor.type != MDValue.Type.Function)
+					{
+						typeString(t, ctor);
+						throwException(t, "class constructor expected to be a 'function', not '{}'", getString(t, -1));
+					}
+
+					version(MDExtendedCoro) {} else
+					{
+						t.nativeCallDepth++;
+						scope(exit) t.nativeCallDepth--;
+					}
+
+					t.stack[slot] = ctor.mFunction;
+					t.stack[slot + 1] = inst;
+
+					// do this instead of rawCall so the proto is set correctly
+					if(callPrologue(t, slot, 0, numParams, cls))
+						execute(t);
 				}
 
-				version(MDExtendedCoro) {} else
-				{
-					t.nativeCallDepth++;
-					scope(exit) t.nativeCallDepth--;
-				}
-
-				t.stack[slot + 1] = inst;
-				pushFunction(t, ctor.mFunction);
-				insert(t, -numParams - 1);
-				
-				if(callPrologue(t, slot + 1, 0, numParams, cls))
-					execute(t);
+				t.stack[slot] = inst;
 			}
 
-			// set up dummy AR to handle returns
-			auto ar = pushAR(t);
+			if(numReturns == -1)
+				t.stackIndex = slot + 1;
+			else
+			{
+				if(numReturns > 1)
+					t.stack[slot + 1 .. slot + numReturns] = MDValue.nullValue;
 
-			ar.base = slot;
-			ar.savedTop = t.stackIndex;
-			ar.vargBase = slot;
-			ar.returnSlot = slot;
-			ar.func = null;
-			ar.pc = null;
-			ar.numReturns = numReturns;
-			ar.proto = null;
-			ar.numTailcalls = 0;
-			ar.firstResult = 0;
-			ar.numResults = 0;
+				if(t.currentAR.savedTop < slot + numReturns)
+					t.stackIndex = slot + numReturns;
+				else
+					t.stackIndex = t.currentAR.savedTop;
+			}
 
-			pushInstance(t, inst);
-			saveResults(t, t, t.stackIndex - 1, 1);
-			callEpilogue(t, true);
 			return false;
 
 		case MDValue.Type.Thread:
@@ -6096,7 +6107,7 @@ void callEpilogue(MDThread* t, bool needResults)
 		isMultRet = true;
 		numExpRets = results.length;
 	}
-
+	
 	popAR(t);
 
 	if(needResults)
@@ -6115,13 +6126,13 @@ void callEpilogue(MDThread* t, bool needResults)
 	}
 	else
 		t.numYields = 0;
-
+		
 	if(t.arIndex == 0)
 	{
 		t.state = MDThread.State.Dead;
 		t.shouldHalt = false;
 		t.stackIndex = destSlot + numExpRets;
-		
+
 		if(t is t.vm.mainThread)
 			t.vm.curThread = t;
 	}

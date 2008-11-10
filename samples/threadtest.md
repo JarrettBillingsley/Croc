@@ -12,7 +12,7 @@ function Set(vararg)
 
 // A class which encapsulates a thread's body, a message queue, and timed wait
 // functionality.
-object Thread
+class Thread
 {
 	mBody
 	mWaitTime
@@ -21,8 +21,8 @@ object Thread
 	mMessageTail
 
 	// Construct a thread with a coroutine body.
-	function clone(body) =
-		object : this { mBody = body }
+	this(body)
+		:mBody = body
 
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
@@ -162,7 +162,7 @@ function main()
 
 	local producer, consumer
 
-	producer = Thread.clone(coroutine function()
+	producer = Thread(coroutine function()
 	{
 		while(true)
 		{
@@ -176,7 +176,7 @@ function main()
 		}
 	})
 
-	consumer = Thread.clone(coroutine function()
+	consumer = Thread(coroutine function()
 	{
 		local empty = { type = "Empty" }
 

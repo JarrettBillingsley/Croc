@@ -231,6 +231,11 @@ static:
 	{
 		newInstance(t, 0, 0, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+		
+		dup(t);
+		pushNull(t);
+		rotateAll(t, 3);
+		methodCall(t, 2, "constructor", 0);
 		return 1;
 	}
 

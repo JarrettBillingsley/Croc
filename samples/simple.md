@@ -137,7 +137,7 @@ object ParticleGen
 
 	function clone(rate: int|float, gravity: int|float = 0.05, life: int|float = 2.5)
 	{
-		local ret = super.clone()
+		local ret = super()
 
 		ret.mRate = toFloat(rate)
 		ret.mGravity = toFloat(gravity)
@@ -242,12 +242,12 @@ function main()
 	arc.time.open()
 // 	arc.sound.open()
 
-// 	local font = Font.clone("arial.ttf", 12)
-// 	local font2 = Font.clone("arial.ttf", 32)
-// 	local origin = Point.clone(0.0, 0.0)
-// 	local white = Color.clone(255, 255, 255)
+// 	local font = Font("arial.ttf", 12)
+// 	local font2 = Font("arial.ttf", 32)
+// 	local origin = Point(0.0, 0.0)
+// 	local white = Color(255, 255, 255)
 
-// 	local pg = ParticleGen.clone(1000)
+// 	local pg = ParticleGen(1000)
 
 // 	arc.input.defaultCursorVisible(false)
 
@@ -266,7 +266,7 @@ function main()
 // 		drawCircle(arc.input.mousePos(), 6, 10, white, false)
 
 // 		font.draw(toString(arc.time.fps()), origin, white)
-// 		font.draw(toString(pg.mParticles is null), Point.clone(0.0, 16.0), white)
+// 		font.draw(toString(pg.mParticles is null), Point(0.0, 16.0), white)
 		arc.time.limitFPS(60)
 		arc.window.swap()
 	}
