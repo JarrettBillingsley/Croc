@@ -45,7 +45,6 @@ static:
 		u64,
 		f32,
 		f64,
-// 		c
 	}
 
 	const char[][] typeNames =
@@ -60,7 +59,6 @@ static:
 		"u64",
 		"f32",
 		"f64",
-// 		"c"
 	];
 
 	const ubyte[] sizes =
@@ -74,8 +72,7 @@ static:
 		4, // u32
 		8, // u64
 		4, // f32
-		8, // f64
-		4  // c
+		8  // f64
 	];
 
 	word get_i8(MDThread* t, Members* memb, uword idx)             { return pushInt(t, (cast(byte*)memb.data)[idx]); }
@@ -101,9 +98,6 @@ static:
 	word get_f64(MDThread* t, Members* memb, uword idx)            { return pushFloat(t, (cast(double*)memb.data)[idx]); }
 	void set_f64(MDThread* t, Members* memb, uword idx, word item) { (cast(double*)memb.data)[idx] = cast(double)getNum(t, item); }
 
-// 	word get_c(MDThread* t, Members* memb, uword idx)              { return pushChar(t, (cast(dchar*)memb.data)[idx]); }
-// 	void set_c(MDThread* t, Members* memb, uword idx, word item)   { (cast(dchar*)memb.data)[idx] = cast(dchar)getChar(t, item); }
-
 	struct TypeStruct
 	{
 		TypeCode code;
@@ -123,8 +117,7 @@ static:
 		{ TypeCode.u32, sizes[TypeCode.u32], &get_u32, &set_u32 },
 		{ TypeCode.u64, sizes[TypeCode.u64], &get_u64, &set_u64 },
 		{ TypeCode.f32, sizes[TypeCode.f32], &get_f32, &set_f32 },
-		{ TypeCode.f64, sizes[TypeCode.f64], &get_f64, &set_f64 },
-// 		{ TypeCode.c,   sizes[TypeCode.c],   &get_c,   &set_c }
+		{ TypeCode.f64, sizes[TypeCode.f64], &get_f64, &set_f64 }
 	];
 
 	align(1) struct Members
@@ -139,12 +132,12 @@ static:
 		CreateClass(t, "Vector", (CreateClass* c)
 		{
 			c.method("constructor",    &constructor);
-			c.method("dup",            &vec_dup);
 			c.method("range",          &range);
 			c.method("fromArray",      &fromArray);
 
 			c.method("apply",          &apply);
 			c.method("copyRange",      &copyRange);
+			c.method("dup",            &vec_dup);
 			c.method("fill",           &fill);
 			c.method("fillRange",      &fillRange);
 			c.method("insert",         &vec_insert);
@@ -160,7 +153,6 @@ static:
 			c.method("sum",            &sum);
 			c.method("toArray",        &toArray);
 			c.method("toString",       &toString);
-// 			c.method("toStringValue",  &toStringValue);
 			c.method("type",           &type);
 
 			c.method("opLength",       &opLength);
@@ -283,7 +275,6 @@ static:
 			case "u64": ts = &typeStructs[TypeCode.u64]; break;
 			case "f32": ts = &typeStructs[TypeCode.f32]; break;
 			case "f64": ts = &typeStructs[TypeCode.f64]; break;
-// 			case "c"  : ts = &typeStructs[TypeCode.c];   break;
 
 			default:
 				throwException(t, "Invalid type code '{}'", type);
@@ -339,7 +330,6 @@ static:
 			case "u64": ts = &typeStructs[TypeCode.u64]; break;
 			case "f32": ts = &typeStructs[TypeCode.f32]; break;
 			case "f64": ts = &typeStructs[TypeCode.f64]; break;
-// 			case "c"  : ts = &typeStructs[TypeCode.c];   break;
 
 			default:
 				throwException(t, "Invalid type code '{}'", type);
@@ -474,60 +464,6 @@ static:
 
 				break;
 
-// 			case TypeCode.c:
-// 				auto v1 = checkCharParam(t, 2);
-// 				dchar v2 = void;
-// 				mdint step = 1;
-// 
-// 				if(numParams == 2)
-// 				{
-// 					v2 = v1;
-// 					v1 = '\0';
-// 				}
-// 				else if(numParams == 3)
-// 					v2 = checkCharParam(t, 3);
-// 				else
-// 				{
-// 					v2 = checkCharParam(t, 3);
-// 					step = checkIntParam(t, 4);
-// 				}
-// 
-// 				if(step <= 0)
-// 					throwException(t, "Step may not be negative or 0");
-// 
-// 				long range = abs(cast(int)v2 - cast(int)v1);
-// 				long size = range / step;
-// 
-// 				if((range % step) != 0)
-// 					size++;
-// 
-// 				if(size > uword.max)
-// 					throwException(t, "Vector is too big");
-// 
-// 				auto ret = makeObj(size);
-// 				auto val = v1;
-// 
-// 				if(v2 < v1)
-// 				{
-// 					for(uword i = 0; val > v2; i++, val -= step)
-// 					{
-// 						pushChar(t, val);
-// 						ret.type.setItem(t, ret, i, -1);
-// 						pop(t);
-// 					}
-// 				}
-// 				else
-// 				{
-// 					for(uword i = 0; val < v2; i++, val += step)
-// 					{
-// 						pushChar(t, val);
-// 						ret.type.setItem(t, ret, i, -1);
-// 						pop(t);
-// 					}
-// 				}
-// 
-// 				break;
-
 			default: assert(false);
 		}
 
@@ -537,12 +473,7 @@ static:
 	uword fromArray(MDThread* t, uword numParams)
 	{
 		auto code = checkStringParam(t, 1);
-		checkAnyParam(t, 2);
-
-// 		if(code == "c" && !isArray(t, 2))
-// 			checkStringParam(t, 2);
-// 		else
-			checkParam(t, 2, MDValue.Type.Array);
+		checkParam(t, 2, MDValue.Type.Array);
 
 		pushGlobal(t, "Vector");
 		pushNull(t);
@@ -591,10 +522,6 @@ static:
 			case TypeCode.f32, TypeCode.f64:
 				doLoop(&isNum, "'int' or 'float'");
 				break;
-
-// 			case TypeCode.c:
-// 				doLoop(&isChar, "'char'");
-// 				break;
 
 			default: assert(false);
 		}
@@ -724,26 +651,10 @@ static:
 					}
 					break;
 
-// 				case TypeCode.c:
-// 					for(uword i = lo; i < hi; i++)
-// 					{
-// 						callFunc(i);
-// 
-// 						if(!isChar(t, -1))
-// 						{
-// 							pushTypeString(t, -1);
-// 							throwException(t, "filler function expected to return a 'char', not '{}'", getString(t, -1));
-// 						}
-// 
-// 						memb.type.setItem(t, memb, i, -1);
-// 						pop(t);
-// 					}
-// 					break;
-
 				default: assert(false);
 			}
 		}
-		else if(isNum(t, idx) || isChar(t, idx))
+		else if(isNum(t, idx))
 		{
 			switch(memb.type.code)
 			{
@@ -757,17 +668,11 @@ static:
 				case TypeCode.u64: auto val = checkIntParam(t, idx);  (cast(ulong*)memb.data)[lo .. hi] = cast(ulong)val;   break;
 				case TypeCode.f32: auto val = checkNumParam(t, idx);  (cast(float*)memb.data)[lo .. hi] = cast(float)val;   break;
 				case TypeCode.f64: auto val = checkNumParam(t, idx);  (cast(double*)memb.data)[lo .. hi] = cast(double)val; break;
-// 				case TypeCode.c:   auto val = checkCharParam(t, idx); (cast(dchar*)memb.data)[lo .. hi] = cast(dchar)val;   break;
 				default: assert(false);
 			}
 		}
-		else
+		else if(isArray(t, idx))
 		{
-// 			if(memb.type.code == TypeCode.c && !isArray(t, idx))
-// 				checkStringParam(t, idx);
-// 			else
-				checkParam(t, idx, MDValue.Type.Array);
-
 			if(len(t, idx) != (hi - lo))
 				throwException(t, "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, idx));
 
@@ -814,35 +719,11 @@ static:
 					}
 					break;
 
-// 				case TypeCode.c:
-// 					auto ddat = (cast(dchar*)memb.data)[lo .. hi];
-// 
-// 					if(isArray(t, idx))
-// 					{
-// 						for(uword i = lo, ai = 0; i < hi; i++, ai++)
-// 						{
-// 							idxi(t, idx, ai);
-// 
-// 							if(!isChar(t, -1))
-// 							{
-// 								pushTypeString(t, -1);
-// 								throwException(t, "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
-// 							}
-// 
-// 							ddat[ai] = getChar(t, -1);
-// 							pop(t);
-// 						}
-// 					}
-// 					else
-// 					{
-// 						foreach(i, dchar c; getString(t, idx))
-// 							ddat[i] = c;
-// 					}
-// 					break;
-
 				default: assert(false);
 			}
 		}
+		else
+			paramTypeError(t, idx, "int|float|function|array|Vector");
 		
 		pop(t);
 	}
@@ -885,16 +766,16 @@ static:
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
 		checkAnyParam(t, 2);
-		
+
 		if(idx < 0)
 			idx += memb.length;
-			
+
 		if(idx < 0 || idx > memb.length)
 			throwException(t, "Invalid index: {} (length: {})", idx, memb.length);
 
-		void[] doResize(long otherLen)
+		void[] doResize(ulong otherLen)
 		{
-			long totalLen = memb.length + otherLen;
+			ulong totalLen = memb.length + otherLen;
 
 			if(totalLen > uword.max)
 				throwException(t, "Invalid size ({})", totalLen);
@@ -925,57 +806,39 @@ static:
 			if(memb.type !is other.type)
 				throwException(t, "Attempting to insert a Vector of type '{}' into a Vector of type '{}'", typeNames[other.type.code], typeNames[memb.type.code]);
 
-			auto tmp = doResize(other.length);
-			auto isize = memb.type.itemSize;
-			memcpy(&tmp[cast(uword)idx * isize], other.data, other.length * isize);
+			if(other.length != 0)
+			{
+				auto tmp = doResize(other.length);
+				auto isize = memb.type.itemSize;
+				memcpy(&tmp[cast(uword)idx * isize], other.data, other.length * isize);
+			}
 		}
 		else
 		{
-// 			if(memb.type.code == TypeCode.c && isString(t, 2))
-// 			{
-// 				auto cpLen = len(t, 2);
-// 
-// 				if(cpLen != 0)
-// 				{
-// 					auto str = getString(t, 2);
-// 					doResize(cpLen);
-// 					auto dstr = (cast(dchar*)memb.data)[cast(uword)idx .. memb.length];
-// 
-// 					foreach(i, dchar c; str)
-// 						dstr[i] = c;
-// 				}
-// 			}
-// 			else
+			switch(memb.type.code)
 			{
-				switch(memb.type.code)
-				{
-					case
-						TypeCode.i8,
-						TypeCode.i16,
-						TypeCode.i32,
-						TypeCode.i64,
-						TypeCode.u8,
-						TypeCode.u16,
-						TypeCode.u32,
-						TypeCode.u64:
+				case
+					TypeCode.i8,
+					TypeCode.i16,
+					TypeCode.i32,
+					TypeCode.i64,
+					TypeCode.u8,
+					TypeCode.u16,
+					TypeCode.u32,
+					TypeCode.u64:
 
-						checkIntParam(t, 2);
-						break;
+					checkIntParam(t, 2);
+					break;
 
-					case TypeCode.f32, TypeCode.f64:
-						checkNumParam(t, 2);
-						break;
+				case TypeCode.f32, TypeCode.f64:
+					checkNumParam(t, 2);
+					break;
 
-// 					case TypeCode.c:
-// 						checkCharParam(t, 2);
-// 						break;
-
-					default: assert(false);
-				}
-
-				doResize(1);
-				memb.type.setItem(t, memb, cast(uword)idx, 2);
+				default: assert(false);
 			}
+
+			doResize(1);
+			memb.type.setItem(t, memb, cast(uword)idx, 2);
 		}
 
 		dup(t, 0);
@@ -1038,7 +901,6 @@ static:
 			case TypeCode.u64: pushInt(t, cast(mdint)minMaxImpl!(">")(cast(ulong*)memb.data, memb.length)); break;
 			case TypeCode.f32: pushFloat(t, minMaxImpl!(">")(cast(float*)memb.data, memb.length));          break;
 			case TypeCode.f64: pushFloat(t, minMaxImpl!(">")(cast(double*)memb.data, memb.length));         break;
-// 			case TypeCode.c:   pushChar(t, minMaxImpl!(">")(cast(dchar*)memb.data, memb.length));           break;
 			default: assert(false);
 		}
 
@@ -1064,7 +926,6 @@ static:
 			case TypeCode.u64: pushInt(t, cast(mdint)minMaxImpl!("<")(cast(ulong*)memb.data, memb.length)); break;
 			case TypeCode.f32: pushFloat(t, minMaxImpl!("<")(cast(float*)memb.data, memb.length));          break;
 			case TypeCode.f64: pushFloat(t, minMaxImpl!("<")(cast(double*)memb.data, memb.length));         break;
-// 			case TypeCode.c:   pushChar(t, minMaxImpl!("<")(cast(dchar*)memb.data, memb.length));           break;
 			default: assert(false);
 		}
 
@@ -1119,7 +980,6 @@ static:
 			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res *= val;  break;
 			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res *= val;  break;
 			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res *= val; break;
-// 			case TypeCode.c:   throwException(t, "cannot get the product of a character vector");
 			default: assert(false);
 		}
 
@@ -1206,7 +1066,6 @@ static:
 			case TypeCode.u64: (cast(ulong*)memb.data)[0 .. memb.length].sort;  break;
 			case TypeCode.f32: (cast(float*)memb.data)[0 .. memb.length].sort;  break;
 			case TypeCode.f64: (cast(double*)memb.data)[0 .. memb.length].sort; break;
-// 			case TypeCode.c:   (cast(dchar*)memb.data)[0 .. memb.length].sort;  break;
 			default: assert(false);
 		}
 
@@ -1232,7 +1091,6 @@ static:
 			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res += val;  break;
 			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res += val;  break;
 			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res += val; break;
-// 			case TypeCode.c:   throwException(t, "cannot get the sum of a character vector");
 			default: assert(false);
 		}
 
@@ -1285,17 +1143,6 @@ static:
 		return 1;
 	}
 
-// 	uword toStringValue(MDThread* t, uword numParams)
-// 	{
-// 		auto memb = getThis(t);
-// 
-// 		if(memb.type.code != TypeCode.c)
-// 			throwException(t, "toStringValue may only be called on character vectors, not '{}' vectors", typeNames[memb.type.code]);
-// 
-// 		pushFormat(t, "{}", (cast(dchar*)memb.data)[0 .. memb.length]);
-// 		return 1;
-// 	}
-
 	uword type(MDThread* t, uword numParams)
 	{
 		pushString(t, typeNames[getThis(t).type.code]);
@@ -1332,9 +1179,6 @@ static:
 				t.vm.alloc.resizeArray(tmp, cast(uword)newLen * isize);
 				memb.data = tmp.ptr;
 			}
-
-			if(newLen > oldLen)
-				(cast(byte*)memb.data)[oldLen * isize .. cast(uword)newLen * isize] = 0;
 		}
 
 		return 0;
@@ -1349,7 +1193,7 @@ static:
 			idx += memb.length;
 
 		if(idx < 0 || idx >= memb.length)
-			throwException(t, "Invalid index ({})", idx);
+			throwException(t, "Invalid index: {} (vector length: {})", idx, memb.length);
 
 		memb.type.getItem(t, memb, cast(uword)idx);
 		return 1;
@@ -1364,7 +1208,7 @@ static:
 			idx += memb.length;
 
 		if(idx < 0 || idx >= memb.length)
-			throwException(t, "Invalid index ({})", idx);
+			throwException(t, "Invalid index: {} (vector length: {})", idx, memb.length);
 
 		switch(memb.type.code)
 		{
@@ -1384,10 +1228,6 @@ static:
 			case TypeCode.f32, TypeCode.f64:
 				checkNumParam(t, 2);
 				break;
-
-// 			case TypeCode.c:
-// 				checkCharParam(t, 2);
-// 				break;
 
 			default: assert(false);
 		}
@@ -1550,7 +1390,6 @@ static:
 					TypeCode.u32,
 					TypeCode.u64:                checkIntParam(t, 1); break;
 				case TypeCode.f32, TypeCode.f64: checkNumParam(t, 1); break;
-// 				case TypeCode.c:                 checkCharParam(t, 1); break;
 				default: assert(false);
 			}
 
@@ -1587,7 +1426,6 @@ static:
 				TypeCode.u32,
 				TypeCode.u64:                checkIntParam(t, 1); break;
 			case TypeCode.f32, TypeCode.f64: checkNumParam(t, 1); break;
-// 			case TypeCode.c:                 checkCharParam(t, 1); break;
 			default: assert(false);
 		}
 
@@ -1640,7 +1478,6 @@ static:
 						TypeCode.u32,
 						TypeCode.u64:                checkIntParam(t, i);  break;
 					case TypeCode.f32, TypeCode.f64: checkNumParam(t, i);  break;
-// 					case TypeCode.c:                 checkCharParam(t, i); break;
 					default: assert(false);
 				}
 
@@ -1695,48 +1532,22 @@ static:
 				if(other.length != memb.length)
 					throwException(t, "Cannot perform operation on vectors of different lengths");
 
-// 				if(memb.type.code == TypeCode.c)
-// 				{
-// 					switch(other.type.code)
-// 					{
-// 						case TypeCode.i8, TypeCode.i16, TypeCode.i64, TypeCode.u8, TypeCode.u16, TypeCode.u64:
-// 							for(uword i = 0; i < memb.length; i++)
-// 							{
-// 								other.type.getItem(t, other, i);
-// 								(cast(dchar*)memb.data)[i] ` ~ op ~ `= getInt(t, -1);
-// 								pop(t);
-// 							}
-// 							break;
-// 
-// 						case TypeCode.i32, TypeCode.u32:
-// 							(cast(dchar*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(dchar*)other.data)[0 .. other.length];
-// 							break;
-// 
-// 						case TypeCode.f32, TypeCode.f64, TypeCode.c:
-// 							throwException(t, "Character vectors may only be used with integer vectors for this operation");
-// 
-// 						default: assert(false);
-// 					}
-// 				}
-// 				else
-				{
-					if(other.type !is memb.type)
-						throwException(t, "Cannot perform operation on vectors of types '{}' and '{}'", typeNames[memb.type.code], typeNames[other.type.code]);
+				if(other.type !is memb.type)
+					throwException(t, "Cannot perform operation on vectors of types '{}' and '{}'", typeNames[memb.type.code], typeNames[other.type.code]);
 
-					switch(memb.type.code)
-					{
-						case TypeCode.i8:  (cast(byte*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(byte*)other.data)[0 .. other.length];   break;
-						case TypeCode.i16: (cast(short*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(short*)other.data)[0 .. other.length];  break;
-						case TypeCode.i32: (cast(int*)memb.data)[0 .. memb.length]    ` ~ op ~ `= (cast(int*)other.data)[0 .. other.length];    break;
-						case TypeCode.i64: (cast(long*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(long*)other.data)[0 .. other.length];   break;
-						case TypeCode.u8:  (cast(ubyte*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(ubyte*)other.data)[0 .. other.length];  break;
-						case TypeCode.u16: (cast(ushort*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(ushort*)other.data)[0 .. other.length]; break;
-						case TypeCode.u32: (cast(uint*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(uint*)other.data)[0 .. other.length];   break;
-						case TypeCode.u64: (cast(ulong*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(ulong*)other.data)[0 .. other.length];  break;
-						case TypeCode.f32: (cast(float*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(float*)other.data)[0 .. other.length];  break;
-						case TypeCode.f64: (cast(double*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(double*)other.data)[0 .. other.length]; break;
-						default: assert(false);
-					}
+				switch(memb.type.code)
+				{
+					case TypeCode.i8:  (cast(byte*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(byte*)other.data)[0 .. other.length];   break;
+					case TypeCode.i16: (cast(short*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(short*)other.data)[0 .. other.length];  break;
+					case TypeCode.i32: (cast(int*)memb.data)[0 .. memb.length]    ` ~ op ~ `= (cast(int*)other.data)[0 .. other.length];    break;
+					case TypeCode.i64: (cast(long*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(long*)other.data)[0 .. other.length];   break;
+					case TypeCode.u8:  (cast(ubyte*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(ubyte*)other.data)[0 .. other.length];  break;
+					case TypeCode.u16: (cast(ushort*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(ushort*)other.data)[0 .. other.length]; break;
+					case TypeCode.u32: (cast(uint*)memb.data)[0 .. memb.length]   ` ~ op ~ `= (cast(uint*)other.data)[0 .. other.length];   break;
+					case TypeCode.u64: (cast(ulong*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(ulong*)other.data)[0 .. other.length];  break;
+					case TypeCode.f32: (cast(float*)memb.data)[0 .. memb.length]  ` ~ op ~ `= (cast(float*)other.data)[0 .. other.length];  break;
+					case TypeCode.f64: (cast(double*)memb.data)[0 .. memb.length] ` ~ op ~ `= (cast(double*)other.data)[0 .. other.length]; break;
+					default: assert(false);
 				}
 			}
 			else
@@ -1753,7 +1564,6 @@ static:
 					case TypeCode.u64: auto val = checkIntParam(t, 1); (cast(ulong*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(ulong)val;  break;
 					case TypeCode.f32: auto val = checkNumParam(t, 1); (cast(float*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(float)val;  break;
 					case TypeCode.f64: auto val = checkNumParam(t, 1); (cast(double*)memb.data)[0 .. memb.length] ` ~ op ~ `= cast(double)val; break;
-// 					case TypeCode.c:   auto val = checkIntParam(t, 1); (cast(dchar*)memb.data)[0 .. memb.length]  ` ~ op ~ `= cast(uint)val;   break;
 					default: assert(false);
 				}
 			}
@@ -1775,25 +1585,13 @@ static:
 			auto memb = getThis(t);
 			checkAnyParam(t, 1);
 
-			word first = 0, second = 1;
-
-			pushGlobal(t, "Vector");
-
-// 			if(as(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
-// 			{
-// 				first = 1;
-// 				second = 0;
-// 			}
-
-			pop(t);
-
-			auto ret = dup(t, first);
+			auto ret = dup(t, 0);
 			pushNull(t);
 			methodCall(t, -2, "dup", 1);
 
 			dup(t, ret);
 			pushNull(t);
-			dup(t, second);
+			dup(t, 1);
 			methodCall(t, -3, "op` ~ name ~ `Assign", 0);
 
 			return 1;
@@ -1813,25 +1611,13 @@ static:
 			auto memb = getThis(t);
 			checkAnyParam(t, 1);
 
-			word first = 0, second = 1;
-
-			pushGlobal(t, "Vector");
-
-// 			if(as(t, 1, -1) && getMembers!(Members)(t, 1).type.code == TypeCode.c)
-// 			{
-// 				first = 1;
-// 				second = 0;
-// 			}
-
-			pop(t);
-
-			auto ret = dup(t, first);
+			auto ret = dup(t, 0);
 			pushNull(t);
 			methodCall(t, -2, "dup", 1);
 
 			dup(t, ret);
 			pushNull(t);
-			dup(t, second);
+			dup(t, 1);
 			methodCall(t, -3, "rev` ~ name ~ `", 0);
 
 			return 1;
@@ -1850,9 +1636,6 @@ static:
 		return `uword rev` ~ name ~ `(MDThread* t, uword numParams)
 		{
 			auto memb = getThis(t);
-
-// 			if(memb.type.code == TypeCode.c)
-// 				throwException(t, "Cannot perform operation on character vectors");
 
 			checkAnyParam(t, 1);
 			pushGlobal(t, "Vector");

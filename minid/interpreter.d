@@ -3719,7 +3719,7 @@ Returns:
 bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
 	MDClass* dummy = void;
-	return lookupMethod(t, getValue(t, obj), string.create(t.vm, methodName), dummy) !is null;
+	return lookupMethod(t, getValue(t, obj), string.create(t.vm, methodName), dummy).type != MDValue.Type.Null;
 }
 
 /**
@@ -4231,7 +4231,7 @@ bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup
 	// If we're calling opMethod, the object is left where it is (or the custom context is moved to its place),
 	// the method name goes where the context was, and we use callPrologue2 with a closure that's not on the stack.
 
-	if(method !is null)
+	if(method.type != MDValue.Type.Null)
 	{
 		if(!customThis)
 			t.stack[slot + 1] = *self;
@@ -4242,9 +4242,9 @@ bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup
 	}
 	else
 	{
-		method = getMM(t, lookup, MM.Method, proto);
+		auto mm = getMM(t, lookup, MM.Method, proto);
 
-		if(method is null)
+		if(mm is null)
 		{
 			typeString(t, lookup);
 			throwException(t, "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
@@ -4257,7 +4257,7 @@ bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup
 
 		t.stack[slot + 1] = methodName;
 
-		return callPrologue2(t, method, slot, numReturns, slot, numParams + 1, proto);
+		return callPrologue2(t, mm, slot, numReturns, slot, numParams + 1, proto);
 	}
 }
 
@@ -5668,12 +5668,14 @@ MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
 	return t.vm.metaTabs[type];
 }
 
-MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* proto)
+MDValue lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* proto)
 {
 	switch(v.type)
 	{
 		case MDValue.Type.Class:
-			if(auto ret = getMethod(v.mClass, name, proto))
+			auto ret = getMethod(v.mClass, name, proto);
+			
+			if(ret.type != MDValue.Type.Null)
 				return ret;
 
 			goto default;
@@ -5682,7 +5684,9 @@ MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* p
 			return getMethod(v.mInstance, name, proto);
 
 		case MDValue.Type.Table:
-			if(auto ret = getMethod(v.mTable, name))
+			auto ret = getMethod(v.mTable, name);
+			
+			if(ret.type != MDValue.Type.Null)
 				return ret;
 
 			goto default;
@@ -5693,6 +5697,63 @@ MDFunction* lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* p
 		default:
 			return getMethod(t, v.type, name);
 	}
+}
+
+MDValue getMethod(MDClass* cls, MDString* name, out MDClass* proto)
+{
+	if(auto ret = classobj.getField(cls, name, proto))
+		return *ret;
+	else
+		return MDValue.nullValue;
+}
+
+MDValue getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
+{
+	MDValue dummy;
+	
+	if(auto ret = instance.getField(inst, name, dummy))
+	{
+		if(dummy == MDValue(inst))
+			proto = inst.parent;
+		else
+		{
+			assert(dummy.type == MDValue.Type.Class);
+			proto = dummy.mClass;
+		}
+
+		return *ret;
+	}
+	else
+		return MDValue.nullValue;
+}
+
+MDValue getMethod(MDTable* tab, MDString* name)
+{
+	if(auto ret = table.get(tab, MDValue(name)))
+		return *ret;
+	else
+		return MDValue.nullValue;
+}
+
+MDValue getMethod(MDNamespace* ns, MDString* name)
+{
+	if(auto ret = namespace.get(ns, name))
+		return *ret;
+	else
+		return MDValue.nullValue;
+}
+
+MDValue getMethod(MDThread* t, MDValue.Type type, MDString* name)
+{
+	auto mt = getMetatable(t, type);
+
+	if(mt is null)
+		return MDValue.nullValue;
+
+	if(auto ret = namespace.get(mt, name))
+		return *ret;
+	else
+		return MDValue.nullValue;
 }
 
 MDFunction* getMM(MDThread* t, MDValue* obj, MM method)
@@ -5708,83 +5769,29 @@ MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDClass* proto)
 	switch(obj.type)
 	{
 		case MDValue.Type.Instance:
-			return getMethod(obj.mInstance, name, proto);
+			auto ret = getMethod(obj.mInstance, name, proto);
+
+			if(ret.type == MDValue.Type.Function)
+				return ret.mFunction;
+			else
+				return null;
 
 		case MDValue.Type.Table:
-			if(auto ret = getMethod(obj.mTable, name))
-				return ret;
+			auto ret = getMethod(obj.mTable, name);
+			
+			if(ret.type == MDValue.Type.Function)
+				return ret.mFunction;
 
 			goto default;
 
 		default:
-			return getMethod(t, obj.type, name);
+			auto ret = getMethod(t, obj.type, name);
+			
+			if(ret.type == MDValue.Type.Function)
+				return ret.mFunction;
+			else
+				return null;
 	}
-}
-
-MDFunction* getMethod(MDClass* cls, MDString* name, out MDClass* proto)
-{
-	auto ret = classobj.getField(cls, name, proto);
-
-	if(ret is null || ret.type != MDValue.Type.Function)
-		return null;
-	else
-		return ret.mFunction;
-}
-
-MDFunction* getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
-{
-	MDValue dummy;
-	auto ret = instance.getField(inst, name, dummy);
-
-	if(ret is null || ret.type != MDValue.Type.Function)
-		return null;
-	else
-	{
-		if(dummy == MDValue(inst))
-			proto = inst.parent;
-		else
-		{
-			assert(dummy.type == MDValue.Type.Class);
-			proto = dummy.mClass;
-		}
-
-		return ret.mFunction;
-	}
-}
-
-MDFunction* getMethod(MDTable* tab, MDString* name)
-{
-	auto ret = table.get(tab, MDValue(name));
-
-	if(ret is null || ret.type != MDValue.Type.Function)
-		return null;
-	else
-		return ret.mFunction;
-}
-
-MDFunction* getMethod(MDNamespace* ns, MDString* name)
-{
-	auto ret = namespace.get(ns, name);
-
-	if(ret is null || ret.type != MDValue.Type.Function)
-		return null;
-	else
-		return ret.mFunction;
-}
-
-MDFunction* getMethod(MDThread* t, MDValue.Type type, MDString* name)
-{
-	auto mt = getMetatable(t, type);
-
-	if(mt is null)
-		return null;
-
-	auto ret = namespace.get(mt, name);
-
-	if(ret is null || ret.type != MDValue.Type.Function)
-		return null;
-	else
-		return ret.mFunction;
 }
 
 // Calling and execution
@@ -6255,7 +6262,8 @@ template tryMMImpl(int numParams, bool hasDest)
 	const char[] tryMMImpl =
 	"bool tryMM(MDThread* t, MM mm, " ~ (hasDest? "MDValue* dest, " : "") ~ tryMMParams!(numParams) ~ ")\n"
 	"{\n"
-	"	auto method = getMM(t, src1, mm);\n"
+	"	MDClass* proto = null;"
+	"	auto method = getMM(t, src1, mm, proto);\n"
 	"\n"
 	"	if(method is null)\n"
 	"		return false;\n"
@@ -6272,7 +6280,8 @@ template tryMMImpl(int numParams, bool hasDest)
 	"\n"
 	"	auto funcSlot = pushFunction(t, method);\n"
 	~ tryMMPushes!(numParams) ~
-	"	rawCall(t, funcSlot, " ~ (hasDest ? "1" : "0") ~ ");\n"
+	"	commonCall(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", callPrologue(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", " ~ numParams.stringof ~ ", proto));\n"
+//	"	rawCall(t, funcSlot, " ~ (hasDest ? "1" : "0") ~ ");\n"
 	~
 	(hasDest?
 		"	if(shouldLoad)\n"

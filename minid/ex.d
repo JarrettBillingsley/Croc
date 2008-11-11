@@ -57,6 +57,26 @@ public struct CreateClass
 		if(stackSize(t) > co.idx + 1)
 			setStackSize(t, co.idx + 1);
 	}
+	
+	public static void opCall(MDThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
+	{
+		CreateClass co;
+		co.t = t;
+		co.name = name;
+
+		co.idx = lookup(t, base);
+		newClass(t, -1, name);
+		swap(t);
+		pop(t);
+
+		dg(&co);
+
+		if(co.idx >= stackSize(t))
+			throwException(t, "You popped the class {} before it could be finished!", name);
+
+		if(stackSize(t) > co.idx + 1)
+			setStackSize(t, co.idx + 1);
+	}
 
 	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
