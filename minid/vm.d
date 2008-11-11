@@ -23,6 +23,7 @@ subject to the following restrictions:
 
 module minid.vm;
 
+import Float = tango.text.convert.Float;
 import tango.io.FilePath;
 import tango.stdc.stdlib;
 import tango.text.convert.Layout;
@@ -87,7 +88,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
 	vm.registry = namespace.create(vm.alloc, string.create(vm, "<registry>"));
-	vm.formatter = new Layout!(char)();
+	vm.formatter = new CustomLayout();
 
 	auto t = vm.mainThread;
 
@@ -97,4 +98,45 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 
 	// Set up the modules module
 	ModulesLib.init(t);
+}
+
+package class CustomLayout : Layout!(char)
+{
+	protected override char[] floater(char[] output, real v, char[] format)
+	{
+		char style = 'f';
+
+		// extract formatting style and decimal-places
+		if(format.length)
+		{
+			uint number;
+			auto p = format.ptr;
+			auto e = p + format.length;
+			style = *p;
+
+			while(++p < e)
+			{
+				if(*p >= '0' && *p <= '9')
+					number = number * 10 + *p - '0';
+				else
+					break;
+			}
+
+			if(p - format.ptr > 1)
+				return Float.format(output, v, number, (style == 'e' || style == 'E') ? 0 : 10);
+		}
+
+		if(style == 'e' || style == 'E')
+			return Float.format(output, v, 2, 0);
+		else
+		{
+			auto str = Float.format(output, v, 6);
+			auto tmp = Float.truncate(str);
+
+			if(tmp.locate('.') == tmp.length && str.length >= tmp.length + 2)
+				tmp = str[0 .. tmp.length + 2];
+
+			return tmp;
+		}
+	}
 }

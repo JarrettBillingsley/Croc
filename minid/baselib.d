@@ -32,6 +32,7 @@ import tango.io.Stdout;
 import tango.stdc.ctype;
 import Utf = tango.text.convert.Utf;
 
+import minid.alloc;
 import minid.classobj;
 import minid.compiler;
 import minid.ex;
@@ -873,23 +874,46 @@ static:
 
 	uword toJSON(MDThread* t, uword numParams)
 	{
-		static scope class CleanupBuffer : GrowBuffer
+		static scope class MDHeapBuffer : GrowBuffer
 		{
-			this(uint size = 1024, uint increment = 1024)
+			Allocator* alloc;
+			uint increment;
+
+			this(ref Allocator alloc)
 			{
-				super(size, increment);
+				this.alloc = &alloc;
+				setContent(alloc.allocArray!(ubyte)(1024), 0);
+				this.increment = 1024;
 			}
-			
+
 			~this()
 			{
-				delete data;
+				alloc.freeArray(data);
+			}
+			
+			override uint fill(InputStream src)
+			{
+				if(writable <= increment / 8)
+					expand(increment);
+					
+				return write(&src.read);
+			}
+
+			override uint expand(uint size)
+			{
+				if(size < increment)
+					size = increment;
+
+				dimension += size;
+				alloc.resizeArray(data, dimension);
+				return writable;
 			}
 		}
 
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
 
-		scope buf = new CleanupBuffer();
+		scope buf = new MDHeapBuffer(t.vm.alloc);
 		scope printer = new Print!(char)(t.vm.formatter, buf);
 
 		toJSONImpl(t, 1, pretty, printer);

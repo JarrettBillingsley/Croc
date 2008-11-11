@@ -1,6 +1,6 @@
 module samples.simple
 
-
+writeln(toJSON([1, 2, 3, {x = 5}]))
 
 /+
 /*

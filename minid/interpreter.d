@@ -4323,14 +4323,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 		case MDValue.Type.Null:  return pushString(t, "null");
 		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
 		case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
-		case MDValue.Type.Float:
-			auto str = Float.format(buffer, v.mFloat, 6);
-			auto tmp = Float.truncate(str);
-
-			if(tmp.locate('.') == tmp.length && str.length >= tmp.length + 2)
-				tmp = str[0 .. tmp.length + 2];
-
-			return pushString(t, tmp);
+		case MDValue.Type.Float: return pushString(t, t.vm.formatter.convertOne(buffer, typeid(mdfloat), &v.mFloat));
 
 		case MDValue.Type.Char:
 			dchar[1] inbuf = void;

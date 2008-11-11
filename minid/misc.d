@@ -42,8 +42,6 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 {
 	void output(char[] fmt, uword param, bool isRaw)
 	{
-		pushToString(t, param, isRaw);
-
 		if(fmt[1] == 'r' || isdigit(fmt[1]))
 		{
 			auto begin = 2;
@@ -55,12 +53,35 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 			auto tmp = (cast(char*) alloca(fmt.length - begin + 1))[0 .. fmt.length - begin + 1];
 			tmp[0] = '{';
 			tmp[1 .. $] = fmt[begin .. $];
-			t.vm.formatter.convert(sink, tmp, getString(t, -1));
+			
+			switch(type(t, param))
+			{
+				case MDValue.Type.Int:   t.vm.formatter.convert(sink, tmp, getInt(t, param)); break;
+				case MDValue.Type.Float: t.vm.formatter.convert(sink, tmp, getFloat(t, param)); break;
+				case MDValue.Type.Char:  t.vm.formatter.convert(sink, tmp, getChar(t, param)); break;
+
+				default:
+					pushToString(t, param, isRaw);
+					t.vm.formatter.convert(sink, tmp, getString(t, -1));
+					pop(t);
+					break;
+			}
 		}
 		else
-			t.vm.formatter.convert(sink, fmt, getString(t, -1));
+		{
+			switch(type(t, param))
+			{
+				case MDValue.Type.Int:   t.vm.formatter.convert(sink, fmt, getInt(t, param)); break;
+				case MDValue.Type.Float: t.vm.formatter.convert(sink, fmt, getFloat(t, param)); break;
+				case MDValue.Type.Char:  t.vm.formatter.convert(sink, fmt, getChar(t, param)); break;
 
-		pop(t);
+				default:
+					pushToString(t, param, isRaw);
+					t.vm.formatter.convert(sink, fmt, getString(t, -1));
+					pop(t);
+					break;
+			}
+		}
 	}
 
 	if(numParams > 64)

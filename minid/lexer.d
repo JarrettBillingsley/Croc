@@ -583,7 +583,7 @@ struct Lexer
 						}
 
 						try
-							iret = Integer.toInt(buf[0 .. i], 2);
+							iret = Integer.toLong(buf[0 .. i], 2);
 						catch(IllegalArgumentException e)
 							mCompiler.exception(beginning, "Invalid binary integer literal");
 
@@ -604,7 +604,7 @@ struct Lexer
 						}
 
 						try
-							iret = Integer.toInt(buf[0 .. i], 8);
+							iret = Integer.toLong(buf[0 .. i], 8);
 						catch(IllegalArgumentException e)
 							mCompiler.exception(beginning, "Invalid octal integer literal");
 
@@ -625,7 +625,7 @@ struct Lexer
 						}
 
 						try
-							iret = Integer.toInt(buf[0 .. i], 16);
+							iret = Integer.toLong(buf[0 .. i], 16);
 						catch(IllegalArgumentException e)
 							mCompiler.exception(beginning, "Invalid hexadecimal integer literal");
 
@@ -727,7 +727,7 @@ struct Lexer
 		if(!hasPoint && !hasExponent)
 		{
 			try
-				iret = Integer.toInt(buf[0 .. i], 10);
+				iret = Integer.toLong(buf[0 .. i], 10);
 			catch(IllegalArgumentException e)
 				mCompiler.exception(beginning, "Invalid decimal integer literal");
 
