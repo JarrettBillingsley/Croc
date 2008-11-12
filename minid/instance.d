@@ -41,10 +41,12 @@ static:
 	package MDInstance* create(ref Allocator alloc, MDClass* parent, uword numValues = 0, uword extraBytes = 0)
 	{
 		auto i = alloc.allocate!(MDInstance)(InstanceSize(numValues, extraBytes));
+
 		i.parent = parent;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;
 		i.finalizer = parent.finalizer;
+		i.extraValues()[] = MDValue.nullValue;
 
 		return i;
 	}

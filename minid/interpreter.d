@@ -756,13 +756,13 @@ TODO: doc me
 word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
 	auto b = getClass(t, base);
-	
+
 	if(b is null)
 	{
 		pushTypeString(t, base);
 		throwException(t, "newInstance - expected 'class' for base, not '{}'", getString(t, -1));
 	}
-	
+
 	maybeGC(t);
 	return pushInstance(t, instance.create(t.vm.alloc, b, numValues, extraBytes));
 }
@@ -2183,7 +2183,7 @@ word getExtraVal(MDThread* t, word slot, uword idx)
 {
 	if(auto i = getInstance(t, slot))
 	{
-		if(idx > i.numValues)
+		if(idx >= i.numValues)
 			throwException(t, "getExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
 		return push(t, i.extraValues()[idx]);
