@@ -153,7 +153,14 @@ template CondMark(char[] name)
 	{
 		auto obj = " ~ name ~ ".toGCObject();
 
-		if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
+		if(" ~ name ~ ".type == MDValue.Type.WeakRef && " ~ name ~ ".mWeakRef.obj is null)
+		{
+			static if(is(typeof(" ~ name ~ ") == MDValue*))
+				*" ~ name ~ " = MDValue.nullValue;
+			else
+				" ~ name ~ " = MDValue.nullValue;
+		}
+		else if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
 			markObj(vm, obj);
 	}";
 }
@@ -198,6 +205,8 @@ void markObj(MDVM* vm, MDTable* o)
 		mixin(CondMark!("key"));
 		mixin(CondMark!("val"));
 	}
+	
+	table.normalize(o);
 }
 
 // Mark an array.

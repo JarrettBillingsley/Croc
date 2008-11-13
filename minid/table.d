@@ -81,4 +81,20 @@ static:
 	{
 		return t.data.length();
 	}
+	
+	package void normalize(MDTable* t)
+	{
+		uword i = 0;
+		MDValue* k = void;
+		MDValue* v = void;
+
+		while(t.data.next(i, k, v))
+		{
+			if(k.type == MDValue.Type.Null || v.type == MDValue.Type.Null)
+			{
+				t.data.remove(*k);
+				i--;
+			}
+		}
+	}
 }

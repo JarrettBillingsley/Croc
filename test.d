@@ -6,7 +6,7 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 import minid.api;
 import minid.bind;
 
-//version = TestArc;
+// version = TestArc;
 
 void main()
 {
@@ -16,8 +16,24 @@ void main()
 	auto t = openVM(&vm);
 	loadStdlibs(t);
 
+	newFunction(t, function uword(MDThread* t, uword numParams) { pushInt(t, bytesAllocated(getVM(t))); return 1; }, "totalBytes");
+	newGlobal(t, "totalBytes");
+
 	version(TestArc)
 		ArcLib.init(t);
+		
+	{
+		WrapGlobals!
+		(
+			WrapType!
+			(
+				A, "A",
+				WrapCtors!(void function(int)),
+				WrapProperty!(A.x),
+				WrapMethod!(A.fork)
+			)
+		)(t);
+	}
 
 	try
 	{
@@ -48,6 +64,23 @@ void main()
 	closeVM(&vm);
 }
 
+class A
+{
+	int mX;
+	
+	this(int x)
+	{
+		mX = x;
+	}
+	
+	int x() { return mX; }
+	
+	A fork(A a)
+	{
+		return a;
+	}
+}
+
 version(TestArc)
 {
 
@@ -73,12 +106,80 @@ static:
 	{
 		WrapModule!
 		(
-			"arc.draw.shape"
-// 			WrapFunc!(arc.draw.shape.drawPixel),
-// 			WrapFunc!(arc.draw.shape.drawLine),
-// 			WrapFunc!(arc.draw.shape.drawCircle),
-// 			WrapFunc!(arc.draw.shape.drawRectangle)
-// 			WrapFunc!(arc.draw.shape.drawPolygon)
+			"arc.draw.color",
+
+			WrapType!
+			(
+				Color,
+				"Color",
+				WrapCtors!
+				(
+					void function(int, int, int),
+					void function(int, int, int, int),
+					void function(float, float, float),
+					void function(float, float, float, float)
+				),
+
+				WrapMethod!(Color.setR),
+				WrapMethod!(Color.setG),
+				WrapMethod!(Color.setB),
+				WrapMethod!(Color.setA),
+				WrapMethod!(Color.getR),
+				WrapMethod!(Color.getG),
+				WrapMethod!(Color.getB),
+				WrapMethod!(Color.getA),
+				WrapMethod!(Color.setGLColor)
+			)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.draw.image",
+			WrapFunc!(arc.draw.image.drawImage),
+			WrapFunc!(arc.draw.image.drawImageTopLeft),
+			WrapFunc!(arc.draw.image.drawImageSubsection)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.draw.shape",
+			WrapFunc!(arc.draw.shape.drawPixel),
+			WrapFunc!(arc.draw.shape.drawLine),
+			WrapFunc!(arc.draw.shape.drawCircle),
+			WrapFunc!(arc.draw.shape.drawRectangle),
+			WrapFunc!(arc.draw.shape.drawPolygon)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.font",
+			WrapFunc!(arc.font.open),
+			WrapFunc!(arc.font.close),
+			
+			WrapNamespace!
+			(
+				"LCDFilter",
+				WrapValue!("Standard", LCDFilter.Standard),
+				WrapValue!("Crisp", LCDFilter.Crisp),
+				WrapValue!("None", LCDFilter.None)
+			),
+
+			WrapType!
+			(
+				Font,
+				"Font",
+				WrapCtors!(void function(char[], int)),
+
+				WrapMethod!(Font.getWidth!(char)),
+				WrapMethod!(Font.getWidthLastLine!(char)),
+				WrapMethod!(Font.getHeight),
+				WrapMethod!(Font.getLineSkip),
+				WrapMethod!(Font.setLineGap),
+				WrapMethod!(Font.draw, void function(char[], Point, Color)),
+				WrapMethod!(Font.calculateIndex!(char)),
+				WrapMethod!(Font.searchIndex!(char)),
+				WrapMethod!(Font.lcdFilter)
+			)
 		)(t);
 
 		WrapModule!
@@ -100,15 +201,15 @@ static:
 			WrapFunc!(arc.input.mouseButtonUp),
 			WrapFunc!(arc.input.mouseX),
 			WrapFunc!(arc.input.mouseY),
-// 			WrapFunc!(arc.input.mousePos),
+			WrapFunc!(arc.input.mousePos),
 			WrapFunc!(arc.input.mouseOldX),
 			WrapFunc!(arc.input.mouseOldY),
-// 			WrapFunc!(arc.input.mouseOldPos),
+			WrapFunc!(arc.input.mouseOldPos),
 			WrapFunc!(arc.input.mouseMotion),
 			WrapFunc!(arc.input.defaultCursorVisible),
 			WrapFunc!(arc.input.wheelUp),
 			WrapFunc!(arc.input.wheelDown),
-// 			.type(WrapClass!(JoystickException, void function(char[]))())
+			WrapType!(JoystickException, "JoystickException", WrapCtors!(void function(char[]))),
 			WrapFunc!(arc.input.numJoysticks),
 			WrapFunc!(arc.input.openJoysticks),
 			WrapFunc!(arc.input.closeJoysticks),
@@ -134,7 +235,8 @@ static:
 				WrapValue!("Down", ARC_DOWN),
 				WrapValue!("Left", ARC_LEFT),
 				WrapValue!("Right", ARC_RIGHT),
-				WrapValue!("Esc", ARC_ESCAPE)
+				WrapValue!("Esc", ARC_ESCAPE),
+				WrapValue!("Space", ARC_SPACE)
 			),
 
 			WrapNamespace!
@@ -157,7 +259,15 @@ static:
 			(
 				Point,
 				"Point",
-				WrapCtors!(void function(float, float)),
+				WrapCtors!
+				(
+					// only the (float, float) ctor actually exists.
+					// we're abusing the binding lib to perform autoconversion of ints to floats for this ctor ;)
+					void function(float, float),
+					void function(float, int),
+					void function(int, float),
+					void function(int, int)
+				),
 
 				WrapMethod!(Point.set),
 				WrapMethod!(Point.angle),
@@ -196,6 +306,143 @@ static:
 
 		WrapModule!
 		(
+			"arc.math.rect",
+			WrapType!
+			(
+				Rect,
+				"Rect",
+				WrapCtors!
+				(
+					void function(float, float, float, float),
+					void function(Point, Size),
+					void function(Size),
+					void function(float, float)
+				),
+
+				WrapMethod!(Rect.getBottomRight),
+				WrapMethod!(Rect.getTop),
+				WrapMethod!(Rect.getLeft),
+				WrapMethod!(Rect.getBottom),
+				WrapMethod!(Rect.getRight),
+				WrapMethod!(Rect.getPosition),
+				WrapMethod!(Rect.getSize),
+				WrapMethod!(Rect.move),
+				WrapMethod!(Rect.contains),
+				WrapMethod!(Rect.intersects)
+			)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.math.size",
+			WrapType!
+			(
+				Size, 
+				"Size",
+				WrapCtors!(void function(float, float)),
+
+				WrapMethod!(Size.set),
+				WrapMethod!(Size.toString, "toString"),
+				WrapMethod!(Size.maxComponent),
+				WrapMethod!(Size.minComponent),
+				WrapMethod!(Size.opNeg),
+				WrapMethod!(Size.scale),
+				WrapMethod!(Size.abs),
+				WrapMethod!(Size.absCopy),
+				WrapMethod!(Size.clamp),
+				WrapMethod!(Size.randomise, "randomize"),
+				WrapMethod!(Size.getWidth),
+				WrapMethod!(Size.getHeight),
+				WrapMethod!(Size.setWidth),
+				WrapMethod!(Size.setHeight),
+				WrapMethod!(Size.addW),
+				WrapMethod!(Size.addH)
+			)
+		)(t);
+		
+		WrapModule!
+		(
+			"arc.sound",
+			WrapFunc!(arc.sound.open),
+			WrapFunc!(arc.sound.close),
+			WrapFunc!(arc.sound.process),
+			WrapFunc!(arc.sound.on),
+			WrapFunc!(arc.sound.off),
+			WrapFunc!(arc.sound.isSoundOn),
+
+			WrapType!
+			(
+				Sound,
+				"Sound",
+				WrapCtors!(void function(SoundFile)),
+
+				WrapMethod!(Sound.getSound),
+				WrapMethod!(Sound.setSound),
+				WrapMethod!(Sound.setGain),
+				WrapMethod!(Sound.getPitch),
+				WrapMethod!(Sound.setPitch),
+				WrapMethod!(Sound.getVolume),
+				WrapMethod!(Sound.setVolume),
+				WrapMethod!(Sound.getLooping),
+				WrapMethod!(Sound.setLoop),
+				WrapMethod!(Sound.getPaused),
+				WrapMethod!(Sound.setPaused),
+				WrapMethod!(Sound.play),
+				WrapMethod!(Sound.pause),
+				WrapMethod!(Sound.seek),
+				WrapMethod!(Sound.tell),
+				WrapMethod!(Sound.stop),
+				WrapMethod!(Sound.updateBuffers),
+				WrapMethod!(Sound.process)
+			),
+
+			WrapType!
+			(
+				SoundFile,
+				"SoundFile",
+				WrapCtors!(void function(char[])),
+
+				WrapMethod!(SoundFile.getFrequency),
+				WrapMethod!(SoundFile.getBuffers, "getBuffersList", uint[] function()),
+				WrapMethod!(SoundFile.getBuffersLength),
+				WrapMethod!(SoundFile.getBuffersPerSecond),
+				WrapMethod!(SoundFile.getLength),
+				WrapMethod!(SoundFile.getSize),
+				WrapMethod!(SoundFile.getSource),
+				WrapMethod!(SoundFile.getBuffers, uint[] function(int, int)),
+				WrapMethod!(SoundFile.allocBuffers),
+				WrapMethod!(SoundFile.freeBuffers),
+				WrapMethod!(SoundFile.print)
+			)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.texture",
+			WrapFunc!(arc.texture.incrementTextureCount),
+			WrapFunc!(arc.texture.assignTextureID),
+			WrapFunc!(arc.texture.load),
+			WrapFunc!(arc.texture.enableTexturing),
+
+			WrapType!
+			(
+				arc.texture.Texture,
+				"Texture",
+				WrapCtors!
+				(
+					void function(char[]),
+					void function(Size, Color)
+				),
+
+				WrapMethod!(arc.texture.Texture.getID),
+				WrapMethod!(arc.texture.Texture.getFile),
+				WrapMethod!(arc.texture.Texture.getSize),
+				WrapMethod!(arc.texture.Texture.getTextureSize)
+			)
+		)(t);
+
+		WrapModule!
+		(
 			"arc.time",
 			WrapFunc!(arc.time.open),
 			WrapFunc!(arc.time.close),
@@ -215,7 +462,7 @@ static:
 			WrapFunc!(arc.window.close),
 			WrapFunc!(arc.window.getWidth),
 			WrapFunc!(arc.window.getHeight),
-// 			WrapFunc!(arc.window.getSize),
+			WrapFunc!(arc.window.getSize),
 			WrapFunc!(arc.window.isFullScreen),
 			WrapFunc!(arc.window.resize),
 			WrapFunc!(arc.window.toggleFullScreen),
@@ -227,10 +474,10 @@ static:
 			WrapNamespace!
 			(
 				"coordinates",
-// 				WrapFunc!(arc.window.coordinates.setSize),
-// 				WrapFunc!(arc.window.coordinates.setOrigin),
-// 				WrapFunc!(arc.window.coordinates.getSize),
-// 				WrapFunc!(arc.window.coordinates.getOrigin),
+				WrapFunc!(arc.window.coordinates.setSize),
+				WrapFunc!(arc.window.coordinates.setOrigin),
+				WrapFunc!(arc.window.coordinates.getSize),
+				WrapFunc!(arc.window.coordinates.getOrigin),
 				WrapFunc!(arc.window.coordinates.getWidth),
 				WrapFunc!(arc.window.coordinates.getHeight)
 			)
