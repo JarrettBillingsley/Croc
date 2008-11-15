@@ -1,4 +1,6 @@
 /******************************************************************************
+This module is $(B way) too big!
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
@@ -1550,18 +1552,20 @@ After catching an exception, you can get a traceback, which is the sequence of f
 thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
 and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
 that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
-work across native functionc calls, in which case the name of the function will be noted but no line number will be
+work across native function calls, in which case the name of the function will be noted but no line number will be
 given since that would be impossible; instead it is marked as "(native)".
 
 When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
 sort of form:
 
 -----
-Traceback: function.that.threw.exception(9)
+Traceback; function.that.threw.exception(9)
         at function.that.called.it(23)
         at <5 tailcalls>(?)
         at some.native.function(native)
 -----
+
+(Due to a DDoc bug, it's actually "Traceback:", not "Traceback;".)
 
 Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
 native API manipulations cause an error.
