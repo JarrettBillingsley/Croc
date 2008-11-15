@@ -30,237 +30,38 @@ module minid.utils;
 
 import tango.core.Traits;
 import tango.core.Tuple;
-import tango.core.Vararg;
-import tango.io.Buffer;
-import tango.io.device.FileConduit;
-import tango.io.Print;
-import tango.io.protocol.model.IReader;
-import tango.io.protocol.model.IWriter;
-import tango.io.Stdout;
-import tango.stdc.stdlib;
-import tango.stdc.string;
 import tango.text.convert.Utf;
 import tango.text.Util;
-import tango.time.StopWatch;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
 
 /**
-Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+See if a string starts with another string.  Useful.
 */
-template isStringType(T)
+public bool startsWith(T)(T[] string, T[] pattern)
 {
-	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
+	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
 }
 
 /**
-Sees if a type is char, wchar, or dchar.
+See if a string ends with another string.  Also useful.
 */
-template isCharType(T)
+public bool endsWith(T)(T[] string, T[] pattern)
 {
-	const bool isCharType = is(T == char) || is(T == wchar) || is(T == dchar);
-}
-
-/**
-Sees if a type is a signed or unsigned byte, short, int, or long.
-*/
-template isIntType(T)
-{
-	const bool isIntType = is(T == int) || is(T == uint) || is(T == long) || is(T == ulong) ||
-							is(T == short) || is(T == ushort) || is(T == byte) || is(T == ubyte) /* || is(T == cent) || is(T == ucent) */;
-}
-
-/**
-Sees if a type is float, double, or real.
-*/
-template isFloatType(T)
-{
-	const bool isFloatType = is(T == float) || is(T == double) || is(T == real);
-}
-
-/**
-Sees if a type is an array.
-*/
-template isArrayType(T)
-{
-	const bool isArrayType = false;
-}
-
-template isArrayType(T : T[])
-{
-	const bool isArrayType = true;
-}
-
-/**
-Sees if a type is an associative array.
-*/
-template isAAType(T)
-{
-	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
-}
-
-/**
-Sees if a type is a pointer.
-*/
-template isPointerType(T)
-{
-	const bool isPointerType = is(typeof(*T)) && !isArrayType!(T);
-}
-
-/**
-Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
-*/
-template realType(T)
-{
-	static if(is(T Base == typedef) || is(T Base == enum))
-		alias realType!(Base) realType;
-	else
-		alias T realType;
-}
-
-/**
-Determine if a given aggregate type contains any unions, explicit or anonymous.
-Thanks to Frits van Bommel for the original code.
-*/
-template hasUnions(T, size_t Idx = 0)
-{
-	static if(!is(typeof(T.tupleof)))
-		const bool hasUnions = false;
-	else static if(is(realType!(T) == union))
-		const bool hasUnions = true;
-	else static if(Idx < T.tupleof.length)
-	{
-		static if(is(realType!(typeof(T.tupleof)[Idx]) == union))
-			const bool hasUnions = true;
-		else static if(Idx + 1 < T.tupleof.length && T.tupleof[Idx].offsetof + T.tupleof[Idx].sizeof > T.tupleof[Idx + 1].offsetof)
-			const bool hasUnions = true;
-		else
-		{
-			static if(is(typeof(T.tupleof)[Idx] == struct))
-				const bool hasUnions = hasUnions!(typeof(T.tupleof)[Idx]) || hasUnions!(T, Idx + 1);
-			else
-				const bool hasUnions = hasUnions!(T, Idx + 1);
-		}
-	}
-	else
-		const bool hasUnions = false;
-}
-
-unittest
-{
-	assert(isStringType!(char[]));
-	assert(isStringType!(wchar[]));
-	assert(isStringType!(dchar[]));
-	assert(!isStringType!(int));
-	assert(!isStringType!(Object));
-	
-	assert(isCharType!(char));
-	assert(isCharType!(wchar));
-	assert(isCharType!(dchar));
-	assert(!isCharType!(int));
-	assert(!isCharType!(Object));
-	
-	assert(isIntType!(int));
-	assert(isIntType!(uint));
-	assert(isIntType!(byte));
-	assert(isIntType!(ulong));
-	assert(!isIntType!(float));
-	assert(!isIntType!(bool));
-	assert(!isIntType!(creal));
-	assert(!isIntType!(dchar));
-
-	assert(isFloatType!(float));
-	assert(isFloatType!(double));
-	assert(isFloatType!(real));
-	assert(!isFloatType!(ifloat));
-	assert(!isFloatType!(int));
-	assert(!isFloatType!(Object));
-	
-	assert(isArrayType!(int[]));
-	assert(isArrayType!(char[]));
-	assert(isArrayType!(int[3][4]));
-	assert(!isArrayType!(int[int]));
-	assert(!isArrayType!(Object));
-
-	assert(isPointerType!(int*));
-	assert(!isPointerType!(int[]));
-	assert(!isPointerType!(Object));
-	
-	typedef int X;
-	typedef X Y;
-	
-	assert(is(realType!(X) == int));
-	assert(is(realType!(Y) == int));
-	
-	union U {}
-	typedef U V;
-	
-	struct A {}
-	struct B { U u; }
-	struct C { V v; }
-	struct D { union { int x; int y; } }
-	struct E { D d; }
-
-	assert(!hasUnions!(A));
-	assert(hasUnions!(B));
-	assert(hasUnions!(C));
-	assert(hasUnions!(D));
-	assert(hasUnions!(E));
+	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
 
 /**
 Compare two values, a and b, using < and >.  Returns -1 if a < b, 1 if a > b, and 0 otherwise.
 */
-int Compare3(T)(T a, T b)
+public int Compare3(T)(T a, T b)
 {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
 
 /**
-Compares dchar[] strings stupidly (just by character value, not lexicographically).
-*/
-int dcmp(dchar[] s1, dchar[] s2)
-{
-	auto len = s1.length;
-
-	if(s2.length < len)
-		len = s2.length;
-
-	auto result = mismatch(s1.ptr, s2.ptr, len);
-
-	if(result == len)
-		return Compare3(s1.length, s2.length);
-	else
-		return Compare3(s1[result], s2[result]);
-}
-
-/**
 Compares char[] strings stupidly (just by character value, not lexicographically).
 */
-int scmp(char[] s1, char[] s2)
+public int scmp(char[] s1, char[] s2)
 {
-	auto len = s1.length;
-
-	if(s2.length < len)
-		len = s2.length;
-
-	auto result = mismatch(s1.ptr, s2.ptr, len);
-
-	if(result == len)
-		return Compare3(s1.length, s2.length);
-	else
-		return Compare3(s1[result], s2[result]);
-}
-
-/**
-Compares dchar[] strings stupidly, but case-insensitively.
-*/
-int idcmp(dchar[] s1, dchar[] s2)
-{
-	dchar[64] buf1, buf2;
-	s1 = Uni.toFold(s1, buf1);
-	s2 = Uni.toFold(s2, buf2);
-
 	auto len = s1.length;
 
 	if(s2.length < len)
@@ -277,7 +78,7 @@ int idcmp(dchar[] s1, dchar[] s2)
 /**
 Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
 */
-size_t verify(char[] s)
+public size_t verify(char[] s)
 {
 	size_t ret = 0;
 
@@ -290,7 +91,7 @@ size_t verify(char[] s)
 /**
 Slice a UTF-8 string using codepoint indices.
 */
-char[] uniSlice(char[] s, size_t lo, size_t hi)
+public char[] uniSlice(char[] s, size_t lo, size_t hi)
 {
 	if(lo == hi)
 		return null;
@@ -322,7 +123,7 @@ char[] uniSlice(char[] s, size_t lo, size_t hi)
 /**
 Get the character in a UTF-8 string at the given codepoint index.
 */
-dchar uniCharAt(char[] s, size_t idx)
+public dchar uniCharAt(char[] s, size_t idx)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -339,24 +140,85 @@ dchar uniCharAt(char[] s, size_t idx)
 /**
 Convert a codepoint index into a UTF-8 string into a byte index.
 */
-size_t uniCPIdxToByte(char[] s, size_t fake)
+public size_t uniCPIdxToByte(char[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;
-	
+
 	for(size_t i = 0; i < fake; i++)
 	{
 		decode(tmp, ate);
 		tmp = tmp[ate .. $];
 	}
-	
+
 	return tmp.ptr - s.ptr;
+}
+
+/**
+Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+*/
+public template isStringType(T)
+{
+	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
+}
+
+/**
+Sees if a type is an array.
+*/
+public template isArrayType(T)
+{
+	const bool isArrayType = false;
+}
+
+public template isArrayType(T : T[])
+{
+	const bool isArrayType = true;
+}
+
+/**
+Sees if a type is an associative array.
+*/
+public template isAAType(T)
+{
+	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
+}
+
+/**
+Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+*/
+public template realType(T)
+{
+	static if(is(T Base == typedef) || is(T Base == enum))
+		alias realType!(Base) realType;
+	else
+		alias T realType;
+}
+
+unittest
+{
+	assert(isStringType!(char[]));
+	assert(isStringType!(wchar[]));
+	assert(isStringType!(dchar[]));
+	assert(!isStringType!(int));
+	assert(!isStringType!(Object));
+
+	assert(isArrayType!(int[]));
+	assert(isArrayType!(char[]));
+	assert(isArrayType!(int[3][4]));
+	assert(!isArrayType!(int[int]));
+	assert(!isArrayType!(Object));
+
+	typedef int X;
+	typedef X Y;
+	
+	assert(is(realType!(X) == int));
+	assert(is(realType!(Y) == int));
 }
 
 /**
 Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
 */
-template FOURCC(char[] name)
+public template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
 	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
@@ -365,92 +227,9 @@ template FOURCC(char[] name)
 /**
 Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
 */
-template MakeVersion(uint major, uint minor)
+public template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
-}
-
-/**
-A class used for profiling pieces of code.  You initialize it with an output filename,
-and during execution of your program, you just create instances of this class with a
-certain name.  Timings for each profile name are accumulated over the course of the program and
-the final output will show the name of the profile, how many times it was instanced, the
-total time in milliseconds, and the average time per instance in milliseconds.
-*/
-scope class Profiler
-{
-	private StopWatch mTimer;
-	private static Print!(char) mOutLog;
-
-	struct Timing
-	{
-		char[] name;
-		double time = 0;
-		ulong count = 0;
-
-		static Timing opCall(char[] name)
-		{
-			Timing t;
-			t.name = name;
-			return t;
-		}
-
-		int opCmp(Timing* other)
-		{
-			if(time < other.time)
-				return 1;
-			else if(time == other.time)
-				return 0;
-			else
-				return -1;
-		}
-	}
-
-	private static Timing[char[]] mTimings;
-
-	public static void init(char[] output)
-	{
-		mOutLog = new Print!(char)(Stdout.layout, new Buffer(new FileConduit(output, FileConduit.ReadWriteCreate)));
-	}
-
-	debug(TIMINGS)
-	{
-		static this()
-		{
-			init("timings.txt");
-		}
-
-		static ~this()
-		{
-			mOutLog.formatln("Name           | Count        | Total Time         | Average Time");
-			mOutLog.formatln("-----------------------------------------------------------------");
-
-			foreach(timing; mTimings.values.sort)
-				mOutLog.formatln("{,-14} | {,-12} | {,-18:9f} | {,-18:9f}", timing.name, timing.count, timing.time, timing.time / timing.count);
-
-			mOutLog.flush();
-		}
-	}
-
-	private char[] mName;
-
-	public this(char[] name)
-	{
-		mName = name;
-
-		if(!(name in mTimings))
-			mTimings[name] = Timing(name);
-
-		mTimer.start();
-	}
-
-	~this()
-	{
-		double endTime = mTimer.stop();
-		Timing* t = (mName in mTimings);
-		t.time += endTime;
-		t.count++;
-	}
 }
 
 /**
@@ -521,93 +300,10 @@ private template QSort_greater(alias Pred, List...)
 }
 
 /**
-Convert string literals between unicode encodings at compile time.  I swear, this should be
-built into the compiler or something.
+A useful template that somehow is in Phobos but no Tango.  Sees if a tuple is composed
+entirely of expressions or aliases.
 */
-public template ToUTF8(char[] s)
-{
-	const char[] ToUTF8 = s;
-}
-
-/// ditto
-public template ToUTF8(wchar[] s)
-{
-	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
-}
-
-/// ditto
-public template ToUTF8(dchar[] s)
-{
-	const char[] ToUTF8 = mixin("\"" ~ s ~ "\"c");
-}
-
-/// ditto
-public template ToUTF16(char[] s)
-{
-	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
-}
-
-/// ditto
-public template ToUTF16(wchar[] s)
-{
-	const wchar[] ToUTF16 = s;
-}
-
-/// ditto
-public template ToUTF16(dchar[] s)
-{
-	const wchar[] ToUTF16 = mixin("\"" ~ s ~ "\"w");
-}
-
-/// ditto
-public template ToUTF32(char[] s)
-{
-	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
-}
-
-/// ditto
-public template ToUTF32(wchar[] s)
-{
-	const dchar[] ToUTF32 = mixin("\"" ~ s ~ "\"d");
-}
-
-/// ditto
-public template ToUTF32(dchar[] s)
-{
-	const dchar[] ToUTF32 = s;
-}
-
-/**
-Convert an integer to a string at compile time.
-*/
-public template Itoa(int i)
-{
-	static if(i < 0)
-		const char[] Itoa = "-" ~ Itoa!(-i);
-	else static if(i >= 10)
-		const char[] Itoa = Itoa!(i / 10) ~ "0123456789"[i % 10];
-	else
-		const char[] Itoa = "" ~ "0123456789"[i % 10];
-}
-
-/**
-See if a string starts with another string.  Useful.
-*/
-public bool startsWith(T)(T[] string, T[] pattern)
-{
-	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
-}
-
-/**
-See if a string ends with another string.  Also useful.
-*/
-public bool endsWith(T)(T[] string, T[] pattern)
-{
-	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
-}
-
-// TomS!
-template isExpressionTuple(T...)
+public template isExpressionTuple(T...)
 {
 	static if (is(void function(T)))
 		const bool isExpressionTuple = false;
@@ -651,3 +347,97 @@ template isExpressionTuple(T...)
 // 	static assert(isFinal!(Foo, "func3"));
 // 	static assert(!isFinal!(Foo, "func4"));
 // }
+
+/**
+For a given struct, gets a tuple of the names of its fields.
+
+I have absolutely no idea if what I'm doing here is in any way legal.  I more or less discovered
+that the compiler gives access to this info in odd cases, and am just exploiting that.  It would
+be fantastic if the compiler would just tell us these things, but alas, we have to rely on
+seemingly-buggy undefined behavior.  Sigh.
+*/
+public template FieldNames(S, int idx = 0)
+{
+	static if(idx >= S.tupleof.length)
+		alias Tuple!() FieldNames;
+	else
+		alias Tuple!(GetLastName!(S.tupleof[idx].stringof), FieldNames!(S, idx + 1)) FieldNames;
+}
+
+private template GetLastName(char[] fullName, int idx = fullName.length - 1)
+{
+	static if(idx < 0)
+		const char[] GetLastName = fullName;
+	else static if(fullName[idx] == '.')
+		const char[] GetLastName = fullName[idx + 1 .. $];
+	else
+		const char[] GetLastName = GetLastName!(fullName, idx - 1);
+}
+
+/**
+Given an alias to a function, this will give the minimum legal number of arguments it can be called with.
+Even works for aliases to class methods.  Note, however, that this isn't smart enough to detect the difference
+between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)".  There might
+be a difference, though, so be cautions.
+*/
+public template MinArgs(alias func)
+{
+	const uint MinArgs = MinArgsImpl!(func, 0, InitsOf!(ParameterTupleOf!(typeof(&func))));
+}
+
+private template MinArgsImpl(alias func, int index, Args...)
+{
+	static if(index >= Args.length)
+		const uint MinArgsImpl = Args.length;
+	else static if(is(typeof(func(Args[0 .. index]))))
+		const uint MinArgsImpl = index;
+	else
+		const uint MinArgsImpl = MinArgsImpl!(func, index + 1, Args);
+}
+
+/**
+Given a type tuple, this will give an expression tuple of all the .init values for each type.
+*/
+public template InitsOf(T...)
+{
+	static if(T.length == 0)
+		alias Tuple!() InitsOf;
+	else
+		alias Tuple!(InitOf!(T[0]), InitsOf!(T[1 .. $])) InitsOf;
+}
+
+// BUG 1667
+private T InitOf_shim(T)()
+{
+	T t;
+	return t;
+}
+
+// This template exists for the sole reason that T.init doesn't work for structs inside templates due
+// to a forward declaration error.
+private template InitOf(T)
+{
+	static if(!is(typeof(Tuple!(T.init))))
+		alias Tuple!(InitOf_shim!(T)()) InitOf;
+	else
+		alias Tuple!(T.init) InitOf;
+}
+
+/**
+Given a class or struct type, gets its name.  This really only exists to mask potential oddities with the
+way the compiler reports this info (for example, DMD used to insert a space before struct names, but that
+no longer seems to happen..).
+*/
+public template NameOfType(T)
+{
+	const char[] NameOfType = T.stringof;
+}
+
+debug
+{
+	private class _Fribble_ {}
+	private struct _Frobble_ {}
+
+	static assert(NameOfType!(_Fribble_) == "_Fribble_", "NameOfType doesn't work for classes (got " ~ NameOfType!(_Fribble_) ~ ")");
+	static assert(NameOfType!(_Frobble_) == "_Frobble_", "NameOfType doesn't work for structs (got " ~ NameOfType!(_Frobble_) ~ ")");
+}

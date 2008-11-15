@@ -47,16 +47,71 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">WrapModule</span>
+<script>explorer.outline.addDecl('WrapModule');</script>
+
+(char[] name, Members...)(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps a module.  This registers a custom module loader in the global modules.customLoaders
+table of the given thread.  The members will not actually be wrapped until the module is imported
+the first time.
+<br><br>
+Template Params:
+	name = The name of the module, in dotted form (like "foo.bar.baz").  This is the name that will
+		be used to import it.
+<br><br>
+
+	Members = A variadic list of things to declare in this module.  These will be declared as module
+		globals, just as if you declared them globals in MiniD.  Supported member types include
+		WrapFunc, WrapNamespace, WrapValue, and WrapType.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">t</td>
+
+               
+<td>This module's loader will be added into the global modules.customLoaders table accessible
+		from this thread.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">WrapGlobals</span>
+<script>explorer.outline.addDecl('WrapGlobals');</script>
+
+(Members...)(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps any number of values into the global namespace accessible from the given thread.  This is
+the root global namespace, outside of any modules.  Works just like WrapModule otherwise.
+Supported member types include WrapFunc, WrapNamespace, WrapValue, and WrapType.
+<br><br>
+The wrapped values are immediately loaded into the global namespace.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">struct 
 <span class="currsymbol">WrapFunc</span>
 <script>explorer.outline.addDecl('WrapFunc');</script>
 
 (alias func);
-<br>template 
+<br>struct 
 <span class="currsymbol">WrapFunc</span>
 <script>explorer.outline.addDecl('WrapFunc');</script>
 
-(alias func,funcType)<br>struct 
+(alias func,funcType);
+<br>struct 
 <span class="currsymbol">WrapFunc</span>
 <script>explorer.outline.addDecl('WrapFunc');</script>
 
@@ -70,36 +125,479 @@ subject to the following restrictions:
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>This wraps a function, and is meant to be used as a parameter to WrapModule.
+<dd>Wraps a static function - that is, a function that doesn't have a 'this' parameter.  These four
+template specializations allow you to fine-tune how the function is to be wrapped.
+<br><br>
+The first specialization takes just an alias to a function.  In this case, the first overload
+of the function (if any) will be wrapped and the name of the function in MiniD will be the same
+as in D.
+<br><br>
+
+The second specialization allows you to explicitly specify a function signature to choose, in the
+case that the function you're wrapping is overloaded.  The signature should be a function type that
+matches the signature of the overload you want to wrap.  In this case, though, the name in MiniD
+will still be the name of the D function.
+<br><br>
+
+The third specialization allows you to rename the function without explicitly selecting an overload.
+<br><br>
+
+The fourth specialization allows you to both select an overload and give it the name that should
+be used in MiniD.  This is the form you'll probably be using most often with overloaded D functions.
+<br><br>
+
+If you use one of the two forms where you explicitly specify the function signature, the resulting
+wrapped function will only accept exactly as many parameters as are specified in the signature.
+Otherwise, the wrapped function will be allowed to have optional parameters.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">MinArgs</span>
-<script>explorer.outline.addDecl('MinArgs');</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapNamespace</span>
+<script>explorer.outline.addDecl('WrapNamespace');</script>
 
-(alias func)</span></dt>
+(char[] name,members...);
+</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Given an alias to a function, this metafunction will give the minimum legal number of arguments it can be called with.
-Even works for aliases to class methods.
+<dd>Wraps a bunch of values into a namespace object.  This works virtually the same as WrapModule,
+except that it's meant to be used as a member of something like WrapModule.  Legal member
+types include WrapFunc, WrapValue, 
+<span class="currsymbol">WrapNamespace</span>
+<script>explorer.outline.addDecl('WrapNamespace');</script>
+
+, and WrapType.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">InitsOf</span>
-<script>explorer.outline.addDecl('InitsOf');</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapValue</span>
+<script>explorer.outline.addDecl('WrapValue');</script>
 
-(T...)</span></dt>
+(char[] name,value...);
+</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Given a type tuple, this metafunction will give an expression tuple of all the .init values for each type.
+<dd>Wraps a single value and gives it a name.  Despite the fact that the value parameter is
+variadic, it is restricted to exactly one item.  It's variadic just so it can accept any
+value type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapType</span>
+<script>explorer.outline.addDecl('WrapType');</script>
+
+(Type,char[] name = NameOfType!(Type),Members...);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps a class or struct type.  This supports wrapping constructors (or static opCall for structs),
+methods, properties (though they will be <b>functions</b> in MiniD), and arbitrary values.  That means
+the valid member types are WrapCtors, WrapMethod, WrapProperty, and WrapValue.
+<br><br>
+Template Params:
+	Type = The class or struct type to be wrapped.
+<br><br>
+
+	name = The name that will be given to the type in MiniD.
+<br><br>
+
+	Members = The members of the type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapCtors</span>
+<script>explorer.outline.addDecl('WrapCtors');</script>
+
+(T...);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>D doesn't really provide any facilities for introspecting class constructors, so you'll have to specify
+to the binding library the signatures of the constructors to expose.  You'll also have to do it for structs.
+There can be at most one 
+<span class="currsymbol">WrapCtors</span>
+<script>explorer.outline.addDecl('WrapCtors');</script>
+
+ inside a WrapType, but since you specify as many constructors as you
+want all at once, it doesn't matter.  The constructor signatures should be function types; the return type
+is ignored, and only the parameter types are significant.
+<br><br>
+Unlike wrapping other functions, a form of overloading is allowed for constructors.  That is, you can have
+a constructor that takes (int) and another that takes (float), wrap them as two separate types, and they
+will be correctly dispatched when the type is instantiated in MiniD.  This also means that the usual
+implicit conversion from int to float that happens when calling other functions will not happen when calling
+constructors.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapMethod</span>
+<script>explorer.outline.addDecl('WrapMethod');</script>
+
+(alias func);
+<br>struct 
+<span class="currsymbol">WrapMethod</span>
+<script>explorer.outline.addDecl('WrapMethod');</script>
+
+(alias func,char[] name);
+<br>struct 
+<span class="currsymbol">WrapMethod</span>
+<script>explorer.outline.addDecl('WrapMethod');</script>
+
+(alias func,funcType);
+<br>struct 
+<span class="currsymbol">WrapMethod</span>
+<script>explorer.outline.addDecl('WrapMethod');</script>
+
+(alias func,char[] name,funcType);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps a method of a class or struct type.  The argument to this template will look like "A.foo" for a given
+type "A".  Other than the fact that it's a method (and therefore takes 'this'), this works pretty much
+exactly the same as WrapFunction, including the differences between the multiple specializations.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">WrapProperty</span>
+<script>explorer.outline.addDecl('WrapProperty');</script>
+
+(alias func);
+<br>struct 
+<span class="currsymbol">WrapProperty</span>
+<script>explorer.outline.addDecl('WrapProperty');</script>
+
+(alias func,char[] name);
+<br>struct 
+<span class="currsymbol">WrapProperty</span>
+<script>explorer.outline.addDecl('WrapProperty');</script>
+
+(alias func,funcType);
+<br>struct 
+<span class="currsymbol">WrapProperty</span>
+<script>explorer.outline.addDecl('WrapProperty');</script>
+
+(alias func,char[] name,funcType);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps a D "property" as a MiniD <b>function</b>.  Let me state that again: if you wrap a property named "x"
+in D, you <b>will not</b> access it like "a.x" and "a.x = 5" in MiniD.  Instead it will work like "a.x()"
+and "a.x(5)".  (this may change.)
+<br><br>
+The D "property" must be one or two functions (either just a getter or a getter/setter pair).  The setter,
+if any exists, must be able to take one parameter that is the same type as the getter's return type.
+The setter may optionally return a value.
+<br><br>
+
+It doesn't matter whether you pass an alias to the setter or the getter to this; the library will figure
+out which one you gave and which one it needs.  So if you have a property "x" of a type "A", it'll just
+be 
+<span class="currsymbol">WrapProperty</span>
+<script>explorer.outline.addDecl('WrapProperty');</script>
+
+!(A.x).
+<br><br>
+
+Oh, and, since this is another variety of function wrapping, the parameters here all do the same thing
+as for WrapFunction and WrapMethod.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getWrappedClass</span>
+<script>explorer.outline.addDecl('getWrappedClass');</script>
+
+(MDThread* <span class="funcparam">t</span>, TypeInfo <span class="funcparam">ti</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given a TypeInfo instance of the desired class/struct type (that is, typeid(SomeType)), pushes
+the corresponding wrapped MiniD class, or pushes <b>null</b> if the type has not been wrapped.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">TypeInfo <span class="funcparam">ti</span></td>
+
+               
+<td>The runtime TypeInfo instance of the desired type.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setWrappedClass</span>
+<script>explorer.outline.addDecl('setWrappedClass');</script>
+
+(MDThread* <span class="funcparam">t</span>, TypeInfo <span class="funcparam">ti</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
+to the given runtime TypeInfo object.  The class object is not popped off the stack.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">pushWrappedClasses</span>
+<script>explorer.outline.addDecl('pushWrappedClasses');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the wrapped class table onto the stack.  If the wrapped class table for this VM
+has not yet been created, creates it.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed table.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setWrappedInstance</span>
+<script>explorer.outline.addDecl('setWrappedInstance');</script>
+
+(MDThread* <span class="funcparam">t</span>, Object <span class="funcparam">o</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>For a given D object instance, sets the MiniD instance at the given stack index to be
+its corresponding object.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">Object <span class="funcparam">o</span></td>
+
+               
+<td>The D object that should be linked to the given MiniD instance.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the MiniD instance that should be linked to the given D object.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getWrappedInstance</span>
+<script>explorer.outline.addDecl('getWrappedInstance');</script>
+
+(MDThread* <span class="funcparam">t</span>, Object <span class="funcparam">o</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Assuming a valid wrapped class is on the top of the stack, this function will take a D object
+and push the corresponding MiniD instance.  If a MiniD instance has already been created for
+this object, pushes that instance; otherwise, this will create an instance and link it to this
+D object.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">Object <span class="funcparam">o</span></td>
+
+               
+<td>The D object to convert to a MiniD instance.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed instance.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">pushWrappedInstances</span>
+<script>explorer.outline.addDecl('pushWrappedInstances');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the wrapped instance table onto the stack.  If the wrapped instance table for this VM
+has not yet been created, this function will create it.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed function.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Type* 
+<span class="currsymbol">checkStructSelf</span>
+<script>explorer.outline.addDecl('checkStructSelf');</script>
+
+(Type, char[] FullName)(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the 'this' parameter passed to a native function is an instance of the given struct
+type, and returns a pointer to the struct object that is referenced by 'this'.
+<br><br>
+Template Params:
+	Type = The D struct type that corresponds to 'this'.
+<br><br>
+
+	FullName = The name of the type in MiniD, in dotted form.
+
+<br><br>
+<b>Returns:</b><br>
+A pointer to the struct object referenced by 'this'.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Type 
+<span class="currsymbol">checkClassSelf</span>
+<script>explorer.outline.addDecl('checkClassSelf');</script>
+
+(Type, char[] FullName)(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the 'this' parameter passed to a native function is an instance of the given class
+type, and returns the reference to the D object instance that is referenced by 'this'.
+<br><br>
+Template Params:
+	Type = The D class type that corresponds to 'this'.
+<br><br>
+
+	FullName = The name of the type in MiniD, in dotted form.
+
+<br><br>
+<b>Returns:</b><br>
+A reference to the D object instance referenced by 'this'.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">word 
+<span class="currsymbol">superPush</span>
+<script>explorer.outline.addDecl('superPush');</script>
+
+(Type)(MDThread* <span class="funcparam">t</span>, Type <span class="funcparam">val</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>It's 
+<span class="currsymbol">superPush</span>
+<script>explorer.outline.addDecl('superPush');</script>
+
+!  It's better than your average push.
+<br><br>
+This is a templated push function that will take any D type that is convertible to a MiniD type
+and push its MiniD conversion onto the stack.  This includes not only simple value types, but also
+arrays, associative arrays, classes, and structs.  Classes and structs are convertible as long as they
+have been wrapped.  Arrays are convertible as long as their element type is convertible.  AAs are
+convertible as long as their key and value types are convertible.  Arrays will become MiniD arrays,
+and AAs will become MiniD tables.  Classes and structs will become MiniD instances of the wrapped
+MiniD class type.
+
+<br><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Type 
+<span class="currsymbol">getVal</span>
+<script>explorer.outline.addDecl('getVal');</script>
+
+(Type)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The inverse of superPush, this function allows you to get any type of value from the MiniD stack
+and convert it into a D type.  The rules in this direction are pretty much the same as in the other:
+a MiniD array can only be converted into a D array as long as its elements can be converted to the
+D array's element type, and similarly for MiniD tables.
+<br><br>
+Strings will also be converted to the correct Unicode encoding.  Keep in mind, however, that this
+function will duplicate the string data onto the D heap, unlike the raw API getString function.
+This is because handing off pointers to internal MiniD memory to arbitrary D libraries is probably
+not a good idea.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">canCastTo</span>
+<script>explorer.outline.addDecl('canCastTo');</script>
+
+(Type)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Returns <b>true</b> if the value at the given stack index can be converted to the given D type,
+or <b>false</b> otherwise.  That's all.
 <br><br>
 
 </dd>
@@ -111,7 +609,7 @@ Even works for aliases to class methods.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:17 2008
+			on Fri Nov 14 23:38:56 2008
 
 		</td></tr>
 	</table>

@@ -205,7 +205,7 @@ of parameters were passed to your function.
 <script>explorer.outline.addDecl('checkBoolParam');</script>
 
 (MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
-<br>int 
+<br>long 
 <span class="currsymbol">checkIntParam</span>
 <script>explorer.outline.addDecl('checkIntParam');</script>
 
@@ -236,37 +236,48 @@ of that parameter.  Very simple.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">checkObjParam</span>
-<script>explorer.outline.addDecl('checkObjParam');</script>
+<dt><span class="decl">double 
+<span class="currsymbol">checkNumParam</span>
+<script>explorer.outline.addDecl('checkNumParam');</script>
 
-()(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Checks that the parameter at the given index is an object.
+<dd>Checks that the parameter at the given <span class="funcparam">index</span> is an int or a float, and returns the value as a float,
+casting ints to floats as necessary.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
-<span class="currsymbol">checkObjParam</span>
-<script>explorer.outline.addDecl('checkObjParam');</script>
+<span class="currsymbol">checkInstParam</span>
+<script>explorer.outline.addDecl('checkInstParam');</script>
 
-(bool strict = true)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
+()(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Checks that the parameter at the given index is an object of the type given by name.  name must
-be a dotted-identifier name suitable for passing into lookup().
+<dd>Checks that the parameter at the given index is an instance.
 <br><br>
-The optional strict template parameter controls whether the base object (the object referred to
-by name) is allowed.  If strict is <b>false</b>, the base object is allowed; otherwise, only objects derived
-from it are allowed.  The default is for strict to be <b>true</b> (the latter behavior).
 
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">checkInstParam</span>
+<script>explorer.outline.addDecl('checkInstParam');</script>
+
+()(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Checks that the parameter at the given index is an instance of the class given by name.  name must
+be a dotted-identifier name suitable for passing into lookup().
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -278,23 +289,23 @@ from it are allowed.  The default is for strict to be <b>true</b> (the latter be
 <td nowrap valign="top" style="padding-right: 8px">name</td>
 
                
-<td>The name of the object from which the given parameter must be derived.</td></tr>
+<td>The name of the class from which the given parameter must be derived.</td></tr>
 </table><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">T* 
-<span class="currsymbol">checkObjParam</span>
-<script>explorer.outline.addDecl('checkObjParam');</script>
+<span class="currsymbol">checkInstParam</span>
+<script>explorer.outline.addDecl('checkInstParam');</script>
 
-(T, bool strict = true)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
+(T)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">index</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
 <dd>Same as above, but also takes a template type parameter that should be a struct the same size as the
-given object's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
+given instance's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
 <br><br>
 
 </dd>
@@ -336,11 +347,11 @@ parameter 0), the <span class="funcparam">expected</span> type, and the actual t
 <script>explorer.outline.addDecl('optBoolParam');</script>
 
 (MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, bool <span class="funcparam">def</span>);
-<br>int 
+<br>long 
 <span class="currsymbol">optIntParam</span>
 <script>explorer.outline.addDecl('optIntParam');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, int <span class="funcparam">def</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">index</span>, long <span class="funcparam">def</span>);
 <br>double 
 <span class="currsymbol">optFloatParam</span>
 <script>explorer.outline.addDecl('optFloatParam');</script>
@@ -393,9 +404,9 @@ and <b>true</b> to mean that one was.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>For the object at the given index, gets the extra bytes and returns them cast to a pointer to the
-given type.  Asserts that the number of extra bytes is the same as the size of the given type, but
-this should not be used as a foolproof way of identifying the type of objects.
+<dd>For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
+given type.  Checks that the number of extra bytes is at least the size of the given type, but
+this should not be used as a foolproof way of identifying the type of instances.
 <br><br>
 
 </dd>
@@ -420,7 +431,7 @@ metamethods are respected.
 
 <pre class="d_code"><font color=blue>auto</font> slot = <u>lookup</u>(<i>t</i>, <font color=red>"time.Timer"</font>);
 pushNull(<i>t</i>);
-methodCall(<i>t</i>, slot, <font color=red>"clone"</font>, 1);
+rawCall(<i>t</i>, slot, 1);
 <font color=green>// We now have an instance of time.Timer on top of the stack.
 </font></pre>
 
@@ -501,6 +512,108 @@ The stack index of the newly-pushed value.
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">loadString</span>
+<script>explorer.outline.addDecl('loadString');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">code</span>, bool <span class="funcparam">customEnv</span> = false, char[] <span class="funcparam">name</span> = "&lt;loaded by 
+<span class="currsymbol">loadString</span>
+<script>explorer.outline.addDecl('loadString');</script>
+
+&gt;");
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Similar to the loadString function in the MiniD base library, this compiles some statements
+into a function that takes variadic arguments and pushes that function onto the stack.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">code</span></td>
+
+               
+<td>The source code of the function.  This should be one or more statements.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">customEnv</span></td>
+
+               
+<td>If <b>true</b>, expects the value on top of the stack to be a namespace which will be
+		set as the environment of the new function.  The namespace will be replaced.  Defaults
+		to <b>false</b>, in which case the current function's environment will be used.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>The name to give the function.  Defaults to "<loaded by loadString>".</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-compiled function.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">runString</span>
+<script>explorer.outline.addDecl('runString');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">code</span>, bool <span class="funcparam">customEnv</span> = false, char[] <span class="funcparam">name</span> = "&lt;loaded by 
+<span class="currsymbol">runString</span>
+<script>explorer.outline.addDecl('runString');</script>
+
+&gt;");
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This is a quick way to run some MiniD <span class="funcparam">code</span>.  Basically this just calls loadString and then runs
+the resulting function with no parameters.  This function's parameters are the same as loadString's.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">eval</span>
+<script>explorer.outline.addDecl('eval');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">code</span>, int <span class="funcparam">numReturns</span> = 1, bool <span class="funcparam">customEnv</span> = false);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Similar to the eval function in the MiniD base library, this compiles an expression, evaluates it,
+and leaves the result(s) on the stack.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">code</span></td>
+
+               
+<td>The source code of the expression.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
+
+               
+<td>How many return values you want from the expression.  Defaults to 1.  Works just like
+		the numReturns parameter of the call functions; -1 gets all return values.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">bool <span class="funcparam">customEnv</span></td>
+
+               
+<td>If <b>true</b>, expects the value on top of the stack to be a namespace which will be
+		used as the environment of the expression.  The namespace will be replaced.  Defaults
+		to <b>false</b>, in which case the current function's environment will be used.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+If <span class="funcparam">numReturns</span> &gt;= 0, returns <span class="funcparam">numReturns</span>.  If <span class="funcparam">numReturns</span> == -1, returns how many values the expression
+	returned.
+<br><br>
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -509,7 +622,7 @@ The stack index of the newly-pushed value.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:19 2008
+			on Fri Nov 14 23:38:58 2008
 
 		</td></tr>
 	</table>

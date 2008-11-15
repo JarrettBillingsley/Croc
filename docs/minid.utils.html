@@ -49,128 +49,31 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isStringType</span>
-<script>explorer.outline.addDecl('isStringType');</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">startsWith</span>
+<script>explorer.outline.addDecl('startsWith');</script>
 
-(T)</span></dt>
+(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
+</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+<dd>See if a string starts with another string.  Useful.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isCharType</span>
-<script>explorer.outline.addDecl('isCharType');</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">endsWith</span>
+<script>explorer.outline.addDecl('endsWith');</script>
 
-(T)</span></dt>
+(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
+</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Sees if a type is char, wchar, or dchar.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isIntType</span>
-<script>explorer.outline.addDecl('isIntType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if a type is a signed or unsigned byte, short, int, or long.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isFloatType</span>
-<script>explorer.outline.addDecl('isFloatType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if a type is float, double, or real.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isArrayType</span>
-<script>explorer.outline.addDecl('isArrayType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if a type is an array.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isAAType</span>
-<script>explorer.outline.addDecl('isAAType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if a type is an associative array.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">isPointerType</span>
-<script>explorer.outline.addDecl('isPointerType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sees if a type is a pointer.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">realType</span>
-<script>explorer.outline.addDecl('realType');</script>
-
-(T)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">template 
-<span class="currsymbol">hasUnions</span>
-<script>explorer.outline.addDecl('hasUnions');</script>
-
-(T,size_t Idx = 0)</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Determine if a given aggregate type contains any unions, explicit or anonymous.
-Thanks to Frits van Bommel for the original code.
+<dd>See if a string ends with another string.  Also useful.
 <br><br>
 
 </dd>
@@ -192,21 +95,6 @@ Thanks to Frits van Bommel for the original code.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">dcmp</span>
-<script>explorer.outline.addDecl('dcmp');</script>
-
-(dchar[] <span class="funcparam">s1</span>, dchar[] <span class="funcparam">s2</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compares dchar[] strings stupidly (just by character value, not lexicographically).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
 <span class="currsymbol">scmp</span>
 <script>explorer.outline.addDecl('scmp');</script>
 
@@ -216,21 +104,6 @@ Thanks to Frits van Bommel for the original code.
 
 
 <dd>Compares char[] strings stupidly (just by character value, not lexicographically).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">idcmp</span>
-<script>explorer.outline.addDecl('idcmp');</script>
-
-(dchar[] <span class="funcparam">s1</span>, dchar[] <span class="funcparam">s2</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Compares dchar[] strings stupidly, but case-insensitively.
 <br><br>
 
 </dd>
@@ -297,6 +170,62 @@ Thanks to Frits van Bommel for the original code.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">template 
+<span class="currsymbol">isStringType</span>
+<script>explorer.outline.addDecl('isStringType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">isArrayType</span>
+<script>explorer.outline.addDecl('isArrayType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if a type is an array.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">isAAType</span>
+<script>explorer.outline.addDecl('isAAType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if a type is an associative array.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">realType</span>
+<script>explorer.outline.addDecl('realType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
 <span class="currsymbol">FOURCC</span>
 <script>explorer.outline.addDecl('FOURCC');</script>
 
@@ -323,25 +252,6 @@ Thanks to Frits van Bommel for the original code.
 
 
 <dd>Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
-<span class="currsymbol">Profiler</span>
-<script>explorer.outline.addDecl('Profiler');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>A class used for profiling pieces of code.  You initialize it with an output filename,
-and during execution of your program, you just create instances of this class with a
-certain name.  Timings for each profile name are accumulated over the course of the program and
-the final output will show the name of the profile, how many times it was instanced, the
-total time in milliseconds, and the average time per instance in milliseconds.
 <br><br>
 
 </dd>
@@ -378,91 +288,81 @@ same type as the tuple's elements, and return &lt;0 for A &lt; B, 0 for A == B, 
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">template 
-<span class="currsymbol">ToUTF8</span>
-<script>explorer.outline.addDecl('ToUTF8');</script>
+<span class="currsymbol">isExpressionTuple</span>
+<script>explorer.outline.addDecl('isExpressionTuple');</script>
 
-(char[] s)<br>template 
-<span class="currsymbol">ToUTF8</span>
-<script>explorer.outline.addDecl('ToUTF8');</script>
-
-(wchar[] s)<br>template 
-<span class="currsymbol">ToUTF8</span>
-<script>explorer.outline.addDecl('ToUTF8');</script>
-
-(dchar[] s)<br>template 
-<span class="currsymbol">ToUTF16</span>
-<script>explorer.outline.addDecl('ToUTF16');</script>
-
-(char[] s)<br>template 
-<span class="currsymbol">ToUTF16</span>
-<script>explorer.outline.addDecl('ToUTF16');</script>
-
-(wchar[] s)<br>template 
-<span class="currsymbol">ToUTF16</span>
-<script>explorer.outline.addDecl('ToUTF16');</script>
-
-(dchar[] s)<br>template 
-<span class="currsymbol">ToUTF32</span>
-<script>explorer.outline.addDecl('ToUTF32');</script>
-
-(char[] s)<br>template 
-<span class="currsymbol">ToUTF32</span>
-<script>explorer.outline.addDecl('ToUTF32');</script>
-
-(wchar[] s)<br>template 
-<span class="currsymbol">ToUTF32</span>
-<script>explorer.outline.addDecl('ToUTF32');</script>
-
-(dchar[] s)</span></dt>
+(T...)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Convert string literals between unicode encodings at compile time.  I swear, this should be
-built into the compiler or something.
+<dd>A useful template that somehow is in Phobos but no Tango.  Sees if a tuple is composed
+entirely of expressions or aliases.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">template 
-<span class="currsymbol">Itoa</span>
-<script>explorer.outline.addDecl('Itoa');</script>
+<span class="currsymbol">FieldNames</span>
+<script>explorer.outline.addDecl('FieldNames');</script>
 
-(int i)</span></dt>
+(S,int idx = 0)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Convert an integer to a string at compile time.
+<dd>For a given struct, gets a tuple of the names of its fields.
+<br><br>
+I have absolutely no idea if what I'm doing here is in any way legal.  I more or less discovered
+that the compiler gives access to this info in odd cases, and am just exploiting that.  It would
+be fantastic if the compiler would just tell us these things, but alas, we have to rely on
+seemingly-buggy undefined behavior.  Sigh.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">startsWith</span>
-<script>explorer.outline.addDecl('startsWith');</script>
+<dt><span class="decl">template 
+<span class="currsymbol">MinArgs</span>
+<script>explorer.outline.addDecl('MinArgs');</script>
 
-(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
-</span></dt>
+(alias func)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>See if a string starts with another string.  Useful.
+<dd>Given an alias to a function, this will give the minimum legal number of arguments it can be called with.
+Even works for aliases to class methods.  Note, however, that this isn't smart enough to detect the difference
+between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)".  There might
+be a difference, though, so be cautions.
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">bool 
-<span class="currsymbol">endsWith</span>
-<script>explorer.outline.addDecl('endsWith');</script>
+<dt><span class="decl">template 
+<span class="currsymbol">InitsOf</span>
+<script>explorer.outline.addDecl('InitsOf');</script>
 
-(T)(T[] <span class="funcparam">string</span>, T[] <span class="funcparam">pattern</span>);
-</span></dt>
+(T...)</span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>See if a string ends with another string.  Also useful.
+<dd>Given a type tuple, this will give an expression tuple of all the .init values for each type.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">NameOfType</span>
+<script>explorer.outline.addDecl('NameOfType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given a class or struct type, gets its name.  This really only exists to mask potential oddities with the
+way the compiler reports this info (for example, DMD used to insert a space before struct names, but that
+no longer seems to happen..).
 <br><br>
 
 </dd>
@@ -474,7 +374,7 @@ built into the compiler or something.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:21 2008
+			on Fri Nov 14 23:38:59 2008
 
 		</td></tr>
 	</table>

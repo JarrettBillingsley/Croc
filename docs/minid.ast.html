@@ -237,17 +237,17 @@ be used in non-expression contexts (such as names in declarations).
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
-<span class="currsymbol">ObjectDef</span>
-<script>explorer.outline.addDecl('ObjectDef');</script>
+<span class="currsymbol">ClassDef</span>
+<script>explorer.outline.addDecl('ClassDef');</script>
 
 : minid.ast.AstNode;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>This node represents the guts of an object literal.  This node does not directly correspond
-to a single grammar element; rather it represents the common attributes of both object
-literals and object declarations.
+<dd>This node represents the guts of an class literal.  This node does not directly correspond
+to a single grammar element; rather it represents the common attributes of both class
+literals and class declarations.
 <br><br>
 
 
@@ -263,7 +263,7 @@ literals and object declarations.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Represents a single field in the object.  Remember that methods are fields too.
+<dd>Represents a single field in the class.  Remember that methods are fields too.
 	
 <br><br>
 
@@ -314,7 +314,7 @@ literals and object declarations.
 <script>explorer.outline.addDecl('initializer');</script>
 
  of the field.  This will never be <b>null</b>.  If a field is declared in
-		an object but not given a value, a NullExp will be inserted into this field.
+		a class but not given a value, a NullExp will be inserted into this field.
 		
 <br><br>
 
@@ -339,12 +339,7 @@ literals and object declarations.
 <span class="currsymbol">name</span>
 <script>explorer.outline.addDecl('name');</script>
 
- of the object.  This field can be <b>null</b>, which indicates that the 
-<span class="currsymbol">name</span>
-<script>explorer.outline.addDecl('name');</script>
-
- of the
-	object will be taken from its base object at runtime.
+ of the class.  This field will never be <b>null</b>.
 	
 <br><br>
 
@@ -352,16 +347,16 @@ literals and object declarations.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Expression 
-<span class="currsymbol">baseObject</span>
-<script>explorer.outline.addDecl('baseObject');</script>
+<span class="currsymbol">baseClass</span>
+<script>explorer.outline.addDecl('baseClass');</script>
 
 ;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The base object from which this object derives.  This field will never be <b>null</b>.  If
-	no base object is specified, it is given the value of an IdentExp with the identifier
+<dd>The base class from which this class derives.  This field will never be <b>null</b>.  If
+	no base class is specified, it is given the value of an IdentExp with the identifier
 	"Object".
 	
 <br><br>
@@ -382,14 +377,14 @@ literals and object declarations.
 <span class="currsymbol">fields</span>
 <script>explorer.outline.addDecl('fields');</script>
 
- in this object, in the order they were declared.  See the Field struct above.
+ in this class, in the order they were declared.  See the Field struct above.
 	
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Identifier <span class="funcparam">name</span>, Expression <span class="funcparam">baseObject</span>, Field[] <span class="funcparam">fields</span>);
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Identifier <span class="funcparam">name</span>, Expression <span class="funcparam">baseClass</span>, Field[] <span class="funcparam">fields</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -412,7 +407,7 @@ literals and object declarations.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Similar to ObjectDef, this class represents the common attributes of both function literals
+<dd>Similar to ClassDef, this class represents the common attributes of both function literals
 and function declarations.
 <br><br>
 
@@ -476,17 +471,17 @@ and function declarations.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Expression[] 
-<span class="currsymbol">objectTypes</span>
-<script>explorer.outline.addDecl('objectTypes');</script>
+<span class="currsymbol">classTypes</span>
+<script>explorer.outline.addDecl('classTypes');</script>
 
 ;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>If typeMask allows objects, this can be a list of expressions which should evaluate
-		at runtime to object types that this parameter can accept.  This is an optional
-		list.  If typeMask does not allow objects, this should be empty.
+<dd>If typeMask allows instances, this can be a list of expressions which should evaluate
+		at runtime to class types that this parameter can accept.  This is an optional
+		list.  If typeMask does not allow instances, this should be empty.
 		
 <br><br>
 
@@ -614,7 +609,7 @@ and function declarations.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Like the ObjectDef and FuncDef classes, this represents the common attributes of both
+<dd>Like the ClassDef and FuncDef classes, this represents the common attributes of both
 namespace literals and declarations.
 <br><br>
 
@@ -826,7 +821,20 @@ namespace literals and declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, char[][] <span class="funcparam">names</span>, Statement[] <span class="funcparam">statements</span>);
+<dt><span class="decl">Decorator 
+<span class="currsymbol">decorator</span>
+<script>explorer.outline.addDecl('decorator');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, char[][] <span class="funcparam">names</span>, Statement[] <span class="funcparam">statements</span>, Decorator <span class="funcparam">decorator</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -864,7 +872,7 @@ namespace literals and declarations.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Defines the types of protection possible for object, function, namespace, and variable
+<dd>Defines the types of protection possible for class, function, namespace, and variable
 declarations.
 <br><br>
 
@@ -924,15 +932,15 @@ declarations.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
-<span class="currsymbol">DeclStmt</span>
-<script>explorer.outline.addDecl('DeclStmt');</script>
+<span class="currsymbol">VarDecl</span>
+<script>explorer.outline.addDecl('VarDecl');</script>
 
 : minid.ast.Statement;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The abstract base class for the declaration statements.
+<dd>Represents local and global variable declarations.
 <br><br>
 
 
@@ -958,36 +966,6 @@ declarations.
 
 </dd>
 
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, AstTag <span class="funcparam">type</span>, Protection <span class="funcparam">protection</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
-<span class="currsymbol">VarDecl</span>
-<script>explorer.outline.addDecl('VarDecl');</script>
-
-: minid.ast.DeclStmt;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Represents local and global variable declarations.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Identifier[] 
 <span class="currsymbol">names</span>
@@ -1046,10 +1024,10 @@ declarations.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
-<span class="currsymbol">OtherDecl</span>
-<script>explorer.outline.addDecl('OtherDecl');</script>
+<span class="currsymbol">Decorator</span>
+<script>explorer.outline.addDecl('Decorator');</script>
 
-: minid.ast.DeclStmt;
+: minid.ast.AstNode;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -1059,9 +1037,9 @@ declarations.
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Identifier 
-<span class="currsymbol">name</span>
-<script>explorer.outline.addDecl('name');</script>
+<dt><span class="decl">Expression 
+<span class="currsymbol">func</span>
+<script>explorer.outline.addDecl('func');</script>
 
 ;
 </span></dt>
@@ -1073,8 +1051,8 @@ declarations.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Expression 
-<span class="currsymbol">expr</span>
-<script>explorer.outline.addDecl('expr');</script>
+<span class="currsymbol">context</span>
+<script>explorer.outline.addDecl('context');</script>
 
 ;
 </span></dt>
@@ -1085,12 +1063,286 @@ declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, Protection <span class="funcparam">protection</span>, Identifier <span class="funcparam">name</span>, Expression <span class="funcparam">expr</span>);
+<dt><span class="decl">Expression[] 
+<span class="currsymbol">args</span>
+<script>explorer.outline.addDecl('args');</script>
+
+;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
 <dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Decorator 
+<span class="currsymbol">nextDec</span>
+<script>explorer.outline.addDecl('nextDec');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Expression <span class="funcparam">func</span>, Expression <span class="funcparam">context</span>, Expression[] <span class="funcparam">args</span>, Decorator <span class="funcparam">nextDec</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">class 
+<span class="currsymbol">FuncDecl</span>
+<script>explorer.outline.addDecl('FuncDecl');</script>
+
+: minid.ast.Statement;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This node represents a function declaration.  Note that there are some places in the
+grammar which look like function declarations (like inside classes and namespaces) but
+which actually are just syntactic sugar.  This is for actual declarations.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Protection 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>What 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+ level this declaration uses.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">FuncDef 
+<span class="currsymbol">def</span>
+<script>explorer.outline.addDecl('def');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The "guts" of the function declaration.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Decorator 
+<span class="currsymbol">decorator</span>
+<script>explorer.outline.addDecl('decorator');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, Protection <span class="funcparam">protection</span>, FuncDef <span class="funcparam">def</span>, Decorator <span class="funcparam">decorator</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The <span class="funcparam">protection</span> parameter can be any kind of <span class="funcparam">protection</span>.
+	
+<br><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">class 
+<span class="currsymbol">ClassDecl</span>
+<script>explorer.outline.addDecl('ClassDecl');</script>
+
+: minid.ast.Statement;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This node represents a class declaration.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Protection 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>What 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+ level this declaration uses.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">ClassDef 
+<span class="currsymbol">def</span>
+<script>explorer.outline.addDecl('def');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The actual "guts" of the class.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Decorator 
+<span class="currsymbol">decorator</span>
+<script>explorer.outline.addDecl('decorator');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, Protection <span class="funcparam">protection</span>, ClassDef <span class="funcparam">def</span>, Decorator <span class="funcparam">decorator</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The <span class="funcparam">protection</span> parameter can be any kind of <span class="funcparam">protection</span>.
+	
+<br><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">class 
+<span class="currsymbol">NamespaceDecl</span>
+<script>explorer.outline.addDecl('NamespaceDecl');</script>
+
+: minid.ast.Statement;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This node represents a namespace declaration.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Protection 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>What 
+<span class="currsymbol">protection</span>
+<script>explorer.outline.addDecl('protection');</script>
+
+ level this declaration uses.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">NamespaceDef 
+<span class="currsymbol">def</span>
+<script>explorer.outline.addDecl('def');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The "guts" of the namespace.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Decorator 
+<span class="currsymbol">decorator</span>
+<script>explorer.outline.addDecl('decorator');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, Protection <span class="funcparam">protection</span>, NamespaceDef <span class="funcparam">def</span>, Decorator <span class="funcparam">decorator</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The <span class="funcparam">protection</span> parameter can be any level of <span class="funcparam">protection</span>.
+	
+<br><br>
+
 </dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
@@ -3255,64 +3507,6 @@ the AST.  It's used to set a function's environment.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
-<span class="currsymbol">AppendStmt</span>
-<script>explorer.outline.addDecl('AppendStmt');</script>
-
-: minid.ast.Statement;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>This node is an internal node used when rewriting array comprehensions.  It is used to append the
-values of the comprehension onto the array being built, and differs from a CatAssignStmt in that
-arrays will be appended as single elements, rather than having their elements concatenated.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">IdentExp 
-<span class="currsymbol">arrayName</span>
-<script>explorer.outline.addDecl('arrayName');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Expression 
-<span class="currsymbol">value</span>
-<script>explorer.outline.addDecl('value');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, IdentExp <span class="funcparam">arrayName</span>, Expression <span class="funcparam">value</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
 <span class="currsymbol">TypecheckStmt</span>
 <script>explorer.outline.addDecl('TypecheckStmt');</script>
 
@@ -3563,7 +3757,7 @@ arrays will be appended as single elements, rather than having their elements co
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
+<dt><span class="decl">long 
 <span class="currsymbol">asInt</span>
 <script>explorer.outline.addDecl('asInt');</script>
 
@@ -5389,22 +5583,22 @@ vararg[x .. y]).
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
-<span class="currsymbol">ObjectLiteralExp</span>
-<script>explorer.outline.addDecl('ObjectLiteralExp');</script>
+<span class="currsymbol">ClassLiteralExp</span>
+<script>explorer.outline.addDecl('ClassLiteralExp');</script>
 
 : minid.ast.PrimaryExp;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Represents an object literal.
+<dd>Represents a class literal.
 <br><br>
 
 
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">ObjectDef 
+<dt><span class="decl">ClassDef 
 <span class="currsymbol">def</span>
 <script>explorer.outline.addDecl('def');</script>
 
@@ -5413,14 +5607,14 @@ vararg[x .. y]).
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The actual "guts" of the object.
+<dd>The actual "guts" of the class.
 	
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, ObjectDef <span class="funcparam">def</span>);
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, ClassDef <span class="funcparam">def</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -5662,63 +5856,6 @@ exactly one (<b>null</b> in the case that there are no varargs).
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Expression[] <span class="funcparam">args</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-</dl>
-<script>explorer.outline.decSymbolLevel();</script>
-
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
-<span class="currsymbol">RawNamespaceExp</span>
-<script>explorer.outline.addDecl('RawNamespaceExp');</script>
-
-: minid.ast.PrimaryExp;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>This node does not correspond to a grammar element, but rather a transient node used
-when rewriting the AST.  This represents the sort of "core" of a namespace definition.
-<br><br>
-
-
-<script>explorer.outline.incSymbolLevel();</script>
-<dl>
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Identifier 
-<span class="currsymbol">name</span>
-<script>explorer.outline.addDecl('name');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Expression 
-<span class="currsymbol">parent</span>
-<script>explorer.outline.addDecl('parent');</script>
-
-;
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, Identifier <span class="funcparam">name</span>, Expression <span class="funcparam">parent</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -6115,7 +6252,7 @@ in the code "[x for x in a if x &lt; 10]", this represents "if x &lt; 10".
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:17 2008
+			on Fri Nov 14 23:38:55 2008
 
 		</td></tr>
 	</table>

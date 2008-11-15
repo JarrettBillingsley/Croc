@@ -465,7 +465,7 @@ new slots are filled with <b>null</b>.  Throws an error if you try to set the st
 <span class="currsymbol">pushInt</span>
 <script>explorer.outline.addDecl('pushInt');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">v</span>);
+(MDThread* <span class="funcparam">t</span>, long <span class="funcparam">v</span>);
 <br>int 
 <span class="currsymbol">pushFloat</span>
 <script>explorer.outline.addDecl('pushFloat');</script>
@@ -749,10 +749,10 @@ The stack index of the newly-created closure.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">newObject</span>
-<script>explorer.outline.addDecl('newObject');</script>
+<span class="currsymbol">newClass</span>
+<script>explorer.outline.addDecl('newClass');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">proto</span>, char[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">base</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -799,11 +799,11 @@ for these references.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">proto</span></td>
+<td nowrap valign="top" style="padding-right: 8px">proto</td>
 
                
 <td>The stack index of the proto object.  The proto can be `<b>null</b>`, in which case Object (defined
-		in the base library and which lives in the global namespace) will be used.  Otherwise it must
+		in the <span class="funcparam">base</span> library and which lives in the global namespace) will be used.  Otherwise it must
 		be an object.</td></tr>
 <tr>
 <td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
@@ -812,12 +812,12 @@ for these references.
 <td>The name of the new object.  If this parameter is <b>null</b> or the empty string, the name will
 		be taken from the proto.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numValues</span></td>
+<td nowrap valign="top" style="padding-right: 8px">numValues</td>
 
                
 <td>How many extra MiniD values will be associated with the object.  See above.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">extraBytes</span></td>
+<td nowrap valign="top" style="padding-right: 8px">extraBytes</td>
 
                
 <td>How many extra bytes to attach to the object.  See above.</td></tr>
@@ -830,16 +830,32 @@ The stack index of the newly-created object.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
-<span class="currsymbol">newObject</span>
-<script>explorer.outline.addDecl('newObject');</script>
+<span class="currsymbol">newClass</span>
+<script>explorer.outline.addDecl('newClass');</script>
 
-(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span> = null, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Same as above, except it uses the global Object as the prototype.  The new object is left on the
+<dd>Same as above, except it uses the global Object as the base.  The new class is left on the
 top of the stack.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">newInstance</span>
+<script>explorer.outline.addDecl('newInstance');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">base</span>, uint <span class="funcparam">numValues</span> = cast(uint)0, uint <span class="funcparam">extraBytes</span> = cast(uint)0);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><b>TODO:</b><br>
+doc me
 <br><br>
 
 </dd>
@@ -1221,15 +1237,30 @@ from [0 .. stackSize(<span class="funcparam">t</span>).  Valid negative stack in
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">bool 
-<span class="currsymbol">isObject</span>
-<script>explorer.outline.addDecl('isObject');</script>
+<span class="currsymbol">isClass</span>
+<script>explorer.outline.addDecl('isClass');</script>
 
 (MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Sees if the value at the given slot is an object.
+<dd>Sees if the value at the given slot is a class.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">bool 
+<span class="currsymbol">isInstance</span>
+<script>explorer.outline.addDecl('isInstance');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">slot</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sees if the value at the given slot is an instance.
 <br><br>
 
 </dd>
@@ -1343,7 +1374,7 @@ enumeration defined in minid.types.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
+<dt><span class="decl">long 
 <span class="currsymbol">getInt</span>
 <script>explorer.outline.addDecl('getInt');</script>
 
@@ -2210,6 +2241,116 @@ of non-variadic arguments, not including 'this'.  For native functions, always r
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setFinalizer</span>
+<script>explorer.outline.addDecl('setFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">cls</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets the finalizer function for the given class.  The finalizer of a class is called when an instance of that class
+is about to be collected by the garbage collector and is used to clean up limited resources associated with it
+(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
+as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
+ever be called once for each instance.  If the finalizer function causes the instance to be "resurrected", that is
+the instance is reattached to the application's memory graph, it will still eventually be collected but its finalizer
+function will <b>not</b> be run again.
+<br><br>
+Instances get the finalizer from the class that they are an instance of.  If you instantiate a class, and then
+change its finalizer, the instances that were already created will use the old finalizer.
+<br><br>
+
+This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
+function from a class, the value at the top of the stack can be <b>null</b>.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">cls</span></td>
+
+               
+<td>The class whose finalizer is to be set.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getFinalizer</span>
+<script>explorer.outline.addDecl('getFinalizer');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">cls</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the finalizer function associated with the given class, or <b>null</b> if no finalizer is set for
+that class.
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">cls</span></td>
+
+               
+<td>The class whose finalizer is to be retrieved.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed finalizer function (or <b>null</b> if the class has none).
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setAllocator</span>
+<script>explorer.outline.addDecl('setAllocator');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">cls</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><b>TODO:</b><br>
+doc me
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getAllocator</span>
+<script>explorer.outline.addDecl('getAllocator');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">cls</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><b>TODO:</b><br>
+doc me
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">char[] 
+<span class="currsymbol">className</span>
+<script>explorer.outline.addDecl('className');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">cls</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the name of the class at the given stack index.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">uint 
 <span class="currsymbol">numExtraVals</span>
 <script>explorer.outline.addDecl('numExtraVals');</script>
@@ -2219,18 +2360,18 @@ of non-variadic arguments, not including 'this'.  For native functions, always r
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Finds out how many extra values an object has (see newObject for info on that).  Throws an error
-if the value at the given slot isn't an object.
+<dd>Finds out how many extra values an instance has (see newInstance for info on that).  Throws an error
+if the value at the given slot isn't an instance.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The stack index of the object whose number of values is to be retrieved.</td></tr>
+<td>The stack index of the instance whose number of values is to be retrieved.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-The number of extra values associated with the given object.
+The number of extra values associated with the given instance.
 <br><br>
 
 </dd>
@@ -2245,15 +2386,15 @@ The number of extra values associated with the given object.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pushes the <span class="funcparam">idx</span> th extra value from the object at the given slot.  Throws an error if the value at
-the given slot isn't an object, or if the index is out of bounds.
+<dd>Pushes the <span class="funcparam">idx</span> th extra value from the instance at the given slot.  Throws an error if the value at
+the given slot isn't an instance, or if the index is out of bounds.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The object whose value is to be retrieved.</td></tr>
+<td>The instance whose value is to be retrieved.</td></tr>
 <tr>
 <td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
 
@@ -2276,8 +2417,8 @@ The stack index of the newly-pushed value.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pops the value off the top of the stack and places it in the <span class="funcparam">idx</span> th extra value in the object at the
-given slot.  Throws an error if the value at the given slot isn't an object, or if the index is out
+<dd>Pops the value off the top of the stack and places it in the <span class="funcparam">idx</span> th extra value in the instance at the
+given slot.  Throws an error if the value at the given slot isn't an instance, or if the index is out
 of bounds.
 <br><br>
 <b>Params:</b><br>
@@ -2285,7 +2426,7 @@ of bounds.
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The object whose value is to be set.</td></tr>
+<td>The instance whose value is to be set.</td></tr>
 <tr>
 <td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">idx</span></td>
 
@@ -2305,8 +2446,8 @@ of bounds.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets a void array of the extra bytes associated with the object at the given slot.  If the object has
-no extra bytes, returns <b>null</b>.  Throws an error if the value at the given slot isn't an object.
+<dd>Gets a void array of the extra bytes associated with the instance at the given slot.  If the instance has
+no extra bytes, returns <b>null</b>.  Throws an error if the value at the given slot isn't an instance.
 <br><br>
 The returned void array points into the MiniD heap, so you should not store the returned reference
 anywhere.
@@ -2317,87 +2458,10 @@ anywhere.
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The object whose data is to be retrieved.</td></tr>
+<td>The instance whose data is to be retrieved.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-A void array of the data, or <b>null</b> if the object has none.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setFinalizer</span>
-<script>explorer.outline.addDecl('setFinalizer');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Sets the finalizer function for the given object.  The finalizer of an object is called when the object is
-about to be collected by the garbage collector and is used to clean up limited resources associated with it
-(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
-as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
-garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
-ever be called once for each object.  If the finalizer function causes the object to be "resurrected", that is
-the object is reattached to the application's memory graph, it will still eventually be collected but its finalizer
-function will <b>not</b> be run again.
-<br><br>
-When you clone objects from this object, their finalizer will be set to the same function.
-<br><br>
-
-This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
-function from an object, the value at the top of the stack can be <b>null</b>.
-
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
-
-               
-<td>The object whose finalizer is to be set.</td></tr>
-</table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">getFinalizer</span>
-<script>explorer.outline.addDecl('getFinalizer');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes the finalizer function associated with the given object, or <b>null</b> if no finalizer is set for
-that object.
-<br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
-
-               
-<td>The object whose finalizer is to be retrieved.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed finalizer function (or <b>null</b> if the object has none).
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">char[] 
-<span class="currsymbol">objName</span>
-<script>explorer.outline.addDecl('objName');</script>
-
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Gets the name of the object at the given stack index.
+A void array of the data, or <b>null</b> if the instance has none.
 <br><br>
 
 </dd>
@@ -2794,7 +2858,7 @@ The stack index of the newly-pushed string.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
+<dt><span class="decl">long 
 <span class="currsymbol">cmp</span>
 <script>explorer.outline.addDecl('cmp');</script>
 
@@ -2970,7 +3034,7 @@ pop(<i>t</i>);
 <span class="currsymbol">idxi</span>
 <script>explorer.outline.addDecl('idxi');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, int <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, long <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2985,7 +3049,7 @@ the indexed value.
                
 <td>The stack index of the container object.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+<td nowrap valign="top" style="padding-right: 8px">long <span class="funcparam">idx</span></td>
 
                
 <td>The integer index.</td></tr>
@@ -3006,7 +3070,7 @@ The stack index of the newly-pushed indexed value.
 <span class="currsymbol">idxai</span>
 <script>explorer.outline.addDecl('idxai');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, int <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">container</span>, long <span class="funcparam">idx</span>, bool <span class="funcparam">raw</span> = false);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -3021,7 +3085,7 @@ the value at the top of the stack and assigns it into the container at the given
                
 <td>The stack index of the container object.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+<td nowrap valign="top" style="padding-right: 8px">long <span class="funcparam">idx</span></td>
 
                
 <td>The integer index.</td></tr>
@@ -3206,7 +3270,7 @@ The stack index of the newly-pushed length.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
+<dt><span class="decl">long 
 <span class="currsymbol">len</span>
 <script>explorer.outline.addDecl('len');</script>
 
@@ -3651,12 +3715,12 @@ pushString(<i>t</i>, <font color=red>"!"</font>);
 <span class="currsymbol">as</span>
 <script>explorer.outline.addDecl('as');</script>
 
-(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, int <span class="funcparam">proto</span>);
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">obj</span>, int <span class="funcparam">base</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Returns whether or not <span class="funcparam">obj</span> is an 'object' and derives from <span class="funcparam">proto</span>.  Throws an error if <span class="funcparam">proto</span> is not an object.
+<dd>Returns whether or not <span class="funcparam">obj</span> is an 'instance' and derives from <span class="funcparam">base</span>.  Throws an error if <span class="funcparam">base</span> is not a class.
 Works just like the 
 <span class="currsymbol">as</span>
 <script>explorer.outline.addDecl('as');</script>
@@ -3670,13 +3734,13 @@ Works just like the
                
 <td>The stack index of the value to test.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">proto</span></td>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">base</span></td>
 
                
-<td>The stack index of the proto object.  Must be an 'object'.</td></tr>
+<td>The stack index of the base class.  Must be a 'class'.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-<b>true</b> if <span class="funcparam">obj</span> is an 'object' and it derives from <span class="funcparam">proto</span>.  False otherwise.
+<b>true</b> if <span class="funcparam">obj</span> is an 'instance' and it derives from <span class="funcparam">base</span>.  False otherwise.
 <br><br>
 
 </dd>
@@ -3735,16 +3799,17 @@ Works just like the
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the proto object of objects or the parent namespace of namespaces and pushes it onto the stack.
-Throws an error if the value at the given slot is neither an object nor a namespace.  Pushes <b>null</b> if
-the object or namespace has no proto or parent.  Works just like "x.super" in MiniD.
+<dd>Gets the class of instances, base class of classes, or the parent namespace of namespaces and
+pushes it onto the stack. Throws an error if the value at the given slot is not a class, instance,
+or namespace.  Works just like "x.super" in MiniD.  For classes and namespaces, pushes <b>null</b> if
+there is no base or parent.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">slot</span></td>
 
                
-<td>The stack index of the object or namespace whose proto or parent to get.</td></tr>
+<td>The stack index of the instance, class, or namespace whose class, base, or parent to get.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index of the newly-pushed value.
@@ -3774,7 +3839,7 @@ An example of calling a function:
 
 <pre class="d_code"><font color=green>// Let's translate `x = f(5, "hi")` into API calls.
 </font>
-<font color=green>// 1. Push the function (or any callable object -- like objects, threads).
+<font color=green>// 1. Push the function (or any callable object -- like instances, threads).
 </font><font color=blue>auto</font> <i>slot</i> = pushGlobal(<i>t</i>, <font color=red>"f"</font>);
 
 <font color=green>// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the MiniD code, we didn'_t
@@ -3914,7 +3979,7 @@ The parameters and return value are the same as above.
 
 
 <dd>Performs a super call.  This function will only work if the currently-executing function was called as
-a method of a value of type 'object'.
+a method of a value of type 'instance'.
 <br><br>
 This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
 thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
@@ -3995,15 +4060,15 @@ The parameters and return value are the same as above.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the fields namespace of the 'object' at the given slot.  Throws an exception if the object at the given
-slot is not an object.
+<dd>Gets the fields namespace of the class or instance at the given slot.  Throws an exception if
+the value at the given slot is not a class or instance.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
 <td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
 
                
-<td>The stack index of the object whose fields are to be retrieved.</td></tr>
+<td>The stack index of the value whose fields are to be retrieved.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index of the newly-pushed fields namespace.
@@ -4022,10 +4087,10 @@ The stack index of the newly-pushed fields namespace.
 
 
 <dd>Sees if the object at the stack index `<span class="funcparam">obj</span>` has a field with the given name.  Does not take opField
-metamethods into account.  Because of that, only works for tables, objects, and namespaces.  If
-the object at the stack index `<span class="funcparam">obj</span>` is not one of those types, always returns <b>false</b>.  If this function
-returns <b>true</b>, you are guaranteed that accessing a field of the given name on the given object will
-succeed.
+metamethods into account.  Because of that, only works for tables, classes, instances, and namespaces.
+If the object at the stack index `<span class="funcparam">obj</span>` is not one of those types, always returns <b>false</b>.  If this
+function returns <b>true</b>, you are guaranteed that accessing a field of the given name on the given object
+will succeed.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -4089,7 +4154,7 @@ that object will succeed.
 
 
 <dd>Gets the attributes table of the given object and pushes it onto the stack.  Pushes <b>null</b> if the given
-object has no attributes.  Throws an error if the object is not a function, object, or namespace.
+object has no attributes.  Throws an error if the object is not a function, class, or namespace.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -4116,7 +4181,7 @@ The stack index of the newly-pushed value (either the attributes table, or <b>nu
 
 <dd>Pops the table off the top of the stack and sets it as the attributes table of the given object.  The
 value at the top of the stack can also be <b>null</b>, in which case it will remove the attributes table
-from the given object.  Throws an error if the given object is not a function, object, or namespace,
+from the given object.  Throws an error if the given object is not a function, class, or namespace,
 or if the value at the top of the stack is neither a table nor <b>null</b>.
 <br><br>
 <b>Params:</b><br>
@@ -4140,7 +4205,7 @@ or if the value at the top of the stack is neither a table nor <b>null</b>.
 
 
 <dd>Sees whether or not the given object has attributes.  Always returns <b>false</b> if the given object is
-not a function, object, or namespace.
+not a function, class, or namespace.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -4217,7 +4282,7 @@ True if the object has an attributes table; <b>false</b> otherwise.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:19 2008
+			on Fri Nov 14 23:38:58 2008
 
 		</td></tr>
 	</table>

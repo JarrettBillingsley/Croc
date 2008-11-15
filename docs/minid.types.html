@@ -83,10 +83,8 @@ subject to the following restrictions:
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The underlying D type used to store the MiniD 'int' type. Defaults to the native word-sized signed integer
-type (ptrdiff_t or word).  If you define the MDForceLongInts version, it will force MiniD to use 64-bit integers
-even on 32-bit platforms.  If you define the MDForceShortInts version, it will force MiniD to use 32-bit
-integers even on 64-bit platforms.
+<dd>The underlying D type used to store the MiniD 'int' type.  Defaults to 'long' (64-bit signed integer).  If you
+change it, you will end up with a functional but nonstandard implementation.
 <br><br>
 
 </dd>
@@ -200,7 +198,7 @@ Like the other exception types, you can't instantiate this directly, but you can
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Oct 21 16:53:20 2008
+			on Fri Nov 14 23:38:59 2008
 
 		</td></tr>
 	</table>

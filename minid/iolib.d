@@ -23,6 +23,7 @@ subject to the following restrictions:
 
 module minid.iolib;
 
+import tango.core.Traits;
 import tango.io.Buffer;
 import tango.io.Console;
 import tango.io.device.Conduit;
@@ -493,9 +494,9 @@ static:
 			T val = void;
 			safeCode(t, memb.reader.get(val));
 
-			static if(isIntType!(T))
+			static if(isIntegerType!(T))
 				pushInt(t, val);
-			else static if(isFloatType!(T))
+			else static if(isRealType!(T))
 				pushFloat(t, val);
 			else static if(isCharType!(T))
 				pushChar(t, val);
@@ -745,9 +746,9 @@ static:
 		{
 			auto memb = getThis(t);
 
-			static if(isIntType!(T))
+			static if(isIntegerType!(T))
 				T val = cast(T)checkIntParam(t, 1);
-			else static if(isFloatType!(T))
+			else static if(isRealType!(T))
 				T val = cast(T)checkFloatParam(t, 1);
 			else static if(isCharType!(T))
 				T val = cast(T)checkCharParam(t, 1);
