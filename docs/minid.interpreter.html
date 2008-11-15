@@ -40,6 +40,7 @@ subject to the following restrictions:
 <br><br>
 
     3. This notice may not be removed or altered from any source distribution.
+
 <br><br>
 
 
@@ -256,21 +257,13 @@ The stack index of the newly-pushed slot.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Swaps the two values at the given 
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
- indices.  The <span class="funcparam">first</span> index defaults to the <span class="funcparam">second</span>-from-top
+<dd>Swaps the two values at the given indices.  The <span class="funcparam">first</span> index defaults to the <span class="funcparam">second</span>-from-top
 value.  The <span class="funcparam">second</span> index defaults to the top-of-stack.  So, if you call 
 <span class="currsymbol">swap</span>
 <script>explorer.outline.addDecl('swap');</script>
 
  with no indices, it will
-
-<span class="currsymbol">swap</span>
-<script>explorer.outline.addDecl('swap');</script>
-
- the top two values.
+swap the top two values.
 <br><br>
 <b>Params:</b><br>
 <table><tr>
@@ -349,32 +342,16 @@ If '<span class="funcparam">slot</span>' corresponds to the top-of-stack (but no
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>A more generic version of insert.  This allows you to 
-<span class="currsymbol">rotate</span>
-<script>explorer.outline.addDecl('rotate');</script>
-
- the <span class="funcparam">dist</span> items within the top
+<dd>A more generic version of insert.  This allows you to rotate <span class="funcparam">dist</span> items within the top
 <span class="funcparam">numSlots</span> items on the stack.  The top <span class="funcparam">dist</span> items become the bottom <span class="funcparam">dist</span> items within that range
-of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a 
-<span class="currsymbol">rotate</span>
-<script>explorer.outline.addDecl('rotate');</script>
-
- with
+of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a rotate with
 5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the <span class="funcparam">dist</span> parameter is 1,
 it behaves just like insert.
 <br><br>
-Attempting to 
-<span class="currsymbol">rotate</span>
-<script>explorer.outline.addDecl('rotate');</script>
-
- more values than there are on the stack (excluding 'this') will throw an error.
+Attempting to rotate more values than there are on the stack (excluding 'this') will throw an error.
 <br><br>
 
-If the distance is an even multiple of the number of slots, or if you 
-<span class="currsymbol">rotate</span>
-<script>explorer.outline.addDecl('rotate');</script>
-
- 0 or 1 slots, this
+If the distance is an even multiple of the number of slots, or if you rotate 0 or 1 slots, this
 function is a no-op.
 <br><br>
 
@@ -406,16 +383,8 @@ parameter of stackSize(t) - 1.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pops a number of items off the stack.  Throws an error if you try to 
-<span class="currsymbol">pop</span>
-<script>explorer.outline.addDecl('pop');</script>
-
- more items than there are
-on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to 
-<span class="currsymbol">pop</span>
-<script>explorer.outline.addDecl('pop');</script>
-
- 2
+<dd>Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
+on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
 values, an error is thrown.
 <br><br>
 <b>Params:</b><br>
@@ -760,44 +729,9 @@ The stack index of the newly-created closure.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Creates a new object and pushes it onto the stack.
+<dd>Creates a new class and pushes it onto the stack.
 <br><br>
-MiniD objects can have two kinds of extra data associated with them for use by the host: extra
-MiniD values and arbitrary bytes.  The structure of a MiniD object is something like this:
-<br><br>
-
-<pre class="d_code"><font color=green>// ---------
-</font><font color=green>// |       |
-</font><font color=green>// |       | The data that's part of every object - the fields, proto, name, and attributes.
-</font><font color=green>// |       |
-</font><font color=green>// +-------+
-</font><font color=green>// |0: "x" | Extra MiniD values which can point into the MiniD heap.
-</font><font color=green>// |1: 5   |
-</font><font color=green>// +-------+
-</font><font color=green>// |...    | Arbitrary byte data.
-</font><font color=green>// ---------
-</font></pre>
-
-Both extra sections are optional, and no objects created by scripts will have them.
-<br><br>
-
-Extra MiniD values are useful for adding "members" to the object which are not visible to the
-scripts but which can still hold MiniD objects.  They will be scanned by the GC, so objects
-referenced by these members will not be collected.  If you want to hold a reference to a native
-D object, for instance, this would be the place to put it (wrapped in a NativeObject).
-<br><br>
-
-The arbitrary bytes associated with an object are not scanned by either the D or the MiniD GC,
-so don't store references to GC'ed objects there.  These bytes are useable for just about anything,
-such as storing values which can't be stored in MiniD values -- structs, complex numbers, long
-integers, whatever.
-<br><br>
-
-You can store references to <b>heap</b> objects in the extra bytes, but you must not store references
-to <b>GC'ed</b> objects there.  That is, you can 'malloc' some data and store the pointer in the
-extra bytes, since that's not GC'ed memory.  You must however perform your own memory management for
-such memory.  You can set up a finalizer function for objects in which you can perform memory management
-for these references.
+After creating the class, you can then fill it with members by using fielda.
 
 <br><br>
 <b>Params:</b><br>
@@ -805,28 +739,18 @@ for these references.
 <td nowrap valign="top" style="padding-right: 8px">proto</td>
 
                
-<td>The stack index of the proto object.  The proto can be `<b>null</b>`, in which case Object (defined
-		in the <span class="funcparam">base</span> library and which lives in the global namespace) will be used.  Otherwise it must
-		be an object.</td></tr>
+<td>The stack index of the base class.  The base can be `<b>null</b>`, in which case Object (defined
+		in the base library and which lives in the global namespace) will be used.  Otherwise it must
+		be a class.</td></tr>
 <tr>
 <td nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
 
                
-<td>The name of the new object.  If this parameter is <b>null</b> or the empty string, the name will
-		be taken from the proto.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">numValues</td>
-
-               
-<td>How many extra MiniD values will be associated with the object.  See above.</td></tr>
-<tr>
-<td nowrap valign="top" style="padding-right: 8px">extraBytes</td>
-
-               
-<td>How many extra bytes to attach to the object.  See above.</td></tr>
+<td>The name of the class.  Remember that you still have to store the class object somewhere,
+		though, like in a global.</td></tr>
 </table><br>
 <b>Returns:</b><br>
-The stack index of the newly-created object.
+The stack index of the newly-created class.
 <br><br>
 
 </dd>
@@ -857,9 +781,64 @@ top of the stack.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd><b>TODO:</b><br>
-doc me
+<dd>Creates an instance of a class and pushes it onto the stack.  This does <i>not</i> call any
+constructors defined for the class; this simply allocates an instance.
 <br><br>
+MiniD instances can have two kinds of extra data associated with them for use by the host: extra
+MiniD values and arbitrary bytes.  The structure of a MiniD instance is something like this:
+<br><br>
+
+<pre class="d_code"><font color=green>// ---------
+</font><font color=green>// |       |
+</font><font color=green>// |       | The data that's part of every instance - its parent class, fields, and finalizer.
+</font><font color=green>// |       |
+</font><font color=green>// +-------+
+</font><font color=green>// |0: "x" | Extra MiniD values which can point into the MiniD heap.
+</font><font color=green>// |1: 5   |
+</font><font color=green>// +-------+
+</font><font color=green>// |...    | Arbitrary byte data.
+</font><font color=green>// ---------
+</font></pre>
+
+Both extra sections are optional, and no instances created from script classes will have them.
+<br><br>
+
+Extra MiniD values are useful for adding "members" to the instance which are not visible to the
+scripts but which can still hold MiniD objects.  They will be scanned by the GC, so objects
+referenced by these members will not be collected.  If you want to hold a reference to a native
+D object, for instance, this would be the place to put it (wrapped in a NativeObject).
+<br><br>
+
+The arbitrary bytes associated with an instance are not scanned by either the D or the MiniD GC,
+so don't store references to GC'ed objects there.  These bytes are useable for just about anything,
+such as storing values which can't be stored in MiniD values -- structs, complex numbers, long
+integers, whatever.
+<br><br>
+
+A clarification: You can store references to <b>heap</b> objects in the extra bytes, but you must not
+store references to <b>GC'ed</b> objects there.  That is, you can 'malloc' some data and store the pointer
+in the extra bytes, since that's not GC'ed memory.  You must however perform your own memory management for
+such memory.  You can set up a finalizer function for instances in which you can perform memory management
+for these references.
+
+<br><br>
+<b>Params:</b><br>
+<table><tr>
+<td nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">base</span></td>
+
+               
+<td>The class from which this instance will be created.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numValues</span></td>
+
+               
+<td>How many extra MiniD values will be associated with the instance.  See above.</td></tr>
+<tr>
+<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">extraBytes</span></td>
+
+               
+<td>How many extra bytes to attach to the instance.  See above.</td></tr>
+</table><br>
 
 </dd>
 
@@ -1083,7 +1062,7 @@ just returns it.  Throws an error if the index is out of range.
 
 
 <dd>Sees if a given stack index (negative or positive) is valid.  Valid positive stack indices range
-from [0 .. stackSize(<span class="funcparam">t</span>).  Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0.
+from [0 .. stackSize(<span class="funcparam">t</span>)).  Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0).
 <br><br>
 
 </dd>
@@ -2622,8 +2601,8 @@ If called at top-level, returns 0.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Returns the number of items on the stack.  Valid positive stack indices range from [0 .. stackSize(<span class="funcparam">t</span>).
-Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0.
+<dd>Returns the number of items on the stack.  Valid positive stack indices range from [0 .. stackSize(<span class="funcparam">t</span>)).
+Valid negative stack indices range from [-stackSize(<span class="funcparam">t</span>) .. 0).
 <br><br>
 Note that 'this' (stack index 0 or -stackSize(<span class="funcparam">t</span>)) may not be overwritten or changed, although it can be used
 with functions that don't modify their argument.
@@ -4291,7 +4270,7 @@ True if the object has an attributes table; <b>false</b> otherwise.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Nov 14 23:51:01 2008
+			on Sat Nov 15 01:16:48 2008
 
 		</td></tr>
 	</table>

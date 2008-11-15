@@ -21,6 +21,9 @@ subject to the following restrictions:
 	be misrepresented as being the original software.
 
     3. This notice may not be removed or altered from any source distribution.
+    
+Macros:
+	RPAREN = )
 ******************************************************************************/
 
 module minid.interpreter;
@@ -242,9 +245,9 @@ word dup(MDThread* t, word slot = -1)
 }
 
 /**
-Swaps the two values at the given swap indices.  The first index defaults to the second-from-top
+Swaps the two values at the given indices.  The first index defaults to the second-from-top
 value.  The second index defaults to the top-of-stack.  So, if you call swap with no indices, it will
-swap the top two values.
+_swap the top two values.
 
 Params:
 	first = The first stack index.
@@ -316,15 +319,15 @@ void insertAndPop(MDThread* t, word slot)
 }
 
 /**
-A more generic version of insert.  This allows you to rotate the dist items within the top
+A more generic version of insert.  This allows you to _rotate dist items within the top
 numSlots items on the stack.  The top dist items become the bottom dist items within that range
-of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a rotate with
+of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a _rotate with
 5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the dist parameter is 1,
 it behaves just like insert.
 
-Attempting to rotate more values than there are on the stack (excluding 'this') will throw an error.
+Attempting to _rotate more values than there are on the stack (excluding 'this') will throw an error.
 
-If the distance is an even multiple of the number of slots, or if you rotate 0 or 1 slots, this
+If the distance is an even multiple of the number of slots, or if you _rotate 0 or 1 slots, this
 function is a no-op.
 */
 void rotate(MDThread* t, uword numSlots, uword dist)
@@ -390,8 +393,8 @@ void rotateAll(MDThread* t, uword dist)
 }
 
 /**
-Pops a number of items off the stack.  Throws an error if you try to pop more items than there are
-on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to pop 2
+Pops a number of items off the stack.  Throws an error if you try to _pop more items than there are
+on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to _pop 2
 values, an error is thrown.
 
 Params:
@@ -655,53 +658,20 @@ word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpva
 }
 
 /**
-Creates a new object and pushes it onto the stack.
+Creates a new class and pushes it onto the stack.
 
-MiniD objects can have two kinds of extra data associated with them for use by the host: extra
-MiniD values and arbitrary bytes.  The structure of a MiniD object is something like this:
-
------
-// ---------
-// |       |
-// |       | The data that's part of every object - the fields, proto, name, and attributes.
-// |       |
-// +-------+
-// |0: "x" | Extra MiniD values which can point into the MiniD heap.
-// |1: 5   |
-// +-------+
-// |...    | Arbitrary byte data.
-// ---------
------
-
-Both extra sections are optional, and no objects created by scripts will have them.
-
-Extra MiniD values are useful for adding "members" to the object which are not visible to the
-scripts but which can still hold MiniD objects.  They will be scanned by the GC, so objects
-referenced by these members will not be collected.  If you want to hold a reference to a native
-D object, for instance, this would be the place to put it (wrapped in a NativeObject).
-
-The arbitrary bytes associated with an object are not scanned by either the D or the MiniD GC,
-so don'_t store references to GC'ed objects there.  These bytes are useable for just about anything,
-such as storing values which can'_t be stored in MiniD values -- structs, complex numbers, long
-integers, whatever.
-
-You can store references to $(B heap) objects in the extra bytes, but you must not store references
-to $(B GC'ed) objects there.  That is, you can 'malloc' some data and store the pointer in the
-extra bytes, since that's not GC'ed memory.  You must however perform your own memory management for
-such memory.  You can set up a finalizer function for objects in which you can perform memory management
-for these references.
+After creating the class, you can then fill it with members by using fielda.
 
 Params:
-	proto = The stack index of the _proto object.  The _proto can be `null`, in which case Object (defined
-		in the base library and which lives in the global namespace) will be used.  Otherwise it must
-		be an object.
-	name = The _name of the new object.  If this parameter is null or the empty string, the _name will
-		be taken from the _proto.
-	numValues = How many extra MiniD values will be associated with the object.  See above.
-	extraBytes = How many extra bytes to attach to the object.  See above.
+	proto = The stack index of the _base class.  The _base can be `null`, in which case Object (defined
+		in the _base library and which lives in the global namespace) will be used.  Otherwise it must
+		be a class.
+
+	name = The _name of the class.  Remember that you still have to store the class object somewhere,
+		though, like in a global.
 
 Returns:
-	The stack index of the newly-created object.
+	The stack index of the newly-created class.
 */
 word newClass(MDThread* t, word base, char[] name)
 {
@@ -753,7 +723,47 @@ word newClass(MDThread* t, char[] name)
 }
 
 /**
-TODO: doc me
+Creates an instance of a class and pushes it onto the stack.  This does $(I not) call any
+constructors defined for the class; this simply allocates an instance.
+
+MiniD instances can have two kinds of extra data associated with them for use by the host: extra
+MiniD values and arbitrary bytes.  The structure of a MiniD instance is something like this:
+
+-----
+// ---------
+// |       |
+// |       | The data that's part of every instance - its parent class, fields, and finalizer.
+// |       |
+// +-------+
+// |0: "x" | Extra MiniD values which can point into the MiniD heap.
+// |1: 5   |
+// +-------+
+// |...    | Arbitrary byte data.
+// ---------
+-----
+
+Both extra sections are optional, and no instances created from script classes will have them.
+
+Extra MiniD values are useful for adding "members" to the instance which are not visible to the
+scripts but which can still hold MiniD objects.  They will be scanned by the GC, so objects
+referenced by these members will not be collected.  If you want to hold a reference to a native
+D object, for instance, this would be the place to put it (wrapped in a NativeObject).
+
+The arbitrary bytes associated with an instance are not scanned by either the D or the MiniD GC,
+so don'_t store references to GC'ed objects there.  These bytes are useable for just about anything,
+such as storing values which can'_t be stored in MiniD values -- structs, complex numbers, long
+integers, whatever.
+
+A clarification: You can store references to $(B heap) objects in the extra bytes, but you must not
+store references to $(B GC'ed) objects there.  That is, you can 'malloc' some data and store the pointer
+in the extra bytes, since that's not GC'ed memory.  You must however perform your own memory management for
+such memory.  You can set up a finalizer function for instances in which you can perform memory management
+for these references.
+
+Params:
+	base = The class from which this instance will be created.
+	numValues = How many extra MiniD values will be associated with the instance.  See above.
+	extraBytes = How many extra bytes to attach to the instance.  See above.
 */
 word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
@@ -1433,17 +1443,10 @@ struct foreachLoop
 				scope(exit) t.nativeCallDepth--;
 			}
 
-			auto reg = pushFunction(t, method);
-			dup(t, src);
-			dup(t, src + 1);
-			rawCall(t, reg, 3);
-			
-			swap(t, src + 2);
+			pushFunction(t, method);
+			insert(t, -4);
 			pop(t);
-			swap(t, src + 1);
-			pop(t);
-			swap(t, src);
-			pop(t);
+			rawCall(t, -3, 3);
 		}
 
 		// Set up the indices tuple
@@ -1567,8 +1570,8 @@ Traceback; function.that.threw.exception(9)
 
 (Due to a DDoc bug, it's actually "Traceback:", not "Traceback;".)
 
-Sometimes you'll get something like "<no location available>" in the traceback.  This might happen if some top-level
-native API manipulations cause an error.
+Sometimes you'll get something like "$(LT)no location available$(GT)" in the traceback.  This might happen if some top-level
+native API manipulations (that is, those outside the context of any executing function) cause an error.
 
 When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
 this function is called again, you will get an empty string.
@@ -2085,7 +2088,55 @@ word getFinalizer(MDThread* t, word cls)
 }
 
 /**
-TODO: doc me
+Normally when you instantiate a MiniD class, by doing something like "A(5)" (or similarly, by
+calling it as if it were a function using the native API), the following happens: the interpreter
+calls newInstance on the class to allocate a new instance, then calls any constructor defined for
+the class on the new instance with the given parameters, and finally it returns that new instance.
+
+You can override this behavior using class allocators.  A class allocator takes any number of
+parameters and must return a class instance.  The 'this' parameter passed to a class allocator is
+the class which is being instantiated.  Class allocators reserve the right to call or not
+call any constructor defined for the class.  In fact, they can do just about anything as long as
+they return an instance.
+
+Here is an example class allocator which performs the default behavior.
+
+-----
+uword allocator(MDThread* t, uword numParams)
+{
+	// new instance of the class held in 'this'
+	newInstance(t, 0);
+
+	// duplicate it so it can be used as a return value
+	dup(t);
+
+	// push a null for the 'this' slot of the impending method call
+	pushNull(t);
+	
+	// rotate the stack so that we have
+	// [inst] [inst] [null] [params...]
+	rotateAll(t, 3);
+
+	// call the constructor on the instance, ignoring any returns
+	methodCall(t, 2, "constructor", 0);
+	
+	// now all that's left on the stack is the instance; return it
+	return 1;
+}
+-----
+
+Why would a class use an allocator?  Simple: if it needs to allocate extra values or bytes for
+its instances.  Most of the native objects defined in the standard libraries use allocators to
+do just this.  
+
+You can also imagine a case where the number of extra values or bytes is dependent upon the
+parameters passed to the constructor, which is why class allocators get all the parameters.
+
+This function expects the new class allocator to be on top of the stack.  It should be a function,
+or null if you want to remove the given class's allocator.
+
+Params:
+	cls = The stack index of the class object whose allocator is to be set.
 */
 void setAllocator(MDThread* t, word cls)
 {
@@ -2114,7 +2165,14 @@ void setAllocator(MDThread* t, word cls)
 }
 
 /**
-TODO: doc me
+Pushes the allocator associated with the given class, or null if no allocator is set for
+that class.
+
+Params:
+	cls = The class whose allocator is to be retrieved.
+
+Returns:
+	The stack index of the newly-pushed allocator function (or null if the class has none).
 */
 word getAllocator(MDThread* t, word cls)
 {
@@ -2358,7 +2416,7 @@ word namespaceFullname(MDThread* t, word ns)
 // Thread-specific stuff
 
 /**
-Gets the current coroutine state of the thread as a member of the MDThread.State enumeration.
+Gets the current coroutine _state of the thread as a member of the MDThread.State enumeration.
 */
 MDThread.State state(MDThread* t)
 {
@@ -2474,12 +2532,12 @@ version(MDRestrictedCoro) {} else
 	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
 	extended mode, it will always work.
 
-	You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
+	You cannot _yield out of a thread that is not currently executing, nor can you _yield out of the main thread of
 	a VM.
 	
-	This function works very similarly to the call functions.  You push the values that you want to yield on the stack,
-	then pass how many you pushed and how many you want back.  It then returns how many values this coroutine was
-	resumed with, and that many values will be on the stack.
+	This function works very similarly to the call family of functions.  You push the values that you want to _yield
+	on the stack, then pass how many you pushed and how many you want back.  It then returns how many values this
+	coroutine was resumed with, and that many values will be on the stack.
 
 	Example:
 -----
