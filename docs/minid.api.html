@@ -16,8 +16,7 @@
 This module publicly imports the following modules: minid.alloc, minid.ex,
 minid.interpreter, minid.serialization, minid.types, minid.utils, and minid.vm.
 <br><br>
-<b>License:</b><br>
-Copyright (c) 2008 Jarrett Billingsley
+<b>License:</b><br><pre class="license">Copyright (c) 2008 Jarrett Billingsley
 <br><br>
 
 This software is provided 'as-is', without any express or implied warranty.
@@ -41,7 +40,7 @@ subject to the following restrictions:
 <br><br>
 
     3. This notice may not be removed or altered from any source distribution.
-<br><br>
+</pre><br>
 
 
 <script>explorer.outline.incSymbolLevel();</script>
@@ -81,9 +80,8 @@ This call also allocates an instance of tango.text.convert.Layout on the D heap,
 library can perform formatting without allocating memory later.
 
 <br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">MDVM* <span class="funcparam">vm</span></td>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">MDVM* <span class="funcparam">vm</span></td>
 
                
 <td>The VM object to initialize.  <b>This object must have been allocated somewhere in D
@@ -91,14 +89,14 @@ library can perform formatting without allocating memory later.
 		the D GC of its existence, or else D will blindly collect objects that the MiniD VM
 		references.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">void* function(void* <span class="funcparam">ctx</span>, void* p, uint oldSize, uint newSize) <span class="funcparam">memFunc</span></td>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void* function(void* <span class="funcparam">ctx</span>, void* p, uint oldSize, uint newSize) <span class="funcparam">memFunc</span></td>
 
                
 <td>The memory allocation function to use to allocate this VM.  The VM's allocation
 		function will be set to this after creation.  Defaults to DefaultMemFunc, which uses
 		the C allocator.</td></tr>
 <tr>
-<td nowrap valign="top" style="padding-right: 8px">void* <span class="funcparam">ctx</span></td>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void* <span class="funcparam">ctx</span></td>
 
                
 <td>An opaque context pointer that will be passed to the memory function at each call.
@@ -328,9 +326,8 @@ flags.
 
 <dd>Load the standard libraries into the context of the given thread.
 <br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">libs</span></td>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">libs</span></td>
 
                
 <td>An ORing together of any standard libraries you want to load (see the MDStdlib enum).
@@ -357,9 +354,8 @@ process which spawns and frees contexts as necessary), you must call this to fre
 with the VM.
 
 <br><br>
-<b>Params:</b><br>
-<table><tr>
-<td nowrap valign="top" style="padding-right: 8px">MDVM* <span class="funcparam">vm</span></td>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">MDVM* <span class="funcparam">vm</span></td>
 
                
 <td>The VM to free.  After all memory has been freed, the memory at this pointer will be initialized
@@ -375,7 +371,7 @@ with the VM.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sat Nov 15 01:16:45 2008
+			on Mon Nov 17 16:04:42 2008
 
 		</td></tr>
 	</table>

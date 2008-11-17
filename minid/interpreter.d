@@ -21,9 +21,6 @@ subject to the following restrictions:
 	be misrepresented as being the original software.
 
     3. This notice may not be removed or altered from any source distribution.
-    
-Macros:
-	RPAREN = )
 ******************************************************************************/
 
 module minid.interpreter;
@@ -343,6 +340,8 @@ void rotate(MDThread* t, uword numSlots, uword dist)
 
 	if(dist == 0)
 		return;
+	else if(dist == 1)
+		return insert(t, -numSlots);
 
 	auto slots = t.stack[t.stackIndex - numSlots .. t.stackIndex];
 

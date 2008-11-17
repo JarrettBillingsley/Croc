@@ -45,7 +45,7 @@ $(DL $0)
 
 
 DDOC_PARAM_ID =
-<td nowrap valign="top" style="padding-right: 8px">$0</td>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">$0</td>
 
                
 DDOC_PARAM =<span class="funcparam">$0</span>

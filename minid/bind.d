@@ -33,7 +33,7 @@ import Utf = tango.text.convert.Utf;
 import minid.ex;
 import minid.interpreter;
 import minid.types;
-import minid.utils;// : realType, isStringType, isArrayType, isAAType, isExpressionTuple, NameOfFunc, QSort, FieldNames, NameOfType, MinArgs;
+import minid.utils;
 
 /**
 Wraps a module.  This registers a custom module loader in the global modules.customLoaders
