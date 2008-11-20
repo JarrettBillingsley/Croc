@@ -301,7 +301,8 @@ void markObj(MDVM* vm, MDThread* o)
 
 	foreach(ref ar; o.actRecs[0 .. o.arIndex])
 	{
-		markObj(vm, ar.func);
+		if(ar.func)
+			markObj(vm, ar.func);
 
 		if(ar.proto)
 			markObj(vm, ar.proto);

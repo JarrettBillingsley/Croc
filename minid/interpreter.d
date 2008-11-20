@@ -5592,8 +5592,10 @@ version(MDRestrictedCoro) {} else
 		void run()
 		{
 			assert(t.state == MDThread.State.Initial);
-			t.stack[0] = t.coroFunc;
-			rawCall(t, 0, -1);
+
+			pushFunction(t, t.coroFunc);
+			insert(t, 1);
+			rawCall(t, 1, -1);
 		}
 	}
 }
@@ -5664,8 +5666,9 @@ uword resume(MDThread* t, uword numParams)
 	{
 		if(t.state == MDThread.State.Initial)
 		{
-			t.stack[0] = t.coroFunc;
-			auto result = callPrologue(t, cast(AbsStack)0, -1, numParams, null);
+			pushFunction(t, t.coroFunc);
+			insert(t, 1);
+			auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
 			assert(result == true, "resume callPrologue must return true");
 			execute(t);
 		}
@@ -5692,8 +5695,9 @@ uword resume(MDThread* t, uword numParams)
 			}
 			else
 			{
-				t.stack[0] = t.coroFunc;
-				auto result = callPrologue(t, cast(AbsStack)0, -1, numParams, null);
+				pushFunction(t, t.coroFunc);
+				insert(t, 1);
+				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
 				assert(result == true, "resume callPrologue must return true");
 				execute(t);
 			}
