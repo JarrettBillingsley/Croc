@@ -173,20 +173,20 @@ div.markerbottom{ border-left: dotted 2px #cc6666;}
 pre.d_code
 {
 	border: dotted 1px #9c9;
-	background-color: black;
+	background-color: #282828;
 	color: white;
 	padding: 4px 4px 4px 4px;
 }
 
 pre.d_comment
 {
-	color: green;
+	color: #00a800;
 	display: inline;
 }
 
 pre.d_string
 {
-	color: orange;
+	color: #ff7f00;
 	display: inline;
 }
 
@@ -198,7 +198,7 @@ pre.d_keyword
 
 pre.d_psymbol
 {
-	color: #bbffbb;
+	color: #88ff88;
 	text-decoration: underline;
 	display: inline;
 }
