@@ -202,7 +202,7 @@ static:
 
 		field(t, -1, "opMul");
 		fielda(t, -2, "opMul_r");
-		
+
 		field(t, -1, "fillRange");
 		fielda(t, -2, "opSliceAssign");
 
@@ -223,7 +223,7 @@ static:
 	{
 		newInstance(t, 0, 0, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
-		
+
 		dup(t);
 		pushNull(t);
 		rotateAll(t, 3);
@@ -293,23 +293,6 @@ static:
 		}
 
 		return 0;
-	}
-
-	uword vec_dup(MDThread* t, uword numParams)
-	{
-		auto memb = getThis(t);
-
-		pushGlobal(t, "Vector");
-		pushNull(t);
-		pushString(t, typeNames[memb.type.code]);
-		pushInt(t, memb.length);
-		rawCall(t, -4, 1);
-
-		auto newMemb = getMembers!(Members)(t, -1);
-		auto byteSize = memb.length * memb.type.itemSize;
-		(cast(byte*)newMemb.data)[0 .. byteSize] = (cast(byte*)memb.data)[0 .. byteSize];
-
-		return 1;
 	}
 
 	uword range(MDThread* t, uword numParams)
@@ -548,14 +531,11 @@ static:
 		if(hi < lo || hi > memb.length)
 			throwException(t, "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, memb.length);
 
-		pushGlobal(t, "Vector");
+		auto other = checkInstParam!(Members)(t, 3, "Vector");
 
-		if(!as(t, 3, -1))
-			paramTypeError(t, 3, "Vector");
+		if(memb.type !is other.type)
+			throwException(t, "Attempting to copy a Vector of type '{}' into a Vector of type '{}'", typeNames[other.type.code], typeNames[memb.type.code]);
 
-		pop(t);
-
-		auto other = getMembers!(Members)(t, 3);
 		auto lo2 = optIntParam(t, 4, 0);
 		auto hi2 = optIntParam(t, 5, lo2 + (hi - lo));
 
@@ -578,6 +558,23 @@ static:
 		(cast(byte*)memb.data)[cast(uword)lo * isize .. cast(uword)hi * isize] = (cast(byte*)other.data)[cast(uword)lo2 * isize .. cast(uword)hi2 * isize];
 
 		dup(t, 0);
+		return 1;
+	}
+
+	uword vec_dup(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		pushString(t, typeNames[memb.type.code]);
+		pushInt(t, memb.length);
+		rawCall(t, -4, 1);
+
+		auto newMemb = getMembers!(Members)(t, -1);
+		auto byteSize = memb.length * memb.type.itemSize;
+		(cast(byte*)newMemb.data)[0 .. byteSize] = (cast(byte*)memb.data)[0 .. byteSize];
+
 		return 1;
 	}
 
@@ -966,24 +963,39 @@ static:
 	{
 		auto memb = getThis(t);
 
-		mdfloat res = 1.0;
-
-		switch(memb.type.code)
+		if(cast(uint)memb.type.code < cast(uint)TypeCode.f32)
 		{
-			case TypeCode.i8:  foreach(val; (cast(byte*)memb.data)[0 .. memb.length]) res *= val;   break;
-			case TypeCode.i16: foreach(val; (cast(short*)memb.data)[0 .. memb.length]) res *= val;  break;
-			case TypeCode.i32: foreach(val; (cast(int*)memb.data)[0 .. memb.length]) res *= val;    break;
-			case TypeCode.i64: foreach(val; (cast(long*)memb.data)[0 .. memb.length]) res *= val;   break;
-			case TypeCode.u8:  foreach(val; (cast(ubyte*)memb.data)[0 .. memb.length]) res *= val;  break;
-			case TypeCode.u16: foreach(val; (cast(ushort*)memb.data)[0 .. memb.length]) res *= val; break;
-			case TypeCode.u32: foreach(val; (cast(uint*)memb.data)[0 .. memb.length]) res *= val;   break;
-			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res *= val;  break;
-			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res *= val;  break;
-			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res *= val; break;
-			default: assert(false);
+			mdint res = 1;
+
+			switch(memb.type.code)
+			{
+				case TypeCode.i8:  foreach(val; (cast(byte*)memb.data)[0 .. memb.length]) res *= val;   break;
+				case TypeCode.i16: foreach(val; (cast(short*)memb.data)[0 .. memb.length]) res *= val;  break;
+				case TypeCode.i32: foreach(val; (cast(int*)memb.data)[0 .. memb.length]) res *= val;    break;
+				case TypeCode.i64: foreach(val; (cast(long*)memb.data)[0 .. memb.length]) res *= val;   break;
+				case TypeCode.u8:  foreach(val; (cast(ubyte*)memb.data)[0 .. memb.length]) res *= val;  break;
+				case TypeCode.u16: foreach(val; (cast(ushort*)memb.data)[0 .. memb.length]) res *= val; break;
+				case TypeCode.u32: foreach(val; (cast(uint*)memb.data)[0 .. memb.length]) res *= val;   break;
+				case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res *= val;  break;
+				default: assert(false);
+			}
+
+			pushInt(t, res);
+		}
+		else
+		{
+			mdfloat res = 1.0;
+
+			switch(memb.type.code)
+			{
+				case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res *= val;  break;
+				case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res *= val; break;
+				default: assert(false);
+			}
+
+			pushFloat(t, res);
 		}
 
-		pushFloat(t, res);
 		return 1;
 	}
 
@@ -1077,24 +1089,39 @@ static:
 	{
 		auto memb = getThis(t);
 
-		mdfloat res = 0;
-
-		switch(memb.type.code)
+		if(cast(uint)memb.type.code < cast(uint)TypeCode.f32)
 		{
-			case TypeCode.i8:  foreach(val; (cast(byte*)memb.data)[0 .. memb.length]) res += val;   break;
-			case TypeCode.i16: foreach(val; (cast(short*)memb.data)[0 .. memb.length]) res += val;  break;
-			case TypeCode.i32: foreach(val; (cast(int*)memb.data)[0 .. memb.length]) res += val;    break;
-			case TypeCode.i64: foreach(val; (cast(long*)memb.data)[0 .. memb.length]) res += val;   break;
-			case TypeCode.u8:  foreach(val; (cast(ubyte*)memb.data)[0 .. memb.length]) res += val;  break;
-			case TypeCode.u16: foreach(val; (cast(ushort*)memb.data)[0 .. memb.length]) res += val; break;
-			case TypeCode.u32: foreach(val; (cast(uint*)memb.data)[0 .. memb.length]) res += val;   break;
-			case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res += val;  break;
-			case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res += val;  break;
-			case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res += val; break;
-			default: assert(false);
+			mdint res = 0;
+
+			switch(memb.type.code)
+			{
+				case TypeCode.i8:  foreach(val; (cast(byte*)memb.data)[0 .. memb.length]) res += val;   break;
+				case TypeCode.i16: foreach(val; (cast(short*)memb.data)[0 .. memb.length]) res += val;  break;
+				case TypeCode.i32: foreach(val; (cast(int*)memb.data)[0 .. memb.length]) res += val;    break;
+				case TypeCode.i64: foreach(val; (cast(long*)memb.data)[0 .. memb.length]) res += val;   break;
+				case TypeCode.u8:  foreach(val; (cast(ubyte*)memb.data)[0 .. memb.length]) res += val;  break;
+				case TypeCode.u16: foreach(val; (cast(ushort*)memb.data)[0 .. memb.length]) res += val; break;
+				case TypeCode.u32: foreach(val; (cast(uint*)memb.data)[0 .. memb.length]) res += val;   break;
+				case TypeCode.u64: foreach(val; (cast(ulong*)memb.data)[0 .. memb.length]) res += val;  break;
+				default: assert(false);
+			}
+
+			pushInt(t, res);
+		}
+		else
+		{
+			mdfloat res = 0.0;
+
+			switch(memb.type.code)
+			{
+				case TypeCode.f32: foreach(val; (cast(float*)memb.data)[0 .. memb.length]) res += val;  break;
+				case TypeCode.f64: foreach(val; (cast(double*)memb.data)[0 .. memb.length]) res += val; break;
+				default: assert(false);
+			}
+
+			pushFloat(t, res);
 		}
 
-		pushFloat(t, res);
 		return 1;
 	}
 
