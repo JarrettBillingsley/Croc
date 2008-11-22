@@ -36,6 +36,11 @@ import minid.types;
 // Public
 // ================================================================================================================================================
 
+/**
+WHAT
+
+You didn't see this.  Move along.  $(LT)__$(LT)
+*/
 public struct CreateClass
 {
 	private MDThread* t;
@@ -462,6 +467,21 @@ public char[] optStringParam(MDThread* t, word index, char[] def)
 		paramTypeError(t, index, "string");
 
 	return getString(t, index);
+}
+
+/**
+Just like the above, allowing ints or floats, and returns the value cast to a float, casting ints
+to floats as necessary.
+*/
+public mdfloat optNumParam(MDThread* t, word index, mdfloat def)
+{
+	if(!isValidIndex(t, index) || isNull(t, index))
+		return def;
+
+	if(!isNum(t, index))
+		paramTypeError(t, index, "int|float");
+
+	return getNum(t, index);
 }
 
 /**

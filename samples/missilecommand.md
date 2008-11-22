@@ -18,23 +18,41 @@ function FreeList(T: class)
 {
 	T._freelist_ = null
 	T._next_ = null
-
-	T.alloc = function alloc(this: class, vararg)
+	
+	if(hasMethod(T, "initialize"))
 	{
-		local n
-
-		if(:_freelist_)
+		T.alloc = function alloc(this: class, vararg)
 		{
-			n = :_freelist_
-			:_freelist_ = n._next_
-		}
-		else
-			n = this()
+			local n
 
-		if(hasMethod(n, "initialize"))
+			if(:_freelist_)
+			{
+				n = :_freelist_
+				:_freelist_ = n._next_
+			}
+			else
+				n = this()
+
 			n.initialize(vararg)
+			return n
+		}
+	}
+	else
+	{
+		T.alloc = function alloc(this: class)
+		{
+			local n
 
-		return n
+			if(:_freelist_)
+			{
+				n = :_freelist_
+				:_freelist_ = n._next_
+			}
+			else
+				n = this()
+
+			return n
+		}
 	}
 
 	T.free = function free(this: instance)

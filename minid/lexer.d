@@ -451,11 +451,6 @@ struct Lexer
 		return (mCharacter == '0') || (mCharacter == '1');
 	}
 
-	private bool isOctalDigit()
-	{
-		return (mCharacter >= '0') && (mCharacter <= '7');
-	}
-
 	private bool isHexDigit()
 	{
 		return ((mCharacter >= '0') && (mCharacter <= '9')) ||
@@ -586,27 +581,6 @@ struct Lexer
 							iret = Integer.toLong(buf[0 .. i], 2);
 						catch(IllegalArgumentException e)
 							mCompiler.exception(beginning, "Invalid binary integer literal");
-
-						return true;
-
-					case 'c', 'C':
-						nextChar();
-
-						if(!isOctalDigit() && mCharacter != '_')
-							mCompiler.exception(mLoc, "Octal digit expected, not '{}'", mCharacter);
-
-						while(isOctalDigit() || mCharacter == '_')
-						{
-							if(mCharacter != '_')
-								add(mCharacter);
-
-							nextChar();
-						}
-
-						try
-							iret = Integer.toLong(buf[0 .. i], 8);
-						catch(IllegalArgumentException e)
-							mCompiler.exception(beginning, "Invalid octal integer literal");
 
 						return true;
 

@@ -1,20 +1,6 @@
 module samples.simple
 
-local t = {}
-t[weakref(loadString("return function(){}")())] = 5
-t["wut"] = 7
 
-dumpVal(t)
-collectGarbage()
-dumpVal(t)
-collectGarbage()
-dumpVal(t)
-collectGarbage()
-dumpVal(t)
-collectGarbage()
-dumpVal(t)
-collectGarbage()
-dumpVal(t)
 
 /+
 /*

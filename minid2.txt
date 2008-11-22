@@ -179,23 +179,13 @@ AltWysiwygString:
 IntLiteral:
 	Decimal
 	Binary
-	Octal
 	Hexadecimal
 
 Decimal:
 	DecimalDigit {DecimalDigit | '_'}
 
 DecimalDigit:
-	'0'
-	'1'
-	'2'
-	'3'
-	'4'
-	'5'
-	'6'
-	'7'
-	'8'
-	'9'
+	'0' .. '9'
 
 Binary:
 	'0' ('b' | 'B') (BinaryDigit | '_') {BinaryDigit | '_'}
@@ -204,45 +194,13 @@ BinaryDigit:
 	'0'
 	'1'
 
-Octal:
-	'0' ('c' | 'C') (OctalDigit | '_') {OctalDigit | '_'}
-
-OctalDigit:
-	'0'
-	'1'
-	'2'
-	'3'
-	'4'
-	'5'
-	'6'
-	'7'
-
 Hexadecimal:
 	'0' ('x' | 'X') (HexDigit | '_') {HexDigit | '_'}
 
 HexDigit:
-	'0'
-	'1'
-	'2'
-	'3'
-	'4'
-	'5'
-	'6'
-	'7'
-	'8'
-	'9'
-	'A'
-	'a'
-	'B'
-	'b'
-	'C'
-	'c'
-	'D'
-	'd'
-	'E'
-	'e'
-	'F'
-	'f'
+	'0' .. '9'
+	'a' .. 'f'
+	'A' .. 'F'
 
 FloatLiteral:
 	[DecimalDigit {DecimalDigit | '_'}] '.' (DecimalDigit | '_') {DecimalDigit | '_'} [Exponent]
