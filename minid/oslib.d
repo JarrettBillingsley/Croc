@@ -43,7 +43,7 @@ static:
 
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			importModule(t, "io");
+			importModule(t, "stream");
 			pop(t);
 
 			ProcessObj.init(t);
@@ -255,7 +255,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("io.OutputStream")(t);
+				lookupCT!("stream.OutputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
 				rawCall(t, -3, 1);
@@ -275,7 +275,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("io.InputStream")(t);
+				lookupCT!("stream.InputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
 				rawCall(t, -3, 1);
@@ -295,7 +295,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("io.InputStream")(t);
+				lookupCT!("stream.InputStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
 				rawCall(t, -3, 1);

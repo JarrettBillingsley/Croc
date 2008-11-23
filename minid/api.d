@@ -53,6 +53,7 @@ import minid.iolib;
 import minid.mathlib;
 import minid.oslib;
 import minid.regexplib;
+import minid.streamlib;
 import minid.stringlib;
 import minid.threadlib;
 import minid.timelib;
@@ -139,7 +140,7 @@ public enum MDStdlib
 	Char =      2,
 
 	/**
-	Stream-based input and output.
+	File system manipulation and file access.  Requires the stream lib.
 	*/
 	IO =        4,
 
@@ -159,7 +160,7 @@ public enum MDStdlib
 	Hash =    32,
 
 	/**
-	_OS-specific functionality.
+	_OS-specific functionality.  Requires the stream lib.
 	*/
 	OS =       64,
 
@@ -167,18 +168,23 @@ public enum MDStdlib
 	Regular expressions.
 	*/
 	Regexp =  128,
-	
+
 	/**
 	_Time functions.
 	*/
 	Time = 256,
 
 	/**
+	Streamed IO classes.
+	*/
+	Stream = 512,
+
+	/**
 	This flag is an OR of Array, Char, Math, String, Hash, Regexp, and Time.  It represents
 	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	*/
-	Safe = Array | Char | Math | String | Hash | Regexp | Time,
+	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time,
 
 	/**
 	_All available standard libraries.
@@ -200,6 +206,9 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 
 	if(libs & MDStdlib.Char)
 		CharLib.init(t);
+		
+	if(libs & MDStdlib.Stream)
+		StreamLib.init(t);
 
 	if(libs & MDStdlib.IO)
 		IOLib.init(t);

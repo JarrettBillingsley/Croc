@@ -1747,7 +1747,7 @@ void setGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
-	insert(t, -2);
+	swap(t);
 	setGlobal(t);
 }
 
@@ -1790,7 +1790,7 @@ void newGlobal(MDThread* t, char[] name)
 {
 	checkNumParams(t, 1);
 	pushString(t, name);
-	insert(t, -2);
+	swap(t);
 	newGlobal(t);
 }
 
@@ -2823,7 +2823,7 @@ void idxai(MDThread* t, word container, mdint idx, bool raw = false)
 {
 	auto c = absIndex(t, container);
 	pushInt(t, idx);
-	insert(t, -2);
+	swap(t);
 	idxa(t, c, raw);
 }
 
@@ -2901,7 +2901,7 @@ void fielda(MDThread* t, word container, char[] name, bool raw = false)
 	checkNumParams(t, 1);
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
-	insert(t, -2);
+	swap(t);
 	commonFielda(t, c, raw);
 }
 
