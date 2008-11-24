@@ -168,6 +168,14 @@ static:
 		public uword constructor(MDThread* t, uword numParams)
 		{
 			checkInstParam(t, 0, "Process");
+			
+			getExtraVal(t, 0, Fields.Process);
+			
+			if(!isNull(t, -1))
+				throwException(t, "Attempting to call constructor on an already-initialized Process");
+			
+			pop(t);
+
 			pushNativeObj(t, new Process());
 			setExtraVal(t, 0, Fields.process);
 			return 0;

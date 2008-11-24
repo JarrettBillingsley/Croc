@@ -252,7 +252,7 @@ static:
 		auto memb = checkInstParam!(Members)(t, 0, "Vector");
 		
 		if(memb.type !is null)
-			throwException(t, "Attempting to reinitialize an already-initialized Vector");
+			throwException(t, "Attempting to call constructor on an already-initialized Vector");
 
 		auto type = checkStringParam(t, 1);
 		auto size = optIntParam(t, 2, 0);
