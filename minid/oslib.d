@@ -169,7 +169,7 @@ static:
 		{
 			checkInstParam(t, 0, "Process");
 			
-			getExtraVal(t, 0, Fields.Process);
+			getExtraVal(t, 0, Fields.process);
 			
 			if(!isNull(t, -1))
 				throwException(t, "Attempting to call constructor on an already-initialized Process");

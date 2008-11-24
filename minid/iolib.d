@@ -23,6 +23,7 @@ subject to the following restrictions:
 
 module minid.iolib;
 
+import Path = tango.io.Path;
 import tango.io.device.FileConduit;
 import tango.io.File;
 import tango.io.FileSystem;
@@ -79,29 +80,36 @@ static:
 			newGlobal(t, "stderr");
 
 			newTable(t, 5);
-				pushString(t, "In");     pushInt(t, FileMode.In);     fielda(t, -3);
-				pushString(t, "Out");    pushInt(t, FileMode.Out);    fielda(t, -3);
-				pushString(t, "New");    pushInt(t, FileMode.New);    fielda(t, -3);
-				pushString(t, "Append"); pushInt(t, FileMode.Append); fielda(t, -3);
-				pushString(t, "OutNew"); pushInt(t, FileMode.OutNew); fielda(t, -3);
+				pushInt(t, FileMode.In);     fielda(t, -2, "In");
+				pushInt(t, FileMode.Out);    fielda(t, -2, "Out");
+				pushInt(t, FileMode.New);    fielda(t, -2, "New");
+				pushInt(t, FileMode.Append); fielda(t, -2, "Append");
+				pushInt(t, FileMode.OutNew); fielda(t, -2, "OutNew");
 			newGlobal(t, "FileMode");
 
-			newFunction(t, &File, "File");             newGlobal(t, "File");
-			newFunction(t, &rename, "rename");         newGlobal(t, "rename");
-			newFunction(t, &remove, "remove");         newGlobal(t, "remove");
-			newFunction(t, &copy, "copy");             newGlobal(t, "copy");
-			newFunction(t, &size, "size");             newGlobal(t, "size");
-			newFunction(t, &exists, "exists");         newGlobal(t, "exists");
-			newFunction(t, &isFile, "isFile");         newGlobal(t, "isFile");
-			newFunction(t, &isDir, "isDir");           newGlobal(t, "isDir");
-			newFunction(t, &currentDir, "currentDir"); newGlobal(t, "currentDir");
-			newFunction(t, &changeDir, "changeDir");   newGlobal(t, "changeDir");
-			newFunction(t, &makeDir, "makeDir");       newGlobal(t, "makeDir");
-			newFunction(t, &removeDir, "removeDir");   newGlobal(t, "removeDir");
-			newFunction(t, &listFiles, "listFiles");   newGlobal(t, "listFiles");
-			newFunction(t, &listDirs, "listDirs");     newGlobal(t, "listDirs");
-			newFunction(t, &readFile, "readFile");     newGlobal(t, "readFile");
-			newFunction(t, &writeFile, "writeFile");   newGlobal(t, "writeFile");
+			newFunction(t, &File, "File");                 newGlobal(t, "File");
+			newFunction(t, &rename, "rename");             newGlobal(t, "rename");
+			newFunction(t, &remove, "remove");             newGlobal(t, "remove");
+			newFunction(t, &copy, "copy");                 newGlobal(t, "copy");
+			newFunction(t, &size, "size");                 newGlobal(t, "size");
+			newFunction(t, &exists, "exists");             newGlobal(t, "exists");
+			newFunction(t, &isFile, "isFile");             newGlobal(t, "isFile");
+			newFunction(t, &isDir, "isDir");               newGlobal(t, "isDir");
+			newFunction(t, &isReadOnly, "isReadOnly");     newGlobal(t, "isReadOnly");
+			newFunction(t, &currentDir, "currentDir");     newGlobal(t, "currentDir");
+			newFunction(t, &parentDir, "parentDir");       newGlobal(t, "parentDir");
+			newFunction(t, &changeDir, "changeDir");       newGlobal(t, "changeDir");
+			newFunction(t, &makeDir, "makeDir");           newGlobal(t, "makeDir");
+			newFunction(t, &makeDirChain, "makeDirChain"); newGlobal(t, "makeDirChain");
+			newFunction(t, &removeDir, "removeDir");       newGlobal(t, "removeDir");
+			newFunction(t, &listFiles, "listFiles");       newGlobal(t, "listFiles");
+			newFunction(t, &listDirs, "listDirs");         newGlobal(t, "listDirs");
+			newFunction(t, &readFile, "readFile");         newGlobal(t, "readFile");
+			newFunction(t, &writeFile, "writeFile");       newGlobal(t, "writeFile");
+			newFunction(t, &join, "join");                 newGlobal(t, "join");
+			newFunction(t, &dirName, "dirName");           newGlobal(t, "dirName");
+			newFunction(t, &name, "name");                 newGlobal(t, "name");
+			newFunction(t, &extension, "extension");       newGlobal(t, "extension");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -116,56 +124,72 @@ static:
 
 	uword rename(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		safeCode(t, fp.rename(checkStringParam(t, 2)));
+		safeCode(t, Path.rename(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
 	uword remove(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		safeCode(t, fp.remove());
+		safeCode(t, Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
 	uword copy(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 2));
-		safeCode(t, fp.copy(checkStringParam(t, 1)));
+		safeCode(t, Path.copy(checkStringParam(t, 1), checkStringParam(t, 1)));
 		return 0;
 	}
 
 	uword size(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		pushInt(t, cast(mdint)safeCode(t, fp.fileSize()));
+		pushInt(t, cast(mdint)safeCode(t, Path.fileSize(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword exists(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		pushBool(t, fp.exists());
+		pushBool(t, Path.exists(checkStringParam(t, 1)));
 		return 1;
 	}
 
 	uword isFile(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		pushBool(t, safeCode(t, !fp.isFolder()));
+		pushBool(t, safeCode(t, !Path.isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword isDir(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		pushBool(t, safeCode(t, !fp.isFolder()));
+		pushBool(t, safeCode(t, Path.isFolder(checkStringParam(t, 1))));
+		return 1;
+	}
+	
+	uword isReadOnly(MDThread* t, uword numParams)
+	{
+		pushBool(t, safeCode(t, !Path.isWritable(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword currentDir(MDThread* t, uword numParams)
 	{
 		pushString(t, safeCode(t, FileSystem.getDirectory()));
+		return 1;
+	}
+	
+	uword parentDir(MDThread* t, uword numParams)
+	{
+		auto p = optStringParam(t, 1, ".");
+		
+		if(p == ".")
+			p = FileSystem.getDirectory();
+
+		auto pp = safeCode(t, Path.parse(p));
+
+		if(pp.isAbsolute)
+			pushString(t, safeCode(t, Path.pop(p)));
+		else
+			pushString(t, safeCode(t, Path.join(FileSystem.getDirectory(), p)));
+
 		return 1;
 	}
 
@@ -177,50 +201,50 @@ static:
 
 	uword makeDir(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
+		auto p = Path.parse(checkStringParam(t, 1));
 
-		if(!fp.isAbsolute())
-			fp.prepend(FileSystem.getDirectory());
+		if(!p.isAbsolute())
+			safeCode(t, Path.createFolder(Path.join(FileSystem.getDirectory(), p.toString())));
+		else
+			safeCode(t, Path.createFolder(p.toString()));
 
-		safeCode(t, fp.create());
+		return 0;
+	}
+
+	uword makeDirChain(MDThread* t, uword numParams)
+	{
+		auto p = Path.parse(checkStringParam(t, 1));
+		
+		if(!p.isAbsolute())
+			safeCode(t, Path.createPath(Path.join(FileSystem.getDirectory(), p.toString())));
+		else
+			safeCode(t, Path.createPath(p.toString()));
+
 		return 0;
 	}
 
 	uword removeDir(MDThread* t, uword numParams)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
-		safeCode(t, fp.remove());
+		safeCode(t, Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 	
 	uword listImpl(MDThread* t, uword numParams, bool isFolder)
 	{
-		scope fp = new FilePath(checkStringParam(t, 1));
+		auto fp = optStringParam(t, 1, ".");
+		
+		if(fp == ".")
+			fp = FileSystem.getDirectory();
+
 		auto listing = newArray(t, 0);
 
-		if(numParams == 1)
-		{
-			safeCode(t,
-			{
-				foreach(ref info; fp)
-				{
-					if(info.folder is isFolder)
-					{
-						pushString(t, info.path);
-						pushString(t, info.name);
-						cat(t, 2);
-						cateq(t, listing, 1);
-					}
-				}
-			}());
-		}
-		else
+		if(numParams >= 2)
 		{
 			auto filter = checkStringParam(t, 2);
 
 			safeCode(t,
 			{
-				foreach(ref info; fp)
+				foreach(ref info; Path.children(fp))
 				{
 					if(info.folder is isFolder)
 					{
@@ -228,11 +252,27 @@ static:
 						pushString(t, info.name);
 						cat(t, 2);
 						auto fullName = getString(t, -1);
-						
+	
 						if(patternMatch(fullName, filter))
 							cateq(t, listing, 1);
 						else
 							pop(t);
+					}
+				}
+			}());
+		}
+		else
+		{
+			safeCode(t,
+			{
+				foreach(ref info; Path.children(fp))
+				{
+					if(info.folder is isFolder)
+					{
+						pushString(t, info.path);
+						pushString(t, info.name);
+						cat(t, 2);
+						cateq(t, listing, 1);
 					}
 				}
 			}());
@@ -254,16 +294,9 @@ static:
 	uword readFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
+		auto shouldConvert = optBoolParam(t, 2, false);
 
-		if(numParams == 1 || checkBoolParam(t, 2) == false)
-		{
-			safeCode(t,
-			{
-				scope file = new UnicodeFile!(char)(name, Encoding.Unknown);
-				pushString(t, file.read());
-			}());
-		}
-		else
+		if(shouldConvert)
 		{
 			safeCode(t,
 			{
@@ -278,6 +311,14 @@ static:
 						c = '?';
 
 				pushString(t, cast(char[])data);
+			}());
+		}
+		else
+		{
+			safeCode(t,
+			{
+				scope file = new UnicodeFile!(char)(name, Encoding.Unknown);
+				pushString(t, file.read());
 			}());
 		}
 
@@ -327,7 +368,7 @@ static:
 		pushNull(t);
 		pushString(t, name);
 		rawCall(t, -3, 1);
-		
+
 		pushInt(t, 0);
 		getUpval(t, 0);
 		
@@ -374,6 +415,40 @@ static:
 			rawCall(t, -3, 1);
 		}());
 
+		return 1;
+	}
+	
+	uword join(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		
+		char[][] tmp;
+		
+		scope(exit)
+			delete tmp;
+
+		for(uword i = 1; i <= numParams; i++)
+			tmp ~= checkStringParam(t, i);
+
+		pushString(t, safeCode(t, Path.join(tmp)));
+		return 1;
+	}
+	
+	uword dirName(MDThread* t, uword numParams)
+	{
+		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).path);
+		return 1;
+	}
+
+	uword name(MDThread* t, uword numParams)
+	{
+		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).name);
+		return 1;
+	}
+
+	uword extension(MDThread* t, uword numParams)
+	{
+		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).ext);
 		return 1;
 	}
 }
