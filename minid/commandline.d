@@ -356,9 +356,9 @@ To end interactive mode, use the \"exit()\" function.
 					pop(t);
 
 					mOutput.formatln("Error: {}", e2);
-					
-					auto tb = getTraceback(t);
-					mOutput.formatln("{}", getString(t, tb));
+
+					getTraceback(t);
+					mOutput.formatln("{}", getString(t, -1));
 					pop(t);
 					mOutput.newline;
 				}
@@ -421,9 +421,9 @@ To end interactive mode, use the \"exit()\" function.
 					pop(t);
 
 					mOutput.formatln("Error: {}", e);
-					
-					auto tb = getTraceback(t);
-					mOutput.formatln("{}", getString(t, tb));
+
+					getTraceback(t);
+					mOutput.formatln("{}", getString(t, -1));
 					pop(t);
 					mOutput.newline;
 				}

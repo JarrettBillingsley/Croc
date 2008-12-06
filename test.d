@@ -6,7 +6,10 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 import minid.api;
 import minid.bind;
 
-// version = TestArc;
+version = TestArc;
+
+version(TestArc)
+	import arc_wrap.all;
 
 void main()
 {
@@ -21,19 +24,21 @@ void main()
 
 	version(TestArc)
 		ArcLib.init(t);
-		
-	{
-		WrapGlobals!
+
+	WrapGlobals!
+	(
+		WrapType!
 		(
-			WrapType!
-			(
-				A, "A",
-				WrapCtors!(void function(int)),
-				WrapProperty!(A.x),
-				WrapMethod!(A.fork)
-			)
-		)(t);
-	}
+			Base, "Base",
+			WrapCtors!(void function(int, int)),
+			WrapMethod!(Base.overrideMe),
+			WrapProperty!(Base.x)
+		),
+		
+		WrapType!(S, "S", WrapProperty!(S.w)),
+
+		WrapFunc!(foob)
+	)(t);
 
 	try
 	{
@@ -50,10 +55,17 @@ void main()
 
 		auto tb = getTraceback(t);
 		Stdout.formatln("{}", getString(t, tb));
+		
+		if(e.info)
+			Stdout.formatln("D Traceback: {}", e.info);
 	}
 	catch(Exception e)
 	{
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
+		
+		if(e.info)
+			Stdout.formatln("D Traceback: {}", e.info);
+
 		return;
 	}
 
@@ -64,24 +76,39 @@ void main()
 	closeVM(&vm);
 }
 
-class A
+class Base
 {
-	int mX;
-	
-	this(int x)
+	int mX, mY;
+
+	this(int x, int y)
 	{
 		mX = x;
+		mY = y;
+	}
+	
+	void overrideMe(int x)
+	{
+		Stdout.formatln("Base overrideMe {}", x);
 	}
 	
 	int x() { return mX; }
-	
-	A fork(A a)
-	{
-		return a;
-	}
+	void x(int x) { mX = x; }
 }
 
-version(TestArc)
+struct S
+{
+	int x, y;
+	private int z;
+	
+	int w() { return 5; }
+}
+
+void foob(Base b)
+{
+	b.overrideMe(3);
+}
+
+version(none)
 {
 
 import minid.bind;
@@ -91,6 +118,7 @@ import arc.draw.image;
 import arc.draw.shape;
 import arc.font;
 import arc.input;
+import arc.math.collision;
 import arc.math.point;
 import arc.math.rect;
 import arc.math.size;
@@ -132,7 +160,7 @@ static:
 			)
 		)(t);
 
-		WrapModule!
+ 		WrapModule!
 		(
 			"arc.draw.image",
 			WrapFunc!(arc.draw.image.drawImage),
@@ -249,6 +277,18 @@ static:
 				WrapValue!("WheelUp", WHEELUP),
 				WrapValue!("WheelDown", WHEELDOWN)
 			)
+		)(t);
+
+		WrapModule!
+		(
+			"arc.math.collision",
+
+// 			WrapFunc!(arc.math.collision.boxBoxCollision),
+			WrapFunc!(arc.math.collision.boxCircleCollision),
+// 			WrapFunc!(arc.math.collision.boxXYCollision),
+// 			WrapFunc!(arc.math.collision.circleCircleCollision),
+			WrapFunc!(arc.math.collision.circleXYCollision)
+// 			WrapFunc!(arc.math.collision.polygonXYCollision)
 		)(t);
 
 		WrapModule!
@@ -404,12 +444,12 @@ static:
 
 				WrapMethod!(SoundFile.getFrequency),
 				WrapMethod!(SoundFile.getBuffers, "getBuffersList", uint[] function()),
+				WrapMethod!(SoundFile.getBuffers, uint[] function(int, int)),
 				WrapMethod!(SoundFile.getBuffersLength),
 				WrapMethod!(SoundFile.getBuffersPerSecond),
 				WrapMethod!(SoundFile.getLength),
 				WrapMethod!(SoundFile.getSize),
 				WrapMethod!(SoundFile.getSource),
-				WrapMethod!(SoundFile.getBuffers, uint[] function(int, int)),
 				WrapMethod!(SoundFile.allocBuffers),
 				WrapMethod!(SoundFile.freeBuffers),
 				WrapMethod!(SoundFile.print)

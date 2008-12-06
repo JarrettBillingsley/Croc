@@ -311,43 +311,6 @@ public template isExpressionTuple(T...)
 		const bool isExpressionTuple = true;
 }
 
-// Buggy.
-
-// template isFinalImpl(T, char[] funcName)
-// {
-// 	alias ParameterTupleOf!(mixin(T.stringof ~ "." ~ funcName)) _Params;
-// 	alias ReturnTypeOf!(mixin(T.stringof ~ "." ~ funcName)) _ReturnType;
-// 	mixin("alias typeof(new class T { override _ReturnType " ~ funcName ~
-// 		"(_Params _params) { return super." ~ funcName ~ "(_params); } }) res;");
-// }
-// 
-// /**
-// Given a class type and a method name, tells whether that method is final or not.
-// Thanks Tomasz Stachowiak.
-// */
-// template isFinal(T, char[] funcName)
-// {
-// 	pragma(msg, isFinalImpl!(T, funcName).res.stringof);
-// 	const bool isFinal = !is(isFinalImpl!(T, funcName).res);
-// }
-//
-// private void unit_test()
-// {
-// 	static class Foo
-// 	{
-// 		final void func1(int a, float b) {}
-// 		void func2(int a, float b) {}
-//
-// 		final char[] func3(int a, float b) { return null; }
-// 		char[] func4(int a, float b) { return null; }
-// 	}
-//
-// 	static assert(isFinal!(Foo, "func1"));
-// 	static assert(!isFinal!(Foo, "func2"));
-// 	static assert(isFinal!(Foo, "func3"));
-// 	static assert(!isFinal!(Foo, "func4"));
-// }
-
 /**
 For a given struct, gets a tuple of the names of its fields.
 
@@ -364,7 +327,7 @@ public template FieldNames(S, int idx = 0)
 		alias Tuple!(GetLastName!(S.tupleof[idx].stringof), FieldNames!(S, idx + 1)) FieldNames;
 }
 
-private template GetLastName(char[] fullName, int idx = fullName.length - 1)
+package template GetLastName(char[] fullName, int idx = fullName.length - 1)
 {
 	static if(idx < 0)
 		const char[] GetLastName = fullName;

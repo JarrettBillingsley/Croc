@@ -1,6 +1,32 @@
 module samples.simple
 
+class Derived : Base
+{
+	function _prop_x(v: null|int)
+	{
+		writeln("derived prop x!")
 
+		if(v is null)
+			return super._prop_x()
+		else
+			return super._prop_x(v)
+	}
+
+	function overrideMe()
+	{
+		write("Derived: ")
+		super.overrideMe(43)
+	}
+}
+
+local b = Derived(1, 2)
+
+writeln(b.x)
+b.x = 5
+writeln(b.x)
+
+b.overrideMe()
+foob(b)
 
 /+
 // Making sure finally blocks are executed.

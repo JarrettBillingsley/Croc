@@ -181,7 +181,7 @@ flags.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Stream-based input and output.
+<dd>File system manipulation and file access.  Requires the stream lib.
 	
 <br><br>
 
@@ -241,7 +241,7 @@ flags.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>OS-specific functionality.
+<dd>OS-specific functionality.  Requires the stream lib.
 	
 <br><br>
 
@@ -272,6 +272,21 @@ flags.
 
 
 <dd>Time functions.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Stream</span>
+<script>explorer.outline.addDecl('Stream');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Streamed IO classes.
 	
 <br><br>
 
@@ -319,7 +334,7 @@ flags.
 <span class="currsymbol">loadStdlibs</span>
 <script>explorer.outline.addDecl('loadStdlibs');</script>
 
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)511);
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">libs</span> = cast(uint)cast(MDStdlib)1023);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -371,7 +386,7 @@ with the VM.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sat Nov 22 00:41:19 2008
+			on Fri Dec  5 19:39:47 2008
 
 		</td></tr>
 	</table>

@@ -1,7 +1,5 @@
 test.d
 -clean
 -debug
--g
 -unittest
--version=MDExtendedCoro
 -debug=LEAK_DETECTOR

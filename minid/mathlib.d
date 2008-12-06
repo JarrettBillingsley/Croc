@@ -25,7 +25,7 @@ module minid.mathlib;
 
 import math = tango.math.Math;
 import tango.math.GammaFunction;
-import tango.math.IEEE;
+import ieee = tango.math.IEEE;
 import tango.math.random.Kiss;
 
 import minid.ex;
@@ -251,13 +251,13 @@ static:
 
 	uword isNan(MDThread* t, uword numParams)
 	{
-		pushBool(t, cast(bool)math.isNaN(get_float(t, 1)));
+		pushBool(t, cast(bool)ieee.isNaN(get_float(t, 1)));
 		return 1;
 	}
 
 	uword isInf(MDThread* t, uword numParams)
 	{
-		pushBool(t, cast(bool)math.isInfinity(get_float(t, 1)));
+		pushBool(t, cast(bool)ieee.isInfinity(get_float(t, 1)));
 		return 1;
 	}
 

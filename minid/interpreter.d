@@ -2638,18 +2638,29 @@ Returns:
 */
 word deref(MDThread* t, word idx)
 {
-	auto r = getWeakRef(t, idx);
-
-	if(r is null)
+	switch(type(t, idx))
 	{
-		pushTypeString(t, idx);
-		throwException(t, "deref - idx must be a weakref, not a '{}'", getString(t, -1));
+		case
+			MDValue.Type.Null,
+			MDValue.Type.Bool,
+			MDValue.Type.Int,
+			MDValue.Type.Float,
+			MDValue.Type.Char:
+
+			return dup(t, idx);
+			
+		case MDValue.Type.WeakRef:
+			if(auto o = getValue(t, idx).mWeakRef.obj)
+				return push(t, MDValue(o));
+			else
+				return pushNull(t);
+				
+		default:
+			pushTypeString(t, idx);
+			throwException(t, "deref - idx must be a value type or weakref, not a '{}'", getString(t, -1));
 	}
 
-	if(auto o = r.obj)
-		return push(t, MDValue(o));
-	else
-		return pushNull(t);
+	assert(false);
 }
 
 // ================================================================================================================================================

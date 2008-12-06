@@ -211,6 +211,10 @@ Template Params:
 <br><br>
 
 	Members = The members of the type.
+
+<br><br>
+<font color=red>BUGS:</font><br>
+Abstract classes cannot be wrapped.  D1 does not provide enough reflective information to do so reliably.
 <br><br>
 
 </dd>
@@ -301,9 +305,12 @@ exactly the same as WrapFunction, including the differences between the multiple
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Wraps a D "property" as a MiniD <b>function</b>.  Let me state that again: if you wrap a property named "x"
-in D, you <b>will not</b> access it like "a.x" and "a.x = 5" in MiniD.  Instead it will work like "a.x()"
-and "a.x(5)".  (this may change.)
+<dd>Wraps a D "property."  D of course does not have real properties but only syntactic sugar for function
+calls.  These wrap a pair of functions (or just one function, if the property is read-only) that denote
+a property.  In MiniD, each property has a method named "prop_name" which does the actual setting and
+getting, and the wrapped type is given opField and opFieldAssign metamethods which dispatch field access
+to the appropriate property accessors.  If you want to override the behavior of setting/getting a property,
+you can do so by overriding the "prop_name" method.
 <br><br>
 The D "property" must be one or two functions (either just a getter or a getter/setter pair).  The setter,
 if any exists, must be able to take one parameter that is the same type as the getter's return type.
@@ -319,8 +326,13 @@ be
 !(A.x).
 <br><br>
 
-Oh, and, since this is another variety of function wrapping, the parameters here all do the same thing
-as for WrapFunction and WrapMethod.
+Since this is another variety of function wrapping, the parameters here all do the same thing as for
+WrapFunction and WrapMethod.
+
+<br><br>
+<font color=red>BUGS:</font><br>
+Currently overridden setters/getters are not called polymorphically and therefore will not be called
+	by D code accessing the properties.
 <br><br>
 
 </dd>
@@ -364,62 +376,10 @@ The stack index of the newly-pushed value.
 
 
 <dd>Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
-to the given runtime TypeInfo object.  The class object is not popped off the stack.
+to the given runtime TypeInfo object.  The class object is <b>not</b> popped off the stack.
 <br><br>
 <b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
 <br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">pushWrappedClasses</span>
-<script>explorer.outline.addDecl('pushWrappedClasses');</script>
-
-(MDThread* <span class="funcparam">t</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Pushes the wrapped class table onto the stack.  If the wrapped class table for this VM
-has not yet been created, creates it.
-<br><br>
-<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
-
-<br><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed table.
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">void 
-<span class="currsymbol">setWrappedInstance</span>
-<script>explorer.outline.addDecl('setWrappedInstance');</script>
-
-(MDThread* <span class="funcparam">t</span>, Object <span class="funcparam">o</span>, int <span class="funcparam">idx</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>For a given D object instance, sets the MiniD instance at the given stack index to be
-its corresponding object.
-<br><br>
-<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
-
-<br><br>
-<b>Params:</b><br><table class="params"><tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">Object <span class="funcparam">o</span></td>
-
-               
-<td>The D object that should be linked to the given MiniD instance.</td></tr>
-<tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
-
-               
-<td>The stack index of the MiniD instance that should be linked to the given D object.</td></tr>
-</table><br>
 
 </dd>
 
@@ -454,24 +414,32 @@ The stack index of the newly-pushed instance.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">int 
-<span class="currsymbol">pushWrappedInstances</span>
-<script>explorer.outline.addDecl('pushWrappedInstances');</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setWrappedInstance</span>
+<script>explorer.outline.addDecl('setWrappedInstance');</script>
 
-(MDThread* <span class="funcparam">t</span>);
+(MDThread* <span class="funcparam">t</span>, Object <span class="funcparam">o</span>, int <span class="funcparam">idx</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Pushes the wrapped instance table onto the stack.  If the wrapped instance table for this VM
-has not yet been created, this function will create it.
+<dd>For a given D object instance, sets the MiniD instance at the given stack index to be
+its corresponding object.
 <br><br>
 <b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
 
 <br><br>
-<b>Returns:</b><br>
-The stack index of the newly-pushed function.
-<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">Object <span class="funcparam">o</span></td>
+
+               
+<td>The D object that should be linked to the given MiniD instance.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the MiniD instance that should be linked to the given D object.</td></tr>
+</table><br>
 
 </dd>
 
@@ -560,8 +528,8 @@ The stack index of the newly-pushed value.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Type 
-<span class="currsymbol">getVal</span>
-<script>explorer.outline.addDecl('getVal');</script>
+<span class="currsymbol">superGet</span>
+<script>explorer.outline.addDecl('superGet');</script>
 
 (Type)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">idx</span>);
 </span></dt>
@@ -604,7 +572,7 @@ or <b>false</b> otherwise.  That's all.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sat Nov 22 00:41:20 2008
+			on Fri Dec  5 19:39:48 2008
 
 		</td></tr>
 	</table>
