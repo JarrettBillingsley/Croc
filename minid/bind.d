@@ -410,23 +410,28 @@ Returns:
 */
 public word getWrappedInstance(MDThread* t, Object o)
 {
+	// [cls]
 	getRegistryVar(t, "minid.bind.WrappedInstances");
+	// [cls tab]
 	pushNativeObj(t, o);
+	// [cls tab o]
 	idx(t, -2);
+	// [cls tab wr]
 	deref(t, -1);
+	// [cls tab wr wrapi]
 
 	if(isNull(t, -1))
 	{
 		pop(t, 2);
 
-		newInstance(t, -3, 1);
+		newInstance(t, -2, 1);
 		pushNativeObj(t, o);
-		setExtraVal(t, -1, 0);
+		setExtraVal(t, -2, 0);
 
 		pushNativeObj(t, o);
 		pushWeakRef(t, -2);
-
 		idxa(t, -4);
+
 		insertAndPop(t, -2);
 	}
 	else
@@ -1038,15 +1043,15 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 	{
 		// alias Ctors[0].Types blah; doesn't parse right
 		alias Ctors[0] DUMMY;
-		alias DUMMY.Types CleanCtors;
+		alias Unique!(Tuple!(void function(), DUMMY.Types)) CleanCtors;
 
-		mixin ClassCtorShims!(CleanCtors);
+		mixin(ClassCtorShims!(CleanCtors));
 
 		private static uword constructor(MDThread* t, uword numParams)
 		{
 			checkInstParam(t, 0, TypeName);
 
-			static if(is(typeof(new typeof(this)())))
+			static if(is(typeof(new Type())))
 				const minArgs = 0;
 			else
 				const minArgs = ParameterTupleOf!(CleanCtors[0]).length;
@@ -1063,7 +1068,7 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 			{
 				if(numParams == 0)
 				{
-					auto obj = new typeof(this)();
+					auto obj = new typeof(this)(getVM(t));
 					pushNativeObj(t, obj);
 					setExtraVal(t, 0, 0);
 					setWrappedInstance(t, obj, 0);
@@ -1098,12 +1103,17 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 	}
 	else
 	{
-		static assert(is(typeof(new typeof(this)())), "Cannot call default constructor for class " ~ typeName ~ "; please wrap a constructor explicitly");
+		private this(MDVM* vm)
+		{
+			static assert(is(typeof(new Type())), "Cannot call default constructor for class " ~ typeName ~ "; please wrap a constructor explicitly");
+			_vm_ = vm;
+			super();
+		}
 
 		private static uword constructor(MDThread* t, uword numParams)
 		{
 			checkInstParam(t, 0, TypeName);
-			auto obj = new typeof(this)();
+			auto obj = new typeof(this)(getVM(t));
 			pushNativeObj(t, obj);
 			setExtraVal(t, 0, 0);
 			setWrappedInstance(t, obj, 0);
@@ -1307,15 +1317,33 @@ static:
 
 template ClassCtorShims(Ctors...)
 {
-	static if(Ctors.length)
-	{
-		this(MDVM* vm, ParameterTupleOf!(Ctors[0]) args)
-		{
-			_vm_ = vm;
-			super(args);
-		}
+	const ClassCtorShims = ClassCtorShimsImpl!(0, Ctors);
+}
 
-		mixin ClassCtorShims!(Ctors[1 .. $]);
+template ClassCtorShimsImpl(uint idx, Ctors...)
+{
+	static if(idx >= Ctors.length)
+		const ClassCtorShimsImpl = "";
+	else
+	{
+		static if(ParameterTupleOf!(Ctors[idx]).length == 0)
+		{
+			const ClassCtorShimsImpl =
+			"this(MDVM* vm)\n"
+			"{\n"
+			"	_vm_ = vm;\n"
+			"	super();\n"
+			"}\n" ~ ClassCtorShimsImpl!(idx + 1, Ctors);
+		}
+		else
+		{
+			const ClassCtorShimsImpl =
+			"this(MDVM* vm, ParameterTupleOf!(CleanCtors[" ~ idx.stringof ~ "]) args)\n"
+			"{\n"
+			"	_vm_ = vm;\n"
+			"	super(args);\n"
+			"}\n" ~ ClassCtorShimsImpl!(idx + 1, Ctors);
+		}
 	}
 }
 
