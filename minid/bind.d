@@ -1043,7 +1043,11 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 	{
 		// alias Ctors[0].Types blah; doesn't parse right
 		alias Ctors[0] DUMMY;
-		alias Unique!(Tuple!(void function(), DUMMY.Types)) CleanCtors;
+		
+		static if(is(typeof(new Type())))
+			alias Unique!(Tuple!(void function(), DUMMY.Types)) CleanCtors;
+		else
+			alias DUMMY.Types CleanCtors;
 
 		mixin(ClassCtorShims!(CleanCtors));
 
@@ -1103,11 +1107,15 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 	}
 	else
 	{
+		static assert(is(typeof(new Type())), "Cannot call default constructor for class " ~ typeName ~ "; please wrap a constructor explicitly");
+
 		private this(MDVM* vm)
 		{
-			static assert(is(typeof(new Type())), "Cannot call default constructor for class " ~ typeName ~ "; please wrap a constructor explicitly");
 			_vm_ = vm;
-			super();
+
+			// BUG: is, uh, _ctor supposed to be usable?
+			static if(is(typeof(&Type._ctor)))
+				super();
 		}
 
 		private static uword constructor(MDThread* t, uword numParams)
@@ -1399,11 +1407,14 @@ private template ClassMiniDMethods(Type, char[] TypeName, alias X, T...)
 	"	if(numParams > maxArgs)\n"
 	"		numParams = maxArgs;\n"
 
-	"	auto self = cast(typeof(this))checkClassSelf!(Type, TypeName)(t);\n"
-
+	"	auto self = checkClassSelf!(Type, TypeName)(t);\n"
+	
 	"	assert(self !is null, `Invalid 'this' parameter passed to method ` ~ Type.stringof ~ `.` ~ X.Name);\n"
 
-	"	return self.wrapped_" ~ X.Name ~ ".WrappedMethod(t, numParams);\n"
+	"	if(auto wrappedSelf = cast(typeof(this))self)\n"
+	"		return wrappedSelf.wrapped_" ~ X.Name ~ ".WrappedMethod(t, numParams);\n"
+	"	else\n"
+	"		return WrappedNativeMethod!(X.Func, X.FuncType, X.explicitType)(t, numParams, self);\n"
 	"}\n");
 
 	mixin ClassMiniDMethods!(Type, TypeName, T);
@@ -1640,6 +1651,82 @@ private template WrappedFunc(alias func, char[] name, funcType, bool explicitTyp
 	}
 }
 
+private template WrappedNativeMethod(alias func, funcType, bool explicitType)
+{
+	private uword WrappedNativeMethod(Type)(MDThread* t, uword numParams, Type self)
+	{
+		static if(explicitType)
+			const minArgs = NumParams!(funcType);
+		else
+			const minArgs = MinArgs!(func);
+
+		const maxArgs = NumParams!(funcType);
+		const name = NameOfFunc!(func);
+
+		static if(NumParams!(funcType) == 0)
+		{
+			static if(is(ReturnTypeOf!(funcType) == void))
+			{
+				safeCode(t, mixin("self." ~ name ~ "()"));
+				return 0;
+			}
+			else
+			{
+				superPush(t, safeCode(t, mixin("self." ~ name ~ "()")));
+				return 1;
+			}
+		}
+		else
+		{
+			ParameterTupleOf!(funcType) args;
+
+			static if(minArgs == 0)
+			{
+				if(numParams == 0)
+				{
+					static if(is(ReturnTypeOf!(funcType) == void))
+					{
+						safeCode(t, mixin("self." ~  name ~ "()"));
+						return 0;
+					}
+					else
+					{
+						superPush(t, safeCode(t, mixin("self." ~ name ~ "()")));
+						return 1;
+					}
+				}
+			}
+	
+			foreach(i, arg; args)
+			{
+				const argNum = i + 1;
+	
+				if(i < numParams)
+					args[i] = superGet!(typeof(args[i]))(t, argNum);
+	
+				static if(argNum >= minArgs && argNum <= maxArgs)
+				{
+					if(argNum == numParams)
+					{
+						static if(is(ReturnTypeOf!(funcType) == void))
+						{
+							safeCode(t, mixin("self." ~ name ~ "(args[0 .. argNum])"));
+							return 0;
+						}
+						else
+						{
+							superPush(t, safeCode(t, mixin("self." ~ name ~ "(args[0 .. argNum])")));
+							return 1;
+						}
+					}
+				}
+			}
+		}
+	
+		assert(false, "WrappedNativeMethod (" ~ name ~ ") should never ever get here.");
+	}
+}
+
 private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool explicitType)
 {
 	private uword WrappedMethod(MDThread* t, uword numParams)
@@ -1725,7 +1812,7 @@ private uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, b
 
 	const maxArgs = NumParams!(funcType);
 	const name = NameOfFunc!(func);
-	
+
 	auto self = checkStructSelf!(Type, FullName)(t);
 	assert(self !is null, "Invalid 'this' parameter passed to method " ~ Type.stringof ~ "." ~ name);
 
