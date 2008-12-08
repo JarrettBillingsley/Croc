@@ -2627,11 +2627,14 @@ bool hasPendingHalt(MDThread* t)
 // Weakref-related functions
 
 /**
-Dereferences the weak reference object at the given stack index and pushes the value it
-refers to.  If the value it refers to has been collected, pushes "null" instead.
+Works like the deref() function in the base library.  If the value at the given index is a
+value type, just duplicates that value.  If the value at the given index is a weak reference,
+pushes the object it refers to or 'null' if that object has been collected.  Throws an error
+if the value at the given index is any other type.  This is meant to be an inverse to pushWeakRef,
+hence the behavior with regards to value types.
 
 Params:
-	idx = The stack index of the weak reference object to dereference.
+	idx = The stack index of the object to dereference.
 
 Returns:
 	The stack index of the newly-pushed value.
@@ -3651,10 +3654,10 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 	// Get this
 	auto _this = &t.stack[t.stackBase];
 
-	if(_this.type != MDValue.Type.Instance)
+	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3699,10 +3702,10 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	// Get this
 	auto _this = &t.stack[t.stackBase];
 
-	if(_this.type != MDValue.Type.Instance)
+	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
+		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -5934,7 +5937,16 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				if(numReturns > 1)
 					t.stack[slot + 1 .. slot + numReturns] = MDValue.nullValue;
 
-				if(t.currentAR.savedTop < slot + numReturns)
+				if(t.arIndex == 0)
+				{
+					t.state = MDThread.State.Dead;
+					t.shouldHalt = false;
+					t.stackIndex = slot + numReturns;
+
+					if(t is t.vm.mainThread)
+						t.vm.curThread = t;
+				}
+				else if(t.currentAR.savedTop < slot + numReturns)
 					t.stackIndex = slot + numReturns;
 				else
 					t.stackIndex = t.currentAR.savedTop;
@@ -7252,10 +7264,10 @@ void execute(MDThread* t, uword depth = 1)
 						if(t.currentAR.proto is null)
 							throwException(t, "Attempting to perform a supercall in a function where there is no super class");
 
-						if(self.type != MDValue.Type.Instance)
+						if(self.type != MDValue.Type.Instance && self.type != MDValue.Type.Class)
 						{
 							typeString(t, self);
-							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance'", getString(t, -1));
+							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 						}
 
 						RS = t.currentAR.proto;

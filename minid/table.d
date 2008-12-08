@@ -81,7 +81,7 @@ static:
 	{
 		return t.data.length();
 	}
-	
+
 	package void normalize(MDTable* t)
 	{
 		uword i = 0;
@@ -96,5 +96,10 @@ static:
 				i--;
 			}
 		}
+	}
+
+	package bool next(MDTable* t, ref size_t idx, ref MDValue* key, ref MDValue* val)
+	{
+		return t.data.next(idx, key, val);
 	}
 }

@@ -605,6 +605,8 @@ static:
 	}
 }
 
+import tango.io.Stdout;
+
 struct StreamObj
 {
 static:
@@ -622,6 +624,7 @@ static:
 		bool dirty;
 		IConduit conduit;
 		IConduit.Seek seeker;
+		IBuffer buf;
 	}
 
 	public void init(MDThread* t)
@@ -737,9 +740,15 @@ static:
 		memb.seeker = cast(IConduit.Seek)conduit;
 
 		if(auto b = cast(Buffered)conduit)
+		{
+			memb.buf = b.buffer;
 			memb.conduit = b.buffer;
+		}
 		else
-			memb.conduit = new Buffer(conduit);
+		{
+			memb.buf = new Buffer(conduit);
+			memb.conduit = memb.buf;
+		}
 
 		pushNativeObj(t, cast(Object)memb.conduit); setExtraVal(t, 0, Fields.conduit);
 
@@ -797,6 +806,7 @@ static:
 	public uword readVal(T)(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
+		Stderr.formatln("Reading: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
 		checkDirty(t, memb);
 		pushInput(t);
 		swap(t, 0);
@@ -869,6 +879,7 @@ static:
 	{
 		auto memb = getThis(t);
 		memb.dirty = true;
+		Stderr.formatln("Writing: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
 		pushOutput(t);
 		swap(t, 0);
 		OutputStreamObj.writeVal!(T)(t, numParams);
@@ -1030,6 +1041,8 @@ static:
 
 		if(memb.seeker is null)
 			throwException(t, "Stream is not seekable.");
+
+		Stderr.formatln("Seeking: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
 
 		if(numParams == 0)
 		{

@@ -158,7 +158,7 @@ static:
 
 		MDValue* k = void, v = void;
 
-		if(tab.data.next(idx, k, v))
+		if(table.next(tab, idx, k, v))
 		{
 			pushInt(t, idx);
 			setUpval(t, 1);
@@ -248,7 +248,7 @@ static:
 			auto tab = getTable(t, slot);
 			uword idx = 0;
 
-			while(tab.data.next(idx, k, v))
+			while(table.next(tab, idx, k, v))
 				if(!guts())
 					break;
 		}

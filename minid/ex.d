@@ -704,6 +704,73 @@ public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv 
 	return rawCall(t, -2, numReturns);
 }
 
+/**
+This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
+that handle MiniD exceptions in D code.  
+
+This function will store the stack size of the given thread when it is called, before the try code is executed.
+If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with 
+catchException), and the catch code will be called with the D exception object and the MiniD exception object's
+stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
+same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
+finally code, if any, will be executed as a finally block usually is.
+
+This function is best used with anonymous delegates, like so:
+
+-----
+mdtry(t,
+// try block
+{
+	// foo bar baz
+},
+// catch block
+(MDException e, word mdEx)
+{
+	// deal with exception here
+},
+// finally block
+{
+	// cleanup, whatever
+});
+-----
+
+It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
+the delegate instead of from the enclosing function.  Hey, don't look at me; it's D's fault for not having
+AST macros ;)
+
+If you just need a try-finally block, you don't need this function, and please don't call it with a null
+catch_ parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
+
+Params:
+	try_ = The try code.
+	catch_ The catch code.  It takes two parameters - the D exception object and the stack index of the caught
+		MiniD exception object.
+	finally_ = The optional finally code.
+*/
+public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, word) catch_, void delegate() finally_ = null)
+{
+	auto size = stackSize(t);
+
+	try
+		try_();
+	catch(MDException e)
+	{
+		setStackSize(t, size);
+		auto mdEx = catchException(t);
+		catch_(e, mdEx);
+
+		if(mdEx != stackSize(t) - 1)
+			throwException(t, "mdtry - catch block is supposed to leave stack as it was before it was entered");
+
+		pop(t);
+	}
+	finally
+	{
+		if(finally_)
+			finally_();
+	}
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
