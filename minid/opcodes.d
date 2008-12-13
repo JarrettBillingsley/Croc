@@ -59,6 +59,7 @@ enum Op : ushort
 	FieldAssign,
 	For,
 	Foreach,
+	ForeachLoop,
 	ForLoop,
 	Import,
 	In,
@@ -160,7 +161,8 @@ Equals............R: n/a, src, src
 Field.............R: dest, src, index
 FieldAssign.......R: dest, index, src
 For...............J: base reg, branch offset
-Foreach...........I: base reg, num indices
+Foreach...........J: base reg, branch offset
+ForeachLoop.......I: base reg, num indices
 ForLoop...........J: base reg, branch offset
 Import............R: dest, name src, n/a
 In................R: dest, src value, src object
@@ -324,7 +326,8 @@ align(1) struct Instruction
 			case Op.Field:           return Format("field {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.FieldAssign:     return Format("fielda {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.For:             return Format("for {}, {}", cr(rd), imm);
-			case Op.Foreach:         return Format("foreach r{}, {}", rd, uimm);
+			case Op.Foreach:         return Format("foreach r{}, {}", rd, imm);
+			case Op.ForeachLoop:     return Format("foreachloop r{}, {}", rd, uimm);
 			case Op.ForLoop:         return Format("forloop {}, {}", cr(rd), imm);
 			case Op.Import:          return Format("import r{}, {}", rd, cr(rs));
 			case Op.In:              return Format("in {}, {}, {}", cr(rd), cr(rs), cr(rt));

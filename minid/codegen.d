@@ -1498,6 +1498,11 @@ final class FuncState
 	{
 		return codeJ(line, Op.ForLoop, baseReg, NoJump);
 	}
+	
+	public uint makeForeach(uint line, uint baseReg)
+	{
+		return codeJ(line, Op.Foreach, baseReg, NoJump);
+	}
 
 	public uint codeCatch(uint line, out uint checkReg)
 	{
@@ -2597,7 +2602,7 @@ class Codegen : Visitor
 			fs.setContinuable();
 
 			auto baseReg = fs.nextRegister();
-			auto generator = fs.nextRegister();
+			auto generator = baseReg;
 			visit(container[0]);
 
 			uint invState = void;
@@ -2659,7 +2664,7 @@ class Codegen : Visitor
 				}
 			}
 
-			auto beginJump = fs.makeJump(location.line);
+			auto beginJump = fs.makeForeach(location.line, baseReg);
 			auto beginLoop = fs.here();
 
 			foreach(i; indices)
@@ -2668,13 +2673,15 @@ class Codegen : Visitor
 			fs.activateLocals(indices.length);
 			genBody();
 
-			fs.patchJumpToHere(beginJump);
 			fs.closeUpvals(endLocation.line);
 			fs.patchContinuesToHere();
-			fs.codeI(endLocation.line, Op.Foreach, baseReg, indices.length);
 
+			fs.patchJumpToHere(beginJump);
+
+			fs.codeI(endLocation.line, Op.ForeachLoop, baseReg, indices.length);
 			auto gotoBegin = fs.makeJump(endLocation.line, Op.Je);
 			fs.patchJumpTo(gotoBegin, beginLoop);
+
 			fs.patchBreaksToHere();
 		fs.popScope(endLocation.line);
 

@@ -7136,45 +7136,10 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.Foreach:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
-					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreach' jump");
-
 					auto rd = i.rd;
-					auto funcReg = rd + 3;
 					auto src = &t.stack[stackBase + rd];
-					
-				_retryForeach:
 
-					if(src.type == MDValue.Type.Function)
-					{
-						t.stack[stackBase + funcReg + 2] = t.stack[stackBase + rd + 2];
-						t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
-						t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
-
-						t.stackIndex = stackBase + funcReg + 3;
-						rawCall(t, funcReg, i.imm);
-						t.stackIndex = t.currentAR.savedTop;
-
-						if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
-						{
-							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
-							t.currentAR.pc += jump.imm;
-						}
-					}
-					else if(src.type == MDValue.Type.Thread)
-					{
-						t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
-						t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
-
-						t.stackIndex = stackBase + funcReg + 2;
-						rawCall(t, funcReg, i.imm);
-						t.stackIndex = t.currentAR.savedTop;
-
-						if(src.mThread.state != MDThread.State.Dead)
-							t.currentAR.pc += jump.imm;
-					}
-					else
+					if(src.type != MDValue.Type.Function && src.type != MDValue.Type.Thread)
 					{
 						auto method = getMM(t, src, MM.Apply);
 
@@ -7193,15 +7158,46 @@ void execute(MDThread* t, uword depth = 1)
 						t.stackIndex = t.currentAR.savedTop;
 
 						src = &t.stack[stackBase + rd];
-						
-						// Prevent infinite poops
+
 						if(src.type != MDValue.Type.Function && src.type != MDValue.Type.Thread)
 						{
 							typeString(t, src);
 							throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
 						}
-						
-						goto _retryForeach;
+					}
+
+					t.currentAR.pc += i.imm;
+					break;
+
+				case Op.ForeachLoop:
+					auto jump = t.currentAR.pc;
+					t.currentAR.pc++;
+					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreachloop' jump");
+
+					auto rd = i.rd;
+					auto funcReg = rd + 3;
+					auto src = &t.stack[stackBase + rd];
+
+					t.stack[stackBase + funcReg + 2] = t.stack[stackBase + rd + 2];
+					t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
+					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
+
+					t.stackIndex = stackBase + funcReg + 3;
+					rawCall(t, funcReg, i.imm);
+					t.stackIndex = t.currentAR.savedTop;
+
+					if(src.type == MDValue.Type.Function)
+					{
+						if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
+						{
+							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
+							t.currentAR.pc += jump.imm;
+						}
+					}
+					else
+					{
+						if(src.mThread.state != MDThread.State.Dead)
+							t.currentAR.pc += jump.imm;
 					}
 					break;
 
