@@ -1,32 +1,46 @@
 module samples.simple
 
-class Derived : Base
+class Count
 {
-	function _prop_x(v: null|int)
-	{
-		writeln("derived prop x!")
+	x = 3
 
-		if(v is null)
-			return super._prop_x()
-		else
-			return super._prop_x(v)
-	}
-
-	function overrideMe()
+	function opApply() return coroutine function()
 	{
-		write("Derived: ")
-		super.overrideMe(43)
-	}
+		for(i: 1 .. :x + 1)
+			yield(null, i)
+	}, this
 }
 
-local b = Derived(1, 2)
+foreach(v; Count())
+	writeln(v)
 
-writeln(b.x)
-b.x = 5
-writeln(b.x)
-
-b.overrideMe()
-foob(b)
+// class Derived : Base
+// {
+// 	function _prop_x(v: null|int)
+// 	{
+// 		writeln("derived prop x!")
+// 
+// 		if(v is null)
+// 			return super._prop_x()
+// 		else
+// 			return super._prop_x(v)
+// 	}
+// 
+// 	function overrideMe()
+// 	{
+// 		write("Derived: ")
+// 		super.overrideMe(43)
+// 	}
+// }
+// 
+// local b = Derived(1, 2)
+// 
+// writeln(b.x)
+// b.x = 5
+// writeln(b.x)
+// 
+// b.overrideMe()
+// foob(b)
 
 /+
 // Making sure finally blocks are executed.

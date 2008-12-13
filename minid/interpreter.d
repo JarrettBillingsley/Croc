@@ -7143,8 +7143,38 @@ void execute(MDThread* t, uword depth = 1)
 					auto rd = i.rd;
 					auto funcReg = rd + 3;
 					auto src = &t.stack[stackBase + rd];
+					
+				_retryForeach:
 
-					if(src.type != MDValue.Type.Function)
+					if(src.type == MDValue.Type.Function)
+					{
+						t.stack[stackBase + funcReg + 2] = t.stack[stackBase + rd + 2];
+						t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
+						t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
+
+						t.stackIndex = stackBase + funcReg + 3;
+						rawCall(t, funcReg, i.imm);
+						t.stackIndex = t.currentAR.savedTop;
+
+						if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
+						{
+							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
+							t.currentAR.pc += jump.imm;
+						}
+					}
+					else if(src.type == MDValue.Type.Thread)
+					{
+						t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
+						t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
+
+						t.stackIndex = stackBase + funcReg + 2;
+						rawCall(t, funcReg, i.imm);
+						t.stackIndex = t.currentAR.savedTop;
+
+						if(src.mThread.state != MDThread.State.Dead)
+							t.currentAR.pc += jump.imm;
+					}
+					else
 					{
 						auto method = getMM(t, src, MM.Apply);
 
@@ -7161,20 +7191,17 @@ void execute(MDThread* t, uword depth = 1)
 						t.stackIndex = stackBase + rd + 3;
 						rawCall(t, rd, 3);
 						t.stackIndex = t.currentAR.savedTop;
-					}
 
-					t.stack[stackBase + funcReg + 2] = t.stack[stackBase + rd + 2];
-					t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
-					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
-
-					t.stackIndex = stackBase + funcReg + 3;
-					rawCall(t, funcReg, i.imm);
-					t.stackIndex = t.currentAR.savedTop;
-
-					if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
-					{
-						t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
-						t.currentAR.pc += jump.imm;
+						src = &t.stack[stackBase + rd];
+						
+						// Prevent infinite poops
+						if(src.type != MDValue.Type.Function && src.type != MDValue.Type.Thread)
+						{
+							typeString(t, src);
+							throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+						}
+						
+						goto _retryForeach;
 					}
 					break;
 

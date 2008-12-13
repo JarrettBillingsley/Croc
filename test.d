@@ -6,7 +6,7 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 import minid.api;
 import minid.bind;
 
-version = TestArc;
+// version = TestArc;
 
 version(TestArc)
 	import arc_wrap.all;
@@ -37,7 +37,8 @@ void main()
 		
 		WrapType!(S, "S", WrapProperty!(S.w)),
 
-		WrapFunc!(foob)
+		WrapFunc!(foob),
+		WrapFunc!(freep)
 	)(t);
 
 	try
@@ -106,6 +107,11 @@ struct S
 void foob(Base b)
 {
 	b.overrideMe(3);
+}
+
+Base freep()
+{
+	return new Base(1, 5);
 }
 
 version(none)

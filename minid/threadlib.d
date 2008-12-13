@@ -50,9 +50,6 @@ static:
 				newFunction(t, &isWaiting,   "isWaiting");   fielda(t, -2, "isWaiting");
 				newFunction(t, &isSuspended, "isSuspended"); fielda(t, -2, "isSuspended");
 				newFunction(t, &isDead,      "isDead");      fielda(t, -2, "isDead");
-
-					newFunction(t, &iterator, "iterator");
-				newFunction(t, &opApply, "opApply", 1);      fielda(t, -2, "opApply");
 			setTypeMT(t, MDValue.Type.Thread);
 
 			return 0;
@@ -152,47 +149,5 @@ static:
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Dead);
 		return 1;
-	}
-
-	uword iterator(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		auto thread = getThread(t, 0);
-
-		pushInt(t, checkIntParam(t, 1) + 1);
-
-		auto slot = pushThread(t, thread);
-		pushNull(t);
-		auto numRets = rawCall(t, slot, -1);
-
-		if(.state(thread) == MDThread.State.Dead)
-			return 0;
-
-		return numRets + 1;
-	}
-
-	uword opApply(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Thread);
-		auto haveParam = isValidIndex(t, 1);
-		auto thread = getThread(t, 0);
-
-		if(.state(thread) != MDThread.State.Initial)
-			throwException(t, "Iterated coroutine must be in the initial state");
-
-		auto slot = pushThread(t, thread);
-		dup(t);
-
-		if(haveParam)
-			dup(t, 1);
-		else
-			pushNull(t);
-
-		rawCall(t, slot, 0);
-
-		getUpval(t, 0);
-		pushThread(t, thread);
-		pushInt(t, -1);
-		return 3;
 	}
 }

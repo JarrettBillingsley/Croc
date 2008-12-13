@@ -6,22 +6,18 @@ function chain(vararg)
 
 	return coroutine function()
 	{
-		yield()
-
 		foreach(arg; args)
 			foreach(v; arg)
-				yield(v)
+				yield(null, v)
 	}
 }
 
 function count(n = 0) =
 	coroutine function()
 	{
-		yield()
-
 		while(true)
 		{
-			yield(n)
+			yield(null, n)
 			n++
 		}
 	}
@@ -57,21 +53,42 @@ function izip(vararg)
 function generator(x, extra = null) =
 	coroutine function()
 	{
-		yield()
+		local iterFunc = x
+		local state, idx
 
-		local iterFunc, state, idx = x.opApply(extra)
-
-		local function loop(idx0, vararg)
+		if(!isFunction(iterFunc) && !isThread(iterFunc))
 		{
-			if(idx0 is null)
-				return
-
-			yield(idx0, vararg)
-
-			return loop(iterFunc(with state, idx0))
+			iterFunc, state, idx = x.opApply(extra)
+			
+			if(!isFunction(iterFunc) && !isThread(iterFunc))
+				throw "aghl"
 		}
+		
+		local rets = [idx]
 
-		loop(iterFunc(with state, idx))
+		if(isFunction(iterFunc))
+		{
+			rets.set(iterFunc(with state, rets[0]))
+
+			while(#rets && rets[0] !is null)
+			{
+				yield(rets.expand())
+				rets.set(iterFunc(with state, rets[0]))
+			}
+		}
+		else
+		{
+			if(!iterFunc.isInitial())
+				throw "not initial omfg"
+				
+			rets.set(iterFunc(with state, rets[0]))
+
+			while(!iterFunc.isDead())
+			{
+				yield(rets.expand())
+				rets.set(iterFunc(with state, rets[0]))
+			}
+		}
 	}
 
 function repeat(x, times)
@@ -98,7 +115,7 @@ function iter(callable, sentinel)
 	{
 		index++
 
-		local ret = callable()
+		local ret = this()
 
 		if(ret is sentinel)
 			return
@@ -106,12 +123,12 @@ function iter(callable, sentinel)
 		return index, ret
 	}
 
-	return iterator, null, -1
+	return iterator, callable, -1
 }
 
 function imap(func, vararg)
 {
-	local iterables = [vararg].apply(generator).each(\i, v -> v())
+	local iterables = [vararg].apply(generator)
 	local args = array.new(#iterables)
 
 	local function iterator(index)
