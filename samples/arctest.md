@@ -154,7 +154,7 @@ function main()
 
 		drawCircle(arc.input.mousePos(), 6, 10, Color.White, false)
 
-		font.draw(format("{}\n{}\n{}", arc.time.fps(), pg.mParticles is null, totalBytes()), Point.Origin, Color.White)
+		font.draw(format("{}\n{}\n{}", arc.time.fps(), pg.mParticles is null, bytesAllocated()), Point.Origin, Color.White)
 
 // 		font.draw(toString(arc.time.fps()), origin, Color.White)
 // 		font.draw(toString(pg.mParticles is null), Point(0, 16), Color.White)

@@ -58,6 +58,7 @@ static:
 	public void init(MDThread* t)
 	{
 		register(t, "collectGarbage", &collectGarbage);
+		register(t, "bytesAllocated", &bytesAllocated);
 
 		// Object
 		pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
@@ -152,6 +153,12 @@ static:
 		return 1;
 	}
 	
+	uword bytesAllocated(MDThread* t, uword numParams)
+	{
+		pushInt(t, .bytesAllocated(getVM(t)));
+		return 1;
+	}
+
 	// ===================================================================================================================================
 	// Functional stuff
 
@@ -783,6 +790,14 @@ static:
 				outputTable(v);
 			else if(isNamespace(t, v))
 				outputNamespace(v);
+			else if(isWeakRef(t, v))
+			{
+				Stdout("weakref(");
+				.deref(t, v);
+				outputRepr(-1);
+				pop(t);
+				Stdout(")");
+			}
 			else
 			{
 				pushToString(t, v);

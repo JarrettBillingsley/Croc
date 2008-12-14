@@ -1,18 +1,18 @@
 module samples.simple
 
-class Count
-{
-	x = 3
+local w = {}
 
-	function opApply() return coroutine function()
-	{
-		for(i: 1 .. :x + 1)
-			yield(null, i)
-	}, this
+{
+	local t = [1, 2, 3]
+	w[weakref(t)] = t
+	t = null
 }
 
-foreach(v; Count())
-	writeln(v)
+collectGarbage()
+dumpVal(w)
+collectGarbage()
+dumpVal(w)
+
 
 // class Derived : Base
 // {

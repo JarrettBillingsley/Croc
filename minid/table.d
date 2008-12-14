@@ -54,6 +54,7 @@ static:
 		return t.data.lookup(key);
 	}
 	
+	// Insert a key-value pair (or update one if it already exists).
 	package void set(ref Allocator alloc, MDTable* t, ref MDValue key, ref MDValue value)
 	{
 		assert(value.type != MDValue.Type.Null);
@@ -66,6 +67,7 @@ static:
 		t.data.remove(key);
 	}
 	
+	// remove all key-value pairs from the table.
 	package void clear(ref Allocator alloc, MDTable* t)
 	{
 		t.data.clear(alloc);
@@ -76,12 +78,14 @@ static:
 	{
 		return t.data.lookup(key) !is null;
 	}
-	
+
+	// Get the number of key-value pairs in the table.
 	package uword length(MDTable* t)
 	{
 		return t.data.length();
 	}
 
+	// Removes any key-value pairs that have null weak references.
 	package void normalize(MDTable* t)
 	{
 		uword i = 0;
@@ -90,7 +94,8 @@ static:
 
 		while(t.data.next(i, k, v))
 		{
-			if(k.type == MDValue.Type.Null || v.type == MDValue.Type.Null)
+			if((k.type == MDValue.Type.WeakRef && k.mWeakRef.obj is null) ||
+				(v.type == MDValue.Type.WeakRef && v.mWeakRef.obj is null))
 			{
 				t.data.remove(*k);
 				i--;

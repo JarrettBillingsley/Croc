@@ -46,6 +46,8 @@ package:
 // Perform the mark phase of garbage collection.
 void mark(MDVM* vm)
 {
+	vm.toBeNormalized = null;
+
 	foreach(mt; vm.metaTabs)
 		if(mt)
 			markObj(vm, mt);
@@ -86,11 +88,11 @@ void sweep(MDVM* vm)
 
 	vm.stringTab.minimize(vm.alloc);
 	vm.weakRefTab.minimize(vm.alloc);
+	
+	for(auto t = vm.toBeNormalized; t !is null; t = t.nextTab)
+		table.normalize(t);
 
-	if(markVal == 0)
-		vm.alloc.markVal = GCBits.Marked;
-	else
-		vm.alloc.markVal = 0;
+	vm.alloc.markVal = markVal == 0 ? GCBits.Marked : 0;
 }
 
 debug import tango.io.Stdout;
@@ -153,14 +155,7 @@ template CondMark(char[] name)
 	{
 		auto obj = " ~ name ~ ".toGCObject();
 
-		if(" ~ name ~ ".type == MDValue.Type.WeakRef && " ~ name ~ ".mWeakRef.obj is null)
-		{
-			static if(is(typeof(" ~ name ~ ") == MDValue*))
-				*" ~ name ~ " = MDValue.nullValue;
-			else
-				" ~ name ~ " = MDValue.nullValue;
-		}
-		else if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
+		if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
 			markObj(vm, obj);
 	}";
 }
@@ -200,13 +195,22 @@ void markObj(MDVM* vm, MDTable* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
+	bool anyWeakRefs = false;
+
 	foreach(ref key, ref val; o.data)
 	{
 		mixin(CondMark!("key"));
 		mixin(CondMark!("val"));
+
+		if(!anyWeakRefs && key.type == MDValue.Type.WeakRef || val.type == MDValue.Type.WeakRef)
+			anyWeakRefs = true;
 	}
-	
-	table.normalize(o);
+
+	if(anyWeakRefs)
+	{
+		o.nextTab = vm.toBeNormalized;
+		vm.toBeNormalized = o;
+	}
 }
 
 // Mark an array.
@@ -313,7 +317,7 @@ void markObj(MDVM* vm, MDThread* o)
 		mixin(CondMark!("val"));
 	}
 
-	// this really needed?
+	// I guess this can't _hurt_..
 	o.stack[o.stackIndex .. $] = MDValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])

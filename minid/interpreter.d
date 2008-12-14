@@ -428,10 +428,13 @@ void setStackSize(MDThread* t, uword newSize)
 
 	if(newSize != curSize)
 	{
-		t.stackIndex = t.stackBase + newSize + 1; // include 'this'
+		t.stackIndex = t.stackBase + newSize;
 
 		if(newSize > curSize)
+		{
+			checkStack(t, t.stackIndex);
 			t.stack[t.stackBase + curSize .. t.stackIndex] = MDValue.nullValue;
+		}
 	}
 }
 
@@ -1411,12 +1414,7 @@ struct foreachLoop
 
 		// Make sure we have 3 stack slots for our temp data area
 		if(numSlots < 3)
-		{
-			pushNull(t);
-			
-			if(numSlots < 2)
-				pushNull(t);
-		}
+			setStackSize(t, stackSize(t) + (3 - numSlots));
 
 		// ..and make sure to clean up
 		scope(success)
@@ -1424,10 +1422,10 @@ struct foreachLoop
 
 		// Get opApply, if necessary
 		auto src = absIndex(t, -3);
-		auto srcObj = &t.stack[t.stackIndex - 3];
 
-		if(srcObj.type != MDValue.Type.Function)
+		if(!isFunction(t, src) && !isThread(t, src))
 		{
+			auto srcObj = &t.stack[t.stackIndex - 3];
 			auto method = getMM(t, srcObj, MM.Apply);
 
 			if(method is null)
@@ -1435,7 +1433,7 @@ struct foreachLoop
 				typeString(t, srcObj);
 				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
 			}
-			
+
 			version(MDExtendedCoro) {} else
 			{
 				t.nativeCallDepth++;
@@ -1446,7 +1444,16 @@ struct foreachLoop
 			insert(t, -4);
 			pop(t);
 			rawCall(t, -3, 3);
+
+			if(!isFunction(t, src) && !isThread(t, src))
+			{
+				pushTypeString(t, src);
+				throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+			}
 		}
+
+		if(isThread(t, src) && state(getThread(t, src)) != MDThread.State.Initial)
+			throwException(t, "Attempting to iterate over a thread that is not in the 'initial' state");
 
 		// Set up the indices tuple
 		Indices idx;
@@ -1467,15 +1474,27 @@ struct foreachLoop
 			dup(t, src + 2);
 			rawCall(t, funcReg, numIndices);
 
-			if(isNull(t, funcReg))
+			if(isFunction(t, src))
 			{
-				pop(t, numIndices);
-				break;
+				if(isNull(t, funcReg))
+				{
+					pop(t, numIndices);
+					break;
+				}
+			}
+			else
+			{
+				if(state(getThread(t, src)) == MDThread.State.Dead)
+				{
+					pop(t, numIndices);
+					break;
+				}
 			}
 
 			dup(t, funcReg);
 			swap(t, src + 2);
 			pop(t);
+
 
 			auto ret = dg(idx);
 			pop(t, numIndices);
@@ -7165,6 +7184,9 @@ void execute(MDThread* t, uword depth = 1)
 							throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
 						}
 					}
+					
+					if(src.type == MDValue.Type.Thread && src.mThread.state != MDThread.State.Initial)
+						throwException(t, "Attempting to iterate over a thread that is not in the 'initial' state");
 
 					t.currentAR.pc += i.imm;
 					break;
@@ -7330,6 +7352,8 @@ void execute(MDThread* t, uword depth = 1)
 
 					// fall through
 				_commonCall:
+					maybeGC(t);
+
 					if(isScript)
 					{
 						depth++;
@@ -7358,6 +7382,8 @@ void execute(MDThread* t, uword depth = 1)
 
 					// fall through
 				_commonTailcall:
+					maybeGC(t);
+
 					if(isScript)
 					{
 						auto prevAR = t.currentAR - 1;
@@ -7666,7 +7692,7 @@ void execute(MDThread* t, uword depth = 1)
 						typeString(t, &RS);
 						throwException(t, "Field name must be a string, not a '{}'", getString(t, -1));
 					}
-					
+
 					fieldaImpl(t, get(i.rd), RS.mString, get(i.rt), false);
 					break;
 

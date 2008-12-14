@@ -416,6 +416,7 @@ struct MDTable
 {
 	mixin MDObjectMixin!(MDValue.Type.Table);
 	package Hash!(MDValue, MDValue) data;
+	package MDTable* nextTab; // used during collection
 }
 
 struct MDArrayData
@@ -699,6 +700,7 @@ struct MDVM
 	package MDThread* curThread;
 	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
 	package MDNamespace* registry;
+	package MDTable* toBeNormalized; // linked list of tables to be normalized
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
