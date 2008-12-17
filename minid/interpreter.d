@@ -6840,7 +6840,18 @@ void throwImpl(MDThread* t, MDValue* ex)
 
 	pushDebugLocStr(t, getDebugLoc(t));
 	pushString(t, ": ");
-	toStringImpl(t, exSave, true);
+	
+	auto size = stackSize(t);
+	
+	try
+		toStringImpl(t, exSave, false);
+	catch(MDException e)
+	{
+		catchException(t);
+		setStackSize(t, size);
+		toStringImpl(t, exSave, true);
+	}
+
 	cat(t, 3);
 
 	t.vm.alloc.resizeArray(t.vm.traceback, 0);

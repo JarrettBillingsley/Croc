@@ -1,17 +1,5 @@
 module samples.simple
 
-local w = {}
-
-{
-	local t = [1, 2, 3]
-	w[weakref(t)] = t
-	t = null
-}
-
-collectGarbage()
-dumpVal(w)
-collectGarbage()
-dumpVal(w)
 
 
 // class Derived : Base
@@ -19,13 +7,13 @@ dumpVal(w)
 // 	function _prop_x(v: null|int)
 // 	{
 // 		writeln("derived prop x!")
-// 
+//
 // 		if(v is null)
 // 			return super._prop_x()
 // 		else
 // 			return super._prop_x(v)
 // 	}
-// 
+//
 // 	function overrideMe()
 // 	{
 // 		write("Derived: ")

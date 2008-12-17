@@ -78,6 +78,7 @@ static:
 		register(t, "findGlobal", &findGlobal);
 		register(t, "isSet", &isSet);
 		register(t, "typeof", &mdtypeof);
+		register(t, "nameOf", &nameOf);
 		register(t, "fieldsOf", &fieldsOf);
 		register(t, "allFieldsOf", &allFieldsOf);
 		register(t, "hasField", &hasField);
@@ -225,6 +226,22 @@ static:
 	{
 		checkAnyParam(t, 1);
 		pushString(t, MDValue.typeString(type(t, 1)));
+		return 1;
+	}
+	
+	uword nameOf(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		
+		switch(type(t, 1))
+		{
+			case MDValue.Type.Function:  pushString(t, funcName(t, 1)); break;
+			case MDValue.Type.Class:     pushString(t, className(t, 1)); break;
+			case MDValue.Type.Namespace: pushString(t, namespaceName(t, 1)); break;
+			default:
+				paramTypeError(t, 1, "function|class|namespace");
+		}
+		
 		return 1;
 	}
 
