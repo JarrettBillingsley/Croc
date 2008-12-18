@@ -44,6 +44,7 @@ static:
 			newFunction(t, &staticValues, "values"); newGlobal(t, "values");
 			newFunction(t, &staticApply,  "apply");  newGlobal(t, "apply");
 			newFunction(t, &staticEach,   "each");   newGlobal(t, "each");
+			newFunction(t, &staticTake,   "take");   newGlobal(t, "take");
 			newFunction(t, &remove,       "remove"); newGlobal(t, "remove");
 			newFunction(t, &set,          "set");    newGlobal(t, "set");
 			newFunction(t, &get,          "get");    newGlobal(t, "get");
@@ -54,6 +55,7 @@ static:
 				newFunction(t, &tableValues,  "values");  fielda(t, -2, "values");
 				newFunction(t, &tableOpApply, "opApply"); fielda(t, -2, "opApply");
 				newFunction(t, &tableEach,    "each");    fielda(t, -2, "each");
+				newFunction(t, &tableTake,    "take");    fielda(t, -2, "take");
 			setTypeMT(t, MDValue.Type.Table);
 			
 			newNamespace(t, "namespace");
@@ -273,6 +275,41 @@ static:
 		dup(t, slot);
 		return 1;
 	}
+	
+	uword takeImpl(MDThread* t, word slot)
+	{
+		if(isTable(t, slot))
+		{
+			auto tab = getTable(t, slot);
+			uword idx = 0;
+			MDValue* k = void, v = void;
+
+			if(table.next(tab, idx, k, v))
+			{
+				push(t, *k);
+				push(t, *v);
+			}
+			else
+				throwException(t, "Attempting to take from an empty table");
+		}
+		else
+		{
+			auto ns = getNamespace(t, slot);
+			uword idx = 0;
+			MDString** s = void;
+			MDValue* v = void;
+
+			if(ns.data.next(idx, s, v))
+			{
+				pushStringObj(t, *s);
+				push(t, *v);
+			}
+			else
+				throwException(t, "Attempting to take from an empty namespace");
+		}
+
+		return 2;
+	}
 
 	uword tableDup(MDThread* t, uword numParams)
 	{
@@ -303,6 +340,12 @@ static:
 		checkParam(t, 0, MDValue.Type.Table);
 		checkParam(t, 1, MDValue.Type.Function);
 		return eachImpl(t, 0, 1);
+	}
+
+	uword tableTake(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Table);
+		return takeImpl(t, 0);
 	}
 
 	uword namespaceOpApply(MDThread* t, uword numParams)
@@ -348,6 +391,14 @@ static:
 
 		checkParam(t, 2, MDValue.Type.Function);
 		return eachImpl(t, 1, 2);
+	}
+
+	uword staticTake(MDThread* t, uword numParams)
+	{
+		if(!isTable(t, 1))
+			checkParam(t, 1, MDValue.Type.Namespace);
+
+		return takeImpl(t, 1);
 	}
 
 	uword remove(MDThread* t, uword numParams)

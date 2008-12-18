@@ -161,6 +161,121 @@ The stack index of the newly-pushed namespace.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void[] 
+<span class="currsymbol">allocMem</span>
+<script>explorer.outline.addDecl('allocMem');</script>
+
+(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">size</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Allocates a block of memory using the given thread's VM's allocator function.  This memory is <b>not</b> garbage-collected.
+You must free the memory returned by this function in order to avoid memory leaks.
+<br><br>
+The array returned by this function should not have its length set or be appended to (~=).
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">size</span></td>
+
+               
+<td>The <span class="funcparam">size</span>, in bytes, of the block to allocate.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+A void array representing the memory block.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">resizeMem</span>
+<script>explorer.outline.addDecl('resizeMem');</script>
+
+(MDThread* <span class="funcparam">t</span>, ref void[] <span class="funcparam">mem</span>, uint <span class="funcparam">size</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Resize a block of memory.  <b>Only call this on memory that has been allocated using the allocMem, resizeMem or dupMem
+functions.</b>  If you pass this function an empty (0-length) memory block, it will allocate memory.  If you resize an existing
+block to a length of 0, it will deallocate that memory.
+<br><br>
+If you resize a block to a smaller <span class="funcparam">size</span>, its data will be truncated.  If you resize a block to a larger <span class="funcparam">size</span>, the empty
+space will be uninitialized.
+<br><br>
+
+The array returned by this function through the <span class="funcparam">mem</span> parameter should not have its length set or be appended to (~=).
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void[] <span class="funcparam">mem</span></td>
+
+               
+<td>A reference to the memory block you want to reallocate.  This is a reference so that the original memory block
+		reference that you pass in is updated.  This can be a 0-length array.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">size</span></td>
+
+               
+<td>The <span class="funcparam">size</span>, in bytes, of the new <span class="funcparam">size</span> of the memory block.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void[] 
+<span class="currsymbol">dupMem</span>
+<script>explorer.outline.addDecl('dupMem');</script>
+
+(MDThread* <span class="funcparam">t</span>, void[] <span class="funcparam">mem</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Duplicate a block of memory.  This is safe to call on memory that was not allocated with the thread's VM's allocator.
+The new block will be the same size and contain the same data as the old block.
+<br><br>
+The array returned by this function should not have its length set or be appended to (~=).
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void[] <span class="funcparam">mem</span></td>
+
+               
+<td>The block of memory to copy.  This is not required to have been allocated by allocMem, resizeMem, or dupMem.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The new memory block.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">freeMem</span>
+<script>explorer.outline.addDecl('freeMem');</script>
+
+(MDThread* <span class="funcparam">t</span>, ref void[] <span class="funcparam">mem</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Free a block of memory.  <b>Only call this on memory that has been allocated with allocMem, resizeMem, or dupMem.</b>
+It's legal to free a 0-length block.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void[] <span class="funcparam">mem</span></td>
+
+               
+<td>A reference to the memory block you want to free.  This is a reference so that the original memory block
+		reference that you pass in is updated.  This can be a 0-length array.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
 <span class="currsymbol">maybeGC</span>
 <script>explorer.outline.addDecl('maybeGC');</script>
@@ -2762,14 +2877,21 @@ otherwise, places a pending halt on the thread.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Dereferences the weak reference object at the given stack index and pushes the value it
-refers to.  If the value it refers to has been collected, pushes "<b>null</b>" instead.
+<dd>Works like the 
+<span class="currsymbol">deref</span>
+<script>explorer.outline.addDecl('deref');</script>
+
+() function in the base library.  If the value at the given index is a
+value type, just duplicates that value.  If the value at the given index is a weak reference,
+pushes the object it refers to or '<b>null</b>' if that object has been collected.  Throws an error
+if the value at the given index is any other type.  This is meant to be an inverse to pushWeakRef,
+hence the behavior with regards to value types.
 <br><br>
 <b>Params:</b><br><table class="params"><tr>
 <td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
 
                
-<td>The stack index of the weak reference object to dereference.</td></tr>
+<td>The stack index of the object to dereference.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index of the newly-pushed value.
@@ -4227,7 +4349,7 @@ True if the object has an attributes table; <b>false</b> otherwise.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Dec  5 19:39:50 2008
+			on Thu Dec 18 14:44:22 2008
 
 		</td></tr>
 	</table>

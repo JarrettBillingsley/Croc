@@ -642,6 +642,202 @@ If <span class="funcparam">numReturns</span> &gt;= 0, returns <span class="funcp
 <br><br>
 
 </dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">mdtry</span>
+<script>explorer.outline.addDecl('mdtry');</script>
+
+(MDThread* <span class="funcparam">t</span>, void delegate() <span class="funcparam">try_</span>, void delegate(MDException, int) <span class="funcparam">catch_</span>, void delegate() <span class="funcparam">finally_</span> = null);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
+that handle MiniD exceptions in D code.
+<br><br>
+This function will store the stack size of the given thread when it is called, before the try code is executed.
+If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with
+catchException), and the catch code will be called with the D exception object and the MiniD exception object's
+stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
+same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
+finally code, if any, will be executed as a finally block usually is.
+<br><br>
+
+This function is best used with anonymous delegates, like so:
+<br><br>
+
+<pre class="d_code"><pre class="d_psymbol">mdtry</pre>(<pre class="d_param">t</pre>,
+<pre class="d_comment">// try block
+</pre>{
+	<pre class="d_comment">// foo bar baz
+</pre>},
+<pre class="d_comment">// catch block
+</pre>(MDException e, word mdEx)
+{
+	<pre class="d_comment">// deal with exception here
+</pre>},
+<pre class="d_comment">// finally block
+</pre>{
+	<pre class="d_comment">// cleanup, whatever
+</pre>});
+</pre>
+
+It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
+the delegate instead of from the enclosing function.  Hey, don'<span class="funcparam">t</span> look at me; it's D's fault for not having
+AST macros ;)
+<br><br>
+
+If you just need a try-finally block, you don'<span class="funcparam">t</span> need this function, and please don'<span class="funcparam">t</span> call it with a <b>null</b>
+<span class="funcparam">catch_</span> parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void delegate() <span class="funcparam">try_</span></td>
+
+               
+<td>The try code.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void delegate(MDException, int) <span class="funcparam">catch_</span></td>
+
+               
+<td>The catch code.  It takes two parameters - the D exception object and the stack index of the caught
+		MiniD exception object.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void delegate() <span class="funcparam">finally_</span></td>
+
+               
+<td>The optional finally code.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">T[] 
+<span class="currsymbol">allocArray</span>
+<script>explorer.outline.addDecl('allocArray');</script>
+
+(T)(MDThread* <span class="funcparam">t</span>, uword <span class="funcparam">length</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps the allocMem API.  Allocates an array of the given type with the given length.
+You'll have to explicitly specify the type of the array.
+<br><br>
+<pre class="d_code"><pre class="d_keyword">auto</pre> arr = <pre class="d_psymbol">allocArray</pre>!(<pre class="d_keyword">int</pre>)(t, 10); <pre class="d_comment">// arr is an int[] of length 10
+</pre></pre>
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">length</td>
+
+               
+<td>The length, in items, of the array to allocate.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The new array.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">resizeArray</span>
+<script>explorer.outline.addDecl('resizeArray');</script>
+
+(T)(MDThread* <span class="funcparam">t</span>, ref T[] <span class="funcparam">arr</span>, uword <span class="funcparam">length</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps the resizeMem API.  Resizes an array to the new length.  Use this instead of using .length on
+the array.  <b>Only call this on arrays which have been allocated by the MiniD allocator.</b>
+<br><br>
+Calling this function on a 0-length array is legal and will allocate a new array.  Resizing an existing array to 0
+is legal and will deallocate the array.
+<br><br>
+
+The array returned by this function through the arr parameter should not have its length set or be appended to (~=).
+<br><br>
+
+<pre class="d_code"><pre class="d_psymbol">resizeArray</pre>(t, arr, 4); <pre class="d_comment">// arr.length is now 4
+</pre></pre>
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">arr</td>
+
+               
+<td>A reference to the array you want to resize.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">length</td>
+
+               
+<td>The length, in items, of the new size of the array.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">T[] 
+<span class="currsymbol">dupArray</span>
+<script>explorer.outline.addDecl('dupArray');</script>
+
+(T)(MDThread* <span class="funcparam">t</span>, T[] <span class="funcparam">arr</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps the dupMem API.  Duplicates an array.  This is safe to call on arrays that were not allocated by the MiniD
+allocator.  The new array will be the same length and contain the same data as the old array.
+<br><br>
+The array returned by this function should not have its length set or be appended to (~=).
+<br><br>
+
+<pre class="d_code"><pre class="d_keyword">auto</pre> newArr = <pre class="d_psymbol">dupArray</pre>(t, arr); <pre class="d_comment">// newArr has the same data as arr
+</pre></pre>
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">arr</td>
+
+               
+<td>The array to duplicate.  This is not required to have been allocated by the MiniD allocator.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">freeArray</span>
+<script>explorer.outline.addDecl('freeArray');</script>
+
+(T)(MDThread* <span class="funcparam">t</span>, ref T[] <span class="funcparam">arr</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Wraps the freeMem API.  Frees an array.  <b>Only call this on arrays which have been allocated by the MiniD allocator.</b>
+Freeing a 0-length array is legal.
+<br><br>
+<pre class="d_code"><pre class="d_psymbol">freeArray</pre>(t, arr);
+<pre class="d_psymbol">freeArray</pre>(t, newArr);
+</pre>
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">arr</td>
+
+               
+<td>A reference to the array you want to free.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.</td></tr>
+</table><br>
+
+</dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
@@ -650,7 +846,7 @@ If <span class="funcparam">numReturns</span> &gt;= 0, returns <span class="funcp
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Fri Dec  5 19:39:50 2008
+			on Thu Dec 18 14:44:22 2008
 
 		</td></tr>
 	</table>

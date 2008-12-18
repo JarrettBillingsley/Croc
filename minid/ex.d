@@ -709,7 +709,7 @@ This function abstracts away some of the boilerplate code that is usually associ
 that handle MiniD exceptions in D code.  
 
 This function will store the stack size of the given thread when it is called, before the try code is executed.
-If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with 
+If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with
 catchException), and the catch code will be called with the D exception object and the MiniD exception object's
 stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
 same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
@@ -736,14 +736,14 @@ mdtry(t,
 
 It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
 the delegate instead of from the enclosing function.  Hey, don't look at me; it's D's fault for not having
-AST macros ;)
+AST macros ;$(RPAREN)
 
 If you just need a try-finally block, you don't need this function, and please don't call it with a null
 catch_ parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
 
 Params:
 	try_ = The try code.
-	catch_ The catch code.  It takes two parameters - the D exception object and the stack index of the caught
+	catch_ = The catch code.  It takes two parameters - the D exception object and the stack index of the caught
 		MiniD exception object.
 	finally_ = The optional finally code.
 */
@@ -769,6 +769,91 @@ public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, 
 		if(finally_)
 			finally_();
 	}
+}
+
+/**
+Wraps the allocMem API.  Allocates an array of the given type with the given length.
+You'll have to explicitly specify the type of the array.
+
+-----
+auto arr = allocArray!(int)(t, 10); // arr is an int[] of length 10
+-----
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+Params:
+	length = The length, in items, of the array to allocate.
+	
+Returns:
+	The new array.
+*/
+T[] allocArray(T)(MDThread* t, uword length)
+{
+	return cast(T[])allocMem(t, length * T.sizeof);
+}
+
+/**
+Wraps the resizeMem API.  Resizes an array to the new length.  Use this instead of using .length on
+the array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
+
+Calling this function on a 0-length array is legal and will allocate a new array.  Resizing an existing array to 0
+is legal and will deallocate the array.
+
+The array returned by this function through the arr parameter should not have its length set or be appended to (~=).
+
+-----
+resizeArray(t, arr, 4); // arr.length is now 4
+-----
+
+Params:
+	arr = A reference to the array you want to resize.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.
+
+	length = The length, in items, of the new size of the array.
+*/
+void resizeArray(T)(MDThread* t, ref T[] arr, uword length)
+{
+	auto tmp = cast(void[])arr;
+	resizeMem(t, tmp, length * T.sizeof);
+	arr = cast(T[])tmp;
+}
+
+/**
+Wraps the dupMem API.  Duplicates an array.  This is safe to call on arrays that were not allocated by the MiniD
+allocator.  The new array will be the same length and contain the same data as the old array.
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+-----
+auto newArr = dupArray(t, arr); // newArr has the same data as arr
+-----
+
+Params:
+	arr = The array to duplicate.  This is not required to have been allocated by the MiniD allocator.
+*/
+T[] dupArray(T)(MDThread* t, T[] arr)
+{
+	return cast(T[])dupMem(t, arr);
+}
+
+/**
+Wraps the freeMem API.  Frees an array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
+Freeing a 0-length array is legal.  
+
+-----
+freeArray(t, arr);
+freeArray(t, newArr);
+-----
+
+Params:
+	arr = A reference to the array you want to free.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.
+*/
+void freeArray(T)(MDThread* t, ref T[] arr)
+{
+	auto tmp = cast(void[])arr;
+	freeMem(t, tmp);
+	arr = null;
 }
 
 // ================================================================================================================================================

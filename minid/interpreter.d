@@ -169,6 +169,74 @@ word getRegistry(MDThread* t)
 	return pushNamespace(t, t.vm.registry);
 }
 
+/**
+Allocates a block of memory using the given thread's VM's allocator function.  This memory is $(B not) garbage-collected.
+You must free the memory returned by this function in order to avoid memory leaks.
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+Params:
+	size = The size, in bytes, of the block to allocate.
+	
+Returns:
+	A void array representing the memory block.
+*/
+void[] allocMem(MDThread* t, uword size)
+{
+	return t.vm.alloc.allocArray!(void)(size);
+}
+
+/**
+Resize a block of memory.  $(B Only call this on memory that has been allocated using the allocMem, _resizeMem or dupMem
+functions.)  If you pass this function an empty (0-length) memory block, it will allocate memory.  If you resize an existing
+block to a length of 0, it will deallocate that memory.
+
+If you resize a block to a smaller size, its data will be truncated.  If you resize a block to a larger size, the empty
+space will be uninitialized.
+
+The array returned by this function through the mem parameter should not have its length set or be appended to (~=).
+
+Params:
+	mem = A reference to the memory block you want to reallocate.  This is a reference so that the original memory block
+		reference that you pass in is updated.  This can be a 0-length array.
+
+	size = The size, in bytes, of the new size of the memory block.
+*/
+void resizeMem(MDThread* t, ref void[] mem, uword size)
+{
+	t.vm.alloc.resizeArray(mem, size);
+}
+
+/**
+Duplicate a block of memory.  This is safe to call on memory that was not allocated with the thread's VM's allocator.
+The new block will be the same size and contain the same data as the old block.
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+Params:
+	mem = The block of memory to copy.  This is not required to have been allocated by allocMem, resizeMem, or _dupMem.
+
+Returns:
+	The new memory block.
+*/
+void[] dupMem(MDThread* t, void[] mem)
+{
+	return t.vm.alloc.dupArray(mem);
+}
+
+/**
+Free a block of memory.  $(B Only call this on memory that has been allocated with allocMem, resizeMem, or dupMem.)
+It's legal to free a 0-length block.
+
+Params:
+	mem = A reference to the memory block you want to free.  This is a reference so that the original memory block
+		reference that you pass in is updated.  This can be a 0-length array.
+*/
+void freeMem(MDThread* t, ref void[] mem)
+{
+	t.vm.alloc.freeArray(mem);
+}
+
 // ================================================================================================================================================
 // GC-related stuff
 

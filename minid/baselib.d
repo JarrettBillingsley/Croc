@@ -142,10 +142,6 @@ static:
 		// Weak reference stuff
 		register(t, "weakref", &weakref);
 		register(t, "deref", &deref);
-
-		newNamespace(t, "weakref");
-			newFunction(t, &weakrefDeref,        "weakref.deref");        fielda(t, -2, "deref");
-		setTypeMT(t, MDValue.Type.WeakRef);
 	}
 
 	uword collectGarbage(MDThread* t, uword numParams)
@@ -1035,12 +1031,5 @@ static:
 		}
 
 		assert(false);
-	}
-
-	uword weakrefDeref(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.WeakRef);
-		.deref(t, 0);
-		return 1;
 	}
 }
