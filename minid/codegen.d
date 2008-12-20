@@ -3602,7 +3602,7 @@ class Codegen : Visitor
 			};
 		}
 
-		visitForeach(e.location, e.endLocation, e.indices, e.container, inner);
+		visitForeach(e.location, e.endLocation, e.indices, e.container, newInner);
 		return e;
 	}
 

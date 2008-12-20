@@ -2,34 +2,6 @@ module samples.simple
 
 
 
-// class Derived : Base
-// {
-// 	function _prop_x(v: null|int)
-// 	{
-// 		writeln("derived prop x!")
-//
-// 		if(v is null)
-// 			return super._prop_x()
-// 		else
-// 			return super._prop_x(v)
-// 	}
-//
-// 	function overrideMe()
-// 	{
-// 		write("Derived: ")
-// 		super.overrideMe(43)
-// 	}
-// }
-// 
-// local b = Derived(1, 2)
-// 
-// writeln(b.x)
-// b.x = 5
-// writeln(b.x)
-// 
-// b.overrideMe()
-// foob(b)
-
 /+
 // Making sure finally blocks are executed.
 {
@@ -39,24 +11,22 @@ module samples.simple
 		{
 			try
 			{
-				writefln("hi 1")
+				writeln("hi 1")
 				return "foo", "bar"
 			}
 			finally
-				writefln("bye 1")
+				writeln("bye 1")
 
-			writefln("no use 1")
+			writeln("no use 1")
 		}
 		finally
-			writefln("bye 2")
+			writeln("bye 2")
 
-		writefln("no use 2")
+		writeln("no use 2")
 	}
 
-	local a, b = f()
-	writefln(a, ", ", b)
-
-	writefln()
+	writefln("{}, {}", f())
+	writeln()
 }
 
 // Importing stuff.
@@ -68,20 +38,20 @@ module samples.simple
 		global x = "I'm x"
 
 		global function foo()
-			writefln("foo")
+			writeln("foo")
 
 		global function bar(x) = x[0]
 
 		global function baz()
-			writefln(x)
+			writeln(x)
 	}
 
 	import mod: foo, bar
 	foo()
-	writefln(bar([5]))
+	writeln(bar([5]))
 	mod.baz()
 
-	writefln()
+	writeln()
 }
 
 // Super calls.
@@ -89,14 +59,14 @@ module samples.simple
 	local class Base
 	{
 		function fork()
-			writefln("Base fork.")
+			writeln("Base fork.")
 	}
 
 	local class Derived : Base
 	{
 		function fork()
 		{
-			writefln("Derived fork!")
+			writeln("Derived fork!")
 			super.fork()
 		}
 	}
@@ -104,46 +74,42 @@ module samples.simple
 	local d = Derived()
 	d.fork()
 
-	writefln()
+	writeln()
 }
 
 // Coroutines and coroutine iteration.
 {
-	local countDown = coroutine function countDown(x)
-	{
-		yield()
-
-		while(x > 0)
+	function countDown(x) = coroutine function()
 		{
-			yield(x)
-			x--
+			while(x > 0)
+			{
+				yield(null, x)
+				x--
+			}
 		}
-	}
 
-	foreach(v; countDown, 5)
-		writefln(v)
+	foreach(v; countDown(5))
+		writeln(v)
 
-	writefln()
+	writeln()
 
-	local forEach = coroutine function forEach(t)
-	{
-		yield()
+	function forEach(t) = coroutine function()
+		{
+			foreach(k, v; t)
+				yield(k, v)
+		}
 
-		foreach(k, v; t)
-			yield(k, v)
-	}
-	
-	foreach(_, k, v; forEach, {hi = 1, bye = 2})
-		writefln("key: ", k, ", value: ", v)
+	foreach(k, v; forEach({hi = 1, bye = 2}))
+		writefln("key: {}, value: {}", k, v)
 
-	writefln()
+	writeln()
 }
 
 // Testing tailcalls.
 {
 	local function recurse(x)
 	{
-		writefln("recurse: ", x)
+		writeln("recurse: ", x)
 	
 		if(x == 0)
 			return toString(x)
@@ -151,14 +117,14 @@ module samples.simple
 			return recurse(x - 1)
 	}
 
-	writefln(recurse(5))
-	writefln()
+	writeln(recurse(5))
+	writeln()
 
 	local class A
 	{
 		function f(x)
 		{
-			writefln("A.f: ", x)
+			writeln("A.f: ", x)
 
 			if(x == 0)
 				return toString(x)
@@ -167,8 +133,8 @@ module samples.simple
 		}
 	}
 
-	writefln(A.f(5))
-	writefln()
+	writeln(A.f(5))
+	writeln()
 }
 
 {
@@ -211,14 +177,14 @@ module samples.simple
 		foreach(i, prop; [vararg])
 		{
 			if(!isTable(prop))
-				throw format("Property ", i, " is not a table")
+				throw format("Property {} is not a table", i)
 
 			if(prop.name is null)
-				throw format("Property ", i, " has no name")
+				throw format("Property {} has no name", i)
 
 			if(prop.setter is null && prop.getter is null)
 				throw format("Property '{}' has no getter or setter", prop.name)
-	
+
 			T._props[prop.name] = prop
 		}
 	}
@@ -231,7 +197,7 @@ module samples.simple
 		mName = ""
 
 		this(name) :mName = name
-		function toString() = format("name = '", :mName, "' x = ", :mX, " y = ", :mY)
+		function toString() = format("name = '{}' x = {} y = {}", :mName, :mX, :mY)
 	}
 
 	// Mix in the properties.
@@ -259,19 +225,19 @@ module samples.simple
 	// Create an instance and try it out.
 	local p = PropTest("hello")
 	
-	writefln(p)
+	writeln(p)
 	p.x = 46
 	p.y = 123
 	p.x = p.x + p.y
-	writefln(p)
+	writeln(p)
 	
 	// Try to access a nonexistent property.
 	try
 		p.name = "crap"
 	catch(e)
-		writefln("caught: ", e)
+		writeln("caught: ", e)
 
-	writefln()
+	writeln()
 }
 
 // Some containers.
@@ -420,7 +386,7 @@ module samples.simple
 		function hasData() = :mHead !is null
 	}
 
-	writefln("Priority queue (heap)")
+	writeln("Priority queue (heap)")
 
 	local prioQ = PQ()
 
@@ -428,10 +394,10 @@ module samples.simple
 		prioQ.insert(math.rand(0, 20))
 
 	while(prioQ.hasData())
-		writefln(prioQ.remove())
+		writeln(prioQ.remove())
 
-	writefln()
-	writefln("Stack")
+	writeln()
+	writeln("Stack")
 
 	local stack = Stack()
 
@@ -439,20 +405,20 @@ module samples.simple
 		stack.push(i + 1)
 
 	while(stack.hasData())
-		writefln(stack.pop())
+		writeln(stack.pop())
 
-	writefln()
-	writefln("Queue")
+	writeln()
+	writeln("Queue")
 
 	local queue = Queue()
-	
+
 	for(i : 0 .. 5)
 		queue.push(i + 1)
-	
+
 	while(queue.hasData())
-		writefln(queue.pop())
-	
-	writefln()
+		writeln(queue.pop())
+
+	writeln()
 }
 
 // opApply tests.
@@ -499,63 +465,63 @@ module samples.simple
 	local test = Test()
 	
 	foreach(k, v; test)
-		writefln("test[", k, "] = ", v)
+		writefln("test[{}] = {}", k, v)
 
-	writefln()
+	writeln()
 
 	foreach(k, v; test, "reverse")
-		writefln("test[", k, "] = ", v)
+		writefln("test[{}] = {}", k, v)
 
-	writefln()
-	
+	writeln()
+
 	test =
 	{
 		fork = 5,
 		knife = 10,
 		spoon = "hi"
 	}
-	
-	foreach(k, v; test)
-		writefln("test[", k, "] = ", v)
-	
-	test = [5, 10, "hi"]
-	
-	writefln()
-	
-	foreach(k, v; test)
-		writefln("test[", k, "] = ", v)
-	
-	writefln()
-	
-	foreach(k, v; test, "reverse")
-		writefln("test[", k, "] = ", v)
-	
-	writefln()
-	
-	foreach(k, v; "hello")
-		writefln("str[", k, "] = ", v)
 
-	writefln()
+	foreach(k, v; test)
+		writefln("test[{}] = {}", k, v)
+
+	test = [5, 10, "hi"]
+
+	writeln()
+
+	foreach(k, v; test)
+		writefln("test[{}] = {}", k, v)
+
+	writeln()
+
+	foreach(k, v; test, "reverse")
+		writefln("test[{}] = {}", k, v)
+
+	writeln()
+
+	foreach(k, v; "hello")
+		writefln("str[{}] = {}", k, v)
+
+	writeln()
 
 	foreach(k, v; "hello", "reverse")
-		writefln("str[", k, "] = ", v)
-	
-	writefln()
+		writefln("str[{}] = {}", k, v)
+
+	writeln()
 }
 
 // Testing upvalues in for loops.
 {
 	local arr = array.new(10)
-	
+
 	for(i : 0 .. 10)
 		arr[i] = function() = i
 
-	writefln("This should be the values 0 through 9:")
-	
+	writeln("This should be the values 0 through 9:")
+
 	foreach(func; arr)
-		writefln(func())
-	
-	writefln()
+		writeln(func())
+
+	writeln()
 }
 
 // Testing nested functions.
@@ -567,20 +533,20 @@ module samples.simple
 		function inner()
 		{
 			x++
-			writefln("inner x: ", x)
+			writeln("inner x: ", x)
 		}
-	
-		writefln("outer x: ", x)
+
+		writeln("outer x: ", x)
 		inner()
-		writefln("outer x: ", x)
-	
+		writeln("outer x: ", x)
+
 		return inner
 	}
-	
+
 	local func = outer()
 	func()
-	
-	writefln()
+
+	writeln()
 }
 
 // Testing Exceptions.
@@ -595,47 +561,47 @@ module samples.simple
 		{
 			for(i : 0 .. iterations)
 			{
-				writefln("tryCatch: ", i)
+				writeln("tryCatch: ", i)
 				thrower(i)
 			}
 		}
 		catch(e)
 		{
-			writefln("tryCatch caught: ", e)
+			writeln("tryCatch caught: ", e)
 			throw e
 		}
 		finally
-			writefln("tryCatch finally")
+			writeln("tryCatch finally")
 	}
-	
+
 	try
 	{
 		tryCatch(2)
 		tryCatch(5)
 	}
 	catch(e)
-		writefln("caught: ", e)
+		writeln("caught: ", e)
 
-	writefln()
+	writeln()
 }
 
 // Testing arrays.
 {
 	local array = [7, 9, 2, 3, 6]
-	
+
 	array.sort()
 
 	foreach(i, v; array)
-		writefln("arr[", i, "] = ", v)
+		writefln("arr[{}] = {}", i, v)
 
 	array ~= ["foo", "far"]
-	
-	writefln()
-	
-	foreach(i, v; array)
-		writefln("arr[", i, "] = ", v)
 
-	writefln()
+	writeln()
+
+	foreach(i, v; array)
+		writefln("arr[{}] = {}", i, v)
+
+	writeln()
 }
 
 // Testing vararg functions.
@@ -643,17 +609,17 @@ module samples.simple
 	function vargs(vararg)
 	{
 		local args = [vararg]
-	
-		writefln("num varargs: ", #vararg)
+
+		writeln("num varargs: ", #vararg)
 
 		for(i: 0 .. #vararg)
-			writefln("args[", i, "] = ", vararg[i])
+			writefln("args[{}] = {}", i, vararg[i])
 	}
 
 	vargs()
-	writefln()
+	writeln()
 	vargs(2, 3, 5, "foo", "bar")
-	writefln()
+	writeln()
 }
 
 // Testing switches.
@@ -663,35 +629,35 @@ module samples.simple
 		switch(v)
 		{
 			case "hi":
-				writefln("switched to hi")
+				writeln("switched to hi")
 				break
-				
+
 			case "bye":
-				writefln("switched to bye")
+				writeln("switched to bye")
 				break
-				
+
 			default:
-				writefln("switched to something else")
+				writeln("switched to something else")
 				break
 		}
 	}
-	
-	writefln()
+
+	writeln()
 
 	foreach(v; [null, false, 1, 2.3, 'x', "hi"])
 	{
 		switch(v)
 		{
-			case null: writefln("null"); break
-			case false: writefln("false"); break
-			case 1: writefln("1"); break
-			case 2.3: writefln("2.3"); break
-			case 'x': writefln("x"); break
-			case "hi": writefln("hi"); break
+			case null: writeln("null"); break
+			case false: writeln("false"); break
+			case 1: writeln("1"); break
+			case 2.3: writeln("2.3"); break
+			case 'x': writeln("x"); break
+			case "hi": writeln("hi"); break
 		}
 	}
-	
-	writefln()
+
+	writeln()
 
 	local class A
 	{
@@ -715,15 +681,15 @@ module samples.simple
 		switch(ss)
 		{
 			case a1:
-				writefln(1)
+				writeln(1)
 				break
 
 			case a2:
-				writefln(2)
+				writeln(2)
 				break
 
 			case a3:
-				writefln(3)
+				writeln(3)
 				break
 		}
 	}

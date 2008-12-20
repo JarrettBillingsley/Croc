@@ -624,6 +624,7 @@ static:
 			throwException(t, "Array is empty");
 
 		auto extreme = data[0];
+		uword extremeIdx = 0;
 
 		if(numParams > 0)
 		{
@@ -642,11 +643,14 @@ static:
 				}
 				
 				if(getBool(t, -1))
+				{
 					extreme = data[i];
+					extremeIdx = i;
+				}
 					
 				pop(t);
 			}
-			
+
 			push(t, extreme);
 		}
 		else
@@ -660,7 +664,10 @@ static:
 					idxi(t, 0, i, true);
 
 					if(cmp(t, -1, -2) > 0)
+					{
+						extremeIdx = i;
 						insert(t, -2);
+					}
 
 					pop(t);
 				}
@@ -672,14 +679,18 @@ static:
 					idxi(t, 0, i, true);
 
 					if(cmp(t, -1, -2) < 0)
+					{
+						extremeIdx = i;
 						insert(t, -2);
+					}
 
 					pop(t);
 				}
 			}
 		}
-
-		return 1;
+		
+		pushInt(t, extremeIdx);
+		return 2;
 	}
 
 	uword min(MDThread* t, uword numParams)

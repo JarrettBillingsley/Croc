@@ -6,7 +6,7 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 import minid.api;
 import minid.bind;
 
-version = TestArc;
+// version = TestArc;
 
 version(TestArc)
 	import arc_wrap.all;
@@ -56,10 +56,6 @@ void main()
 
 		return;
 	}
-
-	Stdout.newline.format("MiniD using {} bytes before GC, ", bytesAllocated(&vm)).flush;
-	gc(t);
-	Stdout.formatln("{} bytes after.", bytesAllocated(&vm)).flush;
 
 	closeVM(&vm);
 }
