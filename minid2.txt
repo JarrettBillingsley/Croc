@@ -533,7 +533,7 @@ PrimaryExpression:
 	StringLiteral
 	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
-	'\\' Parameters '->' Expression
+	'\\' Parameters (('->' Expression) | BlockStatement)
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	TableCtorExp

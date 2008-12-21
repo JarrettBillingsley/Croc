@@ -736,7 +736,7 @@ struct Parser
 	}
 	
 	/**
-	Parse a Haskell-style function literal, like "\f -> f + 1" or "\(a, b) -> a(b)".
+	Parse a Haskell-style function literal, like "\f -> f + 1" or "\a, b { ... }".
 	*/
 	public FuncDef parseHaskellFuncLiteral()
 	{
@@ -748,18 +748,21 @@ struct Parser
 
 		scope(failure)
 			c.alloc.freeArray(params);
-
-		l.expect(Token.Arrow);
-
+			
 		Statement code;
 
+		if(l.type == Token.Arrow)
 		{
+			l.next();
+
 			scope dummy = new List!(Expression)(c.alloc);
 			dummy ~= parseExpression();
 			auto arr = dummy.toArray();
 
 			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
 		}
+		else
+			code = parseBlockStmt();
 
 		return new(c) FuncDef(c, location, name, params, isVararg, code);
 	}

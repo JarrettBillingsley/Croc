@@ -24,7 +24,6 @@ subject to the following restrictions:
 module minid.hash;
 
 import tango.text.Util;
-debug import tango.io.Stdout;
 
 import minid.alloc;
 import minid.utils;

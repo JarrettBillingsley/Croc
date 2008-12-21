@@ -149,7 +149,7 @@ static:
 		
 		return 1;
 	}
-	
+
 	uword tableIterator(MDThread* t, uword numParams)
 	{
 		getUpval(t, 0);
@@ -167,6 +167,34 @@ static:
 			push(t, *k);
 			push(t, *v);
 			return 2;
+		}
+
+		return 0;
+	}
+
+	uword modTableIterator(MDThread* t, uword numParams)
+	{
+		getUpval(t, 0);
+		auto tab = getTable(t, -1);
+
+		getUpval(t, 1);
+		auto keys = getArray(t, -1);
+
+		getUpval(t, 2);
+		uword idx = cast(uword)getInt(t, -1) + 1;
+		
+		pop(t, 3);
+
+		for(; idx < keys.slice.length; idx++)
+		{
+			if(auto v = table.get(tab, keys.slice[idx]))
+			{
+				pushInt(t, idx);
+				setUpval(t, 2);
+				push(t, keys.slice[idx]);
+				push(t, *v);
+				return 2;
+			}
 		}
 
 		return 0;
@@ -194,20 +222,68 @@ static:
 
 		return 0;
 	}
+	
+	uword modNamespaceIterator(MDThread* t, uword numParams)
+	{
+		getUpval(t, 0);
+		auto ns = getNamespace(t, -1);
+
+		getUpval(t, 1);
+		auto keys = getArray(t, -1);
+
+		getUpval(t, 2);
+		uword idx = cast(uword)getInt(t, -1) + 1;
+
+		pop(t, 3);
+
+		for(; idx < keys.slice.length; idx++)
+		{
+			if(auto v = namespace.get(ns, keys.slice[idx].mString))
+			{
+				pushInt(t, idx);
+				setUpval(t, 2);
+				push(t, keys.slice[idx]);
+				push(t, *v);
+				return 2;
+			}
+		}
+
+		return 0;
+	}
 
 	uword opApplyImpl(MDThread* t, word slot)
 	{
 		if(isTable(t, slot))
 		{
 			dup(t, slot);
-			pushInt(t, 0);
-			newFunction(t, &tableIterator, "iterator", 2);
+
+			if(optStringParam(t, slot + 1, "") == "modify")
+			{
+				keysImpl(t, slot);
+				pushInt(t, -1);
+				newFunction(t, &modTableIterator, "iterator", 3);
+			}
+			else
+			{
+				pushInt(t, 0);
+				newFunction(t, &tableIterator, "iterator", 2);
+			}
 		}
 		else
 		{
 			dup(t, slot);
-			pushInt(t, 0);
-			newFunction(t, &namespaceIterator, "iterator", 2);
+
+			if(optStringParam(t, slot + 1, "") == "modify")
+			{
+				keysImpl(t, slot);
+				pushInt(t, -1);
+				newFunction(t, &modNamespaceIterator, "iterator", 3);
+			}
+			else
+			{
+				pushInt(t, 0);
+				newFunction(t, &namespaceIterator, "iterator", 2);
+			}
 		}
 
 		return 1;

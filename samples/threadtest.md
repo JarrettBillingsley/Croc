@@ -1,14 +1,6 @@
 module threadtest
 
-function Set(vararg)
-{
-	local ret = {}
-
-	for(i: 0 .. #vararg)
-		ret[vararg[i]] = vararg[i]
-
-	return ret
-}
+function Set(vararg) = {[vararg[i]] = vararg[i] for i in 0 .. #vararg}
 
 // A class which encapsulates a thread's body, a message queue, and timed wait
 // functionality.
@@ -21,12 +13,12 @@ class Thread
 	mMessageTail
 
 	// Construct a thread with a coroutine body.
-	this(body)
+	this(body: thread)
 		:mBody = body
 
 	// Begin a timed wait.  Duration is in seconds (int or float).  This may
 	// not work right for long durations.
-	function beginWait(duration)
+	function beginWait(duration: int|float)
 		:mWaitTime = time.microTime() + toInt(duration * 1000000)
 
 	// Add a message to this thread's message queue.
@@ -162,21 +154,24 @@ function main()
 
 	local producer, consumer
 
-	producer = Thread(coroutine function()
+	producer = Thread$ coroutine \
 	{
+		local i = 0
+
 		while(true)
 		{
 			wait(0.3 + math.rand(0, 100) / 100.0)
 
-			local item = { type = "Item", value = math.abs(math.rand() % 10) }
+			local item = { type = "Item", value = i }
+			i++
 			local msg = receive()
 			assert(msg.type == "Empty")
 			writefln("Producer produced {}.", item.value)
 			send(consumer, item)
 		}
-	})
+	}
 
-	consumer = Thread(coroutine function()
+	consumer = Thread$ coroutine \
 	{
 		local empty = { type = "Empty" }
 
@@ -191,8 +186,8 @@ function main()
 			send(producer, empty)
 			writefln("Consumer consumed {}.", msg.value)
 		}
-	})
+	}
 
-	scheduler(Set(producer, consumer))
+	scheduler(Set$ producer, consumer)
 	writefln("Finished.")
 }
