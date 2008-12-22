@@ -410,15 +410,10 @@ Returns:
 */
 public word getWrappedInstance(MDThread* t, Object o)
 {
-	// [cls]
 	getRegistryVar(t, "minid.bind.WrappedInstances");
-	// [cls tab]
 	pushNativeObj(t, o);
-	// [cls tab o]
 	idx(t, -2);
-	// [cls tab wr]
 	deref(t, -1);
-	// [cls tab wr wrapi]
 
 	if(isNull(t, -1))
 	{
@@ -594,6 +589,27 @@ public word superPush(Type)(MDThread* t, Type val)
 }
 
 /**
+Like superPush, but pushes multiple values onto the stack in one function call.  Calls superPush
+internally, so any types that are legal to pass to superPush are legal to pass to this.
+
+Params:
+	arg1 = The first value to push.  This is separated to force you to push at least one value.
+	args = Any additional values to push.
+
+Returns:
+	The stack index of the first value that was pushed.
+*/
+public word multiPush(T, U...)(MDThread* t, T arg1, U args)
+{
+	auto ret = superPush(t, arg1);
+
+	foreach(i, arg; args)
+		superPush(t, args[i]);
+
+	return ret;
+}
+
+/**
 The inverse of superPush, this function allows you to get any type of value from the MiniD stack
 and convert it into a D type.  The rules in this direction are pretty much the same as in the other:
 a MiniD array can only be converted into a D array as long as its elements can be converted to the
@@ -759,6 +775,27 @@ public Type superGet(Type)(MDThread* t, word idx)
 			ARGUMENT_ERROR(Type);
 		}
 	}
+}
+
+/**
+Like superGet, but gets multiple consecutive values off the stack.  There must be at least
+as many values after the start index as you have values to get.  This calls superGet internally,
+so any types that are legal to get with superGet are legal here too.
+
+Params:
+	start = The stack index of the first value to retrieve.
+	arg1 = The first value to get.  This is separate to force you to get at least one value.
+	args = Any additional values to get.
+*/
+public void multiGet(T, U...)(MDThread* t, word start, ref T arg1, ref U args)
+{
+	if(stackSize(t) - start < (U.length + 1))
+		throwException(t, "multiGet - Attempting to get more values ({}) than there are after the given index ({} values)", U.length + 1, stackSize(t) - start);
+
+	arg1 = superGet!(T)(t, start);
+
+	foreach(i, arg; args)
+		args[i] = superGet!(U[i])(t, start + i + 1);
 }
 
 /**

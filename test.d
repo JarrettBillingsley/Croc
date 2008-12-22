@@ -18,7 +18,7 @@ void main()
 	MDVM vm;
 	auto t = openVM(&vm);
 	loadStdlibs(t);
-
+	
 	version(TestArc)
 		ArcLib.init(t);
 

@@ -129,27 +129,45 @@ else
 // Package
 // ================================================================================================================================================
 
+/**
+*/
 align(1) struct MDValue
 {
+	/**
+	The enumeration of all the types of values in MiniD.
+	*/
 	enum Type : uint
 	{
-		// Value Types
+		/** */
 		Null, // 0
+		/** ditto */
 		Bool,
+		/** ditto */
 		Int,
+		/** ditto */
 		Float,
+		/** ditto */
 		Char,
 
-		// Reference Types
+		/** ditto */
 		String, // 5
+		/** ditto */
 		Table,
+		/** ditto */
 		Array,
+		/** ditto */
 		Function,
+		/** ditto */
 		Class,
+		/** ditto */
 		Instance, // 10
+		/** ditto */
 		Namespace,
+		/** ditto */
 		Thread,
+		/** ditto */
 		NativeObj,
+		/** ditto */
 		WeakRef,
 
 		// Internal types

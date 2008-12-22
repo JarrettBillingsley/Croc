@@ -527,6 +527,36 @@ The stack index of the newly-pushed value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">word 
+<span class="currsymbol">multiPush</span>
+<script>explorer.outline.addDecl('multiPush');</script>
+
+(T, U...)(MDThread* <span class="funcparam">t</span>, T <span class="funcparam">arg1</span>, U <span class="funcparam">args</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Like superPush, but pushes multiple values onto the stack in one function call.  Calls superPush
+internally, so any types that are legal to pass to superPush are legal to pass to this.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">arg1</td>
+
+               
+<td>The first value to push.  This is separated to force you to push at least one value.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">args</td>
+
+               
+<td>Any additional values to push.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the first value that was pushed.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">Type 
 <span class="currsymbol">superGet</span>
 <script>explorer.outline.addDecl('superGet');</script>
@@ -546,6 +576,39 @@ function will duplicate the string data onto the D heap, unlike the raw API getS
 This is because handing off pointers to internal MiniD memory to arbitrary D libraries is probably
 not a good idea.
 <br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">multiGet</span>
+<script>explorer.outline.addDecl('multiGet');</script>
+
+(T, U...)(MDThread* <span class="funcparam">t</span>, word <span class="funcparam">start</span>, ref T <span class="funcparam">arg1</span>, ref U <span class="funcparam">args</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Like superGet, but gets multiple consecutive values off the stack.  There must be at least
+as many values after the start index as you have values to get.  This calls superGet internally,
+so any types that are legal to get with superGet are legal here too.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">start</td>
+
+               
+<td>The stack index of the first value to retrieve.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">arg1</td>
+
+               
+<td>The first value to get.  This is separate to force you to get at least one value.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">args</td>
+
+               
+<td>Any additional values to get.</td></tr>
+</table><br>
 
 </dd>
 
@@ -572,7 +635,7 @@ or <b>false</b> otherwise.  That's all.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Dec 18 14:44:20 2008
+			on Sun Dec 21 21:23:55 2008
 
 		</td></tr>
 	</table>
