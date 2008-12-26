@@ -525,6 +525,46 @@ new slots are filled with <b>null</b>.  Throws an error if you try to set the st
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">transferVals</span>
+<script>explorer.outline.addDecl('transferVals');</script>
+
+(MDThread* <span class="funcparam">src</span>, MDThread* <span class="funcparam">dest</span>, uint <span class="funcparam">num</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Moves values from one thread to another.  The values are popped off the source thread's stack
+and put on the destination thread's stack in the same order that they were on the source stack.
+<br><br>
+If there are fewer values on the source thread's stack than the number of values, an error will
+be thrown in the source thread.
+<br><br>
+
+If the two threads belong to different VMs, an error will be thrown in the source thread.
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">MDThread* <span class="funcparam">src</span></td>
+
+               
+<td>The thread from which the values will be taken.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">MDThread* <span class="funcparam">dest</span></td>
+
+               
+<td>The thread onto whose stack the values will be pushed.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">num</span></td>
+
+               
+<td>The number of values to transfer.  There must be at least this many values on the source
+		thread's stack.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
 <span class="currsymbol">pushNull</span>
 <script>explorer.outline.addDecl('pushNull');</script>
@@ -4286,6 +4326,138 @@ True if the object has an attributes table; <b>false</b> otherwise.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
+<span class="currsymbol">setHookFunc</span>
+<script>explorer.outline.addDecl('setHookFunc');</script>
+
+(MDThread* <span class="funcparam">t</span>, ubyte <span class="funcparam">mask</span>, uint <span class="funcparam">hookDelay</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Sets or removes the debugging hook function for the given thread.
+<br><br>
+The hook function is used to "hook" into various points in the execution of MiniD scripts.
+When the hook function is called, you can use the other debugging APIs to get information
+about the call stack, the local variables and upvalues of functions on the call stack,
+line information etc.  This way you can write a debugger for MiniD scripts.
+<br><br>
+
+There are a few different kind of events that you can hook into.  You can only have one hook
+function on a thread, and that function will respond to all the types of events that you set
+it to.
+<br><br>
+
+The kinds of events that you can hook into are listed in the MDThread.Hook enumeration, and
+include the following:
+<br><br>
+
+<ul><li><b>MDThread.Hook.Call</b> - This hook occurs when a function is just about to be
+		called.  The top of the call stack will be the function that is about to be called,
+		but the hook occurs before execution begins.</li>
+<br><br>
+
+	<li><b>MDThread.Hook.Ret</b> - This hook occurs when a function is just about to return.
+		The hook is called just before the return actually occurs, so the top of the call stack
+		will be the function that is about to return.  If you subscribe the hook function to
+		this event, you will also get tail return events.</li>
+<br><br>
+
+	<li><b>MDThread.Hook.TailRet</b> - This hook occurs immediately after "return" hooks if the
+		returning function has been tailcalled.  One "tail return" hook is called for each tailcall
+		that occurred.  No real useful information will be available.  If you subscribe the
+		hook function to this event, you will also get normal return events.</li>
+<br><br>
+
+	<li><b>MDThread.Hook.Delay</b> - This hook occurs after a given number of MiniD instructions
+		have executed.  You set this delay as a parameter to 
+<span class="currsymbol">setHookFunc</span>
+<script>explorer.outline.addDecl('setHookFunc');</script>
+
+, and if the delay is set
+		to 0, this hook is not called.  This hook is also only ever called in MiniD script functions.</li>
+<br><br>
+
+	<li><b>MDThread.Hook.Line</b> - This hook occurs when execution of a script function reaches
+		a new source line.  This is called before the first instruction associated with the given
+		line occurs.  It's also called immediately after a function begins executing (before its
+		first instruction executes) or if a jump to the beginning of a loop occurs.</li>
+</ul>
+<br><br>
+
+This function can be used to set or unset the hook function for the given thread.  In either case,
+it expects for there to be one value at the top of the stack, which it will pop.  The value must
+be a function or '<b>null</b>'.  To unset the hook function, either have '<b>null</b>' on the stack, or pass 0
+for the <span class="funcparam">mask</span> parameter.
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">ubyte <span class="funcparam">mask</span></td>
+
+               
+<td>A bitwise OR-ing of the members of the MDThread.Hook enumeration as described above.
+		The Delay value is ignored and will instead be set or unset based on the <span class="funcparam">hookDelay</span> parameter.
+		If you have either the Ret or TailRet values, the function will be registered for all
+		returns.  If this parameter is 0, the hook function will be removed from the thread.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">hookDelay</span></td>
+
+               
+<td>If this is nonzero, the Delay hook will be called every <span class="funcparam">hookDelay</span> MiniD instructions.
+		Otherwise, if it's 0, the Delay hook will be disabled.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getHookFunc</span>
+<script>explorer.outline.addDecl('getHookFunc');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the hook function associated with the given thread, or <b>null</b> if no hook function is set for it.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">ubyte 
+<span class="currsymbol">getHookMask</span>
+<script>explorer.outline.addDecl('getHookMask');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets a bitwise OR-ing of all the hook types set for this thread, as declared in the MDThread.Hook
+enumeration.  Note that the MDThread.Hook.TailRet flag will never be set, as tail return events
+are also covered by MDThread.Hook.Ret.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">uint 
+<span class="currsymbol">getHookDelay</span>
+<script>explorer.outline.addDecl('getHookDelay');</script>
+
+(MDThread* <span class="funcparam">t</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Gets the hook function delay, which is the number of instructions between each "Delay" hook event.
+If the hook delay is 0, the delay hook event is disabled.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
 <span class="currsymbol">printStack</span>
 <script>explorer.outline.addDecl('printStack');</script>
 
@@ -4349,23 +4521,19 @@ True if the object has an attributes table; <b>false</b> otherwise.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sun Dec 21 21:23:58 2008
+			on Thu Dec 25 23:11:59 2008
 
 		</td></tr>
 	</table>
 </div>
 <script>
-	explorer.packageExplorer.addModuleFull("minid.alloc");
 	explorer.packageExplorer.addModuleFull("minid.api");
-	explorer.packageExplorer.addModuleFull("minid.ast");
 	explorer.packageExplorer.addModuleFull("minid.bind");
 	explorer.packageExplorer.addModuleFull("minid.commandline");
 	explorer.packageExplorer.addModuleFull("minid.compiler");
 	explorer.packageExplorer.addModuleFull("minid.ex");
 	explorer.packageExplorer.addModuleFull("minid.interpreter");
 	explorer.packageExplorer.addModuleFull("minid.serialization");
-	explorer.packageExplorer.addModuleFull("minid.types");
-	explorer.packageExplorer.addModuleFull("minid.utils");
 	explorer.packageExplorer.addModuleFull("minid.vm");</script>
 </body></html>
 
