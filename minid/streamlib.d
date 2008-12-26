@@ -389,7 +389,7 @@ static:
 
 		if(memb.stream !is null)
 		{
-			memb.stream.flush();
+			try { memb.stream.flush(); } catch {}
 			memb.stream = null;
 		}
 

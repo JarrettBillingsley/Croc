@@ -28,6 +28,7 @@ subject to the following restrictions:
 
 module minid.utils;
 
+import tango.core.Array : find;
 import tango.core.Traits;
 import tango.core.Tuple;
 import tango.text.convert.Utf;
@@ -47,6 +48,14 @@ See if a string ends with another string.  Also useful.
 public bool endsWith(T)(T[] string, T[] pattern)
 {
 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
+}
+
+/**
+See if an array contains an item.
+*/
+bool contains(T)(T[] arr, T elem)
+{
+	return arr.find(elem) != arr.length;
 }
 
 /**

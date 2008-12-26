@@ -48,6 +48,7 @@ import tango.stdc.stdlib;
 import minid.arraylib;
 import minid.baselib;
 import minid.charlib;
+import minid.debuglib;
 import minid.hashlib;
 import minid.iolib;
 import minid.mathlib;
@@ -178,6 +179,11 @@ public enum MDStdlib
 	Streamed IO classes.
 	*/
 	Stream = 512,
+	
+	/**
+	Debugging introspection and hooks.
+	*/
+	Debug = 1024,
 
 	/**
 	This flag is an OR of Array, Char, Math, String, Hash, Regexp, and Time.  It represents
@@ -187,9 +193,14 @@ public enum MDStdlib
 	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time,
 
 	/**
-	_All available standard libraries.
+	_All available standard libraries except the debug library.
 	*/
 	All = Safe | IO | OS,
+	
+	/**
+	All available standard libraries including the debug library.
+	*/
+	ReallyAll = All | Debug
 }
 
 /**
@@ -230,6 +241,9 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 
 	if(libs & MDStdlib.Time)
 		TimeLib.init(t);
+		
+	if(libs & MDStdlib.Debug)
+		DebugLib.init(t);
 }
 
 /**

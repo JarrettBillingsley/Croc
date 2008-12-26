@@ -64,7 +64,8 @@ up with a functional but nonstandard implementation.
 public alias double mdfloat;
 
 /**
-The current version of MiniD.
+The current version of MiniD as a 32-bit integer.  The upper 16 bits are the major, and the lower 16 are
+the minor.
 */
 public const uint MiniDVersion = MakeVersion!(2, 0);
 
@@ -236,10 +237,6 @@ align(1) struct MDValue
 		return ret;
 	}
 
-	/*
-	Returns true if this and the other value are exactly the same type and the same value.  The semantics
-	of this are exactly the same as the 'is' expression in MiniD.
-	*/
 	package int opEquals(ref MDValue other)
 	{
 		if(this.type != other.type)
@@ -423,7 +420,7 @@ struct MDString
 	{
 		return (cast(char*)(this + 1))[0 .. this.length];
 	}
-	
+
 	package uint toHash()
 	{
 		return hash;
@@ -562,6 +559,15 @@ struct MDThread
 		Suspended,
 		Dead
 	}
+	
+	public enum Hook : ubyte
+	{
+		Call = 1,
+		Ret = 2,
+		TailRet = 4,
+		Delay = 8,
+		Line = 16
+	}
 
 	static char[][5] StateStrings =
 	[
@@ -588,13 +594,19 @@ struct MDThread
 	package uword resultIndex = 0;
 
 	package MDUpval* upvalHead;
-	
+
 	package MDVM* vm;
 	package bool shouldHalt = false;
 
 	package MDFunction* coroFunc;
 	package State state = State.Initial;
 	package uword numYields;
+	
+	package ubyte hooks;
+	package bool hooksEnabled = true;
+	package uint hookDelay;
+	package uint hookCounter;
+	package MDFunction* hookFunc;
 
 	version(MDExtendedCoro) {} else
 	{
@@ -633,7 +645,7 @@ struct Location
 	{
 		Unknown = -2,
 		Native = -1,
-		Script = 0	
+		Script = 0
 	}
 
 	public MDString* file;

@@ -45,9 +45,9 @@ static:
 		DefaultFileStyle = FileConduit.Style
 		(
 			FileConduit.Access.Read,
-			FileConduit.ReadExisting.open,
+			FileConduit.Open.Exists,
 			FileConduit.Share.ReadWrite,
-			FileConduit.ReadExisting.cache
+			FileConduit.Cache.None
 		);
 	}
 
@@ -363,7 +363,7 @@ static:
 	uword lines(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		
+
 		pushGlobal(t, "File");
 		pushNull(t);
 		pushString(t, name);
@@ -380,8 +380,6 @@ static:
 		FileConduit.Style parseFileMode(mdint mode)
 		{
 			auto s = DefaultFileStyle;
-
-			s.access = FileConduit.Access.Read;
 
 			if(mode & FileMode.Out)
 				s.access |= FileConduit.Access.Write;
@@ -408,7 +406,7 @@ static:
 			auto f = numParams == 1
 				? new FileConduit(name, DefaultFileStyle)
 				: new FileConduit(name, parseFileMode(checkIntParam(t, 2)));
-				
+
 			lookup(t, "stream.Stream");
 			pushNull(t);
 			pushNativeObj(t, f);

@@ -145,87 +145,6 @@ class Semantic : IdentityVisitor
 			field.initializer = visit(field.initializer);
 
 		return d;
-
-// 		/*
-// 		To codegen:
-// 
-// 		namespace N
-// 		{
-// 			function f() {}
-// 			g = 5
-// 			h = function() {}
-// 		}
-// 
-// 		Do it as:
-// 
-// 		local temp = raw_namespace N
-// 		??? N = temp
-// 		each field
-// 		{
-// 			local temp2 = field.initializer
-// 			if(field.initializer is func literal) funcenv temp2, temp
-// 			temp.(field.name) = temp2
-// 		}
-// 		evaluate_to temp
-// 		*/
-// 
-// 		scope funcBody = new List!(Statement)(c.alloc);
-// 
-// 		{
-// 			// local raw_namespace N {}
-// 			{
-// 				scope dummy = new List!(Identifier)(c.alloc);
-// 				dummy ~= d.name;
-// 				auto init = new(c) RawNamespaceExp(c, d.location, d.name, d.parent);
-// 				funcBody ~= new(c) VarDecl(c, d.location, d.endLocation, Protection.Local, dummy.toArray(), init);
-// 			}
-// 	
-// 			// local function __temp()
-// 			Identifier innerFuncName;
-// 	
-// 			{
-// 				// {
-// 				//     N.f = function f() {}
-// 				// }
-// 	
-// 				scope stmts = new List!(Statement)(c.alloc);
-// 	
-// 				foreach(field; d.fields)
-// 				{
-// 					scope lhs = new List!(Expression)(c.alloc);
-// 					lhs ~= new(c) DotExp(c, new(c) IdentExp(c, d.name), new(c) StringExp(c, field.initializer.location, field.name));
-// 					stmts ~= new(c) AssignStmt(c, field.initializer.location, field.initializer.endLocation, lhs.toArray(), field.initializer);
-// 				}
-//
-// 				auto innerFuncBody = new(c) BlockStmt(c, d.location, d.endLocation, stmts.toArray());
-// 				innerFuncName = new(c) Identifier(c, d.location, c.newString("__temp"));
-//
-// 				scope params = new List!(FuncDef.Param)(c.alloc);
-// 				params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
-// 				auto innerFuncDef = new(c) FuncDef(c, d.location, innerFuncName, params.toArray(), false, innerFuncBody);
-// 				auto lit = new(c) FuncLiteralExp(c, d.location, innerFuncDef);
-// 				funcBody ~= new(c) OtherDecl(c, Protection.Local, innerFuncName, lit);
-// 			}
-//
-// 			// funcenv __temp, N
-// 			funcBody ~= new(c) FuncEnvStmt(c, d.location, innerFuncName, d.name);
-//
-// 			// __temp()
-// 			funcBody ~= new(c) ExpressionStmt(c, d.location, d.endLocation, new(c) CallExp(c, d.endLocation, new(c) IdentExp(c, innerFuncName), null, null));
-//
-// 			// return N
-// 			{
-// 				scope dummy = new List!(Expression)(c.alloc);
-// 				dummy ~= new(c) IdentExp(c, d.name);
-// 				funcBody ~= new(c) ReturnStmt(c, d.location, d.location, dummy.toArray());
-// 			}
-// 		}
-//
-// 		scope params = new List!(FuncDef.Param)(c.alloc);
-// 		params ~= FuncDef.Param(new(c) Identifier(c, d.location, c.newString("this")));
-// 		auto funcDef = new(c) FuncDef(c, d.location, d.name, params.toArray(), false, new(c) BlockStmt(c, d.location, d.endLocation, funcBody.toArray()));
-// 		auto funcExp = new(c) FuncLiteralExp(c, d.location, funcDef);
-// 		return new(c) CallExp(c, d.endLocation, funcExp, null, null);
 	}
 
 	public override Statement visit(AssertStmt s)
@@ -271,7 +190,7 @@ class Semantic : IdentityVisitor
 		s.expr = visit(s.expr);
 		return s;
 	}
-	
+
 	public override VarDecl visit(VarDecl d)
 	{
 		if(d.initializer)
@@ -607,7 +526,7 @@ class Semantic : IdentityVisitor
 		s.exp = visit(s.exp);
 		return s;
 	}
-	
+
 	public override Expression visit(CondExp e)
 	{
 		e.cond = visit(e.cond);
@@ -1279,7 +1198,7 @@ class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(VargSliceExp e)
 	{
 		e.loIndex = visit(e.loIndex);

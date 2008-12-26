@@ -17,8 +17,8 @@ void main()
 
 	MDVM vm;
 	auto t = openVM(&vm);
-	loadStdlibs(t);
-	
+	loadStdlibs(t, MDStdlib.ReallyAll);
+
 	version(TestArc)
 		ArcLib.init(t);
 
@@ -45,14 +45,14 @@ void main()
 		pop(t, 2);
 
 		if(e.info)
-			Stdout.formatln("D Traceback: {}", e.info);
+			Stdout.formatln("D Traceback:\n{}", e.info);
 	}
 	catch(Exception e)
 	{
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
 		
 		if(e.info)
-			Stdout.formatln("D Traceback: {}", e.info);
+			Stdout.formatln("D Traceback:\n{}", e.info);
 
 		return;
 	}

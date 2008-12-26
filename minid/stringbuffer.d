@@ -24,6 +24,7 @@ subject to the following restrictions:
 module minid.stringbuffer;
 
 import tango.stdc.string;
+import Utf = tango.text.convert.Utf;
 
 import minid.ex;
 import minid.interpreter;

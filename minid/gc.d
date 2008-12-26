@@ -332,6 +332,9 @@ void markObj(MDVM* vm, MDThread* o)
 
 	if(o.coroFunc)
 		markObj(vm, o.coroFunc);
+		
+	if(o.hookFunc)
+		markObj(vm, o.hookFunc);
 
 	version(MDRestrictedCoro) {} else
 	{
