@@ -23,12 +23,14 @@ subject to the following restrictions:
 
 module minid.vector;
 
+import tango.core.Traits;
 import tango.math.Math;
 import tango.stdc.string;
 
 import minid.ex;
 import minid.interpreter;
 import minid.types;
+import minid.utils;
 
 struct VectorObj
 {
@@ -127,6 +129,36 @@ static:
 		TypeStruct* type;
 	}
 
+	/**
+
+	*/
+	public word fromDArray(_T)(MDThread* t, _T[] arr)
+	{
+		alias realType!(_T) T;
+
+		static      if(is(T == byte))   const code = "i8";
+		else static if(is(T == ubyte))  const code = "u8";
+		else static if(is(T == short))  const code = "i16";
+		else static if(is(T == ushort)) const code = "u16";
+		else static if(is(T == int))    const code = "i32";
+		else static if(is(T == uint))   const code = "u32";
+		else static if(is(T == long))   const code = "i64";
+		else static if(is(T == ulong))  const code = "u64";
+		else static if(is(T == float))  const code = "f32";
+		else static if(is(T == double)) const code = "f64";
+		else static assert(false, "Vector.fromDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		pushString(t, code);
+		pushInt(t, arr.length);
+		rawCall(t, -4, 1);
+		auto memb = getMembers!(Members)(t, -1);
+		(cast(T*)memb.data)[0 .. memb.length] = cast(T[])arr[];
+
+		return 1;
+	}
+
 	void init(MDThread* t)
 	{
 		CreateClass(t, "Vector", (CreateClass* c)
@@ -186,6 +218,28 @@ static:
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
 			c.method("opApply", &opApply, 2);
+			
+			c.method("readByte",       &rawRead!(byte));
+			c.method("readUByte",      &rawRead!(ubyte));
+			c.method("readShort",      &rawRead!(short));
+			c.method("readUShort",     &rawRead!(ushort));
+			c.method("readInt",        &rawRead!(int));
+			c.method("readUInt",       &rawRead!(uint));
+			c.method("readLong",       &rawRead!(long));
+			c.method("readULong",      &rawRead!(ulong));
+			c.method("readFloat",      &rawRead!(float));
+			c.method("readDouble",     &rawRead!(double));
+
+			c.method("writeByte",      &rawWrite!(byte));
+			c.method("writeUByte",     &rawWrite!(ubyte));
+			c.method("writeShort",     &rawWrite!(short));
+			c.method("writeUShort",    &rawWrite!(ushort));
+			c.method("writeInt",       &rawWrite!(int));
+			c.method("writeUInt",      &rawWrite!(uint));
+			c.method("writeLong",      &rawWrite!(long));
+			c.method("writeULong",     &rawWrite!(ulong));
+			c.method("writeFloat",     &rawWrite!(float));
+			c.method("writeDouble",    &rawWrite!(double));
 		});
 		
 		newFunction(t, &allocator, "Vector.allocator");
@@ -1340,6 +1394,52 @@ static:
 		}
 
 		return 3;
+	}
+	
+	uword rawRead(T)(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
+		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
+
+		auto idx = checkIntParam(t, 1);
+
+		if(idx < 0)
+			idx += memb.length * memb.type.itemSize;
+
+		if(idx < 0 || idx > maxIdx)
+			throwException(t, "Invalid index '{}'", idx);
+			
+		static if(isIntegerType!(T))
+			pushInt(t, cast(mdint)*(cast(T*)(data.ptr + idx)));
+		else
+			pushFloat(t, cast(mdfloat)*(cast(T*)(data.ptr + idx)));
+			
+		return 1;
+	}
+	
+	uword rawWrite(T)(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
+		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
+
+		auto idx = checkIntParam(t, 1);
+		
+		if(idx < 0)
+			idx += memb.length * memb.type.itemSize;
+
+		if(idx < 0 || idx > maxIdx)
+			throwException(t, "Invalid index '{}'", idx);
+			
+		static if(isIntegerType!(T))
+			auto val = checkIntParam(t, 2);
+		else
+			auto val = checkNumParam(t, 2);
+
+		*(cast(T*)(data.ptr + idx)) = cast(T)val;
+
+		return 0;
 	}
 
 	uword opEquals(MDThread* t, uword numParams)

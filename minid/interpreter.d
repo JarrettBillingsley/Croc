@@ -515,6 +515,9 @@ be thrown in the source thread.
 
 If the two threads belong to different VMs, an error will be thrown in the source thread.
 
+If the two threads are the same thread object, or if 0 values are transferred, this function is
+a no-op.
+
 Params:
 	src = The thread from which the values will be taken.
 	dest = The thread onto whose stack the values will be pushed.
@@ -4050,7 +4053,12 @@ $(UL
 This function can be used to set or unset the hook function for the given thread.  In either case,
 it expects for there to be one value at the top of the stack, which it will pop.  The value must
 be a function or 'null'.  To unset the hook function, either have 'null' on the stack, or pass 0
-for the mask parameter.  
+for the mask parameter.
+
+When the hook function is called, the thread that the hook is being called on is passed as the 'this'
+parameter, and one parameter is passed.  This parameter is a string containing one of the following:
+"call", "ret", "tailret", "delay", or "line", according to what kind of hook this is.  The hook function
+is not required to return any values.
 
 Params:
 	mask = A bitwise OR-ing of the members of the MDThread.Hook enumeration as described above.
@@ -4073,7 +4081,7 @@ void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 		throwException(t, "setHookFunc - hook func must be 'function' or 'null', not '{}'", getString(t, -1));
 	}
 
-	if(mask == 0 || f is null)
+	if(f is null || mask == 0)
 	{
 		t.hookDelay = 0;
 		t.hookCounter = 0;
@@ -4082,16 +4090,18 @@ void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 	}
 	else
 	{
-		t.hookDelay = hookDelay;
-
 		if(hookDelay == 0)
 			mask &= ~MDThread.Hook.Delay;
 		else
 			mask |= MDThread.Hook.Delay;
 
 		if(mask & MDThread.Hook.TailRet)
+		{
 			mask |= MDThread.Hook.Ret;
+			mask &= ~MDThread.Hook.TailRet;
+		}
 
+		t.hookDelay = hookDelay;
 		t.hookCounter = hookDelay;
 		t.hookFunc = f;
 		t.hooks = mask;
@@ -4135,7 +4145,7 @@ debug
 	import tango.io.Stdout;
 
 	/**
-	$(B Debug mode only.)  Print out the contents of the stack to Stdout in the following format:
+	$(B Debug mode only.)  Prints out the contents of the stack to Stdout in the following format:
 
 -----
 [xxx:yyyy]: val: type
@@ -4173,7 +4183,7 @@ debug
 	}
 
 	/**
-	$(B Debug mode only.)  Print out the call stack in reverse, starting from the currently-executing function and
+	$(B Debug mode only.)  Prints out the call stack in reverse, starting from the currently-executing function and
 	going back, in the following format (without quotes; I have to put them to keep DDoc happy):
 
 -----

@@ -307,7 +307,6 @@ struct RegexpLib
 				{
 					if(safeCode(t, rex.test(src)))
 					{
-						//dup(t, matches);
 						pushString(t, rex.match(0));
 						cateq(t, matches, 1);
 					}
@@ -389,7 +388,6 @@ struct RegexpLib
 	        {
 	            tmp = rex.pre();
 
-	            //dup(t, ret);
 	            pushString(t, tmp[lastStart .. $]);
 	            cateq(t, ret, 1);
 
@@ -397,7 +395,6 @@ struct RegexpLib
 	            tmp = rex.post();
 	        }
 
-			//dup(t, ret);
 			pushString(t, tmp);
 			cateq(t, ret, 1);
 

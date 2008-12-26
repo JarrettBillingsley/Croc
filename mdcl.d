@@ -33,7 +33,7 @@ void main(char[][] args)
 {
 	MDVM vm;
 	auto t = openVM(&vm);
-	loadStdlibs(t);
+	loadStdlibs(t, MDStdlib.ReallyAll);
 
 	CommandLine().run(t, args);
 }
