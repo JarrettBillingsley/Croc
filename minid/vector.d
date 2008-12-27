@@ -130,7 +130,17 @@ static:
 	}
 
 	/**
+	Constructs a Vector from a D array and pushes the new instance onto the stack.
+	The resulting Vector holds a copy of the data.  
+	
+	The array type must be convertible to a single-dimensional array of any integer
+	type or a float or double array.
+	
+	Params:
+		arr = The array from which the data will be copied into the new instance.
 
+	Returns:
+		The stack index of the newly-pushed Vector instance.
 	*/
 	public word fromDArray(_T)(MDThread* t, _T[] arr)
 	{
@@ -187,6 +197,28 @@ static:
 			c.method("toString",       &toString);
 			c.method("type",           &type);
 
+			c.method("readByte",       &rawRead!(byte));
+			c.method("readUByte",      &rawRead!(ubyte));
+			c.method("readShort",      &rawRead!(short));
+			c.method("readUShort",     &rawRead!(ushort));
+			c.method("readInt",        &rawRead!(int));
+			c.method("readUInt",       &rawRead!(uint));
+			c.method("readLong",       &rawRead!(long));
+			c.method("readULong",      &rawRead!(ulong));
+			c.method("readFloat",      &rawRead!(float));
+			c.method("readDouble",     &rawRead!(double));
+
+			c.method("writeByte",      &rawWrite!(byte));
+			c.method("writeUByte",     &rawWrite!(ubyte));
+			c.method("writeShort",     &rawWrite!(short));
+			c.method("writeUShort",    &rawWrite!(ushort));
+			c.method("writeInt",       &rawWrite!(int));
+			c.method("writeUInt",      &rawWrite!(uint));
+			c.method("writeLong",      &rawWrite!(long));
+			c.method("writeULong",     &rawWrite!(ulong));
+			c.method("writeFloat",     &rawWrite!(float));
+			c.method("writeDouble",    &rawWrite!(double));
+
 			c.method("opLength",       &opLength);
 			c.method("opLengthAssign", &opLengthAssign);
 			c.method("opIndex",        &opIndex);
@@ -218,30 +250,8 @@ static:
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
 			c.method("opApply", &opApply, 2);
-			
-			c.method("readByte",       &rawRead!(byte));
-			c.method("readUByte",      &rawRead!(ubyte));
-			c.method("readShort",      &rawRead!(short));
-			c.method("readUShort",     &rawRead!(ushort));
-			c.method("readInt",        &rawRead!(int));
-			c.method("readUInt",       &rawRead!(uint));
-			c.method("readLong",       &rawRead!(long));
-			c.method("readULong",      &rawRead!(ulong));
-			c.method("readFloat",      &rawRead!(float));
-			c.method("readDouble",     &rawRead!(double));
-
-			c.method("writeByte",      &rawWrite!(byte));
-			c.method("writeUByte",     &rawWrite!(ubyte));
-			c.method("writeShort",     &rawWrite!(short));
-			c.method("writeUShort",    &rawWrite!(ushort));
-			c.method("writeInt",       &rawWrite!(int));
-			c.method("writeUInt",      &rawWrite!(uint));
-			c.method("writeLong",      &rawWrite!(long));
-			c.method("writeULong",     &rawWrite!(ulong));
-			c.method("writeFloat",     &rawWrite!(float));
-			c.method("writeDouble",    &rawWrite!(double));
 		});
-		
+
 		newFunction(t, &allocator, "Vector.allocator");
 		setAllocator(t, -2);
 
@@ -1230,6 +1240,52 @@ static:
 		return 1;
 	}
 
+	uword rawRead(T)(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
+		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
+
+		auto idx = checkIntParam(t, 1);
+
+		if(idx < 0)
+			idx += memb.length * memb.type.itemSize;
+
+		if(idx < 0 || idx > maxIdx)
+			throwException(t, "Invalid index '{}'", idx);
+			
+		static if(isIntegerType!(T))
+			pushInt(t, cast(mdint)*(cast(T*)(data.ptr + idx)));
+		else
+			pushFloat(t, cast(mdfloat)*(cast(T*)(data.ptr + idx)));
+			
+		return 1;
+	}
+	
+	uword rawWrite(T)(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
+		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
+
+		auto idx = checkIntParam(t, 1);
+		
+		if(idx < 0)
+			idx += memb.length * memb.type.itemSize;
+
+		if(idx < 0 || idx > maxIdx)
+			throwException(t, "Invalid index '{}'", idx);
+			
+		static if(isIntegerType!(T))
+			auto val = checkIntParam(t, 2);
+		else
+			auto val = checkNumParam(t, 2);
+
+		*(cast(T*)(data.ptr + idx)) = cast(T)val;
+
+		return 0;
+	}
+
 	uword opLength(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
@@ -1396,52 +1452,6 @@ static:
 		return 3;
 	}
 	
-	uword rawRead(T)(MDThread* t, uword numParams)
-	{
-		auto memb = getThis(t);
-		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
-		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
-
-		auto idx = checkIntParam(t, 1);
-
-		if(idx < 0)
-			idx += memb.length * memb.type.itemSize;
-
-		if(idx < 0 || idx > maxIdx)
-			throwException(t, "Invalid index '{}'", idx);
-			
-		static if(isIntegerType!(T))
-			pushInt(t, cast(mdint)*(cast(T*)(data.ptr + idx)));
-		else
-			pushFloat(t, cast(mdfloat)*(cast(T*)(data.ptr + idx)));
-			
-		return 1;
-	}
-	
-	uword rawWrite(T)(MDThread* t, uword numParams)
-	{
-		auto memb = getThis(t);
-		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
-		word maxIdx = data.length < T.sizeof ? -1 : data.length - T.sizeof;
-
-		auto idx = checkIntParam(t, 1);
-		
-		if(idx < 0)
-			idx += memb.length * memb.type.itemSize;
-
-		if(idx < 0 || idx > maxIdx)
-			throwException(t, "Invalid index '{}'", idx);
-			
-		static if(isIntegerType!(T))
-			auto val = checkIntParam(t, 2);
-		else
-			auto val = checkNumParam(t, 2);
-
-		*(cast(T*)(data.ptr + idx)) = cast(T)val;
-
-		return 0;
-	}
-
 	uword opEquals(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);

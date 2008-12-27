@@ -38,6 +38,7 @@ import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
 import minid.compiler;
+import minid.debuglib;
 import minid.ex;
 import minid.interpreter;
 import minid.serialization;
@@ -270,6 +271,8 @@ To end interactive mode, use the \"exit()\" function.
 
 		if(interactive)
 		{
+			DebugLib.init(t);
+
 			if(!printedVersion)
 				printVersion();
 
