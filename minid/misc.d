@@ -42,50 +42,26 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 {
 	void output(char[] fmt, uword param, bool isRaw)
 	{
-		if(fmt[1] == 'r' || isdigit(fmt[1]))
+		auto tmp = (cast(char*)alloca(fmt.length + 1))[0 .. fmt.length + 1];
+		tmp[0] = '{';
+		tmp[1 .. $] = fmt[];
+
+		switch(type(t, param))
 		{
-			auto begin = 2;
+			case MDValue.Type.Int:   t.vm.formatter.convert(sink, tmp, getInt(t, param)); break;
+			case MDValue.Type.Float: t.vm.formatter.convert(sink, tmp, getFloat(t, param)); break;
+			case MDValue.Type.Char:  t.vm.formatter.convert(sink, tmp, getChar(t, param)); break;
 
-			for(; begin < fmt.length; begin++)
-				if(fmt[begin] != 'r' && !isdigit(fmt[begin]))
-					break;
-
-			auto tmp = (cast(char*) alloca(fmt.length - begin + 1))[0 .. fmt.length - begin + 1];
-			tmp[0] = '{';
-			tmp[1 .. $] = fmt[begin .. $];
-			
-			switch(type(t, param))
-			{
-				case MDValue.Type.Int:   t.vm.formatter.convert(sink, tmp, getInt(t, param)); break;
-				case MDValue.Type.Float: t.vm.formatter.convert(sink, tmp, getFloat(t, param)); break;
-				case MDValue.Type.Char:  t.vm.formatter.convert(sink, tmp, getChar(t, param)); break;
-
-				default:
-					pushToString(t, param, isRaw);
-					t.vm.formatter.convert(sink, tmp, getString(t, -1));
-					pop(t);
-					break;
-			}
-		}
-		else
-		{
-			switch(type(t, param))
-			{
-				case MDValue.Type.Int:   t.vm.formatter.convert(sink, fmt, getInt(t, param)); break;
-				case MDValue.Type.Float: t.vm.formatter.convert(sink, fmt, getFloat(t, param)); break;
-				case MDValue.Type.Char:  t.vm.formatter.convert(sink, fmt, getChar(t, param)); break;
-
-				default:
-					pushToString(t, param, isRaw);
-					t.vm.formatter.convert(sink, fmt, getString(t, -1));
-					pop(t);
-					break;
-			}
+			default:
+				pushToString(t, param, isRaw);
+				t.vm.formatter.convert(sink, tmp, getString(t, -1));
+				pop(t);
+				break;
 		}
 	}
 
-	if(numParams > 64)
-		throwException(t, "Too many parameters to format (maximum of 64)");
+	if(numParams >= 64)
+		throwException(t, "Too many parameters to format (maximum of 63)");
 
 	bool[64] used;
 
@@ -96,7 +72,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 
   		if(!isString(t, paramIndex))
   		{
-			output("{}", paramIndex, false);
+			output("}", paramIndex, false);
 			continue;
 		}
 
@@ -107,46 +83,57 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 
 		while(begin < formatStr.length)
 		{
+			// output anything outside the {}
 			auto fmtBegin = formatStr.locate('{', begin);
 
-			t.vm.formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
-			begin = fmtBegin;
+			if(fmtBegin > begin)
+			{
+				t.vm.formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
+				begin = fmtBegin;
+			}
 
+			// did we run out of string?
 			if(fmtBegin == formatStr.length)
 				break;
 
+			// find the end of the {}
 			auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
 
+			// onoz, unmatched {}
 			if(fmtEnd == formatStr.length)
 			{
 				t.vm.formatter.convert(sink, "{{missing or misplaced '}'}{}", formatStr[fmtBegin .. $]);
 				break;
 			}
 
-			fmtEnd++;
-
-			auto fmtSpec = formatStr[fmtBegin .. fmtEnd];
-			
+			// chop off opening { on format spec
+			auto fmtSpec = formatStr[fmtBegin + 1 .. fmtEnd + 1];
 			bool isRaw = false;
 
-			if(fmtSpec[1] == 'r')
+			// check for {r and remove it if there
+			if(fmtSpec[0] == 'r')
+			{
 				isRaw = true;
+				fmtSpec = fmtSpec[1 .. $];
+			}
 
+			// check for parameter index and remove it if there
 			auto index = autoIndex;
 
-			if(fmtSpec.length > 2 && (isRaw ? isdigit(fmtSpec[2]) : isdigit(fmtSpec[1])))
+			if(isdigit(fmtSpec[0]))
 			{
-				uword j = 2;
+				uword j = 0;
 
 				for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
 				{}
 
-				auto offset = Integer.atoi(fmtSpec[2 .. j]);
-				index = formatStrIndex + offset + 1;
+				index = formatStrIndex + Integer.atoi(fmtSpec[0 .. j]) + 1;
+				fmtSpec = fmtSpec[j .. $];
 			}
 			else
 				autoIndex++;
 
+			// output it (or see if it's an invalid index)
 			if(index > numParams)
 				t.vm.formatter.convert(sink, "{}", "{invalid index}");
 			else
@@ -155,7 +142,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 				output(fmtSpec, index, isRaw);
 			}
 
-			begin = fmtEnd;
+			begin = fmtEnd + 1;
 		}
 	}
 }

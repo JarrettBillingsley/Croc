@@ -8220,8 +8220,6 @@ void execute(MDThread* t, uword depth = 1)
 					maybeGC(t);
 					break;
 
-				case Op.SetEnv: get(i.rd).mFunction.environment = get(i.rs).mNamespace; break;
-
 				case Op.Class:
 					RS = *get(i.rs);
 					RT = *get(i.rt);

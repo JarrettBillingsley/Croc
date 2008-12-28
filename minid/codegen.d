@@ -3005,24 +3005,6 @@ class Codegen : Visitor
 
 		return s;
 	}
-	
-	public override FuncEnvStmt visit(FuncEnvStmt s)
-	{
-		Exp exp;
-		
-		fs.pushVar(s.funcName);
-		fs.popSource(s.location.line, exp);
-		fs.freeExpTempRegs(exp);
-		auto funcIdx = exp.index;
-
-		fs.pushVar(s.envName);
-		fs.popSource(s.location.line, exp);
-		fs.freeExpTempRegs(exp);
-		auto envIdx = exp.index;
-		
-		fs.codeR(s.endLocation.line, Op.SetEnv, funcIdx, envIdx, 0);
-		return s;
-	}
 
 	public override CondExp visit(CondExp e)
 	{

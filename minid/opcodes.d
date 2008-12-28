@@ -103,7 +103,6 @@ enum Op : ushort
 	PushFinally,
 	Ret,
 	SetArray,
-	SetEnv,
 	Shl,
 	ShlEq,
 	Shr,
@@ -206,7 +205,6 @@ PushCatch.........J: exception reg, branch offset
 PushFinally.......J: n/a, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
-SetEnv............R: dest, src, n/a
 Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
 Shr...............R: dest, src, src
@@ -371,7 +369,6 @@ align(1) struct Instruction
 			case Op.PushFinally:     return Format("pushfinal {}", imm);
 			case Op.Ret:             return Format("ret r{}, {}", rd, uimm);
 			case Op.SetArray:        return Format("setarray r{}, {}, block {}", rd, rs, rt);
-			case Op.SetEnv:          return Format("setenv {}, {}", cr(rd), cr(rs));
 			case Op.Shl:             return Format("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ShlEq:           return Format("shleq {}, {}", cr(rd), cr(rs));
 			case Op.Shr:             return Format("shr {}, {}, {}", cr(rd), cr(rs), cr(rt));

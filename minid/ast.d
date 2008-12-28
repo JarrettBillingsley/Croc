@@ -81,7 +81,6 @@ const char[][] AstTagNames =
 	"CondAssignStmt",
 	"IncStmt",
 	"DecStmt",
-	"FuncEnvStmt",
 	"TypecheckStmt",
 
 	"CondExp",
@@ -1765,30 +1764,6 @@ class DecStmt : Statement
 	{
 		super(c, location, endLocation, AstTag.DecStmt);
 		this.exp = exp;
-	}
-}
-
-/**
-This node does not represent a grammar element, but rather a transient node type used when rewriting
-the AST.  It's used to set a function's environment.
-*/
-class FuncEnvStmt : Statement
-{
-	/**
-	*/
-	public Identifier funcName;
-	
-	/**
-	*/
-	public Identifier envName;
-
-	/**
-	*/
-	public this(ICompiler c, CompileLoc location, Identifier funcName, Identifier envName)
-	{
-		super(c, location, location, AstTag.FuncEnvStmt);
-		this.funcName = funcName;
-		this.envName = envName;
 	}
 }
 

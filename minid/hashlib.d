@@ -45,6 +45,7 @@ static:
 			newFunction(t, &staticApply,  "apply");  newGlobal(t, "apply");
 			newFunction(t, &staticEach,   "each");   newGlobal(t, "each");
 			newFunction(t, &staticTake,   "take");   newGlobal(t, "take");
+			newFunction(t, &staticClear,  "clear");  newGlobal(t, "clear");
 			newFunction(t, &remove,       "remove"); newGlobal(t, "remove");
 			newFunction(t, &set,          "set");    newGlobal(t, "set");
 			newFunction(t, &get,          "get");    newGlobal(t, "get");
@@ -56,6 +57,7 @@ static:
 				newFunction(t, &tableOpApply, "opApply"); fielda(t, -2, "opApply");
 				newFunction(t, &tableEach,    "each");    fielda(t, -2, "each");
 				newFunction(t, &tableTake,    "take");    fielda(t, -2, "take");
+				newFunction(t, &tableClear,   "clear");   fielda(t, -2, "clear");
 			setTypeMT(t, MDValue.Type.Table);
 			
 			newNamespace(t, "namespace");
@@ -386,6 +388,16 @@ static:
 
 		return 2;
 	}
+	
+	uword clearImpl(MDThread* t, word slot)
+	{
+		if(isTable(t, slot))
+			clearTable(t, slot);
+		else
+			clearNamespace(t, slot);
+			
+		return 0;
+	}
 
 	uword tableDup(MDThread* t, uword numParams)
 	{
@@ -422,6 +434,12 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return takeImpl(t, 0);
+	}
+	
+	uword tableClear(MDThread* t, uword numParams)
+	{
+		checkParam(t, 0, MDValue.Type.Table);
+		return clearImpl(t, 0);
 	}
 
 	uword namespaceOpApply(MDThread* t, uword numParams)
@@ -475,6 +493,14 @@ static:
 			checkParam(t, 1, MDValue.Type.Namespace);
 
 		return takeImpl(t, 1);
+	}
+
+	uword staticClear(MDThread* t, uword numParams)
+	{
+		if(!isTable(t, 1))
+			checkParam(t, 1, MDValue.Type.Namespace);
+			
+		return clearImpl(t, 1);
 	}
 
 	uword remove(MDThread* t, uword numParams)

@@ -735,25 +735,6 @@ static:
 
 			void outputNamespace(word ns)
 			{
-				if(opin(t, ns, shown))
-				{
-					pushToString(t, ns);
-					Stdout(getString(t, -1))(" {...}");
-					pop(t);
-					return;
-				}
-
-				dup(t, ns);
-				pushBool(t, true);
-				idxa(t, shown);
-
-				scope(exit)
-				{
-					dup(t, ns);
-					pushNull(t);
-					idxa(t, shown);
-				}
-
 				pushToString(t, ns);
 				Stdout(getString(t, -1))(" { ");
 				pop(t);
@@ -786,7 +767,7 @@ static:
 			{
 				Stdout('"');
 
-				foreach(c; getString(t, v))
+				foreach(dchar c; getString(t, v))
 					escape(c);
 
 				Stdout('"');

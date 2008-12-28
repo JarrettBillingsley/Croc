@@ -158,14 +158,6 @@ static:
 		return ret;
 	}
 
-	// Append array b to the end of array a.
-	package void append(ref Allocator alloc, MDArray* a, MDArray* b)
-	{
-		auto oldLen = a.slice.length;
-		array.resize(alloc, a, a.slice.length + b.slice.length);
-		a.slice[oldLen .. $] = b.slice[];
-	}
-
 	// Append the value v to the end of array a.
 	package void append(ref Allocator alloc, MDArray* a, MDValue* v)
 	{

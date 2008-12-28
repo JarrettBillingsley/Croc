@@ -4,36 +4,7 @@ module tests.compiler.compiler
 import FRACK = tests.dummy: xxx = XXX, YYY
 import("tests.dummy")
 
-function xpass(s: string)
-{
-	try
-	{
-		loadString(s)
-		return
-	}
-	catch(e)
-		throw "Expected to pass but failed"
-}
-
-function xfail(s: string)
-{
-	try
-		loadString(s)
-	catch(e)
-		return
-
-	throw "Expected to fail but passed"
-}
-
-function xfailex(s: string)
-{
-	try
-		loadString(s)()
-	catch(e)
-		return
-
-	throw "Expected to fail but passed"
-}
+import tests.common : xpass, xfail, xfailex
 
 // ast
 class O {}
@@ -50,6 +21,7 @@ foreach(c; "x"){}
 switch(4){case 4, 5: foo(); foo(); case true: default: break}
 try{}catch(e){}finally{}
 O = 4
+O || foo()
 O += 1
 O -= 1
 O *= 2
@@ -112,11 +84,12 @@ O = 'x' in "hello"
 O = 'x' !in "hello"
 O = coroutine foo
 O = class{}
+O = class O {}
 O.x = 5
 O.x = O.x
 N = O.super
 O, N = foo()
-O = class{ function f(){ return this } }
+O = class{ function f(){ return this } this() {}}
 O.f()
 O.("f")()
 O, N = O.f()
@@ -147,8 +120,6 @@ xfail("x = 111111111111111111111111111111111111111111111111111111111111111111111
 O = .3
 O = 0b10_10
 xfail("O = 0b3")
-O = 0c247_72
-xfail("O = 0c9")
 O = 0x9_3502
 xfail("O = 0xg")
 O = [1, 2, 3][0..2]
@@ -214,7 +185,7 @@ xfail("f = function(x: instance 4){}")
 foo = function(x: bool|float|char|table|array|thread|nativeobj|weakref, y: A){}
 foo = function freep(x: !null, y: any){}
 xfail(`f = \x -> yield`)
-xpass("global class O:I{ @foo function foo() {} }")
+xpass("global class O:I{ @foo function foo() {} @foo this(){} }")
 xfail("class O { x = 5; x }")
 xfail("class O {")
 xfail("class O {5}")
@@ -249,6 +220,7 @@ A[0..] = A[..5]
 xfail("x = [x for x, y in 0 .. 10]")
 A = [x for x in 0 .. 10, 3]
 xfail("x = [x for x in `hello`, 4, 43, 2]")
+{ local xx = \{} }
 
 // semantic
 foo = function(x = freep(), y: int = 5, z = 4.5, w = "hai"){}
