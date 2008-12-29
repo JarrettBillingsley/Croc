@@ -4,7 +4,17 @@ import tests.common : xfail
 
 function foo(vararg){}
 
-// some debug stuff
+// wut
+{
+	xfail$\{ tests.forble() }
+	xfail$\{ (class{ constructor = 5 })() }
+	local namespace Crap { function foob() {} }
+	local x
+	local function foo() { x = 3; function bar() = x }
+	foo()
+}
+
+// debug stuff
 debug.currentLine(0)
 
 // calling
@@ -28,12 +38,6 @@ debug.currentLine(0)
 	f.forble()
 }
 
-// wut
-{
-	xfail$\{ tests.forble() }
-	xfail$\{ (class{ constructor = 5 })() }
-}
-
 // table stuff
 {
 	local t = { function forble() {} }
@@ -42,7 +46,7 @@ debug.currentLine(0)
 	xfail$\{ t.borble() }
 }
 
-// calling coroutines
+// coroutines
 {
 	local co = coroutine function()
 	{
@@ -57,6 +61,12 @@ debug.currentLine(0)
 
 	co = coroutine function() { co() }
 	xfail$\{ co() }
+	
+	co = coroutine \{ yield((\->0)()) }
+	co()
+	
+	co = coroutine format
+	co()
 }
 
 // moar calling
@@ -96,6 +106,7 @@ debug.currentLine(0)
 	xfail$\{ x = 5 in (class{})() }
 	local class Frendle { function opIn() = false }
 	x = 5 in Frendle()
+	x = 5 !in Frendle()
 }
 
 // idx
@@ -139,6 +150,8 @@ debug.currentLine(0)
 	x = (class{x}()).x
 	xfail$\{ x = _G.oskfoaksf }
 	xfail$\{ x = 5.x }
+	xfail$\{ x = _G.(x) }
+	xfail$\{ _G.(x) = x }
 }
 
 // fielda
@@ -257,6 +270,8 @@ debug.currentLine(0)
 	xfail$\{ b = a[100 .. 100] }
 	xfail$\{ b = a['x' .. 'y'] }
 	b = a[1 .. 4]
+	b = a[-4 .. -1]
+	xfail$\{ b = a[0 .. 'x'] }
 	
 	a = "hello"
 	b = a[]
@@ -407,4 +422,213 @@ debug.currentLine(0)
 	x = {opDec = \{}}
 	x--
 	xfail$\{ x = {}; x-- }
+}
+
+// cat
+{
+	local s = "hello"
+	local x = s ~ 'c' ~ []
+	x = s ~ 'c' ~ (class{opCat_r = \-> 0}())
+	xfail$\{ x = s ~ 'c' ~ 24 }
+	x = [1 2] ~ 3
+	x = [1 2] ~ (class{opCat_r = \-> 0}())
+	x = [1 2] ~ (class{}())
+	x = (class{}()) ~ [1]
+	x = (class{opCat = \->0}()) ~ 3
+	xfail$\{ x = (class{}()) ~ 3 }
+	x = {} ~ {opCat_r = \-> 0}
+	xfail$\{ x = {} ~ {} }
+	x = 3 ~ [1]
+	x = 3 ~ {opCat_r = \-> 0}
+	xfail$\{ x = 3 ~ s }
+	xfail$\{ x = 3 ~ {} }
+	x = [1] ~ [2]
+}
+
+// cateq
+{
+	local s = "hello"
+	s ~= "hi"
+	s ~= 'c'
+	xfail$\{ s ~= 4 }
+	s = []
+	s ~= 3
+	s ~= []
+	s = class{opCatAssign = \{}}()
+	s ~= 4
+	xfail$\{ s = {}; s ~= 4 }
+	xfail$\{ s = 5; s ~= 4 }
+}
+
+// throw
+{
+	local ex = class{toString = \{ throw "foo"}}()
+	xfail$\{ throw ex }
+}
+
+// as
+{
+	xfail$\{ local x = xfail as xfail }
+	local x = 0
+	x = x as Vector
+	x = StringBuffer("") as Vector
+}
+
+// superof
+{
+	local x = Object.super
+	x = class{}.super
+	x = (class{}()).super
+	x = _G.super
+	x = tests.super
+	xfail$\{ x = xfail.super }
+}
+
+// stressing
+{
+	local function forble(x)
+	{
+		if(x)
+			try forble(x - 1); catch(e){} finally{}
+	}
+
+	forble(300)
+}
+
+// execute
+{
+	// get
+	local x
+	xfail$\{ x = forbleborble }
+	
+	// cmov
+	x ?= 5
+	
+	// newglob
+	xfail$\{ global freep; global freep }
+	
+	//import
+	xfail$\{ import(x) }
+	
+	// not
+	x = !x
+	
+	// cmp
+	x = 5
+	if(x < 0){}
+	if(x <= 0){}
+	if(x == 0){}
+	if(x > 0){}
+	if(x >= 0){}
+	if(x != 0){}
+	
+	// cmp3
+	x = x <=> 5
+	
+	// is
+	x = x is 5
+	x = 0
+	x = x is 0
+
+	// switch
+	switch(5) { case 5: break }
+	xfail$\{ switch(5) { case 0: break } }
+	
+	// for, forloop
+	for(i: 0 .. 10){}
+	xfail$\{ local x = 0.0; for(i: x .. 10){} }
+	xfail$\{ local x = 0; for(i: 0 .. 10, x){} }
+	for(i: 10 .. 0){}
+
+	// foreach, foreachloop
+	foreach(v; [1 2]){}
+	xfail$\{ foreach(v; 5){} }
+	xfail$\{ foreach(v; class{opApply = \-> 5}()){} }
+	local co = coroutine \->0
+	co()
+	xfail$\{ foreach(v; co){} }
+	co = coroutine \{ yield(1); yield(3) }
+	foreach(v, _; co){}
+	
+	// endfinal
+	(\{ try try return 0, 1; finally{} finally {} })()
+	xfail$\{ try throw "noes"; finally{} }
+	
+	// function calling
+	xfail$\{ local x = 5; (class{}()).(x)() }
+	xfail$\{ super.foo() }
+	class A{}
+	A.foo = \{}
+	class B : A { foo = \{ super.foo()} }
+	xfail$\{ B().foo(with 5) }
+	B().foo()
+	B.foo(\{}())
+	x = \{};
+	(\->x())()
+	B.foo = \->({foo=\{}}).foo()
+	B().foo()
+	B.foo = \->format()
+	B().foo()
+	
+	// vararg stuff
+	local function foo(vararg)
+	{
+		local x = #vararg
+		x = vararg
+		local a, b, c, d, e = vararg
+		format(vararg)
+		x = vararg[0]
+		try { x = 'c'; x = vararg[x] } catch(ex){}
+		try x = vararg[-50]; catch(ex){}
+		vararg[0] = x
+		try { x = 'c'; vararg[x] = x } catch(ex){}
+		try vararg[-50] = x; catch(ex){}
+		try { x = 'c'; x = vararg[x ..]; } catch(ex){}
+		try x = vararg[50 .. 100]; catch(ex){}
+		x = vararg[1 ..]
+		a, b, c, d, e = vararg[1 ..]
+		return vararg[1 ..]
+	}
+
+	foo(1, 2, 3)
+	
+	// yield
+	xfail$\{ yield() }
+	
+	// checkparams
+	foo = \this: null, x: int{}
+	xfail$\{ foo(with 0) }
+	xfail$\{ foo(null) }
+
+	// checkobjparam
+	local function forble(a: A|int){}
+	forble(A())
+	forble(5)
+	xfail$\{ forble(4.5) }
+	forble = \x: instance(xfail){}
+	xfail$\{ forble(class{}()) }
+	
+	// objparamfail
+	forble = \x:A{}
+	xfail$\{ forble(class{}()) }
+	forble = \this:A{}
+	xfail$\{ forble(with class{}()) }
+
+	// append
+	x = [i for i in 1 .. 10]
+	
+	// setarray
+	x = [format()]
+	
+	// class
+	xfail$\{ x = class:x{} }
+	
+	// coroutine
+	xfail$\{ x = coroutine x }
+	
+	// namespace
+	local namespace One {}
+	local namespace Two : tests {}
+	xfail$\{ local namespace Three : x {} }
+	local namespace Four : null {}
 }

@@ -980,7 +980,7 @@ final class FuncState
 
 			case ExpType.SlicedVararg:
 				assert(src.index2 == reg, "pop to regs - trying to pop sliced varargs to different reg");
-				mCode[src.index].rt = cast(ushort)(num + 1);
+				mCode[src.index].uimm = cast(ushort)(num + 1);
 				break;
 
 			case ExpType.Call, ExpType.Yield:

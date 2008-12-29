@@ -7918,10 +7918,10 @@ void execute(MDThread* t, uword depth = 1)
 					auto src = t.currentAR.vargBase;
 					
 					if(numNeeded <= numVarargs)
-						t.stack[dest .. dest + numNeeded] = t.stack[src .. src + numNeeded];
+						memmove(&t.stack[dest], &t.stack[src], numNeeded * MDValue.sizeof);
 					else
 					{
-						t.stack[dest .. dest + numVarargs] = t.stack[src .. src + numVarargs];
+						memmove(&t.stack[dest], &t.stack[src], numVarargs * MDValue.sizeof);
 						t.stack[dest + numVarargs .. dest + numNeeded] = MDValue.nullValue;
 					}
 
@@ -8005,10 +8005,10 @@ void execute(MDThread* t, uword depth = 1)
 						numNeeded = i.uimm - 1;
 
 					if(numNeeded <= sliceSize)
-						t.stack[dest .. dest + numNeeded] = t.stack[src .. src + numNeeded];
+						memmove(&t.stack[dest], &t.stack[src], numNeeded * MDValue.sizeof);
 					else
 					{
-						t.stack[dest .. dest + sliceSize] = t.stack[src .. src + sliceSize];
+						memmove(&t.stack[dest], &t.stack[src], sliceSize * MDValue.sizeof);
 						t.stack[dest + sliceSize .. dest + numNeeded] = MDValue.nullValue;
 					}
 					break;
