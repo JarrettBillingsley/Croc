@@ -1,3 +1,3 @@
 module tests.all
 
-import tests.compiler.compiler
+import tests.interpreter

@@ -4479,16 +4479,6 @@ int getDebugLine(MDThread* t, uword depth = 0)
 		return 0;
 		
 	return pcToLine(ar, ar.pc);
-
-	auto def = ar.func.scriptFunc;
-
-	int line = 0;
-	uword instructionIndex = ar.pc - def.code.ptr - 1;
-
-	if(instructionIndex < def.lineInfo.length)
-		line = def.lineInfo[instructionIndex];
-
-	return line;
 }
 
 // ================================================================================================================================================
@@ -6382,7 +6372,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 					if(stack[idx].type == MDValue.Type.String)
 						len += stack[idx].mString.length;
 					else if(stack[idx].type == MDValue.Type.Char)
-						len++;
+						len += charLen(stack[idx].mChar);
 					else
 						break;
 				}
@@ -6637,7 +6627,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				if(stack[idx].type == MDValue.Type.String)
 					len += stack[idx].mString.length;
 				else if(stack[idx].type == MDValue.Type.Char)
-					len++;
+					len += charLen(stack[idx].mChar);
 				else
 				{
 					typeString(t, &stack[idx]);
@@ -6872,6 +6862,15 @@ bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, MDValue* 
 		return false;
 
 	return true;
+}
+
+uword charLen(dchar c)
+{
+	dchar[1] inbuf = void;
+	inbuf[0] = c;
+	char[4] outbuf = void;
+	uint ate = 0;
+	return Utf.toString(inbuf, outbuf, &ate).length;
 }
 
 word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)

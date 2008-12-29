@@ -221,9 +221,14 @@ static:
 					env[getString(t, k)] = getString(t, v);
 				}
 			}
-			
+
+			p.env = env;
+
 			if(isString(t, 1))
-				safeCode(t, p.execute(getString(t, 1), env));
+			{
+				p.programName = getString(t, 1);
+				safeCode(t, p.execute());
+			}
 			else
 			{
 				checkParam(t, 1, MDValue.Type.Array);
@@ -233,7 +238,7 @@ static:
 				for(uword i = 0; i < num; i++)
 				{
 					idxi(t, 1, i);
-					
+
 					if(!isString(t, -1))
 						throwException(t, "cmd parameter must be an array of strings");
 
@@ -241,7 +246,8 @@ static:
 					pop(t);
 				}
 
-				safeCode(t, p.execute(cmd, env));
+				p.args = cmd;
+				safeCode(t, p.execute());
 			}
 
 			pushNull(t);

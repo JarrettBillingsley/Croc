@@ -50,7 +50,7 @@ class Semantic : IdentityVisitor
 	{
 		foreach(ref stmt; m.statements)
 			stmt = visit(stmt);
-			
+
 		if(m.decorator)
 			m.decorator = visit(m.decorator);
 
@@ -739,6 +739,20 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
+	public override InExp visit(InExp e)
+	{
+		e.op1 = visit(e.op1);
+		e.op2 = visit(e.op2);
+		return e;
+	}
+
+	public override NotInExp visit(NotInExp e)
+	{
+		e.op1 = visit(e.op1);
+		e.op2 = visit(e.op2);
+		return e;
+	}
+	
 	public override Expression visit(ShlExp e)
 	{
 		e.op1 = visit(e.op1);
@@ -1230,7 +1244,7 @@ class Semantic : IdentityVisitor
 		e.def = visit(e.def);
 		return e;
 	}
-	
+
 	public override Expression visit(ParenExp e)
 	{
 		e.exp = visit(e.exp);
