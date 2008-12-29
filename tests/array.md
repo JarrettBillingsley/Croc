@@ -1,4 +1,4 @@
-module tests.arrays
+module tests.array
 
 import tests.common : xfail
 

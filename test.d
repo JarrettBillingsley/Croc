@@ -27,7 +27,7 @@ void main()
 		version(TestArc)
 			importModule(t, "samples.missilecommand");
 		else
-			importModule(t, "samples.simple");
+			importModule(t, "tests.all");
 
 		pushNull(t);
 		lookup(t, "modules.runMain");
@@ -50,7 +50,7 @@ void main()
 	catch(Exception e)
 	{
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
-		
+
 		if(e.info)
 			Stdout.formatln("D Traceback:\n{}", e.info);
 

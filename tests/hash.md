@@ -16,3 +16,4 @@ hash.remove(namespace N {x}, "x")
 hash.clear(namespace N {})
 
 // minid.hashlib
+// GODDOMOT FRONK

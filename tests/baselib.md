@@ -1,4 +1,4 @@
-module tests.base;
+module tests.baselib
 
 import tests.common : xfail
 

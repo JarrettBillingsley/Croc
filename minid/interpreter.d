@@ -6808,11 +6808,13 @@ MDValue superOfImpl(MDThread* t, MDValue* v)
 
 MDValue* lookupGlobal(MDString* name, MDNamespace* env)
 {
-	for(auto ns = env; ns !is null; ns = ns.parent)
-		if(auto glob = namespace.get(ns, name))
-			return glob;
+	if(auto glob = namespace.get(env, name))
+		return glob;
 
-	return null;
+	auto ns = env;
+	for(; ns.parent !is null; ns = ns.parent){}
+	
+	return namespace.get(ns, name);
 }
 
 void savePtr(MDThread* t, ref MDValue* ptr, out bool shouldLoad)
@@ -7321,10 +7323,15 @@ void execute(MDThread* t, uword depth = 1)
 					assert((index & Instruction.locMask) == Instruction.locGlobal, "get() location");
 
 					auto name = constTable[index & ~Instruction.locMask].mString;
+					
+					if(auto glob = namespace.get(env, name))
+						return glob;
+				
+					auto ns = env;
+					for(; ns.parent !is null; ns = ns.parent){}
 
-					for(auto ns = env; ns !is null; ns = ns.parent)
-						if(auto glob = namespace.get(ns, name))
-							return glob;
+					if(auto glob = namespace.get(ns, name))
+						return glob;
 
 					throwException(t, "Attempting to get nonexistent global '{}'", name.toString());
 			}

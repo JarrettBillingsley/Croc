@@ -1,4 +1,4 @@
-module tests.chars;
+module tests.char
 
 local c = 'h'
 c.toLower()
