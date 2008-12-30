@@ -233,8 +233,7 @@ catch(MDException e)
 	*/
 	public word compileModule(char[] filename)
 	{
-		scope path = new FilePath(filename);
-		scope file = new UnicodeFile!(char)(path, Encoding.Unknown);
+		scope file = new UnicodeFile!(char)(filename, Encoding.Unknown);
 		auto src = file.read();
 
 		scope(exit)
