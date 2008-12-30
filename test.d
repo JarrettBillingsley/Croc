@@ -27,7 +27,7 @@ void main()
 		version(TestArc)
 			importModule(t, "samples.missilecommand");
 		else
-			importModule(t, "tests.all");
+			importModule(t, "samples.simple");
 
 		pushNull(t);
 		lookup(t, "modules.runMain");

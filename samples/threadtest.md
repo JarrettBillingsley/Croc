@@ -125,7 +125,7 @@ function scheduler(threads)
 
 	while(#threads > 0)
 	{
-		foreach(thread; threads)
+		foreach(thread; threads, "modify")
 		{
 			if(thread.isWaiting())
 				continue

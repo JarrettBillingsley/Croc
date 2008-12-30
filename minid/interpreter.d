@@ -1961,14 +1961,20 @@ Returns:
 bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 {
 	auto n = string.create(t.vm, name);
+	auto ns = getEnv(t, depth);
 
-	for(auto ns = getEnv(t, depth); ns !is null; ns = ns.parent)
+	if(namespace.get(ns, n) !is null)
 	{
-		if(namespace.get(ns, n) !is null)
-		{
-			pushNamespace(t, ns);
-			return true;
-		}
+		pushNamespace(t, ns);
+		return true;
+	}
+	
+	for(; ns.parent !is null; ns = ns.parent) {}
+
+	if(namespace.get(ns, n) !is null)
+	{
+		pushNamespace(t, ns);
+		return true;
 	}
 
 	return false;
@@ -6364,15 +6370,20 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 		switch(stack[slot].type)
 		{
 			case MDValue.Type.String, MDValue.Type.Char:
-				uword idx = slot + 1;
-				uword len = stack[slot].type == MDValue.Type.Char ? 1 : stack[slot].mString.length;
+				uword len = 0;
+				uword idx = slot;
 
 				for(; idx < endSlot; idx++)
 				{
 					if(stack[idx].type == MDValue.Type.String)
 						len += stack[idx].mString.length;
 					else if(stack[idx].type == MDValue.Type.Char)
+					{
+						if(!Utf.isValid(stack[idx].mChar))
+							throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
+
 						len += charLen(stack[idx].mChar);
+					}
 					else
 						break;
 				}
@@ -6620,14 +6631,29 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 	switch(dest.type)
 	{
 		case MDValue.Type.String, MDValue.Type.Char:
-			uword len = dest.type == MDValue.Type.Char ? 1 : dest.mString.length;
+			uword len = void;
+
+			if(dest.type == MDValue.Type.Char)
+			{
+				if(!Utf.isValid(dest.mChar))
+					throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", dest.mChar);
+
+				len += charLen(dest.mChar);
+			}
+			else
+				len = dest.mString.length;
 
 			for(uword idx = slot; idx < endSlot; idx++)
 			{
 				if(stack[idx].type == MDValue.Type.String)
 					len += stack[idx].mString.length;
 				else if(stack[idx].type == MDValue.Type.Char)
+				{
+					if(!Utf.isValid(stack[idx].mChar))
+						throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
+
 					len += charLen(stack[idx].mChar);
+				}
 				else
 				{
 					typeString(t, &stack[idx]);
@@ -7323,7 +7349,7 @@ void execute(MDThread* t, uword depth = 1)
 					assert((index & Instruction.locMask) == Instruction.locGlobal, "get() location");
 
 					auto name = constTable[index & ~Instruction.locMask].mString;
-					
+
 					if(auto glob = namespace.get(env, name))
 						return glob;
 				
