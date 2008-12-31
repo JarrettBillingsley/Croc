@@ -8,7 +8,11 @@ digraph d
 
 	Globals
 	Stack
-	null [style = dashed, label = ""]
+	a [style = filled, fillcolor = salmon]
+	b [style = filled, fillcolor = salmon]
+	c [style = filled, fillcolor = salmon]
 
-	Globals -> null [style = dashed, label = "weakref", color = cornflowerblue]
+	a -> b
+	a -> c
+	Globals -> a [style = dashed, label = "weakref", color = cornflowerblue]
 }
