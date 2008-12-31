@@ -460,7 +460,6 @@ struct MDFunction
 	package MDNamespace* environment;
 	package MDString* name;
 	package uword numUpvals;
-	package MDTable* attrs;
 
 	union
 	{
@@ -487,7 +486,6 @@ struct MDClass
 	package MDString* name;
 	package MDClass* parent;
 	package MDNamespace* fields;
-	package MDTable* attrs;
 	package MDFunction* allocator;
 	package MDFunction* finalizer;
 }
@@ -518,7 +516,6 @@ struct MDNamespace
 	package Hash!(MDString*, MDValue) data;
 	package MDNamespace* parent;
 	package MDString* name;
-	package MDTable* attrs;
 }
 
 package alias uword AbsStack;

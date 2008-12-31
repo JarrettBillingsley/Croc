@@ -34,14 +34,13 @@ static:
 	// ================================================================================================================================================
 
 	// Create a new namespace object.
-	package MDNamespace* create(ref Allocator alloc, MDString* name, MDNamespace* parent = null, MDTable* attrs = null)
+	package MDNamespace* create(ref Allocator alloc, MDString* name, MDNamespace* parent = null)
 	{
 		assert(name !is null);
 
 		auto ns = alloc.allocate!(MDNamespace);
 		ns.parent = parent;
 		ns.name = name;
-		ns.attrs = attrs;
 		return ns;
 	}
 

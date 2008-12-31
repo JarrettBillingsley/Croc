@@ -55,6 +55,8 @@ private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals
 struct BaseLib
 {
 static:
+	private const AttrTableName = "baselib.attributes";
+
 	public void init(MDThread* t)
 	{
 		register(t, "collectGarbage", &collectGarbage);
@@ -142,6 +144,9 @@ static:
 		// Weak reference stuff
 		register(t, "weakref", &weakref);
 		register(t, "deref", &deref);
+		
+		newTable(t);
+		setRegistryVar(t, AttrTableName);
 	}
 
 	uword collectGarbage(MDThread* t, uword numParams)
@@ -419,25 +424,70 @@ static:
 
 	uword attrs(MDThread* t, uword numParams)
 	{
-		checkAnyParam(t, 1);
-		checkParam(t, 2, MDValue.Type.Table);
+		checkAnyParam(t, 2);
+		
+		if(!isNull(t, 2) && !isTable(t, 2))
+			paramTypeError(t, 2, "null|table");
+
+		switch(type(t, 1))
+		{
+			case
+				MDValue.Type.Null,
+				MDValue.Type.Bool,
+				MDValue.Type.Int,
+				MDValue.Type.Float,
+				MDValue.Type.Char,
+				MDValue.Type.String:
+
+				paramTypeError(t, 1, "non-string reference type");
+
+			default:
+				break;
+		}
+
+		getRegistryVar(t, AttrTableName);
+		pushWeakRef(t, 1);
 		dup(t, 2);
-		setAttributes(t, 1);
-		dup(t, 1);
+		idxa(t, -3);
+		pop(t);
+
+		setStackSize(t, 2);
 		return 1;
 	}
 
 	uword hasAttributes(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
-		pushBool(t, .hasAttributes(t, 1));
+
+		getRegistryVar(t, AttrTableName);
+		pushWeakRef(t, 1);
+		pushBool(t, opin(t, -1, -2));
 		return 1;
 	}
 
 	uword attributesOf(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);
-		getAttributes(t, 1);
+
+		switch(type(t, 1))
+		{
+			case
+				MDValue.Type.Null,
+				MDValue.Type.Bool,
+				MDValue.Type.Int,
+				MDValue.Type.Float,
+				MDValue.Type.Char,
+				MDValue.Type.String:
+
+				paramTypeError(t, 1, "non-string reference type");
+
+			default:
+				break;
+		}
+
+		getRegistryVar(t, AttrTableName);
+		pushWeakRef(t, 1);
+		idx(t, -2);
 		return 1;
 	}
 

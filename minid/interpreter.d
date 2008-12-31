@@ -977,7 +977,13 @@ word newThread(MDThread* t, word func)
 	}
 
 	maybeGC(t);
-	return pushThread(t, thread.create(t.vm, f));
+	
+	auto nt = thread.create(t.vm, f);
+	nt.hookFunc = t.hookFunc;
+	nt.hooks = t.hooks;
+	nt.hookDelay = t.hookDelay;
+	nt.hookCounter = nt.hookDelay;
+	return pushThread(t, nt);
 }
 
 /**
@@ -3924,93 +3930,6 @@ bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
 	MDClass* dummy = void;
 	return lookupMethod(t, getValue(t, obj), string.create(t.vm, methodName), dummy).type != MDValue.Type.Null;
-}
-
-/**
-Gets the attributes table of the given object and pushes it onto the stack.  Pushes null if the given
-object has no attributes.  Throws an error if the object is not a function, class, or namespace.
-
-Params:
-	obj = The stack index of the object whose attributes table is to be retrieved.
-
-Returns:
-	The stack index of the newly-pushed value (either the attributes table, or null if it has none).
-*/
-word getAttributes(MDThread* t, word obj)
-{
-	MDTable* attrs;
-
-	if(auto f = getFunction(t, obj))
-		attrs = f.attrs;
-	else if(auto c = getClass(t, obj))
-		attrs = c.attrs;
-	else if(auto n = getNamespace(t, obj))
-		attrs = n.attrs;
-	else
-	{
-		pushTypeString(t, obj);
-		throwException(t, "getAttributes - Can only get attributes of functions, classes, and namespaces, not '{}'", getString(t, -1));
-	}
-
-	if(attrs is null)
-		return pushNull(t);
-	else
-		return pushTable(t, attrs);
-}
-
-/**
-Pops the table off the top of the stack and sets it as the attributes table of the given object.  The
-value at the top of the stack can also be null, in which case it will remove the attributes table
-from the given object.  Throws an error if the given object is not a function, class, or namespace,
-or if the value at the top of the stack is neither a table nor null.
-
-Params:
-	obj = The stack index of the object whose attributes table is to be set.
-*/
-void setAttributes(MDThread* t, word obj)
-{
-	checkNumParams(t, 1);
-	auto attrs = getTable(t, -1);
-
-	if(attrs is null && !isNull(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwException(t, "setAttributes - 'table' or 'null' expected for attributes, not '{}'", getString(t, -1));
-	}
-
-	if(auto f = getFunction(t, obj))
-		f.attrs = attrs;
-	else if(auto c = getClass(t, obj))
-		c.attrs = attrs;
-	else if(auto n = getNamespace(t, obj))
-		n.attrs = attrs;
-	else
-	{
-		pushTypeString(t, obj);
-		throwException(t, "setAttributes - Can only set attributes of functions, classes, and namespaces, not '{}'", getString(t, -1));
-	}
-}
-
-/**
-Sees whether or not the given object has attributes.  Always returns false if the given object is
-not a function, class, or namespace.
-
-Params:
-	obj = The stack index of the object to test.
-
-Returns:
-	True if the object has an attributes table; false otherwise.
-*/
-bool hasAttributes(MDThread* t, word obj)
-{
-	if(auto f = getFunction(t, obj))
-		return f.attrs !is null;
-	else if(auto c = getClass(t, obj))
-		return c.attrs !is null;
-	else if(auto n = getNamespace(t, obj))
-		return n.attrs !is null;
-	else
-		return false;
 }
 
 // ================================================================================================================================================
@@ -8281,8 +8200,13 @@ void execute(MDThread* t, uword depth = 1)
 						if(RS.mFunction.isNative)
 							throwException(t, "Native functions may not be used as the body of a coroutine");
 					}
-
-					*get(i.rd) = thread.create(t.vm, RS.mFunction);
+					
+					auto nt = thread.create(t.vm, RS.mFunction);
+					nt.hookFunc = t.hookFunc;
+					nt.hooks = t.hooks;
+					nt.hookDelay = t.hookDelay;
+					nt.hookCounter = nt.hookDelay;
+					*get(i.rd) = nt;
 					break;
 
 				case Op.Namespace:

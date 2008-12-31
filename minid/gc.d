@@ -234,9 +234,6 @@ void markObj(MDVM* vm, MDFunction* o)
 	if(o.name)
 		markObj(vm, o.name);
 
-	if(o.attrs)
-		markObj(vm, o.attrs);
-
 	if(o.isNative)
 	{
 		foreach(ref uv; o.nativeUpvals())
@@ -261,7 +258,6 @@ void markObj(MDVM* vm, MDClass* o)
 	if(o.name)      markObj(vm, o.name);
 	if(o.parent)    markObj(vm, o.parent);
 	if(o.fields)    markObj(vm, o.fields);
-	if(o.attrs)     markObj(vm, o.attrs);
 	if(o.allocator) markObj(vm, o.allocator);
 	if(o.finalizer) markObj(vm, o.finalizer);
 }
@@ -293,8 +289,6 @@ void markObj(MDVM* vm, MDNamespace* o)
 	}
 
 	if(o.parent) markObj(vm, o.parent);
-	if(o.attrs)  markObj(vm, o.attrs);
-
 	markObj(vm, o.name);
 }
 
