@@ -17,7 +17,7 @@ digraph d
 		Globals [style = filled, fillcolor = white]
 		Stack [style = filled, fillcolor = white]
 	}
-
+	
 	a
 	b
 	c [style = filled, fillcolor = salmon]
@@ -29,6 +29,8 @@ digraph d
 		rank = same
 		a
 		c
+
+		a -> c [style = invis]
 	}
 
 	Globals -> a -> b
