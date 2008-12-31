@@ -1,0 +1,21 @@
+digraph d
+{
+	fontname = Helvetica
+	label = "Fig. 1"
+	rankdir = "LR"
+	node [fontname = Helvetica]
+
+	Globals;
+	Stack;
+	a;
+	b;
+	c;
+	d;
+	e;
+
+	Globals -> a -> b;
+	Globals -> c;
+	Stack -> c;
+	c -> d;
+	c -> e;
+}

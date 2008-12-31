@@ -1,0 +1,14 @@
+digraph d
+{
+	fontname = Helvetica
+	label = "Fig. 4"
+	rankdir = "LR"
+	node [fontname = Helvetica]
+	edge [fontname = Helvetiva]
+
+	Globals
+	Stack
+	null [style = dashed, label = ""]
+
+	Globals -> null [style = dashed, label = "weakref", color = cornflowerblue]
+}

@@ -1,0 +1,26 @@
+digraph d
+{
+	fontname = Helvetica
+	label = "Fig. 2"
+	rankdir = "LR"
+	node [fontname = Helvetica]
+
+	Globals
+	Stack
+	a
+	b
+	c [style = filled, fillcolor = salmon]
+	d [style = filled, fillcolor = salmon]
+	e [style = filled, fillcolor = salmon]
+
+	subgraph s
+	{
+		rank = same
+		a
+		c
+	}
+
+	Globals -> a -> b
+	c -> d
+	c -> e
+}
