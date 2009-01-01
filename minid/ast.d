@@ -1325,6 +1325,13 @@ class CaseStmt : Statement
 	long.
 	*/
 	public CaseCond[] conditions;
+	
+	/**
+	If this member is null, this is a "normal" case statement.  If this member is non-null, this
+	is a ranged case statement like "case 1 .. 10:".  In that case, the 'conditions' member will
+	be exactly one element long and will contain the low range value.
+	*/
+	public Expression highRange;
 
 	/**
 	The code of the case statement.
@@ -1333,10 +1340,11 @@ class CaseStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Statement code)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Expression highRange, Statement code)
 	{
 		super(c, location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
+		this.highRange = highRange;
 		this.code = code;
 	}
 	

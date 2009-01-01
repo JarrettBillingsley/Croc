@@ -417,6 +417,9 @@ class Semantic : IdentityVisitor
 	{
 		foreach(ref cond; s.conditions)
 			cond.exp = visit(cond.exp);
+			
+		if(s.highRange)
+			s.highRange = visit(s.highRange);
 
 		s.code = visit(s.code);
 		return s;

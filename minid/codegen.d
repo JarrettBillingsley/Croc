@@ -2698,21 +2698,51 @@ class Codegen : Visitor
 
 			visit(s.condition);
 			Exp src1;
-			fs.popSource(s.location.line, src1);
+			fs.popSource(s.condition.location.line, src1);
 
 			foreach(caseStmt; s.cases)
 			{
-				foreach(ref c; caseStmt.conditions)
+				if(caseStmt.highRange)
 				{
-					if(!c.exp.isConstant)
-					{
-						visit(c.exp);
-						Exp src2;
-						fs.popSource(c.exp.location.line, src2);
-						fs.freeExpTempRegs(src2);
+					auto c = &caseStmt.conditions[0];
+					auto lo = c.exp;
+					auto hi = caseStmt.highRange;
 
-						fs.codeR(c.exp.location.line, Op.SwitchCmp, 0, src1.index, src2.index);
-						c.dynJump = fs.makeJump(c.exp.location.line, Op.Je, true);
+					visit(lo);
+					Exp src2;
+					fs.popSource(lo.location.line, src2);
+					fs.freeExpTempRegs(src2);
+
+					fs.codeR(lo.location.line, Op.Cmp, 0, src1.index, src2.index);
+					auto jmp1 = fs.makeJump(lo.location.line, Op.Jlt, true);
+
+					visit(hi);
+					src2 = Exp.init;
+					fs.popSource(hi.location.line, src2);
+					fs.freeExpTempRegs(src2);
+
+					fs.codeR(hi.location.line, Op.Cmp, 0, src1.index, src2.index);
+					auto jmp2 = fs.makeJump(hi.location.line, Op.Jle, false);
+
+					c.dynJump = fs.makeJump(c.exp.location.line, Op.Jmp, true);
+
+					fs.patchJumpToHere(jmp1);
+					fs.patchJumpToHere(jmp2);
+				}
+				else
+				{
+					foreach(ref c; caseStmt.conditions)
+					{
+						if(!c.exp.isConstant)
+						{
+							visit(c.exp);
+							Exp src2;
+							fs.popSource(c.exp.location.line, src2);
+							fs.freeExpTempRegs(src2);
+
+							fs.codeR(c.exp.location.line, Op.SwitchCmp, 0, src1.index, src2.index);
+							c.dynJump = fs.makeJump(c.exp.location.line, Op.Je, true);
+						}
 					}
 				}
 			}
@@ -2737,12 +2767,17 @@ class Codegen : Visitor
 
 	public override CaseStmt visit(CaseStmt s)
 	{
-		foreach(c; s.conditions)
+		if(s.highRange)
+			fs.patchJumpToHere(s.conditions[0].dynJump);
+		else
 		{
-			if(c.exp.isConstant)
-				fs.addCase(c.exp.location, c.exp);
-			else
-				fs.patchJumpToHere(c.dynJump);
+			foreach(c; s.conditions)
+			{
+				if(c.exp.isConstant)
+					fs.addCase(c.exp.location, c.exp);
+				else
+					fs.patchJumpToHere(c.dynJump);
+			}
 		}
 
 		visit(s.code);

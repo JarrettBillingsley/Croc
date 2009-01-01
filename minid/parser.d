@@ -1465,8 +1465,14 @@ struct Parser
 		alias CaseStmt.CaseCond CaseCond;
 		scope conditions = new List!(CaseCond)(c.alloc);
 		conditions ~= CaseCond(parseExpression());
+		Expression highRange;
 
-		while(l.type == Token.Comma)
+		if(l.type == Token.DotDot)
+		{
+			l.next();
+			highRange = parseExpression();
+		}
+		else while(l.type == Token.Comma)
 		{
 			l.next();
 			conditions ~= CaseCond(parseExpression());
@@ -1482,9 +1488,9 @@ struct Parser
 		auto endLocation = l.loc;
 
 		auto code = new(c) ScopeStmt(c, new(c) BlockStmt(c, location, endLocation, statements.toArray()));
-		return new(c) CaseStmt(c, location, endLocation, conditions.toArray(), code);
+		return new(c) CaseStmt(c, location, endLocation, conditions.toArray(), highRange, code);
 	}
-	
+
 	/**
 	*/
 	public DefaultStmt parseDefaultStmt()

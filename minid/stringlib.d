@@ -44,13 +44,12 @@ static:
 
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
-			newFunction(t, &join, "join"); newGlobal(t, "join");
-
 			newNamespace(t, "string");
 					newFunction(t, &iterator,        "iterator");
 					newFunction(t, &iteratorReverse, "iteratorReverse");
 				newFunction(t, &opApply,     "opApply", 2);  fielda(t, -2, "opApply");
 
+				newFunction(t, &join,        "join");        fielda(t, -2, "join");
 				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
 				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
 				newFunction(t, &compare,     "compare");     fielda(t, -2, "compare");
@@ -85,37 +84,37 @@ static:
 
 	uword join(MDThread* t, uword numParams)
 	{
-		checkParam(t, 1, MDValue.Type.Array);
-		checkStringParam(t, 2);
-		auto data = getArray(t, 1).slice;
+		checkStringParam(t, 0);
 
-		if(data.length == 0)
+		if(numParams == 0)
 		{
 			pushString(t, "");
 			return 1;
 		}
 
-		auto buf = StrBuffer(t);
-		
-		idxi(t, 1, 0);
-		
-		if(!isString(t, -1))
-			throwException(t, "Array element 0 is not a string");
-			
-		buf.addTop();
-
-		foreach(i, ref val; data[1 .. $])
+		for(uword i = 1; i <= numParams; i++)
+			if(!isString(t, i) && !isChar(t, i))
+				paramTypeError(t, i, "char|string");
+				
+		if(numParams == 1)
 		{
-			if(val.type != MDValue.Type.String)
-				throwException(t, "Array element {} is not a string", i + 1);
-
-			dup(t, 2);
-			buf.addTop();
-			pushStringObj(t, val.mString);
-			buf.addTop();
+			pushToString(t, 1);
+			return 1;
 		}
 
-		buf.finish();
+		if(len(t, 0) == 0)
+		{
+			cat(t, numParams);
+			return 1;
+		}
+		
+		for(uword i = 1; i < numParams; i++)
+		{
+			dup(t, 0);
+			insert(t, i * 2);
+		}
+
+		cat(t, numParams + numParams - 1);
 		return 1;
 	}
 

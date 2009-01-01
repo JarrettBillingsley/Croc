@@ -370,7 +370,7 @@ SwitchStatement:
 	'switch' '(' Expression ')' '{' CaseStatement {CaseStatement} [DefaultStatement] '}'
 
 CaseStatement:
-	'case' Expression {',' Expression} ':' {Statement}
+	'case' Expression ({',' Expression} | '..' Expression) ':' {Statement}
 
 DefaultStatement:
 	'default' ':' {Statement}
