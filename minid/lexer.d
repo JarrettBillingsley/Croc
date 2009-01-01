@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the lexical analysis phase of the MiniD compiler.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

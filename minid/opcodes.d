@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the enumeration of MiniD bytecode opcodes, as well as
+the definition of bytecode instructions (and some constants related to it).
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

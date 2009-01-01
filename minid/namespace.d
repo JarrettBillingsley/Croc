@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains internal implementation of the namespace object.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

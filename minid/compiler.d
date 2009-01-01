@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the public interface to the MiniD compiler.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

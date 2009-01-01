@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the 'hash' standard library.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

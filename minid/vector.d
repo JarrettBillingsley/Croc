@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the implementation of the Vector class defined in the base
+library.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

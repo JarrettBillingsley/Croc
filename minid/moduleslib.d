@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the 'modules' standard library, which is part of the
+base library.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

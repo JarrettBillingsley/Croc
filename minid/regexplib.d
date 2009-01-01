@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the 'regexp' standard library.
+
 License:
 Copyright (c) 2007 ideage lsina@126.com
 and Copyright (c) 2008 Jarrett Billingsley

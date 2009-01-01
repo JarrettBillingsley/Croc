@@ -1,6 +1,7 @@
 /******************************************************************************
-This module publicly imports the following modules: minid.alloc, minid.ex,
-minid.interpreter, minid.serialization, minid.types, minid.utils, and minid.vm.
+This should be the module you import to use MiniD.  This module publicly
+imports the following modules: minid.alloc, minid.ex, minid.interpreter,
+minid.serialization, minid.types, minid.utils, and minid.vm.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley

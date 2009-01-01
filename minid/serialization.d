@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains functions for serializing and deserializing compiled MiniD
+functions and modules.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

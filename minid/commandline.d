@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains a struct that implements a simple interactive commandline
+for running MiniD code.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

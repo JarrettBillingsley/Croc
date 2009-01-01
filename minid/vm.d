@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains some VM-related functionality, and exists partly to avoid
+circular dependencies.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

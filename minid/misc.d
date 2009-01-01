@@ -1,6 +1,6 @@
 /******************************************************************************
 This holds miscellaneous functionality used in the internal library and also
-as part of the extended API.  There are no public functions in here yet.
+as part of the extended API.  There are no public functions in here.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley

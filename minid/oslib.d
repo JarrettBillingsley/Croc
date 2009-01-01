@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the 'os' standard library.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

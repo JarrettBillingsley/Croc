@@ -1,4 +1,14 @@
 /******************************************************************************
+This module contains the implementation of a templated hash table.  This uses
+a form of coalesced hashing, which is a cross between separate chaining and
+linear probing.  It has the advantages of only requiring a single block of
+memory (instead of one block for each collided key), as well as being able
+to have a 100% load factor without a large speed penalty.  It's also very
+easy to iterate over.
+
+This object is used in the implementation of tables and namespaces, as well
+as being used as a general-purpose hash in other places.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

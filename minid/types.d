@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains a lot of type definitions for types used throughout the
+library.  Not much in here is public.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

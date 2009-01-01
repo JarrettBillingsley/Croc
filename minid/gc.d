@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains most of the implementation of the MiniD garbage collector.
+Some of it is defined in minid.interpreter, since D hates circular imports.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

@@ -1,4 +1,7 @@
 /******************************************************************************
+This module defines some types used by the compiler.  It also abstracts the
+interface to the compiler to avoid circular imports.  
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

@@ -1,4 +1,7 @@
 /******************************************************************************
+This module defines an AST visitor which performs code generation on an AST
+that has already been semantic'ed.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

@@ -1,4 +1,8 @@
 /******************************************************************************
+This module defines a visitor for an AST as defined by nodes in minid.ast.
+You can make an AST visitor by just deriving from the Visitor or
+IdentityVisitor class.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
@@ -66,6 +70,24 @@ char[] generateDispatchTable()
 	return ret[0 .. $ - 2] ~ "];"; // slice away last ",\n"
 }
 
+/**
+This is an AST visitor.  It implements a form of dynamic dispatch based on the type of the node that is
+being visited.  In order to make an AST visitor, you derive from this class and override the visit method
+for each type of node, such as "AddExp visit(AddExp e)".  Each visit method should return an AST node.  If
+you are not performing a transformation on the AST, you can just return the node that was passed in.  If
+you are transforming the AST, you just return a new/different AST node than the one that was passed in.
+
+When visiting an AST node, you should assign the result of visit back into the place where you got the node:
+
+-----
+e.op1 = visit(e.op1);
+-----
+
+By default, the visit methods are defined to throw an exception saying that it is unimplemented for that
+type.
+
+
+*/
 abstract class Visitor
 {
 	mixin(generateVisitMethods());
@@ -75,21 +97,34 @@ abstract class Visitor
 
 	protected ICompiler c;
 
+	/**
+	Construct a new instance of Visitor.  Each visitor is associated with a compiler.  The compiler is used
+	to allocate AST nodes and to throw errors.
+	*/
 	public this(ICompiler c)
 	{
 		this.c = c;
 	}
 
+	/**
+	Visit a statement node.
+	*/
 	public final Statement visit(Statement n)
 	{
 		return visitS(n);
 	}
 
+	/**
+	Visit an expression node.
+	*/
 	public final Expression visit(Expression n)
 	{
 		return visitE(n);
 	}
 
+	/**
+	Visit some other kind of node.
+	*/
 	public final AstNode visit(AstNode n)
 	{
 		return visitN(n);
@@ -109,7 +144,7 @@ abstract class Visitor
 	{
 		return dispatch(n);
 	}
-	
+
 	protected final AstNode function(Visitor, AstNode) getDispatchFunction()(AstNode n)
 	{
 		return cast(AstNode function(Visitor, AstNode))dispatchTable[n.type];
@@ -131,6 +166,12 @@ char[] generateIdentityVisitMethods()
 	return ret;
 }
 
+/**
+This class is derived from Visitor and overrides all the visit methods with identity methods - that is,
+all they do is return the node that was passed in.  This means that this visitor just returns the AST
+that was passed in, unaffected.  You can derive from this when many/most of your visit methods don't
+do anything.
+*/
 abstract class IdentityVisitor : Visitor
 {
 	mixin(generateIdentityVisitMethods());

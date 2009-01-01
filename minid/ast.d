@@ -1,4 +1,8 @@
 /******************************************************************************
+This module contains the definition of all the classes which correspond to
+MiniD's grammar productions.  These are used to represent the AST during
+compilation.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
@@ -213,6 +217,7 @@ const char[][] NiceAstTagNames =
 	AstTag.CondAssignStmt:       "conditional assignment",
 	AstTag.IncStmt:              "increment",
 	AstTag.DecStmt:              "decrement",
+	AstTag.TypecheckStmt:        "typecheck statement",
 
 	AstTag.CondExp:              "conditional expression",
 	AstTag.OrOrExp:              "logical 'or' expression",
@@ -666,7 +671,7 @@ enum Protection
 	everywhere else.
 	*/
 	Default,
-	
+
 	/**
 	This forces local protection.
 	*/

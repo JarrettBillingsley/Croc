@@ -1,4 +1,8 @@
 /******************************************************************************
+This contains the memory allocator interface for MiniD.  Most of this module is
+for internal use only, but it does define the type of the memory allocation
+function which you can pass to minid.api.openVM.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

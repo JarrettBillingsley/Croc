@@ -1,4 +1,6 @@
 /******************************************************************************
+This module contains the 'baselib' part of the standard library.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

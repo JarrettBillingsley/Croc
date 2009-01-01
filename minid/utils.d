@@ -1,5 +1,5 @@
 /******************************************************************************
-A module holding a variety of utility functions used throughout MiniD.  This
+This module holds a variety of utility functions used throughout MiniD.  This
 module doesn't (and shouldn't) depend on the rest of the library in any way,
 and as such can't hold implementation-specific functionality.  For that, look
 in the minid.misc module.

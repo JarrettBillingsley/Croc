@@ -1,4 +1,9 @@
 /******************************************************************************
+This module contains an AST visitor which performs semantic analysis on a
+parsed AST.  Semantic analysis rewrites some language constructs in terms of
+others, performs constant folding, and checks what little it can for
+correctness.  
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
@@ -419,7 +424,44 @@ class Semantic : IdentityVisitor
 			cond.exp = visit(cond.exp);
 			
 		if(s.highRange)
+		{
 			s.highRange = visit(s.highRange);
+			
+			auto lo = s.conditions[0].exp;
+			auto hi = s.highRange;
+			
+			if(lo.isConstant && hi.isConstant)
+			{
+				if(lo.isInt && hi.isInt)
+				{
+					if(lo.asInt > hi.asInt)
+						c.exception(lo.location, "Invalid case range (low is greater than high)");
+					else if(lo.asInt == hi.asInt)
+						s.highRange = null;
+				}
+				else if((lo.isInt && hi.isFloat) || (lo.isFloat && hi.isInt) || (lo.isFloat && hi.isFloat))
+				{
+					if(lo.asFloat > hi.asFloat)
+						c.exception(lo.location, "Invalid case range (low is greater than high)");
+					else if(lo.asFloat == hi.asFloat)
+						s.highRange = null;
+				}
+				else if(lo.isChar && hi.isChar)
+				{
+					if(lo.asChar > hi.asChar)
+						c.exception(lo.location, "Invalid case range (low is greater than high)");
+					else if(lo.asChar == hi.asChar)
+						s.highRange = null;
+				}
+				else if(lo.isString && hi.isString)
+				{
+					if(lo.asString > hi.asString)
+						c.exception(lo.location, "Invalid case range (low is greater than high)");
+					else if(lo.asString == hi.asString)
+						s.highRange = null;
+				}
+			}
+		}
 
 		s.code = visit(s.code);
 		return s;

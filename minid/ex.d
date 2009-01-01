@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the "extension" API, which is a bunch of useful
+functionality built on top of the "raw" API.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

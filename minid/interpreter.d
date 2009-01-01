@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains most of the public "raw" API, as well as the MiniD
+bytecode interpreter.
+
 This module is $(B way) too big!
 
 License:

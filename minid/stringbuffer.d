@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the implementation of the StringBuffer class defined in
+the baselib.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

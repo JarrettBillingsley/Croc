@@ -1,4 +1,7 @@
 /******************************************************************************
+This module contains the parser part of the compiler.  This uses a lexer to
+get a stream of tokens, and parses the tokens into an AST.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 
