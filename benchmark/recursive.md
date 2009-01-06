@@ -42,7 +42,7 @@ function main(N)
 	else
 		writeln("G")
 
-	local timer = time.Timer.clone()
+	local timer = time.Timer()
 	timer.start()
 
 		writefln("Ack(3, {}): {}", n, ack(3, n))

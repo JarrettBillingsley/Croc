@@ -408,16 +408,142 @@ class Semantic : IdentityVisitor
 	public override SwitchStmt visit(SwitchStmt s)
 	{
 		s.condition = visit(s.condition);
+		
+		scope rangeCases = new List!(CaseStmt)(c.alloc);
 
 		foreach(ref c; s.cases)
+		{
 			c = visit(c);
+			
+			if(c.highRange !is null && c.conditions[0].exp.isConstant && c.highRange.isConstant)
+				rangeCases ~= c;
+		}
+		
+		foreach(rc; rangeCases)
+		{
+			auto lo = rc.conditions[0].exp;
+			auto hi = rc.highRange;
+
+			// this might not work for ranges using absurdly large numbers.  fuh.
+			if((lo.isInt || lo.isFloat) && (hi.isInt || hi.isFloat))
+			{
+				auto loVal = lo.asFloat;
+				auto hiVal = hi.asFloat;
+
+				foreach(c2; s.cases)
+				{
+					if(rc is c2)
+						continue;
+
+					if(c2.highRange !is null)
+					{
+						auto lo2 = c2.conditions[0].exp;
+						auto hi2 = c2.highRange;
+
+						if((lo2.isConstant && hi2.isConstant) && (lo2.isInt || lo2.isFloat) && (hi2.isInt || hi2.isFloat))
+						{
+							auto lo2Val = lo2.asFloat;
+							auto hi2Val = hi2.asFloat;
+
+							if(loVal == lo2Val ||
+								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
+								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
+								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+					else
+					{
+						foreach(cond; c2.conditions)
+						{
+							if(cond.exp.isConstant &&
+								(cond.exp.isInt && cond.exp.asInt >= loVal && cond.exp.asInt <= hiVal) ||
+								(cond.exp.isFloat && cond.exp.asFloat >= loVal && cond.exp.asFloat <= hiVal))
+								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+				}
+			}
+			else if(lo.isChar && hi.isChar)
+			{
+				auto loVal = lo.asChar;
+				auto hiVal = hi.asChar;
+
+				foreach(c2; s.cases)
+				{
+					if(rc is c2)
+						continue;
+
+					if(c2.highRange !is null)
+					{
+						auto lo2 = c2.conditions[0].exp;
+						auto hi2 = c2.highRange;
+
+						if((lo2.isConstant && hi2.isConstant) && (lo2.isChar && hi2.isChar))
+						{
+							auto lo2Val = lo2.asChar;
+							auto hi2Val = hi2.asChar;
+
+							if(loVal == lo2Val ||
+								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
+								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
+								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+					else
+					{
+						foreach(cond; c2.conditions)
+						{
+							if(cond.exp.isConstant && cond.exp.isChar && cond.exp.asChar >= loVal && cond.exp.asChar <= hiVal)
+								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+				}
+			}
+			else if(lo.isString && hi.isString)
+			{
+				auto loVal = lo.asString;
+				auto hiVal = hi.asString;
+
+				foreach(c2; s.cases)
+				{
+					if(rc is c2)
+						continue;
+
+					if(c2.highRange !is null)
+					{
+						auto lo2 = c2.conditions[0].exp;
+						auto hi2 = c2.highRange;
+
+						if((lo2.isConstant && hi2.isConstant) && (lo2.isString && hi2.isString))
+						{
+							auto lo2Val = lo2.asString;
+							auto hi2Val = hi2.asString;
+							
+							if( (loVal >= lo2Val && loVal <= hi2Val) ||
+								(hiVal >= lo2Val && hiVal <= hi2Val) ||
+								(lo2Val >= loVal && lo2Val <= hiVal) ||
+								(hi2Val >= loVal && hi2Val <= hiVal))
+								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+					else
+					{
+						foreach(cond; c2.conditions)
+						{
+							if(cond.exp.isConstant && cond.exp.isString && cond.exp.asString >= loVal && cond.exp.asString <= hiVal)
+								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+						}
+					}
+				}
+			}
+		}
 
 		if(s.caseDefault)
 			s.caseDefault = visit(s.caseDefault);
 
 		return s;
 	}
-	
+
 	public override CaseStmt visit(CaseStmt s)
 	{
 		foreach(ref cond; s.conditions)

@@ -40,7 +40,7 @@ function main(N)
 	if(isString(N))
 		try n = toInt(N); catch(e) {}
 
-	local timer = time.Timer.clone()
+	local timer = time.Timer()
 	timer.start()
 
 	    for(i: 0 .. 3)

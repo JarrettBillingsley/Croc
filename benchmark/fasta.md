@@ -146,7 +146,7 @@ function main(N)
 	if(isString(N))
 		try n = toInt(N); catch(e) {}
 
-	local timer = time.PerfCounter.clone()
+	local timer = time.Timer()
 	timer.start()
 
 		makeRepeatFasta("ONE", "Homo sapiens alu", alu, n * 2)
