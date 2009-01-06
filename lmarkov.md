@@ -2,27 +2,18 @@ module lmarkov
 
 // Markov Chain Program in MiniD 2
 
-// The length of a gram.  This shouldn't be less than 2.
-local N = 3
-
-// How many words of output to generate.
-local MAXGEN = 10000
-
 local NOWORD = '\n'
-
-local wordRE = regexp.compile(@"(\w[a-zA-Z']+)")
+local wordRE = regexp.Regexp(@"(\w[a-zA-Z']+)")
 
 function allwords(f) =
 	coroutine function()
 	{
-		yield()
-
 		foreach(line; f)
 			foreach(m; wordRE.search(line))
-				yield(m.match())
+				yield(null, m.match())
 	}
 
-function prefix(words) = words.reduce(function(x, y) = x ~ y)
+function prefix(words: array) = "".join(words.expand())
 
 function analyze(input, N)
 {
@@ -33,7 +24,7 @@ function analyze(input, N)
 			a ~= value
 		else
 			statetab[index] = [value]
-	
+
 	// build table
 	local words = array.new(N)
 	
@@ -53,7 +44,7 @@ function analyze(input, N)
 	
 		insert(prefix(words), NOWORD)
 	}
-	
+
 	return statetab
 }
 
@@ -61,7 +52,7 @@ function generate(statetab, N, max)
 {
 	local words = array.new(N)
 	local ret = []
-	local sb = StringBuffer.clone(30)
+	local sb = StringBuffer()
 
 	// generate text
 	for(i: 0 .. max)

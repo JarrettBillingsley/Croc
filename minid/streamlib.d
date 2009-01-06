@@ -266,12 +266,7 @@ static:
 		}
 		else
 		{
-			pushGlobal(t, "Vector");
-
-			if(!as(t, 1, -1))
-				paramTypeError(t, 1, "Vector");
-
-			vecMemb = getMembers!(VectorObj.Members)(t, -1);
+			vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
 			size = optIntParam(t, 2, vecMemb.length);
 
 			if(size != vecMemb.length)
@@ -607,8 +602,6 @@ static:
 	}
 }
 
-import tango.io.Stdout;
-
 struct StreamObj
 {
 static:
@@ -714,7 +707,7 @@ static:
 			{
 				memb.dirty = false;
 				getExtraVal(t, 0, Fields.output);
-				(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+				try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch{}
 				pop(t);
 			}
 
@@ -797,7 +790,7 @@ static:
 		{
 			memb.dirty = false;
 			pushOutput(t);
-			(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+			try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch{}
 			pop(t);
 			pushInput(t);
 			(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
@@ -808,7 +801,6 @@ static:
 	public uword readVal(T)(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
-		Stderr.formatln("Reading: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
 		checkDirty(t, memb);
 		pushInput(t);
 		swap(t, 0);
@@ -881,7 +873,6 @@ static:
 	{
 		auto memb = getThis(t);
 		memb.dirty = true;
-		Stderr.formatln("Writing: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
 		pushOutput(t);
 		swap(t, 0);
 		OutputStreamObj.writeVal!(T)(t, numParams);
@@ -989,7 +980,7 @@ static:
 		auto memb = getThis(t);
 		memb.dirty = false;
 		pushOutput(t);
-		(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+		try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch{}
 		dup(t, 0);
 		return 1;
 	}
@@ -1016,7 +1007,7 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		pushOutput(t);
-		(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+		try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch{}
 		pop(t);
 		pushInput(t);
 		(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
@@ -1044,8 +1035,6 @@ static:
 		if(memb.seeker is null)
 			throwException(t, "Stream is not seekable.");
 
-		Stderr.formatln("Seeking: readable {}, writable {}, position {}", memb.buf.readable, memb.buf.writable, memb.buf.position);
-
 		if(numParams == 0)
 		{
 			pushInt(t, safeCode(t, cast(mdint)memb.seeker.seek(0, IConduit.Seek.Anchor.Current)));
@@ -1054,7 +1043,7 @@ static:
 		else
 		{
 			pushOutput(t);
-			(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+			try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch {}
 			pop(t);
 			pushInput(t);
 			(cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.clear();
@@ -1089,7 +1078,7 @@ static:
 		memb.closed = true;
 
 		pushOutput(t);
-		(cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush();
+		try { (cast(OutputStreamObj.Members*)getExtraBytes(t, -1).ptr).stream.flush(); } catch{}
 		pop(t);
 
 		memb.dirty = false;
