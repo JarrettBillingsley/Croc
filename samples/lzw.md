@@ -19,13 +19,13 @@ function main(vararg)
 	
 	local shortCount = 0
 	output.writeInt(0)
-	
-	for(local i = 0, local size = input.size(); i < size; i++)
+
+	for(i: 0 .. input.size())
 	{
 		local k = input.readChar()
-	
+
 		local wk = w ~ k
-	
+
 		if(wk in dict)
 			w = wk
 		else
@@ -38,6 +38,9 @@ function main(vararg)
 		}
 	}
 	
+	output.writeShort(dict[w])
+	shortCount++
+
 	output.flush()
 	output.position(0)
 	output.writeInt(shortCount)
