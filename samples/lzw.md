@@ -38,8 +38,11 @@ function main(vararg)
 		}
 	}
 	
-	output.writeShort(dict[w])
-	shortCount++
+	if(#w > 0)
+	{
+		output.writeShort(dict[w])
+		shortCount++
+	}
 
 	output.flush()
 	output.position(0)
