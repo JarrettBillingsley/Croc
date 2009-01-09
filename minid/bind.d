@@ -427,10 +427,10 @@ public word getWrappedInstance(MDThread* t, Object o)
 		pushWeakRef(t, -2);
 		idxa(t, -4);
 
-		insertAndPop(t, -2);
+		insertAndPop(t, -3); // -3
 	}
 	else
-		insertAndPop(t, -3);
+		insertAndPop(t, -4); // -4
 
 	return stackSize(t) - 1;
 }
@@ -934,26 +934,26 @@ private template PropType(alias func, funcType)
 	alias PropAnalysis!(func, funcType).propType PropType;
 }
 
-private template commonNamespace(char[] t, char[] name, bool isModule, char[] Members)
-{
-	const commonNamespace =
-	(isModule ? "" : "newNamespace(" ~ t ~ ", `" ~ name ~ "`);\n") ~
-	"foreach(i, member; " ~ Members ~ ")\n"
-	"{\n"
-	"	static if(is(typeof(member.isFunc)))\n"
-	"		newFunction(t, &member.WrappedFunc, member.Name);\n"
-	"	else static if(is(typeof(member.isNamespace)))\n"
-	"		mixin(commonNamespace!(`" ~ t ~ "`, member.Name, false, member.Values));\n"
-	"	else static if(is(typeof(member.isValue)))\n"
-	"		superPush(t, member.Value);\n"
-	"	else static if(is(typeof(member.isType)))\n"
-	"		member.init!(`" ~ name ~ "`)(t);\n"
-	"	else\n" ~
-	"		static assert(false, `Invalid member type '` ~ member.stringof ~ `' in wrapped " ~
-	(isModule ? "module" : "namespace") ~ " '" ~ name ~ "'`);\n" ~
-	(isModule ? "newGlobal(t, member.Name);" : "fielda(t, -2, member.Name);") ~
-	"}\n";
-}
+// private template commonNamespace(char[] t, char[] name, bool isModule, char[] Members)
+// {
+// 	const commonNamespace =
+// 	(isModule ? "" : "newNamespace(" ~ t ~ ", `" ~ name ~ "`);\n") ~
+// 	"foreach(i, member; " ~ Members ~ ")\n"
+// 	"{\n"
+// 	"	static if(is(typeof(member.isFunc)))\n"
+// 	"		newFunction(t, &member.WrappedFunc, member.Name);\n"
+// 	"	else static if(is(typeof(member.isNamespace)))\n"
+// 	"		mixin(commonNamespace!(`" ~ t ~ "`, member.Name, false, member.Values));\n"
+// 	"	else static if(is(typeof(member.isValue)))\n"
+// 	"		superPush(t, member.Value);\n"
+// 	"	else static if(is(typeof(member.isType)))\n"
+// 	"		member.init!(`" ~ name ~ "`)(t);\n"
+// 	"	else\n" ~
+// 	"		static assert(false, `Invalid member type '` ~ member.stringof ~ `' in wrapped " ~
+// 	(isModule ? "module" : "namespace") ~ " '" ~ name ~ "'`);\n" ~
+// 	(isModule ? "newGlobal(t, member.Name);" : "fielda(t, -2, member.Name);") ~
+// 	"}\n";
+// }
 
 private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t)
 {
@@ -1030,7 +1030,7 @@ private word pushStructClass(Type, char[] ModName, char[] StructName)(MDThread* 
 	return ret;
 }
 
-private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : Type
+private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Type
 {
 	MDVM* _vm_;
 
@@ -1039,9 +1039,9 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 	static assert(Ctors.length <= 1, "Cannot have more than one WrapCtors for type " ~ typeName);
 
 	static if(moduleName.length == 0)
-		const TypeName = name;
+		const TypeName = _classname_;
 	else
-		const TypeName = moduleName ~ "." ~ name;
+		const TypeName = moduleName ~ "." ~ _classname_;
 		
 	MDThread* _haveMDOverload_(char[] methodName)
 	{
@@ -1179,20 +1179,20 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 		else
 			auto base = pushNull(t);
 
-		newClass(t, base, name);
+		newClass(t, base, _classname_);
 
 		foreach(i, member; Members)
 		{
 			static if(is(typeof(member.isMethod)))
 			{
 				auto f = mixin("&md_" ~ member.Name);
-				newFunction(t, f, name ~ "." ~ member.Name);
+				newFunction(t, f, _classname_ ~ "." ~ member.Name);
 				fielda(t, -2, member.Name);
 			}
 			else static if(is(typeof(member.isProperty)))
 			{
 				auto f = mixin("&_prop_" ~ member.Name);
-				newFunction(t, f, name ~ "._prop_" ~ member.Name);
+				newFunction(t, f, _classname_ ~ "._prop_" ~ member.Name);
 				fielda(t, -2, "_prop_" ~ member.Name);
 			}
 			else static if(is(typeof(member.isCtors)))
@@ -1210,11 +1210,11 @@ private class WrappedClass(Type, char[] name, char[] moduleName, Members...) : T
 		
 		static if(haveProperties)
 		{
-			newFunction(t, &opField, name ~ ".opField");             fielda(t, -2, "opField");
-			newFunction(t, &opFieldAssign, name ~ ".opFieldAssign"); fielda(t, -2, "opFieldAssign");
+			newFunction(t, &opField, _classname_ ~ ".opField");             fielda(t, -2, "opField");
+			newFunction(t, &opFieldAssign, _classname_ ~ ".opFieldAssign"); fielda(t, -2, "opFieldAssign");
 		}
 
-		newFunction(t, &constructor, name ~ ".constructor");
+		newFunction(t, &constructor, _classname_ ~ ".constructor");
 		fielda(t, -2, "constructor");
 		
 		return stackSize(t) - 1;
