@@ -350,7 +350,7 @@ package template GetLastName(char[] fullName, int idx = fullName.length - 1)
 Given an alias to a function, this will give the minimum legal number of arguments it can be called with.
 Even works for aliases to class methods.  Note, however, that this isn't smart enough to detect the difference
 between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)".  There might
-be a difference, though, so be cautions.
+be a difference, though, so be cautious.
 */
 public template MinArgs(alias func)
 {
@@ -379,20 +379,9 @@ public template InitsOf(T...)
 }
 
 // BUG 1667
-private T InitOf_shim(T)()
-{
-	T t;
-	return t;
-}
-
-// This template exists for the sole reason that T.init doesn't work for structs inside templates due
-// to a forward declaration error.
 private template InitOf(T)
 {
-	static if(!is(typeof(Tuple!(T.init))))
-		alias Tuple!(InitOf_shim!(T)()) InitOf;
-	else
-		alias Tuple!(T.init) InitOf;
+	const T InitOf;
 }
 
 /**
