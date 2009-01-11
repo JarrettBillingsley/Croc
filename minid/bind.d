@@ -197,7 +197,7 @@ public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 			throwException(t, "Native type " ~ NameOfType!(Type) ~ " cannot be wrapped more than once");
 
 		pop(t);
-
+		
 		// Wrap it
 		static if(is(Type == class))
 			WrappedClass!(Type, name, moduleName, Members).init(t);
@@ -398,13 +398,13 @@ public void setWrappedClass(MDThread* t, TypeInfo ti)
 Assuming a valid wrapped class is on the top of the stack, this function will take a D object
 and push the corresponding MiniD instance.  If a MiniD instance has already been created for
 this object, pushes that instance; otherwise, this will create an instance and link it to this
-D object.
+D object.  The class is popped off, meaning the wrapped instance takes its place.
 
 $(B You probably won't have to call this function under normal circumstances.)
 
 Params:
 	o = The D object to convert to a MiniD instance.
-	
+
 Returns:
 	The stack index of the newly-pushed instance.
 */
@@ -427,10 +427,10 @@ public word getWrappedInstance(MDThread* t, Object o)
 		pushWeakRef(t, -2);
 		idxa(t, -4);
 
-		insertAndPop(t, -3); // -3
+		insertAndPop(t, -3);
 	}
 	else
-		insertAndPop(t, -4); // -4
+		insertAndPop(t, -4);
 
 	return stackSize(t) - 1;
 }
@@ -934,27 +934,6 @@ private template PropType(alias func, funcType)
 	alias PropAnalysis!(func, funcType).propType PropType;
 }
 
-// private template commonNamespace(char[] t, char[] name, bool isModule, char[] Members)
-// {
-// 	const commonNamespace =
-// 	(isModule ? "" : "newNamespace(" ~ t ~ ", `" ~ name ~ "`);\n") ~
-// 	"foreach(i, member; " ~ Members ~ ")\n"
-// 	"{\n"
-// 	"	static if(is(typeof(member.isFunc)))\n"
-// 	"		newFunction(t, &member.WrappedFunc, member.Name);\n"
-// 	"	else static if(is(typeof(member.isNamespace)))\n"
-// 	"		mixin(commonNamespace!(`" ~ t ~ "`, member.Name, false, member.Values));\n"
-// 	"	else static if(is(typeof(member.isValue)))\n"
-// 	"		superPush(t, member.Value);\n"
-// 	"	else static if(is(typeof(member.isType)))\n"
-// 	"		member.init!(`" ~ name ~ "`)(t);\n"
-// 	"	else\n" ~
-// 	"		static assert(false, `Invalid member type '` ~ member.stringof ~ `' in wrapped " ~
-// 	(isModule ? "module" : "namespace") ~ " '" ~ name ~ "'`);\n" ~
-// 	(isModule ? "newGlobal(t, member.Name);" : "fielda(t, -2, member.Name);") ~
-// 	"}\n";
-// }
-
 private void commonNamespace(char[] name, bool isModule, Members...)(MDThread* t)
 {
 	static if(!isModule)
@@ -1207,7 +1186,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 			else
 				static assert(false, "Invalid member type '" ~ member.stringof ~ "' in wrapped type '" ~ typeName ~ "'");
 		}
-		
+
 		static if(haveProperties)
 		{
 			newFunction(t, &opField, _classname_ ~ ".opField");             fielda(t, -2, "opField");
@@ -1216,7 +1195,8 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 
 		newFunction(t, &constructor, _classname_ ~ ".constructor");
 		fielda(t, -2, "constructor");
-		
+
+		insertAndPop(t, -2);
 		return stackSize(t) - 1;
 	}
 }
