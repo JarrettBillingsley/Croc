@@ -1,6 +1,6 @@
 module wc
 
-function main()
+function main(vararg)
 {
 	local w_total = 0
 	local l_total = 0
@@ -9,9 +9,9 @@ function main()
 	
 	if(#vararg == 0)
 		return
-	
+
 	writefln("   lines   words   bytes  file")
-	
+
 	for(iarg: 0 .. #vararg)
 	{
 		local arg = vararg[iarg]

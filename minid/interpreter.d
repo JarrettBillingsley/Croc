@@ -34,6 +34,7 @@ import Integer = tango.text.convert.Integer;
 version(MDRestrictedCoro) {} else
 	import tango.core.Thread;
 
+import tango.core.Exception;
 import tango.core.Traits;
 import tango.core.Tuple;
 import tango.core.Vararg;
@@ -584,7 +585,7 @@ word pushChar(MDThread* t, dchar v)
 /// ditto
 word pushString(MDThread* t, char[] v)
 {
-	return pushStringObj(t, string.create(t.vm, v));
+	return pushStringObj(t, createString(t, v));
 }
 
 /**
@@ -757,7 +758,7 @@ word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpva
 
 	maybeGC(t);
 
-	auto f = .func.create(t.vm.alloc, env, string.create(t.vm, name), func, numUpvals);
+	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals);
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
@@ -806,7 +807,7 @@ word newClass(MDThread* t, word base, char[] name)
 	}
 
 	maybeGC(t);
-	return pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, name), b));
+	return pushClass(t, classobj.create(t.vm.alloc, createString(t, name), b));
 }
 
 /**
@@ -826,7 +827,7 @@ word newClass(MDThread* t, char[] name)
 
 	pop(t);
 	maybeGC(t);
-	return pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, name), b));
+	return pushClass(t, classobj.create(t.vm.alloc, createString(t, name), b));
 }
 
 /**
@@ -950,7 +951,7 @@ Returns:
 word newNamespaceNoParent(MDThread* t, char[] name)
 {
 	maybeGC(t);
-	return pushNamespace(t, namespace.create(t.vm.alloc, string.create(t.vm, name), null));
+	return pushNamespace(t, namespace.create(t.vm.alloc, createString(t, name), null));
 }
 
 /**
@@ -1969,7 +1970,7 @@ Returns:
 */
 bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 {
-	auto n = string.create(t.vm, name);
+	auto n = createString(t, name);
 	auto ns = getEnv(t, depth);
 
 	if(namespace.get(ns, n) !is null)
@@ -3695,7 +3696,7 @@ uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool cust
 		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
 
 	auto self = &t.stack[absSlot];
-	auto methodName = string.create(t.vm, name);
+	auto methodName = createString(t, name);
 
 	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
 	return commonCall(t, absSlot, numReturns, tmp);
@@ -3799,7 +3800,7 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 	}
 
 	// Do the call
-	auto methodName = string.create(t.vm, name);
+	auto methodName = createString(t, name);
 	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
 	return commonCall(t, absSlot, numReturns, ret);
 }
@@ -3893,7 +3894,7 @@ Returns:
 */
 bool hasField(MDThread* t, word obj, char[] fieldName)
 {
-	auto name = string.create(t.vm, fieldName);
+	auto name = createString(t, fieldName);
 
 	auto v = getValue(t, obj);
 
@@ -3932,7 +3933,7 @@ Returns:
 bool hasMethod(MDThread* t, word obj, char[] methodName)
 {
 	MDClass* dummy = void;
-	return lookupMethod(t, getValue(t, obj), string.create(t.vm, methodName), dummy).type != MDValue.Type.Null;
+	return lookupMethod(t, getValue(t, obj), createString(t, methodName), dummy).type != MDValue.Type.Null;
 }
 
 // ================================================================================================================================================
@@ -4159,6 +4160,23 @@ debug
 // ================================================================================================================================================
 
 package:
+
+MDString* createString(MDThread* t, char[] data)
+{
+	uword h = void;
+
+	if(auto s = string.lookup(t, data, h))
+		return s;
+
+	uword cpLen = void;
+
+	try
+		cpLen = verify(data);
+	catch(UnicodeException e)
+		throwException(t, "Invalid UTF-8 sequence");
+		
+	return string.create(t, data, h, cpLen);
+}
 
 // Free all objects.
 void freeAll(MDThread* t)
@@ -4436,15 +4454,19 @@ void runFinalizers(MDThread* t)
 				auto oldLimit = t.vm.alloc.gcLimit;
 				t.vm.alloc.gcLimit = typeof(t.vm.alloc.gcLimit).max;
 
-				pushFunction(t, i.finalizer);
-				pushInstance(t, i);
-				
+				auto size = stackSize(t);
+
 				try
+				{
+					pushFunction(t, i.finalizer);
+					pushInstance(t, i);
 					rawCall(t, -2, 0);
+				}
 				catch(MDException e)
 				{
 					catchException(t);
 					pop(t);
+					setStackSize(t, size);
 				}
 
 				t.vm.alloc.gcLimit = oldLimit;
@@ -4823,7 +4845,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				auto inst = instance.create(t.vm.alloc, cls);
 
 				// call any constructor
-				auto ctor = classobj.getField(cls, string.create(t.vm, "constructor"));
+				auto ctor = classobj.getField(cls, createString(t, "constructor"));
 
 				if(ctor !is null)
 				{
@@ -5505,7 +5527,9 @@ void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value
 		else
 			table.remove(container.mTable, *key);
 	}
-	else if(value.type != MDValue.Type.Null)
+	else if(value.type != MDValue.Type.Null &&
+		!(value.type == MDValue.Type.WeakRef && value.mWeakRef.obj is null) &&
+		!(key.type == MDValue.Type.WeakRef && key.mWeakRef.obj is null))
 	{
 		if(raw || !tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
 			table.set(t.vm.alloc, container.mTable, *key, *value);
@@ -5900,7 +5924,7 @@ void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* h
 			if(loIndex > hiIndex || loIndex < 0 || loIndex > str.cpLength || hiIndex < 0 || hiIndex > str.cpLength)
 				throwException(t, "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
-			return *dest = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
+			return *dest = string.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
 
 		default:
 			if(tryMM!(3, true)(t, MM.Slice, dest, src, lo, hi))
@@ -6539,7 +6563,7 @@ void stringConcat(MDThread* t, MDValue first, MDValue[] vals, uword len)
 	foreach(ref v; vals)
 		add(v);
 
-	vals[$ - 1] = string.create(t.vm, tmpBuffer);
+	vals[$ - 1] = createString(t, tmpBuffer);
 }
 
 void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
@@ -7133,7 +7157,7 @@ MDUpval* findUpvalue(MDThread* t, uword num)
 Location getDebugLoc(MDThread* t)
 {
 	if(t.currentAR is null || t.currentAR.func is null)
-		return Location(string.create(t.vm, "<no location available>"), 0, Location.Type.Unknown);
+		return Location(createString(t, "<no location available>"), 0, Location.Type.Unknown);
 	else
 	{
 		pushNamespaceNamestring(t, t.currentAR.func.environment);

@@ -82,18 +82,18 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.alloc.ctx = ctx;
 
 	vm.metaTabs = vm.alloc.allocArray!(MDNamespace*)(MDValue.Type.max + 1);
+	vm.mainThread = thread.create(vm);
+	auto t = vm.mainThread;
+
 	vm.metaStrings = vm.alloc.allocArray!(MDString*)(MetaNames.length);
 
 	foreach(i, str; MetaNames)
-		vm.metaStrings[i] = string.create(vm, str);
+		vm.metaStrings[i] = createString(t, str);
 
-	vm.mainThread = thread.create(vm);
 	vm.curThread = vm.mainThread;
-	vm.globals = namespace.create(vm.alloc, string.create(vm, ""));
-	vm.registry = namespace.create(vm.alloc, string.create(vm, "<registry>"));
+	vm.globals = namespace.create(vm.alloc, createString(t, ""));
+	vm.registry = namespace.create(vm.alloc, createString(t, "<registry>"));
 	vm.formatter = new CustomLayout();
-
-	auto t = vm.mainThread;
 
 	// _G = _G._G = _G._G._G = _G._G._G._G = ...
 	pushNamespace(t, vm.globals);

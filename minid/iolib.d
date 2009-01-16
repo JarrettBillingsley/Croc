@@ -26,8 +26,7 @@ subject to the following restrictions:
 module minid.iolib;
 
 import Path = tango.io.Path;
-import tango.io.device.FileConduit;
-import tango.io.File;
+import tango.io.device.File;
 import tango.io.FileSystem;
 import tango.io.UnicodeFile;
 import tango.util.PathUtil;
@@ -36,31 +35,32 @@ import minid.ex;
 import minid.interpreter;
 import minid.streamlib;
 import minid.types;
+import minid.vector;
 
 struct IOLib
 {
 static:
-	private const FileConduit.Style DefaultFileStyle;
-
-	static this()
-	{
-		DefaultFileStyle = FileConduit.Style
-		(
-			FileConduit.Access.Read,
-			FileConduit.Open.Exists,
-			FileConduit.Share.ReadWrite,
-			FileConduit.Cache.None
-		);
-	}
-
-	enum FileMode : mdint
-	{
-		In = 1,
-		Out = 2,
-		New = 4,
-		Append = 8,
-		OutNew = Out | New
-	}
+// 	private const .File.Style DefaultFileStyle;
+// 
+// 	static this()
+// 	{
+// 		DefaultFileStyle = .File.Style
+// 		(
+// 			.File.Access.Read,
+// 			.File.Open.Exists,
+// 			.File.Share.ReadWrite,
+// 			.File.Cache.None
+// 		);
+// 	}
+// 
+// 	enum FileMode : mdint
+// 	{
+// 		In = 1,
+// 		Out = 2,
+// 		New = 4,
+// 		Append = 8,
+// 		OutNew = Out | New
+// 	}
 
 	public void init(MDThread* t)
 	{
@@ -81,40 +81,44 @@ static:
 			lookup(t, "stream.stderr");
 			newGlobal(t, "stderr");
 
-			newTable(t, 5);
-				pushInt(t, FileMode.In);     fielda(t, -2, "In");
-				pushInt(t, FileMode.Out);    fielda(t, -2, "Out");
-				pushInt(t, FileMode.New);    fielda(t, -2, "New");
-				pushInt(t, FileMode.Append); fielda(t, -2, "Append");
-				pushInt(t, FileMode.OutNew); fielda(t, -2, "OutNew");
-			newGlobal(t, "FileMode");
+// 			newTable(t, 5);
+// 				pushInt(t, FileMode.In);     fielda(t, -2, "In");
+// 				pushInt(t, FileMode.Out);    fielda(t, -2, "Out");
+// 				pushInt(t, FileMode.New);    fielda(t, -2, "New");
+// 				pushInt(t, FileMode.Append); fielda(t, -2, "Append");
+// 				pushInt(t, FileMode.OutNew); fielda(t, -2, "OutNew");
+// 			newGlobal(t, "FileMode");
 
-			newFunction(t, &File, "File");                 newGlobal(t, "File");
-			newFunction(t, &rename, "rename");             newGlobal(t, "rename");
-			newFunction(t, &remove, "remove");             newGlobal(t, "remove");
-			newFunction(t, &copy, "copy");                 newGlobal(t, "copy");
-			newFunction(t, &size, "size");                 newGlobal(t, "size");
-			newFunction(t, &exists, "exists");             newGlobal(t, "exists");
-			newFunction(t, &isFile, "isFile");             newGlobal(t, "isFile");
-			newFunction(t, &isDir, "isDir");               newGlobal(t, "isDir");
-			newFunction(t, &isReadOnly, "isReadOnly");     newGlobal(t, "isReadOnly");
-			newFunction(t, &currentDir, "currentDir");     newGlobal(t, "currentDir");
-			newFunction(t, &parentDir, "parentDir");       newGlobal(t, "parentDir");
-			newFunction(t, &changeDir, "changeDir");       newGlobal(t, "changeDir");
-			newFunction(t, &makeDir, "makeDir");           newGlobal(t, "makeDir");
+// 			newFunction(t, &File, "File");                 newGlobal(t, "File");
+			newFunction(t, &inFile,       "inFile");       newGlobal(t, "inFile");
+			newFunction(t, &outFile,      "outFile");      newGlobal(t, "outFile");
+			newFunction(t, &rename,       "rename");       newGlobal(t, "rename");
+			newFunction(t, &remove,       "remove");       newGlobal(t, "remove");
+			newFunction(t, &copy,         "copy");         newGlobal(t, "copy");
+			newFunction(t, &size,         "size");         newGlobal(t, "size");
+			newFunction(t, &exists,       "exists");       newGlobal(t, "exists");
+			newFunction(t, &isFile,       "isFile");       newGlobal(t, "isFile");
+			newFunction(t, &isDir,        "isDir");        newGlobal(t, "isDir");
+			newFunction(t, &isReadOnly,   "isReadOnly");   newGlobal(t, "isReadOnly");
+			newFunction(t, &currentDir,   "currentDir");   newGlobal(t, "currentDir");
+			newFunction(t, &parentDir,    "parentDir");    newGlobal(t, "parentDir");
+			newFunction(t, &changeDir,    "changeDir");    newGlobal(t, "changeDir");
+			newFunction(t, &makeDir,      "makeDir");      newGlobal(t, "makeDir");
 			newFunction(t, &makeDirChain, "makeDirChain"); newGlobal(t, "makeDirChain");
-			newFunction(t, &removeDir, "removeDir");       newGlobal(t, "removeDir");
-			newFunction(t, &listFiles, "listFiles");       newGlobal(t, "listFiles");
-			newFunction(t, &listDirs, "listDirs");         newGlobal(t, "listDirs");
-			newFunction(t, &readFile, "readFile");         newGlobal(t, "readFile");
-			newFunction(t, &writeFile, "writeFile");       newGlobal(t, "writeFile");
-			newFunction(t, &join, "join");                 newGlobal(t, "join");
-			newFunction(t, &dirName, "dirName");           newGlobal(t, "dirName");
-			newFunction(t, &name, "name");                 newGlobal(t, "name");
-			newFunction(t, &extension, "extension");       newGlobal(t, "extension");
+			newFunction(t, &removeDir,    "removeDir");    newGlobal(t, "removeDir");
+			newFunction(t, &listFiles,    "listFiles");    newGlobal(t, "listFiles");
+			newFunction(t, &listDirs,     "listDirs");     newGlobal(t, "listDirs");
+			newFunction(t, &readFile,     "readFile");     newGlobal(t, "readFile");
+			newFunction(t, &writeFile,    "writeFile");    newGlobal(t, "writeFile");
+			newFunction(t, &readVector,   "readVector");   newGlobal(t, "readVector");
+			newFunction(t, &writeVector,  "writeVector");  newGlobal(t, "writeVector");
+			newFunction(t, &join,         "join");         newGlobal(t, "join");
+			newFunction(t, &dirName,      "dirName");      newGlobal(t, "dirName");
+			newFunction(t, &name,         "name");         newGlobal(t, "name");
+			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
 
-				newFunction(t, &linesIterator, "linesIterator");
-			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
+// 				newFunction(t, &linesIterator, "linesIterator");
+// 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
 
 			return 0;
 		}, "io");
@@ -122,6 +126,33 @@ static:
 		fielda(t, -2, "io");
 		importModule(t, "io");
 		pop(t, 3);
+	}
+	
+	uword inFile(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+		auto f = safeCode(t, new File(name, File.ReadExisting));
+		
+		lookupCT!("stream.InStream")(t);
+		pushNull(t);
+		pushNativeObj(t, f);
+		rawCall(t, -3, 1);
+		
+		return 1;
+	}
+	
+	uword outFile(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+		auto appending = optBoolParam(t, 2, false);
+		auto f = safeCode(t, new File(name, appending ? File.WriteAppending : File.WriteCreate));
+
+		lookupCT!("stream.OutStream")(t);
+		pushNull(t);
+		pushNativeObj(t, f);
+		rawCall(t, -3, 1);
+
+		return 1;
 	}
 
 	uword rename(MDThread* t, uword numParams)
@@ -302,8 +333,7 @@ static:
 		{
 			safeCode(t,
 			{
-				scope file = new .File(name);
-				auto data = cast(ubyte[])file.read();
+				auto data = cast(ubyte[]).File.get(name);
 
 				scope(exit)
 					delete data;
@@ -335,89 +365,117 @@ static:
 		safeCode(t,
 		{
 			scope file = new UnicodeFile!(char)(name, Encoding.UTF_8N);
-			file.write(data);
+			file.write(data, true);
 		}());
 
 		return 0;
 	}
 	
-	uword linesIterator(MDThread* t, uword numParams)
-	{
-		getExtraVal(t, 0, StreamObj.Fields.input);
-		auto lines = (cast(InputStreamObj.Members*)getExtraBytes(t, -1).ptr).lines;
-
-		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, lines.next());
-
-		if(line.ptr is null)
-		{
-			dup(t, 0);
-			pushNull(t);
-			methodCall(t, -2, "close", 0);
-			return 0;
-		}
-
-		pushInt(t, index);
-		pushString(t, line);
-		return 2;
-	}
-
-	uword lines(MDThread* t, uword numParams)
+	uword readVector(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
+		auto size = safeCode(t, Path.fileSize(name));
 
-		pushGlobal(t, "File");
+		pushGlobal(t, "Vector");
 		pushNull(t);
-		pushString(t, name);
-		rawCall(t, -3, 1);
+		pushString(t, "u8");
+		pushInt(t, size);
+		rawCall(t, -4, 1);
+		auto memb = getMembers!(VectorObj.Members)(t, -1);
 
-		pushInt(t, 0);
-		getUpval(t, 0);
+		safeCode(t, File.get(name, memb.data[0 .. size]));
 		
-		return 3;
-	}
-
-	uword File(MDThread* t, uword numParams)
-	{
-		FileConduit.Style parseFileMode(mdint mode)
-		{
-			auto s = DefaultFileStyle;
-
-			if(mode & FileMode.Out)
-				s.access |= FileConduit.Access.Write;
-
-			s.open = cast(FileConduit.Open)0;
-
-			if(mode & FileMode.New)
-				s.open |= FileConduit.Open.Create;
-			else
-			{
-				if(mode & FileMode.Append)
-					s.open |= FileConduit.Open.Append;
-
-				s.open |= FileConduit.Open.Exists;
-			}
-
-			return s;
-		}
-
-		safeCode(t,
-		{
-			auto name = checkStringParam(t, 1);
-
-			auto f = numParams == 1
-				? new FileConduit(name, DefaultFileStyle)
-				: new FileConduit(name, parseFileMode(checkIntParam(t, 2)));
-
-			lookup(t, "stream.Stream");
-			pushNull(t);
-			pushNativeObj(t, f);
-			rawCall(t, -3, 1);
-		}());
-
 		return 1;
 	}
 	
+	uword writeVector(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+		auto memb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
+		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
+
+		safeCode(t, File.set(name, data));
+
+		return 1;
+	}
+
+// 	uword linesIterator(MDThread* t, uword numParams)
+// 	{
+// 		getExtraVal(t, 0, StreamObj.Fields.input);
+// 		auto lines = (cast(InStreamObj.Members*)getExtraBytes(t, -1).ptr).lines;
+// 
+// 		auto index = checkIntParam(t, 1) + 1;
+// 		auto line = safeCode(t, lines.next());
+// 
+// 		if(line.ptr is null)
+// 		{
+// 			dup(t, 0);
+// 			pushNull(t);
+// 			methodCall(t, -2, "close", 0);
+// 			return 0;
+// 		}
+// 
+// 		pushInt(t, index);
+// 		pushString(t, line);
+// 		return 2;
+// 	}
+// 
+// 	uword lines(MDThread* t, uword numParams)
+// 	{
+// 		auto name = checkStringParam(t, 1);
+// 
+// 		pushGlobal(t, "File");
+// 		pushNull(t);
+// 		pushString(t, name);
+// 		rawCall(t, -3, 1);
+// 
+// 		pushInt(t, 0);
+// 		getUpval(t, 0);
+// 		
+// 		return 3;
+// 	}
+
+// 	uword File(MDThread* t, uword numParams)
+// 	{
+// 		.File.Style parseFileMode(mdint mode)
+// 		{
+// 			auto s = DefaultFileStyle;
+// 
+// 			if(mode & FileMode.Out)
+// 				s.access |= .File.Access.Write;
+// 
+// 			s.open = cast(.File.Open)0;
+// 
+// 			if(mode & FileMode.New)
+// 				s.open |= .File.Open.Create;
+// 			else
+// 			{
+// 				if(mode & FileMode.Append)
+// 					s.open |= .File.Open.Append;
+// 
+// 				s.open |= .File.Open.Exists;
+// 			}
+// 
+// 			return s;
+// 		}
+// 
+// 		safeCode(t,
+// 		{
+// 			auto name = checkStringParam(t, 1);
+// 
+// 			auto f = numParams == 1
+// 				? new .File(name, DefaultFileStyle)
+// 				: new .File(name, parseFileMode(checkIntParam(t, 2)));
+// 
+// 			lookup(t, "stream.Stream");
+// 			pushNull(t);
+// 			pushNativeObj(t, f);
+// 			rawCall(t, -3, 1);
+// 		}());
+// 
+// 		return 1;
+// 	}
+
 	uword join(MDThread* t, uword numParams)
 	{
 		checkAnyParam(t, 1);

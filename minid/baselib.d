@@ -29,7 +29,7 @@ import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.io.Buffer;
 import tango.io.Console;
-import tango.io.Print;
+import tango.io.stream.Format;
 import tango.io.Stdout;
 import tango.stdc.ctype;
 import Utf = tango.text.convert.Utf;
@@ -65,7 +65,7 @@ static:
 		register(t, "bytesAllocated", &bytesAllocated);
 
 		// Object
-		pushClass(t, classobj.create(t.vm.alloc, string.create(t.vm, "Object"), null));
+		pushClass(t, classobj.create(t.vm.alloc, createString(t, "Object"), null));
 		newGlobal(t, "Object");
 		
 		// Vector
@@ -975,7 +975,7 @@ static:
 		auto pretty = optBoolParam(t, 2, false);
 
 		scope buf = new MDHeapBuffer(t.vm.alloc);
-		scope printer = new Print!(char)(t.vm.formatter, buf);
+		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
 
 		toJSONImpl(t, 1, pretty, printer);
 

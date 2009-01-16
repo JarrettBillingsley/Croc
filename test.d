@@ -28,7 +28,7 @@ void main()
 			importModule(t, "samples.missilecommand");
 		else
 			importModule(t, "samples.simple");
-
+			
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);

@@ -27,15 +27,15 @@ subject to the following restrictions:
 module minid.commandline;
 
 import tango.io.Console;
-import tango.io.device.FileConduit;
+import tango.io.device.File;
 import tango.io.model.IConduit;
-import tango.io.Print;
 import tango.io.protocol.Reader;
 import tango.io.Stdout;
+import tango.io.stream.Format;
+import tango.io.stream.Lines;
 import tango.stdc.ctype;
 import tango.stdc.signal;
 import tango.text.convert.Layout;
-import tango.text.stream.LineIterator;
 import tango.text.Util;
 import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
@@ -88,8 +88,8 @@ To end interactive mode, use the \"exit()\" function.
 ";
 /+ Stupid editor has issues with multiline strings. "+/
 
-	private Print!(char) mOutput;
-	private LineIterator!(char) mInput;
+	private FormatOutput!(char) mOutput;
+	private Lines!(char) mInput;
 
 	/**
 	Construct an instance of the CLI.
@@ -101,11 +101,11 @@ To end interactive mode, use the \"exit()\" function.
 	Returns:
 		An initialized instance of CommandLine.
 	*/
-	public static CommandLine opCall(Print!(char) output, InputStream input)
+	public static CommandLine opCall(FormatOutput!(char) output, InputStream input)
 	{
 		CommandLine ret;
 		ret.mOutput = output;
-		ret.mInput = new LineIterator!(char)(input);
+		ret.mInput = new Lines!(char)(input);
 		return ret;
 	}
 	
@@ -115,7 +115,7 @@ To end interactive mode, use the \"exit()\" function.
 	*/
 	public static CommandLine opCall(OutputStream output, InputStream input)
 	{
-		return opCall(new Print!(char)(new Layout!(char), output), input);
+		return opCall(new FormatOutput!(char)(new Layout!(char), output), input);
 	}
 	
 	/**
@@ -235,7 +235,7 @@ To end interactive mode, use the \"exit()\" function.
 					}
 					else
 					{
-						scope fc = new FileConduit(inputFile, FileConduit.ReadExisting);
+						scope fc = new File(inputFile, File.ReadExisting);
 						scope r = new Reader(fc);
 						deserializeModule(t, r);
 					}

@@ -37,26 +37,30 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	// Create a new string object.  String objects with the same data are reused.  Thus,
-	// if two string objects are identical, they are also equal.
-	package MDString* create(MDVM* vm, char[] data)
+	package MDString* lookup(MDThread* t, char[] data, ref uword h)
 	{
 		// We don't have to verify the string if it already exists in the string table,
 		// because if it does, it means it's a legal string.
-		auto h = jhash(data);
+		// Neither hashing nor lookup require the string to be valid UTF-8.
+		h = jhash(data);
 
-		if(auto s = vm.stringTab.lookup(data, h))
+		if(auto s = t.vm.stringTab.lookup(data, h))
 			return *s;
 
-		// _Now_ we verify it.
-		auto cpLen = verify(data);
-		auto ret = vm.alloc.allocate!(MDString)(StringSize(data.length));
+		return null;
+	}
+
+	// Create a new string object.  String objects with the same data are reused.  Thus,
+	// if two string objects are identical, they are also equal.
+	package MDString* create(MDThread* t, char[] data, uword h, uword cpLen)
+	{
+		auto ret = t.vm.alloc.allocate!(MDString)(StringSize(data.length));
 		ret.hash = h;
 		ret.length = data.length;
 		ret.cpLength = cpLen;
 		ret.toString()[] = data[];
 
-		*vm.stringTab.insert(vm.alloc, ret.toString()) = ret;
+		*t.vm.stringTab.insert(t.vm.alloc, ret.toString()) = ret;
 
 		return ret;
 	}
@@ -87,9 +91,16 @@ static:
 
 	// The slice indices are in codepoints, not byte indices.
 	// And these indices better be good.
-	package MDString* slice(MDVM* vm, MDString* s, uword lo, uword hi)
+	package MDString* slice(MDThread* t, MDString* s, uword lo, uword hi)
 	{
-		return create(vm, uniSlice(s.toString(), lo, hi));
+		auto str = uniSlice(s.toString(), lo, hi);
+		uword h = void;
+
+		if(auto s = lookup(t, str, h))
+			return s;
+
+		// don't have to verify since we're slicing from a string we know is good
+		return create(t, uniSlice(s.toString(), lo, hi), h, hi - lo);
 	}
 
 	// Like slice, the index is in codepoints, not byte indices.

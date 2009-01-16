@@ -271,7 +271,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.OutputStream")(t);
+				lookupCT!("stream.OutStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
 				rawCall(t, -3, 1);
@@ -291,7 +291,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.InputStream")(t);
+				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
 				rawCall(t, -3, 1);
@@ -311,7 +311,7 @@ static:
 			if(isNull(t, -1))
 			{
 				pop(t);
-				lookupCT!("stream.InputStream")(t);
+				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
 				rawCall(t, -3, 1);

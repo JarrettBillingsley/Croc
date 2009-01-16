@@ -1,6 +1,34 @@
 module samples.simple
 
+// who said decorators had to be functions?
+class important
+{
+	this(v) :v = v
+}
 
+function networked(c: class)
+{
+	c._important_ = {[k] = true for k, v in fieldsOf(c) if v as important}
+
+	foreach(k, v; fieldsOf(c))
+		if(v as important)
+			c.(k) = v.v
+
+	return c
+}
+
+@networked
+class Foo
+{
+	@important
+	x = 4
+
+	// unimportant
+	y = 10
+}
+
+writeln(Foo.x, " ", Foo.y)
+dumpVal(Foo._important_.keys())
 
 /+
 // Making sure finally blocks are executed.
