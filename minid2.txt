@@ -337,7 +337,7 @@ ClassDeclaration:
 ClassMember:
 	[Decorators] SimpleFunctionDeclaration
 	[Decorators] 'this' FunctionBody
-	Identifier ['=' Expression] StatementTerminator
+	[Decorators] Identifier ['=' Expression] StatementTerminator
 
 NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'

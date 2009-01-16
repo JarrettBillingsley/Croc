@@ -874,22 +874,43 @@ struct Parser
 
 				case Token.At:
 					auto dec = parseDecorators();
-					FuncDef fd = void;
+					Identifier fieldName = void;
+					Expression init = void;
 
-					if(l.type == Token.Function)
-						fd = parseSimpleFuncDef();
+					if(l.type == Token.Function || l.type == Token.This)
+					{
+						FuncDef fd = void;
+
+						if(l.type == Token.Function)
+							fd = parseSimpleFuncDef();
+						else
+						{
+							auto loc = l.expect(Token.This).loc;
+							fd = parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor")));
+						}
+
+						fieldName = fd.name;
+						init = new(c) FuncLiteralExp(c, fd.location, fd);
+					}
 					else
 					{
-						auto loc = l.expect(Token.This).loc;
-						fd = parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor")));
+						fieldName = parseIdentifier();
+
+						if(l.type == Token.Assign)
+						{
+							l.next();
+							init = parseExpression();
+						}
+						else
+							init = new(c) NullExp(c, fieldName.location);
+
+						l.statementTerm();
 					}
 
-					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
-
 					scope args = new List!(Expression)(c.alloc);
-					args ~= lit;
+					args ~= init;
 					args ~= dec.args;
-					
+
 					Expression call;
 
 					if(auto f = dec.func.as!(DotExp))
@@ -897,7 +918,7 @@ struct Parser
 					else
 						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
 
-					addField(fd.name, call);
+					addField(fieldName, call);
 					break;
 
 				case Token.Ident:
