@@ -211,9 +211,8 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		T val = void;
-
-		if(safeCode(t, memb.buf.fill((cast(void*)&val)[0 .. T.sizeof])) != T.sizeof)
-			throwException(t, "End-of-flow while reading");
+		
+		safeCode(t, memb.buf.fill((cast(void*)&val)[0 .. T.sizeof], true));
 
 		static if(isIntegerType!(T))
 			pushInt(t, val);
@@ -235,16 +234,14 @@ static:
 		{
 			uword length = void;
 
-			if(safeCode(t, memb.buf.fill((cast(void*)&length)[0 .. length.sizeof])) != length.sizeof)
-				throwException(t, "End-of-flow while reading");
+			safeCode(t, memb.buf.fill((cast(void*)&length)[0 .. length.sizeof], true));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-
-			if(safeCode(t, memb.buf.fill(dat)) != length * char.sizeof)
-				throwException(t, "End-of-flow while reading");
+				
+			safeCode(t, memb.buf.fill(dat, true));
 
 			pushString(t, dat);
 		}());
@@ -277,10 +274,8 @@ static:
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-
-			if(safeCode(t, memb.buf.fill(dat)) != cast(uword)num * char.sizeof)
-				throwException(t, "End-of-flow while reading");
-
+				
+			safeCode(t, memb.buf.fill(dat, true));
 			pushString(t, dat);
 		}());
 
@@ -325,10 +320,7 @@ static:
 		}
 
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-
-		if(safeCode(t, memb.buf.fill(vecMemb.data[0 .. numBytes])) != numBytes)
-			throwException(t, "End-of-flow while reading");
-
+		safeCode(t, memb.buf.fill(vecMemb.data[0 .. numBytes], true));
 		return 1;
 	}
 
