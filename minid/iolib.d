@@ -40,28 +40,6 @@ import minid.vector;
 struct IOLib
 {
 static:
-// 	private const .File.Style DefaultFileStyle;
-// 
-// 	static this()
-// 	{
-// 		DefaultFileStyle = .File.Style
-// 		(
-// 			.File.Access.Read,
-// 			.File.Open.Exists,
-// 			.File.Share.ReadWrite,
-// 			.File.Cache.None
-// 		);
-// 	}
-// 
-// 	enum FileMode : mdint
-// 	{
-// 		In = 1,
-// 		Out = 2,
-// 		New = 4,
-// 		Append = 8,
-// 		OutNew = Out | New
-// 	}
-
 	public void init(MDThread* t)
 	{
 		pushGlobal(t, "modules");
@@ -81,17 +59,9 @@ static:
 			lookup(t, "stream.stderr");
 			newGlobal(t, "stderr");
 
-// 			newTable(t, 5);
-// 				pushInt(t, FileMode.In);     fielda(t, -2, "In");
-// 				pushInt(t, FileMode.Out);    fielda(t, -2, "Out");
-// 				pushInt(t, FileMode.New);    fielda(t, -2, "New");
-// 				pushInt(t, FileMode.Append); fielda(t, -2, "Append");
-// 				pushInt(t, FileMode.OutNew); fielda(t, -2, "OutNew");
-// 			newGlobal(t, "FileMode");
-
-// 			newFunction(t, &File, "File");                 newGlobal(t, "File");
 			newFunction(t, &inFile,       "inFile");       newGlobal(t, "inFile");
 			newFunction(t, &outFile,      "outFile");      newGlobal(t, "outFile");
+			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
 			newFunction(t, &rename,       "rename");       newGlobal(t, "rename");
 			newFunction(t, &remove,       "remove");       newGlobal(t, "remove");
 			newFunction(t, &copy,         "copy");         newGlobal(t, "copy");
@@ -117,8 +87,8 @@ static:
 			newFunction(t, &name,         "name");         newGlobal(t, "name");
 			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
 
-// 				newFunction(t, &linesIterator, "linesIterator");
-// 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
+				newFunction(t, &linesIterator, "linesIterator");
+			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
 
 			return 0;
 		}, "io");
@@ -132,7 +102,7 @@ static:
 	{
 		auto name = checkStringParam(t, 1);
 		auto f = safeCode(t, new File(name, File.ReadExisting));
-		
+
 		lookupCT!("stream.InStream")(t);
 		pushNull(t);
 		pushNativeObj(t, f);
@@ -144,10 +114,50 @@ static:
 	uword outFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		auto appending = optBoolParam(t, 2, false);
-		auto f = safeCode(t, new File(name, appending ? File.WriteAppending : File.WriteCreate));
+		auto mode = optCharParam(t, 2, 'c');
+
+		File.Style style;
+
+		switch(mode)
+		{
+			case 'o': style = File.WriteExisting;  break;
+			case 'a': style = File.WriteAppending; break;
+			case 'c': style = File.WriteCreate;    break;
+			default:
+				throwException(t, "Unknown open mode '{}'", mode);
+		}
+
+		auto f = safeCode(t, new File(name, style));
 
 		lookupCT!("stream.OutStream")(t);
+		pushNull(t);
+		pushNativeObj(t, f);
+		rawCall(t, -3, 1);
+
+		return 1;
+	}
+
+	uword inoutFile(MDThread* t, uword numParams)
+	{
+		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
+
+		auto name = checkStringParam(t, 1);
+		auto mode = optCharParam(t, 2, 'o');
+
+		File.Style style;
+
+		switch(mode)
+		{
+			case 'o': style = File.ReadWriteExisting; break;
+			case 'a': style = ReadWriteAppending;     break;
+			case 'c': style = File.ReadWriteCreate;   break;
+			default:
+				throwException(t, "Unknown open mode '{}'", mode);
+		}
+
+		auto f = safeCode(t, new File(name, style));
+
+		lookupCT!("stream.InoutStream")(t);
 		pushNull(t);
 		pushNativeObj(t, f);
 		rawCall(t, -3, 1);
@@ -399,82 +409,40 @@ static:
 		return 1;
 	}
 
-// 	uword linesIterator(MDThread* t, uword numParams)
-// 	{
-// 		getExtraVal(t, 0, StreamObj.Fields.input);
-// 		auto lines = (cast(InStreamObj.Members*)getExtraBytes(t, -1).ptr).lines;
-// 
-// 		auto index = checkIntParam(t, 1) + 1;
-// 		auto line = safeCode(t, lines.next());
-// 
-// 		if(line.ptr is null)
-// 		{
-// 			dup(t, 0);
-// 			pushNull(t);
-// 			methodCall(t, -2, "close", 0);
-// 			return 0;
-// 		}
-// 
-// 		pushInt(t, index);
-// 		pushString(t, line);
-// 		return 2;
-// 	}
-// 
-// 	uword lines(MDThread* t, uword numParams)
-// 	{
-// 		auto name = checkStringParam(t, 1);
-// 
-// 		pushGlobal(t, "File");
-// 		pushNull(t);
-// 		pushString(t, name);
-// 		rawCall(t, -3, 1);
-// 
-// 		pushInt(t, 0);
-// 		getUpval(t, 0);
-// 		
-// 		return 3;
-// 	}
+	uword linesIterator(MDThread* t, uword numParams)
+	{
+		auto lines = checkInstParam!(InStreamObj.Members)(t, 0, "stream.InStream").lines;
+		auto index = checkIntParam(t, 1) + 1;
+		auto line = safeCode(t, lines.next());
 
-// 	uword File(MDThread* t, uword numParams)
-// 	{
-// 		.File.Style parseFileMode(mdint mode)
-// 		{
-// 			auto s = DefaultFileStyle;
-// 
-// 			if(mode & FileMode.Out)
-// 				s.access |= .File.Access.Write;
-// 
-// 			s.open = cast(.File.Open)0;
-// 
-// 			if(mode & FileMode.New)
-// 				s.open |= .File.Open.Create;
-// 			else
-// 			{
-// 				if(mode & FileMode.Append)
-// 					s.open |= .File.Open.Append;
-// 
-// 				s.open |= .File.Open.Exists;
-// 			}
-// 
-// 			return s;
-// 		}
-// 
-// 		safeCode(t,
-// 		{
-// 			auto name = checkStringParam(t, 1);
-// 
-// 			auto f = numParams == 1
-// 				? new .File(name, DefaultFileStyle)
-// 				: new .File(name, parseFileMode(checkIntParam(t, 2)));
-// 
-// 			lookup(t, "stream.Stream");
-// 			pushNull(t);
-// 			pushNativeObj(t, f);
-// 			rawCall(t, -3, 1);
-// 		}());
-// 
-// 		return 1;
-// 	}
+		if(line.ptr is null)
+		{
+			dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "close", 0);
+			return 0;
+		}
+
+		pushInt(t, index);
+		pushString(t, line);
+		return 2;
+	}
+
+	uword lines(MDThread* t, uword numParams)
+	{
+		checkStringParam(t, 1);
+
+		pushGlobal(t, "inFile");
+		pushNull(t);
+		dup(t, 1);
+		rawCall(t, -3, 1);
+
+		pushInt(t, 0);
+		getUpval(t, 0);
+		insert(t, -3);
+
+		return 3;
+	}
 
 	uword join(MDThread* t, uword numParams)
 	{

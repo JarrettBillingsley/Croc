@@ -170,16 +170,25 @@ static:
 		public uword constructor(MDThread* t, uword numParams)
 		{
 			checkInstParam(t, 0, "Process");
-			
+
 			getExtraVal(t, 0, Fields.process);
-			
+
 			if(!isNull(t, -1))
 				throwException(t, "Attempting to call constructor on an already-initialized Process");
-			
+
 			pop(t);
 
 			pushNativeObj(t, new Process());
 			setExtraVal(t, 0, Fields.process);
+			
+			if(numParams > 0)
+			{
+				dup(t, 0);
+				pushNull(t);
+				rotateAll(t, 2);
+				methodCall(t, 1, "execute", 0);
+			}
+
 			return 0;
 		}
 
@@ -251,13 +260,8 @@ static:
 				p.args = cmd;
 				safeCode(t, p.execute());
 			}
-
-			pushNull(t);
-			dup(t);
-			dup(t);
-			setExtraVal(t, 0, Fields.stdin);
-			setExtraVal(t, 0, Fields.stdout);
-			setExtraVal(t, 0, Fields.stderr);
+			
+			clearStreams(t);
 
 			return 0;
 		}
@@ -265,56 +269,68 @@ static:
 		public uword stdin(MDThread* t, uword numParams)
 		{
 			auto p = getProcess(t);
+			
+			if(!safeCode(t, p.isRunning()))
+				throwException(t, "Attempting to get stdin of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdin);
-			
+
 			if(isNull(t, -1))
 			{
 				pop(t);
 				lookupCT!("stream.OutStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
-				rawCall(t, -3, 1);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stdin);
 			}
 
 			return 1;
 		}
-		
+
 		public uword stdout(MDThread* t, uword numParams)
 		{
 			auto p = getProcess(t);
 
+			if(!safeCode(t, p.isRunning()))
+				throwException(t, "Attempting to get stdout of process that isn't running");
+
 			getExtraVal(t, 0, Fields.stdout);
-			
+
 			if(isNull(t, -1))
 			{
 				pop(t);
 				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
-				rawCall(t, -3, 1);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stdout);
 			}
 
 			return 1;
 		}
-		
+
 		public uword stderr(MDThread* t, uword numParams)
 		{
 			auto p = getProcess(t);
 
+			if(!safeCode(t, p.isRunning()))
+				throwException(t, "Attempting to get stderr of process that isn't running");
+
 			getExtraVal(t, 0, Fields.stderr);
-			
+
 			if(isNull(t, -1))
 			{
 				pop(t);
 				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
-				rawCall(t, -3, 1);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stderr);
 			}
@@ -340,14 +356,15 @@ static:
 
 			switch(res.reason)
 			{
-				case Process.Result.Exit:     pushString(t, "exit"); break;
-				case Process.Result.Signal:   pushString(t, "signal"); break;
-				case Process.Result.Stop:     pushString(t, "stop"); break;
+				case Process.Result.Exit:     pushString(t, "exit");     break;
+				case Process.Result.Signal:   pushString(t, "signal");   break;
+				case Process.Result.Stop:     pushString(t, "stop");     break;
 				case Process.Result.Continue: pushString(t, "continue"); break;
-				case Process.Result.Error:    pushString(t, "error"); break;
+				case Process.Result.Error:    pushString(t, "error");    break;
 				default: assert(false);
 			}
-
+			
+			clearStreams(t);
 			pushInt(t, res.status);
 			return 2;
 		}
@@ -356,7 +373,18 @@ static:
 		{
 			auto p = getProcess(t);
 			safeCode(t, p.kill());
+			clearStreams(t);
 			return 0;
+		}
+		
+		private void clearStreams(MDThread* t)
+		{
+			pushNull(t);
+			dup(t);
+			dup(t);
+			setExtraVal(t, 0, Fields.stdin);
+			setExtraVal(t, 0, Fields.stdout);
+			setExtraVal(t, 0, Fields.stderr);
 		}
 	}
 }
