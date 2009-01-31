@@ -48,10 +48,7 @@ static:
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
 			newNamespace(t, "string");
-					newFunction(t, &iterator,        "iterator");
-					newFunction(t, &iteratorReverse, "iteratorReverse");
-				newFunction(t, &opApply,     "opApply", 2);  fielda(t, -2, "opApply");
-
+				newFunction(t, &opApply,     "opApply");     fielda(t, -2, "opApply");
 				newFunction(t, &join,        "join");        fielda(t, -2, "join");
 				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
 				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
@@ -509,31 +506,51 @@ static:
 
 	uword iterator(MDThread* t, uword numParams)
 	{
-		checkParam(t, 0, MDValue.Type.String);
-		auto index = checkIntParam(t, 1) + 1;
+		checkStringParam(t, 0);
+		auto s = getStringObj(t, 0);
+		auto fakeIdx = checkIntParam(t, 1) + 1;
 
-		if(index >= len(t, 0))
+		getUpval(t, 0);
+		auto realIdx = getInt(t, -1);
+		pop(t);
+
+		if(realIdx >= s.length)
 			return 0;
 
-		pushInt(t, index);
-		dup(t);
-		idx(t, 0);
+		uword ate = void;
+		auto c = Utf.decode(s.toString()[realIdx .. $], ate);
+		realIdx += ate;
 
+		pushInt(t, realIdx);
+		setUpval(t, 0);
+		
+		pushInt(t, fakeIdx);
+		pushChar(t, c);
 		return 2;
 	}
 
 	uword iteratorReverse(MDThread* t, uword numParams)
 	{
-		checkParam(t, 0, MDValue.Type.String);
-		auto index = checkIntParam(t, 1) - 1;
+		checkStringParam(t, 0);
+		auto s = getStringObj(t, 0);
+		auto fakeIdx = checkIntParam(t, 1) - 1;
 
-		if(index < 0)
+		getUpval(t, 0);
+		auto realIdx = getInt(t, -1);
+		pop(t);
+
+		if(realIdx <= 0)
 			return 0;
 
-		pushInt(t, index);
-		dup(t);
-		idx(t, 0);
+		auto tmp = Utf.cropRight(s.toString[0 .. realIdx - 1]);
+		uword ate = void;
+		auto c = Utf.decode(s.toString()[tmp.length .. $], ate);
 
+		pushInt(t, tmp.length);		
+		setUpval(t, 0);
+
+		pushInt(t, fakeIdx);
+		pushChar(t, c);
 		return 2;
 	}
 
@@ -543,13 +560,15 @@ static:
 
 		if(optStringParam(t, 1, "") == "reverse")
 		{
-			getUpval(t, 1);
+			pushInt(t, getStringObj(t, 0).length);
+			newFunction(t, &iteratorReverse, "iteratorReverse", 1);
 			dup(t, 0);
-			pushLen(t, 0);
+			pushInt(t, len(t, 0));
 		}
 		else
 		{
-			getUpval(t, 0);
+			pushInt(t, 0);
+			newFunction(t, &iterator, "iterator", 1);
 			dup(t, 0);
 			pushInt(t, -1);
 		}

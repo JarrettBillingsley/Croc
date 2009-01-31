@@ -78,6 +78,7 @@ static:
 			newFunction(t, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
 			newFunction(t, &culture,    "culture");    newGlobal(t, "culture");
 			newFunction(t, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
+			newFunction(t, &timex,      "timex");      newGlobal(t, "timex");
 
 			return 0;
 		}, "time");
@@ -253,6 +254,20 @@ static:
 	uword timestamp(MDThread* t, uword numParams)
 	{
 		pushInt(t, cast(mdint)(Clock.now - Time.epoch1970).seconds);
+		return 1;
+	}
+	
+	uword timex(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Function);
+		pushNull(t);
+		insert(t, 2);
+
+		StopWatch w;
+		w.start();
+		rawCall(t, 1, 0);
+		pushFloat(t, w.stop());
+		
 		return 1;
 	}
 

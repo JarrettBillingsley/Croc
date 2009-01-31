@@ -693,7 +693,7 @@ struct MDFuncDef
 
 	struct SwitchTable
 	{
-		package Hash!(MDValue, word) offsets;
+		package Hash!(MDValue, int) offsets;
 		package int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
 	}
 

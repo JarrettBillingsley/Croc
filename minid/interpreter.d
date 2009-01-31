@@ -986,7 +986,7 @@ word newThread(MDThread* t, word func)
 	nt.hookFunc = t.hookFunc;
 	nt.hooks = t.hooks;
 	nt.hookDelay = t.hookDelay;
-	nt.hookCounter = nt.hookDelay;
+	nt.hookCounter = t.hookCounter;
 	return pushThread(t, nt);
 }
 
@@ -8232,7 +8232,7 @@ void execute(MDThread* t, uword depth = 1)
 					nt.hookFunc = t.hookFunc;
 					nt.hooks = t.hooks;
 					nt.hookDelay = t.hookDelay;
-					nt.hookCounter = nt.hookDelay;
+					nt.hookCounter = t.hookCounter;
 					*get(i.rd) = nt;
 					break;
 
