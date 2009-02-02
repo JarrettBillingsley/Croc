@@ -26,7 +26,6 @@ subject to the following restrictions:
 module minid.streamlib;
 
 import tango.core.Traits;
-import tango.io.Buffer;
 import tango.io.Console;
 import tango.io.device.Conduit;
 import tango.io.stream.Buffer;
@@ -38,6 +37,8 @@ import minid.interpreter;
 import minid.misc;
 import minid.types;
 import minid.vector;
+
+// TODO: abstract out common functionality between the three types of streams
 
 struct StreamLib
 {
@@ -51,7 +52,7 @@ static:
 		{
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
-			InoutStreamObj.init(t);
+// 			InoutStreamObj.init(t);
 
 				pushGlobal(t, "InStream");
 				pushNull(t);
@@ -707,14 +708,14 @@ static:
 		else
 		{
 			pop(t);
-			pushGlobal(t, "InoutStream");
-
-			if(as(t, 1, -1))
-			{
-				pop(t);
-				stream = getMembers!(InoutStreamObj.Members)(t, 1).buf;
-			}
-			else
+// 			pushGlobal(t, "InoutStream");
+// 
+// 			if(as(t, 1, -1))
+// 			{
+// 				pop(t);
+// 				stream = getMembers!(InoutStreamObj.Members)(t, 1).inbuf;
+// 			}
+// 			else
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
@@ -788,19 +789,21 @@ static:
 	}
 }
 
-struct InoutStreamObj
+/* struct InoutStreamObj
 {
 static:
 	enum Fields
 	{
-		buf,
+		inbuf,
+		outbuf,
 		lines,
 		print
 	}
 
 	align(1) struct Members
 	{
-		Buffer buf;
+		BufferInput inbuf;
+		BufferOutput outbuf;
 		Lines!(char) lines;
 		FormatOutput!(char) print;
 		bool closed = true;
@@ -879,7 +882,7 @@ static:
 		
 		if(ret.closed)
 			throwException(t, "Attempting to perform operation on a closed stream");
-			
+
 		return ret;
 	}
 
@@ -902,8 +905,14 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, memb.buf.flush());
-			safeCode(t, memb.buf.close());
+			
+			if(memb.dirty)
+			{
+				safeCode(t, memb.outbuf.flush());
+				memb.dirty = false;
+			}
+
+			safeCode(t, memb.outbuf.close());
 		}
 
 		return 0;
@@ -913,8 +922,10 @@ static:
 	{
 		auto memb = getThis(t);
 
-		if(memb.buf !is null)
+		if(memb.inbuf !is null || memb.outbuf !is null)
 			throwException(t, "Attempting to call constructor on an already-initialized InoutStream");
+			
+		// BLARG
 
 		checkParam(t, 1, MDValue.Type.NativeObj);
 		auto conduit = cast(IConduit)getNativeObj(t, 1);
@@ -923,17 +934,15 @@ static:
 			throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
 
 		memb.closable = optBoolParam(t, 2, true);
-
-		if(auto b = cast(Buffer)conduit)
-			memb.buf = b;
-		else
-			memb.buf = new Buffer(conduit);
-
-		memb.lines = new Lines!(char)(memb.buf);
-		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.buf);
+		
+		memb.inbuf = BufferInput.create(conduit);
+		memb.outbuf = BufferOutput.create(conduit);
+		memb.lines = new Lines!(char)(memb.inbuf);
+		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.outbuf);
 		memb.closed = false;
 
-		pushNativeObj(t, memb.buf);    setExtraVal(t, 0, Fields.buf);
+		pushNativeObj(t, memb.inbuf);  setExtraVal(t, 0, Fields.inbuf);
+		pushNativeObj(t, memb.outbuf); setExtraVal(t, 0, Fields.outbuf);
 		pushNativeObj(t, memb.lines);  setExtraVal(t, 0, Fields.lines);
 		pushNativeObj(t, memb.print);  setExtraVal(t, 0, Fields.print);
 
@@ -945,8 +954,8 @@ static:
 		if(memb.dirty)
 		{
 			memb.dirty = false;
-			safeCode(t, memb.buf.flush()); // may have to wrap this in a bullshit try-catch?
-			safeCode(t, memb.buf.clear());
+			safeCode(t, memb.outbuf.flush()); // may have to wrap this in a bullshit try-catch?
+			safeCode(t, memb.inbuf.clear());
 		}
 	}
 
@@ -957,7 +966,7 @@ static:
 
 		T val = void;
 
-		safeCode(t, memb.buf.readExact(&val, T.sizeof));
+		safeCode(t, memb.inbuf.fill((cast(void*)&val)[0 .. T.sizeof], true));
 
 		static if(isIntegerType!(T))
 			pushInt(t, val);
@@ -980,14 +989,14 @@ static:
 		{
 			uword length = void;
 
-			safeCode(t, memb.buf.readExact(&length, length.sizeof));
+			safeCode(t, memb.inbuf.fill((cast(void*)&length)[0 .. length.sizeof], true));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 				
-			safeCode(t, memb.buf.readExact(dat.ptr, dat.length * char.sizeof));
+			safeCode(t, memb.inbuf.fill(dat, true));
 
 			pushString(t, dat);
 		}());
@@ -1024,8 +1033,8 @@ static:
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-				
-			safeCode(t, memb.buf.readExact(dat.ptr, dat.length * char.sizeof));
+
+			safeCode(t, memb.inbuf.fill(dat, true));
 			pushString(t, dat);
 		}());
 
@@ -1072,7 +1081,7 @@ static:
 		}
 
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-		safeCode(t, memb.buf.readExact(vecMemb.data, numBytes));
+		safeCode(t, memb.inbuf.fill(vecMemb.data[0 .. numBytes], true));
 		return 1;
 	}
 
@@ -1113,7 +1122,7 @@ static:
 		else
 			static assert(false);
 
-		safeCode(t, memb.buf.append(&val, val.sizeof));
+		safeCode(t, memb.outbuf.append(&val, val.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1127,8 +1136,8 @@ static:
 		safeCode(t,
 		{
 			auto len = str.length;
-			memb.buf.append(&len, len.sizeof);
-			memb.buf.append(str.ptr, str.length * char.sizeof);
+			memb.outbuf.append(&len, len.sizeof);
+			memb.outbuf.append(str.ptr, str.length * char.sizeof);
 		}());
 
 		memb.dirty = true;
@@ -1208,7 +1217,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, memb.buf.append(str.ptr, str.length * char.sizeof));
+		safeCode(t, memb.outbuf.append(str.ptr, str.length * char.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1245,7 +1254,7 @@ static:
 			throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
 
 		auto isize = vecMemb.type.itemSize;
-		memb.buf.append(vecMemb.data[cast(uword)lo * isize .. cast(uword)hi * isize]);
+		memb.outbuf.append(vecMemb.data[cast(uword)lo * isize .. cast(uword)hi * isize]);
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1254,7 +1263,8 @@ static:
 	public uword flush(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.buf.flush());
+		safeCode(t, memb.outbuf.flush());
+		safeCode(t, memb.inbuf.clear());
 		memb.dirty = false;
 		dup(t, 0);
 		return 1;
@@ -1287,7 +1297,7 @@ static:
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
-		safeCode(t, memb.buf.copy(stream));
+		safeCode(t, memb.outbuf.copy(stream));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1297,7 +1307,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
-		safeCode(t, memb.buf.skip(checkIntParam(t, 1)));
+		safeCode(t, memb.inbuf.skip(checkIntParam(t, 1)));
 		return 0;
 	}
 
@@ -1309,11 +1319,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.End));
+			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.End));
 		else
 			throwException(t, "Invalid seek type '{}'", whence);
 
@@ -1327,13 +1337,13 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(mdint)memb.buf.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, cast(mdint)memb.inbuf.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
 			checkDirty(t, memb);
-			safeCode(t, memb.buf.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, memb.inbuf.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -1342,9 +1352,9 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
-		auto pos = safeCode(t, memb.buf.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.buf.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, memb.inbuf.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, memb.inbuf.seek(0, IOStream.Anchor.End));
+		safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(mdint)ret);
 		return 1;
 	}
@@ -1357,8 +1367,8 @@ static:
 			throwException(t, "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.buf.flush()); // maybe a bullshit try-catch here too
-		safeCode(t, memb.buf.close());
+		safeCode(t, memb.outbuf.flush()); // maybe a bullshit try-catch here too
+		safeCode(t, memb.outbuf.close());
 		
 		return 0;
 	}
@@ -1368,4 +1378,4 @@ static:
 		pushBool(t, !getThis(t).closed);
 		return 1;
 	}
-}
+} */

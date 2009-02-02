@@ -61,7 +61,7 @@ static:
 
 			newFunction(t, &inFile,       "inFile");       newGlobal(t, "inFile");
 			newFunction(t, &outFile,      "outFile");      newGlobal(t, "outFile");
-			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
+// 			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
 			newFunction(t, &rename,       "rename");       newGlobal(t, "rename");
 			newFunction(t, &remove,       "remove");       newGlobal(t, "remove");
 			newFunction(t, &copy,         "copy");         newGlobal(t, "copy");
@@ -137,33 +137,33 @@ static:
 		return 1;
 	}
 
-	uword inoutFile(MDThread* t, uword numParams)
-	{
-		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
-
-		auto name = checkStringParam(t, 1);
-		auto mode = optCharParam(t, 2, 'o');
-
-		File.Style style;
-
-		switch(mode)
-		{
-			case 'o': style = File.ReadWriteExisting; break;
-			case 'a': style = ReadWriteAppending;     break;
-			case 'c': style = File.ReadWriteCreate;   break;
-			default:
-				throwException(t, "Unknown open mode '{}'", mode);
-		}
-
-		auto f = safeCode(t, new File(name, style));
-
-		lookupCT!("stream.InoutStream")(t);
-		pushNull(t);
-		pushNativeObj(t, f);
-		rawCall(t, -3, 1);
-
-		return 1;
-	}
+// 	uword inoutFile(MDThread* t, uword numParams)
+// 	{
+// 		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
+// 
+// 		auto name = checkStringParam(t, 1);
+// 		auto mode = optCharParam(t, 2, 'o');
+// 
+// 		File.Style style;
+// 
+// 		switch(mode)
+// 		{
+// 			case 'o': style = File.ReadWriteExisting; break;
+// 			case 'a': style = ReadWriteAppending;     break;
+// 			case 'c': style = File.ReadWriteCreate;   break;
+// 			default:
+// 				throwException(t, "Unknown open mode '{}'", mode);
+// 		}
+// 
+// 		auto f = safeCode(t, new File(name, style));
+// 
+// 		lookupCT!("stream.InoutStream")(t);
+// 		pushNull(t);
+// 		pushNativeObj(t, f);
+// 		rawCall(t, -3, 1);
+// 
+// 		return 1;
+// 	}
 
 	uword rename(MDThread* t, uword numParams)
 	{
@@ -394,10 +394,10 @@ static:
 		auto memb = getMembers!(VectorObj.Members)(t, -1);
 
 		safeCode(t, File.get(name, memb.data[0 .. size]));
-		
+
 		return 1;
 	}
-	
+
 	uword writeVector(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
