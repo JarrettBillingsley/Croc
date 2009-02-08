@@ -25,7 +25,7 @@ subject to the following restrictions:
 
 module minid.thread;
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 	import tango.core.Thread;
 
 import minid.nativeobj;
@@ -67,7 +67,7 @@ static:
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
 		
-		version(MDRestrictedCoro) {} else
+		version(MDExtendedCoro)
 		{
 			version(MDPoolFibers)
 			{
@@ -93,7 +93,7 @@ static:
 	// Free a thread object.
 	package void free(MDThread* t)
 	{
-		version(MDRestrictedCoro) {} else
+		version(MDExtendedCoro)
 		{
 			version(MDPoolFibers)
 			{

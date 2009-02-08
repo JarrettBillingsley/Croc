@@ -2,6 +2,17 @@
 This module contains scary template stuff to make it possible to wrap D functions,
 classes, and structs and expose them as functions and types in MiniD.
 
+This binding library is not supposed to be the most flexible or capable.  For
+example, its class wrapping is meant to be usable with classes to whose source
+code you don't necessarily have access to, or whose code you can't change (like
+in third-party libraries).  This library has to sacrifice some efficiency and
+capabilities to be able to do this.  
+
+However, if you're really only concerned with integrating your $(I own) code with
+MiniD, something like $(LINK2 xpose http://team0xf.com:8080/xf/file/37d8e57b1c4d/xpose/)
+might be more appropriate.  Xpose allows you to add reflection info to your types
+which you can then use to make bindings to MiniD.
+
 License:
 Copyright (c) 2008 Jarrett Billingsley
 

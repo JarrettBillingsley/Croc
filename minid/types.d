@@ -26,7 +26,7 @@ subject to the following restrictions:
 
 module minid.types;
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 	import tango.core.Thread;
 
 import tango.text.convert.Layout;
@@ -96,7 +96,8 @@ class MDException : Exception
 This is a semi-internal exception type.  Normally you won't need to know about it or catch it.  This is
 thrown when a coroutine (thread) needs to be halted.  It should never propagate out of the coroutine.
 The only time you might encounter it is if, in the middle of a native MiniD function, one of these
-is thrown, you might be able to catch it and clean up some resources, but you should rethrow it.
+is thrown, you might be able to catch it and clean up some resources, but you must rethrow it in that
+case, unless you want the interpreter to be in a horrible state.
 
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in minid.interpreter.
@@ -110,21 +111,9 @@ final class MDHaltException : Exception
 }
 
 /**
-A string constant indicating the level of coroutine support compiled in.  Is one of "Restricted",
-"Normal", or "Extended".
+A string constant indicating the level of coroutine support compiled in.  Is either "Normal" or "Extended".
 */
-version(MDRestrictedCoro)
-{
-	version(MDExtendedCoro)
-	{
-		pragma(msg, "The 'MDRestrictedCoro' and 'MDExtendedCoro' versions are mutually exclusive.");
-		pragma(msg, "Please define one or the other (or neither), not both.\n");
-		static assert(false, "FAILCOPTER.");
-	}
-
-	const char[] MDCoroSupport = "Restricted";
-}
-else version(MDExtendedCoro)
+version(MDExtendedCoro)
 	const char[] MDCoroSupport = "Extended";
 else
 	const char[] MDCoroSupport = "Normal";
@@ -542,7 +531,7 @@ struct ActRecord
 struct TryRecord
 {
 	package bool isCatch;
-	package RelStack catchVarSlot;
+	package RelStack slot;
 	package uword actRecord;
 	package Instruction* pc;
 }
@@ -601,20 +590,14 @@ struct MDThread
 	package MDFunction* coroFunc;
 	package State state = State.Initial;
 	package uword numYields;
-	
+
 	package ubyte hooks;
 	package bool hooksEnabled = true;
 	package uint hookDelay;
 	package uint hookCounter;
 	package MDFunction* hookFunc;
 
-	version(MDExtendedCoro) {} else
-	{
-		package uword savedCallDepth;
-		package uword nativeCallDepth = 0;
-	}
-
-	version(MDRestrictedCoro) {} else
+	version(MDExtendedCoro)
 	{
 		// References a Fiber object
 		package MDNativeObj* coroFiber;
@@ -624,6 +607,11 @@ struct MDThread
 			assert(coroFiber !is null);
 			return cast(Fiber)cast(void*)coroFiber.obj;
 		}
+	}
+	else
+	{
+		package uword savedCallDepth;
+		package uword nativeCallDepth = 0;
 	}
 }
 
@@ -693,7 +681,7 @@ struct MDFuncDef
 
 	struct SwitchTable
 	{
-		package Hash!(MDValue, word) offsets;
+		package Hash!(MDValue, int) offsets;
 		package int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
 	}
 
@@ -736,11 +724,9 @@ struct MDVM
 	package MDNativeObj*[Object] nativeObjs;
 	package Layout!(char) formatter;
 
-	version(MDRestrictedCoro) {} else
-	{
+	version(MDExtendedCoro)
 		version(MDPoolFibers)
 			package bool[Fiber] fiberPool;
-	}
 }
 
 package enum MM

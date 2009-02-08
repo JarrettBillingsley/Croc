@@ -30,6 +30,7 @@ import Integer = tango.text.convert.Integer;
 import tango.core.Array;
 import tango.text.Util;
 import Uni = tango.text.Unicode;
+import Utf = tango.text.convert.Utf;
 
 import minid.ex;
 import minid.interpreter;
@@ -47,19 +48,16 @@ static:
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
 			newNamespace(t, "string");
-					newFunction(t, &iterator,        "iterator");
-					newFunction(t, &iteratorReverse, "iteratorReverse");
-				newFunction(t, &opApply,     "opApply", 2);  fielda(t, -2, "opApply");
-
+				newFunction(t, &opApply,     "opApply");     fielda(t, -2, "opApply");
 				newFunction(t, &join,        "join");        fielda(t, -2, "join");
 				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
 				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
 				newFunction(t, &compare,     "compare");     fielda(t, -2, "compare");
-// 				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
+				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
 				newFunction(t, &find,        "find");        fielda(t, -2, "find");
-// 				newFunction(t, &ifind,       "ifind");       fielda(t, -2, "ifind");
+				newFunction(t, &ifind,       "ifind");       fielda(t, -2, "ifind");
 				newFunction(t, &rfind,       "rfind");       fielda(t, -2, "rfind");
-// 				newFunction(t, &irfind,      "irfind");      fielda(t, -2, "irfind");
+				newFunction(t, &irfind,      "irfind");      fielda(t, -2, "irfind");
 				newFunction(t, &toLower,     "toLower");     fielda(t, -2, "toLower");
 				newFunction(t, &toUpper,     "toUpper");     fielda(t, -2, "toUpper");
 				newFunction(t, &repeat,      "repeat");      fielda(t, -2, "repeat");
@@ -72,8 +70,8 @@ static:
 				newFunction(t, &replace,     "replace");     fielda(t, -2, "replace");
 				newFunction(t, &startsWith,  "startsWith");  fielda(t, -2, "startsWith");
 				newFunction(t, &endsWith,    "endsWith");    fielda(t, -2, "endsWith");
-// 				newFunction(t, &istartsWith, "istartsWith"); fielda(t, -2, "istartsWith");
-// 				newFunction(t, &iendsWith,   "iendsWith");   fielda(t, -2, "iendsWith");
+				newFunction(t, &istartsWith, "istartsWith"); fielda(t, -2, "istartsWith");
+				newFunction(t, &iendsWith,   "iendsWith");   fielda(t, -2, "iendsWith");
 			setTypeMT(t, MDValue.Type.String);
 
 			return 0;
@@ -145,11 +143,19 @@ static:
 		return 1;
 	}
 
-// 	uword icompare(MDThread* t, uword numParams)
-// 	{
-// 		pushInt(t, idcmp(checkStringParam(t, 0), checkStringParam(t, 1)));
-// 		return 1;
-// 	}
+	uword icompare(MDThread* t, uword numParams)
+	{
+		auto s1 = checkStringParam(t, 0);
+		auto s2 = checkStringParam(t, 1);
+
+		char[64] buf1 = void;
+		char[64] buf2 = void;
+		s1 = Uni.toFold(s1, buf1);
+		s2 = Uni.toFold(s2, buf2);
+
+		pushInt(t, scmp(s1, s2));
+		return 1;
+	}
 
 	uword find(MDThread* t, uword numParams)
 	{
@@ -171,58 +177,72 @@ static:
 			return 1;
 		}
 
+		char[6] buf = void;
+		char[] pat;
+
 		if(isString(t, 1))
-			pushInt(t, src.locatePattern(getString(t, 1), cast(uword)start));
+			pat = getString(t, 1);
 		else if(isChar(t, 1))
 		{
-			auto ch = getChar(t, 1);
-
-			uword startIdx = uniCPIdxToByte(src, cast(uword)start);
-
-			foreach(i, dchar c; src[startIdx .. $])
-			{
-				if(c == ch)
-				{
-					pushInt(t, i + start);
-					return 1;
-				}
-			}
-
-			pushInt(t, src.length);
+			dchar[1] dc = getChar(t, 1);
+			pat = Utf.toString(dc[], buf);
 		}
 		else
-		{
-			pushTypeString(t, 1);
-			throwException(t, "Parameter must be 'string' or 'char', not '{}'", getString(t, -1));
-		}
+			paramTypeError(t, 1, "char|string");
+
+		pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
 
 		return 1;
 	}
 
-// 	uword ifind(MDThread* t, uword numParams)
-// 	{
-// 		dchar[32] buf1, buf2;
-// 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-// 		uword result;
-//
-// 		if(s.isParam!("string")(0))
-// 			result = src.locatePattern(Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
-// 		else if(s.isParam!("char")(0))
-// 			result = src.locate(Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
-// 		else
-// 			s.throwRuntimeException("Second parameter must be string or int");
-//
-// 		s.push(result);
-//
-// 		return 1;
-// 	}
+	uword ifind(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, 0);
+
+		if(start < 0)
+		{
+			start += srcLen;
+
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start >= srcLen)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
+
+		char[64] buf1 = void;
+		char[64] buf2 = void;
+		src = Uni.toFold(src, buf1);
+		char[] pat;
+
+		if(isString(t, 1))
+			pat = Uni.toFold(getString(t, 1), buf2);
+		else if(isChar(t, 1))
+		{
+			dchar[1] dc = getChar(t, 1);
+			char[6] cbuf = void;
+			pat = Utf.toString(dc[], cbuf);
+			pat = Uni.toFold(pat, buf2);
+		}
+		else
+			paramTypeError(t, 1, "char|string");
+
+		pushInt(t, src.locatePattern(pat, uniCPIdxToByte(src, cast(uword)start)));
+
+		return 1;
+	}
 
 	uword rfind(MDThread* t, uword numParams)
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
-		auto start = optIntParam(t, 2, srcLen);
-		
+		auto start = optIntParam(t, 2, 0);
+
 		if(start > srcLen)
 			throwException(t, "Invalid start index: {}", start);
 
@@ -240,50 +260,68 @@ static:
 			return 1;
 		}
 
+		char[6] buf = void;
+		char[] pat;
+
 		if(isString(t, 1))
-			pushInt(t, src.locatePatternPrior(getString(t, 1), cast(uword)start));
+			pat = getString(t, 1);
 		else if(isChar(t, 1))
 		{
-			auto ch = getChar(t, 1);
-			uword startIdx = uniCPIdxToByte(src, cast(uword)start);
-
-			foreach_reverse(i, dchar c; src[0 .. startIdx])
-			{
-				if(c == ch)
-				{
-					pushInt(t, i);
-					return 1;
-				}
-			}
-
-			pushInt(t, src.length);
+			dchar[1] dc = getChar(t, 1);
+			pat = Utf.toString(dc[], buf);
 		}
 		else
-		{
-			pushTypeString(t, 1);
-			throwException(t, "Parameter must be 'string' or 'char', not '{}'", getString(t, -1));
-		}
+			paramTypeError(t, 1, "char|string");
+
+		pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
 
 		return 1;
 	}
 
-// 	uword irfind(MDThread* t, uword numParams)
-// 	{
-// 		dchar[32] buf1, buf2;
-// 		dchar[] src = Uni.toFold(s.getContext!(MDString).mData, buf1);
-// 		uword result;
-// 
-// 		if(s.isParam!("string")(0))
-// 			result = src.locatePatternPrior(Uni.toFold(s.getParam!(MDString)(0).mData, buf2));
-// 		else if(s.isParam!("char")(0))
-// 			result = src.locatePrior(Uni.toFold([s.getParam!(dchar)(0)], buf2)[0]);
-// 		else
-// 			s.throwRuntimeException("Second parameter must be string or int");
-// 
-// 		s.push(result);
-// 
-// 		return 1;
-// 	}
+	uword irfind(MDThread* t, uword numParams)
+	{
+		auto src = checkStringParam(t, 0);
+		auto srcLen = len(t, 0);
+		auto start = optIntParam(t, 2, 0);
+
+		if(start > srcLen)
+			throwException(t, "Invalid start index: {}", start);
+
+		if(start < 0)
+		{
+			start += srcLen;
+
+			if(start < 0)
+				throwException(t, "Invalid start index {}", start);
+		}
+
+		if(start == 0)
+		{
+			pushInt(t, srcLen);
+			return 1;
+		}
+
+		char[64] buf1 = void;
+		char[64] buf2 = void;
+		src = Uni.toFold(src, buf1);
+		char[] pat;
+
+		if(isString(t, 1))
+			pat = Uni.toFold(getString(t, 1), buf2);
+		else if(isChar(t, 1))
+		{
+			dchar[1] dc = getChar(t, 1);
+			char[6] cbuf = void;
+			pat = Utf.toString(dc[], cbuf);
+			pat = Uni.toFold(pat, buf2);
+		}
+		else
+			paramTypeError(t, 1, "char|string");
+
+		pushInt(t, src.locatePatternPrior(pat, uniCPIdxToByte(src, cast(uword)start)));
+
+		return 1;
+	}
 
 	uword toLower(MDThread* t, uword numParams)
 	{
@@ -343,7 +381,7 @@ static:
 	{
 		auto src = checkStringParam(t, 0);
 
-		if(src.length <= 1)
+		if(len(t, 0) <= 1)
 			dup(t, 0);
 		else if(src.length <= 256)
 		{
@@ -468,31 +506,51 @@ static:
 
 	uword iterator(MDThread* t, uword numParams)
 	{
-		checkParam(t, 0, MDValue.Type.String);
-		auto index = checkIntParam(t, 1) + 1;
+		checkStringParam(t, 0);
+		auto s = getStringObj(t, 0);
+		auto fakeIdx = checkIntParam(t, 1) + 1;
 
-		if(index >= len(t, 0))
+		getUpval(t, 0);
+		auto realIdx = getInt(t, -1);
+		pop(t);
+
+		if(realIdx >= s.length)
 			return 0;
 
-		pushInt(t, index);
-		dup(t);
-		idx(t, 0);
+		uword ate = void;
+		auto c = Utf.decode(s.toString()[realIdx .. $], ate);
+		realIdx += ate;
 
+		pushInt(t, realIdx);
+		setUpval(t, 0);
+		
+		pushInt(t, fakeIdx);
+		pushChar(t, c);
 		return 2;
 	}
 
 	uword iteratorReverse(MDThread* t, uword numParams)
 	{
-		checkParam(t, 0, MDValue.Type.String);
-		auto index = checkIntParam(t, 1) - 1;
+		checkStringParam(t, 0);
+		auto s = getStringObj(t, 0);
+		auto fakeIdx = checkIntParam(t, 1) - 1;
 
-		if(index < 0)
+		getUpval(t, 0);
+		auto realIdx = getInt(t, -1);
+		pop(t);
+
+		if(realIdx <= 0)
 			return 0;
 
-		pushInt(t, index);
-		dup(t);
-		idx(t, 0);
+		auto tmp = Utf.cropRight(s.toString[0 .. realIdx - 1]);
+		uword ate = void;
+		auto c = Utf.decode(s.toString()[tmp.length .. $], ate);
 
+		pushInt(t, tmp.length);		
+		setUpval(t, 0);
+
+		pushInt(t, fakeIdx);
+		pushChar(t, c);
 		return 2;
 	}
 
@@ -502,13 +560,15 @@ static:
 
 		if(optStringParam(t, 1, "") == "reverse")
 		{
-			getUpval(t, 1);
+			pushInt(t, getStringObj(t, 0).length);
+			newFunction(t, &iteratorReverse, "iteratorReverse", 1);
 			dup(t, 0);
-			pushLen(t, 0);
+			pushInt(t, len(t, 0));
 		}
 		else
 		{
-			getUpval(t, 0);
+			pushInt(t, 0);
+			newFunction(t, &iterator, "iterator", 1);
 			dup(t, 0);
 			pushInt(t, -1);
 		}
@@ -528,31 +588,25 @@ static:
 		return 1;
 	}
 
-// 	uword istartsWith(MDThread* t, uword numParams)
-// 	{
-// 		dchar[32] buf1, buf2;
-// 		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
-// 		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
-// 
-// 		if(pattern.length > string.length)
-// 			s.push(false);
-// 		else
-// 			s.push(string[0 .. pattern.length] == pattern[]);
-// 
-// 		return 1;
-// 	}
-// 
-// 	uword iendsWith(MDThread* t, uword numParams)
-// 	{
-// 		dchar[32] buf1, buf2;
-// 		auto string = Uni.toFold(s.getContext!(MDString).mData, buf1);
-// 		auto pattern = Uni.toFold(s.getParam!(MDString)(0).mData, buf2);
-// 
-// 		if(pattern.length > string.length)
-// 			s.push(false);
-// 		else
-// 			s.push(string[$ - pattern.length .. $] == pattern[]);
-// 
-// 		return 1;
-// 	}
+	uword istartsWith(MDThread* t, uword numParams)
+	{
+		char[64] buf1 = void;
+		char[64] buf2 = void;
+		auto s1 = Uni.toFold(checkStringParam(t, 0), buf1);
+		auto s2 = Uni.toFold(checkStringParam(t, 1), buf2);
+
+		pushBool(t, .startsWith(s1, s2));
+		return 1;
+	}
+
+	uword iendsWith(MDThread* t, uword numParams)
+	{
+		char[64] buf1 = void;
+		char[64] buf2 = void;
+		auto s1 = Uni.toFold(checkStringParam(t, 0), buf1);
+		auto s2 = Uni.toFold(checkStringParam(t, 1), buf2);
+
+		pushBool(t, .endsWith(s1, s2));
+		return 1;
+	}
 }

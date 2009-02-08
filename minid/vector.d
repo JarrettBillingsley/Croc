@@ -1239,8 +1239,48 @@ static:
 
 	uword type(MDThread* t, uword numParams)
 	{
-		pushString(t, typeNames[getThis(t).type.code]);
-		return 1;
+		auto memb = getThis(t);
+
+		if(numParams == 0)
+		{
+			pushString(t, typeNames[memb.type.code]);
+			return 1;
+		}
+		else
+		{
+			auto newType = checkStringParam(t, 1);
+
+			if(typeNames[memb.type.code] == newType)
+				return 0;
+				
+			TypeStruct* ts = void;
+
+			switch(newType)
+			{
+				case "i8" : ts = &typeStructs[TypeCode.i8];  break;
+				case "i16": ts = &typeStructs[TypeCode.i16]; break;
+				case "i32": ts = &typeStructs[TypeCode.i32]; break;
+				case "i64": ts = &typeStructs[TypeCode.i64]; break;
+				case "u8" : ts = &typeStructs[TypeCode.u8];  break;
+				case "u16": ts = &typeStructs[TypeCode.u16]; break;
+				case "u32": ts = &typeStructs[TypeCode.u32]; break;
+				case "u64": ts = &typeStructs[TypeCode.u64]; break;
+				case "f32": ts = &typeStructs[TypeCode.f32]; break;
+				case "f64": ts = &typeStructs[TypeCode.f64]; break;
+	
+				default:
+					throwException(t, "Invalid type code '{}'", newType);
+			}
+
+			auto size = memb.length * memb.type.itemSize;
+
+			if(size % ts.itemSize != 0)
+				throwException(t, "Vector size is not an even multiple of new type's item size");
+
+			memb.type = ts;
+			memb.length = size / ts.itemSize;
+			return 0;
+		}
 	}
 
 	uword rawRead(T)(MDThread* t, uword numParams)

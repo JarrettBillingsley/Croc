@@ -205,7 +205,7 @@ OrEq..............R: dest, src, n/a
 PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
 PushCatch.........J: exception reg, branch offset
-PushFinally.......J: n/a, branch offset
+PushFinally.......J: base reg, branch offset
 Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
 Shl...............R: dest, src, src
@@ -369,7 +369,7 @@ align(1) struct Instruction
 			case Op.PopCatch:        return "popcatch";
 			case Op.PopFinally:      return "popfinally";
 			case Op.PushCatch:       return Format("pushcatch r{}, {}", rd, imm);
-			case Op.PushFinally:     return Format("pushfinal {}", imm);
+			case Op.PushFinally:     return Format("pushfinal r{}, {}", rd, imm);
 			case Op.Ret:             return Format("ret r{}, {}", rd, uimm);
 			case Op.SetArray:        return Format("setarray r{}, {}, block {}", rd, rs, rt);
 			case Op.Shl:             return Format("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));

@@ -41,12 +41,14 @@ void main()
 
 		getTraceback(t);
 		Stdout.formatln("{}", getString(t, -1));
-		
+
 		pop(t, 2);
 
 		if(e.info)
 			Stdout.formatln("D Traceback:\n{}", e.info);
 	}
+	catch(MDHaltException e)
+		Stdout.formatln("Thread halted");
 	catch(Exception e)
 	{
 		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);

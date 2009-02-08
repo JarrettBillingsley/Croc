@@ -510,7 +510,7 @@ final class FuncState
 		else if(v.isChar())
 			val = v.asChar();
 		else if(v.isString())
-			val = string.create(t.vm, v.asString());
+			val = createString(t, v.asString());
 		else
 			assert(false, "addCase invalid type: " ~ v.toString());
 
@@ -1515,7 +1515,7 @@ final class FuncState
 
 	public uint codeFinally(uint line)
 	{
-		return codeJ(line, Op.PushFinally, 0, NoJump);
+		return codeJ(line, Op.PushFinally, mFreeReg, NoJump);
 	}
 
 	public void codeContinue(CompileLoc location)
@@ -1584,7 +1584,7 @@ final class FuncState
 
 	public int codeStringConst(char[] s)
 	{
-		return codeConst(MDValue(string.create(t.vm, s)));
+		return codeConst(MDValue(createString(t, s)));
 	}
 
 	public void codeNulls(uint line, uint reg, uint num)
@@ -1652,11 +1652,11 @@ final class FuncState
 		auto ret = funcdef.create(*c.alloc);
 		pushFuncDef(t, ret);
 
-		ret.location.file = string.create(t.vm, mLocation.file);
+		ret.location.file = createString(t, mLocation.file);
 		ret.location.line = mLocation.line;
 		ret.location.col = mLocation.col;
 		ret.isVararg = mIsVararg;
-		ret.name = string.create(t.vm, mName);
+		ret.name = createString(t, mName);
 		ret.numParams = mNumParams;
 		ret.paramMasks = mParamMasks;
 		mParamMasks = null;
@@ -1692,13 +1692,13 @@ final class FuncState
 		c.alloc.resizeArray(ret.upvalNames, mUpvals.length);
 
 		foreach(i, ref u; mUpvals)
-			ret.upvalNames[i] = string.create(t.vm, u.name);
+			ret.upvalNames[i] = createString(t, u.name);
 
 		c.alloc.resizeArray(ret.locVarDescs, mLocVars.length);
 
 		foreach(i, ref var; mLocVars)
 		{
-			ret.locVarDescs[i].name = string.create(t.vm, var.name);
+			ret.locVarDescs[i].name = createString(t, var.name);
 			ret.locVarDescs[i].pcStart = var.pcStart;
 			ret.locVarDescs[i].pcEnd = var.pcEnd;
 			ret.locVarDescs[i].reg = var.reg;

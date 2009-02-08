@@ -26,7 +26,7 @@ subject to the following restrictions:
 
 module minid.moduleslib;
 
-import tango.io.device.FileConduit;
+import tango.io.device.File;
 import tango.io.FilePath;
 import tango.io.protocol.Reader;
 import tango.text.Util;
@@ -334,7 +334,7 @@ static:
 					}
 					else
 					{
-						scope fc = new FileConduit(bin.toString(), FileConduit.ReadExisting);
+						scope fc = new File(bin.toString(), File.ReadExisting);
 						scope r = new Reader(fc);
 						deserializeModule(t, r);
 						return 1;
@@ -349,7 +349,7 @@ static:
 			}
 			else if(bin.exists())
 			{
-				scope fc = new FileConduit(bin.toString(), FileConduit.ReadExisting);
+				scope fc = new File(bin.toString(), File.ReadExisting);
 				scope r = new Reader(fc);
 				deserializeModule(t, r);
 				return 1;

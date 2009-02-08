@@ -33,14 +33,9 @@ function tak(x, y, z)
 function main(N)
 {
 	local n = 11
-	
+
 	if(isString(N))
-	{
-		writeln("F")
-		n = toInt(N) //try n = toInt(N); catch(e){}
-	}
-	else
-		writeln("G")
+		try n = toInt(N); catch(e){}
 
 	local timer = time.Timer()
 	timer.start()

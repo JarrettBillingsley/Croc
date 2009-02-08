@@ -210,7 +210,7 @@ catch(MDException e)
 
 	public override char[] newString(char[] data)
 	{
-		auto s = string.create(t.vm, data);
+		auto s = createString(t, data);
 		pushStringObj(t, s);
 		pushBool(t, true);
 		idxa(t, mStringTab);

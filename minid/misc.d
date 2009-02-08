@@ -27,7 +27,7 @@ subject to the following restrictions:
 module minid.misc;
 
 import Integer = tango.text.convert.Integer;
-import tango.io.Print;
+import tango.io.stream.Format;
 import tango.stdc.ctype;
 import tango.stdc.stdlib;
 import tango.text.convert.Utf;
@@ -148,7 +148,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 }
 
 // Expects root to be at the top of the stack
-package void toJSONImpl(T)(MDThread* t, word root, bool pretty, Print!(T) printer)
+package void toJSONImpl(T)(MDThread* t, word root, bool pretty, FormatOutput!(T) printer)
 {
 	root = absIndex(t, root);
 	auto cycles = newTable(t);

@@ -218,21 +218,21 @@ MDFuncDef* deserialize(MDThread* t, IReader s)
 
 	s.get(ret.location.line);
 	s.get(ret.location.col);
-	Deserialize(vm, s, ret.location.file);
+	Deserialize(t, s, ret.location.file);
 
 	s.get(ret.isVararg);
-	Deserialize(vm, s, ret.name);
+	Deserialize(t, s, ret.name);
 	s.get(ret.numParams);
-	Deserialize(vm, s, ret.paramMasks);
+	Deserialize(t, s, ret.paramMasks);
 	s.get(ret.numUpvals);
 	s.get(ret.stackSize);
 
-	Deserialize(vm, s, ret.constants);
-	Deserialize(vm, s, ret.code);
+	Deserialize(t, s, ret.constants);
+	Deserialize(t, s, ret.code);
 	s.get(ret.isPure);
 
-	Deserialize(vm, s, ret.lineInfo);
-	Deserialize(vm, s, ret.upvalNames);
+	Deserialize(t, s, ret.lineInfo);
+	Deserialize(t, s, ret.upvalNames);
 
 	uword len = void;
 	s.get(len);
@@ -240,7 +240,7 @@ MDFuncDef* deserialize(MDThread* t, IReader s)
 
 	foreach(ref desc; ret.locVarDescs)
 	{
-		Deserialize(vm, s, desc.name);
+		Deserialize(t, s, desc.name);
 		s.get(desc.pcStart);
 		s.get(desc.pcEnd);
 		s.get(desc.reg);
@@ -258,7 +258,7 @@ MDFuncDef* deserialize(MDThread* t, IReader s)
 			MDValue key = void;
 			word value = void;
 
-			Deserialize(vm, s, key);
+			Deserialize(t, s, key);
 			s.get(value);
 
 			*st.offsets.insert(vm.alloc, key) = value;
@@ -333,72 +333,72 @@ void Serialize(IWriter s, ref MDValue val)
 	}
 }
 
-void Deserialize(MDVM* vm, IReader s, ref MDString* val)
+void Deserialize(MDThread* t, IReader s, ref MDString* val)
 {
 	uword len = void;
 	s.get(len);
 
-	auto data = vm.alloc.allocArray!(char)(len);
-	scope(exit) vm.alloc.freeArray(data);
+	auto data = t.vm.alloc.allocArray!(char)(len);
+	scope(exit) t.vm.alloc.freeArray(data);
 
 	s.buffer.readExact(data.ptr, len * char.sizeof);
-	val = string.create(vm, data);
+	val = createString(t, data);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref ushort[] val)
+void Deserialize(MDThread* t, IReader s, ref ushort[] val)
 {
 	uword len = void;
 	s.get(len);
 
-	val = vm.alloc.allocArray!(ushort)(len);
+	val = t.vm.alloc.allocArray!(ushort)(len);
 	s.buffer.readExact(val.ptr, len * ushort.sizeof);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref MDValue[] val)
+void Deserialize(MDThread* t, IReader s, ref MDValue[] val)
 {
 	uword len = void;
 	s.get(len);
 
-	val = vm.alloc.allocArray!(MDValue)(len);
+	val = t.vm.alloc.allocArray!(MDValue)(len);
 
 	foreach(ref v; val)
-		Deserialize(vm, s, v);
+		Deserialize(t, s, v);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref Instruction[] val)
+void Deserialize(MDThread* t, IReader s, ref Instruction[] val)
 {
 	uword len = void;
 	s.get(len);
 
-	val = vm.alloc.allocArray!(Instruction)(len);
+	val = t.vm.alloc.allocArray!(Instruction)(len);
 	s.buffer.readExact(val.ptr, len * Instruction.sizeof);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref uint[] val)
+void Deserialize(MDThread* t, IReader s, ref uint[] val)
 {
 	uword len = void;
 	s.get(len);
 
-	val = vm.alloc.allocArray!(uint)(len);
+	val = t.vm.alloc.allocArray!(uint)(len);
 	s.buffer.readExact(val.ptr, len * uint.sizeof);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref MDString*[] val)
+void Deserialize(MDThread* t, IReader s, ref MDString*[] val)
 {
 	uword len = void;
 	s.get(len);
 
-	val = vm.alloc.allocArray!(MDString*)(len);
+	val = t.vm.alloc.allocArray!(MDString*)(len);
 
 	foreach(ref v; val)
-		Deserialize(vm, s, v);
+		Deserialize(t, s, v);
 }
 
-void Deserialize(MDVM* vm, IReader s, ref MDValue val)
+void Deserialize(MDThread* t, IReader s, ref MDValue val)
 {
-	uint t = void;
-	s.get(t);
-	val.type = cast(MDValue.Type)t;
+	uint type = void;
+	s.get(type);
+	val.type = cast(MDValue.Type)type;
 
 	switch(val.type)
 	{
@@ -407,7 +407,7 @@ void Deserialize(MDVM* vm, IReader s, ref MDValue val)
 		case MDValue.Type.Int:    s.get(val.mInt); break;
 		case MDValue.Type.Float:  s.get(val.mFloat); break;
 		case MDValue.Type.Char:   s.get(val.mChar); break;
-		case MDValue.Type.String: Deserialize(vm, s, val.mString); break;
+		case MDValue.Type.String: Deserialize(t, s, val.mString); break;
 		default: assert(false, "Deserialize(MDValue)");
 	}
 }

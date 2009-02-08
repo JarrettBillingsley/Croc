@@ -164,6 +164,27 @@ public size_t uniCPIdxToByte(char[] s, size_t fake)
 }
 
 /**
+Convert a byte index into a UTF-8 string into a codepoint index.
+*/
+public size_t uniByteIdxToCP(char[] s, size_t fake)
+{
+	auto tmp = s;
+	uint ate = 0;
+	size_t byteIdx = 0;
+	size_t i = 0;
+
+	while(byteIdx < fake)
+	{
+		decode(tmp, ate);
+		tmp = tmp[ate .. $];
+		byteIdx += ate;
+		i++;
+	}
+	
+	return i;
+}
+
+/**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 */
 public template isStringType(T)

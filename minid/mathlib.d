@@ -308,11 +308,11 @@ static:
 		// uint is the return type of Kiss.toInt
 		static if(uint.sizeof < mdint.sizeof)
 		{
-			mdint num = Kiss.shared.toInt();
-			num |= (cast(ulong)Kiss.shared.toInt()) << 32;
+			mdint num = Kiss.instance.toInt();
+			num |= (cast(ulong)Kiss.instance.toInt()) << 32;
 		}
 		else
-			mdint num = Kiss.shared.toInt();
+			mdint num = Kiss.instance.toInt();
 
 		switch(numParams)
 		{
@@ -345,7 +345,7 @@ static:
 
 	uword frand(MDThread* t, uword numParams)
 	{
-		auto num = cast(mdfloat)Kiss.shared.toInt() / uint.max;
+		auto num = cast(mdfloat)Kiss.instance.toInt() / uint.max;
 
 		switch(numParams)
 		{

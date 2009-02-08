@@ -53,5 +53,5 @@ function main(N)
 	for(i: 0 .. n)
 		mmult(SIZE, SIZE, m1, m2, mm)
 
-	writefln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4])
+	writeln(mm[0][0], " ", mm[2][3], " ", mm[3][2], " ", mm[4][4])
 }

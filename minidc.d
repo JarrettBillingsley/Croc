@@ -23,7 +23,7 @@ subject to the following restrictions:
 
 module minidc;
 
-import tango.io.device.FileConduit;
+import tango.io.device.File;
 import tango.io.Stdout;
 import tango.io.protocol.Writer;
 
@@ -59,7 +59,7 @@ void main(char[][] args)
 	scope c = new Compiler(t);
 	c.compileModule(args[1]);
 
-	scope fc = new FileConduit(args[1] ~ "m", FileConduit.WriteCreate);
+	scope fc = new File(args[1] ~ "m", File.WriteCreate);
 	scope w = new Writer(fc);
 	serializeModule(t, -1, w);
 	w.flush();
