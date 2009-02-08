@@ -28,7 +28,6 @@ module minid.streamlib;
 import tango.core.Traits;
 import tango.io.Console;
 import tango.io.device.Conduit;
-import tango.io.stream.Buffer;
 import tango.io.stream.Format;
 import tango.io.stream.Lines;
 
@@ -52,7 +51,7 @@ static:
 		{
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
-// 			InoutStreamObj.init(t);
+			InoutStreamObj.init(t);
 
 				pushGlobal(t, "InStream");
 				pushNull(t);
@@ -89,13 +88,13 @@ struct InStreamObj
 static:
 	enum Fields
 	{
-		buf,
+		stream,
 		lines
 	}
 
 	align(1) struct Members
 	{
-		BufferInput buf;
+		InputStream stream;
 		Lines!(char) lines;
 		bool closed = true;
 		bool closable = true;
@@ -120,6 +119,7 @@ static:
 			c.method("readChars",   &readChars);
 			c.method("readVector",  &readVector);
 			c.method("skip",        &skip);
+
 			c.method("seek",        &seek);
 			c.method("position",    &position);
 			c.method("size",        &size);
@@ -153,6 +153,20 @@ static:
 			
 		return ret;
 	}
+	
+	private void readExact(MDThread* t, Members* memb, void* dest, uword size)
+	{
+		while(size > 0)
+		{
+			auto numRead = memb.stream.read(dest[0 .. size]);
+			
+			if(numRead == IOStream.Eof)
+				throwException(t, "End-of-flow encountered while reading");
+				
+			size -= numRead;
+			dest += numRead;
+		}
+	}
 
 	uword allocator(MDThread* t, uword numParams)
 	{
@@ -173,7 +187,7 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, memb.buf.close());
+			safeCode(t, memb.stream.close());
 		}
 
 		return 0;
@@ -183,7 +197,7 @@ static:
 	{
 		auto memb = getThis(t);
 
-		if(memb.buf !is null)
+		if(memb.stream !is null)
 			throwException(t, "Attempting to call constructor on an already-initialized InStream");
 
 		checkParam(t, 1, MDValue.Type.NativeObj);
@@ -193,17 +207,12 @@ static:
 			throwException(t, "instances of InStream may only be created using instances of the Tango InputStream");
 			
 		memb.closable = optBoolParam(t, 2, true);
-		
-		if(auto b = cast(BufferInput)input)
-			memb.buf = b;
-		else
-			memb.buf = new BufferInput(input);
-
-		memb.lines = new Lines!(char)(memb.buf);
+		memb.stream = input;
+		memb.lines = new Lines!(char)(memb.stream);
 		memb.closed = false;
 
-		pushNativeObj(t, memb.buf);    setExtraVal(t, 0, Fields.buf);
-		pushNativeObj(t, memb.lines);  setExtraVal(t, 0, Fields.lines);
+		pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
+		pushNativeObj(t, memb.lines);              setExtraVal(t, 0, Fields.lines);
 
 		return 0;
 	}
@@ -213,7 +222,7 @@ static:
 		auto memb = getOpenThis(t);
 		T val = void;
 		
-		safeCode(t, memb.buf.fill((cast(void*)&val)[0 .. T.sizeof], true));
+		safeCode(t, readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
 			pushInt(t, val);
@@ -235,14 +244,14 @@ static:
 		{
 			uword length = void;
 
-			safeCode(t, memb.buf.fill((cast(void*)&length)[0 .. length.sizeof], true));
+			safeCode(t, readExact(t, memb, &length, length.sizeof));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-				
-			safeCode(t, memb.buf.fill(dat, true));
+
+			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 
 			pushString(t, dat);
 		}());
@@ -275,8 +284,8 @@ static:
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-				
-			safeCode(t, memb.buf.fill(dat, true));
+
+			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 			pushString(t, dat);
 		}());
 
@@ -321,7 +330,7 @@ static:
 		}
 
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-		safeCode(t, memb.buf.fill(vecMemb.data[0 .. numBytes], true));
+		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
 		return 1;
 	}
 
@@ -350,7 +359,21 @@ static:
 	public uword skip(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.buf.skip(checkIntParam(t, 1)));
+		auto dist = checkIntParam(t, 1);
+
+		if(dist < 0)
+			throwException(t, "Invalid skip distance {} (must be >= 0)", dist);
+
+		// it's OK if this is shared - it's just a bit bucket
+		static ubyte[1024] dummy;
+
+		while(dist > 0)
+		{
+			uword numBytes = dist < dummy.length ? dist : dummy.length;
+			safeCode(t, readExact(t, memb, dummy.ptr, numBytes));
+			dist -= numBytes;
+		}
+
 		return 0;
 	}
 
@@ -361,11 +384,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.End));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
 		else
 			throwException(t, "Invalid seek type '{}'", whence);
 
@@ -379,12 +402,12 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(mdint)memb.buf.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, cast(mdint)memb.stream.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
-			safeCode(t, memb.buf.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -392,9 +415,9 @@ static:
 	public uword size(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		auto pos = safeCode(t, memb.buf.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.buf.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, memb.stream.seek(0, IOStream.Anchor.End));
+		safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(mdint)ret);
 		return 1;
 	}
@@ -407,8 +430,8 @@ static:
 			throwException(t, "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.buf.close());
-		
+		safeCode(t, memb.stream.close());
+
 		return 0;
 	}
 
@@ -424,13 +447,13 @@ struct OutStreamObj
 static:
 	enum Fields
 	{
-		buf,
+		stream,
 		print
 	}
 
 	align(1) struct Members
 	{
-		BufferOutput buf;
+		OutputStream stream;
 		FormatOutput!(char) print;
 		bool closed = true;
 		bool closable = true;
@@ -491,6 +514,20 @@ static:
 			
 		return ret;
 	}
+	
+	private void writeExact(MDThread* t, Members* memb, void* src, uword size)
+	{
+		while(size > 0)
+		{
+			auto numWritten = memb.stream.write(src[0 .. size]);
+			
+			if(numWritten == IOStream.Eof)
+				throwException(t, "End-of-flow encountered while writing");
+				
+			size -= numWritten;
+			src += numWritten;
+		}
+	}
 
 	uword allocator(MDThread* t, uword numParams)
 	{
@@ -511,8 +548,8 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, memb.buf.flush());
-			safeCode(t, memb.buf.close());
+			safeCode(t, memb.stream.flush());
+			safeCode(t, memb.stream.close());
 		}
 
 		return 0;
@@ -522,7 +559,7 @@ static:
 	{
 		auto memb = getThis(t);
 
-		if(memb.buf !is null)
+		if(memb.stream !is null)
 			throwException(t, "Attempting to call constructor on an already-initialized OutStream");
 
 		checkParam(t, 1, MDValue.Type.NativeObj);
@@ -532,17 +569,12 @@ static:
 			throwException(t, "instances of OutStream may only be created using instances of the Tango OutputStream");
 
 		memb.closable = optBoolParam(t, 2, true);
-
-		if(auto b = cast(BufferOutput)output)
-			memb.buf = b;
-		else
-			memb.buf = new BufferOutput(output);
-
-		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.buf);
+		memb.stream = output;
+		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.stream);
 		memb.closed = false;
 
-		pushNativeObj(t, memb.buf);    setExtraVal(t, 0, Fields.buf);
-		pushNativeObj(t, memb.print);  setExtraVal(t, 0, Fields.print);
+		pushNativeObj(t, cast(Object)memb.stream); setExtraVal(t, 0, Fields.stream);
+		pushNativeObj(t, memb.print);              setExtraVal(t, 0, Fields.print);
 
 		return 0;
 	}
@@ -560,7 +592,7 @@ static:
 		else
 			static assert(false);
 
-		safeCode(t, memb.buf.append(&val, val.sizeof));
+		safeCode(t, writeExact(t, memb, &val, val.sizeof));
 		dup(t, 0);
 		return 1;
 	}
@@ -573,8 +605,8 @@ static:
 		safeCode(t,
 		{
 			auto len = str.length;
-			memb.buf.append(&len, len.sizeof);
-			memb.buf.append(str.ptr, str.length * char.sizeof);
+			writeExact(t, memb, &len, len.sizeof);
+			writeExact(t, memb, str.ptr, str.length * char.sizeof);
 		}());
 
 		dup(t, 0);
@@ -645,7 +677,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, memb.buf.append(str.ptr, str.length * char.sizeof));
+		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
 		dup(t, 0);
 		return 1;
 	}
@@ -680,14 +712,14 @@ static:
 			throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
 
 		auto isize = vecMemb.type.itemSize;
-		memb.buf.append(vecMemb.data[cast(uword)lo * isize .. cast(uword)hi * isize]);
+		safeCode(t, writeExact(t, memb, vecMemb.data + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		dup(t, 0);
 		return 1;
 	}
 
 	public uword flush(MDThread* t, uword numParams)
 	{
-		safeCode(t, getOpenThis(t).buf.flush());
+		safeCode(t, getOpenThis(t).stream.flush());
 		dup(t, 0);
 		return 1;
 	}
@@ -703,23 +735,23 @@ static:
 		if(as(t, 1, -1))
 		{
 			pop(t);
-			stream = getMembers!(InStreamObj.Members)(t, 1).buf;
+			stream = getMembers!(InStreamObj.Members)(t, 1).stream;
 		}
 		else
 		{
 			pop(t);
-// 			pushGlobal(t, "InoutStream");
-// 
-// 			if(as(t, 1, -1))
-// 			{
-// 				pop(t);
-// 				stream = getMembers!(InoutStreamObj.Members)(t, 1).inbuf;
-// 			}
-// 			else
+			pushGlobal(t, "InoutStream");
+
+			if(as(t, 1, -1))
+			{
+				pop(t);
+				stream = getMembers!(InoutStreamObj.Members)(t, 1).conduit;
+			}
+			else
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
-		safeCode(t, memb.buf.copy(stream));
+		safeCode(t, memb.stream.copy(stream));
 		dup(t, 0);
 		return 1;
 	}
@@ -731,11 +763,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.buf.seek(pos, IOStream.Anchor.End));
+			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
 		else
 			throwException(t, "Invalid seek type '{}'", whence);
 
@@ -749,12 +781,12 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(mdint)memb.buf.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, cast(mdint)memb.stream.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
-			safeCode(t, memb.buf.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -762,9 +794,9 @@ static:
 	public uword size(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		auto pos = safeCode(t, memb.buf.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.buf.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.buf.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, memb.stream.seek(0, IOStream.Anchor.End));
+		safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(mdint)ret);
 		return 1;
 	}
@@ -777,8 +809,8 @@ static:
 			throwException(t, "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.buf.flush());
-		safeCode(t, memb.buf.close());
+		safeCode(t, memb.stream.flush());
+		safeCode(t, memb.stream.close());
 		return 0;
 	}
 
@@ -789,21 +821,19 @@ static:
 	}
 }
 
-/* struct InoutStreamObj
+struct InoutStreamObj
 {
 static:
 	enum Fields
 	{
-		inbuf,
-		outbuf,
+		conduit,
 		lines,
 		print
 	}
 
 	align(1) struct Members
 	{
-		BufferInput inbuf;
-		BufferOutput outbuf;
+		IConduit conduit;
 		Lines!(char) lines;
 		FormatOutput!(char) print;
 		bool closed = true;
@@ -886,6 +916,34 @@ static:
 		return ret;
 	}
 
+	private void readExact(MDThread* t, Members* memb, void* dest, uword size)
+	{
+		while(size > 0)
+		{
+			auto numRead = memb.conduit.read(dest[0 .. size]);
+
+			if(numRead == IOStream.Eof)
+				throwException(t, "End-of-flow encountered while reading");
+
+			size -= numRead;
+			dest += numRead;
+		}
+	}
+
+	private void writeExact(MDThread* t, Members* memb, void* src, uword size)
+	{
+		while(size > 0)
+		{
+			auto numWritten = memb.conduit.write(src[0 .. size]);
+
+			if(numWritten == IOStream.Eof)
+				throwException(t, "End-of-flow encountered while writing");
+
+			size -= numWritten;
+			src += numWritten;
+		}
+	}
+
 	uword allocator(MDThread* t, uword numParams)
 	{
 		newInstance(t, 0, Fields.max + 1, Members.sizeof);
@@ -908,11 +966,11 @@ static:
 			
 			if(memb.dirty)
 			{
-				safeCode(t, memb.outbuf.flush());
+				safeCode(t, memb.conduit.flush());
 				memb.dirty = false;
 			}
 
-			safeCode(t, memb.outbuf.close());
+			safeCode(t, memb.conduit.close());
 		}
 
 		return 0;
@@ -922,10 +980,8 @@ static:
 	{
 		auto memb = getThis(t);
 
-		if(memb.inbuf !is null || memb.outbuf !is null)
+		if(memb.conduit !is null)
 			throwException(t, "Attempting to call constructor on an already-initialized InoutStream");
-			
-		// BLARG
 
 		checkParam(t, 1, MDValue.Type.NativeObj);
 		auto conduit = cast(IConduit)getNativeObj(t, 1);
@@ -934,17 +990,14 @@ static:
 			throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
 
 		memb.closable = optBoolParam(t, 2, true);
-		
-		memb.inbuf = BufferInput.create(conduit);
-		memb.outbuf = BufferOutput.create(conduit);
-		memb.lines = new Lines!(char)(memb.inbuf);
-		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.outbuf);
+		memb.conduit = conduit;
+		memb.lines = new Lines!(char)(memb.conduit);
+		memb.print = new FormatOutput!(char)(t.vm.formatter, memb.conduit);
 		memb.closed = false;
 
-		pushNativeObj(t, memb.inbuf);  setExtraVal(t, 0, Fields.inbuf);
-		pushNativeObj(t, memb.outbuf); setExtraVal(t, 0, Fields.outbuf);
-		pushNativeObj(t, memb.lines);  setExtraVal(t, 0, Fields.lines);
-		pushNativeObj(t, memb.print);  setExtraVal(t, 0, Fields.print);
+		pushNativeObj(t, cast(Object)memb.conduit); setExtraVal(t, 0, Fields.conduit);
+		pushNativeObj(t, memb.lines);               setExtraVal(t, 0, Fields.lines);
+		pushNativeObj(t, memb.print);               setExtraVal(t, 0, Fields.print);
 
 		return 0;
 	}
@@ -954,8 +1007,8 @@ static:
 		if(memb.dirty)
 		{
 			memb.dirty = false;
-			safeCode(t, memb.outbuf.flush()); // may have to wrap this in a bullshit try-catch?
-			safeCode(t, memb.inbuf.clear());
+			safeCode(t, memb.conduit.flush()); // may have to wrap this in a bullshit try-catch?
+			safeCode(t, memb.conduit.clear());
 		}
 	}
 
@@ -965,8 +1018,8 @@ static:
 		checkDirty(t, memb);
 
 		T val = void;
-
-		safeCode(t, memb.inbuf.fill((cast(void*)&val)[0 .. T.sizeof], true));
+		
+		safeCode(t, readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
 			pushInt(t, val);
@@ -988,15 +1041,15 @@ static:
 		safeCode(t,
 		{
 			uword length = void;
-
-			safeCode(t, memb.inbuf.fill((cast(void*)&length)[0 .. length.sizeof], true));
+			
+			safeCode(t, readExact(t, memb, &length, length.sizeof));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
-				
-			safeCode(t, memb.inbuf.fill(dat, true));
+
+			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 
 			pushString(t, dat);
 		}());
@@ -1034,7 +1087,7 @@ static:
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 
-			safeCode(t, memb.inbuf.fill(dat, true));
+			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 			pushString(t, dat);
 		}());
 
@@ -1081,7 +1134,7 @@ static:
 		}
 
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-		safeCode(t, memb.inbuf.fill(vecMemb.data[0 .. numBytes], true));
+		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
 		return 1;
 	}
 
@@ -1122,7 +1175,7 @@ static:
 		else
 			static assert(false);
 
-		safeCode(t, memb.outbuf.append(&val, val.sizeof));
+		safeCode(t, writeExact(t, memb, &val, val.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1136,8 +1189,8 @@ static:
 		safeCode(t,
 		{
 			auto len = str.length;
-			memb.outbuf.append(&len, len.sizeof);
-			memb.outbuf.append(str.ptr, str.length * char.sizeof);
+			writeExact(t, memb, &len, len.sizeof);
+			writeExact(t, memb, str.ptr, str.length * char.sizeof);
 		}());
 
 		memb.dirty = true;
@@ -1217,7 +1270,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, memb.outbuf.append(str.ptr, str.length * char.sizeof));
+		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1254,7 +1307,7 @@ static:
 			throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
 
 		auto isize = vecMemb.type.itemSize;
-		memb.outbuf.append(vecMemb.data[cast(uword)lo * isize .. cast(uword)hi * isize]);
+		safeCode(t, writeExact(t, memb, vecMemb.data + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1263,8 +1316,8 @@ static:
 	public uword flush(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.outbuf.flush());
-		safeCode(t, memb.inbuf.clear());
+		safeCode(t, memb.conduit.flush());
+		safeCode(t, memb.conduit.clear());
 		memb.dirty = false;
 		dup(t, 0);
 		return 1;
@@ -1281,7 +1334,7 @@ static:
 		if(as(t, 1, -1))
 		{
 			pop(t);
-			stream = getMembers!(InStreamObj.Members)(t, 1).buf;
+			stream = getMembers!(InStreamObj.Members)(t, 1).stream;
 		}
 		else
 		{
@@ -1291,13 +1344,13 @@ static:
 			if(as(t, 1, -1))
 			{
 				pop(t);
-				stream = getMembers!(InoutStreamObj.Members)(t, 1).buf;
+				stream = getMembers!(InoutStreamObj.Members)(t, 1).conduit;
 			}
 			else
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
-		safeCode(t, memb.outbuf.copy(stream));
+		safeCode(t, memb.conduit.copy(stream));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1306,8 +1359,23 @@ static:
 	public uword skip(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
+		auto dist = checkIntParam(t, 1);
+
+		if(dist < 0)
+			throwException(t, "Invalid skip distance {} (must be >= 0)", dist);
+
 		checkDirty(t, memb);
-		safeCode(t, memb.inbuf.skip(checkIntParam(t, 1)));
+
+		// it's OK if this is shared - it's just a bit bucket
+		static ubyte[1024] dummy;
+
+		while(dist > 0)
+		{
+			uword numBytes = dist < dummy.length ? dist : dummy.length;
+			safeCode(t, readExact(t, memb, dummy.ptr, numBytes));
+			dist -= numBytes;
+		}
+
 		return 0;
 	}
 
@@ -1319,11 +1387,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.End));
+			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.End));
 		else
 			throwException(t, "Invalid seek type '{}'", whence);
 
@@ -1337,13 +1405,13 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(mdint)memb.inbuf.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, cast(mdint)memb.conduit.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
 			checkDirty(t, memb);
-			safeCode(t, memb.inbuf.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, memb.conduit.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -1352,9 +1420,9 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
-		auto pos = safeCode(t, memb.inbuf.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.inbuf.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.inbuf.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, memb.conduit.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, memb.conduit.seek(0, IOStream.Anchor.End));
+		safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(mdint)ret);
 		return 1;
 	}
@@ -1367,8 +1435,8 @@ static:
 			throwException(t, "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.outbuf.flush()); // maybe a bullshit try-catch here too
-		safeCode(t, memb.outbuf.close());
+		safeCode(t, memb.conduit.flush()); // maybe a bullshit try-catch here too
+		safeCode(t, memb.conduit.close());
 		
 		return 0;
 	}
@@ -1378,4 +1446,4 @@ static:
 		pushBool(t, !getThis(t).closed);
 		return 1;
 	}
-} */
+}

@@ -28,6 +28,7 @@ module minid.iolib;
 import Path = tango.io.Path;
 import tango.io.device.File;
 import tango.io.FileSystem;
+import tango.io.stream.Buffer;
 import tango.io.UnicodeFile;
 import tango.util.PathUtil;
 
@@ -61,7 +62,7 @@ static:
 
 			newFunction(t, &inFile,       "inFile");       newGlobal(t, "inFile");
 			newFunction(t, &outFile,      "outFile");      newGlobal(t, "outFile");
-// 			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
+			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
 			newFunction(t, &rename,       "rename");       newGlobal(t, "rename");
 			newFunction(t, &remove,       "remove");       newGlobal(t, "remove");
 			newFunction(t, &copy,         "copy");         newGlobal(t, "copy");
@@ -101,7 +102,7 @@ static:
 	uword inFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		auto f = safeCode(t, new File(name, File.ReadExisting));
+		auto f = safeCode(t, new BufferInput(new File(name, File.ReadExisting)));
 
 		lookupCT!("stream.InStream")(t);
 		pushNull(t);
@@ -127,7 +128,7 @@ static:
 				throwException(t, "Unknown open mode '{}'", mode);
 		}
 
-		auto f = safeCode(t, new File(name, style));
+		auto f = safeCode(t, new BufferOutput(new File(name, style)));
 
 		lookupCT!("stream.OutStream")(t);
 		pushNull(t);
@@ -137,33 +138,34 @@ static:
 		return 1;
 	}
 
-// 	uword inoutFile(MDThread* t, uword numParams)
-// 	{
-// 		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
-// 
-// 		auto name = checkStringParam(t, 1);
-// 		auto mode = optCharParam(t, 2, 'o');
-// 
-// 		File.Style style;
-// 
-// 		switch(mode)
-// 		{
-// 			case 'o': style = File.ReadWriteExisting; break;
-// 			case 'a': style = ReadWriteAppending;     break;
-// 			case 'c': style = File.ReadWriteCreate;   break;
-// 			default:
-// 				throwException(t, "Unknown open mode '{}'", mode);
-// 		}
-// 
-// 		auto f = safeCode(t, new File(name, style));
-// 
-// 		lookupCT!("stream.InoutStream")(t);
-// 		pushNull(t);
-// 		pushNativeObj(t, f);
-// 		rawCall(t, -3, 1);
-// 
-// 		return 1;
-// 	}
+	uword inoutFile(MDThread* t, uword numParams)
+	{
+		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
+
+		auto name = checkStringParam(t, 1);
+		auto mode = optCharParam(t, 2, 'o');
+
+		File.Style style;
+
+		switch(mode)
+		{
+			case 'o': style = File.ReadWriteExisting; break;
+			case 'a': style = ReadWriteAppending;     break;
+			case 'c': style = File.ReadWriteCreate;   break;
+			default:
+				throwException(t, "Unknown open mode '{}'", mode);
+		}
+
+		// TODO: figure out some way of making inout files buffered (sigh...)
+		auto f = safeCode(t, new File(name, style));
+
+		lookupCT!("stream.InoutStream")(t);
+		pushNull(t);
+		pushNativeObj(t, f);
+		rawCall(t, -3, 1);
+
+		return 1;
+	}
 
 	uword rename(MDThread* t, uword numParams)
 	{
