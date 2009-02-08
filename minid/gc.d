@@ -333,7 +333,7 @@ void markObj(MDVM* vm, MDThread* o)
 	if(o.hookFunc)
 		markObj(vm, o.hookFunc);
 
-	version(MDRestrictedCoro) {} else
+	version(MDExtendedCoro)
 	{
 		if(o.coroFiber)
 			markObj(vm, o.coroFiber);

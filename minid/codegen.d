@@ -1515,7 +1515,7 @@ final class FuncState
 
 	public uint codeFinally(uint line)
 	{
-		return codeJ(line, Op.PushFinally, 0, NoJump);
+		return codeJ(line, Op.PushFinally, mFreeReg, NoJump);
 	}
 
 	public void codeContinue(CompileLoc location)

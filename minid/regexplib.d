@@ -386,16 +386,16 @@ struct RegexpLib
 			uword lastStart = 0;
 			char[] tmp = str;
 
-	        foreach(r; rex.search(str))
-	        {
-	            tmp = rex.pre();
+			foreach(r; rex.search(str))
+			{
+				tmp = rex.pre();
 
-	            pushString(t, tmp[lastStart .. $]);
-	            cateq(t, ret, 1);
+				pushString(t, tmp[lastStart .. $]);
+				cateq(t, ret, 1);
 
-	            lastStart = r.match(0).ptr - str.ptr;
-	            tmp = rex.post();
-	        }
+				lastStart = r.match(0).ptr - str.ptr;
+				tmp = rex.post();
+			}
 
 			pushString(t, tmp);
 			cateq(t, ret, 1);
@@ -424,7 +424,7 @@ struct RegexpLib
 
 			if(!safeCode(t, rex.test()))
 				return 0;
-				
+
 			pushInt(t, idx);
 			dup(t, 0);
 			return 2;

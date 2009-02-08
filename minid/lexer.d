@@ -535,6 +535,37 @@ struct Lexer
 			mLoc.col = 1;
 		}
 	}
+	
+	// This expects the input string to consist entirely of digits within the valid range of radix
+	private bool convertInt(dchar[] str, out mdint ret, uint radix)
+	{
+		ret = 0;
+
+		foreach(c; str)
+		{
+			if (c >= '0' && c <= '9')
+			{}
+			else if (c >= 'a' && c <= 'z')
+				c -= 39;
+			else if (c >= 'A' && c <= 'Z')
+				c -= 7;
+			else
+				assert(false);
+
+			c -= '0';
+
+			assert(c < radix);
+
+			auto newValue = ret * radix + c;
+
+			if(newValue < ret)
+				return false;
+
+			ret = newValue;
+		}
+
+		return true;
+	}
 
 	private bool readNumLiteral(bool prependPoint, out mdfloat fret, out mdint iret)
 	{
@@ -578,11 +609,9 @@ struct Lexer
 
 							nextChar();
 						}
-
-						try
-							iret = Integer.toLong(buf[0 .. i], 2);
-						catch(IllegalArgumentException e)
-							mCompiler.exception(beginning, "Invalid binary integer literal");
+						
+						if(!convertInt(buf[0 .. i], iret, 2))
+							mCompiler.exception(beginning, "Binary integer literal overflow");
 
 						return true;
 
@@ -600,10 +629,8 @@ struct Lexer
 							nextChar();
 						}
 
-						try
-							iret = Integer.toLong(buf[0 .. i], 16);
-						catch(IllegalArgumentException e)
-							mCompiler.exception(beginning, "Invalid hexadecimal integer literal");
+						if(!convertInt(buf[0 .. i], iret, 16))
+							mCompiler.exception(beginning, "Hexadecimal integer literal overflow");
 
 						return true;
 
@@ -702,10 +729,8 @@ struct Lexer
 
 		if(!hasPoint && !hasExponent)
 		{
-			try
-				iret = Integer.toLong(buf[0 .. i], 10);
-			catch(IllegalArgumentException e)
-				mCompiler.exception(beginning, "Invalid decimal integer literal");
+			if(!convertInt(buf[0 .. i], iret, 10))
+				mCompiler.exception(beginning, "Decimal integer literal overflow");
 
 			return true;
 		}

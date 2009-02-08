@@ -26,7 +26,7 @@ subject to the following restrictions:
 
 module minid.types;
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 	import tango.core.Thread;
 
 import tango.text.convert.Layout;
@@ -110,21 +110,9 @@ final class MDHaltException : Exception
 }
 
 /**
-A string constant indicating the level of coroutine support compiled in.  Is one of "Restricted",
-"Normal", or "Extended".
+A string constant indicating the level of coroutine support compiled in.  Is either "Normal" or "Extended".
 */
-version(MDRestrictedCoro)
-{
-	version(MDExtendedCoro)
-	{
-		pragma(msg, "The 'MDRestrictedCoro' and 'MDExtendedCoro' versions are mutually exclusive.");
-		pragma(msg, "Please define one or the other (or neither), not both.\n");
-		static assert(false, "FAILCOPTER.");
-	}
-
-	const char[] MDCoroSupport = "Restricted";
-}
-else version(MDExtendedCoro)
+version(MDExtendedCoro)
 	const char[] MDCoroSupport = "Extended";
 else
 	const char[] MDCoroSupport = "Normal";
@@ -542,7 +530,7 @@ struct ActRecord
 struct TryRecord
 {
 	package bool isCatch;
-	package RelStack catchVarSlot;
+	package RelStack slot;
 	package uword actRecord;
 	package Instruction* pc;
 }
@@ -608,13 +596,7 @@ struct MDThread
 	package uint hookCounter;
 	package MDFunction* hookFunc;
 
-	version(MDExtendedCoro) {} else
-	{
-		package uword savedCallDepth;
-		package uword nativeCallDepth = 0;
-	}
-
-	version(MDRestrictedCoro) {} else
+	version(MDExtendedCoro)
 	{
 		// References a Fiber object
 		package MDNativeObj* coroFiber;
@@ -624,6 +606,11 @@ struct MDThread
 			assert(coroFiber !is null);
 			return cast(Fiber)cast(void*)coroFiber.obj;
 		}
+	}
+	else
+	{
+		package uword savedCallDepth;
+		package uword nativeCallDepth = 0;
 	}
 }
 
@@ -736,11 +723,9 @@ struct MDVM
 	package MDNativeObj*[Object] nativeObjs;
 	package Layout!(char) formatter;
 
-	version(MDRestrictedCoro) {} else
-	{
+	version(MDExtendedCoro)
 		version(MDPoolFibers)
 			package bool[Fiber] fiberPool;
-	}
 }
 
 package enum MM

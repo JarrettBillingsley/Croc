@@ -31,7 +31,7 @@ module minid.interpreter;
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 	import tango.core.Thread;
 
 import tango.core.Exception;
@@ -959,7 +959,8 @@ Creates a new thread object (coroutine) and pushes it onto the stack.
 
 Params:
 	func = The slot which contains the function to be used as the coroutine's body.
-		This can be either a MiniD or native function.
+		If extended coroutine support is enabled, this can be a native or script function;
+		otherwise, it must be a script function.
 
 Returns:
 	The stack index of the newly-created thread.
@@ -974,7 +975,7 @@ word newThread(MDThread* t, word func)
 		throwException(t, "newThread - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
 
-	version(MDRestrictedCoro)
+	version(MDExtendedCoro) {} else
 	{
 		if(f.isNative)
 			throwException(t, "newThread - Native functions may not be used as the body of a coroutine");
@@ -2412,7 +2413,7 @@ void setExtraVal(MDThread* t, word slot, uword idx)
 
 	if(auto i = getInstance(t, slot))
 	{
-		if(idx > i.numValues)
+		if(idx >= i.numValues)
 			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
 		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
@@ -2641,7 +2642,7 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 			throwException(t, "resetThread - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
-		version(MDRestrictedCoro)
+		version(MDExtendedCoro) {} else
 		{
 			if(f.isNative)
 				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
@@ -2651,7 +2652,7 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 		pop(t);
 	}
 
-	version(MDRestrictedCoro) {} else
+	version(MDExtendedCoro)
 	{
 		if(other.coroFiber)
 		{
@@ -2663,12 +2664,10 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 	other.state = MDThread.State.Initial;
 }
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 {
 	/**
-	Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
-	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
-	extended mode, it will always work.
+	Yield out of a coroutine.  This function is not available in normal coroutine mode, only in extended mode.
 
 	You cannot _yield out of a thread that is not currently executing, nor can you _yield out of the main thread of
 	a VM.
@@ -2706,12 +2705,6 @@ setGlobal(t, "x");
 
 		if(t is t.vm.mainThread)
 			throwException(t, "yield - Attempting to yield out of the main thread");
-
-		version(MDExtendedCoro) {} else
-		{
-			if(t.coroFiber is null)
-				throwException(t, "yield - Attempting to yield out of a script coroutine");
-		}
 
 		if(Fiber.getThis() !is t.getFiber())
 			throwException(t, "yield - Attempting to yield the wrong thread");
@@ -4452,7 +4445,7 @@ void runFinalizers(MDThread* t)
 			if(i.finalizer)
 			{
 				auto oldLimit = t.vm.alloc.gcLimit;
-				t.vm.alloc.gcLimit = typeof(t.vm.alloc.gcLimit).max;
+				t.vm.alloc.gcLimit = typeof(oldLimit).max;
 
 				auto size = stackSize(t);
 
@@ -4464,6 +4457,7 @@ void runFinalizers(MDThread* t)
 				}
 				catch(MDException e)
 				{
+					// TODO: this seems like a bad idea.
 					catchException(t);
 					pop(t);
 					setStackSize(t, size);
@@ -4982,6 +4976,24 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 
 bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
+	void wrapEH(void delegate() dg)
+	{
+		try
+			dg();
+		catch(MDException e)
+		{
+			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
+			callEpilogue(t, false);
+			throw e;
+		}
+		catch(MDHaltException e)
+		{
+			unwindEH(t);
+			callEpilogue(t, false);
+			throw e;
+		}
+	}
+
 	if(!func.isNative)
 	{
 		// Script function
@@ -5038,47 +5050,11 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		t.stackIndex = ar.savedTop;
 		
 		// Call any hook.
-		try
-		{
+		wrapEH
+		({
 			if(t.hooks & MDThread.Hook.Call)
 				callHook(t, MDThread.Hook.Call);
-		}
-		catch(MDException e)
-		{
-			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
-			callEpilogue(t, false);
-			throw e;
-		}
-		catch(MDHaltException e)
-		{
-			// TODO: investigate?
-			version(MDExtendedCoro)
-			{
-				if(t.arIndex > 0)
-				{
-					callEpilogue(t, false);
-					throw e;
-				}
-
-				return false;
-			}
-			else
-			{
-				if(t.nativeCallDepth > 0)
-				{
-					callEpilogue(t, false);
-					throw e;
-				}
-
-				saveResults(t, t, cast(AbsStack)0, 0);
-				callEpilogue(t, true);
-
-				if(t.arIndex > 0)
-					throw e;
-
-				return false;
-			}
-		}
+		});
 
 		return true;
 	}
@@ -5105,8 +5081,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 
 		uword actualReturns = void;
 
-		try
-		{
+		wrapEH
+		({
 			if(t.hooks & MDThread.Hook.Call)
 				callHook(t, MDThread.Hook.Call);
 
@@ -5122,43 +5098,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			scope(exit) t.state = savedState;
 
 			actualReturns = func.nativeFunc(t, numParams - 1);
-		}
-		catch(MDException e)
-		{
-			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
-			callEpilogue(t, false);
-			throw e;
-		}
-		catch(MDHaltException e)
-		{
-			// TODO: investigate?
-			version(MDExtendedCoro)
-			{
-				if(t.arIndex > 0)
-				{
-					callEpilogue(t, false);
-					throw e;
-				}
-
-				return false;
-			}
-			else
-			{
-				if(t.nativeCallDepth > 0)
-				{
-					callEpilogue(t, false);
-					throw e;
-				}
-
-				saveResults(t, t, cast(AbsStack)0, 0);
-				callEpilogue(t, true);
-
-				if(t.arIndex > 0)
-					throw e;
-
-				return false;
-			}
-		}
+		});
 
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);
 		callEpilogue(t, true);
@@ -5251,6 +5191,12 @@ MDValue[] loadResults(MDThread* t)
 	t.currentAR.numResults = 0;
 	t.resultIndex -= num;
 	return ret;
+}
+
+void unwindEH(MDThread* t)
+{
+	while(t.trIndex > 0 && t.currentTR.actRecord >= t.arIndex)
+		popTR(t);
 }
 
 // ============================================================================
@@ -6725,6 +6671,12 @@ void throwImpl(MDThread* t, MDValue* ex)
 
 void importImpl(MDThread* t, MDString* name, AbsStack dest)
 {
+	version(MDExtendedCoro) {} else
+	{
+		t.nativeCallDepth++;
+		scope(exit) t.nativeCallDepth--;	
+	}
+
 	pushGlobal(t, "modules");
 	field(t, -1, "load");
 	insertAndPop(t, -2);
@@ -6928,7 +6880,7 @@ word typeString(MDThread* t, MDValue* v)
 // ============================================================================
 // Coroutines
 
-version(MDRestrictedCoro) {} else
+version(MDExtendedCoro)
 {
 	class ThreadFiber : Fiber
 	{
@@ -6974,9 +6926,7 @@ bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues
 
 	t.state = MDThread.State.Suspended;
 
-	version(MDRestrictedCoro)
-		return true;
-	else version(MDExtendedCoro)
+	version(MDExtendedCoro)
 	{
 		Fiber.yield();
 		t.state = MDThread.State.Running;
@@ -6985,67 +6935,28 @@ bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues
 		return false;
 	}
 	else
-	{
-		if(t.coroFunc.isNative)
-		{
-			Fiber.yield();
-			t.state = MDThread.State.Running;
-			t.vm.curThread = t;
-			callEpilogue(t, true);
-			return false;
-		}
-		else
-			return true;
-	}
+		return true;
 }
 
 uword resume(MDThread* t, uword numParams)
 {
-	version(MDExtendedCoro)
+	try
 	{
-		if(t.state == MDThread.State.Initial)
+		version(MDExtendedCoro)
 		{
-			if(t.coroFiber is null)
-				t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t));
-			else
-				(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
-		}
-
-		t.getFiber().call();
-		return t.numYields;
-	}
-	else version(MDRestrictedCoro)
-	{
-		if(t.state == MDThread.State.Initial)
-		{
-			pushFunction(t, t.coroFunc);
-			insert(t, 1);
-			auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
-			assert(result == true, "resume callPrologue must return true");
-			execute(t);
-		}
-		else
-		{
-			callEpilogue(t, true);
-			execute(t, t.savedCallDepth);
-		}
-
-		return t.numYields;
-	}
-	else
-	{
-		if(t.state == MDThread.State.Initial)
-		{
-			if(t.coroFunc.isNative)
+			if(t.state == MDThread.State.Initial)
 			{
 				if(t.coroFiber is null)
 					t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t));
 				else
 					(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
-
-				t.getFiber().call();
 			}
-			else
+	
+			t.getFiber().call();
+		}
+		else
+		{
+			if(t.state == MDThread.State.Initial)
 			{
 				pushFunction(t, t.coroFunc);
 				insert(t, 1);
@@ -7053,23 +6964,21 @@ uword resume(MDThread* t, uword numParams)
 				assert(result == true, "resume callPrologue must return true");
 				execute(t);
 			}
-		}
-		else
-		{
-			if(t.coroFunc.isNative)
-			{
-				assert(t.coroFiber !is null);
-				t.getFiber().call();
-			}
 			else
 			{
 				callEpilogue(t, true);
 				execute(t, t.savedCallDepth);
 			}
 		}
-
-		return t.numYields;
 	}
+	catch(MDHaltException e)
+	{
+		assert(t.arIndex == 0);
+		unwindEH(t);
+		t.numYields = 0;
+	}
+
+	return t.numYields;
 }
 
 // ============================================================================
@@ -7316,7 +7225,7 @@ void execute(MDThread* t, uword depth = 1)
 		while(true)
 		{
 			if(t.shouldHalt)
-				throw new MDHaltException();
+				throw new MDHaltException;
 
 			auto i = t.currentAR.pc;
 			t.currentAR.pc++;
@@ -7656,7 +7565,7 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.PushCatch:
 					auto tr = pushTR(t);
 					tr.isCatch = true;
-					tr.catchVarSlot = cast(RelStack)i.rd;
+					tr.slot = cast(RelStack)i.rd;
 					tr.pc = t.currentAR.pc + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
@@ -7664,6 +7573,7 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.PushFinally:
 					auto tr = pushTR(t);
 					tr.isCatch = false;
+					tr.slot = cast(RelStack)i.rd;
 					tr.pc = t.currentAR.pc + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
@@ -7996,7 +7906,9 @@ void execute(MDThread* t, uword depth = 1)
 					if(t is t.vm.mainThread)
 						throwException(t, "Attempting to yield out of the main thread");
 
-					version(MDRestrictedCoro)
+					version(MDExtendedCoro)
+						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
+					else
 					{
 						if(t.nativeCallDepth > 0)
 							throwException(t, "Attempting to yield across native / metamethod call boundary");
@@ -8004,19 +7916,6 @@ void execute(MDThread* t, uword depth = 1)
 						t.savedCallDepth = depth;
 						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
 						return;
-					}
-					else version(MDExtendedCoro)
-					{
-						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
-					}
-					else
-					{
-						if(t.nativeCallDepth > 0 && !t.coroFunc.isNative)
-							throwException(t, "Attempting to yield from script coroutine across native / metamethod call boundary");
-
-						t.savedCallDepth = depth;
-						if(yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1))
-							return;
 					}
 
 					break;
@@ -8222,7 +8121,7 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Coroutines must be created with a function, not '{}'", getString(t, -1));
 					}
 					
-					version(MDRestrictedCoro)
+					version(MDExtendedCoro) {} else
 					{
 						if(RS.mFunction.isNative)
 							throwException(t, "Native functions may not be used as the body of a coroutine");
@@ -8294,10 +8193,11 @@ void execute(MDThread* t, uword depth = 1)
 				auto tr = *t.currentTR;
 				popTR(t);
 
+				auto base = t.stackBase + tr.slot;
+				close(t, base);
+
 				if(tr.isCatch)
 				{
-					auto base = t.stackBase + tr.catchVarSlot;
-
 					t.stack[base] = t.vm.exception;
 					t.vm.exception = MDValue.nullValue;
 					t.vm.isThrowing = false;
@@ -8327,6 +8227,7 @@ void execute(MDThread* t, uword depth = 1)
 				}
 			}
 
+			close(t, t.stackBase);
 			callEpilogue(t, false);
 			depth--;
 		}
@@ -8337,22 +8238,12 @@ void execute(MDThread* t, uword depth = 1)
 	{
 		while(depth > 0)
 		{
+			close(t, t.stackBase);
 			callEpilogue(t, false);
 			depth--;
 		}
-
-		// TODO: investigate?
-		version(MDExtendedCoro)
-		{
-			if(t.arIndex > 0)
-				throw e;
-		}
-		else
-		{
-			if(t.nativeCallDepth > 0)
-				throw e;
-		}
-
-		return;
+		
+		unwindEH(t);
+		throw e;
 	}
 }
