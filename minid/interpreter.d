@@ -5141,7 +5141,7 @@ void callEpilogue(MDThread* t, bool needResults)
 	}
 	else
 		t.numYields = 0;
-		
+
 	if(t.arIndex == 0)
 	{
 		t.state = MDThread.State.Dead;
@@ -6974,8 +6974,12 @@ uword resume(MDThread* t, uword numParams)
 	catch(MDHaltException e)
 	{
 		assert(t.arIndex == 0);
-		unwindEH(t);
-		t.numYields = 0;
+		assert(t.upvalHead is null);
+		assert(t.resultIndex == 0);
+		assert(t.trIndex == 0);
+
+		version(MDExtendedCoro) {} else
+			assert(t.nativeCallDepth == 0);
 	}
 
 	return t.numYields;
