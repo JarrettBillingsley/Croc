@@ -61,7 +61,10 @@ void init(MDThread* t)
 			WrapValue!("Left", ARC_LEFT),
 			WrapValue!("Right", ARC_RIGHT),
 			WrapValue!("Esc", ARC_ESCAPE),
-			WrapValue!("Space", ARC_SPACE)
+			WrapValue!("Space", ARC_SPACE),
+			WrapValue!("S", cast(int)'s'),
+			WrapValue!("X", cast(int)'x'),
+			WrapValue!("Z", cast(int)'z')
 		),
 
 		WrapNamespace!

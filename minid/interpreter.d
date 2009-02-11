@@ -7883,7 +7883,7 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Invalid vararg slice indices [{} .. {}]", lo, hi);
 
 					auto sliceSize = cast(uword)(hi - lo);
-					auto src = stackBase + cast(uword)lo;
+					auto src = t.currentAR.vargBase + cast(uword)lo;
 					auto dest = stackBase + cast(uword)i.rd;
 
 					uword numNeeded = void;

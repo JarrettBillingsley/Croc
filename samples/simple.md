@@ -1,6 +1,8 @@
 module samples.simple
 
-
+writeln(1)
+thread.halt()
+writeln(2)
 
 /+
 // Making sure finally blocks are executed.
