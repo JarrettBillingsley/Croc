@@ -105,6 +105,7 @@ enum Op : ushort
 	PushCatch,
 	PushFinally,
 	Ret,
+	SaveRets,
 	SetArray,
 	Shl,
 	ShlEq,
@@ -120,6 +121,7 @@ enum Op : ushort
 	SwitchCmp,
 	Tailcall,
 	Throw,
+	Unwind,
 	UShr,
 	UShrEq,
 	Vararg,
@@ -206,7 +208,8 @@ PopCatch..........I: n/a, n/a
 PopFinally........I: n/a, n/a
 PushCatch.........J: exception reg, branch offset
 PushFinally.......J: base reg, branch offset
-Ret...............I: base reg, num rets + 1 (0 = return all to end of stack)
+Ret...............I: n/a, n/a
+SaveRets..........I: base reg, num rets + 1 (0 = save all to end of stack)
 SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
 Shl...............R: dest, src, src
 ShlEq.............R: dest, src, n/a
@@ -222,6 +225,7 @@ Switch............R: n/a, src, index of switch table
 SwitchCmp.........R: n/a, src, src
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
 Throw.............R: n/a, src, n/a
+Unwind............I: n/a, number of levels
 UShr..............R: dest, src, src
 UShrEq............R: dest, src, n/a
 Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
@@ -370,7 +374,8 @@ align(1) struct Instruction
 			case Op.PopFinally:      return "popfinally";
 			case Op.PushCatch:       return Format("pushcatch r{}, {}", rd, imm);
 			case Op.PushFinally:     return Format("pushfinal r{}, {}", rd, imm);
-			case Op.Ret:             return Format("ret r{}, {}", rd, uimm);
+			case Op.Ret:             return "ret";
+			case Op.SaveRets:        return Format("saverets r{}, {}", rd, uimm);
 			case Op.SetArray:        return Format("setarray r{}, {}, block {}", rd, rs, rt);
 			case Op.Shl:             return Format("shl {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ShlEq:           return Format("shleq {}, {}", cr(rd), cr(rs));
@@ -386,6 +391,7 @@ align(1) struct Instruction
 			case Op.SwitchCmp:       return Format("swcmp {}, {}", cr(rs), cr(rt));
 			case Op.Tailcall:        return Format("tcall r{}, {}", rd, rs);
 			case Op.Throw:           return Format("throw {}", cr(rs));
+			case Op.Unwind:          return Format("unwind {}", uimm);
 			case Op.UShr:            return Format("ushr {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.UShrEq:          return Format("ushreq {}, {}", cr(rd), cr(rs));
 			case Op.Vararg:          return Format("varg r{}, {}", rd, uimm);
@@ -399,8 +405,6 @@ align(1) struct Instruction
 			default:                 return Format("??? opcode = {}", opcode);
 		}
 	}
-	
-	private const bool SerializeAsChunk = true;
 }
 
 static assert(Instruction.sizeof == 8);

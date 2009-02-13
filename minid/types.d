@@ -526,6 +526,8 @@ struct ActRecord
 	package uword numTailcalls;
 	package uword firstResult;
 	package uword numResults;
+	package uword unwindCounter = 0;
+	package Instruction* unwindReturn = null;
 }
 
 struct TryRecord

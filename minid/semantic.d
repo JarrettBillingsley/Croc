@@ -2,7 +2,7 @@
 This module contains an AST visitor which performs semantic analysis on a
 parsed AST.  Semantic analysis rewrites some language constructs in terms of
 others, performs constant folding, and checks what little it can for
-correctness.  
+correctness.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -38,6 +38,7 @@ import minid.utils;
 class Semantic : IdentityVisitor
 {
 	private word mFuncDepth = 0;
+	private uword mDummyNameCounter = 0;
 
 	public this(ICompiler c)
 	{
@@ -53,9 +54,8 @@ class Semantic : IdentityVisitor
 	
 	public override Module visit(Module m)
 	{
-		foreach(ref stmt; m.statements)
-			stmt = visit(stmt);
-
+		m.statements = visit(m.statements);
+		
 		if(m.decorator)
 			m.decorator = visit(m.decorator);
 
@@ -73,7 +73,7 @@ class Semantic : IdentityVisitor
 
 		scope(exit)
 			mFuncDepth--;
-			
+
 		return visitFuncDef(d);
 	}
 
@@ -109,7 +109,7 @@ class Semantic : IdentityVisitor
 			if(!(p.typeMask & (1 << type)))
 				c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, MDValue.typeString(type));
 		}
-
+		
 		d.code = visit(d.code);
 
 		scope extra = new List!(Statement)(c.alloc);
@@ -259,10 +259,140 @@ class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override BlockStmt visit(BlockStmt s)
+	public override Statement visit(BlockStmt s)
 	{
-		foreach(ref stmt; s.statements)
+		Identifier genDummyVar(CompileLoc loc)
+		{
+			pushFormat(c.thread, "__scope{}", mDummyNameCounter++);
+			auto str = c.newString(getString(c.thread, -1));
+			pop(c.thread);
+			return new(c) Identifier(c, loc, str);
+		}
+
+		foreach(i, ref stmt; s.statements)
+		{
 			stmt = visit(stmt);
+
+			// Do we need to process a scope statement?
+			auto ss = stmt.as!(ScopeActionStmt);
+			
+			if(ss is null)
+				continue;
+
+			// Get all the statements that follow this scope statement.
+			auto rest = s.statements[i + 1 .. $];
+
+			if(rest.length == 0)
+			{
+				// If there are no more statements, the body of the scope statement will either always or never be run
+				if(ss.type == ScopeActionStmt.Exit || ss.type == ScopeActionStmt.Success)
+					stmt = ss.stmt;
+				else
+					c.alloc.resizeArray(s.statements, s.statements.length - 1);
+
+				// This is the last item, so just break.
+				break;
+			}
+
+			// Have to rewrite the statements.  Scope statements are just fancy ways of writing try-catch-finally blocks.
+			rest = c.alloc.dupArray(rest);
+			auto tryBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, rest[0].location, rest[$ - 1].endLocation, rest));
+			Statement replacement;
+
+			switch(ss.type)
+			{
+				case ScopeActionStmt.Exit:
+					/*
+					scope(exit) { ss.stmt }
+					rest
+					=>
+					try { rest }
+					finally { ss.stmt }
+					*/
+					replacement = visit(new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, null, null, ss.stmt));
+					break;
+
+				case ScopeActionStmt.Success:
+					/*
+					scope(success) { ss.stmt }
+					rest
+					=>
+					local __dummy = true
+					try { rest }
+					catch(__dummy2) { __dummy = false; throw __dummy2 }
+					finally { if(__dummy) ss.stmt }
+					*/
+
+					// local __dummy = true
+					auto finishedVar = genDummyVar(ss.endLocation);
+					auto finishedVarExp = new(c) IdentExp(c, finishedVar);
+					Statement declStmt;
+					{
+						scope nameList = new List!(Identifier)(c.alloc);
+						nameList ~= finishedVar;
+						auto initializer = new(c) BoolExp(c, ss.location, true);
+						declStmt = new(c) VarDecl(c, ss.location, ss.location, Protection.Local, nameList.toArray(), initializer);
+					}
+					
+					// catch(__dummy2) { __dummy = false; throw __dummy2 }
+					auto catchVar = genDummyVar(ss.location);
+					ScopeStmt catchBody;
+
+					{
+						scope dummy = new List!(Statement)(c.alloc);
+						// __dummy = true;
+						scope lhs = new List!(Expression)(c.alloc);
+						lhs ~= finishedVarExp;
+						dummy ~= new(c) AssignStmt(c, ss.location, ss.location, lhs.toArray(), new(c) BoolExp(c, ss.location, false));
+						// throw __dummy2
+						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar));
+						auto code = dummy.toArray();
+						catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
+					}
+					
+					// finally { if(__dummy) ss.stmt }
+					ScopeStmt finallyBody;
+					
+					{
+						scope dummy = new List!(Statement)(c.alloc);
+						// if(__dummy) ss.stmt
+						dummy ~= new(c) IfStmt(c, ss.location, ss.endLocation, null, finishedVarExp, ss.stmt, null);
+						auto code = dummy.toArray();
+						finallyBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
+					}
+
+					// Put it all together
+					scope code = new List!(Statement)(c.alloc);
+					code ~= declStmt;
+					code ~= new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, catchVar, catchBody, finallyBody);
+					auto codeArr = code.toArray();
+					replacement = visit(new(c) ScopeStmt(c, new(c) BlockStmt(c, codeArr[0].location, codeArr[$ - 1].endLocation, codeArr)));
+					break;
+
+				case ScopeActionStmt.Failure:
+					/*
+					scope(failure) { ss.stmt }
+					rest
+					=>
+					try { rest }
+					catch(__dummy) { ss.stmt; throw __dummy }
+					*/
+					auto catchVar = genDummyVar(ss.location);
+					scope dummy = new List!(Statement)(c.alloc);
+					dummy ~= ss.stmt;
+					dummy ~= new(c) ThrowStmt(c, ss.stmt.endLocation, new(c) IdentExp(c, catchVar));
+					auto catchCode = dummy.toArray();
+					auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
+					replacement = visit(new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, catchVar, catchBody, null));
+					break;
+
+				default: assert(false);
+			}
+
+			c.alloc.resizeArray(s.statements, i + 1);
+			// can't use stmt here since we've resized the array and it might not be valid
+			s.statements[i] = replacement;
+		}
 
 		return s;
 	}
@@ -624,6 +754,12 @@ class Semantic : IdentityVisitor
 	{
 		s.exp = visit(s.exp);
 		return s;
+	}
+	
+	public override ScopeActionStmt visit(ScopeActionStmt s)
+	{
+		s.stmt = visit(s.stmt);
+		return s;	
 	}
 	
 	public override AssignStmt visit(AssignStmt s)

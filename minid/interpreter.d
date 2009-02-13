@@ -4915,6 +4915,8 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 			ar.numTailcalls = 0;
 			ar.firstResult = 0;
 			ar.numResults = 0;
+			ar.unwindCounter = 0;
+			ar.unwindReturn = null;
 
 			t.stackIndex = slot;
 
@@ -5044,6 +5046,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		ar.proto = proto is null ? null : proto.parent;
 		ar.numTailcalls = 0;
 		ar.savedTop = ar.base + funcDef.stackSize;
+		ar.unwindCounter = 0;
+		ar.unwindReturn = null;
 
 		// Set the stack indices.
 		t.stackBase = ar.base;
@@ -5151,7 +5155,7 @@ void callEpilogue(MDThread* t, bool needResults)
 		if(t is t.vm.mainThread)
 			t.vm.curThread = t;
 	}
-	else if(isMultRet || t.currentAR.savedTop < destSlot + numExpRets) // second case happens in native -> native calls
+	else if(needResults && (isMultRet || t.currentAR.savedTop < destSlot + numExpRets)) // last case happens in native -> native calls
 		t.stackIndex = destSlot + numExpRets;
 	else
 		t.stackIndex = t.currentAR.savedTop;
@@ -6903,7 +6907,7 @@ version(MDExtendedCoro)
 	}
 }
 
-bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues)
+void yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues)
 {
 	auto ar = pushAR(t);
 
@@ -6932,10 +6936,7 @@ bool yieldImpl(MDThread* t, AbsStack firstValue, word numReturns, word numValues
 		t.state = MDThread.State.Running;
 		t.vm.curThread = t;
 		callEpilogue(t, true);
-		return false;
 	}
-	else
-		return true;
 }
 
 uword resume(MDThread* t, uword numParams)
@@ -7175,7 +7176,6 @@ void callReturnHooks(MDThread* t)
 void execute(MDThread* t, uword depth = 1)
 {
 	MDException currentException = null;
-	bool isReturning = false;
 	MDValue RS;
 	MDValue RT;
 
@@ -7226,7 +7226,7 @@ void execute(MDThread* t, uword depth = 1)
 		
 		Instruction* oldPC = null;
 
-		while(true)
+		_interpreterLoop: while(true)
 		{
 			if(t.shouldHalt)
 				throw new MDHaltException;
@@ -7592,35 +7592,10 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.EndFinal:
 					if(currentException !is null)
 						throw currentException;
+						
+					if(t.currentAR.unwindReturn !is null)
+						goto _commonEHUnwind;
 
-					if(isReturning)
-					{
-						if(t.trIndex > 0)
-						{
-							while(t.currentTR.actRecord is t.arIndex)
-							{
-								auto tr = *t.currentTR;
-								popTR(t);
-
-								if(!tr.isCatch)
-								{
-									t.currentAR.pc = tr.pc;
-									goto _exceptionRetry;
-								}
-							}
-						}
-
-						close(t, stackBase);
-						callEpilogue(t, true);
-
-						depth--;
-
-						if(depth == 0)
-							return;
-
-						isReturning = false;
-						goto _reentry;
-					}
 					break;
 
 				case Op.Throw: throwImpl(t, get(i.rs)); break;
@@ -7756,8 +7731,8 @@ void execute(MDThread* t, uword depth = 1)
 					// Do nothing for native calls.  The following return instruction will catch it.
 					break;
 			}
-
-				case Op.Ret:
+				
+				case Op.SaveRets:
 					auto firstResult = stackBase + i.rd;
 
 					if(i.imm == 0)
@@ -7767,21 +7742,10 @@ void execute(MDThread* t, uword depth = 1)
 					}
 					else
 						saveResults(t, t, firstResult, i.imm - 1);
+					break;
 
-					isReturning = true;
-
-					while(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)
-					{
-						auto tr = *t.currentTR;
-						popTR(t);
-
-						if(!tr.isCatch)
-						{
-							t.currentAR.pc = tr.pc;
-							goto _exceptionRetry;
-						}
-					}
-
+				case Op.Ret:
+					unwindEH(t);
 					close(t, stackBase);
 					callEpilogue(t, true);
 
@@ -7790,8 +7754,34 @@ void execute(MDThread* t, uword depth = 1)
 					if(depth == 0)
 						return;
 
-					isReturning = false;
 					goto _reentry;
+
+				case Op.Unwind:
+					t.currentAR.unwindReturn = t.currentAR.pc;
+					t.currentAR.unwindCounter = i.uimm;
+
+					// fall through
+				_commonEHUnwind:
+					while(t.currentAR.unwindCounter > 0)
+					{
+						assert(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex);
+
+						auto tr = *t.currentTR;
+						popTR(t);
+						close(t, t.stackBase + tr.slot);
+						t.currentAR.unwindCounter--;
+
+						if(!tr.isCatch)
+						{
+							// finally in the middle of an unwind
+							t.currentAR.pc = tr.pc;
+							continue _interpreterLoop;
+						}
+					}
+
+					t.currentAR.pc = t.currentAR.unwindReturn;
+					t.currentAR.unwindReturn = null;
+					break;
 
 				case Op.Vararg:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
@@ -8190,6 +8180,9 @@ void execute(MDThread* t, uword depth = 1)
 	}
 	catch(MDException e)
 	{
+		t.currentAR.unwindCounter = 0;
+		t.currentAR.unwindReturn = null;
+
 		while(depth > 0)
 		{
 			while(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)

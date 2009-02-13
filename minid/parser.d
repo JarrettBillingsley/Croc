@@ -111,12 +111,14 @@ struct Parser
 		l.statementTerm();
 
 		scope statements = new List!(Statement)(c.alloc);
-
+		
 		while(l.type != Token.EOF)
 			statements ~= parseStatement();
 
+		auto stmts = new(c) BlockStmt(c, location, l.loc, statements.toArray());
+
 		l.expect(Token.EOF);
-		return new(c) Module(c, location, l.loc, names.toArray(), statements.toArray(), dec);
+		return new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
 	}
 
 	/**
@@ -237,6 +239,7 @@ struct Parser
 			case Token.If:       return parseIfStmt();
 			case Token.Import:   return parseImportStmt();
 			case Token.Return:   return parseReturnStmt();
+			case Token.Scope:    return parseScopeActionStmt();
 			case Token.Switch:   return parseSwitchStmt();
 			case Token.Throw:    return parseThrowStmt();
 			case Token.Try:      return parseTryStmt();
@@ -468,7 +471,17 @@ struct Parser
 			code = new(c) ReturnStmt(c, arr[0].location, arr[0].endLocation, arr);
 		}
 		else
+		{
 			code = parseStatement();
+			
+			if(!code.as!(BlockStmt))
+			{
+				scope dummy = new List!(Statement)(c.alloc);
+				dummy ~= code;
+				auto arr = dummy.toArray();
+				code = new(c) BlockStmt(c, code.location, code.endLocation, arr);
+			}
+		}
 
 		return new(c) FuncDef(c, location, name, params, isVararg, code);
 	}
@@ -1543,6 +1556,31 @@ struct Parser
 		auto exp = parseExpression();
 		l.statementTerm();
 		return new(c) ThrowStmt(c, location, exp);
+	}
+
+	/**
+	*/
+	public ScopeActionStmt parseScopeActionStmt()
+	{
+		auto location = l.expect(Token.Scope).loc;
+		l.expect(Token.LParen);
+		auto id = l.expect(Token.Ident);
+		
+		ubyte type = void;
+
+		if(id.stringValue == "exit")
+			type = ScopeActionStmt.Exit;
+		else if(id.stringValue == "success")
+			type = ScopeActionStmt.Success;
+		else if(id.stringValue == "failure")
+			type = ScopeActionStmt.Failure;
+		else
+			c.exception(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '{}'", id.stringValue);
+
+		l.expect(Token.RParen);
+		auto stmt = parseStatement();
+
+		return new(c) ScopeActionStmt(c, location, type, stmt);
 	}
 
 	/**

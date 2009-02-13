@@ -68,6 +68,7 @@ const char[][] AstTagNames =
 	"ReturnStmt",
 	"TryStmt",
 	"ThrowStmt",
+	"ScopeActionStmt",
 
 	"AssignStmt",
 	"AddAssignStmt",
@@ -200,6 +201,7 @@ const char[][] NiceAstTagNames =
 	AstTag.ReturnStmt:           "'return' statement",
 	AstTag.TryStmt:              "'try-catch-finally' statement",
 	AstTag.ThrowStmt:            "'throw' statement",
+	AstTag.ScopeActionStmt:      "'scope(...)' statement",
 
 	AstTag.AssignStmt:           "assignment",
 	AstTag.AddAssignStmt:        "addition assignment",
@@ -529,7 +531,8 @@ class FuncDef : AstNode
 	
 	/**
 	The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
-	is a ReturnStmt with one expression, the expression that is the lambda's body.
+	is a ReturnStmt with one expression, the expression that is the lambda's body.  Otherwise, it
+	must (($B must)) be a BlockStmt.  This will be checked upon construction.
 	*/
 	public Statement code;
 
@@ -537,6 +540,9 @@ class FuncDef : AstNode
 	*/
 	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
 	{
+		if(!code.as!(ReturnStmt) && !code.as!(BlockStmt))
+			c.exception(location, "FuncDef code must be a ReturnStmt or BlockStmt, not a '{}'", code.niceString());
+
 		super(c, location, code.endLocation, AstTag.FuncDef);
 
 		assert(params.length > 0 && params[0].name.name == "this");
@@ -624,9 +630,10 @@ class Module : AstNode
 	public char[][] names;
 
 	/**
-	A list of 0 or more statements which make up the body of the module.
+	The statements which make up the body of the module.  Normally this will be a block
+	statement but it can be other kinds due to semantic analysis.
 	*/
-	public Statement[] statements;
+	public Statement statements;
 	
 	/**
 	*/
@@ -634,7 +641,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement[] statements, Decorator decorator)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
 	{
 		super(c, location, endLocation, AstTag.Module);
 		this.names = names;
@@ -645,7 +652,6 @@ class Module : AstNode
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(names);
-		alloc.freeArray(statements);
 	}
 }
 
@@ -1488,6 +1494,41 @@ class ThrowStmt : Statement
 	{
 		super(c, location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
+	}
+}
+
+/**
+This node represents a scope (exit, success, or failure) statement.
+*/
+class ScopeActionStmt : Statement
+{
+	enum
+	{
+		/** scope(exit) */
+		Exit,
+		/** scope(success) */
+		Success,
+		/** scope(failure) */
+		Failure
+	}
+
+	/**
+	One of the above constants, indicates which kind of scope statement this is.
+	*/
+	public ubyte type;
+	
+	/**
+	The statement which will be executed if this scope statement is run.
+	*/
+	public Statement stmt;
+	
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, ubyte type, Statement stmt)
+	{
+		super(c, location, stmt.endLocation, AstTag.ScopeActionStmt);
+		this.type = type;
+		this.stmt = stmt;
 	}
 }
 

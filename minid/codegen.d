@@ -176,6 +176,7 @@ struct Scope
 	package ushort varStart = 0;
 	package ushort regStart = 0;
 	package bool hasUpval = false;
+	package uword interveningEH = 0;
 }
 
 struct SwitchDesc
@@ -195,6 +196,8 @@ final class FuncState
 	package ushort mFreeReg = 0;
 	package Exp[] mExpStack;
 	package uword mExpSP = 0;
+	package uword mTryCatchDepth = 0;
+	package uword mFinallyDepth = 0;
 
 	package CompileLoc mLocation;
 	package bool mIsVararg;
@@ -291,6 +294,7 @@ final class FuncState
 			s.enclosing = mScope;
 			s.breakScope = mScope.breakScope;
 			s.continueScope = mScope.continueScope;
+			s.interveningEH = mScope.interveningEH;
 		}
 		else
 		{
@@ -298,6 +302,7 @@ final class FuncState
 			s.enclosing = null;
 			s.breakScope = null;
 			s.continueScope = null;
+			s.interveningEH = 0;
 		}
 
 		s.breaks = NoJump;
@@ -325,13 +330,25 @@ final class FuncState
 	package void setBreakable()
 	{
 		mScope.breakScope = mScope;
+		mScope.interveningEH = 0;
+	}
+
+	package void setNotBreakable()
+	{
+		mScope.breakScope = null;
 	}
 
 	package void setContinuable()
 	{
 		mScope.continueScope = mScope;
+		mScope.interveningEH = 0;
 	}
-	
+
+	package void setNotContinuable()
+	{
+		mScope.continueScope = null;
+	}
+
 	package int searchLocal(char[] name, out uint reg)
 	{
 		for(int i = mLocVars.length - 1; i >= 0; i--)
@@ -1427,7 +1444,7 @@ final class FuncState
 	public void patchBreaksToHere()
 	{
 		patchListTo(mScope.breaks, here());
-		mScope.continues = NoJump;
+		mScope.breaks = NoJump;
 	}
 
 	public void patchContinuesToHere()
@@ -1510,12 +1527,48 @@ final class FuncState
 	public uint codeCatch(uint line, out uint checkReg)
 	{
 		checkReg = mFreeReg;
+		mScope.interveningEH++;
+		mTryCatchDepth++;
 		return codeJ(line, Op.PushCatch, mFreeReg, NoJump);
 	}
 
 	public uint codeFinally(uint line)
 	{
+		mScope.interveningEH++;
+		mTryCatchDepth++;
 		return codeJ(line, Op.PushFinally, mFreeReg, NoJump);
+	}
+
+	public void endCatchScope()
+	{
+		mScope.interveningEH--;
+		mTryCatchDepth--;
+	}
+
+	public void endFinallyScope()
+	{
+		mScope.interveningEH--;
+		mTryCatchDepth--;
+	}
+
+	public bool inTryCatch()
+	{
+		return mTryCatchDepth > 0;
+	}
+
+	public void enterFinally()
+	{
+		mFinallyDepth++;
+	}
+
+	public void leaveFinally()
+	{
+		mFinallyDepth--;
+	}
+
+	public bool inFinally()
+	{
+		return mFinallyDepth > 0;
 	}
 
 	public void codeContinue(CompileLoc location)
@@ -1525,6 +1578,9 @@ final class FuncState
 
 		if(mScope.continueScope.hasUpval)
 			codeClose(location.line, mScope.continueScope.regStart);
+
+		if(mScope.interveningEH > 0)
+			codeI(location.line, Op.Unwind, 0, mScope.interveningEH);
 
 		mScope.continueScope.continues = codeJ(location.line, Op.Jmp, 1, mScope.continueScope.continues);
 	}
@@ -1536,6 +1592,9 @@ final class FuncState
 
 		if(mScope.breakScope.hasUpval)
 			codeClose(location.line, mScope.breakScope.regStart);
+
+		if(mScope.interveningEH > 0)
+			codeI(location.line, Op.Unwind, 0, mScope.interveningEH);
 
 		mScope.breakScope.breaks = codeJ(location.line, Op.Jmp, 1, mScope.breakScope.breaks);
 	}
@@ -1787,7 +1846,8 @@ class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op.SaveRets, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 0);
 			fs.popScope(d.code.endLocation.line);
 		}
 
@@ -1812,16 +1872,16 @@ class Codegen : Visitor
 
 			Scope scop = void;
 			fs.pushScope(scop);
-				foreach(stmt; m.statements)
-					visit(stmt);
-					
+				visit(m.statements);
+
 				if(m.decorator)
 				{
 					visitDecorator(m.decorator, { fs.pushThis(); });
 					fs.popToNothing();
 				}
 
-				fs.codeI(m.endLocation.line, Op.Ret, 0, 1);
+				fs.codeI(m.endLocation.line, Op.SaveRets, 0, 1);
+				fs.codeI(m.endLocation.line, Op.Ret, 0, 0);
 			fs.popScope(m.endLocation.line);
 
 			assert(fs.mExpSP == 0, "module - not all expressions have been popped");
@@ -1945,7 +2005,8 @@ class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op.SaveRets, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 0);
 			fs.popScope(d.code.endLocation.line);
 		}
 
@@ -2808,42 +2869,49 @@ class Codegen : Visitor
 	
 	public override ReturnStmt visit(ReturnStmt s)
 	{
-		if(s.exprs.length == 0)
-		{
-			fs.codeI(s.location.line, Op.Ret, 0, 1);
-			return s;
-		}
+		if(fs.inFinally())
+			c.exception(s.location, "Return statements are illegal inside finally blocks");
 
 		auto firstReg = fs.nextRegister();
 
-		if(s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
+		if(!fs.inTryCatch() && s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
 		{
 			visit(s.exprs[0]);
 			fs.popToRegisters(s.endLocation.line, firstReg, -1);
 			fs.makeTailcall();
+			fs.codeI(s.endLocation.line, Op.SaveRets, 0, 1);
 			fs.codeI(s.endLocation.line, Op.Ret, firstReg, 0);
 		}
 		else
 		{
 			codeGenListToNextReg(s.exprs);
 
-			if(s.exprs[$ - 1].isMultRet())
-				fs.codeI(s.endLocation.line, Op.Ret, firstReg, 0);
+			if(s.exprs.length == 0)
+				fs.codeI(s.endLocation.line, Op.SaveRets, 0, 1);
+			else if(s.exprs[$ - 1].isMultRet())
+				fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, 0);
 			else
-				fs.codeI(s.endLocation.line, Op.Ret, firstReg, s.exprs.length + 1);
+				fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, s.exprs.length + 1);
+
+			if(fs.inTryCatch())
+				fs.codeI(s.endLocation.line, Op.Unwind, 0, fs.mTryCatchDepth);
+
+			fs.codeI(s.endLocation.line, Op.Ret, 0, 0);
 		}
 
 		return s;
 	}
-	
+
 	public override TryStmt visit(TryStmt s)
 	{
 		if(s.finallyBody)
 		{
 			auto pushFinally = fs.codeFinally(s.location.line);
+			Scope scop = void;
 
 			if(s.catchBody)
 			{
+				// try-catch-finally
 				uint checkReg1;
 				auto pushCatch = fs.codeCatch(s.location.line, checkReg1);
 
@@ -2854,7 +2922,6 @@ class Codegen : Visitor
 				auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 				fs.patchJumpToHere(pushCatch);
 
-				Scope scop = void;
 				fs.pushScope(scop);
 					auto checkReg2 = fs.insertLocal(s.catchVar);
 
@@ -2866,25 +2933,30 @@ class Codegen : Visitor
 
 				fs.codeI(s.catchBody.endLocation.line, Op.PopFinally, 0, 0);
 				fs.patchJumpToHere(jumpOverCatch);
-				fs.patchJumpToHere(pushFinally);
-
-				visit(s.finallyBody);
-
-				fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
+				fs.endCatchScope();
 			}
 			else
 			{
+				// try-finally
 				visit(s.tryBody);
 				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
+			}
+			
+			fs.patchJumpToHere(pushFinally);
+			fs.endFinallyScope();
 
-				fs.patchJumpToHere(pushFinally);
-
+			fs.pushScope(scop);
+				fs.enterFinally(); // prevent return
+				fs.setNotBreakable(); // prevent break
+				fs.setNotContinuable(); // prevent continue
 				visit(s.finallyBody);
 				fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
-			}
+				fs.leaveFinally();
+			fs.popScope(s.finallyBody.endLocation.line);
 		}
 		else
 		{
+			// try-catch
 			assert(s.catchBody !is null);
 
 			uint checkReg1;
@@ -2907,6 +2979,7 @@ class Codegen : Visitor
 			fs.popScope(s.catchBody.endLocation.line);
 
 			fs.patchJumpToHere(jumpOverCatch);
+			fs.endCatchScope();
 		}
 
 		return s;

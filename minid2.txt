@@ -132,6 +132,7 @@ Keyword:
 	'namespace'
 	'null'
 	'return'
+	'scope'
 	'super'
 	'switch'
 	'this'
@@ -245,6 +246,7 @@ Statement:
 	ReturnStatement
 	TryCatchStatement
 	ThrowStatement
+	ScopeStatement
 	Assignment
 
 AssertStatement:
@@ -389,6 +391,9 @@ TryCatchStatement:
 	
 ThrowStatement:
 	'throw' Expression StatementTerminator
+
+ScopeStatement:
+	'scope' '(' ('exit' | 'success' | 'failure') ')' Statement
 
 Assignment:
 	AssignmentLHS {',' AssignmentLHS} '=' Expression
