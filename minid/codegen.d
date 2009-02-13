@@ -2921,6 +2921,7 @@ class Codegen : Visitor
 				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
 				auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 				fs.patchJumpToHere(pushCatch);
+				fs.endCatchScope();
 
 				fs.pushScope(scop);
 					auto checkReg2 = fs.insertLocal(s.catchVar);
@@ -2933,7 +2934,6 @@ class Codegen : Visitor
 
 				fs.codeI(s.catchBody.endLocation.line, Op.PopFinally, 0, 0);
 				fs.patchJumpToHere(jumpOverCatch);
-				fs.endCatchScope();
 			}
 			else
 			{
@@ -2941,7 +2941,7 @@ class Codegen : Visitor
 				visit(s.tryBody);
 				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
 			}
-			
+
 			fs.patchJumpToHere(pushFinally);
 			fs.endFinallyScope();
 
@@ -2967,6 +2967,7 @@ class Codegen : Visitor
 			fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
 			auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 			fs.patchJumpToHere(pushCatch);
+			fs.endCatchScope();
 
 			Scope scop = void;
 			fs.pushScope(scop);
@@ -2979,7 +2980,6 @@ class Codegen : Visitor
 			fs.popScope(s.catchBody.endLocation.line);
 
 			fs.patchJumpToHere(jumpOverCatch);
-			fs.endCatchScope();
 		}
 
 		return s;

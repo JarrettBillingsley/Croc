@@ -7223,7 +7223,7 @@ void execute(MDThread* t, uword depth = 1)
 
 			assert(false);
 		}
-		
+
 		Instruction* oldPC = null;
 
 		_interpreterLoop: while(true)
@@ -7764,7 +7764,8 @@ void execute(MDThread* t, uword depth = 1)
 				_commonEHUnwind:
 					while(t.currentAR.unwindCounter > 0)
 					{
-						assert(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex);
+						assert(t.trIndex > 0);
+						assert(t.currentTR.actRecord is t.arIndex);
 
 						auto tr = *t.currentTR;
 						popTR(t);
@@ -8192,6 +8193,9 @@ void execute(MDThread* t, uword depth = 1)
 
 				auto base = t.stackBase + tr.slot;
 				close(t, base);
+				
+				// remove any results that may have been saved
+				loadResults(t);
 
 				if(tr.isCatch)
 				{
