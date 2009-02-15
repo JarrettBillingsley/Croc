@@ -2879,8 +2879,8 @@ class Codegen : Visitor
 			visit(s.exprs[0]);
 			fs.popToRegisters(s.endLocation.line, firstReg, -1);
 			fs.makeTailcall();
-			fs.codeI(s.endLocation.line, Op.SaveRets, 0, 1);
-			fs.codeI(s.endLocation.line, Op.Ret, firstReg, 0);
+			fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, 0);
+			fs.codeI(s.endLocation.line, Op.Ret, 0, 0);
 		}
 		else
 		{

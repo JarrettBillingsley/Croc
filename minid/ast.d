@@ -965,6 +965,8 @@ A node which doesn't correspond to a grammar element.  This indicates a new nest
 An example of where this would be used is in an anonymous scope with some code in it.  All it
 does is affects the codegen of the contained statement by beginning a new scope before it
 and ending the scope after it.
+
+If you're looking for the "scope(exit)" kind of statements, look at the ScopeActionStmt node.
 */
 class ScopeStmt : Statement
 {
