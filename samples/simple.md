@@ -5,7 +5,7 @@ import gl
 
 function float4(x, y, z, w) = Vector.fromArray$ "f32", [x, y, z, w]
 
-local quitting = false
+/* local quitting = false
 
 function keyHandler(pressed, k)
 {
@@ -84,9 +84,18 @@ function main()
 		tri += 2
 		quad -= 1.5
 	}
+} */
+
+{
+	local tmp = Vector$ gl.GLuint, 1
+
+	function genOneBuffer()
+	{
+		gl.glGenBuffersARB(1, tmp)
+		return tmp[0]
+	}
 }
 
-/*
 function main()
 {
 	sdl.init(sdl.initEverything)
@@ -166,30 +175,53 @@ function main()
 	local ang1 = 0
 	local ang2 = 0
 
-	local goober = gl.glGenLists(1)
-	gl.glNewList(goober, gl.GL_COMPILE)
-		gl.glBegin(gl.GL_TRIANGLES)
-			gl.glNormal3(0, 0, 1)
-			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
-			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
-			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+	local vertData = Vector.fromArray$ gl.GLfloat,
+	[
+		// pos     color    normal
+		0, 0, 0,  1, 0, 0,  0, 0, 1,
+		1, 0, 0,  0, 1, 0,  0, 0, 1,
+		0, 1, 0,  0, 0, 1,  0, 0, 1,
+		1, 0, 0,  0, 1, 0,  1, 1, -1,
+		0, 0, -1, 1, 1, 0,  1, 1, -1,
+		0, 1, 0,  0, 0, 1,  1, 1, -1,
+		0, 1, 0,  0, 0, 1,  -1, 0, 0,
+		0, 0, -1, 1, 1, 0,  -1, 0, 0,
+		0, 0, 0,  1, 0, 0,  -1, 0, 0,
+		0, 0, 0,  1, 0, 0,  0, -1, 0,
+		0, 0, -1, 1, 1, 0,  0, -1, 0,
+		1, 0, 0   0, 1, 0,  0, -1, 0
+	]
 
-			gl.glNormal3(1 / math.sqrt(3), 1 / math.sqrt(3), -1 / math.sqrt(3))
-			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
-			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
-			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+	local goober = genOneBuffer()
+	gl.glBindBufferARB(gl.GL_ARRAY_BUFFER_ARB, goober)
+	gl.glBufferDataARB(gl.GL_ARRAY_BUFFER_ARB, #vertData * vertData.itemSize(), vertData, gl.GL_STREAM_DRAW_ARB)
+	
+	local vertSize = vertData.itemSize() * 9
 
-			gl.glNormal3(-1, 0, 0)
-			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
-			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
-			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
-
-			gl.glNormal3(0, -1, 0)
-			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
-			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
-			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
-		gl.glEnd()
-	gl.glEndList()
+// 	local goober = gl.glGenLists(1)
+// 	gl.glNewList(goober, gl.GL_COMPILE)
+// 		gl.glBegin(gl.GL_TRIANGLES)
+// 			gl.glNormal3(0, 0, 1)
+// 			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+// 			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+// 			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+// 
+// 			gl.glNormal3(1 / math.sqrt(3), 1 / math.sqrt(3), -1 / math.sqrt(3))
+// 			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+// 			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+// 			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+// 
+// 			gl.glNormal3(-1, 0, 0)
+// 			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+// 			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+// 			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+// 
+// 			gl.glNormal3(0, -1, 0)
+// 			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+// 			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+// 			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+// 		gl.glEnd()
+// 	gl.glEndList()
 
 	local frames = 0
 	local startTime = time.microTime()
@@ -207,30 +239,32 @@ function main()
 			gl.glRotate(-camxang, 1, 0, 0)
 			gl.glTranslate(-camx, -camy, -camz)
 
-			for(i: 0 .. 3)
-			{
-				for(j: 0 .. 3)
-				{
-					gl.glPushMatrix()
-					gl.glTranslate(-1.5 + i, 1.5 - j, 0)
-					gl.glRotate(ang1, 1, 0, 0)
-					gl.glRotate(ang2, 0, 1, 0)
-
-					gl.glCallList(goober)
-
-					gl.glPopMatrix()
-				}
-			}
-
+			gl.glPushMatrix()
+				gl.glRotate(ang1, 1, 0, 0)
+				gl.glRotate(ang2, 0, 1, 0)
+	
+// 				gl.glCallList(goober)
+				gl.glVertexPointer(3, gl.GL_FLOAT, vertSize, 0)
+				gl.glColorPointer(3, gl.GL_FLOAT, vertSize, 12)
+				gl.glNormalPointer(gl.GL_FLOAT, vertSize, 24)
+				gl.glEnableClientState(gl.GL_VERTEX_ARRAY)
+				gl.glEnableClientState(gl.GL_COLOR_ARRAY)
+				gl.glEnableClientState(gl.GL_NORMAL_ARRAY)
+				gl.glDrawArrays(gl.GL_TRIANGLES, 0, 12)
+				gl.glDisableClientState(gl.GL_VERTEX_ARRAY)
+				gl.glDisableClientState(gl.GL_COLOR_ARRAY)
+				gl.glDisableClientState(gl.GL_NORMAL_ARRAY)
+			gl.glPopMatrix()
 		sdl.gl.swapBuffers()
 
 		frames++
+// 		for(i: 0 .. 200_000){}
 	}
 
 	startTime = (time.microTime() - startTime) / 1_000_000.0
 	writefln$ "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
 }
-*/
+
 /+
 // Making sure finally blocks are executed.
 {
