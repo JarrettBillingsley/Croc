@@ -5,6 +5,11 @@ debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correc
 
 import minid.api;
 import minid.bind;
+import minid.vector;
+
+// import minid.addons.pcre;
+import minid.addons.sdl;
+import minid.addons.gl;
 
 // version = TestArc;
 
@@ -24,6 +29,10 @@ void main()
 
 	try
 	{
+		SdlLib.init(t);
+// 		PcreLib.init(t);
+		GlLib.init(t);
+
 		version(TestArc)
 			importModule(t, "samples.missilecommand");
 		else

@@ -3,4 +3,5 @@ test.d
 -debug
 -unittest
 -debug=LEAK_DETECTOR
+-version=MDGLCheckErrors
 -g

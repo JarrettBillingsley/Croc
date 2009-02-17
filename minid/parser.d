@@ -1650,7 +1650,7 @@ struct Parser
 
 	/**
 	Parse any expression which can be executed as a statement, i.e. any expression which
-	can have side effects, including assignments, function calls, yields, ?:, &&, and ||
+	can have side effects, as well as assignments, function calls, yields, ?:, &&, and ||
 	expressions.  The parsed expression is checked for side effects before being returned.
 	*/
 	public Statement parseStatementExpr()

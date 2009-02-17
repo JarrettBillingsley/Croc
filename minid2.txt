@@ -246,7 +246,7 @@ Statement:
 	ReturnStatement
 	TryCatchStatement
 	ThrowStatement
-	ScopeStatement
+	ScopeActionStatement
 	Assignment
 
 AssertStatement:
@@ -266,7 +266,7 @@ BlockStatement:
 	'{' {Statement} '}'
 
 ExpressionStatement:
-	BaseExpression StatementTerminator
+	Expression StatementTerminator
 
 DeclarationStatement:
 	VariableDeclaration StatementTerminator
@@ -358,12 +358,19 @@ DoWhileStatement:
 	'do' Statement 'while' '(' Expression ')'
 
 ForStatement:
-	'for' '(' [ForInitializer {',' ForInitializer}] ';' [Expression] ';' [BaseExpression {',' BaseExpression}] ')' Statement
+	'for' '(' [ForInitializer] ';' [Expression] ';' [ForIncrement] ')' Statement
 	'for' '(' Identifier (':' | ';') Expression '..' Expression [',' Expression] ')' Statement
 
 ForInitializer:
-	BaseExpression
+	ForInitializer ',' ForInitializer
+	Expression
 	LocalVarDeclaration
+	Assignment
+
+ForIncrement:
+	ForIncrement ',' ForIncrement
+	Expression
+	Assignment
 
 ForeachStatement:
 	'foreach' '(' Identifier {',' Identifier} ';' Expression [',' Expression [',' Expression]] ')' Statement
@@ -392,7 +399,7 @@ TryCatchStatement:
 ThrowStatement:
 	'throw' Expression StatementTerminator
 
-ScopeStatement:
+ScopeActionStatement:
 	'scope' '(' ('exit' | 'success' | 'failure') ')' Statement
 
 Assignment:

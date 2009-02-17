@@ -1,9 +1,236 @@
 module samples.simple
 
-writeln(1)
-thread.halt()
-writeln(2)
+import sdl: event, key
+import gl
 
+function float4(x, y, z, w) = Vector.fromArray$ "f32", [x, y, z, w]
+
+local quitting = false
+
+function keyHandler(pressed, k)
+{
+	if(pressed)
+	{
+		if(k == key.escape)
+			quitting = true
+	}
+}
+
+function main()
+{
+	sdl.init(sdl.initEverything)
+
+	scope(exit)
+		sdl.quit()
+
+	sdl.gl.setAttribute(sdl.gl.bufferSize, 32)
+	sdl.gl.setAttribute(sdl.gl.depthSize, 16)
+	sdl.gl.setAttribute(sdl.gl.doubleBuffer, 1)
+
+	if(!sdl.setVideoMode(800, 600, 32, sdl.opengl | sdl.hwSurface))
+		if(!sdl.setVideoMode(800, 600, 32, sdl.opengl | sdl.swSurface))
+			throw "Could not set video mode"
+
+	sdl.setCaption("foobar!")
+	sdl.showCursor(false)
+	sdl.grabInput(true)
+
+	gl.load()
+
+	gl.glViewport(0, 0, 800, 600)
+	gl.glShadeModel(gl.GL_SMOOTH)
+	gl.glClearColor(0, 0, 0, 1)
+	gl.glClearDepth(1)
+
+	gl.glMatrixMode(gl.GL_PROJECTION)
+	gl.glLoadIdentity()
+	gl.gluPerspective(45, 800.0 / 600.0, 1, 100)
+	gl.glMatrixMode(gl.GL_MODELVIEW)
+
+	event.setHandler$ event.key, keyHandler
+
+	local tri = 0
+	local quad = 0
+
+	while(!quitting)
+	{
+		event.poll()
+
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+			gl.glLoadIdentity()
+	
+			gl.glTranslate(-1.5, 0, -6)
+			gl.glRotate(tri, 0, 1, 0)
+			
+			gl.glBegin(gl.GL_TRIANGLES)
+				gl.glColor3(1, 0, 0); gl.glVertex3(0, 1, 0)
+				gl.glColor3(0, 1, 0); gl.glVertex3(-1, -1, 0)
+				gl.glColor3(0, 0, 1); gl.glVertex3(1, -1, 0)
+			gl.glEnd()
+
+			gl.glLoadIdentity()
+			gl.glTranslate(1.5, 0, -6)
+			gl.glRotate(quad, 1, 0, 0)
+
+			gl.glColor3(0.5, 0.5, 1)
+			gl.glBegin(gl.GL_QUADS)
+				gl.glVertex3(-1, 1, 0)
+				gl.glVertex3(1, 1, 0)
+				gl.glVertex3(1, -1, 0)
+				gl.glVertex3(-1, -1, 0)
+			gl.glEnd()
+		sdl.gl.swapBuffers()
+
+		tri += 2
+		quad -= 1.5
+	}
+}
+
+/*
+function main()
+{
+	sdl.init(sdl.initEverything)
+
+	scope(exit)
+		sdl.quit()
+
+	sdl.gl.setAttribute(sdl.gl.bufferSize, 32)
+	sdl.gl.setAttribute(sdl.gl.depthSize, 16)
+	sdl.gl.setAttribute(sdl.gl.doubleBuffer, 1)
+
+	if(!sdl.setVideoMode(800, 600, 32, sdl.opengl | sdl.hwSurface))
+		if(!sdl.setVideoMode(800, 600, 32, sdl.opengl | sdl.swSurface))
+			throw "Could not set video mode"
+
+	sdl.setCaption("foobar!")
+	sdl.showCursor(false)
+	sdl.grabInput(true)
+
+	gl.load()
+
+	gl.glViewport(0, 0, 800, 600)
+	gl.glShadeModel(gl.GL_SMOOTH)
+	gl.glClearColor(0, 0, 0, 1)
+	gl.glClearDepth(1)
+	gl.glEnable(gl.GL_CULL_FACE)
+	gl.glEnable(gl.GL_TEXTURE_2D)
+
+	gl.glEnable(gl.GL_BLEND)
+	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+
+	gl.glEnable(gl.GL_LIGHTING)
+	gl.glEnable(gl.GL_LIGHT0)
+	gl.glLightv(gl.GL_LIGHT0, gl.GL_POSITION, float4(1, 1, 1, 0))
+	gl.glLightv(gl.GL_LIGHT0, gl.GL_AMBIENT,  float4(0.3, 0.3, 0.3, 1))
+	gl.glEnable(gl.GL_COLOR_MATERIAL)
+
+	gl.glMatrixMode(gl.GL_PROJECTION)
+	gl.glLoadIdentity()
+	gl.gluPerspective(45, 800.0 / 600.0, 1, 100)
+	gl.glMatrixMode(gl.GL_MODELVIEW)
+
+	local camx = 0
+	local camy = 0
+	local camz = 5
+	local camxang = 0
+	local camyang = 0
+
+	local quitting = false
+
+	event.setHandler$ event.quit, \{ quitting = true }
+
+	event.setHandler$ event.key, \pressed, sym, mod
+	{
+		if(pressed)
+		{
+			if(sym == key.escape)
+				quitting = true
+// 			else if(sym == key.a)
+		}
+	}
+
+	local first = true
+
+	event.setHandler$ event.mouseMotion, \x, y, xrel, yrel
+	{
+		if(first)
+		{
+			first = false
+			return
+		}
+
+		camxang -= yrel * 0.05
+		camyang -= xrel * 0.05
+	}
+
+	local ang1 = 0
+	local ang2 = 0
+
+	local goober = gl.glGenLists(1)
+	gl.glNewList(goober, gl.GL_COMPILE)
+		gl.glBegin(gl.GL_TRIANGLES)
+			gl.glNormal3(0, 0, 1)
+			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+
+			gl.glNormal3(1 / math.sqrt(3), 1 / math.sqrt(3), -1 / math.sqrt(3))
+			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+
+			gl.glNormal3(-1, 0, 0)
+			gl.glColor3(0, 0, 1); gl.glVertex3(0, 1, 0)  // btl
+			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+
+			gl.glNormal3(0, -1, 0)
+			gl.glColor3(1, 0, 0); gl.glVertex3(0, 0, 0)  // bbl
+			gl.glColor3(1, 1, 0); gl.glVertex3(0, 0, -1) // fbl
+			gl.glColor3(0, 1, 0); gl.glVertex3(1, 0, 0)  // bbr
+		gl.glEnd()
+	gl.glEndList()
+
+	local frames = 0
+	local startTime = time.microTime()
+
+	while(!quitting)
+	{
+		event.poll()
+
+		ang1 = (ang1 + 1) % 360
+		ang2 = (ang2 + 1.2) % 360
+
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+			gl.glLoadIdentity()
+			gl.glRotate(-camyang, 0, 1, 0)
+			gl.glRotate(-camxang, 1, 0, 0)
+			gl.glTranslate(-camx, -camy, -camz)
+
+			for(i: 0 .. 3)
+			{
+				for(j: 0 .. 3)
+				{
+					gl.glPushMatrix()
+					gl.glTranslate(-1.5 + i, 1.5 - j, 0)
+					gl.glRotate(ang1, 1, 0, 0)
+					gl.glRotate(ang2, 0, 1, 0)
+
+					gl.glCallList(goober)
+
+					gl.glPopMatrix()
+				}
+			}
+
+		sdl.gl.swapBuffers()
+
+		frames++
+	}
+
+	startTime = (time.microTime() - startTime) / 1_000_000.0
+	writefln$ "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
+}
+*/
 /+
 // Making sure finally blocks are executed.
 {

@@ -130,12 +130,13 @@ static:
 		void* data;
 		uword length;
 		TypeStruct* type;
+		bool ownData;
 	}
 
 	/**
 	Constructs a Vector from a D array and pushes the new instance onto the stack.
-	The resulting Vector holds a copy of the data.  
-	
+	The resulting Vector holds a $(B copy) of the data.
+
 	The array type must be convertible to a single-dimensional array of any integer
 	type or a float or double array.
 	
@@ -169,7 +170,88 @@ static:
 		auto memb = getMembers!(Members)(t, -1);
 		(cast(T*)memb.data)[0 .. memb.length] = cast(T[])arr[];
 
-		return 1;
+		return stackSize(t) - 1;
+	}
+
+	/**
+	Constructs a Vector from a D array and pushes the new instance onto the stack.
+	The resulting Vector holds a $(B reference) to the data.  That is, modifying
+	the contents of the returned Vector will actually modify the array that you
+	passed.
+
+	Note that you must ensure that the D array is not collected while this Vector
+	object is around.  The Vector object will not keep it around for you.
+
+	The array type must be convertible to a single-dimensional array of any integer
+	type or a float or double array.
+	
+	Params:
+		arr = The array to which the new instance will refer.
+
+	Returns:
+		The stack index of the newly-pushed Vector instance.
+	*/
+	public word viewDArray(_T)(MDThread* t, _T[] arr)
+	{
+		alias realType!(_T) T;
+
+		static      if(is(T == byte))   const code = "i8";
+		else static if(is(T == ubyte))  const code = "u8";
+		else static if(is(T == short))  const code = "i16";
+		else static if(is(T == ushort)) const code = "u16";
+		else static if(is(T == int))    const code = "i32";
+		else static if(is(T == uint))   const code = "u32";
+		else static if(is(T == long))   const code = "i64";
+		else static if(is(T == ulong))  const code = "u64";
+		else static if(is(T == float))  const code = "f32";
+		else static if(is(T == double)) const code = "f64";
+		else static assert(false, "Vector.viewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+		pushGlobal(t, "Vector");
+		pushNull(t);
+		pushString(t, code);
+		rawCall(t, -3, 1);
+		auto memb = getMembers!(Members)(t, -1);
+		memb.ownData = false;
+		memb.data = arr.ptr;
+		memb.length = arr.length;
+
+		return stackSize(t) - 1;
+	}
+	
+	/**
+	
+	*/
+	public word reviewDArray(_T)(MDThread* t, word slot, _T[] arr)
+	{
+		alias realType!(_T) T;
+
+		static      if(is(T == byte))   auto ts = &typeStructs[TypeCode.i8];
+		else static if(is(T == ubyte))  auto ts = &typeStructs[TypeCode.u8];
+		else static if(is(T == short))  auto ts = &typeStructs[TypeCode.i16];
+		else static if(is(T == ushort)) auto ts = &typeStructs[TypeCode.u16];
+		else static if(is(T == int))    auto ts = &typeStructs[TypeCode.i32];
+		else static if(is(T == uint))   auto ts = &typeStructs[TypeCode.u32];
+		else static if(is(T == long))   auto ts = &typeStructs[TypeCode.i64];
+		else static if(is(T == ulong))  auto ts = &typeStructs[TypeCode.u64];
+		else static if(is(T == float))  auto ts = &typeStructs[TypeCode.f32];
+		else static if(is(T == double)) auto ts = &typeStructs[TypeCode.f64];
+		else static assert(false, "Vector.reviewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+		auto memb = checkInstParam!(Members)(t, slot, "Vector");
+
+		if(memb.ownData)
+		{
+			auto tmp = memb.data[0 .. memb.length * memb.type.itemSize];
+			freeArray(t, tmp);
+		}
+
+		memb.ownData = false;
+		memb.data = arr.ptr;
+		memb.length = arr.length;
+		memb.type = ts;
+
+		return stackSize(t) - 1;
 	}
 
 	void init(MDThread* t)
@@ -304,8 +386,12 @@ static:
 
 		if(memb.type !is null && memb.data !is null)
 		{
-			auto tmp = memb.data[0 .. memb.length * memb.type.itemSize];
-			t.vm.alloc.freeArray(tmp);
+			if(memb.ownData)
+			{
+				auto tmp = memb.data[0 .. memb.length * memb.type.itemSize];
+				freeArray(t, tmp);
+			}
+
 			memb.data = null;
 			memb.length = 0;
 		}
@@ -349,7 +435,8 @@ static:
 
 		memb.type = ts;
 		memb.length = cast(uword)size;
-		memb.data = t.vm.alloc.allocArray!(void)(cast(uword)size * memb.type.itemSize).ptr;
+		memb.data = allocArray!(void)(t, cast(uword)size * memb.type.itemSize).ptr;
+		memb.ownData = true;
 
 		if(haveFiller)
 		{
@@ -830,6 +917,9 @@ static:
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
 		checkAnyParam(t, 2);
+		
+		if(!memb.ownData)
+			throwException(t, "Attempting to insert into a Vector which does not own its data");
 
 		if(idx < 0)
 			idx += memb.length;
@@ -848,7 +938,7 @@ static:
 			memb.length = cast(uword)totalLen;
 			auto isize = memb.type.itemSize;
 			auto tmp = memb.data[0 .. oldLen * isize];
-			t.vm.alloc.resizeArray(tmp, cast(uword)totalLen * isize);
+			resizeArray(t, tmp, cast(uword)totalLen * isize);
 			memb.data = tmp.ptr;
 
 			if(idx < oldLen)
@@ -1000,6 +1090,9 @@ static:
 	{
 		auto memb = getThis(t);
 		
+		if(!memb.ownData)
+			throwException(t, "Attempting to pop from a Vector which does not own its data");
+		
 		if(memb.length == 0)
 			throwException(t, "Vector is empty");
 
@@ -1019,7 +1112,7 @@ static:
 		if(index < memb.length - 1)
 			memmove(&data[cast(uword)index * isize], &data[(cast(uword)index + 1) * isize], cast(uint)((memb.length - index - 1) * isize));
 
-		t.vm.alloc.resizeArray(data, (memb.length - 1) * isize);
+		resizeArray(t, data, (memb.length - 1) * isize);
 		memb.length--;
 		memb.data = data.ptr;
 
@@ -1069,6 +1162,9 @@ static:
 	uword remove(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
+		
+		if(!memb.ownData)
+			throwException(t, "Attempting to remove from a Vector which does not own its data");
 
 		if(memb.length == 0)
 			throwException(t, "Vector is empty");
@@ -1102,7 +1198,7 @@ static:
 			memmove(&data[cast(uword)start * isize], &data[cast(uword)end * isize], cast(uint)((memb.length - end) * isize));
 
 		auto diff = end - start;
-		t.vm.alloc.resizeArray(data, cast(uword)((memb.length - diff) * isize));
+		resizeArray(t, data, cast(uword)((memb.length - diff) * isize));
 		memb.length -= diff;
 		memb.data = data.ptr;
 
@@ -1341,6 +1437,9 @@ static:
 		auto memb = getThis(t);
 		auto newLen = checkIntParam(t, 1);
 
+		if(!memb.ownData)
+			throwException(t, "Attempting to resize a Vector which does not own its data");
+
 		if(newLen < 0 || newLen > uword.max)
 			throwException(t, "Invalid length ({})", newLen);
 
@@ -1352,11 +1451,11 @@ static:
 			auto isize = memb.type.itemSize;
 
 			if(oldLen == 0)
-				memb.data = t.vm.alloc.allocArray!(void)(cast(uword)newLen * isize).ptr;
+				memb.data = allocArray!(void)(t, cast(uword)newLen * isize).ptr;
 			else
 			{
 				auto tmp = memb.data[0 .. oldLen * isize];
-				t.vm.alloc.resizeArray(tmp, cast(uword)newLen * isize);
+				resizeArray(t, tmp, cast(uword)newLen * isize);
 				memb.data = tmp.ptr;
 			}
 		}
@@ -1629,6 +1728,9 @@ static:
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
+		
+		if(!memb.ownData)
+			throwException(t, "Attempting to append to a Vector which does not own its data");
 
 		pushGlobal(t, "Vector");
 		ulong totalLen = memb.length;
@@ -1672,7 +1774,7 @@ static:
 		memb.length = cast(uword)totalLen;
 		auto isize = memb.type.itemSize;
 		auto tmp = memb.data[0 .. oldLen * isize];
-		t.vm.alloc.resizeArray(tmp, cast(uword)totalLen * isize);
+		resizeArray(t, tmp, cast(uword)totalLen * isize);
 		memb.data = tmp.ptr;
 
 		uword j = oldLen * isize;

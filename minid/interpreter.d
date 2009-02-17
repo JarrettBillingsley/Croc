@@ -98,7 +98,7 @@ Params:
 */
 void setTypeMT(MDThread* t, MDValue.Type type)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setTypeMT", "t", "1"));
 
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
 		throwException(t, "setTypeMT - Cannot set metatable for type '{}'", MDValue.typeString(type));
@@ -350,7 +350,7 @@ Params:
 */
 void insert(MDThread* t, word slot)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("insert", "t", "1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
@@ -374,7 +374,7 @@ If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a n
 */
 void insertAndPop(MDThread* t, word slot)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("insertAndPop", "t", "1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
@@ -536,7 +536,7 @@ void transferVals(MDThread* src, MDThread* dest, uword num)
 	if(num == 0 || dest is src)
 		return;
 
-	checkNumParams(src, num);
+	mixin(checkNumParams!("transferVals", "src", "num"));
 	checkStack(dest, dest.stackIndex + num);
 
 	dest.stack[dest.stackIndex .. dest.stackIndex + num] = src.stack[src.stackIndex - num .. src.stackIndex];
@@ -674,7 +674,7 @@ Returns:
 */
 word newArrayFromStack(MDThread* t, uword len)
 {
-	checkNumParams(t, len);
+	mixin(checkNumParams!("newArrayFromStack", "t", "len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
 	a.slice[] = t.stack[t.stackIndex - len .. t.stackIndex];
@@ -746,7 +746,7 @@ Returns:
 */
 word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
-	checkNumParams(t, numUpvals + 1);
+	mixin(checkNumParams!("newFunctionWithEnv", "t", "numUpvals + 1"));
 
 	auto env = getNamespace(t, -1);
 
@@ -1523,7 +1523,7 @@ struct foreachLoop
 		if(numSlots < 1 || numSlots > 3)
 			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
 
-		checkNumParams(t, numSlots);
+		mixin(checkNumParams!("foreachLoop", "t", "numSlots"));
 
 		// Make sure we have 3 stack slots for our temp data area
 		if(numSlots < 3)
@@ -1641,7 +1641,7 @@ void throwException(MDThread* t)
 		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
 		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
 
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("throwException", "t", "1"));
 	throwImpl(t, &t.stack[t.stackIndex - 1]);
 }
 
@@ -1748,7 +1748,7 @@ void setUpval(MDThread* t, uword idx)
 	if(t.arIndex == 0)
 		throwException(t, "setUpval - No function to set upvalue (can't call this function at top level)");
 
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setUpval", "t", "1"));
 
 	auto upvals = t.currentAR.func.nativeUpvals();
 
@@ -1846,7 +1846,7 @@ Returns:
 */
 word getGlobal(MDThread* t)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("getGlobal", "t", "1"));
 
 	auto v = getValue(t, -1);
 
@@ -1879,7 +1879,7 @@ Params:
 */
 void setGlobal(MDThread* t, char[] name)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setGlobal", "t", "1"));
 	pushString(t, name);
 	swap(t);
 	setGlobal(t);
@@ -1891,7 +1891,7 @@ Pops both the name and the value.
 */
 void setGlobal(MDThread* t)
 {
-	checkNumParams(t, 2);
+	mixin(checkNumParams!("setGlobal", "t", "2"));
 
 	auto n = getValue(t, -2);
 
@@ -1922,7 +1922,7 @@ Params:
 */
 void newGlobal(MDThread* t, char[] name)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("newGlobal", "t", "1"));
 	pushString(t, name);
 	swap(t);
 	newGlobal(t);
@@ -1934,7 +1934,7 @@ both the name and the value off the stack.
 */
 void newGlobal(MDThread* t)
 {
-	checkNumParams(t, 2);
+	mixin(checkNumParams!("newGlobal", "t", "2"));
 
 	auto n = getValue(t, -2);
 
@@ -2024,7 +2024,7 @@ Params:
 */
 void fillArray(MDThread* t, word arr)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("fillArray", "t", "1"));
 	auto a = getArray(t, arr);
 
 	if(a is null)
@@ -2069,7 +2069,7 @@ Params:
 */
 void setFuncEnv(MDThread* t, word func)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setFuncEnv", "t", "1"));
 
 	auto ns = getNamespace(t, -1);
 
@@ -2176,7 +2176,7 @@ Params:
 */
 void setFinalizer(MDThread* t, word cls)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setFinalizer", "t", "1"));
 
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
@@ -2279,7 +2279,7 @@ Params:
 */
 void setAllocator(MDThread* t, word cls)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setAllocator", "t", "1"));
 
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
@@ -2409,7 +2409,7 @@ Params:
 */
 void setExtraVal(MDThread* t, word slot, uword idx)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setExtraVal", "t", "1"));
 
 	if(auto i = getInstance(t, slot))
 	{
@@ -2480,12 +2480,15 @@ void clearNamespace(MDThread* t, word ns)
 }
 
 /**
-Removes the key value at the top of the stack from the given object.  The key value
-is popped.  The object must be a namespace or table.
+Removes the key at the top of the stack from the given object.  The key is popped.
+The object must be a namespace or table.
+
+Params:
+	obj = The stack index of the object from which the key is to be removed.
 */
 void removeKey(MDThread* t, word obj)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("removeKey", "t", "1"));
 
 	if(auto tab = getTable(t, obj))
 	{
@@ -2520,7 +2523,8 @@ void removeKey(MDThread* t, word obj)
 }
 
 /**
-Gets the name of the namespace at the given stack index.
+Gets the name of the namespace at the given stack index.  This is just the single name component that
+it was created with (like "foo" for "namespace foo {}").
 */
 char[] namespaceName(MDThread* t, word ns)
 {
@@ -2632,7 +2636,7 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 
 	if(newFunction)
 	{
-		checkNumParams(t, 1);
+		mixin(checkNumParams!("resetThread", "t", "1"));
 
 		auto f = getFunction(t, -1);
 
@@ -2701,7 +2705,7 @@ setGlobal(t, "x");
 	*/
 	uword yield(MDThread* t, uword numVals, word numReturns)
 	{
-		checkNumParams(t, numVals);
+		mixin(checkNumParams!("yield", "t", "numVals"));
 
 		if(t is t.vm.mainThread)
 			throwException(t, "yield - Attempting to yield out of the main thread");
@@ -2904,7 +2908,7 @@ Returns:
 */
 word idx(MDThread* t, word container, bool raw = false)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("idx", "t", "1"));
 	auto slot = t.stackIndex - 1;
 	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], raw);
 	return stackSize(t) - 1;
@@ -2931,7 +2935,7 @@ Params:
 */
 void idxa(MDThread* t, word container, bool raw = false)
 {
-	checkNumParams(t, 2);
+	mixin(checkNumParams!("idxa", "t", "2"));
 	auto slot = t.stackIndex - 2;
 	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], raw);
 	pop(t, 2);
@@ -3013,7 +3017,7 @@ Returns:
 */
 word field(MDThread* t, word container, bool raw = false)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("field", "t", "1"));
 
 	if(!isString(t, -1))
 	{
@@ -3044,7 +3048,7 @@ Params:
 */
 void fielda(MDThread* t, word container, char[] name, bool raw = false)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("fielda", "t", "1"));
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
 	swap(t);
@@ -3062,7 +3066,7 @@ Params:
 */
 void fielda(MDThread* t, word container, bool raw = false)
 {
-	checkNumParams(t, 2);
+	mixin(checkNumParams!("fielda", "t", "2"));
 
 	if(!isString(t, -2))
 	{
@@ -3124,7 +3128,7 @@ Params:
 */
 void lena(MDThread* t, word slot)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("lena", "t", "1"));
 	auto o = fakeToAbs(t, slot);
 	lenaImpl(t, &t.stack[o], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3140,7 +3144,7 @@ Params:
 */
 word slice(MDThread* t, word container)
 {
-	checkNumParams(t, 2);
+	mixin(checkNumParams!("slice", "t", "2"));
 	auto slot = t.stackIndex - 2;
 	sliceImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t);
@@ -3157,7 +3161,7 @@ Params:
 */
 void slicea(MDThread* t, word container)
 {
-	checkNumParams(t, 3);
+	mixin(checkNumParams!("slicea", "t", "3"));
 	auto slot = t.stackIndex - 3;
 	sliceaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], &t.stack[slot + 2]);
 	pop(t, 3);
@@ -3258,7 +3262,7 @@ Params:
 */
 void addeq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("addeq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.AddEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3267,7 +3271,7 @@ void addeq(MDThread* t, word o)
 /// ditto
 void subeq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("subeq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.SubEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3276,7 +3280,7 @@ void subeq(MDThread* t, word o)
 /// ditto
 void muleq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("muleq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.MulEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3285,7 +3289,7 @@ void muleq(MDThread* t, word o)
 /// ditto
 void diveq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("diveq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.DivEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3294,7 +3298,7 @@ void diveq(MDThread* t, word o)
 /// ditto
 void modeq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("modeq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.ModEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3405,7 +3409,7 @@ Params:
 */
 void andeq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("andeq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.AndEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3414,7 +3418,7 @@ void andeq(MDThread* t, word o)
 /// ditto
 void oreq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("oreq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.OrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3423,7 +3427,7 @@ void oreq(MDThread* t, word o)
 /// ditto
 void xoreq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("xoreq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.XorEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3432,7 +3436,7 @@ void xoreq(MDThread* t, word o)
 /// ditto
 void shleq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("shleq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShlEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3441,7 +3445,7 @@ void shleq(MDThread* t, word o)
 /// ditto
 void shreq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("shreq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3450,7 +3454,7 @@ void shreq(MDThread* t, word o)
 /// ditto
 void ushreq(MDThread* t, word o)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("ushreq", "t", "1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.UShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3482,7 +3486,7 @@ word cat(MDThread* t, uword num)
 	if(num == 0)
 		throwException(t, "cat - Cannot concatenate 0 things");
 
-	checkNumParams(t, num);
+	mixin(checkNumParams!("cat", "t", "num"));
 
 	auto slot = t.stackIndex - num;
 
@@ -3518,7 +3522,7 @@ void cateq(MDThread* t, word dest, uword num)
 	if(num == 0)
 		throwException(t, "cateq - Cannot append 0 things");
 
-	checkNumParams(t, num);
+	mixin(checkNumParams!("cateq", "t", "num"));
 	catEqImpl(t, &t.stack[fakeToAbs(t, dest)], t.stackIndex - num, num);
 	pop(t, num);
 }
@@ -3702,7 +3706,7 @@ The parameters and return value are the same as above.
 */
 uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("methodCall", "t", "1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
@@ -3806,7 +3810,7 @@ The parameters and return value are the same as above.
 uword superCall(MDThread* t, word slot, word numReturns)
 {
 	// Get the method name
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("superCall", "t", "1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
@@ -3993,7 +3997,7 @@ Params:
 */
 void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 {
-	checkNumParams(t, 1);
+	mixin(checkNumParams!("setHookFunc", "t", "1"));
 
 	auto f = getFunction(t, -1);
 
@@ -4472,13 +4476,14 @@ void runFinalizers(MDThread* t)
 // ============================================================================
 // Stack Manipulation
 
-void checkNumParams(MDThread* t, uword n)
+// ohhhhh, what I wouldn't give for macros and __FUNCTION__ right about now.
+template checkNumParams(char[] funcName, char[] t, char[] numParams)
 {
-	debug assert(t.stackIndex > t.stackBase, (printStack(t), printCallStack(t), "fail."));
-
-	// Don'_t count 'this'
-	if((stackSize(t) - 1) < n)
-		throwException(t, "Not enough parameters (expected {}, only have {})", n, stackSize(t) - 1);
+	const char[] checkNumParams =
+	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));"
+	// Don't count 'this'
+	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"
+		"throwException(" ~ t ~ ", \"" ~ funcName ~ " - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
 }
 
 RelStack fakeToRel(MDThread* t, word fake)
@@ -4491,7 +4496,7 @@ RelStack fakeToRel(MDThread* t, word fake)
 		fake += size;
 
 	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid index {} (size = {})", fake, size);
+		throwException(t, "Invalid stack index {} (stack size = {})", fake, size);
 
 	return cast(RelStack)fake;
 }
