@@ -220,9 +220,19 @@ static:
 	}
 	
 	/**
+	Reassign an existing Vector so that its data is a view of a D array.  If the
+	Vector owns its data, it is freed.  The type is also set to the appropriate
+	type code corresponding to the D array.  This is like viewDArray except that
+	it changes an existing Vector rather than creating a new one.
 	
+	The same caveats and restrictions that apply to viewDArray apply to this
+	function as well.
+	
+	Params:
+		slot = The stack index of the Vector instance to reassign.
+		arr = The array to which the given Vector will refer.
 	*/
-	public word reviewDArray(_T)(MDThread* t, word slot, _T[] arr)
+	public void reviewDArray(_T)(MDThread* t, word slot, _T[] arr)
 	{
 		alias realType!(_T) T;
 
@@ -250,8 +260,6 @@ static:
 		memb.data = arr.ptr;
 		memb.length = arr.length;
 		memb.type = ts;
-
-		return stackSize(t) - 1;
 	}
 
 	void init(MDThread* t)
