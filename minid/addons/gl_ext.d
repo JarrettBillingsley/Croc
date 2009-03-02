@@ -2465,8 +2465,6 @@ void loadExtensions(MDThread* t)
 		register(t, &wrapGL!(glGetOcclusionQueryivNV), "glGetOcclusionQueryivNV");
 		register(t, &wrapGL!(glGetOcclusionQueryuivNV), "glGetOcclusionQueryuivNV");
 
-		pushInt(t, GL_OCCLUSION_TEST_HP); newGlobal(t, "GL_OCCLUSION_TEST_HP");
-		pushInt(t, GL_OCCLUSION_TEST_RESULT_HP); newGlobal(t, "GL_OCCLUSION_TEST_RESULT_HP");
 		pushInt(t, GL_PIXEL_COUNTER_BITS_NV); newGlobal(t, "GL_PIXEL_COUNTER_BITS_NV");
 		pushInt(t, GL_CURRENT_OCCLUSION_QUERY_ID_NV); newGlobal(t, "GL_CURRENT_OCCLUSION_QUERY_ID_NV");
 		pushInt(t, GL_PIXEL_COUNT_NV); newGlobal(t, "GL_PIXEL_COUNT_NV");
