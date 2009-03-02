@@ -20,24 +20,11 @@ void register(MDThread* t, NativeFunc func, char[] name)
 
 void pushGL(char[] funcName, T)(MDThread* t, T v)
 {
-	static if(
-		is(T == GLenum) ||
-		is(T == GLbitfield) ||
-		is(T == GLbyte) ||
-		is(T == GLshort) ||
-		is(T == GLint) ||
-		is(T == GLubyte) ||
-		is(T == GLushort) ||
-		is(T == GLuint) ||
-		is(T == GLsizei))
+	static if(isIntegerType!(realType!(T)))
 		pushInt(t, v);
 	else static if(is(T == GLboolean))
 		pushBool(t, v);
-	else static if(
-		is(T == GLfloat) ||
-		is(T == GLclampf) ||
-		is(T == GLdouble) ||
-		is(T == GLclampd))
+	else static if(isRealType!(realType!(T)))
 		pushFloat(t, v);
 	else static if(is(T == GLchar))
 		pushChar(t, v);
@@ -49,27 +36,11 @@ void pushGL(char[] funcName, T)(MDThread* t, T v)
 
 T getGLParam(T, char[] funcName)(MDThread* t, word slot)
 {
-	static if(
-		is(T == GLenum) ||
-		is(T == GLbitfield) ||
-		is(T == GLbyte) ||
-		is(T == GLshort) ||
-		is(T == GLint) ||
-		is(T == GLubyte) ||
-		is(T == GLushort) ||
-		is(T == GLuint) ||
-		is(T == GLsizei) ||
-		is(T == GLhalfNV) ||
-		is(T == GLsizeiptr) ||
-		is(T == GLsizeiptrARB))
+	static if(isIntegerType!(realType!(T)))
 		return cast(T)checkIntParam(t, slot);
 	else static if(is(T == GLboolean))
 		return cast(T)checkBoolParam(t, slot);
-	else static if(
-		is(T == GLfloat) ||
-		is(T == GLclampf) ||
-		is(T == GLdouble) ||
-		is(T == GLclampd))
+	else static if(isRealType!(realType!(T)))
 		return cast(T)checkNumParam(t, slot);
 	else static if(is(T == GLchar))
 		return cast(T)checkCharParam(t, slot);

@@ -202,9 +202,9 @@ static:
 		return ret;
 	}
 
-	private int parseAttrs(char[] attrs)
+	private word parseAttrs(char[] attrs)
 	{
-		int ret = 0;
+		word ret = 0;
 
 		if(attrs.locate('i') != attrs.length)
 			ret |= PCRE_CASELESS;
@@ -227,7 +227,7 @@ static:
 		memb.nextStart = 0;
 	}
 
-	private pcre* compilePattern(MDThread* t, char[] pat, int attrs)
+	private pcre* compilePattern(MDThread* t, char[] pat, word attrs)
 	{
 		auto tmp = allocArray!(char)(t, pat.length + 1);
 		tmp[0 .. pat.length] = pat[];
@@ -237,7 +237,7 @@ static:
 			freeArray(t, tmp);
 
 		char* error;
-		int errorOffset;
+		word errorOffset;
 		auto re = pcre_compile(tmp.ptr, attrs, &error, &errorOffset, null);
 
 		if(error !is null)
@@ -585,7 +585,7 @@ static:
 
 private:
 
-enum : int
+enum : word
 {
 	PCRE_MAJOR = 7,
 	PCRE_MINOR = 4
@@ -594,7 +594,7 @@ enum : int
 const char[] PCRE_PRERELEASE = "";
 const char[] PCRE_DATE       = "2007-09-21";
 
-enum : int
+enum : word
 {
 	PCRE_CASELESS        = 0x00000001,
 	PCRE_MULTILINE       = 0x00000002,
