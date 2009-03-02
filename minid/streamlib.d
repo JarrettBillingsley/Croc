@@ -648,7 +648,7 @@ static:
 	{
 		auto p = getOpenThis(t).print;
 
-		safeCode(t, formatImpl(t, numParams, (char[] s)
+		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
@@ -662,7 +662,7 @@ static:
 	{
 		auto p = getOpenThis(t).print;
 
-		safeCode(t, formatImpl(t, numParams, (char[] s)
+		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
@@ -1238,7 +1238,7 @@ static:
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
 
-		safeCode(t, formatImpl(t, numParams, (char[] s)
+		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
@@ -1254,7 +1254,7 @@ static:
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
 
-		safeCode(t, formatImpl(t, numParams, (char[] s)
+		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;

@@ -59,7 +59,9 @@ T getGLParam(T, char[] funcName)(MDThread* t, word slot)
 		is(T == GLushort) ||
 		is(T == GLuint) ||
 		is(T == GLsizei) ||
-		is(T == GLhalfNV))
+		is(T == GLhalfNV) ||
+		is(T == GLsizeiptr) ||
+		is(T == GLsizeiptrARB))
 		return cast(T)checkIntParam(t, slot);
 	else static if(is(T == GLboolean))
 		return cast(T)checkBoolParam(t, slot);
@@ -75,7 +77,7 @@ T getGLParam(T, char[] funcName)(MDThread* t, word slot)
 	else static if(is(T == void*) || (isPointerType!(T) && !isPointerType!(typeof(*T))))
 	{
 		checkAnyParam(t, slot);
-		
+
 		if(isInstance(t, slot))
 			return cast(T)checkInstParam!(VectorObj.Members)(t, slot, "Vector").data;
 		else if(isInt(t, slot))

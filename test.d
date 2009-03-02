@@ -8,8 +8,8 @@ import minid.bind;
 import minid.vector;
 
 // import minid.addons.pcre;
-import minid.addons.sdl;
-import minid.addons.gl;
+// import minid.addons.sdl;
+// import minid.addons.gl;
 
 // version = TestArc;
 
@@ -29,9 +29,9 @@ void main()
 
 	try
 	{
-		SdlLib.init(t);
+// 		SdlLib.init(t);
 // 		PcreLib.init(t);
-		GlLib.init(t);
+// 		GlLib.init(t);
 
 		version(TestArc)
 			importModule(t, "samples.missilecommand");

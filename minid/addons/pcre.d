@@ -687,18 +687,18 @@ struct pcre {}
 
 struct pcre_callout_block
 {
-	int   _version;
-	int   callout_number;
-	int*  offset_vector;
+	word   _version;
+	word   callout_number;
+	word*  offset_vector;
 	char* subject;
-	int   subject_length;
-	int   start_match;
-	int   current_position;
-	int   capture_top;
-	int   capture_last;
+	word   subject_length;
+	word   start_match;
+	word   current_position;
+	word   capture_top;
+	word   capture_last;
 	void* callout_data;
-	int   pattern_position;
-	int   next_item_length;
+	word   pattern_position;
+	word   next_item_length;
 }
 
 struct pcre_extra
@@ -713,27 +713,27 @@ struct pcre_extra
 
 extern(C)
 {
-	pcre* function(char*, int, char**, int*, ubyte*)                             pcre_compile;
-	pcre* function(char*, int, int*, char**, int*, ubyte*)                       pcre_compile2;
-	int function(int, void*)                                                     pcre_config;
-	int function(pcre*, char*)                                                   pcre_copy_named_substring;
-	int function(char*, int*, int, int, char*, int)                              pcre_copy_substring;
-	int function(pcre*, pcre_extra*, char*, int, int, int, int*, int, int*, int) pcre_dfa_exec;
-	int function(pcre*, pcre_extra*, char*, int, int, int, int*, int)            pcre_exec;
-	void function(char*)                                                         pcre_free_substring;
-	void function(char**)                                                        pcre_free_substring_list;
-	int function(pcre*, pcre_extra*, int, void*)                                 pcre_fullinfo;
-	int function(pcre*, char*, int*, int, char*, char**)                         pcre_get_named_substring;
-	int function(pcre*, char*)                                                   pcre_get_stringnumber;
-	int function(pcre*, char*, char**, char**)                                   pcre_get_stringtable_entries;
-	int function(char*, int*, int, int, char**)                                  pcre_get_substring;
-	int function(char*, int*, int, char***)                                      pcre_get_substring_list;
-	int function(pcre*, int*, int*)                                              pcre_info;
-	ubyte* function()                                                            pcre_maketables;
-	int function(pcre*, int)                                                     pcre_refcount;
-	pcre_extra* function(pcre*, int, char**)                                     pcre_study;
-	char* function()                                                             pcre_version;
-	void function(void*)*                                                        pcre_free;
+	pcre* function(char*, word, char**, word*, ubyte*)                                   pcre_compile;
+	pcre* function(char*, word, word*, char**, word*, ubyte*)                            pcre_compile2;
+	word function(word, void*)                                                           pcre_config;
+	word function(pcre*, char*)                                                          pcre_copy_named_substring;
+	word function(char*, word*, word, word, char*, word)                                 pcre_copy_substring;
+	word function(pcre*, pcre_extra*, char*, word, word, word, word*, word, word*, word) pcre_dfa_exec;
+	word function(pcre*, pcre_extra*, char*, word, word, word, word*, word)              pcre_exec;
+	void function(char*)                                                                 pcre_free_substring;
+	void function(char**)                                                                pcre_free_substring_list;
+	word function(pcre*, pcre_extra*, word, void*)                                       pcre_fullinfo;
+	word function(pcre*, char*, word*, word, char*, char**)                              pcre_get_named_substring;
+	word function(pcre*, char*)                                                          pcre_get_stringnumber;
+	word function(pcre*, char*, char**, char**)                                          pcre_get_stringtable_entries;
+	word function(char*, word*, word, word, char**)                                      pcre_get_substring;
+	word function(char*, word*, word, char***)                                           pcre_get_substring_list;
+	word function(pcre*, word*, word*)                                                   pcre_info;
+	ubyte* function()                                                                    pcre_maketables;
+	word function(pcre*, word)                                                           pcre_refcount;
+	pcre_extra* function(pcre*, word, char**)                                            pcre_study;
+	char* function()                                                                     pcre_version;
+	void function(void*)*                                                                pcre_free;
 }
 
 class LoaderException : Exception

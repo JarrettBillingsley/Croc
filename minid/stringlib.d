@@ -517,7 +517,7 @@ static:
 		if(realIdx >= s.length)
 			return 0;
 
-		uword ate = void;
+		uint ate = void;
 		auto c = Utf.decode(s.toString()[realIdx .. $], ate);
 		realIdx += ate;
 
@@ -543,7 +543,7 @@ static:
 			return 0;
 
 		auto tmp = Utf.cropRight(s.toString[0 .. realIdx - 1]);
-		uword ate = void;
+		uint ate = void;
 		auto c = Utf.decode(s.toString()[tmp.length .. $], ate);
 
 		pushInt(t, tmp.length);		

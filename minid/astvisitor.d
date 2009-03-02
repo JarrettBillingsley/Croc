@@ -145,7 +145,7 @@ abstract class Visitor
 		return dispatch(n);
 	}
 
-	protected final AstNode function(Visitor, AstNode) getDispatchFunction()(AstNode n)
+	protected final AstNode function(Visitor, AstNode) getDispatchFunction(AstNode n)
 	{
 		return cast(AstNode function(Visitor, AstNode))dispatchTable[n.type];
 	}
