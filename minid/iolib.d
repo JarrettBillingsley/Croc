@@ -28,7 +28,7 @@ module minid.iolib;
 import Path = tango.io.Path;
 import tango.io.device.File;
 import tango.io.FileSystem;
-import tango.io.stream.Buffer;
+import tango.io.stream.Buffered;
 import tango.io.UnicodeFile;
 import tango.util.PathUtil;
 
@@ -102,7 +102,7 @@ static:
 	uword inFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		auto f = safeCode(t, new BufferInput(new File(name, File.ReadExisting)));
+		auto f = safeCode(t, new BufferedInput(new File(name, File.ReadExisting)));
 
 		lookupCT!("stream.InStream")(t);
 		pushNull(t);
@@ -128,7 +128,7 @@ static:
 				throwException(t, "Unknown open mode '{}'", mode);
 		}
 
-		auto f = safeCode(t, new BufferOutput(new File(name, style)));
+		auto f = safeCode(t, new BufferedOutput(new File(name, style)));
 
 		lookupCT!("stream.OutStream")(t);
 		pushNull(t);
@@ -451,7 +451,7 @@ static:
 		checkAnyParam(t, 1);
 		
 		char[][] tmp;
-		
+
 		scope(exit)
 			delete tmp;
 

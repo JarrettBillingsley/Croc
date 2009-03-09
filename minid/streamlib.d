@@ -1008,7 +1008,7 @@ static:
 		{
 			memb.dirty = false;
 			safeCode(t, memb.conduit.flush()); // may have to wrap this in a bullshit try-catch?
-			safeCode(t, memb.conduit.clear());
+			//safeCode(t, memb.conduit.clear());
 		}
 	}
 
@@ -1317,7 +1317,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, memb.conduit.flush());
-		safeCode(t, memb.conduit.clear());
+		//safeCode(t, memb.conduit.clear());
 		memb.dirty = false;
 		dup(t, 0);
 		return 1;

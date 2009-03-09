@@ -257,7 +257,7 @@ static:
 					pop(t);
 				}
 
-				p.args = cmd;
+				p.args(cmd[0], cmd[1 .. $]);
 				safeCode(t, p.execute());
 			}
 			

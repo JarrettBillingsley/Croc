@@ -29,8 +29,8 @@ void main()
 
 	try
 	{
-// 		SdlLib.init(t);
 // 		PcreLib.init(t);
+// 		SdlLib.init(t);
 // 		GlLib.init(t);
 
 		version(TestArc)

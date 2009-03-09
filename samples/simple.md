@@ -1,6 +1,6 @@
 module samples.simple
 
-writeln$ "o hai"
+writeln$ "o hai luls"
 
 /+
 import sdl: event, key
