@@ -505,7 +505,6 @@ To end interactive mode, use the \"exit()\" function.
 			mOutput("Use the \"exit()\" function to end.").newline;
 
 			normalPrompt();
-			//mOutput(Prompt1)();
 
 			// static so the interrupt handler can access it.
 			static bool didHalt = false;
@@ -545,7 +544,6 @@ To end interactive mode, use the \"exit()\" function.
 
 					if(c.isEof())
 					{
-						//mOutput(Prompt2).flush;
 						secondPrompt();
 						return true;
 					}
@@ -598,7 +596,6 @@ To end interactive mode, use the \"exit()\" function.
 
 					if(c.isEof())
 					{
-						//mOutput(Prompt2)();
 						secondPrompt();
 						return true;
 					}
@@ -672,7 +669,6 @@ To end interactive mode, use the \"exit()\" function.
 
 				if(buffer.length is 0 && line.trim().length is 0)
 				{
-					//mOutput(Prompt1)();
 					normalPrompt();
 					continue;
 				}
@@ -701,7 +697,6 @@ To end interactive mode, use the \"exit()\" function.
 					didHalt = false;
 				}
 
-				//mOutput(Prompt1)();
 				normalPrompt();
 				buffer.length = 0;
 			}

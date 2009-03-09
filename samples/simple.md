@@ -1,7 +1,5 @@
 module samples.simple
 
-writeln$ "o hai luls"
-
 /+
 import sdl: event, key
 import gl
