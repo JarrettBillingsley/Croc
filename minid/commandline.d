@@ -22,10 +22,14 @@ subject to the following restrictions:
 	be misrepresented as being the original software.
 
 	 3. This notice may not be removed or altered from any source distribution.
+
+Authors:
+	Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
 ******************************************************************************/
 
 module minid.commandline;
 
+import tango.core.Exception;
 import tango.io.Console;
 import tango.io.device.File;
 import tango.io.model.IConduit;
@@ -35,6 +39,7 @@ import tango.io.stream.Format;
 import tango.io.stream.Lines;
 import tango.stdc.ctype;
 import tango.stdc.signal;
+import tango.stdc.stringz;
 import tango.text.convert.Layout;
 import tango.text.Util;
 import Uni = tango.text.Unicode;
@@ -47,6 +52,182 @@ import minid.interpreter;
 import minid.serialization;
 import minid.types;
 import minid.utils;
+
+version(MdclReadline)
+{
+	version(build)
+	{
+		pragma(link, "readline");
+		pragma(link, "history");
+	}
+	else
+	{
+		pragma(lib, "readline");
+		pragma(lib, "history");
+	}
+
+	extern(C)
+	{
+		void using_history();
+		void add_history(char*);
+		void clear_history();
+		void stifle_history(int);
+		int	unstifle_history();
+		char* readline(char*);
+		int	printf(char*, ...);
+		char* function(char*, int) rl_completion_entry_function;
+		
+		static char* emptyCompleter(char*, int)
+		{
+			return null;
+		}
+	}
+
+	static this()
+	{
+		using_history();
+		rl_completion_entry_function = &emptyCompleter;
+	}
+
+	// It's a singleton since there's only one stdin..!
+	class ReadlineStream : InputBuffer
+	{
+		private static ReadlineStream _instance;
+
+		public static ReadlineStream instance()
+		{
+			return _instance;
+		}
+
+		static this()
+		{
+			_instance = new ReadlineStream();
+			_instance.maxHistory = -1;
+		}
+
+		// nonstatic
+		private char* mPrompt;
+		private char[] mBuffer;
+		private bool mFirstCall = true;
+
+		private this()
+		{
+			if(_instance !is null)
+				throw new Exception("Attempting to create more than one instance of ReadlineStream");
+		}
+
+		public size_t readln(ref char[] dst)
+		{
+			dst = cast(char[])load();
+			return dst.length;
+		}
+
+		public void maxHistory(int max)
+		{
+			if(max == -1)
+				unstifle_history();
+			else if(max >= 0)
+				stifle_history(max);
+		}
+		
+		/**
+		This depends on p always being 0-terminated (like a string literal).
+		*/
+		public void prompt(char[] p)
+		{
+			mPrompt = p.ptr;
+		}
+
+		public override size_t read(void[] dst)
+		{
+			throw new IOException("Unimplemented");
+		}
+
+		public override void[] load(size_t max = size_t.max)
+		{
+			if(mFirstCall)
+			{
+				mFirstCall = false;
+				return null;
+			}
+
+			if(mBuffer is null)
+			{
+				auto line = readline(mPrompt);
+
+				while(fromStringz(line).length == 0)
+					line = readline(mPrompt);
+
+				add_history(line);
+				return fromStringz(line);
+			}
+
+			auto buf = mBuffer;
+			mBuffer = null;
+			return buf;
+		}
+
+		public override InputStream input()
+		{
+			return this;
+		}
+
+		public override IConduit conduit()
+		{
+			return cast(IConduit)this;
+		}
+
+		public override long seek(long, Anchor)
+		{
+			throw new IOException( "Unimplemented" );
+		}
+
+		public override IOStream flush()
+		{
+			return this;
+		}
+
+		public override void close()
+		{
+			mBuffer = null;
+			clear_history();
+		}
+
+		public override void[] slice()
+		{
+			if(mBuffer is null)
+				mBuffer = cast(char[])load();
+
+			return cast(void[])mBuffer[0 .. $];
+		}
+
+		public override bool next(size_t delegate(void[]) scan)
+		{
+			if(mBuffer is null)
+				mBuffer = cast(char[])load();
+
+			if(scan(cast(void[])mBuffer) is Eof)
+			{
+				mBuffer = null;
+				return false;
+			}
+
+			return true;
+		}
+
+		public override size_t reader(size_t delegate(void[]) consumer)
+		{
+			if(mBuffer is null)
+				mBuffer = cast(char[])load();
+
+			return consumer(mBuffer[0 .. $]);
+		}
+	}
+}
+else
+{
+	version = NoMdclReadline;
+}
 
 /**
 This struct encapsulates a MiniD command-line interpreter.  This is the CLI that
@@ -124,7 +305,10 @@ To end interactive mode, use the \"exit()\" function.
 	*/
 	public static CommandLine opCall()
 	{
-		return opCall(Stdout, Cin.stream);
+		version(MdclReadline)
+			return opCall(Stdout, ReadlineStream.instance.input);
+		else
+			return opCall(Stdout, Cin.stream);
 	}
 
 	private void printVersion()
@@ -138,6 +322,32 @@ To end interactive mode, use the \"exit()\" function.
 		mOutput("Usage:").newline;
 		mOutput("\t")(progname)(" [flags] [filename [args]]").newline;
 		mOutput(Usage);
+	}
+	
+	private void normalPrompt()
+	{
+		version(NoMdclReadline)
+			mOutput(Prompt1)();
+		else
+		{
+			if(mInput.input is ReadlineStream.instance.input)
+				ReadlineStream.instance.prompt = Prompt1;
+			else
+				mOutput(Prompt1)();
+		}
+	}
+
+	private void secondPrompt()
+	{
+		version(NoMdclReadline)
+			mOutput(Prompt2)();
+		else
+		{
+			if(mInput.input is ReadlineStream.instance.input)
+				ReadlineStream.instance.prompt = Prompt2;
+			else
+				mOutput(Prompt2)();
+		}
 	}
 
 	/**
@@ -293,7 +503,9 @@ To end interactive mode, use the \"exit()\" function.
 			newGlobal(t, "exit");
 
 			mOutput("Use the \"exit()\" function to end.").newline;
-			mOutput(Prompt1)();
+
+			normalPrompt();
+			//mOutput(Prompt1)();
 
 			// static so the interrupt handler can access it.
 			static bool didHalt = false;
@@ -333,7 +545,8 @@ To end interactive mode, use the \"exit()\" function.
 
 					if(c.isEof())
 					{
-						mOutput(Prompt2).flush;
+						//mOutput(Prompt2).flush;
+						secondPrompt();
 						return true;
 					}
 					else if(c.isLoneStmt())
@@ -347,7 +560,6 @@ To end interactive mode, use the \"exit()\" function.
 					}
 
 					mOutput.formatln("Error: {}", e2).newline;
-					
 					return false;
 				}
 
@@ -386,7 +598,8 @@ To end interactive mode, use the \"exit()\" function.
 
 					if(c.isEof())
 					{
-						mOutput(Prompt2)();
+						//mOutput(Prompt2)();
+						secondPrompt();
 						return true;
 					}
 					else
@@ -459,7 +672,8 @@ To end interactive mode, use the \"exit()\" function.
 
 				if(buffer.length is 0 && line.trim().length is 0)
 				{
-					mOutput(Prompt1)();
+					//mOutput(Prompt1)();
+					normalPrompt();
 					continue;
 				}
 
@@ -487,7 +701,8 @@ To end interactive mode, use the \"exit()\" function.
 					didHalt = false;
 				}
 
-				mOutput(Prompt1)();
+				//mOutput(Prompt1)();
+				normalPrompt();
 				buffer.length = 0;
 			}
 		}
