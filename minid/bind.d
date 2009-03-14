@@ -574,7 +574,10 @@ public word superPush(Type)(MDThread* t, Type val)
 		if(isNull(t, -1))
 			throwException(t, "Cannot convert class {} to a MiniD value; class type has not been wrapped", typeid(T));
 
-		return getWrappedInstance(t, val);
+		if(val is null)
+			return pushNull(t);
+		else
+			return getWrappedInstance(t, val);
 	}
 	else static if(is(T == struct))
 	{
