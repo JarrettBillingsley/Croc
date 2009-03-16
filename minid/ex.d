@@ -405,7 +405,7 @@ public void paramTypeError(MDThread* t, word index, char[] expected)
 	if(index == 0)
 		throwException(t, "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
 	else
-		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, index, getString(t, -1));
+		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
 }
 
 /**

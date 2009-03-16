@@ -712,6 +712,8 @@ public Type superGet(Type)(MDThread* t, word idx)
 	}
 	else static if(is(T : Object))
 	{
+		idx = absIndex(t, idx);
+
 		if(isNull(t, idx))
 			return null;
 
@@ -730,6 +732,8 @@ public Type superGet(Type)(MDThread* t, word idx)
 	}
 	else static if(is(T == struct))
 	{
+		idx = absIndex(t, idx);
+
 		getWrappedClass(t, typeid(T));
 		// the wrapped class will always be non-null, since the struct got on the stack in the first place..
 
