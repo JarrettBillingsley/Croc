@@ -376,8 +376,41 @@ Returns:
 */
 public word getWrappedClass(MDThread* t, TypeInfo ti)
 {
+	if(auto tic = cast(TypeInfo_Class)ti)
+		return getWrappedClass(t, tic.info);
+	else
+	{
+		getRegistryVar(t, "minid.bind.WrappedClasses");
+		pushNativeObj(t, ti);
+
+		if(!opin(t, -1, -2))
+		{
+			pop(t, 2);
+			return pushNull(t);
+		}
+
+		idx(t, -2);
+		insertAndPop(t, -2);
+		return stackSize(t) - 1;
+	}
+}
+
+/**
+Given a ClassInfo instance of the desired class type, pushes
+the corresponding wrapped MiniD class, or pushes null if the type has not been wrapped.
+
+$(B You probably won't have to call this function under normal circumstances.)
+
+Params:
+	ci = The runtime ClassInfo instance of the desired class.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+public word getWrappedClass(MDThread* t, ClassInfo ci)
+{
 	getRegistryVar(t, "minid.bind.WrappedClasses");
-	pushNativeObj(t, ti);
+	pushNativeObj(t, ci);
 
 	if(!opin(t, -1, -2))
 	{
@@ -391,6 +424,44 @@ public word getWrappedClass(MDThread* t, TypeInfo ti)
 }
 
 /**
+Given a ClassInfo instance of the desired class type, pushes
+the corresponding wrapped MiniD class, or pushes null if the type has not been wrapped.
+This version looks for a super class if a direct match cannot be found.
+
+$(B You probably won't have to call this function under normal circumstances.)
+
+Params:
+	ci = The runtime ClassInfo instance of the desired class.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+public word getWrappedClassOrSuper(MDThread* t, ClassInfo ci)
+{
+	getRegistryVar(t, "minid.bind.WrappedClasses");
+
+	while(ci !is Object.classinfo && ci !is null)
+	{
+		pushNativeObj(t, ci);
+
+		if(opin(t, -1, -2))
+		{
+			idx(t, -2);
+			insertAndPop(t, -2);
+			return stackSize(t) - 1;
+		}
+		else
+		{
+			pop(t);
+			ci = ci.base;
+		}
+	}
+
+	pop(t);
+	return pushNull(t);
+}
+
+/**
 Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
 to the given runtime TypeInfo object.  The class object is $(B not) popped off the stack.
 
@@ -398,8 +469,28 @@ $(B You probably won't have to call this function under normal circumstances.)
 */
 public void setWrappedClass(MDThread* t, TypeInfo ti)
 {
+	if(auto tic = cast(TypeInfo_Class)ti)
+		return setWrappedClass(t, tic.info);
+	else
+	{
+		getRegistryVar(t, "minid.bind.WrappedClasses");
+		pushNativeObj(t, ti);
+		dup(t, -3);
+		idxa(t, -3);
+		pop(t);
+	}
+}
+
+/**
+Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
+to the given runtime ClassInfo object.  The class object is $(B not) popped off the stack.
+
+$(B You probably won't have to call this function under normal circumstances.)
+*/
+public void setWrappedClass(MDThread* t, ClassInfo ci)
+{
 	getRegistryVar(t, "minid.bind.WrappedClasses");
-	pushNativeObj(t, ti);
+	pushNativeObj(t, ci);
 	dup(t, -3);
 	idxa(t, -3);
 	pop(t);
@@ -501,12 +592,23 @@ Returns:
 */
 static Type checkClassSelf(Type, char[] FullName)(MDThread* t)
 {
-	static assert(is(Type == class), "checkClassSelf must be instantiated with a class type, not with '" ~ Type.stringof ~ "'");
-	checkInstParam(t, 0, FullName);
-	getExtraVal(t, 0, 0);
-	auto ret = cast(Type)cast(void*)getNativeObj(t, -1);
-	pop(t);
-	return ret;
+	static if(is(Type == interface))
+	{
+		checkInstParam(t, 0, FullName);
+		getExtraVal(t, 0, 0);
+		auto ret = cast(Type)cast(Object)cast(void*)getNativeObj(t, -1);
+		pop(t);
+		return ret;
+	}
+	else
+	{
+		static assert(is(Type == class), "checkClassSelf must be instantiated with a class type, not with '" ~ Type.stringof ~ "'");
+		checkInstParam(t, 0, FullName);
+		getExtraVal(t, 0, 0);
+		auto ret = cast(Type)cast(void*)getNativeObj(t, -1);
+		pop(t);
+		return ret;
+	}
 }
 
 /**
@@ -567,17 +669,35 @@ public word superPush(Type)(MDThread* t, Type val)
 
 		return ret;
 	}
+	else static if(is(T == interface))
+	{		
+		auto obj = cast(Object)val;
+
+		if(obj is null)
+			return pushNull(t);
+		else
+		{
+			getWrappedClassOrSuper(t, obj.classinfo);
+			
+			if(isNull(t, -1))
+				throwException(t, "Cannot convert class {} to a MiniD value; class type has not been wrapped", typeid(T));
+			else
+				return getWrappedInstance(t, obj);
+		}
+	}
 	else static if(is(T : Object))
 	{
-		getWrappedClass(t, typeid(T));
-
-		if(isNull(t, -1))
-			throwException(t, "Cannot convert class {} to a MiniD value; class type has not been wrapped", typeid(T));
-
 		if(val is null)
 			return pushNull(t);
 		else
-			return getWrappedInstance(t, val);
+		{
+			getWrappedClassOrSuper(t, val.classinfo);
+			
+			if(isNull(t, -1))
+				throwException(t, "Cannot convert class {} to a MiniD value; class type has not been wrapped", typeid(T));
+			else
+				return getWrappedInstance(t, val);
+		}
 	}
 	else static if(is(T == struct))
 	{
@@ -691,7 +811,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 				pushTypeString(t, idx);
 				pushTypeString(t, keyIdx);
 				throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': key should be '" ~
-					ElemType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
+					KeyType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			auto valIdx = push(t, val);
@@ -701,7 +821,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 				pushTypeString(t, idx);
 				pushTypeString(t, valIdx);
 				throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': value should be '" ~
-					ElemType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
+					ValueType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
 			ret[superGet!(KeyType)(t, keyIdx)] = superGet!(ValueType)(t, valIdx);
@@ -710,7 +830,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 
 		return cast(Type)ret;
 	}
-	else static if(is(T : Object))
+	else static if(is(T == interface))
 	{
 		idx = absIndex(t, idx);
 
@@ -718,6 +838,26 @@ public Type superGet(Type)(MDThread* t, word idx)
 			return null;
 
 		getWrappedClass(t, typeid(T));
+
+		if(!as(t, idx, -1))
+			paramTypeError(t, idx, "instance of " ~ Type.stringof);
+
+		pop(t);
+
+		getExtraVal(t, idx, 0);
+		auto ret = cast(Type)cast(Object)cast(void*)getNativeObj(t, -1);
+		pop(t);
+		
+		return ret;
+	}
+	else static if(is(T : Object))
+	{
+		idx = absIndex(t, idx);
+
+		if(isNull(t, idx))
+			return null;
+
+		getWrappedClass(t, T.classinfo);
 
 		if(!as(t, idx, -1))
 			paramTypeError(t, idx, "instance of " ~ Type.stringof);
@@ -902,7 +1042,7 @@ public bool canCastTo(Type)(MDThread* t, word idx)
 		if(isNull(t, idx))
 			return true;
 
-		getWrappedClass(t, typeid(T));
+		getWrappedClass(t, T.classinfo);
 		auto ret = as(t, idx, -1);
 		pop(t);
 		return ret;
@@ -1172,7 +1312,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 		alias BaseTypeTupleOf!(Type)[0] BaseClass;
 
 		static if(!is(BaseClass == Object))
-			auto base = getWrappedClass(t, typeid(BaseClass));
+			auto base = getWrappedClass(t, BaseClass.classinfo);
 		else
 			auto base = pushNull(t);
 
