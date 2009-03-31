@@ -11,11 +11,6 @@ import minid.vector;
 // import minid.addons.sdl;
 // import minid.addons.gl;
 
-// version = TestArc;
-
-version(TestArc)
-	import arc_wrap.all;
-
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -23,9 +18,6 @@ void main()
 	MDVM vm;
 	auto t = openVM(&vm);
 	loadStdlibs(t, MDStdlib.ReallyAll);
-
-	version(TestArc)
-		ArcLib.init(t);
 
 	try
 	{
