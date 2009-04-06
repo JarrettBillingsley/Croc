@@ -6552,7 +6552,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				if(!Utf.isValid(dest.mChar))
 					throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", dest.mChar);
 
-				len += charLen(dest.mChar);
+				len = charLen(dest.mChar);
 			}
 			else
 				len = dest.mString.length;
@@ -7920,7 +7920,10 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Attempting to yield out of the main thread");
 
 					version(MDExtendedCoro)
+					{
 						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
+						break;
+					}
 					else
 					{
 						if(t.nativeCallDepth > 0)
@@ -7930,8 +7933,6 @@ void execute(MDThread* t, uword depth = 1)
 						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
 						return;
 					}
-
-					break;
 
 				case Op.CheckParams:
 					auto val = &t.stack[stackBase];

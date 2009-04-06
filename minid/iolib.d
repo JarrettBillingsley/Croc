@@ -388,14 +388,17 @@ static:
 		auto name = checkStringParam(t, 1);
 		auto size = safeCode(t, Path.fileSize(name));
 
+		if(size > uword.max)
+			throwException(t, "file too big ({} bytes)", size);
+
 		pushGlobal(t, "Vector");
 		pushNull(t);
 		pushString(t, "u8");
-		pushInt(t, size);
+		pushInt(t, cast(mdint)size);
 		rawCall(t, -4, 1);
 		auto memb = getMembers!(VectorObj.Members)(t, -1);
 
-		safeCode(t, File.get(name, memb.data[0 .. size]));
+		safeCode(t, File.get(name, memb.data[0 .. cast(uword)size]));
 
 		return 1;
 	}

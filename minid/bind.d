@@ -847,7 +847,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		getExtraVal(t, idx, 0);
 		auto ret = cast(Type)cast(Object)cast(void*)getNativeObj(t, -1);
 		pop(t);
-		
+
 		return ret;
 	}
 	else static if(is(T : Object))
@@ -867,7 +867,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		getExtraVal(t, idx, 0);
 		auto ret = cast(Type)cast(void*)getNativeObj(t, -1);
 		pop(t);
-		
+
 		return ret;
 	}
 	else static if(is(T == struct))
@@ -883,7 +883,12 @@ public Type superGet(Type)(MDThread* t, word idx)
 		pop(t);
 
 		getExtraVal(t, idx, 0);
-		auto ret = cast(Type)(cast(StructWrapper!(T))getNativeObj(t, -1)).inst;
+
+		static if(!is(Type == T))
+			auto ret = cast(Type)(cast(StructWrapper!(T))getNativeObj(t, -1)).inst;
+		else
+			auto ret = (cast(StructWrapper!(T))getNativeObj(t, -1)).inst;
+
 		pop(t);
 
 		return ret;

@@ -5,3 +5,4 @@ test.d
 -debug=LEAK_DETECTOR
 -version=MDGLCheckErrors
 -g
+-w

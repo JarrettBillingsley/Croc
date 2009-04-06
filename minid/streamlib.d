@@ -359,10 +359,12 @@ static:
 	public uword skip(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		auto dist = checkIntParam(t, 1);
+		auto dist_ = checkIntParam(t, 1);
 
-		if(dist < 0)
-			throwException(t, "Invalid skip distance {} (must be >= 0)", dist);
+		if(dist_ < 0 || dist_ > uword.max)
+			throwException(t, "Invalid skip distance ({})", dist_);
+
+		auto dist = cast(uword)dist_;
 
 		// it's OK if this is shared - it's just a bit bucket
 		static ubyte[1024] dummy;
@@ -1359,10 +1361,12 @@ static:
 	public uword skip(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
-		auto dist = checkIntParam(t, 1);
+		auto dist_ = checkIntParam(t, 1);
 
-		if(dist < 0)
-			throwException(t, "Invalid skip distance {} (must be >= 0)", dist);
+		if(dist_ < 0 || dist_ > uword.max)
+			throwException(t, "Invalid skip distance ({})", dist_);
+			
+		auto dist = cast(uword)dist_;
 
 		checkDirty(t, memb);
 

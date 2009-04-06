@@ -142,6 +142,8 @@ static:
 			return getFunction(t, arg);
 		else
 			paramTypeError(t, arg, "int|function");
+			
+		assert(false);
 	}
 
 	uword setHook(MDThread* t, uword numParams)
@@ -157,8 +159,8 @@ static:
 		auto maskStr = optStringParam(t, arg + 2, "");
 		auto delay = optIntParam(t, arg + 3, 0);
 		
-		if(delay < 0)
-			throwException(t, "delay may not be negative");
+		if(delay < 0 || delay > uword.max)
+			throwException(t, "invalid delay value ({})", delay);
 
 		auto mask = strToMask(maskStr);
 
@@ -167,7 +169,7 @@ static:
 
 		dup(t, arg + 1);
 		transferVals(t, thread, 1);
-		setHookFunc(thread, mask, delay);
+		setHookFunc(thread, mask, cast(uword)delay);
 		return 0;
 	}
 
@@ -440,7 +442,7 @@ static:
 		if(func.isNative)
 			pushString(t, "");
 		else
-			pushStringObj(t, func.scriptFunc.upvalNames[idx]);
+			pushStringObj(t, func.scriptFunc.upvalNames[cast(uword)idx]);
 
 		return 1;
 	}
@@ -462,11 +464,11 @@ static:
 				throwException(t, "invalid upvalue index '{}'", idx);
 
 			if(func.isNative)
-				push(t, func.nativeUpvals()[idx]);
+				push(t, func.nativeUpvals()[cast(uword)idx]);
 			else
 			{
 				// don't inline; if t is thread, invalid push
-				auto v = *func.scriptUpvals()[idx].value;
+				auto v = *func.scriptUpvals()[cast(uword)idx].value;
 				push(t, v);
 			}
 		}
@@ -517,9 +519,9 @@ static:
 				throwException(t, "invalid upvalue index '{}'", idx);
 
 			if(func.isNative)
-				func.nativeUpvals()[idx] = *getValue(t, arg + 3);
+				func.nativeUpvals()[cast(uword)idx] = *getValue(t, arg + 3);
 			else
-				*func.scriptUpvals()[idx].value = *getValue(t, arg + 3);
+				*func.scriptUpvals()[cast(uword)idx].value = *getValue(t, arg + 3);
 		}
 		else if(isString(t, arg + 2))
 		{
@@ -718,7 +720,7 @@ static:
 		if(idx < 0 || idx >= num)
 			throwException(t, "Invalid field index '{}'", idx);
 			
-		getExtraVal(t, 1, idx);
+		getExtraVal(t, 1, cast(uword)idx);
 		return 1;
 	}
 
@@ -736,7 +738,7 @@ static:
 		if(idx < 0 || idx >= num)
 			throwException(t, "Invalid field index '{}'", idx);
 
-		setExtraVal(t, 1, idx);
+		setExtraVal(t, 1, cast(uword)idx);
 		return 0;
 	}
 }

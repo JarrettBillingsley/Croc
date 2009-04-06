@@ -518,7 +518,7 @@ static:
 			return 0;
 
 		uint ate = void;
-		auto c = Utf.decode(s.toString()[realIdx .. $], ate);
+		auto c = Utf.decode(s.toString()[cast(uword)realIdx .. $], ate);
 		realIdx += ate;
 
 		pushInt(t, realIdx);
@@ -542,7 +542,7 @@ static:
 		if(realIdx <= 0)
 			return 0;
 
-		auto tmp = Utf.cropRight(s.toString[0 .. realIdx - 1]);
+		auto tmp = Utf.cropRight(s.toString[0 .. cast(uword)realIdx - 1]);
 		uint ate = void;
 		auto c = Utf.decode(s.toString()[tmp.length .. $], ate);
 
