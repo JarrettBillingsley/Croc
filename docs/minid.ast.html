@@ -47,7 +47,7 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">AstNode</span>
 <script>explorer.outline.addDecl('AstNode');</script>
 
@@ -581,7 +581,8 @@ and function declarations.
 
 
 <dd>The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
-	is a ReturnStmt with one expression, the expression that is the lambda's body.
+	is a ReturnStmt with one expression, the expression that is the lambda's body.  Otherwise, it
+	must (($B must)) be a BlockStmt.  This will be checked upon construction.
 	
 <br><br>
 
@@ -803,7 +804,7 @@ namespace literals and declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Statement[] 
+<dt><span class="decl">Statement 
 <span class="currsymbol">statements</span>
 <script>explorer.outline.addDecl('statements');</script>
 
@@ -812,11 +813,12 @@ namespace literals and declarations.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>A list of 0 or more 
+<dd>The 
 <span class="currsymbol">statements</span>
 <script>explorer.outline.addDecl('statements');</script>
 
- which make up the body of the module.
+ which make up the body of the module.  Normally this will be a block
+	statement but it can be other kinds due to semantic analysis.
 	
 <br><br>
 
@@ -836,7 +838,7 @@ namespace literals and declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, char[][] <span class="funcparam">names</span>, Statement[] <span class="funcparam">statements</span>, Decorator <span class="funcparam">decorator</span>);
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, char[][] <span class="funcparam">names</span>, Statement <span class="funcparam">statements</span>, Decorator <span class="funcparam">decorator</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -850,7 +852,7 @@ namespace literals and declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">Statement</span>
 <script>explorer.outline.addDecl('Statement');</script>
 
@@ -1589,6 +1591,8 @@ which actually are just syntactic sugar.  This is for actual declarations.
 An example of where this would be used is in an anonymous scope with some code in it.  All it
 does is affects the codegen of the contained statement by beginning a new scope before it
 and ending the scope after it.
+<br><br>
+If you're looking for the "scope(exit)" kind of statements, look at the ScopeActionStmt node.
 <br><br>
 
 
@@ -2825,6 +2829,110 @@ but either or both the catch and finally clauses.
 
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">class 
+<span class="currsymbol">ScopeActionStmt</span>
+<script>explorer.outline.addDecl('ScopeActionStmt');</script>
+
+: minid.ast.Statement;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This node represents a scope (exit, success, or failure) statement.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Exit</span>
+<script>explorer.outline.addDecl('Exit');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>scope(exit) 
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Success</span>
+<script>explorer.outline.addDecl('Success');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>scope(success) 
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">
+<span class="currsymbol">Failure</span>
+<script>explorer.outline.addDecl('Failure');</script>
+
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>scope(failure) 
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">ubyte 
+<span class="currsymbol">type</span>
+<script>explorer.outline.addDecl('type');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>One of the above constants, indicates which kind of scope statement this is.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">Statement 
+<span class="currsymbol">stmt</span>
+<script>explorer.outline.addDecl('stmt');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>The statement which will be executed if this scope statement is run.
+	
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, ubyte <span class="funcparam">type</span>, Statement <span class="funcparam">stmt</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">class 
 <span class="currsymbol">AssignStmt</span>
 <script>explorer.outline.addDecl('AssignStmt');</script>
 
@@ -2890,7 +2998,7 @@ but either or both the catch and finally clauses.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">OpAssignStmt</span>
 <script>explorer.outline.addDecl('OpAssignStmt');</script>
 
@@ -3512,7 +3620,7 @@ but either or both the catch and finally clauses.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">Expression</span>
 <script>explorer.outline.addDecl('Expression');</script>
 
@@ -3936,7 +4044,7 @@ but either or both the catch and finally clauses.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">BinaryExp</span>
 <script>explorer.outline.addDecl('BinaryExp');</script>
 
@@ -4074,7 +4182,7 @@ generation phases, as well has having other similar properties.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">BaseEqualExp</span>
 <script>explorer.outline.addDecl('BaseEqualExp');</script>
 
@@ -4149,7 +4257,7 @@ generation phases, as well has having other similar properties.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">BaseCmpExp</span>
 <script>explorer.outline.addDecl('BaseCmpExp');</script>
 
@@ -4419,7 +4527,7 @@ generation phases, as well has having other similar properties.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">UnExp</span>
 <script>explorer.outline.addDecl('UnExp');</script>
 
@@ -4541,7 +4649,7 @@ generation, as well as all having a single operand.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">PostfixExp</span>
 <script>explorer.outline.addDecl('PostfixExp');</script>
 
@@ -5832,7 +5940,7 @@ exactly one (<b>null</b> in the case that there are no varargs).
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">class 
+<dt><span class="decl">abstract class 
 <span class="currsymbol">ForComprehension</span>
 <script>explorer.outline.addDecl('ForComprehension');</script>
 
@@ -6215,7 +6323,7 @@ in the code "[x for x in a if x &lt; 10]", this represents "if x &lt; 10".
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Jan  1 12:24:51 2009
+			on Tue Apr 21 19:35:26 2009
 
 		</td></tr>
 	</table>

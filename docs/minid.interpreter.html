@@ -1090,7 +1090,8 @@ The stack index of the newly-created namespace.
 
                
 <td>The slot which contains the function to be used as the coroutine's body.
-		This can be either a MiniD or native function.</td></tr>
+		If extended coroutine support is enabled, this can be a native or script function;
+		otherwise, it must be a script function.</td></tr>
 </table><br>
 <b>Returns:</b><br>
 The stack index of the newly-created thread.
@@ -2665,9 +2666,15 @@ A void array of the data, or <b>null</b> if the instance has none.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Removes the key value at the top of the stack from the given object.  The key value
-is popped.  The object must be a namespace or table.
+<dd>Removes the key at the top of the stack from the given object.  The key is popped.
+The object must be a namespace or table.
 <br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">obj</span></td>
+
+               
+<td>The stack index of the object from which the key is to be removed.</td></tr>
+</table><br>
 
 </dd>
 
@@ -2681,7 +2688,8 @@ is popped.  The object must be a namespace or table.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>Gets the name of the namespace at the given stack index.
+<dd>Gets the name of the namespace at the given stack index.  This is just the single name component that
+it was created with (like "foo" for "namespace foo {}").
 <br><br>
 
 </dd>
@@ -2813,63 +2821,6 @@ with functions that don't modify their argument.
 		coroutine.  The default is <b>false</b>, in which case the coroutine will use the function with which it was
 		created.</td></tr>
 </table><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">uint 
-<span class="currsymbol">yield</span>
-<script>explorer.outline.addDecl('yield');</script>
-
-(MDThread* <span class="funcparam">t</span>, uint <span class="funcparam">numVals</span>, int <span class="funcparam">numReturns</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Yield out of a coroutine.  This function is not available in restricted coroutine mode, and in normal coroutine
-	mode, it will only work when yielding out of a native coroutine (one with a native function as its body).  In
-	extended mode, it will always work.
-<br><br>
-You cannot yield out of a thread that is not currently executing, nor can you yield out of the main thread of
-	a VM.
-<br><br>
-
-	This function works very similarly to the call family of functions.  You push the values that you want to yield
-	on the stack, then pass how many you pushed and how many you want back.  It then returns how many values this
-	coroutine was resumed with, and that many values will be on the stack.
-
-<br><br>
-<b>Example:</b><br>
-<pre class="d_code"><pre class="d_comment">// Let's translate `x = yield(5, "hi")` into API calls.
-</pre>
-<pre class="d_comment">// 1. Push the values to be yielded.
-</pre>pushInt(<pre class="d_param">t</pre>, 5);
-pushString(<pre class="d_param">t</pre>, <pre class="d_string">"hi"</pre>);
-
-<pre class="d_comment">// 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
-</pre><pre class="d_psymbol">yield</pre>(<pre class="d_param">t</pre>, 2, 1);
-
-<pre class="d_comment">// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
-</pre><pre class="d_comment">// stack is back the way it was when we started.
-</pre>setGlobal(<pre class="d_param">t</pre>, <pre class="d_string">"x"</pre>);
-</pre>
-
-<br><br>
-<b>Params:</b><br><table class="params"><tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numVals</span></td>
-
-               
-<td>The number of values that you are yielding.  These values should be on top of the stack, in order.</td></tr>
-<tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">numReturns</span></td>
-
-               
-<td>The number of return values you are expecting, or -1 for as many returns as you can get.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-How many values were returned.  If <span class="funcparam">numReturns</span> was &gt;= 0, this is the same as <span class="funcparam">numReturns</span>.
-	
-<br><br>
 
 </dd>
 
@@ -4465,7 +4416,7 @@ If the hook delay is 0, the delay hook event is disabled.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Jan  1 12:24:56 2009
+			on Tue Apr 21 19:35:29 2009
 
 		</td></tr>
 	</table>

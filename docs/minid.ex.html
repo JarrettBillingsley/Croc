@@ -716,6 +716,75 @@ If you just need a try-finally block, you don'<span class="funcparam">t</span> n
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">stackCheck</span>
+<script>explorer.outline.addDecl('stackCheck');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">diff</span>, void delegate() <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>A useful wrapper for code where you want to ensure that the stack is balanced, that is, it is the same size after
+some set of operations as before it.  Having a balanced stack is more than just good practice - it prevents stack
+overflows and underflows.
+<br><br>
+You can also use this function when your code requires that the stack be a certain number of slots larger or smaller
+after some stack operations - for instance, a function which always returns two values, regardless of multiple
+execution paths.
+<br><br>
+
+If the stack size is not correct after running the code, an exception will be thrown in the passed-in thread.
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">diff</span></td>
+
+               
+<td>How many more (or fewer) items there should be on the stack after running the code.  If 0, it means that
+		the stack size after running the code should be exactly as it was before (there is an overload for this common
+		case below).  Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">void delegate() <span class="funcparam">dg</span></td>
+
+               
+<td>The code to run.</td></tr>
+</table><br>
+<b>Examples:</b><br>
+<pre class="d_code"><pre class="d_comment">// check that the stack is two bigger after the code than before
+</pre><pre class="d_psymbol">stackCheck</pre>(<pre class="d_param">t</pre>, 2,
+{
+	pushNull(<pre class="d_param">t</pre>);
+	pushInt(<pre class="d_param">t</pre>, 5);
+}); <pre class="d_comment">// it is indeed 2 slots bigger, so it succeeds.
+</pre>
+<pre class="d_comment">// check that the stack shrinks by 1 slot
+</pre><pre class="d_psymbol">stackCheck</pre>(<pre class="d_param">t</pre>, -1,
+{
+	pushString(<pre class="d_param">t</pre>, <pre class="d_string">"foobar"</pre>);
+}); <pre class="d_comment">// oh noes, it's 1 slot bigger instead - throws an exception.
+</pre></pre>
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">stackCheck</span>
+<script>explorer.outline.addDecl('stackCheck');</script>
+
+(MDThread* <span class="funcparam">t</span>, void delegate() <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>An overload of the above which simply calls it with a difference of 0 (i.e. the stack is completely balanced).
+This is the most common case.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">T[] 
 <span class="currsymbol">allocArray</span>
 <script>explorer.outline.addDecl('allocArray');</script>
@@ -849,7 +918,7 @@ Freeing a 0-length array is legal.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Jan  1 12:24:55 2009
+			on Tue Apr 21 19:35:29 2009
 
 		</td></tr>
 	</table>

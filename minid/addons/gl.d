@@ -160,14 +160,14 @@ static:
 
 	uword mdgluErrorString(MDThread* t, uword numParams)
 	{
-		auto str = gluErrorString(checkIntParam(t, 1));
+		auto str = gluErrorString(cast(uword)checkIntParam(t, 1));
 		pushString(t, fromStringz(cast(char*)str));
 		return 1;
 	}
 
 	uword mdgluGetString(MDThread* t, uword numParams)
 	{
-		auto str = gluGetString(checkIntParam(t, 1));
+		auto str = gluGetString(cast(uword)checkIntParam(t, 1));
 		pushString(t, fromStringz(cast(char*)str));
 		return 1;
 	}
@@ -201,7 +201,7 @@ static:
 			if(ptr is null)
 				throwException(t, "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
 
-			return (cast(ubyte*)ptr)[0 .. size];
+			return (cast(ubyte*)ptr)[0 .. cast(uword)size];
 		}
 
 		if(optParam(t, 4, MDValue.Type.Instance))

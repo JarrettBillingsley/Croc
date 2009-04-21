@@ -16,6 +16,19 @@
 This module contains scary template stuff to make it possible to wrap D functions,
 classes, and structs and expose them as functions and types in MiniD.
 <br><br>
+This binding library is not supposed to be the most flexible or capable.  For
+example, its class wrapping is meant to be usable with classes to whose source
+code you don't necessarily have access to, or whose code you can't change (like
+in third-party libraries).  This library has to sacrifice some efficiency and
+capabilities to be able to do this.
+<br><br>
+
+However, if you're really only concerned with integrating your <i>own</i> code with
+MiniD, something like <a href="xpose http://team0xf.com:8080/xf/file/37d8e57b1c4d/xpose/"></a>
+might be more appropriate.  Xpose allows you to add reflection info to your types
+which you can then use to make bindings to MiniD.
+
+<br><br>
 <b>License:</b><br><pre class="license">Copyright (c) 2008 Jarrett Billingsley
 <br><br>
 
@@ -366,6 +379,63 @@ The stack index of the newly-pushed value.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getWrappedClass</span>
+<script>explorer.outline.addDecl('getWrappedClass');</script>
+
+(MDThread* <span class="funcparam">t</span>, ClassInfo <span class="funcparam">ci</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given a ClassInfo instance of the desired class type, pushes
+the corresponding wrapped MiniD class, or pushes <b>null</b> if the type has not been wrapped.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">ClassInfo <span class="funcparam">ci</span></td>
+
+               
+<td>The runtime ClassInfo instance of the desired class.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">getWrappedClassOrSuper</span>
+<script>explorer.outline.addDecl('getWrappedClassOrSuper');</script>
+
+(MDThread* <span class="funcparam">t</span>, ClassInfo <span class="funcparam">ci</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Given a ClassInfo instance of the desired class type, pushes
+the corresponding wrapped MiniD class, or pushes <b>null</b> if the type has not been wrapped.
+This version looks for a super class if a direct match cannot be found.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">ClassInfo <span class="funcparam">ci</span></td>
+
+               
+<td>The runtime ClassInfo instance of the desired class.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The stack index of the newly-pushed value.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
 <span class="currsymbol">setWrappedClass</span>
 <script>explorer.outline.addDecl('setWrappedClass');</script>
@@ -377,6 +447,24 @@ The stack index of the newly-pushed value.
 
 <dd>Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
 to the given runtime TypeInfo object.  The class object is <b>not</b> popped off the stack.
+<br><br>
+<b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">setWrappedClass</span>
+<script>explorer.outline.addDecl('setWrappedClass');</script>
+
+(MDThread* <span class="funcparam">t</span>, ClassInfo <span class="funcparam">ci</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Expects a class object on top of the stack, and sets it to be the MiniD class that corresponds
+to the given runtime ClassInfo object.  The class object is <b>not</b> popped off the stack.
 <br><br>
 <b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
 <br><br>
@@ -396,7 +484,7 @@ to the given runtime TypeInfo object.  The class object is <b>not</b> popped off
 <dd>Assuming a valid wrapped class is on the top of the stack, this function will take a D object
 and push the corresponding MiniD instance.  If a MiniD instance has already been created for
 this object, pushes that instance; otherwise, this will create an instance and link it to this
-D object.
+D object.  The class is popped off, meaning the wrapped instance takes its place.
 <br><br>
 <b>You probably won'<span class="funcparam">t</span> have to call this function under normal circumstances.</b>
 
@@ -635,7 +723,7 @@ or <b>false</b> otherwise.  That's all.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Jan  1 12:24:53 2009
+			on Tue Apr 21 19:35:27 2009
 
 		</td></tr>
 	</table>

@@ -775,6 +775,58 @@ public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, 
 }
 
 /**
+A useful wrapper for code where you want to ensure that the stack is balanced, that is, it is the same size after
+some set of operations as before it.  Having a balanced stack is more than just good practice - it prevents stack
+overflows and underflows.
+
+You can also use this function when your code requires that the stack be a certain number of slots larger or smaller
+after some stack operations - for instance, a function which always returns two values, regardless of multiple
+execution paths.
+
+If the stack size is not correct after running the code, an exception will be thrown in the passed-in thread.
+
+Params:
+	diff = How many more (or fewer) items there should be on the stack after running the code.  If 0, it means that
+		the stack size after running the code should be exactly as it was before (there is an overload for this common
+		case below).  Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.
+	dg = The code to run.
+
+Examples:
+
+-----
+// check that the stack is two bigger after the code than before
+stackCheck(t, 2,
+{
+	pushNull(t);
+	pushInt(t, 5);
+}); // it is indeed 2 slots bigger, so it succeeds.
+
+// check that the stack shrinks by 1 slot
+stackCheck(t, -1,
+{
+	pushString(t, "foobar");
+}); // oh noes, it's 1 slot bigger instead - throws an exception.
+-----
+*/
+void stackCheck(MDThread* t, word diff, void delegate() dg)
+{
+	auto s = stackSize(t);
+	dg();
+
+	if((stackSize(t) - s) != diff)
+		throwException(t, "Stack is not balanced!");
+}
+
+/**
+An overload of the above which simply calls it with a difference of 0 (i.e. the stack is completely balanced).
+This is the most common case.
+*/
+void stackCheck(MDThread* t, void delegate() dg)
+{
+	stackCheck(t, 0, dg);
+}
+
+/**
 Wraps the allocMem API.  Allocates an array of the given type with the given length.
 You'll have to explicitly specify the type of the array.
 

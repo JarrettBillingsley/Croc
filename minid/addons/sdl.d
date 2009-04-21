@@ -138,7 +138,7 @@ static:
 
 	uword init(MDThread* t, uword numParams)
 	{
-		auto flags = checkIntParam(t, 1);
+		auto flags = cast(uword)checkIntParam(t, 1);
 		checkError(t, SDL_Init(flags), "Could not initialize SDL");
 		return 0;
 	}
@@ -151,31 +151,31 @@ static:
 
 	uword wasInit(MDThread* t, uword numParams)
 	{
-		pushInt(t, SDL_WasInit(checkIntParam(t, 1)));
+		pushInt(t, SDL_WasInit(cast(uword)checkIntParam(t, 1)));
 		return 1;
 	}
 
 	uword initSubSystem(MDThread* t, uword numParams)
 	{
-		auto flags = checkIntParam(t, 1);
+		auto flags = cast(uword)checkIntParam(t, 1);
 		checkError(t, SDL_InitSubSystem(flags), "Could not initialize subsystem");
 		return 0;
 	}
 
 	uword quitSubSystem(MDThread* t, uword numParams)
 	{
-		auto flags = checkIntParam(t, 1);
+		auto flags = cast(uword)checkIntParam(t, 1);
 		checkError(t, SDL_QuitSubSystem(flags), "Could not quit subsystem");
 		return 0;
 	}
-	
+
 	uword setVideoMode(MDThread* t, uword numParams)
 	{
-		auto w = checkIntParam(t, 1);
-		auto h = checkIntParam(t, 2);
-		auto bpp = checkIntParam(t, 3);
-		auto flags = checkIntParam(t, 4);
-		
+		auto w = cast(word)checkIntParam(t, 1);
+		auto h = cast(word)checkIntParam(t, 2);
+		auto bpp = cast(word)checkIntParam(t, 3);
+		auto flags = cast(uword)checkIntParam(t, 4);
+
 		pushBool(t, SDL_SetVideoMode(w, h, bpp, flags) !is null);
 		return 1;
 	}
@@ -233,7 +233,7 @@ static:
 
 	uword glGetAttribute(MDThread* t, uword numParams)
 	{
-		auto attr = checkIntParam(t, 1);
+		auto attr = cast(word)checkIntParam(t, 1);
 		int val;
 		checkError(t, SDL_GL_GetAttribute(attr, &val), "Could not get attribute");
 		pushInt(t, val);
@@ -242,9 +242,9 @@ static:
 
 	uword glSetAttribute(MDThread* t, uword numParams)
 	{
-		auto attr = checkIntParam(t, 1);
-		auto val = checkIntParam(t, 2);
-		checkError(t, SDL_GL_SetAttribute(attr, cast(int)val), "Could not set attribute");
+		auto attr = cast(word)checkIntParam(t, 1);
+		auto val = cast(word)checkIntParam(t, 2);
+		checkError(t, SDL_GL_SetAttribute(attr, val), "Could not set attribute");
 		return 0;
 	}
 

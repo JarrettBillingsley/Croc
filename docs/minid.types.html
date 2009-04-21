@@ -174,7 +174,8 @@ on MiniD exception handling.
 <dd>This is a semi-internal exception type.  Normally you won't need to know about it or catch it.  This is
 thrown when a coroutine (thread) needs to be halted.  It should never propagate out of the coroutine.
 The only time you might encounter it is if, in the middle of a native MiniD function, one of these
-is thrown, you might be able to catch it and clean up some resources, but you should rethrow it.
+is thrown, you might be able to catch it and clean up some resources, but you must rethrow it in that
+case, unless you want the interpreter to be in a horrible state.
 <br><br>
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in minid.interpreter.
@@ -192,8 +193,7 @@ Like the other exception types, you can't instantiate this directly, but you can
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>A string constant indicating the level of coroutine support compiled in.  Is one of "Restricted",
-"Normal", or "Extended".
+<dd>A string constant indicating the level of coroutine support compiled in.  Is either "Normal" or "Extended".
 <br><br>
 
 </dd>
@@ -314,7 +314,7 @@ Like the other exception types, you can't instantiate this directly, but you can
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Thu Jan  1 12:24:57 2009
+			on Tue Apr 21 19:35:30 2009
 
 		</td></tr>
 	</table>
