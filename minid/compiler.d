@@ -362,8 +362,9 @@ catch(MDException e)
 
 		scope(failure)
 		{
-			if(stackSize(t) >= mStringTab + 1)
-				pop(t, stackSize(t) - mStringTab);
+			setStackSize(t, mStringTab);
+// 			if(stackSize(t) >= mStringTab + 1)
+// 				pop(t, stackSize(t) - mStringTab);
 		}
 
 		dg();

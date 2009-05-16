@@ -26,12 +26,15 @@ subject to the following restrictions:
 
 module minid.serialization;
 
-import tango.io.protocol.model.IReader;
-import tango.io.protocol.model.IWriter;
+import tango.core.BitManip;
+import tango.io.protocol.Reader;
+import tango.io.protocol.Writer;
 
 import minid.func;
 import minid.funcdef;
+import minid.hash;
 import minid.interpreter;
+import minid.namespace;
 import minid.opcodes;
 import minid.string;
 import minid.types;
@@ -42,6 +45,559 @@ import minid.utils;
 // ================================================================================================================================================
 
 public:
+
+struct Serializer
+{
+private:
+	MDThread* t;
+	IWriter mOutput;
+	Hash!(MDBaseObject*, uword) mObjTable;
+	uword mObjIndex;
+
+	enum
+	{
+		Backref = -1
+	}
+
+public:
+	static Serializer opCall(MDThread* t, IWriter output)
+	{
+		Serializer ret;
+		ret.t = t;
+		ret.mOutput = output;
+		return ret;
+	}
+	
+	static Serializer opCall(MDThread* t, OutputStream output)
+	{
+		return opCall(t, new Writer(output));
+	}
+
+	void writeGraph(word value)
+	{
+		auto v = *getValue(t, value);
+
+		commonSerialize
+		({
+			serializeValue(v);
+		});
+		
+		mOutput.flush();
+	}
+
+	void writeModule(word idx)
+	{
+		assert(false);
+	}
+	
+	void writeFunction(word idx)
+	{
+		assert(false);
+	}
+
+private:
+	void commonSerialize(void delegate() dg)
+	{
+		auto size = stackSize(t);
+
+		mObjTable.clear(t.vm.alloc);
+		mObjIndex = 1;
+
+		scope(exit)
+		{
+			setStackSize(t, size);
+			mObjTable.clear(t.vm.alloc);
+		}
+
+		dg();
+	}
+	
+	void tag(byte v)
+	{
+		mOutput.put(v);
+	}
+
+	void integer(long v)
+	{
+		if(v == 0)
+		{
+			mOutput.put(cast(byte)0);
+			return;
+		}
+		else if(v == long.min)
+		{
+			// this is special-cased since -long.min == long.min!
+			mOutput.put(cast(byte)0xFF);
+			return;
+		}
+
+		int numBytes = void;
+		bool neg = v < 0;
+
+		if(neg)
+			v = -v;
+
+		if(v & 0xFFFF_FFFF_0000_0000)
+			numBytes = (bsr(cast(uint)(v >>> 32)) / 8) + 5;
+		else
+			numBytes = (bsr(cast(uint)(v & 0xFFFF_FFFF)) / 8) + 1;
+
+		mOutput.put(cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
+
+		while(v)
+		{
+			mOutput.put(cast(ubyte)(v & 0xFF));
+			v >>>= 8;
+		}
+	}
+
+	void serializeValue(MDValue v)
+	{
+		switch(v.type)
+		{
+			case MDValue.Type.Null:      serializeNull();          break;
+			case MDValue.Type.Bool:      serializeBool(v.mBool);   break;
+			case MDValue.Type.Int:       serializeInt(v.mInt);     break;
+			case MDValue.Type.Float:     serializeFloat(v.mFloat); break;
+			case MDValue.Type.Char:      serializeChar(v.mChar);   break;
+
+			case MDValue.Type.String:    if(!alreadyWritten(v)) serializeString(v.mString);       break;
+			case MDValue.Type.Table:     if(!alreadyWritten(v)) serializeTable(v.mTable);         break;
+			case MDValue.Type.Array:     if(!alreadyWritten(v)) serializeArray(v.mArray);         break;
+			case MDValue.Type.Function:  if(!alreadyWritten(v)) serializeFunction(v.mFunction);   break;
+			case MDValue.Type.Class:     if(!alreadyWritten(v)) serializeClass(v.mClass);         break;
+			case MDValue.Type.Instance:  if(!alreadyWritten(v)) serializeInstance(v.mInstance);   break;
+			case MDValue.Type.Namespace: if(!alreadyWritten(v)) serializeNamespace(v.mNamespace); break;
+			case MDValue.Type.Thread:    if(!alreadyWritten(v)) serializeThread(v.mThread);       break;
+			case MDValue.Type.WeakRef:   if(!alreadyWritten(v)) serializeWeakref(v.mWeakRef);     break;
+			case MDValue.Type.NativeObj: if(!alreadyWritten(v)) serializeNativeObj(v.mNativeObj); break;
+
+			default: assert(false);
+		}
+	}
+	
+	void serializeNull()
+	{
+		tag(MDValue.Type.Null);
+	}
+
+	void serializeBool(bool v)
+	{
+		tag(MDValue.Type.Bool);
+		mOutput.put(v);
+	}
+
+	void serializeInt(mdint v)
+	{
+		tag(MDValue.Type.Int);
+		integer(v);
+	}
+
+	void serializeFloat(mdfloat v)
+	{
+		tag(MDValue.Type.Float);
+		mOutput.put(v);
+	}
+
+	void serializeChar(dchar v)
+	{
+		tag(MDValue.Type.Char);
+		integer(v);
+	}
+
+	void serializeString(MDString* v)
+	{
+		tag(MDValue.Type.String);
+
+		auto data = v.toString();
+		integer(data.length);
+		mOutput.buffer.append(data.ptr, data.length * char.sizeof);
+	}
+
+	void serializeTable(MDTable* v)
+	{
+		tag(MDValue.Type.Table);
+		integer(v.data.length);
+
+		foreach(ref key, ref val; v.data)
+		{
+			serializeValue(key);
+			serializeValue(val);
+		}
+	}
+
+	void serializeArray(MDArray* v)
+	{
+		tag(MDValue.Type.Array);
+
+		if(!alreadyWritten(cast(MDBaseObject*)v.data))
+			serializeArrayData(v.data);
+
+		integer(cast(uword)(v.slice.ptr - v.data.toArray().ptr));
+		integer(v.slice.length);
+		mOutput.put(v.isSlice);
+	}
+
+	void serializeArrayData(MDArrayData* v)
+	{
+		tag(MDValue.Type.ArrayData);
+		integer(v.length);
+
+		foreach(ref val; v.toArray())
+			serializeValue(val);
+	}
+
+	void serializeFunction(MDFunction* v) { assert(false); }
+	void serializeClass(MDClass* v) { assert(false); }
+	void serializeInstance(MDInstance* v) { assert(false); }
+
+	void serializeNamespace(MDNamespace* v)
+	{
+		tag(MDValue.Type.Namespace);
+		
+		if(!alreadyWritten(MDValue(v.name)))
+			serializeString(v.name);
+		
+		if(v.parent is null)
+			serializeNull();
+		else if(!alreadyWritten(cast(MDBaseObject*)v.parent))
+			serializeNamespace(v.parent);
+
+		integer(v.data.length);
+
+		foreach(key, ref val; v.data)
+		{
+			if(!alreadyWritten(MDValue(key)))
+				serializeString(key);
+
+			serializeValue(val);
+		}
+	}
+
+	void serializeThread(MDThread* v) { assert(false); }
+	void serializeWeakref(MDWeakRef* v) { assert(false); }
+	void serializeNativeObj(MDNativeObj* v) { assert(false); }
+
+	uword objIndex(MDBaseObject* v)
+	{
+		if(auto idx = mObjTable.lookup(v))
+			return *idx;
+		else
+			return 0;
+	}
+
+	void writeRef(uword idx)
+	{
+		tag(Backref);
+		integer(idx);
+	}
+
+	void addObject(MDBaseObject* v)
+	{
+		*mObjTable.insert(t.vm.alloc, v) = mObjIndex++;
+	}
+
+	bool alreadyWritten(MDValue v)
+	{
+		return alreadyWritten(v.mBaseObj);
+	}
+
+	bool alreadyWritten(MDBaseObject* v)
+	{
+		if(auto r = objIndex(v))
+		{
+			writeRef(r);
+			return true;
+		}
+
+		addObject(v);
+		return false;
+	}
+}
+
+struct Deserializer
+{
+private:
+	MDThread* t;
+	IReader mInput;
+	MDBaseObject*[] mObjTable;
+
+public:
+	static Deserializer opCall(MDThread* t, IReader input)
+	{
+		Deserializer ret;
+		ret.t = t;
+		ret.mInput = input;
+		return ret;
+	}
+	
+	static Deserializer opCall(MDThread* t, InputStream input)
+	{
+		return opCall(t, new Reader(input));
+	}
+	
+	word readGraph()
+	{
+		commonDeserialize
+		({
+			deserializeValue();
+		});
+
+		return stackSize(t) - 1;
+	}
+
+	word readModule()
+	{
+		assert(false);
+	}
+
+	word readFunction()
+	{
+		assert(false);
+	}
+
+private:
+	void commonDeserialize(void delegate() dg)
+	{
+		auto size = stackSize(t);
+		t.vm.alloc.resizeArray(mObjTable, 0);
+
+		scope(exit)
+		{
+			setStackSize(t, size);
+			t.vm.alloc.resizeArray(mObjTable, 0);
+		}
+
+		dg();
+	}
+
+	byte tag()
+	{
+		byte ret = void;
+		mInput.get(ret);
+		return ret;
+	}
+
+	long integer()
+	{
+		byte v = void;
+		mInput.get(v);
+
+		if(v == 0)
+			return 0;
+		else if(v == 0xFF)
+			return long.min;
+		else
+		{
+			bool neg = (v & 0x80) != 0;
+
+			if(neg)
+				v &= ~0x80;
+
+			auto numBytes = v;
+			long ret = 0;
+
+			for(int shift = 0; numBytes; numBytes--, shift += 8)
+			{
+				mInput.get(v);
+				ret |= v << shift;
+			}
+			
+			return ret;
+		}
+	}
+
+	void deserializeValue()
+	{
+		switch(tag())
+		{
+			case MDValue.Type.Null:      deserializeNull();  break;
+			case MDValue.Type.Bool:      deserializeBool();  break;
+			case MDValue.Type.Int:       deserializeInt();   break;
+			case MDValue.Type.Float:     deserializeFloat(); break;
+			case MDValue.Type.Char:      deserializeChar();  break;
+
+			case MDValue.Type.String:    deserializeString();    break;
+			case MDValue.Type.Table:     deserializeTable();     break;
+			case MDValue.Type.Array:     deserializeArray();     break;
+			case MDValue.Type.Function:  deserializeFunction();  break;
+			case MDValue.Type.Class:     deserializeClass();     break;
+			case MDValue.Type.Instance:  deserializeInstance();  break;
+			case MDValue.Type.Namespace: deserializeNamespace(); break;
+			case MDValue.Type.Thread:    deserializeThread();    break;
+			case MDValue.Type.WeakRef:   deserializeWeakref();   break;
+			case MDValue.Type.NativeObj: deserializeNativeObj(); break;
+
+			case Serializer.Backref: push(t, MDValue(mObjTable[cast(uword)integer() - 1])); break;
+
+			default: throwException(t, "Malformed data");
+		}
+	}
+
+	void deserializeNull()
+	{
+		pushNull(t);
+	}
+
+	void deserializeBool()
+	{
+		bool v = void;
+		mInput.get(v);
+		pushBool(t, v);
+	}
+
+	void deserializeInt()
+	{
+		pushInt(t, integer());
+	}
+
+	void deserializeFloat()
+	{
+		mdfloat v = void;
+		mInput.get(v);
+		pushFloat(t, v);
+	}
+
+	void deserializeChar()
+	{
+		pushChar(t, cast(dchar)integer());
+	}
+
+	void deserializeString()
+	{
+		auto len = integer();
+
+		auto data = t.vm.alloc.allocArray!(char)(cast(uword)len);
+		scope(exit) t.vm.alloc.freeArray(data);
+
+		mInput.buffer.readExact(data.ptr, cast(uword)len * char.sizeof);
+		pushString(t, data);
+		addObject(getValue(t, -1).mBaseObj);
+	}
+
+	void deserializeTable()
+	{
+		auto len = integer();
+
+		auto v = newTable(t);
+		addObject(getValue(t, -1).mBaseObj);
+
+		for(uword i = 0; i < len; i++)
+		{
+			deserializeValue();
+			deserializeValue();
+			idxa(t, v);
+		}
+	}
+
+	void deserializeArray()
+	{
+		auto arr = t.vm.alloc.allocate!(MDArray);
+		addObject(cast(MDBaseObject*)arr);
+
+		auto data = deserializeArrayData();
+
+		arr.data = data;
+
+		auto lo = cast(uword)integer();
+		auto hi = cast(uword)integer();
+		arr.slice = data.toArray()[lo .. hi];
+
+		mInput.get(arr.isSlice);
+
+		pushArray(t, arr);
+	}
+
+	MDArrayData* deserializeArrayData()
+	{
+		switch(tag())
+		{
+			case MDValue.Type.ArrayData: break;
+			case Serializer.Backref: return cast(MDArrayData*)mObjTable[cast(uword)integer() - 1];
+			default: throwException(t, "Malformed data");
+		}
+
+		auto len = cast(uword)integer();
+		auto data = t.vm.alloc.allocate!(MDArrayData)(MDArrayData.sizeof + (MDValue.sizeof * len));
+		addObject(cast(MDBaseObject*)data);
+
+		data.length = len;
+
+		foreach(ref val; data.toArray())
+		{
+			deserializeValue();
+			val = *getValue(t, -1);
+			pop(t);
+		}
+
+		return data;
+	}
+
+	void deserializeFunction() { assert(false); }
+	void deserializeClass() { assert(false); }
+	void deserializeInstance() { assert(false); }
+
+	void deserializeNamespace()
+	{
+		switch(tag())
+		{
+			case MDValue.Type.String: deserializeString(); break;
+			case Serializer.Backref: push(t, MDValue(mObjTable[cast(uword)integer() - 1])); break;
+			default: throwException(t, "Malformed data");
+		}
+
+		auto ns = namespace.create(t.vm.alloc, getStringObj(t, -1));
+		addObject(cast(MDBaseObject*)ns);
+
+		pushNamespace(t, ns);
+		insertAndPop(t, -2);
+
+		switch(tag())
+		{
+			case MDValue.Type.Null:
+				ns.parent = null;
+				break;
+
+			case MDValue.Type.Namespace:
+				deserializeNamespace();
+				ns.parent = getNamespace(t, -1);
+				pop(t);
+				break;
+
+			case Serializer.Backref:
+				ns.parent = cast(MDNamespace*)mObjTable[cast(uword)integer() - 1];
+				break;
+
+			default:
+				throwException(t, "Malformed data");
+		}
+
+		auto len = cast(uword)integer();
+
+		for(uword i = 0; i < len; i++)
+		{
+			switch(tag())
+			{
+				case MDValue.Type.String: deserializeString(); break;
+				case Serializer.Backref: push(t, MDValue(mObjTable[cast(uword)integer() - 1])); break;
+				default: throwException(t, "Malformed data");
+			}
+
+			deserializeValue();
+			fielda(t, -3);
+		}
+	}
+
+	void deserializeThread() { assert(false); }
+	void deserializeWeakref() { assert(false); }
+	void deserializeNativeObj() { assert(false); }
+
+	void addObject(MDBaseObject* v)
+	{
+		t.vm.alloc.resizeArray(mObjTable, mObjTable.length + 1);
+		mObjTable[$ - 1] = v;
+	}
+}
 
 /**
 Serializes the function object at the given index into the provided writer as a module.  Serializing a function as a module

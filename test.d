@@ -1,7 +1,6 @@
 module test;
 
 import tango.io.Stdout;
-debug import tango.stdc.stdarg; // To make tango-user-base-debug.lib link correctly
 
 import minid.api;
 import minid.bind;
@@ -10,6 +9,9 @@ import minid.vector;
 // import minid.addons.pcre;
 // import minid.addons.sdl;
 // import minid.addons.gl;
+
+import minid.serialization;
+import tango.io.device.File;
 
 void main()
 {
@@ -25,10 +27,26 @@ void main()
 // 		SdlLib.init(t);
 // 		GlLib.init(t);
 
-		importModule(t, "samples.simple");
+// 		importModule(t, "samples.simple");
+// 		pushNull(t);
+// 		lookup(t, "modules.runMain");
+// 		swap(t, -3);
+// 		rawCall(t, -3, 0);
+
+		runString(t, "namespace a : null { x = 4; z = `a` }");
+		auto idx = lookup(t, "a");
+		auto f = new File("out.dat", File.WriteCreate);
+		auto s = Serializer(t, f);
+		s.writeGraph(idx);
+		f.flush().close();
+
+		f = new File("out.dat", File.ReadExisting);
+		auto d = Deserializer(t, f);
+		d.readGraph();
+
+		pushGlobal(t, "dumpVal");
 		pushNull(t);
-		lookup(t, "modules.runMain");
-		swap(t, -3);
+		rotate(t, 3, 2);
 		rawCall(t, -3, 0);
 	}
 	catch(MDException e)

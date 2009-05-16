@@ -684,6 +684,8 @@ public word superPush(Type)(MDThread* t, Type val)
 			else
 				return getWrappedInstance(t, obj);
 		}
+		
+		assert(false);
 	}
 	else static if(is(T : Object))
 	{
@@ -698,6 +700,8 @@ public word superPush(Type)(MDThread* t, Type val)
 			else
 				return getWrappedInstance(t, val);
 		}
+		
+		assert(false);
 	}
 	else static if(is(T == struct))
 	{
@@ -1073,7 +1077,9 @@ private template PropAnalysis(alias func, funcType)
 
 	static if(Args.length == 0)
 	{
-		alias ReturnTypeOf!(funcType) propType;
+		alias realType!(ReturnTypeOf!(funcType)) propType;
+
+		static assert(!is(propType == void), "property getter '" ~ NameOfFunc!(func) ~ "' may not return void");
 
 		static if(is(typeof(func(InitOf!(propType))) T))
 			const bool readOnly = false;
@@ -1148,7 +1154,7 @@ private word pushStructClass(Type, char[] ModName, char[] StructName)(MDThread* 
 // 	{
 // 		auto self = checkStructSelf!(Type, FullName)(t);
 // 		auto fieldName = checkStringParam(t, 1);
-// 
+//
 // 		const Switch = GetStructField!(Type);
 // 		mixin(Switch);
 // 
@@ -2063,7 +2069,7 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 {
 	uword PropImpl(Type)(MDThread* t, uword numParams, Type self)
 	{
-		static if(is(typeof(mixin("self." ~ name))))
+		static if(readOnly)
 		{
 			if(numParams == 0)
 			{
@@ -2072,21 +2078,28 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 			}
 			else
 			{
-				static if(readOnly)
-					throwException(t, "Attempting to set read-only property '" ~ name ~ "' of type '" ~ FullName ~ "'");
-				else
-				{
-					safeCode(t, mixin("self." ~ name ~ " = superGet!(propType)(t, 1)"));
-					return 0;
-				}
+				throwException(t, "Attempting to set read-only property '" ~ name ~ "' of type '" ~ FullName ~ "'");
+				assert(false, "PropImpl should never ever get here.");
 			}
-		
-			assert(false, "PropImpl should never ever get here.");
 		}
 		else
 		{
-			throwException(t, "Attempting to access nonexistent field '" ~ name ~ "' from type " ~ FullName ~ "");
-			assert(false);
+			// GODDOMMOT FRONK
+			// I can't check anything in here because FUCKING DMDFE will EAT THE GODDAMNED ERROR
+			// and cause RANDOM ERRORS ON VALID CODE in WrappedClass.  WONDERFUL.
+// 			static assert(is(typeof({mixin("self." ~ name ~ " = self." ~ name ~ ";");})),
+// 				"property '" ~ NameOfFunc!(func) ~ "' has no setter");
+
+			if(numParams == 0)
+			{
+				superPush(t, safeCode(t, mixin("self." ~ name)));
+				return 1;
+			}
+			else
+			{
+				safeCode(t, mixin("self." ~ name ~ " = superGet!(propType)(t, 1)"));
+				return 0;
+			}
 		}
 	}
 }

@@ -224,10 +224,6 @@ version(MdclReadline)
 		}
 	}
 }
-else
-{
-	version = NoMdclReadline;
-}
 
 /**
 This struct encapsulates a MiniD command-line interpreter.  This is the CLI that
@@ -271,6 +267,12 @@ To end interactive mode, use the \"exit()\" function.
 
 	private FormatOutput!(char) mOutput;
 	private Lines!(char) mInput;
+	private char[] delegate(MDThread*) mNextLine;
+
+	private char[] defaultNextLine(MDThread* t)
+	{
+		return mInput.next();
+	}
 
 	/**
 	Construct an instance of the CLI.
@@ -298,7 +300,26 @@ To end interactive mode, use the \"exit()\" function.
 	{
 		return opCall(new FormatOutput!(char)(new Layout!(char), output), input);
 	}
+
+	/**
 	
+	*/
+	public static CommandLine opCall(FormatOutput!(char) output, char[] delegate(MDThread*) nextLine)
+	{
+		CommandLine ret;
+		ret.mOutput = output;
+		ret.mNextLine = nextLine;
+		return ret;
+	}
+
+	/**
+	
+	*/
+	public static CommandLine opCall(OutputStream output, char[] delegate(MDThread*) nextLine)
+	{
+		return opCall(new FormatOutput!(char)(new Layout!(char), output), nextLine);
+	}
+
 	/**
 	Constructs a default instance of CommandLine which uses stdin for the input
 	and stdout for the output.
@@ -326,28 +347,28 @@ To end interactive mode, use the \"exit()\" function.
 	
 	private void normalPrompt()
 	{
-		version(NoMdclReadline)
-			mOutput(Prompt1)();
-		else
+		version(MdclReadline)
 		{
-			if(mInput.input is ReadlineStream.instance.input)
+			if(mInput && mInput.input is ReadlineStream.instance.input)
 				ReadlineStream.instance.prompt = Prompt1;
 			else
 				mOutput(Prompt1)();
 		}
+		else
+			mOutput(Prompt1)();
 	}
 
 	private void secondPrompt()
 	{
-		version(NoMdclReadline)
-			mOutput(Prompt2)();
-		else
+		version(MdclReadline)
 		{
-			if(mInput.input is ReadlineStream.instance.input)
+			if(mInput && mInput.input is ReadlineStream.instance.input)
 				ReadlineStream.instance.prompt = Prompt2;
 			else
 				mOutput(Prompt2)();
 		}
+		else
+			mOutput(Prompt2)();
 	}
 
 	/**
@@ -490,6 +511,9 @@ To end interactive mode, use the \"exit()\" function.
 				printVersion();
 
 			char[] buffer;
+			
+			if(mNextLine is null)
+				mNextLine = &defaultNextLine;
 
 			// static so exit can access it.
 			static bool run;
@@ -654,7 +678,7 @@ To end interactive mode, use the \"exit()\" function.
 				if(auto diff = stackSize(t) - stackIdx)
 					pop(t, diff);
 
-				auto line = mInput.next();
+				auto line = mNextLine(t);
 
 				if(line.ptr is null)
 				{
@@ -700,6 +724,11 @@ To end interactive mode, use the \"exit()\" function.
 				normalPrompt();
 				buffer.length = 0;
 			}
+			
+			pushGlobal(t, "_G");
+			pushString(t, "exit");
+			removeKey(t, -2);
+			pop(t);
 		}
 	}
 }
