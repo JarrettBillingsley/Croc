@@ -1,10 +1,9 @@
 module samples.simple
 
-/+
-import sdl: event, key
+/+import sdl: event, key
 import gl
 
-/+
+/*
 function cross(a1, a2, a3, b1, b2, b3)
 	return  a2 * b3 - a3 * b2,
 			a3 * b1 - a1 * b3,
@@ -121,7 +120,7 @@ f.flush().close()
 
 thread.halt()
 
-// +/
+// */
 
 function float4(x, y, z, w) = Vector.fromArray$ "f32", [x, y, z, w]
 
@@ -217,7 +216,7 @@ function main()
 	gl.glShadeModel(gl.GL_SMOOTH)
 	gl.glClearColor(0, 0, 0, 1)
 	gl.glClearDepth(1)
-	gl.glEnable(gl.GL_CULL_FACE)
+// 	gl.glEnable(gl.GL_CULL_FACE)
 	gl.glEnable(gl.GL_DEPTH_TEST)
 // 	gl.glEnable(gl.GL_TEXTURE_2D)
 
@@ -255,6 +254,7 @@ function main()
 	}
 
 	local first = true
+	local numMoves = 0
 
 	event.setHandler$ event.mouseMotion, \x, y, xrel, yrel
 	{
@@ -266,6 +266,8 @@ function main()
 
 		camxang -= yrel * 0.05
 		camyang -= xrel * 0.05
+
+		numMoves++
 	}
 
 	local ang1 = 0
@@ -278,10 +280,10 @@ function main()
 	while(!quitting)
 	{
 		event.poll()
-		
+
 		if(keys[key.escape])
 			quitting = true
-			
+
 		if(keys[key.left])
 			ang1 = (ang1 + 1) % 360
 		else if(keys[key.right])
@@ -308,8 +310,8 @@ function main()
 
 	startTime = (time.microTime() - startTime) / 1_000_000.0
 	writefln$ "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
+	writefln$ "Received {} move events in that time ({:f2} per second)", numMoves, numMoves / startTime
 }
-+/
 
 /+
 // Making sure finally blocks are executed.
@@ -1003,3 +1005,4 @@ function main()
 		}
 	}
 }+/
++/

@@ -88,7 +88,7 @@ Token:
 	','
 	';'
 	'#'
-	'\\'
+	'\'
 	'->'
 	'$'
 	'@'
@@ -276,7 +276,7 @@ Decorators:
 	Decorator {Decorator}
 
 Decorator:
-	'@' Identifier {'.' Identifier} ['(' ('with' Expression [',' ExpressionList] | [ExpressionList]) ')']
+	'@' Identifier {'.' Identifier} [ArgumentsWith]
 
 OtherDeclaration:
 	FunctionDeclaration
@@ -545,7 +545,7 @@ PrimaryExpression:
 	StringLiteral
 	':' (Identifier | 'super' | '(' Expression ')')
 	'function' [Identifier] FunctionBody
-	'\\' Parameters (('->' Expression) | BlockStatement)
+	'\' Parameters (('->' Expression) | BlockStatement)
 	'class' [Identifier] [':' Expression] '{' {ClassMember} '}'
 	'(' Expression ')'
 	TableCtorExp

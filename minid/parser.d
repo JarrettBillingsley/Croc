@@ -281,41 +281,53 @@ struct Parser
 				func = new(c) DotExp(c, func, new(c) StringExp(c, tok.loc, tok.stringValue));
 			}
 
-			scope args = new List!(Expression)(c.alloc);
-
+			Expression[] argsArr;
 			Expression context;
 			CompileLoc endLocation = void;
 
-			if(l.type == Token.LParen)
+			if(l.type == Token.Dollar)
 			{
 				l.next();
 
+				scope args = new List!(Expression)(c.alloc);
+				args ~= parseExpression();
+
+				while(l.type == Token.Comma)
+				{
+					l.next();
+					args ~= parseExpression();
+				}
+
+				argsArr = args.toArray();
+			}
+			else if(l.type == Token.LParen)
+			{
+				l.next();
+				
 				if(l.type == Token.With)
 				{
 					l.next();
+					
 					context = parseExpression();
-
+					
 					if(l.type == Token.Comma)
 					{
 						l.next();
-						auto temp = parseArguments();
-						args ~= temp;
-						c.alloc.freeArray(temp);
+						argsArr = parseArguments();
 					}
 				}
 				else if(l.type != Token.RParen)
-				{
-					auto temp = parseArguments();
-					args ~= temp;
-					c.alloc.freeArray(temp);
-				}
+					argsArr = parseArguments();
+
+				scope(failure)
+					c.alloc.freeArray(argsArr);
 
 				endLocation = l.expect(Token.RParen).loc;
 			}
 			else
 				endLocation = func.endLocation;
 
-			return new(c) Decorator(c, func.location, endLocation, func, context, args.toArray(), null);
+			return new(c) Decorator(c, func.location, endLocation, func, context, argsArr, null);
 		}
 
 		auto first = parseDecorator();

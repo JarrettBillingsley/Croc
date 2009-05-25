@@ -1148,34 +1148,7 @@ private void checkInitialized(MDThread* t)
 
 private word pushStructClass(Type, char[] ModName, char[] StructName)(MDThread* t)
 {
-	const FullName = ModName ~ "." ~ StructName;
-
-// 	static uword getField(MDThread* t, uword numParams)
-// 	{
-// 		auto self = checkStructSelf!(Type, FullName)(t);
-// 		auto fieldName = checkStringParam(t, 1);
-//
-// 		const Switch = GetStructField!(Type);
-// 		mixin(Switch);
-// 
-// 		return 1;
-// 	}
-//
-// 	static uword setField(MDThread* t, uword numParams)
-// 	{
-// 		auto self = checkStructSelf!(Type, FullName)(t);
-// 		auto fieldName = checkStringParam(t, 1);
-// 
-// 		const Switch = SetStructField!(Type);
-// 		mixin(Switch);
-// 
-// 		return 0;
-// 	}
-// 
-	auto ret = newClass(t, StructName);
-// 		newFunction(t, &getField, StructName ~ ".opField");       fielda(t, ret, "opField");
-// 		newFunction(t, &setField, StructName ~ ".opFieldAssign"); fielda(t, ret, "opFieldAssign");
-	return ret;
+	return newClass(t, StructName);
 }
 
 private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Type

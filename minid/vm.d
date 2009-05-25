@@ -99,7 +99,8 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	pushNamespace(t, vm.globals);
 	newGlobal(t, "_G");
 
-	// Set up the modules module
+	// Set up the modules module.  This has to be done before any other modules
+	// are initialized for obvious reasons.
 	ModulesLib.init(t);
 }
 

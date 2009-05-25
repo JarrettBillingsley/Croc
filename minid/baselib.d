@@ -61,18 +61,21 @@ static:
 
 	public void init(MDThread* t)
 	{
-		register(t, "collectGarbage", &collectGarbage);
-		register(t, "bytesAllocated", &bytesAllocated);
-
 		// Object
 		pushClass(t, classobj.create(t.vm.alloc, createString(t, "Object"), null));
 		newGlobal(t, "Object");
-		
+
 		// Vector
 		VectorObj.init(t);
 
 		// StringBuffer
 		StringBufferObj.init(t);
+
+		// GC
+		newNamespace(t, "gc");
+			newFunction(t, &collectGarbage, "collect"); fielda(t, -2, "collect");
+			newFunction(t, &bytesAllocated, "allocated"); fielda(t, -2, "allocated");
+		newGlobal(t, "gc");
 
 		// Functional stuff
 		register(t, "curry", &curry);
@@ -90,9 +93,8 @@ static:
 		register(t, "findField", &findField);
 		register(t, "rawSetField", &rawSetField);
 		register(t, "rawGetField", &rawGetField);
-		register(t, "attrs", &attrs);
-		register(t, "hasAttributes", &hasAttributes);
-		register(t, "attributesOf", &attributesOf);
+		register(t, "getFuncEnv", &getFuncEnv);
+		register(t, "setFuncEnv", &setFuncEnv);
 		register(t, "isNull", &isParam!(MDValue.Type.Null));
 		register(t, "isBool", &isParam!(MDValue.Type.Bool));
 		register(t, "isInt", &isParam!(MDValue.Type.Int));
@@ -108,6 +110,12 @@ static:
 		register(t, "isThread", &isParam!(MDValue.Type.Thread));
 		register(t, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
 		register(t, "isWeakRef", &isParam!(MDValue.Type.WeakRef));
+
+		register(t, "attrs", &attrs);
+		register(t, "hasAttributes", &hasAttributes);
+		register(t, "attributesOf", &attributesOf);
+		newTable(t);
+		setRegistryVar(t, AttrTableName);
 
 		// Conversions
 		register(t, "toString", &toString);
@@ -136,20 +144,18 @@ static:
 
 		// The Function type's metatable
 		newNamespace(t, "function");
-			newFunction(t, &functionEnvironment, "function.environment"); fielda(t, -2, "environment");
 			newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
 			newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
 			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
-			newFunction(t, &functionName,        "function.name");        fielda(t, -2, "name");
 		setTypeMT(t, MDValue.Type.Function);
 
 		// Weak reference stuff
 		register(t, "weakref", &weakref);
 		register(t, "deref", &deref);
-		
-		newTable(t);
-		setRegistryVar(t, AttrTableName);
 	}
+
+	// ===================================================================================================================================
+	// GC
 
 	uword collectGarbage(MDThread* t, uword numParams)
 	{
@@ -423,6 +429,30 @@ static:
 		field(t, 1, true);
 		return 1;
 	}
+	
+	uword getFuncEnv(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Function);
+		.getFuncEnv(t, 1);
+		return 1;
+	}
+
+	uword setFuncEnv(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Function);
+		checkParam(t, 2, MDValue.Type.Namespace);
+		.getFuncEnv(t, 1);
+		dup(t, 2);
+		.setFuncEnv(t, 1);
+		return 1;
+	}
+
+	uword isParam(MDValue.Type Type)(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		pushBool(t, type(t, 1) == Type);
+		return 1;
+	}
 
 	uword attrs(MDThread* t, uword numParams)
 	{
@@ -490,13 +520,6 @@ static:
 		getRegistryVar(t, AttrTableName);
 		pushWeakRef(t, 1);
 		idx(t, -2);
-		return 1;
-	}
-
-	uword isParam(MDValue.Type Type)(MDThread* t, uword numParams)
-	{
-		checkAnyParam(t, 1);
-		pushBool(t, type(t, 1) == Type);
 		return 1;
 	}
 
@@ -988,21 +1011,6 @@ static:
 	// ===================================================================================================================================
 	// Function metatable
 
-	uword functionEnvironment(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		getFuncEnv(t, 0);
-
-		if(numParams > 0)
-		{
-			checkParam(t, 1, MDValue.Type.Namespace);
-			dup(t, 1);
-			setFuncEnv(t, 0);
-		}
-
-		return 1;
-	}
-
 	uword functionIsNative(MDThread* t, uword numParams)
 	{
 		checkParam(t, 0, MDValue.Type.Function);
@@ -1021,13 +1029,6 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, funcIsVararg(t, 0));
-		return 1;
-	}
-
-	uword functionName(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		pushString(t, funcName(t, 0));
 		return 1;
 	}
 
