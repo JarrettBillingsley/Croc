@@ -925,7 +925,7 @@ static:
 		scope c = new Compiler(t);
 		c.compileStatements(code, name);
 		insert(t, -2);
-		setFuncEnv(t, -2);
+		.setFuncEnv(t, -2);
 		return 1;
 	}
 
@@ -943,7 +943,7 @@ static:
 		else
 			pushEnvironment(t, 1);
 
-		setFuncEnv(t, -2);
+		.setFuncEnv(t, -2);
 		pushNull(t);
 		return rawCall(t, -2, -1);
 	}

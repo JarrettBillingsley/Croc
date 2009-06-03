@@ -109,44 +109,47 @@ static:
 
 		pop(t);
 
-		// this loads 1.0 and 1.1
-		safeCode(t, DerelictGL.load());
-		safeCode(t, DerelictGLU.load());
-
-		GLVersion v;
-
-		try
-			v = DerelictGL.availableVersion();
-		catch(SharedLibProcLoadException e)
-			v = DerelictGL.availableVersion();
-
-		// Clever switch which falls through on each case to load all available funcs
-		switch(v)
+		safeCode(t,
 		{
-			case GLVersion.Version21: loadGL21(t);
-			case GLVersion.Version20: loadGL20(t);
-			case GLVersion.Version15: loadGL15(t);
-			case GLVersion.Version14: loadGL14(t);
-			case GLVersion.Version13: loadGL13(t);
-			case GLVersion.Version12: loadGL12(t);
-			case GLVersion.Version11: loadGLBase(t); break;
-			default:
-				throwException(t, "I have no idea what version of OpenGL you have");
-		}
+			GLVersion v;
 
-		DerelictGL.loadExtensions();
-		loadExtensions(t);
+			// this loads 1.0 and 1.1
+			DerelictGL.load();
+			DerelictGLU.load();
 
+			try
+				v = DerelictGL.availableVersion();
+			catch(SharedLibProcLoadException e)
+				v = DerelictGL.availableVersion();
+
+			// Clever switch which falls through on each case to load all available funcs
+			switch(v)
+			{
+				case GLVersion.Version21: loadGL21(t);
+				case GLVersion.Version20: loadGL20(t);
+				case GLVersion.Version15: loadGL15(t);
+				case GLVersion.Version14: loadGL14(t);
+				case GLVersion.Version13: loadGL13(t);
+				case GLVersion.Version12: loadGL12(t);
+				case GLVersion.Version11: loadGLBase(t); break;
+				default:
+					throwException(t, "I have no idea what version of OpenGL you have");
+			}
+	
+			DerelictGL.loadExtensions();
+			loadExtensions(t);
+		}());
+		
 		newFunction(t, &version_, "version");
 		newGlobal(t, "version");
 
 		pushBool(t, true);
 		setRegistryVar(t, "gl.loaded");
-		
+
 		version(MDGLCheckErrors)
 		{
 			pushBool(t, false);
-			setRegistryVar(t, "gl.insideBeginEnd");	
+			setRegistryVar(t, "gl.insideBeginEnd");
 		}
 
 		return 0;
