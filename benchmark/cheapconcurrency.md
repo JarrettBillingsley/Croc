@@ -3,7 +3,7 @@ module cheapconcurrency
 // n = 3000, 3.566 sec (very good, and on my desktop at that!!)
 // on my laptop: 1.128 sec!!
 
-function link(n)
+local function link(n)
 {
 	if(n > 1)
 	{

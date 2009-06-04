@@ -8,24 +8,24 @@ function primes(n)
 	local count = 0
 	local size = 10000 << n
 
-	local flags = array.new(size / 32 + 1, -1)
+	local flags = array.new(size / 64 + 1, -1)
 
 	for(prime: 2 .. size + 1)
 	{
-		local offset = prime / 32
-		local mask = 1 << (prime % 32)
+		local offset = prime / 64
+		local mask = 1 << (prime % 64)
 
-		if((flags[offset] & mask) != 0)
+		if(flags[offset] & mask)
 		{
 			count++
 
 			for(i: prime + prime .. size + 1, prime)
 			{
-				offset = i / 32
-				mask = 1 << (i % 32)
+				offset = i / 64
+				mask = 1 << (i % 64)
 
-				if((flags[offset] & mask) != 0)
-					flags[offset] = flags[offset] ^ mask
+				if(flags[offset] & mask)
+					flags[offset] ^= mask
 			}
 		}
 	}

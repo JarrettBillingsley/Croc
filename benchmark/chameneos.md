@@ -11,7 +11,7 @@ local red = 2
 local yellow = 3
 local faded = 4
 
-function meet(me)
+local function meet(me)
 {
 	while(second)
 		yield()
@@ -47,7 +47,7 @@ function meet(me)
 	return other
 }
 
-function creature(color) =
+local function creature(color) =
 	coroutine function()
 	{
 		local me = color
@@ -86,7 +86,7 @@ function creature(color) =
 		}
 	}
 
-function schedule(threads)
+local function schedule(threads)
 {
 	local numThreads = #threads
 	local meetings = 0

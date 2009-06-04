@@ -3,7 +3,7 @@ module benchmark.recursive
 // n = 11, 345.122 sec
 // On laptop, 284.581 sec
 
-function ack(m, n)
+local function ack(m, n)
 {
 	if(m == 0)
 		return n + 1
@@ -14,7 +14,7 @@ function ack(m, n)
 	return ack(m - 1, (ack(m, n - 1)))
 }
 
-function fib(n)
+local function fib(n)
 {
 	if(n < 2)
 		return 1
@@ -22,7 +22,15 @@ function fib(n)
 	return fib(n - 2) + fib(n - 1)
 }
 
-function tak(x, y, z)
+local function fibf(n)
+{
+	if(n < 2.0)
+		return 1.0
+
+	return fibf(n - 2.0) + fibf(n - 1.0)
+}
+
+local function tak(x, y, z)
 {
 	if(y >= x)
 		return z
@@ -41,7 +49,7 @@ function main(N)
 	timer.start()
 
 		writefln("Ack(3, {}): {}", n, ack(3, n))
-		writefln("Fib({:1}): {:1}", n + 27.0, fib(n + 27.0))
+		writefln("Fib({:1}): {:1}", n + 27.0, fibf(n + 27.0))
 
 		n--
 		writefln("Tak({}, {}, {}): {}", 3 * n, 2 * n, n, tak(3 * n, 2 * n, n))

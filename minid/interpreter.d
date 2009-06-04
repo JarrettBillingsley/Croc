@@ -4983,24 +4983,6 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 
 bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
-// 	void wrapEH(void delegate() dg)
-// 	{
-// 		try
-// 			dg();
-// 		catch(MDException e)
-// 		{
-// 			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
-// 			callEpilogue(t, false);
-// 			throw e;
-// 		}
-// 		catch(MDHaltException e)
-// 		{
-// 			unwindEH(t);
-// 			callEpilogue(t, false);
-// 			throw e;
-// 		}
-// 	}
-
 	const char[] wrapEH =
 		"catch(MDException e)
 		{
@@ -5074,12 +5056,6 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		t.stackIndex = ar.savedTop;
 
 		// Call any hook.
-// 		wrapEH
-// 		({
-// 			if(t.hooks & MDThread.Hook.Call)
-// 				callHook(t, MDThread.Hook.Call);
-// 		});
-
 		mixin(
 		"try
 		{
@@ -5111,25 +5087,6 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		t.stackBase = ar.base;
 
 		uword actualReturns = void;
-
-// 		wrapEH
-// 		({
-// 			if(t.hooks & MDThread.Hook.Call)
-// 				callHook(t, MDThread.Hook.Call);
-//
-// 			version(MDExtendedCoro) {} else
-// 			{
-// 				t.nativeCallDepth++;
-// 				scope(exit) t.nativeCallDepth--;
-// 			}
-//
-// 			auto savedState = t.state;
-// 			t.state = MDThread.State.Running;
-// 			t.vm.curThread = t;
-// 			scope(exit) t.state = savedState;
-//
-// 			actualReturns = func.nativeFunc(t, numParams - 1);
-// 		});
 
 		mixin(
 		"try
@@ -7248,6 +7205,7 @@ void execute(MDThread* t, uword depth = 1)
 	auto constTable = t.currentAR.func.scriptFunc.constants;
 	auto env = t.currentAR.func.environment;
 	auto upvals = t.currentAR.func.scriptUpvals();
+	auto pc = &t.currentAR.pc;
 
 	try
 	{
@@ -7272,7 +7230,7 @@ void execute(MDThread* t, uword depth = 1)
 
 					if(auto glob = namespace.get(env, name))
 						return glob;
-				
+
 					auto ns = env;
 					for(; ns.parent !is null; ns = ns.parent){}
 
@@ -7285,6 +7243,11 @@ void execute(MDThread* t, uword depth = 1)
 			assert(false);
 		}
 
+		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
+		const char[] GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
+		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
+		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
+
 		Instruction* oldPC = null;
 
 		_interpreterLoop: while(true)
@@ -7292,8 +7255,10 @@ void execute(MDThread* t, uword depth = 1)
 			if(t.shouldHalt)
 				throw new MDHaltException;
 
-			auto i = t.currentAR.pc;
-			t.currentAR.pc++;
+// 			auto i = t.currentAR.pc;
+// 			t.currentAR.pc++;
+
+			auto i = *(*pc)++;
 
 			if(t.hooksEnabled)
 			{
@@ -7323,64 +7288,64 @@ void execute(MDThread* t, uword depth = 1)
 				}
 			}
 
-			oldPC = t.currentAR.pc;
+			oldPC = *pc;
 
 			switch(i.opcode)
 			{
 				// Binary Arithmetic
-				case Op.Add: binOpImpl(t, MM.Add, get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Sub: binOpImpl(t, MM.Sub, get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Mul: binOpImpl(t, MM.Mul, get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Div: binOpImpl(t, MM.Div, get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Mod: binOpImpl(t, MM.Mod, get(i.rd), get(i.rs), get(i.rt)); break;
+				case Op.Add: binOpImpl(t, MM.Add, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Sub: binOpImpl(t, MM.Sub, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Mul: binOpImpl(t, MM.Mul, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Div: binOpImpl(t, MM.Div, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Mod: binOpImpl(t, MM.Mod, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
 
 				// Unary Arithmetic
-				case Op.Neg: negImpl(t, get(i.rd), get(i.rs)); break;
+				case Op.Neg: negImpl(t, mixin(GetRD), mixin(GetRS)); break;
 
 				// Reflexive Arithmetic
-				case Op.AddEq: reflBinOpImpl(t, MM.AddEq, get(i.rd), get(i.rs)); break;
-				case Op.SubEq: reflBinOpImpl(t, MM.SubEq, get(i.rd), get(i.rs)); break;
-				case Op.MulEq: reflBinOpImpl(t, MM.MulEq, get(i.rd), get(i.rs)); break;
-				case Op.DivEq: reflBinOpImpl(t, MM.DivEq, get(i.rd), get(i.rs)); break;
-				case Op.ModEq: reflBinOpImpl(t, MM.ModEq, get(i.rd), get(i.rs)); break;
+				case Op.AddEq: reflBinOpImpl(t, MM.AddEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.SubEq: reflBinOpImpl(t, MM.SubEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.MulEq: reflBinOpImpl(t, MM.MulEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.DivEq: reflBinOpImpl(t, MM.DivEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.ModEq: reflBinOpImpl(t, MM.ModEq, mixin(GetRD), mixin(GetRS)); break;
 
 				// Inc/Dec
-				case Op.Inc: incImpl(t, get(i.rd)); break;
-				case Op.Dec: decImpl(t, get(i.rd)); break;
+				case Op.Inc: incImpl(t, mixin(GetRD)); break;
+				case Op.Dec: decImpl(t, mixin(GetRD)); break;
 
 				// Binary Bitwise
-				case Op.And:  binaryBinOpImpl(t, MM.And,  get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Or:   binaryBinOpImpl(t, MM.Or,   get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Xor:  binaryBinOpImpl(t, MM.Xor,  get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Shl:  binaryBinOpImpl(t, MM.Shl,  get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.Shr:  binaryBinOpImpl(t, MM.Shr,  get(i.rd), get(i.rs), get(i.rt)); break;
-				case Op.UShr: binaryBinOpImpl(t, MM.UShr, get(i.rd), get(i.rs), get(i.rt)); break;
+				case Op.And:  binaryBinOpImpl(t, MM.And,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Or:   binaryBinOpImpl(t, MM.Or,   mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Xor:  binaryBinOpImpl(t, MM.Xor,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Shl:  binaryBinOpImpl(t, MM.Shl,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Shr:  binaryBinOpImpl(t, MM.Shr,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.UShr: binaryBinOpImpl(t, MM.UShr, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
 
 				// Unary Bitwise
-				case Op.Com: comImpl(t, get(i.rd), get(i.rs)); break;
+				case Op.Com: comImpl(t, mixin(GetRD), mixin(GetRS)); break;
 
 				// Reflexive Bitwise
-				case Op.AndEq:  reflBinaryBinOpImpl(t, MM.AndEq,  get(i.rd), get(i.rs)); break;
-				case Op.OrEq:   reflBinaryBinOpImpl(t, MM.OrEq,   get(i.rd), get(i.rs)); break;
-				case Op.XorEq:  reflBinaryBinOpImpl(t, MM.XorEq,  get(i.rd), get(i.rs)); break;
-				case Op.ShlEq:  reflBinaryBinOpImpl(t, MM.ShlEq,  get(i.rd), get(i.rs)); break;
-				case Op.ShrEq:  reflBinaryBinOpImpl(t, MM.ShrEq,  get(i.rd), get(i.rs)); break;
-				case Op.UShrEq: reflBinaryBinOpImpl(t, MM.UShrEq, get(i.rd), get(i.rs)); break;
+				case Op.AndEq:  reflBinaryBinOpImpl(t, MM.AndEq,  mixin(GetRD), mixin(GetRS)); break;
+				case Op.OrEq:   reflBinaryBinOpImpl(t, MM.OrEq,   mixin(GetRD), mixin(GetRS)); break;
+				case Op.XorEq:  reflBinaryBinOpImpl(t, MM.XorEq,  mixin(GetRD), mixin(GetRS)); break;
+				case Op.ShlEq:  reflBinaryBinOpImpl(t, MM.ShlEq,  mixin(GetRD), mixin(GetRS)); break;
+				case Op.ShrEq:  reflBinaryBinOpImpl(t, MM.ShrEq,  mixin(GetRD), mixin(GetRS)); break;
+				case Op.UShrEq: reflBinaryBinOpImpl(t, MM.UShrEq, mixin(GetRD), mixin(GetRS)); break;
 
 				// Data Transfer
-				case Op.Move: *get(i.rd) = *get(i.rs); break;
+				case Op.Move: *mixin(GetRD) = *mixin(GetRS); break;
 				case Op.MoveLocal: t.stack[stackBase + i.rd] = t.stack[stackBase + i.rs]; break;
 				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
 
 				case Op.CondMove:
-					auto RD = get(i.rd);
+					auto RD = mixin(GetRD);
 
 					if(RD.type == MDValue.Type.Null)
-						*RD = *get(i.rs);
+						*RD = *mixin(GetRS);
 					break;
 
-				case Op.LoadBool: *get(i.rd) = cast(bool)i.rs; break;
-				case Op.LoadNull: *get(i.rd) = MDValue.nullValue; break;
+				case Op.LoadBool: *mixin(GetRD) = cast(bool)i.rs; break;
+				case Op.LoadNull: *mixin(GetRD) = MDValue.nullValue; break;
 
 				case Op.LoadNulls:
 					auto start = stackBase + i.rd;
@@ -7393,12 +7358,12 @@ void execute(MDThread* t, uword depth = 1)
 					if(namespace.contains(env, name))
 						throwException(t, "Attempting to create global '{}' that already exists", name.toString());
 
-					namespace.set(t.vm.alloc, env, name, get(i.rs));
+					namespace.set(t.vm.alloc, env, name, mixin(GetRS));
 					break;
 
 				// Logical and Control Flow
 				case Op.Import:
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
 					if(RS.type != MDValue.Type.String)
 					{
@@ -7409,21 +7374,21 @@ void execute(MDThread* t, uword depth = 1)
 					importImpl(t, RS.mString, stackBase + i.rd);
 					break;
 
-				case Op.Not: *get(i.rd) = get(i.rs).isFalse(); break;
+				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
 
 				case Op.Cmp:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 
-					auto cmpValue = compareImpl(t, get(i.rs), get(i.rt));
+					auto cmpValue = compareImpl(t, mixin(GetRS), mixin(GetRT));
 
 					if(jump.rd)
 					{
 						switch(jump.opcode)
 						{
-							case Op.Je:  if(cmpValue == 0) t.currentAR.pc += jump.imm; break;
-							case Op.Jle: if(cmpValue <= 0) t.currentAR.pc += jump.imm; break;
-							case Op.Jlt: if(cmpValue < 0)  t.currentAR.pc += jump.imm; break;
+							case Op.Je:  if(cmpValue == 0) (*pc) += jump.imm; break;
+							case Op.Jle: if(cmpValue <= 0) (*pc) += jump.imm; break;
+							case Op.Jlt: if(cmpValue < 0)  (*pc) += jump.imm; break;
 							default: assert(false, "invalid 'cmp' jump");
 						}
 					}
@@ -7431,76 +7396,76 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						switch(jump.opcode)
 						{
-							case Op.Je:  if(cmpValue != 0) t.currentAR.pc += jump.imm; break;
-							case Op.Jle: if(cmpValue > 0)  t.currentAR.pc += jump.imm; break;
-							case Op.Jlt: if(cmpValue >= 0) t.currentAR.pc += jump.imm; break;
+							case Op.Je:  if(cmpValue != 0) (*pc) += jump.imm; break;
+							case Op.Jle: if(cmpValue > 0)  (*pc) += jump.imm; break;
+							case Op.Jlt: if(cmpValue >= 0) (*pc) += jump.imm; break;
 							default: assert(false, "invalid 'cmp' jump");
 						}
 					}
 					break;
 
 				case Op.Equals:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 
-					auto cmpValue = equalsImpl(t, get(i.rs), get(i.rt));
+					auto cmpValue = equalsImpl(t, mixin(GetRS), mixin(GetRT));
 
 					if(cmpValue == cast(bool)jump.rd)
-						t.currentAR.pc += jump.imm;
+						(*pc) += jump.imm;
 					break;
 
 				case Op.Cmp3:
-					// Doing this to ensure evaluation of get(i.rd) happens _after_ compareImpl has executed
-					auto val = compareImpl(t, get(i.rs), get(i.rt));
-					*get(i.rd) = val;
+					// Doing this to ensure evaluation of mixin(GetRD) happens _after_ compareImpl has executed
+					auto val = compareImpl(t, mixin(GetRS), mixin(GetRT));
+					*mixin(GetRD) = val;
 					break;
 
 				case Op.SwitchCmp:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'swcmp' jump");
 
-					if(switchCmpImpl(t, get(i.rs), get(i.rt)))
-						t.currentAR.pc += jump.imm;
+					if(switchCmpImpl(t, mixin(GetRS), mixin(GetRT)))
+						(*pc) += jump.imm;
 
 					break;
 
 				case Op.Is:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 					assert(jump.opcode == Op.Je, "invalid 'is' jump");
 
-					if(get(i.rs).opEquals(*get(i.rt)) == jump.rd)
-						t.currentAR.pc += jump.imm;
+					if(mixin(GetRS).opEquals(*mixin(GetRT)) == jump.rd)
+						(*pc) += jump.imm;
 
 					break;
 
 				case Op.IsTrue:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 					assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
 
-					if(get(i.rs).isFalse() != cast(bool)jump.rd)
-						t.currentAR.pc += jump.imm;
+					if(mixin(GetRS).isFalse() != cast(bool)jump.rd)
+						(*pc) += jump.imm;
 
 					break;
 
 				case Op.Jmp:
 					if(i.rd != 0)
-						t.currentAR.pc += i.imm;
+						(*pc) += i.imm;
 					break;
 
 				case Op.Switch:
 					auto st = &t.currentAR.func.scriptFunc.switchTables[i.rt];
 
-					if(auto ptr = st.offsets.lookup(*get(i.rs)))
-						t.currentAR.pc += *ptr;
+					if(auto ptr = st.offsets.lookup(*mixin(GetRS)))
+						(*pc) += *ptr;
 					else
 					{
 						if(st.defaultOffset == -1)
 							throwException(t, "Switch without default");
 
-						t.currentAR.pc += st.defaultOffset;
+						(*pc) += st.defaultOffset;
 					}
 					break;
 
@@ -7528,7 +7493,7 @@ void execute(MDThread* t, uword depth = 1)
 						*idx = intIdx + intStep;
 
 					*step = intStep;
-					t.currentAR.pc += i.imm;
+					(*pc) += i.imm;
 					break;
 
 				case Op.ForLoop:
@@ -7542,7 +7507,7 @@ void execute(MDThread* t, uword depth = 1)
 						{
 							t.stack[stackBase + i.rd + 3] = idx;
 							t.stack[stackBase + i.rd] = idx + step;
-							t.currentAR.pc += i.imm;
+							(*pc) += i.imm;
 						}
 					}
 					else
@@ -7551,7 +7516,7 @@ void execute(MDThread* t, uword depth = 1)
 						{
 							t.stack[stackBase + i.rd + 3] = idx;
 							t.stack[stackBase + i.rd] = idx + step;
-							t.currentAR.pc += i.imm;
+							(*pc) += i.imm;
 						}
 					}
 					break;
@@ -7591,12 +7556,12 @@ void execute(MDThread* t, uword depth = 1)
 					if(src.type == MDValue.Type.Thread && src.mThread.state != MDThread.State.Initial)
 						throwException(t, "Attempting to iterate over a thread that is not in the 'initial' state");
 
-					t.currentAR.pc += i.imm;
+					(*pc) += i.imm;
 					break;
 
 				case Op.ForeachLoop:
-					auto jump = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto jump = (*pc)++;
+// 					t.currentAR.pc++;
 					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreachloop' jump");
 
 					auto rd = i.rd;
@@ -7616,13 +7581,13 @@ void execute(MDThread* t, uword depth = 1)
 						if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
 						{
 							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
-							t.currentAR.pc += jump.imm;
+							(*pc) += jump.imm;
 						}
 					}
 					else
 					{
 						if(src.mThread.state != MDThread.State.Dead)
-							t.currentAR.pc += jump.imm;
+							(*pc) += jump.imm;
 					}
 					break;
 
@@ -7631,7 +7596,7 @@ void execute(MDThread* t, uword depth = 1)
 					auto tr = pushTR(t);
 					tr.isCatch = true;
 					tr.slot = cast(RelStack)i.rd;
-					tr.pc = t.currentAR.pc + i.imm;
+					tr.pc = (*pc) + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
 
@@ -7639,7 +7604,7 @@ void execute(MDThread* t, uword depth = 1)
 					auto tr = pushTR(t);
 					tr.isCatch = false;
 					tr.slot = cast(RelStack)i.rd;
-					tr.pc = t.currentAR.pc + i.imm;
+					tr.pc = (*pc) + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
 
@@ -7659,7 +7624,7 @@ void execute(MDThread* t, uword depth = 1)
 
 					break;
 
-				case Op.Throw: throwImpl(t, get(i.rs)); break;
+				case Op.Throw: throwImpl(t, mixin(GetRS)); break;
 
 				// Function Calling
 			{
@@ -7667,10 +7632,10 @@ void execute(MDThread* t, uword depth = 1)
 				word numResults = void;
 
 				case Op.Method, Op.MethodNC, Op.SuperMethod:
-					auto call = t.currentAR.pc;
-					t.currentAR.pc++;
+					auto call = (*pc)++;
+// 					t.currentAR.pc++;
 
-					RT = *get(i.rt);
+					RT = *mixin(GetRT);
 
 					if(RT.type != MDValue.Type.String)
 					{
@@ -7679,7 +7644,7 @@ void execute(MDThread* t, uword depth = 1)
 					}
 
 					auto methodName = RT.mString;
-					auto self = get(i.rs);
+					auto self = mixin(GetRS);
 
 					if(i.opcode != Op.SuperMethod)
 						RS = *self;
@@ -7818,7 +7783,7 @@ void execute(MDThread* t, uword depth = 1)
 					goto _reentry;
 
 				case Op.Unwind:
-					t.currentAR.unwindReturn = t.currentAR.pc;
+					t.currentAR.unwindReturn = (*pc);
 					t.currentAR.unwindCounter = i.uimm;
 
 					// fall through
@@ -7836,12 +7801,12 @@ void execute(MDThread* t, uword depth = 1)
 						if(!tr.isCatch)
 						{
 							// finally in the middle of an unwind
-							t.currentAR.pc = tr.pc;
+							(*pc) = tr.pc;
 							continue _interpreterLoop;
 						}
 					}
 
-					t.currentAR.pc = t.currentAR.unwindReturn;
+					(*pc) = t.currentAR.unwindReturn;
 					t.currentAR.unwindReturn = null;
 					break;
 
@@ -7872,12 +7837,12 @@ void execute(MDThread* t, uword depth = 1)
 
 					break;
 
-				case Op.VargLen: *get(i.rd) = cast(mdint)(stackBase - t.currentAR.vargBase); break;
+				case Op.VargLen: *mixin(GetRD) = cast(mdint)(stackBase - t.currentAR.vargBase); break;
 
 				case Op.VargIndex:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
 
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
 					if(RS.type != MDValue.Type.Int)
 					{
@@ -7893,13 +7858,13 @@ void execute(MDThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					*get(i.rd) = t.stack[t.currentAR.vargBase + cast(uword)index];
+					*mixin(GetRD) = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
 
 				case Op.VargIndexAssign:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
 
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
 					if(RS.type != MDValue.Type.Int)
 					{
@@ -7915,7 +7880,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					t.stack[t.currentAR.vargBase + cast(uword)index] = *get(i.rt);
+					t.stack[t.currentAR.vargBase + cast(uword)index] = *mixin(GetRT);
 					break;
 
 				case Op.VargSlice:
@@ -7924,7 +7889,7 @@ void execute(MDThread* t, uword depth = 1)
 					mdint lo = void;
 					mdint hi = void;
 
-					if(!correctIndices(lo, hi, get(i.rd), get(i.rd + 1), numVarargs))
+					if(!correctIndices(lo, hi, mixin(GetRD), mixin(GetRDplus1), numVarargs))
 					{
 						typeString(t, &RS);
 						typeString(t, &RT);
@@ -8000,10 +7965,10 @@ void execute(MDThread* t, uword depth = 1)
 					RS = t.stack[stackBase + i.rs];
 					
 					if(RS.type != MDValue.Type.Instance)
-						*get(i.rd) = true;
+						*mixin(GetRD) = true;
 					else
 					{
-						RT = *get(i.rt);
+						RT = *mixin(GetRT);
 
 						if(RT.type != MDValue.Type.Class)
 						{
@@ -8011,7 +7976,7 @@ void execute(MDThread* t, uword depth = 1)
 							throwException(t, "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
 						}
 
-						*get(i.rd) = instance.derivesFrom(RS.mInstance, RT.mClass);
+						*mixin(GetRD) = instance.derivesFrom(RS.mInstance, RT.mClass);
 					}
 					break;
 
@@ -8026,9 +7991,9 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				// Array and List Operations
-				case Op.Length: lenImpl(t, get(i.rd), get(i.rs)); break;
-				case Op.LengthAssign: lenaImpl(t, get(i.rd), get(i.rs)); break;
-				case Op.Append: array.append(t.vm.alloc, t.stack[stackBase + i.rd].mArray, get(i.rs)); break;
+				case Op.Length: lenImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.LengthAssign: lenaImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.Append: array.append(t.vm.alloc, t.stack[stackBase + i.rd].mArray, mixin(GetRS)); break;
 
 				case Op.SetArray:
 					auto sliceBegin = stackBase + i.rd + 1;
@@ -8045,20 +8010,20 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.Cat:
-					catImpl(t, get(i.rd), stackBase + i.rs, i.rt);
+					catImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
 					maybeGC(t);
 					break;
 
 				case Op.CatEq:
-					catEqImpl(t, get(i.rd), stackBase + i.rs, i.rt);
+					catEqImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
 					maybeGC(t);
 					break;
 
-				case Op.Index: idxImpl(t, get(i.rd), get(i.rs), get(i.rt), false); break;
-				case Op.IndexAssign: idxaImpl(t, get(i.rd), get(i.rs), get(i.rt), false); break;
+				case Op.Index: idxImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT), false); break;
+				case Op.IndexAssign: idxaImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT), false); break;
 
 				case Op.Field:
-					RT = *get(i.rt);
+					RT = *mixin(GetRT);
 
 					if(RT.type != MDValue.Type.String)
 					{
@@ -8066,11 +8031,11 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldImpl(t, get(i.rd), get(i.rs), RT.mString, false);
+					fieldImpl(t, mixin(GetRD), mixin(GetRS), RT.mString, false);
 					break;
 
 				case Op.FieldAssign:
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
 					if(RS.type != MDValue.Type.String)
 					{
@@ -8078,27 +8043,27 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldaImpl(t, get(i.rd), RS.mString, get(i.rt), false);
+					fieldaImpl(t, mixin(GetRD), RS.mString, mixin(GetRT), false);
 					break;
 
 				case Op.Slice:
 					auto base = &t.stack[stackBase + i.rs];
-					sliceImpl(t, get(i.rd), base, base + 1, base + 2);
+					sliceImpl(t, mixin(GetRD), base, base + 1, base + 2);
 					break;
 
 				case Op.SliceAssign:
 					auto base = &t.stack[stackBase + i.rd];
-					sliceaImpl(t, base, base + 1, base + 2, get(i.rs));
+					sliceaImpl(t, base, base + 1, base + 2, mixin(GetRS));
 					break;
 
 				case Op.NotIn:
-					auto val = !inImpl(t, get(i.rs), get(i.rt));
-					*get(i.rd) = val;
+					auto val = !inImpl(t, mixin(GetRS), mixin(GetRT));
+					*mixin(GetRD) = val;
 					break;
 
 				case Op.In:
-					auto val = inImpl(t, get(i.rs), get(i.rt));
-					*get(i.rd) = val;
+					auto val = inImpl(t, mixin(GetRS), mixin(GetRT));
+					*mixin(GetRD) = val;
 					break;
 
 				// Value Creation
@@ -8125,7 +8090,7 @@ void execute(MDThread* t, uword depth = 1)
 						if(newDef.cachedFunc is null)
 							newDef.cachedFunc = func.create(t.vm.alloc, funcEnv, newDef);
 
-						*get(i.rd) = newDef.cachedFunc;
+						*mixin(GetRD) = newDef.cachedFunc;
 					}
 					else
 					{
@@ -8134,28 +8099,28 @@ void execute(MDThread* t, uword depth = 1)
 
 						for(uword index = 0; index < newDef.numUpvals; index++)
 						{
-							assert(t.currentAR.pc.opcode == Op.Move, "invalid closure upvalue op");
+							assert((*pc).opcode == Op.Move, "invalid closure upvalue op");
 
-							if(t.currentAR.pc.rd == 0)
-								newUpvals[index] = findUpvalue(t, t.currentAR.pc.rs);
+							if((*pc).rd == 0)
+								newUpvals[index] = findUpvalue(t, (*pc).rs);
 							else
 							{
-								assert(t.currentAR.pc.rd == 1, "invalid closure upvalue rd");
-								newUpvals[index] = upvals[t.currentAR.pc.uimm];
+								assert((*pc).rd == 1, "invalid closure upvalue rd");
+								newUpvals[index] = upvals[(*pc).uimm];
 							}
 
-							t.currentAR.pc++;
+							(*pc)++;
 						}
 
-						*get(i.rd) = n;
+						*mixin(GetRD) = n;
 					}
 
 					maybeGC(t);
 					break;
 
 				case Op.Class:
-					RS = *get(i.rs);
-					RT = *get(i.rt);
+					RS = *mixin(GetRS);
+					RT = *mixin(GetRT);
 
 					if(RT.type != MDValue.Type.Class)
 					{
@@ -8163,13 +8128,13 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Attempting to derive a class from a value of type '{}'", getString(t, -1));
 					}
 					else
-						*get(i.rd) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
+						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
 
 					maybeGC(t);
 					break;
 
 				case Op.Coroutine:
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
 					if(RS.type != MDValue.Type.Function)
 					{
@@ -8188,15 +8153,15 @@ void execute(MDThread* t, uword depth = 1)
 					nt.hooks = t.hooks;
 					nt.hookDelay = t.hookDelay;
 					nt.hookCounter = t.hookCounter;
-					*get(i.rd) = nt;
+					*mixin(GetRD) = nt;
 					break;
 
 				case Op.Namespace:
 					auto name = constTable[i.rs].mString;
-					RT = *get(i.rt);
+					RT = *mixin(GetRT);
 
 					if(RT.type == MDValue.Type.Null)
-						*get(i.rd) = namespace.create(t.vm.alloc, name);
+						*mixin(GetRD) = namespace.create(t.vm.alloc, name);
 					else if(RT.type != MDValue.Type.Namespace)
 					{
 						typeString(t, &RT);
@@ -8204,30 +8169,30 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else
-						*get(i.rd) = namespace.create(t.vm.alloc, name, RT.mNamespace);
+						*mixin(GetRD) = namespace.create(t.vm.alloc, name, RT.mNamespace);
 
 					maybeGC(t);
 					break;
 
 				case Op.NamespaceNP:
 					auto tmp = namespace.create(t.vm.alloc, constTable[i.rs].mString, env);
-					*get(i.rd) = tmp;
+					*mixin(GetRD) = tmp;
 					maybeGC(t);
 					break;
 
 				// Class stuff
 				case Op.As:
-					RS = *get(i.rs);
+					RS = *mixin(GetRS);
 
-					if(asImpl(t, &RS, get(i.rt)))
-						*get(i.rd) = RS;
+					if(asImpl(t, &RS, mixin(GetRT)))
+						*mixin(GetRD) = RS;
 					else
-						*get(i.rd) = MDValue.nullValue;
+						*mixin(GetRD) = MDValue.nullValue;
 
 					break;
 
 				case Op.SuperOf:
-					*get(i.rd) = superOfImpl(t, get(i.rs));
+					*mixin(GetRD) = superOfImpl(t, mixin(GetRS));
 					break;
 
 				case Op.Je:
@@ -8266,13 +8231,13 @@ void execute(MDThread* t, uword depth = 1)
 					currentException = null;
 
 					t.stack[base + 1 .. t.stackIndex] = MDValue.nullValue;
-					t.currentAR.pc = tr.pc;
+					(*pc) = tr.pc;
 					goto _exceptionRetry;
 				}
 				else
 				{
 					currentException = e;
-					t.currentAR.pc = tr.pc;
+					(*pc) = tr.pc;
 					goto _exceptionRetry;
 				}
 			}
