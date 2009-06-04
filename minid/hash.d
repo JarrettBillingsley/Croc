@@ -49,7 +49,7 @@ struct Hash(K, V)
 		static if(isStringType!(K))
 			const HashMethod = "jhash(" ~ expr ~ ")";
 		else static if(is(typeof(K.toHash)))
-			const HashMethod = expr ~ ".toHash()";
+			const HashMethod = expr ~ ".toHash";
 		else
 			const HashMethod = "typeid(K).getHash(&" ~ expr ~ ")";
 	}

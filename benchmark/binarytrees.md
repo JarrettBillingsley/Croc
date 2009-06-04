@@ -2,7 +2,7 @@ module benchmark.binarytrees
 
 // n = 16, 94.764 sec
 
-function BottomUpTree(item, depth)
+local function BottomUpTree(item, depth)
 	if(depth == 0)
 		return [item]
 	else
@@ -12,7 +12,7 @@ function BottomUpTree(item, depth)
 		return [item, BottomUpTree(i - 1, depth), (BottomUpTree(i, depth))]
 	}
 
-function ItemCheck(tree)
+local function ItemCheck(tree)
 	if(#tree == 3)
 		return tree[0] + ItemCheck(tree[1]) - ItemCheck(tree[2])
 	else

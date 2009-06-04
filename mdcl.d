@@ -29,11 +29,16 @@ import tango.io.Console;
 import minid.api;
 import minid.commandline;
 
+// import minid.addons.sdl;
+// import minid.addons.gl;
+
 void main(char[][] args)
 {
 	MDVM vm;
 	auto t = openVM(&vm);
 	loadStdlibs(t, MDStdlib.All);
+// 	SdlLib.init(t);
+// 	GlLib.init(t);
 
 	CommandLine().run(t, args);
 }

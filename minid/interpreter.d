@@ -4983,11 +4983,26 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 
 bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
-	void wrapEH(void delegate() dg)
-	{
-		try
-			dg();
-		catch(MDException e)
+// 	void wrapEH(void delegate() dg)
+// 	{
+// 		try
+// 			dg();
+// 		catch(MDException e)
+// 		{
+// 			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
+// 			callEpilogue(t, false);
+// 			throw e;
+// 		}
+// 		catch(MDHaltException e)
+// 		{
+// 			unwindEH(t);
+// 			callEpilogue(t, false);
+// 			throw e;
+// 		}
+// 	}
+
+	const char[] wrapEH =
+		"catch(MDException e)
 		{
 			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
 			callEpilogue(t, false);
@@ -4998,8 +5013,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			unwindEH(t);
 			callEpilogue(t, false);
 			throw e;
-		}
-	}
+		}";
+
 
 	if(!func.isNative)
 	{
@@ -5057,13 +5072,20 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		// Set the stack indices.
 		t.stackBase = ar.base;
 		t.stackIndex = ar.savedTop;
-		
+
 		// Call any hook.
-		wrapEH
-		({
+// 		wrapEH
+// 		({
+// 			if(t.hooks & MDThread.Hook.Call)
+// 				callHook(t, MDThread.Hook.Call);
+// 		});
+
+		mixin(
+		"try
+		{
 			if(t.hooks & MDThread.Hook.Call)
 				callHook(t, MDThread.Hook.Call);
-		});
+		}" ~ wrapEH);
 
 		return true;
 	}
@@ -5072,9 +5094,9 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		// Native function
 		t.stackIndex = paramSlot + numParams;
 		checkStack(t, t.stackIndex);
-	
+
 		auto ar = pushAR(t);
-	
+
 		ar.base = paramSlot;
 		ar.vargBase = paramSlot;
 		ar.returnSlot = returnSlot;
@@ -5090,8 +5112,28 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 
 		uword actualReturns = void;
 
-		wrapEH
-		({
+// 		wrapEH
+// 		({
+// 			if(t.hooks & MDThread.Hook.Call)
+// 				callHook(t, MDThread.Hook.Call);
+//
+// 			version(MDExtendedCoro) {} else
+// 			{
+// 				t.nativeCallDepth++;
+// 				scope(exit) t.nativeCallDepth--;
+// 			}
+//
+// 			auto savedState = t.state;
+// 			t.state = MDThread.State.Running;
+// 			t.vm.curThread = t;
+// 			scope(exit) t.state = savedState;
+//
+// 			actualReturns = func.nativeFunc(t, numParams - 1);
+// 		});
+
+		mixin(
+		"try
+		{
 			if(t.hooks & MDThread.Hook.Call)
 				callHook(t, MDThread.Hook.Call);
 
@@ -5107,7 +5149,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			scope(exit) t.state = savedState;
 
 			actualReturns = func.nativeFunc(t, numParams - 1);
-		});
+		}" ~ wrapEH);
 
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);
 		callEpilogue(t, true);
@@ -7205,6 +7247,7 @@ void execute(MDThread* t, uword depth = 1)
 	auto stackBase = t.stackBase;
 	auto constTable = t.currentAR.func.scriptFunc.constants;
 	auto env = t.currentAR.func.environment;
+	auto upvals = t.currentAR.func.scriptUpvals();
 
 	try
 	{
@@ -7220,7 +7263,7 @@ void execute(MDThread* t, uword depth = 1)
 					return &constTable[index & ~Instruction.locMask];
 
 				case Instruction.locUpval:
-					return t.currentAR.func.scriptUpvals()[index & ~Instruction.locMask].value;
+					return upvals[index & ~Instruction.locMask].value;
 
 				default:
 					assert((index & Instruction.locMask) == Instruction.locGlobal, "get() location");
@@ -8087,19 +8130,18 @@ void execute(MDThread* t, uword depth = 1)
 					else
 					{
 						auto n = func.create(t.vm.alloc, funcEnv, newDef);
-						auto upvals = n.scriptUpvals();
-						auto currentUpvals = t.currentAR.func.scriptUpvals();
+						auto newUpvals = n.scriptUpvals();
 
 						for(uword index = 0; index < newDef.numUpvals; index++)
 						{
 							assert(t.currentAR.pc.opcode == Op.Move, "invalid closure upvalue op");
 
 							if(t.currentAR.pc.rd == 0)
-								upvals[index] = findUpvalue(t, t.currentAR.pc.rs);
+								newUpvals[index] = findUpvalue(t, t.currentAR.pc.rs);
 							else
 							{
 								assert(t.currentAR.pc.rd == 1, "invalid closure upvalue rd");
-								upvals[index] = currentUpvals[t.currentAR.pc.uimm];
+								newUpvals[index] = upvals[t.currentAR.pc.uimm];
 							}
 
 							t.currentAR.pc++;
