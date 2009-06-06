@@ -6,3 +6,4 @@ test.d
 -version=MDGLCheckErrors
 -g
 -w
+-I..\extra\

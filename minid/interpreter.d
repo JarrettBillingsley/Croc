@@ -5057,11 +5057,12 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 
 		// Call any hook.
 		mixin(
-		"try
+		"if(t.hooks & MDThread.Hook.Call)
 		{
-			if(t.hooks & MDThread.Hook.Call)
+			try
 				callHook(t, MDThread.Hook.Call);
-		}" ~ wrapEH);
+		" ~ wrapEH ~ "
+		}");
 
 		return true;
 	}

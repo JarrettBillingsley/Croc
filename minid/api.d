@@ -44,6 +44,7 @@ debug
 	import tango.io.Stdout;
 }
 
+import tango.core.Exception;
 import tango.stdc.stdlib;
 
 import minid.arraylib;
@@ -79,7 +80,7 @@ public void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 		auto ret = tango.stdc.stdlib.realloc(p, newSize);
 		
 		if(ret is null)
-			throw new Exception("OH SHIT OUT OF MEMORY");
+			onOutOfMemoryError();
 			
 		return ret;
 	}

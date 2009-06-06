@@ -7,8 +7,8 @@ import minid.bind;
 import minid.vector;
 
 // import minid.addons.pcre;
-// import minid.addons.sdl;
-// import minid.addons.gl;
+import minid.addons.sdl;
+import minid.addons.gl;
 
 import minid.serialization;
 import tango.io.device.File;
@@ -24,8 +24,8 @@ void main()
 	try
 	{
 // 		PcreLib.init(t);
-// 		SdlLib.init(t);
-// 		GlLib.init(t);
+		SdlLib.init(t);
+		GlLib.init(t);
 
 		importModule(t, "samples.simple");
 		pushNull(t);
