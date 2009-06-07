@@ -771,7 +771,7 @@ Creates a new class and pushes it onto the stack.
 After creating the class, you can then fill it with members by using fielda.
 
 Params:
-	proto = The stack index of the _base class.  The _base can be `null`, in which case Object (defined
+	base = The stack index of the _base class.  The _base can be `null`, in which case Object (defined
 		in the _base library and which lives in the global namespace) will be used.  Otherwise it must
 		be a class.
 
@@ -4135,7 +4135,7 @@ debug
 		Stdout.newline;
 		Stdout("-----Call Stack-----").newline;
 
-		for(uword i = t.arIndex - 1; i >= 0; i--)
+		for(word i = t.arIndex - 1; i >= 0; i--)
 		{
 			with(t.actRecs[i])
 			{
@@ -4627,7 +4627,7 @@ MDValue lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* proto
 
 		case MDValue.Type.Table:
 			auto ret = getMethod(v.mTable, name);
-			
+
 			if(ret.type != MDValue.Type.Null)
 				return ret;
 
@@ -7553,7 +7553,7 @@ void execute(MDThread* t, uword depth = 1)
 							throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
 						}
 					}
-					
+
 					if(src.type == MDValue.Type.Thread && src.mThread.state != MDThread.State.Initial)
 						throwException(t, "Attempting to iterate over a thread that is not in the 'initial' state");
 
@@ -7693,7 +7693,17 @@ void execute(MDThread* t, uword depth = 1)
 						t.stackIndex = stackBase + i.rd + i.rs;
 					}
 
-					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, null);
+					auto self = &t.stack[stackBase + i.rd + 1];
+					MDClass* proto = void;
+
+					if(self.type == MDValue.Type.Instance)
+						proto = self.mInstance.parent;
+					else if(self.type == MDValue.Type.Class)
+						proto = self.mClass;
+					else
+						proto = null;
+
+					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, proto);
 
 					// fall through
 				_commonCall:
@@ -7723,7 +7733,17 @@ void execute(MDThread* t, uword depth = 1)
 						t.stackIndex = stackBase + i.rd + i.rs;
 					}
 
-					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, null);
+					auto self = &t.stack[stackBase + i.rd + 1];
+					MDClass* proto = void;
+
+					if(self.type == MDValue.Type.Instance)
+						proto = self.mInstance.parent;
+					else if(self.type == MDValue.Type.Class)
+						proto = self.mClass;
+					else
+						proto = null;
+
+					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, proto);
 
 					// fall through
 				_commonTailcall:

@@ -7,11 +7,8 @@ import minid.bind;
 import minid.vector;
 
 // import minid.addons.pcre;
-import minid.addons.sdl;
-import minid.addons.gl;
-
-import minid.serialization;
-import tango.io.device.File;
+// import minid.addons.sdl;
+// import minid.addons.gl;
 
 void main()
 {
@@ -24,30 +21,14 @@ void main()
 	try
 	{
 // 		PcreLib.init(t);
-		SdlLib.init(t);
-		GlLib.init(t);
+// 		SdlLib.init(t);
+// 		GlLib.init(t);
 
 		importModule(t, "samples.simple");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);
 		rawCall(t, -3, 0);
-
-// 		runString(t, "namespace a : null { x = 4; z = `a` }");
-// 		auto idx = lookup(t, "a");
-// 		auto f = new File("out.dat", File.WriteCreate);
-// 		auto s = Serializer(t, f);
-// 		s.writeGraph(idx);
-// 		f.flush().close();
-// 
-// 		f = new File("out.dat", File.ReadExisting);
-// 		auto d = Deserializer(t, f);
-// 		d.readGraph();
-// 
-// 		pushGlobal(t, "dumpVal");
-// 		pushNull(t);
-// 		rotate(t, 3, 2);
-// 		rawCall(t, -3, 0);
 	}
 	catch(MDException e)
 	{

@@ -1,5 +1,25 @@
 module samples.simple
 
+function shim(f: function) = \vararg -> f(with this, vararg)
+
+class Base
+{
+	function foo()
+		writeln("base foo")
+}
+
+class Derived : Base
+{
+	@shim function foo()
+	{
+		writeln("derived foo ")
+		super.foo()
+	}
+}
+
+local d = Derived()
+d.foo()
+
 /+import sdl: event, key
 import gl
 
@@ -198,7 +218,7 @@ function main()
 	sdl.gl.setAttribute(sdl.gl.bufferSize, 32)
 	sdl.gl.setAttribute(sdl.gl.depthSize, 16)
 	sdl.gl.setAttribute(sdl.gl.doubleBuffer, 1)
-	
+
 	local w = 1152
 	local h = 864
 
@@ -1004,5 +1024,4 @@ function main()
 				break
 		}
 	}
-}+/
-+/
+}+/+/

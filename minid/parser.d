@@ -891,7 +891,7 @@ struct Parser
 				case Token.Function:
 					addMethod(parseSimpleFuncDef());
 					break;
-					
+
 				case Token.This:
 					auto loc = l.expect(Token.This).loc;
 					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))));
@@ -1054,11 +1054,33 @@ struct Parser
 
 				case Token.At:
 					auto dec = parseDecorators();
-					auto fd = parseSimpleFuncDef();
-					auto lit = new(c) FuncLiteralExp(c, fd.location, fd);
+
+					Identifier fieldName = void;
+					Expression init = void;
+
+					if(l.type == Token.Function)
+					{
+						auto fd = parseSimpleFuncDef();
+						fieldName = fd.name;
+						init = new(c) FuncLiteralExp(c, fd.location, fd);
+					}
+					else
+					{
+						fieldName = parseIdentifier();
+
+						if(l.type == Token.Assign)
+						{
+							l.next();
+							init = parseExpression();
+						}
+						else
+							init = new(c) NullExp(c, fieldName.location);
+
+						l.statementTerm();
+					}
 
 					scope args = new List!(Expression)(c.alloc);
-					args ~= lit;
+					args ~= init;
 					args ~= dec.args;
 
 					Expression call;
@@ -1068,8 +1090,9 @@ struct Parser
 					else
 						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
 
-					addField(fd.name.name, call);
+					addField(fieldName.name, call);
 					break;
+
 
 				case Token.Ident:
 					auto loc = l.loc;

@@ -345,8 +345,8 @@ NamespaceDeclaration:
 	['local' | 'global'] 'namespace' Identifier [':' Expression] '{' {NamespaceMember} '}'
 
 NamespaceMember:
-	SimpleFunctionDeclaration
-	Identifier ['=' Expression] StatementTerminator
+	[Decorators] SimpleFunctionDeclaration
+	[Decorators] Identifier ['=' Expression] StatementTerminator
 
 IfStatement:
 	'if' '(' ['local' Identifier '='] Expression ')' Statement ['else' Statement]
