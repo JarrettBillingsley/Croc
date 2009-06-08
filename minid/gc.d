@@ -64,7 +64,7 @@ void mark(MDVM* vm)
 	markObj(vm, vm.globals);
 	markObj(vm, vm.mainThread);
 	markObj(vm, vm.registry);
-	
+
 	if(vm.isThrowing)
 	{
 		mixin(CondMark!("vm.exception"));
@@ -323,13 +323,11 @@ void markObj(MDVM* vm, MDThread* o)
 	}
 
 	for(auto uv = o.upvalHead; uv !is null; uv = uv.nextuv)
-	{
-		mixin(CondMark!("uv.value"));
-	}
+		markObj(vm, uv);
 
 	if(o.coroFunc)
 		markObj(vm, o.coroFunc);
-		
+
 	if(o.hookFunc)
 		markObj(vm, o.hookFunc);
 
