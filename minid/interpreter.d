@@ -7373,7 +7373,6 @@ void execute(MDThread* t, uword depth = 1)
 					}
 
 					importImpl(t, RS.mString, stackBase + i.rd);
-					pc = &t.currentAR.pc;
 					break;
 
 				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
@@ -7740,8 +7739,6 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						if(numResults >= 0)
 							t.stackIndex = t.currentAR.savedTop;
-							
-						pc = &t.currentAR.pc;
 					}
 					break;
 
@@ -7798,8 +7795,6 @@ void execute(MDThread* t, uword depth = 1)
 
 						goto _reentry;
 					}
-					else
-						pc = &t.currentAR.pc;
 
 					// Do nothing for native calls.  The following return instruction will catch it.
 					break;
@@ -7941,6 +7936,7 @@ void execute(MDThread* t, uword depth = 1)
 
 					if(!correctIndices(lo, hi, mixin(GetRD), mixin(GetRDplus1), numVarargs))
 					{
+						// TODO: OOPS
 						typeString(t, &RS);
 						typeString(t, &RT);
 						throwException(t, "Attempting to slice 'vararg' with '{}' and '{}'", getString(t, -2), getString(t, -1));

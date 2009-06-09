@@ -2306,27 +2306,24 @@ class Codegen : Visitor
 
 		if(d.protection == Protection.Global)
 		{
-			if(d.initializer)
+			if(d.initializer.length > 0)
 			{
-				if(d.names.length == 1)
+				if(d.names.length == 1 && d.initializer.length == 1)
 				{
 					fs.pushNewGlobal(d.names[0]);
-					visit(d.initializer);
-					fs.popAssign(d.initializer.endLocation.line);
+					visit(d.initializer[0]);
+					fs.popAssign(d.initializer[0].endLocation.line);
 				}
 				else
 				{
-					d.initializer.checkMultRet(c);
-
 					foreach(n; d.names)
 						fs.pushNewGlobal(n);
 
-					auto reg = fs.nextRegister();
-					visit(d.initializer);
-					fs.popToRegisters(d.endLocation.line, reg, d.names.length);
+					auto RHSReg = fs.nextRegister();
+					codeGenAssignmentList(d.initializer, d.names.length);
 
-					for(int r = reg + d.names.length - 1; r >= cast(int)reg; r--)
-						fs.popMoveFromReg(d.endLocation.line, r);
+					for(int reg = RHSReg + d.names.length - 1; reg >= cast(int)RHSReg; reg--)
+						fs.popMoveFromReg(d.endLocation.line, reg);
 				}
 			}
 			else
@@ -2343,21 +2340,19 @@ class Codegen : Visitor
 		{
 			assert(d.protection == Protection.Local);
 
-			if(d.initializer)
+			if(d.initializer.length > 0)
 			{
-				if(d.names.length == 1)
+				if(d.names.length == 1 && d.initializer.length == 1)
 				{
 					auto destReg = fs.nextRegister();
-					visit(d.initializer);
+					visit(d.initializer[0]);
 					fs.popMoveTo(d.location.line, destReg);
 					fs.insertLocal(d.names[0]);
 				}
 				else
 				{
 					auto destReg = fs.nextRegister();
-					d.initializer.checkMultRet(c);
-					visit(d.initializer);
-					fs.popToRegisters(d.location.line, destReg, d.names.length);
+					codeGenAssignmentList(d.initializer, d.names.length);
 
 					foreach(n; d.names)
 						fs.insertLocal(n);
@@ -3000,31 +2995,27 @@ class Codegen : Visitor
 		foreach(exp; s.lhs)
 			exp.checkLHS(c);
 
-		if(s.lhs.length == 1)
+		if(s.lhs.length == 1 && s.rhs.length == 1)
 		{
 			visit(s.lhs[0]);
-			visit(s.rhs);
+			visit(s.rhs[0]);
 			fs.popAssign(s.endLocation.line);
 		}
 		else
 		{
-			s.rhs.checkMultRet(c);
-
 			foreach(dest; s.lhs)
 				visit(dest);
 
 			auto numTemps = fs.resolveAssignmentConflicts(s.lhs[$ - 1].location.line, s.lhs.length);
 			auto RHSReg = fs.nextRegister();
-			
-			visit(s.rhs);
-			
-			fs.popToRegisters(s.endLocation.line, RHSReg, s.lhs.length);
+
+			codeGenAssignmentList(s.rhs, s.lhs.length);
 			fs.popAssignmentConflicts(numTemps);
 
 			for(int reg = RHSReg + s.lhs.length - 1; reg >= cast(int)RHSReg; reg--)
 				fs.popMoveFromReg(s.endLocation.line, reg);
 		}
-		
+
 		return s;
 	}
 
@@ -3781,6 +3772,46 @@ class Codegen : Visitor
 			for(auto i = lastReg; i >= cast(int)firstReg; i--)
 				fs.popRegister(i);
 		}
+	}
+
+	public void codeGenAssignmentList(Expression[] exprs, word numSlots)
+	{
+		auto firstReg = fs.nextRegister();
+		auto lastReg = firstReg;
+
+		foreach(i, e; exprs[0 .. $ - 1])
+		{
+			lastReg = fs.nextRegister();
+			visit(e);
+			fs.popMoveTo(e.endLocation.line, lastReg);
+			fs.pushRegister();
+		}
+
+		word extraSlots = numSlots - exprs.length;
+		lastReg = fs.nextRegister();
+		visit(exprs[$ - 1]);
+
+		if(exprs[$ - 1].isMultRet())
+		{
+			extraSlots++;
+
+			if(extraSlots < 0)
+				extraSlots = 0;
+
+			fs.popToRegisters(exprs[$ - 1].endLocation.line, lastReg, extraSlots);
+			fs.pushRegister();
+		}
+		else
+		{
+			fs.popMoveTo(exprs[$ - 1].endLocation.line, lastReg);
+			fs.pushRegister();
+			
+			if(extraSlots > 0)
+				fs.codeNulls(exprs[$ - 1].endLocation.line, fs.nextRegister(), extraSlots);
+		}
+
+		for(auto i = lastReg; i >= cast(int)firstReg; i--)
+			fs.popRegister(i);
 	}
 
 	// ---------------------------------------------------------------------------

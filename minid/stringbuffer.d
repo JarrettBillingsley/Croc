@@ -52,6 +52,7 @@ static:
 			c.method("format",         &format);
 			c.method("formatln",       &formatln);
 			c.method("insert",         &sb_insert);
+			// TODO: 'remove' method
 			c.method("toString",       &toString);
 
 			c.method("opCatAssign",    &opCatAssign);

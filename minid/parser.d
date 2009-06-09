@@ -414,13 +414,22 @@ struct Parser
 		scope(failure)
 			c.alloc.freeArray(namesArr);
 
-		Expression initializer;
+		Expression[] initializer;
 
 		if(l.type == Token.Assign)
 		{
 			l.next();
-			initializer = parseExpression();
-			endLocation = initializer.endLocation;
+			scope exprs = new List!(Expression)(c.alloc);
+			exprs ~= parseExpression();
+			
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				exprs ~= parseExpression();
+			}
+
+			initializer = exprs.toArray();
+			endLocation = initializer[$ - 1].endLocation;
 		}
 
 		return new(c) VarDecl(c, location, endLocation, protection, namesArr, initializer);
@@ -1756,7 +1765,7 @@ struct Parser
 		while(l.type == Token.Comma)
 		{
 			l.next();
-			
+
 			if(l.type == Token.Length)
 				lhs ~= parseUnExp();
 			else
@@ -1764,9 +1773,18 @@ struct Parser
 		}
 
 		l.expect(Token.Assign);
-
-		auto rhs = parseExpression();
-		return new(c) AssignStmt(c, location, rhs.endLocation, lhs.toArray(), rhs);
+		
+		scope rhs = new List!(Expression)(c.alloc);
+		rhs ~= parseExpression();
+		
+		while(l.type == Token.Comma)
+		{
+			l.next();
+			rhs ~= parseExpression();
+		}
+		
+		auto rhsArr = rhs.toArray();
+		return new(c) AssignStmt(c, location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
 	}
 
 	/**

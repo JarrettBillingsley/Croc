@@ -705,15 +705,14 @@ class VarDecl : Statement
 	public Identifier[] names;
 
 	/**
-	The initializer for the variables.  This can be null, in which case the variables
-	will be initialized to null.  If this is non-null and there is more than one name,
-	this must be a multi-return expression, such as a function call, vararg etc.
+	The initializer for the variables.  This can be empty, in which case the variables
+	will be all be initialized to null.
 	*/
-	public Expression initializer;
+	public Expression[] initializer;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression initializer)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression[] initializer)
 	{
 		super(c, location, endLocation, AstTag.VarDecl);
 		this.protection = protection;
@@ -724,6 +723,7 @@ class VarDecl : Statement
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(names);
+		alloc.freeArray(initializer);
 	}
 }
 
@@ -1547,24 +1547,24 @@ class AssignStmt : Statement
 	public Expression[] lhs;
 
 	/**
-	The right-hand side of the assignment.  If lhs.length > 1, this must be a multi-value
-	giving expression, meaning either a function call, vararg, sliced vararg, or yield
-	expression.  Otherwise, it can be any kind of expression.
+	The right-hand side of the assignment.  Must always have at least 1 item.  This is not checked
+	by the ctor.
 	*/
-	public Expression rhs;
+	public Expression[] rhs;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression rhs)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression[] rhs)
 	{
 		super(c, location, endLocation, AstTag.AssignStmt);
 		this.lhs = lhs;
 		this.rhs = rhs;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(lhs);
+		alloc.freeArray(rhs);
 	}
 }
 

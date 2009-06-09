@@ -87,6 +87,8 @@ static:
 			newFunction(t, &dirName,      "dirName");      newGlobal(t, "dirName");
 			newFunction(t, &name,         "name");         newGlobal(t, "name");
 			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
+			
+			// TODO: function to get just filename without path
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -121,7 +123,7 @@ static:
 
 		switch(mode)
 		{
-			case 'o': style = File.WriteExisting;  break;
+			case 'e': style = File.WriteExisting;  break;
 			case 'a': style = File.WriteAppending; break;
 			case 'c': style = File.WriteCreate;    break;
 			default:
@@ -143,13 +145,13 @@ static:
 		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
 
 		auto name = checkStringParam(t, 1);
-		auto mode = optCharParam(t, 2, 'o');
+		auto mode = optCharParam(t, 2, 'e');
 
 		File.Style style;
 
 		switch(mode)
 		{
-			case 'o': style = File.ReadWriteExisting; break;
+			case 'e': style = File.ReadWriteExisting; break;
 			case 'a': style = ReadWriteAppending;     break;
 			case 'c': style = File.ReadWriteCreate;   break;
 			default:

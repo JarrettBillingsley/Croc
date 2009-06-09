@@ -198,8 +198,8 @@ class Semantic : IdentityVisitor
 
 	public override VarDecl visit(VarDecl d)
 	{
-		if(d.initializer)
-			d.initializer = visit(d.initializer);
+		foreach(ref init; d.initializer)
+			init = visit(init);
 
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
@@ -330,8 +330,9 @@ class Semantic : IdentityVisitor
 					{
 						scope nameList = new List!(Identifier)(c.alloc);
 						nameList ~= finishedVar;
-						auto initializer = new(c) BoolExp(c, ss.location, true);
-						declStmt = new(c) VarDecl(c, ss.location, ss.location, Protection.Local, nameList.toArray(), initializer);
+						scope initializer = new List!(Expression)(c.alloc);
+						initializer ~= new(c) BoolExp(c, ss.location, true);
+						declStmt = new(c) VarDecl(c, ss.location, ss.location, Protection.Local, nameList.toArray(), initializer.toArray());
 					}
 					
 					// catch(__dummy2) { __dummy = false; throw __dummy2 }
@@ -343,7 +344,9 @@ class Semantic : IdentityVisitor
 						// __dummy = true;
 						scope lhs = new List!(Expression)(c.alloc);
 						lhs ~= finishedVarExp;
-						dummy ~= new(c) AssignStmt(c, ss.location, ss.location, lhs.toArray(), new(c) BoolExp(c, ss.location, false));
+						scope rhs = new List!(Expression)(c.alloc);
+						rhs ~= new(c) BoolExp(c, ss.location, false);
+						dummy ~= new(c) AssignStmt(c, ss.location, ss.location, lhs.toArray(), rhs.toArray());
 						// throw __dummy2
 						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar));
 						auto code = dummy.toArray();
@@ -414,9 +417,12 @@ class Semantic : IdentityVisitor
 
 				scope names = new List!(Identifier)(c.alloc);
 				names ~= s.condVar.name;
+				
+				scope initializer = new List!(Expression)(c.alloc);
+				initializer ~= s.condition;
 
 				scope temp = new List!(Statement)(c.alloc);
-				temp ~= new(c) VarDecl(c, s.condVar.location, s.condVar.endLocation, Protection.Local, names.toArray(), s.condition);
+				temp ~= new(c) VarDecl(c, s.condVar.location, s.condVar.endLocation, Protection.Local, names.toArray(), initializer.toArray());
 				temp ~= s.ifBody;
 
 				return new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, temp.toArray()));
@@ -766,8 +772,10 @@ class Semantic : IdentityVisitor
 	{
 		foreach(ref exp; s.lhs)
 			exp = visit(exp);
+			
+		foreach(ref exp; s.rhs)
+			exp = visit(exp);
 
-		s.rhs = visit(s.rhs);
 		return s;
 	}
 

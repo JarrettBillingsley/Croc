@@ -288,10 +288,10 @@ VariableDeclaration:
 	GlobalVarDeclaration
 
 LocalVarDeclaration:
-	'local' Identifier {',' Identifier} ['=' Expression]
+	'local' Identifier {',' Identifier} ['=' ExpressionList]
 
 GlobalVarDeclaration:
-	'global' Identifier {',' Identifier} ['=' Expression]
+	'global' Identifier {',' Identifier} ['=' ExpressionList]
 
 FunctionDeclaration:
 	['local' | 'global'] SimpleFunctionDeclaration
@@ -391,7 +391,7 @@ BreakStatement:
 	'break' StatementTerminator
 	
 ReturnStatement:
-	'return' [Expression {',' Expression}] StatementTerminator
+	'return' [ExpressionList] StatementTerminator
 
 TryCatchStatement:
 	'try' Statement (('catch' '(' Identifier ')' Statement) || ('finally' Statement))
@@ -403,7 +403,7 @@ ScopeActionStatement:
 	'scope' '(' ('exit' | 'success' | 'failure') ')' Statement
 
 Assignment:
-	AssignmentLHS {',' AssignmentLHS} '=' Expression
+	AssignmentLHS {',' AssignmentLHS} '=' ExpressionList
 	AssignmentLHS '+=' Expression
 	AssignmentLHS '-=' Expression
 	AssignmentLHS '~=' Expression
