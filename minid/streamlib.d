@@ -402,7 +402,17 @@ static:
 			vecMemb = getMembers!(VectorObj.Members)(t, -1);
 		}
 
-		pushInt(t, safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size)));
+		auto realSize = safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size));
+
+		if(realSize != size)
+		{
+			dup(t);
+			pushNull(t);
+			pushInt(t, realSize);
+			methodCall(t, -3, "opLengthAssign", 0);
+		}
+
+		pushInt(t, realSize);
 		return 2;
 	}
 
@@ -1289,7 +1299,17 @@ static:
 			vecMemb = getMembers!(VectorObj.Members)(t, -1);
 		}
 
-		pushInt(t, safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size)));
+		auto realSize = safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size));
+
+		if(realSize != size)
+		{
+			dup(t);
+			pushNull(t);
+			pushInt(t, realSize);
+			methodCall(t, -3, "opLengthAssign", 0);
+		}
+
+		pushInt(t, realSize);
 		return 2;
 	}
 

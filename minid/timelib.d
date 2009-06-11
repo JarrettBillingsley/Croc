@@ -25,6 +25,7 @@ subject to the following restrictions:
 
 module minid.timelib;
 
+import tango.core.Thread;
 import tango.text.locale.Convert;
 import tango.text.locale.Core;
 import tango.time.chrono.Gregorian;
@@ -79,6 +80,7 @@ static:
 			newFunction(t, &culture,    "culture");    newGlobal(t, "culture");
 			newFunction(t, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
 			newFunction(t, &timex,      "timex");      newGlobal(t, "timex");
+			newFunction(t, &sleep,      "sleep");      newGlobal(t, "sleep");
 
 			return 0;
 		}, "time");
@@ -256,7 +258,7 @@ static:
 		pushInt(t, cast(mdint)(Clock.now - Time.epoch1970).seconds);
 		return 1;
 	}
-	
+
 	uword timex(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Function);
@@ -267,8 +269,19 @@ static:
 		w.start();
 		rawCall(t, 1, 0);
 		pushFloat(t, w.stop());
-		
+
 		return 1;
+	}
+	
+	uword sleep(MDThread* t, uword numParams)
+	{
+		auto dur = checkFloatParam(t, 1);
+		
+		if(dur < 0)
+			throwException(t, "Invalid sleep duration: {}", dur);
+
+		Thread.sleep(dur);
+		return 0;
 	}
 
 	static struct Timer
