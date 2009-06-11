@@ -395,6 +395,7 @@ class Semantic : IdentityVisitor
 			c.alloc.resizeArray(s.statements, i + 1);
 			// can't use stmt here since we've resized the array and it might not be valid
 			s.statements[i] = replacement;
+			break;
 		}
 
 		return s;
