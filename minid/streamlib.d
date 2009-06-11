@@ -106,10 +106,14 @@ static:
 		CreateClass(t, "InStream", (CreateClass* c)
 		{
 			c.method("constructor", &constructor);
-			c.method("readByte",    &readVal!(ubyte));
-			c.method("readShort",   &readVal!(ushort));
+			c.method("readByte",    &readVal!(byte));
+			c.method("readUByte",   &readVal!(ubyte));
+			c.method("readShort",   &readVal!(short));
+			c.method("readUShort",  &readVal!(ushort));
 			c.method("readInt",     &readVal!(int));
+			c.method("readUInt",    &readVal!(uint));
 			c.method("readLong",    &readVal!(long));
+			c.method("readULong",   &readVal!(ulong));
 			c.method("readFloat",   &readVal!(float));
 			c.method("readDouble",  &readVal!(double));
 			c.method("readChar",    &readVal!(char));
@@ -119,6 +123,7 @@ static:
 			c.method("readln",      &readln);
 			c.method("readChars",   &readChars);
 			c.method("readVector",  &readVector);
+			c.method("rawRead",     &rawRead);
 			c.method("skip",        &skip);
 
 			c.method("seek",        &seek);
@@ -160,13 +165,36 @@ static:
 		while(size > 0)
 		{
 			auto numRead = memb.stream.read(dest[0 .. size]);
-			
+
 			if(numRead == IOStream.Eof)
 				throwException(t, "End-of-flow encountered while reading");
-				
+
 			size -= numRead;
 			dest += numRead;
 		}
+	}
+	
+	private uword readAtMost(MDThread* t, Members* memb, void* dest, uword size)
+	{
+		auto initial = size;
+
+		while(size > 0)
+		{
+			auto numRead = memb.stream.read(dest[0 .. size]);
+
+			if(numRead == IOStream.Eof)
+				break;
+			else if(numRead < size)
+			{
+				size -= numRead;
+				break;
+			}
+
+			size -= numRead;
+			dest += numRead;
+		}
+
+		return initial - size;
 	}
 
 	uword allocator(MDThread* t, uword numParams)
@@ -226,7 +254,7 @@ static:
 		safeCode(t, readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
-			pushInt(t, val);
+			pushInt(t, cast(mdint)val);
 		else static if(isRealType!(T))
 			pushFloat(t, val);
 		else static if(isCharType!(T))
@@ -333,6 +361,49 @@ static:
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
 		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
 		return 1;
+	}
+
+	public uword rawRead(MDThread* t, uword numParams)
+	{
+		auto memb = getOpenThis(t);
+		auto size = checkIntParam(t, 1);
+
+		if(size < 0)
+			throwException(t, "Invalid size: {}", size);
+
+		VectorObj.Members* vecMemb = void;
+
+		if(optParam(t, 2, MDValue.Type.Instance))
+		{
+			vecMemb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
+			auto typeCode = vecMemb.type.code;
+
+			if(typeCode != VectorObj.TypeCode.i8 && typeCode != VectorObj.TypeCode.u8)
+				throwException(t, "Passed-in vector must be of type i8 or u8, not '{}'", VectorObj.typeNames[typeCode]);
+
+			if(size != vecMemb.length)
+			{
+				dup(t, 2);
+				pushNull(t);
+				pushInt(t, size);
+				methodCall(t, -3, "opLengthAssign", 0);
+			}
+			
+			dup(t, 2);
+		}
+		else
+		{
+			pushGlobal(t, "Vector");
+			pushNull(t);
+			pushString(t, "u8");
+			pushInt(t, size);
+			rawCall(t, -4, 1);
+
+			vecMemb = getMembers!(VectorObj.Members)(t, -1);
+		}
+
+		pushInt(t, safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size)));
+		return 2;
 	}
 
 	private uword iterator(MDThread* t, uword numParams)
@@ -467,10 +538,14 @@ static:
 		CreateClass(t, "OutStream", (CreateClass* c)
 		{
 			c.method("constructor", &constructor);
-			c.method("writeByte",   &writeVal!(ubyte));
-			c.method("writeShort",  &writeVal!(ushort));
+			c.method("writeByte",   &writeVal!(byte));
+			c.method("writeUByte",  &writeVal!(ubyte));
+			c.method("writeShort",  &writeVal!(short));
+			c.method("writeUShort", &writeVal!(ushort));
 			c.method("writeInt",    &writeVal!(int));
+			c.method("writeUInt",   &writeVal!(uint));
 			c.method("writeLong",   &writeVal!(long));
+			c.method("writeULong",  &writeVal!(ulong));
 			c.method("writeFloat",  &writeVal!(float));
 			c.method("writeDouble", &writeVal!(double));
 			c.method("writeChar",   &writeVal!(char));
@@ -850,10 +925,14 @@ static:
 		{
 			c.method("constructor", &constructor);
 
-			c.method("readByte",    &readVal!(ubyte));
-			c.method("readShort",   &readVal!(ushort));
+			c.method("readByte",    &readVal!(byte));
+			c.method("readUByte",   &readVal!(ubyte));
+			c.method("readShort",   &readVal!(short));
+			c.method("readUShort",  &readVal!(ushort));
 			c.method("readInt",     &readVal!(int));
+			c.method("readUInt",    &readVal!(uint));
 			c.method("readLong",    &readVal!(long));
+			c.method("readULong",   &readVal!(ulong));
 			c.method("readFloat",   &readVal!(float));
 			c.method("readDouble",  &readVal!(double));
 			c.method("readChar",    &readVal!(char));
@@ -863,14 +942,19 @@ static:
 			c.method("readln",      &readln);
 			c.method("readChars",   &readChars);
 			c.method("readVector",  &readVector);
+			c.method("rawRead",     &rawRead);
 
 				newFunction(t, &iterator, "InoutStream.iterator");
 			c.method("opApply", &opApply, 1);
 
-			c.method("writeByte",   &writeVal!(ubyte));
-			c.method("writeShort",  &writeVal!(ushort));
+			c.method("writeByte",   &writeVal!(byte));
+			c.method("writeUByte",  &writeVal!(ubyte));
+			c.method("writeShort",  &writeVal!(short));
+			c.method("writeUShort", &writeVal!(ushort));
 			c.method("writeInt",    &writeVal!(int));
+			c.method("writeUInt",   &writeVal!(uint));
 			c.method("writeLong",   &writeVal!(long));
+			c.method("writeULong",  &writeVal!(ulong));
 			c.method("writeFloat",  &writeVal!(float));
 			c.method("writeDouble", &writeVal!(double));
 			c.method("writeChar",   &writeVal!(char));
@@ -931,6 +1015,29 @@ static:
 			size -= numRead;
 			dest += numRead;
 		}
+	}
+
+	private uword readAtMost(MDThread* t, Members* memb, void* dest, uword size)
+	{
+		auto initial = size;
+
+		while(size > 0)
+		{
+			auto numRead = memb.conduit.read(dest[0 .. size]);
+
+			if(numRead == IOStream.Eof)
+				break;
+			else if(numRead < size)
+			{
+				size -= numRead;
+				break;
+			}
+
+			size -= numRead;
+			dest += numRead;
+		}
+
+		return initial - size;
 	}
 
 	private void writeExact(MDThread* t, Members* memb, void* src, uword size)
@@ -1021,11 +1128,11 @@ static:
 		checkDirty(t, memb);
 
 		T val = void;
-		
+
 		safeCode(t, readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
-			pushInt(t, val);
+			pushInt(t, cast(mdint)val);
 		else static if(isRealType!(T))
 			pushFloat(t, val);
 		else static if(isCharType!(T))
@@ -1139,6 +1246,51 @@ static:
 		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
 		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
 		return 1;
+	}
+
+	public uword rawRead(MDThread* t, uword numParams)
+	{
+		auto memb = getOpenThis(t);
+		checkDirty(t, memb);
+
+		auto size = checkIntParam(t, 1);
+
+		if(size < 0)
+			throwException(t, "Invalid size: {}", size);
+
+		VectorObj.Members* vecMemb = void;
+
+		if(optParam(t, 2, MDValue.Type.Instance))
+		{
+			vecMemb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
+			auto typeCode = vecMemb.type.code;
+
+			if(typeCode != VectorObj.TypeCode.i8 && typeCode != VectorObj.TypeCode.u8)
+				throwException(t, "Passed-in vector must be of type i8 or u8, not '{}'", VectorObj.typeNames[typeCode]);
+
+			if(size != vecMemb.length)
+			{
+				dup(t, 2);
+				pushNull(t);
+				pushInt(t, size);
+				methodCall(t, -3, "opLengthAssign", 0);
+			}
+
+			dup(t, 2);
+		}
+		else
+		{
+			pushGlobal(t, "Vector");
+			pushNull(t);
+			pushString(t, "u8");
+			pushInt(t, size);
+			rawCall(t, -4, 1);
+
+			vecMemb = getMembers!(VectorObj.Members)(t, -1);
+		}
+
+		pushInt(t, safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size)));
+		return 2;
 	}
 
 	private uword iterator(MDThread* t, uword numParams)

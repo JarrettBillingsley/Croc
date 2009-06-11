@@ -8271,7 +8271,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				auto base = t.stackBase + tr.slot;
 				close(t, base);
-				
+
 				// remove any results that may have been saved
 				loadResults(t);
 
@@ -8283,15 +8283,13 @@ void execute(MDThread* t, uword depth = 1)
 					currentException = null;
 
 					t.stack[base + 1 .. t.stackIndex] = MDValue.nullValue;
-// 					t.currentAR.pc = tr.pc;
-					(*pc) = tr.pc;
+					t.currentAR.pc = tr.pc;
 					goto _exceptionRetry;
 				}
 				else
 				{
 					currentException = e;
-// 					t.currentAR.pc = tr.pc;
-					(*pc) = tr.pc;
+					t.currentAR.pc = tr.pc;
 					goto _exceptionRetry;
 				}
 			}
@@ -8323,7 +8321,7 @@ void execute(MDThread* t, uword depth = 1)
 			callEpilogue(t, false);
 			depth--;
 		}
-		
+
 		unwindEH(t);
 		throw e;
 	}
