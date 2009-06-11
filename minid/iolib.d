@@ -87,8 +87,7 @@ static:
 			newFunction(t, &dirName,      "dirName");      newGlobal(t, "dirName");
 			newFunction(t, &name,         "name");         newGlobal(t, "name");
 			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
-			
-			// TODO: function to get just filename without path
+			newFunction(t, &filename,     "filename");     newGlobal(t, "filename");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -100,7 +99,7 @@ static:
 		importModule(t, "io");
 		pop(t, 3);
 	}
-	
+
 	uword inFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
@@ -110,10 +109,10 @@ static:
 		pushNull(t);
 		pushNativeObj(t, f);
 		rawCall(t, -3, 1);
-		
+
 		return 1;
 	}
-	
+
 	uword outFile(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
@@ -158,7 +157,7 @@ static:
 				throwException(t, "Unknown open mode '{}'", mode);
 		}
 
-		// TODO: figure out some way of making inout files buffered (sigh...)
+		// TODO: figure out some way of making inout files buffered?
 		auto f = safeCode(t, new File(name, style));
 
 		lookupCT!("stream.InoutStream")(t);
@@ -482,6 +481,12 @@ static:
 	uword extension(MDThread* t, uword numParams)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).ext);
+		return 1;
+	}
+
+	uword filename(MDThread* t, uword numParams)
+	{
+		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).file);
 		return 1;
 	}
 }

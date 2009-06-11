@@ -38,7 +38,6 @@ import minid.types;
 import minid.vector;
 
 // TODO: abstract out common functionality between the three types of streams
-// TODO: add unsigned read/write funcs
 
 struct StreamLib
 {
