@@ -72,7 +72,7 @@ static:
 		assert(b);
 		vm.alloc.free(s, StringSize(s.length));
 	}
-	
+
 	// Compare two string objects.
 	package mdint compare(MDString* a, MDString* b)
 	{
@@ -86,7 +86,16 @@ static:
 			if(c == ch)
 				return true;
 
-		return false;	
+		return false;
+	}
+	
+	// See if the string contains the given substring.
+	package bool contains(MDString* s, char[] sub)
+	{
+		if(s.length < sub.length)
+			return false;
+			
+		return s.toString().locatePattern(sub) != s.length;
 	}
 
 	// The slice indices are in codepoints, not byte indices.

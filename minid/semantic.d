@@ -28,6 +28,8 @@ subject to the following restrictions:
 
 module minid.semantic;
 
+import tango.text.Util;
+
 import minid.ast;
 import minid.astvisitor;
 import minid.compilertypes;
@@ -1055,17 +1057,69 @@ class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override InExp visit(InExp e)
+	public override Expression visit(InExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
+
+		if(e.op1.isConstant && e.op2.isConstant && e.op2.isString)
+		{
+			auto s = e.op2.asString;
+
+			if(e.op1.isChar)
+			{
+				auto ch = e.op1.asChar;
+				bool found = false;
+
+				foreach(dchar ch2; s)
+					if(ch2 == ch)
+					{
+						found = true;
+						break;
+						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
+					}
+
+				return new(c) BoolExp(c, e.location, found);
+			}
+			else if(e.op1.isString)
+				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) != s.length);
+			else
+				c.exception(e.location, "'in' must be performed on a string with a character or string");
+		}
+
 		return e;
 	}
 
-	public override NotInExp visit(NotInExp e)
+	public override Expression visit(NotInExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
+
+		if(e.op1.isConstant && e.op2.isConstant && e.op2.isString)
+		{
+			auto s = e.op2.asString;
+
+			if(e.op1.isChar)
+			{
+				auto ch = e.op1.asChar;
+				bool found = false;
+
+				foreach(dchar ch2; s)
+					if(ch2 == ch)
+					{
+						found = true;
+						break;
+						// for some reason, if I try to return a BoolExp here, DMD inserts a cast to AstNode that I can't get around..
+					}
+
+				return new(c) BoolExp(c, e.location, !found);
+			}
+			else if(e.op1.isString)
+				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) == s.length);
+			else
+				c.exception(e.location, "'!in' must be performed on a string with a character or string");
+		}
+
 		return e;
 	}
 	

@@ -5306,13 +5306,15 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 	switch(container.type)
 	{
 		case MDValue.Type.String:
-			if(item.type != MDValue.Type.Char)
+			if(item.type == MDValue.Type.Char)
+				return string.contains(container.mString, item.mChar);
+			else if(item.type == MDValue.Type.String)
+				return string.contains(container.mString, item.mString.toString());
+			else
 			{
 				typeString(t, item);
 				throwException(t, "Can only use characters to look in strings, not '{}'", getString(t, -1));
 			}
-
-			return string.contains(container.mString, item.mChar);
 
 		case MDValue.Type.Table:
 			return table.contains(container.mTable, *item);
