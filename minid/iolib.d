@@ -87,7 +87,7 @@ static:
 			newFunction(t, &dirName,      "dirName");      newGlobal(t, "dirName");
 			newFunction(t, &name,         "name");         newGlobal(t, "name");
 			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
-			newFunction(t, &filename,     "filename");     newGlobal(t, "filename");
+			newFunction(t, &fileName,     "fileName");     newGlobal(t, "fileName");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -484,7 +484,7 @@ static:
 		return 1;
 	}
 
-	uword filename(MDThread* t, uword numParams)
+	uword fileName(MDThread* t, uword numParams)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).file);
 		return 1;
