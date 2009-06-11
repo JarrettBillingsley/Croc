@@ -388,7 +388,7 @@ static:
 				pushInt(t, size);
 				methodCall(t, -3, "opLengthAssign", 0);
 			}
-			
+
 			dup(t, 2);
 		}
 		else
@@ -412,8 +412,7 @@ static:
 			methodCall(t, -3, "opLengthAssign", 0);
 		}
 
-		pushInt(t, realSize);
-		return 2;
+		return 1;
 	}
 
 	private uword iterator(MDThread* t, uword numParams)
@@ -1309,8 +1308,7 @@ static:
 			methodCall(t, -3, "opLengthAssign", 0);
 		}
 
-		pushInt(t, realSize);
-		return 2;
+		return 1;
 	}
 
 	private uword iterator(MDThread* t, uword numParams)
