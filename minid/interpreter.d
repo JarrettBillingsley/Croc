@@ -79,8 +79,10 @@ Returns:
 */
 word getTypeMT(MDThread* t, MDValue.Type type)
 {
+	mixin(FuncNameMix);
+
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, "getTypeMT - Cannot get metatable for type '{}'", MDValue.typeString(type));
+		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
 		return pushNamespace(t, ns);
@@ -98,10 +100,10 @@ Params:
 */
 void setTypeMT(MDThread* t, MDValue.Type type)
 {
-	mixin(checkNumParams!("setTypeMT", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, "setTypeMT - Cannot set metatable for type '{}'", MDValue.typeString(type));
+		throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '{}'", MDValue.typeString(type));
 
 	auto v = getValue(t, -1);
 
@@ -112,7 +114,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	else
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setTypeMT - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
 	}
 
 	pop(t);
@@ -147,12 +149,14 @@ Returns:
 */
 word importModule(MDThread* t, word name)
 {
+	mixin(FuncNameMix);
+
 	auto str = getStringObj(t, name);
 
 	if(str is null)
 	{
 		pushTypeString(t, name);
-		throwException(t, "importModule - name must be a 'string', not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
 	}
 
 	pushNull(t);
@@ -350,11 +354,11 @@ Params:
 */
 void insert(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("insert", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, "insert - Cannot use 'this' as the destination");
+		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -374,11 +378,11 @@ If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a n
 */
 void insertAndPop(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("insertAndPop", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, "insert - Cannot use 'this' as the destination");
+		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -401,8 +405,10 @@ function is a no-op.
 */
 void rotate(MDThread* t, uword numSlots, uword dist)
 {
+	mixin(FuncNameMix);
+
 	if(numSlots > (stackSize(t) - 1))
-		throwException(t, "rotate - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+		throwException(t, __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
 
 	if(numSlots == 0)
 		return;
@@ -473,11 +479,13 @@ Params:
 */
 void pop(MDThread* t, uword n = 1)
 {
+	mixin(FuncNameMix);
+
 	if(n == 0)
-		throwException(t, "pop - Trying to pop zero items");
+		throwException(t, __FUNCTION__ ~ " - Trying to pop zero items");
 
 	if(n > (t.stackIndex - (t.stackBase + 1)))
-		throwException(t, "pop - Stack underflow");
+		throwException(t, __FUNCTION__ ~ " - Stack underflow");
 
 	t.stackIndex -= n;
 }
@@ -493,8 +501,10 @@ Params:
 */
 void setStackSize(MDThread* t, uword newSize)
 {
+	mixin(FuncNameMix);
+
 	if(newSize == 0)
-		throwException(t, "setStackSize - newSize must be nonzero");
+		throwException(t, __FUNCTION__ ~ " - newSize must be nonzero");
 
 	auto curSize = stackSize(t);
 
@@ -536,7 +546,7 @@ void transferVals(MDThread* src, MDThread* dest, uword num)
 	if(num == 0 || dest is src)
 		return;
 
-	mixin(checkNumParams!("transferVals", "src", "num"));
+	mixin(checkNumParams!("num", "src"));
 	checkStack(dest, dest.stackIndex + num);
 
 	dest.stack[dest.stackIndex .. dest.stackIndex + num] = src.stack[src.stackIndex - num .. src.stackIndex];
@@ -674,7 +684,7 @@ Returns:
 */
 word newArrayFromStack(MDThread* t, uword len)
 {
-	mixin(checkNumParams!("newArrayFromStack", "t", "len"));
+	mixin(checkNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
 	a.slice[] = t.stack[t.stackIndex - len .. t.stackIndex];
@@ -746,14 +756,14 @@ Returns:
 */
 word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
-	mixin(checkNumParams!("newFunctionWithEnv", "t", "numUpvals + 1"));
+	mixin(checkNumParams!("numUpvals + 1"));
 
 	auto env = getNamespace(t, -1);
 
 	if(env is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "newFunctionWithEnv - Environment must be a namespace, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -783,6 +793,8 @@ Returns:
 */
 word newClass(MDThread* t, word base, char[] name)
 {
+	mixin(FuncNameMix);
+
 	MDClass* b = void;
 
 	if(isNull(t, base))
@@ -793,7 +805,7 @@ word newClass(MDThread* t, word base, char[] name)
 		if(b is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, "newClass - 'Object' is not a class; it is a '{}'!", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
 		}
 
 		pop(t);
@@ -803,7 +815,7 @@ word newClass(MDThread* t, word base, char[] name)
 	else
 	{
 		pushTypeString(t, base);
-		throwException(t, "newClass - Base must be 'null' or 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -816,13 +828,15 @@ top of the stack.
 */
 word newClass(MDThread* t, char[] name)
 {
+	mixin(FuncNameMix);
+
 	pushGlobal(t, "Object");
 	auto b = getClass(t, -1);
 
 	if(b is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "newClass - 'Object' is not a class; it is a '{}'!", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
 	}
 
 	pop(t);
@@ -875,12 +889,14 @@ Params:
 */
 word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
+	mixin(FuncNameMix);
+
 	auto b = getClass(t, base);
 
 	if(b is null)
 	{
 		pushTypeString(t, base);
-		throwException(t, "newInstance - expected 'class' for base, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'class' for base, not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -919,6 +935,8 @@ Returns:
 */
 word newNamespace(MDThread* t, word parent, char[] name)
 {
+	mixin(FuncNameMix);
+
 	MDNamespace* p = void;
 
 	if(isNull(t, parent))
@@ -928,7 +946,7 @@ word newNamespace(MDThread* t, word parent, char[] name)
 	else
 	{
 		pushTypeString(t, parent);
-		throwException(t, "newNamespace - Parent must be null or namespace, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
 	auto ret = newNamespaceNoParent(t, name);
@@ -967,18 +985,20 @@ Returns:
 */
 word newThread(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	auto f = getFunction(t, func);
 
 	if(f is null)
 	{
 		pushTypeString(t, func);
-		throwException(t, "newThread - Thread function must be of type 'function', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
 
 	version(MDExtendedCoro) {} else
 	{
 		if(f.isNative)
-			throwException(t, "newThread - Native functions may not be used as the body of a coroutine");
+			throwException(t, __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 	}
 
 	maybeGC(t);
@@ -1228,12 +1248,14 @@ Returns the boolean value at the given _slot, or throws an error if it isn'_t on
 */
 bool getBool(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.Bool)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getBool - expected 'bool' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
 	}
 
 	return v.mBool;
@@ -1244,12 +1266,14 @@ Returns the integer value at the given _slot, or throws an error if it isn'_t on
 */
 mdint getInt(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.Int)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getInt - expected 'int' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
 	}
 
 	return v.mInt;
@@ -1260,12 +1284,14 @@ Returns the float value at the given _slot, or throws an error if it isn'_t one.
 */
 mdfloat getFloat(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.Float)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getFloat - expected 'float' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
 	}
 
 	return v.mFloat;
@@ -1278,6 +1304,8 @@ nor a float.
 */
 mdfloat getNum(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type == MDValue.Type.Float)
@@ -1287,7 +1315,7 @@ mdfloat getNum(MDThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getNum - expected 'float' or 'int' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'float' or 'int' but got '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -1298,12 +1326,14 @@ Returns the character value at the given _slot, or throws an error if it isn'_t 
 */
 dchar getChar(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.Char)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getChar - expected 'char' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'char' but got '{}'", getString(t, -1));
 	}
 
 	return v.mChar;
@@ -1320,12 +1350,14 @@ you should dup it.
 */
 char[] getString(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.String)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getString - expected 'string' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
 	return v.mString.toString();
@@ -1341,12 +1373,14 @@ This is really meant for access to threads so that you can call thread functions
 */
 MDThread* getThread(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.Thread)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getThread - expected 'thread' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
 	}
 
 	return v.mThread;
@@ -1357,12 +1391,14 @@ Returns the native D object at the given _slot, or throws an error if it isn'_t 
 */
 Object getNativeObj(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	auto v = getValue(t, slot);
 
 	if(v.type != MDValue.Type.NativeObj)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getNativeObj - expected 'nativeobj' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
 	}
 
 	return v.mNativeObj.obj;
@@ -1523,7 +1559,7 @@ struct foreachLoop
 		if(numSlots < 1 || numSlots > 3)
 			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
 
-		mixin(checkNumParams!("foreachLoop", "t", "numSlots"));
+		mixin(checkNumParams!("numSlots"));
 
 		// Make sure we have 3 stack slots for our temp data area
 		if(numSlots < 3)
@@ -1641,7 +1677,7 @@ void throwException(MDThread* t)
 		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
 		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
 
-	mixin(checkNumParams!("throwException", "t", "1"));
+	mixin(checkNumParams!("1"));
 	throwImpl(t, &t.stack[t.stackIndex - 1]);
 }
 
@@ -1674,8 +1710,10 @@ Returns:
 */
 word catchException(MDThread* t)
 {
+	mixin(FuncNameMix);
+
 	if(!t.vm.isThrowing)
-		throwException(t, "catchException - Attempting to catch an exception when none is in flight");
+		throwException(t, __FUNCTION__ ~ " - Attempting to catch an exception when none is in flight");
 
 	auto ret = push(t, t.vm.exception);
 	t.vm.exception = MDValue.nullValue;
@@ -1745,15 +1783,17 @@ Params:
 */
 void setUpval(MDThread* t, uword idx)
 {
-	if(t.arIndex == 0)
-		throwException(t, "setUpval - No function to set upvalue (can't call this function at top level)");
+	mixin(FuncNameMix);
 
-	mixin(checkNumParams!("setUpval", "t", "1"));
+	if(t.arIndex == 0)
+		throwException(t, __FUNCTION__ ~ " - No function to set upvalue (can't call this function at top level)");
+
+	mixin(checkNumParams!("1"));
 
 	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
-		throwException(t, "setUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
 
 	upvals[idx] = *getValue(t, -1);
 	pop(t);
@@ -1772,15 +1812,17 @@ Returns:
 */
 word getUpval(MDThread* t, uword idx)
 {
+	mixin(FuncNameMix);
+
 	if(t.arIndex == 0)
-		throwException(t, "getUpval - No function to get upvalue (can't call this function at top level)");
+		throwException(t, __FUNCTION__ ~ " - No function to get upvalue (can't call this function at top level)");
 
 	assert(t.currentAR.func.isNative, "getUpval used on a non-native func");
 
 	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
-		throwException(t, "getUpval - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
 
 	return push(t, upvals[idx]);
 }
@@ -1846,20 +1888,20 @@ Returns:
 */
 word getGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("getGlobal", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	auto v = getValue(t, -1);
 
 	if(!v.type == MDValue.Type.String)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "getGlobal - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto g = lookupGlobal(v.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, "getGlobal - Attempting to get a nonexistent global '{}'", v.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to get a nonexistent global '{}'", v.mString.toString());
 
 	*v = *g;
 	return stackSize(t) - 1;
@@ -1879,7 +1921,7 @@ Params:
 */
 void setGlobal(MDThread* t, char[] name)
 {
-	mixin(checkNumParams!("setGlobal", "t", "1"));
+	mixin(checkNumParams!("1"));
 	pushString(t, name);
 	swap(t);
 	setGlobal(t);
@@ -1891,20 +1933,20 @@ Pops both the name and the value.
 */
 void setGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("setGlobal", "t", "2"));
+	mixin(checkNumParams!("2"));
 
 	auto n = getValue(t, -2);
 
 	if(n.type != MDValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwException(t, "setGlobal - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto g = lookupGlobal(n.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, "setGlobal - Attempting to set a nonexistent global '{}'", n.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to set a nonexistent global '{}'", n.mString.toString());
 
 	*g = t.stack[t.stackIndex - 1];
 	pop(t, 2);
@@ -1922,7 +1964,7 @@ Params:
 */
 void newGlobal(MDThread* t, char[] name)
 {
-	mixin(checkNumParams!("newGlobal", "t", "1"));
+	mixin(checkNumParams!("1"));
 	pushString(t, name);
 	swap(t);
 	newGlobal(t);
@@ -1934,20 +1976,20 @@ both the name and the value off the stack.
 */
 void newGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("newGlobal", "t", "2"));
+	mixin(checkNumParams!("2"));
 
 	auto n = getValue(t, -2);
 
 	if(n.type != MDValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwException(t, "newGlobal - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto env = getEnv(t);
 
 	if(namespace.contains(env, n.mString))
-		throwException(t, "newGlobal - Attempting to declare a global '{}' that already exists", n.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to declare a global '{}' that already exists", n.mString.toString());
 
 	namespace.set(t.vm.alloc, env, n.mString, &t.stack[t.stackIndex - 1]);
 	pop(t, 2);
@@ -2002,12 +2044,14 @@ Params:
 */
 void clearTable(MDThread* t, word tab)
 {
+	mixin(FuncNameMix);
+
 	auto tb = getTable(t, tab);
 
 	if(tb is null)
 	{
 		pushTypeString(t, tab);
-		throwException(t, "clearTable - tab must be a table, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - tab must be a table, not a '{}'", getString(t, -1));
 	}
 
 	table.clear(t.vm.alloc, tb);
@@ -2024,13 +2068,13 @@ Params:
 */
 void fillArray(MDThread* t, word arr)
 {
-	mixin(checkNumParams!("fillArray", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto a = getArray(t, arr);
 
 	if(a is null)
 	{
 		pushTypeString(t, arr);
-		throwException(t, "fillArray - arr must be an array, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
 	}
 
 	a.slice[] = t.stack[t.stackIndex - 1];
@@ -2051,11 +2095,13 @@ Returns:
 */
 word getFuncEnv(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	if(auto f = getFunction(t, func))
 		return pushNamespace(t, f.environment);
 
 	pushTypeString(t, func);
-	throwException(t, "getFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2069,14 +2115,14 @@ Params:
 */
 void setFuncEnv(MDThread* t, word func)
 {
-	mixin(checkNumParams!("setFuncEnv", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	auto ns = getNamespace(t, -1);
 
 	if(ns is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setFuncEnv - Expected 'namespace' for environment, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'namespace' for environment, not '{}'", getString(t, -1));
 	}
 
 	auto f = getFunction(t, func);
@@ -2084,7 +2130,7 @@ void setFuncEnv(MDThread* t, word func)
 	if(f is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setFuncEnv - Expected 'function', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 	}
 
 	f.environment = ns;
@@ -2099,11 +2145,13 @@ generated names which always start and end with angle brackets ($(LT) and $(GT))
 */
 char[] funcName(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	if(auto f = getFunction(t, func))
 		return f.name.toString();
 
 	pushTypeString(t, func);
-	throwException(t, "funcName - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2114,11 +2162,13 @@ of non-variadic arguments, not including 'this'.  For native functions, always r
 */
 uword funcNumParams(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	if(auto f = getFunction(t, func))
 		return .func.numParams(f);
 
 	pushTypeString(t, func);
-	throwException(t, "funcNumParams - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2129,11 +2179,13 @@ true.
 */
 bool funcIsVararg(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	if(auto f = getFunction(t, func))
 		return .func.isVararg(f);
 
 	pushTypeString(t, func);
-	throwException(t, "funcIsVararg - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2143,11 +2195,13 @@ Gets whether or not the given function is a native function.
 */
 bool funcIsNative(MDThread* t, word func)
 {
+	mixin(FuncNameMix);
+
 	if(auto f = getFunction(t, func))
 		return .func.isNative(f);
 
 	pushTypeString(t, func);
-	throwException(t, "funcIsNative - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2176,12 +2230,12 @@ Params:
 */
 void setFinalizer(MDThread* t, word cls)
 {
-	mixin(checkNumParams!("setFinalizer", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setFinalizer - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2189,7 +2243,7 @@ void setFinalizer(MDThread* t, word cls)
 	if(c is null)
 	{
 		pushTypeString(t, cls);
-		throwException(t, "setFinalizer - Expected 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(isNull(t, -1))
@@ -2212,6 +2266,8 @@ Returns:
 */
 word getFinalizer(MDThread* t, word cls)
 {
+	mixin(FuncNameMix);
+
 	if(auto c = getClass(t, cls))
 	{
 		if(c.finalizer)
@@ -2221,7 +2277,7 @@ word getFinalizer(MDThread* t, word cls)
 	}
 
 	pushTypeString(t, cls);
-	throwException(t, "getFinalizer - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2251,14 +2307,14 @@ uword allocator(MDThread* t, uword numParams)
 
 	// push a null for the 'this' slot of the impending method call
 	pushNull(t);
-	
+
 	// rotate the stack so that we have
 	// [inst] [inst] [null] [params...]
 	rotateAll(t, 3);
 
 	// call the constructor on the instance, ignoring any returns
 	methodCall(t, 2, "constructor", 0);
-	
+
 	// now all that's left on the stack is the instance; return it
 	return 1;
 }
@@ -2266,7 +2322,7 @@ uword allocator(MDThread* t, uword numParams)
 
 Why would a class use an allocator?  Simple: if it needs to allocate extra values or bytes for
 its instances.  Most of the native objects defined in the standard libraries use allocators to
-do just this.  
+do just this.
 
 You can also imagine a case where the number of extra values or bytes is dependent upon the
 parameters passed to the constructor, which is why class allocators get all the parameters.
@@ -2279,12 +2335,12 @@ Params:
 */
 void setAllocator(MDThread* t, word cls)
 {
-	mixin(checkNumParams!("setAllocator", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setAllocator - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2292,7 +2348,7 @@ void setAllocator(MDThread* t, word cls)
 	if(c is null)
 	{
 		pushTypeString(t, cls);
-		throwException(t, "setAllocator - Expected 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
 	if(isNull(t, -1))
@@ -2315,6 +2371,8 @@ Returns:
 */
 word getAllocator(MDThread* t, word cls)
 {
+	mixin(FuncNameMix);
+
 	if(auto c = getClass(t, cls))
 	{
 		if(c.allocator)
@@ -2324,7 +2382,7 @@ word getAllocator(MDThread* t, word cls)
 	}
 
 	pushTypeString(t, cls);
-	throwException(t, "getAllocator - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2334,11 +2392,13 @@ Gets the name of the class at the given stack index.
 */
 char[] className(MDThread* t, word cls)
 {
+	mixin(FuncNameMix);
+
 	if(auto c = getClass(t, cls))
 		return c.name.toString();
 
 	pushTypeString(t, cls);
-	throwException(t, "className - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2358,12 +2418,14 @@ Returns:
 */
 uword numExtraVals(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	if(auto i = getInstance(t, slot))
 		return i.numValues;
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "numExtraVals - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2382,19 +2444,21 @@ Returns:
 */
 word getExtraVal(MDThread* t, word slot, uword idx)
 {
+	mixin(FuncNameMix);
+
 	if(auto i = getInstance(t, slot))
 	{
 		if(idx >= i.numValues)
-			throwException(t, "getExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+			throwException(t, __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
 		return push(t, i.extraValues()[idx]);
 	}
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getExtraVal - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
 	}
-		
+
 	assert(false);
 }
 
@@ -2409,12 +2473,12 @@ Params:
 */
 void setExtraVal(MDThread* t, word slot, uword idx)
 {
-	mixin(checkNumParams!("setExtraVal", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(auto i = getInstance(t, slot))
 	{
 		if(idx >= i.numValues)
-			throwException(t, "setExtraVal - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+			throwException(t, __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
 		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
 		pop(t);
@@ -2422,7 +2486,7 @@ void setExtraVal(MDThread* t, word slot, uword idx)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "setExtraVal - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
 	}
 }
 
@@ -2441,6 +2505,8 @@ Returns:
 */
 void[] getExtraBytes(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	if(auto i = getInstance(t, slot))
 	{
 		if(i.extraBytes == 0)
@@ -2451,9 +2517,9 @@ void[] getExtraBytes(MDThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, "getExtraBytes - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
 	}
-		
+
 	assert(false);
 }
 
@@ -2468,12 +2534,14 @@ Params:
 */
 void clearNamespace(MDThread* t, word ns)
 {
+	mixin(FuncNameMix);
+
 	auto n = getNamespace(t, ns);
 
 	if(n is null)
 	{
 		pushTypeString(t, ns);
-		throwException(t, "clearNamespace - ns must be a namespace, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - ns must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	namespace.clear(t.vm.alloc, n);
@@ -2488,7 +2556,7 @@ Params:
 */
 void removeKey(MDThread* t, word obj)
 {
-	mixin(checkNumParams!("removeKey", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(auto tab = getTable(t, obj))
 	{
@@ -2503,13 +2571,13 @@ void removeKey(MDThread* t, word obj)
 		if(!isString(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwException(t, "removeKey - key must be a string, not a '{}'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - key must be a string, not a '{}'", getString(t, -1));
 		}
 
 		if(!opin(t, -1, obj))
 		{
 			pushToString(t, obj);
-			throwException(t, "removeKey - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
 		}
 
 		namespace.remove(ns, getStringObj(t, -1));
@@ -2518,7 +2586,7 @@ void removeKey(MDThread* t, word obj)
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, "removeKey - obj must be a namespace or table, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - obj must be a namespace or table, not a '{}'", getString(t, -1));
 	}
 }
 
@@ -2528,11 +2596,13 @@ it was created with (like "foo" for "namespace foo {}").
 */
 char[] namespaceName(MDThread* t, word ns)
 {
+	mixin(FuncNameMix);
+
 	if(auto n = getNamespace(t, ns))
 		return n.name.toString();
 
 	pushTypeString(t, ns);
-	throwException(t, "namespaceName - Expected 'namespace', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2546,11 +2616,13 @@ Returns:
 */
 word namespaceFullname(MDThread* t, word ns)
 {
+	mixin(FuncNameMix);
+
 	if(auto n = getNamespace(t, ns))
 		return pushNamespaceNamestring(t, n);
 
 	pushTypeString(t, ns);
-	throwException(t, "namespaceFullname - Expected 'namespace', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -2623,33 +2695,35 @@ Params:
 */
 void resetThread(MDThread* t, word slot, bool newFunction = false)
 {
+	mixin(FuncNameMix);
+
 	auto other = getThread(t, slot);
 
 	if(other is null)
 	{
 		pushTypeString(t, slot);
-		throwException(t, "resetThread - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
 	}
 
 	if(state(other) != MDThread.State.Dead)
-		throwException(t, "resetThread - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+		throwException(t, __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
-		mixin(checkNumParams!("resetThread", "t", "1"));
+		mixin(checkNumParams!("1"));
 
 		auto f = getFunction(t, -1);
 
 		if(f is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, "resetThread - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
 		}
 
 		version(MDExtendedCoro) {} else
 		{
 			if(f.isNative)
-				throwException(t, "resetThread - Native functions may not be used as the body of a coroutine");
+				throwException(t, __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 		}
 
 		other.coroFunc = f;
@@ -2675,7 +2749,7 @@ version(MDExtendedCoro)
 
 	You cannot _yield out of a thread that is not currently executing, nor can you _yield out of the main thread of
 	a VM.
-	
+
 	This function works very similarly to the call family of functions.  You push the values that you want to _yield
 	on the stack, then pass how many you pushed and how many you want back.  It then returns how many values this
 	coroutine was resumed with, and that many values will be on the stack.
@@ -2705,16 +2779,16 @@ setGlobal(t, "x");
 	*/
 	uword yield(MDThread* t, uword numVals, word numReturns)
 	{
-		mixin(checkNumParams!("yield", "t", "numVals"));
+		mixin(checkNumParams!("numVals"));
 
 		if(t is t.vm.mainThread)
-			throwException(t, "yield - Attempting to yield out of the main thread");
+			throwException(t, __FUNCTION__ ~ " - Attempting to yield out of the main thread");
 
 		if(Fiber.getThis() !is t.getFiber())
-			throwException(t, "yield - Attempting to yield the wrong thread");
+			throwException(t, __FUNCTION__ ~ " - Attempting to yield the wrong thread");
 
 		if(numReturns < -1)
-			throwException(t, "yield - invalid number of returns (must be >= -1)");
+			throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 		auto slot = t.stackIndex - numVals;
 
@@ -2777,6 +2851,8 @@ Returns:
 */
 word deref(MDThread* t, word idx)
 {
+	mixin(FuncNameMix);
+
 	switch(type(t, idx))
 	{
 		case
@@ -2796,7 +2872,7 @@ word deref(MDThread* t, word idx)
 				
 		default:
 			pushTypeString(t, idx);
-			throwException(t, "deref - idx must be a value type or weakref, not a '{}'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - idx must be a value type or weakref, not a '{}'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2908,7 +2984,7 @@ Returns:
 */
 word idx(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("idx", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto slot = t.stackIndex - 1;
 	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], raw);
 	return stackSize(t) - 1;
@@ -2935,7 +3011,7 @@ Params:
 */
 void idxa(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("idxa", "t", "2"));
+	mixin(checkNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], raw);
 	pop(t, 2);
@@ -3017,12 +3093,12 @@ Returns:
 */
 word field(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("field", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "field - Field name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	return commonField(t, fakeToAbs(t, container), raw);
@@ -3048,7 +3124,7 @@ Params:
 */
 void fielda(MDThread* t, word container, char[] name, bool raw = false)
 {
-	mixin(checkNumParams!("fielda", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
 	swap(t);
@@ -3066,12 +3142,12 @@ Params:
 */
 void fielda(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("fielda", "t", "2"));
+	mixin(checkNumParams!("2"));
 
 	if(!isString(t, -2))
 	{
 		pushTypeString(t, -2);
-		throwException(t, "fielda - Field name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	commonFielda(t, fakeToAbs(t, container), raw);
@@ -3106,12 +3182,14 @@ Returns:
 */
 mdint len(MDThread* t, word slot)
 {
+	mixin(FuncNameMix);
+
 	pushLen(t, slot);
 
 	if(!isInt(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "len - Expected length to be an int, but got '{}' instead", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
 	}
 
 	auto ret = getInt(t, -1);
@@ -3128,7 +3206,7 @@ Params:
 */
 void lena(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("lena", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto o = fakeToAbs(t, slot);
 	lenaImpl(t, &t.stack[o], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3144,7 +3222,7 @@ Params:
 */
 word slice(MDThread* t, word container)
 {
-	mixin(checkNumParams!("slice", "t", "2"));
+	mixin(checkNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	sliceImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t);
@@ -3161,7 +3239,7 @@ Params:
 */
 void slicea(MDThread* t, word container)
 {
-	mixin(checkNumParams!("slicea", "t", "3"));
+	mixin(checkNumParams!("3"));
 	auto slot = t.stackIndex - 3;
 	sliceaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], &t.stack[slot + 2]);
 	pop(t, 3);
@@ -3262,7 +3340,7 @@ Params:
 */
 void addeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("addeq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.AddEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3271,7 +3349,7 @@ void addeq(MDThread* t, word o)
 /// ditto
 void subeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("subeq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.SubEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3280,7 +3358,7 @@ void subeq(MDThread* t, word o)
 /// ditto
 void muleq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("muleq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.MulEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3289,7 +3367,7 @@ void muleq(MDThread* t, word o)
 /// ditto
 void diveq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("diveq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.DivEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3298,7 +3376,7 @@ void diveq(MDThread* t, word o)
 /// ditto
 void modeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("modeq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.ModEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3409,7 +3487,7 @@ Params:
 */
 void andeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("andeq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.AndEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3418,7 +3496,7 @@ void andeq(MDThread* t, word o)
 /// ditto
 void oreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("oreq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.OrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3427,7 +3505,7 @@ void oreq(MDThread* t, word o)
 /// ditto
 void xoreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("xoreq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.XorEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3436,7 +3514,7 @@ void xoreq(MDThread* t, word o)
 /// ditto
 void shleq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("shleq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShlEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3445,7 +3523,7 @@ void shleq(MDThread* t, word o)
 /// ditto
 void shreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("shreq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3454,7 +3532,7 @@ void shreq(MDThread* t, word o)
 /// ditto
 void ushreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("ushreq", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.UShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3483,10 +3561,12 @@ Returns:
 */
 word cat(MDThread* t, uword num)
 {
-	if(num == 0)
-		throwException(t, "cat - Cannot concatenate 0 things");
+	mixin(FuncNameMix);
 
-	mixin(checkNumParams!("cat", "t", "num"));
+	if(num == 0)
+		throwException(t, __FUNCTION__ ~ " - Cannot concatenate 0 things");
+
+	mixin(checkNumParams!("num"));
 
 	auto slot = t.stackIndex - num;
 
@@ -3519,10 +3599,12 @@ Params:
 */
 void cateq(MDThread* t, word dest, uword num)
 {
-	if(num == 0)
-		throwException(t, "cateq - Cannot append 0 things");
+	mixin(FuncNameMix);
 
-	mixin(checkNumParams!("cateq", "t", "num"));
+	if(num == 0)
+		throwException(t, __FUNCTION__ ~ " - Cannot append 0 things");
+
+	mixin(checkNumParams!("num"));
 	catEqImpl(t, &t.stack[fakeToAbs(t, dest)], t.stackIndex - num, num);
 	pop(t, num);
 }
@@ -3627,14 +3709,16 @@ Returns:
 */
 uword rawCall(MDThread* t, word slot, word numReturns)
 {
+	mixin(FuncNameMix);
+
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
 
 	if(numParams < 1)
-		throwException(t, "rawCall - too few parameters (must have at least 1 for the context)");
+		throwException(t, __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
 
 	if(numReturns < -1)
-		throwException(t, "rawCall - invalid number of returns (must be >= -1)");
+		throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 	return commonCall(t, absSlot, numReturns, callPrologue(t, absSlot, numReturns, numParams, null));
 }
@@ -3683,14 +3767,16 @@ Returns:
 */
 uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
 {
+	mixin(FuncNameMix);
+
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
 
 	if(numParams < 1)
-		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
+		throwException(t, __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
 
 	if(numReturns < -1)
-		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
+		throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 	auto self = &t.stack[absSlot];
 	auto methodName = createString(t, name);
@@ -3706,13 +3792,13 @@ The parameters and return value are the same as above.
 */
 uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
 {
-	mixin(checkNumParams!("methodCall", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "methodCall - Method name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -3721,10 +3807,10 @@ uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = fals
 	auto numParams = t.stackIndex - (absSlot + 1);
 
 	if(numParams < 1)
-		throwException(t, "methodCall - too few parameters (must have at least 1 for the context)");
+		throwException(t, __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
 
 	if(numReturns < -1)
-		throwException(t, "methodCall - invalid number of returns (must be >= -1)");
+		throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 	auto self = &t.stack[absSlot];
 
@@ -3773,19 +3859,21 @@ Returns:
 */
 uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 {
+	mixin(FuncNameMix);
+
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super class");
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto absSlot = fakeToAbs(t, slot);
 	auto numParams = t.stackIndex - (absSlot + 1);
 
 	if(numParams < 1)
-		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
+		throwException(t, __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
 
 	if(numReturns < -1)
-		throwException(t, "superCall - invalid number of returns (must be >= -1)");
+		throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 	// Get this
 	auto _this = &t.stack[t.stackBase];
@@ -3793,7 +3881,7 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3810,13 +3898,13 @@ The parameters and return value are the same as above.
 uword superCall(MDThread* t, word slot, word numReturns)
 {
 	// Get the method name
-	mixin(checkNumParams!("superCall", "t", "1"));
+	mixin(checkNumParams!("1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "superCall - Method name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -3824,16 +3912,16 @@ uword superCall(MDThread* t, word slot, word numReturns)
 
 	// Invalid call?
 	if(t.arIndex == 0 || t.currentAR.proto is null)
-		throwException(t, "superCall - Attempting to perform a supercall in a function where there is no super class");
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where there is no super class");
 
 	// Get num params
 	auto numParams = t.stackIndex - (absSlot + 1);
 
 	if(numParams < 1)
-		throwException(t, "superCall - too few parameters (must have at least 1 for the context)");
+		throwException(t, __FUNCTION__ ~ " - too few parameters (must have at least 1 for the context)");
 
 	if(numReturns < -1)
-		throwException(t, "superCall - invalid number of returns (must be >= -1)");
+		throwException(t, __FUNCTION__ ~ " - invalid number of returns (must be >= -1)");
 
 	// Get this
 	auto _this = &t.stack[t.stackBase];
@@ -3841,7 +3929,7 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, "superCall - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
@@ -3864,13 +3952,15 @@ Returns:
 */
 word fieldsOf(MDThread* t, word obj)
 {
+	mixin(FuncNameMix);
+
 	if(auto c = getClass(t, obj))
 		return pushNamespace(t, classobj.fieldsOf(c));
 	else if(auto i = getInstance(t, obj))
 		return pushNamespace(t, instance.fieldsOf(t.vm.alloc, i));
 
 	pushTypeString(t, obj);
-	throwException(t, "fieldsOf - Expected 'class' or 'instance', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class' or 'instance', not '{}'", getString(t, -1));
 
 	assert(false);
 }
@@ -3997,14 +4087,14 @@ Params:
 */
 void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 {
-	mixin(checkNumParams!("setHookFunc", "t", "1"));
+	mixin(checkNumParams!("1"));
 
 	auto f = getFunction(t, -1);
 
 	if(f is null && !isNull(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, "setHookFunc - hook func must be 'function' or 'null', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - hook func must be 'function' or 'null', not '{}'", getString(t, -1));
 	}
 
 	if(f is null || mask == 0)
@@ -4432,24 +4522,26 @@ private:
 
 void runFinalizers(MDThread* t)
 {
-	if(t.vm.alloc.finalizable)
+	auto alloc = &t.vm.alloc;
+
+	if(alloc.finalizable)
 	{
-		for(auto pcur = &t.vm.alloc.finalizable; *pcur !is null; )
+		for(auto pcur = &alloc.finalizable; *pcur !is null; )
 		{
 			auto cur = *pcur;
 			auto i = cast(MDInstance*)cur;
 
 			*pcur = cur.next;
-			cur.next = t.vm.alloc.gcHead;
-			t.vm.alloc.gcHead = cur;
+			cur.next = alloc.gcHead;
+			alloc.gcHead = cur;
 
-			cur.flags = (cur.flags & ~GCBits.Marked) | !t.vm.alloc.markVal;
+			cur.flags = (cur.flags & ~GCBits.Marked) | !alloc.markVal;
 
 			// sanity check
 			if(i.finalizer)
 			{
-				auto oldLimit = t.vm.alloc.gcLimit;
-				t.vm.alloc.gcLimit = typeof(oldLimit).max;
+				auto oldLimit = alloc.gcLimit;
+				alloc.gcLimit = typeof(oldLimit).max;
 
 				auto size = stackSize(t);
 
@@ -4467,7 +4559,7 @@ void runFinalizers(MDThread* t)
 					setStackSize(t, size);
 				}
 
-				t.vm.alloc.gcLimit = oldLimit;
+				alloc.gcLimit = oldLimit;
 			}
 		}
 	}
@@ -4476,14 +4568,42 @@ void runFinalizers(MDThread* t)
 // ============================================================================
 // Stack Manipulation
 
-// ohhhhh, what I wouldn't give for macros and __FUNCTION__ right about now.
-template checkNumParams(char[] funcName, char[] t, char[] numParams)
+// Parsing mangles for fun and profit.
+char[] _getJustName(char[] mangle)
+{
+	size_t idx = 1;
+	size_t start = idx;
+	size_t len = 0;
+
+	while(idx < mangle.length && mangle[idx] >= '0' && mangle[idx] <= '9')
+	{
+		int size = mangle[idx++] - '0';
+
+		while(mangle[idx] >= '0' && mangle[idx] <= '9')
+			size = (size * 10) + (mangle[idx++] - '0');
+
+		start = idx;
+		len = size;
+		idx += size;
+	}
+
+	if(start < mangle.length)
+		return mangle[start .. start + len];
+	else
+		return "";
+}
+
+// Eheheh, I has a __FUNCTION__.
+const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
+
+// I'd still really like macros though.
+template checkNumParams(char[] numParams, char[] t = "t")
 {
 	const char[] checkNumParams =
-	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));"
-	// Don't count 'this'
+	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));" ~
+	FuncNameMix ~
 	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"
-		"throwException(" ~ t ~ ", \"" ~ funcName ~ " - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
+		"throwException(" ~ t ~ ", __FUNCTION__ ~ \" - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
 }
 
 RelStack fakeToRel(MDThread* t, word fake)
@@ -5740,7 +5860,7 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 		else if(b.type == MDValue.Type.Float)
 			return a.mFloat == b.mFloat;
 	}
-	
+
 	MDClass* proto;
 	// Don'_t put an else here.  SRSLY.
 	if(a.type == b.type)
@@ -7935,12 +8055,14 @@ void execute(MDThread* t, uword depth = 1)
 					
 					mdint lo = void;
 					mdint hi = void;
+					
+					auto loSrc = mixin(GetRD);
+					auto hiSrc = mixin(GetRDplus1);
 
-					if(!correctIndices(lo, hi, mixin(GetRD), mixin(GetRDplus1), numVarargs))
+					if(!correctIndices(lo, hi, loSrc, hiSrc, numVarargs))
 					{
-						// TODO: OOPS
-						typeString(t, &RS);
-						typeString(t, &RT);
+						typeString(t, loSrc);
+						typeString(t, hiSrc);
 						throwException(t, "Attempting to slice 'vararg' with '{}' and '{}'", getString(t, -2), getString(t, -1));
 					}
 
