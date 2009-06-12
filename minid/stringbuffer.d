@@ -52,8 +52,6 @@ static:
 			c.method("format",         &format);
 			c.method("formatln",       &formatln);
 			c.method("insert",         &sb_insert);
-			c.method("remove",         &remove);
-			// TODO: 'remove' method
 			c.method("toString",       &toString);
 
 			c.method("opCatAssign",    &opCatAssign);
@@ -251,41 +249,6 @@ static:
 
 		dup(t, 0);
 		return 1;
-	}
-
-	uword remove(MDThread* t, uword numParams)
-	{
-		auto memb = getThis(t);
-		auto start = checkIntParam(t, 1);
-		auto end = optIntParam(t, 2, start + 1);
-
-		if(start < 0)
-			start += memb.length;
-
-		if(start < 0 || start >= memb.length)
-			throwException(t, "Invalid low index: {}", start);
-
-		if(end < 0)
-			end += memb.length;
-
-		if(end < start || end > memb.length)
-			throwException(t, "Invalid high index: {}", end);
-
-		if(start == end)
-			return 0;
-
-		auto tmp = (cast(dchar*)memb.data)[0 .. memb.length];
-		auto numEndChars = memb.length - end;
-
-		if(numEndChars > 0)
-			memmove(&tmp[cast(uword)start], &tmp[cast(uword)end], cast(uint)(numEndChars * memb.type.itemSize));
-
-		pushNull(t);
-		pushNull(t);
-		pushInt(t, cast(mdint)memb.length - (end - start));
-		superCall(t, -3, "opLengthAssign", 0);
-
-		return 0;
 	}
 
 	uword toString(MDThread* t, uword numParams)
