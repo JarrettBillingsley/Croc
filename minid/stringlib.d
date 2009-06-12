@@ -241,7 +241,7 @@ static:
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
-		auto start = optIntParam(t, 2, 0);
+		auto start = optIntParam(t, 2, -1);
 
 		if(start > srcLen)
 			throwException(t, "Invalid start index: {}", start);
@@ -282,7 +282,7 @@ static:
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
-		auto start = optIntParam(t, 2, 0);
+		auto start = optIntParam(t, 2, -1);
 
 		if(start > srcLen)
 			throwException(t, "Invalid start index: {}", start);
