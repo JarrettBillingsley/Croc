@@ -40,6 +40,8 @@ import minid.utils;
 
 package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
 {
+	auto formatter = t.vm.formatter;
+
 	void output(char[] fmt, uword param, bool isRaw)
 	{
 		auto tmp = (cast(char*)alloca(fmt.length + 1))[0 .. fmt.length + 1];
@@ -48,102 +50,82 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 
 		switch(type(t, param))
 		{
-			case MDValue.Type.Int:   t.vm.formatter.convert(sink, tmp, getInt(t, param)); break;
-			case MDValue.Type.Float: t.vm.formatter.convert(sink, tmp, getFloat(t, param)); break;
-			case MDValue.Type.Char:  t.vm.formatter.convert(sink, tmp, getChar(t, param)); break;
+			case MDValue.Type.Int:   formatter.convert(sink, tmp, getInt(t, param));   break;
+			case MDValue.Type.Float: formatter.convert(sink, tmp, getFloat(t, param)); break;
+			case MDValue.Type.Char:  formatter.convert(sink, tmp, getChar(t, param));  break;
 
 			default:
 				pushToString(t, param, isRaw);
-				t.vm.formatter.convert(sink, tmp, getString(t, -1));
+				formatter.convert(sink, tmp, getString(t, -1));
 				pop(t);
 				break;
 		}
 	}
 
-	if(numParams >= 64)
-		throwException(t, "Too many parameters to format (maximum of 63)");
+	auto formatStr = getString(t, 1);
+	uword autoIndex = 2;
+	uword begin = 0;
 
-	bool[64] used;
-
-	for(uword paramIndex = 1; paramIndex <= numParams; paramIndex++)
+	while(begin < formatStr.length)
 	{
-		if(used[paramIndex])
-			continue;
+		// output anything outside the {}
+		auto fmtBegin = formatStr.locate('{', begin);
 
-  		if(!isString(t, paramIndex))
-  		{
-			output("}", paramIndex, false);
-			continue;
-		}
-
-		auto formatStr = getString(t, paramIndex);
-		auto formatStrIndex = paramIndex;
-		auto autoIndex = paramIndex + 1;
-		uword begin = 0;
-
-		while(begin < formatStr.length)
+		if(fmtBegin > begin)
 		{
-			// output anything outside the {}
-			auto fmtBegin = formatStr.locate('{', begin);
-
-			if(fmtBegin > begin)
-			{
-				t.vm.formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
-				begin = fmtBegin;
-			}
-
-			// did we run out of string?
-			if(fmtBegin == formatStr.length)
-				break;
-
-			// find the end of the {}
-			auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
-
-			// onoz, unmatched {}
-			if(fmtEnd == formatStr.length)
-			{
-				t.vm.formatter.convert(sink, "{{missing or misplaced '}'}{}", formatStr[fmtBegin .. $]);
-				break;
-			}
-
-			// chop off opening { on format spec
-			auto fmtSpec = formatStr[fmtBegin + 1 .. fmtEnd + 1];
-			bool isRaw = false;
-
-			// check for {r and remove it if there
-			if(fmtSpec[0] == 'r')
-			{
-				isRaw = true;
-				fmtSpec = fmtSpec[1 .. $];
-			}
-
-			// check for parameter index and remove it if there
-			auto index = autoIndex;
-
-			if(isdigit(fmtSpec[0]))
-			{
-				uword j = 0;
-
-				for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
-				{}
-
-				index = formatStrIndex + Integer.atoi(fmtSpec[0 .. j]) + 1;
-				fmtSpec = fmtSpec[j .. $];
-			}
-			else
-				autoIndex++;
-
-			// output it (or see if it's an invalid index)
-			if(index > numParams)
-				t.vm.formatter.convert(sink, "{}", "{invalid index}");
-			else
-			{
-				used[index] = true;
-				output(fmtSpec, index, isRaw);
-			}
-
-			begin = fmtEnd + 1;
+			formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
+			begin = fmtBegin;
 		}
+
+		// did we run out of string?
+		if(fmtBegin == formatStr.length)
+			break;
+
+		// find the end of the {}
+		auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
+
+		// onoz, unmatched {}
+		if(fmtEnd == formatStr.length)
+		{
+			formatter.convert(sink, "{{missing or misplaced '}'}{}", formatStr[fmtBegin .. $]);
+			break;
+		}
+
+		// chop off opening { on format spec but leave closing }
+		// this means fmtSpec.length will always be >= 1
+		auto fmtSpec = formatStr[fmtBegin + 1 .. fmtEnd + 1];
+		bool isRaw = false;
+
+		// check for {r and remove it if there
+		if(fmtSpec[0] == 'r')
+		{
+			isRaw = true;
+			fmtSpec = fmtSpec[1 .. $];
+		}
+
+		// check for parameter index and remove it if there
+		auto index = autoIndex;
+
+		if(isdigit(fmtSpec[0]))
+		{
+			uword j = 0;
+
+			for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
+			{}
+
+			index = Integer.atoi(fmtSpec[0 .. j]) + 2;
+			fmtSpec = fmtSpec[j .. $];
+		}
+		else
+			autoIndex++;
+
+		// output it (or see if it's an invalid index)
+		if(index > numParams)
+			formatter.convert(sink, "{{invalid index}");
+		else
+			output(fmtSpec, index, isRaw);
+
+		begin = fmtEnd + 1;
 	}
 }
 

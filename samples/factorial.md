@@ -12,5 +12,5 @@ function main()
 {
 	// now test it
 	for(i: 1 .. 10)
-		writefln(i, "! = ", factorial(i))
+		writeln(i, "! = ", factorial(i))
 }

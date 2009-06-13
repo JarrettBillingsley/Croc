@@ -34,10 +34,10 @@ function main(N)
 	{
 		if(!test())
 		{
-			writefln("failed")
+			writeln("failed")
 			return
 		}
 	}
 
-	writefln("oki doki")
+	writeln("oki doki")
 }

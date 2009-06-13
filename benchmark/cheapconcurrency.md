@@ -38,7 +38,7 @@ function main(N)
 	for(i : 0 .. n)
 		count += cofunc()
 
-	writefln(count)
+	writeln(count)
 
 	timer.stop()
 	writefln("Took {} sec", timer.seconds())

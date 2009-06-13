@@ -10,7 +10,7 @@ function main(vararg)
 	if(#vararg == 0)
 		return
 
-	writefln("   lines   words   bytes  file")
+	writeln("   lines   words   bytes  file")
 
 	for(iarg: 0 .. #vararg)
 	{
@@ -80,7 +80,7 @@ function main(vararg)
 	if(#vararg > 1)
 		writefln("--------------------------------------\n{,8}{,8}{,8}  total", l_total, w_total, c_total)
 	
-	writefln("--------------------------------------")
+	writeln("--------------------------------------")
 	
 	local results = dictionary.keys().apply(function(v) = [v, dictionary[v]]).sort(function(a, b) = b[1] <=> a[1])
 	

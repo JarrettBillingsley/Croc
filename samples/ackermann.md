@@ -20,6 +20,6 @@ function main(N)
 			n = 1
 	}
 
-	writefln("n = ", n)
-	writefln("Ack(3, ", n, "): ", Ack(3, n))
+	writeln("n = ", n)
+	writeln("Ack(3, ", n, "): ", Ack(3, n))
 }

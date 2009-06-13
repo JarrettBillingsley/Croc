@@ -4,7 +4,7 @@ function main(vararg)
 {
 	if(#vararg < 2)
 	{
-		writefln("Usage: mdcl unlzw.md inputFile outputFile")
+		writeln("Usage: mdcl unlzw.md inputFile outputFile")
 		return
 	}
 	

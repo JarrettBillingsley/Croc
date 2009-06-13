@@ -130,7 +130,7 @@ function main(n)
 		creature(blue)
 	]
 
-	writefln((schedule(threads)))
+	writeln((schedule(threads)))
 
 	timer.stop()
 	writefln("Took {} sec", timer.seconds())

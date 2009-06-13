@@ -24,7 +24,7 @@ function fannkuch(n)
 		if(check < 30)
 		{
 			foreach(p; perm1)
-				writef(p + 1)
+				write(p + 1)
 
 			writefln()
 			check++

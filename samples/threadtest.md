@@ -189,5 +189,5 @@ function main()
 	}
 
 	scheduler(Set$ producer, consumer)
-	writefln("Finished.")
+	writeln("Finished.")
 }

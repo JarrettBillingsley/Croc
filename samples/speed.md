@@ -210,23 +210,23 @@ local class Tester
 	{
 		:testReflIntMath()
 		:testReflFloatMath()
-		writefln()
+		writeln()
 		:testIntMath()
 		:testFloatMath()
-		writefln()
+		writeln()
 		:testLocals()
 		:testSetLocals()
-		writefln()
+		writeln()
 		:testSlot()
 		:testSetSlot()
-		writefln()
+		writeln()
 		:testBlock()
 		:testInstantiations()
 
-		writefln()
-		writefln("MiniD version\t\t := \"2.0 beta\"")
-		writefln()
-		writefln("// values in millions per second")
+		writeln()
+		writeln("MiniD version\t\t := \"2.0 beta\"")
+		writeln()
+		writeln("// values in millions per second")
 	}
 }
 
