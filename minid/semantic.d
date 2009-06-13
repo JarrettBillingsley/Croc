@@ -458,9 +458,6 @@ class Semantic : IdentityVisitor
 		s.code = visit(s.code);
 		s.condition = visit(s.condition);
 
-		if(s.condition.isConstant && !s.condition.isTrue)
-			return s.code;
-
 		return s;
 	}
 	

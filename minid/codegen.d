@@ -2510,10 +2510,13 @@ class Codegen : Visitor
 	
 	public override DoWhileStmt visit(DoWhileStmt s)
 	{
+		if(s.condition.isConstant && !s.condition.isTrue)
+			return s;
+
 		auto beginLoop = fs.here();
 		Scope scop = void;
 		fs.pushScope(scop);
-		
+
 		fs.setBreakable();
 		fs.setContinuable();
 		visit(s.code);
