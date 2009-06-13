@@ -152,8 +152,20 @@ public struct StrBuffer
 	*/
 	public void addString(char[] s)
 	{
-		foreach(dchar c; s)
-			addChar(c);
+		// this code doesn't validate the data, but it'll get validated eventually
+		if(s.length <= (data.length - pos))
+		{
+			data[pos .. pos + s.length] = s[];
+			pos += s.length;
+		}
+		else
+		{
+			if(pos != 0)
+				flush();
+
+			pushString(t, s);
+			incPieces();
+		}
 	}
 
 	/**
