@@ -68,10 +68,7 @@ static:
 
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-		
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "time", function uword(MDThread* t, uword numParams)
 		{
 			Timer.init(t);
 			newFunction(t, &microTime,  "microTime");  newGlobal(t, "microTime");
@@ -83,11 +80,9 @@ static:
 			newFunction(t, &sleep,      "sleep");      newGlobal(t, "sleep");
 
 			return 0;
-		}, "time");
+		});
 
-		fielda(t, -2, "time");
-		importModule(t, "time");
-		pop(t, 3);
+		importModuleNoNS(t, "time");
 	}
 
 	uword microTime(MDThread* t, uword numParams)

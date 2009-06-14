@@ -991,7 +991,7 @@ declarations.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Expression 
+<dt><span class="decl">Expression[] 
 <span class="currsymbol">initializer</span>
 <script>explorer.outline.addDecl('initializer');</script>
 
@@ -1004,16 +1004,15 @@ declarations.
 <span class="currsymbol">initializer</span>
 <script>explorer.outline.addDecl('initializer');</script>
 
- for the variables.  This can be <b>null</b>, in which case the variables
-	will be initialized to <b>null</b>.  If this is non-<b>null</b> and there is more than one name,
-	this must be a multi-return expression, such as a function call, vararg etc.
+ for the variables.  This can be empty, in which case the variables
+	will be all be initialized to <b>null</b>.
 	
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Protection <span class="funcparam">protection</span>, Identifier[] <span class="funcparam">names</span>, Expression <span class="funcparam">initializer</span>);
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Protection <span class="funcparam">protection</span>, Identifier[] <span class="funcparam">names</span>, Expression[] <span class="funcparam">initializer</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -2966,7 +2965,7 @@ but either or both the catch and finally clauses.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">Expression 
+<dt><span class="decl">Expression[] 
 <span class="currsymbol">rhs</span>
 <script>explorer.outline.addDecl('rhs');</script>
 
@@ -2975,16 +2974,15 @@ but either or both the catch and finally clauses.
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>The right-hand side of the assignment.  If lhs.length &gt; 1, this must be a multi-value
-	giving expression, meaning either a function call, vararg, sliced vararg, or yield
-	expression.  Otherwise, it can be any kind of expression.
+<dd>The right-hand side of the assignment.  Must always have at least 1 item.  This is not checked
+	by the ctor.
 	
 <br><br>
 
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Expression[] <span class="funcparam">lhs</span>, Expression <span class="funcparam">rhs</span>);
+<dt><span class="decl">this(ICompiler <span class="funcparam">c</span>, CompileLoc <span class="funcparam">location</span>, CompileLoc <span class="funcparam">endLocation</span>, Expression[] <span class="funcparam">lhs</span>, Expression[] <span class="funcparam">rhs</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
@@ -6323,7 +6321,7 @@ in the code "[x for x in a if x &lt; 10]", this represents "if x &lt; 10".
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Apr 21 19:35:26 2009
+			on Sat Jun 13 22:17:22 2009
 
 		</td></tr>
 	</table>

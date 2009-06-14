@@ -70,17 +70,11 @@ Params:
 */
 public void WrapModule(char[] name, Members...)(MDThread* t)
 {
-	pushGlobal(t, "modules");
-	field(t, -1, "customLoaders");
-
-	newFunction(t, function uword(MDThread* t, uword numParams)
+	makeModule(t, name, function uword(MDThread* t, uword numParams)
 	{
 		commonNamespace!(name, true, Members)(t);
 		return 0;
-	}, name);
-
-	fielda(t, -2, name);
-	pop(t, 2);
+	});
 }
 
 /**

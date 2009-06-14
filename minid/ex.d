@@ -40,9 +40,57 @@ import minid.types;
 // ================================================================================================================================================
 
 /**
-WHAT
+Simple function that attempts to create a custom loader (by making an entry in modules.customLoaders) for a
+module.  Throws an exception if a loader for the given module name already exists.
 
-You didn't see this.  Move along.  $(LT)__$(LT)
+Params:
+	name = The name of the module.  If it's a nested module, include all name components (like "foo.bar.baz").
+	loader = The module's loader function.  Serves as the top-level function when the module is imported, and any
+		globals defined in it become the module's public symbols.
+*/
+void makeModule(MDThread* t, char[] name, NativeFunc loader)
+{
+	pushGlobal(t, "modules");
+	field(t, -1, "customLoaders");
+	
+	if(hasField(t, -1, name))
+		throwException(t, "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
+		
+	newFunction(t, loader, name);
+	fielda(t, -2, name);
+	pop(t, 2);
+}
+
+/**
+A little helper object for making native classes.  Just removes some of the boilerplate involved.
+
+You use it like so:
+
+-----
+// Make a class named ClassName with no base class
+CreateClass(t, "ClassName", (CreateClass* c)
+{
+	// Some normal methods
+	c.method("blah", &blah);
+	c.method("forble", &forble);
+	
+	// A method with one upval.  Push it, then call c.method
+	pushInt(t, 0);
+	c.method("funcWithUpval", &funcWithUpval, 1);
+});
+
+// At this point, the class is sitting on top of the stack, so we have to store it
+newGlobal(t, "ClassName");
+
+// Make a class that derives from ClassName
+CreateClass(t, "DerivedClass", "ClassName", (CreateClass* c) {});
+newGlobal(t, "DerivedClass");
+-----
+
+If you pop the class inside the callback delegate accidentally, it'll check for that and
+throw an error.
+
+You can, of course, modify the class object after creating it, like if you need to add a finalizer or allocator.
 */
 public struct CreateClass
 {
@@ -50,6 +98,7 @@ public struct CreateClass
 	private char[] name;
 	private word idx;
 
+	/** */
 	public static void opCall(MDThread* t, char[] name, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
@@ -66,6 +115,7 @@ public struct CreateClass
 			setStackSize(t, co.idx + 1);
 	}
 	
+	/** */
 	public static void opCall(MDThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
@@ -86,6 +136,17 @@ public struct CreateClass
 			setStackSize(t, co.idx + 1);
 	}
 
+	/**
+	Register a method.
+
+	Params:
+		name = Method name.  The actual name that the native function closure will be created with is
+			the class's name concatenated with a period and then the method name, so that in the example
+			code above, the "blah" method would be named "ClassName.blah".
+		f = The native function.
+		numUpvals = How many upvalues this function needs.  There should be this many values sitting on
+			the stack.
+	*/
 	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);

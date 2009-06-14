@@ -44,10 +44,7 @@ struct StreamLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "stream", function uword(MDThread* t, uword numParams)
 		{
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
@@ -75,11 +72,9 @@ static:
 			newGlobal(t, "stderr");
 
 			return 0;
-		}, "stream");
+		});
 
-		fielda(t, -2, "stream");
-		importModule(t, "stream");
-		pop(t, 3);
+		importModuleNoNS(t, "stream");
 	}
 }
 

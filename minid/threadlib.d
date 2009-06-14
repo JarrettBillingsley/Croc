@@ -36,10 +36,7 @@ struct ThreadLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-		
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "thread", function uword(MDThread* t, uword numParams)
 		{
 			newFunction(t, &traceback, "traceback"); newGlobal(t, "traceback");
 			newFunction(t, &halt,      "halt");      newGlobal(t, "halt");
@@ -56,11 +53,9 @@ static:
 			setTypeMT(t, MDValue.Type.Thread);
 
 			return 0;
-		}, "thread");
+		});
 
-		fielda(t, -2, "thread");
-		importModule(t, "thread");
-		pop(t, 3);
+		importModuleNoNS(t, "thread");
 	}
 
 	uword traceback(MDThread* t, uword numParams)

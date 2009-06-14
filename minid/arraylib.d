@@ -39,10 +39,7 @@ struct ArrayLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "array", function uword(MDThread* t, uword numParams)
 		{
 			newFunction(t, &array_new, "new");     newGlobal(t, "new");
 			newFunction(t, &range,     "range");   newGlobal(t, "range");
@@ -88,11 +85,9 @@ static:
 			setTypeMT(t, MDValue.Type.Array);
 
 			return 0;
-		}, "array");
+		});
 
-		fielda(t, -2, "array");
-		importModule(t, "array");
-		pop(t, 3);
+		importModuleNoNS(t, "array");
 	}
 
 	uword array_new(MDThread* t, uword numParams)

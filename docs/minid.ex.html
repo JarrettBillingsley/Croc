@@ -46,6 +46,34 @@ subject to the following restrictions:
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">makeModule</span>
+<script>explorer.outline.addDecl('makeModule');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>, uint function(MDThread*, uint) <span class="funcparam">loader</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Simple function that attempts to create a custom <span class="funcparam">loader</span> (by making an entry in modules.customLoaders) for a
+module.  Throws an exception if a <span class="funcparam">loader</span> for the given module <span class="funcparam">name</span> already exists.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>The <span class="funcparam">name</span> of the module.  If it's a nested module, include all <span class="funcparam">name</span> components (like "foo.bar.baz").</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint function(MDThread*, uint) <span class="funcparam">loader</span></td>
+
+               
+<td>The module's <span class="funcparam">loader</span> function.  Serves as the top-level function when the module is imported, and any
+		globals defined in it become the module's public symbols.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">struct 
 <span class="currsymbol">CreateClass</span>
 <script>explorer.outline.addDecl('CreateClass');</script>
@@ -55,10 +83,115 @@ subject to the following restrictions:
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>WHAT
+<dd>A little helper object for making native classes.  Just removes some of the boilerplate involved.
 <br><br>
-You didn't see this.  Move along.  &lt;_&lt;
+You use it like so:
 <br><br>
+
+<pre class="d_code"><pre class="d_comment">// Make a class named ClassName with no base class
+</pre><pre class="d_psymbol">CreateClass</pre>(t, <pre class="d_string">"ClassName"</pre>, (<pre class="d_psymbol">CreateClass</pre>* c)
+{
+	<pre class="d_comment">// Some normal methods
+</pre>	c.method(<pre class="d_string">"blah"</pre>, &amp;blah);
+	c.method(<pre class="d_string">"forble"</pre>, &amp;forble);
+
+	<pre class="d_comment">// A method with one upval.  Push it, then call c.method
+</pre>	pushInt(t, 0);
+	c.method(<pre class="d_string">"funcWithUpval"</pre>, &amp;funcWithUpval, 1);
+});
+
+<pre class="d_comment">// At this point, the class is sitting on top of the stack, so we have to store it
+</pre>newGlobal(t, <pre class="d_string">"ClassName"</pre>);
+
+<pre class="d_comment">// Make a class that derives from ClassName
+</pre><pre class="d_psymbol">CreateClass</pre>(t, <pre class="d_string">"DerivedClass"</pre>, <pre class="d_string">"ClassName"</pre>, (<pre class="d_psymbol">CreateClass</pre>* c) {});
+newGlobal(t, <pre class="d_string">"DerivedClass"</pre>);
+</pre>
+
+If you pop the class inside the callback delegate accidentally, it'll check for that and
+throw an error.
+<br><br>
+
+You can, of course, modify the class object after creating it, like if you need to add a finalizer or allocator.
+<br><br>
+
+
+<script>explorer.outline.incSymbolLevel();</script>
+<dl>
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static void 
+<span class="currsymbol">opCall</span>
+<script>explorer.outline.addDecl('opCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>, void delegate(CreateClass*) <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">static void 
+<span class="currsymbol">opCall</span>
+<script>explorer.outline.addDecl('opCall');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>, char[] <span class="funcparam">base</span>, void delegate(CreateClass*) <span class="funcparam">dg</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd><br><br>
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">method</span>
+<script>explorer.outline.addDecl('method');</script>
+
+(char[] <span class="funcparam">name</span>, uint function(MDThread*, uint) <span class="funcparam">f</span>, uint <span class="funcparam">numUpvals</span> = cast(uint)0);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Register a 
+<span class="currsymbol">method</span>
+<script>explorer.outline.addDecl('method');</script>
+
+.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>Method <span class="funcparam">name</span>.  The actual <span class="funcparam">name</span> that the native function closure will be created with is
+			the class's <span class="funcparam">name</span> concatenated with a period and then the 
+<span class="currsymbol">method</span>
+<script>explorer.outline.addDecl('method');</script>
+
+ <span class="funcparam">name</span>, so that in the example
+			code above, the "blah" 
+<span class="currsymbol">method</span>
+<script>explorer.outline.addDecl('method');</script>
+
+ would be named "ClassName.blah".</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint function(MDThread*, uint) <span class="funcparam">f</span></td>
+
+               
+<td>The native function.</td></tr>
+<tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">uint <span class="funcparam">numUpvals</span></td>
+
+               
+<td>How many upvalues this function needs.  There should be this many values sitting on
+			the stack.</td></tr>
+</table><br>
+
+</dd>
+</dl>
+<script>explorer.outline.decSymbolLevel();</script>
+
 
 </dd>
 
@@ -918,7 +1051,7 @@ Freeing a 0-length array is legal.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Apr 21 19:35:29 2009
+			on Sat Jun 13 22:17:24 2009
 
 		</td></tr>
 	</table>

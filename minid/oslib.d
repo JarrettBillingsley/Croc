@@ -40,10 +40,7 @@ struct OSLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "os", function uword(MDThread* t, uword numParams)
 		{
 			importModule(t, "stream");
 			pop(t);
@@ -53,11 +50,9 @@ static:
 			newFunction(t, &getEnv, "getEnv"); newGlobal(t, "getEnv");
 
 			return 0;
-		}, "os");
-		
-		fielda(t, -2, "os");
-		importModule(t, "os");
-		pop(t, 3);
+		});
+
+		importModuleNoNS(t, "os");
 	}
 
 	uword system(MDThread* t, uword numParams)

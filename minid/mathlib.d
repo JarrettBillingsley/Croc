@@ -45,10 +45,7 @@ struct MathLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "math", function uword(MDThread* t, uword numParams)
 		{
 			pushFloat(t, math.E);              newGlobal(t, "e");
 			pushFloat(t, math.PI);             newGlobal(t, "pi");
@@ -94,11 +91,9 @@ static:
 			register(t, "min", &min);
 
 			return 0;
-		}, "math");
+		});
 
-		fielda(t, -2, "math");
-		importModule(t, "math");
-		pop(t, 3);
+		importModuleNoNS(t, "math");
 	}
 
 	mdfloat get_float(MDThread* t, word i)

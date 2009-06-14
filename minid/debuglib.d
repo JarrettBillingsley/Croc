@@ -38,10 +38,7 @@ struct DebugLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "debug", function uword(MDThread* t, uword numParams)
 		{
 			newFunction(t, &setHook,        "setHook");        newGlobal(t, "setHook");
 			newFunction(t, &getHook,        "getHook");        newGlobal(t, "getHook");
@@ -69,13 +66,11 @@ static:
 			newFunction(t, &setExtraField,  "setExtraField");  newGlobal(t, "setExtraField");
 
 			return 0;
-		}, "debug");
+		});
 
-		fielda(t, -2, "debug");
-		importModule(t, "debug");
-		pop(t, 3);
+		importModuleNoNS(t, "debug");
 	}
-	
+
 	ubyte strToMask(char[] str)
 	{
 		ubyte mask = 0;

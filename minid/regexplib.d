@@ -40,10 +40,7 @@ struct RegexpLib
 {
 	public static void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-		
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "regexp", function uword(MDThread* t, uword numParams)
 		{
 			RegexpObj.init(t);
 
@@ -69,130 +66,12 @@ struct RegexpLib
 			pushString(t, r"^((1-)?\d{3}-)?\d{3}-\d{4}$");         newGlobal(t, "usPhone");
 			pushString(t, r"^\d{5}$");                             newGlobal(t, "usZip");
 
-// 			"compile"d,    new MDClosure(lib, &regexpLib.compile, "regexp.compile"),
-// 			"test"d,       new MDClosure(lib, &test,              "regexp.test"),
-// 			"replace"d,    new MDClosure(lib, &regexpLib.replace, "regexp.replace"),
-// 			"split"d,      new MDClosure(lib, &split,             "regexp.split"),
-// 			"match"d,      new MDClosure(lib, &match,             "regexp.match")
-
 			return 0;
-		}, "regexp");
+		});
 
-		fielda(t, -2, "regexp");
-		importModule(t, "regexp");
-		pop(t, 3);
+		importModuleNoNS(t, "regexp");
 	}
 
-// 	static uword test(MDThread* t, uword numParams)
-// 	{
-// 		auto pattern = s.getParam!(MDString)(0).mData;
-// 		auto src = s.getParam!(MDString)(1).mData;
-// 		dchar[] attributes = "";
-// 
-// 		if(numParams > 2)
-// 			attributes = s.getParam!(MDString)(2).mData;
-// 
-// 		scope rx = s.safeCode(Regexd(pattern, attributes));
-// 		s.push(s.safeCode(cast(bool)rx.test(src)));
-// 		return 1;
-// 	}
-// 
-// 	uword replace(MDThread* t, uword numParams)
-// 	{
-// 		auto pattern = s.getParam!(MDString)(0).mData;
-// 		auto src = s.getParam!(MDString)(1).mData;
-// 		dchar[] attributes = "";
-// 
-// 		if(numParams > 3)
-// 			attributes = s.getParam!(MDString)(3).mData;
-// 			
-// 		scope rx = s.safeCode(Regexd(pattern, attributes));
-// 
-// 		if(s.isParam!("string")(2))
-// 		{
-// 			auto rep = s.getParam!(MDString)(2).mData;
-// 			s.push(s.safeCode(rx.replaceAll(src, rep)));
-// 		}
-// 		else
-// 		{
-// 			auto rep = s.getParam!(MDClosure)(2);
-// 			scope temp = regexpClass.nativeClone();
-// 
-// 			s.push(s.safeCode(rx.replaceAll(src, (Regexd m)
-// 			{
-// 				temp.mRegexp = m;
-// 				s.callWith(rep, 1, s.getContext(), temp);
-// 				return s.pop!(MDString).mData;
-// 			})));
-// 		}
-// 
-// 		return 1;
-// 	}
-// 
-// 	static uword split(MDThread* t, uword numParams)
-// 	{
-// 		auto pattern = s.getParam!(MDString)(0).mData;
-// 		auto src = s.getParam!(MDString)(1).mData;
-// 		dchar[] attributes = "";
-// 
-// 		if(numParams > 2)
-// 			attributes = s.getParam!(MDString)(2).mData;
-// 
-// 		scope rx = s.safeCode(Regexd(pattern, attributes));
-// 		s.push(MDArray.fromArray(s.safeCode(rx.split(src))));
-// 		return 1;
-// 	}
-// 
-// 	static uword match(MDThread* t, uword numParams)
-// 	{
-// 		auto pattern = s.getParam!(MDString)(0).mData;
-// 		auto src = s.getParam!(MDString)(1).mData;
-// 		dchar[] attributes = "";
-// 
-// 		if(numParams > 2)
-// 			attributes = s.getParam!(MDString)(2).mData;
-// 
-// 		bool global = false;
-// 		
-// 		foreach(c; attributes)
-// 		{
-// 			if(c is 'g')
-// 			{
-// 				global = true;
-// 				break;
-// 			}
-// 		}
-// 		
-// 		scope r = s.safeCode(Regexd(pattern, attributes));
-// 		dchar[][] matches;
-// 
-// 		if(global)
-// 		{
-// 			for(auto cont = s.safeCode(r.test(src)); cont; cont = s.safeCode(r.test()))
-// 				matches ~= r.match(0);
-// 		}
-// 		else
-// 		{
-// 			if(s.safeCode(r.test(src)))
-// 				matches ~= r.match(0);
-// 		}
-// 
-// 		s.push(MDArray.fromArray(matches));
-// 		return 1;
-// 	}
-// 
-// 	uword compile(MDThread* t, uword numParams)
-// 	{
-// 		auto pattern = s.getParam!(MDString)(0).mData;
-// 		dchar[] attributes = "";
-// 
-// 		if(numParams > 1)
-// 			attributes = s.getParam!(MDString)(1).mData;
-// 
-// 		s.push(s.safeCode(regexpClass.nativeClone(pattern, attributes)));
-// 		return 1;
-// 	}
-//
 	static struct RegexpObj
 	{
 	static:

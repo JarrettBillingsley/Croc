@@ -166,6 +166,31 @@ word importModule(MDThread* t, word name)
 }
 
 /**
+Same as importModule, but doesn't leave the module namespace on the stack.
+
+Params:
+	name = The name of the module to be imported.
+*/
+void importModuleNoNS(MDThread* t, char[] name)
+{
+	pushString(t, name);
+	importModule(t, -1);
+	pop(t, 2);
+}
+
+/**
+Same as above, but uses a name on the stack rather than one provided as a parameter.
+
+Params:
+	name = The stack index of the string holding the name of the module to be imported.
+*/
+void importModuleNoNS(MDThread* t, word name)
+{
+	importModule(t, name);
+	pop(t);
+}
+
+/**
 Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
 from native code and which native code may use for any purpose.
 
@@ -4261,7 +4286,7 @@ MDString* createString(MDThread* t, char[] data)
 		cpLen = verify(data);
 	catch(UnicodeException e)
 		throwException(t, "Invalid UTF-8 sequence");
-		
+
 	return string.create(t, data, h, cpLen);
 }
 
@@ -7092,7 +7117,7 @@ uword resume(MDThread* t, uword numParams)
 				else
 					(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
 			}
-	
+
 			t.getFiber().call();
 		}
 		else

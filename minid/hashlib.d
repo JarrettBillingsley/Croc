@@ -36,10 +36,7 @@ struct HashLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "hash", function uword(MDThread* t, uword numParams)
 		{
 			newFunction(t, &staticDup,    "dup");    newGlobal(t, "dup");
 			newFunction(t, &staticKeys,   "keys");   newGlobal(t, "keys");
@@ -61,17 +58,15 @@ static:
 				newFunction(t, &tableTake,    "take");    fielda(t, -2, "take");
 				newFunction(t, &tableClear,   "clear");   fielda(t, -2, "clear");
 			setTypeMT(t, MDValue.Type.Table);
-			
+
 			newNamespace(t, "namespace");
 				newFunction(t, &namespaceOpApply, "opApply"); fielda(t, -2, "opApply");
 			setTypeMT(t, MDValue.Type.Namespace);
 
 			return 0;
-		}, "hash");
+		});
 
-		fielda(t, -2, "hash");
-		importModule(t, "hash");
-		pop(t, 3);
+		importModuleNoNS(t, "hash");
 	}
 
 	uword dupImpl(MDThread* t, word slot)

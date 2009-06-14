@@ -1,1 +1,1 @@
-@rebuild -rfdocs.rrf
+@rebuild -rfdocs.rrf -I\dmd\import\tango0.99.8

@@ -42,10 +42,7 @@ struct StringLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "string", function uword(MDThread* t, uword numParams)
 		{
 			newNamespace(t, "string");
 				newFunction(t, &opApply,     "opApply");     fielda(t, -2, "opApply");
@@ -75,11 +72,9 @@ static:
 			setTypeMT(t, MDValue.Type.String);
 
 			return 0;
-		}, "string");
+		});
 		
-		fielda(t, -2, "string");
-		importModule(t, "string");
-		pop(t, 3);
+		importModuleNoNS(t, "string");
 	}
 
 	uword join(MDThread* t, uword numParams)

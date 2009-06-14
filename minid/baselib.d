@@ -72,10 +72,14 @@ static:
 		StringBufferObj.init(t);
 
 		// GC
-		newNamespace(t, "gc");
-			newFunction(t, &collectGarbage, "collect"); fielda(t, -2, "collect");
-			newFunction(t, &bytesAllocated, "allocated"); fielda(t, -2, "allocated");
-		newGlobal(t, "gc");
+		makeModule(t, "gc", function uword(MDThread* t, uword numParams)
+		{
+			newFunction(t, &collectGarbage, "collect");   newGlobal(t, "collect");
+			newFunction(t, &bytesAllocated, "allocated"); newGlobal(t, "allocated");
+			return 0;
+		});
+
+		importModuleNoNS(t, "gc");
 
 		// Functional stuff
 		register(t, "curry", &curry);

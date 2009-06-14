@@ -150,6 +150,48 @@ The stack index of the imported module's namespace.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">importModuleNoNS</span>
+<script>explorer.outline.addDecl('importModuleNoNS');</script>
+
+(MDThread* <span class="funcparam">t</span>, char[] <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as importModule, but doesn'<span class="funcparam">t</span> leave the module namespace on the stack.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">char[] <span class="funcparam">name</span></td>
+
+               
+<td>The <span class="funcparam">name</span> of the module to be imported.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">importModuleNoNS</span>
+<script>explorer.outline.addDecl('importModuleNoNS');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">name</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Same as above, but uses a <span class="funcparam">name</span> on the stack rather than one provided as a parameter.
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">name</span></td>
+
+               
+<td>The stack index of the string holding the <span class="funcparam">name</span> of the module to be imported.</td></tr>
+</table><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">int 
 <span class="currsymbol">getRegistry</span>
 <script>explorer.outline.addDecl('getRegistry');</script>
@@ -882,7 +924,7 @@ After creating the class, you can then fill it with members by using fielda.
 
 <br><br>
 <b>Params:</b><br><table class="params"><tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">proto</td>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">base</span></td>
 
                
 <td>The stack index of the base class.  The base can be `<b>null</b>`, in which case Object (defined
@@ -4416,7 +4458,7 @@ If the hook delay is 0, the delay hook event is disabled.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Tue Apr 21 19:35:29 2009
+			on Sat Jun 13 22:17:25 2009
 
 		</td></tr>
 	</table>

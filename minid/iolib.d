@@ -43,10 +43,7 @@ struct IOLib
 static:
 	public void init(MDThread* t)
 	{
-		pushGlobal(t, "modules");
-		field(t, -1, "customLoaders");
-
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		makeModule(t, "io", function uword(MDThread* t, uword numParams)
 		{
 			importModule(t, "stream");
 			pop(t);
@@ -93,11 +90,9 @@ static:
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
 
 			return 0;
-		}, "io");
+		});
 
-		fielda(t, -2, "io");
-		importModule(t, "io");
-		pop(t, 3);
+		importModuleNoNS(t, "io");
 	}
 
 	uword inFile(MDThread* t, uword numParams)
