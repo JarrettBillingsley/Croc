@@ -82,7 +82,7 @@ static:
 	uword joinArray(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Array);
-		auto sep = checkStringParam(t, 2);
+		auto sep = optStringParam(t, 2, "");
 		auto arr = getArray(t, 1).slice;
 
 		if(arr.length == 0)
