@@ -53,19 +53,8 @@ import minid.serialization;
 import minid.types;
 import minid.utils;
 
-version(MdclReadline)
+version(MDReadline)
 {
-	version(build)
-	{
-		pragma(link, "readline");
-		pragma(link, "history");
-	}
-	else
-	{
-		pragma(lib, "readline");
-		pragma(lib, "history");
-	}
-
 	extern(C)
 	{
 		void using_history();
@@ -326,7 +315,7 @@ To end interactive mode, use the \"exit()\" function.
 	*/
 	public static CommandLine opCall()
 	{
-		version(MdclReadline)
+		version(MDReadline)
 			return opCall(Stdout, ReadlineStream.instance.input);
 		else
 			return opCall(Stdout, Cin.stream);
@@ -347,7 +336,7 @@ To end interactive mode, use the \"exit()\" function.
 	
 	private void normalPrompt()
 	{
-		version(MdclReadline)
+		version(MDReadline)
 		{
 			if(mInput && mInput.input is ReadlineStream.instance.input)
 				ReadlineStream.instance.prompt = Prompt1;
@@ -360,7 +349,7 @@ To end interactive mode, use the \"exit()\" function.
 
 	private void secondPrompt()
 	{
-		version(MdclReadline)
+		version(MDReadline)
 		{
 			if(mInput && mInput.input is ReadlineStream.instance.input)
 				ReadlineStream.instance.prompt = Prompt2;
