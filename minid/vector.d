@@ -35,6 +35,8 @@ import minid.interpreter;
 import minid.types;
 import minid.utils;
 
+// TODO: make slices not copy.  But still provide a copying slice func.
+
 struct VectorObj
 {
 static:

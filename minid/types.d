@@ -54,7 +54,7 @@ public alias size_t uword;
 
 /**
 The underlying D type used to store the MiniD 'int' type.  Defaults to 'long' (64-bit signed integer).  If you
-change it, you will end up with a functional but nonstandard implementation.
+change it, you will end up with a (probably?) functional but nonstandard implementation.
 */
 public alias long mdint;
 

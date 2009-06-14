@@ -44,6 +44,8 @@ static:
 	{
 		makeModule(t, "string", function uword(MDThread* t, uword numParams)
 		{
+			newFunction(t, &joinArray, "joinArray"); newGlobal(t, "joinArray");
+
 			newNamespace(t, "string");
 				newFunction(t, &opApply,     "opApply");     fielda(t, -2, "opApply");
 				newFunction(t, &join,        "join");        fielda(t, -2, "join");
@@ -75,6 +77,56 @@ static:
 		});
 		
 		importModuleNoNS(t, "string");
+	}
+	
+	uword joinArray(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Array);
+		auto sep = checkStringParam(t, 2);
+		auto arr = getArray(t, 1).slice;
+
+		if(arr.length == 0)
+		{
+			pushString(t, "");
+			return 1;
+		}
+		
+		foreach(i, ref val; arr)
+			if(val.type != MDValue.Type.String && val.type != MDValue.Type.Char)
+				throwException(t, "Array element {} is not a string or char", i);
+
+		auto s = StrBuffer(t);
+
+		if(arr[0].type == MDValue.Type.String)
+			s.addString(arr[0].mString.toString());
+		else
+			s.addChar(arr[0].mChar);
+
+		if(sep.length == 0)
+		{
+			foreach(ref val; arr[1 .. $])
+			{
+				if(val.type == MDValue.Type.String)
+					s.addString(val.mString.toString());
+				else
+					s.addChar(val.mChar);
+			}
+		}
+		else
+		{
+			foreach(ref val; arr[1 .. $])
+			{
+				s.addString(sep);
+
+				if(val.type == MDValue.Type.String)
+					s.addString(val.mString.toString());
+				else
+					s.addChar(val.mChar);
+			}
+		}
+
+		s.finish();
+		return 1;
 	}
 
 	uword join(MDThread* t, uword numParams)
