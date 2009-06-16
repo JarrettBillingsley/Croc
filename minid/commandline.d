@@ -323,7 +323,7 @@ To end interactive mode, use the \"exit()\" function.
 
 	private void printVersion()
 	{
-		mOutput("MiniD Command-Line interpreter 2.0 beta").newline;
+		mOutput("MiniD Command-Line interpreter 2.0").newline;
 	}
 
 	private void printUsage(char[] progname)
