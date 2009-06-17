@@ -218,7 +218,7 @@ static:
 
 	uword fileTime(char[] which)(MDThread* t, uword numParams)
 	{
-		auto time = mixin("Path." ~ which ~ "(checkStringParam(t, 1))");
+		auto time = safeCode(t, mixin("Path." ~ which ~ "(checkStringParam(t, 1))"));
 		word tab;
 
 		if(numParams == 1)
