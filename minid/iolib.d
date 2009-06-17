@@ -30,11 +30,14 @@ import tango.io.device.File;
 import tango.io.FileSystem;
 import tango.io.stream.Buffered;
 import tango.io.UnicodeFile;
+import tango.time.WallClock;
+import tango.time.Time;
 import tango.util.PathUtil;
 
 import minid.ex;
 import minid.interpreter;
 import minid.streamlib;
+import minid.timelib;
 import minid.types;
 import minid.vector;
 
@@ -45,9 +48,8 @@ static:
 	{
 		makeModule(t, "io", function uword(MDThread* t, uword numParams)
 		{
-			importModule(t, "stream");
-			pop(t);
-			
+			importModuleNoNS(t, "stream");
+
 			lookup(t, "stream.stdin");
 			newGlobal(t, "stdin");
 
@@ -57,34 +59,37 @@ static:
 			lookup(t, "stream.stderr");
 			newGlobal(t, "stderr");
 
-			newFunction(t, &inFile,       "inFile");       newGlobal(t, "inFile");
-			newFunction(t, &outFile,      "outFile");      newGlobal(t, "outFile");
-			newFunction(t, &inoutFile,    "inoutFile");    newGlobal(t, "inoutFile");
-			newFunction(t, &rename,       "rename");       newGlobal(t, "rename");
-			newFunction(t, &remove,       "remove");       newGlobal(t, "remove");
-			newFunction(t, &copy,         "copy");         newGlobal(t, "copy");
-			newFunction(t, &size,         "size");         newGlobal(t, "size");
-			newFunction(t, &exists,       "exists");       newGlobal(t, "exists");
-			newFunction(t, &isFile,       "isFile");       newGlobal(t, "isFile");
-			newFunction(t, &isDir,        "isDir");        newGlobal(t, "isDir");
-			newFunction(t, &isReadOnly,   "isReadOnly");   newGlobal(t, "isReadOnly");
-			newFunction(t, &currentDir,   "currentDir");   newGlobal(t, "currentDir");
-			newFunction(t, &parentDir,    "parentDir");    newGlobal(t, "parentDir");
-			newFunction(t, &changeDir,    "changeDir");    newGlobal(t, "changeDir");
-			newFunction(t, &makeDir,      "makeDir");      newGlobal(t, "makeDir");
-			newFunction(t, &makeDirChain, "makeDirChain"); newGlobal(t, "makeDirChain");
-			newFunction(t, &removeDir,    "removeDir");    newGlobal(t, "removeDir");
-			newFunction(t, &listFiles,    "listFiles");    newGlobal(t, "listFiles");
-			newFunction(t, &listDirs,     "listDirs");     newGlobal(t, "listDirs");
-			newFunction(t, &readFile,     "readFile");     newGlobal(t, "readFile");
-			newFunction(t, &writeFile,    "writeFile");    newGlobal(t, "writeFile");
-			newFunction(t, &readVector,   "readVector");   newGlobal(t, "readVector");
-			newFunction(t, &writeVector,  "writeVector");  newGlobal(t, "writeVector");
-			newFunction(t, &join,         "join");         newGlobal(t, "join");
-			newFunction(t, &dirName,      "dirName");      newGlobal(t, "dirName");
-			newFunction(t, &name,         "name");         newGlobal(t, "name");
-			newFunction(t, &extension,    "extension");    newGlobal(t, "extension");
-			newFunction(t, &fileName,     "fileName");     newGlobal(t, "fileName");
+			newFunction(t, &inFile,                "inFile");       newGlobal(t, "inFile");
+			newFunction(t, &outFile,               "outFile");      newGlobal(t, "outFile");
+			newFunction(t, &inoutFile,             "inoutFile");    newGlobal(t, "inoutFile");
+			newFunction(t, &rename,                "rename");       newGlobal(t, "rename");
+			newFunction(t, &remove,                "remove");       newGlobal(t, "remove");
+			newFunction(t, &copy,                  "copy");         newGlobal(t, "copy");
+			newFunction(t, &size,                  "size");         newGlobal(t, "size");
+			newFunction(t, &exists,                "exists");       newGlobal(t, "exists");
+			newFunction(t, &isFile,                "isFile");       newGlobal(t, "isFile");
+			newFunction(t, &isDir,                 "isDir");        newGlobal(t, "isDir");
+			newFunction(t, &isReadOnly,            "isReadOnly");   newGlobal(t, "isReadOnly");
+			newFunction(t, &fileTime!("modified"), "modified");     newGlobal(t, "modified");
+			newFunction(t, &fileTime!("created"),  "created");      newGlobal(t, "created");
+			newFunction(t, &fileTime!("accessed"), "accessed");     newGlobal(t, "accessed");
+			newFunction(t, &currentDir,            "currentDir");   newGlobal(t, "currentDir");
+			newFunction(t, &parentDir,             "parentDir");    newGlobal(t, "parentDir");
+			newFunction(t, &changeDir,             "changeDir");    newGlobal(t, "changeDir");
+			newFunction(t, &makeDir,               "makeDir");      newGlobal(t, "makeDir");
+			newFunction(t, &makeDirChain,          "makeDirChain"); newGlobal(t, "makeDirChain");
+			newFunction(t, &removeDir,             "removeDir");    newGlobal(t, "removeDir");
+			newFunction(t, &listFiles,             "listFiles");    newGlobal(t, "listFiles");
+			newFunction(t, &listDirs,              "listDirs");     newGlobal(t, "listDirs");
+			newFunction(t, &readFile,              "readFile");     newGlobal(t, "readFile");
+			newFunction(t, &writeFile,             "writeFile");    newGlobal(t, "writeFile");
+			newFunction(t, &readVector,            "readVector");   newGlobal(t, "readVector");
+			newFunction(t, &writeVector,           "writeVector");  newGlobal(t, "writeVector");
+			newFunction(t, &join,                  "join");         newGlobal(t, "join");
+			newFunction(t, &dirName,               "dirName");      newGlobal(t, "dirName");
+			newFunction(t, &name,                  "name");         newGlobal(t, "name");
+			newFunction(t, &extension,             "extension");    newGlobal(t, "extension");
+			newFunction(t, &fileName,              "fileName");     newGlobal(t, "fileName");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -208,6 +213,24 @@ static:
 	uword isReadOnly(MDThread* t, uword numParams)
 	{
 		pushBool(t, safeCode(t, !Path.isWritable(checkStringParam(t, 1))));
+		return 1;
+	}
+
+	uword fileTime(char[] which)(MDThread* t, uword numParams)
+	{
+		auto time = mixin("Path." ~ which ~ "(checkStringParam(t, 1))");
+		word tab;
+
+		if(numParams == 1)
+			tab = newTable(t);
+		else
+		{
+			checkParam(t, 2, MDValue.Type.Table);
+			tab = 2;
+		}
+
+		TimeLib.DateTimeToTable(t, WallClock.toDate(time), tab);
+		dup(t, tab);
 		return 1;
 	}
 

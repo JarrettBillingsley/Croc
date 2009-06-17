@@ -36,6 +36,7 @@ import minid.types;
 import minid.utils;
 
 // TODO: make slices not copy.  But still provide a copying slice func.
+// aghl, but that would require a Vector/VectorData separation like arrays..
 
 struct VectorObj
 {
