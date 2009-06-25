@@ -27,9 +27,9 @@ module minid.iolib;
 
 import Path = tango.io.Path;
 import tango.io.device.File;
-import tango.io.FileSystem;
 import tango.io.stream.Buffered;
 import tango.io.UnicodeFile;
+import tango.sys.Environment;
 import tango.time.WallClock;
 import tango.time.Time;
 import tango.util.PathUtil;
@@ -236,7 +236,7 @@ static:
 
 	uword currentDir(MDThread* t, uword numParams)
 	{
-		pushString(t, safeCode(t, FileSystem.getDirectory()));
+		pushString(t, safeCode(t, Environment.cwd()));
 		return 1;
 	}
 	
@@ -245,21 +245,21 @@ static:
 		auto p = optStringParam(t, 1, ".");
 		
 		if(p == ".")
-			p = FileSystem.getDirectory();
+			p = Environment.cwd();
 
 		auto pp = safeCode(t, Path.parse(p));
 
 		if(pp.isAbsolute)
 			pushString(t, safeCode(t, Path.pop(p)));
 		else
-			pushString(t, safeCode(t, Path.join(FileSystem.getDirectory(), p)));
+			pushString(t, safeCode(t, Path.join(Environment.cwd(), p)));
 
 		return 1;
 	}
 
 	uword changeDir(MDThread* t, uword numParams)
 	{
-		safeCode(t, FileSystem.setDirectory(checkStringParam(t, 1)));
+		safeCode(t, Environment.cwd(checkStringParam(t, 1)));
 		return 0;
 	}
 
@@ -268,7 +268,7 @@ static:
 		auto p = Path.parse(checkStringParam(t, 1));
 
 		if(!p.isAbsolute())
-			safeCode(t, Path.createFolder(Path.join(FileSystem.getDirectory(), p.toString())));
+			safeCode(t, Path.createFolder(Path.join(Environment.cwd(), p.toString())));
 		else
 			safeCode(t, Path.createFolder(p.toString()));
 
@@ -280,7 +280,7 @@ static:
 		auto p = Path.parse(checkStringParam(t, 1));
 		
 		if(!p.isAbsolute())
-			safeCode(t, Path.createPath(Path.join(FileSystem.getDirectory(), p.toString())));
+			safeCode(t, Path.createPath(Path.join(Environment.cwd(), p.toString())));
 		else
 			safeCode(t, Path.createPath(p.toString()));
 
@@ -298,7 +298,7 @@ static:
 		auto fp = optStringParam(t, 1, ".");
 		
 		if(fp == ".")
-			fp = FileSystem.getDirectory();
+			fp = Environment.cwd();
 
 		auto listing = newArray(t, 0);
 

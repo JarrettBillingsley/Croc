@@ -47,6 +47,8 @@ import minid.types;
 import minid.utils;
 import minid.vm;
 
+alias minid.utils.isArrayType isArrayType;
+
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -633,7 +635,7 @@ public word superPush(Type)(MDThread* t, Type val)
 		return pushChar(t, cast(T)val);
 	else static if(isStringType!(T))
 	{
-		static if(is(T == char[]))
+		static if(is(T : char[]))
 			return pushString(t, cast(T)val);
 		else
 			return pushString(t, Utf.toString(cast(T)val));
@@ -763,7 +765,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		if(!isArray(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		auto data = getArray(t, idx).slice;
@@ -777,7 +779,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, elemIdx);
-				throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': element {} should be '" ~
+				throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': element {} should be '" ~
 					ElemType.stringof ~ "', not '{}'", getString(t, -2), i, getString(t, -1));
 			}
 
@@ -795,7 +797,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		if(!isTable(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		T ret;
@@ -808,7 +810,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, keyIdx);
-				throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': key should be '" ~
+				throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': key should be '" ~
 					KeyType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
@@ -818,7 +820,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, valIdx);
-				throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': value should be '" ~
+				throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "': value should be '" ~
 					ValueType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
@@ -896,7 +898,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		if(!canCastTo!(T)(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "to - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwException(t, "superGet - Cannot convert MiniD type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		static if(is(T == bool))
@@ -932,7 +934,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 		else
 		{
 			// I do this because static assert won't show the template instantiation "call stack."
-			pragma(msg, "to - Invalid argument type '" ~ Type.stringof ~ "'");
+			pragma(msg, "superGet - Invalid argument type '" ~ Type.stringof ~ "'");
 			ARGUMENT_ERROR(Type);
 		}
 	}
