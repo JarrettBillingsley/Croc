@@ -267,10 +267,10 @@ static:
 
 		return 1;
 	}
-	
+
 	uword sleep(MDThread* t, uword numParams)
 	{
-		auto dur = checkFloatParam(t, 1);
+		auto dur = checkNumParam(t, 1);
 		
 		if(dur < 0)
 			throwException(t, "Invalid sleep duration: {}", dur);
