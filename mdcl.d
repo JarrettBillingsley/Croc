@@ -31,6 +31,7 @@ import minid.commandline;
 
 // import minid.addons.sdl;
 // import minid.addons.gl;
+// import minid.addons.net;
 
 void main(char[][] args)
 {
@@ -39,6 +40,7 @@ void main(char[][] args)
 	loadStdlibs(t, MDStdlib.All);
 // 	SdlLib.init(t);
 // 	GlLib.init(t);
+// 	NetLib.init(t);
 
 	CommandLine().run(t, args);
 }

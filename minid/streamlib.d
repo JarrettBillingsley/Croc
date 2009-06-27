@@ -564,6 +564,7 @@ static:
 			c.method("writeVector", &writeVector);
 			c.method("flush",       &flush);
 			c.method("copy",        &copy);
+			c.method("flushOnNL",   &flushOnNL);
 
 			c.method("seek",        &seek);
 			c.method("position",    &position);
@@ -837,6 +838,13 @@ static:
 		return 1;
 	}
 	
+	public uword flushOnNL(MDThread* t, uword numParams)
+	{
+		auto memb = getOpenThis(t);
+		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
+		return 0;
+	}
+	
 	public uword seek(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
@@ -973,6 +981,7 @@ static:
 			c.method("writeVector", &writeVector);
 			c.method("flush",       &flush);
 			c.method("copy",        &copy);
+			c.method("flushOnNL",   &flushOnNL);
 
 			c.method("skip",        &skip);
 			c.method("seek",        &seek);
@@ -1523,6 +1532,13 @@ static:
 		return 1;
 	}
 
+	public uword flushOnNL(MDThread* t, uword numParams)
+	{
+		auto memb = getOpenThis(t);
+		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
+		return 0;
+	}
+
 	public uword skip(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
@@ -1530,7 +1546,7 @@ static:
 
 		if(dist_ < 0 || dist_ > uword.max)
 			throwException(t, "Invalid skip distance ({})", dist_);
-			
+
 		auto dist = cast(uword)dist_;
 
 		checkDirty(t, memb);
