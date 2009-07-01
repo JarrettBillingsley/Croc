@@ -24,6 +24,7 @@ subject to the following restrictions:
 	 3. This notice may not be removed or altered from any source distribution.
 
 Authors:
+	John Demme <me@teqdruid.com> (2007, initial code)
 	Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
 ******************************************************************************/
 

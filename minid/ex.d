@@ -155,6 +155,55 @@ public struct CreateClass
 }
 
 /**
+A standard class allocator for when you need to allocate some extra fields/bytes in a class instance.
+Allocates the new instance with the given number of extra fields and bytes, then calls the ctor.
+
+Params:
+	numFields = The number of extra fields to allocate in the instance.
+	Members = Any type.  Members.sizeof extra bytes will be allocated in the instance, and those bytes
+		will be initialized to Members.init.
+		
+Example:
+
+-----
+newClass(t, "Foob");
+	// ...
+
+	// We need 1 extra field, and SomeStruct will be used as the extra bytes
+	newFunction(t, &BasicClassAllocator!(1, SomeStruct), "Foob.allocator");
+	setAllocator(t, -2);
+newGlobal(t, "Foob");
+-----
+*/
+uword BasicClassAllocator(uword numFields, Members)(MDThread* t, uword numParams)
+{
+	newInstance(t, 0, numFields, Members.sizeof);
+	*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
+
+	dup(t);
+	pushNull(t);
+	rotateAll(t, 3);
+	methodCall(t, 2, "constructor", 0);
+	return 1;
+}
+
+/**
+Similar to above, but instead of a type for the extra bytes, just takes a number of bytes.  In this case
+the extra bytes will be uninitialized.
+*/
+uword BasicClassAllocator(uword numFields, uword numBytes)(MDThread* t, uword numParams)
+{
+	newInstance(t, 0, numFields, numBytes);
+
+	dup(t);
+	pushNull(t);
+	rotateAll(t, 3);
+	methodCall(t, 2, "constructor", 0);
+	return 1;
+}
+
+
+/**
 A utility structure for building up strings out of several pieces more efficiently than by just pushing
 all the bits and concatenating.  This struct keeps an internal buffer so that strings are built up in
 large chunks.
