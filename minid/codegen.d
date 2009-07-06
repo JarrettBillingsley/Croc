@@ -64,7 +64,6 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.ShlAssignStmt: return Op.ShlEq;
 		case AstTag.ShrAssignStmt: return Op.ShrEq;
 		case AstTag.UShrAssignStmt: return Op.UShrEq;
-		case AstTag.CondAssignStmt: return Op.CondMove;
 		case AstTag.OrExp: return Op.Or;
 		case AstTag.XorExp: return Op.Xor;
 		case AstTag.AndExp: return Op.And;
@@ -3052,8 +3051,35 @@ class Codegen : Visitor
 	public override XorAssignStmt visit(XorAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
 	public override OrAssignStmt visit(OrAssignStmt s)     { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
 	public override AndAssignStmt visit(AndAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override CondAssignStmt visit(CondAssignStmt s) { s.lhs.checkLHS(c); return visitOpAssign(s); }
-	
+
+	public override CondAssignStmt visit(CondAssignStmt s)
+	{
+		visit(s.lhs);
+		fs.dup();
+// 		fs.pushSource(s.lhs.endLocation.line);
+		Exp src1;
+		fs.popSource(s.lhs.endLocation.line, src1);
+
+		fs.codeR(s.lhs.endLocation.line, Op.Is, 0, src1.index, fs.tagConst(fs.codeNullConst()));
+		auto i = fs.makeJump(s.lhs.endLocation.line, Op.Je, false);
+
+		visit(s.rhs);
+		Exp src2;
+		fs.popSource(s.endLocation.line, src2);
+
+		fs.freeExpTempRegs(src2);
+		fs.freeExpTempRegs(src1);
+
+		if(fs.isLocalTag(src1.index) && fs.isLocalTag(src2.index))
+			fs.popReflexOp(s.endLocation.line, Op.MoveLocal, src1.index, src2.index);
+		else
+			fs.popReflexOp(s.endLocation.line, Op.Move, src1.index, src2.index);
+		
+		fs.patchJumpToHere(i);
+
+		return s;
+	}
+
 	public override CatAssignStmt visit(CatAssignStmt s)
 	{
 		assert(s.collapsed, "CatAssignStmt codeGen not collapsed");

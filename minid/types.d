@@ -70,7 +70,7 @@ public alias double mdfloat;
 The current version of MiniD as a 32-bit integer.  The upper 16 bits are the major, and the lower 16 are
 the minor.
 */
-public const uint MiniDVersion = MakeVersion!(2, 0);
+public const uint MiniDVersion = MakeVersion!(2, 1);
 
 /**
 An alias for the type signature of a native function.  It is defined as uword function(MDThread*, uword).

@@ -328,19 +328,11 @@ catch(MDException e)
 	*/
 	public word loadJSON(char[] source)
 	{
-		mStringTab = newTable(t);
-
-		scope(failure)
+		return commonCompile(
 		{
-			if(stackSize(t) >= mStringTab + 1)
-				pop(t, stackSize(t) - mStringTab);
-		}
-
-		mLexer.begin("JSON", source, true);
-		mParser.parseJSON();
-
-		insertAndPop(t, -2);
-		return stackSize(t) - 1;
+			mLexer.begin("JSON", source, true);
+			mParser.parseJSON();
+		});
 	}
 
 // ================================================================================================================================================
@@ -361,11 +353,7 @@ catch(MDException e)
 		mStringTab = newTable(t);
 
 		scope(failure)
-		{
 			setStackSize(t, mStringTab);
-// 			if(stackSize(t) >= mStringTab + 1)
-// 				pop(t, stackSize(t) - mStringTab);
-		}
 
 		dg();
 		insertAndPop(t, -2);

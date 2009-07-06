@@ -7485,13 +7485,6 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.MoveLocal: t.stack[stackBase + i.rd] = t.stack[stackBase + i.rs]; break;
 				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
 
-				case Op.CondMove:
-					auto RD = mixin(GetRD);
-
-					if(RD.type == MDValue.Type.Null)
-						*RD = *mixin(GetRS);
-					break;
-
 				case Op.LoadBool: *mixin(GetRD) = cast(bool)i.rs; break;
 				case Op.LoadNull: *mixin(GetRD) = MDValue.nullValue; break;
 

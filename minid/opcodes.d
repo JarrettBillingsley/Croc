@@ -48,7 +48,6 @@ enum Op : ushort
 	Class,
 	Close,
 	Closure,
-	CondMove,
 	Coroutine,
 	Cmp,
 	Cmp3,
@@ -152,7 +151,6 @@ CheckParams.......I: n/a, n/a
 Class.............R: dest, name const index, base class
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
-CondMove..........R: dest, src, n/a
 Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
 Cmp3..............R: dest, src, src
@@ -318,7 +316,6 @@ align(1) struct Instruction
 			case Op.Class:           return Format("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Close:           return Format("close r{}", rd);
 			case Op.Closure:         return rt == 0 ? Format("closure {}, {}", cr(rd), rs) : Format("closure {}, {}, r{}", cr(rd), rs, rt);
-			case Op.CondMove:        return Format("cmov {}, {}", cr(rd), cr(rs));
 			case Op.Coroutine:       return Format("coroutine {}, {}", cr(rd), cr(rs));
 			case Op.Cmp:             return Format("cmp {}, {}", cr(rs), cr(rt));
 			case Op.Cmp3:            return Format("cmp3 {}, {}, {}", cr(rd), cr(rs), cr(rt));
