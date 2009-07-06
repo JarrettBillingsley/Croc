@@ -39,17 +39,23 @@ import minid.utils;
 
 class Semantic : IdentityVisitor
 {
-	private word mFuncDepth = 0;
+	private word[] mFinallyDepths;
 	private uword mDummyNameCounter = 0;
 
 	public this(ICompiler c)
 	{
 		super(c);
+		mFinallyDepths = c.alloc.allocArray!(word)(1);
+	}
+
+	~this()
+	{
+		c.alloc.freeArray(mFinallyDepths);
 	}
 	
 	public bool isTopLevel()
 	{
-		return mFuncDepth == 0;
+		return mFinallyDepths.length == 1;
 	}
 
 	alias Visitor.visit visit;
@@ -71,12 +77,27 @@ class Semantic : IdentityVisitor
 
 	public override FuncDef visit(FuncDef d)
 	{
-		mFuncDepth++;
+		c.alloc.resizeArray(mFinallyDepths, mFinallyDepths.length + 1);
 
 		scope(exit)
-			mFuncDepth--;
+			c.alloc.resizeArray(mFinallyDepths, mFinallyDepths.length - 1);
 
 		return visitFuncDef(d);
+	}
+	
+	public void enterFinally()
+	{
+		mFinallyDepths[$ - 1]++;
+	}
+	
+	public void leaveFinally()
+	{
+		mFinallyDepths[$ - 1]--;
+	}
+	
+	public bool inFinally()
+	{
+		return mFinallyDepths[$ - 1] > 0;
 	}
 
 	public FuncDef visitFuncDef(FuncDef d)
@@ -734,9 +755,28 @@ class Semantic : IdentityVisitor
 		s.code = visit(s.code);
 		return s;
 	}
+	
+	public override ContinueStmt visit(ContinueStmt s)
+	{
+		if(inFinally())
+			c.exception(s.location, "Continue statements are illegal inside finally blocks");
+
+		return s;
+	}
+
+	public override BreakStmt visit(BreakStmt s)
+	{
+		if(inFinally())
+			c.exception(s.location, "Break statements are illegal inside finally blocks");
+
+		return s;
+	}
 
 	public override ReturnStmt visit(ReturnStmt s)
 	{
+		if(inFinally())
+			c.exception(s.location, "Return statements are illegal inside finally blocks");
+
 		foreach(ref exp; s.exprs)
 			exp = visit(exp);
 
@@ -751,7 +791,11 @@ class Semantic : IdentityVisitor
 			s.catchBody = visit(s.catchBody);
 
 		if(s.finallyBody)
+		{
+			enterFinally();
 			s.finallyBody = visit(s.finallyBody);
+			leaveFinally();
+		}
 
 		return s;
 	}
@@ -764,8 +808,16 @@ class Semantic : IdentityVisitor
 	
 	public override ScopeActionStmt visit(ScopeActionStmt s)
 	{
-		s.stmt = visit(s.stmt);
-		return s;	
+		if(s.type == ScopeActionStmt.Exit || s.type == ScopeActionStmt.Success)
+		{
+			enterFinally();
+			s.stmt = visit(s.stmt);
+			leaveFinally();
+		}
+		else
+			s.stmt = visit(s.stmt);
+
+		return s;
 	}
 	
 	public override AssignStmt visit(AssignStmt s)

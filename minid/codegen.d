@@ -196,7 +196,6 @@ final class FuncState
 	package Exp[] mExpStack;
 	package uword mExpSP = 0;
 	package uword mTryCatchDepth = 0;
-	package uword mFinallyDepth = 0;
 
 	package CompileLoc mLocation;
 	package bool mIsVararg;
@@ -1555,21 +1554,6 @@ final class FuncState
 		return mTryCatchDepth > 0;
 	}
 
-	public void enterFinally()
-	{
-		mFinallyDepth++;
-	}
-
-	public void leaveFinally()
-	{
-		mFinallyDepth--;
-	}
-
-	public bool inFinally()
-	{
-		return mFinallyDepth > 0;
-	}
-
 	public void codeContinue(CompileLoc location)
 	{
 		if(mScope.continueScope is null)
@@ -2866,9 +2850,6 @@ class Codegen : Visitor
 	
 	public override ReturnStmt visit(ReturnStmt s)
 	{
-		if(fs.inFinally())
-			c.exception(s.location, "Return statements are illegal inside finally blocks");
-
 		auto firstReg = fs.nextRegister();
 
 		if(!fs.inTryCatch() && s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
@@ -2943,12 +2924,8 @@ class Codegen : Visitor
 			fs.endFinallyScope();
 
 			fs.pushScope(scop);
-				fs.enterFinally(); // prevent return
-				fs.setNotBreakable(); // prevent break
-				fs.setNotContinuable(); // prevent continue
 				visit(s.finallyBody);
 				fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
-				fs.leaveFinally();
 			fs.popScope(s.finallyBody.endLocation.line);
 		}
 		else
