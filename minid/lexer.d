@@ -920,9 +920,11 @@ struct Lexer
 		nextChar();
 
 		auto arr = buf.toArray();
-		auto s = mCompiler.newString(arr);
-		mCompiler.alloc.freeArray(arr);
-		return s;
+		
+		scope(exit)
+			mCompiler.alloc.freeArray(arr);
+
+		return mCompiler.newString(arr);
 	}
 
 	private dchar readCharLiteral()
@@ -1401,8 +1403,11 @@ struct Lexer
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
 						auto arr = buf.toArray();
+						
+						scope(exit)
+							mCompiler.alloc.freeArray(arr);
+
 						auto s = mCompiler.newString(arr);
-						mCompiler.alloc.freeArray(arr);
 
 						if(s.startsWith("__"))
 							mCompiler.exception(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);

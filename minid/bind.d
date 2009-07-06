@@ -2172,11 +2172,11 @@ private template GetProperties(T...)
 		alias GetProperties!(T[1 .. $]) GetProperties;
 }
 
-private struct StructFieldProp(char[] name, type)
+private struct StructFieldProp(char[] name, type, size_t idx)
 {
 	const bool isProperty = true;
 	const char[] Name = name;
-	const char[] DName = name;
+	const char[] DName = "tupleof[" ~ idx.stringof ~ "]";
 	const bool readOnly = false;
 	alias type propType;
 }
@@ -2186,7 +2186,7 @@ template StructFieldsToProps(T, uint idx = 0)
 	static if(idx >= T.tupleof.length)
 		alias Tuple!() StructFieldsToProps;
 	else
-		alias Tuple!(StructFieldProp!(GetLastName!(T.tupleof[idx].stringof), typeof(T.tupleof[idx])), StructFieldsToProps!(T, idx + 1)) StructFieldsToProps;
+		alias Tuple!(StructFieldProp!(GetLastName!(T.tupleof[idx].stringof), typeof(T.tupleof[idx]), idx), StructFieldsToProps!(T, idx + 1)) StructFieldsToProps;
 }
 
 private bool TypesMatch(T...)(MDThread* t)
