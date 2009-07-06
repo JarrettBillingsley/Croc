@@ -820,16 +820,16 @@ static:
 		{
 			switch(memb.type.code)
 			{
-				case TypeCode.i8:  auto val = checkIntParam(t, idx);  (cast(byte*)memb.data)[lo .. hi] = cast(byte)val;     break;
-				case TypeCode.i16: auto val = checkIntParam(t, idx);  (cast(short*)memb.data)[lo .. hi] = cast(short)val;   break;
-				case TypeCode.i32: auto val = checkIntParam(t, idx);  (cast(int*)memb.data)[lo .. hi] = cast(int)val;       break;
-				case TypeCode.i64: auto val = checkIntParam(t, idx);  (cast(long*)memb.data)[lo .. hi] = cast(long)val;     break;
-				case TypeCode.u8:  auto val = checkIntParam(t, idx);  (cast(ubyte*)memb.data)[lo .. hi] = cast(ubyte)val;   break;
-				case TypeCode.u16: auto val = checkIntParam(t, idx);  (cast(ushort*)memb.data)[lo .. hi] = cast(ushort)val; break;
-				case TypeCode.u32: auto val = checkIntParam(t, idx);  (cast(uint*)memb.data)[lo .. hi] = cast(uint)val;     break;
-				case TypeCode.u64: auto val = checkIntParam(t, idx);  (cast(ulong*)memb.data)[lo .. hi] = cast(ulong)val;   break;
-				case TypeCode.f32: auto val = checkNumParam(t, idx);  (cast(float*)memb.data)[lo .. hi] = cast(float)val;   break;
-				case TypeCode.f64: auto val = checkNumParam(t, idx);  (cast(double*)memb.data)[lo .. hi] = cast(double)val; break;
+				case TypeCode.i8:  auto val = checkIntParam(t, idx); (cast(byte*)memb.data)[lo .. hi] = cast(byte)val;     break;
+				case TypeCode.i16: auto val = checkIntParam(t, idx); (cast(short*)memb.data)[lo .. hi] = cast(short)val;   break;
+				case TypeCode.i32: auto val = checkIntParam(t, idx); (cast(int*)memb.data)[lo .. hi] = cast(int)val;       break;
+				case TypeCode.i64: auto val = checkIntParam(t, idx); (cast(long*)memb.data)[lo .. hi] = cast(long)val;     break;
+				case TypeCode.u8:  auto val = checkIntParam(t, idx); (cast(ubyte*)memb.data)[lo .. hi] = cast(ubyte)val;   break;
+				case TypeCode.u16: auto val = checkIntParam(t, idx); (cast(ushort*)memb.data)[lo .. hi] = cast(ushort)val; break;
+				case TypeCode.u32: auto val = checkIntParam(t, idx); (cast(uint*)memb.data)[lo .. hi] = cast(uint)val;     break;
+				case TypeCode.u64: auto val = checkIntParam(t, idx); (cast(ulong*)memb.data)[lo .. hi] = cast(ulong)val;   break;
+				case TypeCode.f32: auto val = checkNumParam(t, idx); (cast(float*)memb.data)[lo .. hi] = cast(float)val;   break;
+				case TypeCode.f64: auto val = checkNumParam(t, idx); (cast(double*)memb.data)[lo .. hi] = cast(double)val; break;
 				default: assert(false);
 			}
 		}

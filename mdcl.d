@@ -29,18 +29,186 @@ import tango.io.Console;
 import minid.api;
 import minid.commandline;
 
-// import minid.addons.sdl;
-// import minid.addons.gl;
-// import minid.addons.net;
+// version = MDAllAddons;
+
+version(MDAllAddons)
+{
+	version = MDSdlAddon;
+	version = MDGlAddon;
+	version = MDNetAddon;
+	version = MDPcreAddon;
+}
+
+version(MDSdlAddon)  import minid.addons.sdl;
+version(MDGlAddon)   import minid.addons.gl;
+version(MDNetAddon)  import minid.addons.net;
+version(MDPcreAddon) import minid.addons.pcre;
+
+	const char[] Usage =
+"Usage:
+\tmdcl [flags] [filename [args]]
+
+Flags:
+    -v        Print the version of the CLI and exit.
+    -h        Print this message and exit.
+    -I path   Specifies an import path to search when importing modules.
+    -d        Load the debug library.
+
+mdcl can be run in two modes: file mode or interactive mode.
+
+If you pass a filename, mdcl will run in file mode by loading the file and
+running any main() function defined in it.  If the filename has no extension,
+it will be treated as a MiniD import-style module name.  So \"a.b\" will look
+for a module named b in the a directory.  The -I flag also affects the search
+paths used for this.
+
+When passing a filename followed by args, all the args will be passed as
+arguments to its main() function.  The arguments will all be strings.
+
+If you don't pass a filename, it will run in interactive mode.
+
+
+In interactive mode, you will be given a >>> prompt.  When you hit enter,
+you may be given a ... prompt.  That means you need to type more to make
+the code complete.  Once you enter enough code to make it complete, the
+code will be run.  If there is an error, the code buffer is cleared.
+To end interactive mode, use the \"exit()\" function.
+";
+/+ Stupid editor has issues with multiline strings. "+/
+
+void printVersion()
+{
+	Stdout("MiniD Command-Line interpreter 2.0").newline;
+}
+
+void printUsage()
+{
+	printVersion();
+	Stdout(Usage);
+}
+
+struct Params
+{
+	bool justStop;
+	bool debugEnabled;
+	char[] inputFile;
+	char[][] args;
+}
+
+Params parseArguments(MDThread* t, char[][] args)
+{
+	Params ret;
+
+	for(int i = 1; i < args.length; i++)
+	{
+		switch(args[i])
+		{
+			case "-v":
+				printVersion();
+				ret.justStop = true;
+				break;
+
+			case "-h":
+				printUsage();
+				ret.justStop = true;
+				break;
+
+			case "-I":
+				i++;
+
+				if(i >= args.length)
+				{
+					Stdout("-I must be followed by a path").newline;
+					printUsage();
+					ret.justStop = true;
+					break;
+				}
+
+				pushGlobal(t, "modules");
+				field(t, -1, "path");
+				pushChar(t, ';');
+				pushString(t, args[i]);
+				cateq(t, -3, 2);
+				fielda(t, -2, "path");
+				pop(t);
+				continue;
+
+			case "-d":
+				ret.debugEnabled = true;
+				continue;
+
+			default:
+				if(args[i].startsWith("-"))
+				{
+					Stdout.formatln("Unknown flag '{}'", args[i]);
+					printUsage();
+					ret.justStop = true;
+					break;
+				}
+
+				ret.inputFile = args[i];
+				ret.args = args[i + 1 .. $];
+				break;
+		}
+
+		break;
+	}
+
+	return ret;
+}
 
 void main(char[][] args)
 {
 	MDVM vm;
 	auto t = openVM(&vm);
 	loadStdlibs(t, MDStdlib.All);
-// 	SdlLib.init(t);
-// 	GlLib.init(t);
-// 	NetLib.init(t);
 
-	CommandLine().run(t, args);
+	version(MDSdlAddon)  SdlLib.init(t);
+	version(MDGlAddon)   GlLib.init(t);
+	version(MDNetAddon)  NetLib.init(t);
+	version(MDPcreAddon) PcreLib.init(t);
+
+	auto params = parseArguments(t, args);
+	
+	if(params.justStop)
+		return;
+
+	if(params.debugEnabled)
+		loadStdlibs(t, MDStdlib.Debug);
+		
+	try
+	{
+		if(params.inputFile)
+		{
+			mdtry(t,
+			{
+				foreach(arg; params.args)
+					pushString(t, arg);
+	
+				runFile(t, params.inputFile, params.args.length);
+			},
+			(MDException e, word mdEx)
+			{
+				Stdout.formatln("Error: {}", e);
+				getTraceback(t);
+				Stdout.formatln("{}", getString(t, -1));
+				pop(t);
+			});
+		}
+		else
+		{
+			printVersion();
+	
+			ConsoleCLI cli;
+			cli.interactive(t);
+		}
+	}
+	catch(Exception e)
+	{
+		Stdout.formatln("Oh noes!");
+		e.writeOut((char[]s) { Stdout(s); });
+		return;
+	}
+	
+	closeVM(&vm);
 }

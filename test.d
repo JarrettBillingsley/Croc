@@ -1,5 +1,6 @@
 module test;
 
+// import tango.core.stacktrace.TraceExceptions;
 import tango.io.Stdout;
 
 import minid.api;
@@ -9,6 +10,7 @@ import minid.vector;
 // import minid.addons.pcre;
 // import minid.addons.sdl;
 // import minid.addons.gl;
+// import minid.addons.net;
 
 void main()
 {
@@ -23,6 +25,7 @@ void main()
 // 		PcreLib.init(t);
 // 		SdlLib.init(t);
 // 		GlLib.init(t);
+// 		NetLib.init(t);
 
 		importModule(t, "samples.simple");
 		pushNull(t);
@@ -41,17 +44,17 @@ void main()
 		pop(t, 2);
 
 		if(e.info)
-			Stdout.formatln("D Traceback:\n{}", e.info);
+		{
+			Stdout("D Traceback:");
+			e.writeOut((char[]s) { Stdout(s); });
+		}
 	}
 	catch(MDHaltException e)
 		Stdout.formatln("Thread halted");
 	catch(Exception e)
 	{
-		Stdout.formatln("Bad error ({}, {}): {}", e.file, e.line, e);
-
-		if(e.info)
-			Stdout.formatln("D Traceback:\n{}", e.info);
-
+		Stdout("Bad error:").newline;
+		e.writeOut((char[]s) { Stdout(s); });
 		return;
 	}
 

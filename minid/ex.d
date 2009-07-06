@@ -27,13 +27,17 @@ subject to the following restrictions:
 module minid.ex;
 
 import tango.core.Tuple;
+import tango.io.device.File;
+import tango.io.protocol.Reader;
 import tango.stdc.ctype;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
 import minid.compiler;
 import minid.interpreter;
+import minid.serialization;
 import minid.types;
+import minid.utils;
 
 // ================================================================================================================================================
 // Public
@@ -827,6 +831,67 @@ public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv 
 
 	pushNull(t);
 	return rawCall(t, -2, numReturns);
+}
+
+/**
+Imports a module or file and runs any main() function in it.
+
+Params:
+	filename = The name of the file or module to load.  If it's a path to a file, it must end in .md or .mdm.
+		It will be compiled or deserialized as necessary. If it's a module name, it must be in dotted form and
+		not end in md or mdm.  It will be imported as normal.
+		
+	numParams = How many arguments you have to pass to the main() function.  If you want to pass params, they
+		must be on top of the stack when you call this function.
+		
+Example:
+-----
+// We want to load "foo.bar.baz" and pass it "a" and "b" as params.
+// Push the params first.
+pushString(t, "a");
+pushString(t, "b");
+// Run the file and tell it we have two params.
+runFile(t, "foo.bar.baz", 2);
+-----
+
+-----
+// Just showing how you'd execute a module by filename instead of module name.
+runFile(t, "foo/bar/baz.md");
+-----
+*/
+public void runFile(MDThread* t, char[] filename, uword numParams = 0)
+{
+// 	checkNumParams(t, numParams);
+
+	if(!filename.endsWith(".md") && !filename.endsWith(".mdm"))
+		importModule(t, filename);
+	else
+	{
+		if(filename.endsWith(".md"))
+		{
+			scope c = new Compiler(t);
+			c.compileModule(filename);
+		}
+		else
+		{
+			scope f = new File(filename, File.ReadExisting);
+			scope r = new Reader(f);
+			deserializeModule(t, r);
+		}
+	
+		lookup(t, "modules.initModule");
+		swap(t);
+		pushNull(t);
+		swap(t);
+		pushString(t, funcName(t, -1));
+		rawCall(t, -4, 1);
+	}
+
+	pushNull(t);
+	lookup(t, "modules.runMain");
+	swap(t, -3);
+	rotate(t, numParams + 3, 3);
+	rawCall(t, -3 - numParams, 0);
 }
 
 /**
