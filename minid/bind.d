@@ -715,11 +715,7 @@ public word superPush(Type)(MDThread* t, Type val)
 	else static if(is(T == MDThread*))
 		return pushThread(t, cast(T)val);
 	else
-	{
-		// I do this because static assert won't show the template instantiation "call stack."
-		pragma(msg, "superPush - Invalid argument type '" ~ T.stringof ~ "'");
-		ARGUMENT_ERROR(T);
-	}
+		static assert(false, "superPush - Invalid argument type '" ~ T.stringof ~ "'");
 }
 
 /**
@@ -932,11 +928,7 @@ public Type superGet(Type)(MDThread* t, word idx)
 				return cast(Type)Utf.toString32(getString(t, idx));
 		}
 		else
-		{
-			// I do this because static assert won't show the template instantiation "call stack."
-			pragma(msg, "superGet - Invalid argument type '" ~ Type.stringof ~ "'");
-			ARGUMENT_ERROR(Type);
-		}
+			static assert(false, "superGet - Invalid argument type '" ~ Type.stringof ~ "'");
 	}
 }
 
@@ -2181,12 +2173,19 @@ private struct StructFieldProp(char[] name, type, size_t idx)
 	alias type propType;
 }
 
+template IsAccessibleProp(T, uint idx)
+{
+	const IsAccessibleProp = is(typeof({ MDThread* t; typeof(T.tupleof[idx]) x; superPush(t, x); }));
+}
+
 template StructFieldsToProps(T, uint idx = 0)
 {
 	static if(idx >= T.tupleof.length)
 		alias Tuple!() StructFieldsToProps;
-	else
+	else static if(IsAccessibleProp!(T, idx))
 		alias Tuple!(StructFieldProp!(GetLastName!(T.tupleof[idx].stringof), typeof(T.tupleof[idx]), idx), StructFieldsToProps!(T, idx + 1)) StructFieldsToProps;
+	else
+		alias StructFieldsToProps!(T, idx + 1) StructFieldsToProps;
 }
 
 private bool TypesMatch(T...)(MDThread* t)
