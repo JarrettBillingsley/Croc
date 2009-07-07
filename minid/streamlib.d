@@ -769,7 +769,7 @@ static:
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
-		toJSONImpl(t, 1, pretty, memb.print);
+		JSON.save(t, 1, pretty, memb.print);
 		dup(t, 0);
 		return 1;
 	}
@@ -1457,7 +1457,7 @@ static:
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
-		toJSONImpl(t, 1, pretty, memb.print);
+		JSON.save(t, 1, pretty, memb.print);
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;

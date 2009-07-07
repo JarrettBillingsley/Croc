@@ -302,7 +302,6 @@ struct Lexer
 	private ICompiler mCompiler;
 	private CompileLoc mLoc;
 	private char[] mSource;
-	private bool mIsJSON;
 
 	private uword mPosition;
 	private dchar mCharacter;
@@ -325,11 +324,10 @@ struct Lexer
 // Public
 // ================================================================================================================================================
 
-	public void begin(char[] name, char[] source, bool isJSON = false)
+	public void begin(char[] name, char[] source)
 	{
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
-		mIsJSON = isJSON;
 		mPosition = 0;
 
 		mHaveLookahead = false;
@@ -787,15 +785,6 @@ struct Lexer
 			case '\\': nextChar(); return '\\';
 			case '\"': nextChar(); return '\"';
 			case '\'': nextChar(); return '\'';
-
-			case '/':
-				if(mIsJSON)
-				{
-					nextChar();
-					return '/';
-				}
-
-				goto default;
 
 			case 'x':
 				nextChar();

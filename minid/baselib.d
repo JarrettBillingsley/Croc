@@ -954,9 +954,7 @@ static:
 
 	uword loadJSON(MDThread* t, uword numParams)
 	{
-		auto code = checkStringParam(t, 1);
-		scope c = new Compiler(t);
-		c.loadJSON(code);
+		JSON.load(t, checkStringParam(t, 1));
 		return 1;
 	}
 
@@ -1006,7 +1004,7 @@ static:
 		scope buf = new Array(256, 256);
 		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
 
-		toJSONImpl(t, 1, pretty, printer);
+		JSON.save(t, 1, pretty, printer);
 
 		pushString(t, safeCode(t, cast(char[])buf.slice()));
 		return 1;

@@ -322,19 +322,6 @@ catch(MDException e)
 		});
 	}
 
-	/**
-	Parses a JSON string into a MiniD value, pushes that value onto the stack, and returns the
-	index of the newly-pushed value.
-	*/
-	public word loadJSON(char[] source)
-	{
-		return commonCompile(
-		{
-			mLexer.begin("JSON", source, true);
-			mParser.parseJSON();
-		});
-	}
-
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
