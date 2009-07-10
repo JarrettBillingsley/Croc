@@ -579,7 +579,7 @@ final class FuncState
 		debug(REGPUSHPOP) Stdout.formatln("pop {}, {}", mFreeReg, r);
 
 		assert(mFreeReg >= 0, "temp reg underflow");
-		assert(mFreeReg == r, "reg not freed in order");
+		assert(mFreeReg == r, (pushFormat(c.thread, "reg not freed in order (popping {}, free reg is {})", r, mFreeReg), getString(t, -1)));
 	}
 
 	package uint resolveAssignmentConflicts(uint line, uint numVals)
@@ -1795,7 +1795,7 @@ final class FuncState
 	}
 }
 
-class Codegen : Visitor
+scope class Codegen : Visitor
 {
 	private FuncState fs;
 
@@ -3032,8 +3032,7 @@ class Codegen : Visitor
 	public override CondAssignStmt visit(CondAssignStmt s)
 	{
 		visit(s.lhs);
-		fs.dup();
-// 		fs.pushSource(s.lhs.endLocation.line);
+		fs.pushSource(s.lhs.endLocation.line);
 		Exp src1;
 		fs.popSource(s.lhs.endLocation.line, src1);
 
@@ -3051,7 +3050,7 @@ class Codegen : Visitor
 			fs.popReflexOp(s.endLocation.line, Op.MoveLocal, src1.index, src2.index);
 		else
 			fs.popReflexOp(s.endLocation.line, Op.Move, src1.index, src2.index);
-		
+
 		fs.patchJumpToHere(i);
 
 		return s;

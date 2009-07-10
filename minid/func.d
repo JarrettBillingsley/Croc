@@ -58,13 +58,13 @@ static:
 		f.environment = env;
 		f.name = name;
 		f.numUpvals = numUpvals;
-	
+
 		f.nativeFunc = func;
 		f.nativeUpvals()[] = MDValue.nullValue;
-	
+
 		return f;
 	}
-	
+
 	// Free a function.
 	package void free(ref Allocator alloc, MDFunction* f)
 	{
@@ -73,12 +73,12 @@ static:
 		else
 			alloc.free(f, ScriptClosureSize(f.numUpvals));
 	}
-	
+
 	package bool isNative(MDFunction* f)
 	{
 		return f.isNative;
 	}
-	
+
 	package word numParams(MDFunction* f)
 	{
 		if(f.isNative)
@@ -86,7 +86,7 @@ static:
 		else
 			return f.scriptFunc.numParams;
 	}
-	
+
 	package bool isVararg(MDFunction* f)
 	{
 		if(f.isNative)
@@ -95,16 +95,12 @@ static:
 			return f.scriptFunc.isVararg;
 	}
 
-	// ================================================================================================================================================
-	// Private
-	// ================================================================================================================================================
-	
-	private uword ScriptClosureSize(uword numUpvals)
+	package uword ScriptClosureSize(uword numUpvals)
 	{
 		return MDFunction.sizeof + ((MDUpval*).sizeof * numUpvals);
 	}
-	
-	private uword NativeClosureSize(uword numUpvals)
+
+	package uword NativeClosureSize(uword numUpvals)
 	{
 		return MDFunction.sizeof + (MDValue.sizeof * numUpvals);
 	}

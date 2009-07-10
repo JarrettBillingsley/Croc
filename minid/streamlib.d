@@ -38,6 +38,7 @@ import minid.types;
 import minid.vector;
 
 // TODO: abstract out common functionality between the three types of streams
+// TODO: stream objects that wrap Vectors
 
 struct StreamLib
 {

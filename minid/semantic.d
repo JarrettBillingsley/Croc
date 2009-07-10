@@ -37,7 +37,7 @@ import minid.interpreter;
 import minid.types;
 import minid.utils;
 
-class Semantic : IdentityVisitor
+scope class Semantic : IdentityVisitor
 {
 	private word[] mFinallyDepths;
 	private uword mDummyNameCounter = 0;

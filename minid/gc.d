@@ -66,9 +66,7 @@ void mark(MDVM* vm)
 	markObj(vm, vm.registry);
 
 	if(vm.isThrowing)
-	{
 		mixin(CondMark!("vm.exception"));
-	}
 }
 
 // Perform the sweep phase of garbage collection.
@@ -183,6 +181,7 @@ void markObj(MDVM* vm, GCObject* o)
 
 		case MDValue.Type.Upvalue:   markObj(vm, cast(MDUpval*)o); return;
 		case MDValue.Type.FuncDef:   markObj(vm, cast(MDFuncDef*)o); return;
+		case MDValue.Type.ArrayData: markObj(vm, cast(MDArrayData*)o); return;
 		default: assert(false);
 	}
 }
@@ -223,9 +222,7 @@ void markObj(MDVM* vm, MDArray* o)
 	o.data.flags = (o.data.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
 	foreach(ref val; o.slice)
-	{
 		mixin(CondMark!("val"));
-	}
 }
 
 // Mark a function.
@@ -240,9 +237,7 @@ void markObj(MDVM* vm, MDFunction* o)
 	if(o.isNative)
 	{
 		foreach(ref uv; o.nativeUpvals())
-		{
 			mixin(CondMark!("uv"));
-		}
 	}
 	else
 	{
@@ -275,9 +270,7 @@ void markObj(MDVM* vm, MDInstance* o)
 	if(o.finalizer) markObj(vm, o.finalizer);
 
 	foreach(ref val; o.extraValues())
-	{
 		mixin(CondMark!("val"));
-	}
 }
 
 // Mark a namespace.
@@ -310,17 +303,13 @@ void markObj(MDVM* vm, MDThread* o)
 	}
 
 	foreach(ref val; o.stack[0 .. o.stackIndex])
-	{
 		mixin(CondMark!("val"));
-	}
 
 	// I guess this can't _hurt_..
 	o.stack[o.stackIndex .. $] = MDValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])
-	{
 		mixin(CondMark!("val"));
-	}
 
 	for(auto uv = o.upvalHead; uv !is null; uv = uv.nextuv)
 		markObj(vm, uv);
@@ -407,4 +396,10 @@ void markObj(MDVM* vm, MDFuncDef* o)
 
 	if(o.cachedFunc && ((o.cachedFunc.flags & GCBits.Marked) ^ vm.alloc.markVal))
 		markObj(vm, o.cachedFunc);
+}
+
+// Mark an array data.
+void markObj(MDVM* vm, MDArrayData* o)
+{
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }
