@@ -91,11 +91,7 @@ static:
 		{
 			ulong time;
 			QueryPerformanceCounter(&time);
-		
-			if(time < 0x8637BD05AF6L)
-				pushInt(t, cast(mdint)((time * 1_000_000) / performanceFreq));
-			else
-				pushInt(t, cast(mdint)((time / performanceFreq) * 1_000_000));
+			pushInt(t, cast(mdint)((time * 1_000_000) / performanceFreq));
 		}
 		else
 		{

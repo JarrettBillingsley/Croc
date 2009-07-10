@@ -4,40 +4,40 @@ module speed;
 Taken from the Io speed test.
 On my desktop.
 
-Python reflIntMath       := 11.85
-Python reflFloatMath     := 8.65
+Python reflIntMath       := 13.93
+Python reflFloatMath     := 9.69
 
-Python intMath           := 12.79
-Python floatMath         := 9.14
+Python intMath           := 14.58
+Python floatMath         := 11.42
 
 Python localAccesses     := 26.74
-Python localSets         := 24.51
+Python localSets         := 29.07
 
-Python slotAccesses      := 7.28
-Python slotSets          := 8.21
+Python slotAccesses      := 11.85
+Python slotSets          := 10.68
 
-Python blockActivations  := 2.76
-Python instantiations    := 2.46
-Python version           := "2.5.0 final 0"
+Python blockActivations  := 3.55
+Python instantiations    := 3.68
+Python version           := "2.6.2 final 0"
 
 // values in millions per second
 
-MiniD reflIntMath        := 22.890733
-MiniD reflFloatMath      := 22.586314
+MiniD reflIntMath        := 29.55
+MiniD reflFloatMath      := 27.54
 
-MiniD intMath            := 17.48588
-MiniD floatMath          := 18.944848
+MiniD intMath            := 21.40
+MiniD floatMath          := 23.69
 
-MiniD localAccesses      := 38.003451
-MiniD localSets          := 40.715949
+MiniD localAccesses      := 34.16
+MiniD localSets          := 35.48
 
-MiniD slotAccesses       := 10.479171
-MiniD slotSets           := 8.803344
+MiniD slotAccesses       := 12.78
+MiniD slotSets           := 12.34
 
-MiniD blockActivations   := 3.809599
-MiniD instantiations     := 1.265678
+MiniD blockActivations   := 3.33
+MiniD instantiations     := 1.61
 
-MiniD version            := "2.0 beta"
+MiniD version            := "2.0"
 
 // values in millions per second
 */
@@ -58,7 +58,7 @@ local class Tester
 	{
 		t1 = time.microTime() - t1
 		local mps = toFloat(oneMillion) / t1
-		writefln("MiniD {} := {:f5}", s, mps)
+		writefln("MiniD {} := {:f2}", s, mps)
 	}
 
 	function testIntMath()
@@ -224,7 +224,7 @@ local class Tester
 		:testInstantiations()
 
 		writeln()
-		writeln("MiniD version\t\t := \"2.0 beta\"")
+		writeln("MiniD version\t\t := \"2.0\"")
 		writeln()
 		writeln("// values in millions per second")
 	}
