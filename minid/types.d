@@ -547,7 +547,7 @@ struct MDThread
 		Suspended,
 		Dead
 	}
-	
+
 	public enum Hook : ubyte
 	{
 		Call = 1,
@@ -610,8 +610,9 @@ struct MDThread
 	else
 	{
 		package uword savedCallDepth;
-		package uword nativeCallDepth = 0;
 	}
+
+	package uword nativeCallDepth = 0;
 }
 
 struct MDNativeObj

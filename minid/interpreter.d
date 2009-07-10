@@ -1610,12 +1610,6 @@ struct foreachLoop
 				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
 			}
 
-			version(MDExtendedCoro) {} else
-			{
-				t.nativeCallDepth++;
-				scope(exit) t.nativeCallDepth--;
-			}
-
 			pushFunction(t, method);
 			insert(t, -4);
 			pop(t);
@@ -4689,11 +4683,8 @@ MDNamespace* getEnv(MDThread* t, uword depth = 0)
 
 uword commonCall(MDThread* t, AbsStack slot, word numReturns, bool isScript)
 {
-	version(MDExtendedCoro) {} else
-	{
-		t.nativeCallDepth++;
-		scope(exit) t.nativeCallDepth--;
-	}
+	t.nativeCallDepth++;
+	scope(exit) t.nativeCallDepth--;
 
 	if(isScript)
 		execute(t);
@@ -4964,12 +4955,6 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 
 			if(cls.allocator)
 			{
-				version(MDExtendedCoro) {} else
-				{
-					t.nativeCallDepth++;
-					scope(exit) t.nativeCallDepth--;
-				}
-
 				t.stack[slot] = cls.allocator;
 				t.stack[slot + 1] = cls;
 				rawCall(t, slot - t.stackBase, 1);
@@ -4995,12 +4980,8 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 						throwException(t, "class constructor expected to be a 'function', not '{}'", getString(t, -1));
 					}
 
-					version(MDExtendedCoro) {} else
-					{
-						t.nativeCallDepth++;
-						scope(exit) t.nativeCallDepth--;
-					}
-
+					t.nativeCallDepth++;
+					scope(exit) t.nativeCallDepth--;
 					t.stack[slot] = ctor.mFunction;
 					t.stack[slot + 1] = inst;
 
@@ -5236,11 +5217,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			if(t.hooks & MDThread.Hook.Call)
 				callHook(t, MDThread.Hook.Call);
 
-			version(MDExtendedCoro) {} else
-			{
-				t.nativeCallDepth++;
-				scope(exit) t.nativeCallDepth--;
-			}
+			t.nativeCallDepth++;
+			scope(exit) t.nativeCallDepth--;
 
 			auto savedState = t.state;
 			t.state = MDThread.State.Running;
@@ -6756,11 +6734,8 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 			t.stack[firstSlot] = *dest;
 
-			version(MDExtendedCoro) {} else
-			{
-				t.nativeCallDepth++;
-				scope(exit) t.nativeCallDepth--;
-			}
+			t.nativeCallDepth++;
+			scope(exit) t.nativeCallDepth--;
 
 			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1, proto))
 				execute(t);
@@ -6836,12 +6811,6 @@ void throwImpl(MDThread* t, MDValue* ex)
 
 void importImpl(MDThread* t, MDString* name, AbsStack dest)
 {
-	version(MDExtendedCoro) {} else
-	{
-		t.nativeCallDepth++;
-		scope(exit) t.nativeCallDepth--;	
-	}
-
 	pushGlobal(t, "modules");
 	field(t, -1, "load");
 	insertAndPop(t, -2);
@@ -7050,11 +7019,13 @@ version(MDExtendedCoro)
 	class ThreadFiber : Fiber
 	{
 		MDThread* t;
+		uword numParams;
 
-		this(MDThread* t)
+		this(MDThread* t, uword numParams)
 		{
 			super(&run, 16384); // TODO: provide the stack size as a user-settable value
 			this.t = t;
+			this.numParams = numParams;
 		}
 
 		void run()
@@ -7063,7 +7034,9 @@ version(MDExtendedCoro)
 
 			pushFunction(t, t.coroFunc);
 			insert(t, 1);
-			rawCall(t, 1, -1);
+
+			if(callPrologue(t, cast(AbsStack)1, -1, numParams, null))
+				execute(t);
 		}
 	}
 }
@@ -7109,9 +7082,13 @@ uword resume(MDThread* t, uword numParams)
 			if(t.state == MDThread.State.Initial)
 			{
 				if(t.coroFiber is null)
-					t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t));
+					t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t, numParams));
 				else
-					(cast(ThreadFiber)cast(void*)t.coroFiber.obj).t = t;
+				{
+					auto f = cast(ThreadFiber)cast(void*)t.coroFiber.obj;
+					f.t = t;
+					f.numParams = numParams;
+				}
 			}
 
 			t.getFiber().call();
@@ -7139,9 +7116,7 @@ uword resume(MDThread* t, uword numParams)
 		assert(t.upvalHead is null);
 		assert(t.resultIndex == 0);
 		assert(t.trIndex == 0);
-
-		version(MDExtendedCoro) {} else
-			assert(t.nativeCallDepth == 0);
+		assert(t.nativeCallDepth == 0);
 	}
 
 	return t.numYields;
