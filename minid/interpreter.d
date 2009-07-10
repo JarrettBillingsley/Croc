@@ -1698,10 +1698,6 @@ This function obviously does not return.
 */
 void throwException(MDThread* t)
 {
-	if(t.vm.isThrowing)
-		// no, don'_t use throwException.  We want this to be a non-MiniD exception.
-		throw new Exception("throwException - Attempting to throw an exception while one is already in flight");
-
 	mixin(checkNumParams!("1"));
 	throwImpl(t, &t.stack[t.stackIndex - 1]);
 }
@@ -5276,7 +5272,7 @@ void callEpilogue(MDThread* t, bool needResults)
 		isMultRet = true;
 		numExpRets = results.length;
 	}
-	
+
 	popAR(t);
 
 	if(needResults)
@@ -7290,15 +7286,12 @@ void pushDebugLocStr(MDThread* t, ref Location loc)
 
 void callHook(MDThread* t, MDThread.Hook hook)
 {
-	if(!t.hooksEnabled)
-		return;
-
-	if(!t.hookFunc)
+	if(!t.hooksEnabled || !t.hookFunc)
 		return;
 
 	auto savedTop = t.stackIndex;
 	t.hooksEnabled = false;
-	
+
 	pushFunction(t, t.hookFunc);
 	pushThread(t, t);
 
@@ -7323,6 +7316,9 @@ void callHook(MDThread* t, MDThread.Hook hook)
 
 void callReturnHooks(MDThread* t)
 {
+	if(!t.hooksEnabled)
+		return;
+
 	callHook(t, MDThread.Hook.Ret);
 
 	if(!t.currentAR.func.isNative)
@@ -8406,7 +8402,7 @@ void execute(MDThread* t, uword depth = 1)
 
 		while(depth > 0)
 		{
-			while(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)
+			if(t.trIndex > 0 && t.currentTR.actRecord is t.arIndex)
 			{
 				auto tr = *t.currentTR;
 				popTR(t);
