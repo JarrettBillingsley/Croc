@@ -251,6 +251,8 @@ private:
 
 	void serializeTable(MDTable* v)
 	{
+		// TODO: check for opSerialize method
+
 		if(alreadyWritten(cast(MDBaseObject*)v))
 			return;
 
@@ -403,8 +405,65 @@ private:
 		}
 	}
 
-	void serializeClass(MDClass* v) { assert(false); }
-	void serializeInstance(MDInstance* v) { assert(false); }
+	void serializeClass(MDClass* v)
+	{
+		if(v.allocator || v.finalizer)
+		{
+			push(t, MDValue(v));
+			pushToString(t, -1);
+			throwException(t, "Attempting to serialize '{}', which has an allocator or finalizer", getString(t, -1));
+		}
+
+		if(alreadyWritten(cast(MDBaseObject*)v))
+			return;
+
+		tag(MDValue.Type.Class);
+		serialize(MDValue(v.name));
+
+		if(v.parent)
+		{
+			mOutput.put(true);
+			serialize(MDValue(v.parent));
+		}
+		else
+			mOutput.put(false);
+
+		assert(v.fields !is null);
+		serialize(MDValue(v.fields));
+	}
+
+	void serializeInstance(MDInstance* v)
+	{
+		// TODO: check for opSerialize method
+
+		if(v.finalizer || v.numValues || v.extraBytes)
+		{
+			push(t, MDValue(v));
+			pushToString(t, -1, true);
+			throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
+		}
+
+		if(v.parent.allocator || v.parent.finalizer)
+		{
+			push(t, MDValue(v));
+			pushToString(t, -1, true);
+			throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
+		}
+
+		if(alreadyWritten(cast(MDBaseObject*)v))
+			return;
+
+		tag(MDValue.Type.Instance);
+		serialize(MDValue(v.parent));
+
+		if(v.fields)
+		{
+			mOutput.put(true);
+			serialize(MDValue(v.fields));
+		}
+		else
+			mOutput.put(false);
+	}
 
 	void serializeNamespace(MDNamespace* v)
 	{
@@ -1088,7 +1147,7 @@ private:
 			integer(desc.pcEnd);
 			integer(desc.reg);
 		}
-		
+
 		push(t, MDValue(cast(MDBaseObject*)def));
 	}
 
@@ -1098,15 +1157,63 @@ private:
 			deserializeClassImpl();
 	}
 
-	void deserializeClassImpl() { assert(false); }
-	
+	void deserializeClassImpl()
+	{
+    	auto cls = t.vm.alloc.allocate!(MDClass)();
+    	addObject(cast(MDBaseObject*)cls);
+
+    	deserializeString();
+		cls.name = getStringObj(t, -1);
+		pop(t);
+
+		bool haveParent;
+		mInput.get(haveParent);
+
+		if(haveParent)
+		{
+			deserializeClass();
+			cls.parent = getClass(t, -1);
+			pop(t);
+		}
+		else
+			cls.parent = null;
+
+		deserializeNamespace();
+		cls.fields = getNamespace(t, -1);
+		pop(t);
+
+		assert(!cls.parent || cls.fields.parent);
+
+		pushClass(t, cls);
+	}
+
 	void deserializeInstance()
 	{
 		if(checkObjTag(MDValue.Type.Instance))
 			deserializeInstanceImpl();
 	}
 
-	void deserializeInstanceImpl() { assert(false); }
+	void deserializeInstanceImpl()
+	{
+		auto inst = t.vm.alloc.allocate!(MDInstance)();
+		addObject(cast(MDBaseObject*)inst);
+
+		deserializeClass();
+		inst.parent = getClass(t, -1);
+		pop(t);
+
+		bool haveFields;
+		mInput.get(haveFields);
+
+		if(haveFields)
+		{
+			deserializeNamespace();
+			inst.fields = getNamespace(t, -1);
+			pop(t);
+		}
+
+		pushInstance(t, inst);
+	}
 
 	void deserializeNamespace()
 	{
@@ -1178,7 +1285,7 @@ private:
 		}
 
 		integer(ret.arIndex);
-		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex == 0 ? 10 : ret.arIndex);
+		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex < 10 ? 10 : ret.arIndex);
 
 		if(ret.arIndex > 0)
 			ret.currentAR = &ret.actRecs[ret.arIndex - 1];
@@ -1244,7 +1351,7 @@ private:
 		}
 
 		integer(ret.trIndex);
-		t.vm.alloc.resizeArray(ret.tryRecs, ret.trIndex == 0 ? 10 : ret.trIndex);
+		t.vm.alloc.resizeArray(ret.tryRecs, ret.trIndex < 10 ? 10 : ret.trIndex);
 
 		if(ret.trIndex > 0)
 			ret.currentTR = &ret.tryRecs[ret.trIndex - 1];
@@ -1266,7 +1373,7 @@ private:
 
 		uword stackTop;
 		integer(stackTop);
-		t.vm.alloc.resizeArray(ret.stack, stackTop == 0 ? 20 : stackTop);
+		t.vm.alloc.resizeArray(ret.stack, stackTop < 20 ? 20 : stackTop);
 
 		foreach(ref val; ret.stack[0 .. stackTop])
 		{
@@ -1277,7 +1384,7 @@ private:
 
 		integer(ret.stackBase);
 		integer(ret.resultIndex);
-		t.vm.alloc.resizeArray(ret.results, ret.resultIndex == 0 ? 8 : ret.resultIndex);
+		t.vm.alloc.resizeArray(ret.results, ret.resultIndex < 8 ? 8 : ret.resultIndex);
 
 		foreach(ref val; ret.results[0 .. ret.resultIndex])
 		{

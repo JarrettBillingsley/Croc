@@ -31,7 +31,7 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		version(none)
+		version(all)
 		{
 			// Serialize!
 			auto intrans = newTable(t);
@@ -44,34 +44,31 @@ void main()
 
 			loadString(t,
 			`
-			local co = coroutine function()
+			class Base
 			{
-				local x = 5
-				function foo()
+				this(x)
 				{
-					x++
-					writeln(x)
+					:x = x
 				}
-			
-				function bar()
-				{
-					x--
-					writeln(x)
-				}
-			
-				foo()
-				bar()
-			
-				yield()
-
-				foo()
-				bar()
-
-				return foo, bar
+				
+				function toString() = format("Base {}", :x)
 			}
 
-			co()
-			return co
+			class Derived : Base
+			{
+				this(x, y)
+				{
+					super(x)
+					:y = y
+				}
+				
+				function toString() = format("Derived {} {}", :x, :y)
+			}
+
+			local b = Base(3)
+			local d = Derived(4, 5)
+
+			return [b, d]
 			`);
 
 			pushNull(t);
@@ -92,14 +89,10 @@ void main()
 
 			loadString(t,
 			`
-			local co = vararg[0]
+			local arr = vararg[0]
 
-			writeln$ co.state()
-			local f, b = co()
-			f()
-			f()
-			b()
-			b()
+			writeln$ arr[0]
+			writeln$ arr[1]
 			`);
 			pushNull(t);
 			rotate(t, 3, 2);
