@@ -447,7 +447,6 @@ private:
 		version(MDExtendedCoro)
 		{
 			mOutput.put(true);
-			assert(false); // not sure how to handle DE-serialization of native coros yet..
 		}
 		else
 		{
@@ -1162,8 +1161,13 @@ private:
 
 		version(MDExtendedCoro)
 		{
-			// technically, this could handle both extended and nonextended coros..
-			assert(false); // not sure how to handle DE-serialization of native coros yet..
+			if(!isExtended)
+				throwException(t, "Attempting to deserialize a non-extended coroutine, but extended coroutine support was compiled in");
+
+			// not sure how to handle deserialization of extended coros yet..
+			// the issue is that we have to somehow create a ThreadFiber object and have it resume from where
+			// it yielded...?  is that even possible?
+			throwException(t, "AGH I don't know how to deserialize extended coros");
 		}
 		else
 		{
