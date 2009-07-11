@@ -102,6 +102,13 @@ static:
 			}
 		}
 
+		for(auto uv = t.upvalHead; uv !is null; uv = t.upvalHead)
+		{
+			t.upvalHead = uv.nextuv;
+			uv.closedValue = *uv.value;
+			uv.value = &uv.closedValue;
+		}
+
 		auto alloc = &t.vm.alloc;
 
 		alloc.freeArray(t.results);

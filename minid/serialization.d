@@ -433,7 +433,121 @@ private:
 		}
 	}
 
-	void serializeThread(MDThread* v) { assert(false); }
+	void serializeThread(MDThread* v)
+	{
+    	if(alreadyWritten(cast(MDBaseObject*)v))
+    		return;
+
+    	if(t is v)
+    		throwException(t, "Attempting to serialize the currently-executing thread");
+
+    	if(v.nativeCallDepth > 0)
+    		throwException(t, "Attempting to serialize a thread with at least one native or metamethod call on its call stack");
+
+		tag(MDValue.Type.Thread);
+
+		version(MDExtendedCoro)
+		{
+			mOutput.put(true);
+			assert(false); // not sure how to handle DE-serialization of native coros yet..
+		}
+		else
+		{
+			mOutput.put(false);
+			integer(v.savedCallDepth);
+		}
+
+		integer(v.arIndex);
+
+		foreach(ref rec; v.actRecs[0 .. v.arIndex])
+		{
+			integer(rec.base);
+			integer(rec.savedTop);
+			integer(rec.vargBase);
+			integer(rec.returnSlot);
+
+			if(rec.func is null)
+				mOutput.put(false);
+			else
+			{
+				mOutput.put(true);
+				serialize(MDValue(rec.func));
+				uword diff = rec.pc - rec.func.scriptFunc.code.ptr;
+				integer(diff);
+			}
+
+			integer(rec.numReturns);
+
+			if(rec.proto)
+			{
+				mOutput.put(true);
+				serialize(MDValue(rec.proto));
+			}
+			else
+				mOutput.put(false);
+
+			integer(rec.numTailcalls);
+			integer(rec.firstResult);
+			integer(rec.numResults);
+			integer(rec.unwindCounter);
+
+			if(rec.unwindReturn)
+			{
+				mOutput.put(true);
+				uword diff = rec.unwindReturn - rec.func.scriptFunc.code.ptr;
+				integer(diff);
+			}
+			else
+				mOutput.put(false);
+		}
+
+		integer(v.trIndex);
+
+		foreach(ref rec; v.tryRecs[0 .. v.trIndex])
+		{
+			mOutput.put(rec.isCatch);
+			integer(rec.slot);
+			integer(rec.actRecord);
+
+			uword diff = rec.pc - v.actRecs[rec.actRecord].func.scriptFunc.code.ptr;
+			integer(diff);
+		}
+
+		integer(v.stackIndex);
+		uword stackTop;
+
+		if(v.arIndex > 0)
+			stackTop = v.currentAR.savedTop;
+		else
+			stackTop = v.stackIndex;
+
+		integer(stackTop);
+
+		foreach(ref val; v.stack[0 .. stackTop])
+			serialize(val);
+
+		integer(v.stackBase);
+		integer(v.resultIndex);
+
+		foreach(ref val; v.results[0 .. v.resultIndex])
+			serialize(val);
+
+		mOutput.put(v.shouldHalt);
+
+		if(v.coroFunc)
+		{
+			mOutput.put(true);
+			serialize(MDValue(v.coroFunc));
+		}
+		else
+			mOutput.put(false);
+
+		integer(v.state);
+		integer(v.numYields);
+
+		// TODO: hooks?!
+		// TODO: upvals
+	}
 
 	void serializeWeakRef(MDWeakRef* v)
 	{
@@ -1029,7 +1143,159 @@ private:
 			deserializeThreadImpl();
 	}
 
-	void deserializeThreadImpl() { assert(false); }
+	void deserializeThreadImpl()
+	{
+		auto ret = t.vm.alloc.allocate!(MDThread);
+		addObject(cast(MDBaseObject*)ret);
+		ret.vm = t.vm;
+
+		bool isExtended;
+		mInput.get(isExtended);
+
+		version(MDExtendedCoro)
+		{
+			// technically, this could handle both extended and nonextended coros..
+			assert(false); // not sure how to handle DE-serialization of native coros yet..
+		}
+		else
+		{
+			if(isExtended)
+				throwException(t, "Attempting to deserialize an extended coroutine, but extended coroutine support was not compiled in");
+
+			integer(ret.savedCallDepth);
+		}
+
+		integer(ret.arIndex);
+		t.vm.alloc.resizeArray(ret.actRecs, ret.arIndex == 0 ? 10 : ret.arIndex);
+
+		if(ret.arIndex > 0)
+			ret.currentAR = &ret.actRecs[ret.arIndex - 1];
+		else
+			ret.currentAR = null;
+
+		foreach(ref rec; ret.actRecs[0 .. ret.arIndex])
+		{
+			integer(rec.base);
+			integer(rec.savedTop);
+			integer(rec.vargBase);
+			integer(rec.returnSlot);
+
+			bool haveFunc;
+			mInput.get(haveFunc);
+
+			if(haveFunc)
+			{
+				deserializeFunction();
+				rec.func = getFunction(t, -1);
+				pop(t);
+
+				uword diff;
+				integer(diff);
+				rec.pc = rec.func.scriptFunc.code.ptr + diff;
+			}
+			else
+			{
+				rec.func = null;
+				rec.pc = null;
+			}
+
+			integer(rec.numReturns);
+
+			bool haveProto;
+			mInput.get(haveProto);
+
+			if(haveProto)
+			{
+				deserializeClass();
+				rec.proto = getClass(t, -1);
+				pop(t);
+			}
+			else
+				rec.proto = null;
+
+			integer(rec.numTailcalls);
+			integer(rec.firstResult);
+			integer(rec.numResults);
+			integer(rec.unwindCounter);
+
+			bool haveUnwindRet;
+			mInput.get(haveUnwindRet);
+
+			if(haveUnwindRet)
+			{
+				uword diff;
+				integer(diff);
+				rec.unwindReturn = rec.func.scriptFunc.code.ptr + diff;
+			}
+			else
+				rec.unwindReturn = null;
+		}
+
+		integer(ret.trIndex);
+		t.vm.alloc.resizeArray(ret.tryRecs, ret.trIndex == 0 ? 10 : ret.trIndex);
+
+		if(ret.trIndex > 0)
+			ret.currentTR = &ret.tryRecs[ret.trIndex - 1];
+		else
+			ret.currentTR = null;
+
+		foreach(ref rec; ret.tryRecs[0 .. ret.trIndex])
+		{
+			mInput.get(rec.isCatch);
+			integer(rec.slot);
+			integer(rec.actRecord);
+
+			uword diff;
+			integer(diff);
+			rec.pc = ret.actRecs[rec.actRecord].func.scriptFunc.code.ptr + diff;
+		}
+
+		integer(ret.stackIndex);
+
+		uword stackTop;
+		integer(stackTop);
+		t.vm.alloc.resizeArray(ret.stack, stackTop == 0 ? 20 : stackTop);
+
+		foreach(ref val; ret.stack[0 .. stackTop])
+		{
+			deserializeValue();
+			val = *getValue(t, -1);
+			pop(t);
+		}
+
+		integer(ret.stackBase);
+		integer(ret.resultIndex);
+		t.vm.alloc.resizeArray(ret.results, ret.resultIndex == 0 ? 8 : ret.resultIndex);
+
+		foreach(ref val; ret.results[0 .. ret.resultIndex])
+		{
+			deserializeValue();
+			val = *getValue(t, -1);
+			pop(t);
+		}
+
+		mInput.get(ret.shouldHalt);
+
+		bool haveCoroFunc;
+		mInput.get(haveCoroFunc);
+
+		if(haveCoroFunc)
+		{
+			deserializeFunction();
+			ret.coroFunc = getFunction(t, -1);
+			pop(t);
+		}
+		else
+			ret.coroFunc = null;
+
+		integer(ret.state);
+		integer(ret.numYields);
+
+		// TODO: hooks?!
+		// TODO: upvals
+
+		pushThread(t, ret);
+	}
 
 	void deserializeWeakref()
 	{

@@ -5206,6 +5206,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		ar.savedTop = t.stackIndex;
 		ar.proto = proto is null ? null : proto.parent;
 		ar.numTailcalls = 0;
+		ar.unwindCounter = 0;
+		ar.unwindReturn = null;
 
 		t.stackBase = ar.base;
 

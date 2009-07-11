@@ -31,52 +31,66 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		// Serialize!
-// 		auto intrans = newTable(t);
-// 		pushGlobal(t, "writeln");
-// 		pushInt(t, 1);
-// 		idxa(t, intrans);
-// 
-// 		loadString(t,
-// 		`
-// 		local a = [1, 2, 3]
-// 		local b = [a, weakref(a), weakref([10])]
-// 
-// 		gc.collect()
-// 		dumpVal$ b
-// 
-// 		return b
-// 		`);
-// 
-// 		pushNull(t);
-// 		rawCall(t, -2, 1);
-// 		auto data = new Array(256, 256);
-// 		serializeGraph(t, -1, intrans, data);
-// 		pop(t, 2);
-// 
-// 		// Deserialize!
-// 		intrans = newTable(t);
-// 		pushInt(t, 1);
-// 		pushGlobal(t, "writeln");
-// 		idxa(t, intrans);
-// 		deserializeGraph(t, intrans, data);
-// 
-// 		loadString(t,
-// 		`
-// 		local b = vararg[0]
-// 
-// 		dumpVal$ b
-// 		writeln$ b[0] is deref(b[1])
-// 		`);
-// 		pushNull(t);
-// 		rotate(t, 3, 2);
-// 		rawCall(t, -3, 0);
-
-		importModule(t, "samples.simple");
-		pushNull(t);
-		lookup(t, "modules.runMain");
-		swap(t, -3);
-		rawCall(t, -3, 0);
+		version(none)
+		{
+			// Serialize!
+			auto intrans = newTable(t);
+			pushGlobal(t, "writeln");
+			pushInt(t, 1);
+			idxa(t, intrans);
+			pushGlobal(t, "writefln");
+			pushInt(t, 2);
+			idxa(t, intrans);
+	
+			loadString(t,
+			`
+			local co = coroutine function(x, y)
+			{
+				writefln("I'm a coroutine, x and y are {} and {}", x, y)
+				yield()
+				writefln("Let's see if I came out of hibernation OK: {} {}", x, y)
+			}
+	
+			co(3, 4)
+	
+			return co
+			`);
+	
+			pushNull(t);
+			rawCall(t, -2, 1);
+			auto data = new Array(256, 256);
+			serializeGraph(t, -1, intrans, data);
+			pop(t, 2);
+	
+			// Deserialize!
+			intrans = newTable(t);
+			pushInt(t, 1);
+			pushGlobal(t, "writeln");
+			idxa(t, intrans);
+			pushInt(t, 2);
+			pushGlobal(t, "writefln");
+			idxa(t, intrans);
+			deserializeGraph(t, intrans, data);
+	
+			loadString(t,
+			`
+			local co = vararg[0]
+	
+			writeln$ co.state()
+			co()
+			`);
+			pushNull(t);
+			rotate(t, 3, 2);
+			rawCall(t, -3, 0);
+		}
+		else
+		{
+			importModule(t, "samples.simple");
+			pushNull(t);
+			lookup(t, "modules.runMain");
+			swap(t, -3);
+			rawCall(t, -3, 0);
+		}
 	}
 	catch(MDException e)
 	{
