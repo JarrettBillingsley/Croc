@@ -30,10 +30,13 @@ Authors:
 
 module minid.commandline;
 
+import tango.core.Exception;
 import tango.io.Console;
 import tango.io.Stdout;
+import tango.io.model.IConduit;
 import tango.io.stream.Lines;
 import tango.stdc.signal;
+import tango.stdc.stringz;
 import tango.text.Util;
 
 alias tango.text.Util.contains contains;
@@ -218,7 +221,7 @@ version(MDReadline)
 
 		char[] readln(MDThread* t, char[] prompt)
 		{
-			Readline.instance.prompt = prompt;
+			ReadlineStream.instance.prompt = prompt;
 			return mLines.next();
 		}
 	}
@@ -269,13 +272,13 @@ template IsValidInputType(T)
 		static if(is(T : Object))
 			input = new T;
 
-		static if(is(typeof(&input.init)))
+		static if(is(typeof(&input.init) == delegate))
 			input.init(t);
 
 		char[] prompt;
 		char[] line = input.readln(t, prompt);
 
-		static if(is(typeof(&input.cleanup)))
+		static if(is(typeof(&input.cleanup) == delegate))
 			input.cleanup(t);
 	}));
 }
@@ -410,7 +413,7 @@ struct CLI(Input)
 		static if(is(Input : Object))
 			mInput = new Input;
 
-		static if(is(typeof(&mInput.init)))
+		static if(is(typeof(&mInput.init) == delegate))
 			mInput.init(t);
 
 		char[] buffer;
@@ -575,7 +578,7 @@ struct CLI(Input)
 			cleanupExit(t);
 
 			// Clean up the input
-			static if(is(typeof(&mInput.cleanup)))
+			static if(is(typeof(&mInput.cleanup) == delegate))
 				mInput.cleanup(t);
 		}
 
