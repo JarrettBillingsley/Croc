@@ -656,12 +656,16 @@ word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
 
 	uint sink(char[] data)
 	{
-		pushString(t, data);
-		numPieces++;
+		if(data.length > 0)
+		{
+			pushString(t, data);
+			numPieces++;
+		}
+
 		return data.length;
 	}
 
-	t.vm.formatter.convert(&sink, arguments, argptr, fmt);
+	safeCode(t, t.vm.formatter.convert(&sink, arguments, argptr, fmt));
 	maybeGC(t);
 	return cat(t, numPieces);
 }
@@ -5357,10 +5361,13 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 			return pushString(t, buffer[0 .. pos]);
 
 		case MDValue.Type.Char:
-			dchar[1] inbuf = void;
-			inbuf[0] = v.mChar;
+			auto inbuf = v.mChar;
+			
+			if(!Utf.isValid(inbuf))
+				throwException(t, "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
+
 			uint ate = 0;
-			return pushString(t, Utf.toString(inbuf, buffer, &ate));
+			return pushString(t, Utf.toString((&inbuf)[0 .. 1], buffer, &ate));
 
 		case MDValue.Type.String:
 			return push(t, v);

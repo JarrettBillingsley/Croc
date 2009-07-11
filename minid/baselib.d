@@ -681,7 +681,11 @@ static:
 		assert(len(t, shown) == 0);
 
 		scope(exit)
-			clearTable(t, shown);
+		{
+			getUpval(t, 0);
+			clearTable(t, -1);
+			pop(t);
+		}
 
 		void outputRepr(word v)
 		{
