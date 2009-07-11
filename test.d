@@ -31,7 +31,7 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		version(none)
+		version(all)
 		{
 			// Serialize!
 			auto intrans = newTable(t);
@@ -41,27 +41,45 @@ void main()
 			pushGlobal(t, "writefln");
 			pushInt(t, 2);
 			idxa(t, intrans);
-	
+
 			loadString(t,
 			`
-			local co = coroutine function(x, y)
+			local co = coroutine function()
 			{
-				writefln("I'm a coroutine, x and y are {} and {}", x, y)
+				local x = 5
+				function foo()
+				{
+					x++
+					writeln(x)
+				}
+			
+				function bar()
+				{
+					x--
+					writeln(x)
+				}
+			
+				foo()
+				bar()
+			
 				yield()
-				writefln("Let's see if I came out of hibernation OK: {} {}", x, y)
+
+				foo()
+				bar()
+
+				return foo, bar
 			}
-	
-			co(3, 4)
-	
+
+			co()
 			return co
 			`);
-	
+
 			pushNull(t);
 			rawCall(t, -2, 1);
 			auto data = new Array(256, 256);
 			serializeGraph(t, -1, intrans, data);
 			pop(t, 2);
-	
+
 			// Deserialize!
 			intrans = newTable(t);
 			pushInt(t, 1);
@@ -71,13 +89,17 @@ void main()
 			pushGlobal(t, "writefln");
 			idxa(t, intrans);
 			deserializeGraph(t, intrans, data);
-	
+
 			loadString(t,
 			`
 			local co = vararg[0]
-	
+
 			writeln$ co.state()
-			co()
+			local f, b = co()
+			f()
+			f()
+			b()
+			b()
 			`);
 			pushNull(t);
 			rotate(t, 3, 2);

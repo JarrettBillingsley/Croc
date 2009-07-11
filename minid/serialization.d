@@ -324,10 +324,8 @@ private:
 		if(alreadyWritten(cast(MDBaseObject*)v))
 			return;
 
-		assert(v.value is &v.closedValue, "FFFFFFFUUUUUUUUUU");
-
 		tag(MDValue.Type.Upvalue);
-		serialize(v.closedValue);
+		serialize(*v.value);
 	}
 
 	void serializeFuncDef(MDFuncDef* v)
@@ -546,7 +544,16 @@ private:
 		integer(v.numYields);
 
 		// TODO: hooks?!
-		// TODO: upvals
+
+		for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
+		{
+			assert(uv.value !is &uv.closedValue);
+			serialize(MDValue(cast(MDBaseObject*)uv));
+			uword diff = uv.value - v.stack.ptr;
+			integer(diff);
+		}
+
+		tag(MDValue.Type.Null);
 	}
 
 	void serializeWeakRef(MDWeakRef* v)
@@ -701,7 +708,7 @@ private:
 				ret |= v << shift;
 			}
 
-			return ret;
+			return neg ? -ret : ret;
 		}
 	}
 
@@ -729,6 +736,7 @@ private:
 			case MDValue.Type.Thread:    deserializeThreadImpl();    break;
 			case MDValue.Type.WeakRef:   deserializeWeakrefImpl();   break;
 			case MDValue.Type.NativeObj: deserializeNativeObjImpl(); break;
+			case MDValue.Type.Upvalue:   deserializeUpvalImpl();     break;
 
 			case Serializer.Backref:     push(t, MDValue(mObjTable[cast(uword)integer()])); break;
 			case Serializer.Intransient: deserializeValue(); idx(t, mIntrans); break;
@@ -1292,7 +1300,31 @@ private:
 		integer(ret.numYields);
 
 		// TODO: hooks?!
-		// TODO: upvals
+
+		auto next = &t.upvalHead;
+
+		while(true)
+		{
+			deserializeValue();
+
+			if(isNull(t, -1))
+			{
+				pop(t);
+				break;
+			}
+
+			auto uv = cast(MDUpval*)getValue(t, -1).mBaseObj;
+			pop(t);
+			
+			uword diff;
+			integer(diff);
+			
+			uv.value = ret.stack.ptr + diff;
+			*next = uv;
+			next = &uv.nextuv;
+		}
+
+		*next = null;
 
 		pushThread(t, ret);
 	}
