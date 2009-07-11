@@ -31,7 +31,7 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		version(all)
+		version(none)
 		{
 			// Serialize!
 			auto intrans = newTable(t);
