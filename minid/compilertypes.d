@@ -44,9 +44,9 @@ interface ICompiler
 	bool typeConstraints();
 	bool isEof();
 	bool isLoneStmt();
-	void exception(ref CompileLoc loc, char[] msg, ...);
-	void eofException(ref CompileLoc loc, char[] msg, ...);
-	void loneStmtException(ref CompileLoc loc, char[] msg, ...);
+	void exception(CompileLoc loc, char[] msg, ...);
+	void eofException(CompileLoc loc, char[] msg, ...);
+	void loneStmtException(CompileLoc loc, char[] msg, ...);
 	MDThread* thread();
 	Allocator* alloc();
 	void addNode(IAstNode node);

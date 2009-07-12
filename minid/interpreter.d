@@ -4470,9 +4470,8 @@ MDFuncDef* getFuncDef(MDThread* t, word slot)
 		return null;
 }
 
-word push(MDThread* t, ref MDValue val)
+word push(MDThread* t, MDValue val)
 {
-	assert(!((&val >= t.stack.ptr) && (&val < t.stack.ptr + t.stack.length)), "trying to push a value that's on the stack");
 	checkStack(t, t.stackIndex);
 	t.stack[t.stackIndex] = val;
 	t.stackIndex++;
@@ -7239,7 +7238,7 @@ Location getDebugLoc(MDThread* t)
 	}
 }
 
-void pushDebugLocStr(MDThread* t, ref Location loc)
+void pushDebugLocStr(MDThread* t, Location loc)
 {
 	if(loc.col == Location.Type.Unknown)
 		pushString(t, "<no location available>");

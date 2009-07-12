@@ -229,7 +229,7 @@ align(1) struct MDValue
 		return ret;
 	}
 
-	package int opEquals(ref MDValue other)
+	package int opEquals(MDValue other)
 	{
 		if(this.type != other.type)
 			return false;
@@ -487,7 +487,7 @@ struct MDInstance
 	package MDFunction* finalizer;
 	package uword numValues;
 	package uword extraBytes;
-	
+
 	package MDValue[] extraValues()
 	{
 		return (cast(MDValue*)(this + 1))[0 .. numValues];

@@ -51,11 +51,11 @@ static:
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package MDValue* get(MDTable* t, ref MDValue key)
+	package MDValue* get(MDTable* t, MDValue key)
 	{
 		return t.data.lookup(key);
 	}
-	
+
 	// Insert a key-value pair (or update one if it already exists).
 	package void set(ref Allocator alloc, MDTable* t, ref MDValue key, ref MDValue value)
 	{

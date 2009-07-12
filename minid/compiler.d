@@ -181,18 +181,18 @@ catch(MDException e)
 		return mIsLoneStmt;
 	}
 
-	public override void exception(ref CompileLoc loc, char[] msg, ...)
+	public override void exception(CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, msg, _arguments, _argptr);
 	}
 
-	public override void eofException(ref CompileLoc loc, char[] msg, ...)
+	public override void eofException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsEof = true;
 		vexception(loc, msg, _arguments, _argptr);
 	}
 
-	public override void loneStmtException(ref CompileLoc loc, char[] msg, ...)
+	public override void loneStmtException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsLoneStmt = true;
 		vexception(loc, msg, _arguments, _argptr);
