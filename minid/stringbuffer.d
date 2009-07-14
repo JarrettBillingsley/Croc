@@ -63,6 +63,9 @@ static:
 				newFunction(t, &iterator, "iterator");
 				newFunction(t, &iteratorReverse, "iteratorReverse");
 			c.method("opApply", &opApply, 2);
+
+			c.method("opSerialize",   &opSerialize);
+			c.method("opDeserialize", &opDeserialize);
 		});
 
 		field(t, -1, "fillRange");
@@ -355,6 +358,51 @@ static:
 		}
 
 		return 3;
+	}
+	
+	uword opSerialize(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		
+		// don't know if this is possible, but can't hurt to check
+		if(!memb.ownData)
+			throwException(t, "Attempting to serialize a string buffer which does not own its data");
+			
+		dup(t, 2);
+		pushNull(t);
+		pushInt(t, memb.length);
+		rawCall(t, -3, 0);
+
+		dup(t, 1);
+		pushNull(t);
+		dup(t, 0);
+		methodCall(t, -3, "writeVector", 0);
+
+		return 0;
+	}
+
+	uword opDeserialize(MDThread* t, uword numParams)
+	{
+		auto memb = checkInstParam!(Members)(t, 0, "Vector");
+		*memb = Members.init;
+
+		dup(t, 2);
+		pushNull(t);
+		rawCall(t, -2, 1);
+		assert(isInt(t, -1));
+
+		dup(t, 0);
+		pushNull(t);
+		methodCall(t, -2, "constructor", 0);
+
+		lena(t, 0);
+
+		dup(t, 1);
+		pushNull(t);
+		dup(t, 0);
+		methodCall(t, -3, "readVector", 0);
+
+		return 0;
 	}
 
 	void fillImpl(MDThread* t, Members* memb, word idx, uword lo, uword hi)

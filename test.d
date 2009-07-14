@@ -4,6 +4,7 @@ import tango.core.stacktrace.TraceExceptions;
 import tango.io.Stdout;
 
 import tango.io.device.Array;
+import tango.io.device.File;
 
 import minid.api;
 import minid.bind;
@@ -34,16 +35,17 @@ void main()
 		version(all)
 		{
 			// Serialize!
-			auto trans = newTable(t);
-			pushGlobal(t, "writeln");
-			pushInt(t, 1);
-			idxa(t, trans);
-			pushGlobal(t, "writefln");
-			pushInt(t, 2);
-			idxa(t, trans);
-			pushGlobal(t, "Vector");
-			pushInt(t, 3);
-			idxa(t, trans);
+			loadString(t,
+			`
+			return {
+				[writeln] = 1,
+				[writefln] = 2,
+				[Vector] = 3,
+				[StringBuffer] = 4
+			}`);
+			pushNull(t);
+			rawCall(t, -2, 1);
+			auto trans = stackSize(t) - 1;
 
 			loadString(t,
 			`
@@ -55,26 +57,46 @@ void main()
 				function toString() = format("<x = {} y = {}>", :x, :y)
 			}
 
-			return [A(3, 5), Vector.fromArray$ "i16", [1, 2, 3]]
+			class B
+			{
+				this(x, y)
+					:x, :y = x, y
+
+				function toString() = format("<x = {} y = {}>", :x, :y)
+
+				function opSerialize(s, f)
+				{
+					f(:x)
+					f(:y)
+					s.writeChars("lol")
+				}
+
+				function opDeserialize(s, f)
+				{
+					:x = f()
+					:y = f()
+					writeln$ s.readChars(3)
+				}
+			}
+
+			return [A(3, 5), B(5, 10), StringBuffer("ohai"), Vector.fromArray$ "i16", [1, 2, 3]]
 			`);
 
 			pushNull(t);
 			rawCall(t, -2, 1);
-			auto data = new Array(256, 256);
+			auto data = new File("temp.dat", File.WriteCreate);//new Array(256, 256);
 			serializeGraph(t, -1, trans, data);
-			pop(t, 2);
+			pop(t);
+			data.close();
+
+			data = new File("temp.dat", File.ReadExisting);
 
 			// Deserialize!
-			trans = newTable(t);
-			pushInt(t, 1);
-			pushGlobal(t, "writeln");
-			idxa(t, trans);
-			pushInt(t, 2);
-			pushGlobal(t, "writefln");
-			idxa(t, trans);
-			pushInt(t, 3);
-			pushGlobal(t, "Vector");
-			idxa(t, trans);
+			loadString(t, "return {[v] = k for k, v in vararg[0]}");
+			pushNull(t);
+			rotate(t, 3, 2);
+			rawCall(t, -3, 1);
+			trans = stackSize(t) - 1;
 
 			deserializeGraph(t, trans, data);
 

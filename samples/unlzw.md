@@ -8,8 +8,8 @@ function main(vararg)
 		return
 	}
 	
-	local input = io.File(vararg[0], io.FileMode.In)
-	local output = io.File(vararg[1], io.FileMode.OutNew)
+	local input = io.inFile(vararg[0])
+	local output = io.outFile(vararg[1])
 	local dict = {}
 	local code
 	

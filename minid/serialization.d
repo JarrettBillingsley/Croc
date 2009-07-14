@@ -1317,7 +1317,7 @@ private:
 
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
-				pushToString(t, -1);
+				pushToString(t, -1, true);
 				throwException(t, "'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
 			}
 

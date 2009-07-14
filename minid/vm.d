@@ -85,10 +85,13 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.mainThread = thread.create(vm);
 	auto t = vm.mainThread;
 
-	vm.metaStrings = vm.alloc.allocArray!(MDString*)(MetaNames.length);
+	vm.metaStrings = vm.alloc.allocArray!(MDString*)(MetaNames.length + 1);
 
 	foreach(i, str; MetaNames)
 		vm.metaStrings[i] = createString(t, str);
+		
+	vm.ctorString = createString(t, "constructor");
+	vm.metaStrings[$ - 1] = vm.ctorString;
 
 	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, createString(t, ""));

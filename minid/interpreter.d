@@ -4973,7 +4973,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				auto inst = instance.create(t.vm.alloc, cls);
 
 				// call any constructor
-				auto ctor = classobj.getField(cls, createString(t, "constructor"));
+				auto ctor = classobj.getField(cls, t.vm.ctorString);
 
 				if(ctor !is null)
 				{

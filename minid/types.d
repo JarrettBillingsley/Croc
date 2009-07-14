@@ -712,6 +712,7 @@ struct MDVM
 	package MDNamespace*[] metaTabs;
 	package Hash!(char[], MDString*) stringTab;
 	package MDString*[] metaStrings;
+	package MDString* ctorString;
 	package Location[] traceback;
 	package MDValue exception;
 	package bool isThrowing;
