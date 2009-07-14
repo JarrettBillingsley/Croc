@@ -346,6 +346,9 @@ static:
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
 			c.method("opApply", &opApply, 2);
+			
+			c.method("opSerialize",   &opSerialize);
+			c.method("opDeserialize", &opDeserialize);
 		});
 
 		newFunction(t, &allocator, "Vector.allocator");
@@ -372,10 +375,10 @@ static:
 	private Members* getThis(MDThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "Vector");
-		
+
 		if(ret.type is null)
 			throwException(t, "Attempting to call a method on an uninitialized Vector");
-			
+
 		return ret;
 	}
 
@@ -1605,6 +1608,59 @@ static:
 		return 3;
 	}
 	
+	uword opSerialize(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+
+		if(!memb.ownData)
+			throwException(t, "Attempting to serialize a vector which does not own its data");
+
+		dup(t, 2);
+		pushNull(t);
+		pushString(t, typeNames[memb.type.code]);
+		rawCall(t, -3, 0);
+
+		dup(t, 2);
+		pushNull(t);
+		pushInt(t, memb.length);
+		rawCall(t, -3, 0);
+
+		dup(t, 1);
+		pushNull(t);
+		dup(t, 0);
+		methodCall(t, -3, "writeVector", 0);
+
+		return 0;
+	}
+
+	uword opDeserialize(MDThread* t, uword numParams)
+	{
+		auto memb = checkInstParam!(Members)(t, 0, "Vector");
+		*memb = Members.init;
+
+		dup(t, 2);
+		pushNull(t);
+		rawCall(t, -2, 1);
+		assert(isString(t, -1));
+
+		dup(t, 2);
+		pushNull(t);
+		rawCall(t, -2, 1);
+		assert(isInt(t, -1));
+
+		dup(t, 0);
+		pushNull(t);
+		rotate(t, 4, 2);
+		methodCall(t, -4, "constructor", 0);
+
+		dup(t, 1);
+		pushNull(t);
+		dup(t, 0);
+		methodCall(t, -3, "readVector", 0);
+
+		return 0;
+	}
+
 	uword opEquals(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);

@@ -30,9 +30,11 @@ import tango.core.BitManip;
 import tango.io.protocol.Reader;
 import tango.io.protocol.Writer;
 
+import minid.ex;
 import minid.func;
 import minid.funcdef;
 import minid.hash;
+import minid.instance;
 import minid.interpreter;
 import minid.namespace;
 import minid.opcodes;
@@ -46,16 +48,16 @@ import minid.utils;
 
 public:
 
-void serializeGraph(MDThread* t, word idx, word intrans, IWriter output)
+void serializeGraph(MDThread* t, word idx, word trans, IWriter output)
 {
 	auto s = Serializer(t, output);
-	s.writeGraph(idx, intrans);
+	s.writeGraph(idx, trans);
 }
 
-void serializeGraph(MDThread* t, word idx, word intrans, OutputStream output)
+void serializeGraph(MDThread* t, word idx, word trans, OutputStream output)
 {
 	auto s = Serializer(t, output);
-	s.writeGraph(idx, intrans);
+	s.writeGraph(idx, trans);
 }
 
 struct Serializer
@@ -65,12 +67,14 @@ private:
 	IWriter mOutput;
 	Hash!(MDBaseObject*, uword) mObjTable;
 	uword mObjIndex;
-	word mIntrans;
+	MDTable* mTrans;
+	MDInstance* mStream;
+	MDFunction* mSerializeFunc;
 
 	enum
 	{
 		Backref = -1,
-		Intransient = -2
+		Transient = -2
 	}
 
 	static Serializer opCall(MDThread* t, IWriter output)
@@ -86,22 +90,51 @@ private:
 		return opCall(t, new Writer(output));
 	}
 
-	void writeGraph(word value, word intrans)
+	static class Goober
 	{
-		if(opis(t, value, intrans))
-			throwException(t, "Object to serialize is the same as the intransients table");
+		Serializer* s;
+		this(Serializer* s) { this.s = s; }
+	}
 
-		if(!isTable(t, intrans))
+	static uword serializeFunc(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		getUpval(t, 0);
+		auto g = cast(Goober)getNativeObj(t, -1);
+		g.s.serialize(*getValue(t, 1));
+		return 0;
+	}
+
+	void writeGraph(word value, word trans)
+	{
+		if(opis(t, value, trans))
+			throwException(t, "Object to serialize is the same as the transients table");
+
+		if(!isTable(t, trans))
 		{
-			pushTypeString(t, intrans);
-			throwException(t, "Intransients table must be a table, not '{}'", getString(t, -1));
+			pushTypeString(t, trans);
+			throwException(t, "Transients table must be a table, not '{}'", getString(t, -1));
 		}
 
-		mIntrans = absIndex(t, intrans);
+		mTrans = getTable(t, trans);
 		auto v = *getValue(t, value);
 
 		commonSerialize
 		({
+			// we leave these on the stack so they won't be collected, but we get 'real' references
+			// to them so we can push them in opSerialize callbacks.
+			importModuleNoNS(t, "stream");
+			lookup(t, "stream.OutStream");
+			pushNull(t);
+			pushNativeObj(t, cast(Object)mOutput.buffer());
+			pushBool(t, false);
+			rawCall(t, -4, 1);
+			mStream = getInstance(t, -1);
+
+				pushNativeObj(t, new Goober(this));
+			newFunction(t, &serializeFunc, "serialize", 1);
+			mSerializeFunc = getFunction(t, -1);
+
 			serialize(v);
 		});
 
@@ -168,19 +201,20 @@ private:
 
 	void serialize(MDValue v)
 	{
-		// check to see if it's an intransient value
+		// check to see if it's an transient value
+		pushTable(t, mTrans);
 		push(t, v);
-		idx(t, mIntrans);
-
+		idx(t, -2);
+		
 		if(!isNull(t, -1))
 		{
-			tag(Intransient);
+			tag(Transient);
 			serialize(*getValue(t, -1));
-			pop(t);
+			pop(t, 2);
 			return;
 		}
 
-		pop(t);
+		pop(t, 2);
 
 		// serialize it
 		switch(v.type)
@@ -251,12 +285,13 @@ private:
 
 	void serializeTable(MDTable* v)
 	{
-		// TODO: check for opSerialize method
-
 		if(alreadyWritten(cast(MDBaseObject*)v))
 			return;
 
 		tag(MDValue.Type.Table);
+		
+		// TODO: check for opSerialize method
+
 		integer(v.data.length);
 
 		foreach(ref key, ref val; v.data)
@@ -407,15 +442,15 @@ private:
 
 	void serializeClass(MDClass* v)
 	{
+		if(alreadyWritten(cast(MDBaseObject*)v))
+			return;
+
 		if(v.allocator || v.finalizer)
 		{
 			push(t, MDValue(v));
 			pushToString(t, -1);
 			throwException(t, "Attempting to serialize '{}', which has an allocator or finalizer", getString(t, -1));
 		}
-
-		if(alreadyWritten(cast(MDBaseObject*)v))
-			return;
 
 		tag(MDValue.Type.Class);
 		serialize(MDValue(v.name));
@@ -434,35 +469,52 @@ private:
 
 	void serializeInstance(MDInstance* v)
 	{
-		// TODO: check for opSerialize method
-
-		if(v.finalizer || v.numValues || v.extraBytes)
-		{
-			push(t, MDValue(v));
-			pushToString(t, -1, true);
-			throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
-		}
-
-		if(v.parent.allocator || v.parent.finalizer)
-		{
-			push(t, MDValue(v));
-			pushToString(t, -1, true);
-			throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
-		}
-
 		if(alreadyWritten(cast(MDBaseObject*)v))
 			return;
 
 		tag(MDValue.Type.Instance);
+		integer(v.numValues);
+		integer(v.extraBytes);
 		serialize(MDValue(v.parent));
 
-		if(v.fields)
+		pushInstance(t, v);
+
+		if(hasMethod(t, -1, "opSerialize"))
 		{
 			mOutput.put(true);
-			serialize(MDValue(v.fields));
+
+			pushNull(t);
+			pushInstance(t, mStream);
+			pushFunction(t, mSerializeFunc);
+			methodCall(t, -4, "opSerialize", 0);
 		}
 		else
+		{
+			pop(t);
 			mOutput.put(false);
+
+			if(v.finalizer || v.numValues || v.extraBytes)
+			{
+				push(t, MDValue(v));
+				pushToString(t, -1, true);
+				throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
+			}
+	
+			if(v.parent.allocator || v.parent.finalizer)
+			{
+				push(t, MDValue(v));
+				pushToString(t, -1, true);
+				throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
+			}
+	
+			if(v.fields)
+			{
+				mOutput.put(true);
+				serialize(MDValue(v.fields));
+			}
+			else
+				mOutput.put(false);
+		}
 	}
 
 	void serializeNamespace(MDNamespace* v)
@@ -630,7 +682,10 @@ private:
 		}
 	}
 
-	void serializeNativeObj(MDNativeObj* v) { assert(false); }
+	void serializeNativeObj(MDNativeObj* v)
+	{
+		throwException(t, "Attempting to serialize a nativeobj.  Please use the transients table.");
+	}
 
 	void writeRef(uword idx)
 	{
@@ -661,10 +716,10 @@ private:
 	}
 }
 
-word deserializeGraph(MDThread* t, word intrans, InputStream input)
+word deserializeGraph(MDThread* t, word trans, InputStream input)
 {
 	auto d = Deserializer(t, input);
-	return d.readGraph(intrans);
+	return d.readGraph(trans);
 }
 
 struct Deserializer
@@ -673,7 +728,9 @@ private:
 	MDThread* t;
 	IReader mInput;
 	MDBaseObject*[] mObjTable;
-	word mIntrans;
+	MDTable* mTrans;
+	MDInstance* mStream;
+	MDFunction* mDeserializeFunc;
 
 	static Deserializer opCall(MDThread* t, IReader input)
 	{
@@ -688,19 +745,48 @@ private:
 		return opCall(t, new Reader(input));
 	}
 
-	word readGraph(word intrans)
+	static class Goober
 	{
-		if(!isTable(t, intrans))
+		Deserializer* d;
+		this(Deserializer* d) { this.d = d; }
+	}
+
+	static uword deserializeFunc(MDThread* t, uword numParams)
+	{
+		getUpval(t, 0);
+		auto g = cast(Goober)getNativeObj(t, -1);
+		g.d.deserializeValue();
+		return 1;
+	}
+
+	word readGraph(word trans)
+	{
+		if(!isTable(t, trans))
 		{
-			pushTypeString(t, intrans);
-			throwException(t, "Intransients table must be a table, not '{}'", getString(t, -1));
+			pushTypeString(t, trans);
+			throwException(t, "Transients table must be a table, not '{}'", getString(t, -1));
 		}
-		
-		mIntrans = absIndex(t, intrans);
+
+		mTrans = getTable(t, trans);
 
 		commonDeserialize
 		({
+			// we leave these on the stack so they won't be collected, but we get 'real' references
+			// to them so we can push them in opSerialize callbacks.
+			importModuleNoNS(t, "stream");
+			lookup(t, "stream.InStream");
+			pushNull(t);
+			pushNativeObj(t, cast(Object)mInput.buffer());
+			pushBool(t, false);
+			rawCall(t, -4, 1);
+			mStream = getInstance(t, -1);
+
+				pushNativeObj(t, new Goober(this));
+			newFunction(t, &deserializeFunc, "deserialize", 1);
+			mDeserializeFunc = getFunction(t, -1);
+
 			deserializeValue();
+			insertAndPop(t, -3);
 		});
 
 		return stackSize(t) - 1;
@@ -793,11 +879,16 @@ private:
 			case MDValue.Type.Namespace: deserializeNamespaceImpl(); break;
 			case MDValue.Type.Thread:    deserializeThreadImpl();    break;
 			case MDValue.Type.WeakRef:   deserializeWeakrefImpl();   break;
-			case MDValue.Type.NativeObj: deserializeNativeObjImpl(); break;
 			case MDValue.Type.Upvalue:   deserializeUpvalImpl();     break;
 
 			case Serializer.Backref:     push(t, MDValue(mObjTable[cast(uword)integer()])); break;
-			case Serializer.Intransient: deserializeValue(); idx(t, mIntrans); break;
+
+			case Serializer.Transient:
+				pushTable(t, mTrans);
+				deserializeValue();
+				idx(t, -2);
+				insertAndPop(t, -2);
+				break;
 
 			default: throwException(t, "Malformed data");
 		}
@@ -881,13 +972,15 @@ private:
 			push(t, MDValue(ret));
 			return false;
 		}
-		else if(tmp == Serializer.Intransient)
+		else if(tmp == Serializer.Transient)
 		{
+			pushTable(t, mTrans);
 			deserializeValue();
-			idx(t, mIntrans);
+			idx(t, -2);
+			insertAndPop(t, -2);
 
 			if(.type(t, -1) != type)
-				throwException(t, "Invalid invariant table");
+				throwException(t, "Invalid transient table");
 
 			return false;
 		}
@@ -1195,21 +1288,57 @@ private:
 
 	void deserializeInstanceImpl()
 	{
-		auto inst = t.vm.alloc.allocate!(MDInstance)();
+		auto numValues = cast(uword)integer();
+		auto extraBytes = cast(uword)integer();
+
+		// if it was custom-allocated, we can't necessarily do this.
+		// well, can we?  I mean technically, a custom allocator can't do anything *terribly* weird,
+		// like using malloc.. and besides, we wouldn't know what params to call it with.
+		// I suppose we can assume that if a class writer is providing an opDeserialize method, they're
+		// going to expect this.
+		auto inst = t.vm.alloc.allocate!(MDInstance)(instance.InstanceSize(numValues, extraBytes));
+		inst.numValues = numValues;
+		inst.extraBytes = extraBytes;
+		inst.extraValues()[] = MDValue.nullValue;
 		addObject(cast(MDBaseObject*)inst);
 
 		deserializeClass();
 		inst.parent = getClass(t, -1);
+		// TODO: this isn't necessarily right, if the class's finalizer changed.  how should we handle this?
+		inst.finalizer = inst.parent.finalizer;
 		pop(t);
 
-		bool haveFields;
-		mInput.get(haveFields);
+		bool isSpecial;
+		mInput.get(isSpecial);
 
-		if(haveFields)
+		if(isSpecial)
 		{
-			deserializeNamespace();
-			inst.fields = getNamespace(t, -1);
-			pop(t);
+			pushInstance(t, inst);
+
+			if(!hasMethod(t, -1, "opDeserialize"))
+			{
+				pushToString(t, -1);
+				throwException(t, "'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
+			}
+
+			pushNull(t);
+			pushInstance(t, mStream);
+			pushFunction(t, mDeserializeFunc);
+			methodCall(t, -4, "opDeserialize", 0);
+		}
+		else
+		{
+			assert(numValues == 0 && extraBytes == 0);
+
+			bool haveFields;
+			mInput.get(haveFields);
+
+			if(haveFields)
+			{
+				deserializeNamespace();
+				inst.fields = getNamespace(t, -1);
+				pop(t);
+			}
 		}
 
 		pushInstance(t, inst);
@@ -1464,14 +1593,6 @@ private:
 			insertAndPop(t, -2);
 		}
 	}
-
-	void deserializeNativeObj()
-	{
-		if(checkObjTag(MDValue.Type.NativeObj))
-			deserializeNativeObjImpl();
-	}
-
-	void deserializeNativeObjImpl() { assert(false); }
 
 	void addObject(MDBaseObject* v)
 	{

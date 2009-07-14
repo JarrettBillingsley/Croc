@@ -116,12 +116,8 @@ static:
 
 		return i.fields.data.next(idx, key, val);
 	}
-
-	// ================================================================================================================================================
-	// Private
-	// ================================================================================================================================================
-
-	private uword InstanceSize(uword numValues, uword extraBytes)
+	
+	package uword InstanceSize(uword numValues, uword extraBytes)
 	{
 		return MDInstance.sizeof + (numValues * MDValue.sizeof) + extraBytes;
 	}
