@@ -205,7 +205,7 @@ private:
 		pushTable(t, mTrans);
 		push(t, v);
 		idx(t, -2);
-		
+
 		if(!isNull(t, -1))
 		{
 			tag(Transient);
@@ -289,9 +289,6 @@ private:
 			return;
 
 		tag(MDValue.Type.Table);
-		
-		// TODO: check for opSerialize method
-
 		integer(v.data.length);
 
 		foreach(ref key, ref val; v.data)
@@ -479,42 +476,63 @@ private:
 
 		pushInstance(t, v);
 
-		if(hasMethod(t, -1, "opSerialize"))
+		if(hasField(t, -1, "opSerialize"))
 		{
-			mOutput.put(true);
+			field(t, -1, "opSerialize");
 
-			pushNull(t);
-			pushInstance(t, mStream);
-			pushFunction(t, mSerializeFunc);
-			methodCall(t, -4, "opSerialize", 0);
-		}
-		else
-		{
-			pop(t);
-			mOutput.put(false);
-
-			if(v.finalizer || v.numValues || v.extraBytes)
-			{
-				push(t, MDValue(v));
-				pushToString(t, -1, true);
-				throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
-			}
-	
-			if(v.parent.allocator || v.parent.finalizer)
-			{
-				push(t, MDValue(v));
-				pushToString(t, -1, true);
-				throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
-			}
-	
-			if(v.fields)
+			if(isFunction(t, -1))
 			{
 				mOutput.put(true);
-				serialize(MDValue(v.fields));
+				pop(t);
+				pushNull(t);
+				pushInstance(t, mStream);
+				pushFunction(t, mSerializeFunc);
+				methodCall(t, -4, "opSerialize", 0);
+				return;
+			}
+			else if(isBool(t, -1))
+			{
+				if(!getBool(t, -1))
+				{
+					pushToString(t, -2, true);
+					throwException(t, "Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
+				}
+
+				pop(t);
+				// fall out, serialize literally.
 			}
 			else
-				mOutput.put(false);
+			{
+				pushToString(t, -2, true);
+				pushTypeString(t, -2);
+				throwException(t, "Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function", getString(t, -2), getString(t, -1));
+			}
 		}
+
+		pop(t);
+		mOutput.put(false);
+
+		if(v.finalizer || v.numValues || v.extraBytes)
+		{
+			push(t, MDValue(v));
+			pushToString(t, -1, true);
+			throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
+		}
+
+		if(v.parent.allocator || v.parent.finalizer)
+		{
+			push(t, MDValue(v));
+			pushToString(t, -1, true);
+			throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
+		}
+
+		if(v.fields)
+		{
+			mOutput.put(true);
+			serialize(MDValue(v.fields));
+		}
+		else
+			mOutput.put(false);
 	}
 
 	void serializeNamespace(MDNamespace* v)
@@ -1206,7 +1224,7 @@ private:
 		foreach(ref st; def.switchTables)
 		{
 			auto numOffsets = cast(uword)integer();
-			
+
 			for(uword i = 0; i < numOffsets; i++)
 			{
 				deserializeValue();
