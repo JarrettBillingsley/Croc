@@ -2473,35 +2473,35 @@ struct Parser
 						v = parseExpression();
 						break;
 				}
-				
+
 				fields ~= Field(k, v);
 			}
-			
+
 			bool firstWasBracketed = l.type == Token.LBracket;
 			parseField();
 
-			if(firstWasBracketed)
+			if(firstWasBracketed && l.type == Token.For)
 			{
-				if(l.type == Token.For)
-				{
-					auto forComp = parseForComprehension();
-					auto endLocation = l.expect(Token.RBrace).loc;
-					
-					auto dummy = fields.toArray();
-					auto key = dummy[0].key;
-					auto value = dummy[0].value;
-					c.alloc.freeArray(dummy);
+				auto forComp = parseForComprehension();
+				auto endLocation = l.expect(Token.RBrace).loc;
 
-					return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
-				}
+				auto dummy = fields.toArray();
+				auto key = dummy[0].key;
+				auto value = dummy[0].value;
+				c.alloc.freeArray(dummy);
+
+				return new(c) TableComprehension(c, location, endLocation, key, value, forComp);
 			}
+
+			if(l.type == Token.Comma)
+				l.next();
 
 			while(l.type != Token.RBrace)
 			{
+				parseField();
+
 				if(l.type == Token.Comma)
 					l.next();
-
-				parseField();
 			}
 		}
 
@@ -2531,12 +2531,15 @@ struct Parser
 			{
 				values ~= exp;
 
+				if(l.type == Token.Comma)
+					l.next();
+
 				while(l.type != Token.RBracket)
 				{
+					values ~= parseExpression();
+
 					if(l.type == Token.Comma)
 						l.next();
-
-					values ~= parseExpression();
 				}
 			}
 		}
@@ -2544,7 +2547,7 @@ struct Parser
 		auto endLocation = l.expect(Token.RBracket).loc;
 		return new(c) ArrayCtorExp(c, location, endLocation, values.toArray());
 	}
-	
+
 	/**
 	*/
 	public NamespaceCtorExp parseNamespaceCtorExp()
@@ -2553,7 +2556,7 @@ struct Parser
 		auto def = parseNamespaceDef();
 		return new(c) NamespaceCtorExp(c, location, def);
 	}
-	
+
 	/**
 	*/
 	public YieldExp parseYieldExp()
@@ -2577,11 +2580,11 @@ struct Parser
 		auto location = l.expect(Token.Super).loc;
 
 		Expression method;
-		
+
 		if(l.type == Token.Dot)
 		{
 			l.next();
-	
+
 			if(l.type == Token.Ident)
 			{
 				with(l.expect(Token.Ident))

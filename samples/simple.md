@@ -35,11 +35,11 @@ class B
 local obj = [weakref(A(4, 5))]
 local trans =
 {
+	[_G] = 0,
 	[writeln] = 1,
 	[writefln] = 2,
 	[Vector] = 3,
 	[StringBuffer] = 4,
-	[_G] = 5
 }
 
 local f = io.outFile("temp.dat")
@@ -52,6 +52,8 @@ obj = deserializeGraph(trans, f)
 
 dumpVal$ obj
 
+f.close()
+io.remove("temp.dat")
 
 /+import sdl: event, key
 import gl

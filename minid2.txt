@@ -554,11 +554,11 @@ PrimaryExpression:
 	'yield' '(' [Arguments] ')'
 
 ArrayLiteral:
-	'[' [Expression {[','] Expression}] ']'
+	'[' [Expression [','] {Expression [',']}] ']'
 	'[' Expression ForComprehension ']'
 
 TableCtorExp:
-	'{' [TableField {[','] TableField}] '}'
+	'{' [TableField [','] { TableField [',']}] '}'
 	'{' PlainTableField ForComprehension '}'
 
 TableField:

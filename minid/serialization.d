@@ -68,20 +68,16 @@ static:
 	{
 		checkAnyParam(t, 1);
 		checkParam(t, 2, MDValue.Type.Table);
-		auto stream = OutStreamObj.getStream(t, 3);
-
-		auto s = Serializer(t, stream);
-		s.writeGraph(1, 2);
+		auto stream = OutStreamObj.getOpenStream(t, 3);
+		safeCode(t, .serializeGraph(t, 1, 2, stream));
 		return 0;
 	}
 
 	uword deserializeGraph(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Table);
-		auto stream = InStreamObj.getStream(t, 2);
-
-		auto s = Deserializer(t, stream);
-		s.readGraph(1);
+		auto stream = InStreamObj.getOpenStream(t, 2);
+		safeCode(t, .deserializeGraph(t, 1, stream));
 		return 1;
 	}
 }
