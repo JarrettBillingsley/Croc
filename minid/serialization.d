@@ -1635,21 +1635,22 @@ private:
 
 	void deserializeWeakrefImpl()
 	{
+		auto wr = t.vm.alloc.allocate!(MDWeakRef);
+		wr.obj = null;
+		addObject(cast(MDBaseObject*)wr);
+
 		bool isNull;
 		mInput.get(isNull);
 
-		if(isNull)
-		{
-			auto wr = t.vm.alloc.allocate!(MDWeakRef);
-			wr.obj = null;
-			push(t, MDValue(cast(MDBaseObject*)wr));
-		}
-		else
+		if(!isNull)
 		{
 			deserializeValue();
-			pushWeakRef(t, -1);
-			insertAndPop(t, -2);
+			wr.obj = getValue(t, -1).mBaseObj;
+			pop(t);
+			*t.vm.weakRefTab.insert(t.vm.alloc, wr.obj) = wr;
 		}
+		
+		pushWeakRefObj(t, wr);
 	}
 
 	void addObject(MDBaseObject* v)
