@@ -1,5 +1,58 @@
 module samples.simple
 
+import serialization: serializeGraph, deserializeGraph
+
+class A
+{
+	this(x, y)
+		:x, :y = x, y
+
+	function toString() = format("<x = {} y = {}>", :x, :y)
+}
+
+class B
+{
+	this(x, y)
+		:x, :y = x, y
+
+	function toString() = format("<x = {} y = {}>", :x, :y)
+
+	function opSerialize(s, f)
+	{
+		f(:x)
+		f(:y)
+		s.writeChars("lol")
+	}
+
+	function opDeserialize(s, f)
+	{
+		:x = f()
+		:y = f()
+		writeln$ s.readChars(3)
+	}
+}
+
+local obj = [weakref(A(4, 5))]
+local trans =
+{
+	[writeln] = 1,
+	[writefln] = 2,
+	[Vector] = 3,
+	[StringBuffer] = 4,
+	[_G] = 5
+}
+
+local f = io.outFile("temp.dat")
+serializeGraph(obj, trans, f)
+
+f.close()
+f = io.inFile("temp.dat")
+trans = {[v] = k for k, v in trans}
+obj = deserializeGraph(trans, f)
+
+dumpVal$ obj
+
+
 /+import sdl: event, key
 import gl
 

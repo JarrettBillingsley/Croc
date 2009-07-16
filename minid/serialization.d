@@ -38,6 +38,7 @@ import minid.instance;
 import minid.interpreter;
 import minid.namespace;
 import minid.opcodes;
+import minid.streamlib;
 import minid.string;
 import minid.types;
 import minid.utils;
@@ -47,6 +48,43 @@ import minid.utils;
 // ================================================================================================================================================
 
 public:
+
+struct SerializationLib
+{
+static:
+	void init(MDThread* t)
+	{
+		makeModule(t, "serialization", function uword(MDThread* t, uword numParams)
+		{
+			importModuleNoNS(t, "stream");
+
+			newFunction(t, &serializeGraph,   "serializeGraph");   newGlobal(t, "serializeGraph");
+			newFunction(t, &deserializeGraph, "deserializeGraph"); newGlobal(t, "deserializeGraph");
+			return 0;
+		});
+	}
+
+	uword serializeGraph(MDThread* t, uword numParams)
+	{
+		checkAnyParam(t, 1);
+		checkParam(t, 2, MDValue.Type.Table);
+		auto stream = OutStreamObj.getStream(t, 3);
+
+		auto s = Serializer(t, stream);
+		s.writeGraph(1, 2);
+		return 0;
+	}
+
+	uword deserializeGraph(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Table);
+		auto stream = InStreamObj.getStream(t, 2);
+
+		auto s = Deserializer(t, stream);
+		s.readGraph(1);
+		return 1;
+	}
+}
 
 void serializeGraph(MDThread* t, word idx, word trans, IWriter output)
 {
@@ -1046,7 +1084,7 @@ private:
 			idxa(t, v);
 		}
 	}
-	
+
 	void deserializeArray()
 	{
 		if(checkObjTag(MDValue.Type.Array))
@@ -1118,10 +1156,10 @@ private:
 		deserializeFuncDef();
 		func.scriptFunc = cast(MDFuncDef*)getValue(t, -1).mBaseObj;
 		pop(t);
-		
+
 		bool haveEnv;
 		mInput.get(haveEnv);
-		
+
 		if(haveEnv)
 			deserializeNamespace();
 		else
@@ -1370,11 +1408,13 @@ private:
 
 	void deserializeNamespaceImpl()
 	{
-		deserializeString();
-		auto ns = namespace.create(t.vm.alloc, getStringObj(t, -1));
+		auto ns = t.vm.alloc.allocate!(MDNamespace);
 		addObject(cast(MDBaseObject*)ns);
+
+		deserializeString();
+		ns.name = getStringObj(t, -1);
+		pop(t);
 		pushNamespace(t, ns);
-		insertAndPop(t, -2);
 
 		bool haveParent;
 		mInput.get(haveParent);

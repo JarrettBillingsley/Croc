@@ -95,6 +95,21 @@ static:
 		bool closed = true;
 		bool closable = true;
 	}
+	
+	public InputStream getStream(MDThread* t, word idx)
+	{
+		return checkInstParam!(Members)(t, idx, "stream.InStream").stream;
+	}
+
+	public InputStream getOpenStream(MDThread* t, word idx)
+	{
+		auto ret = checkInstParam!(Members)(t, idx, "stream.InStream");
+
+		if(ret.closed)
+			throwException(t, "Attempting to perform operation on a closed stream");
+
+		return ret.stream;
+	}
 
 	public void init(MDThread* t)
 	{
@@ -536,6 +551,21 @@ static:
 		bool closed = true;
 		bool closable = true;
 	}
+	
+	public OutputStream getStream(MDThread* t, word idx)
+	{
+		return checkInstParam!(Members)(t, idx, "stream.OutStream").stream;
+	}
+
+	public OutputStream getOpenStream(MDThread* t, word idx)
+	{
+		auto ret = checkInstParam!(Members)(t, idx, "stream.OutStream");
+
+		if(ret.closed)
+			throwException(t, "Attempting to perform operation on a closed stream");
+
+		return ret.stream;
+	}
 
 	public void init(MDThread* t)
 	{
@@ -929,6 +959,21 @@ static:
 		bool closed = true;
 		bool closable = true;
 		bool dirty = false;
+	}
+	
+	public IConduit getConduit(MDThread* t, word idx)
+	{
+		return checkInstParam!(Members)(t, idx, "stream.InoutStream").conduit;
+	}
+
+	public IConduit getOpenConduit(MDThread* t, word idx)
+	{
+		auto ret = checkInstParam!(Members)(t, idx, "stream.InoutStream");
+
+		if(ret.closed)
+			throwException(t, "Attempting to perform operation on a closed stream");
+
+		return ret.conduit;
 	}
 
 	public void init(MDThread* t)

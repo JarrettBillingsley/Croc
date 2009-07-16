@@ -32,19 +32,16 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		version(all)
+		version(none)
 		{
 			// Serialize!
-			loadString(t,
-			`
-			return {
+			eval(t,
+			`{
 				[writeln] = 1,
 				[writefln] = 2,
 				[Vector] = 3,
 				[StringBuffer] = 4
 			}`);
-			pushNull(t);
-			rawCall(t, -2, 1);
 			auto trans = stackSize(t) - 1;
 
 			loadString(t,
@@ -84,12 +81,9 @@ void main()
 
 			pushNull(t);
 			rawCall(t, -2, 1);
-			auto data = new File("temp.dat", File.WriteCreate);//new Array(256, 256);
+			auto data = new Array(256, 256);
 			serializeGraph(t, -1, trans, data);
 			pop(t);
-			data.close();
-
-			data = new File("temp.dat", File.ReadExisting);
 
 			// Deserialize!
 			loadString(t, "return {[v] = k for k, v in vararg[0]}");
@@ -111,6 +105,8 @@ void main()
 		}
 		else
 		{
+			SerializationLib.init(t);
+
 			importModule(t, "samples.simple");
 			pushNull(t);
 			lookup(t, "modules.runMain");
