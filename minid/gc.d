@@ -64,6 +64,9 @@ void mark(MDVM* vm)
 	markObj(vm, vm.globals);
 	markObj(vm, vm.mainThread);
 	markObj(vm, vm.registry);
+	
+	foreach(val; vm.refTab)
+		markObj(vm, cast(GCObject*)val);
 
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));

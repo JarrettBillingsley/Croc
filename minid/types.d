@@ -719,6 +719,8 @@ struct MDVM
 	package MDThread* curThread;
 	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
 	package MDNamespace* registry;
+	package Hash!(ulong, MDBaseObject*) refTab;
+	package ulong currentRef;
 	package MDTable* toBeNormalized; // linked list of tables to be normalized
 
 	// The following members point into the D heap.

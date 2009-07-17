@@ -270,6 +270,73 @@ void freeMem(MDThread* t, ref void[] mem)
 	t.vm.alloc.freeArray(mem);
 }
 
+/**
+Creates a reference to a MiniD object.  A reference is like the native equivalent of MiniD's nativeobj.  Whereas a
+nativeobj allows MiniD to hold a reference to a native object, a reference allows native code to hold a reference
+to a MiniD object.
+
+References are identified by unique integer values which are passed to the  $(D pushRef) and $(D removeRef) functions.
+These are guaranteed to be probabilistically to be unique for the life of the program.  What I mean by that is that
+if you created a million references per second, it would take you over half a million years before the reference
+values wrapped around.  Aren'_t 64-bit integers great?
+
+References prevent the referenced MiniD object from being collected, ever, so unless you want memory leaks, you must
+call $(D removeRef) when your code no longer needs the object.  See $(minid.ex) for some reference helpers.
+
+Params:
+	idx = The stack index of the object to which a reference should be created.  If this refers to a value type,
+		an exception will be thrown.
+
+Returns:
+	The new reference name for the given object.  You can create several references to the same object; it will not
+	be collectible until all references to it have been removed.
+*/
+ulong createRef(MDThread* t, word idx)
+{
+	mixin(FuncNameMix);
+
+	auto v = getValue(t, idx);
+
+	if(!v.isObject())
+	{
+		pushTypeString(t, idx);
+		throwException(t, __FUNCTION__ ~ " - Can only get references to reference types, not '{}'", getString(t, -1));
+	}
+
+	auto ret = t.vm.currentRef++;
+	*t.vm.refTab.insert(t.vm.alloc, ret) = v.mBaseObj;
+	return ret;
+}
+
+/**
+Pushes the object associated with the given reference onto the stack and returns the slot of the pushed object.
+If the given reference is invalid, an exception will be thrown.
+*/
+word pushRef(MDThread* t, ulong r)
+{
+	mixin(FuncNameMix);
+
+	auto v = t.vm.refTab.lookup(r);
+
+	if(v is null)
+		throwException(t, __FUNCTION__ ~ " - Reference '{}' does not exist", r);
+
+	return push(t, MDValue(*v));
+}
+
+/**
+Removes the given reference.  When all references to an object are removed, it will no longer be considered to be
+referenced by the host app and will be subject to normal GC rules.  If the given reference is invalid, an
+exception will be thrown.
+*/
+void removeRef(MDThread* t, ulong r)
+{
+	mixin(FuncNameMix);
+
+	if(!t.vm.refTab.remove(r))
+		throwException(t, __FUNCTION__ ~ " - Reference '{}' does not exist", r);
+}
+
 // ================================================================================================================================================
 // GC-related stuff
 

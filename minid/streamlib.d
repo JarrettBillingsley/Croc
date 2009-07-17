@@ -875,7 +875,7 @@ static:
 		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
 		return 0;
 	}
-	
+
 	public uword seek(MDThread* t, uword numParams)
 	{
 		auto memb = getOpenThis(t);
@@ -1175,8 +1175,7 @@ static:
 		if(memb.dirty)
 		{
 			memb.dirty = false;
-			safeCode(t, memb.conduit.flush()); // may have to wrap this in a bullshit try-catch?
-			//safeCode(t, memb.conduit.clear());
+			safeCode(t, memb.conduit.flush());
 		}
 	}
 
@@ -1666,9 +1665,9 @@ static:
 			throwException(t, "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.conduit.flush()); // maybe a bullshit try-catch here too
+		safeCode(t, memb.conduit.flush());
 		safeCode(t, memb.conduit.close());
-		
+
 		return 0;
 	}
 
@@ -1678,3 +1677,16 @@ static:
 		return 1;
 	}
 }
+
+/* class VectorConduit : Conduit
+{
+	private MDVM* vm;
+	private MDRef mVec;
+
+	this()
+	{
+		super();
+	}
+
+
+} */

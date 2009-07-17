@@ -47,7 +47,8 @@ subject to the following restrictions:
 
 </pre><br>
 <b>Authors:</b><br>
-Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
+John Demme <me@teqdruid.com> (2007, initial code)
+	Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
 <br><br>
 
 
@@ -55,147 +56,122 @@ Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">struct 
-<span class="currsymbol">CommandLine</span>
-<script>explorer.outline.addDecl('CommandLine');</script>
+<span class="currsymbol">MDConsoleInput</span>
+<script>explorer.outline.addDecl('MDConsoleInput');</script>
 
 ;
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>This struct encapsulates a MiniD command-line interpreter.  This is the CLI that
-MDCL uses, so you can actually embed an MDCL-like interpreter in your application
-by using this struct.
+<dd>An Input struct to be used with the CLI struct, which wraps standard in/out.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">alias 
+<span class="currsymbol">MDDefaultInput</span>
+<script>explorer.outline.addDecl('MDDefaultInput');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>An alias to the default Input type. 
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">template 
+<span class="currsymbol">IsValidInputType</span>
+<script>explorer.outline.addDecl('IsValidInputType');</script>
+
+(T)</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>A template that checks that a given type conforms to the Input interface used by
+the CLI struct.  The given type T <b>must</b> implement "char[] readln(MDThread* t, char[] p)",
+where 't' is a thread object and 'p' is the prompt to be used for getting a line of input.  It
+may optionally implement a method "init(MDThread* t)", which is called when the interactive
+CLI prompt is started and can be used to initialize members.  It may optionally implement a
+method "cleanup(MDThread* t)", which is called when the interactive CLI prompt is exited and
+can be used to clean up resources.  If T is a class, it must have a no-argument constructor.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">struct 
+<span class="currsymbol">CLI</span>
+<script>explorer.outline.addDecl('CLI');</script>
+
+(Input);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>This struct encapsulates an interactive MiniD interpreter.  MDCL uses this struct to do its
+interactive prompt.
 <br><br>
 This struct installs a signal handler that catches Ctrl+C (SIGINT) signals.  It restores
 the old signal handler when it exits.
+<br><br>
+
+The Input type must be a struct or class type which implements the Input interface as described
+in IsValidInputType.
 <br><br>
 
 
 <script>explorer.outline.incSymbolLevel();</script>
 <dl>
 <script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static CommandLine 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-(FormatOutput <span class="funcparam">output</span>, InputStream <span class="funcparam">input</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Construct an instance of the CLI.
-<br><br>
-<b>Params:</b><br><table class="params"><tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">FormatOutput <span class="funcparam">output</span></td>
-
-               
-<td>The Print object to which <span class="funcparam">output</span> will be sent.</td></tr>
-<tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">InputStream <span class="funcparam">input</span></td>
-
-               
-<td>The InputStream from which user <span class="funcparam">input</span> will be gathered.</td></tr>
-</table><br>
-<b>Returns:</b><br>
-An initialized instance of CommandLine.
-	
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static CommandLine 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-(OutputStream <span class="funcparam">output</span>, InputStream <span class="funcparam">input</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Same as above, but takes a raw OutputStream for the <span class="funcparam">output</span> instead of
-	a Print instance.
-	
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static CommandLine 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-(FormatOutput <span class="funcparam">output</span>, char[] delegate(MDThread*) <span class="funcparam">nextLine</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static CommandLine 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-(OutputStream <span class="funcparam">output</span>, char[] delegate(MDThread*) <span class="funcparam">nextLine</span>);
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd><br><br>
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
-<dt><span class="decl">static CommandLine 
-<span class="currsymbol">opCall</span>
-<script>explorer.outline.addDecl('opCall');</script>
-
-();
-</span></dt>
-<script>explorer.outline.writeEnabled = false;</script>
-
-
-<dd>Constructs a default instance of CommandLine which uses stdin for the input
-	and stdout for the output.
-	
-<br><br>
-
-</dd>
-
-<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
-<span class="currsymbol">run</span>
-<script>explorer.outline.addDecl('run');</script>
+<span class="currsymbol">interactive</span>
+<script>explorer.outline.addDecl('interactive');</script>
 
-(MDThread* <span class="funcparam">t</span>, char[][] <span class="funcparam">args</span> = null);
+(MDThread* <span class="funcparam">t</span>);
 </span></dt>
 <script>explorer.outline.writeEnabled = false;</script>
 
 
-<dd>After you've created an instance of this struct, call this method on it.  The arguments
-	are the arguments that would be passed to MDCL, including the program name as item 0.
-	This function returns when the user exits the interpreter (by using the exit() function,
-	usually).
+<dd>This method runs an 
+<span class="currsymbol">interactive</span>
+<script>explorer.outline.addDecl('interactive');</script>
+
+ prompt using the Input type that this struct was templated
+	with.
 <br><br>
 <b>Params:</b><br><table class="params"><tr>
 <td class = "paramname" nowrap valign="top" style="padding-right: 8px">MDThread* <span class="funcparam">t</span></td>
 
                
 <td>The thread to use for this CLI.</td></tr>
-<tr>
-<td class = "paramname" nowrap valign="top" style="padding-right: 8px">char[][] <span class="funcparam">args</span></td>
-
-               
-<td>The arguments to the interpreter.  Defaults to <b>null</b>, in which case no arguments
-			will be passed.</td></tr>
 </table><br>
 
 </dd>
 </dl>
 <script>explorer.outline.decSymbolLevel();</script>
 
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">alias 
+<span class="currsymbol">ConsoleCLI</span>
+<script>explorer.outline.addDecl('ConsoleCLI');</script>
+
+;
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>An alias for CLI instantiated with the default Input type.  This is a basic console-
+based CLI.
+<br><br>
 
 </dd>
 </dl>
@@ -206,7 +182,7 @@ An initialized instance of CommandLine.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sat Jun 13 22:17:23 2009
+			on Thu Jul 16 22:47:47 2009
 
 		</td></tr>
 	</table>

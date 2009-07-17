@@ -326,6 +326,77 @@ It's legal to free a 0-length block.
 </dd>
 
 <script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">ulong 
+<span class="currsymbol">createRef</span>
+<script>explorer.outline.addDecl('createRef');</script>
+
+(MDThread* <span class="funcparam">t</span>, int <span class="funcparam">idx</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Creates a reference to a MiniD object.  A reference is like the native equivalent of MiniD's nativeobj.  Whereas a
+nativeobj allows MiniD to hold a reference to a native object, a reference allows native code to hold a reference
+to a MiniD object.
+<br><br>
+References are identified by unique integer values which are passed to the   and  functions.
+These are guaranteed to be probabilistically to be unique for the life of the program.  What I mean by that is that
+if you created a million references per second, it would take you over half a million years before the reference
+values wrapped around.  Aren't 64-bit integers great?
+<br><br>
+
+References prevent the referenced MiniD object from being collected, ever, so unless you want memory leaks, you must
+call  when your code no longer needs the object.  See  for some reference helpers.
+
+<br><br>
+<b>Params:</b><br><table class="params"><tr>
+<td class = "paramname" nowrap valign="top" style="padding-right: 8px">int <span class="funcparam">idx</span></td>
+
+               
+<td>The stack index of the object to which a reference should be created.  If this refers to a value type,
+		an exception will be thrown.</td></tr>
+</table><br>
+<b>Returns:</b><br>
+The new reference name for the given object.  You can create several references to the same object; it will not
+	be collectible until all references to it have been removed.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">int 
+<span class="currsymbol">pushRef</span>
+<script>explorer.outline.addDecl('pushRef');</script>
+
+(MDThread* <span class="funcparam">t</span>, ulong <span class="funcparam">r</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Pushes the object associated with the given reference onto the stack and returns the slot of the pushed object.
+If the given reference is invalid, an exception will be thrown.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
+<dt><span class="decl">void 
+<span class="currsymbol">removeRef</span>
+<script>explorer.outline.addDecl('removeRef');</script>
+
+(MDThread* <span class="funcparam">t</span>, ulong <span class="funcparam">r</span>);
+</span></dt>
+<script>explorer.outline.writeEnabled = false;</script>
+
+
+<dd>Removes the given reference.  When all references to an object are removed, it will no longer be considered to be
+referenced by the host app and will be subject to normal GC rules.  If the given reference is invalid, an
+exception will be thrown.
+<br><br>
+
+</dd>
+
+<script>explorer.outline.writeEnabled = true;</script>
 <dt><span class="decl">void 
 <span class="currsymbol">maybeGC</span>
 <script>explorer.outline.addDecl('maybeGC');</script>
@@ -4458,7 +4529,7 @@ If the hook delay is 0, the delay hook event is disabled.
 		<tr><td id="docfooter">
 			Page was generated with
 			<img src="candydoc/img/candydoc.gif" style="vertical-align:middle; position:relative; top:-1px">
-			on Sat Jun 13 22:17:25 2009
+			on Thu Jul 16 22:47:49 2009
 
 		</td></tr>
 	</table>

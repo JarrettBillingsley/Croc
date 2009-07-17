@@ -38,10 +38,14 @@ import minid.interpreter;
 import minid.serialization;
 import minid.types;
 import minid.utils;
+import minid.vm;
 
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
+
+// ================================================================================================================================================
+// Simplifying very common tasks
 
 /**
 Simple function that attempts to create a custom loader (by making an entry in modules.customLoaders) for a
@@ -206,6 +210,23 @@ uword BasicClassAllocator(uword numFields, uword numBytes)(MDThread* t, uword nu
 	return 1;
 }
 
+/**
+For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
+given type.  Checks that the number of extra bytes is at least the size of the given type, but
+this should not be used as a foolproof way of identifying the type of instances.
+*/
+public T* getMembers(T)(MDThread* t, word index)
+{
+	auto ret = getExtraBytes(t, index);
+
+	if(ret.length < T.sizeof)
+	{
+		pushTypeString(t, index);
+		throwException(t, "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
+	}
+
+	return cast(T*)ret.ptr;
+}
 
 /**
 A utility structure for building up strings out of several pieces more efficiently than by just pushing
@@ -372,6 +393,558 @@ public struct StrBuffer
 		}
 	}
 }
+
+/**
+Look up some value using a name that looks like a chain of dot-separated identifiers (like a MiniD expression).
+The _name must follow the regular expression "\w[\w\d]*(\.\w[\w\d]*)*".  No spaces are allowed.  The looked-up
+value is left at the top of the stack.
+
+This functions behaves just as though you were evaluating this expression in MiniD.  Global _lookup and opField
+metamethods are respected.
+
+-----
+auto slot = lookup(t, "time.Timer");
+pushNull(t);
+rawCall(t, slot, 1);
+// We now have an instance of time.Timer on top of the stack.
+-----
+
+If you want to set a long _name, such as "foo.bar.baz.quux", you just _lookup everything but the last _name and
+use 'fielda' to set it:
+
+-----
+auto slot = lookup(t, "foo.bar.baz");
+pushInt(t, 5);
+fielda(t, slot, "quux");
+-----
+
+Params:
+	name = The dot-separated _name of the value to look up.
+
+Returns:
+	The stack index of the looked-up value.
+*/
+public word lookup(MDThread* t, char[] name)
+{
+	validateName(t, name);
+
+	bool isFirst = true;
+	word idx = void;
+
+	foreach(n; name.delimiters("."))
+	{
+		if(isFirst)
+		{
+			isFirst = false;
+			idx = pushGlobal(t, n);
+		}
+		else
+			field(t, -1, n);
+	}
+
+	auto size = stackSize(t);
+
+	if(size > idx + 1)
+		insertAndPop(t, idx);
+
+	return idx;
+}
+
+/**
+Very similar to lookup, this function trades a bit of code bloat for the benefits of checking that the name is valid
+at compile time and of being faster.  The name is validated and translated directly into a series of API calls, meaning
+this function will be likely to be inlined.  The usage is exactly the same as lookup, except the name is now a template
+parameter instead of a normal parameter.
+
+Returns:
+	The stack index of the looked-up value.
+*/
+public word lookupCT(char[] name)(MDThread* t)
+{
+	mixin(NameToAPICalls!(name));
+	return idx;
+}
+
+/**
+Pushes the variable that is stored in the registry with the given name onto the stack.  An error will be thrown if the variable
+does not exist in the registry.
+
+Returns:
+	The stack index of the newly-pushed value.
+*/
+public word getRegistryVar(MDThread* t, char[] name)
+{
+	getRegistry(t);
+	field(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
+}
+
+/**
+Pops the value off the top of the stack and sets it into the given registry variable.
+*/
+public void setRegistryVar(MDThread* t, char[] name)
+{
+	getRegistry(t);
+	swap(t);
+	fielda(t, -2, name);
+	pop(t);
+}
+
+/**
+Similar to the _loadString function in the MiniD base library, this compiles some statements
+into a function that takes variadic arguments and pushes that function onto the stack.
+
+Params:
+	code = The source _code of the function.  This should be one or more statements.
+	customEnv = If true, expects the value on top of the stack to be a namespace which will be
+		set as the environment of the new function.  The namespace will be replaced.  Defaults
+		to false, in which case the current function's environment will be used.
+	name = The _name to give the function.  Defaults to "<loaded by loadString>".
+
+Returns:
+	The stack index of the newly-compiled function.
+*/
+public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
+{
+	if(customEnv)
+	{
+		if(!isNamespace(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+		}
+	}
+	else
+		pushEnvironment(t);
+
+	{
+		scope c = new Compiler(t);
+		c.compileStatements(code, name);
+	}
+
+	swap(t);
+	setFuncEnv(t, -2);
+
+	return stackSize(t) - 1;
+}
+
+/**
+This is a quick way to run some MiniD code.  Basically this just calls loadString and then runs
+the resulting function with no parameters.  This function's parameters are the same as loadString's.
+*/
+public void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
+{
+	loadString(t, code, customEnv, name);
+	pushNull(t);
+	rawCall(t, -2, 0);
+}
+
+/**
+Similar to the _eval function in the MiniD base library, this compiles an expression, evaluates it,
+and leaves the result(s) on the stack.  
+
+Params:
+	code = The source _code of the expression.
+	numReturns = How many return values you want from the expression.  Defaults to 1.  Works just like
+		the _numReturns parameter of the call functions; -1 gets all return values.
+	customEnv = If true, expects the value on top of the stack to be a namespace which will be
+		used as the environment of the expression.  The namespace will be replaced.  Defaults
+		to false, in which case the current function's environment will be used.
+		
+Returns:
+	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
+	returned.
+*/
+public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
+{
+	if(customEnv)
+	{
+		if(!isNamespace(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+		}
+	}
+	else
+		pushEnvironment(t);
+
+	{
+		scope c = new Compiler(t);
+		c.compileExpression(code, "<loaded by eval>");
+	}
+
+	swap(t);
+	setFuncEnv(t, -2);
+
+	pushNull(t);
+	return rawCall(t, -2, numReturns);
+}
+
+/**
+Imports a module or file and runs any main() function in it.
+
+Params:
+	filename = The name of the file or module to load.  If it's a path to a file, it must end in .md or .mdm.
+		It will be compiled or deserialized as necessary. If it's a module name, it must be in dotted form and
+		not end in md or mdm.  It will be imported as normal.
+
+	numParams = How many arguments you have to pass to the main() function.  If you want to pass params, they
+		must be on top of the stack when you call this function.
+
+Example:
+-----
+// We want to load "foo.bar.baz" and pass it "a" and "b" as params.
+// Push the params first.
+pushString(t, "a");
+pushString(t, "b");
+// Run the file and tell it we have two params.
+runFile(t, "foo.bar.baz", 2);
+-----
+
+-----
+// Just showing how you'd execute a module by filename instead of module name.
+runFile(t, "foo/bar/baz.md");
+-----
+*/
+public void runFile(MDThread* t, char[] filename, uword numParams = 0)
+{
+// 	checkNumParams(t, numParams);
+
+	if(!filename.endsWith(".md") && !filename.endsWith(".mdm"))
+		importModule(t, filename);
+	else
+	{
+		if(filename.endsWith(".md"))
+		{
+			scope c = new Compiler(t);
+			c.compileModule(filename);
+		}
+		else
+		{
+			scope f = new File(filename, File.ReadExisting);
+			scope r = new Reader(f);
+			deserializeModule(t, r);
+		}
+	
+		lookup(t, "modules.initModule");
+		swap(t);
+		pushNull(t);
+		swap(t);
+		pushString(t, funcName(t, -1));
+		rawCall(t, -4, 1);
+	}
+
+	pushNull(t);
+	lookup(t, "modules.runMain");
+	swap(t, -3);
+	rotate(t, numParams + 3, 3);
+	rawCall(t, -3 - numParams, 0);
+}
+
+/**
+This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
+that handle MiniD exceptions in D code.  
+
+This function will store the stack size of the given thread when it is called, before the try code is executed.
+If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with
+catchException), and the catch code will be called with the D exception object and the MiniD exception object's
+stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
+same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
+finally code, if any, will be executed as a finally block usually is.
+
+This function is best used with anonymous delegates, like so:
+
+-----
+mdtry(t,
+// try block
+{
+	// foo bar baz
+},
+// catch block
+(MDException e, word mdEx)
+{
+	// deal with exception here
+},
+// finally block
+{
+	// cleanup, whatever
+});
+-----
+
+It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
+the delegate instead of from the enclosing function.  Hey, don't look at me; it's D's fault for not having
+AST macros ;$(RPAREN)
+
+If you just need a try-finally block, you don't need this function, and please don't call it with a null
+catch_ parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
+
+Params:
+	try_ = The try code.
+	catch_ = The catch code.  It takes two parameters - the D exception object and the stack index of the caught
+		MiniD exception object.
+	finally_ = The optional finally code.
+*/
+public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, word) catch_, void delegate() finally_ = null)
+{
+	auto size = stackSize(t);
+
+	try
+		try_();
+	catch(MDException e)
+	{
+		setStackSize(t, size);
+		auto mdEx = catchException(t);
+		catch_(e, mdEx);
+
+		if(mdEx != stackSize(t) - 1)
+			throwException(t, "mdtry - catch block is supposed to leave stack as it was before it was entered");
+
+		pop(t);
+	}
+	finally
+	{
+		if(finally_)
+			finally_();
+	}
+}
+
+/**
+A useful wrapper for code where you want to ensure that the stack is balanced, that is, it is the same size after
+some set of operations as before it.  Having a balanced stack is more than just good practice - it prevents stack
+overflows and underflows.
+
+You can also use this function when your code requires that the stack be a certain number of slots larger or smaller
+after some stack operations - for instance, a function which always returns two values, regardless of multiple
+execution paths.
+
+If the stack size is not correct after running the code, an exception will be thrown in the passed-in thread.
+
+Params:
+	diff = How many more (or fewer) items there should be on the stack after running the code.  If 0, it means that
+		the stack size after running the code should be exactly as it was before (there is an overload for this common
+		case below).  Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.
+	dg = The code to run.
+
+Examples:
+
+-----
+// check that the stack is two bigger after the code than before
+stackCheck(t, 2,
+{
+	pushNull(t);
+	pushInt(t, 5);
+}); // it is indeed 2 slots bigger, so it succeeds.
+
+// check that the stack shrinks by 1 slot
+stackCheck(t, -1,
+{
+	pushString(t, "foobar");
+}); // oh noes, it's 1 slot bigger instead - throws an exception.
+-----
+*/
+void stackCheck(MDThread* t, word diff, void delegate() dg)
+{
+	auto s = stackSize(t);
+	dg();
+
+	if((stackSize(t) - s) != diff)
+		throwException(t, "Stack is not balanced!");
+}
+
+/**
+An overload of the above which simply calls it with a difference of 0 (i.e. the stack is completely balanced).
+This is the most common case.
+*/
+void stackCheck(MDThread* t, void delegate() dg)
+{
+	stackCheck(t, 0, dg);
+}
+
+/**
+Wraps the allocMem API.  Allocates an array of the given type with the given length.
+You'll have to explicitly specify the type of the array.
+
+-----
+auto arr = allocArray!(int)(t, 10); // arr is an int[] of length 10
+-----
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+Params:
+	length = The length, in items, of the array to allocate.
+	
+Returns:
+	The new array.
+*/
+T[] allocArray(T)(MDThread* t, uword length)
+{
+	return cast(T[])allocMem(t, length * T.sizeof);
+}
+
+/**
+Wraps the resizeMem API.  Resizes an array to the new length.  Use this instead of using .length on
+the array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
+
+Calling this function on a 0-length array is legal and will allocate a new array.  Resizing an existing array to 0
+is legal and will deallocate the array.
+
+The array returned by this function through the arr parameter should not have its length set or be appended to (~=).
+
+-----
+resizeArray(t, arr, 4); // arr.length is now 4
+-----
+
+Params:
+	arr = A reference to the array you want to resize.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.
+
+	length = The length, in items, of the new size of the array.
+*/
+void resizeArray(T)(MDThread* t, ref T[] arr, uword length)
+{
+	auto tmp = cast(void[])arr;
+	resizeMem(t, tmp, length * T.sizeof);
+	arr = cast(T[])tmp;
+}
+
+/**
+Wraps the dupMem API.  Duplicates an array.  This is safe to call on arrays that were not allocated by the MiniD
+allocator.  The new array will be the same length and contain the same data as the old array.
+
+The array returned by this function should not have its length set or be appended to (~=).
+
+-----
+auto newArr = dupArray(t, arr); // newArr has the same data as arr
+-----
+
+Params:
+	arr = The array to duplicate.  This is not required to have been allocated by the MiniD allocator.
+*/
+T[] dupArray(T)(MDThread* t, T[] arr)
+{
+	return cast(T[])dupMem(t, arr);
+}
+
+/**
+Wraps the freeMem API.  Frees an array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
+Freeing a 0-length array is legal.
+
+-----
+freeArray(t, arr);
+freeArray(t, newArr);
+-----
+
+Params:
+	arr = A reference to the array you want to free.  This is a reference so that the original array
+		reference that you pass in is updated.  This can be a 0-length array.
+*/
+void freeArray(T)(MDThread* t, ref T[] arr)
+{
+	auto tmp = cast(void[])arr;
+	freeMem(t, tmp);
+	arr = null;
+}
+
+private alias void delegate(Object) DisposeEvt;
+private static extern(C) void rt_attachDisposeEvent(Object obj, DisposeEvt evt);
+private static extern(C) void rt_detachDisposeEvent(Object obj, DisposeEvt evt);
+
+/**
+A class that makes it possible to automatically remove references to MiniD objects.  You should create a $(B SCOPE) instance
+of this class, which you can then use to create references to MiniD objects.  This class is not itself marked scope so that
+you can pass references to it around, but you should still $(B ALWAYS) create instances of it as scope.
+
+By using the reference objects that this manager creates, you can be sure that any MiniD objects you reference using it
+will be dereferenced by the time the instance of RefManager goes out of scope.
+*/
+class RefManager
+{
+	/**
+	An actual reference object.  This is basically an object-oriented wrapper around a MiniD reference identifier.  You
+	don't create instances of this directly; see $(D RefManager.create).
+	*/
+	static class Ref
+	{
+		private MDVM* vm;
+		private ulong r;
+
+		private this(MDVM* vm, ulong r)
+		{
+			this.vm = vm;
+			this.r = r;
+		}
+
+		~this()
+		{
+			remove();
+		}
+
+		/**
+		Removes the reference using $(D minid.interpreter.removeRef).  You can call this manually, or it will be called
+		automatically when this object is collected or when its owning manager leaves scope.
+		*/
+		public void remove()
+		{
+			if(r == ulong.max)
+				return;
+
+			removeRef(currentThread(vm), r);
+			r = ulong.max;
+		}
+
+		/**
+		Push the reference using $(D minid.interpreter.pushRef).  It is pushed onto the current thread of the VM in which
+		it was created.
+
+		Returns:
+			The stack index of the object that was pushed.
+		*/
+		public word push()
+		{
+			return pushRef(currentThread(vm), r);
+		}
+ 	}
+
+	private const uword Mask = cast(uword)0xDEADBEEF_DEADBEEF;
+	private bool[uword] mRefs;
+
+	~this()
+	{
+		foreach(rx, _; mRefs)
+		{
+			auto r = cast(Ref)cast(void*)(rx ^ Mask);
+			rt_detachDisposeEvent(r, &removeHook);
+			r.remove();
+		}
+	}
+
+	/**
+	Create a reference object to refer to the object at slot idx in thread t using $(D minid.interpreter.createRef).  The
+	given thread's VM is associated with the reference object.
+	
+	Returns:
+		A new reference object.
+	*/
+	Ref create(MDThread* t, word idx)
+	{
+		auto ret = new Ref(getVM(t), createRef(t, idx));
+		mRefs[(cast(uword)cast(void*)ret) ^ Mask] = true;
+		rt_attachDisposeEvent(ret, &removeHook);
+		return ret;
+	}
+
+	private void removeHook(Object o)
+	{
+		auto r = cast(Ref)o;
+		assert(r !is null);
+		rt_detachDisposeEvent(r, &removeHook);
+		mRefs.remove((cast(uword)cast(void*)r) ^ Mask);
+	}
+}
+
+// ================================================================================================================================================
+// Parameter checking
 
 /**
 Check that there is any parameter at the given index.  You can use this to ensure that a minimum number
@@ -626,476 +1199,6 @@ public bool optParam(MDThread* t, word index, MDValue.Type type)
 		paramTypeError(t, index, MDValue.typeString(type));
 
 	return true;
-}
-
-/**
-For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
-given type.  Checks that the number of extra bytes is at least the size of the given type, but
-this should not be used as a foolproof way of identifying the type of instances.
-*/
-public T* getMembers(T)(MDThread* t, word index)
-{
-	auto ret = getExtraBytes(t, index);
-
-	if(ret.length < T.sizeof)
-	{
-		pushTypeString(t, index);
-		throwException(t, "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
-	}
-
-	return cast(T*)ret.ptr;
-}
-
-/**
-Look up some value using a name that looks like a chain of dot-separated identifiers (like a MiniD expression).
-The _name must follow the regular expression "\w[\w\d]*(\.\w[\w\d]*)*".  No spaces are allowed.  The looked-up
-value is left at the top of the stack.
-
-This functions behaves just as though you were evaluating this expression in MiniD.  Global _lookup and opField
-metamethods are respected.
-
------
-auto slot = lookup(t, "time.Timer");
-pushNull(t);
-rawCall(t, slot, 1);
-// We now have an instance of time.Timer on top of the stack.
------
-
-If you want to set a long _name, such as "foo.bar.baz.quux", you just _lookup everything but the last _name and
-use 'fielda' to set it:
-
------
-auto slot = lookup(t, "foo.bar.baz");
-pushInt(t, 5);
-fielda(t, slot, "quux");
------
-
-Params:
-	name = The dot-separated _name of the value to look up.
-
-Returns:
-	The stack index of the looked-up value.
-*/
-public word lookup(MDThread* t, char[] name)
-{
-	validateName(t, name);
-
-	bool isFirst = true;
-	word idx = void;
-
-	foreach(n; name.delimiters("."))
-	{
-		if(isFirst)
-		{
-			isFirst = false;
-			idx = pushGlobal(t, n);
-		}
-		else
-			field(t, -1, n);
-	}
-
-	auto size = stackSize(t);
-
-	if(size > idx + 1)
-		insertAndPop(t, idx);
-
-	return idx;
-}
-
-/**
-Very similar to lookup, this function trades a bit of code bloat for the benefits of checking that the name is valid
-at compile time and of being faster.  The name is validated and translated directly into a series of API calls, meaning
-this function will be likely to be inlined.  The usage is exactly the same as lookup, except the name is now a template
-parameter instead of a normal parameter.
-
-Returns:
-	The stack index of the looked-up value.
-*/
-public word lookupCT(char[] name)(MDThread* t)
-{
-	mixin(NameToAPICalls!(name));
-	return idx;
-}
-
-/**
-Pushes the variable that is stored in the registry with the given name onto the stack.  An error will be thrown if the variable
-does not exist in the registry.
-
-Returns:
-	The stack index of the newly-pushed value.
-*/
-public word getRegistryVar(MDThread* t, char[] name)
-{
-	getRegistry(t);
-	field(t, -1, name);
-	insertAndPop(t, -2);
-	return stackSize(t) - 1;
-}
-
-/**
-Pops the value off the top of the stack and sets it into the given registry variable.
-*/
-public void setRegistryVar(MDThread* t, char[] name)
-{
-	getRegistry(t);
-	swap(t);
-	fielda(t, -2, name);
-	pop(t);
-}
-
-/**
-Similar to the _loadString function in the MiniD base library, this compiles some statements
-into a function that takes variadic arguments and pushes that function onto the stack.
-
-Params:
-	code = The source _code of the function.  This should be one or more statements.
-	customEnv = If true, expects the value on top of the stack to be a namespace which will be
-		set as the environment of the new function.  The namespace will be replaced.  Defaults
-		to false, in which case the current function's environment will be used.
-	name = The _name to give the function.  Defaults to "<loaded by loadString>".
-	
-Returns:
-	The stack index of the newly-compiled function.
-*/
-public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
-{
-	if(customEnv)
-	{
-		if(!isNamespace(t, -1))
-		{
-			pushTypeString(t, -1);
-			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
-		}
-	}
-	else
-		pushEnvironment(t);
-
-	{
-		scope c = new Compiler(t);
-		c.compileStatements(code, name);
-	}
-
-	swap(t);
-	setFuncEnv(t, -2);
-
-	return stackSize(t) - 1;
-}
-
-/**
-This is a quick way to run some MiniD code.  Basically this just calls loadString and then runs
-the resulting function with no parameters.  This function's parameters are the same as loadString's.
-*/
-public void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
-{
-	loadString(t, code, customEnv, name);
-	pushNull(t);
-	rawCall(t, -2, 0);
-}
-
-/**
-Similar to the _eval function in the MiniD base library, this compiles an expression, evaluates it,
-and leaves the result(s) on the stack.  
-
-Params:
-	code = The source _code of the expression.
-	numReturns = How many return values you want from the expression.  Defaults to 1.  Works just like
-		the _numReturns parameter of the call functions; -1 gets all return values.
-	customEnv = If true, expects the value on top of the stack to be a namespace which will be
-		used as the environment of the expression.  The namespace will be replaced.  Defaults
-		to false, in which case the current function's environment will be used.
-		
-Returns:
-	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
-	returned.
-*/
-public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
-{
-	if(customEnv)
-	{
-		if(!isNamespace(t, -1))
-		{
-			pushTypeString(t, -1);
-			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
-		}
-	}
-	else
-		pushEnvironment(t);
-
-	{
-		scope c = new Compiler(t);
-		c.compileExpression(code, "<loaded by eval>");
-	}
-
-	swap(t);
-	setFuncEnv(t, -2);
-
-	pushNull(t);
-	return rawCall(t, -2, numReturns);
-}
-
-/**
-Imports a module or file and runs any main() function in it.
-
-Params:
-	filename = The name of the file or module to load.  If it's a path to a file, it must end in .md or .mdm.
-		It will be compiled or deserialized as necessary. If it's a module name, it must be in dotted form and
-		not end in md or mdm.  It will be imported as normal.
-		
-	numParams = How many arguments you have to pass to the main() function.  If you want to pass params, they
-		must be on top of the stack when you call this function.
-		
-Example:
------
-// We want to load "foo.bar.baz" and pass it "a" and "b" as params.
-// Push the params first.
-pushString(t, "a");
-pushString(t, "b");
-// Run the file and tell it we have two params.
-runFile(t, "foo.bar.baz", 2);
------
-
------
-// Just showing how you'd execute a module by filename instead of module name.
-runFile(t, "foo/bar/baz.md");
------
-*/
-public void runFile(MDThread* t, char[] filename, uword numParams = 0)
-{
-// 	checkNumParams(t, numParams);
-
-	if(!filename.endsWith(".md") && !filename.endsWith(".mdm"))
-		importModule(t, filename);
-	else
-	{
-		if(filename.endsWith(".md"))
-		{
-			scope c = new Compiler(t);
-			c.compileModule(filename);
-		}
-		else
-		{
-			scope f = new File(filename, File.ReadExisting);
-			scope r = new Reader(f);
-			deserializeModule(t, r);
-		}
-	
-		lookup(t, "modules.initModule");
-		swap(t);
-		pushNull(t);
-		swap(t);
-		pushString(t, funcName(t, -1));
-		rawCall(t, -4, 1);
-	}
-
-	pushNull(t);
-	lookup(t, "modules.runMain");
-	swap(t, -3);
-	rotate(t, numParams + 3, 3);
-	rawCall(t, -3 - numParams, 0);
-}
-
-/**
-This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
-that handle MiniD exceptions in D code.  
-
-This function will store the stack size of the given thread when it is called, before the try code is executed.
-If an exception occurs, the stack will be restored to that size, the MiniD exception will be caught (with
-catchException), and the catch code will be called with the D exception object and the MiniD exception object's
-stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
-same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
-finally code, if any, will be executed as a finally block usually is.
-
-This function is best used with anonymous delegates, like so:
-
------
-mdtry(t,
-// try block
-{
-	// foo bar baz
-},
-// catch block
-(MDException e, word mdEx)
-{
-	// deal with exception here
-},
-// finally block
-{
-	// cleanup, whatever
-});
------
-
-It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
-the delegate instead of from the enclosing function.  Hey, don't look at me; it's D's fault for not having
-AST macros ;$(RPAREN)
-
-If you just need a try-finally block, you don't need this function, and please don't call it with a null
-catch_ parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
-
-Params:
-	try_ = The try code.
-	catch_ = The catch code.  It takes two parameters - the D exception object and the stack index of the caught
-		MiniD exception object.
-	finally_ = The optional finally code.
-*/
-public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, word) catch_, void delegate() finally_ = null)
-{
-	auto size = stackSize(t);
-
-	try
-		try_();
-	catch(MDException e)
-	{
-		setStackSize(t, size);
-		auto mdEx = catchException(t);
-		catch_(e, mdEx);
-
-		if(mdEx != stackSize(t) - 1)
-			throwException(t, "mdtry - catch block is supposed to leave stack as it was before it was entered");
-
-		pop(t);
-	}
-	finally
-	{
-		if(finally_)
-			finally_();
-	}
-}
-
-/**
-A useful wrapper for code where you want to ensure that the stack is balanced, that is, it is the same size after
-some set of operations as before it.  Having a balanced stack is more than just good practice - it prevents stack
-overflows and underflows.
-
-You can also use this function when your code requires that the stack be a certain number of slots larger or smaller
-after some stack operations - for instance, a function which always returns two values, regardless of multiple
-execution paths.
-
-If the stack size is not correct after running the code, an exception will be thrown in the passed-in thread.
-
-Params:
-	diff = How many more (or fewer) items there should be on the stack after running the code.  If 0, it means that
-		the stack size after running the code should be exactly as it was before (there is an overload for this common
-		case below).  Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.
-	dg = The code to run.
-
-Examples:
-
------
-// check that the stack is two bigger after the code than before
-stackCheck(t, 2,
-{
-	pushNull(t);
-	pushInt(t, 5);
-}); // it is indeed 2 slots bigger, so it succeeds.
-
-// check that the stack shrinks by 1 slot
-stackCheck(t, -1,
-{
-	pushString(t, "foobar");
-}); // oh noes, it's 1 slot bigger instead - throws an exception.
------
-*/
-void stackCheck(MDThread* t, word diff, void delegate() dg)
-{
-	auto s = stackSize(t);
-	dg();
-
-	if((stackSize(t) - s) != diff)
-		throwException(t, "Stack is not balanced!");
-}
-
-/**
-An overload of the above which simply calls it with a difference of 0 (i.e. the stack is completely balanced).
-This is the most common case.
-*/
-void stackCheck(MDThread* t, void delegate() dg)
-{
-	stackCheck(t, 0, dg);
-}
-
-/**
-Wraps the allocMem API.  Allocates an array of the given type with the given length.
-You'll have to explicitly specify the type of the array.
-
------
-auto arr = allocArray!(int)(t, 10); // arr is an int[] of length 10
------
-
-The array returned by this function should not have its length set or be appended to (~=).
-
-Params:
-	length = The length, in items, of the array to allocate.
-	
-Returns:
-	The new array.
-*/
-T[] allocArray(T)(MDThread* t, uword length)
-{
-	return cast(T[])allocMem(t, length * T.sizeof);
-}
-
-/**
-Wraps the resizeMem API.  Resizes an array to the new length.  Use this instead of using .length on
-the array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
-
-Calling this function on a 0-length array is legal and will allocate a new array.  Resizing an existing array to 0
-is legal and will deallocate the array.
-
-The array returned by this function through the arr parameter should not have its length set or be appended to (~=).
-
------
-resizeArray(t, arr, 4); // arr.length is now 4
------
-
-Params:
-	arr = A reference to the array you want to resize.  This is a reference so that the original array
-		reference that you pass in is updated.  This can be a 0-length array.
-
-	length = The length, in items, of the new size of the array.
-*/
-void resizeArray(T)(MDThread* t, ref T[] arr, uword length)
-{
-	auto tmp = cast(void[])arr;
-	resizeMem(t, tmp, length * T.sizeof);
-	arr = cast(T[])tmp;
-}
-
-/**
-Wraps the dupMem API.  Duplicates an array.  This is safe to call on arrays that were not allocated by the MiniD
-allocator.  The new array will be the same length and contain the same data as the old array.
-
-The array returned by this function should not have its length set or be appended to (~=).
-
------
-auto newArr = dupArray(t, arr); // newArr has the same data as arr
------
-
-Params:
-	arr = The array to duplicate.  This is not required to have been allocated by the MiniD allocator.
-*/
-T[] dupArray(T)(MDThread* t, T[] arr)
-{
-	return cast(T[])dupMem(t, arr);
-}
-
-/**
-Wraps the freeMem API.  Frees an array.  $(B Only call this on arrays which have been allocated by the MiniD allocator.)
-Freeing a 0-length array is legal.  
-
------
-freeArray(t, arr);
-freeArray(t, newArr);
------
-
-Params:
-	arr = A reference to the array you want to free.  This is a reference so that the original array
-		reference that you pass in is updated.  This can be a 0-length array.
-*/
-void freeArray(T)(MDThread* t, ref T[] arr)
-{
-	auto tmp = cast(void[])arr;
-	freeMem(t, tmp);
-	arr = null;
 }
 
 // ================================================================================================================================================
