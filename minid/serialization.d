@@ -68,7 +68,30 @@ static:
 	{
 		checkAnyParam(t, 1);
 		checkParam(t, 2, MDValue.Type.Table);
-		auto stream = OutStreamObj.getOpenStream(t, 3);
+		checkAnyParam(t, 3);
+
+		lookup(t, "stream.OutStream");
+		OutputStream stream;
+
+		if(as(t, 3, -1))
+		{
+			pop(t);
+			stream = OutStreamObj.getOpenStream(t, 3);
+		}
+		else
+		{
+			pop(t);
+			lookup(t, "stream.InoutStream");
+
+			if(as(t, 3, -1))
+			{
+				pop(t);
+				stream = InoutStreamObj.getOpenConduit(t, 3);
+			}
+			else
+				paramTypeError(t, 3, "stream.OutStream|stream.InoutStream");
+		}
+
 		safeCode(t, .serializeGraph(t, 1, 2, stream));
 		return 0;
 	}
@@ -76,16 +99,33 @@ static:
 	uword deserializeGraph(MDThread* t, uword numParams)
 	{
 		checkParam(t, 1, MDValue.Type.Table);
-		auto stream = InStreamObj.getOpenStream(t, 2);
+		checkAnyParam(t, 2);
+
+		lookup(t, "stream.InStream");
+		InputStream stream;
+
+		if(as(t, 2, -1))
+		{
+			pop(t);
+			stream = InStreamObj.getOpenStream(t, 2);
+		}
+		else
+		{
+			pop(t);
+			lookup(t, "stream.InoutStream");
+
+			if(as(t, 2, -1))
+			{
+				pop(t);
+				stream = InoutStreamObj.getOpenConduit(t, 2);
+			}
+			else
+				paramTypeError(t, 2, "stream.OutStream|stream.InoutStream");
+		}
+
 		safeCode(t, .deserializeGraph(t, 1, stream));
 		return 1;
 	}
-}
-
-void serializeGraph(MDThread* t, word idx, word trans, IWriter output)
-{
-	auto s = Serializer(t, output);
-	s.writeGraph(idx, trans);
 }
 
 void serializeGraph(MDThread* t, word idx, word trans, OutputStream output)

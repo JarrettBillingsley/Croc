@@ -42,18 +42,18 @@ local trans =
 	[StringBuffer] = 4,
 }
 
-local f = io.outFile("temp.dat")
-serializeGraph(obj, trans, f)
+local vec = Vector("i16", 0)
+local vecStream = stream.VectorInoutStream(vec)
+serializeGraph(obj, trans, vecStream)
 
-f.close()
-f = io.inFile("temp.dat")
+writeln(vecStream.position())
+writeln(#vec)
+vecStream.position(0)
+
 trans = {[v] = k for k, v in trans}
-obj = deserializeGraph(trans, f)
+obj = deserializeGraph(trans, vecStream)
 
 dumpVal$ obj
-
-f.close()
-io.remove("temp.dat")
 
 /+import sdl: event, key
 import gl

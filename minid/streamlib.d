@@ -30,15 +30,16 @@ import tango.io.Console;
 import tango.io.device.Conduit;
 import tango.io.stream.Format;
 import tango.io.stream.Lines;
+import tango.math.Math;
 
 import minid.ex;
 import minid.interpreter;
 import minid.misc;
 import minid.types;
 import minid.vector;
+import minid.vm;
 
 // TODO: abstract out common functionality between the three types of streams
-// TODO: stream objects that wrap Vectors
 
 struct StreamLib
 {
@@ -50,6 +51,9 @@ static:
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
 			InoutStreamObj.init(t);
+			VectorInStreamObj.init(t);
+			VectorOutStreamObj.init(t);
+			VectorInoutStreamObj.init(t);
 
 				pushGlobal(t, "InStream");
 				pushNull(t);
@@ -244,7 +248,7 @@ static:
 
 		if(input is null)
 			throwException(t, "instances of InStream may only be created using instances of the Tango InputStream");
-			
+
 		memb.closable = optBoolParam(t, 2, true);
 		memb.stream = input;
 		memb.lines = new Lines!(char)(memb.stream);
@@ -1208,7 +1212,7 @@ static:
 		safeCode(t,
 		{
 			uword length = void;
-			
+
 			safeCode(t, readExact(t, memb, &length, length.sizeof));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
@@ -1678,15 +1682,271 @@ static:
 	}
 }
 
-/* class VectorConduit : Conduit
+class VectorConduit : Conduit, Conduit.Seek
 {
 	private MDVM* vm;
-	private MDRef mVec;
+	private ulong mVec;
+	private uword mPos = 0;
 
-	this()
+	private this(MDVM* vm, ulong vec)
 	{
 		super();
+		this.vm = vm;
+		mVec = vec;
+	}
+	
+	override char[] toString()
+	{
+		return "<vector>";
 	}
 
+	override uword bufferSize()
+	{
+		return 1024;
+	}
 
-} */
+	override void detach()
+	{
+
+	}
+
+	override uword read(void[] dest)
+	{
+		auto t = currentThread(vm);
+		pushRef(t, mVec);
+		auto memb = getMembers!(VectorObj.Members)(t, -1);
+		pop(t);
+
+		auto byteSize = memb.length * memb.type.itemSize;
+
+		if(mPos >= byteSize)
+			return Eof;
+
+		auto numBytes = min(byteSize - mPos, dest.length);
+		dest[0 .. numBytes] = memb.data[mPos .. mPos + numBytes];
+		mPos += numBytes;
+		return numBytes;
+	}
+
+	override uword write(void[] src)
+	{
+		auto t = currentThread(vm);
+		pushRef(t, mVec);
+		auto memb = getMembers!(VectorObj.Members)(t, -1);
+
+		auto byteSize = memb.length * memb.type.itemSize;
+		auto bytesLeft = byteSize - mPos;
+
+		if(src.length > bytesLeft)
+		{
+			auto newByteSize = byteSize - bytesLeft + src.length;
+			auto newSize = newByteSize / memb.type.itemSize;
+
+			if((newSize * memb.type.itemSize) < newByteSize)
+				newSize++;
+
+			pushNull(t);
+			pushInt(t, newSize);
+			methodCall(t, -3, "opLengthAssign", 0);
+		}
+		else
+			pop(t);
+
+		memb.data[mPos .. mPos + src.length] = src[];
+		mPos += src.length;
+		return src.length;
+	}
+
+	override long seek(long offset, Anchor anchor = Anchor.Begin)
+	{
+		auto t = currentThread(vm);
+		pushRef(t, mVec);
+		auto memb = getMembers!(VectorObj.Members)(t, -1);
+		pop(t);
+
+		auto byteSize = memb.length * memb.type.itemSize;
+
+		if(offset > byteSize)
+			offset = byteSize;
+
+		switch(anchor)
+		{
+			case Anchor.Begin:
+				mPos = cast(uword)offset;
+				break;
+
+			case Anchor.End:
+				mPos = cast(uword)(byteSize - offset);
+				break;
+
+			case Anchor.Current:
+				auto off = cast(uword)(mPos + offset);
+
+				if(off < 0)
+					off = 0;
+
+				if(off > byteSize)
+					off = byteSize;
+
+				mPos = off;
+				break;
+
+			default: assert(false);
+		}
+
+		return mPos;
+	}
+}
+
+struct VectorInStreamObj
+{
+static:
+	alias InStreamObj.Fields Fields;
+	alias InStreamObj.Members Members;
+
+	public void init(MDThread* t)
+	{
+		CreateClass(t, "VectorInStream", "InStream", (CreateClass* c)
+		{
+			c.method("constructor", &constructor);
+		});
+
+		newFunction(t, &finalizer, "VectorInStream.finalizer");
+		setFinalizer(t, -2);
+
+		newGlobal(t, "VectorInStream");
+	}
+
+	uword finalizer(MDThread* t, uword numParams)
+	{
+		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+
+		if(!memb.closed)
+		{
+			memb.closed = true;
+			removeRef(t, (cast(VectorConduit)memb.stream).mVec);
+		}
+
+		return 0;
+	}
+
+	public uword constructor(MDThread* t, uword numParams)
+	{
+		auto memb = InStreamObj.getThis(t);
+
+		if(memb.stream !is null)
+			throwException(t, "Attempting to call constructor on an already-initialized VectorInStream");
+
+		checkInstParam(t, 1, "Vector");
+
+		pushNull(t);
+		dup(t);
+		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushBool(t, true);
+		superCall(t, -4, "constructor", 0);
+
+		return 0;
+	}
+}
+
+struct VectorOutStreamObj
+{
+static:
+	alias OutStreamObj.Fields Fields;
+	alias OutStreamObj.Members Members;
+
+	public void init(MDThread* t)
+	{
+		CreateClass(t, "VectorOutStream", "OutStream", (CreateClass* c)
+		{
+			c.method("constructor", &constructor);
+		});
+
+		newFunction(t, &finalizer, "VectorOutStream.finalizer");
+		setFinalizer(t, -2);
+
+		newGlobal(t, "VectorOutStream");
+	}
+
+	uword finalizer(MDThread* t, uword numParams)
+	{
+		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+
+		if(!memb.closed)
+		{
+			memb.closed = true;
+			removeRef(t, (cast(VectorConduit)memb.stream).mVec);
+		}
+
+		return 0;
+	}
+
+	public uword constructor(MDThread* t, uword numParams)
+	{
+		auto memb = OutStreamObj.getThis(t);
+
+		if(memb.stream !is null)
+			throwException(t, "Attempting to call constructor on an already-initialized VectorOutStream");
+
+		checkInstParam(t, 1, "Vector");
+
+		pushNull(t);
+		dup(t);
+		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushBool(t, true);
+		superCall(t, -4, "constructor", 0);
+
+		return 0;
+	}
+}
+
+struct VectorInoutStreamObj
+{
+static:
+	alias InoutStreamObj.Fields Fields;
+	alias InoutStreamObj.Members Members;
+
+	public void init(MDThread* t)
+	{
+		CreateClass(t, "VectorInoutStream", "InoutStream", (CreateClass* c)
+		{
+			c.method("constructor", &constructor);
+		});
+
+		newFunction(t, &finalizer, "VectorInoutStream.finalizer");
+		setFinalizer(t, -2);
+
+		newGlobal(t, "VectorInoutStream");
+	}
+
+	uword finalizer(MDThread* t, uword numParams)
+	{
+		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
+
+		if(!memb.closed)
+		{
+			memb.closed = true;
+			removeRef(t, (cast(VectorConduit)memb.conduit).mVec);
+		}
+
+		return 0;
+	}
+
+	public uword constructor(MDThread* t, uword numParams)
+	{
+		auto memb = InoutStreamObj.getThis(t);
+
+		if(memb.conduit !is null)
+			throwException(t, "Attempting to call constructor on an already-initialized VectorInoutStream");
+
+		checkInstParam(t, 1, "Vector");
+
+		pushNull(t);
+		dup(t);
+		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushBool(t, true);
+		superCall(t, -4, "constructor", 0);
+
+		return 0;
+	}
+}
