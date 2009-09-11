@@ -8,7 +8,7 @@ function chain(vararg)
 	{
 		foreach(arg; args)
 			foreach(v; arg)
-				yield(null, v)
+				yield(v)
 	}
 }
 
@@ -17,7 +17,7 @@ function count(n = 0) =
 	{
 		while(true)
 		{
-			yield(null, n)
+			yield(n)
 			n++
 		}
 	}
@@ -59,11 +59,11 @@ function generator(x, extra = null) =
 		if(!isFunction(iterFunc) && !isThread(iterFunc))
 		{
 			iterFunc, state, idx = x.opApply(extra)
-			
+
 			if(!isFunction(iterFunc) && !isThread(iterFunc))
 				throw "aghl"
 		}
-		
+
 		local rets = [idx]
 
 		if(isFunction(iterFunc))
@@ -80,7 +80,7 @@ function generator(x, extra = null) =
 		{
 			if(!iterFunc.isInitial())
 				throw "not initial omfg"
-				
+
 			rets.set(iterFunc(with state, rets[0]))
 
 			while(!iterFunc.isDead())

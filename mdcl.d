@@ -29,22 +29,22 @@ import tango.io.Console;
 import minid.api;
 import minid.commandline;
 
-// version = MDAllAddons;
+// version = MdclAllAddons;
 
-version(MDAllAddons)
+version(MdclAllAddons)
 {
-	version = MDSdlAddon;
-	version = MDGlAddon;
-	version = MDNetAddon;
-	version = MDPcreAddon;
+	version = MdclSdlAddon;
+	version = MdclGlAddon;
+	version = MdclNetAddon;
+	version = MdclPcreAddon;
 }
 
-version(MDSdlAddon)  import minid.addons.sdl;
-version(MDGlAddon)   import minid.addons.gl;
-version(MDNetAddon)  import minid.addons.net;
-version(MDPcreAddon) import minid.addons.pcre;
+version(MdclSdlAddon)  import minid.addons.sdl;
+version(MdclGlAddon)   import minid.addons.gl;
+version(MdclNetAddon)  import minid.addons.net;
+version(MdclPcreAddon) import minid.addons.pcre;
 
-	const char[] Usage =
+const char[] Usage =
 "Usage:
 \tmdcl [flags] [filename [args]]
 
@@ -163,19 +163,19 @@ void main(char[][] args)
 	auto t = openVM(&vm);
 	loadStdlibs(t, MDStdlib.All);
 
-	version(MDSdlAddon)  SdlLib.init(t);
-	version(MDGlAddon)   GlLib.init(t);
-	version(MDNetAddon)  NetLib.init(t);
-	version(MDPcreAddon) PcreLib.init(t);
+	version(MdclSdlAddon)  SdlLib.init(t);
+	version(MdclGlAddon)   GlLib.init(t);
+	version(MdclNetAddon)  NetLib.init(t);
+	version(MdclPcreAddon) PcreLib.init(t);
 
 	auto params = parseArguments(t, args);
-	
+
 	if(params.justStop)
 		return;
 
 	if(params.debugEnabled)
 		loadStdlibs(t, MDStdlib.Debug);
-		
+
 	try
 	{
 		if(params.inputFile)
@@ -184,7 +184,7 @@ void main(char[][] args)
 			{
 				foreach(arg; params.args)
 					pushString(t, arg);
-	
+
 				runFile(t, params.inputFile, params.args.length);
 			},
 			(MDException e, word mdEx)
@@ -198,7 +198,7 @@ void main(char[][] args)
 		else
 		{
 			printVersion();
-	
+
 			ConsoleCLI cli;
 			cli.interactive(t);
 		}
@@ -209,6 +209,6 @@ void main(char[][] args)
 		e.writeOut((char[]s) { Stdout(s); });
 		return;
 	}
-	
+
 	closeVM(&vm);
 }

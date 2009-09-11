@@ -1801,7 +1801,6 @@ class VectorConduit : Conduit, Conduit.Seek
 struct VectorInStreamObj
 {
 static:
-	alias InStreamObj.Fields Fields;
 	alias InStreamObj.Members Members;
 
 	public void init(MDThread* t)
@@ -1852,7 +1851,6 @@ static:
 struct VectorOutStreamObj
 {
 static:
-	alias OutStreamObj.Fields Fields;
 	alias OutStreamObj.Members Members;
 
 	public void init(MDThread* t)
@@ -1903,7 +1901,6 @@ static:
 struct VectorInoutStreamObj
 {
 static:
-	alias InoutStreamObj.Fields Fields;
 	alias InoutStreamObj.Members Members;
 
 	public void init(MDThread* t)
