@@ -1,33 +1,26 @@
 module samples.simple
 
-function Y(g) = (\f -> f(f))(\f -> g(\x -> f(f)(x)))
-local fac = Y(\f -> \n -> n == 0 ? 1 : n * f(n - 1))
-local fib = Y(\f -> \n -> n <= 1 ? n : f(n - 1) + f(n - 2))
-writeln("fac: ", [fac(x) for x in 0 .. 10])
-writeln("fib: ", [fib(x) for x in 0 .. 10])
-
-/*
 import serialization: serializeGraph, deserializeGraph
 
 class A
 {
 	this(x, y)
-		.x, .y = x, y
+		:x, :y = x, y
 
-	function toString() = format("A<x = {} y = {}>", .x, .y)
+	function toString() = format("A<x = {} y = {}>", :x, :y)
 }
 
 class B
 {
 	this(x, y)
-		.x, .y = x, y
+		:x, :y = x, y
 
-	function toString() = format("B<x = {} y = {}>", .x, .y)
+	function toString() = format("B<x = {} y = {}>", :x, :y)
 
 	function opSerialize(s, f)
 	{
-		f(.x)
-		f(.y)
+		f(:x)
+		f(:y)
 		s.writeChars("lol")
 	}
 
@@ -35,7 +28,7 @@ class B
 	{
 		:x = f()
 		:y = f()
-		writeln: s.readChars(3)
+		writeln$ s.readChars(3)
 	}
 }
 
@@ -60,8 +53,7 @@ vecStream.position(0)
 trans = {[v] = k for k, v in trans}
 obj = deserializeGraph(trans, vecStream)
 
-dumpVal: obj
-*/
+dumpVal$ obj
 
 /+import sdl: event, key
 import gl
