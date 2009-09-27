@@ -182,7 +182,7 @@ static:
 
 	uword copy(MDThread* t, uword numParams)
 	{
-		safeCode(t, Path.copy(checkStringParam(t, 1), checkStringParam(t, 1)));
+		safeCode(t, Path.copy(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
