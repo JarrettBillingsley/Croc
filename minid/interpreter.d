@@ -5421,7 +5421,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 
 				buffer[pos .. pos + s.length] = s[];
 				pos += s.length;
-				return s.length;
+				return cast(uint)s.length; // the cast is there to make things work on x64 :P
 			}, "{}", v.mFloat);
 
 			return pushString(t, buffer[0 .. pos]);
