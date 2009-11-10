@@ -353,7 +353,7 @@ Params:
 Returns:
 	The number of bytes collected, which may be 0.
 */
-public void maybeGC(MDThread* t)
+public uword maybeGC(MDThread* t)
 {
 	uword ret = 0;
 
