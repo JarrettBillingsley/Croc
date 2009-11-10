@@ -85,6 +85,14 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 		// did we run out of string?
 		if(fmtBegin == formatStr.length)
 			break;
+			
+		// Check if it's an escaped {
+		if(formatStr[fmtBegin + 1] == '{')
+		{
+			begin = fmtBegin + 2;
+			formatter.convert(sink, "{}", "{");
+			continue;
+		}
 
 		// find the end of the {}
 		auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
@@ -428,7 +436,7 @@ static:
 					exp = (exp * 10) + (mCharacter - '0');
 					nextChar();
 				}
-	
+
 				fret = fret * pow(10, negExp? -exp : exp);
 			}
 			
@@ -518,7 +526,7 @@ static:
 			auto beginningCol = mCol;
 
 			auto buf = StrBuffer(t);
-	
+
 			// Skip opening quote
 			nextChar();
 
