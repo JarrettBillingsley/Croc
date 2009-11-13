@@ -78,6 +78,7 @@ static:
 			newFunction(t, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
 			newFunction(t, &timex,      "timex");      newGlobal(t, "timex");
 			newFunction(t, &sleep,      "sleep");      newGlobal(t, "sleep");
+			newFunction(t, &compare,    "compare");    newGlobal(t, "compare");
 
 			return 0;
 		});
@@ -173,6 +174,16 @@ static:
 
 		return 1;
 	}
+	
+	uword compare(MDThread* t, uword numParams)
+	{
+		checkParam(t, 1, MDValue.Type.Table);
+		checkParam(t, 2, MDValue.Type.Table);
+		auto t1 = TableToTime(t, 1);
+		auto t2 = TableToTime(t, 2);
+		pushInt(t, cast(mdint)t1.opCmp(t2));
+		return 1;
+	}
 
 	// longest possible is 5 chars * 4 bytes per char = 20 bytes?
 	char[] StrToCulture(MDThread* t, word slot)
@@ -187,23 +198,29 @@ static:
 
 	char[] GetFormat(MDThread* t, word slot)
 	{
-		switch(checkStringParam(t, slot))
-		{
-			case "d": return "d";
-			case "D": return "D";
-			case "t": return "t";
-			case "T": return "T";
-			case "g": return "g";
-			case "G": return "G";
-			case "M": return "M";
-			case "R": return "R";
-			case "s": return "s";
-			case "Y": return "Y";
+		auto s = checkStringParam(t, slot);
 
-			default:
-				throwException(t, "invalid format string");
+		if(s.length == 1)
+		{
+			switch(s[0])
+			{
+				case 'd':
+				case 'D':
+				case 't':
+				case 'T':
+				case 'g':
+				case 'G':
+				case 'M':
+				case 'R':
+				case 's':
+				case 'Y': return s;
+
+				default:
+					break;
+			}
 		}
-		
+
+		throwException(t, "invalid format string");
 		assert(false);
 	}
 
@@ -218,7 +235,7 @@ static:
 
 		if(!isInt(t, year) || !isInt(t, month) || !isInt(t, day))
 			throwException(t, "year, month, and day fields in time table must exist and must be integers");
-			
+
 		Time time = void;
 
 		if(isInt(t, hour) && isInt(t, min) && isInt(t, sec))
@@ -228,7 +245,7 @@ static:
 		}
 		else
 			time = Gregorian.generic.toTime(cast(uint)getInt(t, year), cast(uint)getInt(t, month), cast(uint)getInt(t, day), 0, 0, 0, 0, 0);
-			
+
 		pop(t, 6);
 
 		return time;
