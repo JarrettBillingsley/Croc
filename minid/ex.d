@@ -1081,6 +1081,58 @@ public T* checkInstParam(T)(MDThread* t, word index, char[] name)
 }
 
 /**
+Checks that the parameter at the given index is an instance of the class given by the reference.
+
+Params:
+	index = The stack index of the parameter to check.
+	classRef = Reference to the class object.
+*/
+
+public void checkInstParamRef(MDThread* t, word index, ulong classRef)
+{
+	index = absIndex(t, index);
+	checkInstParam(t, index);
+
+	pushRef(t, classRef);
+
+	if(!as(t, index, -1))
+	{
+		auto name = className(t, -1);
+		pushTypeString(t, index);
+
+		if(index == 0)
+			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+		else
+			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+	}
+
+	pop(t);
+}
+
+/**
+Checks that the parameter at the given index is an instance of the class in the second index.
+
+Params:
+	index = The stack index of the parameter to check.
+	classIndex = The stack index of the class against which the instance should be tested.
+*/
+public void checkInstParamSlot(MDThread* t, word index, word classIndex)
+{
+	checkInstParam(t, index);
+
+	if(!as(t, index, classIndex))
+	{
+		auto name = className(t, classIndex);
+		pushTypeString(t, index);
+
+		if(index == 0)
+			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+		else
+			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+	}
+}
+
+/**
 Checks that the parameter at the given index is of the given type.
 */
 public void checkParam(MDThread* t, word index, MDValue.Type type)

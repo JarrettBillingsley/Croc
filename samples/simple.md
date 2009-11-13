@@ -1,59 +1,6 @@
 module samples.simple
 
-import serialization: serializeGraph, deserializeGraph
 
-class A
-{
-	this(x, y)
-		:x, :y = x, y
-
-	function toString() = format("A<x = {} y = {}>", :x, :y)
-}
-
-class B
-{
-	this(x, y)
-		:x, :y = x, y
-
-	function toString() = format("B<x = {} y = {}>", :x, :y)
-
-	function opSerialize(s, f)
-	{
-		f(:x)
-		f(:y)
-		s.writeChars("lol")
-	}
-
-	function opDeserialize(s, f)
-	{
-		:x = f()
-		:y = f()
-		writeln$ s.readChars(3)
-	}
-}
-
-local obj = [weakref(A(4, 5))]
-local trans =
-{
-	[_G] = 0,
-	[writeln] = 1,
-	[writefln] = 2,
-	[Vector] = 3,
-	[StringBuffer] = 4,
-}
-
-local vec = Vector("i16", 0)
-local vecStream = stream.VectorInoutStream(vec)
-serializeGraph(obj, trans, vecStream)
-
-writeln(vecStream.position())
-writeln(#vec)
-vecStream.position(0)
-
-trans = {[v] = k for k, v in trans}
-obj = deserializeGraph(trans, vecStream)
-
-dumpVal$ obj
 
 /+import sdl: event, key
 import gl
