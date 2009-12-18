@@ -25,7 +25,6 @@ module minidc;
 
 import tango.io.device.File;
 import tango.io.Stdout;
-import tango.io.protocol.Writer;
 
 import minid.api;
 import minid.compiler;
@@ -60,8 +59,6 @@ void main(char[][] args)
 	c.compileModule(args[1]);
 
 	scope fc = new File(args[1] ~ "m", File.WriteCreate);
-	scope w = new Writer(fc);
-	serializeModule(t, -1, w);
-	w.flush();
+	serializeModule(t, -1, fc);
 	fc.close();
 }
