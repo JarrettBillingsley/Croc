@@ -27,8 +27,8 @@ subject to the following restrictions:
 module minid.serialization;
 
 import tango.core.BitManip;
-import tango.io.protocol.Reader;
-import tango.io.protocol.Writer;
+import tango.core.Exception;
+import tango.io.model.IConduit;
 
 import minid.ex;
 import minid.func;
@@ -42,6 +42,30 @@ import minid.streamlib;
 import minid.string;
 import minid.types;
 import minid.utils;
+
+void get(T)(InputStream i, ref T ret)
+{
+	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
+		throw new IOException("End of stream while reading");
+}
+
+void put(T)(OutputStream o, T val)
+{
+	if(o.write(cast(void[])(&val)[0 .. 1]) != T.sizeof)
+		throw new IOException("End of stream while writing");
+}
+
+void readExact(InputStream i, void[] dest)
+{
+	if(i.read(dest) != dest.length)
+		throw new IOException("End of stream while reading");
+}
+
+void append(OutputStream o, void[] val)
+{
+	if(o.write(val) != val.length)
+		throw new IOException("End of stream while writing");
+}
 
 // ================================================================================================================================================
 // Public
@@ -138,7 +162,7 @@ struct Serializer
 {
 private:
 	MDThread* t;
-	IWriter mOutput;
+	OutputStream mOutput;
 	Hash!(MDBaseObject*, uword) mObjTable;
 	uword mObjIndex;
 	MDTable* mTrans;
@@ -151,17 +175,12 @@ private:
 		Transient = -2
 	}
 
-	static Serializer opCall(MDThread* t, IWriter output)
+	static Serializer opCall(MDThread* t, OutputStream output)
 	{
 		Serializer ret;
 		ret.t = t;
 		ret.mOutput = output;
 		return ret;
-	}
-
-	static Serializer opCall(MDThread* t, OutputStream output)
-	{
-		return opCall(t, new Writer(output));
 	}
 
 	static class Goober
@@ -200,7 +219,7 @@ private:
 			importModuleNoNS(t, "stream");
 			lookup(t, "stream.OutStream");
 			pushNull(t);
-			pushNativeObj(t, cast(Object)mOutput.buffer());
+			pushNativeObj(t, cast(Object)mOutput);
 			pushBool(t, false);
 			rawCall(t, -4, 1);
 			mStream = getInstance(t, -1);
@@ -236,20 +255,20 @@ private:
 
 	void tag(byte v)
 	{
-		mOutput.put(v);
+		put(mOutput, v);
 	}
 
 	void integer(long v)
 	{
 		if(v == 0)
 		{
-			mOutput.put(cast(byte)0);
+			put!(byte)(mOutput, 0);
 			return;
 		}
 		else if(v == long.min)
 		{
 			// this is special-cased since -long.min == long.min!
-			mOutput.put(cast(byte)0xFF);
+			put(mOutput, cast(byte)0xFF);
 			return;
 		}
 
@@ -264,11 +283,11 @@ private:
 		else
 			numBytes = (bsr(cast(uint)v) / 8) + 1;
 
-		mOutput.put(cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
+		put(mOutput, cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
 
 		while(v)
 		{
-			mOutput.put(cast(ubyte)(v & 0xFF));
+			put(mOutput, cast(ubyte)(v & 0xFF));
 			v >>>= 8;
 		}
 	}
@@ -325,7 +344,7 @@ private:
 	void serializeBool(bool v)
 	{
 		tag(MDValue.Type.Bool);
-		mOutput.put(v);
+		put(mOutput, v);
 	}
 
 	void serializeInt(mdint v)
@@ -337,7 +356,7 @@ private:
 	void serializeFloat(mdfloat v)
 	{
 		tag(MDValue.Type.Float);
-		mOutput.put(v);
+		put(mOutput, v);
 	}
 
 	void serializeChar(dchar v)
@@ -354,7 +373,7 @@ private:
 		tag(MDValue.Type.String);
 		auto data = v.toString();
 		integer(data.length);
-		mOutput.buffer.append(data.ptr, data.length * char.sizeof);
+		append(mOutput, data);
 	}
 
 	void serializeTable(MDTable* v)
@@ -381,7 +400,7 @@ private:
 		serialize(MDValue(cast(MDBaseObject*)v.data));
 		integer(cast(uword)(v.slice.ptr - v.data.toArray().ptr));
 		integer(v.slice.length);
-		mOutput.put(v.isSlice);
+		put(mOutput, v.isSlice);
 	}
 
 	void serializeArrayData(MDArrayData* v)
@@ -416,10 +435,10 @@ private:
 		serialize(MDValue(cast(MDBaseObject*)v.scriptFunc));
 
 		if(v.environment is t.vm.globals)
-			mOutput.put(false);
+			put(mOutput, false);
 		else
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(v.environment));
 		}
 
@@ -445,7 +464,7 @@ private:
 		serialize(MDValue(v.location.file));
 		integer(v.location.line);
 		integer(v.location.col);
-		mOutput.put(v.isVararg);
+		put(mOutput, v.isVararg);
 		serialize(MDValue(v.name));
 		integer(v.numParams);
 		integer(v.paramMasks.length);
@@ -466,17 +485,16 @@ private:
 			serialize(val);
 
 		integer(v.code.length);
-		mOutput.buffer.append(v.code.ptr, v.code.length * Instruction.sizeof);
-
-		mOutput.put(v.isPure);
+		append(mOutput, v.code);
+		put(mOutput, v.isPure);
 
 		if(auto f = v.cachedFunc)
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(f));
 		}
 		else
-			mOutput.put(false);
+			put(mOutput, false);
 
 		integer(v.switchTables.length);
 
@@ -494,7 +512,7 @@ private:
 		}
 
 		integer(v.lineInfo.length);
-		mOutput.buffer.append(v.lineInfo.ptr, v.lineInfo.length * uint.sizeof);
+		append(mOutput, v.lineInfo);
 		integer(v.upvalNames.length);
 
 		foreach(name; v.upvalNames)
@@ -528,11 +546,11 @@ private:
 
 		if(v.parent)
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(v.parent));
 		}
 		else
-			mOutput.put(false);
+			put(mOutput, false);
 
 		assert(v.fields !is null);
 		serialize(MDValue(v.fields));
@@ -556,7 +574,7 @@ private:
 
 			if(isFunction(t, -1))
 			{
-				mOutput.put(true);
+				put(mOutput, true);
 				pop(t);
 				pushNull(t);
 				pushInstance(t, mStream);
@@ -584,7 +602,7 @@ private:
 		}
 
 		pop(t);
-		mOutput.put(false);
+		put(mOutput, false);
 
 		if(v.finalizer || v.numValues || v.extraBytes)
 		{
@@ -602,11 +620,11 @@ private:
 
 		if(v.fields)
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(v.fields));
 		}
 		else
-			mOutput.put(false);
+			put(mOutput, false);
 	}
 
 	void serializeNamespace(MDNamespace* v)
@@ -618,10 +636,10 @@ private:
 		serialize(MDValue(v.name));
 
 		if(v.parent is null)
-			mOutput.put(false);
+			put(mOutput, false);
 		else
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(v.parent));
 		}
 
@@ -649,11 +667,11 @@ private:
 
 		version(MDExtendedCoro)
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 		}
 		else
 		{
-			mOutput.put(false);
+			put(mOutput, false);
 			integer(v.savedCallDepth);
 		}
 
@@ -667,10 +685,10 @@ private:
 			integer(rec.returnSlot);
 
 			if(rec.func is null)
-				mOutput.put(false);
+				put(mOutput, false);
 			else
 			{
-				mOutput.put(true);
+				put(mOutput, true);
 				serialize(MDValue(rec.func));
 				uword diff = rec.pc - rec.func.scriptFunc.code.ptr;
 				integer(diff);
@@ -680,11 +698,11 @@ private:
 
 			if(rec.proto)
 			{
-				mOutput.put(true);
+				put(mOutput, true);
 				serialize(MDValue(rec.proto));
 			}
 			else
-				mOutput.put(false);
+				put(mOutput, false);
 
 			integer(rec.numTailcalls);
 			integer(rec.firstResult);
@@ -693,19 +711,19 @@ private:
 
 			if(rec.unwindReturn)
 			{
-				mOutput.put(true);
+				put(mOutput, true);
 				uword diff = rec.unwindReturn - rec.func.scriptFunc.code.ptr;
 				integer(diff);
 			}
 			else
-				mOutput.put(false);
+				put(mOutput, false);
 		}
 
 		integer(v.trIndex);
 
 		foreach(ref rec; v.tryRecs[0 .. v.trIndex])
 		{
-			mOutput.put(rec.isCatch);
+			put(mOutput, rec.isCatch);
 			integer(rec.slot);
 			integer(rec.actRecord);
 
@@ -732,15 +750,15 @@ private:
 		foreach(ref val; v.results[0 .. v.resultIndex])
 			serialize(val);
 
-		mOutput.put(v.shouldHalt);
+		put(mOutput, v.shouldHalt);
 
 		if(v.coroFunc)
 		{
-			mOutput.put(true);
+			put(mOutput, true);
 			serialize(MDValue(v.coroFunc));
 		}
 		else
-			mOutput.put(false);
+			put(mOutput, false);
 
 		integer(v.state);
 		integer(v.numYields);
@@ -766,10 +784,10 @@ private:
 		tag(MDValue.Type.WeakRef);
 
 		if(v.obj is null)
-			mOutput.put(true);
+			put(mOutput, true);
 		else
 		{
-			mOutput.put(false);
+			put(mOutput, false);
 			serialize(MDValue(v.obj));
 		}
 	}
@@ -818,23 +836,18 @@ struct Deserializer
 {
 private:
 	MDThread* t;
-	IReader mInput;
+	InputStream mInput;
 	MDBaseObject*[] mObjTable;
 	MDTable* mTrans;
 	MDInstance* mStream;
 	MDFunction* mDeserializeFunc;
 
-	static Deserializer opCall(MDThread* t, IReader input)
+	static Deserializer opCall(MDThread* t, InputStream input)
 	{
 		Deserializer ret;
 		ret.t = t;
 		ret.mInput = input;
 		return ret;
-	}
-
-	static Deserializer opCall(MDThread* t, InputStream input)
-	{
-		return opCall(t, new Reader(input));
 	}
 
 	static class Goober
@@ -868,7 +881,7 @@ private:
 			importModuleNoNS(t, "stream");
 			lookup(t, "stream.InStream");
 			pushNull(t);
-			pushNativeObj(t, cast(Object)mInput.buffer());
+			pushNativeObj(t, cast(Object)mInput);
 			pushBool(t, false);
 			rawCall(t, -4, 1);
 			mStream = getInstance(t, -1);
@@ -915,14 +928,14 @@ private:
 	byte tag()
 	{
 		byte ret = void;
-		mInput.get(ret);
+		get(mInput, ret);
 		return ret;
 	}
 
 	long integer()()
 	{
 		byte v = void;
-		mInput.get(v);
+		get(mInput, v);
 
 		if(v == 0)
 			return 0;
@@ -940,7 +953,7 @@ private:
 
 			for(int shift = 0; numBytes; numBytes--, shift += 8)
 			{
-				mInput.get(v);
+				get(mInput, v);
 				ret |= v << shift;
 			}
 
@@ -1012,7 +1025,7 @@ private:
 	void deserializeBoolImpl()
 	{
 		bool v = void;
-		mInput.get(v);
+		get(mInput, v);
 		pushBool(t, v);
 	}
 	
@@ -1036,7 +1049,7 @@ private:
 	void deserializeFloatImpl()
 	{
 		mdfloat v = void;
-		mInput.get(v);
+		get(mInput, v);
 		pushFloat(t, v);
 	}
 	
@@ -1095,7 +1108,7 @@ private:
 		auto data = t.vm.alloc.allocArray!(char)(cast(uword)len);
 		scope(exit) t.vm.alloc.freeArray(data);
 
-		mInput.buffer.readExact(data.ptr, cast(uword)len * char.sizeof);
+		readExact(mInput, data);
 		pushString(t, data);
 		addObject(getValue(t, -1).mBaseObj);
 	}
@@ -1137,7 +1150,7 @@ private:
 		auto lo = cast(uword)integer();
 		auto hi = cast(uword)integer();
 		arr.slice = arr.data.toArray()[lo .. hi];
-		mInput.get(arr.isSlice);
+		get(mInput, arr.isSlice);
 
 		pushArray(t, arr);
 	}
@@ -1194,7 +1207,7 @@ private:
 		pop(t);
 
 		bool haveEnv;
-		mInput.get(haveEnv);
+		get(mInput, haveEnv);
 
 		if(haveEnv)
 			deserializeNamespace();
@@ -1247,7 +1260,7 @@ private:
 		pop(t);
 		integer(def.location.line);
 		integer(def.location.col);
-		mInput.get(def.isVararg);
+		get(mInput, def.isVararg);
 		deserializeString();
 		def.name = getStringObj(t, -1);
 		pop(t);
@@ -1278,11 +1291,11 @@ private:
 		}
 
 		t.vm.alloc.resizeArray(def.code, cast(uword)integer());
-		mInput.buffer.readExact(def.code.ptr, def.code.length * Instruction.sizeof);
-		mInput.get(def.isPure);
+		readExact(mInput, def.code);
+		get(mInput, def.isPure);
 
 		bool haveCached;
-		mInput.get(haveCached);
+		get(mInput, haveCached);
 		
 		if(haveCached)
 		{
@@ -1310,7 +1323,7 @@ private:
 		}
 
 		t.vm.alloc.resizeArray(def.lineInfo, cast(uword)integer());
-		mInput.buffer.readExact(def.lineInfo.ptr, def.lineInfo.length * uint.sizeof);
+		readExact(mInput, def.lineInfo);
 
 		t.vm.alloc.resizeArray(def.upvalNames, cast(uword)integer());
 
@@ -1352,7 +1365,7 @@ private:
 		pop(t);
 
 		bool haveParent;
-		mInput.get(haveParent);
+		get(mInput, haveParent);
 
 		if(haveParent)
 		{
@@ -1401,7 +1414,7 @@ private:
 		pop(t);
 
 		bool isSpecial;
-		mInput.get(isSpecial);
+		get(mInput, isSpecial);
 
 		if(isSpecial)
 		{
@@ -1423,7 +1436,7 @@ private:
 			assert(numValues == 0 && extraBytes == 0);
 
 			bool haveFields;
-			mInput.get(haveFields);
+			get(mInput, haveFields);
 
 			if(haveFields)
 			{
@@ -1453,7 +1466,7 @@ private:
 		pushNamespace(t, ns);
 
 		bool haveParent;
-		mInput.get(haveParent);
+		get(mInput, haveParent);
 
 		if(haveParent)
 		{
@@ -1487,7 +1500,7 @@ private:
 		ret.vm = t.vm;
 
 		bool isExtended;
-		mInput.get(isExtended);
+		get(mInput, isExtended);
 
 		version(MDExtendedCoro)
 		{
@@ -1523,7 +1536,7 @@ private:
 			integer(rec.returnSlot);
 
 			bool haveFunc;
-			mInput.get(haveFunc);
+			get(mInput, haveFunc);
 
 			if(haveFunc)
 			{
@@ -1544,7 +1557,7 @@ private:
 			integer(rec.numReturns);
 
 			bool haveProto;
-			mInput.get(haveProto);
+			get(mInput, haveProto);
 
 			if(haveProto)
 			{
@@ -1561,7 +1574,7 @@ private:
 			integer(rec.unwindCounter);
 
 			bool haveUnwindRet;
-			mInput.get(haveUnwindRet);
+			get(mInput, haveUnwindRet);
 
 			if(haveUnwindRet)
 			{
@@ -1583,7 +1596,7 @@ private:
 
 		foreach(ref rec; ret.tryRecs[0 .. ret.trIndex])
 		{
-			mInput.get(rec.isCatch);
+			get(mInput, rec.isCatch);
 			integer(rec.slot);
 			integer(rec.actRecord);
 
@@ -1616,10 +1629,10 @@ private:
 			pop(t);
 		}
 
-		mInput.get(ret.shouldHalt);
+		get(mInput, ret.shouldHalt);
 
 		bool haveCoroFunc;
-		mInput.get(haveCoroFunc);
+		get(mInput, haveCoroFunc);
 
 		if(haveCoroFunc)
 		{
@@ -1676,7 +1689,7 @@ private:
 		addObject(cast(MDBaseObject*)wr);
 
 		bool isNull;
-		mInput.get(isNull);
+		get(mInput, isNull);
 
 		if(!isNull)
 		{
@@ -1705,7 +1718,7 @@ Params:
 	idx = The stack index of the function object to serialize.  The function must be a script function with no upvalues.
 	s = The writer object to be used to serialize the function.
 */
-void serializeModule(MDThread* t, word idx, IWriter s)
+void serializeModule(MDThread* t, word idx, OutputStream s)
 {
 	auto func = getFunction(t, idx);
 
@@ -1730,7 +1743,7 @@ given thread's stack.
 Params:
 	s = The reader object that holds the data stream from which the function will be deserialized.
 */
-word deserializeModule(MDThread* t, IReader s)
+word deserializeModule(MDThread* t, InputStream s)
 {
 	auto def = deserializeAsModule(t, s);
 	pushEnvironment(t);
@@ -1742,7 +1755,7 @@ word deserializeModule(MDThread* t, IReader s)
 /**
 Same as serializeModule but does not output the module header.
 */
-void serializeFunction(MDThread* t, word idx, IWriter s)
+void serializeFunction(MDThread* t, word idx, OutputStream s)
 {
 	auto func = getFunction(t, idx);
 
@@ -1761,7 +1774,7 @@ void serializeFunction(MDThread* t, word idx, IWriter s)
 /**
 Same as deserializeModule but does not expect for there to be a module header.
 */
-word deserializeFunction(MDThread* t, IReader s)
+word deserializeFunction(MDThread* t, InputStream s)
 {
 	auto def = deserialize(t, s);
 	pushEnvironment(t);
@@ -1795,16 +1808,16 @@ align(1) struct FileHeader
 
 static assert(FileHeader.sizeof == 16);
 
-void serializeAsModule(MDFuncDef* fd, IWriter s)
+void serializeAsModule(MDFuncDef* fd, OutputStream s)
 {
-	s.buffer.append(&FileHeader.init, FileHeader.sizeof);
+	append(s, (&FileHeader.init)[0 .. 1]);
 	serialize(fd, s);
 }
 
-MDFuncDef* deserializeAsModule(MDThread* t, IReader s)
+MDFuncDef* deserializeAsModule(MDThread* t, InputStream s)
 {
 	FileHeader fh = void;
-	s.buffer.readExact(&fh, FileHeader.sizeof);
+	readExact(s, (&fh)[0 .. 1]);
 
 	if(fh != FileHeader.init)
 		throwException(t, "Serialized module header mismatch");
@@ -1812,99 +1825,99 @@ MDFuncDef* deserializeAsModule(MDThread* t, IReader s)
 	return deserialize(t, s);
 }
 
-void serialize(MDFuncDef* fd, IWriter s)
+void serialize(MDFuncDef* fd, OutputStream s)
 {
-	s.put(fd.location.line);
-	s.put(fd.location.col);
+	put(s, fd.location.line);
+	put(s, fd.location.col);
 	Serialize(s, fd.location.file);
 
-	s.put(fd.isVararg);
+	put(s, fd.isVararg);
 	Serialize(s, fd.name);
-	s.put(fd.numParams);
+	put(s, fd.numParams);
 	Serialize(s, fd.paramMasks);
-	s.put(fd.numUpvals);
-	s.put(fd.stackSize);
+	put(s, fd.numUpvals);
+	put(s, fd.stackSize);
 
 	Serialize(s, fd.constants);
 	Serialize(s, fd.code);
-	s.put(fd.isPure);
+	put(s, fd.isPure);
 	Serialize(s, fd.lineInfo);
 
 	Serialize(s, fd.upvalNames);
 
-	s.put(fd.locVarDescs.length);
+	put(s, fd.locVarDescs.length);
 
 	foreach(ref desc; fd.locVarDescs)
 	{
 		Serialize(s, desc.name);
-		s.put(desc.pcStart);
-		s.put(desc.pcEnd);
-		s.put(desc.reg);
+		put(s, desc.pcStart);
+		put(s, desc.pcEnd);
+		put(s, desc.reg);
 	}
 
-	s.put(fd.switchTables.length);
+	put(s, fd.switchTables.length);
 
 	foreach(ref st; fd.switchTables)
 	{
-		s.put(st.offsets.length);
+		put(s, st.offsets.length);
 
 		foreach(ref k, v; st.offsets)
 		{
 			Serialize(s, k);
-			s.put(v);
+			put(s, v);
 		}
 
-		s.put(st.defaultOffset);
+		put(s, st.defaultOffset);
 	}
 
-	s.put(fd.innerFuncs.length);
+	put(s, fd.innerFuncs.length);
 
 	foreach(inner; fd.innerFuncs)
 		serialize(inner, s);
 }
 
-MDFuncDef* deserialize(MDThread* t, IReader s)
+MDFuncDef* deserialize(MDThread* t, InputStream s)
 {
 	auto vm = t.vm;
 
 	auto ret = funcdef.create(vm.alloc);
 
-	s.get(ret.location.line);
-	s.get(ret.location.col);
+	get(s, ret.location.line);
+	get(s, ret.location.col);
 	Deserialize(t, s, ret.location.file);
 
-	s.get(ret.isVararg);
+	get(s, ret.isVararg);
 	Deserialize(t, s, ret.name);
-	s.get(ret.numParams);
+	get(s, ret.numParams);
 	Deserialize(t, s, ret.paramMasks);
-	s.get(ret.numUpvals);
-	s.get(ret.stackSize);
+	get(s, ret.numUpvals);
+	get(s, ret.stackSize);
 
 	Deserialize(t, s, ret.constants);
 	Deserialize(t, s, ret.code);
-	s.get(ret.isPure);
+	get(s, ret.isPure);
 
 	Deserialize(t, s, ret.lineInfo);
 	Deserialize(t, s, ret.upvalNames);
 
 	uword len = void;
-	s.get(len);
+	get(s, len);
 	ret.locVarDescs = vm.alloc.allocArray!(MDFuncDef.LocVarDesc)(len);
 
 	foreach(ref desc; ret.locVarDescs)
 	{
 		Deserialize(t, s, desc.name);
-		s.get(desc.pcStart);
-		s.get(desc.pcEnd);
-		s.get(desc.reg);
+		get(s, desc.pcStart);
+		get(s, desc.pcEnd);
+		get(s, desc.reg);
 	}
 
-	s.get(len);
+	get(s, len);
 	ret.switchTables = vm.alloc.allocArray!(MDFuncDef.SwitchTable)(len);
 
 	foreach(ref st; ret.switchTables)
 	{
-		s.get(len);
+		get(s, len);
 
 		for(uword i = 0; i < len; i++)
 		{
@@ -1912,15 +1925,15 @@ MDFuncDef* deserialize(MDThread* t, IReader s)
 			word value = void;
 
 			Deserialize(t, s, key);
-			s.get(value);
+			get(s, value);
 
 			*st.offsets.insert(vm.alloc, key) = value;
 		}
 
-		s.get(st.defaultOffset);
+		get(s, st.defaultOffset);
 	}
 
-	s.get(len);
+	get(s, len);
 	ret.innerFuncs = vm.alloc.allocArray!(MDFuncDef*)(len);
 
 	foreach(ref inner; ret.innerFuncs)
@@ -1929,88 +1942,88 @@ MDFuncDef* deserialize(MDThread* t, IReader s)
 	return ret;
 }
 
-void Serialize(IWriter s, MDString* val)
+void Serialize(OutputStream s, MDString* val)
 {
 	auto data = val.toString();
-	s.put(data.length);
-	s.buffer.append(data.ptr, data.length * char.sizeof);
+	put(s, data.length);
+	append(s, data);
 }
 
-void Serialize(IWriter s, ushort[] val)
+void Serialize(OutputStream s, ushort[] val)
 {
-	s.put(val.length);
-	s.buffer.append(val.ptr, val.length * ushort.sizeof);
+	put(s, val.length);
+	append(s, val);
 }
 
-void Serialize(IWriter s, MDValue[] val)
+void Serialize(OutputStream s, MDValue[] val)
 {
-	s.put(val.length);
+	put(s, val.length);
 
 	foreach(ref v; val)
 		Serialize(s, v);
 }
 
-void Serialize(IWriter s, Instruction[] val)
+void Serialize(OutputStream s, Instruction[] val)
 {
-	s.put(val.length);
-	s.buffer.append(val.ptr, val.length * Instruction.sizeof);
+	put(s, val.length);
+	append(s, val);
 }
 
-void Serialize(IWriter s, uint[] val)
+void Serialize(OutputStream s, uint[] val)
 {
-	s.put(val.length);
-	s.buffer.append(val.ptr, val.length * uint.sizeof);
+	put(s, val.length);
+	append(s, val);
 }
 
-void Serialize(IWriter s, MDString*[] val)
+void Serialize(OutputStream s, MDString*[] val)
 {
-	s.put(val.length);
+	put(s, val.length);
 
 	foreach(v; val)
 		Serialize(s, v);
 }
 
-void Serialize(IWriter s, ref MDValue val)
+void Serialize(OutputStream s, ref MDValue val)
 {
-	s.put(cast(uint)val.type);
+	put(s, cast(uint)val.type);
 
 	switch(val.type)
 	{
 		case MDValue.Type.Null:   break;
-		case MDValue.Type.Bool:   s.put(val.mBool); break;
-		case MDValue.Type.Int:    s.put(val.mInt); break;
-		case MDValue.Type.Float:  s.put(val.mFloat); break;
-		case MDValue.Type.Char:   s.put(val.mChar); break;
+		case MDValue.Type.Bool:   put(s, val.mBool); break;
+		case MDValue.Type.Int:    put(s, val.mInt); break;
+		case MDValue.Type.Float:  put(s, val.mFloat); break;
+		case MDValue.Type.Char:   put(s, val.mChar); break;
 		case MDValue.Type.String: Serialize(s, val.mString); break;
 		default: assert(false, "Serialize(MDValue)");
 	}
 }
 
-void Deserialize(MDThread* t, IReader s, ref MDString* val)
+void Deserialize(MDThread* t, InputStream s, ref MDString* val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	auto data = t.vm.alloc.allocArray!(char)(len);
 	scope(exit) t.vm.alloc.freeArray(data);
-
-	s.buffer.readExact(data.ptr, len * char.sizeof);
+	
+	readExact(s, data);
 	val = createString(t, data);
 }
 
-void Deserialize(MDThread* t, IReader s, ref ushort[] val)
+void Deserialize(MDThread* t, InputStream s, ref ushort[] val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	val = t.vm.alloc.allocArray!(ushort)(len);
-	s.buffer.readExact(val.ptr, len * ushort.sizeof);
+	readExact(s, val);
 }
 
-void Deserialize(MDThread* t, IReader s, ref MDValue[] val)
+void Deserialize(MDThread* t, InputStream s, ref MDValue[] val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	val = t.vm.alloc.allocArray!(MDValue)(len);
 
@@ -2018,28 +2031,28 @@ void Deserialize(MDThread* t, IReader s, ref MDValue[] val)
 		Deserialize(t, s, v);
 }
 
-void Deserialize(MDThread* t, IReader s, ref Instruction[] val)
+void Deserialize(MDThread* t, InputStream s, ref Instruction[] val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	val = t.vm.alloc.allocArray!(Instruction)(len);
-	s.buffer.readExact(val.ptr, len * Instruction.sizeof);
+	readExact(s, val);
 }
 
-void Deserialize(MDThread* t, IReader s, ref uint[] val)
+void Deserialize(MDThread* t, InputStream s, ref uint[] val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	val = t.vm.alloc.allocArray!(uint)(len);
-	s.buffer.readExact(val.ptr, len * uint.sizeof);
+	readExact(s, val);
 }
 
-void Deserialize(MDThread* t, IReader s, ref MDString*[] val)
+void Deserialize(MDThread* t, InputStream s, ref MDString*[] val)
 {
 	uword len = void;
-	s.get(len);
+	get(s, len);
 
 	val = t.vm.alloc.allocArray!(MDString*)(len);
 
@@ -2047,19 +2060,19 @@ void Deserialize(MDThread* t, IReader s, ref MDString*[] val)
 		Deserialize(t, s, v);
 }
 
-void Deserialize(MDThread* t, IReader s, ref MDValue val)
+void Deserialize(MDThread* t, InputStream s, ref MDValue val)
 {
 	uint type = void;
-	s.get(type);
+	get(s, type);
 	val.type = cast(MDValue.Type)type;
 
 	switch(val.type)
 	{
 		case MDValue.Type.Null:   break;
-		case MDValue.Type.Bool:   s.get(val.mBool); break;
-		case MDValue.Type.Int:    s.get(val.mInt); break;
-		case MDValue.Type.Float:  s.get(val.mFloat); break;
-		case MDValue.Type.Char:   s.get(val.mChar); break;
+		case MDValue.Type.Bool:   get(s, val.mBool); break;
+		case MDValue.Type.Int:    get(s, val.mInt); break;
+		case MDValue.Type.Float:  get(s, val.mFloat); break;
+		case MDValue.Type.Char:   get(s, val.mChar); break;
 		case MDValue.Type.String: Deserialize(t, s, val.mString); break;
 		default: assert(false, "Deserialize(MDValue)");
 	}

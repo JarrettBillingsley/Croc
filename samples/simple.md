@@ -1,7 +1,5 @@
 module samples.simple
 
-
-
 /+import sdl: event, key
 import gl
 
@@ -19,10 +17,10 @@ function normalize(x, y, z)
 
 local f = io.inFile("object.dat")
 local numVerts = f.readInt()
-local vertData = f.readVector: "f32", numVerts * 3
+local vertData = f.readVector$ "f32", numVerts * 3
 local numFaceVerts = f.readInt()
 local numFaces = f.readInt()
-local faceData = f.readVector: "u16", numFaceVerts * numFaces
+local faceData = f.readVector$ "u16", numFaceVerts * numFaces
 f.close()
 
 // 1. triangulate faces
@@ -124,10 +122,10 @@ thread.halt()
 
 // */
 
-function float4(x, y, z, w) = Vector.fromArray: "f32", [x, y, z, w]
+function float4(x, y, z, w) = Vector.fromArray$ "f32", [x, y, z, w]
 
 {
-	local tmp = Vector: gl.GLuint, 1
+	local tmp = Vector$ gl.GLuint, 1
 
 	function genOneBuffer()
 	{
@@ -143,10 +141,10 @@ class Mesh
 		local f = io.inFile(file)
 
 		local numVerts = f.readInt()
-		local vertData = f.readVector: "f32", numVerts * 6
+		local vertData = f.readVector$ "f32", numVerts * 6
 		local numFaceVerts = f.readInt()
 		local numFaces = f.readInt()
-		local faceData = f.readVector: "u16", numFaceVerts * numFaces
+		local faceData = f.readVector$ "u16", numFaceVerts * numFaces
 		
 		f.close()
 
@@ -236,7 +234,7 @@ function main()
 	gl.gluPerspective(45, 800.0 / 600.0, 3, 100000)
 	gl.glMatrixMode(gl.GL_MODELVIEW)
 
-	gl.glMaterialfv: gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE, float4(108 / 255.0, 120 / 255.0, 134 / 255.0, 1.0)
+	gl.glMaterialfv$ gl.GL_FRONT_AND_BACK, gl.GL_AMBIENT_AND_DIFFUSE, float4(108 / 255.0, 120 / 255.0, 134 / 255.0, 1.0)
 
 	local camx = 0
 	local camy = 0
@@ -246,11 +244,11 @@ function main()
 
 	local quitting = false
 
-	event.setHandler: event.quit, \{ quitting = true }
+	event.setHandler$ event.quit, \{ quitting = true }
 	
 	local keys = array.new(512)
 
-	event.setHandler: event.key, \pressed, sym, mod
+	event.setHandler$ event.key, \pressed, sym, mod
 	{
 		keys[sym] = pressed
 	}
@@ -258,7 +256,7 @@ function main()
 	local first = true
 	local numMoves = 0
 
-	event.setHandler: event.mouseMotion, \x, y, xrel, yrel
+	event.setHandler$ event.mouseMotion, \x, y, xrel, yrel
 	{
 		if(first)
 		{
@@ -311,7 +309,7 @@ function main()
 	}
 
 	startTime = (time.microTime() - startTime) / 1_000_000.0
-	writefln: "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
-	writefln: "Received {} move events in that time ({:f2} per second)", numMoves, numMoves / startTime
+	writefln$ "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
+	writefln$ "Received {} move events in that time ({:f2} per second)", numMoves, numMoves / startTime
 }
 +/

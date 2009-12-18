@@ -28,7 +28,6 @@ module minid.moduleslib;
 
 import tango.io.device.File;
 import tango.io.FilePath;
-import tango.io.protocol.Reader;
 import tango.text.Util;
 
 import minid.compiler;
@@ -335,8 +334,7 @@ static:
 					else
 					{
 						scope fc = new File(bin.toString(), File.ReadExisting);
-						scope r = new Reader(fc);
-						deserializeModule(t, r);
+						deserializeModule(t, fc);
 						return 1;
 					}
 				}
@@ -350,8 +348,7 @@ static:
 			else if(bin.exists())
 			{
 				scope fc = new File(bin.toString(), File.ReadExisting);
-				scope r = new Reader(fc);
-				deserializeModule(t, r);
+				deserializeModule(t, fc);
 				return 1;
 			}
 		}

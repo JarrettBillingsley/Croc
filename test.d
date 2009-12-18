@@ -1,6 +1,6 @@
 module test;
 
-import tango.core.stacktrace.TraceExceptions;
+import tango.core.tools.TraceExceptions;
 import tango.io.Stdout;
 
 import minid.api;

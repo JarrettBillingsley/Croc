@@ -32,7 +32,6 @@ import tango.io.UnicodeFile;
 import tango.sys.Environment;
 import tango.time.WallClock;
 import tango.time.Time;
-import tango.util.PathUtil;
 
 import minid.ex;
 import minid.interpreter;
@@ -317,7 +316,7 @@ static:
 						cat(t, 2);
 						auto fullName = getString(t, -1);
 	
-						if(patternMatch(fullName, filter))
+						if(Path.patternMatch(fullName, filter))
 							cateq(t, listing, 1);
 						else
 							pop(t);

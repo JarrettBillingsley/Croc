@@ -28,7 +28,6 @@ module minid.ex;
 
 import tango.core.Tuple;
 import tango.io.device.File;
-import tango.io.protocol.Reader;
 import tango.stdc.ctype;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
@@ -623,8 +622,7 @@ public void runFile(MDThread* t, char[] filename, uword numParams = 0)
 		else
 		{
 			scope f = new File(filename, File.ReadExisting);
-			scope r = new Reader(f);
-			deserializeModule(t, r);
+			deserializeModule(t, f);
 		}
 	
 		lookup(t, "modules.initModule");
