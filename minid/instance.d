@@ -25,7 +25,7 @@ subject to the following restrictions:
 
 module minid.instance;
 
-import tango.math.Math;
+// import tango.math.Math;
 
 import minid.alloc;
 import minid.classobj;

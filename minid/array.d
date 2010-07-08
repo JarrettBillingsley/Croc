@@ -25,8 +25,8 @@ subject to the following restrictions:
 
 module minid.array;
 
-import tango.core.BitManip;
-import tango.stdc.string;
+import std.c.string;
+import std.intrinsic;
 
 import minid.alloc;
 import minid.opcodes;

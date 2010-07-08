@@ -26,8 +26,7 @@ subject to the following restrictions:
 
 module minid.stringbuffer;
 
-import tango.stdc.string;
-import Utf = tango.text.convert.Utf;
+import std.c.string;
 
 import minid.ex;
 import minid.interpreter;
@@ -86,7 +85,7 @@ static:
 	{
 		auto memb = getThis(t);
 
-		char[] data = void;
+		string data = void;
 		uword length = void;
 
 		if(optParam(t, 1, MDValue.Type.String))
@@ -108,8 +107,8 @@ static:
 
 		if(length > 0)
 		{
-			uint ate = 0;
-			Utf.toString32(data, (cast(dchar*)memb.data)[0 .. length], &ate);
+			foreach(i, dchar c; data)
+				(cast(dchar*)memb.data)[i] = c;
 		}
 
 		return 0;
@@ -149,8 +148,9 @@ static:
 			else if(isString(t, i))
 			{
 				auto dest = resize(cast(ulong)len(t, i));
-				uint ate = 0;
-				Utf.toString32(getString(t, i), dest, &ate);
+				
+				foreach(i, dchar c; getString(t, i))
+					dest[i] = c;
 			}
 			else if(isChar(t, i))
 				resize(1)[0] = getChar(t, i);
@@ -158,8 +158,8 @@ static:
 			{
 				pushToString(t, i);
 				auto dest = resize(cast(ulong)len(t, -1));
-				uint ate = 0;
-				Utf.toString32(getString(t, -1), dest, &ate);
+				foreach(i, dchar c; getString(t, -1))
+					dest[i] = c;
 				pop(t);
 			}
 		}
@@ -227,8 +227,9 @@ static:
 			{
 				auto str = getString(t, 2);
 				auto tmp = doResize(cast(ulong)cpLen);
-				uint ate = 0;
-				Utf.toString32(str, tmp, &ate);
+				
+				foreach(i, dchar c; str)
+					tmp[i] = c;
 			}
 		}
 		else if(isChar(t, 2))
@@ -243,8 +244,9 @@ static:
 			{
 				auto str = getString(t, -1);
 				auto tmp = doResize(cast(ulong)cpLen);
-				uint ate = 0;
-				Utf.toString32(str, tmp, &ate);
+				
+				foreach(i, dchar c; str)
+					tmp[i] = c;
 			}
 
 			pop(t);
@@ -454,7 +456,9 @@ static:
 				throwException(t, "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
 			uint ate = 0;
-			Utf.toString32(getString(t, idx), (cast(dchar*)memb.data)[lo .. hi], &ate);
+			
+			foreach(i, dchar c; getString(t, idx))
+				(cast(dchar*)memb.data)[lo + i] = c;
 		}
 		else if(isArray(t, idx))
 		{
@@ -542,7 +546,7 @@ static:
 	{
 		auto memb = getThis(t);
 
-		uint sink(char[] data)
+		void sink(string data)
 		{
 			ulong totalLen = memb.length + verify(data);
 
@@ -556,10 +560,8 @@ static:
 			pushInt(t, cast(mdint)totalLen);
 			superCall(t, -3, "opLengthAssign", 0);
 
-			uint ate = 0;
-			Utf.toString32(data, (cast(dchar*)memb.data)[oldLen .. memb.length], &ate);
-
-			return data.length;
+			foreach(i, dchar c; data)
+				(cast(dchar*)memb.data)[oldLen + i] = c;
 		}
 
 		formatImpl(t, numParams, &sink);

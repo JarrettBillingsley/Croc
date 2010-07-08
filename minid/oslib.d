@@ -25,10 +25,10 @@ subject to the following restrictions:
 
 module minid.oslib;
 
-import tango.stdc.stdlib;
-import tango.stdc.stringz;
-import tango.sys.Environment;
-import tango.sys.Process;
+// import tango.stdc.stdlib;
+// import tango.stdc.stringz;
+// import tango.sys.Environment;
+// import tango.sys.Process;
 
 import minid.ex;
 import minid.interpreter;

@@ -25,8 +25,8 @@ subject to the following restrictions:
 
 module minid.thread;
 
-version(MDExtendedCoro)
-	import tango.core.Thread;
+// version(MDExtendedCoro)
+// 	import tango.core.Thread;
 
 import minid.nativeobj;
 import minid.types;

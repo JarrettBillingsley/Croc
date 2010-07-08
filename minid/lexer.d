@@ -25,11 +25,14 @@ subject to the following restrictions:
 
 module minid.lexer;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
-import tango.core.Exception;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
+// import Float = tango.text.convert.Float;
+// import Integer = tango.text.convert.Integer;
+// import tango.core.Exception;
+// import Utf = tango.text.convert.Utf;
+import std.conv;
+import std.string;
+import std.uni;
+import std.utf;
 
 import minid.compilertypes;
 import minid.types;
@@ -42,7 +45,7 @@ struct Token
 	union
 	{
 		public bool boolValue;
-		public char[] stringValue;
+		public string stringValue;
 		public mdint intValue;
 		public mdfloat floatValue;
 	}
@@ -153,7 +156,7 @@ struct Token
 		EOF
 	}
 
-	public static const char[][] strings =
+	public static const string[] strings =
 	[
 		As: "as",
 		Assert: "assert",
@@ -257,7 +260,7 @@ struct Token
 		EOF: "<EOF>"
 	];
 
-	public static uint[char[]] stringToType;
+	public static uint[cstring] stringToType;
 
 	static this()
 	{
@@ -291,7 +294,7 @@ struct Token
 		}
 	}
 
-	public char[] typeString()
+	public string typeString()
 	{
 		return strings[type];
 	}
@@ -301,7 +304,7 @@ struct Lexer
 {
 	private ICompiler mCompiler;
 	private CompileLoc mLoc;
-	private char[] mSource;
+	private string mSource;
 
 	private uword mPosition;
 	private dchar mCharacter;
@@ -324,7 +327,7 @@ struct Lexer
 // Public
 // ================================================================================================================================================
 
-	public void begin(char[] name, char[] source)
+	public void begin(string name, string source)
 	{
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
@@ -371,7 +374,7 @@ struct Lexer
 		return ret;
 	}
 
-	public void expected(char[] message)
+	public void expected(cstring message)
 	{
 		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.exception;
 		dg(mTok.loc, "'{}' expected; found '{}' instead", message, Token.strings[mTok.type]);
@@ -477,7 +480,7 @@ struct Lexer
 		if(c >= '0' && c <= '9')
 			return cast(ubyte)(c - '0');
 
-		if(Uni.isUpper(c))
+		if(isUniUpper(c))
 			return cast(ubyte)(c - 'A' + 10);
 		else
 			return cast(ubyte)(c - 'a' + 10);
@@ -488,12 +491,7 @@ struct Lexer
 		if(mPosition >= mSource.length)
 			return dchar.init;
 		else
-		{
-			uint ate = 0;
-			auto ret = Utf.decode(mSource[mPosition .. $], ate);
-			mPosition += ate;
-			return ret;
-		}
+			return decode(mSource, mPosition);
 	}
 
 	private dchar lookaheadChar()
@@ -737,8 +735,8 @@ struct Lexer
 		else
 		{
 			try
-				fret = Float.toFloat(buf[0 .. i]);
-			catch(IllegalArgumentException e)
+				fret = to!(float)(buf[0 .. i]);
+			catch(ConvError e)
 				mCompiler.exception(beginning, "Invalid floating point literal");
 
 			return false;
@@ -816,7 +814,7 @@ struct Lexer
 				if(x == 0xFFFE || x == 0xFFFF)
 					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
-				if(!Utf.isValid(cast(dchar)x))
+				if(!isValidDchar(cast(dchar)x))
 					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
@@ -846,15 +844,13 @@ struct Lexer
 		return ret;
 	}
 
-	private char[] readStringLiteral(bool escape)
+	private string readStringLiteral(bool escape)
 	{
 		auto beginning = mLoc;
 
 		scope buf = new List!(char)(mCompiler.alloc);
 		dchar delimiter = mCharacter;
-
-		// to be safe..
-		char[6] utfbuf = void;
+		char[4] utfbuf = void;
 
 		// Skip opening quote
 		nextChar();
@@ -875,7 +871,7 @@ struct Lexer
 					if(!escape)
 						goto default;
 
-					buf ~= Utf.encode(utfbuf, readEscapeSequence(beginning));
+					buf ~= utfbuf[0 .. encode(utfbuf, readEscapeSequence(beginning))];
 					continue;
 
 				default:
@@ -883,7 +879,7 @@ struct Lexer
 					{
 						if(lookaheadChar() == delimiter)
 						{
-							buf ~= Utf.encode(utfbuf, delimiter);
+							buf ~= utfbuf[0 .. encode(utfbuf, delimiter)];
 							nextChar();
 							nextChar();
 						}
@@ -895,7 +891,7 @@ struct Lexer
 						if(escape && mCharacter == delimiter)
 							break;
 
-						buf ~= Utf.encode(utfbuf, mCharacter);
+						buf ~= utfbuf[0 .. encode(utfbuf, mCharacter)];
 						nextChar();
 					}
 
@@ -909,11 +905,11 @@ struct Lexer
 		nextChar();
 
 		auto arr = buf.toArray();
-		
+
 		scope(exit)
 			mCompiler.alloc.freeArray(arr);
 
-		return mCompiler.newString(arr);
+		return mCompiler.newString(cast(string)arr);
 	}
 
 	private dchar readCharLiteral()
@@ -1383,20 +1379,20 @@ struct Lexer
 					else if(isAlpha() || mCharacter == '_')
 					{
 						scope buf = new List!(char)(mCompiler.alloc);
-						char[6] utfbuf = void;
+						char[4] utfbuf = void;
 
 						do
 						{
-							buf ~= Utf.encode(utfbuf, mCharacter);
+							buf ~= utfbuf[0 .. encode(utfbuf, mCharacter)];
 							nextChar();
 						} while(isAlpha() || isDecimalDigit() || mCharacter == '_');
 
 						auto arr = buf.toArray();
-						
+
 						scope(exit)
 							mCompiler.alloc.freeArray(arr);
 
-						auto s = mCompiler.newString(arr);
+						auto s = mCompiler.newString(cast(string)arr);
 
 						if(s.startsWith("__"))
 							mCompiler.exception(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);

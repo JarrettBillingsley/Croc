@@ -25,10 +25,10 @@ subject to the following restrictions:
 
 module minid.compiler;
 
-import tango.core.Vararg;
-
-import tango.io.FilePath;
-import tango.io.UnicodeFile;
+import core.vararg;
+import std.file;
+// import tango.io.FilePath;
+// import tango.io.UnicodeFile;
 
 import minid.alloc;
 import minid.astvisitor;
@@ -181,21 +181,21 @@ catch(MDException e)
 		return mIsLoneStmt;
 	}
 
-	public override void exception(CompileLoc loc, char[] msg, ...)
+	public override void exception(CompileLoc loc, ...)
 	{
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, _arguments, _argptr);
 	}
 
-	public override void eofException(CompileLoc loc, char[] msg, ...)
+	public override void eofException(CompileLoc loc, ...)
 	{
 		mIsEof = true;
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, _arguments, _argptr);
 	}
 
-	public override void loneStmtException(CompileLoc loc, char[] msg, ...)
+	public override void loneStmtException(CompileLoc loc, ...)
 	{
 		mIsLoneStmt = true;
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, _arguments, _argptr);
 	}
 
 	public override MDThread* thread()
@@ -208,7 +208,7 @@ catch(MDException e)
 		return &t.vm.alloc;
 	}
 
-	public override char[] newString(char[] data)
+	public override string newString(string data)
 	{
 		auto s = createString(t, data);
 		pushStringObj(t, s);
@@ -233,10 +233,9 @@ catch(MDException e)
 		The stack index of the newly-pushed function closure that represents the top-level function
 		of the module.
 	*/
-	public word compileModule(char[] filename)
+	public word compileModule(string filename)
 	{
-		scope file = new UnicodeFile!(char)(filename, Encoding.Unknown);
-		auto src = file.read();
+		auto src = readText(filename);
 
 		scope(exit)
 			delete src;
@@ -256,7 +255,7 @@ catch(MDException e)
 		The stack index of the newly-pushed function closure that represents the top-level function
 		of the module.
 	*/
-	public word compileModule(char[] source, char[] name)
+	public word compileModule(string source, string name)
 	{
 		return commonCompile(
 		{
@@ -282,7 +281,7 @@ catch(MDException e)
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileStatements(char[] source, char[] name)
+	public word compileStatements(string source, string name)
 	{
 		return commonCompile(
 		{
@@ -307,7 +306,7 @@ catch(MDException e)
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileExpression(char[] source, char[] name)
+	public word compileExpression(string source, string name)
 	{
 		return commonCompile(
 		{
@@ -326,9 +325,9 @@ catch(MDException e)
 // Private
 // ================================================================================================================================================
 
-	private void vexception(ref CompileLoc loc, char[] msg, TypeInfo[] arguments, va_list argptr)
+	private void vexception(ref CompileLoc loc, TypeInfo[] arguments, va_list argptr)
 	{
-		pushVFormat(t, msg, arguments, argptr);
+		pushVFormat(t, arguments, argptr);
 		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
 		insert(t, -2);
 		cat(t, 2);

@@ -26,17 +26,19 @@ subject to the following restrictions:
 
 module minid.types;
 
-version(MDExtendedCoro)
-	import tango.core.Thread;
+// version(MDExtendedCoro)
+// 	import tango.core.Thread;
+// 
+// import tango.text.convert.Layout;
+// import tango.text.convert.Format;
 
-import tango.text.convert.Layout;
+import std.string;
 
 import minid.alloc;
 import minid.hash;
 import minid.opcodes;
 import minid.utils;
 
-import tango.text.convert.Format;
 
 // ================================================================================================================================================
 // Public
@@ -51,6 +53,11 @@ public alias ptrdiff_t word;
 The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
 */
 public alias size_t uword;
+
+/**
+Stupid D2 defaulting 'string' to mean immutable(char)[]. Func params should be const(char)[]. RRRRRRRGH
+*/
+public alias const(char)[] cstring;
 
 /**
 The underlying D type used to store the MiniD 'int' type.  Defaults to 'long' (64-bit signed integer).  If you
@@ -86,7 +93,7 @@ on MiniD exception handling.
 */
 class MDException : Exception
 {
-	package this(char[] msg)
+	package this(string msg)
 	{
 		super(msg);
 	}
@@ -169,7 +176,7 @@ align(1) struct MDValue
 		ArrayData
 	}
 
-	package static char[] typeString(MDValue.Type t)
+	package static string typeString(MDValue.Type t)
 	{
 		switch(t)
 		{
@@ -229,7 +236,7 @@ align(1) struct MDValue
 		return ret;
 	}
 
-	package int opEquals(MDValue other)
+	package const bool opEquals(ref const(MDValue) other)
 	{
 		if(this.type != other.type)
 			return false;
@@ -251,6 +258,12 @@ align(1) struct MDValue
 			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar != 0);
 	}
 	
+	package void opAssign(const ref MDValue other)
+	{
+		if(&this !is &other)
+			(&this)[0 .. 1] = (&other)[0 .. 1];
+	}
+
 	package void opAssign(bool src)
 	{
 		type = Type.Bool;
@@ -352,25 +365,25 @@ align(1) struct MDValue
 		return cast(GCObject*)mBaseObj;
 	}
 
-	char[] toString()
+	string toString()
 	{
 		switch(type)
 		{
 			case Type.Null:      return "null";
-			case Type.Bool:      return Format("{}", mBool);
-			case Type.Int:       return Format("{}", mInt);
-			case Type.Float:     return Format("{}", mFloat);
-			case Type.Char:      return Format("'{}'", mChar);
-			case Type.String:    return Format("\"{}\"", mString.toString());
-			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
-			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
-			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
-			case Type.Class:     return Format("class {:X8}", cast(void*)mClass);
-			case Type.Instance:  return Format("instance {:X8}", cast(void*)mInstance);
-			case Type.Namespace: return Format("namespace {:X8}", cast(void*)mNamespace);
-			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
-			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
-			case Type.WeakRef:   return Format("weakref {:X8}", cast(void*)mWeakRef);
+			case Type.Bool:      return format("%s", mBool);
+			case Type.Int:       return format("%s", mInt);
+			case Type.Float:     return format("%s", mFloat);
+			case Type.Char:      return format("'%s'", mChar);
+			case Type.String:    return format("\"%s\"", mString.toString());
+			case Type.Table:     return format("table %8X", cast(void*)mTable);
+			case Type.Array:     return format("array %8X", cast(void*)mArray);
+			case Type.Function:  return format("function %8X", cast(void*)mFunction);
+			case Type.Class:     return format("class %8X", cast(void*)mClass);
+			case Type.Instance:  return format("instance %8X", cast(void*)mInstance);
+			case Type.Namespace: return format("namespace %8X", cast(void*)mNamespace);
+			case Type.Thread:    return format("thread %8X", cast(void*)mThread);
+			case Type.NativeObj: return format("nativeobj %8X", cast(void*)mNativeObj);
+			case Type.WeakRef:   return format("weakref %8X", cast(void*)mWeakRef);
 			default: assert(false);
 		}
 	}
@@ -408,9 +421,9 @@ struct MDString
 	package uword length;
 	package uword cpLength;
 
-	package char[] toString()
+	package string toString()
 	{
-		return (cast(char*)(this + 1))[0 .. this.length];
+		return cast(string)(cast(char*)(&this + 1))[0 .. this.length];
 	}
 	
 	package alias hash toHash;
@@ -430,7 +443,7 @@ struct MDArrayData
 
 	package MDValue[] toArray()
 	{
-		return (cast(MDValue*)(this + 1))[0 .. length];
+		return (cast(MDValue*)(&this + 1))[0 .. length];
 	}
 }
 
@@ -458,12 +471,12 @@ struct MDFunction
 
 	package MDValue[] nativeUpvals()
 	{
-		return (cast(MDValue*)(this + 1))[0 .. numUpvals];
+		return (cast(MDValue*)(&this + 1))[0 .. numUpvals];
 	}
 
 	package MDUpval*[] scriptUpvals()
 	{
-		return (cast(MDUpval**)(this + 1))[0 .. numUpvals];
+		return (cast(MDUpval**)(&this + 1))[0 .. numUpvals];
 	}
 
 	static assert((MDFuncDef*).sizeof == NativeFunc.sizeof);
@@ -490,12 +503,12 @@ struct MDInstance
 
 	package MDValue[] extraValues()
 	{
-		return (cast(MDValue*)(this + 1))[0 .. numValues];
+		return (cast(MDValue*)(&this + 1))[0 .. numValues];
 	}
-	
+
 	package void[] extraData()
 	{
-		return ((cast(void*)(this + 1)) + (numValues * MDValue.sizeof))[0 .. extraBytes];
+		return ((cast(void*)(&this + 1)) + (numValues * MDValue.sizeof))[0 .. extraBytes];
 	}
 }
 
@@ -557,7 +570,7 @@ struct MDThread
 		Line = 16
 	}
 
-	static char[][5] StateStrings =
+	static string[5] StateStrings =
 	[
 		State.Initial: "initial",
 		State.Waiting: "waiting",
@@ -710,7 +723,7 @@ struct MDVM
 	package MDNamespace* globals;
 	package MDThread* mainThread;
 	package MDNamespace*[] metaTabs;
-	package Hash!(char[], MDString*) stringTab;
+	package Hash!(cstring, MDString*) stringTab;
 	package MDString*[] metaStrings;
 	package MDString* ctorString;
 	package Location[] traceback;
@@ -725,7 +738,7 @@ struct MDVM
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
-	package Layout!(char) formatter;
+// 	package Layout!(char) formatter;
 
 	version(MDExtendedCoro)
 		version(MDPoolFibers)

@@ -26,12 +26,12 @@ subject to the following restrictions:
 
 module minid.vm;
 
-import Float = tango.text.convert.Float;
-import tango.io.FilePath;
-import tango.stdc.stdlib;
-import tango.text.convert.Layout;
-import tango.text.convert.Utf;
-import tango.text.Util;
+// import Float = tango.text.convert.Float;
+// import tango.io.FilePath;
+// import tango.stdc.stdlib;
+// import tango.text.convert.Layout;
+// import tango.text.convert.Utf;
+// import tango.text.Util;
 
 import minid.alloc;
 import minid.moduleslib;
@@ -96,7 +96,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.curThread = vm.mainThread;
 	vm.globals = namespace.create(vm.alloc, createString(t, ""));
 	vm.registry = namespace.create(vm.alloc, createString(t, "<registry>"));
-	vm.formatter = new CustomLayout();
+// 	vm.formatter = new CustomLayout();
 
 	// _G = _G._G = _G._G._G = _G._G._G._G = ...
 	pushNamespace(t, vm.globals);
@@ -107,7 +107,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	ModulesLib.init(t);
 }
 
-package class CustomLayout : Layout!(char)
+/* package class CustomLayout : Layout!(char)
 {
 	protected override char[] floater(char[] output, real v, char[] format)
 	{
@@ -146,4 +146,4 @@ package class CustomLayout : Layout!(char)
 			return tmp;
 		}
 	}
-}
+} */

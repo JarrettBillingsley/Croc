@@ -26,9 +26,9 @@ subject to the following restrictions:
 
 module minid.serialization;
 
-import tango.core.BitManip;
-import tango.core.Exception;
-import tango.io.model.IConduit;
+import core.exception;
+import std.intrinsic;
+// import tango.io.model.IConduit;
 
 import minid.ex;
 import minid.func;
@@ -38,11 +38,12 @@ import minid.instance;
 import minid.interpreter;
 import minid.namespace;
 import minid.opcodes;
-import minid.streamlib;
+// import minid.streamlib;
 import minid.string;
 import minid.types;
 import minid.utils;
 
+/+
 void get(T)(InputStream i, ref T ret)
 {
 	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
@@ -2077,3 +2078,4 @@ void Deserialize(MDThread* t, InputStream s, ref MDValue val)
 		default: assert(false, "Deserialize(MDValue)");
 	}
 }
++/

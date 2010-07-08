@@ -25,19 +25,19 @@ subject to the following restrictions:
 
 module minid.string;
 
-import tango.text.Util;
+import std.string;
 
 import minid.types;
 import minid.utils;
 
-struct string
+struct stringobj
 {
 static:
 	// ================================================================================================================================================
 	// Package
 	// ================================================================================================================================================
 
-	package MDString* lookup(MDThread* t, char[] data, ref uword h)
+	package MDString* lookup(MDThread* t, cstring data, ref uword h)
 	{
 		// We don't have to verify the string if it already exists in the string table,
 		// because if it does, it means it's a legal string.
@@ -52,13 +52,13 @@ static:
 
 	// Create a new string object.  String objects with the same data are reused.  Thus,
 	// if two string objects are identical, they are also equal.
-	package MDString* create(MDThread* t, char[] data, uword h, uword cpLen)
+	package MDString* create(MDThread* t, cstring data, uword h, uword cpLen)
 	{
 		auto ret = t.vm.alloc.allocate!(MDString)(StringSize(data.length));
 		ret.hash = h;
 		ret.length = data.length;
 		ret.cpLength = cpLen;
-		ret.toString()[] = data[];
+		(cast(char[])ret.toString())[] = data[]; // TODO: is this going to failcopter? how else can I do this?
 
 		*t.vm.stringTab.insert(t.vm.alloc, ret.toString()) = ret;
 
@@ -90,12 +90,12 @@ static:
 	}
 	
 	// See if the string contains the given substring.
-	package bool contains(MDString* s, char[] sub)
+	package bool contains(MDString* s, cstring sub)
 	{
 		if(s.length < sub.length)
 			return false;
 			
-		return s.toString().locatePattern(sub) != s.length;
+		return s.toString().indexOf(sub) != -1;
 	}
 
 	// The slice indices are in codepoints, not byte indices.

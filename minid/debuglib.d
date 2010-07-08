@@ -25,13 +25,13 @@ subject to the following restrictions:
 
 module minid.debuglib;
 
+// debug import tango.io.Stdout;
+
 import minid.ex;
 import minid.interpreter;
 import minid.types;
 import minid.utils;
 import minid.vector;
-
-debug import tango.io.Stdout;
 
 struct DebugLib
 {

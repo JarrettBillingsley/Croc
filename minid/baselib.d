@@ -25,14 +25,9 @@ subject to the following restrictions:
 
 module minid.baselib;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
-import tango.io.device.Array;
-import tango.io.Console;
-import tango.io.stream.Format;
-import tango.io.Stdout;
-import tango.stdc.ctype;
-import Utf = tango.text.convert.Utf;
+import std.conv;
+import std.ctype;
+import std.stdio;
 
 import minid.alloc;
 import minid.classobj;
@@ -48,7 +43,7 @@ import minid.utils;
 import minid.vector;
 import minid.vm;
 
-private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
+private void register(MDThread* t, string name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);
 	newGlobal(t, name);
@@ -536,13 +531,13 @@ static:
 
 		if(isInt(t, 1))
 		{
-			char[1] style = "d";
+			uint radix = 10;
 
 			if(numParams > 1)
-				style[0] = getChar(t, 2);
-
-			char[80] buffer = void;
-			pushString(t, safeCode(t, Integer.format(buffer, getInt(t, 1), style)));
+				radix = cast(uint)getInt(t, 2);
+				
+			// TODO: make this not allocate memory
+			pushString(t, to!(string)(getInt(t, 1), radix));
 		}
 		else
 			pushToString(t, 1);
@@ -574,7 +569,7 @@ static:
 			case MDValue.Type.Int:    dup(t, 1); break;
 			case MDValue.Type.Float:  pushInt(t, cast(mdint)getFloat(t, 1)); break;
 			case MDValue.Type.Char:   pushInt(t, cast(mdint)getChar(t, 1)); break;
-			case MDValue.Type.String: pushInt(t, safeCode(t, cast(mdint)Integer.toLong(getString(t, 1), 10))); break;
+			case MDValue.Type.String: pushInt(t, safeCode(t, to!(mdint)(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);
@@ -594,7 +589,7 @@ static:
 			case MDValue.Type.Int: pushFloat(t, cast(mdfloat)getInt(t, 1)); break;
 			case MDValue.Type.Float: dup(t, 1); break;
 			case MDValue.Type.Char: pushFloat(t, cast(mdfloat)getChar(t, 1)); break;
-			case MDValue.Type.String: pushFloat(t, safeCode(t, cast(mdfloat)Float.toFloat(getString(t, 1)))); break;
+			case MDValue.Type.String: pushFloat(t, safeCode(t, to!(mdfloat)(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);
@@ -613,7 +608,7 @@ static:
 	uword format(MDThread* t, uword numParams)
 	{
 		auto buf = StrBuffer(t);
-		formatImpl(t, numParams, &buf.sink);
+		formatImpl(t, numParams, &buf.addString);
 		buf.finish();
 		return 1;
 	}
@@ -626,10 +621,10 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			Stdout(getString(t, -1));
+			.write(getString(t, -1));
 		}
 
-		Stdout.flush;
+		stdout.flush();
 		return 0;
 	}
 
@@ -638,36 +633,34 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			Stdout(getString(t, -1));
+			.write(getString(t, -1));
 		}
 
-		Stdout.newline;
+		.writeln();
 		return 0;
 	}
 
 	uword writef(MDThread* t, uword numParams)
 	{
-		uint sink(char[] data)
+		void sink(string data)
 		{
-			Stdout(data);
-			return data.length;
+			.write(data);
 		}
 
 		formatImpl(t, numParams, &sink);
-		Stdout.flush;
+		stdout.flush();
 		return 0;
 	}
 
 	uword writefln(MDThread* t, uword numParams)
 	{
-		uint sink(char[] data)
+		void sink(string data)
 		{
-			Stdout(data);
-			return data.length;
+			.write(data);
 		}
 
 		formatImpl(t, numParams, &sink);
-		Stdout.newline;
+		.writeln();
 		return 0;
 	}
 
@@ -698,24 +691,24 @@ static:
 			{
 				switch(c)
 				{
-					case '\'': Stdout(`\'`); break;
-					case '\"': Stdout(`\"`); break;
-					case '\\': Stdout(`\\`); break;
-					case '\a': Stdout(`\a`); break;
-					case '\b': Stdout(`\b`); break;
-					case '\f': Stdout(`\f`); break;
-					case '\n': Stdout(`\n`); break;
-					case '\r': Stdout(`\r`); break;
-					case '\t': Stdout(`\t`); break;
-					case '\v': Stdout(`\v`); break;
+					case '\'': .write(`\'`); break;
+					case '\"': .write(`\"`); break;
+					case '\\': .write(`\\`); break;
+					case '\a': .write(`\a`); break;
+					case '\b': .write(`\b`); break;
+					case '\f': .write(`\f`); break;
+					case '\n': .write(`\n`); break;
+					case '\r': .write(`\r`); break;
+					case '\t': .write(`\t`); break;
+					case '\v': .write(`\v`); break;
 
 					default:
 						if(c <= 0x7f && isprint(c))
-							Stdout(c);
+							.write(c);
 						else if(c <= 0xFFFF)
-							Stdout.format("\\u{:x4}", cast(uint)c);
+							.writef("\\u%4x", cast(uint)c);
 						else
-							Stdout.format("\\U{:x8}", cast(uint)c);
+							.writef("\\U%8x", cast(uint)c);
 						break;
 				}
 			}
@@ -724,7 +717,7 @@ static:
 			{
 				if(opin(t, arr, shown))
 				{
-					Stdout("[...]");
+					.write("[...]");
 					return;
 				}
 
@@ -739,7 +732,7 @@ static:
 					idxa(t, shown);
 				}
 
-				Stdout('[');
+				.write('[');
 
 				auto length = len(t, arr);
 
@@ -755,7 +748,7 @@ static:
 						if(hasPendingHalt(t))
 							.haltThread(t);
 
-						Stdout(", ");
+						.write(", ");
 						pushInt(t, i);
 						idx(t, arr);
 						outputRepr(-1);
@@ -763,14 +756,14 @@ static:
 					}
 				}
 
-				Stdout(']');
+				.write(']');
 			}
 
 			void outputTable(word tab)
 			{
 				if(opin(t, tab, shown))
 				{
-					Stdout("{...}");
+					.write("{...}");
 					return;
 				}
 				
@@ -785,7 +778,7 @@ static:
 					idxa(t, shown);
 				}
 
-				Stdout('{');
+				.write('{');
 
 				auto length = len(t, tab);
 
@@ -799,27 +792,27 @@ static:
 						if(first)
 							first = !first;
 						else
-							Stdout(", ");
+							.write(", ");
 
 						if(hasPendingHalt(t))
 							.haltThread(t);
 
-						Stdout('[');
+						.write('[');
 						outputRepr(k);
-						Stdout("] = ");
+						.write("] = ");
 						dup(t, v);
 						outputRepr(-1);
 						pop(t);
 					}
 				}
 
-				Stdout('}');
+				.write('}');
 			}
 
 			void outputNamespace(word ns)
 			{
 				pushToString(t, ns);
-				Stdout(getString(t, -1))(" { ");
+				.write(getString(t, -1), " { ");
 				pop(t);
 
 				auto length = len(t, ns);
@@ -837,29 +830,29 @@ static:
 						if(first)
 							first = false;
 						else
-							Stdout(", ");
+							.write(", ");
 
-						Stdout(getString(t, k));
+						.write(getString(t, k));
 					}
 				}
 
-				Stdout(" }");
+				.write(" }");
 			}
 
 			if(isString(t, v))
 			{
-				Stdout('"');
+				.write('"');
 
 				foreach(dchar c; getString(t, v))
 					escape(c);
 
-				Stdout('"');
+				.write('"');
 			}
 			else if(isChar(t, v))
 			{
-				Stdout("'");
+				.write("'");
 				escape(getChar(t, v));
-				Stdout("'");
+				.write("'");
 			}
 			else if(isArray(t, v))
 				outputArray(v);
@@ -869,16 +862,16 @@ static:
 				outputNamespace(v);
 			else if(isWeakRef(t, v))
 			{
-				Stdout("weakref(");
+				.write("weakref(");
 				.deref(t, v);
 				outputRepr(-1);
 				pop(t);
-				Stdout(")");
+				.write(")");
 			}
 			else
 			{
 				pushToString(t, v);
-				Stdout(getString(t, -1));
+				.write(getString(t, -1));
 				pop(t);
 			}
 		}
@@ -886,15 +879,18 @@ static:
 		outputRepr(1);
 
 		if(newline)
-			Stdout.newline;
+			.writeln();
 
 		return 0;
 	}
 
 	uword readln(MDThread* t, uword numParams)
 	{
-		char[] s;
-		Cin.readln(s);
+		auto s = .readln()[0 .. $ - 1];
+		
+		if(s.length && s[$ - 1] == '\r')
+			s = s[0 .. $ - 1];
+
 		pushString(t, s);
 		return 1;
 	}
@@ -905,7 +901,7 @@ static:
 	uword loadString(MDThread* t, uword numParams)
 	{
 		auto code = checkStringParam(t, 1);
-		char[] name = "<loaded by loadString>";
+		string name = "<loaded by loadString>";
 
 		if(numParams > 1)
 		{
@@ -964,53 +960,13 @@ static:
 
 	uword toJSON(MDThread* t, uword numParams)
 	{
-// 		static scope class MDHeapBuffer : Array
-// 		{
-// 			Allocator* alloc;
-// 			uint increment;
-// 
-// 			this(ref Allocator alloc)
-// 			{
-// 				super(null);
-// 
-// 				this.alloc = &alloc;
-// 				setContent(alloc.allocArray!(ubyte)(1024), 0);
-// 				this.increment = 1024;
-// 			}
-//
-// 			~this()
-// 			{
-// 				alloc.freeArray(data);
-// 			}
-//
-// 			override uint fill(InputStream src)
-// 			{
-// 				if(writable <= increment / 8)
-// 					expand(increment);
-//
-// 				return write(&src.read);
-// 			}
-//
-// 			override uint expand(uint size)
-// 			{
-// 				if(size < increment)
-// 					size = increment;
-//
-// 				dimension += size;
-// 				alloc.resizeArray(data, dimension);
-// 				return writable;
-// 			}
-// 		}
-
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
 
-		scope buf = new Array(256, 256);
-		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
-
-		JSON.save(t, 1, pretty, printer);
-
-		pushString(t, safeCode(t, cast(char[])buf.slice()));
+		// TODO: make this not allocate memory
+		string buf;
+		JSON.save(t, 1, pretty, delegate void(string s) { buf ~= s; });
+		pushString(t, buf);
 		return 1;
 	}
 

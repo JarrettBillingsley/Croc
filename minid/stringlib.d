@@ -25,12 +25,12 @@ subject to the following restrictions:
 
 module minid.stringlib;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
-import tango.core.Array;
-import tango.text.Util;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
+// import Float = tango.text.convert.Float;
+// import Integer = tango.text.convert.Integer;
+// import tango.core.Array;
+// import tango.text.Util;
+// import Uni = tango.text.Unicode;
+// import Utf = tango.text.convert.Utf;
 
 import minid.ex;
 import minid.interpreter;

@@ -32,8 +32,8 @@ module minid.codegen;
 // debug = SHOWME;
 // debug = PRINTEXPSTACK;
 
-import tango.io.Stdout;
-debug import tango.text.convert.Format;
+import std.stdio;
+debug import std.string;
 
 import minid.alloc;
 import minid.ast;
@@ -138,9 +138,9 @@ struct Exp
 	bool isTempReg2;
 	bool isTempReg3;
 
-	debug char[] toString()
+	debug string toString()
 	{
-		static const char[][] typeNames =
+		static const string[] typeNames =
 		[
 			ExpType.Null: "Null",
 			ExpType.True: "True",
@@ -161,7 +161,7 @@ struct Exp
 			ExpType.Src: "Src"
 		];
 
-		return Format("{} ({}, {}, {}) : ({}, {}, {})", typeNames[cast(uint)type], index, index2, index3, isTempReg, isTempReg2, isTempReg3);
+		return format("%s (%s, %s, %s) : (%s, %s, %s)", typeNames[cast(uint)type], index, index2, index3, isTempReg, isTempReg2, isTempReg3);
 	}
 }
 
@@ -199,7 +199,7 @@ final class FuncState
 
 	package CompileLoc mLocation;
 	package bool mIsVararg;
-	package char[] mName;
+	package cstring mName;
 	package uint mNumParams;
 	package ushort[] mParamMasks;
 
@@ -207,7 +207,7 @@ final class FuncState
 	{
 		package bool isUpvalue;
 		package uint index;
-		package char[] name;
+		package string name;
 	}
 
 	package UpvalDesc[] mUpvals;
@@ -227,7 +227,7 @@ final class FuncState
 
 	struct LocVarDesc
 	{
-		package char[] name;
+		package string name;
 		package uint pcStart;
 		package uint pcEnd;
 		package uint reg;
@@ -238,7 +238,7 @@ final class FuncState
 
 	package LocVarDesc[] mLocVars;
 
-	package this(ICompiler c, CompileLoc location, char[] name, FuncState parent = null)
+	package this(ICompiler c, CompileLoc location, cstring name, FuncState parent = null)
 	{
 		this.c = c;
 		this.t = c.thread;
@@ -273,13 +273,13 @@ final class FuncState
 
 	debug package void printExpStack()
 	{
-		Stdout.formatln("Expression Stack");
-		Stdout.formatln("----------------");
+		writeln("Expression Stack");
+		writeln("----------------");
 
 		for(int i = 0; i < mExpSP; i++)
-			Stdout.formatln("{}: {}", i, mExpStack[i].toString());
+			writefln("%s: %s", i, mExpStack[i].toString());
 
-		Stdout.formatln("");
+		writeln();
 	}
 
 	// ---------------------------------------------------------------------------
@@ -347,7 +347,7 @@ final class FuncState
 		mScope.continueScope = null;
 	}
 
-	package int searchLocal(char[] name, out uint reg)
+	package int searchLocal(string name, out uint reg)
 	{
 		for(int i = mLocVars.length - 1; i >= 0; i--)
 		{
@@ -710,7 +710,7 @@ final class FuncState
 		pushConst(codeCharConst(value));
 	}
 
-	public void pushString(char[] value)
+	public void pushString(string value)
 	{
 		pushConst(codeStringConst(value));
 	}
@@ -744,7 +744,7 @@ final class FuncState
 		const Upvalue = 1;
 		const Global = 2;
 
-		auto varType = Local;
+		int varType = Local;
 
 		int searchVar(FuncState s, bool isOriginal = true)
 		{
@@ -1624,7 +1624,7 @@ final class FuncState
 		return codeConst(MDValue(x));
 	}
 
-	public int codeStringConst(char[] s)
+	public int codeStringConst(string s)
 	{
 		return codeConst(MDValue(createString(t, s)));
 	}

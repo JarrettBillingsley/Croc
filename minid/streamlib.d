@@ -25,12 +25,12 @@ subject to the following restrictions:
 
 module minid.streamlib;
 
-import tango.core.Traits;
-import tango.io.Console;
-import tango.io.device.Conduit;
-import tango.io.stream.Format;
-import tango.io.stream.Lines;
-import tango.math.Math;
+// import tango.core.Traits;
+// import tango.io.Console;
+// import tango.io.device.Conduit;
+// import tango.io.stream.Format;
+// import tango.io.stream.Lines;
+// import tango.math.Math;
 
 import minid.ex;
 import minid.interpreter;

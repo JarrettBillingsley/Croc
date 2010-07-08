@@ -32,7 +32,7 @@ import minid.compilertypes;
 import minid.opcodes;
 import minid.types;
 
-const char[][] AstTagNames =
+const string[] AstTagNames =
 [
 	"Unknown",
 	"Identifier",
@@ -153,9 +153,9 @@ const char[][] AstTagNames =
 	"TableComprehension"
 ];
 
-private char[] genEnumMembers()
+private string genEnumMembers()
 {
-	char[] ret;
+	string ret;
 
 	foreach(tag; AstTagNames)
 		ret ~= tag ~ ",";
@@ -165,7 +165,7 @@ private char[] genEnumMembers()
 
 mixin("enum AstTag {" ~ genEnumMembers() ~ "}");
 
-const char[][] NiceAstTagNames =
+const string[] NiceAstTagNames =
 [
 	AstTag.Unknown:              "<unknown node type>",
 	AstTag.Identifier:           "identifier",
@@ -334,7 +334,7 @@ abstract class AstNode : IAstNode
 	/**
 	By default, toString() will return the string representation of the node type.
 	*/
-	public char[] toString()
+	public override string toString()
 	{
 		return AstTagNames[type];
 	}
@@ -342,7 +342,7 @@ abstract class AstNode : IAstNode
 	/**
 	Returns a nicer (readable) representation of this kind of node.
 	*/
-	public char[] niceString()
+	public string niceString()
 	{
 		return NiceAstTagNames[type];
 	}
@@ -384,9 +384,9 @@ be used in non-expression contexts (such as names in declarations).
 */
 class Identifier : AstNode
 {
-	public char[] name;
+	public string name;
 
-	public this(ICompiler c, CompileLoc location, char[] name)
+	public this(ICompiler c, CompileLoc location, string name)
 	{
 		super(c, location, location, AstTag.Identifier);
 		this.name = name;
@@ -409,7 +409,7 @@ class ClassDef : AstNode
 		The name of the field.  This corresponds to either the name of a data member or
 		the name of a method.
 		*/
-		char[] name;
+		string name;
 		
 		/**
 		The initializer of the field.  This will never be null.  If a field is declared in
@@ -577,7 +577,7 @@ class NamespaceDef : AstNode
 		The name of the field.  This corresponds to either the name of a data member or
 		the name of a function.
 		*/
-		char[] name;
+		string name;
 		
 		/**
 		The initializer of the field.  This will never be null.  If a field is declared in
@@ -627,7 +627,7 @@ class Module : AstNode
 	The name of this module.  This is an array of strings, each element of which is one
 	piece of a dotted name.  This array will always be at least one element long.
 	*/
-	public char[][] names;
+	public string[] names;
 
 	/**
 	The statements which make up the body of the module.  Normally this will be a block
@@ -641,7 +641,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, string[] names, Statement statements, Decorator decorator)
 	{
 		super(c, location, endLocation, AstTag.Module);
 		this.names = names;
@@ -2006,7 +2006,7 @@ abstract class Expression : AstNode
 	Returns this expression as a string constant, if possible.  assert(false)s
 	otherwise.
 	*/
-	public char[] asString()
+	public string asString()
 	{
 		assert(false);
 	}
@@ -2750,7 +2750,7 @@ class VarargExp : PrimaryExp
 		super(c, location, AstTag.VarargExp);
 	}
 
-	public bool isMultRet()
+	public override bool isMultRet()
 	{
 		return true;
 	}
@@ -2953,11 +2953,11 @@ class StringExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public char[] value;
+	public string value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] value)
+	public this(ICompiler c, CompileLoc location, string value)
 	{
 		super(c, location, AstTag.StringExp);
 		this.value = value;
@@ -2978,7 +2978,7 @@ class StringExp : PrimaryExp
 		return true;
 	}
 
-	public override char[] asString()
+	public override string asString()
 	{
 		return value;
 	}
@@ -3137,12 +3137,12 @@ class YieldExp : PrimaryExp
 		this.args = args;
 	}
 
-	public bool hasSideEffects()
+	public override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	public bool isMultRet()
+	public override bool isMultRet()
 	{
 		return true;
 	}

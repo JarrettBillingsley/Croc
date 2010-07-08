@@ -25,9 +25,9 @@ subject to the following restrictions:
 
 module minid.arraylib;
 
-import tango.core.Array;
-import tango.core.Tuple;
-import tango.math.Math;
+// import tango.core.Array;
+// import tango.core.Tuple;
+// import tango.math.Math;
 
 import minid.array;
 import minid.ex;

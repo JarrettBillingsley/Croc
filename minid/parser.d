@@ -54,18 +54,17 @@ struct Parser
 
 	/**
 	*/
-	public char[] parseName()
+	public string parseName()
 	{
-		with(l.expect(Token.Ident))
-			return stringValue;
+		return l.expect(Token.Ident).stringValue;
 	}
 
 	/**
 	*/
 	public Identifier parseIdentifier()
 	{
-		with(l.expect(Token.Ident))
-			return new(c) Identifier(c, loc, stringValue);
+		auto tmp = l.expect(Token.Ident);
+		return new(c) Identifier(c, tmp.loc, tmp.stringValue);
 	}
 	
 	/**
@@ -98,7 +97,7 @@ struct Parser
 
 		l.expect(Token.Module);
 
-		scope names = new List!(char[])(c.alloc);
+		scope names = new List!(string)(c.alloc);
 		names ~= parseName();
 
 		while(l.type == Token.Dot)
@@ -127,7 +126,7 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseStatements(char[] name)
+	public FuncDef parseStatements(string name)
 	{
 		auto location = l.loc;
 
@@ -150,14 +149,14 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseExpressionFunc(char[] name)
+	public FuncDef parseExpressionFunc(string name)
 	{
 		auto location = l.loc;
 
 		scope statements = new List!(Statement)(c.alloc);
 		scope exprs = new List!(Expression)(c.alloc);
 		exprs ~= parseExpression();
-		
+
 		if(l.type != Token.EOF)
 			c.exception(l.loc, "Extra unexpected code after expression");
 
@@ -1029,7 +1028,7 @@ struct Parser
 		alias NamespaceDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(char[] name, Expression v)
+		void addField(string name, Expression v)
 		{
 			pushString(c.thread, name);
 
@@ -1413,17 +1412,17 @@ struct Parser
 		{
 			scope name = new List!(char)(c.alloc);
 
-			name ~= parseName();
+			name ~= cast(char[])parseName();
 
 			while(l.type == Token.Dot)
 			{
 				l.next();
-				name ~= ".";
-				name ~= parseName();
+				name ~= cast(char[])".";
+				name ~= cast(char[])parseName();
 			}
 
 			auto arr = name.toArray();
-			expr = new(c) StringExp(c, location, c.newString(arr));
+			expr = new(c) StringExp(c, location, c.newString(cast(string)arr));
 			c.alloc.freeArray(arr);
 		}
 
@@ -1791,7 +1790,7 @@ struct Parser
 	{
 		auto location = l.loc;
 
-		static char[] makeCase(char[] tok, char[] type)
+		static string makeCase(string tok, string type)
 		{
 			return
 			"case Token." ~ tok ~ ":"
@@ -2324,16 +2323,16 @@ struct Parser
 	*/
 	public ThisExp parseThisExp()
 	{
-		with(l.expect(Token.This))
-			return new(c) ThisExp(c, loc);
+		auto tmp = l.expect(Token.This);
+		return new(c) ThisExp(c, tmp.loc);
 	}
 	
 	/**
 	*/
 	public NullExp parseNullExp()
 	{
-		with(l.expect(Token.Null))
-			return new(c) NullExp(c, loc);
+		auto tmp = l.expect(Token.Null);
+		return new(c) NullExp(c, tmp.loc);
 	}
 	
 	/**
@@ -2358,40 +2357,40 @@ struct Parser
 	*/
 	public VarargExp parseVarargExp()
 	{
-		with(l.expect(Token.Vararg))
-			return new(c) VarargExp(c, loc);
+		auto tmp = l.expect(Token.Vararg);
+		return new(c) VarargExp(c, tmp.loc);
 	}
 	
 	/**
 	*/
 	public CharExp parseCharExp()
 	{
-		with(l.expect(Token.CharLiteral))
-			return new(c) CharExp(c, loc, cast(dchar)intValue);
+		auto tmp = l.expect(Token.CharLiteral);
+		return new(c) CharExp(c, tmp.loc, cast(dchar)tmp.intValue);
 	}
 	
 	/**
 	*/
 	public IntExp parseIntExp()
 	{
-		with(l.expect(Token.IntLiteral))
-			return new(c) IntExp(c, loc, intValue);
+		auto tmp = l.expect(Token.IntLiteral);
+		return new(c) IntExp(c, tmp.loc, tmp.intValue);
 	}
 	
 	/**
 	*/
 	public FloatExp parseFloatExp()
 	{
-		with(l.expect(Token.FloatLiteral))
-			return new(c) FloatExp(c, loc, floatValue);
+		auto tmp = l.expect(Token.FloatLiteral);
+		return new(c) FloatExp(c, tmp.loc, tmp.floatValue);
 	}
 	
 	/**
 	*/
 	public StringExp parseStringExp()
 	{
-		with(l.expect(Token.StringLiteral))
-			return new(c) StringExp(c, loc, stringValue);
+		auto tmp = l.expect(Token.StringLiteral);
+		return new(c) StringExp(c, tmp.loc, tmp.stringValue);
 	}
 	
 	/**
@@ -2587,8 +2586,8 @@ struct Parser
 
 			if(l.type == Token.Ident)
 			{
-				with(l.expect(Token.Ident))
-					method = new(c) StringExp(c, location, stringValue);
+				auto tmp = l.expect(Token.Ident);
+				method = new(c) StringExp(c, location, tmp.stringValue);
 			}
 			else
 			{

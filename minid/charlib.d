@@ -25,13 +25,13 @@ subject to the following restrictions:
 
 module minid.charlib;
 
+import std.ctype;
+// import Uni = tango.text.Unicode;
+// import Utf = tango.text.convert.Utf;
+
 import minid.ex;
 import minid.interpreter;
 import minid.types;
-
-import tango.stdc.ctype;
-import Uni = tango.text.Unicode;
-import Utf = tango.text.convert.Utf;
 
 struct CharLib
 {

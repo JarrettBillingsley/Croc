@@ -26,8 +26,8 @@ subject to the following restrictions:
 
 module minid.regexplib;
 
-import tango.text.Regex;
-import tango.text.Util;
+// import tango.text.Regex;
+// import tango.text.Util;
 
 import minid.ex;
 import minid.interpreter;

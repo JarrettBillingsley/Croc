@@ -30,7 +30,7 @@ module minid.astvisitor;
 import minid.ast;
 import minid.compilertypes;
 
-template returnType(char[] tag)
+template returnType(string tag)
 {
 	static if(is(typeof(mixin(tag)) : Statement))
 		alias Statement returnType;
@@ -40,9 +40,9 @@ template returnType(char[] tag)
 		alias AstNode returnType;
 }
 
-char[] generateVisitMethods()
+string generateVisitMethods()
 {
-	char[] ret;
+	string ret;
 
 	foreach(tag; AstTagNames)
 		ret ~= "public returnType!(\"" ~ tag ~ "\") visit(" ~ tag ~ " node){ throw new Exception(\"no visit method implemented for AST node '" ~ tag ~ "'\"); }\n";
@@ -50,9 +50,9 @@ char[] generateVisitMethods()
 	return ret;
 }
 
-char[] generateDispatchFunctions()
+string generateDispatchFunctions()
 {
-	char[] ret;
+	string ret;
 
 	foreach(tag; AstTagNames)
 		ret ~= "public static returnType!(\"" ~ tag ~ "\") visit" ~ tag ~ "(Visitor visitor, " ~ tag ~ " c) { return visitor.visit(c); }\n";
@@ -60,9 +60,9 @@ char[] generateDispatchFunctions()
 	return ret;
 }
 
-char[] generateDispatchTable()
+string generateDispatchTable()
 {
-	char[] ret = "private static const void*[] dispatchTable = [";
+	string ret = "private static const void*[] dispatchTable = [";
 
 	foreach(tag; AstTagNames)
 		ret ~= "cast(void*)&visit" ~ tag ~ ",\n";

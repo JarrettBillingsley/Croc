@@ -26,14 +26,16 @@ subject to the following restrictions:
 
 module minid.vector;
 
-import tango.core.Traits;
-import tango.math.Math;
-import tango.stdc.string;
+import std.math;
+import std.traits;
+import std.c.string;
 
 import minid.ex;
 import minid.interpreter;
 import minid.types;
 import minid.utils;
+
+alias minid.interpreter.isArray isArray;
 
 // TODO: make slices not copy.  But still provide a copying slice func.
 // aghl, but that would require a Vector/VectorData separation like arrays..
@@ -132,7 +134,7 @@ static:
 	{
 		void* data;
 		uword length;
-		TypeStruct* type;
+		const(TypeStruct)* type;
 		bool ownData;
 	}
 
@@ -341,7 +343,7 @@ static:
 			c.method("opModAssign",    &opModAssign);
 			c.method("revMod",         &revMod);
 
-			c.method("opEquals",       &opEquals);
+			c.method("opEquals",       &opEquals_);
 
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
@@ -428,7 +430,7 @@ static:
 		if(size < 0 || size > uword.max)
 			throwException(t, "Invalid size ({})", size);
 
-		TypeStruct* ts;
+		const(TypeStruct)* ts;
 
 		switch(type)
 		{
@@ -467,7 +469,7 @@ static:
 	{
 		auto type = checkStringParam(t, 1);
 
-		TypeStruct* ts;
+		const(TypeStruct)* ts;
 
 		switch(type)
 		{
@@ -641,7 +643,7 @@ static:
 		auto memb = getThis(t);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		void doLoop(bool function(MDThread*, word) test, char[] typeMsg)
+		void doLoop(bool function(MDThread*, word) test, string typeMsg)
 		{
 			for(uword i = 0; i < memb.length; i++)
 			{
@@ -1035,7 +1037,7 @@ static:
 		return 1;
 	}
 	
-	template minMaxImpl(char[] compare)
+	template minMaxImpl(string compare)
 	{
 		T minMaxImpl(T)(T* data, uword length)
 		{
@@ -1363,7 +1365,7 @@ static:
 			if(typeNames[memb.type.code] == newType)
 				return 0;
 				
-			TypeStruct* ts = void;
+			const(TypeStruct)* ts = void;
 
 			switch(newType)
 			{
@@ -1407,7 +1409,7 @@ static:
 		if(idx < 0 || idx > maxIdx)
 			throwException(t, "Invalid index '{}'", idx);
 			
-		static if(isIntegerType!(T))
+		static if(isIntegral!(T))
 			pushInt(t, cast(mdint)*(cast(T*)(data.ptr + idx)));
 		else
 			pushFloat(t, cast(mdfloat)*(cast(T*)(data.ptr + idx)));
@@ -1429,7 +1431,7 @@ static:
 		if(idx < 0 || idx > maxIdx)
 			throwException(t, "Invalid index '{}'", idx);
 			
-		static if(isIntegerType!(T))
+		static if(isIntegral!(T))
 			auto val = checkIntParam(t, 2);
 		else
 			auto val = checkNumParam(t, 2);
@@ -1661,7 +1663,7 @@ static:
 		return 0;
 	}
 
-	uword opEquals(MDThread* t, uword numParams)
+	uword opEquals_(MDThread* t, uword numParams)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -1865,7 +1867,7 @@ static:
 		return 0;
 	}
 
-	char[] opAssign(char[] name, char[] op)
+	string opAssign(string name, string op)
 	{
 		return `uword op` ~ name ~ `Assign(MDThread* t, uword numParams)
 		{
@@ -1918,7 +1920,7 @@ static:
 			}
 
 			return 0;
-		}`; /+ " +/
+		}`; /+ ` +/
 	}
 
 	mixin(opAssign("Add", "+"));
@@ -1927,7 +1929,7 @@ static:
 	mixin(opAssign("Div", "/"));
 	mixin(opAssign("Mod", "%"));
 
-	char[] op(char[] name)
+	string op(string name)
 	{
 		return `uword op` ~ name ~ `(MDThread* t, uword numParams)
 		{
@@ -1953,7 +1955,7 @@ static:
 	mixin(op("Div"));
 	mixin(op("Mod"));
 
-	char[] op_rev(char[] name)
+	string op_rev(string name)
 	{
 		return `uword op` ~ name ~ `_r(MDThread* t, uword numParams)
 		{
@@ -1980,7 +1982,7 @@ static:
 	// BUG 2434: Compiler generates code that does not pass with -w for some array operations
 	// namely, for the [u](byte|short) cases for div and mod.
 
-	char[] rev_func(char[] name, char[] op)
+	string rev_func(string name, string op)
 	{
 		return `uword rev` ~ name ~ `(MDThread* t, uword numParams)
 		{

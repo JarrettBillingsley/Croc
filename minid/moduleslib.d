@@ -26,9 +26,9 @@ subject to the following restrictions:
 
 module minid.moduleslib;
 
-import tango.io.device.File;
-import tango.io.FilePath;
-import tango.text.Util;
+import std.file;
+import std.path;
+import std.string;
 
 import minid.compiler;
 import minid.ex;
@@ -104,7 +104,7 @@ static:
 		return commonLoad(t, name);
 	}
 
-	package uword commonLoad(MDThread* t, char[] name)
+	package uword commonLoad(MDThread* t, string name)
 	{
 		checkCircular(t, name);
 
@@ -168,7 +168,7 @@ static:
 		// Make the namespace
 		pushGlobal(t, "_G");
 
-		foreach(segment; name.delimiters("."))
+		foreach(segment; name.split(".")) // TODO: in-place splitting
 		{
 			pushString(t, segment);
 
@@ -259,7 +259,7 @@ static:
 
 		pushGlobal(t, "_G");
 
-		foreach(segment; name.delimiters("."))
+		foreach(segment; name.split(".")) // TODO: in-place split
 		{
 			pushString(t, segment);
 
@@ -282,11 +282,11 @@ static:
 	package uword loadFiles(MDThread* t, uword numParams)
 	{
 		auto name = checkStringParam(t, 1);
-		auto pos = name.locatePrior('.');
-		char[] packages;
-		char[] modName;
+		auto pos = name.lastIndexOf('.');
+		string packages;
+		string modName;
 
-		if(pos == name.length)
+		if(pos == -1)
 		{
 			packages = "";
 			modName = name;
@@ -302,61 +302,63 @@ static:
 		auto paths = getString(t, -1);
 		pop(t);
 	
-		outerLoop: foreach(path; paths.delimiters(";"))
+		outerLoop: foreach(path; paths.split(";")) // TODO: in-place split
 		{
 			// TODO: try to make this not allocate memory?  Is this possible?
-			scope p = new FilePath(path);
-	
-			if(!p.exists())
+			if(!exists(path))
 				continue;
-	
-			foreach(piece; packages.delimiters("."))
+
+			foreach(piece; packages.split(".")) // TODO: in-place split
 			{
-				p.append(piece);
-	
-				if(!p.exists())
+				path = join(path, piece);
+
+				if(!exists(path))
 					continue outerLoop;
 			}
 	
-			scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
-			scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
+			auto src = join(path, modName ~ ".md");
+			auto bin = join(path, modName ~ ".mdm");
 
-			if(src.exists())
+			if(exists(src))
 			{
-				if(bin.exists())
+				if(exists(bin))
 				{
-					if(src.modified() > bin.modified())
+					if(lastModified(src) > lastModified(bin))
 					{
 						scope c = new Compiler(t);
-						c.compileModule(src.toString());
+						c.compileModule(src);
 						return 1;
 					}
 					else
 					{
-						scope fc = new File(bin.toString(), File.ReadExisting);
-						deserializeModule(t, fc);
-						return 1;
+						// TODO
+						assert(false);
+// 						scope fc = new File(bin.toString(), File.ReadExisting);
+// 						deserializeModule(t, fc);
+// 						return 1;
 					}
 				}
 				else
 				{
 					scope c = new Compiler(t);
-					c.compileModule(src.toString());
+					c.compileModule(src);
 					return 1;
 				}
 			}
-			else if(bin.exists())
+			else if(exists(bin))
 			{
-				scope fc = new File(bin.toString(), File.ReadExisting);
-				deserializeModule(t, fc);
-				return 1;
+				// TODO
+				assert(false);
+// 				scope fc = new File(bin.toString(), File.ReadExisting);
+// 				deserializeModule(t, fc);
+// 				return 1;
 			}
 		}
 
 		return 0;
 	}
 
-	private void checkCircular(MDThread* t, char[] name)
+	private void checkCircular(MDThread* t, string name)
 	{
 		getRegistryVar(t, "modules.loading");
 		field(t, -1, name);

@@ -25,17 +25,17 @@ subject to the following restrictions:
 
 module minid.iolib;
 
-import Path = tango.io.Path;
-import tango.io.device.File;
-import tango.io.stream.Buffered;
-import tango.io.UnicodeFile;
-import tango.sys.Environment;
-import tango.time.WallClock;
-import tango.time.Time;
+// import Path = tango.io.Path;
+// import tango.io.device.File;
+// import tango.io.stream.Buffered;
+// import tango.io.UnicodeFile;
+// import tango.sys.Environment;
+// import tango.time.WallClock;
+// import tango.time.Time;
 
 import minid.ex;
 import minid.interpreter;
-import minid.streamlib;
+// import minid.streamlib;
 import minid.timelib;
 import minid.types;
 import minid.vector;

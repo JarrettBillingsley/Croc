@@ -27,7 +27,7 @@ subject to the following restrictions:
 
 module minid.alloc;
 
-import tango.stdc.string;
+import std.c.string;
 
 // ================================================================================================================================================
 // Public
@@ -238,7 +238,7 @@ align(1) struct Allocator
 					if(newSize == 0)
 						_memBlocks.remove(p);
 					else if(oldSize == 0)
-						*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
+						*_memBlocks.insert(this, ret) = MemBlock(newSize, typeid(T));
 					else
 					{
 						if(p is ret)
@@ -246,7 +246,7 @@ align(1) struct Allocator
 						else
 						{
 							_memBlocks.remove(p);
-							*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
+							*_memBlocks.insert(this, ret) = MemBlock(newSize, typeid(T));
 						}
 					}
 	

@@ -33,7 +33,8 @@ subject to the following restrictions:
 
 module minid.hash;
 
-import tango.text.Util;
+import std.traits;
+debug import std.stdio;
 
 import minid.alloc;
 import minid.utils;
@@ -42,19 +43,19 @@ import minid.utils;
 // Package
 // ================================================================================================================================================
 
+template HashMethod(K, string expr)
+{
+	static if(isSomeString!(K))
+		const string HashMethod = "jhash(" ~ expr ~ ")";
+	else static if(is(typeof(K.toHash)))
+		const string HashMethod = expr ~ ".toHash";
+	else
+		const string HashMethod = "typeid(K).getHash(&" ~ expr ~ ")";
+}
+
 struct Hash(K, V)
 {
-	template HashMethod(char[] expr)
-	{
-		static if(isStringType!(K))
-			const HashMethod = "jhash(" ~ expr ~ ")";
-		else static if(is(typeof(K.toHash)))
-			const HashMethod = expr ~ ".toHash";
-		else
-			const HashMethod = "typeid(K).getHash(&" ~ expr ~ ")";
-	}
-
-	private const UseHash = isStringType!(K);
+	private const UseHash = isSomeString!(K);
 
 	struct Node
 	{
@@ -84,7 +85,7 @@ struct Hash(K, V)
 
 	package V* insert(ref Allocator alloc, K key)
 	{
-		uint hash = mixin(HashMethod!("key"));
+		uint hash = mixin(HashMethod!(K, "key"));
 
 		if(auto val = lookup(key, hash))
 			return val;
@@ -102,7 +103,7 @@ struct Hash(K, V)
 
 		if(mainPosNode.used)
 		{
-			auto otherNode = &mNodes[mixin(HashMethod!("mainPosNode.key")) & mHashMask];
+			auto otherNode = &mNodes[mixin(HashMethod!(K, "mainPosNode.key")) & mHashMask];
 
 			if(otherNode is mainPosNode)
 			{
@@ -137,7 +138,7 @@ struct Hash(K, V)
 
 	package bool remove(K key)
 	{
-		uint hash = mixin(HashMethod!("key"));
+		uint hash = mixin(HashMethod!(K, "key"));
 		auto n = &mNodes[hash & mHashMask];
 
 		if(!n.used)
@@ -182,7 +183,7 @@ struct Hash(K, V)
 		if(mNodes.length == 0)
 			return null;
 
-		return lookup(key, mixin(HashMethod!("key")));
+		return lookup(key, mixin(HashMethod!(K, "key")));
 	}
 
 	package V* lookup(K key, uint hash)

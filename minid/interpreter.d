@@ -28,19 +28,20 @@ subject to the following restrictions:
 
 module minid.interpreter;
 
-import Float = tango.text.convert.Float;
-import Integer = tango.text.convert.Integer;
+// version(MDExtendedCoro)
+// 	import tango.core.Thread;
+//
 
-version(MDExtendedCoro)
-	import tango.core.Thread;
+import core.exception;
+import core.vararg;
+import std.c.string;
+import std.conv;
+import std.format;
+import std.traits;
+import std.typetuple;
+import std.utf;
 
-import tango.core.Exception;
-import tango.core.Traits;
-import tango.core.Tuple;
-import tango.core.Vararg;
-import tango.stdc.string;
-import tango.text.Util;
-import Utf = tango.text.convert.Utf;
+debug import std.stdio;
 
 import minid.alloc;
 import minid.array;
@@ -82,7 +83,7 @@ word getTypeMT(MDThread* t, MDValue.Type type)
 	mixin(FuncNameMix);
 
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", MDValue.typeString(type));
+		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '%s'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
 		return pushNamespace(t, ns);
@@ -103,7 +104,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	mixin(checkNumParams!("1"));
 
 	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
-		throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '{}'", MDValue.typeString(type));
+		throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '%s'", MDValue.typeString(type));
 
 	auto v = getValue(t, -1);
 
@@ -114,7 +115,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	else
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Metatable must be either a namespace or 'null', not '%s'", getString(t, -1));
 	}
 
 	pop(t);
@@ -130,7 +131,7 @@ Params:
 Returns:
 	The stack index of the imported module's namespace.
 */
-word importModule(MDThread* t, char[] name)
+word importModule(MDThread* t, string name)
 {
 	pushString(t, name);
 	importModule(t, -1);
@@ -156,7 +157,7 @@ word importModule(MDThread* t, word name)
 	if(str is null)
 	{
 		pushTypeString(t, name);
-		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '%s'", getString(t, -1));
 	}
 
 	pushNull(t);
@@ -171,7 +172,7 @@ Same as importModule, but doesn't leave the module namespace on the stack.
 Params:
 	name = The name of the module to be imported.
 */
-void importModuleNoNS(MDThread* t, char[] name)
+void importModuleNoNS(MDThread* t, string name)
 {
 	pushString(t, name);
 	importModule(t, -1);
@@ -300,7 +301,7 @@ ulong createRef(MDThread* t, word idx)
 	if(!v.isObject())
 	{
 		pushTypeString(t, idx);
-		throwException(t, __FUNCTION__ ~ " - Can only get references to reference types, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Can only get references to reference types, not '%s'", getString(t, -1));
 	}
 
 	auto ret = t.vm.currentRef++;
@@ -319,7 +320,7 @@ word pushRef(MDThread* t, ulong r)
 	auto v = t.vm.refTab.lookup(r);
 
 	if(v is null)
-		throwException(t, __FUNCTION__ ~ " - Reference '{}' does not exist", r);
+		throwException(t, __FUNCTION__ ~ " - Reference '%s' does not exist", r);
 
 	return push(t, MDValue(*v));
 }
@@ -334,7 +335,7 @@ void removeRef(MDThread* t, ulong r)
 	mixin(FuncNameMix);
 
 	if(!t.vm.refTab.remove(r))
-		throwException(t, __FUNCTION__ ~ " - Reference '{}' does not exist", r);
+		throwException(t, __FUNCTION__ ~ " - Reference '%s' does not exist", r);
 }
 
 // ================================================================================================================================================
@@ -500,7 +501,7 @@ void rotate(MDThread* t, uword numSlots, uword dist)
 	mixin(FuncNameMix);
 
 	if(numSlots > (stackSize(t) - 1))
-		throwException(t, __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+		throwException(t, __FUNCTION__ ~ " - Trying to rotate more values (%s) than can be rotated (%s)", numSlots, stackSize(t) - 1);
 
 	if(numSlots == 0)
 		return;
@@ -685,7 +686,7 @@ word pushChar(MDThread* t, dchar v)
 }
 
 /// ditto
-word pushString(MDThread* t, char[] v)
+word pushString(MDThread* t, cstring v)
 {
 	return pushStringObj(t, createString(t, v));
 }
@@ -701,9 +702,9 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-word pushFormat(MDThread* t, char[] fmt, ...)
+word pushFormat(MDThread* t, ...)
 {
-	return pushVFormat(t, fmt, _arguments, _argptr);
+	return pushVFormat(t, _arguments, _argptr);
 }
 
 /**
@@ -717,22 +718,42 @@ Params:
 Returns:
 	The stack index of the newly-pushed string.
 */
-word pushVFormat(MDThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr)
+word pushVFormat(MDThread* t, TypeInfo[] arguments, va_list argptr)
 {
+	char[256] buf = void;
+	uword idx = 0;
 	uword numPieces = 0;
 
-	uint sink(char[] data)
+	void flush()
 	{
-		if(data.length > 0)
-		{
-			pushString(t, data);
-			numPieces++;
-		}
-
-		return data.length;
+		idx = 0;
+		pushString(t, buf[]);
+		numPieces++;
 	}
 
-	safeCode(t, t.vm.formatter.convert(&sink, arguments, argptr, fmt));
+	void sink(dchar data)
+	{
+		char[4] cbuf;
+		auto s = encode(cbuf, data);
+
+		if(idx + s > buf.length)
+			flush();
+
+		buf[idx .. idx + s] = cbuf[0 .. s];
+		idx += s;
+
+		if(idx == buf.length)
+			flush();
+	}
+
+	safeCode(t, doFormat(&sink, arguments, argptr));
+	
+	if(idx > 0)
+	{
+		pushString(t, buf[0 .. idx]);
+		numPieces++;
+	}
+
 	maybeGC(t);
 	return cat(t, numPieces);
 }
@@ -825,7 +846,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-word newFunction(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
+word newFunction(MDThread* t, NativeFunc func, string name, uword numUpvals = 0)
 {
 	pushEnvironment(t);
 	return newFunctionWithEnv(t, func, name, numUpvals);
@@ -850,7 +871,7 @@ Params:
 Returns:
 	The stack index of the newly-created closure.
 */
-word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
+word newFunctionWithEnv(MDThread* t, NativeFunc func, string name, uword numUpvals = 0)
 {
 	mixin(checkNumParams!("numUpvals + 1"));
 
@@ -859,7 +880,7 @@ word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpva
 	if(env is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '%s'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -887,7 +908,7 @@ Params:
 Returns:
 	The stack index of the newly-created class.
 */
-word newClass(MDThread* t, word base, char[] name)
+word newClass(MDThread* t, word base, string name)
 {
 	mixin(FuncNameMix);
 
@@ -901,7 +922,7 @@ word newClass(MDThread* t, word base, char[] name)
 		if(b is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '%s'!", getString(t, -1));
 		}
 
 		pop(t);
@@ -911,7 +932,7 @@ word newClass(MDThread* t, word base, char[] name)
 	else
 	{
 		pushTypeString(t, base);
-		throwException(t, __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Base must be 'null' or 'class', not '%s'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -922,7 +943,7 @@ word newClass(MDThread* t, word base, char[] name)
 Same as above, except it uses the global Object as the base.  The new class is left on the
 top of the stack.
 */
-word newClass(MDThread* t, char[] name)
+word newClass(MDThread* t, string name)
 {
 	mixin(FuncNameMix);
 
@@ -932,7 +953,7 @@ word newClass(MDThread* t, char[] name)
 	if(b is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '%s'!", getString(t, -1));
 	}
 
 	pop(t);
@@ -992,7 +1013,7 @@ word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes =
 	if(b is null)
 	{
 		pushTypeString(t, base);
-		throwException(t, __FUNCTION__ ~ " - expected 'class' for base, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'class' for base, not '%s'", getString(t, -1));
 	}
 
 	maybeGC(t);
@@ -1011,7 +1032,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-word newNamespace(MDThread* t, char[] name)
+word newNamespace(MDThread* t, string name)
 {
 	auto ret = newNamespaceNoParent(t, name);
 	getNamespace(t, ret).parent = getEnv(t);
@@ -1029,7 +1050,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-word newNamespace(MDThread* t, word parent, char[] name)
+word newNamespace(MDThread* t, word parent, string name)
 {
 	mixin(FuncNameMix);
 
@@ -1042,7 +1063,7 @@ word newNamespace(MDThread* t, word parent, char[] name)
 	else
 	{
 		pushTypeString(t, parent);
-		throwException(t, __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Parent must be null or namespace, not '%s'", getString(t, -1));
 	}
 
 	auto ret = newNamespaceNoParent(t, name);
@@ -1062,7 +1083,7 @@ Params:
 Returns:
 	The stack index of the newly-created namespace.
 */
-word newNamespaceNoParent(MDThread* t, char[] name)
+word newNamespaceNoParent(MDThread* t, string name)
 {
 	maybeGC(t);
 	return pushNamespace(t, namespace.create(t.vm.alloc, createString(t, name), null));
@@ -1088,7 +1109,7 @@ word newThread(MDThread* t, word func)
 	if(f is null)
 	{
 		pushTypeString(t, func);
-		throwException(t, __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Thread function must be of type 'function', not '%s'", getString(t, -1));
 	}
 
 	version(MDExtendedCoro) {} else
@@ -1351,7 +1372,7 @@ bool getBool(MDThread* t, word slot)
 	if(v.type != MDValue.Type.Bool)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'bool' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'bool' but got '%s'", getString(t, -1));
 	}
 
 	return v.mBool;
@@ -1369,7 +1390,7 @@ mdint getInt(MDThread* t, word slot)
 	if(v.type != MDValue.Type.Int)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'int' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'int' but got '%s'", getString(t, -1));
 	}
 
 	return v.mInt;
@@ -1387,7 +1408,7 @@ mdfloat getFloat(MDThread* t, word slot)
 	if(v.type != MDValue.Type.Float)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'float' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'float' but got '%s'", getString(t, -1));
 	}
 
 	return v.mFloat;
@@ -1411,7 +1432,7 @@ mdfloat getNum(MDThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'float' or 'int' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'float' or 'int' but got '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -1429,7 +1450,7 @@ dchar getChar(MDThread* t, word slot)
 	if(v.type != MDValue.Type.Char)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'char' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'char' but got '%s'", getString(t, -1));
 	}
 
 	return v.mChar;
@@ -1444,7 +1465,7 @@ MiniD stack, there is no guarantee that the string data will be valid (MiniD mig
 has no knowledge of the reference held by D).  If you need the string value for a longer period of time,
 you should dup it.
 */
-char[] getString(MDThread* t, word slot)
+string getString(MDThread* t, word slot)
 {
 	mixin(FuncNameMix);
 
@@ -1453,7 +1474,7 @@ char[] getString(MDThread* t, word slot)
 	if(v.type != MDValue.Type.String)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'string' but got '%s'", getString(t, -1));
 	}
 
 	return v.mString.toString();
@@ -1476,7 +1497,7 @@ MDThread* getThread(MDThread* t, word slot)
 	if(v.type != MDValue.Type.Thread)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'thread' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'thread' but got '%s'", getString(t, -1));
 	}
 
 	return v.mThread;
@@ -1494,7 +1515,7 @@ Object getNativeObj(MDThread* t, word slot)
 	if(v.type != MDValue.Type.NativeObj)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'nativeobj' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'nativeobj' but got '%s'", getString(t, -1));
 	}
 
 	return v.mNativeObj.obj;
@@ -1560,7 +1581,7 @@ T safeCode(T)(MDThread* t, lazy T code)
 	catch(MDException e)
 		throw e;
 	catch(Exception e)
-		throwException(t, "{}", e);
+		throwException(t, "%s", e);
 
 	assert(false);
 }
@@ -1637,9 +1658,9 @@ struct foreachLoop
 	*/
 	public int opApply(T)(T dg)
 	{
-		alias Unique!(ParameterTupleOf!(T)) TypeTest;
+		alias NoDuplicates!(ParameterTypeTuple!(T)) TypeTest;
 		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");
-		alias ParameterTupleOf!(T) Indices;
+		alias ParameterTypeTuple!(T) Indices;
 
 		static if(Indices.length == 1)
 		{
@@ -1653,7 +1674,7 @@ struct foreachLoop
 		}
 
 		if(numSlots < 1 || numSlots > 3)
-			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
+			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not %s", numSlots);
 
 		mixin(checkNumParams!("numSlots"));
 
@@ -1678,7 +1699,7 @@ struct foreachLoop
 			if(method is null)
 			{
 				typeString(t, srcObj);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+				throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.Apply], getString(t, -1));
 			}
 
 			pushFunction(t, method);
@@ -1690,7 +1711,7 @@ struct foreachLoop
 			if(!isFunction(t, src) && !isThread(t, src))
 			{
 				pushTypeString(t, src);
-				throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+				throwException(t, "Invalid iterable type '%s' returned from opApply", getString(t, -1));
 			}
 		}
 
@@ -1771,9 +1792,9 @@ void throwException(MDThread* t)
 A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
 pushVFormat on the arguments and then calling throwException.
 */
-void throwException(MDThread* t, char[] fmt, ...)
+void throwException(MDThread* t, ...)
 {
-	pushVFormat(t, fmt, _arguments, _argptr);
+	pushVFormat(t, _arguments, _argptr);
 	throwException(t);
 }
 
@@ -1879,7 +1900,7 @@ void setUpval(MDThread* t, uword idx)
 	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
-		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index (%s, only have %s)", idx, upvals.length);
 
 	upvals[idx] = *getValue(t, -1);
 	pop(t);
@@ -1908,7 +1929,7 @@ word getUpval(MDThread* t, uword idx)
 	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
-		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
+		throwException(t, __FUNCTION__ ~ " - Invalid upvalue index (%s, only have %s)", idx, upvals.length);
 
 	return push(t, upvals[idx]);
 }
@@ -1958,7 +1979,7 @@ Params:
 Returns:
 	The index of the newly-pushed value.
 */
-word pushGlobal(MDThread* t, char[] name)
+word pushGlobal(MDThread* t, string name)
 {
 	pushString(t, name);
 	return getGlobal(t);
@@ -1981,13 +2002,13 @@ word getGlobal(MDThread* t)
 	if(!v.type == MDValue.Type.String)
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	auto g = lookupGlobal(v.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, __FUNCTION__ ~ " - Attempting to get a nonexistent global '{}'", v.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to get a nonexistent global '%s'", v.mString.toString());
 
 	*v = *g;
 	return stackSize(t) - 1;
@@ -2005,7 +2026,7 @@ environment and goes up the chain.
 Params:
 	name = The _name of the global to set.
 */
-void setGlobal(MDThread* t, char[] name)
+void setGlobal(MDThread* t, string name)
 {
 	mixin(checkNumParams!("1"));
 	pushString(t, name);
@@ -2026,13 +2047,13 @@ void setGlobal(MDThread* t)
 	if(n.type != MDValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	auto g = lookupGlobal(n.mString, getEnv(t));
 
 	if(g is null)
-		throwException(t, __FUNCTION__ ~ " - Attempting to set a nonexistent global '{}'", n.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to set a nonexistent global '%s'", n.mString.toString());
 
 	*g = t.stack[t.stackIndex - 1];
 	pop(t, 2);
@@ -2048,7 +2069,7 @@ in the current environment if it succeeds.
 Params:
 	name = The _name of the global to set.
 */
-void newGlobal(MDThread* t, char[] name)
+void newGlobal(MDThread* t, string name)
 {
 	mixin(checkNumParams!("1"));
 	pushString(t, name);
@@ -2069,13 +2090,13 @@ void newGlobal(MDThread* t)
 	if(n.type != MDValue.Type.String)
 	{
 		pushTypeString(t, -2);
-		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Global name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	auto env = getEnv(t);
 
 	if(namespace.contains(env, n.mString))
-		throwException(t, __FUNCTION__ ~ " - Attempting to declare a global '{}' that already exists", n.mString.toString());
+		throwException(t, __FUNCTION__ ~ " - Attempting to declare a global '%s' that already exists", n.mString.toString());
 
 	namespace.set(t.vm.alloc, env, n.mString, &t.stack[t.stackIndex - 1]);
 	pop(t, 2);
@@ -2097,7 +2118,7 @@ Returns:
 	true if the global was found, in which case the containing namespace is on the stack.  False otherwise,
 	in which case nothing will be on the stack.
 */
-bool findGlobal(MDThread* t, char[] name, uword depth = 0)
+bool findGlobal(MDThread* t, string name, uword depth = 0)
 {
 	auto n = createString(t, name);
 	auto ns = getEnv(t, depth);
@@ -2137,7 +2158,7 @@ void clearTable(MDThread* t, word tab)
 	if(tb is null)
 	{
 		pushTypeString(t, tab);
-		throwException(t, __FUNCTION__ ~ " - tab must be a table, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - tab must be a table, not a '%s'", getString(t, -1));
 	}
 
 	table.clear(t.vm.alloc, tb);
@@ -2160,7 +2181,7 @@ void fillArray(MDThread* t, word arr)
 	if(a is null)
 	{
 		pushTypeString(t, arr);
-		throwException(t, __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - arr must be an array, not a '%s'", getString(t, -1));
 	}
 
 	a.slice[] = t.stack[t.stackIndex - 1];
@@ -2187,7 +2208,7 @@ word getFuncEnv(MDThread* t, word func)
 		return pushNamespace(t, f.environment);
 
 	pushTypeString(t, func);
-	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2208,7 +2229,7 @@ void setFuncEnv(MDThread* t, word func)
 	if(ns is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'namespace' for environment, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'namespace' for environment, not '%s'", getString(t, -1));
 	}
 
 	auto f = getFunction(t, func);
@@ -2216,7 +2237,7 @@ void setFuncEnv(MDThread* t, word func)
 	if(f is null)
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 	}
 
 	f.environment = ns;
@@ -2229,7 +2250,7 @@ of the function if it's a script function, or the name given to newFunction for 
 Some functions, like top-level module functions and nameless function literals, have automatically-
 generated names which always start and end with angle brackets ($(LT) and $(GT)).
 */
-char[] funcName(MDThread* t, word func)
+string funcName(MDThread* t, word func)
 {
 	mixin(FuncNameMix);
 
@@ -2237,7 +2258,7 @@ char[] funcName(MDThread* t, word func)
 		return f.name.toString();
 
 	pushTypeString(t, func);
-	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2254,7 +2275,7 @@ uword funcNumParams(MDThread* t, word func)
 		return .func.numParams(f);
 
 	pushTypeString(t, func);
-	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2271,7 +2292,7 @@ bool funcIsVararg(MDThread* t, word func)
 		return .func.isVararg(f);
 
 	pushTypeString(t, func);
-	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2287,7 +2308,7 @@ bool funcIsNative(MDThread* t, word func)
 		return .func.isNative(f);
 
 	pushTypeString(t, func);
-	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2321,7 +2342,7 @@ void setFinalizer(MDThread* t, word cls)
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '%s'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2329,7 +2350,7 @@ void setFinalizer(MDThread* t, word cls)
 	if(c is null)
 	{
 		pushTypeString(t, cls);
-		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '%s'", getString(t, -1));
 	}
 
 	if(isNull(t, -1))
@@ -2363,7 +2384,7 @@ word getFinalizer(MDThread* t, word cls)
 	}
 
 	pushTypeString(t, cls);
-	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2426,7 +2447,7 @@ void setAllocator(MDThread* t, word cls)
 	if(!(isNull(t, -1) || isFunction(t, -1)))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '%s'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2434,7 +2455,7 @@ void setAllocator(MDThread* t, word cls)
 	if(c is null)
 	{
 		pushTypeString(t, cls);
-		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '%s'", getString(t, -1));
 	}
 
 	if(isNull(t, -1))
@@ -2468,7 +2489,7 @@ word getAllocator(MDThread* t, word cls)
 	}
 
 	pushTypeString(t, cls);
-	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2476,7 +2497,7 @@ word getAllocator(MDThread* t, word cls)
 /**
 Gets the name of the class at the given stack index.
 */
-char[] className(MDThread* t, word cls)
+string className(MDThread* t, word cls)
 {
 	mixin(FuncNameMix);
 
@@ -2484,7 +2505,7 @@ char[] className(MDThread* t, word cls)
 		return c.name.toString();
 
 	pushTypeString(t, cls);
-	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2511,7 +2532,7 @@ uword numExtraVals(MDThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2535,14 +2556,14 @@ word getExtraVal(MDThread* t, word slot, uword idx)
 	if(auto i = getInstance(t, slot))
 	{
 		if(idx >= i.numValues)
-			throwException(t, __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+			throwException(t, __FUNCTION__ ~ " - Value index out of bounds (%s, but only have %s)", idx, i.numValues);
 
 		return push(t, i.extraValues()[idx]);
 	}
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2564,7 +2585,7 @@ void setExtraVal(MDThread* t, word slot, uword idx)
 	if(auto i = getInstance(t, slot))
 	{
 		if(idx >= i.numValues)
-			throwException(t, __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
+			throwException(t, __FUNCTION__ ~ " - Value index out of bounds (%s, but only have %s)", idx, i.numValues);
 
 		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
 		pop(t);
@@ -2572,7 +2593,7 @@ void setExtraVal(MDThread* t, word slot, uword idx)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '%s'", getString(t, -1));
 	}
 }
 
@@ -2603,7 +2624,7 @@ void[] getExtraBytes(MDThread* t, word slot)
 	else
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - expected 'instance' but got '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -2627,7 +2648,7 @@ void clearNamespace(MDThread* t, word ns)
 	if(n is null)
 	{
 		pushTypeString(t, ns);
-		throwException(t, __FUNCTION__ ~ " - ns must be a namespace, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - ns must be a namespace, not a '%s'", getString(t, -1));
 	}
 
 	namespace.clear(t.vm.alloc, n);
@@ -2657,13 +2678,13 @@ void removeKey(MDThread* t, word obj)
 		if(!isString(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwException(t, __FUNCTION__ ~ " - key must be a string, not a '{}'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - key must be a string, not a '%s'", getString(t, -1));
 		}
 
 		if(!opin(t, -1, obj))
 		{
 			pushToString(t, obj);
-			throwException(t, __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - key '%s' does not exist in namespace '%s'", getString(t, -2), getString(t, -1));
 		}
 
 		namespace.remove(ns, getStringObj(t, -1));
@@ -2672,7 +2693,7 @@ void removeKey(MDThread* t, word obj)
 	else
 	{
 		pushTypeString(t, obj);
-		throwException(t, __FUNCTION__ ~ " - obj must be a namespace or table, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - obj must be a namespace or table, not a '%s'", getString(t, -1));
 	}
 }
 
@@ -2680,7 +2701,7 @@ void removeKey(MDThread* t, word obj)
 Gets the name of the namespace at the given stack index.  This is just the single name component that
 it was created with (like "foo" for "namespace foo {}").
 */
-char[] namespaceName(MDThread* t, word ns)
+string namespaceName(MDThread* t, word ns)
 {
 	mixin(FuncNameMix);
 
@@ -2688,7 +2709,7 @@ char[] namespaceName(MDThread* t, word ns)
 		return n.name.toString();
 
 	pushTypeString(t, ns);
-	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2708,7 +2729,7 @@ word namespaceFullname(MDThread* t, word ns)
 		return pushNamespaceNamestring(t, n);
 
 	pushTypeString(t, ns);
-	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'namespace', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -2729,7 +2750,7 @@ Gets a string representation of the current coroutine state of the thread.
 
 The string returned is not on the MiniD heap, it's just a string literal.
 */
-char[] stateString(MDThread* t)
+string stateString(MDThread* t)
 {
 	return MDThread.StateStrings[t.state];
 }
@@ -2788,11 +2809,11 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 	if(other is null)
 	{
 		pushTypeString(t, slot);
-		throwException(t, __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '%s'", getString(t, -1));
 	}
 
 	if(state(other) != MDThread.State.Dead)
-		throwException(t, __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
+		throwException(t, __FUNCTION__ ~ " - Attempting to reset a %s coroutine (must be dead)", stateString(other));
 
 	if(newFunction)
 	{
@@ -2803,7 +2824,7 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 		if(f is null)
 		{
 			pushTypeString(t, -1);
-			throwException(t, __FUNCTION__ ~ " - Attempting to reset a coroutine with a '{}' instead of a 'function'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - Attempting to reset a coroutine with a '%s' instead of a 'function'", getString(t, -1));
 		}
 
 		version(MDExtendedCoro) {} else
@@ -2958,7 +2979,7 @@ word deref(MDThread* t, word idx)
 				
 		default:
 			pushTypeString(t, idx);
-			throwException(t, __FUNCTION__ ~ " - idx must be a value type or weakref, not a '{}'", getString(t, -1));
+			throwException(t, __FUNCTION__ ~ " - idx must be a value type or weakref, not a '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -3159,7 +3180,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed result.
 */
-word field(MDThread* t, word container, char[] name, bool raw = false)
+word field(MDThread* t, word container, string name, bool raw = false)
 {
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
@@ -3184,7 +3205,7 @@ word field(MDThread* t, word container, bool raw = false)
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	return commonField(t, fakeToAbs(t, container), raw);
@@ -3208,7 +3229,7 @@ Params:
 	name = The _name of the field to set.
 	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
 */
-void fielda(MDThread* t, word container, char[] name, bool raw = false)
+void fielda(MDThread* t, word container, string name, bool raw = false)
 {
 	mixin(checkNumParams!("1"));
 	auto c = fakeToAbs(t, container);
@@ -3233,7 +3254,7 @@ void fielda(MDThread* t, word container, bool raw = false)
 	if(!isString(t, -2))
 	{
 		pushTypeString(t, -2);
-		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Field name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	commonFielda(t, fakeToAbs(t, container), raw);
@@ -3275,7 +3296,7 @@ mdint len(MDThread* t, word slot)
 	if(!isInt(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected length to be an int, but got '{}' instead", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected length to be an int, but got '%s' instead", getString(t, -1));
 	}
 
 	auto ret = getInt(t, -1);
@@ -3851,7 +3872,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-uword methodCall(MDThread* t, word slot, char[] name, word numReturns, bool customThis = false)
+uword methodCall(MDThread* t, word slot, string name, word numReturns, bool customThis = false)
 {
 	mixin(FuncNameMix);
 
@@ -3884,7 +3905,7 @@ uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = fals
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -3943,7 +3964,7 @@ Returns:
 	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-uword superCall(MDThread* t, word slot, char[] name, word numReturns)
+uword superCall(MDThread* t, word slot, string name, word numReturns)
 {
 	mixin(FuncNameMix);
 
@@ -3967,12 +3988,13 @@ uword superCall(MDThread* t, word slot, char[] name, word numReturns)
 	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '%s', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
 	auto methodName = createString(t, name);
-	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	auto proto = MDValue(t.currentAR.proto);
+	auto ret = commonMethodCall(t, absSlot, _this, &proto, methodName, numReturns, numParams, false);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
@@ -3990,7 +4012,7 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	if(!isString(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Method name must be a string, not a '%s'", getString(t, -1));
 	}
 
 	auto methodName = t.stack[t.stackIndex - 1].mString;
@@ -4015,11 +4037,12 @@ uword superCall(MDThread* t, word slot, word numReturns)
 	if(_this.type != MDValue.Type.Instance && _this.type != MDValue.Type.Class)
 	{
 		pushTypeString(t, 0);
-		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Attempting to perform a supercall in a function where 'this' is a '%s', not an 'instance' or 'class'", getString(t, -1));
 	}
 
 	// Do the call
-	auto ret = commonMethodCall(t, absSlot, _this, &MDValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	auto proto = MDValue(t.currentAR.proto);
+	auto ret = commonMethodCall(t, absSlot, _this, &proto, methodName, numReturns, numParams, false);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
@@ -4046,7 +4069,7 @@ word fieldsOf(MDThread* t, word obj)
 		return pushNamespace(t, instance.fieldsOf(t.vm.alloc, i));
 
 	pushTypeString(t, obj);
-	throwException(t, __FUNCTION__ ~ " - Expected 'class' or 'instance', not '{}'", getString(t, -1));
+	throwException(t, __FUNCTION__ ~ " - Expected 'class' or 'instance', not '%s'", getString(t, -1));
 
 	assert(false);
 }
@@ -4065,7 +4088,7 @@ Params:
 Returns:
 	true if the field exists in `obj`; false otherwise.
 */
-bool hasField(MDThread* t, word obj, char[] fieldName)
+bool hasField(MDThread* t, word obj, string fieldName)
 {
 	auto name = createString(t, fieldName);
 
@@ -4103,7 +4126,7 @@ Params:
 Returns:
 	true if the method can be called on `obj`; false otherwise.
 */
-bool hasMethod(MDThread* t, word obj, char[] methodName)
+bool hasMethod(MDThread* t, word obj, string methodName)
 {
 	MDClass* dummy = void;
 	return lookupMethod(t, getValue(t, obj), createString(t, methodName), dummy).type != MDValue.Type.Null;
@@ -4180,7 +4203,7 @@ void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 	if(f is null && !isNull(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - hook func must be 'function' or 'null', not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - hook func must be 'function' or 'null', not '%s'", getString(t, -1));
 	}
 
 	if(f is null || mask == 0)
@@ -4244,8 +4267,6 @@ uint getHookDelay(MDThread* t)
 
 debug
 {
-	import tango.io.Stdout;
-
 	/**
 	$(B Debug mode only.)  Prints out the contents of the stack to Stdout in the following format:
 
@@ -4259,8 +4280,8 @@ debug
 	*/
 	void printStack(MDThread* t)
 	{
-		Stdout.newline;
-		Stdout("-----Stack Dump-----").newline;
+		writeln();
+		writeln("-----Stack Dump-----");
 
 		auto tmp = t.stackBase;
 		t.stackBase = 0;
@@ -4272,16 +4293,16 @@ debug
 			{
 				pushToString(t, i, true);
 				pushTypeString(t, i);
-				Stdout.formatln("[{,3}:{,4}]: {}: {}", i, cast(word)i - cast(word)tmp, getString(t, -2), getString(t, -1));
+				writefln("[%3s:%4s]: %s: %s", i, cast(word)i - cast(word)tmp, getString(t, -2), getString(t, -1));
 				pop(t, 2);
 			}
 			else
-				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(word)i - cast(word)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
+				writefln("[%3s:%4s]: %16x: %s", i, cast(word)i - cast(word)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
 		}
 
 		t.stackBase = tmp;
 
-		Stdout.newline;
+		writeln();
 	}
 
 	/**
@@ -4308,23 +4329,23 @@ debug
 	*/
 	void printCallStack(MDThread* t)
 	{
-		Stdout.newline;
-		Stdout("-----Call Stack-----").newline;
+		writeln();
+		writeln("-----Call Stack-----");
 
 		for(word i = t.arIndex - 1; i >= 0; i--)
 		{
 			with(t.actRecs[i])
 			{
-				Stdout.formatln("Record {}", func.name.toString());
-				Stdout.formatln("\tBase: {}", base);
-				Stdout.formatln("\tSaved Top: {}", savedTop);
-				Stdout.formatln("\tVararg Base: {}", vargBase);
-				Stdout.formatln("\tReturns Slot: {}", returnSlot);
-				Stdout.formatln("\tNum Returns: {}", numReturns);
+				writefln("Record %s", func.name.toString());
+				writefln("\tBase: %s", base);
+				writefln("\tSaved Top: %s", savedTop);
+				writefln("\tVararg Base: %s", vargBase);
+				writefln("\tReturns Slot: %s", returnSlot);
+				writefln("\tNum Returns: %s", numReturns);
 			}
 		}
 
-		Stdout.newline;
+		writeln();
 	}
 }
 
@@ -4334,11 +4355,11 @@ debug
 
 package:
 
-MDString* createString(MDThread* t, char[] data)
+MDString* createString(MDThread* t, cstring data)
 {
 	uword h = void;
 
-	if(auto s = string.lookup(t, data, h))
+	if(auto s = stringobj.lookup(t, data, h))
 		return s;
 
 	uword cpLen = void;
@@ -4348,7 +4369,7 @@ MDString* createString(MDThread* t, char[] data)
 	catch(UnicodeException e)
 		throwException(t, "Invalid UTF-8 sequence");
 
-	return string.create(t, data, h, cpLen);
+	return stringobj.create(t, data, h, cpLen);
 }
 
 // Free all objects.
@@ -4654,7 +4675,7 @@ void runFinalizers(MDThread* t)
 // Stack Manipulation
 
 // Parsing mangles for fun and profit.
-char[] _getJustName(char[] mangle)
+string _getJustName(string mangle)
 {
 	size_t idx = 1;
 	size_t start = idx;
@@ -4679,16 +4700,16 @@ char[] _getJustName(char[] mangle)
 }
 
 // Eheheh, I has a __FUNCTION__.
-const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
+const string FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const string __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
 
 // I'd still really like macros though.
-template checkNumParams(char[] numParams, char[] t = "t")
+template checkNumParams(string numParams, string t = "t")
 {
-	const char[] checkNumParams =
+	const string checkNumParams =
 	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));" ~
 	FuncNameMix ~
 	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"
-		"throwException(" ~ t ~ ", __FUNCTION__ ~ \" - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
+		"throwException(" ~ t ~ ", __FUNCTION__ ~ \" - not enough parameters (expected %s, only have %s stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
 }
 
 RelStack fakeToRel(MDThread* t, word fake)
@@ -4701,7 +4722,7 @@ RelStack fakeToRel(MDThread* t, word fake)
 		fake += size;
 
 	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid stack index {} (stack size = {})", fake, size);
+		throwException(t, "Invalid stack index %s (stack size = %s)", fake, size);
 
 	return cast(RelStack)fake;
 }
@@ -4798,7 +4819,7 @@ bool commonMethodCall(MDThread* t, AbsStack slot, MDValue* self, MDValue* lookup
 		if(mm is null)
 		{
 			typeString(t, lookup);
-			throwException(t, "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
+			throwException(t, "No implementation of method '%s' or %s for type '%s'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
 		}
 
 		if(customThis)
@@ -4857,7 +4878,8 @@ MDValue getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
 
 	if(auto ret = instance.getField(inst, name, dummy))
 	{
-		if(dummy == MDValue(inst))
+		auto _inst = MDValue(inst);
+		if(dummy == _inst)
 			proto = inst.parent;
 		else
 		{
@@ -4941,30 +4963,30 @@ MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDClass* proto)
 template tryMMParams(int numParams, int n = 1)
 {
 	static if(n <= numParams)
-		const char[] tryMMParams = (n > 1 ? ", " : "") ~ "MDValue* src" ~ n.stringof ~ tryMMParams!(numParams, n + 1);
+		const string tryMMParams = (n > 1 ? ", " : "") ~ "MDValue* src" ~ n.stringof ~ tryMMParams!(numParams, n + 1);
 	else
-		const char[] tryMMParams = "";
+		const string tryMMParams = "";
 }
 
 template tryMMSaves(int numParams, int n = 1)
 {
 	static if(n <= numParams)
-		const char[] tryMMSaves = "\tauto srcsave" ~ n.stringof ~ " = *src" ~ n.stringof ~ ";\n" ~ tryMMSaves!(numParams, n + 1);
+		const string tryMMSaves = "\tauto srcsave" ~ n.stringof ~ " = *src" ~ n.stringof ~ ";\n" ~ tryMMSaves!(numParams, n + 1);
 	else
-		const char[] tryMMSaves = "";
+		const string tryMMSaves = "";
 }
 
 template tryMMPushes(int numParams, int n = 1)
 {
 	static if(n <= numParams)
-		const char[] tryMMPushes = "\tpush(t, srcsave" ~ n.stringof ~ ");\n" ~ tryMMPushes!(numParams, n + 1);
+		const string tryMMPushes = "\tpush(t, srcsave" ~ n.stringof ~ ");\n" ~ tryMMPushes!(numParams, n + 1);
 	else
-		const char[] tryMMPushes = "";
+		const string tryMMPushes = "";
 }
 
 template tryMMImpl(int numParams, bool hasDest)
 {
-	const char[] tryMMImpl =
+	const string tryMMImpl =
 	"bool tryMM(MDThread* t, MM mm, " ~ (hasDest? "MDValue* dest, " : "") ~ tryMMParams!(numParams) ~ ")\n"
 	"{\n"
 	"	MDClass* proto = null;"
@@ -5032,7 +5054,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				if(!isInstance(t, slot - t.stackBase))
 				{
 					pushTypeString(t, slot - t.stackBase);
-					throwException(t, "class allocator expected to return an 'instance', not a '{}'", getString(t, -1));
+					throwException(t, "class allocator expected to return an 'instance', not a '%s'", getString(t, -1));
 				}
 			}
 			else
@@ -5047,7 +5069,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 					if(ctor.type != MDValue.Type.Function)
 					{
 						typeString(t, ctor);
-						throwException(t, "class constructor expected to be a 'function', not '{}'", getString(t, -1));
+						throwException(t, "class constructor expected to be a 'function', not '%s'", getString(t, -1));
 					}
 
 					t.nativeCallDepth++;
@@ -5097,7 +5119,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 				throwException(t, "Attempting to resume VM's main thread");
 
 			if(thread.state != MDThread.State.Initial && thread.state != MDThread.State.Suspended)
-				throwException(t, "Attempting to resume a {} coroutine", stateString(thread));
+				throwException(t, "Attempting to resume a %s coroutine", stateString(thread));
 
 			auto ar = pushAR(t);
 
@@ -5164,7 +5186,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 			if(method is null)
 			{
 				typeString(t, func);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Call], getString(t, -1));
+				throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.Call], getString(t, -1));
 			}
 
 			t.stack[slot + 1] = *func;
@@ -5175,7 +5197,7 @@ bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, 
 
 bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numReturns, AbsStack paramSlot, word numParams, MDClass* proto)
 {
-	const char[] wrapEH =
+	const string wrapEH =
 		"catch(MDException e)
 		{
 			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
@@ -5410,30 +5432,17 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 	{
 		case MDValue.Type.Null:  return pushString(t, "null");
 		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
-		case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
-		case MDValue.Type.Float:
-			uword pos = 0;
-
-			auto size = t.vm.formatter.convert((char[] s)
-			{
-				if(pos + s.length > buffer.length)
-					s.length = buffer.length - pos;
-
-				buffer[pos .. pos + s.length] = s[];
-				pos += s.length;
-				return cast(uint)s.length; // the cast is there to make things work on x64 :P
-			}, "{}", v.mFloat);
-
-			return pushString(t, buffer[0 .. pos]);
+		case MDValue.Type.Int:   return pushString(t, to!(string)(v.mInt)); // TODO: in-place int to string?
+		case MDValue.Type.Float: return pushString(t, to!(string)(v.mFloat)); // TODO: ditto
 
 		case MDValue.Type.Char:
 			auto inbuf = v.mChar;
 			
-			if(!Utf.isValid(inbuf))
-				throwException(t, "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
-
-			uint ate = 0;
-			return pushString(t, Utf.toString((&inbuf)[0 .. 1], buffer, &ate));
+			if(!isValidDchar(inbuf))
+				throwException(t, "Character '%X' is not a valid Unicode codepoint", cast(uint)inbuf);
+				
+			char[4] buf = void;
+			return pushString(t, buf[0 .. encode(buf, inbuf)]);
 
 		case MDValue.Type.String:
 			return push(t, v);
@@ -5451,7 +5460,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 					if(!isString(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "toString was supposed to return a string, but returned a '{}'", getString(t, -1));
+						throwException(t, "toString was supposed to return a string, but returned a '%s'", getString(t, -1));
 					}
 
 					return stackSize(t) - 1;
@@ -5460,24 +5469,24 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 
 			switch(v.type)
 			{
-				case MDValue.Type.Table: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Table), cast(void*)v.mTable);
-				case MDValue.Type.Array: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Array), cast(void*)v.mArray);
+				case MDValue.Type.Table: return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.Table), cast(void*)v.mTable);
+				case MDValue.Type.Array: return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.Array), cast(void*)v.mArray);
 				case MDValue.Type.Function:
 					auto f = v.mFunction;
 
 					if(f.isNative)
-						return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString());
+						return pushFormat(t, "native %s %s", MDValue.typeString(MDValue.Type.Function), f.name.toString());
 					else
 					{
 						auto loc = f.scriptFunc.location;
-						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
+						return pushFormat(t, "script %s %s(%s(%s:%s))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
 					}
 
-				case MDValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
-				case MDValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", MDValue.typeString(MDValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
+				case MDValue.Type.Class:    return pushFormat(t, "%s %s (0x%8X)", MDValue.typeString(MDValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
+				case MDValue.Type.Instance: return pushFormat(t, "%s of %s (0x%8X)", MDValue.typeString(MDValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
 				case MDValue.Type.Namespace:
 					if(raw)
-						return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
+						return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
 					else
 					{
 						pushString(t, MDValue.typeString(MDValue.Type.Namespace));
@@ -5486,9 +5495,9 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 						return cat(t, 3);
 					}
 
-				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
-				case MDValue.Type.NativeObj: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.NativeObj), cast(void*)v.mNativeObj.obj);
-				case MDValue.Type.WeakRef: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.WeakRef), cast(void*)v.mWeakRef);
+				case MDValue.Type.Thread: return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
+				case MDValue.Type.NativeObj: return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.NativeObj), cast(void*)v.mNativeObj.obj);
+				case MDValue.Type.WeakRef: return pushFormat(t, "%s 0x%8X", MDValue.typeString(MDValue.Type.WeakRef), cast(void*)v.mWeakRef);
 
 				default: assert(false);
 			}
@@ -5501,13 +5510,13 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 	{
 		case MDValue.Type.String:
 			if(item.type == MDValue.Type.Char)
-				return string.contains(container.mString, item.mChar);
+				return stringobj.contains(container.mString, item.mChar);
 			else if(item.type == MDValue.Type.String)
-				return string.contains(container.mString, item.mString.toString());
+				return stringobj.contains(container.mString, item.mString.toString());
 			else
 			{
 				typeString(t, item);
-				throwException(t, "Can only use characters to look in strings, not '{}'", getString(t, -1));
+				throwException(t, "Can only use characters to look in strings, not '%s'", getString(t, -1));
 			}
 
 		case MDValue.Type.Table:
@@ -5520,7 +5529,7 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 			if(item.type != MDValue.Type.String)
 			{
 				typeString(t, item);
-				throwException(t, "Can only use strings to look in namespaces, not '{}'", getString(t, -1));
+				throwException(t, "Can only use strings to look in namespaces, not '%s'", getString(t, -1));
 			}
 
 			return namespace.contains(container.mNamespace, item.mString);
@@ -5532,7 +5541,7 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 			if(method is null)
 			{
 				typeString(t, container);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.In], getString(t, -1));
+				throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.In], getString(t, -1));
 			}
 
 			auto containersave = *container;
@@ -5557,7 +5566,7 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 			if(key.type != MDValue.Type.Int)
 			{
 				typeString(t, key);
-				throwException(t, "Attempting to index an array with a '{}'", getString(t, -1));
+				throwException(t, "Attempting to index an array with a '%s'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -5567,7 +5576,7 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 				index += arr.slice.length;
 
 			if(index < 0 || index >= arr.slice.length)
-				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.slice.length);
+				throwException(t, "Invalid array index %s (length is %s)", key.mInt, arr.slice.length);
 
 			*dest = arr.slice[cast(uword)index];
 			return;
@@ -5576,7 +5585,7 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 			if(key.type != MDValue.Type.Int)
 			{
 				typeString(t, key);
-				throwException(t, "Attempting to index a string with a '{}'", getString(t, -1));
+				throwException(t, "Attempting to index a string with a '%s'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -5586,9 +5595,9 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 				index += str.cpLength;
 
 			if(index < 0 || index >= str.cpLength)
-				throwException(t, "Invalid string index {} (length is {})", key.mInt, str.cpLength);
+				throwException(t, "Invalid string index %s (length is %s)", key.mInt, str.cpLength);
 
-			*dest = string.charAt(str, cast(uword)index);
+			*dest = stringobj.charAt(str, cast(uword)index);
 			return;
 
 		case MDValue.Type.Table:
@@ -5599,7 +5608,7 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to index a value of type '{}'", getString(t, -1));
+			throwException(t, "Attempting to index a value of type '%s'", getString(t, -1));
 	}
 }
 
@@ -5645,7 +5654,7 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 			if(key.type != MDValue.Type.Int)
 			{
 				typeString(t, key);
-				throwException(t, "Attempting to index-assign an array with a '{}'", getString(t, -1));
+				throwException(t, "Attempting to index-assign an array with a '%s'", getString(t, -1));
 			}
 
 			auto index = key.mInt;
@@ -5655,7 +5664,7 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 				index += arr.slice.length;
 
 			if(index < 0 || index >= arr.slice.length)
-				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.slice.length);
+				throwException(t, "Invalid array index %s (length is %s)", key.mInt, arr.slice.length);
 
 			arr.slice[cast(uword)index] = *value;
 			return;
@@ -5668,7 +5677,7 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to index-assign a value of type '{}'", getString(t, -1));
+			throwException(t, "Attempting to index-assign a value of type '%s'", getString(t, -1));
 	}
 }
 
@@ -5721,7 +5730,8 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 	{
 		case MDValue.Type.Table:
 			// This is right, tables do not have separate opField capabilities.
-			return tableIdxImpl(t, dest, container, &MDValue(name), raw);
+			auto tmp = MDValue(name);
+			return tableIdxImpl(t, dest, container, &tmp, raw);
 
 		case MDValue.Type.Class:
 			auto v = classobj.getField(container.mClass, name);
@@ -5729,7 +5739,7 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 			if(v is null)
 			{
 				typeString(t, container);
-				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				throwException(t, "Attempting to access nonexistent field '%s' from '%s'", name.toString(), getString(t, -1));
 			}
 
 			return *dest = *v;
@@ -5739,11 +5749,12 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 
 			if(v is null)
 			{
-				if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &MDValue(name)))
+				auto tmp = MDValue(name);
+				if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &tmp))
 					return;
 
 				typeString(t, container);
-				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				throwException(t, "Attempting to access nonexistent field '%s' from '%s'", name.toString(), getString(t, -1));
 			}
 
 			return *dest = *v;
@@ -5754,21 +5765,23 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 
 			if(v is null)
 			{
-				if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &MDValue(name)))
+				auto tmp = MDValue(name);
+				if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &tmp))
 					return;
 
 				toStringImpl(t, *container, false);
-				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
+				throwException(t, "Attempting to access nonexistent field '%s' from '%s'", name.toString(), getString(t, -1));
 			}
 
 			return *dest = *v;
 
 		default:
-			if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &MDValue(name)))
+			auto tmp = MDValue(name);
+			if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &tmp))
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to access field '{}' from a value of type '{}'", name.toString(), getString(t, -1));
+			throwException(t, "Attempting to access field '%s' from a value of type '%s'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -5778,7 +5791,8 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 	{
 		case MDValue.Type.Table:
 			// This is right, tables do not have separate opField capabilities.
-			return tableIdxaImpl(t, container, &MDValue(name), value, raw);
+			auto tmp = MDValue(name);
+			return tableIdxaImpl(t, container, &tmp, value, raw);
 
 		case MDValue.Type.Class:
 			return classobj.setField(t.vm.alloc, container.mClass, name, value);
@@ -5791,12 +5805,13 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 
 			if(field is null)
 			{
-				if(!raw && tryMM!(3, false)(t, MM.FieldAssign, container, &MDValue(name), value))
+				auto tmp = MDValue(name);
+				if(!raw && tryMM!(3, false)(t, MM.FieldAssign, container, &tmp, value))
 					return;
 				else
 					instance.setField(t.vm.alloc, i, name, value);
 			}
-			else if(owner != MDValue(i))
+			else if(MDValue(i) != owner)
 				instance.setField(t.vm.alloc, i, name, value);
 			else
 				*field = *value;
@@ -5806,11 +5821,12 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 			return namespace.set(t.vm.alloc, container.mNamespace, name, value);
 
 		default:
-			if(!raw && tryMM!(3, false)(t, MM.FieldAssign, container, &MDValue(name), value))
+			auto tmp = MDValue(name);
+			if(!raw && tryMM!(3, false)(t, MM.FieldAssign, container, &tmp, value))
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to assign field '{}' into a value of type '{}'", name.toString(), getString(t, -1));
+			throwException(t, "Attempting to assign field '%s' into a value of type '%s'", name.toString(), getString(t, -1));
 	}
 }
 
@@ -5845,7 +5861,7 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 				if(a.mString is b.mString)
 					return 0;
 
-				return string.compare(a.mString, b.mString);
+				return stringobj.compare(a.mString, b.mString);
 
 			case MDValue.Type.Table, MDValue.Type.Instance:
 				if(auto method = getMM(t, a, MM.Cmp, proto))
@@ -5871,7 +5887,7 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 	auto bsave = *b;
 	typeString(t, a);
 	typeString(t, &bsave);
-	throwException(t, "Can't compare types '{}' and '{}'", getString(t, -2), getString(t, -1));
+	throwException(t, "Can't compare types '%s' and '%s'", getString(t, -2), getString(t, -1));
 	assert(false);
 }
 
@@ -5891,7 +5907,7 @@ mdint commonCompare(MDThread* t, MDFunction* method, MDValue* a, MDValue* b, MDC
 	if(ret.type != MDValue.Type.Int)
 	{
 		typeString(t, &ret);
-		throwException(t, "{} is expected to return an int, but '{}' was returned instead", MetaNames[MM.Cmp], getString(t, -1));
+		throwException(t, "%s is expected to return an int, but '%s' was returned instead", MetaNames[MM.Cmp], getString(t, -1));
 	}
 
 	return ret.mInt;
@@ -5971,7 +5987,7 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 	auto bsave = *b;
 	typeString(t, a);
 	typeString(t, &bsave);
-	throwException(t, "Can't compare types '{}' and '{}' for equality", getString(t, -2), getString(t, -1));
+	throwException(t, "Can't compare types '%s' and '%s' for equality", getString(t, -2), getString(t, -1));
 	assert(false);
 }
 
@@ -5991,7 +6007,7 @@ bool commonEquals(MDThread* t, MDFunction* method, MDValue* a, MDValue* b, MDCla
 	if(ret.type != MDValue.Type.Bool)
 	{
 		typeString(t, &ret);
-		throwException(t, "{} is expected to return a bool, but '{}' was returned instead", MetaNames[MM.Equals], getString(t, -1));
+		throwException(t, "%s is expected to return a bool, but '%s' was returned instead", MetaNames[MM.Equals], getString(t, -1));
 	}
 
 	return ret.mBool;
@@ -6013,7 +6029,7 @@ void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 				return *dest = cast(mdint)table.length(src.mTable);
 
 			typeString(t, src);
-			throwException(t, "Can't get the length of a '{}'", getString(t, -1));
+			throwException(t, "Can't get the length of a '%s'", getString(t, -1));
 	}
 }
 
@@ -6025,13 +6041,13 @@ void lenaImpl(MDThread* t, MDValue* dest, MDValue* len)
 			if(len.type != MDValue.Type.Int)
 			{
 				typeString(t, len);
-				throwException(t, "Attempting to set the length of an array using a length of type '{}'", getString(t, -1));
+				throwException(t, "Attempting to set the length of an array using a length of type '%s'", getString(t, -1));
 			}
 
 			auto l = len.mInt;
 
 			if(l < 0)
-				throwException(t, "Attempting to set the length of an array to a negative value ({})", l);
+				throwException(t, "Attempting to set the length of an array to a negative value (%s)", l);
 
 			return array.resize(t.vm.alloc, dest.mArray, cast(uword)l);
 
@@ -6040,7 +6056,7 @@ void lenaImpl(MDThread* t, MDValue* dest, MDValue* len)
 				return;
 
 			typeString(t, dest);
-			throwException(t, "Can't set the length of a '{}'", getString(t, -1));
+			throwException(t, "Can't set the length of a '%s'", getString(t, -1));
 	}
 }
 
@@ -6061,11 +6077,11 @@ void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* h
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwException(t, "Attempting to slice an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwException(t, "Attempting to slice an array with indices of type '%s' and '%s'", getString(t, -2), getString(t, -1));
 			}
 
 			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.slice.length || hiIndex < 0 || hiIndex > arr.slice.length)
-				throwException(t, "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.slice.length);
+				throwException(t, "Invalid slice indices [%s .. %s] (array length = %s)", loIndex, hiIndex, arr.slice.length);
 
 			return *dest = array.slice(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -6082,20 +6098,20 @@ void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* h
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwException(t, "Attempting to slice a string with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwException(t, "Attempting to slice a string with indices of type '%s' and '%s'", getString(t, -2), getString(t, -1));
 			}
 
 			if(loIndex > hiIndex || loIndex < 0 || loIndex > str.cpLength || hiIndex < 0 || hiIndex > str.cpLength)
-				throwException(t, "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
+				throwException(t, "Invalid slice indices [%s .. %s] (string length = %s)", loIndex, hiIndex, str.cpLength);
 
-			return *dest = string.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
+			return *dest = stringobj.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
 
 		default:
 			if(tryMM!(3, true)(t, MM.Slice, dest, src, lo, hi))
 				return;
 
 			typeString(t, src);
-			throwException(t, "Attempting to slice a value of type '{}'", getString(t, -1));
+			throwException(t, "Attempting to slice a value of type '%s'", getString(t, -1));
 	}
 }
 
@@ -6113,23 +6129,23 @@ void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDVal
 				auto hisave = *hi;
 				typeString(t, lo);
 				typeString(t, &hisave);
-				throwException(t, "Attempting to slice-assign an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+				throwException(t, "Attempting to slice-assign an array with indices of type '%s' and '%s'", getString(t, -2), getString(t, -1));
 			}
 
 			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.slice.length || hiIndex < 0 || hiIndex > arr.slice.length)
-				throwException(t, "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.slice.length);
+				throwException(t, "Invalid slice-assign indices [%s .. %s] (array length = %s)", loIndex, hiIndex, arr.slice.length);
 
 			if(value.type == MDValue.Type.Array)
 			{
 				if((hiIndex - loIndex) != value.mArray.slice.length)
-					throwException(t, "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.slice.length);
+					throwException(t, "Array slice-assign lengths do not match (destination is %s, source is %s)", hiIndex - loIndex, value.mArray.slice.length);
 
 				return array.sliceAssign(arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
 			}
 			else
 			{
 				typeString(t, value);
-				throwException(t, "Attempting to slice-assign a value of type '{}' into an array", getString(t, -1));
+				throwException(t, "Attempting to slice-assign a value of type '%s' into an array", getString(t, -1));
 			}
 
 		default:
@@ -6137,7 +6153,7 @@ void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDVal
 				return;
 
 			typeString(t, container);
-			throwException(t, "Attempting to slice-assign a value of type '{}'", getString(t, -1));
+			throwException(t, "Attempting to slice-assign a value of type '%s'", getString(t, -1));
 	}
 }
 
@@ -6233,7 +6249,7 @@ void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValu
 				auto RTsave = *RT;
 				typeString(t, RS);
 				typeString(t, &RTsave);
-				throwException(t, "Cannot perform the arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
+				throwException(t, "Cannot perform the arithmetic operation '%s' on a '%s' and a '%s'", MetaNames[operation], getString(t, -2), getString(t, -1));
 			}
 
 			method = getMM(t, RS, MMRev[operation], proto);
@@ -6247,7 +6263,7 @@ void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValu
 					auto RTsave = *RT;
 					typeString(t, RS);
 					typeString(t, &RTsave);
-					throwException(t, "Cannot perform the arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
+					throwException(t, "Cannot perform the arithmetic operation '%s' on a '%s' and a '%s'", MetaNames[operation], getString(t, -2), getString(t, -1));
 				}
 
 				swap = true;
@@ -6357,7 +6373,7 @@ void reflBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
 	auto srcsave = *src;
 	typeString(t, dest);
 	typeString(t, &srcsave);
-	throwException(t, "Cannot perform the reflexive arithmetic operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
+	throwException(t, "Cannot perform the reflexive arithmetic operation '%s' on a '%s' and a '%s'", MetaNames[operation], getString(t, -2), getString(t, -1));
 }
 
 void negImpl(MDThread* t, MDValue* dest, MDValue* src)
@@ -6371,7 +6387,7 @@ void negImpl(MDThread* t, MDValue* dest, MDValue* src)
 		return;
 
 	typeString(t, src);
-	throwException(t, "Cannot perform negation on a '{}'", getString(t, -1));
+	throwException(t, "Cannot perform negation on a '%s'", getString(t, -1));
 }
 
 void binaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* RT)
@@ -6415,7 +6431,7 @@ void reflBinaryBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
 	auto srcsave = *src;
 	typeString(t, dest);
 	typeString(t, &srcsave);
-	throwException(t, "Cannot perform reflexive binary operation '{}' on a '{}' and a '{}'", MetaNames[operation], getString(t, -2), getString(t, -1));
+	throwException(t, "Cannot perform reflexive binary operation '%s' on a '%s' and a '%s'", MetaNames[operation], getString(t, -2), getString(t, -1));
 }
 
 void comImpl(MDThread* t, MDValue* dest, MDValue* src)
@@ -6427,7 +6443,7 @@ void comImpl(MDThread* t, MDValue* dest, MDValue* src)
 		return;
 
 	typeString(t, src);
-	throwException(t, "Cannot perform bitwise complement on a '{}'", getString(t, -1));
+	throwException(t, "Cannot perform bitwise complement on a '%s'", getString(t, -1));
 }
 
 void incImpl(MDThread* t, MDValue* dest)
@@ -6442,7 +6458,7 @@ void incImpl(MDThread* t, MDValue* dest)
 			return;
 
 		typeString(t, dest);
-		throwException(t, "Cannot increment a '{}'", getString(t, -1));
+		throwException(t, "Cannot increment a '%s'", getString(t, -1));
 	}
 }
 
@@ -6458,7 +6474,7 @@ void decImpl(MDThread* t, MDValue* dest)
 			return;
 
 		typeString(t, dest);
-		throwException(t, "Cannot decrement a '{}'", getString(t, -1));
+		throwException(t, "Cannot decrement a '%s'", getString(t, -1));
 	}
 }
 
@@ -6489,8 +6505,8 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 						len += stack[idx].mString.length;
 					else if(stack[idx].type == MDValue.Type.Char)
 					{
-						if(!Utf.isValid(stack[idx].mChar))
-							throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
+						if(!isValidDchar(stack[idx].mChar))
+							throwException(t, "Attempting to concatenate an invalid character (\\U%8X)", cast(uint)stack[idx].mChar);
 
 						len += charLen(stack[idx].mChar);
 					}
@@ -6514,7 +6530,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				else
 				{
 					typeString(t, &stack[slot + 1]);
-					throwException(t, "Can't concatenate 'string/char' and '{}'", getString(t, -1));
+					throwException(t, "Can't concatenate 'string/char' and '%s'", getString(t, -1));
 				}
 
 			case MDValue.Type.Array:
@@ -6571,7 +6587,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 						if(stack[slot + 1].type != MDValue.Type.Instance && stack[slot + 1].type != MDValue.Type.Table)
 						{
 							typeString(t, &stack[slot + 1]);
-							throwException(t, "Can't concatenate an 'instance/table' with a '{}'", getString(t, -1));
+							throwException(t, "Can't concatenate an 'instance/table' with a '%s'", getString(t, -1));
 						}
 
 						method = getMM(t, &stack[slot + 1], MM.Cat_r, proto);
@@ -6580,7 +6596,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 						{
 							typeString(t, &t.stack[slot]);
 							typeString(t, &t.stack[slot + 1]);
-							throwException(t, "Can't concatenate '{}' and '{}", getString(t, -2), getString(t, -1));
+							throwException(t, "Can't concatenate '%s' and '%s", getString(t, -2), getString(t, -1));
 						}
 
 						swap = true;
@@ -6623,7 +6639,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				{
 					typeString(t, &t.stack[slot]);
 					typeString(t, &t.stack[slot]);
-					throwException(t, "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
+					throwException(t, "Can't concatenate '%s' and '%s'", getString(t, -2), getString(t, -1));
 				}
 
 			cat_r:
@@ -6634,7 +6650,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 					if(method is null)
 					{
 						typeString(t, &t.stack[slot + 1]);
-						throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Cat_r], getString(t, -1));
+						throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.Cat_r], getString(t, -1));
 					}
 				}
 
@@ -6705,17 +6721,14 @@ void stringConcat(MDThread* t, MDValue first, MDValue[] vals, uword len)
 
 	void add(ref MDValue v)
 	{
-		char[] s = void;
+		string s = void;
 
 		if(v.type == MDValue.Type.String)
 			s = v.mString.toString();
 		else
 		{
-			dchar[1] inbuf = void;
-			inbuf[0] = v.mChar;
 			char[4] outbuf = void;
-			uint ate = 0;
-			s = Utf.toString(inbuf, outbuf, &ate);
+			s = cast(string)outbuf[0 .. encode(outbuf, v.mChar)];
 		}
 
 		tmpBuffer[i .. i + s.length] = s[];
@@ -6745,8 +6758,8 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 			if(dest.type == MDValue.Type.Char)
 			{
-				if(!Utf.isValid(dest.mChar))
-					throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", dest.mChar);
+				if(!isValidDchar(dest.mChar))
+					throwException(t, "Attempting to concatenate an invalid character (\\U%8X)", dest.mChar);
 
 				len = charLen(dest.mChar);
 			}
@@ -6759,15 +6772,15 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 					len += stack[idx].mString.length;
 				else if(stack[idx].type == MDValue.Type.Char)
 				{
-					if(!Utf.isValid(stack[idx].mChar))
-						throwException(t, "Attempting to concatenate an invalid character (\\U{:x8})", cast(uint)stack[idx].mChar);
+					if(!isValidDchar(stack[idx].mChar))
+						throwException(t, "Attempting to concatenate an invalid character (\\U%8X)", cast(uint)stack[idx].mChar);
 
 					len += charLen(stack[idx].mChar);
 				}
 				else
 				{
 					typeString(t, &stack[idx]);
-					throwException(t, "Can't append a '{}' to a 'string/char'", getString(t, -1));
+					throwException(t, "Can't append a '%s' to a 'string/char'", getString(t, -1));
 				}
 			}
 
@@ -6793,7 +6806,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 			if(method is null)
 			{
 				typeString(t, dest);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.CatEq], getString(t, -1));
+				throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.CatEq], getString(t, -1));
 			}
 
 			bool shouldLoad = void;
@@ -6818,7 +6831,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 		default:
 			typeString(t, dest);
-			throwException(t, "Can't append to a value of type '{}'", getString(t, -1));
+			throwException(t, "Can't append to a value of type '%s'", getString(t, -1));
 	}
 }
 
@@ -6876,7 +6889,7 @@ void throwImpl(MDThread* t, MDValue* ex)
 	t.vm.alloc.resizeArray(t.vm.traceback, 0);
 
 	// dup'ing since we're removing the only MiniD reference and handing it off to D
-	auto msg = getString(t, -1).dup;
+	string msg = getString(t, -1).idup;
 	pop(t);
 
 	t.vm.exception = exSave;
@@ -6903,7 +6916,7 @@ bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 	if(p.type != MDValue.Type.Class)
 	{
 		typeString(t, p);
-		throwException(t, "Attempting to use 'as' with a '{}' instead of a 'class' as the type", getString(t, -1));
+		throwException(t, "Attempting to use 'as' with a '%s' instead of a 'class' as the type", getString(t, -1));
 	}
 
 	return o.type == MDValue.Type.Instance && instance.derivesFrom(o.mInstance, p.mClass);
@@ -6930,7 +6943,7 @@ MDValue superOfImpl(MDThread* t, MDValue* v)
 	else
 	{
 		typeString(t, v);
-		throwException(t, "Can only get super of classes, instances, and namespaces, not values of type '{}'", getString(t, -1));
+		throwException(t, "Can only get super of classes, instances, and namespaces, not values of type '%s'", getString(t, -1));
 	}
 
 	assert(false);
@@ -7001,11 +7014,8 @@ bool correctIndices(out mdint loIndex, out mdint hiIndex, MDValue* lo, MDValue* 
 
 uword charLen(dchar c)
 {
-	dchar[1] inbuf = void;
-	inbuf[0] = c;
 	char[4] outbuf = void;
-	uint ate = 0;
-	return Utf.toString(inbuf, outbuf, &ate).length;
+	return encode(outbuf, c);
 }
 
 word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
@@ -7064,12 +7074,12 @@ word typeString(MDThread* t, MDValue* v)
 		case MDValue.Type.Class:
 			// LEAVE ME UP HERE PLZ, don't inline, thx.
 			auto n = v.mClass.name.toString();
-			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Class), n);
+			return pushFormat(t, "%s %s", MDValue.typeString(MDValue.Type.Class), n);
 
 		case MDValue.Type.Instance:
 			// don't inline me either.
 			auto n = v.mInstance.parent.name.toString();
-			return pushFormat(t, "{} of {}", MDValue.typeString(MDValue.Type.Instance), n);
+			return pushFormat(t, "%s of %s", MDValue.typeString(MDValue.Type.Instance), n);
 
 		case MDValue.Type.NativeObj:
 			pushString(t, MDValue.typeString(MDValue.Type.NativeObj));
@@ -7325,7 +7335,7 @@ void pushDebugLocStr(MDThread* t, Location loc)
 			if(loc.line == -1)
 				pushChar(t, '?');
 			else
-				pushFormat(t, "{}", loc.line);
+				pushFormat(t, "%s", loc.line);
 				
 			pushChar(t, ')');
 
@@ -7431,16 +7441,16 @@ void execute(MDThread* t, uword depth = 1)
 					if(auto glob = namespace.get(ns, name))
 						return glob;
 
-					throwException(t, "Attempting to get nonexistent global '{}'", name.toString());
+					throwException(t, "Attempting to get nonexistent global '%s'", name.toString());
 			}
 
 			assert(false);
 		}
 
-		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
-		const char[] GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
-		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
-		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
+		const string GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
+		const string GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
+		const string GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
+		const string GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
 
 		Instruction* oldPC = null;
 
@@ -7543,7 +7553,7 @@ void execute(MDThread* t, uword depth = 1)
 					auto name = constTable[i.rt & ~Instruction.locMask].mString;
 
 					if(namespace.contains(env, name))
-						throwException(t, "Attempting to create global '{}' that already exists", name.toString());
+						throwException(t, "Attempting to create global '%s' that already exists", name.toString());
 
 					namespace.set(t.vm.alloc, env, name, mixin(GetRS));
 					break;
@@ -7555,7 +7565,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RS.type != MDValue.Type.String)
 					{
 						typeString(t, &RS);
-						throwException(t, "Import expression must be a string value, not '{}'", getString(t, -1));
+						throwException(t, "Import expression must be a string value, not '%s'", getString(t, -1));
 					}
 
 					importImpl(t, RS.mString, stackBase + i.rd);
@@ -7736,7 +7746,7 @@ void execute(MDThread* t, uword depth = 1)
 						if(method is null)
 						{
 							typeString(t, src);
-							throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
+							throwException(t, "No implementation of %s for type '%s'", MetaNames[MM.Apply], getString(t, -1));
 						}
 
 						t.stack[stackBase + rd + 2] = t.stack[stackBase + rd + 1];
@@ -7752,7 +7762,7 @@ void execute(MDThread* t, uword depth = 1)
 						if(src.type != MDValue.Type.Function && src.type != MDValue.Type.Thread)
 						{
 							typeString(t, src);
-							throwException(t, "Invalid iterable type '{}' returned from opApply", getString(t, -1));
+							throwException(t, "Invalid iterable type '%s' returned from opApply", getString(t, -1));
 						}
 					}
 
@@ -7848,7 +7858,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RT.type != MDValue.Type.String)
 					{
 						typeString(t, &RT);
-						throwException(t, "Attempting to get a method with a non-string name (type '{}' instead)", getString(t, -1));
+						throwException(t, "Attempting to get a method with a non-string name (type '%s' instead)", getString(t, -1));
 					}
 
 					auto methodName = RT.mString;
@@ -7864,7 +7874,7 @@ void execute(MDThread* t, uword depth = 1)
 						if(self.type != MDValue.Type.Instance && self.type != MDValue.Type.Class)
 						{
 							typeString(t, self);
-							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
+							throwException(t, "Attempting to perform a supercall in a function where 'this' is a '%s', not an 'instance' or 'class'", getString(t, -1));
 						}
 
 						RS = t.currentAR.proto;
@@ -8078,7 +8088,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RS.type != MDValue.Type.Int)
 					{
 						typeString(t, &RS);
-						throwException(t, "Attempting to index 'vararg' with a '{}'", getString(t, -1));
+						throwException(t, "Attempting to index 'vararg' with a '%s'", getString(t, -1));
 					}
 
 					auto index = RS.mInt;
@@ -8087,7 +8097,7 @@ void execute(MDThread* t, uword depth = 1)
 						index += numVarargs;
 
 					if(index < 0 || index >= numVarargs)
-						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
+						throwException(t, "Invalid 'vararg' index: %s (only have %s)", index, numVarargs);
 
 					*mixin(GetRD) = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
@@ -8100,7 +8110,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RS.type != MDValue.Type.Int)
 					{
 						typeString(t, &RS);
-						throwException(t, "Attempting to index 'vararg' with a '{}'", getString(t, -1));
+						throwException(t, "Attempting to index 'vararg' with a '%s'", getString(t, -1));
 					}
 
 					auto index = RS.mInt;
@@ -8109,7 +8119,7 @@ void execute(MDThread* t, uword depth = 1)
 						index += numVarargs;
 
 					if(index < 0 || index >= numVarargs)
-						throwException(t, "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
+						throwException(t, "Invalid 'vararg' index: %s (only have %s)", index, numVarargs);
 
 					t.stack[t.currentAR.vargBase + cast(uword)index] = *mixin(GetRT);
 					break;
@@ -8127,11 +8137,11 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						typeString(t, loSrc);
 						typeString(t, hiSrc);
-						throwException(t, "Attempting to slice 'vararg' with '{}' and '{}'", getString(t, -2), getString(t, -1));
+						throwException(t, "Attempting to slice 'vararg' with '%s' and '%s'", getString(t, -2), getString(t, -1));
 					}
 
 					if(lo > hi || lo < 0 || lo > numVarargs || hi < 0 || hi > numVarargs)
-						throwException(t, "Invalid vararg slice indices [{} .. {}]", lo, hi);
+						throwException(t, "Invalid vararg slice indices [%s .. %s]", lo, hi);
 
 					auto sliceSize = cast(uword)(hi - lo);
 					auto src = t.currentAR.vargBase + cast(uword)lo;
@@ -8186,9 +8196,9 @@ void execute(MDThread* t, uword depth = 1)
 							typeString(t, val);
 
 							if(idx == 0)
-								throwException(t, "'this' parameter: type '{}' is not allowed", getString(t, -1));
+								throwException(t, "'this' parameter: type '%s' is not allowed", getString(t, -1));
 							else
-								throwException(t, "Parameter {}: type '{}' is not allowed", idx, getString(t, -1));
+								throwException(t, "Parameter %s: type '%s' is not allowed", idx, getString(t, -1));
 						}
 
 						val++;
@@ -8207,7 +8217,7 @@ void execute(MDThread* t, uword depth = 1)
 						if(RT.type != MDValue.Type.Class)
 						{
 							typeString(t, &RT);
-							throwException(t, "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
+							throwException(t, "Parameter %s: instance type constraint type must be 'class', not '%s'", i.rs, getString(t, -1));
 						}
 
 						*mixin(GetRD) = instance.derivesFrom(RS.mInstance, RT.mClass);
@@ -8218,9 +8228,9 @@ void execute(MDThread* t, uword depth = 1)
 					typeString(t, &t.stack[stackBase + i.rs]);
 
 					if(i.rs == 0)
-						throwException(t, "'this' parameter: type '{}' is not allowed", getString(t, -1));
+						throwException(t, "'this' parameter: type '%s' is not allowed", getString(t, -1));
 					else
-						throwException(t, "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
+						throwException(t, "Parameter %s: type '%s' is not allowed", i.rs, getString(t, -1));
 						
 					break;
 
@@ -8262,7 +8272,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RT.type != MDValue.Type.String)
 					{
 						typeString(t, &RT);
-						throwException(t, "Field name must be a string, not a '{}'", getString(t, -1));
+						throwException(t, "Field name must be a string, not a '%s'", getString(t, -1));
 					}
 
 					fieldImpl(t, mixin(GetRD), mixin(GetRS), RT.mString, false);
@@ -8274,7 +8284,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RS.type != MDValue.Type.String)
 					{
 						typeString(t, &RS);
-						throwException(t, "Field name must be a string, not a '{}'", getString(t, -1));
+						throwException(t, "Field name must be a string, not a '%s'", getString(t, -1));
 					}
 
 					fieldaImpl(t, mixin(GetRD), RS.mString, mixin(GetRT), false);
@@ -8365,7 +8375,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RT.type != MDValue.Type.Class)
 					{
 						typeString(t, &RT);
-						throwException(t, "Attempting to derive a class from a value of type '{}'", getString(t, -1));
+						throwException(t, "Attempting to derive a class from a value of type '%s'", getString(t, -1));
 					}
 					else
 						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
@@ -8379,7 +8389,7 @@ void execute(MDThread* t, uword depth = 1)
 					if(RS.type != MDValue.Type.Function)
 					{
 						typeString(t, &RS);
-						throwException(t, "Coroutines must be created with a function, not '{}'", getString(t, -1));
+						throwException(t, "Coroutines must be created with a function, not '%s'", getString(t, -1));
 					}
 
 					version(MDExtendedCoro) {} else
@@ -8406,7 +8416,7 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						typeString(t, &RT);
 						pushStringObj(t, name);
-						throwException(t, "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
+						throwException(t, "Attempted to use a '%s' as a parent namespace for namespace '%s'", getString(t, -2), getString(t, -1));
 					}
 					else
 						*mixin(GetRD) = namespace.create(t.vm.alloc, name, RT.mNamespace);
@@ -8432,7 +8442,8 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.SuperOf:
-					*mixin(GetRD) = superOfImpl(t, mixin(GetRS));
+					auto tmp = superOfImpl(t, mixin(GetRS));
+					*mixin(GetRD) = tmp;
 					break;
 
 				case Op.Je:
@@ -8441,7 +8452,7 @@ void execute(MDThread* t, uword depth = 1)
 					assert(false, "lone conditional jump instruction");
 
 				default:
-					throwException(t, "Unimplemented opcode \"{}\"", i);
+					throwException(t, "Unimplemented opcode \"%s\"", i);
 			}
 		}
 	}
@@ -8488,7 +8499,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				if(t.currentAR.numTailcalls > 0)
 				{
-					pushFormat(t, "<{} tailcalls>", t.currentAR.numTailcalls);
+					pushFormat(t, "<%s tailcalls>", t.currentAR.numTailcalls);
 					t.vm.traceback.append(&t.vm.alloc, Location(getStringObj(t, -1), -1, Location.Type.Script));
 					pop(t);
 				}

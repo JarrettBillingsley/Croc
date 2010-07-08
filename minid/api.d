@@ -27,6 +27,15 @@ subject to the following restrictions:
 
 module minid.api;
 
+debug
+{
+	import std.stdio;
+	import std.string;
+}
+
+import core.exception;
+import std.c.stdlib;
+
 public
 {
 	import minid.alloc;
@@ -38,28 +47,19 @@ public
 	import minid.vm;
 }
 
-debug
-{
-	import tango.text.convert.Format;
-	import tango.io.Stdout;
-}
-
-import tango.core.Exception;
-import tango.stdc.stdlib;
-
-import minid.arraylib;
+// import minid.arraylib;
 import minid.baselib;
-import minid.charlib;
-import minid.debuglib;
-import minid.hashlib;
-import minid.iolib;
-import minid.mathlib;
-import minid.oslib;
-import minid.regexplib;
-import minid.streamlib;
-import minid.stringlib;
+// import minid.charlib;
+// import minid.debuglib;
+// import minid.hashlib;
+// import minid.iolib;
+// import minid.mathlib;
+// import minid.oslib;
+// import minid.regexplib;
+// import minid.streamlib;
+// import minid.stringlib;
 import minid.threadlib;
-import minid.timelib;
+// import minid.timelib;
 
 // ================================================================================================================================================
 // Public
@@ -72,12 +72,12 @@ public void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 {
 	if(newSize == 0)
 	{
-		tango.stdc.stdlib.free(p);
+		std.c.stdlib.free(p);
 		return null;
 	}
 	else
 	{
-		auto ret = tango.stdc.stdlib.realloc(p, newSize);
+		auto ret = std.c.stdlib.realloc(p, newSize);
 		
 		if(ret is null)
 			onOutOfMemoryError();
@@ -214,38 +214,38 @@ Params:
 */
 public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 {
-	if(libs & MDStdlib.Array)
-		ArrayLib.init(t);
-
-	if(libs & MDStdlib.Char)
-		CharLib.init(t);
-		
-	if(libs & MDStdlib.Stream)
-		StreamLib.init(t);
-
-	if(libs & MDStdlib.IO)
-		IOLib.init(t);
-
-	if(libs & MDStdlib.Math)
-		MathLib.init(t);
-
-	if(libs & MDStdlib.OS)
-		OSLib.init(t);
-
-	if(libs & MDStdlib.Regexp)
-		RegexpLib.init(t);
-
-	if(libs & MDStdlib.String)
-		StringLib.init(t);
-
-	if(libs & MDStdlib.Hash)
-		HashLib.init(t);
-
-	if(libs & MDStdlib.Time)
-		TimeLib.init(t);
-		
-	if(libs & MDStdlib.Debug)
-		DebugLib.init(t);
+// 	if(libs & MDStdlib.Array)
+// 		ArrayLib.init(t);
+// 
+// 	if(libs & MDStdlib.Char)
+// 		CharLib.init(t);
+// 		
+// 	if(libs & MDStdlib.Stream)
+// 		StreamLib.init(t);
+// 
+// 	if(libs & MDStdlib.IO)
+// 		IOLib.init(t);
+// 
+// 	if(libs & MDStdlib.Math)
+// 		MathLib.init(t);
+// 
+// 	if(libs & MDStdlib.OS)
+// 		OSLib.init(t);
+// 
+// 	if(libs & MDStdlib.Regexp)
+// 		RegexpLib.init(t);
+// 
+// 	if(libs & MDStdlib.String)
+// 		StringLib.init(t);
+// 
+// 	if(libs & MDStdlib.Hash)
+// 		HashLib.init(t);
+// 
+// 	if(libs & MDStdlib.Time)
+// 		TimeLib.init(t);
+// 		
+// 	if(libs & MDStdlib.Debug)
+// 		DebugLib.init(t);
 }
 
 /**
@@ -277,15 +277,15 @@ public void closeVM(MDVM* vm)
 		debug(LEAK_DETECTOR)
 		{
 			foreach(ptr, block; vm.alloc._memBlocks)
-				Stdout.formatln("Unfreed block of memory: address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+				writefln("Unfreed block of memory: address 0x%X, length %s bytes, type %s", ptr, block.len, block.ti);
 		}
 
-		throw new Exception(Format("There are {} unfreed bytes!", vm.alloc.totalBytes));
+		throw new Exception(format("There are %s unfreed bytes!", vm.alloc.totalBytes));
 	}
 	
 	debug(LEAK_DETECTOR)
 		vm.alloc._memBlocks.clear(vm.alloc);
 
-	delete vm.formatter;
+// 	delete vm.formatter;
 	*vm = MDVM.init;
 }

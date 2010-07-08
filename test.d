@@ -1,13 +1,13 @@
 module test;
 
-import tango.core.tools.TraceExceptions;
-import tango.io.Stdout;
+import std.stdio;
+import std.file;
 
 import minid.api;
-import minid.bind;
-import minid.vector;
+// import minid.bind;
+// import minid.vector;
 
-import minid.serialization;
+// import minid.serialization;
 
 // import minid.addons.pcre;
 // import minid.addons.sdl;
@@ -16,11 +16,11 @@ import minid.serialization;
 
 void main()
 {
-	scope(exit) Stdout.flush;
+	scope(exit) stdout.flush();
 
 	MDVM vm;
 	auto t = openVM(&vm);
-	loadStdlibs(t, MDStdlib.ReallyAll);
+// 	loadStdlibs(t, MDStdlib.ReallyAll);
 
 	try
 	{
@@ -29,9 +29,9 @@ void main()
 // 		GlLib.init(t);
 // 		NetLib.init(t);
 
-		SerializationLib.init(t);
+// 		SerializationLib.init(t);
 
-		importModule(t, "samples.simple");
+		importModule(t, "samples.factorial");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);
@@ -40,25 +40,25 @@ void main()
 	catch(MDException e)
 	{
 		catchException(t);
-		Stdout.formatln("Error: {}", e);
+		writefln("Error: %s", e);
 
 		getTraceback(t);
-		Stdout.formatln("{}", getString(t, -1));
+		writefln("%s", getString(t, -1));
 
 		pop(t, 2);
 
 		if(e.info)
 		{
-			Stdout("D Traceback:");
-			e.writeOut((char[]s) { Stdout(s); });
+			write("D Traceback:");
+			writeln(e);
 		}
 	}
 	catch(MDHaltException e)
-		Stdout.formatln("Thread halted");
+		writeln("Thread halted");
 	catch(Exception e)
 	{
-		Stdout("Bad error:").newline;
-		e.writeOut((char[]s) { Stdout(s); });
+		writeln("Bad error:");
+		writeln(e);
 		return;
 	}
 

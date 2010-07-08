@@ -25,10 +25,10 @@ subject to the following restrictions:
 
 module minid.mathlib;
 
-import math = tango.math.Math;
-import tango.math.GammaFunction;
-import ieee = tango.math.IEEE;
-import tango.math.random.Kiss;
+// import math = tango.math.Math;
+// import tango.math.GammaFunction;
+// import ieee = tango.math.IEEE;
+// import tango.math.random.Kiss;
 
 import minid.ex;
 import minid.interpreter;

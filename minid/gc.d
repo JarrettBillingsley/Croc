@@ -26,6 +26,8 @@ subject to the following restrictions:
 
 module minid.gc;
 
+debug import std.stdio;
+
 import minid.alloc;
 import minid.array;
 import minid.classobj;
@@ -99,8 +101,6 @@ void sweep(MDVM* vm)
 	vm.alloc.markVal = markVal == 0 ? GCBits.Marked : 0;
 }
 
-debug import tango.io.Stdout;
-
 // Free an object.
 void free(MDVM* vm, GCObject* o)
 {
@@ -112,7 +112,7 @@ void free(MDVM* vm, GCObject* o)
 
 	switch((cast(MDBaseObject*)o).mType)
 	{
-		case MDValue.Type.String:    string.free(vm, cast(MDString*)o); return;
+		case MDValue.Type.String:    stringobj.free(vm, cast(MDString*)o); return;
 		case MDValue.Type.Table:     table.free(vm.alloc, cast(MDTable*)o); return;
 		case MDValue.Type.Array:     array.free(vm.alloc, cast(MDArray*)o); return;
 		case MDValue.Type.Function:  func.free(vm.alloc, cast(MDFunction*)o); return;
@@ -141,7 +141,7 @@ void free(MDVM* vm, GCObject* o)
 		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
 		case MDValue.Type.ArrayData: array.freeData(vm.alloc, cast(MDArrayData*)o); return;
 
-		default: debug Stdout.formatln("{}", (cast(MDBaseObject*)o).mType); assert(false);
+		default: debug writefln("%s", (cast(MDBaseObject*)o).mType); assert(false);
 	}
 }
 
@@ -152,7 +152,7 @@ void free(MDVM* vm, GCObject* o)
 private:
 
 // For marking MDValues.  Marks it only if it's an object.
-template CondMark(char[] name)
+template CondMark(string name)
 {
 	const CondMark =
 	"if(" ~ name ~ ".isObject())

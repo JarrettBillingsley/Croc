@@ -30,14 +30,14 @@ Authors:
 
 module minid.commandline;
 
-import tango.core.Exception;
-import tango.io.Console;
-import tango.io.Stdout;
-import tango.io.model.IConduit;
-import tango.io.stream.Lines;
-import tango.stdc.signal;
-import tango.stdc.stringz;
-import tango.text.Util;
+// import tango.core.Exception;
+// import tango.io.Console;
+// import tango.io.Stdout;
+// import tango.io.model.IConduit;
+// import tango.io.stream.Lines;
+// import tango.stdc.signal;
+// import tango.stdc.stringz;
+// import tango.text.Util;
 
 alias tango.text.Util.contains contains;
 

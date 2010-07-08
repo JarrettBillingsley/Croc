@@ -26,11 +26,10 @@ subject to the following restrictions:
 
 module minid.ex;
 
-import tango.core.Tuple;
-import tango.io.device.File;
-import tango.stdc.ctype;
-import tango.text.Util;
-import Utf = tango.text.convert.Utf;
+import std.ctype;
+import std.string;
+import std.typetuple;
+import std.utf;
 
 import minid.compiler;
 import minid.interpreter;
@@ -55,7 +54,7 @@ Params:
 	loader = The module's loader function.  Serves as the top-level function when the module is imported, and any
 		globals defined in it become the module's public symbols.
 */
-void makeModule(MDThread* t, char[] name, NativeFunc loader)
+void makeModule(MDThread* t, string name, NativeFunc loader)
 {
 	pushGlobal(t, "modules");
 	field(t, -1, "customLoaders");
@@ -102,11 +101,11 @@ You can, of course, modify the class object after creating it, like if you need 
 public struct CreateClass
 {
 	private MDThread* t;
-	private char[] name;
+	private string name;
 	private word idx;
 
 	/** */
-	public static void opCall(MDThread* t, char[] name, void delegate(CreateClass*) dg)
+	public static void opCall(MDThread* t, string name, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
@@ -123,7 +122,7 @@ public struct CreateClass
 	}
 	
 	/** */
-	public static void opCall(MDThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
+	public static void opCall(MDThread* t, string name, string base, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
@@ -154,7 +153,7 @@ public struct CreateClass
 		numUpvals = How many upvalues this function needs.  There should be this many values sitting on
 			the stack.
 	*/
-	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
+	public void method(string name, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
@@ -271,8 +270,7 @@ public struct StrBuffer
 	public void addChar(dchar c)
 	{
 		char[4] outbuf = void;
-		uint ate = 0;
-		auto s = Utf.toString((&c)[0 .. 1], outbuf, &ate);
+		auto s = outbuf[0 .. encode(outbuf, c)];
 
 		if(pos + s.length - 1 >= data.length)
 			flush();
@@ -284,7 +282,7 @@ public struct StrBuffer
 	/**
 	Add a string to the internal buffer.
 	*/
-	public void addString(char[] s)
+	public void addString(string s)
 	{
 		// this code doesn't validate the data, but it'll get validated eventually
 		if(s.length <= (data.length - pos))
@@ -341,16 +339,6 @@ public struct StrBuffer
 			pushTypeString(t, -1);
 			throwException(t, "Trying to add a '{}' to a StrBuffer", getString(t, -1));
 		}
-	}
-
-	/**
-	A convenience function for hooking up to the Tango IO and formatting facilities.  You can pass
-	"&buf._sink" to many Tango functions that expect a _sink function for string data.
-	*/
-	public uint sink(char[] s)
-	{
-		addString(s);
-		return s.length;
 	}
 
 	/**
@@ -423,14 +411,15 @@ Params:
 Returns:
 	The stack index of the looked-up value.
 */
-public word lookup(MDThread* t, char[] name)
+public word lookup(MDThread* t, string name)
 {
 	validateName(t, name);
 
 	bool isFirst = true;
 	word idx = void;
 
-	foreach(n; name.delimiters("."))
+	// TODO: in-place split
+	foreach(n; name.split("."))
 	{
 		if(isFirst)
 		{
@@ -458,7 +447,7 @@ parameter instead of a normal parameter.
 Returns:
 	The stack index of the looked-up value.
 */
-public word lookupCT(char[] name)(MDThread* t)
+public word lookupCT(string name)(MDThread* t)
 {
 	mixin(NameToAPICalls!(name));
 	return idx;
@@ -471,7 +460,7 @@ does not exist in the registry.
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getRegistryVar(MDThread* t, char[] name)
+public word getRegistryVar(MDThread* t, string name)
 {
 	getRegistry(t);
 	field(t, -1, name);
@@ -482,7 +471,7 @@ public word getRegistryVar(MDThread* t, char[] name)
 /**
 Pops the value off the top of the stack and sets it into the given registry variable.
 */
-public void setRegistryVar(MDThread* t, char[] name)
+public void setRegistryVar(MDThread* t, string name)
 {
 	getRegistry(t);
 	swap(t);
@@ -504,7 +493,7 @@ Params:
 Returns:
 	The stack index of the newly-compiled function.
 */
-public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
+public word loadString(MDThread* t, string code, bool customEnv = false, string name = "<loaded by loadString>")
 {
 	if(customEnv)
 	{
@@ -532,7 +521,7 @@ public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] 
 This is a quick way to run some MiniD code.  Basically this just calls loadString and then runs
 the resulting function with no parameters.  This function's parameters are the same as loadString's.
 */
-public void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
+public void runString(MDThread* t, string code, bool customEnv = false, string name = "<loaded by runString>")
 {
 	loadString(t, code, customEnv, name);
 	pushNull(t);
@@ -555,7 +544,7 @@ Returns:
 	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
 	returned.
 */
-public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
+public uword eval(MDThread* t, string code, word numReturns = 1, bool customEnv = false)
 {
 	if(customEnv)
 	{
@@ -606,7 +595,7 @@ runFile(t, "foo.bar.baz", 2);
 runFile(t, "foo/bar/baz.md");
 -----
 */
-public void runFile(MDThread* t, char[] filename, uword numParams = 0)
+public void runFile(MDThread* t, string filename, uword numParams = 0)
 {
 // 	checkNumParams(t, numParams);
 
@@ -621,8 +610,10 @@ public void runFile(MDThread* t, char[] filename, uword numParams = 0)
 		}
 		else
 		{
-			scope f = new File(filename, File.ReadExisting);
-			deserializeModule(t, f);
+			// TODO
+			assert(false);
+// 			scope f = new File(filename, File.ReadExisting);
+// 			deserializeModule(t, f);
 		}
 	
 		lookup(t, "modules.initModule");
@@ -1002,7 +993,7 @@ public dchar checkCharParam(MDThread* t, word index)
 }
 
 /// ditto
-public char[] checkStringParam(MDThread* t, word index)
+public string checkStringParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1048,7 +1039,7 @@ Params:
 	index = The stack index of the parameter to check.
 	name = The name of the class from which the given parameter must be derived.
 */
-public void checkInstParam()(MDThread* t, word index, char[] name)
+public void checkInstParam()(MDThread* t, word index, string name)
 {
 	index = absIndex(t, index);
 	checkInstParam(t, index);
@@ -1072,7 +1063,7 @@ public void checkInstParam()(MDThread* t, word index, char[] name)
 Same as above, but also takes a template type parameter that should be a struct the same size as the
 given instance's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
 */
-public T* checkInstParam(T)(MDThread* t, word index, char[] name)
+public T* checkInstParam(T)(MDThread* t, word index, string name)
 {
 	checkInstParam(t, index, name);
 	return getMembers!(T)(t, index);
@@ -1147,7 +1138,7 @@ public void checkParam(MDThread* t, word index, MDValue.Type type)
 Throws an informative exception about the parameter at the given index, telling the parameter index ('this' for
 parameter 0), the expected type, and the actual type.
 */
-public void paramTypeError(MDThread* t, word index, char[] expected)
+public void paramTypeError(MDThread* t, word index, string expected)
 {
 	pushTypeString(t, index);
 
@@ -1210,7 +1201,7 @@ public dchar optCharParam(MDThread* t, word index, dchar def)
 }
 
 /// ditto
-public char[] optStringParam(MDThread* t, word index, char[] def)
+public string optStringParam(MDThread* t, word index, string def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1258,7 +1249,7 @@ public bool optParam(MDThread* t, word index, MDValue.Type type)
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*".  Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be
 // synchronized, or it'd have to be created in the VM object which is just dumb.
-private void validateName(MDThread* t, char[] name)
+private void validateName(MDThread* t, string name)
 {
 	void wrongFormat()
 	{
@@ -1305,7 +1296,7 @@ private template IsIdentChar(char c)
 	const IsIdentChar = IsIdentBeginChar!(c) || (c >= '0' && c <= '9');
 }
 
-private template ValidateNameCTImpl(char[] name, uword start = 0)
+private template ValidateNameCTImpl(string name, uword start = 0)
 {
 	private template IdentLoop(uword idx)
 	{
@@ -1321,17 +1312,17 @@ private template ValidateNameCTImpl(char[] name, uword start = 0)
 	const idx = IdentLoop!(start);
 
 	static if(idx >= name.length)
-		alias Tuple!(name[start .. $]) ret;
+		alias TypeTuple!(name[start .. $]) ret;
 	else
 	{
 		static if(name[idx] != '.')
 			static assert(false, "The name '" ~ name ~ "' is not formatted correctly");
 
-		alias Tuple!(name[start .. idx], ValidateNameCTImpl!(name, idx + 1).ret) ret;
+		alias TypeTuple!(name[start .. idx], ValidateNameCTImpl!(name, idx + 1).ret) ret;
 	}
 }
 
-private template ValidateNameCT(char[] name)
+private template ValidateNameCT(string name)
 {
 	static if(name.length == 0)
 		static assert(false, "Cannot use an empty string for a name");
@@ -1342,18 +1333,18 @@ private template ValidateNameCT(char[] name)
 template NameToAPICalls_toCalls(Names...)
 {
 	static if(Names.length == 0)
-		const char[] NameToAPICalls_toCalls = "";
+		const string NameToAPICalls_toCalls = "";
 	else
-		const char[] NameToAPICalls_toCalls = "field(t, -1, \"" ~ Names[0] ~ "\");\n" ~ NameToAPICalls_toCalls!(Names[1 .. $]);
+		const string NameToAPICalls_toCalls = "field(t, -1, \"" ~ Names[0] ~ "\");\n" ~ NameToAPICalls_toCalls!(Names[1 .. $]);
 }
 
-private template NameToAPICallsImpl(char[] name)
+private template NameToAPICallsImpl(string name)
 {
 	alias ValidateNameCT!(name) t;
 	const ret = "auto idx = pushGlobal(t, \"" ~ t[0] ~ "\");\n" ~ NameToAPICalls_toCalls!(t[1 .. $]) ~ (t.length > 1 ? "insertAndPop(t, idx);\n" : "");
 }
 
-private template NameToAPICalls(char[] name)
+private template NameToAPICalls(string name)
 {
 	const NameToAPICalls = NameToAPICallsImpl!(name).ret;
 }

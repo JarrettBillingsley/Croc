@@ -25,15 +25,15 @@ subject to the following restrictions:
 
 module minid.timelib;
 
-import tango.core.Thread;
-import tango.text.locale.Convert;
-import tango.text.locale.Core;
-import tango.time.chrono.Gregorian;
-import tango.time.Clock;
-import tango.time.StopWatch;
-import tango.time.Time;
-import tango.time.WallClock;
-import Utf = tango.text.convert.Utf;
+// import tango.core.Thread;
+// import tango.text.locale.Convert;
+// import tango.text.locale.Core;
+// import tango.time.chrono.Gregorian;
+// import tango.time.Clock;
+// import tango.time.StopWatch;
+// import tango.time.Time;
+// import tango.time.WallClock;
+// import Utf = tango.text.convert.Utf;
 
 import minid.ex;
 import minid.interpreter;

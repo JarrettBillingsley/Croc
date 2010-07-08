@@ -28,27 +28,28 @@ subject to the following restrictions:
 
 module minid.utils;
 
-import tango.core.Array : find;
-import tango.core.Traits;
-import tango.core.Tuple;
-import tango.text.convert.Utf;
-import tango.text.Util;
+import std.utf;
+// import tango.core.Array : find;
+// import tango.core.Traits;
+// import tango.core.Tuple;
+// import tango.text.convert.Utf;
+// import tango.text.Util;
 
-/**
-See if a string starts with another string.  Useful.
-*/
-public bool startsWith(T)(T[] string, T[] pattern)
-{
-	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
-}
-
-/**
-See if a string ends with another string.  Also useful.
-*/
-public bool endsWith(T)(T[] string, T[] pattern)
-{
-	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
-}
+// /**
+// See if a string starts with another string.  Useful.
+// */
+// public bool startsWith(T)(T[] string, T[] pattern)
+// {
+// 	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
+// }
+// 
+// /**
+// See if a string ends with another string.  Also useful.
+// */
+// public bool endsWith(T)(T[] string, T[] pattern)
+// {
+// 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
+// }
 
 /**
 See if an array contains an item.
@@ -69,7 +70,7 @@ public int Compare3(T)(T a, T b)
 /**
 Compares char[] strings stupidly (just by character value, not lexicographically).
 */
-public int scmp(char[] s1, char[] s2)
+public int scmp(const(char)[] s1, const(char)[] s2)
 {
 	auto len = s1.length;
 
@@ -87,7 +88,7 @@ public int scmp(char[] s1, char[] s2)
 /**
 Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
 */
-public size_t verify(char[] s)
+public size_t verify(const(char)[] s)
 {
 	size_t ret = 0;
 
@@ -100,7 +101,7 @@ public size_t verify(char[] s)
 /**
 Slice a UTF-8 string using codepoint indices.
 */
-public char[] uniSlice(char[] s, size_t lo, size_t hi)
+public const(char)[] uniSlice(const(char)[] s, size_t lo, size_t hi)
 {
 	if(lo == hi)
 		return null;
@@ -110,20 +111,18 @@ public char[] uniSlice(char[] s, size_t lo, size_t hi)
 
 	for(size_t i = 0; i < lo; i++)
 	{
-		uint ate = 0;
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-		realLo += ate;
+		auto len = stride(tmp, 0);
+		tmp = tmp[len .. $];
+		realLo += len;
 	}
 
 	uint realHi = realLo;
 
 	for(size_t i = lo; i < hi; i++)
 	{
-		uint ate = 0;
-		decode(tmp, ate);
-		tmp = tmp[ate .. $];
-		realHi += ate;
+		auto len = stride(tmp, 0);
+		tmp = tmp[len .. $];
+		realHi += len;
 	}
 
 	return s[realLo .. realHi];
@@ -132,7 +131,7 @@ public char[] uniSlice(char[] s, size_t lo, size_t hi)
 /**
 Get the character in a UTF-8 string at the given codepoint index.
 */
-public dchar uniCharAt(char[] s, size_t idx)
+public dchar uniCharAt(const(char)[] s, size_t idx)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -149,7 +148,7 @@ public dchar uniCharAt(char[] s, size_t idx)
 /**
 Convert a codepoint index into a UTF-8 string into a byte index.
 */
-public size_t uniCPIdxToByte(char[] s, size_t fake)
+public size_t uniCPIdxToByte(const(char)[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -166,7 +165,7 @@ public size_t uniCPIdxToByte(char[] s, size_t fake)
 /**
 Convert a byte index into a UTF-8 string into a codepoint index.
 */
-public size_t uniByteIdxToCP(char[] s, size_t fake)
+public size_t uniByteIdxToCP(const(char)[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -180,17 +179,125 @@ public size_t uniByteIdxToCP(char[] s, size_t fake)
 		byteIdx += ate;
 		i++;
 	}
-	
+
 	return i;
 }
 
-/**
-Metafunction to see if a given type is one of char[], wchar[] or dchar[].
-*/
-public template isStringType(T)
+size_t jhash(const(ubyte)* k, size_t len, size_t c = 0)
 {
-	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
+	size_t a = 0x9e3779b9, b = 0x9e3779b9, i = len;
+
+	// handle most of the key
+	while(i >= 12)
+	{
+		a += *cast(uint*)(k + 0);
+		b += *cast(uint*)(k + 4);
+		c += *cast(uint*)(k + 8);
+
+		a -= b; a -= c; a ^= (c >> 13);
+		b -= c; b -= a; b ^= (a << 8);
+		c -= a; c -= b; c ^= (b >> 13);
+		a -= b; a -= c; a ^= (c >> 12);
+		b -= c; b -= a; b ^= (a << 16);
+		c -= a; c -= b; c ^= (b >> 5);
+		a -= b; a -= c; a ^= (c >> 3);
+		b -= c; b -= a; b ^= (a << 10);
+		c -= a; c -= b; c ^= (b >> 15);
+		k += 12; i -= 12;
+	}
+
+	// handle the last 11 bytes
+	c += len;
+
+	switch(i)
+	{
+		case 11: c += (cast(uint)k[10] << 24);
+		case 10: c += (cast(uint)k[9] << 16);
+		case 9 : c += (cast(uint)k[8] << 8);
+		case 8 : b += (cast(uint)k[7] << 24);
+		case 7 : b += (cast(uint)k[6] << 16);
+		case 6 : b += (cast(uint)k[5] << 8);
+		case 5 : b += (cast(uint)k[4]);
+		case 4 : a += (cast(uint)k[3] << 24);
+		case 3 : a += (cast(uint)k[2] << 16);
+		case 2 : a += (cast(uint)k[1] << 8);
+		case 1 : a += (cast(uint)k[0]);
+		default:
+	}
+
+	a -= b; a -= c; a ^= (c >> 13);
+	b -= c; b -= a; b ^= (a << 8);
+	c -= a; c -= b; c ^= (b >> 13);
+	a -= b; a -= c; a ^= (c >> 12);
+	b -= c; b -= a; b ^= (a << 16);
+	c -= a; c -= b; c ^= (b >> 5);
+	a -= b; a -= c; a ^= (c >> 3);
+	b -= c; b -= a; b ^= (a << 10);
+	c -= a; c -= b; c ^= (b >> 15);
+
+	return c;
 }
+
+size_t jhash(const(void)[] x, size_t c = 0)
+{
+	return jhash (cast(const(ubyte)*) x.ptr, x.length, c);
+}
+
+size_t mismatch(T, U = size_t)(T* s1, T* s2, U length)
+{
+	return mismatch!(T)(s1, s2, length);
+}
+
+size_t mismatch(T)(T* s1, T* s2, size_t length)
+{
+	assert(s1 && s2);
+
+	static if(T.sizeof < size_t.sizeof)
+	{
+		if(length)
+		{
+			auto start = s1;
+			auto e = start + length - size_t.sizeof / T.sizeof;
+
+			while(s1 < e)
+			{
+				if(*cast(size_t*)s1 != *cast(size_t*)s2)
+					break;
+
+				s1 += size_t.sizeof / T.sizeof;
+				s2 += size_t.sizeof / T.sizeof;
+			}
+
+			e += size_t.sizeof / T.sizeof;
+			while(s1 < e)
+			{
+				if(*s1++ != *s2++)
+					return s1 - start - 1;
+			}
+		}
+		
+		return length;
+	}
+	else
+	{
+		auto len = length;
+		for(auto p = s1 - 1; len--;)
+		{
+			if(*++p != *s2++)
+				return p - s1;
+		}
+
+		return length;
+	}
+}
+
+// /**
+// Metafunction to see if a given type is one of char[], wchar[] or dchar[].
+// */
+// public template isStringType(T)
+// {
+// 	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
+// }
 
 /**
 Sees if a type is an array.

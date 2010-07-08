@@ -28,7 +28,8 @@ subject to the following restrictions:
 
 module minid.semantic;
 
-import tango.text.Util;
+import std.string;
+import std.utf;
 
 import minid.ast;
 import minid.astvisitor;
@@ -1131,7 +1132,7 @@ scope class Semantic : IdentityVisitor
 				return new(c) BoolExp(c, e.location, found);
 			}
 			else if(e.op1.isString)
-				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) != s.length);
+				return new(c) BoolExp(c, e.location, s.indexOf(e.op1.asString()) != -1);
 			else
 				c.exception(e.location, "'in' must be performed on a string with a character or string");
 		}
@@ -1164,7 +1165,7 @@ scope class Semantic : IdentityVisitor
 				return new(c) BoolExp(c, e.location, !found);
 			}
 			else if(e.op1.isString)
-				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) == s.length);
+				return new(c) BoolExp(c, e.location, s.indexOf(e.op1.asString()) == -1);
 			else
 				c.exception(e.location, "'!in' must be performed on a string with a character or string");
 		}
@@ -1308,13 +1309,16 @@ scope class Semantic : IdentityVisitor
 					foreach(op; ops[i .. j])
 					{
 						if(op.isString)
-							tempStr ~= op.asString();
+							tempStr ~= cast(char[])op.asString();
 						else
-							tempStr ~= op.asChar();
+						{
+							char[4] utfbuf = void;
+							tempStr ~= utfbuf[0 .. encode(utfbuf, op.asChar())];
+						}
 					}
 
 					auto dat = tempStr.toArray();
-					auto str = c.newString(dat);
+					auto str = c.newString(cast(string)dat);
 					c.alloc.freeArray(dat);
 					newOperands ~= new(c) StringExp(c, e.location, str);
 

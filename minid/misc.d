@@ -26,16 +26,12 @@ subject to the following restrictions:
 
 module minid.misc;
 
-import Integer = tango.text.convert.Integer;
-import tango.io.stream.Format;
-import tango.math.Math;
-import tango.stdc.ctype;
-import tango.stdc.stdlib;
-import tango.text.convert.Utf;
-import tango.text.Util;
-import Uni = tango.text.Unicode;
-
-alias tango.text.Util.contains contains;
+import std.c.stdlib;
+import std.format;
+import std.math;
+import std.string;
+import std.uni;
+import std.utf;
 
 import minid.alloc;
 import minid.ex;
@@ -43,42 +39,58 @@ import minid.interpreter;
 import minid.types;
 import minid.utils;
 
-package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
+package void formatImpl(MDThread* t, uword numParams, void delegate(string) sink)
 {
-	auto formatter = t.vm.formatter;
-
-	void output(char[] fmt, uword param, bool isRaw)
+	void shim(...)
 	{
-		auto tmp = (cast(char*)alloca(fmt.length + 1))[0 .. fmt.length + 1];
-		tmp[0] = '{';
-		tmp[1 .. $] = fmt[];
-
-		switch(type(t, param))
+		doFormat((dchar c)
 		{
-			case MDValue.Type.Int:   formatter.convert(sink, tmp, getInt(t, param));   break;
-			case MDValue.Type.Float: formatter.convert(sink, tmp, getFloat(t, param)); break;
-			case MDValue.Type.Char:  formatter.convert(sink, tmp, getChar(t, param));  break;
+			char[4] buf;
+			sink(cast(string)buf[0 .. encode(buf, c)]);
+		}, _arguments, _argptr);
+	}
 
-			default:
-				pushToString(t, param, isRaw);
-				formatter.convert(sink, tmp, getString(t, -1));
-				pop(t);
-				break;
+	void output(string fmt, uword param, bool isRaw)
+	{
+		if(isRaw)
+		{
+			auto tmp = (cast(char*)alloca(fmt.length + 1))[0 .. fmt.length + 1];
+			tmp[0 .. fmt.length] = fmt[];
+			tmp[$ - 1] = 's';
+			pushToString(t, param, true);
+			shim(tmp, getString(t, -1));
+			pop(t);
+		}
+		else
+		{
+			switch(type(t, param))
+			{
+				case MDValue.Type.Int:   shim(fmt, getInt(t, param));   break;
+				case MDValue.Type.Float: shim(fmt, getFloat(t, param)); break;
+				case MDValue.Type.Char:  shim(fmt, getChar(t, param));  break;
+
+				default:
+					pushToString(t, param);
+					shim(fmt, getString(t, -1));
+					pop(t);
+					break;
+			}
 		}
 	}
 
-	auto formatStr = getString(t, 1);
+	auto formatStr = checkStringParam(t, 1);
 	uword autoIndex = 2;
 	uword begin = 0;
 
 	while(begin < formatStr.length)
 	{
-		// output anything outside the {}
-		auto fmtBegin = formatStr.locate('{', begin);
+		auto tmppos = formatStr[begin .. $].indexOf('%');
+		auto fmtBegin = tmppos == -1 ? formatStr.length : tmppos + begin;
 
+		// output anything outside the {}
 		if(fmtBegin > begin)
 		{
-			formatter.convert(sink, "{}", formatStr[begin .. fmtBegin]);
+			sink(formatStr[begin .. fmtBegin]);
 			begin = fmtBegin;
 		}
 
@@ -86,55 +98,97 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 		if(fmtBegin == formatStr.length)
 			break;
 			
-		// Check if it's an escaped {
-		if(formatStr[fmtBegin + 1] == '{')
+		// is it an incomplete format spec?
+		if(fmtBegin + 1 == formatStr.length)
 		{
-			begin = fmtBegin + 2;
-			formatter.convert(sink, "{}", "{");
-			continue;
-		}
-
-		// find the end of the {}
-		auto fmtEnd = formatStr.locate('}', fmtBegin + 1);
-
-		// onoz, unmatched {}
-		if(fmtEnd == formatStr.length)
-		{
-			formatter.convert(sink, "{{missing or misplaced '}'}{}", formatStr[fmtBegin .. $]);
+			sink("{incomplete format spec}");
 			break;
 		}
 
-		// chop off opening { on format spec but leave closing }
-		// this means fmtSpec.length will always be >= 1
-		auto fmtSpec = formatStr[fmtBegin + 1 .. fmtEnd + 1];
+		// Check if it's an escaped {
+		if(formatStr[fmtBegin + 1] == '%')
+		{
+			begin = fmtBegin + 2;
+			sink("%");
+			continue;
+		}
+
+		// Stupid C-style format strings.. have to parse them to find the end :P
+		// parse flags
+		uword fmtEnd = fmtBegin + 1;
+
+		for(; fmtEnd < formatStr.length; fmtEnd++)
+		{
+			switch(formatStr[fmtEnd])
+			{
+				case '-', '+', '0', ' ': continue;
+				default: break;
+			}
+			break;
+		}
+
+		// parse width
+		for(; fmtEnd < formatStr.length; fmtEnd++)
+		{
+			switch(formatStr[fmtEnd])
+			{
+				case '0': .. case '9': continue;
+				default: break;
+			}
+			break;
+		}
+
+		// parse precision
+		if(fmtEnd < formatStr.length && formatStr[fmtEnd] == '.')
+		{
+			fmtEnd++;
+
+			for(; fmtEnd < formatStr.length; fmtEnd++)
+			{
+				switch(formatStr[fmtEnd])
+				{
+					case '0': .. case '9': continue;
+					default: break;
+				}
+				break;
+			}
+		}
+
+		if(fmtEnd >= formatStr.length)
+		{
+			sink("{incomplete format spec}");
+			break;
+		}
+
+		auto fmtSpec = formatStr[fmtBegin .. fmtEnd + 1];
 		bool isRaw = false;
 
-		// check for {r and remove it if there
-		if(fmtSpec[0] == 'r')
+		if(fmtSpec[$ - 1] == 'r')
 		{
 			isRaw = true;
-			fmtSpec = fmtSpec[1 .. $];
+			fmtSpec = fmtSpec[0 .. $ - 1];
 		}
 
 		// check for parameter index and remove it if there
+		// TODO: C-style param selectors (ughhh)
 		auto index = autoIndex;
 
-		if(isdigit(fmtSpec[0]))
-		{
-			uword j = 0;
-
-			for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
-			{}
-
-			index = Integer.atoi(fmtSpec[0 .. j]) + 2;
-			fmtSpec = fmtSpec[j .. $];
-		}
-		else
+// 		if(isdigit(fmtSpec[0]))
+// 		{
+// 			uword j = 0;
+//
+// 			for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
+// 			{}
+//
+// 			index = Integer.atoi(fmtSpec[0 .. j]) + 2;
+// 			fmtSpec = fmtSpec[j .. $];
+// 		}
+// 		else
 			autoIndex++;
 
 		// output it (or see if it's an invalid index)
 		if(index > numParams)
-			formatter.convert(sink, "{{invalid index}");
+			sink("{invalid index}");
 		else
 			output(fmtSpec, index, isRaw);
 
@@ -170,7 +224,7 @@ static:
 			EOF
 		}
 
-		public static const char[][] strings =
+		public static const string[] strings =
 		[
 			String: "string",
 			Int: "integer",
@@ -196,14 +250,14 @@ static:
 
 		private uword mLine;
 		private uword mCol;
-		private char[] mSource;
+		private string mSource;
 
 		private uword mPosition;
 		private dchar mCharacter;
 
 		private Token mTok;
 
-		public void begin(MDThread* t, char[] source)
+		public void begin(MDThread* t, string source)
 		{
 			this.t = t;
 			mLine = 1;
@@ -248,9 +302,9 @@ static:
 			return ret;
 		}
 	
-		public void expected(char[] message)
+		public void expected(string message)
 		{
-			throwException(t, "({}:{}): '{}' expected; found '{}' instead", mTok.line, mTok.col, message, Token.strings[mTok.type]);
+			throwException(t, "(%s:%s): '%s' expected; found '%s' instead", mTok.line, mTok.col, message, Token.strings[mTok.type]);
 		}
 	
 		public void next()
@@ -291,8 +345,8 @@ static:
 	
 			if(c >= '0' && c <= '9')
 				return cast(ubyte)(c - '0');
-	
-			if(Uni.isUpper(c))
+
+			if(isUniUpper(c))
 				return cast(ubyte)(c - 'A' + 10);
 			else
 				return cast(ubyte)(c - 'a' + 10);
@@ -303,14 +357,9 @@ static:
 			if(mPosition >= mSource.length)
 				return dchar.init;
 			else
-			{
-				uint ate = 0;
-				auto ret = Utf.decode(mSource[mPosition .. $], ate);
-				mPosition += ate;
-				return ret;
-			}
+				return decode(mSource, mPosition);
 		}
-	
+
 		private void nextChar()
 		{
 			mCol++;
@@ -362,7 +411,7 @@ static:
 				nextChar();
 	
 				if(!isDecimalDigit())
-					throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+					throwException(t, "(%s:%s): incomplete number token", mLine, mCol);
 			}
 	
 			// integral part
@@ -379,7 +428,7 @@ static:
 				}
 			}
 
-			if(isEOF() || !contains(".eE"d, mCharacter))
+			if(isEOF() || ".eE"d.indexOf(mCharacter) == -1)
 			{
 				pushInt(t, neg? -iret : iret);
 				return true;
@@ -393,7 +442,7 @@ static:
 				nextChar();
 	
 				if(!isDecimalDigit())
-					throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+					throwException(t, "(%s:%s): incomplete number token", mLine, mCol);
 	
 				mdfloat frac = 0.0;
 				mdfloat mag = 10.0;
@@ -414,7 +463,7 @@ static:
 				nextChar();
 	
 				if(!isDecimalDigit() && mCharacter != '+' && mCharacter != '-')
-					throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+					throwException(t, "(%s:%s): incomplete number token", mLine, mCol);
 	
 				bool negExp = false;
 	
@@ -427,7 +476,7 @@ static:
 				}
 	
 				if(!isDecimalDigit())
-					throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+					throwException(t, "(%s:%s): incomplete number token", mLine, mCol);
 	
 				mdfloat exp = 0;
 	
@@ -437,7 +486,7 @@ static:
 					nextChar();
 				}
 
-				fret = fret * pow(10, negExp? -exp : exp);
+				fret = fret * pow(10.0, negExp? -exp : exp);
 			}
 			
 			pushFloat(t, neg? -fret : fret);
@@ -453,7 +502,7 @@ static:
 				for(uint i = 0; i < num; i++)
 				{
 					if(!isHexDigit())
-						throwException(t, "({}:{}): Hexadecimal escape digits expected", mLine, mCol);
+						throwException(t, "(%s:%s): Hexadecimal escape digits expected", mLine, mCol);
 	
 					ret <<= 4;
 					ret |= hexDigitToInt(mCharacter);
@@ -470,7 +519,7 @@ static:
 			nextChar();
 	
 			if(isEOF())
-				throwException(t, "({}:{}): Unterminated string literal", beginningLine, beginningCol);
+				throwException(t, "(%s:%s): Unterminated string literal", beginningLine, beginningCol);
 	
 			switch(mCharacter)
 			{
@@ -491,12 +540,12 @@ static:
 					if(x >= 0xD800 && x < 0xDC00)
 					{
 						if(mCharacter != '\\')
-							throwException(t, "({}:{}): second surrogate pair character expected", mLine, mCol);
+							throwException(t, "(%s:%s): second surrogate pair character expected", mLine, mCol);
 	
 						nextChar();
 	
 						if(mCharacter != 'u')
-							throwException(t, "({}:{}): second surrogate pair character expected", mLine, mCol);
+							throwException(t, "(%s:%s): second surrogate pair character expected", mLine, mCol);
 							
 						nextChar();
 						
@@ -507,14 +556,14 @@ static:
 						ret = cast(dchar)(0x10000 + ((x << 10) | x2));
 					}
 					else if(x >= 0xDC00 && x < 0xE000)
-						throwException(t, "({}:{}): invalid surrogate pair sequence", mLine, mCol);
+						throwException(t, "(%s:%s): invalid surrogate pair sequence", mLine, mCol);
 					else
 						ret = cast(dchar)x;
 
 					break;
 
 				default:
-					throwException(t, "({}:{}): Invalid string escape sequence '\\{}'", mLine, mCol, mCharacter);
+					throwException(t, "(%s:%s): Invalid string escape sequence '\\%s'", mLine, mCol, mCharacter);
 			}
 
 			return ret;
@@ -533,14 +582,14 @@ static:
 			while(true)
 			{
 				if(isEOF())
-					throwException(t, "({}:{}): Unterminated string literal", beginningLine, beginningCol);
+					throwException(t, "(%s:%s): Unterminated string literal", beginningLine, beginningCol);
 
 				if(mCharacter == '\\')
 					buf.addChar(readEscapeSequence(beginningLine, beginningCol));
 				else if(mCharacter == '"')
 					break;
 				else if(mCharacter <= 0x1f)
-					throwException(t, "({}:{}): Invalid character in string token", mLine, mCol);
+					throwException(t, "(%s:%s): Invalid character in string token", mLine, mCol);
 				else
 				{
 					buf.addChar(mCharacter);
@@ -607,7 +656,7 @@ static:
 						
 					case 't':
 						if(!mSource[mPosition .. $].startsWith("rue"))
-							throwException(t, "({}:{}): true expected", mLine, mCol);
+							throwException(t, "(%s:%s): true expected", mLine, mCol);
 	
 						nextChar();
 						nextChar();
@@ -619,7 +668,7 @@ static:
 
 					case 'f':
 						if(!mSource[mPosition .. $].startsWith("alse"))
-							throwException(t, "({}:{}): false expected", mLine, mCol);
+							throwException(t, "(%s:%s): false expected", mLine, mCol);
 
 						nextChar();
 						nextChar();
@@ -632,7 +681,7 @@ static:
 
 					case 'n':
 						if(!mSource[mPosition .. $].startsWith("ull"))
-							throwException(t, "({}:{}): null expected", mLine, mCol);
+							throwException(t, "(%s:%s): null expected", mLine, mCol);
 
 						nextChar();
 						nextChar();
@@ -656,7 +705,7 @@ static:
 							continue;
 						}
 						
-						throwException(t, "({}:{}): Invalid character '{}'", mLine, mCol, mCharacter);
+						throwException(t, "(%s:%s): Invalid character '%s'", mLine, mCol, mCharacter);
 				}
 			}
 		}
@@ -674,7 +723,7 @@ static:
 			case Token.Null:     l.next(); return;
 			case Token.LBrace:   return parseObject(t, l);
 			case Token.LBracket: return parseArray(t, l);
-			default: throwException(t, "({}:{}): value expected", l.line, l.col);
+			default: throwException(t, "(%s:%s): value expected", l.line, l.col);
 		}
 	}
 
@@ -735,7 +784,7 @@ static:
 		return tab;
 	}
 
-	package word load(MDThread* t, char[] source)
+	package word load(MDThread* t, string source)
 	{
 		Lexer l;
 		l.begin(t, source);
@@ -753,31 +802,31 @@ static:
 	}
 	
 	// Expects root to be at the top of the stack
-	package void save(T)(MDThread* t, word root, bool pretty, FormatOutput!(T) printer)
+	package void save(MDThread* t, word root, bool pretty, void delegate(string) printer)
 	{
 		root = absIndex(t, root);
 		auto cycles = newTable(t);
-	
+
 		word indent = 0;
-	
+
 		void newline(word dir = 0)
 		{
-			printer.newline;
+			printer(.newline);
 	
 			if(dir > 0)
 				indent++;
 			else if(dir < 0)
 				indent--;
-	
+
 			for(word i = indent; i > 0; i--)
-				printer.print("\t");
+				printer("\t");
 		}
-	
+
 		void delegate(word) outputValue;
-	
+
 		void outputTable(word tab)
 		{
-			printer.print("{");
+			printer("{");
 	
 			if(pretty)
 				newline(1);
@@ -794,7 +843,7 @@ static:
 					first = false;
 				else
 				{
-					printer.print(",");
+					printer(",");
 	
 					if(pretty)
 						newline();
@@ -803,9 +852,9 @@ static:
 				outputValue(k);
 	
 				if(pretty)
-					printer.print(": ");
+					printer(": ");
 				else
-					printer.print(":");
+					printer(":");
 	
 				outputValue(v);
 			}
@@ -813,12 +862,12 @@ static:
 			if(pretty)
 				newline(-1);
 	
-			printer.print("}");
+			printer("}");
 		}
 	
 		void outputArray(word arr)
 		{
-			printer.print("[");
+			printer("[");
 	
 			auto l = len(t, arr);
 	
@@ -827,39 +876,43 @@ static:
 				if(i > 0)
 				{
 					if(pretty)
-						printer.print(", ");
+						printer(", ");
 					else
-						printer.print(",");
+						printer(",");
 				}
 	
 				outputValue(idxi(t, arr, i));
 				pop(t);
 			}
 	
-			printer.print("]");
+			printer("]");
 		}
 		
 		void outputChar(dchar c)
 		{
 			switch(c)
 			{
-				case '\b': printer.print("\\b"); return;
-				case '\f': printer.print("\\f"); return;
-				case '\n': printer.print("\\n"); return;
-				case '\r': printer.print("\\r"); return;
-				case '\t': printer.print("\\t"); return;
+				case '\b': printer("\\b"); return;
+				case '\f': printer("\\f"); return;
+				case '\n': printer("\\n"); return;
+				case '\r': printer("\\r"); return;
+				case '\t': printer("\\t"); return;
 	
 				case '"', '\\', '/':
-					printer.print("\\");
-					printer.print(c);
+					printer("\\");
+					char[4] buf = void;
+					printer(cast(string)buf[0 .. encode(buf, c)]);
 					return;
-	
+
 				default:
 					if(c > 0x7f)
-						printer.format("\\u{:x4}", cast(int)c);
+						printer(format("\\u%4x", cast(int)c)); // TODO: make this not allocate memory
 					else
-						printer.print(c);
-	
+					{
+						char[4] buf = void;
+						printer(cast(string)buf[0 .. encode(buf, c)]);
+					}
+
 					return;
 			}
 		}
@@ -869,36 +922,36 @@ static:
 			switch(type(t, idx))
 			{
 				case MDValue.Type.Null:
-					printer.print("null");
+					printer("null");
 					break;
 	
 				case MDValue.Type.Bool:
-					printer.print(getBool(t, idx) ? "true" : "false");
+					printer(getBool(t, idx) ? "true" : "false");
 					break;
 	
 				case MDValue.Type.Int:
-					printer.format("{}", getInt(t, idx));
+					printer(format("%s", getInt(t, idx))); // TODO: make this not allocate memory
 					break;
-	
+
 				case MDValue.Type.Float:
-					printer.format("{}", getFloat(t, idx));
+					printer(format("%s", getFloat(t, idx))); // TODO: make this not allocate memory
 					break;
 	
 				case MDValue.Type.Char:
-					printer.print('"');
+					printer("\"");
 					outputChar(getChar(t, idx));
-					printer.print('"');
+					printer("\"");
 					break;
-	
+
 				case MDValue.Type.String:
-					printer.print('"');
-	
+					printer("\"");
+
 					foreach(dchar c; getString(t, idx))
 						outputChar(c);
-	
-					printer.print('"');
+
+					printer("\"");
 					break;
-	
+
 				case MDValue.Type.Table:
 					if(opin(t, idx, cycles))
 						throwException(t, "Table is cyclically referenced");
@@ -937,7 +990,7 @@ static:
 	
 				default:
 					pushTypeString(t, idx);
-					throwException(t, "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
+					throwException(t, "Type '%s' is not a valid type for conversion to JSON", getString(t, -1));
 			}
 		}
 	
@@ -950,10 +1003,9 @@ static:
 		else
 		{
 			pushTypeString(t, root);
-			throwException(t, "Root element must be either a table or an array, not a '{}'", getString(t, -1));
+			throwException(t, "Root element must be either a table or an array, not a '%s'", getString(t, -1));
 		}
 	
-		printer.flush();
 		pop(t);
 	}
 }
