@@ -20,7 +20,7 @@ void main()
 
 	MDVM vm;
 	auto t = openVM(&vm);
-// 	loadStdlibs(t, MDStdlib.ReallyAll);
+	loadStdlibs(t, MDStdlib.ReallyAll);
 
 	try
 	{
@@ -31,7 +31,7 @@ void main()
 
 // 		SerializationLib.init(t);
 
-		importModule(t, "samples.factorial");
+		importModule(t, "samples.simple");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);

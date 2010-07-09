@@ -258,7 +258,8 @@ align(1) struct MDValue
 			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar != 0);
 	}
 	
-	package void opAssign(const ref MDValue other)
+	// BUG 2444: why the fuck do I have to write this.
+	public void opAssign(const ref MDValue other)
 	{
 		if(&this !is &other)
 			(&this)[0 .. 1] = (&other)[0 .. 1];

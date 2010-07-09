@@ -1,5 +1,8 @@
 module samples.simple
 
+local a = [1, 2, 3, 4]
+a.sort()
+
 /+import sdl: event, key
 import gl
 

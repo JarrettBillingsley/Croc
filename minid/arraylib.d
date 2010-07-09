@@ -27,7 +27,9 @@ module minid.arraylib;
 
 // import tango.core.Array;
 // import tango.core.Tuple;
-// import tango.math.Math;
+
+import std.algorithm;
+import std.math;
 
 import minid.array;
 import minid.ex;
@@ -76,10 +78,11 @@ static:
 					newTable(t);
 				newFunction(t, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
 
-				newFunction(t, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
-				newFunction(t, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
-				newFunction(t, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
-				newFunction(t, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
+				// TODO: reimplement
+// 				newFunction(t, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
+// 				newFunction(t, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
+// 				newFunction(t, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
+// 				newFunction(t, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
 				newFunction(t, &count,     "count");      fielda(t, -2, "count");
 				newFunction(t, &countIf,   "countIf");    fielda(t, -2, "countIf");
 			setTypeMT(t, MDValue.Type.Array);
@@ -189,7 +192,7 @@ static:
 					push(t, v1);
 					push(t, v2);
 					rawCall(t, reg, 1);
-					
+
 					if(!isInt(t, -1))
 					{
 						pushTypeString(t, -1);
@@ -213,8 +216,8 @@ static:
 				return v < 0;
 			};
 		}
-		
-		.sort(getArray(t, 0).slice, pred);
+
+		.sort!(pred)(getArray(t, 0).slice);
 		dup(t, 0);
 		return 1;
 	}
@@ -854,80 +857,80 @@ static:
 		return 1;
 	}
 
-	uword makeHeap(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-		auto a = getArray(t, 0);
-
-		.makeHeap(a.slice, (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword pushHeap(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-		checkAnyParam(t, 1);
-		auto a = getArray(t, 0);
-
-		.pushHeap(a.slice, *getValue(t, 1), (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword popHeap(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-
-		if(len(t, 0) == 0)
-			throwException(t, "Array is empty");
-
-		idxi(t, 0, 0, true);
-
-		.popHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		return 1;
-	}
-
-	uword sortHeap(MDThread* t, uword numParams)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-
-		.sortHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
+// 	uword makeHeap(MDThread* t, uword numParams)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 		auto a = getArray(t, 0);
+// 
+// 		.makeHeap(a.slice, (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		dup(t, 0);
+// 		return 1;
+// 	}
+// 
+// 	uword pushHeap(MDThread* t, uword numParams)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 		checkAnyParam(t, 1);
+// 		auto a = getArray(t, 0);
+// 
+// 		.pushHeap(a.slice, *getValue(t, 1), (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		dup(t, 0);
+// 		return 1;
+// 	}
+// 
+// 	uword popHeap(MDThread* t, uword numParams)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 
+// 		if(len(t, 0) == 0)
+// 			throwException(t, "Array is empty");
+// 
+// 		idxi(t, 0, 0, true);
+// 
+// 		.popHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		return 1;
+// 	}
+// 
+// 	uword sortHeap(MDThread* t, uword numParams)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 
+// 		.sortHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		dup(t, 0);
+// 		return 1;
+// 	}
 
 	uword count(MDThread* t, uword numParams)
 	{
@@ -971,7 +974,7 @@ static:
 			};
 		}
 
-		pushInt(t, .count(getArray(t, 0).slice, *getValue(t, 1), pred));
+		pushInt(t, .count!(pred)(getArray(t, 0).slice, *getValue(t, 1)));
 		return 1;
 	}
 
@@ -980,7 +983,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		pushInt(t, .countIf(getArray(t, 0).slice, (MDValue a)
+		pushInt(t, .count!((MDValue a)
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);
@@ -996,7 +999,7 @@ static:
 			auto ret = getBool(t, -1);
 			pop(t);
 			return ret;
-		}));
+		})(getArray(t, 0).slice));
 		
 		return 1;
 	}

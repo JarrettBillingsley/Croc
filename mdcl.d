@@ -23,8 +23,8 @@ subject to the following restrictions:
 
 module mdcl;
 
-import tango.io.Stdout;
-import tango.io.Console;
+import std.stdio;
+import std.string;
 
 import minid.api;
 import minid.commandline;
@@ -78,24 +78,24 @@ To end interactive mode, use the \"exit()\" function.
 
 void printVersion()
 {
-	Stdout("MiniD Command-Line interpreter 2.0").newline;
+	writeln("MiniD Command-Line interpreter 2.0");
 }
 
 void printUsage()
 {
 	printVersion();
-	Stdout(Usage);
+	write(Usage);
 }
 
 struct Params
 {
 	bool justStop;
 	bool debugEnabled;
-	char[] inputFile;
-	char[][] args;
+	string inputFile;
+	string[] args;
 }
 
-Params parseArguments(MDThread* t, char[][] args)
+Params parseArguments(MDThread* t, string[] args)
 {
 	Params ret;
 
@@ -118,7 +118,7 @@ Params parseArguments(MDThread* t, char[][] args)
 
 				if(i >= args.length)
 				{
-					Stdout("-I must be followed by a path").newline;
+					writeln("-I must be followed by a path");
 					printUsage();
 					ret.justStop = true;
 					break;
@@ -140,7 +140,7 @@ Params parseArguments(MDThread* t, char[][] args)
 			default:
 				if(args[i].startsWith("-"))
 				{
-					Stdout.formatln("Unknown flag '{}'", args[i]);
+					writefln("Unknown flag '%s'", args[i]);
 					printUsage();
 					ret.justStop = true;
 					break;
@@ -157,7 +157,7 @@ Params parseArguments(MDThread* t, char[][] args)
 	return ret;
 }
 
-void main(char[][] args)
+void main(string[] args)
 {
 	MDVM vm;
 	auto t = openVM(&vm);
@@ -189,9 +189,9 @@ void main(char[][] args)
 			},
 			(MDException e, word mdEx)
 			{
-				Stdout.formatln("Error: {}", e);
+				writefln("Error: %s", e);
 				getTraceback(t);
-				Stdout.formatln("{}", getString(t, -1));
+				writeln(getString(t, -1));
 				pop(t);
 			});
 		}
@@ -205,8 +205,8 @@ void main(char[][] args)
 	}
 	catch(Exception e)
 	{
-		Stdout.formatln("Oh noes!");
-		e.writeOut((char[]s) { Stdout(s); });
+		writeln("Oh noes! A bad error:");
+		writeln(e);
 		return;
 	}
 

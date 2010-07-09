@@ -30,6 +30,8 @@ Authors:
 
 module minid.commandline;
 
+import std.stdio;
+import std.string;
 // import tango.core.Exception;
 // import tango.io.Console;
 // import tango.io.Stdout;
@@ -39,7 +41,7 @@ module minid.commandline;
 // import tango.stdc.stringz;
 // import tango.text.Util;
 
-alias tango.text.Util.contains contains;
+// alias tango.text.Util.contains contains;
 
 import minid.compiler;
 import minid.ex;
@@ -232,17 +234,29 @@ An Input struct to be used with the CLI struct, which wraps standard in/out.
 */
 struct MDConsoleInput
 {
-	Lines!(char) mLines;
+	lines mLines;
 
 	void init(MDThread* t)
 	{
-		mLines = new Lines!(char)(Cin.input);
+		mLines = lines(stdin);
 	}
 
-	char[] readln(MDThread* t, char[] prompt)
+	string readln(MDThread* t, string prompt)
 	{
-		Stdout(prompt)();
-		return mLines.next();
+		write(prompt);
+		
+		string s;
+		foreach(string line; mLines)
+		{
+			s = line;
+			break;
+		}
+		
+		s = s[0 .. $ - 1];
+		if(s.length && s[$ - 1] == '\r')
+			s = s[0 .. $ - 1];
+
+		return s;
 	}
 }
 
@@ -275,13 +289,18 @@ template IsValidInputType(T)
 		static if(is(typeof(&input.init) == delegate))
 			input.init(t);
 
-		char[] prompt;
-		char[] line = input.readln(t, prompt);
+		string prompt;
+		string line = input.readln(t, prompt);
 
 		static if(is(typeof(&input.cleanup) == delegate))
 			input.cleanup(t);
 	}));
 }
+
+const SIGINT    = 2;  // Terminal interrupt character
+extern(C) private alias void function(int) sigfn_t;
+extern(C) sigfn_t signal(int sig, sigfn_t func);
+
 
 /**
 This struct encapsulates an interactive MiniD interpreter.  MDCL uses this struct to do its
@@ -297,11 +316,11 @@ struct CLI(Input)
 {
 	static assert(IsValidInputType!(Input), "Type '" ~ Input.stringof ~ "' does not fulfill the Input interface");
 
-	const char[] Prompt1 = ">>> ";
-	const char[] Prompt2 = "... ";
+	enum string Prompt1 = ">>> ";
+	enum string Prompt2 = "... ";
 
 	private Input mInput;
-	private char[] mPrompt = Prompt1;
+	private string mPrompt = Prompt1;
 	private bool mRunning;
 	private bool mReplacedExit = false;
 	
@@ -333,7 +352,7 @@ struct CLI(Input)
 		// Set up the exit object
 		newTable(t);
 
-			pushNativeObj(t, new Goober(this));
+			pushNativeObj(t, new Goober(&this));
 		newFunction(t, function uword(MDThread* t, uword numParams)
 		{
 			getUpval(t, 0);
@@ -443,7 +462,7 @@ struct CLI(Input)
 		// Support funcs
 		bool couldBeDecl()
 		{
-			auto temp = buffer.triml();
+			auto temp = buffer.stripl();
 			return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace") || temp.startsWith("@");
 		}
 
@@ -453,7 +472,7 @@ struct CLI(Input)
 			word reg;
 
 			try
-				reg = c.compileStatements(buffer, "CLI");
+				reg = c.compileStatements(cast(string)buffer, "CLI");
 			catch(MDException e2)
 			{
 				catchException(t);
@@ -468,13 +487,13 @@ struct CLI(Input)
 				{
 					if(e)
 					{
-						Stdout.formatln("When attempting to evaluate as an expression:");
-						Stdout.formatln("Error: {}", e);
-						Stdout.formatln("When attempting to evaluate as a statement:");
+						writeln("When attempting to evaluate as an expression:");
+						writefln("Error: %s", e);
+						writeln("When attempting to evaluate as a statement:");
 					}
 				}
 
-				Stdout.formatln("Error: {}", e2).newline;
+				writefln("Error: %s", e2);
 				return false;
 			}
 
@@ -488,12 +507,12 @@ struct CLI(Input)
 				catchException(t);
 				pop(t);
 
-				Stdout.formatln("Error: {}", e2);
+				writefln("Error: %s", e2);
 
 				getTraceback(t);
-				Stdout.formatln("{}", getString(t, -1));
+				writeln(getString(t, -1));
 				pop(t);
-				Stdout.newline;
+				writeln();
 			}
 
 			return false;
@@ -505,7 +524,7 @@ struct CLI(Input)
 			word reg;
 
 			try
-				reg = c.compileExpression(buffer, "CLI");
+				reg = c.compileExpression(cast(string)buffer, "CLI");
 			catch(MDException e)
 			{
 				catchException(t);
@@ -527,7 +546,7 @@ struct CLI(Input)
 
 				if(numRets > 0)
 				{
-					Stdout(" => ");
+					write(" => ");
 
 					bool first = true;
 
@@ -536,7 +555,7 @@ struct CLI(Input)
 						if(first)
 							first = false;
 						else
-							Stdout(", ");
+							write(", ");
 
 						reg = pushGlobal(t, "dumpVal");
 						pushNull(t);
@@ -545,7 +564,7 @@ struct CLI(Input)
 						rawCall(t, reg, 0);
 					}
 
-					Stdout.newline;
+					writeln();
 				}
 			}
 			catch(MDException e)
@@ -553,19 +572,19 @@ struct CLI(Input)
 				catchException(t);
 				pop(t);
 
-				Stdout.formatln("Error: {}", e);
+				writefln("Error: %s", e);
 
 				getTraceback(t);
-				Stdout.formatln("{}", getString(t, -1));
+				writeln(getString(t, -1));
 				pop(t);
-				Stdout.newline;
+				writeln();
 			}
 
 			return false;
 		}
 
 		// Main loop
-		Stdout.formatln("Use exit() or Ctrl+D<Enter> to end.");
+		writeln("Use exit() or Ctrl+D<Enter> to end.");
 		mRunning = true;
 		mPrompt = Prompt1;
 
@@ -597,17 +616,17 @@ struct CLI(Input)
 					if(didHalt)
 					{
 						didHalt = false;
-						Stdout.newline;
+						writeln();
 					}
 					else
 						break;
 				}
 				
 				// Look for Ctrl+D
-				if(line.contains('\4'))
+				if(line.indexOf('\4') != -1)
 					break;
-	
-				if(buffer.length is 0 && line.trim().length is 0)
+
+				if(buffer.length is 0 && line.strip().length is 0)
 				{
 					mPrompt = Prompt1;
 					continue;
@@ -620,7 +639,7 @@ struct CLI(Input)
 			}
 			catch(MDHaltException e)
 			{
-				Stdout.formatln("Halted by keyboard interrupt.");
+				writeln("Halted by keyboard interrupt.");
 				didHalt = false;
 				mPrompt = Prompt1;
 				continue;
@@ -639,7 +658,7 @@ struct CLI(Input)
 			}
 			catch(MDHaltException e)
 			{
-				Stdout.formatln("Halted by keyboard interrupt.");
+				writeln("Halted by keyboard interrupt.");
 				didHalt = false;
 			}
 

@@ -47,7 +47,7 @@ public
 	import minid.vm;
 }
 
-// import minid.arraylib;
+import minid.arraylib;
 import minid.baselib;
 // import minid.charlib;
 // import minid.debuglib;
@@ -214,9 +214,9 @@ Params:
 */
 public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 {
-// 	if(libs & MDStdlib.Array)
-// 		ArrayLib.init(t);
-// 
+	if(libs & MDStdlib.Array)
+		ArrayLib.init(t);
+
 // 	if(libs & MDStdlib.Char)
 // 		CharLib.init(t);
 // 		
@@ -286,6 +286,5 @@ public void closeVM(MDVM* vm)
 	debug(LEAK_DETECTOR)
 		vm.alloc._memBlocks.clear(vm.alloc);
 
-// 	delete vm.formatter;
 	*vm = MDVM.init;
 }
