@@ -45,6 +45,11 @@ import minid.utils;
 
 package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink)
 {
+	return formatImpl(t, 1, numParams, sink);
+}
+
+package void formatImpl(MDThread* t, uword startIndex, uword numParams, uint delegate(char[]) sink)
+{
 	auto formatter = t.vm.formatter;
 
 	void output(char[] fmt, uword param, bool isRaw)
@@ -67,8 +72,8 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 		}
 	}
 
-	auto formatStr = getString(t, 1);
-	uword autoIndex = 2;
+	auto formatStr = getString(t, startIndex);
+	uword autoIndex = startIndex + 1;
 	uword begin = 0;
 
 	while(begin < formatStr.length)
@@ -126,7 +131,7 @@ package void formatImpl(MDThread* t, uword numParams, uint delegate(char[]) sink
 			for(; j < fmtSpec.length && isdigit(fmtSpec[j]); j++)
 			{}
 
-			index = Integer.atoi(fmtSpec[0 .. j]) + 2;
+			index = Integer.atoi(fmtSpec[0 .. j]) + startIndex + 1;
 			fmtSpec = fmtSpec[j .. $];
 		}
 		else

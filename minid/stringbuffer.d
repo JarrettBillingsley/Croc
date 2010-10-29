@@ -51,6 +51,8 @@ static:
 			c.method("fillRange",      &fillRange);
 			c.method("format",         &format);
 			c.method("formatln",       &formatln);
+			c.method("formatPos",      &formatPos);
+			c.method("formatlnPos",    &formatlnPos);
 			c.method("insert",         &sb_insert);
 			c.method("toString",       &toString);
 
@@ -536,6 +538,52 @@ static:
 
 		pushFormat(t, "{}", (cast(dchar*)memb.data)[cast(uword)lo .. cast(uword)hi]);
 		return 1;
+	}
+	
+	uword formatPos(MDThread* t, uword numParams)
+	{
+		auto memb = getThis(t);
+		auto pos = checkIntParam(t, 1);
+
+		if(pos < 0)
+			pos += memb.length;
+
+		if(pos < 0 || pos > memb.length)
+			throwException(t, "Invalid index: {} (length: {})", pos, memb.length);
+
+		uint sink(char[] data)
+		{
+			auto dataLen = verify(data);
+			ulong totalLen = cast(uword)pos + dataLen;
+
+			if(totalLen > memb.length)
+			{
+				if(totalLen > uword.max)
+					throwException(t, "Invalid size ({})", totalLen);
+
+				auto oldLen = memb.length;
+				pushNull(t);
+				pushNull(t);
+				pushInt(t, cast(mdint)totalLen);
+				superCall(t, -3, "opLengthAssign", 0);
+			}
+
+			uint ate = 0;
+			Utf.toString32(data, (cast(dchar*)memb.data)[cast(uword)pos .. cast(uword)pos + dataLen], &ate);
+			pos += dataLen;
+			return data.length;
+		}
+
+		formatImpl(t, 2, numParams, &sink);
+
+		pushInt(t, pos);
+		return 1;
+	}
+
+	uword formatlnPos(MDThread* t, uword numParams)
+	{
+		pushChar(t, '\n');
+		return formatPos(t, numParams + 1);
 	}
 
 	uword format(MDThread* t, uword numParams)

@@ -394,7 +394,7 @@ static:
 
 		safeCode(t,
 		{
-			scope file = new UnicodeFile!(char)(name, Encoding.UTF_8N);
+			scope file = new UnicodeFile!(char)(name, Encoding.UTF_8);
 			file.write(data, true);
 		}());
 

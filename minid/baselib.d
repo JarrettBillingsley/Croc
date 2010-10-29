@@ -653,6 +653,7 @@ static:
 			return data.length;
 		}
 
+		checkStringParam(t, 1);
 		formatImpl(t, numParams, &sink);
 		Stdout.flush;
 		return 0;
@@ -666,6 +667,7 @@ static:
 			return data.length;
 		}
 
+		checkStringParam(t, 1);
 		formatImpl(t, numParams, &sink);
 		Stdout.newline;
 		return 0;
