@@ -222,7 +222,7 @@ SuperOf...........R: dest, src, n/a
 Switch............R: n/a, src, index of switch table
 SwitchCmp.........R: n/a, src, src
 Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
-Throw.............R: n/a, src, n/a
+Throw.............R: n/a, src, 0 = not rethrowing, 1 = rethrowing
 Unwind............I: n/a, number of levels
 UShr..............R: dest, src, src
 UShrEq............R: dest, src, n/a
@@ -387,7 +387,7 @@ align(1) struct Instruction
 			case Op.Switch:          return Format("switch {}, {}", cr(rs), rt);
 			case Op.SwitchCmp:       return Format("swcmp {}, {}", cr(rs), cr(rt));
 			case Op.Tailcall:        return Format("tcall r{}, {}", rd, rs);
-			case Op.Throw:           return Format("throw {}", cr(rs));
+			case Op.Throw:           return Format("{}throw {}", rt ? "re" : "", cr(rs));
 			case Op.Unwind:          return Format("unwind {}", uimm);
 			case Op.UShr:            return Format("ushr {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.UShrEq:          return Format("ushreq {}, {}", cr(rd), cr(rs));

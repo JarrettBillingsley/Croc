@@ -726,6 +726,7 @@ struct MDVM
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;
 	package Layout!(char) formatter;
+	package char[] exMsg;
 
 	version(MDExtendedCoro)
 		version(MDPoolFibers)

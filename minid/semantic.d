@@ -371,7 +371,7 @@ scope class Semantic : IdentityVisitor
 						rhs ~= new(c) BoolExp(c, ss.location, false);
 						dummy ~= new(c) AssignStmt(c, ss.location, ss.location, lhs.toArray(), rhs.toArray());
 						// throw __dummy2
-						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar));
+						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar), true);
 						auto code = dummy.toArray();
 						catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
 					}
@@ -406,7 +406,7 @@ scope class Semantic : IdentityVisitor
 					auto catchVar = genDummyVar(ss.location);
 					scope dummy = new List!(Statement)(c.alloc);
 					dummy ~= ss.stmt;
-					dummy ~= new(c) ThrowStmt(c, ss.stmt.endLocation, new(c) IdentExp(c, catchVar));
+					dummy ~= new(c) ThrowStmt(c, ss.stmt.endLocation, new(c) IdentExp(c, catchVar), true);
 					auto catchCode = dummy.toArray();
 					auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
 					replacement = visit(new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, catchVar, catchBody, null));

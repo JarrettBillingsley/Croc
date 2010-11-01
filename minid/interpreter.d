@@ -6853,35 +6853,38 @@ void arrayAppend(MDThread* t, MDArray* a, MDValue[] vals)
 	}
 }
 
-void throwImpl(MDThread* t, MDValue* ex)
+void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
 {
 	auto exSave = *ex;
 
-	pushDebugLocStr(t, getDebugLoc(t));
-	pushString(t, ": ");
-
-	auto size = stackSize(t);
-
-	try
-		toStringImpl(t, exSave, false);
-	catch(MDException e)
+	if(!rethrowing)
 	{
-		catchException(t);
-		setStackSize(t, size);
-		toStringImpl(t, exSave, true);
+		pushDebugLocStr(t, getDebugLoc(t));
+		pushString(t, ": ");
+
+		auto size = stackSize(t);
+
+		try
+			toStringImpl(t, exSave, false);
+		catch(MDException e)
+		{
+			catchException(t);
+			setStackSize(t, size);
+			toStringImpl(t, exSave, true);
+		}
+
+		cat(t, 3);
+
+		t.vm.alloc.resizeArray(t.vm.traceback, 0);
+
+		// dup'ing since we're removing the only MiniD reference and handing it off to D
+		t.vm.exMsg = getString(t, -1).dup;
+		pop(t);
 	}
-
-	cat(t, 3);
-
-	t.vm.alloc.resizeArray(t.vm.traceback, 0);
-
-	// dup'ing since we're removing the only MiniD reference and handing it off to D
-	auto msg = getString(t, -1).dup;
-	pop(t);
 
 	t.vm.exception = exSave;
 	t.vm.isThrowing = true;
-	throw new MDException(msg);
+	throw new MDException(t.vm.exMsg);
 }
 
 void importImpl(MDThread* t, MDString* name, AbsStack dest)
@@ -7387,6 +7390,7 @@ void callReturnHooks(MDThread* t)
 void execute(MDThread* t, uword depth = 1)
 {
 	MDException currentException = null;
+	bool rethrowingException = false;
 	MDValue RS;
 	MDValue RT;
 
@@ -7825,14 +7829,20 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.EndFinal:
 					if(currentException !is null)
+					{
+						rethrowingException = true;
 						throw currentException;
+					}
 
 					if(t.currentAR.unwindReturn !is null)
 						goto _commonEHUnwind;
 
 					break;
 
-				case Op.Throw: throwImpl(t, mixin(GetRS)); break;
+				case Op.Throw:
+					rethrowingException = cast(bool)i.rt;
+					throwImpl(t, mixin(GetRS), rethrowingException);
+					break;
 
 				// Function Calling
 			{
@@ -8463,6 +8473,11 @@ void execute(MDThread* t, uword depth = 1)
 				// remove any results that may have been saved
 				loadResults(t);
 
+				if(rethrowingException)
+					rethrowingException = false;
+				else
+					t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
+
 				if(tr.isCatch)
 				{
 					t.stack[base] = t.vm.exception;
@@ -8482,10 +8497,13 @@ void execute(MDThread* t, uword depth = 1)
 				}
 			}
 
-			if(t.currentAR && t.currentAR.func !is null)
+			if(rethrowingException)
+				rethrowingException = false;
+			else if(t.currentAR && t.currentAR.func !is null)
 			{
 				t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
 
+				// as far as I can reason, it would be impossible to have tailcalls AND have rethrowingException == true, since you can't do a tailcall in a try block.
 				if(t.currentAR.numTailcalls > 0)
 				{
 					pushFormat(t, "<{} tailcalls>", t.currentAR.numTailcalls);

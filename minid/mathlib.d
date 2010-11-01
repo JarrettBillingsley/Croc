@@ -96,170 +96,154 @@ static:
 		importModuleNoNS(t, "math");
 	}
 
-	mdfloat get_float(MDThread* t, word i)
-	{
-		if(isInt(t, i))
-			return getInt(t, i);
-		else if(isFloat(t, i))
-			return getFloat(t, i);
-		else
-		{
-			pushTypeString(t, i);
-			throwException(t, "Expected 'int' or 'float', not '{}'", getString(t, -1));
-		}
-		
-		assert(false);
-	}
-
 	uword abs(MDThread* t, uword numParams)
 	{
+		checkNumParam(t, 1);
+
 		if(isInt(t, 1))
 			pushInt(t, math.abs(getInt(t, 1)));
-		else if(isFloat(t, 1))
-			pushFloat(t, math.abs(getFloat(t, 1)));
 		else
-		{
-			pushTypeString(t, 1);
-			throwException(t, "Expected 'int' or 'float', not '{}'", getString(t, -1));
-		}
+			pushFloat(t, math.abs(getFloat(t, 1)));
 
 		return 1;
 	}
 
 	uword sin(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.sin(get_float(t, 1)));
+		pushFloat(t, math.sin(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword cos(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.cos(get_float(t, 1)));
+		pushFloat(t, math.cos(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword tan(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.tan(get_float(t, 1)));
+		pushFloat(t, math.tan(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword asin(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.asin(get_float(t, 1)));
+		pushFloat(t, math.asin(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword acos(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.acos(get_float(t, 1)));
+		pushFloat(t, math.acos(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword atan(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.atan(get_float(t, 1)));
+		pushFloat(t, math.atan(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword atan2(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.atan2(get_float(t, 1), get_float(t, 2)));
+		pushFloat(t, math.atan2(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
 	uword sqrt(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.sqrt(get_float(t, 1)));
+		pushFloat(t, math.sqrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword cbrt(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.cbrt(get_float(t, 1)));
+		pushFloat(t, math.cbrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword exp(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.exp(get_float(t, 1)));
+		pushFloat(t, math.exp(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword ln(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.log(get_float(t, 1)));
+		pushFloat(t, math.log(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword log2(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.log2(get_float(t, 1)));
+		pushFloat(t, math.log2(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword log10(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.log10(get_float(t, 1)));
+		pushFloat(t, math.log10(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword hypot(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.hypot(get_float(t, 1), get_float(t, 2)));
+		pushFloat(t, math.hypot(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
 	uword lgamma(MDThread* t, uword numParams)
 	{
-		pushFloat(t, logGamma(get_float(t, 1)));
+		pushFloat(t, logGamma(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword gamma(MDThread* t, uword numParams)
 	{
-		pushFloat(t, .gamma(get_float(t, 1)));
+		pushFloat(t, .gamma(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword ceil(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.ceil(get_float(t, 1)));
+		pushFloat(t, math.ceil(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword floor(MDThread* t, uword numParams)
 	{
-		pushFloat(t, math.floor(get_float(t, 1)));
+		pushFloat(t, math.floor(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword round(MDThread* t, uword numParams)
 	{
-		pushInt(t, cast(mdint)math.round(get_float(t, 1)));
+		pushInt(t, cast(mdint)math.round(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword trunc(MDThread* t, uword numParams)
 	{
-		pushInt(t, cast(mdint)math.trunc(get_float(t, 1)));
+		pushInt(t, cast(mdint)math.trunc(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword isNan(MDThread* t, uword numParams)
 	{
-		pushBool(t, cast(bool)ieee.isNaN(get_float(t, 1)));
+		pushBool(t, cast(bool)ieee.isNaN(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword isInf(MDThread* t, uword numParams)
 	{
-		pushBool(t, cast(bool)ieee.isInfinity(get_float(t, 1)));
+		pushBool(t, cast(bool)ieee.isInfinity(checkNumParam(t, 1)));
 		return 1;
 	}
 
 	uword sign(MDThread* t, uword numParams)
 	{
+		checkNumParam(t, 1);
+
 		if(isInt(t, 1))
 		{
 			auto val = getInt(t, 1);
@@ -282,18 +266,19 @@ static:
 			else
 				pushInt(t, 0);
 		}
-		
+
 		return 1;
 	}
-	
+
 	uword pow(MDThread* t, uword numParams)
 	{
-		auto base = get_float(t, 1);
+		auto base = checkNumParam(t, 1);
+		auto exp = checkNumParam(t, 2);
 
 		if(isInt(t, 2))
 			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
 		else
-			pushFloat(t, math.pow(base, get_float(t, 2)));
+			pushFloat(t, math.pow(base, exp));
 
 		return 1;
 	}
@@ -316,7 +301,7 @@ static:
 				break;
 
 			case 1:
-				auto max = getInt(t, 1);
+				auto max = checkIntParam(t, 1);
 
 				if(max == 0)
 					throwException(t, "Maximum value may not be 0");
@@ -325,8 +310,8 @@ static:
 				break;
 
 			default:
-				auto lo = getInt(t, 1);
-				auto hi = getInt(t, 2);
+				auto lo = checkIntParam(t, 1);
+				auto hi = checkIntParam(t, 2);
 
 				if(hi == lo)
 					throwException(t, "Low and high values must be different");
@@ -349,12 +334,12 @@ static:
 				break;
 
 			case 1:
-				pushFloat(t, num * getFloat(t, 1));
+				pushFloat(t, num * checkNumParam(t, 1));
 				break;
 
 			default:
-				auto lo = getFloat(t, 1);
-				auto hi = getFloat(t, 2);
+				auto lo = checkNumParam(t, 1);
+				auto hi = checkNumParam(t, 2);
 
 				pushFloat(t, (num * (hi - lo)) + lo);
 				break;

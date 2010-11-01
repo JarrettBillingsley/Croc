@@ -2965,7 +2965,7 @@ scope class Codegen : Visitor
 		Exp src;
 		fs.popSource(s.location.line, src);
 		fs.freeExpTempRegs(src);
-		fs.codeR(s.endLocation.line, Op.Throw, 0, src.index, 0);
+		fs.codeR(s.endLocation.line, Op.Throw, 0, src.index, s.rethrowing ? 1 : 0);
 		return s;
 	}
 	
