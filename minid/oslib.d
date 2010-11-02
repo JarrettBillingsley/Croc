@@ -48,6 +48,7 @@ static:
 			ProcessObj.init(t);
 			newFunction(t, &system, "system"); newGlobal(t, "system");
 			newFunction(t, &getEnv, "getEnv"); newGlobal(t, "getEnv");
+			newFunction(t, &putEnv, "putEnv"); newGlobal(t, "putEnv");
 
 			return 0;
 		});
@@ -107,6 +108,19 @@ static:
 		}
 
 		return 1;
+	}
+
+	uword putEnv(MDThread* t, uword numParams)
+	{
+		auto name = checkStringParam(t, 1);
+		checkAnyParam(t, 2);
+		
+		if(isNull(t, 2))
+			Environment.set(name, null);
+		else
+			Environment.set(name, checkStringParam(t, 2));
+		
+		return 0;
 	}
 
 	struct ProcessObj
