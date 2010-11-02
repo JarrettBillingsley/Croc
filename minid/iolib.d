@@ -295,15 +295,14 @@ static:
 	uword listImpl(MDThread* t, uword numParams, bool isFolder)
 	{
 		auto fp = optStringParam(t, 1, ".");
-		
+
 		if(fp == ".")
 			fp = Environment.cwd();
 
-		auto listing = newArray(t, 0);
-
-		if(numParams >= 2)
+		if(numParams >= 3)
 		{
 			auto filter = checkStringParam(t, 2);
+			checkParam(t, 3, MDValue.Type.Function);
 
 			safeCode(t,
 			{
@@ -311,37 +310,51 @@ static:
 				{
 					if(info.folder is isFolder)
 					{
+						if(!Path.patternMatch(info.name, filter))
+							continue;
+
+						dup(t, 3);
+						pushNull(t);
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
-						auto fullName = getString(t, -1);
-	
-						if(Path.patternMatch(fullName, filter))
-							cateq(t, listing, 1);
-						else
-							pop(t);
+						rawCall(t, -3, 1);
+						
+						if(isBool(t, -1) && !getBool(t, -1))
+							break;
+
+						pop(t);
 					}
 				}
 			}());
 		}
 		else
 		{
+			checkParam(t, 2, MDValue.Type.Function);
+
 			safeCode(t,
 			{
 				foreach(ref info; Path.children(fp))
 				{
 					if(info.folder is isFolder)
 					{
+						dup(t, 2);
+						pushNull(t);
 						pushString(t, info.path);
 						pushString(t, info.name);
 						cat(t, 2);
-						cateq(t, listing, 1);
+						rawCall(t, -3, 1);
+						
+						if(isBool(t, -1) && !getBool(t, -1))
+							break;
+							
+						pop(t);
 					}
 				}
 			}());
 		}
 
-		return 1;
+		return 0;
 	}
 
 	uword listFiles(MDThread* t, uword numParams)
