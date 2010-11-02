@@ -1168,8 +1168,16 @@ struct Parser
 	public BreakStmt parseBreakStmt()
 	{
 		auto location = l.expect(Token.Break).loc;
+		char[] name = null;
+
+		if(!l.isStatementTerm() && l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.statementTerm();
-		return new(c) BreakStmt(c, location);
+		return new(c) BreakStmt(c, location, name);
 	}
 
 	/**
@@ -1177,8 +1185,16 @@ struct Parser
 	public ContinueStmt parseContinueStmt()
 	{
 		auto location = l.expect(Token.Continue).loc;
+		char[] name = null;
+
+		if(!l.isStatementTerm() && l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.statementTerm();
-		return new(c) ContinueStmt(c, location);
+		return new(c) ContinueStmt(c, location, name);
 	}
 
 	/**
@@ -1189,11 +1205,20 @@ struct Parser
 		auto doBody = parseStatement(false);
 
 		l.expect(Token.While);
+		
+		char[] name = null;
+
+		if(l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.expect(Token.LParen);
 
 		auto condition = parseExpression();
 		auto endLocation = l.expect(Token.RParen).loc;
-		return new(c) DoWhileStmt(c, location, endLocation, doBody, condition);
+		return new(c) DoWhileStmt(c, location, endLocation, name, doBody, condition);
 	}
 
 	/**
@@ -1203,6 +1228,14 @@ struct Parser
 	public Statement parseForStmt()
 	{
 		auto location = l.expect(Token.For).loc;
+		char[] name = null;
+		
+		if(l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.expect(Token.LParen);
 
 		alias ForStmt.Init Init;
@@ -1251,7 +1284,7 @@ struct Parser
 			l.expect(Token.RParen);
 
 			auto code = parseStatement();
-			return new(c) ForNumStmt(c, location, index, lo, hi, step, code);
+			return new(c) ForNumStmt(c, location, name, index, lo, hi, step, code);
 		}
 		else
 		{
@@ -1262,7 +1295,7 @@ struct Parser
 				l.next();
 				parseInitializer();
 			}
-	
+
 			l.expect(Token.Semicolon);
 		}
 
@@ -1294,14 +1327,22 @@ struct Parser
 		}
 
 		auto code = parseStatement(false);
-		return new(c) ForStmt(c, location, init.toArray(), condition, increment.toArray(), code);
+		return new(c) ForStmt(c, location, name, init.toArray(), condition, increment.toArray(), code);
 	}
-	
+
 	/**
 	*/
 	public ForeachStmt parseForeachStmt()
 	{
 		auto location = l.expect(Token.Foreach).loc;
+		char[] name = null;
+
+		if(l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.expect(Token.LParen);
 
 		scope indices = new List!(Identifier)(c.alloc);
@@ -1312,14 +1353,14 @@ struct Parser
 			l.next();
 			indices ~= parseIdentifier();
 		}
-		
+
 		Identifier[] indicesArr;
 
 		if(indices.length == 1)
 		{
 			indices ~= cast(Identifier)null;
 			indicesArr = indices.toArray();
-			
+
 			for(uword i = indicesArr.length - 1; i > 0; i--)
 				indicesArr[i] = indicesArr[i - 1];
 
@@ -1348,7 +1389,7 @@ struct Parser
 		l.expect(Token.RParen);
 
 		auto code = parseStatement();
-		return new(c) ForeachStmt(c, location, indicesArr, container.toArray(), code);
+		return new(c) ForeachStmt(c, location, name, indicesArr, container.toArray(), code);
 	}
 
 	/**
@@ -1506,6 +1547,14 @@ struct Parser
 	public SwitchStmt parseSwitchStmt()
 	{
 		auto location = l.expect(Token.Switch).loc;
+		char[] name = null;
+
+		if(l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.expect(Token.LParen);
 
 		auto condition = parseExpression();
@@ -1526,7 +1575,7 @@ struct Parser
 			caseDefault = parseDefaultStmt();
 
 		auto endLocation = l.expect(Token.RBrace).loc;
-		return new(c) SwitchStmt(c, location, endLocation, condition, cases.toArray(), caseDefault);
+		return new(c) SwitchStmt(c, location, endLocation, name, condition, cases.toArray(), caseDefault);
 	}
 
 	/**
@@ -1667,6 +1716,14 @@ struct Parser
 	public WhileStmt parseWhileStmt()
 	{
 		auto location = l.expect(Token.While).loc;
+		char[] name = null;
+
+		if(l.type == Token.Ident)
+		{
+			name = l.tok.stringValue;
+			l.next();
+		}
+
 		l.expect(Token.LParen);
 
 		IdentExp condVar;
@@ -1681,7 +1738,7 @@ struct Parser
 		auto condition = parseExpression();
 		l.expect(Token.RParen);
 		auto code = parseStatement(false);
-		return new(c) WhileStmt(c, location, condVar, condition, code);
+		return new(c) WhileStmt(c, location, name, condVar, condition, code);
 	}
 
 	/**

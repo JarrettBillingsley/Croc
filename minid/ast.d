@@ -1066,17 +1066,23 @@ This node represents a while loop.
 class WhileStmt : Statement
 {
 	/**
+	An optional loop label used for named breaks/continues. This member may be null, in which
+	case it's an unnamed loop.
+	*/
+	public char[] name;
+
+	/**
 	An optional variable to declare inside the statement's condition which will take on
 	the value of the condition.  In the code "while(local x = y < z){}", this corresponds
 	to "x".  This member may be null, in which case there is no variable there.
 	*/
 	public IdentExp condVar;
-	
+
 	/**
 	The condition to test.
 	*/
 	public Expression condition;
-	
+
 	/**
 	The code inside the loop.
 	*/
@@ -1084,10 +1090,11 @@ class WhileStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, IdentExp condVar, Expression condition, Statement code)
+	public this(ICompiler c, CompileLoc location, char[] name, IdentExp condVar, Expression condition, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.WhileStmt);
 
+		this.name = name;
 		this.condVar = condVar;
 		this.condition = condition;
 		this.code = code;
@@ -1100,10 +1107,16 @@ This node corresponds to a do-while loop.
 class DoWhileStmt : Statement
 {
 	/**
+	An optional loop label used for named breaks/continues. This member may be null, in which
+	case it's an unnamed loop.
+	*/
+	public char[] name;
+
+	/**
 	The code inside the loop.
 	*/
 	public Statement code;
-	
+
 	/**
 	The condition to test at the end of the loop.
 	*/
@@ -1111,10 +1124,11 @@ class DoWhileStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement code, Expression condition)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Statement code, Expression condition)
 	{
 		super(c, location, endLocation, AstTag.DoWhileStmt);
 
+		this.name = name;
 		this.code = code;
 		this.condition = condition;
 	}
@@ -1125,6 +1139,12 @@ This node represents a C-style for loop.
 */
 class ForStmt : Statement
 {
+	/**
+	An optional loop label used for named breaks/continues. This member may be null, in which
+	case it's an unnamed loop.
+	*/
+	public char[] name;
+
 	/**
 	There are two types of initializers possible in the first clause of the for loop header:
 	variable declarations and expression statements.  This struct holds one or the other.
@@ -1156,14 +1176,14 @@ class ForStmt : Statement
 	A list of 0 or more initializers (the first clause of the foreach header).
 	*/
 	public Init[] init;
-	
+
 	/**
 	The condition to test at the beginning of each iteration of the loop.  This can be
 	null, in which case the only way to get out of the loop is to break, return, or
 	throw an exception.
 	*/
 	public Expression condition;
-	
+
 	/**
 	A list of 0 or more increment expression statements to be evaluated at the end of
 	each iteration of the loop.
@@ -1177,16 +1197,17 @@ class ForStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Init[] init, Expression cond, Statement[] inc, Statement code)
+	public this(ICompiler c, CompileLoc location, char[] name, Init[] init, Expression cond, Statement[] inc, Statement code)
 	{
 		super(c, location, endLocation, AstTag.ForStmt);
 
+		this.name = name;
 		this.init = init;
 		this.condition = cond;
 		this.increment = inc;
 		this.code = code;
 	}
-	
+
 	override void cleanup(ref Allocator alloc)
 	{
 		alloc.freeArray(init);
@@ -1200,10 +1221,16 @@ This node represents a numeric for loop, i.e. "for(i: 0 .. 10){}".
 class ForNumStmt : Statement
 {
 	/**
+	An optional loop label used for named breaks/continues. This member may be null, in which
+	case it's an unnamed loop.
+	*/
+	public char[] name;
+
+	/**
 	The name of the index variable.
 	*/
 	public Identifier index;
-	
+
 	/**
 	The lower bound of the loop (the value before the "..").  If constant, it must be an
 	int.
@@ -1230,10 +1257,11 @@ class ForNumStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	public this(ICompiler c, CompileLoc location, char[] name, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.ForNumStmt);
 
+		this.name = name;
 		this.index = index;
 		this.lo = lo;
 		this.hi = hi;
@@ -1248,12 +1276,18 @@ This node represents a foreach loop.
 class ForeachStmt : Statement
 {
 	/**
+	An optional loop label used for named breaks/continues. This member may be null, in which
+	case it's an unnamed loop.
+	*/
+	public char[] name;
+
+	/**
 	The list of index names (the names before the semicolon).  This list is always at least
 	two elements long.  This is because when you write a foreach loop with only one index,
 	an implicit dummy index is inserted before it.
 	*/
 	public Identifier[] indices;
-	
+
 	/**
 	The container (the stuff after the semicolon).  This array can be 1, 2, or 3 elements
 	long.  Semantically, the first element is the "iterator", the second the "state", and
@@ -1261,7 +1295,7 @@ class ForeachStmt : Statement
 	if it's not a function, so this can function like a foreach loop in D.
 	*/
 	public Expression[] container;
-	
+
 	/**
 	The code inside the loop.
 	*/
@@ -1269,10 +1303,11 @@ class ForeachStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier[] indices, Expression[] container, Statement code)
+	public this(ICompiler c, CompileLoc location, char[] name, Identifier[] indices, Expression[] container, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.ForeachStmt);
 
+		this.name = name;
 		this.indices = indices;
 		this.container = container;
 		this.code = code;
@@ -1291,15 +1326,21 @@ This node represents a switch statement.
 class SwitchStmt : Statement
 {
 	/**
+	An optional label used for named breaks. This member may be null, in which case it's
+	an unnamed switch.
+	*/
+	public char[] name;
+
+	/**
 	The value to switch on.
 	*/
 	public Expression condition;
-	
+
 	/**
 	A list of cases.  This is always at least one element long.
 	*/
 	public CaseStmt[] cases;
-	
+
 	/**
 	An optional default case.  This member can be null.
 	*/
@@ -1307,9 +1348,10 @@ class SwitchStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
 	{
 		super(c, location, endLocation, AstTag.SwitchStmt);
+		this.name = name;
 		this.condition = condition;
 		this.cases = cases;
 		this.caseDefault = caseDefault;
@@ -1392,10 +1434,16 @@ This node represents a continue statement.
 class ContinueStmt : Statement
 {
 	/**
+	Optional name of control structure to continue. Can be null, which means an unnamed continue.
 	*/
-	public this(ICompiler c, CompileLoc location)
+	char[] name;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.ContinueStmt);
+		this.name = name;
 	}
 }
 
@@ -1405,10 +1453,16 @@ This node represents a break statement.
 class BreakStmt : Statement
 {
 	/**
+	Optional name of control structure to break. Can be null, which means an unnamed break.
 	*/
-	public this(ICompiler c, CompileLoc location)
+	char[] name;
+
+	/**
+	*/
+	public this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.BreakStmt);
+		this.name = name;
 	}
 }
 

@@ -172,10 +172,11 @@ struct Scope
 	package Scope* continueScope;
 	package uint breaks = NoJump;
 	package uint continues = NoJump;
+	package char[] name;
 	package ushort varStart = 0;
 	package ushort regStart = 0;
 	package bool hasUpval = false;
-	package uword interveningEH = 0;
+	package uword ehlevel = 0;
 }
 
 struct SwitchDesc
@@ -292,7 +293,7 @@ final class FuncState
 			s.enclosing = mScope;
 			s.breakScope = mScope.breakScope;
 			s.continueScope = mScope.continueScope;
-			s.interveningEH = mScope.interveningEH;
+			s.ehlevel = mScope.ehlevel;
 		}
 		else
 		{
@@ -300,7 +301,7 @@ final class FuncState
 			s.enclosing = null;
 			s.breakScope = null;
 			s.continueScope = null;
-			s.interveningEH = 0;
+			s.ehlevel = 0;
 		}
 
 		s.breaks = NoJump;
@@ -308,6 +309,7 @@ final class FuncState
 		s.varStart = cast(ushort)mLocVars.length;
 		s.regStart = mFreeReg;
 		s.hasUpval = false;
+		s.name = null;
 
 		mScope = &s;
 	}
@@ -324,27 +326,20 @@ final class FuncState
 		deactivateLocals(mScope.varStart, mScope.regStart);
 		mScope = prev;
 	}
-	
+
 	package void setBreakable()
 	{
 		mScope.breakScope = mScope;
-		mScope.interveningEH = 0;
-	}
-
-	package void setNotBreakable()
-	{
-		mScope.breakScope = null;
 	}
 
 	package void setContinuable()
 	{
 		mScope.continueScope = mScope;
-		mScope.interveningEH = 0;
 	}
 
-	package void setNotContinuable()
+	package void setScopeName(char[] name)
 	{
-		mScope.continueScope = null;
+		mScope.name = name;
 	}
 
 	package int searchLocal(char[] name, out uint reg)
@@ -1522,30 +1517,32 @@ final class FuncState
 		return codeJ(line, Op.Foreach, baseReg, NoJump);
 	}
 
-	public uint codeCatch(uint line, out uint checkReg)
+	public uint codeCatch(uint line, ref Scope s, out uint checkReg)
 	{
+		pushScope(s);
 		checkReg = mFreeReg;
-		mScope.interveningEH++;
+		mScope.ehlevel++;
 		mTryCatchDepth++;
 		return codeJ(line, Op.PushCatch, mFreeReg, NoJump);
 	}
 
-	public uint codeFinally(uint line)
+	public uint codeFinally(uint line, ref Scope s)
 	{
-		mScope.interveningEH++;
+		pushScope(s);
+		mScope.ehlevel++;
 		mTryCatchDepth++;
 		return codeJ(line, Op.PushFinally, mFreeReg, NoJump);
 	}
 
-	public void endCatchScope()
+	public void endCatchScope(uint line)
 	{
-		mScope.interveningEH--;
+		popScope(line);
 		mTryCatchDepth--;
 	}
 
-	public void endFinallyScope()
+	public void endFinallyScope(uint line)
 	{
-		mScope.interveningEH--;
+		popScope(line);
 		mTryCatchDepth--;
 	}
 
@@ -1554,32 +1551,86 @@ final class FuncState
 		return mTryCatchDepth > 0;
 	}
 
-	public void codeContinue(CompileLoc location)
+	public void codeContinue(CompileLoc location, char[] name)
 	{
-		if(mScope.continueScope is null)
-			c.exception(location, "No continuable control structure");
+		bool anyUpvals = false;
+		Scope* continueScope = void;
 
-		if(mScope.continueScope.hasUpval)
-			codeClose(location.line, mScope.continueScope.regStart);
+		if(name.length == 0)
+		{
+			if(mScope.continueScope is null)
+				c.exception(location, "No continuable control structure");
 
-		if(mScope.interveningEH > 0)
-			codeI(location.line, Op.Unwind, 0, mScope.interveningEH);
+			continueScope = mScope.continueScope;
+			anyUpvals = continueScope.hasUpval;
+		}
+		else
+		{
+			for(continueScope = mScope; continueScope !is null; continueScope = continueScope.enclosing)
+			{
+				anyUpvals |= continueScope.hasUpval;
 
-		mScope.continueScope.continues = codeJ(location.line, Op.Jmp, 1, mScope.continueScope.continues);
+				if(continueScope.name == name)
+					break;
+			}
+
+			if(continueScope is null)
+				c.exception(location, "No continuable control structure of that name");
+
+			if(continueScope.continueScope !is continueScope)
+				c.exception(location, "Cannot continue control structure of that name");
+		}
+
+		if(anyUpvals)
+			codeClose(location.line, continueScope.regStart);
+
+		auto diff = mScope.ehlevel - continueScope.ehlevel;
+
+		if(diff > 0)
+			codeI(location.line, Op.Unwind, 0, diff);
+
+		continueScope.continues = codeJ(location.line, Op.Jmp, 1, mScope.continueScope.continues);
 	}
 
-	public void codeBreak(CompileLoc location)
+	public void codeBreak(CompileLoc location, char[] name)
 	{
-		if(mScope.breakScope is null)
-			c.exception(location, "No breakable control structure");
+		bool anyUpvals = false;
+		Scope* breakScope = void;
 
-		if(mScope.breakScope.hasUpval)
-			codeClose(location.line, mScope.breakScope.regStart);
+		if(name.length == 0)
+		{
+			if(mScope.breakScope is null)
+				c.exception(location, "No breakable control structure");
 
-		if(mScope.interveningEH > 0)
-			codeI(location.line, Op.Unwind, 0, mScope.interveningEH);
+			breakScope = mScope.breakScope;
+			anyUpvals = breakScope.hasUpval;
+		}
+		else
+		{
+			for(breakScope = mScope; breakScope !is null; breakScope = breakScope.enclosing)
+			{
+				anyUpvals |= breakScope.hasUpval;
 
-		mScope.breakScope.breaks = codeJ(location.line, Op.Jmp, 1, mScope.breakScope.breaks);
+				if(breakScope.name == name)
+					break;
+			}
+
+			if(breakScope is null)
+				c.exception(location, "No breakable control structure of that name");
+
+			if(breakScope.breakScope !is breakScope)
+				c.exception(location, "Cannot break control structure of that name");
+		}
+
+		if(anyUpvals)
+			codeClose(location.line, breakScope.regStart);
+
+		auto diff = mScope.ehlevel - breakScope.ehlevel;
+
+		if(diff > 0)
+			codeI(location.line, Op.Unwind, 0, diff);
+
+		breakScope.breaks = codeJ(location.line, Op.Jmp, 1, mScope.breakScope.breaks);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -2432,6 +2483,7 @@ scope class Codegen : Visitor
 			{
 				fs.setBreakable();
 				fs.setContinuable();
+				fs.setScopeName(s.name);
 
 				auto destReg = fs.nextRegister();
 				visit(s.condition);
@@ -2448,6 +2500,7 @@ scope class Codegen : Visitor
 			{
 				fs.setBreakable();
 				fs.setContinuable();
+				fs.setScopeName(s.name);
 				visit(s.code);
 				fs.patchContinuesTo(beginLoop);
 				fs.codeJump(s.endLocation.line, beginLoop);
@@ -2478,6 +2531,7 @@ scope class Codegen : Visitor
 
 			fs.setBreakable();
 			fs.setContinuable();
+			fs.setScopeName(s.name);
 			visit(s.code);
 			fs.patchContinuesTo(beginLoop);
 			fs.closeUpvals(s.endLocation.line);
@@ -2502,6 +2556,7 @@ scope class Codegen : Visitor
 
 		fs.setBreakable();
 		fs.setContinuable();
+		fs.setScopeName(s.name);
 		visit(s.code);
 
 		if(s.condition.isConstant && s.condition.isTrue)
@@ -2536,6 +2591,7 @@ scope class Codegen : Visitor
 		fs.pushScope(scop);
 			fs.setBreakable();
 			fs.setContinuable();
+			fs.setScopeName(s.name);
 
 			foreach(init; s.init)
 			{
@@ -2575,17 +2631,17 @@ scope class Codegen : Visitor
 
 		if(s.condition)
 			fs.patchFalseToHere(cond);
-			
-		return s;
-	}
-	
-	public override ForNumStmt visit(ForNumStmt s)
-	{
-		visitForNum(s.location, s.endLocation, s.lo, s.hi, s.step, s.index, { visit(s.code); });
+
 		return s;
 	}
 
-	public void visitForNum(CompileLoc location, CompileLoc endLocation, Expression lo, Expression hi, Expression step, Identifier index, void delegate() genBody)
+	public override ForNumStmt visit(ForNumStmt s)
+	{
+		visitForNum(s.location, s.endLocation, s.name, s.lo, s.hi, s.step, s.index, { visit(s.code); });
+		return s;
+	}
+
+	public void visitForNum(CompileLoc location, CompileLoc endLocation, char[] name, Expression lo, Expression hi, Expression step, Identifier index, void delegate() genBody)
 	{
 		auto baseReg = fs.nextRegister();
 
@@ -2593,6 +2649,7 @@ scope class Codegen : Visitor
 		fs.pushScope(scop);
 			fs.setBreakable();
 			fs.setContinuable();
+			fs.setScopeName(name);
 
 			auto loIndex = fs.nextRegister();
 			visit(lo);
@@ -2635,16 +2692,17 @@ scope class Codegen : Visitor
 
 	public override ForeachStmt visit(ForeachStmt s)
 	{
-		visitForeach(s.location, s.endLocation, s.indices, s.container, { visit(s.code); });
+		visitForeach(s.location, s.endLocation, s.name, s.indices, s.container, { visit(s.code); });
 		return s;
 	}
 
-	public void visitForeach(CompileLoc location, CompileLoc endLocation, Identifier[] indices, Expression[] container, void delegate() genBody)
+	public void visitForeach(CompileLoc location, CompileLoc endLocation, char[] name, Identifier[] indices, Expression[] container, void delegate() genBody)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
 			fs.setBreakable();
 			fs.setContinuable();
+			fs.setScopeName(name);
 
 			auto baseReg = fs.nextRegister();
 			auto generator = baseReg;
@@ -2740,6 +2798,7 @@ scope class Codegen : Visitor
 		Scope scop = void;
 		fs.pushScope(scop);
 			fs.setBreakable();
+			fs.setScopeName(s.name);
 
 			visit(s.condition);
 			Exp src1;
@@ -2828,7 +2887,7 @@ scope class Codegen : Visitor
 		visit(s.code);
 		return s;
 	}
-	
+
 	public override DefaultStmt visit(DefaultStmt s)
 	{
 		fs.addDefault(s.location);
@@ -2838,13 +2897,13 @@ scope class Codegen : Visitor
 	
 	public override ContinueStmt visit(ContinueStmt s)
 	{
-		fs.codeContinue(s.location);
+		fs.codeContinue(s.location, s.name);
 		return s;
 	}
 
 	public override BreakStmt visit(BreakStmt s)
 	{
-		fs.codeBreak(s.location);
+		fs.codeBreak(s.location, s.name);
 		return s;
 	}
 	
@@ -2884,14 +2943,16 @@ scope class Codegen : Visitor
 	{
 		if(s.finallyBody)
 		{
-			auto pushFinally = fs.codeFinally(s.location.line);
+			Scope tryScope1 = void;
+			auto pushFinally = fs.codeFinally(s.location.line, tryScope1);
 			Scope scop = void;
 
 			if(s.catchBody)
 			{
 				// try-catch-finally
 				uint checkReg1;
-				auto pushCatch = fs.codeCatch(s.location.line, checkReg1);
+				Scope tryScope2 = void;
+				auto pushCatch = fs.codeCatch(s.location.line, tryScope2, checkReg1);
 
 				visit(s.tryBody);
 
@@ -2899,7 +2960,7 @@ scope class Codegen : Visitor
 				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
 				auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 				fs.patchJumpToHere(pushCatch);
-				fs.endCatchScope();
+				fs.endCatchScope(s.tryBody.endLocation.line);
 
 				fs.pushScope(scop);
 					auto checkReg2 = fs.insertLocal(s.catchVar);
@@ -2921,7 +2982,7 @@ scope class Codegen : Visitor
 			}
 
 			fs.patchJumpToHere(pushFinally);
-			fs.endFinallyScope();
+			fs.endFinallyScope(s.finallyBody.location.line);
 
 			fs.pushScope(scop);
 				visit(s.finallyBody);
@@ -2934,16 +2995,16 @@ scope class Codegen : Visitor
 			assert(s.catchBody !is null);
 
 			uint checkReg1;
-			auto pushCatch = fs.codeCatch(s.location.line, checkReg1);
+			Scope scop = void;
+			auto pushCatch = fs.codeCatch(s.location.line, scop, checkReg1);
 
 			visit(s.tryBody);
 
 			fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
 			auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 			fs.patchJumpToHere(pushCatch);
-			fs.endCatchScope();
+			fs.endCatchScope(s.catchBody.location.line);
 
-			Scope scop = void;
 			fs.pushScope(scop);
 				auto checkReg2 = fs.insertLocal(s.catchVar);
 
@@ -3691,7 +3752,7 @@ scope class Codegen : Visitor
 			};
 		}
 
-		visitForeach(e.location, e.endLocation, e.indices, e.container, newInner);
+		visitForeach(e.location, e.endLocation, "", e.indices, e.container, newInner);
 		return e;
 	}
 
@@ -3727,7 +3788,7 @@ scope class Codegen : Visitor
 			};
 		}
 
-		visitForNum(e.location, e.endLocation, e.lo, e.hi, e.step, e.index, newInner);
+		visitForNum(e.location, e.endLocation, "", e.lo, e.hi, e.step, e.index, newInner);
 		return e;
 	}
 

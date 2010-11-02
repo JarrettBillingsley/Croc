@@ -1,5 +1,7 @@
 module samples.simple
 
+
+
 /+import sdl: event, key
 import gl
 
