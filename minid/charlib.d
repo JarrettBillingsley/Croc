@@ -55,7 +55,7 @@ static:
 		setTypeMT(t, MDValue.Type.Char);
 	}
 
-	uword toLower(MDThread* t, uword numParams)
+	uword toLower(MDThread* t)
 	{
 		dchar[4] outbuf = void;
 		dchar c = checkCharParam(t, 0);
@@ -63,7 +63,7 @@ static:
 		return 1;
 	}
 
-	uword toUpper(MDThread* t, uword numParams)
+	uword toUpper(MDThread* t)
 	{
 		dchar[4] outbuf = void;
 		dchar c = checkCharParam(t, 0);
@@ -71,67 +71,67 @@ static:
 		return 1;
 	}
 
-	uword isAlpha(MDThread* t, uword numParams)
+	uword isAlpha(MDThread* t)
 	{
 		pushBool(t, Uni.isLetter(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isAlNum(MDThread* t, uword numParams)
+	uword isAlNum(MDThread* t)
 	{
 		pushBool(t, Uni.isLetterOrDigit(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isLower(MDThread* t, uword numParams)
+	uword isLower(MDThread* t)
 	{
 		pushBool(t, Uni.isLower(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isUpper(MDThread* t, uword numParams)
+	uword isUpper(MDThread* t)
 	{
 		pushBool(t, Uni.isUpper(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isDigit(MDThread* t, uword numParams)
+	uword isDigit(MDThread* t)
 	{
 		pushBool(t, Uni.isDigit(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isCtrl(MDThread* t, uword numParams)
+	uword isCtrl(MDThread* t)
 	{
 		pushBool(t, cast(bool)iscntrl(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isPunct(MDThread* t, uword numParams)
+	uword isPunct(MDThread* t)
 	{
 		pushBool(t, cast(bool)ispunct(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isSpace(MDThread* t, uword numParams)
+	uword isSpace(MDThread* t)
 	{
 		pushBool(t, cast(bool)isspace(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isHexDigit(MDThread* t, uword numParams)
+	uword isHexDigit(MDThread* t)
 	{
 		pushBool(t, cast(bool)isxdigit(checkCharParam(t, 0)));
 		return 1;
 	}
 
-	uword isAscii(MDThread* t, uword numParams)
+	uword isAscii(MDThread* t)
 	{
 		pushBool(t, checkCharParam(t, 0) <= 0x7f);
 		return 1;
 	}
 
-	uword isValid(MDThread* t, uword numParams)
+	uword isValid(MDThread* t)
 	{
 		pushBool(t, Utf.isValid(checkCharParam(t, 0)));
 		return 1;

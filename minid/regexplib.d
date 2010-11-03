@@ -40,7 +40,7 @@ struct RegexpLib
 {
 	public static void init(MDThread* t)
 	{
-		makeModule(t, "regexp", function uword(MDThread* t, uword numParams)
+		makeModule(t, "regexp", function uword(MDThread* t)
 		{
 			RegexpObj.init(t);
 
@@ -105,7 +105,7 @@ struct RegexpLib
 			newGlobal(t, "Regexp");
 		}
 		
-		uword allocator(MDThread* t, uword numParams)
+		uword allocator(MDThread* t)
 		{
 			newInstance(t, 0, Fields.max + 1);
 
@@ -134,7 +134,7 @@ struct RegexpLib
 			return ret;
 		}
 
-		public uword constructor(MDThread* t, uword numParams)
+		public uword constructor(MDThread* t)
 		{
 			checkInstParam(t, 0, "Regexp");
 
@@ -147,8 +147,9 @@ struct RegexpLib
 			return 0;
 		}
 
-		public uword test(MDThread* t, uword numParams)
+		public uword test(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			auto rex = getThis(t);
 
 			if(numParams > 0)
@@ -162,8 +163,9 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword match(MDThread* t, uword numParams)
+		public uword match(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			bool isGlobal = void;
 			auto rex = getThis(t, isGlobal);
 
@@ -197,7 +199,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword search(MDThread* t, uword numParams)
+		public uword search(MDThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -206,21 +208,21 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword pre(MDThread* t, uword numParams)
+		public uword pre(MDThread* t)
 		{
 			auto rex = getThis(t);
 			pushString(t, safeCode(t, rex.pre()));
 			return 1;
 		}
 
-		public uword post(MDThread* t, uword numParams)
+		public uword post(MDThread* t)
 		{
 			auto rex = getThis(t);
 			pushString(t, safeCode(t, rex.post()));
 			return 1;
 		}
 
-		public uword replace(MDThread* t, uword numParams)
+		public uword replace(MDThread* t)
 		{
 			auto rex = getThis(t);
 			auto src = checkStringParam(t, 1);
@@ -256,7 +258,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword split(MDThread* t, uword numParams)
+		public uword split(MDThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -282,7 +284,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword find(MDThread* t, uword numParams)
+		public uword find(MDThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -296,7 +298,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		uword iterator(MDThread* t, uword numParams)
+		uword iterator(MDThread* t)
 		{
 			auto rex = getThis(t);
 			auto idx = getInt(t, 1) + 1;
@@ -309,7 +311,7 @@ struct RegexpLib
 			return 2;
 		}
 
-		public uword opApply(MDThread* t, uword numParams)
+		public uword opApply(MDThread* t)
 		{
 			checkInstParam(t, 0, "Regexp");
 			getUpval(t, 0);

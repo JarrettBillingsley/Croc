@@ -42,7 +42,7 @@ struct StringLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "string", function uword(MDThread* t, uword numParams)
+		makeModule(t, "string", function uword(MDThread* t)
 		{
 			newFunction(t, &joinArray, "joinArray"); newGlobal(t, "joinArray");
 
@@ -79,7 +79,7 @@ static:
 		importModuleNoNS(t, "string");
 	}
 	
-	uword joinArray(MDThread* t, uword numParams)
+	uword joinArray(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Array);
 		auto sep = optStringParam(t, 2, "");
@@ -129,8 +129,9 @@ static:
 		return 1;
 	}
 
-	uword join(MDThread* t, uword numParams)
+	uword join(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkStringParam(t, 0);
 
 		if(numParams == 0)
@@ -165,8 +166,9 @@ static:
 		return 1;
 	}
 
-	uword toInt(MDThread* t, uword numParams)
+	uword toInt(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto src = checkStringParam(t, 0);
 
 		int base = 10;
@@ -178,19 +180,19 @@ static:
 		return 1;
 	}
 
-	uword toFloat(MDThread* t, uword numParams)
+	uword toFloat(MDThread* t)
 	{
 		pushFloat(t, safeCode(t, Float.toFloat(checkStringParam(t, 0))));
 		return 1;
 	}
 
-	uword compare(MDThread* t, uword numParams)
+	uword compare(MDThread* t)
 	{
 		pushInt(t, scmp(checkStringParam(t, 0), checkStringParam(t, 1)));
 		return 1;
 	}
 
-	uword icompare(MDThread* t, uword numParams)
+	uword icompare(MDThread* t)
 	{
 		auto s1 = checkStringParam(t, 0);
 		auto s2 = checkStringParam(t, 1);
@@ -204,7 +206,7 @@ static:
 		return 1;
 	}
 
-	uword find(MDThread* t, uword numParams)
+	uword find(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
@@ -242,7 +244,7 @@ static:
 		return 1;
 	}
 
-	uword ifind(MDThread* t, uword numParams)
+	uword ifind(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
@@ -284,7 +286,7 @@ static:
 		return 1;
 	}
 
-	uword rfind(MDThread* t, uword numParams)
+	uword rfind(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
@@ -325,7 +327,7 @@ static:
 		return 1;
 	}
 
-	uword irfind(MDThread* t, uword numParams)
+	uword irfind(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto srcLen = len(t, 0);
@@ -370,7 +372,7 @@ static:
 		return 1;
 	}
 
-	uword toLower(MDThread* t, uword numParams)
+	uword toLower(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto buf = StrBuffer(t);
@@ -387,7 +389,7 @@ static:
 		return 1;
 	}
 
-	uword toUpper(MDThread* t, uword numParams)
+	uword toUpper(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto buf = StrBuffer(t);
@@ -404,7 +406,7 @@ static:
 		return 1;
 	}
 
-	uword repeat(MDThread* t, uword numParams)
+	uword repeat(MDThread* t)
 	{
 		checkStringParam(t, 0);
 		auto numTimes = checkIntParam(t, 1);
@@ -424,7 +426,7 @@ static:
 		return 1;
 	}
 
-	uword reverse(MDThread* t, uword numParams)
+	uword reverse(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 
@@ -451,8 +453,9 @@ static:
 		return 1;
 	}
 
-	uword split(MDThread* t, uword numParams)
+	uword split(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto src = checkStringParam(t, 0);
 		auto ret = newArray(t, 0);
 		uword num = 0;
@@ -495,7 +498,7 @@ static:
 		return 1;
 	}
 
-	uword splitLines(MDThread* t, uword numParams)
+	uword splitLines(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto ret = newArray(t, 0);
@@ -519,25 +522,25 @@ static:
 		return 1;
 	}
 
-	uword strip(MDThread* t, uword numParams)
+	uword strip(MDThread* t)
 	{
 		pushString(t, checkStringParam(t, 0).trim());
 		return 1;
 	}
 
-	uword lstrip(MDThread* t, uword numParams)
+	uword lstrip(MDThread* t)
 	{
 		pushString(t, checkStringParam(t, 0).triml());
 		return 1;
 	}
 
-	uword rstrip(MDThread* t, uword numParams)
+	uword rstrip(MDThread* t)
 	{
 		pushString(t, checkStringParam(t, 0).trimr());
 		return 1;
 	}
 
-	uword replace(MDThread* t, uword numParams)
+	uword replace(MDThread* t)
 	{
 		auto src = checkStringParam(t, 0);
 		auto from = checkStringParam(t, 1);
@@ -551,7 +554,7 @@ static:
 		return 1;
 	}
 
-	uword iterator(MDThread* t, uword numParams)
+	uword iterator(MDThread* t)
 	{
 		checkStringParam(t, 0);
 		auto s = getStringObj(t, 0);
@@ -576,7 +579,7 @@ static:
 		return 2;
 	}
 
-	uword iteratorReverse(MDThread* t, uword numParams)
+	uword iteratorReverse(MDThread* t)
 	{
 		checkStringParam(t, 0);
 		auto s = getStringObj(t, 0);
@@ -601,7 +604,7 @@ static:
 		return 2;
 	}
 
-	uword opApply(MDThread* t, uword numParams)
+	uword opApply(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.String);
 
@@ -623,19 +626,19 @@ static:
 		return 3;
 	}
 
-	uword startsWith(MDThread* t, uword numParams)
+	uword startsWith(MDThread* t)
 	{
 		pushBool(t, .startsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
 		return 1;
 	}
 
-	uword endsWith(MDThread* t, uword numParams)
+	uword endsWith(MDThread* t)
 	{
 		pushBool(t, .endsWith(checkStringParam(t, 0), checkStringParam(t, 1)));
 		return 1;
 	}
 
-	uword istartsWith(MDThread* t, uword numParams)
+	uword istartsWith(MDThread* t)
 	{
 		char[64] buf1 = void;
 		char[64] buf2 = void;
@@ -646,7 +649,7 @@ static:
 		return 1;
 	}
 
-	uword iendsWith(MDThread* t, uword numParams)
+	uword iendsWith(MDThread* t)
 	{
 		char[64] buf1 = void;
 		char[64] buf2 = void;

@@ -36,7 +36,7 @@ struct HashLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "hash", function uword(MDThread* t, uword numParams)
+		makeModule(t, "hash", function uword(MDThread* t)
 		{
 			newFunction(t, &staticDup,    "dup");    newGlobal(t, "dup");
 			newFunction(t, &staticKeys,   "keys");   newGlobal(t, "keys");
@@ -149,7 +149,7 @@ static:
 		return 1;
 	}
 
-	uword tableIterator(MDThread* t, uword numParams)
+	uword tableIterator(MDThread* t)
 	{
 		getUpval(t, 0);
 		auto tab = getTable(t, -1);
@@ -171,7 +171,7 @@ static:
 		return 0;
 	}
 
-	uword modTableIterator(MDThread* t, uword numParams)
+	uword modTableIterator(MDThread* t)
 	{
 		getUpval(t, 0);
 		auto tab = getTable(t, -1);
@@ -199,7 +199,7 @@ static:
 		return 0;
 	}
 
-	uword namespaceIterator(MDThread* t, uword numParams)
+	uword namespaceIterator(MDThread* t)
 	{
 		getUpval(t, 0);
 		auto ns = getNamespace(t, -1);
@@ -222,7 +222,7 @@ static:
 		return 0;
 	}
 	
-	uword modNamespaceIterator(MDThread* t, uword numParams)
+	uword modNamespaceIterator(MDThread* t)
 	{
 		getUpval(t, 0);
 		auto ns = getNamespace(t, -1);
@@ -396,62 +396,62 @@ static:
 		return 0;
 	}
 
-	uword tableDup(MDThread* t, uword numParams)
+	uword tableDup(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return dupImpl(t, 0);
 	}
 
-	uword tableKeys(MDThread* t, uword numParams)
+	uword tableKeys(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return keysImpl(t, 0);
 	}
 
-	uword tableValues(MDThread* t, uword numParams)
+	uword tableValues(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return valuesImpl(t, 0);
 	}
 
-	uword tableOpApply(MDThread* t, uword numParams)
+	uword tableOpApply(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return opApplyImpl(t, 0);
 	}
 
-	uword tableEach(MDThread* t, uword numParams)
+	uword tableEach(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		checkParam(t, 1, MDValue.Type.Function);
 		return eachImpl(t, 0, 1);
 	}
 
-	uword tableTake(MDThread* t, uword numParams)
+	uword tableTake(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return takeImpl(t, 0);
 	}
 	
-	uword tableClear(MDThread* t, uword numParams)
+	uword tableClear(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Table);
 		return clearImpl(t, 0);
 	}
 
-	uword namespaceOpApply(MDThread* t, uword numParams)
+	uword namespaceOpApply(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Namespace);
 		return opApplyImpl(t, 0);
 	}
 
-	uword staticDup(MDThread* t, uword numParams)
+	uword staticDup(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Table);
 		return dupImpl(t, 1);
 	}
 
-	uword staticKeys(MDThread* t, uword numParams)
+	uword staticKeys(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -459,7 +459,7 @@ static:
 		return keysImpl(t, 1);
 	}
 
-	uword staticValues(MDThread* t, uword numParams)
+	uword staticValues(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -467,7 +467,7 @@ static:
 		return valuesImpl(t, 1);
 	}
 
-	uword staticApply(MDThread* t, uword numParams)
+	uword staticApply(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -475,7 +475,7 @@ static:
 		return opApplyImpl(t, 1);
 	}
 
-	uword staticEach(MDThread* t, uword numParams)
+	uword staticEach(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -484,7 +484,7 @@ static:
 		return eachImpl(t, 1, 2);
 	}
 
-	uword staticTake(MDThread* t, uword numParams)
+	uword staticTake(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -492,7 +492,7 @@ static:
 		return takeImpl(t, 1);
 	}
 
-	uword staticClear(MDThread* t, uword numParams)
+	uword staticClear(MDThread* t)
 	{
 		if(!isTable(t, 1))
 			checkParam(t, 1, MDValue.Type.Namespace);
@@ -500,7 +500,7 @@ static:
 		return clearImpl(t, 1);
 	}
 
-	uword remove(MDThread* t, uword numParams)
+	uword remove(MDThread* t)
 	{
 		if(isTable(t, 1))
 			checkAnyParam(t, 2);
@@ -514,7 +514,7 @@ static:
 		return 0;
 	}
 
-	uword set(MDThread* t, uword numParams)
+	uword set(MDThread* t)
 	{
 		checkAnyParam(t, 3);
 
@@ -540,7 +540,7 @@ static:
 		return 0;
 	}
 
-	uword get(MDThread* t, uword numParams)
+	uword get(MDThread* t)
 	{
 		checkAnyParam(t, 2);
 

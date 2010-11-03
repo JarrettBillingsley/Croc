@@ -78,7 +78,7 @@ struct SerializationLib
 static:
 	void init(MDThread* t)
 	{
-		makeModule(t, "serialization", function uword(MDThread* t, uword numParams)
+		makeModule(t, "serialization", function uword(MDThread* t)
 		{
 			importModuleNoNS(t, "stream");
 
@@ -88,7 +88,7 @@ static:
 		});
 	}
 
-	uword serializeGraph(MDThread* t, uword numParams)
+	uword serializeGraph(MDThread* t)
 	{
 		checkAnyParam(t, 1);
 		checkParam(t, 2, MDValue.Type.Table);
@@ -120,7 +120,7 @@ static:
 		return 0;
 	}
 
-	uword deserializeGraph(MDThread* t, uword numParams)
+	uword deserializeGraph(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Table);
 		checkAnyParam(t, 2);
@@ -189,7 +189,7 @@ private:
 		this(Serializer* s) { this.s = s; }
 	}
 
-	static uword serializeFunc(MDThread* t, uword numParams)
+	static uword serializeFunc(MDThread* t)
 	{
 		checkAnyParam(t, 1);
 		getUpval(t, 0);
@@ -856,7 +856,7 @@ private:
 		this(Deserializer* d) { this.d = d; }
 	}
 
-	static uword deserializeFunc(MDThread* t, uword numParams)
+	static uword deserializeFunc(MDThread* t)
 	{
 		getUpval(t, 0);
 		auto g = cast(Goober)getNativeObj(t, -1);

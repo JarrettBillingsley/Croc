@@ -46,7 +46,7 @@ struct StreamLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "stream", function uword(MDThread* t, uword numParams)
+		makeModule(t, "stream", function uword(MDThread* t)
 		{
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
@@ -211,7 +211,7 @@ static:
 		return initial - size;
 	}
 
-	uword allocator(MDThread* t, uword numParams)
+	uword allocator(MDThread* t)
 	{
 		newInstance(t, 0, Fields.max + 1, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
@@ -223,7 +223,7 @@ static:
 		return 1;
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -236,7 +236,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -260,7 +260,7 @@ static:
 		return 0;
 	}
 
-	public uword readVal(T)(MDThread* t, uword numParams)
+	public uword readVal(T)(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		T val = void;
@@ -279,7 +279,7 @@ static:
 		return 1;
 	}
 
-	public uword readString(MDThread* t, uword numParams)
+	public uword readString(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -302,7 +302,7 @@ static:
 		return 1;
 	}
 
-	public uword readln(MDThread* t, uword numParams)
+	public uword readln(MDThread* t)
 	{
 		auto ret = safeCode(t, getOpenThis(t).lines.next());
 
@@ -313,7 +313,7 @@ static:
 		return 1;
 	}
 
-	public uword readChars(MDThread* t, uword numParams)
+	public uword readChars(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto num = checkIntParam(t, 1);
@@ -335,7 +335,7 @@ static:
 		return 1;
 	}
 
-	public uword readVector(MDThread* t, uword numParams)
+	public uword readVector(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
@@ -377,7 +377,7 @@ static:
 		return 1;
 	}
 
-	public uword rawRead(MDThread* t, uword numParams)
+	public uword rawRead(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto size = checkIntParam(t, 1);
@@ -429,7 +429,7 @@ static:
 		return 1;
 	}
 
-	private uword iterator(MDThread* t, uword numParams)
+	private uword iterator(MDThread* t)
 	{
 		auto index = checkIntParam(t, 1) + 1;
 		auto line = safeCode(t, getOpenThis(t).lines.next());
@@ -442,7 +442,7 @@ static:
 		return 2;
 	}
 
-	public uword opApply(MDThread* t, uword numParams)
+	public uword opApply(MDThread* t)
 	{
 		checkInstParam(t, 0, "InStream");
 		getUpval(t, 0);
@@ -451,7 +451,7 @@ static:
 		return 3;
 	}
 
-	public uword skip(MDThread* t, uword numParams)
+	public uword skip(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto dist_ = checkIntParam(t, 1);
@@ -474,7 +474,7 @@ static:
 		return 0;
 	}
 
-	public uword seek(MDThread* t, uword numParams)
+	public uword seek(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto pos = checkIntParam(t, 1);
@@ -493,9 +493,10 @@ static:
 		return 1;
 	}
 
-	public uword position(MDThread* t, uword numParams)
+	public uword position(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
+		auto numParams = stackSize(t) - 1;
 
 		if(numParams == 0)
 		{
@@ -509,7 +510,7 @@ static:
 		}
 	}
 
-	public uword size(MDThread* t, uword numParams)
+	public uword size(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
@@ -519,7 +520,7 @@ static:
 		return 1;
 	}
 
-	public uword close(MDThread* t, uword numParams)
+	public uword close(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -532,7 +533,7 @@ static:
 		return 0;
 	}
 
-	public uword isOpen(MDThread* t, uword numParams)
+	public uword isOpen(MDThread* t)
 	{
 		pushBool(t, !getThis(t).closed);
 		return 1;
@@ -646,7 +647,7 @@ static:
 		}
 	}
 
-	uword allocator(MDThread* t, uword numParams)
+	uword allocator(MDThread* t)
 	{
 		newInstance(t, 0, Fields.max + 1, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
@@ -658,7 +659,7 @@ static:
 		return 1;
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -672,7 +673,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -696,7 +697,7 @@ static:
 		return 0;
 	}
 
-	public uword writeVal(T)(MDThread* t, uword numParams)
+	public uword writeVal(T)(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -714,7 +715,7 @@ static:
 		return 1;
 	}
 
-	public uword writeString(MDThread* t, uword numParams)
+	public uword writeString(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -730,9 +731,10 @@ static:
 		return 1;
 	}
 
-	public uword write(MDThread* t, uword numParams)
+	public uword write(MDThread* t)
 	{
 		auto p = getOpenThis(t).print;
+		auto numParams = stackSize(t) - 1;
 
 		for(uword i = 1; i <= numParams; i++)
 		{
@@ -745,9 +747,10 @@ static:
 		return 1;
 	}
 
-	public uword writeln(MDThread* t, uword numParams)
+	public uword writeln(MDThread* t)
 	{
 		auto p = getOpenThis(t).print;
+		auto numParams = stackSize(t) - 1;
 
 		for(uword i = 1; i <= numParams; i++)
 		{
@@ -761,9 +764,10 @@ static:
 		return 1;
 	}
 
-	public uword writef(MDThread* t, uword numParams)
+	public uword writef(MDThread* t)
 	{
 		auto p = getOpenThis(t).print;
+		auto numParams = stackSize(t) - 1;
 
 		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
@@ -775,9 +779,10 @@ static:
 		return 1;
 	}
 
-	public uword writefln(MDThread* t, uword numParams)
+	public uword writefln(MDThread* t)
 	{
 		auto p = getOpenThis(t).print;
+		auto numParams = stackSize(t) - 1;
 
 		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
@@ -790,7 +795,7 @@ static:
 		return 1;
 	}
 
-	public uword writeChars(MDThread* t, uword numParams)
+	public uword writeChars(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -799,7 +804,7 @@ static:
 		return 1;
 	}
 
-	public uword writeJSON(MDThread* t, uword numParams)
+	public uword writeJSON(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
@@ -809,7 +814,7 @@ static:
 		return 1;
 	}
 
-	public uword writeVector(MDThread* t, uword numParams)
+	public uword writeVector(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
@@ -834,14 +839,14 @@ static:
 		return 1;
 	}
 
-	public uword flush(MDThread* t, uword numParams)
+	public uword flush(MDThread* t)
 	{
 		safeCode(t, getOpenThis(t).stream.flush());
 		dup(t, 0);
 		return 1;
 	}
 
-	public uword copy(MDThread* t, uword numParams)
+	public uword copy(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkInstParam(t, 1);
@@ -873,14 +878,14 @@ static:
 		return 1;
 	}
 	
-	public uword flushOnNL(MDThread* t, uword numParams)
+	public uword flushOnNL(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
 		return 0;
 	}
 
-	public uword seek(MDThread* t, uword numParams)
+	public uword seek(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto pos = checkIntParam(t, 1);
@@ -899,9 +904,10 @@ static:
 		return 1;
 	}
 
-	public uword position(MDThread* t, uword numParams)
+	public uword position(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
+		auto numParams = stackSize(t) - 1;
 
 		if(numParams == 0)
 		{
@@ -915,7 +921,7 @@ static:
 		}
 	}
 
-	public uword size(MDThread* t, uword numParams)
+	public uword size(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
@@ -925,7 +931,7 @@ static:
 		return 1;
 	}
 
-	public uword close(MDThread* t, uword numParams)
+	public uword close(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		
@@ -938,7 +944,7 @@ static:
 		return 0;
 	}
 
-	public uword isOpen(MDThread* t, uword numParams)
+	public uword isOpen(MDThread* t)
 	{
 		pushBool(t, !getThis(t).closed);
 		return 1;
@@ -1116,7 +1122,7 @@ static:
 		}
 	}
 
-	uword allocator(MDThread* t, uword numParams)
+	uword allocator(MDThread* t)
 	{
 		newInstance(t, 0, Fields.max + 1, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
@@ -1128,7 +1134,7 @@ static:
 		return 1;
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -1148,7 +1154,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1183,7 +1189,7 @@ static:
 		}
 	}
 
-	public uword readVal(T)(MDThread* t, uword numParams)
+	public uword readVal(T)(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1204,7 +1210,7 @@ static:
 		return 1;
 	}
 
-	public uword readString(MDThread* t, uword numParams)
+	public uword readString(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1228,7 +1234,7 @@ static:
 		return 1;
 	}
 
-	public uword readln(MDThread* t, uword numParams)
+	public uword readln(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1241,7 +1247,7 @@ static:
 		return 1;
 	}
 
-	public uword readChars(MDThread* t, uword numParams)
+	public uword readChars(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto num = checkIntParam(t, 1);
@@ -1265,7 +1271,7 @@ static:
 		return 1;
 	}
 
-	public uword readVector(MDThread* t, uword numParams)
+	public uword readVector(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1309,7 +1315,7 @@ static:
 		return 1;
 	}
 
-	public uword rawRead(MDThread* t, uword numParams)
+	public uword rawRead(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1363,7 +1369,7 @@ static:
 		return 1;
 	}
 
-	private uword iterator(MDThread* t, uword numParams)
+	private uword iterator(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1378,7 +1384,7 @@ static:
 		return 2;
 	}
 
-	public uword opApply(MDThread* t, uword numParams)
+	public uword opApply(MDThread* t)
 	{
 		checkInstParam(t, 0, "InoutStream");
 		getUpval(t, 0);
@@ -1387,7 +1393,7 @@ static:
 		return 3;
 	}
 
-	public uword writeVal(T)(MDThread* t, uword numParams)
+	public uword writeVal(T)(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -1406,7 +1412,7 @@ static:
 		return 1;
 	}
 
-	public uword writeString(MDThread* t, uword numParams)
+	public uword writeString(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -1423,10 +1429,11 @@ static:
 		return 1;
 	}
 
-	public uword write(MDThread* t, uword numParams)
+	public uword write(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
+		auto numParams = stackSize(t) - 1;
 
 		for(uword i = 1; i <= numParams; i++)
 		{
@@ -1440,11 +1447,12 @@ static:
 		return 1;
 	}
 
-	public uword writeln(MDThread* t, uword numParams)
+	public uword writeln(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
-		
+		auto numParams = stackSize(t) - 1;
+
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
@@ -1458,10 +1466,11 @@ static:
 		return 1;
 	}
 
-	public uword writef(MDThread* t, uword numParams)
+	public uword writef(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
+		auto numParams = stackSize(t) - 1;
 
 		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
@@ -1474,10 +1483,11 @@ static:
 		return 1;
 	}
 
-	public uword writefln(MDThread* t, uword numParams)
+	public uword writefln(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
+		auto numParams = stackSize(t) - 1;
 
 		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
 		{
@@ -1491,7 +1501,7 @@ static:
 		return 1;
 	}
 
-	public uword writeChars(MDThread* t, uword numParams)
+	public uword writeChars(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -1501,7 +1511,7 @@ static:
 		return 1;
 	}
 
-	public uword writeJSON(MDThread* t, uword numParams)
+	public uword writeJSON(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
@@ -1512,7 +1522,7 @@ static:
 		return 1;
 	}
 
-	public uword writeVector(MDThread* t, uword numParams)
+	public uword writeVector(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
@@ -1538,7 +1548,7 @@ static:
 		return 1;
 	}
 
-	public uword flush(MDThread* t, uword numParams)
+	public uword flush(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, memb.conduit.flush());
@@ -1548,7 +1558,7 @@ static:
 		return 1;
 	}
 
-	public uword copy(MDThread* t, uword numParams)
+	public uword copy(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkInstParam(t, 1);
@@ -1581,14 +1591,14 @@ static:
 		return 1;
 	}
 
-	public uword flushOnNL(MDThread* t, uword numParams)
+	public uword flushOnNL(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
 		return 0;
 	}
 
-	public uword skip(MDThread* t, uword numParams)
+	public uword skip(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto dist_ = checkIntParam(t, 1);
@@ -1613,7 +1623,7 @@ static:
 		return 0;
 	}
 
-	public uword seek(MDThread* t, uword numParams)
+	public uword seek(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1633,9 +1643,10 @@ static:
 		return 1;
 	}
 
-	public uword position(MDThread* t, uword numParams)
+	public uword position(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
+		auto numParams = stackSize(t) - 1;
 
 		if(numParams == 0)
 		{
@@ -1650,7 +1661,7 @@ static:
 		}
 	}
 
-	public uword size(MDThread* t, uword numParams)
+	public uword size(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1661,7 +1672,7 @@ static:
 		return 1;
 	}
 
-	public uword close(MDThread* t, uword numParams)
+	public uword close(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -1675,7 +1686,7 @@ static:
 		return 0;
 	}
 
-	public uword isOpen(MDThread* t, uword numParams)
+	public uword isOpen(MDThread* t)
 	{
 		pushBool(t, !getThis(t).closed);
 		return 1;
@@ -1816,7 +1827,7 @@ static:
 		newGlobal(t, "VectorInStream");
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -1829,7 +1840,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = InStreamObj.getThis(t);
 
@@ -1866,7 +1877,7 @@ static:
 		newGlobal(t, "VectorOutStream");
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -1879,7 +1890,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = OutStreamObj.getThis(t);
 
@@ -1916,7 +1927,7 @@ static:
 		newGlobal(t, "VectorInoutStream");
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -1929,7 +1940,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(MDThread* t, uword numParams)
+	public uword constructor(MDThread* t)
 	{
 		auto memb = InoutStreamObj.getThis(t);
 

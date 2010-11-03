@@ -74,7 +74,7 @@ static:
 		newGlobal(t, "modules");
 	}
 
-	package uword load(MDThread* t, uword numParams)
+	package uword load(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -89,7 +89,7 @@ static:
 		return commonLoad(t, name);
 	}
 
-	package uword reload(MDThread* t, uword numParams)
+	package uword reload(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -160,7 +160,7 @@ static:
 		assert(false);
 	}
 
-	package uword initModule(MDThread* t, uword numParams)
+	package uword initModule(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Function);
 		auto name = checkStringParam(t, 2);
@@ -213,7 +213,7 @@ static:
 		return 1;
 	}
 
-	uword runMain(MDThread* t, uword numParams)
+	uword runMain(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Namespace);
 
@@ -231,7 +231,7 @@ static:
 		return 0;
 	}
 
-	uword compile(MDThread* t, uword numParams)
+	uword compile(MDThread* t)
 	{
 		auto src = checkStringParam(t, 1);
 		auto name = optStringParam(t, 2, "<loaded by modules.compile>");
@@ -240,7 +240,7 @@ static:
 		return 1;
 	}
 
-	package uword customLoad(MDThread* t, uword numParams)
+	package uword customLoad(MDThread* t)
 	{
 		checkStringParam(t, 1);
 		pushGlobal(t, "customLoaders");
@@ -253,7 +253,7 @@ static:
 		return 0;
 	}
 
-	package uword checkTaken(MDThread* t, uword numParams)
+	package uword checkTaken(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -279,7 +279,7 @@ static:
 		return 0;
 	}
 
-	package uword loadFiles(MDThread* t, uword numParams)
+	package uword loadFiles(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto pos = name.locatePrior('.');

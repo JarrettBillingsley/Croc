@@ -59,7 +59,7 @@ version(MDReadline)
 		char* readline(char*);
 		int	printf(char*, ...);
 		char* function(char*, int) rl_completion_entry_function;
-		
+
 		static char* emptyCompleter(char*, int)
 		{
 			return null;
@@ -334,7 +334,7 @@ struct CLI(Input)
 		newTable(t);
 
 			pushNativeObj(t, new Goober(this));
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		newFunction(t, function uword(MDThread* t)
 		{
 			getUpval(t, 0);
 			auto g = cast(Goober)getNativeObj(t, -1);
@@ -344,7 +344,7 @@ struct CLI(Input)
 
 		fielda(t, -2, "opCall");
 
-		newFunction(t, function uword(MDThread* t, uword numParams)
+		newFunction(t, function uword(MDThread* t)
 		{
 			pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
 			return 1;

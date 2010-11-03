@@ -40,7 +40,7 @@ struct OSLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "os", function uword(MDThread* t, uword numParams)
+		makeModule(t, "os", function uword(MDThread* t)
 		{
 			importModule(t, "stream");
 			pop(t);
@@ -56,8 +56,9 @@ static:
 		importModuleNoNS(t, "os");
 	}
 
-	uword system(MDThread* t, uword numParams)
+	uword system(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		if(numParams == 0)
 			pushBool(t, .system(null) ? true : false);
 		else
@@ -84,8 +85,9 @@ static:
 		return 1;
 	}
 
-	uword getEnv(MDThread* t, uword numParams)
+	uword getEnv(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		if(numParams == 0)
 		{
 			newTable(t);
@@ -110,7 +112,7 @@ static:
 		return 1;
 	}
 
-	uword putEnv(MDThread* t, uword numParams)
+	uword putEnv(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		checkAnyParam(t, 2);
@@ -165,7 +167,7 @@ static:
 			return ret;
 		}
 		
-		uword allocator(MDThread* t, uword numParams)
+		uword allocator(MDThread* t)
 		{
 			newInstance(t, 0, Fields.max + 1);
 			
@@ -176,8 +178,9 @@ static:
 			return 1;
 		}
 
-		public uword constructor(MDThread* t, uword numParams)
+		public uword constructor(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			checkInstParam(t, 0, "Process");
 
 			getExtraVal(t, 0, Fields.process);
@@ -189,7 +192,7 @@ static:
 
 			pushNativeObj(t, new Process());
 			setExtraVal(t, 0, Fields.process);
-			
+
 			if(numParams > 0)
 			{
 				dup(t, 0);
@@ -201,15 +204,16 @@ static:
 			return 0;
 		}
 
-		public uword isRunning(MDThread* t, uword numParams)
+		public uword isRunning(MDThread* t)
 		{
 			auto p = getProcess(t);
 			pushBool(t, safeCode(t, p.isRunning()));
 			return 1;
 		}
 
-		public uword workDir(MDThread* t, uword numParams)
+		public uword workDir(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			auto p = getProcess(t);
 
 			if(numParams == 0)
@@ -222,8 +226,9 @@ static:
 			return 0;
 		}
 
-		public uword execute(MDThread* t, uword numParams)
+		public uword execute(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			auto p = getProcess(t);
 
 			char[][char[]] env = null;
@@ -275,7 +280,7 @@ static:
 			return 0;
 		}
 		
-		public uword stdin(MDThread* t, uword numParams)
+		public uword stdin(MDThread* t)
 		{
 			auto p = getProcess(t);
 			
@@ -299,7 +304,7 @@ static:
 			return 1;
 		}
 
-		public uword stdout(MDThread* t, uword numParams)
+		public uword stdout(MDThread* t)
 		{
 			auto p = getProcess(t);
 
@@ -323,7 +328,7 @@ static:
 			return 1;
 		}
 
-		public uword stderr(MDThread* t, uword numParams)
+		public uword stderr(MDThread* t)
 		{
 			auto p = getProcess(t);
 
@@ -347,7 +352,7 @@ static:
 			return 1;
 		}
 		
-		public uword wait(MDThread* t, uword numParams)
+		public uword wait(MDThread* t)
 		{
 			auto p = getProcess(t);
 			
@@ -378,7 +383,7 @@ static:
 			return 2;
 		}
 
-		public uword kill(MDThread* t, uword numParams)
+		public uword kill(MDThread* t)
 		{
 			auto p = getProcess(t);
 			safeCode(t, p.kill());

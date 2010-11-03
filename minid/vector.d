@@ -382,7 +382,7 @@ static:
 		return ret;
 	}
 
-	uword allocator(MDThread* t, uword numParams)
+	uword allocator(MDThread* t)
 	{
 		newInstance(t, 0, 0, Members.sizeof);
 		*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
@@ -394,7 +394,7 @@ static:
 		return 1;
 	}
 
-	uword finalizer(MDThread* t, uword numParams)
+	uword finalizer(MDThread* t)
 	{
 		auto memb = cast(Members*)getExtraBytes(t, 0).ptr;
 
@@ -413,7 +413,7 @@ static:
 		return 0;
 	}
 
-	uword constructor(MDThread* t, uword numParams)
+	uword constructor(MDThread* t)
 	{
 		// don't use getThis here or else you'll get errors upon construction
 		auto memb = checkInstParam!(Members)(t, 0, "Vector");
@@ -463,9 +463,10 @@ static:
 		return 0;
 	}
 
-	uword range(MDThread* t, uword numParams)
+	uword range(MDThread* t)
 	{
 		auto type = checkStringParam(t, 1);
+		auto numParams = stackSize(t) - 1;
 
 		TypeStruct* ts;
 
@@ -621,7 +622,7 @@ static:
 		return 1;
 	}
 
-	uword fromArray(MDThread* t, uword numParams)
+	uword fromArray(MDThread* t)
 	{
 		auto code = checkStringParam(t, 1);
 		checkParam(t, 2, MDValue.Type.Array);
@@ -636,7 +637,7 @@ static:
 		return 1;
 	}
 
-	uword apply(MDThread* t, uword numParams)
+	uword apply(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -681,7 +682,7 @@ static:
 		return 1;
 	}
 	
-	uword copyRange(MDThread* t, uword numParams)
+	uword copyRange(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
@@ -729,7 +730,7 @@ static:
 		return 1;
 	}
 
-	uword vec_dup(MDThread* t, uword numParams)
+	uword vec_dup(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -893,7 +894,7 @@ static:
 		pop(t);
 	}
 
-	uword fill(MDThread* t, uword numParams)
+	uword fill(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -904,7 +905,7 @@ static:
 		return 1;
 	}
 	
-	uword fillRange(MDThread* t, uword numParams)
+	uword fillRange(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
@@ -926,7 +927,7 @@ static:
 		return 1;
 	}
 	
-	uword vec_insert(MDThread* t, uword numParams)
+	uword vec_insert(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
@@ -1013,13 +1014,13 @@ static:
 		return 1;
 	}
 	
-	uword itemSize(MDThread* t, uword numParams)
+	uword itemSize(MDThread* t)
 	{
 		pushInt(t, getThis(t).type.itemSize);
 		return 1;
 	}
 
-	uword map(MDThread* t, uword numParams)
+	uword map(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -1050,7 +1051,7 @@ static:
 		}
 	}
 
-	uword max(MDThread* t, uword numParams)
+	uword max(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1075,7 +1076,7 @@ static:
 		return 1;
 	}
 
-	uword min(MDThread* t, uword numParams)
+	uword min(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1100,7 +1101,7 @@ static:
 		return 1;
 	}
 
-	uword vec_pop(MDThread* t, uword numParams)
+	uword vec_pop(MDThread* t)
 	{
 		auto memb = getThis(t);
 		
@@ -1133,7 +1134,7 @@ static:
 		return 1;
 	}
 
-	uword product(MDThread* t, uword numParams)
+	uword product(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1173,7 +1174,7 @@ static:
 		return 1;
 	}
 
-	uword remove(MDThread* t, uword numParams)
+	uword remove(MDThread* t)
 	{
 		auto memb = getThis(t);
 		
@@ -1220,7 +1221,7 @@ static:
 		return 1;
 	}
 
-	uword reverse(MDThread* t, uword numParams)
+	uword reverse(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1239,7 +1240,7 @@ static:
 		return 1;
 	}
 
-	uword sort(MDThread* t, uword numParams)
+	uword sort(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1262,7 +1263,7 @@ static:
 		return 1;
 	}
 
-	uword sum(MDThread* t, uword numParams)
+	uword sum(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1302,7 +1303,7 @@ static:
 		return 1;
 	}
 
-	uword toArray(MDThread* t, uword numParams)
+	uword toArray(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto ret = newArray(t, memb.length);
@@ -1316,7 +1317,7 @@ static:
 		return 1;
 	}
 
-	uword toString(MDThread* t, uword numParams)
+	uword toString(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1347,9 +1348,10 @@ static:
 		return 1;
 	}
 
-	uword type(MDThread* t, uword numParams)
+	uword type(MDThread* t)
 	{
 		auto memb = getThis(t);
+		auto numParams = stackSize(t) - 1;
 
 		if(numParams == 0)
 		{
@@ -1393,7 +1395,7 @@ static:
 		}
 	}
 
-	uword rawRead(T)(MDThread* t, uword numParams)
+	uword rawRead(T)(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
@@ -1415,7 +1417,7 @@ static:
 		return 1;
 	}
 	
-	uword rawWrite(T)(MDThread* t, uword numParams)
+	uword rawWrite(T)(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
@@ -1439,14 +1441,14 @@ static:
 		return 0;
 	}
 
-	uword opLength(MDThread* t, uword numParams)
+	uword opLength(MDThread* t)
 	{
 		auto memb = getThis(t);
 		pushInt(t, memb.length);
 		return 1;
 	}
 
-	uword opLengthAssign(MDThread* t, uword numParams)
+	uword opLengthAssign(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto newLen = checkIntParam(t, 1);
@@ -1477,7 +1479,7 @@ static:
 		return 0;
 	}
 
-	uword opIndex(MDThread* t, uword numParams)
+	uword opIndex(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
@@ -1492,7 +1494,7 @@ static:
 		return 1;
 	}
 
-	uword opIndexAssign(MDThread* t, uword numParams)
+	uword opIndexAssign(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
@@ -1529,7 +1531,7 @@ static:
 		return 0;
 	}
 	
-	uword opSlice(MDThread* t, uword numParams)
+	uword opSlice(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
@@ -1560,7 +1562,7 @@ static:
 		return 1;
 	}
 
-	uword iterator(MDThread* t, uword numParams)
+	uword iterator(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto index = checkIntParam(t, 1) + 1;
@@ -1574,7 +1576,7 @@ static:
 		return 2;
 	}
 
-	uword iteratorReverse(MDThread* t, uword numParams)
+	uword iteratorReverse(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto index = checkIntParam(t, 1) - 1;
@@ -1588,7 +1590,7 @@ static:
 		return 2;
 	}
 
-	uword opApply(MDThread* t, uword numParams)
+	uword opApply(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1608,7 +1610,7 @@ static:
 		return 3;
 	}
 	
-	uword opSerialize(MDThread* t, uword numParams)
+	uword opSerialize(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -1633,7 +1635,7 @@ static:
 		return 0;
 	}
 
-	uword opDeserialize(MDThread* t, uword numParams)
+	uword opDeserialize(MDThread* t)
 	{
 		auto memb = checkInstParam!(Members)(t, 0, "Vector");
 		*memb = Members.init;
@@ -1661,7 +1663,7 @@ static:
 		return 0;
 	}
 
-	uword opEquals(MDThread* t, uword numParams)
+	uword opEquals(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -1696,7 +1698,7 @@ static:
 		return 1;
 	}
 
-	uword opCat(MDThread* t, uword numParams)
+	uword opCat(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -1755,7 +1757,7 @@ static:
 		return 1;
 	}
 
-	uword opCat_r(MDThread* t, uword numParams)
+	uword opCat_r(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -1791,11 +1793,12 @@ static:
 		return 1;
 	}
 
-	uword opCatAssign(MDThread* t, uword numParams)
+	uword opCatAssign(MDThread* t)
 	{
 		auto memb = getThis(t);
+		auto numParams = stackSize(t) - 1;
 		checkAnyParam(t, 1);
-		
+
 		if(!memb.ownData)
 			throwException(t, "Attempting to append to a Vector which does not own its data");
 
@@ -1867,7 +1870,7 @@ static:
 
 	char[] opAssign(char[] name, char[] op)
 	{
-		return `uword op` ~ name ~ `Assign(MDThread* t, uword numParams)
+		return `uword op` ~ name ~ `Assign(MDThread* t)
 		{
 			auto memb = getThis(t);
 			checkAnyParam(t, 1);
@@ -1929,7 +1932,7 @@ static:
 
 	char[] op(char[] name)
 	{
-		return `uword op` ~ name ~ `(MDThread* t, uword numParams)
+		return `uword op` ~ name ~ `(MDThread* t)
 		{
 			auto memb = getThis(t);
 			checkAnyParam(t, 1);
@@ -1955,7 +1958,7 @@ static:
 
 	char[] op_rev(char[] name)
 	{
-		return `uword op` ~ name ~ `_r(MDThread* t, uword numParams)
+		return `uword op` ~ name ~ `_r(MDThread* t)
 		{
 			auto memb = getThis(t);
 			checkAnyParam(t, 1);
@@ -1982,7 +1985,7 @@ static:
 
 	char[] rev_func(char[] name, char[] op)
 	{
-		return `uword rev` ~ name ~ `(MDThread* t, uword numParams)
+		return `uword rev` ~ name ~ `(MDThread* t)
 		{
 			auto memb = getThis(t);
 

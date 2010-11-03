@@ -5297,7 +5297,7 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			t.vm.curThread = t;
 			scope(exit) t.state = savedState;
 
-			actualReturns = func.nativeFunc(t, numParams - 1);
+			actualReturns = func.nativeFunc(t);
 		}" ~ wrapEH);
 
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);

@@ -84,7 +84,7 @@ static:
 		return checkInstParam!(Members)(t, 0, "StringBuffer");
 	}
 
-	uword constructor(MDThread* t, uword numParams)
+	uword constructor(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -117,8 +117,9 @@ static:
 		return 0;
 	}
 
-	uword opCatAssign(MDThread* t, uword numParams)
+	uword opCatAssign(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
 
@@ -171,7 +172,7 @@ static:
 		return 1;
 	}
 
-	uword sb_insert(MDThread* t, uword numParams)
+	uword sb_insert(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto idx = checkIntParam(t, 1);
@@ -256,14 +257,14 @@ static:
 		return 1;
 	}
 
-	uword toString(MDThread* t, uword numParams)
+	uword toString(MDThread* t)
 	{
 		auto memb = getThis(t);
 		pushFormat(t, "{}", (cast(dchar*)memb.data)[0 .. memb.length]);
 		return 1;
 	}
 
-	uword opLengthAssign(MDThread* t, uword numParams)
+	uword opLengthAssign(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto newLen = checkIntParam(t, 1);
@@ -284,7 +285,7 @@ static:
 		return 0;
 	}
 
-	uword opIndex(MDThread* t, uword numParams)
+	uword opIndex(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -298,7 +299,7 @@ static:
 		return 1;
 	}
 
-	uword opIndexAssign(MDThread* t, uword numParams)
+	uword opIndexAssign(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto index = checkIntParam(t, 1);
@@ -314,7 +315,7 @@ static:
 		return 0;
 	}
 
-	uword iterator(MDThread* t, uword numParams)
+	uword iterator(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto index = checkIntParam(t, 1) + 1;
@@ -328,7 +329,7 @@ static:
 		return 2;
 	}
 
-	uword iteratorReverse(MDThread* t, uword numParams)
+	uword iteratorReverse(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto index = checkIntParam(t, 1) - 1;
@@ -342,7 +343,7 @@ static:
 		return 2;
 	}
 
-	uword opApply(MDThread* t, uword numParams)
+	uword opApply(MDThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -362,7 +363,7 @@ static:
 		return 3;
 	}
 	
-	uword opSerialize(MDThread* t, uword numParams)
+	uword opSerialize(MDThread* t)
 	{
 		auto memb = getThis(t);
 		
@@ -383,7 +384,7 @@ static:
 		return 0;
 	}
 
-	uword opDeserialize(MDThread* t, uword numParams)
+	uword opDeserialize(MDThread* t)
 	{
 		auto memb = checkInstParam!(Members)(t, 0, "Vector");
 		*memb = Members.init;
@@ -482,7 +483,7 @@ static:
 		pop(t);
 	}
 
-	uword fill(MDThread* t, uword numParams)
+	uword fill(MDThread* t)
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
@@ -493,7 +494,7 @@ static:
 		return 1;
 	}
 
-	uword fillRange(MDThread* t, uword numParams)
+	uword fillRange(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
@@ -518,7 +519,7 @@ static:
 		return 1;
 	}
 
-	uword opSlice(MDThread* t, uword numParams)
+	uword opSlice(MDThread* t)
 	{
 		auto memb = getThis(t);
 		auto lo = optIntParam(t, 1, 0);
@@ -540,8 +541,9 @@ static:
 		return 1;
 	}
 	
-	uword formatPos(MDThread* t, uword numParams)
+	uword formatPos(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
 		auto pos = checkIntParam(t, 1);
 
@@ -580,14 +582,15 @@ static:
 		return 1;
 	}
 
-	uword formatlnPos(MDThread* t, uword numParams)
+	uword formatlnPos(MDThread* t)
 	{
 		pushChar(t, '\n');
-		return formatPos(t, numParams + 1);
+		return formatPos(t);
 	}
 
-	uword format(MDThread* t, uword numParams)
+	uword format(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
 
 		uint sink(char[] data)
@@ -616,9 +619,9 @@ static:
 		return 1;
 	}
 
-	uword formatln(MDThread* t, uword numParams)
+	uword formatln(MDThread* t)
 	{
 		pushChar(t, '\n');
-		return format(t, numParams + 1);
+		return format(t);
 	}
 }

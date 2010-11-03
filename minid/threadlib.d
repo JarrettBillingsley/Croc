@@ -36,7 +36,7 @@ struct ThreadLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "thread", function uword(MDThread* t, uword numParams)
+		makeModule(t, "thread", function uword(MDThread* t)
 		{
 			newFunction(t, &traceback, "traceback"); newGlobal(t, "traceback");
 			newFunction(t, &halt,      "halt");      newGlobal(t, "halt");
@@ -58,14 +58,15 @@ static:
 		importModuleNoNS(t, "thread");
 	}
 
-	uword traceback(MDThread* t, uword numParams)
+	uword traceback(MDThread* t)
 	{
 		getTraceback(t);
 		return 1;
 	}
 
-	uword halt(MDThread* t, uword numParams)
+	uword halt(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		if(numParams == 0)
 			haltThread(t);
 		else
@@ -82,7 +83,7 @@ static:
 		return 0;
 	}
 
-	uword current(MDThread* t, uword numParams)
+	uword current(MDThread* t)
 	{
 		if(t is mainThread(getVM(t)))
 			pushNull(t);
@@ -92,7 +93,7 @@ static:
 		return 1;
 	}
 
-	uword reset(MDThread* t, uword numParams)
+	uword reset(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 
@@ -107,42 +108,42 @@ static:
 		return 0;
 	}
 
-	uword state(MDThread* t, uword numParams)
+	uword state(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushString(t, .stateString(getThread(t, 0)));
 		return 1;
 	}
 
-	uword isInitial(MDThread* t, uword numParams)
+	uword isInitial(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Initial);
 		return 1;
 	}
 
-	uword isRunning(MDThread* t, uword numParams)
+	uword isRunning(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Running);
 		return 1;
 	}
 
-	uword isWaiting(MDThread* t, uword numParams)
+	uword isWaiting(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Waiting);
 		return 1;
 	}
 
-	uword isSuspended(MDThread* t, uword numParams)
+	uword isSuspended(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Suspended);
 		return 1;
 	}
 
-	uword isDead(MDThread* t, uword numParams)
+	uword isDead(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Thread);
 		pushBool(t, .state(getThread(t, 0)) == MDThread.State.Dead);

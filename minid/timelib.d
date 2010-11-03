@@ -68,7 +68,7 @@ static:
 
 	public void init(MDThread* t)
 	{
-		makeModule(t, "time", function uword(MDThread* t, uword numParams)
+		makeModule(t, "time", function uword(MDThread* t)
 		{
 			Timer.init(t);
 			newFunction(t, &microTime,  "microTime");  newGlobal(t, "microTime");
@@ -86,7 +86,7 @@ static:
 		importModuleNoNS(t, "time");
 	}
 
-	uword microTime(MDThread* t, uword numParams)
+	uword microTime(MDThread* t)
 	{
 		version(Windows)
 		{
@@ -104,8 +104,9 @@ static:
 		return 1;
 	}
 
-	uword dateString(MDThread* t, uword numParams)
+	uword dateString(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		char[] format = numParams > 0 ? GetFormat(t, 1) : "G";
 
 		Time time = void;
@@ -132,8 +133,9 @@ static:
 		return 1;
 	}
 	
-	uword dateTime(MDThread* t, uword numParams)
+	uword dateTime(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		bool useGMT = false;
 		word tab;
 
@@ -162,8 +164,9 @@ static:
 		return 1;
 	}
 
-	uword culture(MDThread* t, uword numParams)
+	uword culture(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		pushString(t, Culture.current.name);
 
 		if(numParams > 0)
@@ -175,7 +178,7 @@ static:
 		return 1;
 	}
 	
-	uword compare(MDThread* t, uword numParams)
+	uword compare(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Table);
 		checkParam(t, 2, MDValue.Type.Table);
@@ -261,13 +264,13 @@ static:
 		pushInt(t, time.time.seconds); fielda(t, dest, "sec");
 	}
 
-	uword timestamp(MDThread* t, uword numParams)
+	uword timestamp(MDThread* t)
 	{
 		pushInt(t, cast(mdint)(Clock.now - Time.epoch1970).seconds);
 		return 1;
 	}
 
-	uword timex(MDThread* t, uword numParams)
+	uword timex(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Function);
 		pushNull(t);
@@ -281,7 +284,7 @@ static:
 		return 1;
 	}
 
-	uword sleep(MDThread* t, uword numParams)
+	uword sleep(MDThread* t)
 	{
 		auto dur = checkNumParam(t, 1);
 		
@@ -323,39 +326,39 @@ static:
 			return checkInstParam!(Members)(t, 0, "Timer");
 		}
 
-		uword allocator(MDThread* t, uword numParams)
+		uword allocator(MDThread* t)
 		{
 			newInstance(t, 0, 0, Members.sizeof);
 			*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
 			return 1;
 		}
 
-		uword start(MDThread* t, uword numParams)
+		uword start(MDThread* t)
 		{
 			getThis(t).mWatch.start();
 			return 0;
 		}
 	
-		uword stop(MDThread* t, uword numParams)
+		uword stop(MDThread* t)
 		{
 			auto members = getThis(t);
 			members.mTime = members.mWatch.stop();
 			return 0;
 		}
 	
-		uword seconds(MDThread* t, uword numParams)
+		uword seconds(MDThread* t)
 		{
 			pushFloat(t, getThis(t).mTime);
 			return 1;
 		}
 	
-		uword millisecs(MDThread* t, uword numParams)
+		uword millisecs(MDThread* t)
 		{
 			pushFloat(t, getThis(t).mTime * 1_000);
 			return 1;
 		}
 	
-		uword microsecs(MDThread* t, uword numParams)
+		uword microsecs(MDThread* t)
 		{
 			pushFloat(t, getThis(t).mTime * 1_000_000);
 			return 1;

@@ -38,7 +38,7 @@ struct DebugLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "debug", function uword(MDThread* t, uword numParams)
+		makeModule(t, "debug", function uword(MDThread* t)
 		{
 			newFunction(t, &setHook,        "setHook");        newGlobal(t, "setHook");
 			newFunction(t, &getHook,        "getHook");        newGlobal(t, "getHook");
@@ -141,7 +141,7 @@ static:
 		assert(false);
 	}
 
-	uword setHook(MDThread* t, uword numParams)
+	uword setHook(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -168,7 +168,7 @@ static:
 		return 0;
 	}
 
-	uword getHook(MDThread* t, uword numParams)
+	uword getHook(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -181,7 +181,7 @@ static:
 		return 3;
 	}
 
-	uword callDepth(MDThread* t, uword numParams)
+	uword callDepth(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -194,7 +194,7 @@ static:
 		return 1;
 	}
 	
-	uword sourceName(MDThread* t, uword numParams)
+	uword sourceName(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -208,7 +208,7 @@ static:
 		return 1;
 	}
 
-	uword sourceLine(MDThread* t, uword numParams)
+	uword sourceLine(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -222,7 +222,7 @@ static:
 		return 1;
 	}
 	
-	uword getFunc(MDThread* t, uword numParams)
+	uword getFunc(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -237,7 +237,7 @@ static:
 		return 1;
 	}
 	
-	uword numLocals(MDThread* t, uword numParams)
+	uword numLocals(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -260,7 +260,7 @@ static:
 		return 1;
 	}
 	
-	uword localName(MDThread* t, uword numParams)
+	uword localName(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -293,7 +293,7 @@ static:
 		return 1;
 	}
 	
-	uword getLocal(MDThread* t, uword numParams)
+	uword getLocal(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -352,7 +352,7 @@ static:
 		return 1;
 	}
 
-	uword setLocal(MDThread* t, uword numParams)
+	uword setLocal(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -410,7 +410,7 @@ static:
 		return 0;
 	}
 	
-	uword numUpvals(MDThread* t, uword numParams)
+	uword numUpvals(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -424,7 +424,7 @@ static:
 		return 1;
 	}
 
-	uword upvalName(MDThread* t, uword numParams)
+	uword upvalName(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -442,7 +442,7 @@ static:
 		return 1;
 	}
 	
-	uword getUpval(MDThread* t, uword numParams)
+	uword getUpval(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -496,7 +496,7 @@ static:
 		return 1;
 	}
 
-	uword setUpval(MDThread* t, uword numParams)
+	uword setUpval(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -551,7 +551,7 @@ static:
 		return 0;
 	}
 
-	uword currentLine(MDThread* t, uword numParams)
+	uword currentLine(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -575,7 +575,7 @@ static:
 		return 1;
 	}
 
-	uword lineInfo(MDThread* t, uword numParams)
+	uword lineInfo(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
@@ -604,7 +604,7 @@ static:
 		return 1;
 	}
 	
-	uword getMetatable(MDThread* t, uword numParams)
+	uword getMetatable(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -633,7 +633,7 @@ static:
 		return 1;
 	}
 	
-	uword setMetatable(MDThread* t, uword numParams)
+	uword setMetatable(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		
@@ -669,20 +669,20 @@ static:
 		return 0;
 	}
 	
-	uword getRegistry(MDThread* t, uword numParams)
+	uword getRegistry(MDThread* t)
 	{
 		.getRegistry(t);
 		return 1;
 	}
 
-	uword getExtraBytes(MDThread* t, uword numParams)
+	uword getExtraBytes(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		VectorObj.fromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
 		return 1;
 	}
 	
-	uword setExtraBytes(MDThread* t, uword numParams)
+	uword setExtraBytes(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		auto instData = cast(ubyte[]).getExtraBytes(t, 1);
@@ -696,14 +696,14 @@ static:
 		return 0;
 	}
 	
-	uword numExtraFields(MDThread* t, uword numParams)
+	uword numExtraFields(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		pushInt(t, numExtraVals(t, 1));
 		return 1;
 	}
 	
-	uword getExtraField(MDThread* t, uword numParams)
+	uword getExtraField(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		auto idx = checkIntParam(t, 2);
@@ -719,7 +719,7 @@ static:
 		return 1;
 	}
 
-	uword setExtraField(MDThread* t, uword numParams)
+	uword setExtraField(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		auto idx = checkIntParam(t, 2);

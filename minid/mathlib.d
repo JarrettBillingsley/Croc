@@ -45,7 +45,7 @@ struct MathLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "math", function uword(MDThread* t, uword numParams)
+		makeModule(t, "math", function uword(MDThread* t)
 		{
 			pushFloat(t, math.E);              newGlobal(t, "e");
 			pushFloat(t, math.PI);             newGlobal(t, "pi");
@@ -96,7 +96,7 @@ static:
 		importModuleNoNS(t, "math");
 	}
 
-	uword abs(MDThread* t, uword numParams)
+	uword abs(MDThread* t)
 	{
 		checkNumParam(t, 1);
 
@@ -108,139 +108,139 @@ static:
 		return 1;
 	}
 
-	uword sin(MDThread* t, uword numParams)
+	uword sin(MDThread* t)
 	{
 		pushFloat(t, math.sin(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword cos(MDThread* t, uword numParams)
+	uword cos(MDThread* t)
 	{
 		pushFloat(t, math.cos(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword tan(MDThread* t, uword numParams)
+	uword tan(MDThread* t)
 	{
 		pushFloat(t, math.tan(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword asin(MDThread* t, uword numParams)
+	uword asin(MDThread* t)
 	{
 		pushFloat(t, math.asin(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword acos(MDThread* t, uword numParams)
+	uword acos(MDThread* t)
 	{
 		pushFloat(t, math.acos(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword atan(MDThread* t, uword numParams)
+	uword atan(MDThread* t)
 	{
 		pushFloat(t, math.atan(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword atan2(MDThread* t, uword numParams)
+	uword atan2(MDThread* t)
 	{
 		pushFloat(t, math.atan2(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
-	uword sqrt(MDThread* t, uword numParams)
+	uword sqrt(MDThread* t)
 	{
 		pushFloat(t, math.sqrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword cbrt(MDThread* t, uword numParams)
+	uword cbrt(MDThread* t)
 	{
 		pushFloat(t, math.cbrt(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword exp(MDThread* t, uword numParams)
+	uword exp(MDThread* t)
 	{
 		pushFloat(t, math.exp(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword ln(MDThread* t, uword numParams)
+	uword ln(MDThread* t)
 	{
 		pushFloat(t, math.log(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword log2(MDThread* t, uword numParams)
+	uword log2(MDThread* t)
 	{
 		pushFloat(t, math.log2(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword log10(MDThread* t, uword numParams)
+	uword log10(MDThread* t)
 	{
 		pushFloat(t, math.log10(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword hypot(MDThread* t, uword numParams)
+	uword hypot(MDThread* t)
 	{
 		pushFloat(t, math.hypot(checkNumParam(t, 1), checkNumParam(t, 2)));
 		return 1;
 	}
 
-	uword lgamma(MDThread* t, uword numParams)
+	uword lgamma(MDThread* t)
 	{
 		pushFloat(t, logGamma(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword gamma(MDThread* t, uword numParams)
+	uword gamma(MDThread* t)
 	{
 		pushFloat(t, .gamma(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword ceil(MDThread* t, uword numParams)
+	uword ceil(MDThread* t)
 	{
 		pushFloat(t, math.ceil(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword floor(MDThread* t, uword numParams)
+	uword floor(MDThread* t)
 	{
 		pushFloat(t, math.floor(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword round(MDThread* t, uword numParams)
+	uword round(MDThread* t)
 	{
 		pushInt(t, cast(mdint)math.round(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword trunc(MDThread* t, uword numParams)
+	uword trunc(MDThread* t)
 	{
 		pushInt(t, cast(mdint)math.trunc(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword isNan(MDThread* t, uword numParams)
+	uword isNan(MDThread* t)
 	{
 		pushBool(t, cast(bool)ieee.isNaN(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword isInf(MDThread* t, uword numParams)
+	uword isInf(MDThread* t)
 	{
 		pushBool(t, cast(bool)ieee.isInfinity(checkNumParam(t, 1)));
 		return 1;
 	}
 
-	uword sign(MDThread* t, uword numParams)
+	uword sign(MDThread* t)
 	{
 		checkNumParam(t, 1);
 
@@ -270,7 +270,7 @@ static:
 		return 1;
 	}
 
-	uword pow(MDThread* t, uword numParams)
+	uword pow(MDThread* t)
 	{
 		auto base = checkNumParam(t, 1);
 		auto exp = checkNumParam(t, 2);
@@ -283,8 +283,9 @@ static:
 		return 1;
 	}
 
-	uword rand(MDThread* t, uword numParams)
+	uword rand(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		// uint is the return type of Kiss.toInt
 		static if(uint.sizeof < mdint.sizeof)
 		{
@@ -323,8 +324,9 @@ static:
 		return 1;
 	}
 
-	uword frand(MDThread* t, uword numParams)
+	uword frand(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto num = cast(mdfloat)Kiss.instance.toInt() / uint.max;
 
 		switch(numParams)
@@ -348,8 +350,9 @@ static:
 		return 1;
 	}
 
-	uword max(MDThread* t, uword numParams)
+	uword max(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		switch(numParams)
 		{
 			case 0:
@@ -377,8 +380,9 @@ static:
 		return 1;
 	}
 
-	uword min(MDThread* t, uword numParams)
+	uword min(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		switch(numParams)
 		{
 			case 0:

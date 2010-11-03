@@ -75,7 +75,7 @@ public const uint MiniDVersion = MakeVersion!(2, 1);
 /**
 An alias for the type signature of a native function.  It is defined as uword function(MDThread*, uword).
 */
-public alias uword function(MDThread*, uword) NativeFunc;
+public alias uword function(MDThread*) NativeFunc;
 
 /**
 The MiniD exception type.  This is the type that is thrown whenever you throw an exception from within

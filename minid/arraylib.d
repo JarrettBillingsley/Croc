@@ -39,7 +39,7 @@ struct ArrayLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "array", function uword(MDThread* t, uword numParams)
+		makeModule(t, "array", function uword(MDThread* t)
 		{
 			newFunction(t, &array_new, "new");     newGlobal(t, "new");
 			newFunction(t, &range,     "range");   newGlobal(t, "range");
@@ -90,9 +90,10 @@ static:
 		importModuleNoNS(t, "array");
 	}
 
-	uword array_new(MDThread* t, uword numParams)
+	uword array_new(MDThread* t)
 	{
 		auto length = checkIntParam(t, 1);
+		auto numParams = stackSize(t) - 1;
 
 		if(length < 0 || length > uword.max)
 			throwException(t, "Invalid length: {}", length);
@@ -108,9 +109,10 @@ static:
 		return 1;
 	}
 
-	uword range(MDThread* t, uword numParams)
+	uword range(MDThread* t)
 	{
 		auto v1 = checkIntParam(t, 1);
+		auto numParams = stackSize(t) - 1;
 		mdint v2;
 		mdint step = 1;
 
@@ -158,8 +160,9 @@ static:
 		return 1;
 	}
 
-	uword sort(MDThread* t, uword numParams)
+	uword sort(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 
 		bool delegate(MDValue, MDValue) pred;
@@ -219,7 +222,7 @@ static:
 		return 1;
 	}
 
-	uword reverse(MDThread* t, uword numParams)
+	uword reverse(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		getArray(t, 0).slice.reverse;
@@ -227,7 +230,7 @@ static:
 		return 1;
 	}
 
-	uword array_dup(MDThread* t, uword numParams)
+	uword array_dup(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		newArray(t, cast(uword)len(t, 0)); // this should be fine?  since arrays can't be longer than uword.max
@@ -235,7 +238,7 @@ static:
 		return 1;
 	}
 
-	uword iterator(MDThread* t, uword numParams)
+	uword iterator(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		auto index = checkIntParam(t, 1) + 1;
@@ -250,7 +253,7 @@ static:
 		return 2;
 	}
 
-	uword iteratorReverse(MDThread* t, uword numParams)
+	uword iteratorReverse(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		auto index = checkIntParam(t, 1) - 1;
@@ -265,7 +268,7 @@ static:
 		return 2;
 	}
 
-	uword opApply(MDThread* t, uword numParams)
+	uword opApply(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
@@ -285,7 +288,7 @@ static:
 		return 3;
 	}
 
-	uword expand(MDThread* t, uword numParams)
+	uword expand(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
@@ -296,7 +299,7 @@ static:
 		return a.slice.length;
 	}
 
-	uword toString(MDThread* t, uword numParams)
+	uword toString(MDThread* t)
 	{
 		auto buf = StrBuffer(t);
 		buf.addChar('[');
@@ -342,7 +345,7 @@ static:
 		return 1;
 	}
 
-	uword apply(MDThread* t, uword numParams)
+	uword apply(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -362,7 +365,7 @@ static:
 		return 1;
 	}
 
-	uword map(MDThread* t, uword numParams)
+	uword map(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -381,7 +384,7 @@ static:
 		return 1;
 	}
 
-	uword reduce(MDThread* t, uword numParams)
+	uword reduce(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -408,7 +411,7 @@ static:
 		return 1;
 	}
 
-	uword each(MDThread* t, uword numParams)
+	uword each(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -429,7 +432,7 @@ static:
 		return 1;
 	}
 
-	uword filter(MDThread* t, uword numParams)
+	uword filter(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -475,7 +478,7 @@ static:
 		return 1;
 	}
 
-	uword find(MDThread* t, uword numParams)
+	uword find(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
@@ -495,7 +498,7 @@ static:
 		return 1;
 	}
 
-	uword findIf(MDThread* t, uword numParams)
+	uword findIf(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
@@ -526,7 +529,7 @@ static:
 		return 1;
 	}
 
-	uword bsearch(MDThread* t, uword numParams)
+	uword bsearch(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
@@ -571,8 +574,9 @@ static:
 		return 1;
 	}
 
-	uword array_pop(MDThread* t, uword numParams)
+	uword array_pop(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		mdint index = -1;
 		auto data = getArray(t, 0).slice;
@@ -598,8 +602,9 @@ static:
 		return 1;
 	}
 
-	uword set(MDThread* t, uword numParams)
+	uword set(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
 
@@ -690,24 +695,26 @@ static:
 		return 2;
 	}
 
-	uword min(MDThread* t, uword numParams)
+	uword min(MDThread* t)
 	{
 		return minMaxImpl(t, 0, false);
 	}
 
-	uword max(MDThread* t, uword numParams)
+	uword max(MDThread* t)
 	{
 		return minMaxImpl(t, 0, true);
 	}
 
-	uword extreme(MDThread* t, uword numParams)
+	uword extreme(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 1, MDValue.Type.Function);
 		return minMaxImpl(t, numParams, false);
 	}
 
-	uword all(MDThread* t, uword numParams)
+	uword all(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 
 		if(numParams > 0)
@@ -746,8 +753,9 @@ static:
 		return 1;
 	}
 	
-	uword any(MDThread* t, uword numParams)
+	uword any(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 
 		if(numParams > 0)
@@ -786,7 +794,7 @@ static:
 		return 1;
 	}
 
-	uword fill(MDThread* t, uword numParams)
+	uword fill(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
@@ -795,11 +803,12 @@ static:
 		return 0;
 	}
 
-	uword append(MDThread* t, uword numParams)
+	uword append(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
-		
+
 		if(numParams == 0)
 			return 0;
 			
@@ -812,7 +821,7 @@ static:
 		return 0;
 	}
 
-	uword flatten(MDThread* t, uword numParams)
+	uword flatten(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		auto flattening = getUpval(t, 0);
@@ -854,7 +863,7 @@ static:
 		return 1;
 	}
 
-	uword makeHeap(MDThread* t, uword numParams)
+	uword makeHeap(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
@@ -872,7 +881,7 @@ static:
 		return 1;
 	}
 
-	uword pushHeap(MDThread* t, uword numParams)
+	uword pushHeap(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
@@ -891,7 +900,7 @@ static:
 		return 1;
 	}
 
-	uword popHeap(MDThread* t, uword numParams)
+	uword popHeap(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
@@ -912,7 +921,7 @@ static:
 		return 1;
 	}
 
-	uword sortHeap(MDThread* t, uword numParams)
+	uword sortHeap(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
@@ -929,8 +938,9 @@ static:
 		return 1;
 	}
 
-	uword count(MDThread* t, uword numParams)
+	uword count(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
 
@@ -975,7 +985,7 @@ static:
 		return 1;
 	}
 
-	uword countIf(MDThread* t, uword numParams)
+	uword countIf(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);

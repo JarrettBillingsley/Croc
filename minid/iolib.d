@@ -45,7 +45,7 @@ struct IOLib
 static:
 	public void init(MDThread* t)
 	{
-		makeModule(t, "io", function uword(MDThread* t, uword numParams)
+		makeModule(t, "io", function uword(MDThread* t)
 		{
 			importModuleNoNS(t, "stream");
 
@@ -99,7 +99,7 @@ static:
 		importModuleNoNS(t, "io");
 	}
 
-	uword inFile(MDThread* t, uword numParams)
+	uword inFile(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto f = safeCode(t, new BufferedInput(new File(name, File.ReadExisting)));
@@ -112,7 +112,7 @@ static:
 		return 1;
 	}
 
-	uword outFile(MDThread* t, uword numParams)
+	uword outFile(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto mode = optCharParam(t, 2, 'c');
@@ -138,7 +138,7 @@ static:
 		return 1;
 	}
 
-	uword inoutFile(MDThread* t, uword numParams)
+	uword inoutFile(MDThread* t)
 	{
 		static const File.Style ReadWriteAppending = { File.Access.ReadWrite, File.Open.Append };
 
@@ -167,56 +167,57 @@ static:
 		return 1;
 	}
 
-	uword rename(MDThread* t, uword numParams)
+	uword rename(MDThread* t)
 	{
 		safeCode(t, Path.rename(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
-	uword remove(MDThread* t, uword numParams)
+	uword remove(MDThread* t)
 	{
 		safeCode(t, Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
-	uword copy(MDThread* t, uword numParams)
+	uword copy(MDThread* t)
 	{
 		safeCode(t, Path.copy(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
-	uword size(MDThread* t, uword numParams)
+	uword size(MDThread* t)
 	{
 		pushInt(t, cast(mdint)safeCode(t, Path.fileSize(checkStringParam(t, 1))));
 		return 1;
 	}
 
-	uword exists(MDThread* t, uword numParams)
+	uword exists(MDThread* t)
 	{
 		pushBool(t, Path.exists(checkStringParam(t, 1)));
 		return 1;
 	}
 
-	uword isFile(MDThread* t, uword numParams)
+	uword isFile(MDThread* t)
 	{
 		pushBool(t, safeCode(t, !Path.isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
-	uword isDir(MDThread* t, uword numParams)
+	uword isDir(MDThread* t)
 	{
 		pushBool(t, safeCode(t, Path.isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 	
-	uword isReadOnly(MDThread* t, uword numParams)
+	uword isReadOnly(MDThread* t)
 	{
 		pushBool(t, safeCode(t, !Path.isWritable(checkStringParam(t, 1))));
 		return 1;
 	}
 
-	uword fileTime(char[] which)(MDThread* t, uword numParams)
+	uword fileTime(char[] which)(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto time = safeCode(t, mixin("Path." ~ which ~ "(checkStringParam(t, 1))"));
 		word tab;
 
@@ -233,13 +234,13 @@ static:
 		return 1;
 	}
 
-	uword currentDir(MDThread* t, uword numParams)
+	uword currentDir(MDThread* t)
 	{
 		pushString(t, safeCode(t, Environment.cwd()));
 		return 1;
 	}
 	
-	uword parentDir(MDThread* t, uword numParams)
+	uword parentDir(MDThread* t)
 	{
 		auto p = optStringParam(t, 1, ".");
 		
@@ -256,13 +257,13 @@ static:
 		return 1;
 	}
 
-	uword changeDir(MDThread* t, uword numParams)
+	uword changeDir(MDThread* t)
 	{
 		safeCode(t, Environment.cwd(checkStringParam(t, 1)));
 		return 0;
 	}
 
-	uword makeDir(MDThread* t, uword numParams)
+	uword makeDir(MDThread* t)
 	{
 		auto p = Path.parse(checkStringParam(t, 1));
 
@@ -274,7 +275,7 @@ static:
 		return 0;
 	}
 
-	uword makeDirChain(MDThread* t, uword numParams)
+	uword makeDirChain(MDThread* t)
 	{
 		auto p = Path.parse(checkStringParam(t, 1));
 		
@@ -286,14 +287,15 @@ static:
 		return 0;
 	}
 
-	uword removeDir(MDThread* t, uword numParams)
+	uword removeDir(MDThread* t)
 	{
 		safeCode(t, Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 	
-	uword listImpl(MDThread* t, uword numParams, bool isFolder)
+	uword listImpl(MDThread* t, bool isFolder)
 	{
+		auto numParams = stackSize(t) - 1;
 		auto fp = optStringParam(t, 1, ".");
 
 		if(fp == ".")
@@ -357,17 +359,17 @@ static:
 		return 0;
 	}
 
-	uword listFiles(MDThread* t, uword numParams)
+	uword listFiles(MDThread* t)
 	{
-		return listImpl(t, numParams, false);
+		return listImpl(t, false);
 	}
 
-	uword listDirs(MDThread* t, uword numParams)
+	uword listDirs(MDThread* t)
 	{
-		return listImpl(t, numParams, true);
+		return listImpl(t, true);
 	}
 
-	uword readFile(MDThread* t, uword numParams)
+	uword readFile(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto shouldConvert = optBoolParam(t, 2, false);
@@ -400,7 +402,7 @@ static:
 		return 1;
 	}
 
-	uword writeFile(MDThread* t, uword numParams)
+	uword writeFile(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto data = checkStringParam(t, 2);
@@ -414,7 +416,7 @@ static:
 		return 0;
 	}
 	
-	uword readVector(MDThread* t, uword numParams)
+	uword readVector(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto size = safeCode(t, Path.fileSize(name));
@@ -434,7 +436,7 @@ static:
 		return 1;
 	}
 
-	uword writeVector(MDThread* t, uword numParams)
+	uword writeVector(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto memb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
@@ -445,7 +447,7 @@ static:
 		return 1;
 	}
 
-	uword linesIterator(MDThread* t, uword numParams)
+	uword linesIterator(MDThread* t)
 	{
 		auto lines = checkInstParam!(InStreamObj.Members)(t, 0, "stream.InStream").lines;
 		auto index = checkIntParam(t, 1) + 1;
@@ -464,7 +466,7 @@ static:
 		return 2;
 	}
 
-	uword lines(MDThread* t, uword numParams)
+	uword lines(MDThread* t)
 	{
 		checkStringParam(t, 1);
 
@@ -480,8 +482,9 @@ static:
 		return 3;
 	}
 
-	uword join(MDThread* t, uword numParams)
+	uword join(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkAnyParam(t, 1);
 		
 		char[][] tmp;
@@ -496,25 +499,25 @@ static:
 		return 1;
 	}
 	
-	uword dirName(MDThread* t, uword numParams)
+	uword dirName(MDThread* t)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).path);
 		return 1;
 	}
 
-	uword name(MDThread* t, uword numParams)
+	uword name(MDThread* t)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).name);
 		return 1;
 	}
 
-	uword extension(MDThread* t, uword numParams)
+	uword extension(MDThread* t)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).ext);
 		return 1;
 	}
 
-	uword fileName(MDThread* t, uword numParams)
+	uword fileName(MDThread* t)
 	{
 		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).file);
 		return 1;
