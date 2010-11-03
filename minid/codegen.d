@@ -1804,7 +1804,7 @@ final class FuncState
 	{
 		Stdout.formatln("Function at {}({}:{}) (guessed name: {})", mLocation.file, mLocation.line, mLocation.col, mName);
 		Stdout.formatln("Num params: {} Vararg: {} Stack size: {}", mNumParams, mIsVararg, mStackSize);
-		
+
 		foreach(i, m; mParamMasks)
 			Stdout.formatln("\tParam {} mask: {:b}", i, m);
 

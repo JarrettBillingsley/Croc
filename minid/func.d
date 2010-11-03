@@ -43,6 +43,7 @@ static:
 		f.environment = env;
 		f.name = def.name;
 		f.numUpvals = def.numUpvals;
+		f.numParams = def.numParams;
 
 		f.scriptFunc = def;
 		f.scriptUpvals()[] = null;
@@ -58,6 +59,7 @@ static:
 		f.environment = env;
 		f.name = name;
 		f.numUpvals = numUpvals;
+		f.numParams = typeof(f.numParams).max;
 
 		f.nativeFunc = func;
 		f.nativeUpvals()[] = MDValue.nullValue;
@@ -77,14 +79,6 @@ static:
 	package bool isNative(MDFunction* f)
 	{
 		return f.isNative;
-	}
-
-	package word numParams(MDFunction* f)
-	{
-		if(f.isNative)
-			return 0;
-		else
-			return f.scriptFunc.numParams;
 	}
 
 	package bool isVararg(MDFunction* f)

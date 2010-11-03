@@ -2251,12 +2251,22 @@ uword funcNumParams(MDThread* t, word func)
 	mixin(FuncNameMix);
 
 	if(auto f = getFunction(t, func))
-		return .func.numParams(f);
+		return f.numParams - 1;
 
 	pushTypeString(t, func);
 	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
+}
+
+void setFuncNumParams(MDThread* t, word func, uword numParams)
+{
+	auto f = getFunction(t, func);
+	
+	if(!f.isNative)
+		throwException(t, "Trying to set number of parameters of a script function");
+		
+	f.numParams = numParams + 1;
 }
 
 /**
@@ -5194,23 +5204,27 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 	{
 		// Script function
 		auto funcDef = func.scriptFunc;
+
+		if(!funcDef.isVararg && numParams > func.numParams)
+			throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
+
 		auto ar = pushAR(t);
 
-		if(funcDef.isVararg && numParams > funcDef.numParams)
+		if(funcDef.isVararg && numParams > func.numParams)
 		{
 			// In this case, we move the formal parameters after the varargs and null out where the formal
 			// params used to be.
 			ar.base = paramSlot + numParams;
-			ar.vargBase = paramSlot + funcDef.numParams;
+			ar.vargBase = paramSlot + func.numParams;
 
 			checkStack(t, ar.base + funcDef.stackSize - 1);
 
-			auto oldParams = t.stack[paramSlot .. paramSlot + funcDef.numParams];
-			t.stack[ar.base .. ar.base + funcDef.numParams] = oldParams;
+			auto oldParams = t.stack[paramSlot .. paramSlot + func.numParams];
+			t.stack[ar.base .. ar.base + func.numParams] = oldParams;
 			oldParams[] = MDValue.nullValue;
 
 			// For nulling out the stack.
-			numParams = funcDef.numParams;
+			numParams = func.numParams;
 		}
 		else
 		{
@@ -5219,10 +5233,6 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 			ar.vargBase = paramSlot;
 
 			checkStack(t, ar.base + funcDef.stackSize - 1);
-
-			// Compensate for too many params.
-			if(numParams > funcDef.numParams)
-				numParams = funcDef.numParams;
 
 			// If we have too few params, the extra param slots will be nulled out.
 		}
@@ -5260,6 +5270,9 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 	}
 	else
 	{
+		if(numParams > func.numParams)
+			throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
+
 		// Native function
 		t.stackIndex = paramSlot + numParams;
 		checkStack(t, t.stackIndex);

@@ -449,6 +449,7 @@ struct MDFunction
 	package MDNamespace* environment;
 	package MDString* name;
 	package uword numUpvals;
+	package uword numParams;
 
 	union
 	{

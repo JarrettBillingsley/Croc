@@ -200,8 +200,8 @@ static:
 		setFuncEnv(t, -3);
 
 		// Call it with the name as the first param
-		pushString(t, name);
-		rawCall(t, -3, 0);
+// 		pushString(t, name);
+		rawCall(t, -2, 0);
 
 		// Add it to the loaded table
 		pushGlobal(t, "loaded");
