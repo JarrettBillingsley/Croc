@@ -52,14 +52,14 @@ static:
 	}
 
 	// Create a native function.
-	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDString* name, NativeFunc func, uword numUpvals)
+	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDString* name, NativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = alloc.allocate!(MDFunction)(NativeClosureSize(numUpvals));
 		f.isNative = true;
 		f.environment = env;
 		f.name = name;
 		f.numUpvals = numUpvals;
-		f.numParams = typeof(f.numParams).max;
+		f.numParams = numParams;
 
 		f.nativeFunc = func;
 		f.nativeUpvals()[] = MDValue.nullValue;

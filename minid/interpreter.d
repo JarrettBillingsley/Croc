@@ -832,6 +832,17 @@ word newFunction(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 }
 
 /**
+Same as above, but allows you to set the maximum allowable number of parameters that can
+be passed to this function. If more than numParams parameters are passed to this function,
+an exception will be thrown. If fewer are passed, it is not an error.
+*/
+word newFunction(MDThread* t, uint numParams, NativeFunc func, char[] name, uword numUpvals = 0)
+{
+	pushEnvironment(t);
+	return newFunctionWithEnv(t, numParams, func, name, numUpvals);
+}
+
+/**
 Creates a new native closure with an explicit environment and pushes it onto the stack.
 
 Very similar to newFunction, except that it also expects the environment for the function
@@ -852,6 +863,15 @@ Returns:
 */
 word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
+	return newFunctionWithEnv(t, uint.max, func, name, numUpvals);
+}
+
+/**
+Same as above, but allows you to set the maximum allowable number of parameters that can
+be passed to this function. See newFunction for more details.
+*/
+word newFunctionWithEnv(MDThread* t, uint numParams, NativeFunc func, char[] name, uword numUpvals = 0)
+{
 	mixin(checkNumParams!("numUpvals + 1"));
 
 	auto env = getNamespace(t, -1);
@@ -864,7 +884,7 @@ word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpva
 
 	maybeGC(t);
 
-	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals);
+	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
@@ -2257,16 +2277,6 @@ uword funcNumParams(MDThread* t, word func)
 	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 
 	assert(false);
-}
-
-void setFuncNumParams(MDThread* t, word func, uword numParams)
-{
-	auto f = getFunction(t, func);
-	
-	if(!f.isNative)
-		throwException(t, "Trying to set number of parameters of a script function");
-		
-	f.numParams = numParams + 1;
 }
 
 /**
