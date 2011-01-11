@@ -41,47 +41,47 @@ static:
 	{
 		makeModule(t, "array", function uword(MDThread* t)
 		{
-			newFunction(t, &array_new, "new");     newGlobal(t, "new");
-			newFunction(t, &range,     "range");   newGlobal(t, "range");
+			newFunction(t, 2, &array_new, "new");     newGlobal(t, "new");
+			newFunction(t, 3, &range,     "range");   newGlobal(t, "range");
 
 			newNamespace(t, "array");
-				newFunction(t, &sort,      "sort");       fielda(t, -2, "sort");
-				newFunction(t, &reverse,   "reverse");    fielda(t, -2, "reverse");
-				newFunction(t, &array_dup, "dup");        fielda(t, -2, "dup");
+				newFunction(t, 1, &sort,      "sort");       fielda(t, -2, "sort");
+				newFunction(t, 0, &reverse,   "reverse");    fielda(t, -2, "reverse");
+				newFunction(t, 0, &array_dup, "dup");        fielda(t, -2, "dup");
 
-					newFunction(t, &iterator,        "iterator");
-					newFunction(t, &iteratorReverse, "iteratorReverse");
-				newFunction(t, &opApply,   "opApply", 2); fielda(t, -2, "opApply");
+					newFunction(t, 1, &iterator,        "iterator");
+					newFunction(t, 1, &iteratorReverse, "iteratorReverse");
+				newFunction(t, 1, &opApply,   "opApply", 2); fielda(t, -2, "opApply");
 
-				newFunction(t, &expand,    "expand");     fielda(t, -2, "expand");
-				newFunction(t, &toString,  "toString");   fielda(t, -2, "toString");
-				newFunction(t, &apply,     "apply");      fielda(t, -2, "apply");
-				newFunction(t, &map,       "map");        fielda(t, -2, "map");
-				newFunction(t, &reduce,    "reduce");     fielda(t, -2, "reduce");
-				newFunction(t, &each,      "each");       fielda(t, -2, "each");
-				newFunction(t, &filter,    "filter");     fielda(t, -2, "filter");
-				newFunction(t, &find,      "find");       fielda(t, -2, "find");
-				newFunction(t, &findIf,    "findIf");     fielda(t, -2, "findIf");
-				newFunction(t, &bsearch,   "bsearch");    fielda(t, -2, "bsearch");
-				newFunction(t, &array_pop, "pop");        fielda(t, -2, "pop");
+				newFunction(t, 0, &expand,    "expand");     fielda(t, -2, "expand");
+				newFunction(t, 0, &toString,  "toString");   fielda(t, -2, "toString");
+				newFunction(t, 1, &apply,     "apply");      fielda(t, -2, "apply");
+				newFunction(t, 1, &map,       "map");        fielda(t, -2, "map");
+				newFunction(t, 1, &reduce,    "reduce");     fielda(t, -2, "reduce");
+				newFunction(t, 1, &each,      "each");       fielda(t, -2, "each");
+				newFunction(t, 1, &filter,    "filter");     fielda(t, -2, "filter");
+				newFunction(t, 1, &find,      "find");       fielda(t, -2, "find");
+				newFunction(t, 1, &findIf,    "findIf");     fielda(t, -2, "findIf");
+				newFunction(t, 1, &bsearch,   "bsearch");    fielda(t, -2, "bsearch");
+				newFunction(t, 1, &array_pop, "pop");        fielda(t, -2, "pop");
 				newFunction(t, &set,       "set");        fielda(t, -2, "set");
-				newFunction(t, &min,       "min");        fielda(t, -2, "min");
-				newFunction(t, &max,       "max");        fielda(t, -2, "max");
-				newFunction(t, &extreme,   "extreme");    fielda(t, -2, "extreme");
-				newFunction(t, &any,       "any");        fielda(t, -2, "any");
-				newFunction(t, &all,       "all");        fielda(t, -2, "all");
-				newFunction(t, &fill,      "fill");       fielda(t, -2, "fill");
+				newFunction(t, 0, &min,       "min");        fielda(t, -2, "min");
+				newFunction(t, 0, &max,       "max");        fielda(t, -2, "max");
+				newFunction(t, 1, &extreme,   "extreme");    fielda(t, -2, "extreme");
+				newFunction(t, 1, &any,       "any");        fielda(t, -2, "any");
+				newFunction(t, 1, &all,       "all");        fielda(t, -2, "all");
+				newFunction(t, 1, &fill,      "fill");       fielda(t, -2, "fill");
 				newFunction(t, &append,    "append");     fielda(t, -2, "append");
 
 					newTable(t);
-				newFunction(t, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
+				newFunction(t, 0, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
 
-				newFunction(t, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
-				newFunction(t, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
-				newFunction(t, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
-				newFunction(t, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
-				newFunction(t, &count,     "count");      fielda(t, -2, "count");
-				newFunction(t, &countIf,   "countIf");    fielda(t, -2, "countIf");
+				newFunction(t, 0, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
+				newFunction(t, 1, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
+				newFunction(t, 0, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
+				newFunction(t, 0, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
+				newFunction(t, 2, &count,     "count");      fielda(t, -2, "count");
+				newFunction(t, 1, &countIf,   "countIf");    fielda(t, -2, "countIf");
 			setTypeMT(t, MDValue.Type.Array);
 
 			return 0;
@@ -137,7 +137,7 @@ static:
 
 		if((range % step) != 0)
 			size++;
-			
+
 		if(size > uword.max)
 			throwException(t, "Array is too big");
 
@@ -169,16 +169,21 @@ static:
 
 		if(numParams > 0)
 		{
-			if(isString(t, 1) && getString(t, 1) == "reverse")
+			if(isString(t, 1))
 			{
-				pred = (MDValue v1, MDValue v2)
+				if(getString(t, 1) == "reverse")
 				{
-					push(t, v1);
-					push(t, v2);
-					auto v = cmp(t, -2, -1);
-					pop(t, 2);
-					return v > 0;
-				};
+					pred = (MDValue v1, MDValue v2)
+					{
+						push(t, v1);
+						push(t, v2);
+						auto v = cmp(t, -2, -1);
+						pop(t, 2);
+						return v > 0;
+					};
+				}
+				else
+					throwException(t, "Unknown array sorting method");
 			}
 			else
 			{
@@ -192,13 +197,13 @@ static:
 					push(t, v1);
 					push(t, v2);
 					rawCall(t, reg, 1);
-					
+
 					if(!isInt(t, -1))
 					{
 						pushTypeString(t, -1);
 						throwException(t, "comparison function expected to return 'int', not '{}'", getString(t, -1));
 					}
-					
+
 					auto v = getInt(t, -1);
 					pop(t);
 					return v < 0;
@@ -216,7 +221,7 @@ static:
 				return v < 0;
 			};
 		}
-		
+
 		.sort(getArray(t, 0).slice, pred);
 		dup(t, 0);
 		return 1;
@@ -303,14 +308,14 @@ static:
 	{
 		auto buf = StrBuffer(t);
 		buf.addChar('[');
-	
+
 		auto length = len(t, 0);
-	
+
 		for(uword i = 0; i < length; i++)
 		{
 			pushInt(t, i);
 			idx(t, 0);
-	
+
 			if(isString(t, -1))
 			{
 				// this is GC-safe since the string is stored in the array
@@ -334,14 +339,14 @@ static:
 				insertAndPop(t, -2);
 				buf.addTop();
 			}
-	
+
 			if(i < length - 1)
 				buf.addString(", ");
 		}
-	
+
 		buf.addChar(']');
 		buf.finish();
-	
+
 		return 1;
 	}
 
@@ -423,11 +428,11 @@ static:
 			pushInt(t, i);
 			push(t, v);
 			rawCall(t, -4, 1);
-			
+
 			if(isBool(t, -1) && getBool(t, -1) == false)
 				break;
 		}
-		
+
 		dup(t, 0);
 		return 1;
 	}
@@ -448,7 +453,7 @@ static:
 			pushInt(t, i);
 			push(t, v);
 			rawCall(t, -4, 1);
-			
+
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
@@ -468,10 +473,10 @@ static:
 				idxai(t, retArray, retIdx, true);
 				retIdx++;
 			}
-			
+
 			pop(t);
 		}
-  
+
 		pushInt(t, retIdx);
 		lena(t, retArray);
 		dup(t, retArray);
@@ -502,20 +507,20 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
-		
+
 		foreach(i, ref v; getArray(t, 0).slice)
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);
 			push(t, v);
 			rawCall(t, reg, 1);
-			
+
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
 				throwException(t, "find function expected to return 'bool', not '{}'", getString(t, -1));
 			}
-			
+
 			if(getBool(t, -1))
 			{
 				pushInt(t, i);
@@ -524,7 +529,7 @@ static:
 
 			pop(t);
 		}
-		
+
 		pushLen(t, 0);
 		return 1;
 	}
@@ -566,7 +571,7 @@ static:
 				pushInt(t, i);
 				return 1;
 			}
-			
+
 			pop(t);
 		}
 
@@ -637,19 +642,19 @@ static:
 				idxi(t, 0, i, true);
 				push(t, extreme);
 				rawCall(t, -4, 1);
-				
+
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
 					throwException(t, "extrema function should return 'bool', not '{}'", getString(t, -1));
 				}
-				
+
 				if(getBool(t, -1))
 				{
 					extreme = data[i];
 					extremeIdx = i;
 				}
-					
+
 				pop(t);
 			}
 
@@ -690,7 +695,7 @@ static:
 				}
 			}
 		}
-		
+
 		pushInt(t, extremeIdx);
 		return 2;
 	}
@@ -720,7 +725,7 @@ static:
 		if(numParams > 0)
 		{
 			checkParam(t, 1, MDValue.Type.Function);
-			
+
 			foreach(ref v; getArray(t, 0).slice)
 			{
 				dup(t, 1);
@@ -957,13 +962,13 @@ static:
 				push(t, a);
 				push(t, b);
 				rawCall(t, reg, 1);
-				
+
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
 					throwException(t, "count predicate expected to return 'bool', not '{}'", getString(t, -1));
 				}
-				
+
 				auto ret = getBool(t, -1);
 				pop(t);
 				return ret;

@@ -863,7 +863,7 @@ Returns:
 */
 word newFunctionWithEnv(MDThread* t, NativeFunc func, char[] name, uword numUpvals = 0)
 {
-	return newFunctionWithEnv(t, uint.max, func, name, numUpvals);
+	return newFunctionWithEnv(t, .func.MaxParams, func, name, numUpvals);
 }
 
 /**

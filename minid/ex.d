@@ -159,6 +159,16 @@ public struct CreateClass
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
 	}
+
+	/**
+	Same as above, but lets you specify a maximum allowable number of parameters. See
+	interpreter.newFunction.
+	*/
+	public void method(char[] name, uint numParams, NativeFunc f, uword numUpvals = 0)
+	{
+		newFunction(t, numParams, f, this.name ~ '.' ~ name, numUpvals);
+		fielda(t, idx, name);
+	}
 }
 
 /**

@@ -40,30 +40,30 @@ static:
 	{
 		makeModule(t, "debug", function uword(MDThread* t)
 		{
-			newFunction(t, &setHook,        "setHook");        newGlobal(t, "setHook");
-			newFunction(t, &getHook,        "getHook");        newGlobal(t, "getHook");
-			newFunction(t, &callDepth,      "callDepth");      newGlobal(t, "callDepth");
-			newFunction(t, &sourceName,     "sourceName");     newGlobal(t, "sourceName");
-			newFunction(t, &sourceLine,     "sourceLine");     newGlobal(t, "sourceLine");
-			newFunction(t, &getFunc,        "getFunc");        newGlobal(t, "getFunc");
-			newFunction(t, &numLocals,      "numLocals");      newGlobal(t, "numLocals");
-			newFunction(t, &localName,      "localName");      newGlobal(t, "localName");
-			newFunction(t, &getLocal,       "getLocal");       newGlobal(t, "getLocal");
-			newFunction(t, &setLocal,       "setLocal");       newGlobal(t, "setLocal");
-			newFunction(t, &numUpvals,      "numUpvals");      newGlobal(t, "numUpvals");
-			newFunction(t, &upvalName,      "upvalName");      newGlobal(t, "upvalName");
-			newFunction(t, &getUpval,       "getUpval");       newGlobal(t, "getUpval");
-			newFunction(t, &setUpval,       "setUpval");       newGlobal(t, "setUpval");
-			newFunction(t, &currentLine,    "currentLine");    newGlobal(t, "currentLine");
-			newFunction(t, &lineInfo,       "lineInfo");       newGlobal(t, "lineInfo");
-			newFunction(t, &getMetatable,   "getMetatable");   newGlobal(t, "getMetatable");
-			newFunction(t, &setMetatable,   "setMetatable");   newGlobal(t, "setMetatable");
-			newFunction(t, &getRegistry,    "getRegistry");    newGlobal(t, "getRegistry");
-			newFunction(t, &getExtraBytes,  "getExtraBytes");  newGlobal(t, "getExtraBytes");
-			newFunction(t, &setExtraBytes,  "setExtraBytes");  newGlobal(t, "setExtraBytes");
-			newFunction(t, &numExtraFields, "numExtraFields"); newGlobal(t, "numExtraFields");
-			newFunction(t, &getExtraField,  "getExtraField");  newGlobal(t, "getExtraField");
-			newFunction(t, &setExtraField,  "setExtraField");  newGlobal(t, "setExtraField");
+			newFunction(t, 3, &setHook,        "setHook");        newGlobal(t, "setHook");
+			newFunction(t, 1, &getHook,        "getHook");        newGlobal(t, "getHook");
+			newFunction(t, 1, &callDepth,      "callDepth");      newGlobal(t, "callDepth");
+			newFunction(t, 2, &sourceName,     "sourceName");     newGlobal(t, "sourceName");
+			newFunction(t, 2, &sourceLine,     "sourceLine");     newGlobal(t, "sourceLine");
+			newFunction(t, 2, &getFunc,        "getFunc");        newGlobal(t, "getFunc");
+			newFunction(t, 2, &numLocals,      "numLocals");      newGlobal(t, "numLocals");
+			newFunction(t, 3, &localName,      "localName");      newGlobal(t, "localName");
+			newFunction(t, 3, &getLocal,       "getLocal");       newGlobal(t, "getLocal");
+			newFunction(t, 4, &setLocal,       "setLocal");       newGlobal(t, "setLocal");
+			newFunction(t, 2, &numUpvals,      "numUpvals");      newGlobal(t, "numUpvals");
+			newFunction(t, 3, &upvalName,      "upvalName");      newGlobal(t, "upvalName");
+			newFunction(t, 3, &getUpval,       "getUpval");       newGlobal(t, "getUpval");
+			newFunction(t, 4, &setUpval,       "setUpval");       newGlobal(t, "setUpval");
+			newFunction(t, 2, &currentLine,    "currentLine");    newGlobal(t, "currentLine");
+			newFunction(t, 2, &lineInfo,       "lineInfo");       newGlobal(t, "lineInfo");
+			newFunction(t, 1, &getMetatable,   "getMetatable");   newGlobal(t, "getMetatable");
+			newFunction(t, 2, &setMetatable,   "setMetatable");   newGlobal(t, "setMetatable");
+			newFunction(t, 0, &getRegistry,    "getRegistry");    newGlobal(t, "getRegistry");
+			newFunction(t, 1, &getExtraBytes,  "getExtraBytes");  newGlobal(t, "getExtraBytes");
+			newFunction(t, 2, &setExtraBytes,  "setExtraBytes");  newGlobal(t, "setExtraBytes");
+			newFunction(t, 1, &numExtraFields, "numExtraFields"); newGlobal(t, "numExtraFields");
+			newFunction(t, 2, &getExtraField,  "getExtraField");  newGlobal(t, "getExtraField");
+			newFunction(t, 3, &setExtraField,  "setExtraField");  newGlobal(t, "setExtraField");
 
 			return 0;
 		});
@@ -81,19 +81,19 @@ static:
 
 		return mask;
 	}
-	
+
 	char[] maskToStr(char[] buf, ubyte mask)
 	{
 		uword i = 0;
-		
+
 		if(mask & MDThread.Hook.Call)  buf[i++] = 'c';
 		if(mask & MDThread.Hook.Ret)   buf[i++] = 'r';
 		if(mask & MDThread.Hook.Line)  buf[i++] = 'l';
 		if(mask & MDThread.Hook.Delay) buf[i++] = 'd';
-		
+
 		return buf[0 .. i];
 	}
-	
+
 	MDThread* getThreadParam(MDThread* t, out word arg)
 	{
 		if(isValidIndex(t, 1) && isThread(t, 1))
@@ -107,7 +107,7 @@ static:
 			return t;
 		}
 	}
-	
+
 	ActRecord* getAR(MDThread* t, MDThread* thread, mdint depth)
 	{
 		auto maxDepth = .callDepth(thread);
@@ -137,7 +137,7 @@ static:
 			return getFunction(t, arg);
 		else
 			paramTypeError(t, arg, "int|function");
-			
+
 		assert(false);
 	}
 
@@ -147,13 +147,13 @@ static:
 		auto thread = getThreadParam(t, arg);
 
 		checkAnyParam(t, arg + 1);
-		
+
 		if(!isNull(t, arg + 1) && !isFunction(t, arg + 1))
 			paramTypeError(t, arg + 1, "null|function");
 
 		auto maskStr = optStringParam(t, arg + 2, "");
 		auto delay = optIntParam(t, arg + 3, 0);
-		
+
 		if(delay < 0 || delay > uword.max)
 			throwException(t, "invalid delay value ({})", delay);
 
@@ -193,7 +193,7 @@ static:
 
 		return 1;
 	}
-	
+
 	uword sourceName(MDThread* t)
 	{
 		word arg;
@@ -213,15 +213,15 @@ static:
 		word arg;
 		auto thread = getThreadParam(t, arg);
 		auto func = getFuncParam(t, thread, arg + 1);
-		
+
 		if(func is null || func.isNative)
 			pushInt(t, 0);
 		else
 			pushInt(t, func.scriptFunc.location.line);
-			
+
 		return 1;
 	}
-	
+
 	uword getFunc(MDThread* t)
 	{
 		word arg;
@@ -236,7 +236,7 @@ static:
 
 		return 1;
 	}
-	
+
 	uword numLocals(MDThread* t)
 	{
 		word arg;
@@ -253,13 +253,13 @@ static:
 			foreach(ref var; ar.func.scriptFunc.locVarDescs)
 				if(pc >= var.pcStart && pc < var.pcEnd)
 					num++;
-					
+
 			pushInt(t, num);
 		}
 
 		return 1;
 	}
-	
+
 	uword localName(MDThread* t)
 	{
 		word arg;
@@ -292,13 +292,13 @@ static:
 
 		return 1;
 	}
-	
+
 	uword getLocal(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
 		auto ar = getAR(t, thread, checkIntParam(t, arg + 1));
-		
+
 		mdint idx = 1;
 		MDString* name;
 
@@ -328,7 +328,7 @@ static:
 						push(t, v);
 						break;
 					}
-	
+
 					idx--;
 				}
 				else if(var.name is name)
@@ -387,7 +387,7 @@ static:
 						thread.stack[ar.base + var.reg] = *getValue(t, arg + 3);
 						break;
 					}
-	
+
 					idx--;
 				}
 				else if(var.name is name)
@@ -409,13 +409,13 @@ static:
 
 		return 0;
 	}
-	
+
 	uword numUpvals(MDThread* t)
 	{
 		word arg;
 		auto thread = getThreadParam(t, arg);
 		auto func = getFuncParam(t, thread, arg + 1);
-		
+
 		if(func is null)
 			pushInt(t, 0);
 		else
@@ -441,7 +441,7 @@ static:
 
 		return 1;
 	}
-	
+
 	uword getUpval(MDThread* t)
 	{
 		word arg;
@@ -486,7 +486,7 @@ static:
 					break;
 				}
 			}
-			
+
 			if(!found)
 				throwException(t, "invalid upvalue name '{}'", name.toString());
 		}
@@ -532,7 +532,7 @@ static:
 				if(n is name)
 				{
 					found = true;
-					
+
 					if(func.isNative)
 						func.nativeUpvals()[i] = *getValue(t, arg + 3);
 					else
@@ -586,7 +586,7 @@ static:
 		else
 		{
 			auto info = func.scriptFunc.lineInfo;
-			
+
 			newTable(t, info.length);
 
 			foreach(i, l; info)
@@ -603,7 +603,7 @@ static:
 
 		return 1;
 	}
-	
+
 	uword getMetatable(MDThread* t)
 	{
 		auto name = checkStringParam(t, 1);
@@ -681,7 +681,7 @@ static:
 		VectorObj.fromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
 		return 1;
 	}
-	
+
 	uword setExtraBytes(MDThread* t)
 	{
 		checkInstParam(t, 1);
@@ -695,26 +695,26 @@ static:
 		instData[] = vecData[];
 		return 0;
 	}
-	
+
 	uword numExtraFields(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		pushInt(t, numExtraVals(t, 1));
 		return 1;
 	}
-	
+
 	uword getExtraField(MDThread* t)
 	{
 		checkInstParam(t, 1);
 		auto idx = checkIntParam(t, 2);
 		auto num = numExtraVals(t, 1);
-		
+
 		if(idx < 0)
 			idx += num;
-			
+
 		if(idx < 0 || idx >= num)
 			throwException(t, "Invalid field index '{}'", idx);
-			
+
 		getExtraVal(t, 1, cast(uword)idx);
 		return 1;
 	}

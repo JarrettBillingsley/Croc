@@ -35,6 +35,8 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+	package const uint MaxParams = uint.max - 1;
+
 	// Create a script function.
 	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDFuncDef* def)
 	{
@@ -59,7 +61,7 @@ static:
 		f.environment = env;
 		f.name = name;
 		f.numUpvals = numUpvals;
-		f.numParams = numParams;
+		f.numParams = numParams + 1; // +1 to include 'this'
 
 		f.nativeFunc = func;
 		f.nativeUpvals()[] = MDValue.nullValue;
@@ -84,7 +86,7 @@ static:
 	package bool isVararg(MDFunction* f)
 	{
 		if(f.isNative)
-			return true;
+			return f.numParams == MaxParams + 1;
 		else
 			return f.scriptFunc.isVararg;
 	}

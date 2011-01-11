@@ -39,19 +39,19 @@ static:
 	public void init(MDThread* t)
 	{
 		newNamespace(t, "char");
-			newFunction(t, &toLower,    "char.toLower");    fielda(t, -2, "toLower");
-			newFunction(t, &toUpper,    "char.toUpper");    fielda(t, -2, "toUpper");
-			newFunction(t, &isAlpha,    "char.isAlpha");    fielda(t, -2, "isAlpha");
-			newFunction(t, &isAlNum,    "char.isAlNum");    fielda(t, -2, "isAlNum");
-			newFunction(t, &isLower,    "char.isLower");    fielda(t, -2, "isLower");
-			newFunction(t, &isUpper,    "char.isUpper");    fielda(t, -2, "isUpper");
-			newFunction(t, &isDigit,    "char.isDigit");    fielda(t, -2, "isDigit");
-			newFunction(t, &isCtrl,     "char.isCtrl");     fielda(t, -2, "isCtrl");
-			newFunction(t, &isPunct,    "char.isPunct");    fielda(t, -2, "isPunct");
-			newFunction(t, &isSpace,    "char.isSpace");    fielda(t, -2, "isSpace");
-			newFunction(t, &isHexDigit, "char.isHexDigit"); fielda(t, -2, "isHexDigit");
-			newFunction(t, &isAscii,    "char.isAscii");    fielda(t, -2, "isAscii");
-			newFunction(t, &isValid,    "char.isValid");    fielda(t, -2, "isValid");
+			newFunction(t, 0, &toLower,    "char.toLower");    fielda(t, -2, "toLower");
+			newFunction(t, 0, &toUpper,    "char.toUpper");    fielda(t, -2, "toUpper");
+			newFunction(t, 0, &isAlpha,    "char.isAlpha");    fielda(t, -2, "isAlpha");
+			newFunction(t, 0, &isAlNum,    "char.isAlNum");    fielda(t, -2, "isAlNum");
+			newFunction(t, 0, &isLower,    "char.isLower");    fielda(t, -2, "isLower");
+			newFunction(t, 0, &isUpper,    "char.isUpper");    fielda(t, -2, "isUpper");
+			newFunction(t, 0, &isDigit,    "char.isDigit");    fielda(t, -2, "isDigit");
+			newFunction(t, 0, &isCtrl,     "char.isCtrl");     fielda(t, -2, "isCtrl");
+			newFunction(t, 0, &isPunct,    "char.isPunct");    fielda(t, -2, "isPunct");
+			newFunction(t, 0, &isSpace,    "char.isSpace");    fielda(t, -2, "isSpace");
+			newFunction(t, 0, &isHexDigit, "char.isHexDigit"); fielda(t, -2, "isHexDigit");
+			newFunction(t, 0, &isAscii,    "char.isAscii");    fielda(t, -2, "isAscii");
+			newFunction(t, 0, &isValid,    "char.isValid");    fielda(t, -2, "isValid");
 		setTypeMT(t, MDValue.Type.Char);
 	}
 

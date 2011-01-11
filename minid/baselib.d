@@ -54,6 +54,12 @@ private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals
 	newGlobal(t, name);
 }
 
+private void register(MDThread* t, uint numParams, char[] name, NativeFunc func, uword numUpvals = 0)
+{
+	newFunction(t, numParams, func, name, numUpvals);
+	newGlobal(t, name);
+}
+
 struct BaseLib
 {
 static:
@@ -74,60 +80,60 @@ static:
 		// GC
 		makeModule(t, "gc", function uword(MDThread* t)
 		{
-			newFunction(t, &collectGarbage, "collect");   newGlobal(t, "collect");
-			newFunction(t, &bytesAllocated, "allocated"); newGlobal(t, "allocated");
+			newFunction(t, 0, &collectGarbage, "collect");   newGlobal(t, "collect");
+			newFunction(t, 0, &bytesAllocated, "allocated"); newGlobal(t, "allocated");
 			return 0;
 		});
 
 		importModuleNoNS(t, "gc");
 
 		// Functional stuff
-		register(t, "curry", &curry);
-		register(t, "bindContext", &bindContext);
+		register(t, 2, "curry", &curry);
+		register(t, 2, "bindContext", &bindContext);
 
 		// Reflection-esque stuff
-		register(t, "findGlobal", &findGlobal);
-		register(t, "isSet", &isSet);
-		register(t, "typeof", &mdtypeof);
-		register(t, "nameOf", &nameOf);
-		register(t, "fieldsOf", &fieldsOf);
-		register(t, "allFieldsOf", &allFieldsOf);
-		register(t, "hasField", &hasField);
-		register(t, "hasMethod", &hasMethod);
-		register(t, "findField", &findField);
-		register(t, "rawSetField", &rawSetField);
-		register(t, "rawGetField", &rawGetField);
-		register(t, "getFuncEnv", &getFuncEnv);
-		register(t, "setFuncEnv", &setFuncEnv);
-		register(t, "isNull", &isParam!(MDValue.Type.Null));
-		register(t, "isBool", &isParam!(MDValue.Type.Bool));
-		register(t, "isInt", &isParam!(MDValue.Type.Int));
-		register(t, "isFloat", &isParam!(MDValue.Type.Float));
-		register(t, "isChar", &isParam!(MDValue.Type.Char));
-		register(t, "isString", &isParam!(MDValue.Type.String));
-		register(t, "isTable", &isParam!(MDValue.Type.Table));
-		register(t, "isArray", &isParam!(MDValue.Type.Array));
-		register(t, "isFunction", &isParam!(MDValue.Type.Function));
-		register(t, "isClass", &isParam!(MDValue.Type.Class));
-		register(t, "isInstance", &isParam!(MDValue.Type.Instance));
-		register(t, "isNamespace", &isParam!(MDValue.Type.Namespace));
-		register(t, "isThread", &isParam!(MDValue.Type.Thread));
-		register(t, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
-		register(t, "isWeakRef", &isParam!(MDValue.Type.WeakRef));
+		register(t, 1, "findGlobal", &findGlobal);
+		register(t, 1, "isSet", &isSet);
+		register(t, 1, "typeof", &mdtypeof);
+		register(t, 1, "nameOf", &nameOf);
+		register(t, 1, "fieldsOf", &fieldsOf);
+		register(t, 1, "allFieldsOf", &allFieldsOf);
+		register(t, 2, "hasField", &hasField);
+		register(t, 2, "hasMethod", &hasMethod);
+		register(t, 2, "findField", &findField);
+		register(t, 3, "rawSetField", &rawSetField);
+		register(t, 2, "rawGetField", &rawGetField);
+		register(t, 1, "getFuncEnv", &getFuncEnv);
+		register(t, 2, "setFuncEnv", &setFuncEnv);
+		register(t, 1, "isNull", &isParam!(MDValue.Type.Null));
+		register(t, 1, "isBool", &isParam!(MDValue.Type.Bool));
+		register(t, 1, "isInt", &isParam!(MDValue.Type.Int));
+		register(t, 1, "isFloat", &isParam!(MDValue.Type.Float));
+		register(t, 1, "isChar", &isParam!(MDValue.Type.Char));
+		register(t, 1, "isString", &isParam!(MDValue.Type.String));
+		register(t, 1, "isTable", &isParam!(MDValue.Type.Table));
+		register(t, 1, "isArray", &isParam!(MDValue.Type.Array));
+		register(t, 1, "isFunction", &isParam!(MDValue.Type.Function));
+		register(t, 1, "isClass", &isParam!(MDValue.Type.Class));
+		register(t, 1, "isInstance", &isParam!(MDValue.Type.Instance));
+		register(t, 1, "isNamespace", &isParam!(MDValue.Type.Namespace));
+		register(t, 1, "isThread", &isParam!(MDValue.Type.Thread));
+		register(t, 1, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
+		register(t, 1, "isWeakRef", &isParam!(MDValue.Type.WeakRef));
 
-		register(t, "attrs", &attrs);
-		register(t, "hasAttributes", &hasAttributes);
-		register(t, "attributesOf", &attributesOf);
+		register(t, 2, "attrs", &attrs);
+		register(t, 1, "hasAttributes", &hasAttributes);
+		register(t, 1, "attributesOf", &attributesOf);
 		newTable(t);
 		setRegistryVar(t, AttrTableName);
 
 		// Conversions
-		register(t, "toString", &toString);
-		register(t, "rawToString", &rawToString);
-		register(t, "toBool", &toBool);
-		register(t, "toInt", &toInt);
-		register(t, "toFloat", &toFloat);
-		register(t, "toChar", &toChar);
+		register(t, 2, "toString", &toString);
+		register(t, 1, "rawToString", &rawToString);
+		register(t, 1, "toBool", &toBool);
+		register(t, 1, "toInt", &toInt);
+		register(t, 1, "toFloat", &toFloat);
+		register(t, 1, "toChar", &toChar);
 		register(t, "format", &format);
 
 		// Console IO
@@ -135,27 +141,27 @@ static:
 		register(t, "writeln", &writeln);
 		register(t, "writef", &writef);
 		register(t, "writefln", &writefln);
-		register(t, "readln", &readln);
+		register(t, 0, "readln", &readln);
 
 			newTable(t);
-		register(t, "dumpVal", &dumpVal, 1);
+		register(t, 2, "dumpVal", &dumpVal, 1);
 
 		// Dynamic compilation stuff
-		register(t, "loadString", &loadString);
-		register(t, "eval", &eval);
-		register(t, "loadJSON", &loadJSON);
-		register(t, "toJSON", &toJSON);
+		register(t, 3, "loadString", &loadString);
+		register(t, 2, "eval", &eval);
+		register(t, 1, "loadJSON", &loadJSON);
+		register(t, 2, "toJSON", &toJSON);
 
 		// The Function type's metatable
 		newNamespace(t, "function");
-			newFunction(t, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
-			newFunction(t, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
-			newFunction(t, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
+			newFunction(t, 0, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
+			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
+			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
 		setTypeMT(t, MDValue.Type.Function);
 
 		// Weak reference stuff
-		register(t, "weakref", &weakref);
-		register(t, "deref", &deref);
+		register(t, 1, "weakref", &weakref);
+		register(t, 1, "deref", &deref);
 	}
 
 	// ===================================================================================================================================
@@ -241,11 +247,11 @@ static:
 		pushString(t, MDValue.typeString(type(t, 1)));
 		return 1;
 	}
-	
+
 	uword nameOf(MDThread* t)
 	{
 		checkAnyParam(t, 1);
-		
+
 		switch(type(t, 1))
 		{
 			case MDValue.Type.Function:  pushString(t, funcName(t, 1)); break;
@@ -254,14 +260,14 @@ static:
 			default:
 				paramTypeError(t, 1, "function|class|namespace");
 		}
-		
+
 		return 1;
 	}
 
 	uword fieldsOf(MDThread* t)
 	{
 		checkAnyParam(t, 1);
-		
+
 		if(isClass(t, 1) || isInstance(t, 1))
 			.fieldsOf(t, 1);
 		else
@@ -390,7 +396,7 @@ static:
 	uword findField(MDThread* t)
 	{
 		checkAnyParam(t, 1);
-		
+
 		if(!isInstance(t, 1) && !isClass(t, 1))
 			paramTypeError(t, 1, "class|instance");
 
@@ -433,7 +439,7 @@ static:
 		field(t, 1, true);
 		return 1;
 	}
-	
+
 	uword getFuncEnv(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Function);
@@ -461,7 +467,7 @@ static:
 	uword attrs(MDThread* t)
 	{
 		checkAnyParam(t, 2);
-		
+
 		if(!isNull(t, 2) && !isTable(t, 2))
 			paramTypeError(t, 2, "null|table");
 
@@ -940,7 +946,7 @@ static:
 		}
 		else
 			pushEnvironment(t, 1);
-			
+
 		scope c = new Compiler(t);
 		c.compileStatements(code, name);
 		insert(t, -2);
@@ -980,11 +986,11 @@ static:
 // 		{
 // 			Allocator* alloc;
 // 			uint increment;
-// 
+//
 // 			this(ref Allocator alloc)
 // 			{
 // 				super(null);
-// 
+//
 // 				this.alloc = &alloc;
 // 				setContent(alloc.allocArray!(ubyte)(1024), 0);
 // 				this.increment = 1024;
