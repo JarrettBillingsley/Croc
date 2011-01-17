@@ -82,8 +82,8 @@ static:
 		{
 			importModuleNoNS(t, "stream");
 
-			newFunction(t, &serializeGraph,   "serializeGraph");   newGlobal(t, "serializeGraph");
-			newFunction(t, &deserializeGraph, "deserializeGraph"); newGlobal(t, "deserializeGraph");
+			newFunction(t, 3, &serializeGraph,   "serializeGraph");   newGlobal(t, "serializeGraph");
+			newFunction(t, 2, &deserializeGraph, "deserializeGraph"); newGlobal(t, "deserializeGraph");
 			return 0;
 		});
 	}
@@ -225,7 +225,7 @@ private:
 			mStream = getInstance(t, -1);
 
 				pushNativeObj(t, new Goober(this));
-			newFunction(t, &serializeFunc, "serialize", 1);
+			newFunction(t, 1, &serializeFunc, "serialize", 1);
 			mSerializeFunc = getFunction(t, -1);
 
 			serialize(v);
@@ -887,7 +887,7 @@ private:
 			mStream = getInstance(t, -1);
 
 				pushNativeObj(t, new Goober(this));
-			newFunction(t, &deserializeFunc, "deserialize", 1);
+			newFunction(t, 0, &deserializeFunc, "deserialize", 1);
 			mDeserializeFunc = getFunction(t, -1);
 
 			deserializeValue();

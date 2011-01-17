@@ -38,29 +38,29 @@ static:
 	{
 		makeModule(t, "hash", function uword(MDThread* t)
 		{
-			newFunction(t, &staticDup,    "dup");    newGlobal(t, "dup");
-			newFunction(t, &staticKeys,   "keys");   newGlobal(t, "keys");
-			newFunction(t, &staticValues, "values"); newGlobal(t, "values");
-			newFunction(t, &staticApply,  "apply");  newGlobal(t, "apply");
-			newFunction(t, &staticEach,   "each");   newGlobal(t, "each");
-			newFunction(t, &staticTake,   "take");   newGlobal(t, "take");
-			newFunction(t, &staticClear,  "clear");  newGlobal(t, "clear");
-			newFunction(t, &remove,       "remove"); newGlobal(t, "remove");
-			newFunction(t, &set,          "set");    newGlobal(t, "set");
-			newFunction(t, &get,          "get");    newGlobal(t, "get");
+			newFunction(t, 1, &staticDup,    "dup");    newGlobal(t, "dup");
+			newFunction(t, 1, &staticKeys,   "keys");   newGlobal(t, "keys");
+			newFunction(t, 1, &staticValues, "values"); newGlobal(t, "values");
+			newFunction(t, 2, &staticApply,  "apply");  newGlobal(t, "apply");
+			newFunction(t, 2, &staticEach,   "each");   newGlobal(t, "each");
+			newFunction(t, 1, &staticTake,   "take");   newGlobal(t, "take");
+			newFunction(t, 1, &staticClear,  "clear");  newGlobal(t, "clear");
+			newFunction(t, 1, &remove,       "remove"); newGlobal(t, "remove");
+			newFunction(t, 3, &set,          "set");    newGlobal(t, "set");
+			newFunction(t, 2, &get,          "get");    newGlobal(t, "get");
 
 			newNamespace(t, "table");
-				newFunction(t, &tableDup,     "dup");     fielda(t, -2, "dup");
-				newFunction(t, &tableKeys,    "keys");    fielda(t, -2, "keys");
-				newFunction(t, &tableValues,  "values");  fielda(t, -2, "values");
-				newFunction(t, &tableOpApply, "opApply"); fielda(t, -2, "opApply");
-				newFunction(t, &tableEach,    "each");    fielda(t, -2, "each");
-				newFunction(t, &tableTake,    "take");    fielda(t, -2, "take");
-				newFunction(t, &tableClear,   "clear");   fielda(t, -2, "clear");
+				newFunction(t, 0, &tableDup,     "dup");     fielda(t, -2, "dup");
+				newFunction(t, 0, &tableKeys,    "keys");    fielda(t, -2, "keys");
+				newFunction(t, 0, &tableValues,  "values");  fielda(t, -2, "values");
+				newFunction(t, 1, &tableOpApply, "opApply"); fielda(t, -2, "opApply");
+				newFunction(t, 1, &tableEach,    "each");    fielda(t, -2, "each");
+				newFunction(t, 0, &tableTake,    "take");    fielda(t, -2, "take");
+				newFunction(t, 0, &tableClear,   "clear");   fielda(t, -2, "clear");
 			setTypeMT(t, MDValue.Type.Table);
 
 			newNamespace(t, "namespace");
-				newFunction(t, &namespaceOpApply, "opApply"); fielda(t, -2, "opApply");
+				newFunction(t, 1, &namespaceOpApply, "opApply"); fielda(t, -2, "opApply");
 			setTypeMT(t, MDValue.Type.Namespace);
 
 			return 0;

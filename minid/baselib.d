@@ -196,7 +196,14 @@ static:
 		checkParam(t, 1, MDValue.Type.Function);
 		checkAnyParam(t, 2);
 		setStackSize(t, 3);
-		newFunction(t, &call, "curryClosure", 2);
+		
+		auto numParams = funcNumParams(t, 1);
+
+		if(!funcIsVararg(t, 1) && numParams > 0)
+			newFunction(t, numParams - 1, &call, "curryClosure", 2);
+		else
+			newFunction(t, &call, "curryClosure", 2);
+
 		return 1;
 	}
 

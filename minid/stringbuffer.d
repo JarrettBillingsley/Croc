@@ -45,26 +45,26 @@ static:
 	{
 		CreateClass(t, "StringBuffer", "Vector", (CreateClass* c)
 		{
-			c.method("constructor",    &constructor);
+			c.method("constructor",    1, &constructor);
 
-			c.method("fill",           &fill);
-			c.method("fillRange",      &fillRange);
-			c.method("format",         &format);
-			c.method("formatln",       &formatln);
-			c.method("formatPos",      &formatPos);
-			c.method("formatlnPos",    &formatlnPos);
-			c.method("insert",         &sb_insert);
-			c.method("toString",       &toString);
+			c.method("fill",           1, &fill);
+			c.method("fillRange",      3, &fillRange);
+			c.method("format",            &format);
+			c.method("formatln",          &formatln);
+			c.method("formatPos",         &formatPos);
+			c.method("formatlnPos",       &formatlnPos);
+			c.method("insert",         2, &sb_insert);
+			c.method("toString",       0, &toString);
 
-			c.method("opCatAssign",    &opCatAssign);
-			c.method("opLengthAssign", &opLengthAssign);
-			c.method("opIndex",        &opIndex);
-			c.method("opIndexAssign",  &opIndexAssign);
-			c.method("opSlice",        &opSlice);
+			c.method("opCatAssign",       &opCatAssign);
+			c.method("opLengthAssign", 1, &opLengthAssign);
+			c.method("opIndex",        1, &opIndex);
+			c.method("opIndexAssign",  2, &opIndexAssign);
+			c.method("opSlice",        2, &opSlice);
 
 				newFunction(t, &iterator, "iterator");
 				newFunction(t, &iteratorReverse, "iteratorReverse");
-			c.method("opApply", &opApply, 2);
+			c.method("opApply", 1, &opApply, 2);
 
 			c.method("opSerialize",   &opSerialize);
 			c.method("opDeserialize", &opDeserialize);

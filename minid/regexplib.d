@@ -85,26 +85,26 @@ struct RegexpLib
 		{
 			CreateClass(t, "Regexp", (CreateClass* c)
 			{
-				c.method("constructor", &constructor);
-				c.method("test", &test);
-				c.method("search", &search);
-				c.method("match", &match);
-				c.method("pre", &pre);
-				c.method("post", &post);
-				c.method("find", &find);
-				c.method("split", &split);
-				c.method("replace", &replace);
+				c.method("constructor", 2, &constructor);
+				c.method("test", 1, &test);
+				c.method("search", 1, &search);
+				c.method("match", 1, &match);
+				c.method("pre", 0,&pre);
+				c.method("post", 0,&post);
+				c.method("find", 1, &find);
+				c.method("split", 1, &split);
+				c.method("replace", 2, &replace);
 
 					newFunction(t, &iterator, "Regexp.iterator");
-				c.method("opApply", &opApply, 1);
+				c.method("opApply", 0, &opApply, 1);
 			});
-			
+
 			newFunction(t, &allocator, "Regexp.allocator");
 			setAllocator(t, -2);
 
 			newGlobal(t, "Regexp");
 		}
-		
+
 		uword allocator(MDThread* t)
 		{
 			newInstance(t, 0, Fields.max + 1);
@@ -115,7 +115,7 @@ struct RegexpLib
 			methodCall(t, 2, "constructor", 0);
 			return 1;
 		}
-		
+
 		private Regex getThis(MDThread* t)
 		{
 			bool dummy = void;
@@ -242,13 +242,13 @@ struct RegexpLib
 					pushNull(t);
 					dup(t, 0);
 					rawCall(t, reg, 1);
-					
+
 					if(!isString(t, -1))
 					{
 						pushTypeString(t, -1);
 						throwException(t, "replacement function should return a 'string', not a '{}'", getString(t, -1));
 					}
-					
+
 					auto ret = getString(t, -1);
 					pop(t);
 					return ret;

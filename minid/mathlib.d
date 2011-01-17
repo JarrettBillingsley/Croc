@@ -40,6 +40,12 @@ private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals
 	newGlobal(t, name);
 }
 
+private void register(MDThread* t, uword numParams, char[] name, NativeFunc func, uword numUpvals = 0)
+{
+	newFunction(t, numParams, func, name, numUpvals);
+	newGlobal(t, name);
+}
+
 struct MathLib
 {
 static:
@@ -59,36 +65,36 @@ static:
 			pushInt(t, mdfloat.sizeof);        newGlobal(t, "floatSize");
 			pushFloat(t, mdfloat.min);         newGlobal(t, "floatMin");
 			pushFloat(t, mdfloat.max);         newGlobal(t, "floatMax");
-			
-			register(t, "abs", &abs);
-			register(t, "sin", &sin);
-			register(t, "cos", &cos);
-			register(t, "tan", &tan);
-			register(t, "asin", &asin);
-			register(t, "acos", &acos);
-			register(t, "atan", &atan);
-			register(t, "atan2", &atan2);
-			register(t, "sqrt", &sqrt);
-			register(t, "cbrt", &cbrt);
-			register(t, "pow", &pow);
-			register(t, "exp", &exp);
-			register(t, "ln", &ln);
-			register(t, "log2", &log2);
-			register(t, "log10", &log10);
-			register(t, "hypot", &hypot);
-			register(t, "lgamma", &lgamma);
-			register(t, "gamma", &gamma);
-			register(t, "ceil", &ceil);
-			register(t, "floor", &floor);
-			register(t, "round", &round);
-			register(t, "trunc", &trunc);
-			register(t, "isNan", &isNan);
-			register(t, "isInf", &isInf);
-			register(t, "sign", &sign);
-			register(t, "rand", &rand);
-			register(t, "frand", &frand);
-			register(t, "max", &max);
-			register(t, "min", &min);
+
+			register(t, 1, "abs", &abs);
+			register(t, 1, "sin", &sin);
+			register(t, 1, "cos", &cos);
+			register(t, 1, "tan", &tan);
+			register(t, 1, "asin", &asin);
+			register(t, 1, "acos", &acos);
+			register(t, 1, "atan", &atan);
+			register(t, 2, "atan2", &atan2);
+			register(t, 1, "sqrt", &sqrt);
+			register(t, 1, "cbrt", &cbrt);
+			register(t, 2, "pow", &pow);
+			register(t, 1, "exp", &exp);
+			register(t, 1, "ln", &ln);
+			register(t, 1, "log2", &log2);
+			register(t, 1, "log10", &log10);
+			register(t, 2, "hypot", &hypot);
+			register(t, 1, "lgamma", &lgamma);
+			register(t, 1, "gamma", &gamma);
+			register(t, 1, "ceil", &ceil);
+			register(t, 1, "floor", &floor);
+			register(t, 1, "round", &round);
+			register(t, 1, "trunc", &trunc);
+			register(t, 1, "isNan", &isNan);
+			register(t, 1, "isInf", &isInf);
+			register(t, 1, "sign", &sign);
+			register(t, 2, "rand", &rand);
+			register(t, 2, "frand", &frand);
+			register(t,    "max", &max);
+			register(t,    "min", &min);
 
 			return 0;
 		});
@@ -159,6 +165,19 @@ static:
 	uword cbrt(MDThread* t)
 	{
 		pushFloat(t, math.cbrt(checkNumParam(t, 1)));
+		return 1;
+	}
+
+	uword pow(MDThread* t)
+	{
+		auto base = checkNumParam(t, 1);
+		auto exp = checkNumParam(t, 2);
+
+		if(isInt(t, 2))
+			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
+		else
+			pushFloat(t, math.pow(base, exp));
+
 		return 1;
 	}
 
@@ -266,19 +285,6 @@ static:
 			else
 				pushInt(t, 0);
 		}
-
-		return 1;
-	}
-
-	uword pow(MDThread* t)
-	{
-		auto base = checkNumParam(t, 1);
-		auto exp = checkNumParam(t, 2);
-
-		if(isInt(t, 2))
-			pushFloat(t, math.pow(cast(real)base, cast(uint)getInt(t, 2)));
-		else
-			pushFloat(t, math.pow(base, exp));
 
 		return 1;
 	}

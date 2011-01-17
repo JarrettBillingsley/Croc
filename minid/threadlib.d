@@ -38,18 +38,18 @@ static:
 	{
 		makeModule(t, "thread", function uword(MDThread* t)
 		{
-			newFunction(t, &traceback, "traceback"); newGlobal(t, "traceback");
-			newFunction(t, &halt,      "halt");      newGlobal(t, "halt");
-			newFunction(t, &current,   "current");   newGlobal(t, "current");
+			newFunction(t, 0, &traceback, "traceback"); newGlobal(t, "traceback");
+			newFunction(t, 1, &halt,      "halt");      newGlobal(t, "halt");
+			newFunction(t, 0, &current,   "current");   newGlobal(t, "current");
 
 			newNamespace(t, "thread");
-				newFunction(t, &reset,       "reset");       fielda(t, -2, "reset");
-				newFunction(t, &state,       "state");       fielda(t, -2, "state");
-				newFunction(t, &isInitial,   "isInitial");   fielda(t, -2, "isInitial");
-				newFunction(t, &isRunning,   "isRunning");   fielda(t, -2, "isRunning");
-				newFunction(t, &isWaiting,   "isWaiting");   fielda(t, -2, "isWaiting");
-				newFunction(t, &isSuspended, "isSuspended"); fielda(t, -2, "isSuspended");
-				newFunction(t, &isDead,      "isDead");      fielda(t, -2, "isDead");
+				newFunction(t, 1, &reset,       "reset");       fielda(t, -2, "reset");
+				newFunction(t, 0, &state,       "state");       fielda(t, -2, "state");
+				newFunction(t, 0, &isInitial,   "isInitial");   fielda(t, -2, "isInitial");
+				newFunction(t, 0, &isRunning,   "isRunning");   fielda(t, -2, "isRunning");
+				newFunction(t, 0, &isWaiting,   "isWaiting");   fielda(t, -2, "isWaiting");
+				newFunction(t, 0, &isSuspended, "isSuspended"); fielda(t, -2, "isSuspended");
+				newFunction(t, 0, &isDead,      "isDead");      fielda(t, -2, "isDead");
 			setTypeMT(t, MDValue.Type.Thread);
 
 			return 0;

@@ -46,11 +46,11 @@ static:
 		auto ns = newNamespace(t, "modules");
 			pushString(t, "."); fielda(t, ns, "path");
 			newTable(t);        fielda(t, ns, "customLoaders");
-			dup(t, ns); newFunctionWithEnv(t, &load,       "load");       fielda(t, ns, "load");
-			dup(t, ns); newFunctionWithEnv(t, &reload,     "reload");     fielda(t, ns, "reload");
-			dup(t, ns); newFunctionWithEnv(t, &initModule, "initModule"); fielda(t, ns, "initModule");
-			dup(t, ns); newFunctionWithEnv(t, &runMain,    "runMain");    fielda(t, ns, "runMain");
-			dup(t, ns); newFunctionWithEnv(t, &compile,    "compile");    fielda(t, ns, "compile");
+			dup(t, ns); newFunctionWithEnv(t, 1, &load,       "load");       fielda(t, ns, "load");
+			dup(t, ns); newFunctionWithEnv(t, 1, &reload,     "reload");     fielda(t, ns, "reload");
+			dup(t, ns); newFunctionWithEnv(t, 2, &initModule, "initModule"); fielda(t, ns, "initModule");
+			dup(t, ns); newFunctionWithEnv(t, 1, &runMain,    "runMain");    fielda(t, ns, "runMain");
+			dup(t, ns); newFunctionWithEnv(t, 2, &compile,    "compile");    fielda(t, ns, "compile");
 
 			newTable(t);
 				// integrate 'modules' itself into the module loading system
@@ -59,13 +59,13 @@ static:
 			fielda(t, ns, "loaded");
 
 			pushString(t, "loaders");
-				dup(t, ns); newFunctionWithEnv(t, &customLoad,    "customLoad");
-				dup(t, ns); newFunctionWithEnv(t, &checkTaken,    "checkTaken");
-				dup(t, ns); newFunctionWithEnv(t, &loadFiles,     "loadFiles");
+				dup(t, ns); newFunctionWithEnv(t, 1, &customLoad,    "customLoad");
+				dup(t, ns); newFunctionWithEnv(t, 1, &checkTaken,    "checkTaken");
+				dup(t, ns); newFunctionWithEnv(t, 1, &loadFiles,     "loadFiles");
 
 				version(MDDynLibs)
 				{
-					dup(t, ns); newFunctionWithEnv(t, &loadDynlib, "loadDynlib");
+					dup(t, ns); newFunctionWithEnv(t, 1, &loadDynlib, "loadDynlib");
 					newArrayFromStack(t, 4);
 				}
 				else
@@ -296,28 +296,28 @@ static:
 			packages = name[0 .. pos];
 			modName = name[pos + 1 .. $];
 		}
-	
+
 		// safe since this string is held in the modules namespace
 		pushGlobal(t, "path");
 		auto paths = getString(t, -1);
 		pop(t);
-	
+
 		outerLoop: foreach(path; paths.delimiters(";"))
 		{
 			// TODO: try to make this not allocate memory?  Is this possible?
 			scope p = new FilePath(path);
-	
+
 			if(!p.exists())
 				continue;
-	
+
 			foreach(piece; packages.delimiters("."))
 			{
 				p.append(piece);
-	
+
 				if(!p.exists())
 					continue outerLoop;
 			}
-	
+
 			scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".md"));
 			scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".mdm"));
 

@@ -5210,14 +5210,13 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		}";
 
 
+	if(numParams > func.numParams)
+		throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
+
 	if(!func.isNative)
 	{
 		// Script function
 		auto funcDef = func.scriptFunc;
-
-		if(!funcDef.isVararg && numParams > func.numParams)
-			throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
-
 		auto ar = pushAR(t);
 
 		if(funcDef.isVararg && numParams > func.numParams)
@@ -5280,9 +5279,6 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 	}
 	else
 	{
-		if(numParams > func.numParams)
-			throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
-
 		// Native function
 		t.stackIndex = paramSlot + numParams;
 		checkStack(t, t.stackIndex);

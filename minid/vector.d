@@ -221,16 +221,16 @@ static:
 
 		return stackSize(t) - 1;
 	}
-	
+
 	/**
 	Reassign an existing Vector so that its data is a view of a D array.  If the
 	Vector owns its data, it is freed.  The type is also set to the appropriate
 	type code corresponding to the D array.  This is like viewDArray except that
 	it changes an existing Vector rather than creating a new one.
-	
+
 	The same caveats and restrictions that apply to viewDArray apply to this
 	function as well.
-	
+
 	Params:
 		slot = The stack index of the Vector instance to reassign.
 		arr = The array to which the given Vector will refer.
@@ -269,84 +269,84 @@ static:
 	{
 		CreateClass(t, "Vector", (CreateClass* c)
 		{
-			c.method("constructor",    &constructor);
-			c.method("range",          &range);
-			c.method("fromArray",      &fromArray);
+			c.method("constructor",    3, &constructor);
+			c.method("range",          4, &range);
+			c.method("fromArray",      2, &fromArray);
 
-			c.method("apply",          &apply);
-			c.method("copyRange",      &copyRange);
-			c.method("dup",            &vec_dup);
-			c.method("fill",           &fill);
-			c.method("fillRange",      &fillRange);
-			c.method("insert",         &vec_insert);
-			c.method("itemSize",       &itemSize);
-			c.method("map",            &map);
-			c.method("max",            &max);
-			c.method("min",            &min);
-			c.method("pop",            &vec_pop);
-			c.method("product",        &product);
-			c.method("remove",         &remove);
-			c.method("reverse",        &reverse);
-			c.method("sort",           &sort);
-			c.method("sum",            &sum);
-			c.method("toArray",        &toArray);
-			c.method("toString",       &toString);
-			c.method("type",           &type);
+			c.method("apply",          1, &apply);
+			c.method("copyRange",      5, &copyRange);
+			c.method("dup",            0, &vec_dup);
+			c.method("fill",           1, &fill);
+			c.method("fillRange",      3, &fillRange);
+			c.method("insert",         2, &vec_insert);
+			c.method("itemSize",       0, &itemSize);
+			c.method("map",            1, &map);
+			c.method("max",            0, &max);
+			c.method("min",            0, &min);
+			c.method("pop",            1, &vec_pop);
+			c.method("product",        0, &product);
+			c.method("remove",         2, &remove);
+			c.method("reverse",        0, &reverse);
+			c.method("sort",           0, &sort);
+			c.method("sum",            0, &sum);
+			c.method("toArray",        0, &toArray);
+			c.method("toString",       0, &toString);
+			c.method("type",           1, &type);
 
-			c.method("readByte",       &rawRead!(byte));
-			c.method("readUByte",      &rawRead!(ubyte));
-			c.method("readShort",      &rawRead!(short));
-			c.method("readUShort",     &rawRead!(ushort));
-			c.method("readInt",        &rawRead!(int));
-			c.method("readUInt",       &rawRead!(uint));
-			c.method("readLong",       &rawRead!(long));
-			c.method("readULong",      &rawRead!(ulong));
-			c.method("readFloat",      &rawRead!(float));
-			c.method("readDouble",     &rawRead!(double));
+			c.method("readByte",       1, &rawRead!(byte));
+			c.method("readUByte",      1, &rawRead!(ubyte));
+			c.method("readShort",      1, &rawRead!(short));
+			c.method("readUShort",     1, &rawRead!(ushort));
+			c.method("readInt",        1, &rawRead!(int));
+			c.method("readUInt",       1, &rawRead!(uint));
+			c.method("readLong",       1, &rawRead!(long));
+			c.method("readULong",      1, &rawRead!(ulong));
+			c.method("readFloat",      1, &rawRead!(float));
+			c.method("readDouble",     1, &rawRead!(double));
 
-			c.method("writeByte",      &rawWrite!(byte));
-			c.method("writeUByte",     &rawWrite!(ubyte));
-			c.method("writeShort",     &rawWrite!(short));
-			c.method("writeUShort",    &rawWrite!(ushort));
-			c.method("writeInt",       &rawWrite!(int));
-			c.method("writeUInt",      &rawWrite!(uint));
-			c.method("writeLong",      &rawWrite!(long));
-			c.method("writeULong",     &rawWrite!(ulong));
-			c.method("writeFloat",     &rawWrite!(float));
-			c.method("writeDouble",    &rawWrite!(double));
+			c.method("writeByte",      2, &rawWrite!(byte));
+			c.method("writeUByte",     2, &rawWrite!(ubyte));
+			c.method("writeShort",     2, &rawWrite!(short));
+			c.method("writeUShort",    2, &rawWrite!(ushort));
+			c.method("writeInt",       2, &rawWrite!(int));
+			c.method("writeUInt",      2, &rawWrite!(uint));
+			c.method("writeLong",      2, &rawWrite!(long));
+			c.method("writeULong",     2, &rawWrite!(ulong));
+			c.method("writeFloat",     2, &rawWrite!(float));
+			c.method("writeDouble",    2, &rawWrite!(double));
 
-			c.method("opLength",       &opLength);
-			c.method("opLengthAssign", &opLengthAssign);
-			c.method("opIndex",        &opIndex);
-			c.method("opIndexAssign",  &opIndexAssign);
-			c.method("opSlice",        &opSlice);
+			c.method("opLength",       0, &opLength);
+			c.method("opLengthAssign", 1, &opLengthAssign);
+			c.method("opIndex",        1, &opIndex);
+			c.method("opIndexAssign",  2, &opIndexAssign);
+			c.method("opSlice",        2, &opSlice);
 
-			c.method("opAdd",          &opAdd);
-			c.method("opAddAssign",    &opAddAssign);
-			c.method("opSub",          &opSub);
-			c.method("opSub_r",        &opSub_r);
-			c.method("opSubAssign",    &opSubAssign);
-			c.method("revSub",         &revSub);
-			c.method("opCat",          &opCat);
-			c.method("opCat_r",        &opCat_r);
-			c.method("opCatAssign",    &opCatAssign);
-			c.method("opMul",          &opMul);
-			c.method("opMulAssign",    &opMulAssign);
-			c.method("opDiv",          &opDiv);
-			c.method("opDiv_r",        &opDiv_r);
-			c.method("opDivAssign",    &opDivAssign);
-			c.method("revDiv",         &revDiv);
-			c.method("opMod",          &opMod);
-			c.method("opMod_r",        &opMod_r);
-			c.method("opModAssign",    &opModAssign);
-			c.method("revMod",         &revMod);
+			c.method("opAdd",          1, &opAdd);
+			c.method("opAddAssign",    1, &opAddAssign);
+			c.method("opSub",          1, &opSub);
+			c.method("opSub_r",        1, &opSub_r);
+			c.method("opSubAssign",    1, &opSubAssign);
+			c.method("revSub",         1, &revSub);
+			c.method("opCat",          1, &opCat);
+			c.method("opCat_r",        1, &opCat_r);
+			c.method("opCatAssign",    1, &opCatAssign);
+			c.method("opMul",          1, &opMul);
+			c.method("opMulAssign",    1, &opMulAssign);
+			c.method("opDiv",          1, &opDiv);
+			c.method("opDiv_r",        1, &opDiv_r);
+			c.method("opDivAssign",    1, &opDivAssign);
+			c.method("revDiv",         1, &revDiv);
+			c.method("opMod",          1, &opMod);
+			c.method("opMod_r",        1, &opMod_r);
+			c.method("opModAssign",    1, &opModAssign);
+			c.method("revMod",         1, &revMod);
 
-			c.method("opEquals",       &opEquals);
+			c.method("opEquals",       1, &opEquals);
 
 				newFunction(t, &iterator, "Vector.iterator");
 				newFunction(t, &iteratorReverse, "Vector.iteratorReverse");
-			c.method("opApply", &opApply, 2);
-			
+			c.method("opApply", 1, &opApply, 2);
+
 			c.method("opSerialize",   &opSerialize);
 			c.method("opDeserialize", &opDeserialize);
 		});

@@ -71,14 +71,14 @@ static:
 		makeModule(t, "time", function uword(MDThread* t)
 		{
 			Timer.init(t);
-			newFunction(t, &microTime,  "microTime");  newGlobal(t, "microTime");
-			newFunction(t, &dateString, "dateString"); newGlobal(t, "dateString");
-			newFunction(t, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
-			newFunction(t, &culture,    "culture");    newGlobal(t, "culture");
-			newFunction(t, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
-			newFunction(t, &timex,      "timex");      newGlobal(t, "timex");
-			newFunction(t, &sleep,      "sleep");      newGlobal(t, "sleep");
-			newFunction(t, &compare,    "compare");    newGlobal(t, "compare");
+			newFunction(t, 0, &microTime,  "microTime");  newGlobal(t, "microTime");
+			newFunction(t, 3, &dateString, "dateString"); newGlobal(t, "dateString");
+			newFunction(t, 2, &dateTime,   "dateTime");   newGlobal(t, "dateTime");
+			newFunction(t, 1, &culture,    "culture");    newGlobal(t, "culture");
+			newFunction(t, 0, &timestamp,  "timestamp");  newGlobal(t, "timestamp");
+			newFunction(t,    &timex,      "timex");      newGlobal(t, "timex");
+			newFunction(t, 1, &sleep,      "sleep");      newGlobal(t, "sleep");
+			newFunction(t, 2, &compare,    "compare");    newGlobal(t, "compare");
 
 			return 0;
 		});
@@ -308,11 +308,11 @@ static:
 		{
 			CreateClass(t, "Timer", (CreateClass* c)
 			{
-				c.method("start", &start);
-				c.method("stop", &stop);
-				c.method("seconds", &seconds);
-				c.method("millisecs", &millisecs);
-				c.method("microsecs", &microsecs);
+				c.method("start",     0, &start);
+				c.method("stop",      0, &stop);
+				c.method("seconds",   0, &seconds);
+				c.method("millisecs", 0, &millisecs);
+				c.method("microsecs", 0, &microsecs);
 			});
 
 			newFunction(t, &allocator, "Timer.allocator");

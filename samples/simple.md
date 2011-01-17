@@ -1,8 +1,5 @@
 module samples.simple
 
-writeln(isNull.numParams())
-writeln(\{}.numParams())
-
 /+import sdl: event, key
 import gl
 

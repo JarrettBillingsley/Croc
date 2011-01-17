@@ -44,33 +44,33 @@ static:
 	{
 		makeModule(t, "string", function uword(MDThread* t)
 		{
-			newFunction(t, &joinArray, "joinArray"); newGlobal(t, "joinArray");
+			newFunction(t, 2, &joinArray, "joinArray"); newGlobal(t, "joinArray");
 
 			newNamespace(t, "string");
-				newFunction(t, &opApply,     "opApply");     fielda(t, -2, "opApply");
-				newFunction(t, &join,        "join");        fielda(t, -2, "join");
-				newFunction(t, &toInt,       "toInt");       fielda(t, -2, "toInt");
-				newFunction(t, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
-				newFunction(t, &compare,     "compare");     fielda(t, -2, "compare");
-				newFunction(t, &icompare,    "icompare");    fielda(t, -2, "icompare");
-				newFunction(t, &find,        "find");        fielda(t, -2, "find");
-				newFunction(t, &ifind,       "ifind");       fielda(t, -2, "ifind");
-				newFunction(t, &rfind,       "rfind");       fielda(t, -2, "rfind");
-				newFunction(t, &irfind,      "irfind");      fielda(t, -2, "irfind");
-				newFunction(t, &toLower,     "toLower");     fielda(t, -2, "toLower");
-				newFunction(t, &toUpper,     "toUpper");     fielda(t, -2, "toUpper");
-				newFunction(t, &repeat,      "repeat");      fielda(t, -2, "repeat");
-				newFunction(t, &reverse,     "reverse");     fielda(t, -2, "reverse");
-				newFunction(t, &split,       "split");       fielda(t, -2, "split");
-				newFunction(t, &splitLines,  "splitLines");  fielda(t, -2, "splitLines");
-				newFunction(t, &strip,       "strip");       fielda(t, -2, "strip");
-				newFunction(t, &lstrip,      "lstrip");      fielda(t, -2, "lstrip");
-				newFunction(t, &rstrip,      "rstrip");      fielda(t, -2, "rstrip");
-				newFunction(t, &replace,     "replace");     fielda(t, -2, "replace");
-				newFunction(t, &startsWith,  "startsWith");  fielda(t, -2, "startsWith");
-				newFunction(t, &endsWith,    "endsWith");    fielda(t, -2, "endsWith");
-				newFunction(t, &istartsWith, "istartsWith"); fielda(t, -2, "istartsWith");
-				newFunction(t, &iendsWith,   "iendsWith");   fielda(t, -2, "iendsWith");
+				newFunction(t, 1, &opApply,     "opApply");     fielda(t, -2, "opApply");
+				newFunction(t,    &join,        "join");        fielda(t, -2, "join");
+				newFunction(t, 1, &toInt,       "toInt");       fielda(t, -2, "toInt");
+				newFunction(t, 0, &toFloat,     "toFloat");     fielda(t, -2, "toFloat");
+				newFunction(t, 1, &compare,     "compare");     fielda(t, -2, "compare");
+				newFunction(t, 1, &icompare,    "icompare");    fielda(t, -2, "icompare");
+				newFunction(t, 2, &find,        "find");        fielda(t, -2, "find");
+				newFunction(t, 2, &ifind,       "ifind");       fielda(t, -2, "ifind");
+				newFunction(t, 2, &rfind,       "rfind");       fielda(t, -2, "rfind");
+				newFunction(t, 2, &irfind,      "irfind");      fielda(t, -2, "irfind");
+				newFunction(t, 0, &toLower,     "toLower");     fielda(t, -2, "toLower");
+				newFunction(t, 0, &toUpper,     "toUpper");     fielda(t, -2, "toUpper");
+				newFunction(t, 1, &repeat,      "repeat");      fielda(t, -2, "repeat");
+				newFunction(t, 0, &reverse,     "reverse");     fielda(t, -2, "reverse");
+				newFunction(t, 1, &split,       "split");       fielda(t, -2, "split");
+				newFunction(t, 0, &splitLines,  "splitLines");  fielda(t, -2, "splitLines");
+				newFunction(t, 0, &strip,       "strip");       fielda(t, -2, "strip");
+				newFunction(t, 0, &lstrip,      "lstrip");      fielda(t, -2, "lstrip");
+				newFunction(t, 0, &rstrip,      "rstrip");      fielda(t, -2, "rstrip");
+				newFunction(t, 2, &replace,     "replace");     fielda(t, -2, "replace");
+				newFunction(t, 1, &startsWith,  "startsWith");  fielda(t, -2, "startsWith");
+				newFunction(t, 1, &endsWith,    "endsWith");    fielda(t, -2, "endsWith");
+				newFunction(t, 1, &istartsWith, "istartsWith"); fielda(t, -2, "istartsWith");
+				newFunction(t, 1, &iendsWith,   "iendsWith");   fielda(t, -2, "iendsWith");
 			setTypeMT(t, MDValue.Type.String);
 
 			return 0;

@@ -119,40 +119,40 @@ static:
 	{
 		CreateClass(t, "InStream", (CreateClass* c)
 		{
-			c.method("constructor", &constructor);
-			c.method("readByte",    &readVal!(byte));
-			c.method("readUByte",   &readVal!(ubyte));
-			c.method("readShort",   &readVal!(short));
-			c.method("readUShort",  &readVal!(ushort));
-			c.method("readInt",     &readVal!(int));
-			c.method("readUInt",    &readVal!(uint));
-			c.method("readLong",    &readVal!(long));
-			c.method("readULong",   &readVal!(ulong));
-			c.method("readFloat",   &readVal!(float));
-			c.method("readDouble",  &readVal!(double));
-			c.method("readChar",    &readVal!(char));
-			c.method("readWChar",   &readVal!(wchar));
-			c.method("readDChar",   &readVal!(dchar));
-			c.method("readString",  &readString);
-			c.method("readln",      &readln);
-			c.method("readChars",   &readChars);
-			c.method("readVector",  &readVector);
-			c.method("rawRead",     &rawRead);
-			c.method("skip",        &skip);
+			c.method("constructor", 2, &constructor);
+			c.method("readByte",    0, &readVal!(byte));
+			c.method("readUByte",   0, &readVal!(ubyte));
+			c.method("readShort",   0, &readVal!(short));
+			c.method("readUShort",  0, &readVal!(ushort));
+			c.method("readInt",     0, &readVal!(int));
+			c.method("readUInt",    0, &readVal!(uint));
+			c.method("readLong",    0, &readVal!(long));
+			c.method("readULong",   0, &readVal!(ulong));
+			c.method("readFloat",   0, &readVal!(float));
+			c.method("readDouble",  0, &readVal!(double));
+			c.method("readChar",    0, &readVal!(char));
+			c.method("readWChar",   0, &readVal!(wchar));
+			c.method("readDChar",   0, &readVal!(dchar));
+			c.method("readString",  0, &readString);
+			c.method("readln",      0, &readln);
+			c.method("readChars",   1, &readChars);
+			c.method("readVector",  2, &readVector);
+			c.method("rawRead",     2, &rawRead);
+			c.method("skip",        1, &skip);
 
-			c.method("seek",        &seek);
-			c.method("position",    &position);
-			c.method("size",        &size);
-			c.method("close",       &close);
-			c.method("isOpen",      &isOpen);
+			c.method("seek",        2, &seek);
+			c.method("position",    1, &position);
+			c.method("size",        0, &size);
+			c.method("close",       0, &close);
+			c.method("isOpen",      0, &isOpen);
 
 				newFunction(t, &iterator, "InStream.iterator");
-			c.method("opApply", &opApply, 1);
+			c.method("opApply", 1, &opApply, 1);
 		});
 
 		newFunction(t, &allocator, "InStream.allocator");
 		setAllocator(t, -2);
-		
+
 		newFunction(t, &finalizer, "InStream.finalizer");
 		setFinalizer(t, -2);
 
@@ -163,7 +163,7 @@ static:
 	{
 		return checkInstParam!(Members)(t, 0, "InStream");
 	}
-	
+
 	private Members* getOpenThis(MDThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "InStream");
@@ -187,7 +187,7 @@ static:
 			dest += numRead;
 		}
 	}
-	
+
 	private uword readAtMost(MDThread* t, Members* memb, void* dest, uword size)
 	{
 		auto initial = size;
@@ -576,37 +576,37 @@ static:
 	{
 		CreateClass(t, "OutStream", (CreateClass* c)
 		{
-			c.method("constructor", &constructor);
-			c.method("writeByte",   &writeVal!(byte));
-			c.method("writeUByte",  &writeVal!(ubyte));
-			c.method("writeShort",  &writeVal!(short));
-			c.method("writeUShort", &writeVal!(ushort));
-			c.method("writeInt",    &writeVal!(int));
-			c.method("writeUInt",   &writeVal!(uint));
-			c.method("writeLong",   &writeVal!(long));
-			c.method("writeULong",  &writeVal!(ulong));
-			c.method("writeFloat",  &writeVal!(float));
-			c.method("writeDouble", &writeVal!(double));
-			c.method("writeChar",   &writeVal!(char));
-			c.method("writeWChar",  &writeVal!(wchar));
-			c.method("writeDChar",  &writeVal!(dchar));
-			c.method("writeString", &writeString);
-			c.method("write",       &write);
-			c.method("writeln",     &writeln);
-			c.method("writef",      &writef);
-			c.method("writefln",    &writefln);
-			c.method("writeChars",  &writeChars);
-			c.method("writeJSON",   &writeJSON);
-			c.method("writeVector", &writeVector);
-			c.method("flush",       &flush);
-			c.method("copy",        &copy);
-			c.method("flushOnNL",   &flushOnNL);
+			c.method("constructor", 2, &constructor);
+			c.method("writeByte",   1, &writeVal!(byte));
+			c.method("writeUByte",  1, &writeVal!(ubyte));
+			c.method("writeShort",  1, &writeVal!(short));
+			c.method("writeUShort", 1, &writeVal!(ushort));
+			c.method("writeInt",    1, &writeVal!(int));
+			c.method("writeUInt",   1, &writeVal!(uint));
+			c.method("writeLong",   1, &writeVal!(long));
+			c.method("writeULong",  1, &writeVal!(ulong));
+			c.method("writeFloat",  1, &writeVal!(float));
+			c.method("writeDouble", 1, &writeVal!(double));
+			c.method("writeChar",   1, &writeVal!(char));
+			c.method("writeWChar",  1, &writeVal!(wchar));
+			c.method("writeDChar",  1, &writeVal!(dchar));
+			c.method("writeString", 1, &writeString);
+			c.method("write",          &write);
+			c.method("writeln",        &writeln);
+			c.method("writef",         &writef);
+			c.method("writefln",       &writefln);
+			c.method("writeChars",  1, &writeChars);
+			c.method("writeJSON",   2, &writeJSON);
+			c.method("writeVector", 3, &writeVector);
+			c.method("flush",       0, &flush);
+			c.method("copy",        1, &copy);
+			c.method("flushOnNL",   1, &flushOnNL);
 
-			c.method("seek",        &seek);
-			c.method("position",    &position);
-			c.method("size",        &size);
-			c.method("close",       &close);
-			c.method("isOpen",      &isOpen);
+			c.method("seek",        2, &seek);
+			c.method("position",    1, &position);
+			c.method("size",        0, &size);
+			c.method("close",       0, &close);
+			c.method("isOpen",      0, &isOpen);
 		});
 
 		newFunction(t, &allocator, "OutStream.allocator");
@@ -877,7 +877,7 @@ static:
 		dup(t, 0);
 		return 1;
 	}
-	
+
 	public uword flushOnNL(MDThread* t)
 	{
 		auto memb = getOpenThis(t);
@@ -990,61 +990,61 @@ static:
 	{
 		CreateClass(t, "Stream", (CreateClass* c)
 		{
-			c.method("constructor", &constructor);
+			c.method("constructor", 1, &constructor);
 
-			c.method("readByte",    &readVal!(byte));
-			c.method("readUByte",   &readVal!(ubyte));
-			c.method("readShort",   &readVal!(short));
-			c.method("readUShort",  &readVal!(ushort));
-			c.method("readInt",     &readVal!(int));
-			c.method("readUInt",    &readVal!(uint));
-			c.method("readLong",    &readVal!(long));
-			c.method("readULong",   &readVal!(ulong));
-			c.method("readFloat",   &readVal!(float));
-			c.method("readDouble",  &readVal!(double));
-			c.method("readChar",    &readVal!(char));
-			c.method("readWChar",   &readVal!(wchar));
-			c.method("readDChar",   &readVal!(dchar));
-			c.method("readString",  &readString);
-			c.method("readln",      &readln);
-			c.method("readChars",   &readChars);
-			c.method("readVector",  &readVector);
-			c.method("rawRead",     &rawRead);
+			c.method("readByte",    0, &readVal!(byte));
+			c.method("readUByte",   0, &readVal!(ubyte));
+			c.method("readShort",   0, &readVal!(short));
+			c.method("readUShort",  0, &readVal!(ushort));
+			c.method("readInt",     0, &readVal!(int));
+			c.method("readUInt",    0, &readVal!(uint));
+			c.method("readLong",    0, &readVal!(long));
+			c.method("readULong",   0, &readVal!(ulong));
+			c.method("readFloat",   0, &readVal!(float));
+			c.method("readDouble",  0, &readVal!(double));
+			c.method("readChar",    0, &readVal!(char));
+			c.method("readWChar",   0, &readVal!(wchar));
+			c.method("readDChar",   0, &readVal!(dchar));
+			c.method("readString",  0, &readString);
+			c.method("readln",      0, &readln);
+			c.method("readChars",   1, &readChars);
+			c.method("readVector",  2, &readVector);
+			c.method("rawRead",     2, &rawRead);
 
 				newFunction(t, &iterator, "InoutStream.iterator");
-			c.method("opApply", &opApply, 1);
+			c.method("opApply", 1, &opApply, 1);
 
-			c.method("writeByte",   &writeVal!(byte));
-			c.method("writeUByte",  &writeVal!(ubyte));
-			c.method("writeShort",  &writeVal!(short));
-			c.method("writeUShort", &writeVal!(ushort));
-			c.method("writeInt",    &writeVal!(int));
-			c.method("writeUInt",   &writeVal!(uint));
-			c.method("writeLong",   &writeVal!(long));
-			c.method("writeULong",  &writeVal!(ulong));
-			c.method("writeFloat",  &writeVal!(float));
-			c.method("writeDouble", &writeVal!(double));
-			c.method("writeChar",   &writeVal!(char));
-			c.method("writeWChar",  &writeVal!(wchar));
-			c.method("writeDChar",  &writeVal!(dchar));
-			c.method("writeString", &writeString);
-			c.method("write",       &write);
-			c.method("writeln",     &writeln);
-			c.method("writef",      &writef);
-			c.method("writefln",    &writefln);
-			c.method("writeChars",  &writeChars);
-			c.method("writeJSON",   &writeJSON);
-			c.method("writeVector", &writeVector);
-			c.method("flush",       &flush);
-			c.method("copy",        &copy);
-			c.method("flushOnNL",   &flushOnNL);
+			c.method("writeByte",   1, &writeVal!(byte));
+			c.method("writeUByte",  1, &writeVal!(ubyte));
+			c.method("writeShort",  1, &writeVal!(short));
+			c.method("writeUShort", 1, &writeVal!(ushort));
+			c.method("writeInt",    1, &writeVal!(int));
+			c.method("writeUInt",   1, &writeVal!(uint));
+			c.method("writeLong",   1, &writeVal!(long));
+			c.method("writeULong",  1, &writeVal!(ulong));
+			c.method("writeFloat",  1, &writeVal!(float));
+			c.method("writeDouble", 1, &writeVal!(double));
+			c.method("writeChar",   1, &writeVal!(char));
+			c.method("writeWChar",  1, &writeVal!(wchar));
+			c.method("writeDChar",  1, &writeVal!(dchar));
+			c.method("writeString", 1, &writeString);
+			c.method("write",          &write);
+			c.method("writeln",        &writeln);
+			c.method("writef",         &writef);
+			c.method("writefln",       &writefln);
+			c.method("writeChars",  1, &writeChars);
+			c.method("writeJSON",   2, &writeJSON);
+			c.method("writeVector", 3, &writeVector);
+			c.method("flush",       0, &flush);
+			c.method("copy",        1, &copy);
+			c.method("flushOnNL",   1, &flushOnNL);
 
-			c.method("skip",        &skip);
-			c.method("seek",        &seek);
-			c.method("position",    &position);
-			c.method("size",        &size);
-			c.method("close",       &close);
-			c.method("isOpen",      &isOpen);
+			c.method("skip",        1, &skip);
+			c.method("seek",        2, &seek);
+			c.method("position",    1, &position);
+			c.method("size",        0, &size);
+			c.method("close",       0, &close);
+			c.method("isOpen",      0, &isOpen);
 		});
 
 		newFunction(t, &allocator, "InoutStream.allocator");

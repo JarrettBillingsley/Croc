@@ -63,7 +63,7 @@ void makeModule(MDThread* t, char[] name, NativeFunc loader)
 	if(hasField(t, -1, name))
 		throwException(t, "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
 		
-	newFunction(t, loader, name);
+	newFunction(t, 1, loader, name);
 	fielda(t, -2, name);
 	pop(t, 2);
 }

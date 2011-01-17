@@ -45,7 +45,11 @@ static:
 		f.environment = env;
 		f.name = def.name;
 		f.numUpvals = def.numUpvals;
-		f.numParams = def.numParams;
+		
+		if(def.isVararg)
+			f.numParams = MaxParams + 1;
+		else
+			f.numParams = def.numParams;
 
 		f.scriptFunc = def;
 		f.scriptUpvals()[] = null;
