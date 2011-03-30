@@ -45,11 +45,12 @@ static:
 		f.environment = env;
 		f.name = def.name;
 		f.numUpvals = def.numUpvals;
-		
+		f.numParams = def.numParams;
+
 		if(def.isVararg)
-			f.numParams = MaxParams + 1;
+			f.maxParams = MaxParams + 1;
 		else
-			f.numParams = def.numParams;
+			f.maxParams = def.numParams;
 
 		f.scriptFunc = def;
 		f.scriptUpvals()[] = null;
@@ -66,6 +67,7 @@ static:
 		f.name = name;
 		f.numUpvals = numUpvals;
 		f.numParams = numParams + 1; // +1 to include 'this'
+		f.maxParams = f.numParams;
 
 		f.nativeFunc = func;
 		f.nativeUpvals()[] = MDValue.nullValue;

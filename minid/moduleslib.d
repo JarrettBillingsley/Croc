@@ -49,7 +49,7 @@ static:
 			dup(t, ns); newFunctionWithEnv(t, 1, &load,       "load");       fielda(t, ns, "load");
 			dup(t, ns); newFunctionWithEnv(t, 1, &reload,     "reload");     fielda(t, ns, "reload");
 			dup(t, ns); newFunctionWithEnv(t, 2, &initModule, "initModule"); fielda(t, ns, "initModule");
-			dup(t, ns); newFunctionWithEnv(t, 1, &runMain,    "runMain");    fielda(t, ns, "runMain");
+			dup(t, ns); newFunctionWithEnv(t,    &runMain,    "runMain");    fielda(t, ns, "runMain");
 			dup(t, ns); newFunctionWithEnv(t, 2, &compile,    "compile");    fielda(t, ns, "compile");
 
 			newTable(t);

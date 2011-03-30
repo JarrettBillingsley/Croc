@@ -41,6 +41,7 @@ import minid.ex;
 import minid.instance;
 import minid.interpreter;
 import minid.misc;
+import minid.namespace;
 import minid.string;
 import minid.stringbuffer;
 import minid.types;
@@ -156,6 +157,7 @@ static:
 		newNamespace(t, "function");
 			newFunction(t, 0, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
 			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
+			newFunction(t, 0, &functionMaxParams,   "function.maxParams");   fielda(t, -2, "maxParams");
 			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
 		setTypeMT(t, MDValue.Type.Function);
 
@@ -292,6 +294,7 @@ static:
 		{
 			MDInstance* i;
 			MDClass* c;
+			MDNamespace* n;
 			MDString** key = void;
 			MDValue* value = void;
 			uword index = 0;
@@ -311,13 +314,22 @@ static:
 				{
 					i = getInstance(t, -1);
 					c = null;
+					n = null;
 					haveField = instance.next(i, index, key, value);
 				}
-				else
+				else if(isClass(t, -1))
 				{
 					c = getClass(t, -1);
 					i = null;
+					n = null;
 					haveField = classobj.next(c, index, key, value);
+				}
+				else
+				{
+					n = getNamespace(t, -1);
+					i = null;
+					c = null;
+					haveField = namespace.next(n, index, key, value);
 				}
 
 				if(!haveField)
@@ -363,19 +375,21 @@ static:
 
 			pushStringObj(t, *key);
 			push(t, *value);
-			
-			if(i is null)
+
+			if(c)
 				pushClass(t, c);
-			else
+			else if(i)
 				pushInstance(t, i);
+			else
+				pushNamespace(t, n);
 
 			return 3;
 		}
 
 		checkAnyParam(t, 1);
-		
-		if(!isClass(t, 1) && !isInstance(t, 1))
-			paramTypeError(t, 1, "class|instance");
+
+		if(!isClass(t, 1) && !isInstance(t, 1) && !isNamespace(t, 1))
+			paramTypeError(t, 1, "class|instance|namespace");
 
 		dup(t, 1);
 		pushInt(t, 0);
@@ -1053,6 +1067,13 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushInt(t, funcNumParams(t, 0));
+		return 1;
+	}
+
+	uword functionMaxParams(MDThread* t)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushInt(t, funcMaxParams(t, 0));
 		return 1;
 	}
 

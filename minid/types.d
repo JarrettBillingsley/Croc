@@ -450,6 +450,7 @@ struct MDFunction
 	package MDString* name;
 	package uword numUpvals;
 	package uword numParams;
+	package uword maxParams;
 
 	union
 	{

@@ -2264,7 +2264,7 @@ char[] funcName(MDThread* t, word func)
 
 /**
 Gets the number of parameters that the function at the given stack index takes.  This is the number
-of non-variadic arguments, not including 'this'.  For native functions, always returns 0.
+of non-variadic arguments, not including 'this'. For variadic native functions, returns a large number.
 */
 uword funcNumParams(MDThread* t, word func)
 {
@@ -2272,6 +2272,23 @@ uword funcNumParams(MDThread* t, word func)
 
 	if(auto f = getFunction(t, func))
 		return f.numParams - 1;
+
+	pushTypeString(t, func);
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
+}
+
+/**
+Gets the maximum allowable number of parameters that can be passed to the function at the given stack
+index. For variadic functions (script or native), this returns a large number.
+*/
+uword funcMaxParams(MDThread* t, word func)
+{
+	mixin(FuncNameMix);
+
+	if(auto f = getFunction(t, func))
+		return f.maxParams - 1;
 
 	pushTypeString(t, func);
 	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
@@ -5210,8 +5227,8 @@ bool callPrologue2(MDThread* t, MDFunction* func, AbsStack returnSlot, word numR
 		}";
 
 
-	if(numParams > func.numParams)
-		throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.numParams - 1, numParams - 1);
+	if(numParams > func.maxParams)
+		throwException(t, "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.maxParams - 1, numParams - 1);
 
 	if(!func.isNative)
 	{
@@ -7472,7 +7489,6 @@ void execute(MDThread* t, uword depth = 1)
 			if(t.shouldHalt)
 				throw new MDHaltException;
 
-// 			Instruction* i = t.currentAR.pc++;
 			pc = &t.currentAR.pc;
 			Instruction* i = (*pc)++;
 
@@ -7504,7 +7520,6 @@ void execute(MDThread* t, uword depth = 1)
 				}
 			}
 
-// 			oldPC = t.currentAR.pc;
 			oldPC = *pc;
 
 			switch(i.opcode)
@@ -7587,7 +7602,6 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
 
 				case Op.Cmp:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 
 					auto cmpValue = compareImpl(t, mixin(GetRS), mixin(GetRT));
@@ -7596,9 +7610,6 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						switch(jump.opcode)
 						{
-// 							case Op.Je:  if(cmpValue == 0) t.currentAR.pc += jump.imm; break;
-// 							case Op.Jle: if(cmpValue <= 0) t.currentAR.pc += jump.imm; break;
-// 							case Op.Jlt: if(cmpValue < 0)  t.currentAR.pc += jump.imm; break;
 							case Op.Je:  if(cmpValue == 0) (*pc) += jump.imm; break;
 							case Op.Jle: if(cmpValue <= 0) (*pc) += jump.imm; break;
 							case Op.Jlt: if(cmpValue < 0)  (*pc) += jump.imm; break;
@@ -7609,9 +7620,6 @@ void execute(MDThread* t, uword depth = 1)
 					{
 						switch(jump.opcode)
 						{
-// 							case Op.Je:  if(cmpValue != 0) t.currentAR.pc += jump.imm; break;
-// 							case Op.Jle: if(cmpValue > 0)  t.currentAR.pc += jump.imm; break;
-// 							case Op.Jlt: if(cmpValue >= 0) t.currentAR.pc += jump.imm; break;
 							case Op.Je:  if(cmpValue != 0) (*pc) += jump.imm; break;
 							case Op.Jle: if(cmpValue > 0)  (*pc) += jump.imm; break;
 							case Op.Jlt: if(cmpValue >= 0) (*pc) += jump.imm; break;
@@ -7621,13 +7629,11 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.Equals:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 
 					auto cmpValue = equalsImpl(t, mixin(GetRS), mixin(GetRT));
 
 					if(cmpValue == cast(bool)jump.rd)
-// 						t.currentAR.pc += jump.imm;
 						(*pc) += jump.imm;
 					break;
 
@@ -7638,41 +7644,34 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				case Op.SwitchCmp:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'swcmp' jump");
 
 					if(switchCmpImpl(t, mixin(GetRS), mixin(GetRT)))
-// 						t.currentAR.pc += jump.imm;
 						(*pc) += jump.imm;
 
 					break;
 
 				case Op.Is:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 					assert(jump.opcode == Op.Je, "invalid 'is' jump");
 
 					if(mixin(GetRS).opEquals(*mixin(GetRT)) == jump.rd)
-// 						t.currentAR.pc += jump.imm;
 						(*pc) += jump.imm;
 
 					break;
 
 				case Op.IsTrue:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 					assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
 
 					if(mixin(GetRS).isFalse() != cast(bool)jump.rd)
-// 						t.currentAR.pc += jump.imm;
 						(*pc) += jump.imm;
 
 					break;
 
 				case Op.Jmp:
 					if(i.rd != 0)
-// 						t.currentAR.pc += i.imm;
 						(*pc) += i.imm;
 					break;
 
@@ -7680,14 +7679,12 @@ void execute(MDThread* t, uword depth = 1)
 					auto st = &t.currentAR.func.scriptFunc.switchTables[i.rt];
 
 					if(auto ptr = st.offsets.lookup(*mixin(GetRS)))
-// 						t.currentAR.pc += *ptr;
 						(*pc) += *ptr;
 					else
 					{
 						if(st.defaultOffset == -1)
 							throwException(t, "Switch without default");
 
-// 						t.currentAR.pc += st.defaultOffset;
 						(*pc) += st.defaultOffset;
 					}
 					break;
@@ -7716,7 +7713,6 @@ void execute(MDThread* t, uword depth = 1)
 						*idx = intIdx + intStep;
 
 					*step = intStep;
-// 					t.currentAR.pc += i.imm;
 					(*pc) += i.imm;
 					break;
 
@@ -7731,7 +7727,6 @@ void execute(MDThread* t, uword depth = 1)
 						{
 							t.stack[stackBase + i.rd + 3] = idx;
 							t.stack[stackBase + i.rd] = idx + step;
-// 							t.currentAR.pc += i.imm;
 							(*pc) += i.imm;
 						}
 					}
@@ -7741,7 +7736,6 @@ void execute(MDThread* t, uword depth = 1)
 						{
 							t.stack[stackBase + i.rd + 3] = idx;
 							t.stack[stackBase + i.rd] = idx + step;
-// 							t.currentAR.pc += i.imm;
 							(*pc) += i.imm;
 						}
 					}
@@ -7767,7 +7761,7 @@ void execute(MDThread* t, uword depth = 1)
 						t.stack[stackBase + rd] = method;
 
 						t.stackIndex = stackBase + rd + 3;
-						commonCall(t, stackBase + rd, 3, callPrologue(t, stackBase + rd, 3, 3, proto));
+						commonCall(t, stackBase + rd, 3, callPrologue(t, stackBase + rd, 3, 2, proto));
 						t.stackIndex = t.currentAR.savedTop;
 
 						src = &t.stack[stackBase + rd];
@@ -7782,12 +7776,10 @@ void execute(MDThread* t, uword depth = 1)
 					if(src.type == MDValue.Type.Thread && src.mThread.state != MDThread.State.Initial)
 						throwException(t, "Attempting to iterate over a thread that is not in the 'initial' state");
 
-// 					t.currentAR.pc += i.imm;
 					(*pc) += i.imm;
 					break;
 
 				case Op.ForeachLoop:
-// 					auto jump = *t.currentAR.pc++;
 					auto jump = (*pc)++;
 					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreachloop' jump");
 
@@ -7808,14 +7800,12 @@ void execute(MDThread* t, uword depth = 1)
 						if(t.stack[stackBase + funcReg].type != MDValue.Type.Null)
 						{
 							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
-// 							t.currentAR.pc += i.imm;
 							(*pc) += jump.imm;
 						}
 					}
 					else
 					{
 						if(src.mThread.state != MDThread.State.Dead)
-// 							t.currentAR.pc += i.imm;
 							(*pc) += jump.imm;
 					}
 					break;
@@ -7825,7 +7815,6 @@ void execute(MDThread* t, uword depth = 1)
 					auto tr = pushTR(t);
 					tr.isCatch = true;
 					tr.slot = cast(RelStack)i.rd;
-// 					tr.pc = t.currentAR.pc + i.imm;
 					tr.pc = (*pc) + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
@@ -7834,7 +7823,6 @@ void execute(MDThread* t, uword depth = 1)
 					auto tr = pushTR(t);
 					tr.isCatch = false;
 					tr.slot = cast(RelStack)i.rd;
-// 					tr.pc = t.currentAR.pc + i.imm;
 					tr.pc = (*pc) + i.imm;
 					tr.actRecord = t.arIndex;
 					break;
@@ -7869,7 +7857,6 @@ void execute(MDThread* t, uword depth = 1)
 				word numResults = void;
 
 				case Op.Method, Op.MethodNC, Op.SuperMethod:
-// 					auto call = *t.currentAR.pc++;
 					auto call = (*pc)++;
 
 					RT = *mixin(GetRT);
@@ -8040,7 +8027,6 @@ void execute(MDThread* t, uword depth = 1)
 					goto _reentry;
 
 				case Op.Unwind:
-// 					t.currentAR.unwindReturn = t.currentAR.pc;
 					t.currentAR.unwindReturn = (*pc);
 					t.currentAR.unwindCounter = i.uimm;
 
@@ -8059,13 +8045,11 @@ void execute(MDThread* t, uword depth = 1)
 						if(!tr.isCatch)
 						{
 							// finally in the middle of an unwind
-// 							t.currentAR.pc = tr.pc;
 							(*pc) = tr.pc;
 							continue _interpreterLoop;
 						}
 					}
 
-// 					t.currentAR.pc = t.currentAR.unwindReturn;
 					(*pc) = t.currentAR.unwindReturn;
 					t.currentAR.unwindReturn = null;
 					break;
@@ -8362,22 +8346,16 @@ void execute(MDThread* t, uword depth = 1)
 
 						for(uword index = 0; index < newDef.numUpvals; index++)
 						{
-// 							assert(t.currentAR.pc.opcode == Op.Move, "invalid closure upvalue op");
 							assert((*pc).opcode == Op.Move, "invalid closure upvalue op");
 
-// 							if(t.currentAR.pc.rd)
 							if((*pc).rd == 0)
-// 								newUpvals[index] = findUpvalue(t, t.currentAR.pc.rs);
 								newUpvals[index] = findUpvalue(t, (*pc).rs);
 							else
 							{
-// 								assert(t.currentAR.pc.rd == 1, "invalid closure upvalue rd");
 								assert((*pc).rd == 1, "invalid closure upvalue rd");
-// 								newUpvals[index] = upvals[t.currentAR.pc.uimm];
 								newUpvals[index] = upvals[(*pc).uimm];
 							}
 
-// 							t.currentAR.pc++;
 							(*pc)++;
 						}
 
