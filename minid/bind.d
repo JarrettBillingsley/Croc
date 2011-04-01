@@ -1141,7 +1141,7 @@ private word pushStructClass(Type, char[] ModName, char[] StructName)(MDThread* 
 
 private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Type
 {
-	MDVM* _vm_;
+	protected MDVM* _vm_;
 
 	const char[] typeName = NameOfType!(Type);
 	alias GetCtors!(Members) Ctors;
@@ -1561,7 +1561,7 @@ private template ClassMiniDMethods(Type, char[] TypeName, alias X, T...)
 	"	assert(self !is null, `Invalid 'this' parameter passed to method ` ~ Type.stringof ~ `.` ~ X.Name);\n"
 
 	"	if(auto wrappedSelf = cast(typeof(this))self)\n"
-	"		return wrappedSelf.wrapped_" ~ X.Name ~ ".WrappedMethod(t, numParams);\n"
+	"		return wrappedSelf.wrapped_" ~ X.Name ~ ".WrappedMethod(t);\n"
 	"	else\n"
 	"		return WrappedNativeMethod!(X.Func, X.FuncType, X.explicitType)(t, numParams, self);\n"
 	"}\n");
@@ -1951,7 +1951,7 @@ private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool
 				}
 			}
 		}
-	
+
 		assert(false, "WrappedMethod (" ~ name ~ ") should never ever get here.");
 	}
 }
