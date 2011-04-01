@@ -121,7 +121,7 @@ public struct CreateClass
 		if(stackSize(t) > co.idx + 1)
 			setStackSize(t, co.idx + 1);
 	}
-	
+
 	/** */
 	public static void opCall(MDThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
 	{
@@ -179,7 +179,7 @@ Params:
 	numFields = The number of extra fields to allocate in the instance.
 	Members = Any type.  Members.sizeof extra bytes will be allocated in the instance, and those bytes
 		will be initialized to Members.init.
-		
+
 Example:
 
 -----
@@ -192,7 +192,7 @@ newClass(t, "Foob");
 newGlobal(t, "Foob");
 -----
 */
-uword BasicClassAllocator(uword numFields, Members)(MDThread* t, uword numParams)
+uword BasicClassAllocator(uword numFields, Members)(MDThread* t)
 {
 	newInstance(t, 0, numFields, Members.sizeof);
 	*(cast(Members*)getExtraBytes(t, -1).ptr) = Members.init;
@@ -208,7 +208,7 @@ uword BasicClassAllocator(uword numFields, Members)(MDThread* t, uword numParams
 Similar to above, but instead of a type for the extra bytes, just takes a number of bytes.  In this case
 the extra bytes will be uninitialized.
 */
-uword BasicClassAllocator(uword numFields, uword numBytes)(MDThread* t, uword numParams)
+uword BasicClassAllocator(uword numFields, uword numBytes)(MDThread* t)
 {
 	newInstance(t, 0, numFields, numBytes);
 

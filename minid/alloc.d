@@ -232,9 +232,9 @@ align(1) struct Allocator
 				{
 					if(oldSize > 0 && _memBlocks.lookup(p) is null)
 						throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap, or are performing a double free!");
-	
+
 					auto ret = reallocImpl(p, oldSize, newSize);
-	
+
 					if(newSize == 0)
 						_memBlocks.remove(p);
 					else if(oldSize == 0)

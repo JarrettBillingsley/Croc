@@ -2625,6 +2625,9 @@ struct Parser
 
 		if(l.type != Token.RParen)
 			args = parseArguments();
+			
+		scope(failure)
+			c.alloc.freeArray(args);
 
 		auto endLocation = l.expect(Token.RParen).loc;
 		return new(c) YieldExp(c, location, endLocation, args);
@@ -2666,6 +2669,9 @@ struct Parser
 
 			if(l.type != Token.RParen)
 				args = parseArguments();
+
+			scope(failure)
+				c.alloc.freeArray(args);
 
 			endLocation = l.expect(Token.RParen).loc;
 		}
@@ -2790,9 +2796,9 @@ struct Parser
 					if(l.type == Token.With)
 					{
 						l.next();
-						
+
 						context = parseExpression();
-						
+
 						if(l.type == Token.Comma)
 						{
 							l.next();
@@ -2801,6 +2807,9 @@ struct Parser
 					}
 					else if(l.type != Token.RParen)
 						args = parseArguments();
+						
+					scope(failure)
+						c.alloc.freeArray(args);
 
 					auto endLocation = l.expect(Token.RParen).loc;
 

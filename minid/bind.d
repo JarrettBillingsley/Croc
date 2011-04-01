@@ -72,7 +72,7 @@ Params:
 */
 public void WrapModule(char[] name, Members...)(MDThread* t)
 {
-	makeModule(t, name, function uword(MDThread* t, uword numParams)
+	makeModule(t, name, function uword(MDThread* t)
 	{
 		commonNamespace!(name, true, Members)(t);
 		return 0;
@@ -220,7 +220,7 @@ public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 		return stackSize(t) - 1;
 	}
 
-	private static uword classAllocator(MDThread* t, uword numParams)
+	private static uword classAllocator(MDThread* t)
 	{
 		newInstance(t, 0, 1);
 
@@ -1197,8 +1197,9 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 
 		mixin(ClassCtorShims!(CleanCtors));
 
-		private static uword constructor(MDThread* t, uword numParams)
+		private static uword constructor(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			checkInstParam(t, 0, TypeName);
 
 			static if(is(typeof(new Type())))
@@ -1264,7 +1265,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 				super();
 		}
 
-		private static uword constructor(MDThread* t, uword numParams)
+		private static uword constructor(MDThread* t)
 		{
 			checkInstParam(t, 0, TypeName);
 			auto obj = new typeof(this)(getVM(t));
@@ -1359,8 +1360,9 @@ static:
 		alias Ctors[0] DUMMY;
 		alias DUMMY.Types CleanCtors;
 
-		private static uword constructor(MDThread* t, uword numParams)
+		private static uword constructor(MDThread* t)
 		{
+			auto numParams = stackSize(t) - 1;
 			checkInstParam(t, 0, TypeName);
 
 			static if(is(typeof(Type())))
@@ -1415,7 +1417,7 @@ static:
 	{
 		static assert(is(typeof(Type())), "Cannot call default constructor for struct " ~ typeName ~ "; please wrap a constructor explicitly");
 
-		private static uword constructor(MDThread* t, uword numParams)
+		private static uword constructor(MDThread* t)
 		{
 			checkInstParam(t, 0, TypeName);
 			pushNativeObj(t, new StructWrapper!(Type)(Type()));
@@ -1541,13 +1543,13 @@ private template ClassMiniDMethods(Type, char[] TypeName, alias X, T...)
 	mixin("mixin .WrappedMethod!(X.Func, X.FuncType, Type, TypeName, X.explicitType) wrapped_" ~ X.Name ~ ";");
 
 	mixin(
-	"static uword md_" ~ X.Name ~ "(MDThread* t, uword numParams)\n"
+	"static uword md_" ~ X.Name ~ "(MDThread* t)\n"
 	"{\n" ~
 	(X.explicitType
 	? "	const minArgs = NumParams!(X.FuncType);\n"
 	: "	const minArgs = MinArgs!(X.Func);\n") ~
 	"	const maxArgs = NumParams!(X.FuncType);\n"
-
+	"	auto numParams = stackSize(t) - 1;\n"
 	"	if(numParams < minArgs)\n"
 	"		throwException(t, `At least ` ~ minArgs.stringof ~ ` parameter` ~ (minArgs == 1 ? `` : `s`) ~ ` expected, not {}`, numParams);\n"
 
@@ -1589,7 +1591,7 @@ private template ClassProperties(Type, X, T...)
 private template ClassPropertiesImpl(Type, T...)
 {
 	mixin(
-	"static uword opField(MDThread* t, uword numParams)\n"
+	"static uword opField(MDThread* t)\n"
 	"{\n"
 	"	auto self = checkClassSelf!(Type, TypeName)(t);\n"
 	"	auto fieldName = checkStringParam(t, 1);\n" ~
@@ -1597,7 +1599,7 @@ private template ClassPropertiesImpl(Type, T...)
 	"	return 1;\n"
 	"}\n"
 
-	"static uword opFieldAssign(MDThread* t, uword numParams)\n"
+	"static uword opFieldAssign(MDThread* t)\n"
 	"{\n"
 	"	auto self = checkClassSelf!(Type, TypeName)(t);\n"
 	"	auto fieldName = checkStringParam(t, 1);\n" ~
@@ -1621,7 +1623,7 @@ private template StructProperties(Type, X, T...)
 private template StructPropertiesImpl(Type, T...)
 {
 	mixin(
-	"static uword opField(MDThread* t, uword numParams)\n"
+	"static uword opField(MDThread* t)\n"
 	"{\n"
 	"	auto self = checkStructSelf!(Type, TypeName)(t);\n"
 	"	auto fieldName = checkStringParam(t, 1);\n" ~
@@ -1629,7 +1631,7 @@ private template StructPropertiesImpl(Type, T...)
 	"	return 1;\n"
 	"}\n"
 
-	"static uword opFieldAssign(MDThread* t, uword numParams)\n"
+	"static uword opFieldAssign(MDThread* t)\n"
 	"{\n"
 	"	auto self = checkStructSelf!(Type, TypeName)(t);\n"
 	"	auto fieldName = checkStringParam(t, 1);\n" ~
@@ -1643,8 +1645,9 @@ private template PropertiesImpl(Type) {}
 private template PropertiesImpl(Type, X, T...)
 {
 	mixin(
-	"static uword _prop_" ~ X.Name ~ "(MDThread* t, uword numParams)\n"
+	"static uword _prop_" ~ X.Name ~ "(MDThread* t)\n"
 	"{\n"
+	"	auto numParams = stackSize(t) - 1;\n"
 	"	auto self = check" ~ (is(Type == class) ? "Class" : "Struct") ~ "Self!(Type, TypeName)(t);\n"
 	"	return PropImpl!(`" ~ X.DName ~ "`, X.readOnly, X.propType, TypeName)(t, numParams, self);\n"
 	"}\n");
@@ -1719,8 +1722,10 @@ private template SetFieldImpl(Fields...)
 
 private template WrappedFunc(alias func, char[] name, funcType, bool explicitType)
 {
-	static uword WrappedFunc(MDThread* t, uword numParams)
+	static uword WrappedFunc(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
+		
 		static if(explicitType)
 			const minArgs = NumParams!(funcType);
 		else
@@ -1876,8 +1881,9 @@ private template WrappedNativeMethod(alias func, funcType, bool explicitType)
 
 private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool explicitType)
 {
-	private uword WrappedMethod(MDThread* t, uword numParams)
+	private uword WrappedMethod(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		static if(explicitType)
 			const minArgs = NumParams!(funcType);
 		else
@@ -1950,8 +1956,9 @@ private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool
 	}
 }
 
-private uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, bool explicitType)(MDThread* t, uword numParams)
+private uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, bool explicitType)(MDThread* t)
 {
+	auto numParams = stackSize(t) - 1;
 	static if(explicitType)
 		const minArgs = NumParams!(funcType);
 	else
