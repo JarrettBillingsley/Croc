@@ -4957,14 +4957,6 @@ MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDClass* proto)
 			else
 				return null;
 
-		case MDValue.Type.Table:
-			auto ret = getMethod(obj.mTable, name);
-			
-			if(ret.type == MDValue.Type.Function)
-				return ret.mFunction;
-
-			goto default;
-
 		default:
 			auto ret = getMethod(t, obj.type, name);
 			
@@ -5646,31 +5638,7 @@ void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, 
 	if(v !is null)
 		*dest = *v;
 	else
-	{
-		if(raw)
-			*dest = MDValue.nullValue;
-		else if(auto method = getMM(t, container, MM.Index))
-		{
-			bool shouldLoad = void;
-			savePtr(t, dest, shouldLoad);
-
-			auto containersave = *container;
-			auto keysave = *key;
-
-			auto funcSlot = pushFunction(t, method);
-			push(t, containersave);
-			push(t, keysave);
-			rawCall(t, funcSlot, 1);
-
-			if(shouldLoad)
-				loadPtr(t, dest);
-
-			*dest = t.stack[t.stackIndex - 1];
-			pop(t);
-		}
-		else
-			*dest = MDValue.nullValue;
-	}
+		*dest = MDValue.nullValue;
 }
 
 void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
@@ -5711,29 +5679,28 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
 {
 	if(key.type == MDValue.Type.Null)
-	{
-		if(!raw && tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
-			return;
-
 		throwException(t, "Attempting to index-assign a table with a key of type 'null'");
+
+	// If the key or value is a null weakref, just remove the key-value pair from the table entirely
+	if((value.type == MDValue.Type.WeakRef && value.mWeakRef.obj is null) ||
+		(key.type == MDValue.Type.WeakRef && key.mWeakRef.obj is null))
+	{
+		table.remove(container.mTable, *key);
+		return;
 	}
 
 	auto v = table.get(container.mTable, *key);
 
 	if(v !is null)
 	{
-		if(value.type != MDValue.Type.Null)
-			*v = *value;
-		else
+		if(value.type == MDValue.Type.Null)
 			table.remove(container.mTable, *key);
+		else
+			*v = *value;
 	}
-	else if(value.type != MDValue.Type.Null &&
-		!(value.type == MDValue.Type.WeakRef && value.mWeakRef.obj is null) &&
-		!(key.type == MDValue.Type.WeakRef && key.mWeakRef.obj is null))
-	{
-		if(raw || !tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
-			table.set(t.vm.alloc, container.mTable, *key, *value);
-	}
+	else if(value.type != MDValue.Type.Null)
+		table.set(t.vm.alloc, container.mTable, *key, *value);
+
 	// otherwise, do nothing (val is null and it doesn't exist)
 }
 
@@ -5756,7 +5723,7 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 	switch(container.type)
 	{
 		case MDValue.Type.Table:
-			// This is right, tables do not have separate opField capabilities.
+			// This is right, tables do not distinguish between field access and indexing.
 			return tableIdxImpl(t, dest, container, &MDValue(name), raw);
 
 		case MDValue.Type.Class:
@@ -5813,7 +5780,7 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 	switch(container.type)
 	{
 		case MDValue.Type.Table:
-			// This is right, tables do not have separate opField capabilities.
+			// This is right, tables do not distinguish between field access and indexing.
 			return tableIdxaImpl(t, container, &MDValue(name), value, raw);
 
 		case MDValue.Type.Class:
@@ -5883,7 +5850,7 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 
 				return string.compare(a.mString, b.mString);
 
-			case MDValue.Type.Table, MDValue.Type.Instance:
+			case MDValue.Type.Instance:
 				if(auto method = getMM(t, a, MM.Cmp, proto))
 					return commonCompare(t, method, a, b, proto);
 				else if(auto method = getMM(t, b, MM.Cmp, proto))
@@ -5893,12 +5860,12 @@ mdint compareImpl(MDThread* t, MDValue* a, MDValue* b)
 			default: break; // break to error
 		}
 	}
-	else if((a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table))
+	else if(a.type == MDValue.Type.Instance)
 	{
 		if(auto method = getMM(t, a, MM.Cmp, proto))
 			return commonCompare(t, method, a, b, proto);
 	}
-	else if((b.type == MDValue.Type.Instance || b.type == MDValue.Type.Table))
+	else if(b.type == MDValue.Type.Instance)
 	{
 		if(auto method = getMM(t, b, MM.Cmp, proto))
 			return -commonCompare(t, method, b, a, proto);
@@ -5943,7 +5910,7 @@ bool switchCmpImpl(MDThread* t, MDValue* a, MDValue* b)
 
 	MDClass* proto;
 
-	if(a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table)
+	if(a.type == MDValue.Type.Instance)
 	{
 		if(auto method = getMM(t, a, MM.Cmp, proto))
 			return commonCompare(t, method, a, b, proto) == 0;
@@ -5983,7 +5950,7 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 			// Interning is fun.  We don'_t have to do a string comparison at all.
 			case MDValue.Type.String: return a.mString is b.mString;
 
-			case MDValue.Type.Table, MDValue.Type.Instance:
+			case MDValue.Type.Instance:
 				if(auto method = getMM(t, a, MM.Equals, proto))
 					return commonEquals(t, method, a, b, proto);
 				else if(auto method = getMM(t, b, MM.Equals, proto))
@@ -5993,12 +5960,12 @@ bool equalsImpl(MDThread* t, MDValue* a, MDValue* b)
 			default: break; // break to error
 		}
 	}
-	else if((a.type == MDValue.Type.Instance || a.type == MDValue.Type.Table))
+	else if(a.type == MDValue.Type.Instance)
 	{
 		if(auto method = getMM(t, a, MM.Equals, proto))
 			return commonEquals(t, method, a, b, proto);
 	}
-	else if((b.type == MDValue.Type.Instance || b.type == MDValue.Type.Table))
+	else if(b.type == MDValue.Type.Instance)
 	{
 		if(auto method = getMM(t, b, MM.Equals, proto))
 			return commonEquals(t, method, b, a, proto);
@@ -6038,15 +6005,13 @@ void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 	switch(src.type)
 	{
 		case MDValue.Type.String:    return *dest = cast(mdint)src.mString.cpLength;
+		case MDValue.Type.Table:     return *dest = cast(mdint)table.length(src.mTable);
 		case MDValue.Type.Array:     return *dest = cast(mdint)src.mArray.length;
 		case MDValue.Type.Namespace: return *dest = cast(mdint)namespace.length(src.mNamespace);
 
 		default:
 			if(tryMM!(1, true)(t, MM.Length, dest, src))
 				return;
-
-			if(src.type == MDValue.Type.Table)
-				return *dest = cast(mdint)table.length(src.mTable);
 
 			typeString(t, src);
 			throwException(t, "Can't get the length of a '{}'", getString(t, -1));
@@ -6545,7 +6510,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 				if(stack[slot + 1].type == MDValue.Type.Array)
 					goto array;
-				else if(stack[slot + 1].type == MDValue.Type.Instance || stack[slot + 1].type == MDValue.Type.Table)
+				else if(stack[slot + 1].type == MDValue.Type.Instance)
 					goto cat_r;
 				else
 				{
@@ -6562,7 +6527,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				{
 					if(stack[idx].type == MDValue.Type.Array)
 						len += stack[idx].mArray.length;
-					else if(stack[idx].type == MDValue.Type.Instance || stack[idx].type == MDValue.Type.Table)
+					else if(stack[idx].type == MDValue.Type.Instance)
 					{
 						method = getMM(t, &stack[idx], MM.Cat_r, proto);
 
@@ -6587,7 +6552,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				assert(method !is null);
 				goto cat_r;
 
-			case MDValue.Type.Instance, MDValue.Type.Table:
+			case MDValue.Type.Instance:
 				if(stack[slot + 1].type == MDValue.Type.Array)
 				{
 					method = getMM(t, &stack[slot], MM.Cat, proto);
@@ -6604,7 +6569,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 					if(method is null)
 					{
-						if(stack[slot + 1].type != MDValue.Type.Instance && stack[slot + 1].type != MDValue.Type.Table)
+						if(stack[slot + 1].type != MDValue.Type.Instance)
 						{
 							typeString(t, &stack[slot + 1]);
 							throwException(t, "Can't concatenate an 'instance/table' with a '{}'", getString(t, -1));
@@ -6653,7 +6618,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				// Basic
 				if(stack[slot + 1].type == MDValue.Type.Array)
 					goto array;
-				else if(stack[slot + 1].type == MDValue.Type.Instance || stack[slot + 1].type == MDValue.Type.Table)
+				else if(stack[slot + 1].type == MDValue.Type.Instance)
 					goto cat_r;
 				else
 				{
@@ -6822,7 +6787,7 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 		case MDValue.Type.Array:
 			return arrayAppend(t, dest.mArray, stack[slot .. endSlot]);
 
-		case MDValue.Type.Instance, MDValue.Type.Table:
+		case MDValue.Type.Instance:
 			MDClass* proto;
 			auto method = getMM(t, dest, MM.CatEq, proto);
 

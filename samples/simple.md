@@ -1,12 +1,5 @@
 module samples.simple
 
-local a = [1, 2, 3, 4, 5]
-local b = a[0 .. 3]
-b.fill(10)
-
-writeln(a)
-writeln(b)
-
 /*import sdl: event, key
 import gl
 
