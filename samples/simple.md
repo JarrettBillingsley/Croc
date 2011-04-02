@@ -1,6 +1,7 @@
 module samples.simple
 
-/+import sdl: event, key
+
+/*import sdl: event, key
 import gl
 
 /*
@@ -312,4 +313,4 @@ function main()
 	writefln$ "Rendered {} frames in {:f2} seconds ({:f2} fps)", frames, startTime, frames / startTime
 	writefln$ "Received {} move events in that time ({:f2} per second)", numMoves, numMoves / startTime
 }
-+/
+*/

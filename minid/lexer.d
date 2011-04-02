@@ -851,7 +851,6 @@ struct Lexer
 		auto beginning = mLoc;
 
 		scope buf = new List!(char)(mCompiler.alloc);
-		dchar delimiter = mCharacter;
 
 		// to be safe..
 		char[6] utfbuf = void;
@@ -878,27 +877,25 @@ struct Lexer
 					buf ~= Utf.encode(utfbuf, readEscapeSequence(beginning));
 					continue;
 
-				default:
-					if(!escape && mCharacter == delimiter)
-					{
-						if(lookaheadChar() == delimiter)
-						{
-							buf ~= Utf.encode(utfbuf, delimiter);
-							nextChar();
-							nextChar();
-						}
-						else
-							break;
-					}
+				case '\"':
+					if(escape)
+						break;
 					else
 					{
-						if(escape && mCharacter == delimiter)
+						if(lookaheadChar() != '\"')
 							break;
-
-						buf ~= Utf.encode(utfbuf, mCharacter);
-						nextChar();
+						else
+						{
+							buf ~= Utf.encode(utfbuf, '\"');
+							nextChar();
+							nextChar();
+							continue;
+						}
 					}
 
+				default:
+					buf ~= Utf.encode(utfbuf, mCharacter);
+					nextChar();
 					continue;
 			}
 
@@ -1047,17 +1044,33 @@ struct Lexer
 					{
 						nextChar();
 
+						uint nesting = 1;
+
 						_commentLoop: while(true)
 						{
 							switch(mCharacter)
 							{
+								case '/':
+									nextChar();
+
+									if(mCharacter == '*')
+									{
+										nextChar();
+										nesting++;
+									}
+
+									continue;
+									
 								case '*':
 									nextChar();
 
 									if(mCharacter == '/')
 									{
 										nextChar();
-										break _commentLoop;
+										nesting--;
+
+										if(nesting == 0)
+											break _commentLoop;
 									}
 									continue;
 
@@ -1067,54 +1080,6 @@ struct Lexer
 
 								case '\0', dchar.init:
 									mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
-
-								default:
-									break;
-							}
-
-							nextChar();
-						}
-					}
-					else if(mCharacter == '+')
-					{
-						nextChar();
-						
-						uint nesting = 1;
-
-						_commentLoop2: while(true)
-						{
-							switch(mCharacter)
-							{
-								case '/':
-									nextChar();
-
-									if(mCharacter == '+')
-									{
-										nextChar();
-										nesting++;
-									}
-
-									continue;
-									
-								case '+':
-									nextChar();
-
-									if(mCharacter == '/')
-									{
-										nextChar();
-										nesting--;
-										
-										if(nesting == 0)
-											break _commentLoop2;
-									}
-									continue;
-
-								case '\r', '\n':
-									nextLine();
-									continue;
-
-								case '\0', dchar.init:
-									mCompiler.eofException(mTok.loc, "Unterminated /+ +/ comment");
 
 								default:
 									break;
@@ -1324,11 +1289,6 @@ struct Lexer
 
 				case '\"':
 					mTok.stringValue = readStringLiteral(true);
-					mTok.type = Token.StringLiteral;
-					return;
-
-				case '`':
-					mTok.stringValue = readStringLiteral(false);
 					mTok.type = Token.StringLiteral;
 					return;
 

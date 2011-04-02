@@ -14,6 +14,12 @@ import minid.serialization;
 // import minid.addons.gl;
 // import minid.addons.net;
 
+/*
+Language changes:
+- Trailing commas now allowed in table and array constructors
+- Labeled control structures, breaks, and continues
+*/
+
 void main()
 {
 	scope(exit) Stdout.flush;
