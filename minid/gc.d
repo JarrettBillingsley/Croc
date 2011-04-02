@@ -139,7 +139,6 @@ void free(MDVM* vm, GCObject* o)
 
 		case MDValue.Type.Upvalue:   vm.alloc.free(cast(MDUpval*)o); return;
 		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
-		case MDValue.Type.ArrayData: array.freeData(vm.alloc, cast(MDArrayData*)o); return;
 
 		default: debug Stdout.formatln("{}", (cast(MDBaseObject*)o).mType); assert(false);
 	}
@@ -184,7 +183,6 @@ void markObj(MDVM* vm, GCObject* o)
 
 		case MDValue.Type.Upvalue:   markObj(vm, cast(MDUpval*)o); return;
 		case MDValue.Type.FuncDef:   markObj(vm, cast(MDFuncDef*)o); return;
-		case MDValue.Type.ArrayData: markObj(vm, cast(MDArrayData*)o); return;
 		default: assert(false);
 	}
 }
@@ -222,9 +220,8 @@ void markObj(MDVM* vm, MDTable* o)
 void markObj(MDVM* vm, MDArray* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-	o.data.flags = (o.data.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
-	foreach(ref val; o.slice)
+	foreach(ref val; o.toArray())
 		mixin(CondMark!("val"));
 }
 
@@ -399,10 +396,4 @@ void markObj(MDVM* vm, MDFuncDef* o)
 
 	if(o.cachedFunc && ((o.cachedFunc.flags & GCBits.Marked) ^ vm.alloc.markVal))
 		markObj(vm, o.cachedFunc);
-}
-
-// Mark an array data.
-void markObj(MDVM* vm, MDArrayData* o)
-{
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }

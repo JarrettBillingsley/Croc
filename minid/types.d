@@ -165,8 +165,7 @@ align(1) struct MDValue
 
 		// Internal types
 		Upvalue, // 15
-		FuncDef,
-		ArrayData
+		FuncDef
 	}
 
 	package static char[] typeString(MDValue.Type t)
@@ -192,7 +191,6 @@ align(1) struct MDValue
 
 			case Type.Upvalue:   return "upvalue";
 			case Type.FuncDef:   return "funcdef";
-			case Type.ArrayData: return "arraydata";
 
 			default: assert(false);
 		}
@@ -423,23 +421,16 @@ struct MDTable
 	package MDTable* nextTab; // used during collection
 }
 
-struct MDArrayData
-{
-	mixin MDObjectMixin!(MDValue.Type.ArrayData);
-	package uword length;
-
-	package MDValue[] toArray()
-	{
-		return (cast(MDValue*)(this + 1))[0 .. length];
-	}
-}
-
 struct MDArray
 {
 	mixin MDObjectMixin!(MDValue.Type.Array);
-	package MDArrayData* data;
-	package MDValue[] slice;
-	package bool isSlice;
+	package uword length;
+	package MDValue[] data;
+
+	package MDValue[] toArray()
+	{
+		return data[0 .. this.length];
+	}
 }
 
 struct MDFunction

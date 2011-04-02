@@ -328,7 +328,6 @@ private:
 			case MDValue.Type.WeakRef:   serializeWeakRef(v.mWeakRef);     break;
 			case MDValue.Type.NativeObj: serializeNativeObj(v.mNativeObj); break;
 
-			case MDValue.Type.ArrayData: serializeArrayData(cast(MDArrayData*)v.mBaseObj); break;
 			case MDValue.Type.Upvalue:   serializeUpval(cast(MDUpval*)v.mBaseObj);         break;
 			case MDValue.Type.FuncDef:   serializeFuncDef(cast(MDFuncDef*)v.mBaseObj);     break;
 
@@ -397,18 +396,6 @@ private:
 			return;
 
 		tag(MDValue.Type.Array);
-		serialize(MDValue(cast(MDBaseObject*)v.data));
-		integer(cast(uword)(v.slice.ptr - v.data.toArray().ptr));
-		integer(v.slice.length);
-		put(mOutput, v.isSlice);
-	}
-
-	void serializeArrayData(MDArrayData* v)
-	{
-		if(alreadyWritten(cast(MDBaseObject*)v))
-			return;
-
-		tag(MDValue.Type.ArrayData);
 		integer(v.length);
 
 		foreach(ref val; v.toArray())
@@ -1145,44 +1132,14 @@ private:
 		auto arr = t.vm.alloc.allocate!(MDArray);
 		addObject(cast(MDBaseObject*)arr);
 
-		arr.data = deserializeArrayData();
+		auto len = integer();
+		auto v = newArray(t, cast(uword)len);
 
-		auto lo = cast(uword)integer();
-		auto hi = cast(uword)integer();
-		arr.slice = arr.data.toArray()[lo .. hi];
-		get(mInput, arr.isSlice);
-
-		pushArray(t, arr);
-	}
-
-	MDArrayData* deserializeArrayData()
-	{
-		if(checkObjTag(MDValue.Type.ArrayData))
-			return deserializeArrayDataImpl();
-		else
-		{
-			auto ad = cast(MDArrayData*)getValue(t, -1).mBaseObj;
-			pop(t);
-			return ad;
-		}
-	}
-
-	MDArrayData* deserializeArrayDataImpl()
-	{
-		auto len = cast(uword)integer();
-		auto data = t.vm.alloc.allocate!(MDArrayData)(MDArrayData.sizeof + (MDValue.sizeof * len));
-		addObject(cast(MDBaseObject*)data);
-
-		data.length = len;
-
-		foreach(ref val; data.toArray())
+		for(uword i = 0; i < len; i++)
 		{
 			deserializeValue();
-			val = *getValue(t, -1);
-			pop(t);
+			idxai(t, v, cast(mdint)i);
 		}
-
-		return data;
 	}
 
 	void deserializeFunction()

@@ -783,7 +783,7 @@ word newArrayFromStack(MDThread* t, uword len)
 	mixin(checkNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
-	a.slice[] = t.stack[t.stackIndex - len .. t.stackIndex];
+	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
 	pop(t, len);
 	return pushArray(t, a);
 }
@@ -2183,7 +2183,7 @@ void fillArray(MDThread* t, word arr)
 		throwException(t, __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
 	}
 
-	a.slice[] = t.stack[t.stackIndex - 1];
+	a.toArray()[] = t.stack[t.stackIndex - 1];
 	pop(t);
 }
 
@@ -5600,12 +5600,12 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 			auto arr = container.mArray;
 
 			if(index < 0)
-				index += arr.slice.length;
+				index += arr.length;
 
-			if(index < 0 || index >= arr.slice.length)
-				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.slice.length);
+			if(index < 0 || index >= arr.length)
+				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.length);
 
-			*dest = arr.slice[cast(uword)index];
+			*dest = arr.toArray()[cast(uword)index];
 			return;
 
 		case MDValue.Type.String:
@@ -5688,12 +5688,12 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 			auto arr = container.mArray;
 
 			if(index < 0)
-				index += arr.slice.length;
+				index += arr.length;
 
-			if(index < 0 || index >= arr.slice.length)
-				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.slice.length);
+			if(index < 0 || index >= arr.length)
+				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.length);
 
-			arr.slice[cast(uword)index] = *value;
+			arr.toArray()[cast(uword)index] = *value;
 			return;
 
 		case MDValue.Type.Table:
@@ -6038,7 +6038,7 @@ void lenImpl(MDThread* t, MDValue* dest, MDValue* src)
 	switch(src.type)
 	{
 		case MDValue.Type.String:    return *dest = cast(mdint)src.mString.cpLength;
-		case MDValue.Type.Array:     return *dest = cast(mdint)src.mArray.slice.length;
+		case MDValue.Type.Array:     return *dest = cast(mdint)src.mArray.length;
 		case MDValue.Type.Namespace: return *dest = cast(mdint)namespace.length(src.mNamespace);
 
 		default:
@@ -6092,7 +6092,7 @@ void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* h
 			if(lo.type == MDValue.Type.Null && hi.type == MDValue.Type.Null)
 				return *dest = *src;
 
-			if(!correctIndices(loIndex, hiIndex, lo, hi, arr.slice.length))
+			if(!correctIndices(loIndex, hiIndex, lo, hi, arr.length))
 			{
 				auto hisave = *hi;
 				typeString(t, lo);
@@ -6100,8 +6100,8 @@ void sliceImpl(MDThread* t, MDValue* dest, MDValue* src, MDValue* lo, MDValue* h
 				throwException(t, "Attempting to slice an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.slice.length || hiIndex < 0 || hiIndex > arr.slice.length)
-				throwException(t, "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.slice.length);
+			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+				throwException(t, "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			return *dest = array.slice(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex);
 
@@ -6144,7 +6144,7 @@ void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDVal
 			mdint loIndex = void;
 			mdint hiIndex = void;
 			
-			if(!correctIndices(loIndex, hiIndex, lo, hi, arr.slice.length))
+			if(!correctIndices(loIndex, hiIndex, lo, hi, arr.length))
 			{
 				auto hisave = *hi;
 				typeString(t, lo);
@@ -6152,13 +6152,13 @@ void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDVal
 				throwException(t, "Attempting to slice-assign an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.slice.length || hiIndex < 0 || hiIndex > arr.slice.length)
-				throwException(t, "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.slice.length);
+			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+				throwException(t, "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			if(value.type == MDValue.Type.Array)
 			{
-				if((hiIndex - loIndex) != value.mArray.slice.length)
-					throwException(t, "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.slice.length);
+				if((hiIndex - loIndex) != value.mArray.length)
+					throwException(t, "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.length);
 
 				return array.sliceAssign(arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
 			}
@@ -6556,12 +6556,12 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 			case MDValue.Type.Array:
 				array:
 				uword idx = slot + 1;
-				uword len = stack[slot].type == MDValue.Type.Array ? stack[slot].mArray.slice.length : 1;
+				uword len = stack[slot].type == MDValue.Type.Array ? stack[slot].mArray.length : 1;
 
 				for(; idx < endSlot; idx++)
 				{
 					if(stack[idx].type == MDValue.Type.Array)
-						len += stack[idx].mArray.slice.length;
+						len += stack[idx].mArray.length;
 					else if(stack[idx].type == MDValue.Type.Instance || stack[idx].type == MDValue.Type.Table)
 					{
 						method = getMM(t, &stack[idx], MM.Cat_r, proto);
@@ -6720,12 +6720,12 @@ void arrayConcat(MDThread* t, MDValue[] vals, uword len)
 		{
 			auto a = v.mArray;
 
-			ret.slice[i .. i + a.slice.length] = a.slice[];
-			i += a.slice.length;
+			ret.toArray()[i .. i + a.length] = a.toArray()[];
+			i += a.length;
 		}
 		else
 		{
-			ret.slice[i] = v;
+			ret.toArray()[i] = v;
 			i++;
 		}
 	}
@@ -6860,17 +6860,17 @@ void catEqImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 
 void arrayAppend(MDThread* t, MDArray* a, MDValue[] vals)
 {
-	uword len = a.slice.length;
+	uword len = a.length;
 
 	foreach(ref val; vals)
 	{
 		if(val.type == MDValue.Type.Array)
-			len += val.mArray.slice.length;
+			len += val.mArray.length;
 		else
 			len++;
 	}
 
-	uword i = a.slice.length;
+	uword i = a.length;
 	array.resize(t.vm.alloc, a, len);
 
 	foreach(ref v; vals)
@@ -6878,12 +6878,12 @@ void arrayAppend(MDThread* t, MDArray* a, MDValue[] vals)
 		if(v.type == MDValue.Type.Array)
 		{
 			auto arr = v.mArray;
-			a.slice[i .. i + arr.slice.length] = arr.slice[];
-			i += arr.slice.length;
+			a.toArray()[i .. i + arr.length] = arr.toArray()[];
+			i += arr.length;
 		}
 		else
 		{
-			a.slice[i] = v;
+			a.toArray()[i] = v;
 			i++;
 		}
 	}

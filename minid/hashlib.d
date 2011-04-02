@@ -184,13 +184,13 @@ static:
 		
 		pop(t, 3);
 
-		for(; idx < keys.slice.length; idx++)
+		for(; idx < keys.length; idx++)
 		{
-			if(auto v = table.get(tab, keys.slice[idx]))
+			if(auto v = table.get(tab, keys.data[idx]))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys.slice[idx]);
+				push(t, keys.data[idx]);
 				push(t, *v);
 				return 2;
 			}
@@ -235,13 +235,13 @@ static:
 
 		pop(t, 3);
 
-		for(; idx < keys.slice.length; idx++)
+		for(; idx < keys.length; idx++)
 		{
-			if(auto v = namespace.get(ns, keys.slice[idx].mString))
+			if(auto v = namespace.get(ns, keys.data[idx].mString))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys.slice[idx]);
+				push(t, keys.data[idx]);
 				push(t, *v);
 				return 2;
 			}

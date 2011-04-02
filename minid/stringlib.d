@@ -75,7 +75,7 @@ static:
 
 			return 0;
 		});
-		
+
 		importModuleNoNS(t, "string");
 	}
 	
@@ -83,7 +83,7 @@ static:
 	{
 		checkParam(t, 1, MDValue.Type.Array);
 		auto sep = optStringParam(t, 2, "");
-		auto arr = getArray(t, 1).slice;
+		auto arr = getArray(t, 1).toArray();
 
 		if(arr.length == 0)
 		{

@@ -7,6 +7,8 @@ local a = [1 2 3]
 a = a[1 ..]
 a[] = [4 5]
 #a = 10
+#a = 1000
+#a = 10
 a[3 .. 5] = a[4 .. 6]
 a = [1, 2, (\->3)()]
 local x = 3 in a
@@ -85,9 +87,9 @@ xfail$\{ local x = [0]; x[0] = x; x.flatten() }
 
 a = [1 2 3 4 5 6 7 8 9 10]
 a.makeHeap()
-a.pushHeap(11)
-a.popHeap()
-xfail$\{ [].popHeap() }
+// a.pushHeap(11)
+// a.popHeap()
+// xfail$\{ [].popHeap() }
 a.sortHeap()
 
 a = [1 2 2 3 4 5 5 5 5]

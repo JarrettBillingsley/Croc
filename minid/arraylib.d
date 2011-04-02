@@ -77,8 +77,8 @@ static:
 				newFunction(t, 0, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
 
 				newFunction(t, 0, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
-				newFunction(t, 1, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
-				newFunction(t, 0, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
+// 				newFunction(t, 1, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
+// 				newFunction(t, 0, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
 				newFunction(t, 0, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
 				newFunction(t, 2, &count,     "count");      fielda(t, -2, "count");
 				newFunction(t, 1, &countIf,   "countIf");    fielda(t, -2, "countIf");
@@ -149,12 +149,12 @@ static:
 		if(v2 < v1)
 		{
 			for(uword i = 0; val > v2; i++, val -= step)
-				a.slice[i] = val;
+				a.data[i] = val;
 		}
 		else
 		{
 			for(uword i = 0; val < v2; i++, val += step)
-				a.slice[i] = val;
+				a.data[i] = val;
 		}
 
 		return 1;
@@ -222,7 +222,7 @@ static:
 			};
 		}
 
-		.sort(getArray(t, 0).slice, pred);
+		.sort(getArray(t, 0).toArray(), pred);
 		dup(t, 0);
 		return 1;
 	}
@@ -230,7 +230,7 @@ static:
 	uword reverse(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
-		getArray(t, 0).slice.reverse;
+		getArray(t, 0).toArray().reverse;
 		dup(t, 0);
 		return 1;
 	}
@@ -239,7 +239,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 		newArray(t, cast(uword)len(t, 0)); // this should be fine?  since arrays can't be longer than uword.max
-		getArray(t, -1).slice[] = getArray(t, 0).slice[];
+		getArray(t, -1).toArray()[] = getArray(t, 0).toArray()[];
 		return 1;
 	}
 
@@ -298,10 +298,10 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
 
-		foreach(ref val; a.slice)
+		foreach(ref val; a.toArray())
 			push(t, val);
 
-		return a.slice.length;
+		return a.length;
 	}
 
 	uword toString(MDThread* t)
@@ -355,7 +355,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		auto data = getArray(t, 0).slice;
+		auto data = getArray(t, 0).toArray();
 
 		foreach(i, ref v; data)
 		{
@@ -375,9 +375,9 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 		auto newArr = newArray(t, cast(uword)len(t, 0));
-		auto data = getArray(t, -1).slice;
+		auto data = getArray(t, -1).toArray();
 
-		foreach(i, ref v; getArray(t, 0).slice)
+		foreach(i, ref v; getArray(t, 0).toArray())
 		{
 			auto reg = dup(t, 1);
 			dup(t, 0);
@@ -421,7 +421,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		foreach(i, ref v; getArray(t, 0).slice)
+		foreach(i, ref v; getArray(t, 0).toArray())
 		{
 			dup(t, 1);
 			dup(t, 0);
@@ -446,7 +446,7 @@ static:
 		auto retArray = newArray(t, cast(uword)newLen);
 		uword retIdx = 0;
 
-		foreach(i, ref v; getArray(t, 0).slice)
+		foreach(i, ref v; getArray(t, 0).toArray())
 		{
 			dup(t, 1);
 			dup(t, 0);
@@ -488,7 +488,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkAnyParam(t, 1);
 
-		foreach(i, ref v; getArray(t, 0).slice)
+		foreach(i, ref v; getArray(t, 0).toArray())
 		{
 			push(t, v);
 
@@ -508,7 +508,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		foreach(i, ref v; getArray(t, 0).slice)
+		foreach(i, ref v; getArray(t, 0).toArray())
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);
@@ -584,7 +584,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		mdint index = -1;
-		auto data = getArray(t, 0).slice;
+		auto data = getArray(t, 0).toArray();
 
 		if(data.length == 0)
 			throwException(t, "Array is empty");
@@ -616,7 +616,7 @@ static:
 		array.resize(t.vm.alloc, a, numParams);
 
 		for(uword i = 0; i < numParams; i++)
-			a.slice[i] = *getValue(t, i + 1);
+			a.data[i] = *getValue(t, i + 1);
 
 		dup(t, 0);
 		return 1;
@@ -625,7 +625,7 @@ static:
 	uword minMaxImpl(MDThread* t, uword numParams, bool max)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
-		auto data = getArray(t, 0).slice;
+		auto data = getArray(t, 0).toArray();
 
 		if(data.length == 0)
 			throwException(t, "Array is empty");
@@ -726,7 +726,7 @@ static:
 		{
 			checkParam(t, 1, MDValue.Type.Function);
 
-			foreach(ref v; getArray(t, 0).slice)
+			foreach(ref v; getArray(t, 0).toArray())
 			{
 				dup(t, 1);
 				pushNull(t);
@@ -744,7 +744,7 @@ static:
 		}
 		else
 		{
-			foreach(ref v; getArray(t, 0).slice)
+			foreach(ref v; getArray(t, 0).toArray())
 			{
 				if(v.isFalse())
 				{
@@ -767,7 +767,7 @@ static:
 		{
 			checkParam(t, 1, MDValue.Type.Function);
 			
-			foreach(ref v; getArray(t, 0).slice)
+			foreach(ref v; getArray(t, 0).toArray())
 			{
 				dup(t, 1);
 				pushNull(t);
@@ -785,7 +785,7 @@ static:
 		}
 		else
 		{
-			foreach(ref v; getArray(t, 0).slice)
+			foreach(ref v; getArray(t, 0).toArray())
 			{
 				if(!v.isFalse())
 				{
@@ -817,11 +817,11 @@ static:
 		if(numParams == 0)
 			return 0;
 			
-		auto oldlen = a.slice.length;
-		array.resize(t.vm.alloc, a, a.slice.length + numParams);
+		auto oldlen = a.length;
+		array.resize(t.vm.alloc, a, a.length + numParams);
 
-		for(uword i = oldlen, j = 1; i < a.slice.length; i++, j++)
-			a.slice[i] = *getValue(t, j);
+		for(uword i = oldlen, j = 1; i < a.length; i++, j++)
+			a.data[i] = *getValue(t, j);
 
 		return 0;
 	}
@@ -851,7 +851,7 @@ static:
 				idxa(t, flattening);
 			}
 
-			foreach(ref val; getArray(t, a).slice)
+			foreach(ref val; getArray(t, a).toArray())
 			{
 				if(val.type == MDValue.Type.Array)
 					flatten(pushArray(t, val.mArray));
@@ -873,7 +873,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		auto a = getArray(t, 0);
 
-		.makeHeap(a.slice, (ref MDValue a, ref MDValue b)
+		.makeHeap(a.toArray(), (ref MDValue a, ref MDValue b)
 		{
 			push(t, a);
 			push(t, b);
@@ -886,51 +886,51 @@ static:
 		return 1;
 	}
 
-	uword pushHeap(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-		checkAnyParam(t, 1);
-		auto a = getArray(t, 0);
-
-		.pushHeap(a.slice, *getValue(t, 1), (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword popHeap(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Array);
-
-		if(len(t, 0) == 0)
-			throwException(t, "Array is empty");
-
-		idxi(t, 0, 0, true);
-
-		.popHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		return 1;
-	}
+// 	uword pushHeap(MDThread* t)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 		checkAnyParam(t, 1);
+// 		auto a = getArray(t, 0);
+// 
+// 		.pushHeap(a.toArray(), *getValue(t, 1), (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		dup(t, 0);
+// 		return 1;
+// 	}
+// 
+// 	uword popHeap(MDThread* t)
+// 	{
+// 		checkParam(t, 0, MDValue.Type.Array);
+// 
+// 		if(len(t, 0) == 0)
+// 			throwException(t, "Array is empty");
+// 
+// 		idxi(t, 0, 0, true);
+// 
+// 		.popHeap(getArray(t, 0).toArray(), (ref MDValue a, ref MDValue b)
+// 		{
+// 			push(t, a);
+// 			push(t, b);
+// 			auto ret = cmp(t, -2, -1) < 0;
+// 			pop(t, 2);
+// 			return ret;
+// 		});
+// 
+// 		return 1;
+// 	}
 
 	uword sortHeap(MDThread* t)
 	{
 		checkParam(t, 0, MDValue.Type.Array);
 
-		.sortHeap(getArray(t, 0).slice, (ref MDValue a, ref MDValue b)
+		.sortHeap(getArray(t, 0).toArray(), (ref MDValue a, ref MDValue b)
 		{
 			push(t, a);
 			push(t, b);
@@ -986,7 +986,7 @@ static:
 			};
 		}
 
-		pushInt(t, .count(getArray(t, 0).slice, *getValue(t, 1), pred));
+		pushInt(t, .count(getArray(t, 0).toArray(), *getValue(t, 1), pred));
 		return 1;
 	}
 
@@ -995,7 +995,7 @@ static:
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
 
-		pushInt(t, .countIf(getArray(t, 0).slice, (MDValue a)
+		pushInt(t, .countIf(getArray(t, 0).toArray(), (MDValue a)
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);

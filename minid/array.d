@@ -42,69 +42,53 @@ static:
 	// Create a new array object of the given length.
 	package MDArray* create(ref Allocator alloc, uword size)
 	{
-		auto a = alloc.allocate!(MDArray);
-		a.data = allocData!(false)(alloc, size);
-		a.slice = a.data.toArray()[0 .. size];
-		return a;
+		auto ret = alloc.allocate!(MDArray)();
+		ret.data = allocData!(false)(alloc, size);
+		ret.length = size;
+		return ret;
 	}
 
 	// Free an array object.
 	package void free(ref Allocator alloc, MDArray* a)
 	{
+		alloc.freeArray(a.data);
 		alloc.free(a);
-	}
-
-	// Free an array data object.
-	package void freeData(ref Allocator alloc, MDArrayData* d)
-	{
-		alloc.free(d, DataSize(d.length));
 	}
 
 	// Resize an array object.
 	package void resize(ref Allocator alloc, MDArray* a, uword newSize)
 	{
-		if(newSize == a.slice.length)
+		if(newSize == a.length)
 			return;
-		else if(newSize < a.slice.length)
-			a.slice = a.data.toArray()[0 .. newSize];
-		else
+
+		auto oldSize = a.length;
+		a.length = newSize;
+
+		if(newSize < oldSize)
 		{
-			if(!a.isSlice && newSize <= a.data.length)
-			{
-				auto len = a.slice.length;
-				a.slice = a.data.toArray()[0 .. newSize];
-				a.slice[len .. $] = MDValue.init;
-			}
-			else
-			{
-				a.data = allocData!(true)(alloc, newSize);
+			a.data[newSize .. oldSize] = MDValue.init;
 
-				auto d = a.data.toArray()[0 .. newSize];
-				d[0 .. a.slice.length] = a.slice[];
-				d[a.slice.length .. $] = MDValue.init;
-				a.slice = d;
-
-				// We reallocated so this array is not a slice, even if it used to be.
-				a.isSlice = false;
-			}
+			if(newSize < (a.data.length >> 1))
+				alloc.resizeArray(a.data, largerPow2(a.length));
 		}
+		else if(newSize > a.data.length)
+			alloc.resizeArray(a.data, largerPow2(newSize));
 	}
 
-	// Slice an array object to create a new array object that references the source's data.
+	// Slice an array object to create a new array object with its  own data.
 	package MDArray* slice(ref Allocator alloc, MDArray* a, uword lo, uword hi)
 	{
 		auto n = alloc.allocate!(MDArray);
-		n.data = a.data;
-		n.slice = a.slice[lo .. hi];
-		n.isSlice = true;
+		n.length = hi - lo;
+		n.data = alloc.dupArray(a.data[lo .. hi]);
 		return n;
 	}
 
 	// Assign an entire other array into a slice of the destination array.  Handles overlapping copies as well.
 	package void sliceAssign(MDArray* a, uword lo, uword hi, MDArray* other)
 	{
-		auto dest = a.slice[lo .. hi];
-		auto src = other.slice;
+		auto dest = a.data[lo .. hi];
+		auto src = other.toArray();
 
 		assert(dest.length == src.length);
 
@@ -126,119 +110,78 @@ static:
 		// of elements actually added to the array in the array constructor
 		// may exceed the size with which the array was created.  So it should be
 		// resized.
-		if(end > a.slice.length)
+		if(end > a.length)
 			array.resize(alloc, a, end);
 
-		a.slice[start .. end] = data[];
+		a.data[start .. end] = data[];
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
 	package bool contains(MDArray* a, ref MDValue v)
 	{
-		foreach(ref val; a.slice)
+		foreach(ref val; a.toArray())
 			if(val.opEquals(v))
 				return true;
-				
+
 		return false;
 	}
-	
+
 	// Returns a new array that is the concatenation of the two source arrays.
 	package MDArray* cat(ref Allocator alloc, MDArray* a, MDArray* b)
 	{
-		auto ret = array.create(alloc, a.slice.length + b.slice.length);
-		ret.slice[0 .. a.slice.length] = a.slice[];
-		ret.slice[a.slice.length .. $] = b.slice[];
+		auto ret = array.create(alloc, a.length + b.length);
+		ret.data[0 .. a.length] = a.toArray();
+		ret.data[a.length .. $] = b.toArray();
 		return ret;
 	}
 
 	// Returns a new array that is the concatenation of the source array and value.
 	package MDArray* cat(ref Allocator alloc, MDArray* a, MDValue* v)
 	{
-		auto ret = array.create(alloc, a.slice.length + 1);
-		ret.slice[0 .. $ - 1] = a.slice[];
-		ret.slice[$ - 1] = *v;
+		auto ret = array.create(alloc, a.length + 1);
+		ret.data[0 .. $ - 1] = a.toArray();
+		ret.data[$ - 1] = *v;
 		return ret;
 	}
 
 	// Append the value v to the end of array a.
 	package void append(ref Allocator alloc, MDArray* a, MDValue* v)
 	{
-		array.resize(alloc, a, a.slice.length + 1);
-		a.slice[$ - 1] = *v;
+		array.resize(alloc, a, a.length + 1);
+		a.data[a.length - 1] = *v;
 	}
-	
+
 	// ================================================================================================================================================
 	// Private
 	// ================================================================================================================================================
 
-	// Allocate an MDArrayData object that will have at least 'size' elements allocated.
-	// overallocate only controls whether over-allocation will be done for large (> 1 page)
-	// arrays.
-	private MDArrayData* allocData(bool overallocate)(ref Allocator alloc, uword size)
+	// Allocate the array that holds an array's data. This is separate from the array object so that
+	// it can be resized.
+	private MDValue[] allocData(bool overallocate)(ref Allocator alloc, uword size)
 	{
-		const BigArraySize = overallocate ? "size + (size / 10)" : "size";
-		uword realSize = void;
-
-		if(size <= ElemsInPage)
-		{
-			realSize = largerPow2(size);
-
-			if(realSize > LargestPow2)
-				realSize = mixin(BigArraySize);
-		}
+		static if(overallocate)
+			return alloc.allocArray!(MDValue)(largerPow2(size));
 		else
-			realSize = mixin(BigArraySize);
-
-		auto ret = alloc.allocate!(MDArrayData)(DataSize(realSize));
-		ret.length = realSize;
-		ret.toArray()[] = MDValue.init;
-		return ret;
+			return alloc.allocArray!(MDValue)(size);
 	}
 
-	// Figure out the size of an MDArrayData object given that it has 'length' items.
-	private uword DataSize(uword length)
+	// Returns closest power of 2 that is >= n. Taken from the Stanford Bit Twiddling Hacks page.
+	private uword largerPow2(uword n)
 	{
-		return MDArrayData.sizeof + (MDValue.sizeof * length);
-	}
-	
-	// Returns closest power of 2 that is >= n.  The 'ct' template parameter should
-	// be true if you want to evaluate at compile time; at runtime it uses a faster
-	// bitwise intrinsic function.
-	private uword largerPow2(bool ct = false)(uword n)
-	{
-		static if(ct)
-		{
-			if(n == 0 || n == 1)
-				return n;
-			else if(!(n & (n - 1)))
-				return n;
-		
-			uword ret = 1;
+		if(n == 0)
+			return 0;
 
-			while(n)
-			{
-				n >>>= 1;
-				ret <<= 1;
-			}
-		
-			return ret;
-		}
-		else
-		{
-			if(n == 0)
-				return 0;
+		n--;
+		n |= n >> 1;
+		n |= n >> 2;
+		n |= n >> 4;
+		n |= n >> 8;
+		n |= n >> 16;
 
-			return 1 << (bsr(n) + 1);
-		}
+		static if(uword.sizeof == 8)
+			n |= n >> 32;
+
+		n++;
+		return n;
 	}
-	
-	// The size of a memory page.  I'm just guessing that most OSes use 4k pages.
-	// Please change this as necessary.
-	private const uword PageSize = 4096;
-	
-	// How many elements can fit within an array data object that's only one page.
-	private const uword ElemsInPage = (PageSize - MDArrayData.sizeof) / MDValue.sizeof;
-	
-	// The largest power of 2 that's < ElemsInPage.
-	private const uword LargestPow2 = largerPow2!(true)(ElemsInPage) >> 1;
 }

@@ -37,7 +37,7 @@ void main()
 
 		SerializationLib.init(t);
 
-		importModule(t, "samples.simple");
+		importModule(t, "tests.array");
 		pushNull(t);
 		lookup(t, "modules.runMain");
 		swap(t, -3);
