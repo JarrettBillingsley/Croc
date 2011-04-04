@@ -4854,41 +4854,32 @@ MDValue lookupMethod(MDThread* t, MDValue* v, MDString* name, out MDClass* proto
 	switch(v.type)
 	{
 		case MDValue.Type.Class:
-			auto ret = getMethod(v.mClass, name, proto);
-
-			if(ret.type != MDValue.Type.Null)
-				return ret;
+			if(auto ret = classobj.getField(v.mClass, name, proto))
+				return *ret;
 
 			goto default;
 
 		case MDValue.Type.Instance:
-			return getMethod(v.mInstance, name, proto);
+			return getInstanceMethod(v.mInstance, name, proto);
 
 		case MDValue.Type.Table:
-			auto ret = getMethod(v.mTable, name);
-
-			if(ret.type != MDValue.Type.Null)
-				return ret;
+			if(auto ret = table.get(v.mTable, MDValue(name)))
+				return *ret;
 
 			goto default;
 
 		case MDValue.Type.Namespace:
-			return getMethod(v.mNamespace, name);
+			if(auto ret = namespace.get(v.mNamespace, name))
+				return *ret;
+			else
+				return MDValue.nullValue;
 
 		default:
-			return getMethod(t, v.type, name);
+			return getGlobalMetamethod(t, v.type, name);
 	}
 }
 
-MDValue getMethod(MDClass* cls, MDString* name, out MDClass* proto)
-{
-	if(auto ret = classobj.getField(cls, name, proto))
-		return *ret;
-	else
-		return MDValue.nullValue;
-}
-
-MDValue getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
+MDValue getInstanceMethod(MDInstance* inst, MDString* name, out MDClass* proto)
 {
 	MDValue dummy;
 
@@ -4908,23 +4899,7 @@ MDValue getMethod(MDInstance* inst, MDString* name, out MDClass* proto)
 		return MDValue.nullValue;
 }
 
-MDValue getMethod(MDTable* tab, MDString* name)
-{
-	if(auto ret = table.get(tab, MDValue(name)))
-		return *ret;
-	else
-		return MDValue.nullValue;
-}
-
-MDValue getMethod(MDNamespace* ns, MDString* name)
-{
-	if(auto ret = namespace.get(ns, name))
-		return *ret;
-	else
-		return MDValue.nullValue;
-}
-
-MDValue getMethod(MDThread* t, MDValue.Type type, MDString* name)
+MDValue getGlobalMetamethod(MDThread* t, MDValue.Type type, MDString* name)
 {
 	auto mt = getMetatable(t, type);
 
@@ -4947,23 +4922,23 @@ MDFunction* getMM(MDThread* t, MDValue* obj, MM method, out MDClass* proto)
 {
 	auto name = t.vm.metaStrings[method];
 
-	switch(obj.type)
+	if(obj.type == MDValue.Type.Instance)
 	{
-		case MDValue.Type.Instance:
-			auto ret = getMethod(obj.mInstance, name, proto);
+		auto ret = getInstanceMethod(obj.mInstance, name, proto);
 
-			if(ret.type == MDValue.Type.Function)
-				return ret.mFunction;
-			else
-				return null;
+		if(ret.type == MDValue.Type.Function)
+			return ret.mFunction;
+		else
+			return null;
+	}
+	else
+	{
+		auto ret = getGlobalMetamethod(t, obj.type, name);
 
-		default:
-			auto ret = getMethod(t, obj.type, name);
-			
-			if(ret.type == MDValue.Type.Function)
-				return ret.mFunction;
-			else
-				return null;
+		if(ret.type == MDValue.Type.Function)
+			return ret.mFunction;
+		else
+			return null;
 	}
 }
 
@@ -5757,9 +5732,6 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 
 			if(v is null)
 			{
-				if(!raw && tryMM!(2, true)(t, MM.Field, dest, container, &MDValue(name)))
-					return;
-
 				toStringImpl(t, *container, false);
 				throwException(t, "Attempting to access nonexistent field '{}' from '{}'", name.toString(), getString(t, -1));
 			}
@@ -7966,7 +7938,7 @@ void execute(MDThread* t, uword depth = 1)
 					// Do nothing for native calls.  The following return instruction will catch it.
 					break;
 			}
-				
+
 				case Op.SaveRets:
 					auto firstResult = stackBase + i.rd;
 

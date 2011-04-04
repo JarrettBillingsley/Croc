@@ -145,7 +145,7 @@ class Mesh
 		local numFaceVerts = f.readInt()
 		local numFaces = f.readInt()
 		local faceData = f.readVector$ "u16", numFaceVerts * numFaces
-		
+
 		f.close()
 
 		local vertBuf = genOneBuffer()
@@ -155,7 +155,7 @@ class Mesh
 		local indexBuf = genOneBuffer()
 		gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, indexBuf)
 		gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, #faceData * faceData.itemSize(), faceData, gl.GL_STREAM_DRAW)
-		
+
 		// can't hurt to deallocate the memory in advance
 		#vertData = 0
 		#faceData = 0
