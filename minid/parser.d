@@ -1435,14 +1435,8 @@ struct Parser
 
 		l.expect(Token.Import);
 
-		Identifier importName;
 		Expression expr;
-
-		if(l.type == Token.Ident && l.peek.type == Token.Assign)
-		{
-			importName = parseIdentifier();
-			l.next();
-		}
+		Identifier importName;
 
 		if(l.type == Token.LParen)
 		{
@@ -1468,6 +1462,12 @@ struct Parser
 			c.alloc.freeArray(arr);
 		}
 
+		if(l.type == Token.As)
+		{
+			l.next();
+			importName = parseIdentifier();
+		}
+
 		scope symbols = new List!(Identifier)(c.alloc);
 		scope symbolNames = new List!(Identifier)(c.alloc);
 
@@ -1475,11 +1475,11 @@ struct Parser
 		{
 			auto id = parseIdentifier();
 
-			if(l.type == Token.Assign)
+			if(l.type == Token.As)
 			{
 				l.next();
-				symbolNames ~= id;
-				symbols ~= parseIdentifier();
+				symbolNames ~= parseIdentifier();
+				symbols ~= id;
 			}
 			else
 			{
