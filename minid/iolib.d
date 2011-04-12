@@ -385,7 +385,7 @@ static:
 
 				foreach(ref c; data)
 					if(c > 0x7f)
-						c = '?';
+						c = '\u001a';
 
 				pushString(t, cast(char[])data);
 			}());

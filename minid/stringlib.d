@@ -36,6 +36,7 @@ import minid.ex;
 import minid.interpreter;
 import minid.types;
 import minid.utils;
+import minid.vector;
 
 struct StringLib
 {
@@ -44,7 +45,9 @@ static:
 	{
 		makeModule(t, "string", function uword(MDThread* t)
 		{
-			newFunction(t, 2, &joinArray, "joinArray"); newGlobal(t, "joinArray");
+			newFunction(t, 2, &joinArray,      "joinArray");      newGlobal(t, "joinArray");
+			newFunction(t, 1, &fromRawUnicode, "fromRawUnicode"); newGlobal(t, "fromRawUnicode");
+			newFunction(t, 1, &fromRawAscii,   "fromRawAscii");   newGlobal(t, "fromRawAscii");
 
 			newNamespace(t, "string");
 				newFunction(t, 1, &opApply,     "opApply");     fielda(t, -2, "opApply");
@@ -78,7 +81,7 @@ static:
 
 		importModuleNoNS(t, "string");
 	}
-	
+
 	uword joinArray(MDThread* t)
 	{
 		checkParam(t, 1, MDValue.Type.Array);
@@ -126,6 +129,49 @@ static:
 		}
 
 		s.finish();
+		return 1;
+	}
+	
+	uword fromRawUnicode(MDThread* t)
+	{
+		auto v = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+
+		switch(v.type.code)
+		{
+			case VectorObj.TypeCode.u8:  pushFormat(t, "{}", (cast(char*)v.data)[0 .. v.length]); break;
+			case VectorObj.TypeCode.u16: pushFormat(t, "{}", (cast(wchar*)v.data)[0 .. v.length]); break;
+			case VectorObj.TypeCode.u32: pushFormat(t, "{}", (cast(dchar*)v.data)[0 .. v.length]); break;
+
+			default:
+				throwException(t, "Vector must be of type 'u8', 'u16', or 'u32', not '{}'", VectorObj.typeNames[v.type.code]);
+				return 0;
+		}
+
+		return 1;
+	}
+
+	uword fromRawAscii(MDThread* t)
+	{
+		auto v = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+
+		if(v.type.code != VectorObj.TypeCode.u8)
+			throwException(t, "Vector must be of type 'u8', not '{}'", VectorObj.typeNames[v.type.code]);
+
+		auto src = (cast(char*)v.data)[0 .. v.length];
+  		auto dest = allocArray!(char)(t, src.length);
+
+  		scope(exit)
+  			freeArray(t, dest);
+
+  		foreach(i, char c; src)
+  		{
+		  	if(c <= 0x7f)
+  				dest[i] = c;
+  			else
+  				dest[i] = '\u001a';
+		}
+
+		pushString(t, dest);
 		return 1;
 	}
 

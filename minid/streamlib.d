@@ -990,7 +990,7 @@ static:
 	{
 		CreateClass(t, "Stream", (CreateClass* c)
 		{
-			c.method("constructor", 1, &constructor);
+			c.method("constructor", 2, &constructor);
 
 			c.method("readByte",    0, &readVal!(byte));
 			c.method("readUByte",   0, &readVal!(ubyte));
