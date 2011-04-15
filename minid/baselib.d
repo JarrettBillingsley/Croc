@@ -106,8 +106,6 @@ static:
 		register(t, 2, "findField", &findField);
 		register(t, 3, "rawSetField", &rawSetField);
 		register(t, 2, "rawGetField", &rawGetField);
-		register(t, 1, "getFuncEnv", &getFuncEnv);
-		register(t, 2, "setFuncEnv", &setFuncEnv);
 		register(t, 1, "isNull", &isParam!(MDValue.Type.Null));
 		register(t, 1, "isBool", &isParam!(MDValue.Type.Bool));
 		register(t, 1, "isInt", &isParam!(MDValue.Type.Int));
@@ -161,6 +159,7 @@ static:
 			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
 			newFunction(t, 0, &functionMaxParams,   "function.maxParams");   fielda(t, -2, "maxParams");
 			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
+			newFunction(t, 0, &functionIsCacheable, "function.isCacheable"); fielda(t, -2, "isCacheable");
 		setTypeMT(t, MDValue.Type.Function);
 
 		// Weak reference stuff
@@ -460,23 +459,6 @@ static:
 		checkStringParam(t, 2);
 		dup(t, 2);
 		field(t, 1, true);
-		return 1;
-	}
-
-	uword getFuncEnv(MDThread* t)
-	{
-		checkParam(t, 1, MDValue.Type.Function);
-		.getFuncEnv(t, 1);
-		return 1;
-	}
-
-	uword setFuncEnv(MDThread* t)
-	{
-		checkParam(t, 1, MDValue.Type.Function);
-		checkParam(t, 2, MDValue.Type.Namespace);
-		.getFuncEnv(t, 1);
-		dup(t, 2);
-		.setFuncEnv(t, 1);
 		return 1;
 	}
 
@@ -1083,6 +1065,14 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		pushBool(t, funcIsVararg(t, 0));
+		return 1;
+	}
+	
+	uword functionIsCacheable(MDThread* t)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		auto f = getFunction(t, 0);
+		pushBool(t, f.isNative ? false : f.scriptFunc.isPure);
 		return 1;
 	}
 

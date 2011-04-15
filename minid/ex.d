@@ -47,6 +47,81 @@ import minid.vm;
 // Simplifying very common tasks
 
 /**
+Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
+module's namespace onto the stack.
+
+Params:
+	name = The name of the module to be imported.
+
+Returns:
+	The stack index of the imported module's namespace.
+*/
+word importModule(MDThread* t, char[] name)
+{
+	pushString(t, name);
+	importModule(t, -1);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
+}
+
+/**
+Same as above, but uses a name on the stack rather than one provided as a parameter.
+
+Params:
+	name = The stack index of the string holding the name of the module to be imported.
+
+Returns:
+	The stack index of the imported module's namespace.
+*/
+word importModule(MDThread* t, word name)
+{
+	mixin(FuncNameMix);
+	
+	name = absIndex(t, name);
+
+	if(!isString(t, name))
+	{
+		pushTypeString(t, name);
+		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+	}
+
+	pushGlobal(t, "modules");
+	field(t, -1, "load");
+	insertAndPop(t, -2);
+	pushNull(t);
+	dup(t, name);
+	rawCall(t, -3, 1);
+
+	assert(t.stack[t.stackIndex - 1].type == MDValue.Type.Namespace);
+	return stackSize(t) - 1;
+}
+
+/**
+Same as importModule, but doesn't leave the module namespace on the stack.
+
+Params:
+	name = The name of the module to be imported.
+*/
+void importModuleNoNS(MDThread* t, char[] name)
+{
+	pushString(t, name);
+	importModule(t, -1);
+	pop(t, 2);
+}
+
+/**
+Same as above, but uses a name on the stack rather than one provided as a parameter.
+
+Params:
+	name = The stack index of the string holding the name of the module to be imported.
+*/
+void importModuleNoNS(MDThread* t, word name)
+{
+	importModule(t, name);
+	pop(t);
+}
+
+/**
 Simple function that attempts to create a custom loader (by making an entry in modules.customLoaders) for a
 module.  Throws an exception if a loader for the given module name already exists.
 

@@ -13,13 +13,12 @@ import minid.func;
 import minid.gc;
 import minid.instance;
 import minid.interpreter:
-	cat,
 	maybeGC,
 
 	pushChar,
-	pushFormat,
 	pushString,
 	pushThread,
+	pushFormat,
 	getString,
 
 	dup,
@@ -30,7 +29,9 @@ import minid.interpreter:
 	stackSize,
 
 	catchException,
-	throwException;
+	throwException,
+	
+	printStack;
 import minid.namespace;
 import minid.opcodes;
 import minid.string;
@@ -376,44 +377,6 @@ void runFinalizers(MDThread* t)
 
 // ============================================================================
 // Stack Manipulation
-
-// Parsing mangles for fun and profit.
-char[] _getJustName(char[] mangle)
-{
-	size_t idx = 1;
-	size_t start = idx;
-	size_t len = 0;
-
-	while(idx < mangle.length && mangle[idx] >= '0' && mangle[idx] <= '9')
-	{
-		int size = mangle[idx++] - '0';
-
-		while(mangle[idx] >= '0' && mangle[idx] <= '9')
-			size = (size * 10) + (mangle[idx++] - '0');
-
-		start = idx;
-		len = size;
-		idx += size;
-	}
-
-	if(start < mangle.length)
-		return mangle[start .. start + len];
-	else
-		return "";
-}
-
-// Eheheh, I has a __FUNCTION__.
-const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
-
-// I'd still really like macros though.
-template checkNumParams(char[] numParams, char[] t = "t")
-{
-	const char[] checkNumParams =
-	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));" ~
-	FuncNameMix ~
-	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"
-		"throwException(" ~ t ~ ", __FUNCTION__ ~ \" - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
-}
 
 RelStack fakeToRel(MDThread* t, word fake)
 {
@@ -1156,7 +1119,11 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 						pushString(t, MDValue.typeString(MDValue.Type.Namespace));
 						pushChar(t, ' ');
 						pushNamespaceNamestring(t, v.mNamespace);
-						return cat(t, 3);
+						
+						auto slot = t.stackIndex - 3;
+						catImpl(t, &t.stack[slot], slot, 3);
+						pop(t, 2);
+						return slot - t.stackBase;
 					}
 
 				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
@@ -1750,7 +1717,7 @@ void sliceaImpl(MDThread* t, MDValue* container, MDValue* lo, MDValue* hi, MDVal
 			auto arr = container.mArray;
 			mdint loIndex = void;
 			mdint hiIndex = void;
-			
+
 			if(!correctIndices(loIndex, hiIndex, lo, hi, arr.length))
 			{
 				auto hisave = *hi;
@@ -2516,13 +2483,14 @@ void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
 			toStringImpl(t, exSave, true);
 		}
 
-		cat(t, 3);
+		auto slot = t.stackIndex - 3;
+		catImpl(t, &t.stack[slot], slot, 3);
 
 		t.vm.alloc.resizeArray(t.vm.traceback, 0);
 
 		// dup'ing since we're removing the only MiniD reference and handing it off to D
-		t.vm.exMsg = getString(t, -1).dup;
-		pop(t);
+		t.vm.exMsg = getString(t, -3).dup;
+		pop(t, 3);
 	}
 
 	t.vm.exception = exSave;
@@ -2661,17 +2629,23 @@ word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 		}
 
 		pushStringObj(t, ns.name);
-		n++;
-
-		return n;
+		return n + 1;
 	}
 
 	auto x = namespaceName(ns);
-	
+
 	if(x == 0)
 		return pushString(t, "");
 	else
-		return cat(t, x);
+	{
+		auto slot = t.stackIndex - x;
+		catImpl(t, &t.stack[slot], slot, x);
+
+		if(x > 1)
+			pop(t, x - 1);
+
+		return slot - t.stackBase;
+	}
 }
 
 word typeString(MDThread* t, MDValue* v)
@@ -2712,7 +2686,10 @@ word typeString(MDThread* t, MDValue* v)
 			else
 				pushString(t, "(??? null)");
 
-			return cat(t, 3);
+			auto slot = t.stackIndex - 3;
+			catImpl(t, &t.stack[slot], slot, 3);
+			pop(t, 2);
+			return slot - t.stackBase;
 
 		default: assert(false);
 	}
@@ -2926,9 +2903,10 @@ Location getDebugLoc(MDThread* t)
 
 		pushStringObj(t, t.currentAR.func.name);
 
-		cat(t, 3);
-		auto s = getStringObj(t, -1);
-		pop(t);
+		auto slot = t.stackIndex - 3;
+		catImpl(t, &t.stack[slot], slot, 3);
+		auto s = getStringObj(t, -3);
+		pop(t, 3);
 
 		if(t.currentAR.func.isNative)
 			return Location(s, 0, Location.Type.Native);
@@ -2948,7 +2926,9 @@ void pushDebugLocStr(MDThread* t, Location loc)
 		if(loc.col == Location.Type.Native)
 		{
 			pushString(t, "(native)");
-			cat(t, 2);
+			auto slot = t.stackIndex - 2;
+			catImpl(t, &t.stack[slot], slot, 2);
+			pop(t);
 		}
 		else
 		{
@@ -2958,10 +2938,12 @@ void pushDebugLocStr(MDThread* t, Location loc)
 				pushChar(t, '?');
 			else
 				pushFormat(t, "{}", loc.line);
-				
+
 			pushChar(t, ')');
 
-			cat(t, 4);
+			auto slot = t.stackIndex - 4;
+			catImpl(t, &t.stack[slot], slot, 4);
+			pop(t, 3);
 		}
 	}
 }

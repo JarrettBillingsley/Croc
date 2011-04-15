@@ -812,7 +812,7 @@ final class FuncState
 		if(searchVar(this) == Global)
 			e.index = tagGlobal(codeStringConst(name.name));
 			
-		if(varType == Upvalue || varType == Global)
+		if(varType == Upvalue)
 			mIsPure = false;
 
 		e.type = ExpType.Var;

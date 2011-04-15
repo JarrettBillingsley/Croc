@@ -1,22 +1,44 @@
 module samples.simple
 
+namespace Sandbox : null
+{
+	write = write
+	writeln = writeln
+	writef = writef
+	writefln = writefln
+}
+
+local f = loadString("return 5")
+local x
+function g() = x
+function h() = 5
+
+writeln$ f.isCacheable()
+
+local old = debug.setFuncEnv(f, Sandbox)
+
+writeln$ f()
+
+debug.setFuncEnv(f, old)
+
+
 // import net
-// 
+//
 // function httpGet(page: string)
 // {
 // 	if(page.startsWith("http://"))
 // 		page = page[#"http://" ..]
-// 
+//
 // 	local slash = page.find("/")
 // 	local server = page[.. slash]
 // 	page = page[slash ..]
-// 
+//
 // 	if(#page == 0)
 // 		page = "/"
-// 
+//
 // 	local sock = net.connect(server, 80)
 // 	sock.write("GET ", page, " HTTP/1.1\r\nHost: ", server, "\r\nConnection: close\r\n\r\n")
-// 
+//
 // 	local v = Vector("u8", 0)
 // 	local vs = stream.VectorOutStream(v)
 // 	vs.copy(sock)

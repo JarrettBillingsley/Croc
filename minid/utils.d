@@ -34,6 +34,34 @@ import tango.core.Tuple;
 import tango.text.convert.Utf;
 import tango.text.Util;
 
+// Parsing mangles for fun and profit.
+char[] _getJustName(char[] mangle)
+{
+	size_t idx = 1;
+	size_t start = idx;
+	size_t len = 0;
+
+	while(idx < mangle.length && mangle[idx] >= '0' && mangle[idx] <= '9')
+	{
+		int size = mangle[idx++] - '0';
+
+		while(mangle[idx] >= '0' && mangle[idx] <= '9')
+			size = (size * 10) + (mangle[idx++] - '0');
+
+		start = idx;
+		len = size;
+		idx += size;
+	}
+
+	if(start < mangle.length)
+		return mangle[start .. start + len];
+	else
+		return "";
+}
+
+/// Eheheh, I has a __FUNCTION__.
+public const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
+
 /**
 See if a string starts with another string.  Useful.
 */

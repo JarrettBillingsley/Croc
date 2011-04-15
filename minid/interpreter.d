@@ -45,6 +45,7 @@ import minid.string;
 import minid.table;
 import minid.thread;
 import minid.types;
+import minid.utils;
 import minid.weakref;
 
 // ================================================================================================================================================
@@ -108,82 +109,6 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 
 	pop(t);
 }
-
-// TODO: move these into minid.ex
-	/**
-	Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
-	module's namespace onto the stack.
-	
-	Params:
-		name = The name of the module to be imported.
-	
-	Returns:
-		The stack index of the imported module's namespace.
-	*/
-	word importModule(MDThread* t, char[] name)
-	{
-		pushString(t, name);
-		importModule(t, -1);
-		insertAndPop(t, -2);
-		return stackSize(t) - 1;
-	}
-
-	/**
-	Same as above, but uses a name on the stack rather than one provided as a parameter.
-	
-	Params:
-		name = The stack index of the string holding the name of the module to be imported.
-	
-	Returns:
-		The stack index of the imported module's namespace.
-	*/
-	word importModule(MDThread* t, word name)
-	{
-		mixin(FuncNameMix);
-	
-		auto str = getStringObj(t, name);
-	
-		if(str is null)
-		{
-			pushTypeString(t, name);
-			throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
-		}
-
-		pushGlobal(t, "modules");
-		field(t, -1, "load");
-		insertAndPop(t, -2);
-		pushNull(t);
-		pushStringObj(t, str);
-		rawCall(t, -3, 1);
-
-		assert(t.stack[t.stackIndex - 1].type == MDValue.Type.Namespace);
-		return stackSize(t) - 1;
-	}
-	
-	/**
-	Same as importModule, but doesn't leave the module namespace on the stack.
-	
-	Params:
-		name = The name of the module to be imported.
-	*/
-	void importModuleNoNS(MDThread* t, char[] name)
-	{
-		pushString(t, name);
-		importModule(t, -1);
-		pop(t, 2);
-	}
-	
-	/**
-	Same as above, but uses a name on the stack rather than one provided as a parameter.
-	
-	Params:
-		name = The stack index of the string holding the name of the module to be imported.
-	*/
-	void importModuleNoNS(MDThread* t, word name)
-	{
-		importModule(t, name);
-		pop(t);
-	}
 
 /**
 Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
@@ -2234,6 +2159,9 @@ void setFuncEnv(MDThread* t, word func)
 		throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 	}
 
+	if(!f.isNative && f.scriptFunc.cachedFunc !is null)
+		throwException(t, __FUNCTION__ ~ " - Cannot change the environment of function '{}' as it already has a cached closure", f.name.toString());
+
 	f.environment = ns;
 	pop(t);
 }
@@ -4101,20 +4029,11 @@ bool hasField(MDThread* t, word obj, char[] fieldName)
 
 	switch(v.type)
 	{
-		case MDValue.Type.Table:
-			return table.get(v.mTable, MDValue(name)) !is null;
-
-		case MDValue.Type.Class:
-			return classobj.getField(v.mClass, name) !is null;
-
-		case MDValue.Type.Instance:
-			return instance.getField(v.mInstance, name) !is null;
-
-		case MDValue.Type.Namespace:
-			return namespace.get(v.mNamespace, name) !is null;
-
-		default:
-			return false;
+		case MDValue.Type.Table:     return table.get(v.mTable, MDValue(name)) !is null;
+		case MDValue.Type.Class:     return classobj.getField(v.mClass, name) !is null;
+		case MDValue.Type.Instance:  return instance.getField(v.mInstance, name) !is null;
+		case MDValue.Type.Namespace: return namespace.get(v.mNamespace, name) !is null;
+		default:                     return false;
 	}
 }
 
@@ -4354,4 +4273,14 @@ debug
 
 		Stdout.newline;
 	}
+}
+
+// I'd still really like macros though.
+template checkNumParams(char[] numParams, char[] t = "t")
+{
+	const char[] checkNumParams =
+	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));" ~
+	FuncNameMix ~
+	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"
+		"throwException(" ~ t ~ ", __FUNCTION__ ~ \" - not enough parameters (expected {}, only have {} stack slots)\", " ~ numParams ~ ", stackSize(" ~ t ~ ") - 1);";
 }

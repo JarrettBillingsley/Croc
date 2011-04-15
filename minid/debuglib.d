@@ -56,6 +56,8 @@ static:
 			newFunction(t, 3, &upvalName,      "upvalName");      newGlobal(t, "upvalName");
 			newFunction(t, 3, &getUpval,       "getUpval");       newGlobal(t, "getUpval");
 			newFunction(t, 4, &setUpval,       "setUpval");       newGlobal(t, "setUpval");
+			newFunction(t, 2, &getFuncEnv,     "getFuncEnv");     newGlobal(t, "getFuncEnv");
+			newFunction(t, 3, &setFuncEnv,     "setFuncEnv");     newGlobal(t, "setFuncEnv");
 			newFunction(t, 2, &currentLine,    "currentLine");    newGlobal(t, "currentLine");
 			newFunction(t, 2, &lineInfo,       "lineInfo");       newGlobal(t, "lineInfo");
 			newFunction(t, 1, &getMetatable,   "getMetatable");   newGlobal(t, "getMetatable");
@@ -551,6 +553,35 @@ static:
 			paramTypeError(t, arg + 2, "int|string");
 
 		return 0;
+	}
+
+	uword getFuncEnv(MDThread* t)
+	{
+		word arg;
+		auto thread = getThreadParam(t, arg);
+		auto func = getFuncParam(t, thread, arg + 1);
+
+		if(func is null)
+			throwException(t, "invalid function");
+
+		.getFuncEnv(t, arg + 1);
+		return 1;
+	}
+
+	uword setFuncEnv(MDThread* t)
+	{
+		word arg;
+		auto thread = getThreadParam(t, arg);
+		auto func = getFuncParam(t, thread, arg + 1);
+
+		if(func is null)
+			throwException(t, "invalid function");
+
+		checkParam(t, arg + 2, MDValue.Type.Namespace);
+		.getFuncEnv(t, arg + 1);
+		dup(t, arg + 2);
+		.setFuncEnv(t, arg + 1);
+		return 1;
 	}
 
 	uword currentLine(MDThread* t)
