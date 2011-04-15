@@ -38,6 +38,8 @@ import minid.types;
 import minid.utils;
 import minid.vector;
 
+import minid.interp;
+
 struct StringLib
 {
 static:

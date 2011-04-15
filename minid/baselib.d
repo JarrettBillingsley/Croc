@@ -49,6 +49,8 @@ import minid.utils;
 import minid.vector;
 import minid.vm;
 
+import minid.interp;
+
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);

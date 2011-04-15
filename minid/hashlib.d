@@ -31,6 +31,8 @@ import minid.namespace;
 import minid.table;
 import minid.types;
 
+import minid.interp;
+
 struct HashLib
 {
 static:

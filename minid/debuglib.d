@@ -31,6 +31,8 @@ import minid.types;
 import minid.utils;
 import minid.vector;
 
+import minid.interp;
+
 debug import tango.io.Stdout;
 
 struct DebugLib

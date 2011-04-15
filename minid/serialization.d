@@ -43,6 +43,8 @@ import minid.string;
 import minid.types;
 import minid.utils;
 
+import minid.interp;
+
 void get(T)(InputStream i, ref T ret)
 {
 	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)

@@ -48,6 +48,8 @@ import minid.string;
 import minid.types;
 import minid.utils;
 
+import minid.interp;
+
 private Op AstTagToOpcode(AstTag tag)
 {
 	switch(tag)

@@ -34,6 +34,8 @@ import minid.ex;
 import minid.interpreter;
 import minid.types;
 
+import minid.interp;
+
 struct ArrayLib
 {
 static:

@@ -41,6 +41,8 @@ import minid.semantic;
 import minid.string;
 import minid.types;
 
+import minid.interp;
+
 /**
 This class encapsulates all the functionality needed for compiling MiniD code.
 */
