@@ -365,7 +365,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			idxai(t, 0, i, true);
+			idxai(t, 0, i);
 		}
 
 		dup(t, 0);
@@ -385,7 +385,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			idxai(t, newArr, i, true);
+			idxai(t, newArr, i);
 		}
 
 		return 1;
@@ -403,7 +403,7 @@ static:
 			return 1;
 		}
 
-		idxi(t, 0, 0, true);
+		idxi(t, 0, 0);
 
 		for(uword i = 1; i < length; i++)
 		{
@@ -411,7 +411,7 @@ static:
 			insert(t, -2);
 			pushNull(t);
 			insert(t, -2);
-			idxi(t, 0, i, true);
+			idxi(t, 0, i);
 			rawCall(t, -4, 1);
 		}
 
@@ -472,7 +472,7 @@ static:
 				}
 
 				push(t, v);
-				idxai(t, retArray, retIdx, true);
+				idxai(t, retArray, retIdx);
 				retIdx++;
 			}
 
@@ -547,7 +547,7 @@ static:
 
 		while((hi - lo) > 8)
 		{
-			idxi(t, 0, mid, true);
+			idxi(t, 0, mid);
 			auto cmp = cmp(t, 1, -1);
 			pop(t);
 
@@ -566,7 +566,7 @@ static:
 
 		for(auto i = lo; i <= hi; i++)
 		{
-			idxi(t, 0, i, true);
+			idxi(t, 0, i);
 
 			if(cmp(t, 1, -1) == 0)
 			{
@@ -600,7 +600,7 @@ static:
 		if(index < 0 || index >= data.length)
 			throwException(t, "Invalid array index: {}", index);
 
-		idxi(t, 0, index, true);
+		idxi(t, 0, index);
 
 		for(uword i = cast(uword)index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
@@ -641,7 +641,7 @@ static:
 			{
 				dup(t, 1);
 				pushNull(t);
-				idxi(t, 0, i, true);
+				idxi(t, 0, i);
 				push(t, extreme);
 				rawCall(t, -4, 1);
 
@@ -664,13 +664,13 @@ static:
 		}
 		else
 		{
-			idxi(t, 0, 0, true);
+			idxi(t, 0, 0);
 
 			if(max)
 			{
 				for(uword i = 1; i < data.length; i++)
 				{
-					idxi(t, 0, i, true);
+					idxi(t, 0, i);
 
 					if(cmp(t, -1, -2) > 0)
 					{
@@ -685,7 +685,7 @@ static:
 			{
 				for(uword i = 1; i < data.length; i++)
 				{
-					idxi(t, 0, i, true);
+					idxi(t, 0, i);
 
 					if(cmp(t, -1, -2) < 0)
 					{

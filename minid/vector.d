@@ -1311,7 +1311,7 @@ static:
 		for(uword i = 0; i < memb.length; i++)
 		{
 			memb.type.getItem(t, memb, i);
-			idxai(t, ret, i, true);
+			idxai(t, ret, i);
 		}
 
 		return 1;

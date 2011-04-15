@@ -127,7 +127,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 		insertAndPop(t, -2);
 		return stackSize(t) - 1;
 	}
-	
+
 	/**
 	Same as above, but uses a name on the stack rather than one provided as a parameter.
 	
@@ -3095,16 +3095,15 @@ pop(t);
 
 Params:
 	container = The stack index of the _container object.
-	raw = If true, no opIndex metamethods will be called.  Defaults to false.
 
 Returns:
 	The stack index that contains the result (the top of the stack).
 */
-word idx(MDThread* t, word container, bool raw = false)
+word idx(MDThread* t, word container)
 {
 	mixin(checkNumParams!("1"));
 	auto slot = t.stackIndex - 1;
-	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], raw);
+	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot]);
 	return stackSize(t) - 1;
 }
 
@@ -3125,13 +3124,12 @@ pop(t);
 
 Params:
 	container = The stack index of the _container object.
-	raw = If true, no opIndex metamethods will be called.  Defaults to false.
 */
-void idxa(MDThread* t, word container, bool raw = false)
+void idxa(MDThread* t, word container)
 {
 	mixin(checkNumParams!("2"));
 	auto slot = t.stackIndex - 2;
-	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], raw);
+	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t, 2);
 }
 
@@ -3142,16 +3140,15 @@ the indexed value.
 Params:
 	container = The stack index of the _container object.
 	idx = The integer index.
-	raw = If true, no opIndex metamethods will be called.  Defaults to false.
 
 Returns:
 	The stack index of the newly-pushed indexed value.
 */
-word idxi(MDThread* t, word container, mdint idx, bool raw = false)
+word idxi(MDThread* t, word container, mdint idx)
 {
 	auto c = absIndex(t, container);
 	pushInt(t, idx);
-	return .idx(t, c, raw);
+	return .idx(t, c);
 }
 
 /**
@@ -3161,14 +3158,13 @@ the value at the top of the stack and assigns it into the _container at the give
 Params:
 	container = The stack index of the _container object.
 	idx = The integer index.
-	raw = If true, no opIndexAssign metamethods will be called.  Defaults to false.
 */
-void idxai(MDThread* t, word container, mdint idx, bool raw = false)
+void idxai(MDThread* t, word container, mdint idx)
 {
 	auto c = absIndex(t, container);
 	pushInt(t, idx);
 	swap(t);
-	idxa(t, c, raw);
+	idxa(t, c);
 }
 
 /**
@@ -4358,23 +4354,4 @@ debug
 
 		Stdout.newline;
 	}
-}
-
-package:
-
-void resizeStack(MDThread* t, uword size)
-{
-	auto oldBase = t.stack.ptr;
-	t.vm.alloc.resizeArray(t.stack, size);
-	auto newBase = t.stack.ptr;
-
-	if(newBase !is oldBase)
-		for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
-			uv.value = (uv.value - oldBase) + newBase;
-}
-
-void checkStack(MDThread* t, AbsStack idx)
-{
-	if(idx >= t.stack.length)
-		resizeStack(t, idx * 2);
 }

@@ -24,7 +24,7 @@ module samples.simple
 // 	local ret = string.fromRawAscii(v)
 // 
 // 	local beginning = ret.find("\r\n\r\n") + 4
-// 
+//
 // 	if(beginning > #ret)
 // 		return ""
 // 	else
@@ -33,19 +33,6 @@ module samples.simple
 // 
 // writeln(httpGet("www.google.com"))
 
-local v = Vector("u8", 3)
-v[0] = 65
-v[1] = 97
-v[2] = 155
-
-writeln(v.toString())
-
-try
-	writeln(string.fromRawUnicode(v))
-catch(e)
-	writeln("couldn't! ", e)
-
-writeln(string.fromRawAscii(v))
 
 /*import sdl: event, key, niceKey, joystick as joy
 

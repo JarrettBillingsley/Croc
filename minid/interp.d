@@ -14,27 +14,20 @@ import minid.gc;
 import minid.instance;
 import minid.interpreter:
 	cat,
-	field,
 	maybeGC,
 
 	pushChar,
 	pushFormat,
-	pushGlobal,
-	pushNull,
 	pushString,
 	pushThread,
 	getString,
 
 	dup,
 	insert,
-	insertAndPop,
 	pop,
 
-	checkStack,
 	setStackSize,
 	stackSize,
-
-	rawCall,
 
 	catchException,
 	throwException;
@@ -51,6 +44,21 @@ import minid.utils;
 // ================================================================================================================================================
 
 package:
+
+void checkStack(MDThread* t, AbsStack idx)
+{
+	if(idx >= t.stack.length)
+	{
+		uword size = idx * 2;
+		auto oldBase = t.stack.ptr;
+		t.vm.alloc.resizeArray(t.stack, size);
+		auto newBase = t.stack.ptr;
+
+		if(newBase !is oldBase)
+			for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
+				uv.value = (uv.value - oldBase) + newBase;
+	}
+}
 
 MDString* createString(MDThread* t, char[] data)
 {
@@ -1214,7 +1222,7 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 	}
 }
 
-void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
+void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key)
 {
 	switch(container.type)
 	{
@@ -1257,10 +1265,10 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 			return;
 
 		case MDValue.Type.Table:
-			return tableIdxImpl(t, dest, container, key, raw);
+			return tableIdxImpl(t, dest, container, key);
 
 		default:
-			if(!raw && tryMM!(2, true)(t, MM.Index, dest, container, key))
+			if(tryMM!(2, true)(t, MM.Index, dest, container, key))
 				return;
 
 			typeString(t, container);
@@ -1268,7 +1276,7 @@ void idxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool 
 	}
 }
 
-void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, bool raw)
+void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key)
 {
 	auto v = table.get(container.mTable, *key);
 
@@ -1278,7 +1286,7 @@ void tableIdxImpl(MDThread* t, MDValue* dest, MDValue* container, MDValue* key, 
 		*dest = MDValue.nullValue;
 }
 
-void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
+void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value)
 {
 	switch(container.type)
 	{
@@ -1302,10 +1310,10 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 			return;
 
 		case MDValue.Type.Table:
-			return tableIdxaImpl(t, container, key, value, raw);
+			return tableIdxaImpl(t, container, key, value);
 
 		default:
-			if(!raw && tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
+			if(tryMM!(3, false)(t, MM.IndexAssign, container, key, value))
 				return;
 
 			typeString(t, container);
@@ -1313,7 +1321,7 @@ void idxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, boo
 	}
 }
 
-void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value, bool raw)
+void tableIdxaImpl(MDThread* t, MDValue* container, MDValue* key, MDValue* value)
 {
 	if(key.type == MDValue.Type.Null)
 		throwException(t, "Attempting to index-assign a table with a key of type 'null'");
@@ -1361,7 +1369,7 @@ void fieldImpl(MDThread* t, MDValue* dest, MDValue* container, MDString* name, b
 	{
 		case MDValue.Type.Table:
 			// This is right, tables do not distinguish between field access and indexing.
-			return tableIdxImpl(t, dest, container, &MDValue(name), raw);
+			return tableIdxImpl(t, dest, container, &MDValue(name));
 
 		case MDValue.Type.Class:
 			auto v = classobj.getField(container.mClass, name);
@@ -1415,7 +1423,7 @@ void fieldaImpl(MDThread* t, MDValue* container, MDString* name, MDValue* value,
 	{
 		case MDValue.Type.Table:
 			// This is right, tables do not distinguish between field access and indexing.
-			return tableIdxaImpl(t, container, &MDValue(name), value, raw);
+			return tableIdxaImpl(t, container, &MDValue(name), value);
 
 		case MDValue.Type.Class:
 			return classobj.setField(t.vm.alloc, container.mClass, name, value);
@@ -2966,7 +2974,7 @@ void callHook(MDThread* t, MDThread.Hook hook)
 	auto savedTop = t.stackIndex;
 	t.hooksEnabled = false;
 
-	pushFunction(t, t.hookFunc);
+	auto slot = pushFunction(t, t.hookFunc);
 	pushThread(t, t);
 
 	switch(hook)
@@ -2980,7 +2988,7 @@ void callHook(MDThread* t, MDThread.Hook hook)
 	}
 
 	try
-		rawCall(t, -3, 0);
+		commonCall(t, t.stackBase + slot, 0, callPrologue(t, t.stackBase + slot, 0, 1, null));
 	finally
 	{
 		t.hooksEnabled = true;
@@ -3365,7 +3373,7 @@ void execute(MDThread* t, uword depth = 1)
 					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
 
 					t.stackIndex = stackBase + funcReg + 3;
-					rawCall(t, funcReg, i.imm);
+					commonCall(t, stackBase + funcReg, i.imm, callPrologue(t, stackBase + funcReg, i.imm, 1, null));
 					t.stackIndex = t.currentAR.savedTop;
 
 					if(src.type == MDValue.Type.Function)
@@ -3839,8 +3847,8 @@ void execute(MDThread* t, uword depth = 1)
 					maybeGC(t);
 					break;
 
-				case Op.Index: idxImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT), false); break;
-				case Op.IndexAssign: idxaImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT), false); break;
+				case Op.Index: idxImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.IndexAssign: idxaImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
 
 				case Op.Field:
 					RT = *mixin(GetRT);
