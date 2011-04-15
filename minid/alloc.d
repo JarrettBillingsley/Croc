@@ -231,7 +231,7 @@ align(1) struct Allocator
 				void* realloc(void* p, size_t oldSize, size_t newSize)
 				{
 					if(oldSize > 0 && _memBlocks.lookup(p) is null)
-						throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap, or are performing a double free!");
+						throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the MiniD Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
 
 					auto ret = reallocImpl(p, oldSize, newSize);
 
@@ -249,7 +249,7 @@ align(1) struct Allocator
 							*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
 						}
 					}
-	
+
 					return ret;
 				}
 			}

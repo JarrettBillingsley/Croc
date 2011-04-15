@@ -1,5 +1,98 @@
 module samples.simple
 
+// import net
+// 
+// function httpGet(page: string)
+// {
+// 	if(page.startsWith("http://"))
+// 		page = page[#"http://" ..]
+// 
+// 	local slash = page.find("/")
+// 	local server = page[.. slash]
+// 	page = page[slash ..]
+// 
+// 	if(#page == 0)
+// 		page = "/"
+// 
+// 	local sock = net.connect(server, 80)
+// 	sock.write("GET ", page, " HTTP/1.1\r\nHost: ", server, "\r\nConnection: close\r\n\r\n")
+// 
+// 	local v = Vector("u8", 0)
+// 	local vs = stream.VectorOutStream(v)
+// 	vs.copy(sock)
+// 	sock.close()
+// 	local ret = string.fromRawAscii(v)
+// 
+// 	local beginning = ret.find("\r\n\r\n") + 4
+// 
+// 	if(beginning > #ret)
+// 		return ""
+// 	else
+// 		return ret[beginning ..]
+// }
+// 
+// writeln(httpGet("www.google.com"))
+
+local v = Vector("u8", 3)
+v[0] = 65
+v[1] = 97
+v[2] = 155
+
+writeln(v.toString())
+
+try
+	writeln(string.fromRawUnicode(v))
+catch(e)
+	writeln("couldn't! ", e)
+
+writeln(string.fromRawAscii(v))
+
+/*import sdl: event, key, niceKey, joystick as joy
+
+sdl.init(sdl.initEverything)
+
+scope(exit)
+	sdl.quit()
+
+local w = 1152
+local h = 864
+
+sdl.setVideoMode(w, h, 32, sdl.hwSurface)
+joy.open(0)
+
+local quit = false
+
+while(!quit)
+{
+	foreach(e, a, b, c, d; event.poll)
+	{
+// 		writefln("{}: {} {} {} {}", e, a ? a : "", b ? b : "", c ? c : "", d ? d : "")
+
+		if(e == "quit" || (e == "keyDown" && a == key.escape))
+			quit = true
+
+		if(e == "joyHat")
+			writeln(c)
+
+		if(e == "active")
+		{
+			write(a ? "Gained " : "Lost ")
+
+			if(b & event.mouseFocus)
+				write("mouse ")
+
+			if(b & event.inputFocus)
+				write("input ")
+
+			if(b & event.active)
+				write("active")
+
+			writeln()
+			io.stdout.flush()
+		}
+	}
+}*/
+
 /*import sdl: event, key
 import gl
 

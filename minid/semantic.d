@@ -204,7 +204,83 @@ scope class Semantic : IdentityVisitor
 		if(s.expr.isConstant() && !s.expr.isString())
 			c.exception(s.expr.location, "Import expression must evaluate to a string");
 
-		return s;
+		// We rewrite import statements as function calls/local variable declarations. The rewrites work as follows:
+		// import blah
+		// 		modules.load("blah")
+		// import blah as x
+		// 		local x = modules.load("blah")
+		// import blah: y, z
+		// 		local y, z; { local __temp = modules.load("blah"); y = __temp.y; z = __temp.z }
+		// import blah as x: y, z
+		// 		local y, z; local x = modules.load("blah"); y = x.y; z = x.z
+
+		// This does the actual loading of selective imports out of the source namespace.
+		void doSelective(List!(Statement) stmts, Expression src)
+		{
+			foreach(i, sym; s.symbols)
+			{
+				scope lhs = new List!(Expression)(c.alloc);
+				scope rhs = new List!(Expression)(c.alloc);
+				lhs ~= new(c) IdentExp(c, s.symbolNames[i]);
+				rhs ~= new(c) DotExp(c, src, new(c) StringExp(c, sym.location, sym.name));
+				stmts ~= new(c) AssignStmt(c, sym.location, sym.endLocation, lhs.toArray(), rhs.toArray());
+			}
+		}
+
+		// First we make the "modules.load(expr)" call.
+		auto _modules = new(c) IdentExp(c, new(c) Identifier(c, s.location, c.newString("modules")));
+		auto _load = new(c) StringExp(c, s.location, c.newString("load"));
+		scope args = new List!(Expression)(c.alloc);
+		args ~= s.expr;
+		auto call = new(c) MethodCallExp(c, s.location, s.endLocation, _modules, _load, null, args.toArray(), false);
+
+		// Now we make a list of statements.
+		scope stmts = new List!(Statement)(c.alloc);
+
+		// First we declare any selectively-imported symbols as locals
+		if(s.symbols.length > 0)
+			stmts ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, c.alloc.dupArray(s.symbolNames), null);
+
+		if(s.importName is null)
+		{
+			if(s.symbols.length == 0)
+				stmts ~= new(c) ExpressionStmt(c, s.location, s.endLocation, call);
+			else
+			{
+				// It's not renamed, but we have to get the namespace so we can fill in the selectively-imported symbols.
+				scope stmts2 = new List!(Statement)(c.alloc);
+
+				// First put the import into a temporary local.
+				scope names = new List!(Identifier)(c.alloc);
+				scope inits = new List!(Expression)(c.alloc);
+				auto ident = new(c) Identifier(c, s.location, c.newString("__tempimport"));
+				names ~= ident;
+				inits ~= call;
+				stmts2 ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
+
+				// Now get all the fields out.
+				doSelective(stmts2, new(c) IdentExp(c, ident));
+
+				// Finally, we put all this in a scoped sub-block.
+				stmts ~= new(c) ScopeStmt(c, new(c) BlockStmt(c, s.location, s.endLocation, stmts2.toArray()));
+			}
+		}
+		else
+		{
+			// Renamed import. Just put it in a new local.
+			scope names = new List!(Identifier)(c.alloc);
+			scope inits = new List!(Expression)(c.alloc);
+			names ~= s.importName;
+			inits ~= call;
+			stmts ~= new(c) VarDecl(c, s.location, s.endLocation, Protection.Local, names.toArray(), inits.toArray());
+
+			// Do any selective imports
+			if(s.symbols.length > 0)
+				doSelective(stmts, new(c) IdentExp(c, s.importName));
+		}
+
+		// Wrap it all up in a (non-scoped) block.
+		return new(c) BlockStmt(c, s.location, s.endLocation, stmts.toArray());
 	}
 	
 	public override ScopeStmt visit(ScopeStmt s)

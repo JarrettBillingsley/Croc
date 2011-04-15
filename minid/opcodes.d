@@ -63,7 +63,6 @@ enum Op : ushort
 	Foreach,
 	ForeachLoop,
 	ForLoop,
-	Import,
 	In,
 	Inc,
 	Index,
@@ -166,7 +165,6 @@ For...............J: base reg, branch offset
 Foreach...........J: base reg, branch offset
 ForeachLoop.......I: base reg, num indices
 ForLoop...........J: base reg, branch offset
-Import............R: dest, name src, n/a
 In................R: dest, src value, src object
 Inc...............R: dest, n/a, n/a
 Index.............R: dest, src object, src index
@@ -331,7 +329,6 @@ align(1) struct Instruction
 			case Op.Foreach:         return Format("foreach r{}, {}", rd, imm);
 			case Op.ForeachLoop:     return Format("foreachloop r{}, {}", rd, uimm);
 			case Op.ForLoop:         return Format("forloop {}, {}", cr(rd), imm);
-			case Op.Import:          return Format("import r{}, {}", rd, cr(rs));
 			case Op.In:              return Format("in {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Inc:             return Format("inc {}", cr(rd));
 			case Op.Index:           return Format("idx {}, {}, {}", cr(rd), cr(rs), cr(rt));

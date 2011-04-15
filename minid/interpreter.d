@@ -109,75 +109,81 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	pop(t);
 }
 
-/**
-Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
-module's namespace onto the stack.
-
-Params:
-	name = The name of the module to be imported.
-
-Returns:
-	The stack index of the imported module's namespace.
-*/
-word importModule(MDThread* t, char[] name)
-{
-	pushString(t, name);
-	importModule(t, -1);
-	insertAndPop(t, -2);
-	return stackSize(t) - 1;
-}
-
-/**
-Same as above, but uses a name on the stack rather than one provided as a parameter.
-
-Params:
-	name = The stack index of the string holding the name of the module to be imported.
-
-Returns:
-	The stack index of the imported module's namespace.
-*/
-word importModule(MDThread* t, word name)
-{
-	mixin(FuncNameMix);
-
-	auto str = getStringObj(t, name);
-
-	if(str is null)
+// TODO: move these into minid.ex
+	/**
+	Import a module with the given name.  Works just like the import statement in MiniD.  Pushes the
+	module's namespace onto the stack.
+	
+	Params:
+		name = The name of the module to be imported.
+	
+	Returns:
+		The stack index of the imported module's namespace.
+	*/
+	word importModule(MDThread* t, char[] name)
 	{
-		pushTypeString(t, name);
-		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		pushString(t, name);
+		importModule(t, -1);
+		insertAndPop(t, -2);
+		return stackSize(t) - 1;
 	}
+	
+	/**
+	Same as above, but uses a name on the stack rather than one provided as a parameter.
+	
+	Params:
+		name = The stack index of the string holding the name of the module to be imported.
+	
+	Returns:
+		The stack index of the imported module's namespace.
+	*/
+	word importModule(MDThread* t, word name)
+	{
+		mixin(FuncNameMix);
+	
+		auto str = getStringObj(t, name);
+	
+		if(str is null)
+		{
+			pushTypeString(t, name);
+			throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		}
 
-	pushNull(t);
-	importImpl(t, str, t.stackIndex - 1);
+		pushGlobal(t, "modules");
+		field(t, -1, "load");
+		insertAndPop(t, -2);
+		pushNull(t);
+		pushStringObj(t, str);
+		rawCall(t, -3, 1);
 
-	return stackSize(t) - 1;
-}
-
-/**
-Same as importModule, but doesn't leave the module namespace on the stack.
-
-Params:
-	name = The name of the module to be imported.
-*/
-void importModuleNoNS(MDThread* t, char[] name)
-{
-	pushString(t, name);
-	importModule(t, -1);
-	pop(t, 2);
-}
-
-/**
-Same as above, but uses a name on the stack rather than one provided as a parameter.
-
-Params:
-	name = The stack index of the string holding the name of the module to be imported.
-*/
-void importModuleNoNS(MDThread* t, word name)
-{
-	importModule(t, name);
-	pop(t);
-}
+		assert(t.stack[t.stackIndex - 1].type == MDValue.Type.Namespace);
+		return stackSize(t) - 1;
+	}
+	
+	/**
+	Same as importModule, but doesn't leave the module namespace on the stack.
+	
+	Params:
+		name = The name of the module to be imported.
+	*/
+	void importModuleNoNS(MDThread* t, char[] name)
+	{
+		pushString(t, name);
+		importModule(t, -1);
+		pop(t, 2);
+	}
+	
+	/**
+	Same as above, but uses a name on the stack rather than one provided as a parameter.
+	
+	Params:
+		name = The stack index of the string holding the name of the module to be imported.
+	*/
+	void importModuleNoNS(MDThread* t, word name)
+	{
+		importModule(t, name);
+		pop(t);
+	}
 
 /**
 Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible

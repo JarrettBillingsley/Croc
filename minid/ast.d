@@ -634,7 +634,7 @@ class Module : AstNode
 	statement but it can be other kinds due to semantic analysis.
 	*/
 	public Statement statements;
-	
+
 	/**
 	*/
 	public Decorator decorator;
@@ -893,10 +893,10 @@ class ImportStmt : Statement
 {
 	/**
 	An optional renaming of the import.  This member can be null, in which case no renaming
-	is done.  In the code "import x = y;", this member corresponds to "x".
+	is done.  In the code "import y as x;", this member corresponds to "x".
 	*/
 	public Identifier importName;
-	
+
 	/**
 	The expression which evaluates to a string containing the name of the module to import.
 	The statement "import a.b.c" is actually syntactic sugar for "import("a.b.c")", so expr
@@ -910,11 +910,11 @@ class ImportStmt : Statement
 	this corresponds to "a, b, c".
 	*/
 	public Identifier[] symbols;
-	
+
 	/**
 	A parallel array to the symbols array.  This holds the names of the symbols as they should
-	be called in this module.  The code "import x : a, b" is sugar for "import x : a = a, b = b".
-	In the code "import x : y = a, z = b", this array corresponds to "y, z".
+	be called in this module.  The code "import x : a, b" is sugar for "import x : a as a, b as b".
+	In the code "import x : a as y, b as z", this array corresponds to "y, z".
 	*/
 	public Identifier[] symbolNames;
 

@@ -2522,20 +2522,6 @@ void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
 	throw new MDException(t.vm.exMsg);
 }
 
-void importImpl(MDThread* t, MDString* name, AbsStack dest)
-{
-	pushGlobal(t, "modules");
-	field(t, -1, "load");
-	insertAndPop(t, -2);
-	pushNull(t);
-	pushStringObj(t, name);
-	rawCall(t, -3, 1);
-	
-	assert(t.stack[t.stackIndex - 1].type == MDValue.Type.Namespace);
-	t.stack[dest] = getNamespace(t, -1);
-	pop(t);
-}
-
 bool asImpl(MDThread* t, MDValue* o, MDValue* p)
 {
 	if(p.type != MDValue.Type.Class)
@@ -3186,18 +3172,6 @@ void execute(MDThread* t, uword depth = 1)
 					break;
 
 				// Logical and Control Flow
-				case Op.Import:
-					RS = *mixin(GetRS);
-
-					if(RS.type != MDValue.Type.String)
-					{
-						typeString(t, &RS);
-						throwException(t, "Import expression must be a string value, not '{}'", getString(t, -1));
-					}
-
-					importImpl(t, RS.mString, stackBase + i.rd);
-					break;
-
 				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
 
 				case Op.Cmp:
@@ -4047,7 +4021,8 @@ void execute(MDThread* t, uword depth = 1)
 					assert(false, "lone conditional jump instruction");
 
 				default:
-					throwException(t, "Unimplemented opcode \"{}\"", i);
+					// TODO: make this a little more.. severe?
+					throwException(t, "Unimplemented opcode {}", i.opcode);
 			}
 		}
 	}
