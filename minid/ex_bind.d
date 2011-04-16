@@ -35,7 +35,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.bind;
+module minid.ex_bind;
 
 import tango.core.Traits;
 import tango.core.Tuple;

@@ -27,7 +27,7 @@ import tango.io.Stdout;
 import tango.io.Console;
 
 import minid.api;
-import minid.commandline;
+import minid.ex_commandline;
 
 version = MdclAllAddons;
 

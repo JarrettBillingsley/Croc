@@ -27,18 +27,18 @@ subject to the following restrictions:
 module minid.gc;
 
 import minid.alloc;
-import minid.array;
-import minid.classobj;
-import minid.func;
-import minid.funcdef;
-import minid.instance;
-import minid.namespace;
-import minid.nativeobj;
-import minid.string;
-import minid.table;
-import minid.thread;
 import minid.types;
-import minid.weakref;
+import minid.types_array;
+import minid.types_class;
+import minid.types_funcdef;
+import minid.types_function;
+import minid.types_instance;
+import minid.types_namespace;
+import minid.types_nativeobj;
+import minid.types_string;
+import minid.types_table;
+import minid.types_thread;
+import minid.types_weakref;
 
 // ================================================================================================================================================
 // Package

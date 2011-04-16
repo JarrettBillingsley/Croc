@@ -23,15 +23,15 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.instance;
+module minid.types_instance;
 
 import tango.math.Math;
 
 import minid.alloc;
-import minid.classobj;
-import minid.namespace;
-import minid.string;
 import minid.types;
+import minid.types_class;
+import minid.types_namespace;
+import minid.types_string;
 
 struct instance
 {

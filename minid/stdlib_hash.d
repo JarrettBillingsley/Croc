@@ -27,10 +27,10 @@ module minid.stdlib_hash;
 
 import minid.ex;
 import minid.interpreter;
-import minid.namespace;
 import minid.stackmanip;
-import minid.table;
 import minid.types;
+import minid.types_namespace;
+import minid.types_table;
 
 struct HashLib
 {

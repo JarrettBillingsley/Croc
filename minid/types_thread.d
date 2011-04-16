@@ -23,13 +23,13 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.thread;
+module minid.types_thread;
 
 version(MDExtendedCoro)
 	import tango.core.Thread;
 
-import minid.nativeobj;
 import minid.types;
+import minid.types_nativeobj;
 
 // ================================================================================================================================================
 // Package

@@ -35,18 +35,18 @@ import tango.stdc.ctype;
 import Utf = tango.text.convert.Utf;
 
 import minid.alloc;
-import minid.classobj;
 import minid.compiler;
 import minid.ex;
-import minid.instance;
 import minid.interpreter;
 import minid.misc;
-import minid.namespace;
 import minid.stackmanip;
 import minid.stdlib_stringbuffer;
 import minid.stdlib_vector;
-import minid.string;
 import minid.types;
+import minid.types_class;
+import minid.types_instance;
+import minid.types_namespace;
+import minid.types_string;
 import minid.utils;
 import minid.vm;
 

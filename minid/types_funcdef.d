@@ -25,7 +25,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.funcdef;
+module minid.types_funcdef;
 
 import minid.alloc;
 import minid.types;

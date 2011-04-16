@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.func;
+module minid.types_function;
 
 import minid.alloc;
 import minid.types;

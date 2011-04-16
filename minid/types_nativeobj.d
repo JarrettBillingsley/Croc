@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.nativeobj;
+module minid.types_nativeobj;
 
 import minid.types;
 

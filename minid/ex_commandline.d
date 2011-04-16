@@ -28,7 +28,7 @@ Authors:
 	Robert Clipsham <robert@octarineparrot.com> (2009, added readline support)
 ******************************************************************************/
 
-module minid.commandline;
+module minid.ex_commandline;
 
 import tango.core.Exception;
 import tango.io.Console;
@@ -41,11 +41,8 @@ import tango.text.Util;
 
 alias tango.text.Util.contains contains;
 
+import minid.api;
 import minid.compiler;
-import minid.ex;
-import minid.interpreter;
-import minid.types;
-import minid.utils;
 
 version(MDReadline)
 {

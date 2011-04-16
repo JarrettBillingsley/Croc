@@ -35,12 +35,12 @@ import tango.text.Util;
 
 import minid.alloc;
 import minid.interpreter;
-import minid.namespace;
 import minid.stackmanip;
 import minid.stdlib_modules;
-import minid.string;
-import minid.thread;
 import minid.types;
+import minid.types_namespace;
+import minid.types_string;
+import minid.types_thread;
 
 import minid.interp:
 	createString,

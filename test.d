@@ -4,7 +4,7 @@ import tango.core.tools.TraceExceptions;
 import tango.io.Stdout;
 
 import minid.api;
-import minid.bind;
+import minid.ex_bind;
 import minid.stdlib_vector;
 
 import minid.serialization;

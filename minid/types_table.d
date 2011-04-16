@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.table;
+module minid.types_table;
 
 import minid.alloc;
 import minid.types;

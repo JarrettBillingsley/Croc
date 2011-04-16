@@ -39,8 +39,8 @@ import minid.compiler_semantic;
 import minid.compiler_types;
 import minid.interpreter;
 import minid.stackmanip;
-import minid.string;
 import minid.types;
+import minid.types_string;
 
 import minid.interp:
 	createString;

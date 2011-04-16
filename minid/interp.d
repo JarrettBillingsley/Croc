@@ -7,18 +7,18 @@ import tango.core.Exception;
 import tango.stdc.string;
 
 import minid.alloc;
-import minid.array;
-import minid.classobj;
-import minid.func;
 import minid.gc;
-import minid.instance;
-import minid.namespace;
 import minid.opcodes;
 import minid.stackmanip;
-import minid.string;
-import minid.table;
-import minid.thread;
 import minid.types;
+import minid.types_array;
+import minid.types_class;
+import minid.types_function;
+import minid.types_instance;
+import minid.types_namespace;
+import minid.types_string;
+import minid.types_table;
+import minid.types_thread;
 import minid.utils;
 
 import minid.interpreter:

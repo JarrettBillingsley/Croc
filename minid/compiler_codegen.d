@@ -39,14 +39,14 @@ import minid.alloc;
 import minid.compiler_ast;
 import minid.compiler_astvisitor;
 import minid.compiler_types;
-import minid.func;
-import minid.funcdef;
 import minid.hash;
 import minid.interpreter;
 import minid.opcodes;
 import minid.stackmanip;
-import minid.string;
 import minid.types;
+import minid.types_funcdef;
+import minid.types_function;
+import minid.types_string;
 import minid.utils;
 
 import minid.interp:

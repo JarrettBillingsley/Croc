@@ -29,11 +29,11 @@ import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
-import minid.array;
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.types;
+import minid.types_array;
 
 struct ArrayLib
 {

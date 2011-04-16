@@ -23,12 +23,12 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.classobj;
+module minid.types_class;
 
 import minid.alloc;
-import minid.namespace;
-import minid.string;
 import minid.types;
+import minid.types_namespace;
+import minid.types_string;
 
 struct classobj
 {

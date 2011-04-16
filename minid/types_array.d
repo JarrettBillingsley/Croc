@@ -23,9 +23,8 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.array;
+module minid.types_array;
 
-import tango.core.BitManip;
 import tango.stdc.string;
 
 import minid.alloc;

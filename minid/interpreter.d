@@ -32,19 +32,19 @@ import tango.core.Traits;
 import tango.core.Tuple;
 import tango.core.Vararg;
 
-import minid.array;
-import minid.classobj;
-import minid.func;
 import minid.gc;
-import minid.instance;
-import minid.namespace;
-import minid.nativeobj;
 import minid.stackmanip;
-import minid.table;
-import minid.thread;
 import minid.types;
+import minid.types_array;
+import minid.types_class;
+import minid.types_function;
+import minid.types_instance;
+import minid.types_namespace;
+import minid.types_nativeobj;
+import minid.types_table;
+import minid.types_thread;
+import minid.types_weakref;
 import minid.utils;
-import minid.weakref;
 
 import minid.interp:
 	// Function call related stuff
