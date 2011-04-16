@@ -488,7 +488,6 @@ struct MDInstance
 	mixin MDObjectMixin!(MDValue.Type.Instance);
 	package MDClass* parent;
 	package MDNamespace* fields;
-	package MDFunction* finalizer;
 	package uword numValues;
 	package uword extraBytes;
 

@@ -121,7 +121,7 @@ void free(MDVM* vm, GCObject* o)
 		case MDValue.Type.Instance:
 			auto i = cast(MDInstance*)o;
 
-			if(i.finalizer && ((o.flags & GCBits.Finalized) == 0))
+			if(i.parent.finalizer && ((o.flags & GCBits.Finalized) == 0))
 			{
 				o.flags |= GCBits.Finalized;
 				o.next = vm.alloc.finalizable;
@@ -267,7 +267,6 @@ void markObj(MDVM* vm, MDInstance* o)
 
 	if(o.parent)    markObj(vm, o.parent);
 	if(o.fields)    markObj(vm, o.fields);
-	if(o.finalizer) markObj(vm, o.finalizer);
 
 	foreach(ref val; o.extraValues())
 		mixin(CondMark!("val"));

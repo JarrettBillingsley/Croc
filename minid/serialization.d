@@ -600,11 +600,11 @@ private:
 		pop(t);
 		put(mOutput, false);
 
-		if(v.finalizer || v.numValues || v.extraBytes)
+		if(v.numValues || v.extraBytes)
 		{
 			push(t, MDValue(v));
 			pushToString(t, -1, true);
-			throwException(t, "Attempting to serialize '{}', which has a finalizer, extra values, or extra bytes", getString(t, -1));
+			throwException(t, "Attempting to serialize '{}', which has extra values or extra bytes", getString(t, -1));
 		}
 
 		if(v.parent.allocator || v.parent.finalizer)
@@ -1386,8 +1386,6 @@ private:
 
 		deserializeClass();
 		inst.parent = getClass(t, -1);
-		// TODO: this isn't necessarily right, if the class's finalizer changed.  how should we handle this?
-		inst.finalizer = inst.parent.finalizer;
 		pop(t);
 
 		bool isSpecial;

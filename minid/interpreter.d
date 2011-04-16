@@ -2373,11 +2373,9 @@ ever be called once for each instance.  If the finalizer function causes the ins
 the instance is reattached to the application's memory graph, it will still eventually be collected but its finalizer
 function will $(B not) be run again.
 
-Instances get the finalizer from the class that they are an instance of.  If you instantiate a class, and then
-change its finalizer, the instances that were already created will use the old finalizer.
+You can only set a class's finalizer once. Once it has been set, it cannot be unset or changed.
 
-This function expects the finalizer function to be on the top of the stack.  If you want to remove the finalizer
-function from a class, the value at the top of the stack can be null.
+This function expects the finalizer function to be on the top of the stack. The function is popped from the stack.
 
 Params:
 	cls = The class whose finalizer is to be set.
@@ -2386,10 +2384,10 @@ void setFinalizer(MDThread* t, word cls)
 {
 	mixin(checkNumParams!("1"));
 
-	if(!(isNull(t, -1) || isFunction(t, -1)))
+	if(!isFunction(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' for finalizer, not '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2400,11 +2398,10 @@ void setFinalizer(MDThread* t, word cls)
 		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(isNull(t, -1))
-		c.finalizer = null;
-	else
-		c.finalizer = getFunction(t, -1);
+	if(c.finalizer !is null)
+		throwException(t, __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which already has one", className(t, cls));
 
+	c.finalizer = getFunction(t, -1);
 	pop(t);
 }
 
@@ -2481,8 +2478,10 @@ do just this.
 You can also imagine a case where the number of extra values or bytes is dependent upon the
 parameters passed to the constructor, which is why class allocators get all the parameters.
 
-This function expects the new class allocator to be on top of the stack.  It should be a function,
-or null if you want to remove the given class's allocator.
+You can only set a class's allocator once. Once it has been set, it cannot be unset or changed.
+
+This function expects the allocator function to be on the top of the stack. The function is popped
+from the stack.
 
 Params:
 	cls = The stack index of the class object whose allocator is to be set.
@@ -2491,10 +2490,10 @@ void setAllocator(MDThread* t, word cls)
 {
 	mixin(checkNumParams!("1"));
 
-	if(!(isNull(t, -1) || isFunction(t, -1)))
+	if(!isFunction(t, -1))
 	{
 		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Expected 'function' or 'null' for finalizer, not '{}'", getString(t, -1));
+		throwException(t, __FUNCTION__ ~ " - Expected 'function' for allocator, not '{}'", getString(t, -1));
 	}
 
 	auto c = getClass(t, cls);
@@ -2505,11 +2504,10 @@ void setAllocator(MDThread* t, word cls)
 		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(isNull(t, -1))
-		c.allocator = null;
-	else
-		c.allocator = getFunction(t, -1);
+	if(c.allocator !is null)
+		throwException(t, __FUNCTION__ ~ " - Attempting to change the allocator of class {} which already has one", className(t, cls));
 
+	c.allocator = getFunction(t, -1);
 	pop(t);
 }
 

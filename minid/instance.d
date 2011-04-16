@@ -47,7 +47,6 @@ static:
 		i.parent = parent;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;
-		i.finalizer = parent.finalizer;
 		i.extraValues()[] = MDValue.nullValue;
 
 		return i;

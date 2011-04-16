@@ -89,7 +89,7 @@ void freeAll(MDThread* t)
 		{
 			auto i = cast(MDInstance*)cur;
 
-			if(i.finalizer && ((cur.flags & GCBits.Finalized) == 0))
+			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
 			{
 				*pcur = cur.next;
 
@@ -345,7 +345,7 @@ void runFinalizers(MDThread* t)
 			cur.flags = (cur.flags & ~GCBits.Marked) | !alloc.markVal;
 
 			// sanity check
-			if(i.finalizer)
+			if(i.parent.finalizer)
 			{
 				auto oldLimit = alloc.gcLimit;
 				alloc.gcLimit = typeof(oldLimit).max;
@@ -354,7 +354,7 @@ void runFinalizers(MDThread* t)
 
 				try
 				{
-					pushFunction(t, i.finalizer);
+					pushFunction(t, i.parent.finalizer);
 					pushInstance(t, i);
 					commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, null));
 				}
