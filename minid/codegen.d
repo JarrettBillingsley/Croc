@@ -1891,7 +1891,7 @@ scope class Codegen : Visitor
 		}
 
 		auto def = fs_.toFuncDef();
-		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
+		pushFuncDef(c.thread, def);
 		insertAndPop(c.thread, -2);
 	}
 
@@ -1932,7 +1932,7 @@ scope class Codegen : Visitor
 		}
 
 		auto def = fs_.toFuncDef();
-		pushFunction(c.thread, func.create(*c.alloc, c.thread.vm.globals, def));
+		pushFuncDef(c.thread, def);
 		insertAndPop(c.thread, -2);
 
 		return m;

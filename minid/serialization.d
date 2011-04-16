@@ -1704,11 +1704,7 @@ Params:
 */
 word deserializeModule(MDThread* t, InputStream s)
 {
-	auto def = deserializeAsModule(t, s);
-	pushEnvironment(t);
-	pushFunction(t, func.create(t.vm.alloc, getNamespace(t, -1), def));
-	insertAndPop(t, -2);
-	return stackSize(t) - 1;
+	return pushFuncDef(t, deserializeAsModule(t, s));
 }
 
 /**
@@ -1735,11 +1731,7 @@ Same as deserializeModule but does not expect for there to be a module header.
 */
 word deserializeFunction(MDThread* t, InputStream s)
 {
-	auto def = deserialize(t, s);
-	pushEnvironment(t);
-	pushFunction(t, func.create(t.vm.alloc, getNamespace(t, -1), def));
-	insertAndPop(t, -2);
-	return stackSize(t) - 1;
+	return pushFuncDef(t, deserialize(t, s));
 }
 
 // ================================================================================================================================================

@@ -666,6 +666,7 @@ struct Parser
 							case "thread":    addConstraint(MDValue.Type.Thread); break;
 							case "nativeobj": addConstraint(MDValue.Type.NativeObj); break;
 							case "weakref":   addConstraint(MDValue.Type.WeakRef); break;
+							case "funcdef":   addConstraint(MDValue.Type.FuncDef); break;
 
 							case "instance":
 								addConstraint(MDValue.Type.Instance);

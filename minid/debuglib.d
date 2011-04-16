@@ -564,7 +564,7 @@ static:
 		if(func is null)
 			throwException(t, "invalid function");
 
-		.getFuncEnv(t, arg + 1);
+		pushNamespace(t, func.environment);
 		return 1;
 	}
 
@@ -578,9 +578,11 @@ static:
 			throwException(t, "invalid function");
 
 		checkParam(t, arg + 2, MDValue.Type.Namespace);
-		.getFuncEnv(t, arg + 1);
+		pushNamespace(t, func.environment);
+		pushFunction(t, func);
 		dup(t, arg + 2);
-		.setFuncEnv(t, arg + 1);
+		.setFuncEnv(t, -2);
+		pop(t);
 		return 1;
 	}
 

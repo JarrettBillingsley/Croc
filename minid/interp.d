@@ -158,10 +158,7 @@ word pushWeakRefObj(MDThread* t, MDWeakRef* o)
 
 word pushFuncDef(MDThread* t, MDFuncDef* o)
 {
-	MDValue v;
-	v.type = MDValue.Type.FuncDef;
-	v.mBaseObj = cast(MDBaseObject*)o;
-	return push(t, v);
+	return push(t, MDValue(o));
 }
 
 MDString* getStringObj(MDThread* t, word slot)
@@ -259,7 +256,7 @@ MDFuncDef* getFuncDef(MDThread* t, word slot)
 	auto v = &t.stack[fakeToAbs(t, slot)];
 
 	if(v.type == MDValue.Type.FuncDef)
-		return cast(MDFuncDef*)v.mBaseObj;
+		return v.mFuncDef;
 	else
 		return null;
 }
@@ -1119,7 +1116,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 						pushString(t, MDValue.typeString(MDValue.Type.Namespace));
 						pushChar(t, ' ');
 						pushNamespaceNamestring(t, v.mNamespace);
-						
+
 						auto slot = t.stackIndex - 3;
 						catImpl(t, &t.stack[slot], slot, 3);
 						pop(t, 2);
@@ -1129,6 +1126,11 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
 				case MDValue.Type.NativeObj: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.NativeObj), cast(void*)v.mNativeObj.obj);
 				case MDValue.Type.WeakRef: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.WeakRef), cast(void*)v.mWeakRef);
+
+				case MDValue.Type.FuncDef:
+					auto d = v.mFuncDef;
+					auto loc = d.location;
+					return pushFormat(t, "{} {}({}({}:{}))", MDValue.typeString(MDValue.Type.FuncDef), d.name.toString(), loc.file.toString(), loc.line, loc.col);
 
 				default: assert(false);
 			}
@@ -2566,7 +2568,7 @@ void loadPtr(MDThread* t, ref MDValue* ptr)
 
 MDNamespace* getMetatable(MDThread* t, MDValue.Type type)
 {
-	assert(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef);
+	assert(type >= MDValue.Type.Null && type <= MDValue.Type.FuncDef);
 	return t.vm.metaTabs[type];
 }
 

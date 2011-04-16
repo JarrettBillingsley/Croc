@@ -812,6 +812,83 @@ word newFunctionWithEnv(MDThread* t, uint numParams, NativeFunc func, char[] nam
 }
 
 /**
+Creates a new script function closure and pushes it on the stack.
+
+The given function definition may not have any upvalues. If it does, an error will be thrown.
+
+If the definition is cacheable and there is already an instantiation of it, then the cached instantiation
+will be pushed. Otherwise, a new closure will be created (and cached if the definition is cacheable). In the
+case that a new closure is created, its environment will be the current environment. To use a different
+environment, use newFunctionWithEnv.
+
+Params:
+	funcDef: The stack index of the function definition object.
+
+Returns:
+	The stack index of the new closure.
+*/
+word newFunction(MDThread* t, word funcDef)
+{
+	funcDef = absIndex(t, funcDef);
+	pushEnvironment(t);
+	return newFunctionWithEnv(t, funcDef);
+}
+
+/**
+Same as above, except it expects an explicit environment object to be at the top of the stack. This environment
+is popped and the new closure is pushed in its place. If the given function definition is cacheable and has a
+cached instantiation already, the environment on the stack is ignored. This is because such a situation is impossible
+within the language. In MiniD, if a function is judged to be cacheable, then it is impossible to create closures
+of it with different environments.
+
+Params:
+	funcDef: The stack index of the function definition object.
+
+Returns:
+	The stack index of the new closure.
+*/
+word newFunctionWithEnv(MDThread* t, word funcDef)
+{
+	mixin(checkNumParams!("1"));
+
+	auto def = getFuncDef(t, funcDef);
+
+	if(def is null)
+	{
+		pushTypeString(t, funcDef);
+		throwException(t, __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
+	}
+
+	if(def.numUpvals > 0)
+		throwException(t, __FUNCTION__ ~ " - function definition may not have any upvalues");
+
+	auto env = getNamespace(t, -1);
+
+	if(env is null)
+	{
+		pushTypeString(t, -1);
+		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
+	}
+
+	if(def.isPure && def.cachedFunc)
+	{
+		pop(t);
+		return pushFunction(t, def.cachedFunc);
+	}
+	else
+	{
+		maybeGC(t);
+		auto ret = .func.create(t.vm.alloc, env, def);
+
+		if(def.isPure)
+			def.cachedFunc = ret;
+
+		pop(t);
+		return pushFunction(t, ret);
+	}
+}
+
+/**
 Creates a new class and pushes it onto the stack.
 
 After creating the class, you can then fill it with members by using fielda.
@@ -1258,6 +1335,14 @@ Sees if the value at the given _slot is a weak reference.
 bool isWeakRef(MDThread* t, word slot)
 {
 	return type(t, slot) == MDValue.Type.WeakRef;
+}
+
+/**
+Sees if the value at the given _slot is a function definition.
+*/
+bool isFuncDef(MDThread* t, word slot)
+{
+	return type(t, slot) == MDValue.Type.FuncDef;
 }
 
 /**
@@ -2164,6 +2249,33 @@ void setFuncEnv(MDThread* t, word func)
 
 	f.environment = ns;
 	pop(t);
+}
+
+/**
+Pushes the function definition that this function was made from. Pushes null if the function is native.
+
+Params:
+	func = The stack index of the function whose definition is to be retrieved.
+
+Returns:
+	The stack index of the newly-pushed function definition.
+*/
+void funcDef(MDThread* t, word func)
+{
+	mixin(FuncNameMix);
+
+	if(auto f = getFunction(t, func))
+	{
+		if(f.isNative)
+			return pushNull(t);
+		else
+			return pushFuncDef(t, f.scriptFunc);
+	}
+
+	pushTypeString(t, func);
+	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
+
+	assert(false);
 }
 
 /**

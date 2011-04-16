@@ -132,7 +132,7 @@ align(1) struct MDValue
 	enum Type : uint
 	{
 		/** */
-		Null, // 0
+		Null,       // 0
 		/** ditto */
 		Bool,
 		/** ditto */
@@ -143,7 +143,7 @@ align(1) struct MDValue
 		Char,
 
 		/** ditto */
-		String, // 5
+		String,     // 5
 		/** ditto */
 		Table,
 		/** ditto */
@@ -153,7 +153,7 @@ align(1) struct MDValue
 		/** ditto */
 		Class,
 		/** ditto */
-		Instance, // 10
+		Instance,   // 10
 		/** ditto */
 		Namespace,
 		/** ditto */
@@ -162,10 +162,11 @@ align(1) struct MDValue
 		NativeObj,
 		/** ditto */
 		WeakRef,
+		/** ditto */
+		FuncDef,    // 15
 
 		// Internal types
-		Upvalue, // 15
-		FuncDef
+		Upvalue
 	}
 
 	package static char[] typeString(MDValue.Type t)
@@ -188,9 +189,9 @@ align(1) struct MDValue
 			case Type.Thread:    return "thread";
 			case Type.NativeObj: return "nativeobj";
 			case Type.WeakRef:   return "weakref";
+			case Type.FuncDef:   return "funcdef";
 
 			case Type.Upvalue:   return "upvalue";
-			case Type.FuncDef:   return "funcdef";
 
 			default: assert(false);
 		}
@@ -218,6 +219,7 @@ align(1) struct MDValue
 		package MDThread* mThread;
 		package MDNativeObj* mNativeObj;
 		package MDWeakRef* mWeakRef;
+		package MDFuncDef* mFuncDef;
 	}
 
 	package static MDValue opCall(T)(T t)
@@ -248,7 +250,7 @@ align(1) struct MDValue
 		return (type == Type.Null) || (type == Type.Bool && mBool == false) ||
 			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar != 0);
 	}
-	
+
 	package void opAssign(bool src)
 	{
 		type = Type.Bool;
@@ -333,6 +335,12 @@ align(1) struct MDValue
 		mWeakRef = src;
 	}
 
+	package void opAssign(MDFuncDef* src)
+	{
+		type = Type.FuncDef;
+		mFuncDef = src;
+	}
+
 	package void opAssign(MDBaseObject* src)
 	{
 		type = src.mType;
@@ -359,6 +367,7 @@ align(1) struct MDValue
 			case Type.Int:       return Format("{}", mInt);
 			case Type.Float:     return Format("{}", mFloat);
 			case Type.Char:      return Format("'{}'", mChar);
+
 			case Type.String:    return Format("\"{}\"", mString.toString());
 			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
 			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
@@ -369,6 +378,8 @@ align(1) struct MDValue
 			case Type.Thread:    return Format("thread {:X8}", cast(void*)mThread);
 			case Type.NativeObj: return Format("nativeobj {:X8}", cast(void*)mNativeObj);
 			case Type.WeakRef:   return Format("weakref {:X8}", cast(void*)mWeakRef);
+			case Type.FuncDef:   return Format("funcdef {:X8}", cast(void*)mFuncDef);
+
 			default: assert(false);
 		}
 	}
@@ -644,15 +655,6 @@ struct Location
 	}
 }
 
-struct MDUpval
-{
-	mixin MDObjectMixin!(MDValue.Type.Upvalue);
-
-	package MDValue* value;
-	package MDValue closedValue;
-	package MDUpval* nextuv;
-}
-
 // The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
 struct MDFuncDef
 {
@@ -693,6 +695,15 @@ struct MDFuncDef
 	}
 
 	package LocVarDesc[] locVarDescs;
+}
+
+struct MDUpval
+{
+	mixin MDObjectMixin!(MDValue.Type.Upvalue);
+
+	package MDValue* value;
+	package MDValue closedValue;
+	package MDUpval* nextuv;
 }
 
 // please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.

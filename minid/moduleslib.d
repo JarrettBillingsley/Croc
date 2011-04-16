@@ -127,7 +127,7 @@ static:
 			pushString(t, name);
 			rawCall(t, reg, 1);
 
-			if(isFunction(t, -1))
+			if(isFuncDef(t, -1) || isFunction(t, -1))
 			{
 				pushGlobal(t, "initModule");
 				swap(t);
@@ -162,19 +162,23 @@ static:
 
 	package uword initModule(MDThread* t)
 	{
-		checkParam(t, 1, MDValue.Type.Function);
+		checkAnyParam(t, 1);
+		
+		if(!isFunction(t, 1) && !isFuncDef(t, 1))
+			paramTypeError(t, 1, "function|funcdef");
+
 		auto name = checkStringParam(t, 2);
 
 		// Make the namespace
-		pushGlobal(t, "_G");
+		auto ns = pushGlobal(t, "_G");
 
 		foreach(segment; name.delimiters("."))
 		{
 			pushString(t, segment);
 
-			if(opin(t, -1, -2))
+			if(opin(t, -1, ns))
 			{
-				field(t, -2);
+				field(t, ns);
 
 				if(!isNamespace(t, -1))
 					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
@@ -182,32 +186,39 @@ static:
 			else
 			{
 				pop(t);
-				newNamespace(t, -1, segment);
+				newNamespace(t, ns, segment);
 				dup(t);
-				fielda(t, -3, segment);
+				fielda(t, ns, segment);
 			}
 
-			insertAndPop(t, -2);
+			insertAndPop(t, ns);
 		}
 
-		if(len(t, -1) > 0)
-			clearNamespace(t, -1);
+		if(len(t, ns) > 0)
+			clearNamespace(t, ns);
 
-		// Set the environment (also used as 'this')
-		dup(t, 1);
-		dup(t, -2);
-		dup(t);
-		setFuncEnv(t, -3);
-
-		// Call it with the name as the first param
-// 		pushString(t, name);
-		rawCall(t, -2, 0);
+		if(isFunction(t, 1))
+		{
+			dup(t, ns);
+			setFuncEnv(t, 1);
+			dup(t, 1);
+			dup(t, ns);
+			rawCall(t, -2, 0);
+		}
+		else
+		{
+			// Create the function and call it with its namespace as 'this'
+			dup(t, ns);
+			auto func = newFunctionWithEnv(t, 1);
+			dup(t, ns);
+			rawCall(t, func, 0);
+		}
 
 		// Add it to the loaded table
-		pushGlobal(t, "loaded");
+		auto loaded = pushGlobal(t, "loaded");
 		pushString(t, name);
-		dup(t, -3);
-		idxa(t, -3);
+		dup(t, ns);
+		idxa(t, loaded);
 		pop(t);
 
 		return 1;

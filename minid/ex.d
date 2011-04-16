@@ -608,7 +608,8 @@ public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] 
 	}
 
 	swap(t);
-	setFuncEnv(t, -2);
+	newFunctionWithEnv(t, -2);
+	insertAndPop(t, -2);
 
 	return stackSize(t) - 1;
 }
@@ -659,7 +660,8 @@ public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv 
 	}
 
 	swap(t);
-	setFuncEnv(t, -2);
+	newFunctionWithEnv(t, -2);
+	insertAndPop(t, -2);
 
 	pushNull(t);
 	return rawCall(t, -2, numReturns);
