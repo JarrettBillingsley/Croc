@@ -26,13 +26,13 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.semantic;
+module minid.compiler_semantic;
 
 import tango.text.Util;
 
-import minid.ast;
-import minid.astvisitor;
-import minid.compilertypes;
+import minid.compiler_ast;
+import minid.compiler_astvisitor;
+import minid.compiler_types;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.types;

@@ -25,10 +25,10 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.astvisitor;
+module minid.compiler_astvisitor;
 
-import minid.ast;
-import minid.compilertypes;
+import minid.compiler_ast;
+import minid.compiler_types;
 
 template returnType(char[] tag)
 {

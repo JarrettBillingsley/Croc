@@ -25,10 +25,10 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.ast;
+module minid.compiler_ast;
 
 import minid.alloc;
-import minid.compilertypes;
+import minid.compiler_types;
 import minid.opcodes;
 import minid.types;
 

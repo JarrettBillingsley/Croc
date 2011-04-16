@@ -24,12 +24,12 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.parser;
+module minid.compiler_parser;
 
-import minid.ast;
-import minid.compilertypes;
+import minid.compiler_ast;
+import minid.compiler_lexer;
+import minid.compiler_types;
 import minid.interpreter;
-import minid.lexer;
 import minid.stackmanip;
 import minid.types;
 

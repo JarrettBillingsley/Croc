@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.codegen;
+module minid.compiler_codegen;
 
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
@@ -36,9 +36,9 @@ import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
 import minid.alloc;
-import minid.ast;
-import minid.astvisitor;
-import minid.compilertypes;
+import minid.compiler_ast;
+import minid.compiler_astvisitor;
+import minid.compiler_types;
 import minid.func;
 import minid.funcdef;
 import minid.hash;

@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.compilertypes;
+module minid.compiler_types;
 
 import minid.alloc;
 import minid.types;

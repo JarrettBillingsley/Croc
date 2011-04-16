@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.lexer;
+module minid.compiler_lexer;
 
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
@@ -31,7 +31,7 @@ import tango.core.Exception;
 import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
-import minid.compilertypes;
+import minid.compiler_types;
 import minid.types;
 import minid.utils;
 
