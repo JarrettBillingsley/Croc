@@ -3897,35 +3897,33 @@ void execute(MDThread* t, uword depth = 1)
 					if(i.rt != 0)
 						funcEnv = t.stack[stackBase + i.rt].mNamespace;
 
-					if(newDef.isPure)
-					{
-						if(newDef.cachedFunc is null)
-							newDef.cachedFunc = func.create(t.vm.alloc, funcEnv, newDef);
+					auto n = func.create(t.vm.alloc, funcEnv, newDef);
 
-						*mixin(GetRD) = newDef.cachedFunc;
+					if(n is null)
+					{
+						MDValue def = newDef;
+						toStringImpl(t, def, false);
+						throwException(t, "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 					}
-					else
+
+					auto newUpvals = n.scriptUpvals();
+
+					for(uword index = 0; index < newDef.numUpvals; index++)
 					{
-						auto n = func.create(t.vm.alloc, funcEnv, newDef);
-						auto newUpvals = n.scriptUpvals();
+						assert((*pc).opcode == Op.Move, "invalid closure upvalue op");
 
-						for(uword index = 0; index < newDef.numUpvals; index++)
+						if((*pc).rd == 0)
+							newUpvals[index] = findUpvalue(t, (*pc).rs);
+						else
 						{
-							assert((*pc).opcode == Op.Move, "invalid closure upvalue op");
-
-							if((*pc).rd == 0)
-								newUpvals[index] = findUpvalue(t, (*pc).rs);
-							else
-							{
-								assert((*pc).rd == 1, "invalid closure upvalue rd");
-								newUpvals[index] = upvals[(*pc).uimm];
-							}
-
-							(*pc)++;
+							assert((*pc).rd == 1, "invalid closure upvalue rd");
+							newUpvals[index] = upvals[(*pc).uimm];
 						}
 
-						*mixin(GetRD) = n;
+						(*pc)++;
 					}
+
+					*mixin(GetRD) = n;
 
 					maybeGC(t);
 					break;

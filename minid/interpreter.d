@@ -851,6 +851,7 @@ word newFunctionWithEnv(MDThread* t, word funcDef)
 {
 	mixin(checkNumParams!("1"));
 
+	funcDef = absIndex(t, funcDef);
 	auto def = getFuncDef(t, funcDef);
 
 	if(def is null)
@@ -860,7 +861,7 @@ word newFunctionWithEnv(MDThread* t, word funcDef)
 	}
 
 	if(def.numUpvals > 0)
-		throwException(t, __FUNCTION__ ~ " - function definition may not have any upvalues");
+		throwException(t, __FUNCTION__ ~ " - Function definition may not have any upvalues");
 
 	auto env = getNamespace(t, -1);
 
@@ -870,22 +871,17 @@ word newFunctionWithEnv(MDThread* t, word funcDef)
 		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
-	if(def.isPure && def.cachedFunc)
-	{
-		pop(t);
-		return pushFunction(t, def.cachedFunc);
-	}
-	else
-	{
-		maybeGC(t);
-		auto ret = .func.create(t.vm.alloc, env, def);
+	maybeGC(t);
+	auto ret = .func.create(t.vm.alloc, env, def);
 
-		if(def.isPure)
-			def.cachedFunc = ret;
-
-		pop(t);
-		return pushFunction(t, ret);
+	if(ret is null)
+	{
+		pushToString(t, funcDef);
+		throwException(t, __FUNCTION__ ~ " - Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 	}
+
+	pop(t);
+	return pushFunction(t, ret);
 }
 
 /**

@@ -221,9 +221,6 @@ final class FuncState
 
 	package uint mNamespaceReg = 0;
 
-	// Purity starts off true, and if any accesses to upvalues or globals occur, it goes false.
-	// Also goes false if any nested func is impure.
-	package bool mIsPure = true;
 	package SwitchDesc* mSwitch;
 	package SwitchDesc[] mSwitchTables;
 	package uint[] mLineInfo;
@@ -812,9 +809,6 @@ final class FuncState
 		if(searchVar(this) == Global)
 			e.index = tagGlobal(codeStringConst(name.name));
 			
-		if(varType == Upvalue)
-			mIsPure = false;
-
 		e.type = ExpType.Var;
 	}
 
@@ -1375,12 +1369,6 @@ final class FuncState
 	
 	public void codeClosure(FuncState fs, uint destReg)
 	{
-		if(mNamespaceReg > 0)
-			fs.mIsPure = false;
-
-		if(!fs.mIsPure)
-			mIsPure = false;
-
 		auto line = fs.mLocation.line;
 		codeR(line, Op.Closure, destReg, mInnerFuncs.length, mNamespaceReg);
 
@@ -1771,8 +1759,6 @@ final class FuncState
 		mConstants = null;
 		ret.code = mCode;
 		mCode = null;
-
-		ret.isPure = mIsPure;
 
 		c.alloc.resizeArray(ret.switchTables, mSwitchTables.length);
 

@@ -1,0 +1,34 @@
+module samples.nettest
+
+import net
+
+function httpGet(page: string)
+{
+	if(page.startsWith("http://"))
+		page = page[#"http://" ..]
+
+	local slash = page.find("/")
+	local server = page[.. slash]
+	page = page[slash ..]
+
+	if(#page == 0)
+		page = "/"
+
+	local sock = net.connect(server, 80)
+	sock.write("GET ", page, " HTTP/1.1\r\nHost: ", server, "\r\nConnection: close\r\n\r\n")
+
+	local v = Vector("u8", 0)
+	local vs = stream.VectorOutStream(v)
+	vs.copy(sock)
+	sock.close()
+	local ret = string.fromRawAscii(v)
+
+	local beginning = ret.find("\r\n\r\n") + 4
+
+	if(beginning > #ret)
+		return ""
+	else
+		return ret[beginning ..]
+}
+
+writeln(httpGet("www.google.com"))

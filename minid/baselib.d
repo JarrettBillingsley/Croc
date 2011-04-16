@@ -1072,7 +1072,7 @@ static:
 	{
 		checkParam(t, 0, MDValue.Type.Function);
 		auto f = getFunction(t, 0);
-		pushBool(t, f.isNative ? false : f.scriptFunc.isPure);
+		pushBool(t, f.isNative ? false : f.scriptFunc.numUpvals == 0);
 		return 1;
 	}
 

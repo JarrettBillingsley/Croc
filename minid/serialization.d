@@ -475,7 +475,14 @@ private:
 
 		integer(v.code.length);
 		append(mOutput, v.code);
-		put(mOutput, v.isPure);
+
+		if(auto e = v.environment)
+		{
+			put(mOutput, true);
+			serialize(MDValue(e));
+		}
+		else
+			put(mOutput, false);
 
 		if(auto f = v.cachedFunc)
 		{
@@ -1251,11 +1258,22 @@ private:
 
 		t.vm.alloc.resizeArray(def.code, cast(uword)integer());
 		readExact(mInput, def.code);
-		get(mInput, def.isPure);
+
+		bool haveEnvironment;
+		get(mInput, haveEnvironment);
+		
+		if(haveEnvironment)
+		{
+			deserializeNamespace();
+			def.environment = getNamespace(t, -1);
+			pop(t);
+		}
+		else
+			def.environment = null;
 
 		bool haveCached;
 		get(mInput, haveCached);
-		
+
 		if(haveCached)
 		{
 			deserializeFunction();
@@ -1791,7 +1809,6 @@ void serialize(MDFuncDef* fd, OutputStream s)
 
 	Serialize(s, fd.constants);
 	Serialize(s, fd.code);
-	put(s, fd.isPure);
 	Serialize(s, fd.lineInfo);
 
 	Serialize(s, fd.upvalNames);
@@ -1846,7 +1863,6 @@ MDFuncDef* deserialize(MDThread* t, InputStream s)
 
 	Deserialize(t, s, ret.constants);
 	Deserialize(t, s, ret.code);
-	get(s, ret.isPure);
 
 	Deserialize(t, s, ret.lineInfo);
 	Deserialize(t, s, ret.upvalNames);

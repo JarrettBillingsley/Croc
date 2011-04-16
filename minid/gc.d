@@ -353,7 +353,7 @@ void markObj(MDVM* vm, MDFuncDef* o)
 
 	if(o.location.file)
 		markObj(vm, o.location.file);
-		
+
 	if(o.name)
 		markObj(vm, o.name);
 
@@ -393,6 +393,9 @@ void markObj(MDVM* vm, MDFuncDef* o)
 	foreach(ref desc; o.locVarDescs)
 		if(desc.name)
 			markObj(vm, desc.name);
+
+	if(o.environment && ((o.environment.flags & GCBits.Marked) ^ vm.alloc.markVal))
+		markObj(vm, o.environment);
 
 	if(o.cachedFunc && ((o.cachedFunc.flags & GCBits.Marked) ^ vm.alloc.markVal))
 		markObj(vm, o.cachedFunc);

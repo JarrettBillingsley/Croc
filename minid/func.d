@@ -40,6 +40,12 @@ static:
 	// Create a script function.
 	package MDFunction* create(ref Allocator alloc, MDNamespace* env, MDFuncDef* def)
 	{
+		if(def.environment && def.environment !is env)
+			return null;
+
+		if(def.cachedFunc)
+			return def.cachedFunc;
+
 		auto f = alloc.allocate!(MDFunction)(ScriptClosureSize(def.numUpvals));
 		f.isNative = false;
 		f.environment = env;
@@ -54,6 +60,12 @@ static:
 
 		f.scriptFunc = def;
 		f.scriptUpvals()[] = null;
+
+		if(def.environment is null)
+			def.environment = env;
+
+		if(def.numUpvals == 0)
+			def.cachedFunc = f;
 
 		return f;
 	}

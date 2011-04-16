@@ -671,7 +671,7 @@ struct MDFuncDef
 	package MDValue[] constants;
 	package Instruction[] code;
 
-	package bool isPure;
+	package MDNamespace* environment;
 	package MDFunction* cachedFunc;
 
 	struct SwitchTable
