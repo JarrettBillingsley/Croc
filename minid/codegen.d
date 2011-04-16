@@ -1375,6 +1375,9 @@ final class FuncState
 	
 	public void codeClosure(FuncState fs, uint destReg)
 	{
+		if(mNamespaceReg > 0)
+			fs.mIsPure = false;
+
 		if(!fs.mIsPure)
 			mIsPure = false;
 
