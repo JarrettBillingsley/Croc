@@ -851,6 +851,7 @@ struct Lexer
 		auto beginning = mLoc;
 
 		scope buf = new List!(char)(mCompiler.alloc);
+		dchar delimiter = mCharacter;
 
 		// to be safe..
 		char[6] utfbuf = void;
@@ -877,25 +878,26 @@ struct Lexer
 					buf ~= Utf.encode(utfbuf, readEscapeSequence(beginning));
 					continue;
 
-				case '\"':
-					if(escape)
-						break;
+				default:
+					if(!escape && mCharacter == delimiter)
+					{
+						if(lookaheadChar() == delimiter)
+						{
+							buf ~= Utf.encode(utfbuf, delimiter);
+							nextChar();
+							nextChar();
+						}
+						else
+							break;
+					}
 					else
 					{
-						if(lookaheadChar() != '\"')
+						if(escape && mCharacter == delimiter)
 							break;
-						else
-						{
-							buf ~= Utf.encode(utfbuf, '\"');
-							nextChar();
-							nextChar();
-							continue;
-						}
+						
+						buf ~= Utf.encode(utfbuf, mCharacter);
+						nextChar();
 					}
-
-				default:
-					buf ~= Utf.encode(utfbuf, mCharacter);
-					nextChar();
 					continue;
 			}
 
@@ -1295,7 +1297,7 @@ struct Lexer
 				case '@':
 					nextChar();
 
-					if(mCharacter == '\"')
+					if(mCharacter == '\"' || mCharacter == '\'')
 					{
 						mTok.stringValue = readStringLiteral(false);
 						mTok.type = Token.StringLiteral;
