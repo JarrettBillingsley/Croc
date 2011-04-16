@@ -38,6 +38,7 @@ import minid.interpreter;
 import minid.lexer;
 import minid.parser;
 import minid.semantic;
+import minid.stackmanip;
 import minid.string;
 import minid.types;
 

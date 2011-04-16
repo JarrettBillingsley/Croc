@@ -31,6 +31,7 @@ import tango.text.Util;
 
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
 import minid.utils;
 

@@ -32,12 +32,8 @@ import tango.math.Math;
 import minid.array;
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
-
-import minid.interp:
-	getArray,
-	getValue,
-	push;
 
 struct ArrayLib
 {

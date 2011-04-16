@@ -30,6 +30,7 @@ import minid.ast;
 import minid.compilertypes;
 import minid.interpreter;
 import minid.lexer;
+import minid.stackmanip;
 import minid.types;
 
 struct Parser

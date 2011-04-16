@@ -38,22 +38,14 @@ import minid.instance;
 import minid.interpreter;
 import minid.namespace;
 import minid.opcodes;
+import minid.stackmanip;
 import minid.streamlib;
 import minid.string;
 import minid.types;
 import minid.utils;
 
 import minid.interp:
-	createString,
-
-	getClass,
-	getFunction,
-	getInstance,
-	getNamespace,
-	getStringObj,
-	getTable,
-	getValue,
-	push;
+	createString;
 
 void get(T)(InputStream i, ref T ret)
 {

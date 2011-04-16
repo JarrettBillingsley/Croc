@@ -14,6 +14,7 @@ import minid.gc;
 import minid.instance;
 import minid.namespace;
 import minid.opcodes;
+import minid.stackmanip;
 import minid.string;
 import minid.table;
 import minid.thread;
@@ -22,22 +23,12 @@ import minid.utils;
 
 import minid.interpreter:
 	maybeGC,
-
-	pushChar,
-	pushString,
-	pushThread,
-	pushFormat,
-	getString,
-
-	dup,
-	insert,
-	pop,
-
-	setStackSize,
-	stackSize,
-
 	catchException,
-	throwException;
+	throwException,
+	getString,
+	pushString,
+	pushFormat,
+	pushChar;
 
 // 	printStack;
 
@@ -100,138 +91,6 @@ void freeAll(MDThread* t)
 		next = cur.next;
 		free(t.vm, cur);
 	}
-}
-
-// ================================================================================================================================================
-// Stack manip
-
-void checkStack(MDThread* t, AbsStack idx)
-{
-	if(idx >= t.stack.length)
-	{
-		uword size = idx * 2;
-		auto oldBase = t.stack.ptr;
-		t.vm.alloc.resizeArray(t.stack, size);
-		auto newBase = t.stack.ptr;
-
-		if(newBase !is oldBase)
-			for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
-				uv.value = (uv.value - oldBase) + newBase;
-	}
-}
-
-word push(MDThread* t, MDValue val)
-{
-	checkStack(t, t.stackIndex);
-	t.stack[t.stackIndex] = val;
-	t.stackIndex++;
-
-	return cast(word)(t.stackIndex - 1 - t.stackBase);
-}
-
-MDValue* getValue(MDThread* t, word slot)
-{
-	return &t.stack[fakeToAbs(t, slot)];
-}
-
-MDString* getStringObj(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.String)
-		return v.mString;
-	else
-		return null;
-}
-
-MDTable* getTable(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Table)
-		return v.mTable;
-	else
-		return null;
-}
-
-MDArray* getArray(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Array)
-		return v.mArray;
-	else
-		return null;
-}
-
-MDFunction* getFunction(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Function)
-		return v.mFunction;
-	else
-		return null;
-}
-
-MDClass* getClass(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Class)
-		return v.mClass;
-	else
-		return null;
-}
-
-MDInstance* getInstance(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Instance)
-		return v.mInstance;
-	else
-		return null;
-}
-
-MDNamespace* getNamespace(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.Namespace)
-		return v.mNamespace;
-	else
-		return null;
-}
-
-MDNativeObj* getNative(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.NativeObj)
-		return v.mNativeObj;
-	else
-		return null;
-}
-
-MDWeakRef* getWeakRef(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.WeakRef)
-		return v.mWeakRef;
-	else
-		return null;
-}
-
-MDFuncDef* getFuncDef(MDThread* t, word slot)
-{
-	auto v = &t.stack[fakeToAbs(t, slot)];
-
-	if(v.type == MDValue.Type.FuncDef)
-		return v.mFuncDef;
-	else
-		return null;
 }
 
 // ================================================================================================================================================
@@ -332,29 +191,6 @@ void runFinalizers(MDThread* t)
 			}
 		}
 	}
-}
-
-// ============================================================================
-// Stack Manipulation
-
-RelStack fakeToRel(MDThread* t, word fake)
-{
-	assert(t.stackIndex > t.stackBase);
-
-	auto size = stackSize(t);
-
-	if(fake < 0)
-		fake += size;
-
-	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid stack index {} (stack size = {})", fake, size);
-
-	return cast(RelStack)fake;
-}
-
-AbsStack fakeToAbs(MDThread* t, word fake)
-{
-	return fakeToRel(t, fake) + t.stackBase;
 }
 
 // ============================================================================

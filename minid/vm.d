@@ -34,10 +34,11 @@ import tango.text.convert.Utf;
 import tango.text.Util;
 
 import minid.alloc;
+import minid.interpreter;
 import minid.moduleslib;
 import minid.namespace;
+import minid.stackmanip;
 import minid.string;
-import minid.interpreter;
 import minid.thread;
 import minid.types;
 

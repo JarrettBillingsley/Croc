@@ -34,6 +34,7 @@ import minid.ast;
 import minid.astvisitor;
 import minid.compilertypes;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
 import minid.utils;
 

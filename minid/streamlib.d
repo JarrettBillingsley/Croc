@@ -35,6 +35,7 @@ import tango.math.Math;
 import minid.ex;
 import minid.interpreter;
 import minid.misc;
+import minid.stackmanip;
 import minid.types;
 import minid.vector;
 import minid.vm;

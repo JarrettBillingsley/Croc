@@ -35,6 +35,7 @@ import tango.time.Time;
 
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.streamlib;
 import minid.timelib;
 import minid.types;

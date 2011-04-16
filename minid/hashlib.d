@@ -28,14 +28,9 @@ module minid.hashlib;
 import minid.ex;
 import minid.interpreter;
 import minid.namespace;
+import minid.stackmanip;
 import minid.table;
 import minid.types;
-
-import minid.interp:
-	getArray,
-	getNamespace,
-	getTable,
-	push;
 
 struct HashLib
 {

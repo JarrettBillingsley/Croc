@@ -34,6 +34,7 @@ import minid.compiler;
 import minid.ex;
 import minid.interpreter;
 import minid.serialization;
+import minid.stackmanip;
 import minid.types;
 
 struct ModulesLib

@@ -44,14 +44,13 @@ import minid.funcdef;
 import minid.hash;
 import minid.interpreter;
 import minid.opcodes;
+import minid.stackmanip;
 import minid.string;
 import minid.types;
 import minid.utils;
 
 import minid.interp:
-	createString,
-
-	push;
+	createString;
 
 private Op AstTagToOpcode(AstTag tag)
 {

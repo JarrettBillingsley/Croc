@@ -8,4 +8,3 @@ namespace Sandbox : null
 	writefln = writefln
 }
 
-import math

@@ -37,6 +37,7 @@ import Utf = tango.text.convert.Utf;
 
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
 import minid.utils;
 

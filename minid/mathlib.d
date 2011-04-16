@@ -32,6 +32,7 @@ import tango.math.random.Kiss;
 
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)

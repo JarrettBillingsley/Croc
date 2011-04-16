@@ -42,19 +42,13 @@ import minid.instance;
 import minid.interpreter;
 import minid.misc;
 import minid.namespace;
+import minid.stackmanip;
 import minid.string;
 import minid.stringbuffer;
 import minid.types;
 import minid.utils;
 import minid.vector;
 import minid.vm;
-
-import minid.interp:
-	getClass,
-	getFunction,
-	getInstance,
-	getNamespace,
-	push;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {

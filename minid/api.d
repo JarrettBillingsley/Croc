@@ -32,6 +32,7 @@ public
 	import minid.alloc;
 	import minid.ex;
 	import minid.interpreter;
+	import minid.stackmanip;
 	import minid.serialization;
 	import minid.types;
 	import minid.utils;

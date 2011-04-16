@@ -27,18 +27,14 @@ module minid.debuglib;
 
 import minid.ex;
 import minid.interpreter;
+import minid.stackmanip;
 import minid.types;
 import minid.utils;
 import minid.vector;
 
 import minid.interp:
 	getActRec,
-	getDebugLine,
-
-	getFunction,
-	getStringObj,
-	getValue,
-	push;
+	getDebugLine;
 
 debug import tango.io.Stdout;
 
