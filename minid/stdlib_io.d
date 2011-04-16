@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.iolib;
+module minid.stdlib_io;
 
 import Path = tango.io.Path;
 import tango.io.device.File;
@@ -36,10 +36,10 @@ import tango.time.Time;
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
-import minid.streamlib;
-import minid.timelib;
+import minid.stdlib_stream;
+import minid.stdlib_time;
+import minid.stdlib_vector;
 import minid.types;
-import minid.vector;
 
 struct IOLib
 {

@@ -5,7 +5,7 @@ import tango.io.Stdout;
 
 import minid.api;
 import minid.bind;
-import minid.vector;
+import minid.stdlib_vector;
 
 import minid.serialization;
 

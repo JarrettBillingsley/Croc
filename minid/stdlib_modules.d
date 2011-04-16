@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.moduleslib;
+module minid.stdlib_modules;
 
 import tango.io.device.File;
 import tango.io.FilePath;

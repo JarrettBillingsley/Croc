@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.oslib;
+module minid.stdlib_os;
 
 import tango.stdc.stdlib;
 import tango.stdc.stringz;

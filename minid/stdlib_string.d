@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.stringlib;
+module minid.stdlib_string;
 
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
@@ -35,9 +35,9 @@ import Utf = tango.text.convert.Utf;
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
+import minid.stdlib_vector;
 import minid.types;
 import minid.utils;
-import minid.vector;
 
 struct StringLib
 {

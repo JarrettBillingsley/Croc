@@ -48,19 +48,19 @@ debug
 import tango.core.Exception;
 import tango.stdc.stdlib;
 
-import minid.arraylib;
-import minid.baselib;
-import minid.charlib;
-import minid.debuglib;
-import minid.hashlib;
-import minid.iolib;
-import minid.mathlib;
-import minid.oslib;
-import minid.regexplib;
-import minid.streamlib;
-import minid.stringlib;
-import minid.threadlib;
-import minid.timelib;
+import minid.stdlib_array;
+import minid.stdlib_base;
+import minid.stdlib_char;
+import minid.stdlib_debug;
+import minid.stdlib_hash;
+import minid.stdlib_io;
+import minid.stdlib_math;
+import minid.stdlib_os;
+import minid.stdlib_regexp;
+import minid.stdlib_stream;
+import minid.stdlib_string;
+import minid.stdlib_thread;
+import minid.stdlib_time;
 
 // ================================================================================================================================================
 // Public

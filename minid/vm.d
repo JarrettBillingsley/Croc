@@ -35,9 +35,9 @@ import tango.text.Util;
 
 import minid.alloc;
 import minid.interpreter;
-import minid.moduleslib;
 import minid.namespace;
 import minid.stackmanip;
+import minid.stdlib_modules;
 import minid.string;
 import minid.thread;
 import minid.types;

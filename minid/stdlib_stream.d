@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.streamlib;
+module minid.stdlib_stream;
 
 import tango.core.Traits;
 import tango.io.Console;
@@ -36,8 +36,8 @@ import minid.ex;
 import minid.interpreter;
 import minid.misc;
 import minid.stackmanip;
+import minid.stdlib_vector;
 import minid.types;
-import minid.vector;
 import minid.vm;
 
 // TODO: abstract out common functionality between the three types of streams

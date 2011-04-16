@@ -39,7 +39,7 @@ import minid.interpreter;
 import minid.namespace;
 import minid.opcodes;
 import minid.stackmanip;
-import minid.streamlib;
+import minid.stdlib_stream;
 import minid.string;
 import minid.types;
 import minid.utils;

@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.baselib;
+module minid.stdlib_base;
 
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
@@ -43,11 +43,11 @@ import minid.interpreter;
 import minid.misc;
 import minid.namespace;
 import minid.stackmanip;
+import minid.stdlib_stringbuffer;
+import minid.stdlib_vector;
 import minid.string;
-import minid.stringbuffer;
 import minid.types;
 import minid.utils;
-import minid.vector;
 import minid.vm;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)

@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.regexplib;
+module minid.stdlib_regexp;
 
 import tango.text.Regex;
 import tango.text.Util;

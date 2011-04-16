@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.stringbuffer;
+module minid.stdlib_stringbuffer;
 
 import tango.stdc.string;
 import Utf = tango.text.convert.Utf;
@@ -33,9 +33,9 @@ import minid.ex;
 import minid.interpreter;
 import minid.misc;
 import minid.stackmanip;
+import minid.stdlib_vector;
 import minid.types;
 import minid.utils;
-import minid.vector;
 
 struct StringBufferObj
 {

@@ -24,7 +24,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.vector;
+module minid.stdlib_vector;
 
 import tango.core.Traits;
 import tango.math.Math;

@@ -23,14 +23,14 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.debuglib;
+module minid.stdlib_debug;
 
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
+import minid.stdlib_vector;
 import minid.types;
 import minid.utils;
-import minid.vector;
 
 import minid.interp:
 	getActRec,

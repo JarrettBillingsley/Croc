@@ -23,7 +23,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.charlib;
+module minid.stdlib_char;
 
 import minid.ex;
 import minid.interpreter;
