@@ -329,9 +329,9 @@ private:
 			case MDValue.Type.Thread:    serializeThread(v.mThread);       break;
 			case MDValue.Type.WeakRef:   serializeWeakRef(v.mWeakRef);     break;
 			case MDValue.Type.NativeObj: serializeNativeObj(v.mNativeObj); break;
+			case MDValue.Type.FuncDef:   serializeFuncDef(v.mFuncDef);     break;
 
 			case MDValue.Type.Upvalue:   serializeUpval(cast(MDUpval*)v.mBaseObj);         break;
-			case MDValue.Type.FuncDef:   serializeFuncDef(cast(MDFuncDef*)v.mBaseObj);     break;
 
 			default: assert(false);
 		}
@@ -959,7 +959,7 @@ private:
 
 	void integer(T)(ref T x)
 	{
-		x = cast(T)integer();	
+		x = cast(T)integer();
 	}
 
 	void deserializeValue()
@@ -980,6 +980,7 @@ private:
 			case MDValue.Type.Namespace: deserializeNamespaceImpl(); break;
 			case MDValue.Type.Thread:    deserializeThreadImpl();    break;
 			case MDValue.Type.WeakRef:   deserializeWeakrefImpl();   break;
+			case MDValue.Type.FuncDef:   deserializeFuncDefImpl();   break;
 			case MDValue.Type.Upvalue:   deserializeUpvalImpl();     break;
 
 			case Serializer.Backref:     push(t, MDValue(mObjTable[cast(uword)integer()])); break;
@@ -1169,7 +1170,7 @@ private:
 		func.name = getStringObj(t, -1);
 		pop(t);
 		deserializeFuncDef();
-		func.scriptFunc = cast(MDFuncDef*)getValue(t, -1).mBaseObj;
+		func.scriptFunc = getValue(t, -1).mFuncDef;
 		pop(t);
 
 		bool haveEnv;
@@ -1243,7 +1244,7 @@ private:
 		foreach(ref func; def.innerFuncs)
 		{
 			deserializeFuncDef();
-			func = cast(MDFuncDef*)getValue(t, -1).mBaseObj;
+			func = getValue(t, -1).mFuncDef;
 			pop(t);
 		}
 

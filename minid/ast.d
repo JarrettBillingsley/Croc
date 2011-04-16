@@ -475,8 +475,9 @@ class FuncDef : AstNode
 		Thread =    (1 << cast(uint)MDValue.Type.Thread),
 		NativeObj = (1 << cast(uint)MDValue.Type.NativeObj),
 		WeakRef =   (1 << cast(uint)MDValue.Type.WeakRef),
+		FuncDef =   (1 << cast(uint)MDValue.Type.FuncDef),
 
-		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Class | Instance | Namespace | Thread | NativeObj | WeakRef,
+		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Class | Instance | Namespace | Thread | NativeObj | WeakRef | FuncDef,
 		Any = Null | NotNull
 	}
 

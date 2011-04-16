@@ -121,6 +121,7 @@ static:
 		register(t, 1, "isThread", &isParam!(MDValue.Type.Thread));
 		register(t, 1, "isNativeObj", &isParam!(MDValue.Type.NativeObj));
 		register(t, 1, "isWeakRef", &isParam!(MDValue.Type.WeakRef));
+		register(t, 1, "isFuncDef", &isParam!(MDValue.Type.FuncDef));
 
 		register(t, 2, "attrs", &attrs);
 		register(t, 1, "hasAttributes", &hasAttributes);

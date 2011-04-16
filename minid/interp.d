@@ -2665,12 +2665,13 @@ word typeString(MDThread* t, MDValue* v)
 			MDValue.Type.Function,
 			MDValue.Type.Namespace,
 			MDValue.Type.Thread,
-			MDValue.Type.WeakRef:
-			
+			MDValue.Type.WeakRef,
+			MDValue.Type.FuncDef:
+
 			return pushString(t, MDValue.typeString(v.type));
 
 		case MDValue.Type.Class:
-			// LEAVE ME UP HERE PLZ, don't inline, thx.
+			// LEAVE ME UP HERE PLZ, don't inline, thx. (WHY, ME?!? WHY CAN'T I INLINE THIS FFFFF)
 			auto n = v.mClass.name.toString();
 			return pushFormat(t, "{} {}", MDValue.typeString(MDValue.Type.Class), n);
 

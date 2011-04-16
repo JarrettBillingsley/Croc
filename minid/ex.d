@@ -1222,7 +1222,7 @@ Checks that the parameter at the given index is of the given type.
 */
 public void checkParam(MDThread* t, word index, MDValue.Type type)
 {
-	assert(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef, "invalid type");
+	assert(type >= MDValue.Type.Null && type <= MDValue.Type.FuncDef, "invalid type");
 
 	checkAnyParam(t, index);
 

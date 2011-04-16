@@ -136,9 +136,9 @@ void free(MDVM* vm, GCObject* o)
 		case MDValue.Type.Thread:    thread.free(cast(MDThread*)o); return;
 		case MDValue.Type.NativeObj: nativeobj.free(vm, cast(MDNativeObj*)o); return;
 		case MDValue.Type.WeakRef:   weakref.free(vm, cast(MDWeakRef*)o); return;
+		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
 
 		case MDValue.Type.Upvalue:   vm.alloc.free(cast(MDUpval*)o); return;
-		case MDValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(MDFuncDef*)o); return;
 
 		default: debug Stdout.formatln("{}", (cast(MDBaseObject*)o).mType); assert(false);
 	}

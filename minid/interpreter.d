@@ -71,7 +71,7 @@ word getTypeMT(MDThread* t, MDValue.Type type)
 {
 	mixin(FuncNameMix);
 
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.FuncDef))
 		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
@@ -90,9 +90,9 @@ Params:
 */
 void setTypeMT(MDThread* t, MDValue.Type type)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
-	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.WeakRef))
+	if(!(type >= MDValue.Type.Null && type <= MDValue.Type.FuncDef))
 		throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '{}'", MDValue.typeString(type));
 
 	auto v = getValue(t, -1);
@@ -366,7 +366,7 @@ Params:
 */
 void insert(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
@@ -390,7 +390,7 @@ If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a n
 */
 void insertAndPop(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
@@ -558,7 +558,7 @@ void transferVals(MDThread* src, MDThread* dest, uword num)
 	if(num == 0 || dest is src)
 		return;
 
-	mixin(checkNumParams!("num", "src"));
+	mixin(apiCheckNumParams!("num", "src"));
 	checkStack(dest, dest.stackIndex + num);
 
 	dest.stack[dest.stackIndex .. dest.stackIndex + num] = src.stack[src.stackIndex - num .. src.stackIndex];
@@ -700,7 +700,7 @@ Returns:
 */
 word newArrayFromStack(MDThread* t, uword len)
 {
-	mixin(checkNumParams!("len"));
+	mixin(apiCheckNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
 	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
@@ -792,7 +792,7 @@ be passed to this function. See newFunction for more details.
 */
 word newFunctionWithEnv(MDThread* t, uint numParams, NativeFunc func, char[] name, uword numUpvals = 0)
 {
-	mixin(checkNumParams!("numUpvals + 1"));
+	mixin(apiCheckNumParams!("numUpvals + 1"));
 
 	auto env = getNamespace(t, -1);
 
@@ -849,7 +849,7 @@ Returns:
 */
 word newFunctionWithEnv(MDThread* t, word funcDef)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	funcDef = absIndex(t, funcDef);
 	auto def = getFuncDef(t, funcDef);
@@ -1676,7 +1676,7 @@ struct foreachLoop
 		if(numSlots < 1 || numSlots > 3)
 			throwException(t, "foreachLoop - numSlots may only be 1, 2, or 3, not {}", numSlots);
 
-		mixin(checkNumParams!("numSlots"));
+		mixin(apiCheckNumParams!("numSlots"));
 
 		// Make sure we have 3 stack slots for our temp data area
 		if(numSlots < 3)
@@ -1784,7 +1784,7 @@ This function obviously does not return.
 */
 void throwException(MDThread* t)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	throwImpl(t, &t.stack[t.stackIndex - 1]);
 }
 
@@ -1895,7 +1895,7 @@ void setUpval(MDThread* t, uword idx)
 	if(t.arIndex == 0)
 		throwException(t, __FUNCTION__ ~ " - No function to set upvalue (can't call this function at top level)");
 
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	auto upvals = t.currentAR.func.nativeUpvals();
 
@@ -1995,7 +1995,7 @@ Returns:
 */
 word getGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	auto v = getValue(t, -1);
 
@@ -2028,7 +2028,7 @@ Params:
 */
 void setGlobal(MDThread* t, char[] name)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	pushString(t, name);
 	swap(t);
 	setGlobal(t);
@@ -2040,7 +2040,7 @@ Pops both the name and the value.
 */
 void setGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("2"));
+	mixin(apiCheckNumParams!("2"));
 
 	auto n = getValue(t, -2);
 
@@ -2071,7 +2071,7 @@ Params:
 */
 void newGlobal(MDThread* t, char[] name)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	pushString(t, name);
 	swap(t);
 	newGlobal(t);
@@ -2083,7 +2083,7 @@ both the name and the value off the stack.
 */
 void newGlobal(MDThread* t)
 {
-	mixin(checkNumParams!("2"));
+	mixin(apiCheckNumParams!("2"));
 
 	auto n = getValue(t, -2);
 
@@ -2175,7 +2175,7 @@ Params:
 */
 void fillArray(MDThread* t, word arr)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto a = getArray(t, arr);
 
 	if(a is null)
@@ -2222,7 +2222,7 @@ Params:
 */
 void setFuncEnv(MDThread* t, word func)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	auto ns = getNamespace(t, -1);
 
@@ -2382,7 +2382,7 @@ Params:
 */
 void setFinalizer(MDThread* t, word cls)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	if(!isFunction(t, -1))
 	{
@@ -2488,7 +2488,7 @@ Params:
 */
 void setAllocator(MDThread* t, word cls)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	if(!isFunction(t, -1))
 	{
@@ -2625,7 +2625,7 @@ Params:
 */
 void setExtraVal(MDThread* t, word slot, uword idx)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	if(auto i = getInstance(t, slot))
 	{
@@ -2708,7 +2708,7 @@ Params:
 */
 void removeKey(MDThread* t, word obj)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	if(auto tab = getTable(t, obj))
 	{
@@ -2862,7 +2862,7 @@ void resetThread(MDThread* t, word slot, bool newFunction = false)
 
 	if(newFunction)
 	{
-		mixin(checkNumParams!("1"));
+		mixin(apiCheckNumParams!("1"));
 
 		auto f = getFunction(t, -1);
 
@@ -2931,7 +2931,7 @@ setGlobal(t, "x");
 	*/
 	uword yield(MDThread* t, uword numVals, word numReturns)
 	{
-		mixin(checkNumParams!("numVals"));
+		mixin(apiCheckNumParams!("numVals"));
 
 		if(t is t.vm.mainThread)
 			throwException(t, __FUNCTION__ ~ " - Attempting to yield out of the main thread");
@@ -3135,7 +3135,7 @@ Returns:
 */
 word idx(MDThread* t, word container)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto slot = t.stackIndex - 1;
 	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot]);
 	return stackSize(t) - 1;
@@ -3161,7 +3161,7 @@ Params:
 */
 void idxa(MDThread* t, word container)
 {
-	mixin(checkNumParams!("2"));
+	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t, 2);
@@ -3241,7 +3241,7 @@ Returns:
 */
 word field(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	if(!isString(t, -1))
 	{
@@ -3272,7 +3272,7 @@ Params:
 */
 void fielda(MDThread* t, word container, char[] name, bool raw = false)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto c = fakeToAbs(t, container);
 	pushString(t, name);
 	swap(t);
@@ -3290,7 +3290,7 @@ Params:
 */
 void fielda(MDThread* t, word container, bool raw = false)
 {
-	mixin(checkNumParams!("2"));
+	mixin(apiCheckNumParams!("2"));
 
 	if(!isString(t, -2))
 	{
@@ -3354,7 +3354,7 @@ Params:
 */
 void lena(MDThread* t, word slot)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto o = fakeToAbs(t, slot);
 	lenaImpl(t, &t.stack[o], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3370,7 +3370,7 @@ Params:
 */
 word slice(MDThread* t, word container)
 {
-	mixin(checkNumParams!("2"));
+	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
 	sliceImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t);
@@ -3387,7 +3387,7 @@ Params:
 */
 void slicea(MDThread* t, word container)
 {
-	mixin(checkNumParams!("3"));
+	mixin(apiCheckNumParams!("3"));
 	auto slot = t.stackIndex - 3;
 	sliceaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1], &t.stack[slot + 2]);
 	pop(t, 3);
@@ -3488,7 +3488,7 @@ Params:
 */
 void addeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.AddEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3497,7 +3497,7 @@ void addeq(MDThread* t, word o)
 /// ditto
 void subeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.SubEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3506,7 +3506,7 @@ void subeq(MDThread* t, word o)
 /// ditto
 void muleq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.MulEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3515,7 +3515,7 @@ void muleq(MDThread* t, word o)
 /// ditto
 void diveq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.DivEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3524,7 +3524,7 @@ void diveq(MDThread* t, word o)
 /// ditto
 void modeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinOpImpl(t, MM.ModEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3635,7 +3635,7 @@ Params:
 */
 void andeq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.AndEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3644,7 +3644,7 @@ void andeq(MDThread* t, word o)
 /// ditto
 void oreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.OrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3653,7 +3653,7 @@ void oreq(MDThread* t, word o)
 /// ditto
 void xoreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.XorEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3662,7 +3662,7 @@ void xoreq(MDThread* t, word o)
 /// ditto
 void shleq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShlEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3671,7 +3671,7 @@ void shleq(MDThread* t, word o)
 /// ditto
 void shreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.ShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3680,7 +3680,7 @@ void shreq(MDThread* t, word o)
 /// ditto
 void ushreq(MDThread* t, word o)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
 	reflBinaryBinOpImpl(t, MM.UShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
 	pop(t);
@@ -3714,7 +3714,7 @@ word cat(MDThread* t, uword num)
 	if(num == 0)
 		throwException(t, __FUNCTION__ ~ " - Cannot concatenate 0 things");
 
-	mixin(checkNumParams!("num"));
+	mixin(apiCheckNumParams!("num"));
 
 	auto slot = t.stackIndex - num;
 
@@ -3752,7 +3752,7 @@ void cateq(MDThread* t, word dest, uword num)
 	if(num == 0)
 		throwException(t, __FUNCTION__ ~ " - Cannot append 0 things");
 
-	mixin(checkNumParams!("num"));
+	mixin(apiCheckNumParams!("num"));
 	catEqImpl(t, &t.stack[fakeToAbs(t, dest)], t.stackIndex - num, num);
 	pop(t, num);
 }
@@ -3940,7 +3940,7 @@ The parameters and return value are the same as above.
 */
 uword methodCall(MDThread* t, word slot, word numReturns, bool customThis = false)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
@@ -4046,7 +4046,7 @@ The parameters and return value are the same as above.
 uword superCall(MDThread* t, word slot, word numReturns)
 {
 	// Get the method name
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 	auto absSlot = fakeToAbs(t, slot);
 
 	if(!isString(t, -1))
@@ -4226,7 +4226,7 @@ Params:
 */
 void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 {
-	mixin(checkNumParams!("1"));
+	mixin(apiCheckNumParams!("1"));
 
 	auto f = getFunction(t, -1);
 
@@ -4382,9 +4382,9 @@ debug
 }
 
 // I'd still really like macros though.
-template checkNumParams(char[] numParams, char[] t = "t")
+template apiCheckNumParams(char[] numParams, char[] t = "t")
 {
-	const char[] checkNumParams =
+	const char[] apiCheckNumParams =
 	"debug assert(" ~ t ~ ".stackIndex > " ~ t ~ ".stackBase, (printStack(" ~ t ~ "), printCallStack(" ~ t ~ "), \"fail.\"));" ~
 	FuncNameMix ~
 	"if((stackSize(" ~ t ~ ") - 1) < " ~ numParams ~ ")"

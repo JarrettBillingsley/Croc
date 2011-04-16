@@ -663,6 +663,7 @@ static:
 			case "thread":    getTypeMT(t, MDValue.Type.Thread);    break;
 			case "nativeobj": getTypeMT(t, MDValue.Type.NativeObj); break;
 			case "weakref":   getTypeMT(t, MDValue.Type.WeakRef);   break;
+			case "funcdef":   getTypeMT(t, MDValue.Type.FuncDef);   break;
 
 			default:
 				throwException(t, "invalid type '{}'", name);
@@ -699,6 +700,7 @@ static:
 			case "thread":    setTypeMT(t, MDValue.Type.Thread);    break;
 			case "nativeobj": setTypeMT(t, MDValue.Type.NativeObj); break;
 			case "weakref":   setTypeMT(t, MDValue.Type.WeakRef);   break;
+			case "funcdef":   setTypeMT(t, MDValue.Type.FuncDef);   break;
 
 			default:
 				throwException(t, "invalid type '{}'", name);
