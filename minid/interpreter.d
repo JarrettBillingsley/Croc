@@ -2214,11 +2214,11 @@ word getFuncEnv(MDThread* t, word func)
 }
 
 /**
-Sets the namespace at the top of the stack as the environment namespace of a function closure and pops
-that namespace off the stack.
+Sets the namespace at the top of the stack as the environment namespace of a native function closure and pops
+that namespace off the stack. Script function closures cannot have their environments changed.
 
 Params:
-	func = The stack index of the function whose environment is to be set.
+	func = The stack index of the native function whose environment is to be set.
 */
 void setFuncEnv(MDThread* t, word func)
 {
@@ -2240,8 +2240,8 @@ void setFuncEnv(MDThread* t, word func)
 		throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
 	}
 
-	if(!f.isNative && f.scriptFunc.cachedFunc !is null)
-		throwException(t, __FUNCTION__ ~ " - Cannot change the environment of function '{}' as it already has a cached closure", f.name.toString());
+	if(!f.isNative)
+		throwException(t, __FUNCTION__ ~ " - Cannot change the environment of a script function");
 
 	f.environment = ns;
 	pop(t);

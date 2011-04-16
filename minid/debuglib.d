@@ -576,6 +576,9 @@ static:
 
 		if(func is null)
 			throwException(t, "invalid function");
+			
+		if(!func.isNative)
+			throwException(t, "can only set the environment of native functions");
 
 		checkParam(t, arg + 2, MDValue.Type.Namespace);
 		pushNamespace(t, func.environment);

@@ -167,6 +167,9 @@ static:
 		if(!isFunction(t, 1) && !isFuncDef(t, 1))
 			paramTypeError(t, 1, "function|funcdef");
 
+		if(isFunction(t, 1) && !funcIsNative(t, 1))
+			throwException(t, "Function must be a native function");
+
 		auto name = checkStringParam(t, 2);
 
 		// Make the namespace
