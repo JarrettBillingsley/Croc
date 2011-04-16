@@ -41,7 +41,8 @@ import minid.semantic;
 import minid.string;
 import minid.types;
 
-import minid.interp;
+import minid.interp:
+	createString;
 
 /**
 This class encapsulates all the functionality needed for compiling MiniD code.
@@ -213,7 +214,7 @@ catch(MDException e)
 	public override char[] newString(char[] data)
 	{
 		auto s = createString(t, data);
-		pushStringObj(t, s);
+		push(t, MDValue(s));
 		pushBool(t, true);
 		idxa(t, mStringTab);
 		return s.toString();

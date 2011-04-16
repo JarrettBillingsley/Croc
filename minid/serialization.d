@@ -43,7 +43,17 @@ import minid.string;
 import minid.types;
 import minid.utils;
 
-import minid.interp;
+import minid.interp:
+	createString,
+
+	getClass,
+	getFunction,
+	getInstance,
+	getNamespace,
+	getStringObj,
+	getTable,
+	getValue,
+	push;
 
 void get(T)(InputStream i, ref T ret)
 {
@@ -297,7 +307,7 @@ private:
 	void serialize(MDValue v)
 	{
 		// check to see if it's an transient value
-		pushTable(t, mTrans);
+		push(t, MDValue(mTrans));
 		push(t, v);
 		idx(t, -2);
 
@@ -413,7 +423,7 @@ private:
 
 		if(v.isNative)
 		{
-			pushFunction(t, v);
+			push(t, MDValue(v));
 			throwException(t, "Attempting to persist a native function '{}'", funcName(t, -1));
 		}
 
@@ -562,7 +572,7 @@ private:
 		integer(v.extraBytes);
 		serialize(MDValue(v.parent));
 
-		pushInstance(t, v);
+		push(t, MDValue(v));
 
 		if(hasField(t, -1, "opSerialize"))
 		{
@@ -573,8 +583,8 @@ private:
 				put(mOutput, true);
 				pop(t);
 				pushNull(t);
-				pushInstance(t, mStream);
-				pushFunction(t, mSerializeFunc);
+				push(t, MDValue(mStream));
+				push(t, MDValue(mSerializeFunc));
 				methodCall(t, -4, "opSerialize", 0);
 				return;
 			}
@@ -986,7 +996,7 @@ private:
 			case Serializer.Backref:     push(t, MDValue(mObjTable[cast(uword)integer()])); break;
 
 			case Serializer.Transient:
-				pushTable(t, mTrans);
+				push(t, MDValue(mTrans));
 				deserializeValue();
 				idx(t, -2);
 				insertAndPop(t, -2);
@@ -1076,7 +1086,7 @@ private:
 		}
 		else if(tmp == Serializer.Transient)
 		{
-			pushTable(t, mTrans);
+			push(t, MDValue(mTrans));
 			deserializeValue();
 			idx(t, -2);
 			insertAndPop(t, -2);
@@ -1191,7 +1201,7 @@ private:
 			pop(t);
 		}
 
-		pushFunction(t, func);
+		push(t, MDValue(func));
 	}
 
 	void deserializeUpval()
@@ -1360,7 +1370,7 @@ private:
 
 		assert(!cls.parent || cls.fields.parent);
 
-		pushClass(t, cls);
+		push(t, MDValue(cls));
 	}
 
 	void deserializeInstance()
@@ -1394,7 +1404,7 @@ private:
 
 		if(isSpecial)
 		{
-			pushInstance(t, inst);
+			push(t, MDValue(inst));
 
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
@@ -1403,8 +1413,8 @@ private:
 			}
 
 			pushNull(t);
-			pushInstance(t, mStream);
-			pushFunction(t, mDeserializeFunc);
+			push(t, MDValue(mStream));
+			push(t, MDValue(mDeserializeFunc));
 			methodCall(t, -4, "opDeserialize", 0);
 		}
 		else
@@ -1422,7 +1432,7 @@ private:
 			}
 		}
 
-		pushInstance(t, inst);
+		push(t, MDValue(inst));
 	}
 
 	void deserializeNamespace()
@@ -1439,7 +1449,7 @@ private:
 		deserializeString();
 		ns.name = getStringObj(t, -1);
 		pop(t);
-		pushNamespace(t, ns);
+		push(t, MDValue(ns));
 
 		bool haveParent;
 		get(mInput, haveParent);
@@ -1675,7 +1685,7 @@ private:
 			*t.vm.weakRefTab.insert(t.vm.alloc, wr.obj) = wr;
 		}
 		
-		pushWeakRefObj(t, wr);
+		push(t, MDValue(wr));
 	}
 
 	void addObject(MDBaseObject* v)
@@ -1721,7 +1731,7 @@ Params:
 */
 word deserializeModule(MDThread* t, InputStream s)
 {
-	return pushFuncDef(t, deserializeAsModule(t, s));
+	return push(t, MDValue(deserializeAsModule(t, s)));
 }
 
 /**
@@ -1748,7 +1758,7 @@ Same as deserializeModule but does not expect for there to be a module header.
 */
 word deserializeFunction(MDThread* t, InputStream s)
 {
-	return pushFuncDef(t, deserialize(t, s));
+	return push(t, MDValue(deserialize(t, s)));
 }
 
 // ================================================================================================================================================

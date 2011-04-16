@@ -61,8 +61,6 @@ import minid.stringlib;
 import minid.threadlib;
 import minid.timelib;
 
-import minid.interp;
-
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -221,7 +219,7 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 
 	if(libs & MDStdlib.Char)
 		CharLib.init(t);
-		
+
 	if(libs & MDStdlib.Stream)
 		StreamLib.init(t);
 
@@ -245,7 +243,7 @@ public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 
 	if(libs & MDStdlib.Time)
 		TimeLib.init(t);
-		
+
 	if(libs & MDStdlib.Debug)
 		DebugLib.init(t);
 }
@@ -284,7 +282,7 @@ public void closeVM(MDVM* vm)
 
 		throw new Exception(Format("There are {} unfreed bytes!", vm.alloc.totalBytes));
 	}
-	
+
 	debug(LEAK_DETECTOR)
 		vm.alloc._memBlocks.clear(vm.alloc);
 

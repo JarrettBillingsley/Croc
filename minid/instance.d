@@ -45,6 +45,7 @@ static:
 		auto i = alloc.allocate!(MDInstance)(InstanceSize(numValues, extraBytes));
 
 		i.parent = parent;
+		i.parent.hasInstances = true;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;
 		i.extraValues()[] = MDValue.nullValue;

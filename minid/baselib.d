@@ -49,7 +49,12 @@ import minid.utils;
 import minid.vector;
 import minid.vm;
 
-import minid.interp;
+import minid.interp:
+	getClass,
+	getFunction,
+	getInstance,
+	getNamespace,
+	push;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
@@ -71,7 +76,7 @@ static:
 	public void init(MDThread* t)
 	{
 		// Object
-		pushClass(t, classobj.create(t.vm.alloc, createString(t, "Object"), null));
+		push(t, MDValue(classobj.create(t.vm.alloc, createString(t, "Object"), null)));
 		newGlobal(t, "Object");
 
 		// Vector
@@ -352,7 +357,7 @@ static:
 
 				// See if we've already seen this field
 				getUpval(t, 2);
-				pushStringObj(t, *key);
+				push(t, MDValue(*key));
 
 				if(opin(t, -1, -2))
 				{
@@ -375,15 +380,15 @@ static:
 			pushInt(t, index);
 			setUpval(t, 1);
 
-			pushStringObj(t, *key);
+			push(t, MDValue(*key));
 			push(t, *value);
 
 			if(c)
-				pushClass(t, c);
+				push(t, MDValue(c));
 			else if(i)
-				pushInstance(t, i);
+				push(t, MDValue(i));
 			else
-				pushNamespace(t, n);
+				push(t, MDValue(n));
 
 			return 3;
 		}

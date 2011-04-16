@@ -51,6 +51,8 @@ static:
 		}
 		else
 			c.fields = namespace.create(alloc, name);
+			
+		c.hasInstances = false;
 
 		return c;
 	}

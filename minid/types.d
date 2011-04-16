@@ -481,6 +481,7 @@ struct MDClass
 	package MDNamespace* fields;
 	package MDFunction* allocator;
 	package MDFunction* finalizer;
+	package bool hasInstances;
 }
 
 struct MDInstance

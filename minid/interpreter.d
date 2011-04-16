@@ -38,7 +38,6 @@ import minid.classobj;
 import minid.func;
 import minid.gc;
 import minid.instance;
-import minid.interp;
 import minid.namespace;
 import minid.nativeobj;
 import minid.string;
@@ -47,6 +46,65 @@ import minid.thread;
 import minid.types;
 import minid.utils;
 import minid.weakref;
+
+import minid.interp:
+	// Function call related stuff
+	callPrologue,
+	commonCall,
+	commonMethodCall,
+
+	// Basic operation implementations
+	asImpl,
+	binaryBinOpImpl,
+	binOpImpl,
+	catEqImpl,
+	catImpl,
+	comImpl,
+	commonField,
+	commonFielda,
+	compareImpl,
+	decImpl,
+	equalsImpl,
+	idxaImpl,
+	idxImpl,
+	incImpl,
+	inImpl,
+	lenaImpl,
+	lenImpl,
+	negImpl,
+	reflBinaryBinOpImpl,
+	reflBinOpImpl,
+	sliceaImpl,
+	sliceImpl,
+	superOfImpl,
+	throwImpl,
+	toStringImpl,
+
+	// Stack manip
+	checkStack,
+	fakeToAbs,
+	fakeToRel,
+	getArray,
+	getClass,
+	getEnv,
+	getFuncDef,
+	getFunction,
+	getInstance,
+	getMM,
+	getNamespace,
+	getStringObj,
+	getTable,
+	getValue,
+	push,
+
+	// Other random crap
+	createString,
+	lookupGlobal,
+	lookupMethod,
+	pushDebugLocStr,
+	pushNamespaceNamestring,
+	runFinalizers,
+	typeString;
 
 // ================================================================================================================================================
 // Public
@@ -75,7 +133,7 @@ word getTypeMT(MDThread* t, MDValue.Type type)
 		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", MDValue.typeString(type));
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
-		return pushNamespace(t, ns);
+		return push(t, MDValue(ns));
 	else
 		return pushNull(t);
 }
@@ -119,7 +177,7 @@ Returns:
 */
 word getRegistry(MDThread* t)
 {
-	return pushNamespace(t, t.vm.registry);
+	return push(t, MDValue(t.vm.registry));
 }
 
 /**
@@ -607,7 +665,7 @@ word pushChar(MDThread* t, dchar v)
 /// ditto
 word pushString(MDThread* t, char[] v)
 {
-	return pushStringObj(t, createString(t, v));
+	return push(t, MDValue(createString(t, v)));
 }
 
 /**
@@ -669,7 +727,7 @@ Returns:
 word newTable(MDThread* t, uword size = 0)
 {
 	maybeGC(t);
-	return pushTable(t, table.create(t.vm.alloc, size));
+	return push(t, MDValue(table.create(t.vm.alloc, size)));
 }
 
 /**
@@ -684,7 +742,7 @@ Returns:
 word newArray(MDThread* t, uword len)
 {
 	maybeGC(t);
-	return pushArray(t, array.create(t.vm.alloc, len));
+	return push(t, MDValue(array.create(t.vm.alloc, len)));
 }
 
 /**
@@ -705,7 +763,7 @@ word newArrayFromStack(MDThread* t, uword len)
 	auto a = array.create(t.vm.alloc, len);
 	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
 	pop(t, len);
-	return pushArray(t, a);
+	return push(t, MDValue(a));
 }
 
 /**
@@ -808,7 +866,7 @@ word newFunctionWithEnv(MDThread* t, uint numParams, NativeFunc func, char[] nam
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
-	return pushFunction(t, f);
+	return push(t, MDValue(f));
 }
 
 /**
@@ -881,7 +939,7 @@ word newFunctionWithEnv(MDThread* t, word funcDef)
 	}
 
 	pop(t);
-	return pushFunction(t, ret);
+	return push(t, MDValue(ret));
 }
 
 /**
@@ -928,7 +986,7 @@ word newClass(MDThread* t, word base, char[] name)
 	}
 
 	maybeGC(t);
-	return pushClass(t, classobj.create(t.vm.alloc, createString(t, name), b));
+	return push(t, MDValue(classobj.create(t.vm.alloc, createString(t, name), b)));
 }
 
 /**
@@ -950,7 +1008,7 @@ word newClass(MDThread* t, char[] name)
 
 	pop(t);
 	maybeGC(t);
-	return pushClass(t, classobj.create(t.vm.alloc, createString(t, name), b));
+	return push(t, MDValue(classobj.create(t.vm.alloc, createString(t, name), b)));
 }
 
 /**
@@ -1009,7 +1067,7 @@ word newInstance(MDThread* t, word base, uword numValues = 0, uword extraBytes =
 	}
 
 	maybeGC(t);
-	return pushInstance(t, instance.create(t.vm.alloc, b, numValues, extraBytes));
+	return push(t, MDValue(instance.create(t.vm.alloc, b, numValues, extraBytes)));
 }
 
 /**
@@ -1078,7 +1136,7 @@ Returns:
 word newNamespaceNoParent(MDThread* t, char[] name)
 {
 	maybeGC(t);
-	return pushNamespace(t, namespace.create(t.vm.alloc, createString(t, name), null));
+	return push(t, MDValue(namespace.create(t.vm.alloc, createString(t, name), null)));
 }
 
 /**
@@ -1174,7 +1232,7 @@ word pushWeakRef(MDThread* t, word idx)
 			return dup(t, idx);
 
 		default:
-			return pushWeakRefObj(t, weakref.create(t.vm, getValue(t, idx).mBaseObj));
+			return push(t, MDValue(weakref.create(t.vm, getValue(t, idx).mBaseObj)));
 	}
 }
 
@@ -1702,7 +1760,7 @@ struct foreachLoop
 				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Apply], getString(t, -1));
 			}
 
-			pushFunction(t, method);
+			push(t, MDValue(method));
 			insert(t, -4);
 			pop(t);
 			auto reg = absIndex(t, -3);
@@ -1964,7 +2022,7 @@ Returns:
 */
 word pushEnvironment(MDThread* t, uword depth = 0)
 {
-	return pushNamespace(t, getEnv(t, depth));
+	return push(t, MDValue(getEnv(t, depth)));
 }
 
 /**
@@ -2125,15 +2183,15 @@ bool findGlobal(MDThread* t, char[] name, uword depth = 0)
 
 	if(namespace.get(ns, n) !is null)
 	{
-		pushNamespace(t, ns);
+		push(t, MDValue(ns));
 		return true;
 	}
-	
+
 	for(; ns.parent !is null; ns = ns.parent) {}
 
 	if(namespace.get(ns, n) !is null)
 	{
-		pushNamespace(t, ns);
+		push(t, MDValue(ns));
 		return true;
 	}
 
@@ -2205,7 +2263,7 @@ word getFuncEnv(MDThread* t, word func)
 	mixin(FuncNameMix);
 
 	if(auto f = getFunction(t, func))
-		return pushNamespace(t, f.environment);
+		return push(t, MDValue(f.environment));
 
 	pushTypeString(t, func);
 	throwException(t, __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
@@ -2265,7 +2323,7 @@ void funcDef(MDThread* t, word func)
 		if(f.isNative)
 			return pushNull(t);
 		else
-			return pushFuncDef(t, f.scriptFunc);
+			return push(t, MDValue(f.scriptFunc));
 	}
 
 	pushTypeString(t, func);
@@ -2398,8 +2456,8 @@ void setFinalizer(MDThread* t, word cls)
 		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.finalizer !is null)
-		throwException(t, __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which already has one", className(t, cls));
+	if(c.hasInstances)
+		throwException(t, __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which has been instantiated", className(t, cls));
 
 	c.finalizer = getFunction(t, -1);
 	pop(t);
@@ -2422,7 +2480,7 @@ word getFinalizer(MDThread* t, word cls)
 	if(auto c = getClass(t, cls))
 	{
 		if(c.finalizer)
-			return pushFunction(t, c.finalizer);
+			return push(t, MDValue(c.finalizer));
 		else
 			return pushNull(t);
 	}
@@ -2504,8 +2562,8 @@ void setAllocator(MDThread* t, word cls)
 		throwException(t, __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.allocator !is null)
-		throwException(t, __FUNCTION__ ~ " - Attempting to change the allocator of class {} which already has one", className(t, cls));
+	if(c.hasInstances)
+		throwException(t, __FUNCTION__ ~ " - Attempting to change the allocator of class {} which has been instantiated", className(t, cls));
 
 	c.allocator = getFunction(t, -1);
 	pop(t);
@@ -2528,7 +2586,7 @@ word getAllocator(MDThread* t, word cls)
 	if(auto c = getClass(t, cls))
 	{
 		if(c.allocator)
-			return pushFunction(t, c.allocator);
+			return push(t, MDValue(c.allocator));
 		else
 			return pushNull(t);
 	}
@@ -2712,7 +2770,7 @@ void removeKey(MDThread* t, word obj)
 
 	if(auto tab = getTable(t, obj))
 	{
-		pushTable(t, tab);
+		push(t, MDValue(tab));
 		dup(t, -2);
 		pushNull(t);
 		idxa(t, -3);
@@ -4103,9 +4161,9 @@ word fieldsOf(MDThread* t, word obj)
 	mixin(FuncNameMix);
 
 	if(auto c = getClass(t, obj))
-		return pushNamespace(t, classobj.fieldsOf(c));
+		return push(t, MDValue(classobj.fieldsOf(c)));
 	else if(auto i = getInstance(t, obj))
-		return pushNamespace(t, instance.fieldsOf(t.vm.alloc, i));
+		return push(t, MDValue(instance.fieldsOf(t.vm.alloc, i)));
 
 	pushTypeString(t, obj);
 	throwException(t, __FUNCTION__ ~ " - Expected 'class' or 'instance', not '{}'", getString(t, -1));
@@ -4273,7 +4331,7 @@ word getHookFunc(MDThread* t)
 	if(t.hookFunc is null)
 		return pushNull(t);
 	else
-		return pushFunction(t, t.hookFunc);
+		return push(t, MDValue(t.hookFunc));
 }
 
 /**

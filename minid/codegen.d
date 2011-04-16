@@ -48,7 +48,10 @@ import minid.string;
 import minid.types;
 import minid.utils;
 
-import minid.interp;
+import minid.interp:
+	createString,
+
+	push;
 
 private Op AstTagToOpcode(AstTag tag)
 {
@@ -1736,7 +1739,7 @@ final class FuncState
 		}
 
 		auto ret = funcdef.create(*c.alloc);
-		pushFuncDef(t, ret);
+		push(t, MDValue(ret));
 
 		ret.location.file = createString(t, mLocation.file);
 		ret.location.line = mLocation.line;
@@ -1877,7 +1880,7 @@ scope class Codegen : Visitor
 		}
 
 		auto def = fs_.toFuncDef();
-		pushFuncDef(c.thread, def);
+		push(c.thread, MDValue(def));
 		insertAndPop(c.thread, -2);
 	}
 
@@ -1918,7 +1921,7 @@ scope class Codegen : Visitor
 		}
 
 		auto def = fs_.toFuncDef();
-		pushFuncDef(c.thread, def);
+		push(c.thread, MDValue(def));
 		insertAndPop(c.thread, -2);
 
 		return m;

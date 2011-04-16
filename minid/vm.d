@@ -41,7 +41,9 @@ import minid.interpreter;
 import minid.thread;
 import minid.types;
 
-import minid.interp;
+import minid.interp:
+	createString,
+	freeAll;
 
 // ================================================================================================================================================
 // Public
@@ -91,7 +93,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 
 	foreach(i, str; MetaNames)
 		vm.metaStrings[i] = createString(t, str);
-		
+
 	vm.ctorString = createString(t, "constructor");
 	vm.metaStrings[$ - 1] = vm.ctorString;
 
@@ -101,7 +103,7 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.formatter = new CustomLayout();
 
 	// _G = _G._G = _G._G._G = _G._G._G._G = ...
-	pushNamespace(t, vm.globals);
+	push(t, MDValue(vm.globals));
 	newGlobal(t, "_G");
 
 	// Set up the modules module.  This has to be done before any other modules

@@ -38,7 +38,9 @@ import minid.types;
 import minid.utils;
 import minid.vector;
 
-import minid.interp;
+import minid.interp:
+	getArray,
+	getStringObj;
 
 struct StringLib
 {

@@ -12,6 +12,14 @@ import minid.classobj;
 import minid.func;
 import minid.gc;
 import minid.instance;
+import minid.namespace;
+import minid.opcodes;
+import minid.string;
+import minid.table;
+import minid.thread;
+import minid.types;
+import minid.utils;
+
 import minid.interpreter:
 	maybeGC,
 
@@ -29,37 +37,15 @@ import minid.interpreter:
 	stackSize,
 
 	catchException,
-	throwException,
-	
-	printStack;
-import minid.namespace;
-import minid.opcodes;
-import minid.string;
-import minid.table;
-import minid.thread;
-import minid.types;
-import minid.utils;
+	throwException;
+
+// 	printStack;
 
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================
 
 package:
-
-void checkStack(MDThread* t, AbsStack idx)
-{
-	if(idx >= t.stack.length)
-	{
-		uword size = idx * 2;
-		auto oldBase = t.stack.ptr;
-		t.vm.alloc.resizeArray(t.stack, size);
-		auto newBase = t.stack.ptr;
-
-		if(newBase !is oldBase)
-			for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
-				uv.value = (uv.value - oldBase) + newBase;
-	}
-}
 
 MDString* createString(MDThread* t, char[] data)
 {
@@ -116,49 +102,36 @@ void freeAll(MDThread* t)
 	}
 }
 
-word pushStringObj(MDThread* t, MDString* o)
+// ================================================================================================================================================
+// Stack manip
+
+void checkStack(MDThread* t, AbsStack idx)
 {
-	return push(t, MDValue(o));
+	if(idx >= t.stack.length)
+	{
+		uword size = idx * 2;
+		auto oldBase = t.stack.ptr;
+		t.vm.alloc.resizeArray(t.stack, size);
+		auto newBase = t.stack.ptr;
+
+		if(newBase !is oldBase)
+			for(auto uv = t.upvalHead; uv !is null; uv = uv.nextuv)
+				uv.value = (uv.value - oldBase) + newBase;
+	}
 }
 
-word pushTable(MDThread* t, MDTable* o)
+word push(MDThread* t, MDValue val)
 {
-	return push(t, MDValue(o));
+	checkStack(t, t.stackIndex);
+	t.stack[t.stackIndex] = val;
+	t.stackIndex++;
+
+	return cast(word)(t.stackIndex - 1 - t.stackBase);
 }
 
-word pushArray(MDThread* t, MDArray* o)
+MDValue* getValue(MDThread* t, word slot)
 {
-	return push(t, MDValue(o));
-}
-
-word pushFunction(MDThread* t, MDFunction* o)
-{
-	return push(t, MDValue(o));
-}
-
-word pushClass(MDThread* t, MDClass* o)
-{
-	return push(t, MDValue(o));
-}
-
-word pushInstance(MDThread* t, MDInstance* o)
-{
-	return push(t, MDValue(o));
-}
-
-word pushNamespace(MDThread* t, MDNamespace* o)
-{
-	return push(t, MDValue(o));
-}
-
-word pushWeakRefObj(MDThread* t, MDWeakRef* o)
-{
-	return push(t, MDValue(o));
-}
-
-word pushFuncDef(MDThread* t, MDFuncDef* o)
-{
-	return push(t, MDValue(o));
+	return &t.stack[fakeToAbs(t, slot)];
 }
 
 MDString* getStringObj(MDThread* t, word slot)
@@ -261,19 +234,8 @@ MDFuncDef* getFuncDef(MDThread* t, word slot)
 		return null;
 }
 
-word push(MDThread* t, MDValue val)
-{
-	checkStack(t, t.stackIndex);
-	t.stack[t.stackIndex] = val;
-	t.stackIndex++;
-
-	return cast(word)(t.stackIndex - 1 - t.stackBase);
-}
-
-MDValue* getValue(MDThread* t, word slot)
-{
-	return &t.stack[fakeToAbs(t, slot)];
-}
+// ================================================================================================================================================
+// Debug info
 
 // don't call this if t.calldepth == 0 or with depth >= t.calldepth
 // returns null if the given index is a tailcall
@@ -354,8 +316,8 @@ void runFinalizers(MDThread* t)
 
 				try
 				{
-					pushFunction(t, i.parent.finalizer);
-					pushInstance(t, i);
+					push(t, MDValue(i.parent.finalizer));
+					push(t, MDValue(i));
 					commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, null));
 				}
 				catch(MDException e)
@@ -617,7 +579,7 @@ template tryMMImpl(int numParams, bool hasDest)
 	"\n"
 	~ tryMMSaves!(numParams) ~
 	"\n"
-	"	auto funcSlot = pushFunction(t, method);\n"
+	"	auto funcSlot = push(t, MDValue(method));\n"
 	~ tryMMPushes!(numParams) ~
 	"	commonCall(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", callPrologue(t, funcSlot + t.stackBase, " ~ (hasDest ? "1" : "0") ~ ", " ~ numParams.stringof ~ ", proto));\n"
 	~
@@ -1077,7 +1039,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 				MDClass* proto;
 				if(auto method = getMM(t, &v, MM.ToString, proto))
 				{
-					auto funcSlot = pushFunction(t, method);
+					auto funcSlot = push(t, MDValue(method));
 					push(t, v);
 					commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1, proto));
 
@@ -1180,7 +1142,7 @@ bool inImpl(MDThread* t, MDValue* item, MDValue* container)
 			auto containersave = *container;
 			auto itemsave = *item;
 
-			auto funcSlot = pushFunction(t, method);
+			auto funcSlot = push(t, MDValue(method));
 			push(t, containersave);
 			push(t, itemsave);
 			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
@@ -1494,7 +1456,7 @@ mdint commonCompare(MDThread* t, MDFunction* method, MDValue* a, MDValue* b, MDC
 	auto asave = *a;
 	auto bsave = *b;
 
-	auto funcReg = pushFunction(t, method);
+	auto funcReg = push(t, MDValue(method));
 	push(t, asave);
 	push(t, bsave);
 	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2, proto));
@@ -1594,7 +1556,7 @@ bool commonEquals(MDThread* t, MDFunction* method, MDValue* a, MDValue* b, MDCla
 	auto asave = *a;
 	auto bsave = *b;
 
-	auto funcReg = pushFunction(t, method);
+	auto funcReg = push(t, MDValue(method));
 	push(t, asave);
 	push(t, bsave);
 	commonCall(t, funcReg + t.stackBase, 1, callPrologue(t, funcReg + t.stackBase, 1, 2, proto));
@@ -1873,7 +1835,7 @@ void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValu
 	auto RSsave = *RS;
 	auto RTsave = *RT;
 
-	auto funcSlot = pushFunction(t, method);
+	auto funcSlot = push(t, MDValue(method));
 
 	if(swap)
 	{
@@ -2202,7 +2164,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				auto src1save = stack[slot];
 				auto src2save = stack[slot + 1];
 
-				auto funcSlot = pushFunction(t, method);
+				auto funcSlot = push(t, MDValue(method));
 
 				if(swap)
 				{
@@ -2253,7 +2215,7 @@ void catImpl(MDThread* t, MDValue* dest, AbsStack firstSlot, uword num)
 				auto objsave = stack[slot + 1];
 				auto valsave = stack[slot];
 
-				auto funcSlot = pushFunction(t, method);
+				auto funcSlot = push(t, MDValue(method));
 				push(t, objsave);
 				push(t, valsave);
 				commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
@@ -2630,7 +2592,7 @@ word pushNamespaceNamestring(MDThread* t, MDNamespace* ns)
 			}
 		}
 
-		pushStringObj(t, ns.name);
+		push(t, MDValue(ns.name));
 		return n + 1;
 	}
 
@@ -2719,7 +2681,7 @@ version(MDExtendedCoro)
 		{
 			assert(t.state == MDThread.State.Initial);
 
-			pushFunction(t, t.coroFunc);
+			push(t, MDValue(t.coroFunc));
 			insert(t, 1);
 
 			if(callPrologue(t, cast(AbsStack)1, -1, numParams, null))
@@ -2784,7 +2746,7 @@ uword resume(MDThread* t, uword numParams)
 		{
 			if(t.state == MDThread.State.Initial)
 			{
-				pushFunction(t, t.coroFunc);
+				push(t, MDValue(t.coroFunc));
 				insert(t, 1);
 				auto result = callPrologue(t, cast(AbsStack)1, -1, numParams, null);
 				assert(result == true, "resume callPrologue must return true");
@@ -2904,7 +2866,7 @@ Location getDebugLoc(MDThread* t)
 		else
 			pushChar(t, '.');
 
-		pushStringObj(t, t.currentAR.func.name);
+		push(t, MDValue(t.currentAR.func.name));
 
 		auto slot = t.stackIndex - 3;
 		catImpl(t, &t.stack[slot], slot, 3);
@@ -2924,7 +2886,7 @@ void pushDebugLocStr(MDThread* t, Location loc)
 		pushString(t, "<no location available>");
 	else
 	{
-		pushStringObj(t, loc.file);
+		push(t, MDValue(loc.file));
 
 		if(loc.col == Location.Type.Native)
 		{
@@ -2959,8 +2921,8 @@ void callHook(MDThread* t, MDThread.Hook hook)
 	auto savedTop = t.stackIndex;
 	t.hooksEnabled = false;
 
-	auto slot = pushFunction(t, t.hookFunc);
-	pushThread(t, t);
+	auto slot = push(t, MDValue(t.hookFunc));
+	push(t, MDValue(t));
 
 	switch(hook)
 	{
@@ -3976,7 +3938,7 @@ void execute(MDThread* t, uword depth = 1)
 					else if(RT.type != MDValue.Type.Namespace)
 					{
 						typeString(t, &RT);
-						pushStringObj(t, name);
+						push(t, MDValue(name));
 						throwException(t, "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else

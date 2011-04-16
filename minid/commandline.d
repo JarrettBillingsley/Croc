@@ -325,13 +325,40 @@ struct CLI(Input)
 		{
 			newArray(t, 0);
 			fielda(t, -3);
-			pop(t);
 		}
 		else
-			pop(t, 2);
+			pop(t);
+
+		// Check that the minid.commandline.ExitObj class exists
+		pushString(t, "minid.commandline.ExitObj");
+
+		if(!opin(t, -1, -2))
+		{
+			// class ExitObj { function toString() = ... }
+			newClass(t, "ExitObj");
+
+			newFunction(t, 0, function uword(MDThread* t)
+			{
+				pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
+				return 1;
+			}, "toString");
+
+			fielda(t, -2, "toString");
+
+			dup(t, -2);
+			dup(t, -2);
+			fielda(t, -5);
+			insertAndPop(t, -3);
+		}
+		else
+		{
+			field(t, -2);
+			insertAndPop(t, -2);
+		}
 
 		// Set up the exit object
-		newTable(t);
+		pushNull(t);
+		rawCall(t, -2, 1);
 
 			pushNativeObj(t, new Goober(this));
 		newFunction(t, 0, function uword(MDThread* t)
@@ -343,14 +370,6 @@ struct CLI(Input)
 		}, "exit", 1);
 
 		fielda(t, -2, "opCall");
-
-		newFunction(t, 0, function uword(MDThread* t)
-		{
-			pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
-			return 1;
-		}, "toString");
-
-		fielda(t, -2, "toString");
 
 		// Is there already an 'exit'?
 		if(findGlobal(t, "exit"))
@@ -480,6 +499,8 @@ struct CLI(Input)
 
 			try
 			{
+				newFunction(t, reg);
+				insertAndPop(t, -2);
 				pushNull(t);
 				rawCall(t, reg, 0);
 			}
@@ -522,6 +543,9 @@ struct CLI(Input)
 
 			try
 			{
+				newFunction(t, reg);
+				insertAndPop(t, -2);
+
 				pushNull(t);
 				auto numRets = rawCall(t, reg, -1);
 
@@ -591,7 +615,7 @@ struct CLI(Input)
 			try
 			{
 				auto line = mInput.readln(t, mPrompt);
-	
+
 				if(line.ptr is null)
 				{
 					if(didHalt)
@@ -602,17 +626,17 @@ struct CLI(Input)
 					else
 						break;
 				}
-				
+
 				// Look for Ctrl+D
 				if(line.contains('\4'))
 					break;
-	
+
 				if(buffer.length is 0 && line.trim().length is 0)
 				{
 					mPrompt = Prompt1;
 					continue;
 				}
-	
+
 				if(buffer.length == 0)
 					buffer ~= line;
 				else

@@ -34,7 +34,10 @@ import minid.ex;
 import minid.interpreter;
 import minid.types;
 
-import minid.interp;
+import minid.interp:
+	getArray,
+	getValue,
+	push;
 
 struct ArrayLib
 {
@@ -856,7 +859,7 @@ static:
 			foreach(ref val; getArray(t, a).toArray())
 			{
 				if(val.type == MDValue.Type.Array)
-					flatten(pushArray(t, val.mArray));
+					flatten(push(t, MDValue(val.mArray)));
 				else
 				{
 					push(t, val);

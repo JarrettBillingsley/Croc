@@ -31,7 +31,11 @@ import minid.namespace;
 import minid.table;
 import minid.types;
 
-import minid.interp;
+import minid.interp:
+	getArray,
+	getNamespace,
+	getTable,
+	push;
 
 struct HashLib
 {
@@ -221,7 +225,7 @@ static:
 
 			if(ns.data.next(idx, s, v))
 			{
-				pushStringObj(t, *s);
+				push(t, MDValue(*s));
 				push(t, *v);
 			}
 			else
@@ -286,7 +290,7 @@ static:
 
 			foreach(ref k, ref _; ns.data)
 			{
-				pushStringObj(t, k);
+				push(t, MDValue(k));
 				idxai(t, -2, idx++);
 			}
 		}
@@ -356,7 +360,7 @@ static:
 		{
 			pushInt(t, idx);
 			setUpval(t, 1);
-			pushStringObj(t, *k);
+			push(t, MDValue(*k));
 			push(t, *v);
 			return 2;
 		}

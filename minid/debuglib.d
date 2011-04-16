@@ -31,7 +31,14 @@ import minid.types;
 import minid.utils;
 import minid.vector;
 
-import minid.interp;
+import minid.interp:
+	getActRec,
+	getDebugLine,
+
+	getFunction,
+	getStringObj,
+	getValue,
+	push;
 
 debug import tango.io.Stdout;
 
@@ -207,7 +214,7 @@ static:
 		if(func is null || func.isNative)
 			pushString(t, "");
 		else
-			pushStringObj(t, func.scriptFunc.location.file);
+			push(t, MDValue(func.scriptFunc.location.file));
 
 		return 1;
 	}
@@ -236,7 +243,7 @@ static:
 		if(func is null)
 			pushNull(t);
 		else
-			pushFunction(t, func);
+			push(t, MDValue(func));
 
 		return 1;
 	}
@@ -283,7 +290,7 @@ static:
 			{
 				if(idx == 0)
 				{
-					pushStringObj(t, var.name);
+					push(t, MDValue(var.name));
 					break;
 				}
 
@@ -441,7 +448,7 @@ static:
 		if(func.isNative)
 			pushString(t, "");
 		else
-			pushStringObj(t, func.scriptFunc.upvalNames[cast(uword)idx]);
+			push(t, MDValue(func.scriptFunc.upvalNames[cast(uword)idx]));
 
 		return 1;
 	}
@@ -564,7 +571,7 @@ static:
 		if(func is null)
 			throwException(t, "invalid function");
 
-		pushNamespace(t, func.environment);
+		push(t, MDValue(func.environment));
 		return 1;
 	}
 
@@ -581,8 +588,8 @@ static:
 			throwException(t, "can only set the environment of native functions");
 
 		checkParam(t, arg + 2, MDValue.Type.Namespace);
-		pushNamespace(t, func.environment);
-		pushFunction(t, func);
+		push(t, MDValue(func.environment));
+		push(t, MDValue(func));
 		dup(t, arg + 2);
 		.setFuncEnv(t, -2);
 		pop(t);
