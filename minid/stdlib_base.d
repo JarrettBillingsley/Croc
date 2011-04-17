@@ -37,8 +37,9 @@ import Utf = tango.text.convert.Utf;
 import minid.alloc;
 import minid.compiler;
 import minid.ex;
+import minid.ex_format;
+import minid.ex_json;
 import minid.interpreter;
-import minid.misc;
 import minid.stackmanip;
 import minid.stdlib_stringbuffer;
 import minid.stdlib_vector;
@@ -976,7 +977,7 @@ static:
 
 	uword loadJSON(MDThread* t)
 	{
-		JSON.load(t, checkStringParam(t, 1));
+		.loadJSON(t, checkStringParam(t, 1));
 		return 1;
 	}
 
@@ -1026,7 +1027,7 @@ static:
 		scope buf = new Array(256, 256);
 		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
 
-		JSON.save(t, 1, pretty, printer);
+		.toJSON(t, 1, pretty, printer);
 
 		pushString(t, safeCode(t, cast(char[])buf.slice()));
 		return 1;

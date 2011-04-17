@@ -30,8 +30,8 @@ import tango.stdc.string;
 import Utf = tango.text.convert.Utf;
 
 import minid.ex;
+import minid.ex_format;
 import minid.interpreter;
-import minid.misc;
 import minid.stackmanip;
 import minid.stdlib_vector;
 import minid.types;

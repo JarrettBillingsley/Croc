@@ -33,8 +33,9 @@ import tango.io.stream.Lines;
 import tango.math.Math;
 
 import minid.ex;
+import minid.ex_format;
+import minid.ex_json;
 import minid.interpreter;
-import minid.misc;
 import minid.stackmanip;
 import minid.stdlib_vector;
 import minid.types;
@@ -810,7 +811,7 @@ static:
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
-		JSON.save(t, 1, pretty, memb.print);
+		.toJSON(t, 1, pretty, memb.print);
 		dup(t, 0);
 		return 1;
 	}
@@ -1517,7 +1518,7 @@ static:
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
 		auto pretty = optBoolParam(t, 2, false);
-		JSON.save(t, 1, pretty, memb.print);
+		.toJSON(t, 1, pretty, memb.print);
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
