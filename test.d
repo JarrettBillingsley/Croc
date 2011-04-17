@@ -4,10 +4,6 @@ import tango.core.tools.TraceExceptions;
 import tango.io.Stdout;
 
 import minid.api;
-import minid.ex_bind;
-import minid.stdlib_vector;
-
-import minid.serialization;
 
 // import minid.addons.pcre;
 // import minid.addons.sdl;
@@ -34,8 +30,6 @@ void main()
 // 		SdlLib.init(t);
 // 		GlLib.init(t);
 // 		NetLib.init(t);
-
-		SerializationLib.init(t);
 
 		importModule(t, "samples.simple");
 		pushNull(t);

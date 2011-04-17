@@ -29,13 +29,14 @@ module minid.stackmanip;
 
 import tango.stdc.string;
 
+import minid.api_checks;
+import minid.api_debug;
+// 	printStack,
+// 	printCallStack;
 import minid.types;
-import minid.interpreter:
-	apiCheckNumParams,
-	throwException,
-	pushNull,
-	printStack,
-	printCallStack;
+import minid.interpreter;
+// 	throwException,
+// 	pushNull;
 import minid.utils;
 
 // ================================================================================================================================================

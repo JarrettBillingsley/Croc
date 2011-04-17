@@ -1,11 +1,36 @@
+/******************************************************************************
+WIP
+
+License:
+Copyright (c) 2011 Jarrett Billingsley
+
+This software is provided 'as-is', without any express or implied warranty.
+In no event will the authors be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter it and redistribute it freely,
+subject to the following restrictions:
+
+    1. The origin of this software must not be misrepresented; you must not
+	claim that you wrote the original software. If you use this software in a
+	product, an acknowledgment in the product documentation would be
+	appreciated but is not required.
+
+    2. Altered source versions must be plainly marked as such, and must not
+	be misrepresented as being the original software.
+
+    3. This notice may not be removed or altered from any source distribution.
+******************************************************************************/
+
 module minid.interp;
 
 import Integer = tango.text.convert.Integer;
 import Utf = tango.text.convert.Utf;
 
-import tango.core.Exception;
 import tango.stdc.string;
 
+import minid.api_debug;
 import minid.alloc;
 import minid.gc;
 import minid.opcodes;
@@ -21,39 +46,21 @@ import minid.types_table;
 import minid.types_thread;
 import minid.utils;
 
-import minid.interpreter:
-	maybeGC,
-	catchException,
-	throwException,
-	getString,
-	pushString,
-	pushFormat,
-	pushChar;
-
-// 	printStack;
+import minid.interpreter;
+// 	maybeGC,
+// 	getString,
+// 	pushString,
+// 	pushFormat,
+// 	pushChar,
+// 	createString,
+// 	throwException,
+// 	catchException;
 
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================
 
 package:
-
-MDString* createString(MDThread* t, char[] data)
-{
-	uword h = void;
-
-	if(auto s = string.lookup(t, data, h))
-		return s;
-
-	uword cpLen = void;
-
-	try
-		cpLen = verify(data);
-	catch(UnicodeException e)
-		throwException(t, "Invalid UTF-8 sequence");
-
-	return string.create(t, data, h, cpLen);
-}
 
 // Free all objects.
 void freeAll(MDThread* t)
@@ -91,57 +98,6 @@ void freeAll(MDThread* t)
 		next = cur.next;
 		free(t.vm, cur);
 	}
-}
-
-// ================================================================================================================================================
-// Debug info
-
-// don't call this if t.calldepth == 0 or with depth >= t.calldepth
-// returns null if the given index is a tailcall
-ActRecord* getActRec(MDThread* t, uword depth)
-{
-	assert(t.arIndex != 0);
-
-	if(depth == 0)
-		return t.currentAR;
-
-	for(word idx = t.arIndex - 1; idx >= 0; idx--)
-	{
-		if(depth == 0)
-			return &t.actRecs[cast(uword)idx];
-		else if(depth <= t.actRecs[cast(uword)idx].numTailcalls)
-			return null;
-
-		depth -= (t.actRecs[cast(uword)idx].numTailcalls + 1);
-	}
-
-	assert(false);
-}
-
-int pcToLine(ActRecord* ar, Instruction* pc)
-{
-	int line = 0;
-
-	auto def = ar.func.scriptFunc;
-	uword instructionIndex = pc - def.code.ptr - 1;
-
-	if(instructionIndex < def.lineInfo.length)
-		line = def.lineInfo[instructionIndex];
-
-	return line;
-}
-
-int getDebugLine(MDThread* t, uword depth = 0)
-{
-	if(t.currentAR is null)
-		return 0;
-
-	auto ar = getActRec(t, depth);
-
-	if(ar is null || ar.func is null || ar.func.isNative)
-		return 0;
-
-	return pcToLine(ar, ar.pc);
 }
 
 // ================================================================================================================================================
@@ -2346,7 +2302,7 @@ MDValue* lookupGlobal(MDString* name, MDNamespace* env)
 
 	auto ns = env;
 	for(; ns.parent !is null; ns = ns.parent){}
-	
+
 	return namespace.get(ns, name);
 }
 
@@ -2688,66 +2644,6 @@ MDUpval* findUpvalue(MDThread* t, uword num)
 
 // ============================================================================
 // Debugging
-
-Location getDebugLoc(MDThread* t)
-{
-	if(t.currentAR is null || t.currentAR.func is null)
-		return Location(createString(t, "<no location available>"), 0, Location.Type.Unknown);
-	else
-	{
-		pushNamespaceNamestring(t, t.currentAR.func.environment);
-
-		if(getString(t, -1) == "")
-			dup(t);
-		else
-			pushChar(t, '.');
-
-		push(t, MDValue(t.currentAR.func.name));
-
-		auto slot = t.stackIndex - 3;
-		catImpl(t, &t.stack[slot], slot, 3);
-		auto s = getStringObj(t, -3);
-		pop(t, 3);
-
-		if(t.currentAR.func.isNative)
-			return Location(s, 0, Location.Type.Native);
-		else
-			return Location(s, getDebugLine(t), Location.Type.Script);
-	}
-}
-
-void pushDebugLocStr(MDThread* t, Location loc)
-{
-	if(loc.col == Location.Type.Unknown)
-		pushString(t, "<no location available>");
-	else
-	{
-		push(t, MDValue(loc.file));
-
-		if(loc.col == Location.Type.Native)
-		{
-			pushString(t, "(native)");
-			auto slot = t.stackIndex - 2;
-			catImpl(t, &t.stack[slot], slot, 2);
-			pop(t);
-		}
-		else
-		{
-			pushChar(t, '(');
-
-			if(loc.line == -1)
-				pushChar(t, '?');
-			else
-				pushFormat(t, "{}", loc.line);
-
-			pushChar(t, ')');
-
-			auto slot = t.stackIndex - 4;
-			catImpl(t, &t.stack[slot], slot, 4);
-			pop(t, 3);
-		}
-	}
-}
 
 void callHook(MDThread* t, MDThread.Hook hook)
 {

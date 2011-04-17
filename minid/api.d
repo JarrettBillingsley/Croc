@@ -33,7 +33,6 @@ public
 	import minid.ex;
 	import minid.interpreter;
 	import minid.stackmanip;
-	import minid.serialization;
 	import minid.types;
 	import minid.utils;
 	import minid.vm;
@@ -55,12 +54,17 @@ import minid.stdlib_debug;
 import minid.stdlib_hash;
 import minid.stdlib_io;
 import minid.stdlib_math;
+import minid.stdlib_modules;
 import minid.stdlib_os;
 import minid.stdlib_regexp;
+import minid.stdlib_serialization;
 import minid.stdlib_stream;
 import minid.stdlib_string;
 import minid.stdlib_thread;
 import minid.stdlib_time;
+
+import minid.interp;
+// 	freeAll;
 
 // ================================================================================================================================================
 // Public
@@ -114,6 +118,11 @@ Returns:
 public MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = null)
 {
 	openVMImpl(vm, memFunc, ctx);
+	
+	// Set up the modules module.  This has to be done before any other modules
+	// are initialized for obvious reasons.
+	ModulesLib.init(vm.mainThread);
+
 	BaseLib.init(vm.mainThread);
 	ThreadLib.init(vm.mainThread);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
@@ -182,24 +191,29 @@ public enum MDStdlib
 	Streamed IO classes.
 	*/
 	Stream = 512,
-	
+
 	/**
 	Debugging introspection and hooks.
 	*/
 	Debug = 1024,
+	
+	/**
+	(De)serialization of complex object graphs.
+	*/
+	Serialization = 2048,
 
 	/**
-	This flag is an OR of Array, Char, Math, String, Hash, Regexp, and Time.  It represents
+	This flag is an OR of Array, Char, Math, String, Hash, Regexp, Time, and Serialization.  It represents
 	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
 	or OS libraries to do bad things.
 	*/
-	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time,
+	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization,
 
 	/**
 	_All available standard libraries except the debug library.
 	*/
 	All = Safe | IO | OS,
-	
+
 	/**
 	All available standard libraries including the debug library.
 	*/
@@ -215,38 +229,18 @@ Params:
 */
 public void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 {
-	if(libs & MDStdlib.Array)
-		ArrayLib.init(t);
-
-	if(libs & MDStdlib.Char)
-		CharLib.init(t);
-
-	if(libs & MDStdlib.Stream)
-		StreamLib.init(t);
-
-	if(libs & MDStdlib.IO)
-		IOLib.init(t);
-
-	if(libs & MDStdlib.Math)
-		MathLib.init(t);
-
-	if(libs & MDStdlib.OS)
-		OSLib.init(t);
-
-	if(libs & MDStdlib.Regexp)
-		RegexpLib.init(t);
-
-	if(libs & MDStdlib.String)
-		StringLib.init(t);
-
-	if(libs & MDStdlib.Hash)
-		HashLib.init(t);
-
-	if(libs & MDStdlib.Time)
-		TimeLib.init(t);
-
-	if(libs & MDStdlib.Debug)
-		DebugLib.init(t);
+	if(libs & MDStdlib.Array)         ArrayLib.init(t);
+	if(libs & MDStdlib.Char)          CharLib.init(t);
+	if(libs & MDStdlib.Stream)        StreamLib.init(t);
+	if(libs & MDStdlib.IO)            IOLib.init(t);
+	if(libs & MDStdlib.Math)          MathLib.init(t);
+	if(libs & MDStdlib.OS)            OSLib.init(t);
+	if(libs & MDStdlib.Regexp)        RegexpLib.init(t);
+	if(libs & MDStdlib.String)        StringLib.init(t);
+	if(libs & MDStdlib.Hash)          HashLib.init(t);
+	if(libs & MDStdlib.Time)          TimeLib.init(t);
+	if(libs & MDStdlib.Debug)         DebugLib.init(t);
+	if(libs & MDStdlib.Serialization) SerializationLib.init(t);
 }
 
 /**

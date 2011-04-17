@@ -46,7 +46,6 @@ import minid.types;
 import minid.types_class;
 import minid.types_instance;
 import minid.types_namespace;
-import minid.types_string;
 import minid.utils;
 import minid.vm;
 
@@ -69,10 +68,6 @@ static:
 
 	public void init(MDThread* t)
 	{
-		// Object
-		push(t, MDValue(classobj.create(t.vm.alloc, createString(t, "Object"), null)));
-		newGlobal(t, "Object");
-
 		// Vector
 		VectorObj.init(t);
 

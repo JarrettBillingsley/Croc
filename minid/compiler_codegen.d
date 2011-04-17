@@ -41,16 +41,22 @@ import minid.compiler_astvisitor;
 import minid.compiler_types;
 import minid.hash;
 import minid.interpreter;
+// 	cat,
+// 	createString,
+// 	getString,
+// 	pushChar,
+// 	pushFormat,
+// 	pushString,
+// 	pushToString,
 import minid.opcodes;
 import minid.stackmanip;
+// 	push,
+// 	insertAndPop;
 import minid.types;
 import minid.types_funcdef;
 import minid.types_function;
 import minid.types_string;
 import minid.utils;
-
-import minid.interp:
-	createString;
 
 private Op AstTagToOpcode(AstTag tag)
 {

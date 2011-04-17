@@ -30,46 +30,16 @@ import tango.core.BitManip;
 import tango.core.Exception;
 import tango.io.model.IConduit;
 
+
 import minid.ex;
+
+
 import minid.hash;
 import minid.interpreter;
-import minid.opcodes;
 import minid.stackmanip;
-import minid.stdlib_stream;
 import minid.types;
-import minid.types_funcdef;
 import minid.types_function;
 import minid.types_instance;
-import minid.types_namespace;
-import minid.types_string;
-import minid.utils;
-
-import minid.interp:
-	createString;
-
-void get(T)(InputStream i, ref T ret)
-{
-	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
-		throw new IOException("End of stream while reading");
-}
-
-void put(T)(OutputStream o, T val)
-{
-	if(o.write(cast(void[])(&val)[0 .. 1]) != T.sizeof)
-		throw new IOException("End of stream while writing");
-}
-
-void readExact(InputStream i, void[] dest)
-{
-	if(i.read(dest) != dest.length)
-		throw new IOException("End of stream while reading");
-}
-
-void append(OutputStream o, void[] val)
-{
-	if(o.write(val) != val.length)
-		throw new IOException("End of stream while writing");
-}
 
 // ================================================================================================================================================
 // Public
@@ -77,90 +47,23 @@ void append(OutputStream o, void[] val)
 
 public:
 
-struct SerializationLib
-{
-static:
-	void init(MDThread* t)
-	{
-		makeModule(t, "serialization", function uword(MDThread* t)
-		{
-			importModuleNoNS(t, "stream");
-
-			newFunction(t, 3, &serializeGraph,   "serializeGraph");   newGlobal(t, "serializeGraph");
-			newFunction(t, 2, &deserializeGraph, "deserializeGraph"); newGlobal(t, "deserializeGraph");
-			return 0;
-		});
-	}
-
-	uword serializeGraph(MDThread* t)
-	{
-		checkAnyParam(t, 1);
-		checkParam(t, 2, MDValue.Type.Table);
-		checkAnyParam(t, 3);
-
-		lookup(t, "stream.OutStream");
-		OutputStream stream;
-
-		if(as(t, 3, -1))
-		{
-			pop(t);
-			stream = OutStreamObj.getOpenStream(t, 3);
-		}
-		else
-		{
-			pop(t);
-			lookup(t, "stream.InoutStream");
-
-			if(as(t, 3, -1))
-			{
-				pop(t);
-				stream = InoutStreamObj.getOpenConduit(t, 3);
-			}
-			else
-				paramTypeError(t, 3, "stream.OutStream|stream.InoutStream");
-		}
-
-		safeCode(t, .serializeGraph(t, 1, 2, stream));
-		return 0;
-	}
-
-	uword deserializeGraph(MDThread* t)
-	{
-		checkParam(t, 1, MDValue.Type.Table);
-		checkAnyParam(t, 2);
-
-		lookup(t, "stream.InStream");
-		InputStream stream;
-
-		if(as(t, 2, -1))
-		{
-			pop(t);
-			stream = InStreamObj.getOpenStream(t, 2);
-		}
-		else
-		{
-			pop(t);
-			lookup(t, "stream.InoutStream");
-
-			if(as(t, 2, -1))
-			{
-				pop(t);
-				stream = InoutStreamObj.getOpenConduit(t, 2);
-			}
-			else
-				paramTypeError(t, 2, "stream.OutStream|stream.InoutStream");
-		}
-
-		safeCode(t, .deserializeGraph(t, 1, stream));
-		return 1;
-	}
-}
-
 void serializeGraph(MDThread* t, word idx, word trans, OutputStream output)
 {
 	auto s = Serializer(t, output);
 	s.writeGraph(idx, trans);
 }
+
+word deserializeGraph(MDThread* t, word trans, InputStream input)
+{
+	auto d = Deserializer(t, input);
+	return d.readGraph(trans);
+}
+
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
+
+private:
 
 struct Serializer
 {
@@ -195,7 +98,9 @@ private:
 
 	static uword serializeFunc(MDThread* t)
 	{
-		checkAnyParam(t, 1);
+		if(!isValidIndex(t, 1))
+			throwException(t, "Expected at least one parameter");
+
 		getUpval(t, 0);
 		auto g = cast(Goober)getNativeObj(t, -1);
 		g.s.serialize(*getValue(t, 1));
@@ -216,33 +121,6 @@ private:
 		mTrans = getTable(t, trans);
 		auto v = *getValue(t, value);
 
-		commonSerialize
-		({
-			// we leave these on the stack so they won't be collected, but we get 'real' references
-			// to them so we can push them in opSerialize callbacks.
-			importModuleNoNS(t, "stream");
-			lookup(t, "stream.OutStream");
-			pushNull(t);
-			pushNativeObj(t, cast(Object)mOutput);
-			pushBool(t, false);
-			rawCall(t, -4, 1);
-			mStream = getInstance(t, -1);
-
-				pushNativeObj(t, new Goober(this));
-			newFunction(t, 1, &serializeFunc, "serialize", 1);
-			mSerializeFunc = getFunction(t, -1);
-
-			serialize(v);
-		});
-
-		mOutput.flush();
-	}
-
-// 	void writeModule(word idx)
-// 	void writeFunction(word idx)
-
-	void commonSerialize(void delegate() dg)
-	{
 		auto size = stackSize(t);
 
 		mObjTable.clear(t.vm.alloc);
@@ -254,7 +132,23 @@ private:
 			mObjTable.clear(t.vm.alloc);
 		}
 
-		dg();
+		// we leave these on the stack so they won't be collected, but we get 'real' references
+		// to them so we can push them in opSerialize callbacks.
+		importModuleNoNS(t, "stream");
+		lookup(t, "stream.OutStream");
+		pushNull(t);
+		pushNativeObj(t, cast(Object)mOutput);
+		pushBool(t, false);
+		rawCall(t, -4, 1);
+		mStream = getInstance(t, -1);
+
+			pushNativeObj(t, new Goober(this));
+		newFunction(t, 1, &serializeFunc, "serialize", 1);
+		mSerializeFunc = getFunction(t, -1);
+
+		serialize(v);
+
+		mOutput.flush();
 	}
 
 	void tag(byte v)
@@ -824,12 +718,6 @@ private:
 	}
 }
 
-word deserializeGraph(MDThread* t, word trans, InputStream input)
-{
-	auto d = Deserializer(t, input);
-	return d.readGraph(trans);
-}
-
 struct Deserializer
 {
 private:
@@ -872,39 +760,6 @@ private:
 
 		mTrans = getTable(t, trans);
 
-		commonDeserialize
-		({
-			// we leave these on the stack so they won't be collected, but we get 'real' references
-			// to them so we can push them in opSerialize callbacks.
-			importModuleNoNS(t, "stream");
-			lookup(t, "stream.InStream");
-			pushNull(t);
-			pushNativeObj(t, cast(Object)mInput);
-			pushBool(t, false);
-			rawCall(t, -4, 1);
-			mStream = getInstance(t, -1);
-
-				pushNativeObj(t, new Goober(this));
-			newFunction(t, 0, &deserializeFunc, "deserialize", 1);
-			mDeserializeFunc = getFunction(t, -1);
-
-			deserializeValue();
-			insertAndPop(t, -3);
-		});
-
-		return stackSize(t) - 1;
-	}
-
-// 	word readModule()
-// 	{
-// 	}
-//
-// 	word readFunction()
-// 	{
-// 	}
-
-	void commonDeserialize(void delegate() dg)
-	{
 		auto size = stackSize(t);
 		t.vm.alloc.resizeArray(mObjTable, 0);
 		auto oldLimit = t.vm.alloc.gcLimit;
@@ -919,8 +774,25 @@ private:
 			t.vm.alloc.gcLimit = oldLimit;
 		}
 
-		dg();
+		// we leave these on the stack so they won't be collected, but we get 'real' references
+		// to them so we can push them in opSerialize callbacks.
+		importModuleNoNS(t, "stream");
+		lookup(t, "stream.InStream");
+		pushNull(t);
+		pushNativeObj(t, cast(Object)mInput);
+		pushBool(t, false);
+		rawCall(t, -4, 1);
+		mStream = getInstance(t, -1);
+
+			pushNativeObj(t, new Goober(this));
+		newFunction(t, 0, &deserializeFunc, "deserialize", 1);
+		mDeserializeFunc = getFunction(t, -1);
+
+		deserializeValue();
+		insertAndPop(t, -3);
 		maybeGC(t);
+
+		return stackSize(t) - 1;
 	}
 
 	byte tag()
@@ -1687,361 +1559,26 @@ private:
 	}
 }
 
-/**
-Serializes the function object at the given index into the provided writer as a module.  Serializing a function as a module
-outputs the platform-dependent MiniD module header before outputting the function, so that upon subsequent loads of the module,
-the platform can be correctly detected.
-
-Params:
-	idx = The stack index of the function object to serialize.  The function must be a script function with no upvalues.
-	s = The writer object to be used to serialize the function.
-*/
-void serializeModule(MDThread* t, word idx, OutputStream s)
+void get(T)(InputStream i, ref T ret)
 {
-	auto func = getFunction(t, idx);
-
-	if(func is null)
-	{
-		pushTypeString(t, idx);
-		throwException(t, "serializeModule - 'function' expected, not '{}'", getString(t, -1));
-	}
-
-	if(func.isNative || func.scriptFunc.numUpvals > 0)
-		throwException(t, "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
-
-	serializeAsModule(func.scriptFunc, s);
+	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
+		throw new IOException("End of stream while reading");
 }
 
-/**
-Inverse of the above, which means it expects for there to be a module header at the beginning of the stream.  If the module
-header of the stream does not match the module header for the platform that is loading the module, the load will fail.
-A closure of the deserialized function is created with the current environment as its environment and is pushed onto the
-given thread's stack.
-
-Params:
-	s = The reader object that holds the data stream from which the function will be deserialized.
-*/
-word deserializeModule(MDThread* t, InputStream s)
+void put(T)(OutputStream o, T val)
 {
-	return push(t, MDValue(deserializeAsModule(t, s)));
+	if(o.write(cast(void[])(&val)[0 .. 1]) != T.sizeof)
+		throw new IOException("End of stream while writing");
 }
 
-/**
-Same as serializeModule but does not output the module header.
-*/
-void serializeFunction(MDThread* t, word idx, OutputStream s)
+void readExact(InputStream i, void[] dest)
 {
-	auto func = getFunction(t, idx);
-
-	if(func is null)
-	{
-		pushTypeString(t, idx);
-		throwException(t, "serializeFunction - 'function' expected, not '{}'", getString(t, -1));
-	}
-
-	if(func.isNative || func.scriptFunc.numUpvals > 0)
-		throwException(t, "serializeFunction - function '{}' is not eligible for serialization", func.name.toString());
-
-	serialize(func.scriptFunc, s);
+	if(i.read(dest) != dest.length)
+		throw new IOException("End of stream while reading");
 }
 
-/**
-Same as deserializeModule but does not expect for there to be a module header.
-*/
-word deserializeFunction(MDThread* t, InputStream s)
+void append(OutputStream o, void[] val)
 {
-	return push(t, MDValue(deserialize(t, s)));
-}
-
-// ================================================================================================================================================
-// Private
-// ================================================================================================================================================
-
-private:
-
-align(1) struct FileHeader
-{
-	uint magic = FOURCC!("MinD");
-	uint _version = MiniDVersion;
-	ubyte platformBits = uword.sizeof * 8;
-
-	version(BigEndian)
-		ubyte endianness = 1;
-	else
-		ubyte endianness = 0;
-
-	ubyte intSize = mdint.sizeof;
-	ubyte floatSize = mdfloat.sizeof;
-
-	ubyte[4] _padding;
-}
-
-static assert(FileHeader.sizeof == 16);
-
-void serializeAsModule(MDFuncDef* fd, OutputStream s)
-{
-	append(s, (&FileHeader.init)[0 .. 1]);
-	serialize(fd, s);
-}
-
-MDFuncDef* deserializeAsModule(MDThread* t, InputStream s)
-{
-	FileHeader fh = void;
-	readExact(s, (&fh)[0 .. 1]);
-
-	if(fh != FileHeader.init)
-		throwException(t, "Serialized module header mismatch");
-
-	return deserialize(t, s);
-}
-
-void serialize(MDFuncDef* fd, OutputStream s)
-{
-	put(s, fd.location.line);
-	put(s, fd.location.col);
-	Serialize(s, fd.location.file);
-
-	put(s, fd.isVararg);
-	Serialize(s, fd.name);
-	put(s, fd.numParams);
-	Serialize(s, fd.paramMasks);
-	put(s, fd.numUpvals);
-	put(s, fd.stackSize);
-
-	Serialize(s, fd.constants);
-	Serialize(s, fd.code);
-	Serialize(s, fd.lineInfo);
-
-	Serialize(s, fd.upvalNames);
-
-	put(s, fd.locVarDescs.length);
-
-	foreach(ref desc; fd.locVarDescs)
-	{
-		Serialize(s, desc.name);
-		put(s, desc.pcStart);
-		put(s, desc.pcEnd);
-		put(s, desc.reg);
-	}
-
-	put(s, fd.switchTables.length);
-
-	foreach(ref st; fd.switchTables)
-	{
-		put(s, st.offsets.length);
-
-		foreach(ref k, v; st.offsets)
-		{
-			Serialize(s, k);
-			put(s, v);
-		}
-
-		put(s, st.defaultOffset);
-	}
-
-	put(s, fd.innerFuncs.length);
-
-	foreach(inner; fd.innerFuncs)
-		serialize(inner, s);
-}
-
-MDFuncDef* deserialize(MDThread* t, InputStream s)
-{
-	auto vm = t.vm;
-
-	auto ret = funcdef.create(vm.alloc);
-
-	get(s, ret.location.line);
-	get(s, ret.location.col);
-	Deserialize(t, s, ret.location.file);
-
-	get(s, ret.isVararg);
-	Deserialize(t, s, ret.name);
-	get(s, ret.numParams);
-	Deserialize(t, s, ret.paramMasks);
-	get(s, ret.numUpvals);
-	get(s, ret.stackSize);
-
-	Deserialize(t, s, ret.constants);
-	Deserialize(t, s, ret.code);
-
-	Deserialize(t, s, ret.lineInfo);
-	Deserialize(t, s, ret.upvalNames);
-
-	uword len = void;
-	get(s, len);
-	ret.locVarDescs = vm.alloc.allocArray!(MDFuncDef.LocVarDesc)(len);
-
-	foreach(ref desc; ret.locVarDescs)
-	{
-		Deserialize(t, s, desc.name);
-		get(s, desc.pcStart);
-		get(s, desc.pcEnd);
-		get(s, desc.reg);
-	}
-
-	get(s, len);
-	ret.switchTables = vm.alloc.allocArray!(MDFuncDef.SwitchTable)(len);
-
-	foreach(ref st; ret.switchTables)
-	{
-		get(s, len);
-
-		for(uword i = 0; i < len; i++)
-		{
-			MDValue key = void;
-			word value = void;
-
-			Deserialize(t, s, key);
-			get(s, value);
-
-			*st.offsets.insert(vm.alloc, key) = value;
-		}
-
-		get(s, st.defaultOffset);
-	}
-
-	get(s, len);
-	ret.innerFuncs = vm.alloc.allocArray!(MDFuncDef*)(len);
-
-	foreach(ref inner; ret.innerFuncs)
-		inner = deserialize(t, s);
-
-	return ret;
-}
-
-void Serialize(OutputStream s, MDString* val)
-{
-	auto data = val.toString();
-	put(s, data.length);
-	append(s, data);
-}
-
-void Serialize(OutputStream s, ushort[] val)
-{
-	put(s, val.length);
-	append(s, val);
-}
-
-void Serialize(OutputStream s, MDValue[] val)
-{
-	put(s, val.length);
-
-	foreach(ref v; val)
-		Serialize(s, v);
-}
-
-void Serialize(OutputStream s, Instruction[] val)
-{
-	put(s, val.length);
-	append(s, val);
-}
-
-void Serialize(OutputStream s, uint[] val)
-{
-	put(s, val.length);
-	append(s, val);
-}
-
-void Serialize(OutputStream s, MDString*[] val)
-{
-	put(s, val.length);
-
-	foreach(v; val)
-		Serialize(s, v);
-}
-
-void Serialize(OutputStream s, ref MDValue val)
-{
-	put(s, cast(uint)val.type);
-
-	switch(val.type)
-	{
-		case MDValue.Type.Null:   break;
-		case MDValue.Type.Bool:   put(s, val.mBool); break;
-		case MDValue.Type.Int:    put(s, val.mInt); break;
-		case MDValue.Type.Float:  put(s, val.mFloat); break;
-		case MDValue.Type.Char:   put(s, val.mChar); break;
-		case MDValue.Type.String: Serialize(s, val.mString); break;
-		default: assert(false, "Serialize(MDValue)");
-	}
-}
-
-void Deserialize(MDThread* t, InputStream s, ref MDString* val)
-{
-	uword len = void;
-	get(s, len);
-
-	auto data = t.vm.alloc.allocArray!(char)(len);
-	scope(exit) t.vm.alloc.freeArray(data);
-	
-	readExact(s, data);
-	val = createString(t, data);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref ushort[] val)
-{
-	uword len = void;
-	get(s, len);
-
-	val = t.vm.alloc.allocArray!(ushort)(len);
-	readExact(s, val);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref MDValue[] val)
-{
-	uword len = void;
-	get(s, len);
-
-	val = t.vm.alloc.allocArray!(MDValue)(len);
-
-	foreach(ref v; val)
-		Deserialize(t, s, v);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref Instruction[] val)
-{
-	uword len = void;
-	get(s, len);
-
-	val = t.vm.alloc.allocArray!(Instruction)(len);
-	readExact(s, val);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref uint[] val)
-{
-	uword len = void;
-	get(s, len);
-
-	val = t.vm.alloc.allocArray!(uint)(len);
-	readExact(s, val);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref MDString*[] val)
-{
-	uword len = void;
-	get(s, len);
-
-	val = t.vm.alloc.allocArray!(MDString*)(len);
-
-	foreach(ref v; val)
-		Deserialize(t, s, v);
-}
-
-void Deserialize(MDThread* t, InputStream s, ref MDValue val)
-{
-	uint type = void;
-	get(s, type);
-	val.type = cast(MDValue.Type)type;
-
-	switch(val.type)
-	{
-		case MDValue.Type.Null:   break;
-		case MDValue.Type.Bool:   get(s, val.mBool); break;
-		case MDValue.Type.Int:    get(s, val.mInt); break;
-		case MDValue.Type.Float:  get(s, val.mFloat); break;
-		case MDValue.Type.Char:   get(s, val.mChar); break;
-		case MDValue.Type.String: Deserialize(t, s, val.mString); break;
-		default: assert(false, "Deserialize(MDValue)");
-	}
+	if(o.write(val) != val.length)
+		throw new IOException("End of stream while writing");
 }

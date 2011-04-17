@@ -25,16 +25,13 @@ subject to the following restrictions:
 
 module minid.stdlib_debug;
 
+import minid.api_debug;
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.stdlib_vector;
 import minid.types;
 import minid.utils;
-
-import minid.interp:
-	getActRec,
-	getDebugLine;
 
 debug import tango.io.Stdout;
 

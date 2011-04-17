@@ -29,14 +29,13 @@ module minid.types;
 version(MDExtendedCoro)
 	import tango.core.Thread;
 
+import tango.text.convert.Format;
 import tango.text.convert.Layout;
 
 import minid.alloc;
 import minid.hash;
 import minid.opcodes;
 import minid.utils;
-
-import tango.text.convert.Format;
 
 // ================================================================================================================================================
 // Public

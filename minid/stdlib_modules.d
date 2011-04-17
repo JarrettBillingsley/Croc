@@ -33,7 +33,7 @@ import tango.text.Util;
 import minid.compiler;
 import minid.ex;
 import minid.interpreter;
-import minid.serialization;
+import minid.serialization_simple;
 import minid.stackmanip;
 import minid.types;
 

@@ -27,23 +27,31 @@ module minid.compiler;
 
 import tango.core.Vararg;
 
-import tango.io.FilePath;
+// import tango.io.FilePath;
 import tango.io.UnicodeFile;
 
 import minid.alloc;
-import minid.compiler_astvisitor;
 import minid.compiler_codegen;
 import minid.compiler_lexer;
 import minid.compiler_parser;
 import minid.compiler_semantic;
 import minid.compiler_types;
 import minid.interpreter;
+// 	cat,
+// 	createString,
+// 	idxa,
+// 	newTable,
+// 	pushBool,
+// 	pushFormat,
+// 	pushVFormat,
+// 	throwException;
 import minid.stackmanip;
+// 	push,
+// 	insert,
+// 	insertAndPop,
+// 	stackSize,
+// 	setStackSize;
 import minid.types;
-import minid.types_string;
-
-import minid.interp:
-	createString;
 
 /**
 This class encapsulates all the functionality needed for compiling MiniD code.

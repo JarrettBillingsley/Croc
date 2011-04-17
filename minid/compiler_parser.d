@@ -30,7 +30,15 @@ import minid.compiler_ast;
 import minid.compiler_lexer;
 import minid.compiler_types;
 import minid.interpreter;
+// 	getString;
+// 	idxa,
+// 	newTable,
+// 	opin,
+// 	pushBool,
+// 	pushFormat,
+// 	pushString,
 import minid.stackmanip;
+// 	pop;
 import minid.types;
 
 struct Parser

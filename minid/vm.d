@@ -36,15 +36,11 @@ import tango.text.Util;
 import minid.alloc;
 import minid.interpreter;
 import minid.stackmanip;
-import minid.stdlib_modules;
 import minid.types;
+import minid.types_class;
 import minid.types_namespace;
 import minid.types_string;
 import minid.types_thread;
-
-import minid.interp:
-	createString,
-	freeAll;
 
 // ================================================================================================================================================
 // Public
@@ -107,9 +103,9 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	push(t, MDValue(vm.globals));
 	newGlobal(t, "_G");
 
-	// Set up the modules module.  This has to be done before any other modules
-	// are initialized for obvious reasons.
-	ModulesLib.init(t);
+	// Object
+	push(t, MDValue(classobj.create(t.vm.alloc, createString(t, "Object"), null)));
+	newGlobal(t, "Object");
 }
 
 package class CustomLayout : Layout!(char)

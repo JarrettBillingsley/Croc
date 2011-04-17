@@ -34,7 +34,10 @@ import minid.compiler_ast;
 import minid.compiler_astvisitor;
 import minid.compiler_types;
 import minid.interpreter;
+// 	pushFormat,
+// 	getString;
 import minid.stackmanip;
+// 	pop;
 import minid.types;
 import minid.utils;
 

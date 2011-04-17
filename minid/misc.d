@@ -31,13 +31,12 @@ import tango.io.stream.Format;
 import tango.math.Math;
 import tango.stdc.ctype;
 import tango.stdc.stdlib;
-import tango.text.convert.Utf;
+import Utf = tango.text.convert.Utf;
 import tango.text.Util;
 import Uni = tango.text.Unicode;
 
 alias tango.text.Util.contains contains;
 
-import minid.alloc;
 import minid.ex;
 import minid.interpreter;
 import minid.stackmanip;
@@ -647,7 +646,7 @@ static:
 						mTok.type = Token.Null;
 						pushNull(t);
 						return;
-						
+
 					case '-', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 						if(readNumLiteral())
 							mTok.type = Token.Int;
