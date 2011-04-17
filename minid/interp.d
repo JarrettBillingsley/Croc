@@ -3052,7 +3052,7 @@ void execute(MDThread* t, uword depth = 1)
 					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
 
 					t.stackIndex = stackBase + funcReg + 3;
-					commonCall(t, stackBase + funcReg, i.imm, callPrologue(t, stackBase + funcReg, i.imm, 1, null));
+					commonCall(t, stackBase + funcReg, i.imm, callPrologue(t, stackBase + funcReg, i.imm, 2, null));
 					t.stackIndex = t.currentAR.savedTop;
 
 					if(src.type == MDValue.Type.Function)

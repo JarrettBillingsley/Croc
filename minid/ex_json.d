@@ -698,7 +698,7 @@ struct Lexer
 					readStringLiteral();
 					mTok.type = Token.String;
 					return;
-					
+
 				case '{':
 					nextChar();
 					mTok.type = Token.LBrace;
@@ -808,29 +808,42 @@ private void parseValue(MDThread* t, ref Lexer l)
 
 private word parseArray(MDThread* t, ref Lexer l)
 {
-	auto arr = newArray(t, 0);
-	l.expect(Token.LBracket);
-	
-	if(l.type != Token.RBracket)
+	uword length = 8;
+	uword idx = 0;
+	auto arr = newArray(t, length);
+
+	void parseItem()
 	{
 		parseValue(t, l);
-		dup(t, arr);
-		pushNull(t);
-		rotate(t, 3, 2);
-		methodCall(t, -3, "append", 0);
+		
+		if(idx >= length)
+		{
+			length *= 2;
+			pushInt(t, length);
+			lena(t, arr);
+		}
+
+		idxai(t, arr, idx);
+		idx++;
+	}
+
+	l.expect(Token.LBracket);
+
+	if(l.type != Token.RBracket)
+	{
+		parseItem();
 
 		while(l.type == Token.Comma)
 		{
 			l.next();
-			parseValue(t, l);
-			dup(t, arr);
-			pushNull(t);
-			rotate(t, 3, 2);
-			methodCall(t, -3, "append", 0);
+			parseItem();
 		}
 	}
 
 	l.expect(Token.RBracket);
+	
+	pushInt(t, idx);
+	lena(t, arr);
 	return arr;
 }
 

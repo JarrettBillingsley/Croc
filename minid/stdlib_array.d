@@ -582,7 +582,6 @@ static:
 
 	uword array_pop(MDThread* t)
 	{
-		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		mdint index = -1;
 		auto data = getArray(t, 0).toArray();
@@ -590,7 +589,7 @@ static:
 		if(data.length == 0)
 			throwException(t, "Array is empty");
 
-		if(numParams > 0)
+		if(stackSize(t) > 1)
 			index = checkIntParam(t, 1);
 
 		if(index < 0)

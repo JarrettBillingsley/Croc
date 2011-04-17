@@ -97,7 +97,7 @@ struct RegexpLib
 				c.method("replace", 2, &replace);
 
 					newFunction(t, &iterator, "Regexp.iterator");
-				c.method("opApply", 0, &opApply, 1);
+				c.method("opApply", 1, &opApply, 1);
 			});
 
 			newFunction(t, &allocator, "Regexp.allocator");
