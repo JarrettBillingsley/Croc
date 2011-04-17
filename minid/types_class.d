@@ -25,7 +25,7 @@ subject to the following restrictions:
 
 module minid.types_class;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 import minid.types_namespace;
 import minid.types_string;

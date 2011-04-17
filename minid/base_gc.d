@@ -24,9 +24,9 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.gc;
+module minid.base_gc;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 import minid.types_array;
 import minid.types_class;

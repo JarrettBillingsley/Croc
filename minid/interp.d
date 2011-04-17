@@ -31,9 +31,9 @@ import Utf = tango.text.convert.Utf;
 import tango.stdc.string;
 
 import minid.api_debug;
-import minid.alloc;
-import minid.gc;
-import minid.opcodes;
+import minid.base_alloc;
+import minid.base_gc;
+import minid.base_opcodes;
 import minid.stackmanip;
 import minid.types;
 import minid.types_array;

@@ -1,6 +1,6 @@
 /******************************************************************************
 This module defines some types used by the compiler.  It also abstracts the
-interface to the compiler to avoid circular imports.  
+interface to the compiler to avoid circular imports.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -26,7 +26,7 @@ subject to the following restrictions:
 
 module minid.compiler_types;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 
 // Location, duh.

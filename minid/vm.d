@@ -27,29 +27,35 @@ subject to the following restrictions:
 module minid.vm;
 
 import Float = tango.text.convert.Float;
-import tango.io.FilePath;
-import tango.stdc.stdlib;
 import tango.text.convert.Layout;
-import tango.text.convert.Utf;
 import tango.text.Util;
 
-import minid.alloc;
+debug
+{
+	import tango.text.convert.Format;
+	import tango.io.Stdout;
+}
+
+import minid.base_alloc;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.types;
 import minid.types_class;
 import minid.types_namespace;
-import minid.types_string;
 import minid.types_thread;
+
+import minid.interp;
 
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
 
+public:
+
 /**
 Gets the main thread object of the VM.
 */
-public MDThread* mainThread(MDVM* vm)
+MDThread* mainThread(MDVM* vm)
 {
 	return vm.mainThread;
 }
@@ -58,7 +64,7 @@ public MDThread* mainThread(MDVM* vm)
 Gets the current thread object of the VM, that is, which thread is currently in the running state.
 If no threads are in the running state, returns the main thread.
 */
-public MDThread* currentThread(MDVM* vm)
+MDThread* currentThread(MDVM* vm)
 {
 	return vm.curThread;
 }
@@ -66,7 +72,7 @@ public MDThread* currentThread(MDVM* vm)
 /**
 Find out how many bytes of memory the given VM has allocated.
 */
-public uword bytesAllocated(MDVM* vm)
+uword bytesAllocated(MDVM* vm)
 {
 	return vm.alloc.totalBytes;
 }
@@ -75,7 +81,9 @@ public uword bytesAllocated(MDVM* vm)
 // Package
 // ================================================================================================================================================
 
-package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
+package:
+
+void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 {
 	assert(vm.mainThread is null, "Attempting to reopen an already-open VM");
 
@@ -108,7 +116,37 @@ package void openVMImpl(MDVM* vm, MemFunc memFunc, void* ctx = null)
 	newGlobal(t, "Object");
 }
 
-package class CustomLayout : Layout!(char)
+void closeVMImpl(MDVM* vm)
+{
+	assert(vm.mainThread !is null, "Attempting to close an already-closed VM");
+
+	freeAll(vm.mainThread);
+	vm.alloc.freeArray(vm.metaTabs);
+	vm.alloc.freeArray(vm.metaStrings);
+	vm.stringTab.clear(vm.alloc);
+	vm.weakRefTab.clear(vm.alloc);
+	vm.alloc.freeArray(vm.traceback);
+	vm.refTab.clear(vm.alloc);
+
+	debug if(vm.alloc.totalBytes != 0)
+	{
+		debug(LEAK_DETECTOR)
+		{
+			foreach(ptr, block; vm.alloc._memBlocks)
+				Stdout.formatln("Unfreed block of memory: address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+		}
+
+		throw new Exception(Format("There are {} unfreed bytes!", vm.alloc.totalBytes));
+	}
+
+	debug(LEAK_DETECTOR)
+		vm.alloc._memBlocks.clear(vm.alloc);
+
+	delete vm.formatter;
+	*vm = MDVM.init;
+}
+
+class CustomLayout : Layout!(char)
 {
 	protected override char[] floater(char[] output, real v, char[] format)
 	{

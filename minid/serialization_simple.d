@@ -29,12 +29,12 @@ module minid.serialization_simple;
 import tango.core.Exception;
 import tango.io.model.IConduit;
 
-import minid.types;
-import minid.opcodes;
-import minid.utils;
-import minid.stackmanip;
+import minid.base_opcodes;
 import minid.interpreter;
+import minid.stackmanip;
+import minid.types;
 import minid.types_funcdef;
+import minid.utils;
 
 // ================================================================================================================================================
 // Public

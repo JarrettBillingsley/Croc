@@ -25,7 +25,7 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.alloc;
+module minid.base_alloc;
 
 import tango.stdc.string;
 
@@ -114,7 +114,7 @@ align(1) struct Allocator
 		pragma(msg, "Compiling MiniD with the leak detector enabled.");
 
 		// Trick dimple into thinking there's no import (which there isn't, really).
-		mixin("import minid.hash;");
+		mixin("import minid.base_hash;");
 
 		struct MemBlock
 		{

@@ -25,7 +25,7 @@ subject to the following restrictions:
 
 module minid.types_table;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 
 struct table

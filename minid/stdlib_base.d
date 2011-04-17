@@ -34,7 +34,7 @@ import tango.io.Stdout;
 import tango.stdc.ctype;
 import Utf = tango.text.convert.Utf;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.compiler;
 import minid.ex;
 import minid.ex_format;

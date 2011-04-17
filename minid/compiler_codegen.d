@@ -35,11 +35,12 @@ module minid.compiler_codegen;
 import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
-import minid.alloc;
+import minid.base_alloc;
+import minid.base_hash;
+import minid.base_opcodes;
 import minid.compiler_ast;
 import minid.compiler_astvisitor;
 import minid.compiler_types;
-import minid.hash;
 import minid.interpreter;
 // 	cat,
 // 	createString,
@@ -48,7 +49,6 @@ import minid.interpreter;
 // 	pushFormat,
 // 	pushString,
 // 	pushToString,
-import minid.opcodes;
 import minid.stackmanip;
 // 	push,
 // 	insertAndPop;

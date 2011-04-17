@@ -35,7 +35,7 @@ import tango.core.Vararg;
 
 import minid.api_checks;
 import minid.api_debug;
-import minid.gc;
+import minid.base_gc;
 import minid.stackmanip;
 import minid.types;
 import minid.types_array;

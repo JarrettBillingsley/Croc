@@ -27,7 +27,7 @@ module minid.types_instance;
 
 import tango.math.Math;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 import minid.types_class;
 import minid.types_namespace;

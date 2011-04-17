@@ -34,7 +34,7 @@ import tango.io.model.IConduit;
 import minid.ex;
 
 
-import minid.hash;
+import minid.base_hash;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.types;

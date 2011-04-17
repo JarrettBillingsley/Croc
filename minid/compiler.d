@@ -30,7 +30,7 @@ import tango.core.Vararg;
 // import tango.io.FilePath;
 import tango.io.UnicodeFile;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.compiler_codegen;
 import minid.compiler_lexer;
 import minid.compiler_parser;

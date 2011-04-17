@@ -27,7 +27,7 @@ subject to the following restrictions:
 
 module minid.types_funcdef;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.types;
 
 struct funcdef

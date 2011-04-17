@@ -26,7 +26,7 @@ subject to the following restrictions:
 module minid.api_debug;
 
 import minid.api_checks;
-import minid.opcodes;
+import minid.base_opcodes;
 // 	Instruction;
 import minid.stackmanip;
 // 	dup,

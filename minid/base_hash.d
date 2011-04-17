@@ -31,11 +31,11 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module minid.hash;
+module minid.base_hash;
 
 import tango.text.Util;
 
-import minid.alloc;
+import minid.base_alloc;
 import minid.utils;
 
 // ================================================================================================================================================

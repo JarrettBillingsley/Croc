@@ -27,9 +27,9 @@ subject to the following restrictions:
 
 module minid.compiler_ast;
 
-import minid.alloc;
+import minid.base_alloc;
+import minid.base_opcodes;
 import minid.compiler_types;
-import minid.opcodes;
 import minid.types;
 
 const char[][] AstTagNames =

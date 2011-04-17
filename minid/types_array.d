@@ -27,8 +27,8 @@ module minid.types_array;
 
 import tango.stdc.string;
 
-import minid.alloc;
-import minid.opcodes;
+import minid.base_alloc;
+import minid.base_opcodes;
 import minid.types;
 
 struct array
