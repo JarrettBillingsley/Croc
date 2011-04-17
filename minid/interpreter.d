@@ -146,10 +146,7 @@ void setTypeMT(MDThread* t, MDValue.Type type)
 	else if(v.type == MDValue.Type.Null)
 		t.vm.metaTabs[cast(uword)type] = null;
 	else
-	{
-		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Metatable must be either a namespace or 'null', not '{}'", getString(t, -1));
-	}
+		mixin(apiParamTypeError!("-1", "metatable", "namespace|null"));
 
 	pop(t);
 }
@@ -584,10 +581,7 @@ word newFunctionWithEnv(MDThread* t, uint numParams, NativeFunc func, char[] nam
 	auto env = getNamespace(t, -1);
 
 	if(env is null)
-	{
-		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
-	}
+		mixin(apiParamTypeError!("-1", "environment", "namespace"));
 
 	maybeGC(t);
 

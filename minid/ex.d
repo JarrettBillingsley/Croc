@@ -44,6 +44,8 @@ import minid.vm;
 // Public
 // ================================================================================================================================================
 
+public:
+
 // ================================================================================================================================================
 // Simplifying very common tasks
 
@@ -175,7 +177,7 @@ throw an error.
 
 You can, of course, modify the class object after creating it, like if you need to add a finalizer or allocator.
 */
-public struct CreateClass
+struct CreateClass
 {
 	private MDThread* t;
 	private char[] name;
@@ -300,7 +302,7 @@ For the instance at the given index, gets the extra bytes and returns them cast 
 given type.  Checks that the number of extra bytes is at least the size of the given type, but
 this should not be used as a foolproof way of identifying the type of instances.
 */
-public T* getMembers(T)(MDThread* t, word index)
+T* getMembers(T)(MDThread* t, word index)
 {
 	auto ret = getExtraBytes(t, index);
 
@@ -334,7 +336,7 @@ auto strIdx = buf.finish();
 // The stack is how it was before we created the buffer, except with the result string is on top.
 -----
 */
-public struct StrBuffer
+struct StrBuffer
 {
 	private MDThread* t;
 	private uword numPieces;
@@ -509,7 +511,7 @@ Params:
 Returns:
 	The stack index of the looked-up value.
 */
-public word lookup(MDThread* t, char[] name)
+word lookup(MDThread* t, char[] name)
 {
 	validateName(t, name);
 
@@ -544,7 +546,7 @@ parameter instead of a normal parameter.
 Returns:
 	The stack index of the looked-up value.
 */
-public word lookupCT(char[] name)(MDThread* t)
+word lookupCT(char[] name)(MDThread* t)
 {
 	mixin(NameToAPICalls!(name));
 	return idx;
@@ -557,7 +559,7 @@ does not exist in the registry.
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getRegistryVar(MDThread* t, char[] name)
+word getRegistryVar(MDThread* t, char[] name)
 {
 	getRegistry(t);
 	field(t, -1, name);
@@ -568,7 +570,7 @@ public word getRegistryVar(MDThread* t, char[] name)
 /**
 Pops the value off the top of the stack and sets it into the given registry variable.
 */
-public void setRegistryVar(MDThread* t, char[] name)
+void setRegistryVar(MDThread* t, char[] name)
 {
 	getRegistry(t);
 	swap(t);
@@ -590,7 +592,7 @@ Params:
 Returns:
 	The stack index of the newly-compiled function.
 */
-public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
+word loadString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by loadString>")
 {
 	if(customEnv)
 	{
@@ -619,7 +621,7 @@ public word loadString(MDThread* t, char[] code, bool customEnv = false, char[] 
 This is a quick way to run some MiniD code.  Basically this just calls loadString and then runs
 the resulting function with no parameters.  This function's parameters are the same as loadString's.
 */
-public void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
+void runString(MDThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
 {
 	loadString(t, code, customEnv, name);
 	pushNull(t);
@@ -642,7 +644,7 @@ Returns:
 	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
 	returned.
 */
-public uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
+uword eval(MDThread* t, char[] code, word numReturns = 1, bool customEnv = false)
 {
 	if(customEnv)
 	{
@@ -694,7 +696,7 @@ runFile(t, "foo.bar.baz", 2);
 runFile(t, "foo/bar/baz.md");
 -----
 */
-public void runFile(MDThread* t, char[] filename, uword numParams = 0)
+void runFile(MDThread* t, char[] filename, uword numParams = 0)
 {
 // 	checkNumParams(t, numParams);
 
@@ -771,7 +773,7 @@ Params:
 		MiniD exception object.
 	finally_ = The optional finally code.
 */
-public void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, word) catch_, void delegate() finally_ = null)
+void mdtry(MDThread* t, void delegate() try_, void delegate(MDException, word) catch_, void delegate() finally_ = null)
 {
 	auto size = stackSize(t);
 
@@ -932,9 +934,9 @@ void freeArray(T)(MDThread* t, ref T[] arr)
 	arr = null;
 }
 
-private alias void delegate(Object) DisposeEvt;
-private static extern(C) void rt_attachDisposeEvent(Object obj, DisposeEvt evt);
-private static extern(C) void rt_detachDisposeEvent(Object obj, DisposeEvt evt);
+alias void delegate(Object) DisposeEvt;
+static extern(C) void rt_attachDisposeEvent(Object obj, DisposeEvt evt);
+static extern(C) void rt_detachDisposeEvent(Object obj, DisposeEvt evt);
 
 /**
 A class that makes it possible to automatically remove references to MiniD objects.  You should create a $(B SCOPE) instance
@@ -1036,7 +1038,7 @@ class RefManager
 Check that there is any parameter at the given index.  You can use this to ensure that a minimum number
 of parameters were passed to your function.
 */
-public void checkAnyParam(MDThread* t, word index)
+void checkAnyParam(MDThread* t, word index)
 {
 	if(!isValidIndex(t, index))
 		throwException(t, "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
@@ -1046,7 +1048,7 @@ public void checkAnyParam(MDThread* t, word index)
 These all check that a parameter of the given type was passed at the given index, and return the value
 of that parameter.  Very simple.
 */
-public bool checkBoolParam(MDThread* t, word index)
+bool checkBoolParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1057,7 +1059,7 @@ public bool checkBoolParam(MDThread* t, word index)
 }
 
 /// ditto
-public mdint checkIntParam(MDThread* t, word index)
+mdint checkIntParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1068,7 +1070,7 @@ public mdint checkIntParam(MDThread* t, word index)
 }
 
 /// ditto
-public mdfloat checkFloatParam(MDThread* t, word index)
+mdfloat checkFloatParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1079,7 +1081,7 @@ public mdfloat checkFloatParam(MDThread* t, word index)
 }
 
 /// ditto
-public dchar checkCharParam(MDThread* t, word index)
+dchar checkCharParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1090,7 +1092,7 @@ public dchar checkCharParam(MDThread* t, word index)
 }
 
 /// ditto
-public char[] checkStringParam(MDThread* t, word index)
+char[] checkStringParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1104,7 +1106,7 @@ public char[] checkStringParam(MDThread* t, word index)
 Checks that the parameter at the given index is an int or a float, and returns the value as a float,
 casting ints to floats as necessary.
 */
-public mdfloat checkNumParam(MDThread* t, word index)
+mdfloat checkNumParam(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1120,7 +1122,7 @@ public mdfloat checkNumParam(MDThread* t, word index)
 /**
 Checks that the parameter at the given index is an instance.
 */
-public void checkInstParam()(MDThread* t, word index)
+void checkInstParam()(MDThread* t, word index)
 {
 	checkAnyParam(t, index);
 
@@ -1136,7 +1138,7 @@ Params:
 	index = The stack index of the parameter to check.
 	name = The name of the class from which the given parameter must be derived.
 */
-public void checkInstParam()(MDThread* t, word index, char[] name)
+void checkInstParam()(MDThread* t, word index, char[] name)
 {
 	index = absIndex(t, index);
 	checkInstParam(t, index);
@@ -1160,7 +1162,7 @@ public void checkInstParam()(MDThread* t, word index, char[] name)
 Same as above, but also takes a template type parameter that should be a struct the same size as the
 given instance's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
 */
-public T* checkInstParam(T)(MDThread* t, word index, char[] name)
+T* checkInstParam(T)(MDThread* t, word index, char[] name)
 {
 	checkInstParam(t, index, name);
 	return getMembers!(T)(t, index);
@@ -1174,7 +1176,7 @@ Params:
 	classRef = Reference to the class object.
 */
 
-public void checkInstParamRef(MDThread* t, word index, ulong classRef)
+void checkInstParamRef(MDThread* t, word index, ulong classRef)
 {
 	index = absIndex(t, index);
 	checkInstParam(t, index);
@@ -1202,7 +1204,7 @@ Params:
 	index = The stack index of the parameter to check.
 	classIndex = The stack index of the class against which the instance should be tested.
 */
-public void checkInstParamSlot(MDThread* t, word index, word classIndex)
+void checkInstParamSlot(MDThread* t, word index, word classIndex)
 {
 	checkInstParam(t, index);
 
@@ -1221,7 +1223,7 @@ public void checkInstParamSlot(MDThread* t, word index, word classIndex)
 /**
 Checks that the parameter at the given index is of the given type.
 */
-public void checkParam(MDThread* t, word index, MDValue.Type type)
+void checkParam(MDThread* t, word index, MDValue.Type type)
 {
 	assert(type >= MDValue.Type.Null && type <= MDValue.Type.FuncDef, "invalid type");
 
@@ -1235,7 +1237,7 @@ public void checkParam(MDThread* t, word index, MDValue.Type type)
 Throws an informative exception about the parameter at the given index, telling the parameter index ('this' for
 parameter 0), the expected type, and the actual type.
 */
-public void paramTypeError(MDThread* t, word index, char[] expected)
+void paramTypeError(MDThread* t, word index, char[] expected)
 {
 	pushTypeString(t, index);
 
@@ -1250,7 +1252,7 @@ These all get an optional parameter of the given type at the given index.  If no
 index or if 'null' was passed, 'def' is returned; otherwise, the passed parameter must match the given type
 and its value is returned.  This is the same behavior as in MiniD.
 */
-public bool optBoolParam(MDThread* t, word index, bool def)
+bool optBoolParam(MDThread* t, word index, bool def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1262,7 +1264,7 @@ public bool optBoolParam(MDThread* t, word index, bool def)
 }
 
 /// ditto
-public mdint optIntParam(MDThread* t, word index, mdint def)
+mdint optIntParam(MDThread* t, word index, mdint def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1274,7 +1276,7 @@ public mdint optIntParam(MDThread* t, word index, mdint def)
 }
 
 /// ditto
-public mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
+mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1286,7 +1288,7 @@ public mdfloat optFloatParam(MDThread* t, word index, mdfloat def)
 }
 
 /// ditto
-public dchar optCharParam(MDThread* t, word index, dchar def)
+dchar optCharParam(MDThread* t, word index, dchar def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1298,7 +1300,7 @@ public dchar optCharParam(MDThread* t, word index, dchar def)
 }
 
 /// ditto
-public char[] optStringParam(MDThread* t, word index, char[] def)
+char[] optStringParam(MDThread* t, word index, char[] def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1313,7 +1315,7 @@ public char[] optStringParam(MDThread* t, word index, char[] def)
 Just like the above, allowing ints or floats, and returns the value cast to a float, casting ints
 to floats as necessary.
 */
-public mdfloat optNumParam(MDThread* t, word index, mdfloat def)
+mdfloat optNumParam(MDThread* t, word index, mdfloat def)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return def;
@@ -1328,7 +1330,7 @@ public mdfloat optNumParam(MDThread* t, word index, mdfloat def)
 Similar to above, but works for any type.  Returns false to mean that no parameter was passed,
 and true to mean that one was.
 */
-public bool optParam(MDThread* t, word index, MDValue.Type type)
+bool optParam(MDThread* t, word index, MDValue.Type type)
 {
 	if(!isValidIndex(t, index) || isNull(t, index))
 		return false;
@@ -1343,10 +1345,12 @@ public bool optParam(MDThread* t, word index, MDValue.Type type)
 // Private
 // ================================================================================================================================================
 
+private:
+
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*".  Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be
 // synchronized, or it'd have to be created in the VM object which is just dumb.
-private void validateName(MDThread* t, char[] name)
+void validateName(MDThread* t, char[] name)
 {
 	void wrongFormat()
 	{
@@ -1383,17 +1387,17 @@ private void validateName(MDThread* t, char[] name)
 	}
 }
 
-private template IsIdentBeginChar(char c)
+template IsIdentBeginChar(char c)
 {
 	const IsIdentBeginChar = (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_';
 }
 
-private template IsIdentChar(char c)
+template IsIdentChar(char c)
 {
 	const IsIdentChar = IsIdentBeginChar!(c) || (c >= '0' && c <= '9');
 }
 
-private template ValidateNameCTImpl(char[] name, uword start = 0)
+template ValidateNameCTImpl(char[] name, uword start = 0)
 {
 	private template IdentLoop(uword idx)
 	{
@@ -1419,7 +1423,7 @@ private template ValidateNameCTImpl(char[] name, uword start = 0)
 	}
 }
 
-private template ValidateNameCT(char[] name)
+template ValidateNameCT(char[] name)
 {
 	static if(name.length == 0)
 		static assert(false, "Cannot use an empty string for a name");
@@ -1435,13 +1439,13 @@ template NameToAPICalls_toCalls(Names...)
 		const char[] NameToAPICalls_toCalls = "field(t, -1, \"" ~ Names[0] ~ "\");\n" ~ NameToAPICalls_toCalls!(Names[1 .. $]);
 }
 
-private template NameToAPICallsImpl(char[] name)
+template NameToAPICallsImpl(char[] name)
 {
 	alias ValidateNameCT!(name) t;
 	const ret = "auto idx = pushGlobal(t, \"" ~ t[0] ~ "\");\n" ~ NameToAPICalls_toCalls!(t[1 .. $]) ~ (t.length > 1 ? "insertAndPop(t, idx);\n" : "");
 }
 
-private template NameToAPICalls(char[] name)
+template NameToAPICalls(char[] name)
 {
 	const NameToAPICalls = NameToAPICallsImpl!(name).ret;
 }

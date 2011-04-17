@@ -126,10 +126,7 @@ void setHookFunc(MDThread* t, ubyte mask, uint hookDelay)
 	auto f = getFunction(t, -1);
 
 	if(f is null && !isNull(t, -1))
-	{
-		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - hook func must be 'function' or 'null', not '{}'", getString(t, -1));
-	}
+		mixin(apiParamTypeError!("-1", "hook function", "function|null"));
 
 	if(f is null || mask == 0)
 	{
