@@ -27,18 +27,12 @@ module minid.stdlib_base;
 
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
-import tango.io.device.Array;
 import tango.io.Console;
-import tango.io.stream.Format;
 import tango.io.Stdout;
 import tango.stdc.ctype;
-import Utf = tango.text.convert.Utf;
 
-import minid.base_alloc;
-import minid.compiler;
 import minid.ex;
 import minid.ex_format;
-import minid.ex_json;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.stdlib_stringbuffer;
@@ -47,8 +41,6 @@ import minid.types;
 import minid.types_class;
 import minid.types_instance;
 import minid.types_namespace;
-import minid.utils;
-import minid.vm;
 
 private void register(MDThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
@@ -75,19 +67,18 @@ static:
 		// StringBuffer
 		StringBufferObj.init(t);
 
-		// GC
-		makeModule(t, "gc", function uword(MDThread* t)
-		{
-			newFunction(t, 0, &collectGarbage, "collect");   newGlobal(t, "collect");
-			newFunction(t, 0, &bytesAllocated, "allocated"); newGlobal(t, "allocated");
-			return 0;
-		});
+		// The Function type's metatable
+		newNamespace(t, "function");
+			newFunction(t, 0, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
+			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
+			newFunction(t, 0, &functionMaxParams,   "function.maxParams");   fielda(t, -2, "maxParams");
+			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
+			newFunction(t, 0, &functionIsCacheable, "function.isCacheable"); fielda(t, -2, "isCacheable");
+		setTypeMT(t, MDValue.Type.Function);
 
-		importModuleNoNS(t, "gc");
-
-		// Functional stuff
-		register(t, 2, "curry", &curry);
-		register(t, 2, "bindContext", &bindContext);
+		// Weak reference stuff
+		register(t, 1, "weakref", &weakref);
+		register(t, 1, "deref", &deref);
 
 		// Reflection-esque stuff
 		register(t, 1, "findGlobal", &findGlobal);
@@ -142,85 +133,82 @@ static:
 
 			newTable(t);
 		register(t, 2, "dumpVal", &dumpVal, 1);
-
-		// Dynamic compilation stuff
-		register(t, 3, "loadString", &loadString);
-		register(t, 2, "eval", &eval);
-		register(t, 1, "loadJSON", &loadJSON);
-		register(t, 2, "toJSON", &toJSON);
-
-		// The Function type's metatable
-		newNamespace(t, "function");
-			newFunction(t, 0, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
-			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
-			newFunction(t, 0, &functionMaxParams,   "function.maxParams");   fielda(t, -2, "maxParams");
-			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
-			newFunction(t, 0, &functionIsCacheable, "function.isCacheable"); fielda(t, -2, "isCacheable");
-		setTypeMT(t, MDValue.Type.Function);
-
-		// Weak reference stuff
-		register(t, 1, "weakref", &weakref);
-		register(t, 1, "deref", &deref);
 	}
 
 	// ===================================================================================================================================
-	// GC
+	// Function metatable
 
-	uword collectGarbage(MDThread* t)
+	uword functionIsNative(MDThread* t)
 	{
-		pushInt(t, gc(t));
+		checkParam(t, 0, MDValue.Type.Function);
+		pushBool(t, funcIsNative(t, 0));
+		return 1;
+	}
+
+	uword functionNumParams(MDThread* t)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushInt(t, funcNumParams(t, 0));
+		return 1;
+	}
+
+	uword functionMaxParams(MDThread* t)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushInt(t, funcMaxParams(t, 0));
+		return 1;
+	}
+
+	uword functionIsVararg(MDThread* t)
+	{
+		checkParam(t, 0, MDValue.Type.Function);
+		pushBool(t, funcIsVararg(t, 0));
 		return 1;
 	}
 	
-	uword bytesAllocated(MDThread* t)
+	uword functionIsCacheable(MDThread* t)
 	{
-		pushInt(t, .bytesAllocated(getVM(t)));
+		checkParam(t, 0, MDValue.Type.Function);
+		auto f = getFunction(t, 0);
+		pushBool(t, f.isNative ? false : f.scriptFunc.numUpvals == 0);
 		return 1;
 	}
 
 	// ===================================================================================================================================
-	// Functional stuff
+	// Weak reference stuff
 
-	uword curry(MDThread* t)
+	uword weakref(MDThread* t)
 	{
-		static uword call(MDThread* t)
-		{
-			getUpval(t, 0);
-			dup(t, 0);
-			getUpval(t, 1);
-			rotateAll(t, 3);
-			return rawCall(t, 1, -1);
-		}
-
-		checkParam(t, 1, MDValue.Type.Function);
-		checkAnyParam(t, 2);
-		setStackSize(t, 3);
-		
-		auto numParams = funcNumParams(t, 1);
-
-		if(!funcIsVararg(t, 1) && numParams > 0)
-			newFunction(t, numParams - 1, &call, "curryClosure", 2);
-		else
-			newFunction(t, &call, "curryClosure", 2);
-
+		checkAnyParam(t, 1);
+		pushWeakRef(t, 1);
 		return 1;
 	}
 
-	uword bindContext(MDThread* t)
+	uword deref(MDThread* t)
 	{
-		static uword call(MDThread* t)
+		checkAnyParam(t, 1);
+
+		switch(type(t, 1))
 		{
-			getUpval(t, 0);
-			getUpval(t, 1);
-			rotateAll(t, 2);
-			return rawCall(t, 1, -1);
+			case
+				MDValue.Type.Null,
+				MDValue.Type.Bool,
+				MDValue.Type.Int,
+				MDValue.Type.Float,
+				MDValue.Type.Char:
+
+				dup(t, 1);
+				return 1;
+
+			case MDValue.Type.WeakRef:
+				.deref(t, 1);
+				return 1;
+
+			default:
+				paramTypeError(t, 1, "null|bool|int|float|char|weakref");
 		}
 
-		checkParam(t, 1, MDValue.Type.Function);
-		checkAnyParam(t, 2);
-		setStackSize(t, 3);
-		newFunction(t, &call, "boundFunction", 2);
-		return 1;
+		assert(false);
 	}
 
 	// ===================================================================================================================================
@@ -547,7 +535,7 @@ static:
 			char[1] style = "d";
 
 			if(numParams > 1)
-				style[0] = getChar(t, 2);
+				style[0] = checkCharParam(t, 2);
 
 			char[80] buffer = void;
 			pushString(t, safeCode(t, Integer.format(buffer, getInt(t, 1), style)));
@@ -647,7 +635,7 @@ static:
 	uword writeln(MDThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		
+
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
@@ -686,6 +674,14 @@ static:
 		formatImpl(t, numParams, &sink);
 		Stdout.newline;
 		return 0;
+	}
+	
+	uword readln(MDThread* t)
+	{
+		char[] s;
+		Cin.readln(s);
+		pushString(t, s);
+		return 1;
 	}
 
 	uword dumpVal(MDThread* t)
@@ -906,206 +902,5 @@ static:
 			Stdout.newline;
 
 		return 0;
-	}
-
-	uword readln(MDThread* t)
-	{
-		char[] s;
-		Cin.readln(s);
-		pushString(t, s);
-		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Dynamic Compilation
-
-	uword loadString(MDThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		auto code = checkStringParam(t, 1);
-		char[] name = "<loaded by loadString>";
-
-		if(numParams > 1)
-		{
-			if(isString(t, 2))
-			{
-				name = getString(t, 2);
-
-				if(numParams > 2)
-				{
-					checkParam(t, 3, MDValue.Type.Namespace);
-					dup(t, 3);
-				}
-				else
-					pushEnvironment(t, 1);
-			}
-			else
-			{
-				checkParam(t, 2, MDValue.Type.Namespace);
-				dup(t, 2);
-			}
-		}
-		else
-			pushEnvironment(t, 1);
-
-		scope c = new Compiler(t);
-		c.compileStatements(code, name);
-		swap(t);
-		newFunctionWithEnv(t, -2);
-		return 1;
-	}
-
-	uword eval(MDThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		auto code = checkStringParam(t, 1);
-		scope c = new Compiler(t);
-		c.compileExpression(code, "<loaded by eval>");
-
-		if(numParams > 1)
-		{
-			checkParam(t, 2, MDValue.Type.Namespace);
-			dup(t, 2);
-		}
-		else
-			pushEnvironment(t, 1);
-
-		newFunctionWithEnv(t, -2);
-		pushNull(t);
-		return rawCall(t, -2, -1);
-	}
-
-	uword loadJSON(MDThread* t)
-	{
-		.loadJSON(t, checkStringParam(t, 1));
-		return 1;
-	}
-
-	uword toJSON(MDThread* t)
-	{
-// 		static scope class MDHeapBuffer : Array
-// 		{
-// 			Allocator* alloc;
-// 			uint increment;
-//
-// 			this(ref Allocator alloc)
-// 			{
-// 				super(null);
-//
-// 				this.alloc = &alloc;
-// 				setContent(alloc.allocArray!(ubyte)(1024), 0);
-// 				this.increment = 1024;
-// 			}
-//
-// 			~this()
-// 			{
-// 				alloc.freeArray(data);
-// 			}
-//
-// 			override uint fill(InputStream src)
-// 			{
-// 				if(writable <= increment / 8)
-// 					expand(increment);
-//
-// 				return write(&src.read);
-// 			}
-//
-// 			override uint expand(uint size)
-// 			{
-// 				if(size < increment)
-// 					size = increment;
-//
-// 				dimension += size;
-// 				alloc.resizeArray(data, dimension);
-// 				return writable;
-// 			}
-// 		}
-
-		checkAnyParam(t, 1);
-		auto pretty = optBoolParam(t, 2, false);
-
-		scope buf = new Array(256, 256);
-		scope printer = new FormatOutput!(char)(t.vm.formatter, buf);
-
-		.toJSON(t, 1, pretty, printer);
-
-		pushString(t, safeCode(t, cast(char[])buf.slice()));
-		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Function metatable
-
-	uword functionIsNative(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		pushBool(t, funcIsNative(t, 0));
-		return 1;
-	}
-
-	uword functionNumParams(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		pushInt(t, funcNumParams(t, 0));
-		return 1;
-	}
-
-	uword functionMaxParams(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		pushInt(t, funcMaxParams(t, 0));
-		return 1;
-	}
-
-	uword functionIsVararg(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		pushBool(t, funcIsVararg(t, 0));
-		return 1;
-	}
-	
-	uword functionIsCacheable(MDThread* t)
-	{
-		checkParam(t, 0, MDValue.Type.Function);
-		auto f = getFunction(t, 0);
-		pushBool(t, f.isNative ? false : f.scriptFunc.numUpvals == 0);
-		return 1;
-	}
-
-	// ===================================================================================================================================
-	// Weak reference stuff
-
-	uword weakref(MDThread* t)
-	{
-		checkAnyParam(t, 1);
-		pushWeakRef(t, 1);
-		return 1;
-	}
-
-	uword deref(MDThread* t)
-	{
-		checkAnyParam(t, 1);
-
-		switch(type(t, 1))
-		{
-			case
-				MDValue.Type.Null,
-				MDValue.Type.Bool,
-				MDValue.Type.Int,
-				MDValue.Type.Float,
-				MDValue.Type.Char:
-
-				dup(t, 1);
-				return 1;
-
-			case MDValue.Type.WeakRef:
-				.deref(t, 1);
-				return 1;
-
-			default:
-				paramTypeError(t, 1, "null|bool|int|float|char|weakref");
-		}
-
-		assert(false);
 	}
 }

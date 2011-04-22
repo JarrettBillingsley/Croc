@@ -45,7 +45,7 @@ import minid.utils;
 // ================================================================================================================================================
 public:
 
-word loadJSON(MDThread* t, char[] source)
+word fromJSON(MDThread* t, char[] source)
 {
 	Lexer l;
 	l.begin(t, source);

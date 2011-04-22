@@ -26,6 +26,7 @@ subject to the following restrictions:
 module minid.interp;
 
 import Integer = tango.text.convert.Integer;
+import tango.core.Tuple;
 import Utf = tango.text.convert.Utf;
 
 import tango.stdc.string;
@@ -126,6 +127,7 @@ void runFinalizers(MDThread* t)
 			{
 				auto oldLimit = alloc.gcLimit;
 				alloc.gcLimit = typeof(oldLimit).max;
+				scope(exit) alloc.gcLimit = oldLimit;
 
 				auto size = stackSize(t);
 
@@ -139,11 +141,8 @@ void runFinalizers(MDThread* t)
 				{
 					// TODO: this seems like a bad idea.
 					catchException(t);
-					pop(t);
 					setStackSize(t, size);
 				}
-
-				alloc.gcLimit = oldLimit;
 			}
 		}
 	}
@@ -387,15 +386,10 @@ template tryMMImpl(int numParams, bool hasDest)
 	"}";
 }
 
-template tryMM_shim(int numParams, bool hasDest)
-{
-	mixin(tryMMImpl!(numParams, hasDest));
-}
-
 template tryMM(int numParams, bool hasDest)
 {
 	static assert(numParams > 0, "Need at least one param");
-	alias tryMM_shim!(numParams, hasDest).tryMM tryMM;
+	mixin(tryMMImpl!(numParams, hasDest));
 }
 
 bool callPrologue(MDThread* t, AbsStack slot, word numReturns, uword numParams, MDClass* proto)
@@ -815,7 +809,7 @@ word toStringImpl(MDThread* t, MDValue v, bool raw)
 
 		case MDValue.Type.Char:
 			auto inbuf = v.mChar;
-			
+
 			if(!Utf.isValid(inbuf))
 				throwException(t, "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
 
@@ -1641,7 +1635,7 @@ void commonBinOpMM(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValu
 	}
 
 	commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
-	
+
 	if(shouldLoad)
 		loadPtr(t, dest);
 
@@ -3392,7 +3386,7 @@ void execute(MDThread* t, uword depth = 1)
 					
 					mdint lo = void;
 					mdint hi = void;
-					
+
 					auto loSrc = mixin(GetRD);
 					auto hiSrc = mixin(GetRDplus1);
 
@@ -3707,7 +3701,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				default:
 					// TODO: make this a little more.. severe?
-					throwException(t, "Unimplemented opcode {}", i.opcode);
+					throwException(t, "Unimplemented opcode {}", *i);
 			}
 		}
 	}

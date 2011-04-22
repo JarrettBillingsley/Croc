@@ -710,21 +710,24 @@ struct MDVM
 {
 	package Allocator alloc;
 
+	// These are all GC roots
 	package MDNamespace* globals;
 	package MDThread* mainThread;
 	package MDNamespace*[] metaTabs;
-	package Hash!(char[], MDString*) stringTab;
 	package MDString*[] metaStrings;
-	package MDString* ctorString;
 	package Location[] traceback;
 	package MDValue exception;
-	package bool isThrowing;
-	package MDThread* curThread;
-	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
 	package MDNamespace* registry;
 	package Hash!(ulong, MDBaseObject*) refTab;
-	package ulong currentRef;
+
+	// Others
+	package Hash!(char[], MDString*) stringTab;
+	package Hash!(MDBaseObject*, MDWeakRef*) weakRefTab;
 	package MDTable* toBeNormalized; // linked list of tables to be normalized
+	package ulong currentRef;
+	package MDString* ctorString;
+	package MDThread* curThread;
+	package bool isThrowing;
 
 	// The following members point into the D heap.
 	package MDNativeObj*[Object] nativeObjs;

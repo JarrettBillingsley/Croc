@@ -51,7 +51,6 @@ static:
 			dup(t, ns); newFunctionWithEnv(t, 1, &reload,     "reload");     fielda(t, ns, "reload");
 			dup(t, ns); newFunctionWithEnv(t, 2, &initModule, "initModule"); fielda(t, ns, "initModule");
 			dup(t, ns); newFunctionWithEnv(t,    &runMain,    "runMain");    fielda(t, ns, "runMain");
-			dup(t, ns); newFunctionWithEnv(t, 2, &compile,    "compile");    fielda(t, ns, "compile");
 
 			newTable(t);
 				// integrate 'modules' itself into the module loading system
@@ -244,15 +243,6 @@ static:
 		}
 
 		return 0;
-	}
-
-	uword compile(MDThread* t)
-	{
-		auto src = checkStringParam(t, 1);
-		auto name = optStringParam(t, 2, "<loaded by modules.compile>");
-		scope c = new Compiler(t);
-		c.compileModule(src, name);
-		return 1;
 	}
 
 	package uword customLoad(MDThread* t)

@@ -44,9 +44,12 @@ public
 import minid.stdlib_array;
 import minid.stdlib_base;
 import minid.stdlib_char;
+import minid.stdlib_compiler;
 import minid.stdlib_debug;
+import minid.stdlib_gc;
 import minid.stdlib_hash;
 import minid.stdlib_io;
+import minid.stdlib_json;
 import minid.stdlib_math;
 import minid.stdlib_modules;
 import minid.stdlib_os;
@@ -117,6 +120,7 @@ MDThread* openVM(MDVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = null)
 	// are initialized for obvious reasons.
 	ModulesLib.init(t);
 	BaseLib.init(t);
+	GCLib.init(t);
 	ThreadLib.init(t);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return t;
@@ -194,13 +198,22 @@ enum MDStdlib
 	(De)serialization of complex object graphs.
 	*/
 	Serialization = 2048,
+	
+	/**
+	JSON reading and writing.
+	*/
+	JSON = 4096,
+	
+	/**
+	Dynamic compilation of MiniD code.
+	*/
+	Compiler = 8192,
 
 	/**
-	This flag is an OR of Array, Char, Math, String, Hash, Regexp, Time, and Serialization.  It represents
-	all the libraries which are "safe", i.e. malicious scripts would not be able to use the IO
-	or OS libraries to do bad things.
+	This flag is an OR of all the libraries which are "safe", which is everything except the IO, OS,
+	and Debug libraries.
 	*/
-	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization,
+	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization | JSON | Compiler,
 
 	/**
 	_All available standard libraries except the debug library.
@@ -234,6 +247,8 @@ void loadStdlibs(MDThread* t, uint libs = MDStdlib.All)
 	if(libs & MDStdlib.Time)          TimeLib.init(t);
 	if(libs & MDStdlib.Debug)         DebugLib.init(t);
 	if(libs & MDStdlib.Serialization) SerializationLib.init(t);
+	if(libs & MDStdlib.JSON)          JSONLib.init(t);
+	if(libs & MDStdlib.Compiler)      CompilerLib.init(t);
 }
 
 /**

@@ -34,7 +34,6 @@ import tango.math.Math;
 
 import minid.ex;
 import minid.ex_format;
-import minid.ex_json;
 import minid.interpreter;
 import minid.stackmanip;
 import minid.stdlib_vector;
@@ -598,7 +597,6 @@ static:
 			c.method("writef",         &writef);
 			c.method("writefln",       &writefln);
 			c.method("writeChars",  1, &writeChars);
-			c.method("writeJSON",   2, &writeJSON);
 			c.method("writeVector", 3, &writeVector);
 			c.method("flush",       0, &flush);
 			c.method("copy",        1, &copy);
@@ -802,16 +800,6 @@ static:
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
 		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
-		dup(t, 0);
-		return 1;
-	}
-
-	public uword writeJSON(MDThread* t)
-	{
-		auto memb = getOpenThis(t);
-		checkAnyParam(t, 1);
-		auto pretty = optBoolParam(t, 2, false);
-		.toJSON(t, 1, pretty, memb.print);
 		dup(t, 0);
 		return 1;
 	}
@@ -1035,7 +1023,6 @@ static:
 			c.method("writef",         &writef);
 			c.method("writefln",       &writefln);
 			c.method("writeChars",  1, &writeChars);
-			c.method("writeJSON",   2, &writeJSON);
 			c.method("writeVector", 3, &writeVector);
 			c.method("flush",       0, &flush);
 			c.method("copy",        1, &copy);
@@ -1508,17 +1495,6 @@ static:
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
 		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
-		memb.dirty = true;
-		dup(t, 0);
-		return 1;
-	}
-
-	public uword writeJSON(MDThread* t)
-	{
-		auto memb = getOpenThis(t);
-		checkAnyParam(t, 1);
-		auto pretty = optBoolParam(t, 2, false);
-		.toJSON(t, 1, pretty, memb.print);
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
