@@ -1543,7 +1543,7 @@ This function obviously does not return.
 void throwException(MDThread* t)
 {
 	mixin(apiCheckNumParams!("1"));
-	throwImpl(t, &t.stack[t.stackIndex - 1]);
+	throwImpl(t, t.stack[t.stackIndex - 1]);
 }
 
 /**

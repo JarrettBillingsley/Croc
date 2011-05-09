@@ -27,7 +27,6 @@ module minid.api_debug;
 
 import minid.api_checks;
 import minid.base_opcodes;
-// 	Instruction;
 import minid.stackmanip;
 // 	dup,
 // 	getFunction,
@@ -37,7 +36,6 @@ import minid.stackmanip;
 // 	stackSize;
 import minid.types;
 import minid.utils;
-// 	_getJustName;
 
 import minid.interpreter;
 // 	createString,

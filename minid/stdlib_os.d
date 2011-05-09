@@ -296,7 +296,7 @@ static:
 				lookupCT!("stream.OutStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdin.output);
-				pushBool(t, false);
+				pushBool(t, true);
 				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stdin);
@@ -320,7 +320,7 @@ static:
 				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stdout.input);
-				pushBool(t, false);
+				pushBool(t, true);
 				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stdout);
@@ -344,7 +344,7 @@ static:
 				lookupCT!("stream.InStream")(t);
 				pushNull(t);
 				pushNativeObj(t, cast(Object)p.stderr.input);
-				pushBool(t, false);
+				pushBool(t, true);
 				rawCall(t, -4, 1);
 				dup(t);
 				setExtraVal(t, 0, Fields.stderr);
@@ -361,8 +361,18 @@ static:
 			
 			if(!isNull(t, -1))
 			{
+				dup(t, -1);
 				pushNull(t);
-				methodCall(t, -2, "flush", 0);
+				methodCall(t, -2, "isOpen", 1);
+				
+				if(getBool(t, -1))
+				{
+					pop(t);
+					pushNull(t);
+					methodCall(t, -2, "flush", 0);
+				}
+				else
+					pop(t, 2);
 			}
 			else
 				pop(t);

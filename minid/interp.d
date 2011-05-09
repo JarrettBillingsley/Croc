@@ -785,103 +785,101 @@ void unwindEH(MDThread* t)
 
 word toStringImpl(MDThread* t, MDValue v, bool raw)
 {
-	char[80] buffer = void;
+	if(v.type <= MDValue.Type.String)
+	{
+		char[80] buffer = void;
+
+		switch(v.type)
+		{
+			case MDValue.Type.Null:  return pushString(t, "null");
+			case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
+			case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
+			case MDValue.Type.Float:
+				uword pos = 0;
+
+				auto size = t.vm.formatter.convert((char[] s)
+				{
+					if(pos + s.length > buffer.length)
+						s.length = buffer.length - pos;
+
+					buffer[pos .. pos + s.length] = s[];
+					pos += s.length;
+					return cast(uint)s.length; // the cast is there to make things work on x64 :P
+				}, "{}", v.mFloat);
+
+				return pushString(t, buffer[0 .. pos]);
+
+			case MDValue.Type.Char:
+				auto inbuf = v.mChar;
+
+				if(!Utf.isValid(inbuf))
+					throwException(t, "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
+
+				uint ate = 0;
+				return pushString(t, Utf.toString((&inbuf)[0 .. 1], buffer, &ate));
+
+			case MDValue.Type.String:
+				return push(t, v);
+
+			default: assert(false);
+		}
+	}
+
+	if(!raw)
+	{
+		MDClass* proto;
+		if(auto method = getMM(t, &v, MM.ToString, proto))
+		{
+			auto funcSlot = push(t, MDValue(method));
+			push(t, v);
+			commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1, proto));
+
+			if(t.stack[t.stackIndex - 1].type != MDValue.Type.String)
+			{
+				typeString(t, &t.stack[t.stackIndex - 1]);
+				throwException(t, "toString was supposed to return a string, but returned a '{}'", getString(t, -1));
+			}
+
+			return stackSize(t) - 1;
+		}
+	}
 
 	switch(v.type)
 	{
-		case MDValue.Type.Null:  return pushString(t, "null");
-		case MDValue.Type.Bool:  return pushString(t, v.mBool ? "true" : "false");
-		case MDValue.Type.Int:   return pushString(t, Integer.format(buffer, v.mInt));
-		case MDValue.Type.Float:
-			uword pos = 0;
+		case MDValue.Type.Function:
+			auto f = v.mFunction;
 
-			auto size = t.vm.formatter.convert((char[] s)
+			if(f.isNative)
+				return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString());
+			else
 			{
-				if(pos + s.length > buffer.length)
-					s.length = buffer.length - pos;
+				auto loc = f.scriptFunc.location;
+				return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
+			}
 
-				buffer[pos .. pos + s.length] = s[];
-				pos += s.length;
-				return cast(uint)s.length; // the cast is there to make things work on x64 :P
-			}, "{}", v.mFloat);
+		case MDValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
+		case MDValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", MDValue.typeString(MDValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
 
-			return pushString(t, buffer[0 .. pos]);
+		case MDValue.Type.Namespace:
+			if(raw)
+				goto default;
 
-		case MDValue.Type.Char:
-			auto inbuf = v.mChar;
+			pushString(t, MDValue.typeString(MDValue.Type.Namespace));
+			pushChar(t, ' ');
+			pushNamespaceNamestring(t, v.mNamespace);
 
-			if(!Utf.isValid(inbuf))
-				throwException(t, "Character '{:X}' is not a valid Unicode codepoint", cast(uint)inbuf);
+			auto slot = t.stackIndex - 3;
+			catImpl(t, &t.stack[slot], slot, 3);
+			pop(t, 2);
+			return slot - t.stackBase;
 
-			uint ate = 0;
-			return pushString(t, Utf.toString((&inbuf)[0 .. 1], buffer, &ate));
-
-		case MDValue.Type.String:
-			return push(t, v);
+		case MDValue.Type.FuncDef:
+			auto d = v.mFuncDef;
+			auto loc = d.location;
+			return pushFormat(t, "{} {}({}({}:{}))", MDValue.typeString(MDValue.Type.FuncDef), d.name.toString(), loc.file.toString(), loc.line, loc.col);
 
 		default:
-			if(!raw)
-			{
-				MDClass* proto;
-				if(auto method = getMM(t, &v, MM.ToString, proto))
-				{
-					auto funcSlot = push(t, MDValue(method));
-					push(t, v);
-					commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 1, proto));
-
-					if(t.stack[t.stackIndex - 1].type != MDValue.Type.String)
-					{
-						typeString(t, &t.stack[t.stackIndex - 1]);
-						throwException(t, "toString was supposed to return a string, but returned a '{}'", getString(t, -1));
-					}
-
-					return stackSize(t) - 1;
-				}
-			}
-
-			switch(v.type)
-			{
-				case MDValue.Type.Table: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Table), cast(void*)v.mTable);
-				case MDValue.Type.Array: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Array), cast(void*)v.mArray);
-				case MDValue.Type.Function:
-					auto f = v.mFunction;
-
-					if(f.isNative)
-						return pushFormat(t, "native {} {}", MDValue.typeString(MDValue.Type.Function), f.name.toString());
-					else
-					{
-						auto loc = f.scriptFunc.location;
-						return pushFormat(t, "script {} {}({}({}:{}))", MDValue.typeString(MDValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
-					}
-
-				case MDValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", MDValue.typeString(MDValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
-				case MDValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", MDValue.typeString(MDValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
-				case MDValue.Type.Namespace:
-					if(raw)
-						return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Namespace), cast(void*)v.mNamespace);
-					else
-					{
-						pushString(t, MDValue.typeString(MDValue.Type.Namespace));
-						pushChar(t, ' ');
-						pushNamespaceNamestring(t, v.mNamespace);
-
-						auto slot = t.stackIndex - 3;
-						catImpl(t, &t.stack[slot], slot, 3);
-						pop(t, 2);
-						return slot - t.stackBase;
-					}
-
-				case MDValue.Type.Thread: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.Thread), cast(void*)v.mThread);
-				case MDValue.Type.NativeObj: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.NativeObj), cast(void*)v.mNativeObj.obj);
-				case MDValue.Type.WeakRef: return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(MDValue.Type.WeakRef), cast(void*)v.mWeakRef);
-
-				case MDValue.Type.FuncDef:
-					auto d = v.mFuncDef;
-					auto loc = d.location;
-					return pushFormat(t, "{} {}({}({}:{}))", MDValue.typeString(MDValue.Type.FuncDef), d.name.toString(), loc.file.toString(), loc.line, loc.col);
-
-				default: assert(false);
-			}
+			return pushFormat(t, "{} 0x{:X8}", MDValue.typeString(v.type), cast(void*)v.mBaseObj);
 	}
 }
 
@@ -1519,17 +1517,17 @@ void binOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* RS, MDValue* R
 				case MM.Sub: return *dest = i1 - i2;
 				case MM.Mul: return *dest = i1 * i2;
 
-				case MM.Mod:
-					if(i2 == 0)
-						throwException(t, "Integer modulo by zero");
-
-					return *dest = i1 % i2;
-
 				case MM.Div:
 					if(i2 == 0)
 						throwException(t, "Integer divide by zero");
 
 					return *dest = i1 / i2;
+
+				case MM.Mod:
+					if(i2 == 0)
+						throwException(t, "Integer modulo by zero");
+
+					return *dest = i1 % i2;
 
 				default:
 					assert(false);
@@ -1660,17 +1658,17 @@ void reflBinOpImpl(MDThread* t, MM operation, MDValue* dest, MDValue* src)
 				case MM.SubEq: return dest.mInt -= i2;
 				case MM.MulEq: return dest.mInt *= i2;
 
-				case MM.ModEq:
-					if(i2 == 0)
-						throwException(t, "Integer modulo by zero");
-
-					return dest.mInt %= i2;
-
 				case MM.DivEq:
 					if(i2 == 0)
 						throwException(t, "Integer divide by zero");
 
 					return dest.mInt /= i2;
+
+				case MM.ModEq:
+					if(i2 == 0)
+						throwException(t, "Integer modulo by zero");
+
+					return dest.mInt %= i2;
 
 				default: assert(false);
 			}
@@ -2213,10 +2211,8 @@ void arrayAppend(MDThread* t, MDArray* a, MDValue[] vals)
 	}
 }
 
-void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
+void throwImpl(MDThread* t, MDValue ex, bool rethrowing = false)
 {
-	auto exSave = *ex;
-
 	if(!rethrowing)
 	{
 		pushDebugLocStr(t, getDebugLoc(t));
@@ -2225,12 +2221,12 @@ void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
 		auto size = stackSize(t);
 
 		try
-			toStringImpl(t, exSave, false);
+			toStringImpl(t, ex, false);
 		catch(MDException e)
 		{
 			catchException(t);
 			setStackSize(t, size);
-			toStringImpl(t, exSave, true);
+			toStringImpl(t, ex, true);
 		}
 
 		auto slot = t.stackIndex - 3;
@@ -2243,7 +2239,7 @@ void throwImpl(MDThread* t, MDValue* ex, bool rethrowing = false)
 		pop(t, 3);
 	}
 
-	t.vm.exception = exSave;
+	t.vm.exception = ex;
 	t.vm.isThrowing = true;
 	throw new MDException(t.vm.exMsg);
 }
@@ -2713,19 +2709,11 @@ void execute(MDThread* t, uword depth = 1)
 		{
 			switch(index & Instruction.locMask)
 			{
-				case Instruction.locLocal:
-					assert((stackBase + (index & ~Instruction.locMask)) < t.stack.length, "invalid based stack index");
-					return &t.stack[stackBase + (index & ~Instruction.locMask)];
-
-				case Instruction.locConst:
-					return &constTable[index & ~Instruction.locMask];
-
-				case Instruction.locUpval:
-					return upvals[index & ~Instruction.locMask].value;
+				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
+				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
+				case Instruction.locUpval: return upvals[index & ~Instruction.locMask].value;
 
 				default:
-					assert((index & Instruction.locMask) == Instruction.locGlobal, "get() location");
-
 					auto name = constTable[index & ~Instruction.locMask].mString;
 
 					if(auto glob = namespace.get(env, name))
@@ -2734,8 +2722,11 @@ void execute(MDThread* t, uword depth = 1)
 					auto ns = env;
 					for(; ns.parent !is null; ns = ns.parent){}
 
-					if(auto glob = namespace.get(ns, name))
-						return glob;
+					if(ns !is env)
+					{
+						if(auto glob = namespace.get(ns, name))
+							return glob;
+					}
 
 					throwException(t, "Attempting to get nonexistent global '{}'", name.toString());
 			}
@@ -2899,7 +2890,6 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.SwitchCmp:
 					auto jump = (*pc)++;
-					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'swcmp' jump");
 
 					if(switchCmpImpl(t, mixin(GetRS), mixin(GetRT)))
 						(*pc) += jump.imm;
@@ -2908,7 +2898,6 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.Is:
 					auto jump = (*pc)++;
-					assert(jump.opcode == Op.Je, "invalid 'is' jump");
 
 					if(mixin(GetRS).opEquals(*mixin(GetRT)) == jump.rd)
 						(*pc) += jump.imm;
@@ -2917,7 +2906,6 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.IsTrue:
 					auto jump = (*pc)++;
-					assert(jump.opcode == Op.Je, "invalid 'istrue' jump");
 
 					if(mixin(GetRS).isFalse() != cast(bool)jump.rd)
 						(*pc) += jump.imm;
@@ -3035,7 +3023,6 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.ForeachLoop:
 					auto jump = (*pc)++;
-					assert(jump.opcode == Op.Je && jump.rd == 1, "invalid 'foreachloop' jump");
 
 					auto rd = i.rd;
 					auto funcReg = rd + 3;
@@ -3102,7 +3089,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.Throw:
 					rethrowingException = cast(bool)i.rt;
-					throwImpl(t, mixin(GetRS), rethrowingException);
+					throwImpl(t, *mixin(GetRS), rethrowingException);
 					break;
 
 				// Function Calling
@@ -3464,7 +3451,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.CheckObjParam:
 					RS = t.stack[stackBase + i.rs];
-					
+
 					if(RS.type != MDValue.Type.Instance)
 						*mixin(GetRD) = true;
 					else
@@ -3580,12 +3567,7 @@ void execute(MDThread* t, uword depth = 1)
 
 				case Op.Closure:
 					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.rs];
-
-					auto funcEnv = env;
-
-					if(i.rt != 0)
-						funcEnv = t.stack[stackBase + i.rt].mNamespace;
-
+					auto funcEnv = i.rt == 0 ? env : t.stack[stackBase + i.rt].mNamespace;
 					auto n = func.create(t.vm.alloc, funcEnv, newDef);
 
 					if(n is null)
@@ -3595,25 +3577,17 @@ void execute(MDThread* t, uword depth = 1)
 						throwException(t, "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 					}
 
-					auto newUpvals = n.scriptUpvals();
-
-					for(uword index = 0; index < newDef.numUpvals; index++)
+					foreach(ref uv; n.scriptUpvals())
 					{
-						assert((*pc).opcode == Op.Move, "invalid closure upvalue op");
-
 						if((*pc).rd == 0)
-							newUpvals[index] = findUpvalue(t, (*pc).rs);
+							uv = findUpvalue(t, (*pc).rs);
 						else
-						{
-							assert((*pc).rd == 1, "invalid closure upvalue rd");
-							newUpvals[index] = upvals[(*pc).uimm];
-						}
+							uv = upvals[(*pc).uimm];
 
 						(*pc)++;
 					}
 
 					*mixin(GetRD) = n;
-
 					maybeGC(t);
 					break;
 
@@ -3693,11 +3667,6 @@ void execute(MDThread* t, uword depth = 1)
 				case Op.SuperOf:
 					*mixin(GetRD) = superOfImpl(t, mixin(GetRS));
 					break;
-
-				case Op.Je:
-				case Op.Jle:
-				case Op.Jlt:
-					assert(false, "lone conditional jump instruction");
 
 				default:
 					// TODO: make this a little more.. severe?

@@ -701,7 +701,7 @@ struct Parser
 										objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, tt.loc, tt.stringValue));
 									}
 								}
-								else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen)
+								else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen && l.type != Token.Arrow)
 									l.expected("class type");
 
 								break;

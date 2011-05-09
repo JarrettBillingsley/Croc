@@ -11,9 +11,10 @@ digraph d
 		fontname = "Helvetica-Bold"
 		label = "Roots"
 		fontsize = 15
-
+	
 		style = filled
 		fillcolor = grey
+
 		Globals [style = filled, fillcolor = white]
 		Stack [style = filled, fillcolor = white]
 	}

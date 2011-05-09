@@ -585,8 +585,14 @@ static:
 
 	uword formatlnPos(MDThread* t)
 	{
+		formatPos(t);
+		setStackSize(t, 1);
+		dup(t, 0);
+		pushNull(t);
 		pushChar(t, '\n');
-		return formatPos(t);
+		methodCall(t, -3, "append", 0);
+		pushLen(t, 0);
+		return 1;
 	}
 
 	uword format(MDThread* t)
@@ -622,7 +628,12 @@ static:
 
 	uword formatln(MDThread* t)
 	{
+		format(t);
+		setStackSize(t, 1);
+		dup(t, 0);
+		pushNull(t);
 		pushChar(t, '\n');
-		return format(t);
+		methodCall(t, -3, "append", 0);
+		return 1;
 	}
 }
