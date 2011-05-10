@@ -79,7 +79,7 @@ Returns:
 word importModule(MDThread* t, word name)
 {
 	mixin(FuncNameMix);
-	
+
 	name = absIndex(t, name);
 
 	if(!isString(t, name))

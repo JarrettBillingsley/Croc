@@ -608,10 +608,15 @@ static:
 
 	uword format(MDThread* t)
 	{
+		uint sink(char[] s)
+		{
+			pushString(t, s);
+			return s.length;
+		}
+
 		auto numParams = stackSize(t) - 1;
-		auto buf = StrBuffer(t);
-		formatImpl(t, numParams, &buf.sink);
-		buf.finish();
+		formatImpl(t, numParams, &sink);
+		cat(t, stackSize(t) - (numParams + 1));
 		return 1;
 	}
 
