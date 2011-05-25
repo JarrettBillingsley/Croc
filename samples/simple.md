@@ -5,7 +5,7 @@ I guess it's baselib (but could be moved?)
 	stringification
 		toString(value, style: char = 'd')
 		rawToString(value)
-		format()
+		format(fmt: string, vararg)
 	console IO
 		write(vararg)
 		writeln(vararg)
@@ -18,7 +18,6 @@ I guess it's baselib (but could be moved?)
 		toInt(value: bool|int|float|char|string)
 		toFloat(value: bool|int|float|char|string)
 		toChar(value: int)
-		format(fmt: string, vararg)
 	attributes
 		attrs(o: function|class|namespace, t: table)
 		hasAttributes(value)

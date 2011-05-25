@@ -323,7 +323,7 @@ digraph d
 		local reason, status = p.wait()
 
 		if(reason != "exit")
-			throw format("Could not execute dot process (reason: {}, return code: {}", reason, status)
+			throw format("Could not execute dot process (reason: {}, return code: {})", reason, status)
 	}
 
 	function findCycles()
@@ -332,14 +332,14 @@ digraph d
 		local index = {}
 		local lowlink = {}
 		local S = []
-	
+
 		function tarjan(v: Module)
 		{
 			index[v] = curIndex
 			lowlink[v] = curIndex
 			curIndex++
 			S.append(v)
-	
+
 			foreach(w, _; v.deps)
 			{
 				if(w !in index)
