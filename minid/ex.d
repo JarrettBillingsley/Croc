@@ -714,12 +714,12 @@ void runFile(MDThread* t, char[] filename, uword numParams = 0)
 			scope f = new File(filename, File.ReadExisting);
 			deserializeModule(t, f);
 		}
-	
+
 		lookup(t, "modules.initModule");
 		swap(t);
 		pushNull(t);
 		swap(t);
-		pushString(t, funcName(t, -1));
+		pushString(t, funcName(t, -1)); // BUG 134
 		rawCall(t, -4, 1);
 	}
 

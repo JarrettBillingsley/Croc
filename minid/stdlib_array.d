@@ -58,7 +58,7 @@ static:
 				newFunction(t, 0, &toString,  "toString");   fielda(t, -2, "toString");
 				newFunction(t, 1, &apply,     "apply");      fielda(t, -2, "apply");
 				newFunction(t, 1, &map,       "map");        fielda(t, -2, "map");
-				newFunction(t, 1, &reduce,    "reduce");     fielda(t, -2, "reduce");
+				newFunction(t, 2, &reduce,    "reduce");     fielda(t, -2, "reduce");
 				newFunction(t, 1, &each,      "each");       fielda(t, -2, "each");
 				newFunction(t, 1, &filter,    "filter");     fielda(t, -2, "filter");
 				newFunction(t, 1, &find,      "find");       fielda(t, -2, "find");
@@ -392,24 +392,39 @@ static:
 
 	uword reduce(MDThread* t)
 	{
+		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, MDValue.Type.Array);
 		checkParam(t, 1, MDValue.Type.Function);
+
 		uword length = cast(uword)len(t, 0);
 
 		if(length == 0)
 		{
-			pushNull(t);
-			return 1;
+			if(numParams == 1)
+				throwException(t, "Attempting to reduce an empty array without an initial value");
+			else
+			{
+				dup(t, 2);
+				return 1;
+			}
 		}
 
-		idxi(t, 0, 0);
+		uword start = 0;
 
-		for(uword i = 1; i < length; i++)
+		if(numParams == 1)
+		{
+			idxi(t, 0, 0);
+			start = 1;
+		}
+		else
+			dup(t, 2);
+
+		for(uword i = start; i < length; i++)
 		{
 			dup(t, 1);
-			insert(t, -2);
+			swap(t);
 			pushNull(t);
-			insert(t, -2);
+			swap(t);
 			idxi(t, 0, i);
 			rawCall(t, -4, 1);
 		}

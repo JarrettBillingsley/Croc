@@ -315,6 +315,7 @@ private:
 
 		// we do this first so we can allocate it at the beginning of deserialization
 		integer(v.numUpvals);
+		integer(v.maxParams);
 
 		serialize(MDValue(v.name));
 		serialize(MDValue(cast(MDBaseObject*)v.scriptFunc));
@@ -1037,6 +1038,9 @@ private:
 		auto numUpvals = cast(uword)integer();
 		auto func = t.vm.alloc.allocate!(MDFunction)(func.ScriptClosureSize(numUpvals));
 		addObject(cast(MDBaseObject*)func);
+		// Future Me: if this causes some kind of horrible bug down the road, feel free to come back in time
+		// and beat the shit out of me. But since you haven't yet, I'm guessing that it doesn't. So ha.
+		func.maxParams = cast(uword)integer();
 
 		func.isNative = false;
 		func.numUpvals = numUpvals;
