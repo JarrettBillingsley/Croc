@@ -719,7 +719,7 @@ void runFile(MDThread* t, char[] filename, uword numParams = 0)
 		swap(t);
 		pushNull(t);
 		swap(t);
-		pushString(t, funcName(t, -1)); // BUG 134
+		pushString(t, funcDefName(t, -1)); // BUG 134
 		rawCall(t, -4, 1);
 	}
 

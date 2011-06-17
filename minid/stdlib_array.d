@@ -423,16 +423,16 @@ static:
 		for(uword i = start; i < length; i++)
 		{
 			dup(t, 1);
-			swap(t);
 			pushNull(t);
-			swap(t);
+			dup(t, -3);
 			idxi(t, 0, i);
 			rawCall(t, -4, 1);
+			insertAndPop(t, -2);
 		}
 
 		return 1;
 	}
-	
+
 	uword rreduce(MDThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
@@ -465,12 +465,11 @@ static:
 		for(uword i = start; ; i--)
 		{
 			dup(t, 1);
-			swap(t);
 			pushNull(t);
-			swap(t);
 			idxi(t, 0, i);
-			swap(t);
+			dup(t, -4);
 			rawCall(t, -4, 1);
+			insertAndPop(t, -2);
 
 			if(i == 0)
 				break;

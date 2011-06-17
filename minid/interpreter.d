@@ -2766,11 +2766,32 @@ word deref(MDThread* t, word idx)
 				return push(t, MDValue(o));
 			else
 				return pushNull(t);
-				
+
 		default:
 			pushTypeString(t, idx);
 			throwException(t, __FUNCTION__ ~ " - idx must be a value type or weakref, not a '{}'", getString(t, -1));
 	}
+
+	assert(false);
+}
+
+// ================================================================================================================================================
+// Funcdef-related functions
+
+/**
+Gets the name of the function definition at the given stack index.  This is the name given in the declaration
+of the function. Some functions, like top-level module functions and nameless function literals, have automatically-
+generated names which always start and end with angle brackets ($(LT) and $(GT)).
+*/
+char[] funcDefName(MDThread* t, word funcDef)
+{
+	mixin(FuncNameMix);
+
+	if(auto f = getFuncDef(t, funcDef))
+		return f.name.toString();
+
+	pushTypeString(t, funcDef);
+	throwException(t, __FUNCTION__ ~ " - Expected 'funcdef', not '{}'", getString(t, -1));
 
 	assert(false);
 }

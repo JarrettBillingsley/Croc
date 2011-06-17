@@ -290,7 +290,7 @@ static:
 			c.method("reverse",        0, &reverse);
 			c.method("sort",           0, &sort);
 			c.method("sum",            0, &sum);
-			c.method("toArray",        0, &toArray);
+			c.method("toArray",        2, &toArray);
 			c.method("toString",       0, &toString);
 			c.method("type",           1, &type);
 
@@ -1307,12 +1307,28 @@ static:
 	uword toArray(MDThread* t)
 	{
 		auto memb = getThis(t);
-		auto ret = newArray(t, memb.length);
 
-		for(uword i = 0; i < memb.length; i++)
+		auto lo = optIntParam(t, 1, 0);
+		auto hi = optIntParam(t, 2, memb.length);
+
+		if(lo < 0)
+			lo += memb.length;
+
+		if(lo < 0 || lo > memb.length)
+			throwException(t, "Invalid low index: {} (length: {})", lo, memb.length);
+
+		if(hi < 0)
+			hi += memb.length;
+
+		if(hi < lo || hi > memb.length)
+			throwException(t, "Invalid slice indices: {} .. {} (length: {})", lo, hi, memb.length);
+
+		auto ret = newArray(t, cast(uword)(hi - lo));
+
+		for(uword i = cast(uword)lo, j = 0; i < cast(uword)hi; i++, j++)
 		{
 			memb.type.getItem(t, memb, i);
-			idxai(t, ret, i);
+			idxai(t, ret, j);
 		}
 
 		return 1;
