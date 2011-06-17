@@ -25,6 +25,12 @@ subject to the following restrictions:
 
 module minid.addons.net;
 
+version(MDAllAddons)
+	version = MDNetAddon;
+
+version(MDNetAddon)
+{
+
 import tango.net.InternetAddress;
 import tango.net.device.Socket;
 
@@ -346,4 +352,6 @@ static:
 		memb.base.print.newline;
 		return 0;
 	}
+}
+
 }

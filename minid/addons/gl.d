@@ -25,6 +25,12 @@ subject to the following restrictions:
 
 module minid.addons.gl;
 
+version(MDAllAddons)
+	version = MDGlAddon;
+
+version(MDGlAddon)
+{
+
 import tango.stdc.stringz;
 
 import derelict.opengl.gl;
@@ -1878,4 +1884,6 @@ static:
 		pushInt(t, GL_COMPRESSED_SLUMINANCE); newGlobal(t, "GL_COMPRESSED_SLUMINANCE");
 		pushInt(t, GL_COMPRESSED_SLUMINANCE_ALPHA); newGlobal(t, "GL_COMPRESSED_SLUMINANCE_ALPHA");
 	}
+}
+
 }

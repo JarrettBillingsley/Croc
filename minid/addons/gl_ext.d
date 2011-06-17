@@ -1,5 +1,11 @@
 module minid.addons.gl_ext;
 
+version(MDAllAddons)
+	version = MDGlAddon;
+
+version(MDGlAddon)
+{
+
 import derelict.opengl.extension.ext.bindable_uniform;
 import derelict.opengl.gl;
 import derelict.opengl.glext;
@@ -3161,4 +3167,6 @@ void loadExtensionFlags(MDThread* t)
 
 	// SGIS
 	pushBool(t, SGISGenerateMipMap.isEnabled); fielda(t, -2, "SGISGenerateMipMap");
+}
+
 }

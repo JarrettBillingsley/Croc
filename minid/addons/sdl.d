@@ -25,6 +25,12 @@ subject to the following restrictions:
 
 module minid.addons.sdl;
 
+version(MDAllAddons)
+	version = MDSdlAddon;
+
+version(MDSdlAddon)
+{
+
 import tango.stdc.stringz;
 import Utf = tango.text.convert.Utf;
 
@@ -1101,4 +1107,6 @@ private void pushKeyNamespace(MDThread* t)
 		pushInt(t, KMOD_SHIFT);  fielda(t, -2, "shift");
 		pushInt(t, KMOD_ALT);    fielda(t, -2, "alt");
 	fielda(t, -2, "mod");
+}
+
 }

@@ -29,6 +29,12 @@ subject to the following restrictions:
 
 module minid.addons.pcre;
 
+version(MDAllAddons)
+	version = MDPcreAddon;
+
+version(MDPcreAddon)
+{
+
 import tango.stdc.stdlib;
 import tango.stdc.stringz;
 import tango.sys.Environment;
@@ -861,4 +867,6 @@ static this()
 	}
 	else
 		throw new LoaderException("Cannot load PCRE because libpcre is missing");
+}
+
 }

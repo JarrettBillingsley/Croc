@@ -29,20 +29,18 @@ import tango.io.Console;
 import minid.api;
 import minid.ex_commandline;
 
-version = MdclAllAddons;
-
-version(MdclAllAddons)
+version(MDAllAddons)
 {
-	version = MdclSdlAddon;
-	version = MdclGlAddon;
-	version = MdclNetAddon;
-	version = MdclPcreAddon;
+	version = MDSdlAddon;
+	version = MDGlAddon;
+	version = MDNetAddon;
+	version = MDPcreAddon;
 }
 
-version(MdclSdlAddon)  import minid.addons.sdl;
-version(MdclGlAddon)   import minid.addons.gl;
-version(MdclNetAddon)  import minid.addons.net;
-version(MdclPcreAddon) import minid.addons.pcre;
+version(MDSdlAddon)  import minid.addons.sdl;
+version(MDGlAddon)   import minid.addons.gl;
+version(MDNetAddon)  import minid.addons.net;
+version(MDPcreAddon) import minid.addons.pcre;
 
 const char[] Usage =
 "Usage:
@@ -163,10 +161,10 @@ void main(char[][] args)
 	auto t = openVM(&vm);
 	loadStdlibs(t, MDStdlib.All);
 
-	version(MdclSdlAddon)  SdlLib.init(t);
-	version(MdclGlAddon)   GlLib.init(t);
-	version(MdclNetAddon)  NetLib.init(t);
-	version(MdclPcreAddon) PcreLib.init(t);
+	version(MDSdlAddon)  SdlLib.init(t);
+	version(MDGlAddon)   GlLib.init(t);
+	version(MDNetAddon)  NetLib.init(t);
+	version(MDPcreAddon) PcreLib.init(t);
 
 	auto params = parseArguments(t, args);
 

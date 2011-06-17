@@ -1,5 +1,11 @@
 module minid.addons.gl_wrap;
 
+version(MDAllAddons)
+	version = MDGlAddon;
+
+version(MDGlAddon)
+{
+
 import tango.core.Traits;
 import tango.stdc.stringz;
 
@@ -121,4 +127,6 @@ uword wrapGL(alias f)(MDThread* t)
 		return 0;
 	else
 		return 1;
+}
+
 }
