@@ -1,4 +1,4 @@
-module lmarkov
+module samples.lmarkov
 
 // Markov Chain Program in MiniD 2
 
@@ -80,6 +80,6 @@ function generate(statetab, N, max)
 
 		ret ~= sb.toString()
 	}
-	
+
 	return ret
 }

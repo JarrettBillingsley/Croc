@@ -1,4 +1,4 @@
-module markov
+module samples.markov
 
 // Markov Chain Program in MiniD 2
 

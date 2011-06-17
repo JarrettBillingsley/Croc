@@ -29,7 +29,7 @@ import tango.io.Console;
 import minid.api;
 import minid.ex_commandline;
 
-// version = MdclAllAddons;
+version = MdclAllAddons;
 
 version(MdclAllAddons)
 {

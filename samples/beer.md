@@ -1,4 +1,4 @@
-module beer
+module samples.beer
 
 /*
 function bottleStr(num) = num == 1 ? "bottle" : "bottles"
