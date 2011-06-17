@@ -1,4 +1,4 @@
-module wc
+module samples.wc
 
 function main(vararg)
 {
@@ -79,11 +79,11 @@ function main(vararg)
 	
 	if(#vararg > 1)
 		writefln("--------------------------------------\n{,8}{,8}{,8}  total", l_total, w_total, c_total)
-	
+
 	writeln("--------------------------------------")
-	
-	local results = dictionary.keys().apply(function(v) = [v, dictionary[v]]).sort(function(a, b) = b[1] <=> a[1])
-	
+
+	local results = hash.keys(dictionary).apply(\v -> [v, dictionary[v]]).sort(\a, b -> b[1] <=> a[1])
+
 	foreach(word; results)
 		writefln("{,5} {}", word[1], word[0])
 }

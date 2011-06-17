@@ -32,41 +32,44 @@ function insert(index, value)
 	else
 		statetab[index] = [value]
 
-// build table
-local words = array.new(N, NOWORD)
-
-foreach(word; allwords(io.stdin))
+function main()
 {
-	insert(prefix(words), word)
+	// build table
+	local words = array.new(N, NOWORD)
 	
-	for(i: 0 .. #words - 1)
-		words[i] = words[i + 1]
-
-	words[-1] = word
-}
-
-insert(prefix(words), NOWORD)
-
-// generate text
-words.fill(NOWORD)
-
-for(i: 0 .. MAXGEN)
-{
-	local list = statetab[prefix(words)]
-
-	// choose a random item from list
-	local nextword = list[math.rand(#list)]
-
-	if(nextword == NOWORD)
-		return
-
-	write(nextword, " ")
-
-	for(j: 0 .. #words - 1)
-		words[j] = words[j + 1]
-
-	words[-1] = nextword
-
-	if(i > 0 && i % 10 == 0)
-		writeln()
+	foreach(word; allwords(io.stdin))
+	{
+		insert(prefix(words), word)
+		
+		for(i: 0 .. #words - 1)
+			words[i] = words[i + 1]
+	
+		words[-1] = word
+	}
+	
+	insert(prefix(words), NOWORD)
+	
+	// generate text
+	words.fill(NOWORD)
+	
+	for(i: 0 .. MAXGEN)
+	{
+		local list = statetab[prefix(words)]
+	
+		// choose a random item from list
+		local nextword = list[math.rand(#list)]
+	
+		if(nextword == NOWORD)
+			return
+	
+		write(nextword, " ")
+	
+		for(j: 0 .. #words - 1)
+			words[j] = words[j + 1]
+	
+		words[-1] = nextword
+	
+		if(i > 0 && i % 10 == 0)
+			writeln()
+	}
 }

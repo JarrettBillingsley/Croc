@@ -1,0 +1,167 @@
+module samples.particles
+
+import gl
+import sdl: key, event
+
+// Play!
+local Speed = 1.0
+local Life = 240
+
+function randColor()
+	return math.frand(0.0, 1.0), math.frand(0.0, 1.0), math.frand(0.0, 1.0)
+
+class Particle
+{
+	x; y
+	dir; speed
+	r; g; b; a
+	origlife; life
+
+	this(x, y, dir, speed, r, g, b, life)
+	{
+		:x = x
+		:y = y
+		:dir = dir
+		:speed = speed
+		:r = r
+		:g = g
+		:b = b
+		:a = 1
+		:origlife = life
+		:origSpeed = speed
+		:life = life
+	}
+
+	function update()
+	{
+		:life--
+
+		if(:life == 0)
+			return false
+
+		:a = toFloat(:life) / :origlife
+		:speed = :origSpeed * :a
+		:x += math.sin(:dir) * :speed
+		:y += math.cos(:dir) * :speed
+
+		return true
+	}
+
+	function draw()
+	{
+		gl.glColor4f(:r, :g, :b, :a)
+		gl.glVertex2f(:x - 10, :y); gl.glVertex2f(:x + 10, :y)
+		gl.glVertex2f(:x, :y - 10); gl.glVertex2f(:x, :y + 10)
+		gl.glVertex2f(:x - 5, :y - 5); gl.glVertex2f(:x + 5, :y + 5)
+		gl.glVertex2f(:x + 5, :y - 5); gl.glVertex2f(:x - 5, :y + 5)
+	}
+}
+
+local particles = {}
+local freelist = {}
+local pooplist = {}
+
+function spawnParticle(x, y, dx, dy)
+{
+	local p
+
+	if(#freelist)
+	{
+		p = hash.take(freelist)
+		freelist[p] = null
+	}
+	else
+		 p = Particle()
+
+	local r, g, b = randColor()
+	p.constructor(toFloat(x), toFloat(y), math.atan2(dx, dy), Speed, r, g, b, Life)
+	particles[p] = true
+}
+
+function updateParticles()
+{
+	hash.clear(pooplist)
+	foreach(p, _; particles)
+	{
+		if(!p.update())
+			pooplist[p] = true
+	}
+
+	foreach(p, _; pooplist)
+	{
+		particles[p] = null
+		freelist[p] = true
+	}
+}
+
+function drawParticles()
+{
+	gl.glBegin(gl.GL_LINES)
+	foreach(p, _; particles)
+		p.draw()
+	gl.glEnd()
+}
+
+function main()
+{
+	sdl.init(sdl.initEverything)
+	scope(exit) sdl.quit()
+
+	sdl.gl.setAttribute(sdl.gl.bufferSize, 32)
+	sdl.gl.setAttribute(sdl.gl.depthSize, 16)
+	sdl.gl.setAttribute(sdl.gl.doubleBuffer, 1)
+
+	local w = 1152
+	local h = 864
+
+	if(!sdl.setVideoMode(w, h, 32, sdl.opengl | sdl.hwSurface))
+		if(!sdl.setVideoMode(w, h, 32, sdl.opengl | sdl.swSurface))
+			throw "Could not set video mode"
+
+	sdl.caption("Particles")
+
+	gl.load()
+	gl.glViewport(0, 0, w, h)
+	gl.glShadeModel(gl.GL_SMOOTH)
+	gl.glClearColor(0, 0, 0, 1)
+	gl.glClearDepth(1)
+	gl.glEnable(gl.GL_BLEND)
+	gl.glBlendFunc(gl.GL_SRC_ALPHA, gl.GL_ONE_MINUS_SRC_ALPHA)
+
+	gl.glMatrixMode(gl.GL_PROJECTION)
+	gl.glLoadIdentity()
+	gl.gluOrtho2D(0, w, 0, h)
+	gl.glScalef(1, -1, 1)
+	gl.glTranslatef(0, -h, 0)
+	gl.glMatrixMode(gl.GL_MODELVIEW)
+
+	local quitting = false
+	local mx, my = 0, 0
+	local mdx, mdy = 0, 0
+	local mb = false
+
+	while(!quitting)
+	{
+		foreach(e, a, b, c, d; event.poll)
+		{
+			switch(e)
+			{
+				case "keyDown":     if(a == key.escape) event.push("quit"); break
+				case "mouseDown":   if(a == 1) mb = true; break
+				case "mouseUp":     if(a == 1) mb = false; break
+				case "mouseMotion": mx, my, mdx, mdy = a, b, c, d; break
+				case "quit":        quitting = true; break
+				default: break
+			}
+		}
+
+		if(mb)
+			spawnParticle(mx, my, mdx, mdy)
+
+		updateParticles()
+
+		gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT)
+			drawParticles()
+		sdl.gl.swapBuffers()
+	}
+}
