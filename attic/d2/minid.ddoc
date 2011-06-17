@@ -1,0 +1,10 @@
+D_COMMENT = <pre class="d_comment">$0</pre>
+D_STRING  = <pre class="d_string">$0</pre>
+D_KEYWORD = <pre class="d_keyword">$0</pre>
+D_PSYMBOL = <pre class="d_psymbol">$0</pre>
+D_PARAM	  = <pre class="d_param">$0</pre>
+RPAREN = )
+LT = &lt;
+GT = &gt;
+DDOC_LICENSE = $(B License:)$(BR)<pre class="license">$0</pre>$(BR)
+DDOC_PARAMS = $(B Params:)$(BR)<table class="params">$0</table>$(BR)

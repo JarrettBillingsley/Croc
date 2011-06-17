@@ -1,0 +1,6 @@
+mdcl.d
+-clean
+-release
+-op
+-O
+-w

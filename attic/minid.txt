@@ -1,0 +1,482 @@
+// Lexical
+
+WhiteSpace:
+	Space {Space}
+
+Space:
+	' '
+	'\t'
+	'\v'
+	'\u000C'
+	EndOfLine
+	Comment
+	
+EndOfLine:
+	'\r'
+	'\n'
+	'\r\n'
+	EndOfFile
+
+EndOfFile:
+	physical end of file
+	'\0'
+
+Comment:
+	'/*' characters '*/'
+	'//' characters EndOfLine
+
+Token:
+	Identifier
+	Keyword
+	CharLiteral
+	BoolLiteral
+	StringLiteral
+	IntLiteral
+	FloatLiteral
+	/
+	/=
+	.
+	..
+	&&
+	||
+	-
+	-=
+	--
+	+
+	+=
+	++
+	<
+	<=
+	>
+	>=
+	!
+	!=
+	(
+	)
+	[
+	]
+	{
+	}
+	:
+	,
+	;
+	=
+	==
+	*
+	*=
+	%
+	%=
+	^
+	^=
+	~
+	~=
+	is
+	EOF
+
+Identifier:
+	IdentifierStart {IdentifierChar}
+
+IdentifierStart:
+	_
+	Letter
+
+IdentifierChar:
+	IdentifierStart
+	DecimalDigit
+
+Keyword:
+	assert
+
+	bool
+	break
+
+	case
+	cast
+	char
+	class
+	closure
+	continue
+
+	def
+	default
+	delete
+	do
+
+	else
+
+	float
+	for
+	foreach
+	function
+	
+	if
+	import
+	int
+
+	main
+	module
+
+	namespace
+	new
+	null
+
+	return
+
+	super
+	switch
+
+	this
+
+	vararg
+	void
+
+	while
+	
+BoolLiteral:
+	true
+	false
+	
+CharLiteral:
+	"'" (Character | EscapeSequence) "'"
+
+StringLiteral:
+	RegularString
+	WysiwygString
+	AltWysiwygString
+
+RegularString:
+	'"' {Character | EscapeSequence | EndOfLine} '"'
+
+EscapeSequence:
+	'\''
+	'\"'
+	'\\'
+	'\a'
+	'\b'
+	'\f'
+	'\n'
+	'\r'
+	'\t'
+	'\v'
+	\DecimalDigit [DecimalDigit [DecimalDigit]]
+	
+WysiwygString:
+	'r"' {Character | EndOfLine} '"'
+
+AltWysiwygString:
+	'`' {Character | EndOfLine} '`'
+
+IntLiteral:
+	Decimal
+	Binary
+	Octal
+	Hexadecimal
+	
+Decimal:
+	DecimalDigit {DecimalDigit | '_'}
+
+DecimalDigit:
+	0
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+
+Binary:
+	'0b' BinaryDigit {BinaryDigit | '_'}
+
+BinaryDigit:
+	0
+	1
+
+Octal:
+	'0c' OctalDigit {OctalDigit | '_'}
+
+OctalDigit:
+	0
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+
+Hexadecimal:
+	'0x' HexadecimalDigit {HexadecimalDigit | '_'}
+
+HexadecimalDigit:
+	0
+	1
+	2
+	3
+	4
+	5
+	6
+	7
+	8
+	9
+	A
+	a
+	B
+	b
+	C
+	c
+	D
+	d
+	E
+	e
+	F
+	f
+	
+FloatLiteral:
+	[DecimalDigit {DecimalDigit | '_'}] '.' DecimalDigit {DecimalDigit | '_'} [Exponent]
+	DecimalDigit {DecimalDigit | '_'} [Exponent]
+
+Exponent:
+	('e' | 'E')['+' | '-'] DecimalDigit {DecimalDigit | '_'}
+
+// -----------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------
+// -----------------------------------------------------------------------------------------------------------------
+
+// Syntax
+
+Module:
+	ModuleDeclaration {ImportDeclaration} {DeclDef} [MainDeclaration]
+
+ModuleDeclaration:
+	'module' Identifier {'.' Identifier} ';'
+
+DeclDef:
+	ClassDeclaration
+	ModuleNamespaceDeclaration
+	Declaration
+
+ImportDeclaration:
+	'import' ModuleName ';'
+
+MainDeclaration:
+	'main' '(' [Identifier] ')' BlockStatement
+
+ClassDeclaration:
+	'class' Identifier [':' Identifier {'.' Identifier}] '{' {ClassElem} '}'
+
+ClassElem:
+	CtorDeclaration
+	DtorDeclaration
+	ClassNamespaceDeclaration
+	Declaration
+	
+CtorDeclaration:
+	'this' Parameters FunctionBody
+
+DtorDeclaration:
+	'~' 'this' '(' ')' FunctionBody
+	
+ClassNamespaceDeclaration:
+	'namespace' Identifier '{' {ClassNamespaceDeclaration | Declaration} '}'
+
+ModuleNamespaceDeclaration:
+	'namespace' Identifier '{' {DeclDef} '}'
+
+Declaration:
+	VariableDeclaration
+	FunctionDeclaration
+
+VariableDeclaration:
+	'def' Type Identifier ['=' Initializer]
+
+Initializer:
+	AssignExpression
+
+FunctionDeclaration:
+	'def' Type Identifier Parameters FunctionBody
+
+Type:
+	BasicType {ExtendedType}
+	'vararg'
+
+BasicType:
+	'void'
+	'bool'
+	'char'
+	'int'
+	'float'
+	Identifier
+	
+ExtendedType:
+	'[' ']'
+	'[' Type ']'
+	'function' SimpleParameters
+
+SimpleParameters:
+	'(' [Type {',' Type}] ')'
+
+Parameters:
+	'(' [Parameter {',' Parameter}] ')'
+
+Parameter:
+	Type Identifier ['=' AssignExpression]
+
+Expression:
+	AssignExpression
+	
+AssignExpression:
+	OrOrExpression
+	OrOrExpression = AssignExpression
+	OrOrExpression += AssignExpression
+	OrOrExpression -= AssignExpression
+	OrOrExpression *= AssignExpression
+	OrOrExpression /= AssignExpression
+	OrOrExpression %= AssignExpression
+	OrOrExpression ^= AssignExpression
+	OrOrExpression ~= AssignExpression
+
+OrOrExpression:
+	AndAndExpression
+	OrOrExpression || AndAndExpression
+
+AndAndExpression:
+	EqualExpression
+	AndAndExpression && EqualExpression
+
+EqualExpression:
+	RelExpression
+	EqualExpression == RelExpression
+	EqualExpression != RelExpression
+	EqualExpression is RelExpression
+	EqualExpression !is RelExpression
+	
+RelExpression:
+	AddExpression
+	RelExpression < AddExpression
+	RelExpression <= AddExpression
+	RelExpression > AddExpression
+	RelExpression >= AddExpression
+
+AddExpression:
+	MulExpression
+	AddExpression + MulExpression
+	AddExpression - MulExpression
+	AddExpression ~ MulExpression
+	
+MulExpression:
+	PowerExpression
+	MulExpression * PowerExpression
+	MulExpression / PowerExpression
+	MulExpression % PowerExpression
+
+PowerExpression:
+	UnaryExpression
+	PowerExpression ^ UnaryExpression
+	
+UnaryExpression:
+	PostfixExpression
+	++ UnaryExpression
+	-- UnaryExpression
+	- UnaryExpression
+	! UnaryExpression
+	'delete' UnaryExpression
+	NewExpression
+	'cast' '(' Type ')' UnaryExpression
+
+NewExpression:
+	'new' Type ['(' [ArgumentList] ')']
+
+PostfixExpression:
+	PrimaryExpression
+	PostfixExpression '.' Identifier
+	PostfixExpression '.' '(' Type {',' Type} ')'
+	PostfixExpression '(' [ArgumentList] ')'
+	PostfixExpression '[' ArgumentList ']'
+	SliceExpression
+	
+ArgumentList:
+	AssignExpression {, AssignExpression}
+
+SliceExpression:
+	PostfixExpression '[' ']'
+	PostfixExpression '[' AssignExpression '..' AssignExpression ']'
+	
+PrimaryExpression:
+	Identifier
+	'this'
+	'super'
+	'null'
+	CharLiteral
+	BoolLiteral
+	IntLiteral
+	FloatLiteral
+	StringLiteral
+	'closure' (Identifier | FunctionLiteral)
+	'function' Type Parameters FunctionBody
+	'assert' '(' AssignExpression [, StringLiteral] ')'
+	( Expression )
+
+FunctionBody:
+	BlockStatement
+	
+Statement:
+    BlockStatement
+    ExpressionStatement
+    DeclarationStatement
+    IfStatement
+    WhileStatement
+    DoWhileStatement
+    ForStatement
+    ForeachStatement
+    SwitchStatement
+    CaseStatement
+    DefaultStatement
+    ContinueStatement
+    BreakStatement
+    ReturnStatement
+    
+BlockStatement:
+	'{' {Statement} '}'
+	
+ExpressionStatement:
+	Expression ';'
+
+DeclarationStatement:
+	VariableDeclaration ';'
+	FunctionDeclaration
+
+IfStatement:
+	'if' '(' Expression ')' Statement ['else' Statement]
+
+WhileStatement:
+	'while' '(' Expression ')' Statement
+
+DoWhileStatement:
+	'do' Statement 'while' '(' Expression ')'
+
+ForStatement:
+	'for' '(' [(Expression | VariableDeclaration)] ';' [Expression] ';' [Expression] ')' Statement
+
+ForeachStatement:
+	'foreach' '(' Type Identifier {',' Type Identifier} ';' Expression ')' Statement
+
+SwitchStatement:
+	'switch' '(' Expression ')' '{' {CaseStatement} [DefaultStatement] '}'
+
+CaseStatement:
+	'case' Expression {',' Expression} ':' {Statement}
+
+DefaultStatement:
+	'default' ':' {Statement}
+	
+ContinueStatement:
+	'continue' ';'
+
+BreakStatement:
+	'break' ';'
+	
+ReturnStatement:
+	'return' [Expression] ';'

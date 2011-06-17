@@ -1,0 +1,27 @@
+digraph d
+{
+	fontname = Helvetica
+	fontsize = 10
+	label = "Namespace Hierarchy"
+	rankdir = "TB"
+	node [fontname = "Helvetica-Bold", fontsize = 12]
+
+	_G [shape = box]
+	math
+	io
+	game
+	game_input [label = "game.input"]
+	game_drawing [label = "game.drawing"]
+	game_npcs [label = "game.npcs"]
+	game_npcs_orc [label = "game.npcs.orc"]
+	game_npcs_troll [label = "game.npcs.troll"]
+
+	_G -> math
+	_G -> io
+	_G -> game
+	game -> game_input
+	game -> game_drawing
+	game -> game_npcs
+	game_npcs -> game_npcs_orc
+	game_npcs -> game_npcs_troll
+}

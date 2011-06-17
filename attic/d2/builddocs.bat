@@ -1,0 +1,1 @@
+@rebuild -rfdocs.rrf -I\dmd\import\tango_trunk

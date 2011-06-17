@@ -1,0 +1,5 @@
+test.d
+-clean
+-debug
+-g
+-op

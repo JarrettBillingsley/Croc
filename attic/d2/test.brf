@@ -1,0 +1,8 @@
+test.d
+-clean
+-debug
+-debug=LEAK_DETECTOR
+-version=MDGLCheckErrors
+-g
+-w
+-I..\extra\

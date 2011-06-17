@@ -1,0 +1,393 @@
+/*
+OK.  An identifier can refer to either a local variable or to a variable in the context ("this").  So:
+
+local function func()
+{
+
+}
+*/
+
+// All the code that follows is run as a function - it is compiled, and then run.  Each declaration of
+// a function, variable, or class, is actually run as a statement, and inserts a symbol into some namespace
+// (which is just a table).  "local" declarations are local to the function - that is, when the function
+// returns, the variable will be lost.  These would be like "private" module declarations in D.  "global"
+// declarations are inserted into the global namespace, and will be accessible to all code after this
+// function ends; this is usually bad practice, so good practice is to make a global namespace table (the
+// "module") and then insert any symbols you want to export into that table.
+
+// We will be using "test" as our module name.  Any symbols we want to be exported go into this table.
+global test = { };
+
+// "import" is just a function that checks to see if the given module is loaded, and attempts to load
+// it if it isn't.
+import("io");
+import("string");
+
+// Create a local function called "fork".
+local function fork(x, y)
+{
+	// This is how you do a "default parameter"
+	if(y is null)
+		y = 10;
+
+	io.writefln("fork: ", x + y);
+}
+
+// Create a local class called "A".  A class is a special kind of table.
+local class A
+{
+	// Some member variables.  We don't declare these as "local" or "global" because
+	// a class declaration is pretty much a table declaration, so these are just
+	// fields in a table.
+	mValue = 0;
+	mName = "";
+
+	// This is the constructor; it is otherwise a normal function, but is only
+	// called when the class is instantiated.
+	function constructor()
+	{
+		io.writefln("A ctor");
+	}
+
+	// You can make "properties" using the opIndex and opIndexAssign operators.
+	// This is because, as in Lua or Squirrel, the syntax 'a.b' is equivalent to 'a["b"]'.
+	function opIndex(index)
+	{
+		switch(index)
+		{
+			case "name":
+				// Notice the explicit use of "this".  This is because there are four places
+				// a variable can live: locally (in the function); in an enclosing function
+				// (called an "upvalue"); globally; or in the function's context, or "this",
+				// table.  An identifier on its own can only refer to a local variable or
+				// upvalue; context variables are accessed through "this"; and globals are
+				// accessed as in D, with the global scope operator (".ident").
+				return this.mName;
+
+			case "value":
+				return this.mValue;
+				
+			default:
+				throw("Property 'A.'" ~ index.toString() ~ "' does not have a getter");
+		}
+	}
+
+	// The setter function.
+	function opIndexAssign(value, index)
+	{
+		switch(index)
+		{
+			case "name":
+				this.mName = value.toString();
+				return;
+				
+			default:
+				throw("Property 'A." ~ index.toString() ~ "' does not have a setter");
+		}
+	}
+
+	// A plain old method.  Again, notice we're using "this" to access the member variable.
+	function incValue()
+	{
+		++this.mValue;
+	}
+}
+
+// We can even derive classes.
+local class B : A
+{
+	function constructor()
+	{
+		io.writefln("B ctor");
+		this.super.constructor();
+	}
+}
+
+// Remember the "module table" 'test' that we created before?  Here's where we're exporting
+// everything.
+
+test =
+{
+	fork = fork
+	A = A
+	B = B
+}
+
+// There is no "main()", since the entire "module" is run as a function.
+fork(5);
+fork(8, 3);
+
+local a = A();
+a.name = "Hello";
+io.writefln("a is called \"", a.name, "\"");
+a.name = 4;
+io.writefln("a is now called \"", a.name, "\"");
+io.writefln("a's value is ", a.value);
+a.incValue();
+io.writefln("a's value is now ", a.value);
+
+
+/*
+Types
+
+--value--
+null
+bool
+int
+float
+
+--ref--
+string
+table
+array
+closure
+class
+classinst
+userdata
+*/
+
+/*
+function name:
+	locals
+	constants
+	enclosed functions
+	upvalues
+	case tables
+*/
+
+// "push function() {"
+
+global test = { };
+/*
+new table into temp reg;
+put temp reg into global "test";
+*/
+
+import("io");
+/*
+get global "import" into temp reg;
+push const "io";
+call temp reg;
+*/
+
+import("string");
+/*
+get global "import" into temp reg;
+push const "string";
+call temp reg;
+*/
+
+local f = null;
+// allocate register as "f";
+
+class Foo
+{
+	def fork()
+	{
+		f = new Foo();
+	}
+	/*
+	Foo.fork:
+
+	*/
+}
+/*
+allocate register as "Foo";
+
+*/
+
+function caller(f)
+{
+	f();
+}
+
+function foo()
+{
+	local x = 
+	function bar()
+	{
+		::print("hi!");
+	}
+
+
+}
+
+test.Foo = Foo;
+
+class Test
+{
+	this()
+	{
+		io.writefln("hi");
+	}
+
+	this(int x)
+	{
+		writefln("hey: ", x);
+	}
+
+	~this()
+	{
+		writefln("bye");
+	}
+
+	def int mX;
+	def int mY;
+
+	def void fork()
+	{
+		writefln(this.mX + this.mY);
+	}
+
+	namespace x
+	{
+		def int opSet(int val)
+		{
+			return mX = val;
+		}
+
+		def int opSet(char[] val)
+		{
+			return mX = string.toInt(val);
+		}
+
+		def int opGet()
+		{
+			return mX;
+		}
+	}
+}
+
+def void foo(int x, int y)
+{
+	def float z = x + y;
+
+	io.writefln("z = ", z);
+}
+
+class A
+{
+
+}
+
+class B : A
+{
+	def int mX = 3;
+
+	def void method(int x)
+	{
+		io.writefln("mX = ", mX, " x = ", x);
+	}
+}
+
+def void knife()
+{
+
+}
+
+def int function(int) foo(int n)
+{
+	return function int(int i)
+	{
+		n += i;
+		return n;
+	};
+}
+
+def void function() fork(int x, int y = 10)
+{
+	def int z = x + y;
+
+	def void enclosed()
+	{
+		writefln(z);
+	}
+
+	enclosed();
+
+	def Test t = new Test();
+	def B b = new B();
+	def A a = b;
+
+	if(cast(B)a)
+		writefln("it's a B");
+
+	b.method(4);
+
+	def void function(int) f = b.method;
+	def void function() g = enclosed;
+	def void function() h = knife;
+
+	delete b;
+
+	// Function literal is instantiated ("closed") automatically upon being returned
+	return enclosed;
+}
+
+def void myWritefln(vararg args)
+{
+	io.writef("my writefln: ");
+	io.writefln(args);
+}
+
+// Making a vararg function
+def void testVararg(vararg args)
+{
+	io.writefln("Got ", args.length, " arguments");
+
+	for(def int i = 0; i < args.length; ++i)
+	{
+		io.writef("arg[", i, "] = ");
+
+		switch(args.type(i))
+		{
+			case "int":
+				io.writefln(args.asInt(i));
+				break;
+
+			case "float":
+				io.writefln(args.asFloat(i));
+				break;
+
+			case "char[]":
+				io.writefln(`"`, args.asString(i), `"`);
+				break;
+
+			default:
+				io.writefln("something scary");
+				break;
+		}
+	}
+}
+
+// Get three instances of the function returned by fork (which has a default argument).
+def void function() n = fork(5);
+def void function() m = fork(10);
+def void function() l = fork(3, 7);
+
+// Call those three instances.  Notice that they all print different things, as their upvalues
+// all have different values.
+n();
+m();
+l();
+
+// Try out the variadic function.
+testVararg(5, 3.3, "hi");
+writefln();
+testVararg();
+writefln();
+
+// Calling a function indirectly.
+def void function(vararg) blah = testVararg;
+blah(4, 5, 6);
+
+def Test t = new Test();
+t.fork();
+def int[] x = new int[](4);
+
+if(4 < 5)
+	writefln("hi");
+else
+	writefln("bye");
+
+// }

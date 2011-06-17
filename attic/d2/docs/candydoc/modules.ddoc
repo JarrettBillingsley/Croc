@@ -1,0 +1,13 @@
+MODULES =
+	$(MODULE_FULL minid.alloc)
+	$(MODULE_FULL minid.api)
+	$(MODULE_FULL minid.ast)
+	$(MODULE_FULL minid.bind)
+	$(MODULE_FULL minid.commandline)
+	$(MODULE_FULL minid.compiler)
+	$(MODULE_FULL minid.ex)
+	$(MODULE_FULL minid.interpreter)
+	$(MODULE_FULL minid.serialization)
+	$(MODULE_FULL minid.types)
+	$(MODULE_FULL minid.utils)
+	$(MODULE_FULL minid.vm)
