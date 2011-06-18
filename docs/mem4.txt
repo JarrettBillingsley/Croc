@@ -1,0 +1,28 @@
+digraph d
+{
+	fontname = Helvetica
+	fontsize = 10
+	label = "Fig. 4"
+	rankdir = "LR"
+	node [fontname = "Helvetica-Bold", fontsize = 12]
+
+	subgraph cluster_Roots
+	{
+		fontname = "Helvetica-Bold"
+		label = "Roots"
+		fontsize = 15
+
+		style = filled
+		fillcolor = grey
+		Globals [style = filled, fillcolor = white]
+		Stack [style = filled, fillcolor = white]
+	}
+
+	a [style = filled, fillcolor = salmon]
+	b [style = filled, fillcolor = salmon]
+	c [style = filled, fillcolor = salmon]
+
+	a -> b
+	a -> c
+	Globals -> a [style = dashed, color = cornflowerblue]
+}
