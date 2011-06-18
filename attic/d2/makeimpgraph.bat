@@ -1,1 +1,0 @@
-@dimple test | dot -Tpng -ograph.png
