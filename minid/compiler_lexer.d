@@ -1297,7 +1297,7 @@ struct Lexer
 				case '@':
 					nextChar();
 
-					if(mCharacter == '\"' || mCharacter == '\'')
+					if(mCharacter == '\"' || mCharacter == '\'' || mCharacter == '`')
 					{
 						mTok.stringValue = readStringLiteral(false);
 						mTok.type = Token.StringLiteral;

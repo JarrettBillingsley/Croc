@@ -68,7 +68,7 @@ NumConstBegChars:       0..9
 // number always starts with 0..9 except when NumConstBeg
 // defines other
 
-NumConstChars:          0..9 _ abcdefiluxABCDEFILUX
+NumConstChars:          0..9 _ abcdefxABCDEFX
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -83,7 +83,7 @@ EscapeChar:	\
 // you may divide keywords into two groups which can be
 // highlighted differently
 
-KeyWords1:	
+KeyWords1:
 	as
 	assert
 	break
@@ -128,8 +128,8 @@ KeyWords1:
 // MultilineStrings - enables multiline strings, as perl
 // has it
 
-StringBegChar:          "`'
-StringEndChar:          "`'
+StringBegChar:          "'`
+StringEndChar:          "'`
 MultilineStrings:       1
 
 
@@ -184,7 +184,7 @@ StringCol:              $000080FF clBlack
 SymbolCol:              clWhite clBlack
 PreprocessorCol:        clRed clBlack
 SelectionCol:           clWhite clNavy
-CurrentLineCol:         clWhite $00303030
+CurrentLineCol:         clWhite $00202020
 OverrideTxtFgColor:     0
 BlockAutoindent:        1
 BlockBegStr:            {
