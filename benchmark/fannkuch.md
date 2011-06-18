@@ -26,7 +26,7 @@ function fannkuch(n)
 			foreach(p; perm1)
 				write(p + 1)
 
-			writefln()
+			writeln()
 			check++
 		}
 
