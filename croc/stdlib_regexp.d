@@ -29,9 +29,9 @@ module croc.stdlib_regexp;
 import tango.text.Regex;
 import tango.text.Util;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.utils;
 

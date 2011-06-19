@@ -25,8 +25,8 @@ subject to the following restrictions:
 
 module croc.stdlib_gc;
 
+import croc.api_interpreter;
 import croc.ex;
-import croc.interpreter;
 import croc.types;
 import croc.vm;
 

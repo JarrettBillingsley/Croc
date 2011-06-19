@@ -41,9 +41,9 @@ import tango.core.Traits;
 import tango.core.Tuple;
 import Utf = tango.text.convert.Utf;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.utils;
 import croc.vm;

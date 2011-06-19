@@ -25,18 +25,14 @@ subject to the following restrictions:
     3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
-module croc.stackmanip;
+module croc.api_stack;
 
 import tango.stdc.string;
 
 import croc.api_checks;
 import croc.api_debug;
-// 	printStack,
-// 	printCallStack;
+import croc.api_interpreter;
 import croc.types;
-import croc.interpreter;
-// 	throwException,
-// 	pushNull;
 import croc.utils;
 
 // ================================================================================================================================================

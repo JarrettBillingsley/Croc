@@ -35,23 +35,14 @@ module croc.compiler_codegen;
 import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_alloc;
 import croc.base_hash;
 import croc.base_opcodes;
 import croc.compiler_ast;
 import croc.compiler_astvisitor;
 import croc.compiler_types;
-import croc.interpreter;
-// 	cat,
-// 	createString,
-// 	getString,
-// 	pushChar,
-// 	pushFormat,
-// 	pushString,
-// 	pushToString,
-import croc.stackmanip;
-// 	push,
-// 	insertAndPop;
 import croc.types;
 import croc.types_funcdef;
 import croc.types_function;

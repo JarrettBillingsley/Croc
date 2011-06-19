@@ -27,12 +27,12 @@ module croc.stdlib_serialization;
 
 import tango.io.model.IConduit;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.types;
-import croc.interpreter;
-import croc.stackmanip;
-import croc.stdlib_stream;
 import croc.serialization;
+import croc.stdlib_stream;
+import croc.types;
 
 // ================================================================================================================================================
 // Public

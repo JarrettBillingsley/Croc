@@ -31,10 +31,10 @@ import tango.io.Console;
 import tango.io.Stdout;
 import tango.stdc.ctype;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.stdlib_stringbuffer;
 import croc.stdlib_vector;
 import croc.types;

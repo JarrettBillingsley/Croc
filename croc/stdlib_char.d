@@ -25,13 +25,13 @@ subject to the following restrictions:
 
 module croc.stdlib_char;
 
-import croc.ex;
-import croc.interpreter;
-import croc.types;
-
 import tango.stdc.ctype;
 import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
+
+import croc.api_interpreter;
+import croc.ex;
+import croc.types;
 
 struct CharLib
 {

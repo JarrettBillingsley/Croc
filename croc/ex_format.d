@@ -31,8 +31,8 @@ import tango.stdc.ctype;
 import tango.stdc.stdlib;
 import tango.text.Util;
 
-import croc.interpreter;
-import croc.stackmanip;
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.types;
 
 package void formatImpl(CrocThread* t, uword numParams, uint delegate(char[]) sink)

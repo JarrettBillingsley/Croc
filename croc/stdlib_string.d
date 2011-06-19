@@ -32,9 +32,9 @@ import tango.text.Util;
 import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.stdlib_vector;
 import croc.types;
 import croc.utils;

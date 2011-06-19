@@ -32,10 +32,10 @@ import tango.stdc.stdlib;
 
 public
 {
+	import croc.api_interpreter;
+	import croc.api_stack;
 	import croc.base_alloc;
 	import croc.ex;
-	import croc.interpreter;
-	import croc.stackmanip;
 	import croc.types;
 	import croc.utils;
 	import croc.vm;

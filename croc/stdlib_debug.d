@@ -26,9 +26,9 @@ subject to the following restrictions:
 module croc.stdlib_debug;
 
 import croc.api_debug;
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.stdlib_vector;
 import croc.types;
 import croc.utils;

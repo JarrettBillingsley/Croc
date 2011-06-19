@@ -32,10 +32,10 @@ import tango.stdc.ctype;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.compiler;
-import croc.interpreter;
 import croc.serialization_simple;
-import croc.stackmanip;
 import croc.types;
 import croc.utils;
 import croc.vm;

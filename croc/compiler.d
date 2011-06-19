@@ -26,30 +26,16 @@ subject to the following restrictions:
 module croc.compiler;
 
 import tango.core.Vararg;
-
 import tango.io.UnicodeFile;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_alloc;
 import croc.compiler_codegen;
 import croc.compiler_lexer;
 import croc.compiler_parser;
 import croc.compiler_semantic;
 import croc.compiler_types;
-import croc.interpreter;
-// 	cat,
-// 	createString,
-// 	idxa,
-// 	newTable,
-// 	pushBool,
-// 	pushFormat,
-// 	pushVFormat,
-// 	throwException;
-import croc.stackmanip;
-// 	push,
-// 	insert,
-// 	insertAndPop,
-// 	stackSize,
-// 	setStackSize;
 import croc.types;
 
 /**

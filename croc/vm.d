@@ -36,15 +36,14 @@ debug
 	import tango.io.Stdout;
 }
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_alloc;
 import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.types_class;
 import croc.types_namespace;
 import croc.types_thread;
-
-import croc.interp;
 
 // ================================================================================================================================================
 // Public

@@ -26,10 +26,10 @@ subject to the following restrictions:
 
 module croc.stdlib_compiler;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.compiler;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 
 struct CompilerLib

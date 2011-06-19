@@ -30,14 +30,12 @@ import tango.core.BitManip;
 import tango.core.Exception;
 import tango.io.model.IConduit;
 
-
 // This import violates layering. STUPID SERIALIZATION LIB.
 import croc.ex;
 
-
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_hash;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.types_function;
 import croc.types_instance;

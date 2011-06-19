@@ -29,9 +29,9 @@ module croc.serialization_simple;
 import tango.core.Exception;
 import tango.io.model.IConduit;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_opcodes;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.types_funcdef;
 import croc.utils;
@@ -53,18 +53,18 @@ Params:
 */
 void serializeModule(CrocThread* t, word idx, OutputStream s)
 {
-	auto func = getFunction(t, idx);
+	auto func = getFuncDef(t, idx);
 
 	if(func is null)
 	{
 		pushTypeString(t, idx);
-		throwException(t, "serializeModule - 'function' expected, not '{}'", getString(t, -1));
+		throwException(t, "serializeModule - 'funcdef' expected, not '{}'", getString(t, -1));
 	}
 
-	if(func.isNative || func.scriptFunc.numUpvals > 0)
+	if(func.numUpvals > 0)
 		throwException(t, "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
 
-	serializeAsModule(func.scriptFunc, s);
+	serializeAsModule(func, s);
 }
 
 /**

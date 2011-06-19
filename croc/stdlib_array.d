@@ -29,9 +29,9 @@ import tango.core.Array;
 import tango.core.Tuple;
 import tango.math.Math;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 import croc.types_array;
 

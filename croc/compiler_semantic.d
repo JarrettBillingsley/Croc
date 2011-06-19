@@ -30,14 +30,11 @@ module croc.compiler_semantic;
 
 import tango.text.Util;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.compiler_ast;
 import croc.compiler_astvisitor;
 import croc.compiler_types;
-import croc.interpreter;
-// 	pushFormat,
-// 	getString;
-import croc.stackmanip;
-// 	pop;
 import croc.types;
 import croc.utils;
 

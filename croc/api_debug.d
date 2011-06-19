@@ -26,31 +26,12 @@ subject to the following restrictions:
 module croc.api_debug;
 
 import croc.api_checks;
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_opcodes;
-import croc.stackmanip;
-// 	dup,
-// 	getFunction,
-// 	getStringObj,
-// 	pop,
-// 	push,
-// 	stackSize;
+import croc.interpreter;
 import croc.types;
 import croc.utils;
-
-import croc.interpreter;
-// 	createString,
-// 	getString,
-// 	isNull,
-// 	pushChar,
-// 	pushFormat,
-// 	pushNull,
-// 	pushString,
-// 	pushToString,
-// 	pushTypeString,
-// 	throwException;
-import croc.interp;
-// 	pushNamespaceNamestring,
-// 	catImpl;
 
 // ================================================================================================================================================
 // Public

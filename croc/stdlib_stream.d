@@ -32,10 +32,10 @@ import tango.io.stream.Format;
 import tango.io.stream.Lines;
 import tango.math.Math;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.stdlib_vector;
 import croc.types;
 import croc.vm;

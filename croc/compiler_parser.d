@@ -26,19 +26,11 @@ subject to the following restrictions:
 
 module croc.compiler_parser;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.compiler_ast;
 import croc.compiler_lexer;
 import croc.compiler_types;
-import croc.interpreter;
-// 	getString;
-// 	idxa,
-// 	newTable,
-// 	opin,
-// 	pushBool,
-// 	pushFormat,
-// 	pushString,
-import croc.stackmanip;
-// 	pop;
 import croc.types;
 
 struct Parser

@@ -30,9 +30,9 @@ import tango.io.Console;
 import tango.io.device.Array;
 import tango.io.stream.Format;
 
+import croc.api_interpreter;
 import croc.ex;
 import croc.ex_json;
-import croc.interpreter;
 import croc.stdlib_stream;
 import croc.types;
 

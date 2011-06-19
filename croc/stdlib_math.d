@@ -30,9 +30,9 @@ import tango.math.GammaFunction;
 import ieee = tango.math.IEEE;
 import tango.math.random.Kiss;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.types;
 
 private void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)

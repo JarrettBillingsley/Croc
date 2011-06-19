@@ -33,9 +33,9 @@ import tango.sys.Environment;
 import tango.time.WallClock;
 import tango.time.Time;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
-import croc.interpreter;
-import croc.stackmanip;
 import croc.stdlib_stream;
 import croc.stdlib_time;
 import croc.stdlib_vector;

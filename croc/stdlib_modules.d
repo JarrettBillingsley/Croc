@@ -30,11 +30,11 @@ import tango.io.device.File;
 import tango.io.FilePath;
 import tango.text.Util;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.compiler;
 import croc.ex;
-import croc.interpreter;
 import croc.serialization_simple;
-import croc.stackmanip;
 import croc.types;
 
 struct ModulesLib
