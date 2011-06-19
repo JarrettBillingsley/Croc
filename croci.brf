@@ -1,0 +1,6 @@
+croci.d
+-clean
+-release
+-op
+-O
+-w

@@ -1,0 +1,8 @@
+croctest.d
+-clean
+-debug
+-unittest
+-debug=LEAK_DETECTOR
+-version=CrocGLCheckErrors
+-g
+-w

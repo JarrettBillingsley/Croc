@@ -1,2 +1,2 @@
 @echo off
-build @test
+build @croctest

@@ -1,0 +1,66 @@
+module croctest;
+
+import tango.core.tools.TraceExceptions;
+import tango.io.Stdout;
+
+import croc.api;
+
+import croc.addons.pcre;
+import croc.addons.sdl;
+import croc.addons.gl;
+import croc.addons.net;
+
+/*
+Language changes:
+- Trailing commas now allowed in table and array constructors
+- Labeled control structures, breaks, and continues
+*/
+
+void main()
+{
+	scope(exit) Stdout.flush;
+
+	CrocVM vm;
+	auto t = openVM(&vm);
+	loadStdlibs(t, CrocStdlib.ReallyAll);
+
+	try
+	{
+// 		PcreLib.init(t);
+// 		SdlLib.init(t);
+// 		GlLib.init(t);
+// 		NetLib.init(t);
+
+		importModule(t, "samples.simple");
+		pushNull(t);
+		lookup(t, "modules.runMain");
+		swap(t, -3);
+		rawCall(t, -3, 0);
+	}
+	catch(CrocException e)
+	{
+		catchException(t);
+		Stdout.formatln("Error: {}", e);
+
+		getTraceback(t);
+		Stdout.formatln("{}", getString(t, -1));
+
+		pop(t, 2);
+
+		if(e.info)
+		{
+			Stdout("D Traceback:");
+			e.writeOut((char[]s) { Stdout(s); });
+		}
+	}
+	catch(CrocHaltException e)
+		Stdout.formatln("Thread halted");
+	catch(Exception e)
+	{
+		Stdout("Bad error:").newline;
+		e.writeOut((char[]s) { Stdout(s); });
+		return;
+	}
+
+	closeVM(&vm);
+}

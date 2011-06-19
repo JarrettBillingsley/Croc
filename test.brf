@@ -1,9 +1,0 @@
-test.d
--clean
--debug
--unittest
--debug=LEAK_DETECTOR
--version=MDGLCheckErrors
--g
--w
--I..\extra\
