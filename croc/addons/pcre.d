@@ -50,6 +50,8 @@ struct PcreLib
 	{
 		makeModule(t, "pcre", function uword(CrocThread* t)
 		{
+			loadPCRE(t);
+
 			// Check that we have an appropriate libpcre, first..
 			{
 				auto vers = fromStringz(pcre_version());
@@ -830,8 +832,11 @@ SharedLib load(char[][] paths)
 	return lib;
 }
 
-static this()
+void loadPCRE(CrocThread* t)
 {
+	if(pcre_compile !is null)
+		return;
+
 	version(linux)
 		char[][] path = ["libpcre.so.3", "libpcre.so"];
 	else version(Win32)
@@ -866,7 +871,7 @@ static this()
 		bind(pcre_free, "pcre_free", libpcre);
 	}
 	else
-		throw new LoaderException("Cannot load PCRE because libpcre is missing");
+		throwException(t, "Error importing pcre: Cannot find the libpcre shared library");
 }
 
 }
