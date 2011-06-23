@@ -19,7 +19,6 @@ foreach(rule; rules)
 
 function main()
 {
-	// butts
 	local text = io.readFile("wiki.txt")
 
 	foreach(rule; rules)
