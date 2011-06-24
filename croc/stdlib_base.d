@@ -165,7 +165,7 @@ static:
 		pushBool(t, funcIsVararg(t, 0));
 		return 1;
 	}
-	
+
 	uword functionIsCacheable(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Function);
@@ -403,14 +403,19 @@ static:
 	{
 		checkAnyParam(t, 1);
 
-		if(!isInstance(t, 1) && !isClass(t, 1))
-			paramTypeError(t, 1, "class|instance");
+		if(!isInstance(t, 1) && !isClass(t, 1) && !isNamespace(t, 1))
+			paramTypeError(t, 1, "class|instance|namespace");
 
 		checkStringParam(t, 2);
 
 		while(!isNull(t, 1))
 		{
-			auto fields = .fieldsOf(t, 1);
+			word fields;
+
+			if(!isNamespace(t, 1))
+				fields = .fieldsOf(t, 1);
+			else
+				fields = dup(t, 1);
 
 			if(opin(t, 2, fields))
 			{
@@ -423,7 +428,8 @@ static:
 			pop(t, 2);
 		}
 
-		return 0;
+		pushNull(t);
+		return 1;
 	}
 
 	uword rawSetField(CrocThread* t)
@@ -606,7 +612,6 @@ static:
 		return 1;
 	}
 
-import croc.api_debug;
 	uword format(CrocThread* t)
 	{
 		uint sink(char[] s)

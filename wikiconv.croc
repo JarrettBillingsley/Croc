@@ -12,6 +12,7 @@ local rules =
 	[@`LanguageSpec2`,    "LanguageSpec"],
 	[@`\b(Newt|MiniD)\b`, "Croc"],
 	[@`\b(newt|minid)\b`, "croc"],
+	[@`\.  `,             ". "],
 ]
 
 foreach(rule; rules)
