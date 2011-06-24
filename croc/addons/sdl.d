@@ -69,11 +69,11 @@ struct SdlLib
 static:
 	void init(CrocThread* t)
 	{
-		safeCode(t, DerelictSDL.load());
-		safeCode(t, DerelictSDLImage.load());
-
 		makeModule(t, "sdl", function uword(CrocThread* t)
 		{
+			safeCode(t, DerelictSDL.load());
+			safeCode(t, DerelictSDLImage.load());
+
 			register(t, &sdlinit,       "init");
 			register(t, &quit,          "quit");
 			register(t, &wasInit,       "wasInit");
