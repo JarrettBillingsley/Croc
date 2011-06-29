@@ -163,7 +163,7 @@ static:
 	package uword initModule(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
-		
+
 		if(!isFunction(t, 1) && !isFuncDef(t, 1))
 			paramTypeError(t, 1, "function|funcdef");
 
@@ -252,7 +252,7 @@ static:
 		dup(t, 1);
 		idx(t, -2);
 
-		if(isFunction(t, -1) || isNamespace(t, -1))
+		if(isFunction(t, -1) || isNamespace(t, -1) || isFuncDef(t, -1))
 			return 1;
 
 		return 0;
