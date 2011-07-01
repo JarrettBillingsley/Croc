@@ -1,0 +1,250 @@
+module docs
+
+local tab = {}
+local consoleOutput // filled in later
+
+function doc(obj: class|function|namespace, docs: string)
+{
+	tab[weakref(obj)] = docs
+	return obj
+}
+
+function help(obj)
+{
+	if(local docs = tab[weakref(obj)])
+		outputHelp(obj, docs, consoleOutput)
+	else
+		writeln("<no help available>")
+}
+
+consoleOutput =
+{
+	function header(type: string, name: string)
+		writefln("{} {}\n", type, name)
+
+	function paragraph(pgph: string)
+		writeln(pgph, "\n")
+
+	function beginShortDesc() {}
+	function endShortDesc() {}
+
+	function beginDesc() {}
+	function endDesc() {}
+
+	function beginParams()
+		writeln("Parameters:")
+
+	function endParams()
+		writeln()
+
+	function param(name: string, type: string|null, desc: string)
+	{
+		writefln("  {}{}", name, type ? ": " ~ type : "")
+		writefln("    {}", desc)
+	}
+
+	function beginReturns()
+		writeln("Returns:")
+
+	function endReturns()
+		writeln()
+
+	function beginSection(header: string)
+		writefln("{}:", header)
+		
+	function endSection(header: string) {}
+}
+
+@doc("First paragraph is the short description.
+
+Any subsequent paragraphs are the long description.
+Paragraphs are sequential non-blank lines. Each line is
+stripped of whitespace on the ends and are then joined together
+with a space.
+
+Paragraphs are separated by one or more blank lines.
+Sections are begun by lines that start with a capital and end with a colon.
+
+Params:
+	name = desc
+	name: type = desc
+	vararg = desc
+
+Returns:
+	desc")
+function outputHelp(obj, docs: string, output: table)
+{
+	Outputter(obj, docs, output).run()
+}
+
+class Outputter
+{
+	obj
+	docs
+	out
+	l = 0
+	buf
+
+	this(obj, docs: string, out: table)
+	{
+		:obj = obj
+		:docs = docs.splitLines().apply(\s -> s.strip())
+		:out = out
+		:buf = StringBuffer()
+	}
+
+	function run()
+	{
+		:out.header(typeof(:obj), nameOf(:obj))
+
+		:eatBlankLines()
+		:shortDesc()
+		:longDesc()
+
+		while(:l < #:docs)
+		{
+			if(:isSectionHeader())
+			{
+				switch(:docs[:l][..-1])
+				{
+					case "Params":  :params(); break
+					case "Returns": :returns(); break
+					default:        :otherSection(); break
+				}
+			}
+			else
+			{
+				// ??
+				:l++
+			}
+		}
+	}
+
+	function shortDesc()
+	{
+		:out.beginShortDesc()
+
+		if(:l < #:docs && !:isSectionHeader())
+			:out.paragraph(:readParagraph())
+
+		:out.endShortDesc()
+	}
+
+	function longDesc()
+	{
+		:out.beginDesc()
+
+		while(:l < #:docs && !:isSectionHeader())
+			:out.paragraph(:readParagraph())
+
+		:out.endDesc()
+	}
+	
+	function params()
+	{
+		:l++
+		:eatBlankLines()
+		:out.beginParams()
+
+		while(:l < #:docs && !:isSectionHeader())
+			:out.param(:readParam())
+
+		:out.endParams()
+	}
+	
+	function returns()
+	{
+		:l++
+		:eatBlankLines()
+		:out.beginReturns()
+		:readParagraphs()
+		:out.endReturns()
+	}
+	
+	function otherSection()
+	{
+		local name = :docs[:l][..-1]
+		:l++
+		:eatBlankLines()
+		:out.beginSection(name)
+		:readParagraphs()
+		:out.endSection(name)
+	}
+
+	function readParam()
+	{
+		local name, type, desc
+		local seenEquals = false
+
+		#:buf = 0
+
+		while(:l < #:docs && !:isSectionHeader())
+		{
+			if('=' in :docs[:l])
+			{
+				if(seenEquals)
+					break
+				else
+					seenEquals = true
+			}
+
+			:buf.append(:docs[:l], " ")
+			:l++
+		}
+		
+		if(!seenEquals)
+			return "<malformed docs>", null, ""
+
+		desc = :buf.toString()
+		local pos = desc.find('=')
+		name = desc[.. pos].strip()
+		desc = desc[pos + 1..].strip()
+		pos = name.find(':')
+		
+		if(pos != #name)
+		{
+			type = name[pos + 1..].strip()
+			name = name[..pos].strip()
+		}
+
+		return name, type, desc
+	}
+
+	function eatBlankLines()
+	{
+		while(:l < #:docs && #:docs[:l] == 0)
+			:l++
+	}
+
+	function isSectionHeader()
+	{
+		if(:l >= #:docs)
+			return false
+
+		local line = :docs[:l]
+		return #line > 0 && line[0].isUpper() && line[-1] == ':'
+	}
+
+	function isBlank() =
+		:l >= #:docs ? false : #:docs[:l] == 0
+
+	function readParagraph()
+	{
+		#:buf = 0
+
+		while(:l < #:docs && !:isSectionHeader() && !:isBlank())
+		{
+			:buf.append(:docs[:l], " ")
+			:l++
+		}
+
+		:eatBlankLines()
+		return :buf.toString().strip()
+	}
+	
+	function readParagraphs()
+	{
+		while(:l < #:docs && !:isSectionHeader())
+			:out.paragraph(:readParagraph())
+	}
+}

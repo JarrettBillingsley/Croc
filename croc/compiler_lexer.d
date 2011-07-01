@@ -520,7 +520,7 @@ struct Lexer
 		}
 	}
 
-	private void nextLine()
+	private void nextLine(bool readMultiple = true)
 	{
 		while(isNewline() && !isEOF())
 		{
@@ -533,6 +533,9 @@ struct Lexer
 
 			mLoc.line++;
 			mLoc.col = 1;
+			
+			if(!readMultiple)
+				return;
 		}
 	}
 	
@@ -868,7 +871,7 @@ struct Lexer
 			{
 				case '\r', '\n':
 					buf ~= '\n';
-					nextLine();
+					nextLine(false);
 					continue;
 
 				case '\\':

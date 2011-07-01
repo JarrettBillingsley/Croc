@@ -325,9 +325,8 @@ catch(CrocException e)
 
 	private void vexception(ref CompileLoc loc, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{
-		pushVFormat(t, msg, arguments, argptr);
 		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
-		insert(t, -2);
+		pushVFormat(t, msg, arguments, argptr);
 		cat(t, 2);
 		throwException(t);
 	}
