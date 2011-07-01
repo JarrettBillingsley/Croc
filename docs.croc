@@ -1,7 +1,6 @@
 module docs
 
 local tab = {}
-local consoleOutput // filled in later
 
 function doc(obj: class|function|namespace, docs: string)
 {
@@ -9,15 +8,15 @@ function doc(obj: class|function|namespace, docs: string)
 	return obj
 }
 
-function help(obj)
+function help(obj, output = consoleOutput)
 {
 	if(local docs = tab[weakref(obj)])
-		outputHelp(obj, docs, consoleOutput)
+		outputHelp(obj, docs, output)
 	else
 		writeln("<no help available>")
 }
 
-consoleOutput =
+global consoleOutput =
 {
 	function header(type: string, name: string)
 		writefln("{} {}\n", type, name)
@@ -51,7 +50,42 @@ consoleOutput =
 
 	function beginSection(header: string)
 		writefln("{}:", header)
-		
+
+	function endSection(header: string) {}
+}
+
+global tracWikiOutput =
+{
+	function header(type: string, name: string)
+		writefln("== {} {} ==\n", type, name)
+	
+	function paragraph(pgph: string)
+		writeln(pgph, "\n")
+
+	function beginShortDesc() {}
+	function endShortDesc() {}
+
+	function beginDesc() {}
+	function endDesc() {}
+
+	function beginParams()
+		writeln("'''Parameters:'''\n||'''Name'''||'''Type'''||'''Description'''||")
+
+	function endParams()
+		writeln()
+
+	function param(name: string, type: string|null, desc: string)
+		writefln("||{}||{}||{}||", name, type ? type : "", desc)
+
+	function beginReturns()
+		write("'''Returns:''' ")
+
+	function endReturns()
+		writeln()
+
+	function beginSection(header: string)
+		writefln("{}:\n", header)
+
 	function endSection(header: string) {}
 }
 
