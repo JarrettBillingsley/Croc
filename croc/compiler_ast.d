@@ -416,6 +416,11 @@ class ClassDef : AstNode
 		a class but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
+
+		/**
+		Document comments for the field.
+		*/
+		char[] docs;
 	}
 
 	/**
@@ -429,11 +434,16 @@ class ClassDef : AstNode
 	"Object".
 	*/
 	public Expression baseClass;
-	
+
 	/**
 	The fields in this class, in the order they were declared.  See the Field struct above.
 	*/
 	public Field[] fields;
+
+	/**
+	Document comments for the declaration.
+	*/
+	char[] docs;
 
 	/**
 	*/
@@ -510,6 +520,18 @@ class FuncDef : AstNode
 		no default value.
 		*/
 		Expression defValue;
+		
+		/**
+		The slice of the source code that corresponds to this parameter's typemask. Can be null
+		if no typemask is given (implies "any"). Used for documentation generation.
+		*/
+		char[] typeString;
+
+		/**
+		The slice of the source code that corresponds to this parameter's default value. Can be
+		null if no default value is given. Used for documentation generation.
+		*/
+		char[] valueString;
 	}
 
 	/**
@@ -536,6 +558,11 @@ class FuncDef : AstNode
 	must (($B must)) be a BlockStmt.  This will be checked upon construction.
 	*/
 	public Statement code;
+
+	/**
+	Document comments for the declaration.
+	*/
+	char[] docs;
 
 	/**
 	*/
@@ -585,6 +612,11 @@ class NamespaceDef : AstNode
 		a namespace but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
+
+		/**
+		Document comments for the field.
+		*/
+		char[] docs;
 	}
 
 	/**
@@ -602,6 +634,11 @@ class NamespaceDef : AstNode
 	The fields in this namespace, in an arbitrary order.  See the Field struct above.
 	*/
 	public Field[] fields;
+
+	/**
+	Document comments for the declaration.
+	*/
+	char[] docs;
 
 	/**
 	*/
@@ -639,6 +676,11 @@ class Module : AstNode
 	/**
 	*/
 	public Decorator decorator;
+	
+	/**
+	Document comments for the module.
+	*/
+	char[] docs;
 
 	/**
 	*/
@@ -710,6 +752,11 @@ class VarDecl : Statement
 	will be all be initialized to null.
 	*/
 	public Expression[] initializer;
+
+	/**
+	Document comments for the declaration.
+	*/
+	char[] docs;
 
 	/**
 	*/
@@ -1909,6 +1956,13 @@ The base class for all expressions.
 */
 abstract class Expression : AstNode
 {
+	/**
+	The slice of the source code that corresponds to this expression. Can be null.
+	Only set on a "root" expression and not its children. Used for documentation
+	generation.
+	*/
+	char[] sourceStr;
+
 	/**
 	*/
 	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)

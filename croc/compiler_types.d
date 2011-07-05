@@ -42,6 +42,9 @@ interface ICompiler
 {
 	bool asserts();
 	bool typeConstraints();
+	bool docComments();
+	bool docTable();
+	bool docDecorators();
 	bool isEof();
 	bool isLoneStmt();
 	void exception(CompileLoc loc, char[] msg, ...);
@@ -139,6 +142,11 @@ scope class List(T)
 	public T opIndex(uword index)
 	{
 		return mData[index];
+	}
+	
+	public T opIndexAssign(T t, uword index)
+	{
+		return mData[index] = t;
 	}
 
 	public void length(uword l)

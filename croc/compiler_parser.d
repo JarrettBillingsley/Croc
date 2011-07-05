@@ -92,6 +92,7 @@ struct Parser
 	public Module parseModule()
 	{
 		auto location = l.loc;
+		auto docs = l.tok.preComment;
 		Decorator dec;
 
 		if(l.type == Token.At)
@@ -119,7 +120,9 @@ struct Parser
 		auto stmts = new(c) BlockStmt(c, location, l.loc, statements.toArray());
 
 		l.expect(Token.EOF);
-		return new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
+		auto ret = new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
+		attachDocs(ret, docs);
+		return ret;
 	}
 
 	/**
@@ -335,11 +338,36 @@ struct Parser
 		return first;
 	}
 
+	private void attachDocs(T)(T t, char[] preDocs)
+	{
+		if(!c.docComments)
+			return;
+
+		if(preDocs.length > 0)
+		{
+			if(l.tok.postComment.length > 0)
+			{
+				scope buf = new List!(char)(c.alloc);
+				buf ~= preDocs;
+				buf ~= l.tok.postComment;
+				auto arr = buf.toArray();
+				scope(exit) c.alloc.freeArray(arr);
+				t.docs = c.newString(arr);
+			}
+			else
+				t.docs = preDocs;
+		}
+		else if(l.tok.postComment.length > 0)
+			t.docs = l.tok.postComment;
+	}
+
 	/**
 	*/
 	public Statement parseDeclStmt()
 	{
 		Decorator deco;
+		
+		auto docs = l.tok.preComment;
 
 		if(l.type == Token.At)
 			deco = parseDecorators();
@@ -355,19 +383,20 @@ struct Parser
 
 						auto ret = parseVarDecl();
 						l.statementTerm();
+						attachDocs(ret, docs);
 						return ret;
 
-					case Token.Function:  return parseFuncDecl(deco);
-					case Token.Class:     return parseClassDecl(deco);
-					case Token.Namespace: return parseNamespaceDecl(deco);
+					case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs); return ret;
+					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs); return ret;
+					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs); return ret;
 
 					default:
 						c.exception(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
-			case Token.Function:  return parseFuncDecl(deco);
-			case Token.Class:     return parseClassDecl(deco);
-			case Token.Namespace: return parseNamespaceDecl(deco);
+			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs); return ret;
+			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs); return ret;
+			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs); return ret;
 
 			default:
 				l.expected("Declaration");
@@ -413,12 +442,26 @@ struct Parser
 		{
 			l.next();
 			scope exprs = new List!(Expression)(c.alloc);
+
+			if(c.docComments)
+				l.beginCapture();
+
 			exprs ~= parseExpression();
-			
+
+			if(c.docComments)
+				exprs[exprs.length - 1].sourceStr = l.endCapture();
+
 			while(l.type == Token.Comma)
 			{
 				l.next();
+
+				if(c.docComments)
+					l.beginCapture();
+
 				exprs ~= parseExpression();
+
+				if(c.docComments)
+					exprs[exprs.length - 1].sourceStr = l.endCapture();
 			}
 
 			initializer = exprs.toArray();
@@ -527,24 +570,34 @@ struct Parser
 			if(l.type == Token.Colon)
 			{
 				l.next();
-				p.typeMask = parseParamType(p.classTypes);
+				p.typeMask = parseParamType(p.classTypes, p.typeString);
 			}
 			else
 			{
 				p.typeMask = TypeMask.Any;
 				p.classTypes = null;
+				p.typeString = null;
 			}
 
 			if(l.type == Token.Assign)
 			{
 				l.next();
+				
+				if(c.docComments)
+					l.beginCapture();
 				p.defValue = parseExpression();
+				
+				if(c.docComments)
+					p.valueString = l.endCapture();
 
 				// Having a default parameter implies allowing null as a parameter type
 				p.typeMask |= TypeMask.Null;
 			}
 			else
+			{
 				p.defValue = null;
+				p.valueString = null;
+			}
 
 			ret ~= p;
 		}
@@ -573,8 +626,9 @@ struct Parser
 
 			l.next();
 			l.expect(Token.Colon);
-			p.typeMask = parseParamType(p.classTypes);
+			p.typeMask = parseParamType(p.classTypes, p.typeString);
 			p.defValue = null;
+			p.valueString = null;
 
 			ret ~= p;
 
@@ -605,7 +659,7 @@ struct Parser
 	Returns the type mask, as well as an optional list of class types that this
 	parameter can accept in the classTypes parameter.
 	*/
-	public ushort parseParamType(out Expression[] classTypes)
+	public ushort parseParamType(out Expression[] classTypes, out char[] typeString)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
@@ -683,15 +737,9 @@ struct Parser
 									auto tt = l.expect(Token.Ident);
 
 									if(l.type == Token.Dot)
-									{
-										addConstraint(CrocValue.Type.Instance);
 										objTypes ~= parseIdentList(tt);
-									}
 									else
-									{
-										addConstraint(CrocValue.Type.Instance);
 										objTypes ~= new(c) IdentExp(c, new(c) Identifier(c, tt.loc, tt.stringValue));
-									}
 								}
 								else if(l.type != Token.Or && l.type != Token.Comma && l.type != Token.RParen && l.type != Token.Arrow)
 									l.expected("class type");
@@ -707,6 +755,9 @@ struct Parser
 					break;
 			}
 		}
+
+		if(c.docComments)
+			l.beginCapture();
 
 		if(l.type == Token.Not)
 		{
@@ -734,6 +785,10 @@ struct Parser
 
 		assert(ret !is 0);
 		classTypes = objTypes.toArray();
+
+		if(c.docComments)
+			typeString = l.endCapture();
+
 		return ret;
 	}
 
@@ -820,10 +875,10 @@ struct Parser
 		auto def = parseClassDef(false);
 		return new(c) ClassDecl(c, location, protection, def, deco);
 	}
-	
+
 	/**
 	Parse a class definition.  
-	
+
 	Params:
 		nameOptional = If true, the name is optional (such as with class literal expressions).
 			Otherwise, the name is required (such as with class declarations).
@@ -852,10 +907,20 @@ struct Parser
 		if(l.type == Token.Colon)
 		{
 			l.next();
+
+			if(c.docComments)
+				l.beginCapture();
+
 			baseClass = parseExpression();
+
+			if(c.docComments)
+				baseClass.sourceStr = l.endCapture();
 		}
 		else
+		{
 			baseClass = new(c) IdentExp(c, new(c) Identifier(c, l.loc, c.newString("Object")));
+			baseClass.sourceStr = null;
+		}
 
 		l.expect(Token.LBrace);
 
@@ -867,7 +932,7 @@ struct Parser
 		alias ClassDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(Identifier name, Expression v)
+		void addField(Identifier name, Expression v, char[] preDocs)
 		{
 			pushString(c.thread, name.name);
 
@@ -880,24 +945,32 @@ struct Parser
 			pushBool(c.thread, true);
 			idxa(c.thread, fieldMap);
 			fields ~= Field(name.name, v);
+
+			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
+			auto tmp = fields[fields.length - 1];
+			attachDocs(&tmp, preDocs);
+			fields[fields.length - 1] = tmp;
 		}
 
-		void addMethod(FuncDef m)
+		void addMethod(FuncDef m, char[] preDocs)
 		{
-			addField(m.name, new(c) FuncLiteralExp(c, m.location, m));
+			addField(m.name, new(c) FuncLiteralExp(c, m.location, m), preDocs);
+			m.docs = fields[fields.length - 1].docs;
 		}
 
 		while(l.type != Token.RBrace)
 		{
+			auto docs = l.tok.preComment;
+
 			switch(l.type)
 			{
 				case Token.Function:
-					addMethod(parseSimpleFuncDef());
+					addMethod(parseSimpleFuncDef(), docs);
 					break;
 
 				case Token.This:
 					auto loc = l.expect(Token.This).loc;
-					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))));
+					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))), docs);
 					break;
 
 				case Token.At:
@@ -927,7 +1000,14 @@ struct Parser
 						if(l.type == Token.Assign)
 						{
 							l.next();
+							
+							if(c.docComments)
+								l.beginCapture();
+
 							init = parseExpression();
+							
+							if(c.docComments)
+								init.sourceStr = l.endCapture();
 						}
 						else
 							init = new(c) NullExp(c, fieldName.location);
@@ -946,7 +1026,7 @@ struct Parser
 					else
 						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
 
-					addField(fieldName, call);
+					addField(fieldName, call, docs);
 					break;
 
 				case Token.Ident:
@@ -957,13 +1037,20 @@ struct Parser
 					if(l.type == Token.Assign)
 					{
 						l.next();
+						
+						if(c.docComments)
+							l.beginCapture();
+
 						v = parseExpression();
+						
+						if(c.docComments)
+							v.sourceStr = l.endCapture();
 					}
 					else
 						v = new(c) NullExp(c, id.location);
 
 					l.statementTerm();
-					addField(id, v);
+					addField(id, v, docs);
 					break;
 
 				case Token.EOF:
@@ -1018,8 +1105,16 @@ struct Parser
 		if(l.type == Token.Colon)
 		{
 			l.next();
+
+			if(c.docComments)
+				l.beginCapture();
+
 			parent = parseExpression();
+
+			if(c.docComments)
+				parent.sourceStr = l.endCapture();
 		}
+
 
 		l.expect(Token.LBrace);
 
@@ -1031,7 +1126,7 @@ struct Parser
 		alias NamespaceDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(char[] name, Expression v)
+		void addField(char[] name, Expression v, char[] preDocs)
 		{
 			pushString(c.thread, name);
 
@@ -1044,15 +1139,22 @@ struct Parser
 			pushBool(c.thread, true);
 			idxa(c.thread, fieldMap);
 			fields ~= Field(name, v);
+
+			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
+			auto tmp = fields[fields.length - 1];
+			attachDocs(&tmp, preDocs);
+			fields[fields.length - 1] = tmp;
 		}
 
 		while(l.type != Token.RBrace)
 		{
+			auto docs = l.tok.preComment;
+
 			switch(l.type)
 			{
 				case Token.Function:
 					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd));
+					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd), docs);
 					break;
 
 				case Token.At:
@@ -1074,7 +1176,14 @@ struct Parser
 						if(l.type == Token.Assign)
 						{
 							l.next();
+							
+							if(c.docComments)
+								l.beginCapture();
+
 							init = parseExpression();
+							
+							if(c.docComments)
+								init.sourceStr = l.endCapture();
 						}
 						else
 							init = new(c) NullExp(c, fieldName.location);
@@ -1093,7 +1202,7 @@ struct Parser
 					else
 						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
 
-					addField(fieldName.name, call);
+					addField(fieldName.name, call, docs);
 					break;
 
 
@@ -1106,13 +1215,20 @@ struct Parser
 					if(l.type == Token.Assign)
 					{
 						l.next();
+						
+						if(c.docComments)
+							l.beginCapture();
+
 						v = parseExpression();
+						
+						if(c.docComments)
+							v.sourceStr = l.endCapture();
 					}
 					else
 						v = new(c) NullExp(c, loc);
 
 					l.statementTerm();
-					addField(fieldName, v);
+					addField(fieldName, v, docs);
 					break;
 
 				case Token.EOF:

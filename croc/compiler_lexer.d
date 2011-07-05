@@ -28,6 +28,7 @@ module croc.compiler_lexer;
 import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.core.Exception;
+import tango.text.Util;
 import Uni = tango.text.Unicode;
 import Utf = tango.text.convert.Utf;
 
@@ -48,6 +49,8 @@ struct Token
 	}
 
 	public CompileLoc loc;
+	public char[] preComment, postComment;
+	public uword startChar;
 
 	public enum
 	{
@@ -308,6 +311,10 @@ struct Lexer
 	private dchar mLookaheadCharacter;
 	private bool mHaveLookahead;
 	private bool mNewlineSinceLastTok;
+	private bool mTokSinceLastNewline;
+
+	private uword mCaptureStart;
+	private uword mCaptureEnd;
 
 	private Token mTok;
 	private Token mPeekTok;
@@ -422,6 +429,17 @@ struct Lexer
 		}
 		else
 			nextToken();
+	}
+
+	public void beginCapture()
+	{
+		mCaptureStart = mTok.startChar;
+		mCaptureEnd = mCaptureStart;
+	}
+
+	public char[] endCapture()
+	{
+		return mCompiler.newString(mSource[mCaptureStart .. mCaptureEnd].trim());
 	}
 
 // ================================================================================================================================================
@@ -948,10 +966,209 @@ struct Lexer
 
 		return ret;
 	}
+	
+	private void addComment(char[] str)
+	{
+		void derp(ref char[] existing)
+		{
+			if(existing is null)
+				existing = str;
+			else
+			{
+				scope buf = new List!(char)(mCompiler.alloc);
+				buf ~= existing;
+				buf ~= str;
+				auto arr = buf.toArray();
+				scope(exit) mCompiler.alloc.freeArray(arr);
+				existing = mCompiler.newString(arr);
+			}
+		}
+
+		if(mTokSinceLastNewline)
+			derp(mTok.postComment);
+		else
+			derp(mTok.preComment);
+	}
+
+	private void readLineComment()
+	{
+		if(mCompiler.docComments && mCharacter == '/')
+		{
+			nextChar();
+			
+			// eat any extra slashes after the opening triple slash
+			while(mCharacter == '/')
+				nextChar();
+
+			scope buf = new List!(char)(mCompiler.alloc);
+
+			while(!isEOL())
+			{
+				buf ~= mCharacter;
+				nextChar();
+			}
+			
+			buf ~= '\n';
+			auto arr = buf.toArray();
+			scope(exit) mCompiler.alloc.freeArray(arr);
+			addComment(mCompiler.newString(arr));
+		}
+		else
+		{
+			while(!isEOL())
+				nextChar();
+		}
+	}
+	
+	private void readBlockComment()
+	{
+		if(mCompiler.docComments && mCharacter == '*')
+		{
+			nextChar();
+			
+			// eat any extra asterisks after opening
+			while(mCharacter == '*')
+				nextChar();
+
+			scope buf = new List!(char)(mCompiler.alloc);
+			uint nesting = 1;
+			bool justWS = false;
+			
+			void trimTrailingWS()
+			{
+				while(buf.length > 0 && (buf[buf.length - 1] == ' ' || buf[buf.length - 1] == '\t'))
+					buf.length = buf.length - 1;
+			}
+	
+			_commentLoop: while(true)
+			{
+				switch(mCharacter)
+				{
+					case '/':
+						buf ~= '/';
+						nextChar();
+
+						if(mCharacter == '*')
+						{
+							buf ~= '*';
+							nextChar();
+							nesting++;
+						}
+
+						continue;
+
+					case '*':
+						nextChar();
+
+						if(mCharacter == '/')
+						{
+							nextChar();
+							nesting--;
+
+							if(nesting == 0)
+								break _commentLoop;
+
+							buf ~= "*/";
+						}
+						else if(justWS)
+						{
+							justWS = false;
+							trimTrailingWS();
+						}
+						else
+							buf ~= '*';
+						continue;
+
+					case '\r', '\n':
+						nextLine(false);
+						justWS = true;
+						trimTrailingWS();
+						buf ~= '\n';
+						continue;
+	
+					case '\0', dchar.init:
+						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
+
+					default:
+						if(mCharacter != ' ' && mCharacter != '\t')
+							justWS = false;
+
+						buf ~= mCharacter;
+						break;
+				}
+
+				nextChar();
+			}
+			
+			// eat any trailing asterisks
+			while(buf.length > 0 && buf[buf.length - 1] == '*')
+				buf.length = buf.length - 1;
+
+			if(buf.length > 0 && buf[buf.length - 1] != '\n')
+				buf ~= '\n';
+
+			auto arr = buf.toArray();
+			scope(exit) mCompiler.alloc.freeArray(arr);
+			addComment(mCompiler.newString(arr));
+		}
+		else
+		{
+			uint nesting = 1;
+
+			_commentLoop2: while(true)
+			{
+				switch(mCharacter)
+				{
+					case '/':
+						nextChar();
+	
+						if(mCharacter == '*')
+						{
+							nextChar();
+							nesting++;
+						}
+	
+						continue;
+						
+					case '*':
+						nextChar();
+	
+						if(mCharacter == '/')
+						{
+							nextChar();
+							nesting--;
+	
+							if(nesting == 0)
+								break _commentLoop2;
+						}
+						continue;
+	
+					case '\r', '\n':
+						nextLine();
+						continue;
+	
+					case '\0', dchar.init:
+						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
+	
+					default:
+						break;
+				}
+				
+				nextChar();
+			}
+		}
+	}
 
 	private void nextToken()
 	{
 		mNewlineSinceLastTok = false;
+		mTok.preComment = null;
+		mTok.postComment = null;
+		mTok.startChar = mPosition - 1;
+		mCaptureEnd = mTok.startChar;
+
+		scope(exit)
+			mTokSinceLastNewline = true;
 
 		while(true)
 		{
@@ -962,6 +1179,8 @@ struct Lexer
 				case '\r', '\n':
 					nextLine();
 					mNewlineSinceLastTok = true;
+					mTokSinceLastNewline = false;
+					mTok.startChar = mPosition - 1;
 					continue;
 
 				case '+':
@@ -1042,56 +1261,13 @@ struct Lexer
 					}
 					else if(mCharacter == '/')
 					{
-						while(!isEOL())
-							nextChar();
+						nextChar();
+						readLineComment();
 					}
 					else if(mCharacter == '*')
 					{
 						nextChar();
-
-						uint nesting = 1;
-
-						_commentLoop: while(true)
-						{
-							switch(mCharacter)
-							{
-								case '/':
-									nextChar();
-
-									if(mCharacter == '*')
-									{
-										nextChar();
-										nesting++;
-									}
-
-									continue;
-									
-								case '*':
-									nextChar();
-
-									if(mCharacter == '/')
-									{
-										nextChar();
-										nesting--;
-
-										if(nesting == 0)
-											break _commentLoop;
-									}
-									continue;
-
-								case '\r', '\n':
-									nextLine();
-									continue;
-
-								case '\0', dchar.init:
-									mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
-
-								default:
-									break;
-							}
-							
-							nextChar();
-						}
+						readBlockComment();
 					}
 					else
 					{
@@ -1323,6 +1499,7 @@ struct Lexer
 					if(isWhitespace())
 					{
 						nextChar();
+						mTok.startChar = mPosition - 1;
 						continue;
 					}
 					else if(isDecimalDigit())

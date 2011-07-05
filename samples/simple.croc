@@ -1,4 +1,91 @@
+/// This is a comment for the moduuuuule
 module samples.simple
+
+// import docs: doc, help
+
+///
+namespace X {}
+
+namespace Y {}
+
+///
+local fork, knife = 4, 5
+
+/****************************
+ * Blerfaderfa!
+ * BLah blah blah.
+ ****************************/
+function foo(x: int = BLERFADERFADARF + 3 + f(4)) {}
+
+/** This is a class. */
+class C
+{
+	/** this is X! */
+	x /// blah
+
+	y = 3 /// blerf
+
+	/** foob */
+	this(x, y) :x, :y = x, y
+}
+
+/*
+local __doctable =
+{
+	type = "module"
+	name = "samples.simple"
+	docs = "This is a comment for the moduuuuule"
+	children =
+	[
+		{
+			protection = "global"
+			type = "function"
+			name = "foo"
+			docs = "Blerfaderfa! Blah blah blah."
+			params = []
+		}
+
+		{
+			protection = "global"
+			type = "class"
+			name = "C"
+			docs = "This is a class."
+			children =
+			[
+				{
+					type = "field"
+					name = "x"
+					docs = "this is X! blah"
+				}
+
+				{
+					type = "field"
+					name = "y"
+					docs = "blerf"
+				}
+
+				{
+					type = "function"
+					name = "constructor"
+					docs = "foob"
+					params =
+					[
+						{
+							type = "any"
+							name = "x"
+						}
+
+						{
+							type = "any"
+							name = "y"
+						}
+					]
+				}
+			]
+		}
+	]
+}
+*/
 
 /*
 I guess it's baselib (but could be moved?)
@@ -23,3 +110,184 @@ I guess it's baselib (but could be moved?)
 		hasAttributes(value)
 		attributesOf(value)
 */
+
+/*
+global loaded = {}
+global path = "."
+global customLoaders = {}
+global loaders // filled in at end
+
+function load(name: string)
+{
+	// Have we already loaded this module?
+	local ns = loaded[name]
+	if(isNamespace(ns))
+		return ns
+
+	return commonLoad(name)
+}
+
+function reload(name: string)
+{
+	// Have we already loaded this module?
+	local ns = loaded[name]
+	if(ns is null)
+		throw "trying to reload a module that hasn't been loaded"
+
+	return commonLoad(name)
+}
+
+function commonLoad(name: string)
+{
+	// Are we circularly importing this module?
+	if(loading[name] !is null)
+		throw "circular import"
+	loading[name] = true
+	scope(exit) loading[name] = null
+
+	// Go through all the loaders and try them until one returns something
+	foreach(l; loaders)
+	{
+		local mod = l(name)
+
+		if(isFuncDef(mod) || isFunction(mod))
+			return initModule(mod, name) // Run the module initializer
+		else if(isNamespace(mod))
+		{
+			// Stick the namespace into the loaded table
+			loaded[name] = mod
+			return mod
+		}
+	}
+
+	// Got through all the loaders without finding anything
+	throw "couldn't find anything to load"
+}
+
+function initModule(mod: function|funcdef, name: string)
+{
+	// Hmmm.....
+	if(isFunction(mod) && !mod.isNative())
+		throw "must be native func"
+
+	// Create the namespace for the module
+	local ns = _G
+
+	foreach(piece; name.split("."))
+	{
+		if(piece in ns)
+		{
+			if(!isNamespace(ns.(piece)))
+				throw "conflicts with existing global"
+		}
+		else
+			ns.(piece) = namespace(name) : ns {} // fake syntax.. parametric name
+
+		ns = ns.(piece)
+	}
+
+	// If we're reloading, the namespace has to be cleared
+	if(#ns > 0)
+		hash.clear(ns)
+
+	// Set up the loader function
+	if(isFunction(mod))
+		debug.setFuncEnv(mod, ns)
+	else
+		mod = newFunction(mod, ns) // fake function that really should exist somewhere; creates a function from a funcdef and (optional) namespace
+
+	// Call it and put it in the loaded table
+	mod(with ns)
+	loaded[name] = ns
+	return ns
+}
+
+function runMain(mod: namespace, vararg)
+{
+	if(hasField(mod, "main"))
+	{
+		local main = mod.main
+
+		if(isFunction(main))
+			main(with mod, vararg)
+	}
+}
+
+function customLoad(name: string)
+{
+	local l = customLoaders[name]
+
+	if(isFunction(l) || isFuncDef(l) || isNamespace(l))
+		return l
+
+	return null
+}
+
+function checkTaken(name: string)
+{
+	local ns = _G
+
+	foreach(piece; name.split("."))
+	{
+		if(piece !in ns)
+			return
+
+		if(!isNamespace(ns.(piece)))
+			throw "conflicts with existing global"
+
+		ns = ns.(piece)
+	}
+}
+
+function loadFiles(name: string)
+{
+	local pos = name.rfind(".")
+	local packages, modName
+
+	if(pos == #name)
+	{
+		packages = ""
+		modName = name
+	}
+	else
+	{
+		packages = name[..pos].split(".")
+		modName = name[pos + 1..]
+	}
+
+	foreach outerLoop(path; paths.split(";"))
+	{
+		if(!io.exists(path))
+			continue
+
+		foreach(piece; packages)
+		{
+			path = io.join(path, piece)
+
+			if(!io.exists(path))
+				continue outerLoop
+		}
+
+		local src = io.join(path, modName ~ ".croc")
+		local bin = io.join(path, modName ~ ".croco")
+
+		if(io.exists(src))
+		{
+			if(io.exists(bin))
+			{
+				if(time.compare(io.modified(src), io.modified(bin)) > 0)
+					return compiler.compileModule(io.readFile(src), src)
+				else
+					return serialization.deserializeModule(bin) // fake function, should exist
+			}
+			else
+				return compiler.compileModule(io.readFile(src), src)
+		}
+		else if(io.exists(bin))
+			return serialization.deserializeModule(bin) // fake function, should exist
+	}
+
+	return null
+}
+
+loaders = [customLoad, checkTaken, loadFiles]*/

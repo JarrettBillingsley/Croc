@@ -4,11 +4,21 @@ import tango.core.tools.TraceExceptions;
 import tango.io.Stdout;
 
 import croc.api;
+import croc.compiler;
+import croc.ex_json;
 
 import croc.addons.pcre;
 import croc.addons.sdl;
 import croc.addons.gl;
 import croc.addons.net;
+
+version(CrocAllAddons)
+{
+	version = CrocPcreAddon;
+	version = CrocSdlAddon;
+	version = CrocGlAddon;
+	version = CrocNetAddon;
+}
 
 /*
 Language changes:
@@ -26,16 +36,20 @@ void main()
 
 	try
 	{
-// 		PcreLib.init(t);
-// 		SdlLib.init(t);
-// 		GlLib.init(t);
-// 		NetLib.init(t);
+		version(CrocPcreAddon) PcreLib.init(t);
+		version(CrocSdlAddon) SdlLib.init(t);
+		version(CrocGlAddon) GlLib.init(t);
+		version(CrocNetAddon) NetLib.init(t);
 
-		importModule(t, "samples.simple");
-		pushNull(t);
-		lookup(t, "modules.runMain");
-		swap(t, -3);
-		rawCall(t, -3, 0);
+// 		importModule(t, "samples.simple");
+// 		pushNull(t);
+// 		lookup(t, "modules.runMain");
+// 		swap(t, -3);
+// 		rawCall(t, -3, 0);
+
+		scope c = new Compiler(t, Compiler.All | Compiler.DocTable);
+		c.compileModule("samples/simple.croc");
+		toJSON(t, -2, true, Stdout);
 	}
 	catch(CrocException e)
 	{

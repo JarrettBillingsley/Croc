@@ -62,7 +62,6 @@ word fromJSON(CrocThread* t, char[] source)
 	return ret;
 }
 
-// Expects root to be at the top of the stack
 void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 {
 	root = absIndex(t, root);

@@ -27,11 +27,13 @@ module croc.compiler;
 
 import tango.core.Vararg;
 import tango.io.UnicodeFile;
+import tango.text.convert.Layout;
 
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.base_alloc;
 import croc.compiler_codegen;
+import croc.compiler_docgen;
 import croc.compiler_lexer;
 import croc.compiler_parser;
 import croc.compiler_semantic;
@@ -69,11 +71,31 @@ scope class Compiler : ICompiler
 		Generate debug info.  Currently always on.
 		*/
 		Debug = 4,
+		
+		/**
+		Extract documentation comments and construct a documentation table that will be
+		left on the stack below the compiled function/module/whatever. Does not attach runtime-
+		inspectable documentation to definitions in the code, so this is useful for extracting
+		docs from the code without having to run it.
+		*/
+		DocTable = 8,
+		
+		/**
+		Extract documentation comments and insert decorators on the definitions they're
+		for, to create runtime-inspectable documentation through some base library functions.
+		*/
+		DocDecorators = 16,
 
 		/**
-		Generate code for all optional features.
+		Turn on all optional features except documentation.
 		*/
-		All = TypeConstraints | Asserts | Debug
+		All = TypeConstraints | Asserts | Debug,
+		
+		/**
+		Turn on all optional features including documentation decorators, but does not leave
+		the doc table on the stack.
+		*/
+		AllDocs = All | DocDecorators
 	}
 
 	private CrocThread* t;
@@ -91,13 +113,43 @@ scope class Compiler : ICompiler
 	/**
 	Constructs a compiler.  The given thread will be used to hold temporary data structures,
 	to throw exceptions, and to return the functions that result from compilation.
+	
+	The compiler is created with either the flags that have been set for this VM with
+	setDefaultFlags, or with the "All" flag if not.
+
+	Params:
+		t = The thread with which this compiler will be associated.
+	*/
+	public this(CrocThread* t)
+	{
+		this.t = t;
+
+		auto reg = getRegistry(t);
+		pushString(t, "compiler.defaultFlags");
+
+		uint flags;
+
+		if(opin(t, -1, reg))
+		{
+			field(t, reg);
+			flags = cast(uint)getInt(t, -1);
+		}
+		else
+			flags = All;
+
+		pop(t, 2);
+		this(t, flags);
+	}
+
+	/**
+	Same as above, but allows you to set the flags manually.
 
 	Params:
 		t = The thread with which this compiler will be associated.
 		flags = A bitwise or of any code-generation flags you want to use for this compiler.
 			Defaults to All.
 	*/
-	public this(CrocThread* t, uint flags = All)
+	public this(CrocThread* t, uint flags)
 	{
 		this.t = t;
 		mFlags = flags;
@@ -117,6 +169,20 @@ scope class Compiler : ICompiler
 
 			n = next;
 		}
+	}
+
+	/**
+	This lets you set the default compiler flags that will be used for compilers created in
+	the VM that owns the given thread. If this isn't set, compilers will default to using the
+	"All" flag.
+	*/
+	public static void setDefaultFlags(CrocThread* t, uint flags)
+	{
+		auto reg = getRegistry(t);
+		pushString(t, "compiler.defaultFlags");
+		pushInt(t, flags);
+		fielda(t, reg);
+		pop(t);
 	}
 
 	/**
@@ -141,6 +207,31 @@ scope class Compiler : ICompiler
 	public override bool typeConstraints()
 	{
 		return (mFlags & TypeConstraints) != 0;
+	}
+	
+	/**
+	Returns whether or not documentation will be extracted from doc comments, but does not
+	say what will be done with it.
+	*/
+	public override bool docComments()
+	{
+		return (mFlags & (DocTable | DocDecorators)) != 0;
+	}
+
+	/**
+	Returns whether or not a documentation table will be left on the stack after compilation.
+	*/
+	public override bool docTable()
+	{
+		return (mFlags & DocTable) != 0;
+	}
+
+	/**
+	Returns whether or not decorators will be inserted into the code containing code documentation.
+	*/
+	public override bool docDecorators()
+	{
+		return (mFlags & DocDecorators) != 0;
 	}
 
 	/**
@@ -259,6 +350,15 @@ catch(CrocException e)
 		{
 			mLexer.begin(name, source);
 			auto mod = mParser.parseModule();
+			
+			if(docComments)
+			{
+				scope doc = new DocGen(this);
+				mod = doc.visit(mod);
+				
+				if(!docTable)
+					pop(t);
+			}
 
 			scope sem = new Semantic(this);
 			mod = sem.visit(mod);
@@ -339,7 +439,16 @@ catch(CrocException e)
 			setStackSize(t, mStringTab);
 
 		dg();
-		insertAndPop(t, -2);
+		
+		if(docTable)
+		{
+			insert(t, -3);
+			insert(t, -3);
+			pop(t);
+		}
+		else
+			insertAndPop(t, -2);
+
 		return stackSize(t) - 1;
 	}
 }
