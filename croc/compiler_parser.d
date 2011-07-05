@@ -55,6 +55,23 @@ struct Parser
 
 	/**
 	*/
+	public char[] capture(void delegate() dg)
+	{
+		if(c.docComments)
+		{
+			auto start = l.beginCapture();
+			dg();
+			return l.endCapture(start);
+		}
+		else
+		{
+			dg();
+			return null;
+		}
+	}
+
+	/**
+	*/
 	public char[] parseName()
 	{
 		with(l.expect(Token.Ident))
@@ -443,25 +460,19 @@ struct Parser
 			l.next();
 			scope exprs = new List!(Expression)(c.alloc);
 
-			if(c.docComments)
-				l.beginCapture();
-
-			exprs ~= parseExpression();
+			auto str = capture({exprs ~= parseExpression();});
 
 			if(c.docComments)
-				exprs[exprs.length - 1].sourceStr = l.endCapture();
+				exprs[exprs.length - 1].sourceStr = str;
 
 			while(l.type == Token.Comma)
 			{
 				l.next();
 
-				if(c.docComments)
-					l.beginCapture();
-
-				exprs ~= parseExpression();
+				auto valstr = capture({exprs ~= parseExpression();});
 
 				if(c.docComments)
-					exprs[exprs.length - 1].sourceStr = l.endCapture();
+					exprs[exprs.length - 1].sourceStr = valstr;
 			}
 
 			initializer = exprs.toArray();
@@ -582,13 +593,7 @@ struct Parser
 			if(l.type == Token.Assign)
 			{
 				l.next();
-				
-				if(c.docComments)
-					l.beginCapture();
-				p.defValue = parseExpression();
-				
-				if(c.docComments)
-					p.valueString = l.endCapture();
+				p.valueString = capture({p.defValue = parseExpression();});
 
 				// Having a default parameter implies allowing null as a parameter type
 				p.typeMask |= TypeMask.Null;
@@ -756,38 +761,36 @@ struct Parser
 			}
 		}
 
-		if(c.docComments)
-			l.beginCapture();
+		typeString = capture(
+		{
 
-		if(l.type == Token.Not)
-		{
-			l.next();
-			l.expect(Token.Null);
-			ret = TypeMask.NotNull;
-		}
-		else if(l.type == Token.Ident && l.tok.stringValue == "any")
-		{
-			l.next();
-			ret = TypeMask.Any;
-		}
-		else
-		{
-			while(true)
+			if(l.type == Token.Not)
 			{
-				parseSingleType();
-
-				if(l.type == Token.Or)
-					l.next;
-				else
-					break;
+				l.next();
+				l.expect(Token.Null);
+				ret = TypeMask.NotNull;
 			}
-		}
-
-		assert(ret !is 0);
-		classTypes = objTypes.toArray();
-
-		if(c.docComments)
-			typeString = l.endCapture();
+			else if(l.type == Token.Ident && l.tok.stringValue == "any")
+			{
+				l.next();
+				ret = TypeMask.Any;
+			}
+			else
+			{
+				while(true)
+				{
+					parseSingleType();
+	
+					if(l.type == Token.Or)
+						l.next;
+					else
+						break;
+				}
+			}
+	
+			assert(ret !is 0);
+			classTypes = objTypes.toArray();
+		});
 
 		return ret;
 	}
@@ -907,14 +910,7 @@ struct Parser
 		if(l.type == Token.Colon)
 		{
 			l.next();
-
-			if(c.docComments)
-				l.beginCapture();
-
-			baseClass = parseExpression();
-
-			if(c.docComments)
-				baseClass.sourceStr = l.endCapture();
+			baseClass.sourceStr = capture({baseClass = parseExpression();});
 		}
 		else
 		{
@@ -1000,14 +996,7 @@ struct Parser
 						if(l.type == Token.Assign)
 						{
 							l.next();
-							
-							if(c.docComments)
-								l.beginCapture();
-
-							init = parseExpression();
-							
-							if(c.docComments)
-								init.sourceStr = l.endCapture();
+							init.sourceStr = capture({init = parseExpression();});
 						}
 						else
 							init = new(c) NullExp(c, fieldName.location);
@@ -1037,14 +1026,7 @@ struct Parser
 					if(l.type == Token.Assign)
 					{
 						l.next();
-						
-						if(c.docComments)
-							l.beginCapture();
-
-						v = parseExpression();
-						
-						if(c.docComments)
-							v.sourceStr = l.endCapture();
+						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
 						v = new(c) NullExp(c, id.location);
@@ -1105,14 +1087,7 @@ struct Parser
 		if(l.type == Token.Colon)
 		{
 			l.next();
-
-			if(c.docComments)
-				l.beginCapture();
-
-			parent = parseExpression();
-
-			if(c.docComments)
-				parent.sourceStr = l.endCapture();
+			parent.sourceStr = capture({parent = parseExpression();});
 		}
 
 
@@ -1176,14 +1151,7 @@ struct Parser
 						if(l.type == Token.Assign)
 						{
 							l.next();
-							
-							if(c.docComments)
-								l.beginCapture();
-
-							init = parseExpression();
-							
-							if(c.docComments)
-								init.sourceStr = l.endCapture();
+							init.sourceStr = capture({init = parseExpression();});
 						}
 						else
 							init = new(c) NullExp(c, fieldName.location);
@@ -1215,14 +1183,7 @@ struct Parser
 					if(l.type == Token.Assign)
 					{
 						l.next();
-						
-						if(c.docComments)
-							l.beginCapture();
-
-						v = parseExpression();
-						
-						if(c.docComments)
-							v.sourceStr = l.endCapture();
+						v.sourceStr = capture({v = parseExpression();});
 					}
 					else
 						v = new(c) NullExp(c, loc);

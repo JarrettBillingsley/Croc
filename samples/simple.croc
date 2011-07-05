@@ -4,7 +4,10 @@ module samples.simple
 // import docs: doc, help
 
 ///
-namespace X {}
+namespace X
+{
+	foooooob /// foooooooob!
+}
 
 namespace Y {}
 

@@ -431,15 +431,15 @@ struct Lexer
 			nextToken();
 	}
 
-	public void beginCapture()
+	public uword beginCapture()
 	{
-		mCaptureStart = mTok.startChar;
-		mCaptureEnd = mCaptureStart;
+		mCaptureEnd = mTok.startChar;
+		return mCaptureEnd;
 	}
 
-	public char[] endCapture()
+	public char[] endCapture(uword captureStart)
 	{
-		return mCompiler.newString(mSource[mCaptureStart .. mCaptureEnd].trim());
+		return mCompiler.newString(mSource[captureStart .. mCaptureEnd].trim());
 	}
 
 // ================================================================================================================================================

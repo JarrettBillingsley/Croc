@@ -106,12 +106,47 @@ scope class DocGen : IdentityVisitor
 		mChildIndices[$ - 1]++;
 		mDocTable = mDocTables[$ - 1];
 	}
-	
-	void unpopTable()
+
+	private void unpopTable()
 	{
 		field(t, mDocTable, "children");
 		idxi(t, -1, -1);
 		insertAndPop(t, -2);
+	}
+
+	private void doProtection(Protection p)
+	{
+		unpopTable();
+
+		if(p == Protection.Local)
+			pushString(t, "local");
+		else
+			pushString(t, "global");
+
+		fielda(t, -2, "protection");
+		pop(t);
+	}
+
+	private void doFields(T)(T[] fields)
+	{
+		foreach(ref f; fields)
+		{
+			if(auto method = f.initializer.as!(FuncLiteralExp))
+				f.initializer = visit(method);
+			else
+			{
+				// TODO: this location might not be on exactly the same line as the field itself..
+				pushDocTable(f.initializer.location, "field", f.name, f.docs);
+				
+				if(f.initializer.sourceStr)
+				{
+					pushString(t, f.initializer.sourceStr);
+					fielda(t, mDocTable, "value");
+				}
+
+				popDocTable();
+			}
+		}
 	}
 
 	public override Module visit(Module m)
@@ -141,15 +176,7 @@ scope class DocGen : IdentityVisitor
 	public override FuncDecl visit(FuncDecl d)
 	{
 		d.def = visit(d.def);
-		unpopTable();
-		
-		if(d.protection == Protection.Local)
-			pushString(t, "local");
-		else
-			pushString(t, "global");
-		
-		fielda(t, -2, "protection");
-		pop(t);
+		doProtection(d.protection);
 		return d;
 	}
 
@@ -192,15 +219,7 @@ scope class DocGen : IdentityVisitor
 	public override ClassDecl visit(ClassDecl d)
 	{
 		d.def = visit(d.def);
-		unpopTable();
-		
-		if(d.protection == Protection.Local)
-			pushString(t, "local");
-		else
-			pushString(t, "global");
-		
-		fielda(t, -2, "protection");
-		pop(t);
+		doProtection(d.protection);
 		return d;
 	}
 
@@ -219,25 +238,7 @@ scope class DocGen : IdentityVisitor
 			fielda(t, mDocTable, "base");
 		}
 
-		foreach(ref f; d.fields)
-		{
-			if(auto method = f.initializer.as!(FuncLiteralExp))
-				f.initializer = visit(method);
-			else
-			{
-				// TODO: this location might not be on exactly the same line as the field itself..
-				pushDocTable(f.initializer.location, "field", f.name, f.docs);
-				
-				if(f.initializer.sourceStr)
-				{
-					pushString(t, f.initializer.sourceStr);
-					fielda(t, mDocTable, "value");
-				}
-
-				popDocTable();
-			}
-		}
-
+		doFields(d.fields);
 		popDocTable();
 		return d;
 	}
@@ -245,15 +246,7 @@ scope class DocGen : IdentityVisitor
 	public override NamespaceDecl visit(NamespaceDecl d)
 	{
 		d.def = visit(d.def);
-		unpopTable();
-		
-		if(d.protection == Protection.Local)
-			pushString(t, "local");
-		else
-			pushString(t, "global");
-		
-		fielda(t, -2, "protection");
-		pop(t);
+		doProtection(d.protection);
 		return d;
 	}
 
@@ -270,25 +263,7 @@ scope class DocGen : IdentityVisitor
 			fielda(t, mDocTable, "base");
 		}
 
-		foreach(ref f; d.fields)
-		{
-			if(auto method = f.initializer.as!(FuncLiteralExp))
-				f.initializer = visit(method);
-			else
-			{
-				// TODO: this location might not be on the exact line of the field..
-				pushDocTable(f.initializer.location, "field", f.name, f.docs);
-				
-				if(f.initializer.sourceStr)
-				{
-					pushString(t, f.initializer.sourceStr);
-					fielda(t, mDocTable, "value");
-				}
-
-				popDocTable();
-			}
-		}
-
+		doFields(d.fields);
 		popDocTable();
 		return d;
 	}
