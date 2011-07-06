@@ -1,36 +1,44 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-// import docs
+function foo(x) { writeln("foo"); return x }
+function bar(x) { writeln("bar"); return x }
 
-///
-namespace X
-{
-	foooooob /// foooooooob!
-}
-
-namespace Y {}
-
-///
-local fork, knife = 4, 5
-
-/****************************
- * Blerfaderfa!
- * BLah blah blah.
- ****************************/
-function foo(x: int = BLERFADERFADARF + 3 + f(4)) {}
-
-/** This is a class. */
 class C
 {
-	/** this is X! */
-	x /// blah
-
-	y = 3 /// blerf
-
-	/** foob */
-	this(x, y) :x, :y = x, y
+	@bar
+	@foo
+	blah
 }
+
+///
+// namespace X
+// {
+// 	foooooob /// foooooooob!
+// }
+// 
+// namespace Y {}
+// 
+// /
+// local fork, knife = 4, 5
+// 
+// /****************************
+//  * Blerfaderfa!
+//  * BLah blah blah.
+//  ****************************/
+// function foo(x: int = BLERFADERFADARF + 3 + f(4)) {}
+// 
+// /** This is a class. */
+// class C
+// {
+// 	/** this is X! */
+// 	x /// blah
+// 
+// 	y = 3 /// blerf
+// 
+// 	/** foob */
+// 	this(x, y) :x, :y = x, y
+// }
 
 /*
 I guess it's baselib (but could be moved?)
