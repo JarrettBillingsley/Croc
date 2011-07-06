@@ -355,29 +355,6 @@ struct Parser
 		return first;
 	}
 
-	private void attachDocs(T)(T t, char[] preDocs)
-	{
-		if(!c.docComments)
-			return;
-
-		if(preDocs.length > 0)
-		{
-			if(l.tok.postComment.length > 0)
-			{
-				scope buf = new List!(char)(c.alloc);
-				buf ~= preDocs;
-				buf ~= l.tok.postComment;
-				auto arr = buf.toArray();
-				scope(exit) c.alloc.freeArray(arr);
-				t.docs = c.newString(arr);
-			}
-			else
-				t.docs = preDocs;
-		}
-		else if(l.tok.postComment.length > 0)
-			t.docs = l.tok.postComment;
-	}
-
 	/**
 	*/
 	public Statement parseDeclStmt()
@@ -1004,18 +981,7 @@ struct Parser
 						l.statementTerm();
 					}
 
-					scope args = new List!(Expression)(c.alloc);
-					args ~= init;
-					args ~= dec.args;
-
-					Expression call;
-
-					if(auto f = dec.func.as!(DotExp))
-						call = new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
-					else
-						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
-
-					addField(fieldName, call, docs);
+					addField(fieldName, decoToExp(dec, init), docs);
 					break;
 
 				case Token.Ident:
@@ -1159,18 +1125,7 @@ struct Parser
 						l.statementTerm();
 					}
 
-					scope args = new List!(Expression)(c.alloc);
-					args ~= init;
-					args ~= dec.args;
-
-					Expression call;
-
-					if(auto f = dec.func.as!(DotExp))
-						call = new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
-					else
-						call = new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
-
-					addField(fieldName.name, call, docs);
+					addField(fieldName.name, decoToExp(dec, init), docs);
 					break;
 
 
@@ -3116,5 +3071,45 @@ struct Parser
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);
+	}
+	
+	private void attachDocs(T)(T t, char[] preDocs)
+	{
+		if(!c.docComments)
+			return;
+
+		if(preDocs.length > 0)
+		{
+			if(l.tok.postComment.length > 0)
+			{
+				scope buf = new List!(char)(c.alloc);
+				buf ~= preDocs;
+				buf ~= l.tok.postComment;
+				auto arr = buf.toArray();
+				scope(exit) c.alloc.freeArray(arr);
+				t.docs = c.newString(arr);
+			}
+			else
+				t.docs = preDocs;
+		}
+		else if(l.tok.postComment.length > 0)
+			t.docs = l.tok.postComment;
+	}
+	
+	private Expression decoToExp(Decorator dec, Expression exp)
+	{
+		scope args = new List!(Expression)(c.alloc);
+
+		if(dec.nextDec)
+			args ~= decoToExp(dec.nextDec, exp);
+		else
+			args ~= exp;
+
+		args ~= dec.args;
+
+		if(auto f = dec.func.as!(DotExp))
+			return new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
+		else
+			return new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
 	}
 }

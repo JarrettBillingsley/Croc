@@ -229,7 +229,8 @@ A more generic version of insert.  This allows you to _rotate dist items within 
 numSlots items on the stack.  The top dist items become the bottom dist items within that range
 of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a _rotate with
 5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the dist parameter is 1,
-it behaves just like insert.
+it behaves just like insert. Additionally, if the dist parameter is one less than numSlots, this
+works just like moveToTop.
 
 Attempting to _rotate more values than there are on the stack (excluding 'this') will throw an error.
 
@@ -253,6 +254,8 @@ void rotate(CrocThread* t, uword numSlots, uword dist)
 		return;
 	else if(dist == 1)
 		return insert(t, -numSlots);
+	else if(dist == numSlots - 1)
+		return moveToTop(t, -numSlots);
 
 	auto slots = t.stack[t.stackIndex - numSlots .. t.stackIndex];
 
