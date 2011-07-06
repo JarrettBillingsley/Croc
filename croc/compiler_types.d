@@ -47,6 +47,7 @@ interface ICompiler
 	bool docDecorators();
 	bool isEof();
 	bool isLoneStmt();
+	bool isDanglingDoc();
 	void exception(CompileLoc loc, char[] msg, ...);
 	void eofException(CompileLoc loc, char[] msg, ...);
 	void loneStmtException(CompileLoc loc, char[] msg, ...);

@@ -102,6 +102,7 @@ scope class Compiler : ICompiler
 	private	uint mFlags;
 	private bool mIsEof;
 	private bool mIsLoneStmt;
+	private bool mDanglingDoc;
 	private Lexer mLexer;
 	private Parser mParser;
 	private word mStringTab;
@@ -268,6 +269,15 @@ catch(CrocException e)
 	{
 		return mIsLoneStmt;
 	}
+	
+	/**
+	Returns whether or not there was a dangling documentation comment at the end of the last-compiled item (that is,
+	a documentation comment that was not attached to anything).
+	*/
+	public override bool isDanglingDoc()
+	{
+		return mDanglingDoc;
+	}
 
 	public override void exception(CompileLoc loc, char[] msg, ...)
 	{
@@ -350,7 +360,8 @@ catch(CrocException e)
 		{
 			mLexer.begin(name, source);
 			auto mod = mParser.parseModule();
-			
+			mDanglingDoc = mParser.danglingDoc();
+
 			if(docComments)
 			{
 				scope doc = new DocGen(this);
@@ -385,6 +396,7 @@ catch(CrocException e)
 		{
 			mLexer.begin(name, source);
 			auto fd = mParser.parseStatements(name);
+			mDanglingDoc = mParser.danglingDoc();
 
 			if(docComments)
 			{

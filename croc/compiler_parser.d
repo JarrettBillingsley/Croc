@@ -37,7 +37,8 @@ struct Parser
 {
 	private ICompiler c;
 	private Lexer* l;
-	private uword dummyNameCounter = 0;
+	private bool mDanglingDoc = false;
+	private uword mDummyNameCounter = 0;
 
 // ================================================================================================================================================
 // Public
@@ -51,6 +52,13 @@ struct Parser
 		ret.c = compiler;
 		ret.l = lexer;
 		return ret;
+	}
+	
+	/**
+	*/
+	public bool danglingDoc()
+	{
+		return mDanglingDoc;
 	}
 
 	/**
@@ -136,7 +144,7 @@ struct Parser
 
 		auto stmts = new(c) BlockStmt(c, location, l.loc, statements.toArray());
 
-		l.expect(Token.EOF);
+		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
 		auto ret = new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
 		attachDocs(ret, docs);
 		return ret;
@@ -156,6 +164,8 @@ struct Parser
 
 		while(l.type != Token.EOF)
 			statements ~= parseStatement();
+			
+		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
 
 		auto endLocation = statements.length > 0 ? statements[statements.length - 1].endLocation : location;
 		auto code = new(c) BlockStmt(c, location, endLocation, statements.toArray());
@@ -3051,7 +3061,7 @@ struct Parser
 
 	private Identifier dummyForeachIndex(CompileLoc loc)
 	{
-		pushFormat(c.thread, "__dummy{}", dummyNameCounter++);
+		pushFormat(c.thread, "__dummy{}", mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);

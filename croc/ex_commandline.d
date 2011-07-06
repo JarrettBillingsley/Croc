@@ -460,7 +460,8 @@ struct CLI(Input)
 		bool couldBeDecl()
 		{
 			auto temp = buffer.triml();
-			return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace") || temp.startsWith("@");
+			return temp.startsWith("function") || temp.startsWith("class") || temp.startsWith("namespace") || temp.startsWith("@") ||
+				temp.startsWith("///") || temp.startsWith("/**");
 		}
 
 		bool tryAsStatement(Exception e = null)
@@ -492,6 +493,12 @@ struct CLI(Input)
 
 				Stdout.formatln("Error: {}", e2).newline;
 				return false;
+			}
+			
+			if(c.isDanglingDoc())
+			{
+				mPrompt = Prompt2;
+				return true;
 			}
 
 			try
