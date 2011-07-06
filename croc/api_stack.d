@@ -199,6 +199,32 @@ void insertAndPop(CrocThread* t, word slot)
 }
 
 /**
+The opposite of insert. This moves a value out of the middle of the stack to the top, shifting
+everything after it down to fill its place. So if the top of the stack is something like
+"1 2 3 4" and you move slot -3 to the top, it will then look like "1 3 4 2".
+
+Throws an error if 'slot' corresponds to the 'this' parameter. 'this' cannot be moved (but you
+can dup it instead). 
+
+If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
+*/
+void moveToTop(CrocThread* t, word slot)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto s = fakeToAbs(t, slot);
+
+	if(s == t.stackBase)
+		throwException(t, __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
+
+	if(s == t.stackIndex - 1)
+		return;
+
+	auto tmp = t.stack[s];
+	memmove(&t.stack[s], &t.stack[s + 1], (t.stackIndex - s - 1) * CrocValue.sizeof);
+	t.stack[t.stackIndex - 1] = tmp;
+}
+
+/**
 A more generic version of insert.  This allows you to _rotate dist items within the top
 numSlots items on the stack.  The top dist items become the bottom dist items within that range
 of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a _rotate with

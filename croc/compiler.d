@@ -386,6 +386,15 @@ catch(CrocException e)
 			mLexer.begin(name, source);
 			auto fd = mParser.parseStatements(name);
 
+			if(docComments)
+			{
+				scope doc = new DocGen(this);
+				fd = doc.visitStatements(fd);
+
+				if(!docTable)
+					pop(t);
+			}
+
 			scope sem = new Semantic(this);
 			fd = sem.visitStatements(fd);
 

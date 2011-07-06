@@ -1,7 +1,7 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-// import docs: doc, help
+// import docs
 
 ///
 namespace X
@@ -31,64 +31,6 @@ class C
 	/** foob */
 	this(x, y) :x, :y = x, y
 }
-
-/*
-local __doctable =
-{
-	type = "module"
-	name = "samples.simple"
-	docs = "This is a comment for the moduuuuule"
-	children =
-	[
-		{
-			protection = "global"
-			type = "function"
-			name = "foo"
-			docs = "Blerfaderfa! Blah blah blah."
-			params = []
-		}
-
-		{
-			protection = "global"
-			type = "class"
-			name = "C"
-			docs = "This is a class."
-			children =
-			[
-				{
-					type = "field"
-					name = "x"
-					docs = "this is X! blah"
-				}
-
-				{
-					type = "field"
-					name = "y"
-					docs = "blerf"
-				}
-
-				{
-					type = "function"
-					name = "constructor"
-					docs = "foob"
-					params =
-					[
-						{
-							type = "any"
-							name = "x"
-						}
-
-						{
-							type = "any"
-							name = "y"
-						}
-					]
-				}
-			]
-		}
-	]
-}
-*/
 
 /*
 I guess it's baselib (but could be moved?)

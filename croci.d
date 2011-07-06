@@ -27,6 +27,7 @@ import tango.io.Stdout;
 import tango.io.Console;
 
 import croc.api;
+import croc.compiler;
 import croc.ex_commandline;
 
 version(CrocAllAddons)
@@ -88,6 +89,7 @@ struct Params
 {
 	bool justStop;
 	bool debugEnabled;
+	bool docsEnabled = true;
 	char[] inputFile;
 	char[][] args;
 }
@@ -194,6 +196,7 @@ void main(char[][] args)
 		}
 		else
 		{
+			Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 			printVersion();
 
 			ConsoleCLI cli;

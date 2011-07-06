@@ -41,15 +41,11 @@ void main()
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
 
-// 		importModule(t, "samples.simple");
-// 		pushNull(t);
-// 		lookup(t, "modules.runMain");
-// 		swap(t, -3);
-// 		rawCall(t, -3, 0);
-
-		scope c = new Compiler(t, Compiler.All | Compiler.DocTable);
-		c.compileModule("samples/simple.croc");
-		toJSON(t, -2, true, Stdout);
+		importModule(t, "samples.simple");
+		pushNull(t);
+		lookup(t, "modules.runMain");
+		swap(t, -3);
+		rawCall(t, -3, 0);
 	}
 	catch(CrocException e)
 	{

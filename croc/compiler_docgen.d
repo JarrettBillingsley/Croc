@@ -33,8 +33,6 @@ import croc.compiler_astvisitor;
 import croc.compiler_types;
 import croc.types;
 
-// TODO: Adding decorators
-
 scope class DocGen : IdentityVisitor
 {
 	private word[] mChildIndices;
@@ -62,7 +60,7 @@ scope class DocGen : IdentityVisitor
 		mChildIndices[$ - 1] = 0;
 		mDocTable = newTable(t);
 		mDocTables[$ - 1] = mDocTable;
-		
+
 		pushString(t, loc.file);
 		fielda(t, mDocTable, "file");
 		pushInt(t, loc.line);
@@ -121,7 +119,7 @@ scope class DocGen : IdentityVisitor
 		if(p == Protection.Local)
 			pushString(t, "local");
 		else
-			pushString(t, "global");
+			pushString(t, "global"); // covers "default" protection as well, since we're only dealing with globals
 
 		fielda(t, -2, "protection");
 		pop(t);
@@ -132,12 +130,17 @@ scope class DocGen : IdentityVisitor
 		foreach(ref f; fields)
 		{
 			if(auto method = f.initializer.as!(FuncLiteralExp))
+			{
 				f.initializer = visit(method);
+				
+				if(c.docDecorators)
+					f.initializer = makeDocCall(f.initializer);
+			}
 			else
 			{
-				// TODO: this location might not be on exactly the same line as the field itself..
+				// TODO: this location might not be on exactly the same line as the field itself.. huge deal?
 				pushDocTable(f.initializer.location, "field", f.name, f.docs);
-				
+
 				if(f.initializer.sourceStr)
 				{
 					pushString(t, f.initializer.sourceStr);
@@ -147,6 +150,87 @@ scope class DocGen : IdentityVisitor
 				popDocTable();
 			}
 		}
+	}
+	
+	private Expression docTableToAST(CompileLoc loc)
+	{
+		// just has to handle tables, arrays, strings, and ints
+		Expression derp(word slot)
+		{
+			switch(type(t, slot))
+			{
+				case CrocValue.Type.Int:    return new(c) IntExp(c, loc, getInt(t, slot));
+				case CrocValue.Type.String: return new(c) StringExp(c, loc, getString(t, slot));
+				
+				case CrocValue.Type.Table:
+					scope fields = new List!(TableCtorExp.Field)(c.alloc);
+					
+					dup(t, slot);
+
+					foreach(word k, word v; foreachLoop(t, 1))
+					{
+						auto key = derp(k);
+						auto val = derp(v);
+						fields ~= TableCtorExp.Field(key, val);
+					}
+
+					return new(c) TableCtorExp(c, loc, loc, fields.toArray());
+
+				case CrocValue.Type.Array:
+					scope exps = new List!(Expression)(c.alloc);
+					
+					dup(t, slot);
+
+					foreach(word v; foreachLoop(t, 1))
+						exps ~= derp(v);
+						
+					return new(c) ArrayCtorExp(c, loc, loc, exps.toArray());
+
+				default: assert(false);
+			}
+		}
+
+		return derp(mDocTable);
+	}
+	
+	Identifier docIdent(CompileLoc loc)
+	{
+		return new(c) Identifier(c, loc, c.newString("__doc"));
+	}
+
+	Identifier doctableIdent(CompileLoc loc)
+	{
+		return new(c) Identifier(c, loc, c.newString("__doctable"));
+	}
+	
+	Decorator makeDeco(CompileLoc loc, Decorator existing, bool lastIndex = true)
+	{
+		auto f = new(c) IdentExp(c, docIdent(loc));
+		scope args = new List!(Expression)(c.alloc);
+		args ~= new(c) IdentExp(c, doctableIdent(loc));
+
+		foreach(idx; mChildIndices[0 .. $ - 1])
+			args ~= new(c) IntExp(c, loc, idx);
+			
+		if(lastIndex)
+			args ~= new(c) IntExp(c, loc, mChildIndices[$ - 1] - 1);
+
+		return new(c) Decorator(c, loc, loc, f, null, args.toArray(), existing);
+	}
+
+	Expression makeDocCall(Expression init)
+	{
+		auto f = new(c) IdentExp(c, docIdent(init.location));
+		scope args = new List!(Expression)(c.alloc);
+		args ~= init;
+		args ~= new(c) IdentExp(c, doctableIdent(init.location));
+
+		foreach(idx; mChildIndices[0 .. $ - 1])
+			args ~= new(c) IntExp(c, init.location, idx);
+
+		args ~= new(c) IntExp(c, init.location, mChildIndices[$ - 1] - 1);
+
+		return new(c) CallExp(c, init.endLocation, f, null, args.toArray());
 	}
 
 	public override Module visit(Module m)
@@ -166,17 +250,74 @@ scope class DocGen : IdentityVisitor
 
 		pushDocTable(m.location, "module", name, m.docs);
 
-		foreach(ref s; m.statements.as!(BlockStmt).statements)
+		auto b = m.statements.as!(BlockStmt);
+
+		foreach(ref s; b.statements)
 			s = visitS(s);
-			
-		// leave the doc table on the stack
+
+		if(c.docDecorators)
+		{
+			// create a "local __doctable = { ... }" as the first statement
+			scope names = new List!(Identifier)(c.alloc);
+			names ~= doctableIdent(m.location);
+			scope inits = new List!(Expression)(c.alloc);
+			inits ~= docTableToAST(m.location);
+
+			scope stmts = new List!(Statement)(c.alloc);
+			stmts ~= new(c) VarDecl(c, m.location, m.location, Protection.Local, names.toArray(), inits.toArray());
+			stmts ~= b.statements;
+			auto oldStmts = b.statements;
+			b.statements = stmts.toArray();
+			c.alloc.freeArray(oldStmts);
+
+			// put a decorator on the module
+			m.decorator = makeDeco(m.location, m.decorator, false);
+		}
+
+		// leave the doc table on the stack -- it's up to the compiler to decide whether or not to drop it
 		return m;
 	}
 	
+	public FuncDef visitStatements(FuncDef d)
+	{
+		pushDocTable(d.location, "module", d.name.name, null);
+
+		auto b = d.code.as!(BlockStmt);
+		assert(b !is null);
+
+		foreach(ref s; b.statements)
+			s = visitS(s);
+
+		if(c.docDecorators)
+		{
+			// create a "local __doctable = { ... }" as the first statement
+			scope names = new List!(Identifier)(c.alloc);
+			names ~= doctableIdent(d.location);
+			scope inits = new List!(Expression)(c.alloc);
+			inits ~= docTableToAST(d.location);
+
+			scope stmts = new List!(Statement)(c.alloc);
+			stmts ~= new(c) VarDecl(c, d.location, d.location, Protection.Local, names.toArray(), inits.toArray());
+			stmts ~= b.statements;
+			auto oldStmts = b.statements;
+			b.statements = stmts.toArray();
+			c.alloc.freeArray(oldStmts);
+		}
+
+		return d;
+	}
+
 	public override FuncDecl visit(FuncDecl d)
 	{
+		if(d.def.docs.length == 0)
+			return d;
+
 		d.def = visit(d.def);
 		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
 		return d;
 	}
 
@@ -211,6 +352,16 @@ scope class DocGen : IdentityVisitor
 			pushDocTable(d.location, "vararg", "vararg", null);
 			popDocTable("params");
 		}
+		
+		pushString(t, "params");
+		
+		if(!opin(t, -1, mDocTable))
+		{
+			newArray(t, 0);
+			idxa(t, mDocTable);
+		}
+		else
+			pop(t);
 
 		popDocTable();
 		return d;
@@ -218,8 +369,15 @@ scope class DocGen : IdentityVisitor
 
 	public override ClassDecl visit(ClassDecl d)
 	{
+		if(d.def.docs.length == 0)
+			return d;
+
 		d.def = visit(d.def);
 		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
 		return d;
 	}
 
@@ -245,8 +403,15 @@ scope class DocGen : IdentityVisitor
 	
 	public override NamespaceDecl visit(NamespaceDecl d)
 	{
+		if(d.def.docs.length == 0)
+			return d;
+
 		d.def = visit(d.def);
 		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
 		return d;
 	}
 
@@ -283,7 +448,7 @@ scope class DocGen : IdentityVisitor
 		cat(t, (d.names.length * 2) - 1);
 		auto name = c.newString(getString(t, -1));
 		pop(t);
-		
+
 		pushDocTable(d.location, d.protection == Protection.Local ? "local" : "global", name, d.docs);
 		
 		if(d.initializer)
@@ -301,6 +466,20 @@ scope class DocGen : IdentityVisitor
 
 		popDocTable();
 		return d;
+	}
+
+	public override ScopeStmt visit(ScopeStmt s)
+	{
+		s.statement = visitS(s.statement);
+		return s;
+	}
+
+	public override BlockStmt visit(BlockStmt s)
+	{
+		foreach(ref stmt; s.statements)
+			stmt = visitS(stmt);
+		
+		return s;
 	}
 
 	public override FuncLiteralExp visit(FuncLiteralExp e)

@@ -1,13 +1,21 @@
 module docs
 
-local tab = {}
+local _docs = {}
 
-function doc(obj: class|function|namespace, docs: string)
+_G.("__doc") = function _doc(val, doctable: table, vararg)
 {
-	tab[weakref(obj)] = docs
-	return obj
+	for(i: 0 .. #vararg)
+		doctable = doctable.children[vararg[i]]
+
+	_docs[weakref(val)] = doctable
+
+	return val
 }
 
+_G.docsOf = function docsOf(val) =
+	weakref(val) in _docs ? _docs[weakref(val)] : {}
+
+/*
 function help(obj, output = consoleOutput)
 {
 	if(local docs = tab[weakref(obj)])
@@ -89,23 +97,6 @@ global tracWikiOutput =
 	function endSection(header: string) {}
 }
 
-@doc("First paragraph is the short description.
-
-Any subsequent paragraphs are the long description.
-Paragraphs are sequential non-blank lines. Each line is
-stripped of whitespace on the ends and are then joined together
-with a space.
-
-Paragraphs are separated by one or more blank lines.
-Sections are begun by lines that start with a capital and end with a colon.
-
-Params:
-	name = desc
-	name: type = desc
-	vararg = desc
-
-Returns:
-	desc")
 function outputHelp(obj, docs: string, output: table)
 {
 	Outputter(obj, docs, output).run()
@@ -281,4 +272,4 @@ class Outputter
 		while(:l < #:docs && !:isSectionHeader())
 			:out.paragraph(:readParagraph())
 	}
-}
+}*/

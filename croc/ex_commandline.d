@@ -382,7 +382,7 @@ struct CLI(Input)
 			swap(t);
 			fielda(t, -2, "exit");
 			pop(t);
-			
+
 			mReplacedExit = true;
 		}
 		else

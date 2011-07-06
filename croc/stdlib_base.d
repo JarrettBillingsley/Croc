@@ -79,6 +79,12 @@ static:
 		// Weak reference stuff
 		register(t, 1, "weakref", &weakref);
 		register(t, 1, "deref", &deref);
+		
+		// Documentation
+			newTable(t);
+			dup(t);
+		register(t, "__doc", &_doc, 1);
+		register(t, "docsOf", &docsOf, 1);
 
 		// Reflection-esque stuff
 		register(t, 1, "findGlobal", &findGlobal);
@@ -209,6 +215,53 @@ static:
 		}
 
 		assert(false);
+	}
+	
+	// ===================================================================================================================================
+	// Documentation
+	
+	uword _doc(CrocThread* t)
+	{
+		checkAnyParam(t, 1);
+
+		if(type(t, 1) <= CrocValue.Type.String)
+			paramTypeError(t, 1, "non-string object type");
+
+		checkParam(t, 2, CrocValue.Type.Table);
+
+		auto size = stackSize(t);
+
+		auto docTable = dup(t, 2);
+
+		for(word i = 3; i < size; i++)
+		{
+			checkIntParam(t, i);
+			field(t, docTable, "children");
+			idxi(t, -1, getInt(t, i));
+			insertAndPop(t, -3);
+		}
+
+		getUpval(t, 0);
+		pushWeakRef(t, 1);
+		dup(t, docTable);
+		idxa(t, -3);
+
+		dup(t, 1);
+		return 1;
+	}
+
+	uword docsOf(CrocThread* t)
+	{
+		checkAnyParam(t, 1);
+		
+		getUpval(t, 0);
+		pushWeakRef(t, 1);
+		idx(t, -2);
+		
+		if(isNull(t, -1))
+			newTable(t);
+		
+		return 1;
 	}
 
 	// ===================================================================================================================================
