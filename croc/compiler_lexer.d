@@ -999,6 +999,10 @@ struct Lexer
 			// eat any extra slashes after the opening triple slash
 			while(mCharacter == '/')
 				nextChar();
+				
+			// eat whitespace too
+			while(isWhitespace() && !isEOL())
+				nextChar();
 
 			scope buf = new List!(char)(mCompiler.alloc);
 
@@ -1028,6 +1032,10 @@ struct Lexer
 			
 			// eat any extra asterisks after opening
 			while(mCharacter == '*')
+				nextChar();
+				
+			// eat whitespace too
+			while(isWhitespace() && !isEOL())
 				nextChar();
 
 			scope buf = new List!(char)(mCompiler.alloc);
