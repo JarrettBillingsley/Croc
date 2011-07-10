@@ -3086,6 +3086,21 @@ void lena(CrocThread* t, word slot)
 }
 
 /**
+Same as above, but allows you to set the length with an integer parameter directly rather than having
+to push it onto the stack. Calls opLengthAssign metamethods.
+
+Params:
+	slot = The _slot of the object whose length is to be set.
+	length = The new integral length.
+*/
+void lenai(CrocThread* t, word slot, crocint length)
+{
+	slot = absIndex(t, slot);
+	pushInt(t, length);
+	lena(t, slot);
+}
+
+/**
 Slice the object at the given slot.  The low index is the second-from-top value on the stack, and
 the high index is the top value.  Either index can be null.  The indices are popped and the result
 of the _slice operation is pushed.

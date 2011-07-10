@@ -146,6 +146,9 @@ struct Parser
 
 		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
 		auto ret = new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
+		
+		// Prevent final docs from being erroneously attached to the module
+		l.tok.postComment = null;
 		attachDocs(ret, docs);
 		return ret;
 	}

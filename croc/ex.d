@@ -125,6 +125,158 @@ void importModuleNoNS(CrocThread* t, word name)
 }
 
 /**
+*/
+scope class CrocDoc
+{
+	private static const char[] DocTables = "ex.CrocDoc.docTables";
+
+	static struct Docs
+	{
+		char[] type;
+		char[] name;
+		char[] docs;
+
+		uword line;
+		char[] prot;
+		
+		Docs[] params;
+	}
+
+	CrocThread* t;
+	char[] mFile;
+	crocint mStartIdx;
+
+	this(CrocThread* t, char[] file)
+	{
+		this.t = t;
+		mFile = file;
+
+		getDocTables();
+		mStartIdx = len(t, -1);
+		.pop(t);
+	}
+
+	~this()
+	{
+		getDocTables();
+		auto l = len(t, -1);
+		if(l != mStartIdx)
+		{
+			if(l < mStartIdx)
+				throwException(t, "Mismatched documentation pushes and pops (stack is {} slots smaller)", mStartIdx - l);
+			else
+				throwException(t, "Mismatched documentation pushes and pops (stack is {} slots bigger)", l - mStartIdx);
+		}
+		.pop(t);
+	}
+
+	public void opCall(word idx, Docs docs, char[] parentField = "children")
+	{
+		push(docs);
+		pop(idx, parentField);
+	}
+
+	public void push(Docs docs)
+	{
+		auto dt = getDocTables();
+
+		newTable(t);
+		dup(t);
+		cateq(t, dt, 1);
+
+		pushString(t, mFile);     fielda(t, -2, "file");
+		pushInt(t, docs.line);    fielda(t, -2, "line");
+		pushString(t, docs.type); fielda(t, -2, "type");
+		pushString(t, docs.name); fielda(t, -2, "name");
+		pushString(t, docs.docs); fielda(t, -2, "docs");
+
+		if(docs.type == "function")
+		{
+			// Leave this here so that 0-function params will still have a params array
+			newArray(t, 0);
+			fielda(t, -2, "params");
+
+			foreach(param; docs.params)
+			{
+				// dummy object for it to set the docs to
+				pushNull(t);
+				opCall(-1, param, "params");
+				.pop(t);
+			}
+		}
+
+		if(docs.prot)
+		{
+			pushString(t, docs.prot);
+			fielda(t, -2, "protection");
+		}
+
+		.pop(t, 2);
+	}
+
+	public void pop(word idx, char[] parentField = "children")
+	{
+		idx = absIndex(t, idx);
+		auto dt = getDocTables();
+
+		if(len(t, dt) == 0)
+			throwException(t, "Documentation stack underflow!");
+
+		auto docTab = idxi(t, dt, -1);
+
+		// first call _doc_ on the thing if we should
+		if(type(t, idx) > CrocValue.Type.String)
+		{
+			pushGlobal(t, "_doc_");
+			pushNull(t);
+			dup(t, idx);
+			dup(t, docTab);
+			rawCall(t, -4, 1);
+			swap(t, -1, idx);
+			.pop(t);
+		}
+
+		// then put it in the parent
+		lenai(t, dt, len(t, dt) - 1);
+
+		if(len(t, dt) > 0)
+		{
+			auto parent = idxi(t, dt, -1);
+			pushString(t, parentField);
+
+			if(!opin(t, -1, -2))
+			{
+				newArray(t, 0);
+				fielda(t, parent, parentField);
+			}
+
+			field(t, parent);
+			dup(t, docTab);
+			cateq(t, -2, 1);
+			.pop(t, 2);
+		}
+
+		.pop(t, 2);
+	}
+
+	private word getDocTables()
+	{
+		auto reg = getRegistry(t);
+		pushString(t, DocTables);
+
+		if(!opin(t, -1, reg))
+		{
+			newArray(t, 0);
+			fielda(t, reg, DocTables);
+		}
+
+		field(t, reg);
+		insertAndPop(t, reg);
+		return absIndex(t, -1);
+	}
+}
+
+/**
 Simple function that attempts to create a custom loader (by making an entry in modules.customLoaders) for a
 module.  Throws an exception if a loader for the given module name already exists.
 

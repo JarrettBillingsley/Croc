@@ -51,12 +51,12 @@ scope class DocGen : IdentityVisitor
 		c.alloc.freeArray(mChildIndices);
 		c.alloc.freeArray(mDocTables);
 	}
-	
+
 	private void pushDocTable(ref CompileLoc loc, char[] type, char[] name, char[] docs)
 	{
 		c.alloc.resizeArray(mChildIndices, mChildIndices.length + 1);
 		c.alloc.resizeArray(mDocTables, mDocTables.length + 1);
-		
+
 		mChildIndices[$ - 1] = 0;
 		mDocTable = newTable(t);
 		mDocTables[$ - 1] = mDocTable;
@@ -66,17 +66,13 @@ scope class DocGen : IdentityVisitor
 		pushInt(t, loc.line);
 		fielda(t, mDocTable, "line");
 		pushString(t, type);
-		fielda(t, mDocTable, "type");
+		fielda(t, mDocTable, "kind");
 		pushString(t, name);
 		fielda(t, mDocTable, "name");
-
-		if(docs)
-		{
-			pushString(t, docs);
-			fielda(t, mDocTable, "docs");
-		}
+		pushString(t, docs);
+		fielda(t, mDocTable, "docs");
 	}
-	
+
 	private void popDocTable(char[] parentField = "children")
 	{
 		assert(mDocTable == stackSize(t) - 1);
@@ -99,10 +95,23 @@ scope class DocGen : IdentityVisitor
 			cateq(t, -2, 1);
 			pop(t);
 		}
-		
+
 		pop(t);
 		mChildIndices[$ - 1]++;
 		mDocTable = mDocTables[$ - 1];
+	}
+	
+	private void ensureChildren(char[] parentField = "children")
+	{
+		pushString(t, parentField);
+
+		if(!opin(t, -1, mDocTable))
+		{
+			newArray(t, 0);
+			idxa(t, mDocTable);
+		}
+		else
+			pop(t);
 	}
 
 	private void unpopTable()
@@ -129,10 +138,13 @@ scope class DocGen : IdentityVisitor
 	{
 		foreach(ref f; fields)
 		{
+			if(f.docs.length == 0)
+				continue;
+
 			if(auto method = f.initializer.as!(FuncLiteralExp))
 			{
 				f.initializer = visit(method);
-				
+
 				if(c.docDecorators)
 					f.initializer = makeDocCall(f.initializer);
 			}
@@ -150,8 +162,10 @@ scope class DocGen : IdentityVisitor
 				popDocTable();
 			}
 		}
+		
+		ensureChildren();
 	}
-	
+
 	private Expression docTableToAST(CompileLoc loc)
 	{
 		// just has to handle tables, arrays, strings, and ints
@@ -161,10 +175,10 @@ scope class DocGen : IdentityVisitor
 			{
 				case CrocValue.Type.Int:    return new(c) IntExp(c, loc, getInt(t, slot));
 				case CrocValue.Type.String: return new(c) StringExp(c, loc, getString(t, slot));
-				
+
 				case CrocValue.Type.Table:
 					scope fields = new List!(TableCtorExp.Field)(c.alloc);
-					
+
 					dup(t, slot);
 
 					foreach(word k, word v; foreachLoop(t, 1))
@@ -178,12 +192,12 @@ scope class DocGen : IdentityVisitor
 
 				case CrocValue.Type.Array:
 					scope exps = new List!(Expression)(c.alloc);
-					
+
 					dup(t, slot);
 
 					foreach(word v; foreachLoop(t, 1))
 						exps ~= derp(v);
-						
+
 					return new(c) ArrayCtorExp(c, loc, loc, exps.toArray());
 
 				default: assert(false);
@@ -192,17 +206,17 @@ scope class DocGen : IdentityVisitor
 
 		return derp(mDocTable);
 	}
-	
+
 	Identifier docIdent(CompileLoc loc)
 	{
-		return new(c) Identifier(c, loc, c.newString("__doc"));
+		return new(c) Identifier(c, loc, c.newString("_doc_"));
 	}
 
 	Identifier doctableIdent(CompileLoc loc)
 	{
 		return new(c) Identifier(c, loc, c.newString("__doctable"));
 	}
-	
+
 	Decorator makeDeco(CompileLoc loc, Decorator existing, bool lastIndex = true)
 	{
 		auto f = new(c) IdentExp(c, docIdent(loc));
@@ -211,7 +225,7 @@ scope class DocGen : IdentityVisitor
 
 		foreach(idx; mChildIndices[0 .. $ - 1])
 			args ~= new(c) IntExp(c, loc, idx);
-			
+
 		if(lastIndex)
 			args ~= new(c) IntExp(c, loc, mChildIndices[$ - 1] - 1);
 
@@ -248,12 +262,14 @@ scope class DocGen : IdentityVisitor
 		auto name = c.newString(getString(t, -1));
 		pop(t);
 
-		pushDocTable(m.location, "module", name, m.docs);
+		pushDocTable(m.location, "module", name, m.docs ? m.docs : "\n");
 
 		auto b = m.statements.as!(BlockStmt);
 
 		foreach(ref s; b.statements)
 			s = visitS(s);
+			
+		ensureChildren();
 
 		if(c.docDecorators)
 		{
@@ -277,16 +293,18 @@ scope class DocGen : IdentityVisitor
 		// leave the doc table on the stack -- it's up to the compiler to decide whether or not to drop it
 		return m;
 	}
-	
+
 	public FuncDef visitStatements(FuncDef d)
 	{
-		pushDocTable(d.location, "module", d.name.name, null);
+		pushDocTable(d.location, "module", d.name.name, "\n");
 
 		auto b = d.code.as!(BlockStmt);
 		assert(b !is null);
 
 		foreach(ref s; b.statements)
 			s = visitS(s);
+			
+		ensureChildren();
 
 		if(c.docDecorators)
 		{
@@ -336,7 +354,10 @@ scope class DocGen : IdentityVisitor
 
 			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
 			// these are technically "int|null"
-			pushDocTable(d.location, p.typeString ? p.typeString : "any", p.name.name, null);
+			pushDocTable(d.location, "parameter", p.name.name, "\n");
+			
+			pushString(t, p.typeString ? p.typeString : "any");
+			fielda(t, mDocTable, "type");
 
 			if(p.valueString)
 			{
@@ -349,20 +370,13 @@ scope class DocGen : IdentityVisitor
 
 		if(d.isVararg)
 		{
-			pushDocTable(d.location, "vararg", "vararg", null);
+			pushDocTable(d.location, "parameter", "vararg", "\n");
+			pushString(t, "vararg");
+			fielda(t, mDocTable, "type");
 			popDocTable("params");
 		}
-		
-		pushString(t, "params");
-		
-		if(!opin(t, -1, mDocTable))
-		{
-			newArray(t, 0);
-			idxa(t, mDocTable);
-		}
-		else
-			pop(t);
 
+		ensureChildren("params");
 		popDocTable();
 		return d;
 	}
@@ -400,7 +414,7 @@ scope class DocGen : IdentityVisitor
 		popDocTable();
 		return d;
 	}
-	
+
 	public override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.def.docs.length == 0)
@@ -441,16 +455,16 @@ scope class DocGen : IdentityVisitor
 		foreach(i, name; d.names)
 		{
 			if(i > 0)
-				pushString(t, ", ");
+				pushString(t, ",");
 			pushString(t, name.name);
 		}
-		
+
 		cat(t, (d.names.length * 2) - 1);
 		auto name = c.newString(getString(t, -1));
 		pop(t);
 
-		pushDocTable(d.location, d.protection == Protection.Local ? "local" : "global", name, d.docs);
-		
+		pushDocTable(d.location, "variable", name, d.docs);
+
 		if(d.initializer)
 		{
 			foreach(i, init; d.initializer)
@@ -459,12 +473,13 @@ scope class DocGen : IdentityVisitor
 					pushString(t, ", ");
 				pushString(t, init.sourceStr);
 			}
-			
+
 			cat(t, (d.initializer.length * 2) - 1);
 			fielda(t, mDocTable, "value");
 		}
 
 		popDocTable();
+		doProtection(d.protection);
 		return d;
 	}
 

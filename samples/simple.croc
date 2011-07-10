@@ -1,15 +1,7 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-function foo(x) { writeln("foo"); return x }
-function bar(x) { writeln("bar"); return x }
-
-class C
-{
-	@bar
-	@foo
-	blah
-}
+writeln$ json.toJSON$ docsOf(_G), true
 
 ///
 // namespace X

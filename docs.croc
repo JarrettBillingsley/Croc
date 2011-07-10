@@ -2,7 +2,7 @@ module docs
 
 local _docs = {}
 
-_G.("__doc") = function _doc(val, doctable: table, vararg)
+_G.("_doc_") = function _doc(val, doctable: table, vararg)
 {
 	for(i: 0 .. #vararg)
 		doctable = doctable.children[vararg[i]]

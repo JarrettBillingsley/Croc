@@ -106,7 +106,8 @@ Params:
 		function will be set to this after creation.  Defaults to DefaultMemFunc, which uses
 		the C allocator.
 	ctx = An opaque context pointer that will be passed to the memory function at each call.
-		The Croc library does not do anything with this pointer other than store it.
+		The Croc library does not do anything with this pointer other than store it. Note that
+		since it is stored in the VM structure, it can safely point into D heap memory.
 
 Returns:
 	The passed-in pointer.
@@ -127,107 +128,57 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 }
 
 /**
-This enumeration is used with the NewContext function to specify which standard libraries you
-want to load into the new context.  The base library is always loaded, so there is no
-flag for it.  You can choose which libraries you want to load by ORing together multiple
-flags.
+Closes a VM object and deallocates all memory associated with it.
+
+Normally you won't have to call this since, when the host program exits, all memory associated with
+its process will be freed.  However if you need to get rid of a context for some reason (i.e. a daemon
+process which spawns and frees contexts as necessary), you must call this to free any data associated
+with the VM.
+
+Params:
+	vm = The VM to free.  After all memory has been freed, the memory at this pointer will be initialized
+		to an "empty" or "dead" VM which can then be passed into openVM.
+*/
+void closeVM(CrocVM* vm)
+{
+	closeVMImpl(vm);
+}
+
+/**
+This enumeration is used with the loadStdlibs function to specify which standard libraries you
+want to load into the VM.  The base library is always loaded, so there is no flag for it.  You can
+choose which libraries you want to load by ORing together multiple flags.
 */
 enum CrocStdlib
 {
-	/**
-	Nothing but the base library will be loaded if you specify this flag.
-	*/
-	None =      0,
+	None =             0, /// Nothing but the base library will be loaded if you specify this flag.
+	Array =            1, /// _Array manipulation.
+	Char =             2, /// Character classification.
+	IO =               4, /// File system manipulation and file access.  Requires the stream lib.
+	Math =             8, /// Standard math functions.
+	String =          16, /// _String manipulation.
+	Hash =            32, /// _Hash (table and namespace) manipulation.
+	OS =              64, /// _OS-specific functionality.  Requires the stream lib.
+	Regexp =         128, /// Regular expressions.
+	Time =           256, /// _Time functions.
+	Stream =         512, /// Streamed IO classes.
+	Debug =         1024, /// Debugging introspection and hooks.
+	Serialization = 2048, /// (De)serialization of complex object graphs.
+	JSON =          4096, /// JSON reading and writing.
+	Compiler =      8192, /// Dynamic compilation of Croc code.
 
-	/**
-	_Array manipulation.
-	*/
-	Array =     1,
-
-	/**
-	Character classification.
-	*/
-	Char =      2,
-
-	/**
-	File system manipulation and file access.  Requires the stream lib.
-	*/
-	IO =        4,
-
-	/**
-	Standard math functions.
-	*/
-	Math =      8,
-
-	/**
-	_String manipulation.
-	*/
-	String =   16,
-
-	/**
-	_Hash (table and namespace) manipulation.
-	*/
-	Hash =    32,
-
-	/**
-	_OS-specific functionality.  Requires the stream lib.
-	*/
-	OS =       64,
-
-	/**
-	Regular expressions.
-	*/
-	Regexp =  128,
-
-	/**
-	_Time functions.
-	*/
-	Time = 256,
-
-	/**
-	Streamed IO classes.
-	*/
-	Stream = 512,
-
-	/**
-	Debugging introspection and hooks.
-	*/
-	Debug = 1024,
-	
-	/**
-	(De)serialization of complex object graphs.
-	*/
-	Serialization = 2048,
-	
-	/**
-	JSON reading and writing.
-	*/
-	JSON = 4096,
-	
-	/**
-	Dynamic compilation of Croc code.
-	*/
-	Compiler = 8192,
-
-	/**
-	This flag is an OR of all the libraries which are "safe", which is everything except the IO, OS,
-	and Debug libraries.
-	*/
+	/** This flag is an OR of all the libraries which are "safe", which is everything except the IO, OS, and Debug libraries. */
 	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization | JSON | Compiler,
 
-	/**
-	_All available standard libraries except the debug library.
-	*/
+	/** _All available standard libraries except the debug library. */
 	All = Safe | IO | OS,
 
-	/**
-	All available standard libraries including the debug library.
-	*/
+	/** All available standard libraries including the debug library. */
 	ReallyAll = All | Debug
 }
 
 /**
-Load the standard libraries into the context of the given thread.
+Load the standard libraries into the global namespace of the given thread.
 
 Params:
 	libs = An ORing together of any standard libraries you want to load (see the CrocStdlib enum).
@@ -249,21 +200,4 @@ void loadStdlibs(CrocThread* t, uint libs = CrocStdlib.All)
 	if(libs & CrocStdlib.Serialization) SerializationLib.init(t);
 	if(libs & CrocStdlib.JSON)          JSONLib.init(t);
 	if(libs & CrocStdlib.Compiler)      CompilerLib.init(t);
-}
-
-/**
-Closes a VM object and deallocates all memory associated with it.
-
-Normally you won't have to call this since, when the host program exits, all memory associated with
-its process will be freed.  However if you need to get rid of a context for some reason (i.e. a daemon
-process which spawns and frees contexts as necessary), you must call this to free any data associated
-with the VM.
-
-Params:
-	vm = The VM to free.  After all memory has been freed, the memory at this pointer will be initialized
-		to an "empty" or "dead" VM which can then be passed into openVM.
-*/
-void closeVM(CrocVM* vm)
-{
-	closeVMImpl(vm);
 }

@@ -42,6 +42,8 @@ import croc.types_class;
 import croc.types_instance;
 import croc.types_namespace;
 
+alias CrocDoc.Docs Docs;
+
 private void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
 {
 	newFunction(t, func, name, numUpvals);
@@ -54,13 +56,37 @@ private void register(CrocThread* t, uint numParams, char[] name, NativeFunc fun
 	newGlobal(t, name);
 }
 
+private void register(CrocThread* t, char[] name, NativeFunc func, CrocDoc doc, Docs docs, uword numUpvals = 0)
+{
+	newFunction(t, func, name, numUpvals);
+	doc(-1, docs);
+	newGlobal(t, name);
+}
+
+private void register(CrocThread* t, uint numParams, char[] name, NativeFunc func, CrocDoc doc, Docs docs, uword numUpvals = 0)
+{
+	newFunction(t, numParams, func, name, numUpvals);
+	doc(-1, docs);
+	newGlobal(t, name);
+}
+
 struct BaseLib
 {
 static:
-	private const AttrTableName = "baselib.attributes";
-
 	public void init(CrocThread* t)
 	{
+		// Documentation
+			newTable(t);
+			dup(t);
+		register(t, "_doc_", &_doc_, 1);
+		register(t, "docsOf", &docsOf, 1);
+
+		scope doc = new CrocDoc(t, "baselib");
+		doc.push(Docs("module", "baselib", "derpaderp"));
+
+		pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t); // Have to do these like this cause _doc_ is called by the doc system!
+		pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
+
 		// Vector
 		VectorObj.init(t);
 
@@ -77,14 +103,8 @@ static:
 		setTypeMT(t, CrocValue.Type.Function);
 
 		// Weak reference stuff
-		register(t, 1, "weakref", &weakref);
+		register(t, 1, "weakref", &weakref, doc, weakref_docs);
 		register(t, 1, "deref", &deref);
-		
-		// Documentation
-			newTable(t);
-			dup(t);
-		register(t, "__doc", &_doc, 1);
-		register(t, "docsOf", &docsOf, 1);
 
 		// Reflection-esque stuff
 		register(t, 1, "findGlobal", &findGlobal);
@@ -115,11 +135,12 @@ static:
 		register(t, 1, "isWeakRef", &isParam!(CrocValue.Type.WeakRef));
 		register(t, 1, "isFuncDef", &isParam!(CrocValue.Type.FuncDef));
 
-		register(t, 2, "attrs", &attrs);
-		register(t, 1, "hasAttributes", &hasAttributes);
-		register(t, 1, "attributesOf", &attributesOf);
-		newTable(t);
-		setRegistryVar(t, AttrTableName);
+			newTable(t);
+			dup(t);
+			dup(t);
+		register(t, 2, "attrs", &attrs, 1);
+		register(t, 1, "hasAttributes", &hasAttributes, 1);
+		register(t, 1, "attributesOf", &attributesOf, 1);
 
 		// Conversions
 		register(t, 2, "toString", &toString);
@@ -139,6 +160,85 @@ static:
 
 			newTable(t);
 		register(t, 2, "dumpVal", &dumpVal, 1);
+
+		pushGlobal(t, "_G"); doc.pop(-1); pop(t);
+	}
+
+	// ===================================================================================================================================
+	// Documentation
+
+	static Docs _doc__docs = {prot: "global", type: "function", name: "_doc_", docs:
+	"This is a decorator function used to attach documentation tables to objects. The compiler can attach
+	calls to this decorator to declarations in your code automatically by extracting documentation comments
+	and information about the declarations from the code.
+
+	The obj param can be any non-string reference type. The docTable param must be a table, preferably one
+	which matches those as produced by the compiler. The variadic arguments should all be integers and are
+	used to extract the correct sub-table from the root documentation table. So, for instance, using
+	\"@_doc_(someTable, 0, 2)\" on a declaration would mean that the table someTable.children[0].children[2]
+	would be used as the documentation for the decorated declaration. If no variadic arguments are given,
+	the table itself is set as the documentation table of the object.
+
+	Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
+	be further processed and output in a human-readable form.",
+	params:
+	[
+		Docs("...", "obj"),
+		Docs("table", "docTable"),
+		Docs("vararg", "vararg")
+	]};
+
+	uword _doc_(CrocThread* t)
+	{
+		checkAnyParam(t, 1);
+
+		if(type(t, 1) <= CrocValue.Type.String)
+			paramTypeError(t, 1, "non-string object type");
+
+		checkParam(t, 2, CrocValue.Type.Table);
+
+		auto size = stackSize(t);
+
+		auto docTable = dup(t, 2);
+
+		for(word i = 3; i < size; i++)
+		{
+			checkIntParam(t, i);
+			field(t, docTable, "children");
+			idxi(t, -1, getInt(t, i));
+			insertAndPop(t, -3);
+		}
+
+		getUpval(t, 0);
+		pushWeakRef(t, 1);
+		dup(t, docTable);
+		idxa(t, -3);
+
+		dup(t, 1);
+		return 1;
+	}
+
+	static Docs docsOf_docs = {prot: "global", type: "function", name: "docsOf", docs:
+	"This retrieves the documentation table, if any, associated with an object. Any type is allowed, but only
+	non-string object types can have documentation tables associated with them. Strings, value types, and objects
+	for which no documentation table has been defined will return the default value: an empty table.",
+	params:
+	[
+		Docs("any", "obj")
+	]};
+
+	uword docsOf(CrocThread* t)
+	{
+		checkAnyParam(t, 1);
+
+		getUpval(t, 0);
+		pushWeakRef(t, 1);
+		idx(t, -2);
+
+		if(isNull(t, -1))
+			newTable(t);
+
+		return 1;
 	}
 
 	// ===================================================================================================================================
@@ -183,6 +283,16 @@ static:
 	// ===================================================================================================================================
 	// Weak reference stuff
 
+	static Docs weakref_docs = {prot: "global", type: "function", name: "weakref", docs:
+	"This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
+	float, or char), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
+	object. For each object, there will be exactly one weak reference object that refers to it. This means that if
+	two objects are identical, their weak references will be identical and vice versa. ",
+	params:
+	[
+		Docs("any", "obj")
+	]};
+	
 	uword weakref(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -215,53 +325,6 @@ static:
 		}
 
 		assert(false);
-	}
-	
-	// ===================================================================================================================================
-	// Documentation
-	
-	uword _doc(CrocThread* t)
-	{
-		checkAnyParam(t, 1);
-
-		if(type(t, 1) <= CrocValue.Type.String)
-			paramTypeError(t, 1, "non-string object type");
-
-		checkParam(t, 2, CrocValue.Type.Table);
-
-		auto size = stackSize(t);
-
-		auto docTable = dup(t, 2);
-
-		for(word i = 3; i < size; i++)
-		{
-			checkIntParam(t, i);
-			field(t, docTable, "children");
-			idxi(t, -1, getInt(t, i));
-			insertAndPop(t, -3);
-		}
-
-		getUpval(t, 0);
-		pushWeakRef(t, 1);
-		dup(t, docTable);
-		idxa(t, -3);
-
-		dup(t, 1);
-		return 1;
-	}
-
-	uword docsOf(CrocThread* t)
-	{
-		checkAnyParam(t, 1);
-		
-		getUpval(t, 0);
-		pushWeakRef(t, 1);
-		idx(t, -2);
-		
-		if(isNull(t, -1))
-			newTable(t);
-		
-		return 1;
 	}
 
 	// ===================================================================================================================================
@@ -516,26 +579,13 @@ static:
 	{
 		checkAnyParam(t, 2);
 
+		if(type(t, 1) <= CrocValue.Type.String)
+			paramTypeError(t, 1, "non-string reference type");
+
 		if(!isNull(t, 2) && !isTable(t, 2))
 			paramTypeError(t, 2, "null|table");
 
-		switch(type(t, 1))
-		{
-			case
-				CrocValue.Type.Null,
-				CrocValue.Type.Bool,
-				CrocValue.Type.Int,
-				CrocValue.Type.Float,
-				CrocValue.Type.Char,
-				CrocValue.Type.String:
-
-				paramTypeError(t, 1, "non-string reference type");
-
-			default:
-				break;
-		}
-
-		getRegistryVar(t, AttrTableName);
+		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		dup(t, 2);
 		idxa(t, -3);
@@ -549,7 +599,7 @@ static:
 	{
 		checkAnyParam(t, 1);
 
-		getRegistryVar(t, AttrTableName);
+		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		pushBool(t, opin(t, -1, -2));
 		return 1;
@@ -559,23 +609,10 @@ static:
 	{
 		checkAnyParam(t, 1);
 
-		switch(type(t, 1))
-		{
-			case
-				CrocValue.Type.Null,
-				CrocValue.Type.Bool,
-				CrocValue.Type.Int,
-				CrocValue.Type.Float,
-				CrocValue.Type.Char,
-				CrocValue.Type.String:
+		if(type(t, 1) <= CrocValue.Type.String)
+			paramTypeError(t, 1, "non-string reference type");
 
-				paramTypeError(t, 1, "non-string reference type");
-
-			default:
-				break;
-		}
-
-		getRegistryVar(t, AttrTableName);
+		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		idx(t, -2);
 		return 1;
