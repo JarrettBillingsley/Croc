@@ -132,14 +132,27 @@ scope class CrocDoc
 
 	static struct Docs
 	{
-		char[] type;
+		char[] kind;
 		char[] name;
 		char[] docs;
 
 		uword line;
-		char[] prot;
-		
-		Docs[] params;
+
+		Param[] params;
+		Extra[] extra;
+	}
+
+	static struct Param
+	{
+		char[] name;
+		char[] type = "any";
+		char[] value;
+	}
+
+	static struct Extra
+	{
+		char[] name;
+		char[] value;
 	}
 
 	CrocThread* t;
@@ -186,29 +199,46 @@ scope class CrocDoc
 
 		pushString(t, mFile);     fielda(t, -2, "file");
 		pushInt(t, docs.line);    fielda(t, -2, "line");
-		pushString(t, docs.type); fielda(t, -2, "type");
+		pushString(t, docs.kind); fielda(t, -2, "kind");
 		pushString(t, docs.name); fielda(t, -2, "name");
 		pushString(t, docs.docs); fielda(t, -2, "docs");
 
-		if(docs.type == "function")
+		if(docs.kind == "function")
 		{
-			// Leave this here so that 0-function params will still have a params array
 			newArray(t, 0);
 			fielda(t, -2, "params");
 
 			foreach(param; docs.params)
 			{
+				Docs pdoc = Docs("parameter", param.name);
+				Extra[2] extra = void;
+				extra[0] = Extra("type", param.type);
+
+				if(param.value)
+				{
+					extra[1] = Extra("value", param.value);
+					pdoc.extra = extra[];
+				}
+				else
+					pdoc.extra = extra[0 .. 1];
+
 				// dummy object for it to set the docs to
 				pushNull(t);
-				opCall(-1, param, "params");
+				opCall(-1, pdoc, "params");
 				.pop(t);
 			}
 		}
 
-		if(docs.prot)
+		if(docs.kind == "module" || docs.kind == "class" || docs.kind == "namespace")
 		{
-			pushString(t, docs.prot);
-			fielda(t, -2, "protection");
+			newArray(t, 0);
+			fielda(t, -2, "children");
+		}
+
+		foreach(extra; docs.extra)
+		{
+			pushString(t, extra.value);
+			fielda(t, -2, extra.name);
 		}
 
 		.pop(t, 2);
@@ -225,15 +255,20 @@ scope class CrocDoc
 		auto docTab = idxi(t, dt, -1);
 
 		// first call _doc_ on the thing if we should
-		if(type(t, idx) > CrocValue.Type.String)
+		switch(type(t, idx))
 		{
-			pushGlobal(t, "_doc_");
-			pushNull(t);
-			dup(t, idx);
-			dup(t, docTab);
-			rawCall(t, -4, 1);
-			swap(t, -1, idx);
-			.pop(t);
+			case CrocValue.Type.Function, CrocValue.Type.Class, CrocValue.Type.Namespace:
+				pushGlobal(t, "_doc_");
+				pushNull(t);
+				dup(t, idx);
+				dup(t, docTab);
+				rawCall(t, -4, 1);
+				swap(t, -1, idx);
+				.pop(t);
+				break;
+
+			default:
+				break;
 		}
 
 		// then put it in the parent

@@ -1,7 +1,197 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-writeln$ json.toJSON$ docsOf(_G), true
+function help(x, child: string = null)
+{
+	local d = docsOf(x)
+
+	if(#d == 0)
+	{
+		writeln("<no help available>")
+		return
+	}
+
+	if(child !is null)
+	{
+		if(d.children is null)
+			throw "No children"
+
+		local found = false
+
+		foreach(c; d.children)
+		{
+			// BUG: doesn't find children in names like "x,y"
+			if(c.name == child)
+			{
+				found = true
+				d = c
+				break
+			}
+		}
+		
+		if(!found)
+			throw "Not found"
+	}
+
+	if(d.protection)
+		write(d.protection, " ")
+
+	write(d.kind, " ", d.name)
+
+	if(d.params)
+	{
+		write("(")
+
+		foreach(i, p; d.params)
+		{
+			if(i > 0)
+				write(", ")
+
+			write(p.name)
+
+			if(p.type != "any" && p.type != "vararg")
+				write(": ", p.type)
+
+			if(p.value)
+				write(" = ", p.value)
+		}
+
+		write(")")
+	}
+
+	if(d.base)
+		write(" : ", d.base)
+
+	if(d.value)
+		write(" = ", d.value)
+
+	write(" (", d.file)
+	if(d.line != 0)
+		write(":  ", d.line)
+	writeln(")")
+
+	foreach(line; d.docs.splitLines())
+		writeln("  ", line.strip())
+
+	if(d.children && #d.children)
+	{
+		writeln()
+		writeln("Members:")
+
+		foreach(c; d.children)
+			writeln("   ", c.name)
+	}
+
+	writeln()
+}
+
+function dumpDocs(docs: string, indent: bool)
+{
+	local strip = true
+
+	foreach(line; docs.splitLines())
+	{
+		local s = line.strip()
+
+		if(s == "")
+		{
+			writeln()
+			continue
+		}
+		else if(s == "{{{")
+			strip = false
+
+		if(strip)
+		{
+			if(indent)
+				write(" ")
+			writeln(s)
+		}
+		else
+			writeln(line)
+
+		if(s == "}}}")
+			strip = true
+	}
+}
+
+function dumpItem(d)
+{
+	switch(d.kind)
+	{
+		case "class":
+			write(" '''`class ")
+			write(d.name)
+			if(d.base)
+				write(" : ", d.base)
+			writeln("`'''::")
+			writeln()
+			dumpDocs(d.docs, true)
+			writeln()
+
+			foreach(child; d.children)
+				dumpItem(child)
+
+			break
+
+		case "function":
+			writef(" '''`{}(", d.name == "constructor" ? "this" : d.name)
+
+			foreach(i, p; d.params)
+			{
+				if(i > 0)
+					write(", ")
+
+				write(p.name)
+
+				if(p.type != "any" && p.type != "vararg")
+					write(": ", p.type)
+
+				if(p.value)
+					write(" = ", p.value)
+			}
+
+			writeln(")`'''::")
+			dumpDocs(d.docs, true)
+			writeln()
+
+			break
+
+		default:
+			writeln("<unhandled kind ", d.kind, ">")
+	}
+}
+
+function dumpStdlib(x)
+{
+	local d = docsOf(x)
+
+	if(#d == 0)
+		throw "WAHHHH"
+
+	writefln("= {} =", d.name)
+	writeln()
+	dumpDocs(d.docs, false)
+	writeln()
+	writeln("[[PageOutline(2-9, Table of Contents, inline)]]")
+	writeln()
+
+	local curSection = ""
+
+	foreach(child; d.children)
+	{
+		if(child.section != curSection)
+		{
+			curSection = child.section
+			writefln("== {} ==", curSection)
+			writeln()
+		}
+
+		dumpItem(child)
+	}
+}
+
+//dumpStdlib(_G)
 
 ///
 // namespace X

@@ -4,3 +4,4 @@ croci.d
 -op
 -O
 -w
+-version=CrocBuiltinDocs

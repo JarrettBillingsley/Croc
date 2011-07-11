@@ -40,6 +40,8 @@ void main()
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
+		
+		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 
 		importModule(t, "samples.simple");
 		pushNull(t);

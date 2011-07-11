@@ -4,5 +4,6 @@ croctest.d
 -unittest
 -debug=LEAK_DETECTOR
 -version=CrocGLCheckErrors
+-version=CrocBuiltinDocs
 -g
 -w

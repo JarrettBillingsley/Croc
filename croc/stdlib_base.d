@@ -36,6 +36,7 @@ import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
 import croc.stdlib_stringbuffer;
+import croc.stdlib_utils;
 import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;
@@ -43,32 +44,8 @@ import croc.types_instance;
 import croc.types_namespace;
 
 alias CrocDoc.Docs Docs;
-
-private void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
-{
-	newFunction(t, func, name, numUpvals);
-	newGlobal(t, name);
-}
-
-private void register(CrocThread* t, uint numParams, char[] name, NativeFunc func, uword numUpvals = 0)
-{
-	newFunction(t, numParams, func, name, numUpvals);
-	newGlobal(t, name);
-}
-
-private void register(CrocThread* t, char[] name, NativeFunc func, CrocDoc doc, Docs docs, uword numUpvals = 0)
-{
-	newFunction(t, func, name, numUpvals);
-	doc(-1, docs);
-	newGlobal(t, name);
-}
-
-private void register(CrocThread* t, uint numParams, char[] name, NativeFunc func, CrocDoc doc, Docs docs, uword numUpvals = 0)
-{
-	newFunction(t, numParams, func, name, numUpvals);
-	doc(-1, docs);
-	newGlobal(t, name);
-}
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
 
 struct BaseLib
 {
@@ -78,14 +55,23 @@ static:
 		// Documentation
 			newTable(t);
 			dup(t);
-		register(t, "_doc_", &_doc_, 1);
-		register(t, "docsOf", &docsOf, 1);
+		newFunction(t, &_doc_, "_doc_", 1);   newGlobal(t, "_doc_");
+		newFunction(t, &docsOf, "docsOf", 1); newGlobal(t, "docsOf");
 
-		scope doc = new CrocDoc(t, "baselib");
-		doc.push(Docs("module", "baselib", "derpaderp"));
+		version(CrocBuiltinDocs)
+		{
+			scope doc = new CrocDoc(t, __FILE__);
+			doc.push(Docs("module", "Base Library",
+			"The base library is a set of functions dealing with some language aspects which aren't covered
+			by the syntax of the language, as well as miscellaneous functions that don't really fit anywhere
+			else. The base library is always loaded when you create an instance of the Croc VM."));
 
-		pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t); // Have to do these like this cause _doc_ is called by the doc system!
-		pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
+			// Have to do these after the fact because _doc_ is called by the doc system!
+			pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t);
+			pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
+
+			pushGlobal(t, "Object"); doc(-1, Object_docs); pop(t);
+		}
 
 		// Vector
 		VectorObj.init(t);
@@ -95,29 +81,37 @@ static:
 
 		// The Function type's metatable
 		newNamespace(t, "function");
-			newFunction(t, 0, &functionIsNative,    "function.isNative");    fielda(t, -2, "isNative");
-			newFunction(t, 0, &functionNumParams,   "function.numParams");   fielda(t, -2, "numParams");
-			newFunction(t, 0, &functionMaxParams,   "function.maxParams");   fielda(t, -2, "maxParams");
-			newFunction(t, 0, &functionIsVararg,    "function.isVararg");    fielda(t, -2, "isVararg");
-			newFunction(t, 0, &functionIsCacheable, "function.isCacheable"); fielda(t, -2, "isCacheable");
+			mixin(RegisterField!(0, "functionIsNative",    0, "function.isNative",    "isNative"));
+			mixin(RegisterField!(0, "functionNumParams",   0, "function.numParams",   "numParams"));
+			mixin(RegisterField!(0, "functionMaxParams",   0, "function.maxParams",   "maxParams"));
+			mixin(RegisterField!(0, "functionIsVararg",    0, "function.isVararg",    "isVararg"));
+			mixin(RegisterField!(0, "functionIsCacheable", 0, "function.isCacheable", "isCacheable"));
 		setTypeMT(t, CrocValue.Type.Function);
 
 		// Weak reference stuff
-		register(t, 1, "weakref", &weakref, doc, weakref_docs);
-		register(t, 1, "deref", &deref);
+		mixin(Register!(1, "weakref"));
+		mixin(Register!(1, "deref"));
 
 		// Reflection-esque stuff
-		register(t, 1, "findGlobal", &findGlobal);
-		register(t, 1, "isSet", &isSet);
-		register(t, 1, "typeof", &croctypeof);
-		register(t, 1, "nameOf", &nameOf);
-		register(t, 1, "fieldsOf", &fieldsOf);
-		register(t, 1, "allFieldsOf", &allFieldsOf);
-		register(t, 2, "hasField", &hasField);
-		register(t, 2, "hasMethod", &hasMethod);
-		register(t, 2, "findField", &findField);
-		register(t, 3, "rawSetField", &rawSetField);
-		register(t, 2, "rawGetField", &rawGetField);
+		mixin(Register!(1, "findGlobal"));
+		mixin(Register!(1, "isSet"));
+		mixin(Register!(1, "croctypeof", 0, "typeof"));
+		mixin(Register!(1, "nameOf"));
+		mixin(Register!(1, "fieldsOf"));
+		mixin(Register!(1, "allFieldsOf"));
+		mixin(Register!(2, "hasField"));
+		mixin(Register!(2, "hasMethod"));
+		mixin(Register!(2, "findField"));
+		mixin(Register!(3, "rawSetField"));
+		mixin(Register!(2, "rawGetField"));
+		
+		version(CrocBuiltinDocs)
+		{
+			pushNull(t);
+			doc(-1, isParam_docs);
+			pop(t);
+		}
+
 		register(t, 1, "isNull", &isParam!(CrocValue.Type.Null));
 		register(t, 1, "isBool", &isParam!(CrocValue.Type.Bool));
 		register(t, 1, "isInt", &isParam!(CrocValue.Type.Int));
@@ -138,55 +132,61 @@ static:
 			newTable(t);
 			dup(t);
 			dup(t);
-		register(t, 2, "attrs", &attrs, 1);
-		register(t, 1, "hasAttributes", &hasAttributes, 1);
-		register(t, 1, "attributesOf", &attributesOf, 1);
+		mixin(Register!(2, "attrs", 1));
+		mixin(Register!(1, "hasAttributes", 1));
+		mixin(Register!(1, "attributesOf", 1));
 
 		// Conversions
-		register(t, 2, "toString", &toString);
-		register(t, 1, "rawToString", &rawToString);
-		register(t, 1, "toBool", &toBool);
-		register(t, 1, "toInt", &toInt);
-		register(t, 1, "toFloat", &toFloat);
-		register(t, 1, "toChar", &toChar);
-		register(t, "format", &format);
+		mixin(Register!(2, "toString"));
+		mixin(Register!(1, "rawToString"));
+		mixin(Register!(1, "toBool"));
+		mixin(Register!(1, "toInt"));
+		mixin(Register!(1, "toFloat"));
+		mixin(Register!(1, "toChar"));
+		mixin(Register!("format"));
 
 		// Console IO
-		register(t, "write", &write);
-		register(t, "writeln", &writeln);
-		register(t, "writef", &writef);
-		register(t, "writefln", &writefln);
-		register(t, 0, "readln", &readln);
+		mixin(Register!("write"));
+		mixin(Register!("writeln"));
+		mixin(Register!("writef"));
+		mixin(Register!("writefln"));
+		mixin(Register!(0, "readln"));
 
 			newTable(t);
-		register(t, 2, "dumpVal", &dumpVal, 1);
+		mixin(Register!(2, "dumpVal", 1));
 
-		pushGlobal(t, "_G"); doc.pop(-1); pop(t);
+		version(CrocBuiltinDocs)
+		{
+			pushGlobal(t, "_G");
+			doc.pop(-1);
+			pop(t);
+		}
 	}
+
+	version(CrocBuiltinDocs) Docs Object_docs = {kind: "class", name: "Object", docs:
+	"The root of the class hierarchy, `Object`, is declared here. It has no methods defined right now. It
+	is the only class in Croc which has no base class (that is, \"`Object.super`\" returns `null`).",
+	extra: [Extra("section", "Classes"), Extra("protection", "global")]};
 
 	// ===================================================================================================================================
 	// Documentation
 
-	static Docs _doc__docs = {prot: "global", type: "function", name: "_doc_", docs:
+	version(CrocBuiltinDocs) Docs _doc__docs = {kind: "function", name: "_doc_", docs:
 	"This is a decorator function used to attach documentation tables to objects. The compiler can attach
 	calls to this decorator to declarations in your code automatically by extracting documentation comments
 	and information about the declarations from the code.
 
-	The obj param can be any non-string reference type. The docTable param must be a table, preferably one
-	which matches those as produced by the compiler. The variadic arguments should all be integers and are
+	The `obj` param can be any non-string reference type. The docTable param must be a table, preferably one
+	which matches the specifications for doc tables. The variadic arguments should all be integers and are
 	used to extract the correct sub-table from the root documentation table. So, for instance, using
-	\"@_doc_(someTable, 0, 2)\" on a declaration would mean that the table someTable.children[0].children[2]
+	\"`@_doc_(someTable, 0, 2)`\" on a declaration would mean that the table `someTable.children[0].children[2]`
 	would be used as the documentation for the decorated declaration. If no variadic arguments are given,
 	the table itself is set as the documentation table of the object.
 
 	Once the documentation table has been set for an object, you can retrieve it with docsOf, which can then
 	be further processed and output in a human-readable form.",
-	params:
-	[
-		Docs("...", "obj"),
-		Docs("table", "docTable"),
-		Docs("vararg", "vararg")
-	]};
+	params: [Param("obj", "..."), Param("docTable", "table"), Param("vararg", "vararg")],
+	extra: [Extra("section", "Documentation"), Extra("protection", "global")]};
 
 	uword _doc_(CrocThread* t)
 	{
@@ -218,14 +218,12 @@ static:
 		return 1;
 	}
 
-	static Docs docsOf_docs = {prot: "global", type: "function", name: "docsOf", docs:
+	version(CrocBuiltinDocs) Docs docsOf_docs = {kind: "function", name: "docsOf", docs:
 	"This retrieves the documentation table, if any, associated with an object. Any type is allowed, but only
 	non-string object types can have documentation tables associated with them. Strings, value types, and objects
 	for which no documentation table has been defined will return the default value: an empty table.",
-	params:
-	[
-		Docs("any", "obj")
-	]};
+	params: [Param("obj")],
+	extra: [Extra("section", "Documentation"), Extra("protection", "global")]};
 
 	uword docsOf(CrocThread* t)
 	{
@@ -244,12 +242,20 @@ static:
 	// ===================================================================================================================================
 	// Function metatable
 
+	version(CrocBuiltinDocs) Docs functionIsNative_docs = {kind: "function", name: "isNative", docs:
+	"Returns a bool telling if the function is implemented in native code or in Croc.",
+	extra: [Extra("section", "Function metamethods")]};
+
 	uword functionIsNative(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Function);
 		pushBool(t, funcIsNative(t, 0));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs functionNumParams_docs = {kind: "function", name: "numParams", docs:
+	"Returns an integer telling how many ''non-variadic'' parameters the function takes.",
+	extra: [Extra("section", "Function metamethods")]};
 
 	uword functionNumParams(CrocThread* t)
 	{
@@ -258,6 +264,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs functionMaxParams_docs = {kind: "function", name: "maxParams", docs:
+	"Returns an integer of how many parameters this function this may be passed without throwing an error.
+	Passing more parameters than this will guarantee that an error is thrown. Variadic functions will
+	simply return a very large number from this method.",
+	extra: [Extra("section", "Function metamethods")]};
+
 	uword functionMaxParams(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Function);
@@ -265,12 +277,23 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs functionIsVararg_docs = {kind: "function", name: "isVararg", docs:
+	"Returns a bool telling whether or not the function takes variadic parameters.",
+	extra: [Extra("section", "Function metamethods")]};
+
 	uword functionIsVararg(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Function);
 		pushBool(t, funcIsVararg(t, 0));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs functionIsCacheable_docs = {kind: "function", name: "isCacheable", docs:
+	"Returns a bool telling whether or not a function is cacheable. Cacheable functions are script functions
+	which have no upvalues, generally speaking. A cacheable function only has a single function closure object
+	allocated for it during its lifetime. Only script functions can be cacheable; native functions always
+	return false.",
+	extra: [Extra("section", "Function metamethods")]};
 
 	uword functionIsCacheable(CrocThread* t)
 	{
@@ -283,22 +306,28 @@ static:
 	// ===================================================================================================================================
 	// Weak reference stuff
 
-	static Docs weakref_docs = {prot: "global", type: "function", name: "weakref", docs:
+	version(CrocBuiltinDocs) Docs weakref_docs = {kind: "function", name: "weakref", docs:
 	"This function is used to create weak reference objects. If the given object is a value type (null, bool, int,
 	float, or char), it simply returns them as-is. Otherwise returns a weak reference object that refers to the
 	object. For each object, there will be exactly one weak reference object that refers to it. This means that if
 	two objects are identical, their weak references will be identical and vice versa. ",
-	params:
-	[
-		Docs("any", "obj")
-	]};
-	
+	params: [Param("obj")],
+	extra: [Extra("section", "Weak References"), Extra("protection", "global")]};
+
 	uword weakref(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
 		pushWeakRef(t, 1);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs deref_docs = {kind: "function", name: "deref", docs:
+	"The parameter types for this might look a bit odd, but it's because this function acts as the inverse of
+	'''`weakref()`'''. If you pass a value type into the function, it will return it as-is. Otherwise, it will
+	dereference the weak reference and return that object. If the object that the weak reference referred to has
+	been collected, it will return `null`.",
+	params: [Param("obj", "null|bool|int|float|char|weakref")],
+	extra: [Extra("section", "Weak References"), Extra("protection", "global")]};
 
 	uword deref(CrocThread* t)
 	{
@@ -330,6 +359,12 @@ static:
 	// ===================================================================================================================================
 	// Reflection-esque stuff
 
+	version(CrocBuiltinDocs) Docs findGlobal_docs = {kind: "function", name: "findGlobal", docs:
+	"Looks for a global in the current environment with the given name. If found, returns ''the namespace that
+	contains it;'' otherwise, returns `null`.",
+	params: [Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword findGlobal(CrocThread* t)
 	{
 		if(!.findGlobal(t, checkStringParam(t, 1), 1))
@@ -337,6 +372,11 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isSet_docs = {kind: "function", name: "isSet", docs:
+	"Similar to '''`findGlobal`''', except returns a boolean value: `true` if the global exists, `false` otherwise.",
+	params: [Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword isSet(CrocThread* t)
 	{
@@ -351,12 +391,25 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs croctypeof_docs = {kind: "function", name: "typeof", docs:
+	"This will get the type of the passed-in value and return it as a string. Possible return values are \"null\",
+	\"bool\", \"int\", \"float\", \"char\", \"string\", \"table\", \"array\", \"function\", \"class\", \"instance\",
+	\"namespace\", \"thread\", \"nativeobj\", \"weakref\", and \"funcdef\".",
+	params: [Param("value")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword croctypeof(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
 		pushString(t, CrocValue.typeString(type(t, 1)));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs nameOf_docs = {kind: "function", name: "nameOf", docs:
+	"Returns the name of the given value as a string. This is the name that the class, function, or namespace was
+	declared with, or an autogenerated one if it wasn't declared with a name (such as anonymous function literals).",
+	params: [Param("value", "class|function|namespace")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword nameOf(CrocThread* t)
 	{
@@ -374,6 +427,15 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs fieldsOf_docs = {kind: "function", name: "fieldsOf", docs:
+	"Returns a namespace that holds the fields of the given class or instance. Each class or instance has its own
+	unique field namespace. Note, however, that since the fields are lazily created (i.e. a class or instance will
+	not have a field unless it has been assigned into it), you won't necessarily get ''all'' the fields that can be
+	accessed from the class or instance, only those which have been set in it. If you want to get all the fields,
+	use the '''`allFieldsOf`''' iterator function.",
+	params: [Param("value", "class|instance")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword fieldsOf(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -385,6 +447,41 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs allFieldsOf_docs = {kind: "function", name: "allFieldsOf", docs:
+	"Returns an iterator function that will iterate through all fields accessible from the given class, instance,
+	or namespace, traversing the base class/parent namespace links up to the root. This iterator actually gives up
+	to three indices: the first is the name of the field, the second its value, and the third the class, instance,
+	or namespace that owns it. Example use:
+
+{{{
+#!croc
+class A
+{
+	x = 5
+	function foo() {}
+}
+
+class B : A
+{
+	x = 10
+}
+
+// prints \"x: 5\" and \"foo: script function foo\"
+foreach(k, v; allFieldsOf(A))
+	writefln(\"{}: {}\", k, v)
+
+writeln()
+
+// this time prints 10 for x, and the owner is B; foo's owner is A
+foreach(k, v, o; allFieldsOf(B))
+	writefln(\"{}: {} (owned by {})\", k, v, o)
+}}}
+
+	Note in the second example that both B and its base class A have a field 'x', but only the 'x' accessible from
+	B with value 10 is printed.",
+	params: [Param("value", "class|instance|namespace")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword allFieldsOf(CrocThread* t)
 	{
@@ -499,6 +596,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs hasField_docs = {kind: "function", name: "hasField", docs:
+	"Sees if `value` contains the field `name`. Works for tables, namespaces, classes, and instances. For any
+	other type, always returns `false`. Does not take opField metamethods into account.",
+	params: [Param("value"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword hasField(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -507,6 +610,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs hasMethod_docs = {kind: "function", name: "hasMethod", docs:
+	"Sees if the method named `name` can be called on `value`. Looks in metatables as well, for i.e. strings
+	and arrays. Works for all types. Does not take opMethod metamethods into account.",
+	params: [Param("value"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword hasMethod(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -514,6 +623,13 @@ static:
 		pushBool(t, .hasMethod(t, 1, n));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs findField_docs = {kind: "function", name: "findField", docs:
+	"Searches the given class, instance, or namespace's inheritance/parent chain for the class/instance/namespace
+	that holds the field with the given name. Returns the class/instance/namespace that holds the field, or
+	`null` if the given field name was not found. Does not take opField metamethods into account.",
+	params: [Param("value", "class|instance|namespace"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword findField(CrocThread* t)
 	{
@@ -548,6 +664,11 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs rawSetField_docs = {kind: "function", name: "rawSetField", docs:
+	"Sets a field into an instance bypassing any '''`opFieldAssign`''' metamethods.",
+	params: [Param("o", "instance"), Param("name", "string"), Param("value")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword rawSetField(CrocThread* t)
 	{
 		checkInstParam(t, 1);
@@ -559,6 +680,11 @@ static:
 		return 0;
 	}
 
+	version(CrocBuiltinDocs) Docs rawGetField_docs = {kind: "function", name: "rawGetField", docs:
+	"Gets a field from an instance bypassing any '''`opField`''' metamethods.",
+	params: [Param("o", "instance"), Param("name", "string")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword rawGetField(CrocThread* t)
 	{
 		checkInstParam(t, 1);
@@ -568,12 +694,60 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isParam_docs = {kind: "function", name: "isXxx", docs:
+	"This isn't a single function, but a whole family of functions, one for each of the builtin types
+	in Croc:
+ 
+ * `isNull`
+ * `isBool`
+ * `isInt`
+ * `isFloat`
+ * `isChar`
+ * `isString`
+ * `isTable`
+ * `isArray`
+ * `isFunction`
+ * `isClass`
+ * `isInstance`
+ * `isNamespace`
+ * `isThread`
+ * `isNativeObj`
+ * `isWeakRef`
+ * `isFuncDef`
+
+	All these functions return `true` if the passed-in value is of the given type, and `false`
+	otherwise. The fastest way to test if something is `null`, however, is to use "`x is null`".",
+	params: [Param("o")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword isParam(CrocValue.Type Type)(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
 		pushBool(t, type(t, 1) == Type);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs attrs_docs = {kind: "function", name: "attrs", docs:
+	"This is a function which can be used to set (or remove) a user-defined attribute table on
+	any '''non-string''' reference object. It's meant to be used as a decorator on declarations
+	but it can be simply called as a normal function as well.
+
+{{{
+#!croc
+// Using it as a decorator
+@attrs({
+	x = 5
+	blah = \"Blah blah blah.\"
+})
+function foo() = 12
+
+// Using it as a normal function
+local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
+}}}
+
+	You can check if an object has attributes and retrieve them using the following functions.",
+	params: [Param("o", "..."), Param("t", "table|null")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword attrs(CrocThread* t)
 	{
@@ -595,6 +769,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs hasAttributes_docs = {kind: "function", name: "hasAttributes", docs:
+	"Returns whether or not the given value has an attributes table. Works for all types, but always returns
+	false for value types and strings.",
+	params: [Param("value")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
 	uword hasAttributes(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -604,6 +784,12 @@ static:
 		pushBool(t, opin(t, -1, -2));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs attributesOf_docs = {kind: "function", name: "attributesOf", docs:
+	"Returns the attributes table of `value`, or `null` if it has none. Only works for non-string reference
+	types; errors otherwise.",
+	params: [Param("value", "...")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	uword attributesOf(CrocThread* t)
 	{
@@ -620,6 +806,22 @@ static:
 
 	// ===================================================================================================================================
 	// Conversions
+
+	version(CrocBuiltinDocs) Docs toString_docs = {kind: "function", name: "toString", docs:
+	"This is like '''`rawToString`''', but it will call any '''`toString`''' metamethods defined for the value.
+	Arrays have a '''`toString`''' metamethod defined for them if the array stdlib is loaded, and any
+	'''`toString`''' methods defined for class instances will be used.
+	
+	The optional `style` parameter only has meaning if the `value` is an integer. It can be one of the following:
+
+ * 'd': Default: signed base 10.
+ * 'b': Binary.
+ * 'o': Octal.
+ * 'x': Lowercase hexadecimal.
+ * 'X': Uppercase hexadecimal.
+ * 'u': Unsigned base 10.",
+	params: [Param("value"), Param("style", "char", "'d'")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
 
 	uword toString(CrocThread* t)
 	{
@@ -642,6 +844,37 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs rawToString_docs = {kind: "function", name: "rawToString", docs:
+	"This returns a string representation of the given value depending on its type, as follows:
+
+ * '''`null`''': the string `\"null\"`.
+ * '''`bool`''': `\"true\"` or `\"false\"`.
+ * '''`int`''': The decimal representation of the number.
+ * '''`float`''': The decimal representation of the number, to about 7 digits of precision.
+ * '''`char`''': A string with just one character, the character that was passed in.
+ * '''`string`''': The string itself.
+ * '''`table`''': A string in the format `\"table 0x00000000\"` where 0x00000000 is the address of
+   the table.
+ * '''`array`''': A string in the format `\"array 0x00000000\"` where 0x00000000 is the address of
+   the array.
+ * '''`function`''': If the function is native code, a string formatted as `\"native function <name>\"`;
+   if script code, a string formatted as `\"script function <name>(<location>)\"`.
+ * '''`class`''': A string formatted as `\"class <name> (0x00000000)\"`, where 0x00000000 is the address
+   of the class.
+ * '''`instance`''': A string formatted as `\"instance of class <name> (0x00000000)\"`, where 0x00000000
+   is the address of the instance.
+ * '''`namespace`''': A string formatted as `\"namespace <names>\"`, where <name> is the hierarchical
+   name of the namespace.
+ * '''`thread`''': A string formatted as `\"thread 0x00000000\"`, where 0x00000000 is the address of the
+   thread.
+ * '''`nativeobj`''': A string formatted as `\"nativeobj 0x00000000\"`, where 0x00000000 is the address
+   of the native object that it references.
+ * '''`weakref`''': A string formatted as `\"weakref 0x00000000\"`, where 0x00000000 is the address of
+   the weak reference object.
+ * '''`funcdef`''': A string formatted as `\"funcdef <name>(<location>)\"`.",
+	params: [Param("value")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
+
 	uword rawToString(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -649,12 +882,31 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs toBool_docs = {kind: "function", name: "toBool", docs:
+	"This returns the truth value of the given value. `null`, `false`, integer 0, and float 0.0 will all
+	return `false`; all other values and types will return `true`.",
+	params: [Param("value")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
+
 	uword toBool(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
 		pushBool(t, isTrue(t, 1));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs toInt_docs = {kind: "function", name: "toInt", docs:
+	"This will convert a value into an integer. Only the following types can be converted:
+
+ * '''`bool`''': Converts `true` to 1 and `false` to 0.
+ * '''`int`''': Just returns the value.
+ * '''`float`''': Truncates the fraction and returns the integer portion.
+ * '''`char`''': Returns the UTF-32 character code of the character.
+ * '''`string`''': Attempts to convert the string to an integer, and assumes it's in base 10. Throws an
+   error if it fails. If you want to convert a string to an integer with a base other than 10, use the
+   string object's `toInt` method.",
+	params: [Param("value", "bool|int|float|char|string")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
 
 	uword toInt(CrocThread* t)
 	{
@@ -676,6 +928,19 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs toFloat_docs = {kind: "function", name: "toFloat", docs:
+	"This will convert a value into a float. Only the following types can be converted:
+
+ * '''`bool`''': Converts `true` to 1.0 and `false` to 0.0.
+ * '''`int`''': Returns the value cast to a float.
+ * '''`float`''': Just returns the value.
+ * '''`char`''': Returns a float holding the UTF-32 character code of the character.
+ * '''`string`''': Attempts to convert the string to a float. Throws an error if it fails.
+
+ Other types will throw an error.",
+	params: [Param("value", "bool|int|float|char|string")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
+
 	uword toFloat(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -696,11 +961,36 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs toChar_docs = {kind: "function", name: "toChar", docs:
+	"This will convert an integer value to a single character. Only integer parameters are allowed.",
+	params: [Param("value", "int")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
+
 	uword toChar(CrocThread* t)
 	{
 		pushChar(t, cast(dchar)checkIntParam(t, 1));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs format_docs = {kind: "function", name: "format", docs:
+	"Functions much like Tango's tango.text.convert.Layout class. `fmt` is a formatting string, in
+	which may be embedded formatting specifiers, which use the same '`{}`' syntax as found in Tango,
+	.Net, and ICU.
+
+	By default, when you format an item, it will call any '''`toString`''' metamethod defined for it.
+	If you want to use the \"raw\" formatting for a parameter instead, write a lowercase 'r' immediately
+	after the opening brace of a format specifier. So something like \"`format(\"{r}\", [1, 2, 3])`\"
+	will call '''`rawToString`''' on the array parameter, resulting in something like \"`array 0x00000000`\"
+	instead of a string representation of the contents of the array.
+
+	Just about everything else works exactly as it does in Tango. You can use any field width and formatting
+	characters that Tango allows.
+
+	Croc's '''`writef`''' and '''`writefln`''' functions (as well as their analogues in the IO library) use
+	the same internal formatting as this function, so any rules that apply here apply for those functions as
+	well.",
+	params: [Param("fmt", "string"), Param("vararg", "vararg")],
+	extra: [Extra("section", "Conversions"), Extra("protection", "global")]};
 
 	uword format(CrocThread* t)
 	{
@@ -721,10 +1011,17 @@ static:
 	// ===================================================================================================================================
 	// Console IO
 
+	version(CrocBuiltinDocs) Docs write_docs = {kind: "function", name: "write", docs:
+	"Prints out all its arguments to the console without any formatting (i.e. strings will not be searched
+	for formatting specifiers). It's as if each argument has `toString` called on it, and the resulting strings
+	are output to the console.",
+	params: [Param("vararg", "vararg")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
+
 	uword write(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		
+
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
@@ -734,6 +1031,11 @@ static:
 		Stdout.flush;
 		return 0;
 	}
+
+	version(CrocBuiltinDocs) Docs writeln_docs = {kind: "function", name: "writeln", docs:
+	"Same as `write`, but prints a newline after the text has been output.",
+	params: [Param("vararg", "vararg")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
 
 	uword writeln(CrocThread* t)
 	{
@@ -748,6 +1050,12 @@ static:
 		Stdout.newline;
 		return 0;
 	}
+
+	version(CrocBuiltinDocs) Docs writef_docs = {kind: "function", name: "writef", docs:
+	"Formats the arguments using the same formatting rules as `format`, outputting the results to the console.
+	No newline is printed.",
+	params: [Param("fmt", "string"), Param("vararg", "vararg")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
 
 	uword writef(CrocThread* t)
 	{
@@ -764,6 +1072,11 @@ static:
 		return 0;
 	}
 
+	version(CrocBuiltinDocs) Docs writefln_docs = {kind: "function", name: "writefln", docs:
+	"Just like `writef`, but prints a newline after the text has been output.",
+	params: [Param("fmt", "string"), Param("vararg", "vararg")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
+
 	uword writefln(CrocThread* t)
 	{
 		uint sink(char[] data)
@@ -778,7 +1091,13 @@ static:
 		Stdout.newline;
 		return 0;
 	}
-	
+
+	version(CrocBuiltinDocs) Docs readln_docs = {kind: "function", name: "readln", docs:
+	"Reads one line of input (up to a linefeed) from the console and returns it as a string, without
+	any trailing linefeed characters.",
+	params: [],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
+
 	uword readln(CrocThread* t)
 	{
 		char[] s;
@@ -786,6 +1105,18 @@ static:
 		pushString(t, s);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs dumpVal_docs = {kind: "function", name: "dumpVal", docs:
+	"Dumps an exhaustive string representation of the given value to the console. This will recurse
+	(safely, you don't need to worry about infinite recursion) into arrays and tables, as well as escape
+	non-printing characters in strings and character values. It will also print out the names of the
+	fields in namespaces, though it won't recurse into them. All other values will basically have
+	'''`toString`''' called on them.
+
+	If the `printNewline` parameter is passed `false`, no newline will be printed after the dumped
+	representation. Defaults to `true`.",
+	params: [Param("value"), Param("printNewline", "bool", "true")],
+	extra: [Extra("section", "Console IO"), Extra("protection", "global")]};
 
 	uword dumpVal(CrocThread* t)
 	{
