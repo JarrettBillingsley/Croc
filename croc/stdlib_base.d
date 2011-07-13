@@ -65,11 +65,10 @@ static:
 			"The base library is a set of functions dealing with some language aspects which aren't covered
 			by the syntax of the language, as well as miscellaneous functions that don't really fit anywhere
 			else. The base library is always loaded when you create an instance of the Croc VM."));
+		}
 
-			// Have to do these after the fact because _doc_ is called by the doc system!
-			pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t);
-			pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
-
+		version(CrocBuiltinDocs)
+		{
 			pushGlobal(t, "Object"); doc(-1, Object_docs); pop(t);
 		}
 
@@ -78,6 +77,13 @@ static:
 
 		// StringBuffer
 		StringBufferObj.init(t);
+
+		version(CrocBuiltinDocs)
+		{
+			// Have to do these after the fact because _doc_ is called by the doc system!
+			pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t);
+			pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
+		}
 
 		// The Function type's metatable
 		newNamespace(t, "function");
@@ -104,12 +110,10 @@ static:
 		mixin(Register!(2, "findField"));
 		mixin(Register!(3, "rawSetField"));
 		mixin(Register!(2, "rawGetField"));
-		
+
 		version(CrocBuiltinDocs)
 		{
-			pushNull(t);
-			doc(-1, isParam_docs);
-			pop(t);
+			pushNull(t); doc(-1, isParam_docs); pop(t);
 		}
 
 		register(t, 1, "isNull", &isParam!(CrocValue.Type.Null));
@@ -453,7 +457,6 @@ static:
 	or namespace, traversing the base class/parent namespace links up to the root. This iterator actually gives up
 	to three indices: the first is the name of the field, the second its value, and the third the class, instance,
 	or namespace that owns it. Example use:
-
 {{{
 #!croc
 class A
@@ -697,7 +700,6 @@ foreach(k, v, o; allFieldsOf(B))
 	version(CrocBuiltinDocs) Docs isParam_docs = {kind: "function", name: "isXxx", docs:
 	"This isn't a single function, but a whole family of functions, one for each of the builtin types
 	in Croc:
- 
  * `isNull`
  * `isBool`
  * `isInt`
@@ -727,11 +729,27 @@ foreach(k, v, o; allFieldsOf(B))
 		return 1;
 	}
 
+// 	alias isParam!(CrocValue.Type.Null)      crocIsNull;      alias isParam_docs crocIsNull_docs;
+// 	alias isParam!(CrocValue.Type.Bool)      crocIsBool;      alias isParam_docs crocIsBool_docs;
+// 	alias isParam!(CrocValue.Type.Int)       crocIsInt;       alias isParam_docs crocIsInt_docs;
+// 	alias isParam!(CrocValue.Type.Float)     crocIsFloat;     alias isParam_docs crocIsFloat_docs;
+// 	alias isParam!(CrocValue.Type.Char)      crocIsChar;      alias isParam_docs crocIsChar_docs;
+// 	alias isParam!(CrocValue.Type.String)    crocIsString;    alias isParam_docs crocIsString_docs;
+// 	alias isParam!(CrocValue.Type.Table)     crocIsTable;     alias isParam_docs crocIsTable_docs;
+// 	alias isParam!(CrocValue.Type.Array)     crocIsArray;     alias isParam_docs crocIsArray_docs;
+// 	alias isParam!(CrocValue.Type.Function)  crocIsFunction;  alias isParam_docs crocIsFunction_docs;
+// 	alias isParam!(CrocValue.Type.Class)     crocIsClass;     alias isParam_docs crocIsClass_docs;
+// 	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;  alias isParam_docs crocIsInstance_docs;
+// 	alias isParam!(CrocValue.Type.Namespace) crocIsNamespace; alias isParam_docs crocIsNamespace_docs;
+// 	alias isParam!(CrocValue.Type.Thread)    crocIsThread;    alias isParam_docs crocIsThread_docs;
+// 	alias isParam!(CrocValue.Type.NativeObj) crocIsNativeObj; alias isParam_docs crocIsNativeObj_docs;
+// 	alias isParam!(CrocValue.Type.WeakRef)   crocIsWeakRef;   alias isParam_docs crocIsWeakRef_docs;
+// 	alias isParam!(CrocValue.Type.FuncDef)   crocIsFuncDef;   alias isParam_docs crocIsFuncDef_docs;
+
 	version(CrocBuiltinDocs) Docs attrs_docs = {kind: "function", name: "attrs", docs:
 	"This is a function which can be used to set (or remove) a user-defined attribute table on
 	any '''non-string''' reference object. It's meant to be used as a decorator on declarations
 	but it can be simply called as a normal function as well.
-
 {{{
 #!croc
 // Using it as a decorator
@@ -811,9 +829,8 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 	"This is like '''`rawToString`''', but it will call any '''`toString`''' metamethods defined for the value.
 	Arrays have a '''`toString`''' metamethod defined for them if the array stdlib is loaded, and any
 	'''`toString`''' methods defined for class instances will be used.
-	
-	The optional `style` parameter only has meaning if the `value` is an integer. It can be one of the following:
 
+	The optional `style` parameter only has meaning if the `value` is an integer. It can be one of the following:
  * 'd': Default: signed base 10.
  * 'b': Binary.
  * 'o': Octal.
@@ -846,7 +863,6 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 
 	version(CrocBuiltinDocs) Docs rawToString_docs = {kind: "function", name: "rawToString", docs:
 	"This returns a string representation of the given value depending on its type, as follows:
-
  * '''`null`''': the string `\"null\"`.
  * '''`bool`''': `\"true\"` or `\"false\"`.
  * '''`int`''': The decimal representation of the number.
@@ -897,7 +913,6 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 
 	version(CrocBuiltinDocs) Docs toInt_docs = {kind: "function", name: "toInt", docs:
 	"This will convert a value into an integer. Only the following types can be converted:
-
  * '''`bool`''': Converts `true` to 1 and `false` to 0.
  * '''`int`''': Just returns the value.
  * '''`float`''': Truncates the fraction and returns the integer portion.
@@ -930,7 +945,6 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 
 	version(CrocBuiltinDocs) Docs toFloat_docs = {kind: "function", name: "toFloat", docs:
 	"This will convert a value into a float. Only the following types can be converted:
-
  * '''`bool`''': Converts `true` to 1.0 and `false` to 0.0.
  * '''`int`''': Returns the value cast to a float.
  * '''`float`''': Just returns the value.

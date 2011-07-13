@@ -1339,25 +1339,18 @@ static:
 		auto memb = getThis(t);
 
 		auto b = StrBuffer(t);
-		b.addString("Vector(");
-		pushFormat(t, "{})[", typeNames[memb.type.code]);
+		pushFormat(t, "Vector({})[", typeNames[memb.type.code]);
 		b.addTop();
 
-		if(memb.length > 0)
+		for(uword i = 0; i < memb.length; i++)
 		{
-			memb.type.getItem(t, memb, 0);
+			if(i > 0)
+				b.addString(", ");
+
+			memb.type.getItem(t, memb, i);
 			pushToString(t, -1, true);
 			insertAndPop(t, -2);
 			b.addTop();
-
-			for(uword i = 1; i < memb.length; i++)
-			{
-				b.addString(", ");
-				memb.type.getItem(t, memb, i);
-				pushToString(t, -1, true);
-				insertAndPop(t, -2);
-				b.addTop();
-			}
 		}
 
 		b.addString("]");
