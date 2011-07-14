@@ -5,8 +5,7 @@ import memblock: new as Vector
 
 local m = Vector("u32", 8)
 for(i: 0 .. #m) m[i] = i + 1
-writeln$ m
-writeln$ m[-30..-1]
+
 
 function help(x, child: string = null)
 {

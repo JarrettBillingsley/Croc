@@ -125,6 +125,8 @@ else
 */
 align(1) struct CrocValue
 {
+	// If this changes, grep ORDER CROCVALUE TYPE
+
 	/**
 	The enumeration of all the types of values in Croc.
 	*/
@@ -170,34 +172,29 @@ align(1) struct CrocValue
 		Upvalue
 	}
 
-	package static char[] typeString(CrocValue.Type t)
-	{
-		switch(t)
-		{
-			case Type.Null:      return "null";
-			case Type.Bool:      return "bool";
-			case Type.Int:       return "int";
-			case Type.Float:     return "float";
-			case Type.Char:      return "char";
+	package static const char[][] typeStrings =
+	[
+		Type.Null:      "null",
+		Type.Bool:      "bool",
+		Type.Int:       "int",
+		Type.Float:     "float",
+		Type.Char:      "char",
 
-			case Type.String:    return "string";
-			case Type.Table:     return "table";
-			case Type.Array:     return "array";
-			case Type.Memblock:  return "memblock";
-			case Type.Function:  return "function";
-			case Type.Class:     return "class";
-			case Type.Instance:  return "instance";
-			case Type.Namespace: return "namespace";
-			case Type.Thread:    return "thread";
-			case Type.NativeObj: return "nativeobj";
-			case Type.WeakRef:   return "weakref";
-			case Type.FuncDef:   return "funcdef";
+		Type.String:    "string",
+		Type.Table:     "table",
+		Type.Array:     "array",
+		Type.Memblock:  "memblock",
+		Type.Function:  "function",
+		Type.Class:     "class",
+		Type.Instance:  "instance",
+		Type.Namespace: "namespace",
+		Type.Thread:    "thread",
+		Type.NativeObj: "nativeobj",
+		Type.WeakRef:   "weakref",
+		Type.FuncDef:   "funcdef",
 
-			case Type.Upvalue:   return "upvalue";
-
-			default: assert(false);
-		}
-	}
+		Type.Upvalue:   "upvalue"
+	];
 
 	package static CrocValue nullValue = { type : Type.Null, mInt : 0 };
 
@@ -367,6 +364,7 @@ align(1) struct CrocValue
 		return cast(GCObject*)mBaseObj;
 	}
 
+	// This isn't really used anywhere except in debugging messages, I think.
 	char[] toString()
 	{
 		switch(type)

@@ -131,7 +131,7 @@ scope class Semantic : IdentityVisitor
 				assert(false);
 
 			if(!(p.typeMask & (1 << type)))
-				c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, CrocValue.typeString(type));
+				c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, CrocValue.typeStrings[type]);
 		}
 		
 		d.code = visit(d.code);

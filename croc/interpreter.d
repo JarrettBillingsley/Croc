@@ -777,6 +777,7 @@ void unwindEH(CrocThread* t)
 
 word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 {
+	// ORDER CROCVALUE TYPE
 	if(v.type <= CrocValue.Type.String)
 	{
 		char[80] buffer = void;
@@ -842,21 +843,21 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 			auto f = v.mFunction;
 
 			if(f.isNative)
-				return pushFormat(t, "native {} {}", CrocValue.typeString(CrocValue.Type.Function), f.name.toString());
+				return pushFormat(t, "native {} {}", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString());
 			else
 			{
 				auto loc = f.scriptFunc.location;
-				return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeString(CrocValue.Type.Function), f.name.toString(), loc.file.toString(), loc.line, loc.col);
+				return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString(), loc.file.toString(), loc.line, loc.col);
 			}
 
-		case CrocValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", CrocValue.typeString(CrocValue.Type.Class), v.mClass.name.toString(), cast(void*)v.mClass);
-		case CrocValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", CrocValue.typeString(CrocValue.Type.Instance), v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
+		case CrocValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Class], v.mClass.name.toString(), cast(void*)v.mClass);
+		case CrocValue.Type.Instance: return pushFormat(t, "{} of {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Instance], v.mInstance.parent.name.toString(), cast(void*)v.mInstance);
 
 		case CrocValue.Type.Namespace:
 			if(raw)
 				goto default;
 
-			pushString(t, CrocValue.typeString(CrocValue.Type.Namespace));
+			pushString(t, CrocValue.typeStrings[CrocValue.Type.Namespace]);
 			pushChar(t, ' ');
 			pushNamespaceNamestring(t, v.mNamespace);
 
@@ -868,10 +869,10 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 		case CrocValue.Type.FuncDef:
 			auto d = v.mFuncDef;
 			auto loc = d.location;
-			return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeString(CrocValue.Type.FuncDef), d.name.toString(), loc.file.toString(), loc.line, loc.col);
+			return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.FuncDef], d.name.toString(), loc.file.toString(), loc.line, loc.col);
 
 		default:
-			return pushFormat(t, "{} 0x{:X8}", CrocValue.typeString(v.type), cast(void*)v.mBaseObj);
+			return pushFormat(t, "{} 0x{:X8}", CrocValue.typeStrings[v.type], cast(void*)v.mBaseObj);
 	}
 }
 
@@ -2419,6 +2420,7 @@ void loadPtr(CrocThread* t, ref CrocValue* ptr)
 
 CrocNamespace* getMetatable(CrocThread* t, CrocValue.Type type)
 {
+	// ORDER CROCVALUE TYPE
 	assert(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef);
 	return t.vm.metaTabs[type];
 }
@@ -2524,20 +2526,20 @@ word typeString(CrocThread* t, CrocValue* v)
 			CrocValue.Type.WeakRef,
 			CrocValue.Type.FuncDef:
 
-			return pushString(t, CrocValue.typeString(v.type));
+			return pushString(t, CrocValue.typeStrings[v.type]);
 
 		case CrocValue.Type.Class:
 			// LEAVE ME UP HERE PLZ, don't inline, thx. (WHY, ME?!? WHY CAN'T I INLINE THIS FFFFF)
 			auto n = v.mClass.name.toString();
-			return pushFormat(t, "{} {}", CrocValue.typeString(CrocValue.Type.Class), n);
+			return pushFormat(t, "{} {}", CrocValue.typeStrings[CrocValue.Type.Class], n);
 
 		case CrocValue.Type.Instance:
 			// don't inline me either.
 			auto n = v.mInstance.parent.name.toString();
-			return pushFormat(t, "{} of {}", CrocValue.typeString(CrocValue.Type.Instance), n);
+			return pushFormat(t, "{} of {}", CrocValue.typeStrings[CrocValue.Type.Instance], n);
 
 		case CrocValue.Type.NativeObj:
-			pushString(t, CrocValue.typeString(CrocValue.Type.NativeObj));
+			pushString(t, CrocValue.typeStrings[CrocValue.Type.NativeObj]);
 			pushChar(t, ' ');
 
 			if(auto o = v.mNativeObj.obj)

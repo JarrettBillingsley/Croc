@@ -75,8 +75,14 @@ word getTypeMT(CrocThread* t, CrocValue.Type type)
 {
 	mixin(FuncNameMix);
 
+	// ORDER CROCVALUE TYPE
 	if(!(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef))
-		throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", CrocValue.typeString(type));
+	{
+		if(type >= CrocValue.Type.min && type <= CrocValue.Type.max)
+			throwException(t, __FUNCTION__ ~ " - Cannot get metatable for type '{}'", CrocValue.typeStrings[type]);
+		else
+			throwException(t, __FUNCTION__ ~ " - Invalid type '{}'", type);
+	}
 
 	if(auto ns = t.vm.metaTabs[cast(uword)type])
 		return push(t, CrocValue(ns));
@@ -96,9 +102,15 @@ void setTypeMT(CrocThread* t, CrocValue.Type type)
 {
 	mixin(apiCheckNumParams!("1"));
 
+	// ORDER CROCVALUE TYPE
 	if(!(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef))
-		throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeString(type));
-
+	{
+		if(type >= CrocValue.Type.min && type <= CrocValue.Type.max)
+			throwException(t, __FUNCTION__ ~ " - Cannot set metatable for type '{}'", CrocValue.typeStrings[type]);
+		else
+			throwException(t, __FUNCTION__ ~ " - Invalid type '{}'", type);
+	}
+	
 	auto v = getValue(t, -1);
 
 	if(v.type == CrocValue.Type.Namespace)

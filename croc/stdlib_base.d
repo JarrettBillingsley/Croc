@@ -197,6 +197,7 @@ static:
 	{
 		checkAnyParam(t, 1);
 
+		// ORDER CROCVALUE TYPE
 		if(type(t, 1) <= CrocValue.Type.String)
 			paramTypeError(t, 1, "non-string object type");
 
@@ -406,7 +407,7 @@ static:
 	uword croctypeof(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
-		pushString(t, CrocValue.typeString(type(t, 1)));
+		pushString(t, CrocValue.typeStrings[type(t, 1)]);
 		return 1;
 	}
 
@@ -774,6 +775,7 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 	{
 		checkAnyParam(t, 2);
 
+		// ORDER CROCVALUE TYPE
 		if(type(t, 1) <= CrocValue.Type.String)
 			paramTypeError(t, 1, "non-string reference type");
 
@@ -816,6 +818,7 @@ local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
 	{
 		checkAnyParam(t, 1);
 
+		// ORDER CROCVALUE TYPE
 		if(type(t, 1) <= CrocValue.Type.String)
 			paramTypeError(t, 1, "non-string reference type");
 

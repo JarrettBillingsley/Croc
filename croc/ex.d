@@ -1412,12 +1412,13 @@ Checks that the parameter at the given index is of the given type.
 */
 void checkParam(CrocThread* t, word index, CrocValue.Type type)
 {
+	// ORDER CROCVALUE TYPE
 	assert(type >= CrocValue.Type.Null && type <= CrocValue.Type.FuncDef, "invalid type");
 
 	checkAnyParam(t, index);
 
 	if(.type(t, index) != type)
-		paramTypeError(t, index, CrocValue.typeString(type));
+		paramTypeError(t, index, CrocValue.typeStrings[type]);
 }
 
 /**
@@ -1523,7 +1524,7 @@ bool optParam(CrocThread* t, word index, CrocValue.Type type)
 		return false;
 
 	if(.type(t, index) != type)
-		paramTypeError(t, index, CrocValue.typeString(type));
+		paramTypeError(t, index, CrocValue.typeStrings[type]);
 
 	return true;
 }

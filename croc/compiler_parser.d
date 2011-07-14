@@ -664,7 +664,7 @@ struct Parser
 		void addConstraint(CrocValue.Type t)
 		{
 			if((ret & (1 << cast(uint)t)) && t != CrocValue.Type.Instance)
-				c.exception(l.loc, "Duplicate parameter type constraint for type '{}'", CrocValue.typeString(t));
+				c.exception(l.loc, "Duplicate parameter type constraint for type '{}'", CrocValue.typeStrings[t]);
 
 			ret |= 1 << cast(uint)t;
 		}
