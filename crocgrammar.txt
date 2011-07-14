@@ -255,6 +255,7 @@ BasicType:
 	string
 	table
 	array
+	memblock
 	function
 	class
 	instance (DottedName | ('(' Expression')'))?

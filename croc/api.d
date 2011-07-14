@@ -51,6 +51,7 @@ import croc.stdlib_hash;
 import croc.stdlib_io;
 import croc.stdlib_json;
 import croc.stdlib_math;
+import croc.stdlib_memblock;
 import croc.stdlib_modules;
 import croc.stdlib_os;
 import croc.stdlib_regexp;
@@ -166,9 +167,10 @@ enum CrocStdlib
 	Serialization = 2048, /// (De)serialization of complex object graphs.
 	JSON =          4096, /// JSON reading and writing.
 	Compiler =      8192, /// Dynamic compilation of Croc code.
+	Memblock =     16384, /// _Memblock creation and manipulation.
 
 	/** This flag is an OR of all the libraries which are "safe", which is everything except the IO, OS, and Debug libraries. */
-	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization | JSON | Compiler,
+	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization | JSON | Compiler | Memblock,
 
 	/** _All available standard libraries except the debug library. */
 	All = Safe | IO | OS,
@@ -200,4 +202,5 @@ void loadStdlibs(CrocThread* t, uint libs = CrocStdlib.All)
 	if(libs & CrocStdlib.Serialization) SerializationLib.init(t);
 	if(libs & CrocStdlib.JSON)          JSONLib.init(t);
 	if(libs & CrocStdlib.Compiler)      CompilerLib.init(t);
+	if(libs & CrocStdlib.Memblock)      MemblockLib.init(t);
 }

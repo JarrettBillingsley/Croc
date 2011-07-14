@@ -418,7 +418,7 @@ static:
 	{
 		// don't use getThis here or else you'll get errors upon construction
 		auto memb = checkInstParam!(Members)(t, 0, "Vector");
-		
+
 		if(memb.type !is null)
 			throwException(t, "Attempting to call constructor on an already-initialized Vector");
 
@@ -1712,7 +1712,7 @@ static:
 	{
 		auto memb = getThis(t);
 		checkAnyParam(t, 1);
-		
+
 		pushGlobal(t, "Vector");
 		
 		if(as(t, 1, -1))

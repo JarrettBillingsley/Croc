@@ -445,6 +445,16 @@ CrocArray* getArray(CrocThread* t, word slot)
 		return null;
 }
 
+CrocMemblock* getMemblock(CrocThread* t, word slot)
+{
+	auto v = &t.stack[fakeToAbs(t, slot)];
+
+	if(v.type == CrocValue.Type.Memblock)
+		return v.mMemblock;
+	else
+		return null;
+}
+
 CrocFunction* getFunction(CrocThread* t, word slot)
 {
 	auto v = &t.stack[fakeToAbs(t, slot)];

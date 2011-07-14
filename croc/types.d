@@ -148,11 +148,13 @@ align(1) struct CrocValue
 		/** ditto */
 		Array,
 		/** ditto */
+		Memblock,
+		/** ditto */
 		Function,
 		/** ditto */
-		Class,
+		Class,      // 10
 		/** ditto */
-		Instance,   // 10
+		Instance,
 		/** ditto */
 		Namespace,
 		/** ditto */
@@ -160,9 +162,9 @@ align(1) struct CrocValue
 		/** ditto */
 		NativeObj,
 		/** ditto */
-		WeakRef,
+		WeakRef,    // 15
 		/** ditto */
-		FuncDef,    // 15
+		FuncDef,
 
 		// Internal types
 		Upvalue
@@ -181,6 +183,7 @@ align(1) struct CrocValue
 			case Type.String:    return "string";
 			case Type.Table:     return "table";
 			case Type.Array:     return "array";
+			case Type.Memblock:  return "memblock";
 			case Type.Function:  return "function";
 			case Type.Class:     return "class";
 			case Type.Instance:  return "instance";
@@ -211,6 +214,7 @@ align(1) struct CrocValue
 		package CrocString* mString;
 		package CrocTable* mTable;
 		package CrocArray* mArray;
+		package CrocMemblock* mMemblock;
 		package CrocFunction* mFunction;
 		package CrocClass* mClass;
 		package CrocInstance* mInstance;
@@ -255,41 +259,47 @@ align(1) struct CrocValue
 		type = Type.Bool;
 		mBool = src;
 	}
-	
+
 	package void opAssign(crocint src)
 	{
 		type = Type.Int;
 		mInt = src;
 	}
-	
+
 	package void opAssign(crocfloat src)
 	{
 		type = Type.Float;
 		mFloat = src;
 	}
-	
+
 	package void opAssign(dchar src)
 	{
 		type = Type.Char;
 		mChar = src;
 	}
-	
+
 	package void opAssign(CrocString* src)
 	{
 		type = Type.String;
 		mString = src;
 	}
-	
+
 	package void opAssign(CrocTable* src)
 	{
 		type = Type.Table;
 		mTable = src;
 	}
-	
+
 	package void opAssign(CrocArray* src)
 	{
 		type = Type.Array;
 		mArray = src;
+	}
+	
+	package void opAssign(CrocMemblock* src)
+	{
+		type = Type.Memblock;
+		mMemblock = src;
 	}
 
 	package void opAssign(CrocFunction* src)
@@ -297,13 +307,13 @@ align(1) struct CrocValue
 		type = Type.Function;
 		mFunction = src;
 	}
-	
+
 	package void opAssign(CrocClass* src)
 	{
 		type = Type.Class;
 		mClass = src;
 	}
-	
+
 	package void opAssign(CrocInstance* src)
 	{
 		type = Type.Instance;
@@ -321,13 +331,13 @@ align(1) struct CrocValue
 		type = Type.Thread;
 		mThread = src;
 	}
-	
+
 	package void opAssign(CrocNativeObj* src)
 	{
 		type = Type.NativeObj;
 		mNativeObj = src;
 	}
-	
+
 	package void opAssign(CrocWeakRef* src)
 	{
 		type = Type.WeakRef;
@@ -370,6 +380,7 @@ align(1) struct CrocValue
 			case Type.String:    return Format("\"{}\"", mString.toString());
 			case Type.Table:     return Format("table {:X8}", cast(void*)mTable);
 			case Type.Array:     return Format("array {:X8}", cast(void*)mArray);
+			case Type.Memblock:  return Format("memblock {:X8}", cast(void*)mMemblock);
 			case Type.Function:  return Format("function {:X8}", cast(void*)mFunction);
 			case Type.Class:     return Format("class {:X8}", cast(void*)mClass);
 			case Type.Instance:  return Format("instance {:X8}", cast(void*)mInstance);
@@ -420,7 +431,7 @@ struct CrocString
 	{
 		return (cast(char*)(this + 1))[0 .. this.length];
 	}
-	
+
 	package alias hash toHash;
 }
 
@@ -441,6 +452,54 @@ struct CrocArray
 	{
 		return data[0 .. this.length];
 	}
+}
+
+struct CrocMemblock
+{
+	mixin CrocObjectMixin!(CrocValue.Type.Memblock);
+
+	// If this changes, grep ORDER MEMBLOCK TYPE
+	enum TypeCode : ubyte
+	{
+		v,
+		i8,
+		i16,
+		i32,
+		i64,
+		u8,
+		u16,
+		u32,
+		u64,
+		f32,
+		f64,
+	}
+
+	static struct TypeStruct
+	{
+		TypeCode code;
+		ubyte itemSize;
+		char[] name;
+	}
+
+	const TypeStruct[] typeStructs =
+	[
+		TypeCode.v:   { TypeCode.v,   1, "v"   },
+		TypeCode.i8:  { TypeCode.i8,  1, "i8"  },
+		TypeCode.i16: { TypeCode.i16, 2, "i16" },
+		TypeCode.i32: { TypeCode.i32, 4, "i32" },
+		TypeCode.i64: { TypeCode.i64, 8, "i64" },
+		TypeCode.u8:  { TypeCode.u8,  1, "u8"  },
+		TypeCode.u16: { TypeCode.u16, 2, "u16" },
+		TypeCode.u32: { TypeCode.u32, 4, "u32" },
+		TypeCode.u64: { TypeCode.u64, 8, "u64" },
+		TypeCode.f32: { TypeCode.f32, 4, "f32" },
+		TypeCode.f64: { TypeCode.f64, 8, "f64" }
+	];
+
+	package void[] data;
+	package uword itemLength;
+	package TypeStruct* kind;
+	package bool ownData;
 }
 
 struct CrocFunction
@@ -663,7 +722,7 @@ struct CrocFuncDef
 	package bool isVararg;
 	package CrocString* name;
 	package uint numParams;
-	package ushort[] paramMasks;
+	package uint[] paramMasks;
 	package uint numUpvals;
 	package uint stackSize;
 	package CrocFuncDef*[] innerFuncs;

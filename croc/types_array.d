@@ -74,7 +74,7 @@ static:
 			alloc.resizeArray(a.data, largerPow2(newSize));
 	}
 
-	// Slice an array object to create a new array object with its  own data.
+	// Slice an array object to create a new array object with its own data.
 	package CrocArray* slice(ref Allocator alloc, CrocArray* a, uword lo, uword hi)
 	{
 		auto n = alloc.allocate!(CrocArray);

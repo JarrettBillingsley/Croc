@@ -42,6 +42,7 @@ import croc.types_array;
 import croc.types_class;
 import croc.types_function;
 import croc.types_instance;
+import croc.types_memblock;
 import croc.types_namespace;
 import croc.types_string;
 import croc.types_table;
@@ -951,6 +952,28 @@ void idxImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocValue* ke
 			*dest = arr.toArray()[cast(uword)index];
 			return;
 
+		case CrocValue.Type.Memblock:
+			if(key.type != CrocValue.Type.Int)
+			{
+				typeString(t, key);
+				throwException(t, "Attempting to index a memblock with a '{}'", getString(t, -1));
+			}
+
+			auto index = key.mInt;
+			auto mb = container.mMemblock;
+
+			if(mb.kind.code == CrocMemblock.TypeCode.v)
+				throwException(t, "Attempting to index a void memblock");
+
+			if(index < 0)
+				index += mb.itemLength;
+
+			if(index < 0 || index >= mb.itemLength)
+				throwException(t, "Invalid memblock index {} (length is {})", key.mInt, mb.itemLength);
+
+			*dest = memblock.index(mb, cast(uword)index);
+			return;
+
 		case CrocValue.Type.String:
 			if(key.type != CrocValue.Type.Int)
 			{
@@ -1013,6 +1036,54 @@ void idxaImpl(CrocThread* t, CrocValue* container, CrocValue* key, CrocValue* va
 				throwException(t, "Invalid array index {} (length is {})", key.mInt, arr.length);
 
 			arr.toArray()[cast(uword)index] = *value;
+			return;
+
+		case CrocValue.Type.Memblock:
+			if(key.type != CrocValue.Type.Int)
+			{
+				typeString(t, key);
+				throwException(t, "Attempting to index-assign a memblock with a '{}'", getString(t, -1));
+			}
+
+			auto index = key.mInt;
+			auto mb = container.mMemblock;
+
+			if(mb.kind.code == CrocMemblock.TypeCode.v)
+				throwException(t, "Attempting to index-assign a void memblock");
+
+			if(index < 0)
+				index += mb.itemLength;
+
+			if(index < 0 || index >= mb.itemLength)
+				throwException(t, "Invalid memblock index {} (length is {})", key.mInt, mb.itemLength);
+
+			CrocValue src = void;
+
+			// ORDER MEMBLOCK TYPE
+			if(mb.kind.code <= CrocMemblock.TypeCode.u64)
+			{
+				if(value.type != CrocValue.Type.Int)
+				{
+					typeString(t, value);
+					throwException(t, "Attempting to index-assign a value of type '{}' into a {} memblock", getString(t, -1), mb.kind.name);
+				}
+
+				src = *value;
+			}
+			else
+			{
+				if(value.type == CrocValue.Type.Float)
+					src = *value;
+				else if(value.type == CrocValue.Type.Int)
+					src = cast(crocfloat)value.mInt;
+				else
+				{
+					typeString(t, value);
+					throwException(t, "Attempting to index-assign a value of type '{}' into a {} memblock", getString(t, -1), mb.kind.name);
+				}
+			}
+
+			memblock.indexAssign(mb, cast(uword)index, src);
 			return;
 
 		case CrocValue.Type.Table:
@@ -1355,6 +1426,7 @@ void lenImpl(CrocThread* t, CrocValue* dest, CrocValue* src)
 		case CrocValue.Type.String:    return *dest = cast(crocint)src.mString.cpLength;
 		case CrocValue.Type.Table:     return *dest = cast(crocint)table.length(src.mTable);
 		case CrocValue.Type.Array:     return *dest = cast(crocint)src.mArray.length;
+		case CrocValue.Type.Memblock:  return *dest = cast(crocint)src.mMemblock.itemLength;
 		case CrocValue.Type.Namespace: return *dest = cast(crocint)namespace.length(src.mNamespace);
 
 		default:
@@ -1379,10 +1451,32 @@ void lenaImpl(CrocThread* t, CrocValue* dest, CrocValue* len)
 
 			auto l = len.mInt;
 
-			if(l < 0)
-				throwException(t, "Attempting to set the length of an array to a negative value ({})", l);
+			if(l < 0 || l > uword.max)
+				throwException(t, "Invalid length ({})", l);
 
 			return array.resize(t.vm.alloc, dest.mArray, cast(uword)l);
+
+		case CrocValue.Type.Memblock:
+			if(len.type != CrocValue.Type.Int)
+			{
+				typeString(t, len);
+				throwException(t, "Attempting to set the length of a memblock using a length of type '{}'", getString(t, -1));
+			}
+			
+			auto mb = dest.mMemblock;
+
+			if(!mb.ownData)
+				throwException(t, "Attempting to resize a memblock which does not own its data");
+
+			if(mb.kind.code == CrocMemblock.TypeCode.v)
+				throwException(t, "Attempting to resize a void memblock");
+
+			auto l = len.mInt;
+
+			if(l < 0 || l > uword.max)
+				throwException(t, "Invalid length ({})", l);
+
+			return memblock.resize(t.vm.alloc, mb, cast(uword)l);
 
 		default:
 			if(tryMM!(2, false)(t, MM.LengthAssign, dest, len))
@@ -1413,10 +1507,31 @@ void sliceImpl(CrocThread* t, CrocValue* dest, CrocValue* src, CrocValue* lo, Cr
 				throwException(t, "Attempting to slice an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+			if(!validIndices(loIndex, hiIndex, arr.length))
 				throwException(t, "Invalid slice indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			return *dest = array.slice(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex);
+
+		case CrocValue.Type.Memblock:
+			auto mb = src.mMemblock;
+			crocint loIndex = void;
+			crocint hiIndex = void;
+
+			if(lo.type == CrocValue.Type.Null && hi.type == CrocValue.Type.Null)
+				return *dest = *src;
+
+			if(!correctIndices(loIndex, hiIndex, lo, hi, mb.itemLength))
+			{
+				auto hisave = *hi;
+				typeString(t, lo);
+				typeString(t, &hisave);
+				throwException(t, "Attempting to slice a memblock with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
+			}
+
+			if(!validIndices(loIndex, hiIndex, mb.itemLength))
+				throwException(t, "Invalid slice indices [{} .. {}] (memblock length = {})", loIndex, hiIndex, mb.itemLength);
+
+			return *dest = memblock.slice(t.vm.alloc, mb, cast(uword)loIndex, cast(uword)hiIndex);
 
 		case CrocValue.Type.String:
 			auto str = src.mString;
@@ -1434,7 +1549,7 @@ void sliceImpl(CrocThread* t, CrocValue* dest, CrocValue* src, CrocValue* lo, Cr
 				throwException(t, "Attempting to slice a string with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > str.cpLength || hiIndex < 0 || hiIndex > str.cpLength)
+			if(!validIndices(loIndex, hiIndex, str.cpLength))
 				throwException(t, "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
 			return *dest = string.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
@@ -1465,7 +1580,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 				throwException(t, "Attempting to slice-assign an array with indices of type '{}' and '{}'", getString(t, -2), getString(t, -1));
 			}
 
-			if(loIndex > hiIndex || loIndex < 0 || loIndex > arr.length || hiIndex < 0 || hiIndex > arr.length)
+			if(!validIndices(loIndex, hiIndex, arr.length))
 				throwException(t, "Invalid slice-assign indices [{} .. {}] (array length = {})", loIndex, hiIndex, arr.length);
 
 			if(value.type == CrocValue.Type.Array)
@@ -2024,6 +2139,7 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 	}
 
 	auto ret = array.create(t.vm.alloc, len);
+	auto retArr = ret.toArray();
 
 	uword i = 0;
 
@@ -2033,12 +2149,12 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 		{
 			auto a = v.mArray;
 
-			ret.toArray()[i .. i + a.length] = a.toArray()[];
+			retArr[i .. i + a.length] = a.toArray()[];
 			i += a.length;
 		}
 		else
 		{
-			ret.toArray()[i] = v;
+			retArr[i] = v;
 			i++;
 		}
 	}
@@ -2334,6 +2450,11 @@ bool correctIndices(out crocint loIndex, out crocint hiIndex, CrocValue* lo, Cro
 		return false;
 
 	return true;
+}
+
+bool validIndices(crocint lo, crocint hi, uword len)
+{
+	return lo >= 0 && hi < len && lo <= hi;
 }
 
 uword charLen(dchar c)

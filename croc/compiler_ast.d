@@ -467,7 +467,7 @@ and function declarations.
 */
 class FuncDef : AstNode
 {
-	enum TypeMask : ushort
+	enum TypeMask : uint
 	{
 		Null =      (1 << cast(uint)CrocValue.Type.Null),
 		Bool =      (1 << cast(uint)CrocValue.Type.Bool),
@@ -478,6 +478,7 @@ class FuncDef : AstNode
 		String =    (1 << cast(uint)CrocValue.Type.String),
 		Table =     (1 << cast(uint)CrocValue.Type.Table),
 		Array =     (1 << cast(uint)CrocValue.Type.Array),
+		Memblock =  (1 << cast(uint)CrocValue.Type.Memblock),
 		Function =  (1 << cast(uint)CrocValue.Type.Function),
 		Class =     (1 << cast(uint)CrocValue.Type.Class),
 		Instance =  (1 << cast(uint)CrocValue.Type.Instance),
@@ -487,7 +488,7 @@ class FuncDef : AstNode
 		WeakRef =   (1 << cast(uint)CrocValue.Type.WeakRef),
 		FuncDef =   (1 << cast(uint)CrocValue.Type.FuncDef),
 
-		NotNull = Bool | Int | Float | Char | String | Table | Array | Function | Class | Instance | Namespace | Thread | NativeObj | WeakRef | FuncDef,
+		NotNull = Bool | Int | Float | Char | String | Table | Array | Memblock | Function | Class | Instance | Namespace | Thread | NativeObj | WeakRef | FuncDef,
 		Any = Null | NotNull
 	}
 
@@ -506,7 +507,7 @@ class FuncDef : AstNode
 		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
 		set to 0; the codegen does not check for this so it's up to you.
 		*/
-		ushort typeMask = TypeMask.Any;
+		uint typeMask = TypeMask.Any;
 
 		/**
 		If typeMask allows instances, this can be a list of expressions which should evaluate

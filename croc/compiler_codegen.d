@@ -203,7 +203,7 @@ final class FuncState
 	package bool mIsVararg;
 	package char[] mName;
 	package uint mNumParams;
-	package ushort[] mParamMasks;
+	package uint[] mParamMasks;
 
 	struct UpvalDesc
 	{

@@ -33,6 +33,7 @@ import croc.types_class;
 import croc.types_funcdef;
 import croc.types_function;
 import croc.types_instance;
+import croc.types_memblock;
 import croc.types_namespace;
 import croc.types_nativeobj;
 import croc.types_string;
@@ -115,6 +116,7 @@ void free(CrocVM* vm, GCObject* o)
 		case CrocValue.Type.String:    string.free(vm, cast(CrocString*)o); return;
 		case CrocValue.Type.Table:     table.free(vm.alloc, cast(CrocTable*)o); return;
 		case CrocValue.Type.Array:     array.free(vm.alloc, cast(CrocArray*)o); return;
+		case CrocValue.Type.Memblock:  memblock.free(vm.alloc, cast(CrocMemblock*)o); return;
 		case CrocValue.Type.Function:  func.free(vm.alloc, cast(CrocFunction*)o); return;
 		case CrocValue.Type.Class:     classobj.free(vm.alloc, cast(CrocClass*)o); return;
 
@@ -168,7 +170,11 @@ void markObj(CrocVM* vm, GCObject* o)
 {
 	switch((cast(CrocBaseObject*)o).mType)
 	{
-		case CrocValue.Type.String, CrocValue.Type.NativeObj, CrocValue.Type.WeakRef:
+		case
+			CrocValue.Type.String,
+			CrocValue.Type.Memblock,
+			CrocValue.Type.NativeObj,
+			CrocValue.Type.WeakRef:
 			// These are trivial, just mark them here.
 			o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 			return;
@@ -223,6 +229,12 @@ void markObj(CrocVM* vm, CrocArray* o)
 
 	foreach(ref val; o.toArray())
 		mixin(CondMark!("val"));
+}
+
+// Mark a memblock.
+void markObj(CrocVM* vm, CrocMemblock* o)
+{
+	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 }
 
 // Mark a function.

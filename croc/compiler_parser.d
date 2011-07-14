@@ -654,11 +654,11 @@ struct Parser
 	Returns the type mask, as well as an optional list of class types that this
 	parameter can accept in the classTypes parameter.
 	*/
-	public ushort parseParamType(out Expression[] classTypes, out char[] typeString)
+	public uint parseParamType(out Expression[] classTypes, out char[] typeString)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
-		ushort ret = 0;
+		uint ret = 0;
 		scope objTypes = new List!(Expression)(c.alloc);
 
 		void addConstraint(CrocValue.Type t)
@@ -713,6 +713,7 @@ struct Parser
 							case "string":    addConstraint(CrocValue.Type.String); break;
 							case "table":     addConstraint(CrocValue.Type.Table); break;
 							case "array":     addConstraint(CrocValue.Type.Array); break;
+							case "memblock":  addConstraint(CrocValue.Type.Memblock); break;
 							case "thread":    addConstraint(CrocValue.Type.Thread); break;
 							case "nativeobj": addConstraint(CrocValue.Type.NativeObj); break;
 							case "weakref":   addConstraint(CrocValue.Type.WeakRef); break;

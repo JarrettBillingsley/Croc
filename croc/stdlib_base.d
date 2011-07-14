@@ -124,6 +124,7 @@ static:
 		register(t, 1, "isString", &isParam!(CrocValue.Type.String));
 		register(t, 1, "isTable", &isParam!(CrocValue.Type.Table));
 		register(t, 1, "isArray", &isParam!(CrocValue.Type.Array));
+		register(t, 1, "isMemblock", &isParam!(CrocValue.Type.Memblock));
 		register(t, 1, "isFunction", &isParam!(CrocValue.Type.Function));
 		register(t, 1, "isClass", &isParam!(CrocValue.Type.Class));
 		register(t, 1, "isInstance", &isParam!(CrocValue.Type.Instance));
@@ -708,6 +709,7 @@ foreach(k, v, o; allFieldsOf(B))
  * `isString`
  * `isTable`
  * `isArray`
+ * `isMemblock`
  * `isFunction`
  * `isClass`
  * `isInstance`
@@ -737,6 +739,7 @@ foreach(k, v, o; allFieldsOf(B))
 // 	alias isParam!(CrocValue.Type.String)    crocIsString;    alias isParam_docs crocIsString_docs;
 // 	alias isParam!(CrocValue.Type.Table)     crocIsTable;     alias isParam_docs crocIsTable_docs;
 // 	alias isParam!(CrocValue.Type.Array)     crocIsArray;     alias isParam_docs crocIsArray_docs;
+// 	alias isParam!(CrocValue.Type.Memblock)  crocIsArray;     alias isParam_docs crocIsMemblock_docs;
 // 	alias isParam!(CrocValue.Type.Function)  crocIsFunction;  alias isParam_docs crocIsFunction_docs;
 // 	alias isParam!(CrocValue.Type.Class)     crocIsClass;     alias isParam_docs crocIsClass_docs;
 // 	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;  alias isParam_docs crocIsInstance_docs;

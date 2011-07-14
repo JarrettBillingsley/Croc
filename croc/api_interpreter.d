@@ -43,6 +43,7 @@ import croc.types_array;
 import croc.types_class;
 import croc.types_function;
 import croc.types_instance;
+import croc.types_memblock;
 import croc.types_namespace;
 import croc.types_nativeobj;
 import croc.types_string;
@@ -450,6 +451,49 @@ word newArrayFromStack(CrocThread* t, uword len)
 	pop(t, len);
 	return push(t, CrocValue(a));
 }
+
+/**
+Creates a new memblock object and pushes it onto the stack. 
+
+Params:
+	type = The type code string. Must be one of the valid type codes.
+	len = The length of the memblock. This is measured in the number of items, not the number of
+		bytes. 
+		
+Returns:
+	The stack index of the newly-created memblock.
+*/
+word newMemblock(CrocThread* t, char[] type, uword len)
+{
+	alias CrocMemblock.TypeStruct TypeStruct;
+	alias CrocMemblock.TypeCode TypeCode;
+
+	maybeGC(t);
+
+	TypeStruct* ts;
+
+	switch(type)
+	{
+		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
+		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
+		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
+		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
+		case "i64": ts = &CrocMemblock.typeStructs[TypeCode.i64]; break;
+		case "u8" : ts = &CrocMemblock.typeStructs[TypeCode.u8];  break;
+		case "u16": ts = &CrocMemblock.typeStructs[TypeCode.u16]; break;
+		case "u32": ts = &CrocMemblock.typeStructs[TypeCode.u32]; break;
+		case "u64": ts = &CrocMemblock.typeStructs[TypeCode.u64]; break;
+		case "f32": ts = &CrocMemblock.typeStructs[TypeCode.f32]; break;
+		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
+
+		default:
+			throwException(t, "Invalid memblock type code '{}'", type);
+	}
+
+	return push(t, CrocValue(memblock.create(t.vm.alloc, ts, len)));
+}
+
+// TODO: memblock view
 
 /**
 Creates a new native closure and pushes it onto the stack.
@@ -992,6 +1036,14 @@ Sees if the value at the given _slot is an array.
 bool isArray(CrocThread* t, word slot)
 {
 	return type(t, slot) == CrocValue.Type.Array;
+}
+
+/**
+Sees if the value at the given _slot is a memblock.
+*/
+bool isMemblock(CrocThread* t, word slot)
+{
+	return type(t, slot) == CrocValue.Type.Memblock;
 }
 
 /**
@@ -1904,6 +1956,95 @@ void fillArray(CrocThread* t, word arr)
 	a.toArray()[] = t.stack[t.stackIndex - 1];
 	pop(t);
 }
+
+// ================================================================================================================================================
+// Memblock-related functions
+
+/**
+Gets the element type of a memblock. 
+
+Params:
+	mb = The stack index of the memblock object.
+	
+Returns:
+	A string containing the type code for the given memblock. This points into ROM, so don't modify it.
+*/
+char[] memblockType(CrocThread* t, word mb)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto m = getMemblock(t, mb);
+
+	if(m is null)
+	{
+		pushTypeString(t, mb);
+		throwException(t, __FUNCTION__ ~ " - mb must be a memblock, not a '{}'", getString(t, -1));
+	}
+
+	return m.kind.name;
+}
+
+/**
+Sets the element type of a memblock. You cannot change the element type of void memblocks, but you can
+change the type of non-void memblocks to void. When changing types, the size of the memblock in bytes
+must be an even multiple of the size of the new element type, or else an error is thrown. For instance,
+if you have a memblock of type "u8" and its length is 7, you will get an error if you try to change the
+type to "u16", as 7 is not a valid multiple of 2, the size of a "u16".
+
+Params:
+	mb = The stack index of the memblock object.
+	type = A string containing the type code of the new type. Must be one of the valid type codes, or an
+		error is thrown.
+*/
+void setMemblockType(CrocThread* t, word mb, char[] type)
+{
+	alias CrocMemblock.TypeStruct TypeStruct;
+	alias CrocMemblock.TypeCode TypeCode;
+
+	mixin(apiCheckNumParams!("1"));
+	auto m = getMemblock(t, mb);
+
+	if(m is null)
+	{
+		pushTypeString(t, mb);
+		throwException(t, __FUNCTION__ ~ " - mb must be a memblock, not a '{}'", getString(t, -1));
+	}
+
+	TypeStruct* ts;
+
+	switch(type)
+	{
+		case "v":   ts = &CrocMemblock.typeStructs[TypeCode.v];   break;
+		case "i8" : ts = &CrocMemblock.typeStructs[TypeCode.i8];  break;
+		case "i16": ts = &CrocMemblock.typeStructs[TypeCode.i16]; break;
+		case "i32": ts = &CrocMemblock.typeStructs[TypeCode.i32]; break;
+		case "i64": ts = &CrocMemblock.typeStructs[TypeCode.i64]; break;
+		case "u8" : ts = &CrocMemblock.typeStructs[TypeCode.u8];  break;
+		case "u16": ts = &CrocMemblock.typeStructs[TypeCode.u16]; break;
+		case "u32": ts = &CrocMemblock.typeStructs[TypeCode.u32]; break;
+		case "u64": ts = &CrocMemblock.typeStructs[TypeCode.u64]; break;
+		case "f32": ts = &CrocMemblock.typeStructs[TypeCode.f32]; break;
+		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
+
+		default:
+			throwException(t, "Invalid memblock type code '{}'", type);
+	}
+
+	if(m.kind is ts)
+		return;
+
+	if(m.kind.code == TypeCode.v)
+		throwException(t, "Cannot change the type of void memblocks");
+		
+	auto byteSize = m.itemLength * m.kind.itemSize;
+	
+	if(byteSize % ts.itemSize != 0)
+		throwException(t, "Memblock's byte size is not an even multiple of new type's item size");
+	
+	m.kind = ts;
+	m.itemLength = byteSize / ts.itemSize;
+}
+
+// TODO: re-view memblock
 
 // ================================================================================================================================================
 // Function-related functions
