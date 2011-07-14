@@ -1254,41 +1254,32 @@ crocint compareImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 			return Compare3(a.mFloat, b.mFloat);
 	}
 
-	CrocClass* proto;
-	// Don'_t put an else here.  SRSLY.
 	if(a.type == b.type)
 	{
 		switch(a.type)
 		{
-			case CrocValue.Type.Null: return 0;
-			case CrocValue.Type.Bool: return (cast(crocint)a.mBool - cast(crocint)b.mBool);
-			case CrocValue.Type.Char: return Compare3(a.mChar, b.mChar);
-
-			case CrocValue.Type.String:
-				if(a.mString is b.mString)
-					return 0;
-
-				return string.compare(a.mString, b.mString);
-
-			case CrocValue.Type.Instance:
-				if(auto method = getMM(t, a, MM.Cmp, proto))
-					return commonCompare(t, method, a, b, proto);
-				else if(auto method = getMM(t, b, MM.Cmp, proto))
-					return -commonCompare(t, method, b, a, proto);
-				break; // break to error
-
-			default: break; // break to error
+			case CrocValue.Type.Null:   return 0;
+			case CrocValue.Type.Bool:   return (cast(crocint)a.mBool - cast(crocint)b.mBool);
+			case CrocValue.Type.Char:   return Compare3(a.mChar, b.mChar);
+			case CrocValue.Type.String: return (a.mString is b.mString) ? 0 : string.compare(a.mString, b.mString);
+			default: break;
 		}
 	}
-	else if(a.type == CrocValue.Type.Instance)
+
+	CrocClass* proto;
+	if(a.type == b.type || b.type != CrocValue.Type.Instance)
 	{
 		if(auto method = getMM(t, a, MM.Cmp, proto))
 			return commonCompare(t, method, a, b, proto);
+		else if(auto method = getMM(t, b, MM.Cmp, proto))
+			return -commonCompare(t, method, b, a, proto);
 	}
-	else if(b.type == CrocValue.Type.Instance)
+	else
 	{
 		if(auto method = getMM(t, b, MM.Cmp, proto))
 			return -commonCompare(t, method, b, a, proto);
+		else if(auto method = getMM(t, a, MM.Cmp, proto))
+			return commonCompare(t, method, a, b, proto);
 	}
 
 	auto bsave = *b;
@@ -1337,7 +1328,7 @@ bool switchCmpImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 		else if(auto method = getMM(t, b, MM.Cmp, proto))
 			return commonCompare(t, method, b, a, proto) == 0;
 	}
-	
+
 	return false;
 }
 
@@ -1358,8 +1349,6 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 			return a.mFloat == b.mFloat;
 	}
 
-	CrocClass* proto;
-	// Don'_t put an else here.  SRSLY.
 	if(a.type == b.type)
 	{
 		switch(a.type)
@@ -1367,28 +1356,25 @@ bool equalsImpl(CrocThread* t, CrocValue* a, CrocValue* b)
 			case CrocValue.Type.Null:   return true;
 			case CrocValue.Type.Bool:   return a.mBool == b.mBool;
 			case CrocValue.Type.Char:   return a.mChar == b.mChar;
-			// Interning is fun.  We don'_t have to do a string comparison at all.
 			case CrocValue.Type.String: return a.mString is b.mString;
-
-			case CrocValue.Type.Instance:
-				if(auto method = getMM(t, a, MM.Equals, proto))
-					return commonEquals(t, method, a, b, proto);
-				else if(auto method = getMM(t, b, MM.Equals, proto))
-					return commonEquals(t, method, b, a, proto);
-				break; // break to error
-
-			default: break; // break to error
+			default: break;
 		}
 	}
-	else if(a.type == CrocValue.Type.Instance)
+
+	CrocClass* proto;
+	if(a.type == b.type || b.type != CrocValue.Type.Instance)
 	{
 		if(auto method = getMM(t, a, MM.Equals, proto))
 			return commonEquals(t, method, a, b, proto);
+		else if(auto method = getMM(t, b, MM.Equals, proto))
+			return commonEquals(t, method, b, a, proto);
 	}
-	else if(b.type == CrocValue.Type.Instance)
+	else
 	{
 		if(auto method = getMM(t, b, MM.Equals, proto))
 			return commonEquals(t, method, b, a, proto);
+		else if(auto method = getMM(t, a, MM.Equals, proto))
+			return commonEquals(t, method, a, b, proto);
 	}
 
 	auto bsave = *b;
