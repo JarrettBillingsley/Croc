@@ -59,6 +59,7 @@ static:
 
 				registerField(t, 1, "type",        &type);
 				registerField(t, 0, "itemSize",    &itemSize);
+				registerField(t, 2, "toArray",     &toArray);
 
 				registerField(t, 0, "dup",         &mbDup);
 				registerField(t, 0, "reverse",     &reverse);
@@ -75,6 +76,7 @@ static:
 				registerField(t, 5, "copyRange",   &copyRange);
 				registerField(t, 1, "fill",        &fill);
 				registerField(t, 3, "fillRange",   &fillRange);
+				field(t, -1, "fillRange"); fielda(t, -2, "opSliceAssign");
 
 				registerField(t, 1, "readByte",    &rawRead!(byte));
 				registerField(t, 1, "readShort",   &rawRead!(short));
@@ -86,7 +88,7 @@ static:
 				registerField(t, 1, "readULong",   &rawRead!(ulong));
 				registerField(t, 1, "readFloat",   &rawRead!(float));
 				registerField(t, 1, "readDouble",  &rawRead!(double));
-			
+
 				registerField(t, 2, "writeByte",   &rawWrite!(byte));
 				registerField(t, 2, "writeShort",  &rawWrite!(short));
 				registerField(t, 2, "writeInt",    &rawWrite!(int));
@@ -98,7 +100,31 @@ static:
 				registerField(t, 2, "writeFloat",  &rawWrite!(float));
 				registerField(t, 2, "writeDouble", &rawWrite!(double));
 
-				registerField(t, 2, "toArray",     &toArray);
+				registerField(t, 1, "opCat",       &opCat);
+				registerField(t, 1, "opCat_r",     &opCat_r);
+				registerField(t,    "opCatAssign", &opCatAssign);
+				field(t, -1, "opCatAssign"); fielda(t, -2, "append");
+
+				registerField(t, 1, "opAdd",       &opAdd);
+				registerField(t, 1, "opAddAssign", &opAddAssign);
+				registerField(t, 1, "opSub",       &opSub);
+				registerField(t, 1, "opSub_r",     &opSub_r);
+				registerField(t, 1, "opSubAssign", &opSubAssign);
+				registerField(t, 1, "revSub",      &revSub);
+				registerField(t, 1, "opMul",       &opMul);
+				registerField(t, 1, "opMulAssign", &opMulAssign);
+				registerField(t, 1, "opDiv",       &opDiv);
+				registerField(t, 1, "opDiv_r",     &opDiv_r);
+				registerField(t, 1, "opDivAssign", &opDivAssign);
+				registerField(t, 1, "revDiv",      &revDiv);
+				registerField(t, 1, "opMod",       &opMod);
+				registerField(t, 1, "opMod_r",     &opMod_r);
+				registerField(t, 1, "opModAssign", &opModAssign);
+				registerField(t, 1, "revMod",      &revMod);
+				
+				field(t, -1, "opAdd"); fielda(t, -2, "opAdd_r");
+				field(t, -1, "opMul"); fielda(t, -2, "opMul_r");
+
 			setTypeMT(t, CrocValue.Type.Memblock);
 
 			return 0;
@@ -234,6 +260,37 @@ static:
 	{
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		pushInt(t, getMemblock(t, 0).kind.itemSize);
+		return 1;
+	}
+
+	uword toArray(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		if(mb.kind.code == TypeCode.v)
+			throwException(t, "Attempting to convert a void memblock to an array");
+
+		auto lo = optIntParam(t, 1, 0);
+		auto hi = optIntParam(t, 2, mb.itemLength);
+
+		if(lo < 0)
+			lo += mb.itemLength;
+
+		if(hi < 0)
+			hi += mb.itemLength;
+
+		if(lo < 0 || lo > hi || hi > mb.itemLength)
+			throwException(t, "Invalid slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
+
+		auto ret = newArray(t, cast(uword)(hi - lo));
+
+		for(uword i = cast(uword)lo, j = 0; i < cast(uword)hi; i++, j++)
+		{
+			push(t, memblock.index(mb, i));
+			idxai(t, ret, j);
+		}
+
 		return 1;
 	}
 
@@ -840,7 +897,7 @@ static:
 		}
 		else
 			paramTypeError(t, filler, "int|float|function|array|memblock");
-		
+
 		pop(t);
 	}
 
@@ -927,38 +984,393 @@ static:
 			auto val = checkNumParam(t, 2);
 
 		*(cast(T*)(mb.data.ptr + idx)) = cast(T)val;
-	
+
 		return 0;
 	}
 
-	uword toArray(CrocThread* t)
+	uword opCat(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 0);
+		checkAnyParam(t, 1);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to convert a void memblock to an array");
+			throwException(t, "Attempting to concatenate a void memblock");
 
-		auto lo = optIntParam(t, 1, 0);
-		auto hi = optIntParam(t, 2, mb.itemLength);
-
-		if(lo < 0)
-			lo += mb.itemLength;
-
-		if(hi < 0)
-			hi += mb.itemLength;
-
-		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
-
-		auto ret = newArray(t, cast(uword)(hi - lo));
-
-		for(uword i = cast(uword)lo, j = 0; i < cast(uword)hi; i++, j++)
+		if(isMemblock(t, 1))
 		{
-			push(t, memblock.index(mb, i));
-			idxai(t, ret, j);
+			auto other = getMemblock(t, 1);
+
+			if(other.kind !is mb.kind)
+				throwException(t, "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+			push(t, CrocValue(memblock.cat(t.vm.alloc, mb, other)));
+		}
+		else
+		{
+			// ORDER MEMBLOCK TYPE
+			if(mb.kind.code <= TypeCode.u64)
+				checkIntParam(t, 1);
+			else
+				checkNumParam(t, 1);
+
+			push(t, CrocValue(memblock.cat(t.vm.alloc, mb, *getValue(t, 1))));
 		}
 
 		return 1;
 	}
+
+	uword opCat_r(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		checkAnyParam(t, 1);
+
+		if(mb.kind.code == TypeCode.v)
+			throwException(t, "Attempting to concatenate a void memblock");
+
+		// ORDER MEMBLOCK TYPE
+		if(mb.kind.code <= TypeCode.u64)
+			checkIntParam(t, 1);
+		else
+			checkNumParam(t, 1);
+
+		push(t, CrocValue(memblock.cat_r(t.vm.alloc, *getValue(t, 1), mb)));
+		return 1;
+	}
+
+	uword opCatAssign(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto numParams = stackSize(t) - 1;
+		checkAnyParam(t, 1);
+
+		if(mb.kind.code == TypeCode.v)
+			throwException(t, "Attempting to append to a void memblock");
+
+		if(!mb.ownData)
+			throwException(t, "Attempting to append to a memblock which does not own its data");
+
+		ulong totalLen = mb.itemLength;
+
+		for(uword i = 1; i <= numParams; i++)
+		{
+			if(isMemblock(t, i))
+			{
+				auto other = getMemblock(t, i);
+
+				if(other.kind !is mb.kind)
+					throwException(t, "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+				totalLen += other.itemLength;
+			}
+			else
+			{
+				// ORDER MEMBLOCK TYPE
+				if(mb.kind.code <= TypeCode.u64)
+					checkIntParam(t, i);
+				else
+					checkNumParam(t, i);
+
+				totalLen++;
+			}
+		}
+
+		if(totalLen > uword.max)
+			throwException(t, "Invalid size ({})", totalLen);
+
+		auto isize = mb.kind.itemSize;
+		auto oldLen = mb.itemLength;
+		memblock.resize(t.vm.alloc, mb, cast(uword)totalLen);
+
+		uword j = oldLen * isize;
+
+		for(uword i = 1; i <= numParams; i++)
+		{
+			if(isMemblock(t, i))
+			{
+				auto other = getMemblock(t, i);
+				memcpy(&mb.data[j], other.data.ptr, other.data.length);
+				j += other.data.length;
+			}
+			else
+			{
+				memblock.indexAssign(mb, j / isize, *getValue(t, i));
+				j += isize;
+			}
+		}
+
+		return 0;
+	}
+
+	char[] opAssign(char[] name, char[] op)
+	{
+		return `uword op` ~ name ~ `Assign(CrocThread* t)
+		{
+			checkParam(t, 0, CrocValue.Type.Memblock);
+			auto mb = getMemblock(t, 0);
+			checkAnyParam(t, 1);
+
+			if(mb.kind.code == TypeCode.v)
+				throwException(t, "Attempting to modify a void memblock");
+
+			if(isMemblock(t, 1))
+			{
+				auto other = getMemblock(t, 1);
+
+				if(other.itemLength != mb.itemLength)
+					throwException(t, "Cannot perform operation on memblocks of different lengths");
+
+				if(other.kind !is mb.kind)
+					throwException(t, "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+				switch(mb.kind.code)
+				{
+					case TypeCode.i8:  (cast(byte[])mb.data)[]   ` ~ op ~ `= (cast(byte[])other.data)[];   break;
+					case TypeCode.i16: (cast(short[])mb.data)[]  ` ~ op ~ `= (cast(short[])other.data)[];  break;
+					case TypeCode.i32: (cast(int[])mb.data)[]    ` ~ op ~ `= (cast(int[])other.data)[];    break;
+					case TypeCode.i64: (cast(long[])mb.data)[]   ` ~ op ~ `= (cast(long[])other.data)[];   break;
+					case TypeCode.u8:  (cast(ubyte[])mb.data)[]  ` ~ op ~ `= (cast(ubyte[])other.data)[];  break;
+					case TypeCode.u16: (cast(ushort[])mb.data)[] ` ~ op ~ `= (cast(ushort[])other.data)[]; break;
+					case TypeCode.u32: (cast(uint[])mb.data)[]   ` ~ op ~ `= (cast(uint[])other.data)[];   break;
+					case TypeCode.u64: (cast(ulong[])mb.data)[]  ` ~ op ~ `= (cast(ulong[])other.data)[];  break;
+					case TypeCode.f32: (cast(float[])mb.data)[]  ` ~ op ~ `= (cast(float[])other.data)[];  break;
+					case TypeCode.f64: (cast(double[])mb.data)[] ` ~ op ~ `= (cast(double[])other.data)[]; break;
+					default: assert(false);
+				}
+			}
+			else
+			{
+				switch(mb.kind.code)
+				{
+					case TypeCode.i8:  auto val = checkIntParam(t, 1); (cast(byte[])mb.data)[]   ` ~ op ~ `= cast(byte)val;   break;
+					case TypeCode.i16: auto val = checkIntParam(t, 1); (cast(short[])mb.data)[]  ` ~ op ~ `= cast(short)val;  break;
+					case TypeCode.i32: auto val = checkIntParam(t, 1); (cast(int[])mb.data)[]    ` ~ op ~ `= cast(int)val;    break;
+					case TypeCode.i64: auto val = checkIntParam(t, 1); (cast(long[])mb.data)[]   ` ~ op ~ `= cast(long)val;   break;
+					case TypeCode.u8:  auto val = checkIntParam(t, 1); (cast(ubyte[])mb.data)[]  ` ~ op ~ `= cast(ubyte)val;  break;
+					case TypeCode.u16: auto val = checkIntParam(t, 1); (cast(ushort[])mb.data)[] ` ~ op ~ `= cast(ushort)val; break;
+					case TypeCode.u32: auto val = checkIntParam(t, 1); (cast(uint[])mb.data)[]   ` ~ op ~ `= cast(uint)val;   break;
+					case TypeCode.u64: auto val = checkIntParam(t, 1); (cast(ulong[])mb.data)[]  ` ~ op ~ `= cast(ulong)val;  break;
+					case TypeCode.f32: auto val = checkNumParam(t, 1); (cast(float[])mb.data)[]  ` ~ op ~ `= cast(float)val;  break;
+					case TypeCode.f64: auto val = checkNumParam(t, 1); (cast(double[])mb.data)[] ` ~ op ~ `= cast(double)val; break;
+					default: assert(false);
+				}
+			}
+
+			return 0;
+		}`; /+  +/
+	}
+
+	mixin(opAssign("Add", "+"));
+	mixin(opAssign("Sub", "-"));
+	mixin(opAssign("Mul", "*"));
+	mixin(opAssign("Div", "/"));
+	mixin(opAssign("Mod", "%"));
+
+	// These are implemented like this because "a[] + b[]" will allocate on the D heap... bad.
+	char[] op(char[] name)
+	{
+		return `uword op` ~ name ~ `(CrocThread* t)
+		{
+			checkParam(t, 0, CrocValue.Type.Memblock);
+			auto mb = getMemblock(t, 0);
+			checkAnyParam(t, 1);
+
+			auto ret = dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "dup", 1);
+
+			dup(t, ret);
+			pushNull(t);
+			dup(t, 1);
+			methodCall(t, -3, "op` ~ name ~ `Assign", 0);
+
+			return 1;
+		}`; /+ " +/
+	}
+
+	mixin(op("Add"));
+	mixin(op("Sub"));
+	mixin(op("Mul"));
+	mixin(op("Div"));
+	mixin(op("Mod"));
+
+	char[] op_rev(char[] name)
+	{
+		return `uword op` ~ name ~ `_r(CrocThread* t)
+		{
+			checkParam(t, 0, CrocValue.Type.Memblock);
+			auto mb = getMemblock(t, 0);
+			checkAnyParam(t, 1);
+
+			auto ret = dup(t, 0);
+			pushNull(t);
+			methodCall(t, -2, "dup", 1);
+
+			dup(t, ret);
+			pushNull(t);
+			dup(t, 1);
+			methodCall(t, -3, "rev` ~ name ~ `", 0);
+
+			return 1;
+		}`; /+  +/
+	}
+
+	mixin(op_rev("Sub"));
+	mixin(op_rev("Div"));
+	mixin(op_rev("Mod"));
+
+	// BUG 2434: Compiler generates code that does not pass with -w for some array operations
+	// namely, for the [u](byte|short) cases for div and mod.
+
+	char[] rev_func(char[] name, char[] op)
+	{
+		return `uword rev` ~ name ~ `(CrocThread* t)
+		{
+			checkParam(t, 0, CrocValue.Type.Memblock);
+			auto mb = getMemblock(t, 0);
+			checkAnyParam(t, 1);
+			
+			if(mb.kind.code == TypeCode.v)
+				throwException(t, "Attempting to modify a void memblock");
+
+			if(isMemblock(t, 1))
+			{
+				auto other = getMemblock(t, 1);
+
+				if(other.itemLength != mb.itemLength)
+					throwException(t, "Cannot perform operation on memblocks of different lengths");
+
+				if(other.kind !is mb.kind)
+					throwException(t, "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+				switch(mb.kind.code)
+				{
+					case TypeCode.i8:
+						auto data = cast(byte[])mb.data;
+						auto otherData = cast(byte[])other.data;
+	
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(byte)(otherData[i] ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.i16:
+						auto data = cast(short[])mb.data;
+						auto otherData = cast(short[])other.data;
+	
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(short)(otherData[i] ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.i32: auto data = cast(int[])mb.data;  data[] = (cast(int[])other.data)[] ` ~ op ~ ` data[];  break;
+					case TypeCode.i64: auto data = cast(long[])mb.data; data[] = (cast(long[])other.data)[] ` ~ op ~ ` data[]; break;
+
+					case TypeCode.u8:
+						auto data = cast(ubyte[])mb.data;
+						auto otherData = cast(ubyte[])other.data;
+
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(ubyte)(otherData[i] ` ~ op ~ ` data[i]);
+						break;
+
+					case TypeCode.u16:
+						auto data = cast(ushort[])mb.data;
+						auto otherData = cast(ushort[])other.data;
+
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(ushort)(otherData[i] ` ~ op ~ ` data[i]);
+						break;
+
+					case TypeCode.u32: auto data = cast(uint[])mb.data;   data[] = (cast(uint[])other.data)[] ` ~ op ~ ` data[];   break;
+					case TypeCode.u64: auto data = cast(ulong[])mb.data;  data[] = (cast(ulong[])other.data)[] ` ~ op ~ ` data[];  break;
+					case TypeCode.f32: auto data = cast(float[])mb.data;  data[] = (cast(float[])other.data)[] ` ~ op ~ ` data[];  break;
+					case TypeCode.f64: auto data = cast(double[])mb.data; data[] = (cast(double[])other.data)[] ` ~ op ~ ` data[]; break;
+					default: assert(false);
+				}
+			}
+			else
+			{
+				switch(mb.kind.code)
+				{
+					case TypeCode.i8:
+						auto val = cast(byte)checkIntParam(t, 1);
+						auto data = cast(byte[])mb.data;
+	
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(byte)(val ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.i16:
+						auto val = cast(short)checkIntParam(t, 1);
+						auto data = cast(short[])mb.data;
+
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(short)(val ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.i32:
+						auto val = cast(int)checkIntParam(t, 1);
+						auto data = cast(int[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					case TypeCode.i64:
+						auto val = cast(long)checkIntParam(t, 1);
+						auto data = cast(long[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					case TypeCode.u8:
+						auto val = cast(ubyte)checkIntParam(t, 1);
+						auto data = cast(ubyte[])mb.data;
+	
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(ubyte)(val ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.u16:
+						auto val = cast(ushort)checkIntParam(t, 1);
+						auto data = cast(ushort[])mb.data;
+	
+						for(uword i = 0; i < data.length; i++)
+							data[i] = cast(ushort)(val ` ~ op ~ ` data[i]);
+						break;
+	
+					case TypeCode.u32:
+						auto val = cast(uint)checkIntParam(t, 1);
+						auto data = cast(uint[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					case TypeCode.u64:
+						auto val = cast(ulong)checkIntParam(t, 1);
+						auto data = cast(ulong[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					case TypeCode.f32:
+						auto val = cast(float)checkNumParam(t, 1);
+						auto data = cast(float[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					case TypeCode.f64:
+						auto val = cast(double)checkNumParam(t, 1);
+						auto data = cast(double[])mb.data;
+						data[] = val ` ~ op ~ `data[];
+						break;
+	
+					default: assert(false);
+				}
+			}
+	
+			dup(t, 0);
+			return 0;
+		}`; /+ " +/
+	}
+
+	mixin(rev_func("Sub", "-"));
+	mixin(rev_func("Div", "/"));
+	mixin(rev_func("Mod", "%"));
 }

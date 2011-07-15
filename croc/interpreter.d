@@ -1917,6 +1917,7 @@ void catImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 	{
 		CrocFunction* method = null;
 		CrocClass* proto = null;
+		bool swap = false;
 
 		switch(stack[slot].type)
 		{
@@ -1955,7 +1956,7 @@ void catImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 				else
 				{
 					typeString(t, &stack[slot + 1]);
-					throwException(t, "Can't concatenate 'string/char' and '{}'", getString(t, -1));
+					throwException(t, "Can't concatenate 'string|char' and '{}'", getString(t, -1));
 				}
 
 			case CrocValue.Type.Array:
@@ -2001,32 +2002,44 @@ void catImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 						goto array;
 				}
 
-				bool swap = false;
-
 				if(method is null)
 				{
 					method = getMM(t, &stack[slot], MM.Cat, proto);
 
 					if(method is null)
-					{
-						if(stack[slot + 1].type != CrocValue.Type.Instance)
-						{
-							typeString(t, &stack[slot + 1]);
-							throwException(t, "Can't concatenate an 'instance/table' with a '{}'", getString(t, -1));
-						}
-
-						method = getMM(t, &stack[slot + 1], MM.Cat_r, proto);
-
-						if(method is null)
-						{
-							typeString(t, &t.stack[slot]);
-							typeString(t, &t.stack[slot + 1]);
-							throwException(t, "Can't concatenate '{}' and '{}", getString(t, -2), getString(t, -1));
-						}
-
-						swap = true;
-					}
+						goto cat_r;
 				}
+
+				goto common_mm;
+
+			default:
+				// Basic
+				if(stack[slot + 1].type == CrocValue.Type.Array)
+					goto array;
+				else
+				{
+					method = getMM(t, &stack[slot], MM.Cat, proto);
+
+					if(method is null)
+						goto cat_r;
+					else
+						goto common_mm;
+				}
+
+			cat_r:
+				if(method is null)
+				{
+					method = getMM(t, &stack[slot + 1], MM.Cat_r, proto);
+
+					if(method is null)
+						goto error;
+				}
+
+				swap = true;
+				// fall through
+
+			common_mm:
+				assert(method !is null);
 
 				auto src1save = stack[slot];
 				auto src2save = stack[slot + 1];
@@ -2054,51 +2067,15 @@ void catImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 				pop(t);
 				continue;
 
-			default:
-				// Basic
-				if(stack[slot + 1].type == CrocValue.Type.Array)
-					goto array;
-				else if(stack[slot + 1].type == CrocValue.Type.Instance)
-					goto cat_r;
-				else
-				{
-					typeString(t, &t.stack[slot]);
-					typeString(t, &t.stack[slot]);
-					throwException(t, "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
-				}
-
-			cat_r:
-				if(method is null)
-				{
-					method = getMM(t, &stack[slot + 1], MM.Cat_r, proto);
-
-					if(method is null)
-					{
-						typeString(t, &t.stack[slot + 1]);
-						throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.Cat_r], getString(t, -1));
-					}
-				}
-
-				auto objsave = stack[slot + 1];
-				auto valsave = stack[slot];
-
-				auto funcSlot = push(t, CrocValue(method));
-				push(t, objsave);
-				push(t, valsave);
-				commonCall(t, funcSlot + t.stackBase, 1, callPrologue(t, funcSlot + t.stackBase, 1, 2, proto));
-
-				// stack might have changed.
-				stack = t.stack;
-
-				slot++;
-				stack[slot] = stack[t.stackIndex - 1];
-				pop(t);
-				continue;
+			error:
+				typeString(t, &t.stack[slot]);
+				typeString(t, &stack[slot + 1]);
+				throwException(t, "Can't concatenate '{}' and '{}'", getString(t, -2), getString(t, -1));
 		}
 
 		break;
 	}
-	
+
 	if(shouldLoad)
 		loadPtr(t, dest);
 
@@ -2228,14 +2205,14 @@ void catEqImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 		case CrocValue.Type.Array:
 			return arrayAppend(t, dest.mArray, stack[slot .. endSlot]);
 
-		case CrocValue.Type.Instance:
+		default:
 			CrocClass* proto;
 			auto method = getMM(t, dest, MM.CatEq, proto);
 
 			if(method is null)
 			{
 				typeString(t, dest);
-				throwException(t, "No implementation of {} for type '{}'", MetaNames[MM.CatEq], getString(t, -1));
+				throwException(t, "Can't append to a value of type '{}'", getString(t, -1));
 			}
 
 			bool shouldLoad = void;
@@ -2257,10 +2234,6 @@ void catEqImpl(CrocThread* t, CrocValue* dest, AbsStack firstSlot, uword num)
 			if(callPrologue2(t, method, firstSlot, 0, firstSlot, num + 1, proto))
 				execute(t);
 			return;
-
-		default:
-			typeString(t, dest);
-			throwException(t, "Can't append to a value of type '{}'", getString(t, -1));
 	}
 }
 

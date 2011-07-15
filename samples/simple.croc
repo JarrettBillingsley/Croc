@@ -1,14 +1,9 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-import memblock: new as mblock
+import serialization
 
-local m = memblock.new("i32", [1 2 3 4 5])
-writeln$ m
-writeln$ m.readByte(0)
-writeln$ m.readByte(1)
-writeln$ m.readByte(2)
-writeln$ m.readByte(3)
+local m = memblock.new("f32", [1 2 3 4 5])
 
 function help(x, child: string = null)
 {

@@ -154,6 +154,26 @@ static:
 		return ret;
 	}
 
+	// Returns a new memblock that is the concatenation of a memblock and a value. The value must be of the appropriate type.
+	package CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, CrocValue b)
+	{
+		auto ret = memblock.create(alloc, a.kind, a.itemLength + 1);
+		auto split = a.itemLength * a.kind.itemSize;
+		ret.data[0 .. split] = a.data[];
+		indexAssign(ret, a.itemLength, b);
+		return ret;
+	}
+
+	// Returns a new memblock that is the concatenation of a value and a memblock (in that order). The value must be of the
+	// appropriate type.
+	package CrocMemblock* cat_r(ref Allocator alloc, CrocValue a, CrocMemblock* b)
+	{
+		auto ret = memblock.create(alloc, b.kind, b.itemLength + 1);
+		indexAssign(ret, 0, a);
+		ret.data[b.kind.itemSize .. $] = b.data[];
+		return ret;
+	}
+
 	// Indexes the memblock and returns the value. Expects the index to be in a valid range and the kind not to be void.
 	package CrocValue index(CrocMemblock* m, uword idx)
 	{
@@ -194,8 +214,8 @@ static:
 			case CrocMemblock.TypeCode.u16: return (cast(ushort*)m.data.ptr)[idx] = cast(ushort)val.mInt;
 			case CrocMemblock.TypeCode.u32: return (cast(uint*)m.data.ptr)[idx]   = cast(uint)val.mInt;
 			case CrocMemblock.TypeCode.u64: return (cast(ulong*)m.data.ptr)[idx]  = cast(ulong)val.mInt;
-			case CrocMemblock.TypeCode.f32: return (cast(float*)m.data.ptr)[idx]  = cast(float)val.mFloat;
-			case CrocMemblock.TypeCode.f64: return (cast(double*)m.data.ptr)[idx] = cast(double)val.mFloat;
+			case CrocMemblock.TypeCode.f32: return (cast(float*)m.data.ptr)[idx]  = val.type == CrocValue.Type.Int ? cast(float)val.mInt  : cast(float)val.mFloat;
+			case CrocMemblock.TypeCode.f64: return (cast(double*)m.data.ptr)[idx] = val.type == CrocValue.Type.Int ? cast(double)val.mInt : cast(double)val.mFloat;
 
 			default: assert(false);
 		}

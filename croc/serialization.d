@@ -217,6 +217,7 @@ private:
 			case CrocValue.Type.String:    serializeString(v.mString);       break;
 			case CrocValue.Type.Table:     serializeTable(v.mTable);         break;
 			case CrocValue.Type.Array:     serializeArray(v.mArray);         break;
+			case CrocValue.Type.Memblock:  serializeMemblock(v.mMemblock);   break;
 			case CrocValue.Type.Function:  serializeFunction(v.mFunction);   break;
 			case CrocValue.Type.Class:     serializeClass(v.mClass);         break;
 			case CrocValue.Type.Instance:  serializeInstance(v.mInstance);   break;
@@ -297,6 +298,23 @@ private:
 
 		foreach(ref val; v.toArray())
 			serialize(val);
+	}
+
+	void serializeMemblock(CrocMemblock* v)
+	{
+		if(alreadyWritten(cast(CrocBaseObject*)v))
+			return;
+		
+		if(!v.ownData)
+			throwException(t, "Attempting to persist a memblock which does not own its data");
+
+		tag(CrocValue.Type.Memblock);
+		push(t, CrocValue(mSerializeFunc));
+		pushNull(t);
+		pushString(t, v.kind.name);
+		rawCall(t, -3, 0);
+		integer(v.itemLength);
+		append(mOutput, v.data);
 	}
 
 	void serializeFunction(CrocFunction* v)
@@ -848,6 +866,7 @@ private:
 			case CrocValue.Type.String:    deserializeStringImpl();    break;
 			case CrocValue.Type.Table:     deserializeTableImpl();     break;
 			case CrocValue.Type.Array:     deserializeArrayImpl();     break;
+			case CrocValue.Type.Memblock:  deserializeMemblockImpl();  break;
 			case CrocValue.Type.Function:  deserializeFunctionImpl();  break;
 			case CrocValue.Type.Class:     deserializeClassImpl();     break;
 			case CrocValue.Type.Instance:  deserializeInstanceImpl();  break;
@@ -1024,6 +1043,21 @@ private:
 			deserializeValue();
 			idxai(t, v, cast(crocint)i);
 		}
+	}
+	
+	void deserializeMemblock()
+	{
+		if(checkObjTag(CrocValue.Type.Memblock))
+			deserializeMemblockImpl();
+	}
+	
+	void deserializeMemblockImpl()
+	{
+  		deserializeString();
+  		auto type = getString(t, -1);
+  		newMemblock(t, type, cast(uword)integer());
+  		insertAndPop(t, -2);
+  		readExact(mInput, getMemblock(t, -1).data);
 	}
 
 	void deserializeFunction()
