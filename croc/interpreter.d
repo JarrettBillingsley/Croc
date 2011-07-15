@@ -276,15 +276,13 @@ CrocValue getInstanceMethod(CrocInstance* inst, CrocString* name, out CrocClass*
 
 CrocValue getGlobalMetamethod(CrocThread* t, CrocValue.Type type, CrocString* name)
 {
-	auto mt = getMetatable(t, type);
+	if(auto mt = getMetatable(t, type))
+	{
+		if(auto ret = namespace.get(mt, name))
+			return *ret;
+	}
 
-	if(mt is null)
-		return CrocValue.nullValue;
-
-	if(auto ret = namespace.get(mt, name))
-		return *ret;
-	else
-		return CrocValue.nullValue;
+	return CrocValue.nullValue;
 }
 
 CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method)
@@ -296,25 +294,17 @@ CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method)
 CrocFunction* getMM(CrocThread* t, CrocValue* obj, MM method, out CrocClass* proto)
 {
 	auto name = t.vm.metaStrings[method];
+	CrocValue ret = void;
 
 	if(obj.type == CrocValue.Type.Instance)
-	{
-		auto ret = getInstanceMethod(obj.mInstance, name, proto);
-
-		if(ret.type == CrocValue.Type.Function)
-			return ret.mFunction;
-		else
-			return null;
-	}
+		ret = getInstanceMethod(obj.mInstance, name, proto);
 	else
-	{
-		auto ret = getGlobalMetamethod(t, obj.type, name);
+		ret = getGlobalMetamethod(t, obj.type, name);
 
-		if(ret.type == CrocValue.Type.Function)
-			return ret.mFunction;
-		else
-			return null;
-	}
+	if(ret.type == CrocValue.Type.Function)
+		return ret.mFunction;
+
+	return null;
 }
 
 template tryMMParams(int numParams, int n = 1)
@@ -2442,7 +2432,7 @@ bool correctIndices(out crocint loIndex, out crocint hiIndex, CrocValue* lo, Cro
 
 bool validIndices(crocint lo, crocint hi, uword len)
 {
-	return lo >= 0 && hi < len && lo <= hi;
+	return lo >= 0 && hi <= len && lo <= hi;
 }
 
 uword charLen(dchar c)
@@ -2506,6 +2496,7 @@ word typeString(CrocThread* t, CrocValue* v)
 			CrocValue.Type.String,
 			CrocValue.Type.Table,
 			CrocValue.Type.Array,
+			CrocValue.Type.Memblock,
 			CrocValue.Type.Function,
 			CrocValue.Type.Namespace,
 			CrocValue.Type.Thread,

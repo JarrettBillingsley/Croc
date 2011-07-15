@@ -477,6 +477,8 @@ Returns:
 */
 word newMemblock(CrocThread* t, char[] type, uword len)
 {
+	mixin(FuncNameMix);
+
 	alias CrocMemblock.TypeStruct TypeStruct;
 	alias CrocMemblock.TypeCode TypeCode;
 
@@ -499,13 +501,82 @@ word newMemblock(CrocThread* t, char[] type, uword len)
 		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
 
 		default:
-			throwException(t, "Invalid memblock type code '{}'", type);
+			throwException(t, __FUNCTION__ ~ " - Invalid memblock type code '{}'", type);
 	}
 
 	return push(t, CrocValue(memblock.create(t.vm.alloc, ts, len)));
 }
 
-// TODO: memblock view
+/**
+Constructs a memblock from a D array and pushes the new instance onto the stack.
+The resulting memblock holds a $(B copy) of the data and owns its data.
+
+The array type must be convertible to a single-dimensional array of any integer
+type or a float or double array.
+
+Params:
+	arr = The array from which the data will be copied into the new memblock.
+
+Returns:
+	The stack index of the newly-pushed memblock.
+*/
+word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
+{
+	alias realType!(_T) T;
+
+	static      if(is(T == byte))   const code = "i8";
+	else static if(is(T == ubyte))  const code = "u8";
+	else static if(is(T == short))  const code = "i16";
+	else static if(is(T == ushort)) const code = "u16";
+	else static if(is(T == int))    const code = "i32";
+	else static if(is(T == uint))   const code = "u32";
+	else static if(is(T == long))   const code = "i64";
+	else static if(is(T == ulong))  const code = "u64";
+	else static if(is(T == float))  const code = "f32";
+	else static if(is(T == double)) const code = "f64";
+	else static assert(false, "memblockFromDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+	auto ret = newMemblock(t, code, arr.length);
+	auto data = getMemblock(t, ret).data;
+	(cast(_T*)data)[0 .. arr.length] = arr[];
+	return ret;
+}
+
+/**
+Constructs a memblock from a D array and pushes it onto the stack. The resulting
+memblock is a $(B view) into the data.  That is, modifying the contents of the
+returned memblock will actually modify the array that you passed.
+
+Note that you must ensure that the D array is not collected while this memblock
+is around.  The memblock will not keep it around for you.
+
+The array type must be convertible to a single-dimensional array of any integer
+type or a float or double array.
+
+Params:
+	arr = The array to which the new memblock will refer.
+
+Returns:
+	The stack index of the newly-pushed memblock.
+*/
+public word memblockViewDArray(_T)(CrocThread* t, _T[] arr)
+{
+	alias realType!(_T) T;
+
+	static      if(is(T == byte))   const ts = &CrocMemblock.typeStructs[i8];
+	else static if(is(T == ubyte))  const ts = &CrocMemblock.typeStructs[u8];
+	else static if(is(T == short))  const ts = &CrocMemblock.typeStructs[i16];
+	else static if(is(T == ushort)) const ts = &CrocMemblock.typeStructs[u16];
+	else static if(is(T == int))    const ts = &CrocMemblock.typeStructs[i32];
+	else static if(is(T == uint))   const ts = &CrocMemblock.typeStructs[u32];
+	else static if(is(T == long))   const ts = &CrocMemblock.typeStructs[i64];
+	else static if(is(T == ulong))  const ts = &CrocMemblock.typeStructs[u64];
+	else static if(is(T == float))  const ts = &CrocMemblock.typeStructs[f32];
+	else static if(is(T == double)) const ts = &CrocMemblock.typeStructs[f64];
+	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+	return push(t, memblock.createView(t.alloc, ts, cast(void[])arr));
+}
 
 /**
 Creates a new native closure and pushes it onto the stack.
@@ -1973,11 +2044,11 @@ void fillArray(CrocThread* t, word arr)
 // Memblock-related functions
 
 /**
-Gets the element type of a memblock. 
+Gets the element type of a memblock.
 
 Params:
 	mb = The stack index of the memblock object.
-	
+
 Returns:
 	A string containing the type code for the given memblock. This points into ROM, so don't modify it.
 */
@@ -2038,25 +2109,64 @@ void setMemblockType(CrocThread* t, word mb, char[] type)
 		case "f64": ts = &CrocMemblock.typeStructs[TypeCode.f64]; break;
 
 		default:
-			throwException(t, "Invalid memblock type code '{}'", type);
+			throwException(t, __FUNCTION__ ~ " - Invalid memblock type code '{}'", type);
 	}
 
 	if(m.kind is ts)
 		return;
 
 	if(m.kind.code == TypeCode.v)
-		throwException(t, "Cannot change the type of void memblocks");
-		
+		throwException(t, __FUNCTION__ ~ " - Cannot change the type of void memblocks");
+
 	auto byteSize = m.itemLength * m.kind.itemSize;
-	
+
 	if(byteSize % ts.itemSize != 0)
-		throwException(t, "Memblock's byte size is not an even multiple of new type's item size");
+		throwException(t, __FUNCTION__ ~ " - Memblock's byte size is not an even multiple of new type's item size");
 	
 	m.kind = ts;
 	m.itemLength = byteSize / ts.itemSize;
 }
 
-// TODO: re-view memblock
+/**
+Reassign an existing memblock so that its data is a view of a D array.  If the
+memblock owns its data, it is freed.  The type is also set to the appropriate
+type code corresponding to the D array.  This is like memblockViewDArray except
+that it changes an existing memblock rather than creating a new one.
+
+The same caveats and restrictions that apply to memblockViewDArray apply to this
+function as well.
+
+Params:
+	slot = The stack index of the memblock to reassign.
+	arr = The array to which the given memblock will refer.
+*/
+public word memblockReviewDArray(_T)(CrocThread* t, uword slot, _T[] arr)
+{
+	mixin(apiCheckNumParams!("1"));
+	auto m = getMemblock(t, slot);
+
+	if(m is null)
+	{
+		pushTypeString(t, slot);
+		throwException(t, __FUNCTION__ ~ " - slot must be a memblock, not a '{}'", getString(t, -1));
+	}
+
+	alias realType!(_T) T;
+
+	static      if(is(T == byte))   const ts = &CrocMemblock.typeStructs[i8];
+	else static if(is(T == ubyte))  const ts = &CrocMemblock.typeStructs[u8];
+	else static if(is(T == short))  const ts = &CrocMemblock.typeStructs[i16];
+	else static if(is(T == ushort)) const ts = &CrocMemblock.typeStructs[u16];
+	else static if(is(T == int))    const ts = &CrocMemblock.typeStructs[i32];
+	else static if(is(T == uint))   const ts = &CrocMemblock.typeStructs[u32];
+	else static if(is(T == long))   const ts = &CrocMemblock.typeStructs[i64];
+	else static if(is(T == ulong))  const ts = &CrocMemblock.typeStructs[u64];
+	else static if(is(T == float))  const ts = &CrocMemblock.typeStructs[f32];
+	else static if(is(T == double)) const ts = &CrocMemblock.typeStructs[f64];
+	else static assert(false, "memblockViewDArray - invalid array type '" ~ typeof(arr).stringof ~ "'");
+
+	memblock.view(t.alloc, m, ts, cast(void[])arr);
+}
 
 // ================================================================================================================================================
 // Function-related functions

@@ -41,6 +41,7 @@ import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;
 import croc.types_instance;
+import croc.types_memblock;
 import croc.types_namespace;
 
 alias CrocDoc.Docs Docs;
@@ -84,6 +85,15 @@ static:
 			pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t);
 			pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
 		}
+
+		// The Memblock type's metatable
+		newNamespace(t, "memblock");
+			registerField(t, 0, "toString", &memblockToString);
+			registerField(t, 1, "opEquals", &memblockOpEquals);
+				newFunction(t, &memblockIterator, "memblock.iterator");
+				newFunction(t, &memblockIteratorReverse, "memblock.iteratorReverse");
+			registerField(t, 1, "opApply", &memblockOpApply, 2);
+		setTypeMT(t, CrocValue.Type.Memblock);
 
 		// The Function type's metatable
 		newNamespace(t, "function");
@@ -243,6 +253,141 @@ static:
 			newTable(t);
 
 		return 1;
+	}
+
+	// ===================================================================================================================================
+	// Function metatable
+
+	uword memblockToString(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		auto b = StrBuffer(t);
+		pushFormat(t, "memblock({})[", mb.kind.name);
+		b.addTop();
+
+		if(mb.kind.code == CrocMemblock.TypeCode.v)
+		{
+			pushFormat(t, "{} bytes", mb.itemLength);
+			b.addTop();
+		}
+		else if(mb.kind.code == CrocMemblock.TypeCode.u64)
+		{
+			for(uword i = 0; i < mb.itemLength; i++)
+			{
+				if(i > 0)
+					b.addString(", ");
+
+				auto v = memblock.index(mb, i);
+				pushFormat(t, "{}", cast(ulong)v.mInt);
+				b.addTop();
+			}
+		}
+		else
+		{
+			for(uword i = 0; i < mb.itemLength; i++)
+			{
+				if(i > 0)
+					b.addString(", ");
+
+				push(t, memblock.index(mb, i));
+				pushToString(t, -1, true);
+				insertAndPop(t, -2);
+				b.addTop();
+			}
+		}
+
+		b.addString("]");
+		b.finish();
+		return 1;
+	}
+
+	uword memblockOpEquals(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		checkAnyParam(t, 1);
+
+		if(!isMemblock(t, 1))
+		{
+			pushTypeString(t, 1);
+			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+		}
+
+		if(opis(t, 0, 1))
+			pushBool(t, true);
+		else
+		{
+			auto other = getMemblock(t, 1);
+
+			if(mb.kind !is other.kind)
+				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+			if(mb.itemLength != other.itemLength)
+				pushBool(t, false);
+			else
+			{
+				auto a = (cast(byte*)mb.data)[0 .. mb.itemLength * mb.kind.itemSize];
+				auto b = (cast(byte*)other.data)[0 .. a.length];
+				pushBool(t, a == b);
+			}
+		}
+
+		return 1;
+	}
+
+	uword memblockIterator(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto index = checkIntParam(t, 1) + 1;
+
+		if(index >= mb.itemLength)
+			return 0;
+
+		pushInt(t, index);
+		push(t, memblock.index(mb, cast(uword)index));
+		return 2;
+	}
+
+	uword memblockIteratorReverse(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto index = checkIntParam(t, 1) - 1;
+
+		if(index < 0)
+			return 0;
+
+		pushInt(t, index);
+		push(t, memblock.index(mb, cast(uword)index));
+		return 2;
+	}
+
+	uword memblockOpApply(CrocThread* t)
+	{
+		const Iter = 0;
+		const IterReverse = 1;
+
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		if(optStringParam(t, 1, "") == "reverse")
+		{
+			getUpval(t, IterReverse);
+			dup(t, 0);
+			pushInt(t, mb.itemLength);
+		}
+		else
+		{
+			getUpval(t, Iter);
+			dup(t, 0);
+			pushInt(t, -1);
+		}
+
+		return 3;
 	}
 
 	// ===================================================================================================================================

@@ -1,11 +1,14 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-import memblock: new as Vector
+import memblock: new as mblock
 
-local m = Vector("u32", 8)
-for(i: 0 .. #m) m[i] = i + 1
-
+local m = memblock.new("i32", [1 2 3 4 5])
+writeln$ m
+writeln$ m.readByte(0)
+writeln$ m.readByte(1)
+writeln$ m.readByte(2)
+writeln$ m.readByte(3)
 
 function help(x, child: string = null)
 {
