@@ -29,7 +29,6 @@ import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
-import croc.stdlib_vector;
 import croc.types;
 import croc.utils;
 
@@ -718,7 +717,7 @@ static:
 	uword getExtraBytes(CrocThread* t)
 	{
 		checkInstParam(t, 1);
-		VectorObj.fromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
+		memblockFromDArray(t, cast(ubyte[]).getExtraBytes(t, 1));
 		return 1;
 	}
 
@@ -726,13 +725,14 @@ static:
 	{
 		checkInstParam(t, 1);
 		auto instData = cast(ubyte[]).getExtraBytes(t, 1);
-		auto memb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
-		auto vecData = (cast(ubyte*)memb.data)[0 .. memb.length * memb.type.itemSize];
+		checkParam(t, 2, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 2);
+		auto data = cast(ubyte[])mb.data;
 
-		if(vecData.length != instData.length)
-			throwException(t, "Vector size ({}) does not match number of extra bytes ({})", vecData.length, instData.length);
+		if(data.length != instData.length)
+			throwException(t, "Memblock size ({}) does not match number of extra bytes ({})", data.length, instData.length);
 
-		instData[] = vecData[];
+		instData[] = data[];
 		return 0;
 	}
 

@@ -37,7 +37,6 @@ import croc.api_stack;
 import croc.ex;
 import croc.stdlib_stringbuffer;
 import croc.stdlib_utils;
-import croc.stdlib_vector;
 import croc.types;
 import croc.utils;
 
@@ -139,17 +138,15 @@ static:
 	
 	uword fromRawUnicode(CrocThread* t)
 	{
-		auto v = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 
-		switch(v.type.code)
+		switch(mb.kind.code)
 		{
-			case VectorObj.TypeCode.u8:  pushFormat(t, "{}", (cast(char*)v.data)[0 .. v.length]); break;
-			case VectorObj.TypeCode.u16: pushFormat(t, "{}", (cast(wchar*)v.data)[0 .. v.length]); break;
-			case VectorObj.TypeCode.u32: pushFormat(t, "{}", (cast(dchar*)v.data)[0 .. v.length]); break;
-
-			default:
-				throwException(t, "Vector must be of type 'u8', 'u16', or 'u32', not '{}'", VectorObj.typeNames[v.type.code]);
-				return 0;
+			case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[0 .. mb.itemLength]); break;
+			case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[0 .. mb.itemLength]); break;
+			case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[0 .. mb.itemLength]); break;
+			default: throwException(t, "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
 		}
 
 		return 1;
@@ -157,12 +154,13 @@ static:
 
 	uword fromRawAscii(CrocThread* t)
 	{
-		auto v = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 
-		if(v.type.code != VectorObj.TypeCode.u8)
-			throwException(t, "Vector must be of type 'u8', not '{}'", VectorObj.typeNames[v.type.code]);
+		if(mb.kind.code != CrocMemblock.TypeCode.u8)
+			throwException(t, "Memblock must be of type 'u8', not '{}'", mb.kind.name);
 
-		auto src = (cast(char*)v.data)[0 .. v.length];
+		auto src = (cast(char[])mb.data)[0 .. mb.itemLength];
   		auto dest = allocArray!(char)(t, src.length);
 
   		scope(exit)

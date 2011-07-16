@@ -38,7 +38,6 @@ import croc.api_stack;
 import croc.ex;
 import croc.stdlib_stream;
 import croc.stdlib_time;
-import croc.stdlib_vector;
 import croc.types;
 
 struct IOLib
@@ -59,37 +58,37 @@ static:
 			lookup(t, "stream.stderr");
 			newGlobal(t, "stderr");
 
-			newFunction(t, 1, &inFile,                "inFile");       newGlobal(t, "inFile");
-			newFunction(t, 2, &outFile,               "outFile");      newGlobal(t, "outFile");
-			newFunction(t, 2, &inoutFile,             "inoutFile");    newGlobal(t, "inoutFile");
-			newFunction(t, 2, &rename,                "rename");       newGlobal(t, "rename");
-			newFunction(t, 1, &remove,                "remove");       newGlobal(t, "remove");
-			newFunction(t, 2, &copy,                  "copy");         newGlobal(t, "copy");
-			newFunction(t, 1, &size,                  "size");         newGlobal(t, "size");
-			newFunction(t, 1, &exists,                "exists");       newGlobal(t, "exists");
-			newFunction(t, 1, &isFile,                "isFile");       newGlobal(t, "isFile");
-			newFunction(t, 1, &isDir,                 "isDir");        newGlobal(t, "isDir");
-			newFunction(t, 1, &isReadOnly,            "isReadOnly");   newGlobal(t, "isReadOnly");
-			newFunction(t, 2, &fileTime!("modified"), "modified");     newGlobal(t, "modified");
-			newFunction(t, 2, &fileTime!("created"),  "created");      newGlobal(t, "created");
-			newFunction(t, 2, &fileTime!("accessed"), "accessed");     newGlobal(t, "accessed");
-			newFunction(t, 0, &currentDir,            "currentDir");   newGlobal(t, "currentDir");
-			newFunction(t, 1, &parentDir,             "parentDir");    newGlobal(t, "parentDir");
-			newFunction(t, 1, &changeDir,             "changeDir");    newGlobal(t, "changeDir");
-			newFunction(t, 1, &makeDir,               "makeDir");      newGlobal(t, "makeDir");
-			newFunction(t, 1, &makeDirChain,          "makeDirChain"); newGlobal(t, "makeDirChain");
-			newFunction(t, 1, &removeDir,             "removeDir");    newGlobal(t, "removeDir");
-			newFunction(t, 3, &listFiles,             "listFiles");    newGlobal(t, "listFiles");
-			newFunction(t, 3, &listDirs,              "listDirs");     newGlobal(t, "listDirs");
-			newFunction(t, 2, &readFile,              "readFile");     newGlobal(t, "readFile");
-			newFunction(t, 2, &writeFile,             "writeFile");    newGlobal(t, "writeFile");
-			newFunction(t, 1, &readVector,            "readVector");   newGlobal(t, "readVector");
-			newFunction(t, 2, &writeVector,           "writeVector");  newGlobal(t, "writeVector");
-			newFunction(t,    &join,                  "join");         newGlobal(t, "join");
-			newFunction(t, 1, &dirName,               "dirName");      newGlobal(t, "dirName");
-			newFunction(t, 1, &name,                  "name");         newGlobal(t, "name");
-			newFunction(t, 1, &extension,             "extension");    newGlobal(t, "extension");
-			newFunction(t, 1, &fileName,              "fileName");     newGlobal(t, "fileName");
+			newFunction(t, 1, &inFile,                "inFile");        newGlobal(t, "inFile");
+			newFunction(t, 2, &outFile,               "outFile");       newGlobal(t, "outFile");
+			newFunction(t, 2, &inoutFile,             "inoutFile");     newGlobal(t, "inoutFile");
+			newFunction(t, 2, &rename,                "rename");        newGlobal(t, "rename");
+			newFunction(t, 1, &remove,                "remove");        newGlobal(t, "remove");
+			newFunction(t, 2, &copy,                  "copy");          newGlobal(t, "copy");
+			newFunction(t, 1, &size,                  "size");          newGlobal(t, "size");
+			newFunction(t, 1, &exists,                "exists");        newGlobal(t, "exists");
+			newFunction(t, 1, &isFile,                "isFile");        newGlobal(t, "isFile");
+			newFunction(t, 1, &isDir,                 "isDir");         newGlobal(t, "isDir");
+			newFunction(t, 1, &isReadOnly,            "isReadOnly");    newGlobal(t, "isReadOnly");
+			newFunction(t, 2, &fileTime!("modified"), "modified");      newGlobal(t, "modified");
+			newFunction(t, 2, &fileTime!("created"),  "created");       newGlobal(t, "created");
+			newFunction(t, 2, &fileTime!("accessed"), "accessed");      newGlobal(t, "accessed");
+			newFunction(t, 0, &currentDir,            "currentDir");    newGlobal(t, "currentDir");
+			newFunction(t, 1, &parentDir,             "parentDir");     newGlobal(t, "parentDir");
+			newFunction(t, 1, &changeDir,             "changeDir");     newGlobal(t, "changeDir");
+			newFunction(t, 1, &makeDir,               "makeDir");       newGlobal(t, "makeDir");
+			newFunction(t, 1, &makeDirChain,          "makeDirChain");  newGlobal(t, "makeDirChain");
+			newFunction(t, 1, &removeDir,             "removeDir");     newGlobal(t, "removeDir");
+			newFunction(t, 3, &listFiles,             "listFiles");     newGlobal(t, "listFiles");
+			newFunction(t, 3, &listDirs,              "listDirs");      newGlobal(t, "listDirs");
+			newFunction(t, 2, &readFile,              "readFile");      newGlobal(t, "readFile");
+			newFunction(t, 2, &writeFile,             "writeFile");     newGlobal(t, "writeFile");
+			newFunction(t, 1, &readMemblock,          "readMemblock");  newGlobal(t, "readMemblock");
+			newFunction(t, 2, &writeMemblock,         "writeMemblock"); newGlobal(t, "writeMemblock");
+			newFunction(t,    &join,                  "join");          newGlobal(t, "join");
+			newFunction(t, 1, &dirName,               "dirName");       newGlobal(t, "dirName");
+			newFunction(t, 1, &name,                  "name");          newGlobal(t, "name");
+			newFunction(t, 1, &extension,             "extension");     newGlobal(t, "extension");
+			newFunction(t, 1, &fileName,              "fileName");      newGlobal(t, "fileName");
 
 				newFunction(t, &linesIterator, "linesIterator");
 			newFunction(t, 1, &lines, "lines", 1);        newGlobal(t, "lines");
@@ -417,7 +416,7 @@ static:
 		return 0;
 	}
 
-	uword readVector(CrocThread* t)
+	uword readMemblock(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto size = safeCode(t, Path.fileSize(name));
@@ -425,26 +424,18 @@ static:
 		if(size > uword.max)
 			throwException(t, "file too big ({} bytes)", size);
 
-		pushGlobal(t, "Vector");
-		pushNull(t);
-		pushString(t, "u8");
-		pushInt(t, cast(crocint)size);
-		rawCall(t, -4, 1);
-		auto memb = getMembers!(VectorObj.Members)(t, -1);
-
-		safeCode(t, File.get(name, memb.data[0 .. cast(uword)size]));
-
+		newMemblock(t, "u8", cast(uword)size);
+		auto mb = getMemblock(t, -1);
+		safeCode(t, File.get(name, mb.data[0 .. cast(uword)size]));
 		return 1;
 	}
 
-	uword writeVector(CrocThread* t)
+	uword writeMemblock(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto memb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
-		auto data = memb.data[0 .. memb.length * memb.type.itemSize];
-
-		safeCode(t, File.set(name, data));
-
+		checkParam(t, 2, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 2);
+		safeCode(t, File.set(name, mb.data));
 		return 1;
 	}
 

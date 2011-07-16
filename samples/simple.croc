@@ -3,9 +3,9 @@ module samples.simple
 
 import string: StringBuffer
 
-local sb = StringBuffer("0123456789")
-sb.remove(2, #sb)
-writeln$ sb
+local m = io.readMemblock("wiki.txt")
+writeln$ m
+io.writeMemblock("woki.txt", m)
 
 function help(x, child: string = null)
 {
