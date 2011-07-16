@@ -1090,9 +1090,18 @@ static:
 		{
 			if(isMemblock(t, i))
 			{
-				auto other = getMemblock(t, i);
-				memcpy(&mb.data[j], other.data.ptr, other.data.length);
-				j += other.data.length;
+				if(opis(t, 0, i))
+				{
+					// special case for when we're appending a memblock to itself; use the old length
+					memcpy(&mb.data[j], mb.data.ptr, oldLen * isize);
+					j += oldLen;
+				}
+				else
+				{
+					auto other = getMemblock(t, i);
+					memcpy(&mb.data[j], other.data.ptr, other.data.length);
+					j += other.data.length;
+				}
 			}
 			else
 			{

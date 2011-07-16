@@ -35,7 +35,6 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
-import croc.stdlib_stringbuffer;
 import croc.stdlib_utils;
 import croc.stdlib_vector;
 import croc.types;
@@ -75,9 +74,6 @@ static:
 
 		// Vector
 		VectorObj.init(t);
-
-		// StringBuffer
-		StringBufferObj.init(t);
 
 		version(CrocBuiltinDocs)
 		{

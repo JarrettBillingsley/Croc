@@ -410,7 +410,11 @@ word pushVFormat(CrocThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr
 
 	safeCode(t, t.vm.formatter.convert(&sink, arguments, argptr, fmt));
 	maybeGC(t);
-	return cat(t, numPieces);
+	
+	if(numPieces == 0)
+		return pushString(t, "");
+	else
+		return cat(t, numPieces);
 }
 
 /**

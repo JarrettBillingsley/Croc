@@ -646,8 +646,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 		uword actualReturns = void;
 
-		mixin(
-		"try
+		mixin("try
 		{
 			if(t.hooks & CrocThread.Hook.Call)
 				callHook(t, CrocThread.Hook.Call);

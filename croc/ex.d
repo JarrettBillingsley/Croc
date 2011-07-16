@@ -434,6 +434,22 @@ struct CreateClass
 		newFunction(t, numParams, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
 	}
+	
+	/**
+	Set this class's allocator function.
+	
+	Params:
+		name = Function name. This will just be used for the name of the function object, and will be
+			prepended with the class's name, just liek methods.
+		f = The native allocator function
+		numUpvals = How many upvalues this function needs. There should be this many values sitting on
+			the stack
+	*/
+	public void allocator(char[] name, NativeFunc f, uword numUpvals = 0)
+	{
+		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
+		setAllocator(t, idx);
+	}
 }
 
 /**

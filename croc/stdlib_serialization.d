@@ -53,6 +53,8 @@ static:
 			newFunction(t, 2, &deserializeGraph, "deserializeGraph"); newGlobal(t, "deserializeGraph");
 			return 0;
 		});
+		
+		importModuleNoNS(t, "serialization");
 	}
 
 	uword serializeGraph(CrocThread* t)

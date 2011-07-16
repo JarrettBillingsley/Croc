@@ -1,9 +1,10 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-import serialization
+import string: StringBuffer
 
-local m = memblock.new("f32", [1 2 3 4 5])
+local sb = StringBuffer("hello world")
+
 
 function help(x, child: string = null)
 {
