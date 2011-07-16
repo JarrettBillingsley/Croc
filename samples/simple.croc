@@ -3,8 +3,9 @@ module samples.simple
 
 import string: StringBuffer
 
-local sb = StringBuffer("hello world")
-
+local sb = StringBuffer("0123456789")
+sb.remove(2, #sb)
+writeln$ sb
 
 function help(x, child: string = null)
 {

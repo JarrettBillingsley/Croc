@@ -71,6 +71,7 @@ static:
 			c.method("fill",           1, &fill);
 			c.method("fillRange",      3, &fillRange);
 			c.method("insert",         2, &sb_insert);
+			c.method("remove",         2, &remove);
 
 			c.method("format",            &format);
 			c.method("formatln",          &formatln);
@@ -816,6 +817,41 @@ static:
 			}
 
 			pop(t);
+		}
+
+		dup(t, 0);
+		return 1;
+	}
+
+	uword remove(CrocThread* t)
+	{
+		auto mb = getThis(t);
+		auto len = getLength(t);
+
+		if(len == 0)
+			throwException(t, "StringBuffer is empty");
+
+		auto lo = checkIntParam(t, 1);
+		auto hi = optIntParam(t, 2, lo + 1);
+
+		if(lo < 0)
+			lo += len;
+
+		if(hi < 0)
+			hi += len;
+
+		if(lo < 0 || lo > hi || hi > len)
+			throwException(t, "Invalid indices: {} .. {} (length: {})", lo, hi, len);
+
+		if(lo != hi)
+		{
+			if(hi < len)
+				memmove(&mb.data[cast(uword)lo * dchar.sizeof], &mb.data[cast(uword)hi * dchar.sizeof], cast(uint)((len - hi) * dchar.sizeof));
+
+			dup(t, 0);
+			pushNull(t);
+			pushInt(t, len - (hi - lo));
+			methodCall(t, -3, "opLengthAssign", 0);
 		}
 
 		dup(t, 0);
