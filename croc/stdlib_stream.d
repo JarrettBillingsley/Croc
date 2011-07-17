@@ -36,7 +36,6 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
-import croc.stdlib_vector;
 import croc.types;
 import croc.vm;
 
@@ -52,9 +51,9 @@ static:
 			InStreamObj.init(t);
 			OutStreamObj.init(t);
 			InoutStreamObj.init(t);
-			VectorInStreamObj.init(t);
-			VectorOutStreamObj.init(t);
-			VectorInoutStreamObj.init(t);
+			MemInStreamObj.init(t);
+			MemOutStreamObj.init(t);
+			MemInoutStreamObj.init(t);
 
 				pushGlobal(t, "InStream");
 				pushNull(t);
@@ -120,32 +119,32 @@ static:
 	{
 		CreateClass(t, "InStream", (CreateClass* c)
 		{
-			c.method("constructor", 2, &constructor);
-			c.method("readByte",    0, &readVal!(byte));
-			c.method("readUByte",   0, &readVal!(ubyte));
-			c.method("readShort",   0, &readVal!(short));
-			c.method("readUShort",  0, &readVal!(ushort));
-			c.method("readInt",     0, &readVal!(int));
-			c.method("readUInt",    0, &readVal!(uint));
-			c.method("readLong",    0, &readVal!(long));
-			c.method("readULong",   0, &readVal!(ulong));
-			c.method("readFloat",   0, &readVal!(float));
-			c.method("readDouble",  0, &readVal!(double));
-			c.method("readChar",    0, &readVal!(char));
-			c.method("readWChar",   0, &readVal!(wchar));
-			c.method("readDChar",   0, &readVal!(dchar));
-			c.method("readString",  0, &readString);
-			c.method("readln",      0, &readln);
-			c.method("readChars",   1, &readChars);
-			c.method("readVector",  2, &readVector);
-			c.method("rawRead",     2, &rawRead);
-			c.method("skip",        1, &skip);
+			c.method("constructor",  2, &constructor);
+			c.method("readByte",     0, &readVal!(byte));
+			c.method("readUByte",    0, &readVal!(ubyte));
+			c.method("readShort",    0, &readVal!(short));
+			c.method("readUShort",   0, &readVal!(ushort));
+			c.method("readInt",      0, &readVal!(int));
+			c.method("readUInt",     0, &readVal!(uint));
+			c.method("readLong",     0, &readVal!(long));
+			c.method("readULong",    0, &readVal!(ulong));
+			c.method("readFloat",    0, &readVal!(float));
+			c.method("readDouble",   0, &readVal!(double));
+			c.method("readChar",     0, &readVal!(char));
+			c.method("readWChar",    0, &readVal!(wchar));
+			c.method("readDChar",    0, &readVal!(dchar));
+			c.method("readString",   0, &readString);
+			c.method("readln",       0, &readln);
+			c.method("readChars",    1, &readChars);
+			c.method("readMemblock", 2, &readMemblock);
+			c.method("rawRead",      2, &rawRead);
+			c.method("skip",         1, &skip);
 
-			c.method("seek",        2, &seek);
-			c.method("position",    1, &position);
-			c.method("size",        0, &size);
-			c.method("close",       0, &close);
-			c.method("isOpen",      0, &isOpen);
+			c.method("seek",         2, &seek);
+			c.method("position",     1, &position);
+			c.method("size",         0, &size);
+			c.method("close",        0, &close);
+			c.method("isOpen",       0, &isOpen);
 
 				newFunction(t, &iterator, "InStream.iterator");
 			c.method("opApply", 1, &opApply, 1);
@@ -336,97 +335,59 @@ static:
 		return 1;
 	}
 
-	public uword readVector(CrocThread* t)
+	public uword readMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkAnyParam(t, 1);
 
 		crocint size = void;
-		VectorObj.Members* vecMemb = void;
+		CrocMemblock* mb = void;
 
 		if(isString(t, 1))
 		{
 			auto type = getString(t, 1);
 			size = checkIntParam(t, 2);
 
-			pushGlobal(t, "Vector");
-			pushNull(t);
-			pushString(t, type);
-			pushInt(t, size);
-			rawCall(t, -4, 1);
+			if(size < 0 || size > uword.max)
+				throwException(t, "Invalid size: {}", size);
 
-			vecMemb = getMembers!(VectorObj.Members)(t, -1);
+			newMemblock(t, type, cast(uword)size);
+			mb = getMemblock(t, -1);
 		}
-		else
+		else if(isMemblock(t, 1))
 		{
-			vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
-			size = optIntParam(t, 2, vecMemb.length);
+			mb = getMemblock(t, 1);
+			size = optIntParam(t, 2, mb.itemLength);
 
-			if(size != vecMemb.length)
-			{
-				dup(t, 1);
-				pushNull(t);
-				pushInt(t, size);
-				methodCall(t, -3, "opLengthAssign", 0);
-			}
+			if(size != mb.itemLength)
+				lenai(t, 1, size);
 
 			dup(t, 1);
 		}
+		else
+			paramTypeError(t, 1, "string|memblock");
 
-		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
+		uword numBytes = cast(uword)size * mb.kind.itemSize;
+		safeCode(t, readExact(t, memb, mb.data.ptr, numBytes));
 		return 1;
 	}
 
 	public uword rawRead(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto size = checkIntParam(t, 1);
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 
-		if(size < 0)
-			throwException(t, "Invalid size: {}", size);
+		auto typeCode = mb.kind.code;
 
-		VectorObj.Members* vecMemb = void;
+		if(typeCode != CrocMemblock.TypeCode.i8 && typeCode != CrocMemblock.TypeCode.u8)
+			throwException(t, "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
 
-		if(optParam(t, 2, CrocValue.Type.Instance))
-		{
-			vecMemb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
-			auto typeCode = vecMemb.type.code;
+		if(mb.itemLength == 0)
+			throwException(t, "Memblock cannot be 0 elements long");
 
-			if(typeCode != VectorObj.TypeCode.i8 && typeCode != VectorObj.TypeCode.u8)
-				throwException(t, "Passed-in vector must be of type i8 or u8, not '{}'", VectorObj.typeNames[typeCode]);
-
-			if(size != vecMemb.length)
-			{
-				dup(t, 2);
-				pushNull(t);
-				pushInt(t, size);
-				methodCall(t, -3, "opLengthAssign", 0);
-			}
-
-			dup(t, 2);
-		}
-		else
-		{
-			pushGlobal(t, "Vector");
-			pushNull(t);
-			pushString(t, "u8");
-			pushInt(t, size);
-			rawCall(t, -4, 1);
-
-			vecMemb = getMembers!(VectorObj.Members)(t, -1);
-		}
-
-		auto realSize = safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size));
-
-		if(realSize != size)
-		{
-			dup(t);
-			pushNull(t);
-			pushInt(t, realSize);
-			methodCall(t, -3, "opLengthAssign", 0);
-		}
-
+		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
+		pushInt(t, realSize);
 		return 1;
 	}
 
@@ -557,7 +518,7 @@ static:
 		bool closed = true;
 		bool closable = true;
 	}
-	
+
 	public OutputStream getStream(CrocThread* t, word idx)
 	{
 		return checkInstParam!(Members)(t, idx, "stream.OutStream").stream;
@@ -577,36 +538,36 @@ static:
 	{
 		CreateClass(t, "OutStream", (CreateClass* c)
 		{
-			c.method("constructor", 2, &constructor);
-			c.method("writeByte",   1, &writeVal!(byte));
-			c.method("writeUByte",  1, &writeVal!(ubyte));
-			c.method("writeShort",  1, &writeVal!(short));
-			c.method("writeUShort", 1, &writeVal!(ushort));
-			c.method("writeInt",    1, &writeVal!(int));
-			c.method("writeUInt",   1, &writeVal!(uint));
-			c.method("writeLong",   1, &writeVal!(long));
-			c.method("writeULong",  1, &writeVal!(ulong));
-			c.method("writeFloat",  1, &writeVal!(float));
-			c.method("writeDouble", 1, &writeVal!(double));
-			c.method("writeChar",   1, &writeVal!(char));
-			c.method("writeWChar",  1, &writeVal!(wchar));
-			c.method("writeDChar",  1, &writeVal!(dchar));
-			c.method("writeString", 1, &writeString);
-			c.method("write",          &write);
-			c.method("writeln",        &writeln);
-			c.method("writef",         &writef);
-			c.method("writefln",       &writefln);
-			c.method("writeChars",  1, &writeChars);
-			c.method("writeVector", 3, &writeVector);
-			c.method("flush",       0, &flush);
-			c.method("copy",        1, &copy);
-			c.method("flushOnNL",   1, &flushOnNL);
+			c.method("constructor",   2, &constructor);
+			c.method("writeByte",     1, &writeVal!(byte));
+			c.method("writeUByte",    1, &writeVal!(ubyte));
+			c.method("writeShort",    1, &writeVal!(short));
+			c.method("writeUShort",   1, &writeVal!(ushort));
+			c.method("writeInt",      1, &writeVal!(int));
+			c.method("writeUInt",     1, &writeVal!(uint));
+			c.method("writeLong",     1, &writeVal!(long));
+			c.method("writeULong",    1, &writeVal!(ulong));
+			c.method("writeFloat",    1, &writeVal!(float));
+			c.method("writeDouble",   1, &writeVal!(double));
+			c.method("writeChar",     1, &writeVal!(char));
+			c.method("writeWChar",    1, &writeVal!(wchar));
+			c.method("writeDChar",    1, &writeVal!(dchar));
+			c.method("writeString",   1, &writeString);
+			c.method("write",            &write);
+			c.method("writeln",          &writeln);
+			c.method("writef",           &writef);
+			c.method("writefln",         &writefln);
+			c.method("writeChars",    1, &writeChars);
+			c.method("writeMemblock", 3, &writeMemblock);
+			c.method("flush",         0, &flush);
+			c.method("copy",          1, &copy);
+			c.method("flushOnNL",     1, &flushOnNL);
 
-			c.method("seek",        2, &seek);
-			c.method("position",    1, &position);
-			c.method("size",        0, &size);
-			c.method("close",       0, &close);
-			c.method("isOpen",      0, &isOpen);
+			c.method("seek",          2, &seek);
+			c.method("position",      1, &position);
+			c.method("size",          0, &size);
+			c.method("close",         0, &close);
+			c.method("isOpen",        0, &isOpen);
 		});
 
 		newFunction(t, &allocator, "OutStream.allocator");
@@ -804,27 +765,25 @@ static:
 		return 1;
 	}
 
-	public uword writeVector(CrocThread* t)
+	public uword writeMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 		auto lo = optIntParam(t, 2, 0);
-		auto hi = optIntParam(t, 3, vecMemb.length);
+		auto hi = optIntParam(t, 3, mb.itemLength);
 
 		if(lo < 0)
-			lo += vecMemb.length;
-
-		if(lo < 0 || lo > vecMemb.length)
-			throwException(t, "Invalid low index: {} (vector length: {})", lo, vecMemb.length);
+			lo += mb.itemLength;
 
 		if(hi < 0)
-			hi += vecMemb.length;
+			hi += mb.itemLength;
 
-		if(hi < lo || hi > vecMemb.length)
-			throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
+		if(lo < 0 || lo > hi || hi > mb.itemLength)
+			throwException(t, "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
-		auto isize = vecMemb.type.itemSize;
-		safeCode(t, writeExact(t, memb, vecMemb.data + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
+		auto isize = mb.kind.itemSize;
+		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		dup(t, 0);
 		return 1;
 	}
@@ -982,58 +941,58 @@ static:
 		{
 			c.method("constructor", 2, &constructor);
 
-			c.method("readByte",    0, &readVal!(byte));
-			c.method("readUByte",   0, &readVal!(ubyte));
-			c.method("readShort",   0, &readVal!(short));
-			c.method("readUShort",  0, &readVal!(ushort));
-			c.method("readInt",     0, &readVal!(int));
-			c.method("readUInt",    0, &readVal!(uint));
-			c.method("readLong",    0, &readVal!(long));
-			c.method("readULong",   0, &readVal!(ulong));
-			c.method("readFloat",   0, &readVal!(float));
-			c.method("readDouble",  0, &readVal!(double));
-			c.method("readChar",    0, &readVal!(char));
-			c.method("readWChar",   0, &readVal!(wchar));
-			c.method("readDChar",   0, &readVal!(dchar));
-			c.method("readString",  0, &readString);
-			c.method("readln",      0, &readln);
-			c.method("readChars",   1, &readChars);
-			c.method("readVector",  2, &readVector);
-			c.method("rawRead",     2, &rawRead);
+			c.method("readByte",      0, &readVal!(byte));
+			c.method("readUByte",     0, &readVal!(ubyte));
+			c.method("readShort",     0, &readVal!(short));
+			c.method("readUShort",    0, &readVal!(ushort));
+			c.method("readInt",       0, &readVal!(int));
+			c.method("readUInt",      0, &readVal!(uint));
+			c.method("readLong",      0, &readVal!(long));
+			c.method("readULong",     0, &readVal!(ulong));
+			c.method("readFloat",     0, &readVal!(float));
+			c.method("readDouble",    0, &readVal!(double));
+			c.method("readChar",      0, &readVal!(char));
+			c.method("readWChar",     0, &readVal!(wchar));
+			c.method("readDChar",     0, &readVal!(dchar));
+			c.method("readString",    0, &readString);
+			c.method("readln",        0, &readln);
+			c.method("readChars",     1, &readChars);
+			c.method("readMemblock",  2, &readMemblock);
+			c.method("rawRead",       2, &rawRead);
 
 				newFunction(t, &iterator, "InoutStream.iterator");
 			c.method("opApply", 1, &opApply, 1);
 
-			c.method("writeByte",   1, &writeVal!(byte));
-			c.method("writeUByte",  1, &writeVal!(ubyte));
-			c.method("writeShort",  1, &writeVal!(short));
-			c.method("writeUShort", 1, &writeVal!(ushort));
-			c.method("writeInt",    1, &writeVal!(int));
-			c.method("writeUInt",   1, &writeVal!(uint));
-			c.method("writeLong",   1, &writeVal!(long));
-			c.method("writeULong",  1, &writeVal!(ulong));
-			c.method("writeFloat",  1, &writeVal!(float));
-			c.method("writeDouble", 1, &writeVal!(double));
-			c.method("writeChar",   1, &writeVal!(char));
-			c.method("writeWChar",  1, &writeVal!(wchar));
-			c.method("writeDChar",  1, &writeVal!(dchar));
-			c.method("writeString", 1, &writeString);
-			c.method("write",          &write);
-			c.method("writeln",        &writeln);
-			c.method("writef",         &writef);
-			c.method("writefln",       &writefln);
-			c.method("writeChars",  1, &writeChars);
-			c.method("writeVector", 3, &writeVector);
-			c.method("flush",       0, &flush);
-			c.method("copy",        1, &copy);
-			c.method("flushOnNL",   1, &flushOnNL);
+			c.method("writeByte",     1, &writeVal!(byte));
+			c.method("writeUByte",    1, &writeVal!(ubyte));
+			c.method("writeShort",    1, &writeVal!(short));
+			c.method("writeUShort",   1, &writeVal!(ushort));
+			c.method("writeInt",      1, &writeVal!(int));
+			c.method("writeUInt",     1, &writeVal!(uint));
+			c.method("writeLong",     1, &writeVal!(long));
+			c.method("writeULong",    1, &writeVal!(ulong));
+			c.method("writeFloat",    1, &writeVal!(float));
+			c.method("writeDouble",   1, &writeVal!(double));
+			c.method("writeChar",     1, &writeVal!(char));
+			c.method("writeWChar",    1, &writeVal!(wchar));
+			c.method("writeDChar",    1, &writeVal!(dchar));
+			c.method("writeString",   1, &writeString);
+			c.method("write",            &write);
+			c.method("writeln",          &writeln);
+			c.method("writef",           &writef);
+			c.method("writefln",         &writefln);
+			c.method("writeChars",    1, &writeChars);
+			c.method("writeMemblock", 3, &writeMemblock);
+			c.method("flush",         0, &flush);
+			c.method("copy",          1, &copy);
+			c.method("flushOnNL",     1, &flushOnNL);
 
-			c.method("skip",        1, &skip);
-			c.method("seek",        2, &seek);
-			c.method("position",    1, &position);
-			c.method("size",        0, &size);
-			c.method("close",       0, &close);
-			c.method("isOpen",      0, &isOpen);
+			c.method("skip",          1, &skip);
+			c.method("seek",          2, &seek);
+			c.method("position",      1, &position);
+			c.method("size",          0, &size);
+			c.method("close",         0, &close);
+			c.method("isOpen",        0, &isOpen);
 		});
 
 		newFunction(t, &allocator, "InoutStream.allocator");
@@ -1260,7 +1219,7 @@ static:
 		return 1;
 	}
 
-	public uword readVector(CrocThread* t)
+	public uword readMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
@@ -1268,39 +1227,34 @@ static:
 		checkAnyParam(t, 1);
 
 		crocint size = void;
-		VectorObj.Members* vecMemb = void;
+		CrocMemblock* mb = void;
 
 		if(isString(t, 1))
 		{
 			auto type = getString(t, 1);
 			size = checkIntParam(t, 2);
+			
+			if(size < 0 || size > uword.max)
+				throwException(t, "Invalid size: {}", size);
 
-			pushGlobal(t, "Vector");
-			pushNull(t);
-			pushString(t, type);
-			pushInt(t, size);
-			rawCall(t, -4, 1);
-
-			vecMemb = getMembers!(VectorObj.Members)(t, -1);
+			newMemblock(t, type, cast(uword)size);
+			mb = getMemblock(t, -1);
 		}
-		else
+		else if(isMemblock(t, 1))
 		{
-			vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
-			size = optIntParam(t, 2, vecMemb.length);
+			mb = getMemblock(t, 1);
+			size = optIntParam(t, 2, mb.itemLength);
 
-			if(size != vecMemb.length)
-			{
-				dup(t, 1);
-				pushNull(t);
-				pushInt(t, size);
-				methodCall(t, -3, "opLengthAssign", 0);
-			}
+			if(size != mb.itemLength)
+				lenai(t, 1, size);
 
 			dup(t, 1);
 		}
+		else
+			paramTypeError(t, 1, "string|memblock");
 
-		uword numBytes = cast(uword)size * vecMemb.type.itemSize;
-		safeCode(t, readExact(t, memb, vecMemb.data, numBytes));
+		uword numBytes = cast(uword)size * mb.kind.itemSize;
+		safeCode(t, readExact(t, memb, mb.data.ptr, numBytes));
 		return 1;
 	}
 
@@ -1309,52 +1263,19 @@ static:
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
 
-		auto size = checkIntParam(t, 1);
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 
-		if(size < 0)
-			throwException(t, "Invalid size: {}", size);
+		auto typeCode = mb.kind.code;
 
-		VectorObj.Members* vecMemb = void;
+		if(typeCode != CrocMemblock.TypeCode.i8 && typeCode != CrocMemblock.TypeCode.u8)
+			throwException(t, "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
 
-		if(optParam(t, 2, CrocValue.Type.Instance))
-		{
-			vecMemb = checkInstParam!(VectorObj.Members)(t, 2, "Vector");
-			auto typeCode = vecMemb.type.code;
+		if(mb.itemLength == 0)
+			throwException(t, "Memblock cannot be 0 elements long");
 
-			if(typeCode != VectorObj.TypeCode.i8 && typeCode != VectorObj.TypeCode.u8)
-				throwException(t, "Passed-in vector must be of type i8 or u8, not '{}'", VectorObj.typeNames[typeCode]);
-
-			if(size != vecMemb.length)
-			{
-				dup(t, 2);
-				pushNull(t);
-				pushInt(t, size);
-				methodCall(t, -3, "opLengthAssign", 0);
-			}
-
-			dup(t, 2);
-		}
-		else
-		{
-			pushGlobal(t, "Vector");
-			pushNull(t);
-			pushString(t, "u8");
-			pushInt(t, size);
-			rawCall(t, -4, 1);
-
-			vecMemb = getMembers!(VectorObj.Members)(t, -1);
-		}
-
-		auto realSize = safeCode(t, readAtMost(t, memb, vecMemb.data, cast(uword)size));
-
-		if(realSize != size)
-		{
-			dup(t);
-			pushNull(t);
-			pushInt(t, realSize);
-			methodCall(t, -3, "opLengthAssign", 0);
-		}
-
+		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
+		pushInt(t, realSize);
 		return 1;
 	}
 
@@ -1500,27 +1421,25 @@ static:
 		return 1;
 	}
 
-	public uword writeVector(CrocThread* t)
+	public uword writeMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto vecMemb = checkInstParam!(VectorObj.Members)(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 1);
 		auto lo = optIntParam(t, 2, 0);
-		auto hi = optIntParam(t, 3, vecMemb.length);
+		auto hi = optIntParam(t, 3, mb.itemLength);
 
 		if(lo < 0)
-			lo += vecMemb.length;
-
-		if(lo < 0 || lo > vecMemb.length)
-			throwException(t, "Invalid low index: {} (vector length: {})", lo, vecMemb.length);
+			lo += mb.itemLength;
 
 		if(hi < 0)
-			hi += vecMemb.length;
+			hi += mb.itemLength;
 
-		if(hi < lo || hi > vecMemb.length)
-			throwException(t, "Invalid indices: {} .. {} (vector length: {})", lo, hi, vecMemb.length);
+		if(lo < 0 || lo > hi || hi > mb.itemLength)
+			throwException(t, "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
-		auto isize = vecMemb.type.itemSize;
-		safeCode(t, writeExact(t, memb, vecMemb.data + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
+		auto isize = mb.kind.itemSize;
+		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1671,22 +1590,22 @@ static:
 	}
 }
 
-class VectorConduit : Conduit, Conduit.Seek
+class MemblockConduit : Conduit, Conduit.Seek
 {
 	private CrocVM* vm;
-	private ulong mVec;
+	private ulong mMB;
 	private uword mPos = 0;
 
-	private this(CrocVM* vm, ulong vec)
+	private this(CrocVM* vm, ulong mb)
 	{
 		super();
 		this.vm = vm;
-		mVec = vec;
+		mMB = mb;
 	}
-	
+
 	override char[] toString()
 	{
-		return "<vector>";
+		return "<memblock>";
 	}
 
 	override uword bufferSize()
@@ -1702,17 +1621,16 @@ class VectorConduit : Conduit, Conduit.Seek
 	override uword read(void[] dest)
 	{
 		auto t = currentThread(vm);
-		pushRef(t, mVec);
-		auto memb = getMembers!(VectorObj.Members)(t, -1);
-		pop(t);
+		pushRef(t, mMB);
+		auto mb = getMemblock(t, -1);
 
-		auto byteSize = memb.length * memb.type.itemSize;
+		auto byteSize = mb.itemLength * mb.kind.itemSize;
 
 		if(mPos >= byteSize)
 			return Eof;
 
 		auto numBytes = min(byteSize - mPos, dest.length);
-		dest[0 .. numBytes] = memb.data[mPos .. mPos + numBytes];
+		dest[0 .. numBytes] = mb.data[mPos .. mPos + numBytes];
 		mPos += numBytes;
 		return numBytes;
 	}
@@ -1720,28 +1638,26 @@ class VectorConduit : Conduit, Conduit.Seek
 	override uword write(void[] src)
 	{
 		auto t = currentThread(vm);
-		pushRef(t, mVec);
-		auto memb = getMembers!(VectorObj.Members)(t, -1);
+		pushRef(t, mMB);
+		auto mb = getMemblock(t, -1);
 
-		auto byteSize = memb.length * memb.type.itemSize;
+		auto byteSize = mb.itemLength * mb.kind.itemSize;
 		auto bytesLeft = byteSize - mPos;
 
 		if(src.length > bytesLeft)
 		{
 			auto newByteSize = byteSize - bytesLeft + src.length;
-			auto newSize = newByteSize / memb.type.itemSize;
+			auto newSize = newByteSize / mb.kind.itemSize;
 
-			if((newSize * memb.type.itemSize) < newByteSize)
+			if((newSize * mb.kind.itemSize) < newByteSize)
 				newSize++;
-
-			pushNull(t);
-			pushInt(t, newSize);
-			methodCall(t, -3, "opLengthAssign", 0);
+				
+			lenai(t, -1, newSize);
 		}
-		else
-			pop(t);
 
-		memb.data[mPos .. mPos + src.length] = src[];
+		pop(t);
+
+		mb.data[mPos .. mPos + src.length] = src[];
 		mPos += src.length;
 		return src.length;
 	}
@@ -1749,11 +1665,11 @@ class VectorConduit : Conduit, Conduit.Seek
 	override long seek(long offset, Anchor anchor = Anchor.Begin)
 	{
 		auto t = currentThread(vm);
-		pushRef(t, mVec);
-		auto memb = getMembers!(VectorObj.Members)(t, -1);
+		pushRef(t, mMB);
+		auto mb = getMemblock(t, -1);
 		pop(t);
 
-		auto byteSize = memb.length * memb.type.itemSize;
+		auto byteSize = mb.itemLength * mb.kind.itemSize;
 
 		if(offset > byteSize)
 			offset = byteSize;
@@ -1787,22 +1703,22 @@ class VectorConduit : Conduit, Conduit.Seek
 	}
 }
 
-struct VectorInStreamObj
+struct MemInStreamObj
 {
 static:
 	alias InStreamObj.Members Members;
 
 	public void init(CrocThread* t)
 	{
-		CreateClass(t, "VectorInStream", "InStream", (CreateClass* c)
+		CreateClass(t, "MemInStream", "InStream", (CreateClass* c)
 		{
 			c.method("constructor", &constructor);
 		});
 
-		newFunction(t, &finalizer, "VectorInStream.finalizer");
+		newFunction(t, &finalizer, "MemInStream.finalizer");
 		setFinalizer(t, -2);
 
-		newGlobal(t, "VectorInStream");
+		newGlobal(t, "MemInStream");
 	}
 
 	uword finalizer(CrocThread* t)
@@ -1812,7 +1728,7 @@ static:
 		if(!memb.closed)
 		{
 			memb.closed = true;
-			removeRef(t, (cast(VectorConduit)memb.stream).mVec);
+			removeRef(t, (cast(MemblockConduit)memb.stream).mMB);
 		}
 
 		return 0;
@@ -1823,13 +1739,13 @@ static:
 		auto memb = InStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized VectorInStream");
+			throwException(t, "Attempting to call constructor on an already-initialized MemInStream");
 
-		checkInstParam(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
 
 		pushNull(t);
-		dup(t);
-		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushNull(t);
+		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
 		pushBool(t, true);
 		superCall(t, -4, "constructor", 0);
 
@@ -1837,22 +1753,22 @@ static:
 	}
 }
 
-struct VectorOutStreamObj
+struct MemOutStreamObj
 {
 static:
 	alias OutStreamObj.Members Members;
 
 	public void init(CrocThread* t)
 	{
-		CreateClass(t, "VectorOutStream", "OutStream", (CreateClass* c)
+		CreateClass(t, "MemOutStream", "OutStream", (CreateClass* c)
 		{
 			c.method("constructor", &constructor);
 		});
 
-		newFunction(t, &finalizer, "VectorOutStream.finalizer");
+		newFunction(t, &finalizer, "MemOutStream.finalizer");
 		setFinalizer(t, -2);
 
-		newGlobal(t, "VectorOutStream");
+		newGlobal(t, "MemOutStream");
 	}
 
 	uword finalizer(CrocThread* t)
@@ -1862,7 +1778,7 @@ static:
 		if(!memb.closed)
 		{
 			memb.closed = true;
-			removeRef(t, (cast(VectorConduit)memb.stream).mVec);
+			removeRef(t, (cast(MemblockConduit)memb.stream).mMB);
 		}
 
 		return 0;
@@ -1873,13 +1789,13 @@ static:
 		auto memb = OutStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized VectorOutStream");
+			throwException(t, "Attempting to call constructor on an already-initialized MemOutStream");
 
-		checkInstParam(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
 
 		pushNull(t);
 		dup(t);
-		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
 		pushBool(t, true);
 		superCall(t, -4, "constructor", 0);
 
@@ -1887,22 +1803,22 @@ static:
 	}
 }
 
-struct VectorInoutStreamObj
+struct MemInoutStreamObj
 {
 static:
 	alias InoutStreamObj.Members Members;
 
 	public void init(CrocThread* t)
 	{
-		CreateClass(t, "VectorInoutStream", "InoutStream", (CreateClass* c)
+		CreateClass(t, "MemInoutStream", "InoutStream", (CreateClass* c)
 		{
 			c.method("constructor", &constructor);
 		});
 
-		newFunction(t, &finalizer, "VectorInoutStream.finalizer");
+		newFunction(t, &finalizer, "MemInoutStream.finalizer");
 		setFinalizer(t, -2);
 
-		newGlobal(t, "VectorInoutStream");
+		newGlobal(t, "MemInoutStream");
 	}
 
 	uword finalizer(CrocThread* t)
@@ -1912,7 +1828,7 @@ static:
 		if(!memb.closed)
 		{
 			memb.closed = true;
-			removeRef(t, (cast(VectorConduit)memb.conduit).mVec);
+			removeRef(t, (cast(MemblockConduit)memb.conduit).mMB);
 		}
 
 		return 0;
@@ -1923,13 +1839,13 @@ static:
 		auto memb = InoutStreamObj.getThis(t);
 
 		if(memb.conduit !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized VectorInoutStream");
+			throwException(t, "Attempting to call constructor on an already-initialized MemInoutStream");
 
-		checkInstParam(t, 1, "Vector");
+		checkParam(t, 1, CrocValue.Type.Memblock);
 
 		pushNull(t);
 		dup(t);
-		pushNativeObj(t, new VectorConduit(getVM(t), createRef(t, 1)));
+		pushNativeObj(t, new MemblockConduit(getVM(t), createRef(t, 1)));
 		pushBool(t, true);
 		superCall(t, -4, "constructor", 0);
 
