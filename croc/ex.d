@@ -204,8 +204,10 @@ public:
 		}
 
 		auto dt = getDocTables();
-
 		newTable(t);
+		dup(t);
+		cateq(t, dt, 1);
+
 		pushString(t, mFile);     fielda(t, -2, "file");
 		pushInt(t, docs.line);    fielda(t, -2, "line");
 		pushString(t, docs.kind); fielda(t, -2, "kind");
@@ -251,11 +253,12 @@ public:
 		}
 
 		if(docs.docs == "ditto")
+		{
 			doDitto(dt, docs);
+			.pop(t);
+		}
 		else
-			cateq(t, dt, 1);
-
-		.pop(t);
+			.pop(t, 2);
 	}
 
 	void pop(word idx, char[] parentField = "children")
@@ -331,6 +334,7 @@ public:
 		if(len(t, dt) > 0)
 		{
 			auto parent = idxi(t, dt, -1);
+
 			pushString(t, parentField);
 
 			if(!opin(t, -1, -2))
@@ -368,11 +372,11 @@ private:
 	void doDitto(word dt, Docs docs)
 	{
 		// At top level?
-		if(len(t, dt) == 0)
+		if(len(t, dt) == 1)
 			throwException(t, "Cannot use ditto on the top-level declaration");
 
 		// Get the parent and try to get the last declaration before this one
-		idxi(t, dt, -1);
+		idxi(t, dt, -2);
 
 		bool okay = false;
 
@@ -404,6 +408,7 @@ private:
 
 		// Okay, we can ditto.
 		mDittoDepth++;
+		lenai(t, dt, len(t, dt) - 1);
 
 		if(!hasField(t, -1, "dittos"))
 		{

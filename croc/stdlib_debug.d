@@ -655,6 +655,7 @@ static:
 			case "string":    getTypeMT(t, CrocValue.Type.String);    break;
 			case "table":     getTypeMT(t, CrocValue.Type.Table);     break;
 			case "array":     getTypeMT(t, CrocValue.Type.Array);     break;
+			case "memblock":  getTypeMT(t, CrocValue.Type.Memblock);  break;
 			case "function":  getTypeMT(t, CrocValue.Type.Function);  break;
 			case "class":     getTypeMT(t, CrocValue.Type.Class);     break;
 			case "instance":  getTypeMT(t, CrocValue.Type.Instance);  break;
@@ -670,18 +671,18 @@ static:
 
 		return 1;
 	}
-	
+
 	uword setMetatable(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		
+
 		checkAnyParam(t, 2);
 
 		if(!isNull(t, 2) && !isNamespace(t, 2))
 			paramTypeError(t, 2, "null|namespace");
 
 		setStackSize(t, 3);
-		
+
 		switch(name)
 		{
 			case "null":      setTypeMT(t, CrocValue.Type.Null);      break;
@@ -692,6 +693,7 @@ static:
 			case "string":    setTypeMT(t, CrocValue.Type.String);    break;
 			case "table":     setTypeMT(t, CrocValue.Type.Table);     break;
 			case "array":     setTypeMT(t, CrocValue.Type.Array);     break;
+			case "memblock":  setTypeMT(t, CrocValue.Type.Memblock);  break;
 			case "function":  setTypeMT(t, CrocValue.Type.Function);  break;
 			case "class":     setTypeMT(t, CrocValue.Type.Class);     break;
 			case "instance":  setTypeMT(t, CrocValue.Type.Instance);  break;

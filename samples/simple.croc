@@ -1,16 +1,12 @@
 /// This is a comment for the moduuuuule
 module samples.simple
 
-import string: StringBuffer
+/// DOCS!
+local x, y = 3, 4
 
-/// This is A's docs
-class A {}
-
-/// ditto
-class B
+function main()
 {
-	/// boopadoop
-	function foo() {}
+	help(samples.simple, "z")
 }
 
 function help(x, child: string = null)
@@ -30,17 +26,29 @@ function help(x, child: string = null)
 
 		local found = false
 
-		foreach(c; d.children)
+		foreach outerLoop(c; d.children)
 		{
-			// BUG: doesn't find children in names like "x,y"
 			if(c.name == child)
 			{
 				found = true
 				d = c
 				break
 			}
+
+			if(c.dittos)
+			{
+				foreach(dit; c.dittos)
+				{
+					if(dit.name == child)
+					{
+						found = true
+						d = c
+						break outerLoop
+					}
+				}
+			}
 		}
-		
+
 		if(!found)
 			throw "Not found"
 	}
@@ -210,18 +218,18 @@ function dumpStdlib(x)
 // {
 // 	foooooob /// foooooooob!
 // }
-// 
+//
 // namespace Y {}
-// 
+//
 // /
 // local fork, knife = 4, 5
-// 
+//
 // /****************************
 //  * Blerfaderfa!
 //  * BLah blah blah.
 //  ****************************/
 // function foo(x: int = BLERFADERFADARF + 3 + f(4)) {}
-// 
+//
 // /** This is a class. */
 // class C
 // {

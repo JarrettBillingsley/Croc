@@ -77,11 +77,11 @@ static:
 
 		// The Memblock type's metatable
 		newNamespace(t, "memblock");
-			registerField(t, 0, "toString", &memblockToString);
-			registerField(t, 1, "opEquals", &memblockOpEquals);
+			mixin(RegisterField!(0, "memblockToString", 0, "memblock.toString", "toString"));
+			mixin(RegisterField!(1, "memblockOpEquals", 0, "memblock.opEquals", "opEquals"));
 				newFunction(t, &memblockIterator, "memblock.iterator");
 				newFunction(t, &memblockIteratorReverse, "memblock.iteratorReverse");
-			registerField(t, 1, "opApply", &memblockOpApply, 2);
+			mixin(RegisterField!(1, "memblockOpApply",  2, "memblock.opApply",  "opApply"));
 		setTypeMT(t, CrocValue.Type.Memblock);
 
 		// The Function type's metatable
@@ -242,6 +242,14 @@ static:
 	// ===================================================================================================================================
 	// Function metatable
 
+	version(CrocBuiltinDocs) Docs memblockToString_docs = {kind: "function", name: "toString", docs:
+	"Returns a string representation of this memblock in the form `\"memblock(type)[items]\"`; for example,
+	`\"memblock.range(\"i32\", 1, 5).toString()\"` would yield `\"memblock(i32)[1, 2, 3, 4]\"`. If the memblock
+	is of type void, then the result will instead be `\"memblock(v)[n bytes]\"`, where ''n'' is the length of
+	the memblock.",
+	params: [],
+	extra: [Extra("section", "Memblock metamethods")]};
+
 	uword memblockToString(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Memblock);
@@ -286,6 +294,12 @@ static:
 		b.finish();
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs memblockOpEquals_docs = {kind: "function", name: "opEquals", docs:
+	"Compares two memblocks for equality. Throws an error if the two memblocks are of different types. Returns
+	true only if the two memblocks are the same length and have the same contents.",
+	params: [Param("other", "memblock")],
+	extra: [Extra("section", "Memblock metamethods")]};
 
 	uword memblockOpEquals(CrocThread* t)
 	{
@@ -349,6 +363,23 @@ static:
 		push(t, memblock.index(mb, cast(uword)index));
 		return 2;
 	}
+
+	version(CrocBuiltinDocs) Docs memblockOpApply_docs = {kind: "function", name: "opApply", docs:
+	"This lets you iterate over the elements of memblocks with foreach loops, just like with arrays. Also
+	like arrays, you can pass `\"reverse\"` to iterate over the elements backwards.
+{{{
+#!croc
+local m = memblock.range(\"i32\", 1, 6)
+
+foreach(val; m)
+	writeln(val) // prints 1 through 5
+
+foreach(val; m, \"reverse\")
+	writeln(val) // prints 5 through 1
+}}}
+	",
+	params: [Param("mode", "string", "null")],
+	extra: [Extra("section", "Memblock metamethods")]};
 
 	uword memblockOpApply(CrocThread* t)
 	{

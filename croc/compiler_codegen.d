@@ -1581,7 +1581,7 @@ final class FuncState
 		if(diff > 0)
 			codeI(location.line, Op.Unwind, 0, diff);
 
-		continueScope.continues = codeJ(location.line, Op.Jmp, 1, mScope.continueScope.continues);
+		continueScope.continues = codeJ(location.line, Op.Jmp, 1, continueScope.continues);
 	}
 
 	public void codeBreak(CompileLoc location, char[] name)
@@ -1622,7 +1622,7 @@ final class FuncState
 		if(diff > 0)
 			codeI(location.line, Op.Unwind, 0, diff);
 
-		breakScope.breaks = codeJ(location.line, Op.Jmp, 1, mScope.breakScope.breaks);
+		breakScope.breaks = codeJ(location.line, Op.Jmp, 1, breakScope.breaks);
 	}
 
 	// ---------------------------------------------------------------------------

@@ -529,34 +529,28 @@ scope class DocGen : IdentityVisitor
 		if(d.docs.length == 0)
 			return d;
 			
-		foreach(i, name; d.names)
+		void makeTable(uword idx)
 		{
-			if(i > 0)
-				pushString(t, ",");
-			pushString(t, name.name);
-		}
+			pushDocTable(d.location, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
 
-		cat(t, (d.names.length * 2) - 1);
-		auto name = c.newString(getString(t, -1));
-		pop(t);
-
-		pushDocTable(d.location, "variable", name, d.docs);
-
-		if(d.initializer)
-		{
-			foreach(i, init; d.initializer)
+			if(idx < d.initializer.length)
 			{
-				if(i > 0)
-					pushString(t, ", ");
-				pushString(t, init.sourceStr);
+				pushString(t, d.initializer[idx].sourceStr);
+				fielda(t, mDocTable, "value");
 			}
+			
+			if(d.protection == Protection.Local)
+				pushString(t, "local");
+			else
+				pushString(t, "global"); // covers "default" protection as well, since we're only dealing with globals
 
-			cat(t, (d.initializer.length * 2) - 1);
-			fielda(t, mDocTable, "value");
+			fielda(t, -2, "protection");
+			popDocTable();
 		}
 
-		popDocTable();
-		doProtection(d.protection);
+		for(uword i = 0; i < d.names.length; i++)
+			makeTable(i);
+
 		return d;
 	}
 
