@@ -110,28 +110,23 @@ static:
 		mixin(Register!(3, "rawSetField"));
 		mixin(Register!(2, "rawGetField"));
 
-		version(CrocBuiltinDocs)
-		{
-			pushNull(t); doc(-1, isParam_docs); pop(t);
-		}
-
-		register(t, 1, "isNull", &isParam!(CrocValue.Type.Null));
-		register(t, 1, "isBool", &isParam!(CrocValue.Type.Bool));
-		register(t, 1, "isInt", &isParam!(CrocValue.Type.Int));
-		register(t, 1, "isFloat", &isParam!(CrocValue.Type.Float));
-		register(t, 1, "isChar", &isParam!(CrocValue.Type.Char));
-		register(t, 1, "isString", &isParam!(CrocValue.Type.String));
-		register(t, 1, "isTable", &isParam!(CrocValue.Type.Table));
-		register(t, 1, "isArray", &isParam!(CrocValue.Type.Array));
-		register(t, 1, "isMemblock", &isParam!(CrocValue.Type.Memblock));
-		register(t, 1, "isFunction", &isParam!(CrocValue.Type.Function));
-		register(t, 1, "isClass", &isParam!(CrocValue.Type.Class));
-		register(t, 1, "isInstance", &isParam!(CrocValue.Type.Instance));
-		register(t, 1, "isNamespace", &isParam!(CrocValue.Type.Namespace));
-		register(t, 1, "isThread", &isParam!(CrocValue.Type.Thread));
-		register(t, 1, "isNativeObj", &isParam!(CrocValue.Type.NativeObj));
-		register(t, 1, "isWeakRef", &isParam!(CrocValue.Type.WeakRef));
-		register(t, 1, "isFuncDef", &isParam!(CrocValue.Type.FuncDef));
+		mixin(Register!(1, "crocIsNull",      0, "isNull"));
+		mixin(Register!(1, "crocIsBool",      0, "isBool"));
+		mixin(Register!(1, "crocIsInt",       0, "isInt"));
+		mixin(Register!(1, "crocIsFloat",     0, "isFloat"));
+		mixin(Register!(1, "crocIsChar",      0, "isChar"));
+		mixin(Register!(1, "crocIsString",    0, "isString"));
+		mixin(Register!(1, "crocIsTable",     0, "isTable"));
+		mixin(Register!(1, "crocIsArray",     0, "isArray"));
+		mixin(Register!(1, "crocIsMemblock",  0, "isMemblock"));
+		mixin(Register!(1, "crocIsFunction",  0, "isFunction"));
+		mixin(Register!(1, "crocIsClass",     0, "isClass"));
+		mixin(Register!(1, "crocIsInstance",  0, "isInstance"));
+		mixin(Register!(1, "crocIsNamespace", 0, "isNamespace"));
+		mixin(Register!(1, "crocIsThread",    0, "isThread"));
+		mixin(Register!(1, "crocIsNativeObj", 0, "isNativeObj"));
+		mixin(Register!(1, "crocIsWeakRef",   0, "isWeakRef"));
+		mixin(Register!(1, "crocIsFuncDef",   0, "isFuncDef"));
 
 			newTable(t);
 			dup(t);
@@ -833,32 +828,6 @@ foreach(k, v, o; allFieldsOf(B))
 		return 1;
 	}
 
-	version(CrocBuiltinDocs) Docs isParam_docs = {kind: "function", name: "isXxx", docs:
-	"This isn't a single function, but a whole family of functions, one for each of the builtin types
-	in Croc:
- * `isNull`
- * `isBool`
- * `isInt`
- * `isFloat`
- * `isChar`
- * `isString`
- * `isTable`
- * `isArray`
- * `isMemblock`
- * `isFunction`
- * `isClass`
- * `isInstance`
- * `isNamespace`
- * `isThread`
- * `isNativeObj`
- * `isWeakRef`
- * `isFuncDef`
-
-	All these functions return `true` if the passed-in value is of the given type, and `false`
-	otherwise. The fastest way to test if something is `null`, however, is to use "`x is null`".",
-	params: [Param("o")],
-	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
-
 	uword isParam(CrocValue.Type Type)(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
@@ -866,23 +835,29 @@ foreach(k, v, o; allFieldsOf(B))
 		return 1;
 	}
 
-// 	alias isParam!(CrocValue.Type.Null)      crocIsNull;      alias isParam_docs crocIsNull_docs;
-// 	alias isParam!(CrocValue.Type.Bool)      crocIsBool;      alias isParam_docs crocIsBool_docs;
-// 	alias isParam!(CrocValue.Type.Int)       crocIsInt;       alias isParam_docs crocIsInt_docs;
-// 	alias isParam!(CrocValue.Type.Float)     crocIsFloat;     alias isParam_docs crocIsFloat_docs;
-// 	alias isParam!(CrocValue.Type.Char)      crocIsChar;      alias isParam_docs crocIsChar_docs;
-// 	alias isParam!(CrocValue.Type.String)    crocIsString;    alias isParam_docs crocIsString_docs;
-// 	alias isParam!(CrocValue.Type.Table)     crocIsTable;     alias isParam_docs crocIsTable_docs;
-// 	alias isParam!(CrocValue.Type.Array)     crocIsArray;     alias isParam_docs crocIsArray_docs;
-// 	alias isParam!(CrocValue.Type.Memblock)  crocIsArray;     alias isParam_docs crocIsMemblock_docs;
-// 	alias isParam!(CrocValue.Type.Function)  crocIsFunction;  alias isParam_docs crocIsFunction_docs;
-// 	alias isParam!(CrocValue.Type.Class)     crocIsClass;     alias isParam_docs crocIsClass_docs;
-// 	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;  alias isParam_docs crocIsInstance_docs;
-// 	alias isParam!(CrocValue.Type.Namespace) crocIsNamespace; alias isParam_docs crocIsNamespace_docs;
-// 	alias isParam!(CrocValue.Type.Thread)    crocIsThread;    alias isParam_docs crocIsThread_docs;
-// 	alias isParam!(CrocValue.Type.NativeObj) crocIsNativeObj; alias isParam_docs crocIsNativeObj_docs;
-// 	alias isParam!(CrocValue.Type.WeakRef)   crocIsWeakRef;   alias isParam_docs crocIsWeakRef_docs;
-// 	alias isParam!(CrocValue.Type.FuncDef)   crocIsFuncDef;   alias isParam_docs crocIsFuncDef_docs;
+	alias isParam!(CrocValue.Type.Null) crocIsNull;
+	version(CrocBuiltinDocs) Docs crocIsNull_docs = {kind: "function", name: "isNull", docs:
+	"All these functions return `true` if the passed-in value is of the given type, and `false`
+	otherwise. The fastest way to test if something is `null`, however, is to use "`x is null`".",
+	params: [Param("o")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
+	alias isParam!(CrocValue.Type.Bool)      crocIsBool;      version(CrocBuiltinDocs) Docs crocIsBool_docs      = {kind: "function", name: "isBool",      docs: "ditto"};
+	alias isParam!(CrocValue.Type.Int)       crocIsInt;       version(CrocBuiltinDocs) Docs crocIsInt_docs       = {kind: "function", name: "isInt",       docs: "ditto"};
+	alias isParam!(CrocValue.Type.Float)     crocIsFloat;     version(CrocBuiltinDocs) Docs crocIsFloat_docs     = {kind: "function", name: "isFloat",     docs: "ditto"};
+	alias isParam!(CrocValue.Type.Char)      crocIsChar;      version(CrocBuiltinDocs) Docs crocIsChar_docs      = {kind: "function", name: "isChar",      docs: "ditto"};
+	alias isParam!(CrocValue.Type.String)    crocIsString;    version(CrocBuiltinDocs) Docs crocIsString_docs    = {kind: "function", name: "isString",    docs: "ditto"};
+	alias isParam!(CrocValue.Type.Table)     crocIsTable;     version(CrocBuiltinDocs) Docs crocIsTable_docs     = {kind: "function", name: "isTable",     docs: "ditto"};
+	alias isParam!(CrocValue.Type.Array)     crocIsArray;     version(CrocBuiltinDocs) Docs crocIsArray_docs     = {kind: "function", name: "isArray",     docs: "ditto"};
+	alias isParam!(CrocValue.Type.Memblock)  crocIsMemblock;  version(CrocBuiltinDocs) Docs crocIsMemblock_docs  = {kind: "function", name: "isMemblock",  docs: "ditto"};
+	alias isParam!(CrocValue.Type.Function)  crocIsFunction;  version(CrocBuiltinDocs) Docs crocIsFunction_docs  = {kind: "function", name: "isFunction",  docs: "ditto"};
+	alias isParam!(CrocValue.Type.Class)     crocIsClass;     version(CrocBuiltinDocs) Docs crocIsClass_docs     = {kind: "function", name: "isClass",     docs: "ditto"};
+	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;  version(CrocBuiltinDocs) Docs crocIsInstance_docs  = {kind: "function", name: "isInstance",  docs: "ditto"};
+	alias isParam!(CrocValue.Type.Namespace) crocIsNamespace; version(CrocBuiltinDocs) Docs crocIsNamespace_docs = {kind: "function", name: "isNamespace", docs: "ditto"};
+	alias isParam!(CrocValue.Type.Thread)    crocIsThread;    version(CrocBuiltinDocs) Docs crocIsThread_docs    = {kind: "function", name: "isThread",    docs: "ditto"};
+	alias isParam!(CrocValue.Type.NativeObj) crocIsNativeObj; version(CrocBuiltinDocs) Docs crocIsNativeObj_docs = {kind: "function", name: "isNativeObj", docs: "ditto"};
+	alias isParam!(CrocValue.Type.WeakRef)   crocIsWeakRef;   version(CrocBuiltinDocs) Docs crocIsWeakRef_docs   = {kind: "function", name: "isWeakRef",   docs: "ditto"};
+	alias isParam!(CrocValue.Type.FuncDef)   crocIsFuncDef;   version(CrocBuiltinDocs) Docs crocIsFuncDef_docs   = {kind: "function", name: "isFuncDef",   docs: "ditto"};
 
 	version(CrocBuiltinDocs) Docs attrs_docs = {kind: "function", name: "attrs", docs:
 	"This is a function which can be used to set (or remove) a user-defined attribute table on

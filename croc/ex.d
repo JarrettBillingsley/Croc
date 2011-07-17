@@ -158,6 +158,7 @@ scope class CrocDoc
 	CrocThread* t;
 	char[] mFile;
 	crocint mStartIdx;
+	int mDittoDepth = 0;
 
 	this(CrocThread* t, char[] file)
 	{
@@ -171,16 +172,19 @@ scope class CrocDoc
 
 	~this()
 	{
-		getDocTables();
-		auto l = len(t, -1);
-		if(l != mStartIdx)
+		if(!isThrowing(t))
 		{
-			if(l < mStartIdx)
-				throwException(t, "Mismatched documentation pushes and pops (stack is {} slots smaller)", mStartIdx - l);
-			else
-				throwException(t, "Mismatched documentation pushes and pops (stack is {} slots bigger)", l - mStartIdx);
+			getDocTables();
+			auto l = len(t, -1);
+			if(l != mStartIdx)
+			{
+				if(l < mStartIdx)
+					throwException(t, "Mismatched documentation pushes and pops (stack is smaller by {})", mStartIdx - l);
+				else
+					throwException(t, "Mismatched documentation pushes and pops (stack is bigger by {})", l - mStartIdx);
+			}
+			.pop(t);
 		}
-		.pop(t);
 	}
 
 	public void opCall(word idx, Docs docs, char[] parentField = "children")
@@ -191,12 +195,15 @@ scope class CrocDoc
 
 	public void push(Docs docs)
 	{
+		if(mDittoDepth > 0)
+		{
+			mDittoDepth++;
+			return;
+		}
+
 		auto dt = getDocTables();
 
 		newTable(t);
-		dup(t);
-		cateq(t, dt, 1);
-
 		pushString(t, mFile);     fielda(t, -2, "file");
 		pushInt(t, docs.line);    fielda(t, -2, "line");
 		pushString(t, docs.kind); fielda(t, -2, "kind");
@@ -241,11 +248,56 @@ scope class CrocDoc
 			fielda(t, -2, extra.name);
 		}
 
-		.pop(t, 2);
+		if(docs.docs == "ditto")
+			doDitto(dt, docs);
+		else
+			cateq(t, dt, 1);
+
+		.pop(t);
 	}
 
 	public void pop(word idx, char[] parentField = "children")
 	{
+		if(mDittoDepth > 0)
+		{
+			mDittoDepth--;
+
+			if(mDittoDepth > 0)
+				return;
+
+			idx = absIndex(t, idx);
+
+			switch(type(t, idx))
+			{
+				case CrocValue.Type.Function, CrocValue.Type.Class, CrocValue.Type.Namespace:
+					auto dt = getDocTables();
+					assert(len(t, dt) > 0);
+
+					auto dittoed = idxi(t, dt, -1);
+
+					if(!hasField(t, dittoed, "children"))
+						throwException(t, "Something got screwed up... parent decl doesn't have children anymore.");
+
+					field(t, dittoed, "children");
+
+					if(len(t, -1) == 0)
+						throwException(t, "Corruption! Parent decl's children array is empty somehow.");
+
+					idxi(t, -1, -1);
+					insertAndPop(t, dittoed);
+
+					pushGlobal(t, "_doc_");
+					pushNull(t);
+					dup(t, idx);
+					dup(t, dittoed);
+					rawCall(t, -4, 0);
+					.pop(t, 2);
+					return;
+
+				default: return;
+			}
+		}
+
 		idx = absIndex(t, idx);
 		auto dt = getDocTables();
 
@@ -309,6 +361,59 @@ scope class CrocDoc
 		insertAndPop(t, reg);
 		return absIndex(t, -1);
 	}
+
+	private void doDitto(word dt, Docs docs)
+	{
+		// At top level?
+		if(len(t, dt) == 0)
+			throwException(t, "Cannot use ditto on the top-level declaration");
+
+		// Get the parent and try to get the last declaration before this one
+		idxi(t, dt, -1);
+
+		bool okay = false;
+
+		if(hasField(t, -1, "children"))
+		{
+			field(t, -1, "children");
+
+			if(len(t, -1) > 0)
+			{
+				idxi(t, -1, -1);
+				insertAndPop(t, -3);
+				okay = true;
+			}
+		}
+
+		if(!okay)
+			throwException(t, "No previous declaration to ditto from");
+
+		// See if the previous decl's kind is the same
+		field(t, -1, "kind");
+
+		if(getString(t, -1) != docs.kind)
+		{
+			field(t, -2, "name");
+			throwException(t, "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", docs.name, docs.kind, getString(t, -1), getString(t, -2));
+		}
+
+		.pop(t);
+
+		// Okay, we can ditto.
+		mDittoDepth++;
+
+		if(!hasField(t, -1, "dittos"))
+		{
+			newArray(t, 0);
+			fielda(t, -2, "dittos");
+		}
+
+		// Append this doctable to the dittos of the previous decl.
+		field(t, -1, "dittos");
+		dup(t, -3);
+		cateq(t, -2, 1);
+		.pop(t, 3);
+	}
 }
 
 /**
@@ -324,7 +429,7 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 {
 	pushGlobal(t, "modules");
 	field(t, -1, "customLoaders");
-	
+
 	if(hasField(t, -1, name))
 		throwException(t, "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
 		

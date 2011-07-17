@@ -1656,6 +1656,14 @@ void throwException(CrocThread* t, char[] fmt, ...)
 }
 
 /**
+This function returns whether or not an exception is in flight in the given thread's VM.
+*/
+bool isThrowing(CrocThread* t)
+{
+	return t.vm.isThrowing;
+}
+
+/**
 When catching Croc exceptions (those derived from CrocException) in D, Croc doesn'_t know that you've actually caught
 one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
 D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
