@@ -128,8 +128,6 @@ void importModuleNoNS(CrocThread* t, word name)
 */
 scope class CrocDoc
 {
-	private static const char[] DocTables = "ex.CrocDoc.docTables";
-
 	static struct Docs
 	{
 		char[] kind;
@@ -155,11 +153,15 @@ scope class CrocDoc
 		char[] value;
 	}
 
+private:
+	static const char[] DocTables = "ex.CrocDoc.docTables";
+
 	CrocThread* t;
 	char[] mFile;
 	crocint mStartIdx;
-	int mDittoDepth = 0;
+	uword mDittoDepth = 0;
 
+public:
 	this(CrocThread* t, char[] file)
 	{
 		this.t = t;
@@ -193,7 +195,7 @@ scope class CrocDoc
 		pop(idx, parentField);
 	}
 
-	public void push(Docs docs)
+	void push(Docs docs)
 	{
 		if(mDittoDepth > 0)
 		{
@@ -256,7 +258,7 @@ scope class CrocDoc
 		.pop(t);
 	}
 
-	public void pop(word idx, char[] parentField = "children")
+	void pop(word idx, char[] parentField = "children")
 	{
 		if(mDittoDepth > 0)
 		{
@@ -275,13 +277,13 @@ scope class CrocDoc
 
 					auto dittoed = idxi(t, dt, -1);
 
-					if(!hasField(t, dittoed, "children"))
-						throwException(t, "Something got screwed up... parent decl doesn't have children anymore.");
+					if(!hasField(t, dittoed, parentField))
+						throwException(t, "Something got screwed up... parent decl doesn't have {} anymore.", parentField);
 
-					field(t, dittoed, "children");
+					field(t, dittoed, parentField);
 
 					if(len(t, -1) == 0)
-						throwException(t, "Corruption! Parent decl's children array is empty somehow.");
+						throwException(t, "Corruption! Parent decl's {} array is empty somehow.", parentField);
 
 					idxi(t, -1, -1);
 					insertAndPop(t, dittoed);
@@ -346,7 +348,8 @@ scope class CrocDoc
 		.pop(t, 2);
 	}
 
-	private word getDocTables()
+private:
+	word getDocTables()
 	{
 		auto reg = getRegistry(t);
 		pushString(t, DocTables);
@@ -362,7 +365,7 @@ scope class CrocDoc
 		return absIndex(t, -1);
 	}
 
-	private void doDitto(word dt, Docs docs)
+	void doDitto(word dt, Docs docs)
 	{
 		// At top level?
 		if(len(t, dt) == 0)

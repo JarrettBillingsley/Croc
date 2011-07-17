@@ -26,6 +26,8 @@ subject to the following restrictions:
 
 module croc.compiler_docgen;
 
+import tango.text.Util;
+
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler_ast;
@@ -39,6 +41,7 @@ scope class DocGen : IdentityVisitor
 	private word[] mDocTables;
 	private CrocThread* t;
 	private word mDocTable;
+	private int mDittoDepth;
 
 	public this(ICompiler c)
 	{
@@ -52,8 +55,14 @@ scope class DocGen : IdentityVisitor
 		c.alloc.freeArray(mDocTables);
 	}
 
-	private void pushDocTable(ref CompileLoc loc, char[] type, char[] name, char[] docs)
+	private void pushDocTable(ref CompileLoc loc, char[] kind, char[] name, char[] docs)
 	{
+		if(mDittoDepth > 0)
+		{
+			mDittoDepth++;
+			return;
+		}
+
 		c.alloc.resizeArray(mChildIndices, mChildIndices.length + 1);
 		c.alloc.resizeArray(mDocTables, mDocTables.length + 1);
 
@@ -61,46 +70,115 @@ scope class DocGen : IdentityVisitor
 		mDocTable = newTable(t);
 		mDocTables[$ - 1] = mDocTable;
 
-		pushString(t, loc.file);
-		fielda(t, mDocTable, "file");
-		pushInt(t, loc.line);
-		fielda(t, mDocTable, "line");
-		pushString(t, type);
-		fielda(t, mDocTable, "kind");
-		pushString(t, name);
-		fielda(t, mDocTable, "name");
-		pushString(t, docs);
-		fielda(t, mDocTable, "docs");
+		pushString(t, loc.file); fielda(t, mDocTable, "file");
+		pushInt(t,    loc.line); fielda(t, mDocTable, "line");
+		pushString(t, kind);     fielda(t, mDocTable, "kind");
+		pushString(t, name);     fielda(t, mDocTable, "name");
+		pushString(t, docs);     fielda(t, mDocTable, "docs");
+
+		if(kind == "module" || kind == "class" || kind == "namespace")
+			ensureChildren();
+		else if(kind == "function")
+			ensureChildren("params");
+
+		if(docs.trim() == "ditto")
+		{
+			// At top level?
+			if(mDocTables.length == 1)
+				c.exception(loc, "Cannot use ditto on the top-level declaration");
+
+			// Get the parent and try to get the last declaration before this one
+			dup(t, mDocTables[$ - 2]);
+
+			bool okay = false;
+
+			if(hasField(t, -1, "children"))
+			{
+				field(t, -1, "children");
+
+				if(len(t, -1) > 0)
+				{
+					idxi(t, -1, -1);
+					insertAndPop(t, -3);
+					okay = true;
+				}
+			}
+
+			if(!okay)
+				c.exception(loc, "No previous declaration to ditto from");
+
+			// See if the previous decl's kind is the same
+			field(t, -1, "kind");
+
+			if(getString(t, -1) != kind)
+			{
+				field(t, -2, "name");
+				c.exception(loc, "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", name, kind, getString(t, -1), getString(t, -2));
+			}
+
+			pop(t);
+
+			// Okay, we can ditto.
+			mDittoDepth++;
+
+			if(!hasField(t, -1, "dittos"))
+			{
+				newArray(t, 0);
+				fielda(t, -2, "dittos");
+			}
+
+			// Append this doctable to the dittos of the previous decl.
+			field(t, -1, "dittos");
+			dup(t, mDocTable);
+			cateq(t, -2, 1);
+			pop(t, 2);
+		}
 	}
 
 	private void popDocTable(char[] parentField = "children")
 	{
+		bool wasDitto = false;
+
+		if(mDittoDepth > 0)
+		{
+			mDittoDepth--;
+
+			if(mDittoDepth > 0)
+				return;
+				
+			wasDitto = true;
+		}
+
 		assert(mDocTable == stackSize(t) - 1);
 		assert(mChildIndices.length > 1);
 
 		c.alloc.resizeArray(mChildIndices, mChildIndices.length - 1);
 		c.alloc.resizeArray(mDocTables, mDocTables.length - 1);
 
-		if(mChildIndices[$ - 1] == 0)
+		if(!wasDitto)
 		{
-			newArray(t, 1);
-			dup(t, mDocTable);
-			idxai(t, -2, 0);
-			fielda(t, mDocTables[$ - 1], parentField);
-		}
-		else
-		{
-			field(t, mDocTables[$ - 1], parentField);
-			dup(t, mDocTable);
-			cateq(t, -2, 1);
-			pop(t);
+			if(mChildIndices[$ - 1] == 0)
+			{
+				newArray(t, 1);
+				dup(t, mDocTable);
+				idxai(t, -2, 0);
+				fielda(t, mDocTables[$ - 1], parentField);
+			}
+			else
+			{
+				field(t, mDocTables[$ - 1], parentField);
+				dup(t, mDocTable);
+				cateq(t, -2, 1);
+				pop(t);
+			}
+	
+			mChildIndices[$ - 1]++;
 		}
 
 		pop(t);
-		mChildIndices[$ - 1]++;
 		mDocTable = mDocTables[$ - 1];
 	}
-	
+
 	private void ensureChildren(char[] parentField = "children")
 	{
 		pushString(t, parentField);
@@ -162,8 +240,6 @@ scope class DocGen : IdentityVisitor
 				popDocTable();
 			}
 		}
-		
-		ensureChildren();
 	}
 
 	private Expression docTableToAST(CompileLoc loc)
@@ -219,6 +295,9 @@ scope class DocGen : IdentityVisitor
 
 	Decorator makeDeco(CompileLoc loc, Decorator existing, bool lastIndex = true)
 	{
+		if(mDittoDepth > 0)
+			return existing;
+
 		auto f = new(c) IdentExp(c, docIdent(loc));
 		scope args = new List!(Expression)(c.alloc);
 		args ~= new(c) IdentExp(c, doctableIdent(loc));
@@ -234,6 +313,9 @@ scope class DocGen : IdentityVisitor
 
 	Expression makeDocCall(Expression init)
 	{
+		if(mDittoDepth > 0)
+			return init;
+
 		auto f = new(c) IdentExp(c, docIdent(init.location));
 		scope args = new List!(Expression)(c.alloc);
 		args ~= init;
@@ -269,8 +351,6 @@ scope class DocGen : IdentityVisitor
 		foreach(ref s; b.statements)
 			s = visitS(s);
 			
-		ensureChildren();
-
 		if(c.docDecorators)
 		{
 			// create a "local __doctable = { ... }" as the first statement
@@ -303,8 +383,6 @@ scope class DocGen : IdentityVisitor
 
 		foreach(ref s; b.statements)
 			s = visitS(s);
-			
-		ensureChildren();
 
 		if(c.docDecorators)
 		{
@@ -376,7 +454,6 @@ scope class DocGen : IdentityVisitor
 			popDocTable("params");
 		}
 
-		ensureChildren("params");
 		popDocTable();
 		return d;
 	}
@@ -493,7 +570,7 @@ scope class DocGen : IdentityVisitor
 	{
 		foreach(ref stmt; s.statements)
 			stmt = visitS(stmt);
-		
+
 		return s;
 	}
 
