@@ -38,7 +38,6 @@ import derelict.opengl.glu;
 import derelict.util.exception;
 
 import croc.api;
-import croc.stdlib_vector;
 
 import croc.addons.gl_wrap;
 import croc.addons.gl_ext;
@@ -46,25 +45,25 @@ import croc.addons.gl_ext;
 template typeStringOf(_T)
 {
 	static if(is(realType!(_T) == byte))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.i8];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.i8].name;
 	else static if(is(realType!(_T) == ubyte))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.u8];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.u8].name;
 	else static if(is(realType!(_T) == short))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.i16];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.i16].name;
 	else static if(is(realType!(_T) == ushort))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.u16];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.u16].name;
 	else static if(is(realType!(_T) == int))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.i32];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.i32].name;
 	else static if(is(realType!(_T) == uint))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.u32];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.u32].name;
 	else static if(is(realType!(_T) == long))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.i64];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.i64].name;
 	else static if(is(realType!(_T) == ulong))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.u64];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.u64].name;
 	else static if(is(realType!(_T) == float))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.f32];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.f32].name;
 	else static if(is(realType!(_T) == double))
-		const typeStringOf = VectorObj.typeNames[VectorObj.TypeCode.f64];
+		const typeStringOf = CrocMemblock.typeStructs[CrocMemblock.TypeCode.f64].name;
 	else
 		static assert(false, "Don't know what type string corresponds to " ~ _T.stringof);
 }
@@ -204,14 +203,13 @@ static:
 
 		auto arr = (cast(ubyte*)ptr)[0 .. cast(uword)size];
 
-		if(optParam(t, 4, CrocValue.Type.Instance))
+		if(optParam(t, 4, CrocValue.Type.Memblock))
 		{
-			checkInstParam(t, 4, "Vector");
-			VectorObj.reviewDArray(t, 4, arr);
+			memblockReviewDArray(t, 4, arr);
 			dup(t, 4);
 		}
 		else
-			VectorObj.viewDArray(t, arr);
+			memblockViewDArray(t, arr);
 
 		return 1;
 	}

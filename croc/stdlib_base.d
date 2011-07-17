@@ -36,7 +36,6 @@ import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
 import croc.stdlib_utils;
-import croc.stdlib_vector;
 import croc.types;
 import croc.types_class;
 import croc.types_instance;
@@ -70,13 +69,7 @@ static:
 		version(CrocBuiltinDocs)
 		{
 			pushGlobal(t, "Object"); doc(-1, Object_docs); pop(t);
-		}
 
-		// Vector
-		VectorObj.init(t);
-
-		version(CrocBuiltinDocs)
-		{
 			// Have to do these after the fact because _doc_ is called by the doc system!
 			pushGlobal(t, "_doc_");  doc(-1, _doc__docs); pop(t);
 			pushGlobal(t, "docsOf"); doc(-1, docsOf_docs); pop(t);
@@ -905,7 +898,7 @@ foreach(k, v, o; allFieldsOf(B))
 function foo() = 12
 
 // Using it as a normal function
-local v = attrs(Vector(\"f32\", 5), {blerf = \"derf\"})
+local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 }}}
 
 	You can check if an object has attributes and retrieve them using the following functions.",

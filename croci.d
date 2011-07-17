@@ -282,7 +282,7 @@ bool doDocgen(CrocThread* t, ref Params params)
 			Stdout.formatln("Error: {}", e);
 			failed = true;
 		});
-		
+
 		if(!failed)
 		{
 			pop(t);
@@ -308,7 +308,7 @@ bool doNormal(CrocThread* t, ref Params params)
 
 	version(CrocSdlAddon)  SdlLib.init(t);
 	version(CrocPcreAddon) PcreLib.init(t);
-	
+
 	if(!params.safe)
 	{
 		version(CrocGlAddon)   GlLib.init(t);
@@ -357,7 +357,7 @@ bool doNormal(CrocThread* t, ref Params params)
 		e.writeOut((char[]s) { Stdout(s); });
 		return false;
 	}
-	
+
 	return true;
 }
 

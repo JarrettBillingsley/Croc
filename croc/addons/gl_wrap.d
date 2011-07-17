@@ -15,7 +15,6 @@ import derelict.opengl.glext;
 import derelict.util.exception;
 
 import croc.api;
-import croc.stdlib_vector;
 
 version(CrocGLCheckErrors)
 	pragma(msg, "Compiling Croc GL with error checking enabled.");
@@ -58,14 +57,14 @@ T getGLParam(T)(CrocThread* t, word slot)
 	{
 		checkAnyParam(t, slot);
 
-		if(isInstance(t, slot))
-			return cast(T)checkInstParam!(VectorObj.Members)(t, slot, "Vector").data;
+		if(isMemblock(t, slot))
+			return cast(T)getMemblockData(t, slot).ptr;
 		else if(isInt(t, slot))
 			return cast(T)getInt(t, slot);
 		else if(isNull(t, slot))
 			return cast(T)null;
 		else
-			paramTypeError(t, slot, "Vector|int|null");
+			paramTypeError(t, slot, "memblock|int|null");
 	}
 	else
 		static assert(false, "function can't be wrapped");

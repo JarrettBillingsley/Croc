@@ -38,7 +38,6 @@ import derelict.sdl.sdl;
 import derelict.sdl.image;
 
 import croc.api;
-import croc.stdlib_vector;
 
 private void register(CrocThread* t, NativeFunc func, char[] name)
 {
@@ -830,7 +829,7 @@ static:
 		if(SDL_LockSurface(s) < 0)
 			throwException(t, "Could not lock surface: {}", fromStringz(SDL_GetError()));
 		
-		VectorObj.viewDArray(t, (cast(ubyte*)s.pixels)[0 .. s.w * s.h * s.format.BytesPerPixel]);
+		memblockViewDArray(t, (cast(ubyte*)s.pixels)[0 .. s.w * s.h * s.format.BytesPerPixel]);
 		return 1;
 	}
 
