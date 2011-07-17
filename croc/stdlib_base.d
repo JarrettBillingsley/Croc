@@ -29,6 +29,7 @@ import Float = tango.text.convert.Float;
 import Integer = tango.text.convert.Integer;
 import tango.io.Console;
 import tango.io.Stdout;
+import tango.math.Math;
 import tango.stdc.ctype;
 
 import croc.api_interpreter;
@@ -41,6 +42,7 @@ import croc.types_class;
 import croc.types_instance;
 import croc.types_memblock;
 import croc.types_namespace;
+import croc.utils;
 
 alias CrocDoc.Docs Docs;
 alias CrocDoc.Param Param;
@@ -68,6 +70,11 @@ static:
 
 		version(CrocBuiltinDocs)
 		{
+			static const Docs Object_docs = {kind: "class", name: "Object", docs:
+			"The root of the class hierarchy, `Object`, is declared here. It has no methods defined right now. It
+			is the only class in Croc which has no base class (that is, \"`Object.super`\" returns `null`).",
+			extra: [Extra("section", "Classes"), Extra("protection", "global")]};
+
 			pushGlobal(t, "Object"); doc(-1, Object_docs); pop(t);
 
 			// Have to do these after the fact because _doc_ is called by the doc system!
@@ -79,6 +86,7 @@ static:
 		newNamespace(t, "memblock");
 			mixin(RegisterField!(0, "memblockToString", 0, "memblock.toString", "toString"));
 			mixin(RegisterField!(1, "memblockOpEquals", 0, "memblock.opEquals", "opEquals"));
+			mixin(RegisterField!(1, "memblockOpCmp",    0, "memblock.opCmp",    "opCmp"));
 				newFunction(t, &memblockIterator, "memblock.iterator");
 				newFunction(t, &memblockIteratorReverse, "memblock.iteratorReverse");
 			mixin(RegisterField!(1, "memblockOpApply",  2, "memblock.opApply",  "opApply"));
@@ -142,13 +150,13 @@ static:
 		mixin(Register!(1, "toInt"));
 		mixin(Register!(1, "toFloat"));
 		mixin(Register!(1, "toChar"));
-		mixin(Register!("format"));
+		mixin(Register!(   "format"));
 
 		// Console IO
-		mixin(Register!("write"));
-		mixin(Register!("writeln"));
-		mixin(Register!("writef"));
-		mixin(Register!("writefln"));
+		mixin(Register!(   "write"));
+		mixin(Register!(   "writeln"));
+		mixin(Register!(   "writef"));
+		mixin(Register!(   "writefln"));
 		mixin(Register!(0, "readln"));
 
 			newTable(t);
@@ -161,11 +169,6 @@ static:
 			pop(t);
 		}
 	}
-
-	version(CrocBuiltinDocs) Docs Object_docs = {kind: "class", name: "Object", docs:
-	"The root of the class hierarchy, `Object`, is declared here. It has no methods defined right now. It
-	is the only class in Croc which has no base class (that is, \"`Object.super`\" returns `null`).",
-	extra: [Extra("section", "Classes"), Extra("protection", "global")]};
 
 	// ===================================================================================================================================
 	// Documentation
@@ -240,7 +243,7 @@ static:
 	}
 
 	// ===================================================================================================================================
-	// Function metatable
+	// Memblock metatable
 
 	version(CrocBuiltinDocs) Docs memblockToString_docs = {kind: "function", name: "toString", docs:
 	"Returns a string representation of this memblock in the form `\"memblock(type)[items]\"`; for example,
@@ -305,7 +308,6 @@ static:
 	{
 		checkParam(t, 0, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 0);
-
 		checkAnyParam(t, 1);
 
 		if(!isMemblock(t, 1))
@@ -331,6 +333,62 @@ static:
 				auto b = (cast(byte*)other.data)[0 .. a.length];
 				pushBool(t, a == b);
 			}
+		}
+
+		return 1;
+	}
+
+	version(CrocBuiltinDocs) Docs memblockOpCmp_docs = {kind: "function", name: "opCmp", docs:
+	"Compares two memblocks for equality. Throws an error if the two memblocks are of different types.",
+	params: [Param("other", "memblock")],
+	extra: [Extra("section", "Memblock metamethods")]};
+
+	uword memblockOpCmp(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto len = mb.itemLength;
+		checkAnyParam(t, 1);
+
+		if(!isMemblock(t, 1))
+		{
+			pushTypeString(t, 1);
+			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+		}
+
+		if(opis(t, 0, 1))
+			pushInt(t, 0);
+		else
+		{
+			auto other = getMemblock(t, 1);
+
+			if(mb.kind !is other.kind)
+				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+			auto otherLen = other.itemLength;
+			auto l = min(len, otherLen);
+			int cmp;
+
+			switch(mb.kind.code)
+			{
+				case CrocMemblock.TypeCode.v:   auto a = mb.data[0 .. l]; auto b = other.data[0 .. l]; cmp = typeid(void[]).compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i8:  auto a = (cast(byte[])  mb.data)[0 .. l]; auto b = (cast(byte[])  other.data)[0 .. l]; cmp = typeid(byte[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i16: auto a = (cast(short[]) mb.data)[0 .. l]; auto b = (cast(short[]) other.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i32: auto a = (cast(int[])   mb.data)[0 .. l]; auto b = (cast(int[])   other.data)[0 .. l]; cmp = typeid(int[]).   compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i64: auto a = (cast(long[])  mb.data)[0 .. l]; auto b = (cast(long[])  other.data)[0 .. l]; cmp = typeid(long[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u8:  auto a = (cast(ubyte[]) mb.data)[0 .. l]; auto b = (cast(ubyte[]) other.data)[0 .. l]; cmp = typeid(ubyte[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u16: auto a = (cast(ushort[])mb.data)[0 .. l]; auto b = (cast(ushort[])other.data)[0 .. l]; cmp = typeid(ushort[]).compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u32: auto a = (cast(uint[])  mb.data)[0 .. l]; auto b = (cast(uint[])  other.data)[0 .. l]; cmp = typeid(uint[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u64: auto a = (cast(ulong[]) mb.data)[0 .. l]; auto b = (cast(ulong[]) other.data)[0 .. l]; cmp = typeid(ulong[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.f32: auto a = (cast(float[]) mb.data)[0 .. l]; auto b = (cast(float[]) other.data)[0 .. l]; cmp = typeid(float[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.f64: auto a = (cast(double[])mb.data)[0 .. l]; auto b = (cast(double[])other.data)[0 .. l]; cmp = typeid(double[]).compare(&a, &b); break;
+				default: assert(false);
+			}
+
+			if(cmp == 0)
+				pushInt(t, Compare3(len, otherLen));
+			else
+				pushInt(t, cmp);
 		}
 
 		return 1;
@@ -866,29 +924,46 @@ foreach(k, v, o; allFieldsOf(B))
 		return 1;
 	}
 
-	alias isParam!(CrocValue.Type.Null) crocIsNull;
+	alias isParam!(CrocValue.Type.Null)      crocIsNull;
+	alias isParam!(CrocValue.Type.Bool)      crocIsBool;
+	alias isParam!(CrocValue.Type.Int)       crocIsInt;
+	alias isParam!(CrocValue.Type.Float)     crocIsFloat;
+	alias isParam!(CrocValue.Type.Char)      crocIsChar;
+	alias isParam!(CrocValue.Type.String)    crocIsString;
+	alias isParam!(CrocValue.Type.Table)     crocIsTable;
+	alias isParam!(CrocValue.Type.Array)     crocIsArray;
+	alias isParam!(CrocValue.Type.Memblock)  crocIsMemblock;
+	alias isParam!(CrocValue.Type.Function)  crocIsFunction;
+	alias isParam!(CrocValue.Type.Class)     crocIsClass;
+	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;
+	alias isParam!(CrocValue.Type.Namespace) crocIsNamespace;
+	alias isParam!(CrocValue.Type.Thread)    crocIsThread;
+	alias isParam!(CrocValue.Type.NativeObj) crocIsNativeObj;
+	alias isParam!(CrocValue.Type.WeakRef)   crocIsWeakRef;
+	alias isParam!(CrocValue.Type.FuncDef)   crocIsFuncDef;
+
 	version(CrocBuiltinDocs) Docs crocIsNull_docs = {kind: "function", name: "isNull", docs:
 	"All these functions return `true` if the passed-in value is of the given type, and `false`
 	otherwise. The fastest way to test if something is `null`, however, is to use "`x is null`".",
 	params: [Param("o")],
 	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
-	alias isParam!(CrocValue.Type.Bool)      crocIsBool;      version(CrocBuiltinDocs) Docs crocIsBool_docs      = {kind: "function", name: "isBool",      docs: "ditto"};
-	alias isParam!(CrocValue.Type.Int)       crocIsInt;       version(CrocBuiltinDocs) Docs crocIsInt_docs       = {kind: "function", name: "isInt",       docs: "ditto"};
-	alias isParam!(CrocValue.Type.Float)     crocIsFloat;     version(CrocBuiltinDocs) Docs crocIsFloat_docs     = {kind: "function", name: "isFloat",     docs: "ditto"};
-	alias isParam!(CrocValue.Type.Char)      crocIsChar;      version(CrocBuiltinDocs) Docs crocIsChar_docs      = {kind: "function", name: "isChar",      docs: "ditto"};
-	alias isParam!(CrocValue.Type.String)    crocIsString;    version(CrocBuiltinDocs) Docs crocIsString_docs    = {kind: "function", name: "isString",    docs: "ditto"};
-	alias isParam!(CrocValue.Type.Table)     crocIsTable;     version(CrocBuiltinDocs) Docs crocIsTable_docs     = {kind: "function", name: "isTable",     docs: "ditto"};
-	alias isParam!(CrocValue.Type.Array)     crocIsArray;     version(CrocBuiltinDocs) Docs crocIsArray_docs     = {kind: "function", name: "isArray",     docs: "ditto"};
-	alias isParam!(CrocValue.Type.Memblock)  crocIsMemblock;  version(CrocBuiltinDocs) Docs crocIsMemblock_docs  = {kind: "function", name: "isMemblock",  docs: "ditto"};
-	alias isParam!(CrocValue.Type.Function)  crocIsFunction;  version(CrocBuiltinDocs) Docs crocIsFunction_docs  = {kind: "function", name: "isFunction",  docs: "ditto"};
-	alias isParam!(CrocValue.Type.Class)     crocIsClass;     version(CrocBuiltinDocs) Docs crocIsClass_docs     = {kind: "function", name: "isClass",     docs: "ditto"};
-	alias isParam!(CrocValue.Type.Instance)  crocIsInstance;  version(CrocBuiltinDocs) Docs crocIsInstance_docs  = {kind: "function", name: "isInstance",  docs: "ditto"};
-	alias isParam!(CrocValue.Type.Namespace) crocIsNamespace; version(CrocBuiltinDocs) Docs crocIsNamespace_docs = {kind: "function", name: "isNamespace", docs: "ditto"};
-	alias isParam!(CrocValue.Type.Thread)    crocIsThread;    version(CrocBuiltinDocs) Docs crocIsThread_docs    = {kind: "function", name: "isThread",    docs: "ditto"};
-	alias isParam!(CrocValue.Type.NativeObj) crocIsNativeObj; version(CrocBuiltinDocs) Docs crocIsNativeObj_docs = {kind: "function", name: "isNativeObj", docs: "ditto"};
-	alias isParam!(CrocValue.Type.WeakRef)   crocIsWeakRef;   version(CrocBuiltinDocs) Docs crocIsWeakRef_docs   = {kind: "function", name: "isWeakRef",   docs: "ditto"};
-	alias isParam!(CrocValue.Type.FuncDef)   crocIsFuncDef;   version(CrocBuiltinDocs) Docs crocIsFuncDef_docs   = {kind: "function", name: "isFuncDef",   docs: "ditto"};
+	version(CrocBuiltinDocs) Docs crocIsBool_docs      = {kind: "function", name: "isBool",      docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsInt_docs       = {kind: "function", name: "isInt",       docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsFloat_docs     = {kind: "function", name: "isFloat",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsChar_docs      = {kind: "function", name: "isChar",      docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsString_docs    = {kind: "function", name: "isString",    docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsTable_docs     = {kind: "function", name: "isTable",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsArray_docs     = {kind: "function", name: "isArray",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsMemblock_docs  = {kind: "function", name: "isMemblock",  docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsFunction_docs  = {kind: "function", name: "isFunction",  docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsClass_docs     = {kind: "function", name: "isClass",     docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsInstance_docs  = {kind: "function", name: "isInstance",  docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsNamespace_docs = {kind: "function", name: "isNamespace", docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsThread_docs    = {kind: "function", name: "isThread",    docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsNativeObj_docs = {kind: "function", name: "isNativeObj", docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsWeakRef_docs   = {kind: "function", name: "isWeakRef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+	version(CrocBuiltinDocs) Docs crocIsFuncDef_docs   = {kind: "function", name: "isFuncDef",   docs: "ditto", params: [Param("o")], extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
 
 	version(CrocBuiltinDocs) Docs attrs_docs = {kind: "function", name: "attrs", docs:
 	"This is a function which can be used to set (or remove) a user-defined attribute table on

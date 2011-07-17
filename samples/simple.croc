@@ -6,89 +6,115 @@ local x, y = 3, 4
 
 function main()
 {
-	help(samples.simple, "z")
+
 }
 
 function help(x, child: string = null)
 {
-	local d = docsOf(x)
+	local d
+
+	if(isString(x))
+	{
+		local mt
+
+		try
+			mt = debug.getMetatable(x)
+		catch(e)
+			throw format("Invalid type '{}'", x)
+
+		if(child in mt)
+			d = docsOf(mt.(child))
+	}
+	else
+	{
+		d = docsOf(x)
+
+		if(#d && child !is null)
+		{
+			if(d.children is null)
+				throw "No children"
+
+			local found = false
+
+			foreach outerLoop(c; d.children)
+			{
+				if(c.name == child)
+				{
+					found = true
+					d = c
+					break
+				}
+
+				if(c.dittos)
+				{
+					foreach(dit; c.dittos)
+					{
+						if(dit.name == child)
+						{
+							found = true
+							d = c
+							break outerLoop
+						}
+					}
+				}
+			}
+
+			if(!found)
+				throw "Not found"
+		}
+	}
 
 	if(#d == 0)
 	{
 		writeln("<no help available>")
 		return
 	}
-
-	if(child !is null)
+	
+	function writeHeader(d)
 	{
-		if(d.children is null)
-			throw "No children"
-
-		local found = false
-
-		foreach outerLoop(c; d.children)
+		if(d.protection)
+			write(d.protection, " ")
+	
+		write(d.kind, " ", d.name)
+	
+		if(d.params)
 		{
-			if(c.name == child)
+			write("(")
+	
+			foreach(i, p; d.params)
 			{
-				found = true
-				d = c
-				break
+				if(i > 0)
+					write(", ")
+	
+				write(p.name)
+	
+				if(p.type != "any" && p.type != "vararg")
+					write(": ", p.type)
+	
+				if(p.value)
+					write(" = ", p.value)
 			}
-
-			if(c.dittos)
-			{
-				foreach(dit; c.dittos)
-				{
-					if(dit.name == child)
-					{
-						found = true
-						d = c
-						break outerLoop
-					}
-				}
-			}
+	
+			write(")")
 		}
-
-		if(!found)
-			throw "Not found"
+	
+		if(d.base)
+			write(" : ", d.base)
+	
+		if(d.value)
+			write(" = ", d.value)
+	
+		write(" (", d.file)
+		if(d.line != 0)
+			write(":  ", d.line)
+		writeln(")")
 	}
-
-	if(d.protection)
-		write(d.protection, " ")
-
-	write(d.kind, " ", d.name)
-
-	if(d.params)
-	{
-		write("(")
-
-		foreach(i, p; d.params)
-		{
-			if(i > 0)
-				write(", ")
-
-			write(p.name)
-
-			if(p.type != "any" && p.type != "vararg")
-				write(": ", p.type)
-
-			if(p.value)
-				write(" = ", p.value)
-		}
-
-		write(")")
-	}
-
-	if(d.base)
-		write(" : ", d.base)
-
-	if(d.value)
-		write(" = ", d.value)
-
-	write(" (", d.file)
-	if(d.line != 0)
-		write(":  ", d.line)
-	writeln(")")
+	
+	writeHeader(d)
+	
+	if(d.dittos)
+		foreach(dit; d.dittos)
+			writeHeader(dit)
 
 	foreach(line; d.docs.splitLines())
 		writeln("  ", line.strip())
