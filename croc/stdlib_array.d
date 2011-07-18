@@ -32,8 +32,13 @@ import tango.math.Math;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
+import croc.stdlib_utils;
 import croc.types;
 import croc.types_array;
+
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
 
 struct ArrayLib
 {
@@ -42,55 +47,75 @@ static:
 	{
 		makeModule(t, "array", function uword(CrocThread* t)
 		{
-			newFunction(t, 2, &array_new, "new");     newGlobal(t, "new");
-			newFunction(t, 3, &range,     "range");   newGlobal(t, "range");
+			version(CrocBuiltinDocs)
+			{
+				scope doc = new CrocDoc(t, __FILE__);
+				doc.push(Docs("module", "Array Library",
+				"The array library provides functionality for creating and manipulating arrays. Most of these
+				functions are accessed as methods of array objects. There are a few functions which are called
+				through the "`array`" namespace."));
+			}
+
+			mixin(Register!(2, "array_new", 0, "new"));
+			mixin(Register!(3, "range"));
 
 			newNamespace(t, "array");
-				newFunction(t, 1, &sort,      "sort");       fielda(t, -2, "sort");
-				newFunction(t, 0, &reverse,   "reverse");    fielda(t, -2, "reverse");
-				newFunction(t, 0, &array_dup, "dup");        fielda(t, -2, "dup");
+				mixin(RegisterField!(1, "sort"));
+				mixin(RegisterField!(0, "reverse"));
+				mixin(RegisterField!(0, "array_dup", 0, "dup"));
 
 					newFunction(t, 1, &iterator,        "iterator");
 					newFunction(t, 1, &iteratorReverse, "iteratorReverse");
-				newFunction(t, 1, &opApply,   "opApply", 2); fielda(t, -2, "opApply");
+				mixin(RegisterField!(1, "opApply", 2));
 
-				newFunction(t, 0, &expand,    "expand");     fielda(t, -2, "expand");
-				newFunction(t, 0, &toString,  "toString");   fielda(t, -2, "toString");
-				newFunction(t, 1, &apply,     "apply");      fielda(t, -2, "apply");
-				newFunction(t, 1, &map,       "map");        fielda(t, -2, "map");
-				newFunction(t, 2, &reduce,    "reduce");     fielda(t, -2, "reduce");
-				newFunction(t, 2, &rreduce,   "rreduce");    fielda(t, -2, "rreduce");
-				newFunction(t, 1, &each,      "each");       fielda(t, -2, "each");
-				newFunction(t, 1, &filter,    "filter");     fielda(t, -2, "filter");
-				newFunction(t, 1, &find,      "find");       fielda(t, -2, "find");
-				newFunction(t, 1, &findIf,    "findIf");     fielda(t, -2, "findIf");
-				newFunction(t, 1, &bsearch,   "bsearch");    fielda(t, -2, "bsearch");
-				newFunction(t, 1, &array_pop, "pop");        fielda(t, -2, "pop");
-				newFunction(t, &set,       "set");        fielda(t, -2, "set");
-				newFunction(t, 0, &min,       "min");        fielda(t, -2, "min");
-				newFunction(t, 0, &max,       "max");        fielda(t, -2, "max");
-				newFunction(t, 1, &extreme,   "extreme");    fielda(t, -2, "extreme");
-				newFunction(t, 1, &any,       "any");        fielda(t, -2, "any");
-				newFunction(t, 1, &all,       "all");        fielda(t, -2, "all");
-				newFunction(t, 1, &fill,      "fill");       fielda(t, -2, "fill");
-				newFunction(t, &append,    "append");     fielda(t, -2, "append");
+				mixin(RegisterField!(0, "expand"));
+				mixin(RegisterField!(0, "toString"));
+				mixin(RegisterField!(1, "apply"));
+				mixin(RegisterField!(1, "map"));
+				mixin(RegisterField!(2, "reduce"));
+				mixin(RegisterField!(2, "rreduce"));
+				mixin(RegisterField!(1, "each"));
+				mixin(RegisterField!(1, "filter"));
+				mixin(RegisterField!(1, "find"));
+				mixin(RegisterField!(1, "findIf"));
+				mixin(RegisterField!(1, "bsearch"));
+				mixin(RegisterField!(1, "array_pop", 0, "pop"));
+				mixin(RegisterField!(   "set"));
+				mixin(RegisterField!(0, "min"));
+				mixin(RegisterField!(0, "max"));
+				mixin(RegisterField!(1, "extreme"));
+				mixin(RegisterField!(1, "any"));
+				mixin(RegisterField!(1, "all"));
+				mixin(RegisterField!(1, "fill"));
+				mixin(RegisterField!(   "append"));
 
 					newTable(t);
-				newFunction(t, 0, &flatten,   "flatten", 1); fielda(t, -2, "flatten");
+				mixin(RegisterField!(0, "flatten", 1));
 
-				newFunction(t, 0, &makeHeap,  "makeHeap");   fielda(t, -2, "makeHeap");
-// 				newFunction(t, 1, &pushHeap,  "pushHeap");   fielda(t, -2, "pushHeap");
-// 				newFunction(t, 0, &popHeap,   "popHeap");    fielda(t, -2, "popHeap");
-				newFunction(t, 0, &sortHeap,  "sortHeap");   fielda(t, -2, "sortHeap");
-				newFunction(t, 2, &count,     "count");      fielda(t, -2, "count");
-				newFunction(t, 1, &countIf,   "countIf");    fielda(t, -2, "countIf");
+				mixin(RegisterField!(2, "count"));
+				mixin(RegisterField!(1, "countIf"));
 			setTypeMT(t, CrocValue.Type.Array);
+
+			version(CrocBuiltinDocs)
+			{
+				dup(t, 0);
+				doc.pop(-1);
+				pop(t);
+			}
 
 			return 0;
 		});
 
 		importModuleNoNS(t, "array");
 	}
+
+	version(CrocBuiltinDocs) Docs array_new_docs = {kind: "function", name: "array.new", docs:
+	"You can use array literals to create arrays in Croc, but sometimes you just need to be able to
+	create an array of arbitrary size. This function will create an array of the given size. If
+	you pass a value for the `fill` parameter, the new array will have every element set to it.
+	Otherwise, it will be filled with `null`.",
+	params: [Param("size", "int"), Param("fill", "any", "null")],
+	extra: [Extra("section", "Functions"), Extra("protection", "global")]};
 
 	uword array_new(CrocThread* t)
 	{
@@ -110,6 +135,31 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs range_docs = {kind: "function", name: "array.range", docs:
+	"Creates a new array filled with integer values specified by the arguments. This is similar to
+	the Python `range()` function, but is a little more intelligent when it comes to the direction
+	of the range. Namely, if you give it indices where the ending index is less than the beginning,
+	it will automatically use a negative step. In fact, the step value passed to this function must
+	always be greater than 0; it simply defines the size of the step regardless of the direction the
+	range goes in.
+
+	If only one argument is given, that argument specifies the noninclusive ending index, and the
+	beginning index is assumed to be 0 and the step to be 1. This means `array.range(5)` will return
+	`[0, 1, 2, 3, 4]` and `array.range(-5)` will return `[0, -1, -2, -3, -4]`.
+
+	If two arguments are given, the first is the beginning inclusive index and the second is the
+	ending noninclusive index. The step is again assumed to be 1. Examples: `array.range(3, 8)`
+	yields `[3, 4, 5, 6, 7]`; `array.range(2, -2)` yields `[2, 1, 0, -1]`; and `array.range(-10, -7)`
+	yields `[-10, -9, -8]`.
+
+	Lastly, if three arguments are given, the first is the beginning inclusive index, the second the
+	ending noninclusive index, and the third the step value. The step must be greater than 0; this
+	function will automatically figure out that it needs to subtract the step if the ending index is
+	less than the beginning index. Example: `array.range(1, 20, 4)` yields `[1, 5, 9, 13, 17]` and
+	`array.range(10, 0, 2)` yields `[10, 8, 6, 4, 2]`.",
+	params: [Param("val1", "int"), Param("val2", "int", "null"), Param("step", "int", "null")],
+	extra: [Extra("section", "Functions"), Extra("protection", "global")]};
 
 	uword range(CrocThread* t)
 	{
@@ -161,6 +211,22 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs sort_docs = {kind: "function", name: "sort", docs:
+	"Sorts the given array. All the elements must be comparable with one another. Will call any
+	'''`opCmp`''' metamethods. Returns the array itself.
+
+	If no parameters are given, sorts the array in ascending order.
+
+	If the optional `how` parameter is given the string `\"reverse\"`, the array will be sorted
+	in descending order.
+
+	If the `how` parameter is a function, it is treated as a sorting predicate. It should take
+	two arguments, compare them, and return an ordering integer (i.e. negative if the first is
+	less than the second, positive if the first is greater than the second, and 0 if they are
+	equal).",
+	params: [Param("how", "function|string", "null")],
+	extra: [Extra("section", "Methods")]};
 
 	uword sort(CrocThread* t)
 	{
@@ -229,6 +295,11 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs reverse_docs = {kind: "function", name: "reverse", docs:
+	"Reverses the elements in the given array in-place. Returns the array itself.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword reverse(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -236,6 +307,12 @@ static:
 		dup(t, 0);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs array_dup_docs = {kind: "function", name: "dup", docs:
+	"Creates a copy of the given array. Only the array elements are copied, not any data that
+	they point to.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword array_dup(CrocThread* t)
 	{
@@ -275,6 +352,22 @@ static:
 		return 2;
 	}
 
+	version(CrocBuiltinDocs) Docs opApply_docs = {kind: "function", name: "opApply", docs:
+	"This allows you to iterate over arrays using `foreach` loops.
+{{{
+#!croc
+foreach(i, v; a)
+	// ...
+
+foreach(i, v; a, \"reverse\")
+	// iterate backwards
+}}}
+
+	As the second example shows, passing in the string \"reverse\" as the second parameter will
+	cause the iteration to run in reverse.",
+	params: [Param("mode", "string", "null")],
+	extra: [Extra("section", "Methods")]};
+
 	uword opApply(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -295,6 +388,13 @@ static:
 		return 3;
 	}
 
+	version(CrocBuiltinDocs) Docs expand_docs = {kind: "function", name: "expand", docs:
+	"Returns all the elements of the array in order. In this way, you can \"unpack\" an array's
+	values to pass as separate parameters to a function, or as return values, etc. Note that you
+	probably shouldn't use this on really big arrays.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword expand(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -305,6 +405,15 @@ static:
 
 		return a.length;
 	}
+
+	version(CrocBuiltinDocs) Docs toString_docs = {kind: "function", name: "toString", docs:
+	"Returns a nice string representation of the array. This will format the array into a string
+	that looks like a Croc expression, like \"[1, 2, 3]\". Note that the elements of the array do
+	not have their toString metamethods called, since that could lead to infinite loops if the array
+	references itself directly or indirectly. To get a more complete representation of an array,
+	look at the baselib '''`dumpVal`''' function (though that only outputs to the console).",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword toString(CrocThread* t)
 	{
@@ -352,6 +461,15 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs apply_docs = {kind: "function", name: "apply", docs:
+	"Iterates over the array, calling the function with each element of the array, and assigns
+	the result of the function back into the corresponding array element. The function should
+	take one value and return one value. Returns the array it was called on. This works in-place,
+	modifying the array on which it was called. As an example, \"`[1, 2, 3, 4, 5].apply(\\x -> x * x)`\"
+	will replace the values in the array with \"`[1, 4, 9, 16, 25]`\".",
+	params: [Param("func", "function")],
+	extra: [Extra("section", "Methods")]};
+
 	uword apply(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -372,6 +490,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs map_docs = {kind: "function", name: "map", docs:
+	"Like '''`apply`''', but creates a new array and puts the output of the function in there,
+	rather than modifying the source array. Returns the new array.",
+	params: [Param("func", "function")],
+	extra: [Extra("section", "Methods")]};
+
 	uword map(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -390,6 +514,24 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs reduce_docs = {kind: "function", name: "reduce", docs:
+	"Also known as "`fold`" or "`foldl`" (left fold) in many functional languages. This function
+	takes a function `func` of two arguments which is expected to return a value. It treats the
+	array as a list of operands, and uses `func` as if it were a left-associative binary operator
+	between each pair of items in the array. This sounds confusing, but it makes sense with a bit
+	of illustration: \"`[1 2 3 4 5].reduce(\\a, b -> a + b)`\" will sum all the elements of the array
+	and return 15, since it's like writing `((((1 + 2) + 3) + 4) + 5)`. Notice that the operations
+	are always performed left-to-right.
+
+	This function optionally takes a \"start value\" which will be used as the very first item in
+	the sequence. For instance, \"`[1 2 3].reduce(\\a, b -> a + b, 10)`\" will do the same thing as
+	`(((10 + 1) + 2) + 3)`. In the event that the array's length is 0, the start value is simply
+	returned as is.
+
+	If no start value is given, and the array's length is 0, an error is thrown.",
+	params: [Param("func", "function"), Param("start", "any", "null")],
+	extra: [Extra("section", "Methods")]};
 
 	uword reduce(CrocThread* t)
 	{
@@ -432,6 +574,14 @@ static:
 
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs rreduce_docs = {kind: "function", name: "rreduce", docs:
+	"Similar to `reduce` but goes right-to-left instead of left-to-right. \"`[1 2 3 4 5].rreduce(\\a, b -> a + b)`\"
+	will still sum all the elements, because addition is commutative, but the order in which this
+	is done becomes `(1 + (2 + (3 + (4 + 5))))`. Obviously if `func` is not commutative, `reduce`
+	and `rreduce` will give different results.",
+	params: [Param("func", "function"), Param("start", "any", "null")],
+	extra: [Extra("section", "Methods")]};
 
 	uword rreduce(CrocThread* t)
 	{
@@ -478,6 +628,14 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs each_docs = {kind: "function", name: "each", docs:
+	"This is an alternate way of iterating over an array. The function is called once for each
+	element, starting at the first element. The parameters to the function are the array as the
+	`this` param, then the index, and then the value. If the function returns `false`, iteration will
+	stop and this function will return. This function returns the array on which it was called.",
+	params: [Param("func", "function")],
+	extra: [Extra("section", "Methods")]};
+
 	uword each(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -498,6 +656,15 @@ static:
 		dup(t, 0);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs filter_docs = {kind: "function", name: "filter", docs:
+	"Creates a new array which holds only those elements for which the given function returned `true`
+	when called with elements from the source array. The function is passed two arguments, the index
+	and the value, and should return a boolean value. `true` means the given element should be included
+	in the result, and `false` means it should be skipped. \"`[1, 2, \"hi\", 4.5, 6].filter(\\i, v -> isInt(v))`\"
+	would result in the array \"`[1, 2, 6]`\", as the filter function only returns true for integral elements.",
+	params: [Param("func", "function")],
+	extra: [Extra("section", "Methods")]};
 
 	uword filter(CrocThread* t)
 	{
@@ -545,6 +712,16 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs find_docs = {kind: "function", name: "find", docs:
+	"Performs a linear search for the value in the array. Returns the length of the array if it wasn't
+	found, or its index if it was.
+
+	This only compares items against the searched-for value if they are the same type. This differs from
+	\"`val in a`\" in that 'in' only checks if `val` is identical to any of the values in `a`; it never
+	calls `opCmp` metamethods like this function does.",
+	params: [Param("value")],
+	extra: [Extra("section", "Methods")]};
+
 	uword find(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -564,6 +741,14 @@ static:
 		pushLen(t, 0);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs findIf_docs = {kind: "function", name: "findIf", docs:
+	"Similar to '''`find`''' except that it uses a predicate instead of looking for a value. Performs a
+	linear search of the array, calling the predicate on each value. Returns the index of the first value
+	for which the predicate returns `true`. Returns the length of the array if no value is found that satisfies
+	the predicate.",
+	params: [Param("pred", "function")],
+	extra: [Extra("section", "Methods")]};
 
 	uword findIf(CrocThread* t)
 	{
@@ -595,6 +780,14 @@ static:
 		pushLen(t, 0);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs bsearch_docs = {kind: "function", name: "bsearch", docs:
+	"Performs a binary search for the value in the array. Because of the way binary search works, the array
+	must be sorted for this search to work properly. Additionally, all the elements must be comparable (they
+	had to be for the sort to work in the first place). Returns the array's length if the value wasn't found,
+	or its index if it was.",
+	params: [Param("value")],
+	extra: [Extra("section", "Methods")]};
 
 	uword bsearch(CrocThread* t)
 	{
@@ -641,6 +834,14 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs array_pop_docs = {kind: "function", name: "pop", docs:
+	"This function can make it easy to use an array as a stack. Called with no parameters, it will remove
+	the last element of the array and return it. Called with an index (which can be negative to mean from
+	the end of the array), it will remove that element and shift all the other elements after it down a
+	slot. In either case, if the array's length is 0, an error will be thrown.",
+	params: [Param("index", "int", "-1")],
+	extra: [Extra("section", "Methods")]};
+
 	uword array_pop(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -667,6 +868,14 @@ static:
 		array.resize(t.vm.alloc, getArray(t, 0), data.length - 1);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs set_docs = {kind: "function", name: "set", docs:
+	"Kind of like the inverse of '''`expand`''', this takes a variadic number of parameters, sets the length
+	of the array to as many parameters as there are, and fills the array with those parameters. This is very
+	similar to using an array constructor, but it reuses an array instead of creating a new one, which can
+	save a lot of memory and time if you're doing this a lot.",
+	params: [Param("vararg", "vararg")],
+	extra: [Extra("section", "Methods")]};
 
 	uword set(CrocThread* t)
 	{
@@ -761,15 +970,42 @@ static:
 		return 2;
 	}
 
+	version(CrocBuiltinDocs) Docs min_docs = {kind: "function", name: "min", docs:
+	"Gets the smallest value in the array. All elements of the array must be comparable to
+	each other for this to work. Throws an error if the array is empty. If the array only
+	has one value, returns that value.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword min(CrocThread* t)
 	{
 		return minMaxImpl(t, 0, false);
 	}
 
+	version(CrocBuiltinDocs) Docs max_docs = {kind: "function", name: "max", docs:
+	"Gets the largest value in the array. All elements of the array must be comparable to
+	each other for this to work. Throws an error if the array is empty. If the array only
+	has one value, returns that value.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword max(CrocThread* t)
 	{
 		return minMaxImpl(t, 0, true);
 	}
+
+	version(CrocBuiltinDocs) Docs extreme_docs = {kind: "function", name: "extreme", docs:
+	"This is a generic version of '''`min`''' and '''`max`'''. Takes a predicate which should
+	take two parameters: a new value, and the current extreme. The predicate should return `true`
+	if the new value is more extreme than the current extreme, and false otherwise. To illustrate,
+	\"`[1, 2, 3, 4, 5].extreme(\\new, extreme -> new > extreme)`\" will do the same thing as
+	'''`max`''', since the predicate returns true if the value is bigger than the current extreme.
+	(However, the '''`min`''' and '''`max`''' functions are optimized and will be faster than if
+	you pass your own predicate.)
+
+	Throws an error if the array is empty. If the array only has one value, returns that value.",
+	params: [Param("pred", "function")],
+	extra: [Extra("section", "Methods")]};
 
 	uword extreme(CrocThread* t)
 	{
@@ -777,6 +1013,19 @@ static:
 		checkParam(t, 1, CrocValue.Type.Function);
 		return minMaxImpl(t, numParams, false);
 	}
+
+	version(CrocBuiltinDocs) Docs all_docs = {kind: "function", name: "all", docs:
+	"This is a generalized boolean \"and\" (logical conjunction) operation.
+
+	If called with no predicate function, returns `true` if every element in the array has a truth
+	value of `true`, and `false` otherwise.
+
+	If called with a predicate, returns `true` if the predicate returned `true` for every element
+	in the array, and `false` otherwise.
+
+	Returns `true` if called on an empty array.",
+	params: [Param("pred", "function", "null")],
+	extra: [Extra("section", "Methods")]};
 
 	uword all(CrocThread* t)
 	{
@@ -819,6 +1068,19 @@ static:
 		return 1;
 	}
 	
+	version(CrocBuiltinDocs) Docs any_docs = {kind: "function", name: "any", docs:
+	"This is a generalized boolean \"or\" (logical disjunction) operation.
+
+	If called with no predicate function, returns `true` if any element in the array has a truth
+	value of `true`, and `false` otherwise.
+	
+	If called with a predicate, returns `true` if the predicate returned `true` for any element
+	in the array, and `false` otherwise.
+	
+	Returns `false` if called on an empty array.",
+	params: [Param("pred", "function", "null")],
+	extra: [Extra("section", "Methods")]};
+
 	uword any(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
@@ -860,6 +1122,11 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs fill_docs = {kind: "function", name: "fill", docs:
+	"Sets every element in the array to the given value.",
+	params: [Param("value")],
+	extra: [Extra("section", "Methods")]};
+
 	uword fill(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
@@ -869,6 +1136,13 @@ static:
 		return 0;
 	}
 
+	version(CrocBuiltinDocs) Docs append_docs = {kind: "function", name: "append", docs:
+	"Appends all the arguments to the end of the array, in order. This is different from the append
+	operator (~=), because arrays will be appended as a single value, instead of having their elements
+	appended.",
+	params: [Param("vararg", "vararg")],
+	extra: [Extra("section", "Methods")]};
+
 	uword append(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
@@ -877,7 +1151,7 @@ static:
 
 		if(numParams == 0)
 			return 0;
-			
+
 		auto oldlen = a.length;
 		array.resize(t.vm.alloc, a, a.length + numParams);
 
@@ -886,6 +1160,14 @@ static:
 
 		return 0;
 	}
+
+	version(CrocBuiltinDocs) Docs flatten_docs = {kind: "function", name: "flatten", docs:
+	"Flattens a multi-dimensional array into a single-dimensional array. The dimensions can be nested
+	arbitrarily deep. If an array is directly or indirectly circularly referenced, throws an error. Always
+	returns a new array. Can be called on single-dimensional arrays too, in which case it just returns a
+	duplicate of the array.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword flatten(CrocThread* t)
 	{
@@ -929,80 +1211,15 @@ static:
 		return 1;
 	}
 
-	uword makeHeap(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Array);
-		auto a = getArray(t, 0);
-
-		.makeHeap(a.toArray(), (ref CrocValue a, ref CrocValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
-
-// 	uword pushHeap(CrocThread* t)
-// 	{
-// 		checkParam(t, 0, CrocValue.Type.Array);
-// 		checkAnyParam(t, 1);
-// 		auto a = getArray(t, 0);
-// 
-// 		.pushHeap(a.toArray(), *getValue(t, 1), (ref CrocValue a, ref CrocValue b)
-// 		{
-// 			push(t, a);
-// 			push(t, b);
-// 			auto ret = cmp(t, -2, -1) < 0;
-// 			pop(t, 2);
-// 			return ret;
-// 		});
-// 
-// 		dup(t, 0);
-// 		return 1;
-// 	}
-// 
-// 	uword popHeap(CrocThread* t)
-// 	{
-// 		checkParam(t, 0, CrocValue.Type.Array);
-// 
-// 		if(len(t, 0) == 0)
-// 			throwException(t, "Array is empty");
-// 
-// 		idxi(t, 0, 0, true);
-// 
-// 		.popHeap(getArray(t, 0).toArray(), (ref CrocValue a, ref CrocValue b)
-// 		{
-// 			push(t, a);
-// 			push(t, b);
-// 			auto ret = cmp(t, -2, -1) < 0;
-// 			pop(t, 2);
-// 			return ret;
-// 		});
-// 
-// 		return 1;
-// 	}
-
-	uword sortHeap(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Array);
-
-		.sortHeap(getArray(t, 0).toArray(), (ref CrocValue a, ref CrocValue b)
-		{
-			push(t, a);
-			push(t, b);
-			auto ret = cmp(t, -2, -1) < 0;
-			pop(t, 2);
-			return ret;
-		});
-
-		dup(t, 0);
-		return 1;
-	}
+	version(CrocBuiltinDocs) Docs count_docs = {kind: "function", name: "count", docs:
+	"Called with just a value, returns the number of elements in the array that are equal to that value
+	(according, optionally, to any '''`opCmp`''' overloads). If called with a predicate, the predicate
+	should take two parameters. The second parameter will always be the value that is being counted, the
+	first parameter will be values from the array. The predicate should return a bool telling whether
+	that value of the array should be counted. Returns the number of elements for which the predicate
+	returned `true`.",
+	params: [Param("value"), Param("pred", "function", "null")],
+	extra: [Extra("section", "Methods")]};
 
 	uword count(CrocThread* t)
 	{
@@ -1050,6 +1267,12 @@ static:
 		pushInt(t, .count(getArray(t, 0).toArray(), *getValue(t, 1), pred));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs countIf_docs = {kind: "function", name: "countIf", docs:
+	"Similar to '''`count`''', takes a predicate that should take a value and return a bool telling
+	whether or not to count it. Returns the number of elements for which the predicate returned `true`.",
+	params: [Param("pred", "function")],
+	extra: [Extra("section", "Methods")]};
 
 	uword countIf(CrocThread* t)
 	{

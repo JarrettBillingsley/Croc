@@ -69,49 +69,49 @@ function help(x, child: string = null)
 		writeln("<no help available>")
 		return
 	}
-	
+
 	function writeHeader(d)
 	{
 		if(d.protection)
 			write(d.protection, " ")
-	
+
 		write(d.kind, " ", d.name)
-	
+
 		if(d.params)
 		{
 			write("(")
-	
+
 			foreach(i, p; d.params)
 			{
 				if(i > 0)
 					write(", ")
-	
+
 				write(p.name)
-	
+
 				if(p.type != "any" && p.type != "vararg")
 					write(": ", p.type)
-	
+
 				if(p.value)
 					write(" = ", p.value)
 			}
-	
+
 			write(")")
 		}
-	
+
 		if(d.base)
 			write(" : ", d.base)
-	
+
 		if(d.value)
 			write(" = ", d.value)
-	
+
 		write(" (", d.file)
 		if(d.line != 0)
 			write(":  ", d.line)
 		writeln(")")
 	}
-	
+
 	writeHeader(d)
-	
+
 	if(d.dittos)
 		foreach(dit; d.dittos)
 			writeHeader(dit)
@@ -237,7 +237,7 @@ function dumpStdlib(x)
 	}
 }
 
-//dumpStdlib(_G)
+dumpStdlib(array)
 
 ///
 // namespace X
