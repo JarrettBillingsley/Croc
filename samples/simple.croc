@@ -161,7 +161,7 @@ function dumpDocs(docs: string, indent: bool)
 	}
 }
 
-function dumpItem(d)
+function dumpHeader(d)
 {
 	switch(d.kind)
 	{
@@ -171,13 +171,6 @@ function dumpItem(d)
 			if(d.base)
 				write(" : ", d.base)
 			writeln("`'''::")
-			writeln()
-			dumpDocs(d.docs, true)
-			writeln()
-
-			foreach(child; d.children)
-				dumpItem(child)
-
 			break
 
 		case "function":
@@ -198,9 +191,36 @@ function dumpItem(d)
 			}
 
 			writeln(")`'''::")
+			break
+
+		default:
+			writeln("<unhandled kind ", d.kind, ">")
+	}
+}
+
+function dumpItem(d)
+{
+	dumpHeader(d)
+
+	if(d.dittos)
+		foreach(dit; d.dittos)
+			dumpHeader(dit)
+
+	switch(d.kind)
+	{
+		case "class":
+			writeln()
 			dumpDocs(d.docs, true)
 			writeln()
 
+			foreach(child; d.children)
+				dumpItem(child)
+
+			break
+
+		case "function":
+			dumpDocs(d.docs, true)
+			writeln()
 			break
 
 		default:
@@ -237,36 +257,7 @@ function dumpStdlib(x)
 	}
 }
 
-dumpStdlib(array)
-
-///
-// namespace X
-// {
-// 	foooooob /// foooooooob!
-// }
-//
-// namespace Y {}
-//
-// /
-// local fork, knife = 4, 5
-//
-// /****************************
-//  * Blerfaderfa!
-//  * BLah blah blah.
-//  ****************************/
-// function foo(x: int = BLERFADERFADARF + 3 + f(4)) {}
-//
-// /** This is a class. */
-// class C
-// {
-// 	/** this is X! */
-// 	x /// blah
-// 
-// 	y = 3 /// blerf
-// 
-// 	/** foob */
-// 	this(x, y) :x, :y = x, y
-// }
+dumpStdlib(_G)
 
 /*
 I guess it's baselib (but could be moved?)

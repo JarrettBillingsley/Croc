@@ -1094,6 +1094,8 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
    the table.
  * '''`array`''': A string in the format `\"array 0x00000000\"` where 0x00000000 is the address of
    the array.
+ * '''`memblock`''': A string in the format `\"memblock 0x00000000\"` where 0x00000000 is the address of
+   the memblock.
  * '''`function`''': If the function is native code, a string formatted as `\"native function <name>\"`;
    if script code, a string formatted as `\"script function <name>(<location>)\"`.
  * '''`class`''': A string formatted as `\"class <name> (0x00000000)\"`, where 0x00000000 is the address
