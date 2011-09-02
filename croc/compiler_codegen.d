@@ -1934,14 +1934,22 @@ scope class Codegen : Visitor
 
 	public uint classDefBegin(ClassDef d)
 	{
-		visit(d.baseClass);
 		Exp base;
-		fs.popSource(d.location.line, base);
-		fs.freeExpTempRegs(base);
+		
+		if(d.baseClass)
+		{
+			visit(d.baseClass);
+			fs.popSource(d.location.line, base);
+			fs.freeExpTempRegs(base);
+		}
 
 		auto destReg = fs.pushRegister();
 		auto nameConst = fs.tagConst(fs.codeStringConst(d.name.name));
-		fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
+		
+		if(d.baseClass)
+			fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
+		else
+			fs.codeR(d.location.line, Op.ClassNB, destReg, nameConst, 0);
 
 		return destReg;
 	}

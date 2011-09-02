@@ -776,6 +776,8 @@ struct CrocVM
 	package CrocValue exception;
 	package CrocNamespace* registry;
 	package Hash!(ulong, CrocBaseObject*) refTab;
+	package CrocClass* object;
+	package CrocClass* throwable;
 
 	// Others
 	package Hash!(char[], CrocString*) stringTab;

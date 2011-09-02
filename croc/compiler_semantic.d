@@ -157,7 +157,8 @@ scope class Semantic : IdentityVisitor
 	
 	public override ClassDef visit(ClassDef d)
 	{
-		d.baseClass = visit(d.baseClass);
+		if(d.baseClass)
+			d.baseClass = visit(d.baseClass);
 
 		foreach(ref field; d.fields)
 			field.initializer = visit(field.initializer);

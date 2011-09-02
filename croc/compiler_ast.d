@@ -429,9 +429,8 @@ class ClassDef : AstNode
 	public Identifier name;
 
 	/**
-	The base class from which this class derives.  This field will never be null.  If
-	no base class is specified, it is given the value of an IdentExp with the identifier
-	"Object".
+	The base class from which this class derives. Optional. If it is null, it means the class
+	derives from Object.
 	*/
 	public Expression baseClass;
 

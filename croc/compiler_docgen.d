@@ -479,7 +479,7 @@ scope class DocGen : IdentityVisitor
 
 		pushDocTable(d.location, "class", d.name.name, d.docs);
 
-		auto base = d.baseClass.as!(IdentExp);
+		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
 
 		if(!base || base.name.name != "Object")
 		{

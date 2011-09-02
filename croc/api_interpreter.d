@@ -779,18 +779,7 @@ word newClass(CrocThread* t, word base, char[] name)
 	CrocClass* b = void;
 
 	if(isNull(t, base))
-	{
-		pushGlobal(t, "Object");
-		b = getClass(t, -1);
-
-		if(b is null)
-		{
-			pushTypeString(t, -1);
-			throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
-		}
-
-		pop(t);
-	}
+		b = t.vm.object;
 	else if(auto c = getClass(t, base))
 		b = c;
 	else
@@ -810,19 +799,8 @@ top of the stack.
 word newClass(CrocThread* t, char[] name)
 {
 	mixin(FuncNameMix);
-
-	pushGlobal(t, "Object");
-	auto b = getClass(t, -1);
-
-	if(b is null)
-	{
-		pushTypeString(t, -1);
-		throwException(t, __FUNCTION__ ~ " - 'Object' is not a class; it is a '{}'!", getString(t, -1));
-	}
-
-	pop(t);
 	maybeGC(t);
-	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), b)));
+	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), t.vm.object)));
 }
 
 /**

@@ -896,17 +896,12 @@ struct Parser
 		else
 			name = parseIdentifier();
 
-		Expression baseClass;
+		Expression baseClass = null;
 
 		if(l.type == Token.Colon)
 		{
 			l.next();
 			baseClass.sourceStr = capture({baseClass = parseExpression();});
-		}
-		else
-		{
-			baseClass = new(c) IdentExp(c, new(c) Identifier(c, l.loc, c.newString("Object")));
-			baseClass.sourceStr = null;
 		}
 
 		l.expect(Token.LBrace);

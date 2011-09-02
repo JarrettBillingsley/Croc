@@ -3668,6 +3668,12 @@ void execute(CrocThread* t, uword depth = 1)
 
 					maybeGC(t);
 					break;
+				
+				case Op.ClassNB:
+					RS = *mixin(GetRS);
+					*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
+					maybeGC(t);
+					break;
 
 				case Op.Coroutine:
 					RS = *mixin(GetRS);

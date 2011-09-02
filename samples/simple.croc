@@ -4,6 +4,8 @@ module samples.simple
 /// DOCS!
 local x, y = 3, 4
 
+class A {}
+
 function main()
 {
 
@@ -257,7 +259,7 @@ function dumpStdlib(x)
 	}
 }
 
-dumpStdlib(_G)
+// dumpStdlib(_G)
 
 /*
 I guess it's baselib (but could be moved?)
