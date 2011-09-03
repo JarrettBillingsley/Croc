@@ -36,7 +36,7 @@ void printUsage()
 	Stdout("Usage:").newline;
 	Stdout("\tcrocc filename").newline;
 	Stdout.newline;
-	Stdout("This program is very straightforward.  You give it the name of a .croc").newline;
+	Stdout("This program is very straightforward. You give it the name of a .croc").newline;
 	Stdout("file, and it will compile the module and write it to a binary .croco file.").newline;
 	Stdout("The output file will have the same name as the input file but with the").newline;
 	Stdout(".croco extension.").newline;

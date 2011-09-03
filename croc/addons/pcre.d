@@ -1,7 +1,7 @@
 /******************************************************************************
-A binding to libpcre, a Perl-Compatible Regular Expressions library.  This
+A binding to libpcre, a Perl-Compatible Regular Expressions library. This
 library will dynamically load libpcre at runtime so there's nothing you need
-to link (besides libdl on posix).  This requires at least libpcre 7.4, and it
+to link (besides libdl on posix). This requires at least libpcre 7.4, and it
 must have been compiled with UTF-8 support (this will be checked at load-time).
 
 License:
@@ -59,7 +59,7 @@ struct PcreLib
 				auto minor = Int.parse(vers[vers.locate('.') + 1 .. vers.locate(' ')]);
 
 				if(minor < 4 || major < 7)
-					throwException(t, "Your PCRE library is only version {}.  You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
+					throwException(t, "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
 
 				word ret;
 				pcre_config(PCRE_CONFIG_UTF8, &ret);
