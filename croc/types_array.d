@@ -83,7 +83,7 @@ static:
 		return n;
 	}
 
-	// Assign an entire other array into a slice of the destination array.  Handles overlapping copies as well.
+	// Assign an entire other array into a slice of the destination array. Handles overlapping copies as well.
 	package void sliceAssign(CrocArray* a, uword lo, uword hi, CrocArray* other)
 	{
 		auto dest = a.data[lo .. hi];
@@ -107,7 +107,7 @@ static:
 
 		// Since Op.SetArray can use a variadic number of values, the number
 		// of elements actually added to the array in the array constructor
-		// may exceed the size with which the array was created.  So it should be
+		// may exceed the size with which the array was created. So it should be
 		// resized.
 		if(end > a.length)
 			array.resize(alloc, a, end);

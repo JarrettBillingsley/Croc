@@ -1,6 +1,6 @@
 /******************************************************************************
 This module contains an AST visitor which performs semantic analysis on a
-parsed AST.  Semantic analysis rewrites some language constructs in terms of
+parsed AST. Semantic analysis rewrites some language constructs in terms of
 others, performs constant folding, and checks what little it can for
 correctness.
 
@@ -395,7 +395,7 @@ scope class Semantic : IdentityVisitor
 				break;
 			}
 
-			// Have to rewrite the statements.  Scope statements are just fancy ways of writing try-catch-finally blocks.
+			// Have to rewrite the statements. Scope statements are just fancy ways of writing try-catch-finally blocks.
 			rest = c.alloc.dupArray(rest);
 			auto tryBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, rest[0].location, rest[$ - 1].endLocation, rest));
 			Statement replacement;
@@ -659,7 +659,7 @@ scope class Semantic : IdentityVisitor
 			auto lo = rc.conditions[0].exp;
 			auto hi = rc.highRange;
 
-			// this might not work for ranges using absurdly large numbers.  fuh.
+			// this might not work for ranges using absurdly large numbers. fuh.
 			if((lo.isInt || lo.isFloat) && (hi.isInt || hi.isFloat))
 			{
 				auto loVal = lo.asFloat;
@@ -1369,7 +1369,7 @@ scope class Semantic : IdentityVisitor
 
 		for(word i = 0; i < ops.length; i++)
 		{
-			// this first case can only happen when the last item in the array can't be folded.  otherwise i will be set to ops.length - 1,
+			// this first case can only happen when the last item in the array can't be folded. otherwise i will be set to ops.length - 1,
 			// incremented, and the loop will break.
 			if(i == ops.length - 1)
 				newOperands ~= ops[i];

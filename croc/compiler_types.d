@@ -1,5 +1,5 @@
 /******************************************************************************
-This module defines some types used by the compiler.  It also abstracts the
+This module defines some types used by the compiler. It also abstracts the
 interface to the compiler to avoid circular imports.
 
 License:
@@ -99,7 +99,7 @@ template IAstNodeMixin()
 	}
 }
 
-// Dynamically-sized list.  When you use .toArray(), it hands off the reference to its
+// Dynamically-sized list. When you use .toArray(), it hands off the reference to its
 // data, meaning that you now own the data and must clean it up.
 scope class List(T)
 {

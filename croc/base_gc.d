@@ -154,7 +154,7 @@ void free(CrocVM* vm, GCObject* o)
 
 private:
 
-// For marking CrocValues.  Marks it only if it's an object.
+// For marking CrocValues. Marks it only if it's an object.
 template CondMark(char[] name)
 {
 	const CondMark =

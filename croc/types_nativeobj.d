@@ -35,7 +35,7 @@ static:
 	// ================================================================================================================================================
 	
 	// Create a new native object, or if one already exists for the given Object, return
-	// that one.  For any D object, there is exactly one Croc Native Object.
+	// that one. For any D object, there is exactly one Croc Native Object.
 	package CrocNativeObj* create(CrocVM* vm, Object obj)
 	{
 		if(auto o = obj in vm.nativeObjs)

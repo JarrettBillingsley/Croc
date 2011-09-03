@@ -62,7 +62,7 @@ public:
 // VM-related functions
 
 /**
-Push the metatable for the given type.  If the type has no metatable, pushes null.  The type given must be
+Push the metatable for the given type. If the type has no metatable, pushes null. The type given must be
 one of the "normal" types -- the "internal" types are illegal and an error will be thrown.
 
 Params:
@@ -91,7 +91,7 @@ word getTypeMT(CrocThread* t, CrocValue.Type type)
 }
 
 /**
-Sets the metatable for the given type to the namespace or null at the top of the stack.  Throws an
+Sets the metatable for the given type to the namespace or null at the top of the stack. Throws an
 error if the type given is one of the "internal" types, or if the value at the top of the stack is
 neither null nor a namespace.
 
@@ -124,7 +124,7 @@ void setTypeMT(CrocThread* t, CrocValue.Type type)
 }
 
 /**
-Pushes the VM's registry namespace onto the stack.  The registry is sort of a hidden global namespace only accessible
+Pushes the VM's registry namespace onto the stack. The registry is sort of a hidden global namespace only accessible
 from native code and which native code may use for any purpose.
 
 Returns:
@@ -136,7 +136,7 @@ word getRegistry(CrocThread* t)
 }
 
 /**
-Allocates a block of memory using the given thread's VM's allocator function.  This memory is $(B not) garbage-collected.
+Allocates a block of memory using the given thread's VM's allocator function. This memory is $(B not) garbage-collected.
 You must free the memory returned by this function in order to avoid memory leaks.
 
 The array returned by this function should not have its length set or be appended to (~=).
@@ -153,18 +153,18 @@ void[] allocMem(CrocThread* t, uword size)
 }
 
 /**
-Resize a block of memory.  $(B Only call this on memory that has been allocated using the allocMem, _resizeMem or dupMem
-functions.)  If you pass this function an empty (0-length) memory block, it will allocate memory.  If you resize an existing
+Resize a block of memory. $(B Only call this on memory that has been allocated using the allocMem, _resizeMem or dupMem
+functions.)  If you pass this function an empty (0-length) memory block, it will allocate memory. If you resize an existing
 block to a length of 0, it will deallocate that memory.
 
-If you resize a block to a smaller size, its data will be truncated.  If you resize a block to a larger size, the empty
+If you resize a block to a smaller size, its data will be truncated. If you resize a block to a larger size, the empty
 space will be uninitialized.
 
 The array returned by this function through the mem parameter should not have its length set or be appended to (~=).
 
 Params:
-	mem = A reference to the memory block you want to reallocate.  This is a reference so that the original memory block
-		reference that you pass in is updated.  This can be a 0-length array.
+	mem = A reference to the memory block you want to reallocate. This is a reference so that the original memory block
+		reference that you pass in is updated. This can be a 0-length array.
 
 	size = The size, in bytes, of the new size of the memory block.
 */
@@ -174,13 +174,13 @@ void resizeMem(CrocThread* t, ref void[] mem, uword size)
 }
 
 /**
-Duplicate a block of memory.  This is safe to call on memory that was not allocated with the thread's VM's allocator.
+Duplicate a block of memory. This is safe to call on memory that was not allocated with the thread's VM's allocator.
 The new block will be the same size and contain the same data as the old block.
 
 The array returned by this function should not have its length set or be appended to (~=).
 
 Params:
-	mem = The block of memory to copy.  This is not required to have been allocated by allocMem, resizeMem, or _dupMem.
+	mem = The block of memory to copy. This is not required to have been allocated by allocMem, resizeMem, or _dupMem.
 
 Returns:
 	The new memory block.
@@ -191,12 +191,12 @@ void[] dupMem(CrocThread* t, void[] mem)
 }
 
 /**
-Free a block of memory.  $(B Only call this on memory that has been allocated with allocMem, resizeMem, or dupMem.)
+Free a block of memory. $(B Only call this on memory that has been allocated with allocMem, resizeMem, or dupMem.)
 It's legal to free a 0-length block.
 
 Params:
-	mem = A reference to the memory block you want to free.  This is a reference so that the original memory block
-		reference that you pass in is updated.  This can be a 0-length array.
+	mem = A reference to the memory block you want to free. This is a reference so that the original memory block
+		reference that you pass in is updated. This can be a 0-length array.
 */
 void freeMem(CrocThread* t, ref void[] mem)
 {
@@ -204,24 +204,24 @@ void freeMem(CrocThread* t, ref void[] mem)
 }
 
 /**
-Creates a reference to a Croc object.  A reference is like the native equivalent of Croc's nativeobj.  Whereas a
+Creates a reference to a Croc object. A reference is like the native equivalent of Croc's nativeobj. Whereas a
 nativeobj allows Croc to hold a reference to a native object, a reference allows native code to hold a reference
 to a Croc object.
 
 References are identified by unique integer values which are passed to the  $(D pushRef) and $(D removeRef) functions.
-These are guaranteed to be probabilistically to be unique for the life of the program.  What I mean by that is that
+These are guaranteed to be probabilistically to be unique for the life of the program. What I mean by that is that
 if you created a million references per second, it would take you over half a million years before the reference
-values wrapped around.  Aren'_t 64-bit integers great?
+values wrapped around. Aren'_t 64-bit integers great?
 
 References prevent the referenced Croc object from being collected, ever, so unless you want memory leaks, you must
-call $(D removeRef) when your code no longer needs the object.  See $(croc.ex) for some reference helpers.
+call $(D removeRef) when your code no longer needs the object. See $(croc.ex) for some reference helpers.
 
 Params:
-	idx = The stack index of the object to which a reference should be created.  If this refers to a value type,
+	idx = The stack index of the object to which a reference should be created. If this refers to a value type,
 		an exception will be thrown.
 
 Returns:
-	The new reference name for the given object.  You can create several references to the same object; it will not
+	The new reference name for the given object. You can create several references to the same object; it will not
 	be collectible until all references to it have been removed.
 */
 ulong createRef(CrocThread* t, word idx)
@@ -258,8 +258,8 @@ word pushRef(CrocThread* t, ulong r)
 }
 
 /**
-Removes the given reference.  When all references to an object are removed, it will no longer be considered to be
-referenced by the host app and will be subject to normal GC rules.  If the given reference is invalid, an
+Removes the given reference. When all references to an object are removed, it will no longer be considered to be
+referenced by the host app and will be subject to normal GC rules. If the given reference is invalid, an
 exception will be thrown.
 */
 void removeRef(CrocThread* t, ulong r)
@@ -280,7 +280,7 @@ This will perform a garbage collection only if a sufficient amount of memory has
 the last collection.
 
 Params:
-	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+	t = The thread to use to collect the garbage. Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.
 
 Returns:
@@ -305,7 +305,7 @@ uword maybeGC(CrocThread* t)
 Runs the garbage collector unconditionally.
 
 Params:
-	t = The thread to use to collect the garbage.  Garbage collection is vm-wide but requires a thread
+	t = The thread to use to collect the garbage. Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.
 
 Returns:
@@ -367,7 +367,7 @@ word pushString(CrocThread* t, char[] v)
 }
 
 /**
-Push a formatted string onto the stack.  This works exactly like tango.text.convert.Layout (and in fact
+Push a formatted string onto the stack. This works exactly like tango.text.convert.Layout (and in fact
 calls it), except that the destination buffer is a Croc string.
 
 Params:
@@ -448,7 +448,7 @@ word newArray(CrocThread* t, uword len)
 }
 
 /**
-Creates a new array object using values at the top of the stack.  Pops those values and pushes
+Creates a new array object using values at the top of the stack. Pops those values and pushes
 the new array onto the stack.
 
 Params:
@@ -548,11 +548,11 @@ word memblockFromDArray(_T)(CrocThread* t, _T[] arr)
 
 /**
 Constructs a memblock from a D array and pushes it onto the stack. The resulting
-memblock is a $(B view) into the data.  That is, modifying the contents of the
+memblock is a $(B view) into the data. That is, modifying the contents of the
 returned memblock will actually modify the array that you passed.
 
 Note that you must ensure that the D array is not collected while this memblock
-is around.  The memblock will not keep it around for you.
+is around. The memblock will not keep it around for you.
 
 The array type must be convertible to a single-dimensional array of any integer
 type or a float or double array.
@@ -591,7 +591,7 @@ the stack before calling newFunction and then pass how many upvalues you pushed.
 An example:
 
 -----
-// 1. Push any upvalues.  Here we have two.  Note that they are pushed in order:
+// 1. Push any upvalues. Here we have two. Note that they are pushed in order:
 // upvalue 0 will be 5 and upvalue 1 will be "hi" once the closure is created.
 pushInt(t, 5);
 pushString(t, "hi");
@@ -610,12 +610,12 @@ To use a different environment, see newFunctionWithEnv.
 
 Params:
 	func = The native function to be used in the closure.
-	name = The _name to be given to the function.  This is just the 'debug' _name that
-		shows up in error messages.  In order to make the function accessible, you have
+	name = The _name to be given to the function. This is just the 'debug' _name that
+		shows up in error messages. In order to make the function accessible, you have
 		to actually put the resulting closure somewhere, like in the globals, or in
 		a namespace.
 	numUpvals = How many upvalues there are on the stack under the _name to be associated
-		with this closure.  Defaults to 0.
+		with this closure. Defaults to 0.
 
 Returns:
 	The stack index of the newly-created closure.
@@ -641,17 +641,17 @@ word newFunction(CrocThread* t, uint numParams, NativeFunc func, char[] name, uw
 Creates a new native closure with an explicit environment and pushes it onto the stack.
 
 Very similar to newFunction, except that it also expects the environment for the function
-(a namespace) to be on top of the stack.  Using newFunction's example, one would push
+(a namespace) to be on top of the stack. Using newFunction's example, one would push
 the environment namespace after step 1, and step 2 would call newFunctionWithEnv instead.
 
 Params:
 	func = The native function to be used in the closure.
-	name = The _name to be given to the function.  This is just the 'debug' _name that
-		shows up in error messages.  In order to make the function accessible, you have
+	name = The _name to be given to the function. This is just the 'debug' _name that
+		shows up in error messages. In order to make the function accessible, you have
 		to actually put the resulting closure somewhere, like in the globals, or in
 		a namespace.
 	numUpvals = How many upvalues there are on the stack under the _name and environment to
-		be associated with this closure.  Defaults to 0.
+		be associated with this closure. Defaults to 0.
 
 Returns:
 	The stack index of the newly-created closure.
@@ -762,11 +762,11 @@ Creates a new class and pushes it onto the stack.
 After creating the class, you can then fill it with members by using fielda.
 
 Params:
-	base = The stack index of the _base class.  The _base can be `null`, in which case Object (defined
-		in the _base library and which lives in the global namespace) will be used.  Otherwise it must
+	base = The stack index of the _base class. The _base can be `null`, in which case Object (defined
+		in the _base library and which lives in the global namespace) will be used. Otherwise it must
 		be a class.
 
-	name = The _name of the class.  Remember that you still have to store the class object somewhere,
+	name = The _name of the class. Remember that you still have to store the class object somewhere,
 		though, like in a global.
 
 Returns:
@@ -793,7 +793,7 @@ word newClass(CrocThread* t, word base, char[] name)
 }
 
 /**
-Same as above, except it uses the global Object as the base.  The new class is left on the
+Same as above, except it uses the global Object as the base. The new class is left on the
 top of the stack.
 */
 word newClass(CrocThread* t, char[] name)
@@ -804,11 +804,11 @@ word newClass(CrocThread* t, char[] name)
 }
 
 /**
-Creates an instance of a class and pushes it onto the stack.  This does $(I not) call any
+Creates an instance of a class and pushes it onto the stack. This does $(I not) call any
 constructors defined for the class; this simply allocates an instance.
 
 Croc instances can have two kinds of extra data associated with them for use by the host: extra
-Croc values and arbitrary bytes.  The structure of a Croc instance is something like this:
+Croc values and arbitrary bytes. The structure of a Croc instance is something like this:
 
 -----
 // ---------
@@ -819,32 +819,32 @@ Croc values and arbitrary bytes.  The structure of a Croc instance is something 
 // |0: "x" | Extra Croc values which can point into the Croc heap.
 // |1: 5   |
 // +-------+
-// |...    | Arbitrary byte data.
+// |...   | Arbitrary byte data.
 // ---------
 -----
 
 Both extra sections are optional, and no instances created from script classes will have them.
 
 Extra Croc values are useful for adding "members" to the instance which are not visible to the
-scripts but which can still hold Croc objects.  They will be scanned by the GC, so objects
-referenced by these members will not be collected.  If you want to hold a reference to a native
+scripts but which can still hold Croc objects. They will be scanned by the GC, so objects
+referenced by these members will not be collected. If you want to hold a reference to a native
 D object, for instance, this would be the place to put it (wrapped in a NativeObject).
 
 The arbitrary bytes associated with an instance are not scanned by either the D or the Croc GC,
-so don'_t store references to GC'ed objects there.  These bytes are useable for just about anything,
+so don'_t store references to GC'ed objects there. These bytes are useable for just about anything,
 such as storing values which can'_t be stored in Croc values -- structs, complex numbers, long
 integers, whatever.
 
 A clarification: You can store references to $(B heap) objects in the extra bytes, but you must not
-store references to $(B GC'ed) objects there.  That is, you can 'malloc' some data and store the pointer
-in the extra bytes, since that's not GC'ed memory.  You must however perform your own memory management for
-such memory.  You can set up a finalizer function for instances in which you can perform memory management
+store references to $(B GC'ed) objects there. That is, you can 'malloc' some data and store the pointer
+in the extra bytes, since that's not GC'ed memory. You must however perform your own memory management for
+such memory. You can set up a finalizer function for instances in which you can perform memory management
 for these references.
 
 Params:
 	base = The class from which this instance will be created.
-	numValues = How many extra Croc values will be associated with the instance.  See above.
-	extraBytes = How many extra bytes to attach to the instance.  See above.
+	numValues = How many extra Croc values will be associated with the instance. See above.
+	extraBytes = How many extra bytes to attach to the instance. See above.
 */
 word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
@@ -885,8 +885,8 @@ word newNamespace(CrocThread* t, char[] name)
 Creates a new namespace object with an explicit parent and pushes it onto the stack.
 
 Params:
-	parent = The stack index of the _parent.  The _parent can be null, in which case
-		the new namespace will not have a _parent.  Otherwise it must be a namespace.
+	parent = The stack index of the _parent. The _parent can be null, in which case
+		the new namespace will not have a _parent. Otherwise it must be a namespace.
 	name = The _name of the namespace.
 
 Returns:
@@ -1000,9 +1000,9 @@ word pushNativeObj(CrocThread* t, Object o)
 }
 
 /**
-Pushes a weak reference to the object at the given stack index onto the stack.  For value types (null,
+Pushes a weak reference to the object at the given stack index onto the stack. For value types (null,
 bool, int, float, and char), weak references are unnecessary, and in these cases the value will simply
-be pushed.  Otherwise the pushed value will be a weak reference object.
+be pushed. Otherwise the pushed value will be a weak reference object.
 
 Params:
 	idx = The stack index of the object to get a weak reference of.
@@ -1177,8 +1177,8 @@ bool isFuncDef(CrocThread* t, word slot)
 }
 
 /**
-Gets the truth value of the value at the given _slot.  null, false, integer 0, floating point 0.0,
-and character '\0' are considered false; everything else is considered true.  This is the same behavior
+Gets the truth value of the value at the given _slot. null, false, integer 0, floating point 0.0,
+and character '\0' are considered false; everything else is considered true. This is the same behavior
 as within the language.
 */
 bool isTrue(CrocThread* t, word slot)
@@ -1187,7 +1187,7 @@ bool isTrue(CrocThread* t, word slot)
 }
 
 /**
-Gets the _type of the value at the given _slot.  Value types are given by the CrocValue.Type
+Gets the _type of the value at the given _slot. Value types are given by the CrocValue.Type
 enumeration defined in croc.types.
 */
 CrocValue.Type type(CrocThread* t, word slot)
@@ -1250,8 +1250,8 @@ crocfloat getFloat(CrocThread* t, word slot)
 }
 
 /**
-Returns the numerical value at the given _slot.  This always returns an crocfloat, and will
-implicitly cast int values to floats.  Throws an error if the value is neither an int
+Returns the numerical value at the given _slot. This always returns an crocfloat, and will
+implicitly cast int values to floats. Throws an error if the value is neither an int
 nor a float.
 */
 crocfloat getNum(CrocThread* t, word slot)
@@ -1294,10 +1294,10 @@ dchar getChar(CrocThread* t, word slot)
 /**
 Returns the string value at the given _slot, or throws an error if it isn'_t one.
 
-The returned string points into the Croc heap.  It should NOT be modified in any way.  The returned
+The returned string points into the Croc heap. It should NOT be modified in any way. The returned
 array reference should also not be stored on the D heap, as once the string object is removed from the
 Croc stack, there is no guarantee that the string data will be valid (Croc might collect it, as it
-has no knowledge of the reference held by D).  If you need the string value for a longer period of time,
+has no knowledge of the reference held by D). If you need the string value for a longer period of time,
 you should dup it.
 */
 char[] getString(CrocThread* t, word slot)
@@ -1360,8 +1360,8 @@ Object getNativeObj(CrocThread* t, word slot)
 // Statements
 
 /**
-An odd sort of protective function.  You can use this function to wrap a call to a library function etc. which
-could throw an exception, but when you don't want to have to bother with catching the exception yourself.  Useful
+An odd sort of protective function. You can use this function to wrap a call to a library function etc. which
+could throw an exception, but when you don't want to have to bother with catching the exception yourself. Useful
 for writing native Croc libraries.
 
 Say you had a function which opened a file:
@@ -1370,9 +1370,9 @@ Say you had a function which opened a file:
 File f = OpenFile("filename");
 -----
 
-Say this function could throw an exception if it failed.  Since the interpreter can only catch (and make meaningful
+Say this function could throw an exception if it failed. Since the interpreter can only catch (and make meaningful
 stack traces about) exceptions which derive from CrocException, any exceptions that this throws would just percolate
-up out of the interpreter stack.  You could catch the exception yourself, but that's kind of tedious, especially when
+up out of the interpreter stack. You could catch the exception yourself, but that's kind of tedious, especially when
 you call a lot of native functions.
 
 Instead, you can wrap the call to this unsafe function with a call to safeCode().
@@ -1381,8 +1381,8 @@ Instead, you can wrap the call to this unsafe function with a call to safeCode()
 File f = safeCode(t, OpenFile("filename"));
 -----
 
-What safeCode() does is it tries to execute the code it is passed.  If it succeeds, it simply returns any value that
-the code returns.  If it throws an exception derived from CrocException, it rethrows the exception.  And if it throws
+What safeCode() does is it tries to execute the code it is passed. If it succeeds, it simply returns any value that
+the code returns. If it throws an exception derived from CrocException, it rethrows the exception. And if it throws
 an exception that derives from Exception, it throws a new CrocException with the original exception's message as the
 message.
 
@@ -1398,12 +1398,12 @@ safeCode(t,
 -----
 
 Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
-parameter.  If you don't put the parens there, it will never actually call the delegate.
+parameter. If you don't put the parens there, it will never actually call the delegate.
 
 safeCode() is templated to allow any return value.
 
 Params:
-	code = The code to be executed.  This is a lazy parameter, so it's not actually executed until inside the call to
+	code = The code to be executed. This is a lazy parameter, so it's not actually executed until inside the call to
 		safeCode.
 
 Returns:
@@ -1427,22 +1427,22 @@ It preserves the semantics of the Croc foreach loop and handles the foreach/opAp
 manipulations.
 
 To use this, first you push the container -- what you would normally put on the right side
-of the semicolon in a foreach loop in Croc.  Just like in Croc, this is one, two, or three
+of the semicolon in a foreach loop in Croc. Just like in Croc, this is one, two, or three
 values, and if the first value is not a function, opApply is called on it with the second
 value as a user parameter.
 
 Then you can create an instance of this struct using the static opCall and iterate over it
-with a D foreach loop.  Instead of getting values as the loop indices, you get indices of
-stack slots that hold those values.  You can break out of the loop just as you'd expect,
+with a D foreach loop. Instead of getting values as the loop indices, you get indices of
+stack slots that hold those values. You can break out of the loop just as you'd expect,
 and you can perform any manipulations you'd like in the loop body.
 
 Example:
 -----
-// 1. Push the container.  We're just iterating through modules.customLoaders.
+// 1. Push the container. We're just iterating through modules.customLoaders.
 lookup(t, "modules.customLoaders");
 
 // 2. Perform a foreach loop on a foreachLoop instance created with the thread and the number
-// of items in the container.  We only pushed one value for the container, so we pass 1.
+// of items in the container. We only pushed one value for the container, so we pass 1.
 // Note that you must specify the index types (which must all be word), or else D can't infer
 // the types for them.
 
@@ -1453,16 +1453,16 @@ foreach(word k, word v; foreachLoop(t, 1))
 	pushToString(t, v);
 	Stdout.formatln("{}: {}", getString(t, -2), getString(t, -1));
 
-	// here we're popping the strings we pushed.  You don't have to pop k and v or anything like that.
+	// here we're popping the strings we pushed. You don't have to pop k and v or anything like that.
 	pop(t, 2);
 }
 -----
 
 Note a few things: the foreach loop will pop the container off the stack, so the above code is
-stack-neutral (leaves the stack in the same state it was before it was run).  You don't have to
-pop anything inside the foreach loop.  You shouldn't mess with stack values below k and v, since
+stack-neutral (leaves the stack in the same state it was before it was run). You don't have to
+pop anything inside the foreach loop. You shouldn't mess with stack values below k and v, since
 foreachLoop keeps internal loop data there, but stack indices that were valid before the loop started
-will still be accessible.  If you use only one index (like foreach(word v; ...)), it will work just
+will still be accessible. If you use only one index (like foreach(word v; ...)), it will work just
 like in Croc where an implicit index will be inserted before that one, and you will get the second
 indices in v instead of the first.
 */
@@ -1475,7 +1475,7 @@ struct foreachLoop
 	The struct constructor.
 
 	Params:
-		numSlots = How many slots on top of the stack should be interpreted as the container.  Must be
+		numSlots = How many slots on top of the stack should be interpreted as the container. Must be
 			1, 2, or 3.
 	*/
 	public static foreachLoop opCall(CrocThread* t, uword numSlots)
@@ -1487,9 +1487,9 @@ struct foreachLoop
 	}
 
 	/**
-	The function that makes everything work.  This is templated to allow any number of indices, but
+	The function that makes everything work. This is templated to allow any number of indices, but
 	the downside to that is that you must specify the types of the indices in the foreach loop that
-	iterates over this structure.  All the indices must be of type 'word'.
+	iterates over this structure. All the indices must be of type 'word'.
 	*/
 	public int opApply(T)(T dg)
 	{
@@ -1608,12 +1608,12 @@ struct foreachLoop
 // Exception-related functions
 
 /**
-Throws a Croc exception using the value at the top of the stack as the exception object.  Any type can
-be thrown.  This will throw an actual D exception of type CrocException as well, which can be caught in D
+Throws a Croc exception using the value at the top of the stack as the exception object. Any type can
+be thrown. This will throw an actual D exception of type CrocException as well, which can be caught in D
 as normal ($(B Important:) see catchException for information on catching them).
 
 You cannot use this function if another exception is still in flight, that is, it has not yet been caught with
-catchException.  If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
+catchException. If you try, an Exception will be thrown -- that is, an instance of the D Exception class.
 
 This function obviously does not return.
 */
@@ -1624,7 +1624,7 @@ void throwException(CrocThread* t)
 }
 
 /**
-A shortcut for the very common case where you want to throw a formatted string.  This is equivalent to calling
+A shortcut for the very common case where you want to throw a formatted string. This is equivalent to calling
 pushVFormat on the arguments and then calling throwException.
 */
 void throwException(CrocThread* t, char[] fmt, ...)
@@ -1643,17 +1643,17 @@ bool isThrowing(CrocThread* t)
 
 /**
 When catching Croc exceptions (those derived from CrocException) in D, Croc doesn'_t know that you've actually caught
-one unless you tell it.  If you want to rethrow an exception without seeing what's in it, you can just throw the
-D exception object.  But if you want to actually handle the exception, or rethrow it after seeing what's in it,
-you $(B must call this function).  This informs Croc that you have caught the exception that was in flight, and
+one unless you tell it. If you want to rethrow an exception without seeing what's in it, you can just throw the
+D exception object. But if you want to actually handle the exception, or rethrow it after seeing what's in it,
+you $(B must call this function). This informs Croc that you have caught the exception that was in flight, and
 pushes the exception object onto the stack, where you can inspect it and possibly rethrow it using throwException.
 
-Note that if an exception occurred and you caught it, you might not know anything about what's on the stack.  It
-might be garbage from a half-completed operation.  So you might want to store the size of the stack before a 'try'
+Note that if an exception occurred and you caught it, you might not know anything about what's on the stack. It
+might be garbage from a half-completed operation. So you might want to store the size of the stack before a 'try'
 block, then restore it in the 'catch' block so that the stack will be in a consistent state.
 
-An exception must be in flight for this function to work.  If none is in flight, a Croc exception is thrown. (For
-some reason, that sounds funny.  "Error: there is no error!")
+An exception must be in flight for this function to work. If none is in flight, a Croc exception is thrown. (For
+some reason, that sounds funny. "Error: there is no error!")
 
 Returns:
 	The stack index of the newly-pushed exception object.
@@ -1673,9 +1673,9 @@ word catchException(CrocThread* t)
 
 /**
 After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
-thrown through before being caught.  Tracebacks work across coroutine boundaries.  They also work across tailcalls,
+thrown through before being caught. Tracebacks work across coroutine boundaries. They also work across tailcalls,
 and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
-that 4 tailcalls were performed between the previous function and the next function in the traceback).  Lastly tracebacks
+that 4 tailcalls were performed between the previous function and the next function in the traceback). Lastly tracebacks
 work across native function calls, in which case the name of the function will be noted but no line number will be
 given since that would be impossible; instead it is marked as "(native)".
 
@@ -1691,10 +1691,10 @@ Traceback; function.that.threw.exception(9)
 
 (Due to a DDoc bug, it's actually "Traceback:", not "Traceback;".)
 
-Sometimes you'll get something like "$(LT)no location available$(GT)" in the traceback.  This might happen if some top-level
+Sometimes you'll get something like "$(LT)no location available$(GT)" in the traceback. This might happen if some top-level
 native API manipulations (that is, those outside the context of any executing function) cause an error.
 
-When you call this function, the traceback information associated with this thread's VM is subsequently erased.  If
+When you call this function, the traceback information associated with this thread's VM is subsequently erased. If
 this function is called again, you will get an empty string.
 
 Returns:
@@ -1723,7 +1723,7 @@ word getTraceback(CrocThread* t)
 // Variable-related functions
 
 /**
-Sets an upvalue in the currently-executing closure.  The upvalue is set to the value on top of the
+Sets an upvalue in the currently-executing closure. The upvalue is set to the value on top of the
 stack, which is popped.
 
 This function will fail if called at top-level (that is, outside of any executing closures).
@@ -1798,8 +1798,8 @@ If the _depth you specify if deeper than the call stack, or if there are no func
 the global namespace will be pushed.
 
 Params:
-	depth = The _depth into the call stack of the closure whose environment to get.  Defaults to 0, which
-		means the currently-executing closure.  A _depth of 1 would mean the closure which called this
+	depth = The _depth into the call stack of the closure whose environment to get. Defaults to 0, which
+		means the currently-executing closure. A _depth of 1 would mean the closure which called this
 		closure, 2 the closure that called that one etc.
 
 Returns:
@@ -1811,7 +1811,7 @@ word pushEnvironment(CrocThread* t, uword depth = 0)
 }
 
 /**
-Pushes a global variable with the given name.  Throws an error if the global cannot be found.
+Pushes a global variable with the given name. Throws an error if the global cannot be found.
 
 This function respects typical global lookup - that is, it starts at the current
 function's environment and goes up the chain.
@@ -1829,8 +1829,8 @@ word pushGlobal(CrocThread* t, char[] name)
 }
 
 /**
-Same as pushGlobal, except expects the name of the global to be on top of the stack.  If the value
-at the top of the stack is not a string, an error is thrown.  Replaces the name with the value of the
+Same as pushGlobal, except expects the name of the global to be on top of the stack. If the value
+at the top of the stack is not a string, an error is thrown. Replaces the name with the value of the
 global if found.
 
 Returns:
@@ -1859,7 +1859,7 @@ word getGlobal(CrocThread* t)
 
 /**
 Sets a global variable with the given _name to the value on top of the stack, and pops that value.
-Throws an error if the global cannot be found.  Remember that if this is the first time you are
+Throws an error if the global cannot be found. Remember that if this is the first time you are
 trying to set the global, you have to use newGlobal instead, just like using a global declaration
 in Croc.
 
@@ -1904,9 +1904,9 @@ void setGlobal(CrocThread* t)
 
 /**
 Declares a global variable with the given _name, sets it to the value on top of the stack, and pops
-that value.  Throws an error if the global has already been declared.
+that value. Throws an error if the global has already been declared.
 
-This function works just like a global variable declaration in Croc.  It creates a new entry
+This function works just like a global variable declaration in Croc. It creates a new entry
 in the current environment if it succeeds.
 
 Params:
@@ -1921,7 +1921,7 @@ void newGlobal(CrocThread* t, char[] name)
 }
 
 /**
-Same as above, but expects the name of the global to be on the stack under the value to be set.  Pops
+Same as above, but expects the name of the global to be on the stack under the value to be set. Pops
 both the name and the value off the stack.
 */
 void newGlobal(CrocThread* t)
@@ -1953,12 +1953,12 @@ but you can change where the lookup starts by using the depth parameter.
 
 Params:
 	name = The _name of the global to look for.
-	depth = The _depth into the call stack of the closure in whose environment lookup should begin.  Defaults
-		to 0, which means the currently-executing closure.  A _depth of 1 would mean the closure which called
+	depth = The _depth into the call stack of the closure in whose environment lookup should begin. Defaults
+		to 0, which means the currently-executing closure. A _depth of 1 would mean the closure which called
 		this closure, 2 the closure that called that one etc.
 
 Returns:
-	true if the global was found, in which case the containing namespace is on the stack.  False otherwise,
+	true if the global was found, in which case the containing namespace is on the stack. False otherwise,
 	in which case nothing will be on the stack.
 */
 bool findGlobal(CrocThread* t, char[] name, uword depth = 0)
@@ -2146,9 +2146,9 @@ void[] getMemblockData(CrocThread* t, word slot)
 }
 
 /**
-Reassign an existing memblock so that its data is a view of a D array.  If the
-memblock owns its data, it is freed.  The type is also set to the appropriate
-type code corresponding to the D array.  This is like memblockViewDArray except
+Reassign an existing memblock so that its data is a view of a D array. If the
+memblock owns its data, it is freed. The type is also set to the appropriate
+type code corresponding to the D array. This is like memblockViewDArray except
 that it changes an existing memblock rather than creating a new one.
 
 The same caveats and restrictions that apply to memblockViewDArray apply to this
@@ -2274,7 +2274,7 @@ void funcDef(CrocThread* t, word func)
 }
 
 /**
-Gets the name of the function at the given stack index.  This is the name given in the declaration
+Gets the name of the function at the given stack index. This is the name given in the declaration
 of the function if it's a script function, or the name given to newFunction for native functions.
 Some functions, like top-level module functions and nameless function literals, have automatically-
 generated names which always start and end with angle brackets ($(LT) and $(GT)).
@@ -2293,7 +2293,7 @@ char[] funcName(CrocThread* t, word func)
 }
 
 /**
-Gets the number of parameters that the function at the given stack index takes.  This is the number
+Gets the number of parameters that the function at the given stack index takes. This is the number
 of non-variadic arguments, not including 'this'. For variadic native functions, returns a large number.
 */
 uword funcNumParams(CrocThread* t, word func)
@@ -2327,7 +2327,7 @@ uword funcMaxParams(CrocThread* t, word func)
 }
 
 /**
-Gets whether or not the given function takes variadic arguments.  For native functions, always returns
+Gets whether or not the given function takes variadic arguments. For native functions, always returns
 true.
 */
 bool funcIsVararg(CrocThread* t, word func)
@@ -2363,12 +2363,12 @@ bool funcIsNative(CrocThread* t, word func)
 // Class-related functions
 
 /**
-Sets the finalizer function for the given class.  The finalizer of a class is called when an instance of that class
+Sets the finalizer function for the given class. The finalizer of a class is called when an instance of that class
 is about to be collected by the garbage collector and is used to clean up limited resources associated with it
-(i.e. memory allocated on the C heap, file handles, etc.).  The finalizer function should be short and to-the-point
-as to make finalization as quick as possible.  It should also not allocate very much memory, if any, as the
-garbage collector is effectively disabled during execution of finalizers.  The finalizer function will only
-ever be called once for each instance.  If the finalizer function causes the instance to be "resurrected", that is
+(i.e. memory allocated on the C heap, file handles, etc.). The finalizer function should be short and to-the-point
+as to make finalization as quick as possible. It should also not allocate very much memory, if any, as the
+garbage collector is effectively disabled during execution of finalizers. The finalizer function will only
+ever be called once for each instance. If the finalizer function causes the instance to be "resurrected", that is
 the instance is reattached to the application's memory graph, it will still eventually be collected but its finalizer
 function will $(B not) be run again.
 
@@ -2438,10 +2438,10 @@ calling it as if it were a function using the native API), the following happens
 calls newInstance on the class to allocate a new instance, then calls any constructor defined for
 the class on the new instance with the given parameters, and finally it returns that new instance.
 
-You can override this behavior using class allocators.  A class allocator takes any number of
-parameters and must return a class instance.  The 'this' parameter passed to a class allocator is
-the class which is being instantiated.  Class allocators reserve the right to call or not
-call any constructor defined for the class.  In fact, they can do just about anything as long as
+You can override this behavior using class allocators. A class allocator takes any number of
+parameters and must return a class instance. The 'this' parameter passed to a class allocator is
+the class which is being instantiated. Class allocators reserve the right to call or not
+call any constructor defined for the class. In fact, they can do just about anything as long as
 they return an instance.
 
 Here is an example class allocator which performs the default behavior.
@@ -2471,7 +2471,7 @@ uword allocator(CrocThread* t, uword numParams)
 -----
 
 Why would a class use an allocator?  Simple: if it needs to allocate extra values or bytes for
-its instances.  Most of the native objects defined in the standard libraries use allocators to
+its instances. Most of the native objects defined in the standard libraries use allocators to
 do just this.
 
 You can also imagine a case where the number of extra values or bytes is dependent upon the
@@ -2558,7 +2558,7 @@ char[] className(CrocThread* t, word cls)
 // Instance-related functions
 
 /**
-Finds out how many extra values an instance has (see newInstance for info on that).  Throws an error
+Finds out how many extra values an instance has (see newInstance for info on that). Throws an error
 if the value at the given _slot isn'_t an instance.
 
 Params:
@@ -2583,7 +2583,7 @@ uword numExtraVals(CrocThread* t, word slot)
 }
 
 /**
-Pushes the idx th extra value from the instance at the given _slot.  Throws an error if the value at
+Pushes the idx th extra value from the instance at the given _slot. Throws an error if the value at
 the given _slot isn'_t an instance, or if the index is out of bounds.
 
 Params:
@@ -2615,7 +2615,7 @@ word getExtraVal(CrocThread* t, word slot, uword idx)
 
 /**
 Pops the value off the top of the stack and places it in the idx th extra value in the instance at the
-given _slot.  Throws an error if the value at the given _slot isn'_t an instance, or if the index is out
+given _slot. Throws an error if the value at the given _slot isn'_t an instance, or if the index is out
 of bounds.
 
 Params:
@@ -2642,8 +2642,8 @@ void setExtraVal(CrocThread* t, word slot, uword idx)
 }
 
 /**
-Gets a void array of the extra bytes associated with the instance at the given _slot.  If the instance has
-no extra bytes, returns null.  Throws an error if the value at the given _slot isn'_t an instance.
+Gets a void array of the extra bytes associated with the instance at the given _slot. If the instance has
+no extra bytes, returns null. Throws an error if the value at the given _slot isn'_t an instance.
 
 The returned void array points into the Croc heap, so you should not store the returned reference
 anywhere.
@@ -2699,7 +2699,7 @@ void clearNamespace(CrocThread* t, word ns)
 }
 
 /**
-Removes the key at the top of the stack from the given object.  The key is popped.
+Removes the key at the top of the stack from the given object. The key is popped.
 The object must be a namespace or table.
 
 Params:
@@ -2742,7 +2742,7 @@ void removeKey(CrocThread* t, word obj)
 }
 
 /**
-Gets the name of the namespace at the given stack index.  This is just the single name component that
+Gets the name of the namespace at the given stack index. This is just the single name component that
 it was created with (like "foo" for "namespace foo {}").
 */
 char[] namespaceName(CrocThread* t, word ns)
@@ -2808,7 +2808,7 @@ CrocVM* getVM(CrocThread* t)
 }
 
 /**
-Find how many calls deep the currently-executing function is nested.  Tailcalls are taken into account.
+Find how many calls deep the currently-executing function is nested. Tailcalls are taken into account.
 
 If called at top-level, returns 0.
 */
@@ -2826,9 +2826,9 @@ uword callDepth(CrocThread* t)
 Resets a dead thread to the initial state, optionally providing a new function to act as the body of the thread.
 
 Params:
-	slot = The stack index of the thread to be reset.  It must be in the 'dead' state.
+	slot = The stack index of the thread to be reset. It must be in the 'dead' state.
 	newFunction = If true, a function should be on top of the stack which should serve as the new body of the
-		coroutine.  The default is false, in which case the coroutine will use the function with which it was
+		coroutine. The default is false, in which case the coroutine will use the function with which it was
 		created.
 */
 void resetThread(CrocThread* t, word slot, bool newFunction = false)
@@ -2883,13 +2883,13 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 version(CrocExtendedCoro)
 {
 	/**
-	Yield out of a coroutine.  This function is not available in normal coroutine mode, only in extended mode.
+	Yield out of a coroutine. This function is not available in normal coroutine mode, only in extended mode.
 
 	You cannot _yield out of a thread that is not currently executing, nor can you _yield out of the main thread of
 	a VM.
 
-	This function works very similarly to the call family of functions.  You push the values that you want to _yield
-	on the stack, then pass how many you pushed and how many you want back.  It then returns how many values this
+	This function works very similarly to the call family of functions. You push the values that you want to _yield
+	on the stack, then pass how many you pushed and how many you want back. It then returns how many values this
 	coroutine was resumed with, and that many values will be on the stack.
 
 	Example:
@@ -2903,17 +2903,17 @@ pushString(t, "hi");
 // 2. Yield from the coroutine, telling that we are yielding 2 values and want 1 in return.
 yield(t, 2, 1);
 
-// 3. Do something with the return value.  setGlobal pops the return value off the stack, so now the
+// 3. Do something with the return value. setGlobal pops the return value off the stack, so now the
 // stack is back the way it was when we started.
 setGlobal(t, "x");
 -----
 
 	Params:
-		numVals = The number of values that you are yielding.  These values should be on top of the stack, in order.
+		numVals = The number of values that you are yielding. These values should be on top of the stack, in order.
 		numReturns = The number of return values you are expecting, or -1 for as many returns as you can get.
 
 	Returns:
-		How many values were returned.  If numReturns was >= 0, this is the same as numReturns.
+		How many values were returned. If numReturns was >= 0, this is the same as numReturns.
 	*/
 	uword yield(CrocThread* t, uword numVals, word numReturns)
 	{
@@ -2943,7 +2943,7 @@ setGlobal(t, "x");
 }
 
 /**
-Halts the given thread.  If the given thread is currently running, throws a halt exception immediately;
+Halts the given thread. If the given thread is currently running, throws a halt exception immediately;
 otherwise, places a pending halt on the thread.
 */
 void haltThread(CrocThread* t)
@@ -2955,7 +2955,7 @@ void haltThread(CrocThread* t)
 }
 
 /**
-Places a pending halt on the thread.  This does nothing if the thread is in the 'dead' state.
+Places a pending halt on the thread. This does nothing if the thread is in the 'dead' state.
 */
 void pendingHalt(CrocThread* t)
 {
@@ -2975,10 +2975,10 @@ bool hasPendingHalt(CrocThread* t)
 // Weakref-related functions
 
 /**
-Works like the deref() function in the base library.  If the value at the given index is a
-value type, just duplicates that value.  If the value at the given index is a weak reference,
-pushes the object it refers to or 'null' if that object has been collected.  Throws an error
-if the value at the given index is any other type.  This is meant to be an inverse to pushWeakRef,
+Works like the deref() function in the base library. If the value at the given index is a
+value type, just duplicates that value. If the value at the given index is a weak reference,
+pushes the object it refers to or 'null' if that object has been collected. Throws an error
+if the value at the given index is any other type. This is meant to be an inverse to pushWeakRef,
 hence the behavior with regards to value types.
 
 Params:
@@ -3020,7 +3020,7 @@ word deref(CrocThread* t, word idx)
 // Funcdef-related functions
 
 /**
-Gets the name of the function definition at the given stack index.  This is the name given in the declaration
+Gets the name of the function definition at the given stack index. This is the name given in the declaration
 of the function. Some functions, like top-level module functions and nameless function literals, have automatically-
 generated names which always start and end with angle brackets ($(LT) and $(GT)).
 */
@@ -3045,7 +3045,7 @@ Push a string representation of any Croc value onto the stack.
 
 Params:
 	slot = The stack index of the value to convert to a string.
-	raw = If true, will not call toString metamethods.  Defaults to false, which means toString
+	raw = If true, will not call toString metamethods. Defaults to false, which means toString
 		metamethods will be called.
 
 Returns:
@@ -3059,7 +3059,7 @@ word pushToString(CrocThread* t, word slot, bool raw = false)
 }
 
 /**
-See if item is in container.  Works like the Croc 'in' operator.  Calls opIn metamethods.
+See if item is in container. Works like the Croc 'in' operator. Calls opIn metamethods.
 
 Params:
 	item = The _item to look for (the lhs of 'in').
@@ -3075,7 +3075,7 @@ bool opin(CrocThread* t, word item, word container)
 
 /**
 Compare two values at the given indices, and give the comparison value (negative for a < b, positive for a > b,
-and 0 if a == b).  This is the exact behavior of the '<=>' operator in Croc.  Calls opCmp metamethods.
+and 0 if a == b). This is the exact behavior of the '<=>' operator in Croc. Calls opCmp metamethods.
 
 Params:
 	a = The index of the first object.
@@ -3090,7 +3090,7 @@ crocint cmp(CrocThread* t, word a, word b)
 }
 
 /**
-Test two values at the given indices for equality.  This is the exact behavior of the '==' operator in Croc.
+Test two values at the given indices for equality. This is the exact behavior of the '==' operator in Croc.
 Calls opEquals metamethods.
 
 Params:
@@ -3106,7 +3106,7 @@ bool equals(CrocThread* t, word a, word b)
 }
 
 /**
-Test two values at the given indices for identity.  This is the exact behavior of the 'is' operator in Croc.
+Test two values at the given indices for identity. This is the exact behavior of the 'is' operator in Croc.
 
 Params:
 	a = The index of the first object.
@@ -3121,8 +3121,8 @@ bool opis(CrocThread* t, word a, word b)
 }
 
 /**
-Index the _container at the given index with the value at the top of the stack.  Replaces the value on the
-stack with the result.  Calls opIndex metamethods.
+Index the _container at the given index with the value at the top of the stack. Replaces the value on the
+stack with the result. Calls opIndex metamethods.
 
 -----
 // x = a[6]
@@ -3150,7 +3150,7 @@ word idx(CrocThread* t, word container)
 
 /**
 Index-assign the _container at the given index with the key at the second-from-top of the stack and the
-value at the top of the stack.  Pops both the key and the value from the stack.  Calls opIndexAssign
+value at the top of the stack. Pops both the key and the value from the stack. Calls opIndexAssign
 metamethods.
 
 -----
@@ -3175,7 +3175,7 @@ void idxa(CrocThread* t, word container)
 }
 
 /**
-Shortcut for the common case where you need to index a _container with an integer index.  Pushes
+Shortcut for the common case where you need to index a _container with an integer index. Pushes
 the indexed value.
 
 Params:
@@ -3193,7 +3193,7 @@ word idxi(CrocThread* t, word container, crocint idx)
 }
 
 /**
-Shortcut for the common case where you need to index-assign a _container with an integer index.  Pops
+Shortcut for the common case where you need to index-assign a _container with an integer index. Pops
 the value at the top of the stack and assigns it into the _container at the given index.
 
 Params:
@@ -3209,7 +3209,7 @@ void idxai(CrocThread* t, word container, crocint idx)
 }
 
 /**
-Get a _field with the given _name from the _container at the given index.  Pushes the result onto the stack.
+Get a _field with the given _name from the _container at the given index. Pushes the result onto the stack.
 
 -----
 // x = a.y
@@ -3223,7 +3223,7 @@ pop(t);
 Params:
 	container = The stack index of the _container object.
 	name = The _name of the _field to get.
-	raw = If true, does not call opField metamethods.  Defaults to false, which means it will.
+	raw = If true, does not call opField metamethods. Defaults to false, which means it will.
 
 Returns:
 	The stack index of the newly-pushed result.
@@ -3236,12 +3236,12 @@ word field(CrocThread* t, word container, char[] name, bool raw = false)
 }
 
 /**
-Same as above, but expects the _field name to be at the top of the stack.  If the value at the top of the
-stack is not a string, an error is thrown.  The _field value replaces the _field name, much like with idx.
+Same as above, but expects the _field name to be at the top of the stack. If the value at the top of the
+stack is not a string, an error is thrown. The _field value replaces the _field name, much like with idx.
 
 Params:
 	container = The stack index of the _container object.
-	raw = If true, does not call opField metamethods.  Defaults to false, which means it will.
+	raw = If true, does not call opField metamethods. Defaults to false, which means it will.
 
 Returns:
 	The stack index of the retrieved _field value.
@@ -3261,7 +3261,7 @@ word field(CrocThread* t, word container, bool raw = false)
 
 /**
 Sets a field with the given _name in the _container at the given index to the value at the top of the stack.
-Pops that value off the stack.  Calls opFieldAssign metamethods.
+Pops that value off the stack. Calls opFieldAssign metamethods.
 
 -----
 // a.y = x
@@ -3275,7 +3275,7 @@ pop(t);
 Params:
 	container = The stack index of the _container object.
 	name = The _name of the field to set.
-	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
+	raw = If true, does not call opFieldAssign metamethods. Defaults to false, which means it will.
 */
 void fielda(CrocThread* t, word container, char[] name, bool raw = false)
 {
@@ -3288,12 +3288,12 @@ void fielda(CrocThread* t, word container, char[] name, bool raw = false)
 
 /**
 Same as above, but expects the field name to be in the second-from-top slot and the value to set at the top of
-the stack, similar to idxa.  Throws an error if the field name is not a string.  Pops both the set value and the
+the stack, similar to idxa. Throws an error if the field name is not a string. Pops both the set value and the
 field name off the stack, just like idxa.
 
 Params:
 	container = The stack index of the _container object.
-	raw = If true, does not call opFieldAssign metamethods.  Defaults to false, which means it will.
+	raw = If true, does not call opFieldAssign metamethods. Defaults to false, which means it will.
 */
 void fielda(CrocThread* t, word container, bool raw = false)
 {
@@ -3309,7 +3309,7 @@ void fielda(CrocThread* t, word container, bool raw = false)
 }
 
 /**
-Pushes the length of the object at the given _slot.  Calls opLength metamethods.
+Pushes the length of the object at the given _slot. Calls opLength metamethods.
 
 Params:
 	slot = The _slot of the object whose length is to be retrieved.
@@ -3326,7 +3326,7 @@ word pushLen(CrocThread* t, word slot)
 }
 
 /**
-Gets the integral length of the object at the given _slot.  Calls opLength metamethods.  If the length
+Gets the integral length of the object at the given _slot. Calls opLength metamethods. If the length
 of the object is not an integer, throws an error.
 
 Params:
@@ -3354,7 +3354,7 @@ crocint len(CrocThread* t, word slot)
 
 /**
 Sets the length of the object at the given _slot to the value at the top of the stack and pops that
-value.  Calls opLengthAssign metamethods.
+value. Calls opLengthAssign metamethods.
 
 Params:
 	slot = The _slot of the object whose length is to be set.
@@ -3383,8 +3383,8 @@ void lenai(CrocThread* t, word slot, crocint length)
 }
 
 /**
-Slice the object at the given slot.  The low index is the second-from-top value on the stack, and
-the high index is the top value.  Either index can be null.  The indices are popped and the result
+Slice the object at the given slot. The low index is the second-from-top value on the stack, and
+the high index is the top value. Either index can be null. The indices are popped and the result
 of the _slice operation is pushed.
 
 Params:
@@ -3400,8 +3400,8 @@ word slice(CrocThread* t, word container)
 }
 
 /**
-Slice-assign the object at the given slot.  The low index is the third-from-top value; the high is
-the second-from-top; and the value to assign into the object is on the top.  Either index can be null.
+Slice-assign the object at the given slot. The low index is the third-from-top value; the high is
+the second-from-top; and the value to assign into the object is on the top. Either index can be null.
 Both indices and the value are popped.
 
 Params:
@@ -3417,9 +3417,9 @@ void slicea(CrocThread* t, word container)
 
 /**
 These all perform the given mathematical operation on the two values at the given indices, and push
-the result of that operation onto the stack.  Metamethods (including reverse versions) will be called.
+the result of that operation onto the stack. Metamethods (including reverse versions) will be called.
 
-Don'_t use these functions if you're looking to do some serious number crunching on ints and floats.  Just
+Don'_t use these functions if you're looking to do some serious number crunching on ints and floats. Just
 get the values and do the computation in D.
 
 Params:
@@ -3479,7 +3479,7 @@ word mod(CrocThread* t, word a, word b)
 }
 
 /**
-Negates the value at the given index and pushes the result.  Calls opNeg metamethods.
+Negates the value at the given index and pushes the result. Calls opNeg metamethods.
 
 Like the binary operations, don'_t use this unless you need the actual Croc semantics, as it's
 less efficient than just getting a number and negating it.
@@ -3500,10 +3500,10 @@ word neg(CrocThread* t, word o)
 
 /**
 These all perform the given reflexive mathematical operation on the value at the given slot, using
-the value at the top of the stack for the rhs.  The rhs is popped.  These call metamethods.
+the value at the top of the stack for the rhs. The rhs is popped. These call metamethods.
 
 Like the other mathematical methods, it's more efficient to perform the operation directly on numbers
-rather than to use these methods.  Use these only if you need the Croc semantics.
+rather than to use these methods. Use these only if you need the Croc semantics.
 
 Params:
 	o = The slot of the object to perform the reflexive operation on.
@@ -3554,9 +3554,9 @@ void modeq(CrocThread* t, word o)
 
 /**
 These all perform the given bitwise operation on the two values at the given indices, _and push
-the result of that operation onto the stack.  Metamethods (including reverse versions) will be called.
+the result of that operation onto the stack. Metamethods (including reverse versions) will be called.
 
-Don'_t use these functions if you're looking to do some serious number crunching on ints.  Just
+Don'_t use these functions if you're looking to do some serious number crunching on ints. Just
 get the values _and do the computation in D.
 
 Params:
@@ -3626,7 +3626,7 @@ word ushr(CrocThread* t, word a, word b)
 }
 
 /**
-Bitwise complements the value at the given index and pushes the result.  Calls opCom metamethods.
+Bitwise complements the value at the given index and pushes the result. Calls opCom metamethods.
 
 Like the binary operations, don'_t use this unless you need the actual Croc semantics, as it's
 less efficient than just getting a number and complementing it.
@@ -3647,10 +3647,10 @@ word com(CrocThread* t, word o)
 
 /**
 These all perform the given reflexive bitwise operation on the value at the given slot, using
-the value at the top of the stack for the rhs.  The rhs is popped.  These call metamethods.
+the value at the top of the stack for the rhs. The rhs is popped. These call metamethods.
 
 Like the other bitwise methods, it's more efficient to perform the operation directly on numbers
-rather than to use these methods.  Use these only if you need the Croc semantics.
+rather than to use these methods. Use these only if you need the Croc semantics.
 
 Params:
 	o = The slot of the object to perform the reflexive operation on.
@@ -3711,7 +3711,7 @@ void ushreq(CrocThread* t, word o)
 /**
 Concatenates the top num parameters on the stack, popping them all and pushing the result on the stack.
 
-If num is 1, this function does nothing.  If num is 0, it is an error.  Otherwise, the concatenation
+If num is 1, this function does nothing. If num is 0, it is an error. Otherwise, the concatenation
 works just like it does in Croc.
 
 -----
@@ -3750,9 +3750,9 @@ word cat(CrocThread* t, uword num)
 }
 
 /**
-Performs concatenation-assignment.  dest is the stack slot of the destination object (the object to
-append to).  num is how many values there are on the right-hand side and is expected to be at least 1.
-The RHS values are on the top of the stack.  Pops the RHS values off the stack.
+Performs concatenation-assignment. dest is the stack slot of the destination object (the object to
+append to). num is how many values there are on the right-hand side and is expected to be at least 1.
+The RHS values are on the top of the stack. Pops the RHS values off the stack.
 
 -----
 // x ~= "Hi, " ~ name ~ "!"
@@ -3780,15 +3780,15 @@ void cateq(CrocThread* t, word dest, uword num)
 }
 
 /**
-Returns whether or not obj is an 'instance' and derives from base.  Throws an error if base is not a class.
+Returns whether or not obj is an 'instance' and derives from base. Throws an error if base is not a class.
 Works just like the as operator in Croc.
 
 Params:
 	obj = The stack index of the value to test.
-	base = The stack index of the _base class.  Must be a 'class'.
+	base = The stack index of the _base class. Must be a 'class'.
 
 Returns:
-	true if obj is an 'instance' and it derives from base.  False otherwise.
+	true if obj is an 'instance' and it derives from base. False otherwise.
 */
 bool as(CrocThread* t, word obj, word base)
 {
@@ -3796,7 +3796,7 @@ bool as(CrocThread* t, word obj, word base)
 }
 
 /**
-Increments the value at the given _slot.  Calls opInc metamethods.
+Increments the value at the given _slot. Calls opInc metamethods.
 
 Params:
 	slot = The stack index of the value to increment.
@@ -3807,7 +3807,7 @@ void inc(CrocThread* t, word slot)
 }
 
 /**
-Decrements the value at the given _slot.  Calls opDec metamethods.
+Decrements the value at the given _slot. Calls opDec metamethods.
 
 Params:
 	slot = The stack index of the value to decrement.
@@ -3820,7 +3820,7 @@ void dec(CrocThread* t, word slot)
 /**
 Gets the class of instances, base class of classes, or the parent namespace of namespaces and
 pushes it onto the stack. Throws an error if the value at the given _slot is not a class, instance,
-or namespace.  Works just like "x.super" in Croc.  For classes and namespaces, pushes null if
+or namespace. Works just like "x.super" in Croc. For classes and namespaces, pushes null if
 there is no base or parent.
 
 Params:
@@ -3838,7 +3838,7 @@ word superOf(CrocThread* t, word slot)
 // Function calling
 
 /**
-Calls the object at the given _slot.  The parameters (including 'this') are assumed to be all the
+Calls the object at the given _slot. The parameters (including 'this') are assumed to be all the
 values after that _slot to the top of the stack.
 
 The 'this' parameter is, according to the language specification, null if no explicit context is given.
@@ -3852,7 +3852,7 @@ An example of calling a function:
 // 1. Push the function (or any callable object -- like instances, threads).
 auto slot = pushGlobal(t, "f");
 
-// 2. Push the 'this' parameter.  This is 'null' if you don'_t care.  Notice in the Croc code, we didn'_t
+// 2. Push the 'this' parameter. This is 'null' if you don'_t care. Notice in the Croc code, we didn'_t
 // put a 'with', so 'null' will be used as the context.
 pushNull(t);
 
@@ -3863,18 +3863,18 @@ pushString(t, "hi");
 // 4. Call it.
 rawCall(t, slot, 1);
 
-// 5. Do something with the return values.  setGlobal pops the return value off the stack, so now the
+// 5. Do something with the return values. setGlobal pops the return value off the stack, so now the
 // stack is back the way it was when we started.
 setGlobal(t, "x");
 -----
 
 Params:
 	slot = The _slot containing the object to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
+	numReturns = How many return values you want. Can be -1, which means you'll get all returns.
 
 Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	The number of return values given by the function. If numReturns was -1, this is exactly how
+	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
 uword rawCall(CrocThread* t, word slot, word numReturns)
@@ -3894,7 +3894,7 @@ uword rawCall(CrocThread* t, word slot, word numReturns)
 }
 
 /**
-Calls a method of an object at the given _slot.  The parameters (including a spot for 'this') are assumed
+Calls a method of an object at the given _slot. The parameters (including a spot for 'this') are assumed
 to be all the values after that _slot to the top of the stack.
 
 This function behaves identically to a method call within the language, including calling opMethod
@@ -3908,14 +3908,14 @@ The process of calling a method is very similar to calling a normal function.
 // 1. Push the object on which the method will be called.
 auto slot = pushGlobal(t, "o");
 
-// 2. Make room for 'this'.  If you want to call the method with a custom 'this', push it here.
+// 2. Make room for 'this'. If you want to call the method with a custom 'this', push it here.
 // Otherwise, we'll let Croc figure out the 'this' and we can just push null.
 pushNull(t);
 
 // 3. Push any params.
 pushInt(t, 3);
 
-// 4. Call it with the method name.  We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
+// 4. Call it with the method name. We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
 methodCall(t, slot, "f", 0);
 
 // We didn'_t ask for any return values, so the stack is how it was before we began.
@@ -3924,15 +3924,15 @@ methodCall(t, slot, "f", 0);
 Params:
 	slot = The _slot containing the object on which the method will be called.
 	name = The _name of the method to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
+	numReturns = How many return values you want. Can be -1, which means you'll get all returns.
 	customThis = If true, the 'this' parameter you push after the object will be respected and
 		passed as 'this' to the method (though the method will still be looked up in the object).
 		The default is false, where the context will be determined automatically (i.e. it's
 		the object on which the method is being called).
 
 Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	The number of return values given by the function. If numReturns was -1, this is exactly how
+	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
 uword methodCall(CrocThread* t, word slot, char[] name, word numReturns, bool customThis = false)
@@ -3989,12 +3989,12 @@ uword methodCall(CrocThread* t, word slot, word numReturns, bool customThis = fa
 }
 
 /**
-Performs a super call.  This function will only work if the currently-executing function was called as
+Performs a super call. This function will only work if the currently-executing function was called as
 a method of a value of type 'instance'.
 
-This function works similarly to other kinds of calls, but it's somewhat odd.  Other calls have you push the
-thing to call followed by 'this' or a spot for it.  This call requires you to just give it two empty slots.
-It will fill them in (and what it puts in them is really kind of scary).  Regardless, when the super method is
+This function works similarly to other kinds of calls, but it's somewhat odd. Other calls have you push the
+thing to call followed by 'this' or a spot for it. This call requires you to just give it two empty slots.
+It will fill them in (and what it puts in them is really kind of scary). Regardless, when the super method is
 called (if there is one), its 'this' parameter will be the currently-executing function's 'this' parameter.
 
 The process of performing a supercall is not really that much different from other kinds of calls.
@@ -4005,7 +4005,7 @@ The process of performing a supercall is not really that much different from oth
 // 1. Push a null.
 auto slot = pushNull(t);
 
-// 2. Push another null.  You can'_t call a super method with a custom 'this'.
+// 2. Push another null. You can'_t call a super method with a custom 'this'.
 pushNull(t);
 
 // 3. Push any params.
@@ -4018,13 +4018,13 @@ superCall(t, slot, "f", 0);
 -----
 
 Params:
-	slot = The first empty _slot.  There should be another one on top of it.  Then come any parameters.
+	slot = The first empty _slot. There should be another one on top of it. Then come any parameters.
 	name = The _name of the method to call.
-	numReturns = How many return values you want.  Can be -1, which means you'll get all returns.
+	numReturns = How many return values you want. Can be -1, which means you'll get all returns.
 
 Returns:
-	The number of return values given by the function.  If numReturns was -1, this is exactly how
-	many returns the function gave.  If numReturns was >= 0, this is the same as numReturns (and
+	The number of return values given by the function. If numReturns was -1, this is exactly how
+	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
 uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
@@ -4111,7 +4111,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 // Reflective functions
 
 /**
-Gets the fields namespace of the class or instance at the given slot.  Throws an exception if
+Gets the fields namespace of the class or instance at the given slot. Throws an exception if
 the value at the given slot is not a class or instance.
 
 Params:
@@ -4136,9 +4136,9 @@ word fieldsOf(CrocThread* t, word obj)
 }
 
 /**
-Sees if the object at the stack index `obj` has a field with the given name.  Does not take opField
-metamethods into account.  Because of that, only works for tables, classes, instances, and namespaces.
-If the object at the stack index `obj` is not one of those types, always returns false.  If this
+Sees if the object at the stack index `obj` has a field with the given name. Does not take opField
+metamethods into account. Because of that, only works for tables, classes, instances, and namespaces.
+If the object at the stack index `obj` is not one of those types, always returns false. If this
 function returns true, you are guaranteed that accessing a field of the given name on the given object
 will succeed.
 
@@ -4166,8 +4166,8 @@ bool hasField(CrocThread* t, word obj, char[] fieldName)
 }
 
 /**
-Sees if a method can be called on the object at stack index `obj`.  Does not take opMethod metamethods
-into account, but does take type metatables into account.  In other words, if you look up a method in
+Sees if a method can be called on the object at stack index `obj`. Does not take opMethod metamethods
+into account, but does take type metatables into account. In other words, if you look up a method in
 an object and this function returns true, you are guaranteed that calling a method of that name on
 that object will succeed.
 

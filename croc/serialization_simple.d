@@ -43,12 +43,12 @@ import croc.utils;
 public:
 
 /**
-Serializes the function object at the given index into the provided writer as a module.  Serializing a function as a module
+Serializes the function object at the given index into the provided writer as a module. Serializing a function as a module
 outputs the platform-dependent Croc module header before outputting the function, so that upon subsequent loads of the module,
 the platform can be correctly detected.
 
 Params:
-	idx = The stack index of the function object to serialize.  The function must be a script function with no upvalues.
+	idx = The stack index of the function object to serialize. The function must be a script function with no upvalues.
 	s = The writer object to be used to serialize the function.
 */
 void serializeModule(CrocThread* t, word idx, OutputStream s)
@@ -68,7 +68,7 @@ void serializeModule(CrocThread* t, word idx, OutputStream s)
 }
 
 /**
-Inverse of the above, which means it expects for there to be a module header at the beginning of the stream.  If the module
+Inverse of the above, which means it expects for there to be a module header at the beginning of the stream. If the module
 header of the stream does not match the module header for the platform that is loading the module, the load will fail.
 A closure of the deserialized function is created with the current environment as its environment and is pushed onto the
 given thread's stack.

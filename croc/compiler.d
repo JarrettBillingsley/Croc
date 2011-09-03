@@ -68,7 +68,7 @@ scope class Compiler : ICompiler
 		Asserts = 2,
 
 		/**
-		Generate debug info.  Currently always on.
+		Generate debug info. Currently always on.
 		*/
 		Debug = 4,
 		
@@ -112,7 +112,7 @@ scope class Compiler : ICompiler
 // ================================================================================================================================================
 
 	/**
-	Constructs a compiler.  The given thread will be used to hold temporary data structures,
+	Constructs a compiler. The given thread will be used to hold temporary data structures,
 	to throw exceptions, and to return the functions that result from compilation.
 	
 	The compiler is created with either the flags that have been set for this VM with
@@ -238,7 +238,7 @@ scope class Compiler : ICompiler
 	/**
 	Returns whether or not the most recently-thrown exception was thrown due to an unexpected end-of-file.
 	As an example, this is used by croc.ex_commandline to detect when more code must be entered
-	to complete a code segment.  A simple example of use:
+	to complete a code segment. A simple example of use:
 	
 -----
 scope c = new Compiler(t);
@@ -263,7 +263,7 @@ catch(CrocException e)
 	
 	/**
 	Returns whether or not the most recently-thrown exception was thrown due to a no-effect expression being used
-	as a statement (yes, this method has a horrible name).  Its use is identical to isEof().
+	as a statement (yes, this method has a horrible name). Its use is identical to isEof().
 	*/
 	public override bool isLoneStmt()
 	{
@@ -316,12 +316,12 @@ catch(CrocException e)
 	}
 
 	/**
-	Compile a source code file into a function closure.  Takes the path to the source file, compiles
-	that file, and pushes the top-level closure onto the stack.  The environment of the closure is
+	Compile a source code file into a function closure. Takes the path to the source file, compiles
+	that file, and pushes the top-level closure onto the stack. The environment of the closure is
 	just set to the global namespace of the compiler's thread; you must create and set a namespace
 	for the module function before calling it.
 
-	You shouldn't have to deal with this function that much.  Most of the time the compilation of
+	You shouldn't have to deal with this function that much. Most of the time the compilation of
 	modules should be handled for you by the import system.
 
 	Params:
@@ -347,7 +347,7 @@ catch(CrocException e)
 
 	Params:
 		source = The source code as a string.
-		name = The name which should be used as the source name in compiler error message.  Takes the
+		name = The name which should be used as the source name in compiler error message. Takes the
 			place of the filename when compiling from a source file.
 
 	Returns:
@@ -380,7 +380,7 @@ catch(CrocException e)
 	}
 
 	/**
-	Compile a list of statements into a function which takes a variadic number of arguments.  The environment
+	Compile a list of statements into a function which takes a variadic number of arguments. The environment
 	of the compiled function closure is set to the globals of the compiler's thread.
 
 	Params:

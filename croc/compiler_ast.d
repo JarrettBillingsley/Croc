@@ -1,6 +1,6 @@
 /******************************************************************************
 This module contains the definition of all the classes which correspond to
-Croc's grammar productions.  These are used to represent the AST during
+Croc's grammar productions. These are used to represent the AST during
 compilation.
 
 License:
@@ -349,7 +349,7 @@ abstract class AstNode : IAstNode
 
 	/**
 	Similar to a dynamic cast, except it uses the 'type' field to determine if the
-	cast is legal, making it faster.  Returns this casted to the given class type
+	cast is legal, making it faster. Returns this casted to the given class type
 	if the cast succeeds and null otherwise.
 	*/
 	public T as(T)()
@@ -379,7 +379,7 @@ class Unknown : AstNode
 }
 
 /**
-This node represents an identifier.  This isn't the same as an IdentExp, as identifiers can
+This node represents an identifier. This isn't the same as an IdentExp, as identifiers can
 be used in non-expression contexts (such as names in declarations).
 */
 class Identifier : AstNode
@@ -394,25 +394,25 @@ class Identifier : AstNode
 }
 
 /**
-This node represents the guts of an class literal.  This node does not directly correspond
+This node represents the guts of an class literal. This node does not directly correspond
 to a single grammar element; rather it represents the common attributes of both class
 literals and class declarations.
 */
 class ClassDef : AstNode
 {
 	/**
-	Represents a single field in the class.  Remember that methods are fields too.
+	Represents a single field in the class. Remember that methods are fields too.
 	*/
 	struct Field
 	{
 		/**
-		The name of the field.  This corresponds to either the name of a data member or
+		The name of the field. This corresponds to either the name of a data member or
 		the name of a method.
 		*/
 		char[] name;
 		
 		/**
-		The initializer of the field.  This will never be null.  If a field is declared in
+		The initializer of the field. This will never be null. If a field is declared in
 		a class but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
@@ -424,7 +424,7 @@ class ClassDef : AstNode
 	}
 
 	/**
-	The name of the class.  This field will never be null.
+	The name of the class. This field will never be null.
 	*/
 	public Identifier name;
 
@@ -435,7 +435,7 @@ class ClassDef : AstNode
 	public Expression baseClass;
 
 	/**
-	The fields in this class, in the order they were declared.  See the Field struct above.
+	The fields in this class, in the order they were declared. See the Field struct above.
 	*/
 	public Field[] fields;
 
@@ -503,20 +503,20 @@ class FuncDef : AstNode
 
 		/**
 		The type mask of the parameter, that is, what basic types can be passed to it.
-		Defaults to TypeMask.Any, which allows any type to be passed.  This should not be
+		Defaults to TypeMask.Any, which allows any type to be passed. This should not be
 		set to 0; the codegen does not check for this so it's up to you.
 		*/
 		uint typeMask = TypeMask.Any;
 
 		/**
 		If typeMask allows instances, this can be a list of expressions which should evaluate
-		at runtime to class types that this parameter can accept.  This is an optional
-		list.  If typeMask does not allow instances, this should be empty.
+		at runtime to class types that this parameter can accept. This is an optional
+		list. If typeMask does not allow instances, this should be empty.
 		*/
 		Expression[] classTypes;
 
 		/**
-		The default value for the parameter.  This can be null, in which case it will have
+		The default value for the parameter. This can be null, in which case it will have
 		no default value.
 		*/
 		Expression defValue;
@@ -535,14 +535,14 @@ class FuncDef : AstNode
 	}
 
 	/**
-	The name of the function.  This will never be null.  In the case of function literals
+	The name of the function. This will never be null. In the case of function literals
 	without names, this will be filled with an auto-generated name based off the location of
 	where the literal occurred.
 	*/
 	public Identifier name;
 	
 	/**
-	The list of parameters to the function.  See the Param struct above.  This will always be
+	The list of parameters to the function. See the Param struct above. This will always be
 	at least one element long, and element 0 will always be the 'this' parameter.
 	*/
 	public Param[] params;
@@ -553,9 +553,9 @@ class FuncDef : AstNode
 	public bool isVararg;
 	
 	/**
-	The body of the function.  In the case of lambda functions (i.e. "function(x) = x * x"), this
-	is a ReturnStmt with one expression, the expression that is the lambda's body.  Otherwise, it
-	must (($B must)) be a BlockStmt.  This will be checked upon construction.
+	The body of the function. In the case of lambda functions (i.e. "function(x) = x * x"), this
+	is a ReturnStmt with one expression, the expression that is the lambda's body. Otherwise, it
+	must (($B must)) be a BlockStmt. This will be checked upon construction.
 	*/
 	public Statement code;
 
@@ -597,18 +597,18 @@ namespace literals and declarations.
 class NamespaceDef : AstNode
 {
 	/**
-	Represents a single field in the namespace.  Remember that functions are fields too.
+	Represents a single field in the namespace. Remember that functions are fields too.
 	*/
 	struct Field
 	{
 		/**
-		The name of the field.  This corresponds to either the name of a data member or
+		The name of the field. This corresponds to either the name of a data member or
 		the name of a function.
 		*/
 		char[] name;
 		
 		/**
-		The initializer of the field.  This will never be null.  If a field is declared in
+		The initializer of the field. This will never be null. If a field is declared in
 		a namespace but not given a value, a NullExp will be inserted into this field.
 		*/
 		Expression initializer;
@@ -620,18 +620,18 @@ class NamespaceDef : AstNode
 	}
 
 	/**
-	The name of the namespace.  This field will never be null.
+	The name of the namespace. This field will never be null.
 	*/
 	public Identifier name;
 
 	/**
-	The namespace which will become the parent of this namespace.  This field can be null,
+	The namespace which will become the parent of this namespace. This field can be null,
 	in which case the namespace's parent will be set to the environment of the current function.
 	*/
 	public Expression parent;
 
 	/**
-	The fields in this namespace, in an arbitrary order.  See the Field struct above.
+	The fields in this namespace, in an arbitrary order. See the Field struct above.
 	*/
 	public Field[] fields;
 
@@ -657,18 +657,18 @@ class NamespaceDef : AstNode
 }
 
 /**
-Represents a Croc module.  This node forms the root of an AST when a module is compiled.
+Represents a Croc module. This node forms the root of an AST when a module is compiled.
 */
 class Module : AstNode
 {
 	/**
-	The name of this module.  This is an array of strings, each element of which is one
-	piece of a dotted name.  This array will always be at least one element long.
+	The name of this module. This is an array of strings, each element of which is one
+	piece of a dotted name. This array will always be at least one element long.
 	*/
 	public char[][] names;
 
 	/**
-	The statements which make up the body of the module.  Normally this will be a block
+	The statements which make up the body of the module. Normally this will be a block
 	statement but it can be other kinds due to semantic analysis.
 	*/
 	public Statement statements;
@@ -743,12 +743,12 @@ class VarDecl : Statement
 	public Protection protection;
 
 	/**
-	The list of names to be declared.  This will always have at least one name.
+	The list of names to be declared. This will always have at least one name.
 	*/
 	public Identifier[] names;
 
 	/**
-	The initializer for the variables.  This can be empty, in which case the variables
+	The initializer for the variables. This can be empty, in which case the variables
 	will be all be initialized to null.
 	*/
 	public Expression[] initializer;
@@ -813,9 +813,9 @@ class Decorator : AstNode
 }
 
 /**
-This node represents a function declaration.  Note that there are some places in the
+This node represents a function declaration. Note that there are some places in the
 grammar which look like function declarations (like inside classes and namespaces) but
-which actually are just syntactic sugar.  This is for actual declarations.
+which actually are just syntactic sugar. This is for actual declarations.
 */
 class FuncDecl : Statement
 {
@@ -918,9 +918,9 @@ class AssertStmt : Statement
 	public Expression cond;
 
 	/**
-	An optional message that will be used if the assertion fails.  This member
+	An optional message that will be used if the assertion fails. This member
 	can be null, in which case a message will be generated for the assertion
-	based on its location.  If it's not null, it must evaluate to a string.
+	based on its location. If it's not null, it must evaluate to a string.
 	*/
 	public Expression msg;
 	
@@ -940,28 +940,28 @@ This node represents an import statement.
 class ImportStmt : Statement
 {
 	/**
-	An optional renaming of the import.  This member can be null, in which case no renaming
-	is done.  In the code "import y as x;", this member corresponds to "x".
+	An optional renaming of the import. This member can be null, in which case no renaming
+	is done. In the code "import y as x;", this member corresponds to "x".
 	*/
 	public Identifier importName;
 
 	/**
 	The expression which evaluates to a string containing the name of the module to import.
 	The statement "import a.b.c" is actually syntactic sugar for "import("a.b.c")", so expr
-	will be a StringExp in this case.  This expression is checked (if it's constant) to ensure
+	will be a StringExp in this case. This expression is checked (if it's constant) to ensure
 	that it's a string when constant folding occurs.
 	*/
 	public Expression expr;
 
 	/**
-	An optional list of symbols to import from the module.  In the code "import x : a, b, c",
+	An optional list of symbols to import from the module. In the code "import x : a, b, c",
 	this corresponds to "a, b, c".
 	*/
 	public Identifier[] symbols;
 
 	/**
-	A parallel array to the symbols array.  This holds the names of the symbols as they should
-	be called in this module.  The code "import x : a, b" is sugar for "import x : a as a, b as b".
+	A parallel array to the symbols array. This holds the names of the symbols as they should
+	be called in this module. The code "import x : a, b" is sugar for "import x : a as a, b as b".
 	In the code "import x : a as y, b as z", this array corresponds to "y, z".
 	*/
 	public Identifier[] symbolNames;
@@ -1009,8 +1009,8 @@ class BlockStmt : Statement
 }
 
 /**
-A node which doesn't correspond to a grammar element.  This indicates a new nested scope.
-An example of where this would be used is in an anonymous scope with some code in it.  All it
+A node which doesn't correspond to a grammar element. This indicates a new nested scope.
+An example of where this would be used is in an anonymous scope with some code in it. All it
 does is affects the codegen of the contained statement by beginning a new scope before it
 and ending the scope after it.
 
@@ -1019,7 +1019,7 @@ If you're looking for the "scope(exit)" kind of statements, look at the ScopeAct
 class ScopeStmt : Statement
 {
 	/**
-	The statement contained within this scope.  Typically a block statement, but can
+	The statement contained within this scope. Typically a block statement, but can
 	be anything.
 	*/
 	public Statement statement;
@@ -1040,8 +1040,8 @@ such as a function call, assignment etc.
 class ExpressionStmt : Statement
 {
 	/**
-	The expression to be evaluated for this statement.  This must be a side-effecting
-	expression, including function calls, yields, and assignments.  Conditional (?:)
+	The expression to be evaluated for this statement. This must be a side-effecting
+	expression, including function calls, yields, and assignments. Conditional (?:)
 	expressions and logical or and logical and (|| and &&) expressions are also allowed,
 	providing at least one component is side-effecting.
 
@@ -1074,8 +1074,8 @@ class IfStmt : Statement
 {
 	/**
 	An optional variable to declare inside the statement's condition which will take on
-	the value of the condition.  In the code "if(local x = y < z){}", this corresponds
-	to "x".  This member may be null, in which case there is no variable there.
+	the value of the condition. In the code "if(local x = y < z){}", this corresponds
+	to "x". This member may be null, in which case there is no variable there.
 	*/
 	public IdentExp condVar;
 
@@ -1091,7 +1091,7 @@ class IfStmt : Statement
 
 	/**
 	If there is an else clause, this is the code to execute if the condition evaluates to
-	false.  If there is no else clause, this member is null.
+	false. If there is no else clause, this member is null.
 	*/
 	public Statement elseBody;
 
@@ -1121,8 +1121,8 @@ class WhileStmt : Statement
 
 	/**
 	An optional variable to declare inside the statement's condition which will take on
-	the value of the condition.  In the code "while(local x = y < z){}", this corresponds
-	to "x".  This member may be null, in which case there is no variable there.
+	the value of the condition. In the code "while(local x = y < z){}", this corresponds
+	to "x". This member may be null, in which case there is no variable there.
 	*/
 	public IdentExp condVar;
 
@@ -1195,7 +1195,7 @@ class ForStmt : Statement
 
 	/**
 	There are two types of initializers possible in the first clause of the for loop header:
-	variable declarations and expression statements.  This struct holds one or the other.
+	variable declarations and expression statements. This struct holds one or the other.
 	*/
 	struct Init
 	{
@@ -1226,7 +1226,7 @@ class ForStmt : Statement
 	public Init[] init;
 
 	/**
-	The condition to test at the beginning of each iteration of the loop.  This can be
+	The condition to test at the beginning of each iteration of the loop. This can be
 	null, in which case the only way to get out of the loop is to break, return, or
 	throw an exception.
 	*/
@@ -1280,21 +1280,21 @@ class ForNumStmt : Statement
 	public Identifier index;
 
 	/**
-	The lower bound of the loop (the value before the "..").  If constant, it must be an
+	The lower bound of the loop (the value before the ".."). If constant, it must be an
 	int.
 	*/
 	public Expression lo;
 
 	/**
-	The upper bound of the loop (the value after the "..").  If constant, it must be an
+	The upper bound of the loop (the value after the ".."). If constant, it must be an
 	int.
 	*/
 	public Expression hi;
 
 	/**
-	The step value of the loop.  If specified, this is the value after the comma after the
-	upper bound.  If not specified, this is given an IntExp of value 1.  This member is
-	never null.  If constant, it must be an int.
+	The step value of the loop. If specified, this is the value after the comma after the
+	upper bound. If not specified, this is given an IntExp of value 1. This member is
+	never null. If constant, it must be an int.
 	*/
 	public Expression step;
 
@@ -1330,16 +1330,16 @@ class ForeachStmt : Statement
 	public char[] name;
 
 	/**
-	The list of index names (the names before the semicolon).  This list is always at least
-	two elements long.  This is because when you write a foreach loop with only one index,
+	The list of index names (the names before the semicolon). This list is always at least
+	two elements long. This is because when you write a foreach loop with only one index,
 	an implicit dummy index is inserted before it.
 	*/
 	public Identifier[] indices;
 
 	/**
-	The container (the stuff after the semicolon).  This array can be 1, 2, or 3 elements
-	long.  Semantically, the first element is the "iterator", the second the "state", and
-	the third the "index".  However Croc will automatically call opApply on the "iterator"
+	The container (the stuff after the semicolon). This array can be 1, 2, or 3 elements
+	long. Semantically, the first element is the "iterator", the second the "state", and
+	the third the "index". However Croc will automatically call opApply on the "iterator"
 	if it's not a function, so this can function like a foreach loop in D.
 	*/
 	public Expression[] container;
@@ -1385,12 +1385,12 @@ class SwitchStmt : Statement
 	public Expression condition;
 
 	/**
-	A list of cases.  This is always at least one element long.
+	A list of cases. This is always at least one element long.
 	*/
 	public CaseStmt[] cases;
 
 	/**
-	An optional default case.  This member can be null.
+	An optional default case. This member can be null.
 	*/
 	public DefaultStmt caseDefault;
 
@@ -1423,15 +1423,15 @@ class CaseStmt : Statement
 	}
 
 	/**
-	The list of values which will cause execution to jump to this case.  In the code
-	"case 1, 2, 3:" this corresponds to "1, 2, 3".  This will always be at least one element
+	The list of values which will cause execution to jump to this case. In the code
+	"case 1, 2, 3:" this corresponds to "1, 2, 3". This will always be at least one element
 	long.
 	*/
 	public CaseCond[] conditions;
 	
 	/**
-	If this member is null, this is a "normal" case statement.  If this member is non-null, this
-	is a ranged case statement like "case 1 .. 10:".  In that case, the 'conditions' member will
+	If this member is null, this is a "normal" case statement. If this member is non-null, this
+	is a ranged case statement like "case 1 .. 10:". In that case, the 'conditions' member will
 	be exactly one element long and will contain the low range value.
 	*/
 	public Expression highRange;
@@ -1520,7 +1520,7 @@ This node represents a return statement.
 class ReturnStmt : Statement
 {
 	/**
-	The list of expressions to return.  This array may have 0 or more elements.
+	The list of expressions to return. This array may have 0 or more elements.
 	*/
 	public Expression[] exprs;
 
@@ -1539,7 +1539,7 @@ class ReturnStmt : Statement
 }
 
 /**
-This node represents a try-catch-finally statement.  It holds not only the try clause,
+This node represents a try-catch-finally statement. It holds not only the try clause,
 but either or both the catch and finally clauses.
 */
 class TryStmt : Statement
@@ -1550,21 +1550,21 @@ class TryStmt : Statement
 	public Statement tryBody;
 	
 	/**
-	The variable to use in the catch block.  In the code "try{}catch(e){}", this corresponds
-	to 'e'.  This member can be null, in which case there is no catch block (and therefore
-	there must be a finally block).  If this member is non-null, catchBody must also be
+	The variable to use in the catch block. In the code "try{}catch(e){}", this corresponds
+	to 'e'. This member can be null, in which case there is no catch block (and therefore
+	there must be a finally block). If this member is non-null, catchBody must also be
 	non-null.
 	*/
 	public Identifier catchVar;
 
 	/**
-	The body of the catch block.  If this member is non-null, catchVar must also be non-null.
+	The body of the catch block. If this member is non-null, catchVar must also be non-null.
 	If this member is null, finallyBody must be non-null.
 	*/
 	public Statement catchBody;
 
 	/**
-	The body of the finally block.  If this member is null, catchVar and catchBody must be
+	The body of the finally block. If this member is null, catchVar and catchBody must be
 	non-null.
 	*/
 	public Statement finallyBody;
@@ -1650,14 +1650,14 @@ This node represents normal assignment, either single- or multi-target.
 class AssignStmt : Statement
 {
 	/**
-	The list of destination expressions.  This list always has at least one element.
-	This list must contain only expressions which can be LHSes.  That will be checked
+	The list of destination expressions. This list always has at least one element.
+	This list must contain only expressions which can be LHSes. That will be checked
 	at codegen time.
 	*/
 	public Expression[] lhs;
 
 	/**
-	The right-hand side of the assignment.  Must always have at least 1 item.  This is not checked
+	The right-hand side of the assignment. Must always have at least 1 item. This is not checked
 	by the ctor.
 	*/
 	public Expression[] rhs;
@@ -1684,8 +1684,8 @@ This node handles the common features of the reflexive assignments, as well as c
 abstract class OpAssignStmt : Statement
 {
 	/**
-	The left-hand-side of the assignment.  This may not be a constant value or '#vararg', and if
-	this is a conditional assignment, it may not be 'this'.  These conditions will be checked at
+	The left-hand-side of the assignment. This may not be a constant value or '#vararg', and if
+	this is a conditional assignment, it may not be 'this'. These conditions will be checked at
 	codegen.
 	*/
 	public Expression lhs;
@@ -1737,7 +1737,7 @@ This node represents concatenation assignment (~=).
 class CatAssignStmt : Statement
 {
 	/**
-	The left-hand-side of the assignment.  The same constraints apply here as for other
+	The left-hand-side of the assignment. The same constraints apply here as for other
 	reflexive assignments.
 	*/
 	public Expression lhs;
@@ -1901,7 +1901,7 @@ This node represents an increment, either prefix or postfix (++a or a++).
 class IncStmt : Statement
 {
 	/**
-	The expression to modify.  The same constraints apply as for reflexive assignments.
+	The expression to modify. The same constraints apply as for reflexive assignments.
 	*/
 	public Expression exp;
 
@@ -1920,7 +1920,7 @@ This node represents a decrement, either prefix or postfix (--a or a--).
 class DecStmt : Statement
 {
 	/**
-	The expression to modify.  The same constraints apply as for reflexive assignments.
+	The expression to modify. The same constraints apply as for reflexive assignments.
 	*/
 	public Expression exp;
 
@@ -1972,7 +1972,7 @@ abstract class Expression : AstNode
 
 	/**
 	Ensure that this expression can be evaluated to nothing, i.e. that it can exist
-	on its own.  Throws an exception if not.
+	on its own. Throws an exception if not.
 	*/
 	public void checkToNothing(ICompiler c)
 	{
@@ -1981,7 +1981,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns whether or not this expression has side effects.  If this returns false,
+	Returns whether or not this expression has side effects. If this returns false,
 	checkToNothing will throw an error.
 	*/
 	public bool hasSideEffects()
@@ -1990,7 +1990,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Ensure that this expression can give multiple return values.  If it can't, throws an
+	Ensure that this expression can give multiple return values. If it can't, throws an
 	exception.
 	*/
 	public void checkMultRet(ICompiler c)
@@ -2000,7 +2000,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns whether this expression can give multiple return values.  If this returns
+	Returns whether this expression can give multiple return values. If this returns
 	false, checkMultRet will throw an error.
 	*/
 	public bool isMultRet()
@@ -2009,7 +2009,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Ensure that this expression can be the left-hand side of an assignment.  If it can't,
+	Ensure that this expression can be the left-hand side of an assignment. If it can't,
 	throws an exception.
 	*/
 	public void checkLHS(ICompiler c)
@@ -2019,7 +2019,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns whether this expression can be the left-hand side of an assignment.  If this
+	Returns whether this expression can be the left-hand side of an assignment. If this
 	returns false, checkLHS will throw an error.
 	*/
 	public bool isLHS()
@@ -2052,7 +2052,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns this expression as a boolean constant, if possible.  assert(false)s
+	Returns this expression as a boolean constant, if possible. assert(false)s
 	otherwise.
 	*/
 	public bool asBool()
@@ -2069,7 +2069,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns this expression as an integer constant, if possible.  assert(false)s
+	Returns this expression as an integer constant, if possible. assert(false)s
 	otherwise.
 	*/
 	public crocint asInt()
@@ -2086,7 +2086,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns this expression as a floating point constant, if possible.  assert(false)s
+	Returns this expression as a floating point constant, if possible. assert(false)s
 	otherwise.
 	*/
 	public crocfloat asFloat()
@@ -2103,7 +2103,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns this expression as a character constant, if possible.  assert(false)s
+	Returns this expression as a character constant, if possible. assert(false)s
 	otherwise.
 	*/
 	public dchar asChar()
@@ -2120,7 +2120,7 @@ abstract class Expression : AstNode
 	}
 
 	/**
-	Returns this expression as a string constant, if possible.  assert(false)s
+	Returns this expression as a string constant, if possible. assert(false)s
 	otherwise.
 	*/
 	public char[] asString()
@@ -2130,7 +2130,7 @@ abstract class Expression : AstNode
 
 	/**
 	If this expression is a constant value, returns whether this expression would evaluate
-	as true according to Croc's definition of truth.  Otherwise returns false.
+	as true according to Croc's definition of truth. Otherwise returns false.
 	*/
 	public bool isTrue()
 	{
@@ -2175,7 +2175,7 @@ class CondExp : Expression
 }
 
 /**
-The base class for binary expressions.  Many of them share some or all of their code
+The base class for binary expressions. Many of them share some or all of their code
 generation phases, as well has having other similar properties.
 */
 abstract class BinaryExp : Expression
@@ -2455,7 +2455,7 @@ class ModExp : BinaryExp
 }
 
 /**
-This class is the base class for unary expressions.  These tend to share some code
+This class is the base class for unary expressions. These tend to share some code
 generation, as well as all having a single operand.
 */
 abstract class UnExp : Expression
@@ -2527,7 +2527,7 @@ class CoroutineExp : UnExp
 
 /**
 This class is the base class for postfix expressions, that is expressions which kind of
-attach to the end of other expressions.  It inherits from UnExp, so that the single
+attach to the end of other expressions. It inherits from UnExp, so that the single
 operand becomes the expression to which the postfix expression becomes attached.
 */
 abstract class PostfixExp : UnExp
@@ -2542,12 +2542,12 @@ abstract class PostfixExp : UnExp
 
 /**
 This node represents dot expressions, in both the dot-ident (a.x) and dot-expression
-(a.(expr)) forms.  These correspond to field access.
+(a.(expr)) forms. These correspond to field access.
 */
 class DotExp : PostfixExp
 {
 	/**
-	The name.  This can be any expression, as long as it evaluates to a string.  An
+	The name. This can be any expression, as long as it evaluates to a string. An
 	expression like "a.x" is sugar for "a.("x")", so this will be a string literal
 	in that case.
 	*/
@@ -2608,13 +2608,13 @@ This node corresponds to a slicing operation (a[x .. y]).
 class SliceExp : PostfixExp
 {
 	/**
-	The low index of the slice.  If no low index is given, this will be a NullExp.
+	The low index of the slice. If no low index is given, this will be a NullExp.
 	This member will therefore never be null.
 	*/
 	public Expression loIndex;
 	
 	/**
-	The high index of the slice.  If no high index is given, this will be a NullExp.
+	The high index of the slice. If no high index is given, this will be a NullExp.
 	This member will therefore never be null.
 	*/
 	public Expression hiIndex;
@@ -2640,14 +2640,14 @@ This node corresponds to a non-method function call (f()).
 class CallExp : PostfixExp
 {
 	/**
-	The context to be used when calling the function.  This corresponds to 'x' in
-	the expression "f(with x)".  If this member is null, a context of 'null' will
+	The context to be used when calling the function. This corresponds to 'x' in
+	the expression "f(with x)". If this member is null, a context of 'null' will
 	be passed to the function.
 	*/
 	public Expression context;
 	
 	/**
-	The list of arguments to be passed to the function.  This can be 0 or more elements.
+	The list of arguments to be passed to the function. This can be 0 or more elements.
 	*/
 	public Expression[] args;
 
@@ -2686,14 +2686,14 @@ class MethodCallExp : PostfixExp
 	public Expression method;
 
 	/**
-	The context to be used when calling the method.  This corresponds to 'x' in
-	the expression "a.f(with x)".  If this member is null, there is no custom
+	The context to be used when calling the method. This corresponds to 'x' in
+	the expression "a.f(with x)". If this member is null, there is no custom
 	context and the context will be determined automatically.
 	*/
 	public Expression context;
 
 	/**
-	The list of argument to pass to the method.  This can have 0 or more elements.
+	The list of argument to pass to the method. This can have 0 or more elements.
 	*/
 	public Expression[] args;
 
@@ -2750,7 +2750,7 @@ class PrimaryExp : Expression
 }
 
 /**
-An identifier expression.  These can refer to locals, upvalues, or globals.
+An identifier expression. These can refer to locals, upvalues, or globals.
 */
 class IdentExp : PrimaryExp
 {
@@ -3140,9 +3140,9 @@ class ClassLiteralExp : PrimaryExp
 }
 
 /**
-Represents an expression inside a pair of parentheses.  Besides controlling order-of-
+Represents an expression inside a pair of parentheses. Besides controlling order-of-
 operations, this expression will make a multiple-return-value expression return exactly
-one result instead.  Thus 'vararg' can give 0 or more values but '(vararg)' gives
+one result instead. Thus 'vararg' can give 0 or more values but '(vararg)' gives
 exactly one (null in the case that there are no varargs).
 */
 class ParenExp : PrimaryExp
@@ -3173,7 +3173,7 @@ class TableCtorExp : PrimaryExp
 	}
 
 	/**
-	An array of fields.  The first value in each element is the key; the second the value.
+	An array of fields. The first value in each element is the key; the second the value.
 	*/
 	public Field[] fields;
 
@@ -3277,12 +3277,12 @@ and table comprehensions.
 abstract class ForComprehension : AstNode
 {
 	/**
-	Optional if comprehension that follows this.  This member may be null.
+	Optional if comprehension that follows this. This member may be null.
 	*/
 	public IfComprehension ifComp;
 
 	/**
-	Optional for comprehension that follows this.  This member may be null.
+	Optional for comprehension that follows this. This member may be null.
 	*/
 	public ForComprehension forComp;
 
@@ -3438,12 +3438,12 @@ This node represents a table comprehension, such as "{[v] = k for k, v in a}".
 class TableComprehension : PrimaryExp
 {
 	/**
-	The key expression.  This is the thing in the brackets at the beginning.
+	The key expression. This is the thing in the brackets at the beginning.
 	*/
 	public Expression key;
 
 	/**
-	The value expression.  This is the thing after the equals sign at the beginning.
+	The value expression. This is the thing after the equals sign at the beginning.
 	*/
 	public Expression value;
 	

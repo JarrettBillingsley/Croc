@@ -45,9 +45,9 @@ Sets or removes the debugging hook function for the given thread.
 The hook function is used to "hook" into various points in the execution of Croc scripts.
 When the hook function is called, you can use the other debugging APIs to get information
 about the call stack, the local variables and upvalues of functions on the call stack,
-line information etc.  This way you can write a debugger for Croc scripts.
+line information etc. This way you can write a debugger for Croc scripts.
 
-There are a few different kind of events that you can hook into.  You can only have one hook
+There are a few different kind of events that you can hook into. You can only have one hook
 function on a thread, and that function will respond to all the types of events that you set
 it to.
 
@@ -56,44 +56,44 @@ include the following:
 
 $(UL
 	$(LI $(B CrocThread.Hook.Call) - This hook occurs when a function is just about to be
-		called.  The top of the call stack will be the function that is about to be called,
+		called. The top of the call stack will be the function that is about to be called,
 		but the hook occurs before execution begins.)
 
 	$(LI $(B CrocThread.Hook.Ret) - This hook occurs when a function is just about to return.
 		The hook is called just before the return actually occurs, so the top of the call stack
-		will be the function that is about to return.  If you subscribe the hook function to
+		will be the function that is about to return. If you subscribe the hook function to
 		this event, you will also get tail return events.)
 
 	$(LI $(B CrocThread.Hook.TailRet) - This hook occurs immediately after "return" hooks if the
-		returning function has been tailcalled.  One "tail return" hook is called for each tailcall
-		that occurred.  No real useful information will be available.  If you subscribe the
+		returning function has been tailcalled. One "tail return" hook is called for each tailcall
+		that occurred. No real useful information will be available. If you subscribe the
 		hook function to this event, you will also get normal return events.)
 
 	$(LI $(B CrocThread.Hook.Delay) - This hook occurs after a given number of Croc instructions
-		have executed.  You set this delay as a parameter to setHookFunc, and if the delay is set
-		to 0, this hook is not called.  This hook is also only ever called in Croc script functions.)
+		have executed. You set this delay as a parameter to setHookFunc, and if the delay is set
+		to 0, this hook is not called. This hook is also only ever called in Croc script functions.)
 
 	$(LI $(B CrocThread.Hook.Line) - This hook occurs when execution of a script function reaches
-		a new source line.  This is called before the first instruction associated with the given
-		line occurs.  It's also called immediately after a function begins executing (before its
+		a new source line. This is called before the first instruction associated with the given
+		line occurs. It's also called immediately after a function begins executing (before its
 		first instruction executes) or if a jump to the beginning of a loop occurs.)
 )
 
-This function can be used to set or unset the hook function for the given thread.  In either case,
-it expects for there to be one value at the top of the stack, which it will pop.  The value must
-be a function or 'null'.  To unset the hook function, either have 'null' on the stack, or pass 0
+This function can be used to set or unset the hook function for the given thread. In either case,
+it expects for there to be one value at the top of the stack, which it will pop. The value must
+be a function or 'null'. To unset the hook function, either have 'null' on the stack, or pass 0
 for the mask parameter.
 
 When the hook function is called, the thread that the hook is being called on is passed as the 'this'
-parameter, and one parameter is passed.  This parameter is a string containing one of the following:
-"call", "ret", "tailret", "delay", or "line", according to what kind of hook this is.  The hook function
+parameter, and one parameter is passed. This parameter is a string containing one of the following:
+"call", "ret", "tailret", "delay", or "line", according to what kind of hook this is. The hook function
 is not required to return any values.
 
 Params:
 	mask = A bitwise OR-ing of the members of the CrocThread.Hook enumeration as described above.
 		The Delay value is ignored and will instead be set or unset based on the hookDelay parameter.
 		If you have either the Ret or TailRet values, the function will be registered for all
-		returns.  If this parameter is 0, the hook function will be removed from the thread.
+		returns. If this parameter is 0, the hook function will be removed from the thread.
 		
 	hookDelay = If this is nonzero, the Delay hook will be called every hookDelay Croc instructions.
 		Otherwise, if it's 0, the Delay hook will be disabled.
@@ -149,7 +149,7 @@ word getHookFunc(CrocThread* t)
 
 /**
 Gets a bitwise OR-ing of all the hook types set for this thread, as declared in the CrocThread.Hook
-enumeration.  Note that the CrocThread.Hook.TailRet flag will never be set, as tail return events
+enumeration. Note that the CrocThread.Hook.TailRet flag will never be set, as tail return events
 are also covered by CrocThread.Hook.Ret.
 */
 ubyte getHookMask(CrocThread* t)
@@ -228,7 +228,7 @@ debug
 	values (if any) will started to be copied upon that function returning; and $(I numRets) being the number of returns that
 	the calling function expects it to return (-1 meaning "as many as possible").
 
-	This only prints out the current thread's call stack.  It does not take coroutine resumes and yields into account (since
+	This only prints out the current thread's call stack. It does not take coroutine resumes and yields into account (since
 	that's pretty much impossible).
 	*/
 	void printCallStack(CrocThread* t)

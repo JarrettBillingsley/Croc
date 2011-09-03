@@ -252,12 +252,12 @@ else
 
 /**
 A template that checks that a given type conforms to the Input interface used by
-the CLI struct.  The given type T $(B must) implement "char[] readln(CrocThread* t, char[] p)",
-where 't' is a thread object and 'p' is the prompt to be used for getting a line of input.  It
+the CLI struct. The given type T $(B must) implement "char[] readln(CrocThread* t, char[] p)",
+where 't' is a thread object and 'p' is the prompt to be used for getting a line of input. It
 may optionally implement a method "init(CrocThread* t)", which is called when the interactive
-CLI prompt is started and can be used to initialize members.  It may optionally implement a
+CLI prompt is started and can be used to initialize members. It may optionally implement a
 method "cleanup(CrocThread* t)", which is called when the interactive CLI prompt is exited and
-can be used to clean up resources.  If T is a class, it must have a no-argument constructor.
+can be used to clean up resources. If T is a class, it must have a no-argument constructor.
 */
 template IsValidInputType(T)
 {
@@ -281,10 +281,10 @@ template IsValidInputType(T)
 }
 
 /**
-This struct encapsulates an interactive Croc interpreter.  croc uses this struct to do its
+This struct encapsulates an interactive Croc interpreter. croc uses this struct to do its
 interactive prompt.
 
-This struct installs a signal handler that catches Ctrl+C (SIGINT) signals.  It restores
+This struct installs a signal handler that catches Ctrl+C (SIGINT) signals. It restores
 the old signal handler when it exits.
 
 The Input type must be a struct or class type which implements the Input interface as described
@@ -678,7 +678,7 @@ struct CLI(Input)
 }
 
 /**
-An alias for CLI instantiated with the default Input type.  This is a basic console-
+An alias for CLI instantiated with the default Input type. This is a basic console-
 based CLI.
 */
 alias CLI!(CrocDefaultInput) ConsoleCLI;

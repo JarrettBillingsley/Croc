@@ -704,7 +704,7 @@ private:
 
 	void serializeNativeObj(CrocNativeObj* v)
 	{
-		throwException(t, "Attempting to serialize a nativeobj.  Please use the transients table.");
+		throwException(t, "Attempting to serialize a nativeobj. Please use the transients table.");
 	}
 
 	void writeRef(uword idx)

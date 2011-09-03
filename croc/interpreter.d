@@ -3302,7 +3302,7 @@ void execute(CrocThread* t, uword depth = 1)
 						goto _reentry;
 					}
 
-					// Do nothing for native calls.  The following return instruction will catch it.
+					// Do nothing for native calls. The following return instruction will catch it.
 					break;
 			}
 

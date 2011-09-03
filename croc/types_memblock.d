@@ -124,7 +124,7 @@ static:
 		return n;
 	}
 
-	// Assign an entire other memblock into a slice of the destination memblock.  Handles overlapping copies as well.
+	// Assign an entire other memblock into a slice of the destination memblock. Handles overlapping copies as well.
 	// Both memblocks must be the same type.
 	package void sliceAssign(CrocMemblock* m, uword lo, uword hi, CrocMemblock* other)
 	{

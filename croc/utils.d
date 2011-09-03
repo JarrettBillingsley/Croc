@@ -1,7 +1,7 @@
 /******************************************************************************
-This module holds a variety of utility functions used throughout Croc.  This
+This module holds a variety of utility functions used throughout Croc. This
 module doesn't (and shouldn't) depend on the rest of the library in any way,
-and as such can't hold implementation-specific functionality.  
+and as such can't hold implementation-specific functionality. 
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -62,7 +62,7 @@ char[] _getJustName(char[] mangle)
 public const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
 
 /**
-See if a string starts with another string.  Useful.
+See if a string starts with another string. Useful.
 */
 public bool startsWith(T)(T[] string, T[] pattern)
 {
@@ -70,7 +70,7 @@ public bool startsWith(T)(T[] string, T[] pattern)
 }
 
 /**
-See if a string ends with another string.  Also useful.
+See if a string ends with another string. Also useful.
 */
 public bool endsWith(T)(T[] string, T[] pattern)
 {
@@ -86,7 +86,7 @@ bool contains(T)(T[] arr, T elem)
 }
 
 /**
-Compare two values, a and b, using < and >.  Returns -1 if a < b, 1 if a > b, and 0 otherwise.
+Compare two values, a and b, using < and >. Returns -1 if a < b, 1 if a > b, and 0 otherwise.
 */
 public int Compare3(T)(T a, T b)
 {
@@ -273,7 +273,7 @@ unittest
 }
 
 /**
-Make a FOURCC code out of a four-character string.  This is I guess for little-endian platforms..
+Make a FOURCC code out of a four-character string. This is I guess for little-endian platforms..
 */
 public template FOURCC(char[] name)
 {
@@ -307,8 +307,8 @@ debug
 }
 
 /**
-Given a predicate template and a tuple, sorts the tuple.  I'm not sure how quick it is, but it's probably fast enough
-for sorting most tuples, which hopefully won't be that long.  The predicate template should take two parameters of the
+Given a predicate template and a tuple, sorts the tuple. I'm not sure how quick it is, but it's probably fast enough
+for sorting most tuples, which hopefully won't be that long. The predicate template should take two parameters of the
 same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
 */
 public template QSort(alias Pred, List...)
@@ -357,7 +357,7 @@ private template QSort_greater(alias Pred, List...)
 }
 
 /**
-A useful template that somehow is in Phobos but no Tango.  Sees if a tuple is composed
+A useful template that somehow is in Phobos but no Tango. Sees if a tuple is composed
 entirely of expressions or aliases.
 */
 public template isExpressionTuple(T...)
@@ -371,10 +371,10 @@ public template isExpressionTuple(T...)
 /**
 For a given struct, gets a tuple of the names of its fields.
 
-I have absolutely no idea if what I'm doing here is in any way legal.  I more or less discovered
-that the compiler gives access to this info in odd cases, and am just exploiting that.  It would
+I have absolutely no idea if what I'm doing here is in any way legal. I more or less discovered
+that the compiler gives access to this info in odd cases, and am just exploiting that. It would
 be fantastic if the compiler would just tell us these things, but alas, we have to rely on
-seemingly-buggy undefined behavior.  Sigh.
+seemingly-buggy undefined behavior. Sigh.
 */
 public template FieldNames(S, int idx = 0)
 {
@@ -396,8 +396,8 @@ package template GetLastName(char[] fullName, int idx = fullName.length - 1)
 
 /**
 Given an alias to a function, this will give the minimum legal number of arguments it can be called with.
-Even works for aliases to class methods.  Note, however, that this isn't smart enough to detect the difference
-between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)".  There might
+Even works for aliases to class methods. Note, however, that this isn't smart enough to detect the difference
+between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)". There might
 be a difference, though, so be cautious.
 */
 public template MinArgs(alias func)
@@ -433,7 +433,7 @@ private template InitOf(T)
 }
 
 /**
-Given a class or struct type, gets its name.  This really only exists to mask potential oddities with the
+Given a class or struct type, gets its name. This really only exists to mask potential oddities with the
 way the compiler reports this info (for example, DMD used to insert a space before struct names, but that
 no longer seems to happen..).
 */

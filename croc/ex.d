@@ -50,7 +50,7 @@ public:
 // Simplifying very common tasks
 
 /**
-Import a module with the given name.  Works just like the import statement in Croc.  Pushes the
+Import a module with the given name. Works just like the import statement in Croc. Pushes the
 module's namespace onto the stack.
 
 Params:
@@ -426,11 +426,11 @@ private:
 
 /**
 Simple function that attempts to create a custom loader (by making an entry in modules.customLoaders) for a
-module.  Throws an exception if a loader for the given module name already exists.
+module. Throws an exception if a loader for the given module name already exists.
 
 Params:
-	name = The name of the module.  If it's a nested module, include all name components (like "foo.bar.baz").
-	loader = The module's loader function.  Serves as the top-level function when the module is imported, and any
+	name = The name of the module. If it's a nested module, include all name components (like "foo.bar.baz").
+	loader = The module's loader function. Serves as the top-level function when the module is imported, and any
 		globals defined in it become the module's public symbols.
 */
 void makeModule(CrocThread* t, char[] name, NativeFunc loader)
@@ -447,7 +447,7 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 }
 
 /**
-A little helper object for making native classes.  Just removes some of the boilerplate involved.
+A little helper object for making native classes. Just removes some of the boilerplate involved.
 
 You use it like so:
 
@@ -459,7 +459,7 @@ CreateClass(t, "ClassName", (CreateClass* c)
 	c.method("blah", &blah);
 	c.method("forble", &forble);
 	
-	// A method with one upval.  Push it, then call c.method
+	// A method with one upval. Push it, then call c.method
 	pushInt(t, 0);
 	c.method("funcWithUpval", &funcWithUpval, 1);
 });
@@ -525,11 +525,11 @@ struct CreateClass
 	Register a method.
 
 	Params:
-		name = Method name.  The actual name that the native function closure will be created with is
+		name = Method name. The actual name that the native function closure will be created with is
 			the class's name concatenated with a period and then the method name, so that in the example
 			code above, the "blah" method would be named "ClassName.blah".
 		f = The native function.
-		numUpvals = How many upvalues this function needs.  There should be this many values sitting on
+		numUpvals = How many upvalues this function needs. There should be this many values sitting on
 			the stack.
 	*/
 	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
@@ -571,7 +571,7 @@ Allocates the new instance with the given number of extra fields and bytes, then
 
 Params:
 	numFields = The number of extra fields to allocate in the instance.
-	Members = Any type.  Members.sizeof extra bytes will be allocated in the instance, and those bytes
+	Members = Any type. Members.sizeof extra bytes will be allocated in the instance, and those bytes
 		will be initialized to Members.init.
 
 Example:
@@ -599,7 +599,7 @@ uword BasicClassAllocator(uword numFields, Members)(CrocThread* t)
 }
 
 /**
-Similar to above, but instead of a type for the extra bytes, just takes a number of bytes.  In this case
+Similar to above, but instead of a type for the extra bytes, just takes a number of bytes. In this case
 the extra bytes will be uninitialized.
 */
 uword BasicClassAllocator(uword numFields, uword numBytes)(CrocThread* t)
@@ -615,7 +615,7 @@ uword BasicClassAllocator(uword numFields, uword numBytes)(CrocThread* t)
 
 /**
 For the instance at the given index, gets the extra bytes and returns them cast to a pointer to the
-given type.  Checks that the number of extra bytes is at least the size of the given type, but
+given type. Checks that the number of extra bytes is at least the size of the given type, but
 this should not be used as a foolproof way of identifying the type of instances.
 */
 T* getMembers(T)(CrocThread* t, word index)
@@ -633,12 +633,12 @@ T* getMembers(T)(CrocThread* t, word index)
 
 /**
 A utility structure for building up strings out of several pieces more efficiently than by just pushing
-all the bits and concatenating.  This struct keeps an internal buffer so that strings are built up in
+all the bits and concatenating. This struct keeps an internal buffer so that strings are built up in
 large chunks.
 
 This struct uses the stack of a thread to hold its intermediate results, so if you perform any stack
 manipulation to calls to this struct's functions, make sure your stack operations are balanced, or you
-will mess up the string building.  Also, negative stack indices may change where they reference during
+will mess up the string building. Also, negative stack indices may change where they reference during
 string building since the stack may grow, so be sure to use absolute (positive) indices where necessary.
 
 A typical use looks something like this:
@@ -660,7 +660,7 @@ struct StrBuffer
 	private char[512] data;
 
 	/**
-	Create an instance of this struct.  The struct is bound to a single thread.
+	Create an instance of this struct. The struct is bound to a single thread.
 	*/
 	public static StrBuffer opCall(CrocThread* t)
 	{
@@ -707,8 +707,8 @@ struct StrBuffer
 	}
 
 	/**
-	Add the value on top of the stack to the buffer.  This is the only function that breaks the
-	rule of leaving the stack balanced.  For this function to work, you must have exactly one
+	Add the value on top of the stack to the buffer. This is the only function that breaks the
+	rule of leaving the stack balanced. For this function to work, you must have exactly one
 	value on top of the stack, and it must be a string or a char.
 	*/
 	public void addTop()
@@ -748,7 +748,7 @@ struct StrBuffer
 	}
 
 	/**
-	A convenience function for hooking up to the Tango IO and formatting facilities.  You can pass
+	A convenience function for hooking up to the Tango IO and formatting facilities. You can pass
 	"&buf._sink" to many Tango functions that expect a _sink function for string data.
 	*/
 	public uint sink(char[] s)
@@ -758,8 +758,8 @@ struct StrBuffer
 	}
 
 	/**
-	Indicate that the string building is complete.  This function will leave just the finished string
-	on top of the stack.  The StrBuffer will also be in a state to build a new string if you so desire.
+	Indicate that the string building is complete. This function will leave just the finished string
+	on top of the stack. The StrBuffer will also be in a state to build a new string if you so desire.
 	*/
 	public word finish()
 	{
@@ -799,10 +799,10 @@ struct StrBuffer
 
 /**
 Look up some value using a name that looks like a chain of dot-separated identifiers (like a Croc expression).
-The _name must follow the regular expression "\w[\w\d]*(\.\w[\w\d]*)*".  No spaces are allowed.  The looked-up
+The _name must follow the regular expression "\w[\w\d]*(\.\w[\w\d]*)*". No spaces are allowed. The looked-up
 value is left at the top of the stack.
 
-This functions behaves just as though you were evaluating this expression in Croc.  Global _lookup and opField
+This functions behaves just as though you were evaluating this expression in Croc. Global _lookup and opField
 metamethods are respected.
 
 -----
@@ -855,8 +855,8 @@ word lookup(CrocThread* t, char[] name)
 
 /**
 Very similar to lookup, this function trades a bit of code bloat for the benefits of checking that the name is valid
-at compile time and of being faster.  The name is validated and translated directly into a series of API calls, meaning
-this function will be likely to be inlined.  The usage is exactly the same as lookup, except the name is now a template
+at compile time and of being faster. The name is validated and translated directly into a series of API calls, meaning
+this function will be likely to be inlined. The usage is exactly the same as lookup, except the name is now a template
 parameter instead of a normal parameter.
 
 Returns:
@@ -869,7 +869,7 @@ word lookupCT(char[] name)(CrocThread* t)
 }
 
 /**
-Pushes the variable that is stored in the registry with the given name onto the stack.  An error will be thrown if the variable
+Pushes the variable that is stored in the registry with the given name onto the stack. An error will be thrown if the variable
 does not exist in the registry.
 
 Returns:
@@ -899,11 +899,11 @@ Similar to the _loadString function in the Croc base library, this compiles some
 into a function that takes variadic arguments and pushes that function onto the stack.
 
 Params:
-	code = The source _code of the function.  This should be one or more statements.
+	code = The source _code of the function. This should be one or more statements.
 	customEnv = If true, expects the value on top of the stack to be a namespace which will be
-		set as the environment of the new function.  The namespace will be replaced.  Defaults
+		set as the environment of the new function. The namespace will be replaced. Defaults
 		to false, in which case the current function's environment will be used.
-	name = The _name to give the function.  Defaults to "<loaded by loadString>".
+	name = The _name to give the function. Defaults to "<loaded by loadString>".
 
 Returns:
 	The stack index of the newly-compiled function.
@@ -934,8 +934,8 @@ word loadString(CrocThread* t, char[] code, bool customEnv = false, char[] name 
 }
 
 /**
-This is a quick way to run some Croc code.  Basically this just calls loadString and then runs
-the resulting function with no parameters.  This function's parameters are the same as loadString's.
+This is a quick way to run some Croc code. Basically this just calls loadString and then runs
+the resulting function with no parameters. This function's parameters are the same as loadString's.
 */
 void runString(CrocThread* t, char[] code, bool customEnv = false, char[] name = "<loaded by runString>")
 {
@@ -946,18 +946,18 @@ void runString(CrocThread* t, char[] code, bool customEnv = false, char[] name =
 
 /**
 Similar to the _eval function in the Croc base library, this compiles an expression, evaluates it,
-and leaves the result(s) on the stack.  
+and leaves the result(s) on the stack. 
 
 Params:
 	code = The source _code of the expression.
-	numReturns = How many return values you want from the expression.  Defaults to 1.  Works just like
+	numReturns = How many return values you want from the expression. Defaults to 1. Works just like
 		the _numReturns parameter of the call functions; -1 gets all return values.
 	customEnv = If true, expects the value on top of the stack to be a namespace which will be
-		used as the environment of the expression.  The namespace will be replaced.  Defaults
+		used as the environment of the expression. The namespace will be replaced. Defaults
 		to false, in which case the current function's environment will be used.
 		
 Returns:
-	If numReturns >= 0, returns numReturns.  If numReturns == -1, returns how many values the expression
+	If numReturns >= 0, returns numReturns. If numReturns == -1, returns how many values the expression
 	returned.
 */
 uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = false)
@@ -990,11 +990,11 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 Imports a module or file and runs any main() function in it.
 
 Params:
-	filename = The name of the file or module to load.  If it's a path to a file, it must end in .croc or .croco.
+	filename = The name of the file or module to load. If it's a path to a file, it must end in .croc or .croco.
 		It will be compiled or deserialized as necessary. If it's a module name, it must be in dotted form and
-		not end in croc or croco.  It will be imported as normal.
+		not end in croc or croco. It will be imported as normal.
 
-	numParams = How many arguments you have to pass to the main() function.  If you want to pass params, they
+	numParams = How many arguments you have to pass to the main() function. If you want to pass params, they
 		must be on top of the stack when you call this function.
 
 Example:
@@ -1048,13 +1048,13 @@ void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 
 /**
 This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
-that handle Croc exceptions in D code.  
+that handle Croc exceptions in D code. 
 
 This function will store the stack size of the given thread when it is called, before the try code is executed.
 If an exception occurs, the stack will be restored to that size, the Croc exception will be caught (with
 catchException), and the catch code will be called with the D exception object and the Croc exception object's
-stack index as parameters.  The catch block is expected to leave the stack balanced, that is, it should be the
-same size upon exit as it was upon entry (an error will be thrown if this is not the case).  Lastly, the given
+stack index as parameters. The catch block is expected to leave the stack balanced, that is, it should be the
+same size upon exit as it was upon entry (an error will be thrown if this is not the case). Lastly, the given
 finally code, if any, will be executed as a finally block usually is.
 
 This function is best used with anonymous delegates, like so:
@@ -1077,15 +1077,15 @@ croctry(t,
 -----
 
 It can be easy to forget that those blocks are actually delegates, and returning from them just returns from
-the delegate instead of from the enclosing function.  Hey, don't look at me; it's D's fault for not having
+the delegate instead of from the enclosing function. Hey, don't look at me; it's D's fault for not having
 AST macros ;$(RPAREN)
 
 If you just need a try-finally block, you don't need this function, and please don't call it with a null
-catch_ parameter.  Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
+catch_ parameter. Just use a normal try-finally block in that case (or better yet, a scope(exit) block).
 
 Params:
 	try_ = The try code.
-	catch_ = The catch code.  It takes two parameters - the D exception object and the stack index of the caught
+	catch_ = The catch code. It takes two parameters - the D exception object and the stack index of the caught
 		Croc exception object.
 	finally_ = The optional finally code.
 */
@@ -1115,7 +1115,7 @@ void croctry(CrocThread* t, void delegate() try_, void delegate(CrocException, w
 
 /**
 A useful wrapper for code where you want to ensure that the stack is balanced, that is, it is the same size after
-some set of operations as before it.  Having a balanced stack is more than just good practice - it prevents stack
+some set of operations as before it. Having a balanced stack is more than just good practice - it prevents stack
 overflows and underflows.
 
 You can also use this function when your code requires that the stack be a certain number of slots larger or smaller
@@ -1125,9 +1125,9 @@ execution paths.
 If the stack size is not correct after running the code, an exception will be thrown in the passed-in thread.
 
 Params:
-	diff = How many more (or fewer) items there should be on the stack after running the code.  If 0, it means that
+	diff = How many more (or fewer) items there should be on the stack after running the code. If 0, it means that
 		the stack size after running the code should be exactly as it was before (there is an overload for this common
-		case below).  Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.
+		case below). Positive numbers mean the stack should be bigger, and negative numbers mean it should be smaller.
 	dg = The code to run.
 
 Examples:
@@ -1166,7 +1166,7 @@ void stackCheck(CrocThread* t, void delegate() dg)
 }
 
 /**
-Wraps the allocMem API.  Allocates an array of the given type with the given length.
+Wraps the allocMem API. Allocates an array of the given type with the given length.
 You'll have to explicitly specify the type of the array.
 
 -----
@@ -1187,10 +1187,10 @@ T[] allocArray(T)(CrocThread* t, uword length)
 }
 
 /**
-Wraps the resizeMem API.  Resizes an array to the new length.  Use this instead of using .length on
-the array.  $(B Only call this on arrays which have been allocated by the Croc allocator.)
+Wraps the resizeMem API. Resizes an array to the new length. Use this instead of using .length on
+the array. $(B Only call this on arrays which have been allocated by the Croc allocator.)
 
-Calling this function on a 0-length array is legal and will allocate a new array.  Resizing an existing array to 0
+Calling this function on a 0-length array is legal and will allocate a new array. Resizing an existing array to 0
 is legal and will deallocate the array.
 
 The array returned by this function through the arr parameter should not have its length set or be appended to (~=).
@@ -1200,8 +1200,8 @@ resizeArray(t, arr, 4); // arr.length is now 4
 -----
 
 Params:
-	arr = A reference to the array you want to resize.  This is a reference so that the original array
-		reference that you pass in is updated.  This can be a 0-length array.
+	arr = A reference to the array you want to resize. This is a reference so that the original array
+		reference that you pass in is updated. This can be a 0-length array.
 
 	length = The length, in items, of the new size of the array.
 */
@@ -1213,8 +1213,8 @@ void resizeArray(T)(CrocThread* t, ref T[] arr, uword length)
 }
 
 /**
-Wraps the dupMem API.  Duplicates an array.  This is safe to call on arrays that were not allocated by the Croc
-allocator.  The new array will be the same length and contain the same data as the old array.
+Wraps the dupMem API. Duplicates an array. This is safe to call on arrays that were not allocated by the Croc
+allocator. The new array will be the same length and contain the same data as the old array.
 
 The array returned by this function should not have its length set or be appended to (~=).
 
@@ -1223,7 +1223,7 @@ auto newArr = dupArray(t, arr); // newArr has the same data as arr
 -----
 
 Params:
-	arr = The array to duplicate.  This is not required to have been allocated by the Croc allocator.
+	arr = The array to duplicate. This is not required to have been allocated by the Croc allocator.
 */
 T[] dupArray(T)(CrocThread* t, T[] arr)
 {
@@ -1231,7 +1231,7 @@ T[] dupArray(T)(CrocThread* t, T[] arr)
 }
 
 /**
-Wraps the freeMem API.  Frees an array.  $(B Only call this on arrays which have been allocated by the Croc allocator.)
+Wraps the freeMem API. Frees an array. $(B Only call this on arrays which have been allocated by the Croc allocator.)
 Freeing a 0-length array is legal.
 
 -----
@@ -1240,8 +1240,8 @@ freeArray(t, newArr);
 -----
 
 Params:
-	arr = A reference to the array you want to free.  This is a reference so that the original array
-		reference that you pass in is updated.  This can be a 0-length array.
+	arr = A reference to the array you want to free. This is a reference so that the original array
+		reference that you pass in is updated. This can be a 0-length array.
 */
 void freeArray(T)(CrocThread* t, ref T[] arr)
 {
@@ -1255,8 +1255,8 @@ static extern(C) void rt_attachDisposeEvent(Object obj, DisposeEvt evt);
 static extern(C) void rt_detachDisposeEvent(Object obj, DisposeEvt evt);
 
 /**
-A class that makes it possible to automatically remove references to Croc objects.  You should create a $(B SCOPE) instance
-of this class, which you can then use to create references to Croc objects.  This class is not itself marked scope so that
+A class that makes it possible to automatically remove references to Croc objects. You should create a $(B SCOPE) instance
+of this class, which you can then use to create references to Croc objects. This class is not itself marked scope so that
 you can pass references to it around, but you should still $(B ALWAYS) create instances of it as scope.
 
 By using the reference objects that this manager creates, you can be sure that any Croc objects you reference using it
@@ -1265,7 +1265,7 @@ will be dereferenced by the time the instance of RefManager goes out of scope.
 class RefManager
 {
 	/**
-	An actual reference object.  This is basically an object-oriented wrapper around a Croc reference identifier.  You
+	An actual reference object. This is basically an object-oriented wrapper around a Croc reference identifier. You
 	don't create instances of this directly; see $(D RefManager.create).
 	*/
 	static class Ref
@@ -1285,7 +1285,7 @@ class RefManager
 		}
 
 		/**
-		Removes the reference using $(D croc.interpreter.removeRef).  You can call this manually, or it will be called
+		Removes the reference using $(D croc.interpreter.removeRef). You can call this manually, or it will be called
 		automatically when this object is collected or when its owning manager leaves scope.
 		*/
 		public void remove()
@@ -1298,7 +1298,7 @@ class RefManager
 		}
 
 		/**
-		Push the reference using $(D croc.interpreter.pushRef).  It is pushed onto the current thread of the VM in which
+		Push the reference using $(D croc.interpreter.pushRef). It is pushed onto the current thread of the VM in which
 		it was created.
 
 		Returns:
@@ -1324,7 +1324,7 @@ class RefManager
 	}
 
 	/**
-	Create a reference object to refer to the object at slot idx in thread t using $(D croc.interpreter.createRef).  The
+	Create a reference object to refer to the object at slot idx in thread t using $(D croc.interpreter.createRef). The
 	given thread's VM is associated with the reference object.
 	
 	Returns:
@@ -1351,7 +1351,7 @@ class RefManager
 // Parameter checking
 
 /**
-Check that there is any parameter at the given index.  You can use this to ensure that a minimum number
+Check that there is any parameter at the given index. You can use this to ensure that a minimum number
 of parameters were passed to your function.
 */
 void checkAnyParam(CrocThread* t, word index)
@@ -1362,7 +1362,7 @@ void checkAnyParam(CrocThread* t, word index)
 
 /**
 These all check that a parameter of the given type was passed at the given index, and return the value
-of that parameter.  Very simple.
+of that parameter. Very simple.
 */
 bool checkBoolParam(CrocThread* t, word index)
 {
@@ -1447,7 +1447,7 @@ void checkInstParam()(CrocThread* t, word index)
 }
 
 /**
-Checks that the parameter at the given index is an instance of the class given by name.  name must
+Checks that the parameter at the given index is an instance of the class given by name. name must
 be a dotted-identifier name suitable for passing into lookup().
 
 Params:
@@ -1476,7 +1476,7 @@ void checkInstParam()(CrocThread* t, word index, char[] name)
 
 /**
 Same as above, but also takes a template type parameter that should be a struct the same size as the
-given instance's extra bytes.  Returns the extra bytes cast to a pointer to that struct type.
+given instance's extra bytes. Returns the extra bytes cast to a pointer to that struct type.
 */
 T* checkInstParam(T)(CrocThread* t, word index, char[] name)
 {
@@ -1565,9 +1565,9 @@ void paramTypeError(CrocThread* t, word index, char[] expected)
 }
 
 /**
-These all get an optional parameter of the given type at the given index.  If no parameter was passed to that
+These all get an optional parameter of the given type at the given index. If no parameter was passed to that
 index or if 'null' was passed, 'def' is returned; otherwise, the passed parameter must match the given type
-and its value is returned.  This is the same behavior as in Croc.
+and its value is returned. This is the same behavior as in Croc.
 */
 bool optBoolParam(CrocThread* t, word index, bool def)
 {
@@ -1644,7 +1644,7 @@ crocfloat optNumParam(CrocThread* t, word index, crocfloat def)
 }
 
 /**
-Similar to above, but works for any type.  Returns false to mean that no parameter was passed,
+Similar to above, but works for any type. Returns false to mean that no parameter was passed,
 and true to mean that one was.
 */
 bool optParam(CrocThread* t, word index, CrocValue.Type type)
@@ -1664,7 +1664,7 @@ bool optParam(CrocThread* t, word index, CrocValue.Type type)
 
 private:
 
-// Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*".  Could we use an actual regex for this?  I guess,
+// Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*". Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be
 // synchronized, or it'd have to be created in the VM object which is just dumb.
 void validateName(CrocThread* t, char[] name)
