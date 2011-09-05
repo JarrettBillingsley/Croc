@@ -46,6 +46,7 @@ import croc.stdlib_base;
 import croc.stdlib_char;
 import croc.stdlib_compiler;
 import croc.stdlib_debug;
+import croc.stdlib_exceptions;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
 import croc.stdlib_io;
@@ -124,6 +125,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	BaseLib.init(t);
 	GCLib.init(t);
 	ThreadLib.init(t);
+	ExceptionsLib.init(t);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return t;
 }

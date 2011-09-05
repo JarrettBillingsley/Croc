@@ -711,9 +711,9 @@ struct Location
 {
 	enum Type
 	{
-		Unknown = -2,
+		Unknown = 0,
 		Native = -1,
-		Script = 0
+		Script = -2
 	}
 
 	public CrocString* file;
@@ -721,7 +721,7 @@ struct Location
 	package int line = 1;
 	package int col = 1;
 
-	public static Location opCall(CrocString* file, int line = 1, int col = 1)
+	public static Location opCall(CrocString* file, int line, int col)
 	{
 		Location l = void;
 		l.file = file;

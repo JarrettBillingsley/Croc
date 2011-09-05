@@ -88,9 +88,7 @@ word importModule(CrocThread* t, word name)
 		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
 	}
 
-	pushGlobal(t, "modules");
-	field(t, -1, "load");
-	insertAndPop(t, -2);
+	lookup(t, "modules.load");
 	pushNull(t);
 	dup(t, name);
 	rawCall(t, -3, 1);
@@ -121,6 +119,30 @@ Params:
 void importModuleNoNS(CrocThread* t, word name)
 {
 	importModule(t, name);
+	pop(t);
+}
+
+/**
+*/
+void importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcName = null)
+{
+	if(srcName is null)
+		srcName = name;
+
+	scope c = new Compiler(t);
+	auto f = lookup(t, "modules.initModule");
+	pushNull(t);
+	c.compileModule(src, srcName);
+	pushString(t, name);
+	rawCall(t, f, 0);
+	importModule(t, name);
+}
+
+/**
+*/
+void importModuleFromStringNoNS(CrocThread* t, char[] name, char[] src, char[] srcName = null)
+{
+	importModuleFromString(t, name, src, srcName);
 	pop(t);
 }
 

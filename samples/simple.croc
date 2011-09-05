@@ -1,14 +1,17 @@
-/// This is a comment for the moduuuuule
 module samples.simple
 
-/// DOCS!
-local x, y = 3, 4
-
-class A {}
+import exceptions: Location
 
 function main()
 {
-
+	local l = Location()
+	writeln(l)
+	l = Location("poop", 3)
+	writeln(l)
+	l.line = -1
+	writeln(l)
+	l = Location("adoop", 0, Location.Native)
+	writeln(l)
 }
 
 function help(x, child: string = null)

@@ -1,0 +1,93 @@
+module exceptions
+
+/*
+Throwable
+	Exception - Unusual but recoverable
+		CompileException - derp
+			LexicalException - derp
+			SyntaxException - derp
+			SemanticException - derp
+		RuntimeException - derp
+			TypeException
+			ValueException
+			IOException
+			OSException
+			ImportException
+	Error - Unrecoverable errors, or some kind of fundamental fault in the program
+		AssertError - derp
+		ApiError - Invalid inputs to the native API
+	"FlowCtrl"?
+		ThreadHalt(Exception?)
+		KeyboardInterrupt(Exception?)
+*/
+
+class Location
+{
+	Unknown = 0
+	Native = -1
+	Script = -2
+	
+	file = ""
+	line = 0
+	col = Location.Unknown
+
+	this(file: string|null, line: int = -1, col: int = Location.Script)
+	{
+		if(file is null)
+			return
+
+		:file = file
+		:line = line
+		:col = col
+	}
+	
+	function toString()
+	{
+		if(:col == Location.Unknown)
+			return "<no location available>"
+		else if(:col == Location.Native)
+			return format("{}(native)", :file)
+		else
+			return format("{}({})", :file, :line < 1 ? "?" : :line)
+	}
+}
+
+Throwable.cause = null
+Throwable.msg = ""
+Throwable.location = Location()
+
+Throwable.constructor = function constructor(msg: string = "", cause: Throwable = null)
+{
+	:msg = msg
+	:cause = cause
+}
+
+Throwable.toString = function toString()
+{
+	if(#:msg > 0)
+		return format("{}: {}", nameOf(:super), :msg)
+	else
+		return nameOf(:super)
+}
+
+Throwable.setLocation = function setLocation(l: Location)
+{
+	:location = l
+	return this
+}
+
+class Exception : Throwable {}
+	class CompileException : Exception {}
+		class LexicalException : CompileException {}
+		class SyntaxException : CompileException {}
+		class SemanticException : CompileException {}
+
+	class RuntimeException : Exception {}
+		class TypeException : RuntimeException {}
+		class ValueException : RuntimeException {}
+		class IOException : RuntimeException {}
+		class OSException : RuntimeException {}
+		class ImportException : RuntimeException {}
+
+class Error : Throwable {}
+	class AssertError : Error {}
