@@ -68,8 +68,15 @@ void mark(CrocVM* vm)
 
 	foreach(val; vm.refTab)
 		markObj(vm, cast(GCObject*)val);
-	
+
+	markObj(vm, vm.object);
 	markObj(vm, vm.throwable);
+	
+	foreach(k, v; vm.stdExceptions)
+	{
+		markObj(vm, k);
+		markObj(vm, v);
+	}
 
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));

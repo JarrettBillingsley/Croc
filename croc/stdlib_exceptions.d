@@ -25,6 +25,8 @@ subject to the following restrictions:
 
 module croc.stdlib_exceptions;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
 import croc.types;
 
@@ -33,7 +35,113 @@ struct ExceptionsLib
 static:
 	public void init(CrocThread* t)
 	{
-		const char[] srcName = "exceptions.croc";
-		importModuleFromStringNoNS(t, "exceptions", import(srcName), srcName);
+		importModuleFromString(t, "exceptions", srcCode, srcName);
+
+		foreach(desc; ExDescs)
+		{
+			field(t, -1, desc.name);
+			*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
+			pop(t);
+		}
+
+		pop(t);
 	}
 }
+
+struct ExDesc
+{
+	char[] name, derives;
+}
+
+private const ExDesc[] ExDescs =
+[
+	{"Exception", "Throwable"},
+		{"CompileException", "Exception"},
+			{"LexicalException", "CompileException"},
+			{"SyntaxException", "CompileException"},
+			{"SemanticException", "CompileException"},
+
+		{"RuntimeException", "Exception"},
+			{"TypeException", "RuntimeException"},
+				{"UnicodeException", "TypeException"},
+			{"ValueException", "RuntimeException"},
+				{"RangeException", "ValueException"},
+			{"IOException", "RuntimeException"},
+			{"OSException", "RuntimeException"},
+			{"ImportException", "RuntimeException"},
+
+	{"Error", "Throwable"},
+		{"AssertError", "Error"},
+		{"ApiError", "Error"},
+		{"FinalizerError", "Error"},
+];
+
+char[] makeExceptionClasses()
+{
+	char[] ret;
+
+	foreach(desc; ExDescs)
+		ret ~= "\nclass " ~ desc.name ~ " : " ~ desc.derives ~ "{}";
+
+	return ret;
+}
+
+private const char[] srcName = "exceptions.croc";
+private const char[] srcCode =
+`module exceptions
+
+class Location
+{
+	Unknown = 0
+	Native = -1
+	Script = -2
+
+	file = ""
+	line = 0
+	col = Location.Unknown
+
+	this(file: string|null, line: int = -1, col: int = Location.Script)
+	{
+		if(file is null)
+			return
+
+		:file = file
+		:line = line
+		:col = col
+	}
+
+	function toString()
+	{
+		switch(:col)
+		{
+			case Location.Unknown: return "<no location available>"
+			case Location.Native:  return :file ~ "(native)"
+			case Location.Script:  return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ')'
+			default:               return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ':' ~ toString(:col) ~ ')'
+		}
+	}
+}
+
+Throwable.cause = null
+Throwable.msg = ""
+Throwable.location = Location()
+
+Throwable.constructor = function constructor(msg: string = "", cause: Throwable = null)
+{
+	:msg = msg
+	:cause = cause
+}
+
+Throwable.toString = function toString()
+{
+	if(#:msg > 0)
+		return nameOf(:super) ~ ": " ~ :msg
+	else
+		return nameOf(:super)
+}
+
+Throwable.setLocation = function setLocation(l: Location)
+{
+	:location = l
+	return this
+}` ~ makeExceptionClasses();

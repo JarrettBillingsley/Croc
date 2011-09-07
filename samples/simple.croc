@@ -4,14 +4,7 @@ import exceptions: Location
 
 function main()
 {
-	local l = Location()
-	writeln(l)
-	l = Location("poop", 3)
-	writeln(l)
-	l.line = -1
-	writeln(l)
-	l = Location("adoop", 0, Location.Native)
-	writeln(l)
+	dumpVal(exceptions)
 }
 
 function help(x, child: string = null)

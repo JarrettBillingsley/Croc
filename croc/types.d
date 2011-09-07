@@ -798,6 +798,7 @@ struct CrocVM
 	package Hash!(ulong, CrocBaseObject*) refTab;
 	package CrocClass* object;
 	package CrocClass* throwable;
+	package Hash!(CrocString*, CrocClass*) stdExceptions;
 
 	// Others
 	package Hash!(char[], CrocString*) stringTab;
