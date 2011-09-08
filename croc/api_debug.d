@@ -307,30 +307,44 @@ int getDebugLine(CrocThread* t, uword depth = 0)
 	return pcToLine(ar, ar.pc);
 }
 
-Location getDebugLoc(CrocThread* t)
+word locToCrocLocation(CrocThread* t, Location loc)
 {
-	if(t.currentAR is null || t.currentAR.func is null)
+	auto l = push(t, CrocValue(t.vm.location));
+	pushNull(t);
+	push(t, CrocValue(loc.file));
+	pushInt(t, loc.line);
+	pushInt(t, loc.col);
+	rawCall(t, l, 1);
+	return l;
+}
+
+Location getDebugLoc(CrocThread* t, ActRecord* ar = null)
+{
+	if(ar is null)
+		ar = t.currentAR;
+
+	if(ar is null || ar.func is null)
 		return Location(createString(t, "<no location available>"), 0, Location.Type.Unknown);
 	else
 	{
-		pushNamespaceNamestring(t, t.currentAR.func.environment);
+		pushNamespaceNamestring(t, ar.func.environment);
 
 		if(getString(t, -1) == "")
 			dup(t);
 		else
 			pushChar(t, '.');
 
-		push(t, CrocValue(t.currentAR.func.name));
+		push(t, CrocValue(ar.func.name));
 
 		auto slot = t.stackIndex - 3;
 		catImpl(t, &t.stack[slot], slot, 3);
 		auto s = getStringObj(t, -3);
 		pop(t, 3);
 
-		if(t.currentAR.func.isNative)
+		if(ar.func.isNative)
 			return Location(s, 0, Location.Type.Native);
 		else
-			return Location(s, getDebugLine(t), Location.Type.Script);
+			return Location(s, pcToLine(ar, ar.pc), Location.Type.Script);
 	}
 }
 

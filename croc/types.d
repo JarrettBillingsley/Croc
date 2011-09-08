@@ -787,18 +787,21 @@ struct CrocVM
 {
 	package Allocator alloc;
 
-	// These are all GC roots
+	// These are all GC roots -----------
 	package CrocNamespace* globals;
 	package CrocThread* mainThread;
 	package CrocNamespace*[] metaTabs;
 	package CrocString*[] metaStrings;
-	package Location[] traceback;
 	package CrocValue exception;
 	package CrocNamespace* registry;
 	package Hash!(ulong, CrocBaseObject*) refTab;
+
+	// These point to "special" runtime classes
 	package CrocClass* object;
 	package CrocClass* throwable;
+	package CrocClass* location;
 	package Hash!(CrocString*, CrocClass*) stdExceptions;
+	// ----------------------------------
 
 	// Others
 	package Hash!(char[], CrocString*) stringTab;
@@ -812,7 +815,7 @@ struct CrocVM
 	// The following members point into the D heap.
 	package CrocNativeObj*[Object] nativeObjs;
 	package Layout!(char) formatter;
-	package char[] exMsg;
+	package CrocException dexception;
 
 	version(CrocExtendedCoro)
 		version(CrocPoolFibers)

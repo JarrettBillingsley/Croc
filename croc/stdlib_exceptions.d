@@ -36,6 +36,10 @@ static:
 	public void init(CrocThread* t)
 	{
 		importModuleFromString(t, "exceptions", srcCode, srcName);
+		
+		field(t, -1, "Location");
+		t.vm.location = getClass(t, -1);
+		pop(t);
 
 		foreach(desc; ExDescs)
 		{
@@ -114,7 +118,7 @@ class Location
 	{
 		switch(:col)
 		{
-			case Location.Unknown: return "<no location available>"
+			case Location.Unknown: return "<unknown location>"
 			case Location.Native:  return :file ~ "(native)"
 			case Location.Script:  return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ')'
 			default:               return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ':' ~ toString(:col) ~ ')'
@@ -125,6 +129,7 @@ class Location
 Throwable.cause = null
 Throwable.msg = ""
 Throwable.location = Location()
+Throwable.traceback = []
 
 Throwable.constructor = function constructor(msg: string = "", cause: Throwable = null)
 {
@@ -135,13 +140,29 @@ Throwable.constructor = function constructor(msg: string = "", cause: Throwable 
 Throwable.toString = function toString()
 {
 	if(#:msg > 0)
-		return nameOf(:super) ~ ": " ~ :msg
+		return nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
 	else
-		return nameOf(:super)
+		return nameOf(:super) ~ " at " ~ :location.toString()
 }
 
 Throwable.setLocation = function setLocation(l: Location)
 {
 	:location = l
 	return this
+}
+
+
+Throwable.tracebackString = function tracebackString()
+{
+	if(#:traceback == 0)
+		return ""
+
+	local s = string.StringBuffer()
+
+	s ~= "Traceback: " ~ :traceback[0]
+
+	for(i: 1 .. #:traceback)
+		s ~= "\n       at: " ~ :traceback[i]
+
+	return s.toString()
 }` ~ makeExceptionClasses();

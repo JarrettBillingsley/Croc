@@ -52,9 +52,11 @@ void main()
 	catch(CrocException e)
 	{
 		catchException(t);
-		Stdout.formatln("Error: {}", e);
+		Stdout.formatln("{}", e);
 
-		getTraceback(t);
+		dup(t);
+		pushNull(t);
+		methodCall(t, -2, "tracebackString", 1);
 		Stdout.formatln("{}", getString(t, -1));
 
 		pop(t, 2);

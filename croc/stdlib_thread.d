@@ -39,7 +39,6 @@ static:
 	{
 		makeModule(t, "thread", function uword(CrocThread* t)
 		{
-			newFunction(t, 0, &traceback, "traceback"); newGlobal(t, "traceback");
 			newFunction(t, 1, &halt,      "halt");      newGlobal(t, "halt");
 			newFunction(t, 0, &current,   "current");   newGlobal(t, "current");
 
@@ -57,12 +56,6 @@ static:
 		});
 
 		importModuleNoNS(t, "thread");
-	}
-
-	uword traceback(CrocThread* t)
-	{
-		getTraceback(t);
-		return 1;
 	}
 
 	uword halt(CrocThread* t)

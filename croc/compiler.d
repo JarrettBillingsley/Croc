@@ -449,7 +449,7 @@ catch(CrocException e)
 		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
 		pushVFormat(t, msg, arguments, argptr);
 		cat(t, 2);
-		throwException(t);
+		throwException(t, "{}", getString(t, -1));
 	}
 
 	private word commonCompile(void delegate() dg)

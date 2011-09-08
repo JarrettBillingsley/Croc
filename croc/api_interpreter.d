@@ -1629,8 +1629,43 @@ pushVFormat on the arguments and then calling throwException.
 */
 void throwException(CrocThread* t, char[] fmt, ...)
 {
+	getStdException(t, "Exception");
+	pushNull(t);
 	pushVFormat(t, fmt, _arguments, _argptr);
+	rawCall(t, -3, 1);
 	throwException(t);
+}
+
+/**
+Throws a new instance of one of the standard exception classes.
+*/
+void throwStdException(CrocThread* t, char[] exName, char[] fmt, ...)
+{
+	getStdException(t, exName);
+	pushNull(t);
+	pushVFormat(t, fmt, _arguments, _argptr);
+	rawCall(t, -3, 1);
+	throwException(t);
+}
+
+/**
+Gets one of the standard exception classes and pushes it onto the stack. If the given name does not name a standard
+exception, an ApiError will be thrown.
+
+Params:
+	exName = The class name of the exception to push.
+
+Returns:
+	The stack index of the newly-pushed class.
+*/
+word getStdException(CrocThread* t, char[] exName)
+{
+	auto ex = t.vm.stdExceptions.lookup(createString(t, exName));
+
+	if(ex is null)
+		throwStdException(t, "ApiError", "Unknown standard exception type '{}'", exName);
+
+	return push(t, CrocValue(*ex));
 }
 
 /**
@@ -1668,54 +1703,6 @@ word catchException(CrocThread* t)
 	auto ret = push(t, t.vm.exception);
 	t.vm.exception = CrocValue.nullValue;
 	t.vm.isThrowing = false;
-	return ret;
-}
-
-/**
-After catching an exception, you can get a traceback, which is the sequence of functions that the exception was
-thrown through before being caught. Tracebacks work across coroutine boundaries. They also work across tailcalls,
-and it will be noted when this happens (in the traceback you'll see something like "<4 tailcalls>(?)" to indicate
-that 4 tailcalls were performed between the previous function and the next function in the traceback). Lastly tracebacks
-work across native function calls, in which case the name of the function will be noted but no line number will be
-given since that would be impossible; instead it is marked as "(native)".
-
-When you call this function, it will push a string representing the traceback onto the given thread's stack, in this
-sort of form:
-
------
-Traceback; function.that.threw.exception(9)
-        at function.that.called.it(23)
-        at <5 tailcalls>(?)
-        at some.native.function(native)
------
-
-(Due to a DDoc bug, it's actually "Traceback:", not "Traceback;".)
-
-Sometimes you'll get something like "$(LT)no location available$(GT)" in the traceback. This might happen if some top-level
-native API manipulations (that is, those outside the context of any executing function) cause an error.
-
-When you call this function, the traceback information associated with this thread's VM is subsequently erased. If
-this function is called again, you will get an empty string.
-
-Returns:
-	The stack index of the newly-pushed traceback string.
-*/
-word getTraceback(CrocThread* t)
-{
-	if(t.vm.traceback.length == 0)
-		return pushString(t, "");
-
-	pushString(t, "Traceback: ");
-	pushDebugLocStr(t, t.vm.traceback[0]);
-
-	foreach(ref l; t.vm.traceback[1 .. $])
-	{
-		pushString(t, "\n        at ");
-		pushDebugLocStr(t, l);
-	}
-
-	auto ret = cat(t, t.vm.traceback.length * 2);
-	t.vm.alloc.resizeArray(t.vm.traceback, 0);
 	return ret;
 }
 

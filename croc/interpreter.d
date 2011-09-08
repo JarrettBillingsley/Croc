@@ -542,7 +542,6 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 	const char[] wrapEH =
 		"catch(CrocException e)
 		{
-			t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
 			callEpilogue(t, false);
 			throw e;
 		}
@@ -2267,12 +2266,47 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 	}
 }
 
+word pushTraceback(CrocThread* t)
+{
+	auto ret = newArray(t, 0);
+
+	foreach_reverse(ref ar; t.actRecs[0 .. t.arIndex])
+	{
+		locToCrocLocation(t, getDebugLoc(t, &ar));
+		cateq(t, ret, 1);
+
+		if(ar.numTailcalls > 0)
+		{
+			pushFormat(t, "<{} tailcall{}>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
+			locToCrocLocation(t, Location(getStringObj(t, -1), -1, Location.Type.Script));
+			cateq(t, ret, 1);
+			pop(t);
+		}
+	}
+
+	return ret;
+}
+
 void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 {
 	if(!rethrowing)
 	{
-		pushDebugLocStr(t, getDebugLoc(t));
-		pushString(t, ": ");
+		if(!asImpl(t, &ex, &CrocValue(t.vm.throwable)))
+		{
+			typeString(t, &ex);
+			throwStdException(t, "TypeException", "Attempting to throw a '{}'; must be an instance of a class derived from Throwable", getString(t, -1));
+		}
+
+		push(t, CrocValue(ex));
+		pushTraceback(t);
+
+		if(len(t, -1) > 0)
+			idxi(t, -1, 0);
+		else
+			locToCrocLocation(t, getDebugLoc(t));
+
+		fielda(t, -3, "location");
+		fielda(t, -2, "traceback");
 
 		auto size = stackSize(t);
 
@@ -2285,19 +2319,19 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 			toStringImpl(t, ex, true);
 		}
 
-		auto slot = t.stackIndex - 3;
-		catImpl(t, &t.stack[slot], slot, 3);
-
-		t.vm.alloc.resizeArray(t.vm.traceback, 0);
-
 		// dup'ing since we're removing the only Croc reference and handing it off to D
-		t.vm.exMsg = getString(t, -3).dup;
-		pop(t, 3);
+		auto msg = getString(t, -1).dup;
+		pop(t, 2);
+
+		if(t.vm.dexception is null)
+			t.vm.dexception = new CrocException(null);
+
+		t.vm.dexception.msg = msg;
 	}
 
 	t.vm.exception = ex;
 	t.vm.isThrowing = true;
-	throw new CrocException(t.vm.exMsg);
+	throw t.vm.dexception;
 }
 
 bool asImpl(CrocThread* t, CrocValue* o, CrocValue* p)
@@ -2751,7 +2785,6 @@ void callReturnHooks(CrocThread* t)
 void execute(CrocThread* t, uword depth = 1)
 {
 	CrocException currentException = null;
-	bool rethrowingException = false;
 	CrocValue RS;
 	CrocValue RT;
 
@@ -3140,10 +3173,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 				case Op.EndFinal:
 					if(currentException !is null)
-					{
-						rethrowingException = true;
 						throw currentException;
-					}
 
 					if(t.currentAR.unwindReturn !is null)
 						goto _commonEHUnwind;
@@ -3151,8 +3181,7 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Throw:
-					rethrowingException = cast(bool)i.rt;
-					throwImpl(t, *mixin(GetRS), rethrowingException);
+					throwImpl(t, *mixin(GetRS), cast(bool)i.rt);
 					break;
 
 				// Function Calling
@@ -3761,11 +3790,6 @@ void execute(CrocThread* t, uword depth = 1)
 				// remove any results that may have been saved
 				loadResults(t);
 
-				if(rethrowingException)
-					rethrowingException = false;
-				else
-					t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
-
 				if(tr.isCatch)
 				{
 					t.stack[base] = t.vm.exception;
@@ -3775,29 +3799,14 @@ void execute(CrocThread* t, uword depth = 1)
 
 					t.stack[base + 1 .. t.stackIndex] = CrocValue.nullValue;
 					t.currentAR.pc = tr.pc;
-					goto _exceptionRetry;
 				}
 				else
 				{
 					currentException = e;
 					t.currentAR.pc = tr.pc;
-					goto _exceptionRetry;
 				}
-			}
 
-			if(rethrowingException)
-				rethrowingException = false;
-			else if(t.currentAR && t.currentAR.func !is null)
-			{
-				t.vm.traceback.append(&t.vm.alloc, getDebugLoc(t));
-
-				// as far as I can reason, it would be impossible to have tailcalls AND have rethrowingException == true, since you can't do a tailcall in a try block.
-				if(t.currentAR.numTailcalls > 0)
-				{
-					pushFormat(t, "<{} tailcalls>", t.currentAR.numTailcalls);
-					t.vm.traceback.append(&t.vm.alloc, Location(getStringObj(t, -1), -1, Location.Type.Script));
-					pop(t);
-				}
+				goto _exceptionRetry;
 			}
 
 			close(t, t.stackBase);
