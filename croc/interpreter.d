@@ -554,7 +554,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 
 	if(numParams > func.maxParams)
-		throwStdException(t, "CallException", "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.maxParams - 1, numParams - 1);
+		throwStdException(t, "ParamException", "Function {} expected at most {} parameters but was given {}", func.name.toString(), func.maxParams - 1, numParams - 1);
 
 	if(!func.isNative)
 	{

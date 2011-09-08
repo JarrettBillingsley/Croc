@@ -1379,7 +1379,7 @@ of parameters were passed to your function.
 void checkAnyParam(CrocThread* t, word index)
 {
 	if(!isValidIndex(t, index))
-		throwStdException(t, "CallException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+		throwStdException(t, "ParamException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
 /**

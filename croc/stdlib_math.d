@@ -312,7 +312,7 @@ static:
 				auto max = checkIntParam(t, 1);
 
 				if(max == 0)
-					throwException(t, "Maximum value may not be 0");
+					throwStdException(t, "RangeException", "Maximum value may not be 0");
 
 				pushInt(t, cast(uword)num % max);
 				break;
@@ -322,7 +322,7 @@ static:
 				auto hi = checkIntParam(t, 2);
 
 				if(hi == lo)
-					throwException(t, "Low and high values must be different");
+					throwStdException(t, "ValueException", "Low and high values must be different");
 
 				pushInt(t, (cast(uword)num % (hi - lo)) + lo);
 				break;
@@ -363,7 +363,7 @@ static:
 		switch(numParams)
 		{
 			case 0:
-				throwException(t, "At least one parameter required");
+				throwStdException(t, "ParamException", "At least one parameter required");
 
 			case 1:
 				break;
@@ -393,7 +393,7 @@ static:
 		switch(numParams)
 		{
 			case 0:
-				throwException(t, "At least one parameter required");
+				throwStdException(t, "ParamException", "At least one parameter required");
 
 			case 1:
 				break;

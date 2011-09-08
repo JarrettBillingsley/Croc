@@ -123,7 +123,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 
 		if(length < 0 || length > uword.max)
-			throwException(t, "Invalid length: {}", length);
+			throwStdException(t, "RangeException", "Invalid length: {}", length);
 
 		newArray(t, cast(uword)length);
 
@@ -182,7 +182,7 @@ static:
 		}
 
 		if(step <= 0)
-			throwException(t, "Step may not be negative or 0");
+			throwStdException(t, "RangeException", "Step may not be negative or 0");
 
 		crocint range = abs(v2 - v1);
 		crocint size = range / step;
@@ -191,7 +191,7 @@ static:
 			size++;
 
 		if(size > uword.max)
-			throwException(t, "Array is too big");
+			throwStdException(t, "RangeException", "Array is too big");
 
 		newArray(t, cast(uword)size);
 		auto a = getArray(t, -1);
@@ -251,7 +251,7 @@ static:
 					};
 				}
 				else
-					throwException(t, "Unknown array sorting method");
+					throwStdException(t, "ValueException", "Unknown array sorting method");
 			}
 			else
 			{
@@ -269,7 +269,7 @@ static:
 					if(!isInt(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "comparison function expected to return 'int', not '{}'", getString(t, -1));
+						throwStdException(t, "TypeException", "comparison function expected to return 'int', not '{}'", getString(t, -1));
 					}
 
 					auto v = getInt(t, -1);
@@ -544,7 +544,7 @@ foreach(i, v; a, \"reverse\")
 		if(length == 0)
 		{
 			if(numParams == 1)
-				throwException(t, "Attempting to reduce an empty array without an initial value");
+				throwStdException(t, "ParamException", "Attempting to reduce an empty array without an initial value");
 			else
 			{
 				dup(t, 2);
@@ -594,7 +594,7 @@ foreach(i, v; a, \"reverse\")
 		if(length == 0)
 		{
 			if(numParams == 1)
-				throwException(t, "Attempting to reduce an empty array without an initial value");
+				throwStdException(t, "ParamException", "Attempting to reduce an empty array without an initial value");
 			else
 			{
 				dup(t, 2);
@@ -686,7 +686,7 @@ foreach(i, v; a, \"reverse\")
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwException(t, "filter function expected to return 'bool', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeException", "filter function expected to return 'bool', not '{}'", getString(t, -1));
 			}
 
 			if(getBool(t, -1))
@@ -765,7 +765,7 @@ foreach(i, v; a, \"reverse\")
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwException(t, "find function expected to return 'bool', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeException", "find function expected to return 'bool', not '{}'", getString(t, -1));
 			}
 
 			if(getBool(t, -1))
@@ -849,7 +849,7 @@ foreach(i, v; a, \"reverse\")
 		auto data = getArray(t, 0).toArray();
 
 		if(data.length == 0)
-			throwException(t, "Array is empty");
+			throwStdException(t, "ValueException", "Array is empty");
 
 		if(stackSize(t) > 1)
 			index = checkIntParam(t, 1);
@@ -858,7 +858,7 @@ foreach(i, v; a, \"reverse\")
 			index += data.length;
 
 		if(index < 0 || index >= data.length)
-			throwException(t, "Invalid array index: {}", index);
+			throwStdException(t, "BoundsException", "Invalid array index: {}", index);
 
 		idxi(t, 0, index);
 
@@ -898,7 +898,7 @@ foreach(i, v; a, \"reverse\")
 		auto data = getArray(t, 0).toArray();
 
 		if(data.length == 0)
-			throwException(t, "Array is empty");
+			throwStdException(t, "ValueException", "Array is empty");
 
 		auto extreme = data[0];
 		uword extremeIdx = 0;
@@ -916,7 +916,7 @@ foreach(i, v; a, \"reverse\")
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "extrema function should return 'bool', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "extrema function should return 'bool', not '{}'", getString(t, -1));
 				}
 
 				if(getBool(t, -1))
@@ -1181,7 +1181,7 @@ foreach(i, v; a, \"reverse\")
 			auto a = absIndex(t, arr);
 
 			if(opin(t, a, flattening))
-				throwException(t, "Attempting to flatten a self-referencing array");
+				throwStdException(t, "ValueException", "Attempting to flatten a self-referencing array");
 
 			dup(t, a);
 			pushBool(t, true);
@@ -1244,7 +1244,7 @@ foreach(i, v; a, \"reverse\")
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
 				}
 
 				auto ret = getBool(t, -1);
@@ -1289,7 +1289,7 @@ foreach(i, v; a, \"reverse\")
 			if(!isBool(t, -1))
 			{
 				pushTypeString(t, -1);
-				throwException(t, "count predicate expected to return 'bool', not '{}'", getString(t, -1));
+				throwStdException(t, "TypeException", "count predicate expected to return 'bool', not '{}'", getString(t, -1));
 			}
 	
 			auto ret = getBool(t, -1);

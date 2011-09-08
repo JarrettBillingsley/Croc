@@ -147,7 +147,7 @@ static:
 				if(!isBool(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "'each' function expected to return 'bool', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "'each' function expected to return 'bool', not '{}'", getString(t, -1));
 				}
 
 				if(getBool(t, -1) == false)
@@ -209,7 +209,7 @@ static:
 				push(t, *v);
 			}
 			else
-				throwException(t, "Attempting to take from an empty table");
+				throwStdException(t, "ValueException", "Attempting to take from an empty table");
 		}
 		else if(isNamespace(t, 1))
 		{
@@ -224,7 +224,7 @@ static:
 				push(t, *v);
 			}
 			else
-				throwException(t, "Attempting to take from an empty namespace");
+				throwStdException(t, "ValueException", "Attempting to take from an empty namespace");
 		}
 		else
 			paramTypeError(t, 1, "table|namespace");
