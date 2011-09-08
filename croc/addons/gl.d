@@ -91,6 +91,9 @@ static:
 			pushString(t, typeStringOf!(GLclampf)); newGlobal(t, "GLclampf");
 			pushString(t, typeStringOf!(GLdouble)); newGlobal(t, "GLdouble");
 			pushString(t, typeStringOf!(GLclampd)); newGlobal(t, "GLclampd");
+			
+			CreateClass(t, "GLException", "exceptions.Exception", (CreateClass* c) {});
+			newGlobal(t, "GLException");
 
 			return 0;
 		});
@@ -132,7 +135,7 @@ static:
 				case GLVersion.Version12: loadGL12(t);
 				case GLVersion.Version11: loadGLBase(t); break;
 				default:
-					throwException(t, "I have no idea what version of OpenGL you have");
+					throwStdException(t, "Exception", "I have no idea what version of OpenGL you have");
 			}
 
 			DerelictGL.loadExtensions();
@@ -194,12 +197,12 @@ static:
 		auto size = checkIntParam(t, 3);
 
 		if(size < 0 || size > uword.max)
-			throwException(t, "Invalid size: {}", size);
+			throwStdException(t, "RangeException", "Invalid size: {}", size);
 
 		auto ptr = glMapBuffer(target, access);
 
 		if(ptr is null)
-			throwException(t, "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
+			throwNamedException(t, "GLException", "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
 
 		auto arr = (cast(ubyte*)ptr)[0 .. cast(uword)size];
 

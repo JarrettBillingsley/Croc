@@ -362,7 +362,7 @@ final class FuncState
 		if(index != -1)
 		{
 			auto l = mLocVars[index].location;
-			c.exception(ident.location, "Local '{}' conflicts with previous definition at {}({}:{})", ident.name, l.file, l.line, l.col);
+			c.semException(ident.location, "Local '{}' conflicts with previous definition at {}({}:{})", ident.name, l.file, l.line, l.col);
 		}
 
 		t.vm.alloc.resizeArray(mLocVars, mLocVars.length + 1);
@@ -430,7 +430,7 @@ final class FuncState
 	package uint tagLocal(uint val)
 	{
 		if((val & ~Instruction.locMask) > MaxRegisters)
-			c.exception(mLocation, "Too many locals");
+			c.semException(mLocation, "Too many locals");
 
 		return (val & ~Instruction.locMask) | Instruction.locLocal;
 	}
@@ -438,7 +438,7 @@ final class FuncState
 	package uint tagConst(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxConstants)
-			c.exception(mLocation, "Too many constants");
+			c.semException(mLocation, "Too many constants");
 
 		return (val & ~Instruction.locMask) | Instruction.locConst;
 	}
@@ -446,7 +446,7 @@ final class FuncState
 	package uint tagUpval(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxUpvalues)
-			c.exception(mLocation, "Too many upvalues");
+			c.semException(mLocation, "Too many upvalues");
 
 		return (val & ~Instruction.locMask) | Instruction.locUpval;
 	}
@@ -454,7 +454,7 @@ final class FuncState
 	package uint tagGlobal(uint val)
 	{
 		if((val & ~Instruction.locMask) >= MaxConstants)
-			c.exception(mLocation, "Too many constants");
+			c.semException(mLocation, "Too many constants");
 
 		return (val & ~Instruction.locMask) | Instruction.locGlobal;
 	}
@@ -530,7 +530,7 @@ final class FuncState
 			insertAndPop(t, -2);
 			.pushChar(t, '\'');
 			cat(t, 3);
-			c.exception(location, getString(t, -1));
+			c.semException(location, getString(t, -1));
 		}
 
 		*mSwitch.offsets.insert(*c.alloc, val) = here() - mSwitch.switchPC - 1;
@@ -558,7 +558,7 @@ final class FuncState
 		mFreeReg++;
 
 		if(mFreeReg > MaxRegisters)
-			c.exception(mLocation, "Too many registers");
+			c.semException(mLocation, "Too many registers");
 
 		if(mFreeReg > mStackSize)
 			mStackSize = mFreeReg;
@@ -761,7 +761,7 @@ final class FuncState
 				s.mUpvals.append(c.alloc, ud);
 
 				if(mUpvals.length >= MaxUpvalues)
-					c.exception(mLocation, "Too many upvalues in function");
+					c.semException(mLocation, "Too many upvalues in function");
 
 				return s.mUpvals.length - 1;
 			}
@@ -1551,7 +1551,7 @@ final class FuncState
 		if(name.length == 0)
 		{
 			if(mScope.continueScope is null)
-				c.exception(location, "No continuable control structure");
+				c.semException(location, "No continuable control structure");
 
 			continueScope = mScope.continueScope;
 			anyUpvals = continueScope.hasUpval;
@@ -1567,10 +1567,10 @@ final class FuncState
 			}
 
 			if(continueScope is null)
-				c.exception(location, "No continuable control structure of that name");
+				c.semException(location, "No continuable control structure of that name");
 
 			if(continueScope.continueScope !is continueScope)
-				c.exception(location, "Cannot continue control structure of that name");
+				c.semException(location, "Cannot continue control structure of that name");
 		}
 
 		if(anyUpvals)
@@ -1592,7 +1592,7 @@ final class FuncState
 		if(name.length == 0)
 		{
 			if(mScope.breakScope is null)
-				c.exception(location, "No breakable control structure");
+				c.semException(location, "No breakable control structure");
 
 			breakScope = mScope.breakScope;
 			anyUpvals = breakScope.hasUpval;
@@ -1608,10 +1608,10 @@ final class FuncState
 			}
 
 			if(breakScope is null)
-				c.exception(location, "No breakable control structure of that name");
+				c.semException(location, "No breakable control structure of that name");
 
 			if(breakScope.breakScope !is breakScope)
-				c.exception(location, "Cannot break control structure of that name");
+				c.semException(location, "Cannot break control structure of that name");
 		}
 
 		if(anyUpvals)
@@ -1637,7 +1637,7 @@ final class FuncState
 		mConstants.append(c.alloc, v);
 
 		if(mConstants.length >= MaxConstants)
-			c.exception(mLocation, "Too many constants in function");
+			c.semException(mLocation, "Too many constants in function");
 
 		return mConstants.length - 1;
 	}
@@ -2259,7 +2259,7 @@ scope class Codegen : Visitor
 				if(n.name == n2.name)
 				{
 					auto loc = n2.location;
-					c.exception(n.location, "Variable '{}' conflicts with previous definition at {}({}:{})", n.name, loc.file, loc.line, loc.col);
+					c.semException(n.location, "Variable '{}' conflicts with previous definition at {}({}:{})", n.name, loc.file, loc.line, loc.col);
 				}
 			}
 		}
@@ -3245,7 +3245,7 @@ scope class Codegen : Visitor
 	public override VargLenExp visit(VargLenExp e)
 	{
 		if(!fs.mIsVararg)
-			c.exception(e.location, "'vararg' cannot be used in a non-variadic function");
+			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
 		fs.pushVargLen(e.endLocation.line);
 		return e;
@@ -3385,7 +3385,7 @@ scope class Codegen : Visitor
 	public override VargIndexExp visit(VargIndexExp e)
 	{
 		if(!fs.mIsVararg)
-			c.exception(e.location, "'vararg' cannot be used in a non-variadic function");
+			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
 		visit(e.index);
 		fs.popVargIndex(e.endLocation.line);
@@ -3408,7 +3408,7 @@ scope class Codegen : Visitor
 	public override VargSliceExp visit(VargSliceExp e)
 	{
 		if(!fs.mIsVararg)
-			c.exception(e.location, "'vararg' cannot be used in a non-variadic function");
+			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
 		auto reg = fs.nextRegister();
 		Expression[2] list;
@@ -3470,7 +3470,7 @@ scope class Codegen : Visitor
 	public override VarargExp visit(VarargExp e)
 	{
 		if(!fs.mIsVararg)
-			c.exception(e.location, "'vararg' cannot be used in a non-variadic function");
+			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
 		fs.pushVararg();
 		return e;
@@ -3537,7 +3537,7 @@ scope class Codegen : Visitor
 	public override ArrayCtorExp visit(ArrayCtorExp e)
 	{
 		if(e.values.length > ArrayCtorExp.maxFields)
-			c.exception(e.location, "Array constructor has too many fields (more than {})", ArrayCtorExp.maxFields);
+			c.semException(e.location, "Array constructor has too many fields (more than {})", ArrayCtorExp.maxFields);
 
 		static uword min(uword a, uword b)
 		{

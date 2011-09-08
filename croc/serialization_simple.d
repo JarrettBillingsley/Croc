@@ -58,11 +58,11 @@ void serializeModule(CrocThread* t, word idx, OutputStream s)
 	if(func is null)
 	{
 		pushTypeString(t, idx);
-		throwException(t, "serializeModule - 'funcdef' expected, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", "serializeModule - 'funcdef' expected, not '{}'", getString(t, -1));
 	}
 
 	if(func.numUpvals > 0)
-		throwException(t, "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
+		throwStdException(t, "ValueException", "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
 
 	serializeAsModule(func, s);
 }
@@ -91,11 +91,11 @@ void serializeFunction(CrocThread* t, word idx, OutputStream s)
 	if(func is null)
 	{
 		pushTypeString(t, idx);
-		throwException(t, "serializeFunction - 'function' expected, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", "serializeFunction - 'function' expected, not '{}'", getString(t, -1));
 	}
 
 	if(func.isNative || func.scriptFunc.numUpvals > 0)
-		throwException(t, "serializeFunction - function '{}' is not eligible for serialization", func.name.toString());
+		throwStdException(t, "ValueException", "serializeFunction - function '{}' is not eligible for serialization", func.name.toString());
 
 	serialize(func.scriptFunc, s);
 }
@@ -169,7 +169,7 @@ CrocFuncDef* deserializeAsModule(CrocThread* t, InputStream s)
 	readExact(s, (&fh)[0 .. 1]);
 
 	if(fh != FileHeader.init)
-		throwException(t, "Serialized module header mismatch");
+		throwStdException(t, "ValueException", "Serialized module header mismatch");
 
 	return deserialize(t, s);
 }

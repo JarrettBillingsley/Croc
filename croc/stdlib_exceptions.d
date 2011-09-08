@@ -79,7 +79,9 @@ struct ExDesc
 		+ FieldException - Thrown when trying to access an invalid field from a namespace, class, instance etc.
 		+ MethodException - Thrown when trying to call an invalid method on an object.
 	+ RuntimeException - Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this one.
-	+ CallException - Thrown for some kinda of invalid function calls, such as passing too many parameters, invalid supercalls etc.
+	+ CallException - Thrown for some kinda of invalid function calls, such as invalid supercalls.
+		+ ParamException - Thrown for function calls which are invalid because they were nit given the proper number of parameters (not for
+			invalid types though).
 + Error - Base class for "generally unrecoverable" errors.
 	+ AssertError - Thrown when an assertion fails.
 	+ ApiError - Thrown when the native API is given certain kinds of invalid input, generally inputs which mean the host is
@@ -111,6 +113,7 @@ private const ExDesc[] ExDescs =
 			{"MethodException", "LookupException"},
 		{"RuntimeException", "Exception"},
 		{"CallException",    "Exception"},
+			{"ParamException", "CallException"},
 
 	{"Error", "Throwable"},
 		{"AssertError",    "Error"},

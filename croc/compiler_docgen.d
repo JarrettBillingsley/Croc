@@ -85,7 +85,7 @@ scope class DocGen : IdentityVisitor
 		{
 			// At top level?
 			if(mDocTables.length == 1)
-				c.exception(loc, "Cannot use ditto on the top-level declaration");
+				c.semException(loc, "Cannot use ditto on the top-level declaration");
 
 			// Get the parent and try to get the last declaration before this one
 			dup(t, mDocTables[$ - 2]);
@@ -105,7 +105,7 @@ scope class DocGen : IdentityVisitor
 			}
 
 			if(!okay)
-				c.exception(loc, "No previous declaration to ditto from");
+				c.semException(loc, "No previous declaration to ditto from");
 
 			// See if the previous decl's kind is the same
 			field(t, -1, "kind");
@@ -113,7 +113,7 @@ scope class DocGen : IdentityVisitor
 			if(getString(t, -1) != kind)
 			{
 				field(t, -2, "name");
-				c.exception(loc, "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", name, kind, getString(t, -1), getString(t, -2));
+				c.semException(loc, "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", name, kind, getString(t, -1), getString(t, -2));
 			}
 
 			pop(t);

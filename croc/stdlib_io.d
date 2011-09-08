@@ -125,7 +125,7 @@ static:
 			case 'a': style = File.WriteAppending; break;
 			case 'c': style = File.WriteCreate;    break;
 			default:
-				throwException(t, "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
 
 		auto f = safeCode(t, new BufferedOutput(new File(name, style)));
@@ -153,7 +153,7 @@ static:
 			case 'a': style = ReadWriteAppending;     break;
 			case 'c': style = File.ReadWriteCreate;   break;
 			default:
-				throwException(t, "Unknown open mode '{}'", mode);
+				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
 
 		// TODO: figure out some way of making inout files buffered?
@@ -422,7 +422,7 @@ static:
 		auto size = safeCode(t, Path.fileSize(name));
 
 		if(size > uword.max)
-			throwException(t, "file too big ({} bytes)", size);
+			throwStdException(t, "ValueException", "file too big ({} bytes)", size);
 
 		newMemblock(t, "u8", cast(uword)size);
 		auto mb = getMemblock(t, -1);

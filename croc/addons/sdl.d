@@ -70,6 +70,9 @@ static:
 	{
 		makeModule(t, "sdl", function uword(CrocThread* t)
 		{
+			CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
+			newGlobal(t, "SdlException");
+
 			safeCode(t, DerelictSDL.load());
 			safeCode(t, DerelictSDLImage.load());
 
@@ -187,7 +190,7 @@ static:
 	void checkError(CrocThread* t, lazy int dg, char[] msg)
 	{
 		if(dg() == -1)
-			throwException(t, "{}: {}", msg, fromStringz(SDL_GetError()));
+			throwNamedException(t, "SdlException", "{}: {}", msg, fromStringz(SDL_GetError()));
 	}
 
 	uword sdlinit(CrocThread* t)
@@ -531,7 +534,7 @@ static:
 				return;
 
 			default:
-				throwException(t, "Invalid event");
+				throwStdException(t, "ValueException", "Invalid event name: '{}'", name);
 		}
 	}
 
@@ -564,7 +567,7 @@ static:
 				return ret;
 		}
 
-		throwException(t, "Error waiting for event: {}", fromStringz(SDL_GetError()));
+		throwNamedException(t, "SdlException", "Error waiting for event: {}", fromStringz(SDL_GetError()));
 		return 0;
 	}
 
@@ -614,7 +617,7 @@ static:
 			return 0;
 
 		if(SDL_JoystickOpen(idx) is null)
-			throwException(t, "Could not open joystick {}: {}", idx, fromStringz(SDL_GetError()));
+			throwNamedException(t, "SdlException", "Could not open joystick {}: {}", idx, fromStringz(SDL_GetError()));
 
 		return 0;
 	}
@@ -661,7 +664,7 @@ static:
 			return 5;
 		}
 
-		throwException(t, "Could not get info of joystick {}: {}", idx, fromStringz(SDL_GetError()));
+		throwNamedException(t, "SdlException", "Could not get info of joystick {}: {}", idx, fromStringz(SDL_GetError()));
 		return 0;
 	}
 
@@ -700,7 +703,7 @@ static:
 		auto sfc = IMG_Load(toStringz(name));
 
 		if(sfc is null)
-			throwException(t, "Error loading image '{}': {}", name, fromStringz(SDL_GetError()));
+			throwNamedException(t, "SdlException", "Error loading image '{}': {}", name, fromStringz(SDL_GetError()));
 
 		lookup(t, "SdlSurface");
 		pushNull(t);
@@ -746,7 +749,7 @@ static:
 		auto ret = *(cast(SDL_Surface**)getExtraBytes(t, 0).ptr);
 
 		if(ret is null)
-			throwException(t, "Attempting to call a method on a freed surface");
+			throwStdException(t, "ValueException", "Attempting to call a method on a freed surface");
 
 		return ret;
 	}
@@ -827,7 +830,7 @@ static:
 		auto s = getThis(t);
 		
 		if(SDL_LockSurface(s) < 0)
-			throwException(t, "Could not lock surface: {}", fromStringz(SDL_GetError()));
+			throwNamedException(t, "SdlException", "Could not lock surface: {}", fromStringz(SDL_GetError()));
 		
 		memblockViewDArray(t, (cast(ubyte*)s.pixels)[0 .. s.w * s.h * s.format.BytesPerPixel]);
 		return 1;

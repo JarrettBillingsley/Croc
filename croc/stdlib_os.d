@@ -187,7 +187,7 @@ static:
 			getExtraVal(t, 0, Fields.process);
 
 			if(!isNull(t, -1))
-				throwException(t, "Attempting to call constructor on an already-initialized Process");
+				throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Process");
 
 			pop(t);
 
@@ -242,7 +242,7 @@ static:
 				foreach(word k, word v; foreachLoop(t, 1))
 				{
 					if(!isString(t, k) || !isString(t, v))
-						throwException(t, "env parameter must be a table mapping from strings to strings");
+						throwStdException(t, "ValueException", "env parameter must be a table mapping from strings to strings");
 
 					env[getString(t, k)] = getString(t, v);
 				}
@@ -266,7 +266,7 @@ static:
 					idxi(t, 1, i);
 
 					if(!isString(t, -1))
-						throwException(t, "cmd parameter must be an array of strings");
+						throwStdException(t, "ValueException", "cmd parameter must be an array of strings");
 
 					cmd[i] = getString(t, -1);
 					pop(t);
@@ -286,7 +286,7 @@ static:
 			auto p = getProcess(t);
 			
 			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stdin of process that isn't running");
+				throwStdException(t, "ValueException", "Attempting to get stdin of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdin);
 
@@ -310,7 +310,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stdout of process that isn't running");
+				throwStdException(t, "ValueException", "Attempting to get stdout of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdout);
 
@@ -334,7 +334,7 @@ static:
 			auto p = getProcess(t);
 
 			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stderr of process that isn't running");
+				throwStdException(t, "ValueException", "Attempting to get stderr of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stderr);
 

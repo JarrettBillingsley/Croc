@@ -110,7 +110,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InStream");
 
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 
 		return ret.stream;
 	}
@@ -169,7 +169,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "InStream");
 		
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 			
 		return ret;
 	}
@@ -181,7 +181,7 @@ static:
 			auto numRead = memb.stream.read(dest[0 .. size]);
 
 			if(numRead == IOStream.Eof)
-				throwException(t, "End-of-flow encountered while reading");
+				throwStdException(t, "IOException", "End-of-flow encountered while reading");
 
 			size -= numRead;
 			dest += numRead;
@@ -241,13 +241,13 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized InStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized InStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto input = cast(InputStream)getNativeObj(t, 1);
 
 		if(input is null)
-			throwException(t, "instances of InStream may only be created using instances of the Tango InputStream");
+			throwStdException(t, "ValueException", "instances of InStream may only be created using instances of the Tango InputStream");
 
 		memb.closable = optBoolParam(t, 2, true);
 		memb.stream = input;
@@ -307,7 +307,7 @@ static:
 		auto ret = safeCode(t, getOpenThis(t).lines.next());
 
 		if(ret.ptr is null)
-			throwException(t, "Stream has no more data.");
+			throwStdException(t, "IOException", "Stream has no more data.");
 
 		pushString(t, ret);
 		return 1;
@@ -319,7 +319,7 @@ static:
 		auto num = checkIntParam(t, 1);
 
 		if(num < 0 || num > uword.max)
-			throwException(t, "Invalid number of characters ({})", num);
+			throwStdException(t, "RangeException", "Invalid number of characters ({})", num);
 
 		safeCode(t,
 		{
@@ -349,7 +349,7 @@ static:
 			size = checkIntParam(t, 2);
 
 			if(size < 0 || size > uword.max)
-				throwException(t, "Invalid size: {}", size);
+				throwStdException(t, "RangeException", "Invalid size: {}", size);
 
 			newMemblock(t, type, cast(uword)size);
 			mb = getMemblock(t, -1);
@@ -381,10 +381,10 @@ static:
 		auto typeCode = mb.kind.code;
 
 		if(typeCode != CrocMemblock.TypeCode.i8 && typeCode != CrocMemblock.TypeCode.u8)
-			throwException(t, "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
+			throwStdException(t, "ValueException", "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock cannot be 0 elements long");
+			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
 		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
 		pushInt(t, realSize);
@@ -419,7 +419,7 @@ static:
 		auto dist_ = checkIntParam(t, 1);
 
 		if(dist_ < 0 || dist_ > uword.max)
-			throwException(t, "Invalid skip distance ({})", dist_);
+			throwStdException(t, "RangeException", "Invalid skip distance ({})", dist_);
 
 		auto dist = cast(uword)dist_;
 
@@ -449,7 +449,7 @@ static:
 		else if(whence == 'e')
 			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
 		else
-			throwException(t, "Invalid seek type '{}'", whence);
+			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
 		dup(t, 0);
 		return 1;
@@ -487,7 +487,7 @@ static:
 		auto memb = getOpenThis(t);
 
 		if(!memb.closable)
-			throwException(t, "Attempting to close an unclosable stream");
+			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
 		safeCode(t, memb.stream.close());
@@ -529,7 +529,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.OutStream");
 
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 
 		return ret.stream;
 	}
@@ -589,7 +589,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "OutStream");
 		
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 			
 		return ret;
 	}
@@ -601,7 +601,7 @@ static:
 			auto numWritten = memb.stream.write(src[0 .. size]);
 			
 			if(numWritten == IOStream.Eof)
-				throwException(t, "End-of-flow encountered while writing");
+				throwStdException(t, "IOException", "End-of-flow encountered while writing");
 				
 			size -= numWritten;
 			src += numWritten;
@@ -639,13 +639,13 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized OutStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized OutStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto output = cast(OutputStream)getNativeObj(t, 1);
 
 		if(output is null)
-			throwException(t, "instances of OutStream may only be created using instances of the Tango OutputStream");
+			throwStdException(t, "ValueException", "instances of OutStream may only be created using instances of the Tango OutputStream");
 
 		memb.closable = optBoolParam(t, 2, true);
 		memb.stream = output;
@@ -780,7 +780,7 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		auto isize = mb.kind.itemSize;
 		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
@@ -847,7 +847,7 @@ static:
 		else if(whence == 'e')
 			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
 		else
-			throwException(t, "Invalid seek type '{}'", whence);
+			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
 		dup(t, 0);
 		return 1;
@@ -885,7 +885,7 @@ static:
 		auto memb = getOpenThis(t);
 		
 		if(!memb.closable)
-			throwException(t, "Attempting to close an unclosable stream");
+			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
 		safeCode(t, memb.stream.flush());
@@ -930,7 +930,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InoutStream");
 
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 
 		return ret.conduit;
 	}
@@ -1014,7 +1014,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "InoutStream");
 		
 		if(ret.closed)
-			throwException(t, "Attempting to perform operation on a closed stream");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed stream");
 
 		return ret;
 	}
@@ -1026,7 +1026,7 @@ static:
 			auto numRead = memb.conduit.read(dest[0 .. size]);
 
 			if(numRead == IOStream.Eof)
-				throwException(t, "End-of-flow encountered while reading");
+				throwStdException(t, "IOException", "End-of-flow encountered while reading");
 
 			size -= numRead;
 			dest += numRead;
@@ -1063,7 +1063,7 @@ static:
 			auto numWritten = memb.conduit.write(src[0 .. size]);
 
 			if(numWritten == IOStream.Eof)
-				throwException(t, "End-of-flow encountered while writing");
+				throwStdException(t, "IOException", "End-of-flow encountered while writing");
 
 			size -= numWritten;
 			src += numWritten;
@@ -1107,13 +1107,13 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.conduit !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized InoutStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized InoutStream");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto conduit = cast(IConduit)getNativeObj(t, 1);
 
 		if(conduit is null)
-			throwException(t, "instances of Stream may only be created using instances of Tango's IConduit");
+			throwStdException(t, "ValueException", "instances of Stream may only be created using instances of Tango's IConduit");
 
 		memb.closable = optBoolParam(t, 2, true);
 		memb.conduit = conduit;
@@ -1189,7 +1189,7 @@ static:
 		auto ret = safeCode(t, memb.lines.next());
 
 		if(ret.ptr is null)
-			throwException(t, "Stream has no more data.");
+			throwStdException(t, "IOException", "Stream has no more data.");
 
 		pushString(t, ret);
 		return 1;
@@ -1201,7 +1201,7 @@ static:
 		auto num = checkIntParam(t, 1);
 
 		if(num < 0 || num > uword.max)
-			throwException(t, "Invalid number of characters ({})", num);
+			throwStdException(t, "RangeException", "Invalid number of characters ({})", num);
 
 		checkDirty(t, memb);
 
@@ -1235,7 +1235,7 @@ static:
 			size = checkIntParam(t, 2);
 			
 			if(size < 0 || size > uword.max)
-				throwException(t, "Invalid size: {}", size);
+				throwStdException(t, "RangeException", "Invalid size: {}", size);
 
 			newMemblock(t, type, cast(uword)size);
 			mb = getMemblock(t, -1);
@@ -1269,10 +1269,10 @@ static:
 		auto typeCode = mb.kind.code;
 
 		if(typeCode != CrocMemblock.TypeCode.i8 && typeCode != CrocMemblock.TypeCode.u8)
-			throwException(t, "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
+			throwStdException(t, "ValueException", "Memblock must be of type i8 or u8, not '{}'", mb.kind.name);
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock cannot be 0 elements long");
+			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
 		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
 		pushInt(t, realSize);
@@ -1436,7 +1436,7 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		auto isize = mb.kind.itemSize;
 		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
@@ -1501,7 +1501,7 @@ static:
 		auto dist_ = checkIntParam(t, 1);
 
 		if(dist_ < 0 || dist_ > uword.max)
-			throwException(t, "Invalid skip distance ({})", dist_);
+			throwStdException(t, "RangeException", "Invalid skip distance ({})", dist_);
 
 		auto dist = cast(uword)dist_;
 
@@ -1534,7 +1534,7 @@ static:
 		else if(whence == 'e')
 			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.End));
 		else
-			throwException(t, "Invalid seek type '{}'", whence);
+			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
 		dup(t, 0);
 		return 1;
@@ -1574,7 +1574,7 @@ static:
 		auto memb = getOpenThis(t);
 
 		if(!memb.closable)
-			throwException(t, "Attempting to close an unclosable stream");
+			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
 		safeCode(t, memb.conduit.flush());
@@ -1739,7 +1739,7 @@ static:
 		auto memb = InStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized MemInStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemInStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 
@@ -1789,7 +1789,7 @@ static:
 		auto memb = OutStreamObj.getThis(t);
 
 		if(memb.stream !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized MemOutStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemOutStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 
@@ -1839,7 +1839,7 @@ static:
 		auto memb = InoutStreamObj.getThis(t);
 
 		if(memb.conduit !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized MemInoutStream");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized MemInoutStream");
 
 		checkParam(t, 1, CrocValue.Type.Memblock);
 

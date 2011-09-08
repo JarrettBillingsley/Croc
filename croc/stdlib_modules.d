@@ -98,7 +98,7 @@ static:
 		idx(t, -2);
 
 		if(isNull(t, -1))
-			throwException(t, "Attempting to reload module '{}' which has not yet been loaded", name);
+			throwStdException(t, "ImportException", "Attempting to reload module '{}' which has not yet been loaded", name);
 
 		pop(t, 2);
 		return commonLoad(t, name);
@@ -156,7 +156,7 @@ static:
 			pop(t);
 		}
 
-		throwException(t, "Error loading module '{}': could not find anything to load", name);
+		throwStdException(t, "ImportException", "Error loading module '{}': could not find anything to load", name);
 		assert(false);
 	}
 
@@ -168,7 +168,7 @@ static:
 			paramTypeError(t, 1, "function|funcdef");
 
 		if(isFunction(t, 1) && !funcIsNative(t, 1))
-			throwException(t, "Function must be a native function");
+			throwStdException(t, "ValueException", "Function must be a native function");
 
 		auto name = checkStringParam(t, 2);
 
@@ -184,7 +184,7 @@ static:
 				field(t, ns);
 
 				if(!isNamespace(t, -1))
-					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
+					throwStdException(t, "ImportException", "Error loading module \"{}\": conflicts with existing global", name);
 			}
 			else
 			{
@@ -273,7 +273,7 @@ static:
 				field(t, -2);
 
 				if(!isNamespace(t, -1))
-					throwException(t, "Error loading module \"{}\": conflicts with existing global", name);
+					throwStdException(t, "ImportException", "Error loading module \"{}\": conflicts with existing global", name);
 
 				insertAndPop(t, -2);
 			}
@@ -367,7 +367,7 @@ static:
 		field(t, -1, name);
 
 		if(!isNull(t, -1))
-			throwException(t, "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", name);
+			throwStdException(t, "ImportException", "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", name);
 
 		pop(t);
 		pushBool(t, true);

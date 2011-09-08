@@ -193,7 +193,7 @@ struct Parser
 		exprs ~= parseExpression();
 		
 		if(l.type != Token.EOF)
-			c.exception(l.loc, "Extra unexpected code after expression");
+			c.synException(l.loc, "Extra unexpected code after expression");
 
 		statements ~= new(c) ReturnStmt(c, exprs[0].location, exprs[0].endLocation, exprs.toArray());
 		auto code = new(c) BlockStmt(c, location, statements[0].endLocation, statements.toArray());
@@ -272,7 +272,7 @@ struct Parser
 			case Token.While:    return parseWhileStmt();
 
 			case Token.Semicolon:
-				c.exception(l.loc, "Empty statements ( ';' ) are not allowed (use {{} for an empty statement)");
+				c.synException(l.loc, "Empty statements ( ';' ) are not allowed (use {{} for an empty statement)");
 
 			default:
 				l.expected("statement");
@@ -386,7 +386,7 @@ struct Parser
 				{
 					case Token.Ident:
 						if(deco !is null)
-							c.exception(l.loc, "Cannot put decorators on variable declarations");
+							c.synException(l.loc, "Cannot put decorators on variable declarations");
 
 						auto ret = parseVarDecl();
 						l.statementTerm();
@@ -398,7 +398,7 @@ struct Parser
 					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs); return ret;
 
 					default:
-						c.exception(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
+						c.synException(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
 			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs); return ret;
@@ -664,7 +664,7 @@ struct Parser
 		void addConstraint(CrocValue.Type t)
 		{
 			if((ret & (1 << cast(uint)t)) && t != CrocValue.Type.Instance)
-				c.exception(l.loc, "Duplicate parameter type constraint for type '{}'", CrocValue.typeStrings[t]);
+				c.semException(l.loc, "Duplicate parameter type constraint for type '{}'", CrocValue.typeStrings[t]);
 
 			ret |= 1 << cast(uint)t;
 		}
@@ -921,7 +921,7 @@ struct Parser
 			if(opin(c.thread, -1, fieldMap))
 			{
 				pop(c.thread);
-				c.exception(name.location, "Redeclaration of field '{}'", name.name);
+				c.semException(name.location, "Redeclaration of field '{}'", name.name);
 			}
 
 			pushBool(c.thread, true);
@@ -1083,7 +1083,7 @@ struct Parser
 			if(opin(c.thread, -1, fieldMap))
 			{
 				pop(c.thread);
-				c.exception(v.location, "Redeclaration of member '{}'", name);
+				c.semException(v.location, "Redeclaration of member '{}'", name);
 			}
 
 			pushBool(c.thread, true);
@@ -1427,7 +1427,7 @@ struct Parser
 		}
 
 		if(container.length > 3)
-			c.exception(location, "'foreach' may have a maximum of three container expressions");
+			c.synException(location, "'foreach' may have a maximum of three container expressions");
 
 		l.expect(Token.RParen);
 
@@ -1703,7 +1703,7 @@ struct Parser
 		else if(id.stringValue == "failure")
 			type = ScopeActionStmt.Failure;
 		else
-			c.exception(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '{}'", id.stringValue);
+			c.synException(location, "Expected one of 'exit', 'success', or 'failure' for scope statement, not '{}'", id.stringValue);
 
 		l.expect(Token.RParen);
 		auto stmt = parseStatement();
@@ -2829,7 +2829,7 @@ struct Parser
 
 				case Token.LParen:
 					if(exp.endLocation.line != l.loc.line)
-						c.exception(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
+						c.synException(l.loc, "ambiguous left-paren (function call or beginning of new statement?)");
 
 					l.next();
 
@@ -2968,7 +2968,7 @@ struct Parser
 		if(l.type == Token.DotDot)
 		{
 			if(names.length > 1)
-				c.exception(loc, "Numeric for comprehension may only have one index");
+				c.synException(loc, "Numeric for comprehension may only have one index");
 
 			l.next();
 			auto exp2 = parseExpression();
@@ -3029,7 +3029,7 @@ struct Parser
 			}
 
 			if(container.length > 3)
-				c.exception(container[0].location, "Too many expressions in container");
+				c.synException(container[0].location, "Too many expressions in container");
 
 			IfComprehension ifComp;
 

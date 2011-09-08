@@ -50,6 +50,9 @@ struct PcreLib
 	{
 		makeModule(t, "pcre", function uword(CrocThread* t)
 		{
+			CreateClass(t, "PcreException", "exceptions.Exception", (CreateClass*) {});
+			newGlobal(t, "PcreException");
+
 			loadPCRE(t);
 
 			// Check that we have an appropriate libpcre, first..
@@ -59,13 +62,13 @@ struct PcreLib
 				auto minor = Int.parse(vers[vers.locate('.') + 1 .. vers.locate(' ')]);
 
 				if(minor < 4 || major < 7)
-					throwException(t, "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
+					throwStdException(t, "Exception", "Your PCRE library is only version {}. You need 7.4 or higher.", vers[0 .. vers.locate(' ')]);
 
 				word ret;
 				pcre_config(PCRE_CONFIG_UTF8, &ret);
 
 				if(!ret)
-					throwException(t, "Your PCRE library was not built with UTF-8 support.");
+					throwStdException(t, "Exception", "Your PCRE library was not built with UTF-8 support.");
 			}
 
 			importModule(t, "hash");
@@ -203,7 +206,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "Regex");
 
 		if(ret.re is null)
-			throwException(t, "Attempting to call method on an uninitialized Regex instance");
+			throwStdException(t, "ValueException", "Attempting to call method on an uninitialized Regex instance");
 
 		return ret;
 	}
@@ -247,7 +250,7 @@ static:
 		auto re = pcre_compile(tmp.ptr, attrs, &error, &errorOffset, null);
 
 		if(error !is null)
-			throwException(t, "Error compiling regex at character {}: {}", errorOffset, fromStringz(error));
+			throwNamedException(t, "PcreException", "Error compiling regex at character {}: {}", errorOffset, fromStringz(error));
 
 		return re;
 	}
@@ -278,7 +281,7 @@ static:
 	private word[] getGroupRange(CrocThread* t, Members* memb, word group)
 	{
 		if(memb.numGroups == 0)
-			throwException(t, "No more matches");
+			throwStdException(t, "ValueException", "No more matches");
 
 		auto gi = memb.groupIdx;
 
@@ -293,7 +296,7 @@ static:
 			auto i = getInt(t, group);
 
 			if(i < 0 || i >= memb.numGroups)
-				throwException(t, "Invalid group index {} (have {} groups)", i, memb.numGroups);
+				throwStdException(t, "RangeException", "Invalid group index {} (have {} groups)", i, memb.numGroups);
 
 			i *= 2;
 
@@ -307,7 +310,7 @@ static:
 			idx(t, -2);
 
 			if(isNull(t, -1))
-				throwException(t, "Invalid group name '{}'", getString(t, group));
+				throwStdException(t, "NameException", "Invalid group name '{}'", getString(t, group));
 
 			auto i = cast(uword)getInt(t, -1);
 			pop(t, 2);
@@ -329,7 +332,7 @@ static:
 		auto memb = checkInstParam!(Members)(t, 0, "Regex");
 
 		if(memb.re !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized Regex");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Regex");
 
 		auto pat = checkStringParam(t, 1);
 		auto attrs = parseAttrs(optStringParam(t, 2, ""));
@@ -341,7 +344,7 @@ static:
 		if(error !is null)
 		{
 			(*pcre_free)(re);
-			throwException(t, "Error studying regex: {}", fromStringz(error));
+			throwNamedException(t, "PcreException", "Error studying regex: {}", fromStringz(error));
 		}
 
 		memb.re = re;
@@ -412,7 +415,7 @@ static:
 			pushBool(t, false);
 		}
 		else if(numGroups < 0)
-			throwException(t, "PCRE Error matching against string (code {})", numGroups);
+			throwNamedException(t, "PcreException", "PCRE Error matching against string (code {})", numGroups);
 		else
 		{
 			memb.numGroups = numGroups;
@@ -544,7 +547,7 @@ static:
 				if(!isString(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "replacement function should return a 'string', not a '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "replacement function should return a 'string', not a '{}'", getString(t, -1));
 				}
 
 				buf.addTop();
@@ -871,7 +874,7 @@ void loadPCRE(CrocThread* t)
 		bind(pcre_free, "pcre_free", libpcre);
 	}
 	else
-		throwException(t, "Error importing pcre: Cannot find the libpcre shared library");
+		throwStdException(t, "Exception", "Cannot find the libpcre shared library");
 }
 
 }

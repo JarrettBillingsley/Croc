@@ -523,7 +523,7 @@ struct Lexer
 
 			if(!isDecimalDigit())
 				// TODO: Different kinda exception?
-				throwException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
+				throwStdException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
 
 			crocfloat frac = 0.0;
 			crocfloat mag = 10.0;

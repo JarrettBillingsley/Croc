@@ -1028,6 +1028,19 @@ word pushWeakRef(CrocThread* t, word idx)
 	}
 }
 
+/**
+*/
+word pushLocationObject(CrocThread* t, char[] file, int line, int col)
+{
+	auto ret = push(t, CrocValue(t.vm.location));
+	pushNull(t);
+	pushString(t, file);
+	pushInt(t, line);
+	pushInt(t, col);
+	rawCall(t, ret, 1);
+	return ret;
+}
+
 // ================================================================================================================================================
 // Stack queries
 
@@ -1621,19 +1634,6 @@ void throwException(CrocThread* t)
 {
 	mixin(apiCheckNumParams!("1"));
 	throwImpl(t, t.stack[t.stackIndex - 1]);
-}
-
-/**
-A shortcut for the very common case where you want to throw a formatted string. This is equivalent to calling
-pushVFormat on the arguments and then calling throwException.
-*/
-void throwException(CrocThread* t, char[] fmt, ...)
-{
-	getStdException(t, "Exception");
-	pushNull(t);
-	pushVFormat(t, fmt, _arguments, _argptr);
-	rawCall(t, -3, 1);
-	throwException(t);
 }
 
 /**

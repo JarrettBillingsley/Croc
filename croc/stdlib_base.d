@@ -313,7 +313,7 @@ static:
 		if(!isMemblock(t, 1))
 		{
 			pushTypeString(t, 1);
-			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
 		}
 
 		if(opis(t, 0, 1))
@@ -323,7 +323,7 @@ static:
 			auto other = getMemblock(t, 1);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 			if(mb.itemLength != other.itemLength)
 				pushBool(t, false);
@@ -353,7 +353,7 @@ static:
 		if(!isMemblock(t, 1))
 		{
 			pushTypeString(t, 1);
-			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
 		}
 
 		if(opis(t, 0, 1))
@@ -363,7 +363,7 @@ static:
 			auto other = getMemblock(t, 1);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 			auto otherLen = other.itemLength;
 			auto l = min(len, otherLen);
@@ -1160,7 +1160,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 
 			default:
 				pushTypeString(t, 1);
-				throwException(t, "Cannot convert type '{}' to int", getString(t, -1));
+				throwStdException(t, "TypeException", "Cannot convert type '{}' to int", getString(t, -1));
 		}
 
 		return 1;
@@ -1192,7 +1192,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 
 			default:
 				pushTypeString(t, 1);
-				throwException(t, "Cannot convert type '{}' to float", getString(t, -1));
+				throwStdException(t, "TypeException", "Cannot convert type '{}' to float", getString(t, -1));
 		}
 
 		return 1;

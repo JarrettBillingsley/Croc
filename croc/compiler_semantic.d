@@ -131,7 +131,7 @@ scope class Semantic : IdentityVisitor
 				assert(false);
 
 			if(!(p.typeMask & (1 << type)))
-				c.exception(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, CrocValue.typeStrings[type]);
+				c.semException(p.defValue.location, "Parameter {}: Default parameter of type '{}' is not allowed", i - 1, CrocValue.typeStrings[type]);
 		}
 		
 		d.code = visit(d.code);
@@ -204,7 +204,7 @@ scope class Semantic : IdentityVisitor
 		s.expr = visit(s.expr);
 
 		if(s.expr.isConstant() && !s.expr.isString())
-			c.exception(s.expr.location, "Import expression must evaluate to a string");
+			c.semException(s.expr.location, "Import expression must evaluate to a string");
 
 		// We rewrite import statements as function calls/local variable declarations. The rewrites work as follows:
 		// import blah
@@ -613,18 +613,18 @@ scope class Semantic : IdentityVisitor
 		s.step = visit(s.step);
 
 		if(s.lo.isConstant && !s.lo.isInt)
-			c.exception(s.lo.location, "Low value of a numeric for loop must be an integer");
+			c.semException(s.lo.location, "Low value of a numeric for loop must be an integer");
 
 		if(s.hi.isConstant && !s.hi.isInt)
-			c.exception(s.hi.location, "High value of a numeric for loop must be an integer");
+			c.semException(s.hi.location, "High value of a numeric for loop must be an integer");
 
 		if(s.step.isConstant)
 		{
 			if(!s.step.isInt)
-				c.exception(s.step.location, "Step value of a numeric for loop must be an integer");
+				c.semException(s.step.location, "Step value of a numeric for loop must be an integer");
 
 			if(s.step.asInt() == 0)
-				c.exception(s.step.location, "Step value of a numeric for loop may not be 0");
+				c.semException(s.step.location, "Step value of a numeric for loop may not be 0");
 		}
 
 		s.code = visit(s.code);
@@ -683,7 +683,7 @@ scope class Semantic : IdentityVisitor
 							if(loVal == lo2Val ||
 								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
 								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
-								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 					else
@@ -693,7 +693,7 @@ scope class Semantic : IdentityVisitor
 							if(cond.exp.isConstant &&
 								(cond.exp.isInt && cond.exp.asInt >= loVal && cond.exp.asInt <= hiVal) ||
 								(cond.exp.isFloat && cond.exp.asFloat >= loVal && cond.exp.asFloat <= hiVal))
-								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 				}
@@ -721,7 +721,7 @@ scope class Semantic : IdentityVisitor
 							if(loVal == lo2Val ||
 								(loVal < lo2Val && (lo2Val - loVal) <= (hiVal - loVal)) ||
 								(loVal > lo2Val && (loVal - lo2Val) <= (hi2Val - lo2Val)))
-								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 					else
@@ -729,7 +729,7 @@ scope class Semantic : IdentityVisitor
 						foreach(cond; c2.conditions)
 						{
 							if(cond.exp.isConstant && cond.exp.isChar && cond.exp.asChar >= loVal && cond.exp.asChar <= hiVal)
-								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 				}
@@ -758,7 +758,7 @@ scope class Semantic : IdentityVisitor
 								(hiVal >= lo2Val && hiVal <= hi2Val) ||
 								(lo2Val >= loVal && lo2Val <= hiVal) ||
 								(hi2Val >= loVal && hi2Val <= hiVal))
-								c.exception(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(lo2.location, "case range overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 					else
@@ -766,7 +766,7 @@ scope class Semantic : IdentityVisitor
 						foreach(cond; c2.conditions)
 						{
 							if(cond.exp.isConstant && cond.exp.isString && cond.exp.asString >= loVal && cond.exp.asString <= hiVal)
-								c.exception(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
+								c.semException(cond.exp.location, "case value overlaps range at {}({}:{})", lo.location.file, lo.location.line, lo.location.col);
 						}
 					}
 				}
@@ -796,28 +796,28 @@ scope class Semantic : IdentityVisitor
 				if(lo.isInt && hi.isInt)
 				{
 					if(lo.asInt > hi.asInt)
-						c.exception(lo.location, "Invalid case range (low is greater than high)");
+						c.semException(lo.location, "Invalid case range (low is greater than high)");
 					else if(lo.asInt == hi.asInt)
 						s.highRange = null;
 				}
 				else if((lo.isInt && hi.isFloat) || (lo.isFloat && hi.isInt) || (lo.isFloat && hi.isFloat))
 				{
 					if(lo.asFloat > hi.asFloat)
-						c.exception(lo.location, "Invalid case range (low is greater than high)");
+						c.semException(lo.location, "Invalid case range (low is greater than high)");
 					else if(lo.asFloat == hi.asFloat)
 						s.highRange = null;
 				}
 				else if(lo.isChar && hi.isChar)
 				{
 					if(lo.asChar > hi.asChar)
-						c.exception(lo.location, "Invalid case range (low is greater than high)");
+						c.semException(lo.location, "Invalid case range (low is greater than high)");
 					else if(lo.asChar == hi.asChar)
 						s.highRange = null;
 				}
 				else if(lo.isString && hi.isString)
 				{
 					if(lo.asString > hi.asString)
-						c.exception(lo.location, "Invalid case range (low is greater than high)");
+						c.semException(lo.location, "Invalid case range (low is greater than high)");
 					else if(lo.asString == hi.asString)
 						s.highRange = null;
 				}
@@ -837,7 +837,7 @@ scope class Semantic : IdentityVisitor
 	public override ContinueStmt visit(ContinueStmt s)
 	{
 		if(inFinally())
-			c.exception(s.location, "Continue statements are illegal inside finally blocks");
+			c.semException(s.location, "Continue statements are illegal inside finally blocks");
 
 		return s;
 	}
@@ -845,7 +845,7 @@ scope class Semantic : IdentityVisitor
 	public override BreakStmt visit(BreakStmt s)
 	{
 		if(inFinally())
-			c.exception(s.location, "Break statements are illegal inside finally blocks");
+			c.semException(s.location, "Break statements are illegal inside finally blocks");
 
 		return s;
 	}
@@ -853,7 +853,7 @@ scope class Semantic : IdentityVisitor
 	public override ReturnStmt visit(ReturnStmt s)
 	{
 		if(inFinally())
-			c.exception(s.location, "Return statements are illegal inside finally blocks");
+			c.semException(s.location, "Return statements are illegal inside finally blocks");
 
 		foreach(ref exp; s.exprs)
 			exp = visit(exp);
@@ -1029,7 +1029,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise Or must be performed on integers");
+				c.semException(e.location, "Bitwise Or must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() | e.op2.asInt());
 		}
@@ -1045,7 +1045,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise Xor must be performed on integers");
+				c.semException(e.location, "Bitwise Xor must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() ^ e.op2.asInt());
 		}
@@ -1061,7 +1061,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise And must be performed on integers");
+				c.semException(e.location, "Bitwise And must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() & e.op2.asInt());
 		}
@@ -1107,7 +1107,7 @@ scope class Semantic : IdentityVisitor
 			if(e.type == AstTag.IsExp || e.type == AstTag.NotIsExp)
 				return new(c) BoolExp(c, e.location, !isTrue);
 			else
-				c.exception(e.location, "Cannot compare different types");
+				c.semException(e.location, "Cannot compare different types");
 		}
 
 		return e;
@@ -1133,7 +1133,7 @@ scope class Semantic : IdentityVisitor
 		else if(op1.isString && op2.isString)
 			cmpVal = scmp(op1.asString(), op2.asString());
 		else
-			c.exception(op1.location, "Invalid compile-time comparison");
+			c.semException(op1.location, "Invalid compile-time comparison");
 			
 		return cmpVal;
 	}
@@ -1179,7 +1179,7 @@ scope class Semantic : IdentityVisitor
 	public override AsExp visit(AsExp e)
 	{
 		if(e.op1.isConstant() || e.op2.isConstant())
-			c.exception(e.location, "Neither argument of an 'as' expression may be a constant");
+			c.semException(e.location, "Neither argument of an 'as' expression may be a constant");
 
 		return e;
 	}
@@ -1211,7 +1211,7 @@ scope class Semantic : IdentityVisitor
 			else if(e.op1.isString)
 				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) != s.length);
 			else
-				c.exception(e.location, "'in' must be performed on a string with a character or string");
+				c.semException(e.location, "'in' must be performed on a string with a character or string");
 		}
 
 		return e;
@@ -1244,7 +1244,7 @@ scope class Semantic : IdentityVisitor
 			else if(e.op1.isString)
 				return new(c) BoolExp(c, e.location, s.locatePattern(e.op1.asString()) == s.length);
 			else
-				c.exception(e.location, "'!in' must be performed on a string with a character or string");
+				c.semException(e.location, "'!in' must be performed on a string with a character or string");
 		}
 
 		return e;
@@ -1258,7 +1258,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise left-shift must be performed on integers");
+				c.semException(e.location, "Bitwise left-shift must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() << e.op2.asInt());
 		}
@@ -1274,7 +1274,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise right-shift must be performed on integers");
+				c.semException(e.location, "Bitwise right-shift must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() >> e.op2.asInt());
 		}
@@ -1290,7 +1290,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op1.isConstant && e.op2.isConstant)
 		{
 			if(!e.op1.isInt || !e.op2.isInt)
-				c.exception(e.location, "Bitwise unsigned right-shift must be performed on integers");
+				c.semException(e.location, "Bitwise unsigned right-shift must be performed on integers");
 
 			return new(c) IntExp(c, e.location, e.op1.asInt() >>> e.op2.asInt());
 		}
@@ -1310,7 +1310,7 @@ scope class Semantic : IdentityVisitor
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
 				return new(c) FloatExp(c, e.location, e.op1.asFloat() + e.op2.asFloat());
 			else
-				c.exception(e.location, "Addition must be performed on numbers");
+				c.semException(e.location, "Addition must be performed on numbers");
 		}
 
 		return e;
@@ -1328,7 +1328,7 @@ scope class Semantic : IdentityVisitor
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
 				return new(c) FloatExp(c, e.location, e.op1.asFloat() - e.op2.asFloat());
 			else
-				c.exception(e.location, "Subtraction must be performed on numbers");
+				c.semException(e.location, "Subtraction must be performed on numbers");
 		}
 
 		return e;
@@ -1433,7 +1433,7 @@ scope class Semantic : IdentityVisitor
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
 				return new(c) FloatExp(c, e.location, e.op1.asFloat() * e.op2.asFloat());
 			else
-				c.exception(e.location, "Multiplication must be performed on numbers");
+				c.semException(e.location, "Multiplication must be performed on numbers");
 		}
 
 		return e;
@@ -1449,14 +1449,14 @@ scope class Semantic : IdentityVisitor
 			if(e.op1.isInt && e.op2.isInt)
 			{
 				if(e.op2.asInt() == 0)
-					c.exception(e.location, "Division by 0");
+					c.semException(e.location, "Division by 0");
 
 				return new(c) IntExp(c, e.location, e.op1.asInt() / e.op2.asInt());
 			}
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
 				return new(c) FloatExp(c, e.location, e.op1.asFloat() / e.op2.asFloat());
 			else
-				c.exception(e.location, "Division must be performed on numbers");
+				c.semException(e.location, "Division must be performed on numbers");
 		}
 
 		return e;
@@ -1472,14 +1472,14 @@ scope class Semantic : IdentityVisitor
 			if(e.op1.isInt && e.op2.isInt)
 			{
 				if(e.op2.asInt() == 0)
-					c.exception(e.location, "Modulo by 0");
+					c.semException(e.location, "Modulo by 0");
 
 				return new(c) IntExp(c, e.location, e.op1.asInt() % e.op2.asInt());
 			}
 			else if((e.op1.isInt || e.op1.isFloat) && (e.op2.isInt || e.op2.isFloat))
 				return new(c) FloatExp(c, e.location, e.op1.asFloat() % e.op2.asFloat());
 			else
-				c.exception(e.location, "Modulo must be performed on numbers");
+				c.semException(e.location, "Modulo must be performed on numbers");
 		}
 
 		return e;
@@ -1502,7 +1502,7 @@ scope class Semantic : IdentityVisitor
 				return fe;
 			}
 			else
-				c.exception(e.location, "Negation must be performed on numbers");
+				c.semException(e.location, "Negation must be performed on numbers");
 		}
 
 		return e;
@@ -1561,7 +1561,7 @@ scope class Semantic : IdentityVisitor
 				return ie;
 			}
 			else
-				c.exception(e.location, "Bitwise complement must be performed on integers");
+				c.semException(e.location, "Bitwise complement must be performed on integers");
 		}
 
 		return e;
@@ -1576,7 +1576,7 @@ scope class Semantic : IdentityVisitor
 			if(e.op.isString)
 				return new(c) IntExp(c, e.location, e.op.asString().length);
 			else
-				c.exception(e.location, "Length must be performed on a string at compile time");
+				c.semException(e.location, "Length must be performed on a string at compile time");
 		}
 
 		return e;
@@ -1594,7 +1594,7 @@ scope class Semantic : IdentityVisitor
 		e.name = visit(e.name);
 
 		if(e.name.isConstant && !e.name.isString)
-			c.exception(e.name.location, "Field name must be a string");
+			c.semException(e.name.location, "Field name must be a string");
 
 		return e;
 	}
@@ -1613,7 +1613,7 @@ scope class Semantic : IdentityVisitor
 		e.method = visit(e.method);
 
 		if(e.method.isConstant && !e.method.isString)
-			c.exception(e.method.location, "Method name must be a string");
+			c.semException(e.method.location, "Method name must be a string");
 
 		if(e.context)
 			e.context = visit(e.context);
@@ -1645,7 +1645,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op.isConstant && e.index.isConstant)
 		{
 			if(!e.op.isString || !e.index.isInt)
-				c.exception(e.location, "Can only index strings with integers at compile time");
+				c.semException(e.location, "Can only index strings with integers at compile time");
 
 			auto idx = e.index.asInt();
 
@@ -1653,7 +1653,7 @@ scope class Semantic : IdentityVisitor
 				idx += e.op.asString.length;
 
 			if(idx < 0 || idx >= e.op.asString.length)
-				c.exception(e.location, "Invalid string index");
+				c.semException(e.location, "Invalid string index");
 
 			return new(c) CharExp(c, e.location, e.op.asString[cast(uword)idx]);
 		}
@@ -1666,7 +1666,7 @@ scope class Semantic : IdentityVisitor
 		e.index = visit(e.index);
 
 		if(e.index.isConstant && !e.index.isInt)
-			c.exception(e.index.location, "index of a vararg indexing must be an integer");
+			c.semException(e.index.location, "index of a vararg indexing must be an integer");
 
 		return e;
 	}
@@ -1680,7 +1680,7 @@ scope class Semantic : IdentityVisitor
 		if(e.op.isConstant && e.loIndex.isConstant && e.hiIndex.isConstant)
 		{
 			if(!e.op.isString || (!e.loIndex.isInt && !e.loIndex.isNull) || (!e.hiIndex.isInt && !e.hiIndex.isNull))
-				c.exception(e.location, "Can only slice strings with integers at compile time");
+				c.semException(e.location, "Can only slice strings with integers at compile time");
 
 			auto str = e.op.asString();
 			crocint l, h;
@@ -1702,7 +1702,7 @@ scope class Semantic : IdentityVisitor
 				h += str.length;
 
 			if(l > h || l < 0 || l > str.length || h < 0 || h > str.length)
-				c.exception(e.location, "Invalid slice indices");
+				c.semException(e.location, "Invalid slice indices");
 
 			return new(c) StringExp(c, e.location, c.newString(str[cast(uword)l .. cast(uword)h]));
 		}
@@ -1716,10 +1716,10 @@ scope class Semantic : IdentityVisitor
 		e.hiIndex = visit(e.hiIndex);
 
 		if(e.loIndex.isConstant && !(e.loIndex.isNull || e.loIndex.isInt))
-			c.exception(e.loIndex.location, "low index of vararg slice must be null or int");
+			c.semException(e.loIndex.location, "low index of vararg slice must be null or int");
 
 		if(e.hiIndex.isConstant && !(e.hiIndex.isNull || e.hiIndex.isInt))
-			c.exception(e.hiIndex.location, "high index of vararg slice must be null or int");
+			c.semException(e.hiIndex.location, "high index of vararg slice must be null or int");
 
 		return e;
 	}

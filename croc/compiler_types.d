@@ -48,7 +48,9 @@ interface ICompiler
 	bool isEof();
 	bool isLoneStmt();
 	bool isDanglingDoc();
-	void exception(CompileLoc loc, char[] msg, ...);
+	void lexException(CompileLoc loc, char[] msg, ...);
+	void synException(CompileLoc loc, char[] msg, ...);
+	void semException(CompileLoc loc, char[] msg, ...);
 	void eofException(CompileLoc loc, char[] msg, ...);
 	void loneStmtException(CompileLoc loc, char[] msg, ...);
 	CrocThread* thread();

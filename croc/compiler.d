@@ -279,21 +279,31 @@ catch(CrocException e)
 		return mDanglingDoc;
 	}
 
-	public override void exception(CompileLoc loc, char[] msg, ...)
+	public override void lexException(CompileLoc loc, char[] msg, ...)
 	{
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, "LexicalException", msg, _arguments, _argptr);
+	}
+	
+	public override void synException(CompileLoc loc, char[] msg, ...)
+	{
+		vexception(loc, "SyntaxException", msg, _arguments, _argptr);
+	}
+
+	public override void semException(CompileLoc loc, char[] msg, ...)
+	{
+		vexception(loc, "SemanticException", msg, _arguments, _argptr);
 	}
 
 	public override void eofException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsEof = true;
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, "LexicalException", msg, _arguments, _argptr);
 	}
 
 	public override void loneStmtException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsLoneStmt = true;
-		vexception(loc, msg, _arguments, _argptr);
+		vexception(loc, "SemanticException", msg, _arguments, _argptr);
 	}
 
 	public override CrocThread* thread()
@@ -444,12 +454,17 @@ catch(CrocException e)
 // Private
 // ================================================================================================================================================
 
-	private void vexception(ref CompileLoc loc, char[] msg, TypeInfo[] arguments, va_list argptr)
+	private void vexception(ref CompileLoc loc, char[] exType, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{
-		pushFormat(t, "{}({}:{}): ", loc.file, loc.line, loc.col);
+		auto ex = getStdException(t, exType);
+		pushNull(t);
 		pushVFormat(t, msg, arguments, argptr);
-		cat(t, 2);
-		throwException(t, "{}", getString(t, -1));
+		rawCall(t, ex, 1);
+		dup(t);
+		pushNull(t);
+		pushLocationObject(t, loc.file, loc.line, loc.col);
+		methodCall(t, -3, "setLocation", 0);
+		throwException(t);
 	}
 
 	private word commonCompile(void delegate() dg)

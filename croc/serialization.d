@@ -98,7 +98,7 @@ private:
 	static uword serializeFunc(CrocThread* t)
 	{
 		if(!isValidIndex(t, 1))
-			throwException(t, "Expected at least one parameter");
+			throwStdException(t, "ParamException", "Expected at least one parameter");
 
 		getUpval(t, 0);
 		auto g = cast(Goober)getNativeObj(t, -1);
@@ -109,12 +109,12 @@ private:
 	void writeGraph(word value, word trans)
 	{
 		if(opis(t, value, trans))
-			throwException(t, "Object to serialize is the same as the transients table");
+			throwStdException(t, "ValueException", "Object to serialize is the same as the transients table");
 
 		if(!isTable(t, trans))
 		{
 			pushTypeString(t, trans);
-			throwException(t, "Transients table must be a table, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Transients table must be a table, not '{}'", getString(t, -1));
 		}
 
 		mTrans = getTable(t, trans);
@@ -306,7 +306,7 @@ private:
 			return;
 		
 		if(!v.ownData)
-			throwException(t, "Attempting to persist a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to persist a memblock which does not own its data");
 
 		tag(CrocValue.Type.Memblock);
 		push(t, CrocValue(mSerializeFunc));
@@ -327,7 +327,7 @@ private:
 		if(v.isNative)
 		{
 			push(t, CrocValue(v));
-			throwException(t, "Attempting to persist a native function '{}'", funcName(t, -1));
+			throwStdException(t, "ValueException", "Attempting to persist a native function '{}'", funcName(t, -1));
 		}
 
 		// we do this first so we can allocate it at the beginning of deserialization
@@ -448,7 +448,7 @@ private:
 		{
 			push(t, CrocValue(v));
 			pushToString(t, -1);
-			throwException(t, "Attempting to serialize '{}', which has an allocator or finalizer", getString(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has an allocator or finalizer", getString(t, -1));
 		}
 
 		tag(CrocValue.Type.Class);
@@ -497,7 +497,7 @@ private:
 				if(!getBool(t, -1))
 				{
 					pushToString(t, -2, true);
-					throwException(t, "Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
+					throwStdException(t, "ValueException", "Attempting to serialize '{}', whose opSerialize field is 'false'", getString(t, -1));
 				}
 
 				pop(t);
@@ -507,7 +507,7 @@ private:
 			{
 				pushToString(t, -2, true);
 				pushTypeString(t, -2);
-				throwException(t, "Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function", getString(t, -2), getString(t, -1));
+				throwStdException(t, "TypeException", "Attempting to serialize '{}', whose opSerialize is a '{}', not a bool or function", getString(t, -2), getString(t, -1));
 			}
 		}
 
@@ -518,14 +518,14 @@ private:
 		{
 			push(t, CrocValue(v));
 			pushToString(t, -1, true);
-			throwException(t, "Attempting to serialize '{}', which has extra values or extra bytes", getString(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize '{}', which has extra values or extra bytes", getString(t, -1));
 		}
 
 		if(v.parent.allocator || v.parent.finalizer)
 		{
 			push(t, CrocValue(v));
 			pushToString(t, -1, true);
-			throwException(t, "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
+			throwStdException(t, "ValueException", "Attempting to serialize '{}', whose class has an allocator or finalizer", getString(t, -1));
 		}
 
 		if(v.fields)
@@ -568,10 +568,10 @@ private:
     		return;
 
     	if(t is v)
-    		throwException(t, "Attempting to serialize the currently-executing thread");
+    		throwStdException(t, "ValueException", "Attempting to serialize the currently-executing thread");
 
     	if(v.nativeCallDepth > 0)
-    		throwException(t, "Attempting to serialize a thread with at least one native or metamethod call on its call stack");
+    		throwStdException(t, "ValueException", "Attempting to serialize a thread with at least one native or metamethod call on its call stack");
 
 		tag(CrocValue.Type.Thread);
 
@@ -704,7 +704,7 @@ private:
 
 	void serializeNativeObj(CrocNativeObj* v)
 	{
-		throwException(t, "Attempting to serialize a nativeobj. Please use the transients table.");
+		throwStdException(t, "TypeException", "Attempting to serialize a nativeobj. Please use the transients table.");
 	}
 
 	void writeRef(uword idx)
@@ -773,7 +773,7 @@ private:
 		if(!isTable(t, trans))
 		{
 			pushTypeString(t, trans);
-			throwException(t, "Transients table must be a table, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Transients table must be a table, not '{}'", getString(t, -1));
 		}
 
 		mTrans = getTable(t, trans);
@@ -885,14 +885,14 @@ private:
 				insertAndPop(t, -2);
 				break;
 
-			default: throwException(t, "Malformed data");
+			default: throwStdException(t, "ValueException", "Malformed data");
 		}
 	}
 
 	void checkTag(byte type)
 	{
 		if(tag() != type)
-			throwException(t, "Malformed data");
+			throwStdException(t, "ValueException", "Malformed data");
 	}
 
 	void deserializeNull()
@@ -975,12 +975,12 @@ private:
 			insertAndPop(t, -2);
 
 			if(.type(t, -1) != type)
-				throwException(t, "Invalid transient table");
+				throwStdException(t, "ValueException", "Invalid transient table");
 
 			return false;
 		}
 		else
-			throwException(t, "Malformed data");
+			throwStdException(t, "ValueException", "Malformed data");
 
 		assert(false);
 	}
@@ -1310,7 +1310,7 @@ private:
 			if(!hasMethod(t, -1, "opDeserialize"))
 			{
 				pushToString(t, -1, true);
-				throwException(t, "'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
+				throwStdException(t, "ValueException", "'{}' was serialized with opSerialize, but does not have a matching opDeserialize", getString(t, -1));
 			}
 
 			pushNull(t);
@@ -1392,17 +1392,17 @@ private:
 		version(CrocExtendedCoro)
 		{
 			if(!isExtended)
-				throwException(t, "Attempting to deserialize a non-extended coroutine, but extended coroutine support was compiled in");
+				throwStdException(t, "ValueException", "Attempting to deserialize a non-extended coroutine, but extended coroutine support was compiled in");
 
 			// not sure how to handle deserialization of extended coros yet..
 			// the issue is that we have to somehow create a ThreadFiber object and have it resume from where
 			// it yielded...?  is that even possible?
-			throwException(t, "AGH I don't know how to deserialize extended coros");
+			throwStdException(t, "ValueException", "AGH I don't know how to deserialize extended coros");
 		}
 		else
 		{
 			if(isExtended)
-				throwException(t, "Attempting to deserialize an extended coroutine, but extended coroutine support was not compiled in");
+				throwStdException(t, "ValueException", "Attempting to deserialize an extended coroutine, but extended coroutine support was not compiled in");
 
 			integer(ret.savedCallDepth);
 		}

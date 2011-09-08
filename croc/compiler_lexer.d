@@ -380,7 +380,7 @@ struct Lexer
 
 	public void expected(char[] message)
 	{
-		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.exception;
+		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.lexException;
 		dg(mTok.loc, "'{}' expected; found '{}' instead", message, Token.strings[mTok.type]);
 	}
 
@@ -403,7 +403,7 @@ struct Lexer
 		else if(mTok.type == Token.Semicolon)
 			next();
 		else
-			mCompiler.exception(mLoc, "Statement terminator expected, not '{}'", Token.strings[mTok.type]);
+			mCompiler.synException(mLoc, "Statement terminator expected, not '{}'", Token.strings[mTok.type]);
 	}
 
 	public Token peek()
@@ -597,7 +597,7 @@ struct Lexer
 		void add(dchar c)
 		{
 			if(i >= buf.length)
-				mCompiler.exception(beginning, "Number literal too long");
+				mCompiler.lexException(beginning, "Number literal too long");
 
 			buf[i++] = c;
 		}
@@ -621,7 +621,7 @@ struct Lexer
 						nextChar();
 
 						if(!isBinaryDigit() && mCharacter != '_')
-							mCompiler.exception(mLoc, "Binary digit expected, not '{}'", mCharacter);
+							mCompiler.lexException(mLoc, "Binary digit expected, not '{}'", mCharacter);
 
 						while(isBinaryDigit() || mCharacter == '_')
 						{
@@ -632,7 +632,7 @@ struct Lexer
 						}
 						
 						if(!convertInt(buf[0 .. i], iret, 2))
-							mCompiler.exception(beginning, "Binary integer literal overflow");
+							mCompiler.lexException(beginning, "Binary integer literal overflow");
 
 						return true;
 
@@ -640,7 +640,7 @@ struct Lexer
 						nextChar();
 
 						if(!isHexDigit() && mCharacter != '_')
-							mCompiler.exception(mLoc, "Hexadecimal digit expected, not '{}'", mCharacter);
+							mCompiler.lexException(mLoc, "Hexadecimal digit expected, not '{}'", mCharacter);
 
 						while(isHexDigit() || mCharacter == '_')
 						{
@@ -651,7 +651,7 @@ struct Lexer
 						}
 
 						if(!convertInt(buf[0 .. i], iret, 16))
-							mCompiler.exception(beginning, "Hexadecimal integer literal overflow");
+							mCompiler.lexException(beginning, "Hexadecimal integer literal overflow");
 
 						return true;
 
@@ -727,7 +727,7 @@ struct Lexer
 				}
 
 				if(!isDecimalDigit() && mCharacter != '_')
-					mCompiler.exception(mLoc, "Exponent value expected in float literal '{}'", buf[0 .. i]);
+					mCompiler.lexException(mLoc, "Exponent value expected in float literal '{}'", buf[0 .. i]);
 
 				while(isDecimalDigit() || mCharacter == '_')
 				{
@@ -751,7 +751,7 @@ struct Lexer
 		if(!hasPoint && !hasExponent)
 		{
 			if(!convertInt(buf[0 .. i], iret, 10))
-				mCompiler.exception(beginning, "Decimal integer literal overflow");
+				mCompiler.lexException(beginning, "Decimal integer literal overflow");
 
 			return true;
 		}
@@ -760,7 +760,7 @@ struct Lexer
 			try
 				fret = Float.toFloat(buf[0 .. i]);
 			catch(IllegalArgumentException e)
-				mCompiler.exception(beginning, "Invalid floating point literal");
+				mCompiler.lexException(beginning, "Invalid floating point literal");
 
 			return false;
 		}
@@ -775,7 +775,7 @@ struct Lexer
 			for(uint i = 0; i < num; i++)
 			{
 				if(!isHexDigit())
-					mCompiler.exception(mLoc, "Hexadecimal escape digits expected");
+					mCompiler.lexException(mLoc, "Hexadecimal escape digits expected");
 
 				ret <<= 4;
 				ret |= hexDigitToInt(mCharacter);
@@ -813,7 +813,7 @@ struct Lexer
 				auto x = readHexDigits(2);
 
 				if(x > 0x7F)
-					mCompiler.exception(mLoc, "Hexadecimal escape sequence too large");
+					mCompiler.lexException(mLoc, "Hexadecimal escape sequence too large");
 
 				ret = cast(dchar)x;
 				break;
@@ -824,7 +824,7 @@ struct Lexer
 				auto x = readHexDigits(4);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					mCompiler.exception(mLoc, "Unicode escape '\\u{:x4}' is illegal", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\u{:x4}' is illegal", x);
 
 				ret = cast(dchar)x;
 				break;
@@ -835,17 +835,17 @@ struct Lexer
 				auto x = readHexDigits(8);
 
 				if(x == 0xFFFE || x == 0xFFFF)
-					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' is illegal", x);
 
 				if(!Utf.isValid(cast(dchar)x))
-					mCompiler.exception(mLoc, "Unicode escape '\\U{:x8}' too large", x);
+					mCompiler.lexException(mLoc, "Unicode escape '\\U{:x8}' too large", x);
 
 				ret = cast(dchar)x;
 				break;
 
 			default:
 				if(!isDecimalDigit())
-					mCompiler.exception(mLoc, "Invalid string escape sequence '\\{}'", mCharacter);
+					mCompiler.lexException(mLoc, "Invalid string escape sequence '\\{}'", mCharacter);
 
 				// Decimal char
 				int numch = 0;
@@ -858,7 +858,7 @@ struct Lexer
 				} while(++numch < 3 && isDecimalDigit());
 
 				if(c > 0x7F)
-					mCompiler.exception(mLoc, "Numeric escape sequence too large");
+					mCompiler.lexException(mLoc, "Numeric escape sequence too large");
 
 				ret = cast(dchar)c;
 				break;
@@ -945,7 +945,7 @@ struct Lexer
 		nextChar();
 
 		if(isEOF())
-			mCompiler.exception(beginning, "Unterminated character literal");
+			mCompiler.lexException(beginning, "Unterminated character literal");
 
 		switch(mCharacter)
 		{
@@ -960,7 +960,7 @@ struct Lexer
 		}
 
 		if(mCharacter != '\'')
-			mCompiler.exception(beginning, "Unterminated character literal");
+			mCompiler.lexException(beginning, "Unterminated character literal");
 
 		nextChar();
 
@@ -1549,7 +1549,7 @@ struct Lexer
 						auto s = mCompiler.newString(arr);
 
 						if(s.startsWith("__"))
-							mCompiler.exception(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);
+							mCompiler.lexException(mTok.loc, "'{}': Identifiers starting with two underscores are reserved", s);
 
 						if(auto t = (s in Token.stringToType))
 							mTok.type = *t;
@@ -1564,7 +1564,7 @@ struct Lexer
 					else
 					{
 						if(mCharacter > 0x7f)
-							mCompiler.exception(mTok.loc, "Invalid token '{}'", mCharacter);
+							mCompiler.lexException(mTok.loc, "Invalid token '{}'", mCharacter);
 
 						char[1] buf = void;
 						buf[0] = cast(char)mCharacter;
@@ -1575,7 +1575,7 @@ struct Lexer
 						if(auto t = (s in Token.stringToType))
 							mTok.type = *t;
 						else
-							mCompiler.exception(mTok.loc, "Invalid token '{}'", s);
+							mCompiler.lexException(mTok.loc, "Invalid token '{}'", s);
 
 						return;
 					}

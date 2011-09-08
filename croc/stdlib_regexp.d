@@ -247,7 +247,7 @@ struct RegexpLib
 					if(!isString(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "replacement function should return a 'string', not a '{}'", getString(t, -1));
+						throwStdException(t, "TypeException", "replacement function should return a 'string', not a '{}'", getString(t, -1));
 					}
 
 					auto ret = getString(t, -1);

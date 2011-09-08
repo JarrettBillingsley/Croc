@@ -61,7 +61,7 @@ static:
 		auto port = checkIntParam(t, slot + 1);
 
 		if(port < 0 || port > ushort.max)
-			throwException(t, "Invalid port number: {}", port);
+			throwStdException(t, "RangeException", "Invalid port number: {}", port);
 
 		if(isString(t, slot))
 			return new InternetAddress(getString(t, slot), cast(ushort)port);
@@ -70,7 +70,7 @@ static:
 			auto ip = getInt(t, slot);
 
 			if(ip < 0 || ip > uint.max)
-				throwException(t, "Invalid IP address: {}", ip);
+				throwStdException(t, "RangeException", "Invalid IP address: {}", ip);
 
 			return new InternetAddress(cast(uint)ip, cast(ushort)port);
 		}
@@ -100,7 +100,7 @@ static:
 		auto backlog = optIntParam(t, 3, 32);
 
 		if(backlog < 1)
-			throwException(t, "Invalid backlog: {}", backlog);
+			throwStdException(t, "RangeException", "Invalid backlog: {}", backlog);
 
 		auto reuse = optBoolParam(t, 4, false);
 		auto socket = safeCode(t, new ServerSocket(addr, cast(int)backlog, reuse));
@@ -164,7 +164,7 @@ static:
 		auto ret = checkInstParam!(Members)(t, 0, "Socket");
 
 		if(ret.base.closed)
-			throwException(t, "Attempting to perform operation on a closed socket");
+			throwStdException(t, "ValueException", "Attempting to perform operation on a closed socket");
 
 		return ret;
 	}
@@ -202,13 +202,13 @@ static:
 		auto memb = getThis(t);
 
 		if(memb.socket !is null)
-			throwException(t, "Attempting to call constructor on an already-initialized Socket");
+			throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Socket");
 
 		checkParam(t, 1, CrocValue.Type.NativeObj);
 		auto socket = cast(Socket)getNativeObj(t, 1);
 
 		if(socket is null)
-			throwException(t, "instances of Socket may only be created using instances of the Tango Socket class");
+			throwStdException(t, "ValueException", "instances of Socket may only be created using instances of the Tango Socket class");
 
 		memb.timeout = cast(float)socket.timeout / 1000;
 		memb.socket = socket;
@@ -258,7 +258,7 @@ static:
 		auto period = checkNumParam(t, 1);
 
 		if(period <  0)
-			throwException(t, "Invalid timeout period: {}", period);
+			throwStdException(t, "RangeException", "Invalid timeout period: {}", period);
 
 		memb.timeout = period;
 		memb.socket.timeout = cast(uint)(memb.timeout * 1000);
@@ -271,7 +271,7 @@ static:
 		auto ss = cast(ServerSocket)memb.socket;
 
 		if(ss is null)
-			throwException(t, "Socket is not a server socket");
+			throwStdException(t, "ValueException", "Socket is not a server socket");
 
 		auto sock = safeCode(t, ss.accept());
 

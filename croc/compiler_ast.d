@@ -569,7 +569,7 @@ class FuncDef : AstNode
 	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
 	{
 		if(!code.as!(ReturnStmt) && !code.as!(BlockStmt))
-			c.exception(location, "FuncDef code must be a ReturnStmt or BlockStmt, not a '{}'", code.niceString());
+			c.semException(location, "FuncDef code must be a ReturnStmt or BlockStmt, not a '{}'", code.niceString());
 
 		super(c, location, code.endLocation, AstTag.FuncDef);
 
@@ -1996,7 +1996,7 @@ abstract class Expression : AstNode
 	public void checkMultRet(ICompiler c)
 	{
 		if(!isMultRet())
-			c.exception(location, "{} cannot be the source of a multi-target assignment", niceString());
+			c.semException(location, "{} cannot be the source of a multi-target assignment", niceString());
 	}
 
 	/**
@@ -2015,7 +2015,7 @@ abstract class Expression : AstNode
 	public void checkLHS(ICompiler c)
 	{
 		if(!isLHS())
-			c.exception(location, "{} cannot be the target of an assignment", niceString());
+			c.semException(location, "{} cannot be the target of an assignment", niceString());
 	}
 
 	/**

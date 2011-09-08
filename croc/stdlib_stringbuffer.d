@@ -99,7 +99,7 @@ static:
 		getExtraVal(t, 0, Data);
 
 		if(!isMemblock(t, -1))
-			throwException(t, "Attempting to call a method on an uninitialized StringBuffer");
+			throwStdException(t, "ValueException", "Attempting to call a method on an uninitialized StringBuffer");
 
 		auto ret = getMemblock(t, -1);
 		pop(t);
@@ -111,7 +111,7 @@ static:
 		getExtraVal(t, idx, Data);
 
 		if(!isMemblock(t, -1))
-			throwException(t, "Attempting to operate on an uninitialized StringBuffer");
+			throwStdException(t, "ValueException", "Attempting to operate on an uninitialized StringBuffer");
 
 		auto ret = getMemblock(t, -1);
 		pop(t);
@@ -148,7 +148,7 @@ static:
 			while(size > l)
 			{
 				if(l & (1 << ((uword.sizeof * 8) - 1)))
-					throwException(t, "StringBuffer too big ({} elements)", size);
+					throwStdException(t, "RangeException", "StringBuffer too big ({} elements)", size);
 				l <<= 1;
 			}
 
@@ -178,7 +178,7 @@ static:
 				auto l = getInt(t, 1);
 
 				if(l < 0 || l > uword.max)
-					throwException(t, "Invalid length: {}", l);
+					throwStdException(t, "RangeException", "Invalid length: {}", l);
 
 				length = cast(uword)l;
 			}
@@ -219,7 +219,7 @@ static:
 			hi += len;
 			
 		if(lo < 0 || lo > hi || hi > len)
-			throwException(t, "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+			throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 		pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]);
 		return 1;
@@ -345,7 +345,7 @@ static:
 		auto newLen = checkIntParam(t, 1);
 
 		if(newLen < 0 || newLen > uword.max)
-			throwException(t, "Invalid length: {}", newLen);
+			throwStdException(t, "RangeException", "Invalid length: {}", newLen);
 
 		auto oldLen = getLength(t);
 
@@ -371,7 +371,7 @@ static:
 			index += len;
 
 		if(index < 0 || index >= len)
-			throwException(t, "Invalid index: {} (buffer length: {})", index, len);
+			throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
 
 		pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
 		return 1;
@@ -388,7 +388,7 @@ static:
 			index += len;
 
 		if(index < 0 || index >= len)
-			throwException(t, "Invalid index: {} (buffer length: {})", index, len);
+			throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
 
 		(cast(dchar[])mb.data)[cast(uword)index] = ch;
 		return 0;
@@ -408,7 +408,7 @@ static:
 			hi += len;
 
 		if(lo < 0 || lo > hi || hi > len)
-			throwException(t, "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+			throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 		auto newStr = (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi];
 		
@@ -432,7 +432,7 @@ static:
 			auto totalLen = len + addLen;
 
 			if(totalLen > uword.max)
-				throwException(t, "Result too big ({} elements)", totalLen);
+				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
 
 			pushGlobal(t, "StringBuffer");
 			pushNull(t);
@@ -486,7 +486,7 @@ static:
 			auto totalLen = len + addLen;
 
 			if(totalLen > uword.max)
-				throwException(t, "Result too big ({} elements)", totalLen);
+				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
 
 			pushGlobal(t, "StringBuffer");
 			pushNull(t);
@@ -535,7 +535,7 @@ static:
 			auto totalLen = len + addLen;
 
 			if(totalLen > uword.max)
-				throwException(t, "Result too big ({} elements)", totalLen);
+				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
 
 			ensureSize(t, mb, cast(uword)totalLen);
 			setLength(t, cast(uword)totalLen);
@@ -643,7 +643,7 @@ static:
 			auto otherLen = getLength(t, filler);
 
 			if(otherLen != (hi - lo))
-				throwException(t, "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
+				throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
 
 			(cast(dchar[])mb.data)[lo .. hi] = other[0 .. otherLen];
 		}
@@ -666,7 +666,7 @@ static:
 				if(!isChar(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "filler function expected to return a 'char', not '{}'", getString(t, -1));
+					throwStdException(t, "TypeException", "filler function expected to return a 'char', not '{}'", getString(t, -1));
 				}
 
 				data[i] = getChar(t, -1);
@@ -680,7 +680,7 @@ static:
 			auto cpLen = cast(uword)len(t, filler);
 
 			if(cpLen != (hi - lo))
-				throwException(t, "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
+				throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
 
 			uint ate = 0;
 			Utf.toString32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi], &ate);
@@ -696,7 +696,7 @@ static:
 				if(!isChar(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
+					throwStdException(t, "TypeException", "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
 				}
 
 				data[ai] = getChar(t, -1);
@@ -733,7 +733,7 @@ static:
 			hi += len;
 
 		if(lo < 0 || lo > hi || hi > len)
-			throwException(t, "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
+			throwStdException(t, "BoundsException", "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
 
 		fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
 		dup(t, 0);
@@ -752,14 +752,14 @@ static:
 
 		// yes, greater, because it's possible to insert at one past the end of the buffer (it appends)
 		if(len < 0 || idx > len)
-			throwException(t, "Invalid index: {} (length: {})", idx, len);
+			throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, len);
 
 		dchar[] doResize(crocint otherLen)
 		{
 			auto totalLen = len + otherLen;
 
 			if(totalLen > uword.max)
-				throwException(t, "Invalid size ({})", totalLen);
+				throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
 
 			auto oldLen = len;
 
@@ -829,7 +829,7 @@ static:
 		auto len = getLength(t);
 
 		if(len == 0)
-			throwException(t, "StringBuffer is empty");
+			throwStdException(t, "ValueException", "StringBuffer is empty");
 
 		auto lo = checkIntParam(t, 1);
 		auto hi = optIntParam(t, 2, lo + 1);
@@ -841,7 +841,7 @@ static:
 			hi += len;
 
 		if(lo < 0 || lo > hi || hi > len)
-			throwException(t, "Invalid indices: {} .. {} (length: {})", lo, hi, len);
+			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, len);
 
 		if(lo != hi)
 		{
@@ -869,7 +869,7 @@ static:
 			ulong totalLen = cast(uword)len + verify(data);
 
 			if(totalLen > uword.max)
-				throwException(t, "Invalid size ({})", totalLen);
+				throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
 
 			ensureSize(t, mb, cast(uword)totalLen);
 			setLength(t, cast(uword)totalLen);
@@ -902,7 +902,7 @@ static:
 
 		// don't know if this is possible, but can't hurt to check
 		if(!mb.ownData)
-			throwException(t, "Attempting to serialize a string buffer which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to serialize a string buffer which does not own its data");
 
 		dup(t, 2);
 		pushNull(t);

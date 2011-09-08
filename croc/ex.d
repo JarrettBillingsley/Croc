@@ -50,6 +50,18 @@ public:
 // Simplifying very common tasks
 
 /**
+
+*/
+void throwNamedException(CrocThread* t, char[] exName, char[] fmt, ...)
+{
+	lookup(t, exName);
+	pushNull(t);
+	pushVFormat(t, fmt, _arguments, _argptr);
+	rawCall(t, -3, 1);
+	throwException(t);
+}
+
+/**
 Import a module with the given name. Works just like the import statement in Croc. Pushes the
 module's namespace onto the stack.
 
@@ -1379,7 +1391,7 @@ of parameters were passed to your function.
 void checkAnyParam(CrocThread* t, word index)
 {
 	if(!isValidIndex(t, index))
-		throwStdException(t, "CallException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+		throwStdException(t, "ParamException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
 /**
