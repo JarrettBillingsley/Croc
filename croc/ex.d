@@ -85,7 +85,7 @@ word importModule(CrocThread* t, word name)
 	if(!isString(t, name))
 	{
 		pushTypeString(t, name);
-		throwException(t, __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", __FUNCTION__ ~ " - name must be a 'string', not a '{}'", getString(t, -1));
 	}
 
 	lookup(t, "modules.load");
@@ -203,9 +203,9 @@ public:
 			if(l != mStartIdx)
 			{
 				if(l < mStartIdx)
-					throwException(t, "Mismatched documentation pushes and pops (stack is smaller by {})", mStartIdx - l);
+					throwStdException(t, "ApiError", "Mismatched documentation pushes and pops (stack is smaller by {})", mStartIdx - l);
 				else
-					throwException(t, "Mismatched documentation pushes and pops (stack is bigger by {})", l - mStartIdx);
+					throwStdException(t, "ApiError", "Mismatched documentation pushes and pops (stack is bigger by {})", l - mStartIdx);
 			}
 			.pop(t);
 		}
@@ -303,12 +303,12 @@ public:
 					auto dittoed = idxi(t, dt, -1);
 
 					if(!hasField(t, dittoed, parentField))
-						throwException(t, "Something got screwed up... parent decl doesn't have {} anymore.", parentField);
+						throwStdException(t, "ApiError", "Something got screwed up... parent decl doesn't have {} anymore.", parentField);
 
 					field(t, dittoed, parentField);
 
 					if(len(t, -1) == 0)
-						throwException(t, "Corruption! Parent decl's {} array is empty somehow.", parentField);
+						throwStdException(t, "ApiError", "Corruption! Parent decl's {} array is empty somehow.", parentField);
 
 					idxi(t, -1, -1);
 					insertAndPop(t, dittoed);
@@ -329,7 +329,7 @@ public:
 		auto dt = getDocTables();
 
 		if(len(t, dt) == 0)
-			throwException(t, "Documentation stack underflow!");
+			throwStdException(t, "ApiError", "Documentation stack underflow!");
 
 		auto docTab = idxi(t, dt, -1);
 
@@ -395,7 +395,7 @@ private:
 	{
 		// At top level?
 		if(len(t, dt) == 1)
-			throwException(t, "Cannot use ditto on the top-level declaration");
+			throwStdException(t, "ApiError", "Cannot use ditto on the top-level declaration");
 
 		// Get the parent and try to get the last declaration before this one
 		idxi(t, dt, -2);
@@ -415,7 +415,7 @@ private:
 		}
 
 		if(!okay)
-			throwException(t, "No previous declaration to ditto from");
+			throwStdException(t, "ApiError", "No previous declaration to ditto from");
 
 		// See if the previous decl's kind is the same
 		field(t, -1, "kind");
@@ -423,7 +423,7 @@ private:
 		if(getString(t, -1) != docs.kind)
 		{
 			field(t, -2, "name");
-			throwException(t, "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", docs.name, docs.kind, getString(t, -1), getString(t, -2));
+			throwStdException(t, "ApiError", "Can't ditto documentation for '{}': it's a {}, but '{}' was a {}", docs.name, docs.kind, getString(t, -1), getString(t, -2));
 		}
 
 		.pop(t);
@@ -461,7 +461,7 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 	field(t, -1, "customLoaders");
 
 	if(hasField(t, -1, name))
-		throwException(t, "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
+		throwStdException(t, "LookupException", "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
 		
 	newFunction(t, 1, loader, name);
 	fielda(t, -2, name);
@@ -516,7 +516,7 @@ struct CreateClass
 		dg(&co);
 
 		if(co.idx >= stackSize(t))
-			throwException(t, "You popped the class {} before it could be finished!", name);
+			throwStdException(t, "ApiError", "You popped the class {} before it could be finished!", name);
 
 		if(stackSize(t) > co.idx + 1)
 			setStackSize(t, co.idx + 1);
@@ -537,7 +537,7 @@ struct CreateClass
 		dg(&co);
 
 		if(co.idx >= stackSize(t))
-			throwException(t, "You popped the class {} before it could be finished!", name);
+			throwStdException(t, "ApiError", "You popped the class {} before it could be finished!", name);
 
 		if(stackSize(t) > co.idx + 1)
 			setStackSize(t, co.idx + 1);
@@ -647,7 +647,7 @@ T* getMembers(T)(CrocThread* t, word index)
 	if(ret.length < T.sizeof)
 	{
 		pushTypeString(t, index);
-		throwException(t, "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
+		throwStdException(t, "ApiError", "'{}' does not have enough extra bytes (expected at least {}, has {})", getString(t, -1), T.sizeof, ret.length);
 	}
 
 	return cast(T*)ret.ptr;
@@ -765,7 +765,7 @@ struct StrBuffer
 		else
 		{
 			pushTypeString(t, -1);
-			throwException(t, "Trying to add a '{}' to a StrBuffer", getString(t, -1));
+			throwStdException(t, "TypeException", "Trying to add a '{}' to a StrBuffer", getString(t, -1));
 		}
 	}
 
@@ -937,7 +937,7 @@ word loadString(CrocThread* t, char[] code, bool customEnv = false, char[] name 
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -989,7 +989,7 @@ uword eval(CrocThread* t, char[] code, word numReturns = 1, bool customEnv = fal
 		if(!isNamespace(t, -1))
 		{
 			pushTypeString(t, -1);
-			throwException(t, "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "loadString - Expected 'namespace' on the top of the stack for an environment, not '{}'", getString(t, -1));
 		}
 	}
 	else
@@ -1124,7 +1124,7 @@ void croctry(CrocThread* t, void delegate() try_, void delegate(CrocException, w
 		catch_(e, crocEx);
 
 		if(crocEx != stackSize(t) - 1)
-			throwException(t, "croctry - catch block is supposed to leave stack as it was before it was entered");
+			throwStdException(t, "ApiError", "croctry - catch block is supposed to leave stack as it was before it was entered");
 
 		pop(t);
 	}
@@ -1175,7 +1175,7 @@ void stackCheck(CrocThread* t, word diff, void delegate() dg)
 	dg();
 
 	if((stackSize(t) - s) != diff)
-		throwException(t, "Stack is not balanced!");
+		throwStdException(t, "ApiError", "Stack is not balanced!");
 }
 
 /**
@@ -1379,7 +1379,7 @@ of parameters were passed to your function.
 void checkAnyParam(CrocThread* t, word index)
 {
 	if(!isValidIndex(t, index))
-		throwException(t, "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
+		throwStdException(t, "CallException", "Too few parameters (expected at least {}, got {})", index, stackSize(t) - 1);
 }
 
 /**
@@ -1488,9 +1488,9 @@ void checkInstParam()(CrocThread* t, word index, char[] name)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1527,9 +1527,9 @@ void checkInstParamRef(CrocThread* t, word index, ulong classRef)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 
 	pop(t);
@@ -1552,9 +1552,9 @@ void checkInstParamSlot(CrocThread* t, word index, word classIndex)
 		pushTypeString(t, index);
 
 		if(index == 0)
-			throwException(t, "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for 'this', not {}", name, getString(t, -1));
 		else
-			throwException(t, "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
+			throwStdException(t, "TypeException", "Expected instance of class {} for parameter {}, not {}", name, index, getString(t, -1));
 	}
 }
 
@@ -1581,9 +1581,9 @@ void paramTypeError(CrocThread* t, word index, char[] expected)
 	pushTypeString(t, index);
 
 	if(index == 0)
-		throwException(t, "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
+		throwStdException(t, "TypeException", "Expected type '{}' for 'this', not '{}'", expected, getString(t, -1));
 	else
-		throwException(t, "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
+		throwStdException(t, "TypeException", "Expected type '{}' for parameter {}, not '{}'", expected, absIndex(t, index), getString(t, -1));
 }
 
 /**
@@ -1693,11 +1693,11 @@ void validateName(CrocThread* t, char[] name)
 {
 	void wrongFormat()
 	{
-		throwException(t, "The name '{}' is not formatted correctly", name);
+		throwStdException(t, "ApiError", "The name '{}' is not formatted correctly", name);
 	}
 
 	if(name.length == 0)
-		throwException(t, "Cannot use an empty string for a name");
+		throwStdException(t, "ApiError", "Cannot use an empty string for a name");
 
 	uword idx = 0;
 

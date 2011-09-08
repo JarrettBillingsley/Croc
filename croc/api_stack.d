@@ -68,7 +68,7 @@ void setStackSize(CrocThread* t, uword newSize)
 	mixin(FuncNameMix);
 
 	if(newSize == 0)
-		throwException(t, __FUNCTION__ ~ " - newSize must be nonzero");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - newSize must be nonzero");
 
 	auto curSize = stackSize(t);
 
@@ -165,7 +165,7 @@ void insert(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -189,7 +189,7 @@ void insertAndPop(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -214,7 +214,7 @@ void moveToTop(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -242,7 +242,7 @@ void rotate(CrocThread* t, uword numSlots, uword dist)
 	mixin(FuncNameMix);
 
 	if(numSlots > (stackSize(t) - 1))
-		throwException(t, __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
 
 	if(numSlots == 0)
 		return;
@@ -318,10 +318,10 @@ void pop(CrocThread* t, uword n = 1)
 	mixin(FuncNameMix);
 
 	if(n == 0)
-		throwException(t, __FUNCTION__ ~ " - Trying to pop zero items");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to pop zero items");
 
 	if(n > (t.stackIndex - (t.stackBase + 1)))
-		throwException(t, __FUNCTION__ ~ " - Stack underflow");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Stack underflow");
 
 	t.stackIndex -= n;
 }
@@ -347,7 +347,7 @@ Params:
 void transferVals(CrocThread* src, CrocThread* dest, uword num)
 {
 	if(src.vm !is dest.vm)
-		throwException(src, "transferVals - Source and destination threads belong to different VMs");
+		throwStdException(src, "ApiError", "transferVals - Source and destination threads belong to different VMs");
 
 	if(num == 0 || dest is src)
 		return;
@@ -391,7 +391,7 @@ RelStack fakeToRel(CrocThread* t, word fake)
 		fake += size;
 
 	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid stack index {} (stack size = {})", fake, size);
+		throwStdException(t, "ApiError", "Invalid stack index {} (stack size = {})", fake, size);
 
 	return cast(RelStack)fake;
 }

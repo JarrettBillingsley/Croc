@@ -57,6 +57,39 @@ struct ExDesc
 	char[] name, derives;
 }
 
+/*
++ Exception - Base class for all "generally non-fatal" exceptions.
+	+ CompileException - Base class for exceptions that the Croc compiler throws.
+		+ LexicalException - Thrown for lexical errors in source code.
+		+ SyntaxException - Thrown for syntactic errors in source code.
+		+ SemanticException - Thrown for semantic errors in source code.
+	+ TypeException - Thrown when an incorrect type is given to an operation (i.e. trying to add strings, or invalid types to function parameters).
+	+ ValueException - Generally speaking, indicates that an operation was given a value of the proper type, but the value is invalid
+		somehow - not an acceptible value, or incorrectly formed, or in an invalid state.
+		+ RangeException - A more specific kind of ValueException indicating that a value is out of a valid range of acceptible values. Typically
+			used for mathematical functions, i.e. square root only works on non-negative values.
+		+ UnicodeException - Thrown when Croc is given malformed/invalid Unicode data for a string.
+	+ IOException - Thrown when an IO operation fails or is given invalid inputs.
+	+ OSException - Thrown when the OS is pissy.
+	+ ImportException - Thrown when an import fails; may also have a 'cause' exception in case the import failed because of an exception being thrown.
+	+ LookupException - Base class for "lookup" errors, which covers several kinda of lookups. Sometimes this base class can be thrown too.
+		+ NameException - Thrown on invalid global access (either the name doesn't exist or trying to redefine an existing global). Also for invalid
+			local names when using the debug library.
+		+ BoundsException - Thrown when trying to access an array-like object out of bounds.
+		+ FieldException - Thrown when trying to access an invalid field from a namespace, class, instance etc.
+		+ MethodException - Thrown when trying to call an invalid method on an object.
+	+ RuntimeException - Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this one.
+	+ CallException - Thrown for some kinda of invalid function calls, such as passing too many parameters, invalid supercalls etc.
++ Error - Base class for "generally unrecoverable" errors.
+	+ AssertError - Thrown when an assertion fails.
+	+ ApiError - Thrown when the native API is given certain kinds of invalid input, generally inputs which mean the host is
+		malfunctioning or incorrectly programmed. Not thrown for i.e. incorrect types passed to the native API.
+	+ FinalizerError - Thrown when an exception is thrown by a class finalizer. This is typically a big problem as finalizers
+		should never fail. The exception that the finalizer threw is set as the 'cause'.
+	+ SwitchError - Thrown when a switch without a 'default' is given a value not listed in its cases.
+	+ VMError - Thrown for some kinds of internal VM errors.
+*/
+
 private const ExDesc[] ExDescs =
 [
 	{"Exception", "Throwable"},
@@ -77,11 +110,14 @@ private const ExDesc[] ExDescs =
 			{"FieldException",  "LookupException"},
 			{"MethodException", "LookupException"},
 		{"RuntimeException", "Exception"},
+		{"CallException",    "Exception"},
 
 	{"Error", "Throwable"},
 		{"AssertError",    "Error"},
 		{"ApiError",       "Error"},
 		{"FinalizerError", "Error"},
+		{"SwitchError",    "Error"},
+		{"VMError",        "Error"},
 ];
 
 char[] makeExceptionClasses()
@@ -154,7 +190,6 @@ Throwable.setLocation = function setLocation(l: Location)
 	:location = l
 	return this
 }
-
 
 Throwable.tracebackString = function tracebackString()
 {

@@ -56,7 +56,7 @@ word fromJSON(CrocThread* t, char[] source)
 	else if(l.type == Token.LBracket)
 		ret = parseArray(t, l);
 	else
-		throwException(t, "JSON must have an object or an array as its top-level value");
+		throwStdException(t, "ValueException", "JSON must have an object or an array as its top-level value");
 
 	l.expect(Token.EOF);
 	return ret;
@@ -97,7 +97,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 		foreach(word k, word v; foreachLoop(t, 1))
 		{
 			if(!isString(t, k))
-				throwException(t, "All keys in a JSON table must be strings");
+				throwStdException(t, "ValueException", "All keys in a JSON table must be strings");
 
 			if(first)
 				first = false;
@@ -210,7 +210,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 
 			case CrocValue.Type.Table:
 				if(opin(t, idx, cycles))
-					throwException(t, "Table is cyclically referenced");
+					throwStdException(t, "ValueException", "Table is cyclically referenced");
 
 				dup(t, idx);
 				pushBool(t, true);
@@ -228,7 +228,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 
 			case CrocValue.Type.Array:
 				if(opin(t, idx, cycles))
-					throwException(t, "Array is cyclically referenced");
+					throwStdException(t, "ValueException", "Array is cyclically referenced");
 
 				dup(t, idx);
 				pushBool(t, true);
@@ -246,7 +246,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 
 			default:
 				pushTypeString(t, idx);
-				throwException(t, "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
+				throwStdException(t, "TypeException", "Type '{}' is not a valid type for conversion to JSON", getString(t, -1));
 		}
 	}
 
@@ -259,7 +259,7 @@ void toJSON(T)(CrocThread* t, word root, bool pretty, FormatOutput!(T) printer)
 	else
 	{
 		pushTypeString(t, root);
-		throwException(t, "Root element must be either a table or an array, not a '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", "Root element must be either a table or an array, not a '{}'", getString(t, -1));
 	}
 
 	printer.flush();
@@ -377,7 +377,8 @@ struct Lexer
 
 	public void expected(char[] message)
 	{
-		throwException(t, "({}:{}): '{}' expected; found '{}' instead", mTok.line, mTok.col, message, Token.strings[mTok.type]);
+		// TODO: different kinda syntax exception here? JSONSyntaxException?
+		throwStdException(t, "SyntaxException", "({}:{}): '{}' expected; found '{}' instead", mTok.line, mTok.col, message, Token.strings[mTok.type]);
 	}
 
 	public void next()
@@ -489,7 +490,8 @@ struct Lexer
 			nextChar();
 
 			if(!isDecimalDigit())
-				throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+				// TODO: different kinda exception here?
+				throwStdException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
 		}
 
 		// integral part
@@ -520,7 +522,8 @@ struct Lexer
 			nextChar();
 
 			if(!isDecimalDigit())
-				throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+				// TODO: Different kinda exception?
+				throwException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
 
 			crocfloat frac = 0.0;
 			crocfloat mag = 10.0;
@@ -541,7 +544,8 @@ struct Lexer
 			nextChar();
 
 			if(!isDecimalDigit() && mCharacter != '+' && mCharacter != '-')
-				throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+				// TODO: different kinda exception?
+				throwStdException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
 
 			bool negExp = false;
 
@@ -554,7 +558,8 @@ struct Lexer
 			}
 
 			if(!isDecimalDigit())
-				throwException(t, "({}:{}): incomplete number token", mLine, mCol);
+				// TODO: different kinda exception?
+				throwStdException(t, "LexicalException", "({}:{}): incomplete number token", mLine, mCol);
 
 			crocfloat exp = 0;
 
@@ -580,7 +585,8 @@ struct Lexer
 			for(uint i = 0; i < num; i++)
 			{
 				if(!isHexDigit())
-					throwException(t, "({}:{}): Hexadecimal escape digits expected", mLine, mCol);
+					// TODO: different kinda exception?
+					throwStdException(t, "LexicalException", "({}:{}): Hexadecimal escape digits expected", mLine, mCol);
 
 				ret <<= 4;
 				ret |= hexDigitToInt(mCharacter);
@@ -597,7 +603,8 @@ struct Lexer
 		nextChar();
 
 		if(isEOF())
-			throwException(t, "({}:{}): Unterminated string literal", beginningLine, beginningCol);
+			// TODO: different kinda exception?
+			throwStdException(t, "LexicalException", "({}:{}): Unterminated string literal", beginningLine, beginningCol);
 
 		switch(mCharacter)
 		{
@@ -618,12 +625,14 @@ struct Lexer
 				if(x >= 0xD800 && x < 0xDC00)
 				{
 					if(mCharacter != '\\')
-						throwException(t, "({}:{}): second surrogate pair character expected", mLine, mCol);
+						// TODO: Different kinda exception?
+						throwStdException(t, "LexicalException", "({}:{}): second surrogate pair character expected", mLine, mCol);
 
 					nextChar();
 
 					if(mCharacter != 'u')
-						throwException(t, "({}:{}): second surrogate pair character expected", mLine, mCol);
+						// TODO: different kinda exception?
+						throwStdException(t, "LexicalException", "({}:{}): second surrogate pair character expected", mLine, mCol);
 						
 					nextChar();
 					
@@ -634,14 +643,16 @@ struct Lexer
 					ret = cast(dchar)(0x10000 + ((x << 10) | x2));
 				}
 				else if(x >= 0xDC00 && x < 0xE000)
-					throwException(t, "({}:{}): invalid surrogate pair sequence", mLine, mCol);
+					// TODO: Different kinda exception
+					throwStdException(t, "LexicalException", "({}:{}): invalid surrogate pair sequence", mLine, mCol);
 				else
 					ret = cast(dchar)x;
 
 				break;
 
 			default:
-				throwException(t, "({}:{}): Invalid string escape sequence '\\{}'", mLine, mCol, mCharacter);
+				// TODO:
+				throwStdException(t, "LexicalException", "({}:{}): Invalid string escape sequence '\\{}'", mLine, mCol, mCharacter);
 		}
 
 		return ret;
@@ -659,15 +670,17 @@ struct Lexer
 
 		while(true)
 		{
-			if(isEOF())
-				throwException(t, "({}:{}): Unterminated string literal", beginningLine, beginningCol);
+			if(isEOF())	
+				// TODO:
+				throwStdException(t, "LexicalException", "({}:{}): Unterminated string literal", beginningLine, beginningCol);
 
 			if(mCharacter == '\\')
 				buf.addChar(readEscapeSequence(beginningLine, beginningCol));
 			else if(mCharacter == '"')
 				break;
 			else if(mCharacter <= 0x1f)
-				throwException(t, "({}:{}): Invalid character in string token", mLine, mCol);
+				// TODO:
+				throwStdException(t, "LexicalException", "({}:{}): Invalid character in string token", mLine, mCol);
 			else
 			{
 				buf.addChar(mCharacter);
@@ -734,7 +747,8 @@ struct Lexer
 					
 				case 't':
 					if(!mSource[mPosition .. $].startsWith("rue"))
-						throwException(t, "({}:{}): true expected", mLine, mCol);
+						// TODO
+						throwStdException(t, "LexicalException", "({}:{}): true expected", mLine, mCol);
 
 					nextChar();
 					nextChar();
@@ -746,7 +760,8 @@ struct Lexer
 
 				case 'f':
 					if(!mSource[mPosition .. $].startsWith("alse"))
-						throwException(t, "({}:{}): false expected", mLine, mCol);
+						// TODO:
+						throwStdException(t, "LexicalException", "({}:{}): false expected", mLine, mCol);
 
 					nextChar();
 					nextChar();
@@ -759,7 +774,8 @@ struct Lexer
 
 				case 'n':
 					if(!mSource[mPosition .. $].startsWith("ull"))
-						throwException(t, "({}:{}): null expected", mLine, mCol);
+						// TODO:
+						throwStdException(t, "LexicalException", "({}:{}): null expected", mLine, mCol);
 
 					nextChar();
 					nextChar();
@@ -782,8 +798,9 @@ struct Lexer
 						nextChar();
 						continue;
 					}
-					
-					throwException(t, "({}:{}): Invalid character '{}'", mLine, mCol, mCharacter);
+
+					// TODO:
+					throwStdException(t, "LexicalException", "({}:{}): Invalid character '{}'", mLine, mCol, mCharacter);
 			}
 		}
 	}
@@ -801,7 +818,8 @@ private void parseValue(CrocThread* t, ref Lexer l)
 		case Token.Null:     l.next(); return;
 		case Token.LBrace:   return parseObject(t, l);
 		case Token.LBracket: return parseArray(t, l);
-		default: throwException(t, "({}:{}): value expected", l.line, l.col);
+		// TODO:
+		default: throwStdException(t, "SyntaxException", "({}:{}): value expected", l.line, l.col);
 	}
 }
 
