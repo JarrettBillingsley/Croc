@@ -31,29 +31,52 @@ import Utf = tango.text.convert.Utf;
 
 import croc.api_interpreter;
 import croc.ex;
+import croc.stdlib_utils;
 import croc.types;
+
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
 
 struct CharLib
 {
 static:
 	public void init(CrocThread* t)
 	{
+		version(CrocBuiltinDocs)
+		{
+			scope doc = new CrocDoc(t, __FILE__);
+			doc.push(Docs("module", "Character Library",
+			"The character library provides functionality for classifying and transforming individual
+			characters. These functions are all accessed as methods of character values."));
+		}
+
 		newNamespace(t, "char");
-			newFunction(t, 0, &toLower,    "char.toLower");    fielda(t, -2, "toLower");
-			newFunction(t, 0, &toUpper,    "char.toUpper");    fielda(t, -2, "toUpper");
-			newFunction(t, 0, &isAlpha,    "char.isAlpha");    fielda(t, -2, "isAlpha");
-			newFunction(t, 0, &isAlNum,    "char.isAlNum");    fielda(t, -2, "isAlNum");
-			newFunction(t, 0, &isLower,    "char.isLower");    fielda(t, -2, "isLower");
-			newFunction(t, 0, &isUpper,    "char.isUpper");    fielda(t, -2, "isUpper");
-			newFunction(t, 0, &isDigit,    "char.isDigit");    fielda(t, -2, "isDigit");
-			newFunction(t, 0, &isCtrl,     "char.isCtrl");     fielda(t, -2, "isCtrl");
-			newFunction(t, 0, &isPunct,    "char.isPunct");    fielda(t, -2, "isPunct");
-			newFunction(t, 0, &isSpace,    "char.isSpace");    fielda(t, -2, "isSpace");
-			newFunction(t, 0, &isHexDigit, "char.isHexDigit"); fielda(t, -2, "isHexDigit");
-			newFunction(t, 0, &isAscii,    "char.isAscii");    fielda(t, -2, "isAscii");
-			newFunction(t, 0, &isValid,    "char.isValid");    fielda(t, -2, "isValid");
+			mixin(RegisterField!(0, "toLower"));
+			mixin(RegisterField!(0, "toUpper"));
+			mixin(RegisterField!(0, "isAlpha"));
+			mixin(RegisterField!(0, "isAlNum"));
+			mixin(RegisterField!(0, "isLower"));
+			mixin(RegisterField!(0, "isUpper"));
+			mixin(RegisterField!(0, "isDigit"));
+			mixin(RegisterField!(0, "isCtrl"));
+			mixin(RegisterField!(0, "isPunct"));
+			mixin(RegisterField!(0, "isSpace"));
+			mixin(RegisterField!(0, "isHexDigit"));
+			mixin(RegisterField!(0, "isAscii"));
+			mixin(RegisterField!(0, "isValid"));
+
+			version(CrocBuiltinDocs)
+				doc.pop(-1);
+
 		setTypeMT(t, CrocValue.Type.Char);
 	}
+
+	version(CrocBuiltinDocs) Docs toLower_docs = {kind: "function", name: "c.toLower", docs:
+	"If c is an uppercase letter, returns the lowercase version of the letter. Otherwise, just
+	returns the character itself.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword toLower(CrocThread* t)
 	{
@@ -63,6 +86,12 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs toUpper_docs = {kind: "function", name: "c.toUpper", docs:
+	"If c is a lowercase letter, returns the uppercase version of the letter. Otherwise, just
+	returns the character itself.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword toUpper(CrocThread* t)
 	{
 		dchar[4] outbuf = void;
@@ -71,11 +100,21 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isAlpha_docs = {kind: "function", name: "c.isAlpha", docs:
+	"Returns `true` if c is an alphabetic character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isAlpha(CrocThread* t)
 	{
 		pushBool(t, Uni.isLetter(checkCharParam(t, 0)));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isAlNum_docs = {kind: "function", name: "c.isAlNum", docs:
+	"Returns `true` if c is an alphanumeric character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword isAlNum(CrocThread* t)
 	{
@@ -83,11 +122,21 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isLower_docs = {kind: "function", name: "c.isLower", docs:
+	"Returns `true` if c is a lowercase alphabetic character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isLower(CrocThread* t)
 	{
 		pushBool(t, Uni.isLower(checkCharParam(t, 0)));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isUpper_docs = {kind: "function", name: "c.isUpper", docs:
+	"Returns `true` if c is an uppercase alphabetic character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword isUpper(CrocThread* t)
 	{
@@ -95,11 +144,21 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isDigit_docs = {kind: "function", name: "c.isDigit", docs:
+	"Returns `true` if c is a decimal digit (0 - 9); `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isDigit(CrocThread* t)
 	{
 		pushBool(t, Uni.isDigit(checkCharParam(t, 0)));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isCtrl_docs = {kind: "function", name: "c.isCtrl", docs:
+	"Returns `true` if c is a control character (characters 0x0 to 0x1f and character 0x7f); `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword isCtrl(CrocThread* t)
 	{
@@ -107,11 +166,21 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isPunct_docs = {kind: "function", name: "c.isPunct", docs:
+	"Returns `true` if c is a punctuation character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isPunct(CrocThread* t)
 	{
 		pushBool(t, cast(bool)ispunct(checkCharParam(t, 0)));
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isSpace_docs = {kind: "function", name: "c.isSpace", docs:
+	"Returns `true` if c is a whitespace character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword isSpace(CrocThread* t)
 	{
@@ -119,17 +188,32 @@ static:
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isHexDigit_docs = {kind: "function", name: "c.isHexDigit", docs:
+	"Returns `true` if c is a hexadecimal digit (0 - 9, A - F, a - f); `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isHexDigit(CrocThread* t)
 	{
 		pushBool(t, cast(bool)isxdigit(checkCharParam(t, 0)));
 		return 1;
 	}
 
+	version(CrocBuiltinDocs) Docs isAscii_docs = {kind: "function", name: "c.isAscii", docs:
+	"Returns `true` if c is an ASCII character (<= 0x7f); `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
+
 	uword isAscii(CrocThread* t)
 	{
 		pushBool(t, checkCharParam(t, 0) <= 0x7f);
 		return 1;
 	}
+
+	version(CrocBuiltinDocs) Docs isValid_docs = {kind: "function", name: "c.isValid", docs:
+	"Returns `true` if c is a valid Unicode character; `false` otherwise.",
+	params: [],
+	extra: [Extra("section", "Methods")]};
 
 	uword isValid(CrocThread* t)
 	{
