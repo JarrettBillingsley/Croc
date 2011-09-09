@@ -20,12 +20,6 @@ version(CrocAllAddons)
 	version = CrocNetAddon;
 }
 
-/*
-Language changes:
-- Trailing commas now allowed in table and array constructors
-- Labeled control structures, breaks, and continues
-*/
-
 void main()
 {
 	scope(exit) Stdout.flush;
