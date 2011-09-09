@@ -307,24 +307,13 @@ int getDebugLine(CrocThread* t, uword depth = 0)
 	return pcToLine(ar, ar.pc);
 }
 
-word locToCrocLocation(CrocThread* t, Location loc)
-{
-	auto l = push(t, CrocValue(t.vm.location));
-	pushNull(t);
-	push(t, CrocValue(loc.file));
-	pushInt(t, loc.line);
-	pushInt(t, loc.col);
-	rawCall(t, l, 1);
-	return l;
-}
-
-Location getDebugLoc(CrocThread* t, ActRecord* ar = null)
+word pushDebugLoc(CrocThread* t, ActRecord* ar = null)
 {
 	if(ar is null)
 		ar = t.currentAR;
 
 	if(ar is null || ar.func is null)
-		return Location(createString(t, "<no location available>"), 0, Location.Type.Unknown);
+		return pushLocationObject(t, "<no location available>", 0, CrocLocation.Unknown);
 	else
 	{
 		pushNamespaceNamestring(t, ar.func.environment);
@@ -338,45 +327,12 @@ Location getDebugLoc(CrocThread* t, ActRecord* ar = null)
 
 		auto slot = t.stackIndex - 3;
 		catImpl(t, &t.stack[slot], slot, 3);
-		auto s = getStringObj(t, -3);
+		auto s = getString(t, -3);
 		pop(t, 3);
 
 		if(ar.func.isNative)
-			return Location(s, 0, Location.Type.Native);
+			return pushLocationObject(t, s, 0, CrocLocation.Native);
 		else
-			return Location(s, pcToLine(ar, ar.pc), Location.Type.Script);
-	}
-}
-
-void pushDebugLocStr(CrocThread* t, Location loc)
-{
-	if(loc.col == Location.Type.Unknown)
-		pushString(t, "<no location available>");
-	else
-	{
-		push(t, CrocValue(loc.file));
-
-		if(loc.col == Location.Type.Native)
-		{
-			pushString(t, "(native)");
-			auto slot = t.stackIndex - 2;
-			catImpl(t, &t.stack[slot], slot, 2);
-			pop(t);
-		}
-		else
-		{
-			pushChar(t, '(');
-
-			if(loc.line == -1)
-				pushChar(t, '?');
-			else
-				pushFormat(t, "{}", loc.line);
-
-			pushChar(t, ')');
-
-			auto slot = t.stackIndex - 4;
-			catImpl(t, &t.stack[slot], slot, 4);
-			pop(t, 3);
-		}
+			return pushLocationObject(t, s, pcToLine(ar, ar.pc), CrocLocation.Script);
 	}
 }

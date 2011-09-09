@@ -176,9 +176,9 @@ CrocFuncDef* deserializeAsModule(CrocThread* t, InputStream s)
 
 void serialize(CrocFuncDef* fd, OutputStream s)
 {
-	put(s, fd.location.line);
-	put(s, fd.location.col);
-	Serialize(s, fd.location.file);
+	put(s, fd.locLine);
+	put(s, fd.locCol);
+	Serialize(s, fd.locFile);
 
 	put(s, fd.isVararg);
 	Serialize(s, fd.name);
@@ -230,9 +230,9 @@ CrocFuncDef* deserialize(CrocThread* t, InputStream s)
 
 	auto ret = funcdef.create(vm.alloc);
 
-	get(s, ret.location.line);
-	get(s, ret.location.col);
-	Deserialize(t, s, ret.location.file);
+	get(s, ret.locLine);
+	get(s, ret.locCol);
+	Deserialize(t, s, ret.locFile);
 
 	get(s, ret.isVararg);
 	Deserialize(t, s, ret.name);

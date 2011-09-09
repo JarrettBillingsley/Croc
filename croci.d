@@ -335,7 +335,9 @@ bool doNormal(CrocThread* t, ref Params params)
 			(CrocException e, word crocEx)
 			{
 				Stdout.formatln("Error: {}", e);
-				getTraceback(t);
+				dup(t, crocEx);
+				pushNull(t);
+				methodCall(t, -2, "tracebackString", 1);
 				Stdout.formatln("{}", getString(t, -1));
 				pop(t);
 			});

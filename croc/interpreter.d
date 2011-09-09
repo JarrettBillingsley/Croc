@@ -834,8 +834,8 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 				return pushFormat(t, "native {} {}", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString());
 			else
 			{
-				auto loc = f.scriptFunc.location;
-				return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString(), loc.file.toString(), loc.line, loc.col);
+				auto sf = f.scriptFunc;
+				return pushFormat(t, "script {} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.Function], f.name.toString(), sf.locFile.toString(), sf.locLine, sf.locCol);
 			}
 
 		case CrocValue.Type.Class:    return pushFormat(t, "{} {} (0x{:X8})", CrocValue.typeStrings[CrocValue.Type.Class], v.mClass.name.toString(), cast(void*)v.mClass);
@@ -856,8 +856,7 @@ word toStringImpl(CrocThread* t, CrocValue v, bool raw)
 
 		case CrocValue.Type.FuncDef:
 			auto d = v.mFuncDef;
-			auto loc = d.location;
-			return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.FuncDef], d.name.toString(), loc.file.toString(), loc.line, loc.col);
+			return pushFormat(t, "{} {}({}({}:{}))", CrocValue.typeStrings[CrocValue.Type.FuncDef], d.name.toString(), d.locFile.toString(), d.locLine, d.locCol);
 
 		default:
 			return pushFormat(t, "{} 0x{:X8}", CrocValue.typeStrings[v.type], cast(void*)v.mBaseObj);
@@ -2272,13 +2271,13 @@ word pushTraceback(CrocThread* t)
 
 	foreach_reverse(ref ar; t.actRecs[0 .. t.arIndex])
 	{
-		locToCrocLocation(t, getDebugLoc(t, &ar));
+		pushDebugLoc(t, &ar);
 		cateq(t, ret, 1);
 
 		if(ar.numTailcalls > 0)
 		{
 			pushFormat(t, "<{} tailcall{}>", ar.numTailcalls, ar.numTailcalls == 1 ? "" : "s");
-			locToCrocLocation(t, Location(getStringObj(t, -1), -1, Location.Type.Script));
+			pushLocationObject(t, getString(t, -1), -1, CrocLocation.Script);
 			cateq(t, ret, 1);
 			pop(t);
 		}
@@ -2303,14 +2302,14 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 		field(t, -2, "location");
 		field(t, -1, "col");
 		
-		if(getInt(t, -1) == Location.Type.Unknown)
+		if(getInt(t, -1) == CrocLocation.Unknown)
 		{
 			pop(t, 2);
 
 			if(len(t, -1) > 0)
 				idxi(t, -1, 0);
 			else
-				locToCrocLocation(t, getDebugLoc(t));
+				pushDebugLoc(t);
 
 			fielda(t, -3, "location");
 		}

@@ -206,7 +206,7 @@ static:
 		if(func is null || func.isNative)
 			pushString(t, "");
 		else
-			push(t, CrocValue(func.scriptFunc.location.file));
+			push(t, CrocValue(func.scriptFunc.locFile));
 
 		return 1;
 	}
@@ -220,7 +220,7 @@ static:
 		if(func is null || func.isNative)
 			pushInt(t, 0);
 		else
-			pushInt(t, func.scriptFunc.location.line);
+			pushInt(t, func.scriptFunc.locLine);
 
 		return 1;
 	}

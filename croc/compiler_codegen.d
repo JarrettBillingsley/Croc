@@ -1737,9 +1737,9 @@ final class FuncState
 		auto ret = funcdef.create(*c.alloc);
 		push(t, CrocValue(ret));
 
-		ret.location.file = createString(t, mLocation.file);
-		ret.location.line = mLocation.line;
-		ret.location.col = mLocation.col;
+		ret.locFile = createString(t, mLocation.file);
+		ret.locLine = mLocation.line;
+		ret.locCol = mLocation.col;
 		ret.isVararg = mIsVararg;
 		ret.name = createString(t, mName);
 		ret.numParams = mNumParams;

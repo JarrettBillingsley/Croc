@@ -368,8 +368,8 @@ void markObj(CrocVM* vm, CrocFuncDef* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
-	if(o.location.file)
-		markObj(vm, o.location.file);
+	if(o.locFile)
+		markObj(vm, o.locFile);
 
 	if(o.name)
 		markObj(vm, o.name);

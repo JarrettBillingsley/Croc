@@ -707,28 +707,11 @@ struct CrocWeakRef
 	package CrocBaseObject* obj;
 }
 
-struct Location
+enum CrocLocation
 {
-	enum Type
-	{
-		Unknown = 0,
-		Native = -1,
-		Script = -2
-	}
-
-	public CrocString* file;
-	// yes, these are 32 bits
-	package int line = 1;
-	package int col = 1;
-
-	public static Location opCall(CrocString* file, int line, int col)
-	{
-		Location l = void;
-		l.file = file;
-		l.line = line;
-		l.col = col;
-		return l;
-	}
+	Unknown = 0,
+	Native = -1,
+	Script = -2
 }
 
 // The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
@@ -736,7 +719,9 @@ struct CrocFuncDef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.FuncDef);
 
-	package Location location;
+	package CrocString* locFile;
+	package int locLine = 1;
+	package int locCol = 1;
 	package bool isVararg;
 	package CrocString* name;
 	package uint numParams;

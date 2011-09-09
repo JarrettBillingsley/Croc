@@ -364,9 +364,9 @@ private:
 			return;
 
 		tag(CrocValue.Type.FuncDef);
-		serialize(CrocValue(v.location.file));
-		integer(v.location.line);
-		integer(v.location.col);
+		serialize(CrocValue(v.locFile));
+		integer(v.locLine);
+		integer(v.locCol);
 		put(mOutput, v.isVararg);
 		serialize(CrocValue(v.name));
 		integer(v.numParams);
@@ -1134,10 +1134,10 @@ private:
 		addObject(cast(CrocBaseObject*)def);
 
 		deserializeString();
-		def.location.file = getStringObj(t, -1);
+		def.locFile = getStringObj(t, -1);
 		pop(t);
-		integer(def.location.line);
-		integer(def.location.col);
+		integer(def.locLine);
+		integer(def.locCol);
 		get(mInput, def.isVararg);
 		deserializeString();
 		def.name = getStringObj(t, -1);
