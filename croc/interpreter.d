@@ -131,9 +131,14 @@ void runFinalizers(CrocThread* t)
 				}
 				catch(CrocException e)
 				{
-					// TODO: this seems like a bad idea.
 					catchException(t);
-					setStackSize(t, size);
+					getStdException(t, "FinalizerError");
+					pushNull(t);
+					pushFormat(t, "Error finalizing instance of class '{}'", i.parent.name.toString());
+					rawCall(t, -3, 1);
+					swap(t);
+					fielda(t, -2, "cause");
+					throwException(t);
 				}
 			}
 		}

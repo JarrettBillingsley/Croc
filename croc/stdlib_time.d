@@ -124,11 +124,11 @@ static:
 		if(numParams > 2)
 		{
 			auto name = StrToCulture(t, 1);
-			culture = safeCode(t, Culture.getCulture(name));
+			culture = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
 		}
 
 		char[40] buffer;
-		auto ret = safeCode(t, formatDateTime(buffer, time, format, culture));
+		auto ret = safeCode(t, "exceptions.ValueException", formatDateTime(buffer, time, format, culture));
 
 		pushString(t, ret);
 		return 1;
@@ -173,7 +173,7 @@ static:
 		if(numParams > 0)
 		{
 			auto name = StrToCulture(t, 1);
-			Culture.current = safeCode(t, Culture.getCulture(name));
+			Culture.current = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
 		}
 
 		return 1;

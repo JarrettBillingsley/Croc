@@ -46,6 +46,9 @@ static:
 		{
 			importModuleNoNS(t, "stream");
 
+			CreateClass(t, "NetException", "exceptions.IOException", (CreateClass*){});
+			newGlobal(t, "NetException");
+
 			SocketObj.init(t);
 
 			newFunction(t, &connect, "connect"); newGlobal(t, "connect");
@@ -83,8 +86,8 @@ static:
 	uword connect(CrocThread* t)
 	{
 		auto addr = getAddr(t, 1);
-		auto socket = safeCode(t, new Socket());
-		safeCode(t, socket.connect(addr));
+		auto socket = safeCode(t, "NetException", new Socket());
+		safeCode(t, "NetException", socket.connect(addr));
 
 		pushGlobal(t, "Socket");
 		pushNull(t);
@@ -103,7 +106,7 @@ static:
 			throwStdException(t, "RangeException", "Invalid backlog: {}", backlog);
 
 		auto reuse = optBoolParam(t, 4, false);
-		auto socket = safeCode(t, new ServerSocket(addr, cast(int)backlog, reuse));
+		auto socket = safeCode(t, "NetException", new ServerSocket(addr, cast(int)backlog, reuse));
 
 		pushGlobal(t, "Socket");
 		pushNull(t);
@@ -190,8 +193,8 @@ static:
 			memb.base.closed = true;
 			memb.base.dirty = false;
 
-			safeCode(t, memb.socket.shutdown());
-			safeCode(t, memb.socket.close());
+			safeCode(t, "NetException", memb.socket.shutdown());
+			safeCode(t, "NetException", memb.socket.close());
 		}
 
 		return 0;
@@ -227,8 +230,8 @@ static:
 		auto memb = getOpenThis(t);
 		memb.base.closed = true;
 
-		safeCode(t, memb.socket.shutdown());
-		safeCode(t, memb.socket.close());
+		safeCode(t, "NetException", memb.socket.shutdown());
+		safeCode(t, "NetException", memb.socket.close());
 
 		return 0;
 	}
@@ -236,12 +239,12 @@ static:
 	uword localAddress(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto addr = cast(IPv4Address)safeCode(t, memb.socket.socket.localAddress());
+		auto addr = cast(IPv4Address)safeCode(t, "NetException", memb.socket.socket.localAddress());
 
 		assert(addr !is null);
 
-		pushString(t, safeCode(t, addr.toAddrString()));
-		pushInt(t, safeCode(t, addr.port()));
+		pushString(t, safeCode(t, "NetException", addr.toAddrString()));
+		pushInt(t, safeCode(t, "NetException", addr.port()));
 		return 2;
 	}
 
@@ -273,7 +276,7 @@ static:
 		if(ss is null)
 			throwStdException(t, "ValueException", "Socket is not a server socket");
 
-		auto sock = safeCode(t, ss.accept());
+		auto sock = safeCode(t, "NetException", ss.accept());
 
 		if(memb.linger)
 			sock.socket.linger(memb.linger);

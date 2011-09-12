@@ -85,7 +85,7 @@ static:
 				paramTypeError(t, 3, "stream.OutStream|stream.InoutStream");
 		}
 
-		safeCode(t, .serializeGraph(t, 1, 2, stream));
+		.serializeGraph(t, 1, 2, stream);
 		return 0;
 	}
 
@@ -116,7 +116,7 @@ static:
 				paramTypeError(t, 2, "stream.OutStream|stream.InoutStream");
 		}
 
-		safeCode(t, .deserializeGraph(t, 1, stream));
+		.deserializeGraph(t, 1, stream);
 		return 1;
 	}
 }

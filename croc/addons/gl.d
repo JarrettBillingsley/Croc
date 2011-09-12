@@ -75,6 +75,9 @@ static:
 	{
 		makeModule(t, "gl", function uword(CrocThread* t)
 		{
+			CreateClass(t, "GLException", "exceptions.Exception", (CreateClass* c) {});
+			newGlobal(t, "GLException");
+
 			register(t, &load, "load");
 
 			pushString(t, typeStringOf!(GLenum)); newGlobal(t, "GLenum");
@@ -91,9 +94,6 @@ static:
 			pushString(t, typeStringOf!(GLclampf)); newGlobal(t, "GLclampf");
 			pushString(t, typeStringOf!(GLdouble)); newGlobal(t, "GLdouble");
 			pushString(t, typeStringOf!(GLclampd)); newGlobal(t, "GLclampd");
-			
-			CreateClass(t, "GLException", "exceptions.Exception", (CreateClass* c) {});
-			newGlobal(t, "GLException");
 
 			return 0;
 		});
@@ -111,7 +111,7 @@ static:
 
 		pop(t);
 
-		safeCode(t,
+		safeCode(t, "GLException",
 		{
 			GLVersion v;
 
@@ -159,7 +159,7 @@ static:
 
 	uword version_(CrocThread* t)
 	{
-		pushString(t, safeCode(t, DerelictGL.versionString(DerelictGL.availableVersion())));
+		pushString(t, safeCode(t, "GLException", DerelictGL.versionString(DerelictGL.availableVersion())));
 		return 1;
 	}
 

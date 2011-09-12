@@ -1074,7 +1074,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 				style[0] = checkCharParam(t, 2);
 
 			char[80] buffer = void;
-			pushString(t, safeCode(t, Integer.format(buffer, getInt(t, 1), style)));
+			pushString(t, safeCode(t, "exceptions.ValueException", Integer.format(buffer, getInt(t, 1), style)));
 		}
 		else
 			pushToString(t, 1);
@@ -1156,7 +1156,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 			case CrocValue.Type.Int:    dup(t, 1); break;
 			case CrocValue.Type.Float:  pushInt(t, cast(crocint)getFloat(t, 1)); break;
 			case CrocValue.Type.Char:   pushInt(t, cast(crocint)getChar(t, 1)); break;
-			case CrocValue.Type.String: pushInt(t, safeCode(t, cast(crocint)Integer.toLong(getString(t, 1), 10))); break;
+			case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer.toLong(getString(t, 1), 10))); break;
 
 			default:
 				pushTypeString(t, 1);
@@ -1188,7 +1188,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 			case CrocValue.Type.Int: pushFloat(t, cast(crocfloat)getInt(t, 1)); break;
 			case CrocValue.Type.Float: dup(t, 1); break;
 			case CrocValue.Type.Char: pushFloat(t, cast(crocfloat)getChar(t, 1)); break;
-			case CrocValue.Type.String: pushFloat(t, safeCode(t, cast(crocfloat)Float.toFloat(getString(t, 1)))); break;
+			case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float.toFloat(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);

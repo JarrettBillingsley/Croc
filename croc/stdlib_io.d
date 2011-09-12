@@ -102,7 +102,7 @@ static:
 	uword inFile(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto f = safeCode(t, new BufferedInput(new File(name, File.ReadExisting)));
+		auto f = safeCode(t, "exceptions.IOException", new BufferedInput(new File(name, File.ReadExisting)));
 
 		lookupCT!("stream.InStream")(t);
 		pushNull(t);
@@ -128,7 +128,7 @@ static:
 				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
 
-		auto f = safeCode(t, new BufferedOutput(new File(name, style)));
+		auto f = safeCode(t, "exceptions.IOException", new BufferedOutput(new File(name, style)));
 
 		lookupCT!("stream.OutStream")(t);
 		pushNull(t);
@@ -157,7 +157,7 @@ static:
 		}
 
 		// TODO: figure out some way of making inout files buffered?
-		auto f = safeCode(t, new File(name, style));
+		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
 
 		lookupCT!("stream.InoutStream")(t);
 		pushNull(t);
@@ -169,25 +169,25 @@ static:
 
 	uword rename(CrocThread* t)
 	{
-		safeCode(t, Path.rename(checkStringParam(t, 1), checkStringParam(t, 2)));
+		safeCode(t, "exceptions.IOException", Path.rename(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
 	uword remove(CrocThread* t)
 	{
-		safeCode(t, Path.remove(checkStringParam(t, 1)));
+		safeCode(t, "exceptions.IOException", Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
 	uword copy(CrocThread* t)
 	{
-		safeCode(t, Path.copy(checkStringParam(t, 1), checkStringParam(t, 2)));
+		safeCode(t, "exceptions.IOException", Path.copy(checkStringParam(t, 1), checkStringParam(t, 2)));
 		return 0;
 	}
 
 	uword size(CrocThread* t)
 	{
-		pushInt(t, cast(crocint)safeCode(t, Path.fileSize(checkStringParam(t, 1))));
+		pushInt(t, cast(crocint)safeCode(t, "exceptions.IOException", Path.fileSize(checkStringParam(t, 1))));
 		return 1;
 	}
 
@@ -199,26 +199,26 @@ static:
 
 	uword isFile(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, !Path.isFolder(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", !Path.isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword isDir(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, Path.isFolder(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", Path.isFolder(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword isReadOnly(CrocThread* t)
 	{
-		pushBool(t, safeCode(t, !Path.isWritable(checkStringParam(t, 1))));
+		pushBool(t, safeCode(t, "exceptions.IOException", !Path.isWritable(checkStringParam(t, 1))));
 		return 1;
 	}
 
 	uword fileTime(char[] which)(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
-		auto time = safeCode(t, mixin("Path." ~ which ~ "(checkStringParam(t, 1))"));
+		auto time = safeCode(t, "exceptions.IOException", mixin("Path." ~ which ~ "(checkStringParam(t, 1))"));
 		word tab;
 
 		if(numParams == 1)
@@ -236,7 +236,7 @@ static:
 
 	uword currentDir(CrocThread* t)
 	{
-		pushString(t, safeCode(t, Environment.cwd()));
+		pushString(t, safeCode(t, "exceptions.IOException", Environment.cwd()));
 		return 1;
 	}
 
@@ -247,19 +247,19 @@ static:
 		if(p == ".")
 			p = Environment.cwd();
 
-		auto pp = safeCode(t, Path.parse(p));
+		auto pp = safeCode(t, "exceptions.IOException", Path.parse(p));
 
 		if(pp.isAbsolute)
-			pushString(t, safeCode(t, Path.pop(p)));
+			pushString(t, safeCode(t, "exceptions.IOException", Path.pop(p)));
 		else
-			pushString(t, safeCode(t, Path.join(Environment.cwd(), p)));
+			pushString(t, safeCode(t, "exceptions.IOException", Path.join(Environment.cwd(), p)));
 
 		return 1;
 	}
 
 	uword changeDir(CrocThread* t)
 	{
-		safeCode(t, Environment.cwd(checkStringParam(t, 1)));
+		safeCode(t, "exceptions.IOException", Environment.cwd(checkStringParam(t, 1)));
 		return 0;
 	}
 
@@ -268,9 +268,9 @@ static:
 		auto p = Path.parse(checkStringParam(t, 1));
 
 		if(!p.isAbsolute())
-			safeCode(t, Path.createFolder(Path.join(Environment.cwd(), p.toString())));
+			safeCode(t, "exceptions.IOException", Path.createFolder(Path.join(Environment.cwd(), p.toString())));
 		else
-			safeCode(t, Path.createFolder(p.toString()));
+			safeCode(t, "exceptions.IOException", Path.createFolder(p.toString()));
 
 		return 0;
 	}
@@ -280,16 +280,16 @@ static:
 		auto p = Path.parse(checkStringParam(t, 1));
 
 		if(!p.isAbsolute())
-			safeCode(t, Path.createPath(Path.join(Environment.cwd(), p.toString())));
+			safeCode(t, "exceptions.IOException", Path.createPath(Path.join(Environment.cwd(), p.toString())));
 		else
-			safeCode(t, Path.createPath(p.toString()));
+			safeCode(t, "exceptions.IOException", Path.createPath(p.toString()));
 
 		return 0;
 	}
 
 	uword removeDir(CrocThread* t)
 	{
-		safeCode(t, Path.remove(checkStringParam(t, 1)));
+		safeCode(t, "exceptions.IOException", Path.remove(checkStringParam(t, 1)));
 		return 0;
 	}
 
@@ -306,7 +306,7 @@ static:
 			auto filter = checkStringParam(t, 2);
 			checkParam(t, 3, CrocValue.Type.Function);
 
-			safeCode(t,
+			safeCode(t, "exceptions.IOException", 
 			{
 				foreach(ref info; Path.children(fp))
 				{
@@ -334,7 +334,7 @@ static:
 		{
 			checkParam(t, 2, CrocValue.Type.Function);
 
-			safeCode(t,
+			safeCode(t, "exceptions.IOException",
 			{
 				foreach(ref info; Path.children(fp))
 				{
@@ -376,7 +376,7 @@ static:
 
 		if(shouldConvert)
 		{
-			safeCode(t,
+			safeCode(t,"exceptions.IOException",
 			{
 				auto data = cast(ubyte[]).File.get(name);
 
@@ -392,7 +392,7 @@ static:
 		}
 		else
 		{
-			safeCode(t,
+			safeCode(t, "exceptions.IOException",
 			{
 				scope file = new UnicodeFile!(char)(name, Encoding.Unknown);
 				pushString(t, file.read());
@@ -407,7 +407,7 @@ static:
 		auto name = checkStringParam(t, 1);
 		auto data = checkStringParam(t, 2);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			scope file = new UnicodeFile!(char)(name, Encoding.UTF_8);
 			file.write(data, true);
@@ -419,14 +419,14 @@ static:
 	uword readMemblock(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
-		auto size = safeCode(t, Path.fileSize(name));
+		auto size = safeCode(t, "exceptions.IOException", Path.fileSize(name));
 
 		if(size > uword.max)
 			throwStdException(t, "ValueException", "file too big ({} bytes)", size);
 
 		newMemblock(t, "u8", cast(uword)size);
 		auto mb = getMemblock(t, -1);
-		safeCode(t, File.get(name, mb.data[0 .. cast(uword)size]));
+		safeCode(t, "exceptions.IOException", File.get(name, mb.data[0 .. cast(uword)size]));
 		return 1;
 	}
 
@@ -435,7 +435,7 @@ static:
 		auto name = checkStringParam(t, 1);
 		checkParam(t, 2, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 2);
-		safeCode(t, File.set(name, mb.data));
+		safeCode(t, "exceptions.IOException", File.set(name, mb.data));
 		return 1;
 	}
 
@@ -443,7 +443,7 @@ static:
 	{
 		auto lines = checkInstParam!(InStreamObj.Members)(t, 0, "stream.InStream").lines;
 		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, lines.next());
+		auto line = safeCode(t, "exceptions.IOException", lines.next());
 
 		if(line.ptr is null)
 		{
@@ -487,31 +487,31 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 			tmp ~= checkStringParam(t, i);
 
-		pushString(t, safeCode(t, Path.join(tmp)));
+		pushString(t, safeCode(t, "exceptions.IOException", Path.join(tmp)));
 		return 1;
 	}
 	
 	uword dirName(CrocThread* t)
 	{
-		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).path);
+		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).path);
 		return 1;
 	}
 
 	uword name(CrocThread* t)
 	{
-		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).name);
+		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).name);
 		return 1;
 	}
 
 	uword extension(CrocThread* t)
 	{
-		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).ext);
+		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).ext);
 		return 1;
 	}
 
 	uword fileName(CrocThread* t)
 	{
-		pushString(t, safeCode(t, Path.parse(checkStringParam(t, 1))).file);
+		pushString(t, safeCode(t, "exceptions.IOException", Path.parse(checkStringParam(t, 1))).file);
 		return 1;
 	}
 }

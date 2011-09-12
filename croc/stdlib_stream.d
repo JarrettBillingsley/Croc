@@ -230,7 +230,7 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, memb.stream.close());
+			safeCode(t, "exceptions.Exception", memb.stream.close());
 		}
 
 		return 0;
@@ -265,7 +265,7 @@ static:
 		auto memb = getOpenThis(t);
 		T val = void;
 		
-		safeCode(t, readExact(t, memb, &val, T.sizeof));
+		safeCode(t, "exceptions.IOException", readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
 			pushInt(t, cast(crocint)val);
@@ -283,18 +283,18 @@ static:
 	{
 		auto memb = getOpenThis(t);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			uword length = void;
 
-			safeCode(t, readExact(t, memb, &length, length.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, &length, length.sizeof));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 
-			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 
 			pushString(t, dat);
 		}());
@@ -304,7 +304,7 @@ static:
 
 	public uword readln(CrocThread* t)
 	{
-		auto ret = safeCode(t, getOpenThis(t).lines.next());
+		auto ret = safeCode(t, "exceptions.IOException", getOpenThis(t).lines.next());
 
 		if(ret.ptr is null)
 			throwStdException(t, "IOException", "Stream has no more data.");
@@ -321,14 +321,14 @@ static:
 		if(num < 0 || num > uword.max)
 			throwStdException(t, "RangeException", "Invalid number of characters ({})", num);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 
-			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 			pushString(t, dat);
 		}());
 
@@ -368,7 +368,7 @@ static:
 			paramTypeError(t, 1, "string|memblock");
 
 		uword numBytes = cast(uword)size * mb.kind.itemSize;
-		safeCode(t, readExact(t, memb, mb.data.ptr, numBytes));
+		safeCode(t, "exceptions.IOException", readExact(t, memb, mb.data.ptr, numBytes));
 		return 1;
 	}
 
@@ -386,7 +386,7 @@ static:
 		if(mb.itemLength == 0)
 			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
-		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
+		auto realSize = safeCode(t, "exceptions.IOException", readAtMost(t, memb, mb.data.ptr, mb.itemLength));
 		pushInt(t, realSize);
 		return 1;
 	}
@@ -394,7 +394,7 @@ static:
 	private uword iterator(CrocThread* t)
 	{
 		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, getOpenThis(t).lines.next());
+		auto line = safeCode(t, "exceptions.IOException", getOpenThis(t).lines.next());
 
 		if(line.ptr is null)
 			return 0;
@@ -429,7 +429,7 @@ static:
 		while(dist > 0)
 		{
 			uword numBytes = dist < dummy.length ? dist : dummy.length;
-			safeCode(t, readExact(t, memb, dummy.ptr, numBytes));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dummy.ptr, numBytes));
 			dist -= numBytes;
 		}
 
@@ -443,11 +443,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.End));
 		else
 			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
@@ -462,12 +462,12 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(crocint)memb.stream.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, "exceptions.IOException", cast(crocint)memb.stream.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
-			safeCode(t, memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -475,9 +475,9 @@ static:
 	public uword size(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.stream.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.End));
+		safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(crocint)ret);
 		return 1;
 	}
@@ -490,7 +490,7 @@ static:
 			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.stream.close());
+		safeCode(t, "exceptions.IOException", memb.stream.close());
 
 		return 0;
 	}
@@ -627,8 +627,8 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, memb.stream.flush());
-			safeCode(t, memb.stream.close());
+			safeCode(t, "exceptions.IOException", memb.stream.flush());
+			safeCode(t, "exceptions.IOException", memb.stream.close());
 		}
 
 		return 0;
@@ -671,7 +671,7 @@ static:
 		else
 			static assert(false);
 
-		safeCode(t, writeExact(t, memb, &val, val.sizeof));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, &val, val.sizeof));
 		dup(t, 0);
 		return 1;
 	}
@@ -681,7 +681,7 @@ static:
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			auto len = str.length;
 			writeExact(t, memb, &len, len.sizeof);
@@ -700,7 +700,7 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			safeCode(t, p.print(getString(t, -1)));
+			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
 			pop(t);
 		}
 
@@ -716,11 +716,11 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			safeCode(t, p.print(getString(t, -1)));
+			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
 			pop(t);
 		}
 
-		safeCode(t, p.newline());
+		safeCode(t, "exceptions.IOException", p.newline());
 		dup(t, 0);
 		return 1;
 	}
@@ -730,7 +730,7 @@ static:
 		auto p = getOpenThis(t).print;
 		auto numParams = stackSize(t) - 1;
 
-		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
+		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
@@ -745,13 +745,13 @@ static:
 		auto p = getOpenThis(t).print;
 		auto numParams = stackSize(t) - 1;
 
-		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
+		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
 		}));
 
-		safeCode(t, p.newline());
+		safeCode(t, "exceptions.IOException", p.newline());
 		dup(t, 0);
 		return 1;
 	}
@@ -760,7 +760,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, str.ptr, str.length * char.sizeof));
 		dup(t, 0);
 		return 1;
 	}
@@ -783,14 +783,14 @@ static:
 			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		auto isize = mb.kind.itemSize;
-		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		dup(t, 0);
 		return 1;
 	}
 
 	public uword flush(CrocThread* t)
 	{
-		safeCode(t, getOpenThis(t).stream.flush());
+		safeCode(t, "exceptions.IOException", getOpenThis(t).stream.flush());
 		dup(t, 0);
 		return 1;
 	}
@@ -822,7 +822,7 @@ static:
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
-		safeCode(t, memb.stream.copy(stream));
+		safeCode(t, "exceptions.IOException", memb.stream.copy(stream));
 		dup(t, 0);
 		return 1;
 	}
@@ -830,7 +830,7 @@ static:
 	public uword flushOnNL(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
+		safeCode(t, "exceptions.IOException", memb.print.flush = checkBoolParam(t, 1));
 		return 0;
 	}
 
@@ -841,11 +841,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.stream.seek(pos, IOStream.Anchor.End));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.End));
 		else
 			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
@@ -860,12 +860,12 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(crocint)memb.stream.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, "exceptions.IOException", cast(crocint)memb.stream.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
-			safeCode(t, memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.stream.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -873,9 +873,9 @@ static:
 	public uword size(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		auto pos = safeCode(t, memb.stream.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.stream.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.stream.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, "exceptions.IOException", memb.stream.seek(0, IOStream.Anchor.End));
+		safeCode(t, "exceptions.IOException", memb.stream.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(crocint)ret);
 		return 1;
 	}
@@ -888,8 +888,8 @@ static:
 			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.stream.flush());
-		safeCode(t, memb.stream.close());
+		safeCode(t, "exceptions.IOException", memb.stream.flush());
+		safeCode(t, "exceptions.IOException", memb.stream.close());
 		return 0;
 	}
 
@@ -1092,11 +1092,11 @@ static:
 			
 			if(memb.dirty)
 			{
-				safeCode(t, memb.conduit.flush());
+				safeCode(t, "exceptions.IOException", memb.conduit.flush());
 				memb.dirty = false;
 			}
 
-			safeCode(t, memb.conduit.close());
+			safeCode(t, "exceptions.IOException", memb.conduit.close());
 		}
 
 		return 0;
@@ -1133,7 +1133,7 @@ static:
 		if(memb.dirty)
 		{
 			memb.dirty = false;
-			safeCode(t, memb.conduit.flush());
+			safeCode(t, "exceptions.IOException", memb.conduit.flush());
 		}
 	}
 
@@ -1144,7 +1144,7 @@ static:
 
 		T val = void;
 
-		safeCode(t, readExact(t, memb, &val, T.sizeof));
+		safeCode(t, "exceptions.IOException", readExact(t, memb, &val, T.sizeof));
 
 		static if(isIntegerType!(T))
 			pushInt(t, cast(crocint)val);
@@ -1163,18 +1163,18 @@ static:
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			uword length = void;
 
-			safeCode(t, readExact(t, memb, &length, length.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, &length, length.sizeof));
 
 			auto dat = t.vm.alloc.allocArray!(char)(length);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 
-			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 
 			pushString(t, dat);
 		}());
@@ -1186,7 +1186,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
-		auto ret = safeCode(t, memb.lines.next());
+		auto ret = safeCode(t, "exceptions.IOException", memb.lines.next());
 
 		if(ret.ptr is null)
 			throwStdException(t, "IOException", "Stream has no more data.");
@@ -1205,14 +1205,14 @@ static:
 
 		checkDirty(t, memb);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
 
 			scope(exit)
 				t.vm.alloc.freeArray(dat);
 
-			safeCode(t, readExact(t, memb, dat.ptr, dat.length * char.sizeof));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
 			pushString(t, dat);
 		}());
 
@@ -1254,7 +1254,7 @@ static:
 			paramTypeError(t, 1, "string|memblock");
 
 		uword numBytes = cast(uword)size * mb.kind.itemSize;
-		safeCode(t, readExact(t, memb, mb.data.ptr, numBytes));
+		safeCode(t, "exceptions.IOException", readExact(t, memb, mb.data.ptr, numBytes));
 		return 1;
 	}
 
@@ -1274,7 +1274,7 @@ static:
 		if(mb.itemLength == 0)
 			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
-		auto realSize = safeCode(t, readAtMost(t, memb, mb.data.ptr, mb.itemLength));
+		auto realSize = safeCode(t, "exceptions.IOException", readAtMost(t, memb, mb.data.ptr, mb.itemLength));
 		pushInt(t, realSize);
 		return 1;
 	}
@@ -1284,7 +1284,7 @@ static:
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
 		auto index = checkIntParam(t, 1) + 1;
-		auto line = safeCode(t, memb.lines.next());
+		auto line = safeCode(t, "exceptions.IOException", memb.lines.next());
 
 		if(line.ptr is null)
 			return 0;
@@ -1316,7 +1316,7 @@ static:
 		else
 			static assert(false);
 
-		safeCode(t, writeExact(t, memb, &val, val.sizeof));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, &val, val.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1327,7 +1327,7 @@ static:
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
 
-		safeCode(t,
+		safeCode(t, "exceptions.IOException",
 		{
 			auto len = str.length;
 			writeExact(t, memb, &len, len.sizeof);
@@ -1348,7 +1348,7 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			safeCode(t, p.print(getString(t, -1)));
+			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
 			pop(t);
 		}
 
@@ -1366,11 +1366,11 @@ static:
 		for(uword i = 1; i <= numParams; i++)
 		{
 			pushToString(t, i);
-			safeCode(t, p.print(getString(t, -1)));
+			safeCode(t, "exceptions.IOException", p.print(getString(t, -1)));
 			pop(t);
 		}
 
-		safeCode(t, p.newline());
+		safeCode(t, "exceptions.IOException", p.newline());
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1382,7 +1382,7 @@ static:
 		auto p = memb.print;
 		auto numParams = stackSize(t) - 1;
 
-		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
+		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
@@ -1399,13 +1399,13 @@ static:
 		auto p = memb.print;
 		auto numParams = stackSize(t) - 1;
 
-		safeCode(t, formatImpl(t, numParams, delegate uint(char[] s)
+		safeCode(t, "exceptions.IOException", formatImpl(t, numParams, delegate uint(char[] s)
 		{
 			p.print(s);
 			return s.length;
 		}));
 
-		safeCode(t, p.newline());
+		safeCode(t, "exceptions.IOException", p.newline());
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1415,7 +1415,7 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, writeExact(t, memb, str.ptr, str.length * char.sizeof));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, str.ptr, str.length * char.sizeof));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1439,7 +1439,7 @@ static:
 			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		auto isize = mb.kind.itemSize;
-		safeCode(t, writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
+		safeCode(t, "exceptions.IOException", writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1448,8 +1448,8 @@ static:
 	public uword flush(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.conduit.flush());
-		//safeCode(t, memb.conduit.clear());
+		safeCode(t, "exceptions.IOException", memb.conduit.flush());
+		//safeCode(t, "exceptions.IOException", memb.conduit.clear());
 		memb.dirty = false;
 		dup(t, 0);
 		return 1;
@@ -1482,7 +1482,7 @@ static:
 				paramTypeError(t, 1, "InStream|InoutStream");
 		}
 
-		safeCode(t, memb.conduit.copy(stream));
+		safeCode(t, "exceptions.IOException", memb.conduit.copy(stream));
 		memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1491,7 +1491,7 @@ static:
 	public uword flushOnNL(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
-		safeCode(t, memb.print.flush = checkBoolParam(t, 1));
+		safeCode(t, "exceptions.IOException", memb.print.flush = checkBoolParam(t, 1));
 		return 0;
 	}
 
@@ -1513,7 +1513,7 @@ static:
 		while(dist > 0)
 		{
 			uword numBytes = dist < dummy.length ? dist : dummy.length;
-			safeCode(t, readExact(t, memb, dummy.ptr, numBytes));
+			safeCode(t, "exceptions.IOException", readExact(t, memb, dummy.ptr, numBytes));
 			dist -= numBytes;
 		}
 
@@ -1528,11 +1528,11 @@ static:
 		auto whence = checkCharParam(t, 2);
 
 		if(whence == 'b')
-			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.conduit.seek(pos, IOStream.Anchor.Begin));
 		else if(whence == 'c')
-			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Current));
+			safeCode(t, "exceptions.IOException", memb.conduit.seek(pos, IOStream.Anchor.Current));
 		else if(whence == 'e')
-			safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.End));
+			safeCode(t, "exceptions.IOException", memb.conduit.seek(pos, IOStream.Anchor.End));
 		else
 			throwStdException(t, "ValueException", "Invalid seek type '{}'", whence);
 
@@ -1547,13 +1547,13 @@ static:
 
 		if(numParams == 0)
 		{
-			pushInt(t, safeCode(t, cast(crocint)memb.conduit.seek(0, IOStream.Anchor.Current)));
+			pushInt(t, safeCode(t, "exceptions.IOException", cast(crocint)memb.conduit.seek(0, IOStream.Anchor.Current)));
 			return 1;
 		}
 		else
 		{
 			checkDirty(t, memb);
-			safeCode(t, memb.conduit.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
+			safeCode(t, "exceptions.IOException", memb.conduit.seek(checkIntParam(t, 1), IOStream.Anchor.Begin));
 			return 0;
 		}
 	}
@@ -1562,9 +1562,9 @@ static:
 	{
 		auto memb = getOpenThis(t);
 		checkDirty(t, memb);
-		auto pos = safeCode(t, memb.conduit.seek(0, IOStream.Anchor.Current));
-		auto ret = safeCode(t, memb.conduit.seek(0, IOStream.Anchor.End));
-		safeCode(t, memb.conduit.seek(pos, IOStream.Anchor.Begin));
+		auto pos = safeCode(t, "exceptions.IOException", memb.conduit.seek(0, IOStream.Anchor.Current));
+		auto ret = safeCode(t, "exceptions.IOException", memb.conduit.seek(0, IOStream.Anchor.End));
+		safeCode(t, "exceptions.IOException", memb.conduit.seek(pos, IOStream.Anchor.Begin));
 		pushInt(t, cast(crocint)ret);
 		return 1;
 	}
@@ -1577,8 +1577,8 @@ static:
 			throwStdException(t, "ValueException", "Attempting to close an unclosable stream");
 
 		memb.closed = true;
-		safeCode(t, memb.conduit.flush());
-		safeCode(t, memb.conduit.close());
+		safeCode(t, "exceptions.IOException", memb.conduit.flush());
+		safeCode(t, "exceptions.IOException", memb.conduit.close());
 
 		return 0;
 	}

@@ -73,8 +73,8 @@ static:
 			CreateClass(t, "SdlException", "exceptions.Exception", (CreateClass*){});
 			newGlobal(t, "SdlException");
 
-			safeCode(t, DerelictSDL.load());
-			safeCode(t, DerelictSDLImage.load());
+			safeCode(t, "SdlException", DerelictSDL.load());
+			safeCode(t, "SdlException", DerelictSDLImage.load());
 
 			register(t, &sdlinit,       "init");
 			register(t, &quit,          "quit");

@@ -225,13 +225,13 @@ static:
 		if(numParams > 0)
 			base = cast(int)getInt(t, 1);
 
-		pushInt(t, safeCode(t, Integer.toInt(src, base)));
+		pushInt(t, safeCode(t, "exceptions.ValueException", Integer.toInt(src, base)));
 		return 1;
 	}
 
 	uword toFloat(CrocThread* t)
 	{
-		pushFloat(t, safeCode(t, Float.toFloat(checkStringParam(t, 0))));
+		pushFloat(t, safeCode(t, "exceptions.ValueException", Float.toFloat(checkStringParam(t, 0))));
 		return 1;
 	}
 

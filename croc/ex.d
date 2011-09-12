@@ -1081,6 +1081,83 @@ void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 }
 
 /**
+An odd sort of protective function. You can use this function to wrap a call to a library function etc. which
+could throw an exception, but when you don't want to have to bother with catching the exception yourself. Useful
+for writing native Croc libraries.
+
+Say you had a function which opened a file:
+
+-----
+File f = OpenFile("filename");
+-----
+
+Say this function could throw an exception if it failed. Since the interpreter can only catch (and make meaningful
+stack traces about) exceptions which derive from CrocException, any exceptions that this throws would just percolate
+up out of the interpreter stack. You could catch the exception yourself, but that's kind of tedious, especially when
+you call a lot of native functions.
+
+Instead, you can wrap the call to this unsafe function with a call to safeCode().
+
+-----
+File f = safeCode(t, OpenFile("filename"));
+-----
+
+What safeCode() does is it tries to execute the code it is passed. If it succeeds, it simply returns any value that
+the code returns. If it throws an exception derived from CrocException, it rethrows the exception. And if it throws
+an exception that derives from Exception, it throws a new CrocException with the original exception's message as the
+message.
+
+If you want to wrap statements, you can use a delegate literal:
+
+-----
+safeCode(t,
+{
+	stmt1;
+	stmt2;
+	stmt3;
+}());
+-----
+
+Be sure to include those empty parens after the delegate literal, due to the way D converts the expression to a lazy
+parameter. If you don't put the parens there, it will never actually call the delegate.
+
+safeCode() is templated to allow any return value.
+
+Params:
+	code = The code to be executed. This is a lazy parameter, so it's not actually executed until inside the call to
+		safeCode.
+
+Returns:
+	Whatever the code parameter returns.
+*/
+T safeCode(T)(CrocThread* t, lazy T code)
+{
+	try
+		return code;
+	catch(CrocException e)
+		throw e;
+	catch(Exception e)
+		throwStdException(t, "Exception", "{}", e);
+
+	assert(false);
+}
+
+/**
+ditto
+*/
+T safeCode(T)(CrocThread* t, char[] exName, lazy T code)
+{
+	try
+		return code;
+	catch(CrocException e)
+		throw e;
+	catch(Exception e)
+		throwNamedException(t, exName, "{}", e);
+
+	assert(false);
+}
+
+/**
 This function abstracts away some of the boilerplate code that is usually associated with try-catch blocks
 that handle Croc exceptions in D code. 
 

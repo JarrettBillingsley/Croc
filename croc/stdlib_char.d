@@ -59,7 +59,7 @@ static:
 	{
 		dchar[4] outbuf = void;
 		dchar c = checkCharParam(t, 0);
-		pushChar(t, safeCode(t, Uni.toLower((&c)[0 .. 1], outbuf)[0]));
+		pushChar(t, safeCode(t, "exceptions.UnicodeException", Uni.toLower((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 
@@ -67,7 +67,7 @@ static:
 	{
 		dchar[4] outbuf = void;
 		dchar c = checkCharParam(t, 0);
-		pushChar(t, safeCode(t, Uni.toUpper((&c)[0 .. 1], outbuf)[0]));
+		pushChar(t, safeCode(t, "exceptions.UnicodeException", Uni.toUpper((&c)[0 .. 1], outbuf)[0]));
 		return 1;
 	}
 

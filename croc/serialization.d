@@ -152,20 +152,20 @@ private:
 
 	void tag(byte v)
 	{
-		put(mOutput, v);
+		put(t, mOutput, v);
 	}
 
 	void integer(long v)
 	{
 		if(v == 0)
 		{
-			put!(byte)(mOutput, 0);
+			put!(byte)(t, mOutput, 0);
 			return;
 		}
 		else if(v == long.min)
 		{
 			// this is special-cased since -long.min == long.min!
-			put(mOutput, cast(byte)0xFF);
+			put(t, mOutput, cast(byte)0xFF);
 			return;
 		}
 
@@ -180,11 +180,11 @@ private:
 		else
 			numBytes = (bsr(cast(uint)v) / 8) + 1;
 
-		put(mOutput, cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
+		put(t, mOutput, cast(ubyte)(neg ? numBytes | 0x80 : numBytes));
 
 		while(v)
 		{
-			put(mOutput, cast(ubyte)(v & 0xFF));
+			put(t, mOutput, cast(ubyte)(v & 0xFF));
 			v >>>= 8;
 		}
 	}
@@ -241,7 +241,7 @@ private:
 	void serializeBool(bool v)
 	{
 		tag(CrocValue.Type.Bool);
-		put(mOutput, v);
+		put(t, mOutput, v);
 	}
 
 	void serializeInt(crocint v)
@@ -253,7 +253,7 @@ private:
 	void serializeFloat(crocfloat v)
 	{
 		tag(CrocValue.Type.Float);
-		put(mOutput, v);
+		put(t, mOutput, v);
 	}
 
 	void serializeChar(dchar v)
@@ -270,7 +270,7 @@ private:
 		tag(CrocValue.Type.String);
 		auto data = v.toString();
 		integer(data.length);
-		append(mOutput, data);
+		append(t, mOutput, data);
 	}
 
 	void serializeTable(CrocTable* v)
@@ -314,7 +314,7 @@ private:
 		pushString(t, v.kind.name);
 		rawCall(t, -3, 0);
 		integer(v.itemLength);
-		append(mOutput, v.data);
+		append(t, mOutput, v.data);
 	}
 
 	void serializeFunction(CrocFunction* v)
@@ -338,10 +338,10 @@ private:
 		serialize(CrocValue(cast(CrocBaseObject*)v.scriptFunc));
 
 		if(v.environment is t.vm.globals)
-			put(mOutput, false);
+			put(t, mOutput, false);
 		else
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(v.environment));
 		}
 
@@ -367,7 +367,7 @@ private:
 		serialize(CrocValue(v.locFile));
 		integer(v.locLine);
 		integer(v.locCol);
-		put(mOutput, v.isVararg);
+		put(t, mOutput, v.isVararg);
 		serialize(CrocValue(v.name));
 		integer(v.numParams);
 		integer(v.paramMasks.length);
@@ -388,23 +388,23 @@ private:
 			serialize(val);
 
 		integer(v.code.length);
-		append(mOutput, v.code);
+		append(t, mOutput, v.code);
 
 		if(auto e = v.environment)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(e));
 		}
 		else
-			put(mOutput, false);
+			put(t, mOutput, false);
 
 		if(auto f = v.cachedFunc)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(f));
 		}
 		else
-			put(mOutput, false);
+			put(t, mOutput, false);
 
 		integer(v.switchTables.length);
 
@@ -422,7 +422,7 @@ private:
 		}
 
 		integer(v.lineInfo.length);
-		append(mOutput, v.lineInfo);
+		append(t, mOutput, v.lineInfo);
 		integer(v.upvalNames.length);
 
 		foreach(name; v.upvalNames)
@@ -456,11 +456,11 @@ private:
 
 		if(v.parent)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(v.parent));
 		}
 		else
-			put(mOutput, false);
+			put(t, mOutput, false);
 
 		assert(v.fields !is null);
 		serialize(CrocValue(v.fields));
@@ -484,7 +484,7 @@ private:
 
 			if(isFunction(t, -1))
 			{
-				put(mOutput, true);
+				put(t, mOutput, true);
 				pop(t);
 				pushNull(t);
 				push(t, CrocValue(mStream));
@@ -512,7 +512,7 @@ private:
 		}
 
 		pop(t);
-		put(mOutput, false);
+		put(t, mOutput, false);
 
 		if(v.numValues || v.extraBytes)
 		{
@@ -530,11 +530,11 @@ private:
 
 		if(v.fields)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(v.fields));
 		}
 		else
-			put(mOutput, false);
+			put(t, mOutput, false);
 	}
 
 	void serializeNamespace(CrocNamespace* v)
@@ -546,10 +546,10 @@ private:
 		serialize(CrocValue(v.name));
 
 		if(v.parent is null)
-			put(mOutput, false);
+			put(t, mOutput, false);
 		else
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(v.parent));
 		}
 
@@ -577,11 +577,11 @@ private:
 
 		version(CrocExtendedCoro)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 		}
 		else
 		{
-			put(mOutput, false);
+			put(t, mOutput, false);
 			integer(v.savedCallDepth);
 		}
 
@@ -595,10 +595,10 @@ private:
 			integer(rec.returnSlot);
 
 			if(rec.func is null)
-				put(mOutput, false);
+				put(t, mOutput, false);
 			else
 			{
-				put(mOutput, true);
+				put(t, mOutput, true);
 				serialize(CrocValue(rec.func));
 				uword diff = rec.pc - rec.func.scriptFunc.code.ptr;
 				integer(diff);
@@ -608,11 +608,11 @@ private:
 
 			if(rec.proto)
 			{
-				put(mOutput, true);
+				put(t, mOutput, true);
 				serialize(CrocValue(rec.proto));
 			}
 			else
-				put(mOutput, false);
+				put(t, mOutput, false);
 
 			integer(rec.numTailcalls);
 			integer(rec.firstResult);
@@ -621,19 +621,19 @@ private:
 
 			if(rec.unwindReturn)
 			{
-				put(mOutput, true);
+				put(t, mOutput, true);
 				uword diff = rec.unwindReturn - rec.func.scriptFunc.code.ptr;
 				integer(diff);
 			}
 			else
-				put(mOutput, false);
+				put(t, mOutput, false);
 		}
 
 		integer(v.trIndex);
 
 		foreach(ref rec; v.tryRecs[0 .. v.trIndex])
 		{
-			put(mOutput, rec.isCatch);
+			put(t, mOutput, rec.isCatch);
 			integer(rec.slot);
 			integer(rec.actRecord);
 
@@ -660,15 +660,15 @@ private:
 		foreach(ref val; v.results[0 .. v.resultIndex])
 			serialize(val);
 
-		put(mOutput, v.shouldHalt);
+		put(t, mOutput, v.shouldHalt);
 
 		if(v.coroFunc)
 		{
-			put(mOutput, true);
+			put(t, mOutput, true);
 			serialize(CrocValue(v.coroFunc));
 		}
 		else
-			put(mOutput, false);
+			put(t, mOutput, false);
 
 		integer(v.state);
 		integer(v.numYields);
@@ -694,10 +694,10 @@ private:
 		tag(CrocValue.Type.WeakRef);
 
 		if(v.obj is null)
-			put(mOutput, true);
+			put(t, mOutput, true);
 		else
 		{
-			put(mOutput, false);
+			put(t, mOutput, false);
 			serialize(CrocValue(v.obj));
 		}
 	}
@@ -816,14 +816,14 @@ private:
 	byte tag()
 	{
 		byte ret = void;
-		get(mInput, ret);
+		get(t, mInput, ret);
 		return ret;
 	}
 
 	long integer()()
 	{
 		byte v = void;
-		get(mInput, v);
+		get(t, mInput, v);
 
 		if(v == 0)
 			return 0;
@@ -841,7 +841,7 @@ private:
 
 			for(int shift = 0; numBytes; numBytes--, shift += 8)
 			{
-				get(mInput, v);
+				get(t, mInput, v);
 				ret |= v << shift;
 			}
 
@@ -915,7 +915,7 @@ private:
 	void deserializeBoolImpl()
 	{
 		bool v = void;
-		get(mInput, v);
+		get(t, mInput, v);
 		pushBool(t, v);
 	}
 	
@@ -939,7 +939,7 @@ private:
 	void deserializeFloatImpl()
 	{
 		crocfloat v = void;
-		get(mInput, v);
+		get(t, mInput, v);
 		pushFloat(t, v);
 	}
 	
@@ -998,7 +998,7 @@ private:
 		auto data = t.vm.alloc.allocArray!(char)(cast(uword)len);
 		scope(exit) t.vm.alloc.freeArray(data);
 
-		readExact(mInput, data);
+		readExact(t, mInput, data);
 		pushString(t, data);
 		addObject(getValue(t, -1).mBaseObj);
 	}
@@ -1057,7 +1057,7 @@ private:
   		auto type = getString(t, -1);
   		newMemblock(t, type, cast(uword)integer());
   		insertAndPop(t, -2);
-  		readExact(mInput, getMemblock(t, -1).data);
+  		readExact(t, mInput, getMemblock(t, -1).data);
 	}
 
 	void deserializeFunction()
@@ -1085,7 +1085,7 @@ private:
 		pop(t);
 
 		bool haveEnv;
-		get(mInput, haveEnv);
+		get(t, mInput, haveEnv);
 
 		if(haveEnv)
 			deserializeNamespace();
@@ -1138,7 +1138,7 @@ private:
 		pop(t);
 		integer(def.locLine);
 		integer(def.locCol);
-		get(mInput, def.isVararg);
+		get(t, mInput, def.isVararg);
 		deserializeString();
 		def.name = getStringObj(t, -1);
 		pop(t);
@@ -1169,10 +1169,10 @@ private:
 		}
 
 		t.vm.alloc.resizeArray(def.code, cast(uword)integer());
-		readExact(mInput, def.code);
+		readExact(t, mInput, def.code);
 
 		bool haveEnvironment;
-		get(mInput, haveEnvironment);
+		get(t, mInput, haveEnvironment);
 		
 		if(haveEnvironment)
 		{
@@ -1184,7 +1184,7 @@ private:
 			def.environment = null;
 
 		bool haveCached;
-		get(mInput, haveCached);
+		get(t, mInput, haveCached);
 
 		if(haveCached)
 		{
@@ -1212,7 +1212,7 @@ private:
 		}
 
 		t.vm.alloc.resizeArray(def.lineInfo, cast(uword)integer());
-		readExact(mInput, def.lineInfo);
+		readExact(t, mInput, def.lineInfo);
 
 		t.vm.alloc.resizeArray(def.upvalNames, cast(uword)integer());
 
@@ -1254,7 +1254,7 @@ private:
 		pop(t);
 
 		bool haveParent;
-		get(mInput, haveParent);
+		get(t, mInput, haveParent);
 
 		if(haveParent)
 		{
@@ -1301,7 +1301,7 @@ private:
 		pop(t);
 
 		bool isSpecial;
-		get(mInput, isSpecial);
+		get(t, mInput, isSpecial);
 
 		if(isSpecial)
 		{
@@ -1323,7 +1323,7 @@ private:
 			assert(numValues == 0 && extraBytes == 0);
 
 			bool haveFields;
-			get(mInput, haveFields);
+			get(t, mInput, haveFields);
 
 			if(haveFields)
 			{
@@ -1353,7 +1353,7 @@ private:
 		push(t, CrocValue(ns));
 
 		bool haveParent;
-		get(mInput, haveParent);
+		get(t, mInput, haveParent);
 
 		if(haveParent)
 		{
@@ -1387,7 +1387,7 @@ private:
 		ret.vm = t.vm;
 
 		bool isExtended;
-		get(mInput, isExtended);
+		get(t, mInput, isExtended);
 
 		version(CrocExtendedCoro)
 		{
@@ -1423,7 +1423,7 @@ private:
 			integer(rec.returnSlot);
 
 			bool haveFunc;
-			get(mInput, haveFunc);
+			get(t, mInput, haveFunc);
 
 			if(haveFunc)
 			{
@@ -1444,7 +1444,7 @@ private:
 			integer(rec.numReturns);
 
 			bool haveProto;
-			get(mInput, haveProto);
+			get(t, mInput, haveProto);
 
 			if(haveProto)
 			{
@@ -1461,7 +1461,7 @@ private:
 			integer(rec.unwindCounter);
 
 			bool haveUnwindRet;
-			get(mInput, haveUnwindRet);
+			get(t, mInput, haveUnwindRet);
 
 			if(haveUnwindRet)
 			{
@@ -1483,7 +1483,7 @@ private:
 
 		foreach(ref rec; ret.tryRecs[0 .. ret.trIndex])
 		{
-			get(mInput, rec.isCatch);
+			get(t, mInput, rec.isCatch);
 			integer(rec.slot);
 			integer(rec.actRecord);
 
@@ -1516,10 +1516,10 @@ private:
 			pop(t);
 		}
 
-		get(mInput, ret.shouldHalt);
+		get(t, mInput, ret.shouldHalt);
 
 		bool haveCoroFunc;
-		get(mInput, haveCoroFunc);
+		get(t, mInput, haveCoroFunc);
 
 		if(haveCoroFunc)
 		{
@@ -1576,7 +1576,7 @@ private:
 		addObject(cast(CrocBaseObject*)wr);
 
 		bool isNull;
-		get(mInput, isNull);
+		get(t, mInput, isNull);
 
 		if(!isNull)
 		{
@@ -1596,26 +1596,26 @@ private:
 	}
 }
 
-void get(T)(InputStream i, ref T ret)
+void get(T)(CrocThread* t, InputStream i, ref T ret)
 {
 	if(i.read(cast(void[])(&ret)[0 .. 1]) != T.sizeof)
-		throw new IOException("End of stream while reading");
+		throwStdException(t, "IOException", "End of stream while reading");
 }
 
-void put(T)(OutputStream o, T val)
+void put(T)(CrocThread* t, OutputStream o, T val)
 {
 	if(o.write(cast(void[])(&val)[0 .. 1]) != T.sizeof)
-		throw new IOException("End of stream while writing");
+		throwStdException(t, "IOException", "End of stream while writing");
 }
 
-void readExact(InputStream i, void[] dest)
+void readExact(CrocThread* t, InputStream i, void[] dest)
 {
 	if(i.read(dest) != dest.length)
-		throw new IOException("End of stream while reading");
+		throwStdException(t, "IOException", "End of stream while reading");
 }
 
-void append(OutputStream o, void[] val)
+void append(CrocThread* t, OutputStream o, void[] val)
 {
 	if(o.write(val) != val.length)
-		throw new IOException("End of stream while writing");
+		throwStdException(t, "IOException", "End of stream while writing");
 }
