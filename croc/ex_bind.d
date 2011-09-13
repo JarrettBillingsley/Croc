@@ -2,15 +2,15 @@
 This module contains scary template stuff to make it possible to wrap D functions,
 classes, and structs and expose them as functions and types in Croc.
 
-This binding library is not supposed to be the most flexible or capable.  For
+This binding library is not supposed to be the most flexible or capable. For
 example, its class wrapping is meant to be usable with classes to whose source
 code you don't necessarily have access to, or whose code you can't change (like
-in third-party libraries).  This library has to sacrifice some efficiency and
-capabilities to be able to do this.  
+in third-party libraries). This library has to sacrifice some efficiency and
+capabilities to be able to do this. 
 
 However, if you're really only concerned with integrating your $(I own) code with
 Croc, something like $(LINK2 xpose http://team0xf.com:8080/xf/file/37d8e57b1c4d/xpose/)
-might be more appropriate.  Xpose allows you to add reflection info to your types
+might be more appropriate. Xpose allows you to add reflection info to your types
 which you can then use to make bindings to Croc.
 
 License:
@@ -55,16 +55,16 @@ alias croc.utils.isArrayType isArrayType;
 // ================================================================================================================================================
 
 /**
-Wraps a module.  This registers a custom module loader in the global modules.customLoaders
-table of the given thread.  The members will not actually be wrapped until the module is imported
+Wraps a module. This registers a custom module loader in the global modules.customLoaders
+table of the given thread. The members will not actually be wrapped until the module is imported
 the first time.
 
 Template Params:
-	name = The name of the module, in dotted form (like "foo.bar.baz").  This is the name that will
+	name = The name of the module, in dotted form (like "foo.bar.baz"). This is the name that will
 		be used to import it.
 
-	Members = A variadic list of things to declare in this module.  These will be declared as module
-		globals, just as if you declared them globals in Croc.  Supported member types include
+	Members = A variadic list of things to declare in this module. These will be declared as module
+		globals, just as if you declared them globals in Croc. Supported member types include
 		WrapFunc, WrapNamespace, WrapValue, and WrapType.
 
 Params:
@@ -81,8 +81,8 @@ public void WrapModule(char[] name, Members...)(CrocThread* t)
 }
 
 /**
-Wraps any number of values into the global namespace accessible from the given thread.  This is
-the root global namespace, outside of any modules.  Works just like WrapModule otherwise.
+Wraps any number of values into the global namespace accessible from the given thread. This is
+the root global namespace, outside of any modules. Works just like WrapModule otherwise.
 Supported member types include WrapFunc, WrapNamespace, WrapValue, and WrapType.
 
 The wrapped values are immediately loaded into the global namespace.
@@ -93,22 +93,22 @@ public void WrapGlobals(Members...)(CrocThread* t)
 }
 
 /**
-Wraps a static function - that is, a function that doesn't have a 'this' parameter.  These four
+Wraps a static function - that is, a function that doesn't have a 'this' parameter. These four
 template specializations allow you to fine-tune how the function is to be wrapped.
 
-The first specialization takes just an alias to a function.  In this case, the first overload
+The first specialization takes just an alias to a function. In this case, the first overload
 of the function (if any) will be wrapped and the name of the function in Croc will be the same
 as in D.
 
 The second specialization allows you to explicitly specify a function signature to choose, in the
-case that the function you're wrapping is overloaded.  The signature should be a function type that
-matches the signature of the overload you want to wrap.  In this case, though, the name in Croc
+case that the function you're wrapping is overloaded. The signature should be a function type that
+matches the signature of the overload you want to wrap. In this case, though, the name in Croc
 will still be the name of the D function.
 
 The third specialization allows you to rename the function without explicitly selecting an overload.
 
 The fourth specialization allows you to both select an overload and give it the name that should
-be used in Croc.  This is the form you'll probably be using most often with overloaded D functions.
+be used in Croc. This is the form you'll probably be using most often with overloaded D functions.
 
 If you use one of the two forms where you explicitly specify the function signature, the resulting
 wrapped function will only accept exactly as many parameters as are specified in the signature.
@@ -146,8 +146,8 @@ public struct WrapFunc(alias func, char[] name, funcType)
 }
 
 /**
-Wraps a bunch of values into a namespace object.  This works virtually the same as WrapModule,
-except that it's meant to be used as a member of something like WrapModule.  Legal member
+Wraps a bunch of values into a namespace object. This works virtually the same as WrapModule,
+except that it's meant to be used as a member of something like WrapModule. Legal member
 types include WrapFunc, WrapValue, WrapNamespace, and WrapType.
 */
 public struct WrapNamespace(char[] name, members...)
@@ -158,8 +158,8 @@ public struct WrapNamespace(char[] name, members...)
 }
 
 /**
-Wraps a single value and gives it a name.  Despite the fact that the value parameter is
-variadic, it is restricted to exactly one item.  It's variadic just so it can accept any
+Wraps a single value and gives it a name. Despite the fact that the value parameter is
+variadic, it is restricted to exactly one item. It's variadic just so it can accept any
 value type.
 */
 public struct WrapValue(char[] name, value...)
@@ -171,8 +171,8 @@ public struct WrapValue(char[] name, value...)
 }
 
 /**
-Wraps a class or struct type.  This supports wrapping constructors (or static opCall for structs),
-methods, properties (though they will be $(B functions) in Croc), and arbitrary values.  That means
+Wraps a class or struct type. This supports wrapping constructors (or static opCall for structs),
+methods, properties (though they will be $(B functions) in Croc), and arbitrary values. That means
 the valid member types are WrapCtors, WrapMethod, WrapProperty, and WrapValue.
 
 Template Params:
@@ -183,7 +183,7 @@ Template Params:
 	Members = The members of the type.
 	
 Bugs:
-	Abstract classes cannot be wrapped.  D1 does not provide enough reflective information to do so reliably.
+	Abstract classes cannot be wrapped. D1 does not provide enough reflective information to do so reliably.
 */
 public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 {
@@ -235,14 +235,14 @@ public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 
 /**
 D doesn't really provide any facilities for introspecting class constructors, so you'll have to specify
-to the binding library the signatures of the constructors to expose.  You'll also have to do it for structs.
+to the binding library the signatures of the constructors to expose. You'll also have to do it for structs.
 There can be at most one WrapCtors inside a WrapType, but since you specify as many constructors as you
-want all at once, it doesn't matter.  The constructor signatures should be function types; the return type
+want all at once, it doesn't matter. The constructor signatures should be function types; the return type
 is ignored, and only the parameter types are significant.
 
-Unlike wrapping other functions, a form of overloading is allowed for constructors.  That is, you can have
+Unlike wrapping other functions, a form of overloading is allowed for constructors. That is, you can have
 a constructor that takes (int) and another that takes (float), wrap them as two separate types, and they
-will be correctly dispatched when the type is instantiated in Croc.  This also means that the usual
+will be correctly dispatched when the type is instantiated in Croc. This also means that the usual
 implicit conversion from int to float that happens when calling other functions will not happen when calling
 constructors.
 */
@@ -254,8 +254,8 @@ public struct WrapCtors(T...)
 }
 
 /**
-Wraps a method of a class or struct type.  The argument to this template will look like "A.foo" for a given
-type "A".  Other than the fact that it's a method (and therefore takes 'this'), this works pretty much
+Wraps a method of a class or struct type. The argument to this template will look like "A.foo" for a given
+type "A". Other than the fact that it's a method (and therefore takes 'this'), this works pretty much
 exactly the same as WrapFunction, including the differences between the multiple specializations.
 */
 public struct WrapMethod(alias func)
@@ -299,18 +299,18 @@ public struct WrapMethod(alias func, char[] name, funcType)
 
 /**
 Wraps a D "property."  D of course does not have real properties but only syntactic sugar for function
-calls.  These wrap a pair of functions (or just one function, if the property is read-only) that denote
-a property.  In Croc, each property has a method named "_prop_name" which does the actual setting and
+calls. These wrap a pair of functions (or just one function, if the property is read-only) that denote
+a property. In Croc, each property has a method named "_prop_name" which does the actual setting and
 getting, and the wrapped type is given opField and opFieldAssign metamethods which dispatch field access
-to the appropriate property accessors.  If you want to override the behavior of setting/getting a property,
+to the appropriate property accessors. If you want to override the behavior of setting/getting a property,
 you can do so by overriding the "_prop_name" method.
 
-The D "property" must be one or two functions (either just a getter or a getter/setter pair).  The setter,
+The D "property" must be one or two functions (either just a getter or a getter/setter pair). The setter,
 if any exists, must be able to take one parameter that is the same type as the getter's return type.
 The setter may optionally return a value.
 
 It doesn't matter whether you pass an alias to the setter or the getter to this; the library will figure
-out which one you gave and which one it needs.  So if you have a property "x" of a type "A", it'll just
+out which one you gave and which one it needs. So if you have a property "x" of a type "A", it'll just
 be WrapProperty!(A.x).
 
 Since this is another variety of function wrapping, the parameters here all do the same thing as for
@@ -460,7 +460,7 @@ public word getWrappedClassOrSuper(CrocThread* t, ClassInfo ci)
 
 /**
 Expects a class object on top of the stack, and sets it to be the Croc class that corresponds
-to the given runtime TypeInfo object.  The class object is $(B not) popped off the stack.
+to the given runtime TypeInfo object. The class object is $(B not) popped off the stack.
 
 $(B You probably won't have to call this function under normal circumstances.)
 */
@@ -480,7 +480,7 @@ public void setWrappedClass(CrocThread* t, TypeInfo ti)
 
 /**
 Expects a class object on top of the stack, and sets it to be the Croc class that corresponds
-to the given runtime ClassInfo object.  The class object is $(B not) popped off the stack.
+to the given runtime ClassInfo object. The class object is $(B not) popped off the stack.
 
 $(B You probably won't have to call this function under normal circumstances.)
 */
@@ -495,9 +495,9 @@ public void setWrappedClass(CrocThread* t, ClassInfo ci)
 
 /**
 Assuming a valid wrapped class is on the top of the stack, this function will take a D object
-and push the corresponding Croc instance.  If a Croc instance has already been created for
+and push the corresponding Croc instance. If a Croc instance has already been created for
 this object, pushes that instance; otherwise, this will create an instance and link it to this
-D object.  The class is popped off, meaning the wrapped instance takes its place.
+D object. The class is popped off, meaning the wrapped instance takes its place.
 
 $(B You probably won't have to call this function under normal circumstances.)
 
@@ -536,7 +536,7 @@ public word getWrappedInstance(CrocThread* t, Object o)
 
 /**
 For a given D object instance, sets the Croc instance at the given stack index to be
-its corresponding object.  
+its corresponding object. 
 
 $(B You probably won't have to call this function under normal circumstances.)
 
@@ -612,11 +612,11 @@ static Type checkClassSelf(Type, char[] FullName)(CrocThread* t)
 It's superPush!  It's better than your average push.
 
 This is a templated push function that will take any D type that is convertible to a Croc type
-and push its Croc conversion onto the stack.  This includes not only simple value types, but also
-arrays, associative arrays, classes, and structs.  Classes and structs are convertible as long as they
-have been wrapped.  Arrays are convertible as long as their element type is convertible.  AAs are
-convertible as long as their key and value types are convertible.  Arrays will become Croc arrays,
-and AAs will become Croc tables.  Classes and structs will become Croc instances of the wrapped
+and push its Croc conversion onto the stack. This includes not only simple value types, but also
+arrays, associative arrays, classes, and structs. Classes and structs are convertible as long as they
+have been wrapped. Arrays are convertible as long as their element type is convertible. AAs are
+convertible as long as their key and value types are convertible. Arrays will become Croc arrays,
+and AAs will become Croc tables. Classes and structs will become Croc instances of the wrapped
 Croc class type.
 
 Returns:
@@ -720,11 +720,11 @@ public word superPush(Type)(CrocThread* t, Type val)
 }
 
 /**
-Like superPush, but pushes multiple values onto the stack in one function call.  Calls superPush
+Like superPush, but pushes multiple values onto the stack in one function call. Calls superPush
 internally, so any types that are legal to pass to superPush are legal to pass to this.
 
 Params:
-	arg1 = The first value to push.  This is separated to force you to push at least one value.
+	arg1 = The first value to push. This is separated to force you to push at least one value.
 	args = Any additional values to push.
 
 Returns:
@@ -742,11 +742,11 @@ public word multiPush(T, U...)(CrocThread* t, T arg1, U args)
 
 /**
 The inverse of superPush, this function allows you to get any type of value from the Croc stack
-and convert it into a D type.  The rules in this direction are pretty much the same as in the other:
+and convert it into a D type. The rules in this direction are pretty much the same as in the other:
 a Croc array can only be converted into a D array as long as its elements can be converted to the
 D array's element type, and similarly for Croc tables.
 
-Strings will also be converted to the correct Unicode encoding.  Keep in mind, however, that this
+Strings will also be converted to the correct Unicode encoding. Keep in mind, however, that this
 function will duplicate the string data onto the D heap, unlike the raw API getString function.
 This is because handing off pointers to internal Croc memory to arbitrary D libraries is probably
 not a good idea.
@@ -934,13 +934,13 @@ public Type superGet(Type)(CrocThread* t, word idx)
 }
 
 /**
-Like superGet, but gets multiple consecutive values off the stack.  There must be at least
-as many values after the start index as you have values to get.  This calls superGet internally,
+Like superGet, but gets multiple consecutive values off the stack. There must be at least
+as many values after the start index as you have values to get. This calls superGet internally,
 so any types that are legal to get with superGet are legal here too.
 
 Params:
 	start = The stack index of the first value to retrieve.
-	arg1 = The first value to get.  This is separate to force you to get at least one value.
+	arg1 = The first value to get. This is separate to force you to get at least one value.
 	args = Any additional values to get.
 */
 public void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
@@ -956,7 +956,7 @@ public void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
 
 /**
 Returns true if the value at the given stack index can be converted to the given D type,
-or false otherwise.  That's all.
+or false otherwise. That's all.
 */
 public bool canCastTo(Type)(CrocThread* t, word idx)
 {
@@ -1505,7 +1505,7 @@ template ClassCtorShimsImpl(uint idx, Ctors...)
 	}
 }
 
-// When you wrap a method, three things happen.  The first is that an overriding D method is created
+// When you wrap a method, three things happen. The first is that an overriding D method is created
 // in the shim class which detects whether or not a Croc overload exists, and dispatches appropriately.
 // Continued below..
 private template ClassOverrideMethods(Type, char[] TypeName) {}
@@ -1536,7 +1536,7 @@ private template ClassOverrideMethods(Type, char[] TypeName, alias X, T...)
 
 // ..the other two things that happen is that two methods - one static and one dynamic - are created.
 // The static one is the one that is actually exposed to Croc and all it does is check that the 'this'
-// parameter is correct and calls the dynamic one.  The dynamic one gets the params off the stack and
+// parameter is correct and calls the dynamic one. The dynamic one gets the params off the stack and
 // calls the real D method.
 private template ClassCrocMethods(Type, char[] TypeName) {}
 private template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
@@ -1571,7 +1571,7 @@ private template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
 }
 
 // For each property that the class defines, two things happen - one, a method
-// called _prop_name is created that does the actual getting and setting.  Two,
+// called _prop_name is created that does the actual getting and setting. Two,
 // an entry is created in the opField and opFieldAssign methods that will call
 // that method when the given field is accessed.
 // If the class defines no properties, no opField[Assign] methods are generated.
@@ -2055,7 +2055,7 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 		{
 			// GODDOMMOT FRONK
 			// I can't check anything in here because FUCKING DCrocFE will EAT THE GODDAMNED ERROR
-			// and cause RANDOM ERRORS ON VALID CODE in WrappedClass.  WONDERFUL.
+			// and cause RANDOM ERRORS ON VALID CODE in WrappedClass. WONDERFUL.
 // 			static assert(is(typeof({mixin("self." ~ name ~ " = self." ~ name ~ ";");})),
 // 				"property '" ~ NameOfFunc!(func) ~ "' has no setter");
 

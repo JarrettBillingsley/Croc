@@ -150,7 +150,7 @@ static:
 				auto size = getInt(t, 2);
 
 				if(size < 0 || size > uword.max)
-					throwException(t, "Invalid size ({})", size);
+					throwStdException(t, "RangeException", "Invalid size ({})", size);
 
 				newMemblock(t, typeCode, cast(uword)size);
 			}
@@ -194,7 +194,7 @@ static:
 			step = abs(check(t, 4));
 
 			if(step == 0)
-				throwException(t, "Step may not be 0");
+				throwStdException(t, "RangeException", "Step may not be 0");
 		}
 
 		auto range = abs(v2 - v1);
@@ -204,7 +204,7 @@ static:
 			size++;
 
 		if(size > uword.max)
-			throwException(t, "Memblock is too big ({} items)", size);
+			throwStdException(t, "RangeException", "Memblock is too big ({} items)", size);
 
 		newMemblock(t, type, cast(uword)size);
 		auto ret = getMemblock(t, -1);
@@ -230,7 +230,7 @@ static:
 		{
 			case "i8", "i16", "i32", "i64", "u8", "u16", "u32", "u64": rangeImpl!(checkIntParam, crocint)(t, type); break;
 			case "f32", "f64":                                         rangeImpl!(checkNumParam, crocfloat)(t, type); break;
-			default:                                                   throwException(t, "Invalid type code '{}'", type);
+			default:                                                   throwStdException(t, "ValueException", "Invalid type code '{}'", type);
 		}
 
 		return 1;
@@ -269,7 +269,7 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to convert a void memblock to an array");
+			throwStdException(t, "ValueException", "Attempting to convert a void memblock to an array");
 
 		auto lo = optIntParam(t, 1, 0);
 		auto hi = optIntParam(t, 2, mb.itemLength);
@@ -281,7 +281,7 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
 
 		auto ret = newArray(t, cast(uword)(hi - lo));
 
@@ -313,7 +313,7 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to reverse a void memblock");
+			throwStdException(t, "ValueException", "Attempting to reverse a void memblock");
 
 		switch(mb.kind.itemSize)
 		{
@@ -323,7 +323,7 @@ static:
 			case 8: (cast(ulong*)mb.data) [0 .. mb.itemLength].reverse; break;
 
 			default:
-				throwException(t, "Not a horrible error, but somehow a memblock type must've been added that doesn't have 1-, 2-, 4-, or 8-byte elements, so I don't know how to reverse it.");
+				throwStdException(t, "ValueException", "Not a horrible error, but somehow a memblock type must've been added that doesn't have 1-, 2-, 4-, or 8-byte elements, so I don't know how to reverse it.");
 		}
 
 		dup(t, 0);
@@ -337,7 +337,7 @@ static:
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwException(t, "Attempting to sort a void memblock");
+			case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sort a void memblock");
 			case TypeCode.i8:  (cast(byte*)mb.data)  [0 .. mb.itemLength].sort; break;
 			case TypeCode.i16: (cast(short*)mb.data) [0 .. mb.itemLength].sort; break;
 			case TypeCode.i32: (cast(int*)mb.data)   [0 .. mb.itemLength].sort; break;
@@ -373,7 +373,7 @@ static:
 				if(!test(t, -1))
 				{
 					pushTypeString(t, -1);
-					throwException(t, "application function expected to return {}, not '{}'", typeMsg, getString(t, -1));
+					throwStdException(t, "TypeException", "application function expected to return {}, not '{}'", typeMsg, getString(t, -1));
 				}
 				
 				memblock.indexAssign(mb, i, *getValue(t, -1));
@@ -384,7 +384,7 @@ static:
 		switch(mb.kind.code)
 		{
 			case TypeCode.v:
-				throwException(t, "Attempting to modify a void memblock");
+				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
 
 			case
 				TypeCode.i8, TypeCode.i16, TypeCode.i32, TypeCode.i64,
@@ -410,7 +410,7 @@ static:
 		checkParam(t, 1, CrocValue.Type.Function);
 
 		if(getMemblock(t, 0).kind.code == TypeCode.v)
-			throwException(t, "Attempting to map a void memblock");
+			throwStdException(t, "ValueException", "Attempting to map a void memblock");
 
 		dup(t, 0);
 		pushNull(t);
@@ -443,11 +443,11 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock is empty");
+			throwStdException(t, "ValueException", "Memblock is empty");
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwException(t, "Cannot get the max of a void memblock");
+			case TypeCode.v:   throwStdException(t, "ValueException", "Cannot get the max of a void memblock");
 			case TypeCode.i8:  pushInt(t, minMaxImpl!(">")(cast(byte[])mb.data));     break;
 			case TypeCode.i16: pushInt(t, minMaxImpl!(">")(cast(short[])mb.data));    break;
 			case TypeCode.i32: pushInt(t, minMaxImpl!(">")(cast(int[])mb.data));      break;
@@ -470,11 +470,11 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock is empty");
+			throwStdException(t, "ValueException", "Memblock is empty");
 
 		switch(mb.kind.code)
 		{
-			case TypeCode.v:   throwException(t, "Cannot get the min of a void memblock");
+			case TypeCode.v:   throwStdException(t, "ValueException", "Cannot get the min of a void memblock");
 			case TypeCode.i8:  pushInt(t, minMaxImpl!("<")(cast(byte[])mb.data));     break;
 			case TypeCode.i16: pushInt(t, minMaxImpl!("<")(cast(short[])mb.data));    break;
 			case TypeCode.i32: pushInt(t, minMaxImpl!("<")(cast(int[])mb.data));      break;
@@ -499,24 +499,24 @@ static:
 		checkAnyParam(t, 2);
 
 		if(!mb.ownData)
-			throwException(t, "Attempting to insert into a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to insert into a memblock which does not own its data");
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to insert into a void memblock");
+			throwStdException(t, "ValueException", "Attempting to insert into a void memblock");
 
 		if(idx < 0)
 			idx += mb.itemLength;
 
 		// Yes, > and not >=, because you can insert at "one past" the end of the memblock.
 		if(idx < 0 || idx > mb.itemLength)
-			throwException(t, "Invalid index: {} (length: {})", idx, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, mb.itemLength);
 
 		void doResize(ulong otherLen)
 		{
 			ulong totalLen = mb.itemLength + otherLen;
 
 			if(totalLen > uword.max)
-				throwException(t, "Invalid size ({})", totalLen);
+				throwStdException(t, "ValueException", "Invalid size ({})", totalLen);
 
 			auto oldLen = mb.itemLength;
 			auto isize = mb.kind.itemSize;
@@ -536,7 +536,7 @@ static:
 			auto other = getMemblock(t, 2);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to insert a memblock of type '{}' into a memblock of type '{}'", other.kind.name, mb.kind.name);
+				throwStdException(t, "ValueException", "Attempting to insert a memblock of type '{}' into a memblock of type '{}'", other.kind.name, mb.kind.name);
 
 			if(other.itemLength != 0)
 			{
@@ -567,13 +567,13 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(!mb.ownData)
-			throwException(t, "Attempting to pop from a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to pop from a memblock which does not own its data");
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to pop from a void memblock");
+			throwStdException(t, "ValueException", "Attempting to pop from a void memblock");
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock is empty");
+			throwStdException(t, "ValueException", "Memblock is empty");
 
 		auto index = optIntParam(t, 1, -1);
 
@@ -581,7 +581,7 @@ static:
 			index += mb.itemLength;
 
 		if(index < 0 || index >= mb.itemLength)
-			throwException(t, "Invalid index: {}", index);
+			throwStdException(t, "BoundsException", "Invalid index: {}", index);
 
 		push(t, memblock.index(mb, cast(uword)index));
 
@@ -602,13 +602,13 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(!mb.ownData)
-			throwException(t, "Attempting to remove from a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to remove from a memblock which does not own its data");
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to remove from a void memblock");
+			throwStdException(t, "ValueException", "Attempting to remove from a void memblock");
 
 		if(mb.itemLength == 0)
-			throwException(t, "Memblock is empty");
+			throwStdException(t, "ValueException", "Memblock is empty");
 
 		auto lo = checkIntParam(t, 1);
 		auto hi = optIntParam(t, 2, lo + 1);
@@ -620,7 +620,7 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
 
 		if(lo != hi)
 		{
@@ -650,7 +650,7 @@ static:
 
 			switch(mb.kind.code)
 			{
-				case TypeCode.v:   throwException(t, "Attempting to sum a void memblock");
+				case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sum a void memblock");
 				case TypeCode.i8:  foreach(val; cast(byte[])mb.data)   res += val; break;
 				case TypeCode.i16: foreach(val; cast(short[])mb.data)  res += val; break;
 				case TypeCode.i32: foreach(val; cast(int[])mb.data)    res += val; break;
@@ -693,7 +693,7 @@ static:
 
 			switch(mb.kind.code)
 			{
-				case TypeCode.v:   throwException(t, "Attempting to sum a void memblock");
+				case TypeCode.v:   throwStdException(t, "ValueException", "Attempting to sum a void memblock");
 				case TypeCode.i8:  foreach(val; cast(byte[])mb.data)   res *= val; break;
 				case TypeCode.i16: foreach(val; cast(short[])mb.data)  res *= val; break;
 				case TypeCode.i32: foreach(val; cast(int[])mb.data)    res *= val; break;
@@ -732,7 +732,7 @@ static:
 		auto hi = optIntParam(t, 2, mb.itemLength);
 		
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to copy into a void memblock");
+			throwStdException(t, "ValueException", "Attempting to copy into a void memblock");
 
 		if(lo < 0)
 			lo += mb.itemLength;
@@ -741,16 +741,16 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
+			throwStdException(t, "BoundsException", "Invalid destination slice indices: {} .. {} (length: {})", lo, hi, mb.itemLength);
 
 		checkParam(t, 3, CrocValue.Type.Memblock);
 		auto other = getMemblock(t, 3);
 		
 		if(other.kind.code == TypeCode.v)
-			throwException(t, "Attempting to copy from a void memblock");
+			throwStdException(t, "ValueException", "Attempting to copy from a void memblock");
 
 		if(mb.kind !is other.kind)
-			throwException(t, "Attempting to copy a memblock of type '{}' into a memblock of type '{}'", other.kind.name, mb.kind.name);
+			throwStdException(t, "ValueException", "Attempting to copy a memblock of type '{}' into a memblock of type '{}'", other.kind.name, mb.kind.name);
 
 		auto lo2 = optIntParam(t, 4, 0);
 		auto hi2 = optIntParam(t, 5, lo2 + (hi - lo));
@@ -762,10 +762,10 @@ static:
 			hi2 += other.itemLength;
 
 		if(lo2 < 0 || lo2 > hi2 || hi2 > other.itemLength)
-			throwException(t, "Invalid source slice indices: {} .. {} (length: {})", lo2, hi2, other.itemLength);
+			throwStdException(t, "BoundsException", "Invalid source slice indices: {} .. {} (length: {})", lo2, hi2, other.itemLength);
 
 		if((hi - lo) != (hi2 - lo2))
-			throwException(t, "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
+			throwStdException(t, "ValueException", "Destination length ({}) and source length({}) do not match", hi - lo, hi2 - lo2);
 
 		auto isize = mb.kind.itemSize;
 		memcpy(&mb.data[cast(uword)lo * isize], &other.data[cast(uword)lo2 * isize], cast(uword)(hi - lo) * isize);
@@ -777,17 +777,17 @@ static:
 	void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
 	{
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to fill a void memblock");
+			throwStdException(t, "ValueException", "Attempting to fill a void memblock");
 
 		if(isMemblock(t, filler))
 		{
 			auto other = getMemblock(t, filler);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to fill a memblock of type '{}' using a memblock of type '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to fill a memblock of type '{}' using a memblock of type '{}'", mb.kind.name, other.kind.name);
 
 			if(other.itemLength != (hi - lo))
-				throwException(t, "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.itemLength);
+				throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, other.itemLength);
 
 			if(mb is other)
 				return; // only way this can be is if we're assigning a memblock's entire contents into itself, which is a no-op.
@@ -815,7 +815,7 @@ static:
 					if(!isInt(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "filler function expected to return an 'int', not '{}'", getString(t, -1));
+						throwStdException(t, "TypeException", "filler function expected to return an 'int', not '{}'", getString(t, -1));
 					}
 					
 					memblock.indexAssign(mb, i, *getValue(t, -1));
@@ -831,7 +831,7 @@ static:
 					if(!isNum(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "filler function expected to return an 'int' or 'float', not '{}'", getString(t, -1));
+						throwStdException(t, "TypeException", "filler function expected to return an 'int' or 'float', not '{}'", getString(t, -1));
 					}
 
 					memblock.indexAssign(mb, i, *getValue(t, -1));
@@ -859,7 +859,7 @@ static:
 		else if(isArray(t, filler))
 		{
 			if(len(t, filler) != (hi - lo))
-				throwException(t, "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, filler));
+				throwStdException(t, "ValueException", "Length of destination ({}) and length of array ({}) do not match", hi - lo, len(t, filler));
 
 			// ORDER MEMBLOCK TYPE
 			if(mb.kind.code <= TypeCode.u64)
@@ -871,7 +871,7 @@ static:
 					if(!isInt(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "array element {} expected to be 'int', not '{}'", ai, getString(t, -1));
+						throwStdException(t, "ValueException", "array element {} expected to be 'int', not '{}'", ai, getString(t, -1));
 					}
 
 					memblock.indexAssign(mb, i, *getValue(t, -1));
@@ -887,7 +887,7 @@ static:
 					if(!isNum(t, -1))
 					{
 						pushTypeString(t, -1);
-						throwException(t, "array element {} expected to be 'int' or 'float', not '{}'", ai, getString(t, -1));
+						throwStdException(t, "ValueException", "array element {} expected to be 'int' or 'float', not '{}'", ai, getString(t, -1));
 					}
 
 					memblock.indexAssign(mb, i, *getValue(t, -1));
@@ -928,7 +928,7 @@ static:
 			hi += mb.itemLength;
 
 		if(lo < 0 || lo > hi || hi > mb.itemLength)
-			throwException(t, "Invalid range indices ({} .. {})", lo, hi);
+			throwStdException(t, "BoundsException", "Invalid range indices ({} .. {})", lo, hi);
 
 		fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
 
@@ -942,7 +942,7 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to read from a void memblock");
+			throwStdException(t, "ValueException", "Attempting to read from a void memblock");
 
 		word maxIdx = mb.data.length < T.sizeof ? -1 : mb.data.length - T.sizeof;
 		auto idx = checkIntParam(t, 1);
@@ -951,7 +951,7 @@ static:
 			idx += mb.itemLength * mb.kind.itemSize;
 
 		if(idx < 0 || idx > maxIdx)
-			throwException(t, "Invalid index '{}'", idx);
+			throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
 
 		static if(isIntegerType!(T))
 			pushInt(t, cast(crocint)*(cast(T*)(mb.data.ptr + idx)));
@@ -967,7 +967,7 @@ static:
 		auto mb = getMemblock(t, 0);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to write to a void memblock");
+			throwStdException(t, "ValueException", "Attempting to write to a void memblock");
 
 		word maxIdx = mb.data.length < T.sizeof ? -1 : mb.data.length - T.sizeof;
 		auto idx = checkIntParam(t, 1);
@@ -976,7 +976,7 @@ static:
 			idx += mb.itemLength * mb.kind.itemSize;
 
 		if(idx < 0 || idx > maxIdx)
-			throwException(t, "Invalid index '{}'", idx);
+			throwStdException(t, "BoundsException", "Invalid index '{}'", idx);
 
 		static if(isIntegerType!(T))
 			auto val = checkIntParam(t, 2);
@@ -995,14 +995,14 @@ static:
 		checkAnyParam(t, 1);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to concatenate a void memblock");
+			throwStdException(t, "ValueException", "Attempting to concatenate a void memblock");
 
 		if(isMemblock(t, 1))
 		{
 			auto other = getMemblock(t, 1);
 
 			if(other.kind !is mb.kind)
-				throwException(t, "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 			push(t, CrocValue(memblock.cat(t.vm.alloc, mb, other)));
 		}
@@ -1027,7 +1027,7 @@ static:
 		checkAnyParam(t, 1);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to concatenate a void memblock");
+			throwStdException(t, "ValueException", "Attempting to concatenate a void memblock");
 
 		// ORDER MEMBLOCK TYPE
 		if(mb.kind.code <= TypeCode.u64)
@@ -1047,10 +1047,10 @@ static:
 		checkAnyParam(t, 1);
 
 		if(mb.kind.code == TypeCode.v)
-			throwException(t, "Attempting to append to a void memblock");
+			throwStdException(t, "ValueException", "Attempting to append to a void memblock");
 
 		if(!mb.ownData)
-			throwException(t, "Attempting to append to a memblock which does not own its data");
+			throwStdException(t, "ValueException", "Attempting to append to a memblock which does not own its data");
 
 		ulong totalLen = mb.itemLength;
 
@@ -1061,7 +1061,7 @@ static:
 				auto other = getMemblock(t, i);
 
 				if(other.kind !is mb.kind)
-					throwException(t, "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+					throwStdException(t, "ValueException", "Attempting to concatenate memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 				totalLen += other.itemLength;
 			}
@@ -1078,7 +1078,7 @@ static:
 		}
 
 		if(totalLen > uword.max)
-			throwException(t, "Invalid size ({})", totalLen);
+			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
 
 		auto isize = mb.kind.itemSize;
 		auto oldLen = mb.itemLength;
@@ -1122,17 +1122,17 @@ static:
 			checkAnyParam(t, 1);
 
 			if(mb.kind.code == TypeCode.v)
-				throwException(t, "Attempting to modify a void memblock");
+				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
 
 			if(isMemblock(t, 1))
 			{
 				auto other = getMemblock(t, 1);
 
 				if(other.itemLength != mb.itemLength)
-					throwException(t, "Cannot perform operation on memblocks of different lengths");
+					throwStdException(t, "ValueException", "Cannot perform operation on memblocks of different lengths");
 
 				if(other.kind !is mb.kind)
-					throwException(t, "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+					throwStdException(t, "ValueException", "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 				switch(mb.kind.code)
 				{
@@ -1242,17 +1242,17 @@ static:
 			checkAnyParam(t, 1);
 			
 			if(mb.kind.code == TypeCode.v)
-				throwException(t, "Attempting to modify a void memblock");
+				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
 
 			if(isMemblock(t, 1))
 			{
 				auto other = getMemblock(t, 1);
 
 				if(other.itemLength != mb.itemLength)
-					throwException(t, "Cannot perform operation on memblocks of different lengths");
+					throwStdException(t, "ValueException", "Cannot perform operation on memblocks of different lengths");
 
 				if(other.kind !is mb.kind)
-					throwException(t, "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+					throwStdException(t, "ValueException", "Cannot perform operation on memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 				switch(mb.kind.code)
 				{

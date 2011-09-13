@@ -35,7 +35,7 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	// Create a new weakref object.  Weak reference objects that refer to the same object are reused.  Thus,
+	// Create a new weakref object. Weak reference objects that refer to the same object are reused. Thus,
 	// if two weak references are identical, they refer to the same object.
 	package CrocWeakRef* create(CrocVM* vm, CrocBaseObject* obj)
 	{

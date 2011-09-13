@@ -1,6 +1,6 @@
 /******************************************************************************
 This module contains a lot of type definitions for types used throughout the
-library.  Not much in here is public.
+library. Not much in here is public.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -42,17 +42,17 @@ import croc.utils;
 // ================================================================================================================================================
 
 /**
-The native signed integer type on this platform.  This is the same as ptrdiff_t but with a better name.
+The native signed integer type on this platform. This is the same as ptrdiff_t but with a better name.
 */
 public alias ptrdiff_t word;
 
 /**
-The native unsigned integer type on this platform.  This is the same as size_t but with a better name.
+The native unsigned integer type on this platform. This is the same as size_t but with a better name.
 */
 public alias size_t uword;
 
 /**
-The underlying D type used to store the Croc 'int' type.  Defaults to 'long' (64-bit signed integer).  If you
+The underlying D type used to store the Croc 'int' type. Defaults to 'long' (64-bit signed integer). If you
 change it, you will end up with a (probably?) functional but nonstandard implementation.
 */
 public alias long crocint;
@@ -60,30 +60,25 @@ public alias long crocint;
 static assert((cast(crocint)-1) < (cast(crocint)0), "crocint must be signed");
 
 /**
-The underlying D type used to store the Croc 'float' type.  Defaults to 'double'.  If you change it, you will end
+The underlying D type used to store the Croc 'float' type. Defaults to 'double'. If you change it, you will end
 up with a functional but nonstandard implementation.
 */
 public alias double crocfloat;
 
 /**
-The current version of Croc as a 32-bit integer.  The upper 16 bits are the major, and the lower 16 are
+The current version of Croc as a 32-bit integer. The upper 16 bits are the major, and the lower 16 are
 the minor.
 */
 public const uint CrocVersion = MakeVersion!(2, 1);
 
 /**
-An alias for the type signature of a native function.  It is defined as uword function(CrocThread*, uword).
+An alias for the type signature of a native function. It is defined as uword function(CrocThread*, uword).
 */
 public alias uword function(CrocThread*) NativeFunc;
 
 /**
-The Croc exception type.  This is the type that is thrown whenever you throw an exception from within
-Croc, or when you use the throwException API call.  You can't directly instantiate this class, though,
-since it would be bad if you did (the interpreter needs to keep track of some internal state, which
-throwException does).  See throwException and catchException in croc.interpreter for more info
-on Croc exception handling.
 */
-class CrocException : Exception
+class CrocThrowable : Exception
 {
 	package this(char[] msg)
 	{
@@ -92,8 +87,33 @@ class CrocException : Exception
 }
 
 /**
-This is a semi-internal exception type.  Normally you won't need to know about it or catch it.  This is
-thrown when a coroutine (thread) needs to be halted.  It should never propagate out of the coroutine.
+The Croc exception type. This is the type that is thrown whenever you throw an exception from within
+Croc, or when you use the throwException API call. You can't directly instantiate this class, though,
+since it would be bad if you did (the interpreter needs to keep track of some internal state, which
+throwException does). See throwException and catchException in croc.interpreter for more info
+on Croc exception handling.
+*/
+final class CrocException : CrocThrowable
+{
+	package this(char[] msg)
+	{
+		super(msg);
+	}
+}
+
+/**
+*/
+final class CrocError : CrocThrowable
+{
+	package this(char[] msg)
+	{
+		super(msg);
+	}
+}
+
+/**
+This is a semi-internal exception type. Normally you won't need to know about it or catch it. This is
+thrown when a coroutine (thread) needs to be halted. It should never propagate out of the coroutine.
 The only time you might encounter it is if, in the middle of a native Croc function, one of these
 is thrown, you might be able to catch it and clean up some resources, but you must rethrow it in that
 case, unless you want the interpreter to be in a horrible state.
@@ -101,7 +121,7 @@ case, unless you want the interpreter to be in a horrible state.
 Like the other exception types, you can't instantiate this directly, but you can halt threads with the
 "haltThread" function in croc.interpreter.
 */
-final class CrocHaltException : Exception
+final class CrocHaltException : CrocThrowable
 {
 	package this()
 	{
@@ -110,7 +130,7 @@ final class CrocHaltException : Exception
 }
 
 /**
-A string constant indicating the level of coroutine support compiled in.  Is either "Normal" or "Extended".
+A string constant indicating the level of coroutine support compiled in. Is either "Normal" or "Extended".
 */
 version(CrocExtendedCoro)
 	const char[] CrocCoroSupport = "Extended";
@@ -687,28 +707,11 @@ struct CrocWeakRef
 	package CrocBaseObject* obj;
 }
 
-struct Location
+enum CrocLocation
 {
-	enum Type
-	{
-		Unknown = -2,
-		Native = -1,
-		Script = 0
-	}
-
-	public CrocString* file;
-	// yes, these are 32 bits
-	package int line = 1;
-	package int col = 1;
-
-	public static Location opCall(CrocString* file, int line = 1, int col = 1)
-	{
-		Location l = void;
-		l.file = file;
-		l.line = line;
-		l.col = col;
-		return l;
-	}
+	Unknown = 0,
+	Native = -1,
+	Script = -2
 }
 
 // The integral members of this struct are fixed at 32 bits for possible cross-platform serialization.
@@ -716,7 +719,9 @@ struct CrocFuncDef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.FuncDef);
 
-	package Location location;
+	package CrocString* locFile;
+	package int locLine = 1;
+	package int locCol = 1;
 	package bool isVararg;
 	package CrocString* name;
 	package uint numParams;
@@ -767,15 +772,21 @@ struct CrocVM
 {
 	package Allocator alloc;
 
-	// These are all GC roots
+	// These are all GC roots -----------
 	package CrocNamespace* globals;
 	package CrocThread* mainThread;
 	package CrocNamespace*[] metaTabs;
 	package CrocString*[] metaStrings;
-	package Location[] traceback;
 	package CrocValue exception;
 	package CrocNamespace* registry;
 	package Hash!(ulong, CrocBaseObject*) refTab;
+
+	// These point to "special" runtime classes
+	package CrocClass* object;
+	package CrocClass* throwable;
+	package CrocClass* location;
+	package Hash!(CrocString*, CrocClass*) stdExceptions;
+	// ----------------------------------
 
 	// Others
 	package Hash!(char[], CrocString*) stringTab;
@@ -789,7 +800,7 @@ struct CrocVM
 	// The following members point into the D heap.
 	package CrocNativeObj*[Object] nativeObjs;
 	package Layout!(char) formatter;
-	package char[] exMsg;
+	package CrocException dexception;
 
 	version(CrocExtendedCoro)
 		version(CrocPoolFibers)

@@ -100,7 +100,7 @@ static:
 		
 		foreach(i, ref val; arr)
 			if(val.type != CrocValue.Type.String && val.type != CrocValue.Type.Char)
-				throwException(t, "Array element {} is not a string or char", i);
+				throwStdException(t, "TypeException", "Array element {} is not a string or char", i);
 
 		auto s = StrBuffer(t);
 
@@ -146,7 +146,7 @@ static:
 			case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[0 .. mb.itemLength]); break;
 			case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[0 .. mb.itemLength]); break;
 			case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[0 .. mb.itemLength]); break;
-			default: throwException(t, "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
+			default: throwStdException(t, "ValueException", "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
 		}
 
 		return 1;
@@ -158,7 +158,7 @@ static:
 		auto mb = getMemblock(t, 1);
 
 		if(mb.kind.code != CrocMemblock.TypeCode.u8)
-			throwException(t, "Memblock must be of type 'u8', not '{}'", mb.kind.name);
+			throwStdException(t, "ValueException", "Memblock must be of type 'u8', not '{}'", mb.kind.name);
 
 		auto src = (cast(char[])mb.data)[0 .. mb.itemLength];
   		auto dest = allocArray!(char)(t, src.length);
@@ -225,13 +225,13 @@ static:
 		if(numParams > 0)
 			base = cast(int)getInt(t, 1);
 
-		pushInt(t, safeCode(t, Integer.toInt(src, base)));
+		pushInt(t, safeCode(t, "exceptions.ValueException", Integer.toInt(src, base)));
 		return 1;
 	}
 
 	uword toFloat(CrocThread* t)
 	{
-		pushFloat(t, safeCode(t, Float.toFloat(checkStringParam(t, 0))));
+		pushFloat(t, safeCode(t, "exceptions.ValueException", Float.toFloat(checkStringParam(t, 0))));
 		return 1;
 	}
 
@@ -266,7 +266,7 @@ static:
 			start += srcLen;
 
 			if(start < 0)
-				throwException(t, "Invalid start index {}", start);
+				throwStdException(t, "BoundsException", "Invalid start index {}", start);
 		}
 
 		if(start >= srcLen)
@@ -304,7 +304,7 @@ static:
 			start += srcLen;
 
 			if(start < 0)
-				throwException(t, "Invalid start index {}", start);
+				throwStdException(t, "BoundsException", "Invalid start index {}", start);
 		}
 
 		if(start >= srcLen)
@@ -342,14 +342,14 @@ static:
 		auto start = optIntParam(t, 2, srcLen);
 
 		if(start > srcLen)
-			throwException(t, "Invalid start index: {}", start);
+			throwStdException(t, "BoundsException", "Invalid start index: {}", start);
 
 		if(start < 0)
 		{
 			start += srcLen;
 
 			if(start < 0)
-				throwException(t, "Invalid start index {}", start);
+				throwStdException(t, "BoundsException", "Invalid start index {}", start);
 		}
 
 		if(start == 0)
@@ -383,14 +383,14 @@ static:
 		auto start = optIntParam(t, 2, srcLen);
 
 		if(start > srcLen)
-			throwException(t, "Invalid start index: {}", start);
+			throwStdException(t, "BoundsException", "Invalid start index: {}", start);
 
 		if(start < 0)
 		{
 			start += srcLen;
 
 			if(start < 0)
-				throwException(t, "Invalid start index {}", start);
+				throwStdException(t, "BoundsException", "Invalid start index {}", start);
 		}
 
 		if(start == 0)
@@ -461,7 +461,7 @@ static:
 		auto numTimes = checkIntParam(t, 1);
 
 		if(numTimes < 0)
-			throwException(t, "Invalid number of repetitions: {}", numTimes);
+			throwStdException(t, "RangeException", "Invalid number of repetitions: {}", numTimes);
 
 		auto buf = StrBuffer(t);
 

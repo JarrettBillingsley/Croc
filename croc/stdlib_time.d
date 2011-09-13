@@ -124,11 +124,11 @@ static:
 		if(numParams > 2)
 		{
 			auto name = StrToCulture(t, 1);
-			culture = safeCode(t, Culture.getCulture(name));
+			culture = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
 		}
 
 		char[40] buffer;
-		auto ret = safeCode(t, formatDateTime(buffer, time, format, culture));
+		auto ret = safeCode(t, "exceptions.ValueException", formatDateTime(buffer, time, format, culture));
 
 		pushString(t, ret);
 		return 1;
@@ -173,7 +173,7 @@ static:
 		if(numParams > 0)
 		{
 			auto name = StrToCulture(t, 1);
-			Culture.current = safeCode(t, Culture.getCulture(name));
+			Culture.current = safeCode(t, "exceptions.ValueException", Culture.getCulture(name));
 		}
 
 		return 1;
@@ -195,7 +195,7 @@ static:
 		checkStringParam(t, slot);
 
 		if(len(t, slot) != 5)
-			throwException(t, "Culture name {} is not supported.", getString(t, slot));
+			throwStdException(t, "ValueException", "Culture name {} is not supported.", getString(t, slot));
 
 		return getString(t, slot);
 	}
@@ -224,7 +224,7 @@ static:
 			}
 		}
 
-		throwException(t, "invalid format string");
+		throwStdException(t, "ValueException", "invalid format string");
 		assert(false);
 	}
 
@@ -238,7 +238,7 @@ static:
 		auto sec = field(t, tab, "sec");
 
 		if(!isInt(t, year) || !isInt(t, month) || !isInt(t, day))
-			throwException(t, "year, month, and day fields in time table must exist and must be integers");
+			throwStdException(t, "ValueException", "year, month, and day fields in time table must exist and must be integers");
 
 		Time time = void;
 
@@ -290,7 +290,7 @@ static:
 		auto dur = checkNumParam(t, 1);
 		
 		if(dur < 0)
-			throwException(t, "Invalid sleep duration: {}", dur);
+			throwStdException(t, "RangeException", "Invalid sleep duration: {}", dur);
 
 		Thread.sleep(dur);
 		return 0;

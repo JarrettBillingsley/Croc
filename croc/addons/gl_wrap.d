@@ -117,7 +117,7 @@ uword wrapGL(alias f)(CrocThread* t)
 				auto err = glGetError();
 
 				if(err != GL_NO_ERROR)
-					throwException(t, NameOfFunc!(f) ~ " - {}", fromStringz(cast(char*)gluErrorString(err)));
+					throwNamedException(t, "GLException", NameOfFunc!(f) ~ " - {}", fromStringz(cast(char*)gluErrorString(err)));
 			}
 		}
 	}

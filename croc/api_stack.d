@@ -42,7 +42,7 @@ import croc.utils;
 public:
 
 /**
-Returns the number of items on the stack.  Valid positive stack indices range from [0 .. _stackSize(t)$(RPAREN).
+Returns the number of items on the stack. Valid positive stack indices range from [0 .. _stackSize(t)$(RPAREN).
 Valid negative stack indices range from [-_stackSize(t) .. 0$(RPAREN).
 
 Note that 'this' (stack index 0 or -_stackSize(t)) may not be overwritten or changed, although it can be used
@@ -55,20 +55,20 @@ uword stackSize(CrocThread* t)
 }
 
 /**
-Sets the thread's stack size to an absolute value.  The new stack size must be at least 1 (which
-would leave 'this' on the stack and nothing else).  If the new stack size is smaller than the old
-one, the old values are simply discarded.  If the new stack size is larger than the old one, the
-new slots are filled with null.  Throws an error if you try to set the stack size to 0.
+Sets the thread's stack size to an absolute value. The new stack size must be at least 1 (which
+would leave 'this' on the stack and nothing else). If the new stack size is smaller than the old
+one, the old values are simply discarded. If the new stack size is larger than the old one, the
+new slots are filled with null. Throws an error if you try to set the stack size to 0.
 
 Params:
-	newSize = The new stack size.  Must be greater than 0.
+	newSize = The new stack size. Must be greater than 0.
 */
 void setStackSize(CrocThread* t, uword newSize)
 {
 	mixin(FuncNameMix);
 
 	if(newSize == 0)
-		throwException(t, __FUNCTION__ ~ " - newSize must be nonzero");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - newSize must be nonzero");
 
 	auto curSize = stackSize(t);
 
@@ -85,9 +85,9 @@ void setStackSize(CrocThread* t, uword newSize)
 }
 
 /**
-Given an index, returns the absolute index that corresponds to it.  This is useful for converting
-relative (negative) indices to indices that will never change.  If the index is already absolute,
-just returns it.  Throws an error if the index is out of range.
+Given an index, returns the absolute index that corresponds to it. This is useful for converting
+relative (negative) indices to indices that will never change. If the index is already absolute,
+just returns it. Throws an error if the index is out of range.
 */
 word absIndex(CrocThread* t, word idx)
 {
@@ -95,8 +95,8 @@ word absIndex(CrocThread* t, word idx)
 }
 
 /**
-Sees if a given stack index (negative or positive) is valid.  Valid positive stack indices range
-from [0 .. stackSize(t)$(RPAREN).  Valid negative stack indices range from [-stackSize(t) .. 0$(RPAREN).
+Sees if a given stack index (negative or positive) is valid. Valid positive stack indices range
+from [0 .. stackSize(t)$(RPAREN). Valid negative stack indices range from [-stackSize(t) .. 0$(RPAREN).
 
 */
 bool isValidIndex(CrocThread* t, word idx)
@@ -111,7 +111,7 @@ bool isValidIndex(CrocThread* t, word idx)
 Duplicates a value at the given stack index and pushes it onto the stack.
 
 Params:
-	slot = The _slot to duplicate.  Defaults to -1, which means the top of the stack.
+	slot = The _slot to duplicate. Defaults to -1, which means the top of the stack.
 
 Returns:
 	The stack index of the newly-pushed _slot.
@@ -125,8 +125,8 @@ word dup(CrocThread* t, word slot = -1)
 }
 
 /**
-Swaps the two values at the given indices.  The first index defaults to the second-from-top
-value.  The second index defaults to the top-of-stack.  So, if you call swap with no indices, it will
+Swaps the two values at the given indices. The first index defaults to the second-from-top
+value. The second index defaults to the top-of-stack. So, if you call swap with no indices, it will
 _swap the top two values.
 
 Params:
@@ -148,15 +148,15 @@ void swap(CrocThread* t, word first = -2, word second = -1)
 
 /**
 Inserts the value at the top of the stack into the given _slot, shifting up the values in that _slot
-and everything after it up by a _slot.  This means the stack will stay the same size.  Similar to a
+and everything after it up by a _slot. This means the stack will stay the same size. Similar to a
 "rotate" operation common to many stack machines.
 
-Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
+Throws an error if 'slot' corresponds to the 'this' parameter. 'this' can never be modified.
 
 If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
 
 Params:
-	slot = The _slot in which the value at the top will be inserted.  If this refers to the top of the
+	slot = The _slot in which the value at the top will be inserted. If this refers to the top of the
 		stack, this function does nothing.
 */
 void insert(CrocThread* t, word slot)
@@ -165,7 +165,7 @@ void insert(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -179,7 +179,7 @@ void insert(CrocThread* t, word slot)
 Similar to insert, but combines the insertion with a pop operation that pops everything after the
 newly-inserted value off the stack.
 
-Throws an error if 'slot' corresponds to the 'this' parameter.  'this' can never be modified.
+Throws an error if 'slot' corresponds to the 'this' parameter. 'this' can never be modified.
 
 If 'slot' corresponds to the top-of-stack (but not 'this'), this function is a no-op.
 */
@@ -189,7 +189,7 @@ void insertAndPop(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot use 'this' as the destination");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot use 'this' as the destination");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -214,7 +214,7 @@ void moveToTop(CrocThread* t, word slot)
 	auto s = fakeToAbs(t, slot);
 
 	if(s == t.stackBase)
-		throwException(t, __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot move 'this' to the top of the stack");
 
 	if(s == t.stackIndex - 1)
 		return;
@@ -225,10 +225,10 @@ void moveToTop(CrocThread* t, word slot)
 }
 
 /**
-A more generic version of insert.  This allows you to _rotate dist items within the top
-numSlots items on the stack.  The top dist items become the bottom dist items within that range
-of indices.  So, if the stack looks something like "1 2 3 4 5 6", and you perform a _rotate with
-5 slots and a distance of 3, the stack will become "1 4 5 6 2 3".  If the dist parameter is 1,
+A more generic version of insert. This allows you to _rotate dist items within the top
+numSlots items on the stack. The top dist items become the bottom dist items within that range
+of indices. So, if the stack looks something like "1 2 3 4 5 6", and you perform a _rotate with
+5 slots and a distance of 3, the stack will become "1 4 5 6 2 3". If the dist parameter is 1,
 it behaves just like insert. Additionally, if the dist parameter is one less than numSlots, this
 works just like moveToTop.
 
@@ -242,7 +242,7 @@ void rotate(CrocThread* t, uword numSlots, uword dist)
 	mixin(FuncNameMix);
 
 	if(numSlots > (stackSize(t) - 1))
-		throwException(t, __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to rotate more values ({}) than can be rotated ({})", numSlots, stackSize(t) - 1);
 
 	if(numSlots == 0)
 		return;
@@ -297,7 +297,7 @@ void rotate(CrocThread* t, uword numSlots, uword dist)
 }
 
 /**
-Rotates all stack slots (excluding 'this').  This is the same as calling rotate with a numSlots
+Rotates all stack slots (excluding 'this'). This is the same as calling rotate with a numSlots
 parameter of stackSize(_t) - 1.
 */
 void rotateAll(CrocThread* t, uword dist)
@@ -306,28 +306,28 @@ void rotateAll(CrocThread* t, uword dist)
 }
 
 /**
-Pops a number of items off the stack.  Throws an error if you try to _pop more items than there are
-on the stack.  'this' is not counted; so if there is 'this' and one value, and you try to _pop 2
+Pops a number of items off the stack. Throws an error if you try to _pop more items than there are
+on the stack. 'this' is not counted; so if there is 'this' and one value, and you try to _pop 2
 values, an error is thrown.
 
 Params:
-	n = The number of items to _pop.  Defaults to 1.  Must be greater than 0.
+	n = The number of items to _pop. Defaults to 1. Must be greater than 0.
 */
 void pop(CrocThread* t, uword n = 1)
 {
 	mixin(FuncNameMix);
 
 	if(n == 0)
-		throwException(t, __FUNCTION__ ~ " - Trying to pop zero items");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Trying to pop zero items");
 
 	if(n > (t.stackIndex - (t.stackBase + 1)))
-		throwException(t, __FUNCTION__ ~ " - Stack underflow");
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Stack underflow");
 
 	t.stackIndex -= n;
 }
 
 /**
-Moves values from one thread to another.  The values are popped off the source thread's stack
+Moves values from one thread to another. The values are popped off the source thread's stack
 and put on the destination thread's stack in the same order that they were on the source stack.
 
 If there are fewer values on the source thread's stack than the number of values, an error will
@@ -341,13 +341,13 @@ a no-op.
 Params:
 	src = The thread from which the values will be taken.
 	dest = The thread onto whose stack the values will be pushed.
-	num = The number of values to transfer.  There must be at least this many values on the source
+	num = The number of values to transfer. There must be at least this many values on the source
 		thread's stack.
 */
 void transferVals(CrocThread* src, CrocThread* dest, uword num)
 {
 	if(src.vm !is dest.vm)
-		throwException(src, "transferVals - Source and destination threads belong to different VMs");
+		throwStdException(src, "ApiError", "transferVals - Source and destination threads belong to different VMs");
 
 	if(num == 0 || dest is src)
 		return;
@@ -391,7 +391,7 @@ RelStack fakeToRel(CrocThread* t, word fake)
 		fake += size;
 
 	if(fake < 0 || fake >= size)
-		throwException(t, "Invalid stack index {} (stack size = {})", fake, size);
+		throwStdException(t, "ApiError", "Invalid stack index {} (stack size = {})", fake, size);
 
 	return cast(RelStack)fake;
 }

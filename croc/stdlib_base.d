@@ -313,7 +313,7 @@ static:
 		if(!isMemblock(t, 1))
 		{
 			pushTypeString(t, 1);
-			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
 		}
 
 		if(opis(t, 0, 1))
@@ -323,7 +323,7 @@ static:
 			auto other = getMemblock(t, 1);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 			if(mb.itemLength != other.itemLength)
 				pushBool(t, false);
@@ -353,7 +353,7 @@ static:
 		if(!isMemblock(t, 1))
 		{
 			pushTypeString(t, 1);
-			throwException(t, "Attempting to compare a memblock to a '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
 		}
 
 		if(opis(t, 0, 1))
@@ -363,7 +363,7 @@ static:
 			auto other = getMemblock(t, 1);
 
 			if(mb.kind !is other.kind)
-				throwException(t, "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
 
 			auto otherLen = other.itemLength;
 			auto l = min(len, otherLen);
@@ -372,13 +372,13 @@ static:
 			switch(mb.kind.code)
 			{
 				case CrocMemblock.TypeCode.v:   auto a = mb.data[0 .. l]; auto b = other.data[0 .. l]; cmp = typeid(void[]).compare(&a, &b); break;
-				case CrocMemblock.TypeCode.i8:  auto a = (cast(byte[])  mb.data)[0 .. l]; auto b = (cast(byte[])  other.data)[0 .. l]; cmp = typeid(byte[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i8:  auto a = (cast(byte[])  mb.data)[0 .. l]; auto b = (cast(byte[])  other.data)[0 .. l]; cmp = typeid(byte[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.i16: auto a = (cast(short[]) mb.data)[0 .. l]; auto b = (cast(short[]) other.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
-				case CrocMemblock.TypeCode.i32: auto a = (cast(int[])   mb.data)[0 .. l]; auto b = (cast(int[])   other.data)[0 .. l]; cmp = typeid(int[]).   compare(&a, &b); break;
-				case CrocMemblock.TypeCode.i64: auto a = (cast(long[])  mb.data)[0 .. l]; auto b = (cast(long[])  other.data)[0 .. l]; cmp = typeid(long[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i32: auto a = (cast(int[])   mb.data)[0 .. l]; auto b = (cast(int[])   other.data)[0 .. l]; cmp = typeid(int[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i64: auto a = (cast(long[])  mb.data)[0 .. l]; auto b = (cast(long[])  other.data)[0 .. l]; cmp = typeid(long[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.u8:  auto a = (cast(ubyte[]) mb.data)[0 .. l]; auto b = (cast(ubyte[]) other.data)[0 .. l]; cmp = typeid(ubyte[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.u16: auto a = (cast(ushort[])mb.data)[0 .. l]; auto b = (cast(ushort[])other.data)[0 .. l]; cmp = typeid(ushort[]).compare(&a, &b); break;
-				case CrocMemblock.TypeCode.u32: auto a = (cast(uint[])  mb.data)[0 .. l]; auto b = (cast(uint[])  other.data)[0 .. l]; cmp = typeid(uint[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u32: auto a = (cast(uint[])  mb.data)[0 .. l]; auto b = (cast(uint[])  other.data)[0 .. l]; cmp = typeid(uint[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.u64: auto a = (cast(ulong[]) mb.data)[0 .. l]; auto b = (cast(ulong[]) other.data)[0 .. l]; cmp = typeid(ulong[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.f32: auto a = (cast(float[]) mb.data)[0 .. l]; auto b = (cast(float[]) other.data)[0 .. l]; cmp = typeid(float[]). compare(&a, &b); break;
 				case CrocMemblock.TypeCode.f64: auto a = (cast(double[])mb.data)[0 .. l]; auto b = (cast(double[])other.data)[0 .. l]; cmp = typeid(double[]).compare(&a, &b); break;
@@ -1074,7 +1074,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 				style[0] = checkCharParam(t, 2);
 
 			char[80] buffer = void;
-			pushString(t, safeCode(t, Integer.format(buffer, getInt(t, 1), style)));
+			pushString(t, safeCode(t, "exceptions.ValueException", Integer.format(buffer, getInt(t, 1), style)));
 		}
 		else
 			pushToString(t, 1);
@@ -1156,11 +1156,11 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 			case CrocValue.Type.Int:    dup(t, 1); break;
 			case CrocValue.Type.Float:  pushInt(t, cast(crocint)getFloat(t, 1)); break;
 			case CrocValue.Type.Char:   pushInt(t, cast(crocint)getChar(t, 1)); break;
-			case CrocValue.Type.String: pushInt(t, safeCode(t, cast(crocint)Integer.toLong(getString(t, 1), 10))); break;
+			case CrocValue.Type.String: pushInt(t, safeCode(t, "exceptions.ValueException", cast(crocint)Integer.toLong(getString(t, 1), 10))); break;
 
 			default:
 				pushTypeString(t, 1);
-				throwException(t, "Cannot convert type '{}' to int", getString(t, -1));
+				throwStdException(t, "TypeException", "Cannot convert type '{}' to int", getString(t, -1));
 		}
 
 		return 1;
@@ -1188,11 +1188,11 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 			case CrocValue.Type.Int: pushFloat(t, cast(crocfloat)getInt(t, 1)); break;
 			case CrocValue.Type.Float: dup(t, 1); break;
 			case CrocValue.Type.Char: pushFloat(t, cast(crocfloat)getChar(t, 1)); break;
-			case CrocValue.Type.String: pushFloat(t, safeCode(t, cast(crocfloat)Float.toFloat(getString(t, 1)))); break;
+			case CrocValue.Type.String: pushFloat(t, safeCode(t, "exceptions.ValueException", cast(crocfloat)Float.toFloat(getString(t, 1)))); break;
 
 			default:
 				pushTypeString(t, 1);
-				throwException(t, "Cannot convert type '{}' to float", getString(t, -1));
+				throwStdException(t, "TypeException", "Cannot convert type '{}' to float", getString(t, -1));
 		}
 
 		return 1;

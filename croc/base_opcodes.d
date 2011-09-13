@@ -46,6 +46,7 @@ enum Op : ushort
 	CheckObjParam,
 	CheckParams,
 	Class,
+	ClassNB,
 	Close,
 	Closure,
 	Coroutine,
@@ -148,6 +149,7 @@ CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: dest, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Class.............R: dest, name const index, base class
+ClassNB...........R: dest, name const index, n/a
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
 Coroutine.........R: dest, src, n/a
@@ -312,6 +314,7 @@ align(1) struct Instruction
 			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Class:           return Format("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
+			case Op.ClassNB:         return Format("classnb {}, {}", cr(rd), cr(rs));
 			case Op.Close:           return Format("close r{}", rd);
 			case Op.Closure:         return rt == 0 ? Format("closure {}, {}", cr(rd), rs) : Format("closure {}, {}, r{}", cr(rd), rs, rt);
 			case Op.Coroutine:       return Format("coroutine {}, {}", cr(rd), cr(rs));

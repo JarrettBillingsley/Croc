@@ -1,5 +1,5 @@
 /******************************************************************************
-This module defines some types used by the compiler.  It also abstracts the
+This module defines some types used by the compiler. It also abstracts the
 interface to the compiler to avoid circular imports.
 
 License:
@@ -48,7 +48,9 @@ interface ICompiler
 	bool isEof();
 	bool isLoneStmt();
 	bool isDanglingDoc();
-	void exception(CompileLoc loc, char[] msg, ...);
+	void lexException(CompileLoc loc, char[] msg, ...);
+	void synException(CompileLoc loc, char[] msg, ...);
+	void semException(CompileLoc loc, char[] msg, ...);
 	void eofException(CompileLoc loc, char[] msg, ...);
 	void loneStmtException(CompileLoc loc, char[] msg, ...);
 	CrocThread* thread();
@@ -99,7 +101,7 @@ template IAstNodeMixin()
 	}
 }
 
-// Dynamically-sized list.  When you use .toArray(), it hands off the reference to its
+// Dynamically-sized list. When you use .toArray(), it hands off the reference to its
 // data, meaning that you now own the data and must clean it up.
 scope class List(T)
 {

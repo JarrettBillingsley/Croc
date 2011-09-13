@@ -1,12 +1,16 @@
-/// This is a comment for the moduuuuule
 module samples.simple
 
-/// DOCS!
-local x, y = 3, 4
+import exceptions: Location, Exception
 
 function main()
 {
-
+	try
+		throw Exception("poop")
+	catch(e)
+	{
+		writeln(e)
+		writeln(e.tracebackString())
+	}
 }
 
 function help(x, child: string = null)
@@ -257,7 +261,7 @@ function dumpStdlib(x)
 	}
 }
 
-dumpStdlib(_G)
+// dumpStdlib(_G)
 
 /*
 I guess it's baselib (but could be moved?)

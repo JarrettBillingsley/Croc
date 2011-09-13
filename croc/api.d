@@ -1,5 +1,5 @@
 /******************************************************************************
-This should be the module you import to use Croc.  This module publicly
+This should be the module you import to use Croc. This module publicly
 imports the following modules: croc.base_alloc, croc.ex croc.interpreter,
 croc.stackmanip, croc.types, croc.utils and croc.vm.
 
@@ -46,6 +46,7 @@ import croc.stdlib_base;
 import croc.stdlib_char;
 import croc.stdlib_compiler;
 import croc.stdlib_debug;
+import croc.stdlib_exceptions;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
 import croc.stdlib_io;
@@ -89,9 +90,9 @@ void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 }
 
 /**
-Initialize a VM instance.  This is independent from all other VM instances.  It performs its
+Initialize a VM instance. This is independent from all other VM instances. It performs its
 own garbage collection, and as far as I know, multiple OS threads can each have their own
-VM and manipulate them at the same time without consequence.  (The library has not, however,
+VM and manipulate them at the same time without consequence. (The library has not, however,
 been designed with multithreading in mind, so you will have to synchronize access to a single
 VM from multiple threads.)
 
@@ -99,12 +100,12 @@ This call also allocates an instance of tango.text.convert.Layout on the D heap,
 library can perform formatting without allocating memory later.
 
 Params:
-	vm = The VM object to initialize.  $(B This object must have been allocated somewhere in D
-		memory) (either on the stack or with 'new').  If it's not in D's memory, you must inform
+	vm = The VM object to initialize. $(B This object must have been allocated somewhere in D
+		memory) (either on the stack or with 'new'). If it's not in D's memory, you must inform
 		the D GC of its existence, or else D will blindly collect objects that the Croc VM
 		references.
-	memFunc = The memory allocation function to use to allocate this VM.  The VM's allocation
-		function will be set to this after creation.  Defaults to DefaultMemFunc, which uses
+	memFunc = The memory allocation function to use to allocate this VM. The VM's allocation
+		function will be set to this after creation. Defaults to DefaultMemFunc, which uses
 		the C allocator.
 	ctx = An opaque context pointer that will be passed to the memory function at each call.
 		The Croc library does not do anything with this pointer other than store it. Note that
@@ -118,12 +119,13 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	openVMImpl(vm, memFunc, ctx);
 	auto t = mainThread(vm);
 
-	// Set up the modules module.  This has to be done before any other modules
+	// Set up the modules module. This has to be done before any other modules
 	// are initialized for obvious reasons.
 	ModulesLib.init(t);
 	BaseLib.init(t);
 	GCLib.init(t);
 	ThreadLib.init(t);
+	ExceptionsLib.init(t);
 	vm.alloc.gcLimit = vm.alloc.totalBytes;
 	return t;
 }
@@ -132,12 +134,12 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 Closes a VM object and deallocates all memory associated with it.
 
 Normally you won't have to call this since, when the host program exits, all memory associated with
-its process will be freed.  However if you need to get rid of a context for some reason (i.e. a daemon
+its process will be freed. However if you need to get rid of a context for some reason (i.e. a daemon
 process which spawns and frees contexts as necessary), you must call this to free any data associated
 with the VM.
 
 Params:
-	vm = The VM to free.  After all memory has been freed, the memory at this pointer will be initialized
+	vm = The VM to free. After all memory has been freed, the memory at this pointer will be initialized
 		to an "empty" or "dead" VM which can then be passed into openVM.
 */
 void closeVM(CrocVM* vm)
@@ -147,7 +149,7 @@ void closeVM(CrocVM* vm)
 
 /**
 This enumeration is used with the loadStdlibs function to specify which standard libraries you
-want to load into the VM.  The base library is always loaded, so there is no flag for it.  You can
+want to load into the VM. The base library is always loaded, so there is no flag for it. You can
 choose which libraries you want to load by ORing together multiple flags.
 */
 enum CrocStdlib
@@ -155,11 +157,11 @@ enum CrocStdlib
 	None =             0, /// Nothing but the base library will be loaded if you specify this flag.
 	Array =            1, /// _Array manipulation.
 	Char =             2, /// Character classification.
-	IO =               4, /// File system manipulation and file access.  Requires the stream lib.
+	IO =               4, /// File system manipulation and file access. Requires the stream lib.
 	Math =             8, /// Standard math functions.
 	String =          16, /// _String manipulation.
 	Hash =            32, /// _Hash (table and namespace) manipulation.
-	OS =              64, /// _OS-specific functionality.  Requires the stream lib.
+	OS =              64, /// _OS-specific functionality. Requires the stream lib.
 	Regexp =         128, /// Regular expressions.
 	Time =           256, /// _Time functions.
 	Stream =         512, /// Streamed IO classes.

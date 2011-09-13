@@ -187,7 +187,7 @@ static:
 			getExtraVal(t, 0, Fields.process);
 
 			if(!isNull(t, -1))
-				throwException(t, "Attempting to call constructor on an already-initialized Process");
+				throwStdException(t, "ValueException", "Attempting to call constructor on an already-initialized Process");
 
 			pop(t);
 
@@ -208,7 +208,7 @@ static:
 		public uword isRunning(CrocThread* t)
 		{
 			auto p = getProcess(t);
-			pushBool(t, safeCode(t, p.isRunning()));
+			pushBool(t, safeCode(t, "exceptions.OSException", p.isRunning()));
 			return 1;
 		}
 
@@ -219,11 +219,11 @@ static:
 
 			if(numParams == 0)
 			{
-				pushString(t, safeCode(t, p.workDir));
+				pushString(t, safeCode(t, "exceptions.OSException", p.workDir));
 				return 1;
 			}
 
-			safeCode(t, p.workDir = checkStringParam(t, 1));
+			safeCode(t, "exceptions.OSException", p.workDir = checkStringParam(t, 1));
 			return 0;
 		}
 
@@ -242,7 +242,7 @@ static:
 				foreach(word k, word v; foreachLoop(t, 1))
 				{
 					if(!isString(t, k) || !isString(t, v))
-						throwException(t, "env parameter must be a table mapping from strings to strings");
+						throwStdException(t, "ValueException", "env parameter must be a table mapping from strings to strings");
 
 					env[getString(t, k)] = getString(t, v);
 				}
@@ -253,7 +253,7 @@ static:
 			if(isString(t, 1))
 			{
 				p.programName = getString(t, 1);
-				safeCode(t, p.execute());
+				safeCode(t, "exceptions.OSException", p.execute());
 			}
 			else
 			{
@@ -266,14 +266,14 @@ static:
 					idxi(t, 1, i);
 
 					if(!isString(t, -1))
-						throwException(t, "cmd parameter must be an array of strings");
+						throwStdException(t, "ValueException", "cmd parameter must be an array of strings");
 
 					cmd[i] = getString(t, -1);
 					pop(t);
 				}
 
 				p.args(cmd[0], cmd[1 .. $]);
-				safeCode(t, p.execute());
+				safeCode(t, "exceptions.OSException", p.execute());
 			}
 			
 			clearStreams(t);
@@ -285,8 +285,8 @@ static:
 		{
 			auto p = getProcess(t);
 			
-			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stdin of process that isn't running");
+			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
+				throwStdException(t, "ValueException", "Attempting to get stdin of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdin);
 
@@ -309,8 +309,8 @@ static:
 		{
 			auto p = getProcess(t);
 
-			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stdout of process that isn't running");
+			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
+				throwStdException(t, "ValueException", "Attempting to get stdout of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stdout);
 
@@ -333,8 +333,8 @@ static:
 		{
 			auto p = getProcess(t);
 
-			if(!safeCode(t, p.isRunning()))
-				throwException(t, "Attempting to get stderr of process that isn't running");
+			if(!safeCode(t, "exceptions.OSException", p.isRunning()))
+				throwStdException(t, "ValueException", "Attempting to get stderr of process that isn't running");
 
 			getExtraVal(t, 0, Fields.stderr);
 
@@ -377,7 +377,7 @@ static:
 			else
 				pop(t);
 
-			auto res = safeCode(t, p.wait());
+			auto res = safeCode(t, "exceptions.OSException", p.wait());
 
 			switch(res.reason)
 			{
@@ -397,7 +397,7 @@ static:
 		public uword kill(CrocThread* t)
 		{
 			auto p = getProcess(t);
-			safeCode(t, p.kill());
+			safeCode(t, "exceptions.OSException", p.kill());
 			clearStreams(t);
 			return 0;
 		}

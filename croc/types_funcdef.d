@@ -1,5 +1,5 @@
 /******************************************************************************
-This module contains internal implementation of the funcdef object.  This is
+This module contains internal implementation of the funcdef object. This is
 the definition of a function, as opposed to the function object, which is a
 closure which points to a function definition.
 

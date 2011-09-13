@@ -71,10 +71,10 @@ char[] generateDispatchTable()
 }
 
 /**
-This is an AST visitor.  It implements a form of dynamic dispatch based on the type of the node that is
-being visited.  In order to make an AST visitor, you derive from this class and override the visit method
-for each type of node, such as "AddExp visit(AddExp e)".  Each visit method should return an AST node.  If
-you are not performing a transformation on the AST, you can just return the node that was passed in.  If
+This is an AST visitor. It implements a form of dynamic dispatch based on the type of the node that is
+being visited. In order to make an AST visitor, you derive from this class and override the visit method
+for each type of node, such as "AddExp visit(AddExp e)". Each visit method should return an AST node. If
+you are not performing a transformation on the AST, you can just return the node that was passed in. If
 you are transforming the AST, you just return a new/different AST node than the one that was passed in.
 
 When visiting an AST node, you should assign the result of visit back into the place where you got the node:
@@ -98,7 +98,7 @@ abstract class Visitor
 	protected ICompiler c;
 
 	/**
-	Construct a new instance of Visitor.  Each visitor is associated with a compiler.  The compiler is used
+	Construct a new instance of Visitor. Each visitor is associated with a compiler. The compiler is used
 	to allocate AST nodes and to throw errors.
 	*/
 	public this(ICompiler c)
@@ -168,8 +168,8 @@ char[] generateIdentityVisitMethods()
 
 /**
 This class is derived from Visitor and overrides all the visit methods with identity methods - that is,
-all they do is return the node that was passed in.  This means that this visitor just returns the AST
-that was passed in, unaffected.  You can derive from this when many/most of your visit methods don't
+all they do is return the node that was passed in. This means that this visitor just returns the AST
+that was passed in, unaffected. You can derive from this when many/most of your visit methods don't
 do anything.
 */
 abstract class IdentityVisitor : Visitor

@@ -50,7 +50,7 @@ static:
 		return null;
 	}
 
-	// Create a new string object.  String objects with the same data are reused.  Thus,
+	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
 	package CrocString* create(CrocThread* t, char[] data, uword h, uword cpLen)
 	{

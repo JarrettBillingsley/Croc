@@ -1,4 +1,4 @@
-﻿module regexptest
+module regexptest
 
 import regexp : Regexp
 

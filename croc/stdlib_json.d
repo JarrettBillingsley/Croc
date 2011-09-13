@@ -107,7 +107,7 @@ static:
 
 		.toJSON(t, 1, pretty, printer);
 
-		pushString(t, safeCode(t, cast(char[])buf.slice()));
+		pushString(t, safeCode(t, "exceptions.RuntimeException", cast(char[])buf.slice()));
 		return 1;
 	}
 	

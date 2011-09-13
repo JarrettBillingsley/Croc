@@ -111,8 +111,14 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 	newGlobal(t, "_G");
 
 	// Object
-	push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, "Object"), null)));
+	vm.object = classobj.create(t.vm.alloc, createString(t, "Object"), null);
+	push(t, CrocValue(vm.object));
 	newGlobal(t, "Object");
+	
+	// Throwable
+	vm.throwable = classobj.create(t.vm.alloc, createString(t, "Throwable"), vm.object);
+	push(t, CrocValue(vm.throwable));
+	newGlobal(t, "Throwable");
 }
 
 void closeVMImpl(CrocVM* vm)
@@ -124,8 +130,8 @@ void closeVMImpl(CrocVM* vm)
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);
 	vm.weakRefTab.clear(vm.alloc);
-	vm.alloc.freeArray(vm.traceback);
 	vm.refTab.clear(vm.alloc);
+	vm.stdExceptions.clear(vm.alloc);
 
 	debug if(vm.alloc.totalBytes != 0)
 	{

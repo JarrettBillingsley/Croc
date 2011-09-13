@@ -95,20 +95,20 @@ const char[] LongUsage =
 "croci can be run in two modes: file mode or interactive mode.
 
 If you pass a filename, croci will run in file mode by loading the file and
-running any main() function defined in it.  If the filename has no .croc or
+running any main() function defined in it. If the filename has no .croc or
 .croco extension, it will be treated as a Croc import-style module name.
-So \"a.b\" will look for a module named b in the a directory.  The -I flag
+So \"a.b\" will look for a module named b in the a directory. The -I flag
 also affects the search paths used for this.
 
 When passing a filename followed by args, all the args will be passed as
-arguments to its main() function.  The arguments will all be strings.
+arguments to its main() function. The arguments will all be strings.
 
 If you don't pass a filename, it will run in interactive mode.
 
-In interactive mode, you will be given a >>> prompt.  When you hit enter,
-you may be given a ... prompt.  That means you need to type more to make
-the code complete.  Once you enter enough code to make it complete, the
-code will be run.  If there is an error, the code buffer is cleared.
+In interactive mode, you will be given a >>> prompt. When you hit enter,
+you may be given a ... prompt. That means you need to type more to make
+the code complete. Once you enter enough code to make it complete, the
+code will be run. If there is an error, the code buffer is cleared.
 To end interactive mode, use the \"exit()\" function.
 
 The -docs flag controls whether or not documentation comments will be
@@ -335,7 +335,9 @@ bool doNormal(CrocThread* t, ref Params params)
 			(CrocException e, word crocEx)
 			{
 				Stdout.formatln("Error: {}", e);
-				getTraceback(t);
+				dup(t, crocEx);
+				pushNull(t);
+				methodCall(t, -2, "tracebackString", 1);
 				Stdout.formatln("{}", getString(t, -1));
 				pop(t);
 			});

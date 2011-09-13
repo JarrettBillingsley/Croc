@@ -1,9 +1,9 @@
 /******************************************************************************
-This module contains the implementation of a templated hash table.  This uses
+This module contains the implementation of a templated hash table. This uses
 a form of coalesced hashing, which is a cross between separate chaining and
-linear probing.  It has the advantages of only requiring a single block of
+linear probing. It has the advantages of only requiring a single block of
 memory (instead of one block for each collided key), as well as being able
-to have a 100% load factor without a large speed penalty.  It's also very
+to have a 100% load factor without a large speed penalty. It's also very
 easy to iterate over.
 
 This object is used in the implementation of tables and namespaces, as well
@@ -151,7 +151,7 @@ struct Hash(K, V)
 				markUnused(n);
 			else
 			{
-				// Other items.  Have to move the next item into where the head used to be.
+				// Other items. Have to move the next item into where the head used to be.
 				auto next = n.next;
 				*n = *next;
 				markUnused(next);

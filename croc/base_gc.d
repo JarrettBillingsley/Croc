@@ -59,15 +59,21 @@ void mark(CrocVM* vm)
 	foreach(s; vm.metaStrings)
 		markObj(vm, s);
 
-	foreach(ref l; vm.traceback)
-		markObj(vm, l.file);
-
 	markObj(vm, vm.globals);
 	markObj(vm, vm.mainThread);
 	markObj(vm, vm.registry);
-	
+
 	foreach(val; vm.refTab)
 		markObj(vm, cast(GCObject*)val);
+
+	markObj(vm, vm.object);
+	markObj(vm, vm.throwable);
+	
+	foreach(k, v; vm.stdExceptions)
+	{
+		markObj(vm, k);
+		markObj(vm, v);
+	}
 
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));
@@ -152,7 +158,7 @@ void free(CrocVM* vm, GCObject* o)
 
 private:
 
-// For marking CrocValues.  Marks it only if it's an object.
+// For marking CrocValues. Marks it only if it's an object.
 template CondMark(char[] name)
 {
 	const CondMark =
@@ -362,8 +368,8 @@ void markObj(CrocVM* vm, CrocFuncDef* o)
 {
 	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
 
-	if(o.location.file)
-		markObj(vm, o.location.file);
+	if(o.locFile)
+		markObj(vm, o.locFile);
 
 	if(o.name)
 		markObj(vm, o.name);

@@ -75,6 +75,9 @@ static:
 	{
 		makeModule(t, "gl", function uword(CrocThread* t)
 		{
+			CreateClass(t, "GLException", "exceptions.Exception", (CreateClass* c) {});
+			newGlobal(t, "GLException");
+
 			register(t, &load, "load");
 
 			pushString(t, typeStringOf!(GLenum)); newGlobal(t, "GLenum");
@@ -108,7 +111,7 @@ static:
 
 		pop(t);
 
-		safeCode(t,
+		safeCode(t, "GLException",
 		{
 			GLVersion v;
 
@@ -132,7 +135,7 @@ static:
 				case GLVersion.Version12: loadGL12(t);
 				case GLVersion.Version11: loadGLBase(t); break;
 				default:
-					throwException(t, "I have no idea what version of OpenGL you have");
+					throwStdException(t, "Exception", "I have no idea what version of OpenGL you have");
 			}
 
 			DerelictGL.loadExtensions();
@@ -156,7 +159,7 @@ static:
 
 	uword version_(CrocThread* t)
 	{
-		pushString(t, safeCode(t, DerelictGL.versionString(DerelictGL.availableVersion())));
+		pushString(t, safeCode(t, "GLException", DerelictGL.versionString(DerelictGL.availableVersion())));
 		return 1;
 	}
 
@@ -194,12 +197,12 @@ static:
 		auto size = checkIntParam(t, 3);
 
 		if(size < 0 || size > uword.max)
-			throwException(t, "Invalid size: {}", size);
+			throwStdException(t, "RangeException", "Invalid size: {}", size);
 
 		auto ptr = glMapBuffer(target, access);
 
 		if(ptr is null)
-			throwException(t, "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
+			throwNamedException(t, "GLException", "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
 
 		auto arr = (cast(ubyte*)ptr)[0 .. cast(uword)size];
 

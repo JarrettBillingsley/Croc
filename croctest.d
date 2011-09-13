@@ -20,12 +20,6 @@ version(CrocAllAddons)
 	version = CrocNetAddon;
 }
 
-/*
-Language changes:
-- Trailing commas now allowed in table and array constructors
-- Labeled control structures, breaks, and continues
-*/
-
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -40,7 +34,7 @@ void main()
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
-		
+
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 
 		importModule(t, "samples.simple");
@@ -52,9 +46,11 @@ void main()
 	catch(CrocException e)
 	{
 		catchException(t);
-		Stdout.formatln("Error: {}", e);
+		Stdout.formatln("{}", e);
 
-		getTraceback(t);
+		dup(t);
+		pushNull(t);
+		methodCall(t, -2, "tracebackString", 1);
 		Stdout.formatln("{}", getString(t, -1));
 
 		pop(t, 2);

@@ -1,5 +1,5 @@
 /******************************************************************************
-This contains the memory allocator interface for Croc.  Most of this module is
+This contains the memory allocator interface for Croc. Most of this module is
 for internal use only, but it does define the type of the memory allocation
 function which you can pass to croc.api.openVM.
 
@@ -53,16 +53,16 @@ If an existing block is to be deallocated, it will be called with p being the po
 current block size, and a newSize of 0.
 
 Params:
-	ctx = The context pointer that was associated with the VM upon creation.  This pointer is just passed to the allocation
+	ctx = The context pointer that was associated with the VM upon creation. This pointer is just passed to the allocation
 		function on every call; Croc doesn't use it.
-	p = The pointer that is being operated on.  If this is null, an allocation is being requested.  Otherwise, either a
+	p = The pointer that is being operated on. If this is null, an allocation is being requested. Otherwise, either a
 		reallocation or a deallocation is being requested.
-	oldSize = The current size of the block pointed to by p.  If p is null, this will always be 0.
-	newSize = The new size of the block pointed to by p.  If p is null, this is the requested size of the new block.
-		Otherwise, if this is 0, a deallocation is being requested.  Otherwise, a reallocation is being requested.
+	oldSize = The current size of the block pointed to by p. If p is null, this will always be 0.
+	newSize = The new size of the block pointed to by p. If p is null, this is the requested size of the new block.
+		Otherwise, if this is 0, a deallocation is being requested. Otherwise, a reallocation is being requested.
 	
 Returns:
-	If a deallocation was requested, should return null.  Otherwise, should return a $(B non-null) pointer.  If memory cannot
+	If a deallocation was requested, should return null. Otherwise, should return a $(B non-null) pointer. If memory cannot
 	be allocated, the memory allocation function should throw an exception, not return null.
 */
 alias void* function(void* ctx, void* p, size_t oldSize, size_t newSize) MemFunc;

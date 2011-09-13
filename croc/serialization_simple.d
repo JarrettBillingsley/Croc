@@ -43,12 +43,12 @@ import croc.utils;
 public:
 
 /**
-Serializes the function object at the given index into the provided writer as a module.  Serializing a function as a module
+Serializes the function object at the given index into the provided writer as a module. Serializing a function as a module
 outputs the platform-dependent Croc module header before outputting the function, so that upon subsequent loads of the module,
 the platform can be correctly detected.
 
 Params:
-	idx = The stack index of the function object to serialize.  The function must be a script function with no upvalues.
+	idx = The stack index of the function object to serialize. The function must be a script function with no upvalues.
 	s = The writer object to be used to serialize the function.
 */
 void serializeModule(CrocThread* t, word idx, OutputStream s)
@@ -58,17 +58,17 @@ void serializeModule(CrocThread* t, word idx, OutputStream s)
 	if(func is null)
 	{
 		pushTypeString(t, idx);
-		throwException(t, "serializeModule - 'funcdef' expected, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", "serializeModule - 'funcdef' expected, not '{}'", getString(t, -1));
 	}
 
 	if(func.numUpvals > 0)
-		throwException(t, "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
+		throwStdException(t, "ValueException", "serializeModule - function '{}' is not eligible for serialization", func.name.toString());
 
 	serializeAsModule(func, s);
 }
 
 /**
-Inverse of the above, which means it expects for there to be a module header at the beginning of the stream.  If the module
+Inverse of the above, which means it expects for there to be a module header at the beginning of the stream. If the module
 header of the stream does not match the module header for the platform that is loading the module, the load will fail.
 A closure of the deserialized function is created with the current environment as its environment and is pushed onto the
 given thread's stack.
@@ -91,11 +91,11 @@ void serializeFunction(CrocThread* t, word idx, OutputStream s)
 	if(func is null)
 	{
 		pushTypeString(t, idx);
-		throwException(t, "serializeFunction - 'function' expected, not '{}'", getString(t, -1));
+		throwStdException(t, "TypeException", "serializeFunction - 'function' expected, not '{}'", getString(t, -1));
 	}
 
 	if(func.isNative || func.scriptFunc.numUpvals > 0)
-		throwException(t, "serializeFunction - function '{}' is not eligible for serialization", func.name.toString());
+		throwStdException(t, "ValueException", "serializeFunction - function '{}' is not eligible for serialization", func.name.toString());
 
 	serialize(func.scriptFunc, s);
 }
@@ -169,16 +169,16 @@ CrocFuncDef* deserializeAsModule(CrocThread* t, InputStream s)
 	readExact(s, (&fh)[0 .. 1]);
 
 	if(fh != FileHeader.init)
-		throwException(t, "Serialized module header mismatch");
+		throwStdException(t, "ValueException", "Serialized module header mismatch");
 
 	return deserialize(t, s);
 }
 
 void serialize(CrocFuncDef* fd, OutputStream s)
 {
-	put(s, fd.location.line);
-	put(s, fd.location.col);
-	Serialize(s, fd.location.file);
+	put(s, fd.locLine);
+	put(s, fd.locCol);
+	Serialize(s, fd.locFile);
 
 	put(s, fd.isVararg);
 	Serialize(s, fd.name);
@@ -230,9 +230,9 @@ CrocFuncDef* deserialize(CrocThread* t, InputStream s)
 
 	auto ret = funcdef.create(vm.alloc);
 
-	get(s, ret.location.line);
-	get(s, ret.location.col);
-	Deserialize(t, s, ret.location.file);
+	get(s, ret.locLine);
+	get(s, ret.locCol);
+	Deserialize(t, s, ret.locFile);
 
 	get(s, ret.isVararg);
 	Deserialize(t, s, ret.name);
