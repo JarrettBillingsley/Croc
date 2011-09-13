@@ -4,13 +4,7 @@ import exceptions: Location, Exception
 
 function main()
 {
-	try
-		throw Exception("poop")
-	catch(e)
-	{
-		writeln(e)
-		writeln(e.tracebackString())
-	}
+	
 }
 
 function help(x, child: string = null)

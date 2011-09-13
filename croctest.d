@@ -5,7 +5,6 @@ import tango.io.Stdout;
 
 import croc.api;
 import croc.compiler;
-import croc.ex_json;
 
 import croc.addons.pcre;
 import croc.addons.sdl;
@@ -19,10 +18,6 @@ version(CrocAllAddons)
 	version = CrocGlAddon;
 	version = CrocNetAddon;
 }
-
-/*
-Fix croci so it detects module name vs. file name.
-*/
 
 void main()
 {
@@ -40,12 +35,7 @@ void main()
 		version(CrocNetAddon) NetLib.init(t);
 
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
-
-		importModule(t, "samples.simple");
-		pushNull(t);
-		lookup(t, "modules.runMain");
-		swap(t, -3);
-		rawCall(t, -3, 0);
+		runModule(t, "samples.simple");
 	}
 	catch(CrocException e)
 	{

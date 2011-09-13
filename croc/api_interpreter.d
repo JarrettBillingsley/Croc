@@ -29,6 +29,7 @@ subject to the following restrictions:
 module croc.api_interpreter;
 
 import tango.core.Exception;
+import tango.core.Memory;
 import tango.core.Traits;
 import tango.core.Tuple;
 import tango.core.Vararg;
@@ -1001,6 +1002,11 @@ Returns:
 */
 word pushNativeObj(CrocThread* t, Object o)
 {
+	mixin(FuncNameMix);
+
+	if(GC.addrOf(cast(void*)o) is null)
+		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Attempting to push a native object that points to a scope-allocated class instance");
+
 	maybeGC(t);
 	return push(t, CrocValue(nativeobj.create(t.vm, o)));
 }
