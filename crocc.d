@@ -28,7 +28,7 @@ import tango.io.Stdout;
 
 import croc.api;
 import croc.compiler;
-import croc.serialization_simple;
+import croc.serialization;
 
 void printUsage()
 {
@@ -52,14 +52,16 @@ void main(char[][] args)
 
 	CrocVM vm;
 	auto t = openVM(&vm);
+	loadStdlibs(t, CrocStdlib.All);
 
 	scope(exit)
 		closeVM(&vm);
 
 	scope c = new Compiler(t);
-	c.compileModule(args[1]);
+	char[] loadedName = void;
+	c.compileModule(args[1], loadedName);
 
-	scope fc = new File(args[1] ~ "o", File.WriteCreate);
-	serializeModule(t, -1, fc);
+	auto fc = new File(args[1] ~ "o", File.WriteCreate);
+	serializeModule(t, -1, loadedName, fc);
 	fc.close();
 }

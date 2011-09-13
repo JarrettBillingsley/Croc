@@ -275,7 +275,8 @@ bool doDocgen(CrocThread* t, ref Params params)
 			}
 
 			scope c = new Compiler(t, Compiler.All | Compiler.DocTable);
-			c.compileModule(src, name);
+			char[] modName = void;
+			c.compileModule(src, name, modName);
 		},
 		(CrocException e, word crocEx)
 		{
@@ -330,7 +331,10 @@ bool doNormal(CrocThread* t, ref Params params)
 				foreach(arg; params.args)
 					pushString(t, arg);
 
-				runFile(t, params.inputFile, params.args.length);
+				if(params.inputFile.endsWith(".croc") || params.inputFile.endsWith(".croco"))
+					runFile(t, params.inputFile, params.args.length);
+				else
+					runModule(t, params.inputFile, params.args.length);
 			},
 			(CrocException e, word crocEx)
 			{

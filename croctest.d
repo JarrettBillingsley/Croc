@@ -20,6 +20,10 @@ version(CrocAllAddons)
 	version = CrocNetAddon;
 }
 
+/*
+Fix croci so it detects module name vs. file name.
+*/
+
 void main()
 {
 	scope(exit) Stdout.flush;

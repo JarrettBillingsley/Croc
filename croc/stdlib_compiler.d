@@ -109,8 +109,11 @@ static:
 	{
 		auto src = checkStringParam(t, 1);
 		auto name = optStringParam(t, 2, "<loaded by compiler.compileModule>");
+		auto ssize = stackSize(t);
 		scope c = new Compiler(t);
-		c.compileModule(src, name);
-		return 1;
+		char[] modName = void;
+		c.compileModule(src, name, modName);
+		pushString(t, modName);
+		return stackSize(t) - ssize;
 	}
 }

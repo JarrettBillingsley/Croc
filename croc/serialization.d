@@ -39,6 +39,7 @@ import croc.base_hash;
 import croc.types;
 import croc.types_function;
 import croc.types_instance;
+import croc.utils;
 
 // ================================================================================================================================================
 // Public
@@ -58,11 +59,60 @@ word deserializeGraph(CrocThread* t, word trans, InputStream input)
 	return d.readGraph(trans);
 }
 
+void serializeModule(CrocThread* t, word idx, char[] name, OutputStream output)
+{
+	append(t, output, (&FileHeader.init)[0 .. 1]);
+	put!(uword)(t, output, name.length);
+	append(t, output, name);
+	auto s = Serializer(t, output);
+	idx = absIndex(t, idx);
+	newTable(t);
+	s.writeGraph(idx, -1);
+	pop(t);
+}
+
+void deserializeModule(CrocThread* t, out char[] name, InputStream input)
+{
+	FileHeader fh = void;
+	readExact(t, input, (&fh)[0 .. 1]);
+
+	if(fh != FileHeader.init)
+		throwStdException(t, "ValueException", "Serialized module header mismatch");
+
+	uword len = void;
+	get!(uword)(t, input, len);
+	name = new char[](len);
+	readExact(t, input, name);
+	newTable(t);
+	auto d = Deserializer(t, input);
+	auto ret = d.readGraph(-1);
+	pop(t);
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
 
 private:
+
+align(1) struct FileHeader
+{
+	uint magic = FOURCC!("Croc");
+	uint _version = CrocVersion;
+	ubyte platformBits = uword.sizeof * 8;
+
+	version(BigEndian)
+		ubyte endianness = 1;
+	else
+		ubyte endianness = 0;
+
+	ubyte intSize = crocint.sizeof;
+	ubyte floatSize = crocfloat.sizeof;
+
+	ubyte[4] _padding;
+}
+
+static assert(FileHeader.sizeof == 16);
 
 struct Serializer
 {

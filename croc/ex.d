@@ -32,10 +32,12 @@ import tango.stdc.ctype;
 import tango.text.Util;
 import Utf = tango.text.convert.Utf;
 
+import croc.api_checks;
+import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
-import croc.serialization_simple;
+import croc.serialization;
 import croc.types;
 import croc.utils;
 import croc.vm;
@@ -144,7 +146,12 @@ void importModuleFromString(CrocThread* t, char[] name, char[] src, char[] srcNa
 	scope c = new Compiler(t);
 	auto f = lookup(t, "modules.initModule");
 	pushNull(t);
-	c.compileModule(src, srcName);
+	char[] modName;
+	c.compileModule(src, srcName, modName);
+
+	if(name != modName)
+		throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, modName);
+
 	pushString(t, name);
 	rawCall(t, f, 0);
 	importModule(t, name);
@@ -1048,36 +1055,37 @@ runFile(t, "foo/bar/baz.croc");
 */
 void runFile(CrocThread* t, char[] filename, uword numParams = 0)
 {
-// 	checkNumParams(t, numParams);
+	mixin(apiCheckNumParams!("numParams"));
+	
+	char[] modName;
 
-	if(!filename.endsWith(".croc") && !filename.endsWith(".croco"))
-		importModule(t, filename);
+	if(filename.endsWith(".croc"))
+	{
+		scope c = new Compiler(t);
+		c.compileModule(filename, modName);
+	}
 	else
 	{
-		if(filename.endsWith(".croc"))
-		{
-			scope c = new Compiler(t);
-			c.compileModule(filename);
-		}
-		else
-		{
-			scope f = new File(filename, File.ReadExisting);
-			deserializeModule(t, f);
-		}
-
-		lookup(t, "modules.initModule");
-		swap(t);
-		pushNull(t);
-		swap(t);
-		pushString(t, funcDefName(t, -1)); // BUG 134
-		rawCall(t, -4, 1);
+		scope f = safeCode(t, "exceptions.IOException", new File(filename, File.ReadExisting));
+		deserializeModule(t, modName, f);
 	}
 
+	lookup(t, "modules.initModule");
 	pushNull(t);
-	lookup(t, "modules.runMain");
-	swap(t, -3);
-	rotate(t, numParams + 3, 3);
-	rawCall(t, -3 - numParams, 0);
+	moveToTop(t, -3);
+	pushString(t, modName);
+	rawCall(t, -4, 1);
+	commonRun(t, numParams, modName);
+}
+
+/**
+*/
+void runModule(CrocThread* t, char[] moduleName, uword numParams = 0)
+{
+	mixin(apiCheckNumParams!("numParams"));
+
+	importModule(t, moduleName);
+	commonRun(t, numParams, moduleName);
 }
 
 /**
@@ -1774,6 +1782,15 @@ bool optParam(CrocThread* t, word index, CrocValue.Type type)
 // ================================================================================================================================================
 
 private:
+
+void commonRun(CrocThread* t, uword numParams, char[] modName)
+{
+	pushNull(t);
+	lookup(t, "modules.runMain");
+	swap(t, -3);
+	rotate(t, numParams + 3, 3);
+	rawCall(t, -3 - numParams, 0);
+}
 
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*". Could we use an actual regex for this?  I guess,
 // but then we'd have to create a regex object, and either it'd have to be static and access to it would have to be

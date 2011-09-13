@@ -40,7 +40,7 @@ static:
 	{
 		if(auto o = obj in vm.nativeObjs)
 			return *o;
-	
+
 		auto ret = vm.alloc.allocate!(CrocNativeObj);
 		ret.obj = obj;
 		vm.nativeObjs[obj] = ret;

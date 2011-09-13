@@ -34,7 +34,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.compiler;
 import croc.ex;
-import croc.serialization_simple;
+import croc.serialization;
 import croc.types;
 
 struct ModulesLib
@@ -326,34 +326,50 @@ static:
 			scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".croc"));
 			scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".croco"));
 
+			void compile()
+			{
+				char[] loadedName = void;
+				scope c = new Compiler(t);
+				c.compileModule(src.toString(), loadedName);
+				
+				if(loadedName != name)
+					throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, loadedName);
+			}
+
+			void deserialize()
+			{
+				char[] loadedName = void;
+				scope fc = new File(bin.toString(), File.ReadExisting);
+				deserializeModule(t, loadedName, fc);
+				
+				if(loadedName != name)
+					throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, loadedName);
+			}
+
 			if(src.exists())
 			{
 				if(bin.exists())
 				{
 					if(src.modified() > bin.modified())
 					{
-						scope c = new Compiler(t);
-						c.compileModule(src.toString());
+						compile();
 						return 1;
 					}
 					else
 					{
-						scope fc = new File(bin.toString(), File.ReadExisting);
-						deserializeModule(t, fc);
+						deserialize();
 						return 1;
 					}
 				}
 				else
 				{
-					scope c = new Compiler(t);
-					c.compileModule(src.toString());
+					compile();
 					return 1;
 				}
 			}
 			else if(bin.exists())
 			{
-				scope fc = new File(bin.toString(), File.ReadExisting);
-				deserializeModule(t, fc);
+				deserialize();
 				return 1;
 			}
 		}

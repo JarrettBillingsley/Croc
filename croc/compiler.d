@@ -28,6 +28,7 @@ module croc.compiler;
 import tango.core.Vararg;
 import tango.io.UnicodeFile;
 import tango.text.convert.Layout;
+import tango.text.Util;
 
 import croc.api_interpreter;
 import croc.api_stack;
@@ -339,9 +340,10 @@ catch(CrocException e)
 
 	Returns:
 		The stack index of the newly-pushed function closure that represents the top-level function
-		of the module.
+		of the module. The moduleName parameter holds the canonical name of the module given by the
+		module statement at the beginning of it.
 	*/
-	public word compileModule(char[] filename)
+	public word compileModule(char[] filename, out char[] moduleName)
 	{
 		scope file = new UnicodeFile!(char)(filename, Encoding.Unknown);
 		auto src = file.read();
@@ -349,7 +351,7 @@ catch(CrocException e)
 		scope(exit)
 			delete src;
 
-		return compileModule(src, filename);
+		return compileModule(src, filename, moduleName);
 	}
 
 	/**
@@ -362,14 +364,16 @@ catch(CrocException e)
 
 	Returns:
 		The stack index of the newly-pushed function closure that represents the top-level function
-		of the module.
+		of the module. The moduleName parameter holds the canonical name of the module given by the
+		module statement at the beginning of it.
 	*/
-	public word compileModule(char[] source, char[] name)
+	public word compileModule(char[] source, char[] name, out char[] moduleName)
 	{
 		return commonCompile(
 		{
 			mLexer.begin(name, source);
 			auto mod = mParser.parseModule();
+			moduleName = mod.names.join(".");
 			mDanglingDoc = mParser.danglingDoc();
 
 			if(docComments)
