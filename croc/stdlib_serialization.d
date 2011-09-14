@@ -79,7 +79,7 @@ static:
 			if(as(t, 3, -1))
 			{
 				pop(t);
-				stream = InoutStreamObj.getOpenConduit(t, 3);
+				stream = InoutStreamObj.getOpenStream(t, 3);
 			}
 			else
 				paramTypeError(t, 3, "stream.OutStream|stream.InoutStream");
@@ -110,7 +110,7 @@ static:
 			if(as(t, 2, -1))
 			{
 				pop(t);
-				stream = InoutStreamObj.getOpenConduit(t, 2);
+				stream = InoutStreamObj.getOpenStream(t, 2);
 			}
 			else
 				paramTypeError(t, 2, "stream.OutStream|stream.InoutStream");
