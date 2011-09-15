@@ -23,7 +23,7 @@ class Stream
 		{
 			local numBytes = dist < #skipBuf ? dist : #skipBuf
 			if(:read(skipBuf, numBytes) < numBytes)
-				throw IOException("EOF")
+				throw IOException("EOF while reading")
 			dist -= numBytes
 		}
 	}
@@ -33,7 +33,10 @@ class Stream
 		do
 		{
 			local numRead = s.read(copyBuf, #copyBuf)
-			:write(copyBuf, numRead)
+
+			if(:write(copyBuf, numRead) < numRead)
+				throw IOException("EOF while writing")
+
 		} while(numRead == #copyBuf)
 
 		return this
@@ -59,7 +62,7 @@ class TextReader
 {
 	this(s: @InStream)
 		:stream = s
-		
+
 	function readln()
 	{
 		// get next line and return as a string, or null if EOF
@@ -75,7 +78,7 @@ class BinaryReader
 {
 	this(s: @InStream)
 		:stream = s
-	
+
 	function readByte() = ...
 	function readUByte() = ...
 	function readShort() = ...
@@ -86,6 +89,9 @@ class BinaryReader
 	function readULong() = ...
 	function readFloat() = ...
 	function readDouble() = ...
+	function readChar() = ...
+	function readWChar() = ...
+	function readDChar() = ...
 	function readString() = ...
 	function readChars(num: int) = ...
 	function readMemblock(t: memblock|string, size: int|null) = ...
@@ -101,6 +107,46 @@ class TextWriter
 	function writef(fmt: string, vararg) { ... }
 	function writefln(fmt: string, vararg) { ... }
 	function flushOnNL(f: bool) { ... }
+}
+
+class BinaryWriter
+{
+	this(s: @OutStream)
+	{
+		:stream = s
+		:writeBuf = memblock.new("i8", 8)
+		:strBuf = memblock.new("i8", 0)
+	}
+
+	function writeExact(buf: memblock, size: int)
+	{
+		if(:s.write(buf, size) < size)
+			throw IOException("EOF while writing")
+	}
+
+	function writeByte(x: int)     { :writeBuf.writeByte(0, x);          :writeExact(:writeBuf, 1) }
+	function writeUByte(x: int)    { :writeBuf.writeUByte(0, x);         :writeExact(:writeBuf, 1) }
+	function writeShort(x: int)    { :writeBuf.writeShort(0, x);         :writeExact(:writeBuf, 2) }
+	function writeUShort(x: int)   { :writeBuf.writeUShort(0, x);        :writeExact(:writeBuf, 2) }
+	function writeInt(x: int)      { :writeBuf.writeInt(0, x);           :writeExact(:writeBuf, 4) }
+	function writeUInt(x: int)     { :writeBuf.writeUInt(0, x);          :writeExact(:writeBuf, 4) }
+	function writeLong(x: int)     { :writeBuf.writeLong(0, x);          :writeExact(:writeBuf, 8) }
+	function writeULong(x: int)    { :writeBuf.writeULong(0, x);         :writeExact(:writeBuf, 8) }
+	function writeFloat(x: float)  { :writeBuf.writeFloat(0, x);         :writeExact(:writeBuf, 4) }
+	function writeDouble(x: float) { :writeBuf.writeDouble(0, x);        :writeExact(:writeBuf, 8) }
+	function writeChar(x: char)    { :writeBuf.writeUByte(0, toInt(x));  :writeExact(:writeBuf, 1) }
+	function writeWChar(x: char)   { :writeBuf.writeUShort(0, toInt(x)); :writeExact(:writeBuf, 2) }
+	function writeDChar(x: char)   { :writeBuf.writeUInt(0, toInt(x));   :writeExact(:writeBuf, 4) }
+
+	function writeString(x: string)
+	{
+		
+	}
+
+	function writeChars(x: string)
+	{
+
+	}
 }
 
 function help(x, child: string = null)

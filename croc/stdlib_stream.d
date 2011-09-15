@@ -166,7 +166,7 @@ static:
 		if(memb.closable && !memb.closed)
 		{
 			memb.closed = true;
-			safeCode(t, "exceptions.Exception", memb.stream.close());
+			safeCode(t, "exceptions.IOException", memb.stream.close());
 		}
 
 		return 0;
@@ -731,7 +731,7 @@ template ReadFuncs(bool isInout)
 	{
 		while(size > 0)
 		{
-			auto numRead = memb.stream.read(dest[0 .. size]);
+			auto numRead = safeCode(t, "exceptions.IOException", memb.stream.read(dest[0 .. size]));
 
 			if(numRead == IOStream.Eof)
 				throwStdException(t, "IOException", "End-of-flow encountered while reading");
@@ -747,7 +747,7 @@ template ReadFuncs(bool isInout)
 
 		while(size > 0)
 		{
-			auto numRead = memb.stream.read(dest[0 .. size]);
+			auto numRead = safeCode(t, "exceptions.IOException", memb.stream.read(dest[0 .. size]));
 
 			if(numRead == IOStream.Eof)
 				break;
@@ -770,7 +770,7 @@ template ReadFuncs(bool isInout)
 		static if(isInout) checkDirty(t, memb);
 		T val = void;
 
-		safeCode(t, "exceptions.IOException", readExact(t, memb, &val, T.sizeof));
+		readExact(t, memb, &val, T.sizeof);
 
 		static if(isIntegerType!(T))
 			pushInt(t, cast(crocint)val);
@@ -789,22 +789,16 @@ template ReadFuncs(bool isInout)
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
 
-		safeCode(t, "exceptions.IOException",
-		{
-			uword length = void;
+		uword length = void;
+		readExact(t, memb, &length, length.sizeof);
 
-			safeCode(t, "exceptions.IOException", readExact(t, memb, &length, length.sizeof));
+		auto dat = t.vm.alloc.allocArray!(char)(length);
 
-			auto dat = t.vm.alloc.allocArray!(char)(length);
+		scope(exit)
+			t.vm.alloc.freeArray(dat);
 
-			scope(exit)
-				t.vm.alloc.freeArray(dat);
-
-			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
-
-			pushString(t, dat);
-		}());
-
+		readExact(t, memb, dat.ptr, dat.length * char.sizeof);
+		pushString(t, dat);
 		return 1;
 	}
 
@@ -828,20 +822,16 @@ template ReadFuncs(bool isInout)
 
 		if(num < 0 || num > uword.max)
 			throwStdException(t, "RangeException", "Invalid number of characters ({})", num);
-			
+
 		static if(isInout) checkDirty(t, memb);
 
-		safeCode(t, "exceptions.IOException",
-		{
-			auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
+		auto dat = t.vm.alloc.allocArray!(char)(cast(uword)num);
 
-			scope(exit)
-				t.vm.alloc.freeArray(dat);
+		scope(exit)
+			t.vm.alloc.freeArray(dat);
 
-			safeCode(t, "exceptions.IOException", readExact(t, memb, dat.ptr, dat.length * char.sizeof));
-			pushString(t, dat);
-		}());
-
+		readExact(t, memb, dat.ptr, dat.length * char.sizeof);
+		pushString(t, dat);
 		return 1;
 	}
 
@@ -879,7 +869,7 @@ template ReadFuncs(bool isInout)
 			paramTypeError(t, 1, "string|memblock");
 
 		uword numBytes = cast(uword)size * mb.kind.itemSize;
-		safeCode(t, "exceptions.IOException", readExact(t, memb, mb.data.ptr, numBytes));
+		readExact(t, memb, mb.data.ptr, numBytes);
 		return 1;
 	}
 
@@ -898,7 +888,7 @@ template ReadFuncs(bool isInout)
 		if(mb.itemLength == 0)
 			throwStdException(t, "ValueException", "Memblock cannot be 0 elements long");
 
-		auto realSize = safeCode(t, "exceptions.IOException", readAtMost(t, memb, mb.data.ptr, mb.itemLength));
+		auto realSize = readAtMost(t, memb, mb.data.ptr, mb.itemLength);
 		pushInt(t, realSize);
 		return 1;
 	}
@@ -945,7 +935,7 @@ template ReadFuncs(bool isInout)
 		while(dist > 0)
 		{
 			uword numBytes = dist < dummy.length ? dist : dummy.length;
-			safeCode(t, "exceptions.IOException", readExact(t, memb, dummy.ptr, numBytes));
+			readExact(t, memb, dummy.ptr, numBytes);
 			dist -= numBytes;
 		}
 
@@ -959,7 +949,7 @@ template WriteFuncs(bool isInout)
 	{
 		while(size > 0)
 		{
-			auto numWritten = memb.stream.write(src[0 .. size]);
+			auto numWritten = safeCode(t, "exceptions.IOException", memb.stream.write(src[0 .. size]));
 
 			if(numWritten == IOStream.Eof)
 				throwStdException(t, "IOException", "End-of-flow encountered while writing");
@@ -982,7 +972,7 @@ template WriteFuncs(bool isInout)
 		else
 			static assert(false);
 
-		safeCode(t, "exceptions.IOException", writeExact(t, memb, &val, val.sizeof));
+		writeExact(t, memb, &val, val.sizeof);
 		static if(isInout) memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -993,12 +983,9 @@ template WriteFuncs(bool isInout)
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
 
-		safeCode(t, "exceptions.IOException",
-		{
-			auto len = str.length;
-			writeExact(t, memb, &len, len.sizeof);
-			writeExact(t, memb, str.ptr, str.length * char.sizeof);
-		}());
+		auto len = str.length;
+		writeExact(t, memb, &len, len.sizeof);
+		writeExact(t, memb, str.ptr, str.length * char.sizeof);
 
 		static if(isInout) memb.dirty = true;
 		dup(t, 0);
@@ -1081,7 +1068,7 @@ template WriteFuncs(bool isInout)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
-		safeCode(t, "exceptions.IOException", writeExact(t, memb, str.ptr, str.length * char.sizeof));
+		writeExact(t, memb, str.ptr, str.length * char.sizeof);
 		static if(isInout) memb.dirty = true;
 		dup(t, 0);
 		return 1;
@@ -1105,7 +1092,7 @@ template WriteFuncs(bool isInout)
 			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		auto isize = mb.kind.itemSize;
-		safeCode(t, "exceptions.IOException", writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize));
+		writeExact(t, memb, mb.data.ptr + (cast(uword)lo * isize), (cast(uword)(hi - lo)) * isize);
 		static if(isInout) memb.dirty = true;
 		dup(t, 0);
 		return 1;
