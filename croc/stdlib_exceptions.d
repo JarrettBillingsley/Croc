@@ -79,6 +79,8 @@ struct ExDesc
 		+ FieldException - Thrown when trying to access an invalid field from a namespace, class, instance etc.
 		+ MethodException - Thrown when trying to call an invalid method on an object.
 	+ RuntimeException - Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this one.
+		+ NotImplementedException - A useful exception type that you can throw in methods that are unimplemented (such as in abstrac base class
+			methods). 
 	+ CallException - Thrown for some kinda of invalid function calls, such as invalid supercalls.
 		+ ParamException - Thrown for function calls which are invalid because they were nit given the proper number of parameters (not for
 			invalid types though).
@@ -112,6 +114,7 @@ private const ExDesc[] ExDescs =
 			{"FieldException",  "LookupException"},
 			{"MethodException", "LookupException"},
 		{"RuntimeException", "Exception"},
+			{"NotImplementedException", "RuntimeException"},
 		{"CallException",    "Exception"},
 			{"ParamException", "CallException"},
 

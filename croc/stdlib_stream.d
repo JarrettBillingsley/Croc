@@ -1149,7 +1149,7 @@ template WriteFuncs(bool isInout)
 		}
 
 		safeCode(t, "exceptions.IOException", memb.stream.copy(stream));
-		static if(isInout) memb.dirty = false;
+		static if(isInout) memb.dirty = true;
 		dup(t, 0);
 		return 1;
 	}
