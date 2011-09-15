@@ -4,7 +4,7 @@ import exceptions: Location, Exception
 
 function main()
 {
-	
+
 }
 
 function help(x, child: string = null)

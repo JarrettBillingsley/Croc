@@ -503,8 +503,8 @@ PlainTableField:
 	[ Expression ] = Expression
 
 ForComprehension:
-	for List(Identifier) in Expression (, Expression (, Expression)?)? IfComprehension? ForComprehension?
-	for Identifier in Expression '..' Expression (, Expression)? IfComprehension? ForComprehension?
+	foreach List(Identifier) ; Expression (, Expression (, Expression)?)? IfComprehension? ForComprehension?
+	for Identifier (: | ;) Expression '..' Expression (, Expression)? IfComprehension? ForComprehension?
 
 IfComprehension:
 	if Expression

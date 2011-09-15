@@ -2580,7 +2580,7 @@ struct Parser
 			bool firstWasBracketed = l.type == Token.LBracket;
 			parseField();
 
-			if(firstWasBracketed && l.type == Token.For)
+			if(firstWasBracketed && (l.type == Token.For || l.type == Token.Foreach))
 			{
 				auto forComp = parseForComprehension();
 				auto endLocation = l.expect(Token.RBrace).loc;
@@ -2621,7 +2621,7 @@ struct Parser
 		{
 			auto exp = parseExpression();
 
-			if(l.type == Token.For)
+			if(l.type == Token.For || l.type == Token.Foreach)
 			{
 				auto forComp = parseForComprehension();
 				auto endLocation = l.expect(Token.RBracket).loc;
@@ -2950,27 +2950,31 @@ struct Parser
 	*/
 	public ForComprehension parseForComprehension()
 	{
-		auto loc = l.expect(Token.For).loc;
-
-		scope names = new List!(Identifier)(c.alloc);
-		names ~= parseIdentifier();
-
-		while(l.type == Token.Comma)
+		auto loc = l.loc;
+		IfComprehension ifComp;
+		ForComprehension forComp;
+		
+		void parseNextComp()
 		{
-			l.next();
-			names ~= parseIdentifier();
+			if(l.type == Token.If)
+				ifComp = parseIfComprehension();
+
+			if(l.type == Token.For || l.type == Token.Foreach)
+				forComp = parseForComprehension();
 		}
 
-		l.expect(Token.In);
-
-		auto exp = parseExpression();
-
-		if(l.type == Token.DotDot)
+		if(l.type == Token.For)
 		{
-			if(names.length > 1)
-				c.synException(loc, "Numeric for comprehension may only have one index");
-
 			l.next();
+			auto name = parseIdentifier();
+			
+			if(l.type != Token.Colon && l.type != Token.Semicolon)
+				l.expected(": or ;");
+			
+			l.next();
+
+			auto exp = parseExpression();
+			l.expect(Token.DotDot);
 			auto exp2 = parseExpression();
 
 			Expression step;
@@ -2983,24 +2987,35 @@ struct Parser
 			else
 				step = new(c) IntExp(c, l.loc, 1);
 
-			IfComprehension ifComp;
-
-			if(l.type == Token.If)
-				ifComp = parseIfComprehension();
-
-			ForComprehension forComp;
-
-			if(l.type == Token.For)
-				forComp = parseForComprehension();
-				
-			auto arr = names.toArray();
-			auto name = arr[0];
-			c.alloc.freeArray(arr);
-
+			parseNextComp();
 			return new(c) ForNumComprehension(c, loc, name, exp, exp2, step, ifComp, forComp);
 		}
-		else
+		else if(l.type == Token.Foreach)
 		{
+			l.next();
+			scope names = new List!(Identifier)(c.alloc);
+			names ~= parseIdentifier();
+
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				names ~= parseIdentifier();
+			}
+
+			l.expect(Token.Semicolon);
+
+			scope container = new List!(Expression)(c.alloc);
+			container ~= parseExpression();
+
+			while(l.type == Token.Comma)
+			{
+				l.next();
+				container ~= parseExpression();
+			}
+
+			if(container.length > 3)
+				c.synException(container[0].location, "Too many expressions in container");
+
 			Identifier[] namesArr;
 
 			if(names.length == 1)
@@ -3018,31 +3033,15 @@ struct Parser
 				
 			scope(failure)
 				c.alloc.freeArray(namesArr);
-				
-			scope container = new List!(Expression)(c.alloc);
-			container ~= exp;
 
-			while(l.type == Token.Comma)
-			{
-				l.next();
-				container ~= parseExpression();
-			}
-
-			if(container.length > 3)
-				c.synException(container[0].location, "Too many expressions in container");
-
-			IfComprehension ifComp;
-
-			if(l.type == Token.If)
-				ifComp = parseIfComprehension();
-
-			ForComprehension forComp;
-
-			if(l.type == Token.For)
-				forComp = parseForComprehension();
-
+			parseNextComp();
 			return new(c) ForeachComprehension(c, loc, namesArr, container.toArray(), ifComp, forComp);
+
 		}
+		else
+			l.expected("for or foreach");
+			
+		assert(false);
 	}
 	
 	/**
