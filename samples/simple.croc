@@ -2,9 +2,105 @@ module samples.simple
 
 import exceptions: Location, Exception
 
-function main()
-{
+local skipBuf = memblock.new("u8", 4096)
+local copyBuf = memblock.new("u8", 4096)
 
+class Stream
+{
+	function read(m: memblock, num: int)  throw NotImplementedException()
+	function write(m: memblock, num: int) throw NotImplementedException()
+	function seek(pos: int, where: char)  throw NotImplementedException()
+	function flush()                      throw NotImplementedException()
+
+	function skip(this: @InStream, dist: int)
+	{
+		if(dist < 0)
+			throw RangeException(format("Invalid skip distance ({})", dist))
+
+		:flush()
+
+		while(dist > 0)
+		{
+			local numBytes = dist < #skipBuf ? dist : #skipBuf
+			if(:read(skipBuf, numBytes) < numBytes)
+				throw IOException("EOF")
+			dist -= numBytes
+		}
+	}
+
+	function copy(this: @OutStream, s: @InStream)
+	{
+		do
+		{
+			local numRead = s.read(copyBuf, #copyBuf)
+			:write(copyBuf, numRead)
+		} while(numRead == #copyBuf)
+
+		return this
+	}
+
+	function readable() =  false
+	function writeable() = false
+	function seekable() =  false
+}
+
+function InStream(s) =        s as Stream && s.readable()
+function OutStream(s) =       s as Stream &&                 s.writeable()
+function InoutStream(s) =     s as Stream && s.readable() && s.writeable()
+function InSeekStream(s) =    s as Stream && s.readable() &&                  s.seekable()
+function OutSeekStream(s) =   s as Stream &&                 s.writeable() && s.seekable()
+function InoutSeekStream(s) = s as Stream && s.readable() && s.writeable() && s.seekable()
+
+class NativeInStream : Stream // Tango InputStream
+class NativeOutStream : Stream // Tango OutputStream
+class NativeInoutStream : Stream // Tango Conduit
+
+class TextReader
+{
+	this(s: @InStream)
+		:stream = s
+		
+	function readln()
+	{
+		// get next line and return as a string, or null if EOF
+	}
+
+	function opApply(_)
+	{
+		return (\_-> :readln()), this, null
+	}
+}
+
+class BinaryReader
+{
+	this(s: @InStream)
+		:stream = s
+	
+	function readByte() = ...
+	function readUByte() = ...
+	function readShort() = ...
+	function readUShort() = ...
+	function readInt() = ...
+	function readUInt() = ...
+	function readLong() = ...
+	function readULong() = ...
+	function readFloat() = ...
+	function readDouble() = ...
+	function readString() = ...
+	function readChars(num: int) = ...
+	function readMemblock(t: memblock|string, size: int|null) = ...
+}
+
+class TextWriter
+{
+	this(s: @OutStream)
+		:stream = s
+
+	function write(vararg) { ... }
+	function writeln(vararg) { ... }
+	function writef(fmt: string, vararg) { ... }
+	function writefln(fmt: string, vararg) { ... }
+	function flushOnNL(f: bool) { ... }
 }
 
 function help(x, child: string = null)
