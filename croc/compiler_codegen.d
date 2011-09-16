@@ -2078,13 +2078,45 @@ scope class Codegen : Visitor
 					Exp src;
 					fs.popSource(t.endLocation.line, src);
 					fs.freeExpTempRegs(src);
-					auto temp = fs.tagLocal(fs.nextRegister());
-					fs.codeR(t.endLocation.line, Op.CheckObjParam, temp, fs.tagLocal(idx), src.index);
-					fs.codeR(t.endLocation.line, Op.Cmp, 0, temp, fs.tagConst(fs.codeBoolConst(true)));
-					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op.Je));
+					fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
+					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op.Jmp));
 				}
 
 				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op.ObjParamFail, 0, fs.tagLocal(idx), 0);
+				fs.patchTrueToHere(success);
+			}
+			else if(p.customConstraint)
+			{
+				auto con = p.customConstraint;
+				visit(con);
+				Exp src;
+				fs.popSource(con.endLocation.line, src);
+				fs.freeExpTempRegs(src);
+				fs.codeR(con.endLocation.line, Op.IsTrue, 0, src.index, 0);
+				InstRef success;
+				fs.catToTrue(success, fs.makeJump(con.endLocation.line, Op.Je));
+
+				int visit(Expression exp)
+				{
+					if(auto n = exp.as!(IdentExp))
+					{
+						pushString(fs.t, n.name.name);
+						return 1;
+					}
+					else if(auto n = exp.as!(DotExp))
+					{
+						auto ret = visit(n.op);
+						pushString(fs.t, ".");
+						pushString(fs.t, n.name.as!(StringExp).value);
+						return ret + 2;
+					}
+					else
+						assert(false);
+				}
+
+				cat(fs.t, visit(con.as!(CallExp).op));
+				fs.codeR(con.endLocation.line, Op.CustomParamFail, 0, fs.tagLocal(idx), fs.tagConst(fs.codeStringConst(getString(fs.t, -1))));
+				pop(fs.t);
 				fs.patchTrueToHere(success);
 			}
 		}

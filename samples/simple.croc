@@ -1,16 +1,35 @@
 module samples.simple
 
-import exceptions: Location, Exception
+namespace N
+{
+	function Okay(x) = isInt(x)
+}
 
-local skipBuf = memblock.new("u8", 4096)
-local copyBuf = memblock.new("u8", 4096)
+function foo(x: @N.Okay) {}
 
+foo(3.5)
+
+/*
 class Stream
 {
+	this()
+	{
+		if(!:readable() && !:writable())
+			throw IOException(format("Instances of class {} are neither readable nor writable; not a very useful stream, is it?", nameOf(:super)))
+
+		:scratch = memblock.new("u8", 4096)
+	}
+
 	function read(m: memblock, num: int)  throw NotImplementedException()
 	function write(m: memblock, num: int) throw NotImplementedException()
 	function seek(pos: int, where: char)  throw NotImplementedException()
-	function flush()                      throw NotImplementedException()
+	function close()                      throw NotImplementedException()
+	function isOpen()                     throw NotImplementedException()
+
+	function flush() {}
+	function readable() = false
+	function writable() = false
+	function seekable() = false
 
 	function skip(this: @InStream, dist: int)
 	{
@@ -18,45 +37,73 @@ class Stream
 			throw RangeException(format("Invalid skip distance ({})", dist))
 
 		:flush()
+		local buf = :scratch
 
 		while(dist > 0)
 		{
-			local numBytes = dist < #skipBuf ? dist : #skipBuf
-			if(:read(skipBuf, numBytes) < numBytes)
+			local numRead = :read(buf, dist < #buf ? dist : #buf)
+
+			if(numRead == 0)
 				throw IOException("EOF while reading")
-			dist -= numBytes
+
+			dist -= numRead
 		}
 	}
 
 	function copy(this: @OutStream, s: @InStream)
 	{
-		do
+		local buf = :scratch
+
+		while(true)
 		{
-			local numRead = s.read(copyBuf, #copyBuf)
+			local numRead = s.read(buf, #buf)
 
-			if(:write(copyBuf, numRead) < numRead)
-				throw IOException("EOF while writing")
+			if(numRead == 0)
+				break
+			
+			do
+			{
+				local numWritten = :write(buf, numRead)
+	
+				if(numWritten == 0)
+					throw IOException("EOF while writing")
 
-		} while(numRead == #copyBuf)
+				numRead -= numWritten
+			} while(numRead > 0)
+		}
 
 		return this
 	}
 
-	function readable() =  false
-	function writeable() = false
-	function seekable() =  false
+	function position(this: @SeekStream, pos: int|null)
+	{
+		if(pos is null)
+			return :seek(0, 'c')
+		else
+			return :seek(pos, 'b')
+	}
+
+	function size(this: @SeekStream)
+	{
+		:flush()
+		local pos = :position()
+		local ret = :seek(0, 'e')
+		:position(pos)
+		return ret
+	}
 }
 
 function InStream(s) =        s as Stream && s.readable()
-function OutStream(s) =       s as Stream &&                 s.writeable()
-function InoutStream(s) =     s as Stream && s.readable() && s.writeable()
-function InSeekStream(s) =    s as Stream && s.readable() &&                  s.seekable()
-function OutSeekStream(s) =   s as Stream &&                 s.writeable() && s.seekable()
-function InoutSeekStream(s) = s as Stream && s.readable() && s.writeable() && s.seekable()
+function OutStream(s) =       s as Stream &&                 s.writable()
+function InoutStream(s) =     s as Stream && s.readable() && s.writable()
+function SeekStream(s) =      s as Stream &&                                 s.seekable()
+function InSeekStream(s) =    s as Stream && s.readable() &&                 s.seekable()
+function OutSeekStream(s) =   s as Stream &&                 s.writable() && s.seekable()
+function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.seekable()
 
-class NativeInStream : Stream // Tango InputStream
-class NativeOutStream : Stream // Tango OutputStream
-class NativeInoutStream : Stream // Tango Conduit
+class NativeInStream : Stream {} // Tango InputStream
+class NativeOutStream : Stream {} // Tango OutputStream
+class NativeInoutStream : Stream {} // Tango Conduit
 
 class TextReader
 {
@@ -148,7 +195,8 @@ class BinaryWriter
 
 	}
 }
-
+*/
+/*
 function help(x, child: string = null)
 {
 	local d
@@ -396,7 +444,7 @@ function dumpStdlib(x)
 		dumpItem(child)
 	}
 }
-
+*/
 // dumpStdlib(_G)
 
 /*

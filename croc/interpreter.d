@@ -3557,10 +3557,12 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.CheckObjParam:
+					auto jump = (*pc)++;
+
 					RS = t.stack[stackBase + i.rs];
 
 					if(RS.type != CrocValue.Type.Instance)
-						*mixin(GetRD) = true;
+						(*pc) += jump.imm;
 					else
 					{
 						RT = *mixin(GetRT);
@@ -3568,10 +3570,15 @@ void execute(CrocThread* t, uword depth = 1)
 						if(RT.type != CrocValue.Type.Class)
 						{
 							typeString(t, &RT);
-							throwStdException(t, "TypeException", "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
+							
+							if(i.rs == 0)
+								throwStdException(t, "TypeException", "'this' parameter: instance type constraint type must be 'class', not '{}'", getString(t, -1));
+							else
+								throwStdException(t, "TypeException", "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
 						}
 
-						*mixin(GetRD) = instance.derivesFrom(RS.mInstance, RT.mClass);
+						if(instance.derivesFrom(RS.mInstance, RT.mClass))
+							(*pc) += jump.imm;
 					}
 					break;
 
@@ -3582,7 +3589,16 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "'this' parameter: type '{}' is not allowed", getString(t, -1));
 					else
 						throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
-						
+
+					break;
+					
+				case Op.CustomParamFail:
+					typeString(t, &t.stack[stackBase + i.rs]);
+					
+					if(i.rs == 0)
+						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), mixin(GetRT).mString.toString());
+					else
+						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", i.rs, getString(t, -1), mixin(GetRT).mString.toString());
 					break;
 
 				// Array and List Operations

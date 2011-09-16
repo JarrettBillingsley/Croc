@@ -514,6 +514,14 @@ class FuncDef : AstNode
 		list. If typeMask does not allow instances, this should be empty.
 		*/
 		Expression[] classTypes;
+		
+		/**
+		If this parameter has a custom constraint instead of a normal type constraint, the
+		name after the @ will be turned into an expression and placed here. After the semantic
+		pass, this instead holds a call to the custom constraint with the parameter as its
+		argument.
+		*/
+		Expression customConstraint;
 
 		/**
 		The default value for the parameter. This can be null, in which case it will have

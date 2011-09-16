@@ -53,6 +53,7 @@ enum Op : ushort
 	Cmp,
 	Cmp3,
 	Com,
+	CustomParamFail,
 	Dec,
 	Div,
 	DivEq,
@@ -146,7 +147,7 @@ As................R: dest, src, src class
 Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
 Cat...............R: dest, src, num values (NOT variadic)
 CatEq.............R: dest, src, num values (NOT variadic)
-CheckObjParam.....R: dest, index of parameter, object type
+CheckObjParam.....R: n/a, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Class.............R: dest, name const index, base class
 ClassNB...........R: dest, name const index, n/a
@@ -156,6 +157,7 @@ Coroutine.........R: dest, src, n/a
 Cmp...............R: n/a, src, src
 Cmp3..............R: dest, src, src
 Com...............R: dest, src, n/a
+CustomParamFail...R: n/a, src, condition string
 Dec...............R: dest, n/a, n/a
 Div...............R: dest, src, src
 DivEq.............R: dest, src, n/a
@@ -311,7 +313,7 @@ align(1) struct Instruction
 			case Op.Call:            return Format("call r{}, {}, {}", rd, rs, rt);
 			case Op.Cat:             return Format("cat {}, r{}, {}", cr(rd), rs, rt);
 			case Op.CatEq:           return Format("cateq {}, r{}, {}", cr(rd), rs, rt);
-			case Op.CheckObjParam:   return Format("checkobjparm r{}, r{}, {}", rd, rs, cr(rt));
+			case Op.CheckObjParam:   return Format("checkobjparm r{}, {}", rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Class:           return Format("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ClassNB:         return Format("classnb {}, {}", cr(rd), cr(rs));
@@ -321,6 +323,7 @@ align(1) struct Instruction
 			case Op.Cmp:             return Format("cmp {}, {}", cr(rs), cr(rt));
 			case Op.Cmp3:            return Format("cmp3 {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.Com:             return Format("com {}, {}", cr(rd), cr(rs));
+			case Op.CustomParamFail: return Format("customparamfail {}, {}", cr(rs), cr(rt));
 			case Op.Dec:             return Format("dec {}", cr(rd));
 			case Op.Div:             return Format("div {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.DivEq:           return Format("diveq {}, {}", cr(rd), cr(rs));

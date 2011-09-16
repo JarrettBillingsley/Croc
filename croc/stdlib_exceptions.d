@@ -36,25 +36,26 @@ static:
 	public void init(CrocThread* t)
 	{
 		importModuleFromString(t, "exceptions", srcCode, srcName);
-		
-		field(t, -1, "Location");
-		t.vm.location = getClass(t, -1);
-		pop(t);
-
-		foreach(desc; ExDescs)
-		{
-			field(t, -1, desc.name);
-			*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
+			field(t, -1, "Location");
+			t.vm.location = getClass(t, -1);
 			pop(t);
-		}
-
+	
+			foreach(desc; ExDescs)
+			{
+				field(t, -1, desc.name);
+				*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
+				pop(t);
+			}
+			
+			newFunction(t, 1, &stdException, "stdException"); fielda(t, -2, "stdException");
 		pop(t);
 	}
-}
-
-struct ExDesc
-{
-	char[] name, derives;
+	
+	uword stdException(CrocThread* t)
+	{
+		getStdException(t, checkStringParam(t, 1));
+		return 1;
+	}
 }
 
 /*
@@ -80,7 +81,7 @@ struct ExDesc
 		+ MethodException - Thrown when trying to call an invalid method on an object.
 	+ RuntimeException - Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this one.
 		+ NotImplementedException - A useful exception type that you can throw in methods that are unimplemented (such as in abstrac base class
-			methods). 
+			methods).
 	+ CallException - Thrown for some kinda of invalid function calls, such as invalid supercalls.
 		+ ParamException - Thrown for function calls which are invalid because they were nit given the proper number of parameters (not for
 			invalid types though).
@@ -93,6 +94,11 @@ struct ExDesc
 	+ SwitchError - Thrown when a switch without a 'default' is given a value not listed in its cases.
 	+ VMError - Thrown for some kinds of internal VM errors.
 */
+
+struct ExDesc
+{
+	char[] name, derives;
+}
 
 private const ExDesc[] ExDescs =
 [

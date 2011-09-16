@@ -244,6 +244,7 @@ Type:
 	BasicType
 	! null
 	any
+	@ DottedName
 
 BasicType:
 	BasicType '|' BasicType

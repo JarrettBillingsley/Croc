@@ -105,6 +105,13 @@ scope class Semantic : IdentityVisitor
 	{
 		foreach(i, ref p; d.params)
 		{
+			if(p.customConstraint)
+			{
+				scope args = new List!(Expression)(c.alloc);
+				args ~= new(c) IdentExp(c, p.name);
+				p.customConstraint = new(c) CallExp(c, p.customConstraint.endLocation, p.customConstraint, null, args.toArray());
+			}
+
 			if(p.defValue is null)
 				continue;
 

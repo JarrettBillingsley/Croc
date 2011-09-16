@@ -571,13 +571,14 @@ struct Parser
 			if(l.type == Token.Colon)
 			{
 				l.next();
-				p.typeMask = parseParamType(p.classTypes, p.typeString);
+				p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
 			}
 			else
 			{
 				p.typeMask = TypeMask.Any;
 				p.classTypes = null;
 				p.typeString = null;
+				p.customConstraint = null;
 			}
 
 			if(l.type == Token.Assign)
@@ -621,7 +622,7 @@ struct Parser
 
 			l.next();
 			l.expect(Token.Colon);
-			p.typeMask = parseParamType(p.classTypes, p.typeString);
+			p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
 			p.defValue = null;
 			p.valueString = null;
 
@@ -651,10 +652,11 @@ struct Parser
 
 	/**
 	Parse a parameter type. This corresponds to the Type element of the grammar.
-	Returns the type mask, as well as an optional list of class types that this
-	parameter can accept in the classTypes parameter.
+	Returns the type mask, an optional list of class types that this parameter can accept in the classTypes parameter,
+	a string representation of the type in typeString if documentation generation is enabled, and an optional custom
+	constraint if this function parameter uses a custom constraint.
 	*/
-	public uint parseParamType(out Expression[] classTypes, out char[] typeString)
+	public uint parseParamType(out Expression[] classTypes, out char[] typeString, out Expression customConstraint)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
@@ -754,8 +756,19 @@ struct Parser
 
 		typeString = capture(
 		{
+			if(l.type == Token.At)
+			{
+				l.next();
+				auto n = l.expect(Token.Ident);
+				
+				if(l.type == Token.Dot)
+					customConstraint = parseIdentList(n);
+				else
+					customConstraint = new(c) IdentExp(c, new(c) Identifier(c, n.loc, n.stringValue));
 
-			if(l.type == Token.Not)
+				ret = TypeMask.Any;
+			}
+			else if(l.type == Token.Not)
 			{
 				l.next();
 				l.expect(Token.Null);
@@ -778,7 +791,7 @@ struct Parser
 						break;
 				}
 			}
-	
+
 			assert(ret !is 0);
 			classTypes = objTypes.toArray();
 		});
