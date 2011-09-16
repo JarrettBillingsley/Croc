@@ -54,6 +54,7 @@ static:
 			register(t, 1, "fromRawAscii", &fromRawAscii);
 
 			newNamespace(t, "string");
+				registerField(t, 2, "toRawUnicode", &toRawUnicode);
 				registerField(t, 1, "opApply", &opApply);
 				registerField(t,    "join", &join);
 				registerField(t, 1, "toInt", &toInt);
@@ -175,6 +176,76 @@ static:
 		}
 
 		pushString(t, dest);
+		return 1;
+	}
+	
+	uword toRawUnicode(CrocThread* t)
+	{
+		checkStringParam(t, 0);
+		auto str = getStringObj(t, 0);
+		auto bitSize = optIntParam(t, 1, 8);
+
+		char[] typeCode;
+
+		switch(bitSize)
+		{
+			case 8:  typeCode = "u8"; break;
+			case 16: typeCode = "u16"; break;
+			case 32: typeCode = "u32"; break;
+			default: throwStdException(t, "ValueException", "Invalid encoding size of {} bits", bitSize);
+		}
+
+		CrocMemblock* ret;
+
+		if(optParam(t, 2, CrocValue.Type.Memblock))
+		{
+			ret = getMemblock(t, 2);
+			// round off to a multiple of 4 so the re-type always works
+			lenai(t, 2, len(t, 2) & ~3);
+			dup(t, 2);
+			pushNull(t);
+			pushString(t, typeCode);
+			methodCall(t, -3, "type", 0);
+			lenai(t, 2, str.length);
+		}
+		else
+		{
+			newMemblock(t, typeCode, str.length);
+			ret = getMemblock(t, -1);
+		}
+		
+		uword len = 0;
+		auto src = str.toString();
+
+		switch(bitSize)
+		{
+			case 8:
+				(cast(char*)ret.data.ptr)[0 .. str.length] = src[];
+				len = str.length;
+				break;
+
+			case 16:
+				auto dest = (cast(wchar*)ret.data.ptr)[0 .. str.length];
+				
+				auto temp = allocArray!(dchar)(t, str.length);
+				scope(exit) freeArray(t, temp);
+
+				uint ate = 0;
+				auto tempData = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, temp, &ate));
+				len = safeCode(t, "exceptions.UnicodeException", Utf.toString16(temp, dest, &ate)).length;
+				break;
+
+			case 32:
+				auto dest = (cast(dchar*)ret.data.ptr)[0 .. str.length];
+				uint ate = 0;
+				len = safeCode(t, "exceptions.UnicodeException", Utf.toString32(src, dest, &ate)).length;
+				break;
+
+			default: assert(false);
+		}
+		
+		push(t, CrocValue(ret));
+		lenai(t, -1, len);
 		return 1;
 	}
 
