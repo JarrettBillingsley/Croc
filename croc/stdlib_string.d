@@ -57,6 +57,7 @@ static:
 				registerField(t, 2, "toRawUnicode", &toRawUnicode);
 				registerField(t, 1, "opApply", &opApply);
 				registerField(t,    "join", &join);
+				registerField(t, 0, "isAscii", &isAscii);
 				registerField(t, 1, "toInt", &toInt);
 				registerField(t, 0, "toFloat", &toFloat);
 				registerField(t, 1, "compare", &compare);
@@ -141,12 +142,23 @@ static:
 	{
 		checkParam(t, 1, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 1);
+		auto lo = optIntParam(t, 2, 0);
+		auto hi = optIntParam(t, 3, mb.itemLength);
+		
+		if(lo < 0)
+			lo += mb.itemLength;
+		
+		if(hi < 0)
+			hi += mb.itemLength;
+			
+		if(lo < 0 || lo > hi || hi > mb.itemLength)
+			throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		switch(mb.kind.code)
 		{
-			case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[0 .. mb.itemLength]); break;
-			case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[0 .. mb.itemLength]); break;
-			case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[0 .. mb.itemLength]); break;
+			case CrocMemblock.TypeCode.u8:  pushFormat(t, "{}", (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
+			case CrocMemblock.TypeCode.u16: pushFormat(t, "{}", (cast(wchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
+			case CrocMemblock.TypeCode.u32: pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]); break;
 			default: throwStdException(t, "ValueException", "Memblock must be of type 'u8', 'u16', or 'u32', not '{}'", mb.kind.name);
 		}
 
@@ -157,11 +169,22 @@ static:
 	{
 		checkParam(t, 1, CrocValue.Type.Memblock);
 		auto mb = getMemblock(t, 1);
+		auto lo = optIntParam(t, 2, 0);
+		auto hi = optIntParam(t, 3, mb.itemLength);
+		
+		if(lo < 0)
+			lo += mb.itemLength;
+		
+		if(hi < 0)
+			hi += mb.itemLength;
+			
+		if(lo < 0 || lo > hi || hi > mb.itemLength)
+			throwStdException(t, "BoundsException", "Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, mb.itemLength);
 
 		if(mb.kind.code != CrocMemblock.TypeCode.u8)
 			throwStdException(t, "ValueException", "Memblock must be of type 'u8', not '{}'", mb.kind.name);
 
-		auto src = (cast(char[])mb.data)[0 .. mb.itemLength];
+		auto src = (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi];
   		auto dest = allocArray!(char)(t, src.length);
 
   		scope(exit)
@@ -303,6 +326,16 @@ static:
 	uword toFloat(CrocThread* t)
 	{
 		pushFloat(t, safeCode(t, "exceptions.ValueException", Float.toFloat(checkStringParam(t, 0))));
+		return 1;
+	}
+	
+	uword isAscii(CrocThread* t)
+	{
+		checkStringParam(t, 0);
+		auto str = getStringObj(t, 0);
+		// Take advantage of the fact that we're using UTF-8... ASCII strings will have a codepoint length
+		// exactly equal to their data length
+		pushBool(t, str.length == str.cpLength);
 		return 1;
 	}
 

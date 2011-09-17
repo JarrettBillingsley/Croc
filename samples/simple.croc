@@ -1,16 +1,16 @@
 module samples.simple
 
-// import streams: Stream
-
+import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
 function main()
 {
-	local s = "Hello \U00102033 there"
+	local mb = memblock.new("u8", 0)
+	
+	local s = UTF8Stream(MemblockStream(mb))
 
-	local b = memblock.new("u8", 0)
-	writeln$ s.toRawUnicode(8, b)
-	writeln$ s.toRawUnicode(16, b)
-	writeln$ s.toRawUnicode(32, b)
+	s.writefln("Hello there fuckers. x is {}", 5)
+
+	writeln(mb)
 }
 
 /*

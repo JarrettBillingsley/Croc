@@ -99,6 +99,8 @@ static:
 				registerField(t, 2, "writeULong",  &rawWrite!(ulong));
 				registerField(t, 2, "writeFloat",  &rawWrite!(float));
 				registerField(t, 2, "writeDouble", &rawWrite!(double));
+				
+				registerField(t, 4, "rawCopy",     &rawCopy);
 
 				registerField(t, 1, "opCat",       &opCat);
 				registerField(t, 1, "opCat_r",     &opCat_r);
@@ -985,6 +987,41 @@ static:
 
 		*(cast(T*)(mb.data.ptr + idx)) = cast(T)val;
 
+		return 0;
+	}
+	
+	uword rawCopy(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto dest = getMemblock(t, 0);
+		auto destPos = checkIntParam(t, 1);
+		checkParam(t, 2, CrocValue.Type.Memblock);
+		auto src = getMemblock(t, 2);
+		auto srcPos = checkIntParam(t, 3);
+		auto size = checkIntParam(t, 4);
+
+		if(dest.kind.code == TypeCode.v)
+			throwStdException(t, "ValueException", "Attempting to write to a void memblock");
+
+		if(src.kind.code == TypeCode.v)
+			throwStdException(t, "ValueException", "Attempting to read from a void memblock");
+
+		if(destPos < 0 || destPos > dest.data.length)
+			throwStdException(t, "BoundsException", "Invalid destination position {} (memblock byte length: {})", destPos, dest.data.length);
+
+		if(srcPos < 0 || srcPos > src.data.length)
+			throwStdException(t, "BoundsException", "Invalid srouce position {} (memblock byte length: {})", srcPos, src.data.length);
+		
+		if(size < 0)
+			throwStdException(t, "RangeException", "Size cannot be negative");
+		
+		if(destPos + size > dest.data.length)
+			throwStdException(t, "BoundsException", "Copy size exceeds size of destination memblock");
+
+		if(srcPos + size > src.data.length)
+			throwStdException(t, "BoundsException", "Copy size exceeds size of source memblock");
+			
+		dest.data[cast(uword)destPos .. cast(uword)(destPos + size)] = src.data[cast(uword)srcPos .. cast(uword)(srcPos + size)];
 		return 0;
 	}
 
