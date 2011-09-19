@@ -328,9 +328,12 @@ ReturnStatement:
 	return List(Expression)? StatementTerminator
 
 TryCatchStatement:
-	try Statement catch '(' Identifier ')' Statement
+	try Statement CatchClause+
 	try Statement finally Statement
-	try Statement catch '(' Identifier ')' Statement finally Statement
+	try Statement CatchClause+ finally Statement
+
+CatchClause:
+	catch '(' Identifier : DottedName ('|' DottedName)* ')' Statement
 
 ThrowStatement:
 	throw Expression StatementTerminator

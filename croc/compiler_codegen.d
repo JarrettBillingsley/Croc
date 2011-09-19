@@ -2896,88 +2896,53 @@ scope class Codegen : Visitor
 
 		return s;
 	}
-
-	public override TryStmt visit(TryStmt s)
+	
+	public override TryCatchStmt visit(TryCatchStmt s)
 	{
-		if(s.finallyBody)
-		{
-			Scope tryScope1 = void;
-			auto pushFinally = fs.codeFinally(s.location.line, tryScope1);
-			Scope scop = void;
+		uint checkReg1;
+		Scope scop = void;
+		auto pushCatch = fs.codeCatch(s.location.line, scop, checkReg1);
 
-			if(s.catchBody)
-			{
-				// try-catch-finally
-				uint checkReg1;
-				Scope tryScope2 = void;
-				auto pushCatch = fs.codeCatch(s.location.line, tryScope2, checkReg1);
+		visit(s.tryBody);
 
-				visit(s.tryBody);
+		fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
+		auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
+		fs.patchJumpToHere(pushCatch);
+		fs.endCatchScope(s.transformedCatch.location.line);
 
-				fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
-				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
-				auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
-				fs.patchJumpToHere(pushCatch);
-				fs.endCatchScope(s.tryBody.endLocation.line);
+		fs.pushScope(scop);
+			auto checkReg2 = fs.insertLocal(s.hiddenCatchVar);
 
-				fs.pushScope(scop);
-					auto checkReg2 = fs.insertLocal(s.catchVar);
+			assert(checkReg1 == checkReg2, "catch var register is not right");
 
-					assert(checkReg1 == checkReg2, "catch var register is not right");
+			fs.activateLocals(1);
+			visit(s.transformedCatch);
+		fs.popScope(s.transformedCatch.endLocation.line);
 
-					fs.activateLocals(1);
-					visit(s.catchBody);
-				fs.popScope(s.catchBody.endLocation.line);
-
-				fs.codeI(s.catchBody.endLocation.line, Op.PopFinally, 0, 0);
-				fs.patchJumpToHere(jumpOverCatch);
-			}
-			else
-			{
-				// try-finally
-				visit(s.tryBody);
-				fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
-			}
-
-			fs.patchJumpToHere(pushFinally);
-			fs.endFinallyScope(s.finallyBody.location.line);
-
-			fs.pushScope(scop);
-				visit(s.finallyBody);
-				fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
-			fs.popScope(s.finallyBody.endLocation.line);
-		}
-		else
-		{
-			// try-catch
-			assert(s.catchBody !is null);
-
-			uint checkReg1;
-			Scope scop = void;
-			auto pushCatch = fs.codeCatch(s.location.line, scop, checkReg1);
-
-			visit(s.tryBody);
-
-			fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
-			auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
-			fs.patchJumpToHere(pushCatch);
-			fs.endCatchScope(s.catchBody.location.line);
-
-			fs.pushScope(scop);
-				auto checkReg2 = fs.insertLocal(s.catchVar);
-
-				assert(checkReg1 == checkReg2, "catch var register is not right");
-
-				fs.activateLocals(1);
-				visit(s.catchBody);
-			fs.popScope(s.catchBody.endLocation.line);
-
-			fs.patchJumpToHere(jumpOverCatch);
-		}
+		fs.patchJumpToHere(jumpOverCatch);
 
 		return s;
 	}
-	
+
+	public override TryFinallyStmt visit(TryFinallyStmt s)
+	{
+		Scope scop = void;
+		auto pushFinally = fs.codeFinally(s.location.line, scop);
+
+		visit(s.tryBody);
+
+		fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
+		fs.patchJumpToHere(pushFinally);
+		fs.endFinallyScope(s.finallyBody.location.line);
+
+		fs.pushScope(scop);
+			visit(s.finallyBody);
+			fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
+		fs.popScope(s.finallyBody.endLocation.line);
+
+		return s;
+	}
+
 	public override ThrowStmt visit(ThrowStmt s)
 	{
 		visit(s.exp);

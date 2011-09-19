@@ -85,6 +85,22 @@ struct Parser
 		with(l.expect(Token.Ident))
 			return stringValue;
 	}
+	
+	/**
+	*/
+	public Expression parseDottedName()
+	{
+		Expression ret = parseIdentExp();
+
+		while(l.type == Token.Dot)
+		{
+			l.next();
+			auto tok = l.expect(Token.Ident);
+			ret = new(c) DotExp(c, ret, new(c) StringExp(c, tok.loc, tok.stringValue));
+		}
+
+		return ret;
+	}
 
 	/**
 	*/
@@ -297,16 +313,8 @@ struct Parser
 		Decorator parseDecorator()
 		{
 			l.expect(Token.At);
-
-			Expression func = parseIdentExp();
-
-			while(l.type == Token.Dot)
-			{
-				l.next();
-				auto tok = l.expect(Token.Ident);
-				func = new(c) DotExp(c, func, new(c) StringExp(c, tok.loc, tok.stringValue));
-			}
-
+			
+			auto func = parseDottedName();
 			Expression[] argsArr;
 			Expression context;
 			CompileLoc endLocation = void;
@@ -565,20 +573,13 @@ struct Parser
 
 		void parseParam()
 		{
-			Param p = void;
+			Param p;
 			p.name = parseIdentifier();
 
 			if(l.type == Token.Colon)
 			{
 				l.next();
 				p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
-			}
-			else
-			{
-				p.typeMask = TypeMask.Any;
-				p.classTypes = null;
-				p.typeString = null;
-				p.customConstraint = null;
 			}
 
 			if(l.type == Token.Assign)
@@ -588,11 +589,6 @@ struct Parser
 
 				// Having a default parameter implies allowing null as a parameter type
 				p.typeMask |= TypeMask.Null;
-			}
-			else
-			{
-				p.defValue = null;
-				p.valueString = null;
 			}
 
 			ret ~= p;
@@ -617,14 +613,12 @@ struct Parser
 
 		if(l.type == Token.This)
 		{
-			Param p = void;
+			Param p;
 			p.name = new(c) Identifier(c, l.loc, c.newString("this"));
 
 			l.next();
 			l.expect(Token.Colon);
 			p.typeMask = parseParamType(p.classTypes, p.typeString, p.customConstraint);
-			p.defValue = null;
-			p.valueString = null;
 
 			ret ~= p;
 
@@ -1726,29 +1720,44 @@ struct Parser
 
 	/**
 	*/
-	public TryStmt parseTryStmt()
+	public Statement parseTryStmt()
 	{
+		alias TryCatchStmt.CatchClause CC;
+
 		auto location = l.expect(Token.Try).loc;
-		auto tryBodyStmt = parseStatement();
-		auto tryBody = new(c) ScopeStmt(c, tryBodyStmt);
+		auto tryBody = new(c) ScopeStmt(c, parseStatement());
 
-		Identifier catchVar;
-		Statement catchBody;
+		scope catches = new List!(CC)(c.alloc);
 
-		CompileLoc endLocation;
+		scope(failure)
+		{
+			foreach(ref ca; catches)
+				c.alloc.freeArray(ca.exTypes);
+		}
 
-		if(l.type == Token.Catch)
+		while(l.type == Token.Catch)
 		{
 			l.next();
 			l.expect(Token.LParen);
 
-			catchVar = parseIdentifier();
+			CC cc;
+			cc.catchVar = parseIdentifier();
+			l.expect(Token.Colon);
+
+			scope types = new List!(Expression)(c.alloc);
+			types ~= parseDottedName();
+
+			while(l.type == Token.Or)
+			{
+				l.next();
+				types ~= parseDottedName();
+			}
 
 			l.expect(Token.RParen);
 
-			auto catchBodyStmt = parseStatement();
-			catchBody = new(c) ScopeStmt(c, catchBodyStmt);
-			endLocation = catchBody.endLocation;
+			cc.catchBody = new(c) ScopeStmt(c, parseStatement());
+			cc.exTypes = types.toArray();
+			catches ~= cc;
 		}
 
 		Statement finallyBody;
@@ -1756,15 +1765,29 @@ struct Parser
 		if(l.type == Token.Finally)
 		{
 			l.next();
-			auto finallyBodyStmt = parseStatement();
-			finallyBody = new(c) ScopeStmt(c, finallyBodyStmt);
-			endLocation = finallyBody.endLocation;
+			finallyBody = new(c) ScopeStmt(c, parseStatement());
 		}
+		
+		if(catches.length > 0)
+		{
+			auto catchArr = catches.toArray();
 
-		if(catchBody is null && finallyBody is null)
-			c.eofException(location, "Try statement must be followed by a catch, finally, or both");
+			if(finallyBody)
+			{
+				auto tmp = new(c) TryCatchStmt(c, location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
+				return new(c) TryFinallyStmt(c, location, finallyBody.endLocation, tmp, finallyBody);
+			}
+			else
+			{
+				return new(c) TryCatchStmt(c, location, catchArr[$ - 1].catchBody.endLocation, tryBody, catchArr);
+			}
+		}
+		else if(finallyBody)
+			return new(c) TryFinallyStmt(c, location, finallyBody.endLocation, tryBody, finallyBody);
+		else
+			c.eofException(location, "Try statement must be followed by catches, finally, or both");
 
-		return new(c) TryStmt(c, location, endLocation, tryBody, catchVar, catchBody, finallyBody);
+		assert(false);
 	}
 	
 	/**

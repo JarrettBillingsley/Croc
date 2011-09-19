@@ -51,7 +51,7 @@ void main()
 
 		if(e.info)
 		{
-			Stdout("D Traceback:");
+			Stdout("D Traceback: ");
 			e.writeOut((char[]s) { Stdout(s); });
 		}
 	}

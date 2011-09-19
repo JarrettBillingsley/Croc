@@ -11,7 +11,14 @@ local w = 1152
 local h = 864
 
 sdl.setVideoMode(w, h, 32, sdl.hwSurface)
-joy.open(0)
+
+for(i: 0 .. joy.count())
+{
+	joy.open(i)
+	writefln("{}: {} axes, {} buttons, {} hats, {} trackballs", joy.info(i))
+}
+
+joy.enableEvents(true)
 
 local quit = false
 
@@ -24,8 +31,8 @@ while(!quit)
 		if(e == "quit" || (e == "keyDown" && a == key.escape))
 			quit = true
 
-		if(e == "joyHat")
-			writeln(c)
+		if(e.startsWith("joy"))
+			writefln("{}: {} {} {} {}", e, a, b, c, d)
 
 		if(e == "active")
 		{

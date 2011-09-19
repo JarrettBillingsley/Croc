@@ -369,13 +369,7 @@ scope class Semantic : IdentityVisitor
 
 	public override Statement visit(BlockStmt s)
 	{
-		Identifier genDummyVar(CompileLoc loc)
-		{
-			pushFormat(c.thread, "__scope{}", mDummyNameCounter++);
-			auto str = c.newString(getString(c.thread, -1));
-			pop(c.thread);
-			return new(c) Identifier(c, loc, str);
-		}
+		alias TryCatchStmt.CatchClause CC;
 
 		foreach(i, ref stmt; s.statements)
 		{
@@ -383,7 +377,7 @@ scope class Semantic : IdentityVisitor
 
 			// Do we need to process a scope statement?
 			auto ss = stmt.as!(ScopeActionStmt);
-			
+
 			if(ss is null)
 				continue;
 
@@ -417,7 +411,7 @@ scope class Semantic : IdentityVisitor
 					try { rest }
 					finally { ss.stmt }
 					*/
-					replacement = visit(new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, null, null, ss.stmt));
+					replacement = visit(new(c) TryFinallyStmt(c, ss.location, ss.endLocation, tryBody, ss.stmt));
 					break;
 
 				case ScopeActionStmt.Success:
@@ -427,12 +421,12 @@ scope class Semantic : IdentityVisitor
 					=>
 					local __dummy = true
 					try { rest }
-					catch(__dummy2) { __dummy = false; throw __dummy2 }
+					catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
 					finally { if(__dummy) ss.stmt }
 					*/
 
 					// local __dummy = true
-					auto finishedVar = genDummyVar(ss.endLocation);
+					auto finishedVar = genDummyVar(ss.endLocation, "__scope{}");
 					auto finishedVarExp = new(c) IdentExp(c, finishedVar);
 					Statement declStmt;
 					{
@@ -442,14 +436,16 @@ scope class Semantic : IdentityVisitor
 						initializer ~= new(c) BoolExp(c, ss.location, true);
 						declStmt = new(c) VarDecl(c, ss.location, ss.location, Protection.Local, nameList.toArray(), initializer.toArray());
 					}
-					
-					// catch(__dummy2) { __dummy = false; throw __dummy2 }
-					auto catchVar = genDummyVar(ss.location);
-					ScopeStmt catchBody;
 
+					// catch(__dummy2: Throwable) { __dummy = false; throw __dummy2 }
+					auto catchVar = genDummyVar(ss.location, "__scope{}");
+					TryCatchStmt catchStmt;
 					{
+						scope types = new List!(Expression)(c.alloc);
+						types ~= new(c) IdentExp(c, new(c) Identifier(c, ss.location, c.newString("Throwable")));
+
 						scope dummy = new List!(Statement)(c.alloc);
-						// __dummy = true;
+						// __dummy = false;
 						scope lhs = new List!(Expression)(c.alloc);
 						lhs ~= finishedVarExp;
 						scope rhs = new List!(Expression)(c.alloc);
@@ -458,12 +454,16 @@ scope class Semantic : IdentityVisitor
 						// throw __dummy2
 						dummy ~= new(c) ThrowStmt(c, ss.stmt.location, new(c) IdentExp(c, catchVar), true);
 						auto code = dummy.toArray();
-						catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
+						auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, code[0].location, code[$ - 1].endLocation, code));
+
+						scope catches = new List!(CC)(c.alloc);
+						catches ~= CC(catchVar, types.toArray(), catchBody);
+
+						catchStmt = new(c) TryCatchStmt(c, ss.location, ss.endLocation, tryBody, catches.toArray());
 					}
-					
+
 					// finally { if(__dummy) ss.stmt }
 					ScopeStmt finallyBody;
-					
 					{
 						scope dummy = new List!(Statement)(c.alloc);
 						// if(__dummy) ss.stmt
@@ -475,7 +475,7 @@ scope class Semantic : IdentityVisitor
 					// Put it all together
 					scope code = new List!(Statement)(c.alloc);
 					code ~= declStmt;
-					code ~= new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, catchVar, catchBody, finallyBody);
+					code ~= new(c) TryFinallyStmt(c, ss.location, ss.endLocation, catchStmt, finallyBody);
 					auto codeArr = code.toArray();
 					replacement = visit(new(c) ScopeStmt(c, new(c) BlockStmt(c, codeArr[0].location, codeArr[$ - 1].endLocation, codeArr)));
 					break;
@@ -486,15 +486,21 @@ scope class Semantic : IdentityVisitor
 					rest
 					=>
 					try { rest }
-					catch(__dummy) { ss.stmt; throw __dummy }
+					catch(__dummy: Throwable) { ss.stmt; throw __dummy }
 					*/
-					auto catchVar = genDummyVar(ss.location);
+					auto catchVar = genDummyVar(ss.location, "__scope{}");
+					scope types = new List!(Expression)(c.alloc);
+					types ~= new(c) IdentExp(c, new(c) Identifier(c, ss.location, c.newString("Throwable")));
+
 					scope dummy = new List!(Statement)(c.alloc);
 					dummy ~= ss.stmt;
 					dummy ~= new(c) ThrowStmt(c, ss.stmt.endLocation, new(c) IdentExp(c, catchVar), true);
 					auto catchCode = dummy.toArray();
 					auto catchBody = new(c) ScopeStmt(c, new(c) BlockStmt(c, catchCode[0].location, catchCode[$ - 1].endLocation, catchCode));
-					replacement = visit(new(c) TryStmt(c, ss.location, ss.endLocation, tryBody, catchVar, catchBody, null));
+
+					scope catches = new List!(CC)(c.alloc);
+					catches ~= CC(catchVar, types.toArray(), catchBody);
+					replacement = visit(new(c) TryCatchStmt(c, ss.location, ss.endLocation, tryBody, catches.toArray()));
 					break;
 
 				default: assert(false);
@@ -868,20 +874,88 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override TryStmt visit(TryStmt s)
+	public override TryCatchStmt visit(TryCatchStmt s)
 	{
 		s.tryBody = visit(s.tryBody);
 
-		if(s.catchBody)
-			s.catchBody = visit(s.catchBody);
-
-		if(s.finallyBody)
+		foreach(ref c; s.catches)
 		{
-			enterFinally();
-			s.finallyBody = visit(s.finallyBody);
-			leaveFinally();
+			foreach(ref e; c.exTypes)
+				e = visit(e);
+
+			c.catchBody = visit(c.catchBody);
 		}
 
+		/*
+		Now we have to do some fancy transformation of the catch statements into a single statement that switches
+		on the type of the caught exception.
+		
+		try
+			...
+		catch(e: E1)
+			catch1()
+		catch(f: E2|E3)
+			catch2()
+		
+		=> 
+		
+		try
+			...
+		catch(__catch0)
+		{
+			if(__catch0 as E1) { local e = __catch0; catch1() }
+			else if(__catch0 as E2 || __catch0 as E3) { local f = __catch0; catch2() }
+			else throw __catch0
+		}
+		*/
+
+		// catch(__catch0)
+		auto cvar = genDummyVar(s.catches[0].catchVar.location, "__catch{}");
+		auto cvarExp = new(c) IdentExp(c, cvar);
+		s.hiddenCatchVar = cvar;
+		
+		// else throw __catch0
+		Statement stmt = new(c) ThrowStmt(c, s.endLocation, cvarExp, true);
+
+		// Doing it in reverse to make building it up easier.
+		foreach_reverse(ref ca; s.catches)
+		{
+			// if(__catch0 as E2 || __catch0 as E3)
+			Expression cond = new(c) AsExp(c, ca.catchVar.location, ca.catchVar.location, cvarExp, ca.exTypes[0]);
+
+			foreach(type; ca.exTypes[1 .. $])
+			{
+				auto tmp = new(c) AsExp(c, ca.catchVar.location, ca.catchVar.location, cvarExp, type);
+				cond = new(c) OrOrExp(c, ca.catchVar.location, ca.catchVar.location, cond, tmp);
+			}
+
+			scope code = new List!(Statement)(c.alloc);
+
+			// local f = __catch0;
+			scope nameList = new List!(Identifier)(c.alloc);
+			nameList ~= ca.catchVar;
+			scope initializer = new List!(Expression)(c.alloc);
+			initializer ~= cvarExp;
+			code ~= new(c) VarDecl(c, ca.catchVar.location, ca.catchVar.location, Protection.Local, nameList.toArray(), initializer.toArray());
+
+			// catch2()
+			code ~= ca.catchBody;
+
+			// wrap it up
+			auto ifCode = new(c) ScopeStmt(c, new(c) BlockStmt(c, ca.catchBody.location, ca.catchBody.endLocation, code.toArray()));
+			stmt = new(c) IfStmt(c, ca.catchVar.location, stmt.endLocation, null, cond, ifCode, stmt);
+		}
+
+		s.transformedCatch = stmt;
+		return s;
+	}
+
+	public override TryFinallyStmt visit(TryFinallyStmt s)
+	{
+		s.tryBody = visit(s.tryBody);
+		enterFinally();
+		s.finallyBody = visit(s.finallyBody);
+		leaveFinally();
 		return s;
 	}
 
@@ -1848,5 +1922,13 @@ scope class Semantic : IdentityVisitor
 	{
 		e.condition = visit(e.condition);
 		return e;
+	}
+
+	private Identifier genDummyVar(CompileLoc loc, char[] fmt)
+	{
+		pushFormat(c.thread, fmt, mDummyNameCounter++);
+		auto str = c.newString(getString(c.thread, -1));
+		pop(c.thread);
+		return new(c) Identifier(c, loc, str);
 	}
 }

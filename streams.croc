@@ -17,7 +17,7 @@ function clamp(x, lo, hi) =
 
 local function checkInput(m, offset, size)
 {
-	switch(m.typeCode())
+	switch(m.type())
 	{
 		case "i8", "u8": break
 		default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", m.typeCode()))
