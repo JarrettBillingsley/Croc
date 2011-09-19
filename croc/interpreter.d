@@ -2302,14 +2302,14 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 		}
 
 		push(t, CrocValue(ex));
-		pushTraceback(t);
-		
-		field(t, -2, "location");
+		field(t, -1, "location");
 		field(t, -1, "col");
-		
+
 		if(getInt(t, -1) == CrocLocation.Unknown)
 		{
 			pop(t, 2);
+			
+			pushTraceback(t);
 
 			if(len(t, -1) > 0)
 				idxi(t, -1, 0);
@@ -2317,11 +2317,10 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 				pushDebugLoc(t);
 
 			fielda(t, -3, "location");
+			fielda(t, -2, "traceback");
 		}
 		else
 			pop(t, 2);
-
-		fielda(t, -2, "traceback");
 
 		auto size = stackSize(t);
 

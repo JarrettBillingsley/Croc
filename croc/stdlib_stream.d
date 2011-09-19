@@ -1245,7 +1245,7 @@ c.method("flush",         0, &flush);
 c.method("copy",          1, &copy);
 c.method("flushOnNL",     1, &flushOnNL);`;
 
-const char[] ReadFuncDefs = 
+const char[] ReadFuncDefs =
 `c.method("readByte",     0, &readVal!(byte));
 c.method("readUByte",    0, &readVal!(ubyte));
 c.method("readShort",    0, &readVal!(short));
