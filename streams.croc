@@ -1,0 +1,563 @@
+module streams
+
+import exceptions:
+	BoundsException,
+	IOException,
+	NotImplementedException,
+	RangeException,
+	TypeException,
+	ValueException
+
+import math:
+	min,
+	intMax
+
+function clamp(x, lo, hi) =
+	x < lo ? lo : x > hi ? hi : x
+
+local function checkInput(m, offset, size)
+{
+	switch(m.typeCode())
+	{
+		case "i8", "u8": break
+		default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", m.typeCode()))
+	}
+
+	offset = clamp(offset, 0, #m)
+	return m, offset, clamp(size, 0, #m - offset)
+}
+
+class Stream
+{
+	_scratch
+
+	this()
+	{
+		if(!:readable() && !:writable())
+			throw IOException(format("Instances of class {} are neither readable nor writable; not a very useful stream, is it?", nameOf(:super)))
+
+		:_scratch = memblock.new("u8", 4096)
+	}
+
+	function read(this: @InStream, m: memblock, offset: int = 0, size: int = intMax)
+		throw NotImplementedException()
+	function write(this: @OutStream, m: memblock, offset: int = 0, size: int = intMax)
+		throw NotImplementedException()
+	function seek(this: @SeekStream, offset: int, where: char)
+		throw NotImplementedException()
+
+	function flush() {}
+	function close() {}
+	function isOpen() = true
+	function readable() = false
+	function writable() = false
+	function seekable() = false
+	
+	function readExact(buf: memblock, offset: int = 0, size: int = intMax)
+	{
+		if(:read(buf, offset, size) < size)
+			throw IOException("EOF while reading")
+	}
+
+	function writeExact(buf: memblock, offset: int = 0, size: int = intMax)
+	{
+		if(:write(buf, offset, size) < size)
+			throw IOException("EOF while writing")
+	}
+
+	function skip(this: @InStream, dist: int)
+	{
+		if(dist < 0)
+			throw RangeException(format("Invalid skip distance ({})", dist))
+			
+		if(:seekable())
+		{
+			:seek(dist, 'c')
+			return
+		}
+
+		:flush()
+		local buf = :_scratch
+
+		while(dist > 0)
+		{
+			local numBytes = dist < #buf ? dist : #buf
+			:readExact(buf, 0, numBytes)
+			dist -= numBytes
+		}
+	}
+
+	function copy(this: @OutStream, s: @InStream)
+	{
+		local buf = :_scratch
+
+		while(true)
+		{
+			if(local numRead = s.read(buf))
+				:writeExact(buf, 0, numRead)
+			else
+				break
+		}
+
+		return this
+	}
+
+	function position(this: @SeekStream, pos: int|null)
+	{
+		if(pos is null)
+			return :seek(0, 'c')
+		else
+			return :seek(pos, 'b')
+	}
+
+	function size(this: @SeekStream)
+	{
+		:flush()
+		local pos = :position()
+		local ret = :seek(0, 'e')
+		:position(pos)
+		return ret
+	}
+}
+
+function InStream(s) =        s as Stream && s.readable()
+function OutStream(s) =       s as Stream &&                 s.writable()
+function InoutStream(s) =     s as Stream && s.readable() && s.writable()
+function SeekStream(s) =      s as Stream &&                                 s.seekable()
+function InSeekStream(s) =    s as Stream && s.readable() &&                 s.seekable()
+function OutSeekStream(s) =   s as Stream &&                 s.writable() && s.seekable()
+function InoutSeekStream(s) = s as Stream && s.readable() && s.writable() && s.seekable()
+
+class MemblockStream : Stream
+{
+	mb
+	pos = 0
+
+	this(mb: memblock)
+	{
+		switch(mb.type())
+		{
+			case "i8", "u8": break
+			default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", mb.type()))
+		}
+
+		:mb = mb
+		super()
+	}
+
+	function read(m: memblock, offset: int = 0, size: int = intMax)
+	{
+		if(:pos >= #:mb)
+			return 0
+
+		m, offset, size = checkInput(m, offset, size)
+
+		if(size == 0)
+			return 0
+
+		local numBytes = min(size, #:mb - :pos)
+		m.rawCopy(offset, :mb, :pos, numBytes)
+		:pos += numBytes
+		return numBytes
+	}
+
+	function write(m: memblock, offset: int = 0, size: int = intMax)
+	{
+		m, offset, size = checkInput(m, offset, size)
+
+		if(size == 0)
+			return 0
+
+		local bytesLeft = #:mb - :pos
+
+		if(size > bytesLeft)
+			#:mb += size - bytesLeft
+
+		:mb.rawCopy(:pos, m, offset, size)
+		:pos += size
+		return size
+	}
+
+	function seek(offset: int, where: char)
+	{
+		switch(where)
+		{
+			case 'b': break
+			case 'c': offset += :pos; break
+			case 'e': offset += #:mb; break
+			default: throw ValueException(format("Invalid seek type '{}'", where))
+		}
+		
+		:pos = clamp(offset, 0, #:mb)
+		return :pos
+	}
+
+	function readable() = true
+	function writable() = true
+	function seekable() = true
+	
+	function getBacking() = :mb
+}
+
+class UTF8Stream
+{
+	stream
+	readBuf
+	writeBuf
+	chunks
+
+	bufPos = 0
+	bound = 0
+
+	shouldFlush = false
+	dirty = false
+
+	this(s: Stream)
+	{
+		:stream = s
+		:readBuf = memblock.new("u8", 4096)
+		:writeBuf = memblock.new("u8", 0)
+		:chunks = []
+	}
+
+	function readln()
+	{
+		if(:bound == 0)
+		{
+			:_readMore()
+			
+			if(:bound == 0)
+				return null
+		}
+
+		#:chunks = 0
+
+		while main(:bound > 0)
+		{
+			local start = :bufPos
+
+			for(; :bufPos < :bound; :bufPos++)
+			{
+				if(:readBuf[:bufPos] == 10)
+				{
+					:chunks ~= string.fromRawUnicode(:readBuf, start, :bufPos)
+					:bufPos++
+					break main
+				}
+			}
+
+			:chunks ~= string.fromRawUnicode(:readBuf, start, :bufPos)
+			:_readMore()
+		}
+
+		local ret = string.joinArray(:chunks)
+		#:chunks = 0
+
+		if(#ret && ret[-1] == '\r')
+			#ret--
+
+		return ret
+	}
+
+	function iterator(idx: int)
+	{
+		if(local ret = :readln())
+			return idx + 1, ret
+	}
+
+	function opApply(_)
+		return :iterator, this, 0
+
+	function write(vararg)
+	{
+		for(i: 0 .. #vararg)
+			:stream.write(toString(vararg[i]).toRawUnicode(8, :writeBuf))
+	}
+
+	function writeln(vararg)
+	{
+		:write(vararg)
+		:write("\n")
+
+		if(:shouldFlush)
+			:stream.flush()
+	}
+
+	function writef(fmt: string, vararg)
+	{
+		:stream.write(format(fmt, vararg).toRawUnicode(8, :writeBuf))
+	}
+
+	function writefln(fmt: string, vararg)
+	{
+		:writef(fmt, vararg)
+		:write("\n")
+
+		if(:shouldFlush)
+			:stream.flush()
+	}
+
+	function flushOnNL(f: bool)
+		:shouldFlush = f
+
+	function _readMore()
+	{
+		:bufPos = 0
+		:bound = :stream.read(:readBuf)
+	}
+}
+
+class StreamWrapper : Stream
+{
+	stream
+	
+	this(s: Stream)
+	{
+		:stream = s
+		super()
+	}
+
+	function read(m, off, size) = :stream.read(m, off, size)
+	function write(m, off, size) = :stream.write(m, off, size)
+	function seek(off, where) = :stream.seek(off, where)
+	function flush() = :stream.flush()
+	function close() = :stream.close()
+	function isOpen() = :stream.isOpen()
+	function readable() = :stream.readable()
+	function writable() = :stream.writable()
+	function seekable() = :stream.seekable()
+}
+
+class BinaryStream : StreamWrapper
+{
+	rwBuf
+	strBuf
+
+	this(s: Stream)
+	{
+		super(s)
+		:rwBuf = memblock.new("u8", 8)
+		:strBuf = memblock.new("u8", 0)
+	}
+
+	function readByte()   { :stream.readExact(:rwBuf, 0, 1); return :rwBuf.readByte(0)           }
+	function readUByte()  { :stream.readExact(:rwBuf, 0, 1); return :rwBuf.readUByte(0)          }
+	function readShort()  { :stream.readExact(:rwBuf, 0, 2); return :rwBuf.readShort(0)          }
+	function readUShort() { :stream.readExact(:rwBuf, 0, 2); return :rwBuf.readUShort(0)         }
+	function readInt()    { :stream.readExact(:rwBuf, 0, 4); return :rwBuf.readInt(0)            }
+	function readUInt()   { :stream.readExact(:rwBuf, 0, 4); return :rwBuf.readUInt(0)           }
+	function readLong()   { :stream.readExact(:rwBuf, 0, 8); return :rwBuf.readLong(0)           }
+	function readULong()  { :stream.readExact(:rwBuf, 0, 8); return :rwBuf.readULong(0)          }
+	function readFloat()  { :stream.readExact(:rwBuf, 0, 4); return :rwBuf.readFloat(0)          }
+	function readDouble() { :stream.readExact(:rwBuf, 0, 8); return :rwBuf.readDouble(0)         }
+	function readChar()   { :stream.readExact(:rwBuf, 0, 1); return toChar(:rwBuf.readUByte(0))  }
+	function readWChar()  { :stream.readExact(:rwBuf, 0, 2); return toChar(:rwBuf.readUShort(0)) }
+	function readDChar()  { :stream.readExact(:rwBuf, 0, 4); return toChar(:rwBuf.readUInt(0))   }
+
+	function readString()
+	{
+		local len = :readULong()
+		#:strBuf = len
+		:stream.readExact(:strBuf)
+		return string.fromRawUnicode(:strBuf)
+	}
+
+	function readChars(n: int)
+	{
+		if(n < 0)
+			throw RangeException(format("Invalid number of characters ({})", n))
+
+		#:strBuf = n
+		:stream.readExact(:strBuf)
+		return string.fromRawAscii(:strBuf)
+	}
+
+	function readMemblock(t: memblock|string, size: int|null)
+	{
+		if(isString(t))
+		{
+			if(!isInt(size))
+				throw TypeException(format("Expected int for 'size'"))
+			
+			if(size < 0)
+				throw RangeException(format("Invalid size: {}", size))
+			
+			t = memblock.new(t, size)
+		}
+		else if(size !is null && size != #t)
+			#t = size
+
+		:stream.readExact(t)
+	}
+
+	function writeByte(x: int)     { :rwBuf.writeByte(0, x);          :stream.writeExact(:rwBuf, 0, 1); return this }
+	function writeUByte(x: int)    { :rwBuf.writeUByte(0, x);         :stream.writeExact(:rwBuf, 0, 1); return this }
+	function writeShort(x: int)    { :rwBuf.writeShort(0, x);         :stream.writeExact(:rwBuf, 0, 2); return this }
+	function writeUShort(x: int)   { :rwBuf.writeUShort(0, x);        :stream.writeExact(:rwBuf, 0, 2); return this }
+	function writeInt(x: int)      { :rwBuf.writeInt(0, x);           :stream.writeExact(:rwBuf, 0, 4); return this }
+	function writeUInt(x: int)     { :rwBuf.writeUInt(0, x);          :stream.writeExact(:rwBuf, 0, 4); return this }
+	function writeLong(x: int)     { :rwBuf.writeLong(0, x);          :stream.writeExact(:rwBuf, 0, 8); return this }
+	function writeULong(x: int)    { :rwBuf.writeULong(0, x);         :stream.writeExact(:rwBuf, 0, 8); return this }
+	function writeFloat(x: float)  { :rwBuf.writeFloat(0, x);         :stream.writeExact(:rwBuf, 0, 4); return this }
+	function writeDouble(x: float) { :rwBuf.writeDouble(0, x);        :stream.writeExact(:rwBuf, 0, 8); return this }
+	function writeChar(x: char)    { :rwBuf.writeUByte(0, toInt(x));  :stream.writeExact(:rwBuf, 0, 1); return this }
+	function writeWChar(x: char)   { :rwBuf.writeUShort(0, toInt(x)); :stream.writeExact(:rwBuf, 0, 2); return this }
+	function writeDChar(x: char)   { :rwBuf.writeUInt(0, toInt(x));   :stream.writeExact(:rwBuf, 0, 4); return this }
+
+	function writeString(x: string)
+	{
+		x.toRawUnicode(8, :strBuf)
+		:writeULong(#:strBuf)
+		:stream.writeExact(:strBuf)
+		return this
+	}
+
+	function writeChars(x: string)
+	{
+		if(!x.isAscii())
+			throw ValueException("Can only write ASCII strings as raw characters")
+
+		x.toRawUnicode(8, :strBuf)
+		:stream.writeExact(:strBuf)
+		return this
+	}
+
+	function writeMemblock(m: memblock, lo: int = 0, hi: int = #m)
+	{
+		if(lo < 0)
+			lo += #m
+		
+		if(hi < 0)
+			hi += #m
+			
+		if(lo < 0 || lo > hi || hi > #m)
+			throw BoundsException(format("Invalid memblock slice indices {} .. {} (memblock length: {})", lo, hi, #m))
+		
+		if(local size = hi - lo)
+			:stream.writeExact(m, lo, size)
+			
+		return this
+	}
+}
+
+class BufferedReader : StreamWrapper
+{
+	buf
+	bufPos = 0
+	bound = 0
+
+	this(s: @InStream, bufSize: int = 4096)
+	{
+		super(s)
+		:buf = memblock.new("u8", clamp(bufSize, 128, intMax))
+	}
+	
+	function read(m: memblock, offset: int = 0, size: int = intMax)
+	{
+		m, offset, size = checkInput(m, offset, size)
+		local remaining = size
+
+		while(remaining > 0)
+		{
+			local buffered = :bound - :bufPos
+
+			if(buffered == 0)
+			{
+				buffered = :_readMore()
+
+				if(buffered == 0)
+					break
+			}
+
+			local num = min(buffered, remaining)
+			m.rawCopy(offset, :buf, :bufPos, num)
+			:bufPos += num
+			offset += num
+			remaining -= num
+		}
+
+		return size - remaining
+	}
+
+	function write(vararg)
+		throw ValueException("Cannot write to a buffered reader")
+
+	function seek(offset: int, where: char)
+	{
+		local realPos = :stream.position()
+
+		if(where == 'c')
+			offset -= :bound - :bufPos
+			
+		:bufPos, :bound = 0, 0
+		return :stream.seek(offset, where)
+	}
+
+	function _readMore()
+	{
+		assert((:bound - :bufPos) == 0)
+		:bufPos = 0
+		:bound = :stream.read(:buf)
+		return :bound
+	}
+}
+
+class BufferedWriter : StreamWrapper
+{
+	buf
+	bufPos = 0
+
+	this(s: @OutStream, bufSize: int = 4096)
+	{
+		super(s)
+		:buf = memblock.new("u8", clamp(bufSize, 128, intMax))
+	}
+
+	function read(vararg)
+		throw ValueException("Cannot read from a buffered writer")
+
+	function write(m: memblock, offset: int = 0, size: int = intMax)
+	{
+		m, offset, size = checkInput(m, offset, size)
+		local spaceLeft = #:buf - :bufPos
+
+		if(spaceLeft >= byteSize)
+		{
+			:buf.rawCopy(:bufPos, m, byteOffset, byteSize)
+			:bufPos += byteSize
+			return #m
+		}
+
+		:flush()
+		return :stream.write(m, offset, size)
+	}
+
+	function seek(offset: int, where: char)
+	{
+		local realPos = :stream.position()
+
+		if(where == 'c')
+			offset -= :bufPos
+
+		if(:bufPos > 0)
+			:flush()
+
+		return :stream.seek(offset, where)
+	}
+	
+	function flush()
+	{
+		if(:bufPos > 0)
+		{
+			:stream.write(:buf, 0, :bufPos)
+			:stream.flush()
+			:bufPos = 0
+		}
+	}
+	
+	function close()
+	{
+		:flush()
+		:stream.close()
+	}
+}
