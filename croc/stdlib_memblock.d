@@ -1011,17 +1011,24 @@ static:
 
 		if(srcPos < 0 || srcPos > src.data.length)
 			throwStdException(t, "BoundsException", "Invalid srouce position {} (memblock byte length: {})", srcPos, src.data.length);
-		
-		if(size < 0)
-			throwStdException(t, "RangeException", "Size cannot be negative");
-		
+
+		if(size < 0 || size > uword.max)
+			throwStdException(t, "RangeException", "Invalid size: {}", size);
+
 		if(destPos + size > dest.data.length)
 			throwStdException(t, "BoundsException", "Copy size exceeds size of destination memblock");
 
 		if(srcPos + size > src.data.length)
 			throwStdException(t, "BoundsException", "Copy size exceeds size of source memblock");
 			
-		dest.data[cast(uword)destPos .. cast(uword)(destPos + size)] = src.data[cast(uword)srcPos .. cast(uword)(srcPos + size)];
+		auto srcPtr = src.data.ptr + srcPos;
+		auto destPtr = dest.data.ptr + destPos;
+
+		if(abs(destPtr - srcPtr) < size)
+			memmove(destPtr, srcPtr, cast(uword)size);
+		else
+			memcpy(destPtr, srcPtr, cast(uword)size);
+
 		return 0;
 	}
 
