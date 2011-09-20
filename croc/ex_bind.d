@@ -667,7 +667,7 @@ public word superPush(Type)(CrocThread* t, Type val)
 		return ret;
 	}
 	else static if(is(T == interface))
-	{		
+	{
 		auto obj = cast(Object)val;
 
 		if(obj is null)
@@ -675,13 +675,13 @@ public word superPush(Type)(CrocThread* t, Type val)
 		else
 		{
 			getWrappedClassOrSuper(t, obj.classinfo);
-			
+
 			if(isNull(t, -1))
 				throwException(t, "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
 			else
 				return getWrappedInstance(t, obj);
 		}
-		
+
 		assert(false);
 	}
 	else static if(is(T : Object))
@@ -691,13 +691,13 @@ public word superPush(Type)(CrocThread* t, Type val)
 		else
 		{
 			getWrappedClassOrSuper(t, val.classinfo);
-			
+
 			if(isNull(t, -1))
 				throwException(t, "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
 			else
 				return getWrappedInstance(t, val);
 		}
-		
+
 		assert(false);
 	}
 	else static if(is(T == struct))
@@ -765,7 +765,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 			throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
-		auto data = getArray(t, idx).slice;
+		auto data = getArray(t, idx).data;
 		auto ret = new T(data.length);
 
 		foreach(i, ref elem; data)
@@ -1152,7 +1152,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 		const TypeName = _classname_;
 	else
 		const TypeName = moduleName ~ "." ~ _classname_;
-		
+
 	CrocThread* _haveCrocOverload_(char[] methodName)
 	{
 		auto t = currentThread(_vm_);
@@ -1190,7 +1190,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 	{
 		// alias Ctors[0].Types blah; doesn't parse right
 		alias Ctors[0] DUMMY;
-		
+
 		static if(is(typeof(new Type())))
 			alias Unique!(Tuple!(void function(), DUMMY.Types)) CleanCtors;
 		else
