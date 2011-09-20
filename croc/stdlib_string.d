@@ -50,8 +50,8 @@ static:
 			StringBufferObj.init(t);
 
 			register(t, 2, "joinArray", &joinArray);
-			register(t, 1, "fromRawUnicode", &fromRawUnicode);
-			register(t, 1, "fromRawAscii", &fromRawAscii);
+			register(t, 3, "fromRawUnicode", &fromRawUnicode);
+			register(t, 3, "fromRawAscii", &fromRawAscii);
 
 			newNamespace(t, "string");
 				registerField(t, 2, "toRawUnicode", &toRawUnicode);

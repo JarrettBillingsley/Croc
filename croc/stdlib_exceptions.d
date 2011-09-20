@@ -39,7 +39,7 @@ static:
 			field(t, -1, "Location");
 			t.vm.location = getClass(t, -1);
 			pop(t);
-	
+
 			foreach(desc; ExDescs)
 			{
 				field(t, -1, desc.name);
@@ -216,4 +216,6 @@ Throwable.tracebackString = function tracebackString()
 		s ~= "\n       at: " ~ :traceback[i]
 
 	return s.toString()
-}` ~ makeExceptionClasses();
+}` ~ makeExceptionClasses() ~ 
+`_G.Exception = Exception
+_G.Error = Error`;
