@@ -376,19 +376,16 @@ static:
 
 		if(shouldConvert)
 		{
-			safeCode(t,"exceptions.IOException",
-			{
-				auto data = cast(ubyte[]).File.get(name);
+			auto data = safeCode(t,"exceptions.IOException", cast(ubyte[]).File.get(name));
 
-				scope(exit)
-					delete data;
+			scope(exit)
+				delete data;
 
-				foreach(ref c; data)
-					if(c > 0x7f)
-						c = '\u001a';
+			foreach(ref c; data)
+				if(c > 0x7f)
+					c = '\u001a';
 
-				pushString(t, cast(char[])data);
-			}());
+			pushString(t, cast(char[])data);
 		}
 		else
 		{

@@ -4,13 +4,7 @@ import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
 function main()
 {
-	local mb = memblock.new("u8", 0)
 
-	local s = UTF8Stream(MemblockStream(mb))
-
-	s.writefln("Hello there fuckers. x is {}", 5)
-
-	writeln(mb)
 }
 
 /*
