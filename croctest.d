@@ -11,6 +11,8 @@ import croc.addons.sdl;
 import croc.addons.gl;
 import croc.addons.net;
 
+import newsocket;
+
 version(CrocAllAddons)
 {
 	version = CrocPcreAddon;

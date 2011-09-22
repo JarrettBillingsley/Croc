@@ -86,6 +86,21 @@ class Stream
 			dist -= numBytes
 		}
 	}
+	
+	function readAll(this: @InStream)
+	{
+		local buf = memblock.new("u8", 4096)
+		local offs = 0
+
+		while(local numBytes = :read(buf, offs))
+		{
+			offs += numBytes
+			#buf = offs + 4096
+		}
+
+		#buf = offs
+		return buf
+	}
 
 	function copy(this: @OutStream, s: @InStream)
 	{
@@ -435,7 +450,7 @@ class BinaryStream : StreamWrapper
 		
 		if(local size = hi - lo)
 			:stream.writeExact(m, lo, size)
-			
+
 		return this
 	}
 }
