@@ -53,6 +53,13 @@ import croc.types_thread;
 import croc.types_weakref;
 import croc.utils;
 
+private
+{
+	extern(C) void* rt_stackBottom();
+	extern(C) void* rt_stackTop();
+}
+
+
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -1004,7 +1011,7 @@ word pushNativeObj(CrocThread* t, Object o)
 {
 	mixin(FuncNameMix);
 
-	if(GC.addrOf(cast(void*)o) is null)
+	if((cast(void*)o) >= rt_stackTop() && (cast(void*)o) <= rt_stackBottom())
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Attempting to push a native object that points to a scope-allocated class instance");
 
 	maybeGC(t);
