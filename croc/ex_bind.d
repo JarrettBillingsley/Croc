@@ -202,7 +202,7 @@ public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 		getWrappedClass(t, typeid(Type));
 
 		if(!isNull(t, -1))
-			throwException(t, "Native type " ~ NameOfType!(Type) ~ " cannot be wrapped more than once");
+			throwStdException(t, "Exception", "Native type " ~ NameOfType!(Type) ~ " cannot be wrapped more than once");
 
 		pop(t);
 		
@@ -677,7 +677,7 @@ public word superPush(Type)(CrocThread* t, Type val)
 			getWrappedClassOrSuper(t, obj.classinfo);
 
 			if(isNull(t, -1))
-				throwException(t, "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
+				throwStdException(t, "Exception", "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
 			else
 				return getWrappedInstance(t, obj);
 		}
@@ -693,7 +693,7 @@ public word superPush(Type)(CrocThread* t, Type val)
 			getWrappedClassOrSuper(t, val.classinfo);
 
 			if(isNull(t, -1))
-				throwException(t, "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
+				throwStdException(t, "Exception", "Cannot convert class {} to a Croc value; class type has not been wrapped", typeid(T));
 			else
 				return getWrappedInstance(t, val);
 		}
@@ -705,7 +705,7 @@ public word superPush(Type)(CrocThread* t, Type val)
 		getWrappedClass(t, typeid(T));
 
 		if(isNull(t, -1))
-			throwException(t, "Cannot convert struct {} to a Croc value; struct type has not been wrapped", typeid(T));
+			throwStdException(t, "Exception", "Cannot convert struct {} to a Croc value; struct type has not been wrapped", typeid(T));
 
 		newInstance(t, -1, 1);
 		insertAndPop(t, -2);
@@ -762,7 +762,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 		if(!isArray(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		auto data = getArray(t, idx).data;
@@ -776,7 +776,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, elemIdx);
-				throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': element {} should be '" ~
+				throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': element {} should be '" ~
 					ElemType.stringof ~ "', not '{}'", getString(t, -2), i, getString(t, -1));
 			}
 
@@ -794,7 +794,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 		if(!isTable(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		T ret;
@@ -807,7 +807,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, keyIdx);
-				throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': key should be '" ~
+				throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': key should be '" ~
 					KeyType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
@@ -817,7 +817,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 			{
 				pushTypeString(t, idx);
 				pushTypeString(t, valIdx);
-				throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': value should be '" ~
+				throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "': value should be '" ~
 					ValueType.stringof ~ "', not '{}'", getString(t, -2), getString(t, -1));
 			}
 
@@ -895,7 +895,7 @@ public Type superGet(Type)(CrocThread* t, word idx)
 		if(!canCastTo!(T)(t, idx))
 		{
 			pushTypeString(t, idx);
-			throwException(t, "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
+			throwStdException(t, "Exception", "superGet - Cannot convert Croc type '{}' to D type '" ~ Type.stringof ~ "'", getString(t, -1));
 		}
 
 		static if(is(T == bool))
@@ -946,7 +946,7 @@ Params:
 public void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
 {
 	if(stackSize(t) - start < (U.length + 1))
-		throwException(t, "multiGet - Attempting to get more values ({}) than there are after the given index ({} values)", U.length + 1, stackSize(t) - start);
+		throwStdException(t, "Exception", "multiGet - Attempting to get more values ({}) than there are after the given index ({} values)", U.length + 1, stackSize(t) - start);
 
 	arg1 = superGet!(T)(t, start);
 
@@ -1211,7 +1211,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 			const maxArgs = ParameterTupleOf!(CleanCtors[$ - 1]).length;
 
 			if(numParams < minArgs)
-				throwException(t, "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+				throwStdException(t, "Exception", "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
 
 			if(numParams > maxArgs)
 				numParams = maxArgs;
@@ -1250,7 +1250,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 
 			buf.addChar(')');
 			buf.finish();
-			throwException(t, "Parameter list {} passed to constructor does not match any wrapped constructors", getString(t, -1));
+			throwStdException(t, "Exception", "Parameter list {} passed to constructor does not match any wrapped constructors", getString(t, -1));
 		}
 	}
 	else
@@ -1374,7 +1374,7 @@ static:
 			const maxArgs = ParameterTupleOf!(CleanCtors[$ - 1]).length;
 
 			if(numParams < minArgs)
-				throwException(t, "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+				throwStdException(t, "Exception", "At least " ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
 
 			if(numParams > maxArgs)
 				numParams = maxArgs;
@@ -1411,7 +1411,7 @@ static:
 
 			buf.addChar(')');
 			buf.finish();
-			throwException(t, "Parameter list {} passed to constructor does not match any wrapped constructors", getString(t, -1));
+			throwStdException(t, "Exception", "Parameter list {} passed to constructor does not match any wrapped constructors", getString(t, -1));
 		}
 	}
 	else
@@ -1552,7 +1552,7 @@ private template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
 	"	const maxArgs = NumParams!(X.FuncType);\n"
 	"	auto numParams = stackSize(t) - 1;\n"
 	"	if(numParams < minArgs)\n"
-	"		throwException(t, `At least ` ~ minArgs.stringof ~ ` parameter` ~ (minArgs == 1 ? `` : `s`) ~ ` expected, not {}`, numParams);\n"
+	"		throwStdException(t, `Exception`, `At least ` ~ minArgs.stringof ~ ` parameter` ~ (minArgs == 1 ? `` : `s`) ~ ` expected, not {}`, numParams);\n"
 
 	"	if(numParams > maxArgs)\n"
 	"		numParams = maxArgs;\n"
@@ -1662,7 +1662,7 @@ private template GetField(Type, T...)
 	"switch(fieldName)\n"
 	"{\n"
 	"	default:\n"
-	"		throwException(t, `Attempting to access nonexistent field '{}' from type " ~ Type.stringof ~ "`, fieldName);\n" ~
+	"		throwStdException(t, `Exception`, `Attempting to access nonexistent field '{}' from type " ~ Type.stringof ~ "`, fieldName);\n" ~
 		GetFieldImpl!(T) ~
 	"}\n";
 }
@@ -1694,7 +1694,7 @@ private template SetField(Type, T...)
 	"switch(fieldName)\n"
 	"{\n"
 	"	default:\n"
-	"		throwException(t, `Attempting to access nonexistent field '{}' from type " ~ Type.stringof ~ "`, fieldName);\n" ~
+	"		throwStdException(t, `Exception`, `Attempting to access nonexistent field '{}' from type " ~ Type.stringof ~ "`, fieldName);\n" ~
 		SetFieldImpl!(T) ~
 	"}\n";
 }
@@ -1735,7 +1735,7 @@ private template WrappedFunc(alias func, char[] name, funcType, bool explicitTyp
 		const maxArgs = NumParams!(funcType);
 
 		if(numParams < minArgs)
-			throwException(t, "At least" ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
+			throwStdException(t, "Exception", "At least" ~ minArgs.stringof ~ " parameter" ~ (minArgs == 1 ? "" : "s") ~ " expected, not {}", numParams);
 
 		if(numParams > maxArgs)
 			numParams = maxArgs;
@@ -2047,7 +2047,7 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 			}
 			else
 			{
-				throwException(t, "Attempting to set read-only property '" ~ name ~ "' of type '" ~ FullName ~ "'");
+				throwStdException(t, "Exception", "Attempting to set read-only property '" ~ name ~ "' of type '" ~ FullName ~ "'");
 				assert(false, "PropImpl should never ever get here.");
 			}
 		}
@@ -2075,7 +2075,7 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 
 private template ClassCtorCases(Ctors...)
 {
-	const ClassCtorCases = "switch(numParams) { default: throwException(t, \"Invalid number of parameters ({})\", numParams);\n"
+	const ClassCtorCases = "switch(numParams) { default: throwStdException(t, \"Exception\", \"Invalid number of parameters ({})\", numParams);\n"
 		~ ClassCtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
 }
 
@@ -2105,7 +2105,7 @@ private template ClassCtorCasesImpl(int num, int idx, Ctors...)
 
 private template StructCtorCases(Ctors...)
 {
-	const StructCtorCases = "switch(numParams) { default: throwException(t, \"Invalid number of parameters ({})\", numParams);\n"
+	const StructCtorCases = "switch(numParams) { default: throwStdException(t, \"Exception\", \"Invalid number of parameters ({})\", numParams);\n"
 		~ StructCtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
 }
 
