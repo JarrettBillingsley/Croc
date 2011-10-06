@@ -7,6 +7,11 @@ import croc.types;
 struct SocketLib
 {
 static:
+	struct Members
+	{
+			
+	}
+
 	public void init(CrocThread* t)
 	{
 		makeModule(t, "socket", function uword(CrocThread* t)
@@ -15,6 +20,7 @@ static:
 
 			CreateClass(t, "Socket", "streams.Stream", (CreateClass* c)
 			{
+				c.allocator("allocator", &BasicClassAllocator!(0, Members));
 				c.finalizer("finalizer", &finalizer);
 
 				c.method("constructor", &constructor);

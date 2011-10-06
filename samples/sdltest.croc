@@ -26,29 +26,29 @@ while(!quit)
 {
 	foreach(e, a, b, c, d; event.poll)
 	{
-// 		writefln("{}: {} {} {} {}", e, a ? a : "", b ? b : "", c ? c : "", d ? d : "")
+		writefln("{}: {} {} {} {}", e, a ? a : "", b ? b : "", c ? c : "", d ? d : "")
 
 		if(e == "quit" || (e == "keyDown" && a == key.escape))
 			quit = true
 
-		if(e.startsWith("joy"))
-			writefln("{}: {} {} {} {}", e, a, b, c, d)
-
-		if(e == "active")
-		{
-			write(a ? "Gained " : "Lost ")
-
-			if(b & event.mouseFocus)
-				write("mouse ")
-
-			if(b & event.inputFocus)
-				write("input ")
-
-			if(b & event.active)
-				write("active")
-
-			writeln()
-			io.stdout.flush()
-		}
+// 		if(e.startsWith("joy"))
+// 			writefln("{}: {} {} {} {}", e, a, b, c, d)
+// 
+// 		if(e == "active")
+// 		{
+// 			write(a ? "Gained " : "Lost ")
+// 
+// 			if(b & event.mouseFocus)
+// 				write("mouse ")
+// 
+// 			if(b & event.inputFocus)
+// 				write("input ")
+// 
+// 			if(b & event.active)
+// 				write("active")
+// 
+// 			writeln()
+// 			io.stdout.flush()
+// 		}
 	}
 }
