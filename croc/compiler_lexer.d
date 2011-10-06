@@ -380,7 +380,7 @@ struct Lexer
 
 	public void expected(char[] message)
 	{
-		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.lexException;
+		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.synException;
 		dg(mTok.loc, "'{}' expected; found '{}' instead", message, Token.strings[mTok.type]);
 	}
 

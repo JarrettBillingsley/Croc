@@ -86,20 +86,35 @@ class Stream
 			dist -= numBytes
 		}
 	}
-	
-	function readAll(this: @InStream)
-	{
-		local buf = memblock.new("u8", 4096)
-		local offs = 0
 
-		while(local numBytes = :read(buf, offs))
+	function readAll(this: @InStream, m: memblock = null)
+	{
+		if(m is null)
+			m = memblock.new("u8", 4096)
+		else
 		{
-			offs += numBytes
-			#buf = offs + 4096
+			switch(m.type())
+			{
+				case "i8", "u8": break
+				default: throw ValueException(format("Memblock must be of type 'i8' or 'u8', not '{}'", m.typeCode()))
+			}
+
+			if(#m < 4096)
+				#m = 4096
 		}
 
-		#buf = offs
-		return buf
+		local offs = 0
+
+		while(local numBytes = :read(m, offs))
+		{
+			offs += numBytes
+
+			if(#m < offs + 4096)
+				#m = offs + 4096
+		}
+
+		#m = offs
+		return m
 	}
 
 	function copy(this: @OutStream, s: @InStream)
