@@ -1,10 +1,30 @@
 module samples.simple
 
-import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
+// import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
+
+import devil as il
 
 function main()
 {
-
+	il.ilInit()
+	il.iluInit()
+	
+	il.ilEnable(il.IL_ORIGIN_SET)
+	local handle = il.iluGenImage()
+	il.ilBindImage(handle)
+	il.ilLoadImage("medieval_building_tiles.png")
+	local w, h = il.ilGetInteger(il.IL_IMAGE_WIDTH), il.ilGetInteger(il.IL_IMAGE_HEIGHT)
+	writefln("Image resolution: {}x{}", w, h)
+	local data = memblock.new("u8", w * h * 3)
+	il.ilCopyPixels(0, 0, 0, w, h, 1, il.IL_RGB, il.IL_UNSIGNED_BYTE, data)
+	
+	foreach(i, v; data)
+		if(i % 31 == 0)
+			data[i] = i % 255
+			
+	il.ilSetPixels(0, 0, 0, w, h, 1, il.IL_RGB, il.IL_UNSIGNED_BYTE, data)
+	il.ilSaveImage("result.png")
+	il.ilDeleteImage(handle)
 }
 
 /*

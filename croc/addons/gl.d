@@ -187,9 +187,12 @@ static:
 
 		glShaderSource(shader, 1, &str, &len);
 		
+		version(CrocGLCheckErrors)
+			checkError(t, "glShaderSource");
+
 		return 0;
 	}
-	
+
 	uword crocglMapBuffer(CrocThread* t)
 	{
 		auto target = cast(GLenum)checkIntParam(t, 1);
@@ -202,7 +205,15 @@ static:
 		auto ptr = glMapBuffer(target, access);
 
 		if(ptr is null)
-			throwNamedException(t, "GLException", "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
+		{
+			version(CrocGLCheckErrors)
+				throwNamedException(t, "GLException", "glMapBuffer - {}", fromStringz(cast(char*)gluErrorString(glGetError())));
+			else
+			{
+				pushNull(t);
+				return 1;
+			}
+		}
 
 		auto arr = (cast(ubyte*)ptr)[0 .. cast(uword)size];
 
@@ -215,6 +226,24 @@ static:
 			memblockViewDArray(t, arr);
 
 		return 1;
+	}
+	
+	version(CrocGLCheckErrors)
+	{
+		void checkError(CrocThread* t, char[] funcName)
+		{
+			getRegistryVar(t, "gl.insideBeginEnd");
+			bool insideBeginEnd = getBool(t, -1);
+			pop(t);
+	
+			if(!insideBeginEnd)
+			{
+				auto err = glGetError();
+	
+				if(err != GL_NO_ERROR)
+					throwNamedException(t, "GLException", "{} - {}", funcName, fromStringz(cast(char*)gluErrorString(err)));
+			}
+		}
 	}
 
 	// Loads OpenGL 1.0, 1.1, and glu
