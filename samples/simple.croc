@@ -4,7 +4,7 @@ import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
 function main()
 {
-
+	
 }
 
 /*
