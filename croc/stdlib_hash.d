@@ -43,8 +43,12 @@ static:
 			newFunction(t, 1, &_keys,   "keys");   newGlobal(t, "keys");
 			newFunction(t, 1, &_values, "values"); newGlobal(t, "values");
 			newFunction(t, 2, &apply,   "apply");  newGlobal(t, "apply");
+			newFunction(t, 2, &map,     "map");    newGlobal(t, "map");
+			newFunction(t, 2, &reduce,  "reduce"); newGlobal(t, "reduce");
 			newFunction(t, 2, &each,    "each");   newGlobal(t, "each");
+			newFunction(t, 2, &filter,  "filter"); newGlobal(t, "filter");
 			newFunction(t, 1, &take,    "take");   newGlobal(t, "take");
+			newFunction(t, 1, &_pop,    "pop");    newGlobal(t, "pop");
 			newFunction(t, 1, &clear,   "clear");  newGlobal(t, "clear");
 			newFunction(t, 2, &remove,  "remove"); newGlobal(t, "remove");
 
@@ -121,10 +125,62 @@ static:
 		return 1;
 	}
 
+	uword tableOpApply(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Table);
+		return opApplyImpl(t, 0);
+	}
+
+	uword namespaceOpApply(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Namespace);
+		return opApplyImpl(t, 0);
+	}
+
 	uword apply(CrocThread* t)
 	{
-		checkAnyParam(t, 1);
-		return opApplyImpl(t, 1);
+		checkParam(t, 0, CrocValue.Type.Table);
+		checkParam(t, 1, CrocValue.Type.Function);
+
+		auto tab = getTable(t, 0);
+
+		foreach(ref k, ref v; tab.data)
+		{
+			auto reg = dup(t, 1);
+			dup(t, 0);
+			push(t, v);
+			rawCall(t, reg, 1);
+			table.set(t.vm.alloc, tab, k, *getValue(t, -1));
+			pop(t);
+		}
+
+		dup(t, 0);
+		return 1;
+	}
+
+	uword map(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Table);
+		checkParam(t, 1, CrocValue.Type.Function);
+		auto newTab = newTable(t, cast(uword)len(t, 0));
+		auto nt = getTable(t, -1);
+
+		foreach(ref k, ref v; getTable(t, 0).data)
+		{
+			auto reg = dup(t, 1);
+			dup(t, 0);
+			push(t, v);
+			rawCall(t, reg, 1);
+			table.set(t.vm.alloc, nt, k, *getValue(t, -1));
+			pop(t);
+		}
+
+		return 1;
+	}
+
+	uword reduce(CrocThread* t)
+	{
+		return 0;
 	}
 
 	uword each(CrocThread* t)
@@ -192,44 +248,22 @@ static:
 		dup(t, 1);
 		return 1;
 	}
+	
+	uword filter(CrocThread* t)
+	{
+		return 0;
+	}
 
 	uword take(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
+		return takeImpl!(false)(t);
+	}
 
-		if(isTable(t, 1))
-		{
-			auto tab = getTable(t, 1);
-			uword idx = 0;
-			CrocValue* k = void, v = void;
-
-			if(table.next(tab, idx, k, v))
-			{
-				push(t, *k);
-				push(t, *v);
-			}
-			else
-				throwStdException(t, "ValueException", "Attempting to take from an empty table");
-		}
-		else if(isNamespace(t, 1))
-		{
-			auto ns = getNamespace(t, 1);
-			uword idx = 0;
-			CrocString** s = void;
-			CrocValue* v = void;
-
-			if(ns.data.next(idx, s, v))
-			{
-				push(t, CrocValue(*s));
-				push(t, *v);
-			}
-			else
-				throwStdException(t, "ValueException", "Attempting to take from an empty namespace");
-		}
-		else
-			paramTypeError(t, 1, "table|namespace");
-
-		return 2;
+	uword _pop(CrocThread* t)
+	{
+		checkAnyParam(t, 1);
+		return takeImpl!(true)(t);
 	}
 
 	uword clear(CrocThread* t)
@@ -432,15 +466,46 @@ static:
 		return 1;
 	}
 
-	uword tableOpApply(CrocThread* t)
+	uword takeImpl(bool remove)(CrocThread* t)
 	{
-		checkParam(t, 0, CrocValue.Type.Table);
-		return opApplyImpl(t, 0);
-	}
+		uword idx = 0;
+		CrocValue* v = void;
 
-	uword namespaceOpApply(CrocThread* t)
-	{
-		checkParam(t, 0, CrocValue.Type.Namespace);
-		return opApplyImpl(t, 0);
+		if(isTable(t, 1))
+		{
+			auto tab = getTable(t, 1);
+			CrocValue* k = void;
+
+			if(table.next(tab, idx, k, v))
+			{
+				push(t, *k);
+				push(t, *v);
+
+				static if(remove)
+					table.remove(tab, *k);
+			}
+			else
+				throwStdException(t, "ValueException", "Attempting to take from an empty table");
+		}
+		else if(isNamespace(t, 1))
+		{
+			auto ns = getNamespace(t, 1);
+			CrocString** s = void;
+
+			if(ns.data.next(idx, s, v))
+			{
+				push(t, CrocValue(*s));
+				push(t, *v);
+
+				static if(remove)
+					ns.data.remove(*s);
+			}
+			else
+				throwStdException(t, "ValueException", "Attempting to take from an empty namespace");
+		}
+		else
+			paramTypeError(t, 1, "table|namespace");
+
+		return 2;
 	}
 }
