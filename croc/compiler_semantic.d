@@ -1133,7 +1133,7 @@ scope class Semantic : IdentityVisitor
 
 		return e;
 	}
-	
+
 	public override Expression visit(AndExp e)
 	{
 		e.op1 = visit(e.op1);

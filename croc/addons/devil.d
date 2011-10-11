@@ -32,6 +32,7 @@ version(CrocAllAddons)
 version(CrocDevilAddon)
 {
 
+import tango.stdc.stdlib;
 import tango.stdc.stringz;
 
 import derelict.devil.il;
@@ -101,12 +102,47 @@ static:
 
 			ilFuncs(t);
 			iluFuncs(t);
-			
+
+			register(t, "ilGetAlpha", &crocilGetAlpha);
 			register(t, "ilGetData", &crocilGetData);
+			register(t, "ilGetPalette", &crocilGetPalette);
 			register(t, "iluGetImageInfo", &crociluGetImageInfo);
 
 			return 0;
 		});
+	}
+
+	uword crocilGetAlpha(CrocThread* t)
+	{
+		auto ptr = ilGetAlpha(cast(ILenum)checkIntParam(t, 1));
+
+		if(ptr is null)
+		{
+			version(CrocILCheckErrors)
+				throwNamedException(t, "DevILException", "ilGetAlpha - {}", fromStringz(cast(char*)iluErrorString(ilGetError())));
+			else
+			{
+				pushNull(t);
+				return 1;
+			}
+		}
+		
+		scope(exit)
+			free(ptr);
+
+		uword size = ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_HEIGHT) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL);
+		auto arr = (cast(ubyte*)ptr)[0 .. size];
+
+		if(optParam(t, 2, CrocValue.Type.Memblock))
+		{
+			setMemblockType(t, 2, "u8");
+			lenai(t, 2, arr.length);
+			getMemblockData(t, 2)[] = arr[];
+		}
+		else
+			memblockFromDArray(t, arr);
+
+		return 1;
 	}
 
 	uword crocilGetData(CrocThread* t)
@@ -125,7 +161,7 @@ static:
 		}
 
 		uword size = ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_HEIGHT) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL);
-		auto arr = (cast(ubyte*)ptr)[0 .. cast(uword)size];
+		auto arr = (cast(ubyte*)ptr)[0 .. size];
 
 		if(optParam(t, 1, CrocValue.Type.Memblock))
 		{
@@ -137,6 +173,36 @@ static:
 
 		return 1;
 	}
+
+	uword crocilGetPalette(CrocThread* t)
+	{
+		auto ptr = ilGetPalette();
+
+		if(ptr is null)
+		{
+			version(CrocILCheckErrors)
+				throwNamedException(t, "DevILException", "ilGetPalette - {}", fromStringz(cast(char*)iluErrorString(ilGetError())));
+			else
+			{
+				pushNull(t);
+				return 1;
+			}
+		}
+
+		uword size = ilGetInteger(IL_PALETTE_NUM_COLS) * ilGetInteger(IL_PALETTE_BPP);
+		auto arr = (cast(ubyte*)ptr)[0 .. size];
+
+		if(optParam(t, 1, CrocValue.Type.Memblock))
+		{
+			memblockReviewDArray(t, 1, arr);
+			dup(t, 1);
+		}
+		else
+			memblockViewDArray(t, arr);
+
+		return 1;
+	}
+
 
 	uword crociluGetImageInfo(CrocThread* t)
 	{
@@ -154,7 +220,7 @@ static:
 				return 1;
 			}
 		}
-		
+
 		newTable(t);
 			pushInt(t, info.Id);         fielda(t, -2, "Id");
 			pushInt(t, info.Width);      fielda(t, -2, "Width");
@@ -200,7 +266,6 @@ static:
 		register(t, "ilFormatFunc", &wrapIL!(ilFormatFunc));
 		register(t, "ilGenImages", &wrapIL!(ilGenImages));
 		register(t, "ilGenImage", &wrapIL!(ilGenImage));
-// 		register(t, "ilGetAlpha", &wrapIL!(ilGetAlpha));
 		register(t, "ilGetBoolean", &wrapIL!(ilGetBoolean));
 		register(t, "ilGetBooleanv", &wrapIL!(ilGetBooleanv));
 		register(t, "ilGetDXTCData", &wrapIL!(ilGetDXTCData));
@@ -208,20 +273,16 @@ static:
 		register(t, "ilGetInteger", &wrapIL!(ilGetInteger));
 		register(t, "ilGetIntegerv", &wrapIL!(ilGetIntegerv));
 		register(t, "ilGetLumpPos", &wrapIL!(ilGetLumpPos));
-// 		register(t, "ilGetPalette", &wrapIL!(ilGetPalette));
 		register(t, "ilGetString", &wrapIL!(ilGetString));
 		register(t, "ilHint", &wrapIL!(ilHint));
 		register(t, "ilInit", &wrapIL!(ilInit));
 		register(t, "ilIsDisabled", &wrapIL!(ilIsDisabled));
 		register(t, "ilIsEnabled", &wrapIL!(ilIsEnabled));
-// 		register(t, "ilDetermineTypeF", &wrapIL!(ilDetermineTypeF));
 		register(t, "ilIsImage", &wrapIL!(ilIsImage));
 		register(t, "ilIsValid", &wrapIL!(ilIsValid));
-// 		register(t, "ilIsValidF", &wrapIL!(ilIsValidF));
 		register(t, "ilIsValidL", &wrapIL!(ilIsValidL));
 		register(t, "ilKeyColour", &wrapIL!(ilKeyColour));
 		register(t, "ilLoad", &wrapIL!(ilLoad));
-// 		register(t, "ilLoadF", &wrapIL!(ilLoadF));
 		register(t, "ilLoadImage", &wrapIL!(ilLoadImage));
 		register(t, "ilLoadL", &wrapIL!(ilLoadL));
 		register(t, "ilLoadPal", &wrapIL!(ilLoadPal));
@@ -230,6 +291,35 @@ static:
 		register(t, "ilOverlayImage", &wrapIL!(ilOverlayImage));
 		register(t, "ilPopAttrib", &wrapIL!(ilPopAttrib));
 		register(t, "ilPushAttrib", &wrapIL!(ilPushAttrib));
+		register(t, "ilSave", &wrapIL!(ilSave));
+		register(t, "ilSaveImage", &wrapIL!(ilSaveImage));
+		register(t, "ilSaveL", &wrapIL!(ilSaveL));
+		register(t, "ilSavePal", &wrapIL!(ilSavePal));
+		register(t, "ilSetAlpha", &wrapIL!(ilSetAlpha));
+		register(t, "ilSetData", &wrapIL!(ilSetData));
+		register(t, "ilSetDuration", &wrapIL!(ilSetDuration));
+		register(t, "ilSetInteger", &wrapIL!(ilSetInteger));
+		register(t, "ilSetPixels", &wrapIL!(ilSetPixels));
+		register(t, "ilSetString", &wrapIL!(ilSetString));
+		register(t, "ilShutDown", &wrapIL!(ilShutDown));
+		register(t, "ilTexImage", &wrapIL!(ilTexImage));
+		register(t, "ilTypeFromExt", &wrapIL!(ilTypeFromExt));
+		register(t, "ilTypeFunc", &wrapIL!(ilTypeFunc));
+		register(t, "ilLoadData", &wrapIL!(ilLoadData));
+		register(t, "ilLoadDataL", &wrapIL!(ilLoadDataL));
+		register(t, "ilSaveData", &wrapIL!(ilSaveData));
+
+		// These use C FILE*s.
+// 		register(t, "ilDetermineTypeF", &wrapIL!(ilDetermineTypeF));
+// 		register(t, "ilIsValidF", &wrapIL!(ilIsValidF));
+// 		register(t, "ilLoadF", &wrapIL!(ilLoadF));
+// 		register(t, "ilLoadDataF", &wrapIL!(ilLoadDataF));
+// 		register(t, "ilSaveF", &wrapIL!(ilSaveF));
+
+		// These all use C function pointers (or are rendered useless because they can only be called from C callbacks).
+// 		register(t, "ilSetMemory", &wrapIL!(ilSetMemory));
+// 		register(t, "ilSetRead", &wrapIL!(ilSetRead));
+// 		register(t, "ilSetWrite", &wrapIL!(ilSetWrite));
 // 		register(t, "ilRegisterFormat", &wrapIL!(ilRegisterFormat));
 // 		register(t, "ilRegisterLoad", &wrapIL!(ilRegisterLoad));
 // 		register(t, "ilRegisterMipNum", &wrapIL!(ilRegisterMipNum));
@@ -242,32 +332,10 @@ static:
 // 		register(t, "ilRemoveSave", &wrapIL!(ilRemoveSave));
 // 		register(t, "ilResetRead", &wrapIL!(ilResetRead));
 // 		register(t, "ilResetWrite", &wrapIL!(ilResetWrite));
-		register(t, "ilSave", &wrapIL!(ilSave));
-// 		register(t, "ilSaveF", &wrapIL!(ilSaveF));
-		register(t, "ilSaveImage", &wrapIL!(ilSaveImage));
-		register(t, "ilSaveL", &wrapIL!(ilSaveL));
-		register(t, "ilSavePal", &wrapIL!(ilSavePal));
-		register(t, "ilSetAlpha", &wrapIL!(ilSetAlpha));
-		register(t, "ilSetData", &wrapIL!(ilSetData));
-		register(t, "ilSetDuration", &wrapIL!(ilSetDuration));
-		register(t, "ilSetInteger", &wrapIL!(ilSetInteger));
-// 		register(t, "ilSetMemory", &wrapIL!(ilSetMemory));
-		register(t, "ilSetPixels", &wrapIL!(ilSetPixels));
-// 		register(t, "ilSetRead", &wrapIL!(ilSetRead));
-		register(t, "ilSetString", &wrapIL!(ilSetString));
-// 		register(t, "ilSetWrite", &wrapIL!(ilSetWrite));
-		register(t, "ilShutDown", &wrapIL!(ilShutDown));
-		register(t, "ilTexImage", &wrapIL!(ilTexImage));
-		register(t, "ilTypeFromExt", &wrapIL!(ilTypeFromExt));
-		register(t, "ilTypeFunc", &wrapIL!(ilTypeFunc));
-		register(t, "ilLoadData", &wrapIL!(ilLoadData));
-// 		register(t, "ilLoadDataF", &wrapIL!(ilLoadDataF));
-		register(t, "ilLoadDataL", &wrapIL!(ilLoadDataL));
-		register(t, "ilSaveData", &wrapIL!(ilSaveData));
-		
+
 		pushGlobal(t, "ilClearColour"); newGlobal(t, "ilClearColor");
 		pushGlobal(t, "ilKeyColour");   newGlobal(t, "ilKeyColor");
-		
+
 		pushBool(t, IL_FALSE); newGlobal(t, "IL_FALSE");
 		pushBool(t, IL_TRUE);  newGlobal(t, "IL_TRUE");
 
@@ -295,7 +363,6 @@ static:
 		registerConst(t, "IL_LOAD_EXT", 0x1F01);
 		registerConst(t, "IL_SAVE_EXT", 0x1F02);
 
-		//
 		// IL-specific//
 		registerConst(t, "IL_VERSION_1_7_3", 1);
 		registerConst(t, "IL_VERSION", 173);
@@ -549,7 +616,6 @@ static:
 		register(t, "iluFlipImage", &wrapIL!(iluFlipImage));
 		register(t, "iluGammaCorrect", &wrapIL!(iluGammaCorrect));
 		register(t, "iluGenImage", &wrapIL!(iluGenImage));
-// 		register(t, "iluGetImageInfo", &wrapIL!(iluGetImageInfo));
 		register(t, "iluGetInteger", &wrapIL!(iluGetInteger));
 		register(t, "iluGetIntegerv", &wrapIL!(iluGetIntegerv));
 		register(t, "iluGetString", &wrapIL!(iluGetString));
@@ -579,7 +645,7 @@ static:
 		pushGlobal(t, "iluSwapColours");   newGlobal(t, "iluSwapColors");
 		pushGlobal(t, "iluReplaceColour"); newGlobal(t, "iluReplaceColor");
 		pushGlobal(t, "iluScaleColours");  newGlobal(t, "iluScaleColors");
-	
+
 	    registerConst(t, "ILU_VERSION_1_7_3", 1);
 	    registerConst(t, "ILU_VERSION", 173);
 
@@ -601,7 +667,7 @@ static:
 	    registerConst(t, "ILU_INVALID_VALUE", 0x0505);
 	    registerConst(t, "ILU_ILLEGAL_OPERATION", 0x0506);
 	    registerConst(t, "ILU_INVALID_PARAM", 0x0509);
-	
+
 	    // Values
 	    registerConst(t, "ILU_PLACEMENT", 0x0700);
 	    registerConst(t, "ILU_LOWER_LEFT", 0x0701);
@@ -610,10 +676,10 @@ static:
 	    registerConst(t, "ILU_UPPER_RIGHT", 0x0704);
 	    registerConst(t, "ILU_CENTER", 0x0705);
 	    registerConst(t, "ILU_CONVOLUTION_MATRIX", 0x0710);
-	
+
 	    registerConst(t, "ILU_VERSION_NUM", IL_VERSION_NUM);
 	    registerConst(t, "ILU_VENDOR", IL_VENDOR);
-	
+
 	    // Languages
 	    registerConst(t, "ILU_ENGLISH", 0x800);
 	    registerConst(t, "ILU_ARABIC", 0x801);
