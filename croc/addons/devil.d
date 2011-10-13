@@ -107,6 +107,8 @@ static:
 			register(t, "ilGetData", &crocilGetData);
 			register(t, "ilGetPalette", &crocilGetPalette);
 			register(t, "iluGetImageInfo", &crociluGetImageInfo);
+			register(t, "iluRegionfv", &crociluRegionfv);
+			register(t, "iluRegioniv", &crociluRegioniv);
 
 			return 0;
 		});
@@ -114,7 +116,8 @@ static:
 
 	uword crocilGetAlpha(CrocThread* t)
 	{
-		auto ptr = ilGetAlpha(cast(ILenum)checkIntParam(t, 1));
+		auto type = cast(ILenum)checkIntParam(t, 1);
+		auto ptr = ilGetAlpha(type);
 
 		if(ptr is null)
 		{
@@ -126,11 +129,21 @@ static:
 				return 1;
 			}
 		}
-		
+
 		scope(exit)
 			free(ptr);
 
-		uword size = ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_HEIGHT) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL);
+		// Hhhhhh........ goddammit DevIL, make this easier for me.
+		uword size = ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_HEIGHT) * ilGetInteger(IL_IMAGE_DEPTH);
+
+		switch(type)
+		{
+			case IL_SHORT, IL_UNSIGNED_SHORT, IL_HALF: size *= 2; break;
+			case IL_INT, IL_UNSIGNED_INT, IL_FLOAT:    size *= 4; break;
+			case IL_DOUBLE:                            size *= 8; break;
+			default: break;
+		}
+
 		auto arr = (cast(ubyte*)ptr)[0 .. size];
 
 		if(optParam(t, 2, CrocValue.Type.Memblock))
@@ -160,7 +173,7 @@ static:
 			}
 		}
 
-		uword size = ilGetInteger(IL_IMAGE_WIDTH) * ilGetInteger(IL_IMAGE_HEIGHT) * ilGetInteger(IL_IMAGE_BYTES_PER_PIXEL);
+		uword size = ilGetInteger(IL_IMAGE_SIZE_OF_DATA);
 		auto arr = (cast(ubyte*)ptr)[0 .. size];
 
 		if(optParam(t, 1, CrocValue.Type.Memblock))
@@ -189,7 +202,7 @@ static:
 			}
 		}
 
-		uword size = ilGetInteger(IL_PALETTE_NUM_COLS) * ilGetInteger(IL_PALETTE_BPP);
+		uword size = ilGetInteger(IL_PALETTE_SIZE);
 		auto arr = (cast(ubyte*)ptr)[0 .. size];
 
 		if(optParam(t, 1, CrocValue.Type.Memblock))
@@ -202,7 +215,6 @@ static:
 
 		return 1;
 	}
-
 
 	uword crociluGetImageInfo(CrocThread* t)
 	{
@@ -238,6 +250,122 @@ static:
 			pushInt(t, info.NumMips);    fielda(t, -2, "NumMips");
 			pushInt(t, info.NumLayers);  fielda(t, -2, "NumLayers");
 		return 1;
+	}
+	
+	uword crociluRegionfv(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Array);
+
+		auto arr = allocArray!(ILpointf)(t, cast(uword)len(t, 1));
+
+		scope(exit)
+			freeArray(t, arr);
+
+		foreach(i, ref v; arr)
+		{
+			idxi(t, 1, i);
+
+			if(!isTable(t, -1))
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {} is a '{}', not a table", i, getString(t, -1));
+			}
+
+			field(t, -1, "x");
+
+			if(isInt(t, -1))
+				v.x = cast(ILfloat)getInt(t, -1);
+			else if(isFloat(t, -1))
+				v.x = cast(ILfloat)getFloat(t, -1);
+			else
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {}'s 'x' field is a '{}', not a number", i, getString(t, -1));
+			}
+			
+			pop(t);
+			field(t, -1, "y");
+
+			if(isInt(t, -1))
+				v.y = cast(ILfloat)getInt(t, -1);
+			else if(isFloat(t, -1))
+				v.y = cast(ILfloat)getFloat(t, -1);
+			else
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {}'s 'y' field is a '{}', not a number", i, getString(t, -1));
+			}
+			
+			pop(t, 2);
+		}
+
+		iluRegionfv(arr.ptr, arr.length);
+
+		version(CrocILCheckErrors)
+		{
+			auto err = ilGetError();
+
+			if(err != IL_NO_ERROR)
+				throwNamedException(t, "DevILException", "iluRegionfv - {}", fromStringz(cast(char*)iluErrorString(err)));
+		}
+
+		return 0;
+	}
+
+	uword crociluRegioniv(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Array);
+
+		auto arr = allocArray!(ILpointi)(t, cast(uword)len(t, 1));
+
+		scope(exit)
+			freeArray(t, arr);
+
+		foreach(i, ref v; arr)
+		{
+			idxi(t, 1, i);
+
+			if(!isTable(t, -1))
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {} is a '{}', not a table", i, getString(t, -1));
+			}
+
+			field(t, -1, "x");
+
+			if(isInt(t, -1))
+				v.x = cast(ILint)getInt(t, -1);
+			else
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {}'s 'x' field is a '{}', not an int", i, getString(t, -1));
+			}
+
+			pop(t);
+			field(t, -1, "y");
+
+			if(isInt(t, -1))
+				v.y = cast(ILint)getInt(t, -1);
+			else
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "Array element {}'s 'y' field is a '{}', not an int", i, getString(t, -1));
+			}
+
+			pop(t, 2);
+		}
+
+		iluRegioniv(arr.ptr, arr.length);
+
+		version(CrocILCheckErrors)
+		{
+			auto err = ilGetError();
+
+			if(err != IL_NO_ERROR)
+				throwNamedException(t, "DevILException", "iluRegioniv - {}", fromStringz(cast(char*)iluErrorString(err)));
+		}
+
+		return 0;
 	}
 
 	void ilFuncs(CrocThread* t)
@@ -296,7 +424,6 @@ static:
 		register(t, "ilSaveL", &wrapIL!(ilSaveL));
 		register(t, "ilSavePal", &wrapIL!(ilSavePal));
 		register(t, "ilSetAlpha", &wrapIL!(ilSetAlpha));
-		register(t, "ilSetData", &wrapIL!(ilSetData));
 		register(t, "ilSetDuration", &wrapIL!(ilSetDuration));
 		register(t, "ilSetInteger", &wrapIL!(ilSetInteger));
 		register(t, "ilSetPixels", &wrapIL!(ilSetPixels));
@@ -332,6 +459,10 @@ static:
 // 		register(t, "ilRemoveSave", &wrapIL!(ilRemoveSave));
 // 		register(t, "ilResetRead", &wrapIL!(ilResetRead));
 // 		register(t, "ilResetWrite", &wrapIL!(ilResetWrite));
+
+		// This passes off a pointer to the library, which is unsafe. The fix is to dup the memory, buuuut then that makes it
+		// no different than ilSetPixels. So.
+// 		register(t, "ilSetData", &wrapIL!(ilSetData));
 
 		pushGlobal(t, "ilClearColour"); newGlobal(t, "ilClearColor");
 		pushGlobal(t, "ilKeyColour");   newGlobal(t, "ilKeyColor");
@@ -377,7 +508,7 @@ static:
 		registerConst(t, "IL_LOADFAIL_BIT", 0x00000040);
 		registerConst(t, "IL_FORMAT_SPECIFIC_BIT", 0x00000080);
 		registerConst(t, "IL_ALL_ATTRIB_BITS", 0x000FFFFF);
-	
+
 		// Palette types
 		registerConst(t, "IL_PAL_NONE", 0x0400);
 		registerConst(t, "IL_PAL_RGB24", 0x0401);
@@ -386,7 +517,7 @@ static:
 		registerConst(t, "IL_PAL_BGR24", 0x0404);
 		registerConst(t, "IL_PAL_BGR32", 0x0405);
 		registerConst(t, "IL_PAL_BGRA32", 0x0406);
-	
+
 		// Image types
 		registerConst(t, "IL_TYPE_UNKNOWN", 0x0000);
 		registerConst(t, "IL_BMP", 0x0420);
@@ -427,7 +558,7 @@ static:
 		registerConst(t, "IL_EXR", 0x0442);
 		registerConst(t, "IL_WDP", 0x0443);
 		registerConst(t, "IL_JASC_PAL", 0x0475);
-	
+
 		// Error Types
 		registerConst(t, "IL_NO_ERROR", 0x0000);
 		registerConst(t, "IL_INVALID_ENUM", 0x0501);
@@ -449,7 +580,7 @@ static:
 		registerConst(t, "IL_BAD_DIMENSIONS", 0x0511);
 		registerConst(t, "IL_FILE_READ_ERROR", 0x0512);
 		registerConst(t, "IL_FILE_WRITE_ERROR", 0x0512);
-	
+
 		registerConst(t, "IL_LIB_GIF_ERROR", 0x05E1);
 		registerConst(t, "IL_LIB_JPEG_ERROR", 0x05E2);
 		registerConst(t, "IL_LIB_PNG_ERROR", 0x05E3);
@@ -457,44 +588,44 @@ static:
 		registerConst(t, "IL_LIB_MNG_ERROR", 0x05E5);
 		registerConst(t, "IL_LIB_JP2_ERROR", 0x05E6);
 		registerConst(t, "IL_UNKNOWN_ERROR", 0x05FF);
-	
+
 		// Origin Definitions
 		registerConst(t, "IL_ORIGIN_SET", 0x0600);
 		registerConst(t, "IL_ORIGIN_LOWER_LEFT", 0x0601);
 		registerConst(t, "IL_ORIGIN_UPPER_LEFT", 0x0602);
 		registerConst(t, "IL_ORIGIN_MODE", 0x0603);
-	
+
 		// Format and Type Mode Definitions
 		registerConst(t, "IL_FORMAT_SET", 0x0610);
 		registerConst(t, "IL_FORMAT_MODE", 0x0611);
 		registerConst(t, "IL_TYPE_SET", 0x0612);
 		registerConst(t, "IL_TYPE_MODE", 0x0613);
-	
+
 		// File definitions
 		registerConst(t, "IL_FILE_OVERWRITE", 0x0620);
 		registerConst(t, "IL_FILE_MODE", 0x0621);
 
 		// Palette definitions
 		registerConst(t, "IL_CONV_PAL", 0x0630);
-	
+
 		// Load fail definitions
 		registerConst(t, "IL_DEFAULT_ON_FAIL", 0x0632);
 
 		// Key colour definitions
 		registerConst(t, "IL_USE_KEY_COLOUR", 0x0635);
 		registerConst(t, "IL_USE_KEY_COLOR", 0x0635);
-	
+
 		// Interlace definitions
 		registerConst(t, "IL_SAVE_INTERLACED", 0x0639);
 		registerConst(t, "IL_INTERLACE_MODE", 0x063A);
-	
+
 		// Quantization definitions
 		registerConst(t, "IL_QUANTIZATION_MODE", 0x0640);
 		registerConst(t, "IL_WU_QUANT", 0x0641);
 		registerConst(t, "IL_NEU_QUANT", 0x0642);
 		registerConst(t, "IL_NEU_QUANT_SAMPLE", 0x0643);
 		registerConst(t, "IL_MAX_QUANT_INDEXS", 0x0644);
-	
+
 		// Hints
 		registerConst(t, "IL_FASTEST", 0x0660);
 		registerConst(t, "IL_LESS_MEM", 0x0661);
@@ -503,19 +634,19 @@ static:
 		registerConst(t, "IL_USE_COMPRESSION", 0x0666);
 		registerConst(t, "IL_NO_COMPRESSION", 0x0667);
 		registerConst(t, "IL_COMPRESSION_HINT", 0x0668);
-	
+
 		// Subimage types
 		registerConst(t, "IL_SUB_NEXT", 0x0680);
 		registerConst(t, "IL_SUB_MIPMAP", 0x0681);
 		registerConst(t, "IL_SUB_LAYER", 0x0682);
-	
+
 		// Compression definitions
 		registerConst(t, "IL_COMPRESS_MODE", 0x0700);
 		registerConst(t, "IL_COMPRESS_NONE", 0x0701);
 		registerConst(t, "IL_COMPRESS_RLE", 0x0702);
 		registerConst(t, "IL_COMPRESS_LZO", 0x0703);
 		registerConst(t, "IL_COMPRESS_ZLIB", 0x0704);
-	
+
 		// File format-specific values
 		registerConst(t, "IL_TGA_CREATE_STAMP", 0x0710);
 		registerConst(t, "IL_JPG_QUALITY", 0x0711);
@@ -537,7 +668,7 @@ static:
 		registerConst(t, "IL_CHEAD_HEADER_STRING", 0x0722);
 		registerConst(t, "IL_PCD_PICNUM", 0x0723);
 		registerConst(t, "IL_PNG_ALPHA_INDEX", 0x0724);
-	
+
 		// DXTC definitions
 		registerConst(t, "IL_DXTC_FORMAT", 0x0705);
 		registerConst(t, "IL_DXT1", 0x0706);
@@ -627,8 +758,6 @@ static:
 		register(t, "iluNegative", &wrapIL!(iluNegative));
 		register(t, "iluNoisify", &wrapIL!(iluNoisify));
 		register(t, "iluPixelize", &wrapIL!(iluPixelize));
-// 		register(t, "iluRegionfv", &wrapIL!(iluRegionfv));
-// 		register(t, "iluRegioniv", &wrapIL!(iluRegioniv));
 		register(t, "iluReplaceColour", &wrapIL!(iluReplaceColour));
 		register(t, "iluRotate", &wrapIL!(iluRotate));
 		register(t, "iluRotate3D", &wrapIL!(iluRotate3D));
