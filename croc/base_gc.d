@@ -76,7 +76,13 @@ void mark(CrocVM* vm)
 	}
 	
 	for(auto i = vm.finalizableInsts; i !is null; i = i.nextInstance)
+	{
+		// We're not *really* treating these instances as roots; they still need to be marked
+		// as garbage.
+		auto flagSave = i.flags;
 		markObj(vm, i);
+		i.flags = flagSave;
+	}
 
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));

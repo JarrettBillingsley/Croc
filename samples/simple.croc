@@ -17,6 +17,7 @@ class ILImage
 	function finalizer()
 	{
 		il.ilDeleteImage(:_handle)
+		writeln("finalizer!")
 	}
 }
 
@@ -27,8 +28,9 @@ function main()
 
 	local i = ILImage()
 	writefln("handle: {}", i._handle)
-// 	i = null
-// 	gc.collect()
+	i = null
+	gc.collect()
+	writeln("done")
 
 // 	il.ilEnable(il.IL_ORIGIN_SET)
 // 	local handle = il.iluGenImage()
