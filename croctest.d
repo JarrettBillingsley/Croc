@@ -12,8 +12,6 @@ import croc.addons.gl;
 import croc.addons.net;
 import croc.addons.devil;
 
-import newsocket;
-
 version(CrocAllAddons)
 {
 	version = CrocPcreAddon;
