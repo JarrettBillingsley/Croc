@@ -68,11 +68,20 @@ void mark(CrocVM* vm)
 
 	markObj(vm, vm.object);
 	markObj(vm, vm.throwable);
-	
+
 	foreach(k, v; vm.stdExceptions)
 	{
 		markObj(vm, k);
 		markObj(vm, v);
+	}
+	
+	for(auto i = vm.finalizable; i !is null; i = i.nextInstance)
+	{
+		// We're not *really* treating these instances as roots; they still need to be marked
+		// as garbage.
+		auto flagSave = i.flags;
+		markObj(vm, i);
+		i.flags = flagSave;
 	}
 
 	if(vm.isThrowing)
@@ -96,10 +105,25 @@ void sweep(CrocVM* vm)
 		else
 			pcur = &cur.next;
 	}
+	
+	// By now any dead instances have been moved to vm.toFinalize, so we can just
+	// take them out of this list
+	for(auto pcur = &vm.finalizable; *pcur !is null; )
+	{
+		auto cur = *pcur;
+		
+		if((cur.flags & GCBits.Marked) ^ markVal)
+		{
+			*pcur = cur.nextInstance;
+			cur.nextInstance = null;
+		}
+		else
+			pcur = &cur.nextInstance;
+	}
 
 	vm.stringTab.minimize(vm.alloc);
 	vm.weakRefTab.minimize(vm.alloc);
-	
+
 	for(auto t = vm.toBeNormalized; t !is null; t = t.nextTab)
 		table.normalize(t);
 
@@ -132,8 +156,8 @@ void free(CrocVM* vm, GCObject* o)
 			if(i.parent.finalizer && ((o.flags & GCBits.Finalized) == 0))
 			{
 				o.flags |= GCBits.Finalized;
-				o.next = vm.alloc.finalizable;
-				vm.alloc.finalizable = o;
+				i.nextInstance = vm.toFinalize;
+				vm.toFinalize = i;
 			}
 			else
 				instance.free(vm.alloc, i);

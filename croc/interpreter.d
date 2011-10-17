@@ -71,8 +71,8 @@ void freeAll(CrocThread* t)
 				*pcur = cur.next;
 
 				cur.flags |= GCBits.Finalized;
-				cur.next = t.vm.alloc.finalizable;
-				t.vm.alloc.finalizable = cur;
+				i.nextInstance = t.vm.toFinalize;
+				t.vm.toFinalize = i;
 			}
 			else
 				pcur = &cur.next;
@@ -82,7 +82,7 @@ void freeAll(CrocThread* t)
 	}
 
 	runFinalizers(t);
-	assert(t.vm.alloc.finalizable is null);
+	assert(t.vm.toFinalize is null);
 
 	GCObject* next = void;
 
@@ -101,46 +101,39 @@ void runFinalizers(CrocThread* t)
 {
 	auto alloc = &t.vm.alloc;
 
-	if(alloc.finalizable)
+	for(auto pcur = &t.vm.toFinalize; *pcur !is null; )
 	{
-		for(auto pcur = &alloc.finalizable; *pcur !is null; )
+		auto i = *pcur;
+
+		// resurrect object
+		*pcur = i.nextInstance;
+		i.next = alloc.gcHead;
+		alloc.gcHead = cast(GCObject*)i;
+		i.flags = (i.flags & ~GCBits.Marked) | !alloc.markVal;
+
+		// temporarily disable the GC
+		auto oldLimit = alloc.gcLimit;
+		alloc.gcLimit = typeof(oldLimit).max;
+		scope(exit) alloc.gcLimit = oldLimit;
+
+		auto size = stackSize(t);
+
+		try
 		{
-			auto cur = *pcur;
-			auto i = cast(CrocInstance*)cur;
-
-			*pcur = cur.next;
-			cur.next = alloc.gcHead;
-			alloc.gcHead = cur;
-
-			cur.flags = (cur.flags & ~GCBits.Marked) | !alloc.markVal;
-
-			// sanity check
-			if(i.parent.finalizer)
-			{
-				auto oldLimit = alloc.gcLimit;
-				alloc.gcLimit = typeof(oldLimit).max;
-				scope(exit) alloc.gcLimit = oldLimit;
-
-				auto size = stackSize(t);
-
-				try
-				{
-					push(t, CrocValue(i.parent.finalizer));
-					push(t, CrocValue(i));
-					commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, null));
-				}
-				catch(CrocException e)
-				{
-					catchException(t);
-					getStdException(t, "FinalizerError");
-					pushNull(t);
-					pushFormat(t, "Error finalizing instance of class '{}'", i.parent.name.toString());
-					rawCall(t, -3, 1);
-					swap(t);
-					fielda(t, -2, "cause");
-					throwException(t);
-				}
-			}
+			push(t, CrocValue(i.parent.finalizer));
+			push(t, CrocValue(i));
+			commonCall(t, t.stackIndex - 2, 0, callPrologue(t, t.stackIndex - 2, 0, 1, null));
+		}
+		catch(CrocException e)
+		{
+			catchException(t);
+			getStdException(t, "FinalizerError");
+			pushNull(t);
+			pushFormat(t, "Error finalizing instance of class '{}'", i.parent.name.toString());
+			rawCall(t, -3, 1);
+			swap(t);
+			fielda(t, -2, "cause");
+			throwException(t);
 		}
 	}
 }
@@ -406,7 +399,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			}
 			else
 			{
-				auto inst = instance.create(t.vm.alloc, cls);
+				auto inst = instance.create(t.vm, cls);
 
 				// call any constructor
 				auto ctor = classobj.getField(cls, t.vm.ctorString);

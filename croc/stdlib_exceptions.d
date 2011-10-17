@@ -191,10 +191,17 @@ Throwable.constructor = function constructor(msg: string = "", cause: Throwable 
 
 Throwable.toString = function toString()
 {
+	local ret
+
 	if(#:msg > 0)
-		return nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
+		ret = nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
 	else
-		return nameOf(:super) ~ " at " ~ :location.toString()
+		ret = nameOf(:super) ~ " at " ~ :location.toString()
+		
+	if(:cause)
+		ret ~= "\nCaused by:\n" ~ :cause.toString()
+
+	return ret
 }
 
 Throwable.setLocation = function setLocation(l: Location)
@@ -216,6 +223,6 @@ Throwable.tracebackString = function tracebackString()
 		s ~= "\n       at: " ~ :traceback[i]
 
 	return s.toString()
-}` ~ makeExceptionClasses() ~ 
+}` ~ makeExceptionClasses() ~
 `_G.Exception = Exception
 _G.Error = Error`;

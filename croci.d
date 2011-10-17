@@ -41,12 +41,14 @@ version(CrocAllAddons)
 	version = CrocGlAddon;
 	version = CrocNetAddon;
 	version = CrocPcreAddon;
+	version = CrocDevilAddon;
 }
 
 import croc.addons.sdl;
 import croc.addons.gl;
 import croc.addons.net;
 import croc.addons.pcre;
+import croc.addons.devil;
 
 const char[] ShortUsage =
 "Usage:
@@ -312,8 +314,9 @@ bool doNormal(CrocThread* t, ref Params params)
 
 	if(!params.safe)
 	{
-		version(CrocGlAddon)   GlLib.init(t);
-		version(CrocNetAddon)  NetLib.init(t);
+		version(CrocGlAddon)    GlLib.init(t);
+		version(CrocNetAddon)   NetLib.init(t);
+		version(CrocDevilAddon) DevilLib.init(t);
 
 		if(params.debugEnabled)
 			loadStdlibs(t, CrocStdlib.Debug);

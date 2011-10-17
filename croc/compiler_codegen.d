@@ -3149,7 +3149,7 @@ scope class Codegen : Visitor
 		
 		return e;
 	}
-	
+
 	public BinaryExp visitBinExp(BinaryExp e)
 	{
 		visit(e.op1);
@@ -3166,7 +3166,7 @@ scope class Codegen : Visitor
 
 		return e;
 	}
-	
+
 	public override BinaryExp visit(OrExp e)    { return visitBinExp(e); }
 	public override BinaryExp visit(XorExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(AndExp e)   { return visitBinExp(e); }

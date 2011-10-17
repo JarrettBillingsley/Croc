@@ -10,6 +10,7 @@ import croc.addons.pcre;
 import croc.addons.sdl;
 import croc.addons.gl;
 import croc.addons.net;
+import croc.addons.devil;
 
 import newsocket;
 
@@ -19,6 +20,7 @@ version(CrocAllAddons)
 	version = CrocSdlAddon;
 	version = CrocGlAddon;
 	version = CrocNetAddon;
+	version = CrocDevilAddon;
 }
 
 void main()
@@ -35,6 +37,7 @@ void main()
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
+		version(CrocDevilAddon) DevilLib.init(t);
 
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 		runModule(t, "samples.simple");

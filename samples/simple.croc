@@ -1,10 +1,76 @@
 module samples.simple
 
-import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
+// import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
+
+import devil as il
+
+local aa
+
+@Finalizable class A
+{
+	function finalizer()
+	{
+		writeln("one")
+		aa = this
+	}
+}
+
+@Finalizable
+class ILImage
+{
+	_handle
+
+	this()
+	{
+		:_handle = il.iluGenImage()
+	}
+
+	function finalizer()
+	{
+		il.ilDeleteImage(:_handle)
+		writeln("finalizer!")
+	}
+}
 
 function main()
 {
-	
+	il.ilInit()
+	il.iluInit()
+
+// 	local i = ILImage()
+// 	writefln("handle: {}", i._handle)
+// 	i = null
+// 	gc.collect()
+// 	writeln("done")
+
+	local a = A()
+	a = null
+	gc.collect()
+	writeln("now..")
+	writeln(aa)
+	aa = null
+	gc.collect()
+
+// 	il.ilEnable(il.IL_ORIGIN_SET)
+// 	local handle = il.iluGenImage()
+// 	il.ilBindImage(handle)
+// 	il.ilLoadImage("medieval_building_tiles.png")
+//
+// 	local w, h = il.ilGetInteger(il.IL_IMAGE_WIDTH), il.ilGetInteger(il.IL_IMAGE_HEIGHT)
+// 	writefln("Image resolution: {}x{}", w, h)
+//
+// 	il.ilConvertImage(il.IL_RGBA, il.IL_UNSIGNED_BYTE)
+//
+// 	il.iluNegative()
+//
+// 	local data = il.ilGetData()
+//
+// 	for(i: 3 .. #data, 4)
+// 		data[i] = 255 - data[i]
+//
+// 	il.ilEnable(il.IL_FILE_OVERWRITE)
+// 	il.ilSaveImage("result.png")
+// 	il.ilDeleteImage(handle)
 }
 
 /*
