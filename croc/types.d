@@ -782,7 +782,7 @@ struct CrocVM
 	package CrocValue exception;
 	package CrocNamespace* registry;
 	package Hash!(ulong, CrocBaseObject*) refTab;
-	package CrocInstance* finalizableInsts;
+	package CrocInstance* finalizable;
 
 	// These point to "special" runtime classes
 	package CrocClass* object;
@@ -792,6 +792,7 @@ struct CrocVM
 	// ----------------------------------
 
 	// Others
+	package CrocInstance* toFinalize;
 	package Hash!(char[], CrocString*) stringTab;
 	package Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
 	package CrocTable* toBeNormalized; // linked list of tables to be normalized

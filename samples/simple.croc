@@ -4,6 +4,17 @@ module samples.simple
 
 import devil as il
 
+local aa
+
+@Finalizable class A
+{
+	function finalizer()
+	{
+		writeln("one")
+		aa = this
+	}
+}
+
 @Finalizable
 class ILImage
 {
@@ -26,11 +37,19 @@ function main()
 	il.ilInit()
 	il.iluInit()
 
-	local i = ILImage()
-	writefln("handle: {}", i._handle)
-	i = null
+// 	local i = ILImage()
+// 	writefln("handle: {}", i._handle)
+// 	i = null
+// 	gc.collect()
+// 	writeln("done")
+
+	local a = A()
+	a = null
 	gc.collect()
-	writeln("done")
+	writeln("now..")
+	writeln(aa)
+	aa = null
+	gc.collect()
 
 // 	il.ilEnable(il.IL_ORIGIN_SET)
 // 	local handle = il.iluGenImage()

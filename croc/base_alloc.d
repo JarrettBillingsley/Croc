@@ -102,7 +102,6 @@ align(1) struct Allocator
 	package void* ctx;
 
 	package GCObject* gcHead = null;
-	package GCObject* finalizable = null;
 
 	// Init to max so that no collection cycles happen until the VM is fully initialized
 	package size_t gcLimit = size_t.max;

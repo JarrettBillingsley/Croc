@@ -52,8 +52,8 @@ static:
 
 		if(i.parent.finalizer)
 		{
-			i.nextInstance = vm.finalizableInsts;
-			vm.finalizableInsts = i;
+			i.nextInstance = vm.finalizable;
+			vm.finalizable = i;
 		}
 
 		return i;
