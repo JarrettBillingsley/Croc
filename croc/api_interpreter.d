@@ -866,7 +866,7 @@ word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes
 	}
 
 	maybeGC(t);
-	return push(t, CrocValue(instance.create(t.vm.alloc, b, numValues, extraBytes)));
+	return push(t, CrocValue(instance.create(t.vm, b, numValues, extraBytes)));
 }
 
 /**

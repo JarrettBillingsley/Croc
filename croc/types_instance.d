@@ -40,15 +40,21 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocInstance* create(ref Allocator alloc, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
+	package CrocInstance* create(CrocVM* vm, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
 	{
-		auto i = alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
+		auto i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
 
 		i.parent = parent;
 		i.parent.hasInstances = true;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;
 		i.extraValues()[] = CrocValue.nullValue;
+
+		if(i.parent.finalizer)
+		{
+			i.nextInstance = vm.finalizableInsts;
+			vm.finalizableInsts = i;
+		}
 
 		return i;
 	}

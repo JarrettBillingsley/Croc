@@ -68,12 +68,15 @@ void mark(CrocVM* vm)
 
 	markObj(vm, vm.object);
 	markObj(vm, vm.throwable);
-	
+
 	foreach(k, v; vm.stdExceptions)
 	{
 		markObj(vm, k);
 		markObj(vm, v);
 	}
+	
+	for(auto i = vm.finalizableInsts; i !is null; i = i.nextInstance)
+		markObj(vm, i);
 
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));
@@ -96,10 +99,25 @@ void sweep(CrocVM* vm)
 		else
 			pcur = &cur.next;
 	}
+	
+	// By now any dead instances have been moved to vm.alloc.finalizable, so we can just
+	// take them out of this list
+	for(auto pcur = &vm.finalizableInsts; *pcur !is null; )
+	{
+		auto cur = *pcur;
+		
+		if((cur.flags & GCBits.Marked) ^ markVal)
+		{
+			*pcur = cur.nextInstance;
+			cur.nextInstance = null;
+		}
+		else
+			pcur = &cur.nextInstance;
+	}
 
 	vm.stringTab.minimize(vm.alloc);
 	vm.weakRefTab.minimize(vm.alloc);
-	
+
 	for(auto t = vm.toBeNormalized; t !is null; t = t.nextTab)
 		table.normalize(t);
 

@@ -4,31 +4,50 @@ module samples.simple
 
 import devil as il
 
+@Finalizable
+class ILImage
+{
+	_handle
+
+	this()
+	{
+		:_handle = il.iluGenImage()
+	}
+
+	function finalizer()
+	{
+		il.ilDeleteImage(:_handle)
+	}
+}
+
 function main()
 {
 	il.ilInit()
 	il.iluInit()
 
-	il.ilEnable(il.IL_ORIGIN_SET)
-	local handle = il.iluGenImage()
-	il.ilBindImage(handle)
-	il.ilLoadImage("medieval_building_tiles.png")
-	
-	dumpVal$ il.iluGetImageInfo()
+	local i = ILImage()
+	writefln("handle: {}", i._handle)
+// 	i = null
+// 	gc.collect()
 
+// 	il.ilEnable(il.IL_ORIGIN_SET)
+// 	local handle = il.iluGenImage()
+// 	il.ilBindImage(handle)
+// 	il.ilLoadImage("medieval_building_tiles.png")
+//
 // 	local w, h = il.ilGetInteger(il.IL_IMAGE_WIDTH), il.ilGetInteger(il.IL_IMAGE_HEIGHT)
 // 	writefln("Image resolution: {}x{}", w, h)
-// 	local data = memblock.new("u8", w * h * 3)
 //
-// 	il.ilCopyPixels(0, 0, 0, w, h, 1, il.IL_RGB, il.IL_UNSIGNED_BYTE, data)
+// 	il.ilConvertImage(il.IL_RGBA, il.IL_UNSIGNED_BYTE)
 //
-// 	for(i: 0 .. #data)
-// 		if(i % 31 == 0)
-// 			data[i] = i % 255
+// 	il.iluNegative()
 //
-// 	il.ilSetPixels(0, 0, 0, w, h, 1, il.IL_RGB, il.IL_UNSIGNED_BYTE, data)
+// 	local data = il.ilGetData()
+//
+// 	for(i: 3 .. #data, 4)
+// 		data[i] = 255 - data[i]
+//
 // 	il.ilEnable(il.IL_FILE_OVERWRITE)
-//
 // 	il.ilSaveImage("result.png")
 // 	il.ilDeleteImage(handle)
 }

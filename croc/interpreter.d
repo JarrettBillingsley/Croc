@@ -406,7 +406,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 			}
 			else
 			{
-				auto inst = instance.create(t.vm.alloc, cls);
+				auto inst = instance.create(t.vm, cls);
 
 				// call any constructor
 				auto ctor = classobj.getField(cls, t.vm.ctorString);

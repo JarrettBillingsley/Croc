@@ -567,12 +567,14 @@ struct CrocInstance
 	package CrocNamespace* fields;
 	package uword numValues;
 	package uword extraBytes;
+	
+	package CrocInstance* nextInstance; // used for finalizable instances, to mark them
 
 	package CrocValue[] extraValues()
 	{
 		return (cast(CrocValue*)(this + 1))[0 .. numValues];
 	}
-	
+
 	package void[] extraData()
 	{
 		return ((cast(void*)(this + 1)) + (numValues * CrocValue.sizeof))[0 .. extraBytes];
@@ -780,6 +782,7 @@ struct CrocVM
 	package CrocValue exception;
 	package CrocNamespace* registry;
 	package Hash!(ulong, CrocBaseObject*) refTab;
+	package CrocInstance* finalizableInsts;
 
 	// These point to "special" runtime classes
 	package CrocClass* object;

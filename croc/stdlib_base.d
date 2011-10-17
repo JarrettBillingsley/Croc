@@ -143,6 +143,8 @@ static:
 		mixin(Register!(1, "hasAttributes", 1));
 		mixin(Register!(1, "attributesOf", 1));
 
+		mixin(Register!(1, "Finalizable"));
+
 		// Conversions
 		mixin(Register!(2, "toString"));
 		mixin(Register!(1, "rawToString"));
@@ -1041,6 +1043,33 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		idx(t, -2);
+		return 1;
+	}
+
+	version(CrocBuiltinDocs) Docs Finalizable_docs = {kind: "function", name: "Finalizable", docs:
+	`Used as a class decorator. You can use this decorator to make script classes have finalizers. The class should
+	have a method called \"finalizer\". This method will be set as the class finalizer, and will be called on instances
+	of this class when they are about to be collected.`,
+	params: [Param("cls", "class")],
+	extra: [Extra("section", "Reflection Functions"), Extra("protection", "global")]};
+
+	uword Finalizable(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Class);
+
+		if(!.hasField(t, 1, "finalizer"))
+			throwStdException(t, "ValueException", "Class {} does not have a 'finalizer' field", className(t, 1));
+
+		field(t, 1, "finalizer");
+
+		if(!isFunction(t, -1))
+		{
+			pushTypeString(t, -1);
+			throwStdException(t, "TypeException", "{}.finalizer is a '{}', not a function", className(t, 1), getString(t, -1));
+		}
+
+		setFinalizer(t, 1);
+		dup(t, 1);
 		return 1;
 	}
 
