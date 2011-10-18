@@ -109,7 +109,7 @@ void runFinalizers(CrocThread* t)
 		*pcur = i.nextInstance;
 		i.next = alloc.gcHead;
 		alloc.gcHead = cast(GCObject*)i;
-		i.flags = (i.flags & ~GCBits.Marked) | !alloc.markVal;
+		i.flags = (i.flags & ~GCBits.Marked) | !alloc.markVal | GCBits.Finalized;
 
 		// temporarily disable the GC
 		auto oldLimit = alloc.gcLimit;

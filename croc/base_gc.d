@@ -75,17 +75,40 @@ void mark(CrocVM* vm)
 		markObj(vm, v);
 	}
 	
-	for(auto i = vm.finalizable; i !is null; i = i.nextInstance)
-	{
-		// We're not *really* treating these instances as roots; they still need to be marked
-		// as garbage.
-		auto flagSave = i.flags;
-		markObj(vm, i);
-		i.flags = flagSave;
-	}
-
 	if(vm.isThrowing)
 		mixin(CondMark!("vm.exception"));
+
+	// Now we have to see if there are any garbage finalizable instances, and if so, keep the objects they point to alive for when
+	// their finalizers are run. We also move dead but not-yet-finalized instances to the toFinalize list.
+	auto markVal = vm.alloc.markVal;
+
+	for(auto pcur = &vm.finalizable; *pcur !is null; )
+	{
+		auto cur = *pcur;
+
+		if((cur.flags & GCBits.Marked) ^ markVal)
+		{
+			if((cur.flags & GCBits.Finalized) == 0)
+			{
+				// not yet finalized; let's move it to toFinalize
+				cur.nextInstance = vm.toFinalize;
+				vm.toFinalize = cur;
+
+				// and also mark objects it points to so they won't be collected before finalization
+				auto flagSave = cur.flags;
+				markObj(vm, cur);
+				cur.flags = flagSave;
+			}
+
+			*pcur = cur.nextInstance;
+		}
+		else
+			pcur = &cur.nextInstance;
+	}
+
+	// At this point, the GC list contains all objects, alive and dead,
+	// finalizable contains only living finalizable instances, and toFinalize
+	// contains dead instances that need to be finalized.
 }
 
 // Perform the sweep phase of garbage collection.
@@ -104,21 +127,6 @@ void sweep(CrocVM* vm)
 		}
 		else
 			pcur = &cur.next;
-	}
-	
-	// By now any dead instances have been moved to vm.toFinalize, so we can just
-	// take them out of this list
-	for(auto pcur = &vm.finalizable; *pcur !is null; )
-	{
-		auto cur = *pcur;
-		
-		if((cur.flags & GCBits.Marked) ^ markVal)
-		{
-			*pcur = cur.nextInstance;
-			cur.nextInstance = null;
-		}
-		else
-			pcur = &cur.nextInstance;
 	}
 
 	vm.stringTab.minimize(vm.alloc);
@@ -153,13 +161,8 @@ void free(CrocVM* vm, GCObject* o)
 		case CrocValue.Type.Instance:
 			auto i = cast(CrocInstance*)o;
 
-			if(i.parent.finalizer && ((o.flags & GCBits.Finalized) == 0))
-			{
-				o.flags |= GCBits.Finalized;
-				i.nextInstance = vm.toFinalize;
-				vm.toFinalize = i;
-			}
-			else
+			// if it has no finalizer, or if it does but it's been finalized, it can be freed now.
+			if(i.parent.finalizer is null || ((o.flags & GCBits.Finalized) != 0))
 				instance.free(vm.alloc, i);
 
 			return;
