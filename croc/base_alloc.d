@@ -136,17 +136,6 @@ align(1) struct Allocator
 		return ret;
 	}
 
-	package T* duplicate(T)(T* o, size_t size = T.sizeof)
-	{
-		auto ret = cast(T*)realloc!(T)(null, 0, size);
-		memcpy(ret, o, size);
-
-		(cast(GCObject*)ret).next = gcHead;
-		gcHead = cast(GCObject*)ret;
-
-		return ret;
-	}
-
 	package void free(T)(T* o, size_t size = T.sizeof)
 	{
 		static if(is(T == GCObject))
@@ -164,7 +153,7 @@ align(1) struct Allocator
 			return null;
 
 		auto ret = (cast(T*)realloc!(T[])(null, 0, size * T.sizeof))[0 .. size];
-		
+
 		static if(!is(T == void))
 			ret[] = T.init;
 
