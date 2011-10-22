@@ -198,15 +198,18 @@ static:
 
 		auto val = v1;
 
+		// no write barrier here. the array is new and we're filling it with scalars.
+		auto data = a.toArray();
+
 		if(v2 < v1)
 		{
 			for(uword i = 0; val > v2; i++, val -= step)
-				a.data[i] = val;
+				data[i] = val;
 		}
 		else
 		{
 			for(uword i = 0; val < v2; i++, val += step)
-				a.data[i] = val;
+				data[i] = val;
 		}
 
 		return 1;
@@ -290,6 +293,7 @@ static:
 			};
 		}
 
+		// No write barrier. we're just moving items around, the items themselves don't change.
 		.sort(getArray(t, 0).toArray(), pred);
 		dup(t, 0);
 		return 1;
@@ -303,6 +307,7 @@ static:
 	uword reverse(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
+		// No write barrier. Just moving items around.
 		getArray(t, 0).toArray().reverse;
 		dup(t, 0);
 		return 1;
@@ -318,7 +323,8 @@ static:
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
 		newArray(t, cast(uword)len(t, 0)); // this should be fine?  since arrays can't be longer than uword.max
-		getArray(t, -1).toArray()[] = getArray(t, 0).toArray()[];
+		auto dest = getArray(t, -1);
+		array.sliceAssign(t.vm.alloc, dest, 0, dest.length, getArray(t, 0));
 		return 1;
 	}
 
@@ -501,7 +507,6 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		checkParam(t, 1, CrocValue.Type.Function);
 		auto newArr = newArray(t, cast(uword)len(t, 0));
-		auto data = getArray(t, -1).toArray();
 
 		foreach(i, ref v; getArray(t, 0).toArray())
 		{
@@ -845,14 +850,12 @@ foreach(i, v; a, \"reverse\")
 	uword array_pop(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Array);
-		crocint index = -1;
-		auto data = getArray(t, 0).toArray();
+		auto a = getArray(t, 0);
+		auto data = a.toArray();
+		crocint index = optIntParam(t, 1, -1);
 
 		if(data.length == 0)
 			throwStdException(t, "ValueException", "Array is empty");
-
-		if(stackSize(t) > 1)
-			index = checkIntParam(t, 1);
 
 		if(index < 0)
 			index += data.length;
@@ -861,6 +864,8 @@ foreach(i, v; a, \"reverse\")
 			throwStdException(t, "BoundsException", "Invalid array index: {}", index);
 
 		idxi(t, 0, index);
+
+		array.barrier(t.vm.alloc, getArray(t, 0));
 
 		for(uword i = cast(uword)index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
@@ -883,10 +888,13 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		auto a = getArray(t, 0);
 
+		array.barrier(t.vm.alloc, a);
 		array.resize(t.vm.alloc, a, numParams);
 
+		auto data = a.toArray();
+
 		for(uword i = 0; i < numParams; i++)
-			a.data[i] = *getValue(t, i + 1);
+			data[i] = *getValue(t, i + 1);
 
 		dup(t, 0);
 		return 1;
@@ -1153,10 +1161,13 @@ foreach(i, v; a, \"reverse\")
 			return 0;
 
 		auto oldlen = a.length;
+		array.barrier(t.vm.alloc, a);
 		array.resize(t.vm.alloc, a, a.length + numParams);
+		
+		auto data = a.toArray();
 
 		for(uword i = oldlen, j = 1; i < a.length; i++, j++)
-			a.data[i] = *getValue(t, j);
+			data[i] = *getValue(t, j);
 
 		return 0;
 	}

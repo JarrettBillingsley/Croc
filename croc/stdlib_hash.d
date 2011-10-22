@@ -355,7 +355,7 @@ static:
 		getUpval(t, 0);
 		auto tab = getTable(t, -1);
 		getUpval(t, 1);
-		auto keys = getArray(t, -1);
+		auto keys = getArray(t, -1).toArray();
 		getUpval(t, 2);
 		uword idx = cast(uword)getInt(t, -1) + 1;
 
@@ -363,11 +363,11 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = table.get(tab, keys.data[idx]))
+			if(auto v = table.get(tab, keys[idx]))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys.data[idx]);
+				push(t, keys[idx]);
 				push(t, *v);
 				return 2;
 			}
@@ -402,7 +402,7 @@ static:
 		getUpval(t, 0);
 		auto ns = getNamespace(t, -1);
 		getUpval(t, 1);
-		auto keys = getArray(t, -1);
+		auto keys = getArray(t, -1).toArray();
 		getUpval(t, 2);
 		uword idx = cast(uword)getInt(t, -1) + 1;
 
@@ -410,11 +410,11 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = namespace.get(ns, keys.data[idx].mString))
+			if(auto v = namespace.get(ns, keys[idx].mString))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys.data[idx]);
+				push(t, keys[idx]);
 				push(t, *v);
 				return 2;
 			}
@@ -482,7 +482,7 @@ static:
 				push(t, *v);
 
 				static if(remove)
-					table.remove(tab, *k);
+					table.remove(t.vm.alloc, tab, *k);
 			}
 			else
 				throwStdException(t, "ValueException", "Attempting to take from an empty table");

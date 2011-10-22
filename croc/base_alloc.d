@@ -181,7 +181,10 @@ package:
 		auto ptr = cast(void*)((cast(uword)nurseryPtr + nurseryAlignment) & ~nurseryAlignment);
 
 		if(nurseryEnd - ptr < size)
+		{
+			assert(false, "UNIMPLEMENTED");
 			return null;
+		}
 
 		totalBytes += cast(uword)(ptr + size - nurseryPtr);
 

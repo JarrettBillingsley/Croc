@@ -215,6 +215,57 @@ void gcCycle(CrocVM* vm)
 		assert(cycleRoots.isEmpty());
 }
 
+// WRITE BARRIER: At mutation time, any time we update a slot in an unlogged object (only objects in RC space can be unlogged; we ignore nursery
+// objects), we log it by putting it in the modified buffer and queueing decrements for any RC objects it points to before modification. Then set
+// its state to logged to prevent it from being added again, and finally, store the new object in the slot.
+//
+// During collection, it will then increment all the slots after modification; thus the previous values will be decremented and the current values
+// incremented. If a slot wasn't changed, it will be a no-op (inc followed by dec). If a slot was changed, the old object will be decremented, and
+// the new will be incremented. This is the implementation of coalescing.
+
+// void writeBarrier(ref Allocator alloc, GCObject* srcObj, GCObject** srcSlot, GCObject* newVal)
+// {
+// 	if(*srcSlot is newVal)
+// 		return;
+// 
+// 	if(srcObj.gcflags & GCFlags.Unlogged)
+// 		writeBarrierSlow(alloc, srcObj);
+// 
+// 	*srcSlot = newVal;
+// }
+
+// template writeBarrier(char[] alloc, char[] srcObj, char[] srcSlot, char[] newVal)
+// {
+// 	const char[] writeBarrier =
+// 	"if(" ~ srcSlot ~ " !is newVal)\n"
+// 	"{\n"
+// 	"	if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged)\n"
+// 	"		writeBarrierSlow(" ~ alloc ~ ", " ~ srcObj ~ ");\n"
+// 
+// 	"	" ~ srcSlot ~ " = " ~ newVal ~ ";\n"
+// 	"}";
+// }
+
+template writeBarrier(char[] alloc, char[] srcObj)
+{
+	const char[] writeBarrier =
+	"if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged)\n"
+	"	writeBarrierSlow(" ~ alloc ~ ", cast(GCObject*)" ~ srcObj ~ ");\n";
+}
+
+void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
+{
+	alloc.modBuffer.add(alloc, srcObj);
+
+	visitObj(srcObj, (GCObject** slot)
+	{
+		if((*slot).gcflags & GCFlags.InRC)
+			alloc.decBuffer.add(alloc, *slot);
+	});
+
+	srcObj.gcflags &= ~GCFlags.Unlogged;
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================

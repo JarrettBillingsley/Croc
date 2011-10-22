@@ -1017,7 +1017,7 @@ void idxaImpl(CrocThread* t, CrocValue* container, CrocValue* key, CrocValue* va
 			if(index < 0 || index >= arr.length)
 				throwStdException(t, "BoundsException", "Invalid array index {} (length is {})", key.mInt, arr.length);
 
-			arr.toArray()[cast(uword)index] = *value;
+			array.idxa(t.vm.alloc, arr, cast(uword)index, *value);
 			return;
 
 		case CrocValue.Type.Memblock:
@@ -1089,7 +1089,7 @@ void tableIdxaImpl(CrocThread* t, CrocValue* container, CrocValue* key, CrocValu
 	if((value.type == CrocValue.Type.WeakRef && value.mWeakRef.obj is null) ||
 		(key.type == CrocValue.Type.WeakRef && key.mWeakRef.obj is null))
 	{
-		table.remove(container.mTable, *key);
+		table.remove(t.vm.alloc, container.mTable, *key);
 		return;
 	}
 
@@ -1098,9 +1098,9 @@ void tableIdxaImpl(CrocThread* t, CrocValue* container, CrocValue* key, CrocValu
 	if(v !is null)
 	{
 		if(value.type == CrocValue.Type.Null)
-			table.remove(container.mTable, *key);
+			table.remove(t.vm.alloc, container.mTable, *key);
 		else
-			*v = *value;
+			table.set(t.vm.alloc, container.mTable, v, *value);
 	}
 	else if(value.type != CrocValue.Type.Null)
 		table.set(t.vm.alloc, container.mTable, *key, *value);
@@ -1556,7 +1556,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 				if((hiIndex - loIndex) != value.mArray.length)
 					throwStdException(t, "RangeException", "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.length);
 
-				return array.sliceAssign(arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
+				return array.sliceAssign(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
 			}
 			else
 			{
@@ -2084,6 +2084,7 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 	}
 
 	auto ret = array.create(t.vm.alloc, len);
+	array.barrier(t.vm.alloc, ret);
 	auto retArr = ret.toArray();
 
 	uword i = 0;
@@ -2242,18 +2243,21 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 
 	uword i = a.length;
 	array.resize(t.vm.alloc, a, len);
+	array.barrier(t.vm.alloc, a);
+	
+	auto data = a.toArray();
 
 	foreach(ref v; vals)
 	{
 		if(v.type == CrocValue.Type.Array)
 		{
 			auto arr = v.mArray;
-			a.toArray()[i .. i + arr.length] = arr.toArray()[];
+			data[i .. i + arr.length] = arr.toArray()[];
 			i += arr.length;
 		}
 		else
 		{
-			a.toArray()[i] = v;
+			data[i] = v;
 			i++;
 		}
 	}

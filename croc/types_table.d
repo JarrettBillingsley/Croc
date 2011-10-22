@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_table;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct table
@@ -59,18 +60,40 @@ static:
 	package void set(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue value)
 	{
 		assert(value.type != CrocValue.Type.Null);
-		*t.data.insert(alloc, key) = value;
+		auto slot = t.data.insert(alloc, key);
+		
+		if(*slot != value)
+		{
+			mixin(writeBarrier!("alloc", "t"));
+			*slot = value;
+		}
+	}
+	
+	// Insert a key-value pair (or update one if it already exists).
+	package void set(ref Allocator alloc, CrocTable* t, CrocValue* slot, ref CrocValue value)
+	{
+		assert(value.type != CrocValue.Type.Null);
+
+		if(*slot != value)
+		{
+			mixin(writeBarrier!("alloc", "t"));
+			*slot = value;
+		}
 	}
 
 	// Remove a key-value pair from the table.
-	package void remove(CrocTable* t, ref CrocValue key)
+	package void remove(ref Allocator alloc, CrocTable* t, ref CrocValue key)
 	{
+		mixin(writeBarrier!("alloc", "t"));
 		t.data.remove(key);
 	}
-	
+
 	// remove all key-value pairs from the table.
 	package void clear(ref Allocator alloc, CrocTable* t)
 	{
+		if(t.data.length > 0)
+			mixin(writeBarrier!("alloc", "t"));
+
 		t.data.clear(alloc);
 	}
 
@@ -87,17 +110,24 @@ static:
 	}
 
 	// Removes any key-value pairs that have null weak references.
-	package void normalize(CrocTable* t)
+	package void normalize(ref Allocator alloc, CrocTable* t)
 	{
 		uword i = 0;
 		CrocValue* k = void;
 		CrocValue* v = void;
+		bool removedAny = false;
 
 		while(t.data.next(i, k, v))
 		{
 			if((k.type == CrocValue.Type.WeakRef && k.mWeakRef.obj is null) ||
 				(v.type == CrocValue.Type.WeakRef && v.mWeakRef.obj is null))
 			{
+				if(!removedAny)
+				{
+					removedAny = true;
+					mixin(writeBarrier!("alloc", "t"));
+				}
+
 				t.data.remove(*k);
 				i--;
 			}

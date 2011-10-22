@@ -343,7 +343,7 @@ uword gc(CrocThread* t)
 	t.vm.weakRefTab.minimize(t.vm.alloc);
 
 	for(auto tab = t.vm.toBeNormalized; tab !is null; tab = tab.nextTab)
-		table.normalize(tab);
+		table.normalize(t.vm.alloc, tab);
 
 	return beforeSize - t.vm.alloc.totalBytes;
 }
@@ -495,6 +495,7 @@ word newArrayFromStack(CrocThread* t, uword len)
 	mixin(apiCheckNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
+	// no write barrier, nothing's being overwritten
 	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
 	pop(t, len);
 	return push(t, CrocValue(a));
@@ -1989,7 +1990,7 @@ void fillArray(CrocThread* t, word arr)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
 	}
 
-	a.toArray()[] = t.stack[t.stackIndex - 1];
+	array.fill(t.vm.alloc, a, t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
