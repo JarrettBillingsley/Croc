@@ -42,7 +42,12 @@ static:
 
 	package CrocInstance* create(CrocVM* vm, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
 	{
-		auto i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
+		CrocInstance* i;
+
+		if(parent.finalizer)
+			i = vm.alloc.allocateFinalizable!(CrocInstance)(InstanceSize(numValues, extraBytes));
+		else
+			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
 
 		i.parent = parent;
 		i.parent.hasInstances = true;
@@ -50,18 +55,7 @@ static:
 		i.extraBytes = extraBytes;
 		i.extraValues()[] = CrocValue.nullValue;
 
-		if(i.parent.finalizer)
-		{
-			i.nextInstance = vm.finalizable;
-			vm.finalizable = i;
-		}
-
 		return i;
-	}
-
-	package void free(ref Allocator alloc, CrocInstance* i)
-	{
-		alloc.free(i, InstanceSize(i.numValues, i.extraBytes));
 	}
 
 	package CrocValue* getField(CrocInstance* i, CrocString* name)

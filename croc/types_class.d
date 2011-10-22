@@ -57,11 +57,6 @@ static:
 		return c;
 	}
 
-	package void free(ref Allocator alloc, CrocClass* c)
-	{
-		alloc.free(c);
-	}
-	
 	package CrocValue* getField(CrocClass* c, CrocString* name)
 	{
 		CrocClass* dummy = void;

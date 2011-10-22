@@ -48,16 +48,14 @@ static:
 		return ret;
 	}
 
-	// Free a weak reference object.
-	package void free(CrocVM* vm, CrocWeakRef* r)
+	// Finalize a weak reference object.
+	package void finalize(CrocVM* vm, CrocWeakRef* r)
 	{
 		if(r.obj !is null)
 		{
 			auto b = vm.weakRefTab.remove(r.obj);
 			assert(b);
 		}
-
-		vm.alloc.free(r);
 	}
 
 	package CrocBaseObject* getObj(CrocVM* vm, CrocWeakRef* r)

@@ -69,12 +69,11 @@ static:
 		return ret;
 	}
 
-	// Free a memblock object.
-	package void free(ref Allocator alloc, CrocMemblock* m)
+	// Finalize a memblock object.
+	package void finalize(ref Allocator alloc, CrocMemblock* m)
 	{
 		if(m.ownData)
 			alloc.freeArray(m.data);
-		alloc.free(m);
 	}
 
 	// Change a memblock so it's a view into a given array (but does not own it).

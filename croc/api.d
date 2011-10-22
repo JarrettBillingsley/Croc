@@ -126,7 +126,8 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	GCLib.init(t);
 	ThreadLib.init(t);
 	ExceptionsLib.init(t);
-	vm.alloc.gcLimit = vm.alloc.totalBytes;
+
+	enableGC(vm);
 	return t;
 }
 

@@ -46,11 +46,10 @@ static:
 		return ns;
 	}
 
-	// Free a namespace object.
-	package void free(ref Allocator alloc, CrocNamespace* ns)
+	// Finalize a namespace object.
+	package void finalize(ref Allocator alloc, CrocNamespace* ns)
 	{
 		ns.data.clear(alloc);
-		alloc.free(ns);
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.

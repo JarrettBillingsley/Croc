@@ -47,95 +47,201 @@ import croc.types_weakref;
 
 package:
 
-// Perform the mark phase of garbage collection.
-void mark(CrocVM* vm)
+/*
+Buffers which grow during the mutation phase:
+	modified buffer (RC space objects whose reference fields were modified during the mutation phase; filled by the write barrier)
+	decrement buffer (objects which have a queued decrement, can be here more than once I suppose)
+
+Buffers which are only changed/used during the collection phase:
+	old root buffer (objects that were roots _last_ collection cycle)
+	new root buffer (objects that are roots _this_ collection cycle)
+	possible cycle buffer (objects which may be part of cycles)
+	finalize buffer (finalizable objects which have died and need to be finalized)
+*/
+
+void gcCycle(CrocVM* vm)
 {
-	vm.toBeNormalized = null;
+	assert(vm.inGCCycle);
+	assert(vm.alloc.gcDisabled == 0);
 
-	foreach(mt; vm.metaTabs)
-		if(mt)
-			markObj(vm, mt);
+	// Upon entry:
+	// 	modified buffer contains all objects that were logged between collections.
+	// 	decrement buffer can have stuff in it.
+	// 	old root buffer contains last collection's new roots.
+	// 	new root buffer is empty.
+	// 	possible cycle buffer is empty.
+	// 	finalize buffer is empty.
 
-	foreach(s; vm.metaStrings)
-		markObj(vm, s);
+	auto modBuffer = &vm.alloc.modBuffer;
+	auto decBuffer = &vm.alloc.decBuffer;
+	auto cycleRoots = &vm.cycleRoots;
+	auto toFinalize = &vm.toFinalize;
 
-	markObj(vm, vm.globals);
-	markObj(vm, vm.mainThread);
-	markObj(vm, vm.registry);
+	{ // block to control scope of old/newRoots
+	auto oldRoots = &vm.roots[vm.oldRootIdx];
+	auto newRoots = &vm.roots[1 - vm.oldRootIdx];
 
-	foreach(val; vm.refTab)
-		markObj(vm, cast(GCObject*)val);
+	assert(newRoots.isEmpty());
+	assert(cycleRoots.isEmpty());
+	assert(toFinalize.isEmpty());
 
-	markObj(vm, vm.object);
-	markObj(vm, vm.throwable);
+	// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, copy it out and leave a forwarding address.
+	// 	Regardless of whether it's a nursery object or not, put it in the new root buffer.
 
-	foreach(k, v; vm.stdExceptions)
+	visitRoots(vm, (GCObject** obj)
 	{
-		markObj(vm, k);
-		markObj(vm, v);
-	}
-	
-	if(vm.isThrowing)
-		mixin(CondMark!("vm.exception"));
+		if(((*obj).gcflags & GCFlags.InRC) == 0)
+			*obj = copyOutOfNursery(vm, *obj);
 
-	// Now we have to see if there are any garbage finalizable instances, and if so, keep the objects they point to alive for when
-	// their finalizers are run. We also move dead but not-yet-finalized instances to the toFinalize list.
-	auto markVal = vm.alloc.markVal;
+		newRoots.add(vm.alloc, *obj);
+	});
 
-	for(auto pcur = &vm.finalizable; *pcur !is null; )
+	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object, if it's in the nursery, copy it
+	// 	out (or just forward if that's already happened). Increment all the reference counts (spurious increments to RC space objects will be undone
+	// 	by the queued decrements created during the mutation phase by the write barrier).
+	foreach(obj; *modBuffer)
 	{
-		auto cur = *pcur;
+		obj.gcflags |= GCFlags.Unlogged;
 
-		if((cur.flags & GCBits.Marked) ^ markVal)
+		visitObj(obj, (GCObject** slot)
 		{
-			if((cur.flags & GCBits.Finalized) == 0)
+			if((*slot).gcflags & GCFlags.Forwarded)
+				*slot = (*slot).forwardPointer;
+			else if(((*slot).gcflags & GCFlags.InRC) == 0)
+				*slot = copyOutOfNursery(vm, *slot);
+
+			rcIncrement(*slot);
+		});
+	}
+
+	modBuffer.reset();
+
+	// PROCESS OLD ROOT BUFFER. Move all objects from the old root buffer into the decrement buffer.
+	decBuffer.append(vm.alloc, *oldRoots);
+	oldRoots.reset();
+
+	// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root buffer.
+	foreach(obj; *newRoots)
+		rcIncrement(obj);
+
+	// heehee sneaky
+	vm.oldRootIdx = 1 - vm.oldRootIdx;
+	}
+
+	// PROCESS DECREMENT BUFFER. Go through the decrement buffer, decrementing their RCs. If an RC hits 0, if it's not finalizable, queue decrements for
+	// 	any RC objects it points to, and free it. If it is finalizable, put it on the finalize list. If an RC is nonzero after being decremented, mark
+	// 	it as a possible cycle root as follows: if its color is not purple, color it purple, and if it's not already buffered, mark it buffered and
+	// 	put it in the possible cycle buffer.
+
+	while(!decBuffer.isEmpty())
+	{
+		auto obj = decBuffer.remove();
+
+		if(--obj.refCount == 0)
+		{
+			// Ref count hit 0. It's garbage.
+
+			// TODO: figure out if it's possible for a finalizable object's members to be collected before it is. I doubt it buuuut..
+			if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
 			{
-				// not yet finalized; let's move it to toFinalize
-				cur.nextInstance = vm.toFinalize;
-				vm.toFinalize = cur;
-
-				// and also mark objects it points to so they won't be collected before finalization
-				auto flagSave = cur.flags;
-				markObj(vm, cur);
-				cur.flags = flagSave;
+				obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+				toFinalize.add(vm.alloc, cast(CrocInstance*)obj);
 			}
+			else
+			{
+				visitObj(obj, (GCObject** slot)
+				{
+					decBuffer.add(vm.alloc, *slot);
+				});
 
-			*pcur = cur.nextInstance;
+				free(vm, obj);
+			}
 		}
 		else
-			pcur = &cur.nextInstance;
+		{
+			// Ref count hasn't hit 0 yet, which means it's a potential cycle root (unless it's acyclic).
+			debug assert(obj.refCount != typeof(obj.refCount).max);
+
+			auto color = obj.gcflags & GCFlags.ColorMask;
+
+			if(color != GCFlags.Green && color != GCFlags.Purple)
+			{
+				obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Purple;
+
+				if((obj.gcflags & GCFlags.CycleLogged) == 0)
+				{
+					obj.gcflags |= GCFlags.CycleLogged;
+					cycleRoots.add(vm.alloc, obj);
+				}
+			}
+		}
 	}
 
-	// At this point, the GC list contains all objects, alive and dead,
-	// finalizable contains only living finalizable instances, and toFinalize
-	// contains dead instances that need to be finalized.
+	for(void* ptr = vm.alloc.nurseryStart; ptr < vm.alloc.nurseryPtr; )
+	{
+		auto obj = cast(GCObject*)ptr;
+
+		if((obj.gcflags & GCFlags.Forwarded) == 0)
+		{
+			assert((obj.gcflags & GCFlags.Finalizable) == 0);
+			finalizeBuiltin(vm, obj);
+		}
+
+		ptr = cast(void*)((cast(uword)ptr + obj.memSize + Allocator.nurseryAlignment) & ~Allocator.nurseryAlignment);
+	}
+
+	vm.alloc.clearNurserySpace();
+
+	// TODO: possibly grow nursery at this point
+
+	// CYCLE DETECT. Mark, scan, and collect as described in Bacon and Rajan. When collecting, if something is finalizable, BITCH AND MOAN,
+	// 	cause finalizable objects in cycles mean having to solve the halting problem. That sounds like a buuuuug.
+
+	// TODO: determine whether we have to do a cycle collection or not (cycleRoots size threshold and/or number of collections since last?)
+// 	if(cycleCollectionEnabled)
+		collectCycles(vm);
+
+	// At this point:
+	// 	modified buffer is empty.
+	// 	decrement buffer is empty.
+	// 	old root buffer is what the new root buffer was after the root phase.
+	// 	new root buffer is empty.
+	// 	possible cycle buffer is empty if we did a cycle collection.
+	assert(modBuffer.isEmpty());
+	assert(decBuffer.isEmpty());
+	assert(vm.roots[1 - vm.oldRootIdx].isEmpty());
+
+// 	debug if(cycleCollectionEnabled)
+		assert(cycleRoots.isEmpty());
 }
 
-// Perform the sweep phase of garbage collection.
-void sweep(CrocVM* vm)
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
+
+private:
+
+GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 {
-	auto markVal = vm.alloc.markVal;
+	assert((obj.gcflags & GCFlags.InRC) == 0);
 
-	for(auto pcur = &vm.alloc.gcHead; *pcur !is null; )
+	auto ret = vm.alloc.copyToRC(obj);
+
+	ret.gcflags |= GCFlags.InRC | GCFlags.Unlogged;
+	ret.refCount = 0;
+
+	obj.gcflags = GCFlags.Forwarded;
+	obj.forwardPointer = ret;
+
+	switch((cast(CrocBaseObject*)obj).mType)
 	{
-		auto cur = *pcur;
-
-		if((cur.flags & GCBits.Marked) ^ markVal)
-		{
-			*pcur = cur.next;
-			free(vm, cur);
-		}
-		else
-			pcur = &cur.next;
+		case CrocValue.Type.String:  auto o = cast(CrocString*)ret; *vm.stringTab.lookup(o.toString()) = o; break;
+		case CrocValue.Type.WeakRef: auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
+		case CrocValue.Type.NativeObj: auto o = cast(CrocNativeObj*)ret; vm.nativeObjs[o.obj] = o; break;
+		default: break;
 	}
 
-	vm.stringTab.minimize(vm.alloc);
-	vm.weakRefTab.minimize(vm.alloc);
-
-	for(auto t = vm.toBeNormalized; t !is null; t = t.nextTab)
-		table.normalize(t);
-
-	vm.alloc.markVal = markVal == 0 ? GCBits.Marked : 0;
+	return ret;
 }
 
 debug import tango.io.Stdout;
@@ -149,298 +255,403 @@ void free(CrocVM* vm, GCObject* o)
 		vm.weakRefTab.remove(cast(CrocBaseObject*)o);
 	}
 
+	finalizeBuiltin(vm, o);
+	vm.alloc.free(o);
+}
+
+void finalizeBuiltin(CrocVM* vm, GCObject* o)
+{
 	switch((cast(CrocBaseObject*)o).mType)
 	{
-		case CrocValue.Type.String:    string.free(vm, cast(CrocString*)o); return;
-		case CrocValue.Type.Table:     table.free(vm.alloc, cast(CrocTable*)o); return;
-		case CrocValue.Type.Array:     array.free(vm.alloc, cast(CrocArray*)o); return;
-		case CrocValue.Type.Memblock:  memblock.free(vm.alloc, cast(CrocMemblock*)o); return;
-		case CrocValue.Type.Function:  func.free(vm.alloc, cast(CrocFunction*)o); return;
-		case CrocValue.Type.Class:     classobj.free(vm.alloc, cast(CrocClass*)o); return;
+		case CrocValue.Type.String:    string.finalize(vm, cast(CrocString*)o); return;
+		case CrocValue.Type.Table:     table.finalize(vm.alloc, cast(CrocTable*)o); return;
+		case CrocValue.Type.Array:     array.finalize(vm.alloc, cast(CrocArray*)o); return;
+		case CrocValue.Type.Memblock:  memblock.finalize(vm.alloc, cast(CrocMemblock*)o); return;
+		case CrocValue.Type.Namespace: namespace.finalize(vm.alloc, cast(CrocNamespace*)o); return;
+		case CrocValue.Type.Thread:    thread.finalize(cast(CrocThread*)o); return;
+		case CrocValue.Type.NativeObj: nativeobj.finalize(vm, cast(CrocNativeObj*)o); return;
+		case CrocValue.Type.WeakRef:   weakref.finalize(vm, cast(CrocWeakRef*)o); return;
+		case CrocValue.Type.FuncDef:   funcdef.finalize(vm.alloc, cast(CrocFuncDef*)o); return;
 
-		case CrocValue.Type.Instance:
-			auto i = cast(CrocInstance*)o;
+		case
+			CrocValue.Type.Function,
+			CrocValue.Type.Class,
+			CrocValue.Type.Instance,
+			CrocValue.Type.Upvalue: break;
 
-			// if it has no finalizer, or if it does but it's been finalized, it can be freed now.
-			if(i.parent.finalizer is null || ((o.flags & GCBits.Finalized) != 0))
-				instance.free(vm.alloc, i);
-
-			return;
-
-		case CrocValue.Type.Namespace: namespace.free(vm.alloc, cast(CrocNamespace*)o); return;
-		case CrocValue.Type.Thread:    thread.free(cast(CrocThread*)o); return;
-		case CrocValue.Type.NativeObj: nativeobj.free(vm, cast(CrocNativeObj*)o); return;
-		case CrocValue.Type.WeakRef:   weakref.free(vm, cast(CrocWeakRef*)o); return;
-		case CrocValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(CrocFuncDef*)o); return;
-
-		case CrocValue.Type.Upvalue:   vm.alloc.free(cast(CrocUpval*)o); return;
 
 		default: debug Stdout.formatln("{}", (cast(CrocBaseObject*)o).mType); assert(false);
 	}
 }
 
-// ================================================================================================================================================
-// Private
-// ================================================================================================================================================
-
-private:
-
-// For marking CrocValues. Marks it only if it's an object.
-template CondMark(char[] name)
+void rcIncrement(GCObject* obj)
 {
-	const CondMark =
+	obj.refCount++;
+
+	if((obj.gcflags & GCFlags.Green) == 0)
+		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+}
+
+void collectCycles(CrocVM* vm)
+{
+	auto cycleRoots = &vm.cycleRoots;
+
+	// Mark
+	for(auto it = cycleRoots.iterator(); it.hasNext(); )
+	{
+		auto obj = it.next();
+
+		if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Purple)
+			markGray(obj);
+		else
+		{
+			obj.gcflags &= ~GCFlags.CycleLogged;
+			it.removeCurrent();
+
+			if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Black && obj.refCount == 0)
+				free(vm, obj);
+		}
+	}
+
+	// Scan
+	foreach(obj; *cycleRoots)
+		cycleScan(obj);
+
+	// Collect
+	while(!cycleRoots.isEmpty())
+	{
+		auto obj = cycleRoots.remove();
+		obj.gcflags &= ~GCFlags.CycleLogged;
+		collectCycleWhite(vm, obj);
+	}
+}
+
+void markGray(GCObject* obj)
+{
+	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Green)
+		return;
+
+	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Grey)
+	{
+		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Grey;
+
+		visitObj(obj, (GCObject** slot)
+		{
+			(*slot).refCount--;
+			markGray(*slot);
+		});
+	}
+}
+
+void cycleScan(GCObject* obj)
+{
+	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Grey)
+	{
+		if(obj.refCount > 0)
+			cycleScanBlack(obj);
+		else
+		{
+			obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.White;
+
+			visitObj(obj, (GCObject** slot)
+			{
+				cycleScan(*slot);
+			});
+		}
+	}
+}
+
+void cycleScanBlack(GCObject* obj)
+{
+	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Green)
+		return;
+
+	obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+
+	visitObj(obj, (GCObject** slot)
+	{
+		(*slot).refCount++;
+
+		if(((*slot).gcflags & GCFlags.ColorMask) != GCFlags.Black)
+			cycleScanBlack(*slot);
+	});
+}
+
+void collectCycleWhite(CrocVM* vm, GCObject* obj)
+{
+	auto color = obj.gcflags & GCFlags.ColorMask;
+
+	if((color == GCFlags.White || color == GCFlags.Green) && (obj.gcflags & GCFlags.CycleLogged) == 0)
+	{
+		if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
+			throw new /* CrocFatal */Exception("Unfinalized finalizable object in cycle!");
+
+		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+
+		if(color != GCFlags.Green)
+		{
+			visitObj(obj, (GCObject** slot)
+			{
+				collectCycleWhite(vm, *slot);
+			});
+		}
+
+		free(vm, obj);
+	}
+}
+
+//
+// // Perform the sweep phase of garbage collection.
+// void sweep(CrocVM* vm)
+// {
+// 	auto markVal = vm.alloc.markVal;
+//
+// 	for(auto pcur = &vm.alloc.gcHead; *pcur !is null; )
+// 	{
+// 		auto cur = *pcur;
+//
+// 		if((cur.flags & GCBits.Marked) ^ markVal)
+// 		{
+// 			*pcur = cur.next;
+// 			free(vm, cur);
+// 		}
+// 		else
+// 			pcur = &cur.next;
+// 	}
+//
+//
+// 	vm.alloc.markVal = markVal == 0 ? GCBits.Marked : 0;
+// }
+//
+
+// Visit the roots of this VM.
+void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
+{
+	callback(cast(GCObject**)&vm.globals);
+	callback(cast(GCObject**)&vm.mainThread);
+
+	// TODO: visit ALL the threads!
+	visitThread(vm.mainThread, callback);
+
+	foreach(ref mt; vm.metaTabs)
+		if(mt)
+			callback(cast(GCObject**)&mt);
+
+	foreach(ref s; vm.metaStrings)
+		callback(cast(GCObject**)&s);
+
+	// TODO: change vm.exception to a CrocInstance*
+	if(vm.isThrowing)
+		mixin(CondCallback!("vm.exception"));
+
+	callback(cast(GCObject**)&vm.registry);
+
+	foreach(ref val; vm.refTab)
+		callback(cast(GCObject**)&val);
+
+	callback(cast(GCObject**)&vm.object);
+	callback(cast(GCObject**)&vm.throwable);
+	callback(cast(GCObject**)&vm.location);
+
+	foreach(ref k, ref v; vm.stdExceptions)
+	{
+		callback(cast(GCObject**)&k);
+		callback(cast(GCObject**)&v);
+	}
+}
+
+// For visiting CrocValues. Visits it only if it's an object.
+template CondCallback(char[] name)
+{
+	const CondCallback =
 	"if(" ~ name ~ ".isObject())
 	{
 		auto obj = " ~ name ~ ".toGCObject();
-
-		if((obj.flags & GCBits.Marked) ^ vm.alloc.markVal)
-			markObj(vm, obj);
+		callback(&obj);
+		" ~ name ~ ".mBaseObj = cast(CrocBaseObject*)obj;
 	}";
 }
 
-// Dynamically dispatch the appropriate marking method at runtime from a GCObject*.
-void markObj(CrocVM* vm, GCObject* o)
+// Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.
+void visitObj(GCObject* o, void delegate(GCObject**) callback)
 {
+	// Green objects have no references to other objects.
+	if((o.gcflags & GCFlags.ColorMask) == GCFlags.Green)
+		return;
+
 	switch((cast(CrocBaseObject*)o).mType)
 	{
-		case
-			CrocValue.Type.String,
-			CrocValue.Type.Memblock,
-			CrocValue.Type.NativeObj,
-			CrocValue.Type.WeakRef:
-			// These are trivial, just mark them here.
-			o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-			return;
-
-		case CrocValue.Type.Table:     markObj(vm, cast(CrocTable*)o); return;
-		case CrocValue.Type.Array:     markObj(vm, cast(CrocArray*)o); return;
-		case CrocValue.Type.Function:  markObj(vm, cast(CrocFunction*)o); return;
-		case CrocValue.Type.Class:     markObj(vm, cast(CrocClass*)o); return;
-		case CrocValue.Type.Instance:  markObj(vm, cast(CrocInstance*)o); return;
-		case CrocValue.Type.Namespace: markObj(vm, cast(CrocNamespace*)o); return;
-		case CrocValue.Type.Thread:    markObj(vm, cast(CrocThread*)o); return;
-
-		case CrocValue.Type.Upvalue:   markObj(vm, cast(CrocUpval*)o); return;
-		case CrocValue.Type.FuncDef:   markObj(vm, cast(CrocFuncDef*)o); return;
-		default: assert(false);
+		case CrocValue.Type.Table:     return visitTable(cast(CrocTable*)o,         callback);
+		case CrocValue.Type.Array:     return visitArray(cast(CrocArray*)o,         callback);
+		case CrocValue.Type.Function:  return visitFunction(cast(CrocFunction*)o,   callback);
+		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback);
+		case CrocValue.Type.Instance:  return visitInstance(cast(CrocInstance*)o,   callback);
+		case CrocValue.Type.Namespace: return visitNamespace(cast(CrocNamespace*)o, callback);
+		case CrocValue.Type.Thread:    return visitThread(cast(CrocThread*)o,       callback);
+		case CrocValue.Type.FuncDef:   return visitFuncDef(cast(CrocFuncDef*)o,     callback);
+		case CrocValue.Type.Upvalue:   return visitUpvalue(cast(CrocUpval*)o,       callback);
+		default: debug Stdout.formatln("{} {:x}", (cast(CrocBaseObject*)o).mType, o.gcflags & GCFlags.ColorMask); assert(false);
 	}
 }
 
-// Mark a string.
-void markObj(CrocVM* vm, CrocString* o)
+// Visit a table.
+void visitTable(CrocTable* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-}
-
-// Mark a table.
-void markObj(CrocVM* vm, CrocTable* o)
-{
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
-	bool anyWeakRefs = false;
+	// TODO: change the mechanism for weakref determination
+// 	bool anyWeakRefs = false;
 
 	foreach(ref key, ref val; o.data)
 	{
-		mixin(CondMark!("key"));
-		mixin(CondMark!("val"));
+		mixin(CondCallback!("key"));
+		mixin(CondCallback!("val"));
 
-		if(!anyWeakRefs && key.type == CrocValue.Type.WeakRef || val.type == CrocValue.Type.WeakRef)
-			anyWeakRefs = true;
+// 		if(!anyWeakRefs && key.type == CrocValue.Type.WeakRef || val.type == CrocValue.Type.WeakRef)
+// 			anyWeakRefs = true;
 	}
 
-	if(anyWeakRefs)
-	{
-		o.nextTab = vm.toBeNormalized;
-		vm.toBeNormalized = o;
-	}
+// 	if(anyWeakRefs)
+// 	{
+// 		o.nextTab = vm.toBeNormalized;
+// 		vm.toBeNormalized = o;
+// 	}
 }
 
-// Mark an array.
-void markObj(CrocVM* vm, CrocArray* o)
+// Visit an array.
+void visitArray(CrocArray* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
 	foreach(ref val; o.toArray())
-		mixin(CondMark!("val"));
+		mixin(CondCallback!("val"));
 }
 
-// Mark a memblock.
-void markObj(CrocVM* vm, CrocMemblock* o)
+// Visit a function.
+void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-}
-
-// Mark a function.
-void markObj(CrocVM* vm, CrocFunction* o)
-{
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-	markObj(vm, o.environment);
+	callback(cast(GCObject**)&o.environment);
 
 	if(o.name)
-		markObj(vm, o.name);
+		callback(cast(GCObject**)&o.name);
 
 	if(o.isNative)
 	{
 		foreach(ref uv; o.nativeUpvals())
-			mixin(CondMark!("uv"));
+			mixin(CondCallback!("uv"));
 	}
 	else
 	{
-		markObj(vm, o.scriptFunc);
+		callback(cast(GCObject**)&o.scriptFunc);
 
-		foreach(uv; o.scriptUpvals)
-			markObj(vm, uv);
+		foreach(ref uv; o.scriptUpvals)
+			callback(cast(GCObject**)&uv);
 	}
 }
 
-// Mark a class.
-void markObj(CrocVM* vm, CrocClass* o)
+// Visit a class.
+void visitClass(CrocClass* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
-	if(o.name)      markObj(vm, o.name);
-	if(o.parent)    markObj(vm, o.parent);
-	if(o.fields)    markObj(vm, o.fields);
-	if(o.allocator) markObj(vm, o.allocator);
-	if(o.finalizer) markObj(vm, o.finalizer);
+	if(o.name)      callback(cast(GCObject**)&o.name);
+	if(o.parent)    callback(cast(GCObject**)&o.parent);
+	if(o.fields)    callback(cast(GCObject**)&o.fields);
+	if(o.allocator) callback(cast(GCObject**)&o.allocator);
+	if(o.finalizer) callback(cast(GCObject**)&o.finalizer);
 }
 
-// Mark an instance.
-void markObj(CrocVM* vm, CrocInstance* o)
+// Visit an instance.
+void visitInstance(CrocInstance* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
-	if(o.parent)    markObj(vm, o.parent);
-	if(o.fields)    markObj(vm, o.fields);
+	if(o.parent) callback(cast(GCObject**)&o.parent);
+	if(o.fields) callback(cast(GCObject**)&o.fields);
 
 	foreach(ref val; o.extraValues())
-		mixin(CondMark!("val"));
+		mixin(CondCallback!("val"));
 }
 
-// Mark a namespace.
-void markObj(CrocVM* vm, CrocNamespace* o)
+// Visit a namespace.
+void visitNamespace(CrocNamespace* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
-	foreach(key, ref val; o.data)
+	foreach(ref key, ref val; o.data)
 	{
-		markObj(vm, key);
-		mixin(CondMark!("val"));
+		callback(cast(GCObject**)&key);
+		mixin(CondCallback!("val"));
 	}
 
-	if(o.parent) markObj(vm, o.parent);
-	markObj(vm, o.name);
+	if(o.parent) callback(cast(GCObject**)&o.parent);
+	callback(cast(GCObject**)&o.name);
 }
 
-// Mark a thread.
-void markObj(CrocVM* vm, CrocThread* o)
+// Visit a thread.
+void visitThread(CrocThread* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
 	foreach(ref ar; o.actRecs[0 .. o.arIndex])
 	{
 		if(ar.func)
-			markObj(vm, ar.func);
+			callback(cast(GCObject**)&ar.func);
 
 		if(ar.proto)
-			markObj(vm, ar.proto);
+			callback(cast(GCObject**)&ar.proto);
 	}
 
 	foreach(ref val; o.stack[0 .. o.stackIndex])
-		mixin(CondMark!("val"));
+		mixin(CondCallback!("val"));
 
 	// I guess this can't _hurt_..
 	o.stack[o.stackIndex .. $] = CrocValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])
-		mixin(CondMark!("val"));
+		mixin(CondCallback!("val"));
 
 	for(auto uv = o.upvalHead; uv !is null; uv = uv.nextuv)
-		markObj(vm, uv);
+		visitUpvalue(uv, callback);
 
 	if(o.coroFunc)
-		markObj(vm, o.coroFunc);
+		callback(cast(GCObject**)&o.coroFunc);
 
 	if(o.hookFunc)
-		markObj(vm, o.hookFunc);
+		callback(cast(GCObject**)&o.hookFunc);
 
 	version(CrocExtendedCoro)
 	{
 		if(o.coroFiber)
-			markObj(vm, o.coroFiber);
+			callback(cast(GCObject**)&o.coroFiber);
 	}
 }
 
-// Mark a native object.
-void markObj(CrocVM* vm, CrocNativeObj* o)
+// Visit an upvalue.
+void visitUpvalue(CrocUpval* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
+	mixin(CondCallback!("o.value"));
 }
 
-// Mark a weak reference.
-void markObj(CrocVM* vm, CrocWeakRef* o)
+// Visit a function definition.
+void visitFuncDef(CrocFuncDef* o, void delegate(GCObject**) callback)
 {
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-}
-
-// Mark an upvalue.
-void markObj(CrocVM* vm, CrocUpval* o)
-{
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-	mixin(CondMark!("o.value"));
-}
-
-// Mark a function definition.
-void markObj(CrocVM* vm, CrocFuncDef* o)
-{
-	o.flags = (o.flags & ~GCBits.Marked) | vm.alloc.markVal;
-
 	if(o.locFile)
-		markObj(vm, o.locFile);
+		callback(cast(GCObject**)&o.locFile);
 
 	if(o.name)
-		markObj(vm, o.name);
+		callback(cast(GCObject**)&o.name);
 
-	foreach(f; o.innerFuncs)
+	foreach(ref f; o.innerFuncs)
 		if(f)
-			markObj(vm, f);
+			callback(cast(GCObject**)&f);
 
 	foreach(ref val; o.constants)
-	{
-		if(val.isObject())
-		{
-			auto obj = val.toGCObject();
-
-			if(obj && ((obj.flags & GCBits.Marked) ^ vm.alloc.markVal))
-				markObj(vm, obj);
-		}
-	}
+		mixin(CondCallback!("val"));
 
 	foreach(ref st; o.switchTables)
-	{
-		foreach(key, _; st.offsets)
-		{
-			if(key.isObject())
-			{
-				auto obj = key.toGCObject();
-
-				if(obj && ((obj.flags & GCBits.Marked) ^ vm.alloc.markVal))
-					markObj(vm, obj);
-			}
-		}
-	}
+		foreach(ref key, _; st.offsets)
+			mixin(CondCallback!("key"));
 
 	foreach(name; o.upvalNames)
 		if(name)
-			markObj(vm, name);
+			callback(cast(GCObject**)&name);
 
 	foreach(ref desc; o.locVarDescs)
 		if(desc.name)
-			markObj(vm, desc.name);
+			callback(cast(GCObject**)&desc.name);
 
-	if(o.environment && ((o.environment.flags & GCBits.Marked) ^ vm.alloc.markVal))
-		markObj(vm, o.environment);
+	if(o.environment)
+		callback(cast(GCObject**)&o.environment);
 
-	if(o.cachedFunc && ((o.cachedFunc.flags & GCBits.Marked) ^ vm.alloc.markVal))
-		markObj(vm, o.cachedFunc);
+	if(o.cachedFunc)
+		callback(cast(GCObject**)&o.cachedFunc);
 }

@@ -478,10 +478,10 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 {
 	pushGlobal(t, "modules");
 	field(t, -1, "customLoaders");
-
+	
 	if(hasField(t, -1, name))
 		throwStdException(t, "LookupException", "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
-		
+
 	newFunction(t, 1, loader, name);
 	fielda(t, -2, name);
 	pop(t, 2);

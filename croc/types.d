@@ -34,6 +34,7 @@ import tango.text.convert.Layout;
 
 import croc.base_alloc;
 import croc.base_hash;
+import croc.base_deque;
 import croc.base_opcodes;
 import croc.utils;
 
@@ -429,7 +430,7 @@ align(1) struct CrocValue
 
 template CrocObjectMixin(uint type)
 {
-	mixin GCMixin;
+	mixin GCObjectMembers;
 	package CrocValue.Type mType = cast(CrocValue.Type)type;
 }
 
@@ -451,6 +452,7 @@ struct CrocString
 	}
 
 	package alias hash toHash;
+	static const bool ACYCLIC = true;
 }
 
 struct CrocTable
@@ -518,6 +520,8 @@ struct CrocMemblock
 	package uword itemLength;
 	package TypeStruct* kind;
 	package bool ownData;
+	
+	static const bool ACYCLIC = true;
 }
 
 struct CrocFunction
@@ -567,7 +571,7 @@ struct CrocInstance
 	package CrocNamespace* fields;
 	package uword numValues;
 	package uword extraBytes;
-	
+
 	package CrocInstance* nextInstance; // used for finalizable instances, to mark them
 
 	package CrocValue[] extraValues()
@@ -701,12 +705,16 @@ struct CrocNativeObj
 {
 	mixin CrocObjectMixin!(CrocValue.Type.NativeObj);
 	package Object obj;
+	
+	static const bool ACYCLIC = true;
 }
 
 struct CrocWeakRef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.WeakRef);
 	package CrocBaseObject* obj;
+	
+	static const bool ACYCLIC = true;
 }
 
 enum CrocLocation
@@ -772,43 +780,50 @@ struct CrocUpval
 // please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.
 struct CrocVM
 {
-	package Allocator alloc;
+package:
+	Allocator alloc;
 
 	// These are all GC roots -----------
-	package CrocNamespace* globals;
-	package CrocThread* mainThread;
-	package CrocNamespace*[] metaTabs;
-	package CrocString*[] metaStrings;
-	package CrocValue exception;
-	package CrocNamespace* registry;
-	package Hash!(ulong, CrocBaseObject*) refTab;
-	package CrocInstance* finalizable;
+	CrocNamespace* globals;
+	CrocThread* mainThread;
+	CrocNamespace*[] metaTabs;
+	CrocString*[] metaStrings;
+	CrocValue exception;
+	CrocNamespace* registry;
+	Hash!(ulong, CrocBaseObject*) refTab;
+// 	CrocInstance* finalizable;
 
 	// These point to "special" runtime classes
-	package CrocClass* object;
-	package CrocClass* throwable;
-	package CrocClass* location;
-	package Hash!(CrocString*, CrocClass*) stdExceptions;
+	CrocClass* object;
+	CrocClass* throwable;
+	CrocClass* location;
+	Hash!(CrocString*, CrocClass*) stdExceptions;
 	// ----------------------------------
 
+	ubyte oldRootIdx;
+	Deque!(GCObject*)[2] roots;
+	Deque!(GCObject*) cycleRoots;
+	Deque!(CrocInstance*) toFinalize;
+	bool inGCCycle;
+
 	// Others
-	package CrocInstance* toFinalize;
-	package Hash!(char[], CrocString*) stringTab;
-	package Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
-	package CrocTable* toBeNormalized; // linked list of tables to be normalized
-	package ulong currentRef;
-	package CrocString* ctorString;
-	package CrocThread* curThread;
-	package bool isThrowing;
+//	CrocInstance* toFinalize;
+	Hash!(char[], CrocString*) stringTab;
+	Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
+	CrocTable* toBeNormalized; // linked list of tables to be normalized
+	ulong currentRef;
+	CrocString* ctorString; // also stored in metaStrings, don't have to scan it as a root
+	CrocThread* curThread;
+	bool isThrowing;
 
 	// The following members point into the D heap.
-	package CrocNativeObj*[Object] nativeObjs;
-	package Layout!(char) formatter;
-	package CrocException dexception;
+	CrocNativeObj*[Object] nativeObjs;
+	Layout!(char) formatter;
+	CrocException dexception;
 
 	version(CrocExtendedCoro)
 		version(CrocPoolFibers)
-			package bool[Fiber] fiberPool;
+			bool[Fiber] fiberPool;
 }
 
 package enum MM

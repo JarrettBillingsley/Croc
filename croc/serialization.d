@@ -40,6 +40,7 @@ import croc.types;
 import croc.types_function;
 import croc.types_instance;
 import croc.utils;
+import croc.vm;
 
 // ================================================================================================================================================
 // Public
@@ -830,8 +831,8 @@ private:
 
 		auto size = stackSize(t);
 		t.vm.alloc.resizeArray(mObjTable, 0);
-		auto oldLimit = t.vm.alloc.gcLimit;
-		t.vm.alloc.gcLimit = typeof(oldLimit).max;
+
+		disableGC(t.vm);
 
 		scope(failure)
 			setStackSize(t, size);
@@ -839,7 +840,7 @@ private:
 		scope(exit)
 		{
 			t.vm.alloc.resizeArray(mObjTable, 0);
-			t.vm.alloc.gcLimit = oldLimit;
+			enableGC(t.vm);
 		}
 
 		// we leave these on the stack so they won't be collected, but we get 'real' references

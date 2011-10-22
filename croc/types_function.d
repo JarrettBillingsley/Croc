@@ -87,15 +87,6 @@ static:
 		return f;
 	}
 
-	// Free a function.
-	package void free(ref Allocator alloc, CrocFunction* f)
-	{
-		if(f.isNative)
-			alloc.free(f, NativeClosureSize(f.numUpvals));
-		else
-			alloc.free(f, ScriptClosureSize(f.numUpvals));
-	}
-
 	package bool isNative(CrocFunction* f)
 	{
 		return f.isNative;

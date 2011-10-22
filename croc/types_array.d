@@ -48,11 +48,10 @@ static:
 		return ret;
 	}
 
-	// Free an array object.
-	package void free(ref Allocator alloc, CrocArray* a)
+	// Finalize an array object.
+	package void finalize(ref Allocator alloc, CrocArray* a)
 	{
 		alloc.freeArray(a.data);
-		alloc.free(a);
 	}
 
 	// Resize an array object.

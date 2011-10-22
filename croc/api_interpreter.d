@@ -297,13 +297,17 @@ uword maybeGC(CrocThread* t)
 {
 	uword ret = 0;
 
-	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
-	{
+	if(t.vm.alloc.gcDisabled > 0)
+		return ret;
+
+	// TODO: come up with a new trigger for the GC.
+// 	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
+// 	{
 		ret = gc(t);
 
-		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
-			t.vm.alloc.gcLimit <<= 1;
-	}
+// 		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
+// 			t.vm.alloc.gcLimit <<= 1;
+// 	}
 
 	return ret;
 }
@@ -320,11 +324,26 @@ Returns:
 */
 uword gc(CrocThread* t)
 {
+	if(t.vm.alloc.gcDisabled > 0)
+		return 0;
+
+	if(t.vm.inGCCycle)
+		// can't throw a Croc exception cause that would allocate memory and cause an infinite recursion.
+		throw new /* CrocFatal */Exception("GC cycle triggered while one is already in progress. WAT.");
+
+	t.vm.inGCCycle = true;
+	scope(exit) t.vm.inGCCycle = false;
+
 	auto beforeSize = t.vm.alloc.totalBytes;
 
-	mark(t.vm);
-	sweep(t.vm);
+	gcCycle(t.vm);
 	runFinalizers(t);
+
+	t.vm.stringTab.minimize(t.vm.alloc);
+	t.vm.weakRefTab.minimize(t.vm.alloc);
+
+	for(auto tab = t.vm.toBeNormalized; tab !is null; tab = tab.nextTab)
+		table.normalize(tab);
 
 	return beforeSize - t.vm.alloc.totalBytes;
 }
@@ -4137,7 +4156,7 @@ CrocString* createString(CrocThread* t, char[] data)
 {
 	uword h = void;
 
-	if(auto s = string.lookup(t, data, h))
+	if(auto s = string.lookup(t.vm, data, h))
 		return s;
 
 	uword cpLen = void;
@@ -4147,5 +4166,5 @@ CrocString* createString(CrocThread* t, char[] data)
 	catch(UnicodeException e)
 		throwStdException(t, "UnicodeException", "Invalid UTF-8 sequence");
 
-	return string.create(t, data, h, cpLen);
+	return string.create(t.vm, data, h, cpLen);
 }

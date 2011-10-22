@@ -89,6 +89,11 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.alloc.memFunc = memFunc;
 	vm.alloc.ctx = ctx;
 
+	disableGC(vm);
+
+	// TODO: increase the nursery size
+	vm.alloc.resizeNurserySpace(256 * (1 << 10));
+
 	vm.metaTabs = vm.alloc.allocArray!(CrocNamespace*)(CrocValue.Type.max + 1);
 	vm.mainThread = thread.create(vm);
 	auto t = vm.mainThread;
@@ -114,7 +119,7 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 	vm.object = classobj.create(t.vm.alloc, createString(t, "Object"), null);
 	push(t, CrocValue(vm.object));
 	newGlobal(t, "Object");
-	
+
 	// Throwable
 	vm.throwable = classobj.create(t.vm.alloc, createString(t, "Throwable"), vm.object);
 	push(t, CrocValue(vm.throwable));
@@ -132,23 +137,56 @@ void closeVMImpl(CrocVM* vm)
 	vm.weakRefTab.clear(vm.alloc);
 	vm.refTab.clear(vm.alloc);
 	vm.stdExceptions.clear(vm.alloc);
+	vm.roots[0].clear(vm.alloc);
+	vm.roots[1].clear(vm.alloc);
+	vm.cycleRoots.clear(vm.alloc);
+	vm.toFinalize.clear(vm.alloc);
+	vm.alloc.cleanup();
 
-	debug if(vm.alloc.totalBytes != 0)
+	if(vm.alloc.totalBytes != 0)
 	{
-		debug(LEAK_DETECTOR)
+		debug(CROC_LEAK_DETECTOR)
 		{
-			foreach(ptr, block; vm.alloc._memBlocks)
-				Stdout.formatln("Unfreed block of memory: address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+			if(vm.alloc._rcBlocks.length)
+			{
+				Stdout.formatln("Unfreed RC blocks:");
+
+				foreach(ptr, block; vm.alloc._rcBlocks)
+					Stdout.formatln("  address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+			}
+
+			if(vm.alloc._rawBlocks.length)
+			{
+				Stdout.formatln("Unfreed raw blocks:");
+
+				foreach(ptr, block; vm.alloc._rawBlocks)
+					Stdout.formatln("  address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+			}
 		}
 
-		throw new Exception(Format("There are {} unfreed bytes!", vm.alloc.totalBytes));
+		throw new Exception(Format("There are {} total unfreed bytes!", vm.alloc.totalBytes));
 	}
 
-	debug(LEAK_DETECTOR)
-		vm.alloc._memBlocks.clear(vm.alloc);
+	debug(CROC_LEAK_DETECTOR)
+	{
+		vm.alloc._rcBlocks.clear(vm.alloc);
+		vm.alloc._rawBlocks.clear(vm.alloc);
+		vm.alloc._nurseryBlocks.clear(vm.alloc);
+	}
 
 	delete vm.formatter;
 	*vm = CrocVM.init;
+}
+
+void disableGC(CrocVM* vm)
+{
+	vm.alloc.gcDisabled++;
+}
+
+void enableGC(CrocVM* vm)
+{
+	vm.alloc.gcDisabled--;
+	assert(vm.alloc.gcDisabled != -1);
 }
 
 class CustomLayout : Layout!(char)

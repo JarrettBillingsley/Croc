@@ -58,59 +58,54 @@ package:
 // Free all objects.
 void freeAll(CrocThread* t)
 {
-	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
-	{
-		auto cur = *pcur;
-
-		if((cast(CrocBaseObject*)cur).mType == CrocValue.Type.Instance)
-		{
-			auto i = cast(CrocInstance*)cur;
-
-			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
-			{
-				*pcur = cur.next;
-
-				cur.flags |= GCBits.Finalized;
-				i.nextInstance = t.vm.toFinalize;
-				t.vm.toFinalize = i;
-			}
-			else
-				pcur = &cur.next;
-		}
-		else
-			pcur = &cur.next;
-	}
-
-	runFinalizers(t);
-	assert(t.vm.toFinalize is null);
-
-	GCObject* next = void;
-
-	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
-	{
-		next = cur.next;
-		free(t.vm, cur);
-	}
+	// TODO: this.
+// 	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
+// 	{
+// 		auto cur = *pcur;
+// 
+// 		if((cast(CrocBaseObject*)cur).mType == CrocValue.Type.Instance)
+// 		{
+// 			auto i = cast(CrocInstance*)cur;
+// 
+// 			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
+// 			{
+// 				*pcur = cur.next;
+// 
+// 				cur.flags |= GCBits.Finalized;
+// 				i.nextInstance = t.vm.toFinalize;
+// 				t.vm.toFinalize = i;
+// 			}
+// 			else
+// 				pcur = &cur.next;
+// 		}
+// 		else
+// 			pcur = &cur.next;
+// 	}
+// 
+// 	runFinalizers(t);
+// 	assert(t.vm.toFinalize is null);
+// 
+// 	GCObject* next = void;
+// 
+// 	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
+// 	{
+// 		next = cur.next;
+// 		free(t.vm, cur);
+// 	}
 }
 
 void runFinalizers(CrocThread* t)
 {
 	auto alloc = &t.vm.alloc;
+	auto modBuffer = &alloc.modBuffer;
+	auto decBuffer = &alloc.decBuffer;
 
-	for(auto pcur = &t.vm.toFinalize; *pcur !is null; )
+	// FINALIZE. Go through the finalize buffer, setting reference count to 1, running the finalizer, and setting it to finalized. At this point, the
+	// 	object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
+	// 	a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
+	foreach(i; t.vm.toFinalize)
 	{
-		auto i = *pcur;
-
-		// resurrect object
-		*pcur = i.nextInstance;
-		i.next = alloc.gcHead;
-		alloc.gcHead = cast(GCObject*)i;
-		i.flags = (i.flags & ~GCBits.Marked) | !alloc.markVal | GCBits.Finalized;
-
-		// temporarily disable the GC
-		auto oldLimit = alloc.gcLimit;
-		alloc.gcLimit = typeof(oldLimit).max;
-		scope(exit) alloc.gcLimit = oldLimit;
+		i.refCount = 1;
 
 		auto size = stackSize(t);
 
@@ -131,7 +126,12 @@ void runFinalizers(CrocThread* t)
 			fielda(t, -2, "cause");
 			throwException(t);
 		}
+
+		modBuffer.add(*alloc, cast(GCObject*)i);
+		decBuffer.add(*alloc, cast(GCObject*)i);
 	}
+
+	t.vm.toFinalize.reset();
 }
 
 // ============================================================================
@@ -1520,7 +1520,7 @@ void sliceImpl(CrocThread* t, CrocValue* dest, CrocValue* src, CrocValue* lo, Cr
 			if(!validIndices(loIndex, hiIndex, str.cpLength))
 				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
-			return *dest = string.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
+			return *dest = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
 
 		default:
 			if(tryMM!(3, true)(t, MM.Slice, dest, src, lo, hi))
