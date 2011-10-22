@@ -33,6 +33,26 @@ import tango.core.Tuple;
 import tango.text.convert.Utf;
 import tango.text.Util;
 
+// Returns closest power of 2 that is >= n. Taken from the Stanford Bit Twiddling Hacks page.
+size_t largerPow2(size_t n)
+{
+	if(n == 0)
+		return 0;
+
+	n--;
+	n |= n >> 1;
+	n |= n >> 2;
+	n |= n >> 4;
+	n |= n >> 8;
+	n |= n >> 16;
+
+	static if(size_t.sizeof == 8)
+		n |= n >> 32;
+
+	n++;
+	return n;
+}
+
 // Parsing mangles for fun and profit.
 char[] _getJustName(char[] mangle)
 {

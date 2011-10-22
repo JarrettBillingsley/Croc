@@ -38,12 +38,15 @@ import tango.text.Util;
 import croc.base_alloc;
 import croc.utils;
 
+alias size_t uword;
+
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================
 
 struct Hash(K, V)
 {
+private:
 	template HashMethod(char[] expr)
 	{
 		static if(isStringType!(K))
@@ -54,7 +57,7 @@ struct Hash(K, V)
 			const HashMethod = "typeid(K).getHash(&" ~ expr ~ ")";
 	}
 
-	private const UseHash = isStringType!(K);
+	const UseHash = isStringType!(K);
 
 	struct Node
 	{
@@ -67,22 +70,21 @@ struct Hash(K, V)
 		bool used;
 	}
 
-	private Node[] mNodes;
-	private uint mHashMask;
-	private Node* mColBucket;
-	private size_t mSize;
+	Node[] mNodes;
+	uint mHashMask;
+	Node* mColBucket;
+	uword mSize;
 
-	package void prealloc(ref Allocator alloc, size_t size)
+package:
+	void prealloc(ref Allocator alloc, uword size)
 	{
 		if(size <= mNodes.length)
 			return;
-
-		size_t newSize = 4;
-		for(; newSize < size; newSize <<= 1) {}
-		resizeArray(alloc, newSize);
+		else if(size > 4)
+			resizeArray(alloc, largerPow2(size));
 	}
 
-	package V* insert(ref Allocator alloc, K key)
+	V* insert(ref Allocator alloc, K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
 
@@ -135,7 +137,7 @@ struct Hash(K, V)
 		return &mainPosNode.value;
 	}
 
-	package bool remove(K key)
+	bool remove(K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
 		auto n = &mNodes[hash & mHashMask];
@@ -177,7 +179,7 @@ struct Hash(K, V)
 		}
 	}
 
-	package V* lookup(K key)
+	V* lookup(K key)
 	{
 		if(mNodes.length == 0)
 			return null;
@@ -185,7 +187,7 @@ struct Hash(K, V)
 		return lookup(key, mixin(HashMethod!("key")));
 	}
 
-	package V* lookup(K key, uint hash)
+	V* lookup(K key, uint hash)
 	{
 		if(mNodes.length == 0)
 			return null;
@@ -197,7 +199,7 @@ struct Hash(K, V)
 		return null;
 	}
 
-	package bool next(ref size_t idx, ref K* key, ref V* val)
+	bool next(ref uword idx, ref K* key, ref V* val)
 	{
 		for(; idx < mNodes.length; idx++)
 		{
@@ -213,7 +215,7 @@ struct Hash(K, V)
 		return false;
 	}
 
-	package int opApply(int delegate(ref K, ref V) dg)
+	int opApply(int delegate(ref K, ref V) dg)
 	{
 		foreach(ref node; mNodes)
 		{
@@ -225,7 +227,7 @@ struct Hash(K, V)
 		return 0;
 	}
 	
-	package int opApply(int delegate(ref V) dg)
+	int opApply(int delegate(ref V) dg)
 	{
 		foreach(ref node; mNodes)
 		{
@@ -237,24 +239,24 @@ struct Hash(K, V)
 		return 0;
 	}
 
-	package size_t length()
+	uword length()
 	{
 		return mSize;
 	}
 
-	package void minimize(ref Allocator alloc)
+	void minimize(ref Allocator alloc)
 	{
 		if(mSize == 0)
 			clear(alloc);
 		else
 		{
-			size_t newSize = 4;
+			uword newSize = 4;
 			for(; newSize < mSize; newSize <<= 1) {}
 			resizeArray(alloc, newSize);
 		}
 	}
 	
-	package void clear(ref Allocator alloc)
+	void clear(ref Allocator alloc)
 	{
 		alloc.freeArray(mNodes);
 		mNodes = null;
@@ -263,7 +265,8 @@ struct Hash(K, V)
 		mSize = 0;
 	}
 
-	private void markUnused(Node* n)
+private:
+	void markUnused(Node* n)
 	{
 		assert(n >= mNodes.ptr && n < mNodes.ptr + mNodes.length);
 
@@ -271,11 +274,11 @@ struct Hash(K, V)
 
 		if(n < mColBucket)
 			mColBucket = n;
-			
+
 		mSize--;
 	}
 
-	private void rehash(ref Allocator alloc)
+	void rehash(ref Allocator alloc)
 	{
 		if(mNodes.length != 0)
 			resizeArray(alloc, mNodes.length * 2);
@@ -283,7 +286,7 @@ struct Hash(K, V)
 			resizeArray(alloc, 4);
 	}
 
-	private void resizeArray(ref Allocator alloc, size_t newSize)
+	void resizeArray(ref Allocator alloc, uword newSize)
 	{
 		auto oldNodes = mNodes;
 
@@ -299,7 +302,7 @@ struct Hash(K, V)
 		alloc.freeArray(oldNodes);
 	}
 
-	private Node* getColBucket()
+	Node* getColBucket()
 	{
 		for(auto end = mNodes.ptr + mNodes.length; mColBucket < end; mColBucket++)
 			if(mColBucket.used == false)

@@ -30,6 +30,7 @@ import tango.stdc.string;
 import croc.base_alloc;
 import croc.base_opcodes;
 import croc.types;
+import croc.utils;
 
 struct array
 {
@@ -162,25 +163,5 @@ static:
 			return alloc.allocArray!(CrocValue)(largerPow2(size));
 		else
 			return alloc.allocArray!(CrocValue)(size);
-	}
-
-	// Returns closest power of 2 that is >= n. Taken from the Stanford Bit Twiddling Hacks page.
-	private uword largerPow2(uword n)
-	{
-		if(n == 0)
-			return 0;
-
-		n--;
-		n |= n >> 1;
-		n |= n >> 2;
-		n |= n >> 4;
-		n |= n >> 8;
-		n |= n >> 16;
-
-		static if(uword.sizeof == 8)
-			n |= n >> 32;
-
-		n++;
-		return n;
 	}
 }
