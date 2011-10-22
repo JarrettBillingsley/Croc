@@ -7,3 +7,4 @@ croctest.d
 -version=CrocILCheckErrors
 -g
 -w
+-Xtango

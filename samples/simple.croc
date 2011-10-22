@@ -2,8 +2,6 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
-import devil as il
-
 local aa
 
 @Finalizable class A
@@ -15,27 +13,27 @@ local aa
 	}
 }
 
-@Finalizable
-class ILImage
-{
-	_handle
-
-	this()
-	{
-		:_handle = il.iluGenImage()
-	}
-
-	function finalizer()
-	{
-		il.ilDeleteImage(:_handle)
-		writeln("finalizer!")
-	}
-}
+// @Finalizable
+// class ILImage
+// {
+// 	_handle
+// 
+// 	this()
+// 	{
+// 		:_handle = il.iluGenImage()
+// 	}
+// 
+// 	function finalizer()
+// 	{
+// 		il.ilDeleteImage(:_handle)
+// 		writeln("finalizer!")
+// 	}
+// }
 
 function main()
 {
-	il.ilInit()
-	il.iluInit()
+// 	il.ilInit()
+// 	il.iluInit()
 
 // 	local i = ILImage()
 // 	writefln("handle: {}", i._handle)
