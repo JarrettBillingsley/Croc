@@ -584,14 +584,14 @@ void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
 
 	if(o.isNative)
 	{
-		foreach(ref uv; o.nativeUpvals())
+		foreach(ref uv; o.nativeUpvals_x())
 			mixin(CondCallback!("uv"));
 	}
 	else
 	{
 		callback(cast(GCObject**)&o.scriptFunc);
 
-		foreach(ref uv; o.scriptUpvals)
+		foreach(ref uv; o.scriptUpvals_x())
 			callback(cast(GCObject**)&uv);
 	}
 }

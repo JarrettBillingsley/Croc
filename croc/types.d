@@ -520,7 +520,7 @@ struct CrocMemblock
 	package uword itemLength;
 	package TypeStruct* kind;
 	package bool ownData;
-	
+
 	static const bool ACYCLIC = true;
 }
 
@@ -540,12 +540,12 @@ struct CrocFunction
 		package NativeFunc nativeFunc;
 	}
 
-	package CrocValue[] nativeUpvals()
+	package CrocValue[] nativeUpvals_x()
 	{
 		return (cast(CrocValue*)(this + 1))[0 .. numUpvals];
 	}
 
-	package CrocUpval*[] scriptUpvals()
+	package CrocUpval*[] scriptUpvals_x()
 	{
 		return (cast(CrocUpval**)(this + 1))[0 .. numUpvals];
 	}

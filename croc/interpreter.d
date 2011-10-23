@@ -2803,18 +2803,20 @@ void execute(CrocThread* t, uword depth = 1)
 	auto stackBase = t.stackBase;
 	auto constTable = t.currentAR.func.scriptFunc.constants;
 	auto env = t.currentAR.func.environment;
-	auto upvals = t.currentAR.func.scriptUpvals();
+	auto upvals_x = t.currentAR.func.scriptUpvals_x();
 	auto pc = &t.currentAR.pc;
 
 	try
 	{
+		// TODO: have to solve the upvalue setting problem -- when we set an upvalue, we somehow have to trigger the write barrier on the upvalue that owns it O_o
 		CrocValue* get(uint index)
 		{
 			switch(index & Instruction.locMask)
 			{
-				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
-				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
-				case Instruction.locUpval: return upvals[index & ~Instruction.locMask].value;
+				// These are dead code?
+// 				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
+// 				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
+				case Instruction.locUpval: return upvals_x[index & ~Instruction.locMask].value;
 
 				default:
 					auto name = constTable[index & ~Instruction.locMask].mString;
@@ -3692,15 +3694,18 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "RuntimeException", "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 					}
 
-					foreach(ref uv; n.scriptUpvals())
+					foreach(ref uv; n.scriptUpvals_x())
 					{
 						if((*pc).rd == 0)
 							uv = findUpvalue(t, (*pc).rs);
 						else
-							uv = upvals[(*pc).uimm];
+							uv = upvals_x[(*pc).uimm];
 
 						(*pc)++;
 					}
+
+					// TODO: needed? harmless I guess
+					func.barrier(t.vm.alloc, n);
 
 					*mixin(GetRD) = n;
 					maybeGC(t);

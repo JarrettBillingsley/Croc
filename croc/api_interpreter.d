@@ -710,7 +710,8 @@ word newFunctionWithEnv(CrocThread* t, uint numParams, NativeFunc func, char[] n
 	maybeGC(t);
 
 	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
-	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
+	.func.barrier(t.vm.alloc, f);
+	f.nativeUpvals_x()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
 	return push(t, CrocValue(f));
@@ -1703,11 +1704,12 @@ void setUpval(CrocThread* t, uword idx)
 
 	mixin(apiCheckNumParams!("1"));
 
-	auto upvals = t.currentAR.func.nativeUpvals();
+	auto upvals = t.currentAR.func.nativeUpvals_x();
 
 	if(idx >= upvals.length)
 		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
-
+		
+	func.barrier(t.vm.alloc, t.currentAR.func);
 	upvals[idx] = *getValue(t, -1);
 	pop(t);
 }
@@ -1732,7 +1734,7 @@ word getUpval(CrocThread* t, uword idx)
 
 	assert(t.currentAR.func.isNative, "getUpval used on a non-native func");
 
-	auto upvals = t.currentAR.func.nativeUpvals();
+	auto upvals = t.currentAR.func.nativeUpvals_x();
 
 	if(idx >= upvals.length)
 		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
@@ -2205,6 +2207,7 @@ void setFuncEnv(CrocThread* t, word func)
 	if(!f.isNative)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the environment of a script function");
 
+	.func.barrier(t.vm.alloc, f);
 	f.environment = ns;
 	pop(t);
 }

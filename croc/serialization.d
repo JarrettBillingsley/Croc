@@ -396,7 +396,7 @@ private:
 			serialize(CrocValue(v.environment));
 		}
 
-		foreach(val; v.scriptUpvals)
+		foreach(val; v.scriptUpvals_x)
 			serialize(CrocValue(cast(CrocBaseObject*)val));
 	}
 
@@ -1146,7 +1146,7 @@ private:
 		func.environment = getNamespace(t, -1);
 		pop(t);
 
-		foreach(ref val; func.scriptUpvals())
+		foreach(ref val; func.scriptUpvals_x())
 		{
 			deserializeUpval();
 			val = cast(CrocUpval*)getValue(t, -1).mBaseObj;

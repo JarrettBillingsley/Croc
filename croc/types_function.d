@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_function;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct func
@@ -59,7 +60,7 @@ static:
 			f.maxParams = def.numParams;
 
 		f.scriptFunc = def;
-		f.scriptUpvals()[] = null;
+		f.scriptUpvals_x()[] = null;
 
 		if(def.environment is null)
 			def.environment = env;
@@ -82,9 +83,15 @@ static:
 		f.maxParams = f.numParams;
 
 		f.nativeFunc = func;
-		f.nativeUpvals()[] = CrocValue.nullValue;
+		f.nativeUpvals_x()[] = CrocValue.nullValue;
 
 		return f;
+	}
+	
+	// Write barrier.
+	package void barrier(ref Allocator alloc, CrocFunction* f)
+	{
+		mixin(writeBarrier!("alloc", "f"));
 	}
 
 	package bool isNative(CrocFunction* f)

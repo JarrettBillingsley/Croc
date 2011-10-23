@@ -209,7 +209,7 @@ package:
 		(cast(void*)ret)[0 .. T.sizeof] = (cast(void*)&T.init)[0 .. T.sizeof];
 		*ret = T.init;
 		ret.memSize = size;
-		ret.gcflags = GCFlags.InRC;
+		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer.
 
 		static if(is(typeof(T.ACYCLIC)))
 			ret.gcflags |= GCFlags.Green;
