@@ -1430,7 +1430,7 @@ void lenaImpl(CrocThread* t, CrocValue* dest, CrocValue* len)
 				typeString(t, len);
 				throwStdException(t, "TypeException", "Attempting to set the length of a memblock using a length of type '{}'", getString(t, -1));
 			}
-			
+
 			auto mb = dest.mMemblock;
 
 			if(!mb.ownData)
@@ -2809,6 +2809,7 @@ void execute(CrocThread* t, uword depth = 1)
 	try
 	{
 		// TODO: have to solve the upvalue setting problem -- when we set an upvalue, we somehow have to trigger the write barrier on the upvalue that owns it O_o
+		// lena, cateq, idxa, fielda.
 		CrocValue* get(uint index)
 		{
 			switch(index & Instruction.locMask)
@@ -2840,7 +2841,6 @@ void execute(CrocThread* t, uword depth = 1)
 		}
 
 		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
-		const char[] GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
 		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
 		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
 
@@ -3471,12 +3471,14 @@ void execute(CrocThread* t, uword depth = 1)
 
 				case Op.VargSlice:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
-					
+
 					crocint lo = void;
 					crocint hi = void;
 
-					auto loSrc = mixin(GetRD);
-					auto hiSrc = mixin(GetRDplus1);
+					auto rd = i.rd;
+					assert((rd & Instruction.locMask) == Instruction.locLocal);
+					auto loSrc = &t.stack[stackBase + rd];
+					auto hiSrc = loSrc + 1;
 
 					if(!correctIndices(lo, hi, loSrc, hiSrc, numVarargs))
 					{
@@ -3588,7 +3590,7 @@ void execute(CrocThread* t, uword depth = 1)
 					
 				case Op.CustomParamFail:
 					typeString(t, &t.stack[stackBase + i.rs]);
-					
+
 					if(i.rs == 0)
 						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), mixin(GetRT).mString.toString());
 					else
