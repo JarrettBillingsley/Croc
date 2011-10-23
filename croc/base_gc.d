@@ -61,6 +61,7 @@ Buffers which are only changed/used during the collection phase:
 
 void gcCycle(CrocVM* vm)
 {
+	Stdout.formatln("======================= BEGIN ===============================");
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
@@ -90,7 +91,9 @@ void gcCycle(CrocVM* vm)
 
 	visitRoots(vm, (GCObject** obj)
 	{
-		if(((*obj).gcflags & GCFlags.InRC) == 0)
+		if((*obj).gcflags & GCFlags.Forwarded)
+			*obj = (*obj).forwardPointer;
+		else if(((*obj).gcflags & GCFlags.InRC) == 0)
 			*obj = copyOutOfNursery(vm, *obj);
 
 		newRoots.add(vm.alloc, *obj);
@@ -109,7 +112,7 @@ void gcCycle(CrocVM* vm)
 				*slot = (*slot).forwardPointer;
 			else if(((*slot).gcflags & GCFlags.InRC) == 0)
 				*slot = copyOutOfNursery(vm, *slot);
-
+	
 			rcIncrement(*slot);
 		});
 	}
@@ -122,7 +125,10 @@ void gcCycle(CrocVM* vm)
 
 	// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root buffer.
 	foreach(obj; *newRoots)
+	{
+		assert(!(obj >= vm.alloc.nurseryStart && obj < vm.alloc.nurseryEnd));
 		rcIncrement(obj);
+	}
 
 	// heehee sneaky
 	vm.oldRootIdx = 1 - vm.oldRootIdx;
@@ -154,6 +160,7 @@ void gcCycle(CrocVM* vm)
 					decBuffer.add(vm.alloc, *slot);
 				});
 
+				Stdout.write("Normal ");
 				free(vm, obj);
 			}
 		}
@@ -186,6 +193,8 @@ void gcCycle(CrocVM* vm)
 			assert((obj.gcflags & GCFlags.Finalizable) == 0);
 			finalizeBuiltin(vm, obj);
 		}
+		else
+			assert(obj.gcflags == GCFlags.Forwarded);
 
 		ptr = cast(void*)((cast(uword)ptr + obj.memSize + Allocator.nurseryAlignment) & ~Allocator.nurseryAlignment);
 	}
@@ -286,9 +295,19 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 
 	switch((cast(CrocBaseObject*)obj).mType)
 	{
-		case CrocValue.Type.String:  auto o = cast(CrocString*)ret; *vm.stringTab.lookup(o.toString()) = o; break;
-		case CrocValue.Type.WeakRef: auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
+		case CrocValue.Type.String:    auto o = cast(CrocString*)ret; *vm.stringTab.lookup(o.toString()) = o; break;
+		case CrocValue.Type.WeakRef:   auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
 		case CrocValue.Type.NativeObj: auto o = cast(CrocNativeObj*)ret; vm.nativeObjs[o.obj] = o; break;
+		case CrocValue.Type.Upvalue:
+			auto old = cast(CrocUpval*)obj;
+
+			if(old.value is &old.closedValue)
+			{
+				auto n = cast(CrocUpval*)ret;
+				n.value = &n.closedValue;
+			}
+			break;
+
 		default: break;
 	}
 
@@ -300,18 +319,19 @@ debug import tango.io.Stdout;
 // Free an object.
 void free(CrocVM* vm, GCObject* o)
 {
-	if(auto r = vm.weakRefTab.lookup(cast(CrocBaseObject*)o))
-	{
-		(*r).obj = null;
-		vm.weakRefTab.remove(cast(CrocBaseObject*)o);
-	}
-
+	Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o);
 	finalizeBuiltin(vm, o);
 	vm.alloc.free(o);
 }
 
 void finalizeBuiltin(CrocVM* vm, GCObject* o)
 {
+	if(auto r = vm.weakRefTab.lookup(cast(CrocBaseObject*)o))
+	{
+		(*r).obj = null;
+		vm.weakRefTab.remove(cast(CrocBaseObject*)o);
+	}
+
 	switch((cast(CrocBaseObject*)o).mType)
 	{
 		case CrocValue.Type.String:    string.finalize(vm, cast(CrocString*)o); return;
@@ -330,18 +350,22 @@ void finalizeBuiltin(CrocVM* vm, GCObject* o)
 			CrocValue.Type.Instance,
 			CrocValue.Type.Upvalue: break;
 
-
 		default: debug Stdout.formatln("{}", (cast(CrocBaseObject*)o).mType); assert(false);
 	}
 }
 
 void rcIncrement(GCObject* obj)
 {
+	assert((obj.gcflags & GCFlags.InRC) && (obj.gcflags & GCFlags.Forwarded) == 0);
+
 	obj.refCount++;
 
-	if((obj.gcflags & GCFlags.Green) == 0)
+	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green)
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 }
+
+// ================================================================================================================================================
+// Cycle collection
 
 void collectCycles(CrocVM* vm)
 {
@@ -384,6 +408,11 @@ void markGray(GCObject* obj)
 
 	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Grey)
 	{
+		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
+		{
+			Stdout.formatln("it's the string '{}'", (cast(CrocString*)obj).toString());
+			assert(false);
+		}
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Grey;
 
 		visitObj(obj, (GCObject** slot)
@@ -417,6 +446,7 @@ void cycleScanBlack(GCObject* obj)
 	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Green)
 		return;
 
+	assert((cast(CrocBaseObject*)obj).mType != CrocValue.Type.String);
 	obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 
 	visitObj(obj, (GCObject** slot)
@@ -447,33 +477,13 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 			});
 		}
 
+		Stdout.write("Cycle ");
 		free(vm, obj);
 	}
 }
 
-//
-// // Perform the sweep phase of garbage collection.
-// void sweep(CrocVM* vm)
-// {
-// 	auto markVal = vm.alloc.markVal;
-//
-// 	for(auto pcur = &vm.alloc.gcHead; *pcur !is null; )
-// 	{
-// 		auto cur = *pcur;
-//
-// 		if((cur.flags & GCBits.Marked) ^ markVal)
-// 		{
-// 			*pcur = cur.next;
-// 			free(vm, cur);
-// 		}
-// 		else
-// 			pcur = &cur.next;
-// 	}
-//
-//
-// 	vm.alloc.markVal = markVal == 0 ? GCBits.Marked : 0;
-// }
-//
+// ================================================================================================================================================
+// Visiting
 
 // Visit the roots of this VM.
 void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
@@ -493,7 +503,7 @@ void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
 
 	// TODO: change vm.exception to a CrocInstance*
 	if(vm.isThrowing)
-		mixin(CondCallback!("vm.exception"));
+		mixin(ValueCallback!("vm.exception"));
 
 	callback(cast(GCObject**)&vm.registry);
 
@@ -512,9 +522,9 @@ void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
 }
 
 // For visiting CrocValues. Visits it only if it's an object.
-template CondCallback(char[] name)
+template ValueCallback(char[] name)
 {
-	const CondCallback =
+	const ValueCallback =
 	"if(" ~ name ~ ".isObject())
 	{
 		auto obj = " ~ name ~ ".toGCObject();
@@ -523,9 +533,18 @@ template CondCallback(char[] name)
 	}";
 }
 
+// For visiting pointers. Visits it only if it's non-null.
+template CondCallback(char[] name)
+{
+	const CondCallback =
+	"if(" ~ name ~ " !is null) callback(cast(GCObject**)&" ~ name ~ ");";
+}
+
 // Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.
 void visitObj(GCObject* o, void delegate(GCObject**) callback)
 {
+// 	Stdout.formatln("hmmm {} {:b} {} {}", (cast(CrocBaseObject*)o).mType, o.gcflags, ((cast(CrocBaseObject*)o).mType == CrocValue.Type.Function) ? (cast(CrocFunction*)o).name.toString() : "", o.refCount).flush;
+
 	// Green objects have no references to other objects.
 	if((o.gcflags & GCFlags.ColorMask) == GCFlags.Green)
 		return;
@@ -541,7 +560,7 @@ void visitObj(GCObject* o, void delegate(GCObject**) callback)
 		case CrocValue.Type.Thread:    return visitThread(cast(CrocThread*)o,       callback);
 		case CrocValue.Type.FuncDef:   return visitFuncDef(cast(CrocFuncDef*)o,     callback);
 		case CrocValue.Type.Upvalue:   return visitUpvalue(cast(CrocUpval*)o,       callback);
-		default: debug Stdout.formatln("{} {:x}", (cast(CrocBaseObject*)o).mType, o.gcflags & GCFlags.ColorMask); assert(false);
+		default: debug Stdout.formatln("{} {:b} {}", (cast(CrocBaseObject*)o).mType, o.gcflags & GCFlags.ColorMask, o.refCount).flush; assert(false);
 	}
 }
 
@@ -549,71 +568,59 @@ void visitObj(GCObject* o, void delegate(GCObject**) callback)
 void visitTable(CrocTable* o, void delegate(GCObject**) callback)
 {
 	// TODO: change the mechanism for weakref determination
-// 	bool anyWeakRefs = false;
 
 	foreach(ref key, ref val; o.data)
 	{
-		mixin(CondCallback!("key"));
-		mixin(CondCallback!("val"));
-
-// 		if(!anyWeakRefs && key.type == CrocValue.Type.WeakRef || val.type == CrocValue.Type.WeakRef)
-// 			anyWeakRefs = true;
+		mixin(ValueCallback!("key"));
+		mixin(ValueCallback!("val"));
 	}
-
-// 	if(anyWeakRefs)
-// 	{
-// 		o.nextTab = vm.toBeNormalized;
-// 		vm.toBeNormalized = o;
-// 	}
 }
 
 // Visit an array.
 void visitArray(CrocArray* o, void delegate(GCObject**) callback)
 {
 	foreach(ref val; o.toArray())
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 }
 
 // Visit a function.
 void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
 {
-	callback(cast(GCObject**)&o.environment);
-
-	if(o.name)
-		callback(cast(GCObject**)&o.name);
+	mixin(CondCallback!("o.environment"));
+	mixin(CondCallback!("o.name"));
 
 	if(o.isNative)
 	{
-		foreach(ref uv; o.nativeUpvals_x())
-			mixin(CondCallback!("uv"));
+		foreach(ref uv; o.nativeUpvals())
+			mixin(ValueCallback!("uv"));
 	}
 	else
 	{
-		callback(cast(GCObject**)&o.scriptFunc);
+		mixin(CondCallback!("o.scriptFunc"));
 
-		foreach(ref uv; o.scriptUpvals_x())
-			callback(cast(GCObject**)&uv);
+		foreach(ref uv; o.scriptUpvals())
+			mixin(CondCallback!("uv"));
 	}
 }
 
 // Visit a class.
 void visitClass(CrocClass* o, void delegate(GCObject**) callback)
 {
-	if(o.name)      callback(cast(GCObject**)&o.name);
-	if(o.parent)    callback(cast(GCObject**)&o.parent);
-	if(o.fields)    callback(cast(GCObject**)&o.fields);
-	if(o.allocator) callback(cast(GCObject**)&o.allocator);
-	if(o.finalizer) callback(cast(GCObject**)&o.finalizer);
+	mixin(CondCallback!("o.name"));
+	mixin(CondCallback!("o.parent"));
+	mixin(CondCallback!("o.fields"));
+	mixin(CondCallback!("o.allocator"));
+	mixin(CondCallback!("o.finalizer"));
 }
 
 // Visit an instance.
 void visitInstance(CrocInstance* o, void delegate(GCObject**) callback)
 {
-	if(o.parent) callback(cast(GCObject**)&o.parent);
-	if(o.fields) callback(cast(GCObject**)&o.fields);
+	mixin(CondCallback!("o.parent"));
+	mixin(CondCallback!("o.fields"));
 
 	foreach(ref val; o.extraValues())
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 }
 
 // Visit a namespace.
@@ -622,11 +629,11 @@ void visitNamespace(CrocNamespace* o, void delegate(GCObject**) callback)
 	foreach(ref key, ref val; o.data)
 	{
 		callback(cast(GCObject**)&key);
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 	}
 
-	if(o.parent) callback(cast(GCObject**)&o.parent);
-	callback(cast(GCObject**)&o.name);
+	mixin(CondCallback!("o.parent"));
+	mixin(CondCallback!("o.name"));
 }
 
 // Visit a thread.
@@ -634,75 +641,57 @@ void visitThread(CrocThread* o, void delegate(GCObject**) callback)
 {
 	foreach(ref ar; o.actRecs[0 .. o.arIndex])
 	{
-		if(ar.func)
-			callback(cast(GCObject**)&ar.func);
-
-		if(ar.proto)
-			callback(cast(GCObject**)&ar.proto);
+		mixin(CondCallback!("ar.func"));
+		mixin(CondCallback!("ar.proto"));
 	}
 
 	foreach(ref val; o.stack[0 .. o.stackIndex])
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 
 	// I guess this can't _hurt_..
 	o.stack[o.stackIndex .. $] = CrocValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 
-	for(auto uv = o.upvalHead; uv !is null; uv = uv.nextuv)
-		visitUpvalue(uv, callback);
+	for(auto puv = &o.upvalHead; *puv !is null; puv = &(*puv).nextuv)
+		callback(cast(GCObject**)puv);
 
-	if(o.coroFunc)
-		callback(cast(GCObject**)&o.coroFunc);
-
-	if(o.hookFunc)
-		callback(cast(GCObject**)&o.hookFunc);
+	mixin(CondCallback!("o.coroFunc"));
+	mixin(CondCallback!("o.hookFunc"));
 
 	version(CrocExtendedCoro)
-	{
-		if(o.coroFiber)
-			callback(cast(GCObject**)&o.coroFiber);
-	}
+		mixin(CondCallback!("o.coroFiber"));
 }
 
 // Visit an upvalue.
 void visitUpvalue(CrocUpval* o, void delegate(GCObject**) callback)
 {
-	mixin(CondCallback!("o.value"));
+	mixin(ValueCallback!("o.value"));
 }
 
 // Visit a function definition.
 void visitFuncDef(CrocFuncDef* o, void delegate(GCObject**) callback)
 {
-	if(o.locFile)
-		callback(cast(GCObject**)&o.locFile);
-
-	if(o.name)
-		callback(cast(GCObject**)&o.name);
+	mixin(CondCallback!("o.locFile"));
+	mixin(CondCallback!("o.name"));
 
 	foreach(ref f; o.innerFuncs)
-		if(f)
-			callback(cast(GCObject**)&f);
+		mixin(CondCallback!("f"));
 
 	foreach(ref val; o.constants)
-		mixin(CondCallback!("val"));
+		mixin(ValueCallback!("val"));
 
 	foreach(ref st; o.switchTables)
 		foreach(ref key, _; st.offsets)
-			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("key"));
 
 	foreach(name; o.upvalNames)
-		if(name)
-			callback(cast(GCObject**)&name);
+		mixin(CondCallback!("name"));
 
 	foreach(ref desc; o.locVarDescs)
-		if(desc.name)
-			callback(cast(GCObject**)&desc.name);
+		mixin(CondCallback!("desc.name"));
 
-	if(o.environment)
-		callback(cast(GCObject**)&o.environment);
-
-	if(o.cachedFunc)
-		callback(cast(GCObject**)&o.cachedFunc);
+	mixin(CondCallback!("o.environment"));
+	mixin(CondCallback!("o.cachedFunc"));
 }

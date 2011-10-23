@@ -540,12 +540,12 @@ struct CrocFunction
 		package NativeFunc nativeFunc;
 	}
 
-	package CrocValue[] nativeUpvals_x()
+	package CrocValue[] nativeUpvals()
 	{
 		return (cast(CrocValue*)(this + 1))[0 .. numUpvals];
 	}
 
-	package CrocUpval*[] scriptUpvals_x()
+	package CrocUpval*[] scriptUpvals()
 	{
 		return (cast(CrocUpval**)(this + 1))[0 .. numUpvals];
 	}
@@ -561,7 +561,8 @@ struct CrocClass
 	package CrocNamespace* fields;
 	package CrocFunction* allocator;
 	package CrocFunction* finalizer;
-	package bool hasInstances;
+	package bool allocatorSet;
+	package bool finalizerSet;
 }
 
 struct CrocInstance
@@ -571,8 +572,6 @@ struct CrocInstance
 	package CrocNamespace* fields;
 	package uword numValues;
 	package uword extraBytes;
-
-	package CrocInstance* nextInstance; // used for finalizable instances, to mark them
 
 	package CrocValue[] extraValues()
 	{

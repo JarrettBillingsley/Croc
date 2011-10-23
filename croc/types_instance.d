@@ -28,6 +28,7 @@ module croc.types_instance;
 import tango.math.Math;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 import croc.types_class;
 import croc.types_namespace;
@@ -49,8 +50,8 @@ static:
 		else
 			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
 
+		mixin(writeBarrier!("vm.alloc", "i"));
 		i.parent = parent;
-		i.parent.hasInstances = true;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;
 		i.extraValues()[] = CrocValue.nullValue;
@@ -58,17 +59,17 @@ static:
 		return i;
 	}
 
-	package CrocValue* getField(CrocInstance* i, CrocString* name)
+	package CrocValue* getField_x(CrocInstance* i, CrocString* name)
 	{
 		CrocValue dummy;
-		return getField(i, name, dummy);
+		return getField_x(i, name, dummy);
 	}
 
-	package CrocValue* getField(CrocInstance* i, CrocString* name, out CrocValue owner)
+	package CrocValue* getField_x(CrocInstance* i, CrocString* name, out CrocValue owner)
 	{
 		if(i.fields !is null)
 		{
-			if(auto ret = namespace.get(i.fields, name))
+			if(auto ret = namespace.get_x(i.fields, name))
 			{
 				owner = i;
 				return ret;
@@ -76,7 +77,7 @@ static:
 		}
 
 		CrocClass* dummy;
-		auto ret = classobj.getField(i.parent, name, dummy);
+		auto ret = classobj.getField_x(i.parent, name, dummy);
 
 		if(dummy !is null)
 			owner = dummy;
@@ -87,7 +88,10 @@ static:
 	package void setField(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
 	{
 		if(i.fields is null)
+		{
+			mixin(writeBarrier!("alloc", "i"));
 			i.fields = namespace.create(alloc, i.parent.name);
+		}
 
 		namespace.set(alloc, i.fields, name, value);
 	}
@@ -98,6 +102,17 @@ static:
 		assert(i.fields !is null);
 
 		namespace.set(alloc, i.fields, slot, value);
+	}
+	
+	package void setExtraVal(ref Allocator alloc, CrocInstance* i, uword idx, CrocValue* value)
+	{
+		auto dest = &i.extraValues()[idx];
+		
+		if(*dest != *value)
+		{
+			mixin(writeBarrier!("alloc", "i"));
+			*dest = *value;
+		}
 	}
 
 	package bool derivesFrom(CrocInstance* i, CrocClass* c)
@@ -112,7 +127,10 @@ static:
 	package CrocNamespace* fieldsOf(ref Allocator alloc, CrocInstance* i)
 	{
 		if(i.fields is null)
+		{
+			mixin(writeBarrier!("alloc", "i"));
 			i.fields = namespace.create(alloc, i.parent.name);
+		}
 
 		return i.fields;
 	}

@@ -28,6 +28,7 @@ subject to the following restrictions:
 module croc.types_funcdef;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct funcdef
@@ -39,7 +40,9 @@ static:
 
 	package CrocFuncDef* create(ref Allocator alloc)
 	{
-		return alloc.allocate!(CrocFuncDef);
+		auto ret = alloc.allocate!(CrocFuncDef);
+		mixin(writeBarrier!("alloc", "ret"));
+		return ret;
 	}
 
 	// Finalize a function definition.

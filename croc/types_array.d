@@ -44,6 +44,7 @@ static:
 	package CrocArray* create(ref Allocator alloc, uword size)
 	{
 		auto ret = alloc.allocate!(CrocArray)();
+		barrier(alloc, ret);
 		ret.data = allocData!(false)(alloc, size);
 		ret.length = size;
 		return ret;

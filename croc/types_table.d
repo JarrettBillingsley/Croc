@@ -40,6 +40,7 @@ static:
 	package CrocTable* create(ref Allocator alloc, uword size = 0)
 	{
 		auto t = alloc.allocate!(CrocTable);
+		mixin(writeBarrier!("alloc", "t"));
 		t.data.prealloc(alloc, size);
 		return t;
 	}
@@ -51,7 +52,7 @@ static:
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get(CrocTable* t, CrocValue key)
+	package CrocValue* get_x(CrocTable* t, CrocValue key)
 	{
 		return t.data.lookup(key);
 	}
@@ -61,7 +62,7 @@ static:
 	{
 		assert(value.type != CrocValue.Type.Null);
 		auto slot = t.data.insert(alloc, key);
-		
+
 		if(*slot != value)
 		{
 			mixin(writeBarrier!("alloc", "t"));

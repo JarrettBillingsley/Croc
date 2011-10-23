@@ -42,6 +42,7 @@ static:
 		assert(name !is null);
 
 		auto ns = alloc.allocate!(CrocNamespace);
+		mixin(writeBarrier!("alloc", "ns"));
 		ns.parent = parent;
 		ns.name = name;
 		return ns;
@@ -54,15 +55,21 @@ static:
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get(CrocNamespace* ns, CrocString* key)
+	package CrocValue* get_x(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key);
 	}
-	
+
 	// Sets a key-value pair.
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
-		*ns.data.insert(alloc, key) = *value;
+		auto slot = ns.data.insert(alloc, key);
+		
+		if(*slot != *value)
+		{
+			mixin(writeBarrier!("alloc", "ns"));
+			*slot = *value;
+		}
 	}
 
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocValue* slot, CrocValue* value)
@@ -75,28 +82,32 @@ static:
 	}
 
 	// Remove a key-value pair from the namespace.
-	package void remove(CrocNamespace* ns, CrocString* key)
+	package void remove(ref Allocator alloc, CrocNamespace* ns, CrocString* key)
 	{
+		mixin(writeBarrier!("alloc", "ns"));
 		ns.data.remove(key);
 	}
-	
+
 	// Clears all items from the namespace.
 	package void clear(ref Allocator alloc, CrocNamespace* ns)
 	{
+		if(ns.data.length > 0)
+			mixin(writeBarrier!("alloc", "ns"));
+
 		ns.data.clear(alloc);
 	}
-	
+
 	// Returns `true` if the key exists in the table.
 	package bool contains(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key) !is null;
 	}
-	
+
 	package bool next(CrocNamespace* ns, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return ns.data.next(idx, key, val);
 	}
-	
+
 	package uword length(CrocNamespace* ns)
 	{
 		return ns.data.length();

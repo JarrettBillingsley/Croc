@@ -363,7 +363,7 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = table.get(tab, keys[idx]))
+			if(auto v = table.get_x(tab, keys[idx]))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
@@ -410,7 +410,7 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = namespace.get(ns, keys[idx].mString))
+			if(auto v = namespace.get_x(ns, keys[idx].mString))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
@@ -498,7 +498,7 @@ static:
 				push(t, *v);
 
 				static if(remove)
-					ns.data.remove(*s);
+					namespace.remove(t.vm.alloc, ns, *s);
 			}
 			else
 				throwStdException(t, "ValueException", "Attempting to take from an empty namespace");

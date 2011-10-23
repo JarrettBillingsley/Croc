@@ -463,11 +463,11 @@ static:
 				throwStdException(t, "BoundsException", "invalid upvalue index '{}'", idx);
 
 			if(func.isNative)
-				push(t, func.nativeUpvals_x()[cast(uword)idx]);
+				push(t, func.nativeUpvals()[cast(uword)idx]);
 			else
 			{
 				// don't inline; if t is thread, invalid push
-				auto v = *func.scriptUpvals_x()[cast(uword)idx].value;
+				auto v = *func.scriptUpvals()[cast(uword)idx].value;
 				push(t, v);
 			}
 		}
@@ -485,7 +485,7 @@ static:
 				if(n is name)
 				{
 					found = true;
-					auto v = *func.scriptUpvals_x()[i].value;
+					auto v = *func.scriptUpvals()[i].value;
 					push(t, v);
 					break;
 				}
@@ -520,9 +520,9 @@ static:
 			.func.barrier(t.vm.alloc, func);
 
 			if(func.isNative)
-				func.nativeUpvals_x()[cast(uword)idx] = *getValue(t, arg + 3);
+				func.nativeUpvals()[cast(uword)idx] = *getValue(t, arg + 3);
 			else
-				*func.scriptUpvals_x()[cast(uword)idx].value = *getValue(t, arg + 3);
+				*func.scriptUpvals()[cast(uword)idx].value = *getValue(t, arg + 3);
 		}
 		else if(isString(t, arg + 2))
 		{
@@ -542,9 +542,9 @@ static:
 					.func.barrier(t.vm.alloc, func);
 
 					if(func.isNative)
-						func.nativeUpvals_x()[i] = *getValue(t, arg + 3);
+						func.nativeUpvals()[i] = *getValue(t, arg + 3);
 					else
-						*func.scriptUpvals_x()[i].value = *getValue(t, arg + 3);
+						*func.scriptUpvals()[i].value = *getValue(t, arg + 3);
 
 					break;
 				}

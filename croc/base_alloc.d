@@ -199,6 +199,9 @@ package:
 
 		debug(CROC_LEAK_DETECTOR)
 			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+			
+		static if(T.stringof == "CrocString")
+			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
 		return ret;
 	}
@@ -220,6 +223,9 @@ package:
 
 		debug(CROC_LEAK_DETECTOR)
 			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+			
+		static if(T.stringof == "CrocString")
+			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
 		return ret;
 	}
@@ -227,6 +233,7 @@ package:
 	GCObject* copyToRC(GCObject* obj)
 	{
 		assert((obj.gcflags & GCFlags.InRC) == 0);
+		assert((obj.gcflags & GCFlags.Forwarded) == 0);
 
 		auto ret = realloc(null, 0, obj.memSize);
 		ret[0 .. obj.memSize] = (cast(void*)obj)[0 .. obj.memSize];
@@ -237,6 +244,9 @@ package:
 			assert(b !is null);
 			*_rcBlocks.insert(*this, ret) = *b;
 		}
+		
+		if(*(cast(uint*)(ret + GCObject.sizeof)) == 5)
+			assert(((cast(GCObject*)ret).gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
 		return cast(GCObject*)ret;
 	}
@@ -384,7 +394,7 @@ package:
 	void clearNurserySpace()
 	{
 		nurseryPtr = nurseryStart;
-	
+
 		debug(CROC_NURSERY_STOMP)
 			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 0xCD;
 	

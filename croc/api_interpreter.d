@@ -711,7 +711,7 @@ word newFunctionWithEnv(CrocThread* t, uint numParams, NativeFunc func, char[] n
 
 	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
 	.func.barrier(t.vm.alloc, f);
-	f.nativeUpvals_x()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
+	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
 	return push(t, CrocValue(f));
@@ -1704,7 +1704,7 @@ void setUpval(CrocThread* t, uword idx)
 
 	mixin(apiCheckNumParams!("1"));
 
-	auto upvals = t.currentAR.func.nativeUpvals_x();
+	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
 		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
@@ -1734,7 +1734,7 @@ word getUpval(CrocThread* t, uword idx)
 
 	assert(t.currentAR.func.isNative, "getUpval used on a non-native func");
 
-	auto upvals = t.currentAR.func.nativeUpvals_x();
+	auto upvals = t.currentAR.func.nativeUpvals();
 
 	if(idx >= upvals.length)
 		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
@@ -1813,7 +1813,7 @@ word getGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal(v.mString, getEnv(t));
+	auto g = lookupGlobal_x(t.vm.alloc, v.mString, getEnv(t), false);
 
 	if(g is null)
 		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to get a nonexistent global '{}'", v.mString.toString());
@@ -1858,7 +1858,7 @@ void setGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal(n.mString, getEnv(t));
+	auto g = lookupGlobal_x(t.vm.alloc, n.mString, getEnv(t), true);
 
 	if(g is null)
 		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to set a nonexistent global '{}'", n.mString.toString());
@@ -1931,7 +1931,7 @@ bool findGlobal(CrocThread* t, char[] name, uword depth = 0)
 	auto n = createString(t, name);
 	auto ns = getEnv(t, depth);
 
-	if(namespace.get(ns, n) !is null)
+	if(namespace.get_x(ns, n) !is null)
 	{
 		push(t, CrocValue(ns));
 		return true;
@@ -1939,7 +1939,7 @@ bool findGlobal(CrocThread* t, char[] name, uword depth = 0)
 
 	for(; ns.parent !is null; ns = ns.parent) {}
 
-	if(namespace.get(ns, n) !is null)
+	if(namespace.get_x(ns, n) !is null)
 	{
 		push(t, CrocValue(ns));
 		return true;
@@ -2363,10 +2363,10 @@ void setFinalizer(CrocThread* t, word cls)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.hasInstances)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which has been instantiated", className(t, cls));
+	if(c.finalizerSet)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} whose finalizer was already set", className(t, cls));
 
-	c.finalizer = getFunction(t, -1);
+	classobj.setFinalizer(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
 }
 
@@ -2469,10 +2469,10 @@ void setAllocator(CrocThread* t, word cls)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.hasInstances)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} which has been instantiated", className(t, cls));
+	if(c.allocatorSet)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} whose allocator was already set", className(t, cls));
 
-	c.allocator = getFunction(t, -1);
+	classobj.setAllocator(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
 }
 
@@ -2597,7 +2597,7 @@ void setExtraVal(CrocThread* t, word slot, uword idx)
 		if(idx >= i.numValues)
 			throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
-		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
+		instance.setExtraVal(t.vm.alloc, i, idx, &t.stack[t.stackIndex - 1]);
 		pop(t);
 	}
 	else
@@ -2697,7 +2697,7 @@ void removeKey(CrocThread* t, word obj)
 			throwStdException(t, "FieldException", __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
 		}
 
-		namespace.remove(ns, getStringObj(t, -1));
+		namespace.remove(t.vm.alloc, ns, getStringObj(t, -1));
 		pop(t);
 	}
 	else
@@ -4123,10 +4123,10 @@ bool hasField(CrocThread* t, word obj, char[] fieldName)
 
 	switch(v.type)
 	{
-		case CrocValue.Type.Table:     return table.get(v.mTable, CrocValue(name)) !is null;
-		case CrocValue.Type.Class:     return classobj.getField(v.mClass, name) !is null;
-		case CrocValue.Type.Instance:  return instance.getField(v.mInstance, name) !is null;
-		case CrocValue.Type.Namespace: return namespace.get(v.mNamespace, name) !is null;
+		case CrocValue.Type.Table:     return table.get_x(v.mTable, CrocValue(name)) !is null;
+		case CrocValue.Type.Class:     return classobj.getField_x(v.mClass, name) !is null;
+		case CrocValue.Type.Instance:  return instance.getField_x(v.mInstance, name) !is null;
+		case CrocValue.Type.Namespace: return namespace.get_x(v.mNamespace, name) !is null;
 		default:                       return false;
 	}
 }
