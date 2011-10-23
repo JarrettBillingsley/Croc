@@ -21,6 +21,7 @@ version(CrocAllAddons)
 	version = CrocDevilAddon;
 }
 
+import tango.stdc.stdlib;
 void main()
 {
 	scope(exit) Stdout.flush;
@@ -28,7 +29,9 @@ void main()
 	CrocVM vm;
 	auto t = openVM(&vm);
 	Stdout.formatln("here we go...").flush;
-	loadStdlibs(t, CrocStdlib.ReallyAll);
+// 	gc(t);
+// 	exit(0);
+	loadStdlibs(t, CrocStdlib.Array);
 	Stdout.formatln("whew").flush;
 
 	try

@@ -710,7 +710,7 @@ word newFunctionWithEnv(CrocThread* t, uint numParams, NativeFunc func, char[] n
 	maybeGC(t);
 
 	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
-	.func.barrier(t.vm.alloc, f);
+// 	.func.barrier(t.vm.alloc, f);
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 

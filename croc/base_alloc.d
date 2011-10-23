@@ -244,9 +244,6 @@ package:
 			assert(b !is null);
 			*_rcBlocks.insert(*this, ret) = *b;
 		}
-		
-		if(*(cast(uint*)(ret + GCObject.sizeof)) == 5)
-			assert(((cast(GCObject*)ret).gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
 		return cast(GCObject*)ret;
 	}

@@ -68,11 +68,10 @@ static:
 	// Finalize a string object.
 	package void finalize(CrocVM* vm, CrocString* s)
 	{
-		Stdout.formatln("freeing {}", s.toString()).flush;
 		auto b = vm.stringTab.remove(s.toString());
 		assert(b);
 	}
-import tango.io.Stdout;
+
 	// Compare two string objects.
 	package crocint compare(CrocString* a, CrocString* b)
 	{
