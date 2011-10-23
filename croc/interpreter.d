@@ -1203,7 +1203,7 @@ void fieldaImpl(CrocThread* t, CrocValue* container, CrocString* name, CrocValue
 			else if(owner != CrocValue(i))
 				instance.setField(t.vm.alloc, i, name, value);
 			else
-				*field = *value;
+				instance.setField(t.vm.alloc, i, field, value);
 			return;
 
 		case CrocValue.Type.Namespace:
@@ -2808,41 +2808,57 @@ void execute(CrocThread* t, uword depth = 1)
 
 	try
 	{
-		// TODO: have to solve the upvalue setting problem -- when we set an upvalue, we somehow have to trigger the write barrier on the upvalue that owns it O_o
-		// lena, cateq, idxa, fielda.
-		CrocValue* get(uint index)
+		CrocValue* get(uint index, bool update)
 		{
-			switch(index & Instruction.locMask)
+			// These are dead code?
+// 			case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
+// 			case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
+
+			if((index & Instruction.locMask) == Instruction.locUpval)
 			{
-				// These are dead code?
-// 				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
-// 				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
-				case Instruction.locUpval: return upvals_x[index & ~Instruction.locMask].value;
+				auto uv = upvals_x[index & ~Instruction.locMask];
+				
+				if(update)
+					mixin(writeBarrier!("t.vm.alloc", "uv"));
+					
+				return uv.value;
+			}
+			else
+			{
+				assert((index & Instruction.locMask) == Instruction.locGlobal);
 
-				default:
-					auto name = constTable[index & ~Instruction.locMask].mString;
+				auto name = constTable[index & ~Instruction.locMask].mString;
 
-					if(auto glob = namespace.get(env, name))
-						return glob;
+				if(auto glob = namespace.get(env, name))
+				{
+					if(update)
+						mixin(writeBarrier!("t.vm.alloc", "env"));
+					return glob;
+				}
 
-					auto ns = env;
-					for(; ns.parent !is null; ns = ns.parent){}
+				auto ns = env;
+				for(; ns.parent !is null; ns = ns.parent){}
 
-					if(ns !is env)
+				if(ns !is env)
+				{
+					if(auto glob = namespace.get(ns, name))
 					{
-						if(auto glob = namespace.get(ns, name))
-							return glob;
+						if(update)
+							mixin(writeBarrier!("t.vm.alloc", "ns"));
+						return glob;
 					}
+				}
 
-					throwStdException(t, "NameException", "Attempting to get nonexistent global '{}'", name.toString());
+				throwStdException(t, "NameException", "Attempting to get nonexistent global '{}'", name.toString());
 			}
 
 			assert(false);
 		}
 
-		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
-		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
-		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
+		const char[] GetRDDest = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd, true)";
+		const char[] GetRDSrc = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd, false)";
+		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs, false))";
+		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt, false))";
 
 		Instruction* oldPC = null;
 
@@ -2887,52 +2903,52 @@ void execute(CrocThread* t, uword depth = 1)
 			switch(i.opcode)
 			{
 				// Binary Arithmetic
-				case Op.Add: binOpImpl(t, MM.Add, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Sub: binOpImpl(t, MM.Sub, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Mul: binOpImpl(t, MM.Mul, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Div: binOpImpl(t, MM.Div, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Mod: binOpImpl(t, MM.Mod, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Add: binOpImpl(t, MM.Add, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Sub: binOpImpl(t, MM.Sub, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Mul: binOpImpl(t, MM.Mul, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Div: binOpImpl(t, MM.Div, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Mod: binOpImpl(t, MM.Mod, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
 
 				// Unary Arithmetic
-				case Op.Neg: negImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.Neg: negImpl(t, mixin(GetRDDest), mixin(GetRS)); break;
 
 				// Reflexive Arithmetic
-				case Op.AddEq: reflBinOpImpl(t, MM.AddEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.SubEq: reflBinOpImpl(t, MM.SubEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.MulEq: reflBinOpImpl(t, MM.MulEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.DivEq: reflBinOpImpl(t, MM.DivEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.ModEq: reflBinOpImpl(t, MM.ModEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.AddEq: reflBinOpImpl(t, MM.AddEq, mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.SubEq: reflBinOpImpl(t, MM.SubEq, mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.MulEq: reflBinOpImpl(t, MM.MulEq, mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.DivEq: reflBinOpImpl(t, MM.DivEq, mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.ModEq: reflBinOpImpl(t, MM.ModEq, mixin(GetRDDest), mixin(GetRS)); break;
 
 				// Inc/Dec
-				case Op.Inc: incImpl(t, mixin(GetRD)); break;
-				case Op.Dec: decImpl(t, mixin(GetRD)); break;
+				case Op.Inc: incImpl(t, mixin(GetRDDest)); break;
+				case Op.Dec: decImpl(t, mixin(GetRDDest)); break;
 
 				// Binary Bitwise
-				case Op.And:  binaryBinOpImpl(t, MM.And,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Or:   binaryBinOpImpl(t, MM.Or,   mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Xor:  binaryBinOpImpl(t, MM.Xor,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Shl:  binaryBinOpImpl(t, MM.Shl,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Shr:  binaryBinOpImpl(t, MM.Shr,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.UShr: binaryBinOpImpl(t, MM.UShr, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.And:  binaryBinOpImpl(t, MM.And,  mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Or:   binaryBinOpImpl(t, MM.Or,   mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Xor:  binaryBinOpImpl(t, MM.Xor,  mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Shl:  binaryBinOpImpl(t, MM.Shl,  mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Shr:  binaryBinOpImpl(t, MM.Shr,  mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.UShr: binaryBinOpImpl(t, MM.UShr, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
 
 				// Unary Bitwise
-				case Op.Com: comImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.Com: comImpl(t, mixin(GetRDDest), mixin(GetRS)); break;
 
 				// Reflexive Bitwise
-				case Op.AndEq:  reflBinaryBinOpImpl(t, MM.AndEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.OrEq:   reflBinaryBinOpImpl(t, MM.OrEq,   mixin(GetRD), mixin(GetRS)); break;
-				case Op.XorEq:  reflBinaryBinOpImpl(t, MM.XorEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.ShlEq:  reflBinaryBinOpImpl(t, MM.ShlEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.ShrEq:  reflBinaryBinOpImpl(t, MM.ShrEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.UShrEq: reflBinaryBinOpImpl(t, MM.UShrEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.AndEq:  reflBinaryBinOpImpl(t, MM.AndEq,  mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.OrEq:   reflBinaryBinOpImpl(t, MM.OrEq,   mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.XorEq:  reflBinaryBinOpImpl(t, MM.XorEq,  mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.ShlEq:  reflBinaryBinOpImpl(t, MM.ShlEq,  mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.ShrEq:  reflBinaryBinOpImpl(t, MM.ShrEq,  mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.UShrEq: reflBinaryBinOpImpl(t, MM.UShrEq, mixin(GetRDDest), mixin(GetRS)); break;
 
 				// Data Transfer
-				case Op.Move: *mixin(GetRD) = *mixin(GetRS); break;
+				case Op.Move: *mixin(GetRDDest) = *mixin(GetRS); break;
 				case Op.MoveLocal: t.stack[stackBase + i.rd] = t.stack[stackBase + i.rs]; break;
 				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
 
-				case Op.LoadBool: *mixin(GetRD) = cast(bool)i.rs; break;
-				case Op.LoadNull: *mixin(GetRD) = CrocValue.nullValue; break;
+				case Op.LoadBool: *mixin(GetRDDest) = cast(bool)i.rs; break;
+				case Op.LoadNull: *mixin(GetRDDest) = CrocValue.nullValue; break;
 
 				case Op.LoadNulls:
 					auto start = stackBase + i.rd;
@@ -2949,7 +2965,7 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				// Logical and Control Flow
-				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
+				case Op.Not: *mixin(GetRDDest) = mixin(GetRS).isFalse(); break;
 
 				case Op.Cmp:
 					auto jump = (*pc)++;
@@ -2988,9 +3004,9 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Cmp3:
-					// Doing this to ensure evaluation of mixin(GetRD) happens _after_ compareImpl has executed
+					// Doing this to ensure evaluation of mixin(GetRDDest) happens _after_ compareImpl has executed
 					auto val = compareImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
+					*mixin(GetRDDest) = val;
 					break;
 
 				case Op.SwitchCmp:
@@ -3423,7 +3439,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 					break;
 
-				case Op.VargLen: *mixin(GetRD) = cast(crocint)(stackBase - t.currentAR.vargBase); break;
+				case Op.VargLen: *mixin(GetRDDest) = cast(crocint)(stackBase - t.currentAR.vargBase); break;
 
 				case Op.VargIndex:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
@@ -3444,7 +3460,7 @@ void execute(CrocThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwStdException(t, "BoundsException", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					*mixin(GetRD) = t.stack[t.currentAR.vargBase + cast(uword)index];
+					*mixin(GetRDDest) = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
 
 				case Op.VargIndexAssign:
@@ -3598,8 +3614,8 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				// Array and List Operations
-				case Op.Length: lenImpl(t, mixin(GetRD), mixin(GetRS)); break;
-				case Op.LengthAssign: lenaImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.Length: lenImpl(t, mixin(GetRDDest), mixin(GetRS)); break;
+				case Op.LengthAssign: lenaImpl(t, mixin(GetRDDest), mixin(GetRS)); break;
 				case Op.Append: array.append(t.vm.alloc, t.stack[stackBase + i.rd].mArray, mixin(GetRS)); break;
 
 				case Op.SetArray:
@@ -3617,17 +3633,17 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Cat:
-					catImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
+					catImpl(t, mixin(GetRDDest), stackBase + i.rs, i.rt);
 					maybeGC(t);
 					break;
 
 				case Op.CatEq:
-					catEqImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
+					catEqImpl(t, mixin(GetRDDest), stackBase + i.rs, i.rt);
 					maybeGC(t);
 					break;
 
-				case Op.Index: idxImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.IndexAssign: idxaImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Index: idxImpl(t, mixin(GetRDDest), mixin(GetRS), mixin(GetRT)); break;
+				case Op.IndexAssign: idxaImpl(t, mixin(GetRDSrc), mixin(GetRS), mixin(GetRT)); break;
 
 				case Op.Field:
 					RT = *mixin(GetRT);
@@ -3638,7 +3654,7 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldImpl(t, mixin(GetRD), mixin(GetRS), RT.mString, false);
+					fieldImpl(t, mixin(GetRDDest), mixin(GetRS), RT.mString, false);
 					break;
 
 				case Op.FieldAssign:
@@ -3650,12 +3666,12 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldaImpl(t, mixin(GetRD), RS.mString, mixin(GetRT), false);
+					fieldaImpl(t, mixin(GetRDSrc), RS.mString, mixin(GetRT), false);
 					break;
 
 				case Op.Slice:
 					auto base = &t.stack[stackBase + i.rs];
-					sliceImpl(t, mixin(GetRD), base, base + 1, base + 2);
+					sliceImpl(t, mixin(GetRDDest), base, base + 1, base + 2);
 					break;
 
 				case Op.SliceAssign:
@@ -3665,12 +3681,12 @@ void execute(CrocThread* t, uword depth = 1)
 
 				case Op.NotIn:
 					auto val = !inImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
+					*mixin(GetRDDest) = val;
 					break;
 
 				case Op.In:
 					auto val = inImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
+					*mixin(GetRDDest) = val;
 					break;
 
 				// Value Creation
@@ -3709,7 +3725,7 @@ void execute(CrocThread* t, uword depth = 1)
 					// TODO: needed? harmless I guess
 					func.barrier(t.vm.alloc, n);
 
-					*mixin(GetRD) = n;
+					*mixin(GetRDDest) = n;
 					maybeGC(t);
 					break;
 
@@ -3723,14 +3739,14 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
 					}
 					else
-						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
+						*mixin(GetRDDest) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
 
 					maybeGC(t);
 					break;
 				
 				case Op.ClassNB:
 					RS = *mixin(GetRS);
-					*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
+					*mixin(GetRDDest) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
 					maybeGC(t);
 					break;
 
@@ -3754,7 +3770,7 @@ void execute(CrocThread* t, uword depth = 1)
 					nt.hooks = t.hooks;
 					nt.hookDelay = t.hookDelay;
 					nt.hookCounter = t.hookCounter;
-					*mixin(GetRD) = nt;
+					*mixin(GetRDDest) = nt;
 					break;
 
 				case Op.Namespace:
@@ -3762,7 +3778,7 @@ void execute(CrocThread* t, uword depth = 1)
 					RT = *mixin(GetRT);
 
 					if(RT.type == CrocValue.Type.Null)
-						*mixin(GetRD) = namespace.create(t.vm.alloc, name);
+						*mixin(GetRDDest) = namespace.create(t.vm.alloc, name);
 					else if(RT.type != CrocValue.Type.Namespace)
 					{
 						typeString(t, &RT);
@@ -3770,14 +3786,14 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else
-						*mixin(GetRD) = namespace.create(t.vm.alloc, name, RT.mNamespace);
+						*mixin(GetRDDest) = namespace.create(t.vm.alloc, name, RT.mNamespace);
 
 					maybeGC(t);
 					break;
 
 				case Op.NamespaceNP:
 					auto tmp = namespace.create(t.vm.alloc, constTable[i.rs].mString, env);
-					*mixin(GetRD) = tmp;
+					*mixin(GetRDDest) = tmp;
 					maybeGC(t);
 					break;
 
@@ -3786,14 +3802,14 @@ void execute(CrocThread* t, uword depth = 1)
 					RS = *mixin(GetRS);
 
 					if(asImpl(t, &RS, mixin(GetRT)))
-						*mixin(GetRD) = RS;
+						*mixin(GetRDDest) = RS;
 					else
-						*mixin(GetRD) = CrocValue.nullValue;
+						*mixin(GetRDDest) = CrocValue.nullValue;
 
 					break;
 
 				case Op.SuperOf:
-					*mixin(GetRD) = superOfImpl(t, mixin(GetRS));
+					*mixin(GetRDDest) = superOfImpl(t, mixin(GetRS));
 					break;
 
 				default:

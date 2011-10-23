@@ -92,6 +92,14 @@ static:
 		namespace.set(alloc, i.fields, name, value);
 	}
 
+	package void setField(ref Allocator alloc, CrocInstance* i, CrocValue* slot, CrocValue* value)
+	{
+		// the only way this overload could be called is if the slot already exists in the instance
+		assert(i.fields !is null);
+
+		namespace.set(alloc, i.fields, slot, value);
+	}
+
 	package bool derivesFrom(CrocInstance* i, CrocClass* c)
 	{
 		for(auto o = i.parent; o !is null; o = o.parent)

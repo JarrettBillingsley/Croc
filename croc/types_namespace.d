@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_namespace;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct namespace
@@ -62,6 +63,15 @@ static:
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
 		*ns.data.insert(alloc, key) = *value;
+	}
+
+	package void set(ref Allocator alloc, CrocNamespace* ns, CrocValue* slot, CrocValue* value)
+	{
+		if(*slot != value)
+		{
+			mixin(writeBarrier!("alloc", "ns"));
+			*slot = *value;
+		}
 	}
 
 	// Remove a key-value pair from the namespace.
