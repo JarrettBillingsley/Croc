@@ -49,51 +49,100 @@ import croc.types_function;
 import croc.types_string;
 import croc.utils;
 
-private Op AstTagToOpcode(AstTag tag)
+private Op1 AstTagToOpcode1(AstTag tag)
 {
 	switch(tag)
 	{
-		case AstTag.AddAssignStmt: return Op.AddEq;
-		case AstTag.SubAssignStmt: return Op.SubEq;
-		case AstTag.CatAssignStmt: return Op.CatEq;
-		case AstTag.MulAssignStmt: return Op.MulEq;
-		case AstTag.DivAssignStmt: return Op.DivEq;
-		case AstTag.ModAssignStmt: return Op.ModEq;
-		case AstTag.OrAssignStmt: return Op.OrEq;
-		case AstTag.XorAssignStmt: return Op.XorEq;
-		case AstTag.AndAssignStmt: return Op.AndEq;
-		case AstTag.ShlAssignStmt: return Op.ShlEq;
-		case AstTag.ShrAssignStmt: return Op.ShrEq;
-		case AstTag.UShrAssignStmt: return Op.UShrEq;
-		case AstTag.OrExp: return Op.Or;
-		case AstTag.XorExp: return Op.Xor;
-		case AstTag.AndExp: return Op.And;
-		case AstTag.EqualExp: return Op.Equals;
-		case AstTag.NotEqualExp: return Op.Equals;
-		case AstTag.IsExp: return Op.Is;
-		case AstTag.NotIsExp: return Op.Is;
-		case AstTag.LTExp: return Op.Cmp;
-		case AstTag.LEExp: return Op.Cmp;
-		case AstTag.GTExp: return Op.Cmp;
-		case AstTag.GEExp: return Op.Cmp;
-		case AstTag.Cmp3Exp: return Op.Cmp3;
-		case AstTag.AsExp: return Op.As;
-		case AstTag.InExp: return Op.In;
-		case AstTag.NotInExp: return Op.In;
-		case AstTag.ShlExp: return Op.Shl;
-		case AstTag.ShrExp: return Op.Shr;
-		case AstTag.UShrExp: return Op.UShr;
-		case AstTag.AddExp: return Op.Add;
-		case AstTag.SubExp: return Op.Sub;
-		case AstTag.CatExp: return Op.Cat;
-		case AstTag.MulExp: return Op.Mul;
-		case AstTag.DivExp: return Op.Div;
-		case AstTag.ModExp: return Op.Mod;
-		case AstTag.NegExp: return Op.Neg;
-		case AstTag.NotExp: return Op.Not;
-		case AstTag.ComExp: return Op.Com;
-		case AstTag.CoroutineExp: return Op.Coroutine;
+		case AstTag.NegExp:
+		case AstTag.NotExp:
+		case AstTag.ComExp: return Op1.UnOp;
+
+		case AstTag.AddExp:
+		case AstTag.SubExp:
+		case AstTag.MulExp:
+		case AstTag.DivExp:
+		case AstTag.ModExp:
+		case AstTag.Cmp3Exp: return Op1.BinOp;
+
+		case AstTag.AddAssignStmt:
+		case AstTag.SubAssignStmt:
+		case AstTag.MulAssignStmt:
+		case AstTag.DivAssignStmt:
+		case AstTag.ModAssignStmt: return Op1.ReflBinOp;
+
+		case AstTag.AndExp:
+		case AstTag.OrExp:
+		case AstTag.XorExp:
+		case AstTag.ShlExp:
+		case AstTag.ShrExp:
+		case AstTag.UShrExp: return Op1.BitOp;
+
+		case AstTag.AndAssignStmt:
+		case AstTag.OrAssignStmt:
+		case AstTag.XorAssignStmt:
+		case AstTag.ShlAssignStmt:
+		case AstTag.ShrAssignStmt:
+		case AstTag.UShrAssignStmt: return Op1.ReflBitOp;
+
+		case AstTag.LTExp:
+		case AstTag.LEExp:
+		case AstTag.GTExp:
+		case AstTag.GEExp: return Op1.Cmp;
+
+		case AstTag.EqualExp:
+		case AstTag.NotEqualExp: return Op1.Equals;
+
+		case AstTag.IsExp:
+		case AstTag.NotIsExp: return Op1.Is;
+
+		case AstTag.AsExp: return Op1.As;
+		case AstTag.InExp: return Op1.In;
+		case AstTag.CatExp: return Op1.Cat;
+		case AstTag.CatAssignStmt: return Op1.CatEq;
+		case AstTag.CoroutineExp: return Op1.New;
+		case AstTag.DotSuperExp: return Op1.SuperOf;
 		default: assert(false);
+	}
+}
+
+private Op2 AstTagToOpcode2(AstTag tag)
+{
+	switch(tag)
+	{
+		case AstTag.NegExp: return Op2.Neg;
+		case AstTag.NotExp: return Op2.Not;
+		case AstTag.ComExp: return Op2.Com;
+
+		case AstTag.AddExp: return Op2.Add;
+		case AstTag.SubExp: return Op2.Sub;
+		case AstTag.MulExp: return Op2.Mul;
+		case AstTag.DivExp: return Op2.Div;
+		case AstTag.ModExp: return Op2.Mod;
+		case AstTag.Cmp3Exp: return Op2.Cmp3;
+
+		case AstTag.AddAssignStmt: return Op2.AddEq;
+		case AstTag.SubAssignStmt: return Op2.SubEq;
+		case AstTag.MulAssignStmt: return Op2.MulEq;
+		case AstTag.DivAssignStmt: return Op2.DivEq;
+		case AstTag.ModAssignStmt: return Op2.ModEq;
+
+		case AstTag.AndExp: return Op2.And;
+		case AstTag.OrExp: return Op2.Or;
+		case AstTag.XorExp: return Op2.Xor;
+		case AstTag.ShlExp: return Op2.Shl;
+		case AstTag.ShrExp: return Op2.Shr;
+		case AstTag.UShrExp: return Op2.UShr;
+
+		case AstTag.AndAssignStmt: return Op2.AndEq;
+		case AstTag.OrAssignStmt: return Op2.OrEq;
+		case AstTag.XorAssignStmt: return Op2.XorEq;
+		case AstTag.ShlAssignStmt: return Op2.ShlEq;
+		case AstTag.ShrAssignStmt: return Op2.ShrEq;
+		case AstTag.UShrAssignStmt: return Op2.UShrEq;
+
+		case AstTag.CoroutineExp: return Op2.Coroutine;
+
+		default: return cast(Op2)-1;
 	}
 }
 
@@ -112,8 +161,10 @@ enum ExpType
 	True,
 	False,
 	Const,
-	Var,
+	Local,
 	NewGlobal,
+	Upval,
+	Global,
 	Indexed,
 	IndexedVararg,
 	Field,
@@ -144,7 +195,6 @@ struct Exp
 		static const char[][] typeNames =
 		[
 			ExpType.Const: "Const",
-			ExpType.Var: "Var",
 			ExpType.NewGlobal: "NewGlobal",
 			ExpType.Indexed: "Indexed",
 			ExpType.IndexedVararg: "IndexedVararg",
@@ -416,64 +466,40 @@ final class FuncState
 	package void codeClose(uint line)
 	{
 		if(mScope.hasUpval)
-			codeI(line, Op.Close, mScope.regStart, 0);
+			codeI(line, Op1.Close, mScope.regStart, 0);
 	}
 
 	package void codeClose(uint line, ushort reg)
 	{
-		codeI(line, Op.Close, reg, 0);
+		codeI(line, Op1.Close, reg, 0);
 	}
 
 	package uint tagLocal(uint val)
 	{
-		if((val & ~Instruction.locMask) > MaxRegisters)
+		if(val > Instruction.MaxRegisters)
 			c.semException(mLocation, "Too many locals");
 
-		return (val & ~Instruction.locMask) | Instruction.locLocal;
+		return val;
 	}
 
 	package uint tagConst(uint val)
 	{
-		if((val & ~Instruction.locMask) >= MaxConstants)
+// 		if((val & ~Instruction.constBit) >= Instruction.MaxConstants)
+		// TODO: large constants
+		if((val & ~Instruction.constBit) >= 250)
 			c.semException(mLocation, "Too many constants");
 
-		return (val & ~Instruction.locMask) | Instruction.locConst;
+		return val & Instruction.constBit;
 	}
 
-	package uint tagUpval(uint val)
-	{
-		if((val & ~Instruction.locMask) >= MaxUpvalues)
-			c.semException(mLocation, "Too many upvalues");
-
-		return (val & ~Instruction.locMask) | Instruction.locUpval;
-	}
-
-	package uint tagGlobal(uint val)
-	{
-		if((val & ~Instruction.locMask) >= MaxConstants)
-			c.semException(mLocation, "Too many constants");
-
-		return (val & ~Instruction.locMask) | Instruction.locGlobal;
-	}
-	
 	package bool isLocalTag(uint val)
 	{
-		return ((val & Instruction.locMask) == Instruction.locLocal);
-	}
-	
-	package bool isConstTag(uint val)
-	{
-		return ((val & Instruction.locMask) == Instruction.locConst);
-	}
-	
-	package bool isUpvalTag(uint val)
-	{
-		return ((val & Instruction.locMask) == Instruction.locUpval);
+		return (val & Instruction.constBit) == 0;
 	}
 
-	package bool isGlobalTag(uint val)
+	package bool isConstTag(uint val)
 	{
-		return ((val & Instruction.locMask) == Instruction.locGlobal);
+		return (val & Instruction.constBit) != 0;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -481,7 +507,7 @@ final class FuncState
 
 	package void beginSwitch(ref SwitchDesc s, uint line, uint srcReg)
 	{
-		s.switchPC = codeR(line, Op.Switch, 0, srcReg, 0);
+		s.switchPC = codeR(line, Op1.Switch, 0, srcReg, 0);
 		s.prev = mSwitch;
 		mSwitch = &s;
 	}
@@ -489,12 +515,16 @@ final class FuncState
 	package void endSwitch()
 	{
 		assert(mSwitch !is null, "endSwitch - no switch to end");
-		
+
 		auto prev = mSwitch.prev;
 
 		mSwitchTables.append(c.alloc, *mSwitch);
-		mCode[mSwitch.switchPC].rt = cast(ushort)(mSwitchTables.length - 1);
+		auto switchIdx = mSwitchTables.length - 1;
 
+		if(switchIdx > Instruction.MaxSwitchTables)
+			c.semException(mLocation, "Too many switches");
+
+		setRT(mCode[mSwitch.switchPC], switchIdx);
 		mSwitch = prev;
 	}
 
@@ -554,7 +584,7 @@ final class FuncState
 		debug(REGPUSHPOP) Stdout.formatln("push {}", mFreeReg);
 		mFreeReg++;
 
-		if(mFreeReg > MaxRegisters)
+		if(mFreeReg > Instruction.MaxRegisters)
 			c.semException(mLocation, "Too many registers");
 
 		if(mFreeReg > mStackSize)
@@ -562,7 +592,7 @@ final class FuncState
 
 		return mFreeReg - 1;
 	}
-	
+
 	package void popRegister(uint r)
 	{
 		mFreeReg--;
@@ -591,7 +621,7 @@ final class FuncState
 					{
 						numTemps++;
 						reloc = pushRegister();
-						codeR(line, Op.Move, reloc, index.index, 0);
+						codeR(line, Op1.Move, reloc, index.index, 0);
 					}
 
 					if(e.index == index.index)
@@ -713,21 +743,17 @@ final class FuncState
 	public void pushThis()
 	{
 		auto e = pushExp();
-		e.type = ExpType.Var;
+		e.type = ExpType.Local;
 		e.index = tagLocal(0);
 	}
 
 	public void pushVar(Identifier name)
 	{
 		auto e = pushExp();
+		
+		ExpType varType = ExpType.Local;
 
-		const Local = 0;
-		const Upvalue = 1;
-		const Global = 2;
-
-		auto varType = Local;
-
-		int searchVar(FuncState s, bool isOriginal = true)
+		ExpType searchVar(FuncState s, bool isOriginal = true)
 		{
 			uint findUpval()
 			{
@@ -735,7 +761,7 @@ final class FuncState
 				{
 					if(s.mUpvals[i].name == name.name)
 					{
-						if((s.mUpvals[i].isUpvalue && varType == Upvalue) || (!s.mUpvals[i].isUpvalue && varType == Local))
+						if((s.mUpvals[i].isUpvalue && varType == ExpType.Upval) || (!s.mUpvals[i].isUpvalue && varType == ExpType.Local))
 							return i;
 					}
 				}
@@ -743,21 +769,22 @@ final class FuncState
 				UpvalDesc ud = void;
 
 				ud.name = name.name;
-				ud.isUpvalue = (varType == Upvalue);
+				ud.isUpvalue = (varType == ExpType.Upval);
 				ud.index = tagLocal(e.index);
 
 				s.mUpvals.append(c.alloc, ud);
 
-				if(mUpvals.length >= MaxUpvalues)
-					c.semException(mLocation, "Too many upvalues in function");
+				if(mUpvals.length > Instruction.MaxUpvalues)
+					c.semException(mLocation, "Too many upvalues");
 
 				return s.mUpvals.length - 1;
 			}
 
 			if(s is null)
 			{
-				varType = Global;
-				return Global;
+				e.index = codeStringConst(name.name);
+				varType = ExpType.Global;
+				return ExpType.Global;
 			}
 
 			uint reg;
@@ -765,17 +792,17 @@ final class FuncState
 
 			if(index == -1)
 			{
-				if(searchVar(s.mParent, false) == Global)
-					return Global;
+				if(searchVar(s.mParent, false) == ExpType.Global)
+					return ExpType.Global;
 
-				e.index = tagUpval(findUpval());
-				varType = Upvalue;
-				return Upvalue;
+				e.index = findUpval();
+				varType = ExpType.Upval;
+				return ExpType.Upval;
 			}
 			else
 			{
-				varType = Local;
 				e.index = tagLocal(reg);
+				varType = ExpType.Local;
 
 				if(!isOriginal)
 				{
@@ -789,14 +816,11 @@ final class FuncState
 					}
 				}
 
-				return Local;
+				return ExpType.Local;
 			}
 		}
 
-		if(searchVar(this) == Global)
-			e.index = tagGlobal(codeStringConst(name.name));
-			
-		e.type = ExpType.Var;
+		e.type = searchVar(this);
 	}
 
 	public void pushVararg()
@@ -809,14 +833,16 @@ final class FuncState
 	{
 		auto e = pushExp();
 		e.type = ExpType.NeedsDest;
-		e.index = codeR(line, Op.VargLen, 0, 0, 0);
+		e.index = codeR(line, Op1.Vararg, 0, 0, 0);
+		codeR(line, Op2.VargLen, 0, 0, 0);
 	}
 
 	public void pushVargSlice(uint line, uint reg)
 	{
 		auto e = pushExp();
 		e.type = ExpType.SlicedVararg;
-		e.index = codeI(line, Op.VargSlice, reg, 0);
+		e.index = codeI(line, Op1.Vararg, reg, 0);
+		codeR(line, Op2.VargSlice, 0, 0, 0);
 		e.index2 = reg;
 	}
 
@@ -832,7 +858,7 @@ final class FuncState
 	{
 		auto e = pushExp();
 		e.type = ExpType.Call;
-		e.index = codeR(line, Op.Call, firstReg, numRegs, 0);
+		e.index = codeR(line, Op1.Call, firstReg, numRegs, 0);
 		e.index2 = firstReg;
 		e.isTempReg2 = true;
 	}
@@ -841,7 +867,7 @@ final class FuncState
 	{
 		auto e = pushExp();
 		e.type = ExpType.Yield;
-		e.index = codeR(line, Op.Yield, firstReg, numRegs, 0);
+		e.index = codeR(line, Op1.Yield, firstReg, numRegs, 0);
 		e.index2 = firstReg;
 	}
 
@@ -866,11 +892,16 @@ final class FuncState
 		topToSource(line, false);
 	}
 	
-	public void pushBinOp(uint line, Op type, uint rs, uint rt)
+	public void pushBinOp(uint line, AstTag type, uint rs, uint rt)
 	{
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, type, 0, rs, rt);
+		dest.index = codeR(line, AstTagToOpcode1(type), 0, rs, rt);
+		
+		auto second = AstTagToOpcode2(type);
+		
+		if(second != -1)
+			codeR(line, second, 0, 0, 0);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -884,7 +915,7 @@ final class FuncState
 		auto src = popExp();
 
 		if(src.type == ExpType.Call || src.type == ExpType.Yield)
-			mCode[src.index].rt = 1;
+			setRT(mCode[src.index], 1);
 
 		freeExpTempRegs(*src);
 	}
@@ -896,7 +927,8 @@ final class FuncState
 
 		switch(dest.type)
 		{
-			case ExpType.Var:
+			// TODO: upval, global
+			case ExpType.Local:
 				moveTo(line, dest.index, src);
 				break;
 
@@ -990,11 +1022,16 @@ final class FuncState
 		}
 	}
 
-	public void popReflexOp(uint line, Op type, uint rd, uint rs, uint rt = 0)
+	public void popReflexOp(uint line, AstTag type, uint rd, uint rs, uint rt = 0)
 	{
 		auto dest = pushExp();
 		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, type, rd, rs, rt);
+		dest.index = codeR(line, AstTagToOpcode1(type), rd, rs, rt);
+		
+		auto second = AstTagToOpcode2(type);
+		
+		if(second != -1)
+			codeR(line, second, 0, 0, 0);
 
 		popAssign(line);
 	}
@@ -1092,12 +1129,18 @@ final class FuncState
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
-	public void unOp(uint line, Op type)
+	public void unOp(uint line, AstTag type)
 	{
 		auto src = popExp();
 		toSource(line, src);
 
-		uint pc = codeR(line, type, 0, src.index, 0);
+		uint pc = codeR(line, AstTagToOpcode1(type), 0, src.index, 0);
+		
+		auto second = AstTagToOpcode2(type);
+		
+		if(second != -1)
+			codeR(line, second, 0, 0, 0);
+
 		freeExpTempRegs(*src);
 
 		auto dest = pushExp();
@@ -1428,7 +1471,7 @@ final class FuncState
 		codeJ(line, Op.Jmp, true, dest - here() - 1);
 	}
 
-	public uint makeJump(uint line, Op type = Op.Jmp, bool isTrue = true)
+	public uint makeJump(uint line, uint type = Op1.Jmp, bool isTrue = true)
 	{
 		return codeJ(line, type, isTrue, NoJump);
 	}
@@ -1576,7 +1619,7 @@ final class FuncState
 		mConstants.append(c.alloc, v);
 
 		if(mConstants.length >= MaxConstants)
-			c.semException(mLocation, "Too many constants in function");
+			c.semException(mLocation, "Too many constants");
 
 		return mConstants.length - 1;
 	}
@@ -1618,48 +1661,90 @@ final class FuncState
 
 	// ---------------------------------------------------------------------------
 	// Raw codegen funcs
+
+	package uint codeR(uint line, uint opcode, uint dest, uint src1, uint src2)
+	{
+		Instruction i = void;
+		i.data =
+			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
+			(dest & Instruction.rdMask) << Instruction.rdShift |
+			(src1 & Instruction.rsMask) << Instruction.rsShift |
+			(src2 & Instruction.rtMask) << Instruction.rtShift;
+
+		debug(WRITECODE) Stdout.formatln("R {} {} {} {}", opcode, dest, src1, src2);
+
+		mLineInfo.append(c.alloc, line);
+		mCode.append(c.alloc, i);
+		return mCode.length - 1;
+	}
+
+	package uint codeI(uint line, uint opcode, uint dest, uint imm)
+	{
+		Instruction i = void;
+		i.data =
+			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
+			(dest & Instruction.rdMask) << Instruction.rdShift |
+			(imm & Instruction.immMask) << Instruction.immShift;
+
+		debug(WRITECODE) Stdout.formatln("I {} {} {}", opcode, dest, imm);
+
+		mLineInfo.append(c.alloc, line);
+		mCode.append(c.alloc, i);
+		return mCode.length - 1;
+	}
+
+	package uint codeJ(uint line, uint opcode, uint dest, int offs)
+	{
+		if(offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward)
+			// TODO: pass location into here
+			assert(false, "jump too large");
+
+		Instruction i = void;
+		i.data =
+			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
+			(dest & Instruction.rdMask) << Instruction.rdShift |
+			(*(cast(uint*)&offs) & Instruction.immMask) << Instruction.immShift;
+
+		debug(WRITECODE) Stdout.formatln("J {} {} {}", opcode, dest, offs);
+
+		mLineInfo.append(c.alloc, line);
+		mCode.append(c.alloc, i);
+		return mCode.length - 1;
+	}
 	
-	package uint codeR(uint line, Op opcode, uint dest, uint src1, uint src2)
+	package void setRD(ref Instruction inst, uint val)
 	{
-		Instruction i = void;
-		i.opcode = opcode;
-		i.rd = cast(ushort)dest;
-		i.rs = cast(ushort)src1;
-		i.rt = cast(ushort)src2;
-
-		debug(WRITECODE) Stdout.formatln(i.toString());
-
-		mLineInfo.append(c.alloc, line);
-		mCode.append(c.alloc, i);
-		return mCode.length - 1;
+		assert(val <= Instruction.rdMax);
+		inst.data &= ~(Instruction.rdMask << Instruction.rdShift);
+		inst.data |= (val & Instruction.rdMask) << Instruction.rdShift;
+	}
+	
+	package void setRS(ref Instruction inst, uint val)
+	{
+		assert(val <= Instruction.rsMax);
+		inst.data &= ~(Instruction.rsMask << Instruction.rsShift);
+		inst.data |= (val & Instruction.rsMask) << Instruction.rsShift;
 	}
 
-	package uint codeI(uint line, Op opcode, uint dest, uint imm)
+	package void setRT(ref Instruction inst, uint val)
 	{
-		Instruction i = void;
-		i.opcode = opcode;
-		i.rd = cast(ushort)dest;
-		i.uimm = imm;
-
-		debug(WRITECODE) Stdout.formatln(i.toString());
-
-		mLineInfo.append(c.alloc, line);
-		mCode.append(c.alloc, i);
-		return mCode.length - 1;
+		assert(val <= Instruction.rtMax);
+		inst.data &= ~(Instruction.rtMask << Instruction.rtShift);
+		inst.data |= (val & Instruction.rtMask) << Instruction.rtShift;
 	}
-
-	package uint codeJ(uint line, Op opcode, uint dest, int offs)
+	
+	package void setImm(ref Instruction inst, int val)
 	{
-		Instruction i = void;
-		i.opcode = opcode;
-		i.rd = cast(ushort)dest;
-		i.imm = offs;
-
-		debug(WRITECODE) Stdout.formatln(i.toString());
-
-		mLineInfo.append(c.alloc, line);
-		mCode.append(c.alloc, i);
-		return mCode.length - 1;
+		assert(val >= -Instruction.immMax && val <= Instruction.immMax);
+		inst.data &= ~(Instruction.immMask << Instruction.immShift);
+		inst.data |= (*(cast(uint*)&val) & Instruction.immMask) << Instruction.immShift;
+	}
+	
+	package void setUImm(ref Instruction inst, uint val)
+	{
+		assert(val <= Instruction.uimmMax);
+		inst.data &= ~(Instruction.immMask << Instruction.immShift);
+		inst.data |= (val & Instruction.immMask) << Instruction.immShift;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -2942,7 +3027,7 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		fs.popReflexOp(s.endLocation.line, AstTagToOpcode(s.type), src1.index, src2.index);
+		fs.popReflexOp(s.endLocation.line, s.type, src1.index, src2.index);
 
 		return s;
 	}
@@ -3105,7 +3190,7 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		fs.pushBinOp(e.endLocation.line, AstTagToOpcode(e.type), src1.index, src2.index);
+		fs.pushBinOp(e.endLocation.line, e.type, src1.index, src2.index);
 
 		return e;
 	}
@@ -3166,7 +3251,7 @@ scope class Codegen : Visitor
 	public UnExp visitUnExp(UnExp e)
 	{
 		visit(e.op);
-		fs.unOp(e.endLocation.line, AstTagToOpcode(e.type));
+		fs.unOp(e.endLocation.line, e.type);
 		return e;
 	}
 
@@ -3203,7 +3288,7 @@ scope class Codegen : Visitor
 	public override DotSuperExp visit(DotSuperExp e)
 	{
 		visit(e.op);
-		fs.unOp(e.endLocation.line, Op.SuperOf);
+		fs.unOp(e.endLocation.line, e.type);
 		return e;
 	}
 	
@@ -3827,7 +3912,8 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		fs.codeR(e.endLocation.line, AstTagToOpcode(e.type), 0, src1.index, src2.index);
+		fs.codeR(e.endLocation.line, AstTagToOpcode1(e.type), 0, src1.index, src2.index);
+		assert(AstTagToOpcode2(e.type) == -1);
 
 		InstRef ret;
 		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, e.type == AstTag.EqualExp || e.type == AstTag.IsExp);

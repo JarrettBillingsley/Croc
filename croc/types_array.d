@@ -103,7 +103,7 @@ static:
 	// Sets a block of values (only called by the SetArray instruction in the interpreter).
 	package void setBlock(ref Allocator alloc, CrocArray* a, uword block, CrocValue[] data)
 	{
-		auto start = block * Instruction.arraySetFields;
+		auto start = block * Instruction.ArraySetFields;
 		auto end = start + data.length;
 
 		// Since Op.SetArray can use a variadic number of values, the number

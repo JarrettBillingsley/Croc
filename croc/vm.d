@@ -39,6 +39,7 @@ debug
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.base_alloc;
+import croc.base_metamethods;
 import croc.interpreter;
 import croc.types;
 import croc.types_class;

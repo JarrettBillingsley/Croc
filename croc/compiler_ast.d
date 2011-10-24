@@ -3254,7 +3254,7 @@ class ArrayCtorExp : PrimaryExp
 	*/
 	public Expression[] values;
 
-	protected const uint maxFields = Instruction.arraySetFields * Instruction.rtMax;
+	protected const uint maxFields = Instruction.ArraySetFields * Instruction.rtMax;
 
 	/**
 	*/
