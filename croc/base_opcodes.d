@@ -90,12 +90,13 @@ Index
 IndexAssign
 Slice
 SliceAssign
-In (and NotIn)
+In
 
 New: Array, Table, Class, Coroutine, Namespace, NamespaceNP
 Closure
 
 As
+SuperOf
 Field
 FieldAssign
 
@@ -116,7 +117,6 @@ enum Op : ushort
 	CheckObjParam,
 	CheckParams,
 	Class,
-	ClassNB,
 	Close,
 	Closure,
 	Coroutine,
@@ -147,15 +147,12 @@ enum Op : ushort
 	Jmp,
 	Length,
 	LengthAssign,
-	LoadBool,
 	LoadConst,
-	LoadNull,
 	LoadNulls,
 	Method,
 	Mod,
 	ModEq,
 	Move,
-	MoveLocal,
 	Mul,
 	MulEq,
 	Namespace,
@@ -165,7 +162,6 @@ enum Op : ushort
 	NewGlobal,
 	NewTable,
 	Not,
-	NotIn,
 	ObjParamFail,
 	Or,
 	OrEq,
@@ -219,7 +215,6 @@ CatEq.............R: dest, src, num values (NOT variadic)
 CheckObjParam.....R: n/a, index of parameter, object type
 CheckParams.......I: n/a, n/a
 Class.............R: dest, name const index, base class
-ClassNB...........R: dest, name const index, n/a
 Close.............I: reg start, n/a
 Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
 Coroutine.........R: dest, src, n/a
@@ -250,15 +245,12 @@ Jlt...............J: isTrue, branch offset
 Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
 LengthAssign......R: dest, src, n/a
-LoadBool..........R: dest, 1/0, n/a
 LoadConst.........R: dest local, src const, n/a
-LoadNull..........I: dest, n/a
 LoadNulls.........I: dest, num regs
 Method............R: base reg, object to index, method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
-MoveLocal.........R: dest local, src local, n/a
 Mul...............R: dest, src, src
 MulEq.............R: dest, src, n/a
 Namespace.........R: dest, name const index, parent namespace
@@ -268,7 +260,6 @@ NewArray..........I: dest, size
 NewGlobal.........R: n/a, src, const index of global name
 NewTable..........I: dest, n/a
 Not...............R: dest, src, n/a
-NotIn.............R: dest, src value, src object
 ObjParamFail......R: n/a, src, n/a
 Or................R: dest, src, src
 OrEq..............R: dest, src, n/a
@@ -384,7 +375,6 @@ align(1) struct Instruction
 			case Op.CheckObjParam:   return Format("checkobjparm r{}, {}", rs, cr(rt));
 			case Op.CheckParams:     return "checkparams";
 			case Op.Class:           return Format("class {}, {}, {}", cr(rd), cr(rs), cr(rt));
-			case Op.ClassNB:         return Format("classnb {}, {}", cr(rd), cr(rs));
 			case Op.Close:           return Format("close r{}", rd);
 			case Op.Closure:         return rt == 0 ? Format("closure {}, {}", cr(rd), rs) : Format("closure {}, {}, r{}", cr(rd), rs, rt);
 			case Op.Coroutine:       return Format("coroutine {}, {}", cr(rd), cr(rs));
@@ -415,15 +405,12 @@ align(1) struct Instruction
 			case Op.Jmp:             return (rd == 0) ? "nop" : Format("jmp {}", imm);
 			case Op.Length:          return Format("len {}, {}", cr(rd), cr(rs));
 			case Op.LengthAssign:    return Format("lena {}, {}", cr(rd), cr(rs));
-			case Op.LoadBool:        return Format("lb {}, {}", cr(rd), rs);
 			case Op.LoadConst:       return Format("lc {}, {}", cr(rd), cr(rs));
-			case Op.LoadNull:        return Format("lnull {}", cr(rd));
 			case Op.LoadNulls:       return Format("lnulls r{}, {}", rd, uimm);
 			case Op.Method:          return Format("method r{}, {}, {}", rd, cr(rs), cr(rt));
 			case Op.Mod:             return Format("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ModEq:           return Format("modeq {}, {}", cr(rd), cr(rs));
 			case Op.Move:            return Format("mov {}, {}", cr(rd), cr(rs));
-			case Op.MoveLocal:       return Format("movl {}, {}", cr(rd), cr(rs));
 			case Op.Mul:             return Format("mul {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.MulEq:           return Format("muleq {}, {}", cr(rd), cr(rs));
 			case Op.Namespace:       return Format("namespace {}, c{}, {}", cr(rd), rs, cr(rt));
@@ -433,7 +420,6 @@ align(1) struct Instruction
 			case Op.NewGlobal:       return Format("newg {}, {}", cr(rs), cr(rt));
 			case Op.NewTable:        return Format("newtab r{}", rd);
 			case Op.Not:             return Format("not {}, {}", cr(rd), cr(rs));
-			case Op.NotIn:           return Format("notin {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ObjParamFail:    return Format("objparamfail {}", cr(rs));
 			case Op.Or:              return Format("or {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.OrEq:            return Format("oreq {}, {}", cr(rd), cr(rs));

@@ -29,7 +29,7 @@ module croc.compiler_codegen;
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
 // debug = WRITECODE;
-// debug = SHOWME;
+debug = SHOWME;
 // debug = PRINTEXPSTACK;
 
 import tango.io.Stdout;
@@ -79,7 +79,7 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.Cmp3Exp: return Op.Cmp3;
 		case AstTag.AsExp: return Op.As;
 		case AstTag.InExp: return Op.In;
-		case AstTag.NotInExp: return Op.NotIn;
+		case AstTag.NotInExp: return Op.In;
 		case AstTag.ShlExp: return Op.Shl;
 		case AstTag.ShrExp: return Op.Shr;
 		case AstTag.UShrExp: return Op.UShr;
@@ -143,9 +143,6 @@ struct Exp
 	{
 		static const char[][] typeNames =
 		[
-			ExpType.Null: "Null",
-			ExpType.True: "True",
-			ExpType.False: "False",
 			ExpType.Const: "Const",
 			ExpType.Var: "Var",
 			ExpType.NewGlobal: "NewGlobal",
@@ -594,11 +591,7 @@ final class FuncState
 					{
 						numTemps++;
 						reloc = pushRegister();
-
-						if(isLocalTag(index.index))
-							codeR(line, Op.MoveLocal, reloc, index.index, 0);
-						else
-							codeR(line, Op.Move, reloc, index.index, 0);
+						codeR(line, Op.Move, reloc, index.index, 0);
 					}
 
 					if(e.index == index.index)
@@ -675,17 +668,12 @@ final class FuncState
 
 	public void pushNull()
 	{
-		pushExp().type = ExpType.Null;
+		pushConst(codeNullConst());
 	}
 
 	public void pushBool(bool value)
 	{
-		auto e = pushExp();
-
-		if(value)
-			e.type = ExpType.True;
-		else
-			e.type = ExpType.False;
+		pushConst(codeBoolConst(value));
 	}
 
 	public void pushInt(crocint value)
@@ -1019,14 +1007,9 @@ final class FuncState
 		{
 			case ExpType.Var:
 				if(dest.index != srcReg)
-				{
-					if(isLocalTag(dest.index))
-						codeR(line, Op.MoveLocal, dest.index, srcReg, 0);
-					else
-						codeR(line, Op.Move, dest.index, srcReg, 0);
-				}
+					codeR(line, Op.Move, dest.index, srcReg, 0);
 				break;
-				
+
 			case ExpType.NewGlobal:
 				codeR(line, Op.NewGlobal, 0, srcReg, dest.index);
 				break;
@@ -1140,18 +1123,6 @@ final class FuncState
 
 		switch(e.type)
 		{
-			case ExpType.Null:
-				temp.index = tagConst(codeNullConst());
-				break;
-
-			case ExpType.True:
-				temp.index = tagConst(codeBoolConst(true));
-				break;
-
-			case ExpType.False:
-				temp.index = tagConst(codeBoolConst(false));
-				break;
-
 			case ExpType.Const:
 				temp.index = e.index;
 				break;
@@ -1246,18 +1217,6 @@ final class FuncState
 	{
 		switch(src.type)
 		{
-			case ExpType.Null:
-				codeR(line, Op.LoadNull, dest, 0, 0);
-				break;
-
-			case ExpType.True:
-				codeR(line, Op.LoadBool, dest, 1, 0);
-				break;
-
-			case ExpType.False:
-				codeR(line, Op.LoadBool, dest, 0, 0);
-				break;
-
 			case ExpType.Const:
 				if(isLocalTag(dest))
 					codeR(line, Op.LoadConst, dest, src.index, 0);
@@ -1267,12 +1226,7 @@ final class FuncState
 
 			case ExpType.Var:
 				if(dest != src.index)
-				{
-					if(isLocalTag(dest) && isLocalTag(src.index))
-						codeR(line, Op.MoveLocal, dest, src.index, 0);
-					else
-						codeR(line, Op.Move, dest, src.index, 0);
-				}
+					codeR(line, Op.Move, dest, src.index, 0);
 				break;
 
 			case ExpType.Indexed:
@@ -1317,24 +1271,14 @@ final class FuncState
 				mCode[src.index].uimm = 2;
 				
 				if(dest != src.index2)
-				{
-					if(isLocalTag(dest) && isLocalTag(src.index2))
-						codeR(line, Op.MoveLocal, dest, src.index2, 0);
-					else
-						codeR(line, Op.Move, dest, src.index2, 0);
-				}
+					codeR(line, Op.Move, dest, src.index2, 0);
 				break;
 
 			case ExpType.Call, ExpType.Yield:
 				mCode[src.index].rt = 2;
 
 				if(dest != src.index2)
-				{
-					if(isLocalTag(dest) && isLocalTag(src.index2))
-						codeR(line, Op.MoveLocal, dest, src.index2, 0);
-					else
-						codeR(line, Op.Move, dest, src.index2, 0);
-				}
+					codeR(line, Op.Move, dest, src.index2, 0);
 
 				freeExpTempRegs(*src);
 				break;
@@ -1345,12 +1289,7 @@ final class FuncState
 
 			case ExpType.Src:
 				if(dest != src.index)
-				{
-					if(isLocalTag(dest) && isLocalTag(src.index))
-						codeR(line, Op.MoveLocal, dest, src.index, 0);
-					else
-						codeR(line, Op.Move, dest, src.index, 0);
-				}
+					codeR(line, Op.Move, dest, src.index, 0);
 
 				freeExpTempRegs(*src);
 				break;
@@ -1940,16 +1879,19 @@ scope class Codegen : Visitor
 		{
 			visit(d.baseClass);
 			fs.popSource(d.location.line, base);
-			fs.freeExpTempRegs(base);
 		}
+		else
+		{
+			fs.pushNull();
+			fs.popSource(d.location.line, base);
+		}
+		
+		fs.freeExpTempRegs(base);
 
 		auto destReg = fs.pushRegister();
 		auto nameConst = fs.tagConst(fs.codeStringConst(d.name.name));
-		
-		if(d.baseClass)
-			fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
-		else
-			fs.codeR(d.location.line, Op.ClassNB, destReg, nameConst, 0);
+
+		fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
 
 		return destReg;
 	}
@@ -3034,10 +2976,7 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		if(fs.isLocalTag(src1.index) && fs.isLocalTag(src2.index))
-			fs.popReflexOp(s.endLocation.line, Op.MoveLocal, src1.index, src2.index);
-		else
-			fs.popReflexOp(s.endLocation.line, Op.Move, src1.index, src2.index);
+		fs.popReflexOp(s.endLocation.line, Op.Move, src1.index, src2.index);
 
 		fs.patchJumpToHere(i);
 
@@ -3176,7 +3115,7 @@ scope class Codegen : Visitor
 	public override BinaryExp visit(AndExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
 	public override BinaryExp visit(InExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(NotInExp e) { return visitBinExp(e); }
+	public override BinaryExp visit(NotInExp e) { assert(false); /* return visitBinExp(e); */ }
 	public override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 	public override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
@@ -3869,13 +3808,13 @@ scope class Codegen : Visitor
 		auto left = codeCondition(e.op1);
 		fs.invertJump(left);
 		fs.patchTrueToHere(left);
-		
+
 		auto right = codeCondition(e.op2);
 		fs.catToFalse(right, left.falseList);
 
 		return right;
 	}
-	
+
 	package InstRef codeEqualExpCondition(BaseEqualExp e)
 	{
 		visit(e.op1);
@@ -3936,7 +3875,7 @@ scope class Codegen : Visitor
 	package InstRef codeCondition(IdentExp e)
 	{
 		visit(e);
-		
+
 		Exp src;
 		fs.popSource(e.endLocation.line, src);
 		fs.freeExpTempRegs(src);

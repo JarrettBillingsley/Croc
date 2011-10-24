@@ -163,7 +163,10 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 	scope(exit) t.nativeCallDepth--;
 
 	if(isScript)
+	{
+// 		throw new CrocHaltException();
 		execute(t);
+	}
 
 	maybeGC(t);
 
@@ -2916,11 +2919,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 				// Data Transfer
 				case Op.Move: *mixin(GetRD) = *mixin(GetRS); break;
-				case Op.MoveLocal: t.stack[stackBase + i.rd] = t.stack[stackBase + i.rs]; break;
 				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
-
-				case Op.LoadBool: *mixin(GetRD) = cast(bool)i.rs; break;
-				case Op.LoadNull: *mixin(GetRD) = CrocValue.nullValue; break;
 
 				case Op.LoadNulls:
 					auto start = stackBase + i.rd;
@@ -3400,7 +3399,7 @@ void execute(CrocThread* t, uword depth = 1)
 						numNeeded = i.uimm - 1;
 
 					auto src = t.currentAR.vargBase;
-					
+
 					if(numNeeded <= numVarargs)
 						memmove(&t.stack[dest], &t.stack[src], numNeeded * CrocValue.sizeof);
 					else
@@ -3459,7 +3458,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 				case Op.VargSlice:
 					auto numVarargs = stackBase - t.currentAR.vargBase;
-					
+
 					crocint lo = void;
 					crocint hi = void;
 
@@ -3552,7 +3551,7 @@ void execute(CrocThread* t, uword depth = 1)
 						if(RT.type != CrocValue.Type.Class)
 						{
 							typeString(t, &RT);
-							
+
 							if(i.rs == 0)
 								throwStdException(t, "TypeException", "'this' parameter: instance type constraint type must be 'class', not '{}'", getString(t, -1));
 							else
@@ -3573,10 +3572,10 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
 
 					break;
-					
+
 				case Op.CustomParamFail:
 					typeString(t, &t.stack[stackBase + i.rs]);
-					
+
 					if(i.rs == 0)
 						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), mixin(GetRT).mString.toString());
 					else
@@ -3649,11 +3648,6 @@ void execute(CrocThread* t, uword depth = 1)
 					sliceaImpl(t, base, base + 1, base + 2, mixin(GetRS));
 					break;
 
-				case Op.NotIn:
-					auto val = !inImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
-					break;
-
 				case Op.In:
 					auto val = inImpl(t, mixin(GetRS), mixin(GetRT));
 					*mixin(GetRD) = val;
@@ -3700,7 +3694,9 @@ void execute(CrocThread* t, uword depth = 1)
 					RS = *mixin(GetRS);
 					RT = *mixin(GetRT);
 
-					if(RT.type != CrocValue.Type.Class)
+					if(RT.type == CrocValue.Type.Null && (i.rt & Instruction.locMask) == Instruction.locConst)
+						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
+					else if(RT.type != CrocValue.Type.Class)
 					{
 						typeString(t, &RT);
 						throwStdException(t, "TypeException", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
@@ -3708,12 +3704,6 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
 
-					maybeGC(t);
-					break;
-				
-				case Op.ClassNB:
-					RS = *mixin(GetRS);
-					*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
 					maybeGC(t);
 					break;
 

@@ -1331,9 +1331,10 @@ scope class Semantic : IdentityVisitor
 				c.semException(e.location, "'!in' must be performed on a string with a character or string");
 		}
 
-		return e;
+		// TODO: solve this at the codegen level rather than here; in/notin should really be "condition" opcodes, not "value" opcodes
+		return new(c) NotExp(c, e.location, new(c) InExp(c, e.location, e.endLocation, e.op1, e.op2));
 	}
-	
+
 	public override Expression visit(ShlExp e)
 	{
 		e.op1 = visit(e.op1);
