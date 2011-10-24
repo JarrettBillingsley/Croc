@@ -4,7 +4,10 @@ module samples.simple
 
 function main()
 {
-
+	local a = [1, 2, 3]
+	
+	if(1 in a) {}
+	if(1 !in a) {}
 }
 
 /*
