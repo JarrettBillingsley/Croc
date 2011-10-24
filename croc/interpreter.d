@@ -36,6 +36,7 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.base_alloc;
 import croc.base_gc;
+import croc.base_metamethods;
 import croc.base_opcodes;
 import croc.types;
 import croc.types_array;
@@ -2790,7 +2791,9 @@ void callReturnHooks(CrocThread* t)
 
 void execute(CrocThread* t, uword depth = 1)
 {
-	CrocException currentException = null;
+	assert(false);
+
+/* 	CrocException currentException = null;
 	CrocValue RS;
 	CrocValue RT;
 
@@ -3835,5 +3838,5 @@ void execute(CrocThread* t, uword depth = 1)
 
 		unwindEH(t);
 		throw e;
-	}
+	} */
 }

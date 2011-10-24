@@ -38,6 +38,7 @@ import croc.api_checks;
 import croc.api_debug;
 import croc.api_stack;
 import croc.base_gc;
+import croc.base_metamethods;
 import croc.interpreter;
 import croc.types;
 import croc.types_array;
