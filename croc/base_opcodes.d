@@ -32,6 +32,76 @@ const uint MaxRegisters = Instruction.rsMax;
 const uint MaxConstants = Instruction.rsMax;
 const uint MaxUpvalues = Instruction.rsMax;
 
+/*
+UnOp: Neg, Com, Not
+BinOp: Add, Sub, Mul, Div, Mod, Cmp3
+ReflBinOp: AddEq, SubEq, MulEq, DivEq, ModEq
+BitOp: And, Or, Xor, Shl, Shr, UShr
+ReflBitOp: AndEq, OrEq, XorEq, ShlEq, ShrEq, UShrEq
+CrementOp: Inc, Dec
+
+Move
+LoadConst
+LoadNulls
+NewGlobal
+GetGlobal
+SetGlobal
+GetUpval
+SetUpval
+
+Cmp
+Equals
+SwitchCmp
+Is
+IsTrue
+Jmp
+Switch
+For
+ForLoop
+Foreach
+ForeachLoop
+
+PushEH: PushCatch, PushFinally
+PopEH: PopCatch, PopFinally
+EndFinal
+Throw
+Unwind
+
+Method
+MethodNC
+SuperMethod
+Call
+Tailcall
+Yield
+SaveRets
+Ret
+Close
+Vararg: GetVararg, VargLen, VargIndex, VargIndexAssign, VargSlice
+CheckParams
+CheckObjParam
+ParamFail: ObjParamFail, CustomParamFail
+
+Length
+LengthAssign
+Array: Append, Set
+Cat
+CatEq
+Index
+IndexAssign
+Slice
+SliceAssign
+In (and NotIn)
+
+New: Array, Table, Class, Coroutine, Namespace, NamespaceNP
+Closure
+
+As
+Field
+FieldAssign
+
+ BERF: Je, Jle, Jlt
+*/
+
 enum Op : ushort
 {
 	Add,
