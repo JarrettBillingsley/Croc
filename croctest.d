@@ -24,7 +24,7 @@ version(CrocAllAddons)
 void handler(char[] file, uword line, char[] msg = null)
 {
 	Stdout.formatln("Assertion failure at {}:{} {}", file, line, msg is null ? "" : msg).flush;
-	asm{int 3;}
+// 	asm{int 3;}
 	exit(1);
 }
 import tango.core.Exception;
@@ -32,16 +32,14 @@ import tango.core.Exception;
 import tango.stdc.stdlib;
 void main()
 {
-	setAssertHandler(&handler);
+// 	setAssertHandler(&handler);
 	scope(exit) Stdout.flush;
 
 	CrocVM vm;
 	auto t = openVM(&vm);
-	Stdout.formatln("here we go...").flush;
-// 	gc(t);
-// 	exit(0);
-	loadStdlibs(t, CrocStdlib.Array);
-	Stdout.formatln("whew").flush;
+	Stdout.formatln("=================================================== \nhere we go...").flush;
+	loadStdlibs(t, CrocStdlib.ReallyAll);
+	Stdout.formatln("whew");
 
 	try
 	{
@@ -51,7 +49,7 @@ void main()
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
 
-		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
+		Compiler.setDefaultFlags(t, Compiler.All/*  | Compiler.DocDecorators */);
 		runModule(t, "samples.simple");
 	}
 	catch(CrocException e)

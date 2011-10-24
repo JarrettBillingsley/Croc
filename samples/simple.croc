@@ -2,40 +2,41 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
-import devil as il
+// import devil as il
+// 
+// local aa
+// 
+// @Finalizable class A
+// {
+// 	function finalizer()
+// 	{
+// 		writeln("one")
+// 		aa = this
+// 	}
+// }
 
-local aa
-
-@Finalizable class A
-{
-	function finalizer()
-	{
-		writeln("one")
-		aa = this
-	}
-}
-
-@Finalizable
-class ILImage
-{
-	_handle
-
-	this()
-	{
-		:_handle = il.iluGenImage()
-	}
-
-	function finalizer()
-	{
-		il.ilDeleteImage(:_handle)
-		writeln("finalizer!")
-	}
-}
+// @Finalizable
+// class ILImage
+// {
+// 	_handle
+// 
+// 	this()
+// 	{
+// 		:_handle = il.iluGenImage()
+// 	}
+// 
+// 	function finalizer()
+// 	{
+// 		il.ilDeleteImage(:_handle)
+// 		writeln("finalizer!")
+// 	}
+// }
 
 function main()
 {
-	il.ilInit()
-	il.iluInit()
+	writeln("o hai");
+// 	il.ilInit()
+// 	il.iluInit()
 
 // 	local i = ILImage()
 // 	writefln("handle: {}", i._handle)
@@ -43,13 +44,13 @@ function main()
 // 	gc.collect()
 // 	writeln("done")
 
-	local a = A()
-	a = null
-	gc.collect()
-	writeln("now..")
-	writeln(aa)
-	aa = null
-	gc.collect()
+// 	local a = A()
+// 	a = null
+// 	gc.collect()
+// 	writeln("now..")
+// 	writeln(aa)
+// 	aa = null
+// 	gc.collect()
 
 // 	il.ilEnable(il.IL_ORIGIN_SET)
 // 	local handle = il.iluGenImage()

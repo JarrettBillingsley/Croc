@@ -216,9 +216,10 @@ package:
 
 		static if(is(typeof(T.ACYCLIC)))
 			ret.gcflags |= GCFlags.Green;
+		else
+			modBuffer.add(*this, cast(GCObject*)ret);
 
 		ret.refCount = 1;
-		modBuffer.add(*this, cast(GCObject*)ret);
 		decBuffer.add(*this, cast(GCObject*)ret);
 
 		debug(CROC_LEAK_DETECTOR)
@@ -259,8 +260,13 @@ package:
 
 			_rcBlocks.remove(o);
 		}
+		
+		auto sz = o.memSize;
+		
+		debug(CROC_STOMP_MEMORY)
+			(cast(ubyte*)o)[0 .. o.memSize] = 0;
 
-		realloc(o, o.memSize, 0);
+		realloc(o, sz, 0);
 	}
 
 	package T[] allocArray(T)(size_t size)
@@ -305,6 +311,14 @@ package:
 			return;
 	
 		auto oldLen = arr.length;
+		
+		debug(CROC_STOMP_MEMORY)
+		{
+			static if(!is(T == void))
+				if(newLen < oldLen)
+					arr[newLen .. oldLen] = T.init;
+		}
+
 		auto ret = (cast(T*)realloc(arr.ptr, oldLen * T.sizeof, newLen * T.sizeof))[0 .. newLen];
 	
 		debug(CROC_LEAK_DETECTOR)
@@ -356,6 +370,12 @@ package:
 					if(_rawBlocks.lookup(a.ptr) is null)
 						throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
 			}
+			
+			debug(CROC_STOMP_MEMORY)
+			{
+				static if(!is(T == void))
+					a[] = T.init;
+			}
 
 			realloc(a.ptr, a.length * T.sizeof, 0);
 
@@ -392,8 +412,8 @@ package:
 	{
 		nurseryPtr = nurseryStart;
 
-		debug(CROC_NURSERY_STOMP)
-			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 97;
+		debug(CROC_STOMP_MEMORY)
+			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 0;
 
 		debug(CROC_LEAK_DETECTOR)
 			_nurseryBlocks.clear(*this);

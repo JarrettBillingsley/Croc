@@ -70,12 +70,12 @@ package:
 		debug assert(!isEmpty());
 
 		auto ret = mData[mStart++];
-		
+
 		if(mStart == mData.length)
 			mStart = 0;
-		
+
 		mSize--;
-			
+
 		return ret;
 	}
 

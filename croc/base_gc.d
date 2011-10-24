@@ -41,6 +41,9 @@ import croc.types_table;
 import croc.types_thread;
 import croc.types_weakref;
 
+debug import tango.io.Stdout;
+debug = PHASES;
+
 // ================================================================================================================================================
 // Package
 // ================================================================================================================================================
@@ -59,9 +62,17 @@ Buffers which are only changed/used during the collection phase:
 	finalize buffer (finalizable objects which have died and need to be finalized)
 */
 
+void dumpMem(void* p, uword len)
+{
+	foreach(b; (cast(ubyte*)p)[0 .. len])
+		Stdout.format("{:x2} ", b);
+	Stdout.newline.flush;
+}
+
 void gcCycle(CrocVM* vm)
 {
-	Stdout.formatln("======================= BEGIN ===============================").flush;
+	debug(PHASES) Stdout.formatln("======================= BEGIN ===============================").flush;
+	Stdout.formatln("Nursery pointers: {} .. {} .. {}", vm.alloc.nurseryStart, vm.alloc.nurseryPtr, vm.alloc.nurseryEnd);
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
@@ -88,6 +99,7 @@ void gcCycle(CrocVM* vm)
 
 	// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, copy it out and leave a forwarding address.
 	// 	Regardless of whether it's a nursery object or not, put it in the new root buffer.
+	debug(PHASES) Stdout.formatln("ROOTS").flush;
 
 	visitRoots(vm, (GCObject** obj)
 	{
@@ -95,6 +107,13 @@ void gcCycle(CrocVM* vm)
 			*obj = (*obj).forwardPointer;
 		else if(((*obj).gcflags & GCFlags.InRC) == 0)
 			*obj = copyOutOfNursery(vm, *obj);
+			
+// 		if((cast(CrocBaseObject*)*obj).mType == CrocValue.Type.Namespace)
+// 		{
+// 			auto ns = cast(CrocNamespace*)*obj;
+// 			Stdout.formatln("Parent of {} ({}) after root visit: {}", ns.name.toString(), *obj, ns.parent);
+// 			Stdout("dump: "); dumpMem(ns, ns.memSize);
+// 		}
 
 		newRoots.add(vm.alloc, *obj);
 	});
@@ -102,9 +121,13 @@ void gcCycle(CrocVM* vm)
 	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object, if it's in the nursery, copy it
 	// 	out (or just forward if that's already happened). Increment all the reference counts (spurious increments to RC space objects will be undone
 	// 	by the queued decrements created during the mutation phase by the write barrier).
+	debug(PHASES) Stdout.formatln("MODBUFFER").flush;
 	while(!modBuffer.isEmpty())
 	{
 		auto obj = modBuffer.remove();
+		assert((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green);
+
+		Stdout.formatln("{} {}", obj, CrocValue.typeStrings[(cast(CrocBaseObject*)obj).mType]).flush;
 
 		obj.gcflags |= GCFlags.Unlogged;
 
@@ -117,26 +140,30 @@ void gcCycle(CrocVM* vm)
 				*slot = (*slot).forwardPointer;
 			else if(((*slot).gcflags & GCFlags.InRC) == 0)
 				*slot = copyOutOfNursery(vm, *slot);
+				
+// 			Stdout.formatln("Object moved to {}", *slot);
 
 			rcIncrement(*slot);
 
-			if((cast(CrocBaseObject*)*slot).mType == CrocValue.Type.String)
-				Stdout.formatln("Visited \"{}\" at {} through {}, rc is now {}", (cast(CrocString*)*slot).toString(), *slot, obj, (*slot).refCount).flush;
+// 			if((cast(CrocBaseObject*)*slot).mType == CrocValue.Type.String)
+				Stdout.formatln("Visited {} through {}, rc is now {}", *slot, obj, (*slot).refCount).flush;
 		});
 	}
 
 	// PROCESS OLD ROOT BUFFER. Move all objects from the old root buffer into the decrement buffer.
+	debug(PHASES) Stdout.formatln("OLDROOTS").flush;
 	decBuffer.append(vm.alloc, *oldRoots);
 	oldRoots.reset();
 
 	// PROCESS NEW ROOT BUFFER. Go through the new root buffer, incrementing their RCs, and put them all in the old root buffer.
+	debug(PHASES) Stdout.formatln("NEWROOTS").flush;
 	foreach(obj; *newRoots)
 	{
 		assert(!(obj >= vm.alloc.nurseryStart && obj < vm.alloc.nurseryEnd));
 		rcIncrement(obj);
-		
-		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
-			Stdout.formatln("Incremented \"{}\" at {}, rc is now {}", (cast(CrocString*)obj).toString(), obj, obj.refCount).flush;
+
+// 		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
+			Stdout.formatln("Incremented {}, rc is now {}", obj, obj.refCount).flush;
 	}
 
 	// heehee sneaky
@@ -147,13 +174,15 @@ void gcCycle(CrocVM* vm)
 	// 	any RC objects it points to, and free it. If it is finalizable, put it on the finalize list. If an RC is nonzero after being decremented, mark
 	// 	it as a possible cycle root as follows: if its color is not purple, color it purple, and if it's not already buffered, mark it buffered and
 	// 	put it in the possible cycle buffer.
+	
+	debug(PHASES) Stdout.formatln("DECBUFFER").flush;
 
 	while(!decBuffer.isEmpty())
 	{
 		auto obj = decBuffer.remove();
 
-		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
-			Stdout.formatln("About to decrement \"{}\" at {}, rc is {}", (cast(CrocString*)obj).toString(), obj, obj.refCount).flush;
+// 		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
+			Stdout.formatln("About to decrement {}, rc is {}", obj, obj.refCount).flush;
 
 		if(--obj.refCount == 0)
 		{
@@ -195,6 +224,8 @@ void gcCycle(CrocVM* vm)
 			}
 		}
 	}
+	
+	debug(PHASES) Stdout.formatln("NURSERY").flush;
 
 	for(void* ptr = vm.alloc.nurseryStart; ptr < vm.alloc.nurseryPtr; )
 	{
@@ -218,6 +249,7 @@ void gcCycle(CrocVM* vm)
 
 	// TODO: determine whether we have to do a cycle collection or not (cycleRoots size threshold and/or number of collections since last?)
 // 	if(cycleCollectionEnabled)
+	debug(PHASES) Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
 
 	// At this point:
@@ -232,9 +264,9 @@ void gcCycle(CrocVM* vm)
 
 // 	debug if(cycleCollectionEnabled)
 		assert(cycleRoots.isEmpty());
-		
-	string.dumpTable(vm);
-	Stdout.formatln("======================= END =================================").flush;
+
+// 	string.dumpTable(vm);
+	debug(PHASES) Stdout.formatln("======================= END =================================").flush;
 }
 
 // WRITE BARRIER: At mutation time, any time we update a slot in an unlogged object (only objects in RC space can be unlogged; we ignore nursery
@@ -279,11 +311,27 @@ void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
 {
 	alloc.modBuffer.add(alloc, srcObj);
 
+// 	if((cast(CrocBaseObject*)srcObj).mType == CrocValue.Type.Namespace)
+// 	{
+// 		auto ns = cast(CrocNamespace*)srcObj;
+// 		Stdout.formatln("Parent of {} ({}) before write barrier: {}", ns.name.toString(), srcObj, ns.parent);
+// 	}
+
 	visitObj(srcObj, (GCObject** slot)
 	{
 		if((*slot).gcflags & GCFlags.InRC)
+		{
+			if((cast(CrocBaseObject*)*slot).mType == CrocValue.Type.String)
+				Stdout.formatln("adding string {} to dec buffer", *slot).flush;
 			alloc.decBuffer.add(alloc, *slot);
+		}
 	});
+	
+// 	if((cast(CrocBaseObject*)srcObj).mType == CrocValue.Type.Namespace)
+// 	{
+// 		auto ns = cast(CrocNamespace*)srcObj;
+// 		Stdout.formatln("Parent of {} ({}) after write barrier: {}", ns.name.toString(), srcObj, ns.parent);
+// 	}
 
 	srcObj.gcflags &= ~GCFlags.Unlogged;
 }
@@ -303,25 +351,22 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 	ret.gcflags |= GCFlags.InRC | GCFlags.Unlogged;
 	ret.refCount = 0;
 
-	vm.alloc.modBuffer.add(vm.alloc, ret);
-	vm.alloc.decBuffer.add(vm.alloc, ret);
+	if((ret.gcflags & GCFlags.ColorMask) != GCFlags.Green)
+		vm.alloc.modBuffer.add(vm.alloc, ret);
+// 	vm.alloc.decBuffer.add(vm.alloc, ret);
 
 	obj.gcflags = GCFlags.Forwarded;
 	obj.forwardPointer = ret;
 
 	switch((cast(CrocBaseObject*)obj).mType)
 	{
-		case CrocValue.Type.String:    
+		case CrocValue.Type.String:
 			auto o = cast(CrocString*)ret;
-			*vm.stringTab.lookup(o.toString()) = o;
-			Stdout.formatln("string at {} is now at {}", obj, ret);
-			
-			if(o.toString() == "array")
-			{
-				asm {int 3;}	
-			}
-// 			string.dumpTable(vm);
+			// TODO: string returning problem
+			vm.stringTab.remove(o.toString());
+			*vm.stringTab.insert(vm.alloc, o.toString()) = o;
 			break;
+
 		case CrocValue.Type.WeakRef:   auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
 		case CrocValue.Type.NativeObj: auto o = cast(CrocNativeObj*)ret; vm.nativeObjs[o.obj] = o; break;
 		case CrocValue.Type.Upvalue:
@@ -334,29 +379,21 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 			}
 			break;
 
-// 		case CrocValue.Type.FuncDef:
-// 			Stdout.formatln("funcdef at {} is now at {}", obj, ret).flush;
-// 			break;
-// 			
-// 		case CrocValue.Type.Function:
-// 			Stdout.formatln("function at {} is now at {}", obj, ret).flush;
-// 			break;
-
 		default: break;
 	}
+
+	Stdout.formatln("object at {} is now at {} and its refcount is {}", obj, ret, ret.refCount).flush;
 
 	return ret;
 }
 
-debug import tango.io.Stdout;
-
 // Free an object.
 void free(CrocVM* vm, GCObject* o)
 {
-	if((cast(CrocBaseObject*)o).mType == CrocValue.Type.String)
-		Stdout.formatln("FREE: {} at {}: \"{}\"", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o, (cast(CrocString*)o).toString()).flush;
+// 	if((cast(CrocBaseObject*)o).mType == CrocValue.Type.String)
+// 		Stdout.formatln("FREE: {} at {}: \"{}\"", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o, (cast(CrocString*)o).toString()).flush;
 // 	else
-// 		Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
+		Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
 
 	finalizeBuiltin(vm, o);
 	vm.alloc.free(o);
@@ -450,11 +487,6 @@ void markGray(GCObject* obj)
 
 	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Grey)
 	{
-		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
-		{
-			Stdout.formatln("it's the string '{}' {:b}", (cast(CrocString*)obj).toString(), obj.gcflags).flush;
-			assert(false);
-		}
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Grey;
 
 		visitObj(obj, (GCObject** slot)
@@ -462,6 +494,13 @@ void markGray(GCObject* obj)
 			if(((*slot).gcflags & GCFlags.ColorMask) != GCFlags.Green)
 			{
 				(*slot).refCount--;
+
+				if((*slot).refCount == -1)
+				{
+					Stdout.formatln("oh no, it's {}", (*slot));
+					assert(false);
+				}
+
 				markGray(*slot);
 			}
 		});
@@ -692,13 +731,28 @@ void visitInstance(CrocInstance* o, void delegate(GCObject**) callback)
 // Visit a namespace.
 void visitNamespace(CrocNamespace* o, void delegate(GCObject**) callback)
 {
+// 	Stdout.format("before visit {}\ndump: ", o); dumpMem(o, o.memSize);
+
 	foreach(ref key, ref val; o.data)
 	{
+// 		Stdout.format("visiting {}\ndump: ", key.toString()); dumpMem(o, o.memSize);
 		callback(cast(GCObject**)&key);
+// 		Stdout.format("done visiting {}\ndump: ", key.toString()); dumpMem(o, o.memSize);
+
+// 		if(val.isObject())
+// 			Stdout.formatln("value's addr is {}", val.toGCObject());
 		mixin(ValueCallback!("val"));
+// 		Stdout.format("done visiting {}'s value\ndump: ", key.toString()); dumpMem(o, o.memSize);
 	}
 
+// 	Stdout("after visit\ndump: "); dumpMem(o, o.memSize);
+
+	assert(o.mType is CrocValue.Type.Namespace);
+
+// 	Stdout.formatln("HERFA {}", o.parent).flush;
+// 	Stdout("dump: "); dumpMem(o, o.memSize);
 	mixin(CondCallback!("o.parent"));
+// 	Stdout.formatln("DERFA {}", o.parent).flush;
 	mixin(CondCallback!("o.name"));
 }
 
@@ -711,10 +765,16 @@ void visitThread(CrocThread* o, void delegate(GCObject**) callback)
 		mixin(CondCallback!("ar.proto"));
 	}
 
-	foreach(ref val; o.stack[0 .. o.stackIndex])
+	foreach(i, ref val; o.stack[0 .. o.stackIndex])
+	{
+		Stdout.formatln("Stack {}: {}", i, val).flush;
 		mixin(ValueCallback!("val"));
+	}
+	
+	Stdout.formatln("DONE WITH STACK").flush;
 
 	// I guess this can't _hurt_..
+	
 	o.stack[o.stackIndex .. $] = CrocValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])

@@ -1364,7 +1364,8 @@ char[] getString(CrocThread* t, word slot)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
-	return v.mString.toString();
+	// TODO: string returning problem -- possibly split strings into two parts so string data doesn't move so we don't have to dup?
+	return v.mString.toString().dup;
 }
 
 /**
@@ -2006,7 +2007,8 @@ Params:
 	mb = The stack index of the memblock object.
 
 Returns:
-	A string containing the type code for the given memblock. This points into ROM, so don't modify it.
+	A string containing the type code for the given memblock. This points into ROM, so don't modify it, but
+	at least you don't have to worry about it being collected.
 */
 char[] memblockType(CrocThread* t, word mb)
 {
@@ -2250,7 +2252,8 @@ char[] funcName(CrocThread* t, word func)
 	mixin(FuncNameMix);
 
 	if(auto f = getFunction(t, func))
-		return f.name.toString();
+		// TODO: string returning problem.
+		return f.name.toString().dup;
 
 	pushTypeString(t, func);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
@@ -2512,7 +2515,8 @@ char[] className(CrocThread* t, word cls)
 	mixin(FuncNameMix);
 
 	if(auto c = getClass(t, cls))
-		return c.name.toString();
+		// TODO: string returning problem.
+		return c.name.toString().dup;
 
 	pushTypeString(t, cls);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
@@ -2716,7 +2720,8 @@ char[] namespaceName(CrocThread* t, word ns)
 	mixin(FuncNameMix);
 
 	if(auto n = getNamespace(t, ns))
-		return n.name.toString();
+		// TODO: string returning problem.
+		return n.name.toString().dup;
 
 	pushTypeString(t, ns);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
@@ -2758,7 +2763,7 @@ CrocThread.State state(CrocThread* t)
 /**
 Gets a string representation of the current coroutine state of the thread.
 
-The string returned is not on the Croc heap, it's just a string literal.
+The string returned is not on the Croc heap, it's just a string literal, but it's in ROM.
 */
 char[] stateString(CrocThread* t)
 {
@@ -2995,7 +3000,8 @@ char[] funcDefName(CrocThread* t, word funcDef)
 	mixin(FuncNameMix);
 
 	if(auto f = getFuncDef(t, funcDef))
-		return f.name.toString();
+		// TODO: string returning problem.
+		return f.name.toString().dup;
 
 	pushTypeString(t, funcDef);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'funcdef', not '{}'", getString(t, -1));
@@ -4159,6 +4165,12 @@ package:
 CrocString* createString(CrocThread* t, char[] data)
 {
 	uword h = void;
+	
+// 	if(data == "array")
+// 	{
+// 		Stdout.formatln("Is it in? {}", string.lookup(t.vm, data, h));
+// 		string.dumpTable(t.vm);
+// 	}
 
 	if(auto s = string.lookup(t.vm, data, h))
 		return s;

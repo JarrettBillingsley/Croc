@@ -164,16 +164,20 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 
 	if(isScript)
 		execute(t);
-
-	maybeGC(t);
+		
+	uword ret;
 
 	if(numReturns == -1)
-		return t.stackIndex - slot;
+		ret = t.stackIndex - slot;
 	else
 	{
 		t.stackIndex = slot + numReturns;
-		return numReturns;
+		ret = numReturns;
 	}
+
+	maybeGC(t);
+
+	return ret;
 }
 
 bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* lookup, CrocString* methodName, word numReturns, uword numParams, bool customThis)
@@ -582,7 +586,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			// If we have too few params, the extra param slots will be nulled out.
 		}
-
+		
 		// Null out the stack frame after the parameters.
 		t.stack[ar.base + numParams .. ar.base + funcDef.stackSize] = CrocValue.nullValue;
 
@@ -602,7 +606,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		// Set the stack indices.
 		t.stackBase = ar.base;
 		t.stackIndex = ar.savedTop;
-
+		
 		// Call any hook.
 		mixin(
 		"if(t.hooks & CrocThread.Hook.Call)
@@ -611,7 +615,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 				callHook(t, CrocThread.Hook.Call);
 		" ~ wrapEH ~ "
 		}");
-
+		
 		return true;
 	}
 	else
@@ -638,7 +642,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		t.stackBase = ar.base;
 
 		uword actualReturns = void;
-
+		
 		mixin("try
 		{
 			if(t.hooks & CrocThread.Hook.Call)
@@ -654,7 +658,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			actualReturns = func.nativeFunc(t);
 		}" ~ wrapEH);
-
+		
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);
 		callEpilogue(t, true);
 		return false;
