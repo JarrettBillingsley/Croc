@@ -93,7 +93,7 @@ Returns:
 word importModule(CrocThread* t, word name)
 {
 	mixin(FuncNameMix);
-
+	
 	name = absIndex(t, name);
 
 	if(!isString(t, name))
@@ -478,7 +478,7 @@ void makeModule(CrocThread* t, char[] name, NativeFunc loader)
 {
 	pushGlobal(t, "modules");
 	field(t, -1, "customLoaders");
-	
+
 	if(hasField(t, -1, name))
 		throwStdException(t, "LookupException", "makeModule - Module '{}' already has a loader set for it in modules.customLoaders", name);
 

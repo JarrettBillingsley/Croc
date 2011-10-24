@@ -84,6 +84,8 @@ package:
 			resizeArray(alloc, largerPow2(size));
 	}
 
+import tango.io.Stdout;
+import tango.stdc.stdlib;
 	V* insert(ref Allocator alloc, K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
@@ -117,7 +119,19 @@ package:
 			{
 				// other node is in the middle of a list, push it out.
 				while(otherNode.next !is mainPosNode)
+				{
 					otherNode = otherNode.next;
+
+					static if(is(K == char[]))
+					{
+						assert(otherNode !is null);
+						if(otherNode is null)
+						{
+							Stdout.formatln("what the christ is going on").flush;
+							exit(1);
+						}
+					}
+				}
 
 				otherNode.next = colBucket;
 				*colBucket = *mainPosNode;

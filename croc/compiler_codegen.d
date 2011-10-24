@@ -1917,7 +1917,6 @@ scope class Codegen : Visitor
 		}
 
 		auto def = fs_.toFuncDef();
-		Stdout.formatln("The top-level func of {} is {}", m.names.join("."), def);
 		push(c.thread, CrocValue(def));
 		insertAndPop(c.thread, -2);
 

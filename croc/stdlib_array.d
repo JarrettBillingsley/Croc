@@ -108,7 +108,7 @@ static:
 
 		importModuleNoNS(t, "array");
 	}
-
+import tango.io.Stdout;
 	version(CrocBuiltinDocs) Docs array_new_docs = {kind: "function", name: "array.new", docs:
 	"You can use array literals to create arrays in Croc, but sometimes you just need to be able to
 	create an array of arbitrary size. This function will create an array of the given size. If

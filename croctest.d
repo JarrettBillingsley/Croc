@@ -21,9 +21,18 @@ version(CrocAllAddons)
 	version = CrocDevilAddon;
 }
 
+void handler(char[] file, uword line, char[] msg = null)
+{
+	Stdout.formatln("Assertion failure at {}:{} {}", file, line, msg is null ? "" : msg).flush;
+	asm{int 3;}
+	exit(1);
+}
+import tango.core.Exception;
+
 import tango.stdc.stdlib;
 void main()
 {
+	setAssertHandler(&handler);
 	scope(exit) Stdout.flush;
 
 	CrocVM vm;

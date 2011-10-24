@@ -49,11 +49,26 @@ static:
 
 		return null;
 	}
+	
+	package void dumpTable(CrocVM* vm)
+	{
+		Stdout.formatln("==== String table ====");
+		
+		foreach(k, v; vm.stringTab)
+			Stdout.formatln("  '{}': {} {:x} {} {}", k, v, v.hash, v.length, v.cpLength);
+	}
 
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
 	package CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
 	{
+		Stdout.formatln("enter");
+		if(data.length == 5)
+		{
+			Stdout.formatln("b  {} {} {} {} {}", cast(uint)data[0], cast(uint)data[1], cast(uint)data[2], cast(uint)data[3], cast(uint)data[4]);
+			dumpTable(vm);
+		}
+
 		auto ret = vm.alloc.allocate!(CrocString)(StringSize(data.length));
 		ret.hash = h;
 		ret.length = data.length;
@@ -62,15 +77,28 @@ static:
 
 		*vm.stringTab.insert(vm.alloc, ret.toString()) = ret;
 
+		Stdout.formatln("Just created the string '{} {}'", ret.toString().ptr, ret.toString().length);
+		if(ret.toString().length == 5)
+		{
+			Stdout.formatln("c  {} {} {} {} {}", cast(uint)ret.toString()[0], cast(uint)ret.toString()[1], cast(uint)ret.toString()[2], cast(uint)ret.toString()[3], cast(uint)ret.toString()[4]);
+			Stdout.formatln("d  {} {} {} {} {}", cast(uint)data[0], cast(uint)data[1], cast(uint)data[2], cast(uint)data[3], cast(uint)data[4]);
+		}
+
+		Stdout.formatln("exit");
+
 		return ret;
 	}
 
 	// Finalize a string object.
 	package void finalize(CrocVM* vm, CrocString* s)
 	{
+		Stdout.formatln("Finalizing '{}'", s.toString());
 		auto b = vm.stringTab.remove(s.toString());
 		assert(b);
+
+// 		dumpTable(vm);
 	}
+	import tango.io.Stdout;
 
 	// Compare two string objects.
 	package crocint compare(CrocString* a, CrocString* b)

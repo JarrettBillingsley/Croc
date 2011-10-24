@@ -196,7 +196,7 @@ package:
 
 		return 0;
 	}
-	
+
 	struct Iterator
 	{
 	private:

@@ -223,7 +223,7 @@ package:
 
 		debug(CROC_LEAK_DETECTOR)
 			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
-			
+
 		static if(T.stringof == "CrocString")
 			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
@@ -356,9 +356,9 @@ package:
 					if(_rawBlocks.lookup(a.ptr) is null)
 						throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
 			}
-	
+
 			realloc(a.ptr, a.length * T.sizeof, 0);
-	
+
 			debug(CROC_LEAK_DETECTOR)
 			{
 				static if(is(T == Hash!(void*, MemBlock).Node))
@@ -366,11 +366,11 @@ package:
 				else
 					_rawBlocks.remove(a.ptr);
 			}
-	
+
 			a = null;
 		}
 	}
-	
+
 	private void* realloc(void* p, size_t oldSize, size_t newSize)
 	{
 		auto ret = memFunc(ctx, p, oldSize, newSize);
@@ -378,7 +378,7 @@ package:
 		totalBytes += newSize - oldSize;
 		return ret;
 	}
-	
+
 	void resizeNurserySpace(uword newSize)
 	{
 		assert(nurseryPtr is nurseryStart);
@@ -387,14 +387,14 @@ package:
 		nurseryEnd = nurseryStart + newSize;
 		nurseryPtr = nurseryStart;
 	}
-	
+
 	void clearNurserySpace()
 	{
 		nurseryPtr = nurseryStart;
 
 		debug(CROC_NURSERY_STOMP)
-			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 0xCD;
-	
+			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 97;
+
 		debug(CROC_LEAK_DETECTOR)
 			_nurseryBlocks.clear(*this);
 	}

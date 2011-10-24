@@ -61,7 +61,7 @@ Buffers which are only changed/used during the collection phase:
 
 void gcCycle(CrocVM* vm)
 {
-	Stdout.formatln("======================= BEGIN ===============================");
+	Stdout.formatln("======================= BEGIN ===============================").flush;
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
@@ -102,12 +102,14 @@ void gcCycle(CrocVM* vm)
 	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object, if it's in the nursery, copy it
 	// 	out (or just forward if that's already happened). Increment all the reference counts (spurious increments to RC space objects will be undone
 	// 	by the queued decrements created during the mutation phase by the write barrier).
-	foreach(obj; *modBuffer)
+	while(!modBuffer.isEmpty())
 	{
+		auto obj = modBuffer.remove();
+
 		obj.gcflags |= GCFlags.Unlogged;
 
 // 		if(obj is cast(GCObject*)vm.globals)
-// 			Stdout.formatln("visiting globalssssss");
+// 			Stdout.formatln("visiting globalssssss").flush;
 
 		visitObj(obj, (GCObject** slot)
 		{
@@ -118,12 +120,10 @@ void gcCycle(CrocVM* vm)
 
 			rcIncrement(*slot);
 
-// 			if((cast(CrocBaseObject*)*slot).mType == CrocValue.Type.String)
-// 				Stdout.formatln("Visited \"{}\" at {} through {}, rc is now {}", (cast(CrocString*)*slot).toString(), *slot, obj, (*slot).refCount);
+			if((cast(CrocBaseObject*)*slot).mType == CrocValue.Type.String)
+				Stdout.formatln("Visited \"{}\" at {} through {}, rc is now {}", (cast(CrocString*)*slot).toString(), *slot, obj, (*slot).refCount).flush;
 		});
 	}
-
-	modBuffer.reset();
 
 	// PROCESS OLD ROOT BUFFER. Move all objects from the old root buffer into the decrement buffer.
 	decBuffer.append(vm.alloc, *oldRoots);
@@ -134,6 +134,9 @@ void gcCycle(CrocVM* vm)
 	{
 		assert(!(obj >= vm.alloc.nurseryStart && obj < vm.alloc.nurseryEnd));
 		rcIncrement(obj);
+		
+		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
+			Stdout.formatln("Incremented \"{}\" at {}, rc is now {}", (cast(CrocString*)obj).toString(), obj, obj.refCount).flush;
 	}
 
 	// heehee sneaky
@@ -149,8 +152,8 @@ void gcCycle(CrocVM* vm)
 	{
 		auto obj = decBuffer.remove();
 
-// 		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
-// 			Stdout.formatln("About to decrement \"{}\" at {}, rc is {}", (cast(CrocString*)obj).toString(), obj, obj.refCount);
+		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
+			Stdout.formatln("About to decrement \"{}\" at {}, rc is {}", (cast(CrocString*)obj).toString(), obj, obj.refCount).flush;
 
 		if(--obj.refCount == 0)
 		{
@@ -202,8 +205,6 @@ void gcCycle(CrocVM* vm)
 			assert((obj.gcflags & GCFlags.Finalizable) == 0);
 			finalizeBuiltin(vm, obj);
 		}
-		else
-			assert(obj.gcflags == GCFlags.Forwarded);
 
 		ptr = cast(void*)((cast(uword)ptr + obj.memSize + Allocator.nurseryAlignment) & ~Allocator.nurseryAlignment);
 	}
@@ -231,7 +232,9 @@ void gcCycle(CrocVM* vm)
 
 // 	debug if(cycleCollectionEnabled)
 		assert(cycleRoots.isEmpty());
-	Stdout.formatln("======================= END =================================");
+		
+	string.dumpTable(vm);
+	Stdout.formatln("======================= END =================================").flush;
 }
 
 // WRITE BARRIER: At mutation time, any time we update a slot in an unlogged object (only objects in RC space can be unlogged; we ignore nursery
@@ -299,7 +302,7 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 
 	ret.gcflags |= GCFlags.InRC | GCFlags.Unlogged;
 	ret.refCount = 0;
-	
+
 	vm.alloc.modBuffer.add(vm.alloc, ret);
 	vm.alloc.decBuffer.add(vm.alloc, ret);
 
@@ -308,7 +311,17 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 
 	switch((cast(CrocBaseObject*)obj).mType)
 	{
-		case CrocValue.Type.String:    auto o = cast(CrocString*)ret; *vm.stringTab.lookup(o.toString()) = o; break;
+		case CrocValue.Type.String:    
+			auto o = cast(CrocString*)ret;
+			*vm.stringTab.lookup(o.toString()) = o;
+			Stdout.formatln("string at {} is now at {}", obj, ret);
+			
+			if(o.toString() == "array")
+			{
+				asm {int 3;}	
+			}
+// 			string.dumpTable(vm);
+			break;
 		case CrocValue.Type.WeakRef:   auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
 		case CrocValue.Type.NativeObj: auto o = cast(CrocNativeObj*)ret; vm.nativeObjs[o.obj] = o; break;
 		case CrocValue.Type.Upvalue:
@@ -322,11 +335,11 @@ GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
 			break;
 
 // 		case CrocValue.Type.FuncDef:
-// 			Stdout.formatln("funcdef at {} is now at {}", obj, ret);
+// 			Stdout.formatln("funcdef at {} is now at {}", obj, ret).flush;
 // 			break;
 // 			
 // 		case CrocValue.Type.Function:
-// 			Stdout.formatln("function at {} is now at {}", obj, ret);
+// 			Stdout.formatln("function at {} is now at {}", obj, ret).flush;
 // 			break;
 
 		default: break;
@@ -340,10 +353,10 @@ debug import tango.io.Stdout;
 // Free an object.
 void free(CrocVM* vm, GCObject* o)
 {
-// 	if((cast(CrocBaseObject*)o).mType == CrocValue.Type.String)
-// 		Stdout.formatln("FREE: {} at {}: \"{}\"", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o, (cast(CrocString*)o).toString());
+	if((cast(CrocBaseObject*)o).mType == CrocValue.Type.String)
+		Stdout.formatln("FREE: {} at {}: \"{}\"", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o, (cast(CrocString*)o).toString()).flush;
 // 	else
-// 		Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o);
+// 		Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
 
 	finalizeBuiltin(vm, o);
 	vm.alloc.free(o);
@@ -375,7 +388,7 @@ void finalizeBuiltin(CrocVM* vm, GCObject* o)
 			CrocValue.Type.Instance,
 			CrocValue.Type.Upvalue: break;
 
-		default: debug Stdout.formatln("{}", (cast(CrocBaseObject*)o).mType); assert(false);
+		default: debug Stdout.formatln("{}", (cast(CrocBaseObject*)o).mType).flush; assert(false);
 	}
 }
 
@@ -439,7 +452,7 @@ void markGray(GCObject* obj)
 	{
 		if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.String)
 		{
-			Stdout.formatln("it's the string '{}' {:b}", (cast(CrocString*)obj).toString(), obj.gcflags);
+			Stdout.formatln("it's the string '{}' {:b}", (cast(CrocString*)obj).toString(), obj.gcflags).flush;
 			assert(false);
 		}
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Grey;
@@ -557,7 +570,7 @@ template CondCallback(char[] name)
 // Visit the roots of this VM.
 void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
 {
-// 	Stdout.formatln("globals unlogged? {}", vm.globals.gcflags & GCFlags.Unlogged);
+// 	Stdout.formatln("globals unlogged? {}", vm.globals.gcflags & GCFlags.Unlogged).flush;
 	callback(cast(GCObject**)&vm.globals);
 // 	visitNamespace(vm.globals, callback);
 	callback(cast(GCObject**)&vm.mainThread);
@@ -639,7 +652,7 @@ void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
 	mixin(CondCallback!("o.environment"));
 
 // 	if(o.name !is null)
-// 		Stdout.formatln("function {}'s ({}) name is: {} {:b} at {}", o, o.isNative ? null : o.scriptFunc, o.name.toString, o.name.gcflags, o.name);
+// 		Stdout.formatln("function {}'s ({}) name is: {} {:b} at {}", o, o.isNative ? null : o.scriptFunc, o.name.toString, o.name.gcflags, o.name).flush;
 	mixin(CondCallback!("o.name"));
 
 	if(o.isNative)
