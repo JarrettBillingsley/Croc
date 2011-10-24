@@ -227,7 +227,7 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 	switch(v.type)
 	{
 		case CrocValue.Type.Class:
-			if(auto ret = classobj.getField_x(v.mClass, name, proto))
+			if(auto ret = classobj.getField(v.mClass, name, proto))
 				return *ret;
 
 			goto default;
@@ -236,13 +236,13 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 			return getInstanceMethod(v.mInstance, name, proto);
 
 		case CrocValue.Type.Table:
-			if(auto ret = table.get_x(v.mTable, CrocValue(name)))
+			if(auto ret = table.get(v.mTable, CrocValue(name)))
 				return *ret;
 
 			goto default;
 
 		case CrocValue.Type.Namespace:
-			if(auto ret = namespace.get_x(v.mNamespace, name))
+			if(auto ret = namespace.get(v.mNamespace, name))
 				return *ret;
 			else
 				return CrocValue.nullValue;
@@ -256,7 +256,7 @@ CrocValue getInstanceMethod(CrocInstance* inst, CrocString* name, out CrocClass*
 {
 	CrocValue owner;
 
-	if(auto ret = instance.getField_x(inst, name, owner))
+	if(auto ret = instance.getField(inst, name, owner))
 	{
 		if(owner == CrocValue(inst))
 			proto = inst.parent;
@@ -276,7 +276,7 @@ CrocValue getGlobalMetamethod(CrocThread* t, CrocValue.Type type, CrocString* na
 {
 	if(auto mt = getMetatable(t, type))
 	{
-		if(auto ret = namespace.get_x(mt, name))
+		if(auto ret = namespace.get(mt, name))
 			return *ret;
 	}
 
@@ -402,7 +402,7 @@ bool callPrologue(CrocThread* t, AbsStack slot, word numReturns, uword numParams
 				auto inst = instance.create(t.vm, cls);
 
 				// call any constructor
-				auto ctor = classobj.getField_x(cls, t.vm.ctorString);
+				auto ctor = classobj.getField(cls, t.vm.ctorString);
 
 				if(ctor !is null)
 				{
@@ -993,7 +993,7 @@ void idxImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocValue* ke
 
 void tableIdxImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocValue* key)
 {
-	if(auto v = table.get_x(container.mTable, *key))
+	if(auto v = table.get(container.mTable, *key))
 		*dest = *v;
 	else
 		*dest = CrocValue.nullValue;
@@ -1095,7 +1095,7 @@ void tableIdxaImpl(CrocThread* t, CrocValue* container, CrocValue* key, CrocValu
 		return;
 	}
 
-	auto v = table.get_x(container.mTable, *key);
+	auto v = table.get(container.mTable, *key);
 
 	if(v !is null)
 	{
@@ -1133,7 +1133,7 @@ void fieldImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocString*
 			return tableIdxImpl(t, dest, container, &CrocValue(name));
 
 		case CrocValue.Type.Class:
-			auto v = classobj.getField_x(container.mClass, name);
+			auto v = classobj.getField(container.mClass, name);
 
 			if(v is null)
 			{
@@ -1144,7 +1144,7 @@ void fieldImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocString*
 			return *dest = *v;
 
 		case CrocValue.Type.Instance:
-			auto v = instance.getField_x(container.mInstance, name);
+			auto v = instance.getField(container.mInstance, name);
 
 			if(v is null)
 			{
@@ -1159,7 +1159,7 @@ void fieldImpl(CrocThread* t, CrocValue* dest, CrocValue* container, CrocString*
 
 
 		case CrocValue.Type.Namespace:
-			auto v = namespace.get_x(container.mNamespace, name);
+			auto v = namespace.get(container.mNamespace, name);
 
 			if(v is null)
 			{
@@ -1193,7 +1193,7 @@ void fieldaImpl(CrocThread* t, CrocValue* container, CrocString* name, CrocValue
 			auto i = container.mInstance;
 
 			CrocValue owner;
-			auto field = instance.getField_x(i, name, owner);
+			auto field = instance.getField(i, name, owner);
 
 			if(field is null)
 			{
@@ -2384,9 +2384,9 @@ CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 // ============================================================================
 // Helper functions
 
-CrocValue* lookupGlobal_x(ref Allocator alloc, CrocString* name, CrocNamespace* env, bool update)
+CrocValue* lookupGlobal(ref Allocator alloc, CrocString* name, CrocNamespace* env, bool update)
 {
-	if(auto glob = namespace.get_x(env, name))
+	if(auto glob = namespace.get(env, name))
 	{
 		if(update)
 			mixin(writeBarrier!("alloc", "env"));
@@ -2396,7 +2396,7 @@ CrocValue* lookupGlobal_x(ref Allocator alloc, CrocString* name, CrocNamespace* 
 	auto ns = env;
 	for(; ns.parent !is null; ns = ns.parent){}
 
-	if(auto glob = namespace.get_x(ns, name))
+	if(auto glob = namespace.get(ns, name))
 	{
 		if(update)
 			mixin(writeBarrier!("alloc", "ns"));
@@ -2842,7 +2842,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 				auto name = constTable[index & ~Instruction.locMask].mString;
 
-				if(auto glob = namespace.get_x(env, name))
+				if(auto glob = namespace.get(env, name))
 				{
 					if(update)
 						mixin(writeBarrier!("t.vm.alloc", "env"));
@@ -2850,11 +2850,14 @@ void execute(CrocThread* t, uword depth = 1)
 				}
 
 				auto ns = env;
-				for(; ns.parent !is null; ns = ns.parent){}
+				for(; ns.parent !is null; ns = ns.parent)
+				{
+// 					Stdout.formatln("namespace {} ({}), parent is {}", ns, ns.name.toString(), ns.parent);
+                }
 
 				if(ns !is env)
 				{
-					if(auto glob = namespace.get_x(ns, name))
+					if(auto glob = namespace.get(ns, name))
 					{
 						if(update)
 							mixin(writeBarrier!("t.vm.alloc", "ns"));
@@ -2883,7 +2886,7 @@ void execute(CrocThread* t, uword depth = 1)
 			pc = &t.currentAR.pc;
 			Instruction* i = (*pc)++;
 
-			if(t.hooksEnabled)
+			if(t.hooksEnabled && t.hooks)
 			{
 				if(t.hooks & CrocThread.Hook.Delay)
 				{
@@ -3735,8 +3738,8 @@ void execute(CrocThread* t, uword depth = 1)
 						(*pc)++;
 					}
 
-					// TODO: needed? harmless I guess
-					func.barrier(t.vm.alloc, n);
+// 					// TODO: needed? harmless I guess
+// 					func.barrier(t.vm.alloc, n);
 
 					*mixin(GetRDDest) = n;
 					maybeGC(t);

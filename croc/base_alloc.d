@@ -199,9 +199,11 @@ package:
 
 		debug(CROC_LEAK_DETECTOR)
 			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
-			
+
 		static if(T.stringof == "CrocString")
 			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
+
+// 		Stdout.formatln("Nursery-allocated " ~ T.stringof ~ " {}", ret);
 
 		return ret;
 	}
@@ -212,7 +214,7 @@ package:
 		(cast(void*)ret)[0 .. T.sizeof] = (cast(void*)&T.init)[0 .. T.sizeof];
 		*ret = T.init;
 		ret.memSize = size;
-		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer.
+		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
 
 		static if(is(typeof(T.ACYCLIC)))
 			ret.gcflags |= GCFlags.Green;
@@ -242,13 +244,18 @@ package:
 		debug(CROC_LEAK_DETECTOR)
 		{
 			auto b = _nurseryBlocks.lookup(obj);
-			assert(b !is null);
+			
+			if(b is null)
+			{
+				Stdout.formatln("erf.. {}", obj);
+				assert(false);
+			}
 			*_rcBlocks.insert(*this, ret) = *b;
 		}
 
 		return cast(GCObject*)ret;
 	}
-
+import tango.io.Stdout;
 	void free(T)(T* o)
 	{
 		assert(o.gcflags & GCFlags.InRC, "attempting to free an object that isn't in the RC space!");

@@ -58,6 +58,7 @@ static:
 			Stdout.formatln("  '{}': {} {:x} {} {}", k, v, v.hash, v.length, v.cpLength);
 	}
 
+import tango.io.Stdout;
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
 	package CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
@@ -77,7 +78,7 @@ static:
 
 		*vm.stringTab.insert(vm.alloc, ret.toString()) = ret;
 
-// 		Stdout.formatln("Just created the string '{} {}'", ret.toString().ptr, ret.toString().length);
+		Stdout.formatln("Just created the string '{} {}'", ret.toString().ptr, ret.toString().length);
 // 		if(ret.toString().length == 5)
 // 		{
 // 			Stdout.formatln("c  {} {} {} {} {}", cast(uint)ret.toString()[0], cast(uint)ret.toString()[1], cast(uint)ret.toString()[2], cast(uint)ret.toString()[3], cast(uint)ret.toString()[4]);
@@ -98,7 +99,6 @@ static:
 
 // 		dumpTable(vm);
 	}
-	import tango.io.Stdout;
 
 	// Compare two string objects.
 	package crocint compare(CrocString* a, CrocString* b)

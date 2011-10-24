@@ -103,7 +103,7 @@ static:
 		pop(t, 2);
 		return commonLoad(t, name);
 	}
-import croc.api_debug, tango.io.Stdout;;
+
 	package uword commonLoad(CrocThread* t, char[] name)
 	{
 		checkCircular(t, name);
@@ -125,10 +125,6 @@ import croc.api_debug, tango.io.Stdout;;
 			idx(t, loaders);
 			pushNull(t);
 			pushString(t, name);
-			
-			Stdout.formatln("Loader stack:");
-			printStack(t, true);
-
 			rawCall(t, reg, 1);
 
 			if(isFuncDef(t, -1) || isFunction(t, -1))

@@ -60,17 +60,17 @@ static:
 		return c;
 	}
 
-	package CrocValue* getField_x(CrocClass* c, CrocString* name)
+	package CrocValue* getField(CrocClass* c, CrocString* name)
 	{
 		CrocClass* dummy = void;
-		return getField_x(c, name, dummy);
+		return getField(c, name, dummy);
 	}
 
-	package CrocValue* getField_x(CrocClass* c, CrocString* name, out CrocClass* owner)
+	package CrocValue* getField(CrocClass* c, CrocString* name, out CrocClass* owner)
 	{
 		for(auto obj = c; obj !is null; obj = obj.parent)
 		{
-			if(auto ret = namespace.get_x(obj.fields, name))
+			if(auto ret = namespace.get(obj.fields, name))
 			{
 				owner = obj;
 				return ret;

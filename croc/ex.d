@@ -93,7 +93,7 @@ Returns:
 word importModule(CrocThread* t, word name)
 {
 	mixin(FuncNameMix);
-	
+
 	name = absIndex(t, name);
 
 	if(!isString(t, name))
@@ -1801,11 +1801,16 @@ private:
 
 void commonRun(CrocThread* t, uword numParams, char[] modName)
 {
+	Stdout.formatln("ONE").flush;
 	pushNull(t);
+	Stdout.formatln("TWO").flush;
 	lookup(t, "modules.runMain");
+	Stdout.formatln("THREE").flush;
 	swap(t, -3);
 	rotate(t, numParams + 3, 3);
+	Stdout.formatln("FOUR").flush;
 	rawCall(t, -3 - numParams, 0);
+	Stdout.formatln("FIVE").flush;
 }
 
 // Check the format of a name of the form "\w[\w\d]*(\.\w[\w\d]*)*". Could we use an actual regex for this?  I guess,

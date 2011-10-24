@@ -34,7 +34,7 @@ module samples.simple
 
 function main()
 {
-	writeln("o hai");
+	/* stream.stdout. */writeln("o hai")/* .flush(); */
 // 	il.ilInit()
 // 	il.iluInit()
 

@@ -45,9 +45,11 @@ static:
 		mixin(writeBarrier!("alloc", "ns"));
 		ns.parent = parent;
 		ns.name = name;
+		
+		Stdout.formatln("{}'s parent is {}", ns, parent);
 		return ns;
 	}
-
+import tango.io.Stdout;
 	// Finalize a namespace object.
 	package void finalize(ref Allocator alloc, CrocNamespace* ns)
 	{
@@ -55,7 +57,7 @@ static:
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get_x(CrocNamespace* ns, CrocString* key)
+	package CrocValue* get(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key);
 	}

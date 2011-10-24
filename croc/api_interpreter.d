@@ -442,7 +442,7 @@ word pushVFormat(CrocThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr
 		throwStdException(t, "ValueException", "Error during string formatting: {}", e);
 
 	maybeGC(t);
-	
+
 	if(numPieces == 0)
 		return pushString(t, "");
 	else
@@ -702,13 +702,12 @@ word newFunctionWithEnv(CrocThread* t, uint numParams, NativeFunc func, char[] n
 {
 	mixin(apiCheckNumParams!("numUpvals + 1"));
 
-	auto env = getNamespace(t, -1);
-
-	if(env is null)
+	if(!isNamespace(t, -1))
 		mixin(apiParamTypeError!("-1", "environment", "namespace"));
 
 	maybeGC(t);
 
+	auto env = getNamespace(t, -1);
 	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
 // 	.func.barrier(t.vm.alloc, f);
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
@@ -758,26 +757,25 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 	mixin(apiCheckNumParams!("1"));
 
 	funcDef = absIndex(t, funcDef);
-	auto def = getFuncDef(t, funcDef);
 
-	if(def is null)
+	if(!isFuncDef(t, funcDef))
 	{
 		pushTypeString(t, funcDef);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
 	}
 
-	if(def.numUpvals > 0)
+	if(getFuncDef(t, funcDef).numUpvals > 0)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Function definition may not have any upvalues");
 
-	auto env = getNamespace(t, -1);
-
-	if(env is null)
+	if(!isNamespace(t, -1))
 	{
 		pushTypeString(t, -1);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
+	auto def = getFuncDef(t, funcDef);
+	auto env = getNamespace(t, -1);
 	auto ret = .func.create(t.vm.alloc, env, def);
 
 	if(ret is null)
@@ -813,16 +811,21 @@ word newClass(CrocThread* t, word base, char[] name)
 	CrocClass* b = void;
 
 	if(isNull(t, base))
+	{
+		maybeGC(t);
 		b = t.vm.object;
+	}
 	else if(auto c = getClass(t, base))
+	{
+		maybeGC(t);
 		b = c;
+	}
 	else
 	{
 		pushTypeString(t, base);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
 	}
 
-	maybeGC(t);
 	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), b)));
 }
 
@@ -884,15 +887,14 @@ word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes
 {
 	mixin(FuncNameMix);
 
-	auto b = getClass(t, base);
-
-	if(b is null)
+	if(!isClass(t, base))
 	{
 		pushTypeString(t, base);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'class' for base, not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
+	auto b = getClass(t, base);
 	return push(t, CrocValue(instance.create(t.vm, b, numValues, extraBytes)));
 }
 
@@ -910,9 +912,10 @@ Returns:
 */
 word newNamespace(CrocThread* t, char[] name)
 {
-	auto ret = newNamespaceNoParent(t, name);
-	getNamespace(t, ret).parent = getEnv(t);
-	return ret;
+	push(t, CrocValue(getEnv(t)));
+	newNamespace(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
 }
 
 /**
@@ -933,18 +936,24 @@ word newNamespace(CrocThread* t, word parent, char[] name)
 	CrocNamespace* p = void;
 
 	if(isNull(t, parent))
+	{
+		maybeGC(t);
 		p = null;
-	else if(auto ns = getNamespace(t, parent))
-		p = ns;
+	}
+	else if(isNamespace(t, parent))
+	{
+		maybeGC(t);
+		p = getNamespace(t, parent);
+	}
 	else
 	{
 		pushTypeString(t, parent);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
-	auto ret = newNamespaceNoParent(t, name);
-	getNamespace(t, ret).parent = p;
-	return ret;
+	Stdout.formatln("Parent is {}", p);
+
+	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), p)));
 }
 
 /**
@@ -961,8 +970,10 @@ Returns:
 */
 word newNamespaceNoParent(CrocThread* t, char[] name)
 {
-	maybeGC(t);
-	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), null)));
+	pushNull(t);
+	newNamespace(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
 }
 
 /**
@@ -980,21 +991,20 @@ word newThread(CrocThread* t, word func)
 {
 	mixin(FuncNameMix);
 
-	auto f = getFunction(t, func);
-
-	if(f is null)
+	if(!isFunction(t, func))
 	{
 		pushTypeString(t, func);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
+
+	maybeGC(t);
+	auto f = getFunction(t, func);
 
 	version(CrocExtendedCoro) {} else
 	{
 		if(f.isNative)
 			throwStdException(t, "ValueException", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 	}
-
-	maybeGC(t);
 
 	auto nt = thread.create(t.vm, f);
 	nt.hookFunc = t.hookFunc;
@@ -1814,7 +1824,7 @@ word getGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal_x(t.vm.alloc, v.mString, getEnv(t), false);
+	auto g = lookupGlobal(t.vm.alloc, v.mString, getEnv(t), false);
 
 	if(g is null)
 		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to get a nonexistent global '{}'", v.mString.toString());
@@ -1859,7 +1869,7 @@ void setGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal_x(t.vm.alloc, n.mString, getEnv(t), true);
+	auto g = lookupGlobal(t.vm.alloc, n.mString, getEnv(t), true);
 
 	if(g is null)
 		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to set a nonexistent global '{}'", n.mString.toString());
@@ -1932,7 +1942,7 @@ bool findGlobal(CrocThread* t, char[] name, uword depth = 0)
 	auto n = createString(t, name);
 	auto ns = getEnv(t, depth);
 
-	if(namespace.get_x(ns, n) !is null)
+	if(namespace.get(ns, n) !is null)
 	{
 		push(t, CrocValue(ns));
 		return true;
@@ -1940,7 +1950,7 @@ bool findGlobal(CrocThread* t, char[] name, uword depth = 0)
 
 	for(; ns.parent !is null; ns = ns.parent) {}
 
-	if(namespace.get_x(ns, n) !is null)
+	if(namespace.get(ns, n) !is null)
 	{
 		push(t, CrocValue(ns));
 		return true;
@@ -4129,10 +4139,10 @@ bool hasField(CrocThread* t, word obj, char[] fieldName)
 
 	switch(v.type)
 	{
-		case CrocValue.Type.Table:     return table.get_x(v.mTable, CrocValue(name)) !is null;
-		case CrocValue.Type.Class:     return classobj.getField_x(v.mClass, name) !is null;
-		case CrocValue.Type.Instance:  return instance.getField_x(v.mInstance, name) !is null;
-		case CrocValue.Type.Namespace: return namespace.get_x(v.mNamespace, name) !is null;
+		case CrocValue.Type.Table:     return table.get(v.mTable, CrocValue(name)) !is null;
+		case CrocValue.Type.Class:     return classobj.getField(v.mClass, name) !is null;
+		case CrocValue.Type.Instance:  return instance.getField(v.mInstance, name) !is null;
+		case CrocValue.Type.Namespace: return namespace.get(v.mNamespace, name) !is null;
 		default:                       return false;
 	}
 }

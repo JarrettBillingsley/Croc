@@ -59,17 +59,17 @@ static:
 		return i;
 	}
 
-	package CrocValue* getField_x(CrocInstance* i, CrocString* name)
+	package CrocValue* getField(CrocInstance* i, CrocString* name)
 	{
 		CrocValue dummy;
-		return getField_x(i, name, dummy);
+		return getField(i, name, dummy);
 	}
 
-	package CrocValue* getField_x(CrocInstance* i, CrocString* name, out CrocValue owner)
+	package CrocValue* getField(CrocInstance* i, CrocString* name, out CrocValue owner)
 	{
 		if(i.fields !is null)
 		{
-			if(auto ret = namespace.get_x(i.fields, name))
+			if(auto ret = namespace.get(i.fields, name))
 			{
 				owner = i;
 				return ret;
@@ -77,7 +77,7 @@ static:
 		}
 
 		CrocClass* dummy;
-		auto ret = classobj.getField_x(i.parent, name, dummy);
+		auto ret = classobj.getField(i.parent, name, dummy);
 
 		if(dummy !is null)
 			owner = dummy;

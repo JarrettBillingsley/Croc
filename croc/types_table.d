@@ -52,7 +52,7 @@ static:
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get_x(CrocTable* t, CrocValue key)
+	package CrocValue* get(CrocTable* t, CrocValue key)
 	{
 		return t.data.lookup(key);
 	}
