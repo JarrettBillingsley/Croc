@@ -84,6 +84,9 @@ private Op1 AstTagToOpcode1(AstTag tag)
 		case AstTag.ShrAssignStmt:
 		case AstTag.UShrAssignStmt: return Op1.ReflBitOp;
 
+		case AstTag.IncStmt:
+		case AstTag.DecStmt: return Op1.CrementOp;
+
 		case AstTag.LTExp:
 		case AstTag.LEExp:
 		case AstTag.GTExp:
@@ -98,9 +101,11 @@ private Op1 AstTagToOpcode1(AstTag tag)
 		case AstTag.AsExp: return Op1.As;
 		case AstTag.InExp: return Op1.In;
 		case AstTag.CatExp: return Op1.Cat;
-		case AstTag.CatAssignStmt: return Op1.CatEq;
 		case AstTag.CoroutineExp: return Op1.New;
 		case AstTag.DotSuperExp: return Op1.SuperOf;
+
+		case AstTag.CatAssignStmt: return Op1.CatEq;
+		case AstTag.CondAssignStmt: return Op1.Move;
 		default: assert(false);
 	}
 }
@@ -119,7 +124,7 @@ private Op2 AstTagToOpcode2(AstTag tag)
 		case AstTag.DivExp: return Op2.Div;
 		case AstTag.ModExp: return Op2.Mod;
 		case AstTag.Cmp3Exp: return Op2.Cmp3;
-
+		
 		case AstTag.AddAssignStmt: return Op2.AddEq;
 		case AstTag.SubAssignStmt: return Op2.SubEq;
 		case AstTag.MulAssignStmt: return Op2.MulEq;
@@ -140,13 +145,16 @@ private Op2 AstTagToOpcode2(AstTag tag)
 		case AstTag.ShrAssignStmt: return Op2.ShrEq;
 		case AstTag.UShrAssignStmt: return Op2.UShrEq;
 
+		case AstTag.IncStmt: return Op2.Inc;
+		case AstTag.DecStmt: return Op2.Dec;
+
 		case AstTag.CoroutineExp: return Op2.Coroutine;
 
 		default: return cast(Op2)-1;
 	}
 }
 
-const uint NoJump = uint.max;
+const uint NoJump = Instruction.NoJump;
 
 struct InstRef
 {
@@ -489,7 +497,7 @@ final class FuncState
 		if((val & ~Instruction.constBit) >= 250)
 			c.semException(mLocation, "Too many constants");
 
-		return val & Instruction.constBit;
+		return val | Instruction.constBit;
 	}
 
 	package bool isLocalTag(uint val)
@@ -943,7 +951,7 @@ final class FuncState
 
 			case ExpType.NewGlobal:
 				toSource(line, src);
-				codeR(line, Op1.NewGlobal, 0, src.index, dest.index);
+				codeI(line, Op1.NewGlobal, src.index, dest.index);
 				break;
 
 			case ExpType.Indexed:
@@ -1039,15 +1047,15 @@ final class FuncState
 				break;
 
 			case ExpType.Upval:
-				codeR(line, Op1.SetUpval, dest.index, srcReg, 0);
+				codeI(line, Op1.SetUpval, srcReg, dest.index);
 				break;
 
 			case ExpType.Global:
-				codeR(line, Op1.SetGlobal, dest.index, srcReg, 0);
+				codeI(line, Op1.SetGlobal, srcReg, dest.index);
 				break;
 
 			case ExpType.NewGlobal:
-				codeR(line, Op1.NewGlobal, 0, srcReg, dest.index);
+				codeI(line, Op1.NewGlobal, srcReg, dest.index);
 				break;
 
 			case ExpType.Indexed:
@@ -1283,7 +1291,7 @@ final class FuncState
 		{
 			case ExpType.Const:
 				assert(isLocalTag(dest));
-				codeR(line, Op1.LoadConst, dest, src.index, 0);
+				codeI(line, Op1.LoadConst, dest, src.index &~ Instruction.constBit);
 				break;
 
 			case ExpType.Local:
@@ -1378,17 +1386,25 @@ final class FuncState
 
 	public void makeTailcall()
 	{
-		assert(mCode[$ - 1].opcode == Op.Call, "need call to make tailcall");
-		mCode[$ - 1].opcode = Op.Tailcall;
+		assert(getOpcode(mCode[$ - 1]) == Op1.Call, "need call to make tailcall");
+		setOpcode(mCode[$ - 1], Op1.Tailcall);
 	}
 	
 	public void codeClosure(FuncState fs, uint destReg)
 	{
+		if(mInnerFuncs.length > Instruction.MaxInnerFuncs)
+			c.semException(mLocation, "Too many inner functions");
+
 		auto line = fs.mLocation.line;
-		codeR(line, Op.Closure, destReg, mInnerFuncs.length, mNamespaceReg);
+		
+		if(mNamespaceReg > 0)
+			codeR(line, Op1.Move, destReg, mNamespaceReg, 0);
+
+		codeR(line, Op1.New, destReg, mInnerFuncs.length, mNamespaceReg);
+		codeR(line, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, 0, 0, 0);
 
 		foreach(ref ud; fs.mUpvals)
-			codeR(line, Op.Move, ud.isUpvalue ? 1 : 0, ud.index, 0);
+			codeI(line, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
 
 		auto fd = fs.toFuncDef();
 		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
@@ -1417,7 +1433,7 @@ final class FuncState
 
 	public void patchJumpTo(uint src, uint dest)
 	{
-		mCode[src].imm = dest - src - 1;
+		setImm(mCode[src], dest - src - 1);
 	}
 
 	public void patchJumpToHere(uint src)
@@ -1427,11 +1443,9 @@ final class FuncState
 
 	package void patchListTo(uint j, uint dest)
 	{
-		uint next = void;
-
-		for( ; j != NoJump; j = next)
+		for(uint next = void; j != NoJump; j = next)
 		{
-			next = mCode[j].uimm;
+			next = getImm(mCode[j]);
 			patchJumpTo(j, dest);
 		}
 	}
@@ -1467,24 +1481,46 @@ final class FuncState
 	
 	public void catToTrue(ref InstRef i, uint j)
 	{
-		auto pc = &i.trueList;
-		uint* next = null;
+		if(i.trueList == NoJump)
+			i.trueList = j;
+		else
+		{
+			auto idx = i.trueList;
 
-		for( ; *pc !is NoJump; pc = next)
-			next = &mCode[*pc].uimm;
+			while(true)
+			{
+				auto next = getImm(mCode[idx]);
 
-		*pc = j;
+				if(next is NoJump)
+					break;
+				else
+					idx = next;
+			}
+
+			setImm(mCode[idx], j);
+		}
 	}
-	
+
 	public void catToFalse(ref InstRef i, uint j)
 	{
-		auto pc = &i.falseList;
-		uint* next = null;
+		if(i.falseList == NoJump)
+			i.falseList = j;
+		else
+		{
+			auto idx = i.falseList;
 
-		for( ; *pc !is NoJump; pc = next)
-			next = &mCode[*pc].uimm;
+			while(true)
+			{
+				auto next = getImm(mCode[idx]);
 
-		*pc = j;
+				if(next is NoJump)
+					break;
+				else
+					idx = next;
+			}
+
+			setImm(mCode[idx], j);
+		}
 	}
 
 	public void invertJump(ref InstRef i)
@@ -1494,15 +1530,15 @@ final class FuncState
 
 		auto j = i.trueList;
 		assert(j !is NoJump);
-		i.trueList = mCode[j].uimm;
-		mCode[j].uimm = i.falseList;
+		i.trueList = getImm(mCode[j]);
+		setImm(mCode[j], i.falseList);
 		i.falseList = j;
-		mCode[j].rd = !mCode[j].rd;
+		setRD(mCode[j], !getRD(mCode[j]));
 	}
 
 	public void codeJump(uint line, uint dest)
 	{
-		codeJ(line, Op.Jmp, true, dest - here() - 1);
+		codeJ(line, Op1.Jmp, true, dest - here() - 1);
 	}
 
 	public uint makeJump(uint line, uint type = Op1.Jmp, bool isTrue = true)
@@ -1512,17 +1548,17 @@ final class FuncState
 
 	public uint makeFor(uint line, uint baseReg)
 	{
-		return codeJ(line, Op.For, baseReg, NoJump);
+		return codeJ(line, Op1.For, baseReg, NoJump);
 	}
 
 	public uint makeForLoop(uint line, uint baseReg)
 	{
-		return codeJ(line, Op.ForLoop, baseReg, NoJump);
+		return codeJ(line, Op1.ForLoop, baseReg, NoJump);
 	}
-	
+
 	public uint makeForeach(uint line, uint baseReg)
 	{
-		return codeJ(line, Op.Foreach, baseReg, NoJump);
+		return codeJ(line, Op1.Foreach, baseReg, NoJump);
 	}
 
 	public uint codeCatch(uint line, ref Scope s, out uint checkReg)
@@ -1531,7 +1567,9 @@ final class FuncState
 		checkReg = mFreeReg;
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJ(line, Op.PushCatch, mFreeReg, NoJump);
+		auto ret = codeJ(line, Op1.PushEH, mFreeReg, NoJump);
+		codeR(line, Op2.Catch, 0, 0, 0);
+		return ret;
 	}
 
 	public uint codeFinally(uint line, ref Scope s)
@@ -1539,7 +1577,9 @@ final class FuncState
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJ(line, Op.PushFinally, mFreeReg, NoJump);
+		auto ret = codeJ(line, Op1.PushEH, mFreeReg, NoJump);
+		codeR(line, Op2.Finally, 0, 0, 0);
+		return ret;
 	}
 
 	public void endCatchScope(uint line)
@@ -1595,9 +1635,9 @@ final class FuncState
 		auto diff = mScope.ehlevel - continueScope.ehlevel;
 
 		if(diff > 0)
-			codeI(location.line, Op.Unwind, 0, diff);
+			codeI(location.line, Op1.Unwind, 0, diff);
 
-		continueScope.continues = codeJ(location.line, Op.Jmp, 1, continueScope.continues);
+		continueScope.continues = codeJ(location.line, Op1.Jmp, 1, continueScope.continues);
 	}
 
 	public void codeBreak(CompileLoc location, char[] name)
@@ -1636,9 +1676,9 @@ final class FuncState
 		auto diff = mScope.ehlevel - breakScope.ehlevel;
 
 		if(diff > 0)
-			codeI(location.line, Op.Unwind, 0, diff);
+			codeI(location.line, Op1.Unwind, 0, diff);
 
-		breakScope.breaks = codeJ(location.line, Op.Jmp, 1, breakScope.breaks);
+		breakScope.breaks = codeJ(location.line, Op1.Jmp, 1, breakScope.breaks);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1652,7 +1692,7 @@ final class FuncState
 
 		mConstants.append(c.alloc, v);
 
-		if(mConstants.length >= MaxConstants)
+		if(mConstants.length >= Instruction.MaxConstants)
 			c.semException(mLocation, "Too many constants");
 
 		return mConstants.length - 1;
@@ -1690,7 +1730,7 @@ final class FuncState
 
 	public void codeNulls(uint line, uint reg, uint num)
 	{
-		codeI(line, Op.LoadNulls, reg, num);
+		codeI(line, Op1.LoadNulls, reg, num);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1700,12 +1740,12 @@ final class FuncState
 	{
 		Instruction i = void;
 		i.data =
-			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
-			(dest & Instruction.rdMask) << Instruction.rdShift |
-			(src1 & Instruction.rsMask) << Instruction.rsShift |
-			(src2 & Instruction.rtMask) << Instruction.rtShift;
+			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
+			((dest << Instruction.rdShift) & Instruction.rdMask) |
+			((src1 << Instruction.rsShift) & Instruction.rsMask) |
+			((src2 << Instruction.rtShift) & Instruction.rtMask);
 
-		debug(WRITECODE) Stdout.formatln("R {} {} {} {}", opcode, dest, src1, src2);
+		debug(WRITECODE) Stdout.formatln("R {} {} {} {}", opcode, dest, src1, src2).flush;
 
 		mLineInfo.append(c.alloc, line);
 		mCode.append(c.alloc, i);
@@ -1716,11 +1756,11 @@ final class FuncState
 	{
 		Instruction i = void;
 		i.data =
-			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
-			(dest & Instruction.rdMask) << Instruction.rdShift |
-			(imm & Instruction.immMask) << Instruction.immShift;
+			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
+			((dest << Instruction.rdShift) & Instruction.rdMask) |
+			((imm << Instruction.immShift) & Instruction.immMask);
 
-		debug(WRITECODE) Stdout.formatln("I {} {} {}", opcode, dest, imm);
+		debug(WRITECODE) Stdout.formatln("I {} {} {}", opcode, dest, imm).flush;
 
 		mLineInfo.append(c.alloc, line);
 		mCode.append(c.alloc, i);
@@ -1729,61 +1769,95 @@ final class FuncState
 
 	package uint codeJ(uint line, uint opcode, uint dest, int offs)
 	{
-		if(offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward)
-			// TODO: pass location into here
-			assert(false, "jump too large");
+		// TODO: put this somewhere else. codeJ can be called with MaxJump which is an invalid value.
+// 		if(offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward)
+// 			assert(false, "jump too large");
 
 		Instruction i = void;
 		i.data =
-			(opcode & Instruction.opcodeMask) << Instruction.opcodeShift |
-			(dest & Instruction.rdMask) << Instruction.rdShift |
-			(*(cast(uint*)&offs) & Instruction.immMask) << Instruction.immShift;
+			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
+			((dest << Instruction.rdShift) & Instruction.rdMask) |
+			((*(cast(uint*)&offs) << Instruction.immShift) & Instruction.immMask);
 
-		debug(WRITECODE) Stdout.formatln("J {} {} {}", opcode, dest, offs);
+		debug(WRITECODE) Stdout.formatln("J {} {} {}", opcode, dest, offs).flush;
 
 		mLineInfo.append(c.alloc, line);
 		mCode.append(c.alloc, i);
 		return mCode.length - 1;
 	}
 	
+	package void setOpcode(ref Instruction inst, uint opcode)
+	{
+		assert(opcode <= Instruction.opcodeMax);
+		inst.data &= ~(Instruction.opcodeMask) << Instruction.opcodeShift;
+		inst.data |= (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
+	}
+	
 	package void setRD(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rdMax);
 		inst.data &= ~(Instruction.rdMask << Instruction.rdShift);
-		inst.data |= (val & Instruction.rdMask) << Instruction.rdShift;
+		inst.data |= (val << Instruction.rdShift) & Instruction.rdMask;
 	}
 	
 	package void setRS(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rsMax);
 		inst.data &= ~(Instruction.rsMask << Instruction.rsShift);
-		inst.data |= (val & Instruction.rsMask) << Instruction.rsShift;
+		inst.data |= (val << Instruction.rsShift) & Instruction.rsMask;
 	}
 
 	package void setRT(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rtMax);
 		inst.data &= ~(Instruction.rtMask << Instruction.rtShift);
-		inst.data |= (val & Instruction.rtMask) << Instruction.rtShift;
+		inst.data |= (val << Instruction.rtShift) & Instruction.rtMask;
 	}
 	
 	package void setImm(ref Instruction inst, int val)
 	{
-		assert(val >= -Instruction.immMax && val <= Instruction.immMax);
+		assert(val == Instruction.NoJump || (val >= -Instruction.immMax && val <= Instruction.immMax));
 		inst.data &= ~(Instruction.immMask << Instruction.immShift);
-		inst.data |= (*(cast(uint*)&val) & Instruction.immMask) << Instruction.immShift;
+		inst.data |= (*(cast(uint*)&val) << Instruction.immShift) & Instruction.immMask;
 	}
-	
+
 	package void setUImm(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.uimmMax);
 		inst.data &= ~(Instruction.immMask << Instruction.immShift);
-		inst.data |= (val & Instruction.immMask) << Instruction.immShift;
+		inst.data |= (val << Instruction.immShift) & Instruction.immMask;
+	}
+
+	package uint getOpcode(ref Instruction inst)
+	{
+		return (inst.data & Instruction.opcodeMask) >> Instruction.opcodeShift;
+	}
+
+	package uint getRD(ref Instruction inst)
+	{
+		return (inst.data & Instruction.rdMask) >> Instruction.rdShift;
 	}
 	
-	package void getOpcode(ref Instruction inst)
+	package uint getRS(ref Instruction inst)
 	{
-		return (inst.data >> Instruction.opcodeShift) & Instruction.opcodeMask;
+		return (inst.data & Instruction.rsMask) >> Instruction.rsShift;
+	}
+
+	package uint getRT(ref Instruction inst)
+	{
+		return (inst.data & Instruction.rtMask) >> Instruction.rtShift;
+	}
+
+	package int getImm(ref Instruction inst)
+	{
+		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
+		return (cast(int)inst.data) >> Instruction.immShift;
+	}
+
+	package uint getUImm(ref Instruction inst)
+	{
+		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
+		return inst.data >>> Instruction.immShift;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1893,9 +1967,290 @@ final class FuncState
 				default: assert(false);
 			}
 		}
+		
+		auto pc = mCode.ptr;
+		auto end = pc + mCode.length;
+		uword insOffset = 0;
 
-		foreach(i, inst; mCode)
-			Stdout.formatln("\t[{,3}:{,4}] {}", i, mLineInfo[i], inst.toString());
+		while(pc < end)
+			disasm(pc, insOffset);
+	}
+
+	void disasm(ref Instruction* pc, ref uword insOffset)
+	{
+		Instruction nextIns()
+		{
+			insOffset++;
+			return *pc++;;
+		}
+
+		char[] cr(uint v)
+		{
+			if(isConstTag(v))
+				return Format("c{}", v & ~Instruction.constBit);
+			else
+				return Format("r{}", v);
+		}
+
+		void leader()
+		{
+			Stdout.format("\t[{,3}:{,4}] ", insOffset, mLineInfo[insOffset]);
+		}
+
+		void commonNullary(Instruction i)   { Stdout.formatln(" r{}",         getRD(i)); }
+		void commonUnary(Instruction i)     { Stdout.formatln(" r{}, {}",     getRD(i), cr(getRS(i))); }
+		void commonBinary(Instruction i)    { Stdout.formatln(" r{}, {}, {}", getRD(i), cr(getRS(i)), cr(getRT(i))); }
+		void commonUImm(Instruction i)      { Stdout.formatln(" r{}, {}",     getRD(i), getUImm(i)); }
+		void commonImm(Instruction i)       { Stdout.formatln(" r{}, {}",     getRD(i), getImm(i)); }
+		void commonUImmConst(Instruction i) { Stdout.formatln(" r{}, c{}",    getRD(i), getUImm(i)); }
+		void commonCompare(Instruction i)   { Stdout.formatln(" {}, {}",      cr(getRS(i)), cr(getRT(i))); }
+
+		void condJump()
+		{
+			leader();
+			auto i = nextIns();
+
+			switch(getOpcode(i))
+			{
+				case Op2.Je:  Stdout((getRD(i) == 0) ? "jne" : "je"); break;
+				case Op2.Jle: Stdout((getRD(i) == 0) ? "jgt" : "jle"); break;
+				case Op2.Jlt: Stdout((getRD(i) == 0) ? "jge" : "jlt"); break;
+				default: assert(false);
+			}
+			
+			Stdout.formatln(" {}", getImm(i));
+		}
+		
+		void commonClosure(Instruction ins)
+		{
+			auto num = mInnerFuncs[getUImm(ins)].numUpvals;
+
+			for(uword i = 0; i < num; i++)
+			{
+				ins = nextIns();
+				
+				assert(getOpcode(ins) == Op1.Move);
+
+				if(getRD(ins) == 0)
+					Stdout.formatln("\t\tr{}", getUImm(ins));
+				else
+					Stdout.formatln("\t\tupvalue {}", getUImm(ins));
+			}
+		}
+
+		leader();
+		auto i = nextIns();
+
+		_outerSwitch: switch(getOpcode(i))
+		{
+			case Op1.UnOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Neg: Stdout("neg"); break;
+					case Op2.Com: Stdout("com"); break;
+					case Op2.Not: Stdout("not"); break;
+					default: assert(false);
+				}
+				commonUnary(i);
+				break;
+
+			case Op1.BinOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Add:  Stdout("add");  break;
+					case Op2.Sub:  Stdout("sub");  break;
+					case Op2.Mul:  Stdout("mul");  break;
+					case Op2.Div:  Stdout("div");  break;
+					case Op2.Mod:  Stdout("mod");  break;
+					case Op2.Cmp3: Stdout("cmp3"); break;
+					default: assert(false);
+				}
+				commonBinary(i);
+				break;
+
+			case Op1.ReflBinOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.AddEq: Stdout("addeq"); break;
+					case Op2.SubEq: Stdout("subeq"); break;
+					case Op2.MulEq: Stdout("muleq"); break;
+					case Op2.DivEq: Stdout("diveq"); break;
+					case Op2.ModEq: Stdout("modeq"); break;
+					default: assert(false);
+				}
+				commonUnary(i);
+				break;
+
+			case Op1.BitOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.And:  Stdout("and");  break;
+					case Op2.Or:   Stdout("or");   break;
+					case Op2.Xor:  Stdout("xor");  break;
+					case Op2.Shl:  Stdout("shl");  break;
+					case Op2.Shr:  Stdout("shr");  break;
+					case Op2.UShr: Stdout("ushr"); break;
+					default: assert(false);
+				}
+				commonBinary(i);
+				break;
+
+			case Op1.ReflBitOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.AndEq:  Stdout("andeq");  break;
+					case Op2.OrEq:   Stdout("oreq");   break;
+					case Op2.XorEq:  Stdout("xoreq");  break;
+					case Op2.ShlEq:  Stdout("shleq");  break;
+					case Op2.ShrEq:  Stdout("shreq");  break;
+					case Op2.UShrEq: Stdout("ushreq"); break;
+					default: assert(false);
+				}
+				commonUnary(i);
+				break;
+
+			case Op1.CrementOp:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Inc: Stdout("inc"); break;
+					case Op2.Dec: Stdout("dec"); break;
+					default: assert(false);
+				}
+				commonNullary(i);
+				break;
+
+			case Op1.Move:          Stdout("mov");    commonUnary(i);     break;
+			case Op1.LoadConst:     Stdout("lc");     commonUImmConst(i); break;
+			case Op1.LoadNulls:     Stdout("lnulls"); commonUImm(i);      break;
+			case Op1.NewGlobal:     Stdout("newg");   commonUImmConst(i); break;
+			case Op1.GetGlobal:     Stdout("getg");   commonUImmConst(i); break;
+			case Op1.SetGlobal:     Stdout("setg");   commonUImmConst(i); break;
+			case Op1.GetUpval:      Stdout("getu");   commonUImm(i);      break;
+			case Op1.SetUpval:      Stdout("setu");   commonUImm(i);      break;
+
+			case Op1.Cmp:           Stdout("cmp");    commonCompare(i); condJump(); break;
+			case Op1.Equals:        Stdout("equals"); commonCompare(i); condJump(); break;
+			case Op1.SwitchCmp:     Stdout("swcmp");  commonCompare(i); condJump(); break;
+			case Op1.Is:            Stdout("is");     commonCompare(i); condJump(); break;
+
+			case Op1.IsTrue:        Stdout.formatln("istrue {}", cr(getRS(i))); condJump(); break;
+			case Op1.ForeachLoop:   Stdout("foreachloop");   commonUImm(i); condJump();     break;
+			case Op1.CheckObjParam: Stdout("checkobjparam"); commonCompare(i); condJump();  break;
+
+			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else Stdout.formatln("jmp {}", getImm(i)); break;
+			case Op1.Switch:        Stdout.formatln("switch {}, {}", cr(getRS(i)), getRT(i)); break;
+			case Op1.For:           Stdout("for");     commonImm(i); break;
+			case Op1.ForLoop:       Stdout("forloop"); commonImm(i); break;
+			case Op1.Foreach:       Stdout("foreach"); commonImm(i); break;
+
+			case Op1.PushEH:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Catch:   Stdout("pushcatch"); break;
+					case Op2.Finally: Stdout("pushfinal"); break;
+					default: assert(false);
+				}
+				commonImm(i);
+				break;
+
+			case Op1.PopEH:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Catch:   Stdout("popcatch").newline; break;
+					case Op2.Finally: Stdout("popfinal").newline; break;
+					default: assert(false);
+				}
+				break;
+
+			case Op1.EndFinal:    Stdout("endfinal").newline; break;
+			case Op1.Throw:       Stdout.formatln("{}throw {}", getRT(i) ? "re" : "", cr(getRS(i))); break;
+			case Op1.Unwind:      Stdout.formatln("unwind {}", getUImm(i)); break;
+			case Op1.Method:      Stdout("method"); commonBinary(i); break;
+			case Op1.MethodNC:    Stdout("methodnc"); commonBinary(i); break;
+			case Op1.SuperMethod: Stdout("smethod"); commonBinary(i); break;
+			case Op1.Call:        Stdout.formatln("call r{}, {}, {}", getRD(i), getRS(i), getRT(i)); break;
+			case Op1.Tailcall:    Stdout.formatln("tcall r{}, {}", getRD(i), getRS(i)); break;
+			case Op1.Yield:       Stdout.formatln("yield r{}, {}, {}", getRD(i), getRS(i), getRT(i)); break;
+			case Op1.SaveRets:    Stdout("saverets"); commonUImm(i); break;
+			case Op1.Ret:         Stdout("ret").newline; break;
+			case Op1.Close:       Stdout("close"); commonNullary(i); break;
+
+			case Op1.Vararg:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.GetVarargs:      Stdout("vararg"); commonUImm(i); break;
+					case Op2.VargLen:         Stdout("varglen"); commonNullary(i); break;
+					case Op2.VargIndex:       Stdout("vargidx"); commonUnary(i); break;
+					case Op2.VargIndexAssign: Stdout("vargidxa"); commonUnary(i); break;
+					case Op2.VargSlice:       Stdout("vargslice"); commonUImm(i); break;
+					default: assert(false);
+				}
+				break;
+
+			case Op1.CheckParams: Stdout("checkparams").newline; break;
+
+			case Op1.ParamFail:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.ObjParamFail:    Stdout.formatln("objparamfail {}", cr(getRS(i))); break;
+					case Op2.CustomParamFail: Stdout("customparamfail"); commonCompare(i); break;
+					default: assert(false);
+				}
+				break;
+
+			case Op1.Length:       Stdout("len"); commonUnary(i); break;
+			case Op1.LengthAssign: Stdout("lena"); commonUnary(i); break;
+
+			case Op1.Array:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Append: Stdout("append"); commonUnary(i); break;
+					case Op2.Set:    Stdout.formatln("setarray r{}, {}, block {}", getRD(i), getRS(i), getRT(i)); break;
+					default: assert(false);
+				}
+				break;
+
+			case Op1.Cat:         Stdout.formatln("cat r{}, r{}, {}", getRD(i), getRS(i), getRT(i)); break;
+			case Op1.CatEq:       Stdout.formatln("cateq r{}, r{}, {}", getRD(i), getRS(i), getRT(i)); break;
+			case Op1.Index:       Stdout("idx"); commonBinary(i); break;
+			case Op1.IndexAssign: Stdout("idxa"); commonBinary(i); break;
+			case Op1.Slice:       Stdout("slice"); commonUnary(i); break;
+			case Op1.SliceAssign: Stdout("slicea"); commonUnary(i); break;
+			case Op1.In:          Stdout("in"); commonBinary(i); break;
+
+			case Op1.New:
+				auto two = nextIns();
+				switch(getOpcode(two))
+				{
+					case Op2.Array:          Stdout("newarr"); commonImm(i); break;
+					case Op2.Table:          Stdout("newtab"); commonNullary(i); break;
+					case Op2.Class:          Stdout("class"); commonBinary(i); break;
+					case Op2.Coroutine:      Stdout("coroutine"); commonUnary(i); break;
+					case Op2.Namespace:      Stdout("namespace"); commonBinary(i); break;
+					case Op2.NamespaceNP:    Stdout("namespacenp"); commonUnary(i); break;
+					case Op2.Closure:        Stdout("closure"); commonUImm(i); commonClosure(i); break;
+					case Op2.ClosureWithEnv: Stdout("closurewenv"); commonUImm(i); commonClosure(i); break;
+					default: assert(false);
+				}
+				break;
+
+			case Op1.As:          Stdout("as"); commonBinary(i); break;
+			case Op1.SuperOf:     Stdout("superof"); commonUnary(i); break;
+			case Op1.Field:       Stdout("field"); commonBinary(i); break;
+			case Op1.FieldAssign: Stdout("fielda"); commonBinary(i); break;
+			default: Stdout.formatln("??? opcode = {}", getOpcode(i));
+		}
 	}
 }
 
@@ -1933,8 +2288,8 @@ scope class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-				fs.codeI(d.code.endLocation.line, Op.SaveRets, 0, 1);
-				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 0);
+				fs.codeI(d.code.endLocation.line, Op1.SaveRets, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op1.Ret, 0, 0);
 			fs.popScope(d.code.endLocation.line);
 		}
 
@@ -1967,8 +2322,8 @@ scope class Codegen : Visitor
 					fs.popToNothing();
 				}
 
-				fs.codeI(m.endLocation.line, Op.SaveRets, 0, 1);
-				fs.codeI(m.endLocation.line, Op.Ret, 0, 0);
+				fs.codeI(m.endLocation.line, Op1.SaveRets, 0, 1);
+				fs.codeI(m.endLocation.line, Op1.Ret, 0, 0);
 			fs.popScope(m.endLocation.line);
 
 			assert(fs.mExpSP == 0, "module - not all expressions have been popped");
@@ -2015,7 +2370,8 @@ scope class Codegen : Visitor
 		auto destReg = fs.pushRegister();
 		auto nameConst = fs.tagConst(fs.codeStringConst(d.name.name));
 
-		fs.codeR(d.location.line, Op.Class, destReg, nameConst, base.index);
+		fs.codeR(d.location.line, Op1.New, destReg, nameConst, base.index);
+		fs.codeR(d.location.line, Op2.Class, 0, 0, 0);
 
 		return destReg;
 	}
@@ -2029,7 +2385,7 @@ scope class Codegen : Visitor
 			visit(field.initializer);
 			Exp val;
 			fs.popSource(field.initializer.endLocation.line, val);
-			fs.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
+			fs.codeR(field.initializer.endLocation.line, Op1.FieldAssign, destReg, index, val.index);
 			fs.freeExpTempRegs(val);
 		}
 	}
@@ -2049,14 +2405,18 @@ scope class Codegen : Visitor
 		auto nameConst = fs.codeStringConst(d.name.name);
 
 		if(d.parent is null)
-			fs.codeR(d.location.line, Op.NamespaceNP, destReg, nameConst, 0);
+		{
+			fs.codeR(d.location.line, Op1.New, destReg, nameConst, 0);
+			fs.codeR(d.location.line, Op2.NamespaceNP, 0, 0, 0);
+		}
 		else
 		{
 			visit(d.parent);
 			Exp src;
 			fs.popSource(d.location.line, src);
 			fs.freeExpTempRegs(src);
-			fs.codeR(d.location.line, Op.Namespace, destReg, nameConst, src.index);
+			fs.codeR(d.location.line, Op1.New, destReg, nameConst, src.index);
+			fs.codeR(d.location.line, Op2.Namespace, 0, 0, 0);
 		}
 		
 		fs.beginNamespace(destReg);
@@ -2073,7 +2433,7 @@ scope class Codegen : Visitor
 			visit(field.initializer);
 			Exp val;
 			fs.popSource(field.initializer.endLocation.line, val);
-			fs.codeR(field.initializer.endLocation.line, Op.FieldAssign, destReg, index, val.index);
+			fs.codeR(field.initializer.endLocation.line, Op1.FieldAssign, destReg, index, val.index);
 			fs.freeExpTempRegs(val);
 		}
 
@@ -2103,8 +2463,8 @@ scope class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-				fs.codeI(d.code.endLocation.line, Op.SaveRets, 0, 1);
-				fs.codeI(d.code.endLocation.line, Op.Ret, 0, 0);
+				fs.codeI(d.code.endLocation.line, Op1.SaveRets, 0, 1);
+				fs.codeI(d.code.endLocation.line, Op1.Ret, 0, 0);
 			fs.popScope(d.code.endLocation.line);
 		}
 
@@ -2130,7 +2490,7 @@ scope class Codegen : Visitor
 		}
 
 		if(needParamCheck)
-			fs.codeI(s.def.code.location.line, Op.CheckParams, 0, 0);
+			fs.codeI(s.def.code.location.line, Op1.CheckParams, 0, 0);
 
 		foreach(idx, ref p; s.def.params)
 		{
@@ -2144,11 +2504,12 @@ scope class Codegen : Visitor
 					Exp src;
 					fs.popSource(t.endLocation.line, src);
 					fs.freeExpTempRegs(src);
-					fs.codeR(t.endLocation.line, Op.CheckObjParam, 0, fs.tagLocal(idx), src.index);
-					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op.Jmp));
+					fs.codeR(t.endLocation.line, Op1.CheckObjParam, 0, fs.tagLocal(idx), src.index);
+					fs.catToTrue(success, fs.makeJump(t.endLocation.line, Op2.Je));
 				}
 
-				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op.ObjParamFail, 0, fs.tagLocal(idx), 0);
+				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op1.ParamFail, 0, fs.tagLocal(idx), 0);
+				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op2.ObjParamFail, 0, 0, 0);
 				fs.patchTrueToHere(success);
 			}
 			else if(p.customConstraint)
@@ -2158,9 +2519,9 @@ scope class Codegen : Visitor
 				Exp src;
 				fs.popSource(con.endLocation.line, src);
 				fs.freeExpTempRegs(src);
-				fs.codeR(con.endLocation.line, Op.IsTrue, 0, src.index, 0);
+				fs.codeR(con.endLocation.line, Op1.IsTrue, 0, src.index, 0);
 				InstRef success;
-				fs.catToTrue(success, fs.makeJump(con.endLocation.line, Op.Je));
+				fs.catToTrue(success, fs.makeJump(con.endLocation.line, Op2.Je));
 
 				int visit(Expression exp)
 				{
@@ -2181,7 +2542,8 @@ scope class Codegen : Visitor
 				}
 
 				cat(fs.t, visit(con.as!(CallExp).op));
-				fs.codeR(con.endLocation.line, Op.CustomParamFail, 0, fs.tagLocal(idx), fs.tagConst(fs.codeStringConst(getString(fs.t, -1))));
+				fs.codeR(con.endLocation.line, Op1.ParamFail, 0, fs.tagLocal(idx), fs.tagConst(fs.codeStringConst(getString(fs.t, -1))));
+				fs.codeR(con.endLocation.line, Op2.CustomParamFail, 0, 0, 0);
 				pop(fs.t);
 				fs.patchTrueToHere(success);
 			}
@@ -2809,8 +3171,8 @@ scope class Codegen : Visitor
 
 			fs.patchJumpToHere(beginJump);
 
-			fs.codeI(endLocation.line, Op.ForeachLoop, baseReg, indices.length);
-			auto gotoBegin = fs.makeJump(endLocation.line, Op.Je);
+			fs.codeI(endLocation.line, Op1.ForeachLoop, baseReg, indices.length);
+			auto gotoBegin = fs.makeJump(endLocation.line, Op2.Je);
 			fs.patchJumpTo(gotoBegin, beginLoop);
 
 			fs.patchBreaksToHere();
@@ -2845,18 +3207,18 @@ scope class Codegen : Visitor
 					fs.popSource(lo.location.line, src2);
 					fs.freeExpTempRegs(src2);
 
-					fs.codeR(lo.location.line, Op.Cmp, 0, src1.index, src2.index);
-					auto jmp1 = fs.makeJump(lo.location.line, Op.Jlt, true);
+					fs.codeR(lo.location.line, Op1.Cmp, 0, src1.index, src2.index);
+					auto jmp1 = fs.makeJump(lo.location.line, Op2.Jlt, true);
 
 					visit(hi);
 					src2 = Exp.init;
 					fs.popSource(hi.location.line, src2);
 					fs.freeExpTempRegs(src2);
 
-					fs.codeR(hi.location.line, Op.Cmp, 0, src1.index, src2.index);
-					auto jmp2 = fs.makeJump(hi.location.line, Op.Jle, false);
+					fs.codeR(hi.location.line, Op1.Cmp, 0, src1.index, src2.index);
+					auto jmp2 = fs.makeJump(hi.location.line, Op2.Jle, false);
 
-					c.dynJump = fs.makeJump(c.exp.location.line, Op.Jmp, true);
+					c.dynJump = fs.makeJump(c.exp.location.line, Op1.Jmp, true);
 
 					fs.patchJumpToHere(jmp1);
 					fs.patchJumpToHere(jmp2);
@@ -2872,8 +3234,8 @@ scope class Codegen : Visitor
 							fs.popSource(c.exp.location.line, src2);
 							fs.freeExpTempRegs(src2);
 
-							fs.codeR(c.exp.location.line, Op.SwitchCmp, 0, src1.index, src2.index);
-							c.dynJump = fs.makeJump(c.exp.location.line, Op.Je, true);
+							fs.codeR(c.exp.location.line, Op1.SwitchCmp, 0, src1.index, src2.index);
+							c.dynJump = fs.makeJump(c.exp.location.line, Op2.Je, true);
 						}
 					}
 				}
@@ -2944,24 +3306,24 @@ scope class Codegen : Visitor
 			visit(s.exprs[0]);
 			fs.popToRegisters(s.endLocation.line, firstReg, -1);
 			fs.makeTailcall();
-			fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, 0);
-			fs.codeI(s.endLocation.line, Op.Ret, 0, 0);
+			fs.codeI(s.endLocation.line, Op1.SaveRets, firstReg, 0);
+			fs.codeI(s.endLocation.line, Op1.Ret, 0, 0);
 		}
 		else
 		{
 			codeGenListToNextReg(s.exprs);
 
 			if(s.exprs.length == 0)
-				fs.codeI(s.endLocation.line, Op.SaveRets, 0, 1);
+				fs.codeI(s.endLocation.line, Op1.SaveRets, 0, 1);
 			else if(s.exprs[$ - 1].isMultRet())
-				fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, 0);
+				fs.codeI(s.endLocation.line, Op1.SaveRets, firstReg, 0);
 			else
-				fs.codeI(s.endLocation.line, Op.SaveRets, firstReg, s.exprs.length + 1);
+				fs.codeI(s.endLocation.line, Op1.SaveRets, firstReg, s.exprs.length + 1);
 
 			if(fs.inTryCatch())
-				fs.codeI(s.endLocation.line, Op.Unwind, 0, fs.mTryCatchDepth);
+				fs.codeI(s.endLocation.line, Op1.Unwind, 0, fs.mTryCatchDepth);
 
-			fs.codeI(s.endLocation.line, Op.Ret, 0, 0);
+			fs.codeI(s.endLocation.line, Op1.Ret, 0, 0);
 		}
 
 		return s;
@@ -2975,7 +3337,8 @@ scope class Codegen : Visitor
 
 		visit(s.tryBody);
 
-		fs.codeI(s.tryBody.endLocation.line, Op.PopCatch, 0, 0);
+		fs.codeI(s.tryBody.endLocation.line, Op1.PopEH, 0, 0);
+		fs.codeR(s.tryBody.endLocation.line, Op2.Catch, 0, 0, 0);
 		auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation.line);
 		fs.patchJumpToHere(pushCatch);
 		fs.endCatchScope(s.transformedCatch.location.line);
@@ -3001,13 +3364,14 @@ scope class Codegen : Visitor
 
 		visit(s.tryBody);
 
-		fs.codeI(s.tryBody.endLocation.line, Op.PopFinally, 0, 0);
+		fs.codeI(s.tryBody.endLocation.line, Op1.PopEH, 0, 0);
+		fs.codeR(s.tryBody.endLocation.line, Op2.Finally, 0, 0, 0);
 		fs.patchJumpToHere(pushFinally);
 		fs.endFinallyScope(s.finallyBody.location.line);
 
 		fs.pushScope(scop);
 			visit(s.finallyBody);
-			fs.codeI(s.finallyBody.endLocation.line, Op.EndFinal, 0, 0);
+			fs.codeI(s.finallyBody.endLocation.line, Op1.EndFinal, 0, 0);
 		fs.popScope(s.finallyBody.endLocation.line);
 
 		return s;
@@ -3019,7 +3383,7 @@ scope class Codegen : Visitor
 		Exp src;
 		fs.popSource(s.location.line, src);
 		fs.freeExpTempRegs(src);
-		fs.codeR(s.endLocation.line, Op.Throw, 0, src.index, s.rethrowing ? 1 : 0);
+		fs.codeR(s.endLocation.line, Op1.Throw, 0, src.index, s.rethrowing ? 1 : 0);
 		return s;
 	}
 	
@@ -3054,6 +3418,9 @@ scope class Codegen : Visitor
 
 	public OpAssignStmt visitOpAssign(OpAssignStmt s)
 	{
+		if(s.lhs.type != AstTag.ThisExp)
+			s.lhs.checkLHS(c);
+
 		visit(s.lhs);
 		fs.pushSource(s.lhs.endLocation.line);
 
@@ -3071,17 +3438,17 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override AddAssignStmt visit(AddAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override SubAssignStmt visit(SubAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override MulAssignStmt visit(MulAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override DivAssignStmt visit(DivAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override ModAssignStmt visit(ModAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override ShlAssignStmt visit(ShlAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override ShrAssignStmt visit(ShrAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override UShrAssignStmt visit(UShrAssignStmt s) { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override XorAssignStmt visit(XorAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override OrAssignStmt visit(OrAssignStmt s)     { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
-	public override AndAssignStmt visit(AndAssignStmt s)   { if(s.lhs.type != AstTag.ThisExp) s.lhs.checkLHS(c); return visitOpAssign(s); }
+	public override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
+	public override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
+	public override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
+	public override DivAssignStmt visit(DivAssignStmt s)   { return visitOpAssign(s); }
+	public override ModAssignStmt visit(ModAssignStmt s)   { return visitOpAssign(s); }
+	public override ShlAssignStmt visit(ShlAssignStmt s)   { return visitOpAssign(s); }
+	public override ShrAssignStmt visit(ShrAssignStmt s)   { return visitOpAssign(s); }
+	public override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
+	public override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
+	public override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
+	public override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
 
 	public override CondAssignStmt visit(CondAssignStmt s)
 	{
@@ -3090,8 +3457,8 @@ scope class Codegen : Visitor
 		Exp src1;
 		fs.popSource(s.lhs.endLocation.line, src1);
 
-		fs.codeR(s.lhs.endLocation.line, Op.Is, 0, src1.index, fs.tagConst(fs.codeNullConst()));
-		auto i = fs.makeJump(s.lhs.endLocation.line, Op.Je, false);
+		fs.codeR(s.lhs.endLocation.line, Op1.Is, 0, src1.index, fs.tagConst(fs.codeNullConst()));
+		auto i = fs.makeJump(s.lhs.endLocation.line, Op2.Je, false);
 
 		visit(s.rhs);
 		Exp src2;
@@ -3100,7 +3467,7 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		fs.popReflexOp(s.endLocation.line, Op.Move, src1.index, src2.index);
+		fs.popReflexOp(s.endLocation.line, s.type, src1.index, src2.index);
 
 		fs.patchJumpToHere(i);
 
@@ -3125,7 +3492,7 @@ scope class Codegen : Visitor
 		codeGenListToNextReg(s.operands, false);
 
 		fs.freeExpTempRegs(src1);
-		fs.popReflexOp(s.endLocation.line, Op.CatEq, src1.index, firstReg, s.operands.length);
+		fs.popReflexOp(s.endLocation.line, s.type, src1.index, firstReg, s.operands.length);
 		
 		return s;
 	}
@@ -3142,11 +3509,11 @@ scope class Codegen : Visitor
 		fs.popSource(s.exp.endLocation.line, src);
 		fs.freeExpTempRegs(src);
 
-		fs.popReflexOp(s.endLocation.line, Op.Inc, src.index, 0);
+		fs.popReflexOp(s.endLocation.line, s.type, src.index, 0);
 
 		return s;
 	}
-	
+
 	public override DecStmt visit(DecStmt s)
 	{
 		if(s.exp.type != AstTag.ThisExp)
@@ -3159,7 +3526,7 @@ scope class Codegen : Visitor
 		fs.popSource(s.exp.endLocation.line, src);
 		fs.freeExpTempRegs(src);
 
-		fs.popReflexOp(s.endLocation.line, Op.Dec, src.index, 0);
+		fs.popReflexOp(s.endLocation.line, s.type, src.index, 0);
 
 		return s;
 	}
@@ -3174,7 +3541,7 @@ scope class Codegen : Visitor
 
 		visit(e.op1);
 		fs.popMoveTo(e.op1.endLocation.line, temp);
-		auto i = fs.makeJump(e.op1.endLocation.line, Op.Jmp);
+		auto i = fs.makeJump(e.op1.endLocation.line, Op1.Jmp);
 
 		fs.patchFalseToHere(c);
 
@@ -3192,8 +3559,8 @@ scope class Codegen : Visitor
 		auto temp = fs.pushRegister();
 		visit(e.op1);
 		fs.popMoveTo(e.op1.endLocation.line, temp);
-		fs.codeR(e.op1.endLocation.line, Op.IsTrue, 0, temp, 0);
-		auto i = fs.makeJump(e.op1.endLocation.line, Op.Je);
+		fs.codeR(e.op1.endLocation.line, Op1.IsTrue, 0, temp, 0);
+		auto i = fs.makeJump(e.op1.endLocation.line, Op2.Je);
 		visit(e.op2);
 		fs.popMoveTo(e.endLocation.line, temp);
 		fs.patchJumpToHere(i);
@@ -3207,8 +3574,8 @@ scope class Codegen : Visitor
 		auto temp = fs.pushRegister();
 		visit(e.op1);
 		fs.popMoveTo(e.op1.endLocation.line, temp);
-		fs.codeR(e.op1.endLocation.line, Op.IsTrue, 0, temp, 0);
-		auto i = fs.makeJump(e.op1.endLocation.line, Op.Je, false);
+		fs.codeR(e.op1.endLocation.line, Op1.IsTrue, 0, temp, 0);
+		auto i = fs.makeJump(e.op1.endLocation.line, Op2.Je, false);
 		visit(e.op2);
 		fs.popMoveTo(e.endLocation.line, temp);
 		fs.patchJumpToHere(i);
@@ -3257,8 +3624,8 @@ scope class Codegen : Visitor
 
 		auto firstReg = fs.nextRegister();
 		codeGenListToNextReg(e.operands, false);
-		fs.pushBinOp(e.endLocation.line, Op.Cat, firstReg, e.operands.length);
-		
+		fs.pushBinOp(e.endLocation.line, e.type, firstReg, e.operands.length);
+
 		return e;
 	}
 
@@ -3268,7 +3635,7 @@ scope class Codegen : Visitor
 		auto i = codeCondition(e);
 		fs.pushBool(false);
 		fs.popMoveTo(e.endLocation.line, temp);
-		auto j = fs.makeJump(e.endLocation.line, Op.Jmp);
+		auto j = fs.makeJump(e.endLocation.line, Op1.Jmp);
 		fs.patchTrueToHere(i);
 		fs.pushBool(true);
 		fs.popMoveTo(e.endLocation.line, temp);
@@ -3375,7 +3742,7 @@ scope class Codegen : Visitor
 
 		auto numRets = genArgs();
 
-		Op opcode = void;
+		Op1 opcode = void;
 
 		opcode = isSuperCall ? Op.SuperMethod : Op.Method;
 
@@ -3567,7 +3934,8 @@ scope class Codegen : Visitor
 	public override TableCtorExp visit(TableCtorExp e)
 	{
 		auto destReg = fs.pushRegister();
-		fs.codeI(e.location.line, Op.NewTable, destReg, 0);
+		fs.codeI(e.location.line, Op1.New, destReg, 0);
+		fs.codeR(e.location.line, Op2.Table, 0, 0, 0);
 
 		foreach(ref field; e.fields)
 		{
@@ -3580,7 +3948,7 @@ scope class Codegen : Visitor
 			fs.freeExpTempRegs(val);
 			fs.freeExpTempRegs(idx);
 
-			fs.codeR(field.value.endLocation.line, Op.IndexAssign, destReg, idx.index, val.index);
+			fs.codeR(field.value.endLocation.line, Op1.IndexAssign, destReg, idx.index, val.index);
 		}
 
 		fs.pushTempReg(destReg);
@@ -3601,9 +3969,11 @@ scope class Codegen : Visitor
 		auto destReg = fs.pushRegister();
 
 		if(e.values.length > 0 && e.values[$ - 1].isMultRet())
-			fs.codeI(e.location.line, Op.NewArray, destReg, e.values.length - 1);
+			fs.codeI(e.location.line, Op1.New, destReg, e.values.length - 1);
 		else
-			fs.codeI(e.location.line, Op.NewArray, destReg, e.values.length);
+			fs.codeI(e.location.line, Op1.New, destReg, e.values.length);
+
+		fs.codeR(e.location.line, Op2.Array, 0, 0, 0);
 
 		if(e.values.length > 0)
 		{
@@ -3613,14 +3983,16 @@ scope class Codegen : Visitor
 
 			while(fieldsLeft > 0)
 			{
-				auto numToDo = min(fieldsLeft, Instruction.arraySetFields);
+				auto numToDo = min(fieldsLeft, Instruction.ArraySetFields);
 				codeGenListToNextReg(e.values[index .. index + numToDo]);
 				fieldsLeft -= numToDo;
 
 				if(fieldsLeft == 0 && e.values[$ - 1].isMultRet())
-					fs.codeR(e.endLocation.line, Op.SetArray, destReg, 0, block);
+					fs.codeR(e.endLocation.line, Op1.Array, destReg, 0, block);
 				else
-					fs.codeR(e.values[index + numToDo - 1].endLocation.line, Op.SetArray, destReg, numToDo + 1, block);
+					fs.codeR(e.values[index + numToDo - 1].endLocation.line, Op1.Array, destReg, numToDo + 1, block);
+
+				fs.codeR(e.endLocation.line, Op2.Set, 0, 0, 0);
 
 				index += numToDo;
 				block++;
@@ -3651,7 +4023,8 @@ scope class Codegen : Visitor
 	public override TableComprehension visit(TableComprehension e)
 	{
 		auto tempReg = fs.pushRegister();
-		fs.codeI(e.location.line, Op.NewTable, tempReg, 0);
+		fs.codeI(e.location.line, Op1.New, tempReg, 0);
+		fs.codeR(e.location.line, Op2.Table, 0, 0, 0);
 
 		visitForComp(e.forComp,
 		{
@@ -3663,7 +4036,7 @@ scope class Codegen : Visitor
 			fs.popSource(e.value.location.line, src2);
 			fs.freeExpTempRegs(src2);
 			fs.freeExpTempRegs(src1);
-			fs.codeR(e.key.location.line, Op.IndexAssign, tempReg, src1.index, src2.index);
+			fs.codeR(e.key.location.line, Op1.IndexAssign, tempReg, src1.index, src2.index);
 		});
 
 		fs.pushTempReg(tempReg);
@@ -3673,7 +4046,8 @@ scope class Codegen : Visitor
 	public override ArrayComprehension visit(ArrayComprehension e)
 	{
 		auto tempReg = fs.pushRegister();
-		fs.codeI(e.location.line, Op.NewArray, tempReg, 0);
+		fs.codeI(e.location.line, Op1.New, tempReg, 0);
+		fs.codeR(e.location.line, Op2.Array, 0, 0, 0);
 
 		visitForComp(e.forComp,
 		{
@@ -3681,7 +4055,8 @@ scope class Codegen : Visitor
 			Exp src;
 			fs.popSource(e.exp.location.line, src);
 			fs.freeExpTempRegs(src);
-			fs.codeR(e.exp.location.line, Op.Append, tempReg, src.index, 0);
+			fs.codeR(e.exp.location.line, Op1.Array, tempReg, src.index, 0);
+			fs.codeR(e.exp.location.line, Op2.Append, 0, 0, 0);
 		});
 
 		fs.pushTempReg(tempReg);
@@ -3887,10 +4262,10 @@ scope class Codegen : Visitor
 				visit(e);
 				fs.popMoveTo(e.endLocation.line, temp);
 
-				fs.codeR(e.endLocation.line, Op.IsTrue, 0, temp, 0);
+				fs.codeR(e.endLocation.line, Op1.IsTrue, 0, temp, 0);
 
 				InstRef ret;
-				ret.trueList = fs.makeJump(e.endLocation.line, Op.Je);
+				ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je);
 				return ret;
 		}
 	}
@@ -3905,7 +4280,7 @@ scope class Codegen : Visitor
 		fs.invertJump(left);
 		fs.patchTrueToHere(left);
 
-		auto trueJump = fs.makeJump(e.op1.endLocation.line, Op.Jmp, true);
+		auto trueJump = fs.makeJump(e.op1.endLocation.line, Op1.Jmp, true);
 
 		fs.patchFalseToHere(c);
 		// Done with c
@@ -3955,7 +4330,7 @@ scope class Codegen : Visitor
 		assert(AstTagToOpcode2(e.type) == -1);
 
 		InstRef ret;
-		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, e.type == AstTag.EqualExp || e.type == AstTag.IsExp);
+		ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je, e.type == AstTag.EqualExp || e.type == AstTag.IsExp);
 		return ret;
 	}
 
@@ -3976,16 +4351,16 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src2);
 		fs.freeExpTempRegs(src1);
 
-		fs.codeR(e.endLocation.line, Op.Cmp, 0, src1.index, src2.index);
+		fs.codeR(e.endLocation.line, Op1.Cmp, 0, src1.index, src2.index);
 
 		InstRef ret;
 
 		switch(e.type)
 		{
-			case AstTag.LTExp: ret.trueList = fs.makeJump(e.endLocation.line, Op.Jlt, true); break;
-			case AstTag.LEExp: ret.trueList = fs.makeJump(e.endLocation.line, Op.Jle, true); break;
-			case AstTag.GTExp: ret.trueList = fs.makeJump(e.endLocation.line, Op.Jle, false); break;
-			case AstTag.GEExp: ret.trueList = fs.makeJump(e.endLocation.line, Op.Jlt, false); break;
+			case AstTag.LTExp: ret.trueList = fs.makeJump(e.endLocation.line, Op2.Jlt, true); break;
+			case AstTag.LEExp: ret.trueList = fs.makeJump(e.endLocation.line, Op2.Jle, true); break;
+			case AstTag.GTExp: ret.trueList = fs.makeJump(e.endLocation.line, Op2.Jle, false); break;
+			case AstTag.GEExp: ret.trueList = fs.makeJump(e.endLocation.line, Op2.Jlt, false); break;
 			default: assert(false);
 		}
 
@@ -4005,10 +4380,10 @@ scope class Codegen : Visitor
 		fs.popSource(e.endLocation.line, src);
 		fs.freeExpTempRegs(src);
 
-		fs.codeR(e.endLocation.line, Op.IsTrue, 0, src.index, 0);
+		fs.codeR(e.endLocation.line, Op1.IsTrue, 0, src.index, 0);
 
 		InstRef ret;
-		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, true);
+		ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je, true);
 		return ret;
 	}
 
@@ -4020,10 +4395,10 @@ scope class Codegen : Visitor
 		fs.popSource(e.endLocation.line, src);
 		fs.freeExpTempRegs(src);
 
-		fs.codeR(e.endLocation.line, Op.IsTrue, 0, src.index, 0);
+		fs.codeR(e.endLocation.line, Op1.IsTrue, 0, src.index, 0);
 
 		InstRef ret;
-		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, true);
+		ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je, true);
 		return ret;
 	}
 
@@ -4032,10 +4407,10 @@ scope class Codegen : Visitor
 		auto temp = fs.nextRegister();
 		visit(e.exp);
 		fs.popMoveTo(e.endLocation.line, temp);
-		fs.codeR(e.endLocation.line, Op.IsTrue, 0, temp, 0);
+		fs.codeR(e.endLocation.line, Op1.IsTrue, 0, temp, 0);
 
 		InstRef ret;
-		ret.trueList = fs.makeJump(e.endLocation.line, Op.Je, true);
+		ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je, true);
 		return ret;
 	}
 }
