@@ -692,7 +692,7 @@ final class FuncState
 		e.isTempReg2 = false;
 		e.isTempReg3 = false;
 	}
-	
+
 	// ---------------------------------------------------------------------------
 	// Expression stack pushes
 
@@ -891,22 +891,22 @@ final class FuncState
 		dup();
 		topToSource(line, false);
 	}
-	
+
 	public void pushBinOp(uint line, AstTag type, uint rs, uint rt)
 	{
 		Exp* dest = pushExp();
 		dest.type = ExpType.NeedsDest;
 		dest.index = codeR(line, AstTagToOpcode1(type), 0, rs, rt);
-		
+
 		auto second = AstTagToOpcode2(type);
-		
+
 		if(second != -1)
 			codeR(line, second, 0, 0, 0);
 	}
 
 	// ---------------------------------------------------------------------------
 	// Expression stack pops
-	
+
 	public void popToNothing()
 	{
 		if(mExpSP == 0)
@@ -927,67 +927,57 @@ final class FuncState
 
 		switch(dest.type)
 		{
-			// TODO: upval, global
 			case ExpType.Local:
 				moveTo(line, dest.index, src);
+				return;
+
+			case ExpType.Upval:
+				toSource(line, src);
+				codeI(line, Op1.SetUpval, src.index, dest.index);
+				break;
+
+			case ExpType.Global:
+				toSource(line, src);
+				codeI(line, Op1.SetGlobal, src.index, dest.index);
 				break;
 
 			case ExpType.NewGlobal:
 				toSource(line, src);
-
-				codeR(line, Op.NewGlobal, 0, src.index, dest.index);
-
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.NewGlobal, 0, src.index, dest.index);
 				break;
 
 			case ExpType.Indexed:
 				toSource(line, src);
-
-				codeR(line, Op.IndexAssign, dest.index, dest.index2, src.index);
-
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.IndexAssign, dest.index, dest.index2, src.index);
 				break;
 
 			case ExpType.Field:
 				toSource(line, src);
-
-				codeR(line, Op.FieldAssign, dest.index, dest.index2, src.index);
-
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.FieldAssign, dest.index, dest.index2, src.index);
 				break;
 
 			case ExpType.IndexedVararg:
 				toSource(line, src);
-
-				codeR(line, Op.VargIndexAssign, 0, dest.index, src.index);
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.Vararg, 0, dest.index, src.index);
+				codeR(line, Op2.VargIndexAssign, 0, 0, 0);
 				break;
 
 			case ExpType.Sliced:
 				toSource(line, src);
-
-				codeR(line, Op.SliceAssign, dest.index, src.index, 0);
-
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.SliceAssign, dest.index, src.index, 0);
 				break;
 
 			case ExpType.Length:
 				toSource(line, src);
-
-				codeR(line, Op.LengthAssign, dest.index, src.index, 0);
-
-				freeExpTempRegs(*src);
-				freeExpTempRegs(*dest);
+				codeR(line, Op1.LengthAssign, dest.index, src.index, 0);
 				break;
-				
+
 			default:
 				assert(false, "popAssign switch");
 		}
+
+		freeExpTempRegs(*src);
+		freeExpTempRegs(*dest);
 	}
 
 	public void popMoveTo(uint line, uint dest)
@@ -1003,17 +993,18 @@ final class FuncState
 		switch(src.type)
 		{
 			case ExpType.Vararg:
-				codeI(line, Op.Vararg, reg, num + 1);
+				codeI(line, Op1.Vararg, reg, num + 1);
+				codeR(line, Op2.GetVarargs, 0, 0, 0);
 				break;
 
 			case ExpType.SlicedVararg:
 				assert(src.index2 == reg, "pop to regs - trying to pop sliced varargs to different reg");
-				mCode[src.index].uimm = cast(ushort)(num + 1);
+				setUImm(mCode[src.index], num + 1);
 				break;
 
 			case ExpType.Call, ExpType.Yield:
 				assert(src.index2 == reg, "pop to regs - trying to pop func call or yield to different reg");
-				mCode[src.index].rt = cast(ushort)(num + 1);
+				setRT(mCode[src.index], num + 1);
 				freeExpTempRegs(*src);
 				break;
 
@@ -1027,9 +1018,9 @@ final class FuncState
 		auto dest = pushExp();
 		dest.type = ExpType.NeedsDest;
 		dest.index = codeR(line, AstTagToOpcode1(type), rd, rs, rt);
-		
+
 		auto second = AstTagToOpcode2(type);
-		
+
 		if(second != -1)
 			codeR(line, second, 0, 0, 0);
 
@@ -1039,40 +1030,49 @@ final class FuncState
 	public void popMoveFromReg(uint line, uint srcReg)
 	{
 		auto dest = popExp();
-		
+
 		switch(dest.type)
 		{
-			case ExpType.Var:
+			case ExpType.Local:
 				if(dest.index != srcReg)
-					codeR(line, Op.Move, dest.index, srcReg, 0);
+					codeR(line, Op1.Move, dest.index, srcReg, 0);
+				break;
+
+			case ExpType.Upval:
+				codeR(line, Op1.SetUpval, dest.index, srcReg, 0);
+				break;
+
+			case ExpType.Global:
+				codeR(line, Op1.SetGlobal, dest.index, srcReg, 0);
 				break;
 
 			case ExpType.NewGlobal:
-				codeR(line, Op.NewGlobal, 0, srcReg, dest.index);
+				codeR(line, Op1.NewGlobal, 0, srcReg, dest.index);
 				break;
 
 			case ExpType.Indexed:
-				codeR(line, Op.IndexAssign, dest.index, dest.index2, srcReg);
+				codeR(line, Op1.IndexAssign, dest.index, dest.index2, srcReg);
 				freeExpTempRegs(*dest);
 				break;
 
 			case ExpType.Field:
-				codeR(line, Op.FieldAssign, dest.index, dest.index2, srcReg);
+				codeR(line, Op1.FieldAssign, dest.index, dest.index2, srcReg);
 				freeExpTempRegs(*dest);
 				break;
 
 			case ExpType.IndexedVararg:
-				codeR(line, Op.VargIndexAssign, 0, dest.index, srcReg);
+				codeR(line, Op1.Vararg, 0, dest.index, srcReg);
+				codeR(line, Op2.VargIndexAssign, 0, 0, 0);
 				freeExpTempRegs(*dest);
 				break;
 
 			case ExpType.Sliced:
-				codeR(line, Op.SliceAssign, dest.index, srcReg, 0);
+				codeR(line, Op1.SliceAssign, dest.index, srcReg, 0);
 				freeExpTempRegs(*dest);
 				break;
 
 			case ExpType.Length:
-				codeR(line, Op.LengthAssign, dest.index, srcReg, 0);
+				codeR(line, Op1.LengthAssign, dest.index, srcReg, 0);
 				freeExpTempRegs(*dest);
 				break;
 
@@ -1125,7 +1125,7 @@ final class FuncState
 		n = *popExp();
 		toSource(line, &n);
 	}
-	
+
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
@@ -1135,9 +1135,9 @@ final class FuncState
 		toSource(line, src);
 
 		uint pc = codeR(line, AstTagToOpcode1(type), 0, src.index, 0);
-		
+
 		auto second = AstTagToOpcode2(type);
-		
+
 		if(second != -1)
 			codeR(line, second, 0, 0, 0);
 
@@ -1170,8 +1170,26 @@ final class FuncState
 				temp.index = e.index;
 				break;
 
-			case ExpType.Var:
+			case ExpType.Local:
 				temp.index = e.index;
+				break;
+				
+			case ExpType.Upval:
+				if(cleanup)
+					freeExpTempRegs(*e);
+
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeI(line, Op1.GetUpval, temp.index, e.index);
+				break;
+
+			case ExpType.Global:
+				if(cleanup)
+					freeExpTempRegs(*e);
+
+				temp.index = pushRegister();
+				temp.isTempReg = true;
+				codeI(line, Op1.GetGlobal, temp.index, e.index);
 				break;
 
 			case ExpType.Indexed:
@@ -1180,7 +1198,7 @@ final class FuncState
 
 				temp.index = pushRegister();
 				temp.isTempReg = true;
-				codeR(line, Op.Index, temp.index, e.index, e.index2);
+				codeR(line, Op1.Index, temp.index, e.index, e.index2);
 				break;
 
 			case ExpType.Field:
@@ -1189,7 +1207,7 @@ final class FuncState
 
 				temp.index = pushRegister();
 				temp.isTempReg = true;
-				codeR(line, Op.Field, temp.index, e.index, e.index2);
+				codeR(line, Op1.Field, temp.index, e.index, e.index2);
 				break;
 
 			case ExpType.IndexedVararg:
@@ -1198,7 +1216,8 @@ final class FuncState
 
 				temp.index = pushRegister();
 				temp.isTempReg = true;
-				codeR(line, Op.VargIndex, temp.index, e.index, 0);
+				codeR(line, Op1.Vararg, temp.index, e.index, 0);
+				codeR(line, Op2.VargIndex, 0, 0, 0);
 				break;
 
 			case ExpType.Sliced:
@@ -1207,7 +1226,7 @@ final class FuncState
 
 				temp.index = pushRegister();
 				temp.isTempReg = true;
-				codeR(line, Op.Slice, temp.index, e.index, 0);
+				codeR(line, Op1.Slice, temp.index, e.index, 0);
 				break;
 
 			case ExpType.Length:
@@ -1216,17 +1235,17 @@ final class FuncState
 
 				temp.index = pushRegister();
 				temp.isTempReg = true;
-				codeR(line, Op.Length, temp.index, e.index, 0);
+				codeR(line, Op1.Length, temp.index, e.index, 0);
 				break;
 
 			case ExpType.NeedsDest:
 				temp.index = pushRegister();
-				mCode[e.index].rd = cast(ushort)temp.index;
+				setRD(mCode[e.index], temp.index);
 				temp.isTempReg = true;
 				break;
 
 			case ExpType.Call, ExpType.Yield:
-				mCode[e.index].rt = 2;
+				setRT(mCode[e.index], 2);
 				temp.index = e.index2;
 				temp.isTempReg = e.isTempReg2;
 				break;
@@ -1237,7 +1256,8 @@ final class FuncState
 
 			case ExpType.Vararg:
 				temp.index = pushRegister();
-				codeI(line, Op.Vararg, temp.index, 2);
+				codeI(line, Op1.Vararg, temp.index, 2);
+				codeR(line, Op2.GetVarargs, 0, 0, 0);
 				temp.isTempReg = true;
 				break;
 
@@ -1245,7 +1265,8 @@ final class FuncState
 				if(cleanup)
 					freeExpTempRegs(*e);
 
-				codeI(line, Op.VargSlice, e.index, 2);
+				codeI(line, Op1.Vararg, e.index, 2);
+				codeR(line, Op2.VargSlice, 0, 0, 0);
 				temp.index = e.index;
 				break;
 
@@ -1255,84 +1276,97 @@ final class FuncState
 
 		*e = temp;
 	}
-	
+
 	public void moveTo(uint line, uint dest, Exp* src)
 	{
 		switch(src.type)
 		{
 			case ExpType.Const:
-				if(isLocalTag(dest))
-					codeR(line, Op.LoadConst, dest, src.index, 0);
-				else
-					codeR(line, Op.Move, dest, src.index, 0);
+				assert(isLocalTag(dest));
+				codeR(line, Op1.LoadConst, dest, src.index, 0);
 				break;
 
-			case ExpType.Var:
+			case ExpType.Local:
 				if(dest != src.index)
-					codeR(line, Op.Move, dest, src.index, 0);
+					codeR(line, Op1.Move, dest, src.index, 0);
+				break;
+
+			case ExpType.Upval:
+				codeI(line, Op1.GetUpval, dest, src.index);
+				freeExpTempRegs(*src);
+				break;
+
+			case ExpType.Global:
+				codeI(line, Op1.GetGlobal, dest, src.index);
+				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.Indexed:
-				codeR(line, Op.Index, dest, src.index, src.index2);
+				codeR(line, Op1.Index, dest, src.index, src.index2);
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.Field:
-				codeR(line, Op.Field, dest, src.index, src.index2);
+				codeR(line, Op1.Field, dest, src.index, src.index2);
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.IndexedVararg:
-				codeR(line, Op.VargIndex, dest, src.index, 0);
+				codeR(line, Op1.Vararg, dest, src.index, 0);
+				codeR(line, Op2.VargIndex, 0, 0, 0);
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.Sliced:
-				codeR(line, Op.Slice, dest, src.index, 0);
+				codeR(line, Op1.Slice, dest, src.index, 0);
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.Length:
-				codeR(line, Op.Length, dest, src.index, 0);
+				codeR(line, Op1.Length, dest, src.index, 0);
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.Vararg:
 				if(isLocalTag(dest))
-					codeI(line, Op.Vararg, dest, 2);
+				{
+					codeI(line, Op1.Vararg, dest, 2);
+					codeR(line, Op2.GetVarargs, 0, 0, 0);
+				}
 				else
 				{
 					assert(!isConstTag(dest), "moveTo vararg dest is const");
 					uint tempReg = pushRegister();
-					codeI(line, Op.Vararg, tempReg, 2);
-					codeR(line, Op.Move, dest, tempReg, 0);
+					codeI(line, Op1.Vararg, tempReg, 2);
+					codeR(line, Op2.GetVarargs, 0, 0 ,0);
+					codeR(line, Op1.Move, dest, tempReg, 0);
 					popRegister(tempReg);
 				}
 				break;
-				
+
 			case ExpType.SlicedVararg:
-				mCode[src.index].uimm = 2;
-				
+				setUImm(mCode[src.index], 2);
+
 				if(dest != src.index2)
-					codeR(line, Op.Move, dest, src.index2, 0);
+					codeR(line, Op1.Move, dest, src.index2, 0);
 				break;
 
 			case ExpType.Call, ExpType.Yield:
-				mCode[src.index].rt = 2;
+				setRT(mCode[src.index], 2);
 
 				if(dest != src.index2)
-					codeR(line, Op.Move, dest, src.index2, 0);
+					codeR(line, Op1.Move, dest, src.index2, 0);
 
 				freeExpTempRegs(*src);
 				break;
 
 			case ExpType.NeedsDest:
-				mCode[src.index].rd = cast(ushort)dest;
+				setRD(mCode[src.index], dest);
 				break;
 
 			case ExpType.Src:
 				if(dest != src.index)
-					codeR(line, Op.Move, dest, src.index, 0);
+					codeR(line, Op1.Move, dest, src.index, 0);
 
 				freeExpTempRegs(*src);
 				break;
@@ -1745,6 +1779,11 @@ final class FuncState
 		assert(val <= Instruction.uimmMax);
 		inst.data &= ~(Instruction.immMask << Instruction.immShift);
 		inst.data |= (val & Instruction.immMask) << Instruction.immShift;
+	}
+	
+	package void getOpcode(ref Instruction inst)
+	{
+		return (inst.data >> Instruction.opcodeShift) & Instruction.opcodeMask;
 	}
 
 	// ---------------------------------------------------------------------------
