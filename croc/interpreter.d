@@ -2793,7 +2793,7 @@ void execute(CrocThread* t, uword depth = 1)
 {
 	assert(false);
 
-/* 	CrocException currentException = null;
+/+ 	CrocException currentException = null;
 	CrocValue RS;
 	CrocValue RT;
 
@@ -3674,8 +3674,9 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Closure:
-					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.rs];
-					auto funcEnv = i.rt == 0 ? env : t.stack[stackBase + i.rt].mNamespace;
+					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.uimm];
+// 					auto funcEnv = i.rt == 0 ? env : t.stack[stackBase + i.rt].mNamespace;
+					// ClosureWithEnv uses rd as the environment
 					auto n = func.create(t.vm.alloc, funcEnv, newDef);
 
 					if(n is null)
@@ -3838,5 +3839,5 @@ void execute(CrocThread* t, uword depth = 1)
 
 		unwindEH(t);
 		throw e;
-	} */
+	} +/
 }
