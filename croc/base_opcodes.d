@@ -255,7 +255,7 @@ enum Op2
 	PopFinally,
 
 	// Vararg
-	GetVararg,
+	GetVarargs,
 	VargLen,
 	VargIndex,
 	VargIndexAssign,
