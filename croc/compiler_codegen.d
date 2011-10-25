@@ -461,7 +461,7 @@ final class FuncState
 			}
 		}
 	}
-	
+
 	package void closeUpvals(uint line)
 	{
 		if(mScope.hasUpval)
@@ -526,13 +526,24 @@ final class FuncState
 
 		auto prev = mSwitch.prev;
 
-		mSwitchTables.append(c.alloc, *mSwitch);
-		auto switchIdx = mSwitchTables.length - 1;
+		if(mSwitch.offsets.length > 0 || mSwitch.defaultOffset == -1)
+		{
+			mSwitchTables.append(c.alloc, *mSwitch);
+			auto switchIdx = mSwitchTables.length - 1;
 
-		if(switchIdx > Instruction.MaxSwitchTables)
-			c.semException(mLocation, "Too many switches");
+			if(switchIdx > Instruction.MaxSwitchTables)
+				c.semException(mLocation, "Too many switches");
 
-		setRT(mCode[mSwitch.switchPC], switchIdx);
+			setRT(mCode[mSwitch.switchPC], switchIdx);
+		}
+		else
+		{
+			// Happens when all the cases are dynamic and there is a default -- no need to add a switch table then
+			setOpcode(mCode[mSwitch.switchPC], Op1.Jmp);
+			setRD(mCode[mSwitch.switchPC], 1);
+			setImm(mCode[mSwitch.switchPC], mSwitch.defaultOffset);
+		}
+
 		mSwitch = prev;
 	}
 
@@ -738,14 +749,14 @@ final class FuncState
 	{
 		auto e = pushExp();
 		e.type = ExpType.Const;
-		e.index = tagConst(index);
+		e.index = index;
 	}
 
 	public void pushNewGlobal(Identifier name)
 	{
 		auto e = pushExp();
 		e.type = ExpType.NewGlobal;
-		e.index = tagConst(codeStringConst(name.name));
+		e.index = codeStringConst(name.name);
 	}
 
 	public void pushThis()
@@ -1175,7 +1186,7 @@ final class FuncState
 		switch(e.type)
 		{
 			case ExpType.Const:
-				temp.index = e.index;
+				temp.index = tagConst(e.index);
 				break;
 
 			case ExpType.Local:
@@ -1291,7 +1302,7 @@ final class FuncState
 		{
 			case ExpType.Const:
 				assert(isLocalTag(dest));
-				codeI(line, Op1.LoadConst, dest, src.index &~ Instruction.constBit);
+				codeI(line, Op1.LoadConst, dest, src.index);
 				break;
 
 			case ExpType.Local:
@@ -1400,7 +1411,7 @@ final class FuncState
 		if(mNamespaceReg > 0)
 			codeR(line, Op1.Move, destReg, mNamespaceReg, 0);
 
-		codeR(line, Op1.New, destReg, mInnerFuncs.length, mNamespaceReg);
+		codeI(line, Op1.New, destReg, mInnerFuncs.length);
 		codeR(line, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, 0, 0, 0);
 
 		foreach(ref ud; fs.mUpvals)
@@ -1789,42 +1800,42 @@ final class FuncState
 	package void setOpcode(ref Instruction inst, uint opcode)
 	{
 		assert(opcode <= Instruction.opcodeMax);
-		inst.data &= ~(Instruction.opcodeMask) << Instruction.opcodeShift;
+		inst.data &= ~Instruction.opcodeMask;
 		inst.data |= (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
 	}
 	
 	package void setRD(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rdMax);
-		inst.data &= ~(Instruction.rdMask << Instruction.rdShift);
+		inst.data &= ~Instruction.rdMask;
 		inst.data |= (val << Instruction.rdShift) & Instruction.rdMask;
 	}
 	
 	package void setRS(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rsMax);
-		inst.data &= ~(Instruction.rsMask << Instruction.rsShift);
+		inst.data &= ~Instruction.rsMask;
 		inst.data |= (val << Instruction.rsShift) & Instruction.rsMask;
 	}
 
 	package void setRT(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rtMax);
-		inst.data &= ~(Instruction.rtMask << Instruction.rtShift);
+		inst.data &= ~Instruction.rtMask;
 		inst.data |= (val << Instruction.rtShift) & Instruction.rtMask;
 	}
 	
 	package void setImm(ref Instruction inst, int val)
 	{
 		assert(val == Instruction.NoJump || (val >= -Instruction.immMax && val <= Instruction.immMax));
-		inst.data &= ~(Instruction.immMask << Instruction.immShift);
+		inst.data &= ~Instruction.immMask;
 		inst.data |= (*(cast(uint*)&val) << Instruction.immShift) & Instruction.immMask;
 	}
 
 	package void setUImm(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.uimmMax);
-		inst.data &= ~(Instruction.immMask << Instruction.immShift);
+		inst.data &= ~Instruction.immMask;
 		inst.data |= (val << Instruction.immShift) & Instruction.immMask;
 	}
 
@@ -1837,7 +1848,7 @@ final class FuncState
 	{
 		return (inst.data & Instruction.rdMask) >> Instruction.rdShift;
 	}
-	
+
 	package uint getRS(ref Instruction inst)
 	{
 		return (inst.data & Instruction.rsMask) >> Instruction.rsShift;
@@ -1851,7 +1862,7 @@ final class FuncState
 	package int getImm(ref Instruction inst)
 	{
 		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
-		return (cast(int)inst.data) >> Instruction.immShift;
+		return (*cast(int*)&inst.data) >> Instruction.immShift;
 	}
 
 	package uint getUImm(ref Instruction inst)
