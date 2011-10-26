@@ -4516,15 +4516,11 @@ scope class Codegen : Visitor
 
 		Op1 opcode = void;
 
-		if(context is null)
-			opcode = isSuperCall ? Op1.SuperMethod : Op1.Method;
-		else
-			opcode = Op1.MethodNC;
-
+		opcode = isSuperCall ? Op1.SuperMethod : Op1.Method;
 		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
 		fs.popRegister(thisReg);
 		fs.pushCall(endLocation.line, funcReg, numArgs);
-		
+
 		/*
 		if(isSuperCall)
 			fs.pushThis();
