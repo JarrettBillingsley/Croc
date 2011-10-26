@@ -82,7 +82,6 @@ enum Op : ushort
 	LoadNull,
 	LoadNulls,
 	Method,
-	MethodNC,
 	Mod,
 	ModEq,
 	Move,
@@ -186,7 +185,6 @@ LoadConst.........R: dest local, src const, n/a
 LoadNull..........I: dest, n/a
 LoadNulls.........I: dest, num regs
 Method............R: base reg, object to index, method name
-MethodNC..........R: base reg, object to index, method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a
 Move..............R: dest, src, n/a
@@ -352,7 +350,6 @@ align(1) struct Instruction
 			case Op.LoadNull:        return Format("lnull {}", cr(rd));
 			case Op.LoadNulls:       return Format("lnulls r{}, {}", rd, uimm);
 			case Op.Method:          return Format("method r{}, {}, {}", rd, cr(rs), cr(rt));
-			case Op.MethodNC:        return Format("methodnc r{}, {}, {}", rd, cr(rs), cr(rt));
 			case Op.Mod:             return Format("mod {}, {}, {}", cr(rd), cr(rs), cr(rt));
 			case Op.ModEq:           return Format("modeq {}, {}", cr(rd), cr(rs));
 			case Op.Move:            return Format("mov {}, {}", cr(rd), cr(rs));

@@ -2771,7 +2771,7 @@ struct Parser
 			endLocation = args[$ - 1].endLocation;
 		}
 
-		return new(c) MethodCallExp(c, location, endLocation, null, method, null, args, true);
+		return new(c) MethodCallExp(c, location, endLocation, null, method, args, true);
 	}
 	
 	/**
@@ -2858,7 +2858,7 @@ struct Parser
 					auto arr = args.toArray();
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, dot.location, arr[$ - 1].endLocation, dot.op, dot.name, null, arr, false);
+						exp = new(c) MethodCallExp(c, dot.location, arr[$ - 1].endLocation, dot.op, dot.name, arr, false);
 					else
 						exp = new(c) CallExp(c, arr[$ - 1].endLocation, exp, null, arr);
 					continue;
@@ -2874,6 +2874,9 @@ struct Parser
 
 					if(l.type == Token.With)
 					{
+						if(exp.as!(DotExp))
+							c.semException(l.loc, "'with' is disallowed for method calls; if you aren't making an actual method call, put the function in parentheses");
+
 						l.next();
 
 						context = parseExpression();
@@ -2886,16 +2889,18 @@ struct Parser
 					}
 					else if(l.type != Token.RParen)
 						args = parseArguments();
-						
+
+					{
 					scope(failure)
 						c.alloc.freeArray(args);
 
 					auto endLocation = l.expect(Token.RParen).loc;
 
 					if(auto dot = exp.as!(DotExp))
-						exp = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, context, args, false);
+						exp = new(c) MethodCallExp(c, dot.location, endLocation, dot.op, dot.name, args, false);
 					else
 						exp = new(c) CallExp(c, endLocation, exp, context, args);
+					}
 
 					continue;
 
@@ -2978,7 +2983,7 @@ struct Parser
 			}
 		}
 	}
-	
+
 	/**
 	Parse a for comprehension. Note that in the grammar, this actually includes an optional
 	if comprehension and optional for comprehension after it, meaning that an entire array
@@ -3150,10 +3155,19 @@ struct Parser
 			args ~= exp;
 
 		args ~= dec.args;
+		auto argsArray = args.toArray();
+
+		scope(failure)
+			c.alloc.freeArray(argsArray);
 
 		if(auto f = dec.func.as!(DotExp))
-			return new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, dec.context, args.toArray(), false);
+		{
+			if(dec.context !is null)
+				c.semException(dec.location, "'with' is disallowed for method calls");
+
+			return new(c) MethodCallExp(c, dec.location, dec.endLocation, f.op, f.name, argsArray, false);
+		}
 		else
-			return new(c) CallExp(c, dec.endLocation, dec.func, dec.context, args.toArray());
+			return new(c) CallExp(c, dec.endLocation, dec.func, dec.context, argsArray);
 	}
 }

@@ -176,7 +176,7 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 	}
 }
 
-bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* lookup, CrocString* methodName, word numReturns, uword numParams, bool customThis)
+bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* lookup, CrocString* methodName, word numReturns, uword numParams)
 {
 	CrocClass* proto;
 	auto method = lookupMethod(t, lookup, methodName, proto);
@@ -190,9 +190,7 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 
 	if(method.type != CrocValue.Type.Null)
 	{
-		if(!customThis)
-			t.stack[slot + 1] = *self;
-
+		t.stack[slot + 1] = *self;
 		t.stack[slot] = method;
 
 		return callPrologue(t, slot, numReturns, numParams, proto);
@@ -207,11 +205,7 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 			throwStdException(t, "MethodException", "No implementation of method '{}' or {} for type '{}'", methodName.toString(), MetaNames[MM.Method], getString(t, -1));
 		}
 
-		if(customThis)
-			t.stack[slot] = t.stack[slot + 1];
-		else
-			t.stack[slot] = *self;
-
+		t.stack[slot] = *self;
 		t.stack[slot + 1] = methodName;
 
 		return callPrologue2(t, mm, slot, numReturns, slot, numParams + 1, proto);
@@ -3192,7 +3186,7 @@ void execute(CrocThread* t, uword depth = 1)
 				bool isScript = void;
 				word numResults = void;
 
-				case Op.Method, Op.MethodNC, Op.SuperMethod:
+				case Op.Method, Op.SuperMethod:
 					auto call = (*pc)++;
 
 					RT = *mixin(GetRT);
@@ -3233,7 +3227,7 @@ void execute(CrocThread* t, uword depth = 1)
 						t.stackIndex = stackBase + i.rd + call.rs;
 					}
 
-					isScript = commonMethodCall(t, stackBase + i.rd, self, &RS, methodName, numResults, numParams, i.opcode == Op.MethodNC);
+					isScript = commonMethodCall(t, stackBase + i.rd, self, &RS, methodName, numResults, numParams);
 
 					if(call.opcode == Op.Call)
 						goto _commonCall;

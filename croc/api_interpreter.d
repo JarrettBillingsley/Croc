@@ -3851,8 +3851,7 @@ The process of calling a method is very similar to calling a normal function.
 // 1. Push the object on which the method will be called.
 auto slot = pushGlobal(t, "o");
 
-// 2. Make room for 'this'. If you want to call the method with a custom 'this', push it here.
-// Otherwise, we'll let Croc figure out the 'this' and we can just push null.
+// 2. Make room for 'this'.
 pushNull(t);
 
 // 3. Push any params.
@@ -3868,17 +3867,13 @@ Params:
 	slot = The _slot containing the object on which the method will be called.
 	name = The _name of the method to call.
 	numReturns = How many return values you want. Can be -1, which means you'll get all returns.
-	customThis = If true, the 'this' parameter you push after the object will be respected and
-		passed as 'this' to the method (though the method will still be looked up in the object).
-		The default is false, where the context will be determined automatically (i.e. it's
-		the object on which the method is being called).
 
 Returns:
 	The number of return values given by the function. If numReturns was -1, this is exactly how
 	many returns the function gave. If numReturns was >= 0, this is the same as numReturns (and
 	not exactly useful since you already know it).
 */
-uword methodCall(CrocThread* t, word slot, char[] name, word numReturns, bool customThis = false)
+uword methodCall(CrocThread* t, word slot, char[] name, word numReturns)
 {
 	mixin(FuncNameMix);
 
@@ -3894,7 +3889,7 @@ uword methodCall(CrocThread* t, word slot, char[] name, word numReturns, bool cu
 	auto self = &t.stack[absSlot];
 	auto methodName = createString(t, name);
 
-	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
+	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, tmp);
 }
 
@@ -3903,7 +3898,7 @@ Same as above, but expects the name of the method to be on top of the stack (aft
 
 The parameters and return value are the same as above.
 */
-uword methodCall(CrocThread* t, word slot, word numReturns, bool customThis = false)
+uword methodCall(CrocThread* t, word slot, word numReturns)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto absSlot = fakeToAbs(t, slot);
@@ -3927,7 +3922,7 @@ uword methodCall(CrocThread* t, word slot, word numReturns, bool customThis = fa
 
 	auto self = &t.stack[absSlot];
 
-	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams, customThis);
+	auto tmp = commonMethodCall(t, absSlot, self, self, methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, tmp);
 }
 
@@ -3999,7 +3994,7 @@ uword superCall(CrocThread* t, word slot, char[] name, word numReturns)
 
 	// Do the call
 	auto methodName = createString(t, name);
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 
@@ -4046,7 +4041,7 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 	}
 
 	// Do the call
-	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams, false);
+	auto ret = commonMethodCall(t, absSlot, _this, &CrocValue(t.currentAR.proto), methodName, numReturns, numParams);
 	return commonCall(t, absSlot, numReturns, ret);
 }
 

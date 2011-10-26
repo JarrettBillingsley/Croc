@@ -2177,7 +2177,11 @@ scope class Codegen : Visitor
 		}
 
 		if(auto dot = d.func.as!(DotExp))
-			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, d.context, &genArgs);
+		{
+			if(d.context !is null)
+				c.semException(d.location, "'with' is disallowed on method calls");
+			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, &genArgs);
+		}
 		else
 			visitCall(d.endLocation, d.func, d.context, &genArgs);
 	}
@@ -3266,7 +3270,7 @@ scope class Codegen : Visitor
 	
 	public override MethodCallExp visit(MethodCallExp e)
 	{
-		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, e.context, delegate uword()
+		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
 		{
 			codeGenListToNextReg(e.args);
 
@@ -3281,7 +3285,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, Expression context, uword delegate() genArgs)
+	public void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
 	{
 		auto funcReg = fs.nextRegister();
 		Exp src;
@@ -3304,23 +3308,13 @@ scope class Codegen : Visitor
 
 		auto thisReg = fs.nextRegister();
 
-		if(context)
-		{
-			assert(!isSuperCall);
-			visit(context);
-			fs.popMoveTo(context.endLocation.line, thisReg);
-		}
-
 		fs.pushRegister();
 
 		auto numRets = genArgs();
 
 		Op opcode = void;
 
-		if(context is null)
-			opcode = isSuperCall ? Op.SuperMethod : Op.Method;
-		else
-			opcode = Op.MethodNC;
+		opcode = isSuperCall ? Op.SuperMethod : Op.Method;
 
 		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
 		fs.popRegister(thisReg);

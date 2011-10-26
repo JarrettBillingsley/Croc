@@ -2747,13 +2747,6 @@ class MethodCallExp : PostfixExp
 	public Expression method;
 
 	/**
-	The context to be used when calling the method. This corresponds to 'x' in
-	the expression "a.f(with x)". If this member is null, there is no custom
-	context and the context will be determined automatically.
-	*/
-	public Expression context;
-
-	/**
 	The list of argument to pass to the method. This can have 0 or more elements.
 	*/
 	public Expression[] args;
@@ -2765,11 +2758,10 @@ class MethodCallExp : PostfixExp
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression context, Expression[] args, bool isSuperCall)
+	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
 	{
 		super(c, location, endLocation, AstTag.MethodCallExp, operand);
 		this.method = method;
-		this.context = context;
 		this.args = args;
 		this.isSuperCall = isSuperCall;
 	}

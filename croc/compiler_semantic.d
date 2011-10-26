@@ -241,7 +241,7 @@ scope class Semantic : IdentityVisitor
 		auto _load = new(c) StringExp(c, s.location, c.newString("load"));
 		scope args = new List!(Expression)(c.alloc);
 		args ~= s.expr;
-		auto call = new(c) MethodCallExp(c, s.location, s.endLocation, _modules, _load, null, args.toArray(), false);
+		auto call = new(c) MethodCallExp(c, s.location, s.endLocation, _modules, _load, args.toArray(), false);
 
 		// Now we make a list of statements.
 		scope stmts = new List!(Statement)(c.alloc);
@@ -318,6 +318,9 @@ scope class Semantic : IdentityVisitor
 	public override Decorator visit(Decorator d)
 	{
 		d.func = visit(d.func);
+		
+		if(d.context)
+			d.context = visit(d.context);
 
 		foreach(ref a; d.args)
 			a = visit(a);
@@ -1695,9 +1698,6 @@ scope class Semantic : IdentityVisitor
 
 		if(e.method.isConstant && !e.method.isString)
 			c.semException(e.method.location, "Method name must be a string");
-
-		if(e.context)
-			e.context = visit(e.context);
 
 		foreach(ref arg; e.args)
 			arg = visit(arg);
