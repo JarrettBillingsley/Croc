@@ -165,23 +165,20 @@ struct InstRef
 
 enum ExpType
 {
-	Null,
-	True,
-	False,
 	Const,
 	Local,
 	NewGlobal,
 	Upval,
 	Global,
 	Indexed,
-	IndexedVararg,
 	Field,
 	Sliced,
+	Vararg,
+	IndexedVararg,
 	SlicedVararg,
 	Length,
-	Vararg,
 	Call,
-	Yield,
+	Yield, // ?
 	NeedsDest,
 	Src
 }
@@ -377,6 +374,7 @@ final class FuncState
 			codeClose(line, mScope.regStart);
 
 		deactivateLocals(mScope.varStart, mScope.regStart);
+		// also set mFreeReg to mScope.regStart? maybe? or just check that it is
 		mScope = prev;
 	}
 
@@ -1192,7 +1190,7 @@ final class FuncState
 			case ExpType.Local:
 				temp.index = e.index;
 				break;
-				
+
 			case ExpType.Upval:
 				if(cleanup)
 					freeExpTempRegs(*e);
@@ -2028,7 +2026,7 @@ final class FuncState
 				case Op2.Jlt: Stdout((getRD(i) == 0) ? "jge" : "jlt"); break;
 				default: assert(false);
 			}
-			
+
 			Stdout.formatln(" {}", getImm(i));
 		}
 		
@@ -2358,24 +2356,24 @@ scope class Codegen : Visitor
 		classDefEnd(d, reg);
 		fs.pushTempReg(reg);
 
+		/*
+		classDefBegin(d); // leaves local containing class on the stack
+		classDefEnd(d); // still leaves it
+		*/
+
 		return d;
 	}
 
 	public uint classDefBegin(ClassDef d)
 	{
 		Exp base;
-		
+
 		if(d.baseClass)
-		{
 			visit(d.baseClass);
-			fs.popSource(d.location.line, base);
-		}
 		else
-		{
 			fs.pushNull();
-			fs.popSource(d.location.line, base);
-		}
-		
+
+		fs.popSource(d.location.line, base);
 		fs.freeExpTempRegs(base);
 
 		auto destReg = fs.pushRegister();
@@ -2383,6 +2381,23 @@ scope class Codegen : Visitor
 
 		fs.codeR(d.location.line, Op1.New, destReg, nameConst, base.index);
 		fs.codeR(d.location.line, Op2.Class, 0, 0, 0);
+
+		/*
+		fs.pushStringConst(d.name.name);
+
+		if(d.baseClass)
+		{
+			visit(d.baseClass);
+			fs.toSource(d.baseClass.location);
+		}
+		else
+		{
+			fs.pushNull();
+			fs.toSource(d.location);
+		}
+
+		fs.newClass();
+		*/
 
 		return destReg;
 	}
@@ -2399,13 +2414,31 @@ scope class Codegen : Visitor
 			fs.codeR(field.initializer.endLocation.line, Op1.FieldAssign, destReg, index, val.index);
 			fs.freeExpTempRegs(val);
 		}
+
+		/*
+		foreach(ref field; d.fields)
+		{
+			fs.dup();
+			fs.pushStringConst(field.name);
+			fs.toSource();
+			fs.field(field.name.location);
+			visit(field.initializer);
+			fs.toSource();
+			fs.assign(field.name.location, 1, 1);
+		}
+		*/
 	}
-	
+
 	public override NamespaceDef visit(NamespaceDef d)
 	{
 		auto reg = namespaceDefBegin(d);
 		namespaceDefEnd(d, reg);
 		fs.pushTempReg(reg);
+
+		/*
+		namespaceDefBegin(d);
+		namespaceDefEnd(d);
+		*/
 
 		return d;
 	}
@@ -2429,8 +2462,23 @@ scope class Codegen : Visitor
 			fs.codeR(d.location.line, Op1.New, destReg, nameConst, src.index);
 			fs.codeR(d.location.line, Op2.Namespace, 0, 0, 0);
 		}
-		
+
 		fs.beginNamespace(destReg);
+
+		/*
+		fs.pushStringConst(d.name.name);
+
+		if(d.parent)
+		{
+			visit(d.parent);
+			fs.toSource(d.parent.location);
+			fs.newNamespace();
+		}
+		else
+			fs.newNamespaceNP();
+		
+		fs.beginNamespace();
+		*/
 
 		return destReg;
 	}
@@ -2449,12 +2497,27 @@ scope class Codegen : Visitor
 		}
 
 		fs.endNamespace();
+
+		/*
+		foreach(ref field; d.fields)
+		{
+			fs.dup();
+			fs.pushStringConst(field.name);
+			fs.toSource();
+			fs.field(field.name.location);
+			visit(field.initializer);
+			fs.toSource();
+			fs.assign(field.name.location, 1, 1);
+		}
+		
+		fs.endNamespace();
+		*/
 	}
 
 	public override FuncDef visit(FuncDef d)
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
-		
+
 		{
 			fs = inner;
 			scope(exit)
@@ -2483,6 +2546,35 @@ scope class Codegen : Visitor
 		fs.codeClosure(inner, destReg);
 
 		fs.pushTempReg(destReg);
+
+		/*
+		scope inner = new FuncState(c, d.location, d.name.name, fs);
+
+		{
+			fs = inner;
+			scope(exit)
+				fs = fs.mParent;
+
+			fs.mIsVararg = d.isVararg;
+			fs.mNumParams = d.params.length;
+
+			Scope scop = void;
+			fs.pushScope(scop);
+				foreach(ref p; d.params)
+					fs.addParam(p.name, p.typeMask);
+
+				fs.activateLocals(d.params.length);
+
+				visit(d.code);
+
+				// fs.finalReturn(d.code.endLocation); or something?
+				fs.codeI(d.code.endLocation, Op1.SaveRets, 0, 1);
+				fs.codeI(d.code.endLocation, Op1.Ret, 0, 0);
+			fs.popScope(d.code.endLocation);
+		}
+
+		fs.newClosure(inner);
+		*/
 		return d;
 	}
 
@@ -2502,6 +2594,11 @@ scope class Codegen : Visitor
 
 		if(needParamCheck)
 			fs.codeI(s.def.code.location.line, Op1.CheckParams, 0, 0);
+		
+		/*
+		if(s.def.params.any((ref Param p) { return p.typeMask != TypeMask.Any; }))
+			fs.paramCheck(s.def.code.location);
+		*/
 
 		foreach(idx, ref p; s.def.params)
 		{
@@ -2522,6 +2619,20 @@ scope class Codegen : Visitor
 				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op1.ParamFail, 0, fs.tagLocal(idx), 0);
 				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op2.ObjParamFail, 0, 0, 0);
 				fs.patchTrueToHere(success);
+
+				/*
+				InstRef success;
+
+				foreach(t; p.classTypes)
+				{
+					visit(t);
+					fs.toSource(t.endLocation);
+					fs.catToTrue(success, fs.checkObjParam(t.endLocation, idx));
+				}
+				
+				fs.objParamFail(p.classTypes[$ - 1].endLocation, idx);
+				fs.patchTrueToHere(success);
+				*/
 			}
 			else if(p.customConstraint)
 			{
@@ -2534,40 +2645,61 @@ scope class Codegen : Visitor
 				InstRef success;
 				fs.catToTrue(success, fs.makeJump(con.endLocation.line, Op2.Je));
 
-				int visit(Expression exp)
-				{
-					if(auto n = exp.as!(IdentExp))
-					{
-						pushString(fs.t, n.name.name);
-						return 1;
-					}
-					else if(auto n = exp.as!(DotExp))
-					{
-						auto ret = visit(n.op);
-						pushString(fs.t, ".");
-						pushString(fs.t, n.name.as!(StringExp).value);
-						return ret + 2;
-					}
-					else
-						assert(false);
-				}
-
-				cat(fs.t, visit(con.as!(CallExp).op));
+				dottedNameToString(con.as!(CallExp).op);
 				fs.codeR(con.endLocation.line, Op1.ParamFail, 0, fs.tagLocal(idx), fs.tagConst(fs.codeStringConst(getString(fs.t, -1))));
 				fs.codeR(con.endLocation.line, Op2.CustomParamFail, 0, 0, 0);
 				pop(fs.t);
 				fs.patchTrueToHere(success);
+
+				/*
+				InstRef success;
+
+				auto con = p.customConstraint;
+				visit(con);
+				fs.toSource(con.endLocation);
+				fs.catToTrue(success, fs.isTrue(con.endLocation));
+
+				dottedNameToString(con.as!(CallExp).op);
+				fs.pushStringConst(getString(fs.t, -1));
+				fs.toSource();
+				fs.customParamFail(con.endLocation, idx);
+				pop(fs.t);
+				fs.patchTrueToHere(success);
+				*/
 			}
 		}
 
 		return s;
 	}
 
+	public word dottedNameToString(Expression exp)
+	{
+		int work(Expression exp)
+		{
+			if(auto n = exp.as!(IdentExp))
+			{
+				pushString(fs.t, n.name.name);
+				return 1;
+			}
+			else if(auto n = exp.as!(DotExp))
+			{
+				auto ret = work(n.op);
+				pushString(fs.t, ".");
+				pushString(fs.t, n.name.as!(StringExp).value);
+				return ret + 2;
+			}
+			else
+				assert(false);
+		}
+
+		return cat(fs.t, work(exp));
+	}
+
 	public override ImportStmt visit(ImportStmt s)
 	{
 		assert(false);
 	}
-	
+
 	public override ScopeStmt visit(ScopeStmt s)
 	{
 		Scope scop = void;
@@ -2576,7 +2708,7 @@ scope class Codegen : Visitor
 		fs.popScope(s.endLocation.line);
 		return s;
 	}
-	
+
 	public override ExpressionStmt visit(ExpressionStmt s)
 	{
 		debug auto freeRegCheck = fs.mFreeReg;
@@ -2591,7 +2723,7 @@ scope class Codegen : Visitor
 		uword genArgs()
 		{
 			auto firstReg = fs.nextRegister();
-		
+
 			if(d.nextDec)
 			{
 				visitDecorator(d.nextDec, obj);
@@ -2613,6 +2745,26 @@ scope class Codegen : Visitor
 				return 0;
 			else
 				return d.args.length + 3;
+				
+			/*
+			if(d.nextDec)
+			{
+				visitDecorator(d.nextDec, obj);
+				fs.toSource(d.nextDec.endLocation);
+			}
+			else
+			{
+				obj();
+				fs.toSource(d.location);
+			}
+			
+			codeGenList(d.args);
+			
+			if(d.args.length > 0 && d.args[$ - 1].isMultRet())
+				return 0;
+			else
+				return d.args.length + 3; // 1 for this, 1 for nextDec/obj, 1 for bias
+			*/
 		}
 
 		if(auto dot = d.func.as!(DotExp))
@@ -2644,6 +2796,30 @@ scope class Codegen : Visitor
 			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
 			fs.popAssign(d.endLocation.line);
 		}
+
+		/*
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		visit(d.def);
+		fs.assign(d.endLocation.line, 1, 1);
+
+		if(d.decorator)
+		{
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation.line, 1, 1);
+		}
+		*/
 
 		return d;
 	}
@@ -2681,9 +2857,41 @@ scope class Codegen : Visitor
 			fs.popAssign(d.endLocation.line);
 		}
 
+		/*
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty class in d.name
+		classDefBegin(d.def);
+		fs.assign(d.location, 1, 1);
+
+		// evaluate rest of decl
+		fs.pushVar(d.def.name);
+		fs.toSource(d.def.location);
+		classDefEnd(d.def);
+		fs.pop();
+
+		if(d.decorator)
+		{
+			// reassign decorated class into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation, 1, 1);
+		}
+		*/
+
 		return d;
 	}
-	
+
 	public override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.protection == Protection.Local)
@@ -2716,6 +2924,38 @@ scope class Codegen : Visitor
 			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
 			fs.popAssign(d.endLocation.line);
 		}
+
+		/*
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty namespace in d.name
+		namespaceDefBegin(d.def);
+		fs.assign(d.location, 1, 1);
+
+		// evaluate rest of decl
+		fs.pushVar(d.def.name);
+		fs.toSource(d.def.location);
+		namespaceDefEnd(d.def);
+		fs.pop();
+
+		if(d.decorator)
+		{
+			// reassign decorated namespace into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation, 1, 1);
+		}
+		*/
 
 		return d;
 	}
@@ -2764,8 +3004,17 @@ scope class Codegen : Visitor
 					fs.pushNewGlobal(n);
 					fs.pushNull();
 					fs.popAssign(n.location.line);
+					// fs.assign(n.location, 1, 1);
 				}
 			}
+			
+			/*
+			foreach(n; d.names)
+				fs.pushNewGlobal(n);
+
+			codeGenList(d.initializer);
+			fs.assign(d.location, d.names.length, d.initializer.length);
+			*/
 		}
 		else
 		{
@@ -2800,8 +3049,19 @@ scope class Codegen : Visitor
 			}
 
 			fs.activateLocals(d.names.length);
+
+			/*
+			fs.pushNewLocals(d.names.length);
+			codeGenList(d.initializer);
+			fs.assign(d.location, d.names.length, d.initializer.length);
+			
+			foreach(n; d.names)
+				fs.insertLocal(n);
+
+			fs.activateLocals(d.names.length);
+			*/
 		}
-		
+
 		return d;
 	}
 
@@ -2812,7 +3072,7 @@ scope class Codegen : Visitor
 
 		return s;
 	}
-	
+
 	public override IfStmt visit(IfStmt s)
 	{
 		if(s.elseBody)
@@ -2865,8 +3125,51 @@ scope class Codegen : Visitor
 			fs.popScope(endLocation.line);
 			fs.patchFalseToHere(i);
 		}
+
+		/*
+		Scope scop = void;
+		fs.pushScope(scop);
+
+		InstRef i = void;
+
+		if(condVar !is null)
+		{
+			fs.pushNewLocals(1);
+			visit(condition);
+			fs.assign(condition.location, 1, 1);
+			fs.insertLocal(condVar.name);
+			fs.activateLocals(1);
+
+			i = codeCondition(condVar);
+		}
+		else
+			i = codeCondition(condition);
+
+		fs.invertJump(i);
+		fs.patchTrueToHere(i);
+		genBody();
+
+		if(genElse !is null)
+		{
+			fs.popScope(elseLocation.line);
+
+			auto j = fs.makeJump(elseLocation.line);
+			fs.patchFalseToHere(i);
+
+			fs.pushScope(scop);
+				genElse();
+			fs.popScope(endLocation.line);
+
+			fs.patchJumpToHere(j);
+		}
+		else
+		{
+			fs.popScope(endLocation.line);
+			fs.patchFalseToHere(i);
+		}
+		*/
 	}
-	
+
 	public override WhileStmt visit(WhileStmt s)
 	{
 		auto beginLoop = fs.here();
@@ -2874,6 +3177,7 @@ scope class Codegen : Visitor
 		Scope scop = void;
 		fs.pushScope(scop);
 
+		// s.condition.isConstant && !s.condition.isTrue is handled in semantic
 		if(s.condition.isConstant && s.condition.isTrue)
 		{
 			if(s.condVar !is null)
@@ -2938,15 +3242,74 @@ scope class Codegen : Visitor
 			fs.popScope(s.endLocation.line);
 			fs.patchFalseToHere(cond);
 		}
+		
+		/*
+		auto beginLoop = fs.here();
+
+		Scope scop = void;
+		fs.pushScope(scop);
+
+		// s.condition.isConstant && !s.condition.isTrue is handled in semantic
+		if(s.condition.isConstant && s.condition.isTrue)
+		{
+			fs.setBreakable();
+			fs.setContinuable();
+			fs.setScopeName(s.name);
+
+			if(s.condVar !is null)
+			{
+				fs.pushNewLocals(1);
+				visit(s.condition);
+				fs.assign(s.condition.location, 1, 1);
+				fs.insertLocal(s.condVar.name);
+				fs.activateLocals(1);
+			}
+
+			visit(s.code);
+			fs.patchContinuesTo(beginLoop);
+			fs.codeJump(s.endLocation.line, beginLoop);
+			fs.patchBreaksToHere();
+			fs.popScope(s.endLocation.line);
+		}
+		else
+		{
+			InstRef cond = void;
+
+			if(s.condVar !is null)
+			{
+				fs.pushNewLocals(1);
+				visit(s.condition);
+				fs.assign(s.condition.location, 1, 1);
+				fs.insertLocal(s.condVar.name);
+				fs.activateLocals(1);
+
+				cond = codeCondition(s.condVar);
+			}
+			else
+				cond = codeCondition(s.condition);
+
+			fs.invertJump(cond);
+			fs.patchTrueToHere(cond);
+
+			fs.setBreakable();
+			fs.setContinuable();
+			fs.setScopeName(s.name);
+			visit(s.code);
+			fs.patchContinuesTo(beginLoop);
+			fs.closeUpvals(s.endLocation.line);
+			fs.codeJump(s.endLocation.line, beginLoop);
+			fs.patchBreaksToHere();
+
+			fs.popScope(s.endLocation.line);
+			fs.patchFalseToHere(cond);
+		}
+		*/
 
 		return s;
 	}
 	
 	public override DoWhileStmt visit(DoWhileStmt s)
 	{
-		if(s.condition.isConstant && !s.condition.isTrue)
-			return s;
-
 		auto beginLoop = fs.here();
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -2981,7 +3344,7 @@ scope class Codegen : Visitor
 
 		return s;
 	}
-	
+
 	public override ForStmt visit(ForStmt s)
 	{
 		Scope scop = void;
@@ -3085,6 +3448,48 @@ scope class Codegen : Visitor
 		fs.popRegister(stepIndex);
 		fs.popRegister(hiIndex);
 		fs.popRegister(loIndex);
+
+		/*
+		Scope scop = void;
+		fs.pushScope(scop);
+			fs.setBreakable();
+			fs.setContinuable();
+			fs.setScopeName(name);
+
+// 			fs.pushNewLocals(3);
+// 			visit(lo);
+// 			visit(hi);
+// 			visit(step);
+// 			fs.assign(location, 3, 3);
+//
+// 			fs.insertHiddenLocal("__idx");
+// 			fs.insertHiddenLocal("__hi");
+// 			fs.insertHiddenLocal("__step");
+// 			fs.activateLocals(3);
+//
+// 			auto beginJump = fs.makeFor(location);
+
+			uint secret;
+			auto beginJump = fs.makeFor(location, { visit(lo); visit(hi); visit(step); }, secret);
+
+			auto beginLoop = fs.here();
+
+			fs.insertLocal(index);
+			fs.activateLocals(1);
+
+			genBody();
+
+			fs.closeUpvals(endLocation);
+			fs.patchContinuesToHere();
+
+			fs.patchJumpToHere(beginJump);
+
+			auto gotoBegin = fs.makeForLoop(endLocation, secret);
+			fs.patchJumpTo(gotoBegin, beginLoop);
+
+			fs.patchBreaksToHere();
+		fs.popScope(endLocation.line);
+		*/
 	}
 
 	public override ForeachStmt visit(ForeachStmt s)
@@ -3188,6 +3593,51 @@ scope class Codegen : Visitor
 		fs.popRegister(control);
 		fs.popRegister(invState);
 		fs.popRegister(generator);
+		
+		/*
+		Scope scop = void;
+		fs.pushScope(scop);
+			fs.setBreakable();
+			fs.setContinuable();
+			fs.setScopeName(name);
+
+// 			fs.pushNewLocals(3);
+// 			codeGenList(container);
+// 			fs.assign(location, 3, container.length);
+// 
+// 			fs.insertHiddenLocal("__generator");
+// 			fs.insertHiddenLocal("__invstate");
+// 			fs.insertHiddenLocal("__control");
+// 			fs.activateLocals(3);
+// 
+// 			auto beginJump = fs.makeForeach(location, baseReg);
+
+			uint secret;
+			auto beginJump = fs.makeForeach(location, { codeGenList(container); }, container.length, secret);
+
+			auto beginLoop = fs.here();
+
+			foreach(i; indices)
+				fs.insertLocal(i);
+
+			fs.activateLocals(indices.length);
+			genBody();
+
+			fs.closeUpvals(endLocation);
+			fs.patchContinuesToHere();
+
+			fs.patchJumpToHere(beginJump);
+
+			auto gotoBegin = fs.makeForeachLoop(endLocation, indices.length, secret);
+			fs.patchJumpTo(gotoBegin, beginLoop);
+
+			fs.patchBreaksToHere();
+		fs.popScope(endLocation.line);
+
+		fs.popRegister(control);
+		fs.popRegister(invState);
+		fs.popRegister(generator);
+		*/
 	}
 
 	public override SwitchStmt visit(SwitchStmt s)
@@ -3262,6 +3712,69 @@ scope class Codegen : Visitor
 			fs.endSwitch();
 			fs.patchBreaksToHere();
 		fs.popScope(s.endLocation.line);
+		
+		/*
+		Scope scop = void;
+		fs.pushScope(scop);
+			fs.setBreakable();
+			fs.setScopeName(s.name);
+
+			visit(s.condition);
+			fs.toSource();
+
+			foreach(caseStmt; s.cases)
+			{
+				if(caseStmt.highRange)
+				{
+					auto c = &caseStmt.conditions[0];
+					auto lo = c.exp;
+					auto hi = caseStmt.highRange;
+
+					fs.dup();
+					visit(lo);
+					fs.toSource();
+
+					auto jmp1 = fs.codeCmp(lo.location, Op2.Jlt, true);
+
+					fs.dup();
+					visit(hi);
+					fs.toSource();
+
+					auto jmp2 = fs.codeCmp(hi.location, Op2.Jle, false);
+
+					c.dynJump = fs.makeJump(lo.location, Op1.Jmp, true);
+
+					fs.patchJumpToHere(jmp1);
+					fs.patchJumpToHere(jmp2);
+				}
+				else
+				{
+					foreach(ref c; caseStmt.conditions)
+					{
+						if(!c.exp.isConstant)
+						{
+							fs.dup();
+							visit(c.exp);
+							fs.toSource();
+							c.dynJump = fs.codeSwitchCmp(c.exp.location);
+						}
+					}
+				}
+			}
+
+			SwitchDesc sdesc;
+			fs.beginSwitch(sdesc, s.location); // pops the condition exp off the stack
+
+			foreach(c; s.cases)
+				visit(c);
+
+			if(s.caseDefault)
+				visit(s.caseDefault);
+
+			fs.endSwitch();
+			fs.patchBreaksToHere();
+		fs.popScope(s.endLocation);
+		*/
 
 		return s;
 	}
@@ -3291,7 +3804,7 @@ scope class Codegen : Visitor
 		visit(s.code);
 		return s;
 	}
-	
+
 	public override ContinueStmt visit(ContinueStmt s)
 	{
 		fs.codeContinue(s.location, s.name);
@@ -3303,7 +3816,7 @@ scope class Codegen : Visitor
 		fs.codeBreak(s.location, s.name);
 		return s;
 	}
-	
+
 	public override ReturnStmt visit(ReturnStmt s)
 	{
 		auto firstReg = fs.nextRegister();
@@ -3332,10 +3845,35 @@ scope class Codegen : Visitor
 
 			fs.codeI(s.endLocation.line, Op1.Ret, 0, 0);
 		}
+		
+		/*
+		if(!fs.inTryCatch() && s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
+		{
+			fs.pushSaveRets();
+			visit(s.exprs[0]);
+			fs.assign(1, 1);
+			fs.makeTailcall();
+
+			// again, finalReturn or something
+			fs.codeI(s.endLocation.line, Op1.SaveRets, firstReg, 0);
+			fs.codeI(s.endLocation.line, Op1.Ret, 0, 0);
+		}
+		else
+		{
+			fs.pushSaveRets();
+			codeGenList(s.exprs);
+			fs.assign(1, s.exprs.length);
+
+			if(fs.inTryCatch())
+				fs.codeUnwind(s.endLocation);
+
+			fs.codeRet(s.endLocation);
+		}
+		*/
 
 		return s;
 	}
-	
+
 	public override TryCatchStmt visit(TryCatchStmt s)
 	{
 		uint checkReg1;
@@ -3361,6 +3899,27 @@ scope class Codegen : Visitor
 
 		fs.patchJumpToHere(jumpOverCatch);
 
+		/*
+		Scope scop = void;
+		auto pushCatch = fs.codeCatch(s.location, scop);
+
+		visit(s.tryBody);
+
+		fs.popCatch(s.tryBody.endLocation);
+
+		auto jumpOverCatch = fs.makeJump(s.tryBody.endLocation);
+		fs.patchJumpToHere(pushCatch);
+		fs.endCatchScope(s.transformedCatch.location);
+
+		fs.pushScope(scop);
+			fs.insertLocal(s.hiddenCatchVar);
+			fs.activateLocals(1);
+			visit(s.transformedCatch);
+		fs.popScope(s.transformedCatch.endLocation);
+
+		fs.patchJumpToHere(jumpOverCatch);
+		*/
+
 		return s;
 	}
 
@@ -3380,6 +3939,23 @@ scope class Codegen : Visitor
 			visit(s.finallyBody);
 			fs.codeI(s.finallyBody.endLocation.line, Op1.EndFinal, 0, 0);
 		fs.popScope(s.finallyBody.endLocation.line);
+		
+		/*
+		Scope scop = void;
+		auto pushFinally = fs.codeFinally(s.location.line, scop);
+
+		visit(s.tryBody);
+
+		fs.popFinally(s.tryBody.endLocation);
+
+		fs.patchJumpToHere(pushFinally);
+		fs.endFinallyScope(s.finallyBody.location);
+
+		fs.pushScope(scop);
+			visit(s.finallyBody);
+			fs.endFinal();
+		fs.popScope(s.finallyBody.endLocation.line);
+		*/
 
 		return s;
 	}
@@ -3391,9 +3967,16 @@ scope class Codegen : Visitor
 		fs.popSource(s.location.line, src);
 		fs.freeExpTempRegs(src);
 		fs.codeR(s.endLocation.line, Op1.Throw, 0, src.index, s.rethrowing ? 1 : 0);
+
+		/*
+		visit(s.exp);
+		fs.toSource();
+		fs.codeThrow(s.endLocation, s.rethrowing);
+		*/
+
 		return s;
 	}
-	
+
 	public override AssignStmt visit(AssignStmt s)
 	{
 		foreach(exp; s.lhs)
@@ -3420,6 +4003,19 @@ scope class Codegen : Visitor
 				fs.popMoveFromReg(s.endLocation.line, reg);
 		}
 
+		/*
+		foreach(exp; s.lhs)
+			exp.checkLHS(c);
+
+		foreach(dest; s.lhs)
+			visit(dest);
+
+		fs.resolveAssignmentConflicts(s.lhs[$ - 1].location, s.lhs.length);
+
+		codeGenList(s.rhs);
+		fs.assign(s.lhs.length; s.rhs.length);
+		*/
+
 		return s;
 	}
 
@@ -3441,21 +4037,36 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src1);
 
 		fs.popReflexOp(s.endLocation.line, s.type, src1.index, src2.index);
+		
+		/*
+		if(s.lhs.type != AstTag.ThisExp)
+			s.lhs.checkLHS(c);
+
+		visit(s.lhs);
+		fs.dup();
+		fs.toSource(s.lhs.endLocation);
+
+		visit(s.rhs);
+		fs.toSource(s.rhs.endLocation);
+
+		fs.reflexOp(s.endLocation, s.type, 1);
+		fs.assign(s.endLocation, 1, 1);
+		*/
 
 		return s;
 	}
 
-	public override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
-	public override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
-	public override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
-	public override DivAssignStmt visit(DivAssignStmt s)   { return visitOpAssign(s); }
-	public override ModAssignStmt visit(ModAssignStmt s)   { return visitOpAssign(s); }
-	public override ShlAssignStmt visit(ShlAssignStmt s)   { return visitOpAssign(s); }
-	public override ShrAssignStmt visit(ShrAssignStmt s)   { return visitOpAssign(s); }
+	public override AddAssignStmt  visit(AddAssignStmt s)  { return visitOpAssign(s); }
+	public override SubAssignStmt  visit(SubAssignStmt s)  { return visitOpAssign(s); }
+	public override MulAssignStmt  visit(MulAssignStmt s)  { return visitOpAssign(s); }
+	public override DivAssignStmt  visit(DivAssignStmt s)  { return visitOpAssign(s); }
+	public override ModAssignStmt  visit(ModAssignStmt s)  { return visitOpAssign(s); }
+	public override ShlAssignStmt  visit(ShlAssignStmt s)  { return visitOpAssign(s); }
+	public override ShrAssignStmt  visit(ShrAssignStmt s)  { return visitOpAssign(s); }
 	public override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
-	public override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
-	public override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
-	public override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
+	public override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
+	public override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
+	public override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
 
 	public override CondAssignStmt visit(CondAssignStmt s)
 	{
@@ -3477,6 +4088,23 @@ scope class Codegen : Visitor
 		fs.popReflexOp(s.endLocation.line, s.type, src1.index, src2.index);
 
 		fs.patchJumpToHere(i);
+
+		/*
+		visit(s.lhs);
+		fs.dup();
+		fs.toSource(s.lhs.endLocation);
+		fs.pushNull();
+
+		auto i = fs.codeIs(s.lhs.endLocation);
+
+		visit(s.rhs);
+		fs.toSource();
+		
+		fs.reflexOp(s.endLocation, s.type, 1);
+		fs.assign(s.endLocation, 1, 1);
+
+		fs.patchJumpToHere(i);
+		*/
 
 		return s;
 	}
@@ -3500,10 +4128,24 @@ scope class Codegen : Visitor
 
 		fs.freeExpTempRegs(src1);
 		fs.popReflexOp(s.endLocation.line, s.type, src1.index, firstReg, s.operands.length);
+
+		/*
+		if(s.lhs.type != AstTag.ThisExp)
+			s.lhs.checkLHS(c);
+
+		visit(s.lhs);
+		fs.dup();
+		fs.toSource(s.lhs.endLocation);
+
+		codeGenList(s.operands, false);
 		
+		fs.reflexOp(s.endLocation, s.type, s.operands.length);
+		fs.assign(s.endLocation, 1, 1);
+		*/
+
 		return s;
 	}
-	
+
 	public override IncStmt visit(IncStmt s)
 	{
 		if(s.exp.type != AstTag.ThisExp)
@@ -3517,6 +4159,18 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src);
 
 		fs.popReflexOp(s.endLocation.line, s.type, src.index, 0);
+		
+		/*
+		if(s.exp.type != AstTag.ThisExp)
+			s.exp.checkLHS(c);
+
+		visit(s.exp);
+		fs.dup();
+		fs.toSource(s.exp.endLocation);
+
+		fs.reflexOp(s.endLocation.line, s.type, 0);
+		fs.assign(1, 1);
+		*/
 
 		return s;
 	}
@@ -3534,6 +4188,18 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src);
 
 		fs.popReflexOp(s.endLocation.line, s.type, src.index, 0);
+
+		/*
+		if(s.exp.type != AstTag.ThisExp)
+			s.exp.checkLHS(c);
+
+		visit(s.exp);
+		fs.dup();
+		fs.toSource(s.exp.endLocation);
+
+		fs.reflexOp(s.endLocation.line, s.type, 0);
+		fs.assign(1, 1);
+		*/
 
 		return s;
 	}
@@ -3558,6 +4224,29 @@ scope class Codegen : Visitor
 
 		fs.pushTempReg(temp);
 		
+		/*
+		fs.pushNewLocals(1);
+
+		auto c = codeCondition(e.cond);
+		fs.invertJump(c);
+		fs.patchTrueToHere(c);
+
+		fs.dup();
+		visit(e.op1);
+		fs.assign(1, 1);
+
+		auto i = fs.makeJump(e.op1.endLocation.line, Op1.Jmp);
+
+		fs.patchFalseToHere(c);
+
+		fs.dup();
+		visit(e.op2);
+		fs.assign(1, 1);
+
+		fs.patchJumpToHere(i);
+		fs.toTemporary();
+		*/
+
 		return e;
 	}
 
@@ -3573,9 +4262,22 @@ scope class Codegen : Visitor
 		fs.patchJumpToHere(i);
 		fs.pushTempReg(temp);
 		
+		/*
+		fs.pushNewLocals(1);
+		fs.dup();
+		visit(e.op1);
+		fs.assign(1, 1);
+		fs.dup();
+		auto i = fs.isTrue(e.op1.endLocation);
+		fs.dup();
+		visit(e.op2);
+		fs.patchJumpToHere(i);
+		fs.toTemporary();
+		*/
+
 		return e;
 	}
-	
+
 	public override AndAndExp visit(AndAndExp e)
 	{
 		auto temp = fs.pushRegister();
@@ -3587,7 +4289,20 @@ scope class Codegen : Visitor
 		fs.popMoveTo(e.endLocation.line, temp);
 		fs.patchJumpToHere(i);
 		fs.pushTempReg(temp);
-		
+
+		/*
+		fs.pushNewLocals(1);
+		fs.dup();
+		visit(e.op1);
+		fs.assign(1, 1);
+		fs.dup();
+		auto i = fs.isTrue(e.op1.endlocation, false);
+		fs.dup();
+		visit(e.op2);
+		fs.patchJumpToHere(i);
+		fs.toTemporary();
+		*/
+
 		return e;
 	}
 
@@ -3604,6 +4319,14 @@ scope class Codegen : Visitor
 		fs.freeExpTempRegs(src1);
 
 		fs.pushBinOp(e.endLocation.line, e.type, src1.index, src2.index);
+
+		/*
+		visit(e.op1);
+		fs.toSource(e.op1.endLocation);
+		visit(e.op2);
+		fs.toSource(e.op2.endLocation);
+		fs.binOp(e.endLocation.line, e.type);
+		*/
 
 		return e;
 	}
@@ -3623,7 +4346,7 @@ scope class Codegen : Visitor
 	public override BinaryExp visit(MulExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(DivExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(ModExp e)   { return visitBinExp(e); }
-	
+
 	public override CatExp visit(CatExp e)
 	{
 		assert(e.collapsed is true, "CatExp codeGen not collapsed");
@@ -3632,6 +4355,11 @@ scope class Codegen : Visitor
 		auto firstReg = fs.nextRegister();
 		codeGenListToNextReg(e.operands, false);
 		fs.pushBinOp(e.endLocation.line, e.type, firstReg, e.operands.length);
+		
+		/*
+		codeGenList(e.operands, false);
+		fs.binOp(e.endLocation.line, e.type, e.operands.length);
+		*/
 
 		return e;
 	}
@@ -3648,6 +4376,21 @@ scope class Codegen : Visitor
 		fs.popMoveTo(e.endLocation.line, temp);
 		fs.patchJumpToHere(j);
 		fs.pushTempReg(temp);
+		
+		/*
+		fs.pushNewLocals(1);
+		auto i = codeCondition(e);
+		fs.dup();
+		fs.pushBool(false);
+		fs.assign(1, 1);
+		auto j = fs.makeJump(e.endLocation.line, Op1.Jmp);
+		fs.patchTrueToHere(i);
+		fs.dup();
+		fs.pushBool(true);
+		fs.assign(1, 1);
+		fs.patchJumpToHere(j);
+		fs.toTemporary();
+		*/
 
 		return e;
 	}
@@ -3660,7 +4403,7 @@ scope class Codegen : Visitor
 	public override BinaryExp visit(LEExp e)       { return visitComparisonExp(e); }
 	public override BinaryExp visit(GTExp e)       { return visitComparisonExp(e); }
 	public override BinaryExp visit(GEExp e)       { return visitComparisonExp(e); }
-	
+
 	public UnExp visitUnExp(UnExp e)
 	{
 		visit(e.op);
@@ -3677,6 +4420,7 @@ scope class Codegen : Visitor
 	{
 		visit(e.op);
 		fs.topToLength(e.endLocation.line);
+		// fs.toLength(e.endLocation);
 		return e;
 	}
 
@@ -3688,23 +4432,31 @@ scope class Codegen : Visitor
 		fs.pushVargLen(e.endLocation.line);
 		return e;
 	}
-	
+
 	public override DotExp visit(DotExp e)
 	{
 		visit(e.op);
 		fs.topToSource(e.endLocation.line);
 		visit(e.name);
 		fs.popField(e.endLocation.line);
+
+		/*
+		visit(e.op);
+		fs.toSource(e.op.endLocation);
+		visit(e.name);
+		fs.toSource(e.endLocation);
+		fs.field(e.endLocation);
+		*/
 		return e;
 	}
-	
+
 	public override DotSuperExp visit(DotSuperExp e)
 	{
 		visit(e.op);
 		fs.unOp(e.endLocation.line, e.type);
 		return e;
 	}
-	
+
 	public override MethodCallExp visit(MethodCallExp e)
 	{
 		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, e.context, delegate uword()
@@ -3717,6 +4469,15 @@ scope class Codegen : Visitor
 				return 0;
 			else
 				return e.args.length + 2;
+				
+			/*
+			codeGenList(e.args);
+			
+			if(e.args.length > 0 && e.args[$ - 1].isMultRet())
+				return 0;
+			else
+				return e.args.length + 2; // 1 for this, 1 for bias
+			*/
 		});
 
 		return e;
@@ -3754,7 +4515,7 @@ scope class Codegen : Visitor
 
 		fs.pushRegister();
 
-		auto numRets = genArgs();
+		auto numArgs = genArgs();
 
 		Op1 opcode = void;
 
@@ -3765,9 +4526,47 @@ scope class Codegen : Visitor
 
 		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
 		fs.popRegister(thisReg);
-		fs.pushCall(endLocation.line, funcReg, numRets);
+		fs.pushCall(endLocation.line, funcReg, numArgs);
+		
+		/*
+		if(isSuperCall)
+			fs.pushThis();
+		else
+			visit(op);
+
+		fs.toSource(location);
+		fs.toTemporary();
+
+		visit(method);
+		fs.toSource(method.endLocation);
+		fs.toTemporary();
+
+		auto thisReg = fs.nextRegister();
+
+		if(context)
+		{
+			assert(!isSuperCall);
+			visit(context);
+			fs.popMoveTo(context.endLocation.line, thisReg);
+		}
+
+		fs.pushRegister();
+
+		auto numArgs = genArgs();
+
+		Op1 opcode = void;
+
+		if(context is null)
+			opcode = isSuperCall ? Op1.SuperMethod : Op1.Method;
+		else
+			opcode = Op1.MethodNC;
+
+		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
+		fs.popRegister(thisReg);
+		fs.pushCall(endLocation.line, funcReg, numArgs);
+		*/
 	}
-	
+
 	public override CallExp visit(CallExp e)
 	{
 		visitCall(e.endLocation, e.op, e.context, delegate uword()
@@ -3805,10 +4604,10 @@ scope class Codegen : Visitor
 		fs.popMoveTo(op.endLocation.line, thisReg);
 		fs.pushRegister();
 
-		auto numRets = genArgs();
+		auto numArgs = genArgs();
 
 		fs.popRegister(thisReg);
-		fs.pushCall(endLocation.line, funcReg, numRets);
+		fs.pushCall(endLocation.line, funcReg, numArgs);
 	}
 
 	public override IndexExp visit(IndexExp e)
@@ -3842,7 +4641,7 @@ scope class Codegen : Visitor
 		fs.pushSlice(e.endLocation.line, reg);
 		return e;
 	}
-	
+
 	public override VargSliceExp visit(VargSliceExp e)
 	{
 		if(!fs.mIsVararg)
@@ -3856,13 +4655,13 @@ scope class Codegen : Visitor
 		fs.pushVargSlice(e.endLocation.line, reg);
 		return e;
 	}
-	
+
 	public override IdentExp visit(IdentExp e)
 	{
 		fs.pushVar(e.name);
 		return e;
 	}
-	
+
 	public override ThisExp visit(ThisExp e)
 	{
 		fs.pushThis();
@@ -3898,7 +4697,7 @@ scope class Codegen : Visitor
 		fs.pushChar(e.value);
 		return e;
 	}
-	
+
 	public override StringExp visit(StringExp e)
 	{
 		fs.pushString(e.value);
@@ -3919,7 +4718,7 @@ scope class Codegen : Visitor
 		visit(e.def);
 		return e;
 	}
-	
+
 	public override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		visit(e.def);
@@ -4033,7 +4832,7 @@ scope class Codegen : Visitor
 			fs.pushYield(e.endLocation.line, firstReg, 0);
 		else
 			fs.pushYield(e.endLocation.line, firstReg, e.args.length + 1);
-			
+
 		return e;
 	}
 
@@ -4099,30 +4898,12 @@ scope class Codegen : Visitor
 		if(e.ifComp)
 		{
 			if(e.forComp)
-			{
-				newInner =
-				{
-					visit(e.ifComp,
-					{
-						visitForComp(e.forComp, inner);
-					});
-				};
-			}
+				newInner = { visit(e.ifComp, { visitForComp(e.forComp, inner); }); };
 			else
-			{
-				newInner =
-				{
-					visit(e.ifComp, inner);
-				};
-			}
+				newInner = { visit(e.ifComp, inner); };
 		}
 		else if(e.forComp)
-		{
-			newInner =
-			{
-				visitForComp(e.forComp, inner);
-			};
-		}
+			newInner = { visitForComp(e.forComp, inner); };
 
 		visitForeach(e.location, e.endLocation, "", e.indices, e.container, newInner);
 		return e;
@@ -4135,30 +4916,12 @@ scope class Codegen : Visitor
 		if(e.ifComp)
 		{
 			if(e.forComp)
-			{
-				newInner =
-				{
-					visit(e.ifComp,
-					{
-						visitForComp(e.forComp, inner);
-					});
-				};
-			}
+				newInner = { visit(e.ifComp, { visitForComp(e.forComp, inner); }); };
 			else
-			{
-				newInner =
-				{
-					visit(e.ifComp, inner);
-				};
-			}
+				newInner = { visit(e.ifComp, inner); };
 		}
 		else if(e.forComp)
-		{
-			newInner =
-			{
-				visitForComp(e.forComp, inner);
-			};
-		}
+			newInner = { visitForComp(e.forComp, inner); };
 
 		visitForNum(e.location, e.endLocation, "", e.lo, e.hi, e.step, e.index, newInner);
 		return e;
@@ -4243,7 +5006,7 @@ scope class Codegen : Visitor
 		{
 			fs.popMoveTo(exprs[$ - 1].endLocation.line, lastReg);
 			fs.pushRegister();
-			
+
 			if(extraSlots > 0)
 				fs.codeNulls(exprs[$ - 1].endLocation.line, fs.nextRegister(), extraSlots);
 		}
