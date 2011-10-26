@@ -535,7 +535,7 @@ scope class Semantic : IdentityVisitor
 
 				scope names = new List!(Identifier)(c.alloc);
 				names ~= s.condVar.name;
-				
+
 				scope initializer = new List!(Expression)(c.alloc);
 				initializer ~= s.condition;
 
@@ -567,11 +567,14 @@ scope class Semantic : IdentityVisitor
 
 		return s;
 	}
-	
+
 	public override Statement visit(DoWhileStmt s)
 	{
 		s.code = visit(s.code);
 		s.condition = visit(s.condition);
+		
+		if(s.condition.isConstant && !s.condition.isTrue)
+			return new(c) BlockStmt(c, s.location, s.endLocation, null);
 
 		return s;
 	}

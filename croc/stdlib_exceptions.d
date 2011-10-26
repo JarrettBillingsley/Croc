@@ -197,7 +197,7 @@ Throwable.toString = function toString()
 		ret = nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
 	else
 		ret = nameOf(:super) ~ " at " ~ :location.toString()
-		
+
 	if(:cause)
 		ret ~= "\nCaused by:\n" ~ :cause.toString()
 
