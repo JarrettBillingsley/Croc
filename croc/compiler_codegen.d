@@ -2618,6 +2618,7 @@ scope class Codegen : Visitor
 
 				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op1.ParamFail, 0, fs.tagLocal(idx), 0);
 				fs.codeR(p.classTypes[$ - 1].endLocation.line, Op2.ObjParamFail, 0, 0, 0);
+
 				fs.patchTrueToHere(success);
 
 				/*
@@ -2629,7 +2630,7 @@ scope class Codegen : Visitor
 					fs.toSource(t.endLocation);
 					fs.catToTrue(success, fs.checkObjParam(t.endLocation, idx));
 				}
-				
+
 				fs.objParamFail(p.classTypes[$ - 1].endLocation, idx);
 				fs.patchTrueToHere(success);
 				*/
@@ -2889,6 +2890,30 @@ scope class Codegen : Visitor
 		}
 		*/
 
+		/*
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		visit(d.def);
+		fs.assign(d.endLocation.line, 1, 1);
+
+		if(d.decorator)
+		{
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation.line, 1, 1);
+		}
+		*/
+
 		return d;
 	}
 
@@ -2924,6 +2949,74 @@ scope class Codegen : Visitor
 			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
 			fs.popAssign(d.endLocation.line);
 		}
+
+		/*
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty class in d.name
+		classDefBegin(d.def);
+		fs.assign(d.location, 1, 1);
+
+		// evaluate rest of decl
+		fs.pushVar(d.def.name);
+		fs.toSource(d.def.location);
+		classDefEnd(d.def);
+		fs.pop();
+
+		if(d.decorator)
+		{
+			// reassign decorated class into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation, 1, 1);
+		}
+		*/
+
+		return d;
+	}
+
+	public override NamespaceDecl visit(NamespaceDecl d)
+	{
+		if(d.protection == Protection.Local)
+		{
+			fs.insertLocal(d.def.name);
+			fs.activateLocals(1);
+			fs.pushVar(d.def.name);
+		}
+		else
+		{
+			assert(d.protection == Protection.Global);
+			fs.pushNewGlobal(d.def.name);
+		}
+
+		// put empty namespace in d.name
+		namespaceDefBegin(d.def);
+		fs.assign(d.location, 1, 1);
+
+		// evaluate rest of decl
+		fs.pushVar(d.def.name);
+		fs.toSource(d.def.location);
+		namespaceDefEnd(d.def);
+		fs.pop();
+
+		if(d.decorator)
+		{
+			// reassign decorated namespace into name
+			fs.pushVar(d.def.name);
+			visitDecorator(d.decorator, { fs.pushVar(d.def.name); });
+			fs.assign(d.endLocation, 1, 1);
+		}
+		*/
 
 		/*
 		if(d.protection == Protection.Local)
@@ -3508,7 +3601,7 @@ scope class Codegen : Visitor
 
 			patchJumpTo(j, desc.beginLoop);
 			patchBreaksToHere();
-			
+
 			mFreeReg = desc.baseReg;
 		}
 
@@ -3522,7 +3615,6 @@ scope class Codegen : Visitor
 
 			fs.insertLocal(index);
 			fs.activateLocals(1);
-
 			genBody();
 
 			fs.endFor(endLocation, forDesc);
@@ -3623,6 +3715,7 @@ scope class Codegen : Visitor
 
 			fs.codeI(endLocation.line, Op1.ForeachLoop, baseReg, indices.length);
 			auto gotoBegin = fs.makeJump(endLocation.line, Op2.Je);
+
 			fs.patchJumpTo(gotoBegin, beginLoop);
 
 			fs.patchBreaksToHere();
@@ -4485,7 +4578,6 @@ scope class Codegen : Visitor
 				return 0;
 			else
 				return e.args.length + 2;
-
 			/*
 			codeGenList(e.args);
 			return e.args.length;
@@ -5234,7 +5326,7 @@ scope class Codegen : Visitor
 
 				InstRef ret;
 				ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je);
-				
+
 				/*
 				visit(e);
 				fs.toSource();
