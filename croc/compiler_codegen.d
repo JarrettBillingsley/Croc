@@ -2759,11 +2759,7 @@ scope class Codegen : Visitor
 			}
 			
 			codeGenList(d.args);
-			
-			if(d.args.length > 0 && d.args[$ - 1].isMultRet())
-				return 0;
-			else
-				return d.args.length + 3; // 1 for this, 1 for nextDec/obj, 1 for bias
+			return d.args.length + 1; // 1 for nextDec/obj
 			*/
 		}
 
@@ -3454,44 +3450,82 @@ scope class Codegen : Visitor
 		fs.popRegister(loIndex);
 
 		/*
+		struct ForDesc
+		{
+			uint baseReg;
+			uint beginJump;
+			uint beginLoop;
+		}
+
+		ForDesc beginFor(CompileLoc loc, void delegate() dg)
+		{
+			return beginForImpl(loc, dg, Op1.For, 3);
+		}
+
+		ForDesc beginForeach(CompileLoc loc, void delegate() dg, uint containerSize)
+		{
+			return beginForImpl(loc, dg, Op1.Foreach, containerSize);
+		}
+
+		ForDesc beginForImpl(CompileLoc loc, void delegate() dg, Op1 opcode, uint containerSize);
+		{
+			ForDesc ret;
+			ret.baseReg = mFreeReg;
+			pushNewLocals(3);
+			dg();
+			assign(loc, 3, containerSize);
+			reserveRegs(3);
+			ret.beginJump = codeI(loc, opcode, ret.baseReg, NoJump);
+			ret.beginLoop = here();
+			return ret;
+		}
+
+		void endFor(CompileLoc loc, ForDesc desc)
+		{
+			endForImpl(loc, desc, Op1.ForLoop, 0);
+		}
+
+		void endForeach(CompileLoc loc, ForDesc desc, uint indLength)
+		{
+			endForImpl(loc, desc, Op1.ForeachLoop, indLength);
+		}
+
+		void endForImpl(CompileLoc loc, ForDesc desc, Op1 opcode, uint indLength)
+		{
+			closeUpvals(loc);
+			patchContinuesToHere();
+			patchJumpToHere(desc.beginJump);
+
+			uint j;
+
+			if(opcode == Op1.ForLoop)
+				j = codeJ(loc, opcode, ret.baseReg, NoJump);
+			else
+			{
+				codeI(loc, opcode, ret.baseReg, indLength);
+				j = makeJump(loc, Op1.Je);
+			}
+
+			patchJumpTo(j, desc.beginLoop);
+			patchBreaksToHere();
+			
+			mFreeReg = desc.baseReg;
+		}
+
 		Scope scop = void;
 		fs.pushScope(scop);
 			fs.setBreakable();
 			fs.setContinuable();
 			fs.setScopeName(name);
 
-// 			fs.pushNewLocals(3);
-// 			visit(lo);
-// 			visit(hi);
-// 			visit(step);
-// 			fs.assign(location, 3, 3);
-//
-// 			fs.insertHiddenLocal("__idx");
-// 			fs.insertHiddenLocal("__hi");
-// 			fs.insertHiddenLocal("__step");
-// 			fs.activateLocals(3);
-//
-// 			auto beginJump = fs.makeFor(location);
-
-			uint secret;
-			auto beginJump = fs.makeFor(location, { visit(lo); visit(hi); visit(step); }, secret);
-
-			auto beginLoop = fs.here();
+			auto forDesc = fs.beginFor(location, { visit(lo); visit(hi); visit(step); });
 
 			fs.insertLocal(index);
 			fs.activateLocals(1);
 
 			genBody();
 
-			fs.closeUpvals(endLocation);
-			fs.patchContinuesToHere();
-
-			fs.patchJumpToHere(beginJump);
-
-			auto gotoBegin = fs.makeForLoop(endLocation, secret);
-			fs.patchJumpTo(gotoBegin, beginLoop);
-
-			fs.patchBreaksToHere();
+			fs.endFor(endLocation, forDesc);
 		fs.popScope(endLocation.line);
 		*/
 	}
@@ -3597,7 +3631,7 @@ scope class Codegen : Visitor
 		fs.popRegister(control);
 		fs.popRegister(invState);
 		fs.popRegister(generator);
-		
+
 		/*
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -3605,21 +3639,7 @@ scope class Codegen : Visitor
 			fs.setContinuable();
 			fs.setScopeName(name);
 
-// 			fs.pushNewLocals(3);
-// 			codeGenList(container);
-// 			fs.assign(location, 3, container.length);
-// 
-// 			fs.insertHiddenLocal("__generator");
-// 			fs.insertHiddenLocal("__invstate");
-// 			fs.insertHiddenLocal("__control");
-// 			fs.activateLocals(3);
-// 
-// 			auto beginJump = fs.makeForeach(location, baseReg);
-
-			uint secret;
-			auto beginJump = fs.makeForeach(location, { codeGenList(container); }, container.length, secret);
-
-			auto beginLoop = fs.here();
+			auto desc = fs.beginForeach(location, { codeGenList(container); }, container.length);
 
 			foreach(i; indices)
 				fs.insertLocal(i);
@@ -3627,15 +3647,7 @@ scope class Codegen : Visitor
 			fs.activateLocals(indices.length);
 			genBody();
 
-			fs.closeUpvals(endLocation);
-			fs.patchContinuesToHere();
-
-			fs.patchJumpToHere(beginJump);
-
-			auto gotoBegin = fs.makeForeachLoop(endLocation, indices.length, secret);
-			fs.patchJumpTo(gotoBegin, beginLoop);
-
-			fs.patchBreaksToHere();
+			fs.endForeach(endLocation, desc, indices.length);
 		fs.popScope(endLocation.line);
 
 		fs.popRegister(control);
@@ -3849,7 +3861,7 @@ scope class Codegen : Visitor
 
 			fs.codeI(s.endLocation.line, Op1.Ret, 0, 0);
 		}
-		
+
 		/*
 		if(!fs.inTryCatch() && s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
 		{
@@ -4359,7 +4371,7 @@ scope class Codegen : Visitor
 		auto firstReg = fs.nextRegister();
 		codeGenListToNextReg(e.operands, false);
 		fs.pushBinOp(e.endLocation.line, e.type, firstReg, e.operands.length);
-		
+
 		/*
 		codeGenList(e.operands, false);
 		fs.binOp(e.endLocation.line, e.type, e.operands.length);
@@ -4473,14 +4485,10 @@ scope class Codegen : Visitor
 				return 0;
 			else
 				return e.args.length + 2;
-				
+
 			/*
 			codeGenList(e.args);
-			
-			if(e.args.length > 0 && e.args[$ - 1].isMultRet())
-				return 0;
-			else
-				return e.args.length + 2; // 1 for this, 1 for bias
+			return e.args.length;
 			*/
 		});
 
@@ -4514,46 +4522,71 @@ scope class Codegen : Visitor
 
 		auto numArgs = genArgs();
 
-		Op1 opcode = void;
-
-		opcode = isSuperCall ? Op1.SuperMethod : Op1.Method;
-		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
+		fs.codeR(endLocation.line, isSuperCall ? Op1.SuperMethod : Op1.Method, funcReg, src.index, meth.index);
 		fs.popRegister(thisReg);
 		fs.pushCall(endLocation.line, funcReg, numArgs);
 
 		/*
+		struct MethodCallDesc
+		{
+			uint baseReg
+			uint baseExp;
+		}
+
+		MethodCallDesc beginMethodCall()
+		{
+			MethodCallDesc ret;
+			ret.baseReg = mFreeReg;
+			ret.baseExp = mExpSP;
+			return ret;
+		}
+
+		void updateMethodCall(ref MethodCallDesc desc, uint num)
+		{
+			assert(mFreeReg <= desc.baseReg + num);
+			assert(mExpSP == desc.baseExp + num);
+
+			if(mFreeReg < desc.baseReg + num)
+				reserveRegs(1);
+
+			assert(mFreeReg == desc.baseReg + num);
+		}
+
+		void pushMethodCall(CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
+		{
+			// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
+			// everything after that is args. assert they're all in registers
+
+			auto numArgs = mExpSP - desc.baseReg - 2;
+			bool lastIsMultiret = last arg is multiret;
+			pop all the args;
+
+			codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, expStack[-2], expStack[-1]);
+			pop(2);
+			mFreeReg = desc.baseReg;
+
+			pushCall(loc, desc.baseReg, lastIsMultiret ? 0 : numArgs + 1);
+
+			assert(mExpSP == desc.baseExp);
+			assert(mFreeReg == desc.baseReg + 1); // plus one for the call that we pushed
+		}
+
+		auto desc = fs.beginMethodCall();
+
 		if(isSuperCall)
 			fs.pushThis();
 		else
 			visit(op);
 
 		fs.toSource(location);
-		fs.toTemporary();
+		fs.updateMethodCall(desc, 1);
 
 		visit(method);
 		fs.toSource(method.endLocation);
-		fs.toTemporary();
+		fs.updateMethodCall(desc, 2);
 
-		auto thisReg = fs.nextRegister();
-
-		if(context)
-		{
-			assert(!isSuperCall);
-			visit(context);
-			fs.popMoveTo(context.endLocation.line, thisReg);
-		}
-
-		fs.pushRegister();
-
-		auto numArgs = genArgs();
-
-		Op1 opcode = void;
-
-		opcode = isSuperCall ? Op.SuperMethod : Op.Method;
-
-		fs.codeR(endLocation.line, opcode, funcReg, src.index, meth.index);
-		fs.popRegister(thisReg);
-		fs.pushCall(endLocation.line, funcReg, numArgs);
+		genArgs();
+		fs.pushMethodCall(endLocation, isSuperCall, desc);
 		*/
 	}
 
@@ -4569,6 +4602,11 @@ scope class Codegen : Visitor
 				return 0;
 			else
 				return e.args.length + 2;
+
+			/*
+			codeGenList(e.args);
+			return e.args.length;
+			*/
 		});
 
 		return e;
@@ -4598,6 +4636,23 @@ scope class Codegen : Visitor
 
 		fs.popRegister(thisReg);
 		fs.pushCall(endLocation.line, funcReg, numArgs);
+
+		/*
+		visit(op);
+		fs.toSource();
+		fs.toTemporary();
+
+		if(context)
+			visit(context);
+		else
+			fs.pushNull();
+
+		fs.toSource();
+		fs.toTemporary();
+
+		auto numArgs = genArgs();
+		fs.pushCall(endLocation, numArgs);
+		*/
 	}
 
 	public override IndexExp visit(IndexExp e)
@@ -4606,9 +4661,17 @@ scope class Codegen : Visitor
 		fs.topToSource(e.endLocation.line);
 		visit(e.index);
 		fs.popIndex(e.endLocation.line);
+		
+		/*
+		visit(e.op);
+		fs.toSource(e.op.endLocation);
+		visit(e.index);
+		fs.toSource(e.endLocation);
+		fs.index(e.endLocation);
+		*/
 		return e;
 	}
-	
+
 	public override VargIndexExp visit(VargIndexExp e)
 	{
 		if(!fs.mIsVararg)
@@ -4617,9 +4680,14 @@ scope class Codegen : Visitor
 		visit(e.index);
 		fs.popVargIndex(e.endLocation.line);
 		
+		/*
+		visit(e.index);
+		fs.vargIndex(e.endLocation);
+		*/
+
 		return e;
 	}
-	
+
 	public override SliceExp visit(SliceExp e)
 	{
 		auto reg = fs.nextRegister();
@@ -4629,6 +4697,15 @@ scope class Codegen : Visitor
 		list[2] = e.hiIndex;
 		codeGenListToNextReg(list[]);
 		fs.pushSlice(e.endLocation.line, reg);
+
+		/*
+		Expression[3] list;
+		list[0] = e.op;
+		list[1] = e.loIndex;
+		list[2] = e.hiIndex;
+		codeGenList(list[], false);
+		fs.slice(e.endLocation);
+		*/
 		return e;
 	}
 
@@ -4643,6 +4720,14 @@ scope class Codegen : Visitor
 		list[1] = e.hiIndex;
 		codeGenListToNextReg(list[]);
 		fs.pushVargSlice(e.endLocation.line, reg);
+
+		/*
+		Expression[2] list;
+		list[0] = e.loIndex;
+		list[1] = e.hiIndex;
+		codeGenList(list[], false);
+		fs.vargSlice(e.endLocation);
+		*/
 		return e;
 	}
 
@@ -4663,25 +4748,25 @@ scope class Codegen : Visitor
 		fs.pushNull();
 		return e;
 	}
-	
+
 	public override BoolExp visit(BoolExp e)
 	{
 		fs.pushBool(e.value);
 		return e;
 	}
-	
+
 	public override IntExp visit(IntExp e)
 	{
 		fs.pushInt(e.value);
 		return e;
 	}
-	
+
 	public override FloatExp visit(FloatExp e)
 	{
 		fs.pushFloat(e.value);
 		return e;
 	}
-	
+
 	public override CharExp visit(CharExp e)
 	{
 		fs.pushChar(e.value);
@@ -4702,7 +4787,7 @@ scope class Codegen : Visitor
 		fs.pushVararg();
 		return e;
 	}
-	
+
 	public override FuncLiteralExp visit(FuncLiteralExp e)
 	{
 		visit(e.def);
@@ -4714,13 +4799,13 @@ scope class Codegen : Visitor
 		visit(e.def);
 		return e;
 	}
-	
+
 	public override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		visit(e.def);
 		return e;
 	}
-	
+
 	public override ParenExp visit(ParenExp e)
 	{
 		assert(e.exp.isMultRet(), "ParenExp codeGen not multret");
@@ -4734,9 +4819,15 @@ scope class Codegen : Visitor
 
 		fs.pushTempReg(reg);
 		
+		/*
+		visit(e.exp);
+		fs.toSource();
+		fs.toTemporary();
+		*/
+
 		return e;
 	}
-	
+
 	public override TableCtorExp visit(TableCtorExp e)
 	{
 		auto destReg = fs.pushRegister();
@@ -4758,6 +4849,22 @@ scope class Codegen : Visitor
 		}
 
 		fs.pushTempReg(destReg);
+		
+		/*
+		fs.newTable();
+		fs.toTemporary();
+		
+		foreach(ref field; e.fields)
+		{
+			fs.dup();
+			visit(field.key);
+			fs.toSource();
+			fs.index();
+			visit(field.value);
+			fs.toSource();
+			fs.assign(1, 1);
+		}
+		*/
 
 		return e;
 	}
@@ -4806,7 +4913,39 @@ scope class Codegen : Visitor
 		}
 
 		fs.pushTempReg(destReg);
-		
+
+		/*
+		if(e.values.length > 0 && e.values[$ - 1].isMultRet())
+			fs.newArray(e.values.length - 1);
+		else
+			fs.newArray(e.values.length);
+
+		fs.toTemporary();
+
+		if(e.values.length > 0)
+		{
+			uword index = 0;
+			uword fieldsLeft = e.values.length;
+			uword block = 0;
+
+			while(fieldsLeft > 0)
+			{
+				auto numToDo = min(fieldsLeft, Instruction.ArraySetFields);
+				fs.dup();
+				codeGenList(e.values[index .. index + numToDo]);
+				fieldsLeft -= numToDo;
+
+				if(fieldsLeft == 0 && e.values[$ - 1].isMultRet())
+					fs.setArray(e.endLocation, numToDo, block, true);
+				else
+					fs.setArray(e.values[index + numToDo - 1].endLocation, numToDo, block, false);
+
+				index += numToDo;
+				block++;
+			}
+		}
+		*/
+
 		return e;
 	}
 
@@ -4816,12 +4955,15 @@ scope class Codegen : Visitor
 
 		codeGenListToNextReg(e.args);
 
-		if(e.args.length == 0)
-			fs.pushYield(e.endLocation.line, firstReg, 1);
-		else if(e.args[$ - 1].isMultRet())
+		if(e.args.length > 0 && e.args[$ - 1].isMultRet())
 			fs.pushYield(e.endLocation.line, firstReg, 0);
 		else
 			fs.pushYield(e.endLocation.line, firstReg, e.args.length + 1);
+
+		/*
+		codeGenList(e.args);
+		fs.yield(e.endLocation, e.args.length);
+		*/
 
 		return e;
 	}
@@ -4846,9 +4988,27 @@ scope class Codegen : Visitor
 		});
 
 		fs.pushTempReg(tempReg);
+
+		/*
+		fs.newTable();
+		fs.toTemporary();
+
+		visitForComp(e.forComp,
+		{
+			assert(the top item in fs' expStack is the table temp!);
+			fs.dup();
+			visit(e.key);
+			fs.toSource(e.key.endLocation);
+			fs.index();
+			visit(e.value);
+			fs.toSource(e.value.endLocation);
+			fs.assign(e.value.endLocation, 1, 1);
+
+		});
+		*/
 		return e;
 	}
-	
+
 	public override ArrayComprehension visit(ArrayComprehension e)
 	{
 		auto tempReg = fs.pushRegister();
@@ -4866,6 +5026,20 @@ scope class Codegen : Visitor
 		});
 
 		fs.pushTempReg(tempReg);
+
+		/*
+		fs.newArray(0);
+		fs.toTemporary();
+
+		visitForComp(e.forComp,
+		{
+			assert(expStack top is array temp!);
+			fs.dup();
+			visit(e.exp);
+			fs.toSource(e.exp.endLocation);
+			fs.append(e.exp.endLocation);
+		});
+		*/
 		return e;
 	}
 
@@ -4963,6 +5137,26 @@ scope class Codegen : Visitor
 			for(auto i = lastReg; i >= cast(int)firstReg; i--)
 				fs.popRegister(i);
 		}
+		
+		/*
+		if(e.length == 0)
+			return;
+
+		foreach(i, e; exprs[0 .. $ - 1])
+		{
+			visit(e);
+			fs.toSource();
+			fs.toTemporary();
+		}
+
+		visit(exprs[$ - 1]);
+
+		if(!allowMultRet || !exprs[$ - 1].isMultRet())
+		{
+			fs.toSource();
+			fs.toTemporary();
+		}
+		*/
 	}
 
 	public void codeGenAssignmentList(Expression[] exprs, word numSlots)
@@ -5003,6 +5197,10 @@ scope class Codegen : Visitor
 
 		for(auto i = lastReg; i >= cast(int)firstReg; i--)
 			fs.popRegister(i);
+			
+		/*
+		some of this logic will move into fs.assign()
+		*/
 	}
 
 	// ---------------------------------------------------------------------------
@@ -5036,6 +5234,12 @@ scope class Codegen : Visitor
 
 				InstRef ret;
 				ret.trueList = fs.makeJump(e.endLocation.line, Op2.Je);
+				
+				/*
+				visit(e);
+				fs.toSource();
+				ret.trueList = fs.isTrue(e.endLocation);
+				*/
 				return ret;
 		}
 	}

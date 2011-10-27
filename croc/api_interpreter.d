@@ -3858,7 +3858,7 @@ pushNull(t);
 // 3. Push any params.
 pushInt(t, 3);
 
-// 4. Call it with the method name. We didn'_t push a custom 'this', so we don'_t pass '_true' for that param.
+// 4. Call it with the method name.
 methodCall(t, slot, "f", 0);
 
 // We didn'_t ask for any return values, so the stack is how it was before we began.
