@@ -168,7 +168,7 @@ class Location
 
 	function toString()
 	{
-		switch(:col)
+		switch(:col) // 25
 		{
 			case Location.Unknown: return "<unknown location>"
 			case Location.Native:  return :file ~ "(native)"

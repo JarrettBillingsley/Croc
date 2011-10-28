@@ -189,7 +189,7 @@ private:
 
 	bool isMultRet()
 	{
-		 return type == ExpType.Call || ExpType.Yield || ExpType.Vararg || ExpType.VarargSlice;
+		 return type == ExpType.Call || type == ExpType.Yield || type == ExpType.Vararg || type == ExpType.VarargSlice;
 	}
 
 	bool isSource()
@@ -282,7 +282,7 @@ private:
 struct MethodCallDesc
 {
 private:
-	uint baseReg
+	uint baseReg;
 	uint baseExp;
 }
 
@@ -407,7 +407,7 @@ package:
 
 	debug void checkExpStackEmpty()
 	{
-		assert(mExpSP == 0, "Exp stack is not empty");
+		assert(mExpSP == 0, (printExpStack(), "Exp stack is not empty"));
 	}
 
 	// ---------------------------------------------------------------------------
@@ -451,7 +451,7 @@ package:
 
 		closeScopeUpvals(loc);
 		deactivateLocals(mScope.varStart, mScope.regStart);
-		assert(mFreeReg == mScope.regStart, "popScope - Unfreed registers");
+		mFreeReg = mScope.regStart;
 		mScope = prev;
 	}
 
@@ -526,7 +526,7 @@ package:
 			mLocVars[i].isActive = true;
 			mLocVars[i].pcStart = mCode.length;
 		}
-		
+
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
 	}
 
@@ -560,7 +560,6 @@ private:
 			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
 			{
 				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
-				popRegister(mLocVars[i].reg);
 				mLocVars[i].isActive = false;
 				mLocVars[i].pcEnd = mCode.length;
 			}
@@ -1021,7 +1020,7 @@ package:
 		debug(EXPSTACKCHECK) assert(mExpSP >= numItems + 1);
 
 		auto arr = &mExpStack[mExpSP - numItems - 1];
-		auto items = mExpStack[mExpSP - numItems .. $];
+		auto items = mExpStack[mExpSP - numItems .. mExpSP];
 
 		debug(EXPSTACKCHECK) assert(arr.type == ExpType.Temporary);
 
@@ -1123,7 +1122,7 @@ package:
 		}
 
 		assert(mExpSP >= numRets);
-		auto rets = mExpStack[mExpSP - numRets .. $];
+		auto rets = mExpStack[mExpSP - numRets .. mExpSP];
 		auto arg = prepareArgList(loc, rets);
 		uint first = rets[0].index;
 		codeI(loc, Op1.SaveRets, first, arg);
@@ -1132,6 +1131,9 @@ package:
 
 	private uint prepareArgList(ref CompileLoc loc, Exp[] items)
 	{
+		if(items.length == 0)
+			return 1;
+
 		debug(EXPSTACKCHECK) foreach(ref i; items[0 .. $ - 1]) assert(i.type == ExpType.Temporary);
 
 		if(items[$ - 1].isMultRet())
@@ -1151,11 +1153,11 @@ package:
 		debug { auto check = mExpSP - (numLhs + numRhs); if(mExpStack[mExpSP - numRhs - 1].type == ExpType.Conflict) check--; }
 		assert(numLhs >= numRhs);
 
-		rhs = mExpStack[mExpSP - numRhs .. $];
+		rhs = mExpStack[mExpSP - numRhs .. mExpSP];
 
-		debug(EXPSTACKCHECK) foreach(ref i; rhs[0 .. $ - 1]) assert(i.isSource());
+// 		debug(EXPSTACKCHECK) foreach(ref i; rhs[0 .. $ - 1]) assert(i.isSource(), (printExpStack(), "poop"));
 
-		if(rhs[$ - 1].isMultRet())
+		if(rhs.length > 0 && rhs[$ - 1].isMultRet())
 		{
 			multRetToRegs(loc, numLhs - numRhs + 1);
 
@@ -1164,14 +1166,14 @@ package:
 		}
 		else
 		{
-			debug(EXPSTACKCHECK) assert(rhs[$ - 1].isSource());
+// 			debug(EXPSTACKCHECK) assert(rhs[$ - 1].isSource());
 
 			for(uint i = numRhs; i < numLhs; i++)
 				pushNull();
 		}
 
 		// Could have changed size and/or pointer could have been invalidated
-		rhs = mExpStack[mExpSP - numLhs .. $];
+		rhs = mExpStack[mExpSP - numLhs .. mExpSP];
 
 		bool ret;
 
@@ -1186,7 +1188,7 @@ package:
 			ret = false;
 		}
 
-		assert(check == (mExpSP - (numLhs + numRhs) - (ret ? 1 : 0)), "oh noes");
+		assert(check == (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)), Format("oh noes: {} {}", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)));
 		debug(EXPSTACKCHECK) foreach(ref i; lhs) assert(i.isDest());
 		return ret;
 	}
@@ -1206,7 +1208,7 @@ package:
 				break;
 
 			default:
-				assert(false);
+				assert(false, (printExpStack(), "poop"));
 		}
 
 		src.type = ExpType.Temporary;
@@ -1291,7 +1293,7 @@ package:
 		assert(mExpSP >= operands + 1);
 
 		auto lhs = getExp(-operands - 1);
-		auto ops = mExpStack[mExpSP - operands .. $];
+		auto ops = mExpStack[mExpSP - operands .. mExpSP];
 
 		debug(EXPSTACKCHECK) assert(lhs.type == ExpType.Local);
 		debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
@@ -1432,7 +1434,7 @@ package:
 		pushExp(ExpType.NeedsDest, i);
 	}
 
-	void field(ref CompileLoc loc)
+	void field()
 	{
 		auto op = *getExp(-2);
 		auto name = *getExp(-1);
@@ -1445,7 +1447,7 @@ package:
 		pushExp(ExpType.Field, packRegOrConst(op), packRegOrConst(name));
 	}
 
-	void index(ref CompileLoc loc)
+	void index()
 	{
 		auto op = *getExp(-2);
 		auto idx = *getExp(-1);
@@ -1458,7 +1460,7 @@ package:
 		pushExp(ExpType.Index, packRegOrConst(op), packRegOrConst(idx));
 	}
 
-	void varargIndex(ref CompileLoc loc)
+	void varargIndex()
 	{
 		auto idx = *getExp(-1);
 
@@ -1469,7 +1471,7 @@ package:
 		pushExp(ExpType.VarargIndex, packRegOrConst(idx));
 	}
 
-	void varargSlice(ref CompileLoc loc)
+	void varargSlice()
 	{
 		auto lo = *getExp(-2);
 		auto hi = *getExp(-1);
@@ -1482,7 +1484,7 @@ package:
 		pushExp(ExpType.VarargSlice, packRegOrConst(lo), packRegOrConst(hi));
 	}
 
-	void length(ref CompileLoc loc)
+	void length()
 	{
 		auto op = *getExp(-1);
 
@@ -1493,7 +1495,7 @@ package:
 		pushExp(ExpType.Length, packRegOrConst(op));
 	}
 
-	void slice(ref CompileLoc loc)
+	void slice()
 	{
 		auto base = *getExp(-3);
 		auto lo = *getExp(-2);
@@ -1513,7 +1515,7 @@ package:
 		assert(mExpSP >= numOps);
 		assert(numOps >= 2);
 
-		auto ops = mExpStack[mExpSP - numOps .. $];
+		auto ops = mExpStack[mExpSP - numOps .. mExpSP];
 		uint inst;
 
 		if(numOps > 2)
@@ -1559,33 +1561,68 @@ package:
 		{
 			for(int i = mFreeReg; i < desc.baseReg + num; i++)
 				pushRegister();
+				
+			mExpStack[desc.baseExp + num - 1].regAfter = mFreeReg;
 		}
 
 		assert(mFreeReg == desc.baseReg + num);
 	}
 
-	void pushMethodCall(CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
+	void pushMethodCall(ref CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
 	{
 		// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
 		// everything after that is args. assert they're all in registers
-		
-		auto obj =
 
-		debug(EXPSTACKCHECK) assert(mExpStack[desc.baseExp].isSource());
-		debug(EXPSTACKCHECK) assert(mExpStack[desc.baseExp + 1].isSource());
+		auto obj = &mExpStack[desc.baseExp];
+		auto name = &mExpStack[desc.baseExp + 1];
 
-		auto numArgs = mExpSP - desc.baseReg - 2;
-		bool lastIsMultiret = last arg is multiret;
-		pop all the args;
+		debug(EXPSTACKCHECK) assert(obj.isSource());
+		debug(EXPSTACKCHECK) assert(name.isSource());
 
-		codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, expStack[-2], expStack[-1]);
-		pop(2);
-		mFreeReg = desc.baseReg;
+		auto args = mExpStack[desc.baseExp + 2 .. mExpSP];
+		auto numArgs = prepareArgList(loc, args);
+		numArgs = numArgs == 0 ? 0 : numArgs + 1;
 
-		pushCall(loc, desc.baseReg, lastIsMultiret ? 0 : numArgs + 1);
-
+		pop(args.length + 2);
 		assert(mExpSP == desc.baseExp);
-		assert(mFreeReg == desc.baseReg + 1); // plus one for the call that we pushed
+		assert(mFreeReg == desc.baseReg);
+
+		codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, obj, name);
+		pushExp(ExpType.Call, codeR(loc, Op1.Call, desc.baseReg, numArgs, 0));
+	}
+
+	void pushCall(ref CompileLoc loc, uword numArgs)
+	{
+		assert(mExpSP >= numArgs + 2);
+
+		auto func = *getExp(-numArgs - 2);
+		auto context = *getExp(-numArgs - 1);
+
+		debug(EXPSTACKCHECK) assert(func.type == ExpType.Temporary);
+		debug(EXPSTACKCHECK) assert(context.type == ExpType.Temporary);
+
+		auto args = mExpStack[mExpSP - numArgs .. mExpSP];
+		auto derp = prepareArgList(loc, args);
+		derp = derp == 0 ? 0 : derp + 1;
+		pop(args.length + 2);
+
+		pushExp(ExpType.Call, codeR(loc, Op1.Call, func.index, derp, 0));
+	}
+
+	void pushYield(ref CompileLoc loc, uword numArgs)
+	{
+		assert(mExpSP >= numArgs);
+
+		if(numArgs == 0)
+			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, mFreeReg, 1, 0));
+		else
+		{
+			auto args = mExpStack[mExpSP - numArgs .. mExpSP];
+			auto derp = prepareArgList(loc, args);
+			auto base = args[0].index;
+			pop(args.length);
+			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, base, derp, 0));
+		}
 	}
 
 	package void makeTailcall()
@@ -2007,6 +2044,9 @@ private:
 
 	uint codeRMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint src1, uint src2)
 	{
+		if(opcode2 == -1)
+			return codeR(loc, opcode, dest, src1, src2);
+			
 		auto ret = codeR(loc, opcode, dest, src1, src2);
 		codeSecond(loc, opcode2);
 		return ret;
@@ -2094,6 +2134,9 @@ private:
 
 	uint codeIMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint imm)
 	{
+		if(opcode2 == -1)
+			return codeI(loc, opcode, dest, imm);
+
 		auto ret = codeI(loc, opcode, dest, imm);
 		codeSecond(loc, opcode2);
 		return ret;
@@ -2116,6 +2159,9 @@ private:
 
 	uint codeJMulti(ref CompileLoc loc, uint opcode, Op2 opcode2, uint dest, int offs)
 	{
+		if(opcode2 == -1)
+			return codeJ(loc, opcode, dest, offs);
+
 		auto ret = codeJ(loc, opcode, dest, offs);
 		codeSecond(loc, opcode2);
 		return ret;
@@ -2336,7 +2382,12 @@ private:
 		char[] cr(uint v)
 		{
 			if(isConstTag(v))
-				return Format("c{}", v & ~Instruction.constBit);
+			{
+				if(v == Instruction.rsMax)
+					return Format("c{}", nextIns().data);
+				else
+					return Format("c{}", v & ~Instruction.constBit);
+			}
 			else
 				return Format("r{}", v);
 		}

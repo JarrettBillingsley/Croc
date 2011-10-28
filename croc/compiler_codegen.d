@@ -91,11 +91,12 @@ scope class Codegen : Visitor
 				fs = null;
 
 			fs.setNumParams(1);
-			fs.insertLocal(new(c) Identifier(c, m.location, c.newString("this")));
-			fs.activateLocals(1);
 
 			Scope scop = void;
 			fs.pushScope(scop);
+				fs.insertLocal(new(c) Identifier(c, m.location, c.newString("this")));
+				fs.activateLocals(1);
+				
 				visit(m.statements);
 
 				if(m.decorator)
@@ -150,14 +151,18 @@ scope class Codegen : Visitor
 
 	public void classDefEnd(ClassDef d)
 	{
+		if(d.fields.length == 0)
+			return;
+
+		fs.toSource(d.location);
+
 		foreach(ref field; d.fields)
 		{
 			fs.dup();
 			fs.pushString(field.name);
 			fs.toSource(field.initializer.location);
-			fs.field(field.initializer.location);
+			fs.field();
 			visit(field.initializer);
-			fs.toSource(field.initializer.location);
 			fs.assign(field.initializer.location, 1, 1);
 		}
 	}
@@ -187,15 +192,19 @@ scope class Codegen : Visitor
 
 	public void namespaceDefEnd(NamespaceDef d)
 	{
-		foreach(ref field; d.fields)
+		if(d.fields.length)
 		{
-			fs.dup();
-			fs.pushString(field.name);
-			fs.toSource(field.initializer.location);
-			fs.field(field.initializer.location);
-			visit(field.initializer);
-			fs.toSource(field.initializer.location);
-			fs.assign(field.initializer.location, 1, 1);
+			fs.toSource(d.location);
+
+			foreach(ref field; d.fields)
+			{
+				fs.dup();
+				fs.pushString(field.name);
+				fs.toSource(field.initializer.location);
+				fs.field();
+				visit(field.initializer);
+				fs.assign(field.initializer.location, 1, 1);
+			}
 		}
 
 		fs.endNamespace();
@@ -414,7 +423,6 @@ scope class Codegen : Visitor
 
 		// evaluate rest of decl
 		fs.pushVar(d.def.name);
-		fs.toSource(d.def.location);
 		classDefEnd(d.def);
 		fs.pop();
 
@@ -449,7 +457,6 @@ scope class Codegen : Visitor
 
 		// evaluate rest of decl
 		fs.pushVar(d.def.name);
-		fs.toSource(d.def.location);
 		namespaceDefEnd(d.def);
 		fs.pop();
 
@@ -484,13 +491,13 @@ scope class Codegen : Visitor
 			foreach(n; d.names)
 				fs.pushNewGlobal(n);
 
-			codeGenList(d.initializer);
+			codeGenAssignRHS(d.initializer);
 			fs.assign(d.location, d.names.length, d.initializer.length);
 		}
 		else
 		{
 			fs.pushNewLocals(d.names.length);
-			codeGenList(d.initializer);
+			codeGenAssignRHS(d.initializer);
 			fs.assign(d.location, d.names.length, d.initializer.length);
 
 			foreach(n; d.names)
@@ -896,7 +903,7 @@ scope class Codegen : Visitor
 		else
 		{
 			codeGenList(s.exprs);
-			fs.saveRets(s.exprs[0].endLocation, s.exprs.length);
+			fs.saveRets(s.endLocation, s.exprs.length);
 
 			if(fs.inTryCatch())
 				fs.codeUnwind(s.endLocation);
@@ -966,7 +973,6 @@ scope class Codegen : Visitor
 			visit(dest);
 
 		fs.resolveAssignmentConflicts(s.lhs[$ - 1].location, s.lhs.length);
-
 		codeGenAssignRHS(s.rhs);
 		fs.assign(s.endLocation, s.lhs.length, s.rhs.length);
 
@@ -1015,9 +1021,6 @@ scope class Codegen : Visitor
 		auto i = fs.codeIs(s.lhs.endLocation, false);
 
 		visit(s.rhs);
-		fs.toSource(s.rhs.endLocation);
-
-		fs.reflexOp(s.endLocation, s.type, 1);
 		fs.assign(s.endLocation, 1, 1);
 
 		fs.patchJumpToHere(i);
@@ -1214,7 +1217,7 @@ scope class Codegen : Visitor
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
-		fs.length(e.endLocation);
+		fs.length();
 		return e;
 	}
 
@@ -1233,38 +1236,33 @@ scope class Codegen : Visitor
 		fs.toSource(e.op.endLocation);
 		visit(e.name);
 		fs.toSource(e.endLocation);
-		fs.field(e.endLocation);
+		fs.field();
 		return e;
 	}
 
 	public override DotSuperExp visit(DotSuperExp e)
 	{
-// 		visit(e.op);
-// 		fs.unOp(e.endLocation, e.type);
-
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
 		fs.unOp(e.endLocation, e.type);
 		return e;
 	}
-/+
 
 	public override MethodCallExp visit(MethodCallExp e)
 	{
 		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
 		{
-			codeGenListToNextReg(e.args);
+// 			codeGenListToNextReg(e.args);
+// 
+// 			if(e.args.length == 0)
+// 				return 2;
+// 			else if(e.args[$ - 1].isMultRet())
+// 				return 0;
+// 			else
+// 				return e.args.length + 2;
 
-			if(e.args.length == 0)
-				return 2;
-			else if(e.args[$ - 1].isMultRet())
-				return 0;
-			else
-				return e.args.length + 2;
-			/*
 			codeGenList(e.args);
 			return e.args.length;
-			*/
 		});
 
 		return e;
@@ -1272,80 +1270,6 @@ scope class Codegen : Visitor
 
 	public void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
 	{
-		auto funcReg = fs.nextRegister();
-		Exp src;
-
-		if(isSuperCall)
-			fs.pushThis();
-		else
-			visit(op);
-
-		fs.popSource(location, src);
-		fs.freeExpTempRegs(src);
-		assert(fs.nextRegister() == funcReg);
-
-		fs.pushRegister();
-
-		Exp meth;
-		visit(method);
-		fs.popSource(method.endLocation, meth);
-		fs.freeExpTempRegs(meth);
-
-		auto thisReg = fs.nextRegister();
-
-		fs.pushRegister();
-
-		auto numArgs = genArgs();
-
-		fs.codeR(endLocation, isSuperCall ? Op1.SuperMethod : Op1.Method, funcReg, src.index, meth.index);
-		fs.popRegister(thisReg);
-		fs.pushCall(endLocation, funcReg, numArgs);
-
-		/*
-		struct MethodCallDesc
-		{
-			uint baseReg
-			uint baseExp;
-		}
-
-		MethodCallDesc beginMethodCall()
-		{
-			MethodCallDesc ret;
-			ret.baseReg = mFreeReg;
-			ret.baseExp = mExpSP;
-			return ret;
-		}
-
-		void updateMethodCall(ref MethodCallDesc desc, uint num)
-		{
-			assert(mFreeReg <= desc.baseReg + num);
-			assert(mExpSP == desc.baseExp + num);
-
-			if(mFreeReg < desc.baseReg + num)
-				reserveRegs(1);
-
-			assert(mFreeReg == desc.baseReg + num);
-		}
-
-		void pushMethodCall(CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
-		{
-			// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
-			// everything after that is args. assert they're all in registers
-
-			auto numArgs = mExpSP - desc.baseReg - 2;
-			bool lastIsMultiret = last arg is multiret;
-			pop all the args;
-
-			codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, expStack[-2], expStack[-1]);
-			pop(2);
-			mFreeReg = desc.baseReg;
-
-			pushCall(loc, desc.baseReg, lastIsMultiret ? 0 : numArgs + 1);
-
-			assert(mExpSP == desc.baseExp);
-			assert(mFreeReg == desc.baseReg + 1); // plus one for the call that we pushed
-		}
-
 		auto desc = fs.beginMethodCall();
 
 		if(isSuperCall)
@@ -1362,26 +1286,14 @@ scope class Codegen : Visitor
 
 		genArgs();
 		fs.pushMethodCall(endLocation, isSuperCall, desc);
-		*/
 	}
 
 	public override CallExp visit(CallExp e)
 	{
 		visitCall(e.endLocation, e.op, e.context, delegate uword()
 		{
-			codeGenListToNextReg(e.args);
-
-			if(e.args.length == 0)
-				return 2;
-			else if(e.args[$ - 1].isMultRet())
-				return 0;
-			else
-				return e.args.length + 2;
-
-			/*
 			codeGenList(e.args);
 			return e.args.length;
-			*/
 		});
 
 		return e;
@@ -1389,119 +1301,67 @@ scope class Codegen : Visitor
 
 	public void visitCall(CompileLoc endLocation, Expression op, Expression context, uword delegate() genArgs)
 	{
-		auto funcReg = fs.nextRegister();
-
 		visit(op);
-		fs.popMoveTo(op.endLocation, funcReg);
-
-		assert(fs.nextRegister() == funcReg);
-
-		fs.pushRegister();
-		auto thisReg = fs.nextRegister();
+		fs.toTemporary(op.endLocation);
 
 		if(context)
+		{
 			visit(context);
+			fs.toTemporary(context.endLocation);
+		}
 		else
+		{
 			fs.pushNull();
-
-		fs.popMoveTo(op.endLocation, thisReg);
-		fs.pushRegister();
-
-		auto numArgs = genArgs();
-
-		fs.popRegister(thisReg);
-		fs.pushCall(endLocation, funcReg, numArgs);
-
-		/*
-		visit(op);
-		fs.toTemporary();
-
-		if(context)
-			visit(context);
-		else
-			fs.pushNull();
-
-		fs.toTemporary();
+			fs.toTemporary(op.endLocation);
+		}
 
 		auto numArgs = genArgs();
 		fs.pushCall(endLocation, numArgs);
-		*/
 	}
 
 	public override IndexExp visit(IndexExp e)
 	{
 		visit(e.op);
-		fs.topToSource(e.endLocation);
-		visit(e.index);
-		fs.popIndex(e.endLocation);
-		
-		/*
-		visit(e.op);
 		fs.toSource(e.op.endLocation);
 		visit(e.index);
 		fs.toSource(e.endLocation);
-		fs.index(e.endLocation);
-		*/
+		fs.index();
 		return e;
 	}
 
 	public override VargIndexExp visit(VargIndexExp e)
 	{
-		if(!fs.mIsVararg)
+		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
 		visit(e.index);
-		fs.popVargIndex(e.endLocation);
-		
-		/*
-		visit(e.index);
-		fs.toSource();
-		fs.vargIndex(e.endLocation);
-		*/
+		fs.toSource(e.index.endLocation);
+		fs.varargIndex();
 
 		return e;
 	}
 
 	public override SliceExp visit(SliceExp e)
 	{
-		auto reg = fs.nextRegister();
-		Expression[3] list;
-		list[0] = e.op;
-		list[1] = e.loIndex;
-		list[2] = e.hiIndex;
-		codeGenListToNextReg(list[]);
-		fs.pushSlice(e.endLocation, reg);
-
-		/*
 		Expression[3] list;
 		list[0] = e.op;
 		list[1] = e.loIndex;
 		list[2] = e.hiIndex;
 		codeGenList(list[], false);
-		fs.slice(e.endLocation);
-		*/
+		fs.slice();
 		return e;
 	}
 
 	public override VargSliceExp visit(VargSliceExp e)
 	{
-		if(!fs.mIsVararg)
+		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
-		auto reg = fs.nextRegister();
-		Expression[2] list;
-		list[0] = e.loIndex;
-		list[1] = e.hiIndex;
-		codeGenListToNextReg(list[]);
-		fs.pushVargSlice(e.endLocation, reg);
-
-		/*
 		Expression[2] list;
 		list[0] = e.loIndex;
 		list[1] = e.hiIndex;
 		codeGenList(list[], false);
-		fs.vargSlice(e.endLocation);
-		*/
+		fs.varargSlice();
 		return e;
 	}
 
@@ -1555,10 +1415,10 @@ scope class Codegen : Visitor
 
 	public override VarargExp visit(VarargExp e)
 	{
-		if(!fs.mIsVararg)
+		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
 
-		fs.pushVararg();
+		fs.pushVararg(e.location);
 		return e;
 	}
 
@@ -1584,59 +1444,24 @@ scope class Codegen : Visitor
 	{
 		assert(e.exp.isMultRet(), "ParenExp codeGen not multret");
 
-		auto reg = fs.nextRegister();
 		visit(e.exp);
-		fs.popMoveTo(e.location, reg);
-		auto checkReg = fs.pushRegister();
-
-		assert(reg == checkReg, "ParenExp codeGen wrong regs");
-
-		fs.pushTempReg(reg);
-		
-		/*
-		visit(e.exp);
-		fs.toTemporary();
-		*/
-
+		fs.toTemporary(e.endLocation);
 		return e;
 	}
 
 	public override TableCtorExp visit(TableCtorExp e)
 	{
-		auto destReg = fs.pushRegister();
-		fs.codeI(e.location, Op1.New, destReg, 0);
-		fs.codeR(e.location, Op2.Table, 0, 0, 0);
-
-		foreach(ref field; e.fields)
-		{
-			visit(field.key);
-			Exp idx;
-			fs.popSource(field.key.endLocation, idx);
-			visit(field.value);
-			Exp val;
-			fs.popSource(field.value.endLocation, val);
-			fs.freeExpTempRegs(val);
-			fs.freeExpTempRegs(idx);
-
-			fs.codeR(field.value.endLocation, Op1.IndexAssign, destReg, idx.index, val.index);
-		}
-
-		fs.pushTempReg(destReg);
-
-		/*
-		fs.pushTable();
+		fs.pushTable(e.location);
 
 		foreach(ref field; e.fields)
 		{
 			fs.dup();
 			visit(field.key);
-			fs.toSource();
+			fs.toSource(field.key.endLocation);
 			fs.index();
 			visit(field.value);
-			fs.toSource();
-			fs.assign(1, 1);
+			fs.assign(field.value.endLocation, 1, 1);
 		}
-		*/
 
 		return e;
 	}
@@ -1651,46 +1476,10 @@ scope class Codegen : Visitor
 			return (a > b) ? b : a;
 		}
 
-		auto destReg = fs.pushRegister();
-
 		if(e.values.length > 0 && e.values[$ - 1].isMultRet())
-			fs.codeI(e.location, Op1.New, destReg, e.values.length - 1);
+			fs.pushArray(e.location, e.values.length - 1);
 		else
-			fs.codeI(e.location, Op1.New, destReg, e.values.length);
-
-		fs.codeR(e.location, Op2.Array, 0, 0, 0);
-
-		if(e.values.length > 0)
-		{
-			uword index = 0;
-			uword fieldsLeft = e.values.length;
-			uword block = 0;
-
-			while(fieldsLeft > 0)
-			{
-				auto numToDo = min(fieldsLeft, Instruction.ArraySetFields);
-				fieldsLeft -= numToDo;
-				codeGenListToNextReg(e.values[index .. index + numToDo], fieldsLeft == 0);
-
-				if(fieldsLeft == 0 && e.values[$ - 1].isMultRet())
-					fs.codeR(e.endLocation, Op1.Array, destReg, 0, block);
-				else
-					fs.codeR(e.values[index + numToDo - 1].endLocation, Op1.Array, destReg, numToDo + 1, block);
-
-				fs.codeR(e.endLocation, Op2.Set, 0, 0, 0);
-
-				index += numToDo;
-				block++;
-			}
-		}
-
-		fs.pushTempReg(destReg);
-
-		/*
-		if(e.values.length > 0 && e.values[$ - 1].isMultRet())
-			fs.pushArray(e.values.length - 1);
-		else
-			fs.pushArray(e.values.length);
+			fs.pushArray(e.location, e.values.length);
 
 		if(e.values.length > 0)
 		{
@@ -1704,105 +1493,52 @@ scope class Codegen : Visitor
 				fieldsLeft -= numToDo;
 				fs.dup();
 				codeGenList(e.values[index .. index + numToDo], fieldsLeft == 0);
-				fs.setArray(e.values[index + numToDo - 1].endLocation, numToDo, block);
+				fs.arraySet(e.values[index + numToDo - 1].endLocation, numToDo, block);
 				index += numToDo;
 				block++;
 			}
 		}
-		*/
 
 		return e;
 	}
 
 	public override YieldExp visit(YieldExp e)
 	{
-		auto firstReg = fs.nextRegister();
-
-		codeGenListToNextReg(e.args);
-
-		if(e.args.length > 0 && e.args[$ - 1].isMultRet())
-			fs.pushYield(e.endLocation, firstReg, 0);
-		else
-			fs.pushYield(e.endLocation, firstReg, e.args.length + 1);
-
-		/*
 		codeGenList(e.args);
-		fs.yield(e.endLocation, e.args.length);
-		*/
-
+		fs.pushYield(e.endLocation, e.args.length);
 		return e;
 	}
 
 	public override TableComprehension visit(TableComprehension e)
 	{
-		auto tempReg = fs.pushRegister();
-		fs.codeI(e.location, Op1.New, tempReg, 0);
-		fs.codeR(e.location, Op2.Table, 0, 0, 0);
+		fs.pushTable(e.location);
 
 		visitForComp(e.forComp,
 		{
-			visit(e.key);
-			Exp src1;
-			fs.popSource(e.key.location, src1);
-			visit(e.value);
-			Exp src2;
-			fs.popSource(e.value.location, src2);
-			fs.freeExpTempRegs(src2);
-			fs.freeExpTempRegs(src1);
-			fs.codeR(e.key.location, Op1.IndexAssign, tempReg, src1.index, src2.index);
-		});
-
-		fs.pushTempReg(tempReg);
-
-		/*
-		fs.pushTable();
-
-		visitForComp(e.forComp,
-		{
-			assert(the top item in fs' expStack is the table temp!);
+// 			assert(the top item in fs' expStack is the table temp!);
 			fs.dup();
 			visit(e.key);
 			fs.toSource(e.key.endLocation);
 			fs.index();
 			visit(e.value);
-			fs.toSource(e.value.endLocation);
 			fs.assign(e.value.endLocation, 1, 1);
 
 		});
-		*/
 		return e;
 	}
 
 	public override ArrayComprehension visit(ArrayComprehension e)
 	{
-		auto tempReg = fs.pushRegister();
-		fs.codeI(e.location, Op1.New, tempReg, 0);
-		fs.codeR(e.location, Op2.Array, 0, 0, 0);
+		fs.pushArray(e.location, 0);
 
 		visitForComp(e.forComp,
 		{
-			visit(e.exp);
-			Exp src;
-			fs.popSource(e.exp.location, src);
-			fs.freeExpTempRegs(src);
-			fs.codeR(e.exp.location, Op1.Array, tempReg, src.index, 0);
-			fs.codeR(e.exp.location, Op2.Append, 0, 0, 0);
-		});
-
-		fs.pushTempReg(tempReg);
-
-		/*
-		fs.pushArray(0);
-
-		visitForComp(e.forComp,
-		{
-			assert(expStack top is array temp!);
+// 			assert(expStack top is array temp!);
 			fs.dup();
 			visit(e.exp);
 			fs.toSource(e.exp.endLocation);
-			fs.append(e.exp.endLocation);
+			fs.arrayAppend(e.exp.endLocation);
 		});
-		*/
 		return e;
 	}
 
@@ -1859,7 +1595,7 @@ scope class Codegen : Visitor
 		visitIf(e.location, e.endLocation, e.endLocation, null, e.condition, inner, null);
 		return e;
 	}
-+/
+
 	public void codeGenList(Expression[] exprs, bool allowMultRet = true)
 	{
 		if(exprs.length == 0)
@@ -1879,9 +1615,10 @@ scope class Codegen : Visitor
 
 	public void codeGenAssignRHS(Expression[] exprs)
 	{
-		assert(exprs.length > 0);
+		if(exprs.length == 0)
+			return;
 
-		foreach(e; exprs)
+		foreach(i, e; exprs[0 .. $ - 1])
 		{
 			visit(e);
 			fs.flushSideEffects(e.endLocation);
