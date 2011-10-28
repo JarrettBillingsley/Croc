@@ -34,19 +34,23 @@ module croc.compiler_funcstate;
 import tango.io.Stdout;
 debug import tango.text.convert.Format;
 
+import croc.api_interpreter;
+import croc.api_stack;
 import croc.base_alloc;
 import croc.base_hash;
 import croc.base_opcodes;
 import croc.compiler_ast;
 import croc.compiler_types;
 import croc.types;
+import croc.types_funcdef;
 
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
-// debug = WRITECODE;
 debug = SHOWME;
+debug = EXPSTACKCHECK;
 
-private Op1 AstTagToOpcode1(AstTag tag)
+// TODO: abstract codegen enough that these can be made private
+package Op1 AstTagToOpcode1(AstTag tag)
 {
 	switch(tag)
 	{
@@ -107,7 +111,7 @@ private Op1 AstTagToOpcode1(AstTag tag)
 	}
 }
 
-private Op2 AstTagToOpcode2(AstTag tag)
+package Op2 AstTagToOpcode2(AstTag tag)
 {
 	switch(tag)
 	{
@@ -121,7 +125,7 @@ private Op2 AstTagToOpcode2(AstTag tag)
 		case AstTag.DivExp: return Op2.Div;
 		case AstTag.ModExp: return Op2.Mod;
 		case AstTag.Cmp3Exp: return Op2.Cmp3;
-		
+
 		case AstTag.AddAssignStmt: return Op2.AddEq;
 		case AstTag.SubAssignStmt: return Op2.SubEq;
 		case AstTag.MulAssignStmt: return Op2.MulEq;
@@ -151,50 +155,66 @@ private Op2 AstTagToOpcode2(AstTag tag)
 	}
 }
 
-const uint NoJump = Instruction.NoJump;
-
-struct InstRef
-{
-	uint trueList = NoJump;
-	uint falseList = NoJump;
-	debug bool inverted = false;
-}
-
 enum ExpType
 {
-	Const,
-	Local, // also functions as Temporary
-	NewLocal,
-	Upval,
-	Global,
-	NewGlobal,
-	Index,
-	Field,
-	Slice,
-	Vararg,
-	VarargIndex,
-	VarargSlice,
-	Length,
-	Call,
-	Yield,
-	NeedsDest,
-	Source,
-	SaveRets,
-	Conflict,
+	Const,       // index = const: CTIdx
+	Local,       // index = reg: RegIdx
+	Temporary = Local,
+	NewLocal,    // index = reg: RegIdx
+	Upval,       // index = uv: UpvalIdx
+	Global,      // index = name: CTIdx
+	NewGlobal,   // index = name: CTIdx
+	Index,       // index = op: RegOrCTIdx, index2 = idx: RegOrCTIdx
+	Field,       // index = op: RegOrCTIdx, index2 = fieldName: RegOrCTIdx
+	Slice,       // index = base: RegIdx
+	Vararg,      // index = inst: InstIdx
+	VarargIndex, // index = op: RegOrCTIdx
+	VarargSlice, // index = lo: RegOrCTIdx, index2 = hi: RegOrCTIdx
+	Length,      // index = op: RegOrCTIdx
+	Call,        // index = inst: InstIdx
+	Yield,       // index = inst: InstIdx
+	NeedsDest,   // index = inst: InstIdx
+	Conflict,    // (no ops)
 }
 
 struct Exp
 {
+private:
+	static const Exp _Empty = {type: ExpType.Local, index: 0, index2: 0, regAfter: 0};
+	static const Exp* Empty = &_Empty;
+
 	ExpType type;
 	uint index, index2;
 	uint regAfter; // Points to first free reg after this exp. When we pop exps, we set the freeReg pointer to the regAfter of the exp on the new stack top
 
-	debug char[] toString()
+	bool isMultRet()
+	{
+		 return type == ExpType.Call || ExpType.Yield || ExpType.Vararg || ExpType.VarargSlice;
+	}
+
+	bool isSource()
+	{
+		return type == ExpType.Local || type == ExpType.Const;
+	}
+
+	bool isDest()
+	{
+		return type == ExpType.Local || type == ExpType.NewLocal || type == ExpType.Upval || type == ExpType.Global || type == ExpType.NewGlobal
+			|| type == ExpType.Index || type == ExpType.Field || type == ExpType.Slice || type == ExpType.VarargIndex || type == ExpType.Length;
+	}
+
+	bool hasSideEffects()
+	{
+		return type == ExpType.Index || type == ExpType.Field || type == ExpType.Slice || type == ExpType.VarargIndex || type == ExpType.VarargSlice
+			|| type == ExpType.Length || type == ExpType.Call || type == ExpType.Yield;
+	}
+
+	debug private char[] toString()
 	{
 		static const char[][] typeNames =
 		[
 			ExpType.Const:       "Const",
-			ExpType.Local:       "Local",
+			ExpType.Local:       "Local/Temp",
 			ExpType.NewLocal:    "NewLocal",
 			ExpType.Upval:       "Upval",
 			ExpType.Global:      "Global",
@@ -209,8 +229,6 @@ struct Exp
 			ExpType.Call:        "Call",
 			ExpType.Yield:       "Yield",
 			ExpType.NeedsDest:   "NeedsDest",
-			ExpType.Source:      "Source",
-			ExpType.SaveRets:    "SaveRets",
 			ExpType.Conflict:    "Conflict",
 		];
 
@@ -218,77 +236,111 @@ struct Exp
 	}
 }
 
+package const uint NoJump = Instruction.NoJump;
+
+struct InstRef
+{
+	uint trueList = NoJump;
+	uint falseList = NoJump;
+private:
+	debug bool inverted = false;
+}
+
 struct Scope
 {
-	package Scope* enclosing;
-	package Scope* breakScope;
-	package Scope* continueScope;
-	package uint breaks = NoJump;
-	package uint continues = NoJump;
-	package char[] name;
-	package ushort varStart = 0;
-	package ushort regStart = 0;
-	package bool hasUpval = false;
-	package uword ehlevel = 0;
+private:
+	Scope* enclosing;
+	Scope* breakScope;
+	Scope* continueScope;
+	uint breaks = NoJump;
+	uint continues = NoJump;
+	char[] name;
+	uint varStart = 0;
+	uint regStart = 0;
+	uint firstFreeReg = 0;
+	bool hasUpval = false;
+	uword ehlevel = 0;
 }
 
 struct SwitchDesc
 {
-	package Hash!(CrocValue, int) offsets;
-	package int defaultOffset = -1;
-	package uint switchPC;
-	package SwitchDesc* prev;
+private:
+	Hash!(CrocValue, int) offsets;
+	int defaultOffset = -1;
+	uint switchPC;
+	SwitchDesc* prev;
+}
+
+struct ForDesc
+{
+private:
+	uint baseReg;
+	uint beginJump;
+	uint beginLoop;
+}
+
+struct MethodCallDesc
+{
+private:
+	uint baseReg
+	uint baseExp;
 }
 
 struct UpvalDesc
 {
-	package bool isUpvalue;
-	package uint index;
-	package char[] name;
+private:
+	bool isUpvalue;
+	uint index;
+	char[] name;
 }
 
 struct LocVarDesc
 {
-	package char[] name;
-	package uint pcStart;
-	package uint pcEnd;
-	package uint reg;
+private:
+	char[] name;
+	uint pcStart;
+	uint pcEnd;
+	uint reg;
 
-	package CompileLoc location;
-	package bool isActive;
+	CompileLoc location;
+	bool isActive;
 }
 
 final class FuncState
 {
-	package ICompiler c;
-	package CrocThread* t;
-	package FuncState mParent;
-	package Scope* mScope;
-	package ushort mFreeReg = 0;
-	package Exp[] mExpStack;
-	package uword mExpSP = 0;
-	package uword mTryCatchDepth = 0;
+private:
+	ICompiler c;
+	CrocThread* t;
+	FuncState mParent;
+	Scope* mScope;
+	uint mFreeReg = 0;
+	Exp[] mExpStack;
+	uword mExpSP = 0;
+	uword mTryCatchDepth = 0;
 
-	package CompileLoc mLocation;
-	package bool mIsVararg;
-	package char[] mName;
-	package uint mNumParams;
-	package uint[] mParamMasks;
+	CompileLoc mLocation;
+	bool mIsVararg;
+	char[] mName;
+	uint mNumParams;
+	uint[] mParamMasks;
 
-	package UpvalDesc[] mUpvals;
-	package uint mStackSize;
-	package CrocFuncDef*[] mInnerFuncs;
-	package CrocValue[] mConstants;
-	package Instruction[] mCode;
+	UpvalDesc[] mUpvals;
+	uint mStackSize;
+	CrocFuncDef*[] mInnerFuncs;
+	CrocValue[] mConstants;
+	Instruction[] mCode;
 
-	package uint mNamespaceReg = 0;
+	uint mNamespaceReg = 0;
 
-	package SwitchDesc* mSwitch;
-	package SwitchDesc[] mSwitchTables;
-	package uint[] mLineInfo;
-	package LocVarDesc[] mLocVars;
+	SwitchDesc* mSwitch;
+	SwitchDesc[] mSwitchTables;
+	uint[] mLineInfo;
+	LocVarDesc[] mLocVars;
+	
+	uword mDummyNameCounter = 0;
 
-	package this(ICompiler c, CompileLoc location, char[] name, FuncState parent = null)
+package:
+	this(ICompiler c, CompileLoc location, char[] name, FuncState parent = null)
 	{
 		this.c = c;
 		this.t = c.thread;
@@ -318,21 +370,42 @@ final class FuncState
 		t.vm.alloc.freeArray(mSwitchTables);
 	}
 
+	void setVararg(bool isVararg)
+	{
+		mIsVararg = isVararg;
+	}
+	
+	bool isVararg()
+	{
+		return mIsVararg;
+	}
+
+	void setNumParams(uint numParams)
+	{
+		mNumParams = numParams;
+	}
+
+	FuncState parent()
+	{
+		return mParent;
+	}
+
 	// ---------------------------------------------------------------------------
 	// Debugging
 
-	debug package void printExpStack()
+package:
+	debug void printExpStack()
 	{
 		Stdout.formatln("Expression Stack");
 		Stdout.formatln("----------------");
 
-		for(int i = 0; i < mExpSP; i++)
+		for(word i = mExpSP - 1; i >= 0; i--)
 			Stdout.formatln("{}: {}", i, mExpStack[i].toString());
 
 		Stdout.formatln("");
 	}
 
-	debug public void checkExpStackEmpty()
+	debug void checkExpStackEmpty()
 	{
 		assert(mExpSP == 0, "Exp stack is not empty");
 	}
@@ -340,7 +413,8 @@ final class FuncState
 	// ---------------------------------------------------------------------------
 	// Scopes
 
-	package void pushScope(ref Scope s)
+package:
+	void pushScope(ref Scope s)
 	{
 		if(mScope)
 		{
@@ -360,47 +434,47 @@ final class FuncState
 
 		s.breaks = NoJump;
 		s.continues = NoJump;
-		s.varStart = cast(ushort)mLocVars.length;
+		s.varStart = cast(uint)mLocVars.length;
 		s.regStart = mFreeReg;
+		s.firstFreeReg = mFreeReg;
 		s.hasUpval = false;
 		s.name = null;
 
 		mScope = &s;
 	}
 
-	package void popScope(uint line)
+	void popScope(ref CompileLoc loc)
 	{
 		assert(mScope !is null, "scope underflow");
 
 		auto prev = mScope.enclosing;
 
-		closeScopeUpvals(line);
-
+		closeScopeUpvals(loc);
 		deactivateLocals(mScope.varStart, mScope.regStart);
 		assert(mFreeReg == mScope.regStart, "popScope - Unfreed registers");
 		mScope = prev;
 	}
 
-	package void setBreakable()
+	void setBreakable()
 	{
 		mScope.breakScope = mScope;
 	}
 
-	package void setContinuable()
+	void setContinuable()
 	{
 		mScope.continueScope = mScope;
 	}
 
-	package void setScopeName(char[] name)
+	void setScopeName(char[] name)
 	{
 		mScope.name = name;
 	}
 
-	package void closeScopeUpvals(uint line)
+	void closeScopeUpvals(ref CompileLoc loc)
 	{
 		if(mScope.hasUpval)
 		{
-			codeClose(line,mScope.regStart);
+			codeClose(loc, mScope.regStart);
 			mScope.hasUpval = false;
 		}
 	}
@@ -408,21 +482,14 @@ final class FuncState
 	// ---------------------------------------------------------------------------
 	// Locals
 
-	package int searchLocal(char[] name, out uint reg)
+package:
+	void addParam(Identifier ident, uint typeMask)
 	{
-		for(int i = mLocVars.length - 1; i >= 0; i--)
-		{
-			if(mLocVars[i].isActive && mLocVars[i].name == name)
-			{
-				reg = mLocVars[i].reg;
-				return i;
-			}
-		}
-
-		return -1;
+		insertLocal(ident);
+		mParamMasks.append(c.alloc, typeMask);
 	}
 
-	package uint insertLocal(Identifier ident)
+	uint insertLocal(Identifier ident)
 	{
 		uint dummy = void;
 		auto index = searchLocal(ident.name, dummy);
@@ -446,7 +513,7 @@ final class FuncState
 		return mLocVars[$ - 1].reg;
 	}
 
-	package void activateLocals(uint num)
+	void activateLocals(uint num)
 	{
 		for(word i = mLocVars.length - 1; i >= cast(word)(mLocVars.length - num); i--)
 		{
@@ -459,9 +526,34 @@ final class FuncState
 			mLocVars[i].isActive = true;
 			mLocVars[i].pcStart = mCode.length;
 		}
+		
+		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
 	}
 
-	package void deactivateLocals(uint varStart, uint regTo)
+private:
+	uint insertDummyLocal(CompileLoc loc, char[] fmt)
+	{
+		pushFormat(c.thread, fmt, mDummyNameCounter++);
+		auto str = c.newString(getString(c.thread, -1));
+		.pop(c.thread);
+		return insertLocal(new(c) Identifier(c, loc, str));
+	}
+
+	int searchLocal(char[] name, out uint reg)
+	{
+		for(int i = mLocVars.length - 1; i >= 0; i--)
+		{
+			if(mLocVars[i].isActive && mLocVars[i].name == name)
+			{
+				reg = mLocVars[i].reg;
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	void deactivateLocals(uint varStart, uint regTo)
 	{
 		for(word i = mLocVars.length - 1; i >= cast(word)varStart; i--)
 		{
@@ -475,12 +567,12 @@ final class FuncState
 		}
 	}
 
-	package void codeClose(uint line, ushort reg)
+	void codeClose(ref CompileLoc loc, uint reg)
 	{
-		codeI(line, Op1.Close, reg, 0);
+		codeI(loc, Op1.Close, reg, 0);
 	}
 
-	package uint tagLocal(uint val)
+	uint tagLocal(uint val)
 	{
 		if(val > Instruction.MaxRegisters)
 			c.semException(mLocation, "Too many locals");
@@ -488,22 +580,17 @@ final class FuncState
 		return val;
 	}
 
-	package uint tagConst(uint val)
+	uint tagConst(uint val)
 	{
-// 		if((val & ~Instruction.constBit) >= Instruction.MaxConstants)
-		// TODO: large constants
-		if((val & ~Instruction.constBit) >= 250)
-			c.semException(mLocation, "Too many constants");
-
 		return val | Instruction.constBit;
 	}
 
-	package bool isLocalTag(uint val)
+	bool isLocalTag(uint val)
 	{
 		return (val & Instruction.constBit) == 0;
 	}
 
-	package bool isConstTag(uint val)
+	bool isConstTag(uint val)
 	{
 		return (val & Instruction.constBit) != 0;
 	}
@@ -511,14 +598,18 @@ final class FuncState
 	// ---------------------------------------------------------------------------
 	// Switches
 
-	package void beginSwitch(ref SwitchDesc s, uint line, uint srcReg)
+package:
+	void beginSwitch(ref SwitchDesc s, ref CompileLoc loc)
 	{
-		s.switchPC = codeR(line, Op1.Switch, 0, srcReg, 0);
+		auto cond = getExp(-1);
+		assert(cond.isSource());
+		s.switchPC = codeR(loc, Op1.Switch, 0, cond, Exp.Empty);
 		s.prev = mSwitch;
 		mSwitch = &s;
+		pop();
 	}
 
-	package void endSwitch()
+	void endSwitch()
 	{
 		assert(mSwitch !is null, "endSwitch - no switch to end");
 
@@ -545,7 +636,7 @@ final class FuncState
 		mSwitch = prev;
 	}
 
-	package void addCase(CompileLoc location, Expression v)
+	void addCase(ref CompileLoc loc, Expression v)
 	{
 		assert(mSwitch !is null);
 
@@ -562,25 +653,25 @@ final class FuncState
 		else if(v.isChar())
 			val = v.asChar();
 		else if(v.isString())
-			val = createString(t, v.asString());
+			val = createString(t, v.asString()); // this is safe, since v's string value is already held by the compiler's string table
 		else
 			assert(false, "addCase invalid type: " ~ v.toString());
 
 		if(mSwitch.offsets.lookup(val) !is null)
 		{
 			.pushString(t, "Duplicate case value '");
-			push(t, val);
+			.push(t, val);
 			pushToString(t, -1);
 			insertAndPop(t, -2);
 			.pushChar(t, '\'');
 			cat(t, 3);
-			c.semException(location, getString(t, -1));
+			c.semException(loc, getString(t, -1));
 		}
 
 		*mSwitch.offsets.insert(*c.alloc, val) = here() - mSwitch.switchPC - 1;
 	}
 
-	package void addDefault(CompileLoc location)
+	void addDefault(ref CompileLoc loc)
 	{
 		assert(mSwitch !is null);
 		assert(mSwitch.defaultOffset == -1);
@@ -589,14 +680,72 @@ final class FuncState
 	}
 
 	// ---------------------------------------------------------------------------
+	// Numeric for/foreach loops
+
+	ForDesc beginFor(CompileLoc loc, void delegate() dg)
+	{
+		return beginForImpl(loc, dg, Op1.For, 3);
+	}
+
+	ForDesc beginForeach(CompileLoc loc, void delegate() dg, uint containerSize)
+	{
+		return beginForImpl(loc, dg, Op1.Foreach, containerSize);
+	}
+
+	ForDesc beginForImpl(CompileLoc loc, void delegate() dg, Op1 opcode, uint containerSize)
+	{
+		ForDesc ret;
+		ret.baseReg = mFreeReg;
+		pushNewLocals(3);
+		dg();
+		assign(loc, 3, containerSize);
+		insertDummyLocal(loc, "__hidden{}");
+		insertDummyLocal(loc, "__hidden{}");
+		insertDummyLocal(loc, "__hidden{}");
+		ret.beginJump = codeI(loc, opcode, ret.baseReg, NoJump);
+		ret.beginLoop = here();
+		return ret;
+	}
+
+	void endFor(CompileLoc loc, ForDesc desc)
+	{
+		endForImpl(loc, desc, Op1.ForLoop, 0);
+	}
+
+	void endForeach(CompileLoc loc, ForDesc desc, uint indLength)
+	{
+		endForImpl(loc, desc, Op1.ForeachLoop, indLength);
+	}
+
+	void endForImpl(CompileLoc loc, ForDesc desc, Op1 opcode, uint indLength)
+	{
+		closeScopeUpvals(loc);
+		patchContinuesToHere();
+		patchJumpToHere(desc.beginJump);
+
+		uint j;
+
+		if(opcode == Op1.ForLoop)
+			j = codeJ(loc, opcode, desc.baseReg, NoJump);
+		else
+			j = codeIMulti(loc, opcode, Op2.Je, desc.baseReg, indLength);
+
+		patchJumpTo(j, desc.beginLoop);
+		patchBreaksToHere();
+
+		mFreeReg = desc.baseReg;
+	}
+
+	// ---------------------------------------------------------------------------
 	// Register manipulation
 
-	package uint nextRegister()
+private:
+	uint nextRegister()
 	{
 		return mFreeReg;
 	}
 
-	package uint pushRegister()
+	uint pushRegister()
 	{
 		debug(REGPUSHPOP) Stdout.formatln("push {}", mFreeReg);
 		mFreeReg++;
@@ -610,7 +759,7 @@ final class FuncState
 		return mFreeReg - 1;
 	}
 
-	package void popRegister(uint r)
+	void popRegister(uint r)
 	{
 		mFreeReg--;
 		debug(REGPUSHPOP) Stdout.formatln("pop {}, {}", mFreeReg, r);
@@ -619,49 +768,11 @@ final class FuncState
 		assert(mFreeReg == r, (pushFormat(c.thread, "reg not freed in order (popping {}, free reg is {})", r, mFreeReg), getString(t, -1)));
 	}
 
-	package uint resolveAssignmentConflicts(uint line, uint numVals)
-	{
-		uint numTemps = 0;
-
-		for(int i = mExpSP - numVals + 1; i < mExpSP; i++)
-		{
-			auto index = &mExpStack[i];
-			uint reloc = uint.max;
-
-			for(int j = mExpSP - numVals; j < i; j++)
-			{
-				auto e = &mExpStack[j];
-
-				if(e.index == index.index || e.index2 == index.index)
-				{
-					if(reloc == uint.max)
-					{
-						numTemps++;
-						reloc = pushRegister();
-						codeR(line, Op1.Move, reloc, index.index, 0);
-					}
-
-					if(e.index == index.index)
-						e.index = reloc;
-
-					if(e.index2 == index.index)
-						e.index2 = reloc;
-				}
-			}
-		}
-
-		return numTemps;
-	}
-
-	package void popAssignmentConflicts(uint num)
-	{
-		mFreeReg -= num;
-	}
-
 	// ---------------------------------------------------------------------------
 	// Basic expression stack manipulation
 
-	protected Exp* pushExp()
+private:
+	Exp* pushExp(ExpType type = ExpType.init, uint index = 0, uint index2 = 0)
 	{
 		if(mExpSP >= mExpStack.length)
 		{
@@ -672,83 +783,91 @@ final class FuncState
 		}
 
 		auto ret = &mExpStack[mExpSP++];
-
-		ret.isTempReg = false;
-		ret.isTempReg2 = false;
-		ret.isTempReg3 = false;
-
+		ret.type = type;
+		ret.index = index;
+		ret.index2 = index2;
+		ret.regAfter = mFreeReg;
 		return ret;
 	}
 
-	protected Exp* popExp()
+	Exp* getExp(int idx)
 	{
-		mExpSP--;
-		assert(mExpSP >= 0, "exp stack underflow");
-		return &mExpStack[mExpSP];
+		assert(idx < 0);
+		assert(mExpSP >= -idx);
+		return &mExpStack[mExpSP + idx];
 	}
 
-	public void dup()
+package:
+	void pop(uword num = 1)
 	{
-		auto src = &mExpStack[mExpSP - 1];
-		auto dest = pushExp();
-		*dest = *src;
+		assert(num != 0);
+		assert(mExpSP >= num, "exp stack underflow");
+
+		mExpSP -= num;
+
+		if(mExpSP == 0)
+			mFreeReg = mScope.firstFreeReg;
+		else
+			mFreeReg = mExpStack[mExpSP - 1].regAfter;
+	}
+
+	void dup()
+	{
+		assert(mExpSP > 0);
+		pushExp(ExpType.init, 0);
+		mExpStack[mExpSP - 1] = mExpStack[mExpSP - 2];
 	}
 
 	// ---------------------------------------------------------------------------
 	// Expression stack pushes
 
-	public void pushNull()
+package:
+	void pushNull()
 	{
-		pushConst(codeNullConst());
+		pushConst(addNullConst());
 	}
 
-	public void pushBool(bool value)
+	void pushBool(bool value)
 	{
-		pushConst(codeBoolConst(value));
+		pushConst(addBoolConst(value));
 	}
 
-	public void pushInt(crocint value)
+	void pushInt(crocint value)
 	{
-		pushConst(codeIntConst(value));
+		pushConst(addIntConst(value));
 	}
 
-	public void pushFloat(crocfloat value)
+	void pushFloat(crocfloat value)
 	{
-		pushConst(codeFloatConst(value));
+		pushConst(addFloatConst(value));
 	}
 
-	public void pushChar(dchar value)
+	void pushChar(dchar value)
 	{
-		pushConst(codeCharConst(value));
+		pushConst(addCharConst(value));
 	}
 
-	public void pushString(char[] value)
+	void pushString(char[] value)
 	{
-		pushConst(codeStringConst(value));
+		pushConst(addStringConst(value));
 	}
 
-	public void pushConst(uint index)
+	void pushNewGlobal(Identifier name)
 	{
-		auto e = pushExp();
-		e.type = ExpType.Const;
-		e.index = index;
+		pushExp(ExpType.NewGlobal, addStringConst(name.name));
 	}
 
-	public void pushNewGlobal(Identifier name)
+	private void pushConst(uint index)
 	{
-		auto e = pushExp();
-		e.type = ExpType.NewGlobal;
-		e.index = codeStringConst(name.name);
+		pushExp(ExpType.Const, index);
 	}
 
-	public void pushThis()
+	void pushThis()
 	{
-		auto e = pushExp();
-		e.type = ExpType.Local;
-		e.index = tagLocal(0);
+		pushExp(ExpType.Local, 0);
 	}
 
-	public void pushVar(Identifier name)
+	void pushVar(Identifier name)
 	{
 		auto e = pushExp();
 
@@ -775,15 +894,15 @@ final class FuncState
 
 				s.mUpvals.append(c.alloc, ud);
 
-				if(mUpvals.length > Instruction.MaxUpvalues)
-					c.semException(mLocation, "Too many upvalues");
+				if(s.mUpvals.length > Instruction.MaxUpvalues)
+					c.semException(s.mLocation, "Too many upvalues");
 
 				return s.mUpvals.length - 1;
 			}
 
 			if(s is null)
 			{
-				e.index = codeStringConst(name.name);
+				e.index = addStringConst(name.name);
 				varType = ExpType.Global;
 				return ExpType.Global;
 			}
@@ -824,593 +943,691 @@ final class FuncState
 		e.type = searchVar(this);
 	}
 
-	public void pushVararg()
+	void pushVararg(ref CompileLoc loc)
 	{
-		auto e = pushExp();
-		e.type = ExpType.Vararg;
+		auto reg = pushRegister();
+		pushExp(ExpType.Vararg, codeIMulti(loc, Op1.Vararg, Op2.GetVarargs, reg, 0));
 	}
 
-	public void pushVargLen(uint line)
+	void pushVargLen(ref CompileLoc loc)
 	{
-		auto e = pushExp();
-		e.type = ExpType.NeedsDest;
-		e.index = codeR(line, Op1.Vararg, 0, 0, 0);
-		codeR(line, Op2.VargLen, 0, 0, 0);
+		pushExp(ExpType.NeedsDest, codeIMulti(loc, Op1.Vararg, Op2.VargLen, 0, 0));
 	}
 
-	public void pushVargSlice(uint line, uint reg)
+	void pushClosure(FuncState fs)
 	{
-		auto e = pushExp();
-		e.type = ExpType.SlicedVararg;
-		e.index = codeI(line, Op1.Vararg, reg, 0);
-		codeR(line, Op2.VargSlice, 0, 0, 0);
-		e.index2 = reg;
+		auto reg = pushRegister();
+		pushExp(ExpType.Temporary, reg);
+		codeClosure(fs, reg);
 	}
 
-	public void pushTempReg(uint idx)
+	void pushTable(ref CompileLoc loc)
 	{
-		auto e = pushExp();
-		e.type = ExpType.Src;
-		e.index = idx;
-		e.isTempReg = true;
+		auto reg = pushRegister();
+		pushExp(ExpType.Temporary, reg);
+		codeIMulti(loc, Op1.New, Op2.Table, reg, 0);
 	}
 
-	public void pushCall(uint line, uint firstReg, uint numRegs)
+	void pushArray(ref CompileLoc loc, uword length)
 	{
-		auto e = pushExp();
-		e.type = ExpType.Call;
-		e.index = codeR(line, Op1.Call, firstReg, numRegs, 0);
-		e.index2 = firstReg;
-		e.isTempReg2 = true;
+		auto reg = pushRegister();
+		pushExp(ExpType.Temporary, reg);
+		codeIMulti(loc, Op1.New, Op2.Array, reg, length);
 	}
 
-	public void pushYield(uint line, uint firstReg, uint numRegs)
+	void pushNewLocals(uword num)
 	{
-		auto e = pushExp();
-		e.type = ExpType.Yield;
-		e.index = codeR(line, Op1.Yield, firstReg, numRegs, 0);
-		e.index2 = firstReg;
-	}
+		auto reg = mFreeReg;
 
-	public void pushSlice(uint line, uint reg)
-	{
-		auto e = pushExp();
-		e.index = pushRegister();
-
-		assert(e.index == reg, "push slice reg wrong");
-
-		e.isTempReg = true;
-		e.index2 = pushRegister();
-		e.isTempReg2 = true;
-		e.index3 = pushRegister();
-		e.isTempReg3 = true;
-		e.type = ExpType.Sliced;
-	}
-
-	public void pushSource(uint line)
-	{
-		dup();
-		topToSource(line, false);
-	}
-
-	public void pushBinOp(uint line, AstTag type, uint rs, uint rt)
-	{
-		Exp* dest = pushExp();
-		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, AstTagToOpcode1(type), 0, rs, rt);
-
-		auto second = AstTagToOpcode2(type);
-
-		if(second != -1)
-			codeR(line, second, 0, 0, 0);
+		for(; num; num--, reg++)
+			pushExp(ExpType.NewLocal, reg);
 	}
 
 	// ---------------------------------------------------------------------------
 	// Expression stack pops
 
-	public void popToNothing()
+package:
+	void popToNothing()
 	{
 		if(mExpSP == 0)
 			return;
 
-		auto src = popExp();
+		auto src = getExp(-1);
 
 		if(src.type == ExpType.Call || src.type == ExpType.Yield)
 			setRT(mCode[src.index], 1);
 
-		freeExpTempRegs(*src);
+		pop();
 	}
 
-	public void popAssign(uint line)
+	void assign(ref CompileLoc loc, uword numLhs, uword numRhs)
 	{
-		auto src = popExp();
-		auto dest = popExp();
+		assert(mExpSP >= numRhs + 1);
+		debug if(mExpStack[mExpSP - numRhs - 1].type == ExpType.Conflict) assert(mExpSP >= numLhs + numRhs + 1);
 
-		switch(dest.type)
+		Exp[] lhs, rhs;
+		auto conflict = prepareAssignment(loc, numLhs, numRhs, lhs, rhs);
+		assert(lhs.length == rhs.length);
+
+		foreach_reverse(ref l; lhs)
+			popMoveTo(loc, l); // pops top
+
+		pop(lhs.length + (conflict ? 1 : 0));
+	}
+
+	void arraySet(ref CompileLoc loc, uword numItems, uword block)
+	{
+		debug(EXPSTACKCHECK) assert(numItems > 0);
+		debug(EXPSTACKCHECK) assert(mExpSP >= numItems + 1);
+
+		auto arr = &mExpStack[mExpSP - numItems - 1];
+		auto items = mExpStack[mExpSP - numItems .. $];
+
+		debug(EXPSTACKCHECK) assert(arr.type == ExpType.Temporary);
+
+		auto arg = prepareArgList(loc, items);
+		codeRMulti(loc, Op1.Array, Op2.Set, arr.index, arg, block);
+		pop(numItems + 1); // all items and array
+	}
+
+	void arrayAppend(ref CompileLoc loc)
+	{
+		debug(EXPSTACKCHECK) assert(mExpSP >= 2);
+
+		auto arr = getExp(-2);
+		auto item = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(arr.type == ExpType.Temporary);
+		debug(EXPSTACKCHECK) assert(item.isSource());
+
+		codeRMulti(loc, Op1.Array, Op2.Append, arr.index, item, Exp.Empty);
+		pop(2);
+	}
+
+	void customParamFail(ref CompileLoc loc, uint paramIdx)
+	{
+		auto msg = getExp(-1);
+		debug(EXPSTACKCHECK) assert(msg.isSource());
+		codeRMulti(loc, Op1.ParamFail, Op2.CustomParamFail, 0, &Exp(ExpType.Local, paramIdx), msg);
+		pop();
+	}
+	
+	void objParamFail(ref CompileLoc loc, uint paramIdx)
+	{
+		codeRMulti(loc, Op1.ParamFail, Op2.ObjParamFail, 0, paramIdx, 0);
+	}
+
+	uint checkObjParam(ref CompileLoc loc, uint paramIdx)
+	{
+		auto type = getExp(-1);
+		debug(EXPSTACKCHECK) assert(type.isSource());
+		auto ret = codeRJump(loc, Op1.CheckObjParam, Op2.Je, true, 0, &Exp(ExpType.Local, paramIdx), type);
+		pop();
+		return ret;
+	}
+
+	uint codeIsTrue(ref CompileLoc loc, bool isTrue = true)
+	{
+		auto src = getExp(-1);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+		auto ret = codeRJump(loc, Op1.CheckObjParam, Op2.Je, isTrue, 0, src, Exp.Empty);
+		pop();
+		return ret;
+	}
+
+	private uint commonCmpJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue)
+	{
+		auto src1 = getExp(-2);
+		auto src2 = getExp(-1);
+		debug(EXPSTACKCHECK) assert(src1.isSource());
+		debug(EXPSTACKCHECK) assert(src2.isSource());
+		auto ret = codeRJump(loc, opcode, opcode2, isTrue, 0, src1, src2);
+		pop(2);
+		return ret;
+	}
+
+	uint codeCmp(ref CompileLoc loc, Op2 type, bool isTrue)
+	{
+		return commonCmpJump(loc, Op1.Cmp, type, isTrue);
+	}
+
+	uint codeSwitchCmp(ref CompileLoc loc)
+	{
+		return commonCmpJump(loc, Op1.SwitchCmp, Op2.Je, true);
+	}
+
+	uint codeEquals(ref CompileLoc loc, bool isTrue)
+	{
+		return commonCmpJump(loc, Op1.Equals, Op2.Je, isTrue);
+	}
+
+	uint codeIs(ref CompileLoc loc, bool isTrue)
+	{
+		return commonCmpJump(loc, Op1.Is, Op2.Je, isTrue);
+	}
+
+	void codeThrow(ref CompileLoc loc, bool rethrowing)
+	{
+		auto src = getExp(-1);
+		debug(EXPSTACKCHECK) assert(src.isSource());
+		codeR(loc, Op1.Throw, 0, src, &Exp(ExpType.Local, rethrowing ? 1 : 0));
+		pop();
+	}
+
+	void saveRets(ref CompileLoc loc, uint numRets)
+	{
+		if(numRets == 0)
 		{
-			case ExpType.Local:
-				moveTo(line, dest.index, src);
-				return;
-
-			case ExpType.Upval:
-				toSource(line, src);
-				codeI(line, Op1.SetUpval, src.index, dest.index);
-				break;
-
-			case ExpType.Global:
-				toSource(line, src);
-				codeI(line, Op1.SetGlobal, src.index, dest.index);
-				break;
-
-			case ExpType.NewGlobal:
-				toSource(line, src);
-				codeI(line, Op1.NewGlobal, src.index, dest.index);
-				break;
-
-			case ExpType.Indexed:
-				toSource(line, src);
-				codeR(line, Op1.IndexAssign, dest.index, dest.index2, src.index);
-				break;
-
-			case ExpType.Field:
-				toSource(line, src);
-				codeR(line, Op1.FieldAssign, dest.index, dest.index2, src.index);
-				break;
-
-			case ExpType.IndexedVararg:
-				toSource(line, src);
-				codeR(line, Op1.Vararg, 0, dest.index, src.index);
-				codeR(line, Op2.VargIndexAssign, 0, 0, 0);
-				break;
-
-			case ExpType.Sliced:
-				toSource(line, src);
-				codeR(line, Op1.SliceAssign, dest.index, src.index, 0);
-				break;
-
-			case ExpType.Length:
-				toSource(line, src);
-				codeR(line, Op1.LengthAssign, dest.index, src.index, 0);
-				break;
-
-			default:
-				assert(false, "popAssign switch");
+			codeI(loc, Op1.SaveRets, 0, 1);
+			return;
 		}
 
-		freeExpTempRegs(*src);
-		freeExpTempRegs(*dest);
+		assert(mExpSP >= numRets);
+		auto rets = mExpStack[mExpSP - numRets .. $];
+		auto arg = prepareArgList(loc, rets);
+		uint first = rets[0].index;
+		codeI(loc, Op1.SaveRets, first, arg);
+		pop(numRets);
 	}
 
-	public void popMoveTo(uint line, uint dest)
+	private uint prepareArgList(ref CompileLoc loc, Exp[] items)
 	{
-		auto src = popExp();
-		moveTo(line, dest, src);
+		debug(EXPSTACKCHECK) foreach(ref i; items[0 .. $ - 1]) assert(i.type == ExpType.Temporary);
+
+		if(items[$ - 1].isMultRet())
+		{
+			multRetToRegs(loc, -1);
+			return 0;
+		}
+		else
+		{
+			debug(EXPSTACKCHECK) assert(items[$ - 1].type == ExpType.Temporary);
+			return items.length + 1;
+		}
 	}
 
-	public void popToRegisters(uint line, uint reg, int num)
+	private bool prepareAssignment(ref CompileLoc loc, uint numLhs, uint numRhs, out Exp[] lhs, out Exp[] rhs)
 	{
-		auto src = popExp();
+		debug { auto check = mExpSP - (numLhs + numRhs); if(mExpStack[mExpSP - numRhs - 1].type == ExpType.Conflict) check--; }
+		assert(numLhs >= numRhs);
+
+		rhs = mExpStack[mExpSP - numRhs .. $];
+
+		debug(EXPSTACKCHECK) foreach(ref i; rhs[0 .. $ - 1]) assert(i.isSource());
+
+		if(rhs[$ - 1].isMultRet())
+		{
+			multRetToRegs(loc, numLhs - numRhs + 1);
+
+			for(uint i = numRhs, idx = rhs[$ - 1].index; i < numLhs; i++, idx++)
+				pushExp(ExpType.Local, idx);
+		}
+		else
+		{
+			debug(EXPSTACKCHECK) assert(rhs[$ - 1].isSource());
+
+			for(uint i = numRhs; i < numLhs; i++)
+				pushNull();
+		}
+
+		// Could have changed size and/or pointer could have been invalidated
+		rhs = mExpStack[mExpSP - numLhs .. $];
+
+		bool ret;
+
+		if(mExpStack[mExpSP - numLhs - 1].type == ExpType.Conflict)
+		{
+			lhs = mExpStack[mExpSP - numLhs - 1 - numLhs .. mExpSP - numLhs - 1];
+			ret = true;
+		}
+		else
+		{
+			lhs = mExpStack[mExpSP - numLhs - numLhs .. mExpSP - numLhs];
+			ret = false;
+		}
+
+		assert(check == (mExpSP - (numLhs + numRhs) - (ret ? 1 : 0)), "oh noes");
+		debug(EXPSTACKCHECK) foreach(ref i; lhs) assert(i.isDest());
+		return ret;
+	}
+
+	private void multRetToRegs(ref CompileLoc loc, int num)
+	{
+		auto src = getExp(-1);
 
 		switch(src.type)
 		{
-			case ExpType.Vararg:
-				codeI(line, Op1.Vararg, reg, num + 1);
-				codeR(line, Op2.GetVarargs, 0, 0, 0);
-				break;
-
-			case ExpType.SlicedVararg:
-				assert(src.index2 == reg, "pop to regs - trying to pop sliced varargs to different reg");
+			case ExpType.Vararg, ExpType.VarargSlice:
 				setUImm(mCode[src.index], num + 1);
 				break;
 
 			case ExpType.Call, ExpType.Yield:
-				assert(src.index2 == reg, "pop to regs - trying to pop func call or yield to different reg");
 				setRT(mCode[src.index], num + 1);
-				freeExpTempRegs(*src);
-				break;
-
-			default:
-				assert(false, "pop to regs switch");
-		}
-	}
-
-	public void popReflexOp(uint line, AstTag type, uint rd, uint rs, uint rt = 0)
-	{
-		auto dest = pushExp();
-		dest.type = ExpType.NeedsDest;
-		dest.index = codeR(line, AstTagToOpcode1(type), rd, rs, rt);
-
-		auto second = AstTagToOpcode2(type);
-
-		if(second != -1)
-			codeR(line, second, 0, 0, 0);
-
-		popAssign(line);
-	}
-
-	public void popMoveFromReg(uint line, uint srcReg)
-	{
-		auto dest = popExp();
-
-		switch(dest.type)
-		{
-			case ExpType.Local:
-				if(dest.index != srcReg)
-					codeR(line, Op1.Move, dest.index, srcReg, 0);
-				break;
-
-			case ExpType.Upval:
-				codeI(line, Op1.SetUpval, srcReg, dest.index);
-				break;
-
-			case ExpType.Global:
-				codeI(line, Op1.SetGlobal, srcReg, dest.index);
-				break;
-
-			case ExpType.NewGlobal:
-				codeI(line, Op1.NewGlobal, srcReg, dest.index);
-				break;
-
-			case ExpType.Indexed:
-				codeR(line, Op1.IndexAssign, dest.index, dest.index2, srcReg);
-				freeExpTempRegs(*dest);
-				break;
-
-			case ExpType.Field:
-				codeR(line, Op1.FieldAssign, dest.index, dest.index2, srcReg);
-				freeExpTempRegs(*dest);
-				break;
-
-			case ExpType.IndexedVararg:
-				codeR(line, Op1.Vararg, 0, dest.index, srcReg);
-				codeR(line, Op2.VargIndexAssign, 0, 0, 0);
-				freeExpTempRegs(*dest);
-				break;
-
-			case ExpType.Sliced:
-				codeR(line, Op1.SliceAssign, dest.index, srcReg, 0);
-				freeExpTempRegs(*dest);
-				break;
-
-			case ExpType.Length:
-				codeR(line, Op1.LengthAssign, dest.index, srcReg, 0);
-				freeExpTempRegs(*dest);
 				break;
 
 			default:
 				assert(false);
 		}
+
+		src.type = ExpType.Temporary;
+		src.index = getRD(mCode[src.index]);
 	}
 
-	public void popField(uint line)
+	private void popMoveTo(ref CompileLoc loc, ref Exp dest)
 	{
-		assert(mExpSP > 1, "pop field from nothing");
+		if(dest.type == ExpType.Local || dest.type == ExpType.NewLocal)
+			moveToReg(loc, dest.index, *getExp(-1));
+		else
+		{
+			toSource(loc);
 
-		auto index = popExp();
-		auto e = &mExpStack[mExpSP - 1];
+			switch(dest.type)
+			{
+				case ExpType.Upval:       codeI(loc, Op1.SetUpval,    getExp(-1), dest.index); break;
+				case ExpType.Global:      codeI(loc, Op1.SetGlobal,   getExp(-1), dest.index); break;
+				case ExpType.NewGlobal:   codeI(loc, Op1.NewGlobal,   getExp(-1), dest.index); break;
+				case ExpType.Slice:       codeR(loc, Op1.SliceAssign, dest.index, getExp(-1), Exp.Empty); break;
+				case ExpType.Index:       codeR(loc, Op1.IndexAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
+				case ExpType.Field:       codeR(loc, Op1.FieldAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
+				case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndexAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
+				case ExpType.Length:      codeR(loc, Op1.LengthAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
+				default: assert(false);
+			}
+		}
 
-		toSource(line, e);
-		toSource(line, index);
-
-		e.index2 = index.index;
-		e.isTempReg2 = index.isTempReg;
-		e.type = ExpType.Field;
-	}
-
-	public void popIndex(uint line)
-	{
-		assert(mExpSP > 1, "pop index from nothing");
-
-		auto index = popExp();
-		auto e = &mExpStack[mExpSP - 1];
-
-		toSource(line, e);
-		toSource(line, index);
-
-		e.index2 = index.index;
-		e.isTempReg2 = index.isTempReg;
-		e.type = ExpType.Indexed;
-	}
-
-	public void popVargIndex(uint line)
-	{
-		assert(mExpSP > 0, "pop varg index from nothing");
-
-		auto e = &mExpStack[mExpSP - 1];
-		toSource(line, e);
-		e.type = ExpType.IndexedVararg;
-	}
-
-	public void popSource(uint line, out Exp n)
-	{
-		n = *popExp();
-		toSource(line, &n);
+		pop();
 	}
 
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
-	public void unOp(uint line, AstTag type)
-	{
-		auto src = popExp();
-		toSource(line, src);
-
-		uint pc = codeR(line, AstTagToOpcode1(type), 0, src.index, 0);
-
-		auto second = AstTagToOpcode2(type);
-
-		if(second != -1)
-			codeR(line, second, 0, 0, 0);
-
-		freeExpTempRegs(*src);
-
-		auto dest = pushExp();
-		dest.type = ExpType.NeedsDest;
-		dest.index = pc;
-	}
-
-	public void topToLength(uint line)
-	{
-		topToSource(line);
-		mExpStack[mExpSP - 1].type = ExpType.Length;
-	}
-
-	public void topToSource(uint line, bool cleanup = true)
-	{
-		toSource(line, &mExpStack[mExpSP - 1], cleanup);
-	}
-
-	protected void toSource(uint line, Exp* e, bool cleanup = true)
-	{
-		Exp temp;
-		temp.type = ExpType.Src;
-
-		switch(e.type)
-		{
-			case ExpType.Const:
-				temp.index = tagConst(e.index);
-				break;
-
-			case ExpType.Local:
-				temp.index = e.index;
-				break;
-
-			case ExpType.Upval:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeI(line, Op1.GetUpval, temp.index, e.index);
-				break;
-
-			case ExpType.Global:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeI(line, Op1.GetGlobal, temp.index, e.index);
-				break;
-
-			case ExpType.Indexed:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeR(line, Op1.Index, temp.index, e.index, e.index2);
-				break;
-
-			case ExpType.Field:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeR(line, Op1.Field, temp.index, e.index, e.index2);
-				break;
-
-			case ExpType.IndexedVararg:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeR(line, Op1.Vararg, temp.index, e.index, 0);
-				codeR(line, Op2.VargIndex, 0, 0, 0);
-				break;
-
-			case ExpType.Sliced:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeR(line, Op1.Slice, temp.index, e.index, 0);
-				break;
-
-			case ExpType.Length:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				temp.index = pushRegister();
-				temp.isTempReg = true;
-				codeR(line, Op1.Length, temp.index, e.index, 0);
-				break;
-
-			case ExpType.NeedsDest:
-				temp.index = pushRegister();
-				setRD(mCode[e.index], temp.index);
-				temp.isTempReg = true;
-				break;
-
-			case ExpType.Call, ExpType.Yield:
-				setRT(mCode[e.index], 2);
-				temp.index = e.index2;
-				temp.isTempReg = e.isTempReg2;
-				break;
-
-			case ExpType.Src:
-				temp = *e;
-				break;
-
-			case ExpType.Vararg:
-				temp.index = pushRegister();
-				codeI(line, Op1.Vararg, temp.index, 2);
-				codeR(line, Op2.GetVarargs, 0, 0, 0);
-				temp.isTempReg = true;
-				break;
-
-			case ExpType.SlicedVararg:
-				if(cleanup)
-					freeExpTempRegs(*e);
-
-				codeI(line, Op1.Vararg, e.index, 2);
-				codeR(line, Op2.VargSlice, 0, 0, 0);
-				temp.index = e.index;
-				break;
-
-			default:
-				assert(false, "toSource switch");
-		}
-
-		*e = temp;
-	}
-
-	public void moveTo(uint line, uint dest, Exp* src)
+	private void moveToReg(ref CompileLoc loc, uint reg, ref Exp src)
 	{
 		switch(src.type)
 		{
-			case ExpType.Const:
-				assert(isLocalTag(dest));
-				codeI(line, Op1.LoadConst, dest, src.index);
-				break;
-
+			case ExpType.Const:       codeI(loc, Op1.LoadConst, reg, src.index); break;
 			case ExpType.Local:
-				if(dest != src.index)
-					codeR(line, Op1.Move, dest, src.index, 0);
-				break;
-
-			case ExpType.Upval:
-				codeI(line, Op1.GetUpval, dest, src.index);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Global:
-				codeI(line, Op1.GetGlobal, dest, src.index);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Indexed:
-				codeR(line, Op1.Index, dest, src.index, src.index2);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Field:
-				codeR(line, Op1.Field, dest, src.index, src.index2);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.IndexedVararg:
-				codeR(line, Op1.Vararg, dest, src.index, 0);
-				codeR(line, Op2.VargIndex, 0, 0, 0);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Sliced:
-				codeR(line, Op1.Slice, dest, src.index, 0);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Length:
-				codeR(line, Op1.Length, dest, src.index, 0);
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.Vararg:
-				if(isLocalTag(dest))
-				{
-					codeI(line, Op1.Vararg, dest, 2);
-					codeR(line, Op2.GetVarargs, 0, 0, 0);
-				}
-				else
-				{
-					assert(!isConstTag(dest), "moveTo vararg dest is const");
-					uint tempReg = pushRegister();
-					codeI(line, Op1.Vararg, tempReg, 2);
-					codeR(line, Op2.GetVarargs, 0, 0 ,0);
-					codeR(line, Op1.Move, dest, tempReg, 0);
-					popRegister(tempReg);
-				}
-				break;
-
-			case ExpType.SlicedVararg:
-				setUImm(mCode[src.index], 2);
-
-				if(dest != src.index2)
-					codeR(line, Op1.Move, dest, src.index2, 0);
-				break;
-
-			case ExpType.Call, ExpType.Yield:
-				setRT(mCode[src.index], 2);
-
-				if(dest != src.index2)
-					codeR(line, Op1.Move, dest, src.index2, 0);
-
-				freeExpTempRegs(*src);
-				break;
-
-			case ExpType.NeedsDest:
-				setRD(mCode[src.index], dest);
-				break;
-
-			case ExpType.Src:
-				if(dest != src.index)
-					codeR(line, Op1.Move, dest, src.index, 0);
-
-				freeExpTempRegs(*src);
-				break;
-
-			default:
-				assert(false, "moveTo switch");
+			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
+			case ExpType.Upval:       codeI(loc, Op1.GetUpval, reg, src.index); break;
+			case ExpType.Global:      codeI(loc, Op1.GetGlobal, reg, src.index); break;
+			case ExpType.Index:       codeR(loc, Op1.Index, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.Field:       codeR(loc, Op1.Field, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.Slice:       codeR(loc, Op1.Slice, reg, src.index, 0); break;
+			case ExpType.Vararg:      setRD(mCode[src.index], reg); setUImm(mCode[src.index], 2); break;
+			case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndex, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
+			case ExpType.VarargSlice: codeRMulti(loc, Op1.Vararg, Op2.VargSlice, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.Length:      codeR(loc, Op1.Length, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
+			case ExpType.Call:        codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
+			case ExpType.Yield:       codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
+			case ExpType.NeedsDest:   setRD(mCode[src.index], reg); break;
+			default: assert(false);
 		}
 	}
 
-	public void makeTailcall()
+	private uint packRegOrConst(ref Exp e)
 	{
-		assert(getOpcode(mCode[$ - 1]) == Op1.Call, "need call to make tailcall");
-		setOpcode(mCode[$ - 1], Op1.Tailcall);
+		if(e.type == ExpType.Local)
+			return e.index;
+		else
+			return e.index + Instruction.rsrtConstMax + 1;
 	}
 
-	public void codeClosure(FuncState fs, uint destReg)
+	private Exp unpackRegOrConst(uint idx)
 	{
+		if(idx > Instruction.rsrtConstMax)
+			return Exp(ExpType.Const, idx - Instruction.rsrtConstMax - 1);
+		else
+			return Exp(ExpType.Local, idx);
+	}
+
+package:
+	void paramCheck(ref CompileLoc loc)
+	{
+		codeI(loc, Op1.CheckParams, 0, 0);	
+	}
+
+	void reflexOp(ref CompileLoc loc, AstTag type, uint operands)
+	{
+		assert(mExpSP >= operands + 1);
+
+		auto lhs = getExp(-operands - 1);
+		auto ops = mExpStack[mExpSP - operands .. $];
+
+		debug(EXPSTACKCHECK) assert(lhs.type == ExpType.Local);
+		debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
+
+		if(operands == 0)
+			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, 0, 0);
+		else if(operands == 1)
+			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, &ops[0], Exp.Empty);
+		else
+			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, &ops[0], &Exp(ExpType.Local, operands));
+
+		if(operands)
+			pop(operands);
+	}
+
+	void resolveAssignmentConflicts(ref CompileLoc loc, uword numVals)
+	{
+		uint numTemps = 0;
+
+		for(int i = (mExpSP - numVals) + 1; i < mExpSP; i++)
+		{
+			auto index = mExpStack[i].index;
+			uint reloc = uint.max;
+
+			for(int j = mExpSP - numVals; j < i; j++)
+			{
+				auto e = &mExpStack[j];
+
+				if(e.index == index || e.index2 == index)
+				{
+					if(reloc == uint.max)
+					{
+						numTemps++;
+						reloc = pushRegister();
+						codeMove(loc, reloc, index);
+					}
+
+					if(e.index == index)
+						e.index = reloc;
+
+					if(e.index2 == index)
+						e.index2 = reloc;
+				}
+			}
+		}
+
+		if(numTemps > 0)
+			pushExp(ExpType.Conflict);
+	}
+	
+	void flushSideEffects(ref CompileLoc loc)
+	{
+		auto e = getExp(-1);
+
+		if(e.hasSideEffects())
+			toSource(loc);
+	}
+
+	void toSource(ref CompileLoc loc)
+	{
+		auto e = *getExp(-1);
+		
+		if(e.type == ExpType.Const || e.type == ExpType.Local)
+			return;
+		else
+		{
+			pop();
+
+			switch(e.type)
+			{
+				case ExpType.NewLocal:
+					assert(mFreeReg == e.index);
+					pushRegister();
+					pushExp(ExpType.Temporary, e.index);
+					return;
+
+				case ExpType.Call:
+				case ExpType.Yield:
+					assert(mFreeReg == getRD(mCode[e.index]));
+					// fall through
+				default:
+					auto reg = pushRegister();
+					moveToReg(loc, reg, e);
+					pushExp(ExpType.Temporary, reg);
+					return;
+			}
+		}
+	}
+
+	void toTemporary(ref CompileLoc loc)
+	{
+		toSource(loc);
+		auto e = *getExp(-1);
+
+		if(e.type == ExpType.Const)
+		{
+			pop();
+			auto reg = pushRegister();
+			moveToReg(loc, reg, e);
+			pushExp(ExpType.Temporary, reg);
+		}
+	}
+	
+	void newClass(ref CompileLoc loc)
+	{
+		auto name = getExp(-2);
+		auto base = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(name.isSource());
+		debug(EXPSTACKCHECK) assert(base.isSource());
+
+		auto i = codeRMulti(loc, Op1.New, Op2.Class, 0, name, base);
+		pop(2);
+		pushExp(ExpType.NeedsDest, i);
+	}
+
+	void newNamespace(ref CompileLoc loc)
+	{
+		auto name = getExp(-2);
+		auto base = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(name.isSource());
+		debug(EXPSTACKCHECK) assert(base.isSource());
+
+		auto i = codeRMulti(loc, Op1.New, Op2.Namespace, 0, name, base);
+		pop(2);
+		pushExp(ExpType.NeedsDest, i);
+	}
+
+	void newNamespaceNP(ref CompileLoc loc)
+	{
+		auto name = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(name.isSource());
+
+		auto i = codeRMulti(loc, Op1.New, Op2.NamespaceNP, 0, name, Exp.Empty);
+		pop();
+		pushExp(ExpType.NeedsDest, i);
+	}
+
+	void field(ref CompileLoc loc)
+	{
+		auto op = *getExp(-2);
+		auto name = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(op.isSource());
+		debug(EXPSTACKCHECK) assert(name.isSource());
+
+		pop(2);
+		mFreeReg = name.regAfter;
+		pushExp(ExpType.Field, packRegOrConst(op), packRegOrConst(name));
+	}
+
+	void index(ref CompileLoc loc)
+	{
+		auto op = *getExp(-2);
+		auto idx = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(op.isSource());
+		debug(EXPSTACKCHECK) assert(idx.isSource());
+
+		pop(2);
+		mFreeReg = idx.regAfter;
+		pushExp(ExpType.Index, packRegOrConst(op), packRegOrConst(idx));
+	}
+
+	void varargIndex(ref CompileLoc loc)
+	{
+		auto idx = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(idx.isSource());
+
+		pop();
+		mFreeReg = idx.regAfter;
+		pushExp(ExpType.VarargIndex, packRegOrConst(idx));
+	}
+
+	void varargSlice(ref CompileLoc loc)
+	{
+		auto lo = *getExp(-2);
+		auto hi = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(lo.type == ExpType.Temporary);
+		debug(EXPSTACKCHECK) assert(hi.type == ExpType.Temporary);
+
+		pop(2);
+		mFreeReg = hi.regAfter;
+		pushExp(ExpType.VarargSlice, packRegOrConst(lo), packRegOrConst(hi));
+	}
+
+	void length(ref CompileLoc loc)
+	{
+		auto op = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(op.isSource());
+
+		pop();
+		mFreeReg = op.regAfter;
+		pushExp(ExpType.Length, packRegOrConst(op));
+	}
+
+	void slice(ref CompileLoc loc)
+	{
+		auto base = *getExp(-3);
+		auto lo = *getExp(-2);
+		auto hi = *getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(base.type == ExpType.Temporary);
+		debug(EXPSTACKCHECK) assert(lo.type == ExpType.Temporary);
+		debug(EXPSTACKCHECK) assert(hi.type == ExpType.Temporary);
+		
+		pop(3);
+		mFreeReg = hi.regAfter;
+		pushExp(ExpType.Slice, base.index);
+	}
+	
+	void binOp(ref CompileLoc loc, AstTag type, uint numOps = 2)
+	{
+		assert(mExpSP >= numOps);
+		assert(numOps >= 2);
+
+		auto ops = mExpStack[mExpSP - numOps .. $];
+		uint inst;
+
+		if(numOps > 2)
+		{
+			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
+			inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, ops[0].index, numOps);
+		}
+		else
+		{
+			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
+			inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, &ops[0], &ops[1]);
+		}
+
+		pop(numOps);
+		pushExp(ExpType.NeedsDest, inst);
+	}
+	
+	void unOp(ref CompileLoc loc, AstTag type)
+	{
+		auto src = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(src.isSource());
+
+		auto inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, src, Exp.Empty);
+		pop();
+		pushExp(ExpType.NeedsDest, inst);
+	}
+
+	MethodCallDesc beginMethodCall()
+	{
+		MethodCallDesc ret;
+		ret.baseReg = mFreeReg;
+		ret.baseExp = mExpSP;
+		return ret;
+	}
+
+	void updateMethodCall(ref MethodCallDesc desc, uint num)
+	{
+		assert(mFreeReg <= desc.baseReg + num);
+		assert(mExpSP == desc.baseExp + num);
+
+		if(mFreeReg < desc.baseReg + num)
+		{
+			for(int i = mFreeReg; i < desc.baseReg + num; i++)
+				pushRegister();
+		}
+
+		assert(mFreeReg == desc.baseReg + num);
+	}
+
+	void pushMethodCall(CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
+	{
+		// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
+		// everything after that is args. assert they're all in registers
+		
+		auto obj =
+
+		debug(EXPSTACKCHECK) assert(mExpStack[desc.baseExp].isSource());
+		debug(EXPSTACKCHECK) assert(mExpStack[desc.baseExp + 1].isSource());
+
+		auto numArgs = mExpSP - desc.baseReg - 2;
+		bool lastIsMultiret = last arg is multiret;
+		pop all the args;
+
+		codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, expStack[-2], expStack[-1]);
+		pop(2);
+		mFreeReg = desc.baseReg;
+
+		pushCall(loc, desc.baseReg, lastIsMultiret ? 0 : numArgs + 1);
+
+		assert(mExpSP == desc.baseExp);
+		assert(mFreeReg == desc.baseReg + 1); // plus one for the call that we pushed
+	}
+
+	package void makeTailcall()
+	{
+		auto e = getExp(-1);
+		debug(EXPSTACKCHECK) assert(e.type == ExpType.Call);
+		assert(getOpcode(mCode[e.index]) == Op1.Call);
+		setOpcode(mCode[e.index], Op1.Tailcall);
+	}
+
+	package void codeClosure(FuncState fs, uint destReg)
+	{
+		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
+
 		if(mInnerFuncs.length > Instruction.MaxInnerFuncs)
 			c.semException(mLocation, "Too many inner functions");
 
-		auto line = fs.mLocation.line;
-		
-		if(mNamespaceReg > 0)
-			codeR(line, Op1.Move, destReg, mNamespaceReg, 0);
+		auto loc = fs.mLocation;
 
-		codeI(line, Op1.New, destReg, mInnerFuncs.length);
-		codeR(line, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, 0, 0, 0);
+		if(mNamespaceReg > 0)
+			codeR(loc, Op1.Move, destReg, mNamespaceReg, 0);
+
+		codeIMulti(loc, Op1.New, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, destReg, mInnerFuncs.length - 1);
 
 		foreach(ref ud; fs.mUpvals)
-			codeI(line, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
+			codeI(loc, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
 
-		auto fd = fs.toFuncDef();
-		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
-		mInnerFuncs[$ - 1] = fd;
+		mInnerFuncs[$ - 1] = fs.toFuncDef();
 	}
-	
-	public void beginNamespace(uint reg)
+
+	package void beginNamespace(ref CompileLoc loc)
 	{
 		assert(mNamespaceReg == 0);
-		mNamespaceReg = reg;
+
+		auto e = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(e.type == ExpType.NeedsDest);
+		mNamespaceReg = mFreeReg;
+		toSource(loc);
 	}
-	
-	public void endNamespace()
+
+	package void endNamespace()
 	{
 		assert(mNamespaceReg != 0);
 		mNamespaceReg = 0;
@@ -1419,17 +1636,17 @@ final class FuncState
 	// ---------------------------------------------------------------------------
 	// Control flow
 
-	public uint here()
+	package uint here()
 	{
 		return mCode.length;
 	}
 
-	public void patchJumpTo(uint src, uint dest)
+	package void patchJumpTo(uint src, uint dest)
 	{
 		setImm(mCode[src], dest - src - 1);
 	}
 
-	public void patchJumpToHere(uint src)
+	package void patchJumpToHere(uint src)
 	{
 		patchJumpTo(src, here());
 	}
@@ -1443,36 +1660,36 @@ final class FuncState
 		}
 	}
 
-	public void patchContinuesTo(uint dest)
+	package void patchContinuesTo(uint dest)
 	{
 		patchListTo(mScope.continues, dest);
 		mScope.continues = NoJump;
 	}
 
-	public void patchBreaksToHere()
+	package void patchBreaksToHere()
 	{
 		patchListTo(mScope.breaks, here());
 		mScope.breaks = NoJump;
 	}
 
-	public void patchContinuesToHere()
+	package void patchContinuesToHere()
 	{
 		patchContinuesTo(here());
 	}
 
-	public void patchTrueToHere(ref InstRef i)
+	package void patchTrueToHere(ref InstRef i)
 	{
 		patchListTo(i.trueList, here());
 		i.trueList = NoJump;
 	}
 
-	public void patchFalseToHere(ref InstRef i)
+	package void patchFalseToHere(ref InstRef i)
 	{
 		patchListTo(i.falseList, here());
 		i.falseList = NoJump;
 	}
 	
-	public void catToTrue(ref InstRef i, uint j)
+	package void catToTrue(ref InstRef i, uint j)
 	{
 		if(i.trueList == NoJump)
 			i.trueList = j;
@@ -1494,7 +1711,7 @@ final class FuncState
 		}
 	}
 
-	public void catToFalse(ref InstRef i, uint j)
+	package void catToFalse(ref InstRef i, uint j)
 	{
 		if(i.falseList == NoJump)
 			i.falseList = j;
@@ -1516,7 +1733,7 @@ final class FuncState
 		}
 	}
 
-	public void invertJump(ref InstRef i)
+	package void invertJump(ref InstRef i)
 	{
 		debug assert(!i.inverted);
 		debug i.inverted = true;
@@ -1529,70 +1746,62 @@ final class FuncState
 		setRD(mCode[j], !getRD(mCode[j]));
 	}
 
-	public void codeJump(uint line, uint dest)
+	package void codeJump(ref CompileLoc loc, uint dest)
 	{
-		codeJ(line, Op1.Jmp, true, dest - here() - 1);
+		codeJ(loc, Op1.Jmp, true, dest - here() - 1);
 	}
 
-	public uint makeJump(uint line, uint type = Op1.Jmp, bool isTrue = true)
+	package uint makeJump(ref CompileLoc loc, uint type = Op1.Jmp, bool isTrue = true)
 	{
-		return codeJ(line, type, isTrue, NoJump);
+		return codeJ(loc, type, isTrue, NoJump);
 	}
 
-	public uint makeFor(uint line, uint baseReg)
-	{
-		return codeJ(line, Op1.For, baseReg, NoJump);
-	}
-
-	public uint makeForLoop(uint line, uint baseReg)
-	{
-		return codeJ(line, Op1.ForLoop, baseReg, NoJump);
-	}
-
-	public uint makeForeach(uint line, uint baseReg)
-	{
-		return codeJ(line, Op1.Foreach, baseReg, NoJump);
-	}
-
-	public uint codeCatch(uint line, ref Scope s, out uint checkReg)
-	{
-		pushScope(s);
-		checkReg = mFreeReg;
-		mScope.ehlevel++;
-		mTryCatchDepth++;
-		auto ret = codeJ(line, Op1.PushEH, mFreeReg, NoJump);
-		codeR(line, Op2.Catch, 0, 0, 0);
-		return ret;
-	}
-
-	public uint codeFinally(uint line, ref Scope s)
+	package uint codeCatch(ref CompileLoc loc, ref Scope s)
 	{
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		auto ret = codeJ(line, Op1.PushEH, mFreeReg, NoJump);
-		codeR(line, Op2.Finally, 0, 0, 0);
+		return codeJMulti(loc, Op1.PushEH, Op2.Catch, mFreeReg, NoJump);
+	}
+	
+	package uint popCatch(ref CompileLoc loc, ref CompileLoc catchLoc, uint catchBegin)
+	{
+		codeIMulti(loc, Op1.PopEH, Op2.Catch, 0, 0);
+		auto ret = makeJump(loc);
+		patchJumpToHere(catchBegin);
+		popScope(catchLoc);
+		mTryCatchDepth--;
 		return ret;
 	}
 
-	public void endCatchScope(uint line)
+	package uint codeFinally(ref CompileLoc loc, ref Scope s)
 	{
-		popScope(line);
+		pushScope(s);
+		mScope.ehlevel++;
+		mTryCatchDepth++;
+		return codeJMulti(loc, Op1.PushEH, Op2.Finally, mFreeReg, NoJump);
+	}
+
+	package void popFinally(ref CompileLoc loc, ref CompileLoc finallyLoc, uint finallyBegin)
+	{
+		codeIMulti(loc, Op1.PopEH, Op2.Finally, 0, 0);
+		patchJumpToHere(finallyBegin);
+		popScope(finallyLoc);
 		mTryCatchDepth--;
 	}
 
-	public void endFinallyScope(uint line)
+	package void endFinallyScope(ref CompileLoc loc)
 	{
-		popScope(line);
+		popScope(loc);
 		mTryCatchDepth--;
 	}
 
-	public bool inTryCatch()
+	package bool inTryCatch()
 	{
 		return mTryCatchDepth > 0;
 	}
 
-	public void codeContinue(CompileLoc location, char[] name)
+	package void codeContinue(ref CompileLoc loc, char[] name)
 	{
 		bool anyUpvals = false;
 		Scope* continueScope = void;
@@ -1600,7 +1809,7 @@ final class FuncState
 		if(name.length == 0)
 		{
 			if(mScope.continueScope is null)
-				c.semException(location, "No continuable control structure");
+				c.semException(loc, "No continuable control structure");
 
 			continueScope = mScope.continueScope;
 			anyUpvals = continueScope.hasUpval;
@@ -1616,24 +1825,24 @@ final class FuncState
 			}
 
 			if(continueScope is null)
-				c.semException(location, "No continuable control structure of that name");
+				c.semException(loc, "No continuable control structure of that name");
 
 			if(continueScope.continueScope !is continueScope)
-				c.semException(location, "Cannot continue control structure of that name");
+				c.semException(loc, "Cannot continue control structure of that name");
 		}
 
 		if(anyUpvals)
-			codeClose(location.line, continueScope.regStart);
+			codeClose(loc, continueScope.regStart);
 
 		auto diff = mScope.ehlevel - continueScope.ehlevel;
 
 		if(diff > 0)
-			codeI(location.line, Op1.Unwind, 0, diff);
+			codeI(loc, Op1.Unwind, 0, diff);
 
-		continueScope.continues = codeJ(location.line, Op1.Jmp, 1, continueScope.continues);
+		continueScope.continues = codeJ(loc, Op1.Jmp, 1, continueScope.continues);
 	}
 
-	public void codeBreak(CompileLoc location, char[] name)
+	package void codeBreak(ref CompileLoc loc, char[] name)
 	{
 		bool anyUpvals = false;
 		Scope* breakScope = void;
@@ -1641,7 +1850,7 @@ final class FuncState
 		if(name.length == 0)
 		{
 			if(mScope.breakScope is null)
-				c.semException(location, "No breakable control structure");
+				c.semException(loc, "No breakable control structure");
 
 			breakScope = mScope.breakScope;
 			anyUpvals = breakScope.hasUpval;
@@ -1657,27 +1866,54 @@ final class FuncState
 			}
 
 			if(breakScope is null)
-				c.semException(location, "No breakable control structure of that name");
+				c.semException(loc, "No breakable control structure of that name");
 
 			if(breakScope.breakScope !is breakScope)
-				c.semException(location, "Cannot break control structure of that name");
+				c.semException(loc, "Cannot break control structure of that name");
 		}
 
 		if(anyUpvals)
-			codeClose(location.line, breakScope.regStart);
+			codeClose(loc, breakScope.regStart);
 
 		auto diff = mScope.ehlevel - breakScope.ehlevel;
 
 		if(diff > 0)
-			codeI(location.line, Op1.Unwind, 0, diff);
+			codeI(loc, Op1.Unwind, 0, diff);
 
-		breakScope.breaks = codeJ(location.line, Op1.Jmp, 1, breakScope.breaks);
+		breakScope.breaks = codeJ(loc, Op1.Jmp, 1, breakScope.breaks);
+	}
+
+	package void defaultReturn(ref CompileLoc loc)
+	{
+		codeI(loc, Op1.SaveRets, 0, 1);
+		codeI(loc, Op1.Ret, 0, 0);
+	}
+	
+	package void codeRet(ref CompileLoc loc)
+	{
+		codeI(loc, Op1.Ret, 0, 0);
+	}
+	
+	package void codeUnwind(ref CompileLoc loc)
+	{
+		codeI(loc, Op1.Unwind, 0, mTryCatchDepth);
+	}
+	
+	package void codeMove(ref CompileLoc loc, uint dest, uint src)
+	{
+		if(dest != src)
+			codeR(loc, Op1.Move, dest, src, 0);
+	}
+	
+	package void codeEndFinal(ref CompileLoc loc)
+	{
+		codeI(loc, Op1.EndFinal, 0, 0);
 	}
 
 	// ---------------------------------------------------------------------------
 	// Constants
 
-	public int codeConst(CrocValue v)
+	package int addConst(CrocValue v)
 	{
 		foreach(i, ref con; mConstants)
 			if(con == v)
@@ -1685,51 +1921,52 @@ final class FuncState
 
 		mConstants.append(c.alloc, v);
 
-		if(mConstants.length >= Instruction.MaxConstants)
+		if(mConstants.length > Instruction.MaxConstants)
 			c.semException(mLocation, "Too many constants");
 
 		return mConstants.length - 1;
 	}
 
-	public int codeNullConst()
+	package int addNullConst()
 	{
-		return codeConst(CrocValue.nullValue);
+		return addConst(CrocValue.nullValue);
 	}
 
-	public int codeBoolConst(bool b)
+	package int addBoolConst(bool b)
 	{
-		return codeConst(CrocValue(b));
+		return addConst(CrocValue(b));
 	}
 
-	public int codeIntConst(crocint x)
+	package int addIntConst(crocint x)
 	{
-		return codeConst(CrocValue(x));
+		return addConst(CrocValue(x));
 	}
 
-	public int codeFloatConst(crocfloat x)
+	package int addFloatConst(crocfloat x)
 	{
-		return codeConst(CrocValue(x));
+		return addConst(CrocValue(x));
 	}
 
-	public int codeCharConst(dchar x)
+	package int addCharConst(dchar x)
 	{
-		return codeConst(CrocValue(x));
+		return addConst(CrocValue(x));
 	}
 
-	public int codeStringConst(char[] s)
+	package int addStringConst(char[] s)
 	{
-		return codeConst(CrocValue(createString(t, s)));
+		return addConst(CrocValue(createString(t, s)));
 	}
 
-	public void codeNulls(uint line, uint reg, uint num)
+	package void codeNulls(ref CompileLoc loc, uint reg, uint num)
 	{
-		codeI(line, Op1.LoadNulls, reg, num);
+		codeI(loc, Op1.LoadNulls, reg, num);
 	}
 
 	// ---------------------------------------------------------------------------
 	// Raw codegen funcs
 
-	package uint codeR(uint line, uint opcode, uint dest, uint src1, uint src2)
+private:
+	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, uint src1, uint src2)
 	{
 		Instruction i = void;
 		i.data =
@@ -1738,14 +1975,102 @@ final class FuncState
 			((src1 << Instruction.rsShift) & Instruction.rsMask) |
 			((src2 << Instruction.rtShift) & Instruction.rtMask);
 
-		debug(WRITECODE) Stdout.formatln("R {} {} {} {}", opcode, dest, src1, src2).flush;
+		return addInst(loc.line, i);
+	}
+	
+	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, Exp* src1, Exp* src2)
+	{
+		auto rs = encodeRSRT(src1);
+		auto rt = encodeRSRT(src2);
 
-		mLineInfo.append(c.alloc, line);
-		mCode.append(c.alloc, i);
-		return mCode.length - 1;
+		auto ret = codeR(loc, opcode, dest, rs, rt);
+
+		if(rs == Instruction.rsMax)
+			addInst(loc.line, Instruction(src1.index));
+
+		if(rt == Instruction.rtMax)
+			addInst(loc.line, Instruction(src2.index));
+
+		return ret;
 	}
 
-	package uint codeI(uint line, uint opcode, uint dest, uint imm)
+	uint codeR(ref CompileLoc loc, Op1 opcode, Exp* dest, Exp* src1, Exp* src2)
+	{
+		if(dest.type == ExpType.Const)
+		{
+			codeI(loc, Op1.LoadConst, mFreeReg, dest.index);
+			return codeR(loc, opcode, mFreeReg, src1, src2);
+		}
+		else
+			return codeR(loc, opcode, dest.index, src1, src2);
+	}
+
+	uint codeRMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint src1, uint src2)
+	{
+		auto ret = codeR(loc, opcode, dest, src1, src2);
+		codeSecond(loc, opcode2);
+		return ret;
+	}
+
+	uint codeRMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, Exp* src1, Exp* src2)
+	{
+		if(opcode2 == -1)
+			return codeR(loc, opcode, dest, src1, src2);
+
+		auto rs = encodeRSRT(src1);
+		auto rt = encodeRSRT(src2);
+
+		auto ret = codeR(loc, opcode, dest, rs, rt);
+		codeSecond(loc, opcode2);
+
+		if(rs == Instruction.rsMax)
+			addInst(loc.line, Instruction(src1.index));
+
+		if(rt == Instruction.rtMax)
+			addInst(loc.line, Instruction(src2.index));
+
+		return ret;
+	}
+
+	uint codeRJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue, uint dest, Exp* src1, Exp* src2)
+	{
+		auto rs = encodeRSRT(src1);
+		auto rt = encodeRSRT(src2);
+
+		codeR(loc, opcode, dest, rs, rt);
+		auto ret = makeJump(loc, opcode2, isTrue);
+
+		if(rs == Instruction.rsMax)
+			addInst(loc.line, Instruction(src1.index));
+
+		if(rt == Instruction.rtMax)
+			addInst(loc.line, Instruction(src2.index));
+
+		return ret;
+	}
+
+	uint encodeRSRT(Exp* src)
+	{
+		assert(src.isSource());
+
+		if(src.type == ExpType.Local)
+		{
+			assert(src.index <= Instruction.MaxRegisters);
+			return src.index;
+		}
+		else
+		{
+			if(src.index > Instruction.rsrtConstMax)
+			{
+				assert(src.index <= Instruction.MaxConstants);
+				return Instruction.rsMax;
+			}
+			else
+				return tagConst(src.index);
+		}
+	}
+
+	uint codeI(ref CompileLoc loc, Op1 opcode, uint dest, uint imm)
 	{
 		Instruction i = void;
 		i.data =
@@ -1753,14 +2078,28 @@ final class FuncState
 			((dest << Instruction.rdShift) & Instruction.rdMask) |
 			((imm << Instruction.immShift) & Instruction.immMask);
 
-		debug(WRITECODE) Stdout.formatln("I {} {} {}", opcode, dest, imm).flush;
-
-		mLineInfo.append(c.alloc, line);
-		mCode.append(c.alloc, i);
-		return mCode.length - 1;
+		return addInst(loc.line, i);
 	}
 
-	package uint codeJ(uint line, uint opcode, uint dest, int offs)
+	uint codeI(ref CompileLoc loc, Op1 opcode, Exp* dest, uint imm)
+	{
+		if(dest.type == ExpType.Const)
+		{
+			codeI(loc, Op1.LoadConst, mFreeReg, dest.index);
+			return codeI(loc, opcode, mFreeReg, imm);
+		}
+		else
+			return codeI(loc, opcode, dest.index, imm);
+	}
+
+	uint codeIMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint imm)
+	{
+		auto ret = codeI(loc, opcode, dest, imm);
+		codeSecond(loc, opcode2);
+		return ret;
+	}
+
+	uint codeJ(ref CompileLoc loc, uint opcode, uint dest, int offs)
 	{
 		// TODO: put this somewhere else. codeJ can be called with MaxJump which is an invalid value.
 // 		if(offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward)
@@ -1772,82 +2111,99 @@ final class FuncState
 			((dest << Instruction.rdShift) & Instruction.rdMask) |
 			((*(cast(uint*)&offs) << Instruction.immShift) & Instruction.immMask);
 
-		debug(WRITECODE) Stdout.formatln("J {} {} {}", opcode, dest, offs).flush;
+		return addInst(loc.line, i);
+	}
 
+	uint codeJMulti(ref CompileLoc loc, uint opcode, Op2 opcode2, uint dest, int offs)
+	{
+		auto ret = codeJ(loc, opcode, dest, offs);
+		codeSecond(loc, opcode2);
+		return ret;
+	}
+
+	uint codeSecond(ref CompileLoc loc, Op2 opcode)
+	{
+		Instruction i = void;
+		i.data = (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
+		return addInst(loc.line, i);
+	}
+
+	uint addInst(uint line, Instruction i)
+	{
 		mLineInfo.append(c.alloc, line);
 		mCode.append(c.alloc, i);
 		return mCode.length - 1;
 	}
-	
-	package void setOpcode(ref Instruction inst, uint opcode)
+
+	void setOpcode(ref Instruction inst, uint opcode)
 	{
 		assert(opcode <= Instruction.opcodeMax);
 		inst.data &= ~Instruction.opcodeMask;
 		inst.data |= (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
 	}
-	
-	package void setRD(ref Instruction inst, uint val)
+
+	void setRD(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rdMax);
 		inst.data &= ~Instruction.rdMask;
 		inst.data |= (val << Instruction.rdShift) & Instruction.rdMask;
 	}
-	
-	package void setRS(ref Instruction inst, uint val)
+
+	void setRS(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rsMax);
 		inst.data &= ~Instruction.rsMask;
 		inst.data |= (val << Instruction.rsShift) & Instruction.rsMask;
 	}
 
-	package void setRT(ref Instruction inst, uint val)
+	void setRT(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.rtMax);
 		inst.data &= ~Instruction.rtMask;
 		inst.data |= (val << Instruction.rtShift) & Instruction.rtMask;
 	}
-	
-	package void setImm(ref Instruction inst, int val)
+
+	void setImm(ref Instruction inst, int val)
 	{
 		assert(val == Instruction.NoJump || (val >= -Instruction.immMax && val <= Instruction.immMax));
 		inst.data &= ~Instruction.immMask;
 		inst.data |= (*(cast(uint*)&val) << Instruction.immShift) & Instruction.immMask;
 	}
 
-	package void setUImm(ref Instruction inst, uint val)
+	void setUImm(ref Instruction inst, uint val)
 	{
 		assert(val <= Instruction.uimmMax);
 		inst.data &= ~Instruction.immMask;
 		inst.data |= (val << Instruction.immShift) & Instruction.immMask;
 	}
 
-	package uint getOpcode(ref Instruction inst)
+	uint getOpcode(ref Instruction inst)
 	{
 		return (inst.data & Instruction.opcodeMask) >> Instruction.opcodeShift;
 	}
 
-	package uint getRD(ref Instruction inst)
+	uint getRD(ref Instruction inst)
 	{
 		return (inst.data & Instruction.rdMask) >> Instruction.rdShift;
 	}
 
-	package uint getRS(ref Instruction inst)
+	uint getRS(ref Instruction inst)
 	{
 		return (inst.data & Instruction.rsMask) >> Instruction.rsShift;
 	}
 
-	package uint getRT(ref Instruction inst)
+	uint getRT(ref Instruction inst)
 	{
 		return (inst.data & Instruction.rtMask) >> Instruction.rtShift;
 	}
 
-	package int getImm(ref Instruction inst)
+	int getImm(ref Instruction inst)
 	{
 		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
 		return (*cast(int*)&inst.data) >> Instruction.immShift;
 	}
 
-	package uint getUImm(ref Instruction inst)
+	uint getUImm(ref Instruction inst)
 	{
 		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
 		return inst.data >>> Instruction.immShift;
@@ -1920,7 +2276,7 @@ final class FuncState
 		return ret;
 	}
 
-	debug(SHOWME) public void showMe()
+	debug(SHOWME) package void showMe()
 	{
 		Stdout.formatln("Function at {}({}:{}) (guessed name: {})", mLocation.file, mLocation.line, mLocation.col, mName);
 		Stdout.formatln("Num params: {} Vararg: {} Stack size: {}", mNumParams, mIsVararg, mStackSize);
@@ -2136,7 +2492,7 @@ final class FuncState
 			case Op1.ForeachLoop:   Stdout("foreachloop");   commonUImm(i); condJump();     break;
 			case Op1.CheckObjParam: Stdout("checkobjparam"); commonCompare(i); condJump();  break;
 
-			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else Stdout.formatln("jmp {}", getImm(i)); break;
+			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else { Stdout("jmp"); commonImm(i); }; break;
 			case Op1.Switch:        Stdout.formatln("switch {}, {}", cr(getRS(i)), getRT(i)); break;
 			case Op1.For:           Stdout("for");     commonImm(i); break;
 			case Op1.ForLoop:       Stdout("forloop"); commonImm(i); break;
@@ -2226,7 +2582,7 @@ final class FuncState
 				auto two = nextIns();
 				switch(getOpcode(two))
 				{
-					case Op2.Array:          Stdout("newarr"); commonImm(i); break;
+					case Op2.Array:          Stdout("newarr"); commonUImm(i); break;
 					case Op2.Table:          Stdout("newtab"); commonNullary(i); break;
 					case Op2.Class:          Stdout("class"); commonBinary(i); break;
 					case Op2.Coroutine:      Stdout("coroutine"); commonUnary(i); break;

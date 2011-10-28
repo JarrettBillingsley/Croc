@@ -1901,16 +1901,19 @@ struct Parser
 		}
 
 		l.expect(Token.Assign);
-		
+
 		scope rhs = new List!(Expression)(c.alloc);
 		rhs ~= parseExpression();
-		
+
 		while(l.type == Token.Comma)
 		{
 			l.next();
 			rhs ~= parseExpression();
 		}
 		
+		if(lhs.length < rhs.length)
+			c.semException(location, "Assignment has fewer destinations than sources");
+
 		auto rhsArr = rhs.toArray();
 		return new(c) AssignStmt(c, location, rhsArr[$ - 1].endLocation, lhs.toArray(), rhsArr);
 	}

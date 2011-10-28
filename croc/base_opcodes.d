@@ -412,6 +412,8 @@ align(1) struct Instruction
 	const int  immMax = (1 << (immSize - 1)) - 1;
 	const uint uimmMax = (1 << immSize) - 1;
 
+	const uint rsrtConstMax = (1 << (rtSize - 1)) - 2;
+
 	const uint MaxRegisters = rdMax - 1;
 	const uint MaxConstants = uimmMax - 1;
 	const uint MaxUpvalues = uimmMax - 1;
