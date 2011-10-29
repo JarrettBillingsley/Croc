@@ -256,6 +256,7 @@ scope class Codegen : Visitor
 
 		/*
 		if(s.def.params.any((ref Param p) { return p.typeMask != TypeMask.Any; }))
+		if(s.def.params.findIf((ref Param p) { return p.typeMask != TypeMask.Any; }) != s.def.params.length)
 			fs.paramCheck(s.def.code.location);
 		*/
 

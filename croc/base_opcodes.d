@@ -65,7 +65,6 @@ enum Op1
 	Unwind,
 
 	Method, //
-	MethodNC, //
 	SuperMethod, //
 	Call,
 	Tailcall,

@@ -2543,7 +2543,7 @@ private:
 			case Op1.ForeachLoop:   Stdout("foreachloop");   commonUImm(i); condJump();     break;
 			case Op1.CheckObjParam: Stdout("checkobjparam"); commonCompare(i); condJump();  break;
 
-			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else { Stdout("jmp"); commonImm(i); }; break;
+			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else { Stdout("jmp"); commonImm(i); }; break; // THIS IS WRONG
 			case Op1.Switch:        Stdout.formatln("switch {}, {}", cr(getRS(i)), getRT(i)); break;
 			case Op1.For:           Stdout("for");     commonImm(i); break;
 			case Op1.ForLoop:       Stdout("forloop"); commonImm(i); break;
@@ -2574,7 +2574,6 @@ private:
 			case Op1.Throw:       Stdout.formatln("{}throw {}", getRT(i) ? "re" : "", cr(getRS(i))); break;
 			case Op1.Unwind:      Stdout.formatln("unwind {}", getUImm(i)); break;
 			case Op1.Method:      Stdout("method"); commonBinary(i); break;
-			case Op1.MethodNC:    Stdout("methodnc"); commonBinary(i); break;
 			case Op1.SuperMethod: Stdout("smethod"); commonBinary(i); break;
 			case Op1.Call:        Stdout.formatln("call r{}, {}, {}", getRD(i), getRS(i), getRT(i)); break;
 			case Op1.Tailcall:    Stdout.formatln("tcall r{}, {}", getRD(i), getRS(i)); break;
