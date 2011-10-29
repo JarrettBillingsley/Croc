@@ -1257,7 +1257,7 @@ package:
 			case ExpType.Slice:       codeR(loc, Op1.Slice, reg, src.index, 0); break;
 			case ExpType.Vararg:      setRD(mCode[src.index], reg); setUImm(mCode[src.index], 2); break;
 			case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndex, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
-			case ExpType.VarargSlice: codeRMulti(loc, Op1.Vararg, Op2.VargSlice, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.VarargSlice: codeIMulti(loc, Op1.Vararg, Op2.VargSlice, src.index, 2); codeMove(loc, reg, src.index); break;
 			case ExpType.Length:      codeR(loc, Op1.Length, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
 			case ExpType.Call:        codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
 			case ExpType.Yield:       codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
@@ -1355,7 +1355,7 @@ package:
 	void toSource(ref CompileLoc loc)
 	{
 		auto e = *getExp(-1);
-		
+
 		if(e.type == ExpType.Const || e.type == ExpType.Local)
 			return;
 		else
@@ -1481,7 +1481,7 @@ package:
 
 		pop(2);
 		mFreeReg = hi.regAfter;
-		pushExp(ExpType.VarargSlice, packRegOrConst(lo), packRegOrConst(hi));
+		pushExp(ExpType.VarargSlice, lo.index);
 	}
 
 	void length()
