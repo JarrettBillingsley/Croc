@@ -2813,7 +2813,7 @@ void execute(CrocThread* t, uword depth = 1)
 // 				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
 // 				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
 // 				case Instruction.locUpval: return upvals[index & ~Instruction.locMask].value;
-// 
+//
 // 				default:
 // 					auto name = constTable[index & ~Instruction.locMask].mString;
 // 
@@ -2934,11 +2934,6 @@ void execute(CrocThread* t, uword depth = 1)
 				// Data Transfer
 				case Op.Move: *mixin(GetRD) = *mixin(GetRS); break;
 				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
-
-				case Op.LoadNulls:
-					auto start = stackBase + i.rd;
-					t.stack[start .. start + i.imm] = CrocValue.nullValue;
-					break;
 
 				case Op.NewGlobal:
 					auto name = constTable[i.rt & ~Instruction.locMask].mString;

@@ -565,7 +565,7 @@ package:
 			// Happens when all the cases are dynamic and there is a default -- no need to add a switch table then
 			setOpcode(mCode[mSwitch.switchPC], Op1.Jmp);
 			setRD(mCode[mSwitch.switchPC], 1);
-			setImm(mCode[mSwitch.switchPC], mSwitch.defaultOffset);
+			setJumpOffset(mCode[mSwitch.switchPC], mSwitch.defaultOffset);
 		}
 
 		mSwitch = prev;
@@ -1364,7 +1364,7 @@ package:
 
 	void patchJumpTo(uint src, uint dest)
 	{
-		setImm(mCode[src], dest - src - 1);
+		setJumpOffset(mCode[src], dest - src - 1);
 	}
 
 	void patchJumpToHere(uint src)
@@ -1428,7 +1428,7 @@ package:
 					idx = next;
 			}
 
-			setImm(mCode[idx], j);
+			setJumpOffset(mCode[idx], j);
 		}
 	}
 
@@ -1450,7 +1450,7 @@ package:
 					idx = next;
 			}
 
-			setImm(mCode[idx], j);
+			setJumpOffset(mCode[idx], j);
 		}
 	}
 
@@ -1462,7 +1462,7 @@ package:
 		auto j = i.trueList;
 		assert(j !is NoJump);
 		i.trueList = getImm(mCode[j]);
-		setImm(mCode[j], i.falseList);
+		setJumpOffset(mCode[j], i.falseList);
 		i.falseList = j;
 		setRD(mCode[j], !getRD(mCode[j]));
 	}
@@ -1788,18 +1788,14 @@ private:
 		return mConstants.length - 1;
 	}
 
-	uint tagConst(uint val)
-	{
-		return val | Instruction.constBit;
-	}
-
-	bool isConstTag(uint val)
-	{
-		return (val & Instruction.constBit) != 0;
-	}
-
 	// ---------------------------------------------------------------------------
 	// Codegen helpers
+
+	void setJumpOffset(ref Instruction i, int offs)
+	{
+		if(offs != NoJump && (offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward))
+			c.semException(mLocation, "Code is too big to perform jump, consider splitting function");
+	}
 
 	uint prepareArgList(ref CompileLoc loc, Exp[] items)
 	{
@@ -1947,6 +1943,7 @@ private:
 		if(mNamespaceReg > 0)
 			codeMove(loc, destReg, mNamespaceReg);
 
+		// TODO: change this so that funcdefs keep their upval tables in the object rather than embedding in the instruction stream
 		codeIMulti(loc, Op1.New, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, destReg, mInnerFuncs.length - 1);
 
 		foreach(ref ud; fs.mUpvals)
@@ -2078,7 +2075,7 @@ private:
 				return Instruction.rsMax;
 			}
 			else
-				return tagConst(src.index);
+				return src.index | Instruction.constBit;
 		}
 	}
 
@@ -2116,10 +2113,6 @@ private:
 
 	uint codeJ(ref CompileLoc loc, uint opcode, uint dest, int offs)
 	{
-		// TODO: put this somewhere else. codeJ can be called with MaxJump which is an invalid value.
-// 		if(offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward)
-// 			assert(false, "jump too large");
-
 		Instruction i = void;
 		i.data =
 			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
@@ -2353,7 +2346,7 @@ private:
 
 		char[] cr(uint v)
 		{
-			if(isConstTag(v))
+			if(v & Instruction.constBit)
 			{
 				if(v == Instruction.rsMax)
 					return Format("c{}", nextIns().data);
