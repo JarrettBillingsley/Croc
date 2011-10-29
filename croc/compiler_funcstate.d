@@ -49,8 +49,7 @@ import croc.types_funcdef;
 debug = SHOWME;
 debug = EXPSTACKCHECK;
 
-// TODO: abstract codegen enough that these can be made private
-package Op1 AstTagToOpcode1(AstTag tag)
+private Op1 AstTagToOpcode1(AstTag tag)
 {
 	switch(tag)
 	{
@@ -111,7 +110,7 @@ package Op1 AstTagToOpcode1(AstTag tag)
 	}
 }
 
-package Op2 AstTagToOpcode2(AstTag tag)
+private Op2 AstTagToOpcode2(AstTag tag)
 {
 	switch(tag)
 	{
@@ -236,7 +235,7 @@ private:
 	}
 }
 
-package const uint NoJump = Instruction.NoJump;
+private const uint NoJump = Instruction.NoJump;
 
 struct InstRef
 {
@@ -336,10 +335,15 @@ private:
 	SwitchDesc[] mSwitchTables;
 	uint[] mLineInfo;
 	LocVarDesc[] mLocVars;
-	
+
 	uword mDummyNameCounter = 0;
 
+	// ================================================================================================================================================
+	// Package
+	// ================================================================================================================================================
+
 package:
+
 	this(ICompiler c, CompileLoc location, char[] name, FuncState parent = null)
 	{
 		this.c = c;
@@ -374,7 +378,7 @@ package:
 	{
 		mIsVararg = isVararg;
 	}
-	
+
 	bool isVararg()
 	{
 		return mIsVararg;
@@ -393,7 +397,6 @@ package:
 	// ---------------------------------------------------------------------------
 	// Debugging
 
-package:
 	debug void printExpStack()
 	{
 		Stdout.formatln("Expression Stack");
@@ -413,7 +416,6 @@ package:
 	// ---------------------------------------------------------------------------
 	// Scopes
 
-package:
 	void pushScope(ref Scope s)
 	{
 		if(mScope)
@@ -482,7 +484,6 @@ package:
 	// ---------------------------------------------------------------------------
 	// Locals
 
-package:
 	void addParam(Identifier ident, uint typeMask)
 	{
 		insertLocal(ident);
@@ -530,74 +531,9 @@ package:
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
 	}
 
-private:
-	uint insertDummyLocal(CompileLoc loc, char[] fmt)
-	{
-		pushFormat(c.thread, fmt, mDummyNameCounter++);
-		auto str = c.newString(getString(c.thread, -1));
-		.pop(c.thread);
-		return insertLocal(new(c) Identifier(c, loc, str));
-	}
-
-	int searchLocal(char[] name, out uint reg)
-	{
-		for(int i = mLocVars.length - 1; i >= 0; i--)
-		{
-			if(mLocVars[i].isActive && mLocVars[i].name == name)
-			{
-				reg = mLocVars[i].reg;
-				return i;
-			}
-		}
-
-		return -1;
-	}
-
-	void deactivateLocals(uint varStart, uint regTo)
-	{
-		for(word i = mLocVars.length - 1; i >= cast(word)varStart; i--)
-		{
-			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
-			{
-				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
-				mLocVars[i].isActive = false;
-				mLocVars[i].pcEnd = mCode.length;
-			}
-		}
-	}
-
-	void codeClose(ref CompileLoc loc, uint reg)
-	{
-		codeI(loc, Op1.Close, reg, 0);
-	}
-
-	uint tagLocal(uint val)
-	{
-		if(val > Instruction.MaxRegisters)
-			c.semException(mLocation, "Too many locals");
-
-		return val;
-	}
-
-	uint tagConst(uint val)
-	{
-		return val | Instruction.constBit;
-	}
-
-	bool isLocalTag(uint val)
-	{
-		return (val & Instruction.constBit) == 0;
-	}
-
-	bool isConstTag(uint val)
-	{
-		return (val & Instruction.constBit) != 0;
-	}
-
 	// ---------------------------------------------------------------------------
 	// Switches
 
-package:
 	void beginSwitch(ref SwitchDesc s, ref CompileLoc loc)
 	{
 		auto cond = getExp(-1);
@@ -731,72 +667,11 @@ package:
 
 		patchJumpTo(j, desc.beginLoop);
 		patchBreaksToHere();
-
-		mFreeReg = desc.baseReg;
-	}
-
-	// ---------------------------------------------------------------------------
-	// Register manipulation
-
-private:
-	uint nextRegister()
-	{
-		return mFreeReg;
-	}
-
-	uint pushRegister()
-	{
-		debug(REGPUSHPOP) Stdout.formatln("push {}", mFreeReg);
-		mFreeReg++;
-
-		if(mFreeReg > Instruction.MaxRegisters)
-			c.semException(mLocation, "Too many registers");
-
-		if(mFreeReg > mStackSize)
-			mStackSize = mFreeReg;
-
-		return mFreeReg - 1;
-	}
-
-	void popRegister(uint r)
-	{
-		mFreeReg--;
-		debug(REGPUSHPOP) Stdout.formatln("pop {}, {}", mFreeReg, r);
-
-		assert(mFreeReg >= 0, "temp reg underflow");
-		assert(mFreeReg == r, (pushFormat(c.thread, "reg not freed in order (popping {}, free reg is {})", r, mFreeReg), getString(t, -1)));
 	}
 
 	// ---------------------------------------------------------------------------
 	// Basic expression stack manipulation
 
-private:
-	Exp* pushExp(ExpType type = ExpType.init, uint index = 0, uint index2 = 0)
-	{
-		if(mExpSP >= mExpStack.length)
-		{
-			if(mExpStack.length == 0)
-				c.alloc.resizeArray(mExpStack, 10);
-			else
-				c.alloc.resizeArray(mExpStack, mExpStack.length * 2);
-		}
-
-		auto ret = &mExpStack[mExpSP++];
-		ret.type = type;
-		ret.index = index;
-		ret.index2 = index2;
-		ret.regAfter = mFreeReg;
-		return ret;
-	}
-
-	Exp* getExp(int idx)
-	{
-		assert(idx < 0);
-		assert(mExpSP >= -idx);
-		return &mExpStack[mExpSP + idx];
-	}
-
-package:
 	void pop(uword num = 1)
 	{
 		assert(num != 0);
@@ -820,7 +695,6 @@ package:
 	// ---------------------------------------------------------------------------
 	// Expression stack pushes
 
-package:
 	void pushNull()
 	{
 		pushConst(addNullConst());
@@ -856,11 +730,6 @@ package:
 		pushExp(ExpType.NewGlobal, addStringConst(name.name));
 	}
 
-	private void pushConst(uint index)
-	{
-		pushExp(ExpType.Const, index);
-	}
-
 	void pushThis()
 	{
 		pushExp(ExpType.Local, 0);
@@ -889,7 +758,7 @@ package:
 
 				ud.name = name.name;
 				ud.isUpvalue = (varType == ExpType.Upval);
-				ud.index = tagLocal(e.index);
+				ud.index = e.index;
 
 				s.mUpvals.append(c.alloc, ud);
 
@@ -920,7 +789,7 @@ package:
 			}
 			else
 			{
-				e.index = tagLocal(reg);
+				e.index = reg;
 				varType = ExpType.Local;
 
 				if(!isOriginal)
@@ -976,16 +845,13 @@ package:
 
 	void pushNewLocals(uword num)
 	{
-		auto reg = mFreeReg;
-
-		for(; num; num--, reg++)
-			pushExp(ExpType.NewLocal, reg);
+		for(auto reg = mFreeReg; num; num--, reg++)
+			pushExp(ExpType.NewLocal, checkRegOK(reg));
 	}
 
 	// ---------------------------------------------------------------------------
 	// Expression stack pops
 
-package:
 	void popToNothing()
 	{
 		if(mExpSP == 0)
@@ -1074,17 +940,6 @@ package:
 		return ret;
 	}
 
-	private uint commonCmpJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue)
-	{
-		auto src1 = getExp(-2);
-		auto src2 = getExp(-1);
-		debug(EXPSTACKCHECK) assert(src1.isSource());
-		debug(EXPSTACKCHECK) assert(src2.isSource());
-		auto ret = codeRJump(loc, opcode, opcode2, isTrue, 0, src1, src2);
-		pop(2);
-		return ret;
-	}
-
 	uint codeCmp(ref CompileLoc loc, Op2 type, bool isTrue)
 	{
 		return commonCmpJump(loc, Op1.Cmp, type, isTrue);
@@ -1129,163 +984,12 @@ package:
 		pop(numRets);
 	}
 
-	private uint prepareArgList(ref CompileLoc loc, Exp[] items)
-	{
-		if(items.length == 0)
-			return 1;
-
-		debug(EXPSTACKCHECK) foreach(ref i; items[0 .. $ - 1]) assert(i.type == ExpType.Temporary);
-
-		if(items[$ - 1].isMultRet())
-		{
-			multRetToRegs(loc, -1);
-			return 0;
-		}
-		else
-		{
-			debug(EXPSTACKCHECK) assert(items[$ - 1].type == ExpType.Temporary);
-			return items.length + 1;
-		}
-	}
-
-	private bool prepareAssignment(ref CompileLoc loc, uint numLhs, uint numRhs, out Exp[] lhs, out Exp[] rhs)
-	{
-		debug { auto check = mExpSP - (numLhs + numRhs); if(mExpStack[mExpSP - numRhs - 1].type == ExpType.Conflict) check--; }
-		assert(numLhs >= numRhs);
-
-		rhs = mExpStack[mExpSP - numRhs .. mExpSP];
-
-// 		debug(EXPSTACKCHECK) foreach(ref i; rhs[0 .. $ - 1]) assert(i.isSource(), (printExpStack(), "poop"));
-
-		if(rhs.length > 0 && rhs[$ - 1].isMultRet())
-		{
-			multRetToRegs(loc, numLhs - numRhs + 1);
-
-			for(uint i = numRhs, idx = rhs[$ - 1].index; i < numLhs; i++, idx++)
-				pushExp(ExpType.Local, idx);
-		}
-		else
-		{
-// 			debug(EXPSTACKCHECK) assert(rhs[$ - 1].isSource());
-
-			for(uint i = numRhs; i < numLhs; i++)
-				pushNull();
-		}
-
-		// Could have changed size and/or pointer could have been invalidated
-		rhs = mExpStack[mExpSP - numLhs .. mExpSP];
-
-		bool ret;
-
-		if(mExpStack[mExpSP - numLhs - 1].type == ExpType.Conflict)
-		{
-			lhs = mExpStack[mExpSP - numLhs - 1 - numLhs .. mExpSP - numLhs - 1];
-			ret = true;
-		}
-		else
-		{
-			lhs = mExpStack[mExpSP - numLhs - numLhs .. mExpSP - numLhs];
-			ret = false;
-		}
-
-		assert(check == (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)), Format("oh noes: {} {}", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)));
-		debug(EXPSTACKCHECK) foreach(ref i; lhs) assert(i.isDest());
-		return ret;
-	}
-
-	private void multRetToRegs(ref CompileLoc loc, int num)
-	{
-		auto src = getExp(-1);
-
-		switch(src.type)
-		{
-			case ExpType.Vararg, ExpType.VarargSlice:
-				setUImm(mCode[src.index], num + 1);
-				break;
-
-			case ExpType.Call, ExpType.Yield:
-				setRT(mCode[src.index], num + 1);
-				break;
-
-			default:
-				assert(false, (printExpStack(), "poop"));
-		}
-
-		src.type = ExpType.Temporary;
-		src.index = getRD(mCode[src.index]);
-	}
-
-	private void popMoveTo(ref CompileLoc loc, ref Exp dest)
-	{
-		if(dest.type == ExpType.Local || dest.type == ExpType.NewLocal)
-			moveToReg(loc, dest.index, *getExp(-1));
-		else
-		{
-			toSource(loc);
-
-			switch(dest.type)
-			{
-				case ExpType.Upval:       codeI(loc, Op1.SetUpval,    getExp(-1), dest.index); break;
-				case ExpType.Global:      codeI(loc, Op1.SetGlobal,   getExp(-1), dest.index); break;
-				case ExpType.NewGlobal:   codeI(loc, Op1.NewGlobal,   getExp(-1), dest.index); break;
-				case ExpType.Slice:       codeR(loc, Op1.SliceAssign, dest.index, getExp(-1), Exp.Empty); break;
-				case ExpType.Index:       codeR(loc, Op1.IndexAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
-				case ExpType.Field:       codeR(loc, Op1.FieldAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
-				case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndexAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
-				case ExpType.Length:      codeR(loc, Op1.LengthAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
-				default: assert(false);
-			}
-		}
-
-		pop();
-	}
-
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
-	private void moveToReg(ref CompileLoc loc, uint reg, ref Exp src)
-	{
-		switch(src.type)
-		{
-			case ExpType.Const:       codeI(loc, Op1.LoadConst, reg, src.index); break;
-			case ExpType.Local:
-			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
-			case ExpType.Upval:       codeI(loc, Op1.GetUpval, reg, src.index); break;
-			case ExpType.Global:      codeI(loc, Op1.GetGlobal, reg, src.index); break;
-			case ExpType.Index:       codeR(loc, Op1.Index, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
-			case ExpType.Field:       codeR(loc, Op1.Field, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
-			case ExpType.Slice:       codeR(loc, Op1.Slice, reg, src.index, 0); break;
-			case ExpType.Vararg:      setRD(mCode[src.index], reg); setUImm(mCode[src.index], 2); break;
-			case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndex, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
-			case ExpType.VarargSlice: codeIMulti(loc, Op1.Vararg, Op2.VargSlice, src.index, 2); codeMove(loc, reg, src.index); break;
-			case ExpType.Length:      codeR(loc, Op1.Length, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
-			case ExpType.Call:        codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
-			case ExpType.Yield:       codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
-			case ExpType.NeedsDest:   setRD(mCode[src.index], reg); break;
-			default: assert(false);
-		}
-	}
-
-	private uint packRegOrConst(ref Exp e)
-	{
-		if(e.type == ExpType.Local)
-			return e.index;
-		else
-			return e.index + Instruction.rsrtConstMax + 1;
-	}
-
-	private Exp unpackRegOrConst(uint idx)
-	{
-		if(idx > Instruction.rsrtConstMax)
-			return Exp(ExpType.Const, idx - Instruction.rsrtConstMax - 1);
-		else
-			return Exp(ExpType.Local, idx);
-	}
-
-package:
 	void paramCheck(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.CheckParams, 0, 0);	
+		codeI(loc, Op1.CheckParams, 0, 0);
 	}
 
 	void reflexOp(ref CompileLoc loc, AstTag type, uint operands)
@@ -1343,7 +1047,7 @@ package:
 		if(numTemps > 0)
 			pushExp(ExpType.Conflict);
 	}
-	
+
 	void flushSideEffects(ref CompileLoc loc)
 	{
 		auto e = getExp(-1);
@@ -1396,7 +1100,7 @@ package:
 			pushExp(ExpType.Temporary, reg);
 		}
 	}
-	
+
 	void newClass(ref CompileLoc loc)
 	{
 		auto name = getExp(-2);
@@ -1504,12 +1208,12 @@ package:
 		debug(EXPSTACKCHECK) assert(base.type == ExpType.Temporary);
 		debug(EXPSTACKCHECK) assert(lo.type == ExpType.Temporary);
 		debug(EXPSTACKCHECK) assert(hi.type == ExpType.Temporary);
-		
+
 		pop(3);
 		mFreeReg = hi.regAfter;
 		pushExp(ExpType.Slice, base.index);
 	}
-	
+
 	void binOp(ref CompileLoc loc, AstTag type, uint numOps = 2)
 	{
 		assert(mExpSP >= numOps);
@@ -1532,7 +1236,7 @@ package:
 		pop(numOps);
 		pushExp(ExpType.NeedsDest, inst);
 	}
-	
+
 	void unOp(ref CompileLoc loc, AstTag type)
 	{
 		auto src = getExp(-1);
@@ -1561,7 +1265,7 @@ package:
 		{
 			for(int i = mFreeReg; i < desc.baseReg + num; i++)
 				pushRegister();
-				
+
 			mExpStack[desc.baseExp + num - 1].regAfter = mFreeReg;
 		}
 
@@ -1614,7 +1318,7 @@ package:
 		assert(mExpSP >= numArgs);
 
 		if(numArgs == 0)
-			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, mFreeReg, 1, 0));
+			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, checkRegOK(mFreeReg), 1, 0));
 		else
 		{
 			auto args = mExpStack[mExpSP - numArgs .. mExpSP];
@@ -1625,7 +1329,7 @@ package:
 		}
 	}
 
-	package void makeTailcall()
+	void makeTailcall()
 	{
 		auto e = getExp(-1);
 		debug(EXPSTACKCHECK) assert(e.type == ExpType.Call);
@@ -1633,38 +1337,18 @@ package:
 		setOpcode(mCode[e.index], Op1.Tailcall);
 	}
 
-	package void codeClosure(FuncState fs, uint destReg)
-	{
-		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
-
-		if(mInnerFuncs.length > Instruction.MaxInnerFuncs)
-			c.semException(mLocation, "Too many inner functions");
-
-		auto loc = fs.mLocation;
-
-		if(mNamespaceReg > 0)
-			codeR(loc, Op1.Move, destReg, mNamespaceReg, 0);
-
-		codeIMulti(loc, Op1.New, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, destReg, mInnerFuncs.length - 1);
-
-		foreach(ref ud; fs.mUpvals)
-			codeI(loc, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
-
-		mInnerFuncs[$ - 1] = fs.toFuncDef();
-	}
-
-	package void beginNamespace(ref CompileLoc loc)
+	void beginNamespace(ref CompileLoc loc)
 	{
 		assert(mNamespaceReg == 0);
 
 		auto e = getExp(-1);
 
 		debug(EXPSTACKCHECK) assert(e.type == ExpType.NeedsDest);
-		mNamespaceReg = mFreeReg;
+		mNamespaceReg = checkRegOK(mFreeReg);
 		toSource(loc);
 	}
 
-	package void endNamespace()
+	void endNamespace()
 	{
 		assert(mNamespaceReg != 0);
 		mNamespaceReg = 0;
@@ -1673,22 +1357,22 @@ package:
 	// ---------------------------------------------------------------------------
 	// Control flow
 
-	package uint here()
+	uint here()
 	{
 		return mCode.length;
 	}
 
-	package void patchJumpTo(uint src, uint dest)
+	void patchJumpTo(uint src, uint dest)
 	{
 		setImm(mCode[src], dest - src - 1);
 	}
 
-	package void patchJumpToHere(uint src)
+	void patchJumpToHere(uint src)
 	{
 		patchJumpTo(src, here());
 	}
 
-	package void patchListTo(uint j, uint dest)
+	void patchListTo(uint j, uint dest)
 	{
 		for(uint next = void; j != NoJump; j = next)
 		{
@@ -1697,36 +1381,36 @@ package:
 		}
 	}
 
-	package void patchContinuesTo(uint dest)
+	void patchContinuesTo(uint dest)
 	{
 		patchListTo(mScope.continues, dest);
 		mScope.continues = NoJump;
 	}
 
-	package void patchBreaksToHere()
+	void patchBreaksToHere()
 	{
 		patchListTo(mScope.breaks, here());
 		mScope.breaks = NoJump;
 	}
 
-	package void patchContinuesToHere()
+	void patchContinuesToHere()
 	{
 		patchContinuesTo(here());
 	}
 
-	package void patchTrueToHere(ref InstRef i)
+	void patchTrueToHere(ref InstRef i)
 	{
 		patchListTo(i.trueList, here());
 		i.trueList = NoJump;
 	}
 
-	package void patchFalseToHere(ref InstRef i)
+	void patchFalseToHere(ref InstRef i)
 	{
 		patchListTo(i.falseList, here());
 		i.falseList = NoJump;
 	}
-	
-	package void catToTrue(ref InstRef i, uint j)
+
+	void catToTrue(ref InstRef i, uint j)
 	{
 		if(i.trueList == NoJump)
 			i.trueList = j;
@@ -1748,7 +1432,7 @@ package:
 		}
 	}
 
-	package void catToFalse(ref InstRef i, uint j)
+	void catToFalse(ref InstRef i, uint j)
 	{
 		if(i.falseList == NoJump)
 			i.falseList = j;
@@ -1770,7 +1454,7 @@ package:
 		}
 	}
 
-	package void invertJump(ref InstRef i)
+	void invertJump(ref InstRef i)
 	{
 		debug assert(!i.inverted);
 		debug i.inverted = true;
@@ -1783,25 +1467,25 @@ package:
 		setRD(mCode[j], !getRD(mCode[j]));
 	}
 
-	package void codeJump(ref CompileLoc loc, uint dest)
+	void jumpTo(ref CompileLoc loc, uint dest)
 	{
 		codeJ(loc, Op1.Jmp, true, dest - here() - 1);
 	}
 
-	package uint makeJump(ref CompileLoc loc, uint type = Op1.Jmp, bool isTrue = true)
+	uint makeJump(ref CompileLoc loc, uint type = Op1.Jmp, bool isTrue = true)
 	{
 		return codeJ(loc, type, isTrue, NoJump);
 	}
 
-	package uint codeCatch(ref CompileLoc loc, ref Scope s)
+	uint codeCatch(ref CompileLoc loc, ref Scope s)
 	{
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJMulti(loc, Op1.PushEH, Op2.Catch, mFreeReg, NoJump);
+		return codeJMulti(loc, Op1.PushEH, Op2.Catch, checkRegOK(mFreeReg), NoJump);
 	}
-	
-	package uint popCatch(ref CompileLoc loc, ref CompileLoc catchLoc, uint catchBegin)
+
+	uint popCatch(ref CompileLoc loc, ref CompileLoc catchLoc, uint catchBegin)
 	{
 		codeIMulti(loc, Op1.PopEH, Op2.Catch, 0, 0);
 		auto ret = makeJump(loc);
@@ -1811,15 +1495,15 @@ package:
 		return ret;
 	}
 
-	package uint codeFinally(ref CompileLoc loc, ref Scope s)
+	uint codeFinally(ref CompileLoc loc, ref Scope s)
 	{
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJMulti(loc, Op1.PushEH, Op2.Finally, mFreeReg, NoJump);
+		return codeJMulti(loc, Op1.PushEH, Op2.Finally, checkRegOK(mFreeReg), NoJump);
 	}
 
-	package void popFinally(ref CompileLoc loc, ref CompileLoc finallyLoc, uint finallyBegin)
+	void popFinally(ref CompileLoc loc, ref CompileLoc finallyLoc, uint finallyBegin)
 	{
 		codeIMulti(loc, Op1.PopEH, Op2.Finally, 0, 0);
 		patchJumpToHere(finallyBegin);
@@ -1827,18 +1511,12 @@ package:
 		mTryCatchDepth--;
 	}
 
-	package void endFinallyScope(ref CompileLoc loc)
-	{
-		popScope(loc);
-		mTryCatchDepth--;
-	}
-
-	package bool inTryCatch()
+	bool inTryCatch()
 	{
 		return mTryCatchDepth > 0;
 	}
 
-	package void codeContinue(ref CompileLoc loc, char[] name)
+	void codeContinue(ref CompileLoc loc, char[] name)
 	{
 		bool anyUpvals = false;
 		Scope* continueScope = void;
@@ -1879,7 +1557,7 @@ package:
 		continueScope.continues = codeJ(loc, Op1.Jmp, 1, continueScope.continues);
 	}
 
-	package void codeBreak(ref CompileLoc loc, char[] name)
+	void codeBreak(ref CompileLoc loc, char[] name)
 	{
 		bool anyUpvals = false;
 		Scope* breakScope = void;
@@ -1920,37 +1598,183 @@ package:
 		breakScope.breaks = codeJ(loc, Op1.Jmp, 1, breakScope.breaks);
 	}
 
-	package void defaultReturn(ref CompileLoc loc)
+	void defaultReturn(ref CompileLoc loc)
 	{
 		codeI(loc, Op1.SaveRets, 0, 1);
 		codeI(loc, Op1.Ret, 0, 0);
 	}
-	
-	package void codeRet(ref CompileLoc loc)
+
+	void codeRet(ref CompileLoc loc)
 	{
 		codeI(loc, Op1.Ret, 0, 0);
 	}
-	
-	package void codeUnwind(ref CompileLoc loc)
+
+	void codeUnwind(ref CompileLoc loc)
 	{
 		codeI(loc, Op1.Unwind, 0, mTryCatchDepth);
 	}
-	
-	package void codeMove(ref CompileLoc loc, uint dest, uint src)
-	{
-		if(dest != src)
-			codeR(loc, Op1.Move, dest, src, 0);
-	}
-	
-	package void codeEndFinal(ref CompileLoc loc)
+
+	void codeEndFinal(ref CompileLoc loc)
 	{
 		codeI(loc, Op1.EndFinal, 0, 0);
+	}
+
+	// ================================================================================================================================================
+	// Private
+	// ================================================================================================================================================
+
+private:
+
+	// ---------------------------------------------------------------------------
+	// Exp handling
+
+	Exp* pushExp(ExpType type = ExpType.init, uint index = 0, uint index2 = 0)
+	{
+		if(mExpSP >= mExpStack.length)
+		{
+			if(mExpStack.length == 0)
+				c.alloc.resizeArray(mExpStack, 10);
+			else
+				c.alloc.resizeArray(mExpStack, mExpStack.length * 2);
+		}
+
+		auto ret = &mExpStack[mExpSP++];
+		ret.type = type;
+		ret.index = index;
+		ret.index2 = index2;
+		ret.regAfter = mFreeReg;
+		return ret;
+	}
+
+	Exp* getExp(int idx)
+	{
+		assert(idx < 0);
+		assert(mExpSP >= -idx);
+		return &mExpStack[mExpSP + idx];
+	}
+
+	uint packRegOrConst(ref Exp e)
+	{
+		if(e.type == ExpType.Local)
+			return e.index;
+		else
+			return e.index + Instruction.rsrtConstMax + 1;
+	}
+
+	Exp unpackRegOrConst(uint idx)
+	{
+		if(idx > Instruction.rsrtConstMax)
+			return Exp(ExpType.Const, idx - Instruction.rsrtConstMax - 1);
+		else
+			return Exp(ExpType.Local, idx);
+	}
+
+	// ---------------------------------------------------------------------------
+	// Register manipulation
+
+	uint pushRegister()
+	{
+		checkRegOK(mFreeReg);
+
+		debug(REGPUSHPOP) Stdout.formatln("push {}", mFreeReg);
+		mFreeReg++;
+
+		if(mFreeReg > mStackSize)
+			mStackSize = mFreeReg;
+
+		return mFreeReg - 1;
+	}
+
+	uint checkRegOK(uint reg)
+	{
+		if(reg > Instruction.MaxRegisters)
+			c.semException(mLocation, "Too many registers");
+
+		return reg;
+	}
+
+	// ---------------------------------------------------------------------------
+	// Internal local stuff
+
+	uint insertDummyLocal(CompileLoc loc, char[] fmt)
+	{
+		pushFormat(c.thread, fmt, mDummyNameCounter++);
+		auto str = c.newString(getString(c.thread, -1));
+		.pop(c.thread);
+		return insertLocal(new(c) Identifier(c, loc, str));
+	}
+
+	int searchLocal(char[] name, out uint reg)
+	{
+		for(int i = mLocVars.length - 1; i >= 0; i--)
+		{
+			if(mLocVars[i].isActive && mLocVars[i].name == name)
+			{
+				reg = mLocVars[i].reg;
+				return i;
+			}
+		}
+
+		return -1;
+	}
+
+	void deactivateLocals(uint varStart, uint regTo)
+	{
+		for(word i = mLocVars.length - 1; i >= cast(word)varStart; i--)
+		{
+			if(mLocVars[i].reg >= regTo && mLocVars[i].isActive)
+			{
+				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
+				mLocVars[i].isActive = false;
+				mLocVars[i].pcEnd = mCode.length;
+			}
+		}
+	}
+
+	void codeClose(ref CompileLoc loc, uint reg)
+	{
+		codeI(loc, Op1.Close, reg, 0);
 	}
 
 	// ---------------------------------------------------------------------------
 	// Constants
 
-	package int addConst(CrocValue v)
+	void pushConst(uint index)
+	{
+		pushExp(ExpType.Const, index);
+	}
+
+	int addNullConst()
+	{
+		return addConst(CrocValue.nullValue);
+	}
+
+	int addBoolConst(bool b)
+	{
+		return addConst(CrocValue(b));
+	}
+
+	int addIntConst(crocint x)
+	{
+		return addConst(CrocValue(x));
+	}
+
+	int addFloatConst(crocfloat x)
+	{
+		return addConst(CrocValue(x));
+	}
+
+	int addCharConst(dchar x)
+	{
+		return addConst(CrocValue(x));
+	}
+
+	int addStringConst(char[] s)
+	{
+		return addConst(CrocValue(createString(t, s)));
+	}
+
+	int addConst(CrocValue v)
 	{
 		foreach(i, ref con; mConstants)
 			if(con == v)
@@ -1964,45 +1788,193 @@ package:
 		return mConstants.length - 1;
 	}
 
-	package int addNullConst()
+	uint tagConst(uint val)
 	{
-		return addConst(CrocValue.nullValue);
+		return val | Instruction.constBit;
 	}
 
-	package int addBoolConst(bool b)
+	bool isConstTag(uint val)
 	{
-		return addConst(CrocValue(b));
+		return (val & Instruction.constBit) != 0;
 	}
 
-	package int addIntConst(crocint x)
+	// ---------------------------------------------------------------------------
+	// Codegen helpers
+
+	uint prepareArgList(ref CompileLoc loc, Exp[] items)
 	{
-		return addConst(CrocValue(x));
+		if(items.length == 0)
+			return 1;
+
+		debug(EXPSTACKCHECK) foreach(ref i; items[0 .. $ - 1]) assert(i.type == ExpType.Temporary);
+
+		if(items[$ - 1].isMultRet())
+		{
+			multRetToRegs(loc, -1);
+			return 0;
+		}
+		else
+		{
+			debug(EXPSTACKCHECK) assert(items[$ - 1].type == ExpType.Temporary);
+			return items.length + 1;
+		}
 	}
 
-	package int addFloatConst(crocfloat x)
+	bool prepareAssignment(ref CompileLoc loc, uint numLhs, uint numRhs, out Exp[] lhs, out Exp[] rhs)
 	{
-		return addConst(CrocValue(x));
+		debug { auto check = mExpSP - (numLhs + numRhs); if(mExpStack[mExpSP - numRhs - 1].type == ExpType.Conflict) check--; }
+		assert(numLhs >= numRhs);
+
+		rhs = mExpStack[mExpSP - numRhs .. mExpSP];
+
+// 		debug(EXPSTACKCHECK) foreach(ref i; rhs[0 .. $ - 1]) assert(i.isSource(), (printExpStack(), "poop"));
+
+		if(rhs.length > 0 && rhs[$ - 1].isMultRet())
+		{
+			multRetToRegs(loc, numLhs - numRhs + 1);
+
+			for(uint i = numRhs, idx = rhs[$ - 1].index; i < numLhs; i++, idx++)
+				pushExp(ExpType.Local, checkRegOK(idx));
+		}
+		else
+		{
+// 			debug(EXPSTACKCHECK) assert(rhs[$ - 1].isSource());
+
+			for(uint i = numRhs; i < numLhs; i++)
+				pushNull();
+		}
+
+		// Could have changed size and/or pointer could have been invalidated
+		rhs = mExpStack[mExpSP - numLhs .. mExpSP];
+
+		bool ret;
+
+		if(mExpStack[mExpSP - numLhs - 1].type == ExpType.Conflict)
+		{
+			lhs = mExpStack[mExpSP - numLhs - 1 - numLhs .. mExpSP - numLhs - 1];
+			ret = true;
+		}
+		else
+		{
+			lhs = mExpStack[mExpSP - numLhs - numLhs .. mExpSP - numLhs];
+			ret = false;
+		}
+
+		assert(check == (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)), Format("oh noes: {} {}", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)));
+		debug(EXPSTACKCHECK) foreach(ref i; lhs) assert(i.isDest());
+		return ret;
 	}
 
-	package int addCharConst(dchar x)
+	void multRetToRegs(ref CompileLoc loc, int num)
 	{
-		return addConst(CrocValue(x));
+		auto src = getExp(-1);
+
+		switch(src.type)
+		{
+			case ExpType.Vararg, ExpType.VarargSlice:
+				setUImm(mCode[src.index], num + 1);
+				break;
+
+			case ExpType.Call, ExpType.Yield:
+				setRT(mCode[src.index], num + 1);
+				break;
+
+			default:
+				assert(false, (printExpStack(), "poop"));
+		}
+
+		src.type = ExpType.Temporary;
+		src.index = getRD(mCode[src.index]);
 	}
 
-	package int addStringConst(char[] s)
+	void popMoveTo(ref CompileLoc loc, ref Exp dest)
 	{
-		return addConst(CrocValue(createString(t, s)));
+		if(dest.type == ExpType.Local || dest.type == ExpType.NewLocal)
+			moveToReg(loc, dest.index, *getExp(-1));
+		else
+		{
+			toSource(loc);
+
+			switch(dest.type)
+			{
+				case ExpType.Upval:       codeI(loc, Op1.SetUpval,    getExp(-1), dest.index); break;
+				case ExpType.Global:      codeI(loc, Op1.SetGlobal,   getExp(-1), dest.index); break;
+				case ExpType.NewGlobal:   codeI(loc, Op1.NewGlobal,   getExp(-1), dest.index); break;
+				case ExpType.Slice:       codeR(loc, Op1.SliceAssign, dest.index, getExp(-1), Exp.Empty); break;
+				case ExpType.Index:       codeR(loc, Op1.IndexAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
+				case ExpType.Field:       codeR(loc, Op1.FieldAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
+				case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndexAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
+				case ExpType.Length:      codeR(loc, Op1.LengthAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
+				default: assert(false);
+			}
+		}
+
+		pop();
 	}
 
-	package void codeNulls(ref CompileLoc loc, uint reg, uint num)
+	void moveToReg(ref CompileLoc loc, uint reg, ref Exp src)
 	{
-		codeI(loc, Op1.LoadNulls, reg, num);
+		switch(src.type)
+		{
+			case ExpType.Const:       codeI(loc, Op1.LoadConst, reg, src.index); break;
+			case ExpType.Local:
+			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
+			case ExpType.Upval:       codeI(loc, Op1.GetUpval, reg, src.index); break;
+			case ExpType.Global:      codeI(loc, Op1.GetGlobal, reg, src.index); break;
+			case ExpType.Index:       codeR(loc, Op1.Index, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.Field:       codeR(loc, Op1.Field, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
+			case ExpType.Slice:       codeR(loc, Op1.Slice, reg, src.index, 0); break;
+			case ExpType.Vararg:      setRD(mCode[src.index], reg); setUImm(mCode[src.index], 2); break;
+			case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndex, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
+			case ExpType.VarargSlice: codeIMulti(loc, Op1.Vararg, Op2.VargSlice, src.index, 2); codeMove(loc, reg, src.index); break;
+			case ExpType.Length:      codeR(loc, Op1.Length, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
+			case ExpType.Call:        codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
+			case ExpType.Yield:       codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
+			case ExpType.NeedsDest:   setRD(mCode[src.index], reg); break;
+			default: assert(false);
+		}
+	}
+	
+	void codeClosure(FuncState fs, uint destReg)
+	{
+		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
+
+		if(mInnerFuncs.length > Instruction.MaxInnerFuncs)
+			c.semException(mLocation, "Too many inner functions");
+
+		auto loc = fs.mLocation;
+
+		if(mNamespaceReg > 0)
+			codeMove(loc, destReg, mNamespaceReg);
+
+		codeIMulti(loc, Op1.New, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, destReg, mInnerFuncs.length - 1);
+
+		foreach(ref ud; fs.mUpvals)
+			codeI(loc, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
+
+		mInnerFuncs[$ - 1] = fs.toFuncDef();
+	}
+
+	void codeMove(ref CompileLoc loc, uint dest, uint src)
+	{
+		if(dest != src)
+			codeR(loc, Op1.Move, dest, src, 0);
+	}
+	
+	uint commonCmpJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue)
+	{
+		auto src1 = getExp(-2);
+		auto src2 = getExp(-1);
+		debug(EXPSTACKCHECK) assert(src1.isSource());
+		debug(EXPSTACKCHECK) assert(src2.isSource());
+		auto ret = codeRJump(loc, opcode, opcode2, isTrue, 0, src1, src2);
+		pop(2);
+		return ret;
 	}
 
 	// ---------------------------------------------------------------------------
 	// Raw codegen funcs
 
-private:
 	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, uint src1, uint src2)
 	{
 		Instruction i = void;
@@ -2014,7 +1986,7 @@ private:
 
 		return addInst(loc.line, i);
 	}
-	
+
 	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, Exp* src1, Exp* src2)
 	{
 		auto rs = encodeRSRT(src1);
@@ -2035,7 +2007,7 @@ private:
 	{
 		if(dest.type == ExpType.Const)
 		{
-			codeI(loc, Op1.LoadConst, mFreeReg, dest.index);
+			codeI(loc, Op1.LoadConst, checkRegOK(mFreeReg), dest.index);
 			return codeR(loc, opcode, mFreeReg, src1, src2);
 		}
 		else
@@ -2046,7 +2018,7 @@ private:
 	{
 		if(opcode2 == -1)
 			return codeR(loc, opcode, dest, src1, src2);
-			
+
 		auto ret = codeR(loc, opcode, dest, src1, src2);
 		codeSecond(loc, opcode2);
 		return ret;
@@ -2125,7 +2097,7 @@ private:
 	{
 		if(dest.type == ExpType.Const)
 		{
-			codeI(loc, Op1.LoadConst, mFreeReg, dest.index);
+			codeI(loc, Op1.LoadConst, checkRegOK(mFreeReg), dest.index);
 			return codeI(loc, opcode, mFreeReg, imm);
 		}
 		else
@@ -2527,7 +2499,6 @@ private:
 
 			case Op1.Move:          Stdout("mov");    commonUnary(i);     break;
 			case Op1.LoadConst:     Stdout("lc");     commonUImmConst(i); break;
-			case Op1.LoadNulls:     Stdout("lnulls"); commonUImm(i);      break;
 			case Op1.NewGlobal:     Stdout("newg");   commonUImmConst(i); break;
 			case Op1.GetGlobal:     Stdout("getg");   commonUImmConst(i); break;
 			case Op1.SetGlobal:     Stdout("setg");   commonUImmConst(i); break;

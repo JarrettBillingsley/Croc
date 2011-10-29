@@ -39,7 +39,6 @@ enum Op1
 
 	Move,
 	LoadConst,
-	LoadNulls,
 	NewGlobal,
 	GetGlobal,
 	SetGlobal,
@@ -223,7 +222,6 @@ Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
 Length............R: dest, src, n/a
 LengthAssign......R: dest, src, n/a
 LoadConst.........R: dest local, src const, n/a
-LoadNulls.........I: dest, num regs
 Method............R: base reg, object to index, method name
 Mod...............R: dest, src, src
 ModEq.............R: dest, src, n/a

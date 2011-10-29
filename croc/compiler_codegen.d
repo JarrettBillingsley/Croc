@@ -599,7 +599,7 @@ scope class Codegen : Visitor
 
 			visit(s.code);
 			fs.patchContinuesTo(beginLoop);
-			fs.codeJump(s.endLocation, beginLoop);
+			fs.jumpTo(s.endLocation, beginLoop);
 			fs.patchBreaksToHere();
 			fs.popScope(s.endLocation);
 		}
@@ -629,7 +629,7 @@ scope class Codegen : Visitor
 			visit(s.code);
 			fs.patchContinuesTo(beginLoop);
 			fs.closeScopeUpvals(s.endLocation);
-			fs.codeJump(s.endLocation, beginLoop);
+			fs.jumpTo(s.endLocation, beginLoop);
 			fs.patchBreaksToHere();
 
 			fs.popScope(s.endLocation);
@@ -654,7 +654,7 @@ scope class Codegen : Visitor
 		if(s.condition.isConstant && s.condition.isTrue)
 		{
 			fs.patchContinuesToHere();
-			fs.codeJump(s.endLocation, beginLoop);
+			fs.jumpTo(s.endLocation, beginLoop);
 			fs.patchBreaksToHere();
 
 			fs.popScope(s.endLocation);
@@ -667,7 +667,7 @@ scope class Codegen : Visitor
 			auto cond = codeCondition(s.condition);
 			fs.invertJump(cond);
 			fs.patchTrueToHere(cond);
-			fs.codeJump(s.endLocation, beginLoop);
+			fs.jumpTo(s.endLocation, beginLoop);
 			fs.patchBreaksToHere();
 
 			fs.popScope(s.endLocation);
@@ -718,7 +718,7 @@ scope class Codegen : Visitor
 				fs.popToNothing();
 			}
 
-			fs.codeJump(s.endLocation, beginLoop);
+			fs.jumpTo(s.endLocation, beginLoop);
 			fs.patchBreaksToHere();
 		fs.popScope(s.endLocation);
 
