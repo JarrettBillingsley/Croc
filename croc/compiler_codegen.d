@@ -370,10 +370,10 @@ scope class Codegen : Visitor
 		{
 			if(d.context !is null)
 				c.semException(d.location, "'with' is disallowed on method calls");
-// 			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, &genArgs);
+			visitMethodCall(d.location, d.endLocation, false, dot.op, dot.name, &genArgs);
 		}
-// 		else
-// 			visitCall(d.endLocation, d.func, d.context, &genArgs);
+		else
+			visitCall(d.endLocation, d.func, d.context, &genArgs);
 	}
 
 	public override FuncDecl visit(FuncDecl d)
@@ -1252,15 +1252,6 @@ scope class Codegen : Visitor
 	{
 		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
 		{
-// 			codeGenListToNextReg(e.args);
-// 
-// 			if(e.args.length == 0)
-// 				return 2;
-// 			else if(e.args[$ - 1].isMultRet())
-// 				return 0;
-// 			else
-// 				return e.args.length + 2;
-
 			codeGenList(e.args);
 			return e.args.length;
 		});

@@ -26,106 +26,7 @@ subject to the following restrictions:
 
 module croc.base_opcodes;
 
-import tango.text.convert.Format;
-
 import croc.base_metamethods;
-
-// enum Op : ushort
-// {
-// 	Add,
-// 	AddEq,
-// 	And,
-// 	AndEq,
-// 	Append,
-// 	As,
-// 	Call,
-// 	Cat,
-// 	CatEq,
-// 	CheckObjParam,
-// 	CheckParams,
-// 	Class,
-// 	Close,
-// 	Closure,
-// 	Coroutine,
-// 	Cmp,
-// 	Cmp3,
-// 	Com,
-// 	CustomParamFail,
-// 	Dec,
-// 	Div,
-// 	DivEq,
-// 	EndFinal,
-// 	Equals,
-// 	Field,
-// 	FieldAssign,
-// 	For,
-// 	Foreach,
-// 	ForeachLoop,
-// 	ForLoop,
-// 	In,
-// 	Inc,
-// 	Index,
-// 	IndexAssign,
-// 	Is,
-// 	IsTrue,
-// 	Je,
-// 	Jle,
-// 	Jlt,
-// 	Jmp,
-// 	Length,
-// 	LengthAssign,
-// 	LoadConst,
-// 	LoadNulls,
-// 	Method,
-// 	MethodNC,
-// 	Mod,
-// 	ModEq,
-// 	Move,
-// 	Mul,
-// 	MulEq,
-// 	Namespace,
-// 	NamespaceNP,
-// 	Neg,
-// 	NewArray,
-// 	NewGlobal,
-// 	NewTable,
-// 	Not,
-// 	ObjParamFail,
-// 	Or,
-// 	OrEq,
-// 	PopCatch,
-// 	PopFinally,
-// 	PushCatch,
-// 	PushFinally,
-// 	Ret,
-// 	SaveRets,
-// 	SetArray,
-// 	Shl,
-// 	ShlEq,
-// 	Shr,
-// 	ShrEq,
-// 	Slice,
-// 	SliceAssign,
-// 	Sub,
-// 	SubEq,
-// 	SuperMethod,
-// 	SuperOf,
-// 	Switch,
-// 	SwitchCmp,
-// 	Tailcall,
-// 	Throw,
-// 	Unwind,
-// 	UShr,
-// 	UShrEq,
-// 	Vararg,
-// 	VargIndex,
-// 	VargIndexAssign,
-// 	VargLen,
-// 	VargSlice,
-// 	Xor,
-// 	XorEq,
-// 	Yield
-// }
 
 enum Op1
 {
@@ -425,17 +326,14 @@ align(1) struct Instruction
 
 	const uint ArraySetFields = 30;
 
-	uint data;
+	static char[] GetOpcode(char[] n) { return "(" ~ n ~ ".data & Instruction.opcodeMask) >> Instruction.opcodeShift"; }
+	static char[] GetRD(char[] n) { return "(" ~ n ~ ".data & Instruction.rdMask) >> Instruction.rdShift"; }
+	static char[] GetRS(char[] n) { return "(" ~ n ~ ".data & Instruction.rsMask) >> Instruction.rsShift"; }
+	static char[] GetRT(char[] n) { return "(" ~ n ~ ".data & Instruction.rtMask) >> Instruction.rtShift"; }
+	static char[] GetImm(char[] n) { return "(*cast(int*)&" ~ n ~ ".data) >> Instruction.immShift"; }
+	static char[] GetUImm(char[] n) { return n ~ ".data >>> Instruction.immShift"; }
 
-// 	char[] toString()
-// 	{//
-// 		switch(opcode)
-// 		{
-// 			case Op.Field:           return Format("field {}, {}, {}", cr(rd), cr(rs), cr(rt));
-// 			case Op.FieldAssign:     return Format("fielda {}, {}, {}", cr(rd), cr(rs), cr(rt));
-// 			default:                 return Format("??? opcode = {}", opcode);
-// 		}
-// 	}
+	uint data;
 }
 
 static assert(Instruction.sizeof == 4);

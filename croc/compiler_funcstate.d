@@ -2225,34 +2225,34 @@ private:
 
 	uint getOpcode(ref Instruction inst)
 	{
-		return (inst.data & Instruction.opcodeMask) >> Instruction.opcodeShift;
+		return mixin(Instruction.GetOpcode("inst"));;
 	}
 
 	uint getRD(ref Instruction inst)
 	{
-		return (inst.data & Instruction.rdMask) >> Instruction.rdShift;
+		return mixin(Instruction.GetRD("inst"));
 	}
 
 	uint getRS(ref Instruction inst)
 	{
-		return (inst.data & Instruction.rsMask) >> Instruction.rsShift;
+		return mixin(Instruction.GetRS("inst"));
 	}
 
 	uint getRT(ref Instruction inst)
 	{
-		return (inst.data & Instruction.rtMask) >> Instruction.rtShift;
+		return mixin(Instruction.GetRT("inst"));
 	}
 
 	int getImm(ref Instruction inst)
 	{
 		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
-		return (*cast(int*)&inst.data) >> Instruction.immShift;
+		return mixin(Instruction.GetImm("inst"));
 	}
 
 	uint getUImm(ref Instruction inst)
 	{
 		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
-		return inst.data >>> Instruction.immShift;
+		return mixin(Instruction.GetUImm("inst"));
 	}
 
 	// ---------------------------------------------------------------------------

@@ -2787,9 +2787,11 @@ void execute(CrocThread* t, uword depth = 1)
 {
 	assert(false);
 
-/+ 	CrocException currentException = null;
-	CrocValue RS;
-	CrocValue RT;
+/+
+	CrocException currentException = null;
+	uint rs, rt;
+	CrocValue* RS;
+	CrocValue* RT;
 
 	_exceptionRetry:
 	t.state = CrocThread.State.Running;
@@ -2804,39 +2806,45 @@ void execute(CrocThread* t, uword depth = 1)
 
 	try
 	{
-		CrocValue* get(uint index)
-		{
-			switch(index & Instruction.locMask)
-			{
-				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
-				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
-				case Instruction.locUpval: return upvals[index & ~Instruction.locMask].value;
+// 		CrocValue* get(uint index)
+// 		{
+// 			switch(index & Instruction.locMask)
+// 			{
+// 				case Instruction.locLocal: return &t.stack[stackBase + (index & ~Instruction.locMask)];
+// 				case Instruction.locConst: return &constTable[index & ~Instruction.locMask];
+// 				case Instruction.locUpval: return upvals[index & ~Instruction.locMask].value;
+// 
+// 				default:
+// 					auto name = constTable[index & ~Instruction.locMask].mString;
+// 
+// 					if(auto glob = namespace.get(env, name))
+// 						return glob;
+// 
+// 					auto ns = env;
+// 					for(; ns.parent !is null; ns = ns.parent){}
+// 
+// 					if(ns !is env)
+// 					{
+// 						if(auto glob = namespace.get(ns, name))
+// 							return glob;
+// 					}
+// 
+// 					throwStdException(t, "NameException", "Attempting to get nonexistent global '{}'", name.toString());
+// 			}
+// 
+// 			assert(false);
+// 		}
 
-				default:
-					auto name = constTable[index & ~Instruction.locMask].mString;
+// 		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
+// 		const char[] GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
+// 		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
+// 		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
 
-					if(auto glob = namespace.get(env, name))
-						return glob;
+		const char[] GetRS =
+			"{ rs = mixin(Instruction.GetRS(\"i\")); if(rs & Instruction.constBit) { if(rs == Instruction.rsMax) RS = &constTable[(*pc)++]; else RS = &constTable[rs]; } else RS = &t.stack[stackBase + rs]; }";
 
-					auto ns = env;
-					for(; ns.parent !is null; ns = ns.parent){}
-
-					if(ns !is env)
-					{
-						if(auto glob = namespace.get(ns, name))
-							return glob;
-					}
-
-					throwStdException(t, "NameException", "Attempting to get nonexistent global '{}'", name.toString());
-			}
-
-			assert(false);
-		}
-
-		const char[] GetRD = "((i.rd & 0x8000) == 0) ? (&t.stack[stackBase + (i.rd & ~Instruction.locMask)]) : get(i.rd)";
-		const char[] GetRDplus1 = "(((i.rd + 1) & 0x8000) == 0) ? (&t.stack[stackBase + ((i.rd + 1) & ~Instruction.locMask)]) : get(i.rd + 1)";
-		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
-		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
+		const char[] GetRT =
+			"{ rs = mixin(Instruction.GetRS(\"i\")); if(rs & Instruction.constBit) { if(rs == Instruction.rsMax) RS = &constTable[(*pc)++]; else RS = &constTable[rs]; } else RS = &t.stack[stackBase + rs]; }";
 
 		Instruction* oldPC = null;
 
@@ -2847,6 +2855,9 @@ void execute(CrocThread* t, uword depth = 1)
 
 			pc = &t.currentAR.pc;
 			Instruction* i = (*pc)++;
+
+			auto opcode = mixin(Instruction.GetOpcode("i"));
+			auto rd = mixin(Instruction.GetRD("i"));
 
 			if(t.hooksEnabled)
 			{
@@ -3833,5 +3844,6 @@ void execute(CrocThread* t, uword depth = 1)
 
 		unwindEH(t);
 		throw e;
-	} +/
+	}
++/
 }
