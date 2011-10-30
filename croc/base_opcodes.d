@@ -28,155 +28,231 @@ module croc.base_opcodes;
 
 import croc.base_metamethods;
 
-enum Op1
+enum Comparison
 {
-	UnOp, //
-	BinOp, //
-	ReflBinOp, //
-	BitOp, //
-	ReflBitOp, //
-	CrementOp, //
+	LT,
+	LE,
+	GT,
+	GE
+}
+
+enum Op
+{
+	Add,
+	Sub,
+	Mul,
+	Div,
+	Mod,
+
+	AddEq,
+	SubEq,
+	MulEq,
+	DivEq,
+	ModEq,
+
+	And,
+	Or,
+	Xor,
+	Shl,
+	Shr,
+	UShr,
+
+	AndEq,
+	OrEq,
+	XorEq,
+	ShlEq,
+	ShrEq,
+	UShrEq,
+
+	LAST_MM_OPCODE = UShrEq,
+
+	Neg,
+	Com,
+
+	Inc,
+	Dec,
 
 	Move,
-	LoadConst,
 	NewGlobal,
 	GetGlobal,
 	SetGlobal,
 	GetUpval,
 	SetUpval,
 
-	Cmp, //
-	Equals, //
-	SwitchCmp, //
-	Is, //
-	IsTrue, //
+	Not,
+	Cmp3,
+	Cmp,
+	SwitchCmp,
+	Equals,
+	Is,
+	IsTrue,
 	Jmp,
 	Switch,
+	Close,
 	For,
 	ForLoop,
 	Foreach,
-	ForeachLoop, //
+	ForeachLoop,
 
-	PushEH, //
-	PopEH, //
+	PushCatch,
+	PushFinally,
+	PopCatch,
+	PopFinally,
 	EndFinal,
 	Throw,
-	Unwind,
 
-	Method, //
-	SuperMethod, //
+	Method,
+	TailMethod,
+	SuperMethod,
+	TailSuperMethod,
 	Call,
-	Tailcall,
-	Yield,
+	TailCall,
 	SaveRets,
 	Ret,
-	Close,
-	Vararg, //
-	CheckParams,
-	CheckObjParam, //
-	ParamFail, //
+	Unwind,
 
-	Length,
-	LengthAssign,
-	Array, //
-	Cat,
-	CatEq,
-	Index,
-	IndexAssign,
-	Slice,
-	SliceAssign,
-	In,
-
-	New, //
-
-	As,
-	SuperOf,
-	Field,
-	FieldAssign
-}
-
-enum Op2
-{
-	// BinOp
-	Add = MM.Add,
-	Sub = MM.Sub,
-	Mul = MM.Mul,
-	Div = MM.Div,
-	Mod = MM.Mod,
-	Cmp3 = MM.Cmp,
-
-	// UnOp
-	Neg = MM.Neg,
-	Com = MM.Com,
-
-	// ReflBinOp
-	AddEq = MM.AddEq,
-	SubEq = MM.SubEq,
-	MulEq = MM.MulEq,
-	DivEq = MM.DivEq,
-	ModEq = MM.ModEq,
-
-	// BitOp
-	And = MM.And,
-	Or = MM.Or,
-	Xor = MM.Xor,
-	Shl = MM.Shl,
-	Shr = MM.Shr,
-	UShr = MM.UShr,
-
-	// ReflBitOp
-	AndEq = MM.AndEq,
-	OrEq = MM.OrEq,
-	XorEq = MM.XorEq,
-	ShlEq = MM.ShlEq,
-	ShrEq = MM.ShrEq,
-	UShrEq = MM.UShrEq,
-
-	// CrementOp
-	Inc = MM.Inc,
-	Dec = MM.Dec,
-
-	// Also UnOp
-	Not = MM.LAST_OPCODE_MM + 1,
-
-	// Comparisons
-	Je,
-	Jle,
-	Jlt,
-
-	// PushEH, PopEH
-	Catch,
-	Finally,
-
-	// Vararg
-	GetVarargs,
+	Vararg,
 	VargLen,
 	VargIndex,
 	VargIndexAssign,
 	VargSlice,
 
-	// ParamFail
+	Yield,
+
+	CheckParams,
+	CheckObjParam,
 	ObjParamFail,
 	CustomParamFail,
 
-	// Array
+	Length,
+	LengthAssign,
 	Append,
-	Set,
+	SetArray,
+	Cat,
+	CatEq,
+	Index,
+	IndexAssign,
+	Field,
+	FieldAssign,
+	Slice,
+	SliceAssign,
+	In,
 
-	// New
-	Array,
-	Table,
+	NewArray,
+	NewTable,
+	Closure,
+	ClosureWithEnv,
 	Class,
 	Coroutine,
 	Namespace,
 	NamespaceNP,
-	Closure,
-	ClosureWithEnv
+
+	As,
+	SuperOf
 }
 
+static assert(Op.Add == MM.Add && Op.LAST_MM_OPCODE == MM.LAST_OPCODE_MM, "MMs and opcodes are out of sync!");
+
 // Make sure we don't add too many instructions!
-static assert(Op1.max <= Instruction.opcodeMax, "Too many primary opcodes");
-static assert(Op2.max <= Instruction.opcodeMax, "Too many secondary opcodes");
+static assert(Op.max <= Instruction.opcodeMax, "Too many primary opcodes");
+
+const char[][] OpNames =
+[
+	Op.Add: "Add",
+	Op.Sub: "Sub",
+	Op.Mul: "Mul",
+	Op.Div: "Div",
+	Op.Mod: "Mod",
+	Op.AddEq: "AddEq",
+	Op.SubEq: "SubEq",
+	Op.MulEq: "MulEq",
+	Op.DivEq: "DivEq",
+	Op.ModEq: "ModEq",
+	Op.And: "And",
+	Op.Or: "Or",
+	Op.Xor: "Xor",
+	Op.Shl: "Shl",
+	Op.Shr: "Shr",
+	Op.UShr: "UShr",
+	Op.AndEq: "AndEq",
+	Op.OrEq: "OrEq",
+	Op.XorEq: "XorEq",
+	Op.ShlEq: "ShlEq",
+	Op.ShrEq: "ShrEq",
+	Op.UShrEq: "UShrEq",
+	Op.Neg: "Neg",
+	Op.Com: "Com",
+	Op.Inc: "Inc",
+	Op.Dec: "Dec",
+	Op.Move: "Move",
+	Op.NewGlobal: "NewGlobal",
+	Op.GetGlobal: "GetGlobal",
+	Op.SetGlobal: "SetGlobal",
+	Op.GetUpval: "GetUpval",
+	Op.SetUpval: "SetUpval",
+	Op.Not: "Not",
+	Op.Cmp3: "Cmp3",
+	Op.Cmp: "Cmp",
+	Op.SwitchCmp: "SwitchCmp",
+	Op.Equals: "Equals",
+	Op.Is: "Is",
+	Op.IsTrue: "IsTrue",
+	Op.Jmp: "Jmp",
+	Op.Switch: "Switch",
+	Op.Close: "Close",
+	Op.For: "For",
+	Op.ForLoop: "ForLoop",
+	Op.Foreach: "Foreach",
+	Op.ForeachLoop: "ForeachLoop",
+	Op.PushCatch: "PushCatch",
+	Op.PushFinally: "PushFinally",
+	Op.PopCatch: "PopCatch",
+	Op.PopFinally: "PopFinally",
+	Op.EndFinal: "EndFinal",
+	Op.Throw: "Throw",
+	Op.Method: "Method",
+	Op.TailMethod: "TailMethod",
+	Op.SuperMethod: "SuperMethod",
+	Op.TailSuperMethod: "TailSuperMethod",
+	Op.Call: "Call",
+	Op.TailCall: "TailCall",
+	Op.SaveRets: "SaveRets",
+	Op.Ret: "Ret",
+	Op.Unwind: "Unwind",
+	Op.Vararg: "Vararg",
+	Op.VargLen: "VargLen",
+	Op.VargIndex: "VargIndex",
+	Op.VargIndexAssign: "VargIndexAssign",
+	Op.VargSlice: "VargSlice",
+	Op.Yield: "Yield",
+	Op.CheckParams: "CheckParams",
+	Op.CheckObjParam: "CheckObjParam",
+	Op.ObjParamFail: "ObjParamFail",
+	Op.CustomParamFail: "CustomParamFail",
+	Op.Length: "Length",
+	Op.LengthAssign: "LengthAssign",
+	Op.Append: "Append",
+	Op.SetArray: "SetArray",
+	Op.Cat: "Cat",
+	Op.CatEq: "CatEq",
+	Op.Index: "Index",
+	Op.IndexAssign: "IndexAssign",
+	Op.Field: "Field",
+	Op.FieldAssign: "FieldAssign",
+	Op.Slice: "Slice",
+	Op.SliceAssign: "SliceAssign",
+	Op.In: "In",
+	Op.NewArray: "NewArray",
+	Op.NewTable: "NewTable",
+	Op.Closure: "Closure",
+	Op.ClosureWithEnv: "ClosureWithEnv",
+	Op.Class: "Class",
+	Op.Coroutine: "Coroutine",
+	Op.Namespace: "Namespace",
+	Op.NamespaceNP: "NamespaceNP",
+	Op.As: "As",
+	Op.SuperOf: "SuperOf"
+];
 
 /*
 Add...............R: dest, src, src
@@ -274,63 +350,51 @@ Yield.............R: register of first yielded value, num values + 1, num result
 
 template Mask(uint length)
 {
-	const uint Mask = (1 << length) - 1;
+	const ushort Mask = (1 << length) - 1;
 }
 
 align(1) struct Instruction
 {
-	const uint constBit =  0b1_00000000;
+	const ushort constBit =  0b1000_0000_0000_0000;
 
     //  31      23        14       6      0
 	// |rs       |rt       |rd      |op    |
 
-	const uint opcodeSize = 6;
-	const uint opcodeShift = 0;
-	const uint opcodeMask = Mask!(opcodeSize) << opcodeShift;
-	const uint opcodeMax = (1 << opcodeSize) - 1;
+	const uint   opcodeSize = 7;
+	const uint   opcodeShift = 0;
+	const ushort opcodeMask = Mask!(opcodeSize) << opcodeShift;
+	const uint   opcodeMax = (1 << opcodeSize) - 1;
 
-	const uint rdSize = 8;
-	const uint rdShift = opcodeShift + opcodeSize;
-	const uint rdMask = Mask!(rdSize) << rdShift;
-	const uint rdMax = (1 << rdSize) - 1;
+	const uint   rdSize = 9;
+	const uint   rdShift = opcodeShift + opcodeSize;
+	const ushort rdMask = Mask!(rdSize) << rdShift;
+	const uint   rdMax = (1 << rdSize) - 1;
 
-	const uint rtSize = 9;
-	const uint rtShift = rdShift + rdSize;
-	const uint rtMask = Mask!(rtSize) << rtShift;
-	const uint rtMax = (1 << rtSize) - 1;
-
-	const uint rsSize = 9;
-	const uint rsShift = rtShift + rtSize;
-	const uint rsMask = Mask!(rsSize) << rsShift;
-	const uint rsMax = (1 << rsSize) - 1;
-
-	const uint immSize = rsSize + rtSize;
-	const uint immShift = rtShift;
-	const uint immMask = rsMask | rtMask;
+	const uint immSize = 16;
 	const int  immMax = (1 << (immSize - 1)) - 1;
 	const uint uimmMax = (1 << immSize) - 1;
 
-	const uint rsrtConstMax = (1 << (rtSize - 1)) - 2;
-
-	const uint MaxRegisters = rdMax - 1;
-	const uint MaxConstants = uimmMax - 1;
-	const uint MaxUpvalues = uimmMax - 1;
+	const uint MaxRegister = rdMax;
+	const uint MaxConstant = uimmMax;
+	const uint MaxUpvalue = uimmMax;
 	const int  MaxJumpForward = immMax;
 	const int  MaxJumpBackward = -immMax;
 	const int  NoJump = MaxJumpBackward - 1;
-	const uint MaxSwitchTables = rtMax - 1;
-	const uint MaxInnerFuncs = uimmMax - 1;
+	const uint MaxEHDepth = rdMax;
+	const uint MaxSwitchTable = rdMax;
+	const uint MaxInnerFunc = uimmMax;
 
 	const uint ArraySetFields = 30;
+	const uint MaxArrayFields = ArraySetFields * uimmMax;
 
-	static char[] GetOpcode(char[] n) { return "(" ~ n ~ ".data & Instruction.opcodeMask) >> Instruction.opcodeShift"; }
-	static char[] GetRD(char[] n) { return "(" ~ n ~ ".data & Instruction.rdMask) >> Instruction.rdShift"; }
-	static char[] GetRS(char[] n) { return "(" ~ n ~ ".data & Instruction.rsMask) >> Instruction.rsShift"; }
-	static char[] GetRT(char[] n) { return "(" ~ n ~ ".data & Instruction.rtMask) >> Instruction.rtShift"; }
-	static char[] GetImm(char[] n) { return "(*cast(int*)&" ~ n ~ ".data) >> Instruction.immShift"; }
-	static char[] GetUImm(char[] n) { return n ~ ".data >>> Instruction.immShift"; }
+	static char[] GetOpcode(char[] n) { return "(" ~ n ~ ".uimm & Instruction.opcodeMask) >> Instruction.opcodeShift"; }
+	static char[] GetRD(char[] n) { return "(" ~ n ~ ".uimm & Instruction.rdMask) >> Instruction.rdShift"; }
 
-	uint data;
+	union
+	{
+		short imm;
+		ushort uimm;
+	}
 }
 
-static assert(Instruction.sizeof == 4);
+static assert(Instruction.sizeof == 2);

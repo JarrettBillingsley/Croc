@@ -2874,7 +2874,7 @@ setGlobal(t, "x");
 
 		auto slot = t.stackIndex - numVals;
 
-		yieldImpl(t, slot, numReturns, numVals);
+		yieldImpl(t, slot, numVals, numReturns);
 
 		if(numReturns == -1)
 			return t.stackIndex - slot;

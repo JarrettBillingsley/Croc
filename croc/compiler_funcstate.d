@@ -48,109 +48,54 @@ import croc.types_funcdef;
 // debug = VARACTIVATE;
 debug = SHOWME;
 debug = EXPSTACKCHECK;
+// debug = WRITECODE;
 
-private Op1 AstTagToOpcode1(AstTag tag)
+private Op AstTagToOpcode(AstTag tag)
 {
 	switch(tag)
 	{
-		case AstTag.NegExp:
-		case AstTag.NotExp:
-		case AstTag.ComExp: return Op1.UnOp;
+		case AstTag.AddAssignStmt: return Op.AddEq;
+		case AstTag.SubAssignStmt: return Op.SubEq;
+		case AstTag.MulAssignStmt: return Op.MulEq;
+		case AstTag.DivAssignStmt: return Op.DivEq;
+		case AstTag.ModAssignStmt: return Op.ModEq;
 
-		case AstTag.AddExp:
-		case AstTag.SubExp:
-		case AstTag.MulExp:
-		case AstTag.DivExp:
-		case AstTag.ModExp:
-		case AstTag.Cmp3Exp: return Op1.BinOp;
+		case AstTag.AndAssignStmt: return Op.AndEq;
+		case AstTag.OrAssignStmt: return Op.OrEq;
+		case AstTag.XorAssignStmt: return Op.XorEq;
+		case AstTag.ShlAssignStmt: return Op.ShlEq;
+		case AstTag.ShrAssignStmt: return Op.ShrEq;
+		case AstTag.UShrAssignStmt: return Op.UShrEq;
 
-		case AstTag.AddAssignStmt:
-		case AstTag.SubAssignStmt:
-		case AstTag.MulAssignStmt:
-		case AstTag.DivAssignStmt:
-		case AstTag.ModAssignStmt: return Op1.ReflBinOp;
+		case AstTag.CatExp: return Op.Cat;
+		case AstTag.CatAssignStmt: return Op.CatEq;
 
-		case AstTag.AndExp:
-		case AstTag.OrExp:
-		case AstTag.XorExp:
-		case AstTag.ShlExp:
-		case AstTag.ShrExp:
-		case AstTag.UShrExp: return Op1.BitOp;
+		case AstTag.IncStmt: return Op.Inc;
+		case AstTag.DecStmt: return Op.Dec;
 
-		case AstTag.AndAssignStmt:
-		case AstTag.OrAssignStmt:
-		case AstTag.XorAssignStmt:
-		case AstTag.ShlAssignStmt:
-		case AstTag.ShrAssignStmt:
-		case AstTag.UShrAssignStmt: return Op1.ReflBitOp;
+		case AstTag.AddExp: return Op.Add;
+		case AstTag.SubExp: return Op.Sub;
+		case AstTag.MulExp: return Op.Mul;
+		case AstTag.DivExp: return Op.Div;
+		case AstTag.ModExp: return Op.Mod;
 
-		case AstTag.IncStmt:
-		case AstTag.DecStmt: return Op1.CrementOp;
+		case AstTag.AndExp: return Op.And;
+		case AstTag.OrExp: return Op.Or;
+		case AstTag.XorExp: return Op.Xor;
+		case AstTag.ShlExp: return Op.Shl;
+		case AstTag.ShrExp: return Op.Shr;
+		case AstTag.UShrExp: return Op.UShr;
 
-		case AstTag.LTExp:
-		case AstTag.LEExp:
-		case AstTag.GTExp:
-		case AstTag.GEExp: return Op1.Cmp;
+		case AstTag.AsExp: return Op.As;
+		case AstTag.InExp: return Op.In;
+		case AstTag.Cmp3Exp: return Op.Cmp3;
 
-		case AstTag.EqualExp:
-		case AstTag.NotEqualExp: return Op1.Equals;
-
-		case AstTag.IsExp:
-		case AstTag.NotIsExp: return Op1.Is;
-
-		case AstTag.AsExp: return Op1.As;
-		case AstTag.InExp: return Op1.In;
-		case AstTag.CatExp: return Op1.Cat;
-		case AstTag.CoroutineExp: return Op1.New;
-		case AstTag.DotSuperExp: return Op1.SuperOf;
-
-		case AstTag.CatAssignStmt: return Op1.CatEq;
-		case AstTag.CondAssignStmt: return Op1.Move;
+		case AstTag.NegExp: return Op.Neg;
+		case AstTag.NotExp: return Op.Not;
+		case AstTag.ComExp: return Op.Com;
+		case AstTag.CoroutineExp: return Op.Coroutine;
+		case AstTag.DotSuperExp: return Op.SuperOf;
 		default: assert(false);
-	}
-}
-
-private Op2 AstTagToOpcode2(AstTag tag)
-{
-	switch(tag)
-	{
-		case AstTag.NegExp: return Op2.Neg;
-		case AstTag.NotExp: return Op2.Not;
-		case AstTag.ComExp: return Op2.Com;
-
-		case AstTag.AddExp: return Op2.Add;
-		case AstTag.SubExp: return Op2.Sub;
-		case AstTag.MulExp: return Op2.Mul;
-		case AstTag.DivExp: return Op2.Div;
-		case AstTag.ModExp: return Op2.Mod;
-		case AstTag.Cmp3Exp: return Op2.Cmp3;
-
-		case AstTag.AddAssignStmt: return Op2.AddEq;
-		case AstTag.SubAssignStmt: return Op2.SubEq;
-		case AstTag.MulAssignStmt: return Op2.MulEq;
-		case AstTag.DivAssignStmt: return Op2.DivEq;
-		case AstTag.ModAssignStmt: return Op2.ModEq;
-
-		case AstTag.AndExp: return Op2.And;
-		case AstTag.OrExp: return Op2.Or;
-		case AstTag.XorExp: return Op2.Xor;
-		case AstTag.ShlExp: return Op2.Shl;
-		case AstTag.ShrExp: return Op2.Shr;
-		case AstTag.UShrExp: return Op2.UShr;
-
-		case AstTag.AndAssignStmt: return Op2.AndEq;
-		case AstTag.OrAssignStmt: return Op2.OrEq;
-		case AstTag.XorAssignStmt: return Op2.XorEq;
-		case AstTag.ShlAssignStmt: return Op2.ShlEq;
-		case AstTag.ShrAssignStmt: return Op2.ShrEq;
-		case AstTag.UShrAssignStmt: return Op2.UShrEq;
-
-		case AstTag.IncStmt: return Op2.Inc;
-		case AstTag.DecStmt: return Op2.Dec;
-
-		case AstTag.CoroutineExp: return Op2.Coroutine;
-
-		default: return cast(Op2)-1;
 	}
 }
 
@@ -168,7 +113,7 @@ enum ExpType
 	Slice,       // index = base: RegIdx
 	Vararg,      // index = inst: InstIdx
 	VarargIndex, // index = op: RegOrCTIdx
-	VarargSlice, // index = lo: RegOrCTIdx, index2 = hi: RegOrCTIdx
+	VarargSlice, // index = inst: InstIdx
 	Length,      // index = op: RegOrCTIdx
 	Call,        // index = inst: InstIdx
 	Yield,       // index = inst: InstIdx
@@ -525,7 +470,7 @@ package:
 			}
 
 			mLocVars[i].isActive = true;
-			mLocVars[i].pcStart = mCode.length;
+			mLocVars[i].pcStart = here();
 		}
 
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
@@ -538,7 +483,8 @@ package:
 	{
 		auto cond = getExp(-1);
 		assert(cond.isSource());
-		s.switchPC = codeR(loc, Op1.Switch, 0, cond, Exp.Empty);
+		s.switchPC = codeRD(loc, Op.Switch, 0);
+		codeRC(cond);
 		s.prev = mSwitch;
 		mSwitch = &s;
 		pop();
@@ -555,17 +501,17 @@ package:
 			mSwitchTables.append(c.alloc, *mSwitch);
 			auto switchIdx = mSwitchTables.length - 1;
 
-			if(switchIdx > Instruction.MaxSwitchTables)
+			if(switchIdx > Instruction.MaxSwitchTable)
 				c.semException(mLocation, "Too many switches");
 
-			setRT(mCode[mSwitch.switchPC], switchIdx);
+			setRD(mSwitch.switchPC, switchIdx);
 		}
 		else
 		{
 			// Happens when all the cases are dynamic and there is a default -- no need to add a switch table then
-			setOpcode(mCode[mSwitch.switchPC], Op1.Jmp);
-			setRD(mCode[mSwitch.switchPC], 1);
-			setJumpOffset(mCode[mSwitch.switchPC], mSwitch.defaultOffset);
+			setOpcode(mSwitch.switchPC, Op.Jmp);
+			setRD(mSwitch.switchPC, 1);
+			setJumpOffset(mSwitch.switchPC, mSwitch.defaultOffset);
 		}
 
 		mSwitch = prev;
@@ -603,7 +549,7 @@ package:
 			c.semException(loc, getString(t, -1));
 		}
 
-		*mSwitch.offsets.insert(*c.alloc, val) = here() - mSwitch.switchPC - 1;
+		*mSwitch.offsets.insert(*c.alloc, val) = jumpDiff(mSwitch.switchPC, here());
 	}
 
 	void addDefault(ref CompileLoc loc)
@@ -611,7 +557,7 @@ package:
 		assert(mSwitch !is null);
 		assert(mSwitch.defaultOffset == -1);
 
-		mSwitch.defaultOffset = mCode.length - mSwitch.switchPC - 1;
+		mSwitch.defaultOffset = jumpDiff(mSwitch.switchPC, here());
 	}
 
 	// ---------------------------------------------------------------------------
@@ -619,15 +565,15 @@ package:
 
 	ForDesc beginFor(CompileLoc loc, void delegate() dg)
 	{
-		return beginForImpl(loc, dg, Op1.For, 3);
+		return beginForImpl(loc, dg, Op.For, 3);
 	}
 
 	ForDesc beginForeach(CompileLoc loc, void delegate() dg, uint containerSize)
 	{
-		return beginForImpl(loc, dg, Op1.Foreach, containerSize);
+		return beginForImpl(loc, dg, Op.Foreach, containerSize);
 	}
 
-	ForDesc beginForImpl(CompileLoc loc, void delegate() dg, Op1 opcode, uint containerSize)
+	ForDesc beginForImpl(CompileLoc loc, void delegate() dg, Op opcode, uint containerSize)
 	{
 		ForDesc ret;
 		ret.baseReg = mFreeReg;
@@ -637,33 +583,33 @@ package:
 		insertDummyLocal(loc, "__hidden{}");
 		insertDummyLocal(loc, "__hidden{}");
 		insertDummyLocal(loc, "__hidden{}");
-		ret.beginJump = codeI(loc, opcode, ret.baseReg, NoJump);
+		ret.beginJump = codeRD(loc, opcode, ret.baseReg); codeImm(NoJump);
 		ret.beginLoop = here();
 		return ret;
 	}
 
 	void endFor(CompileLoc loc, ForDesc desc)
 	{
-		endForImpl(loc, desc, Op1.ForLoop, 0);
+		endForImpl(loc, desc, Op.ForLoop, 0);
 	}
 
 	void endForeach(CompileLoc loc, ForDesc desc, uint indLength)
 	{
-		endForImpl(loc, desc, Op1.ForeachLoop, indLength);
+		endForImpl(loc, desc, Op.ForeachLoop, indLength);
 	}
 
-	void endForImpl(CompileLoc loc, ForDesc desc, Op1 opcode, uint indLength)
+	void endForImpl(CompileLoc loc, ForDesc desc, Op opcode, uint indLength)
 	{
 		closeScopeUpvals(loc);
 		patchContinuesToHere();
 		patchJumpToHere(desc.beginJump);
 
-		uint j;
+		uint j = codeRD(loc, opcode, desc.baseReg);
 
-		if(opcode == Op1.ForLoop)
-			j = codeJ(loc, opcode, desc.baseReg, NoJump);
-		else
-			j = codeIMulti(loc, opcode, Op2.Je, desc.baseReg, indLength);
+		if(opcode == Op.ForeachLoop)
+			codeUImm(indLength);
+
+		codeImm(NoJump);
 
 		patchJumpTo(j, desc.beginLoop);
 		patchBreaksToHere();
@@ -762,7 +708,7 @@ package:
 
 				s.mUpvals.append(c.alloc, ud);
 
-				if(s.mUpvals.length > Instruction.MaxUpvalues)
+				if(s.mUpvals.length > Instruction.MaxUpvalue)
 					c.semException(s.mLocation, "Too many upvalues");
 
 				return s.mUpvals.length - 1;
@@ -814,12 +760,13 @@ package:
 	void pushVararg(ref CompileLoc loc)
 	{
 		auto reg = pushRegister();
-		pushExp(ExpType.Vararg, codeIMulti(loc, Op1.Vararg, Op2.GetVarargs, reg, 0));
+		pushExp(ExpType.Vararg, codeRD(loc, Op.Vararg, reg));
+		codeUImm(0);
 	}
 
 	void pushVargLen(ref CompileLoc loc)
 	{
-		pushExp(ExpType.NeedsDest, codeIMulti(loc, Op1.Vararg, Op2.VargLen, 0, 0));
+		pushExp(ExpType.NeedsDest, codeRD(loc, Op.VargLen, 0));
 	}
 
 	void pushClosure(FuncState fs)
@@ -833,14 +780,15 @@ package:
 	{
 		auto reg = pushRegister();
 		pushExp(ExpType.Temporary, reg);
-		codeIMulti(loc, Op1.New, Op2.Table, reg, 0);
+		codeRD(loc, Op.NewTable, reg);
 	}
 
 	void pushArray(ref CompileLoc loc, uword length)
 	{
 		auto reg = pushRegister();
 		pushExp(ExpType.Temporary, reg);
-		codeIMulti(loc, Op1.New, Op2.Array, reg, length);
+		codeRD(loc, Op.NewArray, reg);
+		codeUImm(addIntConst(length));
 	}
 
 	void pushNewLocals(uword num)
@@ -860,7 +808,7 @@ package:
 		auto src = getExp(-1);
 
 		if(src.type == ExpType.Call || src.type == ExpType.Yield)
-			setRT(mCode[src.index], 1);
+			setMultRetReturns(src.index, 1);
 
 		pop();
 	}
@@ -891,7 +839,11 @@ package:
 		debug(EXPSTACKCHECK) assert(arr.type == ExpType.Temporary);
 
 		auto arg = prepareArgList(loc, items);
-		codeRMulti(loc, Op1.Array, Op2.Set, arr.index, arg, block);
+
+		codeRD(loc, Op.SetArray, arr.index);
+		codeUImm(arg);
+		codeUImm(block);
+
 		pop(numItems + 1); // all items and array
 	}
 
@@ -905,7 +857,9 @@ package:
 		debug(EXPSTACKCHECK) assert(arr.type == ExpType.Temporary);
 		debug(EXPSTACKCHECK) assert(item.isSource());
 
-		codeRMulti(loc, Op1.Array, Op2.Append, arr.index, item, Exp.Empty);
+		codeRD(loc, Op.Append, arr.index);
+		codeRC(item);
+
 		pop(2);
 	}
 
@@ -913,20 +867,27 @@ package:
 	{
 		auto msg = getExp(-1);
 		debug(EXPSTACKCHECK) assert(msg.isSource());
-		codeRMulti(loc, Op1.ParamFail, Op2.CustomParamFail, 0, &Exp(ExpType.Local, paramIdx), msg);
+
+		codeRD(loc, Op.CustomParamFail, paramIdx);
+		codeRC(msg);
+
 		pop();
 	}
-	
+
 	void objParamFail(ref CompileLoc loc, uint paramIdx)
 	{
-		codeRMulti(loc, Op1.ParamFail, Op2.ObjParamFail, 0, paramIdx, 0);
+		codeRD(loc, Op.ObjParamFail, paramIdx);
 	}
 
 	uint checkObjParam(ref CompileLoc loc, uint paramIdx)
 	{
 		auto type = getExp(-1);
 		debug(EXPSTACKCHECK) assert(type.isSource());
-		auto ret = codeRJump(loc, Op1.CheckObjParam, Op2.Je, true, 0, &Exp(ExpType.Local, paramIdx), type);
+		
+		auto ret = codeRD(loc, Op.CheckObjParam, paramIdx);
+		codeRC(type);
+		codeImm(NoJump);
+
 		pop();
 		return ret;
 	}
@@ -935,36 +896,43 @@ package:
 	{
 		auto src = getExp(-1);
 		debug(EXPSTACKCHECK) assert(src.isSource());
-		auto ret = codeRJump(loc, Op1.CheckObjParam, Op2.Je, isTrue, 0, src, Exp.Empty);
+
+		auto ret = codeRD(loc, Op.IsTrue, isTrue);
+		codeRC(src);
+		codeImm(NoJump);
+
 		pop();
 		return ret;
 	}
 
-	uint codeCmp(ref CompileLoc loc, Op2 type, bool isTrue)
+	uint codeCmp(ref CompileLoc loc, Comparison type)
 	{
-		return commonCmpJump(loc, Op1.Cmp, type, isTrue);
+		return commonCmpJump(loc, Op.Cmp, type);
 	}
 
 	uint codeSwitchCmp(ref CompileLoc loc)
 	{
-		return commonCmpJump(loc, Op1.SwitchCmp, Op2.Je, true);
+		return commonCmpJump(loc, Op.SwitchCmp, 0);
 	}
 
 	uint codeEquals(ref CompileLoc loc, bool isTrue)
 	{
-		return commonCmpJump(loc, Op1.Equals, Op2.Je, isTrue);
+		return commonCmpJump(loc, Op.Equals, isTrue);
 	}
 
 	uint codeIs(ref CompileLoc loc, bool isTrue)
 	{
-		return commonCmpJump(loc, Op1.Is, Op2.Je, isTrue);
+		return commonCmpJump(loc, Op.Is, isTrue);
 	}
 
 	void codeThrow(ref CompileLoc loc, bool rethrowing)
 	{
 		auto src = getExp(-1);
 		debug(EXPSTACKCHECK) assert(src.isSource());
-		codeR(loc, Op1.Throw, 0, src, &Exp(ExpType.Local, rethrowing ? 1 : 0));
+		
+		codeRD(loc, Op.Throw, rethrowing ? 1 : 0);
+		codeRC(src);
+
 		pop();
 	}
 
@@ -972,7 +940,8 @@ package:
 	{
 		if(numRets == 0)
 		{
-			codeI(loc, Op1.SaveRets, 0, 1);
+			codeRD(loc, Op.SaveRets, 0);
+			codeUImm(1);
 			return;
 		}
 
@@ -980,7 +949,8 @@ package:
 		auto rets = mExpStack[mExpSP - numRets .. mExpSP];
 		auto arg = prepareArgList(loc, rets);
 		uint first = rets[0].index;
-		codeI(loc, Op1.SaveRets, first, arg);
+		codeRD(loc, Op.SaveRets, first);
+		codeUImm(arg);
 		pop(numRets);
 	}
 
@@ -989,25 +959,38 @@ package:
 
 	void paramCheck(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.CheckParams, 0, 0);
+		codeRD(loc, Op.CheckParams, 0);
 	}
 
 	void reflexOp(ref CompileLoc loc, AstTag type, uint operands)
 	{
 		assert(mExpSP >= operands + 1);
 
+		auto opcode = AstTagToOpcode(type);
 		auto lhs = getExp(-operands - 1);
 		auto ops = mExpStack[mExpSP - operands .. mExpSP];
 
 		debug(EXPSTACKCHECK) assert(lhs.type == ExpType.Local);
-		debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
+
+		codeRD(loc, opcode, lhs.index);
 
 		if(operands == 0)
-			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, 0, 0);
+		{
+			// inc, dec
+		}
 		else if(operands == 1)
-			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, &ops[0], Exp.Empty);
+		{
+			// addeq, subeq, muleq, diveq, modeq, andeq, oreq, xoreq, shleq, shreq, ushreq
+			debug(EXPSTACKCHECK) assert(ops[0].isSource());
+			codeRC(&ops[0]);
+		}
 		else
-			codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), lhs.index, &ops[0], &Exp(ExpType.Local, operands));
+		{
+			// cateq
+			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
+			codeRC(&ops[0]);
+			codeUImm(operands);
+		}
 
 		if(operands)
 			pop(operands);
@@ -1076,7 +1059,7 @@ package:
 
 				case ExpType.Call:
 				case ExpType.Yield:
-					assert(mFreeReg == getRD(mCode[e.index]));
+					assert(mFreeReg == getRD(e.index));
 					// fall through
 				default:
 					auto reg = pushRegister();
@@ -1109,7 +1092,9 @@ package:
 		debug(EXPSTACKCHECK) assert(name.isSource());
 		debug(EXPSTACKCHECK) assert(base.isSource());
 
-		auto i = codeRMulti(loc, Op1.New, Op2.Class, 0, name, base);
+		auto i = codeRD(loc, Op.Class, 0);
+		codeRC(name);
+		codeRC(base);
 		pop(2);
 		pushExp(ExpType.NeedsDest, i);
 	}
@@ -1119,10 +1104,12 @@ package:
 		auto name = getExp(-2);
 		auto base = getExp(-1);
 
-		debug(EXPSTACKCHECK) assert(name.isSource());
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
 		debug(EXPSTACKCHECK) assert(base.isSource());
 
-		auto i = codeRMulti(loc, Op1.New, Op2.Namespace, 0, name, base);
+		auto i = codeRD(loc, Op.Namespace, 0);
+		codeUImm(name.index);
+		codeRC(base);
 		pop(2);
 		pushExp(ExpType.NeedsDest, i);
 	}
@@ -1130,10 +1117,10 @@ package:
 	void newNamespaceNP(ref CompileLoc loc)
 	{
 		auto name = getExp(-1);
+		debug(EXPSTACKCHECK) assert(name.type == ExpType.Const);
+		auto i = codeRD(loc, Op.NamespaceNP, 0);
+		codeUImm(name.index);
 
-		debug(EXPSTACKCHECK) assert(name.isSource());
-
-		auto i = codeRMulti(loc, Op1.New, Op2.NamespaceNP, 0, name, Exp.Empty);
 		pop();
 		pushExp(ExpType.NeedsDest, i);
 	}
@@ -1175,7 +1162,7 @@ package:
 		pushExp(ExpType.VarargIndex, packRegOrConst(idx));
 	}
 
-	void varargSlice()
+	void varargSlice(ref CompileLoc loc)
 	{
 		auto lo = *getExp(-2);
 		auto hi = *getExp(-1);
@@ -1185,7 +1172,8 @@ package:
 
 		pop(2);
 		mFreeReg = hi.regAfter;
-		pushExp(ExpType.VarargSlice, lo.index);
+		pushExp(ExpType.VarargSlice, codeRD(loc, Op.VargSlice, lo.index));
+		codeUImm(0);
 	}
 
 	void length()
@@ -1220,17 +1208,21 @@ package:
 		assert(numOps >= 2);
 
 		auto ops = mExpStack[mExpSP - numOps .. mExpSP];
-		uint inst;
+		uint inst = codeRD(loc, AstTagToOpcode(type), 0);
 
 		if(numOps > 2)
 		{
+			// cat
 			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
-			inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, ops[0].index, numOps);
+			codeRC(&ops[0]);
+			codeUImm(numOps);
 		}
 		else
 		{
+			// everything else
 			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
-			inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, &ops[0], &ops[1]);
+			codeRC(&ops[0]);
+			codeRC(&ops[1]);
 		}
 
 		pop(numOps);
@@ -1240,10 +1232,10 @@ package:
 	void unOp(ref CompileLoc loc, AstTag type)
 	{
 		auto src = getExp(-1);
-
 		debug(EXPSTACKCHECK) assert(src.isSource());
 
-		auto inst = codeRMulti(loc, AstTagToOpcode1(type), AstTagToOpcode2(type), 0, src, Exp.Empty);
+		auto inst = codeRD(loc, AstTagToOpcode(type), 0);
+		codeRC(src);
 		pop();
 		pushExp(ExpType.NeedsDest, inst);
 	}
@@ -1291,8 +1283,16 @@ package:
 		assert(mExpSP == desc.baseExp);
 		assert(mFreeReg == desc.baseReg);
 
-		codeR(loc, isSuperCall ? Op1.SuperMethod : Op1.Method, desc.baseReg, obj, name);
-		pushExp(ExpType.Call, codeR(loc, Op1.Call, desc.baseReg, numArgs, 0));
+		auto inst = codeRD(loc, isSuperCall ? Op.SuperMethod : Op.Method, desc.baseReg);
+
+		if(!isSuperCall)
+			codeRC(obj);
+
+		codeRC(name);
+		codeUImm(numArgs);
+		codeUImm(0);
+
+		pushExp(ExpType.Call, inst);
 	}
 
 	void pushCall(ref CompileLoc loc, uword numArgs)
@@ -1309,32 +1309,52 @@ package:
 		auto derp = prepareArgList(loc, args);
 		derp = derp == 0 ? 0 : derp + 1;
 		pop(args.length + 2);
-
-		pushExp(ExpType.Call, codeR(loc, Op1.Call, func.index, derp, 0));
+		
+		auto inst = codeRD(loc, Op.Call, func.index);
+		codeUImm(derp);
+		codeUImm(0);
+		pushExp(ExpType.Call, inst);
 	}
 
 	void pushYield(ref CompileLoc loc, uword numArgs)
 	{
 		assert(mExpSP >= numArgs);
+		uint inst;
 
 		if(numArgs == 0)
-			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, checkRegOK(mFreeReg), 1, 0));
+		{
+			inst = codeRD(loc, Op.Yield, 0);
+			codeUImm(1);
+			codeUImm(0);
+		}
 		else
 		{
 			auto args = mExpStack[mExpSP - numArgs .. mExpSP];
 			auto derp = prepareArgList(loc, args);
 			auto base = args[0].index;
 			pop(args.length);
-			pushExp(ExpType.Yield, codeR(loc, Op1.Yield, base, derp, 0));
+			
+			inst = codeRD(loc, Op.Yield, base);
+			codeUImm(derp);
+			codeUImm(0);
 		}
+
+		pushExp(ExpType.Yield, inst);
 	}
 
 	void makeTailcall()
 	{
 		auto e = getExp(-1);
+
 		debug(EXPSTACKCHECK) assert(e.type == ExpType.Call);
-		assert(getOpcode(mCode[e.index]) == Op1.Call);
-		setOpcode(mCode[e.index], Op1.Tailcall);
+
+		switch(getOpcode(e.index))
+		{
+			case Op.Call: setOpcode(e.index, Op.TailCall); break;
+			case Op.Method: setOpcode(e.index, Op.TailMethod); break;
+			case Op.SuperMethod: setOpcode(e.index, Op.TailSuperMethod); break;
+			default: assert(false);
+		}
 	}
 
 	void beginNamespace(ref CompileLoc loc)
@@ -1362,9 +1382,9 @@ package:
 		return mCode.length;
 	}
 
-	void patchJumpTo(uint src, uint dest)
+	private void patchJumpTo(uint src, uint dest)
 	{
-		setJumpOffset(mCode[src], dest - src - 1);
+		setJumpOffset(src, jumpDiff(src, dest));
 	}
 
 	void patchJumpToHere(uint src)
@@ -1376,7 +1396,7 @@ package:
 	{
 		for(uint next = void; j != NoJump; j = next)
 		{
-			next = getImm(mCode[j]);
+			next = getJumpOffset(j);
 			patchJumpTo(j, dest);
 		}
 	}
@@ -1420,7 +1440,7 @@ package:
 
 			while(true)
 			{
-				auto next = getImm(mCode[idx]);
+				auto next = getJumpOffset(idx);
 
 				if(next is NoJump)
 					break;
@@ -1428,7 +1448,7 @@ package:
 					idx = next;
 			}
 
-			setJumpOffset(mCode[idx], j);
+			setJumpOffset(idx, j);
 		}
 	}
 
@@ -1442,7 +1462,7 @@ package:
 
 			while(true)
 			{
-				auto next = getImm(mCode[idx]);
+				auto next = getJumpOffset(idx);
 
 				if(next is NoJump)
 					break;
@@ -1450,7 +1470,7 @@ package:
 					idx = next;
 			}
 
-			setJumpOffset(mCode[idx], j);
+			setJumpOffset(idx, j);
 		}
 	}
 
@@ -1461,20 +1481,37 @@ package:
 
 		auto j = i.trueList;
 		assert(j !is NoJump);
-		i.trueList = getImm(mCode[j]);
-		setJumpOffset(mCode[j], i.falseList);
+		i.trueList = getJumpOffset(j);
+		setJumpOffset(j, i.falseList);
 		i.falseList = j;
-		setRD(mCode[j], !getRD(mCode[j]));
+
+		if(getOpcode(j) == Op.Cmp)
+		{
+			switch(cast(Comparison)getRD(j))
+			{
+				case Comparison.LT: setRD(j, Comparison.GE); break;
+				case Comparison.LE: setRD(j, Comparison.GT); break;
+				case Comparison.GT: setRD(j, Comparison.LE); break;
+				case Comparison.GE: setRD(j, Comparison.LT); break;
+				default: assert(false);
+			}
+		}
+		else
+			setRD(j, !getRD(j));
 	}
 
 	void jumpTo(ref CompileLoc loc, uint dest)
 	{
-		codeJ(loc, Op1.Jmp, true, dest - here() - 1);
+		auto j = codeRD(loc, Op.Jmp, true);
+		codeImm(NoJump);
+		setJumpOffset(j, jumpDiff(j, dest));
 	}
 
-	uint makeJump(ref CompileLoc loc, uint type = Op1.Jmp, bool isTrue = true)
+	uint makeJump(ref CompileLoc loc)
 	{
-		return codeJ(loc, type, isTrue, NoJump);
+		auto ret = codeRD(loc, Op.Jmp, true);
+		codeImm(NoJump);
+		return ret;
 	}
 
 	uint codeCatch(ref CompileLoc loc, ref Scope s)
@@ -1482,12 +1519,14 @@ package:
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJMulti(loc, Op1.PushEH, Op2.Catch, checkRegOK(mFreeReg), NoJump);
+		auto ret = codeRD(loc, Op.PushCatch, checkRegOK(mFreeReg));
+		codeImm(NoJump);
+		return ret;
 	}
 
 	uint popCatch(ref CompileLoc loc, ref CompileLoc catchLoc, uint catchBegin)
 	{
-		codeIMulti(loc, Op1.PopEH, Op2.Catch, 0, 0);
+		codeRD(loc, Op.PopCatch, 0);
 		auto ret = makeJump(loc);
 		patchJumpToHere(catchBegin);
 		popScope(catchLoc);
@@ -1500,12 +1539,14 @@ package:
 		pushScope(s);
 		mScope.ehlevel++;
 		mTryCatchDepth++;
-		return codeJMulti(loc, Op1.PushEH, Op2.Finally, checkRegOK(mFreeReg), NoJump);
+		auto ret = codeRD(loc, Op.PushFinally, checkRegOK(mFreeReg));
+		codeImm(NoJump);
+		return ret;
 	}
 
 	void popFinally(ref CompileLoc loc, ref CompileLoc finallyLoc, uint finallyBegin)
 	{
-		codeIMulti(loc, Op1.PopEH, Op2.Finally, 0, 0);
+		codeRD(loc, Op.PopFinally, 0);
 		patchJumpToHere(finallyBegin);
 		popScope(finallyLoc);
 		mTryCatchDepth--;
@@ -1552,9 +1593,11 @@ package:
 		auto diff = mScope.ehlevel - continueScope.ehlevel;
 
 		if(diff > 0)
-			codeI(loc, Op1.Unwind, 0, diff);
+			codeRD(loc, Op.Unwind, diff);
 
-		continueScope.continues = codeJ(loc, Op1.Jmp, 1, continueScope.continues);
+		auto cont = continueScope.continues;
+		continueScope.continues = codeRD(loc, Op.Jmp, true);
+		codeImm(cont);
 	}
 
 	void codeBreak(ref CompileLoc loc, char[] name)
@@ -1593,30 +1636,32 @@ package:
 		auto diff = mScope.ehlevel - breakScope.ehlevel;
 
 		if(diff > 0)
-			codeI(loc, Op1.Unwind, 0, diff);
+			codeRD(loc, Op.Unwind, diff);
 
-		breakScope.breaks = codeJ(loc, Op1.Jmp, 1, breakScope.breaks);
+		auto br = breakScope.breaks;
+		breakScope.breaks = codeRD(loc, Op.Jmp, true);
+		codeImm(br);
 	}
 
 	void defaultReturn(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.SaveRets, 0, 1);
-		codeI(loc, Op1.Ret, 0, 0);
+		saveRets(loc, 0);
+		codeRet(loc);
 	}
 
 	void codeRet(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.Ret, 0, 0);
+		codeRD(loc, Op.Ret, 0);
 	}
 
 	void codeUnwind(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.Unwind, 0, mTryCatchDepth);
+		codeRD(loc, Op.Unwind, mTryCatchDepth);
 	}
 
 	void codeEndFinal(ref CompileLoc loc)
 	{
-		codeI(loc, Op1.EndFinal, 0, 0);
+		codeRD(loc, Op.EndFinal, 0);
 	}
 
 	// ================================================================================================================================================
@@ -1658,13 +1703,13 @@ private:
 		if(e.type == ExpType.Local)
 			return e.index;
 		else
-			return e.index + Instruction.rsrtConstMax + 1;
+			return e.index + Instruction.MaxRegister + 1;
 	}
 
 	Exp unpackRegOrConst(uint idx)
 	{
-		if(idx > Instruction.rsrtConstMax)
-			return Exp(ExpType.Const, idx - Instruction.rsrtConstMax - 1);
+		if(idx > Instruction.MaxRegister)
+			return Exp(ExpType.Const, idx - Instruction.MaxRegister - 1);
 		else
 			return Exp(ExpType.Local, idx);
 	}
@@ -1687,7 +1732,7 @@ private:
 
 	uint checkRegOK(uint reg)
 	{
-		if(reg > Instruction.MaxRegisters)
+		if(reg > Instruction.MaxRegister)
 			c.semException(mLocation, "Too many registers");
 
 		return reg;
@@ -1726,14 +1771,14 @@ private:
 			{
 				debug(VARACTIVATE) Stdout.formatln("deactivating {} {} reg {}", mLocVars[i].name, mLocVars[i].location.toString(), mLocVars[i].reg);
 				mLocVars[i].isActive = false;
-				mLocVars[i].pcEnd = mCode.length;
+				mLocVars[i].pcEnd = here();
 			}
 		}
 	}
 
 	void codeClose(ref CompileLoc loc, uint reg)
 	{
-		codeI(loc, Op1.Close, reg, 0);
+		codeRD(loc, Op.Close, reg);
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1744,37 +1789,37 @@ private:
 		pushExp(ExpType.Const, index);
 	}
 
-	int addNullConst()
+	uint addNullConst()
 	{
 		return addConst(CrocValue.nullValue);
 	}
 
-	int addBoolConst(bool b)
+	uint addBoolConst(bool b)
 	{
 		return addConst(CrocValue(b));
 	}
 
-	int addIntConst(crocint x)
+	uint addIntConst(crocint x)
 	{
 		return addConst(CrocValue(x));
 	}
 
-	int addFloatConst(crocfloat x)
+	uint addFloatConst(crocfloat x)
 	{
 		return addConst(CrocValue(x));
 	}
 
-	int addCharConst(dchar x)
+	uint addCharConst(dchar x)
 	{
 		return addConst(CrocValue(x));
 	}
 
-	int addStringConst(char[] s)
+	uint addStringConst(char[] s)
 	{
 		return addConst(CrocValue(createString(t, s)));
 	}
 
-	int addConst(CrocValue v)
+	uint addConst(CrocValue v)
 	{
 		foreach(i, ref con; mConstants)
 			if(con == v)
@@ -1782,7 +1827,7 @@ private:
 
 		mConstants.append(c.alloc, v);
 
-		if(mConstants.length > Instruction.MaxConstants)
+		if(mConstants.length > Instruction.MaxConstant)
 			c.semException(mLocation, "Too many constants");
 
 		return mConstants.length - 1;
@@ -1791,10 +1836,53 @@ private:
 	// ---------------------------------------------------------------------------
 	// Codegen helpers
 
-	void setJumpOffset(ref Instruction i, int offs)
+	void setMultRetReturns(uint index, uint num)
+	{
+		switch(getOpcode(index))
+		{
+			case Op.Vararg, Op.VargSlice: setUImm(index + 1, num); break;
+			case Op.Call, Op.Yield:       setUImm(index + 2, num); break;
+			case Op.SuperMethod:          setUImm(index + 3, num); break;
+			case Op.Method:               setUImm(index + 4, num); break;
+			case Op.TailCall, Op.TailSuperMethod, Op.TailMethod: break; // these don't care about the number of returns at all
+			default: assert(false);
+		}
+	}
+
+	void setJumpOffset(uint i, int offs)
 	{
 		if(offs != NoJump && (offs < Instruction.MaxJumpBackward || offs > Instruction.MaxJumpForward))
 			c.semException(mLocation, "Code is too big to perform jump, consider splitting function");
+
+		switch(getOpcode(i))
+		{
+			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp: setImm(i + 1, offs); break;
+			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                          setImm(i + 2, offs); break;
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                               setImm(i + 3, offs); break;
+			default: assert(false);
+		}
+	}
+
+	int getJumpOffset(uint i)
+	{
+		switch(getOpcode(i))
+		{
+			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp: return getImm(i + 1);
+			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                          return getImm(i + 2);
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                               return getImm(i + 3);
+			default: assert(false);
+		}
+	}
+
+	int jumpDiff(uint srcIndex, uint dest)
+	{
+		switch(getOpcode(srcIndex))
+		{
+			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp, Op.Switch: return dest - (srcIndex + 2);
+			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                                     return dest - (srcIndex + 3);
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                                          return dest - (srcIndex + 4);
+			default: assert(false);
+		}
 	}
 
 	uint prepareArgList(ref CompileLoc loc, Exp[] items)
@@ -1867,12 +1955,8 @@ private:
 
 		switch(src.type)
 		{
-			case ExpType.Vararg, ExpType.VarargSlice:
-				setUImm(mCode[src.index], num + 1);
-				break;
-
-			case ExpType.Call, ExpType.Yield:
-				setRT(mCode[src.index], num + 1);
+			case ExpType.Vararg, ExpType.VarargSlice, ExpType.Call, ExpType.Yield:
+				setMultRetReturns(src.index, num + 1);
 				break;
 
 			default:
@@ -1880,7 +1964,7 @@ private:
 		}
 
 		src.type = ExpType.Temporary;
-		src.index = getRD(mCode[src.index]);
+		src.index = getRD(src.index);
 	}
 
 	void popMoveTo(ref CompileLoc loc, ref Exp dest)
@@ -1893,14 +1977,14 @@ private:
 
 			switch(dest.type)
 			{
-				case ExpType.Upval:       codeI(loc, Op1.SetUpval,    getExp(-1), dest.index); break;
-				case ExpType.Global:      codeI(loc, Op1.SetGlobal,   getExp(-1), dest.index); break;
-				case ExpType.NewGlobal:   codeI(loc, Op1.NewGlobal,   getExp(-1), dest.index); break;
-				case ExpType.Slice:       codeR(loc, Op1.SliceAssign, dest.index, getExp(-1), Exp.Empty); break;
-				case ExpType.Index:       codeR(loc, Op1.IndexAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
-				case ExpType.Field:       codeR(loc, Op1.FieldAssign, &unpackRegOrConst(dest.index), &unpackRegOrConst(dest.index2), getExp(-1)); break;
-				case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndexAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
-				case ExpType.Length:      codeR(loc, Op1.LengthAssign, 0, &unpackRegOrConst(dest.index), getExp(-1)); break;
+				case ExpType.Upval:       codeRD(loc, Op.SetUpval,  getExp(-1)); codeUImm(dest.index); break;
+				case ExpType.Global:      codeRD(loc, Op.SetGlobal, getExp(-1)); codeUImm(dest.index); break;
+				case ExpType.NewGlobal:   codeRD(loc, Op.NewGlobal, getExp(-1)); codeUImm(dest.index); break;
+				case ExpType.Slice:       codeRD(loc, Op.SliceAssign, dest.index); codeRC(getExp(-1)); break;
+				case ExpType.Index:       codeRD(loc, Op.IndexAssign, &unpackRegOrConst(dest.index)); codeRC(&unpackRegOrConst(dest.index2)); codeRC(getExp(-1)); break;
+				case ExpType.Field:       codeRD(loc, Op.FieldAssign, &unpackRegOrConst(dest.index)); codeRC(&unpackRegOrConst(dest.index2)); codeRC(getExp(-1)); break;
+				case ExpType.VarargIndex: codeRD(loc, Op.VargIndexAssign, 0); codeRC(&unpackRegOrConst(dest.index)); codeRC(getExp(-1)); break;
+				case ExpType.Length:      codeRD(loc, Op.LengthAssign, &unpackRegOrConst(dest.index)); codeRC(getExp(-1)); break;
 				default: assert(false);
 			}
 		}
@@ -1912,21 +1996,21 @@ private:
 	{
 		switch(src.type)
 		{
-			case ExpType.Const:       codeI(loc, Op1.LoadConst, reg, src.index); break;
+			case ExpType.Const:
 			case ExpType.Local:
-			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
-			case ExpType.Upval:       codeI(loc, Op1.GetUpval, reg, src.index); break;
-			case ExpType.Global:      codeI(loc, Op1.GetGlobal, reg, src.index); break;
-			case ExpType.Index:       codeR(loc, Op1.Index, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
-			case ExpType.Field:       codeR(loc, Op1.Field, reg, &unpackRegOrConst(src.index), &unpackRegOrConst(src.index2)); break;
-			case ExpType.Slice:       codeR(loc, Op1.Slice, reg, src.index, 0); break;
-			case ExpType.Vararg:      setRD(mCode[src.index], reg); setUImm(mCode[src.index], 2); break;
-			case ExpType.VarargIndex: codeRMulti(loc, Op1.Vararg, Op2.VargIndex, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
-			case ExpType.VarargSlice: codeIMulti(loc, Op1.Vararg, Op2.VargSlice, src.index, 2); codeMove(loc, reg, src.index); break;
-			case ExpType.Length:      codeR(loc, Op1.Length, reg, &unpackRegOrConst(src.index), Exp.Empty); break;
-			case ExpType.Call:        codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
-			case ExpType.Yield:       codeMove(loc, reg, getRD(mCode[src.index])); setUImm(mCode[src.index], 2); break;
-			case ExpType.NeedsDest:   setRD(mCode[src.index], reg); break;
+			case ExpType.NewLocal:    codeRD(loc, Op.Move, reg); codeRC(&src); break;
+			case ExpType.Upval:       codeRD(loc, Op.GetUpval, reg); codeUImm(src.index);
+			case ExpType.Global:      codeRD(loc, Op.GetGlobal, reg); codeUImm(src.index); break;
+			case ExpType.Index:       codeRD(loc, Op.Index, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
+			case ExpType.Field:       codeRD(loc, Op.Field, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
+			case ExpType.Slice:       codeRD(loc, Op.Slice, reg); codeRC(&src); break;
+			case ExpType.Vararg:      setRD(src.index, reg); setMultRetReturns(src.index, 2);break;
+			case ExpType.VarargIndex: codeRD(loc, Op.VargIndex, reg); codeRC(&unpackRegOrConst(src.index)); break;
+			case ExpType.Length:      codeRD(loc, Op.Length, reg); codeRC(&unpackRegOrConst(src.index)); break;
+			case ExpType.VarargSlice:
+			case ExpType.Call:
+			case ExpType.Yield:       setMultRetReturns(src.index, 2); codeMove(loc, reg, getRD(src.index)); break;
+			case ExpType.NeedsDest:   setRD(src.index, reg); break;
 			default: assert(false);
 		}
 	}
@@ -1935,7 +2019,7 @@ private:
 	{
 		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
 
-		if(mInnerFuncs.length > Instruction.MaxInnerFuncs)
+		if(mInnerFuncs.length > Instruction.MaxInnerFunc)
 			c.semException(mLocation, "Too many inner functions");
 
 		auto loc = fs.mLocation;
@@ -1943,28 +2027,32 @@ private:
 		if(mNamespaceReg > 0)
 			codeMove(loc, destReg, mNamespaceReg);
 
-		// TODO: change this so that funcdefs keep their upval tables in the object rather than embedding in the instruction stream
-		codeIMulti(loc, Op1.New, mNamespaceReg > 0 ? Op2.ClosureWithEnv : Op2.Closure, destReg, mInnerFuncs.length - 1);
-
-		foreach(ref ud; fs.mUpvals)
-			codeI(loc, Op1.Move, ud.isUpvalue ? 1 : 0, ud.index);
-
+		codeRD(loc, mNamespaceReg > 0 ? Op.ClosureWithEnv : Op.Closure, destReg);
+		codeUImm(mInnerFuncs.length - 1);
 		mInnerFuncs[$ - 1] = fs.toFuncDef();
 	}
 
 	void codeMove(ref CompileLoc loc, uint dest, uint src)
 	{
 		if(dest != src)
-			codeR(loc, Op1.Move, dest, src, 0);
+		{
+			codeRD(loc, Op.Move, dest);
+			codeRC(&Exp(ExpType.Local, src));
+		}
 	}
-	
-	uint commonCmpJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue)
+
+	uint commonCmpJump(ref CompileLoc loc, Op opcode, uint rd)
 	{
 		auto src1 = getExp(-2);
 		auto src2 = getExp(-1);
 		debug(EXPSTACKCHECK) assert(src1.isSource());
 		debug(EXPSTACKCHECK) assert(src2.isSource());
-		auto ret = codeRJump(loc, opcode, opcode2, isTrue, 0, src1, src2);
+
+		auto ret = codeRD(loc, opcode, rd);
+		codeRC(src1);
+		codeRC(src2);
+		codeImm(NoJump);
+
 		pop(2);
 		return ret;
 	}
@@ -1972,171 +2060,77 @@ private:
 	// ---------------------------------------------------------------------------
 	// Raw codegen funcs
 
-	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, uint src1, uint src2)
+	uint codeRD(ref CompileLoc loc, Op opcode, uint dest)
 	{
+		assert(opcode <= Op.max);
+		assert(dest <= Instruction.rdMax);
+		
+		debug(WRITECODE) Stdout.newline.format("({}:{})[{}] {} RD {}", loc.line, loc.col, mCode.length, OpNames[opcode], dest);
+
 		Instruction i = void;
-		i.data =
-			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
-			((dest << Instruction.rdShift) & Instruction.rdMask) |
-			((src1 << Instruction.rsShift) & Instruction.rsMask) |
-			((src2 << Instruction.rtShift) & Instruction.rtMask);
+		i.uimm =
+			(cast(ushort)(opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
+			(cast(ushort)(dest << Instruction.rdShift) & Instruction.rdMask);
 
 		return addInst(loc.line, i);
 	}
 
-	uint codeR(ref CompileLoc loc, Op1 opcode, uint dest, Exp* src1, Exp* src2)
+	uint codeRD(ref CompileLoc loc, Op opcode, Exp* dest)
 	{
-		auto rs = encodeRSRT(src1);
-		auto rt = encodeRSRT(src2);
+		assert(opcode <= Op.max);
+		assert(dest.isSource());
 
-		auto ret = codeR(loc, opcode, dest, rs, rt);
-
-		if(rs == Instruction.rsMax)
-			addInst(loc.line, Instruction(src1.index));
-
-		if(rt == Instruction.rtMax)
-			addInst(loc.line, Instruction(src2.index));
-
-		return ret;
-	}
-
-	uint codeR(ref CompileLoc loc, Op1 opcode, Exp* dest, Exp* src1, Exp* src2)
-	{
 		if(dest.type == ExpType.Const)
 		{
-			codeI(loc, Op1.LoadConst, checkRegOK(mFreeReg), dest.index);
-			return codeR(loc, opcode, mFreeReg, src1, src2);
+			codeRD(loc, Op.Move, checkRegOK(mFreeReg));
+			codeUImm(dest.index);
+			return codeRD(loc, opcode, mFreeReg);
 		}
 		else
-			return codeR(loc, opcode, dest.index, src1, src2);
+			return codeRD(loc, opcode, dest.index);
 	}
 
-	uint codeRMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint src1, uint src2)
+	void codeImm(int imm)
 	{
-		if(opcode2 == -1)
-			return codeR(loc, opcode, dest, src1, src2);
+		assert(imm == Instruction.NoJump || (imm >= -Instruction.immMax && imm <= Instruction.immMax));
 
-		auto ret = codeR(loc, opcode, dest, src1, src2);
-		codeSecond(loc, opcode2);
-		return ret;
+		debug(WRITECODE) Stdout.format(", IMM {}", imm);
+
+		Instruction i = void;
+		i.imm = cast(short)imm;
+		addInst(i);
 	}
 
-	uint codeRMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, Exp* src1, Exp* src2)
+	void codeUImm(uint uimm)
 	{
-		if(opcode2 == -1)
-			return codeR(loc, opcode, dest, src1, src2);
+		assert(uimm <= Instruction.uimmMax);
 
-		auto rs = encodeRSRT(src1);
-		auto rt = encodeRSRT(src2);
+		debug(WRITECODE) Stdout.format(", UIMM {}", uimm);
 
-		auto ret = codeR(loc, opcode, dest, rs, rt);
-		codeSecond(loc, opcode2);
-
-		if(rs == Instruction.rsMax)
-			addInst(loc.line, Instruction(src1.index));
-
-		if(rt == Instruction.rtMax)
-			addInst(loc.line, Instruction(src2.index));
-
-		return ret;
+		Instruction i = void;
+		i.uimm = cast(ushort)uimm;
+		addInst(i);
 	}
 
-	uint codeRJump(ref CompileLoc loc, Op1 opcode, Op2 opcode2, bool isTrue, uint dest, Exp* src1, Exp* src2)
-	{
-		auto rs = encodeRSRT(src1);
-		auto rt = encodeRSRT(src2);
-
-		codeR(loc, opcode, dest, rs, rt);
-		auto ret = makeJump(loc, opcode2, isTrue);
-
-		if(rs == Instruction.rsMax)
-			addInst(loc.line, Instruction(src1.index));
-
-		if(rt == Instruction.rtMax)
-			addInst(loc.line, Instruction(src2.index));
-
-		return ret;
-	}
-
-	uint encodeRSRT(Exp* src)
+	void codeRC(Exp* src)
 	{
 		assert(src.isSource());
+		Instruction i = void;
 
 		if(src.type == ExpType.Local)
 		{
-			assert(src.index <= Instruction.MaxRegisters);
-			return src.index;
+			assert(src.index <= Instruction.MaxRegister);
+			debug(WRITECODE) Stdout.format(", r{}", src.index);
+			i.uimm = cast(ushort)src.index;
 		}
 		else
 		{
-			if(src.index > Instruction.rsrtConstMax)
-			{
-				assert(src.index <= Instruction.MaxConstants);
-				return Instruction.rsMax;
-			}
-			else
-				return src.index | Instruction.constBit;
+			assert(src.index <= Instruction.MaxConstant);
+			debug(WRITECODE) Stdout.format(", c{}", src.index);
+			i.uimm = cast(ushort)src.index | Instruction.constBit;
 		}
-	}
 
-	uint codeI(ref CompileLoc loc, Op1 opcode, uint dest, uint imm)
-	{
-		Instruction i = void;
-		i.data =
-			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
-			((dest << Instruction.rdShift) & Instruction.rdMask) |
-			((imm << Instruction.immShift) & Instruction.immMask);
-
-		return addInst(loc.line, i);
-	}
-
-	uint codeI(ref CompileLoc loc, Op1 opcode, Exp* dest, uint imm)
-	{
-		if(dest.type == ExpType.Const)
-		{
-			codeI(loc, Op1.LoadConst, checkRegOK(mFreeReg), dest.index);
-			return codeI(loc, opcode, mFreeReg, imm);
-		}
-		else
-			return codeI(loc, opcode, dest.index, imm);
-	}
-
-	uint codeIMulti(ref CompileLoc loc, Op1 opcode, Op2 opcode2, uint dest, uint imm)
-	{
-		if(opcode2 == -1)
-			return codeI(loc, opcode, dest, imm);
-
-		auto ret = codeI(loc, opcode, dest, imm);
-		codeSecond(loc, opcode2);
-		return ret;
-	}
-
-	uint codeJ(ref CompileLoc loc, uint opcode, uint dest, int offs)
-	{
-		Instruction i = void;
-		i.data =
-			((opcode << Instruction.opcodeShift) & Instruction.opcodeMask) |
-			((dest << Instruction.rdShift) & Instruction.rdMask) |
-			((*(cast(uint*)&offs) << Instruction.immShift) & Instruction.immMask);
-
-		return addInst(loc.line, i);
-	}
-
-	uint codeJMulti(ref CompileLoc loc, uint opcode, Op2 opcode2, uint dest, int offs)
-	{
-		if(opcode2 == -1)
-			return codeJ(loc, opcode, dest, offs);
-
-		auto ret = codeJ(loc, opcode, dest, offs);
-		codeSecond(loc, opcode2);
-		return ret;
-	}
-
-	uint codeSecond(ref CompileLoc loc, Op2 opcode)
-	{
-		Instruction i = void;
-		i.data = (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
-		return addInst(loc.line, i);
+		addInst(i);
 	}
 
 	uint addInst(uint line, Instruction i)
@@ -2146,78 +2140,51 @@ private:
 		return mCode.length - 1;
 	}
 
-	void setOpcode(ref Instruction inst, uint opcode)
+	void addInst(Instruction i)
+	{
+		assert(mLineInfo.length);
+		addInst(mLineInfo[$ - 1], i);
+	}
+
+	void setOpcode(uint index, uint opcode)
 	{
 		assert(opcode <= Instruction.opcodeMax);
-		inst.data &= ~Instruction.opcodeMask;
-		inst.data |= (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
+		mCode[index].uimm &= ~Instruction.opcodeMask;
+		mCode[index].uimm |= (opcode << Instruction.opcodeShift) & Instruction.opcodeMask;
 	}
 
-	void setRD(ref Instruction inst, uint val)
+	void setRD(uint index, uint val)
 	{
 		assert(val <= Instruction.rdMax);
-		inst.data &= ~Instruction.rdMask;
-		inst.data |= (val << Instruction.rdShift) & Instruction.rdMask;
+		mCode[index].uimm &= ~Instruction.rdMask;
+		mCode[index].uimm |= (val << Instruction.rdShift) & Instruction.rdMask;
 	}
 
-	void setRS(ref Instruction inst, uint val)
-	{
-		assert(val <= Instruction.rsMax);
-		inst.data &= ~Instruction.rsMask;
-		inst.data |= (val << Instruction.rsShift) & Instruction.rsMask;
-	}
-
-	void setRT(ref Instruction inst, uint val)
-	{
-		assert(val <= Instruction.rtMax);
-		inst.data &= ~Instruction.rtMask;
-		inst.data |= (val << Instruction.rtShift) & Instruction.rtMask;
-	}
-
-	void setImm(ref Instruction inst, int val)
+	void setImm(uint index, int val)
 	{
 		assert(val == Instruction.NoJump || (val >= -Instruction.immMax && val <= Instruction.immMax));
-		inst.data &= ~Instruction.immMask;
-		inst.data |= (*(cast(uint*)&val) << Instruction.immShift) & Instruction.immMask;
+		mCode[index].imm = cast(short)val;
 	}
 
-	void setUImm(ref Instruction inst, uint val)
+	void setUImm(uint index, uint val)
 	{
 		assert(val <= Instruction.uimmMax);
-		inst.data &= ~Instruction.immMask;
-		inst.data |= (val << Instruction.immShift) & Instruction.immMask;
+		mCode[index].uimm = cast(ushort)val;
 	}
 
-	uint getOpcode(ref Instruction inst)
+	uint getOpcode(uint index)
 	{
-		return mixin(Instruction.GetOpcode("inst"));;
+		return mixin(Instruction.GetOpcode("mCode[index]"));
 	}
 
-	uint getRD(ref Instruction inst)
+	uint getRD(uint index)
 	{
-		return mixin(Instruction.GetRD("inst"));
+		return mixin(Instruction.GetRD("mCode[index]"));
 	}
 
-	uint getRS(ref Instruction inst)
+	int getImm(uint index)
 	{
-		return mixin(Instruction.GetRS("inst"));
-	}
-
-	uint getRT(ref Instruction inst)
-	{
-		return mixin(Instruction.GetRT("inst"));
-	}
-
-	int getImm(ref Instruction inst)
-	{
-		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
-		return mixin(Instruction.GetImm("inst"));
-	}
-
-	uint getUImm(ref Instruction inst)
-	{
-		static assert((Instruction.immShift + Instruction.immSize) == Instruction.sizeof * 8, "Immediate must be at top of instruction word");
-		return mixin(Instruction.GetUImm("inst"));
+		return mCode[index].imm;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -2243,6 +2210,15 @@ private:
 		ret.paramMasks = mParamMasks;
 		mParamMasks = null;
 		ret.numUpvals = mUpvals.length;
+
+		c.alloc.resizeArray(ret.upvals, mUpvals.length);
+
+		foreach(i, ref uv; mUpvals)
+		{
+			ret.upvals[i].isUpvalue = uv.isUpvalue;
+			ret.upvals[i].index = uv.index;
+		}
+
 		ret.stackSize = mStackSize + 1;
 
 		ret.innerFuncs = mInnerFuncs;
@@ -2341,278 +2317,195 @@ private:
 		Instruction nextIns()
 		{
 			insOffset++;
-			return *pc++;;
+			return *pc++;
 		}
 
-		char[] cr(uint v)
-		{
-			if(v & Instruction.constBit)
-			{
-				if(v == Instruction.rsMax)
-					return Format("c{}", nextIns().data);
-				else
-					return Format("c{}", v & ~Instruction.constBit);
-			}
-			else
-				return Format("r{}", v);
-		}
+		uint getOpcode(Instruction i) { return mixin(Instruction.GetOpcode("i")); }
+		uint getRD(Instruction i) { return mixin(Instruction.GetRD("i")); }
 
-		void leader()
-		{
-			Stdout.format("\t[{,3}:{,4}] ", insOffset, mLineInfo[insOffset]);
-		}
+		void rd(Instruction i)    { Stdout.format(" r{}", getRD(i)); }
+		void rdimm(Instruction i) { Stdout.format(" {}",  getRD(i)); }
 
-		void commonNullary(Instruction i)   { Stdout.formatln(" r{}",         getRD(i)); }
-		void commonUnary(Instruction i)     { Stdout.formatln(" r{}, {}",     getRD(i), cr(getRS(i))); }
-		void commonBinary(Instruction i)    { Stdout.formatln(" r{}, {}, {}", getRD(i), cr(getRS(i)), cr(getRT(i))); }
-		void commonUImm(Instruction i)      { Stdout.formatln(" r{}, {}",     getRD(i), getUImm(i)); }
-		void commonImm(Instruction i)       { Stdout.formatln(" r{}, {}",     getRD(i), getImm(i)); }
-		void commonUImmConst(Instruction i) { Stdout.formatln(" r{}, c{}",    getRD(i), getUImm(i)); }
-		void commonCompare(Instruction i)   { Stdout.formatln(" {}, {}",      cr(getRS(i)), cr(getRT(i))); }
-
-		void condJump()
+		void rc(bool comma = true)
 		{
-			leader();
+			if(comma)
+				Stdout(",");
+
 			auto i = nextIns();
 
-			switch(getOpcode(i))
-			{
-				case Op2.Je:  Stdout((getRD(i) == 0) ? "jne" : "je"); break;
-				case Op2.Jle: Stdout((getRD(i) == 0) ? "jgt" : "jle"); break;
-				case Op2.Jlt: Stdout((getRD(i) == 0) ? "jge" : "jlt"); break;
-				default: assert(false);
-			}
-
-			Stdout.formatln(" {}", getImm(i));
-		}
-		
-		void commonClosure(Instruction ins)
-		{
-			auto num = mInnerFuncs[getUImm(ins)].numUpvals;
-
-			for(uword i = 0; i < num; i++)
-			{
-				ins = nextIns();
-				
-				assert(getOpcode(ins) == Op1.Move);
-
-				if(getRD(ins) == 0)
-					Stdout.formatln("\t\tr{}", getUImm(ins));
-				else
-					Stdout.formatln("\t\tupvalue {}", getUImm(ins));
-			}
+			if(i.uimm & Instruction.constBit)
+				Stdout.format(" c{}", i.uimm & ~Instruction.constBit);
+			else
+				Stdout.format(" r{}", i.uimm);
 		}
 
-		leader();
+		void imm()  { Stdout.format(", {}", nextIns().imm);  }
+		void uimm() { Stdout.format(", {}", nextIns().uimm); }
+
+		Stdout.format("\t[{,3}:{,4}] ", insOffset, mLineInfo[insOffset]);
 		auto i = nextIns();
 
-		_outerSwitch: switch(getOpcode(i))
+		switch(getOpcode(i))
 		{
-			case Op1.UnOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
+			// (__)
+			case Op.PopCatch:    Stdout("popcatch"); goto _1;
+			case Op.PopFinally:  Stdout("popfinal"); goto _1;
+			case Op.EndFinal:    Stdout("endfinal"); goto _1;
+			case Op.Ret:         Stdout("ret"); goto _1;
+			case Op.CheckParams: Stdout("checkparams"); goto _1;
+			_1: break;
+
+			// (rd)
+			case Op.Inc:          Stdout("inc"); goto _2;
+			case Op.Dec:          Stdout("dec"); goto _2;
+			case Op.VargLen:      Stdout("varglen"); goto _2;
+			case Op.NewTable:     Stdout("newtab"); goto _2;
+			case Op.Close:        Stdout("close"); goto _2;
+			case Op.ObjParamFail: Stdout("objparamfail"); goto _2;
+			_2: rd(i); break;
+
+			// (rdimm)
+			case Op.Unwind: Stdout("unwind"); goto _3;
+			_3: rdimm(i); break;
+
+			// (rd, rs)
+			case Op.Neg: Stdout("neg"); goto _4;
+			case Op.Com: Stdout("com"); goto _4;
+			case Op.Not: Stdout("not"); goto _4;
+			case Op.AddEq:  Stdout("addeq"); goto _4;
+			case Op.SubEq:  Stdout("subeq"); goto _4;
+			case Op.MulEq:  Stdout("muleq"); goto _4;
+			case Op.DivEq:  Stdout("diveq"); goto _4;
+			case Op.ModEq:  Stdout("modeq"); goto _4;
+			case Op.AndEq:  Stdout("andeq"); goto _4;
+			case Op.OrEq:   Stdout("oreq"); goto _4;
+			case Op.XorEq:  Stdout("xoreq"); goto _4;
+			case Op.ShlEq:  Stdout("shleq"); goto _4;
+			case Op.ShrEq:  Stdout("shreq"); goto _4;
+			case Op.UShrEq: Stdout("ushreq"); goto _4;
+			case Op.Move:            Stdout("mov"); goto _4;
+			case Op.VargIndex:       Stdout("vargidx"); goto _4;
+			case Op.Length:          Stdout("len"); goto _4;
+			case Op.LengthAssign:    Stdout("lena"); goto _4;
+			case Op.Append:          Stdout("append"); goto _4;
+			case Op.Coroutine:       Stdout("coroutine"); goto _4;
+			case Op.SuperOf:         Stdout("superof"); goto _4;
+			case Op.CustomParamFail: Stdout("customparamfail"); goto _4;
+			case Op.Slice:           Stdout("slice"); goto _4;
+			case Op.SliceAssign:     Stdout("slicea"); goto _4;
+			_4: rd(i); rc(); break;
+
+			// (rd, imm)
+			case Op.For:         Stdout("for"); goto _5;
+			case Op.ForLoop:     Stdout("forloop"); goto _5;
+			case Op.Foreach:     Stdout("foreach"); goto _5;
+			case Op.PushCatch:   Stdout("pushcatch"); goto _5;
+			case Op.PushFinally: Stdout("pushfinal"); goto _5;
+			_5: rd(i); imm(); break;
+
+			// (rd, uimm)
+			case Op.Vararg: Stdout("vararg"); goto _6a;
+			case Op.SaveRets: Stdout("saverets"); goto _6a;
+			case Op.VargSlice: Stdout("vargslice"); goto _6a;
+			case Op.Closure: Stdout("closure"); goto _6a;
+			case Op.ClosureWithEnv: Stdout("closurewenv"); goto _6a;
+			case Op.GetUpval: Stdout("getu"); goto _6a;
+			case Op.SetUpval: Stdout("setu"); goto _6a;
+			_6a: rd(i); uimm(); break;
+
+			case Op.NewGlobal: Stdout("newg"); goto _6b;
+			case Op.GetGlobal: Stdout("getg"); goto _6b;
+			case Op.SetGlobal: Stdout("setg"); goto _6b;
+			case Op.NewArray: Stdout("newarr"); goto _6b;
+			case Op.NamespaceNP: Stdout("namespacenp"); goto _6b;
+			_6b: rd(i); Stdout.format(", c{}", nextIns().uimm); break;
+
+			// (rdimm, rs)
+			case Op.Throw: if(getRD(i)) { Stdout("re"); } Stdout("throw"); rc(false); break;
+			case Op.Switch: Stdout("switch"); goto _7;
+			_7: rdimm(i); rc(); break;
+
+			// (rdimm, imm)
+			case Op.Jmp: if(getRD(i) == 0) { Stdout("nop"); } else { Stdout("jmp"); imm(); } break;
+
+			// (rd, rs, rt)
+			case Op.Add:  Stdout("add"); goto _8;
+			case Op.Sub:  Stdout("sub"); goto _8;
+			case Op.Mul:  Stdout("mul"); goto _8;
+			case Op.Div:  Stdout("div"); goto _8;
+			case Op.Mod:  Stdout("mod"); goto _8;
+			case Op.Cmp3: Stdout("cmp3"); goto _8;
+			case Op.And:  Stdout("and"); goto _8;
+			case Op.Or:   Stdout("or"); goto _8;
+			case Op.Xor:  Stdout("xor"); goto _8;
+			case Op.Shl:  Stdout("shl"); goto _8;
+			case Op.Shr:  Stdout("shr"); goto _8;
+			case Op.UShr: Stdout("ushr"); goto _8;
+			case Op.Index:       Stdout("idx"); goto _8;
+			case Op.IndexAssign: Stdout("idxa"); goto _8;
+			case Op.In:          Stdout("in"); goto _8;
+			case Op.Class:       Stdout("class"); goto _8;
+			case Op.As:          Stdout("as"); goto _8;
+			case Op.Field:       Stdout("field"); goto _8;
+			case Op.FieldAssign: Stdout("fielda"); goto _8;
+			_8: rd(i); rc(); rc(); break;
+
+			// (__, rs, rt)
+			case Op.VargIndexAssign: Stdout("vargidxa"); rc(false); rc(); break;
+
+			// (rd, rs, uimm)
+			case Op.Cat:   Stdout("cat"); goto _9;
+			case Op.CatEq: Stdout("cateq"); goto _9;
+			_9: rd(i); rc(); uimm(); break;
+
+			// (rd, rs, imm)
+			case Op.CheckObjParam: Stdout("checkobjparam"); rd(i); rc(); imm(); break;
+
+			// (rd, uimm, imm)
+			case Op.ForeachLoop: Stdout("foreachloop"); rd(i); uimm(); imm(); break;
+
+			// (rd, uimm, uimm)
+			case Op.Call:     Stdout("call"); goto _10;
+			case Op.TailCall: Stdout("tcall"); rd(i); uimm(); nextIns(); break;
+			case Op.Yield:    Stdout("yield"); goto _10;
+			case Op.SetArray: Stdout("setarray"); goto _10;
+			_10: rd(i); uimm(); uimm(); break;
+
+			// (rd, uimm, rt)
+			case Op.Namespace: Stdout("namespace"); rd(i); Stdout.format(", c{}", nextIns().uimm); rc(); break;
+
+			// (rdimm, rs, imm)
+			case Op.IsTrue: if(getRD(i)) { Stdout("istrue"); } else { Stdout("isfalse"); } rc(false); imm(); break;
+
+			// (rdimm, rs, rt, imm)
+			case Op.Cmp:
+				switch(cast(Comparison)getRD(i))
 				{
-					case Op2.Neg: Stdout("neg"); break;
-					case Op2.Com: Stdout("com"); break;
-					case Op2.Not: Stdout("not"); break;
+					case Comparison.LT: Stdout("jlt"); goto _11;
+					case Comparison.LE: Stdout("jle"); goto _11;
+					case Comparison.GT: Stdout("jgt"); goto _11;
+					case Comparison.GE: Stdout("jge"); goto _11;
 					default: assert(false);
 				}
-				commonUnary(i);
-				break;
 
-			case Op1.BinOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Add:  Stdout("add");  break;
-					case Op2.Sub:  Stdout("sub");  break;
-					case Op2.Mul:  Stdout("mul");  break;
-					case Op2.Div:  Stdout("div");  break;
-					case Op2.Mod:  Stdout("mod");  break;
-					case Op2.Cmp3: Stdout("cmp3"); break;
-					default: assert(false);
-				}
-				commonBinary(i);
-				break;
+			case Op.Equals: if(getRD(i)) { Stdout("je"); } else { Stdout("jne"); } goto _11;
+			case Op.Is: if(getRD(i)) { Stdout("jis"); } else { Stdout("jnis"); } goto _11;
+			_11: rc(false); rc(); imm(); break;
 
-			case Op1.ReflBinOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.AddEq: Stdout("addeq"); break;
-					case Op2.SubEq: Stdout("subeq"); break;
-					case Op2.MulEq: Stdout("muleq"); break;
-					case Op2.DivEq: Stdout("diveq"); break;
-					case Op2.ModEq: Stdout("modeq"); break;
-					default: assert(false);
-				}
-				commonUnary(i);
-				break;
+			// (__, rs, rt, imm)
+			case Op.SwitchCmp: Stdout("swcmp"); rc(false); rc(); imm(); break;
 
-			case Op1.BitOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.And:  Stdout("and");  break;
-					case Op2.Or:   Stdout("or");   break;
-					case Op2.Xor:  Stdout("xor");  break;
-					case Op2.Shl:  Stdout("shl");  break;
-					case Op2.Shr:  Stdout("shr");  break;
-					case Op2.UShr: Stdout("ushr"); break;
-					default: assert(false);
-				}
-				commonBinary(i);
-				break;
+			// (rd, rt, uimm, uimm)
+			case Op.SuperMethod:     Stdout("smethod"); rd(i); rc(); uimm(); uimm(); break;
+			case Op.TailSuperMethod: Stdout("tsmethod"); rd(i); rc(); uimm(); nextIns(); break;
 
-			case Op1.ReflBitOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.AndEq:  Stdout("andeq");  break;
-					case Op2.OrEq:   Stdout("oreq");   break;
-					case Op2.XorEq:  Stdout("xoreq");  break;
-					case Op2.ShlEq:  Stdout("shleq");  break;
-					case Op2.ShrEq:  Stdout("shreq");  break;
-					case Op2.UShrEq: Stdout("ushreq"); break;
-					default: assert(false);
-				}
-				commonUnary(i);
-				break;
+			// (rd, rs, rt, uimm, uimm)
+			case Op.Method:     Stdout("method"); rd(i); rc(); rc(); uimm(); uimm(); break;
+			case Op.TailMethod: Stdout("tmethod"); rd(i); rc(); rc(); uimm(); nextIns(); break;
 
-			case Op1.CrementOp:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Inc: Stdout("inc"); break;
-					case Op2.Dec: Stdout("dec"); break;
-					default: assert(false);
-				}
-				commonNullary(i);
-				break;
-
-			case Op1.Move:          Stdout("mov");    commonUnary(i);     break;
-			case Op1.LoadConst:     Stdout("lc");     commonUImmConst(i); break;
-			case Op1.NewGlobal:     Stdout("newg");   commonUImmConst(i); break;
-			case Op1.GetGlobal:     Stdout("getg");   commonUImmConst(i); break;
-			case Op1.SetGlobal:     Stdout("setg");   commonUImmConst(i); break;
-			case Op1.GetUpval:      Stdout("getu");   commonUImm(i);      break;
-			case Op1.SetUpval:      Stdout("setu");   commonUImm(i);      break;
-
-			case Op1.Cmp:           Stdout("cmp");    commonCompare(i); condJump(); break;
-			case Op1.Equals:        Stdout("equals"); commonCompare(i); condJump(); break;
-			case Op1.SwitchCmp:     Stdout("swcmp");  commonCompare(i); condJump(); break;
-			case Op1.Is:            Stdout("is");     commonCompare(i); condJump(); break;
-
-			case Op1.IsTrue:        Stdout.formatln("istrue {}", cr(getRS(i))); condJump(); break;
-			case Op1.ForeachLoop:   Stdout("foreachloop");   commonUImm(i); condJump();     break;
-			case Op1.CheckObjParam: Stdout("checkobjparam"); commonCompare(i); condJump();  break;
-
-			case Op1.Jmp:           if(getRD(i) == 0) Stdout("nop").newline; else { Stdout("jmp"); commonImm(i); }; break; // THIS IS WRONG
-			case Op1.Switch:        Stdout.formatln("switch {}, {}", cr(getRS(i)), getRT(i)); break;
-			case Op1.For:           Stdout("for");     commonImm(i); break;
-			case Op1.ForLoop:       Stdout("forloop"); commonImm(i); break;
-			case Op1.Foreach:       Stdout("foreach"); commonImm(i); break;
-
-			case Op1.PushEH:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Catch:   Stdout("pushcatch"); break;
-					case Op2.Finally: Stdout("pushfinal"); break;
-					default: assert(false);
-				}
-				commonImm(i);
-				break;
-
-			case Op1.PopEH:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Catch:   Stdout("popcatch").newline; break;
-					case Op2.Finally: Stdout("popfinal").newline; break;
-					default: assert(false);
-				}
-				break;
-
-			case Op1.EndFinal:    Stdout("endfinal").newline; break;
-			case Op1.Throw:       Stdout.formatln("{}throw {}", getRT(i) ? "re" : "", cr(getRS(i))); break;
-			case Op1.Unwind:      Stdout.formatln("unwind {}", getUImm(i)); break;
-			case Op1.Method:      Stdout("method"); commonBinary(i); break;
-			case Op1.SuperMethod: Stdout("smethod"); commonBinary(i); break;
-			case Op1.Call:        Stdout.formatln("call r{}, {}, {}", getRD(i), getRS(i), getRT(i)); break;
-			case Op1.Tailcall:    Stdout.formatln("tcall r{}, {}", getRD(i), getRS(i)); break;
-			case Op1.Yield:       Stdout.formatln("yield r{}, {}, {}", getRD(i), getRS(i), getRT(i)); break;
-			case Op1.SaveRets:    Stdout("saverets"); commonUImm(i); break;
-			case Op1.Ret:         Stdout("ret").newline; break;
-			case Op1.Close:       Stdout("close"); commonNullary(i); break;
-
-			case Op1.Vararg:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.GetVarargs:      Stdout("vararg"); commonUImm(i); break;
-					case Op2.VargLen:         Stdout("varglen"); commonNullary(i); break;
-					case Op2.VargIndex:       Stdout("vargidx"); commonUnary(i); break;
-					case Op2.VargIndexAssign: Stdout("vargidxa"); commonUnary(i); break;
-					case Op2.VargSlice:       Stdout("vargslice"); commonUImm(i); break;
-					default: assert(false);
-				}
-				break;
-
-			case Op1.CheckParams: Stdout("checkparams").newline; break;
-
-			case Op1.ParamFail:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.ObjParamFail:    Stdout.formatln("objparamfail {}", cr(getRS(i))); break;
-					case Op2.CustomParamFail: Stdout("customparamfail"); commonCompare(i); break;
-					default: assert(false);
-				}
-				break;
-
-			case Op1.Length:       Stdout("len"); commonUnary(i); break;
-			case Op1.LengthAssign: Stdout("lena"); commonUnary(i); break;
-
-			case Op1.Array:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Append: Stdout("append"); commonUnary(i); break;
-					case Op2.Set:    Stdout.formatln("setarray r{}, {}, block {}", getRD(i), getRS(i), getRT(i)); break;
-					default: assert(false);
-				}
-				break;
-
-			case Op1.Cat:         Stdout.formatln("cat r{}, r{}, {}", getRD(i), getRS(i), getRT(i)); break;
-			case Op1.CatEq:       Stdout.formatln("cateq r{}, r{}, {}", getRD(i), getRS(i), getRT(i)); break;
-			case Op1.Index:       Stdout("idx"); commonBinary(i); break;
-			case Op1.IndexAssign: Stdout("idxa"); commonBinary(i); break;
-			case Op1.Slice:       Stdout("slice"); commonUnary(i); break;
-			case Op1.SliceAssign: Stdout("slicea"); commonUnary(i); break;
-			case Op1.In:          Stdout("in"); commonBinary(i); break;
-
-			case Op1.New:
-				auto two = nextIns();
-				switch(getOpcode(two))
-				{
-					case Op2.Array:          Stdout("newarr"); commonUImm(i); break;
-					case Op2.Table:          Stdout("newtab"); commonNullary(i); break;
-					case Op2.Class:          Stdout("class"); commonBinary(i); break;
-					case Op2.Coroutine:      Stdout("coroutine"); commonUnary(i); break;
-					case Op2.Namespace:      Stdout("namespace"); commonBinary(i); break;
-					case Op2.NamespaceNP:    Stdout("namespacenp"); commonUnary(i); break;
-					case Op2.Closure:        Stdout("closure"); commonUImm(i); commonClosure(i); break;
-					case Op2.ClosureWithEnv: Stdout("closurewenv"); commonUImm(i); commonClosure(i); break;
-					default: assert(false);
-				}
-				break;
-
-			case Op1.As:          Stdout("as"); commonBinary(i); break;
-			case Op1.SuperOf:     Stdout("superof"); commonUnary(i); break;
-			case Op1.Field:       Stdout("field"); commonBinary(i); break;
-			case Op1.FieldAssign: Stdout("fielda"); commonBinary(i); break;
-			default: Stdout.formatln("??? opcode = {}", getOpcode(i));
+			default: assert(false);
 		}
+
+		Stdout.newline;
 	}
 }

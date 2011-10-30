@@ -729,6 +729,14 @@ struct CrocFuncDef
 	package uint numParams;
 	package uint[] paramMasks;
 	package uint numUpvals;
+
+	struct UpvalDesc
+	{
+		bool isUpvalue;
+		uint index;
+	}
+
+	package UpvalDesc[] upvals;
 	package uint stackSize;
 	package CrocFuncDef*[] innerFuncs;
 	package CrocValue[] constants;

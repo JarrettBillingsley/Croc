@@ -805,15 +805,15 @@ scope class Codegen : Visitor
 					visit(lo);
 					fs.toSource(lo.endLocation);
 
-					auto jmp1 = fs.codeCmp(lo.location, Op2.Jlt, true);
+					auto jmp1 = fs.codeCmp(lo.location, Comparison.LT);
 
 					fs.dup();
 					visit(hi);
 					fs.toSource(hi.endLocation);
 
-					auto jmp2 = fs.codeCmp(hi.endLocation, Op2.Jle, false);
+					auto jmp2 = fs.codeCmp(hi.endLocation, Comparison.GT);
 
-					c.dynJump = fs.makeJump(hi.endLocation, Op1.Jmp, true);
+					c.dynJump = fs.makeJump(hi.endLocation);
 
 					fs.patchJumpToHere(jmp1);
 					fs.patchJumpToHere(jmp2);
@@ -1005,12 +1005,12 @@ scope class Codegen : Visitor
 	public override MulAssignStmt  visit(MulAssignStmt s)  { return visitOpAssign(s); }
 	public override DivAssignStmt  visit(DivAssignStmt s)  { return visitOpAssign(s); }
 	public override ModAssignStmt  visit(ModAssignStmt s)  { return visitOpAssign(s); }
+	public override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
+	public override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
+	public override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
 	public override ShlAssignStmt  visit(ShlAssignStmt s)  { return visitOpAssign(s); }
 	public override ShrAssignStmt  visit(ShrAssignStmt s)  { return visitOpAssign(s); }
 	public override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
-	public override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
-	public override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
-	public override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
 
 	public override CondAssignStmt visit(CondAssignStmt s)
 	{
@@ -1095,7 +1095,7 @@ scope class Codegen : Visitor
 		visit(e.op1);
 		fs.assign(e.op1.endLocation, 1, 1);
 
-		auto i = fs.makeJump(e.op1.endLocation, Op1.Jmp);
+		auto i = fs.makeJump(e.op1.endLocation);
 
 		fs.patchFalseToHere(c);
 
@@ -1149,21 +1149,21 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override BinaryExp visit(OrExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(XorExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(AndExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(InExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(NotInExp e) { assert(false); /* return visitBinExp(e); */ }
-	public override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
-	public override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
 	public override BinaryExp visit(AddExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(SubExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(MulExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(DivExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(ModExp e)   { return visitBinExp(e); }
+	public override BinaryExp visit(AndExp e)   { return visitBinExp(e); }
+	public override BinaryExp visit(OrExp e)    { return visitBinExp(e); }
+	public override BinaryExp visit(XorExp e)   { return visitBinExp(e); }
+	public override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
+	public override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
+	public override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
+	public override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
+	public override BinaryExp visit(InExp e)    { return visitBinExp(e); }
+	public override BinaryExp visit(NotInExp e) { assert(false); /* return visitBinExp(e); */ }
+	public override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 
 	public override CatExp visit(CatExp e)
 	{
@@ -1182,7 +1182,7 @@ scope class Codegen : Visitor
 		fs.dup();
 		fs.pushBool(false);
 		fs.assign(e.endLocation, 1, 1);
-		auto j = fs.makeJump(e.endLocation, Op1.Jmp);
+		auto j = fs.makeJump(e.endLocation);
 		fs.patchTrueToHere(i);
 		fs.dup();
 		fs.pushBool(true);
@@ -1353,7 +1353,7 @@ scope class Codegen : Visitor
 		list[0] = e.loIndex;
 		list[1] = e.hiIndex;
 		codeGenList(list[], false);
-		fs.varargSlice();
+		fs.varargSlice(e.endLocation);
 		return e;
 	}
 
@@ -1660,7 +1660,7 @@ scope class Codegen : Visitor
 		fs.invertJump(left);
 		fs.patchTrueToHere(left);
 
-		auto trueJump = fs.makeJump(e.op1.endLocation, Op1.Jmp, true);
+		auto trueJump = fs.makeJump(e.op1.endLocation);
 
 		fs.patchFalseToHere(c);
 		// Done with c
@@ -1731,10 +1731,10 @@ scope class Codegen : Visitor
 
 		switch(e.type)
 		{
-			case AstTag.LTExp: ret.trueList = fs.codeCmp(e.endLocation, Op2.Jlt, true); break;
-			case AstTag.LEExp: ret.trueList = fs.codeCmp(e.endLocation, Op2.Jle, true); break;
-			case AstTag.GTExp: ret.trueList = fs.codeCmp(e.endLocation, Op2.Jle, false); break;
-			case AstTag.GEExp: ret.trueList = fs.codeCmp(e.endLocation, Op2.Jlt, false); break;
+			case AstTag.LTExp: ret.trueList = fs.codeCmp(e.endLocation, Comparison.LT); break;
+			case AstTag.LEExp: ret.trueList = fs.codeCmp(e.endLocation, Comparison.LE); break;
+			case AstTag.GTExp: ret.trueList = fs.codeCmp(e.endLocation, Comparison.GT); break;
+			case AstTag.GEExp: ret.trueList = fs.codeCmp(e.endLocation, Comparison.GE); break;
 			default: assert(false);
 		}
 

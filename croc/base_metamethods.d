@@ -37,10 +37,6 @@ package enum MM
 	Mul,
 	Div,
 	Mod,
-	Cmp,
-
-	Neg,
-	Com,
 
 	AddEq,
 	SubEq,
@@ -62,10 +58,13 @@ package enum MM
 	ShrEq,
 	UShrEq,
 
+	LAST_OPCODE_MM = UShrEq,
+
+	Neg,
+	Com,
+
 	Inc,
 	Dec,
-	
-	LAST_OPCODE_MM = Dec,
 
 	Add_r,
 	Sub_r,
@@ -80,26 +79,29 @@ package enum MM
 	Shr_r,
 	UShr_r,
 
-	Apply,
-	Call,
 	Cat,
-	Cat_r,
 	CatEq,
-	Equals,
-	Field,
-	FieldAssign,
-	In,
+	Cat_r,
+
 	Index,
 	IndexAssign,
-	Length,
-	LengthAssign,
-	Method,
 	Slice,
 	SliceAssign,
+	Field,
+	FieldAssign,
+	Length,
+	LengthAssign,
+
+	Cmp,
+	Equals,
+
+	Call,
+	Method,
+
+	Apply,
+	In,
 	ToString,
 }
-
-static assert(MM.Add_r == MM.Dec + 1);
 
 package const char[][] MetaNames =
 [

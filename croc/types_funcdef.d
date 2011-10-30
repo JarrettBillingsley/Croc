@@ -45,6 +45,7 @@ static:
 	package void free(ref Allocator alloc, CrocFuncDef* fd)
 	{
 		alloc.freeArray(fd.paramMasks);
+		alloc.freeArray(fd.upvals);
 		alloc.freeArray(fd.innerFuncs);
 		alloc.freeArray(fd.constants);
 		alloc.freeArray(fd.code);

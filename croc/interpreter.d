@@ -2570,7 +2570,7 @@ version(CrocExtendedCoro)
 	}
 }
 
-void yieldImpl(CrocThread* t, AbsStack firstValue, word numReturns, word numValues)
+void yieldImpl(CrocThread* t, AbsStack firstValue, word numValues, word numReturns)
 {
 	auto ar = pushAR(t);
 
@@ -2789,7 +2789,6 @@ void execute(CrocThread* t, uword depth = 1)
 
 /+
 	CrocException currentException = null;
-	uint rs, rt;
 	CrocValue* RS;
 	CrocValue* RT;
 
@@ -2816,22 +2815,22 @@ void execute(CrocThread* t, uword depth = 1)
 //
 // 				default:
 // 					auto name = constTable[index & ~Instruction.locMask].mString;
-// 
+//
 // 					if(auto glob = namespace.get(env, name))
 // 						return glob;
-// 
+//
 // 					auto ns = env;
 // 					for(; ns.parent !is null; ns = ns.parent){}
-// 
+//
 // 					if(ns !is env)
 // 					{
 // 						if(auto glob = namespace.get(ns, name))
 // 							return glob;
 // 					}
-// 
+//
 // 					throwStdException(t, "NameException", "Attempting to get nonexistent global '{}'", name.toString());
 // 			}
-// 
+//
 // 			assert(false);
 // 		}
 
@@ -2840,11 +2839,11 @@ void execute(CrocThread* t, uword depth = 1)
 // 		const char[] GetRS = "((i.rs & 0x8000) == 0) ? (((i.rs & 0x4000) == 0) ? (&t.stack[stackBase + (i.rs & ~Instruction.locMask)]) : (&constTable[i.rs & ~Instruction.locMask])) : (get(i.rs))";
 // 		const char[] GetRT = "((i.rt & 0x8000) == 0) ? (((i.rt & 0x4000) == 0) ? (&t.stack[stackBase + (i.rt & ~Instruction.locMask)]) : (&constTable[i.rt & ~Instruction.locMask])) : (get(i.rt))";
 
-		const char[] GetRS =
-			"{ rs = mixin(Instruction.GetRS(\"i\")); if(rs & Instruction.constBit) { if(rs == Instruction.rsMax) RS = &constTable[(*pc)++]; else RS = &constTable[rs]; } else RS = &t.stack[stackBase + rs]; }";
-
-		const char[] GetRT =
-			"{ rs = mixin(Instruction.GetRS(\"i\")); if(rs & Instruction.constBit) { if(rs == Instruction.rsMax) RS = &constTable[(*pc)++]; else RS = &constTable[rs]; } else RS = &t.stack[stackBase + rs]; }";
+		const char[] GetRS = "if((*pc).uimm & Instruction.constBit) RS = &constTable[(*pc).uimm & ~Instruction.constBit]; else RS = &t.stack[stackBase + (*pc).uimm]; (*pc)++;"
+		const char[] GetRT = "if((*pc).uimm & Instruction.constBit) RT = &constTable[(*pc).uimm & ~Instruction.constBit]; else RT = &t.stack[stackBase + (*pc).uimm]; (*pc)++;"
+		const char[] GetRTAndrt = "auto rt = (*pc).uimm; if((*pc).uimm & Instruction.constBit) RT = &constTable[(*pc).uimm & ~Instruction.constBit]; else RT = &t.stack[stackBase + (*pc).uimm]; (*pc)++;"
+		const char[] GetUImm = "((*pc)++).uimm";
+		const char[] GetImm = "((*pc)++).imm";
 
 		Instruction* oldPC = null;
 
@@ -2855,9 +2854,6 @@ void execute(CrocThread* t, uword depth = 1)
 
 			pc = &t.currentAR.pc;
 			Instruction* i = (*pc)++;
-
-			auto opcode = mixin(Instruction.GetOpcode("i"));
-			auto rd = mixin(Instruction.GetRD("i"));
 
 			if(t.hooksEnabled)
 			{
@@ -2889,139 +2885,145 @@ void execute(CrocThread* t, uword depth = 1)
 
 			oldPC = *pc;
 
-			switch(i.opcode)
-			{
-				// Binary Arithmetic
-				case Op.Add: binOpImpl(t, MM.Add, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Sub: binOpImpl(t, MM.Sub, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Mul: binOpImpl(t, MM.Mul, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Div: binOpImpl(t, MM.Div, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Mod: binOpImpl(t, MM.Mod, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+			auto opcode = mixin(Instruction.GetOpcode("i"));
+			auto rd = mixin(Instruction.GetRD("i"));
 
-				// Unary Arithmetic
-				case Op.Neg: negImpl(t, mixin(GetRD), mixin(GetRS)); break;
+			switch(opcode)
+			{
+				// ====================================================================
+				// These opcodes match up with the MM enum to avoid a second lookup.
+
+				// Binary Arithmetic
+				case Op.Add:
+				case Op.Sub:
+				case Op.Mul:
+				case Op.Div:
+				case Op.Mod: mixin(GetRS); mixin(GetRT); binOpImpl(t, cast(MM)opcode, rd, RS, RT); break;
 
 				// Reflexive Arithmetic
-				case Op.AddEq: reflBinOpImpl(t, MM.AddEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.SubEq: reflBinOpImpl(t, MM.SubEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.MulEq: reflBinOpImpl(t, MM.MulEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.DivEq: reflBinOpImpl(t, MM.DivEq, mixin(GetRD), mixin(GetRS)); break;
-				case Op.ModEq: reflBinOpImpl(t, MM.ModEq, mixin(GetRD), mixin(GetRS)); break;
-
-				// Inc/Dec
-				case Op.Inc: incImpl(t, mixin(GetRD)); break;
-				case Op.Dec: decImpl(t, mixin(GetRD)); break;
+				case Op.AddEq:
+				case Op.SubEq:
+				case Op.MulEq:
+				case Op.DivEq:
+				case Op.ModEq: mixin(GetRS); reflBinOpImpl(t, cast(MM)opcode, rd, RS); break;
 
 				// Binary Bitwise
-				case Op.And:  binaryBinOpImpl(t, MM.And,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Or:   binaryBinOpImpl(t, MM.Or,   mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Xor:  binaryBinOpImpl(t, MM.Xor,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Shl:  binaryBinOpImpl(t, MM.Shl,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.Shr:  binaryBinOpImpl(t, MM.Shr,  mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.UShr: binaryBinOpImpl(t, MM.UShr, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-
-				// Unary Bitwise
-				case Op.Com: comImpl(t, mixin(GetRD), mixin(GetRS)); break;
+				case Op.And:
+				case Op.Or:
+				case Op.Xor:
+				case Op.Shl:
+				case Op.Shr:
+				case Op.UShr: mixin(GetRS); mixin(GetRT); binaryBinOpImpl(t, cast(MM)opcode, rd, RS, RT); break;
 
 				// Reflexive Bitwise
-				case Op.AndEq:  reflBinaryBinOpImpl(t, MM.AndEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.OrEq:   reflBinaryBinOpImpl(t, MM.OrEq,   mixin(GetRD), mixin(GetRS)); break;
-				case Op.XorEq:  reflBinaryBinOpImpl(t, MM.XorEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.ShlEq:  reflBinaryBinOpImpl(t, MM.ShlEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.ShrEq:  reflBinaryBinOpImpl(t, MM.ShrEq,  mixin(GetRD), mixin(GetRS)); break;
-				case Op.UShrEq: reflBinaryBinOpImpl(t, MM.UShrEq, mixin(GetRD), mixin(GetRS)); break;
+				case Op.AndEq:
+				case Op.OrEq:
+				case Op.XorEq:
+				case Op.ShlEq:
+				case Op.ShrEq:
+				case Op.UShrEq: mixin(GetRS); reflBinaryBinOpImpl(t, cast(MM)opcode, rd, RS); break;
+
+				// ====================================================================
+				// From here on, there is no correlation between Op and MM.
+
+				// Unary ops
+				case Op.Neg: mixin(GetRS); t.stack[stackBase + rd] = negImpl(t, RS); break;
+				case Op.Com: mixin(GetRS); t.stack[stackBase + rd] = comImpl(t, RS); break;
+
+				// Crements
+				case Op.Inc: incImpl(t, rd); break;
+				case Op.Dec: decImpl(t, rd); break;
 
 				// Data Transfer
-				case Op.Move: *mixin(GetRD) = *mixin(GetRS); break;
-				case Op.LoadConst: t.stack[stackBase + i.rd] = constTable[i.rs & ~Instruction.locMask]; break;
+				case Op.Move: mixin(GetRS); t.stack[stackBase + rd] = *RS; break;
 
 				case Op.NewGlobal:
-					auto name = constTable[i.rt & ~Instruction.locMask].mString;
+					auto name = constTable[mixin(GetUImm)].mString;
 
 					if(namespace.contains(env, name))
 						throwStdException(t, "NameException", "Attempting to create global '{}' that already exists", name.toString());
 
-					namespace.set(t.vm.alloc, env, name, mixin(GetRS));
+					namespace.set(t.vm.alloc, env, name, t.stack[stackBase + rd]);
 					break;
+
+				case Op.GetGlobal: t.stack[stackBase + rd] = *getGlobal(constTable[mixin(GetUImm)]); break;
+				case Op.SetGlobal: *getGlobal(constTable[mixin(GetUImm)]) = t.stack[stackBase + rd]; break;
+
+				case Op.GetUpval:  t.stack[stackBase + rd] = *upvals[mixin(GetUImm)].value; break;
+				case Op.SetUpval:  *upvals[mixin(GetUImm)].value = t.stack[stackBase + rd]; break;
 
 				// Logical and Control Flow
-				case Op.Not: *mixin(GetRD) = mixin(GetRS).isFalse(); break;
+				case Op.Not: mixin(GetRS); t.stack[stackBase + rd] = RS.isFalse(); break;
+				case Op.Cmp3: mixin(GetRS); mixin(GetRT); t.stack[stackBase + rd] = compareImpl(t, RS, RT); break;
 
 				case Op.Cmp:
-					auto jump = (*pc)++;
+					mixin(GetRS);
+					mixin(GetRT);
+					auto jump = mixin(GetImm);
 
-					auto cmpValue = compareImpl(t, mixin(GetRS), mixin(GetRT));
+					auto cmpValue = compareImpl(t, RS, RT);
 
-					if(jump.rd)
+					switch(cast(Comparison)rd)
 					{
-						switch(jump.opcode)
-						{
-							case Op.Je:  if(cmpValue == 0) (*pc) += jump.imm; break;
-							case Op.Jle: if(cmpValue <= 0) (*pc) += jump.imm; break;
-							case Op.Jlt: if(cmpValue < 0)  (*pc) += jump.imm; break;
-							default: assert(false, "invalid 'cmp' jump");
-						}
+						case Comparison.LT: if(cmpValue < 0) (*pc) += jump; break;
+						case Comparison.LE: if(cmpValue <= 0) (*pc) += jump; break;
+						case Comparison.GT: if(cmpValue > 0) (*pc) += jump; break;
+						case Comparison.GE: if(cmpValue >= 0) (*pc) += jump; break;
+						default: assert(false, "invalid cmp comparison type");
 					}
-					else
-					{
-						switch(jump.opcode)
-						{
-							case Op.Je:  if(cmpValue != 0) (*pc) += jump.imm; break;
-							case Op.Jle: if(cmpValue > 0)  (*pc) += jump.imm; break;
-							case Op.Jlt: if(cmpValue >= 0) (*pc) += jump.imm; break;
-							default: assert(false, "invalid 'cmp' jump");
-						}
-					}
-					break;
-
-				case Op.Equals:
-					auto jump = (*pc)++;
-
-					auto cmpValue = equalsImpl(t, mixin(GetRS), mixin(GetRT));
-
-					if(cmpValue == cast(bool)jump.rd)
-						(*pc) += jump.imm;
-					break;
-
-				case Op.Cmp3:
-					// Doing this to ensure evaluation of mixin(GetRD) happens _after_ compareImpl has executed
-					auto val = compareImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
 					break;
 
 				case Op.SwitchCmp:
-					auto jump = (*pc)++;
+					mixin(GetRS);
+					mixin(GetRT);
+					auto jump = mixin(GetImm);
 
-					if(switchCmpImpl(t, mixin(GetRS), mixin(GetRT)))
-						(*pc) += jump.imm;
+					if(switchCmpImpl(t, RS, RT))
+						(*pc) += jump;
+					break;
 
+				case Op.Equals:
+					mixin(GetRS);
+					mixin(GetRT);
+					auto jump = mixin(GetImm);
+
+					if(equalsImpl(t, RS, RT) == cast(bool)rd)
+						(*pc) += jump;
 					break;
 
 				case Op.Is:
-					auto jump = (*pc)++;
+					mixin(GetRS);
+					mixin(GetRT);
+					auto jump = mixin(GetImm);
 
-					if(mixin(GetRS).opEquals(*mixin(GetRT)) == jump.rd)
-						(*pc) += jump.imm;
+					if(RS.opEquals(RT) == rd)
+						(*pc) += jump;
 
 					break;
 
 				case Op.IsTrue:
-					auto jump = (*pc)++;
+					mixin(GetRS);
+					auto jump = mixin(GetImm);
 
-					if(mixin(GetRS).isFalse() != cast(bool)jump.rd)
-						(*pc) += jump.imm;
+					if(RS.isFalse() != cast(bool)rd)
+						(*pc) += jump;
 
 					break;
 
 				case Op.Jmp:
-					if(i.rd != 0)
-						(*pc) += i.imm;
+					// If we ever change the format of this opcode, check that it's the same length as Switch (codegen can turn Switch into Jmp)!
+					auto jump = mixin(GetImm);
+
+					if(rd != 0)
+						(*pc) += jump;
 					break;
 
 				case Op.Switch:
-					auto st = &t.currentAR.func.scriptFunc.switchTables[i.rt];
+					// If we ever change the format of this opcode, check that it's the same length as Jmp (codegen can turn Switch into Jmp)!
+					auto st = &t.currentAR.func.scriptFunc.switchTables[rd];
+					mixin(GetRS);
 
-					if(auto ptr = st.offsets.lookup(*mixin(GetRS)))
+					if(auto ptr = st.offsets.lookup(*RS))
 						(*pc) += *ptr;
 					else
 					{
@@ -3032,10 +3034,11 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 					break;
 
-				case Op.Close: close(t, stackBase + i.rd); break;
+				case Op.Close: close(t, stackBase + rd); break;
 
 				case Op.For:
-					auto idx = &t.stack[stackBase + i.rd];
+					auto jump = mixin(GetImm);
+					auto idx = &t.stack[stackBase + rd];
 					auto hi = idx + 1;
 					auto step = hi + 1;
 
@@ -3056,36 +3059,37 @@ void execute(CrocThread* t, uword depth = 1)
 						*idx = intIdx + intStep;
 
 					*step = intStep;
-					(*pc) += i.imm;
+					(*pc) += jump;
 					break;
 
 				case Op.ForLoop:
-					auto idx = t.stack[stackBase + i.rd].mInt;
-					auto hi = t.stack[stackBase + i.rd + 1].mInt;
-					auto step = t.stack[stackBase + i.rd + 2].mInt;
+					auto jump = mixin(GetImm);
+					auto idx = t.stack[stackBase + rd].mInt;
+					auto hi = t.stack[stackBase + rd + 1].mInt;
+					auto step = t.stack[stackBase + rd + 2].mInt;
 
 					if(step > 0)
 					{
 						if(idx < hi)
 						{
-							t.stack[stackBase + i.rd + 3] = idx;
-							t.stack[stackBase + i.rd] = idx + step;
-							(*pc) += i.imm;
+							t.stack[stackBase + rd + 3] = idx;
+							t.stack[stackBase + rd] = idx + step;
+							(*pc) += jump;
 						}
 					}
 					else
 					{
 						if(idx >= hi)
 						{
-							t.stack[stackBase + i.rd + 3] = idx;
-							t.stack[stackBase + i.rd] = idx + step;
-							(*pc) += i.imm;
+							t.stack[stackBase + rd + 3] = idx;
+							t.stack[stackBase + rd] = idx + step;
+							(*pc) += jump;
 						}
 					}
 					break;
 
 				case Op.Foreach:
-					auto rd = i.rd;
+					auto jump = mixin(GetImm);
 					auto src = &t.stack[stackBase + rd];
 
 					if(src.type != CrocValue.Type.Function && src.type != CrocValue.Type.Thread)
@@ -3119,53 +3123,47 @@ void execute(CrocThread* t, uword depth = 1)
 					if(src.type == CrocValue.Type.Thread && src.mThread.state != CrocThread.State.Initial)
 						throwStdException(t, "ValueException", "Attempting to iterate over a thread that is not in the 'initial' state");
 
-					(*pc) += i.imm;
+					(*pc) += jump;
 					break;
 
 				case Op.ForeachLoop:
-					auto jump = (*pc)++;
+					auto numIndices = mixin(GetUImm);
+					auto jump = mixin(GetImm);
 
-					auto rd = i.rd;
 					auto funcReg = rd + 3;
-					auto src = &t.stack[stackBase + rd];
 
 					t.stack[stackBase + funcReg + 2] = t.stack[stackBase + rd + 2];
 					t.stack[stackBase + funcReg + 1] = t.stack[stackBase + rd + 1];
 					t.stack[stackBase + funcReg] = t.stack[stackBase + rd];
 
 					t.stackIndex = stackBase + funcReg + 3;
-					commonCall(t, stackBase + funcReg, i.imm, callPrologue(t, stackBase + funcReg, i.imm, 2, null));
+					commonCall(t, stackBase + funcReg, numIndices, callPrologue(t, stackBase + funcReg, numIndices, 2, null));
 					t.stackIndex = t.currentAR.savedTop;
+
+					auto src = &t.stack[stackBase + rd];
 
 					if(src.type == CrocValue.Type.Function)
 					{
 						if(t.stack[stackBase + funcReg].type != CrocValue.Type.Null)
 						{
 							t.stack[stackBase + rd + 2] = t.stack[stackBase + funcReg];
-							(*pc) += jump.imm;
+							(*pc) += jump;
 						}
 					}
 					else
 					{
 						if(src.mThread.state != CrocThread.State.Dead)
-							(*pc) += jump.imm;
+							(*pc) += jump;
 					}
 					break;
 
 				// Exception Handling
-				case Op.PushCatch:
+				case Op.PushCatch, Op.PushFinally:
+					auto offs = mixin(GetImm);
 					auto tr = pushTR(t);
-					tr.isCatch = true;
-					tr.slot = cast(RelStack)i.rd;
-					tr.pc = (*pc) + i.imm;
-					tr.actRecord = t.arIndex;
-					break;
-
-				case Op.PushFinally:
-					auto tr = pushTR(t);
-					tr.isCatch = false;
-					tr.slot = cast(RelStack)i.rd;
-					tr.pc = (*pc) + i.imm;
+					tr.isCatch = opcode == Op.PushCatch;
+					tr.slot = cast(RelStack)rd;
+					tr.pc = offs;
 					tr.actRecord = t.arIndex;
 					break;
 
@@ -3185,76 +3183,79 @@ void execute(CrocThread* t, uword depth = 1)
 
 					break;
 
-				case Op.Throw:
-					throwImpl(t, *mixin(GetRS), cast(bool)i.rt);
-					break;
+				case Op.Throw: mixin(GetRS); throwImpl(t, *RS, cast(bool)rd); break;
 
 				// Function Calling
 			{
 				bool isScript = void;
 				word numResults = void;
+				uword numParams = void;
 
-				case Op.Method, Op.SuperMethod:
-					auto call = (*pc)++;
+				const char[] AdjustParams =
+				"if(numParams == 0)
+					numParams = t.stackIndex - (stackBase + rd + 1);
+				else
+				{
+					numParams--;
+					t.stackIndex = stackBase + rd + 1 + numParams;
+				}";
 
-					RT = *mixin(GetRT);
+				case Op.Method, Op.TailMethod:
+					// These two opcodes have one more value
+					mixin(GetRS);
+
+				case Op.SuperMethod, Op.TailSuperMethod:
+					mixin(GetRT):
+					numParams = mixin(GetUImm);
+					numResults = mixin(GetUImm) - 1;
+
+					if(opcode == Op.TailMethod || opcode == Op.TailSuperMethod)
+						numResults = -1; // the second uimm is a dummy for these opcodes
 
 					if(RT.type != CrocValue.Type.String)
 					{
-						typeString(t, &RT);
+						typeString(t, RT);
 						throwStdException(t, "TypeException", "Attempting to get a method with a non-string name (type '{}' instead)", getString(t, -1));
 					}
 
-					auto methodName = RT.mString;
-					auto self = mixin(GetRS);
+					CrocValue* self = void;
+					CrocValue* lookup = void;
 
-					if(i.opcode != Op.SuperMethod)
-						RS = *self;
+					if(opcode == Op.Method || opcode == Op.TailMethod)
+						self = lookup = RS;
 					else
 					{
 						if(t.currentAR.proto is null)
 							throwStdException(t, "CallException", "Attempting to perform a supercall in a function where there is no super class");
+
+						lookup = t.currentAR.proto;
+						self = &t.stack[stackBase];
 
 						if(self.type != CrocValue.Type.Instance && self.type != CrocValue.Type.Class)
 						{
 							typeString(t, self);
 							throwStdException(t, "TypeException", "Attempting to perform a supercall in a function where 'this' is a '{}', not an 'instance' or 'class'", getString(t, -1));
 						}
-
-						RS = t.currentAR.proto;
 					}
 
-					numResults = call.rt - 1;
-					uword numParams = void;
+					mixin(AdjustParams);
+					isScript = commonMethodCall(t, stackBase + rd, self, lookup, RT.mString, numResults, numParams);
 
-					if(call.rs == 0)
-						numParams = t.stackIndex - (stackBase + i.rd + 1);
-					else
-					{
-						numParams = call.rs - 1;
-						t.stackIndex = stackBase + i.rd + call.rs;
-					}
-
-					isScript = commonMethodCall(t, stackBase + i.rd, self, &RS, methodName, numResults, numParams);
-
-					if(call.opcode == Op.Call)
+					if(opcode == Op.Method || opcode == Op.SuperMethod)
 						goto _commonCall;
 					else
 						goto _commonTailcall;
 
-				case Op.Call:
-					numResults = i.rt - 1;
-					uword numParams = void;
+				case Op.Call, Op.Tailcall:
+					numParams = mixin(GetUImm);
+					numResults = mixin(GetUImm) - 1;
 
-					if(i.rs == 0)
-						numParams = t.stackIndex - (stackBase + i.rd + 1);
-					else
-					{
-						numParams = i.rs - 1;
-						t.stackIndex = stackBase + i.rd + i.rs;
-					}
+					if(opcode == Op.Tailcall)
+						numResults = -1; // second uimm is a dummy
 
-					auto self = &t.stack[stackBase + i.rd + 1];
+					mixin(AdjustParams);
+
+					auto self = &t.stack[stackBase + rd + 1];
 					CrocClass* proto = void;
 
 					if(self.type == CrocValue.Type.Instance)
@@ -3264,7 +3265,10 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 						proto = null;
 
-					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, proto);
+					isScript = callPrologue(t, stackBase + rd, numResults, numParams, proto);
+
+					if(opcode == Op.Tailcall)
+						goto _commonTailcall;
 
 					// fall through
 				_commonCall:
@@ -3282,36 +3286,12 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 					break;
 
-				case Op.Tailcall:
-					numResults = i.rt - 1;
-					uword numParams = void;
-
-					if(i.rs == 0)
-						numParams = t.stackIndex - (stackBase + i.rd + 1);
-					else
-					{
-						numParams = i.rs - 1;
-						t.stackIndex = stackBase + i.rd + i.rs;
-					}
-
-					auto self = &t.stack[stackBase + i.rd + 1];
-					CrocClass* proto = void;
-
-					if(self.type == CrocValue.Type.Instance)
-						proto = self.mInstance.parent;
-					else if(self.type == CrocValue.Type.Class)
-						proto = self.mClass;
-					else
-						proto = null;
-
-					isScript = callPrologue(t, stackBase + i.rd, numResults, numParams, proto);
-
-					// fall through
 				_commonTailcall:
 					maybeGC(t);
 
 					if(isScript)
 					{
+						// BUG: this doesn't work if t.arIndex is 1, right?
 						auto prevAR = t.currentAR - 1;
 						close(t, prevAR.base);
 
@@ -3341,15 +3321,16 @@ void execute(CrocThread* t, uword depth = 1)
 			}
 
 				case Op.SaveRets:
-					auto firstResult = stackBase + i.rd;
+					auto numResults = mixin(GetUImm);
+					auto firstResult = stackBase + rd;
 
-					if(i.imm == 0)
+					if(numResults == 0)
 					{
 						saveResults(t, t, firstResult, t.stackIndex - firstResult);
 						t.stackIndex = t.currentAR.savedTop;
 					}
 					else
-						saveResults(t, t, firstResult, i.imm - 1);
+						saveResults(t, t, firstResult, numResults - 1);
 					break;
 
 				case Op.Ret:
@@ -3366,7 +3347,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 				case Op.Unwind:
 					t.currentAR.unwindReturn = (*pc);
-					t.currentAR.unwindCounter = i.uimm;
+					t.currentAR.unwindCounter = rd;
 
 					// fall through
 				_commonEHUnwind:
@@ -3393,19 +3374,18 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Vararg:
+					auto numNeeded = mixin(GetUImm);
 					auto numVarargs = stackBase - t.currentAR.vargBase;
-					auto dest = stackBase + i.rd;
+					auto dest = stackBase + rd;
 
-					uword numNeeded = void;
-
-					if(i.uimm == 0)
+					if(numNeeded == 0)
 					{
 						numNeeded = numVarargs;
 						t.stackIndex = dest + numVarargs;
 						checkStack(t, t.stackIndex);
 					}
 					else
-						numNeeded = i.uimm - 1;
+						numNeeded--;
 
 					auto src = t.currentAR.vargBase;
 
@@ -3419,12 +3399,12 @@ void execute(CrocThread* t, uword depth = 1)
 
 					break;
 
-				case Op.VargLen: *mixin(GetRD) = cast(crocint)(stackBase - t.currentAR.vargBase); break;
+				case Op.VargLen: t.stack[stackBase + rd] = cast(crocint)(stackBase - t.currentAR.vargBase); break;
 
 				case Op.VargIndex:
-					auto numVarargs = stackBase - t.currentAR.vargBase;
+					mixin(GetRS);
 
-					RS = *mixin(GetRS);
+					auto numVarargs = stackBase - t.currentAR.vargBase;
 
 					if(RS.type != CrocValue.Type.Int)
 					{
@@ -3440,13 +3420,14 @@ void execute(CrocThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwStdException(t, "BoundsException", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					*mixin(GetRD) = t.stack[t.currentAR.vargBase + cast(uword)index];
+					t.stack[stackBase + rd] = t.stack[t.currentAR.vargBase + cast(uword)index];
 					break;
 
 				case Op.VargIndexAssign:
-					auto numVarargs = stackBase - t.currentAR.vargBase;
+					mixin(GetRS);
+					mixin(GetRT);
 
-					RS = *mixin(GetRS);
+					auto numVarargs = stackBase - t.currentAR.vargBase;
 
 					if(RS.type != CrocValue.Type.Int)
 					{
@@ -3462,19 +3443,19 @@ void execute(CrocThread* t, uword depth = 1)
 					if(index < 0 || index >= numVarargs)
 						throwStdException(t, "BoundsException", "Invalid 'vararg' index: {} (only have {})", index, numVarargs);
 
-					t.stack[t.currentAR.vargBase + cast(uword)index] = *mixin(GetRT);
+					t.stack[t.currentAR.vargBase + cast(uword)index] = *RT;
 					break;
 
 				case Op.VargSlice:
+					auto numNeeded = mixin(GetUImm);
 					auto numVarargs = stackBase - t.currentAR.vargBase;
 
 					crocint lo = void;
 					crocint hi = void;
+					auto loSrc = t.stack[stackBase + rd];
+					auto hiSrc = t.stack[stackBase + rd + 1];
 
-					auto loSrc = mixin(GetRD);
-					auto hiSrc = mixin(GetRDplus1);
-
-					if(!correctIndices(lo, hi, loSrc, hiSrc, numVarargs))
+					if(!correctIndices(lo, hi, &loSrc, &hiSrc, numVarargs))
 					{
 						typeString(t, loSrc);
 						typeString(t, hiSrc);
@@ -3486,18 +3467,16 @@ void execute(CrocThread* t, uword depth = 1)
 
 					auto sliceSize = cast(uword)(hi - lo);
 					auto src = t.currentAR.vargBase + cast(uword)lo;
-					auto dest = stackBase + cast(uword)i.rd;
+					auto dest = stackBase + cast(uword)rd;
 
-					uword numNeeded = void;
-
-					if(i.uimm == 0)
+					if(numNeeded == 0)
 					{
 						numNeeded = sliceSize;
 						t.stackIndex = dest + sliceSize;
 						checkStack(t, t.stackIndex);
 					}
 					else
-						numNeeded = i.uimm - 1;
+						numNeeded--;
 
 					if(numNeeded <= sliceSize)
 						memmove(&t.stack[dest], &t.stack[src], numNeeded * CrocValue.sizeof);
@@ -3509,12 +3488,15 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.Yield:
+					auto numParams = cast(word)mixin(GetUImm) - 1;
+					auto numResults = cast(word)mixin(GetUImm) - 1;
+
 					if(t is t.vm.mainThread)
 						throwStdException(t, "RuntimeException", "Attempting to yield out of the main thread");
 
 					version(CrocExtendedCoro)
 					{
-						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
+						yieldImpl(t, stackBase + rd, numParams, numResults);
 						break;
 					}
 					else
@@ -3523,7 +3505,7 @@ void execute(CrocThread* t, uword depth = 1)
 							throwStdException(t, "RuntimeException", "Attempting to yield across native / metamethod call boundary");
 
 						t.savedCallDepth = depth;
-						yieldImpl(t, stackBase + i.rd, i.rt - 1, i.rs - 1);
+						yieldImpl(t, stackBase + rd, numParams, numResults);
 						return;
 					}
 
@@ -3547,84 +3529,90 @@ void execute(CrocThread* t, uword depth = 1)
 					break;
 
 				case Op.CheckObjParam:
-					auto jump = (*pc)++;
+					auto RD = &t.stack[stackBase + rd];
+					mixin(GetRS);
+					auto jump = mixin(GetImm);
 
-					RS = t.stack[stackBase + i.rs];
-
-					if(RS.type != CrocValue.Type.Instance)
-						(*pc) += jump.imm;
+					if(RD.type != CrocValue.Type.Instance)
+						(*pc) += jump;
 					else
 					{
-						RT = *mixin(GetRT);
-
-						if(RT.type != CrocValue.Type.Class)
+						if(RS.type != CrocValue.Type.Class)
 						{
-							typeString(t, &RT);
+							typeString(t, RS);
 
-							if(i.rs == 0)
+							if(rs == 0)
 								throwStdException(t, "TypeException", "'this' parameter: instance type constraint type must be 'class', not '{}'", getString(t, -1));
 							else
-								throwStdException(t, "TypeException", "Parameter {}: instance type constraint type must be 'class', not '{}'", i.rs, getString(t, -1));
+								throwStdException(t, "TypeException", "Parameter {}: instance type constraint type must be 'class', not '{}'", rd, getString(t, -1));
 						}
 
-						if(instance.derivesFrom(RS.mInstance, RT.mClass))
-							(*pc) += jump.imm;
+						if(instance.derivesFrom(RD.mInstance, RS.mClass))
+							(*pc) += jump;
 					}
 					break;
 
 				case Op.ObjParamFail:
-					typeString(t, &t.stack[stackBase + i.rs]);
+					typeString(t, &t.stack[stackBase + rd]);
 
-					if(i.rs == 0)
+					if(rd == 0)
 						throwStdException(t, "TypeException", "'this' parameter: type '{}' is not allowed", getString(t, -1));
 					else
-						throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", i.rs, getString(t, -1));
+						throwStdException(t, "TypeException", "Parameter {}: type '{}' is not allowed", rd, getString(t, -1));
 
 					break;
 
 				case Op.CustomParamFail:
-					typeString(t, &t.stack[stackBase + i.rs]);
+					typeString(t, &t.stack[stackBase + rd]);
+					mixin(GetRS);
 
-					if(i.rs == 0)
-						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), mixin(GetRT).mString.toString());
+					if(rd == 0)
+						throwStdException(t, "TypeException", "'this' parameter: type '{}' does not satisfy constraint '{}'", getString(t, -1), RS.mString.toString());
 					else
-						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", i.rs, getString(t, -1), mixin(GetRT).mString.toString());
+						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", rd, getString(t, -1), RS.mString.toString());
 					break;
 
 				// Array and List Operations
-				case Op.Length: lenImpl(t, mixin(GetRD), mixin(GetRS)); break;
-				case Op.LengthAssign: lenaImpl(t, mixin(GetRD), mixin(GetRS)); break;
-				case Op.Append: array.append(t.vm.alloc, t.stack[stackBase + i.rd].mArray, mixin(GetRS)); break;
+				case Op.Length: mixin(GetRS); t.stack[stackBase + rd] = lenImpl(t, RS); break;
+				case Op.LengthAssign: mixin(GetRS); lenaImpl(t, rd, RS); break;
+				case Op.Append: mixin(GetRS); array.append(t.vm.alloc, t.stack[stackBase + rd].mArray, RS); break;
 
 				case Op.SetArray:
-					auto sliceBegin = stackBase + i.rd + 1;
-					auto a = t.stack[stackBase + i.rd].mArray;
+					auto numVals = mixin(GetUImm);
+					auto block = mixin(GetUImm);
+					auto sliceBegin = stackBase + rd + 1;
+					auto a = t.stack[stackBase + rd].mArray;
 
-					if(i.rs == 0)
+					if(numVals == 0)
 					{
-						array.setBlock(t.vm.alloc, a, i.rt, t.stack[sliceBegin .. t.stackIndex]);
+						array.setBlock(t.vm.alloc, a, block, t.stack[sliceBegin .. t.stackIndex]);
 						t.stackIndex = t.currentAR.savedTop;
 					}
 					else
-						array.setBlock(t.vm.alloc, a, i.rt, t.stack[sliceBegin .. sliceBegin + i.rs - 1]);
+						array.setBlock(t.vm.alloc, a, block, t.stack[sliceBegin .. sliceBegin + numVals - 1]);
 
 					break;
 
 				case Op.Cat:
-					catImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
+					auto rs = mixin(GetUImm);
+					auto numVals = mixin(GetUImm);
+					catImpl(t, rd, stackBase + rs, numVals);
 					maybeGC(t);
 					break;
 
 				case Op.CatEq:
-					catEqImpl(t, mixin(GetRD), stackBase + i.rs, i.rt);
+					auto rs = mixin(GetUImm);
+					auto numVals = mixin(GetUImm);
+					catEqImpl(t, rd, stackBase + rs, numVals);
 					maybeGC(t);
 					break;
 
-				case Op.Index: idxImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
-				case Op.IndexAssign: idxaImpl(t, mixin(GetRD), mixin(GetRS), mixin(GetRT)); break;
+				case Op.Index: mixin(GetRS); mixin(GetRT); t.stack[stackBase + rd] = idxImpl(t, RS, RT); break;
+				case Op.IndexAssign: mixin(GetRS); mixin(GetRT); idxaImpl(t, rd, RS, RT); break;
 
 				case Op.Field:
-					RT = *mixin(GetRT);
+					mixin(GetRS);
+					mixin(GetRT);
 
 					if(RT.type != CrocValue.Type.String)
 					{
@@ -3632,11 +3620,12 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldImpl(t, mixin(GetRD), mixin(GetRS), RT.mString, false);
+					t.stack[stackBase + rd] = fieldImpl(t, RS, RT.mString, false);
 					break;
 
 				case Op.FieldAssign:
-					RS = *mixin(GetRS);
+					mixin(GetRS);
+					mixin(GetRT);
 
 					if(RS.type != CrocValue.Type.String)
 					{
@@ -3644,39 +3633,43 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "TypeException", "Field name must be a string, not a '{}'", getString(t, -1));
 					}
 
-					fieldaImpl(t, mixin(GetRD), RS.mString, mixin(GetRT), false);
+					fieldaImpl(t, rd, RS.mString, RT, false);
 					break;
 
 				case Op.Slice:
-					auto base = &t.stack[stackBase + i.rs];
-					sliceImpl(t, mixin(GetRD), base, base + 1, base + 2);
+					auto rs = mixin(GetUImm);
+					auto base = &t.stack[stackBase + rs];
+					t.stack[stackBase + rd] = sliceImpl(t, base, base + 1, base + 2);
 					break;
 
 				case Op.SliceAssign:
-					auto base = &t.stack[stackBase + i.rd];
-					sliceaImpl(t, base, base + 1, base + 2, mixin(GetRS));
+					mixin(GetRS);
+					auto base = &t.stack[stackBase + rd];
+					sliceaImpl(t, base, base + 1, base + 2, RS);
 					break;
 
 				case Op.In:
-					auto val = inImpl(t, mixin(GetRS), mixin(GetRT));
-					*mixin(GetRD) = val;
+					mixin(GetRS);
+					mixin(GetRT);
+					t.stack[stackBase + rd] = inImpl(t, RS, RT);
 					break;
 
 				// Value Creation
 				case Op.NewArray:
-					t.stack[stackBase + i.rd] = array.create(t.vm.alloc, i.uimm);
+					auto size = constTable[mixin(GetUImm)];
+					t.stack[stackBase + rd] = array.create(t.vm.alloc, size);
 					maybeGC(t);
 					break;
 
 				case Op.NewTable:
-					t.stack[stackBase + i.rd] = table.create(t.vm.alloc);
+					t.stack[stackBase + rd] = table.create(t.vm.alloc);
 					maybeGC(t);
 					break;
 
-				case Op.Closure:
-					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[i.uimm];
-// 					auto funcEnv = i.rt == 0 ? env : t.stack[stackBase + i.rt].mNamespace;
-					// ClosureWithEnv uses rd as the environment
+				case Op.Closure, Op.ClosureWithEnv:
+					auto closureIdx = mixin(GetUImm);
+					auto newDef = t.currentAR.func.scriptFunc.innerFuncs[closureIdx];
+					auto funcEnv = opcode == Op.Closure ? env : t.stack[stackBase + rd].mNamespace;
 					auto n = func.create(t.vm.alloc, funcEnv, newDef);
 
 					if(n is null)
@@ -3686,43 +3679,46 @@ void execute(CrocThread* t, uword depth = 1)
 						throwStdException(t, "RuntimeException", "Attempting to instantiate {} with a different namespace than was associated with it", getString(t, -1));
 					}
 
-					foreach(ref uv; n.scriptUpvals())
-					{
-						if((*pc).rd == 0)
-							uv = findUpvalue(t, (*pc).rs);
-						else
-							uv = upvals[(*pc).uimm];
+					auto uvTable = newDev.upvals;
 
-						(*pc)++;
+					foreach(i, ref uv; n.scriptUpvals())
+					{
+						if(uvTable[i].isUpvalue)
+							uv = upvals[uvTable[i].index];
+						else
+							uv = findUpvalue(t, uvTable[i].index);
 					}
 
-					*mixin(GetRD) = n;
+					t.stack[stackBase + rd] = n;
 					maybeGC(t);
 					break;
 
 				case Op.Class:
-					RS = *mixin(GetRS);
-					RT = *mixin(GetRT);
+					mixin(GetRS);
+					mixin(GetRTAndrt);
 
-					if(RT.type == CrocValue.Type.Null && (i.rt & Instruction.locMask) == Instruction.locConst)
-						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
-					else if(RT.type != CrocValue.Type.Class)
-					{
-						typeString(t, &RT);
-						throwStdException(t, "TypeException", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
-					}
+					if(rt & Instruction.constBit && RT.type == CrocValue.Type.Null)
+						t.stack[stackBase + rd] = classobj.create(t.vm.alloc, RS.mString, t.vm.object);
 					else
-						*mixin(GetRD) = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
+					{
+						if(RT.type != CrocValue.Type.Class)
+						{
+							typeString(t, RT);
+							throwStdException(t, "TypeException", "Attempting to derive a class from a value of type '{}'", getString(t, -1));
+						}
+						else
+							t.stack[stackBase + rd] = classobj.create(t.vm.alloc, RS.mString, RT.mClass);
+					}
 
 					maybeGC(t);
 					break;
 
 				case Op.Coroutine:
-					RS = *mixin(GetRS);
+					mixin(GetRS);
 
 					if(RS.type != CrocValue.Type.Function)
 					{
-						typeString(t, &RS);
+						typeString(t, RS);
 						throwStdException(t, "TypeException", "Coroutines must be created with a function, not '{}'", getString(t, -1));
 					}
 
@@ -3737,46 +3733,47 @@ void execute(CrocThread* t, uword depth = 1)
 					nt.hooks = t.hooks;
 					nt.hookDelay = t.hookDelay;
 					nt.hookCounter = t.hookCounter;
-					*mixin(GetRD) = nt;
+					t.stack[stackBase + rd] = nt;
 					break;
 
 				case Op.Namespace:
-					auto name = constTable[i.rs].mString;
-					RT = *mixin(GetRT);
+					auto name = constTable[mixin(GetUImm)].mString;
+					mixin(GetRT);
 
 					if(RT.type == CrocValue.Type.Null)
-						*mixin(GetRD) = namespace.create(t.vm.alloc, name);
+						t.stack[stackBase + rd] = namespace.create(t.vm.alloc, name);
 					else if(RT.type != CrocValue.Type.Namespace)
 					{
-						typeString(t, &RT);
+						typeString(t, RT);
 						push(t, CrocValue(name));
 						throwStdException(t, "TypeException", "Attempted to use a '{}' as a parent namespace for namespace '{}'", getString(t, -2), getString(t, -1));
 					}
 					else
-						*mixin(GetRD) = namespace.create(t.vm.alloc, name, RT.mNamespace);
+						t.stack[stackBase + rd] = namespace.create(t.vm.alloc, name, RT.mNamespace);
 
 					maybeGC(t);
 					break;
 
 				case Op.NamespaceNP:
-					auto tmp = namespace.create(t.vm.alloc, constTable[i.rs].mString, env);
-					*mixin(GetRD) = tmp;
+					auto name = constTable[mixin(GetUImm)].mString;
+					t.stack[stackBase + rd] = namespace.create(t.vm.alloc, name, env);
 					maybeGC(t);
 					break;
 
 				// Class stuff
 				case Op.As:
-					RS = *mixin(GetRS);
+					mixin(GetRS);
+					mixin(GetRT);
 
-					if(asImpl(t, &RS, mixin(GetRT)))
-						*mixin(GetRD) = RS;
+					if(asImpl(t, RS, RT))
+						t.stack[stackBase + rd] = RS;
 					else
-						*mixin(GetRD) = CrocValue.nullValue;
-
+						t.stack[stackBase + rd] = CrocValue.nullValue;
 					break;
 
 				case Op.SuperOf:
-					*mixin(GetRD) = superOfImpl(t, mixin(GetRS));
+					mixin(GetRS);
+					t.stack[stackBase + rd] = superOfImpl(t, RS);
 					break;
 
 				default:
