@@ -1792,12 +1792,7 @@ word getGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal(v.mString, getEnv(t));
-
-	if(g is null)
-		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to get a nonexistent global '{}'", v.mString.toString());
-
-	*v = *g;
+	*v = *lookupGlobal(t, v.mString, getEnv(t));
 	return stackSize(t) - 1;
 }
 
@@ -1837,12 +1832,7 @@ void setGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto g = lookupGlobal(n.mString, getEnv(t));
-
-	if(g is null)
-		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to set a nonexistent global '{}'", n.mString.toString());
-
-	*g = t.stack[t.stackIndex - 1];
+	*lookupGlobal(t, n.mString, getEnv(t)) = t.stack[t.stackIndex - 1];
 	pop(t, 2);
 }
 
@@ -3088,7 +3078,7 @@ word idx(CrocThread* t, word container)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto slot = t.stackIndex - 1;
-	idxImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot]);
+	idxImpl(t, slot, getValue(t, container), &t.stack[slot]);
 	return stackSize(t) - 1;
 }
 
@@ -3114,7 +3104,7 @@ void idxa(CrocThread* t, word container)
 {
 	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
-	idxaImpl(t, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
+	idxaImpl(t, fakeToAbs(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t, 2);
 }
 
@@ -3265,7 +3255,7 @@ word pushLen(CrocThread* t, word slot)
 {
 	auto o = fakeToAbs(t, slot);
 	pushNull(t);
-	lenImpl(t, &t.stack[t.stackIndex - 1], &t.stack[o]);
+	lenImpl(t, t.stackIndex - 1, &t.stack[o]);
 	return stackSize(t) - 1;
 }
 
@@ -3307,7 +3297,7 @@ void lena(CrocThread* t, word slot)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto o = fakeToAbs(t, slot);
-	lenaImpl(t, &t.stack[o], &t.stack[t.stackIndex - 1]);
+	lenaImpl(t, o, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3338,7 +3328,7 @@ word slice(CrocThread* t, word container)
 {
 	mixin(apiCheckNumParams!("2"));
 	auto slot = t.stackIndex - 2;
-	sliceImpl(t, &t.stack[slot], getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
+	sliceImpl(t, slot, getValue(t, container), &t.stack[slot], &t.stack[slot + 1]);
 	pop(t);
 	return stackSize(t) - 1;
 }
@@ -3378,7 +3368,7 @@ word add(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binOpImpl(t, MM.Add, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binOpImpl(t, MM.Add, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3388,7 +3378,7 @@ word sub(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binOpImpl(t, MM.Sub, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binOpImpl(t, MM.Sub, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3398,7 +3388,7 @@ word mul(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binOpImpl(t, MM.Mul, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binOpImpl(t, MM.Mul, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3408,7 +3398,7 @@ word div(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binOpImpl(t, MM.Div, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binOpImpl(t, MM.Div, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3418,7 +3408,7 @@ word mod(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binOpImpl(t, MM.Mod, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binOpImpl(t, MM.Mod, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3438,7 +3428,7 @@ word neg(CrocThread* t, word o)
 {
 	auto oslot = fakeToAbs(t, o);
 	pushNull(t);
-	negImpl(t, &t.stack[t.stackIndex - 1], &t.stack[oslot]);
+	negImpl(t, t.stackIndex - 1, &t.stack[oslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3456,7 +3446,7 @@ void addeq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinOpImpl(t, MM.AddEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinOpImpl(t, MM.AddEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3465,7 +3455,7 @@ void subeq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinOpImpl(t, MM.SubEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinOpImpl(t, MM.SubEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3474,7 +3464,7 @@ void muleq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinOpImpl(t, MM.MulEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinOpImpl(t, MM.MulEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3483,7 +3473,7 @@ void diveq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinOpImpl(t, MM.DivEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinOpImpl(t, MM.DivEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3492,7 +3482,7 @@ void modeq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinOpImpl(t, MM.ModEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinOpImpl(t, MM.ModEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3515,7 +3505,7 @@ word and(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.And, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.And, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3525,7 +3515,7 @@ word or(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.Or, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.Or, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3535,7 +3525,7 @@ word xor(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.Xor, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.Xor, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3545,7 +3535,7 @@ word shl(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.Shl, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.Shl, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3555,7 +3545,7 @@ word shr(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.Shr, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.Shr, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3565,7 +3555,7 @@ word ushr(CrocThread* t, word a, word b)
 	auto aslot = fakeToAbs(t, a);
 	auto bslot = fakeToAbs(t, b);
 	pushNull(t);
-	binaryBinOpImpl(t, MM.UShr, &t.stack[t.stackIndex - 1], &t.stack[aslot], &t.stack[bslot]);
+	binaryBinOpImpl(t, MM.UShr, t.stackIndex - 1, &t.stack[aslot], &t.stack[bslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3577,7 +3567,7 @@ less efficient than just getting a number and complementing it.
 
 Params:
 	o = The slot of the value to complement.
-	
+
 Returns:
 	The stack index of the newly-pushed result.
 */
@@ -3585,7 +3575,7 @@ word com(CrocThread* t, word o)
 {
 	auto oslot = fakeToAbs(t, o);
 	pushNull(t);
-	comImpl(t, &t.stack[t.stackIndex - 1], &t.stack[oslot]);
+	comImpl(t, t.stackIndex - 1, &t.stack[oslot]);
 	return stackSize(t) - 1;
 }
 
@@ -3603,7 +3593,7 @@ void andeq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.AndEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.AndEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3612,7 +3602,7 @@ void oreq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.OrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.OrEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3621,7 +3611,7 @@ void xoreq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.XorEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.XorEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3630,7 +3620,7 @@ void shleq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.ShlEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.ShlEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3639,7 +3629,7 @@ void shreq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.ShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.ShrEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3648,7 +3638,7 @@ void ushreq(CrocThread* t, word o)
 {
 	mixin(apiCheckNumParams!("1"));
 	auto oslot = fakeToAbs(t, o);
-	reflBinaryBinOpImpl(t, MM.UShrEq, &t.stack[oslot], &t.stack[t.stackIndex - 1]);
+	reflBinaryBinOpImpl(t, MM.UShrEq, oslot, &t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -3686,7 +3676,7 @@ word cat(CrocThread* t, uword num)
 
 	if(num > 1)
 	{
-		catImpl(t, &t.stack[slot], slot, num);
+		catImpl(t, slot, slot, num);
 		pop(t, num - 1);
 	}
 
@@ -3719,7 +3709,7 @@ void cateq(CrocThread* t, word dest, uword num)
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Cannot append 0 things");
 
 	mixin(apiCheckNumParams!("num"));
-	catEqImpl(t, &t.stack[fakeToAbs(t, dest)], t.stackIndex - num, num);
+	catEqImpl(t, fakeToAbs(t, dest), t.stackIndex - num, num);
 	pop(t, num);
 }
 
@@ -3747,7 +3737,7 @@ Params:
 */
 void inc(CrocThread* t, word slot)
 {
-	incImpl(t, getValue(t, slot));
+	incImpl(t, fakeToAbs(t, slot));
 }
 
 /**
@@ -3758,7 +3748,7 @@ Params:
 */
 void dec(CrocThread* t, word slot)
 {
-	decImpl(t, getValue(t, slot));
+	decImpl(t, fakeToAbs(t, slot));
 }
 
 /**

@@ -326,7 +326,7 @@ word pushDebugLoc(CrocThread* t, ActRecord* ar = null)
 		push(t, CrocValue(ar.func.name));
 
 		auto slot = t.stackIndex - 3;
-		catImpl(t, &t.stack[slot], slot, 3);
+		catImpl(t, slot, slot, 3);
 		auto s = getString(t, -3);
 		pop(t, 3);
 

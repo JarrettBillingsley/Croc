@@ -1075,7 +1075,7 @@ package:
 		toSource(loc);
 		auto e = *getExp(-1);
 
-		if(e.type == ExpType.Const)
+		if(e.type == ExpType.Const || e.index != mFreeReg)
 		{
 			pop();
 			auto reg = pushRegister();

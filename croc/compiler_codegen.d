@@ -96,7 +96,7 @@ scope class Codegen : Visitor
 			fs.pushScope(scop);
 				fs.insertLocal(new(c) Identifier(c, m.location, c.newString("this")));
 				fs.activateLocals(1);
-				
+
 				visit(m.statements);
 
 				if(m.decorator)
@@ -356,11 +356,13 @@ scope class Codegen : Visitor
 			{
 				visitDecorator(d.nextDec, obj);
 				fs.toSource(d.nextDec.endLocation);
+				fs.toTemporary(d.nextDec.endLocation);
 			}
 			else
 			{
 				obj();
 				fs.toSource(d.location);
+				fs.toTemporary(d.location);
 			}
 
 			codeGenList(d.args);
