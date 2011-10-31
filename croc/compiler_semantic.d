@@ -572,9 +572,9 @@ scope class Semantic : IdentityVisitor
 	{
 		s.code = visit(s.code);
 		s.condition = visit(s.condition);
-		
+
 		if(s.condition.isConstant && !s.condition.isTrue)
-			return new(c) BlockStmt(c, s.location, s.endLocation, null);
+			return new(c) ScopeStmt(c, s.code);
 
 		return s;
 	}

@@ -71,8 +71,8 @@ scope class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-				fs.defaultReturn(d.code.endLocation);
 			fs.popScope(d.code.endLocation);
+			fs.defaultReturn(d.code.endLocation);
 		}
 
 		auto def = fs_.toFuncDef();
@@ -104,9 +104,8 @@ scope class Codegen : Visitor
 					visitDecorator(m.decorator, { fs.pushThis(); });
 					fs.popToNothing();
 				}
-
-				fs.defaultReturn(m.endLocation);
 			fs.popScope(m.endLocation);
+			fs.defaultReturn(m.endLocation);
 
 			debug fs.checkExpStackEmpty();
 		}
@@ -230,9 +229,8 @@ scope class Codegen : Visitor
 				fs.activateLocals(d.params.length);
 
 				visit(d.code);
-
-				fs.defaultReturn(d.code.endLocation);
 			fs.popScope(d.code.endLocation);
+			fs.defaultReturn(d.code.endLocation);
 		}
 
 		fs.pushClosure(inner);
@@ -653,6 +651,7 @@ scope class Codegen : Visitor
 		fs.setScopeName(s.name);
 		visit(s.code);
 
+		// s.condition.isConstant && !s.condition.isTrue is handled in semantic
 		if(s.condition.isConstant && s.condition.isTrue)
 		{
 			fs.patchContinuesToHere();

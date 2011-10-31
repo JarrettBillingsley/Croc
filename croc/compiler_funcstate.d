@@ -46,7 +46,7 @@ import croc.types_funcdef;
 
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
-debug = SHOWME;
+// debug = SHOWME;
 debug = EXPSTACKCHECK;
 // debug = WRITECODE;
 
@@ -297,6 +297,9 @@ package:
 		mLocation = location;
 		mName = name;
 		mParent = parent;
+
+		// let's just always make null const 0
+		addNullConst();
 	}
 
 	~this()
@@ -772,9 +775,25 @@ package:
 
 	void pushClosure(FuncState fs)
 	{
-		auto reg = pushRegister();
-		pushExp(ExpType.Temporary, reg);
-		codeClosure(fs, reg);
+		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
+
+		if(mInnerFuncs.length > Instruction.MaxInnerFunc)
+			c.semException(mLocation, "Too many inner functions");
+
+		auto loc = fs.mLocation;
+
+		if(mNamespaceReg == 0)
+			pushExp(ExpType.NeedsDest, codeRD(loc, Op.Closure, 0));
+		else
+		{
+			auto reg = pushRegister();
+			pushExp(ExpType.Temporary, reg);
+			codeMove(loc, reg, mNamespaceReg);
+			codeRD(loc, Op.ClosureWithEnv, reg);
+		}
+
+		codeUImm(mInnerFuncs.length - 1);
+		mInnerFuncs[$ - 1] = fs.toFuncDef();
 	}
 
 	void pushTable(ref CompileLoc loc)
@@ -1945,7 +1964,7 @@ private:
 			ret = false;
 		}
 
-		assert(check == (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)), Format("oh noes: {} {}", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)));
+		debug assert(check == (mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)), Format("oh noes: {} {}", check, mExpSP - (numLhs + numLhs) - (ret ? 1 : 0)));
 		debug(EXPSTACKCHECK) foreach(ref i; lhs) assert(i.isDest());
 		return ret;
 	}
@@ -1961,7 +1980,7 @@ private:
 				break;
 
 			default:
-				assert(false, (printExpStack(), "poop"));
+				assert(false);
 		}
 
 		src.type = ExpType.Temporary;
@@ -2000,12 +2019,12 @@ private:
 			case ExpType.Const:       codeRD(loc, Op.Move, reg); codeRC(&src); break;
 			case ExpType.Local:
 			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
-			case ExpType.Upval:       codeRD(loc, Op.GetUpval, reg); codeUImm(src.index);
+			case ExpType.Upval:       codeRD(loc, Op.GetUpval, reg); codeUImm(src.index); break;
 			case ExpType.Global:      codeRD(loc, Op.GetGlobal, reg); codeUImm(src.index); break;
 			case ExpType.Index:       codeRD(loc, Op.Index, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
 			case ExpType.Field:       codeRD(loc, Op.Field, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
 			case ExpType.Slice:       codeRD(loc, Op.Slice, reg); codeRC(&src); break;
-			case ExpType.Vararg:      setRD(src.index, reg); setMultRetReturns(src.index, 2);break;
+			case ExpType.Vararg:      setRD(src.index, reg); setMultRetReturns(src.index, 2); break;
 			case ExpType.VarargIndex: codeRD(loc, Op.VargIndex, reg); codeRC(&unpackRegOrConst(src.index)); break;
 			case ExpType.Length:      codeRD(loc, Op.Length, reg); codeRC(&unpackRegOrConst(src.index)); break;
 			case ExpType.VarargSlice:
@@ -2014,23 +2033,6 @@ private:
 			case ExpType.NeedsDest:   setRD(src.index, reg); break;
 			default: assert(false);
 		}
-	}
-	
-	void codeClosure(FuncState fs, uint destReg)
-	{
-		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
-
-		if(mInnerFuncs.length > Instruction.MaxInnerFunc)
-			c.semException(mLocation, "Too many inner functions");
-
-		auto loc = fs.mLocation;
-
-		if(mNamespaceReg > 0)
-			codeMove(loc, destReg, mNamespaceReg);
-
-		codeRD(loc, mNamespaceReg > 0 ? Op.ClosureWithEnv : Op.Closure, destReg);
-		codeUImm(mInnerFuncs.length - 1);
-		mInnerFuncs[$ - 1] = fs.toFuncDef();
 	}
 
 	void codeMove(ref CompileLoc loc, uint dest, uint src)

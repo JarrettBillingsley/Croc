@@ -1620,7 +1620,14 @@ word getStdException(CrocThread* t, char[] exName)
 	auto ex = t.vm.stdExceptions.lookup(createString(t, exName));
 
 	if(ex is null)
+	{
+		auto check = t.vm.stdExceptions.lookup(createString(t, "ApiError"));
+		
+		if(check is null)
+			throw new CrocException("Fatal -- exception thrown before exception library was loaded");
+
 		throwStdException(t, "ApiError", "Unknown standard exception type '{}'", exName);
+	}
 
 	return push(t, CrocValue(*ex));
 }

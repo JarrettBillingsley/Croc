@@ -1,4 +1,4 @@
-module speed;
+module samples.speed
 
 /*
 Taken from the Io speed test.
