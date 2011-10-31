@@ -191,6 +191,7 @@ bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* 
 
 	if(method.type != CrocValue.Type.Null)
 	{
+		// don't change the fucking order of these statements. self could point to slot.
 		t.stack[slot + 1] = *self;
 		t.stack[slot] = method;
 
@@ -3258,7 +3259,6 @@ void execute(CrocThread* t, uword depth = 1)
 
 					if(isScript)
 					{
-						// BUG: this doesn't work if t.arIndex is 1, right?
 						auto prevAR = t.currentAR - 1;
 						close(t, prevAR.base);
 

@@ -583,6 +583,7 @@ package:
 		insertDummyLocal(loc, "__hidden{}");
 		insertDummyLocal(loc, "__hidden{}");
 		insertDummyLocal(loc, "__hidden{}");
+		activateLocals(3);
 		ret.beginJump = codeRD(loc, opcode, ret.baseReg); codeImm(NoJump);
 		ret.beginLoop = here();
 		return ret;
@@ -1996,9 +1997,9 @@ private:
 	{
 		switch(src.type)
 		{
-			case ExpType.Const:
+			case ExpType.Const:       codeRD(loc, Op.Move, reg); codeRC(&src); break;
 			case ExpType.Local:
-			case ExpType.NewLocal:    codeRD(loc, Op.Move, reg); codeRC(&src); break;
+			case ExpType.NewLocal:    codeMove(loc, reg, src.index); break;
 			case ExpType.Upval:       codeRD(loc, Op.GetUpval, reg); codeUImm(src.index);
 			case ExpType.Global:      codeRD(loc, Op.GetGlobal, reg); codeUImm(src.index); break;
 			case ExpType.Index:       codeRD(loc, Op.Index, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
