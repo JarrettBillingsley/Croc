@@ -2965,6 +2965,15 @@ void execute(CrocThread* t, uword depth = 1)
 						(*pc) += jump;
 
 					break;
+					
+				case Op.In:
+					mixin(GetRS);
+					mixin(GetRT);
+					auto jump = mixin(GetImm);
+					
+					if(inImpl(t, RS, RT) == cast(bool)rd)
+						(*pc) += jump;
+					break;
 
 				case Op.IsTrue:
 					mixin(GetRS);
@@ -3613,12 +3622,6 @@ void execute(CrocThread* t, uword depth = 1)
 					mixin(GetRS);
 					auto base = &t.stack[stackBase + rd];
 					sliceaImpl(t, base, base + 1, base + 2, RS);
-					break;
-
-				case Op.In:
-					mixin(GetRS);
-					mixin(GetRT);
-					t.stack[stackBase + rd] = inImpl(t, RS, RT);
 					break;
 
 				// Value Creation

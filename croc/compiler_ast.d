@@ -2361,6 +2361,23 @@ class NotIsExp : BaseEqualExp
 }
 
 /**
+This node represents an 'in' expression.
+*/
+class InExp : BaseEqualExp
+{
+	mixin(BinExpMixin);
+}
+
+/**
+This node represents a '!in' expression.
+*/
+class NotInExp : BaseEqualExp
+{
+	mixin(BinExpMixin);
+}
+
+
+/**
 This class serves as a base class for comparison expressions.
 */
 abstract class BaseCmpExp : BinaryExp
@@ -2415,22 +2432,6 @@ class Cmp3Exp : BinaryExp
 This node represents an 'as' expression.
 */
 class AsExp : BinaryExp
-{
-	mixin(BinExpMixin);
-}
-
-/**
-This node represents an 'in' expression.
-*/
-class InExp : BinaryExp
-{
-	mixin(BinExpMixin);
-}
-
-/**
-This node represents a '!in' expression.
-*/
-class NotInExp : BinaryExp
 {
 	mixin(BinExpMixin);
 }

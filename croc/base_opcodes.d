@@ -85,6 +85,7 @@ enum Op
 	SwitchCmp,
 	Equals,
 	Is,
+	In,
 	IsTrue,
 	Jmp,
 	Switch,
@@ -136,7 +137,6 @@ enum Op
 	FieldAssign,
 	Slice,
 	SliceAssign,
-	In,
 
 	NewArray,
 	NewTable,

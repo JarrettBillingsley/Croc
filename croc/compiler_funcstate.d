@@ -87,7 +87,6 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.UShrExp: return Op.UShr;
 
 		case AstTag.AsExp: return Op.As;
-		case AstTag.InExp: return Op.In;
 		case AstTag.Cmp3Exp: return Op.Cmp3;
 
 		case AstTag.NegExp: return Op.Neg;
@@ -943,6 +942,11 @@ package:
 	uint codeIs(ref CompileLoc loc, bool isTrue)
 	{
 		return commonCmpJump(loc, Op.Is, isTrue);
+	}
+	
+	uint codeIn(ref CompileLoc loc, bool isTrue)
+	{
+		return commonCmpJump(loc, Op.In, isTrue);
 	}
 
 	void codeThrow(ref CompileLoc loc, bool rethrowing)
@@ -1878,7 +1882,7 @@ private:
 		{
 			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp: setImm(i + 1, offs); break;
 			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                          setImm(i + 2, offs); break;
-			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                               setImm(i + 3, offs); break;
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is, Op.In:                        setImm(i + 3, offs); break;
 			default: assert(false);
 		}
 	}
@@ -1889,7 +1893,7 @@ private:
 		{
 			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp: return getImm(i + 1);
 			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                          return getImm(i + 2);
-			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                               return getImm(i + 3);
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is, Op.In:                        return getImm(i + 3);
 			default: assert(false);
 		}
 	}
@@ -1900,7 +1904,7 @@ private:
 		{
 			case Op.For, Op.ForLoop, Op.Foreach, Op.PushCatch, Op.PushFinally, Op.Jmp, Op.Switch: return dest - (srcIndex + 2);
 			case Op.ForeachLoop, Op.IsTrue, Op.CheckObjParam:                                     return dest - (srcIndex + 3);
-			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is:                                          return dest - (srcIndex + 4);
+			case Op.Cmp, Op.SwitchCmp, Op.Equals, Op.Is, Op.In:                                   return dest - (srcIndex + 4);
 			default: assert(false);
 		}
 	}
@@ -2446,7 +2450,6 @@ private:
 			case Op.UShr: Stdout("ushr"); goto _8;
 			case Op.Index:       Stdout("idx"); goto _8;
 			case Op.IndexAssign: Stdout("idxa"); goto _8;
-			case Op.In:          Stdout("in"); goto _8;
 			case Op.Class:       Stdout("class"); goto _8;
 			case Op.As:          Stdout("as"); goto _8;
 			case Op.Field:       Stdout("field"); goto _8;
@@ -2493,6 +2496,7 @@ private:
 
 			case Op.Equals: if(getRD(i)) { Stdout("je"); } else { Stdout("jne"); } goto _11;
 			case Op.Is: if(getRD(i)) { Stdout("jis"); } else { Stdout("jnis"); } goto _11;
+			case Op.In: if(getRD(i)) { Stdout("jin"); } else { Stdout("jnin"); } goto _11;
 			_11: rc(false); rc(); imm(); break;
 
 			// (__, rs, rt, imm)

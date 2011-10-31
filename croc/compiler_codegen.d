@@ -1162,8 +1162,6 @@ scope class Codegen : Visitor
 	public override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
 	public override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
 	public override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(InExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(NotInExp e) { assert(false); /* return visitBinExp(e); */ }
 	public override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 
 	public override CatExp visit(CatExp e)
@@ -1201,6 +1199,8 @@ scope class Codegen : Visitor
 	public override BinaryExp visit(LEExp e)       { return visitComparisonExp(e); }
 	public override BinaryExp visit(GTExp e)       { return visitComparisonExp(e); }
 	public override BinaryExp visit(GEExp e)       { return visitComparisonExp(e); }
+	public override BinaryExp visit(InExp e)       { return visitComparisonExp(e); }
+	public override BinaryExp visit(NotInExp e)    { return visitComparisonExp(e); }
 
 	public UnExp visitUnExp(UnExp e)
 	{
@@ -1634,6 +1634,8 @@ scope class Codegen : Visitor
 			case AstTag.NotEqualExp: return codeCondition(e.as!(NotEqualExp));
 			case AstTag.IsExp:       return codeCondition(e.as!(IsExp));
 			case AstTag.NotIsExp:    return codeCondition(e.as!(NotIsExp));
+			case AstTag.InExp:       return codeCondition(e.as!(InExp));
+			case AstTag.NotInExp:    return codeCondition(e.as!(NotInExp));
 			case AstTag.LTExp:       return codeCondition(e.as!(LTExp));
 			case AstTag.LEExp:       return codeCondition(e.as!(LEExp));
 			case AstTag.GTExp:       return codeCondition(e.as!(GTExp));
@@ -1710,6 +1712,8 @@ scope class Codegen : Visitor
 			case AstTag.NotEqualExp: ret.trueList = fs.codeEquals(e.op2.endLocation, false); break;
 			case AstTag.IsExp:       ret.trueList = fs.codeIs(e.op2.endLocation, true); break;
 			case AstTag.NotIsExp:    ret.trueList = fs.codeIs(e.op2.endLocation, false); break;
+			case AstTag.InExp:       ret.trueList = fs.codeIn(e.op2.endLocation, true); break;
+			case AstTag.NotInExp:    ret.trueList = fs.codeIn(e.op2.endLocation, false); break;
 			default: assert(false);
 		}
 
@@ -1720,6 +1724,8 @@ scope class Codegen : Visitor
 	package InstRef codeCondition(NotEqualExp e) { return codeEqualExpCondition(e); }
 	package InstRef codeCondition(IsExp e)       { return codeEqualExpCondition(e); }
 	package InstRef codeCondition(NotIsExp e)    { return codeEqualExpCondition(e); }
+	package InstRef codeCondition(InExp e)       { return codeEqualExpCondition(e); }
+	package InstRef codeCondition(NotInExp e)    { return codeEqualExpCondition(e); }
 
 	package InstRef codeCmpExpCondition(BaseCmpExp e)
 	{
