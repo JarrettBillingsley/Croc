@@ -148,27 +148,27 @@ private const char[] srcCode =
 
 class Location
 {
-	Unknown = 0 // 5
+	Unknown = 0
 	Native = -1
 	Script = -2
 
 	file = ""
-	line = 0 // 10
+	line = 0
 	col = Location.Unknown
 
 	this(file: string|null, line: int = -1, col: int = Location.Script)
 	{
-		if(file is null) // 15
+		if(file is null)
 			return
 
 		:file = file
 		:line = line
-		:col = col // 20
+		:col = col
 	}
 
 	function toString()
 	{
-		switch(:col) // 25
+		switch(:col)
 		{
 			case Location.Unknown: return "<unknown location>"
 			case Location.Native:  return :file ~ "(native)"
@@ -178,7 +178,7 @@ class Location
 	}
 }
 
-Throwable.cause = null // 35
+Throwable.cause = null
 Throwable.msg = ""
 Throwable.location = Location()
 Throwable.traceback = []
@@ -188,17 +188,17 @@ Throwable.constructor = function constructor(msg: string = "", cause: Throwable 
 	:msg = msg
 	:cause = cause
 }
-// 45
+
 Throwable.toString = function toString()
 {
 	local ret
 
-	if(#:msg > 0) // 50
+	if(#:msg > 0)
 		ret = nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
 	else
 		ret = nameOf(:super) ~ " at " ~ :location.toString()
 
-	if(:cause) // 55
+	if(:cause)
 		ret ~= "\nCaused by:\n" ~ :cause.toString()
 
 	return ret

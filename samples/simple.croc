@@ -2,16 +2,12 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
-class A
-{
-	function foo(x) { writefln("this: {} x: {}", this, x); }
-}
-
 function main()
 {
-	local a = A()
-	a.foo(5);
-	(a.foo)(with null, 5)
+	local a = [1 2 3]
+	
+	if(3 in a)
+		writeln("yep")
 }
 
 /*
