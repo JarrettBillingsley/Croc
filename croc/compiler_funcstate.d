@@ -1398,7 +1398,7 @@ package:
 		}
 	}
 
-	void beginNamespace(ref CompileLoc loc)
+	void beginNamespace(ref CompileLoc loc) // BUG: I just realized namespaces *can* be nested, if you use a namespace literal, and this mechanism doesn't account for that.
 	{
 		assert(mNamespaceReg == 0);
 
