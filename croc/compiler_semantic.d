@@ -572,10 +572,7 @@ scope class Semantic : IdentityVisitor
 	{
 		s.code = visit(s.code);
 		s.condition = visit(s.condition);
-
-		if(s.condition.isConstant && !s.condition.isTrue)
-			return new(c) ScopeStmt(c, s.code);
-
+		// Jarrett, stop rewriting do-while statements with constant conditions. you did this before. it fucks up breaks/continues inside them. STOP IT.
 		return s;
 	}
 	

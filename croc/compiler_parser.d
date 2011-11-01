@@ -473,6 +473,9 @@ struct Parser
 					exprs[exprs.length - 1].sourceStr = valstr;
 			}
 
+			if(namesArr.length < exprs.length)
+				c.semException(location, "Declaration has fewer variables than sources");
+
 			initializer = exprs.toArray();
 			endLocation = initializer[$ - 1].endLocation;
 		}
@@ -1279,7 +1282,7 @@ struct Parser
 	{
 		auto location = l.expect(Token.For).loc;
 		char[] name = null;
-		
+
 		if(l.type == Token.Ident)
 		{
 			name = l.tok.stringValue;
@@ -1910,7 +1913,7 @@ struct Parser
 			l.next();
 			rhs ~= parseExpression();
 		}
-		
+
 		if(lhs.length < rhs.length)
 			c.semException(location, "Assignment has fewer destinations than sources");
 

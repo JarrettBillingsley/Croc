@@ -3041,6 +3041,8 @@ void execute(CrocThread* t, uword depth = 1)
 					auto idx = t.stack[stackBase + rd].mInt;
 					auto hi = t.stack[stackBase + rd + 1].mInt;
 					auto step = t.stack[stackBase + rd + 2].mInt;
+					
+					Stdout.formatln("IDX {} HI {} STEP {}", idx, hi, step);
 
 					if(step > 0)
 					{

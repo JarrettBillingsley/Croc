@@ -651,13 +651,14 @@ scope class Codegen : Visitor
 		fs.setScopeName(s.name);
 		visit(s.code);
 
-		// s.condition.isConstant && !s.condition.isTrue is handled in semantic
-		if(s.condition.isConstant && s.condition.isTrue)
+		if(s.condition.isConstant)
 		{
 			fs.patchContinuesToHere();
-			fs.jumpTo(s.endLocation, beginLoop);
-			fs.patchBreaksToHere();
 
+			if(s.condition.isTrue)
+				fs.jumpTo(s.endLocation, beginLoop);
+
+			fs.patchBreaksToHere();
 			fs.popScope(s.endLocation);
 		}
 		else
@@ -733,7 +734,7 @@ scope class Codegen : Visitor
 	public override ForNumStmt visit(ForNumStmt s)
 	{
 		visitForNum(s.location, s.endLocation, s.name, s.lo, s.hi, s.step, s.index, { visit(s.code); });
-		
+
 		debug fs.checkExpStackEmpty();
 		return s;
 	}
@@ -1117,9 +1118,11 @@ scope class Codegen : Visitor
 		visit(e.op1);
 		fs.assign(e.op1.endLocation, 1, 1);
 		fs.dup();
+		fs.toSource(e.op1.endLocation);
 		auto i = fs.codeIsTrue(e.op1.endLocation);
 		fs.dup();
 		visit(e.op2);
+		fs.assign(e.op2.endLocation, 1, 1);
 		fs.patchJumpToHere(i);
 		fs.toTemporary(e.endLocation);
 		return e;
@@ -1132,9 +1135,11 @@ scope class Codegen : Visitor
 		visit(e.op1);
 		fs.assign(e.op1.endLocation, 1, 1);
 		fs.dup();
+		fs.toSource(e.op1.endLocation);
 		auto i = fs.codeIsTrue(e.op1.endLocation, false);
 		fs.dup();
 		visit(e.op2);
+		fs.assign(e.op2.endLocation, 1, 1);
 		fs.patchJumpToHere(i);
 		fs.toTemporary(e.endLocation);
 		return e;
@@ -1508,14 +1513,12 @@ scope class Codegen : Visitor
 
 		visitForComp(e.forComp,
 		{
-// 			assert(the top item in fs' expStack is the table temp!);
 			fs.dup();
 			visit(e.key);
 			fs.toSource(e.key.endLocation);
 			fs.index();
 			visit(e.value);
 			fs.assign(e.value.endLocation, 1, 1);
-
 		});
 		return e;
 	}
@@ -1526,7 +1529,6 @@ scope class Codegen : Visitor
 
 		visitForComp(e.forComp,
 		{
-// 			assert(expStack top is array temp!);
 			fs.dup();
 			visit(e.exp);
 			fs.toSource(e.exp.endLocation);
@@ -1640,8 +1642,6 @@ scope class Codegen : Visitor
 			case AstTag.LEExp:       return codeCondition(e.as!(LEExp));
 			case AstTag.GTExp:       return codeCondition(e.as!(GTExp));
 			case AstTag.GEExp:       return codeCondition(e.as!(GEExp));
-			case AstTag.IdentExp:    return codeCondition(e.as!(IdentExp));
-			case AstTag.ThisExp:     return codeCondition(e.as!(ThisExp));
 			case AstTag.ParenExp:    return codeCondition(e.as!(ParenExp));
 
 			default:

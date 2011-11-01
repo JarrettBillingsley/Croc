@@ -1,6 +1,6 @@
 module croctest;
 
-import tango.core.tools.TraceExceptions;
+// import tango.core.tools.TraceExceptions;
 import tango.io.Stdout;
 
 import croc.api;

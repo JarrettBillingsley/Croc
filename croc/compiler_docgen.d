@@ -250,7 +250,7 @@ scope class DocGen : IdentityVisitor
 			switch(type(t, slot))
 			{
 				case CrocValue.Type.Int:    return new(c) IntExp(c, loc, getInt(t, slot));
-				case CrocValue.Type.String: return new(c) StringExp(c, loc, getString(t, slot));
+				case CrocValue.Type.String: return new(c) StringExp(c, loc, c.newString(getString(t, slot)));
 
 				case CrocValue.Type.Table:
 					scope fields = new List!(TableCtorExp.Field)(c.alloc);

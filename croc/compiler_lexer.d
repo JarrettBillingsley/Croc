@@ -556,7 +556,7 @@ struct Lexer
 				return;
 		}
 	}
-	
+
 	// This expects the input string to consist entirely of digits within the valid range of radix
 	private bool convertInt(dchar[] str, out crocint ret, uint radix)
 	{
@@ -585,6 +585,44 @@ struct Lexer
 			ret = newValue;
 		}
 
+		return true;
+	}
+
+	private bool convertUInt(dchar[] str, out crocint ret, uint radix)
+	{
+		ret = 0;
+		
+		static if(crocint.sizeof == 8)
+			ulong r = 0;
+		else static if(crocint.sizeof == 4)
+			uint r = 0;
+		else
+			static assert(false, "wtf r u doin");
+
+		foreach(c; str)
+		{
+			if (c >= '0' && c <= '9')
+			{}
+			else if (c >= 'a' && c <= 'z')
+				c -= 39;
+			else if (c >= 'A' && c <= 'Z')
+				c -= 7;
+			else
+				assert(false);
+
+			c -= '0';
+
+			assert(c < radix);
+
+			auto newValue = r * radix + c;
+
+			if(newValue < r)
+				return false;
+
+			r = newValue;
+		}
+
+		ret = cast(crocint)r;
 		return true;
 	}
 
@@ -631,7 +669,7 @@ struct Lexer
 							nextChar();
 						}
 						
-						if(!convertInt(buf[0 .. i], iret, 2))
+						if(!convertUInt(buf[0 .. i], iret, 2))
 							mCompiler.lexException(beginning, "Binary integer literal overflow");
 
 						return true;
@@ -650,7 +688,7 @@ struct Lexer
 							nextChar();
 						}
 
-						if(!convertInt(buf[0 .. i], iret, 16))
+						if(!convertUInt(buf[0 .. i], iret, 16))
 							mCompiler.lexException(beginning, "Hexadecimal integer literal overflow");
 
 						return true;

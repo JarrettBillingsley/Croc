@@ -1941,7 +1941,7 @@ private:
 		{
 			multRetToRegs(loc, numLhs - numRhs + 1);
 
-			for(uint i = numRhs, idx = rhs[$ - 1].index; i < numLhs; i++, idx++)
+			for(uint i = numRhs, idx = rhs[$ - 1].index + 1; i < numLhs; i++, idx++)
 				pushExp(ExpType.Local, checkRegOK(idx));
 		}
 		else
@@ -2027,7 +2027,7 @@ private:
 			case ExpType.Global:      codeRD(loc, Op.GetGlobal, reg); codeUImm(src.index); break;
 			case ExpType.Index:       codeRD(loc, Op.Index, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
 			case ExpType.Field:       codeRD(loc, Op.Field, reg); codeRC(&unpackRegOrConst(src.index)); codeRC(&unpackRegOrConst(src.index2)); break;
-			case ExpType.Slice:       codeRD(loc, Op.Slice, reg); codeRC(&src); break;
+			case ExpType.Slice:       codeRD(loc, Op.Slice, reg); codeRC(&Exp(ExpType.Temporary, src.index)); break;
 			case ExpType.Vararg:      setRD(src.index, reg); setMultRetReturns(src.index, 2); break;
 			case ExpType.VarargIndex: codeRD(loc, Op.VargIndex, reg); codeRC(&unpackRegOrConst(src.index)); break;
 			case ExpType.Length:      codeRD(loc, Op.Length, reg); codeRC(&unpackRegOrConst(src.index)); break;
