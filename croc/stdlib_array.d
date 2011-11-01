@@ -60,6 +60,8 @@ static:
 			mixin(Register!(3, "range"));
 
 			newNamespace(t, "array");
+				mixin(RegisterField!(1, "opEquals"));
+
 				mixin(RegisterField!(1, "sort"));
 				mixin(RegisterField!(0, "reverse"));
 				mixin(RegisterField!(0, "array_dup", 0, "dup"));
@@ -107,6 +109,21 @@ static:
 		});
 
 		importModuleNoNS(t, "array");
+	}
+	
+	version(CrocBuiltinDocs) Docs opEquals_docs = {kind: "function", name: "array.opEquals", docs:
+	"Compares two arrays for shallow equality. Shallow equality means two arrays are equal if they
+	are the same length, and for each index i, `a[i] is b[i]` is true. This does not call opEquals
+	metamethods on any of the arrays' elements.",
+	params: [Param("other", "array")],
+	extra: [Extra("section", "Functions"), Extra("protection", "global")]};
+
+	uword opEquals(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Array);
+		checkParam(t, 1, CrocValue.Type.Array);
+		pushBool(t, getArray(t, 0).toArray() == getArray(t, 1).toArray());
+		return 1;
 	}
 
 	version(CrocBuiltinDocs) Docs array_new_docs = {kind: "function", name: "array.new", docs:

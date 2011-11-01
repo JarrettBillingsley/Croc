@@ -3369,7 +3369,7 @@ class ForeachComprehension : ForComprehension
 		if(ifComp)
 		{
 			if(forComp)
-				super(c, location, forComp.endLocation, AstTag.ForeachComprehension); // REACHABLE?
+				super(c, location, forComp.endLocation, AstTag.ForeachComprehension);
 			else
 				super(c, location, ifComp.endLocation, AstTag.ForeachComprehension);
 		}
@@ -3418,7 +3418,7 @@ class ForNumComprehension : ForComprehension
 		if(ifComp)
 		{
 			if(forComp)
-				super(c, location, forComp.endLocation, AstTag.ForNumComprehension); // REACHABLE?
+				super(c, location, forComp.endLocation, AstTag.ForNumComprehension);
 			else
 				super(c, location, ifComp.endLocation, AstTag.ForNumComprehension);
 		}

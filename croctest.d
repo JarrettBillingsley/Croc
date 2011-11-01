@@ -39,7 +39,7 @@ void main()
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
 
-		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
+// 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 		runModule(t, "samples.simple");
 	}
 	catch(CrocException e)

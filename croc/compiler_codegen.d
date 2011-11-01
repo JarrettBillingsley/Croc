@@ -995,7 +995,7 @@ scope class Codegen : Visitor
 		visit(s.rhs);
 		fs.toSource(s.rhs.endLocation);
 
-		fs.reflexOp(s.endLocation, s.type, 1);
+		fs.reflexOp(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
 		debug fs.checkExpStackEmpty();
@@ -1046,7 +1046,7 @@ scope class Codegen : Visitor
 
 		codeGenList(s.operands, false);
 		
-		fs.reflexOp(s.endLocation, s.type, s.operands.length);
+		fs.concatEq(s.endLocation, s.operands.length);
 		fs.assign(s.endLocation, 1, 1);
 
 		debug fs.checkExpStackEmpty();
@@ -1062,7 +1062,7 @@ scope class Codegen : Visitor
 		fs.dup();
 		fs.toSource(s.exp.endLocation);
 
-		fs.reflexOp(s.endLocation, s.type, 0);
+		fs.incDec(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
 		debug fs.checkExpStackEmpty();
@@ -1078,7 +1078,7 @@ scope class Codegen : Visitor
 		fs.dup();
 		fs.toSource(s.exp.endLocation);
 
-		fs.reflexOp(s.endLocation, s.type, 0);
+		fs.incDec(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
 		debug fs.checkExpStackEmpty();
@@ -1175,7 +1175,7 @@ scope class Codegen : Visitor
 		assert(e.operands.length >= 2, "CatExp codeGen not enough ops");
 
 		codeGenList(e.operands, false);
-		fs.binOp(e.endLocation, e.type, e.operands.length);
+		fs.concat(e.endLocation, e.operands.length);
 		return e;
 	}
 

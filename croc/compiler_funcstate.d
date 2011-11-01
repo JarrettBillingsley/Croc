@@ -54,25 +54,14 @@ private Op AstTagToOpcode(AstTag tag)
 {
 	switch(tag)
 	{
-		case AstTag.AddAssignStmt: return Op.AddEq;
-		case AstTag.SubAssignStmt: return Op.SubEq;
-		case AstTag.MulAssignStmt: return Op.MulEq;
-		case AstTag.DivAssignStmt: return Op.DivEq;
-		case AstTag.ModAssignStmt: return Op.ModEq;
+		// Unary
+		case AstTag.NegExp: return Op.Neg;
+		case AstTag.NotExp: return Op.Not;
+		case AstTag.ComExp: return Op.Com;
+		case AstTag.CoroutineExp: return Op.Coroutine;
+		case AstTag.DotSuperExp: return Op.SuperOf;
 
-		case AstTag.AndAssignStmt: return Op.AndEq;
-		case AstTag.OrAssignStmt: return Op.OrEq;
-		case AstTag.XorAssignStmt: return Op.XorEq;
-		case AstTag.ShlAssignStmt: return Op.ShlEq;
-		case AstTag.ShrAssignStmt: return Op.ShrEq;
-		case AstTag.UShrAssignStmt: return Op.UShrEq;
-
-		case AstTag.CatExp: return Op.Cat;
-		case AstTag.CatAssignStmt: return Op.CatEq;
-
-		case AstTag.IncStmt: return Op.Inc;
-		case AstTag.DecStmt: return Op.Dec;
-
+		// Binary
 		case AstTag.AddExp: return Op.Add;
 		case AstTag.SubExp: return Op.Sub;
 		case AstTag.MulExp: return Op.Mul;
@@ -89,11 +78,20 @@ private Op AstTagToOpcode(AstTag tag)
 		case AstTag.AsExp: return Op.As;
 		case AstTag.Cmp3Exp: return Op.Cmp3;
 
-		case AstTag.NegExp: return Op.Neg;
-		case AstTag.NotExp: return Op.Not;
-		case AstTag.ComExp: return Op.Com;
-		case AstTag.CoroutineExp: return Op.Coroutine;
-		case AstTag.DotSuperExp: return Op.SuperOf;
+		// Reflex
+		case AstTag.AddAssignStmt: return Op.AddEq;
+		case AstTag.SubAssignStmt: return Op.SubEq;
+		case AstTag.MulAssignStmt: return Op.MulEq;
+		case AstTag.DivAssignStmt: return Op.DivEq;
+		case AstTag.ModAssignStmt: return Op.ModEq;
+
+		case AstTag.AndAssignStmt: return Op.AndEq;
+		case AstTag.OrAssignStmt: return Op.OrEq;
+		case AstTag.XorAssignStmt: return Op.XorEq;
+		case AstTag.ShlAssignStmt: return Op.ShlEq;
+		case AstTag.ShrAssignStmt: return Op.ShrEq;
+		case AstTag.UShrAssignStmt: return Op.UShrEq;
+
 		default: assert(false);
 	}
 }
@@ -476,6 +474,9 @@ package:
 		}
 
 		mScope.firstFreeReg = mLocVars[mLocVars.length - 1].reg + 1;
+		
+		if(mExpSP > 0 && getExp(-1).regAfter < mScope.firstFreeReg)
+			getExp(-1).regAfter = mScope.firstFreeReg;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -586,6 +587,7 @@ package:
 		insertDummyLocal(loc, "__hidden{}");
 		insertDummyLocal(loc, "__hidden{}");
 		activateLocals(3);
+
 		ret.beginJump = codeRD(loc, opcode, ret.baseReg); codeImm(NoJump);
 		ret.beginLoop = here();
 		return ret;
@@ -985,39 +987,49 @@ package:
 	{
 		codeRD(loc, Op.CheckParams, 0);
 	}
-
-	void reflexOp(ref CompileLoc loc, AstTag type, uint operands)
+	
+	void incDec(ref CompileLoc loc, AstTag type)
 	{
-		assert(mExpSP >= operands + 1);
+		assert(type == AstTag.IncStmt || type == AstTag.DecStmt);
+		assert(mExpSP >= 1);
+		auto op = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(op.type == ExpType.Local);
+
+		codeRD(loc, type == AstTag.IncStmt ? Op.Inc : Op.Dec, op.index);
+	}
+
+	void reflexOp(ref CompileLoc loc, AstTag type)
+	{
+		assert(mExpSP >= 2);
 
 		auto opcode = AstTagToOpcode(type);
+		auto lhs = getExp(-2);
+		auto op = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(lhs.type == ExpType.Local);
+		debug(EXPSTACKCHECK) assert(op.isSource());
+
+		codeRD(loc, opcode, lhs.index);
+		codeRC(op);
+		pop(1);
+	}
+	
+	void concatEq(ref CompileLoc loc, uint operands)
+	{
+		assert(operands >= 1);
+		assert(mExpSP >= operands + 1);
+
 		auto lhs = getExp(-operands - 1);
 		auto ops = mExpStack[mExpSP - operands .. mExpSP];
 
 		debug(EXPSTACKCHECK) assert(lhs.type == ExpType.Local);
+		debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
 
-		codeRD(loc, opcode, lhs.index);
-
-		if(operands == 0)
-		{
-			// inc, dec
-		}
-		else if(operands == 1)
-		{
-			// addeq, subeq, muleq, diveq, modeq, andeq, oreq, xoreq, shleq, shreq, ushreq
-			debug(EXPSTACKCHECK) assert(ops[0].isSource());
-			codeRC(&ops[0]);
-		}
-		else
-		{
-			// cateq
-			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
-			codeRC(&ops[0]);
-			codeUImm(operands);
-		}
-
-		if(operands)
-			pop(operands);
+		codeRD(loc, Op.CatEq, lhs.index);
+		codeRC(&ops[0]);
+		codeUImm(operands);
+		pop(operands);
 	}
 
 	void resolveAssignmentConflicts(ref CompileLoc loc, uword numVals)
@@ -1226,29 +1238,34 @@ package:
 		pushExp(ExpType.Slice, base.index);
 	}
 
-	void binOp(ref CompileLoc loc, AstTag type, uint numOps = 2)
+	void binOp(ref CompileLoc loc, AstTag type)
+	{
+		assert(mExpSP >= 2);
+
+		auto op1 = getExp(-2);
+		auto op2 = getExp(-1);
+
+		debug(EXPSTACKCHECK) assert(op1.isSource());
+		debug(EXPSTACKCHECK) assert(op2.isSource());
+
+		uint inst = codeRD(loc, AstTagToOpcode(type), 0);
+		codeRC(op1);
+		codeRC(op2);
+		pop(2);
+		pushExp(ExpType.NeedsDest, inst);
+	}
+
+	void concat(ref CompileLoc loc, uint numOps)
 	{
 		assert(mExpSP >= numOps);
 		assert(numOps >= 2);
 
 		auto ops = mExpStack[mExpSP - numOps .. mExpSP];
-		uint inst = codeRD(loc, AstTagToOpcode(type), 0);
+		debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
 
-		if(numOps > 2)
-		{
-			// cat
-			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.type == ExpType.Temporary);
-			codeRC(&ops[0]);
-			codeUImm(numOps);
-		}
-		else
-		{
-			// everything else
-			debug(EXPSTACKCHECK) foreach(ref op; ops) assert(op.isSource());
-			codeRC(&ops[0]);
-			codeRC(&ops[1]);
-		}
-
+		uint inst = codeRD(loc, Op.Cat, 0);
+		codeRC(&ops[0]);
+		codeUImm(numOps);
 		pop(numOps);
 		pushExp(ExpType.NeedsDest, inst);
 	}
