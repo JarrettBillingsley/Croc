@@ -46,7 +46,7 @@ import croc.types_funcdef;
 
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
-debug = SHOWME;
+// debug = SHOWME;
 debug = EXPSTACKCHECK;
 // debug = WRITECODE;
 

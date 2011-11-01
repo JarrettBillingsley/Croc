@@ -1,0 +1,192 @@
+module tests.codegen
+
+import exceptions: CompileException
+import compiler: loadString
+
+namespace Test {}
+
+function xpass(code: string, result = null)
+{
+	local func, ret
+	hash.clear(Test)
+
+	try
+		func = loadString(code, Test)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' failed to compile", code), e)
+
+	try
+		ret = func()
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to pass but failed", code), e)
+
+	if(typeof(ret) != typeof(result) || ret != result)
+		throw Exception(format("Test '{}' expected to give results '{}' but gave '{}' instead", code, result, ret))
+}
+
+function xfail(code: string, args: array, result: class)
+{
+	local func
+	hash.clear(Test)
+
+	try
+		func = loadString(code, Test)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' failed to compile", code), e)
+
+	try
+		func(args.expand())
+	catch(e: Exception)
+	{
+		if(e as result)
+			return
+
+		throw Exception(format("Test '{}' expected to fail and did, but threw exception type '{}' instead of '{}'", code, e.super, result), e)
+	}
+
+	throw Exception(format("Test '{}' expected to fail but passed"))
+}
+
+function xcomppass(code: string)
+{
+	try
+		loadString(code)
+	catch(e: CompileException)
+		throw Exception(format("Test '{}' expected to pass compilation but failed", code), e)
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to pass compilation but caused an error", e))
+}
+
+function xcompfail(code: string, somethingLike: string)
+{
+	try
+		loadString(code)
+	catch(e: CompileException)
+	{
+		if(somethingLike in e.msg)
+			return
+		else
+			throw Exception(format("Test '{}' failed compilation, but instead of an error like '{}', it gave '{}'", code, somethingLike, e.msg), e)
+	}
+	catch(e: Exception)
+		throw Exception(format("Test '{}' expected to fail compilation but caused another error", e))
+
+	throw Exception(format("Test '{}' expected to fail compilation but passed"))
+}
+
+function main()
+{
+	// TODO: make xcompfail take some sort of "somethingLike" parameter which it will search for in the compiler error
+	xpass("function foo(x: @isString) {} foo(@`hi`)")
+	xpass("local t = {f = isString}; function foo(x: @t.f) {} foo(@`hi`)")
+	xpass("@attrs({}) @attrs({}) function foo() {} foo(); attributesOf(foo)")
+	xpass("local function foo() {} foo()")
+	xpass("local class C {} C()")
+	xcompfail("@foo.bar(with 5) function blah(){}", "'with' is disallowed")
+	xpass("local t = {function f(x) = x}; @t.f function foo(){} foo()")
+	xpass("local C = class C{}; C()")
+	xpass("local N = namespace N{x = 5}; N.x = 10")
+	xpass("local namespace N {x = 5} local namespace M : N {x = 4} M.x = 10")
+	xpass("@attrs({}) class C{} C(); attributesOf(C)")
+	xpass("@attrs({}) namespace N{x = 5} N.x = 10; attributesOf(N)")
+	xcompfail("local x, x", "conflicts with previous definition")
+	xpass("global x; x = 5")
+	xpass("local x = 5; if(local y = x) return y; return 0", 5)
+	xpass("local x = 5; while(x > 0) { x-- }")
+	xpass("local x = 5; while(local y = x) { x-- }")
+	xpass("while(true) break")
+	xpass("while(local x = true) return x", true)
+	xpass("local x = 5; do { x-- } while(x > 0)")
+	xpass("do { break; } while(false)")
+	xpass("do { break; } while(true)")
+	xpass("for(local x = 0; x < 10; x++) {}")
+	xpass("for(isString(0); ;) { break }")
+	xpass("foreach(v; [1 2 3]) {}")
+	xpass("switch(5) { case 0 .. 10: return true; case 10000: default: return false }", true)
+	xpass("for(x: 0 .. 10) continue")
+	xpass("try { return } finally {}")
+	xpass("local x = 1; x += 1; x -= 1; x *= 1; x /= 1; x %= 2; x &= 1; x |= 1; x ^= 0; x <<= 1; x >>= 1; x >>>= 1")
+	xpass("local x, y = @`yep`, @`nope`; return x || y", "yep")
+	xpass("local x, y = @`yep`, @`nope`; return x && y", "nope")
+	xpass("local x, y = 1, 2; return x + y", 3)
+	xpass("local x, y = 1, 2; return x - y", -1)
+	xpass("local x, y = 1, 2; return x * y", 2)
+	xpass("local x, y = 1, 2; return x / y", 0)
+	xpass("local x, y = 1, 2; return x % y", 1)
+	xpass("local x, y = 1, 2; return x & y", 0)
+	xpass("local x, y = 1, 2; return x | y", 3)
+	xpass("local x, y = 1, 2; return x ^ y", 3)
+	xpass("local x, y = 1, 2; return x << y", 4)
+	xpass("local x, y = 1, 2; return x >> y", 0)
+	xpass("local x, y = 1, 2; return x >>> y", 0)
+	xpass("local x, y = 1, 2; return x <=> y", -1)
+	xpass("local x, y = 1, 2; return x == y", false)
+	xpass("local x, y = 1, 2; return x != y", true)
+	xpass("local x, y = 1, 2; return x is y", false)
+	xpass("local x, y = 1, 2; return x !is y", true)
+	xpass("local x, y = 1, 2; return x < y", true)
+	xpass("local x, y = 1, 2; return x <= y", true)
+	xpass("local x, y = 1, 2; return x > y", false)
+	xpass("local x, y = 1, 2; return x >= y", false)
+	xpass("local x, y = 1, [2]; return x in y", false)
+	xpass("local x, y = 1, [2]; return x !in y", true)
+	xpass("local x = 1; return -x", -1);
+	xpass("local x = 1; return !x", false);
+	xpass("local x = 1; return ~x", 0xFFFFFFFF_FFFFFFFE);
+	xpass("function foo() { return 5; } local coro = coroutine foo; return coro()", 5)
+	xpass("return #vararg", 0)
+	xcompfail("function foo() = #vararg", "cannot be used in a non")
+	xpass("class B { function f() = 5 } class C : B { function f() = super.f() } return C().f()", 5)
+	xpass("function foo() = this return foo(with 5)", 5)
+	xpass("function foo(vararg) = vararg[0] return foo(3)", 3)
+	xcompfail("function foo() = vararg[0]", "cannot be used in a non")
+	xpass("local a = @`abc`; return a[0 .. 2]", "ab")
+	xpass("function foo(vararg) return vararg[0 .. 2]; local x, y = foo(1, 2, 3); return x + y", 3)
+	xcompfail("function foo() return vararg[0 .. 2]", "cannot be used in a non")
+	xpass("return 2.3", 2.3)
+	xpass("function foo(vararg) return (vararg); return foo(3)", 3)
+	xcompfail("function foo() return (vararg)", "cannot be used in a non")
+	xpass("function foo() return 1, 2, 3; return [foo()]", [1 2 3])
+	xpass("function foo() { yield(); yield(1, 2, 3) } local c = coroutine foo; c(); return [c()]", [1 2 3])
+	xpass("local t = {[i] = v foreach i, v; @`abc`}; return hash.keys(t).sort() ~ hash.values(t).sort()", [0 1 2 'a' 'b' 'c'])
+	xpass("local a = [c foreach c; @`abc`]; return a", ['a' 'b' 'c'])
+	xpass("local a = [c for c: 0 .. 3]; return a", [0 1 2])
+	xpass("local a = [c + d for c: 0 .. 3 for d: 4 .. 6]; return a", [4 5 5 6 6 7])
+	xpass("local a = [c foreach i, c; @`axbxcx` if (i & 1) == 0]; return a", ['a' 'b' 'c'])
+	xpass("local a = [a * b foreach i, a; [1 0 2 0 3 0] for b: 1 .. 2 if (i & 1) == 0]; return a", [1 2 3])
+	xpass("local a = [a * b foreach a; [1 2] if a > 1 foreach b; [5 6]]; return a", [10 12])
+	xpass("local a = [a * b for a: 1 .. 3 if a > 1 for b: 5 .. 7]; return a", [10 12])
+	xpass("local x = 4; if(x ? false : true) return 1; else return 2", 2)
+	xpass("local x, y = 1, 2; if(x && y) return true", true)
+	xpass("function foo() = 5 if((foo())) return true", true)
+	xcompfail("local x; local x", "conflicts with previous")
+	xpass("local x; switch(x) { case null: case true: case 3: case 4.5: case 'x': case @`noo`: break; }")
+	xcompfail("local x; switch(x) { case 2: case 2: break }", "Duplicate case value")
+	xpass("local x = 0; function foo() { x++; return x} return foo()", 1)
+	xpass("namespace N { function foo() {}}")
+	xpass("local x, y = [1 2 3], 0; x[y], y = 5, 6; return x ~ y", [5 2 3 6])
+	xpass("local x, y = [1 2 3], 0; x[y], x = 0, [6]; return x ~ y", [6 0])
+	xpass("function foo() = 5 local x, y = foo(), 6; return x + y", 11)
+	xpass("local x, y = 1, 2; if(x < y) return true; else return false", true)
+	xpass("local x, y = 1, 2; if(x <= y) return true; else return false", true)
+	xpass("local x, y = 1, 2; if(x > y) return true; else return false", false)
+	xpass("local x, y = 1, 2; if(x >= y) return true; else return false", false)
+	xcompfail("continue", "No continuable")
+	xpass("for loop(i: 0 .. 10) continue loop")
+	xcompfail("continue boop", "continuable control structure of that name")
+	xcompfail("switch boop(0) { case 0: continue boop }", "Cannot continue")
+	xpass("for(i: 0 .. 3) { local function foo() = i continue }")
+	xpass("for(i: 0 .. 3) { try continue; finally {} }")
+	xcompfail("break", "No breakable")
+	xpass("for loop(i: 0 .. 10) break loop")
+	xcompfail("break boop", "breakable control structure of that name")
+	xpass("for(i: 0 .. 3) { local function foo() = i break }")
+	xpass("for(i: 0 .. 3) { try break; finally {} }")
+	xpass("class B { function f() = 5 } class C : B { function f() { local a = [super.f()]; return a[0] } } return C().f()", 5)
+	xpass("local a = [1 2 3]; a[0 .. 2] = [4 5]; return a", [4 5 3])
+	xpass("function foo(vararg) { vararg[0] = 5; return vararg[0] } return foo(0)", 5)
+	xpass("local a = [1 2 3]; #a = 4; return a", [1 2 3 null])
+	xpass("function foo(vararg) { local x, y = vararg[1 .. 3], 2; return x + y } return foo(1, 2, 3)", 4)
+	
+	writeln("All codegen tests passed!")
+}
