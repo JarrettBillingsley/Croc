@@ -100,7 +100,7 @@ enum ExpType
 {
 	Const,       // index = const: CTIdx
 	Local,       // index = reg: RegIdx
-	Temporary = Local,
+	Temporary = Local, // just an alias; in general we use Temporary to mean locals which are a temp register rather than a reference to a local var
 	NewLocal,    // index = reg: RegIdx
 	Upval,       // index = uv: UpvalIdx
 	Global,      // index = name: CTIdx
@@ -203,6 +203,12 @@ private:
 	uword ehlevel = 0;
 }
 
+struct NamespaceDesc
+{
+private:
+	uint prevReg;	
+}
+
 struct SwitchDesc
 {
 private:
@@ -246,6 +252,15 @@ private:
 	CompileLoc location;
 	bool isActive;
 }
+
+/*
+any = any, duh
+src = Local|Const
+multret = Call|Yield|Vararg|VarargSlice
+args = ((n-1)*Temp Temp|multret)?
+dst = anything but Const, Vararg, VarargSlice, Call, Yield, NeedsDest, or Conflict
+sideeffect = Index|Field|Slice|VarargIndex|VarargSlice|Length|Call|Yield
+*/
 
 final class FuncState
 {
@@ -482,6 +497,7 @@ package:
 	// ---------------------------------------------------------------------------
 	// Switches
 
+	// [src] => []
 	void beginSwitch(ref SwitchDesc s, ref CompileLoc loc)
 	{
 		auto cond = getExp(-1);
@@ -623,6 +639,7 @@ package:
 	// ---------------------------------------------------------------------------
 	// Basic expression stack manipulation
 
+	// [any] => []
 	void pop(uword num = 1)
 	{
 		assert(num != 0);
@@ -636,6 +653,7 @@ package:
 			mFreeReg = mExpStack[mExpSP - 1].regAfter;
 	}
 
+	// [any] => [any any]
 	void dup()
 	{
 		assert(mExpSP > 0);
@@ -646,46 +664,55 @@ package:
 	// ---------------------------------------------------------------------------
 	// Expression stack pushes
 
+	// [] => [Const]
 	void pushNull()
 	{
 		pushConst(addNullConst());
 	}
 
+	// [] => [Const]
 	void pushBool(bool value)
 	{
 		pushConst(addBoolConst(value));
 	}
 
+	// [] => [Const]
 	void pushInt(crocint value)
 	{
 		pushConst(addIntConst(value));
 	}
 
+	// [] => [Const]
 	void pushFloat(crocfloat value)
 	{
 		pushConst(addFloatConst(value));
 	}
 
+	// [] => [Const]
 	void pushChar(dchar value)
 	{
 		pushConst(addCharConst(value));
 	}
 
+	// [] => [Const]
 	void pushString(char[] value)
 	{
 		pushConst(addStringConst(value));
 	}
 
+	// [] => [NewGlobal]
 	void pushNewGlobal(Identifier name)
 	{
 		pushExp(ExpType.NewGlobal, addStringConst(name.name));
 	}
 
+	// [] => [Local]
 	void pushThis()
 	{
 		pushExp(ExpType.Local, 0);
 	}
 
+	// [] => [Local|Upval|Global]
 	void pushVar(Identifier name)
 	{
 		auto e = pushExp();
@@ -762,6 +789,7 @@ package:
 		e.type = searchVar(this);
 	}
 
+	// [] => [Vararg]
 	void pushVararg(ref CompileLoc loc)
 	{
 		auto reg = pushRegister();
@@ -769,11 +797,13 @@ package:
 		codeUImm(0);
 	}
 
+	// [] => [NeedsDest]
 	void pushVargLen(ref CompileLoc loc)
 	{
 		pushExp(ExpType.NeedsDest, codeRD(loc, Op.VargLen, 0));
 	}
 
+	// [] => [NeedsDest|Temp]
 	void pushClosure(FuncState fs)
 	{
 		t.vm.alloc.resizeArray(mInnerFuncs, mInnerFuncs.length + 1);
@@ -797,6 +827,7 @@ package:
 		mInnerFuncs[$ - 1] = fs.toFuncDef();
 	}
 
+	// [] => [Temp]
 	void pushTable(ref CompileLoc loc)
 	{
 		auto reg = pushRegister();
@@ -804,6 +835,7 @@ package:
 		codeRD(loc, Op.NewTable, reg);
 	}
 
+	// [] => [Temp]
 	void pushArray(ref CompileLoc loc, uword length)
 	{
 		auto reg = pushRegister();
@@ -812,6 +844,8 @@ package:
 		codeUImm(addIntConst(length));
 	}
 
+	// [] => [n*NewLocal]
+	// (each one has a successive register number)
 	void pushNewLocals(uword num)
 	{
 		for(auto reg = mFreeReg; num; num--, reg++)
@@ -821,6 +855,9 @@ package:
 	// ---------------------------------------------------------------------------
 	// Expression stack pops
 
+	// [any] => []
+	// [] => []
+	// If there's something on the stack, and it's a call or yield, sets its number of returns to 0.
 	void popToNothing()
 	{
 		if(mExpSP == 0)
@@ -834,6 +871,8 @@ package:
 		pop();
 	}
 
+	// [numLhs*dst Conflict? (numRhs-1)*src src|multret] => []
+	// (NOTE: not really srcs on the rhs. just... non-side-effecting.. things? except for last?)
 	void assign(ref CompileLoc loc, uword numLhs, uword numRhs)
 	{
 		assert(mExpSP >= numRhs + 1);
@@ -849,6 +888,7 @@ package:
 		pop(lhs.length + (conflict ? 1 : 0));
 	}
 
+	// [Temp args] => []
 	void arraySet(ref CompileLoc loc, uword numItems, uword block)
 	{
 		debug(EXPSTACKCHECK) assert(numItems > 0);
@@ -868,6 +908,7 @@ package:
 		pop(numItems + 1); // all items and array
 	}
 
+	// [Temp src] => []
 	void arrayAppend(ref CompileLoc loc)
 	{
 		debug(EXPSTACKCHECK) assert(mExpSP >= 2);
@@ -884,6 +925,7 @@ package:
 		pop(2);
 	}
 
+	// [src] => []
 	void customParamFail(ref CompileLoc loc, uint paramIdx)
 	{
 		auto msg = getExp(-1);
@@ -895,16 +937,12 @@ package:
 		pop();
 	}
 
-	void objParamFail(ref CompileLoc loc, uint paramIdx)
-	{
-		codeRD(loc, Op.ObjParamFail, paramIdx);
-	}
-
+	// [src] => []
 	uint checkObjParam(ref CompileLoc loc, uint paramIdx)
 	{
 		auto type = getExp(-1);
 		debug(EXPSTACKCHECK) assert(type.isSource());
-		
+
 		auto ret = codeRD(loc, Op.CheckObjParam, paramIdx);
 		codeRC(type);
 		codeImm(NoJump);
@@ -913,6 +951,7 @@ package:
 		return ret;
 	}
 
+	// [src] => []
 	uint codeIsTrue(ref CompileLoc loc, bool isTrue = true)
 	{
 		auto src = getExp(-1);
@@ -926,42 +965,49 @@ package:
 		return ret;
 	}
 
+	// [src src] => []
 	uint codeCmp(ref CompileLoc loc, Comparison type)
 	{
 		return commonCmpJump(loc, Op.Cmp, type);
 	}
 
+	// [src src] => []
 	uint codeSwitchCmp(ref CompileLoc loc)
 	{
 		return commonCmpJump(loc, Op.SwitchCmp, 0);
 	}
 
+	// [src src] => []
 	uint codeEquals(ref CompileLoc loc, bool isTrue)
 	{
 		return commonCmpJump(loc, Op.Equals, isTrue);
 	}
 
+	// [src src] => []
 	uint codeIs(ref CompileLoc loc, bool isTrue)
 	{
 		return commonCmpJump(loc, Op.Is, isTrue);
 	}
-	
+
+	// [src src] => []
 	uint codeIn(ref CompileLoc loc, bool isTrue)
 	{
 		return commonCmpJump(loc, Op.In, isTrue);
 	}
 
+	// [src] => []
 	void codeThrow(ref CompileLoc loc, bool rethrowing)
 	{
 		auto src = getExp(-1);
 		debug(EXPSTACKCHECK) assert(src.isSource());
-		
+
 		codeRD(loc, Op.Throw, rethrowing ? 1 : 0);
 		codeRC(src);
 
 		pop();
 	}
 
+	// [args] => []
 	void saveRets(ref CompileLoc loc, uint numRets)
 	{
 		if(numRets == 0)
@@ -983,11 +1029,18 @@ package:
 	// ---------------------------------------------------------------------------
 	// Other codegen funcs
 
+	void objParamFail(ref CompileLoc loc, uint paramIdx)
+	{
+		codeRD(loc, Op.ObjParamFail, paramIdx);
+	}
+
+
 	void paramCheck(ref CompileLoc loc)
 	{
 		codeRD(loc, Op.CheckParams, 0);
 	}
-	
+
+	// [Temp]
 	void incDec(ref CompileLoc loc, AstTag type)
 	{
 		assert(type == AstTag.IncStmt || type == AstTag.DecStmt);
@@ -999,6 +1052,7 @@ package:
 		codeRD(loc, type == AstTag.IncStmt ? Op.Inc : Op.Dec, op.index);
 	}
 
+	// [Temp src] => [Temp]
 	void reflexOp(ref CompileLoc loc, AstTag type)
 	{
 		assert(mExpSP >= 2);
@@ -1014,7 +1068,8 @@ package:
 		codeRC(op);
 		pop(1);
 	}
-	
+
+	// [Temp operands*Temp] => [Temp]
 	void concatEq(ref CompileLoc loc, uint operands)
 	{
 		assert(operands >= 1);
@@ -1032,6 +1087,8 @@ package:
 		pop(operands);
 	}
 
+	// [n*any] => [n*any]
+	// [n*any] => [n*any Conflict] (in this case the values on the stack may have been changed)
 	void resolveAssignmentConflicts(ref CompileLoc loc, uword numVals)
 	{
 		uint numTemps = 0;
@@ -1067,6 +1124,8 @@ package:
 			pushExp(ExpType.Conflict);
 	}
 
+	// [sideeffect] => [Local|Const]
+	// [any] => [any] (no effect)
 	void flushSideEffects(ref CompileLoc loc)
 	{
 		auto e = getExp(-1);
@@ -1075,6 +1134,7 @@ package:
 			toSource(loc);
 	}
 
+	// [any] => [Local|Const]
 	void toSource(ref CompileLoc loc)
 	{
 		auto e = *getExp(-1);
@@ -1106,6 +1166,7 @@ package:
 		}
 	}
 
+	// [any] => [Temp]
 	void toTemporary(ref CompileLoc loc)
 	{
 		toSource(loc);
@@ -1120,6 +1181,7 @@ package:
 		}
 	}
 
+	// [src src] => [NeedsDest]
 	void newClass(ref CompileLoc loc)
 	{
 		auto name = getExp(-2);
@@ -1135,6 +1197,7 @@ package:
 		pushExp(ExpType.NeedsDest, i);
 	}
 
+	// [Const src] => [NeedsDest]
 	void newNamespace(ref CompileLoc loc)
 	{
 		auto name = getExp(-2);
@@ -1150,6 +1213,7 @@ package:
 		pushExp(ExpType.NeedsDest, i);
 	}
 
+	// [Const] => [NeedsDest]
 	void newNamespaceNP(ref CompileLoc loc)
 	{
 		auto name = getExp(-1);
@@ -1161,6 +1225,7 @@ package:
 		pushExp(ExpType.NeedsDest, i);
 	}
 
+	// [src src] => [Field]
 	void field()
 	{
 		auto op = *getExp(-2);
@@ -1174,6 +1239,7 @@ package:
 		pushExp(ExpType.Field, packRegOrConst(op), packRegOrConst(name));
 	}
 
+	// [src src] => [Index]
 	void index()
 	{
 		auto op = *getExp(-2);
@@ -1187,6 +1253,7 @@ package:
 		pushExp(ExpType.Index, packRegOrConst(op), packRegOrConst(idx));
 	}
 
+	// [src] => [VarargIndex]
 	void varargIndex()
 	{
 		auto idx = *getExp(-1);
@@ -1198,6 +1265,7 @@ package:
 		pushExp(ExpType.VarargIndex, packRegOrConst(idx));
 	}
 
+	// [Temp Temp] => [VarargSlice]
 	void varargSlice(ref CompileLoc loc)
 	{
 		auto lo = *getExp(-2);
@@ -1212,6 +1280,7 @@ package:
 		codeUImm(0);
 	}
 
+	// [src] => [Length]
 	void length()
 	{
 		auto op = *getExp(-1);
@@ -1223,6 +1292,7 @@ package:
 		pushExp(ExpType.Length, packRegOrConst(op));
 	}
 
+	// [Temp Temp Temp] => [Slice]
 	void slice()
 	{
 		auto base = *getExp(-3);
@@ -1238,6 +1308,7 @@ package:
 		pushExp(ExpType.Slice, base.index);
 	}
 
+	// [src src] => [NeedsDest]
 	void binOp(ref CompileLoc loc, AstTag type)
 	{
 		assert(mExpSP >= 2);
@@ -1255,6 +1326,7 @@ package:
 		pushExp(ExpType.NeedsDest, inst);
 	}
 
+	// [numOps*Temp] => [NeedsDest]
 	void concat(ref CompileLoc loc, uint numOps)
 	{
 		assert(mExpSP >= numOps);
@@ -1270,6 +1342,7 @@ package:
 		pushExp(ExpType.NeedsDest, inst);
 	}
 
+	// [src] => [NeedsDest]
 	void unOp(ref CompileLoc loc, AstTag type)
 	{
 		auto src = getExp(-1);
@@ -1305,6 +1378,7 @@ package:
 		assert(mFreeReg == desc.baseReg + num);
 	}
 
+	// [src src args] => [Call]
 	void pushMethodCall(ref CompileLoc loc, bool isSuperCall, ref MethodCallDesc desc)
 	{
 		// desc.baseExp holds obj, baseExp + 1 holds method name. assert they're both sources
@@ -1336,6 +1410,7 @@ package:
 		pushExp(ExpType.Call, inst);
 	}
 
+	// [Temp Temp args] => [Call]
 	void pushCall(ref CompileLoc loc, uword numArgs)
 	{
 		assert(mExpSP >= numArgs + 2);
@@ -1350,13 +1425,14 @@ package:
 		auto derp = prepareArgList(loc, args);
 		derp = derp == 0 ? 0 : derp + 1;
 		pop(args.length + 2);
-		
+
 		auto inst = codeRD(loc, Op.Call, func.index);
 		codeUImm(derp);
 		codeUImm(0);
 		pushExp(ExpType.Call, inst);
 	}
 
+	// [args] => [Yield]
 	void pushYield(ref CompileLoc loc, uword numArgs)
 	{
 		assert(mExpSP >= numArgs);
@@ -1374,7 +1450,7 @@ package:
 			auto derp = prepareArgList(loc, args);
 			auto base = args[0].index;
 			pop(args.length);
-			
+
 			inst = codeRD(loc, Op.Yield, base);
 			codeUImm(derp);
 			codeUImm(0);
@@ -1383,6 +1459,7 @@ package:
 		pushExp(ExpType.Yield, inst);
 	}
 
+	// [Call] => [Call] (changes opcode of call instruction to tailcall variant)
 	void makeTailcall()
 	{
 		auto e = getExp(-1);
@@ -1398,21 +1475,22 @@ package:
 		}
 	}
 
-	void beginNamespace(ref CompileLoc loc) // BUG: I just realized namespaces *can* be nested, if you use a namespace literal, and this mechanism doesn't account for that.
+	// [NeedsDest]
+	NamespaceDesc beginNamespace(ref CompileLoc loc)
 	{
-		assert(mNamespaceReg == 0);
-
+		auto ret = NamespaceDesc(mNamespaceReg);
 		auto e = getExp(-1);
 
 		debug(EXPSTACKCHECK) assert(e.type == ExpType.NeedsDest);
 		mNamespaceReg = checkRegOK(mFreeReg);
 		toSource(loc);
+
+		return ret;
 	}
 
-	void endNamespace()
+	void endNamespace(ref NamespaceDesc desc)
 	{
-		assert(mNamespaceReg != 0);
-		mNamespaceReg = 0;
+		mNamespaceReg = desc.prevReg;
 	}
 
 	// ---------------------------------------------------------------------------
@@ -1433,7 +1511,7 @@ package:
 		patchJumpTo(src, here());
 	}
 
-	void patchListTo(uint j, uint dest)
+	private void patchListTo(uint j, uint dest)
 	{
 		for(uint next = void; j != NoJump; j = next)
 		{
