@@ -100,10 +100,12 @@ static:
 	package void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
 	{
 		auto slot = &f.nativeUpvals()[idx];
-
-		if(((*slot).isObject() || val.isObject()) && *slot != *val)
+		
+		if(*slot != *val)
 		{
-			mixin(writeBarrier!("alloc", "f"));
+			if((*slot).isObject() || val.isObject())
+				mixin(writeBarrier!("alloc", "f"));
+
 			*slot = *val;
 		}
 	}

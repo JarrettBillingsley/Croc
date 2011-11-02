@@ -94,6 +94,8 @@ enum GCFlags : uint
 
 	Finalizable = 0b0_01000000,
 	Finalized =   0b0_10000000,
+	
+	JustMoved =   0b1_00000000,
 }
 
 template GCObjectMembers()
@@ -220,7 +222,7 @@ package:
 	void makeRC(GCObject* obj)
 	{
 		assert((obj.gcflags & GCFlags.InRC) == 0);
-		obj.gcflags |= GCFlags.InRC;
+		obj.gcflags |= GCFlags.InRC | GCFlags.JustMoved;
 
 		debug(CROC_LEAK_DETECTOR)
 		{

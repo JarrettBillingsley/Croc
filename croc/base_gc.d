@@ -188,10 +188,10 @@ void gcCycle(CrocVM* vm)
 					decBuffer.add(vm.alloc, slot);
 				});
 
-				if(!(obj.gcflags & GCFlags.CycleLogged))
-					free(vm, obj);
-				else
+				if(obj.gcflags & GCFlags.CycleLogged)
 					obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
+				else if(!(obj.gcflags & GCFlags.JustMoved)) // If it just moved out of the nursery, we'll let the nursery phase sweep it up
+					free(vm, obj);
 			}
 		}
 		else
@@ -219,7 +219,10 @@ void gcCycle(CrocVM* vm)
 	foreach(obj; vm.alloc.nursery)
 	{
 		if(obj.gcflags & GCFlags.InRC)
+		{
+			obj.gcflags &= ~GCFlags.JustMoved;
 			continue;
+		}
 
 		assert((obj.gcflags & GCFlags.Finalizable) == 0);
 		assert((obj.gcflags & GCFlags.CycleLogged) == 0);

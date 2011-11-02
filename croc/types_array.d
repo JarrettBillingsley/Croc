@@ -141,10 +141,13 @@ static:
 	{
 		auto slot = &a.toArray()[idx];
 
-		if(((*slot).isObject() || val.isObject()) && *slot != val)
-			mixin(writeBarrier!("alloc", "a"));
-
-		*slot = val;
+		if(*slot != val)
+		{
+			if((*slot).isObject() || val.isObject())
+				mixin(writeBarrier!("alloc", "a"));
+	
+			*slot = val;
+		}
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
