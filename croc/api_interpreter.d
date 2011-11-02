@@ -1685,8 +1685,8 @@ word catchException(CrocThread* t)
 	if(!t.vm.isThrowing)
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Attempting to catch an exception when none is in flight");
 
-	auto ret = push(t, t.vm.exception);
-	t.vm.exception = CrocValue.nullValue;
+	auto ret = push(t, CrocValue(t.vm.exception));
+	t.vm.exception = null;
 	t.vm.isThrowing = false;
 	return ret;
 }

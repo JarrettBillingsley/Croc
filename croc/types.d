@@ -801,10 +801,9 @@ package:
 	CrocThread* mainThread;
 	CrocNamespace*[] metaTabs;
 	CrocString*[] metaStrings;
-	CrocValue exception;
+	CrocInstance* exception;
 	CrocNamespace* registry;
 	Hash!(ulong, CrocBaseObject*) refTab;
-// 	CrocInstance* finalizable;
 
 	// These point to "special" runtime classes
 	CrocClass* object;
@@ -820,7 +819,6 @@ package:
 	bool inGCCycle;
 
 	// Others
-//	CrocInstance* toFinalize;
 	Hash!(char[], CrocString*) stringTab;
 	Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
 	CrocTable* toBeNormalized; // linked list of tables to be normalized

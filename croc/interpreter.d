@@ -2334,7 +2334,7 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 		t.vm.dexception.msg = msg;
 	}
 
-	t.vm.exception = ex;
+	t.vm.exception = ex.mInstance;
 	t.vm.isThrowing = true;
 	throw t.vm.dexception;
 }
@@ -3809,7 +3809,7 @@ void execute(CrocThread* t, uword depth = 1)
 				if(tr.isCatch)
 				{
 					t.stack[base] = t.vm.exception;
-					t.vm.exception = CrocValue.nullValue;
+					t.vm.exception = null;
 					t.vm.isThrowing = false;
 					currentException = null;
 

@@ -510,9 +510,8 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	foreach(ref s; vm.metaStrings)
 		callback(cast(GCObject*)s);
 
-	// TODO: change vm.exception to a CrocInstance*
 	if(vm.isThrowing)
-		mixin(ValueCallback!("vm.exception"));
+		callback(cast(GCObject*)vm.exception);
 
 	callback(cast(GCObject*)vm.registry);
 
