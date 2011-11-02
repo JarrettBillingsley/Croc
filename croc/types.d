@@ -821,6 +821,7 @@ package:
 	// Others
 	Hash!(char[], CrocString*) stringTab;
 	Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
+	Hash!(CrocThread*, bool) allThreads;
 	CrocTable* toBeNormalized; // linked list of tables to be normalized
 	ulong currentRef;
 	CrocString* ctorString; // also stored in metaStrings, don't have to scan it as a root

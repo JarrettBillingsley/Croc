@@ -60,6 +60,7 @@ static:
 		t.tryRecs[0].actRecord = uword.max;
 
 		t.vm = vm;
+		*vm.allThreads.insert(vm.alloc, t) = true;
 
 		return t;
 	}
@@ -69,7 +70,7 @@ static:
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
-		
+
 		version(CrocExtendedCoro)
 		{
 			version(CrocPoolFibers)
@@ -90,12 +91,16 @@ static:
 			}
 		}
 
+		*vm.allThreads.insert(vm.alloc, t) = true;
 		return t;
 	}
 
 	// Free a thread object.
 	package void free(CrocThread* t)
 	{
+		auto b = t.vm.allThreads.remove(t);
+		assert(b);
+
 		version(CrocExtendedCoro)
 		{
 			version(CrocPoolFibers)
