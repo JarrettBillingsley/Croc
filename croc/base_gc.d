@@ -67,7 +67,7 @@ Buffers which are only changed/used during the collection phase:
 void dumpMem(void* p, uword len)
 {
 	auto wordLen = len >> 2;
-	
+
 	foreach(w; (cast(uword*)p)[0 .. wordLen])
 		Stdout.format("{:x8} ", w);
 
@@ -76,7 +76,7 @@ void dumpMem(void* p, uword len)
 
 void gcCycle(CrocVM* vm)
 {
-	static counter = 0;
+	debug(PHASES) static counter = 0;
 	debug(PHASES) Stdout.formatln("======================= BEGIN =============================== {}", ++counter).flush;
 	debug(PHASES) Stdout.formatln("Nursery: {} bytes allocated out of {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit);
 	assert(vm.inGCCycle);
@@ -485,15 +485,13 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 // For visiting CrocValues. Visits it only if it's an object.
 template ValueCallback(char[] name)
 {
-	const ValueCallback =
-	"if(" ~ name ~ ".isObject()) callback(" ~ name ~ ".toGCObject());";
+	const ValueCallback = "if(" ~ name ~ ".isObject()) callback(" ~ name ~ ".toGCObject());";
 }
 
 // For visiting pointers. Visits it only if it's non-null.
 template CondCallback(char[] name)
 {
-	const CondCallback =
-	"if(" ~ name ~ " !is null) callback(cast(GCObject*)" ~ name ~ ");";
+	const CondCallback = "if(" ~ name ~ " !is null) callback(cast(GCObject*)" ~ name ~ ");";
 }
 
 // Visit the roots of this VM.
@@ -501,7 +499,7 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 {
 	callback(cast(GCObject*)vm.globals);
 	callback(cast(GCObject*)vm.mainThread);
-	
+
 	// We visit all the threads, but the threads themselves (except the main thread) are not roots. allThreads is basically a table of weak refs
 	foreach(thread, _; vm.allThreads)
 		visitThread(thread, callback);

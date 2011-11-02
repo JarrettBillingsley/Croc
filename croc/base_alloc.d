@@ -27,6 +27,7 @@ subject to the following restrictions:
 
 module croc.base_alloc;
 
+debug import tango.io.Stdout;
 import tango.stdc.string;
 
 import croc.base_deque;
@@ -131,8 +132,8 @@ package:
 
 	Deque!(GCObject*) nursery;
 	size_t nurseryBytes;
-	size_t nurseryLimit;
-	size_t nurserySizeCutoff;
+	size_t nurseryLimit = 256 * 1024;
+	size_t nurserySizeCutoff = 256;
 
 	debug(CROC_LEAK_DETECTOR)
 	{
@@ -187,7 +188,7 @@ package:
 		static if(T.stringof == "CrocString")
 			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
 
-// 		Stdout.formatln("Nursery-allocated " ~ T.stringof ~ " {}", ret);
+		nursery.add(*this, cast(GCObject*)ret);
 
 		return ret;
 	}
@@ -224,21 +225,13 @@ package:
 		debug(CROC_LEAK_DETECTOR)
 		{
 			auto b = _nurseryBlocks.lookup(obj);
-
-			if(b is null)
-			{
-				Stdout.formatln("erf.. {}", obj);
-				assert(false);
-			}
+			assert(b !is null);
 			*_rcBlocks.insert(*this, obj) = *b;
 		}
 	}
-import tango.io.Stdout;
+
 	void free(T)(T* o)
 	{
-// 		assert(o.gcflags & GCFlags.InRC, "attempting to free an object that isn't in the RC space!");
-// 		Stdout.formatln("freeing {} space object {}", (o.gcflags & GCFlags.InRC) ? "RC" : "nursery", o);
-
 		debug(CROC_LEAK_DETECTOR)
 		{
 			if(o.gcflags & GCFlags.InRC)
@@ -260,10 +253,7 @@ import tango.io.Stdout;
 		auto sz = o.memSize;
 
 		debug(CROC_STOMP_MEMORY)
-		{
-// 			Stdout.formatln("stomping {}, type is {}", o, T.stringof);
 			(cast(ubyte*)o)[0 .. o.memSize] = 0;
-		}
 
 		realloc(o, sz, 0);
 	}
@@ -344,7 +334,7 @@ import tango.io.Stdout;
 	{
 		if(a.length == 0)
 			return null;
-	
+
 		auto ret = (cast(T*)realloc(null, 0, a.length * T.sizeof))[0 .. a.length];
 		ret[] = a[];
 	
