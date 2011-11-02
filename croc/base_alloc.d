@@ -93,8 +93,6 @@ enum GCFlags : uint
 
 	Finalizable = 0b0_01000000,
 	Finalized =   0b0_10000000,
-
-	Forwarded =   0b1_00000000,
 }
 
 template GCObjectMembers()
@@ -104,7 +102,6 @@ template GCObjectMembers()
 		uint gcflags = 0;
 		uint refCount = 1;
 		uword memSize;
-		GCObject* forwardPointer;
 	}
 }
 
@@ -125,20 +122,17 @@ package:
 	MemFunc memFunc;
 	void* ctx;
 
+	// 0 for enabled, positive for disabled
+	uword gcDisabled;
+	size_t totalBytes = 0;
+
 	Deque!(GCObject*) modBuffer;
 	Deque!(GCObject*) decBuffer;
 
-	size_t totalBytes = 0;
-
-	void* nurseryStart;
-	void* nurseryEnd;
-	void* nurseryPtr;
-
-	// 0 for enabled, positive for disabled
-	uword gcDisabled;
-	// TODO: FIX THIIIIIIS
-	const uword nurserySizeCutoff = 256;
-	const uword nurseryAlignment = 4 - 1;
+	Deque!(GCObject*) nursery;
+	size_t nurseryBytes;
+	size_t nurseryLimit;
+	size_t nurserySizeCutoff;
 
 	debug(CROC_LEAK_DETECTOR)
 	{
@@ -175,27 +169,17 @@ package:
 		return ret;
 	}
 
-	// Returns null to indicate that we need to do a GC cycle.
+	// Allocates a nursery object. Nursery objects don't participate in reference counting. Only when they survive a collection are they promoted to RC.
 	private T* allocateNursery(T)(uword size = T.sizeof)
 	{
-		auto ptr = cast(void*)((cast(uword)nurseryPtr + nurseryAlignment) & ~nurseryAlignment);
-
-		if(nurseryEnd - ptr < size)
-		{
-			assert(false, "UNIMPLEMENTED");
-			return null;
-		}
-
-		totalBytes += cast(uword)(ptr + size - nurseryPtr);
-
-		nurseryPtr = ptr + size;
-
-		auto ret = cast(T*)ptr;
+		auto ret = cast(T*)realloc(null, 0, size);
 		*ret = T.init;
 		ret.memSize = size;
 
 		static if(is(typeof(T.ACYCLIC)))
 			ret.gcflags |= GCFlags.Green;
+
+		nurseryBytes += size;
 
 		debug(CROC_LEAK_DETECTOR)
 			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
@@ -211,7 +195,6 @@ package:
 	private T* allocateRC(T)(uword size = T.sizeof)
 	{
 		auto ret = cast(T*)realloc(null, 0, size);
-		(cast(void*)ret)[0 .. T.sizeof] = (cast(void*)&T.init)[0 .. T.sizeof];
 		*ret = T.init;
 		ret.memSize = size;
 		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
@@ -233,45 +216,54 @@ package:
 		return ret;
 	}
 
-	GCObject* copyToRC(GCObject* obj)
+	void makeRC(GCObject* obj)
 	{
 		assert((obj.gcflags & GCFlags.InRC) == 0);
-		assert((obj.gcflags & GCFlags.Forwarded) == 0);
-
-		auto ret = realloc(null, 0, obj.memSize);
-		ret[0 .. obj.memSize] = (cast(void*)obj)[0 .. obj.memSize];
+		obj.gcflags |= GCFlags.InRC;
 
 		debug(CROC_LEAK_DETECTOR)
 		{
 			auto b = _nurseryBlocks.lookup(obj);
-			
+
 			if(b is null)
 			{
 				Stdout.formatln("erf.. {}", obj);
 				assert(false);
 			}
-			*_rcBlocks.insert(*this, ret) = *b;
+			*_rcBlocks.insert(*this, obj) = *b;
 		}
-
-		return cast(GCObject*)ret;
 	}
 import tango.io.Stdout;
 	void free(T)(T* o)
 	{
-		assert(o.gcflags & GCFlags.InRC, "attempting to free an object that isn't in the RC space!");
+// 		assert(o.gcflags & GCFlags.InRC, "attempting to free an object that isn't in the RC space!");
+// 		Stdout.formatln("freeing {} space object {}", (o.gcflags & GCFlags.InRC) ? "RC" : "nursery", o);
 
 		debug(CROC_LEAK_DETECTOR)
 		{
-			if(_rcBlocks.lookup(o) is null)
-				throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+			if(o.gcflags & GCFlags.InRC)
+			{
+				if(_rcBlocks.lookup(o) is null)
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
 
-			_rcBlocks.remove(o);
+				_rcBlocks.remove(o);
+			}
+			else
+			{
+				if(_nurseryBlocks.lookup(o) is null)
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+
+				_nurseryBlocks.remove(o);
+			}
 		}
-		
+
 		auto sz = o.memSize;
-		
+
 		debug(CROC_STOMP_MEMORY)
+		{
+// 			Stdout.formatln("stomping {}, type is {}", o, T.stringof);
 			(cast(ubyte*)o)[0 .. o.memSize] = 0;
+		}
 
 		realloc(o, sz, 0);
 	}
@@ -290,10 +282,10 @@ import tango.io.Stdout;
 			else
 				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(size * T.sizeof, typeid(T[]));
 		}
-	
+
 		static if(!is(T == void))
 			ret[] = T.init;
-	
+
 		return ret;
 	}
 
@@ -408,28 +400,21 @@ import tango.io.Stdout;
 
 	void resizeNurserySpace(uword newSize)
 	{
-		assert(nurseryPtr is nurseryStart);
-
-		nurseryStart = realloc(nurseryStart, nurseryEnd - nurseryStart, newSize);
-		nurseryEnd = nurseryStart + newSize;
-		nurseryPtr = nurseryStart;
+		nurseryLimit = newSize;
 	}
 
 	void clearNurserySpace()
 	{
-		nurseryPtr = nurseryStart;
-
-		debug(CROC_STOMP_MEMORY)
-			(cast(ubyte*)nurseryStart)[0 .. nurseryEnd - nurseryStart] = 0;
+		nursery.clear(*this);
+		nurseryBytes = 0;
 
 		debug(CROC_LEAK_DETECTOR)
 			_nurseryBlocks.clear(*this);
 	}
-	
+
 	void cleanup()
 	{
 		clearNurserySpace();
-		resizeNurserySpace(0);
 		modBuffer.clear(*this);
 		decBuffer.clear(*this);
 	}

@@ -45,11 +45,11 @@ static:
 		mixin(writeBarrier!("alloc", "ns"));
 		ns.parent = parent;
 		ns.name = name;
-		
-		Stdout.formatln("{}'s parent is {}", ns, parent);
+
+// 		Stdout.formatln("{}'s parent is {}", ns, parent);
 		return ns;
 	}
-import tango.io.Stdout;
+// import tango.io.Stdout;
 	// Finalize a namespace object.
 	package void finalize(ref Allocator alloc, CrocNamespace* ns)
 	{
@@ -65,12 +65,18 @@ import tango.io.Stdout;
 	// Sets a key-value pair.
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
-		auto slot = ns.data.insert(alloc, key);
-		
-		if(*slot != *value)
+		if(auto slot = ns.data.lookup(key))
+		{
+			if(*slot != *value)
+			{
+				mixin(writeBarrier!("alloc", "ns"));
+				*slot = *value;
+			}
+		}
+		else
 		{
 			mixin(writeBarrier!("alloc", "ns"));
-			*slot = *value;
+			*ns.data.insert(alloc, key) = *value;
 		}
 	}
 

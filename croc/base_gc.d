@@ -42,9 +42,9 @@ import croc.types_thread;
 import croc.types_weakref;
 
 debug import tango.io.Stdout;
-debug = PHASES;
-debug = INCDEC;
-debug = FREES;
+// debug = PHASES;
+// debug = INCDEC;
+// debug = FREES;
 
 // ================================================================================================================================================
 // Package
@@ -78,7 +78,7 @@ void gcCycle(CrocVM* vm)
 {
 	static counter = 0;
 	debug(PHASES) Stdout.formatln("======================= BEGIN =============================== {}", ++counter).flush;
-	debug(PHASES) Stdout.formatln("Nursery pointers: {} .. {} .. {}", vm.alloc.nurseryStart, vm.alloc.nurseryPtr, vm.alloc.nurseryEnd);
+	debug(PHASES) Stdout.formatln("Nursery: {} bytes allocated out of {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit);
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
@@ -107,21 +107,12 @@ void gcCycle(CrocVM* vm)
 	// 	Regardless of whether it's a nursery object or not, put it in the new root buffer.
 	debug(PHASES) Stdout.formatln("ROOTS").flush;
 
-	visitRoots(vm, (GCObject** obj)
+	visitRoots(vm, (GCObject* obj)
 	{
-		if((*obj).gcflags & GCFlags.Forwarded)
-			*obj = (*obj).forwardPointer;
-		else if(((*obj).gcflags & GCFlags.InRC) == 0)
-			*obj = copyOutOfNursery(vm, *obj);
-			
-// 		if((cast(CrocBaseObject*)*obj).mType == CrocValue.Type.Namespace)
-// 		{
-// 			auto ns = cast(CrocNamespace*)*obj;
-// 			Stdout.formatln("Parent of {} ({}) after root visit: {}", ns.name.toString(), *obj, ns.parent);
-// 			Stdout("dump: "); dumpMem(ns, ns.memSize);
-// 		}
+		if((obj.gcflags & GCFlags.InRC) == 0)
+			nurseryToRC(vm, obj);
 
-		newRoots.add(vm.alloc, *obj);
+		newRoots.add(vm.alloc, obj);
 	});
 
 	// PROCESS MODIFIED BUFFER. Go through the modified buffer, unlogging each. For each object pointed to by an object, if it's in the nursery, copy it
@@ -137,16 +128,14 @@ void gcCycle(CrocVM* vm)
 
 		obj.gcflags |= GCFlags.Unlogged;
 
-		visitObj(obj, (GCObject** slot)
+		visitObj(obj, (GCObject* slot)
 		{
-			if((*slot).gcflags & GCFlags.Forwarded)
-				*slot = (*slot).forwardPointer;
-			else if(((*slot).gcflags & GCFlags.InRC) == 0)
-				*slot = copyOutOfNursery(vm, *slot);
+			if((slot.gcflags & GCFlags.InRC) == 0)
+				nurseryToRC(vm, slot);
 
-			debug(INCDEC) Stdout.formatln("Visited {} through {}, rc will be {}", *slot, obj, (*slot).refCount + 1).flush;
+			debug(INCDEC) Stdout.formatln("Visited {} through {}, rc will be {}", slot, obj, slot.refCount + 1).flush;
 
-			rcIncrement(*slot);
+			rcIncrement(slot);
 		});
 	}
 
@@ -159,7 +148,7 @@ void gcCycle(CrocVM* vm)
 	debug(PHASES) Stdout.formatln("NEWROOTS").flush;
 	foreach(obj; *newRoots)
 	{
-		assert(!(obj >= vm.alloc.nurseryStart && obj < vm.alloc.nurseryEnd));
+		assert(obj.gcflags & GCFlags.InRC);
 		rcIncrement(obj);
 
 		debug(INCDEC) Stdout.formatln("Incremented {}, rc is now {}", obj, obj.refCount).flush;
@@ -194,12 +183,15 @@ void gcCycle(CrocVM* vm)
 			}
 			else
 			{
-				visitObj(obj, (GCObject** slot)
+				visitObj(obj, (GCObject* slot)
 				{
-					decBuffer.add(vm.alloc, *slot);
+					decBuffer.add(vm.alloc, slot);
 				});
 
-				free(vm, obj);
+				if(!(obj.gcflags & GCFlags.CycleLogged))
+					free(vm, obj);
+				else
+					obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 			}
 		}
 		else
@@ -221,20 +213,18 @@ void gcCycle(CrocVM* vm)
 			}
 		}
 	}
-	
+
 	debug(PHASES) Stdout.formatln("NURSERY").flush;
 
-	for(void* ptr = vm.alloc.nurseryStart; ptr < vm.alloc.nurseryPtr; )
+	foreach(obj; vm.alloc.nursery)
 	{
-		auto obj = cast(GCObject*)ptr;
+		if(obj.gcflags & GCFlags.InRC)
+			continue;
 
-		if((obj.gcflags & GCFlags.Forwarded) == 0)
-		{
-			assert((obj.gcflags & GCFlags.Finalizable) == 0);
-			finalizeBuiltin(vm, obj);
-		}
-
-		ptr = cast(void*)((cast(uword)ptr + obj.memSize + Allocator.nurseryAlignment) & ~Allocator.nurseryAlignment);
+		assert((obj.gcflags & GCFlags.Finalizable) == 0);
+		assert((obj.gcflags & GCFlags.CycleLogged) == 0);
+		finalizeBuiltin(vm, obj);
+		free(vm, obj);
 	}
 
 	vm.alloc.clearNurserySpace();
@@ -273,29 +263,6 @@ void gcCycle(CrocVM* vm)
 // incremented. If a slot wasn't changed, it will be a no-op (inc followed by dec). If a slot was changed, the old object will be decremented, and
 // the new will be incremented. This is the implementation of coalescing.
 
-// void writeBarrier(ref Allocator alloc, GCObject* srcObj, GCObject** srcSlot, GCObject* newVal)
-// {
-// 	if(*srcSlot is newVal)
-// 		return;
-//
-// 	if(srcObj.gcflags & GCFlags.Unlogged)
-// 		writeBarrierSlow(alloc, srcObj);
-//
-// 	*srcSlot = newVal;
-// }
-
-// template writeBarrier(char[] alloc, char[] srcObj, char[] srcSlot, char[] newVal)
-// {
-// 	const char[] writeBarrier =
-// 	"if(" ~ srcSlot ~ " !is newVal)\n"
-// 	"{\n"
-// 	"	if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged)\n"
-// 	"		writeBarrierSlow(" ~ alloc ~ ", " ~ srcObj ~ ");\n"
-//
-// 	"	" ~ srcSlot ~ " = " ~ newVal ~ ";\n"
-// 	"}";
-// }
-
 template writeBarrier(char[] alloc, char[] srcObj)
 {
 	const char[] writeBarrier =
@@ -307,23 +274,14 @@ void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
 {
 	alloc.modBuffer.add(alloc, srcObj);
 
-// 	if((cast(CrocBaseObject*)srcObj).mType == CrocValue.Type.Namespace)
-// 	{
-// 		auto ns = cast(CrocNamespace*)srcObj;
-// 		Stdout.formatln("Parent of {} ({}) before write barrier: {}", ns.name.toString(), srcObj, ns.parent);
-// 	}
-
-	visitObj(srcObj, (GCObject** slot)
+	visitObj(srcObj, (GCObject* slot)
 	{
-		if((*slot).gcflags & GCFlags.InRC)
-			alloc.decBuffer.add(alloc, *slot);
+		if(slot.gcflags & GCFlags.InRC)
+		{
+// 			Stdout.formatln("Write barrier of {} added {} to dec buffer", srcObj, slot);
+			alloc.decBuffer.add(alloc, slot);
+		}
 	});
-
-// 	if((cast(CrocBaseObject*)srcObj).mType == CrocValue.Type.Namespace)
-// 	{
-// 		auto ns = cast(CrocNamespace*)srcObj;
-// 		Stdout.formatln("Parent of {} ({}) after write barrier: {}", ns.name.toString(), srcObj, ns.parent);
-// 	}
 
 	srcObj.gcflags &= ~GCFlags.Unlogged;
 }
@@ -334,49 +292,20 @@ void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
 
 private:
 
-GCObject* copyOutOfNursery(CrocVM* vm, GCObject* obj)
+void nurseryToRC(CrocVM* vm, GCObject* obj)
 {
 	assert((obj.gcflags & GCFlags.InRC) == 0);
 
-	auto ret = vm.alloc.copyToRC(obj);
+	vm.alloc.makeRC(obj);
 
-	ret.gcflags |= GCFlags.InRC | GCFlags.Unlogged;
-	ret.refCount = 0;
+	obj.gcflags |= GCFlags.InRC | GCFlags.Unlogged;
+	obj.refCount = 0;
 
-	if((ret.gcflags & GCFlags.ColorMask) != GCFlags.Green)
-		vm.alloc.modBuffer.add(vm.alloc, ret);
+	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green)
+		vm.alloc.modBuffer.add(vm.alloc, obj);
 // 	vm.alloc.decBuffer.add(vm.alloc, ret);
 
-	obj.gcflags = GCFlags.Forwarded;
-	obj.forwardPointer = ret;
-
-	switch((cast(CrocBaseObject*)obj).mType)
-	{
-		case CrocValue.Type.String:
-			auto o = cast(CrocString*)ret;
-			// TODO: string returning problem
-			vm.stringTab.remove(o.toString());
-			*vm.stringTab.insert(vm.alloc, o.toString()) = o;
-			break;
-
-		case CrocValue.Type.WeakRef:   auto o = cast(CrocWeakRef*)ret; *vm.weakRefTab.lookup(o.obj) = o; break;
-		case CrocValue.Type.NativeObj: auto o = cast(CrocNativeObj*)ret; vm.nativeObjs[o.obj] = o; break;
-		case CrocValue.Type.Upvalue:
-			auto old = cast(CrocUpval*)obj;
-
-			if(old.value is &old.closedValue)
-			{
-				auto n = cast(CrocUpval*)ret;
-				n.value = &n.closedValue;
-			}
-			break;
-
-		default: break;
-	}
-
-	debug(INCDEC) Stdout.formatln("object at {} is now at {} and its refcount is {}", obj, ret, ret.refCount).flush;
-
-	return ret;
+	debug(INCDEC) Stdout.formatln("object at {} is now in RC and its refcount is {}", obj, obj.refCount).flush;
 }
 
 // Free an object.
@@ -420,7 +349,7 @@ void finalizeBuiltin(CrocVM* vm, GCObject* o)
 
 void rcIncrement(GCObject* obj)
 {
-	assert((obj.gcflags & GCFlags.InRC) && (obj.gcflags & GCFlags.Forwarded) == 0);
+	assert(obj.gcflags & GCFlags.InRC);
 
 	obj.refCount++;
 
@@ -439,7 +368,7 @@ void collectCycles(CrocVM* vm)
 	for(auto it = cycleRoots.iterator(); it.hasNext(); )
 	{
 		auto obj = it.next();
-		assert((obj.gcflags & GCFlags.Forwarded) == 0);
+		assert(obj.gcflags & GCFlags.InRC);
 
 		if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Purple)
 			markGray(obj);
@@ -468,29 +397,27 @@ void collectCycles(CrocVM* vm)
 
 void markGray(GCObject* obj)
 {
-	assert((obj.gcflags & GCFlags.Forwarded) == 0);
+	assert(obj.gcflags & GCFlags.InRC);
 	assert((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green);
 	assert((cast(CrocBaseObject*)obj).mType != CrocValue.Type.String);
-// 	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Green)
-// 		return;
 
 	if((obj.gcflags & GCFlags.ColorMask) != GCFlags.Grey)
 	{
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Grey;
 
-		visitObj(obj, (GCObject** slot)
+		visitObj(obj, (GCObject* slot)
 		{
-			if(((*slot).gcflags & GCFlags.ColorMask) != GCFlags.Green)
+			if((slot.gcflags & GCFlags.ColorMask) != GCFlags.Green)
 			{
-				(*slot).refCount--;
+				slot.refCount--;
 
-				if((*slot).refCount == -1)
+				if(slot.refCount == -1)
 				{
-					Stdout.formatln("oh no, it's {}", (*slot));
+					Stdout.formatln("oh no, it's {} {}", slot, CrocValue.typeStrings[(cast(CrocBaseObject*)slot).mType]);
 					assert(false);
 				}
 
-				markGray(*slot);
+				markGray(slot);
 			}
 		});
 	}
@@ -498,7 +425,7 @@ void markGray(GCObject* obj)
 
 void cycleScan(GCObject* obj)
 {
-	assert((obj.gcflags & GCFlags.Forwarded) == 0);
+	assert(obj.gcflags & GCFlags.InRC);
 
 	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Grey)
 	{
@@ -508,9 +435,9 @@ void cycleScan(GCObject* obj)
 		{
 			obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.White;
 
-			visitObj(obj, (GCObject** slot)
+			visitObj(obj, (GCObject* slot)
 			{
-				cycleScan(*slot);
+				cycleScan(slot);
 			});
 		}
 	}
@@ -518,31 +445,29 @@ void cycleScan(GCObject* obj)
 
 void cycleScanBlack(GCObject* obj)
 {
-	assert((obj.gcflags & GCFlags.Forwarded) == 0);
+	assert(obj.gcflags & GCFlags.InRC);
 	assert((obj.gcflags & GCFlags.ColorMask) != GCFlags.Green);
 	assert((cast(CrocBaseObject*)obj).mType != CrocValue.Type.String);
-// 	if((obj.gcflags & GCFlags.ColorMask) == GCFlags.Green)
-// 		return;
 
 	obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 
-	visitObj(obj, (GCObject** slot)
+	visitObj(obj, (GCObject* slot)
 	{
-		auto color = (*slot).gcflags & GCFlags.ColorMask;
+		auto color = slot.gcflags & GCFlags.ColorMask;
 
 		if(color != GCFlags.Green)
 		{
-			(*slot).refCount++;
+			slot.refCount++;
 
 			if(color != GCFlags.Black)
-				cycleScanBlack(*slot);
+				cycleScanBlack(slot);
 		}
 	});
 }
 
 void collectCycleWhite(CrocVM* vm, GCObject* obj)
 {
-	assert((obj.gcflags & GCFlags.Forwarded) == 0);
+	assert(obj.gcflags & GCFlags.InRC);
 
 	auto color = obj.gcflags & GCFlags.ColorMask;
 
@@ -560,9 +485,9 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 
-		visitObj(obj, (GCObject** slot)
+		visitObj(obj, (GCObject* slot)
 		{
-			collectCycleWhite(vm, *slot);
+			collectCycleWhite(vm, slot);
 		});
 
 		free(vm, obj);
@@ -576,26 +501,21 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 template ValueCallback(char[] name)
 {
 	const ValueCallback =
-	"if(" ~ name ~ ".isObject())
-	{
-		auto obj = " ~ name ~ ".toGCObject();
-		callback(&obj);
-		" ~ name ~ ".mBaseObj = cast(CrocBaseObject*)obj;
-	}";
+	"if(" ~ name ~ ".isObject()) callback(" ~ name ~ ".toGCObject());";
 }
 
 // For visiting pointers. Visits it only if it's non-null.
 template CondCallback(char[] name)
 {
 	const CondCallback =
-	"if(" ~ name ~ " !is null) callback(cast(GCObject**)&" ~ name ~ ");";
+	"if(" ~ name ~ " !is null) callback(cast(GCObject*)" ~ name ~ ");";
 }
 
 // Visit the roots of this VM.
-void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
+void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 {
-	callback(cast(GCObject**)&vm.globals);
-	callback(cast(GCObject**)&vm.mainThread);
+	callback(cast(GCObject*)vm.globals);
+	callback(cast(GCObject*)vm.mainThread);
 	// TODO: visit ALL the threads!
 	visitThread(vm.mainThread, callback);
 
@@ -603,33 +523,31 @@ void visitRoots(CrocVM* vm, void delegate(GCObject**) callback)
 		mixin(CondCallback!("mt"));
 
 	foreach(ref s; vm.metaStrings)
-		callback(cast(GCObject**)&s);
+		callback(cast(GCObject*)s);
 
 	// TODO: change vm.exception to a CrocInstance*
 	if(vm.isThrowing)
 		mixin(ValueCallback!("vm.exception"));
 
-	callback(cast(GCObject**)&vm.registry);
+	callback(cast(GCObject*)vm.registry);
 
 	foreach(ref val; vm.refTab)
-		callback(cast(GCObject**)&val);
+		callback(cast(GCObject*)val);
 
-	callback(cast(GCObject**)&vm.object);
-	callback(cast(GCObject**)&vm.throwable);
-	callback(cast(GCObject**)&vm.location);
+	callback(cast(GCObject*)vm.object);
+	callback(cast(GCObject*)vm.throwable);
+	callback(cast(GCObject*)vm.location);
 
 	foreach(ref k, ref v; vm.stdExceptions)
 	{
-		callback(cast(GCObject**)&k);
-		callback(cast(GCObject**)&v);
+		callback(cast(GCObject*)k);
+		callback(cast(GCObject*)v);
 	}
 }
 
 // Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.
-void visitObj(GCObject* o, void delegate(GCObject**) callback)
+void visitObj(GCObject* o, void delegate(GCObject*) callback)
 {
-// 	Stdout.formatln("hmmm {} {:b} {} {}", (cast(CrocBaseObject*)o).mType, o.gcflags, ((cast(CrocBaseObject*)o).mType == CrocValue.Type.Function) ? (cast(CrocFunction*)o).name.toString() : "", o.refCount).flush;
-
 	// Green objects have no references to other objects.
 	if((o.gcflags & GCFlags.ColorMask) == GCFlags.Green)
 		return;
@@ -650,7 +568,7 @@ void visitObj(GCObject* o, void delegate(GCObject**) callback)
 }
 
 // Visit a table.
-void visitTable(CrocTable* o, void delegate(GCObject**) callback)
+void visitTable(CrocTable* o, void delegate(GCObject*) callback)
 {
 	// TODO: change the mechanism for weakref determination
 
@@ -662,14 +580,14 @@ void visitTable(CrocTable* o, void delegate(GCObject**) callback)
 }
 
 // Visit an array.
-void visitArray(CrocArray* o, void delegate(GCObject**) callback)
+void visitArray(CrocArray* o, void delegate(GCObject*) callback)
 {
 	foreach(ref val; o.toArray())
 		mixin(ValueCallback!("val"));
 }
 
 // Visit a function.
-void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
+void visitFunction(CrocFunction* o, void delegate(GCObject*) callback)
 {
 	mixin(CondCallback!("o.environment"));
 	mixin(CondCallback!("o.name"));
@@ -689,7 +607,7 @@ void visitFunction(CrocFunction* o, void delegate(GCObject**) callback)
 }
 
 // Visit a class.
-void visitClass(CrocClass* o, void delegate(GCObject**) callback)
+void visitClass(CrocClass* o, void delegate(GCObject*) callback)
 {
 	mixin(CondCallback!("o.name"));
 	mixin(CondCallback!("o.parent"));
@@ -699,7 +617,7 @@ void visitClass(CrocClass* o, void delegate(GCObject**) callback)
 }
 
 // Visit an instance.
-void visitInstance(CrocInstance* o, void delegate(GCObject**) callback)
+void visitInstance(CrocInstance* o, void delegate(GCObject*) callback)
 {
 	mixin(CondCallback!("o.parent"));
 	mixin(CondCallback!("o.fields"));
@@ -709,35 +627,22 @@ void visitInstance(CrocInstance* o, void delegate(GCObject**) callback)
 }
 
 // Visit a namespace.
-void visitNamespace(CrocNamespace* o, void delegate(GCObject**) callback)
+void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback)
 {
-// 	Stdout.format("before visit {}\ndump: ", o); dumpMem(o, o.memSize);
-
 	foreach(ref key, ref val; o.data)
 	{
-// 		Stdout.format("visiting {}\ndump: ", key.toString()); dumpMem(o, o.memSize);
-		callback(cast(GCObject**)&key);
-// 		Stdout.format("done visiting {}\ndump: ", key.toString()); dumpMem(o, o.memSize);
-
-// 		if(val.isObject())
-// 			Stdout.formatln("value's addr is {}", val.toGCObject());
+		callback(cast(GCObject*)key);
 		mixin(ValueCallback!("val"));
-// 		Stdout.format("done visiting {}'s value\ndump: ", key.toString()); dumpMem(o, o.memSize);
 	}
-
-// 	Stdout("after visit\ndump: "); dumpMem(o, o.memSize);
 
 	assert(o.mType is CrocValue.Type.Namespace);
 
-// 	Stdout.formatln("HERFA {}", o.parent).flush;
-// 	Stdout("dump: "); dumpMem(o, o.memSize);
 	mixin(CondCallback!("o.parent"));
-// 	Stdout.formatln("DERFA {}", o.parent).flush;
 	mixin(CondCallback!("o.name"));
 }
 
 // Visit a thread.
-void visitThread(CrocThread* o, void delegate(GCObject**) callback)
+void visitThread(CrocThread* o, void delegate(GCObject*) callback)
 {
 	foreach(ref ar; o.actRecs[0 .. o.arIndex])
 	{
@@ -749,14 +654,14 @@ void visitThread(CrocThread* o, void delegate(GCObject**) callback)
 		mixin(ValueCallback!("val"));
 
 	// I guess this can't _hurt_..
-	
+
 	o.stack[o.stackIndex .. $] = CrocValue.nullValue;
 
 	foreach(ref val; o.results[0 .. o.resultIndex])
 		mixin(ValueCallback!("val"));
 
 	for(auto puv = &o.upvalHead; *puv !is null; puv = &(*puv).nextuv)
-		callback(cast(GCObject**)puv);
+		callback(cast(GCObject*)*puv);
 
 	mixin(CondCallback!("o.coroFunc"));
 	mixin(CondCallback!("o.hookFunc"));
@@ -766,13 +671,13 @@ void visitThread(CrocThread* o, void delegate(GCObject**) callback)
 }
 
 // Visit an upvalue.
-void visitUpvalue(CrocUpval* o, void delegate(GCObject**) callback)
+void visitUpvalue(CrocUpval* o, void delegate(GCObject*) callback)
 {
 	mixin(ValueCallback!("o.value"));
 }
 
 // Visit a function definition.
-void visitFuncDef(CrocFuncDef* o, void delegate(GCObject**) callback)
+void visitFuncDef(CrocFuncDef* o, void delegate(GCObject*) callback)
 {
 	mixin(CondCallback!("o.locFile"));
 	mixin(CondCallback!("o.name"));

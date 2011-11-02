@@ -78,7 +78,7 @@ import tango.io.Stdout;
 
 		*vm.stringTab.insert(vm.alloc, ret.toString()) = ret;
 
-		Stdout.formatln("Just created the string '{} {}'", ret.toString().ptr, ret.toString().length);
+// 		Stdout.formatln("Just created the string '{}' at {}", ret.toString(), ret);
 // 		if(ret.toString().length == 5)
 // 		{
 // 			Stdout.formatln("c  {} {} {} {} {}", cast(uint)ret.toString()[0], cast(uint)ret.toString()[1], cast(uint)ret.toString()[2], cast(uint)ret.toString()[3], cast(uint)ret.toString()[4]);

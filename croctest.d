@@ -37,9 +37,9 @@ void main()
 
 	CrocVM vm;
 	auto t = openVM(&vm);
-	Stdout.formatln("=================================================== \nhere we go...").flush;
+// 	Stdout.formatln("=================================================== \nhere we go...").flush;
 	loadStdlibs(t, CrocStdlib.ReallyAll);
-	Stdout.formatln("whew");
+// 	Stdout.formatln("whew");
 
 	try
 	{

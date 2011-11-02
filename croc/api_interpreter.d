@@ -951,8 +951,6 @@ word newNamespace(CrocThread* t, word parent, char[] name)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
-	Stdout.formatln("Parent is {}", p);
-
 	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), p)));
 }
 

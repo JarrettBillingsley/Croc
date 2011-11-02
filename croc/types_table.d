@@ -61,12 +61,18 @@ static:
 	package void set(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue value)
 	{
 		assert(value.type != CrocValue.Type.Null);
-		auto slot = t.data.insert(alloc, key);
-
-		if(*slot != value)
+		if(auto slot = t.data.lookup(key))
+		{
+			if(*slot != value)
+			{
+				mixin(writeBarrier!("alloc", "t"));
+				*slot = value;
+			}
+		}
+		else
 		{
 			mixin(writeBarrier!("alloc", "t"));
-			*slot = value;
+			*t.data.insert(alloc, key) = value;
 		}
 	}
 	
