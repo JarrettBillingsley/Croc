@@ -401,13 +401,7 @@ void markGray(GCObject* obj)
 			if((slot.gcflags & GCFlags.ColorMask) != GCFlags.Green)
 			{
 				slot.refCount--;
-
-				if(slot.refCount == -1)
-				{
-					Stdout.formatln("oh no, it's {} {}", slot, CrocValue.typeStrings[(cast(CrocBaseObject*)slot).mType]);
-					assert(false);
-				}
-
+				assert(slot.refCount != -1);
 				markGray(slot);
 			}
 		});
@@ -472,7 +466,7 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 	else if(color == GCFlags.White && (obj.gcflags & GCFlags.CycleLogged) == 0)
 	{
 		if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
-			throw new /* CrocFatal */Exception("Unfinalized finalizable object in cycle!");
+			throw new CrocFatalException("Unfinalized finalizable object (instance of " ~ (cast(CrocInstance*)obj).parent.name.toString() ~ ") in cycle!");
 
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 

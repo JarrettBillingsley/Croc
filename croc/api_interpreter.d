@@ -329,9 +329,7 @@ uword gc(CrocThread* t)
 	if(t.vm.alloc.gcDisabled > 0)
 		return 0;
 
-	if(t.vm.inGCCycle)
-		// can't throw a Croc exception cause that would allocate memory and cause an infinite recursion.
-		throw new /* CrocFatal */Exception("GC cycle triggered while one is already in progress. WAT.");
+	assert(!t.vm.inGCCycle);
 
 	t.vm.inGCCycle = true;
 	scope(exit) t.vm.inGCCycle = false;
@@ -1898,12 +1896,7 @@ void newGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	auto env = getEnv(t);
-
-	if(namespace.contains(env, n.mString))
-		throwStdException(t, "NameException", __FUNCTION__ ~ " - Attempting to declare a global '{}' that already exists", n.mString.toString());
-
-	namespace.set(t.vm.alloc, env, n.mString, &t.stack[t.stackIndex - 1]);
+	newGlobalImpl(t, n.mString, getEnv(t), &t.stack[t.stackIndex - 1]);
 	pop(t, 2);
 }
 

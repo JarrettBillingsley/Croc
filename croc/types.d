@@ -103,16 +103,6 @@ final class CrocException : CrocThrowable
 }
 
 /**
-*/
-final class CrocError : CrocThrowable
-{
-	package this(char[] msg)
-	{
-		super(msg);
-	}
-}
-
-/**
 This is a semi-internal exception type. Normally you won't need to know about it or catch it. This is
 thrown when a coroutine (thread) needs to be halted. It should never propagate out of the coroutine.
 The only time you might encounter it is if, in the middle of a native Croc function, one of these
@@ -127,6 +117,22 @@ final class CrocHaltException : CrocThrowable
 	package this()
 	{
 		super("Croc interpreter halted");
+	}
+}
+
+/**
+This is a rarely-thrown exception type. This is only thrown in fairly severe circumstances, and these
+situations are not meant to be recoverable. Even closing the VM that threw one may not be possible.
+
+Currently there is only one situation in which this is thrown: if a finalizable class instance is in
+a garbage cycle. There is no way to determine finalization order in this case and therefore no correct
+way to proceed. Finalizable classes should be designed in such a way as to avoid reference cycles.
+*/
+final class CrocFatalException : Exception
+{
+	package this(char[] msg)
+	{
+		super(msg);
 	}
 }
 

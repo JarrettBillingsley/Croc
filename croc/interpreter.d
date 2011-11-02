@@ -2423,6 +2423,14 @@ void setGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValu
 	assert(false);
 }
 
+void newGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValue* val)
+{
+	if(namespace.contains(env, name))
+		throwStdException(t, "NameException", "Attempting to create global '{}' that already exists", name.toString());
+
+	namespace.set(t.vm.alloc, env, name, val);
+}
+
 void savePtr(CrocThread* t, ref CrocValue* ptr, out bool shouldLoad)
 {
 	if(ptr >= t.stack.ptr && ptr < t.stack.ptr + t.stack.length)
@@ -2936,15 +2944,7 @@ void execute(CrocThread* t, uword depth = 1)
 				// Data Transfer
 				case Op.Move: mixin(GetRS); t.stack[stackBase + rd] = *RS; break;
 
-				case Op.NewGlobal:
-					auto name = constTable[mixin(GetUImm)].mString;
-
-					if(namespace.contains(env, name))
-						throwStdException(t, "NameException", "Attempting to create global '{}' that already exists", name.toString());
-
-					namespace.set(t.vm.alloc, env, name, &t.stack[stackBase + rd]);
-					break;
-
+				case Op.NewGlobal: newGlobalImpl(t, constTable[mixin(GetUImm)].mString, env, &t.stack[stackBase + rd]); break;
 				case Op.GetGlobal: t.stack[stackBase + rd] = *getGlobalImpl(t, constTable[mixin(GetUImm)].mString, env); break;
 				case Op.SetGlobal: setGlobalImpl(t, constTable[mixin(GetUImm)].mString, env, &t.stack[stackBase + rd]); break;
 

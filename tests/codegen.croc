@@ -76,7 +76,6 @@ function xcompfail(code: string, somethingLike: string)
 
 function main()
 {
-	// TODO: make xcompfail take some sort of "somethingLike" parameter which it will search for in the compiler error
 	xpass("function foo(x: @isString) {} foo(@`hi`)")
 	xpass("local t = {f = isString}; function foo(x: @t.f) {} foo(@`hi`)")
 	xpass("@attrs({}) @attrs({}) function foo() {} foo(); attributesOf(foo)")
