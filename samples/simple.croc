@@ -4,7 +4,7 @@ module samples.simple
 
 function main()
 {
-
+	writeln("o hai")
 }
 
 /*

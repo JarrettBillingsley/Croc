@@ -134,6 +134,7 @@ package:
 		mainPosNode.used = true;
 		mSize++;
 
+// 		mainPosNode.value = V.init;
 		return &mainPosNode.value;
 	}
 

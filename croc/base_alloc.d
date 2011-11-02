@@ -29,6 +29,8 @@ module croc.base_alloc;
 
 import tango.stdc.string;
 
+import croc.base_deque;
+
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -60,7 +62,7 @@ Params:
 	oldSize = The current size of the block pointed to by p. If p is null, this will always be 0.
 	newSize = The new size of the block pointed to by p. If p is null, this is the requested size of the new block.
 		Otherwise, if this is 0, a deallocation is being requested. Otherwise, a reallocation is being requested.
-	
+
 Returns:
 	If a deallocation was requested, should return null. Otherwise, should return a $(B non-null) pointer. If memory cannot
 	be allocated, the memory allocation function should throw an exception, not return null.
@@ -73,21 +75,39 @@ alias void* function(void* ctx, void* p, size_t oldSize, size_t newSize) MemFunc
 
 package:
 
-enum GCBits
+alias size_t uword;
+
+enum GCFlags : uint
 {
-	Marked = 0x1,
-	Finalized = 0x8
+	Unlogged =    0b0_00000001,
+	InRC =        0b0_00000010,
+
+	Black =       0b0_00000000,
+	Grey =        0b0_00000100,
+	White =       0b0_00001000,
+	Purple =      0b0_00001100,
+	Green =       0b0_00010000,
+	ColorMask =   0b0_00011100,
+
+	CycleLogged = 0b0_00100000,
+
+	Finalizable = 0b0_01000000,
+	Finalized =   0b0_10000000,
 }
 
-template GCMixin()
+template GCObjectMembers()
 {
-	package GCObject* next;
-	package uint flags;
+	align(1)
+	{
+		uint gcflags = 0;
+		uint refCount = 1;
+		uword memSize;
+	}
 }
 
-align(1) struct GCObject
+struct GCObject
 {
-	mixin GCMixin;
+	mixin GCObjectMembers;
 }
 
 void append(T)(ref T[] arr, Allocator* alloc, T item)
@@ -98,22 +118,27 @@ void append(T)(ref T[] arr, Allocator* alloc, T item)
 
 align(1) struct Allocator
 {
-	package MemFunc memFunc;
-	package void* ctx;
+package:
+	MemFunc memFunc;
+	void* ctx;
 
-	package GCObject* gcHead = null;
+	// 0 for enabled, positive for disabled
+	uword gcDisabled;
+	size_t totalBytes = 0;
 
-	// Init to max so that no collection cycles happen until the VM is fully initialized
-	package size_t gcLimit = size_t.max;
-	package uint markVal = GCBits.Marked;
-	package size_t totalBytes = 0;
+	Deque!(GCObject*) modBuffer;
+	Deque!(GCObject*) decBuffer;
 
-	debug(LEAK_DETECTOR)
+	Deque!(GCObject*) nursery;
+	size_t nurseryBytes;
+	size_t nurseryLimit;
+	size_t nurserySizeCutoff;
+
+	debug(CROC_LEAK_DETECTOR)
 	{
 		pragma(msg, "Compiling Croc with the leak detector enabled.");
 
-		// Trick dimple into thinking there's no import (which there isn't, really).
-		mixin("import croc.base_hash;");
+		import croc.base_hash;
 
 		struct MemBlock
 		{
@@ -121,30 +146,126 @@ align(1) struct Allocator
 			TypeInfo ti;
 		}
 
-		Hash!(void*, MemBlock) _memBlocks;
+		Hash!(void*, MemBlock) _nurseryBlocks, _rcBlocks, _rawBlocks;
 	}
 
-	package T* allocate(T)(size_t size = T.sizeof)
-	{
-		auto ret = cast(T*)realloc!(T)(null, 0, size);
-		*ret = T.init;
+	// ALLOCATION: most objects are allocated in the nursery. If they're too big, or finalizable, they're allocated directly in the RC space. When this
+	// happens, we push them onto the modified buffer and the decrement buffer, and initialize their reference count to 1. This way, when the collection
+	// cycle happens, if they're referenced, their reference count will be incremented then decremented (no-op); if they're not referenced, their
+	// reference count will be decremented to 0, freeing them. Putting them in the modified buffer is, I guess, to prevent memory leaks..? Couldn't hurt.
 
-		ret.flags |= !markVal;
-		(cast(GCObject*)ret).next = gcHead;
-		gcHead = cast(GCObject*)ret;
+	T* allocate(T)(uword size = T.sizeof)
+	{
+		if(size >= nurserySizeCutoff || gcDisabled > 0)
+			return allocateRC!(T)(size);
+		else
+			return allocateNursery!(T)(size);
+	}
+
+	T* allocateFinalizable(T)(uword size = T.sizeof)
+	{
+		auto ret = allocateRC!(T)(size);
+		ret.gcflags |= GCFlags.Finalizable;
+		return ret;
+	}
+
+	// Allocates a nursery object. Nursery objects don't participate in reference counting. Only when they survive a collection are they promoted to RC.
+	private T* allocateNursery(T)(uword size = T.sizeof)
+	{
+		auto ret = cast(T*)realloc(null, 0, size);
+		*ret = T.init;
+		ret.memSize = size;
+
+		static if(is(typeof(T.ACYCLIC)))
+			ret.gcflags |= GCFlags.Green;
+
+		nurseryBytes += size;
+
+		debug(CROC_LEAK_DETECTOR)
+			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+
+		static if(T.stringof == "CrocString")
+			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
+
+// 		Stdout.formatln("Nursery-allocated " ~ T.stringof ~ " {}", ret);
 
 		return ret;
 	}
 
-	package void free(T)(T* o, size_t size = T.sizeof)
+	private T* allocateRC(T)(uword size = T.sizeof)
 	{
-		static if(is(T == GCObject))
+		auto ret = cast(T*)realloc(null, 0, size);
+		*ret = T.init;
+		ret.memSize = size;
+		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
+
+		static if(is(typeof(T.ACYCLIC)))
+			ret.gcflags |= GCFlags.Green;
+		else
+			modBuffer.add(*this, cast(GCObject*)ret);
+
+		ret.refCount = 1;
+		decBuffer.add(*this, cast(GCObject*)ret);
+
+		debug(CROC_LEAK_DETECTOR)
+			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+
+		static if(T.stringof == "CrocString")
+			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
+
+		return ret;
+	}
+
+	void makeRC(GCObject* obj)
+	{
+		assert((obj.gcflags & GCFlags.InRC) == 0);
+		obj.gcflags |= GCFlags.InRC;
+
+		debug(CROC_LEAK_DETECTOR)
 		{
-			pragma(msg, "free must be called on a type other than GCObject*");
-			OKASFPOKASMVMVmavpmasvmo();
+			auto b = _nurseryBlocks.lookup(obj);
+
+			if(b is null)
+			{
+				Stdout.formatln("erf.. {}", obj);
+				assert(false);
+			}
+			*_rcBlocks.insert(*this, obj) = *b;
+		}
+	}
+import tango.io.Stdout;
+	void free(T)(T* o)
+	{
+// 		assert(o.gcflags & GCFlags.InRC, "attempting to free an object that isn't in the RC space!");
+// 		Stdout.formatln("freeing {} space object {}", (o.gcflags & GCFlags.InRC) ? "RC" : "nursery", o);
+
+		debug(CROC_LEAK_DETECTOR)
+		{
+			if(o.gcflags & GCFlags.InRC)
+			{
+				if(_rcBlocks.lookup(o) is null)
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+
+				_rcBlocks.remove(o);
+			}
+			else
+			{
+				if(_nurseryBlocks.lookup(o) is null)
+					throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
+
+				_nurseryBlocks.remove(o);
+			}
 		}
 
-		realloc!(T)(o, size, 0);
+		auto sz = o.memSize;
+
+		debug(CROC_STOMP_MEMORY)
+		{
+// 			Stdout.formatln("stomping {}, type is {}", o, T.stringof);
+			(cast(ubyte*)o)[0 .. o.memSize] = 0;
+		}
+
+		realloc(o, sz, 0);
 	}
 
 	package T[] allocArray(T)(size_t size)
@@ -152,7 +273,15 @@ align(1) struct Allocator
 		if(size == 0)
 			return null;
 
-		auto ret = (cast(T*)realloc!(T[])(null, 0, size * T.sizeof))[0 .. size];
+		auto ret = (cast(T*)realloc(null, 0, size * T.sizeof))[0 .. size];
+
+		debug(CROC_LEAK_DETECTOR)
+		{
+			static if(is(T == Hash!(void*, MemBlock).Node))
+				totalBytes -= size * T.sizeof;
+			else
+				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(size * T.sizeof, typeid(T[]));
+		}
 
 		static if(!is(T == void))
 			ret[] = T.init;
@@ -162,6 +291,15 @@ align(1) struct Allocator
 
 	package void resizeArray(T)(ref T[] arr, size_t newLen)
 	{
+		debug(CROC_LEAK_DETECTOR)
+		{
+			static if(is(T == Hash!(void*, MemBlock).Node))
+				static assert(false, "we can't resize arrays of memblock hash nodes! nonoNONONO-- god--godDAMMIT! YOU BROKE THE RULES!");
+
+			if(arr.length > 0 && _rawBlocks.lookup(arr.ptr) is null)
+				throw new Exception("AWFUL: You're trying to resize an array that wasn't allocated on the Croc RC Heap! It's of type " ~ typeid(T[]).toString());
+		}
+
 		if(newLen == 0)
 		{
 			freeArray(arr);
@@ -170,10 +308,31 @@ align(1) struct Allocator
 		}
 		else if(newLen == arr.length)
 			return;
-
+	
 		auto oldLen = arr.length;
-		arr = (cast(T*)realloc!(T[])(arr.ptr, oldLen * T.sizeof, newLen * T.sizeof))[0 .. newLen];
+		
+		debug(CROC_STOMP_MEMORY)
+		{
+			static if(!is(T == void))
+				if(newLen < oldLen)
+					arr[newLen .. oldLen] = T.init;
+		}
 
+		auto ret = (cast(T*)realloc(arr.ptr, oldLen * T.sizeof, newLen * T.sizeof))[0 .. newLen];
+	
+		debug(CROC_LEAK_DETECTOR)
+		{
+			if(arr.ptr is ret.ptr)
+				_rawBlocks.lookup(ret.ptr).len = newLen * T.sizeof;
+			else
+			{
+				_rawBlocks.remove(arr.ptr);
+				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(newLen * T.sizeof, typeid(T[]));
+			}
+		}
+
+		arr = ret;
+	
 		static if(!is(T == void))
 		{
 			if(newLen > oldLen)
@@ -185,9 +344,18 @@ align(1) struct Allocator
 	{
 		if(a.length == 0)
 			return null;
-
-		auto ret = (cast(T*)realloc!(T[])(null, 0, a.length * T.sizeof))[0 .. a.length];
+	
+		auto ret = (cast(T*)realloc(null, 0, a.length * T.sizeof))[0 .. a.length];
 		ret[] = a[];
+	
+		debug(CROC_LEAK_DETECTOR)
+		{
+			static if(is(T == Hash!(void*, MemBlock).Node))
+				totalBytes -= ret.length * T.sizeof;
+			else
+				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(ret.length * T.sizeof, typeid(T[]));
+		}
+	
 		return ret;
 	}
 
@@ -195,62 +363,59 @@ align(1) struct Allocator
 	{
 		if(a.length)
 		{
-			realloc!(T[])(a.ptr, a.length * T.sizeof, 0);
+			debug(CROC_LEAK_DETECTOR)
+			{
+				static if(!is(T == Hash!(void*, MemBlock).Node))
+					if(_rawBlocks.lookup(a.ptr) is null)
+						throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
+			}
+			
+			debug(CROC_STOMP_MEMORY)
+			{
+				static if(!is(T == void))
+					a[] = T.init;
+			}
+
+			realloc(a.ptr, a.length * T.sizeof, 0);
+
+			debug(CROC_LEAK_DETECTOR)
+			{
+				static if(is(T == Hash!(void*, MemBlock).Node))
+					totalBytes += a.length * T.sizeof;
+				else
+					_rawBlocks.remove(a.ptr);
+			}
+
 			a = null;
 		}
 	}
 
-	template realloc(T)
-	{
-		debug(LEAK_DETECTOR)
-		{
-			// Do this so that the leak detector does not cause infinite recursion and also so it doesn't mess with the totalBytes
-			static if(is(T == Hash!(void*, MemBlock).Node[]))
-			{
-				void* realloc(void* p, size_t oldSize, size_t newSize)
-				{
-					auto ret = memFunc(ctx, p, oldSize, newSize);
-					assert(newSize == 0 || ret !is null, "allocation function should never return null");
-					return ret;
-				}
-			}
-			else
-			{
-				void* realloc(void* p, size_t oldSize, size_t newSize)
-				{
-					if(oldSize > 0 && _memBlocks.lookup(p) is null)
-						throw new Exception("AWFUL: You're trying to free something that wasn't allocated on the Croc Heap, or are performing a double free! It's of type " ~ typeid(T).toString());
-
-					auto ret = reallocImpl(p, oldSize, newSize);
-
-					if(newSize == 0)
-						_memBlocks.remove(p);
-					else if(oldSize == 0)
-						*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
-					else
-					{
-						if(p is ret)
-							_memBlocks.lookup(ret).len = newSize;
-						else
-						{
-							_memBlocks.remove(p);
-							*_memBlocks.insert(*this, ret) = MemBlock(newSize, typeid(T));
-						}
-					}
-
-					return ret;
-				}
-			}
-		}
-		else
-			alias reallocImpl realloc;
-	}
-
-	private void* reallocImpl(void* p, size_t oldSize, size_t newSize)
+	private void* realloc(void* p, size_t oldSize, size_t newSize)
 	{
 		auto ret = memFunc(ctx, p, oldSize, newSize);
 		assert(newSize == 0 || ret !is null, "allocation function should never return null");
 		totalBytes += newSize - oldSize;
 		return ret;
+	}
+
+	void resizeNurserySpace(uword newSize)
+	{
+		nurseryLimit = newSize;
+	}
+
+	void clearNurserySpace()
+	{
+		nursery.clear(*this);
+		nurseryBytes = 0;
+
+		debug(CROC_LEAK_DETECTOR)
+			_nurseryBlocks.clear(*this);
+	}
+
+	void cleanup()
+	{
+		clearNurserySpace();
+		modBuffer.clear(*this);
+		decBuffer.clear(*this);
 	}
 }

@@ -21,17 +21,30 @@ version(CrocAllAddons)
 	version = CrocDevilAddon;
 }
 
+void handler(char[] file, uword line, char[] msg = null)
+{
+	Stdout.formatln("Assertion failure at {}:{} {}", file, line, msg is null ? "" : msg).flush;
+// 	asm{int 3;}
+	exit(1);
+}
+import tango.core.Exception;
+
+import tango.stdc.stdlib;
 void main()
 {
+// 	setAssertHandler(&handler);
 	scope(exit) Stdout.flush;
 
 	CrocVM vm;
-	CrocThread* t;
+	auto t = openVM(&vm);
+// 	Stdout.formatln("=================================================== \nhere we go...").flush;
+	loadStdlibs(t, CrocStdlib.ReallyAll);
+// 	Stdout.formatln("whew");
 
 	try
 	{
-		t = openVM(&vm);
-		loadStdlibs(t, CrocStdlib.ReallyAll);
+// 		t = openVM(&vm);
+// 		loadStdlibs(t, CrocStdlib.ReallyAll);
 
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);
@@ -39,7 +52,7 @@ void main()
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
 
-		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
+		Compiler.setDefaultFlags(t, Compiler.All/*  | Compiler.DocDecorators */);
 		runModule(t, "samples.simple");
 	}
 	catch(CrocException e)
@@ -69,5 +82,5 @@ void main()
 		return;
 	}
 
-	closeVM(&vm);
+// 	closeVM(&vm);
 }

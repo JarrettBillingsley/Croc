@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_namespace;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct namespace
@@ -41,6 +42,7 @@ static:
 		assert(name !is null);
 
 		auto ns = alloc.allocate!(CrocNamespace);
+		mixin(writeBarrier!("alloc", "ns"));
 		ns.parent = parent;
 		ns.name = name;
 		return ns;
@@ -58,36 +60,61 @@ static:
 	{
 		return ns.data.lookup(key);
 	}
-	
+
 	// Sets a key-value pair.
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
-		*ns.data.insert(alloc, key) = *value;
+		if(auto slot = ns.data.lookup(key))
+		{
+			if(*slot != *value)
+			{
+				mixin(writeBarrier!("alloc", "ns"));
+				*slot = *value;
+			}
+		}
+		else
+		{
+			mixin(writeBarrier!("alloc", "ns"));
+			*ns.data.insert(alloc, key) = *value;
+		}
+	}
+
+	package void set(ref Allocator alloc, CrocNamespace* ns, CrocValue* slot, CrocValue* value)
+	{
+		if(*slot != value)
+		{
+			mixin(writeBarrier!("alloc", "ns"));
+			*slot = *value;
+		}
 	}
 
 	// Remove a key-value pair from the namespace.
-	package void remove(CrocNamespace* ns, CrocString* key)
+	package void remove(ref Allocator alloc, CrocNamespace* ns, CrocString* key)
 	{
+		mixin(writeBarrier!("alloc", "ns"));
 		ns.data.remove(key);
 	}
-	
+
 	// Clears all items from the namespace.
 	package void clear(ref Allocator alloc, CrocNamespace* ns)
 	{
+		if(ns.data.length > 0)
+			mixin(writeBarrier!("alloc", "ns"));
+
 		ns.data.clear(alloc);
 	}
-	
+
 	// Returns `true` if the key exists in the table.
 	package bool contains(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key) !is null;
 	}
-	
+
 	package bool next(CrocNamespace* ns, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return ns.data.next(idx, key, val);
 	}
-	
+
 	package uword length(CrocNamespace* ns)
 	{
 		return ns.data.length();

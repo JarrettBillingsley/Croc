@@ -59,59 +59,54 @@ package:
 // Free all objects.
 void freeAll(CrocThread* t)
 {
-	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
-	{
-		auto cur = *pcur;
-
-		if((cast(CrocBaseObject*)cur).mType == CrocValue.Type.Instance)
-		{
-			auto i = cast(CrocInstance*)cur;
-
-			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
-			{
-				*pcur = cur.next;
-
-				cur.flags |= GCBits.Finalized;
-				i.nextInstance = t.vm.toFinalize;
-				t.vm.toFinalize = i;
-			}
-			else
-				pcur = &cur.next;
-		}
-		else
-			pcur = &cur.next;
-	}
-
-	runFinalizers(t);
-	assert(t.vm.toFinalize is null);
-
-	GCObject* next = void;
-
-	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
-	{
-		next = cur.next;
-		free(t.vm, cur);
-	}
+	// TODO: this.
+// 	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
+// 	{
+// 		auto cur = *pcur;
+// 
+// 		if((cast(CrocBaseObject*)cur).mType == CrocValue.Type.Instance)
+// 		{
+// 			auto i = cast(CrocInstance*)cur;
+// 
+// 			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
+// 			{
+// 				*pcur = cur.next;
+// 
+// 				cur.flags |= GCBits.Finalized;
+// 				i.nextInstance = t.vm.toFinalize;
+// 				t.vm.toFinalize = i;
+// 			}
+// 			else
+// 				pcur = &cur.next;
+// 		}
+// 		else
+// 			pcur = &cur.next;
+// 	}
+// 
+// 	runFinalizers(t);
+// 	assert(t.vm.toFinalize is null);
+// 
+// 	GCObject* next = void;
+// 
+// 	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
+// 	{
+// 		next = cur.next;
+// 		free(t.vm, cur);
+// 	}
 }
 
 void runFinalizers(CrocThread* t)
 {
 	auto alloc = &t.vm.alloc;
+	auto modBuffer = &alloc.modBuffer;
+	auto decBuffer = &alloc.decBuffer;
 
-	for(auto pcur = &t.vm.toFinalize; *pcur !is null; )
+	// FINALIZE. Go through the finalize buffer, setting reference count to 1, running the finalizer, and setting it to finalized. At this point, the
+	// 	object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
+	// 	a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
+	foreach(i; t.vm.toFinalize)
 	{
-		auto i = *pcur;
-
-		// resurrect object
-		*pcur = i.nextInstance;
-		i.next = alloc.gcHead;
-		alloc.gcHead = cast(GCObject*)i;
-		i.flags = (i.flags & ~GCBits.Marked) | !alloc.markVal | GCBits.Finalized;
-
-		// temporarily disable the GC
-		auto oldLimit = alloc.gcLimit;
-		alloc.gcLimit = typeof(oldLimit).max;
-		scope(exit) alloc.gcLimit = oldLimit;
+		i.refCount = 1;
 
 		auto size = stackSize(t);
 
@@ -132,7 +127,12 @@ void runFinalizers(CrocThread* t)
 			fielda(t, -2, "cause");
 			throwException(t);
 		}
+
+		modBuffer.add(*alloc, cast(GCObject*)i);
+		decBuffer.add(*alloc, cast(GCObject*)i);
 	}
+
+	t.vm.toFinalize.reset();
 }
 
 // ============================================================================
@@ -165,16 +165,20 @@ uword commonCall(CrocThread* t, AbsStack slot, word numReturns, bool isScript)
 
 	if(isScript)
 		execute(t);
-
-	maybeGC(t);
+		
+	uword ret;
 
 	if(numReturns == -1)
-		return t.stackIndex - slot;
+		ret = t.stackIndex - slot;
 	else
 	{
 		t.stackIndex = slot + numReturns;
-		return numReturns;
+		ret = numReturns;
 	}
+
+	maybeGC(t);
+
+	return ret;
 }
 
 bool commonMethodCall(CrocThread* t, AbsStack slot, CrocValue* self, CrocValue* lookup, CrocString* methodName, word numReturns, uword numParams)
@@ -246,16 +250,16 @@ CrocValue lookupMethod(CrocThread* t, CrocValue* v, CrocString* name, out CrocCl
 
 CrocValue getInstanceMethod(CrocInstance* inst, CrocString* name, out CrocClass* proto)
 {
-	CrocValue dummy;
+	CrocValue owner;
 
-	if(auto ret = instance.getField(inst, name, dummy))
+	if(auto ret = instance.getField(inst, name, owner))
 	{
-		if(dummy == CrocValue(inst))
+		if(owner == CrocValue(inst))
 			proto = inst.parent;
 		else
 		{
-			assert(dummy.type == CrocValue.Type.Class);
-			proto = dummy.mClass;
+			assert(owner.type == CrocValue.Type.Class);
+			proto = owner.mClass;
 		}
 
 		return *ret;
@@ -578,7 +582,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			// If we have too few params, the extra param slots will be nulled out.
 		}
-
+		
 		// Null out the stack frame after the parameters.
 		t.stack[ar.base + numParams .. ar.base + funcDef.stackSize] = CrocValue.nullValue;
 
@@ -598,7 +602,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		// Set the stack indices.
 		t.stackBase = ar.base;
 		t.stackIndex = ar.savedTop;
-
+		
 		// Call any hook.
 		mixin(
 		"if(t.hooks & CrocThread.Hook.Call)
@@ -607,7 +611,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 				callHook(t, CrocThread.Hook.Call);
 		" ~ wrapEH ~ "
 		}");
-
+		
 		return true;
 	}
 	else
@@ -634,7 +638,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 		t.stackBase = ar.base;
 
 		uword actualReturns = void;
-
+		
 		mixin("try
 		{
 			if(t.hooks & CrocThread.Hook.Call)
@@ -650,7 +654,7 @@ bool callPrologue2(CrocThread* t, CrocFunction* func, AbsStack returnSlot, word 
 
 			actualReturns = func.nativeFunc(t);
 		}" ~ wrapEH);
-
+		
 		saveResults(t, t, t.stackIndex - actualReturns, actualReturns);
 		callEpilogue(t, true);
 		return false;
@@ -985,9 +989,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 
 void tableIdxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 {
-	auto v = table.get(container.mTable, *key);
-
-	if(v !is null)
+	if(auto v = table.get(container.mTable, *key))
 		t.stack[dest] = *v;
 	else
 		t.stack[dest] = CrocValue.nullValue;
@@ -1013,7 +1015,7 @@ void idxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue* valu
 			if(index < 0 || index >= arr.length)
 				throwStdException(t, "BoundsException", "Invalid array index {} (length is {})", key.mInt, arr.length);
 
-			arr.toArray()[cast(uword)index] = *value;
+			array.idxa(t.vm.alloc, arr, cast(uword)index, *value);
 			return;
 
 		case CrocValue.Type.Memblock:
@@ -1085,7 +1087,7 @@ void tableIdxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue*
 	if((value.type == CrocValue.Type.WeakRef && value.mWeakRef.obj is null) ||
 		(key.type == CrocValue.Type.WeakRef && key.mWeakRef.obj is null))
 	{
-		table.remove(t.stack[container].mTable, *key);
+		table.remove(t.vm.alloc, t.stack[container].mTable, *key);
 		return;
 	}
 
@@ -1094,9 +1096,9 @@ void tableIdxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue*
 	if(v !is null)
 	{
 		if(value.type == CrocValue.Type.Null)
-			table.remove(t.stack[container].mTable, *key);
+			table.remove(t.vm.alloc, t.stack[container].mTable, *key);
 		else
-			*v = *value;
+			table.set(t.vm.alloc, t.stack[container].mTable, v, *value);
 	}
 	else if(value.type != CrocValue.Type.Null)
 		table.set(t.vm.alloc, t.stack[container].mTable, *key, *value);
@@ -1199,7 +1201,7 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 			else if(owner != CrocValue(i))
 				instance.setField(t.vm.alloc, i, name, value);
 			else
-				*field = *value;
+				instance.setField(t.vm.alloc, i, field, value);
 			return;
 
 		case CrocValue.Type.Namespace:
@@ -1516,7 +1518,7 @@ void sliceImpl(CrocThread* t, AbsStack dest, CrocValue* src, CrocValue* lo, Croc
 			if(!validIndices(loIndex, hiIndex, str.cpLength))
 				throwStdException(t, "RangeException", "Invalid slice indices [{} .. {}] (string length = {})", loIndex, hiIndex, str.cpLength);
 
-			return t.stack[dest] = string.slice(t, str, cast(uword)loIndex, cast(uword)hiIndex);
+			return t.stack[dest] = string.slice(t.vm, str, cast(uword)loIndex, cast(uword)hiIndex);
 
 		default:
 			if(tryMM!(3, true)(t, MM.Slice, &t.stack[dest], src, lo, hi))
@@ -1552,7 +1554,7 @@ void sliceaImpl(CrocThread* t, CrocValue* container, CrocValue* lo, CrocValue* h
 				if((hiIndex - loIndex) != value.mArray.length)
 					throwStdException(t, "RangeException", "Array slice-assign lengths do not match (destination is {}, source is {})", hiIndex - loIndex, value.mArray.length);
 
-				return array.sliceAssign(arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
+				return array.sliceAssign(t.vm.alloc, arr, cast(uword)loIndex, cast(uword)hiIndex, value.mArray);
 			}
 			else
 			{
@@ -2080,6 +2082,7 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 	}
 
 	auto ret = array.create(t.vm.alloc, len);
+	mixin(writeBarrier!("t.vm.alloc", "ret"));
 	auto retArr = ret.toArray();
 
 	uword i = 0;
@@ -2238,18 +2241,21 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 
 	uword i = a.length;
 	array.resize(t.vm.alloc, a, len);
+	mixin(writeBarrier!("t.vm.alloc", "a"));
+	
+	auto data = a.toArray();
 
 	foreach(ref v; vals)
 	{
 		if(v.type == CrocValue.Type.Array)
 		{
 			auto arr = v.mArray;
-			a.toArray()[i .. i + arr.length] = arr.toArray()[];
+			data[i .. i + arr.length] = arr.toArray()[];
 			i += arr.length;
 		}
 		else
 		{
-			a.toArray()[i] = v;
+			data[i] = v;
 			i++;
 		}
 	}
@@ -2374,7 +2380,7 @@ CrocValue superOfImpl(CrocThread* t, CrocValue* v)
 // ============================================================================
 // Helper functions
 
-CrocValue* lookupGlobal(CrocThread* t, CrocString* name, CrocNamespace* env)
+CrocValue* getGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env)
 {
 	if(auto glob = namespace.get(env, name))
 		return glob;
@@ -2382,10 +2388,38 @@ CrocValue* lookupGlobal(CrocThread* t, CrocString* name, CrocNamespace* env)
 	auto ns = env;
 	for(; ns.parent !is null; ns = ns.parent){}
 
-	if(auto glob = namespace.get(ns, name))
-		return glob;
-
+	if(ns !is env)
+	{
+		if(auto glob = namespace.get(ns, name))
+			return glob;
+	}
+	
 	throwStdException(t, "NameException", "Attempting to get a nonexistent global '{}'", name.toString());
+	assert(false);
+}
+
+void setGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValue* val)
+{
+	if(auto glob = namespace.get(env, name))
+	{
+		mixin(writeBarrier!("t.vm.alloc", "env"));
+		*glob = *val;
+		return;
+	}
+
+	auto ns = env;
+	for(; ns.parent !is null; ns = ns.parent){}
+
+	if(ns !is env)
+	{
+		if(auto glob = namespace.get(ns, name))
+		{
+			mixin(writeBarrier!("t.vm.alloc", "ns"));
+			*glob = *val;
+		}
+	}
+
+	throwStdException(t, "NameException", "Attempting to set a nonexistent global '{}'", name.toString());
 	assert(false);
 }
 
@@ -2820,7 +2854,7 @@ void execute(CrocThread* t, uword depth = 1)
 			pc = &t.currentAR.pc;
 			Instruction* i = (*pc)++;
 
-			if(t.hooksEnabled)
+			if(t.hooksEnabled && t.hooks)
 			{
 				if(t.hooks & CrocThread.Hook.Delay)
 				{
@@ -2911,11 +2945,11 @@ void execute(CrocThread* t, uword depth = 1)
 					namespace.set(t.vm.alloc, env, name, &t.stack[stackBase + rd]);
 					break;
 
-				case Op.GetGlobal: t.stack[stackBase + rd] = *lookupGlobal(t, constTable[mixin(GetUImm)].mString, env); break;
-				case Op.SetGlobal: *lookupGlobal(t, constTable[mixin(GetUImm)].mString, env) = t.stack[stackBase + rd]; break;
+				case Op.GetGlobal: t.stack[stackBase + rd] = *getGlobalImpl(t, constTable[mixin(GetUImm)].mString, env); break;
+				case Op.SetGlobal: setGlobalImpl(t, constTable[mixin(GetUImm)].mString, env, &t.stack[stackBase + rd]); break;
 
 				case Op.GetUpval:  t.stack[stackBase + rd] = *upvals[mixin(GetUImm)].value; break;
-				case Op.SetUpval:  *upvals[mixin(GetUImm)].value = t.stack[stackBase + rd]; break;
+				case Op.SetUpval:  auto uv = upvals[mixin(GetUImm)]; mixin(writeBarrier!("t.vm.alloc", "uv")); *uv.value = t.stack[stackBase + rd]; break;
 
 				// Logical and Control Flow
 				case Op.Not: mixin(GetRS); t.stack[stackBase + rd] = RS.isFalse(); break;
@@ -3428,6 +3462,7 @@ void execute(CrocThread* t, uword depth = 1)
 
 					crocint lo = void;
 					crocint hi = void;
+
 					auto loSrc = &t.stack[stackBase + rd];
 					auto hiSrc = &t.stack[stackBase + rd + 1];
 
@@ -3660,6 +3695,8 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 
 					t.stack[stackBase + rd] = n;
+// 					// TODO: needed? harmless I guess
+// 					mixin(writeBarrier!("t.vm.alloc", "n"));
 					maybeGC(t);
 					break;
 

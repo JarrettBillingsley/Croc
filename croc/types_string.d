@@ -37,31 +37,30 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocString* lookup(CrocThread* t, char[] data, ref uword h)
+	package CrocString* lookup(CrocVM* vm, char[] data, ref uword h)
 	{
 		// We don't have to verify the string if it already exists in the string table,
 		// because if it does, it means it's a legal string.
 		// Neither hashing nor lookup require the string to be valid UTF-8.
 		h = jhash(data);
 
-		if(auto s = t.vm.stringTab.lookup(data, h))
+		if(auto s = vm.stringTab.lookup(data, h))
 			return *s;
 
 		return null;
 	}
-
+	
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
-	package CrocString* create(CrocThread* t, char[] data, uword h, uword cpLen)
+	package CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
 	{
-		auto ret = t.vm.alloc.allocate!(CrocString)(StringSize(data.length));
+		auto ret = vm.alloc.allocate!(CrocString)(StringSize(data.length));
 		ret.hash = h;
 		ret.length = data.length;
 		ret.cpLength = cpLen;
 		ret.toString()[] = data[];
 
-		*t.vm.stringTab.insert(t.vm.alloc, ret.toString()) = ret;
-
+		*vm.stringTab.insert(vm.alloc, ret.toString()) = ret;
 		return ret;
 	}
 
@@ -70,7 +69,7 @@ static:
 	{
 		auto b = vm.stringTab.remove(s.toString());
 		assert(b);
-		vm.alloc.free(s, StringSize(s.length));
+		vm.alloc.free(s);
 	}
 
 	// Compare two string objects.
@@ -88,28 +87,28 @@ static:
 
 		return false;
 	}
-	
+
 	// See if the string contains the given substring.
 	package bool contains(CrocString* s, char[] sub)
 	{
 		if(s.length < sub.length)
 			return false;
-			
+
 		return s.toString().locatePattern(sub) != s.length;
 	}
 
 	// The slice indices are in codepoints, not byte indices.
 	// And these indices better be good.
-	package CrocString* slice(CrocThread* t, CrocString* s, uword lo, uword hi)
+	package CrocString* slice(CrocVM* vm, CrocString* s, uword lo, uword hi)
 	{
 		auto str = uniSlice(s.toString(), lo, hi);
 		uword h = void;
 
-		if(auto s = lookup(t, str, h))
+		if(auto s = lookup(vm, str, h))
 			return s;
 
 		// don't have to verify since we're slicing from a string we know is good
-		return create(t, uniSlice(s.toString(), lo, hi), h, hi - lo);
+		return create(vm, uniSlice(s.toString(), lo, hi), h, hi - lo);
 	}
 
 	// Like slice, the index is in codepoints, not byte indices.

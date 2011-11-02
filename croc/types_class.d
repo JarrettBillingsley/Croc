@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_class;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 import croc.types_namespace;
 import croc.types_string;
@@ -40,6 +41,7 @@ static:
 	package CrocClass* create(ref Allocator alloc, CrocString* name, CrocClass* parent)
 	{
 		auto c = alloc.allocate!(CrocClass)();
+		mixin(writeBarrier!("alloc", "c"));
 		c.name = name;
 		c.parent = parent;
 
@@ -51,17 +53,13 @@ static:
 		}
 		else
 			c.fields = namespace.create(alloc, name);
-			
-		c.hasInstances = false;
+
+		// Note that even if this class has a finalizer copied from its parent, we can still change it -- once
+		c.finalizerSet = false;
 
 		return c;
 	}
 
-	package void free(ref Allocator alloc, CrocClass* c)
-	{
-		alloc.free(c);
-	}
-	
 	package CrocValue* getField(CrocClass* c, CrocString* name)
 	{
 		CrocClass* dummy = void;
@@ -85,6 +83,22 @@ static:
 	package void setField(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
 	{
 		namespace.set(alloc, c.fields, name, value);
+	}
+
+	package void setFinalizer(ref Allocator alloc, CrocClass* c, CrocFunction* f)
+	{
+		if(c.finalizer !is f)
+			mixin(writeBarrier!("alloc", "c"));
+
+		c.finalizer = f;
+	}
+
+	package void setAllocator(ref Allocator alloc, CrocClass* c, CrocFunction* f)
+	{
+		if(c.finalizer !is f)
+			mixin(writeBarrier!("alloc", "c"));
+
+		c.allocator = f;
 	}
 
 	package CrocNamespace* fieldsOf(CrocClass* c)

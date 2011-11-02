@@ -1054,10 +1054,10 @@ struct Parser
 		auto def = parseNamespaceDef();
 		return new(c) NamespaceDecl(c, location, protection, def, deco);
 	}
-	
+
 	/**
 	Parse a namespace. Both literals and declarations require a name.
-	
+
 	Returns:
 		An instance of this class.
 	*/

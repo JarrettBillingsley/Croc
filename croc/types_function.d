@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.types_function;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct func
@@ -47,6 +48,8 @@ static:
 			return def.cachedFunc;
 
 		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(def.numUpvals));
+		mixin(writeBarrier!("alloc", "f"));
+
 		f.isNative = false;
 		f.environment = env;
 		f.name = def.name;
@@ -62,10 +65,16 @@ static:
 		f.scriptUpvals()[] = null;
 
 		if(def.environment is null)
+		{
+			mixin(writeBarrier!("alloc", "def"));
 			def.environment = env;
+		}
 
 		if(def.numUpvals == 0)
+		{
+			mixin(writeBarrier!("alloc", "def"));
 			def.cachedFunc = f;
+		}
 
 		return f;
 	}
@@ -74,6 +83,7 @@ static:
 	package CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocString* name, NativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
+		mixin(writeBarrier!("alloc", "f"));
 		f.isNative = true;
 		f.environment = env;
 		f.name = name;
@@ -86,14 +96,25 @@ static:
 
 		return f;
 	}
-
-	// Free a function.
-	package void free(ref Allocator alloc, CrocFunction* f)
+	
+	package void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
 	{
-		if(f.isNative)
-			alloc.free(f, NativeClosureSize(f.numUpvals));
-		else
-			alloc.free(f, ScriptClosureSize(f.numUpvals));
+		auto slot = &f.nativeUpvals()[idx];
+
+		if(((*slot).isObject() || val.isObject()) && *slot != *val)
+		{
+			mixin(writeBarrier!("alloc", "f"));
+			*slot = *val;
+		}
+	}
+	
+	package void setEnvironment(ref Allocator alloc, CrocFunction* f, CrocNamespace* ns)
+	{
+		if(f.environment !is ns)
+		{
+			mixin(writeBarrier!("alloc", "f"));
+			f.environment = ns;
+		}
 	}
 
 	package bool isNative(CrocFunction* f)

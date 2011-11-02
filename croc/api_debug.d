@@ -203,7 +203,7 @@ debug
 			else
 				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(word)i - cast(word)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
 		}
-
+		
 		t.stackBase = tmp;
 
 		Stdout.newline;

@@ -52,7 +52,6 @@ static:
 	package void free(CrocVM* vm, CrocNativeObj* obj)
 	{
 		assert(obj.obj in vm.nativeObjs);
-
 		vm.nativeObjs.remove(obj.obj);
 		vm.alloc.free(obj);
 	}

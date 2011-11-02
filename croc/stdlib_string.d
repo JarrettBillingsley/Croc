@@ -99,7 +99,7 @@ static:
 			pushString(t, "");
 			return 1;
 		}
-		
+
 		foreach(i, ref val; arr)
 			if(val.type != CrocValue.Type.String && val.type != CrocValue.Type.Char)
 				throwStdException(t, "TypeException", "Array element {} is not a string or char", i);

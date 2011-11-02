@@ -2,7 +2,8 @@ croctest.d
 -clean
 -debug
 -unittest
--debug=LEAK_DETECTOR
+-debug=CROC_LEAK_DETECTOR
+-debug=CROC_STOMP_MEMORY
 -version=CrocGLCheckErrors
 -version=CrocILCheckErrors
 -g

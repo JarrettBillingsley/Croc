@@ -56,7 +56,7 @@ static:
 			auto b = vm.weakRefTab.remove(r.obj);
 			assert(b);
 		}
-
+		
 		vm.alloc.free(r);
 	}
 

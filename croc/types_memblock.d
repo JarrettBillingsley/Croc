@@ -74,6 +74,7 @@ static:
 	{
 		if(m.ownData)
 			alloc.freeArray(m.data);
+			
 		alloc.free(m);
 	}
 

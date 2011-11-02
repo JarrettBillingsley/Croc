@@ -28,6 +28,7 @@ module croc.types_array;
 import tango.stdc.string;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.base_opcodes;
 import croc.types;
 import croc.utils;
@@ -43,6 +44,7 @@ static:
 	package CrocArray* create(ref Allocator alloc, uword size)
 	{
 		auto ret = alloc.allocate!(CrocArray)();
+		mixin(writeBarrier!("alloc", "ret"));
 		ret.data = allocData!(false)(alloc, size);
 		ret.length = size;
 		return ret;
@@ -62,6 +64,10 @@ static:
 			return;
 
 		auto oldSize = a.length;
+
+		if(newSize < oldSize)
+			mixin(writeBarrier!("alloc", "a"));
+
 		a.length = newSize;
 
 		if(newSize < oldSize)
@@ -85,7 +91,7 @@ static:
 	}
 
 	// Assign an entire other array into a slice of the destination array. Handles overlapping copies as well.
-	package void sliceAssign(CrocArray* a, uword lo, uword hi, CrocArray* other)
+	package void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocArray* other)
 	{
 		auto dest = a.data[lo .. hi];
 		auto src = other.toArray();
@@ -93,6 +99,9 @@ static:
 		assert(dest.length == src.length);
 
 		auto len = dest.length * CrocValue.sizeof;
+
+		if(len > 0)
+			mixin(writeBarrier!("alloc", "a"));
 
 		if((dest.ptr + len) <= src.ptr || (src.ptr + len) <= dest.ptr)
 			memcpy(dest.ptr, src.ptr, len);
@@ -113,7 +122,29 @@ static:
 		if(end > a.length)
 			array.resize(alloc, a, end);
 
+		mixin(writeBarrier!("alloc", "a"));
 		a.data[start .. end] = data[];
+	}
+
+	// Fills an entire array with a value.
+	package void fill(ref Allocator alloc, CrocArray* a, CrocValue val)
+	{
+		if(a.length > 0)
+		{
+			mixin(writeBarrier!("alloc", "a"));
+			a.toArray()[] = val;
+		}
+	}
+
+	// Index-assigns an element.
+	package void idxa(ref Allocator alloc, CrocArray* a, uword idx, CrocValue val)
+	{
+		auto slot = &a.toArray()[idx];
+
+		if(((*slot).isObject() || val.isObject()) && *slot != val)
+			mixin(writeBarrier!("alloc", "a"));
+
+		*slot = val;
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
@@ -130,6 +161,7 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocArray* b)
 	{
 		auto ret = array.create(alloc, a.length + b.length);
+		mixin(writeBarrier!("alloc", "ret"));
 		ret.data[0 .. a.length] = a.toArray();
 		ret.data[a.length .. $] = b.toArray();
 		return ret;
@@ -139,6 +171,7 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
 		auto ret = array.create(alloc, a.length + 1);
+		mixin(writeBarrier!("alloc", "ret"));
 		ret.data[0 .. $ - 1] = a.toArray();
 		ret.data[$ - 1] = *v;
 		return ret;
@@ -147,6 +180,7 @@ static:
 	// Append the value v to the end of array a.
 	package void append(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
+		mixin(writeBarrier!("alloc", "a"));
 		array.resize(alloc, a, a.length + 1);
 		a.data[a.length - 1] = *v;
 	}

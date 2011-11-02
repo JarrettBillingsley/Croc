@@ -37,6 +37,7 @@ import tango.core.Vararg;
 import croc.api_checks;
 import croc.api_debug;
 import croc.api_stack;
+import croc.base_alloc;
 import croc.base_gc;
 import croc.base_metamethods;
 import croc.interpreter;
@@ -298,13 +299,17 @@ uword maybeGC(CrocThread* t)
 {
 	uword ret = 0;
 
-	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
-	{
+	if(t.vm.alloc.gcDisabled > 0)
+		return ret;
+
+	// TODO: come up with a new trigger for the GC.
+// 	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
+// 	{
 		ret = gc(t);
 
-		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
-			t.vm.alloc.gcLimit <<= 1;
-	}
+// 		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
+// 			t.vm.alloc.gcLimit <<= 1;
+// 	}
 
 	return ret;
 }
@@ -321,11 +326,26 @@ Returns:
 */
 uword gc(CrocThread* t)
 {
+	if(t.vm.alloc.gcDisabled > 0)
+		return 0;
+
+	if(t.vm.inGCCycle)
+		// can't throw a Croc exception cause that would allocate memory and cause an infinite recursion.
+		throw new /* CrocFatal */Exception("GC cycle triggered while one is already in progress. WAT.");
+
+	t.vm.inGCCycle = true;
+	scope(exit) t.vm.inGCCycle = false;
+
 	auto beforeSize = t.vm.alloc.totalBytes;
 
-	mark(t.vm);
-	sweep(t.vm);
+	gcCycle(t.vm);
 	runFinalizers(t);
+
+	t.vm.stringTab.minimize(t.vm.alloc);
+	t.vm.weakRefTab.minimize(t.vm.alloc);
+
+	for(auto tab = t.vm.toBeNormalized; tab !is null; tab = tab.nextTab)
+		table.normalize(t.vm.alloc, tab);
 
 	return beforeSize - t.vm.alloc.totalBytes;
 }
@@ -424,7 +444,7 @@ word pushVFormat(CrocThread* t, char[] fmt, TypeInfo[] arguments, va_list argptr
 		throwStdException(t, "ValueException", "Error during string formatting: {}", e);
 
 	maybeGC(t);
-	
+
 	if(numPieces == 0)
 		return pushString(t, "");
 	else
@@ -477,6 +497,7 @@ word newArrayFromStack(CrocThread* t, uword len)
 	mixin(apiCheckNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
+	// no write barrier, nothing's being overwritten
 	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
 	pop(t, len);
 	return push(t, CrocValue(a));
@@ -863,7 +884,7 @@ Params:
 word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
 	mixin(FuncNameMix);
-
+	
 	auto b = getClass(t, base);
 
 	if(b is null)
@@ -890,9 +911,10 @@ Returns:
 */
 word newNamespace(CrocThread* t, char[] name)
 {
-	auto ret = newNamespaceNoParent(t, name);
-	getNamespace(t, ret).parent = getEnv(t);
-	return ret;
+	push(t, CrocValue(getEnv(t)));
+	newNamespace(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
 }
 
 /**
@@ -914,17 +936,16 @@ word newNamespace(CrocThread* t, word parent, char[] name)
 
 	if(isNull(t, parent))
 		p = null;
-	else if(auto ns = getNamespace(t, parent))
-		p = ns;
+	else if(isNamespace(t, parent))
+		p = getNamespace(t, parent);
 	else
 	{
 		pushTypeString(t, parent);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
-	auto ret = newNamespaceNoParent(t, name);
-	getNamespace(t, ret).parent = p;
-	return ret;
+	maybeGC(t);
+	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), p)));
 }
 
 /**
@@ -941,8 +962,10 @@ Returns:
 */
 word newNamespaceNoParent(CrocThread* t, char[] name)
 {
-	maybeGC(t);
-	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), null)));
+	pushNull(t);
+	newNamespace(t, -1, name);
+	insertAndPop(t, -2);
+	return stackSize(t) - 1;
 }
 
 /**
@@ -959,7 +982,7 @@ Returns:
 word newThread(CrocThread* t, word func)
 {
 	mixin(FuncNameMix);
-
+	
 	auto f = getFunction(t, func);
 
 	if(f is null)
@@ -1691,12 +1714,10 @@ void setUpval(CrocThread* t, uword idx)
 
 	mixin(apiCheckNumParams!("1"));
 
-	auto upvals = t.currentAR.func.nativeUpvals();
+	if(idx >= t.currentAR.func.nativeUpvals().length)
+		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t.currentAR.func.nativeUpvals().length);
 
-	if(idx >= upvals.length)
-		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
-
-	upvals[idx] = *getValue(t, -1);
+	func.setNativeUpval(t.vm.alloc, t.currentAR.func, idx, getValue(t, -1));
 	pop(t);
 }
 
@@ -1798,8 +1819,8 @@ word getGlobal(CrocThread* t)
 		pushTypeString(t, -1);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
-
-	*v = *lookupGlobal(t, v.mString, getEnv(t));
+	
+	*v = *getGlobalImpl(t, v.mString, getEnv(t));
 	return stackSize(t) - 1;
 }
 
@@ -1839,7 +1860,7 @@ void setGlobal(CrocThread* t)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Global name must be a string, not a '{}'", getString(t, -1));
 	}
 
-	*lookupGlobal(t, n.mString, getEnv(t)) = t.stack[t.stackIndex - 1];
+	setGlobalImpl(t, n.mString, getEnv(t), &t.stack[t.stackIndex - 1]);
 	pop(t, 2);
 }
 
@@ -1968,7 +1989,7 @@ void fillArray(CrocThread* t, word arr)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - arr must be an array, not a '{}'", getString(t, -1));
 	}
 
-	a.toArray()[] = t.stack[t.stackIndex - 1];
+	array.fill(t.vm.alloc, a, t.stack[t.stackIndex - 1]);
 	pop(t);
 }
 
@@ -1982,7 +2003,8 @@ Params:
 	mb = The stack index of the memblock object.
 
 Returns:
-	A string containing the type code for the given memblock. This points into ROM, so don't modify it.
+	A string containing the type code for the given memblock. This points into ROM, so don't modify it, but
+	at least you don't have to worry about it being collected.
 */
 char[] memblockType(CrocThread* t, word mb)
 {
@@ -2183,7 +2205,7 @@ void setFuncEnv(CrocThread* t, word func)
 	if(!f.isNative)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the environment of a script function");
 
-	f.environment = ns;
+	.func.setEnvironment(t.vm.alloc, f, ns);
 	pop(t);
 }
 
@@ -2338,10 +2360,10 @@ void setFinalizer(CrocThread* t, word cls)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.hasInstances)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} which has been instantiated", className(t, cls));
+	if(c.finalizerSet)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the finalizer of class {} whose finalizer was already set", className(t, cls));
 
-	c.finalizer = getFunction(t, -1);
+	classobj.setFinalizer(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
 }
 
@@ -2444,10 +2466,10 @@ void setAllocator(CrocThread* t, word cls)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
 	}
 
-	if(c.hasInstances)
-		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} which has been instantiated", className(t, cls));
+	if(c.allocatorSet)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to change the allocator of class {} whose allocator was already set", className(t, cls));
 
-	c.allocator = getFunction(t, -1);
+	classobj.setAllocator(t.vm.alloc, c, getFunction(t, -1));
 	pop(t);
 }
 
@@ -2572,7 +2594,7 @@ void setExtraVal(CrocThread* t, word slot, uword idx)
 		if(idx >= i.numValues)
 			throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Value index out of bounds ({}, but only have {})", idx, i.numValues);
 
-		i.extraValues()[idx] = t.stack[t.stackIndex - 1];
+		instance.setExtraVal(t.vm.alloc, i, idx, &t.stack[t.stackIndex - 1]);
 		pop(t);
 	}
 	else
@@ -2672,7 +2694,7 @@ void removeKey(CrocThread* t, word obj)
 			throwStdException(t, "FieldException", __FUNCTION__ ~ " - key '{}' does not exist in namespace '{}'", getString(t, -2), getString(t, -1));
 		}
 
-		namespace.remove(ns, getStringObj(t, -1));
+		namespace.remove(t.vm.alloc, ns, getStringObj(t, -1));
 		pop(t);
 	}
 	else
@@ -2733,7 +2755,7 @@ CrocThread.State state(CrocThread* t)
 /**
 Gets a string representation of the current coroutine state of the thread.
 
-The string returned is not on the Croc heap, it's just a string literal.
+The string returned is not on the Croc heap, it's just a string literal, but it's in ROM.
 */
 char[] stateString(CrocThread* t)
 {
@@ -4130,7 +4152,7 @@ CrocString* createString(CrocThread* t, char[] data)
 {
 	uword h = void;
 
-	if(auto s = string.lookup(t, data, h))
+	if(auto s = string.lookup(t.vm, data, h))
 		return s;
 
 	uword cpLen = void;
@@ -4140,5 +4162,5 @@ CrocString* createString(CrocThread* t, char[] data)
 	catch(UnicodeException e)
 		throwStdException(t, "UnicodeException", "Invalid UTF-8 sequence");
 
-	return string.create(t, data, h, cpLen);
+	return string.create(t.vm, data, h, cpLen);
 }

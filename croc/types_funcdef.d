@@ -28,6 +28,7 @@ subject to the following restrictions:
 module croc.types_funcdef;
 
 import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 
 struct funcdef
@@ -39,9 +40,12 @@ static:
 
 	package CrocFuncDef* create(ref Allocator alloc)
 	{
-		return alloc.allocate!(CrocFuncDef);
+		auto ret = alloc.allocate!(CrocFuncDef);
+		mixin(writeBarrier!("alloc", "ret"));
+		return ret;
 	}
 
+	// Free a function definition.
 	package void free(ref Allocator alloc, CrocFuncDef* fd)
 	{
 		alloc.freeArray(fd.paramMasks);
@@ -57,7 +61,6 @@ static:
 		alloc.freeArray(fd.lineInfo);
 		alloc.freeArray(fd.upvalNames);
 		alloc.freeArray(fd.locVarDescs);
-
 		alloc.free(fd);
 	}
 }

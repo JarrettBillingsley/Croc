@@ -28,6 +28,8 @@ module croc.types_thread;
 version(CrocExtendedCoro)
 	import tango.core.Thread;
 
+import croc.base_alloc;
+import croc.base_gc;
 import croc.types;
 import croc.types_nativeobj;
 
@@ -43,6 +45,7 @@ static:
 	{
 		auto alloc = &vm.alloc;
 		auto t = alloc.allocate!(CrocThread);
+		mixin(writeBarrier!("vm.alloc", "t"));
 
 		t.tryRecs = alloc.allocArray!(TryRecord)(10);
 		t.currentTR = t.tryRecs.ptr;
