@@ -458,7 +458,7 @@ final class FuncState
 
 		return (val & ~Instruction.locMask) | Instruction.locGlobal;
 	}
-	
+
 	package bool isLocalTag(uint val)
 	{
 		return ((val & Instruction.locMask) == Instruction.locLocal);
@@ -1922,7 +1922,7 @@ scope class Codegen : Visitor
 
 		return m;
 	}
-import tango.io.Stdout, tango.text.Util;
+
 	public override ClassDef visit(ClassDef d)
 	{
 		auto reg = classDefBegin(d);

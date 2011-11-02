@@ -48,10 +48,11 @@ static:
 		return ret;
 	}
 
-	// Finalize a native object.
-	package void finalize(CrocVM* vm, CrocNativeObj* obj)
+	// Free a native object.
+	package void free(CrocVM* vm, CrocNativeObj* obj)
 	{
 		assert(obj.obj in vm.nativeObjs);
 		vm.nativeObjs.remove(obj.obj);
+		vm.alloc.free(obj);
 	}
 }

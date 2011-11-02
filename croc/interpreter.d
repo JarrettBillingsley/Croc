@@ -2086,7 +2086,7 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 	}
 
 	auto ret = array.create(t.vm.alloc, len);
-	array.barrier(t.vm.alloc, ret);
+	mixin(writeBarrier!("t.vm.alloc", "ret"));
 	auto retArr = ret.toArray();
 
 	uword i = 0;
@@ -2245,7 +2245,7 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 
 	uword i = a.length;
 	array.resize(t.vm.alloc, a, len);
-	array.barrier(t.vm.alloc, a);
+	mixin(writeBarrier!("t.vm.alloc", "a"));
 	
 	auto data = a.toArray();
 

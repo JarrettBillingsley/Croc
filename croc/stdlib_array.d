@@ -31,6 +31,8 @@ import tango.math.Math;
 
 import croc.api_interpreter;
 import croc.api_stack;
+import croc.base_alloc;
+import croc.base_gc;
 import croc.ex;
 import croc.stdlib_utils;
 import croc.types;
@@ -864,8 +866,8 @@ foreach(i, v; a, \"reverse\")
 			throwStdException(t, "BoundsException", "Invalid array index: {}", index);
 
 		idxi(t, 0, index);
-
-		array.barrier(t.vm.alloc, getArray(t, 0));
+		
+		mixin(writeBarrier!("t.vm.alloc", "getArray(t, 0)"));
 
 		for(uword i = cast(uword)index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
@@ -888,7 +890,7 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		auto a = getArray(t, 0);
 
-		array.barrier(t.vm.alloc, a);
+		mixin(writeBarrier!("t.vm.alloc", "a"));
 		array.resize(t.vm.alloc, a, numParams);
 
 		auto data = a.toArray();
@@ -1161,9 +1163,9 @@ foreach(i, v; a, \"reverse\")
 			return 0;
 
 		auto oldlen = a.length;
-		array.barrier(t.vm.alloc, a);
+		mixin(writeBarrier!("t.vm.alloc", "a"));
 		array.resize(t.vm.alloc, a, a.length + numParams);
-		
+
 		auto data = a.toArray();
 
 		for(uword i = oldlen, j = 1; i < a.length; i++, j++)

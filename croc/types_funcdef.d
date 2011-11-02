@@ -45,8 +45,8 @@ static:
 		return ret;
 	}
 
-	// Finalize a function definition.
-	package void finalize(ref Allocator alloc, CrocFuncDef* fd)
+	// Free a function definition.
+	package void free(ref Allocator alloc, CrocFuncDef* fd)
 	{
 		alloc.freeArray(fd.paramMasks);
 		alloc.freeArray(fd.innerFuncs);
@@ -60,5 +60,6 @@ static:
 		alloc.freeArray(fd.lineInfo);
 		alloc.freeArray(fd.upvalNames);
 		alloc.freeArray(fd.locVarDescs);
+		alloc.free(fd);
 	}
 }

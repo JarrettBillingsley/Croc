@@ -37,6 +37,7 @@ import tango.core.Vararg;
 import croc.api_checks;
 import croc.api_debug;
 import croc.api_stack;
+import croc.base_alloc;
 import croc.base_gc;
 import croc.interpreter;
 import croc.types;
@@ -702,14 +703,14 @@ word newFunctionWithEnv(CrocThread* t, uint numParams, NativeFunc func, char[] n
 {
 	mixin(apiCheckNumParams!("numUpvals + 1"));
 
-	if(!isNamespace(t, -1))
+	auto env = getNamespace(t, -1);
+
+	if(env is null)
 		mixin(apiParamTypeError!("-1", "environment", "namespace"));
 
 	maybeGC(t);
 
-	auto env = getNamespace(t, -1);
 	auto f = .func.create(t.vm.alloc, env, createString(t, name), func, numUpvals, numParams);
-// 	.func.barrier(t.vm.alloc, f);
 	f.nativeUpvals()[] = t.stack[t.stackIndex - 1 - numUpvals .. t.stackIndex - 1];
 	pop(t, numUpvals + 1); // upvals and env.
 
@@ -757,25 +758,26 @@ word newFunctionWithEnv(CrocThread* t, word funcDef)
 	mixin(apiCheckNumParams!("1"));
 
 	funcDef = absIndex(t, funcDef);
+	auto def = getFuncDef(t, funcDef);
 
-	if(!isFuncDef(t, funcDef))
+	if(def is null)
 	{
 		pushTypeString(t, funcDef);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - funcDef must be a function definition, not a '{}'", getString(t, -1));
 	}
 
-	if(getFuncDef(t, funcDef).numUpvals > 0)
+	if(def.numUpvals > 0)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Function definition may not have any upvalues");
 
-	if(!isNamespace(t, -1))
+	auto env = getNamespace(t, -1);
+
+	if(env is null)
 	{
 		pushTypeString(t, -1);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Environment must be a namespace, not a '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
-	auto def = getFuncDef(t, funcDef);
-	auto env = getNamespace(t, -1);
 	auto ret = .func.create(t.vm.alloc, env, def);
 
 	if(ret is null)
@@ -811,21 +813,16 @@ word newClass(CrocThread* t, word base, char[] name)
 	CrocClass* b = void;
 
 	if(isNull(t, base))
-	{
-		maybeGC(t);
 		b = t.vm.object;
-	}
 	else if(auto c = getClass(t, base))
-	{
-		maybeGC(t);
 		b = c;
-	}
 	else
 	{
 		pushTypeString(t, base);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Base must be 'null' or 'class', not '{}'", getString(t, -1));
 	}
 
+	maybeGC(t);
 	return push(t, CrocValue(classobj.create(t.vm.alloc, createString(t, name), b)));
 }
 
@@ -886,15 +883,16 @@ Params:
 word newInstance(CrocThread* t, word base, uword numValues = 0, uword extraBytes = 0)
 {
 	mixin(FuncNameMix);
+	
+	auto b = getClass(t, base);
 
-	if(!isClass(t, base))
+	if(b is null)
 	{
 		pushTypeString(t, base);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'class' for base, not '{}'", getString(t, -1));
 	}
 
 	maybeGC(t);
-	auto b = getClass(t, base);
 	return push(t, CrocValue(instance.create(t.vm, b, numValues, extraBytes)));
 }
 
@@ -936,21 +934,16 @@ word newNamespace(CrocThread* t, word parent, char[] name)
 	CrocNamespace* p = void;
 
 	if(isNull(t, parent))
-	{
-		maybeGC(t);
 		p = null;
-	}
 	else if(isNamespace(t, parent))
-	{
-		maybeGC(t);
 		p = getNamespace(t, parent);
-	}
 	else
 	{
 		pushTypeString(t, parent);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Parent must be null or namespace, not '{}'", getString(t, -1));
 	}
 
+	maybeGC(t);
 	return push(t, CrocValue(namespace.create(t.vm.alloc, createString(t, name), p)));
 }
 
@@ -988,21 +981,22 @@ Returns:
 word newThread(CrocThread* t, word func)
 {
 	mixin(FuncNameMix);
+	
+	auto f = getFunction(t, func);
 
-	if(!isFunction(t, func))
+	if(f is null)
 	{
 		pushTypeString(t, func);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Thread function must be of type 'function', not '{}'", getString(t, -1));
 	}
-
-	maybeGC(t);
-	auto f = getFunction(t, func);
 
 	version(CrocExtendedCoro) {} else
 	{
 		if(f.isNative)
 			throwStdException(t, "ValueException", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 	}
+
+	maybeGC(t);
 
 	auto nt = thread.create(t.vm, f);
 	nt.hookFunc = t.hookFunc;
@@ -1372,8 +1366,7 @@ char[] getString(CrocThread* t, word slot)
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - expected 'string' but got '{}'", getString(t, -1));
 	}
 
-	// TODO: string returning problem -- possibly split strings into two parts so string data doesn't move so we don't have to dup?
-	return v.mString.toString().dup;
+	return v.mString.toString();
 }
 
 /**
@@ -1713,13 +1706,10 @@ void setUpval(CrocThread* t, uword idx)
 
 	mixin(apiCheckNumParams!("1"));
 
-	auto upvals = t.currentAR.func.nativeUpvals();
+	if(idx >= t.currentAR.func.nativeUpvals().length)
+		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, t.currentAR.func.nativeUpvals().length);
 
-	if(idx >= upvals.length)
-		throwStdException(t, "BoundsException", __FUNCTION__ ~ " - Invalid upvalue index ({}, only have {})", idx, upvals.length);
-		
-	func.barrier(t.vm.alloc, t.currentAR.func);
-	upvals[idx] = *getValue(t, -1);
+	func.setNativeUpval(t.vm.alloc, t.currentAR.func, idx, getValue(t, -1));
 	pop(t);
 }
 
@@ -2217,8 +2207,7 @@ void setFuncEnv(CrocThread* t, word func)
 	if(!f.isNative)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Cannot change the environment of a script function");
 
-	.func.barrier(t.vm.alloc, f);
-	f.environment = ns;
+	.func.setEnvironment(t.vm.alloc, f, ns);
 	pop(t);
 }
 
@@ -2260,8 +2249,7 @@ char[] funcName(CrocThread* t, word func)
 	mixin(FuncNameMix);
 
 	if(auto f = getFunction(t, func))
-		// TODO: string returning problem.
-		return f.name.toString().dup;
+		return f.name.toString();
 
 	pushTypeString(t, func);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'function', not '{}'", getString(t, -1));
@@ -2523,8 +2511,7 @@ char[] className(CrocThread* t, word cls)
 	mixin(FuncNameMix);
 
 	if(auto c = getClass(t, cls))
-		// TODO: string returning problem.
-		return c.name.toString().dup;
+		return c.name.toString();
 
 	pushTypeString(t, cls);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'class', not '{}'", getString(t, -1));
@@ -2728,8 +2715,7 @@ char[] namespaceName(CrocThread* t, word ns)
 	mixin(FuncNameMix);
 
 	if(auto n = getNamespace(t, ns))
-		// TODO: string returning problem.
-		return n.name.toString().dup;
+		return n.name.toString();
 
 	pushTypeString(t, ns);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'namespace', not '{}'", getString(t, -1));
@@ -3008,8 +2994,7 @@ char[] funcDefName(CrocThread* t, word funcDef)
 	mixin(FuncNameMix);
 
 	if(auto f = getFuncDef(t, funcDef))
-		// TODO: string returning problem.
-		return f.name.toString().dup;
+		return f.name.toString();
 
 	pushTypeString(t, funcDef);
 	throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected 'funcdef', not '{}'", getString(t, -1));
@@ -4173,12 +4158,6 @@ package:
 CrocString* createString(CrocThread* t, char[] data)
 {
 	uword h = void;
-	
-// 	if(data == "array")
-// 	{
-// 		Stdout.formatln("Is it in? {}", string.lookup(t.vm, data, h));
-// 		string.dumpTable(t.vm);
-// 	}
 
 	if(auto s = string.lookup(t.vm, data, h))
 		return s;

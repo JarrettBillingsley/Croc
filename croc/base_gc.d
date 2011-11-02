@@ -223,7 +223,6 @@ void gcCycle(CrocVM* vm)
 
 		assert((obj.gcflags & GCFlags.Finalizable) == 0);
 		assert((obj.gcflags & GCFlags.CycleLogged) == 0);
-		finalizeBuiltin(vm, obj);
 		free(vm, obj);
 	}
 
@@ -313,12 +312,6 @@ void free(CrocVM* vm, GCObject* o)
 {
 	debug(FREES) Stdout.formatln("FREE: {} at {}", CrocValue.typeStrings[(cast(CrocBaseObject*)o).mType], o).flush;
 
-	finalizeBuiltin(vm, o);
-	vm.alloc.free(o);
-}
-
-void finalizeBuiltin(CrocVM* vm, GCObject* o)
-{
 	if(auto r = vm.weakRefTab.lookup(cast(CrocBaseObject*)o))
 	{
 		(*r).obj = null;
@@ -327,21 +320,19 @@ void finalizeBuiltin(CrocVM* vm, GCObject* o)
 
 	switch((cast(CrocBaseObject*)o).mType)
 	{
-		case CrocValue.Type.String:    string.finalize(vm, cast(CrocString*)o); return;
-		case CrocValue.Type.Table:     table.finalize(vm.alloc, cast(CrocTable*)o); return;
-		case CrocValue.Type.Array:     array.finalize(vm.alloc, cast(CrocArray*)o); return;
-		case CrocValue.Type.Memblock:  memblock.finalize(vm.alloc, cast(CrocMemblock*)o); return;
-		case CrocValue.Type.Namespace: namespace.finalize(vm.alloc, cast(CrocNamespace*)o); return;
-		case CrocValue.Type.Thread:    thread.finalize(cast(CrocThread*)o); return;
-		case CrocValue.Type.NativeObj: nativeobj.finalize(vm, cast(CrocNativeObj*)o); return;
-		case CrocValue.Type.WeakRef:   weakref.finalize(vm, cast(CrocWeakRef*)o); return;
-		case CrocValue.Type.FuncDef:   funcdef.finalize(vm.alloc, cast(CrocFuncDef*)o); return;
-
-		case
-			CrocValue.Type.Function,
-			CrocValue.Type.Class,
-			CrocValue.Type.Instance,
-			CrocValue.Type.Upvalue: break;
+		case CrocValue.Type.String:    string.free(vm, cast(CrocString*)o); return;
+		case CrocValue.Type.Table:     table.free(vm.alloc, cast(CrocTable*)o); return;
+		case CrocValue.Type.Array:     array.free(vm.alloc, cast(CrocArray*)o); return;
+		case CrocValue.Type.Memblock:  memblock.free(vm.alloc, cast(CrocMemblock*)o); return;
+		case CrocValue.Type.Namespace: namespace.free(vm.alloc, cast(CrocNamespace*)o); return;
+		case CrocValue.Type.Thread:    thread.free(cast(CrocThread*)o); return;
+		case CrocValue.Type.NativeObj: nativeobj.free(vm, cast(CrocNativeObj*)o); return;
+		case CrocValue.Type.WeakRef:   weakref.free(vm, cast(CrocWeakRef*)o); return;
+		case CrocValue.Type.FuncDef:   funcdef.free(vm.alloc, cast(CrocFuncDef*)o); return;
+		case CrocValue.Type.Function:
+		case CrocValue.Type.Class:
+		case CrocValue.Type.Instance:
+		case CrocValue.Type.Upvalue:   vm.alloc.free(o); return;
 
 		default: debug Stdout.formatln("{}", (cast(CrocBaseObject*)o).mType).flush; assert(false);
 	}

@@ -193,14 +193,14 @@ debug
 		for(uword i = wholeStack ? 0 : tmp; i < top; i++)
 		{
 			// ORDER CROCVALUE TYPE
-// 			if(t.stack[i].type >= 0 && t.stack[i].type <= CrocValue.Type.max)
-// 			{
-// 				pushToString(t, i, true);
-// 				pushTypeString(t, i);
-// 				Stdout.formatln("[{,3}:{,4}]: '{}': {}", i, cast(word)i - cast(word)tmp, getString(t, -2), getString(t, -1));
-// 				pop(t, 2);
-// 			}
-// 			else
+			if(t.stack[i].type >= 0 && t.stack[i].type <= CrocValue.Type.max)
+			{
+				pushToString(t, i, true);
+				pushTypeString(t, i);
+				Stdout.formatln("[{,3}:{,4}]: '{}': {}", i, cast(word)i - cast(word)tmp, getString(t, -2), getString(t, -1));
+				pop(t, 2);
+			}
+			else
 				Stdout.formatln("[{,3}:{,4}]: {:x16}: {:x}", i, cast(word)i - cast(word)tmp, *cast(ulong*)&t.stack[i].mInt, t.stack[i].type);
 		}
 		

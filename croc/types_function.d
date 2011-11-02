@@ -48,7 +48,7 @@ static:
 			return def.cachedFunc;
 
 		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(def.numUpvals));
-		barrier(alloc, f);
+		mixin(writeBarrier!("alloc", "f"));
 
 		f.isNative = false;
 		f.environment = env;
@@ -83,7 +83,7 @@ static:
 	package CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocString* name, NativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
-		barrier(alloc, f);
+		mixin(writeBarrier!("alloc", "f"));
 		f.isNative = true;
 		f.environment = env;
 		f.name = name;
@@ -97,10 +97,24 @@ static:
 		return f;
 	}
 	
-	// Write barrier.
-	package void barrier(ref Allocator alloc, CrocFunction* f)
+	package void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
 	{
-		mixin(writeBarrier!("alloc", "f"));
+		auto slot = &f.nativeUpvals()[idx];
+
+		if(((*slot).isObject() || val.isObject()) && *slot != *val)
+		{
+			mixin(writeBarrier!("alloc", "f"));
+			*slot = *val;
+		}
+	}
+	
+	package void setEnvironment(ref Allocator alloc, CrocFunction* f, CrocNamespace* ns)
+	{
+		if(f.environment !is ns)
+		{
+			mixin(writeBarrier!("alloc", "f"));
+			f.environment = ns;
+		}
 	}
 
 	package bool isNative(CrocFunction* f)

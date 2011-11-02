@@ -44,22 +44,17 @@ static:
 	package CrocArray* create(ref Allocator alloc, uword size)
 	{
 		auto ret = alloc.allocate!(CrocArray)();
-		barrier(alloc, ret);
+		mixin(writeBarrier!("alloc", "ret"));
 		ret.data = allocData!(false)(alloc, size);
 		ret.length = size;
 		return ret;
 	}
 
-	// Finalize an array object.
-	package void finalize(ref Allocator alloc, CrocArray* a)
+	// Free an array object.
+	package void free(ref Allocator alloc, CrocArray* a)
 	{
 		alloc.freeArray(a.data);
-	}
-
-	// Write barrier.
-	package void barrier(ref Allocator alloc, CrocArray* a)
-	{
-		mixin(writeBarrier!("alloc", "a"));
+		alloc.free(a);
 	}
 
 	// Resize an array object.

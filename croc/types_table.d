@@ -45,10 +45,11 @@ static:
 		return t;
 	}
 
-	// Finalize a table object.
-	package void finalize(ref Allocator alloc, CrocTable* t)
+	// Free a table object.
+	package void free(ref Allocator alloc, CrocTable* t)
 	{
 		t.data.clear(alloc);
+		alloc.free(t);
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.

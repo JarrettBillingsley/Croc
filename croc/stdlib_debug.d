@@ -28,6 +28,8 @@ module croc.stdlib_debug;
 import croc.api_debug;
 import croc.api_interpreter;
 import croc.api_stack;
+import croc.base_alloc;
+import croc.base_gc;
 import croc.ex;
 import croc.types;
 import croc.types_function;
@@ -516,13 +518,14 @@ static:
 
 			if(idx < 0 || idx >= func.numUpvals)
 				throwStdException(t, "BoundsException", "invalid upvalue index '{}'", idx);
-				
-			.func.barrier(t.vm.alloc, func);
 
 			if(func.isNative)
-				func.nativeUpvals()[cast(uword)idx] = *getValue(t, arg + 3);
+				.func.setNativeUpval(t.vm.alloc, func, cast(uword)idx, getValue(t, arg + 3));
 			else
+			{
+				mixin(writeBarrier!("t.vm.alloc", "func"));
 				*func.scriptUpvals()[cast(uword)idx].value = *getValue(t, arg + 3);
+			}
 		}
 		else if(isString(t, arg + 2))
 		{
@@ -538,13 +541,14 @@ static:
 				if(n is name)
 				{
 					found = true;
-					
-					.func.barrier(t.vm.alloc, func);
 
 					if(func.isNative)
-						func.nativeUpvals()[i] = *getValue(t, arg + 3);
+						.func.setNativeUpval(t.vm.alloc, func, i, getValue(t, arg + 3));
 					else
+					{
+						mixin(writeBarrier!("t.vm.alloc", "func"));
 						*func.scriptUpvals()[i].value = *getValue(t, arg + 3);
+					}
 
 					break;
 				}

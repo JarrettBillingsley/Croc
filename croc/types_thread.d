@@ -93,8 +93,8 @@ static:
 		return t;
 	}
 
-	// Finalize a thread object.
-	package void finalize(CrocThread* t)
+	// Free a thread object.
+	package void free(CrocThread* t)
 	{
 		version(CrocExtendedCoro)
 		{
@@ -118,5 +118,6 @@ static:
 		alloc.freeArray(t.stack);
 		alloc.freeArray(t.actRecs);
 		alloc.freeArray(t.tryRecs);
+		alloc.free(t);
 	}
 }
