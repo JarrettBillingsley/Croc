@@ -49,6 +49,7 @@ import croc.types_string;
 import croc.types_table;
 import croc.types_thread;
 import croc.utils;
+import croc.vm;
 
 // ================================================================================================================================================
 // Package
@@ -57,42 +58,18 @@ import croc.utils;
 package:
 
 // Free all objects.
-void freeAll(CrocThread* t)
+void freeAll(CrocVM* vm)
 {
 	// TODO: this.
-// 	for(auto pcur = &t.vm.alloc.gcHead; *pcur !is null; )
-// 	{
-// 		auto cur = *pcur;
-// 
-// 		if((cast(CrocBaseObject*)cur).mType == CrocValue.Type.Instance)
-// 		{
-// 			auto i = cast(CrocInstance*)cur;
-// 
-// 			if(i.parent.finalizer && ((cur.flags & GCBits.Finalized) == 0))
-// 			{
-// 				*pcur = cur.next;
-// 
-// 				cur.flags |= GCBits.Finalized;
-// 				i.nextInstance = t.vm.toFinalize;
-// 				t.vm.toFinalize = i;
-// 			}
-// 			else
-// 				pcur = &cur.next;
-// 		}
-// 		else
-// 			pcur = &cur.next;
-// 	}
-// 
-// 	runFinalizers(t);
-// 	assert(t.vm.toFinalize is null);
-// 
-// 	GCObject* next = void;
-// 
-// 	for(auto cur = t.vm.alloc.gcHead; cur !is null; cur = next)
-// 	{
-// 		next = cur.next;
-// 		free(t.vm, cur);
-// 	}
+	vm.inGCCycle = true;
+	scope(exit) vm.inGCCycle = false;
+
+	gcCycle(vm, GCCycleType.BeginCleanup);
+
+	runFinalizers(vm.mainThread);
+	assert(vm.toFinalize.isEmpty());
+
+	gcCycle(vm, GCCycleType.FinishCleanup);
 }
 
 void runFinalizers(CrocThread* t)
@@ -100,6 +77,8 @@ void runFinalizers(CrocThread* t)
 	auto alloc = &t.vm.alloc;
 	auto modBuffer = &alloc.modBuffer;
 	auto decBuffer = &alloc.decBuffer;
+
+	disableGC(t.vm);
 
 	// FINALIZE. Go through the finalize buffer, setting reference count to 1, running the finalizer, and setting it to finalized. At this point, the
 	// 	object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
@@ -131,6 +110,8 @@ void runFinalizers(CrocThread* t)
 		modBuffer.add(*alloc, cast(GCObject*)i);
 		decBuffer.add(*alloc, cast(GCObject*)i);
 	}
+
+	enableGC(t.vm);
 
 	t.vm.toFinalize.reset();
 }

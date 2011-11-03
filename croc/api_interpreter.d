@@ -336,7 +336,7 @@ uword gc(CrocThread* t)
 
 	auto beforeSize = t.vm.alloc.totalBytes;
 
-	gcCycle(t.vm);
+	gcCycle(t.vm, GCCycleType.Normal);
 	runFinalizers(t);
 
 	t.vm.stringTab.minimize(t.vm.alloc);

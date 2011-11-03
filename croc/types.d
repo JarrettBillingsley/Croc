@@ -815,6 +815,7 @@ package:
 	ubyte oldRootIdx;
 	Deque!(GCObject*)[2] roots;
 	Deque!(GCObject*) cycleRoots;
+	Deque!(GCObject*) toFree;
 	Deque!(CrocInstance*) toFinalize;
 	bool inGCCycle;
 

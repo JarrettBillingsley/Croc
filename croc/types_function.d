@@ -48,6 +48,8 @@ static:
 			return def.cachedFunc;
 
 		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(def.numUpvals));
+		f.scriptUpvals()[] = null;
+
 		mixin(writeBarrier!("alloc", "f"));
 
 		f.isNative = false;
@@ -62,7 +64,6 @@ static:
 			f.maxParams = def.numParams;
 
 		f.scriptFunc = def;
-		f.scriptUpvals()[] = null;
 
 		if(def.environment is null)
 		{
@@ -83,6 +84,8 @@ static:
 	package CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocString* name, NativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
+		f.nativeUpvals()[] = CrocValue.nullValue;
+		
 		mixin(writeBarrier!("alloc", "f"));
 		f.isNative = true;
 		f.environment = env;
@@ -92,7 +95,6 @@ static:
 		f.maxParams = f.numParams;
 
 		f.nativeFunc = func;
-		f.nativeUpvals()[] = CrocValue.nullValue;
 
 		return f;
 	}

@@ -131,7 +131,7 @@ void closeVMImpl(CrocVM* vm)
 {
 	assert(vm.mainThread !is null, "Attempting to close an already-closed VM");
 
-	freeAll(vm.mainThread);
+	freeAll(vm);
 	vm.alloc.freeArray(vm.metaTabs);
 	vm.alloc.freeArray(vm.metaStrings);
 	vm.stringTab.clear(vm.alloc);
@@ -142,6 +142,7 @@ void closeVMImpl(CrocVM* vm)
 	vm.roots[0].clear(vm.alloc);
 	vm.roots[1].clear(vm.alloc);
 	vm.cycleRoots.clear(vm.alloc);
+	vm.toFree.clear(vm.alloc);
 	vm.toFinalize.clear(vm.alloc);
 	vm.alloc.cleanup();
 
@@ -154,7 +155,7 @@ void closeVMImpl(CrocVM* vm)
 				Stdout.formatln("Unfreed RC blocks:");
 
 				foreach(ptr, block; vm.alloc._rcBlocks)
-					Stdout.formatln("  address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+					Stdout.formatln("\taddress 0x{:X}, refcount {}, length {} bytes, type {}", ptr, (cast(GCObject*)ptr).refCount, block.len, block.ti);
 			}
 
 			if(vm.alloc._rawBlocks.length)
@@ -162,7 +163,7 @@ void closeVMImpl(CrocVM* vm)
 				Stdout.formatln("Unfreed raw blocks:");
 
 				foreach(ptr, block; vm.alloc._rawBlocks)
-					Stdout.formatln("  address 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+					Stdout.formatln("\taddress 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
 			}
 		}
 

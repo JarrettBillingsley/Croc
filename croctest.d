@@ -82,5 +82,5 @@ void main()
 		return;
 	}
 
-// 	closeVM(&vm);
+	closeVM(&vm);
 }
