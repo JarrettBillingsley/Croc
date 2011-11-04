@@ -2,9 +2,19 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
+@Finalizable
+class C
+{
+	function finalizer()
+		writeln("BYEEEEE")
+}
+
 function main()
 {
-	writeln("o hai")
+	local c = C()
+	c = null
+	gc.collect()
+	writeln("HMMM!")
 }
 
 /*

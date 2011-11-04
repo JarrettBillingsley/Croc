@@ -53,28 +53,25 @@ static:
 			MemOutStreamObj.init(t);
 			MemInoutStreamObj.init(t);
 
-// 				pushGlobal(t, "InStream");
-// 				pushNull(t);
-// 				pushNativeObj(t, cast(Object)Cin.stream);
-// 				pushBool(t, false);
-// 				rawCall(t, -4, 1);
-			pushNull(t);
+				pushGlobal(t, "InStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cin.stream);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 			newGlobal(t, "stdin");
 
-// 				pushGlobal(t, "OutStream");
-// 				pushNull(t);
-// 				pushNativeObj(t, cast(Object)Cout.stream);
-// 				pushBool(t, false);
-// 				rawCall(t, -4, 1);
-			pushNull(t);
+				pushGlobal(t, "OutStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cout.stream);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 			newGlobal(t, "stdout");
 
-// 				pushGlobal(t, "OutStream");
-// 				pushNull(t);
-// 				pushNativeObj(t, cast(Object)Cerr.stream);
-// 				pushBool(t, false);
-// 				rawCall(t, -4, 1);
-			pushNull(t);
+				pushGlobal(t, "OutStream");
+				pushNull(t);
+				pushNativeObj(t, cast(Object)Cerr.stream);
+				pushBool(t, false);
+				rawCall(t, -4, 1);
 			newGlobal(t, "stderr");
 
 			return 0;

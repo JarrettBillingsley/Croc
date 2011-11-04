@@ -68,13 +68,14 @@ enum GCCycleType
 {
 	Normal,
 	BeginCleanup,
+	ContinueCleanup,
 	FinishCleanup
 }
 
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
 {
 	debug(PHASES) static counter = 0;
-	debug(PHASES) Stdout.formatln("======================= BEGIN =============================== {}", ++counter).flush;
+	debug(PHASES) Stdout.formatln("======================= BEGIN =============================== {} {}", cast(uint)cycleType, ++counter).flush;
 	debug(PHASES) Stdout.formatln("Nursery: {} bytes allocated out of {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit);
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
@@ -115,16 +116,15 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 				newRoots.add(vm.alloc, obj);
 			});
 			break;
-
+			
 		case GCCycleType.BeginCleanup:
-			assert(vm.mainThread.gcflags & GCFlags.InRC);
-			newRoots.add(vm.alloc, cast(GCObject*)vm.mainThread);
-			visitRoots(vm, (GCObject* obj)
-			{
-				if((obj.gcflags & GCFlags.InRC) == 0)
-					nurseryToRC(vm, obj);
-			});
-			break;
+			namespace.clear(vm.alloc, vm.globals);
+			goto case GCCycleType.Normal;
+
+		case GCCycleType.ContinueCleanup:
+			namespace.clear(vm.alloc, vm.registry);
+			vm.refTab.clear(vm.alloc);
+			goto case GCCycleType.Normal;
 
 		case GCCycleType.FinishCleanup:
 			break;
@@ -192,7 +192,6 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		{
 			// Ref count hit 0. It's garbage.
 
-			// TODO: figure out if it's possible for a finalizable object's members to be collected before it is. I doubt it buuuut..
 			if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
 			{
 				obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
@@ -392,7 +391,7 @@ void collectCycles(CrocVM* vm)
 
 	// Scan
 	foreach(obj; *cycleRoots)
-		cycleScan(obj);
+		cycleScan(vm, obj);
 
 	// Collect
 	while(!cycleRoots.isEmpty())
@@ -432,7 +431,7 @@ void markGray(GCObject* obj)
 	}
 }
 
-void cycleScan(GCObject* obj)
+void cycleScan(CrocVM* vm, GCObject* obj)
 {
 	assert(obj.gcflags & GCFlags.InRC);
 
@@ -440,13 +439,18 @@ void cycleScan(GCObject* obj)
 	{
 		if(obj.refCount > 0)
 			cycleScanBlack(obj);
+		else if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
+		{
+			vm.toFinalize.add(vm.alloc, cast(CrocInstance*)obj);
+			cycleScanBlack(obj);
+		}
 		else
 		{
 			obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.White;
 
 			visitObj(obj, (GCObject* slot)
 			{
-				cycleScan(slot);
+				cycleScan(vm, slot);
 			});
 		}
 	}
@@ -629,7 +633,7 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 	callback(cast(GCObject*)vm.globals);
 	callback(cast(GCObject*)vm.mainThread);
 
-	// We visit all the threads, but the threads themselves (except the main thread) are not roots. allThreads is basically a table of weak refs
+	// We visit all the threads, but the threads themselves (except the main thread, visited above) are not roots. allThreads is basically a table of weak refs
 	foreach(thread, _; vm.allThreads)
 		visitThread(thread, callback, true);
 

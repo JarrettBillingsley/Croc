@@ -57,6 +57,8 @@ import croc.vm;
 
 package:
 
+const FinalizeLoopLimit = 1000;
+
 // Free all objects.
 void freeAll(CrocVM* vm)
 {
@@ -66,10 +68,23 @@ void freeAll(CrocVM* vm)
 
 	gcCycle(vm, GCCycleType.BeginCleanup);
 
-	runFinalizers(vm.mainThread);
-	assert(vm.toFinalize.isEmpty());
+	auto limit = 0;
+
+	do
+	{
+		limit++;
+
+		if(limit > FinalizeLoopLimit)
+			throw new Exception("Failed to clean up - you've got an awful lot of finalizable trash or something's broken.");
+
+		runFinalizers(vm.mainThread);
+		gcCycle(vm, GCCycleType.ContinueCleanup);
+	} while(!vm.toFinalize.isEmpty())
 
 	gcCycle(vm, GCCycleType.FinishCleanup);
+
+	if(!vm.toFinalize.isEmpty())
+		throw new Exception("Did you stick a finalizable object in a global metatable or something? I think you did. Stop doing that.");
 }
 
 void runFinalizers(CrocThread* t)
@@ -81,11 +96,11 @@ void runFinalizers(CrocThread* t)
 	disableGC(t.vm);
 
 	// FINALIZE. Go through the finalize buffer, setting reference count to 1, running the finalizer, and setting it to finalized. At this point, the
-	// 	object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
-	// 	a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
+	// object may have been resurrected but we can't really tell unless we make the write barrier more complicated. Or something. So we just queue
+	// a decrement for it and put it on the modified buffer. It'll get deallocated the next time around.
 	foreach(i; t.vm.toFinalize)
 	{
-		i.refCount = 1;
+		i.refCount++;
 
 		auto size = stackSize(t);
 
@@ -107,7 +122,7 @@ void runFinalizers(CrocThread* t)
 			throwException(t);
 		}
 
-		modBuffer.add(*alloc, cast(GCObject*)i);
+		i.gcflags |= GCFlags.Finalized;
 		decBuffer.add(*alloc, cast(GCObject*)i);
 	}
 
