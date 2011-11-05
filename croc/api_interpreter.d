@@ -343,6 +343,8 @@ uword gc(CrocThread* t)
 		return 0; // This is.. possible? TODO: figure out how.
 }
 
+// TODO: more GC interface stuff
+
 // ================================================================================================================================================
 // Pushing values onto the stack
 
