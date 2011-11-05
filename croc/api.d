@@ -84,7 +84,7 @@ void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 		
 		if(ret is null)
 			onOutOfMemoryError();
-			
+
 		return ret;
 	}
 }

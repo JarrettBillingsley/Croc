@@ -52,18 +52,6 @@ debug import tango.io.Stdout;
 
 package:
 
-/*
-Buffers which grow during the mutation phase:
-	modified buffer (RC space objects whose reference fields were modified during the mutation phase; filled by the write barrier)
-	decrement buffer (objects which have a queued decrement, can be here more than once I suppose)
-
-Buffers which are only changed/used during the collection phase:
-	old root buffer (objects that were roots _last_ collection cycle)
-	new root buffer (objects that are roots _this_ collection cycle)
-	possible cycle buffer (objects which may be part of cycles)
-	finalize buffer (finalizable objects which have died and need to be finalized)
-*/
-
 enum GCCycleType
 {
 	Normal,
@@ -80,14 +68,6 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
-	// Upon entry:
-	// 	modified buffer contains all objects that were logged between collections.
-	// 	decrement buffer can have stuff in it.
-	// 	old root buffer contains last collection's new roots.
-	// 	new root buffer is empty.
-	// 	possible cycle buffer is empty ONLY IF WE RAN A CYCLE COLLECTION LAST TIME HERPDERP
-	// 	finalize buffer is empty.
-
 	auto modBuffer = &vm.alloc.modBuffer;
 	auto decBuffer = &vm.alloc.decBuffer;
 	auto cycleRoots = &vm.cycleRoots;
@@ -98,7 +78,6 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	auto newRoots = &vm.roots[1 - vm.oldRootIdx];
 
 	assert(newRoots.isEmpty());
-// 	assert(cycleRoots.isEmpty());
 	assert(toFinalize.isEmpty());
 
 	// ROOT PHASE. Go through roots, including stacks, and for each object reference, if it's in the nursery, copy it out and leave a forwarding address.
@@ -254,13 +233,6 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 // 	if(cycleCollectionEnabled)
 	debug(PHASES) Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
-
-	// At this point:
-	// 	modified buffer is empty.
-	// 	decrement buffer is empty.
-	// 	old root buffer is what the new root buffer was after the root phase.
-	// 	new root buffer is empty.
-	// 	possible cycle buffer is empty if we did a cycle collection.
 	assert(modBuffer.isEmpty());
 	assert(decBuffer.isEmpty());
 	assert(vm.roots[1 - vm.oldRootIdx].isEmpty());
@@ -759,33 +731,34 @@ void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback)
 // Visit a thread.
 void visitThread(CrocThread* o, void delegate(GCObject*) callback, bool isRoots)
 {
-	foreach(ref ar; o.actRecs[0 .. o.arIndex])
-	{
-		mixin(CondCallback!("ar.func"));
-		mixin(CondCallback!("ar.proto"));
-	}
-
 	if(isRoots)
 	{
+		foreach(ref ar; o.actRecs[0 .. o.arIndex])
+		{
+			mixin(CondCallback!("ar.func"));
+			mixin(CondCallback!("ar.proto"));
+		}
+
 		foreach(i, ref val; o.stack[0 .. o.stackIndex])
 			mixin(ValueCallback!("val"));
+
+		// I guess this can't _hurt_..
+		o.stack[o.stackIndex .. $] = CrocValue.nullValue;
+
+		foreach(ref val; o.results[0 .. o.resultIndex])
+			mixin(ValueCallback!("val"));
+
+		for(auto puv = &o.upvalHead; *puv !is null; puv = &(*puv).nextuv)
+			callback(cast(GCObject*)*puv);
 	}
-
-	// I guess this can't _hurt_..
-
-	o.stack[o.stackIndex .. $] = CrocValue.nullValue;
-
-	foreach(ref val; o.results[0 .. o.resultIndex])
-		mixin(ValueCallback!("val"));
-
-	for(auto puv = &o.upvalHead; *puv !is null; puv = &(*puv).nextuv)
-		callback(cast(GCObject*)*puv);
-
-	mixin(CondCallback!("o.coroFunc"));
-	mixin(CondCallback!("o.hookFunc"));
-
-	version(CrocExtendedCoro)
-		mixin(CondCallback!("o.coroFiber"));
+	else
+	{
+		mixin(CondCallback!("o.coroFunc"));
+		mixin(CondCallback!("o.hookFunc"));
+	
+		version(CrocExtendedCoro)
+			mixin(CondCallback!("o.coroFiber"));
+	}
 }
 
 // Visit an upvalue.

@@ -155,7 +155,7 @@ void closeVMImpl(CrocVM* vm)
 				Stdout.formatln("Unfreed RC blocks:");
 
 				foreach(ptr, block; vm.alloc._rcBlocks)
-					Stdout.formatln("\taddress 0x{:X}, refcount {}, flags {:b9}, length {} bytes, type {}", ptr, (cast(GCObject*)ptr).refCount, (cast(GCObject*)ptr).gcflags, block.len, block.ti);
+					Stdout.formatln("\taddress {:x8}, refcount {}, flags {:b9}, length {} bytes, type {}", ptr, (cast(GCObject*)ptr).refCount, (cast(GCObject*)ptr).gcflags, block.len, block.ti);
 			}
 
 			if(vm.alloc._rawBlocks.length)
@@ -163,7 +163,7 @@ void closeVMImpl(CrocVM* vm)
 				Stdout.formatln("Unfreed raw blocks:");
 
 				foreach(ptr, block; vm.alloc._rawBlocks)
-					Stdout.formatln("\taddress 0x{:X}, length {} bytes, type {}", ptr, block.len, block.ti);
+					Stdout.formatln("\taddress {:x8}, length {} bytes, type {}", ptr, block.len, block.ti);
 			}
 		}
 
