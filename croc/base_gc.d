@@ -165,6 +165,8 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	{
 		auto obj = decBuffer.remove();
 
+		assert(obj.gcflags & GCFlags.InRC);
+
 		debug(INCDEC) Stdout.formatln("About to decrement {}, rc will be {}", obj, obj.refCount - 1).flush;
 
 		if(--obj.refCount == 0)
@@ -220,26 +222,41 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		}
 
 		assert((obj.gcflags & GCFlags.Finalizable) == 0);
-		assert((obj.gcflags & GCFlags.CycleLogged) == 0);
-		free(vm, obj);
+		
+		if(!(obj.gcflags & GCFlags.CycleLogged)) // let the cycle collector sweep up otherwise
+			free(vm, obj);
 	}
 
 	vm.alloc.clearNurserySpace();
 
-	// CYCLE DETECT. Mark, scan, and collect as described in Bacon and Rajan. When collecting, if something is finalizable, BITCH AND MOAN,
-	// 	cause finalizable objects in cycles mean having to solve the halting problem. That sounds like a buuuuug.
+	// CYCLE DETECT. Mark, scan, and collect as described in Bacon and Rajan.
+	bool cycleCollect = false;
 
-	// TODO: determine whether we have to do a cycle collection or not (cycleRoots size threshold and/or number of collections since last?)
-// 	if(cycleCollectionEnabled)
-	debug(PHASES) Stdout.formatln("CYCLES").flush;
+	if((cycleRoots.length * (GCObject*).sizeof) >= vm.alloc.cycleMetadataLimit || cycleType != GCCycleType.Normal)
+		cycleCollect = true;
+	else if(vm.alloc.cycleCollectCountdown == 0)
+	{
+		cycleCollect = true;
+		vm.alloc.cycleCollectCountdown = vm.alloc.nextCycleCollect;
+	}
+	else
+		vm.alloc.cycleCollectCountdown--;
+
+	if(cycleCollect)
+	{
+		debug(PHASES) Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
+	}
+
 	assert(modBuffer.isEmpty());
 	assert(decBuffer.isEmpty());
 	assert(vm.roots[1 - vm.oldRootIdx].isEmpty());
 
-// 	debug if(cycleCollectionEnabled)
+	debug if(cycleCollect)
+	{
 		assert(cycleRoots.isEmpty());
 		assert(vm.toFree.isEmpty());
+	}
 
 	debug(PHASES) Stdout.formatln("======================= END {} =================================", counter).flush;
 }

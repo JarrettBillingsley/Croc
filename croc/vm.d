@@ -27,14 +27,11 @@ subject to the following restrictions:
 module croc.vm;
 
 import Float = tango.text.convert.Float;
+import tango.text.convert.Format;
 import tango.text.convert.Layout;
 import tango.text.Util;
 
-debug
-{
-	import tango.text.convert.Format;
-	import tango.io.Stdout;
-}
+debug import tango.io.Stdout;
 
 import croc.api_interpreter;
 import croc.api_stack;

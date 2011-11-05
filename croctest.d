@@ -53,7 +53,7 @@ void main()
 		version(CrocDevilAddon) DevilLib.init(t);
 
 		Compiler.setDefaultFlags(t, Compiler.All/*  | Compiler.DocDecorators */);
-		runModule(t, "samples.simple");
+		runModule(t, "tests.codegen");
 	}
 	catch(CrocException e)
 	{

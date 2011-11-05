@@ -337,7 +337,10 @@ uword gc(CrocThread* t)
 	for(auto tab = t.vm.toBeNormalized; tab !is null; tab = tab.nextTab)
 		table.normalize(t.vm.alloc, tab);
 
-	return beforeSize - t.vm.alloc.totalBytes;
+	if(beforeSize > t.vm.alloc.totalBytes)
+		return beforeSize - t.vm.alloc.totalBytes;
+	else
+		return 0; // This is.. possible? TODO: figure out how.
 }
 
 // ================================================================================================================================================

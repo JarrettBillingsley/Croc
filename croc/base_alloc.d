@@ -137,6 +137,9 @@ package:
 	uword nurseryLimit = 256 * 1024;
 	uword metadataLimit = 16 * 1024;
 	uword nurserySizeCutoff = 256;
+	uword cycleCollectCountdown;
+	uword nextCycleCollect = 50;
+	uword cycleMetadataLimit = 8 * 1024;
 
 	bool couldUseGC()
 	{

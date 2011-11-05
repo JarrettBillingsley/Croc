@@ -36,6 +36,7 @@ static:
 
 	public void init(CrocThread* t)
 	{
+		// TODO: expand this interface
 		makeModule(t, "gc", function uword(CrocThread* t)
 		{
 			newFunction(t, 0, &collectGarbage, "collect");   newGlobal(t, "collect");
