@@ -31,6 +31,7 @@ import croc.api_stack;
 import croc.base_opcodes;
 import croc.interpreter;
 import croc.types;
+import croc.types_thread;
 import croc.utils;
 
 // ================================================================================================================================================
@@ -111,7 +112,7 @@ void setHookFunc(CrocThread* t, ubyte mask, uint hookDelay)
 	{
 		t.hookDelay = 0;
 		t.hookCounter = 0;
-		t.hookFunc = null;
+		thread.setHookFunc(t.vm.alloc, t, null);
 		t.hooks = 0;
 	}
 	else
@@ -129,7 +130,7 @@ void setHookFunc(CrocThread* t, ubyte mask, uint hookDelay)
 
 		t.hookDelay = hookDelay;
 		t.hookCounter = hookDelay;
-		t.hookFunc = f;
+		thread.setHookFunc(t.vm.alloc, t, f);
 		t.hooks = mask;
 	}
 

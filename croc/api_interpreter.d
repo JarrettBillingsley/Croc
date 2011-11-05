@@ -990,7 +990,7 @@ word newThread(CrocThread* t, word func)
 	maybeGC(t);
 
 	auto nt = thread.create(t.vm, f);
-	nt.hookFunc = t.hookFunc;
+	thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);
 	nt.hooks = t.hooks;
 	nt.hookDelay = t.hookDelay;
 	nt.hookCounter = t.hookCounter;
@@ -2790,6 +2790,9 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 		pushTypeString(t, slot);
 		throwStdException(t, "TypeException", __FUNCTION__ ~ " - Object at 'slot' must be a 'thread', not a '{}'", getString(t, -1));
 	}
+	
+	if(t.vm !is other.vm)
+		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to reset a coroutine that belongs to a different VM");
 
 	if(state(other) != CrocThread.State.Dead)
 		throwStdException(t, "ValueException", __FUNCTION__ ~ " - Attempting to reset a {} coroutine (must be dead)", stateString(other));
@@ -2812,7 +2815,7 @@ void resetThread(CrocThread* t, word slot, bool newFunction = false)
 				throwStdException(t, "ValueException", __FUNCTION__ ~ " - Native functions may not be used as the body of a coroutine");
 		}
 
-		other.coroFunc = f;
+		thread.setCoroFunc(t.vm.alloc, other, f);
 		pop(t);
 	}
 

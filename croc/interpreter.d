@@ -2650,7 +2650,7 @@ uword resume(CrocThread* t, uword numParams)
 			if(t.state == CrocThread.State.Initial)
 			{
 				if(t.coroFiber is null)
-					t.coroFiber = nativeobj.create(t.vm, new ThreadFiber(t, numParams));
+					thread.setCoroFiber(t.vm, t, nativeobj.create(t.vm, new ThreadFiber(t, numParams)));
 				else
 				{
 					auto f = cast(ThreadFiber)cast(void*)t.coroFiber.obj;
@@ -3729,7 +3729,7 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 
 					auto nt = thread.create(t.vm, RS.mFunction);
-					nt.hookFunc = t.hookFunc;
+					thread.setHookFunc(t.vm.alloc, nt, t.hookFunc);
 					nt.hooks = t.hooks;
 					nt.hookDelay = t.hookDelay;
 					nt.hookCounter = t.hookCounter;

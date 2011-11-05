@@ -94,6 +94,36 @@ static:
 		*vm.allThreads.insert(vm.alloc, t) = true;
 		return t;
 	}
+	
+	package void setHookFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
+	{
+		if(t.hookFunc !is f)
+		{
+			mixin(writeBarrier!("alloc", "t"));
+			t.hookFunc = f;
+		}
+	}
+	
+	package void setCoroFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
+	{
+		if(t.coroFunc !is f)
+		{
+			mixin(writeBarrier!("alloc", "t"));
+			t.coroFunc = f;
+		}
+	}
+	
+	version(CrocExtendedCoro)
+	{
+		package void setCoroFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
+		{
+			if(t.coroFiber !is f)
+			{
+				mixin(writeBarrier!("alloc", "t"));
+				t.coroFiber = f;
+			}
+		}
+	}
 
 	// Free a thread object.
 	package void free(CrocThread* t)
