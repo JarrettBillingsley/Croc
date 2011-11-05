@@ -92,7 +92,7 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 
 	disableGC(vm);
 
-	// TODO: increase the nursery size
+	// TODO: make this a user-configurable value? or is an interface in the gclib fine?
 	vm.alloc.resizeNurserySpace(256 * (1 << 10));
 
 	vm.metaTabs = vm.alloc.allocArray!(CrocNamespace*)(CrocValue.Type.max + 1);
@@ -155,7 +155,7 @@ void closeVMImpl(CrocVM* vm)
 				Stdout.formatln("Unfreed RC blocks:");
 
 				foreach(ptr, block; vm.alloc._rcBlocks)
-					Stdout.formatln("\taddress 0x{:X}, refcount {}, length {} bytes, type {}", ptr, (cast(GCObject*)ptr).refCount, block.len, block.ti);
+					Stdout.formatln("\taddress 0x{:X}, refcount {}, flags {:b9}, length {} bytes, type {}", ptr, (cast(GCObject*)ptr).refCount, (cast(GCObject*)ptr).gcflags, block.len, block.ti);
 			}
 
 			if(vm.alloc._rawBlocks.length)

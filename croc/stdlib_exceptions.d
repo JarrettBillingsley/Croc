@@ -146,6 +146,10 @@ private const char[] srcName = "exceptions.croc";
 private const char[] srcCode =
 `module exceptions
 
+local nameOf = nameOf // fine -- from baselib
+local toString = toString // also from baselib
+// local StringBuffer = string.StringBuffer
+
 class Location
 {
 	Unknown = 0
@@ -177,6 +181,10 @@ class Location
 		}
 	}
 }
+
+// keep these in locals so we can still access them when the VM is being torn down and the globals disappear
+local Location = Location
+local Throwable = Throwable
 
 Throwable.cause = null
 Throwable.msg = ""
@@ -215,14 +223,15 @@ Throwable.tracebackString = function tracebackString()
 	if(#:traceback == 0)
 		return ""
 
-	local s = string.StringBuffer()
+	// TODO: StringBuffer this.. but somehow, since StringBuffer can disappear from the globals when the VM is being torn down
+	local s = ""
 
 	s ~= "Traceback: " ~ :traceback[0]
 
 	for(i: 1 .. #:traceback)
 		s ~= "\n       at: " ~ :traceback[i]
 
-	return s.toString()
+	return s
 }` ~ makeExceptionClasses() ~
 `_G.Exception = Exception
 _G.Error = Error`;

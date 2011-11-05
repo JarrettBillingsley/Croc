@@ -62,7 +62,6 @@ const FinalizeLoopLimit = 1000;
 // Free all objects.
 void freeAll(CrocVM* vm)
 {
-	// TODO: this.
 	vm.inGCCycle = true;
 	scope(exit) vm.inGCCycle = false;
 
@@ -3691,8 +3690,6 @@ void execute(CrocThread* t, uword depth = 1)
 					}
 
 					t.stack[stackBase + rd] = n;
-// 					// TODO: needed? harmless I guess
-// 					mixin(writeBarrier!("t.vm.alloc", "n"));
 					maybeGC(t);
 					break;
 

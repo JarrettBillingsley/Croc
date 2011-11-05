@@ -297,21 +297,13 @@ Returns:
 */
 uword maybeGC(CrocThread* t)
 {
-	uword ret = 0;
-
 	if(t.vm.alloc.gcDisabled > 0)
-		return ret;
+		return 0;
 
-	// TODO: come up with a new trigger for the GC.
-// 	if(t.vm.alloc.totalBytes >= t.vm.alloc.gcLimit)
-// 	{
-		ret = gc(t);
-
-// 		if(t.vm.alloc.totalBytes > (t.vm.alloc.gcLimit >> 1))
-// 			t.vm.alloc.gcLimit <<= 1;
-// 	}
-
-	return ret;
+	if(t.vm.alloc.couldUseGC())
+		return gc(t);
+	else
+		return 0;
 }
 
 /**

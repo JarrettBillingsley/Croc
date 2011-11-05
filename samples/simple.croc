@@ -5,16 +5,18 @@ module samples.simple
 @Finalizable
 class C
 {
+	writeln = writeln
+
 	function finalizer()
-		writeln("BYEEEEE")
+		:writeln("BYEEEEE")
 }
 
 function main()
 {
 	local c = C()
-	c = null
-	gc.collect()
-	writeln("HMMM!")
+// 	c = null
+// 	gc.collect()
+// 	writeln("HMMM!")
 }
 
 /*

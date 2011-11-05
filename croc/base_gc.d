@@ -75,7 +75,7 @@ enum GCCycleType
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
 {
 	debug(PHASES) static counter = 0;
-	debug(PHASES) Stdout.formatln("======================= BEGIN =============================== {} {}", cast(uint)cycleType, ++counter).flush;
+	debug(PHASES) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
 	debug(PHASES) Stdout.formatln("Nursery: {} bytes allocated out of {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit);
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
@@ -116,7 +116,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 				newRoots.add(vm.alloc, obj);
 			});
 			break;
-			
+
 		case GCCycleType.BeginCleanup:
 			namespace.clear(vm.alloc, vm.globals);
 			goto case GCCycleType.Normal;
@@ -247,8 +247,6 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 	vm.alloc.clearNurserySpace();
 
-	// TODO: possibly grow nursery at this point
-
 	// CYCLE DETECT. Mark, scan, and collect as described in Bacon and Rajan. When collecting, if something is finalizable, BITCH AND MOAN,
 	// 	cause finalizable objects in cycles mean having to solve the halting problem. That sounds like a buuuuug.
 
@@ -271,7 +269,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		assert(cycleRoots.isEmpty());
 		assert(vm.toFree.isEmpty());
 
-	debug(PHASES) Stdout.formatln("======================= END =================================").flush;
+	debug(PHASES) Stdout.formatln("======================= END {} =================================", counter).flush;
 }
 
 // WRITE BARRIER: At mutation time, any time we update a slot in an unlogged object (only objects in RC space can be unlogged; we ignore nursery

@@ -42,7 +42,7 @@ public:
 The type of the memory allocation function that the Croc library uses to allocate, reallocate, and free memory.
 You pass a memory allocation function when you create a VM, and all allocations by the VM go through that function.
 
-This type is defined as a void* function(void* ctx, void* p, size_t oldSize, size_t newSize).
+This type is defined as a void* function(void* ctx, void* p, uword oldSize, uword newSize).
 
 The memory function works as follows:
 
@@ -68,7 +68,7 @@ Returns:
 	If a deallocation was requested, should return null. Otherwise, should return a $(B non-null) pointer. If memory cannot
 	be allocated, the memory allocation function should throw an exception, not return null.
 */
-alias void* function(void* ctx, void* p, size_t oldSize, size_t newSize) MemFunc;
+alias void* function(void* ctx, void* p, uword oldSize, uword newSize) MemFunc;
 
 // ================================================================================================================================================
 // package
@@ -127,15 +127,21 @@ package:
 
 	// 0 for enabled, positive for disabled
 	uword gcDisabled;
-	size_t totalBytes = 0;
+	uword totalBytes = 0;
 
 	Deque!(GCObject*) modBuffer;
 	Deque!(GCObject*) decBuffer;
 
 	Deque!(GCObject*) nursery;
-	size_t nurseryBytes;
-	size_t nurseryLimit = 256 * 1024;
-	size_t nurserySizeCutoff = 256;
+	uword nurseryBytes;
+	uword nurseryLimit = 256 * 1024;
+	uword metadataLimit = 16 * 1024;
+	uword nurserySizeCutoff = 256;
+
+	bool couldUseGC()
+	{
+		return nurseryBytes >= nurseryLimit || (modBuffer.length + decBuffer.length) * (GCObject*).sizeof >= metadataLimit;
+	}
 
 	debug(CROC_LEAK_DETECTOR)
 	{
@@ -145,7 +151,7 @@ package:
 
 		struct MemBlock
 		{
-			size_t len;
+			uword len;
 			TypeInfo ti;
 		}
 
@@ -260,7 +266,7 @@ package:
 		realloc(o, sz, 0);
 	}
 
-	package T[] allocArray(T)(size_t size)
+	package T[] allocArray(T)(uword size)
 	{
 		if(size == 0)
 			return null;
@@ -281,7 +287,7 @@ package:
 		return ret;
 	}
 
-	package void resizeArray(T)(ref T[] arr, size_t newLen)
+	package void resizeArray(T)(ref T[] arr, uword newLen)
 	{
 		debug(CROC_LEAK_DETECTOR)
 		{
@@ -382,7 +388,7 @@ package:
 		}
 	}
 
-	private void* realloc(void* p, size_t oldSize, size_t newSize)
+	private void* realloc(void* p, uword oldSize, uword newSize)
 	{
 		auto ret = memFunc(ctx, p, oldSize, newSize);
 		assert(newSize == 0 || ret !is null, "allocation function should never return null");
