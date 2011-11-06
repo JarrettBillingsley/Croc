@@ -834,15 +834,20 @@ public Type superGet(Type)(CrocThread* t, word idx)
 		if(isNull(t, idx))
 			return null;
 
-		getWrappedClass(t, typeid(T));
+// 		getWrappedClass(t, typeid(T));
 
-		if(!as(t, idx, -1))
+// 		if(!as(t, idx, -1))
+		if(!isInstance(t, idx) || numExtraVals(t, idx) == 0)
 			paramTypeError(t, idx, "instance of " ~ Type.stringof);
 
-		pop(t);
+// 		pop(t);
 
 		getExtraVal(t, idx, 0);
 		auto ret = cast(Type)cast(Object)cast(void*)getNativeObj(t, -1);
+
+		if(ret is null)
+			paramTypeError(t, idx, "instance of " ~ Type.stringof);
+
 		pop(t);
 
 		return ret;
@@ -2196,7 +2201,7 @@ template StructFieldsToProps(T, uint idx = 0)
 		alias StructFieldsToProps!(T, idx + 1) StructFieldsToProps;
 }
 
-private bool TypesMatch(T...)(CrocThread* t)
+public bool TypesMatch(T...)(CrocThread* t)
 {
 	foreach(i, type; T)
 	{
