@@ -201,9 +201,10 @@ scope class Semantic : IdentityVisitor
 			s.msg = new(c) StringExp(c, s.location, str);
 		}
 
-		auto cond = new(c) NotExp(c, s.cond.location, s.cond);
-		auto t = new(c) ThrowStmt(c, s.msg.location, s.msg);
-		return visit(new(c) IfStmt(c, s.location, s.endLocation, null, cond, t, null));
+		return s;
+// 		auto cond = new(c) NotExp(c, s.cond.location, s.cond);
+// 		auto t = new(c) ThrowStmt(c, s.msg.location, s.msg);
+// 		return visit(new(c) IfStmt(c, s.location, s.endLocation, null, cond, t, null));
 	}
 
 	public override ImportStmt visit(ImportStmt s)

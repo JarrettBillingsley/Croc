@@ -226,10 +226,10 @@ Throwable.tracebackString = function tracebackString()
 	// TODO: StringBuffer this.. but somehow, since StringBuffer can disappear from the globals when the VM is being torn down
 	local s = ""
 
-	s ~= "Traceback: " ~ :traceback[0]
+	s ~= "Traceback: " ~ :traceback[0].toString()
 
 	for(i: 1 .. #:traceback)
-		s ~= "\n       at: " ~ :traceback[i]
+		s ~= "\n       at: " ~ :traceback[i].toString()
 
 	return s
 }` ~ makeExceptionClasses() ~

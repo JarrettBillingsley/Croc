@@ -124,6 +124,7 @@ enum Op
 	CheckObjParam,
 	ObjParamFail,
 	CustomParamFail,
+	AssertFail,
 
 	Length,
 	LengthAssign,
@@ -229,6 +230,7 @@ const char[][] OpNames =
 	Op.CheckObjParam: "CheckObjParam",
 	Op.ObjParamFail: "ObjParamFail",
 	Op.CustomParamFail: "CustomParamFail",
+	Op.AssertFail: "AssertFail",
 	Op.Length: "Length",
 	Op.LengthAssign: "LengthAssign",
 	Op.Append: "Append",

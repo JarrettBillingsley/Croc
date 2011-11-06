@@ -936,6 +936,16 @@ package:
 
 		pop();
 	}
+		
+	// [src] => []
+	void assertFail(ref CompileLoc loc)
+	{
+		auto msg = getExp(-1);
+		debug(EXPSTACKCHECK) assert(msg.isSource());
+
+		codeRD(loc, Op.AssertFail, msg);
+		pop();
+	}
 
 	// [src] => []
 	uint checkObjParam(ref CompileLoc loc, uint paramIdx)
@@ -1033,7 +1043,6 @@ package:
 	{
 		codeRD(loc, Op.ObjParamFail, paramIdx);
 	}
-
 
 	void paramCheck(ref CompileLoc loc)
 	{
@@ -2464,6 +2473,7 @@ private:
 			case Op.NewTable:     Stdout("newtab"); goto _2;
 			case Op.Close:        Stdout("close"); goto _2;
 			case Op.ObjParamFail: Stdout("objparamfail"); goto _2;
+			case Op.AssertFail:   Stdout("assertfail"); goto _2;
 			_2: rd(i); break;
 
 			// (rdimm)

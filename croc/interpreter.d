@@ -2552,7 +2552,7 @@ word typeString(CrocThread* t, CrocValue* v)
 			return pushString(t, CrocValue.typeStrings[v.type]);
 
 		case CrocValue.Type.Class:
-			// LEAVE ME UP HERE PLZ, don't inline, thx. (WHY, ME?!? WHY CAN'T I INLINE THIS FFFFF)
+			// LEAVE ME UP HERE PLZ, don't inline, thx. (WHY, ME?!? WHY CAN'T I INLINE THIS FFFFF) (maybe cause v could point to the stack and we don't know what order DMD does shit in)
 			auto n = v.mClass.name.toString();
 			return pushFormat(t, "{} {}", CrocValue.typeStrings[CrocValue.Type.Class], n);
 
@@ -3577,6 +3577,18 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", rd, getString(t, -1), RS.mString.toString());
 					break;
+					
+				case Op.AssertFail:
+					auto msg = t.stack[stackBase + rd];
+
+					if(msg.type != CrocValue.Type.String)
+					{
+						typeString(t, &msg);
+						throwStdException(t, "AssertError", "Assertion failed, but the message is a '{}', not a 'string'", getString(t, -1));
+					}
+
+					throwStdException(t, "AssertError", "{}", msg.mString.toString());
+					assert(false);
 
 				// Array and List Operations
 				case Op.Length: mixin(GetRS); lenImpl(t, stackBase + rd, RS); break;

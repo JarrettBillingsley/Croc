@@ -107,7 +107,7 @@ scope class Codegen : Visitor
 			fs.popScope(m.endLocation);
 			fs.defaultReturn(m.endLocation);
 
-			debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+			debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		}
 		finally
 		{
@@ -296,7 +296,7 @@ scope class Codegen : Visitor
 			}
 		}
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -334,7 +334,7 @@ scope class Codegen : Visitor
 		fs.pushScope(scop);
 		visit(s.statement);
 		fs.popScope(s.endLocation);
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -342,7 +342,7 @@ scope class Codegen : Visitor
 	{
 		visit(s.expr);
 		fs.popToNothing();
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -514,8 +514,22 @@ scope class Codegen : Visitor
 	{
 		foreach(st; s.statements)
 			visit(st);
-			
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
+		return s;
+	}
+
+	public override AssertStmt visit(AssertStmt s)
+	{
+		assert(c.asserts()); // can't have made it here unless asserts are enabled
+		
+		InstRef i = codeCondition(s.cond);
+		fs.patchFalseToHere(i);
+		visit(s.msg);
+		fs.assertFail(s.location);
+		fs.patchTrueToHere(i);
+
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -526,7 +540,7 @@ scope class Codegen : Visitor
 		else
 			visitIf(s.location, s.endLocation, s.endLocation, s.condVar, s.condition, { visit(s.ifBody); }, null);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -636,7 +650,7 @@ scope class Codegen : Visitor
 			fs.patchFalseToHere(cond);
 		}
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -676,7 +690,7 @@ scope class Codegen : Visitor
 			fs.patchFalseToHere(cond);
 		}
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -727,7 +741,7 @@ scope class Codegen : Visitor
 		if(s.condition)
 			fs.patchFalseToHere(cond);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -735,7 +749,7 @@ scope class Codegen : Visitor
 	{
 		visitForNum(s.location, s.endLocation, s.name, s.lo, s.hi, s.step, s.index, { visit(s.code); });
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -761,7 +775,7 @@ scope class Codegen : Visitor
 	{
 		visitForeach(s.location, s.endLocation, s.name, s.indices, s.container, { visit(s.code); });
 		
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -848,7 +862,7 @@ scope class Codegen : Visitor
 			fs.patchBreaksToHere();
 		fs.popScope(s.endLocation);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -868,7 +882,7 @@ scope class Codegen : Visitor
 		}
 
 		visit(s.code);
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -876,21 +890,21 @@ scope class Codegen : Visitor
 	{
 		fs.addDefault(s.location);
 		visit(s.code);
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
 	public override ContinueStmt visit(ContinueStmt s)
 	{
 		fs.codeContinue(s.location, s.name);
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
 	public override BreakStmt visit(BreakStmt s)
 	{
 		fs.codeBreak(s.location, s.name);
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -914,7 +928,7 @@ scope class Codegen : Visitor
 			fs.codeRet(s.endLocation);
 		}
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -935,7 +949,7 @@ scope class Codegen : Visitor
 
 		fs.patchJumpToHere(jumpOverCatch);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -953,7 +967,7 @@ scope class Codegen : Visitor
 			fs.codeEndFinal(s.finallyBody.endLocation);
 		fs.popScope(s.finallyBody.endLocation);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -963,7 +977,7 @@ scope class Codegen : Visitor
 		fs.toSource(s.exp.endLocation);
 		fs.codeThrow(s.endLocation, s.rethrowing);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -979,7 +993,7 @@ scope class Codegen : Visitor
 		codeGenAssignRHS(s.rhs);
 		fs.assign(s.endLocation, s.lhs.length, s.rhs.length);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -998,7 +1012,7 @@ scope class Codegen : Visitor
 		fs.reflexOp(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -1028,7 +1042,7 @@ scope class Codegen : Visitor
 
 		fs.patchJumpToHere(i);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -1049,7 +1063,7 @@ scope class Codegen : Visitor
 		fs.concatEq(s.endLocation, s.operands.length);
 		fs.assign(s.endLocation, 1, 1);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -1065,7 +1079,7 @@ scope class Codegen : Visitor
 		fs.incDec(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
@@ -1081,7 +1095,7 @@ scope class Codegen : Visitor
 		fs.incDec(s.endLocation, s.type);
 		fs.assign(s.endLocation, 1, 1);
 
-		debug(EXPSTACKCHECK) debug fs.checkExpStackEmpty();
+		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 

@@ -497,10 +497,10 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 // ================================================================================================================================================
 // Visiting
 
-import tango.io.stream.TextFile;
-import croc.base_hash;
+debug import tango.io.stream.TextFile;
+debug import croc.base_hash;
 
-void dumpObjGraph(CrocVM* vm, char[] filename)
+debug void dumpObjGraph(CrocVM* vm, char[] filename)
 {
 	scope f = new TextFileOutput(filename);
 	Hash!(GCObject*, bool) visited;

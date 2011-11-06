@@ -2,32 +2,10 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
-// @Finalizable
-// class C
-// {
-// 	writeln = writeln
-// 
-// 	function finalizer()
-// 		:writeln("BYEEEEE")
-// }
-
 function main()
 {
-// 	local c = C()
-// 	c = null
-// 	gc.collect()
-// 	writeln("HMMM!")
-
-	local t = {}
-	local o = Object()
-	t[weakref(o)] = true
-	writeln(t)
-	dumpVal(t)
-	gc.collect()
-	dumpVal(t)
-	o = null
-	gc.collect()
-	dumpVal(t)
+	for(i: 0 .. 10)
+		assert(i < 5, "wtf mate")
 }
 
 /*
