@@ -47,8 +47,8 @@ import croc.types_funcdef;
 // debug = REGPUSHPOP;
 // debug = VARACTIVATE;
 // debug = SHOWME;
-debug = EXPSTACKCHECK;
 // debug = WRITECODE;
+debug = EXPSTACKCHECK;
 
 private Op AstTagToOpcode(AstTag tag)
 {
@@ -2185,7 +2185,7 @@ private:
 		if(dest.type == ExpType.Const)
 		{
 			codeRD(loc, Op.Move, checkRegOK(mFreeReg));
-			codeUImm(dest.index);
+			codeUImm(dest.index | Instruction.constBit);
 			return codeRD(loc, opcode, mFreeReg);
 		}
 		else
