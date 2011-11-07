@@ -1170,21 +1170,24 @@ void fieldaImpl(CrocThread* t, AbsStack container, CrocString* name, CrocValue* 
 
 		case CrocValue.Type.Instance:
 			auto i = t.stack[container].mInstance;
-
-			CrocValue owner;
-			auto field = instance.getField(i, name, owner);
-
-			if(field is null)
+			
+			// First try to update the field if it already exists
+			if(!instance.setFieldIfExists(t.vm.alloc, i, name, value))
 			{
-				if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
-					return;
-				else
-					instance.setField(t.vm.alloc, i, name, value);
-			}
-			else if(owner != CrocValue(i))
+				// Doesn't exist in the instance.. look it up
+				CrocValue owner;
+				auto field = instance.getField(i, name, owner);
+
+				if(field is null)
+				{
+					// Doesn't exist anywhere in the instance's inheritance hierarchy; first try opFieldAssign
+					if(!raw && tryMM!(3, false)(t, MM.FieldAssign, &t.stack[container], &CrocValue(name), value))
+						return;
+				}
+
+				// Fallback: create field in instance
 				instance.setField(t.vm.alloc, i, name, value);
-			else
-				instance.setField(t.vm.alloc, i, field, value);
+			}
 			return;
 
 		case CrocValue.Type.Namespace:
@@ -2377,24 +2380,14 @@ CrocValue* getGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env)
 
 void setGlobalImpl(CrocThread* t, CrocString* name, CrocNamespace* env, CrocValue* val)
 {
-	if(auto glob = namespace.get(env, name))
-	{
-		mixin(writeBarrier!("t.vm.alloc", "env"));
-		*glob = *val;
+	if(namespace.setIfExists(t.vm.alloc, env, name, val))
 		return;
-	}
 
 	auto ns = env;
 	for(; ns.parent !is null; ns = ns.parent){}
 
-	if(ns !is env)
-	{
-		if(auto glob = namespace.get(ns, name))
-		{
-			mixin(writeBarrier!("t.vm.alloc", "ns"));
-			*glob = *val;
-		}
-	}
+	if(ns !is env && namespace.setIfExists(t.vm.alloc, ns, name, val))
+		return;
 
 	throwStdException(t, "NameException", "Attempting to set a nonexistent global '{}'", name.toString());
 	assert(false);

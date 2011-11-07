@@ -600,9 +600,10 @@ struct CrocInstance
 struct CrocNamespace
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Namespace);
-	package Hash!(CrocString*, CrocValue) data;
+	package Hash!(CrocString*, CrocValue, true) data;
 	package CrocNamespace* parent;
 	package CrocString* name;
+	bool visitedOnce;
 }
 
 package alias uword AbsStack;

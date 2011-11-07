@@ -270,18 +270,31 @@ package:
 
 	static if(modifiedBit)
 	{
-		int modifiedSlots(int delegate(ref V) dg)
+		int modifiedSlots(int delegate(ref K, ref V) dg)
 		{
 			foreach(ref node; mNodes)
 			{
 				if(node.used && node.modified)
 				{
+					int result = void;
+
 					if(node.modified & KeyModified)
-						dg(node.key);
-					if(node.modified & ValModified)
-						dg(node.value);
+					{
+						if(node.modified & ValModified)
+							result = dg(node.key, node.value);
+						else
+							result = dg(node.key, V.init);
+					}
+					else if(node.modified & ValModified)
+					{
+						K k;
+						result = dg(k, node.value);
+					}
 
 					node.modified = 0;
+
+					if(result)
+						return result;
 				}
 			}
 

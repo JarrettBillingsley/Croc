@@ -95,14 +95,14 @@ static:
 		namespace.set(alloc, i.fields, name, value);
 	}
 
-	package void setField(ref Allocator alloc, CrocInstance* i, CrocValue* slot, CrocValue* value)
+	package bool setFieldIfExists(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
 	{
-		// the only way this overload could be called is if the slot already exists in the instance
-		assert(i.fields !is null);
+		if(i.fields is null)
+			return false;
 
-		namespace.set(alloc, i.fields, slot, value);
+		return namespace.setIfExists(alloc, i.fields, name, value);
 	}
-	
+
 	package void setExtraVal(ref Allocator alloc, CrocInstance* i, uword idx, CrocValue* value)
 	{
 		auto dest = &i.extraValues()[idx];

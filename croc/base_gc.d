@@ -42,7 +42,7 @@ import croc.types_thread;
 import croc.types_weakref;
 
 debug import tango.io.Stdout;
-debug = BEGINEND;
+// debug = BEGINEND;
 // debug = PHASES;
 // debug = INCDEC;
 // debug = FREES;
@@ -686,7 +686,7 @@ void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) 
 		case CrocValue.Type.Function:  return visitFunction(cast(CrocFunction*)o,   callback);
 		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback);
 		case CrocValue.Type.Instance:  return visitInstance(cast(CrocInstance*)o,   callback);
-		case CrocValue.Type.Namespace: return visitNamespace(cast(CrocNamespace*)o, callback);
+		case CrocValue.Type.Namespace: return visitNamespace(cast(CrocNamespace*)o, callback, isModifyPhase);
 		case CrocValue.Type.Thread:    return visitThread(cast(CrocThread*)o,       callback, false);
 		case CrocValue.Type.FuncDef:   return visitFuncDef(cast(CrocFuncDef*)o,     callback);
 		case CrocValue.Type.Upvalue:   return visitUpvalue(cast(CrocUpval*)o,       callback);
@@ -701,8 +701,11 @@ void visitTable(CrocTable* o, void delegate(GCObject*) callback, bool modifyPhas
 
 	if(modifyPhase)
 	{
-		foreach(ref value; &o.data.modifiedSlots)
-			mixin(ValueCallback!("value"));
+		foreach(ref key, ref val; &o.data.modifiedSlots)
+		{
+			mixin(ValueCallback!("key"));
+			mixin(ValueCallback!("val"));
+		}
 	}
 	else
 	{
@@ -776,18 +779,35 @@ void visitInstance(CrocInstance* o, void delegate(GCObject*) callback)
 }
 
 // Visit a namespace.
-void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback)
+void visitNamespace(CrocNamespace* o, void delegate(GCObject*) callback, bool isModifyPhase)
 {
-	foreach(ref key, ref val; o.data)
+	if(isModifyPhase)
 	{
-		callback(cast(GCObject*)key);
-		mixin(ValueCallback!("val"));
+		// These two slots are only set once, when the namespace is first created, and are never touched again, so we only have to visit them once
+		if(o.visitedOnce == false)
+		{
+			o.visitedOnce = true;
+			mixin(CondCallback!("o.parent"));
+			mixin(CondCallback!("o.name"));
+		}
+
+		foreach(ref key, ref val; &o.data.modifiedSlots)
+		{
+			mixin(CondCallback!("key"));
+			mixin(ValueCallback!("val"));
+		}
 	}
+	else
+	{
+		foreach(ref key, ref val; o.data)
+		{
+			callback(cast(GCObject*)key);
+			mixin(ValueCallback!("val"));
+		}
 
-	assert(o.mType is CrocValue.Type.Namespace);
-
-	mixin(CondCallback!("o.parent"));
-	mixin(CondCallback!("o.name"));
+		mixin(CondCallback!("o.parent"));
+		mixin(CondCallback!("o.name"));
+	}
 }
 
 // Visit a thread.

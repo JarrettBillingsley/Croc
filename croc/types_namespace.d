@@ -27,6 +27,7 @@ module croc.types_namespace;
 
 import croc.base_alloc;
 import croc.base_gc;
+import croc.base_hash;
 import croc.types;
 
 struct namespace
@@ -63,42 +64,58 @@ static:
 	// Sets a key-value pair.
 	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
-		if(auto slot = ns.data.lookup(key))
-		{
-			if(*slot != *value)
-			{
-				mixin(writeBarrier!("alloc", "ns"));
-				*slot = *value;
-			}
-		}
-		else
-		{
-			mixin(writeBarrier!("alloc", "ns"));
-			*ns.data.insert(alloc, key) = *value;
-		}
+		if(setIfExists(alloc, ns, key, value))
+			return;
+
+		mixin(containerWriteBarrier!("alloc", "ns"));
+		auto node = ns.data.insertNode(alloc, key);
+		node.value = *value;
+		node.modified |= KeyModified | (value.isObject() ? ValModified : 0);
 	}
 
-	package void set(ref Allocator alloc, CrocNamespace* ns, CrocValue* slot, CrocValue* value)
+	package bool setIfExists(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
-		if(*slot != value)
+		auto node = ns.data.lookupNode(key);
+
+		if(node is null)
+			return false;
+
+		if(node.value != *value)
 		{
-			mixin(writeBarrier!("alloc", "ns"));
-			*slot = *value;
+			mixin(removeValueRef!("alloc", "node"));
+			node.value = *value;
+
+			if(value.isObject())
+			{
+				mixin(containerWriteBarrier!("alloc", "ns"));
+				node.modified |= ValModified;
+			}
+			else
+				node.modified &= ~ValModified;
 		}
+
+		return true;
 	}
 
 	// Remove a key-value pair from the namespace.
 	package void remove(ref Allocator alloc, CrocNamespace* ns, CrocString* key)
 	{
-		mixin(writeBarrier!("alloc", "ns"));
-		ns.data.remove(key);
+		if(auto node = ns.data.lookupNode(key))
+		{
+			mixin(removeKeyRef!("alloc", "node"));
+			mixin(removeValueRef!("alloc", "node"));
+			ns.data.remove(key);
+		}
 	}
 
 	// Clears all items from the namespace.
 	package void clear(ref Allocator alloc, CrocNamespace* ns)
 	{
-		if(ns.data.length > 0)
-			mixin(writeBarrier!("alloc", "ns"));
+		foreach(ref node; &ns.data.allNodes)
+		{
+			mixin(removeKeyRef!("alloc", "node"));
+			mixin(removeValueRef!("alloc", "node"));
+		}
 
 		ns.data.clear(alloc);
 	}
@@ -118,4 +135,17 @@ static:
 	{
 		return ns.data.length();
 	}
+
+	package template removeKeyRef(char[] alloc, char[] slot)
+	{
+		const char[] removeKeyRef =
+		"if(!(" ~ slot  ~ ".modified & KeyModified)) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ slot  ~ ".key);";
+	}
+
+	package template removeValueRef(char[] alloc, char[] slot)
+	{
+		const char[] removeValueRef =
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
+	}
+
 }
