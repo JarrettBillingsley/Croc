@@ -66,5 +66,7 @@ croc\vm.d
 -Tcroc.lib
 -debug
 -g
+-debug=CROC_LEAK_DETECTOR
+-debug=CROC_STOMP_MEMORY
 -clean
 -allobj

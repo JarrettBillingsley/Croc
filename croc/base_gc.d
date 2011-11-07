@@ -62,9 +62,21 @@ enum GCCycleType
 
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
 {
-	debug(PHASES) static counter = 0;
-	debug(PHASES) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
-	debug(PHASES) Stdout.formatln("Nursery: {} bytes allocated out of {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit);
+	static counter = 0;
+	Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
+	Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
+	
+	if(vm.alloc.modBuffer.length < 4)
+	{
+		foreach(obj; vm.alloc.modBuffer)
+		{
+			Stdout.formatln("{} at {}", (cast(CrocBaseObject*)obj).mType, obj);
+			
+			if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.Table)
+				Stdout.formatln("length is {}", (cast(CrocTable*)obj).data.length);
+		}
+	}
+
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
 
@@ -222,7 +234,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		}
 
 		assert((obj.gcflags & GCFlags.Finalizable) == 0);
-		
+
 		if(!(obj.gcflags & GCFlags.CycleLogged)) // let the cycle collector sweep up otherwise
 			free(vm, obj);
 	}
@@ -244,7 +256,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 	if(cycleCollect)
 	{
-		debug(PHASES) Stdout.formatln("CYCLES").flush;
+		Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
 	}
 
