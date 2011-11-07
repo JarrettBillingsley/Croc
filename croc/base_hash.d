@@ -44,7 +44,7 @@ alias size_t uword;
 // Package
 // ================================================================================================================================================
 
-struct Hash(K, V)
+struct Hash(K, V, bool modifiedBit = false)
 {
 private:
 	template HashMethod(char[] expr)
@@ -61,13 +61,17 @@ private:
 
 	struct Node
 	{
-		static if(UseHash)
-			uint hash;
-
 		K key;
 		V value;
 		Node* next;
+		
+		static if(UseHash)
+			uint hash;
+
 		bool used;
+
+		static if(modifiedBit)
+			bool modified;
 	}
 
 	Node[] mNodes;
@@ -86,10 +90,15 @@ package:
 
 	V* insert(ref Allocator alloc, K key)
 	{
+		return &insertNode(alloc, key).value;
+	}
+	
+	Node* insertNode(ref Allocator alloc, K key)
+	{
 		uint hash = mixin(HashMethod!("key"));
 
-		if(auto val = lookup(key, hash))
-			return val;
+		if(auto node = lookupNode(key, hash))
+			return node;
 
 		auto colBucket = getColBucket();
 
@@ -135,7 +144,7 @@ package:
 		mSize++;
 
 // 		mainPosNode.value = V.init;
-		return &mainPosNode.value;
+		return mainPosNode;
 	}
 
 	bool remove(K key)
@@ -185,17 +194,28 @@ package:
 		if(mNodes.length == 0)
 			return null;
 
-		return lookup(key, mixin(HashMethod!("key")));
+		if(auto ret = lookupNode(key, mixin(HashMethod!("key"))))
+			return &ret.value;
+		else
+			return null;
 	}
 
 	V* lookup(K key, uint hash)
+	{
+		if(auto ret = lookupNode(key, hash))
+			return &ret.value;
+		else
+			return null;
+	}
+
+	Node* lookupNode(K key, uint hash)
 	{
 		if(mNodes.length == 0)
 			return null;
 
 		for(auto n = &mNodes[hash & mHashMask]; n !is null && n.used; n = n.next)
 			if(mixin(UseHash ? "n.hash == hash && n.key == key" : "n.key == key"))
-				return &n.value;
+				return n;
 
 		return null;
 	}
@@ -297,8 +317,16 @@ private:
 		mSize = 0;
 
 		foreach(ref node; oldNodes)
+		{
 			if(node.used)
-				*insert(alloc, node.key) = node.value;
+			{
+				auto newNode = insertNode(alloc, node.key);
+				newNode.value = node.value;
+				
+				static if(modifiedBit)
+					newNode.modified = node.modified;
+			}
+		}		
 
 		alloc.freeArray(oldNodes);
 	}
