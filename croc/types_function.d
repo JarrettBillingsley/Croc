@@ -50,8 +50,6 @@ static:
 		auto f = alloc.allocate!(CrocFunction)(ScriptClosureSize(def.numUpvals));
 		f.scriptUpvals()[] = null;
 
-		mixin(writeBarrier!("alloc", "f"));
-
 		f.isNative = false;
 		f.environment = env;
 		f.name = def.name;
@@ -86,7 +84,6 @@ static:
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
 		f.nativeUpvals()[] = CrocValue.nullValue;
 		
-		mixin(writeBarrier!("alloc", "f"));
 		f.isNative = true;
 		f.environment = env;
 		f.name = name;

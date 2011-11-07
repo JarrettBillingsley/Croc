@@ -472,9 +472,16 @@ struct CrocArray
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Array);
 	package uword length;
-	package CrocValue[] data;
+	
+	struct Slot
+	{
+		CrocValue value;
+		bool modified;
+	}
 
-	package CrocValue[] toArray()
+	package Slot[] data;
+
+	package Slot[] toArray()
 	{
 		return data[0 .. this.length];
 	}

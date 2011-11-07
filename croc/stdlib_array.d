@@ -223,12 +223,12 @@ static:
 		if(v2 < v1)
 		{
 			for(uword i = 0; val > v2; i++, val -= step)
-				data[i] = val;
+				data[i].value = val;
 		}
 		else
 		{
 			for(uword i = 0; val < v2; i++, val += step)
-				data[i] = val;
+				data[i].value = val;
 		}
 
 		return 1;
@@ -255,7 +255,7 @@ static:
 		auto numParams = stackSize(t) - 1;
 		checkParam(t, 0, CrocValue.Type.Array);
 
-		bool delegate(CrocValue, CrocValue) pred;
+		bool delegate(CrocArray.Slot, CrocArray.Slot) pred;
 
 		if(numParams > 0)
 		{
@@ -263,10 +263,10 @@ static:
 			{
 				if(getString(t, 1) == "reverse")
 				{
-					pred = (CrocValue v1, CrocValue v2)
+					pred = (CrocArray.Slot v1, CrocArray.Slot v2)
 					{
-						push(t, v1);
-						push(t, v2);
+						push(t, v1.value);
+						push(t, v2.value);
 						auto v = cmp(t, -2, -1);
 						pop(t, 2);
 						return v > 0;
@@ -280,12 +280,12 @@ static:
 				checkParam(t, 1, CrocValue.Type.Function);
 				dup(t);
 
-				pred = (CrocValue v1, CrocValue v2)
+				pred = (CrocArray.Slot v1, CrocArray.Slot v2)
 				{
 					auto reg = dup(t);
 					pushNull(t);
-					push(t, v1);
-					push(t, v2);
+					push(t, v1.value);
+					push(t, v2.value);
 					rawCall(t, reg, 1);
 
 					if(!isInt(t, -1))
@@ -302,10 +302,10 @@ static:
 		}
 		else
 		{
-			pred = (CrocValue v1, CrocValue v2)
+			pred = (CrocArray.Slot v1, CrocArray.Slot v2)
 			{
-				push(t, v1);
-				push(t, v2);
+				push(t, v1.value);
+				push(t, v2.value);
 				auto v = cmp(t, -2, -1);
 				pop(t, 2);
 				return v < 0;
@@ -426,7 +426,7 @@ foreach(i, v; a, \"reverse\")
 		auto a = getArray(t, 0);
 
 		foreach(ref val; a.toArray())
-			push(t, val);
+			push(t, val.value);
 
 		return a.length;
 	}
@@ -475,7 +475,7 @@ foreach(i, v; a, \"reverse\")
 				insertAndPop(t, -2);
 				buf.addTop();
 			}
-
+			
 			if(i < length - 1)
 				buf.addString(", ");
 		}
@@ -506,7 +506,7 @@ foreach(i, v; a, \"reverse\")
 		{
 			auto reg = dup(t, 1);
 			dup(t, 0);
-			push(t, v);
+			push(t, v.value);
 			rawCall(t, reg, 1);
 			idxai(t, 0, i);
 		}
@@ -531,7 +531,7 @@ foreach(i, v; a, \"reverse\")
 		{
 			auto reg = dup(t, 1);
 			dup(t, 0);
-			push(t, v);
+			push(t, v.value);
 			rawCall(t, reg, 1);
 			idxai(t, newArr, i);
 		}
@@ -670,7 +670,7 @@ foreach(i, v; a, \"reverse\")
 			dup(t, 1);
 			dup(t, 0);
 			pushInt(t, i);
-			push(t, v);
+			push(t, v.value);
 			rawCall(t, -4, 1);
 
 			if(isBool(t, -1) && getBool(t, -1) == false)
@@ -704,7 +704,7 @@ foreach(i, v; a, \"reverse\")
 			dup(t, 1);
 			dup(t, 0);
 			pushInt(t, i);
-			push(t, v);
+			push(t, v.value);
 			rawCall(t, -4, 1);
 
 			if(!isBool(t, -1))
@@ -722,7 +722,7 @@ foreach(i, v; a, \"reverse\")
 					lena(t, retArray);
 				}
 
-				push(t, v);
+				push(t, v.value);
 				idxai(t, retArray, retIdx);
 				retIdx++;
 			}
@@ -753,9 +753,9 @@ foreach(i, v; a, \"reverse\")
 
 		foreach(i, ref v; getArray(t, 0).toArray())
 		{
-			push(t, v);
+			push(t, v.value);
 
-			if(type(t, 1) == v.type && cmp(t, 1, -1) == 0)
+			if(type(t, 1) == v.value.type && cmp(t, 1, -1) == 0)
 			{
 				pushInt(t, i);
 				return 1;
@@ -783,7 +783,7 @@ foreach(i, v; a, \"reverse\")
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);
-			push(t, v);
+			push(t, v.value);
 			rawCall(t, reg, 1);
 
 			if(!isBool(t, -1))
@@ -883,8 +883,8 @@ foreach(i, v; a, \"reverse\")
 			throwStdException(t, "BoundsException", "Invalid array index: {}", index);
 
 		idxi(t, 0, index);
-		
-		mixin(writeBarrier!("t.vm.alloc", "getArray(t, 0)"));
+
+		mixin(array.removeRef!("t.vm.alloc", "data[cast(uword)index]"));
 
 		for(uword i = cast(uword)index; i < data.length - 1; i++)
 			data[i] = data[i + 1];
@@ -907,13 +907,8 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		auto a = getArray(t, 0);
 
-		mixin(writeBarrier!("t.vm.alloc", "a"));
 		array.resize(t.vm.alloc, a, numParams);
-
-		auto data = a.toArray();
-
-		for(uword i = 0; i < numParams; i++)
-			data[i] = *getValue(t, i + 1);
+		array.sliceAssign(t.vm.alloc, a, 0, numParams, t.stack[t.stackIndex - numParams .. t.stackIndex]);
 
 		dup(t, 0);
 		return 1;
@@ -927,7 +922,7 @@ foreach(i, v; a, \"reverse\")
 		if(data.length == 0)
 			throwStdException(t, "ValueException", "Array is empty");
 
-		auto extreme = data[0];
+		auto extreme = data[0].value;
 		uword extremeIdx = 0;
 
 		if(numParams > 0)
@@ -948,7 +943,7 @@ foreach(i, v; a, \"reverse\")
 
 				if(getBool(t, -1))
 				{
-					extreme = data[i];
+					extreme = data[i].value;
 					extremeIdx = i;
 				}
 
@@ -1067,7 +1062,7 @@ foreach(i, v; a, \"reverse\")
 			{
 				dup(t, 1);
 				pushNull(t);
-				push(t, v);
+				push(t, v.value);
 				rawCall(t, -3, 1);
 
 				if(!isTrue(t, -1))
@@ -1083,7 +1078,7 @@ foreach(i, v; a, \"reverse\")
 		{
 			foreach(ref v; getArray(t, 0).toArray())
 			{
-				if(v.isFalse())
+				if(v.value.isFalse())
 				{
 					pushBool(t, false);
 					return 1;
@@ -1121,7 +1116,7 @@ foreach(i, v; a, \"reverse\")
 			{
 				dup(t, 1);
 				pushNull(t);
-				push(t, v);
+				push(t, v.value);
 				rawCall(t, -3, 1);
 
 				if(isTrue(t, -1))
@@ -1137,7 +1132,7 @@ foreach(i, v; a, \"reverse\")
 		{
 			foreach(ref v; getArray(t, 0).toArray())
 			{
-				if(!v.isFalse())
+				if(!v.value.isFalse())
 				{
 					pushBool(t, true);
 					return 1;
@@ -1180,13 +1175,8 @@ foreach(i, v; a, \"reverse\")
 			return 0;
 
 		auto oldlen = a.length;
-		mixin(writeBarrier!("t.vm.alloc", "a"));
 		array.resize(t.vm.alloc, a, a.length + numParams);
-
-		auto data = a.toArray();
-
-		for(uword i = oldlen, j = 1; i < a.length; i++, j++)
-			data[i] = *getValue(t, j);
+		array.sliceAssign(t.vm.alloc, a, oldlen, oldlen + numParams, t.stack[t.stackIndex - numParams .. t.stackIndex]);
 
 		return 0;
 	}
@@ -1226,11 +1216,11 @@ foreach(i, v; a, \"reverse\")
 
 			foreach(ref val; getArray(t, a).toArray())
 			{
-				if(val.type == CrocValue.Type.Array)
-					flatten(push(t, CrocValue(val.mArray)));
+				if(val.value.type == CrocValue.Type.Array)
+					flatten(push(t, CrocValue(val.value.mArray)));
 				else
 				{
-					push(t, val);
+					push(t, val.value);
 					cateq(t, ret, 1);
 				}
 			}
@@ -1257,18 +1247,18 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		checkAnyParam(t, 1);
 
-		bool delegate(CrocValue, CrocValue) pred;
+		bool delegate(CrocArray.Slot, CrocArray.Slot) pred;
 
 		if(numParams > 1)
 		{
 			checkParam(t, 2, CrocValue.Type.Function);
 
-			pred = (CrocValue a, CrocValue b)
+			pred = (CrocArray.Slot a, CrocArray.Slot b)
 			{
 				auto reg = dup(t, 2);
 				pushNull(t);
-				push(t, a);
-				push(t, b);
+				push(t, a.value);
+				push(t, b.value);
 				rawCall(t, reg, 1);
 
 				if(!isBool(t, -1))
@@ -1284,17 +1274,18 @@ foreach(i, v; a, \"reverse\")
 		}
 		else
 		{
-			pred = (CrocValue a, CrocValue b)
+			pred = (CrocArray.Slot a, CrocArray.Slot b)
 			{
-				push(t, a);
-				push(t, b);
+				push(t, a.value);
+				push(t, b.value);
 				auto ret = cmp(t, -2, -1) == 0;
 				pop(t, 2);
 				return ret;
 			};
 		}
 
-		pushInt(t, .count(getArray(t, 0).toArray(), *getValue(t, 1), pred));
+		auto tmp = CrocArray.Slot(*getValue(t, 1), false);
+		pushInt(t, .count(getArray(t, 0).toArray(), tmp, pred));
 		return 1;
 	}
 
@@ -1309,11 +1300,11 @@ foreach(i, v; a, \"reverse\")
 		checkParam(t, 0, CrocValue.Type.Array);
 		checkParam(t, 1, CrocValue.Type.Function);
 
-		pushInt(t, .countIf(getArray(t, 0).toArray(), (CrocValue a)
+		pushInt(t, .countIf(getArray(t, 0).toArray(), (CrocArray.Slot a)
 		{
 			auto reg = dup(t, 1);
 			pushNull(t);
-			push(t, a);
+			push(t, a.value);
 			rawCall(t, reg, 1);
 
 			if(!isBool(t, -1))

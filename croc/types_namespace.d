@@ -42,7 +42,6 @@ static:
 		assert(name !is null);
 
 		auto ns = alloc.allocate!(CrocNamespace);
-		mixin(writeBarrier!("alloc", "ns"));
 		ns.parent = parent;
 		ns.name = name;
 		return ns;

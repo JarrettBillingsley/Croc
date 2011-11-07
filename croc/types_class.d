@@ -41,7 +41,6 @@ static:
 	package CrocClass* create(ref Allocator alloc, CrocString* name, CrocClass* parent)
 	{
 		auto c = alloc.allocate!(CrocClass)();
-		mixin(writeBarrier!("alloc", "c"));
 		c.name = name;
 		c.parent = parent;
 

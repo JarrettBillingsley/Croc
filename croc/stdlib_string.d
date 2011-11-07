@@ -101,24 +101,24 @@ static:
 		}
 
 		foreach(i, ref val; arr)
-			if(val.type != CrocValue.Type.String && val.type != CrocValue.Type.Char)
+			if(val.value.type != CrocValue.Type.String && val.value.type != CrocValue.Type.Char)
 				throwStdException(t, "TypeException", "Array element {} is not a string or char", i);
 
 		auto s = StrBuffer(t);
 
-		if(arr[0].type == CrocValue.Type.String)
-			s.addString(arr[0].mString.toString());
+		if(arr[0].value.type == CrocValue.Type.String)
+			s.addString(arr[0].value.mString.toString());
 		else
-			s.addChar(arr[0].mChar);
+			s.addChar(arr[0].value.mChar);
 
 		if(sep.length == 0)
 		{
 			foreach(ref val; arr[1 .. $])
 			{
-				if(val.type == CrocValue.Type.String)
-					s.addString(val.mString.toString());
+				if(val.value.type == CrocValue.Type.String)
+					s.addString(val.value.mString.toString());
 				else
-					s.addChar(val.mChar);
+					s.addChar(val.value.mChar);
 			}
 		}
 		else
@@ -127,10 +127,10 @@ static:
 			{
 				s.addString(sep);
 
-				if(val.type == CrocValue.Type.String)
-					s.addString(val.mString.toString());
+				if(val.value.type == CrocValue.Type.String)
+					s.addString(val.value.mString.toString());
 				else
-					s.addChar(val.mChar);
+					s.addChar(val.value.mChar);
 			}
 		}
 

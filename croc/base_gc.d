@@ -42,6 +42,7 @@ import croc.types_thread;
 import croc.types_weakref;
 
 debug import tango.io.Stdout;
+// debug = BEGINEND;
 // debug = PHASES;
 // debug = INCDEC;
 // debug = FREES;
@@ -62,20 +63,20 @@ enum GCCycleType
 
 void gcCycle(CrocVM* vm, GCCycleType cycleType)
 {
-	static counter = 0;
-	Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
-	Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
+	debug(BEGINEND) static counter = 0;
+	debug(BEGINEND) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
+	debug(BEGINEND) Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
 	
-	if(vm.alloc.modBuffer.length < 4)
-	{
-		foreach(obj; vm.alloc.modBuffer)
-		{
-			Stdout.formatln("{} at {}", (cast(CrocBaseObject*)obj).mType, obj);
-			
-			if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.Table)
-				Stdout.formatln("length is {}", (cast(CrocTable*)obj).data.length);
-		}
-	}
+// 	if(vm.alloc.modBuffer.length < 4)
+// 	{
+// 		foreach(obj; vm.alloc.modBuffer)
+// 		{
+// 			Stdout.formatln("{} at {}", (cast(CrocBaseObject*)obj).mType, obj);
+// 			
+// 			if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.Table)
+// 				Stdout.formatln("length is {}", (cast(CrocTable*)obj).data.length);
+// 		}
+// 	}
 
 	assert(vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
@@ -136,7 +137,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 		obj.gcflags |= GCFlags.Unlogged;
 
-		visitObj(obj, (GCObject* slot)
+		visitObj!(true)(obj, (GCObject* slot)
 		{
 			if((slot.gcflags & GCFlags.InRC) == 0)
 				nurseryToRC(vm, slot);
@@ -256,7 +257,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 	if(cycleCollect)
 	{
-		Stdout.formatln("CYCLES").flush;
+		debug(BEGINEND) Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
 	}
 
@@ -270,7 +271,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 		assert(vm.toFree.isEmpty());
 	}
 
-	debug(PHASES) Stdout.formatln("======================= END {} =================================", counter).flush;
+	debug(BEGINEND) Stdout.formatln("======================= END {} =================================", counter).flush;
 }
 
 // WRITE BARRIER: At mutation time, any time we update a slot in an unlogged object (only objects in RC space can be unlogged; we ignore nursery
@@ -284,8 +285,18 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 template writeBarrier(char[] alloc, char[] srcObj)
 {
 	const char[] writeBarrier =
+	"assert(" ~ srcObj ~ ".mType != CrocValue.Type.Array);\n"
 	"if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged)\n"
 	"	writeBarrierSlow(" ~ alloc ~ ", cast(GCObject*)" ~ srcObj ~ ");\n";
+}
+
+template arrayWriteBarrier(char[] alloc, char[] srcObj)
+{
+	const char[] arrayWriteBarrier =
+	"if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged) {\n"
+	"	" ~ alloc ~ ".modBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ srcObj ~ ");\n"
+	"	" ~ srcObj ~ ".gcflags &= ~GCFlags.Unlogged;\n"
+	"}";
 }
 
 void writeBarrierSlow(ref Allocator alloc, GCObject* srcObj)
@@ -662,7 +673,7 @@ void visitRoots(CrocVM* vm, void delegate(GCObject*) callback)
 }
 
 // Dynamically dispatch the appropriate visiting method at runtime from a GCObject*.
-void visitObj(GCObject* o, void delegate(GCObject*) callback)
+void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) callback)
 {
 	// Green objects have no references to other objects.
 	if((o.gcflags & GCFlags.ColorMask) == GCFlags.Green)
@@ -671,7 +682,7 @@ void visitObj(GCObject* o, void delegate(GCObject*) callback)
 	switch((cast(CrocBaseObject*)o).mType)
 	{
 		case CrocValue.Type.Table:     return visitTable(cast(CrocTable*)o,         callback);
-		case CrocValue.Type.Array:     return visitArray(cast(CrocArray*)o,         callback);
+		case CrocValue.Type.Array:     return visitArray(cast(CrocArray*)o,         callback, isModifyPhase);
 		case CrocValue.Type.Function:  return visitFunction(cast(CrocFunction*)o,   callback);
 		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback);
 		case CrocValue.Type.Instance:  return visitInstance(cast(CrocInstance*)o,   callback);
@@ -696,10 +707,24 @@ void visitTable(CrocTable* o, void delegate(GCObject*) callback)
 }
 
 // Visit an array.
-void visitArray(CrocArray* o, void delegate(GCObject*) callback)
+void visitArray(CrocArray* o, void delegate(GCObject*) callback, bool modifyPhase)
 {
-	foreach(ref val; o.toArray())
-		mixin(ValueCallback!("val"));
+	if(modifyPhase)
+	{
+		foreach(ref slot; o.toArray())
+		{
+			if(!slot.modified)
+				continue;
+
+			mixin(ValueCallback!("slot.value"));
+			slot.modified = false;
+		}
+	}
+	else
+	{
+		foreach(ref slot; o.toArray())
+			mixin(ValueCallback!("slot.value"));
+	}
 }
 
 // Visit a function.

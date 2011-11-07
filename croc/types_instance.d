@@ -50,7 +50,6 @@ static:
 		else
 			i = vm.alloc.allocate!(CrocInstance)(InstanceSize(numValues, extraBytes));
 
-		mixin(writeBarrier!("vm.alloc", "i"));
 		i.parent = parent;
 		i.numValues = numValues;
 		i.extraBytes = extraBytes;

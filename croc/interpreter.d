@@ -926,7 +926,7 @@ void idxImpl(CrocThread* t, AbsStack dest, CrocValue* container, CrocValue* key)
 			if(index < 0 || index >= arr.length)
 				throwStdException(t, "BoundsException", "Invalid array index {} (length is {})", key.mInt, arr.length);
 
-			t.stack[dest] = arr.toArray()[cast(uword)index];
+			t.stack[dest] = arr.toArray()[cast(uword)index].value;
 			return;
 
 		case CrocValue.Type.Memblock:
@@ -2077,8 +2077,6 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 	}
 
 	auto ret = array.create(t.vm.alloc, len);
-	mixin(writeBarrier!("t.vm.alloc", "ret"));
-	auto retArr = ret.toArray();
 
 	uword i = 0;
 
@@ -2087,13 +2085,12 @@ void arrayConcat(CrocThread* t, CrocValue[] vals, uword len)
 		if(v.type == CrocValue.Type.Array)
 		{
 			auto a = v.mArray;
-
-			retArr[i .. i + a.length] = a.toArray()[];
+			array.sliceAssign(t.vm.alloc, ret, i, i + a.length, a);
 			i += a.length;
 		}
 		else
 		{
-			retArr[i] = v;
+			array.idxa(t.vm.alloc, ret, i, v);
 			i++;
 		}
 	}
@@ -2236,21 +2233,18 @@ void arrayAppend(CrocThread* t, CrocArray* a, CrocValue[] vals)
 
 	uword i = a.length;
 	array.resize(t.vm.alloc, a, len);
-	mixin(writeBarrier!("t.vm.alloc", "a"));
-	
-	auto data = a.toArray();
 
 	foreach(ref v; vals)
 	{
 		if(v.type == CrocValue.Type.Array)
 		{
 			auto arr = v.mArray;
-			data[i .. i + arr.length] = arr.toArray()[];
+			array.sliceAssign(t.vm.alloc, a, i, i + arr.length, arr);
 			i += arr.length;
 		}
 		else
 		{
-			data[i] = v;
+			array.idxa(t.vm.alloc, a, i, v);
 			i++;
 		}
 	}

@@ -71,7 +71,7 @@ Returns:
 alias void* function(void* ctx, void* p, uword oldSize, uword newSize) MemFunc;
 
 // ================================================================================================================================================
-// package
+// Package
 // ================================================================================================================================================
 
 package:
@@ -135,16 +135,11 @@ package:
 	Deque!(GCObject*) nursery;
 	uword nurseryBytes;
 	uword nurseryLimit = 1024 * 1024;
-	uword metadataLimit = 1024 * 1024;
+	uword metadataLimit = 512 * 1024;
 	uword nurserySizeCutoff = 256;
 	uword cycleCollectCountdown;
 	uword nextCycleCollect = 50;
-	uword cycleMetadataLimit = 8 * 1024;
-
-	bool couldUseGC()
-	{
-		return nurseryBytes >= nurseryLimit || (modBuffer.length + decBuffer.length) * (GCObject*).sizeof >= metadataLimit;
-	}
+	uword cycleMetadataLimit = 128 * 1024;
 
 	debug(CROC_LEAK_DETECTOR)
 	{
@@ -160,6 +155,38 @@ package:
 
 		Hash!(void*, MemBlock) _nurseryBlocks, _rcBlocks, _rawBlocks;
 	}
+	
+	// ------------------------------------------------------------
+	// Interfacing stuff
+
+	bool couldUseGC()
+	{
+		return nurseryBytes >= nurseryLimit || (modBuffer.length + decBuffer.length) * (GCObject*).sizeof >= metadataLimit;
+	}
+
+	void resizeNurserySpace(uword newSize)
+	{
+		nurseryLimit = newSize;
+	}
+
+	void clearNurserySpace()
+	{
+		nursery.clear(*this);
+		nurseryBytes = 0;
+
+		debug(CROC_LEAK_DETECTOR)
+			_nurseryBlocks.clear(*this);
+	}
+
+	void cleanup()
+	{
+		clearNurserySpace();
+		modBuffer.clear(*this);
+		decBuffer.clear(*this);
+	}
+
+	// ------------------------------------------------------------
+	// GC objects
 
 	// ALLOCATION: most objects are allocated in the nursery. If they're too big, or finalizable, they're allocated directly in the RC space. When this
 	// happens, we push them onto the modified buffer and the decrement buffer, and initialize their reference count to 1. This way, when the collection
@@ -178,53 +205,6 @@ package:
 	{
 		auto ret = allocateRC!(T)(size);
 		ret.gcflags |= GCFlags.Finalizable;
-		return ret;
-	}
-
-	// Allocates a nursery object. Nursery objects don't participate in reference counting. Only when they survive a collection are they promoted to RC.
-	private T* allocateNursery(T)(uword size = T.sizeof)
-	{
-		auto ret = cast(T*)realloc(null, 0, size);
-		*ret = T.init;
-		ret.memSize = size;
-
-		static if(is(typeof(T.ACYCLIC)))
-			ret.gcflags |= GCFlags.Green;
-
-		nurseryBytes += size;
-
-		debug(CROC_LEAK_DETECTOR)
-			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
-
-		static if(T.stringof == "CrocString")
-			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
-
-		nursery.add(*this, cast(GCObject*)ret);
-
-		return ret;
-	}
-
-	private T* allocateRC(T)(uword size = T.sizeof)
-	{
-		auto ret = cast(T*)realloc(null, 0, size);
-		*ret = T.init;
-		ret.memSize = size;
-		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
-
-		static if(is(typeof(T.ACYCLIC)))
-			ret.gcflags |= GCFlags.Green;
-		else
-			modBuffer.add(*this, cast(GCObject*)ret);
-
-		ret.refCount = 1;
-		decBuffer.add(*this, cast(GCObject*)ret);
-
-		debug(CROC_LEAK_DETECTOR)
-			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
-
-		static if(T.stringof == "CrocString")
-			assert((ret.gcflags & GCFlags.ColorMask) == GCFlags.Green);
-
 		return ret;
 	}
 
@@ -269,12 +249,18 @@ package:
 		realloc(o, sz, 0);
 	}
 
-	package T[] allocArray(T)(uword size)
+	// ------------------------------------------------------------
+	// Arrays
+
+	T[] allocArray(T)(uword size)
 	{
 		if(size == 0)
 			return null;
 
 		auto ret = (cast(T*)realloc(null, 0, size * T.sizeof))[0 .. size];
+
+		static if(!is(T == void))
+			ret[] = T.init;
 
 		debug(CROC_LEAK_DETECTOR)
 		{
@@ -284,13 +270,10 @@ package:
 				*_rawBlocks.insert(*this, ret.ptr) = MemBlock(size * T.sizeof, typeid(T[]));
 		}
 
-		static if(!is(T == void))
-			ret[] = T.init;
-
 		return ret;
 	}
 
-	package void resizeArray(T)(ref T[] arr, uword newLen)
+	void resizeArray(T)(ref T[] arr, uword newLen)
 	{
 		debug(CROC_LEAK_DETECTOR)
 		{
@@ -341,14 +324,14 @@ package:
 		}
 	}
 
-	package T[] dupArray(T)(T[] a)
+	T[] dupArray(T)(T[] a)
 	{
 		if(a.length == 0)
 			return null;
 
 		auto ret = (cast(T*)realloc(null, 0, a.length * T.sizeof))[0 .. a.length];
 		ret[] = a[];
-	
+
 		debug(CROC_LEAK_DETECTOR)
 		{
 			static if(is(T == Hash!(void*, MemBlock).Node))
@@ -360,63 +343,86 @@ package:
 		return ret;
 	}
 
-	package void freeArray(T)(ref T[] a)
+	void freeArray(T)(ref T[] a)
 	{
-		if(a.length)
+		if(a.length == 0)
+			return;
+
+		debug(CROC_LEAK_DETECTOR)
 		{
-			debug(CROC_LEAK_DETECTOR)
-			{
-				static if(!is(T == Hash!(void*, MemBlock).Node))
-					if(_rawBlocks.lookup(a.ptr) is null)
-						throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
-			}
-			
-			debug(CROC_STOMP_MEMORY)
-			{
-				static if(!is(T == void))
-					a[] = T.init;
-			}
-
-			realloc(a.ptr, a.length * T.sizeof, 0);
-
-			debug(CROC_LEAK_DETECTOR)
-			{
-				static if(is(T == Hash!(void*, MemBlock).Node))
-					totalBytes += a.length * T.sizeof;
-				else
-					_rawBlocks.remove(a.ptr);
-			}
-
-			a = null;
+			static if(!is(T == Hash!(void*, MemBlock).Node))
+				if(_rawBlocks.lookup(a.ptr) is null)
+					throw new Exception("AWFUL: You're trying to free an array that wasn't allocated on the Croc RC Heap, or are performing a double free! It's of type " ~ typeid(T[]).toString());
 		}
+		
+		debug(CROC_STOMP_MEMORY)
+		{
+			static if(!is(T == void))
+				a[] = T.init;
+		}
+
+		realloc(a.ptr, a.length * T.sizeof, 0);
+
+		debug(CROC_LEAK_DETECTOR)
+		{
+			static if(is(T == Hash!(void*, MemBlock).Node))
+				totalBytes += a.length * T.sizeof;
+			else
+				_rawBlocks.remove(a.ptr);
+		}
+
+		a = null;
 	}
 
-	private void* realloc(void* p, uword oldSize, uword newSize)
+	// ================================================================================================================================================
+	// Private
+	// ================================================================================================================================================
+
+private:
+	T* allocateNursery(T)(uword size = T.sizeof)
+	{
+		auto ret = cast(T*)realloc(null, 0, size);
+		*ret = T.init;
+		ret.memSize = size;
+
+		static if(is(typeof(T.ACYCLIC)))
+			ret.gcflags |= GCFlags.Green;
+
+		nurseryBytes += size;
+		nursery.add(*this, cast(GCObject*)ret);
+
+		debug(CROC_LEAK_DETECTOR)
+			*_nurseryBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+
+		return ret;
+	}
+
+	T* allocateRC(T)(uword size = T.sizeof)
+	{
+		auto ret = cast(T*)realloc(null, 0, size);
+		*ret = T.init;
+		ret.memSize = size;
+		ret.gcflags = GCFlags.InRC; // RC space objects start off logged since we put them on the mod buffer (or they're green and don't need to be)
+
+		static if(is(typeof(T.ACYCLIC)))
+			ret.gcflags |= GCFlags.Green;
+		else
+			modBuffer.add(*this, cast(GCObject*)ret);
+
+		ret.refCount = 1;
+		decBuffer.add(*this, cast(GCObject*)ret);
+
+		debug(CROC_LEAK_DETECTOR)
+			*_rcBlocks.insert(*this, ret) = MemBlock(size, typeid(T));
+
+		return ret;
+	}
+
+	void* realloc(void* p, uword oldSize, uword newSize)
 	{
 		auto ret = memFunc(ctx, p, oldSize, newSize);
 		assert(newSize == 0 || ret !is null, "allocation function should never return null");
 		totalBytes += newSize - oldSize;
 		return ret;
-	}
-
-	void resizeNurserySpace(uword newSize)
-	{
-		nurseryLimit = newSize;
-	}
-
-	void clearNurserySpace()
-	{
-		nursery.clear(*this);
-		nurseryBytes = 0;
-
-		debug(CROC_LEAK_DETECTOR)
-			_nurseryBlocks.clear(*this);
-	}
-
-	void cleanup()
-	{
-		clearNurserySpace();
-		modBuffer.clear(*this);
-		decBuffer.clear(*this);
 	}
 }

@@ -50,31 +50,35 @@ public:
 
 void serializeGraph(CrocThread* t, word idx, word trans, OutputStream output)
 {
-	auto s = Serializer(t, output);
-	s.writeGraph(idx, trans);
+	assert(false);
+	/* auto s = Serializer(t, output);
+	s.writeGraph(idx, trans); */
 }
 
 word deserializeGraph(CrocThread* t, word trans, InputStream input)
 {
-	auto d = Deserializer(t, input);
-	return d.readGraph(trans);
+	assert(false);
+	/* auto d = Deserializer(t, input);
+	return d.readGraph(trans); */
 }
 
 void serializeModule(CrocThread* t, word idx, char[] name, OutputStream output)
 {
-	append(t, output, (&FileHeader.init)[0 .. 1]);
+	assert(false);
+	/* append(t, output, (&FileHeader.init)[0 .. 1]);
 	put!(uword)(t, output, name.length);
 	append(t, output, name);
 	auto s = Serializer(t, output);
 	idx = absIndex(t, idx);
 	newTable(t);
 	s.writeGraph(idx, -1);
-	pop(t);
+	pop(t); */
 }
 
 void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 {
-	FileHeader fh = void;
+	assert(false);
+	/* FileHeader fh = void;
 	readExact(t, input, (&fh)[0 .. 1]);
 
 	if(fh != FileHeader.init)
@@ -87,7 +91,7 @@ void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 	newTable(t);
 	auto d = Deserializer(t, input);
 	auto ret = d.readGraph(-1);
-	pop(t);
+	pop(t); */
 }
 
 // ================================================================================================================================================
@@ -96,7 +100,7 @@ void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 
 private:
 
-align(1) struct FileHeader
+/* align(1) struct FileHeader
 {
 	uint magic = FOURCC!("Croc");
 	uint _version = CrocVersion;
@@ -1669,4 +1673,4 @@ void append(CrocThread* t, OutputStream o, void[] val)
 {
 	if(o.write(val) != val.length)
 		throwStdException(t, "IOException", "End of stream while writing");
-}
+} */

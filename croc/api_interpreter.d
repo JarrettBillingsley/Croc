@@ -492,8 +492,7 @@ word newArrayFromStack(CrocThread* t, uword len)
 	mixin(apiCheckNumParams!("len"));
 	maybeGC(t);
 	auto a = array.create(t.vm.alloc, len);
-	// no write barrier, nothing's being overwritten
-	a.toArray()[] = t.stack[t.stackIndex - len .. t.stackIndex];
+	array.sliceAssign(t.vm.alloc, a, 0, len, t.stack[t.stackIndex - len .. t.stackIndex]);
 	pop(t, len);
 	return push(t, CrocValue(a));
 }

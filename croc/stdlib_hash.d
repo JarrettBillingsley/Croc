@@ -363,11 +363,11 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = table.get(tab, keys[idx]))
+			if(auto v = table.get(tab, keys[idx].value))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys[idx]);
+				push(t, keys[idx].value);
 				push(t, *v);
 				return 2;
 			}
@@ -410,11 +410,11 @@ static:
 
 		for(; idx < keys.length; idx++)
 		{
-			if(auto v = namespace.get(ns, keys[idx].mString))
+			if(auto v = namespace.get(ns, keys[idx].value.mString))
 			{
 				pushInt(t, idx);
 				setUpval(t, 2);
-				push(t, keys[idx]);
+				push(t, keys[idx].value);
 				push(t, *v);
 				return 2;
 			}

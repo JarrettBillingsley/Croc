@@ -44,8 +44,7 @@ static:
 	package CrocArray* create(ref Allocator alloc, uword size)
 	{
 		auto ret = alloc.allocate!(CrocArray)();
-		mixin(writeBarrier!("alloc", "ret"));
-		ret.data = allocData!(false)(alloc, size);
+		ret.data = alloc.allocArray!(CrocArray.Slot)(size);
 		ret.length = size;
 		return ret;
 	}
@@ -64,18 +63,16 @@ static:
 			return;
 
 		auto oldSize = a.length;
-
-		if(newSize < oldSize)
-			mixin(writeBarrier!("alloc", "a"));
-
+// 		mixin(writeBarrier!("alloc", "a"));
 		a.length = newSize;
 
 		if(newSize < oldSize)
 		{
-			a.data[newSize .. oldSize] = CrocValue.init;
+			mixin(removeRefs!("alloc", "a.data[newSize .. oldSize]"));
+			a.data[newSize .. oldSize] = CrocArray.Slot.init;
 
 			if(newSize < (a.data.length >> 1))
-				alloc.resizeArray(a.data, largerPow2(a.length));
+				alloc.resizeArray(a.data, largerPow2(newSize));
 		}
 		else if(newSize > a.data.length)
 			alloc.resizeArray(a.data, largerPow2(newSize));
@@ -87,6 +84,8 @@ static:
 		auto n = alloc.allocate!(CrocArray);
 		n.length = hi - lo;
 		n.data = alloc.dupArray(a.data[lo .. hi]);
+		// don't have to write barrier n cause it starts logged
+		mixin(addRefs!("n.data[0 .. n.length]"));
 		return n;
 	}
 
@@ -98,15 +97,40 @@ static:
 
 		assert(dest.length == src.length);
 
-		auto len = dest.length * CrocValue.sizeof;
+		auto len = dest.length * CrocArray.Slot.sizeof;
 
 		if(len > 0)
-			mixin(writeBarrier!("alloc", "a"));
+		{
+			mixin(removeRefs!("alloc", "dest"));
 
-		if((dest.ptr + len) <= src.ptr || (src.ptr + len) <= dest.ptr)
-			memcpy(dest.ptr, src.ptr, len);
-		else
-			memmove(dest.ptr, src.ptr, len);
+			if((dest.ptr + len) <= src.ptr || (src.ptr + len) <= dest.ptr)
+				memcpy(dest.ptr, src.ptr, len);
+			else
+				memmove(dest.ptr, src.ptr, len);
+
+			mixin(arrayWriteBarrier!("alloc", "a"));
+			mixin(addRefs!("dest"));
+		}
+	}
+
+	package void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocValue[] other)
+	{
+		auto dest = a.data[lo .. hi];
+		assert(dest.length == other.length);
+		auto len = dest.length * CrocArray.Slot.sizeof;
+
+		if(len > 0)
+		{
+			mixin(removeRefs!("alloc", "dest"));
+			mixin(arrayWriteBarrier!("alloc", "a"));
+
+			foreach(i, ref slot; dest)
+			{
+				slot.value = other[i];
+				slot.modified = false;
+				mixin(addRef!("slot"));
+			}
+		}
 	}
 
 	// Sets a block of values (only called by the SetArray instruction in the interpreter).
@@ -122,8 +146,13 @@ static:
 		if(end > a.length)
 			array.resize(alloc, a, end);
 
-		mixin(writeBarrier!("alloc", "a"));
-		a.data[start .. end] = data[];
+		mixin(arrayWriteBarrier!("alloc", "a"));
+		
+		foreach(i, ref slot; a.data[start .. end])
+		{
+			slot.value = data[i];
+			mixin(addRef!("slot"));
+		}
 	}
 
 	// Fills an entire array with a value.
@@ -131,8 +160,20 @@ static:
 	{
 		if(a.length > 0)
 		{
-			mixin(writeBarrier!("alloc", "a"));
-			a.toArray()[] = val;
+			mixin(removeRefs!("alloc", "a.toArray()"));
+
+			CrocArray.Slot slot = void;
+			slot.value = val;
+
+			if(val.isObject())
+			{
+				mixin(arrayWriteBarrier!("alloc", "a"));
+				slot.modified = true;
+			}
+			else
+				slot.modified = false;
+
+			a.toArray()[] = slot;
 		}
 	}
 
@@ -141,20 +182,26 @@ static:
 	{
 		auto slot = &a.toArray()[idx];
 
-		if(*slot != val)
+		if(slot.value != val)
 		{
-			if((*slot).isObject() || val.isObject())
-				mixin(writeBarrier!("alloc", "a"));
-	
-			*slot = val;
+			mixin(removeRef!("alloc", "slot"));
+			slot.value = val;
+
+			if(val.isObject())
+			{
+				mixin(arrayWriteBarrier!("alloc", "a"));
+				slot.modified = true;
+			}
+			else
+				slot.modified = false;
 		}
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
 	package bool contains(CrocArray* a, ref CrocValue v)
 	{
-		foreach(ref val; a.toArray())
-			if(val.opEquals(v))
+		foreach(ref slot; a.toArray())
+			if(slot.value.opEquals(v))
 				return true;
 
 		return false;
@@ -164,9 +211,10 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocArray* b)
 	{
 		auto ret = array.create(alloc, a.length + b.length);
-		mixin(writeBarrier!("alloc", "ret"));
+// 		mixin(writeBarrier!("alloc", "ret"));
 		ret.data[0 .. a.length] = a.toArray();
-		ret.data[a.length .. $] = b.toArray();
+		ret.data[a.length .. ret.length] = b.toArray();
+		mixin(addRefs!("ret.toArray()"));
 		return ret;
 	}
 
@@ -174,31 +222,43 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
 		auto ret = array.create(alloc, a.length + 1);
-		mixin(writeBarrier!("alloc", "ret"));
-		ret.data[0 .. $ - 1] = a.toArray();
-		ret.data[$ - 1] = *v;
+// 		mixin(writeBarrier!("alloc", "ret"));
+		ret.data[0 .. ret.length - 1] = a.toArray();
+		ret.data[ret.length - 1].value = *v;
+		mixin(addRefs!("ret.toArray()"));
 		return ret;
 	}
 
 	// Append the value v to the end of array a.
 	package void append(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
-		mixin(writeBarrier!("alloc", "a"));
+// 		mixin(writeBarrier!("alloc", "a"));
 		array.resize(alloc, a, a.length + 1);
-		a.data[a.length - 1] = *v;
+		array.idxa(alloc, a, a.length - 1, *v);
 	}
 
 	// ================================================================================================================================================
 	// Private
 	// ================================================================================================================================================
 
-	// Allocate the array that holds an array's data. This is separate from the array object so that
-	// it can be resized.
-	private CrocValue[] allocData(bool overallocate)(ref Allocator alloc, uword size)
+	template addRef(char[] slot)
 	{
-		static if(overallocate)
-			return alloc.allocArray!(CrocValue)(largerPow2(size));
-		else
-			return alloc.allocArray!(CrocValue)(size);
+		const char[] addRef = "if(" ~ slot ~ ".value.isObject()) " ~ slot ~ ".modified = true;";
+	}
+
+	template removeRef(char[] alloc, char[] slot)
+	{
+		const char[] removeRef = 
+		"if(!" ~ slot  ~ ".modified && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
+	}
+
+	template addRefs(char[] arr)
+	{
+		const char[] addRefs = "foreach(ref slot; " ~ arr ~ ") " ~ addRef!("slot");
+	}
+
+	template removeRefs(char[] alloc, char[] arr)
+	{
+		const char[] removeRefs = "foreach(ref slot; " ~ arr ~ ") " ~ removeRef!(alloc, "slot");
 	}
 }

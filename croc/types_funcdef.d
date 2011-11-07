@@ -41,7 +41,6 @@ static:
 	package CrocFuncDef* create(ref Allocator alloc)
 	{
 		auto ret = alloc.allocate!(CrocFuncDef);
-		mixin(writeBarrier!("alloc", "ret"));
 		return ret;
 	}
 

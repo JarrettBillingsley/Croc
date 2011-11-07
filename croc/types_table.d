@@ -40,7 +40,6 @@ static:
 	package CrocTable* create(ref Allocator alloc, uword size = 0)
 	{
 		auto t = alloc.allocate!(CrocTable);
-		mixin(writeBarrier!("alloc", "t"));
 		t.data.prealloc(alloc, size);
 		return t;
 	}
