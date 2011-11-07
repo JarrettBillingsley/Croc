@@ -464,7 +464,7 @@ struct CrocString
 struct CrocTable
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Table);
-	package Hash!(CrocValue, CrocValue) data;
+	package Hash!(CrocValue, CrocValue, true) data;
 	package CrocTable* nextTab; // used during collection
 }
 

@@ -1082,23 +1082,11 @@ void tableIdxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue*
 	if((value.type == CrocValue.Type.WeakRef && value.mWeakRef.obj is null) ||
 		(key.type == CrocValue.Type.WeakRef && key.mWeakRef.obj is null))
 	{
-		table.remove(t.vm.alloc, t.stack[container].mTable, *key);
+		table.idxa(t.vm.alloc, t.stack[container].mTable, *key, CrocValue.nullValue);
 		return;
 	}
 
-	auto v = table.get(t.stack[container].mTable, *key);
-
-	if(v !is null)
-	{
-		if(value.type == CrocValue.Type.Null)
-			table.remove(t.vm.alloc, t.stack[container].mTable, *key);
-		else
-			table.set(t.vm.alloc, t.stack[container].mTable, v, *value);
-	}
-	else if(value.type != CrocValue.Type.Null)
-		table.set(t.vm.alloc, t.stack[container].mTable, *key, *value);
-
-	// otherwise, do nothing (val is null and it doesn't exist)
+	table.idxa(t.vm.alloc, t.stack[container].mTable, *key, *value);
 }
 
 word commonField(CrocThread* t, AbsStack container, bool raw)

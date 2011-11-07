@@ -42,7 +42,7 @@ import croc.types_thread;
 import croc.types_weakref;
 
 debug import tango.io.Stdout;
-// debug = BEGINEND;
+debug = BEGINEND;
 // debug = PHASES;
 // debug = INCDEC;
 // debug = FREES;
@@ -66,13 +66,13 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	debug(BEGINEND) static counter = 0;
 	debug(BEGINEND) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
 	debug(BEGINEND) Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
-	
+
 // 	if(vm.alloc.modBuffer.length < 4)
 // 	{
 // 		foreach(obj; vm.alloc.modBuffer)
 // 		{
 // 			Stdout.formatln("{} at {}", (cast(CrocBaseObject*)obj).mType, obj);
-// 			
+//
 // 			if((cast(CrocBaseObject*)obj).mType == CrocValue.Type.Table)
 // 				Stdout.formatln("length is {}", (cast(CrocTable*)obj).data.length);
 // 		}
@@ -285,14 +285,14 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 template writeBarrier(char[] alloc, char[] srcObj)
 {
 	const char[] writeBarrier =
-	"assert(" ~ srcObj ~ ".mType != CrocValue.Type.Array);\n"
+	"assert(" ~ srcObj ~ ".mType != CrocValue.Type.Array && " ~ srcObj ~ ".mType != CrocValue.Type.Table);\n"
 	"if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged)\n"
 	"	writeBarrierSlow(" ~ alloc ~ ", cast(GCObject*)" ~ srcObj ~ ");\n";
 }
 
-template arrayWriteBarrier(char[] alloc, char[] srcObj)
+template containerWriteBarrier(char[] alloc, char[] srcObj)
 {
-	const char[] arrayWriteBarrier =
+	const char[] containerWriteBarrier =
 	"if(" ~ srcObj ~ ".gcflags & GCFlags.Unlogged) {\n"
 	"	" ~ alloc ~ ".modBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ srcObj ~ ");\n"
 	"	" ~ srcObj ~ ".gcflags &= ~GCFlags.Unlogged;\n"
@@ -681,7 +681,7 @@ void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) 
 
 	switch((cast(CrocBaseObject*)o).mType)
 	{
-		case CrocValue.Type.Table:     return visitTable(cast(CrocTable*)o,         callback);
+		case CrocValue.Type.Table:     return visitTable(cast(CrocTable*)o,         callback, isModifyPhase);
 		case CrocValue.Type.Array:     return visitArray(cast(CrocArray*)o,         callback, isModifyPhase);
 		case CrocValue.Type.Function:  return visitFunction(cast(CrocFunction*)o,   callback);
 		case CrocValue.Type.Class:     return visitClass(cast(CrocClass*)o,         callback);
@@ -695,14 +695,22 @@ void visitObj(bool isModifyPhase = false)(GCObject* o, void delegate(GCObject*) 
 }
 
 // Visit a table.
-void visitTable(CrocTable* o, void delegate(GCObject*) callback)
+void visitTable(CrocTable* o, void delegate(GCObject*) callback, bool modifyPhase)
 {
 	// TODO: change the mechanism for weakref determination
 
-	foreach(ref key, ref val; o.data)
+	if(modifyPhase)
 	{
-		mixin(ValueCallback!("key"));
-		mixin(ValueCallback!("val"));
+		foreach(ref value; &o.data.modifiedSlots)
+			mixin(ValueCallback!("value"));
+	}
+	else
+	{
+		foreach(ref key, ref val; o.data)
+		{
+			mixin(ValueCallback!("key"));
+			mixin(ValueCallback!("val"));
+		}
 	}
 }
 

@@ -89,9 +89,6 @@ void openVMImpl(CrocVM* vm, MemFunc memFunc, void* ctx = null)
 
 	disableGC(vm);
 
-	// TODO: make this a user-configurable value? or is an interface in the gclib fine?
-// 	vm.alloc.resizeNurserySpace(256 * (1 << 10));
-
 	vm.metaTabs = vm.alloc.allocArray!(CrocNamespace*)(CrocValue.Type.max + 1);
 	vm.mainThread = thread.create(vm);
 	auto t = vm.mainThread;

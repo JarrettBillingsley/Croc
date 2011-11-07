@@ -27,6 +27,7 @@ module croc.types_table;
 
 import croc.base_alloc;
 import croc.base_gc;
+import croc.base_hash;
 import croc.types;
 
 struct table
@@ -56,50 +57,59 @@ static:
 	{
 		return t.data.lookup(key);
 	}
-
-	// Insert a key-value pair (or update one if it already exists).
-	package void set(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue value)
+	
+	package void idxa(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue val)
 	{
-		assert(value.type != CrocValue.Type.Null);
-		if(auto slot = t.data.lookup(key))
+		auto node = t.data.lookupNode(key);
+
+		if(node !is null)
 		{
-			if(*slot != value)
+			if(val.type == CrocValue.Type.Null)
 			{
-				mixin(writeBarrier!("alloc", "t"));
-				*slot = value;
+				// Remove
+				mixin(removeKeyRef!("alloc", "node"));
+				mixin(removeValueRef!("alloc", "node"));
+				t.data.remove(key);
+			}
+			else if(node.value != val)
+			{
+				// Update
+				mixin(removeValueRef!("alloc", "node"));
+				node.value = val;
+
+				if(val.isObject())
+				{
+					mixin(containerWriteBarrier!("alloc", "t"));
+					node.modified |= ValModified;
+				}
+				else
+					node.modified &= ~ValModified;
 			}
 		}
-		else
+		else if(val.type != CrocValue.Type.Null)
 		{
-			mixin(writeBarrier!("alloc", "t"));
-			*t.data.insert(alloc, key) = value;
-		}
-	}
-	
-	// Insert a key-value pair (or update one if it already exists).
-	package void set(ref Allocator alloc, CrocTable* t, CrocValue* slot, ref CrocValue value)
-	{
-		assert(value.type != CrocValue.Type.Null);
+			// Insert
+			node = t.data.insertNode(alloc, key);
+			node.value = val;
 
-		if(*slot != value)
-		{
-			mixin(writeBarrier!("alloc", "t"));
-			*slot = value;
+			if(key.isObject() || val.isObject())
+			{
+				mixin(containerWriteBarrier!("alloc", "t"));
+				node.modified |= (key.isObject() ? KeyModified : 0) | (val.isObject() ? ValModified : 0);
+			}
 		}
-	}
 
-	// Remove a key-value pair from the table.
-	package void remove(ref Allocator alloc, CrocTable* t, ref CrocValue key)
-	{
-		mixin(writeBarrier!("alloc", "t"));
-		t.data.remove(key);
+		// otherwise, do nothing (val is null and key doesn't exist)
 	}
 
 	// remove all key-value pairs from the table.
 	package void clear(ref Allocator alloc, CrocTable* t)
 	{
-		if(t.data.length > 0)
-			mixin(writeBarrier!("alloc", "t"));
+		foreach(ref node; &t.data.allNodes)
+		{
+			mixin(removeKeyRef!("alloc", "node"));
+			mixin(removeValueRef!("alloc", "node"));
+		}
 
 		t.data.clear(alloc);
 	}
@@ -123,18 +133,14 @@ static:
 		CrocValue* k = void;
 		CrocValue* v = void;
 		bool removedAny = false;
-
-		while(t.data.next(i, k, v))
+		
+		foreach(ref node; &t.data.allNodes)
 		{
-			if((k.type == CrocValue.Type.WeakRef && k.mWeakRef.obj is null) ||
-				(v.type == CrocValue.Type.WeakRef && v.mWeakRef.obj is null))
+			if((node.key.type == CrocValue.Type.WeakRef && node.key.mWeakRef.obj is null) ||
+				(node.value.type == CrocValue.Type.WeakRef && node.value.mWeakRef.obj is null))
 			{
-				if(!removedAny)
-				{
-					removedAny = true;
-					mixin(writeBarrier!("alloc", "t"));
-				}
-
+				mixin(removeKeyRef!("alloc", "node"));
+				mixin(removeValueRef!("alloc", "node"));
 				t.data.remove(*k);
 				i--;
 			}
@@ -144,5 +150,17 @@ static:
 	package bool next(CrocTable* t, ref size_t idx, ref CrocValue* key, ref CrocValue* val)
 	{
 		return t.data.next(idx, key, val);
+	}
+
+	package template removeKeyRef(char[] alloc, char[] slot)
+	{
+		const char[] removeKeyRef =
+		"if(!(" ~ slot  ~ ".modified & KeyModified) && " ~ slot  ~ ".key.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".key.toGCObject());";
+	}
+
+	package template removeValueRef(char[] alloc, char[] slot)
+	{
+		const char[] removeValueRef =
+		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 }

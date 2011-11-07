@@ -150,7 +150,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			table.set(t.vm.alloc, tab, k, *getValue(t, -1));
+			table.idxa(t.vm.alloc, tab, k, *getValue(t, -1));
 			pop(t);
 		}
 
@@ -171,7 +171,7 @@ static:
 			dup(t, 0);
 			push(t, v);
 			rawCall(t, reg, 1);
-			table.set(t.vm.alloc, nt, k, *getValue(t, -1));
+			table.idxa(t.vm.alloc, nt, k, *getValue(t, -1));
 			pop(t);
 		}
 
@@ -482,7 +482,7 @@ static:
 				push(t, *v);
 
 				static if(remove)
-					table.remove(t.vm.alloc, tab, *k);
+					table.idxa(t.vm.alloc, tab, *k, CrocValue.nullValue);
 			}
 			else
 				throwStdException(t, "ValueException", "Attempting to take from an empty table");

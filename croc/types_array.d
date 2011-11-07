@@ -63,7 +63,6 @@ static:
 			return;
 
 		auto oldSize = a.length;
-// 		mixin(writeBarrier!("alloc", "a"));
 		a.length = newSize;
 
 		if(newSize < oldSize)
@@ -108,7 +107,7 @@ static:
 			else
 				memmove(dest.ptr, src.ptr, len);
 
-			mixin(arrayWriteBarrier!("alloc", "a"));
+			mixin(containerWriteBarrier!("alloc", "a"));
 			mixin(addRefs!("dest"));
 		}
 	}
@@ -122,7 +121,7 @@ static:
 		if(len > 0)
 		{
 			mixin(removeRefs!("alloc", "dest"));
-			mixin(arrayWriteBarrier!("alloc", "a"));
+			mixin(containerWriteBarrier!("alloc", "a"));
 
 			foreach(i, ref slot; dest)
 			{
@@ -146,8 +145,8 @@ static:
 		if(end > a.length)
 			array.resize(alloc, a, end);
 
-		mixin(arrayWriteBarrier!("alloc", "a"));
-		
+		mixin(containerWriteBarrier!("alloc", "a"));
+
 		foreach(i, ref slot; a.data[start .. end])
 		{
 			slot.value = data[i];
@@ -167,7 +166,7 @@ static:
 
 			if(val.isObject())
 			{
-				mixin(arrayWriteBarrier!("alloc", "a"));
+				mixin(containerWriteBarrier!("alloc", "a"));
 				slot.modified = true;
 			}
 			else
@@ -189,7 +188,7 @@ static:
 
 			if(val.isObject())
 			{
-				mixin(arrayWriteBarrier!("alloc", "a"));
+				mixin(containerWriteBarrier!("alloc", "a"));
 				slot.modified = true;
 			}
 			else
@@ -211,7 +210,6 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocArray* b)
 	{
 		auto ret = array.create(alloc, a.length + b.length);
-// 		mixin(writeBarrier!("alloc", "ret"));
 		ret.data[0 .. a.length] = a.toArray();
 		ret.data[a.length .. ret.length] = b.toArray();
 		mixin(addRefs!("ret.toArray()"));
@@ -222,7 +220,6 @@ static:
 	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
 		auto ret = array.create(alloc, a.length + 1);
-// 		mixin(writeBarrier!("alloc", "ret"));
 		ret.data[0 .. ret.length - 1] = a.toArray();
 		ret.data[ret.length - 1].value = *v;
 		mixin(addRefs!("ret.toArray()"));
@@ -232,7 +229,6 @@ static:
 	// Append the value v to the end of array a.
 	package void append(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
-// 		mixin(writeBarrier!("alloc", "a"));
 		array.resize(alloc, a, a.length + 1);
 		array.idxa(alloc, a, a.length - 1, *v);
 	}
@@ -248,7 +244,7 @@ static:
 
 	template removeRef(char[] alloc, char[] slot)
 	{
-		const char[] removeRef = 
+		const char[] removeRef =
 		"if(!" ~ slot  ~ ".modified && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";
 	}
 

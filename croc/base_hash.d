@@ -44,6 +44,9 @@ alias size_t uword;
 // Package
 // ================================================================================================================================================
 
+const KeyModified = 0b01;
+const ValModified = 0b10;
+
 struct Hash(K, V, bool modifiedBit = false)
 {
 private:
@@ -64,14 +67,14 @@ private:
 		K key;
 		V value;
 		Node* next;
-		
+
 		static if(UseHash)
 			uint hash;
 
 		bool used;
 
 		static if(modifiedBit)
-			bool modified;
+			ubyte modified;
 	}
 
 	Node[] mNodes;
@@ -92,7 +95,7 @@ package:
 	{
 		return &insertNode(alloc, key).value;
 	}
-	
+
 	Node* insertNode(ref Allocator alloc, K key)
 	{
 		uint hash = mixin(HashMethod!("key"));
@@ -141,9 +144,12 @@ package:
 
 		mainPosNode.key = key;
 		mainPosNode.used = true;
-		mSize++;
-
 // 		mainPosNode.value = V.init;
+
+		static if(modifiedBit)
+			mainPosNode.modified = 0;
+
+		mSize++;
 		return mainPosNode;
 	}
 
@@ -191,9 +197,6 @@ package:
 
 	V* lookup(K key)
 	{
-		if(mNodes.length == 0)
-			return null;
-
 		if(auto ret = lookupNode(key, mixin(HashMethod!("key"))))
 			return &ret.value;
 		else
@@ -206,6 +209,11 @@ package:
 			return &ret.value;
 		else
 			return null;
+	}
+
+	Node* lookupNode(K key)
+	{
+		return lookupNode(key, mixin(HashMethod!("key")));
 	}
 
 	Node* lookupNode(K key, uint hash)
@@ -244,10 +252,10 @@ package:
 				if(auto result = dg(node.key, node.value))
 					return result;
 		}
-		
+
 		return 0;
 	}
-	
+
 	int opApply(int delegate(ref V) dg)
 	{
 		foreach(ref node; mNodes)
@@ -258,6 +266,41 @@ package:
 		}
 
 		return 0;
+	}
+
+	static if(modifiedBit)
+	{
+		int modifiedSlots(int delegate(ref V) dg)
+		{
+			foreach(ref node; mNodes)
+			{
+				if(node.used && node.modified)
+				{
+					if(node.modified & KeyModified)
+						dg(node.key);
+					if(node.modified & ValModified)
+						dg(node.value);
+
+					node.modified = 0;
+				}
+			}
+
+			return 0;
+		}
+
+		int allNodes(int delegate(ref Node) dg)
+		{
+			foreach(ref node; mNodes)
+			{
+				if(node.used)
+				{
+					if(auto result = dg(node))
+						return result;
+				}
+			}
+
+			return 0;
+		}
 	}
 
 	uword length()
@@ -276,7 +319,7 @@ package:
 			resizeArray(alloc, newSize);
 		}
 	}
-	
+
 	void clear(ref Allocator alloc)
 	{
 		alloc.freeArray(mNodes);
