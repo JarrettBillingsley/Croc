@@ -1288,7 +1288,7 @@ void stackCheck(CrocThread* t, word diff, void delegate() dg)
 	dg();
 
 	if((stackSize(t) - s) != diff)
-		throwStdException(t, "ApiError", "Stack is not balanced!");
+		throwStdException(t, "ApiError", "Stack is not balanced! Expected it to change by {}, changed by {} instead", diff, stackSize(t) - s);
 }
 
 /**

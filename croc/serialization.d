@@ -52,35 +52,31 @@ public:
 
 void serializeGraph(CrocThread* t, word idx, word trans, OutputStream output)
 {
-	assert(false);
-	/* auto s = Serializer(t, output);
-	s.writeGraph(idx, trans); */
+	auto s = Serializer(t, output);
+	s.writeGraph(idx, trans);
 }
 
 word deserializeGraph(CrocThread* t, word trans, InputStream input)
 {
-	assert(false);
-	/* auto d = Deserializer(t, input);
-	return d.readGraph(trans); */
+	auto d = Deserializer(t, input);
+	return d.readGraph(trans);
 }
 
 void serializeModule(CrocThread* t, word idx, char[] name, OutputStream output)
 {
-	assert(false);
-	/* append(t, output, (&FileHeader.init)[0 .. 1]);
+	append(t, output, (&FileHeader.init)[0 .. 1]);
 	put!(uword)(t, output, name.length);
 	append(t, output, name);
 	auto s = Serializer(t, output);
 	idx = absIndex(t, idx);
 	newTable(t);
 	s.writeGraph(idx, -1);
-	pop(t); */
+	pop(t);
 }
 
 void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 {
-	assert(false);
-	/* FileHeader fh = void;
+	FileHeader fh = void;
 	readExact(t, input, (&fh)[0 .. 1]);
 
 	if(fh != FileHeader.init)
@@ -93,7 +89,7 @@ void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 	newTable(t);
 	auto d = Deserializer(t, input);
 	auto ret = d.readGraph(-1);
-	pop(t); */
+	pop(t);
 }
 
 // ================================================================================================================================================
@@ -102,7 +98,7 @@ void deserializeModule(CrocThread* t, out char[] name, InputStream input)
 
 private:
 
-/* align(1) struct FileHeader
+align(1) struct FileHeader
 {
 	uint magic = FOURCC!("Croc");
 	uint _version = CrocVersion;
@@ -353,8 +349,8 @@ private:
 		tag(CrocValue.Type.Array);
 		integer(v.length);
 
-		foreach(ref val; v.toArray())
-			serialize(val);
+		foreach(ref slot; v.toArray())
+			serialize(slot.value);
 	}
 
 	void serializeMemblock(CrocMemblock* v)
@@ -433,6 +429,15 @@ private:
 			integer(mask);
 
 		integer(v.numUpvals);
+		
+		integer(v.upvals.length);
+		
+		foreach(ref uv; v.upvals)
+		{
+			put(t, mOutput, uv.isUpvalue);
+			integer(uv.index);
+		}
+
 		integer(v.stackSize);
 		integer(v.innerFuncs.length);
 
@@ -1113,6 +1118,7 @@ private:
   		deserializeString();
   		auto type = getString(t, -1);
   		newMemblock(t, type, cast(uword)integer());
+  		addObject(getValue(t, -1).mBaseObj);
   		insertAndPop(t, -2);
   		readExact(t, mInput, getMemblock(t, -1).data);
 	}
@@ -1206,6 +1212,15 @@ private:
 			integer(mask);
 
 		integer(def.numUpvals);
+		
+		t.vm.alloc.resizeArray(def.upvals, cast(uword)integer());
+		
+		foreach(ref uv; def.upvals)
+		{
+			get(t, mInput, uv.isUpvalue);
+			integer(uv.index);
+		}
+
 		integer(def.stackSize);
 		t.vm.alloc.resizeArray(def.innerFuncs, cast(uword)integer());
 
@@ -1230,7 +1245,7 @@ private:
 
 		bool haveEnvironment;
 		get(t, mInput, haveEnvironment);
-		
+
 		if(haveEnvironment)
 		{
 			deserializeNamespace();
@@ -1675,4 +1690,4 @@ void append(CrocThread* t, OutputStream o, void[] val)
 {
 	if(o.write(val) != val.length)
 		throwStdException(t, "IOException", "End of stream while writing");
-} */
+}

@@ -495,6 +495,7 @@ class MemblockConduit : Conduit, Conduit.Seek
 		auto t = currentThread(vm);
 		pushRef(t, mMB);
 		auto mb = getMemblock(t, -1);
+		pop(t);
 
 		auto byteSize = mb.itemLength * mb.kind.itemSize;
 
