@@ -48,6 +48,26 @@ static:
 		return ret;
 	}
 
+	package CrocValue makeref(CrocVM* vm, CrocValue val)
+	{
+		switch(val.type)
+		{
+			case
+				CrocValue.Type.Null,
+				CrocValue.Type.Bool,
+				CrocValue.Type.Int,
+				CrocValue.Type.Float,
+				CrocValue.Type.Char,
+				CrocValue.Type.String,
+				CrocValue.Type.WeakRef,
+				CrocValue.Type.NativeObj,
+				CrocValue.Type.Upvalue:
+				return val;
+	
+			default: return CrocValue(create(vm, val.mBaseObj));
+		}
+	}
+
 	// Free a weak reference object.
 	package void free(CrocVM* vm, CrocWeakRef* r)
 	{

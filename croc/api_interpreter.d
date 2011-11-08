@@ -1048,20 +1048,7 @@ Returns:
 */
 word pushWeakRef(CrocThread* t, word idx)
 {
-	switch(type(t, idx))
-	{
-		case
-			CrocValue.Type.Null,
-			CrocValue.Type.Bool,
-			CrocValue.Type.Int,
-			CrocValue.Type.Float,
-			CrocValue.Type.Char:
-
-			return dup(t, idx);
-
-		default:
-			return push(t, CrocValue(weakref.create(t.vm, getValue(t, idx).mBaseObj)));
-	}
+	return push(t, weakref.makeref(t.vm, *getValue(t, idx)));
 }
 
 /**
@@ -2953,7 +2940,10 @@ word deref(CrocThread* t, word idx)
 			CrocValue.Type.Bool,
 			CrocValue.Type.Int,
 			CrocValue.Type.Float,
-			CrocValue.Type.Char:
+			CrocValue.Type.Char,
+			CrocValue.Type.String,
+			CrocValue.Type.NativeObj,
+			CrocValue.Type.Upvalue:
 
 			return dup(t, idx);
 
@@ -2965,7 +2955,7 @@ word deref(CrocThread* t, word idx)
 
 		default:
 			pushTypeString(t, idx);
-			throwStdException(t, "TypeException", __FUNCTION__ ~ " - idx must be a value type or weakref, not a '{}'", getString(t, -1));
+			throwStdException(t, "TypeException", __FUNCTION__ ~ " - idx must be a weakref or non-weakref-able type, not a '{}'", getString(t, -1));
 	}
 
 	assert(false);
