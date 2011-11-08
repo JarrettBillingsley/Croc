@@ -309,7 +309,6 @@ static:
 
 		outerLoop: foreach(path; paths.delimiters(";"))
 		{
-			// TODO: try to make this not allocate memory?  Is this possible?
 			scope p = new FilePath(path);
 
 			if(!p.exists())

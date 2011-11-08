@@ -156,7 +156,6 @@ static:
 				throwStdException(t, "ValueException", "Unknown open mode '{}'", mode);
 		}
 
-		// TODO: figure out some way of making inout files buffered?
 		auto f = safeCode(t, "exceptions.IOException", new File(name, style));
 
 		lookupCT!("stream.InoutStream")(t);

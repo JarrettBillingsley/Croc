@@ -48,6 +48,8 @@ import croc.vm;
 
 public:
 
+// TODO: get this working again.
+
 void serializeGraph(CrocThread* t, word idx, word trans, OutputStream output)
 {
 	assert(false);
