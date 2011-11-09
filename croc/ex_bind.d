@@ -509,6 +509,7 @@ Returns:
 */
 public word getWrappedInstance(CrocThread* t, Object o)
 {
+	// TODO: change this to use a weak value table
 	getRegistryVar(t, "croc.bind.WrappedInstances");
 	pushNativeObj(t, o);
 	idx(t, -2);

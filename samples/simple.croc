@@ -2,6 +2,149 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
+/* local weakref, deref = weakref, deref
+local allWeakTables = {}
+
+gc.postCallback$ function postGC()
+{
+	writeln("ohai!")
+
+	foreach(k, _; allWeakTables, "modify")
+	{
+		local tab = deref(k)
+
+		if(tab is null)
+			allWeakTables[k] = null
+		else
+			tab.normalize()
+	}
+}
+
+class WeakTable
+{
+	_data
+
+	this()
+	{
+		:_data = {}
+		allWeakTables[weakref(this)] = true
+	}
+
+	function opLength() = #:_data
+}
+
+class WeakKeyTable : WeakTable
+{
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = :_data[weakref(k)]
+	function opIndexAssign(k, v) :_data[weakref(k)] = v
+
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = :_data[keys[idx]]
+
+				if(v !is null)
+					return deref(keys[idx]), v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function values() = hash.values(:_data)
+
+	function normalize()
+	{
+		foreach(k, _; :_data, "modify")
+		{
+			if(deref(k) is null)
+				:_data[k] = null
+		}
+	}
+}
+
+class WeakValTable : WeakTable
+{
+	function opIn(k) = k in :_data
+	function opIndex(k) = deref(:_data[k])
+	function opIndexAssign(k, v) :_data[k] = weakref(v)
+
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = deref(:_data[keys[idx]])
+
+				if(v !is null)
+					return keys[idx], v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	function keys() = hash.keys(:_data)
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+
+	function normalize()
+	{
+		foreach(k, v; :_data, "modify")
+		{
+			if(deref(v) is null)
+				:_data[k] = null
+		}
+	}
+}
+
+class WeakKeyValTable : WeakTable
+{
+	function opIn(k) = weakref(k) in :_data
+	function opIndex(k) = deref(:_data[weakref(k)])
+	function opIndexAssign(k, v) :_data[weakref(k)] = weakref(v)
+
+	function opApply(_) // can modify with this implementation too
+	{
+		local keys = hash.keys(:_data)
+		local idx = -1
+
+		function iterator(_)
+		{
+			for(idx++; idx < #keys; idx++)
+			{
+				local v = deref(:_data[keys[idx]])
+
+				if(v !is null)
+					return deref(keys[idx]), v
+			}
+		}
+
+		return iterator, this, null
+	}
+
+	function keys() = [deref(k) foreach k, _; :_data if deref(k) !is null]
+	function values() = [deref(v) foreach _, v; :_data if deref(v) !is null]
+
+	function normalize()
+	{
+		foreach(k, v; :_data, "modify")
+			if(deref(k) is null || deref(v) is null)
+				:_data[k] = null
+	}
+} */
+
 function main()
 {
 

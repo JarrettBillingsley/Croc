@@ -28,7 +28,7 @@ module croc.types_array;
 import tango.stdc.string;
 
 import croc.base_alloc;
-import croc.base_gc;
+import croc.base_writebarrier;
 import croc.base_opcodes;
 import croc.types;
 import croc.utils;

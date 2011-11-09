@@ -3,6 +3,8 @@ module depgrapher
 import math: min
 import regexp: Regexp
 
+import string: StringBuffer
+
 function as_(c: class) =
 	\i: instance ->
 		(i as c) !is null
@@ -76,7 +78,7 @@ function main()
 	foreach(name, patterns; cats)
 	{
 		local cat = e.addCategory(name)
-		
+
 		foreach(pat; patterns)
 			cat.addPattern(pat)
 	}
@@ -122,14 +124,14 @@ class Category
 	{
 		if(!pat.startsWith("^"))
 			pat = "^" ~ pat
-		
+
 		if(!pat.endsWith("$"))
 			pat ~= "$"
 
 		try
 			:patterns ~= Regexp(pat)
-		catch(e)
-			throw format("Syntax error in pattern '{}'", pat)
+		catch(e: Exception)
+			throw Exception(format("Syntax error in pattern '{}'", pat))
 	}
 	
 	function matchesModule(mod: string)
@@ -218,7 +220,7 @@ class Engine
 				if(ret is null)
 					ret = cat
 				else
-					throw format("Module '{}' matches both categories '{}' and '{}'", name, ret.name, cat.name)
+					throw Exception(format("Module '{}' matches both categories '{}' and '{}'", name, ret.name, cat.name))
 			}
 		}
 
@@ -255,16 +257,30 @@ digraph d
 	fontsize = 10
 	label = "' ~ name ~ @'"
 	rankdir = "TB"
+	aspect = 1
 	compound = true
 	node [fontname = "Helvetica-Bold", fontsize = 12]
 	'
 		)
-		
+
 		local catDeps = {}
 		foreach(cat; :categories)
 			catDeps[cat] = {}
 
 		ret.formatln("")
+
+		local cycleColors = {}
+
+		function cycleColor(c)
+		{
+			if(c !in cycleColors)
+			{
+// 				local r, g, b =
+				cycleColors[c] = format("\"#{:x2}{:x2}{:x2}\"", math.rand(128) + 127, math.rand(128) + 127, math.rand(128) + 127)
+			}
+
+			return cycleColors[c]
+		}
 
 		foreach(cat; :categories)
 		{
@@ -285,7 +301,7 @@ digraph d
 			}
 
 			foreach(mod; cat.modules)
-				ret.formatln("\t\"{}\" [style = filled, fillcolor = {}]", mod.name, mod.cycle ? "salmon" : "grey")
+				ret.formatln("\t\"{}\" [style = filled, fillcolor = {}]", mod.name, mod.cycle ? cycleColor(mod.cycle) : "grey")
 
 			if(cat !is :uncat)
 				ret.formatln("\t}")
@@ -320,10 +336,11 @@ digraph d
 		local p = os.Process()
 		p.execute(["dot", "-Tpng", "-o" ~ output])
 		p.stdin().write(g).close()
+		io.stdout.copy(p.stdout())
 		local reason, status = p.wait()
 
 		if(reason != "exit")
-			throw format("Could not execute dot process (reason: {}, return code: {})", reason, status)
+			throw Exception(format("Could not execute dot process (reason: {}, return code: {})", reason, status))
 	}
 
 	function findCycles()

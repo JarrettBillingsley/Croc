@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.stdlib_gc;
 
 import croc.api_interpreter;
+import croc.api_stack;
 import croc.ex;
 import croc.types;
 import croc.vm;
@@ -33,29 +34,74 @@ import croc.vm;
 struct GCLib
 {
 static:
+	const PostGCCallbacks = "gc.postGCCallbacks";
 
 	public void init(CrocThread* t)
 	{
 		// TODO: expand this interface
 		makeModule(t, "gc", function uword(CrocThread* t)
 		{
-			newFunction(t, 0, &collectGarbage, "collect");   newGlobal(t, "collect");
-			newFunction(t, 0, &bytesAllocated, "allocated"); newGlobal(t, "allocated");
+			newFunction(t, 0, &collect,            "collect");            newGlobal(t, "collect");
+			newFunction(t, 0, &allocated,          "allocated");          newGlobal(t, "allocated");
+			newFunction(t, 1, &postCallback,       "postCallback");       newGlobal(t, "postCallback");
+			newFunction(t, 1, &removePostCallback, "removePostCallback"); newGlobal(t, "removePostCallback");
+
+			newArray(t, 0); setRegistryVar(t, PostGCCallbacks);
+
 			return 0;
 		});
-		
+
 		importModuleNoNS(t, "gc");
 	}
 
-	uword collectGarbage(CrocThread* t)
+	uword collect(CrocThread* t)
 	{
 		pushInt(t, gc(t));
 		return 1;
 	}
-	
-	uword bytesAllocated(CrocThread* t)
+
+	uword allocated(CrocThread* t)
 	{
 		pushInt(t, .bytesAllocated(getVM(t)));
 		return 1;
+	}
+
+	uword postCallback(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Function);
+
+		auto callbacks = getRegistryVar(t, PostGCCallbacks);
+
+		if(!opin(t, 1, callbacks))
+		{
+			dup(t, 1);
+			cateq(t, callbacks, 1);
+		}
+
+		return 0;
+	}
+	
+	uword removePostCallback(CrocThread* t)
+	{
+		checkParam(t, 1, CrocValue.Type.Function);
+
+		auto callbacks = getRegistryVar(t, PostGCCallbacks);
+		
+		dup(t);
+		pushNull(t);
+		dup(t, 1);
+		methodCall(t, -3, "find", 1);
+		auto idx = getInt(t, -1);
+		pop(t);
+		
+		if(idx != len(t, callbacks))
+		{
+			dup(t);
+			pushNull(t);
+			pushInt(t, idx);
+			methodCall(t, -3, "pop", 0);
+		}
+		
+		return 0;
 	}
 }

@@ -465,7 +465,6 @@ struct CrocTable
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Table);
 	package Hash!(CrocValue, CrocValue, true) data;
-	package CrocTable* nextTab; // used during collection
 }
 
 struct CrocArray
@@ -820,6 +819,7 @@ package:
 	Hash!(CrocString*, CrocClass*) stdExceptions;
 	// ----------------------------------
 
+	// GC stuff
 	ubyte oldRootIdx;
 	Deque!(GCObject*)[2] roots;
 	Deque!(GCObject*) cycleRoots;
@@ -831,7 +831,6 @@ package:
 	Hash!(char[], CrocString*) stringTab;
 	Hash!(CrocBaseObject*, CrocWeakRef*) weakRefTab;
 	Hash!(CrocThread*, bool) allThreads;
-	CrocTable* toBeNormalized; // linked list of tables to be normalized
 	ulong currentRef;
 	CrocString* ctorString; // also stored in metaStrings, don't have to scan it as a root
 	CrocThread* curThread;

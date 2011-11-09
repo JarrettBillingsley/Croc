@@ -38,6 +38,7 @@ import croc.base_alloc;
 import croc.base_gc;
 import croc.base_metamethods;
 import croc.base_opcodes;
+import croc.base_writebarrier;
 import croc.types;
 import croc.types_array;
 import croc.types_class;
@@ -1077,14 +1078,6 @@ void tableIdxaImpl(CrocThread* t, AbsStack container, CrocValue* key, CrocValue*
 {
 	if(key.type == CrocValue.Type.Null)
 		throwStdException(t, "TypeException", "Attempting to index-assign a table with a key of type 'null'");
-
-	// If the key or value is a null weakref, just remove the key-value pair from the table entirely
-	if((value.type == CrocValue.Type.WeakRef && value.mWeakRef.obj is null) ||
-		(key.type == CrocValue.Type.WeakRef && key.mWeakRef.obj is null))
-	{
-		table.idxa(t.vm.alloc, t.stack[container].mTable, *key, CrocValue.nullValue);
-		return;
-	}
 
 	table.idxa(t.vm.alloc, t.stack[container].mTable, *key, *value);
 }

@@ -29,7 +29,7 @@ version(CrocExtendedCoro)
 	import tango.core.Thread;
 
 import croc.base_alloc;
-import croc.base_gc;
+import croc.base_writebarrier;
 import croc.types;
 import croc.types_nativeobj;
 

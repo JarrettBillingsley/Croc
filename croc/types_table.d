@@ -26,7 +26,7 @@ subject to the following restrictions:
 module croc.types_table;
 
 import croc.base_alloc;
-import croc.base_gc;
+import croc.base_writebarrier;
 import croc.base_hash;
 import croc.types;
 
@@ -124,27 +124,6 @@ static:
 	package uword length(CrocTable* t)
 	{
 		return t.data.length();
-	}
-
-	// Removes any key-value pairs that have null weak references.
-	package void normalize(ref Allocator alloc, CrocTable* t)
-	{
-		uword i = 0;
-		CrocValue* k = void;
-		CrocValue* v = void;
-		bool removedAny = false;
-		
-		foreach(ref node; &t.data.allNodes)
-		{
-			if((node.key.type == CrocValue.Type.WeakRef && node.key.mWeakRef.obj is null) ||
-				(node.value.type == CrocValue.Type.WeakRef && node.value.mWeakRef.obj is null))
-			{
-				mixin(removeKeyRef!("alloc", "node"));
-				mixin(removeValueRef!("alloc", "node"));
-				t.data.remove(*k);
-				i--;
-			}
-		}
 	}
 
 	package bool next(CrocTable* t, ref size_t idx, ref CrocValue* key, ref CrocValue* val)

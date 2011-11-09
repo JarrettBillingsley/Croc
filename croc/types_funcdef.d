@@ -28,7 +28,6 @@ subject to the following restrictions:
 module croc.types_funcdef;
 
 import croc.base_alloc;
-import croc.base_gc;
 import croc.types;
 
 struct funcdef

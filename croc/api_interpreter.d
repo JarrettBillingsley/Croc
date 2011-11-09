@@ -333,14 +333,23 @@ uword gc(CrocThread* t)
 
 	t.vm.stringTab.minimize(t.vm.alloc);
 	t.vm.weakRefTab.minimize(t.vm.alloc);
+	t.vm.allThreads.minimize(t.vm.alloc);
 
-	for(auto tab = t.vm.toBeNormalized; tab !is null; tab = tab.nextTab)
-		table.normalize(t.vm.alloc, tab);
+	auto ret = beforeSize > t.vm.alloc.totalBytes ? beforeSize - t.vm.alloc.totalBytes : 0; // This is.. possible? TODO: figure out how.
 
-	if(beforeSize > t.vm.alloc.totalBytes)
-		return beforeSize - t.vm.alloc.totalBytes;
-	else
-		return 0; // This is.. possible? TODO: figure out how.
+	getRegistry(t);
+	field(t, -1, "gc.postGCCallbacks");
+	
+	foreach(word v; foreachLoop(t, 1))
+	{
+		dup(t, v);
+		pushNull(t);
+		rawCall(t, -2, 0);
+	}
+
+	pop(t);
+
+	return ret;
 }
 
 // TODO: more GC interface stuff

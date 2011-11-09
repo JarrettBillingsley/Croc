@@ -214,6 +214,7 @@ static:
 			insertAndPop(t, -3);
 		}
 
+		// TODO: make this use a weak key table
 		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		dup(t, docTable);
@@ -1000,6 +1001,7 @@ local v = attrs(memblock.new(\"f32\", 5), {blerf = \"derf\"})
 		if(!isNull(t, 2) && !isTable(t, 2))
 			paramTypeError(t, 2, "null|table");
 
+		// TODO: make this use a weak key table
 		getUpval(t, 0);
 		pushWeakRef(t, 1);
 		dup(t, 2);

@@ -26,7 +26,7 @@ subject to the following restrictions:
 module croc.types_namespace;
 
 import croc.base_alloc;
-import croc.base_gc;
+import croc.base_writebarrier;
 import croc.base_hash;
 import croc.types;
 
