@@ -147,7 +147,7 @@ private:
 	bool hasSideEffects()
 	{
 		return type == ExpType.Index || type == ExpType.Field || type == ExpType.Slice || type == ExpType.VarargIndex || type == ExpType.VarargSlice
-			|| type == ExpType.Length || type == ExpType.Call || type == ExpType.Yield;
+			|| type == ExpType.Length || type == ExpType.Call || type == ExpType.Yield || type == ExpType.NeedsDest;
 	}
 
 	debug private char[] toString()
@@ -1104,6 +1104,9 @@ package:
 
 		for(int i = (mExpSP - numVals) + 1; i < mExpSP; i++)
 		{
+			if(mExpStack[i].type != ExpType.Local)
+				continue;
+
 			auto index = mExpStack[i].index;
 			uint reloc = uint.max;
 

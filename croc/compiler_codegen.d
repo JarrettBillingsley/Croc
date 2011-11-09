@@ -498,7 +498,7 @@ scope class Codegen : Visitor
 		else
 		{
 			fs.pushNewLocals(d.names.length);
-			codeGenAssignRHS(d.initializer);
+			codeGenList(d.initializer);
 			fs.assign(d.location, d.names.length, d.initializer.length);
 
 			foreach(n; d.names)
@@ -990,6 +990,7 @@ scope class Codegen : Visitor
 			visit(dest);
 
 		fs.resolveAssignmentConflicts(s.lhs[$ - 1].location, s.lhs.length);
+
 		codeGenAssignRHS(s.rhs);
 		fs.assign(s.endLocation, s.lhs.length, s.rhs.length);
 
