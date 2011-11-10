@@ -69,8 +69,11 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	debug(BEGINEND) Stdout.formatln("======================= BEGIN {} =============================== {}", ++counter, cast(uint)cycleType).flush;
 	debug(BEGINEND) Stdout.formatln("Nursery: {} bytes allocated out of {}; mod buffer length = {}, dec buffer length = {}", vm.alloc.nurseryBytes, vm.alloc.nurseryLimit, vm.alloc.modBuffer.length, vm.alloc.decBuffer.length);
 
-	assert(vm.inGCCycle);
+	assert(!vm.inGCCycle);
 	assert(vm.alloc.gcDisabled == 0);
+	
+	vm.inGCCycle = true;
+	scope(exit) vm.inGCCycle = false;
 
 	auto modBuffer = &vm.alloc.modBuffer;
 	auto decBuffer = &vm.alloc.decBuffer;

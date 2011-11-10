@@ -63,9 +63,6 @@ const FinalizeLoopLimit = 1000;
 // Free all objects.
 void freeAll(CrocVM* vm)
 {
-	vm.inGCCycle = true;
-	scope(exit) vm.inGCCycle = false;
-
 	gcCycle(vm, GCCycleType.BeginCleanup);
 
 	auto limit = 0;

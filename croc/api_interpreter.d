@@ -325,13 +325,7 @@ uword gc(CrocThread* t, bool fullCollect = false)
 	if(t.vm.alloc.gcDisabled > 0)
 		return 0;
 
-	assert(!t.vm.inGCCycle);
-
-	t.vm.inGCCycle = true;
-	scope(exit) t.vm.inGCCycle = false;
-
 	auto beforeSize = t.vm.alloc.totalBytes;
-
 	gcCycle(t.vm, fullCollect ? GCCycleType.Full : GCCycleType.Normal);
 	runFinalizers(t);
 
@@ -423,7 +417,7 @@ uword gcLimit(CrocThread* t, char[] type, uword lim)
 		case "cycleMetadataLimit":   auto ret = t.vm.alloc.cycleMetadataLimit; t.vm.alloc.cycleMetadataLimit = lim; return ret;
 		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
 	}
-	
+
 	assert(false);
 }
 
@@ -447,7 +441,7 @@ uword gcLimit(CrocThread* t, char[] type)
 		case "cycleMetadataLimit":   return t.vm.alloc.cycleMetadataLimit;
 		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
 	}
-	
+
 	assert(false);
 }
 
