@@ -57,6 +57,7 @@ package:
 enum GCCycleType
 {
 	Normal,
+	Full,
 	BeginCleanup,
 	ContinueCleanup,
 	FinishCleanup
@@ -89,7 +90,7 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 
 	switch(cycleType)
 	{
-		case GCCycleType.Normal:
+		case GCCycleType.Normal, GCCycleType.Full:
 			visitRoots(vm, (GCObject* obj)
 			{
 				if((obj.gcflags & GCFlags.InRC) == 0)
@@ -233,23 +234,19 @@ void gcCycle(CrocVM* vm, GCCycleType cycleType)
 	vm.alloc.clearNurserySpace();
 
 	// CYCLE DETECT. Mark, scan, and collect as described in Bacon and Rajan.
-	bool cycleCollect = false;
-
-	if((cycleRoots.length * (GCObject*).sizeof) >= vm.alloc.cycleMetadataLimit || cycleType != GCCycleType.Normal)
-		cycleCollect = true;
-	else if(vm.alloc.cycleCollectCountdown == 0)
-	{
-		cycleCollect = true;
-		vm.alloc.cycleCollectCountdown = vm.alloc.nextCycleCollect;
-	}
-	else
-		vm.alloc.cycleCollectCountdown--;
+	bool cycleCollect =
+		(cycleRoots.length * (GCObject*).sizeof) >= vm.alloc.cycleMetadataLimit ||
+		cycleType != GCCycleType.Normal ||
+		vm.alloc.cycleCollectCountdown == 0;
 
 	if(cycleCollect)
 	{
+		vm.alloc.cycleCollectCountdown = vm.alloc.nextCycleCollect;
 		debug(BEGINEND) Stdout.formatln("CYCLES").flush;
 		collectCycles(vm);
 	}
+	else
+		vm.alloc.cycleCollectCountdown--;
 
 	assert(modBuffer.isEmpty());
 	assert(decBuffer.isEmpty());

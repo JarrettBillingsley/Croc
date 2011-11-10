@@ -312,11 +312,15 @@ Runs the garbage collector unconditionally.
 Params:
 	t = The thread to use to collect the garbage. Garbage collection is vm-wide but requires a thread
 		in order to be able to call finalization methods.
+	fullCollect = If true, forces a full garbage collection this cycle. In the case of the currently-implemented
+		GC, this forces the collector to run a cyclic garbage collection phase. Cyclic garbage must be scanned
+		for occasionally when using a reference counting scheme, but it can be time-consuming. Normally it is only
+		scanned for occasionally, but you can force it to occur.
 
 Returns:
 	The number of bytes collected by this collection cycle.
 */
-uword gc(CrocThread* t)
+uword gc(CrocThread* t, bool fullCollect = false)
 {
 	if(t.vm.alloc.gcDisabled > 0)
 		return 0;
@@ -328,7 +332,7 @@ uword gc(CrocThread* t)
 
 	auto beforeSize = t.vm.alloc.totalBytes;
 
-	gcCycle(t.vm, GCCycleType.Normal);
+	gcCycle(t.vm, fullCollect ? GCCycleType.Full : GCCycleType.Normal);
 	runFinalizers(t);
 
 	t.vm.stringTab.minimize(t.vm.alloc);
@@ -352,7 +356,100 @@ uword gc(CrocThread* t)
 	return ret;
 }
 
-// TODO: more GC interface stuff
+/**
+Changes various limits used by the garbage collector. Most have an effect on how often GC collections are run. You can set
+these limits to better suit your program, or to enforce certain behaviors, but setting them incorrectly can cause the GC to
+thrash, collecting way too often and hogging the CPU. Be careful.
+
+Params:
+	type = The type of limit to be set. The valid types are as follows:
+	$(UL
+		$(LI "nurseryLimit" - The size, in bytes, of the nursery generation. Defaults to 512KB. Most objects are initially
+			allocated in the nursery. When the nursery fills up (the number of bytes allocated exceeds this limit), a collection
+			will be triggered. Setting the nursery limit higher will cause collections to run less often, but they will take
+			longer to complete. Setting the nursery limit lower will put more pressure on the older generation as it will not
+			give young objects a chance to die off, as they usually do. Setting the nursery limit to 0 will cause a collection
+			to be triggered on every allocation. That's probably bad.)
+
+		$(LI "metadataLimit" - The size, in bytes, of the GC metadata. Defaults to 128KB. The metadata includes two buffers: one
+			keeps track of which old-generation objects have been modified; the other keeps track of which old-generation objects
+			need to have their reference counts decreased. This is pretty low-level stuff, but generally speaking, the more object
+			mutation your program has, the faster these buffers will fill up. When they do, a collection is triggered. Much like
+			the nursery limit, setting this value higher will cause collections to occur less often but they will take longer.
+			Setting it lower will put more pressure on the older generation, as it will tend to pull objects out of the nursery
+			before they can have a chance to die off. Setting the metadata limit to 0 will cause a collection to be triggered on
+			every mutation. That's also probably bad!)
+
+		$(LI "nurserySizeCutoff" - The maximum size, in bytes, of an object that can be allocated in the nursery. Defaults to 256.
+			If an object is bigger than this, it will be allocated directly in the old generation instead. This avoids having large
+			objects fill up the nursery and causing more collections than necessary. Chances are this won't happen too often, unless
+			you're allocating really huge class instances. Setting this value to 0 will effectively turn the GC algorithm into a
+			regular deferred reference counting GC, with only one generation. Maybe that'd be useful for you?)
+
+		$(LI "cycleCollectInterval" - Since the Croc reference implementation uses a form of reference counting to do garbage
+			collection, it must detect cyclic garbage (which would otherwise never be freed). Cyclic garbage usually forms only a
+			small part of all garbage, but ignoring it would cause memory leaks. In order to avoid that, the GC must occasionally
+			run a separate cycle collection algorithm during the GC cycle. This is triggered when enough potential cyclic garbage is
+			buffered (see the next limit type for that), or every $(I n) collections, whichever comes first. This limit is that $(I n).
+			It defaults to 50; that is, every 50 garbage collection cycles, a cycle collection will be forced, regardless of how much
+			potential cyclic garbage has been buffered. Setting this limit to 0 will force a cycle collection at every GC cycle, which
+			isn't that great for performance. Setting this limit very high will cause cycle collections only to be triggered if
+			enough potential cyclic garbage is buffered, but it's then possible that that garbage can hang around until program end,
+			wasting memory.)
+
+		$(LI "cycleMetadataLimit" - As explained above, the GC will buffer potential cyclic garbage during normal GC cycles, and then
+			when a cycle collection is initiated, it will look at that buffered garbage and determine whether it really is garbage.
+			This limit is similar to metadataLimit in that it measures the size of a buffer, and when that buffer size crosses this
+			limit, a cycle collection is triggered. This defaults to 128KB. The more cyclic garbage your program produces, the faster
+			this buffer will fill up. Note that Croc is somewhat smart about what it considers potential cyclic garbage; only objects
+			whose reference counts decrease to a non-zero value are candidates for cycle collection. Of course, this is only a heuristic,
+			and can have false positives, meaning non-cyclic objects (living or dead) can be scanned by the cycle collector as well.
+			Thus the cycle collector must be run to reclaim ALL dead objects.)
+	)
+
+	lim = The limit value. Its meaning is determined by the type parameter.
+
+Returns:
+	The previous value of the limit that was set.
+*/
+uword gcLimit(CrocThread* t, char[] type, uword lim)
+{
+	switch(type)
+	{
+		case "nurseryLimit":         auto ret = t.vm.alloc.nurseryLimit;       t.vm.alloc.nurseryLimit = lim;       return ret;
+		case "metadataLimit":        auto ret = t.vm.alloc.metadataLimit;      t.vm.alloc.metadataLimit = lim;      return ret;
+		case "nurserySizeCutoff":    auto ret = t.vm.alloc.nurserySizeCutoff;  t.vm.alloc.nurserySizeCutoff = lim;  return ret;
+		case "cycleCollectInterval": auto ret = t.vm.alloc.nextCycleCollect;   t.vm.alloc.nextCycleCollect = lim;   return ret;
+		case "cycleMetadataLimit":   auto ret = t.vm.alloc.cycleMetadataLimit; t.vm.alloc.cycleMetadataLimit = lim; return ret;
+		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
+	}
+	
+	assert(false);
+}
+
+/**
+Gets the current values of various GC limits. For an explanation of the valid limit types, see the other overload of this function.
+
+Params:
+	type = See the other overload of gcLimit.
+
+Returns:
+	The current value of the given limit.
+*/
+uword gcLimit(CrocThread* t, char[] type)
+{
+	switch(type)
+	{
+		case "nurseryLimit":         return t.vm.alloc.nurseryLimit;
+		case "metadataLimit":        return t.vm.alloc.metadataLimit;
+		case "nurserySizeCutoff":    return t.vm.alloc.nurserySizeCutoff;
+		case "cycleCollectInterval": return t.vm.alloc.nextCycleCollect;
+		case "cycleMetadataLimit":   return t.vm.alloc.cycleMetadataLimit;
+		default: throwStdException(t, "ValueException", "Invalid limit type '{}'", type);
+	}
+	
+	assert(false);
+}
 
 // ================================================================================================================================================
 // Pushing values onto the stack

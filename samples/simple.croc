@@ -2,13 +2,20 @@ module samples.simple
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
 
-/* local weakref, deref = weakref, deref
+function main()
+{
+	writeln(gc.limit("nurseryLimit"))
+	writeln(gc.limit("metadataLimit"))
+	writeln(gc.limit("nurserySizeCutoff"))
+	writeln(gc.limit("cycleCollectInterval"))
+	writeln(gc.limit("cycleMetadataLimit"))
+}
+
+local weakref, deref = weakref, deref
 local allWeakTables = {}
 
 gc.postCallback$ function postGC()
 {
-	writeln("ohai!")
-
 	foreach(k, _; allWeakTables, "modify")
 	{
 		local tab = deref(k)
@@ -143,11 +150,6 @@ class WeakKeyValTable : WeakTable
 			if(deref(k) is null || deref(v) is null)
 				:_data[k] = null
 	}
-} */
-
-function main()
-{
-
 }
 
 /*

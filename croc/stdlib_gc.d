@@ -38,11 +38,12 @@ static:
 
 	public void init(CrocThread* t)
 	{
-		// TODO: expand this interface
 		makeModule(t, "gc", function uword(CrocThread* t)
 		{
 			newFunction(t, 0, &collect,            "collect");            newGlobal(t, "collect");
+			newFunction(t, 0, &collectFull,        "collectFull");        newGlobal(t, "collectFull");
 			newFunction(t, 0, &allocated,          "allocated");          newGlobal(t, "allocated");
+			newFunction(t, 2, &limit,              "limit");              newGlobal(t, "limit");
 			newFunction(t, 1, &postCallback,       "postCallback");       newGlobal(t, "postCallback");
 			newFunction(t, 1, &removePostCallback, "removePostCallback"); newGlobal(t, "removePostCallback");
 
@@ -60,9 +61,34 @@ static:
 		return 1;
 	}
 
+	uword collectFull(CrocThread* t)
+	{
+		pushInt(t, gc(t, true));
+		return 1;
+	}
+
 	uword allocated(CrocThread* t)
 	{
 		pushInt(t, .bytesAllocated(getVM(t)));
+		return 1;
+	}
+	
+	uword limit(CrocThread* t)
+	{
+		auto limType = checkStringParam(t, 1);
+		
+		if(isValidIndex(t, 2))
+		{
+			auto lim = checkIntParam(t, 2);
+			
+			if(lim < 0 || lim > uword.max)
+				throwStdException(t, "RangeException", "Invalid limit ({})", lim);
+
+			pushInt(t, gcLimit(t, limType, cast(uword)lim));
+		}
+		else
+			pushInt(t, gcLimit(t, limType));
+
 		return 1;
 	}
 

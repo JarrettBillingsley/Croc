@@ -134,8 +134,8 @@ package:
 
 	Deque!(GCObject*) nursery;
 	uword nurseryBytes;
-	uword nurseryLimit = 1024 * 1024;
-	uword metadataLimit = 512 * 1024;
+	uword nurseryLimit = 512 * 1024;
+	uword metadataLimit = 128 * 1024;
 	uword nurserySizeCutoff = 256;
 	uword cycleCollectCountdown;
 	uword nextCycleCollect = 50;
