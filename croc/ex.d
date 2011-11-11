@@ -499,7 +499,7 @@ CreateClass(t, "ClassName", (CreateClass* c)
 	// Some normal methods
 	c.method("blah", &blah);
 	c.method("forble", &forble);
-	
+
 	// A method with one upval. Push it, then call c.method
 	pushInt(t, 0);
 	c.method("funcWithUpval", &funcWithUpval, 1);
@@ -589,6 +589,17 @@ struct CreateClass
 		fielda(t, idx, name);
 	}
 	
+	/**
+	Adds a field to the class. Expects the field's value to be on top of the stack.
+	
+	Params:
+		name = The name of the field.
+	*/
+	public void field(char[] name)
+	{
+		fielda(t, idx, name);
+	}
+
 	/**
 	Set this class's allocator function.
 

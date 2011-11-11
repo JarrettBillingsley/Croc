@@ -279,6 +279,22 @@ void removeRef(CrocThread* t, ulong r)
 		throwStdException(t, "ApiError", __FUNCTION__ ~ " - Reference '{}' does not exist", r);
 }
 
+
+word pushThrowableClass(CrocThread* t)
+{
+	return push(t, CrocValue(t.vm.throwable));
+}
+
+word pushObjectClass(CrocThread* t)
+{
+	return push(t, CrocValue(t.vm.object));
+}
+
+word pushLocationClass(CrocThread* t)
+{
+	return push(t, CrocValue(t.vm.location));	
+}
+
 // ================================================================================================================================================
 // GC-related stuff
 
@@ -1726,7 +1742,7 @@ word getStdException(CrocThread* t, char[] exName)
 	if(ex is null)
 	{
 		auto check = t.vm.stdExceptions.lookup(createString(t, "ApiError"));
-		
+
 		if(check is null)
 			throw new CrocException("Fatal -- exception thrown before exception library was loaded");
 

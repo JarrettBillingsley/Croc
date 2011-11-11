@@ -52,7 +52,6 @@ void main(char[][] args)
 
 	CrocVM vm;
 	auto t = openVM(&vm);
-	loadStdlibs(t, CrocStdlib.All);
 
 	scope(exit)
 		closeVM(&vm);

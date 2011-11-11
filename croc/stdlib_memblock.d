@@ -35,6 +35,11 @@ import croc.ex;
 import croc.stdlib_utils;
 import croc.types;
 import croc.types_memblock;
+import croc.utils;
+
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
 
 struct MemblockLib
 {
@@ -49,17 +54,11 @@ static:
 			register(t, 3, "new", &memblock_new);
 			register(t, 4, "range", &range);
 
-			getTypeMT(t, CrocValue.Type.Memblock);
-
-			if(isNull(t, -1))
-			{
-				pop(t);
-				newNamespace(t, "memblock");
-			}
-
+			newNamespace(t, "memblock");
 				registerField(t, 1, "type",        &type);
 				registerField(t, 0, "itemSize",    &itemSize);
 				registerField(t, 2, "toArray",     &toArray);
+				registerField(t, 0, "toString",    &memblockToString);
 
 				registerField(t, 0, "dup",         &mbDup);
 				registerField(t, 0, "reverse",     &reverse);
@@ -99,8 +98,15 @@ static:
 				registerField(t, 2, "writeULong",  &rawWrite!(ulong));
 				registerField(t, 2, "writeFloat",  &rawWrite!(float));
 				registerField(t, 2, "writeDouble", &rawWrite!(double));
-				
+
 				registerField(t, 4, "rawCopy",     &rawCopy);
+
+				registerField(t, 1, "opEquals",    &memblockOpEquals);
+				registerField(t, 1, "opCmp",       &memblockOpCmp);
+
+					newFunction(t, &memblockIterator, "memblock.iterator");
+					newFunction(t, &memblockIteratorReverse, "memblock.iteratorReverse");
+				registerField(t, 1, "opApply",     &memblockOpApply,  2);
 
 				registerField(t, 1, "opCat",       &opCat);
 				registerField(t, 1, "opCat_r",     &opCat_r);
@@ -126,7 +132,6 @@ static:
 				
 				field(t, -1, "opAdd"); fielda(t, -2, "opAdd_r");
 				field(t, -1, "opMul"); fielda(t, -2, "opMul_r");
-
 			setTypeMT(t, CrocValue.Type.Memblock);
 
 			return 0;
@@ -293,6 +298,59 @@ static:
 			idxai(t, ret, j);
 		}
 
+		return 1;
+	}
+
+	version(CrocBuiltinDocs) Docs memblockToString_docs = {kind: "function", name: "toString", docs:
+	"Returns a string representation of this memblock in the form `\"memblock(type)[items]\"`; for example,
+	`\"memblock.range(\"i32\", 1, 5).toString()\"` would yield `\"memblock(i32)[1, 2, 3, 4]\"`. If the memblock
+	is of type void, then the result will instead be `\"memblock(v)[n bytes]\"`, where ''n'' is the length of
+	the memblock.",
+	params: [],
+	extra: [Extra("section", "Memblock metamethods")]};
+
+	uword memblockToString(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		auto b = StrBuffer(t);
+		pushFormat(t, "memblock({})[", mb.kind.name);
+		b.addTop();
+
+		if(mb.kind.code == CrocMemblock.TypeCode.v)
+		{
+			pushFormat(t, "{} bytes", mb.itemLength);
+			b.addTop();
+		}
+		else if(mb.kind.code == CrocMemblock.TypeCode.u64)
+		{
+			for(uword i = 0; i < mb.itemLength; i++)
+			{
+				if(i > 0)
+					b.addString(", ");
+
+				auto v = memblock.index(mb, i);
+				pushFormat(t, "{}", cast(ulong)v.mInt);
+				b.addTop();
+			}
+		}
+		else
+		{
+			for(uword i = 0; i < mb.itemLength; i++)
+			{
+				if(i > 0)
+					b.addString(", ");
+
+				push(t, memblock.index(mb, i));
+				pushToString(t, -1, true);
+				insertAndPop(t, -2);
+				b.addTop();
+			}
+		}
+
+		b.addString("]");
+		b.finish();
 		return 1;
 	}
 
@@ -1020,7 +1078,7 @@ static:
 
 		if(srcPos + size > src.data.length)
 			throwStdException(t, "BoundsException", "Copy size exceeds size of source memblock");
-			
+
 		auto srcPtr = src.data.ptr + srcPos;
 		auto destPtr = dest.data.ptr + destPos;
 
@@ -1030,6 +1088,171 @@ static:
 			memcpy(destPtr, srcPtr, cast(uword)size);
 
 		return 0;
+	}
+
+	version(CrocBuiltinDocs) Docs memblockOpEquals_docs = {kind: "function", name: "opEquals", docs:
+	"Compares two memblocks for equality. Throws an error if the two memblocks are of different types. Returns
+	true only if the two memblocks are the same length and have the same contents.",
+	params: [Param("other", "memblock")],
+	extra: [Extra("section", "Memblock metamethods")]};
+
+	uword memblockOpEquals(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		checkAnyParam(t, 1);
+
+		if(!isMemblock(t, 1))
+		{
+			pushTypeString(t, 1);
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
+		}
+
+		if(opis(t, 0, 1))
+			pushBool(t, true);
+		else
+		{
+			auto other = getMemblock(t, 1);
+
+			if(mb.kind !is other.kind)
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+			if(mb.itemLength != other.itemLength)
+				pushBool(t, false);
+			else
+			{
+				auto a = (cast(byte*)mb.data)[0 .. mb.itemLength * mb.kind.itemSize];
+				auto b = (cast(byte*)other.data)[0 .. a.length];
+				pushBool(t, a == b);
+			}
+		}
+
+		return 1;
+	}
+
+	version(CrocBuiltinDocs) Docs memblockOpCmp_docs = {kind: "function", name: "opCmp", docs:
+	"Compares two memblocks for equality. Throws an error if the two memblocks are of different types.",
+	params: [Param("other", "memblock")],
+	extra: [Extra("section", "Memblock metamethods")]};
+
+	uword memblockOpCmp(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto len = mb.itemLength;
+		checkAnyParam(t, 1);
+
+		if(!isMemblock(t, 1))
+		{
+			pushTypeString(t, 1);
+			throwStdException(t, "TypeException", "Attempting to compare a memblock to a '{}'", getString(t, -1));
+		}
+
+		if(opis(t, 0, 1))
+			pushInt(t, 0);
+		else
+		{
+			auto other = getMemblock(t, 1);
+
+			if(mb.kind !is other.kind)
+				throwStdException(t, "ValueException", "Attempting to compare memblocks of types '{}' and '{}'", mb.kind.name, other.kind.name);
+
+			auto otherLen = other.itemLength;
+			auto l = .min(len, otherLen);
+			int cmp;
+
+			switch(mb.kind.code)
+			{
+				case CrocMemblock.TypeCode.v:   auto a = mb.data[0 .. l]; auto b = other.data[0 .. l]; cmp = typeid(void[]).compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i8:  auto a = (cast(byte[])  mb.data)[0 .. l]; auto b = (cast(byte[])  other.data)[0 .. l]; cmp = typeid(byte[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i16: auto a = (cast(short[]) mb.data)[0 .. l]; auto b = (cast(short[]) other.data)[0 .. l]; cmp = typeid(short[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i32: auto a = (cast(int[])   mb.data)[0 .. l]; auto b = (cast(int[])   other.data)[0 .. l]; cmp = typeid(int[]).  compare(&a, &b); break;
+				case CrocMemblock.TypeCode.i64: auto a = (cast(long[])  mb.data)[0 .. l]; auto b = (cast(long[])  other.data)[0 .. l]; cmp = typeid(long[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u8:  auto a = (cast(ubyte[]) mb.data)[0 .. l]; auto b = (cast(ubyte[]) other.data)[0 .. l]; cmp = typeid(ubyte[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u16: auto a = (cast(ushort[])mb.data)[0 .. l]; auto b = (cast(ushort[])other.data)[0 .. l]; cmp = typeid(ushort[]).compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u32: auto a = (cast(uint[])  mb.data)[0 .. l]; auto b = (cast(uint[])  other.data)[0 .. l]; cmp = typeid(uint[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.u64: auto a = (cast(ulong[]) mb.data)[0 .. l]; auto b = (cast(ulong[]) other.data)[0 .. l]; cmp = typeid(ulong[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.f32: auto a = (cast(float[]) mb.data)[0 .. l]; auto b = (cast(float[]) other.data)[0 .. l]; cmp = typeid(float[]). compare(&a, &b); break;
+				case CrocMemblock.TypeCode.f64: auto a = (cast(double[])mb.data)[0 .. l]; auto b = (cast(double[])other.data)[0 .. l]; cmp = typeid(double[]).compare(&a, &b); break;
+				default: assert(false);
+			}
+
+			if(cmp == 0)
+				pushInt(t, Compare3(len, otherLen));
+			else
+				pushInt(t, cmp);
+		}
+
+		return 1;
+	}
+
+	uword memblockIterator(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto index = checkIntParam(t, 1) + 1;
+
+		if(index >= mb.itemLength)
+			return 0;
+
+		pushInt(t, index);
+		push(t, memblock.index(mb, cast(uword)index));
+		return 2;
+	}
+
+	uword memblockIteratorReverse(CrocThread* t)
+	{
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+		auto index = checkIntParam(t, 1) - 1;
+
+		if(index < 0)
+			return 0;
+
+		pushInt(t, index);
+		push(t, memblock.index(mb, cast(uword)index));
+		return 2;
+	}
+
+	version(CrocBuiltinDocs) Docs memblockOpApply_docs = {kind: "function", name: "opApply", docs:
+	"This lets you iterate over the elements of memblocks with foreach loops, just like with arrays. Also
+	like arrays, you can pass `\"reverse\"` to iterate over the elements backwards.
+{{{
+#!croc
+local m = memblock.range(\"i32\", 1, 6)
+
+foreach(val; m)
+	writeln(val) // prints 1 through 5
+
+foreach(val; m, \"reverse\")
+	writeln(val) // prints 5 through 1
+}}}
+	",
+	params: [Param("mode", "string", "null")],
+	extra: [Extra("section", "Memblock metamethods")]};
+
+	uword memblockOpApply(CrocThread* t)
+	{
+		const Iter = 0;
+		const IterReverse = 1;
+
+		checkParam(t, 0, CrocValue.Type.Memblock);
+		auto mb = getMemblock(t, 0);
+
+		if(optStringParam(t, 1, "") == "reverse")
+		{
+			getUpval(t, IterReverse);
+			dup(t, 0);
+			pushInt(t, mb.itemLength);
+		}
+		else
+		{
+			getUpval(t, Iter);
+			dup(t, 0);
+			pushInt(t, -1);
+		}
+
+		return 3;
 	}
 
 	uword opCat(CrocThread* t)
@@ -1267,7 +1490,7 @@ static:
 			methodCall(t, -3, "rev` ~ name ~ `", 0);
 
 			return 1;
-		}`; /+  +/
+		}`; /+ " +/
 	}
 
 	mixin(op_rev("Sub"));
@@ -1284,7 +1507,7 @@ static:
 			checkParam(t, 0, CrocValue.Type.Memblock);
 			auto mb = getMemblock(t, 0);
 			checkAnyParam(t, 1);
-			
+
 			if(mb.kind.code == TypeCode.v)
 				throwStdException(t, "ValueException", "Attempting to modify a void memblock");
 
@@ -1303,19 +1526,19 @@ static:
 					case TypeCode.i8:
 						auto data = cast(byte[])mb.data;
 						auto otherData = cast(byte[])other.data;
-	
+
 						for(uword i = 0; i < data.length; i++)
 							data[i] = cast(byte)(otherData[i] ` ~ op ~ ` data[i]);
 						break;
-	
+
 					case TypeCode.i16:
 						auto data = cast(short[])mb.data;
 						auto otherData = cast(short[])other.data;
-	
+
 						for(uword i = 0; i < data.length; i++)
 							data[i] = cast(short)(otherData[i] ` ~ op ~ ` data[i]);
 						break;
-	
+
 					case TypeCode.i32: auto data = cast(int[])mb.data;  data[] = (cast(int[])other.data)[] ` ~ op ~ ` data[];  break;
 					case TypeCode.i64: auto data = cast(long[])mb.data; data[] = (cast(long[])other.data)[] ` ~ op ~ ` data[]; break;
 

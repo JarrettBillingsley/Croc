@@ -30,34 +30,6 @@ import croc.api_stack;
 import croc.ex;
 import croc.types;
 
-struct ExceptionsLib
-{
-static:
-	public void init(CrocThread* t)
-	{
-		importModuleFromString(t, "exceptions", srcCode, srcName);
-			field(t, -1, "Location");
-			t.vm.location = getClass(t, -1);
-			pop(t);
-
-			foreach(desc; ExDescs)
-			{
-				field(t, -1, desc.name);
-				*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
-				pop(t);
-			}
-			
-			newFunction(t, 1, &stdException, "stdException"); fielda(t, -2, "stdException");
-		pop(t);
-	}
-	
-	uword stdException(CrocThread* t)
-	{
-		getStdException(t, checkStringParam(t, 1));
-		return 1;
-	}
-}
-
 /*
 + Exception - Base class for all "generally non-fatal" exceptions.
 	+ CompileException - Base class for exceptions that the Croc compiler throws.
@@ -132,106 +104,256 @@ private const ExDesc[] ExDescs =
 		{"VMError",        "Error"},
 ];
 
-char[] makeExceptionClasses()
+struct ExceptionsLib
 {
-	char[] ret;
+static:
+	const crocint Unknown = 0;
+	const crocint Native = -1;
+	const crocint Script = -2;
 
-	foreach(desc; ExDescs)
-		ret ~= "\nclass " ~ desc.name ~ " : " ~ desc.derives ~ "{}";
-
-	return ret;
-}
-
-private const char[] srcName = "exceptions.croc";
-private const char[] srcCode =
-`module exceptions
-
-local nameOf = nameOf // fine -- from baselib
-local toString = toString // also from baselib
-// local StringBuffer = string.StringBuffer
-
-class Location
-{
-	Unknown = 0
-	Native = -1
-	Script = -2
-
-	file = ""
-	line = 0
-	col = Location.Unknown
-
-	this(file: string|null, line: int = -1, col: int = Location.Script)
+	public void init(CrocThread* t)
 	{
-		if(file is null)
-			return
-
-		:file = file
-		:line = line
-		:col = col
-	}
-
-	function toString()
-	{
-		switch(:col)
+		makeModule(t, "exceptions", function uword(CrocThread* t)
 		{
-			case Location.Unknown: return "<unknown location>"
-			case Location.Native:  return :file ~ "(native)"
-			case Location.Script:  return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ')'
-			default:               return :file ~ '(' ~ (:line < 1 ? "?" : toString(:line)) ~ ':' ~ toString(:col) ~ ')'
+			CreateClass(t, "Location", (CreateClass* c)
+			{
+				pushInt(t, Unknown); c.field("Unknown");
+				pushInt(t, Native);  c.field("Native");
+				pushInt(t, Script);  c.field("Script");
+
+				pushString(t, "");   c.field("file");
+				pushInt(t, 0);       c.field("line");
+				pushInt(t, Unknown); c.field("col");
+
+				c.method("constructor", 3, &locationConstructor);
+				c.method("toString",    0, &locationToString);
+			});
+
+			t.vm.location = getClass(t, -1);
+			newGlobal(t, "Location");
+
+			pushGlobal(t, "Throwable");
+				pushNull(t); fielda(t, -2, "cause");
+				pushString(t, ""); fielda(t, -2, "msg");
+				newArray(t, 0); fielda(t, -2, "traceback");
+
+				pushGlobal(t, "Location");
+				pushNull(t);
+				rawCall(t, -2, 1);
+				fielda(t, -2, "location");
+
+				newFunction(t, 2, &throwableConstructor,     "Throwable.constructor");     fielda(t, -2, "constructor");
+				newFunction(t, 0, &throwableToString,        "Throwable.toString");        fielda(t, -2, "toString");
+				newFunction(t, 1, &throwableSetLocation,     "Throwable.setLocation");     fielda(t, -2, "setLocation");
+				newFunction(t, 0, &throwableTracebackString, "Throwable.tracebackString"); fielda(t, -2, "tracebackString");
+			pop(t);
+
+			foreach(desc; ExDescs)
+			{
+				pushGlobal(t, desc.derives);
+				newClass(t, -1, desc.name);
+				*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
+				newGlobal(t, desc.name);
+				pop(t);
+			}
+
+			newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
+			return 0;
+		});
+
+		importModuleNoNS(t, "exceptions");
+
+	}
+
+	uword locationConstructor(CrocThread* t)
+	{
+		auto file = optStringParam(t, 1, null);
+
+		if(file is null)
+			return 0;
+
+		auto line = optIntParam(t, 2, -1);
+		auto col = optIntParam(t, 3, Script);
+
+		pushString(t, file); fielda(t, 0, "file");
+		pushInt(t, line);    fielda(t, 0, "line");
+		pushInt(t, col);     fielda(t, 0, "col");
+		return 0;
+	}
+
+	uword locationToString(CrocThread* t)
+	{
+		field(t, 0, "col");
+
+		switch(getInt(t, -1))
+		{
+			case Unknown:
+				pushString(t, "<unknown location>");
+				break;
+
+			case Native:
+				field(t, 0, "file");
+				pushString(t, "(native)");
+				cat(t, 2);
+				break;
+
+			case Script:
+				auto first = field(t, 0, "file");
+				pushChar(t, '(');
+
+				field(t, 0, "line");
+
+				if(getInt(t, -1) < 1)
+					pushChar(t, '?');
+				else
+					pushToString(t, -1, true);
+
+				insertAndPop(t, -2);
+
+				pushChar(t, ')');
+				cat(t, stackSize(t) - first);
+				break;
+
+			default:
+				auto first = field(t, 0, "file");
+				pushChar(t, '(');
+
+				field(t, 0, "line");
+
+				if(getInt(t, -1) < 1)
+					pushChar(t, '?');
+				else
+					pushToString(t, -1, true);
+
+				insertAndPop(t, -2);
+
+				pushChar(t, ':');
+
+				field(t, 0, "col");
+				pushToString(t, -1, true);
+				insertAndPop(t, -2);
+
+				pushChar(t, ')');
+				cat(t, stackSize(t) - first);
+				break;
 		}
+
+		return 1;
+	}
+
+	uword throwableConstructor(CrocThread* t)
+	{
+		auto msg = optStringParam(t, 1, "");
+
+		if(isValidIndex(t, 2))
+		{
+			pushThrowableClass(t);
+			if(!as(t, 2, -1))
+				paramTypeError(t, 2, "instance of Throwable");
+			pop(t);
+
+			dup(t, 2);
+			fielda(t, 0, "cause");
+		}
+		else
+		{
+			pushNull(t);
+			fielda(t, 0, "cause");
+		}
+
+		pushString(t, msg);
+		fielda(t, 0, "msg");
+		return 0;
+	}
+
+	uword throwableToString(CrocThread* t)
+	{
+		auto first = superOf(t, 0);
+		pushString(t, className(t, -1));
+		insertAndPop(t, -2);
+		pushString(t, " at ");
+		field(t, 0, "location");
+		pushNull(t);
+		methodCall(t, -2, "toString", 1);
+
+		field(t, 0, "msg");
+
+		if(len(t, -1) > 0)
+		{
+			pushString(t, ": ");
+			insert(t, -2);
+		}
+		else
+			pop(t);
+
+		first = cat(t, stackSize(t) - first);
+
+		field(t, 0, "cause");
+
+		if(isNull(t, -1))
+			pop(t);
+		else
+		{
+			pushString(t, "\nCaused by:\n");
+			insertAndPop(t, -2);
+			pushNull(t);
+			methodCall(t, -2, "toString", 1);
+			cat(t, stackSize(t) - first);
+		}
+
+		return 1;
+	}
+
+	uword throwableSetLocation(CrocThread* t)
+	{
+		checkInstParam(t, 1);
+		
+		pushLocationClass(t);
+		if(!as(t, 1, -1))
+			paramTypeError(t, 1, "instance of Location");
+		pop(t);
+		
+		dup(t, 1);
+		fielda(t, 0, "location");
+		dup(t, 0);
+		return 1;
+	}
+
+	uword throwableTracebackString(CrocThread* t)
+	{
+		auto traceback = field(t, 0, "traceback");
+		auto tblen = len(t, traceback);
+
+		if(tblen == 0)
+		{
+			pushString(t, "");
+			return 1;
+		}
+
+		auto s = StrBuffer(t);
+		s.addString("Traceback: ");
+
+		idxi(t, traceback, 0);
+		pushNull(t);
+		methodCall(t, -2, "toString", 1);
+		s.addTop();
+
+		for(crocint i = 1; i < tblen; i++)
+		{
+			s.addString("\n       at: ");
+			idxi(t, traceback, i);
+			pushNull(t);
+			methodCall(t, -2, "toString", 1);
+			s.addTop();
+		}
+
+		s.finish();
+		return 1;
+	}
+
+	uword stdException(CrocThread* t)
+	{
+		getStdException(t, checkStringParam(t, 1));
+		return 1;
 	}
 }
-
-// keep these in locals so we can still access them when the VM is being torn down and the globals disappear
-local Location = Location
-local Throwable = Throwable
-
-Throwable.cause = null
-Throwable.msg = ""
-Throwable.location = Location()
-Throwable.traceback = []
-
-Throwable.constructor = function constructor(msg: string = "", cause: Throwable = null)
-{
-	:msg = msg
-	:cause = cause
-}
-
-Throwable.toString = function toString()
-{
-	local ret
-
-	if(#:msg > 0)
-		ret = nameOf(:super) ~ " at " ~ :location.toString() ~ ": " ~ :msg
-	else
-		ret = nameOf(:super) ~ " at " ~ :location.toString()
-
-	if(:cause)
-		ret ~= "\nCaused by:\n" ~ :cause.toString()
-
-	return ret
-}
-
-Throwable.setLocation = function setLocation(l: Location)
-{
-	:location = l
-	return this
-}
-
-Throwable.tracebackString = function tracebackString()
-{
-	if(#:traceback == 0)
-		return ""
-
-	// TODO: StringBuffer this.. but somehow, since StringBuffer can disappear from the globals when the VM is being torn down
-	local s = ""
-
-	s ~= "Traceback: " ~ :traceback[0].toString()
-
-	for(i: 1 .. #:traceback)
-		s ~= "\n       at: " ~ :traceback[i].toString()
-
-	return s
-}` ~ makeExceptionClasses() ~
-`_G.Exception = Exception
-_G.Error = Error`;

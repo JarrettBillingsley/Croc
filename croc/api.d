@@ -46,6 +46,7 @@ import croc.stdlib_base;
 import croc.stdlib_char;
 import croc.stdlib_compiler;
 import croc.stdlib_debug;
+import croc.stdlib_docs;
 import croc.stdlib_exceptions;
 import croc.stdlib_gc;
 import croc.stdlib_hash;
@@ -81,7 +82,7 @@ void* DefaultMemFunc(void* ctx, void* p, uword oldSize, uword newSize)
 	else
 	{
 		auto ret = tango.stdc.stdlib.realloc(p, newSize);
-		
+
 		if(ret is null)
 			onOutOfMemoryError();
 
@@ -112,32 +113,57 @@ Params:
 		since it is stored in the VM structure, it can safely point into D heap memory.
 
 Returns:
-	The passed-in pointer.
+	The newly-opened VM's main thread.
 */
 CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = null)
 {
 	openVMImpl(vm, memFunc, ctx);
 	auto t = mainThread(vm);
 
-	// Set up the modules module. This has to be done before any other modules
-	// are initialized for obvious reasons.
-	ModulesLib.init(t);
-	BaseLib.init(t);
-	GCLib.init(t);
-	ThreadLib.init(t);
-	ExceptionsLib.init(t);
+	// Docs first so rest of library can be documented as it's defined
+	DocsLib.init(t);
 
+	// Core libs
+	ModulesLib.init(t);
+	ExceptionsLib.init(t);
+	GCLib.init(t);
+
+	// Safe libs
+	BaseLib.init(t);
+	HashLib.init(t);
+
+	// Oop, let's take a break to stitch up these dependencies
+	pushGlobal(t, "finishLoadingDocs");
+	pushNull(t);
+	rawCall(t, -2, 0);
+
+	// Finish up the safe libs.
+	MemblockLib.init(t);
+	StringLib.init(t); // depends on memblock
+	StreamLib.init(t);
+	JSONLib.init(t); // depends on stream
+	SerializationLib.init(t); // depends on stream
+	ArrayLib.init(t);
+	CharLib.init(t);
+	CompilerLib.init(t);
+	MathLib.init(t);
+	RegexpLib.init(t);
+	ThreadLib.init(t);
+	TimeLib.init(t);
+
+	// Done, turn the GC back on and clear out any garbage we made.
 	enableGC(vm);
+	gc(t);
+	
 	return t;
 }
 
 /**
-Closes a VM object and deallocates all memory associated with it.
-
-Normally you won't have to call this since, when the host program exits, all memory associated with
-its process will be freed. However if you need to get rid of a context for some reason (i.e. a daemon
-process which spawns and frees contexts as necessary), you must call this to free any data associated
-with the VM.
+Closes a VM object and deallocates all memory associated with it. This also runs finalizers on all
+remaining finalizable objects. Finalization is guaranteed so that long-running processes can create
+and destroy VMs without having to worry about Croc code never releasing system resources like file
+handles. Of course, if there is an error in a finalizer, the finalization process will be halted and
+the VM will be in an unclosable state. This is why making finalizers not fail is important.
 
 Params:
 	vm = The VM to free. After all memory has been freed, the memory at this pointer will be initialized
@@ -149,61 +175,33 @@ void closeVM(CrocVM* vm)
 }
 
 /**
-This enumeration is used with the loadStdlibs function to specify which standard libraries you
-want to load into the VM. The base library is always loaded, so there is no flag for it. You can
-choose which libraries you want to load by ORing together multiple flags.
+This enum lists the unsafe standard libraries to be used with loadUnsafeLibs. You can choose which
+libraries you want to load by bitwise-ORing together multiple flags.
 */
-enum CrocStdlib
+enum CrocUnsafeLib
 {
-	None =             0, /// Nothing but the base library will be loaded if you specify this flag.
-	Array =            1, /// _Array manipulation.
-	Char =             2, /// Character classification.
-	IO =               4, /// File system manipulation and file access. Requires the stream lib.
-	Math =             8, /// Standard math functions.
-	String =          16, /// _String manipulation.
-	Hash =            32, /// _Hash (table and namespace) manipulation.
-	OS =              64, /// _OS-specific functionality. Requires the stream lib.
-	Regexp =         128, /// Regular expressions.
-	Time =           256, /// _Time functions.
-	Stream =         512, /// Streamed IO classes.
-	Debug =         1024, /// Debugging introspection and hooks.
-	Serialization = 2048, /// (De)serialization of complex object graphs.
-	JSON =          4096, /// JSON reading and writing.
-	Compiler =      8192, /// Dynamic compilation of Croc code.
-	Memblock =     16384, /// _Memblock creation and manipulation.
+	None =  0, /// No unsafe libraries.
+	IO =    1, /// File system manipulation and file access.
+	OS =    2, /// _OS-specific functionality.
+	Debug = 4, /// Debugging introspection and hooks.
 
-	/** This flag is an OR of all the libraries which are "safe", which is everything except the IO, OS, and Debug libraries. */
-	Safe = Array | Char | Math | String | Hash | Regexp | Stream | Time | Serialization | JSON | Compiler | Memblock,
+	/** _All available unsafe libraries except the debug library. */
+	All = IO | OS,
 
-	/** _All available standard libraries except the debug library. */
-	All = Safe | IO | OS,
-
-	/** All available standard libraries including the debug library. */
+	/** All available unsafe libraries including the debug library. */
 	ReallyAll = All | Debug
 }
 
 /**
-Load the standard libraries into the global namespace of the given thread.
+Load the unsafe standard libraries into the given thread's VM.
 
 Params:
-	libs = An ORing together of any standard libraries you want to load (see the CrocStdlib enum).
-		Defaults to CrocStdlib.All.
+	libs = An ORing together of any unsafe standard libraries you want to load (see the CrocUnsafeLib enum).
+		Defaults to CrocUnsafeLib.All.
 */
-void loadStdlibs(CrocThread* t, uint libs = CrocStdlib.All)
+void loadUnsafeLibs(CrocThread* t, uint libs = CrocUnsafeLib.All)
 {
-	if(libs & CrocStdlib.Array)         ArrayLib.init(t);
-	if(libs & CrocStdlib.Char)          CharLib.init(t);
-	if(libs & CrocStdlib.Stream)        StreamLib.init(t);
-	if(libs & CrocStdlib.IO)            IOLib.init(t);
-	if(libs & CrocStdlib.Math)          MathLib.init(t);
-	if(libs & CrocStdlib.OS)            OSLib.init(t);
-	if(libs & CrocStdlib.Regexp)        RegexpLib.init(t);
-	if(libs & CrocStdlib.String)        StringLib.init(t);
-	if(libs & CrocStdlib.Hash)          HashLib.init(t);
-	if(libs & CrocStdlib.Time)          TimeLib.init(t);
-	if(libs & CrocStdlib.Debug)         DebugLib.init(t);
-	if(libs & CrocStdlib.Serialization) SerializationLib.init(t);
-	if(libs & CrocStdlib.JSON)          JSONLib.init(t);
-	if(libs & CrocStdlib.Compiler)      CompilerLib.init(t);
-	if(libs & CrocStdlib.Memblock)      MemblockLib.init(t);
+	if(libs & CrocUnsafeLib.IO)    IOLib.init(t);
+	if(libs & CrocUnsafeLib.OS)    OSLib.init(t);
+	if(libs & CrocUnsafeLib.Debug) DebugLib.init(t);
 }

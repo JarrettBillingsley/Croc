@@ -26,13 +26,11 @@ void main()
 	scope(exit) Stdout.flush;
 
 	CrocVM vm;
-	CrocThread* t;
+	auto t = openVM(&vm);
+	loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
 
 	try
 	{
-		t = openVM(&vm);
-		loadStdlibs(t, CrocStdlib.ReallyAll);
-
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);

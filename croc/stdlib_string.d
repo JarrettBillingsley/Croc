@@ -47,6 +47,8 @@ static:
 	{
 		makeModule(t, "string", function uword(CrocThread* t)
 		{
+			importModuleNoNS(t, "memblock");
+
 			StringBufferObj.init(t);
 
 			register(t, 2, "joinArray", &joinArray);

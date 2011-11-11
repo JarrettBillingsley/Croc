@@ -4,11 +4,7 @@ module samples.simple
 
 function main()
 {
-	writeln(gc.limit("nurseryLimit"))
-	writeln(gc.limit("metadataLimit"))
-	writeln(gc.limit("nurserySizeCutoff"))
-	writeln(gc.limit("cycleCollectInterval"))
-	writeln(gc.limit("cycleMetadataLimit"))
+	
 }
 
 local weakref, deref = weakref, deref

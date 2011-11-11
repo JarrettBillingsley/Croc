@@ -43,6 +43,8 @@ static:
 	{
 		makeModule(t, "json", function uword(CrocThread* t)
 		{
+			importModuleNoNS(t, "stream");
+
 			newFunction(t, 1, &fromJSON, "fromJSON");   newGlobal(t, "fromJSON");
 			newFunction(t, 2, &toJSON, "toJSON");       newGlobal(t, "toJSON");
 			newFunction(t, 3, &writeJSON, "writeJSON"); newGlobal(t, "writeJSON");

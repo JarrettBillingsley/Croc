@@ -247,7 +247,8 @@ Params parseArguments(CrocThread* t, char[][] args)
 
 bool doDocgen(CrocThread* t, ref Params params)
 {
-	loadStdlibs(t, params.safe ? CrocStdlib.Safe : CrocStdlib.All);
+	if(!params.safe)
+		loadUnsafeLibs(t, CrocUnsafeLib.All);
 
 	try
 	{
@@ -307,7 +308,8 @@ bool doDocgen(CrocThread* t, ref Params params)
 
 bool doNormal(CrocThread* t, ref Params params)
 {
-	loadStdlibs(t, params.safe ? CrocStdlib.Safe : CrocStdlib.All);
+	if(!params.safe)
+		loadUnsafeLibs(t, CrocUnsafeLib.All);
 
 	version(CrocSdlAddon)  SdlLib.init(t);
 	version(CrocPcreAddon) PcreLib.init(t);
@@ -319,7 +321,7 @@ bool doNormal(CrocThread* t, ref Params params)
 		version(CrocDevilAddon) DevilLib.init(t);
 
 		if(params.debugEnabled)
-			loadStdlibs(t, CrocStdlib.Debug);
+			loadUnsafeLibs(t, CrocUnsafeLib.Debug);
 	}
 
 	try
