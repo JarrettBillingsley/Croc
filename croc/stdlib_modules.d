@@ -200,22 +200,32 @@ static:
 		if(len(t, ns) > 0)
 			clearNamespace(t, ns);
 
+		word funcSlot;
+		dup(t, ns);
+
 		if(isFunction(t, 1))
 		{
-			dup(t, ns);
 			setFuncEnv(t, 1);
-			dup(t, 1);
-			dup(t, ns);
-			rawCall(t, -2, 0);
+			funcSlot = dup(t, 1);
 		}
 		else
+			funcSlot = newFunctionWithEnv(t, 1);
+
+		dup(t, ns);
+
+		croctry(t,
 		{
-			// Create the function and call it with its namespace as 'this'
-			dup(t, ns);
-			auto func = newFunctionWithEnv(t, 1);
-			dup(t, ns);
-			rawCall(t, func, 0);
-		}
+			rawCall(t, funcSlot, 0);
+		},
+		(CrocException e, word exSlot)
+		{
+			auto slot = getStdException(t, "ImportException");
+			pushNull(t);
+			pushFormat(t, "Error loading module \"{}\": exception thrown from module's top-level function", name);
+			dup(t, exSlot);
+			rawCall(t, slot, 1);
+			throwException(t);
+		});
 
 		// Add it to the loaded table
 		auto loaded = pushGlobal(t, "loaded");
@@ -226,7 +236,7 @@ static:
 
 		return 1;
 	}
-
+import tango.io.Stdout;
 	uword runMain(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Namespace);

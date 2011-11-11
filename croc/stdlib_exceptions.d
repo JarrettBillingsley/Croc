@@ -156,6 +156,11 @@ static:
 				newGlobal(t, desc.name);
 				pop(t);
 			}
+			
+			pushGlobal(t, "_G");
+				pushGlobal(t, "Exception"); fielda(t, -2, "Exception");
+				pushGlobal(t, "Error");     fielda(t, -2, "Error");
+			pop(t);
 
 			newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
 			return 0;
@@ -295,7 +300,7 @@ static:
 		else
 		{
 			pushString(t, "\nCaused by:\n");
-			insertAndPop(t, -2);
+			insert(t, -2);
 			pushNull(t);
 			methodCall(t, -2, "toString", 1);
 			cat(t, stackSize(t) - first);
@@ -307,12 +312,12 @@ static:
 	uword throwableSetLocation(CrocThread* t)
 	{
 		checkInstParam(t, 1);
-		
+
 		pushLocationClass(t);
 		if(!as(t, 1, -1))
 			paramTypeError(t, 1, "instance of Location");
 		pop(t);
-		
+
 		dup(t, 1);
 		fielda(t, 0, "location");
 		dup(t, 0);

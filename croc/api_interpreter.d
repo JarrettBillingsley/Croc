@@ -3807,7 +3807,7 @@ word cat(CrocThread* t, uword num)
 		pop(t, num - 1);
 	}
 
-	return slot;
+	return slot - t.stackBase;
 }
 
 /**
