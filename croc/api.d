@@ -130,7 +130,9 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 
 	// Safe libs
 	BaseLib.init(t);
-	HashLib.init(t);
+	MemblockLib.init(t);
+	StringLib.init(t); // depends on memblock
+	HashLib.init(t); // depends on string
 
 	// Oop, let's take a break to stitch up these dependencies
 	pushGlobal(t, "finishLoadingDocs");
@@ -138,8 +140,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	rawCall(t, -2, 0);
 
 	// Finish up the safe libs.
-	MemblockLib.init(t);
-	StringLib.init(t); // depends on memblock
 	StreamLib.init(t);
 	JSONLib.init(t); // depends on stream
 	SerializationLib.init(t); // depends on stream
@@ -154,7 +154,7 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	// Done, turn the GC back on and clear out any garbage we made.
 	enableGC(vm);
 	gc(t);
-	
+
 	return t;
 }
 

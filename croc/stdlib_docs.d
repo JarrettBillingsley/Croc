@@ -45,7 +45,6 @@ static:
 			dup(t);
 		newFunction(t, &_doc_, "_doc_", 1);   newGlobal(t, "_doc_");
 		newFunction(t, &docsOf, "docsOf", 1); newGlobal(t, "docsOf");
-
 		newFunction(t, &finishLoadingDocs, "finishLoadingDocs", 1); newGlobal(t, "finishLoadingDocs");
 
 		version(CrocBuiltinDocs)
@@ -67,8 +66,25 @@ static:
 
 	uword finishLoadingDocs(CrocThread* t)
 	{
-		// TODO: make this replace upval 0 with a WeakKeyTable
-		
+		auto oldTab = getUpval(t, 0);
+		assert(isTable(t, oldTab));
+
+		auto newTab = lookup(t, "hash.WeakKeyTable");
+		pushNull(t);
+		rawCall(t, -2, 1);
+
+		dup(t, oldTab);
+
+		foreach(word k, word v; foreachLoop(t, 1))
+		{
+			dup(t, k);
+			dup(t, v);
+			idxa(t, newTab);
+		}
+
+		dup(t, newTab);
+		setUpval(t, 0);
+
 		lookup(t, "hash.remove");
 		pushNull(t);
 		pushGlobal(t, "_G");
@@ -117,6 +133,7 @@ static:
 		}
 
 		getUpval(t, 0);
+		dup(t, 1);
 		dup(t, docTable);
 		idxa(t, -3);
 
@@ -136,6 +153,7 @@ static:
 		checkAnyParam(t, 1);
 
 		getUpval(t, 0);
+		dup(t, 1);
 		idx(t, -2);
 
 		if(isNull(t, -1))

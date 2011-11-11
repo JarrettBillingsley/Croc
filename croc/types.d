@@ -471,7 +471,7 @@ struct CrocArray
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Array);
 	package uword length;
-	
+
 	struct Slot
 	{
 		CrocValue value;
@@ -550,6 +550,8 @@ struct CrocFunction
 	{
 		package CrocFuncDef* scriptFunc;
 		package NativeFunc nativeFunc;
+		
+		static assert((CrocFuncDef*).sizeof == NativeFunc.sizeof);
 	}
 
 	package CrocValue[] nativeUpvals()
@@ -561,8 +563,6 @@ struct CrocFunction
 	{
 		return (cast(CrocUpval**)(this + 1))[0 .. numUpvals];
 	}
-
-	static assert((CrocFuncDef*).sizeof == NativeFunc.sizeof);
 }
 
 struct CrocClass

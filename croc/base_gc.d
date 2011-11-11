@@ -455,8 +455,9 @@ void collectCycleWhite(CrocVM* vm, GCObject* obj)
 	}
 	else if(color == GCFlags.White && !(obj.gcflags & GCFlags.CycleLogged))
 	{
-		if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
-			throw new CrocFatalException("Unfinalized finalizable object (instance of " ~ (cast(CrocInstance*)obj).parent.name.toString() ~ ") in cycle!");
+		// Is this even possible since we mark it black in the previous phase?
+// 		if((obj.gcflags & GCFlags.Finalizable) && (obj.gcflags & GCFlags.Finalized) == 0)
+// 			throw new CrocFatalException("Unfinalized finalizable object (instance of " ~ (cast(CrocInstance*)obj).parent.name.toString() ~ ") in cycle!");
 
 		obj.gcflags = (obj.gcflags & ~GCFlags.ColorMask) | GCFlags.Black;
 
