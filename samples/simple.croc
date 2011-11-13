@@ -7,7 +7,6 @@ function main()
 	
 }
 
-
 /*
 function help(x, child: string = null)
 {

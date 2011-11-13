@@ -26,11 +26,13 @@ void main()
 	scope(exit) Stdout.flush;
 
 	CrocVM vm;
-	auto t = openVM(&vm);
-	loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
+	CrocThread* t;
 
 	try
 	{
+		t = openVM(&vm);
+		loadUnsafeLibs(t, CrocUnsafeLib.ReallyAll);
+
 		version(CrocPcreAddon) PcreLib.init(t);
 		version(CrocSdlAddon) SdlLib.init(t);
 		version(CrocGlAddon) GlLib.init(t);
@@ -42,6 +44,7 @@ void main()
 	}
 	catch(CrocException e)
 	{
+		t = t ? t : mainThread(&vm); // in case, while fucking around, we manage to throw an exception from openVM
 		catchException(t);
 		Stdout.formatln("{}", e);
 
