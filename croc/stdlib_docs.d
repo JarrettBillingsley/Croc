@@ -52,8 +52,8 @@ static:
 			scope doc = new CrocDoc(t, __FILE__);
 
 			static const Docs Object_docs = {kind: "class", name: "Object", docs:
-			"The root of the class hierarchy, `Object`, is declared here. It has no methods defined right now. It
-			is the only class in Croc which has no base class (that is, \"`Object.super`\" returns `null`).",
+			"The root of the class hierarchy, `Object`, is declared at global scope. It has no methods defined right
+			now. It is the only class in Croc which has no base class (that is, \"`Object.super`\" returns `null`).",
 			extra: [Extra("section", "Classes"), Extra("protection", "global")]};
 
 			pushGlobal(t, "Object"); doc(-1, Object_docs); pop(t);

@@ -7,7 +7,8 @@ function main()
 
 }
 
-/*
+/* import exceptions: TypeException, ValueException
+
 function help(x, child: string = null)
 {
 	local d
@@ -18,8 +19,8 @@ function help(x, child: string = null)
 
 		try
 			mt = debug.getMetatable(x)
-		catch(e)
-			throw format("Invalid type '{}'", x)
+		catch(e: Exception)
+			throw TypeException(format("Invalid type '{}'", x))
 
 		if(child in mt)
 			d = docsOf(mt.(child))
@@ -31,7 +32,7 @@ function help(x, child: string = null)
 		if(#d && child !is null)
 		{
 			if(d.children is null)
-				throw "No children"
+				throw ValueException("No children")
 
 			local found = false
 
@@ -59,7 +60,7 @@ function help(x, child: string = null)
 			}
 
 			if(!found)
-				throw "Not found"
+				throw ValueException("Not found")
 		}
 	}
 
@@ -128,135 +129,200 @@ function help(x, child: string = null)
 	}
 
 	writeln()
-}
+} */
 
-function dumpDocs(docs: string, indent: bool)
+local listRE = regexp.Regexp(@"^(\*|\d\.) .*$")
+
+class DocDumper
 {
-	local strip = true
+	indentChildren = false
 
-	foreach(line; docs.splitLines())
+	function dumpDocs(docs: string, indent: bool)
 	{
-		local s = line.strip()
+		local codeSec, list = false, false
 
-		if(s == "")
+		foreach(line; docs.splitLines())
 		{
-			writeln()
-			continue
-		}
-		else if(s == "{{{")
-			strip = false
+			local s = line.strip()
 
-		if(strip)
-		{
-			if(indent)
-				write(" ")
-			writeln(s)
-		}
-		else
-			writeln(line)
-
-		if(s == "}}}")
-			strip = true
-	}
-}
-
-function dumpHeader(d)
-{
-	switch(d.kind)
-	{
-		case "class":
-			write(" '''`class ")
-			write(d.name)
-			if(d.base)
-				write(" : ", d.base)
-			writeln("`'''::")
-			break
-
-		case "function":
-			writef(" '''`{}(", d.name == "constructor" ? "this" : d.name)
-
-			foreach(i, p; d.params)
+			if(s == "")
 			{
-				if(i > 0)
-					write(", ")
+				list = false
+				writeln()
+				continue
+			}
+			else if(s == "{{{")
+				codeSec = true
+			else if(listRE.test(s))
+				list = true
 
-				write(p.name)
-
-				if(p.type != "any" && p.type != "vararg")
-					write(": ", p.type)
-
-				if(p.value)
-					write(" = ", p.value)
+			if(codeSec || list)
+				writeln(line)
+			else
+			{
+				if(indent)
+					write(" ")
+				writeln(s)
 			}
 
-			writeln(")`'''::")
-			break
-
-		default:
-			writeln("<unhandled kind ", d.kind, ">")
-	}
-}
-
-function dumpItem(d)
-{
-	dumpHeader(d)
-
-	if(d.dittos)
-		foreach(dit; d.dittos)
-			dumpHeader(dit)
-
-	switch(d.kind)
-	{
-		case "class":
-			writeln()
-			dumpDocs(d.docs, true)
-			writeln()
-
-			foreach(child; d.children)
-				dumpItem(child)
-
-			break
-
-		case "function":
-			dumpDocs(d.docs, true)
-			writeln()
-			break
-
-		default:
-			writeln("<unhandled kind ", d.kind, ">")
-	}
-}
-
-function dumpStdlib(x)
-{
-	local d = docsOf(x)
-
-	if(#d == 0)
-		throw "WAHHHH"
-
-	writefln("= {} =", d.name)
-	writeln()
-	dumpDocs(d.docs, false)
-	writeln()
-	writeln("[[PageOutline(2-9, Table of Contents, inline)]]")
-	writeln()
-
-	local curSection = ""
-
-	foreach(child; d.children)
-	{
-		if(child.section != curSection)
-		{
-			curSection = child.section
-			writefln("== {} ==", curSection)
-			writeln()
+			if(s == "}}}")
+				codeSec = false
 		}
+	}
 
-		dumpItem(child)
+	function dumpHeader(d)
+	{
+		switch(d.kind)
+		{
+			case "function":
+				writef("{}(", d.name == "constructor" ? "this" : d.name)
+
+				foreach(i, p; d.params)
+				{
+					if(i > 0)
+						write(", ")
+
+					write(p.name)
+
+					if(p.type != "any" && p.type != "vararg")
+						write(": ", p.type)
+
+					if(p.value)
+						write(" = ", p.value)
+				}
+
+				write(")")
+				break
+
+			case "class", "namespace":
+				write(d.kind, " ", d.name)
+				if(d.base)
+					write(" : ", d.base)
+				break
+
+			case "field":
+				write(d.name)
+
+				if(d.value)
+					write(" = ", d.value)
+				break
+
+			case "variable":
+				write(d.protection, " ", d.name)
+
+				if(d.value)
+					write(" = ", d.value)
+				break
+
+			default:
+				writeln("<unhandled kind ", d.kind, " ", d.name, ">")
+		}
+	}
+
+	function dumpItem(d)
+	{
+		:dumpHeader(d)
+
+		if(d.dittos)
+			foreach(dit; d.dittos)
+				:dumpHeader(dit)
+
+		switch(d.kind)
+		{
+			case "function", "field", "variable":
+				:dumpDocs(d.docs, :indentChildren)
+				writeln()
+				break
+
+			case "class", "namespace":
+				writeln()
+				:dumpDocs(d.docs, :indentChildren)
+				writeln()
+
+				foreach(child; d.children)
+					:dumpItem(child)
+				break
+
+			default:
+				writeln("<unhandled kind ", d.kind, " ", d.name, ">")
+		}
 	}
 }
-*/
-// dumpStdlib(_G)
+
+class BaselibDumper : DocDumper
+{
+	this()
+		:indentChildren = true
+
+	function dumpHeader(d)
+	{
+		write(" '''`")
+		super.dumpHeader(d)
+		writeln("`'''::")
+	}
+
+	function dump()
+	{
+		local d = docsOf(_G)
+
+		writefln("= {} =", d.name)
+		writeln()
+		:dumpDocs(d.docs, false)
+		writeln()
+		writeln("[[PageOutline(2-9, Table of Contents, inline)]]")
+		writeln()
+
+		local curSection = ""
+
+		foreach(child; d.children)
+		{
+			if(child.section != curSection)
+			{
+				curSection = child.section
+				writefln("== {} ==", curSection)
+				writeln()
+			}
+
+			:dumpItem(child)
+		}
+	}
+}
+
+class StdlibDumper : DocDumper
+{
+	function dumpHeader(d)
+	{
+		write("== '''`")
+		super.dumpHeader(d)
+		writeln("`''' ==")
+	}
+
+	function dump(mod)
+	{
+		local d = docsOf(mod)
+
+		writefln("= {} =", d.name)
+		writeln()
+		:dumpDocs(d.docs, false)
+		writeln()
+		writeln("[[PageOutline(2-9, Members, inline)]]")
+		writeln()
+
+		foreach(child; d.children)
+			:dumpItem(child)
+	}
+}
+
+// dumpItem(docsOf(Object))
+
+// dumpItem(docsOf(_doc_))
+// dumpItem(docsOf(docsOf))
+
+// BaselibDumper().dump()
+
+StdlibDumper.dump(modules)
+
+// dumpStdlib(modules)
 
 /*
 I guess it's baselib (but could be moved?)
@@ -281,184 +347,3 @@ I guess it's baselib (but could be moved?)
 		hasAttributes(value)
 		attributesOf(value)
 */
-
-/*
-global loaded = {}
-global path = "."
-global customLoaders = {}
-global loaders // filled in at end
-
-function load(name: string)
-{
-	// Have we already loaded this module?
-	local ns = loaded[name]
-	if(isNamespace(ns))
-		return ns
-
-	return commonLoad(name)
-}
-
-function reload(name: string)
-{
-	// Have we already loaded this module?
-	local ns = loaded[name]
-	if(ns is null)
-		throw "trying to reload a module that hasn't been loaded"
-
-	return commonLoad(name)
-}
-
-function commonLoad(name: string)
-{
-	// Are we circularly importing this module?
-	if(loading[name] !is null)
-		throw "circular import"
-	loading[name] = true
-	scope(exit) loading[name] = null
-
-	// Go through all the loaders and try them until one returns something
-	foreach(l; loaders)
-	{
-		local mod = l(name)
-
-		if(isFuncDef(mod) || isFunction(mod))
-			return initModule(mod, name) // Run the module initializer
-		else if(isNamespace(mod))
-		{
-			// Stick the namespace into the loaded table
-			loaded[name] = mod
-			return mod
-		}
-	}
-
-	// Got through all the loaders without finding anything
-	throw "couldn't find anything to load"
-}
-
-function initModule(mod: function|funcdef, name: string)
-{
-	// Hmmm.....
-	if(isFunction(mod) && !mod.isNative())
-		throw "must be native func"
-
-	// Create the namespace for the module
-	local ns = _G
-
-	foreach(piece; name.split("."))
-	{
-		if(piece in ns)
-		{
-			if(!isNamespace(ns.(piece)))
-				throw "conflicts with existing global"
-		}
-		else
-			ns.(piece) = namespace(name) : ns {} // fake syntax.. parametric name
-
-		ns = ns.(piece)
-	}
-
-	// If we're reloading, the namespace has to be cleared
-	if(#ns > 0)
-		hash.clear(ns)
-
-	// Set up the loader function
-	if(isFunction(mod))
-		debug.setFuncEnv(mod, ns)
-	else
-		mod = newFunction(mod, ns) // fake function that really should exist somewhere; creates a function from a funcdef and (optional) namespace
-
-	// Call it and put it in the loaded table
-	mod(with ns)
-	loaded[name] = ns
-	return ns
-}
-
-function runMain(mod: namespace, vararg)
-{
-	if(hasField(mod, "main"))
-	{
-		local main = mod.main
-
-		if(isFunction(main))
-			main(with mod, vararg)
-	}
-}
-
-function customLoad(name: string)
-{
-	local l = customLoaders[name]
-
-	if(isFunction(l) || isFuncDef(l) || isNamespace(l))
-		return l
-
-	return null
-}
-
-function checkTaken(name: string)
-{
-	local ns = _G
-
-	foreach(piece; name.split("."))
-	{
-		if(piece !in ns)
-			return
-
-		if(!isNamespace(ns.(piece)))
-			throw "conflicts with existing global"
-
-		ns = ns.(piece)
-	}
-}
-
-function loadFiles(name: string)
-{
-	local pos = name.rfind(".")
-	local packages, modName
-
-	if(pos == #name)
-	{
-		packages = ""
-		modName = name
-	}
-	else
-	{
-		packages = name[..pos].split(".")
-		modName = name[pos + 1..]
-	}
-
-	foreach outerLoop(path; paths.split(";"))
-	{
-		if(!io.exists(path))
-			continue
-
-		foreach(piece; packages)
-		{
-			path = io.join(path, piece)
-
-			if(!io.exists(path))
-				continue outerLoop
-		}
-
-		local src = io.join(path, modName ~ ".croc")
-		local bin = io.join(path, modName ~ ".croco")
-
-		if(io.exists(src))
-		{
-			if(io.exists(bin))
-			{
-				if(time.compare(io.modified(src), io.modified(bin)) > 0)
-					return compiler.compileModule(io.readFile(src), src)
-				else
-					return serialization.deserializeModule(bin) // fake function, should exist
-			}
-			else
-				return compiler.compileModule(io.readFile(src), src)
-		}
-		else if(io.exists(bin))
-			return serialization.deserializeModule(bin) // fake function, should exist
-	}
-
-	return null
-}
-
-loaders = [customLoad, checkTaken, loadFiles]*/
