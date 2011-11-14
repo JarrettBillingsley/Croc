@@ -4167,6 +4167,27 @@ uword superCall(CrocThread* t, word slot, word numReturns)
 // Reflective functions
 
 /**
+
+*/
+char[] nameOf(CrocThread* t, word obj)
+{
+	mixin(FuncNameMix);
+
+	switch(getValue(t, obj).type)
+	{
+		case CrocValue.Type.Function:  return funcName(t, obj);
+		case CrocValue.Type.Class:     return className(t, obj);
+		case CrocValue.Type.Namespace: return namespaceName(t, obj);
+		case CrocValue.Type.FuncDef:   return funcDefName(t, obj);
+		default:
+			pushTypeString(t, obj);
+			throwStdException(t, "TypeException", __FUNCTION__ ~ " - Expected function, class, namespace, or funcdef, not '{}'", getString(t, -1));
+	}
+
+	assert(false);
+}
+
+/**
 Gets the fields namespace of the class or instance at the given slot. Throws an exception if
 the value at the given slot is not a class or instance.
 

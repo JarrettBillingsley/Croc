@@ -57,8 +57,8 @@ void main()
 
 		if(e.info)
 		{
-			Stdout("D Traceback: ");
-			e.writeOut((char[]s) { Stdout(s); });
+			Stdout("\nD Traceback: ").newline;
+			e.info.writeOut((char[]s) { Stdout(s); });
 		}
 	}
 	catch(CrocHaltException e)

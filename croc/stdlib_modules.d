@@ -40,9 +40,14 @@ import croc.types;
 struct ModulesLib
 {
 static:
+
+	const Loading = "modules.loading";
+	const Prefixes = "modules.prefixes";
+
 	public void init(CrocThread* t)
 	{
-		newTable(t); setRegistryVar(t, "modules.loading");
+		newTable(t); setRegistryVar(t, Loading);
+		newTable(t); setRegistryVar(t, Prefixes);
 
 		auto ns = newNamespace(t, "modules");
 			pushString(t, "."); fielda(t, ns, "path");
@@ -60,16 +65,8 @@ static:
 
 			pushString(t, "loaders");
 				dup(t, ns); newFunctionWithEnv(t, 1, &customLoad,    "customLoad");
-				dup(t, ns); newFunctionWithEnv(t, 1, &checkTaken,    "checkTaken");
 				dup(t, ns); newFunctionWithEnv(t, 1, &loadFiles,     "loadFiles");
-
-				version(CrocDynLibs)
-				{
-					dup(t, ns); newFunctionWithEnv(t, 1, &loadDynlib, "loadDynlib");
-					newArrayFromStack(t, 4);
-				}
-				else
-					newArrayFromStack(t, 3);
+				newArrayFromStack(t, 2);
 			fielda(t, ns);
 		newGlobal(t, "modules");
 	}
@@ -106,56 +103,73 @@ static:
 
 	package uword commonLoad(CrocThread* t, char[] name)
 	{
-		checkCircular(t, name);
+		// Check to see if we're circularly importing
+		auto loading = getRegistryVar(t, Loading);
+
+		if(hasField(t, loading, name))
+			throwStdException(t, "ImportException", "Attempting to import module '{}' while it's in the process of being imported; is it being circularly imported?", name);
+
+		pushBool(t, true);
+		fielda(t, loading, name);
 
 		scope(exit)
 		{
-			getRegistryVar(t, "modules.loading");
+			getRegistryVar(t, Loading);
 			pushNull(t);
 			fielda(t, -2, name);
 			pop(t);
 		}
 
+		// Check for name conflicts
+		auto loaded = pushGlobal(t, "loaded");
+
+		for(auto idx = name.locate('.'); idx != name.length; idx = name.locate('.', idx + 1))
+		{
+			if(hasField(t, loaded, name[0 .. idx]))
+				throwStdException(t, "ImportException", "Attempting to import module '{}', but there is already a module '{}'", name, name[0 .. idx]);
+		}
+
+		getRegistryVar(t, Prefixes);
+
+		if(hasField(t, -1, name))
+			throwStdException(t, "ImportException", "Attempting to import module '{}', but other modules use that name as a prefix", name);
+
+		pop(t, 2);
+
+		// Run through the loaders
 		auto loaders = pushGlobal(t, "loaders");
 		auto num = len(t, -1);
 
 		for(uword i = 0; i < num; i++)
 		{
-			auto reg = pushInt(t, i);
-			idx(t, loaders);
+			auto reg = idxi(t, loaders, i);
 			pushNull(t);
 			pushString(t, name);
 			rawCall(t, reg, 1);
 
-			if(isFuncDef(t, -1) || isFunction(t, -1))
+			if(isFuncDef(t, reg) || isFunction(t, reg))
 			{
 				pushGlobal(t, "initModule");
-				swap(t);
 				pushNull(t);
-				swap(t);
+				moveToTop(t, reg);
 				pushString(t, name);
 				return rawCall(t, -4, 1);
 			}
-			else if(isNamespace(t, -1))
+			else if(isNamespace(t, reg))
 			{
-				pushGlobal(t, "loaded");
-				pushString(t, name);
-
-				if(!opin(t, -1, -2))
-				{
-					dup(t, -3);
-					idxa(t, -3);
-					pop(t);
-				}
-				else
-					pop(t, 2);
-
+				setLoaded(t, name, reg);
 				return 1;
+			}
+			else if(!isNull(t, reg))
+			{
+				pushTypeString(t, reg);
+				throwStdException(t, "TypeException", "modules.loaders[{}] expected to return a function, funcdef, namespace, or null, not '{}'", i, getString(t, -1));
 			}
 
 			pop(t);
 		}
 
+		// Nothing worked :C
 		throwStdException(t, "ImportException", "Error loading module '{}': could not find anything to load", name);
 		assert(false);
 	}
@@ -177,18 +191,15 @@ static:
 
 		foreach(segment; name.delimiters("."))
 		{
-			pushString(t, segment);
-
-			if(opin(t, -1, ns))
+			if(hasField(t, ns, segment))
 			{
-				field(t, ns);
+				field(t, ns, segment);
 
 				if(!isNamespace(t, -1))
-					throwStdException(t, "ImportException", "Error loading module \"{}\": conflicts with existing global", name);
+					throwStdException(t, "ImportException", "Error loading module '{}': conflicts with existing global", name);
 			}
 			else
 			{
-				pop(t);
 				newNamespace(t, ns, segment);
 				dup(t);
 				fielda(t, ns, segment);
@@ -200,6 +211,7 @@ static:
 		if(len(t, ns) > 0)
 			clearNamespace(t, ns);
 
+		// Set up the function
 		word funcSlot;
 		dup(t, ns);
 
@@ -213,6 +225,7 @@ static:
 
 		dup(t, ns);
 
+		// Call the top-level function
 		croctry(t,
 		{
 			rawCall(t, funcSlot, 0);
@@ -221,22 +234,41 @@ static:
 		{
 			auto slot = getStdException(t, "ImportException");
 			pushNull(t);
-			pushFormat(t, "Error loading module \"{}\": exception thrown from module's top-level function", name);
+			pushFormat(t, "Error loading module '{}': exception thrown from module's top-level function", name);
 			dup(t, exSlot);
 			rawCall(t, slot, 1);
 			throwException(t);
 		});
 
 		// Add it to the loaded table
-		auto loaded = pushGlobal(t, "loaded");
-		pushString(t, name);
-		dup(t, ns);
-		idxa(t, loaded);
-		pop(t);
+		setLoaded(t, name, ns);
 
 		return 1;
 	}
-import tango.io.Stdout;
+
+	void setLoaded(CrocThread* t, char[] name, word reg)
+	{
+		auto loaded = pushGlobal(t, "loaded");
+		dup(t, reg);
+		fielda(t, loaded, name);
+		pop(t);
+
+		auto idx = name.locate('.');
+
+		if(idx != name.length)
+		{
+			auto prefixes = getRegistryVar(t, Prefixes);
+
+			for(; idx != name.length; idx = name.locate('.', idx + 1))
+			{
+				pushBool(t, true);
+				fielda(t, prefixes, name[0 .. idx]);
+			}
+
+			pop(t);
+		}
+	}
+
 	uword runMain(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Namespace);
@@ -264,32 +296,6 @@ import tango.io.Stdout;
 
 		if(isFunction(t, -1) || isNamespace(t, -1) || isFuncDef(t, -1))
 			return 1;
-
-		return 0;
-	}
-
-	package uword checkTaken(CrocThread* t)
-	{
-		auto name = checkStringParam(t, 1);
-
-		pushGlobal(t, "_G");
-
-		foreach(segment; name.delimiters("."))
-		{
-			pushString(t, segment);
-
-			if(opin(t, -1, -2))
-			{
-				field(t, -2);
-
-				if(!isNamespace(t, -1))
-					throwStdException(t, "ImportException", "Error loading module \"{}\": conflicts with existing global", name);
-
-				insertAndPop(t, -2);
-			}
-			else
-				return 0;
-		}
 
 		return 0;
 	}
@@ -335,68 +341,30 @@ import tango.io.Stdout;
 			scope src = new FilePath(FilePath.join(p.toString(), modName ~ ".croc"));
 			scope bin = new FilePath(FilePath.join(p.toString(), modName ~ ".croco"));
 
-			void compile()
+			if(src.exists && (!bin.exists || src.modified > bin.modified))
 			{
 				char[] loadedName = void;
 				scope c = new Compiler(t);
 				c.compileModule(src.toString(), loadedName);
-				
+
 				if(loadedName != name)
 					throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, loadedName);
-			}
 
-			void deserialize()
+				return 1;
+			}
+			else if(bin.exists)
 			{
 				char[] loadedName = void;
 				scope fc = new File(bin.toString(), File.ReadExisting);
 				deserializeModule(t, loadedName, fc);
-				
+
 				if(loadedName != name)
 					throwStdException(t, "ImportException", "Import name ({}) does not match name given in module statement ({})", name, loadedName);
-			}
 
-			if(src.exists())
-			{
-				if(bin.exists())
-				{
-					if(src.modified() > bin.modified())
-					{
-						compile();
-						return 1;
-					}
-					else
-					{
-						deserialize();
-						return 1;
-					}
-				}
-				else
-				{
-					compile();
-					return 1;
-				}
-			}
-			else if(bin.exists())
-			{
-				deserialize();
 				return 1;
 			}
 		}
 
 		return 0;
-	}
-
-	private void checkCircular(CrocThread* t, char[] name)
-	{
-		getRegistryVar(t, "modules.loading");
-		field(t, -1, name);
-
-		if(!isNull(t, -1))
-			throwStdException(t, "ImportException", "Attempting to import module \"{}\" while it's in the process of being imported; is it being circularly imported?", name);
-
-		pop(t);
-		pushBool(t, true);
-		fielda(t, -2, name);
-		pop(t);
 	}
 }

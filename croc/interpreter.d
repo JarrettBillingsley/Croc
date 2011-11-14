@@ -2269,7 +2269,7 @@ void throwImpl(CrocThread* t, CrocValue ex, bool rethrowing = false)
 		if(getInt(t, -1) == CrocLocation.Unknown)
 		{
 			pop(t, 2);
-			
+
 			pushTraceback(t);
 
 			if(len(t, -1) > 0)
