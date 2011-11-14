@@ -188,25 +188,42 @@ static:
 
 		// Make the namespace
 		auto ns = pushGlobal(t, "_G");
+		word firstParent, firstChild;
+		char[] childName;
+		bool foundSplit = false;
 
 		foreach(segment; name.delimiters("."))
 		{
-			if(hasField(t, ns, segment))
-			{
-				field(t, ns, segment);
-
-				if(!isNamespace(t, -1))
-					throwStdException(t, "ImportException", "Error loading module '{}': conflicts with existing global", name);
-			}
-			else
+			if(foundSplit)
 			{
 				newNamespace(t, ns, segment);
 				dup(t);
 				fielda(t, ns, segment);
+				insertAndPop(t, ns);
 			}
+			else
+			{
+				if(hasField(t, ns, segment))
+				{
+					field(t, ns, segment);
 
-			insertAndPop(t, ns);
+					if(!isNamespace(t, -1))
+						throwStdException(t, "ImportException", "Error loading module '{}': conflicts with existing global", name);
+
+					insertAndPop(t, ns);
+				}
+				else
+				{
+					foundSplit = true;
+					firstParent = ns;
+					childName = segment;
+					firstChild = newNamespace(t, firstParent, childName);
+					ns = dup(t, firstChild);
+				}
+			}
 		}
+		
+		// at this point foundSplit is only true if we had to create new namespaces -- that is, upon first loading, and not during reloading
 
 		if(len(t, ns) > 0)
 			clearNamespace(t, ns);
@@ -242,6 +259,14 @@ static:
 
 		// Add it to the loaded table
 		setLoaded(t, name, ns);
+		pop(t);
+
+		// Add it to the globals
+		if(foundSplit)
+		{
+			assert(stackSize(t) - 1 == firstChild);
+			fielda(t, firstParent, childName);
+		}
 
 		return 1;
 	}
