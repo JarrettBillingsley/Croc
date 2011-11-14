@@ -41,7 +41,7 @@ alias CrocDoc.Extra Extra;
 struct CharLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		version(CrocBuiltinDocs)
 		{

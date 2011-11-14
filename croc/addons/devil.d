@@ -72,7 +72,7 @@ template typeStringOf(_T)
 struct DevilLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "devil", function uword(CrocThread* t)
 		{

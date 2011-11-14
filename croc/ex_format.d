@@ -35,12 +35,14 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.types;
 
-package void formatImpl(CrocThread* t, uword numParams, uint delegate(char[]) sink)
+package:
+
+void formatImpl(CrocThread* t, uword numParams, uint delegate(char[]) sink)
 {
 	return formatImpl(t, 1, numParams, sink);
 }
 
-package void formatImpl(CrocThread* t, uword startIndex, uword numParams, uint delegate(char[]) sink)
+void formatImpl(CrocThread* t, uword startIndex, uword numParams, uint delegate(char[]) sink)
 {
 	auto formatter = t.vm.formatter;
 

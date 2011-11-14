@@ -26,11 +26,13 @@ subject to the following restrictions:
 
 module croc.base_metamethods;
 
+package:
+
 // The first several values of this enumeration are also the basis for the secondary
 // opcode for many multi-part instructions, so that the metamethods can be looked up
 // quickly without needing an opcode-to-MM translation table.
 // LAST_OPCODE_MM is the last metamethod type which is like this.
-package enum MM
+enum MM
 {
 	Add,
 	Sub,
@@ -103,7 +105,7 @@ package enum MM
 	ToString,
 }
 
-package const char[][] MetaNames =
+const char[][] MetaNames =
 [
 	MM.Add:          "opAdd",
 	MM.Add_r:        "opAdd_r",
@@ -162,7 +164,7 @@ package const char[][] MetaNames =
 	MM.XorEq:        "opXorAssign",
 ];
 
-package const MM[] MMRev =
+const MM[] MMRev =
 [
 	MM.Add:  MM.Add_r,
 	MM.Sub:  MM.Sub_r,
@@ -180,7 +182,7 @@ package const MM[] MMRev =
 	MM.max:  cast(MM)-1
 ];
 
-package const bool[] MMCommutative =
+const bool[] MMCommutative =
 [
 	MM.Add: true,
 	MM.Mul: true,

@@ -1513,23 +1513,9 @@ package:
 		return mCode.length;
 	}
 
-	private void patchJumpTo(uint src, uint dest)
-	{
-		setJumpOffset(src, jumpDiff(src, dest));
-	}
-
 	void patchJumpToHere(uint src)
 	{
 		patchJumpTo(src, here());
-	}
-
-	private void patchListTo(uint j, uint dest)
-	{
-		for(uint next = void; j != NoJump; j = next)
-		{
-			next = getJumpOffset(j);
-			patchJumpTo(j, dest);
-		}
 	}
 
 	void patchContinuesTo(uint dest)
@@ -2015,6 +2001,20 @@ private:
 			default: assert(false);
 		}
 	}
+	
+	void patchJumpTo(uint src, uint dest)
+	{
+		setJumpOffset(src, jumpDiff(src, dest));
+	}
+
+	void patchListTo(uint j, uint dest)
+	{
+		for(uint next = void; j != NoJump; j = next)
+		{
+			next = getJumpOffset(j);
+			patchJumpTo(j, dest);
+		}
+	}
 
 	uint prepareArgList(ref CompileLoc loc, Exp[] items)
 	{
@@ -2304,7 +2304,8 @@ private:
 	// ---------------------------------------------------------------------------
 	// Conversion to function definition
 
-	package CrocFuncDef* toFuncDef()
+package:
+	CrocFuncDef* toFuncDef()
 	{
 		debug(SHOWME)
 		{

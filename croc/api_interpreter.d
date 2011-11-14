@@ -1558,9 +1558,11 @@ indices in v instead of the first.
 */
 struct foreachLoop
 {
+private:
 	CrocThread* t;
 	uword numSlots;
 
+public:
 	/**
 	The struct constructor.
 
@@ -1568,7 +1570,7 @@ struct foreachLoop
 		numSlots = How many slots on top of the stack should be interpreted as the container. Must be
 			1, 2, or 3.
 	*/
-	public static foreachLoop opCall(CrocThread* t, uword numSlots)
+	static foreachLoop opCall(CrocThread* t, uword numSlots)
 	{
 		foreachLoop ret = void;
 		ret.t = t;
@@ -1581,7 +1583,7 @@ struct foreachLoop
 	the downside to that is that you must specify the types of the indices in the foreach loop that
 	iterates over this structure. All the indices must be of type 'word'.
 	*/
-	public int opApply(T)(T dg)
+	int opApply(T)(T dg)
 	{
 		alias Unique!(ParameterTupleOf!(T)) TypeTest;
 		static assert(TypeTest.length == 1 && is(TypeTest[0] == word), "foreachLoop - all indices must be of type 'word'");

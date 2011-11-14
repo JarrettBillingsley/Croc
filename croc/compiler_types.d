@@ -62,8 +62,10 @@ interface ICompiler
 // Common compiler stuff
 template ICompilerMixin()
 {
-	private IAstNode mHead;
+private:
+	IAstNode mHead;
 
+public:
 	override void addNode(IAstNode node)
 	{
 		node.next = mHead;
@@ -83,8 +85,10 @@ interface IAstNode
 // Common AST node stuff
 template IAstNodeMixin()
 {
-	private IAstNode mNext;
+private:
+	IAstNode mNext;
 
+public:
 	override void next(IAstNode n)
 	{
 		mNext = n;
@@ -105,11 +109,13 @@ template IAstNodeMixin()
 // data, meaning that you now own the data and must clean it up.
 scope class List(T)
 {
-	private Allocator* mAlloc;
-	private T[] mData;
-	private uword mIndex = 0;
+private:
+	Allocator* mAlloc;
+	T[] mData;
+	uword mIndex = 0;
 
-	package this(Allocator* alloc)
+package:
+	this(Allocator* alloc)
 	{
 		mAlloc = alloc;
 	}
@@ -120,7 +126,7 @@ scope class List(T)
 			mAlloc.freeArray(mData);
 	}
 
-	public void add(T item)
+	void add(T item)
 	{
 		if(mIndex >= mData.length)
 		{
@@ -133,8 +139,8 @@ scope class List(T)
 		mData[mIndex] = item;
 		mIndex++;
 	}
-	
-	public void add(T[] items)
+
+	void add(T[] items)
 	{
 		foreach(ref i; items)
 			add(i);
@@ -142,17 +148,17 @@ scope class List(T)
 
 	alias add opCatAssign;
 
-	public T opIndex(uword index)
+	T opIndex(uword index)
 	{
 		return mData[index];
 	}
 	
-	public T opIndexAssign(T t, uword index)
+	T opIndexAssign(T t, uword index)
 	{
 		return mData[index] = t;
 	}
 
-	public void length(uword l)
+	void length(uword l)
 	{
 		mIndex = l;
 
@@ -160,12 +166,12 @@ scope class List(T)
 			mAlloc.resizeArray(mData, mIndex);
 	}
 
-	public uword length()
+	uword length()
 	{
 		return mIndex;
 	}
 
-	public T[] toArray()
+	T[] toArray()
 	{
 		mAlloc.resizeArray(mData, mIndex);
 		auto ret = mData;
@@ -174,7 +180,7 @@ scope class List(T)
 		return ret;
 	}
 
-	public int opApply(int delegate(ref T) dg)
+	int opApply(int delegate(ref T) dg)
 	{
 		foreach(ref v; mData[0 .. mIndex])
 			if(auto result = dg(v))
@@ -183,7 +189,7 @@ scope class List(T)
 		return 0;
 	}
 	
-	public int opApply(int delegate(uword, ref T) dg)
+	int opApply(int delegate(uword, ref T) dg)
 	{
 		foreach(i, ref v; mData[0 .. mIndex])
 			if(auto result = dg(i, v))

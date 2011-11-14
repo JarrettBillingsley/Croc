@@ -230,7 +230,7 @@ public:
 		}
 	}
 
-	public void opCall(word idx, Docs docs, char[] parentField = "children")
+	void opCall(word idx, Docs docs, char[] parentField = "children")
 	{
 		push(docs);
 		pop(idx, parentField);
@@ -520,12 +520,14 @@ You can, of course, modify the class object after creating it, like if you need 
 */
 struct CreateClass
 {
-	private CrocThread* t;
-	private char[] name;
-	private word idx;
+private:
+	CrocThread* t;
+	char[] name;
+	word idx;
 
+public:
 	/** */
-	public static void opCall(CrocThread* t, char[] name, void delegate(CreateClass*) dg)
+	static void opCall(CrocThread* t, char[] name, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
@@ -542,7 +544,7 @@ struct CreateClass
 	}
 
 	/** */
-	public static void opCall(CrocThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
+	static void opCall(CrocThread* t, char[] name, char[] base, void delegate(CreateClass*) dg)
 	{
 		CreateClass co;
 		co.t = t;
@@ -573,7 +575,7 @@ struct CreateClass
 		numUpvals = How many upvalues this function needs. There should be this many values sitting on
 			the stack.
 	*/
-	public void method(char[] name, NativeFunc f, uword numUpvals = 0)
+	void method(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
@@ -583,7 +585,7 @@ struct CreateClass
 	Same as above, but lets you specify a maximum allowable number of parameters. See
 	interpreter.newFunction.
 	*/
-	public void method(char[] name, uint numParams, NativeFunc f, uword numUpvals = 0)
+	void method(char[] name, uint numParams, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, numParams, f, this.name ~ '.' ~ name, numUpvals);
 		fielda(t, idx, name);
@@ -595,7 +597,7 @@ struct CreateClass
 	Params:
 		name = The name of the field.
 	*/
-	public void field(char[] name)
+	void field(char[] name)
 	{
 		fielda(t, idx, name);
 	}
@@ -610,7 +612,7 @@ struct CreateClass
 		numUpvals = How many upvalues this function needs. There should be this many values sitting on
 			the stack.
 	*/
-	public void allocator(char[] name, NativeFunc f, uword numUpvals = 0)
+	void allocator(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		setAllocator(t, idx);
@@ -626,7 +628,7 @@ struct CreateClass
 		numUpvals = How many upvalues this function needs. There should be this many values sitting on
 			the stack.
 	*/
-	public void finalizer(char[] name, NativeFunc f, uword numUpvals = 0)
+	void finalizer(char[] name, NativeFunc f, uword numUpvals = 0)
 	{
 		newFunction(t, f, this.name ~ '.' ~ name, numUpvals);
 		setFinalizer(t, idx);
@@ -722,15 +724,17 @@ auto strIdx = buf.finish();
 */
 struct StrBuffer
 {
-	private CrocThread* t;
-	private uword numPieces;
-	private uword pos;
-	private char[512] data;
+private:
+	CrocThread* t;
+	uword numPieces;
+	uword pos;
+	char[512] data;
 
+public:
 	/**
 	Create an instance of this struct. The struct is bound to a single thread.
 	*/
-	public static StrBuffer opCall(CrocThread* t)
+	static StrBuffer opCall(CrocThread* t)
 	{
 		StrBuffer ret;
 		ret.t = t;
@@ -740,7 +744,7 @@ struct StrBuffer
 	/**
 	Add a character to the internal buffer.
 	*/
-	public void addChar(dchar c)
+	void addChar(dchar c)
 	{
 		char[4] outbuf = void;
 		uint ate = 0;
@@ -756,7 +760,7 @@ struct StrBuffer
 	/**
 	Add a string to the internal buffer.
 	*/
-	public void addString(char[] s)
+	void addString(char[] s)
 	{
 		// this code doesn't validate the data, but it'll get validated eventually
 		if(s.length <= (data.length - pos))
@@ -779,7 +783,7 @@ struct StrBuffer
 	rule of leaving the stack balanced. For this function to work, you must have exactly one
 	value on top of the stack, and it must be a string or a char.
 	*/
-	public void addTop()
+	void addTop()
 	{
 		if(isString(t, -1))
 		{
@@ -819,7 +823,7 @@ struct StrBuffer
 	A convenience function for hooking up to the Tango IO and formatting facilities. You can pass
 	"&buf._sink" to many Tango functions that expect a _sink function for string data.
 	*/
-	public uint sink(char[] s)
+	uint sink(char[] s)
 	{
 		addString(s);
 		return s.length;
@@ -829,7 +833,7 @@ struct StrBuffer
 	Indicate that the string building is complete. This function will leave just the finished string
 	on top of the stack. The StrBuffer will also be in a state to build a new string if you so desire.
 	*/
-	public word finish()
+	word finish()
 	{
 		flush();
 
@@ -842,7 +846,8 @@ struct StrBuffer
 			return cat(t, num);
 	}
 
-	private void flush()
+private:
+	void flush()
 	{
 		if(pos == 0)
 			return;
@@ -853,7 +858,7 @@ struct StrBuffer
 		incPieces();
 	}
 
-	private void incPieces()
+	void incPieces()
 	{
 		numPieces++;
 
@@ -1416,10 +1421,11 @@ class RefManager
 	*/
 	static class Ref
 	{
-		private CrocVM* vm;
-		private ulong r;
+	private:
+		CrocVM* vm;
+		ulong r;
 
-		private this(CrocVM* vm, ulong r)
+		this(CrocVM* vm, ulong r)
 		{
 			this.vm = vm;
 			this.r = r;
@@ -1429,12 +1435,14 @@ class RefManager
 		{
 			remove();
 		}
+		
+	public:
 
 		/**
 		Removes the reference using $(D croc.interpreter.removeRef). You can call this manually, or it will be called
 		automatically when this object is collected or when its owning manager leaves scope.
 		*/
-		public void remove()
+		void remove()
 		{
 			if(r == ulong.max)
 				return;
@@ -1450,14 +1458,15 @@ class RefManager
 		Returns:
 			The stack index of the object that was pushed.
 		*/
-		public word push()
+		word push()
 		{
 			return pushRef(currentThread(vm), r);
 		}
  	}
 
-	private const uword Mask = cast(uword)0xDEADBEEF_DEADBEEF;
-	private bool[uword] mRefs;
+private:
+	const uword Mask = cast(uword)0xDEADBEEF_DEADBEEF;
+	bool[uword] mRefs;
 
 	~this()
 	{
@@ -1469,10 +1478,11 @@ class RefManager
 		}
 	}
 
+public:
 	/**
 	Create a reference object to refer to the object at slot idx in thread t using $(D croc.interpreter.createRef). The
 	given thread's VM is associated with the reference object.
-	
+
 	Returns:
 		A new reference object.
 	*/
@@ -1484,7 +1494,8 @@ class RefManager
 		return ret;
 	}
 
-	private void removeHook(Object o)
+private:
+	void removeHook(Object o)
 	{
 		auto r = cast(Ref)o;
 		assert(r !is null);
@@ -1871,7 +1882,7 @@ template IsIdentChar(char c)
 
 template ValidateNameCTImpl(char[] name, uword start = 0)
 {
-	private template IdentLoop(uword idx)
+	template IdentLoop(uword idx)
 	{
 		static if(idx < name.length && IsIdentChar!(name[idx]))
 			const IdentLoop = IdentLoop!(idx + 1);

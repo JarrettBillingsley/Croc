@@ -50,7 +50,7 @@ private void register(CrocThread* t, uword numParams, char[] name, NativeFunc fu
 struct MathLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "math", function uword(CrocThread* t)
 		{

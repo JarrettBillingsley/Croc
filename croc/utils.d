@@ -1,7 +1,7 @@
 /******************************************************************************
 This module holds a variety of utility functions used throughout Croc. This
 module doesn't (and shouldn't) depend on the rest of the library in any way,
-and as such can't hold implementation-specific functionality. 
+and as such can't hold implementation-specific functionality.
 
 License:
 Copyright (c) 2008 Jarrett Billingsley
@@ -32,6 +32,8 @@ import tango.core.Traits;
 import tango.core.Tuple;
 import tango.text.convert.Utf;
 import tango.text.Util;
+
+public:
 
 // Returns closest power of 2 that is >= n. Taken from the Stanford Bit Twiddling Hacks page.
 size_t largerPow2(size_t n)
@@ -79,12 +81,12 @@ char[] _getJustName(char[] mangle)
 }
 
 /// Eheheh, I has a __FUNCTION__.
-public const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
+const char[] FuncNameMix = "static if(!is(typeof(__FUNCTION__))) { struct __FUNCTION {} const char[] __FUNCTION__ = _getJustName(__FUNCTION.mangleof); }";
 
 /**
 See if a string starts with another string. Useful.
 */
-public bool startsWith(T)(T[] string, T[] pattern)
+bool startsWith(T)(T[] string, T[] pattern)
 {
 	return string.length >= pattern.length && string[0 .. pattern.length] == pattern[];
 }
@@ -92,7 +94,7 @@ public bool startsWith(T)(T[] string, T[] pattern)
 /**
 See if a string ends with another string. Also useful.
 */
-public bool endsWith(T)(T[] string, T[] pattern)
+bool endsWith(T)(T[] string, T[] pattern)
 {
 	return string.length >= pattern.length && string[$ - pattern.length .. $] == pattern[];
 }
@@ -108,7 +110,7 @@ bool contains(T)(T[] arr, T elem)
 /**
 Compare two values, a and b, using < and >. Returns -1 if a < b, 1 if a > b, and 0 otherwise.
 */
-public int Compare3(T)(T a, T b)
+int Compare3(T)(T a, T b)
 {
 	return a < b ? -1 : a > b ? 1 : 0;
 }
@@ -116,7 +118,7 @@ public int Compare3(T)(T a, T b)
 /**
 Compares char[] strings stupidly (just by character value, not lexicographically).
 */
-public int scmp(char[] s1, char[] s2)
+int scmp(char[] s1, char[] s2)
 {
 	auto len = s1.length;
 
@@ -134,7 +136,7 @@ public int scmp(char[] s1, char[] s2)
 /**
 Verifies that the given UTF-8 string is well-formed and returns the length in codepoints.
 */
-public size_t verify(char[] s)
+size_t verify(char[] s)
 {
 	size_t ret = 0;
 
@@ -147,7 +149,7 @@ public size_t verify(char[] s)
 /**
 Slice a UTF-8 string using codepoint indices.
 */
-public char[] uniSlice(char[] s, size_t lo, size_t hi)
+char[] uniSlice(char[] s, size_t lo, size_t hi)
 {
 	if(lo == hi)
 		return null;
@@ -179,7 +181,7 @@ public char[] uniSlice(char[] s, size_t lo, size_t hi)
 /**
 Get the character in a UTF-8 string at the given codepoint index.
 */
-public dchar uniCharAt(char[] s, size_t idx)
+dchar uniCharAt(char[] s, size_t idx)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -196,7 +198,7 @@ public dchar uniCharAt(char[] s, size_t idx)
 /**
 Convert a codepoint index into a UTF-8 string into a byte index.
 */
-public size_t uniCPIdxToByte(char[] s, size_t fake)
+size_t uniCPIdxToByte(char[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -213,7 +215,7 @@ public size_t uniCPIdxToByte(char[] s, size_t fake)
 /**
 Convert a byte index into a UTF-8 string into a codepoint index.
 */
-public size_t uniByteIdxToCP(char[] s, size_t fake)
+size_t uniByteIdxToCP(char[] s, size_t fake)
 {
 	auto tmp = s;
 	uint ate = 0;
@@ -234,7 +236,7 @@ public size_t uniByteIdxToCP(char[] s, size_t fake)
 /**
 Metafunction to see if a given type is one of char[], wchar[] or dchar[].
 */
-public template isStringType(T)
+template isStringType(T)
 {
 	const bool isStringType = is(T : char[]) || is(T : wchar[]) || is(T : dchar[]);
 }
@@ -242,12 +244,12 @@ public template isStringType(T)
 /**
 Sees if a type is an array.
 */
-public template isArrayType(T)
+template isArrayType(T)
 {
 	const bool isArrayType = false;
 }
 
-public template isArrayType(T : T[])
+template isArrayType(T : T[])
 {
 	const bool isArrayType = true;
 }
@@ -255,7 +257,7 @@ public template isArrayType(T : T[])
 /**
 Sees if a type is an associative array.
 */
-public template isAAType(T)
+template isAAType(T)
 {
 	const bool isAAType = is(typeof(T.init.values[0])[typeof(T.init.keys[0])] == T);
 }
@@ -263,7 +265,7 @@ public template isAAType(T)
 /**
 Get to the bottom of any chain of typedefs!  Returns the first non-typedef'ed type.
 */
-public template realType(T)
+template realType(T)
 {
 	static if(is(T Base == typedef) || is(T Base == enum))
 		alias realType!(Base) realType;
@@ -295,7 +297,7 @@ unittest
 /**
 Make a FOURCC code out of a four-character string. This is I guess for little-endian platforms..
 */
-public template FOURCC(char[] name)
+template FOURCC(char[] name)
 {
 	static assert(name.length == 4, "FOURCC's parameter must be 4 characters");
 	const uint FOURCC = (cast(uint)name[3] << 24) | (cast(uint)name[2] << 16) | (cast(uint)name[1] << 8) | cast(uint)name[0];
@@ -304,7 +306,7 @@ public template FOURCC(char[] name)
 /**
 Make a version with the major number in the upper 16 bits and the minor in the lower 16 bits.
 */
-public template MakeVersion(uint major, uint minor)
+template MakeVersion(uint major, uint minor)
 {
 	const uint MakeVersion = (major << 16) | minor;
 }
@@ -312,7 +314,7 @@ public template MakeVersion(uint major, uint minor)
 /**
 Gets the name of a function alias.
 */
-public template NameOfFunc(alias f)
+template NameOfFunc(alias f)
 {
 	version(LDC)
 		const char[] NameOfFunc = (&f).stringof[1 .. $];
@@ -322,7 +324,7 @@ public template NameOfFunc(alias f)
 
 debug
 {
-	private void _foo_(){}
+	void _foo_(){}
 	static assert(NameOfFunc!(_foo_) == "_foo_", "Oh noes, NameOfFunc needs to be updated.");
 }
 
@@ -331,7 +333,7 @@ Given a predicate template and a tuple, sorts the tuple. I'm not sure how quick 
 for sorting most tuples, which hopefully won't be that long. The predicate template should take two parameters of the
 same type as the tuple's elements, and return <0 for A < B, 0 for A == B, and >0 for A > B (just like opCmp).
 */
-public template QSort(alias Pred, List...)
+template QSort(alias Pred, List...)
 {
 	static if(List.length == 0 || List.length == 1)
 		alias List QSort;
@@ -380,7 +382,7 @@ private template QSort_greater(alias Pred, List...)
 A useful template that somehow is in Phobos but no Tango. Sees if a tuple is composed
 entirely of expressions or aliases.
 */
-public template isExpressionTuple(T...)
+template isExpressionTuple(T...)
 {
 	static if (is(void function(T)))
 		const bool isExpressionTuple = false;
@@ -396,7 +398,7 @@ that the compiler gives access to this info in odd cases, and am just exploiting
 be fantastic if the compiler would just tell us these things, but alas, we have to rely on
 seemingly-buggy undefined behavior. Sigh.
 */
-public template FieldNames(S, int idx = 0)
+template FieldNames(S, int idx = 0)
 {
 	static if(idx >= S.tupleof.length)
 		alias Tuple!() FieldNames;
@@ -420,7 +422,7 @@ Even works for aliases to class methods. Note, however, that this isn't smart en
 between, say, "void foo(int x, int y = 10)" and "void foo(int x) ... void foo(int x, int y)". There might
 be a difference, though, so be cautious.
 */
-public template MinArgs(alias func)
+template MinArgs(alias func)
 {
 	const uint MinArgs = MinArgsImpl!(func, 0, InitsOf!(ParameterTupleOf!(typeof(&func))));
 }
@@ -438,7 +440,7 @@ private template MinArgsImpl(alias func, int index, Args...)
 /**
 Given a type tuple, this will give an expression tuple of all the .init values for each type.
 */
-public template InitsOf(T...)
+template InitsOf(T...)
 {
 	static if(T.length == 0)
 		alias Tuple!() InitsOf;
@@ -457,7 +459,7 @@ Given a class or struct type, gets its name. This really only exists to mask pot
 way the compiler reports this info (for example, DMD used to insert a space before struct names, but that
 no longer seems to happen..).
 */
-public template NameOfType(T)
+template NameOfType(T)
 {
 	const char[] NameOfType = T.stringof;
 }

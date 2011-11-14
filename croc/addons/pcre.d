@@ -46,7 +46,7 @@ import croc.api;
 
 struct PcreLib
 {
-	public static void init(CrocThread* t)
+	static void init(CrocThread* t)
 	{
 		makeModule(t, "pcre", function uword(CrocThread* t)
 		{
@@ -126,7 +126,7 @@ static:
 		subject
 	}
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "Regex", (CreateClass* c)
 		{
@@ -201,7 +201,7 @@ static:
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Internal Functions
 
-	private Members* getThis(CrocThread* t)
+	Members* getThis(CrocThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "Regex");
 
@@ -211,7 +211,7 @@ static:
 		return ret;
 	}
 
-	private word parseAttrs(char[] attrs)
+	word parseAttrs(char[] attrs)
 	{
 		word ret = 0;
 
@@ -227,7 +227,7 @@ static:
 		return ret | PCRE_NEWLINE_ANY | PCRE_UTF8;
 	}
 
-	private void setSubject(CrocThread* t, Members* memb, word str)
+	void setSubject(CrocThread* t, Members* memb, word str)
 	{
 		dup(t, str);
 		setExtraVal(t, 0, Fields.subject);
@@ -236,7 +236,7 @@ static:
 		memb.nextStart = 0;
 	}
 
-	private pcre* compilePattern(CrocThread* t, char[] pat, word attrs)
+	pcre* compilePattern(CrocThread* t, char[] pat, word attrs)
 	{
 		auto tmp = allocArray!(char)(t, pat.length + 1);
 		tmp[0 .. pat.length] = pat[];
@@ -255,7 +255,7 @@ static:
 		return re;
 	}
 
-	private word getNameTable(CrocThread* t, pcre* re, pcre_extra* extra)
+	word getNameTable(CrocThread* t, pcre* re, pcre_extra* extra)
 	{
 		word numNames;
 		word nameEntrySize;
@@ -278,7 +278,7 @@ static:
 		return ret;
 	}
 	
-	private word[] getGroupRange(CrocThread* t, Members* memb, word group)
+	word[] getGroupRange(CrocThread* t, Members* memb, word group)
 	{
 		if(memb.numGroups == 0)
 			throwStdException(t, "ValueException", "No more matches");
@@ -327,7 +327,7 @@ static:
 	// -------------------------------------------------------------------------------------------------------------------------------------------------------
 	// Methods
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = checkInstParam!(Members)(t, 0, "Regex");
 
@@ -360,14 +360,14 @@ static:
 		return 0;
 	}
 
-	public uword numGroups(CrocThread* t)
+	uword numGroups(CrocThread* t)
 	{
 		auto memb = getThis(t);
 		pushInt(t, memb.numGroups);
 		return 1;
 	}
 
-	public uword groupNames(CrocThread* t)
+	uword groupNames(CrocThread* t)
 	{
 		getThis(t);
 
@@ -379,7 +379,7 @@ static:
 		return 1;
 	}
 
-	public uword test(CrocThread* t)
+	uword test(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -426,7 +426,7 @@ static:
 		return 1;
 	}
 
-	public uword search(CrocThread* t)
+	uword search(CrocThread* t)
 	{
 		auto memb = getThis(t);
 		checkStringParam(t, 1);
@@ -435,7 +435,7 @@ static:
 		return 1;
 	}
 
-	public uword match(CrocThread* t)
+	uword match(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -444,7 +444,7 @@ static:
 		return 1;
 	}
 
-	public uword pre(CrocThread* t)
+	uword pre(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -453,7 +453,7 @@ static:
 		return 1;
 	}
 
-	public uword post(CrocThread* t)
+	uword post(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -462,7 +462,7 @@ static:
 		return 1;
 	}
 
-	public uword preMatchPost(CrocThread* t)
+	uword preMatchPost(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -473,7 +473,7 @@ static:
 		return 3;
 	}
 
-	public uword matchBegin(CrocThread* t)
+	uword matchBegin(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -482,7 +482,7 @@ static:
 		return 1;
 	}
 
-	public uword matchEnd(CrocThread* t)
+	uword matchEnd(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -491,7 +491,7 @@ static:
 		return 1;
 	}
 
-	public uword matchBeginEnd(CrocThread* t)
+	uword matchBeginEnd(CrocThread* t)
 	{
 		auto numParams = stackSize(t) - 1;
 		auto memb = getThis(t);
@@ -501,7 +501,7 @@ static:
 		return 2;
 	}
 
-	public uword replace(CrocThread* t)
+	uword replace(CrocThread* t)
 	{
 		auto memb = getThis(t);
 		auto str = checkStringParam(t, 1);
@@ -564,7 +564,7 @@ static:
 		return 1;
 	}
 
-	public uword split(CrocThread* t)
+	uword split(CrocThread* t)
 	{
 		auto memb = getThis(t);
 		auto str = checkStringParam(t, 1);
@@ -590,7 +590,7 @@ static:
 		return 1;
 	}
 
-	public uword find(CrocThread* t)
+	uword find(CrocThread* t)
 	{
 		auto memb = getThis(t);
 		checkStringParam(t, 1);
@@ -626,7 +626,7 @@ static:
 		return 2;
 	}
 
-	public uword opApply(CrocThread* t)
+	uword opApply(CrocThread* t)
 	{
 		getThis(t);
 		getUpval(t, 0);
@@ -794,7 +794,7 @@ extern(C)
 
 class LoaderException : Exception
 {
-	public this(char[] msg)
+	this(char[] msg)
 	{
 		super(msg);
 	}

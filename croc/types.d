@@ -42,21 +42,23 @@ import croc.utils;
 // Public
 // ================================================================================================================================================
 
+public:
+
 /**
 The native signed integer type on this platform. This is the same as ptrdiff_t but with a better name.
 */
-public alias ptrdiff_t word;
+alias ptrdiff_t word;
 
 /**
 The native unsigned integer type on this platform. This is the same as size_t but with a better name.
 */
-public alias size_t uword;
+alias size_t uword;
 
 /**
 The underlying D type used to store the Croc 'int' type. Defaults to 'long' (64-bit signed integer). If you
 change it, you will end up with a (probably?) functional but nonstandard implementation.
 */
-public alias long crocint;
+alias long crocint;
 
 static assert((cast(crocint)-1) < (cast(crocint)0), "crocint must be signed");
 
@@ -64,18 +66,18 @@ static assert((cast(crocint)-1) < (cast(crocint)0), "crocint must be signed");
 The underlying D type used to store the Croc 'float' type. Defaults to 'double'. If you change it, you will end
 up with a functional but nonstandard implementation.
 */
-public alias double crocfloat;
+alias double crocfloat;
 
 /**
 The current version of Croc as a 32-bit integer. The upper 16 bits are the major, and the lower 16 are
 the minor.
 */
-public const uint CrocVersion = MakeVersion!(2, 1);
+const uint CrocVersion = MakeVersion!(2, 1);
 
 /**
 An alias for the type signature of a native function. It is defined as uword function(CrocThread*, uword).
 */
-public alias uword function(CrocThread*) NativeFunc;
+alias uword function(CrocThread*) NativeFunc;
 
 /**
 */
@@ -148,6 +150,8 @@ else
 // Package
 // ================================================================================================================================================
 
+package:
+
 /**
 */
 align(1) struct CrocValue
@@ -199,7 +203,8 @@ align(1) struct CrocValue
 		Upvalue
 	}
 
-	package static const char[][] typeStrings =
+package:
+	static const char[][] typeStrings =
 	[
 		Type.Null:      "null",
 		Type.Bool:      "bool",
@@ -223,40 +228,40 @@ align(1) struct CrocValue
 		Type.Upvalue:   "upvalue"
 	];
 
-	package static CrocValue nullValue = { type : Type.Null, mInt : 0 };
+	static CrocValue nullValue = { type : Type.Null, mInt : 0 };
 
-	package Type type = Type.Null;
+	Type type = Type.Null;
 
 	union
 	{
-		package bool mBool;
-		package crocint mInt;
-		package crocfloat mFloat;
-		package dchar mChar;
+		bool mBool;
+		crocint mInt;
+		crocfloat mFloat;
+		dchar mChar;
 
- 		package CrocBaseObject* mBaseObj;
-		package CrocString* mString;
-		package CrocTable* mTable;
-		package CrocArray* mArray;
-		package CrocMemblock* mMemblock;
-		package CrocFunction* mFunction;
-		package CrocClass* mClass;
-		package CrocInstance* mInstance;
-		package CrocNamespace* mNamespace;
-		package CrocThread* mThread;
-		package CrocNativeObj* mNativeObj;
-		package CrocWeakRef* mWeakRef;
-		package CrocFuncDef* mFuncDef;
+		CrocBaseObject* mBaseObj;
+		CrocString* mString;
+		CrocTable* mTable;
+		CrocArray* mArray;
+		CrocMemblock* mMemblock;
+		CrocFunction* mFunction;
+		CrocClass* mClass;
+		CrocInstance* mInstance;
+		CrocNamespace* mNamespace;
+		CrocThread* mThread;
+		CrocNativeObj* mNativeObj;
+		CrocWeakRef* mWeakRef;
+		CrocFuncDef* mFuncDef;
 	}
 
-	package static CrocValue opCall(T)(T t)
+	static CrocValue opCall(T)(T t)
 	{
 		CrocValue ret = void;
 		ret = t;
 		return ret;
 	}
 
-	package int opEquals(CrocValue other)
+	int opEquals(CrocValue other)
 	{
 		if(this.type != other.type)
 			return false;
@@ -272,120 +277,120 @@ align(1) struct CrocValue
 		}
 	}
 
-	package bool isFalse()
+	bool isFalse()
 	{
 		return (type == Type.Null) || (type == Type.Bool && mBool == false) ||
 			(type == Type.Int && mInt == 0) || (type == Type.Float && mFloat == 0.0) || (type == Type.Char && mChar != 0);
 	}
 
-	package void opAssign(bool src)
+	void opAssign(bool src)
 	{
 		type = Type.Bool;
 		mBool = src;
 	}
 
-	package void opAssign(crocint src)
+	void opAssign(crocint src)
 	{
 		type = Type.Int;
 		mInt = src;
 	}
 
-	package void opAssign(crocfloat src)
+	void opAssign(crocfloat src)
 	{
 		type = Type.Float;
 		mFloat = src;
 	}
 
-	package void opAssign(dchar src)
+	void opAssign(dchar src)
 	{
 		type = Type.Char;
 		mChar = src;
 	}
 
-	package void opAssign(CrocString* src)
+	void opAssign(CrocString* src)
 	{
 		type = Type.String;
 		mString = src;
 	}
 
-	package void opAssign(CrocTable* src)
+	void opAssign(CrocTable* src)
 	{
 		type = Type.Table;
 		mTable = src;
 	}
 
-	package void opAssign(CrocArray* src)
+	void opAssign(CrocArray* src)
 	{
 		type = Type.Array;
 		mArray = src;
 	}
 	
-	package void opAssign(CrocMemblock* src)
+	void opAssign(CrocMemblock* src)
 	{
 		type = Type.Memblock;
 		mMemblock = src;
 	}
 
-	package void opAssign(CrocFunction* src)
+	void opAssign(CrocFunction* src)
 	{
 		type = Type.Function;
 		mFunction = src;
 	}
 
-	package void opAssign(CrocClass* src)
+	void opAssign(CrocClass* src)
 	{
 		type = Type.Class;
 		mClass = src;
 	}
 
-	package void opAssign(CrocInstance* src)
+	void opAssign(CrocInstance* src)
 	{
 		type = Type.Instance;
 		mInstance = src;
 	}
 
-	package void opAssign(CrocNamespace* src)
+	void opAssign(CrocNamespace* src)
 	{
 		type = Type.Namespace;
 		mNamespace = src;
 	}
 
-	package void opAssign(CrocThread* src)
+	void opAssign(CrocThread* src)
 	{
 		type = Type.Thread;
 		mThread = src;
 	}
 
-	package void opAssign(CrocNativeObj* src)
+	void opAssign(CrocNativeObj* src)
 	{
 		type = Type.NativeObj;
 		mNativeObj = src;
 	}
 
-	package void opAssign(CrocWeakRef* src)
+	void opAssign(CrocWeakRef* src)
 	{
 		type = Type.WeakRef;
 		mWeakRef = src;
 	}
 
-	package void opAssign(CrocFuncDef* src)
+	void opAssign(CrocFuncDef* src)
 	{
 		type = Type.FuncDef;
 		mFuncDef = src;
 	}
 
-	package void opAssign(CrocBaseObject* src)
+	void opAssign(CrocBaseObject* src)
 	{
 		type = src.mType;
 		mBaseObj = src;
 	}
 
-	package bool isObject()
+	bool isObject()
 	{
 		return type >= Type.String;
 	}
 
-	package GCObject* toGCObject()
+	GCObject* toGCObject()
 	{
 		assert(isObject());
 		return cast(GCObject*)mBaseObj;
@@ -437,7 +442,8 @@ align(1) struct CrocValue
 template CrocObjectMixin(uint type)
 {
 	mixin GCObjectMembers;
-	package CrocValue.Type mType = cast(CrocValue.Type)type;
+package:
+	CrocValue.Type mType = cast(CrocValue.Type)type;
 }
 
 struct CrocBaseObject
@@ -448,29 +454,32 @@ struct CrocBaseObject
 struct CrocString
 {
 	mixin CrocObjectMixin!(CrocValue.Type.String);
-	package uword hash;
-	package uword length;
-	package uword cpLength;
+package:
+	uword hash;
+	uword length;
+	uword cpLength;
 
-	package char[] toString()
+	char[] toString()
 	{
 		return (cast(char*)(this + 1))[0 .. this.length];
 	}
 
-	package alias hash toHash;
+	alias hash toHash;
 	static const bool ACYCLIC = true;
 }
 
 struct CrocTable
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Table);
-	package Hash!(CrocValue, CrocValue, true) data;
+package:
+	Hash!(CrocValue, CrocValue, true) data;
 }
 
 struct CrocArray
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Array);
-	package uword length;
+package:
+	uword length;
 
 	struct Slot
 	{
@@ -478,9 +487,9 @@ struct CrocArray
 		bool modified;
 	}
 
-	package Slot[] data;
+	Slot[] data;
 
-	package Slot[] toArray()
+	Slot[] toArray()
 	{
 		return data[0 .. this.length];
 	}
@@ -528,10 +537,11 @@ struct CrocMemblock
 		TypeCode.f64: { TypeCode.f64, 8, "f64" }
 	];
 
-	package void[] data;
-	package uword itemLength;
-	package TypeStruct* kind;
-	package bool ownData;
+package:
+	void[] data;
+	uword itemLength;
+	TypeStruct* kind;
+	bool ownData;
 
 	static const bool ACYCLIC = true;
 }
@@ -539,27 +549,28 @@ struct CrocMemblock
 struct CrocFunction
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Function);
-	package bool isNative;
-	package CrocNamespace* environment;
-	package CrocString* name;
-	package uword numUpvals;
-	package uword numParams;
-	package uword maxParams;
+package:
+	bool isNative;
+	CrocNamespace* environment;
+	CrocString* name;
+	uword numUpvals;
+	uword numParams;
+	uword maxParams;
 
 	union
 	{
-		package CrocFuncDef* scriptFunc;
-		package NativeFunc nativeFunc;
+		CrocFuncDef* scriptFunc;
+		NativeFunc nativeFunc;
 		
 		static assert((CrocFuncDef*).sizeof == NativeFunc.sizeof);
 	}
 
-	package CrocValue[] nativeUpvals()
+	CrocValue[] nativeUpvals()
 	{
 		return (cast(CrocValue*)(this + 1))[0 .. numUpvals];
 	}
 
-	package CrocUpval*[] scriptUpvals()
+	CrocUpval*[] scriptUpvals()
 	{
 		return (cast(CrocUpval**)(this + 1))[0 .. numUpvals];
 	}
@@ -568,29 +579,31 @@ struct CrocFunction
 struct CrocClass
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Class);
-	package CrocString* name;
-	package CrocClass* parent;
-	package CrocNamespace* fields;
-	package CrocFunction* allocator;
-	package CrocFunction* finalizer;
-	package bool allocatorSet;
-	package bool finalizerSet;
+package:
+	CrocString* name;
+	CrocClass* parent;
+	CrocNamespace* fields;
+	CrocFunction* allocator;
+	CrocFunction* finalizer;
+	bool allocatorSet;
+	bool finalizerSet;
 }
 
 struct CrocInstance
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Instance);
-	package CrocClass* parent;
-	package CrocNamespace* fields;
-	package uword numValues;
-	package uword extraBytes;
+package:
+	CrocClass* parent;
+	CrocNamespace* fields;
+	uword numValues;
+	uword extraBytes;
 
-	package CrocValue[] extraValues()
+	CrocValue[] extraValues()
 	{
 		return (cast(CrocValue*)(this + 1))[0 .. numValues];
 	}
 
-	package void[] extraData()
+	void[] extraData()
 	{
 		return ((cast(void*)(this + 1)) + (numValues * CrocValue.sizeof))[0 .. extraBytes];
 	}
@@ -599,45 +612,49 @@ struct CrocInstance
 struct CrocNamespace
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Namespace);
-	package Hash!(CrocString*, CrocValue, true) data;
-	package CrocNamespace* parent;
-	package CrocString* name;
+package:
+	Hash!(CrocString*, CrocValue, true) data;
+	CrocNamespace* parent;
+	CrocString* name;
 	bool visitedOnce;
 }
 
-package alias uword AbsStack;
-package alias uword RelStack;
+alias uword AbsStack;
+alias uword RelStack;
 
 struct ActRecord
 {
-	package AbsStack base;
-	package AbsStack savedTop;
-	package AbsStack vargBase;
-	package AbsStack returnSlot;
-	package CrocFunction* func;
-	package Instruction* pc;
-	package word numReturns;
-	package CrocClass* proto;
-	package uword numTailcalls;
-	package uword firstResult;
-	package uword numResults;
-	package uword unwindCounter = 0;
-	package Instruction* unwindReturn = null;
+package:
+	AbsStack base;
+	AbsStack savedTop;
+	AbsStack vargBase;
+	AbsStack returnSlot;
+	CrocFunction* func;
+	Instruction* pc;
+	word numReturns;
+	CrocClass* proto;
+	uword numTailcalls;
+	uword firstResult;
+	uword numResults;
+	uword unwindCounter = 0;
+	Instruction* unwindReturn = null;
 }
 
 struct TryRecord
 {
-	package bool isCatch;
-	package RelStack slot;
-	package uword actRecord;
-	package Instruction* pc;
+package:
+	bool isCatch;
+	RelStack slot;
+	uword actRecord;
+	Instruction* pc;
 }
 
 struct CrocThread
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Thread);
 
-	public enum State
+public:
+	enum State
 	{
 		Initial,
 		Waiting,
@@ -646,7 +663,7 @@ struct CrocThread
 		Dead
 	}
 
-	public enum Hook : ubyte
+	enum Hook : ubyte
 	{
 		Call = 1,
 		Ret = 2,
@@ -655,6 +672,7 @@ struct CrocThread
 		Line = 16
 	}
 
+package:
 	static char[][5] StateStrings =
 	[
 		State.Initial: "initial",
@@ -664,42 +682,42 @@ struct CrocThread
 		State.Dead: "dead"
 	];
 
-	package TryRecord[] tryRecs;
-	package TryRecord* currentTR;
-	package uword trIndex = 0;
+	TryRecord[] tryRecs;
+	TryRecord* currentTR;
+	uword trIndex = 0;
 
-	package ActRecord[] actRecs;
-	package ActRecord* currentAR;
-	package uword arIndex = 0;
+	ActRecord[] actRecs;
+	ActRecord* currentAR;
+	uword arIndex = 0;
 
-	package CrocValue[] stack;
-	package AbsStack stackIndex;
-	package AbsStack stackBase;
+	CrocValue[] stack;
+	AbsStack stackIndex;
+	AbsStack stackBase;
 
-	package CrocValue[] results;
-	package uword resultIndex = 0;
+	CrocValue[] results;
+	uword resultIndex = 0;
 
-	package CrocUpval* upvalHead;
+	CrocUpval* upvalHead;
 
-	package CrocVM* vm;
-	package bool shouldHalt = false;
+	CrocVM* vm;
+	bool shouldHalt = false;
 
-	package CrocFunction* coroFunc;
-	package State state = State.Initial;
-	package uword numYields;
+	CrocFunction* coroFunc;
+	State state = State.Initial;
+	uword numYields;
 
-	package ubyte hooks;
-	package bool hooksEnabled = true;
-	package uint hookDelay;
-	package uint hookCounter;
-	package CrocFunction* hookFunc;
+	ubyte hooks;
+	bool hooksEnabled = true;
+	uint hookDelay;
+	uint hookCounter;
+	CrocFunction* hookFunc;
 
 	version(CrocExtendedCoro)
 	{
 		// References a Fiber object
-		package CrocNativeObj* coroFiber;
+		CrocNativeObj* coroFiber;
 
-		package Fiber getFiber()
+		Fiber getFiber()
 		{
 			assert(coroFiber !is null);
 			return cast(Fiber)cast(void*)coroFiber.obj;
@@ -707,25 +725,25 @@ struct CrocThread
 	}
 	else
 	{
-		package uword savedCallDepth;
+		uword savedCallDepth;
 	}
 
-	package uword nativeCallDepth = 0;
+	uword nativeCallDepth = 0;
 }
 
 struct CrocNativeObj
 {
 	mixin CrocObjectMixin!(CrocValue.Type.NativeObj);
-	package Object obj;
-	
+package:
+	Object obj;
 	static const bool ACYCLIC = true;
 }
 
 struct CrocWeakRef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.WeakRef);
-	package CrocBaseObject* obj;
-	
+package:
+	CrocBaseObject* obj;	
 	static const bool ACYCLIC = true;
 }
 
@@ -741,14 +759,15 @@ struct CrocFuncDef
 {
 	mixin CrocObjectMixin!(CrocValue.Type.FuncDef);
 
-	package CrocString* locFile;
-	package int locLine = 1;
-	package int locCol = 1;
-	package bool isVararg;
-	package CrocString* name;
-	package uint numParams;
-	package uint[] paramMasks;
-	package uint numUpvals;
+package:
+	CrocString* locFile;
+	int locLine = 1;
+	int locCol = 1;
+	bool isVararg;
+	CrocString* name;
+	uint numParams;
+	uint[] paramMasks;
+	uint numUpvals;
 
 	struct UpvalDesc
 	{
@@ -756,45 +775,45 @@ struct CrocFuncDef
 		uint index;
 	}
 
-	package UpvalDesc[] upvals;
-	package uint stackSize;
-	package CrocFuncDef*[] innerFuncs;
-	package CrocValue[] constants;
-	package Instruction[] code;
+	UpvalDesc[] upvals;
+	uint stackSize;
+	CrocFuncDef*[] innerFuncs;
+	CrocValue[] constants;
+	Instruction[] code;
 
-	package CrocNamespace* environment;
-	package CrocFunction* cachedFunc;
+	CrocNamespace* environment;
+	CrocFunction* cachedFunc;
 
 	struct SwitchTable
 	{
-		package Hash!(CrocValue, int) offsets;
-		package int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
+		Hash!(CrocValue, int) offsets;
+		int defaultOffset = -1; // yes, this is 32 bit, it's fixed that size
 	}
 
-	package SwitchTable[] switchTables;
+	SwitchTable[] switchTables;
 
 	// Debug info.
-	package uint[] lineInfo;
-	package CrocString*[] upvalNames;
+	uint[] lineInfo;
+	CrocString*[] upvalNames;
 
 	struct LocVarDesc
 	{
-		package CrocString* name;
-		package uint pcStart;
-		package uint pcEnd;
-		package uint reg;
+		CrocString* name;
+		uint pcStart;
+		uint pcEnd;
+		uint reg;
 	}
 
-	package LocVarDesc[] locVarDescs;
+	LocVarDesc[] locVarDescs;
 }
 
 struct CrocUpval
 {
 	mixin CrocObjectMixin!(CrocValue.Type.Upvalue);
-
-	package CrocValue* value;
-	package CrocValue closedValue;
-	package CrocUpval* nextuv;
+package:
+	CrocValue* value;
+	CrocValue closedValue;
+	CrocUpval* nextuv;
 }
 
 // please don't align(1) this struct, it'll mess up the D GC when it tries to look inside for pointers.

@@ -36,10 +36,12 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package const uint MaxParams = uint.max - 1;
+package:
+	
+	const uint MaxParams = uint.max - 1;
 
 	// Create a script function.
-	package CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocFuncDef* def)
+	CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocFuncDef* def)
 	{
 		if(def.environment && def.environment !is env)
 			return null;
@@ -79,7 +81,7 @@ static:
 	}
 
 	// Create a native function.
-	package CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocString* name, NativeFunc func, uword numUpvals, uword numParams)
+	CrocFunction* create(ref Allocator alloc, CrocNamespace* env, CrocString* name, NativeFunc func, uword numUpvals, uword numParams)
 	{
 		auto f = alloc.allocate!(CrocFunction)(NativeClosureSize(numUpvals));
 		f.nativeUpvals()[] = CrocValue.nullValue;
@@ -96,7 +98,7 @@ static:
 		return f;
 	}
 	
-	package void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
+	void setNativeUpval(ref Allocator alloc, CrocFunction* f, uword idx, CrocValue* val)
 	{
 		auto slot = &f.nativeUpvals()[idx];
 		
@@ -109,7 +111,7 @@ static:
 		}
 	}
 	
-	package void setEnvironment(ref Allocator alloc, CrocFunction* f, CrocNamespace* ns)
+	void setEnvironment(ref Allocator alloc, CrocFunction* f, CrocNamespace* ns)
 	{
 		if(f.environment !is ns)
 		{
@@ -118,12 +120,12 @@ static:
 		}
 	}
 
-	package bool isNative(CrocFunction* f)
+	bool isNative(CrocFunction* f)
 	{
 		return f.isNative;
 	}
 
-	package bool isVararg(CrocFunction* f)
+	bool isVararg(CrocFunction* f)
 	{
 		if(f.isNative)
 			return f.numParams == MaxParams + 1;
@@ -131,12 +133,12 @@ static:
 			return f.scriptFunc.isVararg;
 	}
 
-	package uword ScriptClosureSize(uword numUpvals)
+	uword ScriptClosureSize(uword numUpvals)
 	{
 		return CrocFunction.sizeof + ((CrocUpval*).sizeof * numUpvals);
 	}
 
-	package uword NativeClosureSize(uword numUpvals)
+	uword NativeClosureSize(uword numUpvals)
 	{
 		return CrocFunction.sizeof + (CrocValue.sizeof * numUpvals);
 	}

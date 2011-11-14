@@ -37,7 +37,9 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocString* lookup(CrocVM* vm, char[] data, ref uword h)
+package:
+
+	CrocString* lookup(CrocVM* vm, char[] data, ref uword h)
 	{
 		// We don't have to verify the string if it already exists in the string table,
 		// because if it does, it means it's a legal string.
@@ -52,7 +54,7 @@ static:
 	
 	// Create a new string object. String objects with the same data are reused. Thus,
 	// if two string objects are identical, they are also equal.
-	package CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
+	CrocString* create(CrocVM* vm, char[] data, uword h, uword cpLen)
 	{
 		auto ret = vm.alloc.allocate!(CrocString)(StringSize(data.length));
 		ret.hash = h;
@@ -65,7 +67,7 @@ static:
 	}
 
 	// Free a string object.
-	package void free(CrocVM* vm, CrocString* s)
+	void free(CrocVM* vm, CrocString* s)
 	{
 		auto b = vm.stringTab.remove(s.toString());
 		assert(b);
@@ -73,13 +75,13 @@ static:
 	}
 
 	// Compare two string objects.
-	package crocint compare(CrocString* a, CrocString* b)
+	crocint compare(CrocString* a, CrocString* b)
 	{
 		return scmp(a.toString(), b.toString());
 	}
 
 	// See if the string contains the given character.
-	package bool contains(CrocString* s, dchar c)
+	bool contains(CrocString* s, dchar c)
 	{
 		foreach(dchar ch; s.toString())
 			if(c == ch)
@@ -89,7 +91,7 @@ static:
 	}
 
 	// See if the string contains the given substring.
-	package bool contains(CrocString* s, char[] sub)
+	bool contains(CrocString* s, char[] sub)
 	{
 		if(s.length < sub.length)
 			return false;
@@ -99,7 +101,7 @@ static:
 
 	// The slice indices are in codepoints, not byte indices.
 	// And these indices better be good.
-	package CrocString* slice(CrocVM* vm, CrocString* s, uword lo, uword hi)
+	CrocString* slice(CrocVM* vm, CrocString* s, uword lo, uword hi)
 	{
 		auto str = uniSlice(s.toString(), lo, hi);
 		uword h = void;
@@ -112,7 +114,7 @@ static:
 	}
 
 	// Like slice, the index is in codepoints, not byte indices.
-	package dchar charAt(CrocString* s, uword idx)
+	dchar charAt(CrocString* s, uword idx)
 	{
 		return uniCharAt(s.toString(), idx);
 	}
@@ -121,7 +123,9 @@ static:
 	// Private
 	// ================================================================================================================================================
 
-	private uword StringSize(uword length)
+private:
+
+	uword StringSize(uword length)
 	{
 		return CrocString.sizeof + (char.sizeof * length);
 	}

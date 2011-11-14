@@ -39,7 +39,7 @@ private alias RegExpT!(char) Regexd;
 
 struct RegexpLib
 {
-	public static void init(CrocThread* t)
+	static void init(CrocThread* t)
 	{
 		makeModule(t, "regexp", function uword(CrocThread* t)
 		{
@@ -82,7 +82,7 @@ struct RegexpLib
 			global
 		}
 
-		public void init(CrocThread* t)
+		void init(CrocThread* t)
 		{
 			CreateClass(t, "Regexp", (CreateClass* c)
 			{
@@ -117,13 +117,13 @@ struct RegexpLib
 			return 1;
 		}
 
-		private Regex getThis(CrocThread* t)
+		Regex getThis(CrocThread* t)
 		{
 			bool dummy = void;
 			return getThis(t, dummy);
 		}
 
-		private Regex getThis(CrocThread* t, out bool isGlobal)
+		Regex getThis(CrocThread* t, out bool isGlobal)
 		{
 			checkInstParam(t, 0, "Regexp");
 			getExtraVal(t, 0, Fields.global);
@@ -135,7 +135,7 @@ struct RegexpLib
 			return ret;
 		}
 
-		public uword constructor(CrocThread* t)
+		uword constructor(CrocThread* t)
 		{
 			checkInstParam(t, 0, "Regexp");
 
@@ -148,7 +148,7 @@ struct RegexpLib
 			return 0;
 		}
 
-		public uword test(CrocThread* t)
+		uword test(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
 			auto rex = getThis(t);
@@ -164,7 +164,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword match(CrocThread* t)
+		uword match(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
 			bool isGlobal = void;
@@ -200,7 +200,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword search(CrocThread* t)
+		uword search(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -209,21 +209,21 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword pre(CrocThread* t)
+		uword pre(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			pushString(t, safeCode(t, rex.pre()));
 			return 1;
 		}
 
-		public uword post(CrocThread* t)
+		uword post(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			pushString(t, safeCode(t, rex.post()));
 			return 1;
 		}
 
-		public uword replace(CrocThread* t)
+		uword replace(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			auto src = checkStringParam(t, 1);
@@ -259,7 +259,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword split(CrocThread* t)
+		uword split(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -285,7 +285,7 @@ struct RegexpLib
 			return 1;
 		}
 
-		public uword find(CrocThread* t)
+		uword find(CrocThread* t)
 		{
 			auto rex = getThis(t);
 			auto str = checkStringParam(t, 1);
@@ -312,7 +312,7 @@ struct RegexpLib
 			return 2;
 		}
 
-		public uword opApply(CrocThread* t)
+		uword opApply(CrocThread* t)
 		{
 			checkInstParam(t, 0, "Regexp");
 			getUpval(t, 0);

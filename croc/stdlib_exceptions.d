@@ -111,7 +111,7 @@ static:
 	const crocint Native = -1;
 	const crocint Script = -2;
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "exceptions", function uword(CrocThread* t)
 		{

@@ -2696,7 +2696,7 @@ TryRecord* pushTR(CrocThread* t)
 	return t.currentTR;
 }
 
-protected final void popTR(CrocThread* t)
+final void popTR(CrocThread* t)
 {
 	t.trIndex--;
 

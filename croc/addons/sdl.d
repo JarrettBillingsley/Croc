@@ -743,7 +743,7 @@ static:
 		newGlobal(t, "SdlSurface");
 	}
 
-	private SDL_Surface* getThis(CrocThread* t)
+	SDL_Surface* getThis(CrocThread* t)
 	{
 		checkInstParam(t, 0, "SdlSurface");
 		auto ret = *(cast(SDL_Surface**)getExtraBytes(t, 0).ptr);

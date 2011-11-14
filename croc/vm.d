@@ -188,7 +188,7 @@ void enableGC(CrocVM* vm)
 
 class CustomLayout : Layout!(char)
 {
-	protected override char[] floater(char[] output, real v, char[] format)
+	override char[] floater(char[] output, real v, char[] format)
 	{
 		char style = 'f';
 

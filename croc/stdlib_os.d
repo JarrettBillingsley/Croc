@@ -39,7 +39,7 @@ import croc.utils;
 struct OSLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "os", function uword(CrocThread* t)
 		{
@@ -137,7 +137,7 @@ static:
 			stderr
 		}
 
-		public static void init(CrocThread* t)
+		static void init(CrocThread* t)
 		{
 			CreateClass(t, "Process", (CreateClass* c)
 			{
@@ -179,7 +179,7 @@ static:
 			return 1;
 		}
 
-		public uword constructor(CrocThread* t)
+		uword constructor(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
 			checkInstParam(t, 0, "Process");
@@ -205,14 +205,14 @@ static:
 			return 0;
 		}
 
-		public uword isRunning(CrocThread* t)
+		uword isRunning(CrocThread* t)
 		{
 			auto p = getProcess(t);
 			pushBool(t, safeCode(t, "exceptions.OSException", p.isRunning()));
 			return 1;
 		}
 
-		public uword workDir(CrocThread* t)
+		uword workDir(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
 			auto p = getProcess(t);
@@ -227,7 +227,7 @@ static:
 			return 0;
 		}
 
-		public uword execute(CrocThread* t)
+		uword execute(CrocThread* t)
 		{
 			auto numParams = stackSize(t) - 1;
 			auto p = getProcess(t);
@@ -281,7 +281,7 @@ static:
 			return 0;
 		}
 		
-		public uword stdin(CrocThread* t)
+		uword stdin(CrocThread* t)
 		{
 			auto p = getProcess(t);
 			
@@ -305,7 +305,7 @@ static:
 			return 1;
 		}
 
-		public uword stdout(CrocThread* t)
+		uword stdout(CrocThread* t)
 		{
 			auto p = getProcess(t);
 
@@ -329,7 +329,7 @@ static:
 			return 1;
 		}
 
-		public uword stderr(CrocThread* t)
+		uword stderr(CrocThread* t)
 		{
 			auto p = getProcess(t);
 
@@ -353,7 +353,7 @@ static:
 			return 1;
 		}
 		
-		public uword wait(CrocThread* t)
+		uword wait(CrocThread* t)
 		{
 			auto p = getProcess(t);
 			
@@ -394,7 +394,7 @@ static:
 			return 2;
 		}
 
-		public uword kill(CrocThread* t)
+		uword kill(CrocThread* t)
 		{
 			auto p = getProcess(t);
 			safeCode(t, "exceptions.OSException", p.kill());
@@ -402,7 +402,7 @@ static:
 			return 0;
 		}
 		
-		private void clearStreams(CrocThread* t)
+		void clearStreams(CrocThread* t)
 		{
 			pushNull(t);
 			dup(t);

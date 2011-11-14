@@ -37,14 +37,16 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocFuncDef* create(ref Allocator alloc)
+package:
+
+	CrocFuncDef* create(ref Allocator alloc)
 	{
 		auto ret = alloc.allocate!(CrocFuncDef);
 		return ret;
 	}
 
 	// Free a function definition.
-	package void free(ref Allocator alloc, CrocFuncDef* fd)
+	void free(ref Allocator alloc, CrocFuncDef* fd)
 	{
 		alloc.freeArray(fd.paramMasks);
 		alloc.freeArray(fd.upvals);

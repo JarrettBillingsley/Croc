@@ -42,8 +42,10 @@ import croc.base_opcodes;
 
 scope class Codegen : Visitor
 {
-	private FuncState fs;
+private:
+	FuncState fs;
 
+public:
 	this(ICompiler c)
 	{
 		super(c);
@@ -51,7 +53,7 @@ scope class Codegen : Visitor
 
 	alias Visitor.visit visit;
 
-	public void codegenStatements(FuncDef d)
+	void codegenStatements(FuncDef d)
 	{
 		scope fs_ = new FuncState(c, d.location, d.name.name, null);
 
@@ -80,7 +82,7 @@ scope class Codegen : Visitor
 		insertAndPop(c.thread, -2);
 	}
 
-	public override Module visit(Module m)
+	override Module visit(Module m)
 	{
 		scope fs_ = new FuncState(c, m.location, c.newString("<top-level>"), null);
 
@@ -122,7 +124,7 @@ scope class Codegen : Visitor
 		return m;
 	}
 
-	public override ClassDef visit(ClassDef d)
+	override ClassDef visit(ClassDef d)
 	{
 		classDefBegin(d); // leaves local containing class on the stack
 		classDefEnd(d); // still leaves it
@@ -130,7 +132,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public void classDefBegin(ClassDef d)
+	void classDefBegin(ClassDef d)
 	{
 		fs.pushString(d.name.name);
 
@@ -148,7 +150,7 @@ scope class Codegen : Visitor
 		fs.newClass(d.location);
 	}
 
-	public void classDefEnd(ClassDef d)
+	void classDefEnd(ClassDef d)
 	{
 		if(d.fields.length == 0)
 			return;
@@ -166,14 +168,14 @@ scope class Codegen : Visitor
 		}
 	}
 
-	public override NamespaceDef visit(NamespaceDef d)
+	override NamespaceDef visit(NamespaceDef d)
 	{
 		auto desc = namespaceDefBegin(d);
 		namespaceDefEnd(d, desc);
 		return d;
 	}
 
-	public NamespaceDesc namespaceDefBegin(NamespaceDef d)
+	NamespaceDesc namespaceDefBegin(NamespaceDef d)
 	{
 		fs.pushString(d.name.name);
 
@@ -189,7 +191,7 @@ scope class Codegen : Visitor
 		return fs.beginNamespace(d.location);
 	}
 
-	public void namespaceDefEnd(NamespaceDef d, ref NamespaceDesc desc)
+	void namespaceDefEnd(NamespaceDef d, ref NamespaceDesc desc)
 	{
 		if(d.fields.length)
 		{
@@ -209,7 +211,7 @@ scope class Codegen : Visitor
 		fs.endNamespace(desc);
 	}
 
-	public override FuncDef visit(FuncDef d)
+	override FuncDef visit(FuncDef d)
 	{
 		scope inner = new FuncState(c, d.location, d.name.name, fs);
 
@@ -238,7 +240,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public override TypecheckStmt visit(TypecheckStmt s)
+	override TypecheckStmt visit(TypecheckStmt s)
 	{
 		alias FuncDef.TypeMask TypeMask;
 		bool needParamCheck = false;
@@ -300,7 +302,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public word dottedNameToString(Expression exp)
+	word dottedNameToString(Expression exp)
 	{
 		int work(Expression exp)
 		{
@@ -323,12 +325,12 @@ scope class Codegen : Visitor
 		return cat(c.thread, work(exp));
 	}
 
-	public override ImportStmt visit(ImportStmt s)
+	override ImportStmt visit(ImportStmt s)
 	{
 		assert(false);
 	}
 
-	public override ScopeStmt visit(ScopeStmt s)
+	override ScopeStmt visit(ScopeStmt s)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -338,7 +340,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override ExpressionStmt visit(ExpressionStmt s)
+	override ExpressionStmt visit(ExpressionStmt s)
 	{
 		visit(s.expr);
 		fs.popToNothing();
@@ -346,7 +348,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public void visitDecorator(Decorator d, void delegate() obj)
+	void visitDecorator(Decorator d, void delegate() obj)
 	{
 		uword genArgs()
 		{
@@ -377,7 +379,7 @@ scope class Codegen : Visitor
 			visitCall(d.endLocation, d.func, d.context, &genArgs);
 	}
 
-	public override FuncDecl visit(FuncDecl d)
+	override FuncDecl visit(FuncDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
@@ -404,7 +406,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public override ClassDecl visit(ClassDecl d)
+	override ClassDecl visit(ClassDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
@@ -438,7 +440,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public override NamespaceDecl visit(NamespaceDecl d)
+	override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.protection == Protection.Local)
 		{
@@ -472,7 +474,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public override VarDecl visit(VarDecl d)
+	override VarDecl visit(VarDecl d)
 	{
 		// Check for name conflicts within the definition
 		foreach(i, n; d.names)
@@ -510,7 +512,7 @@ scope class Codegen : Visitor
 		return d;
 	}
 
-	public override BlockStmt visit(BlockStmt s)
+	override BlockStmt visit(BlockStmt s)
 	{
 		foreach(st; s.statements)
 			visit(st);
@@ -519,7 +521,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override AssertStmt visit(AssertStmt s)
+	override AssertStmt visit(AssertStmt s)
 	{
 		assert(c.asserts()); // can't have made it here unless asserts are enabled
 		
@@ -533,7 +535,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override IfStmt visit(IfStmt s)
+	override IfStmt visit(IfStmt s)
 	{
 		if(s.elseBody)
 			visitIf(s.location, s.endLocation, s.elseBody.location, s.condVar, s.condition, { visit(s.ifBody); }, { visit(s.elseBody); });
@@ -544,7 +546,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public void visitIf(CompileLoc location, CompileLoc endLocation, CompileLoc elseLocation, IdentExp condVar, Expression condition, void delegate() genBody, void delegate() genElse)
+	void visitIf(CompileLoc location, CompileLoc endLocation, CompileLoc elseLocation, IdentExp condVar, Expression condition, void delegate() genBody, void delegate() genElse)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -588,7 +590,7 @@ scope class Codegen : Visitor
 		}
 	}
 
-	public override WhileStmt visit(WhileStmt s)
+	override WhileStmt visit(WhileStmt s)
 	{
 		auto beginLoop = fs.here();
 
@@ -654,7 +656,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override DoWhileStmt visit(DoWhileStmt s)
+	override DoWhileStmt visit(DoWhileStmt s)
 	{
 		auto beginLoop = fs.here();
 		Scope scop = void;
@@ -694,7 +696,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override ForStmt visit(ForStmt s)
+	override ForStmt visit(ForStmt s)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -745,7 +747,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override ForNumStmt visit(ForNumStmt s)
+	override ForNumStmt visit(ForNumStmt s)
 	{
 		visitForNum(s.location, s.endLocation, s.name, s.lo, s.hi, s.step, s.index, { visit(s.code); });
 
@@ -753,7 +755,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public void visitForNum(CompileLoc location, CompileLoc endLocation, char[] name, Expression lo, Expression hi, Expression step, Identifier index, void delegate() genBody)
+	void visitForNum(CompileLoc location, CompileLoc endLocation, char[] name, Expression lo, Expression hi, Expression step, Identifier index, void delegate() genBody)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -771,7 +773,7 @@ scope class Codegen : Visitor
 		fs.popScope(endLocation);
 	}
 
-	public override ForeachStmt visit(ForeachStmt s)
+	override ForeachStmt visit(ForeachStmt s)
 	{
 		visitForeach(s.location, s.endLocation, s.name, s.indices, s.container, { visit(s.code); });
 		
@@ -779,7 +781,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public void visitForeach(CompileLoc location, CompileLoc endLocation, char[] name, Identifier[] indices, Expression[] container, void delegate() genBody)
+	void visitForeach(CompileLoc location, CompileLoc endLocation, char[] name, Identifier[] indices, Expression[] container, void delegate() genBody)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -799,7 +801,7 @@ scope class Codegen : Visitor
 		fs.popScope(endLocation);
 	}
 
-	public override SwitchStmt visit(SwitchStmt s)
+	override SwitchStmt visit(SwitchStmt s)
 	{
 		Scope scop = void;
 		fs.pushScope(scop);
@@ -866,7 +868,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override CaseStmt visit(CaseStmt s)
+	override CaseStmt visit(CaseStmt s)
 	{
 		if(s.highRange)
 			fs.patchJumpToHere(s.conditions[0].dynJump);
@@ -886,7 +888,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override DefaultStmt visit(DefaultStmt s)
+	override DefaultStmt visit(DefaultStmt s)
 	{
 		fs.addDefault(s.location);
 		visit(s.code);
@@ -894,21 +896,21 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override ContinueStmt visit(ContinueStmt s)
+	override ContinueStmt visit(ContinueStmt s)
 	{
 		fs.codeContinue(s.location, s.name);
 		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
-	public override BreakStmt visit(BreakStmt s)
+	override BreakStmt visit(BreakStmt s)
 	{
 		fs.codeBreak(s.location, s.name);
 		debug(EXPSTACKCHECK) fs.checkExpStackEmpty();
 		return s;
 	}
 
-	public override ReturnStmt visit(ReturnStmt s)
+	override ReturnStmt visit(ReturnStmt s)
 	{
 		if(!fs.inTryCatch() && s.exprs.length == 1 && (s.exprs[0].type == AstTag.CallExp || s.exprs[0].type == AstTag.MethodCallExp))
 		{
@@ -932,7 +934,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override TryCatchStmt visit(TryCatchStmt s)
+	override TryCatchStmt visit(TryCatchStmt s)
 	{
 		Scope scop = void;
 		auto pushCatch = fs.codeCatch(s.location, scop);
@@ -953,7 +955,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override TryFinallyStmt visit(TryFinallyStmt s)
+	override TryFinallyStmt visit(TryFinallyStmt s)
 	{
 		Scope scop = void;
 		auto pushFinally = fs.codeFinally(s.location, scop);
@@ -971,7 +973,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override ThrowStmt visit(ThrowStmt s)
+	override ThrowStmt visit(ThrowStmt s)
 	{
 		visit(s.exp);
 		fs.toSource(s.exp.endLocation);
@@ -981,7 +983,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override AssignStmt visit(AssignStmt s)
+	override AssignStmt visit(AssignStmt s)
 	{
 		foreach(exp; s.lhs)
 			exp.checkLHS(c);
@@ -998,7 +1000,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public OpAssignStmt visitOpAssign(OpAssignStmt s)
+	OpAssignStmt visitOpAssign(OpAssignStmt s)
 	{
 		if(s.lhs.type != AstTag.ThisExp)
 			s.lhs.checkLHS(c);
@@ -1017,19 +1019,19 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override AddAssignStmt  visit(AddAssignStmt s)  { return visitOpAssign(s); }
-	public override SubAssignStmt  visit(SubAssignStmt s)  { return visitOpAssign(s); }
-	public override MulAssignStmt  visit(MulAssignStmt s)  { return visitOpAssign(s); }
-	public override DivAssignStmt  visit(DivAssignStmt s)  { return visitOpAssign(s); }
-	public override ModAssignStmt  visit(ModAssignStmt s)  { return visitOpAssign(s); }
-	public override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
-	public override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
-	public override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
-	public override ShlAssignStmt  visit(ShlAssignStmt s)  { return visitOpAssign(s); }
-	public override ShrAssignStmt  visit(ShrAssignStmt s)  { return visitOpAssign(s); }
-	public override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
+	override AddAssignStmt  visit(AddAssignStmt s)  { return visitOpAssign(s); }
+	override SubAssignStmt  visit(SubAssignStmt s)  { return visitOpAssign(s); }
+	override MulAssignStmt  visit(MulAssignStmt s)  { return visitOpAssign(s); }
+	override DivAssignStmt  visit(DivAssignStmt s)  { return visitOpAssign(s); }
+	override ModAssignStmt  visit(ModAssignStmt s)  { return visitOpAssign(s); }
+	override AndAssignStmt  visit(AndAssignStmt s)  { return visitOpAssign(s); }
+	override OrAssignStmt   visit(OrAssignStmt s)   { return visitOpAssign(s); }
+	override XorAssignStmt  visit(XorAssignStmt s)  { return visitOpAssign(s); }
+	override ShlAssignStmt  visit(ShlAssignStmt s)  { return visitOpAssign(s); }
+	override ShrAssignStmt  visit(ShrAssignStmt s)  { return visitOpAssign(s); }
+	override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
 
-	public override CondAssignStmt visit(CondAssignStmt s)
+	override CondAssignStmt visit(CondAssignStmt s)
 	{
 		visit(s.lhs);
 		fs.dup();
@@ -1047,7 +1049,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override CatAssignStmt visit(CatAssignStmt s)
+	override CatAssignStmt visit(CatAssignStmt s)
 	{
 		assert(s.collapsed, "CatAssignStmt codeGen not collapsed");
 		assert(s.operands.length >= 1, "CatAssignStmt codeGen not enough ops");
@@ -1068,7 +1070,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override IncStmt visit(IncStmt s)
+	override IncStmt visit(IncStmt s)
 	{
 		if(s.exp.type != AstTag.ThisExp)
 			s.exp.checkLHS(c);
@@ -1084,7 +1086,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override DecStmt visit(DecStmt s)
+	override DecStmt visit(DecStmt s)
 	{
 		if(s.exp.type != AstTag.ThisExp)
 			s.exp.checkLHS(c);
@@ -1100,7 +1102,7 @@ scope class Codegen : Visitor
 		return s;
 	}
 
-	public override CondExp visit(CondExp e)
+	override CondExp visit(CondExp e)
 	{
 		fs.pushNewLocals(1);
 
@@ -1126,7 +1128,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override OrOrExp visit(OrOrExp e)
+	override OrOrExp visit(OrOrExp e)
 	{
 		fs.pushNewLocals(1);
 		fs.dup();
@@ -1143,7 +1145,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override AndAndExp visit(AndAndExp e)
+	override AndAndExp visit(AndAndExp e)
 	{
 		fs.pushNewLocals(1);
 		fs.dup();
@@ -1160,7 +1162,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public BinaryExp visitBinExp(BinaryExp e)
+	BinaryExp visitBinExp(BinaryExp e)
 	{
 		visit(e.op1);
 		fs.toSource(e.op1.endLocation);
@@ -1170,21 +1172,21 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override BinaryExp visit(AddExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(SubExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(MulExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(DivExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(ModExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(AndExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(OrExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(XorExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
-	public override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
-	public override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
-	public override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
+	override BinaryExp visit(AddExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(SubExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(MulExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(DivExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(ModExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(AndExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(OrExp e)    { return visitBinExp(e); }
+	override BinaryExp visit(XorExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(ShlExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(ShrExp e)   { return visitBinExp(e); }
+	override BinaryExp visit(UShrExp e)  { return visitBinExp(e); }
+	override BinaryExp visit(AsExp e)    { return visitBinExp(e); }
+	override BinaryExp visit(Cmp3Exp e)  { return visitBinExp(e); }
 
-	public override CatExp visit(CatExp e)
+	override CatExp visit(CatExp e)
 	{
 		assert(e.collapsed is true, "CatExp codeGen not collapsed");
 		assert(e.operands.length >= 2, "CatExp codeGen not enough ops");
@@ -1194,7 +1196,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public BinaryExp visitComparisonExp(BinaryExp e)
+	BinaryExp visitComparisonExp(BinaryExp e)
 	{
 		fs.pushNewLocals(1);
 		auto i = codeCondition(e);
@@ -1211,18 +1213,18 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override BinaryExp visit(EqualExp e)    { return visitComparisonExp(e); }
-	public override BinaryExp visit(NotEqualExp e) { return visitComparisonExp(e); }
-	public override BinaryExp visit(IsExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(NotIsExp e)    { return visitComparisonExp(e); }
-	public override BinaryExp visit(LTExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(LEExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(GTExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(GEExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(InExp e)       { return visitComparisonExp(e); }
-	public override BinaryExp visit(NotInExp e)    { return visitComparisonExp(e); }
+	override BinaryExp visit(EqualExp e)    { return visitComparisonExp(e); }
+	override BinaryExp visit(NotEqualExp e) { return visitComparisonExp(e); }
+	override BinaryExp visit(IsExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(NotIsExp e)    { return visitComparisonExp(e); }
+	override BinaryExp visit(LTExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(LEExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(GTExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(GEExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(InExp e)       { return visitComparisonExp(e); }
+	override BinaryExp visit(NotInExp e)    { return visitComparisonExp(e); }
 
-	public UnExp visitUnExp(UnExp e)
+	UnExp visitUnExp(UnExp e)
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
@@ -1230,12 +1232,12 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override UnExp visit(NegExp e)       { return visitUnExp(e); }
-	public override UnExp visit(NotExp e)       { return visitUnExp(e); }
-	public override UnExp visit(ComExp e)       { return visitUnExp(e); }
-	public override UnExp visit(CoroutineExp e) { return visitUnExp(e); }
+	override UnExp visit(NegExp e)       { return visitUnExp(e); }
+	override UnExp visit(NotExp e)       { return visitUnExp(e); }
+	override UnExp visit(ComExp e)       { return visitUnExp(e); }
+	override UnExp visit(CoroutineExp e) { return visitUnExp(e); }
 
-	public override LenExp visit(LenExp e)
+	override LenExp visit(LenExp e)
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
@@ -1243,7 +1245,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override VargLenExp visit(VargLenExp e)
+	override VargLenExp visit(VargLenExp e)
 	{
 		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
@@ -1252,7 +1254,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override DotExp visit(DotExp e)
+	override DotExp visit(DotExp e)
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
@@ -1262,7 +1264,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override DotSuperExp visit(DotSuperExp e)
+	override DotSuperExp visit(DotSuperExp e)
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
@@ -1270,7 +1272,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override MethodCallExp visit(MethodCallExp e)
+	override MethodCallExp visit(MethodCallExp e)
 	{
 		visitMethodCall(e.location, e.endLocation, e.isSuperCall, e.op, e.method, delegate uword()
 		{
@@ -1281,7 +1283,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
+	void visitMethodCall(CompileLoc location, CompileLoc endLocation, bool isSuperCall, Expression op, Expression method, uword delegate() genArgs)
 	{
 		auto desc = fs.beginMethodCall();
 
@@ -1301,7 +1303,7 @@ scope class Codegen : Visitor
 		fs.pushMethodCall(endLocation, isSuperCall, desc);
 	}
 
-	public override CallExp visit(CallExp e)
+	override CallExp visit(CallExp e)
 	{
 		visitCall(e.endLocation, e.op, e.context, delegate uword()
 		{
@@ -1312,7 +1314,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public void visitCall(CompileLoc endLocation, Expression op, Expression context, uword delegate() genArgs)
+	void visitCall(CompileLoc endLocation, Expression op, Expression context, uword delegate() genArgs)
 	{
 		visit(op);
 		fs.toTemporary(op.endLocation);
@@ -1332,7 +1334,7 @@ scope class Codegen : Visitor
 		fs.pushCall(endLocation, numArgs);
 	}
 
-	public override IndexExp visit(IndexExp e)
+	override IndexExp visit(IndexExp e)
 	{
 		visit(e.op);
 		fs.toSource(e.op.endLocation);
@@ -1342,7 +1344,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override VargIndexExp visit(VargIndexExp e)
+	override VargIndexExp visit(VargIndexExp e)
 	{
 		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
@@ -1354,7 +1356,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override SliceExp visit(SliceExp e)
+	override SliceExp visit(SliceExp e)
 	{
 		Expression[3] list;
 		list[0] = e.op;
@@ -1365,7 +1367,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override VargSliceExp visit(VargSliceExp e)
+	override VargSliceExp visit(VargSliceExp e)
 	{
 		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
@@ -1378,55 +1380,55 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override IdentExp visit(IdentExp e)
+	override IdentExp visit(IdentExp e)
 	{
 		fs.pushVar(e.name);
 		return e;
 	}
 
-	public override ThisExp visit(ThisExp e)
+	override ThisExp visit(ThisExp e)
 	{
 		fs.pushThis();
 		return e;
 	}
 
-	public override NullExp visit(NullExp e)
+	override NullExp visit(NullExp e)
 	{
 		fs.pushNull();
 		return e;
 	}
 
-	public override BoolExp visit(BoolExp e)
+	override BoolExp visit(BoolExp e)
 	{
 		fs.pushBool(e.value);
 		return e;
 	}
 
-	public override IntExp visit(IntExp e)
+	override IntExp visit(IntExp e)
 	{
 		fs.pushInt(e.value);
 		return e;
 	}
 
-	public override FloatExp visit(FloatExp e)
+	override FloatExp visit(FloatExp e)
 	{
 		fs.pushFloat(e.value);
 		return e;
 	}
 
-	public override CharExp visit(CharExp e)
+	override CharExp visit(CharExp e)
 	{
 		fs.pushChar(e.value);
 		return e;
 	}
 
-	public override StringExp visit(StringExp e)
+	override StringExp visit(StringExp e)
 	{
 		fs.pushString(e.value);
 		return e;
 	}
 
-	public override VarargExp visit(VarargExp e)
+	override VarargExp visit(VarargExp e)
 	{
 		if(!fs.isVararg())
 			c.semException(e.location, "'vararg' cannot be used in a non-variadic function");
@@ -1435,25 +1437,25 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override FuncLiteralExp visit(FuncLiteralExp e)
+	override FuncLiteralExp visit(FuncLiteralExp e)
 	{
 		visit(e.def);
 		return e;
 	}
 
-	public override ClassLiteralExp visit(ClassLiteralExp e)
+	override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		visit(e.def);
 		return e;
 	}
 
-	public override NamespaceCtorExp visit(NamespaceCtorExp e)
+	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		visit(e.def);
 		return e;
 	}
 
-	public override ParenExp visit(ParenExp e)
+	override ParenExp visit(ParenExp e)
 	{
 		assert(e.exp.isMultRet(), "ParenExp codeGen not multret");
 
@@ -1462,7 +1464,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override TableCtorExp visit(TableCtorExp e)
+	override TableCtorExp visit(TableCtorExp e)
 	{
 		fs.pushTable(e.location);
 
@@ -1479,7 +1481,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override ArrayCtorExp visit(ArrayCtorExp e)
+	override ArrayCtorExp visit(ArrayCtorExp e)
 	{
 		if(e.values.length > ArrayCtorExp.maxFields)
 			c.semException(e.location, "Array constructor has too many fields (more than {})", ArrayCtorExp.maxFields);
@@ -1515,14 +1517,14 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override YieldExp visit(YieldExp e)
+	override YieldExp visit(YieldExp e)
 	{
 		codeGenList(e.args);
 		fs.pushYield(e.endLocation, e.args.length);
 		return e;
 	}
 
-	public override TableComprehension visit(TableComprehension e)
+	override TableComprehension visit(TableComprehension e)
 	{
 		fs.pushTable(e.location);
 
@@ -1538,7 +1540,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public override ArrayComprehension visit(ArrayComprehension e)
+	override ArrayComprehension visit(ArrayComprehension e)
 	{
 		fs.pushArray(e.location, 0);
 
@@ -1552,7 +1554,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public ForComprehension visitForComp(ForComprehension e, void delegate() inner)
+	ForComprehension visitForComp(ForComprehension e, void delegate() inner)
 	{
 		if(auto x = e.as!(ForeachComprehension))
 			return visit(x, inner);
@@ -1564,7 +1566,7 @@ scope class Codegen : Visitor
 		}
 	}
 
-	public ForeachComprehension visit(ForeachComprehension e, void delegate() inner)
+	ForeachComprehension visit(ForeachComprehension e, void delegate() inner)
 	{
 		auto newInner = inner;
 
@@ -1582,7 +1584,7 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public ForNumComprehension visit(ForNumComprehension e, void delegate() inner)
+	ForNumComprehension visit(ForNumComprehension e, void delegate() inner)
 	{
 		auto newInner = inner;
 
@@ -1600,13 +1602,13 @@ scope class Codegen : Visitor
 		return e;
 	}
 
-	public IfComprehension visit(IfComprehension e, void delegate() inner)
+	IfComprehension visit(IfComprehension e, void delegate() inner)
 	{
 		visitIf(e.location, e.endLocation, e.endLocation, null, e.condition, inner, null);
 		return e;
 	}
 
-	public void codeGenList(Expression[] exprs, bool allowMultRet = true)
+	void codeGenList(Expression[] exprs, bool allowMultRet = true)
 	{
 		if(exprs.length == 0)
 			return;
@@ -1623,7 +1625,7 @@ scope class Codegen : Visitor
 			fs.toTemporary(exprs[$ - 1].endLocation);
 	}
 
-	public void codeGenAssignRHS(Expression[] exprs)
+	void codeGenAssignRHS(Expression[] exprs)
 	{
 		if(exprs.length == 0)
 			return;
@@ -1640,7 +1642,9 @@ scope class Codegen : Visitor
 	// ---------------------------------------------------------------------------
 	// Condition codegen
 
-	package InstRef codeCondition(Expression e)
+package:
+
+	InstRef codeCondition(Expression e)
 	{
 		switch(e.type)
 		{
@@ -1668,7 +1672,7 @@ scope class Codegen : Visitor
 		}
 	}
 
-	package InstRef codeCondition(CondExp e)
+	InstRef codeCondition(CondExp e)
 	{
 		auto c = codeCondition(e.cond);
 		fs.invertJump(c);
@@ -1689,7 +1693,7 @@ scope class Codegen : Visitor
 		return right;
 	}
 
-	package InstRef codeCondition(OrOrExp e)
+	InstRef codeCondition(OrOrExp e)
 	{
 		auto left = codeCondition(e.op1);
 		fs.patchFalseToHere(left);
@@ -1700,7 +1704,7 @@ scope class Codegen : Visitor
 		return right;
 	}
 
-	package InstRef codeCondition(AndAndExp e)
+	InstRef codeCondition(AndAndExp e)
 	{
 		auto left = codeCondition(e.op1);
 		fs.invertJump(left);
@@ -1712,7 +1716,7 @@ scope class Codegen : Visitor
 		return right;
 	}
 
-	package InstRef codeEqualExpCondition(BaseEqualExp e)
+	InstRef codeEqualExpCondition(BaseEqualExp e)
 	{
 		visit(e.op1);
 		fs.toSource(e.op1.endLocation);
@@ -1735,14 +1739,14 @@ scope class Codegen : Visitor
 		return ret;
 	}
 
-	package InstRef codeCondition(EqualExp e)    { return codeEqualExpCondition(e); }
-	package InstRef codeCondition(NotEqualExp e) { return codeEqualExpCondition(e); }
-	package InstRef codeCondition(IsExp e)       { return codeEqualExpCondition(e); }
-	package InstRef codeCondition(NotIsExp e)    { return codeEqualExpCondition(e); }
-	package InstRef codeCondition(InExp e)       { return codeEqualExpCondition(e); }
-	package InstRef codeCondition(NotInExp e)    { return codeEqualExpCondition(e); }
+	InstRef codeCondition(EqualExp e)    { return codeEqualExpCondition(e); }
+	InstRef codeCondition(NotEqualExp e) { return codeEqualExpCondition(e); }
+	InstRef codeCondition(IsExp e)       { return codeEqualExpCondition(e); }
+	InstRef codeCondition(NotIsExp e)    { return codeEqualExpCondition(e); }
+	InstRef codeCondition(InExp e)       { return codeEqualExpCondition(e); }
+	InstRef codeCondition(NotInExp e)    { return codeEqualExpCondition(e); }
 
-	package InstRef codeCmpExpCondition(BaseCmpExp e)
+	InstRef codeCmpExpCondition(BaseCmpExp e)
 	{
 		visit(e.op1);
 		fs.toSource(e.op1.endLocation);
@@ -1763,13 +1767,13 @@ scope class Codegen : Visitor
 		return ret;
 	}
 
-	package InstRef codeCondition(LTExp e) { return codeCmpExpCondition(e); }
-	package InstRef codeCondition(LEExp e) { return codeCmpExpCondition(e); }
-	package InstRef codeCondition(GTExp e) { return codeCmpExpCondition(e); }
-	package InstRef codeCondition(GEExp e) { return codeCmpExpCondition(e); }
+	InstRef codeCondition(LTExp e) { return codeCmpExpCondition(e); }
+	InstRef codeCondition(LEExp e) { return codeCmpExpCondition(e); }
+	InstRef codeCondition(GTExp e) { return codeCmpExpCondition(e); }
+	InstRef codeCondition(GEExp e) { return codeCmpExpCondition(e); }
 
 	// Have to keep this cause it "unwraps" the ParenExp, which the default case in codeCondition does not
-	package InstRef codeCondition(ParenExp e)
+	InstRef codeCondition(ParenExp e)
 	{
 		visit(e.exp);
 		fs.toSource(e.exp.endLocation);

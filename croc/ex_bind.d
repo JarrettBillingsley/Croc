@@ -54,6 +54,8 @@ alias croc.utils.isArrayType isArrayType;
 // Public
 // ================================================================================================================================================
 
+public:
+
 /**
 Wraps a module. This registers a custom module loader in the global modules.customLoaders
 table of the given thread. The members will not actually be wrapped until the module is imported
@@ -71,7 +73,7 @@ Params:
 	t = This module's loader will be added into the global modules.customLoaders table accessible
 		from this thread.
 */
-public void WrapModule(char[] name, Members...)(CrocThread* t)
+void WrapModule(char[] name, Members...)(CrocThread* t)
 {
 	makeModule(t, name, function uword(CrocThread* t)
 	{
@@ -87,7 +89,7 @@ Supported member types include WrapFunc, WrapNamespace, WrapValue, and WrapType.
 
 The wrapped values are immediately loaded into the global namespace.
 */
-public void WrapGlobals(Members...)(CrocThread* t)
+void WrapGlobals(Members...)(CrocThread* t)
 {
 	commonNamespace!("", true, Members)(t);
 }
@@ -114,7 +116,7 @@ If you use one of the two forms where you explicitly specify the function signat
 wrapped function will only accept exactly as many parameters as are specified in the signature.
 Otherwise, the wrapped function will be allowed to have optional parameters.
 */
-public struct WrapFunc(alias func)
+struct WrapFunc(alias func)
 {
 	const bool isFunc = true;
 	const char[] Name = NameOfFunc!(func);
@@ -122,7 +124,7 @@ public struct WrapFunc(alias func)
 }
 
 /// ditto
-public struct WrapFunc(alias func, funcType)
+struct WrapFunc(alias func, funcType)
 {
 	const bool isFunc = true;
 	const char[] Name = NameOfFunc!(func);
@@ -130,7 +132,7 @@ public struct WrapFunc(alias func, funcType)
 }
 
 /// ditto
-public struct WrapFunc(alias func, char[] name)
+struct WrapFunc(alias func, char[] name)
 {
 	const bool isFunc = true;
 	const char[] Name = name;
@@ -138,7 +140,7 @@ public struct WrapFunc(alias func, char[] name)
 }
 
 /// ditto
-public struct WrapFunc(alias func, char[] name, funcType)
+struct WrapFunc(alias func, char[] name, funcType)
 {
 	const bool isFunc = true;
 	const char[] Name = name;
@@ -150,7 +152,7 @@ Wraps a bunch of values into a namespace object. This works virtually the same a
 except that it's meant to be used as a member of something like WrapModule. Legal member
 types include WrapFunc, WrapValue, WrapNamespace, and WrapType.
 */
-public struct WrapNamespace(char[] name, members...)
+struct WrapNamespace(char[] name, members...)
 {
 	const bool isNamespace = true;
 	const char[] Name = name;
@@ -162,7 +164,7 @@ Wraps a single value and gives it a name. Despite the fact that the value parame
 variadic, it is restricted to exactly one item. It's variadic just so it can accept any
 value type.
 */
-public struct WrapValue(char[] name, value...)
+struct WrapValue(char[] name, value...)
 {
 	static assert(Value.length == 1 && isExpressionTuple!(Value), "WrapValue - must have exactly one expression");
 	const bool isValue = true;
@@ -185,16 +187,17 @@ Template Params:
 Bugs:
 	Abstract classes cannot be wrapped. D1 does not provide enough reflective information to do so reliably.
 */
-public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
+struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 {
 	// Because it's pointless (and Croc has its own Object).
 	static assert(!is(Type == Object), "Wrapping Object is not allowed");
 	static assert(is(Type == class) || is(Type == struct), "Cannot wrap type " ~ Type.stringof);
 
+private:
 	const bool isType = true;
 	const char[] Name = name;
 
-	private static word init(char[] moduleName)(CrocThread* t)
+	static word init(char[] moduleName)(CrocThread* t)
 	{
 		checkInitialized(t);
 
@@ -221,7 +224,7 @@ public struct WrapType(Type, char[] name = NameOfType!(Type), Members...)
 		return stackSize(t) - 1;
 	}
 
-	private static uword classAllocator(CrocThread* t)
+	static uword classAllocator(CrocThread* t)
 	{
 		newInstance(t, 0, 1);
 
@@ -246,7 +249,7 @@ will be correctly dispatched when the type is instantiated in Croc. This also me
 implicit conversion from int to float that happens when calling other functions will not happen when calling
 constructors.
 */
-public struct WrapCtors(T...)
+struct WrapCtors(T...)
 {
 	static assert(T.length > 0, "WrapCtors must be instantiated with at least one type");
 	const bool isCtors = true;
@@ -258,7 +261,7 @@ Wraps a method of a class or struct type. The argument to this template will loo
 type "A". Other than the fact that it's a method (and therefore takes 'this'), this works pretty much
 exactly the same as WrapFunction, including the differences between the multiple specializations.
 */
-public struct WrapMethod(alias func)
+struct WrapMethod(alias func)
 {
 	const bool isMethod = true;
 	const char[] Name = NameOfFunc!(func);
@@ -268,7 +271,7 @@ public struct WrapMethod(alias func)
 }
 
 /// ditto
-public struct WrapMethod(alias func, char[] name)
+struct WrapMethod(alias func, char[] name)
 {
 	const bool isMethod = true;
 	const char[] Name = name;
@@ -278,7 +281,7 @@ public struct WrapMethod(alias func, char[] name)
 }
 
 /// ditto
-public struct WrapMethod(alias func, funcType)
+struct WrapMethod(alias func, funcType)
 {
 	const bool isMethod = true;
 	const char[] Name = NameOfFunc!(func);
@@ -288,7 +291,7 @@ public struct WrapMethod(alias func, funcType)
 }
 
 /// ditto
-public struct WrapMethod(alias func, char[] name, funcType)
+struct WrapMethod(alias func, char[] name, funcType)
 {
 	const bool isMethod = true;
 	const char[] Name = name;
@@ -320,7 +323,7 @@ Bugs:
 	Currently overridden setters/getters are not called polymorphically and therefore will not be called
 	by D code accessing the properties.
 */
-public struct WrapProperty(alias func)
+struct WrapProperty(alias func)
 {
 	const bool isProperty = true;
 	const char[] Name = NameOfFunc!(func);
@@ -330,7 +333,7 @@ public struct WrapProperty(alias func)
 }
 
 /// ditto
-public struct WrapProperty(alias func, char[] name)
+struct WrapProperty(alias func, char[] name)
 {
 	const bool isProperty = true;
 	const char[] Name = name;
@@ -340,7 +343,7 @@ public struct WrapProperty(alias func, char[] name)
 }
 
 /// ditto
-public struct WrapProperty(alias func, funcType)
+struct WrapProperty(alias func, funcType)
 {
 	const bool isProperty = true;
 	const char[] Name = NameOfFunc!(func);
@@ -350,7 +353,7 @@ public struct WrapProperty(alias func, funcType)
 }
 
 /// ditto
-public struct WrapProperty(alias func, char[] name, funcType)
+struct WrapProperty(alias func, char[] name, funcType)
 {
 	const bool isProperty = true;
 	const char[] Name = name;
@@ -371,7 +374,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getWrappedClass(CrocThread* t, TypeInfo ti)
+word getWrappedClass(CrocThread* t, TypeInfo ti)
 {
 	if(auto tic = cast(TypeInfo_Class)ti)
 		return getWrappedClass(t, tic.info);
@@ -404,7 +407,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getWrappedClass(CrocThread* t, ClassInfo ci)
+word getWrappedClass(CrocThread* t, ClassInfo ci)
 {
 	getRegistryVar(t, "croc.bind.WrappedClasses");
 	pushNativeObj(t, ci);
@@ -433,7 +436,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word getWrappedClassOrSuper(CrocThread* t, ClassInfo ci)
+word getWrappedClassOrSuper(CrocThread* t, ClassInfo ci)
 {
 	getRegistryVar(t, "croc.bind.WrappedClasses");
 
@@ -464,7 +467,7 @@ to the given runtime TypeInfo object. The class object is $(B not) popped off th
 
 $(B You probably won't have to call this function under normal circumstances.)
 */
-public void setWrappedClass(CrocThread* t, TypeInfo ti)
+void setWrappedClass(CrocThread* t, TypeInfo ti)
 {
 	if(auto tic = cast(TypeInfo_Class)ti)
 		return setWrappedClass(t, tic.info);
@@ -484,7 +487,7 @@ to the given runtime ClassInfo object. The class object is $(B not) popped off t
 
 $(B You probably won't have to call this function under normal circumstances.)
 */
-public void setWrappedClass(CrocThread* t, ClassInfo ci)
+void setWrappedClass(CrocThread* t, ClassInfo ci)
 {
 	getRegistryVar(t, "croc.bind.WrappedClasses");
 	pushNativeObj(t, ci);
@@ -507,7 +510,7 @@ Params:
 Returns:
 	The stack index of the newly-pushed instance.
 */
-public word getWrappedInstance(CrocThread* t, Object o)
+word getWrappedInstance(CrocThread* t, Object o)
 {
 	// TODO: change this to use a weak value table
 	getRegistryVar(t, "croc.bind.WrappedInstances");
@@ -545,7 +548,7 @@ Params:
 	o = The D object that should be linked to the given Croc instance.
 	idx = The stack index of the Croc instance that should be linked to the given D object.
 */
-public void setWrappedInstance(CrocThread* t, Object o, word idx)
+void setWrappedInstance(CrocThread* t, Object o, word idx)
 {
 	getRegistryVar(t, "croc.bind.WrappedInstances");
 	pushNativeObj(t, o);
@@ -566,7 +569,7 @@ Template Params:
 Returns:
 	A pointer to the struct object referenced by 'this'.
 */
-public Type* checkStructSelf(Type, char[] FullName)(CrocThread* t)
+Type* checkStructSelf(Type, char[] FullName)(CrocThread* t)
 {
 	static assert(is(Type == struct), "checkStructSelf must be instantiated with a struct type, not with '" ~ Type.stringof ~ "'");
 	checkInstParam(t, 0, FullName);
@@ -623,7 +626,7 @@ Croc class type.
 Returns:
 	The stack index of the newly-pushed value.
 */
-public word superPush(Type)(CrocThread* t, Type val)
+word superPush(Type)(CrocThread* t, Type val)
 {
 	alias realType!(Type) T;
 
@@ -731,7 +734,7 @@ Params:
 Returns:
 	The stack index of the first value that was pushed.
 */
-public word multiPush(T, U...)(CrocThread* t, T arg1, U args)
+word multiPush(T, U...)(CrocThread* t, T arg1, U args)
 {
 	auto ret = superPush(t, arg1);
 
@@ -752,7 +755,7 @@ function will duplicate the string data onto the D heap, unlike the raw API getS
 This is because handing off pointers to internal Croc memory to arbitrary D libraries is probably
 not a good idea.
 */
-public Type superGet(Type)(CrocThread* t, word idx)
+Type superGet(Type)(CrocThread* t, word idx)
 {
 	alias realType!(Type) T;
 
@@ -949,7 +952,7 @@ Params:
 	arg1 = The first value to get. This is separate to force you to get at least one value.
 	args = Any additional values to get.
 */
-public void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
+void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
 {
 	if(stackSize(t) - start < (U.length + 1))
 		throwStdException(t, "Exception", "multiGet - Attempting to get more values ({}) than there are after the given index ({} values)", U.length + 1, stackSize(t) - start);
@@ -964,7 +967,7 @@ public void multiGet(T, U...)(CrocThread* t, word start, ref T arg1, ref U args)
 Returns true if the value at the given stack index can be converted to the given D type,
 or false otherwise. That's all.
 */
-public bool canCastTo(Type)(CrocThread* t, word idx)
+bool canCastTo(Type)(CrocThread* t, word idx)
 {
 	alias realType!(Type) T;
 
@@ -1062,11 +1065,35 @@ public bool canCastTo(Type)(CrocThread* t, word idx)
 		return false;
 }
 
+/**
+
+*/
+bool TypesMatch(T...)(CrocThread* t)
+{
+	foreach(i, type; T)
+	{
+		if(!canCastTo!(type)(t, i + 1))
+			return false;
+		else
+		{
+			static if(isRealType!(type))
+			{
+				if(isInt(t, i + 1))
+					return false;
+			}
+		}
+	}
+
+	return true;
+}
+
 // ================================================================================================================================================
 // Private
 // ================================================================================================================================================
 
-private template PropAnalysis(alias func, funcType)
+private:
+
+template PropAnalysis(alias func, funcType)
 {
 	alias ParameterTupleOf!(funcType) Args;
 
@@ -1088,17 +1115,17 @@ private template PropAnalysis(alias func, funcType)
 	}
 }
 
-private template ReadOnly(alias func, funcType)
+template ReadOnly(alias func, funcType)
 {
 	const bool ReadOnly = PropAnalysis!(func, funcType).readOnly;
 }
 
-private template PropType(alias func, funcType)
+template PropType(alias func, funcType)
 {
 	alias PropAnalysis!(func, funcType).propType PropType;
 }
 
-private void commonNamespace(char[] name, bool isModule, Members...)(CrocThread* t)
+void commonNamespace(char[] name, bool isModule, Members...)(CrocThread* t)
 {
 	static if(!isModule)
 		newNamespace(t, name);
@@ -1125,7 +1152,7 @@ private void commonNamespace(char[] name, bool isModule, Members...)(CrocThread*
 	}
 }
 
-private void checkInitialized(CrocThread* t)
+void checkInitialized(CrocThread* t)
 {
 	getRegistry(t);
 	pushString(t, "croc.bind.initialized");
@@ -1141,12 +1168,12 @@ private void checkInitialized(CrocThread* t)
 		pop(t, 2);
 }
 
-private word pushStructClass(Type, char[] ModName, char[] StructName)(CrocThread* t)
+word pushStructClass(Type, char[] ModName, char[] StructName)(CrocThread* t)
 {
 	return newClass(t, StructName);
 }
 
-private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Type
+class WrappedClass(Type, char[] _classname_, char[] moduleName, Members...) : Type
 {
 	protected CrocVM* _vm_;
 
@@ -1339,7 +1366,7 @@ private class WrappedClass(Type, char[] _classname_, char[] moduleName, Members.
 	}
 }
 
-private class StructWrapper(Type)
+class StructWrapper(Type)
 {
 	Type inst;
 	
@@ -1349,7 +1376,7 @@ private class StructWrapper(Type)
 	}
 }
 
-private struct WrappedStruct(Type, char[] name, char[] moduleName, Members...)
+struct WrappedStruct(Type, char[] name, char[] moduleName, Members...)
 {
 static:
 	const char[] typeName = NameOfType!(Type);
@@ -1514,8 +1541,8 @@ template ClassCtorShimsImpl(uint idx, Ctors...)
 // When you wrap a method, three things happen. The first is that an overriding D method is created
 // in the shim class which detects whether or not a Croc overload exists, and dispatches appropriately.
 // Continued below..
-private template ClassOverrideMethods(Type, char[] TypeName) {}
-private template ClassOverrideMethods(Type, char[] TypeName, alias X, T...)
+template ClassOverrideMethods(Type, char[] TypeName) {}
+template ClassOverrideMethods(Type, char[] TypeName, alias X, T...)
 {
 	mixin("ReturnTypeOf!(X.FuncType) " ~ X.Name ~ "(ParameterTupleOf!(X.Func) args)\n"
 	"{\n" ~
@@ -1544,8 +1571,8 @@ private template ClassOverrideMethods(Type, char[] TypeName, alias X, T...)
 // The static one is the one that is actually exposed to Croc and all it does is check that the 'this'
 // parameter is correct and calls the dynamic one. The dynamic one gets the params off the stack and
 // calls the real D method.
-private template ClassCrocMethods(Type, char[] TypeName) {}
-private template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
+template ClassCrocMethods(Type, char[] TypeName) {}
+template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
 {
 	mixin("mixin .WrappedMethod!(X.Func, X.FuncType, Type, TypeName, X.explicitType) wrapped_" ~ X.Name ~ ";");
 
@@ -1582,12 +1609,12 @@ private template ClassCrocMethods(Type, char[] TypeName, alias X, T...)
 // that method when the given field is accessed.
 // If the class defines no properties, no opField[Assign] methods are generated.
 
-private template ClassProperties(Type)
+template ClassProperties(Type)
 {
 	const haveProperties = false;
 }
 
-private template ClassProperties(Type, X, T...)
+template ClassProperties(Type, X, T...)
 {
 	const haveProperties = true;
 	mixin ClassPropertiesImpl!(Type, X, T);
@@ -1595,7 +1622,7 @@ private template ClassProperties(Type, X, T...)
 }
 
 // generates opField and opFieldAssign methods.
-private template ClassPropertiesImpl(Type, T...)
+template ClassPropertiesImpl(Type, T...)
 {
 	mixin(
 	"static uword opField(CrocThread* t)\n"
@@ -1615,19 +1642,19 @@ private template ClassPropertiesImpl(Type, T...)
 	"}\n");
 }
 
-private template StructProperties(Type)
+template StructProperties(Type)
 {
 	const haveProperties = false;
 }
 
-private template StructProperties(Type, X, T...)
+template StructProperties(Type, X, T...)
 {
 	const haveProperties = true;
 	mixin StructPropertiesImpl!(Type, X, T);
 	mixin PropertiesImpl!(Type, X, T);
 }
 
-private template StructPropertiesImpl(Type, T...)
+template StructPropertiesImpl(Type, T...)
 {
 	mixin(
 	"static uword opField(CrocThread* t)\n"
@@ -1648,8 +1675,8 @@ private template StructPropertiesImpl(Type, T...)
 }
 
 // Common to both classes and structs, generates the _prop_name methods.
-private template PropertiesImpl(Type) {}
-private template PropertiesImpl(Type, X, T...)
+template PropertiesImpl(Type) {}
+template PropertiesImpl(Type, X, T...)
 {
 	mixin(
 	"static uword _prop_" ~ X.Name ~ "(CrocThread* t)\n"
@@ -1662,7 +1689,7 @@ private template PropertiesImpl(Type, X, T...)
 	mixin PropertiesImpl!(Type, T);
 }
 
-private template GetField(Type, T...)
+template GetField(Type, T...)
 {
 	const GetField =
 	"switch(fieldName)\n"
@@ -1673,7 +1700,7 @@ private template GetField(Type, T...)
 	"}\n";
 }
 
-private template GetFieldImpl(Fields...)
+template GetFieldImpl(Fields...)
 {
 	static if(Fields.length == 0)
 		const GetFieldImpl = "";
@@ -1694,7 +1721,7 @@ private template GetFieldImpl(Fields...)
 	}
 }
 
-private template SetField(Type, T...)
+template SetField(Type, T...)
 {
 	const SetField =
 	"switch(fieldName)\n"
@@ -1705,7 +1732,7 @@ private template SetField(Type, T...)
 	"}\n";
 }
 
-private template SetFieldImpl(Fields...)
+template SetFieldImpl(Fields...)
 {
 	static if(Fields.length == 0)
 		const SetFieldImpl = "";
@@ -1727,7 +1754,7 @@ private template SetFieldImpl(Fields...)
 	}
 }
 
-private template WrappedFunc(alias func, char[] name, funcType, bool explicitType)
+template WrappedFunc(alias func, char[] name, funcType, bool explicitType)
 {
 	static uword WrappedFunc(CrocThread* t)
 	{
@@ -1810,7 +1837,7 @@ private template WrappedFunc(alias func, char[] name, funcType, bool explicitTyp
 	}
 }
 
-private template WrappedNativeMethod(alias func, funcType, bool explicitType)
+template WrappedNativeMethod(alias func, funcType, bool explicitType)
 {
 	private uword WrappedNativeMethod(Type)(CrocThread* t, uword numParams, Type self)
 	{
@@ -1886,7 +1913,7 @@ private template WrappedNativeMethod(alias func, funcType, bool explicitType)
 	}
 }
 
-private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool explicitType)
+template WrappedMethod(alias func, funcType, Type, char[] FullName, bool explicitType)
 {
 	private uword WrappedMethod(CrocThread* t)
 	{
@@ -1963,7 +1990,7 @@ private template WrappedMethod(alias func, funcType, Type, char[] FullName, bool
 	}
 }
 
-private uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, bool explicitType)(CrocThread* t)
+uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, bool explicitType)(CrocThread* t)
 {
 	auto numParams = stackSize(t) - 1;
 	static if(explicitType)
@@ -2040,7 +2067,7 @@ private uword WrappedStructMethod(alias func, funcType, Type, char[] FullName, b
 	assert(false, "WrappedStructMethod (" ~ name ~ ") should never ever get here.");
 }
 
-private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
+template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 {
 	uword PropImpl(Type)(CrocThread* t, uword numParams, Type self)
 	{
@@ -2079,13 +2106,13 @@ private template PropImpl(char[] name, bool readOnly, propType, char[] FullName)
 	}
 }
 
-private template ClassCtorCases(Ctors...)
+template ClassCtorCases(Ctors...)
 {
 	const ClassCtorCases = "switch(numParams) { default: throwStdException(t, \"Exception\", \"Invalid number of parameters ({})\", numParams);\n"
 		~ ClassCtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
 }
 
-private template ClassCtorCasesImpl(int num, int idx, Ctors...)
+template ClassCtorCasesImpl(int num, int idx, Ctors...)
 {
 	static if(Ctors.length == 0)
 		const ClassCtorCasesImpl = "";
@@ -2109,13 +2136,13 @@ private template ClassCtorCasesImpl(int num, int idx, Ctors...)
 	}
 }
 
-private template StructCtorCases(Ctors...)
+template StructCtorCases(Ctors...)
 {
 	const StructCtorCases = "switch(numParams) { default: throwStdException(t, \"Exception\", \"Invalid number of parameters ({})\", numParams);\n"
 		~ StructCtorCasesImpl!(-1, 0, Ctors) ~ "\nbreak; }";
 }
 
-private template StructCtorCasesImpl(int num, int idx, Ctors...)
+template StructCtorCasesImpl(int num, int idx, Ctors...)
 {
 	static if(Ctors.length == 0)
 		const StructCtorCasesImpl = "";
@@ -2138,17 +2165,17 @@ private template StructCtorCasesImpl(int num, int idx, Ctors...)
 	}
 }
 
-private template NumParams(T)
+template NumParams(T)
 {
 	const NumParams = ParameterTupleOf!(T).length;
 }
 
-private template SortByNumParams(T1, T2)
+template SortByNumParams(T1, T2)
 {
 	const SortByNumParams = cast(int)NumParams!(T1) - cast(int)NumParams!(T2);
 }
 
-private template GetCtors(T...)
+template GetCtors(T...)
 {
 	static if(T.length == 0)
 		alias Tuple!() GetCtors;
@@ -2158,7 +2185,7 @@ private template GetCtors(T...)
 		alias GetCtors!(T[1 .. $]) GetCtors;
 }
 
-private template GetMethods(T...)
+template GetMethods(T...)
 {
 	static if(T.length == 0)
 		alias Tuple!() GetMethods;
@@ -2168,7 +2195,7 @@ private template GetMethods(T...)
 		alias GetMethods!(T[1 .. $]) GetMethods;
 }
 
-private template GetProperties(T...)
+template GetProperties(T...)
 {
 	static if(T.length == 0)
 		alias Tuple!() GetProperties;
@@ -2178,7 +2205,7 @@ private template GetProperties(T...)
 		alias GetProperties!(T[1 .. $]) GetProperties;
 }
 
-private struct StructFieldProp(char[] name, type, size_t idx)
+struct StructFieldProp(char[] name, type, size_t idx)
 {
 	const bool isProperty = true;
 	const char[] Name = name;
@@ -2200,23 +2227,4 @@ template StructFieldsToProps(T, uint idx = 0)
 		alias Tuple!(StructFieldProp!(GetLastName!(T.tupleof[idx].stringof), typeof(T.tupleof[idx]), idx), StructFieldsToProps!(T, idx + 1)) StructFieldsToProps;
 	else
 		alias StructFieldsToProps!(T, idx + 1) StructFieldsToProps;
-}
-
-public bool TypesMatch(T...)(CrocThread* t)
-{
-	foreach(i, type; T)
-	{
-		if(!canCastTo!(type)(t, i + 1))
-			return false;
-		else
-		{
-			static if(isRealType!(type))
-			{
-				if(isInt(t, i + 1))
-					return false;
-			}
-		}
-	}
-
-	return true;
 }

@@ -39,8 +39,10 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+package:
+
 	// Create a new memblock object of the given length.
-	package CrocMemblock* create(ref Allocator alloc, TypeStruct* ts, uword itemLength)
+	CrocMemblock* create(ref Allocator alloc, TypeStruct* ts, uword itemLength)
 	{
 		auto ret = alloc.allocate!(CrocMemblock)();
 		ret.data = alloc.allocArray!(void)(ts.itemSize * itemLength);
@@ -56,7 +58,7 @@ static:
 
 	// Create a new memblock object that only views the given array, but does not own that data.
 	// The length of data must be an even multiple of the item size of the given type.
-	package CrocMemblock* createView(ref Allocator alloc, TypeStruct* ts, void[] data)
+	CrocMemblock* createView(ref Allocator alloc, TypeStruct* ts, void[] data)
 	{
 		assert(data.length % ts.itemSize == 0);
 
@@ -70,7 +72,7 @@ static:
 	}
 
 	// Free a memblock object.
-	package void free(ref Allocator alloc, CrocMemblock* m)
+	void free(ref Allocator alloc, CrocMemblock* m)
 	{
 		if(m.ownData)
 			alloc.freeArray(m.data);
@@ -80,7 +82,7 @@ static:
 
 	// Change a memblock so it's a view into a given array (but does not own it).
 	// The length of data must be an even multiple of the item size of the given type.
-	package void view(ref Allocator alloc, CrocMemblock* m, TypeStruct* ts, void[] data)
+	void view(ref Allocator alloc, CrocMemblock* m, TypeStruct* ts, void[] data)
 	{
 		assert(data.length % ts.itemSize == 0);
 
@@ -94,7 +96,7 @@ static:
 	}
 
 	// Resize a memblock object.
-	package void resize(ref Allocator alloc, CrocMemblock* m, uword newLength)
+	void resize(ref Allocator alloc, CrocMemblock* m, uword newLength)
 	{
 		assert(m.ownData);
 
@@ -115,7 +117,7 @@ static:
 	}
 
 	// Slice a memblock object to create a new memblock object with its own data.
-	package CrocMemblock* slice(ref Allocator alloc, CrocMemblock* m, uword lo, uword hi)
+	CrocMemblock* slice(ref Allocator alloc, CrocMemblock* m, uword lo, uword hi)
 	{
 		auto n = alloc.allocate!(CrocMemblock);
 		n.data = alloc.dupArray(m.data[lo * m.kind.itemSize .. hi * m.kind.itemSize]);
@@ -127,7 +129,7 @@ static:
 
 	// Assign an entire other memblock into a slice of the destination memblock. Handles overlapping copies as well.
 	// Both memblocks must be the same type.
-	package void sliceAssign(CrocMemblock* m, uword lo, uword hi, CrocMemblock* other)
+	void sliceAssign(CrocMemblock* m, uword lo, uword hi, CrocMemblock* other)
 	{
 		assert(m.kind is other.kind);
 
@@ -145,7 +147,7 @@ static:
 	}
 
 	// Returns a new memblock that is the concatenation of the two source memblocks. Both memblocks must be the same type.
-	package CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, CrocMemblock* b)
+	CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, CrocMemblock* b)
 	{
 		assert(a.kind is b.kind);
 		auto ret = memblock.create(alloc, a.kind, a.itemLength + b.itemLength);
@@ -156,7 +158,7 @@ static:
 	}
 
 	// Returns a new memblock that is the concatenation of a memblock and a value. The value must be of the appropriate type.
-	package CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, CrocValue b)
+	CrocMemblock* cat(ref Allocator alloc, CrocMemblock* a, CrocValue b)
 	{
 		auto ret = memblock.create(alloc, a.kind, a.itemLength + 1);
 		auto split = a.itemLength * a.kind.itemSize;
@@ -167,7 +169,7 @@ static:
 
 	// Returns a new memblock that is the concatenation of a value and a memblock (in that order). The value must be of the
 	// appropriate type.
-	package CrocMemblock* cat_r(ref Allocator alloc, CrocValue a, CrocMemblock* b)
+	CrocMemblock* cat_r(ref Allocator alloc, CrocValue a, CrocMemblock* b)
 	{
 		auto ret = memblock.create(alloc, b.kind, b.itemLength + 1);
 		indexAssign(ret, 0, a);
@@ -176,7 +178,7 @@ static:
 	}
 
 	// Indexes the memblock and returns the value. Expects the index to be in a valid range and the kind not to be void.
-	package CrocValue index(CrocMemblock* m, uword idx)
+	CrocValue index(CrocMemblock* m, uword idx)
 	{
 		assert(idx < m.itemLength);
 		assert(m.kind.code != CrocMemblock.TypeCode.v);
@@ -200,7 +202,7 @@ static:
 
 	// Index assigns a value into a memblock. Expects the index to be in a valid range, the kind not to be void, and the value
 	// to be of the appropriate type.
-	package void indexAssign(CrocMemblock* m, uword idx, CrocValue val)
+	void indexAssign(CrocMemblock* m, uword idx, CrocValue val)
 	{
 		assert(idx < m.itemLength);
 		assert(m.kind.code != CrocMemblock.TypeCode.v);

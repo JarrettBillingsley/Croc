@@ -38,7 +38,7 @@ alias CrocDoc.Extra Extra;
 struct DocsLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 			newTable(t);
 			dup(t);

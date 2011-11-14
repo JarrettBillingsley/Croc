@@ -274,11 +274,11 @@ private:
 
 struct Token
 {
-	public uint type;
-	public uword line;
-	public uword col;
+	uint type;
+	uword line;
+	uword col;
 
-	public enum
+	enum
 	{
 		String,
 		Int,
@@ -297,7 +297,7 @@ struct Token
 		EOF
 	}
 
-	public static const char[][] strings =
+	static const char[][] strings =
 	[
 		String: "string",
 		Int: "integer",
@@ -319,18 +319,20 @@ struct Token
 
 struct Lexer
 {
-	private CrocThread* t;
+private:
+	CrocThread* t;
 
-	private uword mLine;
-	private uword mCol;
-	private char[] mSource;
+	uword mLine;
+	uword mCol;
+	char[] mSource;
 
-	private uword mPosition;
-	private dchar mCharacter;
+	uword mPosition;
+	dchar mCharacter;
 
-	private Token mTok;
+	Token mTok;
 
-	public void begin(CrocThread* t, char[] source)
+public:
+	void begin(CrocThread* t, char[] source)
 	{
 		this.t = t;
 		mLine = 1;
@@ -342,27 +344,27 @@ struct Lexer
 		next();
 	}
 
-	public Token* tok()
+	Token* tok()
 	{
 		return &mTok;
 	}
 	
-	public uword line()
+	uword line()
 	{
 		return mLine;
 	}
 	
-	public uword col()
+	uword col()
 	{
 		return mCol;
 	}
 
-	public uint type()
+	uint type()
 	{
 		return mTok.type;
 	}
 
-	public Token expect(uint t)
+	Token expect(uint t)
 	{
 		if(mTok.type != t)
 			expected(Token.strings[t]);
@@ -375,45 +377,46 @@ struct Lexer
 		return ret;
 	}
 
-	public void expected(char[] message)
+	void expected(char[] message)
 	{
 		// TODO: different kinda syntax exception here? JSONSyntaxException?
 		throwStdException(t, "SyntaxException", "({}:{}): '{}' expected; found '{}' instead", mTok.line, mTok.col, message, Token.strings[mTok.type]);
 	}
 
-	public void next()
+	void next()
 	{
 		nextToken();
 	}
 
-	private bool isEOF()
+private:
+	bool isEOF()
 	{
 		return mCharacter == dchar.init;
 	}
 
-	private bool isWhitespace()
+	bool isWhitespace()
 	{
 		return (mCharacter == ' ') || (mCharacter == '\t') || isNewline();
 	}
 
-	private bool isNewline()
+	bool isNewline()
 	{
 		return (mCharacter == '\r') || (mCharacter == '\n');
 	}
 
-	private bool isHexDigit()
+	bool isHexDigit()
 	{
 		return ((mCharacter >= '0') && (mCharacter <= '9')) ||
 			((mCharacter >= 'a') && (mCharacter <= 'f')) ||
 			((mCharacter >= 'A') && (mCharacter <= 'F'));
 	}
 
-	private bool isDecimalDigit()
+	bool isDecimalDigit()
 	{
 		return (mCharacter >= '0') && (mCharacter <= '9');
 	}
 
-	private ubyte hexDigitToInt(dchar c)
+	ubyte hexDigitToInt(dchar c)
 	{
 		assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "hexDigitToInt");
 
@@ -426,7 +429,7 @@ struct Lexer
 			return cast(ubyte)(c - 'a' + 10);
 	}
 
-	private dchar readChar()
+	dchar readChar()
 	{
 		if(mPosition >= mSource.length)
 			return dchar.init;
@@ -439,13 +442,13 @@ struct Lexer
 		}
 	}
 
-	private void nextChar()
+	void nextChar()
 	{
 		mCol++;
 		mCharacter = readChar();
 	}
 
-	private void nextLine()
+	void nextLine()
 	{
 		while(isNewline() && !isEOF())
 		{
@@ -461,7 +464,7 @@ struct Lexer
 		}
 	}
 
-	private bool convertInt(dchar[] str, out crocint ret)
+	bool convertInt(dchar[] str, out crocint ret)
 	{
 		ret = 0;
 
@@ -479,7 +482,7 @@ struct Lexer
 		return true;
 	}
 
-	private bool readNumLiteral()
+	bool readNumLiteral()
 	{
 		bool neg = false;
 
@@ -576,7 +579,7 @@ struct Lexer
 		return false;
 	}
 
-	private dchar readEscapeSequence(uword beginningLine, uword beginningCol)
+	dchar readEscapeSequence(uword beginningLine, uword beginningCol)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -658,7 +661,7 @@ struct Lexer
 		return ret;
 	}
 
-	private void readStringLiteral()
+	void readStringLiteral()
 	{
 		auto beginningLine = mLine;
 		auto beginningCol = mCol;
@@ -693,7 +696,7 @@ struct Lexer
 		buf.finish();
 	}
 
-	private void nextToken()
+	void nextToken()
 	{
 		while(true)
 		{
@@ -806,7 +809,7 @@ struct Lexer
 	}
 }
 
-private void parseValue(CrocThread* t, ref Lexer l)
+void parseValue(CrocThread* t, ref Lexer l)
 {
 	switch(l.type)
 	{
@@ -823,7 +826,7 @@ private void parseValue(CrocThread* t, ref Lexer l)
 	}
 }
 
-private word parseArray(CrocThread* t, ref Lexer l)
+word parseArray(CrocThread* t, ref Lexer l)
 {
 	uword length = 8;
 	uword idx = 0;
@@ -864,14 +867,14 @@ private word parseArray(CrocThread* t, ref Lexer l)
 	return arr;
 }
 
-private void parsePair(CrocThread* t, ref Lexer l)
+void parsePair(CrocThread* t, ref Lexer l)
 {
 	l.expect(Token.String);
 	l.expect(Token.Colon);
 	parseValue(t, l);
 }
 
-private word parseObject(CrocThread* t, ref Lexer l)
+word parseObject(CrocThread* t, ref Lexer l)
 {
 	auto tab = newTable(t);
 	l.expect(Token.LBrace);

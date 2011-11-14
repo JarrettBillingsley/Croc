@@ -35,9 +35,11 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+package:
+
 	// Create a new weakref object. Weak reference objects that refer to the same object are reused. Thus,
 	// if two weak references are identical, they refer to the same object.
-	package CrocWeakRef* create(CrocVM* vm, CrocBaseObject* obj)
+	CrocWeakRef* create(CrocVM* vm, CrocBaseObject* obj)
 	{
 		if(auto r = vm.weakRefTab.lookup(obj))
 			return *r;
@@ -48,7 +50,7 @@ static:
 		return ret;
 	}
 
-	package CrocValue makeref(CrocVM* vm, CrocValue val)
+	CrocValue makeref(CrocVM* vm, CrocValue val)
 	{
 		switch(val.type)
 		{
@@ -69,7 +71,7 @@ static:
 	}
 
 	// Free a weak reference object.
-	package void free(CrocVM* vm, CrocWeakRef* r)
+	void free(CrocVM* vm, CrocWeakRef* r)
 	{
 		if(r.obj !is null)
 		{
@@ -80,7 +82,7 @@ static:
 		vm.alloc.free(r);
 	}
 
-	package CrocBaseObject* getObj(CrocVM* vm, CrocWeakRef* r)
+	CrocBaseObject* getObj(CrocVM* vm, CrocWeakRef* r)
 	{
 		return r.obj;	
 	}

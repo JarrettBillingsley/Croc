@@ -43,7 +43,7 @@ import croc.utils;
 struct StringLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "string", function uword(CrocThread* t)
 		{

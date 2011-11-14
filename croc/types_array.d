@@ -40,8 +40,10 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+package:
+
 	// Create a new array object of the given length.
-	package CrocArray* create(ref Allocator alloc, uword size)
+	CrocArray* create(ref Allocator alloc, uword size)
 	{
 		auto ret = alloc.allocate!(CrocArray)();
 		ret.data = alloc.allocArray!(CrocArray.Slot)(size);
@@ -50,14 +52,14 @@ static:
 	}
 
 	// Free an array object.
-	package void free(ref Allocator alloc, CrocArray* a)
+	void free(ref Allocator alloc, CrocArray* a)
 	{
 		alloc.freeArray(a.data);
 		alloc.free(a);
 	}
 
 	// Resize an array object.
-	package void resize(ref Allocator alloc, CrocArray* a, uword newSize)
+	void resize(ref Allocator alloc, CrocArray* a, uword newSize)
 	{
 		if(newSize == a.length)
 			return;
@@ -78,7 +80,7 @@ static:
 	}
 
 	// Slice an array object to create a new array object with its own data.
-	package CrocArray* slice(ref Allocator alloc, CrocArray* a, uword lo, uword hi)
+	CrocArray* slice(ref Allocator alloc, CrocArray* a, uword lo, uword hi)
 	{
 		auto n = alloc.allocate!(CrocArray);
 		n.length = hi - lo;
@@ -89,7 +91,7 @@ static:
 	}
 
 	// Assign an entire other array into a slice of the destination array. Handles overlapping copies as well.
-	package void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocArray* other)
+	void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocArray* other)
 	{
 		auto dest = a.data[lo .. hi];
 		auto src = other.toArray();
@@ -112,7 +114,7 @@ static:
 		}
 	}
 
-	package void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocValue[] other)
+	void sliceAssign(ref Allocator alloc, CrocArray* a, uword lo, uword hi, CrocValue[] other)
 	{
 		auto dest = a.data[lo .. hi];
 		assert(dest.length == other.length);
@@ -133,7 +135,7 @@ static:
 	}
 
 	// Sets a block of values (only called by the SetArray instruction in the interpreter).
-	package void setBlock(ref Allocator alloc, CrocArray* a, uword block, CrocValue[] data)
+	void setBlock(ref Allocator alloc, CrocArray* a, uword block, CrocValue[] data)
 	{
 		auto start = block * Instruction.ArraySetFields;
 		auto end = start + data.length;
@@ -155,7 +157,7 @@ static:
 	}
 
 	// Fills an entire array with a value.
-	package void fill(ref Allocator alloc, CrocArray* a, CrocValue val)
+	void fill(ref Allocator alloc, CrocArray* a, CrocValue val)
 	{
 		if(a.length > 0)
 		{
@@ -177,7 +179,7 @@ static:
 	}
 
 	// Index-assigns an element.
-	package void idxa(ref Allocator alloc, CrocArray* a, uword idx, CrocValue val)
+	void idxa(ref Allocator alloc, CrocArray* a, uword idx, CrocValue val)
 	{
 		auto slot = &a.toArray()[idx];
 
@@ -197,7 +199,7 @@ static:
 	}
 
 	// Returns `true` if one of the values in the array is identical to ('is') the given value.
-	package bool contains(CrocArray* a, ref CrocValue v)
+	bool contains(CrocArray* a, ref CrocValue v)
 	{
 		foreach(ref slot; a.toArray())
 			if(slot.value.opEquals(v))
@@ -207,7 +209,7 @@ static:
 	}
 
 	// Returns a new array that is the concatenation of the two source arrays.
-	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocArray* b)
+	CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocArray* b)
 	{
 		auto ret = array.create(alloc, a.length + b.length);
 		ret.data[0 .. a.length] = a.toArray();
@@ -217,7 +219,7 @@ static:
 	}
 
 	// Returns a new array that is the concatenation of the source array and value.
-	package CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocValue* v)
+	CrocArray* cat(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
 		auto ret = array.create(alloc, a.length + 1);
 		ret.data[0 .. ret.length - 1] = a.toArray();
@@ -227,7 +229,7 @@ static:
 	}
 
 	// Append the value v to the end of array a.
-	package void append(ref Allocator alloc, CrocArray* a, CrocValue* v)
+	void append(ref Allocator alloc, CrocArray* a, CrocValue* v)
 	{
 		array.resize(alloc, a, a.length + 1);
 		array.idxa(alloc, a, a.length - 1, *v);
@@ -236,6 +238,8 @@ static:
 	// ================================================================================================================================================
 	// Private
 	// ================================================================================================================================================
+
+private:
 
 	template addRef(char[] slot)
 	{

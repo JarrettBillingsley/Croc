@@ -39,7 +39,7 @@ import croc.types;
 struct JSONLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "json", function uword(CrocThread* t)
 		{
@@ -113,7 +113,7 @@ static:
 		return 1;
 	}
 	
-	public uword writeJSON(CrocThread* t)
+	uword writeJSON(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Instance);
 		checkAnyParam(t, 2);

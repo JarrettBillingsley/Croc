@@ -43,7 +43,7 @@ import croc.types;
 struct IOLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "io", function uword(CrocThread* t)
 		{

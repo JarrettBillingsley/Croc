@@ -35,7 +35,7 @@ import croc.types_table;
 struct HashLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "hash", function uword(CrocThread* t)
 		{

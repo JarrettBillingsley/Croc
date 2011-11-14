@@ -36,7 +36,7 @@ struct GCLib
 static:
 	const PostGCCallbacks = "gc.postGCCallbacks";
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "gc", function uword(CrocThread* t)
 		{

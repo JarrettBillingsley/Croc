@@ -38,7 +38,9 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocClass* create(ref Allocator alloc, CrocString* name, CrocClass* parent)
+package:
+
+	CrocClass* create(ref Allocator alloc, CrocString* name, CrocClass* parent)
 	{
 		auto c = alloc.allocate!(CrocClass)();
 		c.name = name;
@@ -59,13 +61,13 @@ static:
 		return c;
 	}
 
-	package CrocValue* getField(CrocClass* c, CrocString* name)
+	CrocValue* getField(CrocClass* c, CrocString* name)
 	{
 		CrocClass* dummy = void;
 		return getField(c, name, dummy);
 	}
 
-	package CrocValue* getField(CrocClass* c, CrocString* name, out CrocClass* owner)
+	CrocValue* getField(CrocClass* c, CrocString* name, out CrocClass* owner)
 	{
 		for(auto obj = c; obj !is null; obj = obj.parent)
 		{
@@ -79,12 +81,12 @@ static:
 		return null;
 	}
 
-	package void setField(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
+	void setField(ref Allocator alloc, CrocClass* c, CrocString* name, CrocValue* value)
 	{
 		namespace.set(alloc, c.fields, name, value);
 	}
 
-	package void setFinalizer(ref Allocator alloc, CrocClass* c, CrocFunction* f)
+	void setFinalizer(ref Allocator alloc, CrocClass* c, CrocFunction* f)
 	{
 		if(c.finalizer !is f)
 			mixin(writeBarrier!("alloc", "c"));
@@ -92,7 +94,7 @@ static:
 		c.finalizer = f;
 	}
 
-	package void setAllocator(ref Allocator alloc, CrocClass* c, CrocFunction* f)
+	void setAllocator(ref Allocator alloc, CrocClass* c, CrocFunction* f)
 	{
 		if(c.finalizer !is f)
 			mixin(writeBarrier!("alloc", "c"));
@@ -100,12 +102,12 @@ static:
 		c.allocator = f;
 	}
 
-	package CrocNamespace* fieldsOf(CrocClass* c)
+	CrocNamespace* fieldsOf(CrocClass* c)
 	{
 		return c.fields;
 	}
 
-	package bool next(CrocClass* c, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	bool next(CrocClass* c, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return c.fields.data.next(idx, key, val);
 	}

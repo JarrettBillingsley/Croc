@@ -40,10 +40,12 @@ import croc.utils;
 
 scope class Semantic : IdentityVisitor
 {
-	private word[] mFinallyDepths;
-	private uword mDummyNameCounter = 0;
+private:
+	word[] mFinallyDepths;
+	uword mDummyNameCounter = 0;
 
-	public this(ICompiler c)
+public:
+	this(ICompiler c)
 	{
 		super(c);
 		mFinallyDepths = c.alloc.allocArray!(word)(1);
@@ -54,14 +56,14 @@ scope class Semantic : IdentityVisitor
 		c.alloc.freeArray(mFinallyDepths);
 	}
 	
-	public bool isTopLevel()
+	bool isTopLevel()
 	{
 		return mFinallyDepths.length == 1;
 	}
 
 	alias Visitor.visit visit;
 	
-	public override Module visit(Module m)
+	override Module visit(Module m)
 	{
 		m.statements = visit(m.statements);
 		
@@ -71,12 +73,12 @@ scope class Semantic : IdentityVisitor
 		return m;
 	}
 	
-	public FuncDef visitStatements(FuncDef d)
+	FuncDef visitStatements(FuncDef d)
 	{
 		return visitFuncDef(d);	
 	}
 
-	public override FuncDef visit(FuncDef d)
+	override FuncDef visit(FuncDef d)
 	{
 		c.alloc.resizeArray(mFinallyDepths, mFinallyDepths.length + 1);
 
@@ -86,22 +88,22 @@ scope class Semantic : IdentityVisitor
 		return visitFuncDef(d);
 	}
 	
-	public void enterFinally()
+	void enterFinally()
 	{
 		mFinallyDepths[$ - 1]++;
 	}
 	
-	public void leaveFinally()
+	void leaveFinally()
 	{
 		mFinallyDepths[$ - 1]--;
 	}
 	
-	public bool inFinally()
+	bool inFinally()
 	{
 		return mFinallyDepths[$ - 1] > 0;
 	}
 
-	public FuncDef visitFuncDef(FuncDef d)
+	FuncDef visitFuncDef(FuncDef d)
 	{
 		foreach(i, ref p; d.params)
 		{
@@ -162,7 +164,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 	
-	public override ClassDef visit(ClassDef d)
+	override ClassDef visit(ClassDef d)
 	{
 		if(d.baseClass)
 			d.baseClass = visit(d.baseClass);
@@ -173,7 +175,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override NamespaceDef visit(NamespaceDef d)
+	override NamespaceDef visit(NamespaceDef d)
 	{
 		if(d.parent)
 			visit(d.parent);
@@ -184,7 +186,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override Statement visit(AssertStmt s)
+	override Statement visit(AssertStmt s)
 	{
 		if(!c.asserts())
 			return new(c) BlockStmt(c, s.location, s.endLocation, null);
@@ -204,7 +206,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override ImportStmt visit(ImportStmt s)
+	override ImportStmt visit(ImportStmt s)
 	{
 		s.expr = visit(s.expr);
 
@@ -290,19 +292,19 @@ scope class Semantic : IdentityVisitor
 		return new(c) BlockStmt(c, s.location, s.endLocation, stmts.toArray());
 	}
 	
-	public override ScopeStmt visit(ScopeStmt s)
+	override ScopeStmt visit(ScopeStmt s)
 	{
 		s.statement = visit(s.statement);
 		return s;
 	}
 	
-	public override ExpressionStmt visit(ExpressionStmt s)
+	override ExpressionStmt visit(ExpressionStmt s)
 	{
 		s.expr = visit(s.expr);
 		return s;
 	}
 
-	public override VarDecl visit(VarDecl d)
+	override VarDecl visit(VarDecl d)
 	{
 		foreach(ref init; d.initializer)
 			init = visit(init);
@@ -313,7 +315,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 	
-	public override Decorator visit(Decorator d)
+	override Decorator visit(Decorator d)
 	{
 		d.func = visit(d.func);
 		
@@ -329,7 +331,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override FuncDecl visit(FuncDecl d)
+	override FuncDecl visit(FuncDecl d)
 	{
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
@@ -342,7 +344,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override ClassDecl visit(ClassDecl d)
+	override ClassDecl visit(ClassDecl d)
 	{
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
@@ -355,7 +357,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override NamespaceDecl visit(NamespaceDecl d)
+	override NamespaceDecl visit(NamespaceDecl d)
 	{
 		if(d.protection == Protection.Default)
 			d.protection = isTopLevel() ? Protection.Global : Protection.Local;
@@ -368,7 +370,7 @@ scope class Semantic : IdentityVisitor
 		return d;
 	}
 
-	public override Statement visit(BlockStmt s)
+	override Statement visit(BlockStmt s)
 	{
 		alias TryCatchStmt.CatchClause CC;
 
@@ -516,7 +518,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override Statement visit(IfStmt s)
+	override Statement visit(IfStmt s)
 	{
 		s.condition = visit(s.condition);
 		s.ifBody = visit(s.ifBody);
@@ -555,7 +557,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override Statement visit(WhileStmt s)
+	override Statement visit(WhileStmt s)
 	{
 		s.condition = visit(s.condition);
 		s.code = visit(s.code);
@@ -566,7 +568,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override Statement visit(DoWhileStmt s)
+	override Statement visit(DoWhileStmt s)
 	{
 		s.code = visit(s.code);
 		s.condition = visit(s.condition);
@@ -574,7 +576,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override Statement visit(ForStmt s)
+	override Statement visit(ForStmt s)
 	{
 		foreach(ref i; s.init)
 		{
@@ -620,7 +622,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override Statement visit(ForNumStmt s)
+	override Statement visit(ForNumStmt s)
 	{
 		s.lo = visit(s.lo);
 		s.hi = visit(s.hi);
@@ -645,7 +647,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override ForeachStmt visit(ForeachStmt s)
+	override ForeachStmt visit(ForeachStmt s)
 	{
 		foreach(ref c; s.container)
 			c = visit(c);
@@ -654,7 +656,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override SwitchStmt visit(SwitchStmt s)
+	override SwitchStmt visit(SwitchStmt s)
 	{
 		s.condition = visit(s.condition);
 		
@@ -793,7 +795,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override CaseStmt visit(CaseStmt s)
+	override CaseStmt visit(CaseStmt s)
 	{
 		foreach(ref cond; s.conditions)
 			cond.exp = visit(cond.exp);
@@ -842,13 +844,13 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override DefaultStmt visit(DefaultStmt s)
+	override DefaultStmt visit(DefaultStmt s)
 	{
 		s.code = visit(s.code);
 		return s;
 	}
 	
-	public override ContinueStmt visit(ContinueStmt s)
+	override ContinueStmt visit(ContinueStmt s)
 	{
 		if(inFinally())
 			c.semException(s.location, "Continue statements are illegal inside finally blocks");
@@ -856,7 +858,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override BreakStmt visit(BreakStmt s)
+	override BreakStmt visit(BreakStmt s)
 	{
 		if(inFinally())
 			c.semException(s.location, "Break statements are illegal inside finally blocks");
@@ -864,7 +866,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override ReturnStmt visit(ReturnStmt s)
+	override ReturnStmt visit(ReturnStmt s)
 	{
 		if(inFinally())
 			c.semException(s.location, "Return statements are illegal inside finally blocks");
@@ -875,7 +877,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override TryCatchStmt visit(TryCatchStmt s)
+	override TryCatchStmt visit(TryCatchStmt s)
 	{
 		s.tryBody = visit(s.tryBody);
 
@@ -951,7 +953,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override TryFinallyStmt visit(TryFinallyStmt s)
+	override TryFinallyStmt visit(TryFinallyStmt s)
 	{
 		s.tryBody = visit(s.tryBody);
 		enterFinally();
@@ -960,13 +962,13 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override ThrowStmt visit(ThrowStmt s)
+	override ThrowStmt visit(ThrowStmt s)
 	{
 		s.exp = visit(s.exp);
 		return s;
 	}
 	
-	public override ScopeActionStmt visit(ScopeActionStmt s)
+	override ScopeActionStmt visit(ScopeActionStmt s)
 	{
 		if(s.type == ScopeActionStmt.Exit || s.type == ScopeActionStmt.Success)
 		{
@@ -980,7 +982,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override AssignStmt visit(AssignStmt s)
+	override AssignStmt visit(AssignStmt s)
 	{
 		foreach(ref exp; s.lhs)
 			exp = visit(exp);
@@ -991,26 +993,26 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public OpAssignStmt visitOpAssign(OpAssignStmt s)
+	OpAssignStmt visitOpAssign(OpAssignStmt s)
 	{
 		s.lhs = visit(s.lhs);
 		s.rhs = visit(s.rhs);
 		return s;
 	}
 	
-	public override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
-	public override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
-	public override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
-	public override DivAssignStmt visit(DivAssignStmt s)   { return visitOpAssign(s); }
-	public override ModAssignStmt visit(ModAssignStmt s)   { return visitOpAssign(s); }
-	public override ShlAssignStmt visit(ShlAssignStmt s)   { return visitOpAssign(s); }
-	public override ShrAssignStmt visit(ShrAssignStmt s)   { return visitOpAssign(s); }
-	public override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
-	public override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
-	public override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
-	public override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
+	override AddAssignStmt visit(AddAssignStmt s)   { return visitOpAssign(s); }
+	override SubAssignStmt visit(SubAssignStmt s)   { return visitOpAssign(s); }
+	override MulAssignStmt visit(MulAssignStmt s)   { return visitOpAssign(s); }
+	override DivAssignStmt visit(DivAssignStmt s)   { return visitOpAssign(s); }
+	override ModAssignStmt visit(ModAssignStmt s)   { return visitOpAssign(s); }
+	override ShlAssignStmt visit(ShlAssignStmt s)   { return visitOpAssign(s); }
+	override ShrAssignStmt visit(ShrAssignStmt s)   { return visitOpAssign(s); }
+	override UShrAssignStmt visit(UShrAssignStmt s) { return visitOpAssign(s); }
+	override XorAssignStmt visit(XorAssignStmt s)   { return visitOpAssign(s); }
+	override OrAssignStmt visit(OrAssignStmt s)     { return visitOpAssign(s); }
+	override AndAssignStmt visit(AndAssignStmt s)   { return visitOpAssign(s); }
 
-	public override CondAssignStmt visit(CondAssignStmt s)
+	override CondAssignStmt visit(CondAssignStmt s)
 	{
 		s.lhs = visit(s.lhs);
 		s.rhs = visit(s.rhs);
@@ -1021,7 +1023,7 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 
-	public override CatAssignStmt visit(CatAssignStmt s)
+	override CatAssignStmt visit(CatAssignStmt s)
 	{
 		s.lhs = visit(s.lhs);
 		s.rhs = visit(s.rhs);
@@ -1042,19 +1044,19 @@ scope class Semantic : IdentityVisitor
 		return s;
 	}
 	
-	public override IncStmt visit(IncStmt s)
+	override IncStmt visit(IncStmt s)
 	{
 		s.exp = visit(s.exp);
 		return s;
 	}
 	
-	public override DecStmt visit(DecStmt s)
+	override DecStmt visit(DecStmt s)
 	{
 		s.exp = visit(s.exp);
 		return s;
 	}
 
-	public override Expression visit(CondExp e)
+	override Expression visit(CondExp e)
 	{
 		e.cond = visit(e.cond);
 		e.op1 = visit(e.op1);
@@ -1071,7 +1073,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(OrOrExp e)
+	override Expression visit(OrOrExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1087,7 +1089,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(AndAndExp e)
+	override Expression visit(AndAndExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1103,7 +1105,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(OrExp e)
+	override Expression visit(OrExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1119,7 +1121,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(XorExp e)
+	override Expression visit(XorExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1135,7 +1137,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(AndExp e)
+	override Expression visit(AndExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1151,7 +1153,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public Expression visitEquality(BaseEqualExp e)
+	Expression visitEquality(BaseEqualExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1195,12 +1197,12 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(EqualExp e)    { return visitEquality(e); }
-	public override Expression visit(NotEqualExp e) { return visitEquality(e); }
-	public override Expression visit(IsExp e)       { return visitEquality(e); }
-	public override Expression visit(NotIsExp e)    { return visitEquality(e); }
+	override Expression visit(EqualExp e)    { return visitEquality(e); }
+	override Expression visit(NotEqualExp e) { return visitEquality(e); }
+	override Expression visit(IsExp e)       { return visitEquality(e); }
+	override Expression visit(NotIsExp e)    { return visitEquality(e); }
 
-	public word commonCompare(Expression op1, Expression op2)
+	word commonCompare(Expression op1, Expression op2)
 	{
 		word cmpVal = void;
 
@@ -1220,7 +1222,7 @@ scope class Semantic : IdentityVisitor
 		return cmpVal;
 	}
 
-	public Expression visitComparison(BaseCmpExp e)
+	Expression visitComparison(BaseCmpExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1242,12 +1244,12 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(LTExp e) { return visitComparison(e); }
-	public override Expression visit(LEExp e) { return visitComparison(e); }
-	public override Expression visit(GTExp e) { return visitComparison(e); }
-	public override Expression visit(GEExp e) { return visitComparison(e); }
+	override Expression visit(LTExp e) { return visitComparison(e); }
+	override Expression visit(LEExp e) { return visitComparison(e); }
+	override Expression visit(GTExp e) { return visitComparison(e); }
+	override Expression visit(GEExp e) { return visitComparison(e); }
 
-	public override Cmp3Exp visit(Cmp3Exp e)
+	override Cmp3Exp visit(Cmp3Exp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1258,7 +1260,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override AsExp visit(AsExp e)
+	override AsExp visit(AsExp e)
 	{
 		if(e.op1.isConstant() || e.op2.isConstant())
 			c.semException(e.location, "Neither argument of an 'as' expression may be a constant");
@@ -1266,7 +1268,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(InExp e)
+	override Expression visit(InExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1299,7 +1301,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(NotInExp e)
+	override Expression visit(NotInExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1332,7 +1334,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(ShlExp e)
+	override Expression visit(ShlExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1348,7 +1350,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(ShrExp e)
+	override Expression visit(ShrExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1364,7 +1366,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(UShrExp e)
+	override Expression visit(UShrExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1380,7 +1382,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(AddExp e)
+	override Expression visit(AddExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1398,7 +1400,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(SubExp e)
+	override Expression visit(SubExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1416,7 +1418,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(CatExp e)
+	override Expression visit(CatExp e)
 	{
 		if(e.collapsed)
 			return e;
@@ -1503,7 +1505,7 @@ scope class Semantic : IdentityVisitor
 		}
 	}
 
-	public override Expression visit(MulExp e)
+	override Expression visit(MulExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1521,7 +1523,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(DivExp e)
+	override Expression visit(DivExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1544,7 +1546,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(ModExp e)
+	override Expression visit(ModExp e)
 	{
 		e.op1 = visit(e.op1);
 		e.op2 = visit(e.op2);
@@ -1567,7 +1569,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(NegExp e)
+	override Expression visit(NegExp e)
 	{
 		e.op = visit(e.op);
 
@@ -1590,7 +1592,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(NotExp e)
+	override Expression visit(NotExp e)
 	{
 		e.op = visit(e.op);
 
@@ -1631,7 +1633,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(ComExp e)
+	override Expression visit(ComExp e)
 	{
 		e.op = visit(e.op);
 
@@ -1649,7 +1651,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(LenExp e)
+	override Expression visit(LenExp e)
 	{
 		e.op = visit(e.op);
 
@@ -1664,13 +1666,13 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(CoroutineExp e)
+	override Expression visit(CoroutineExp e)
 	{
 		e.op = visit(e.op);
 		return e;
 	}
 	
-	public override Expression visit(DotExp e)
+	override Expression visit(DotExp e)
 	{
 		e.op = visit(e.op);
 		e.name = visit(e.name);
@@ -1681,13 +1683,13 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(DotSuperExp e)
+	override Expression visit(DotSuperExp e)
 	{
 		e.op = visit(e.op);
 		return e;
 	}
 
-	public override Expression visit(MethodCallExp e)
+	override Expression visit(MethodCallExp e)
 	{
 		if(e.op)
 			e.op = visit(e.op);
@@ -1703,7 +1705,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(CallExp e)
+	override Expression visit(CallExp e)
 	{
 		e.op = visit(e.op);
 
@@ -1716,7 +1718,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override Expression visit(IndexExp e)
+	override Expression visit(IndexExp e)
 	{
 		e.op = visit(e.op);
 		e.index = visit(e.index);
@@ -1740,7 +1742,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(VargIndexExp e)
+	override Expression visit(VargIndexExp e)
 	{
 		e.index = visit(e.index);
 
@@ -1750,7 +1752,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(SliceExp e)
+	override Expression visit(SliceExp e)
 	{
 		e.op = visit(e.op);
 		e.loIndex = visit(e.loIndex);
@@ -1789,7 +1791,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(VargSliceExp e)
+	override Expression visit(VargSliceExp e)
 	{
 		e.loIndex = visit(e.loIndex);
 		e.hiIndex = visit(e.hiIndex);
@@ -1803,25 +1805,25 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override FuncLiteralExp visit(FuncLiteralExp e)
+	override FuncLiteralExp visit(FuncLiteralExp e)
 	{
 		e.def = visit(e.def);
 		return e;
 	}
 	
-	public override ClassLiteralExp visit(ClassLiteralExp e)
+	override ClassLiteralExp visit(ClassLiteralExp e)
 	{
 		e.def = visit(e.def);
 		return e;
 	}
 	
-	public override NamespaceCtorExp visit(NamespaceCtorExp e)
+	override NamespaceCtorExp visit(NamespaceCtorExp e)
 	{
 		e.def = visit(e.def);
 		return e;
 	}
 
-	public override Expression visit(ParenExp e)
+	override Expression visit(ParenExp e)
 	{
 		e.exp = visit(e.exp);
 
@@ -1831,7 +1833,7 @@ scope class Semantic : IdentityVisitor
 			return e.exp;
 	}
 
-	public override TableCtorExp visit(TableCtorExp e)
+	override TableCtorExp visit(TableCtorExp e)
 	{
 		foreach(ref field; e.fields)
 		{
@@ -1842,7 +1844,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override ArrayCtorExp visit(ArrayCtorExp e)
+	override ArrayCtorExp visit(ArrayCtorExp e)
 	{
 		foreach(ref value; e.values)
 			value = visit(value);
@@ -1850,7 +1852,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override YieldExp visit(YieldExp e)
+	override YieldExp visit(YieldExp e)
 	{
 		foreach(ref arg; e.args)
 			arg = visit(arg);
@@ -1858,7 +1860,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override TableComprehension visit(TableComprehension e)
+	override TableComprehension visit(TableComprehension e)
 	{
 		e.key = visit(e.key);
 		e.value = visit(e.value);
@@ -1866,14 +1868,14 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 
-	public override Expression visit(ArrayComprehension e)
+	override Expression visit(ArrayComprehension e)
 	{
 		e.exp = visit(e.exp);
 		e.forComp = visitForComp(e.forComp);
 		return e;
 	}
 
-	public ForComprehension visitForComp(ForComprehension e)
+	ForComprehension visitForComp(ForComprehension e)
 	{
 		if(auto x = e.as!(ForeachComprehension))
 			return visit(x);
@@ -1885,7 +1887,7 @@ scope class Semantic : IdentityVisitor
 		}
 	}
 
-	public override ForeachComprehension visit(ForeachComprehension e)
+	override ForeachComprehension visit(ForeachComprehension e)
 	{
 		foreach(ref exp; e.container)
 			exp = visit(exp);
@@ -1899,7 +1901,7 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override ForNumComprehension visit(ForNumComprehension e)
+	override ForNumComprehension visit(ForNumComprehension e)
 	{
 		e.lo = visit(e.lo);
 		e.hi = visit(e.hi);
@@ -1916,13 +1918,14 @@ scope class Semantic : IdentityVisitor
 		return e;
 	}
 	
-	public override IfComprehension visit(IfComprehension e)
+	override IfComprehension visit(IfComprehension e)
 	{
 		e.condition = visit(e.condition);
 		return e;
 	}
 
-	private Identifier genDummyVar(CompileLoc loc, char[] fmt)
+private:
+	Identifier genDummyVar(CompileLoc loc, char[] fmt)
 	{
 		pushFormat(c.thread, fmt, mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));

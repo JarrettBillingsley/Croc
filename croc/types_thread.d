@@ -33,15 +33,17 @@ import croc.base_writebarrier;
 import croc.types;
 import croc.types_nativeobj;
 
-// ================================================================================================================================================
-// Package
-// ================================================================================================================================================
-
 struct thread
 {
 static:
+	// ================================================================================================================================================
+	// Package
+	// ================================================================================================================================================
+
+package:
+
 	// Create a new thread object.
-	package CrocThread* create(CrocVM* vm)
+	CrocThread* create(CrocVM* vm)
 	{
 		auto alloc = &vm.alloc;
 		auto t = alloc.allocate!(CrocThread);
@@ -65,7 +67,7 @@ static:
 	}
 
 	// Create a new thread object with a function to be used as the coroutine body.
-	package CrocThread* create(CrocVM* vm, CrocFunction* coroFunc)
+	CrocThread* create(CrocVM* vm, CrocFunction* coroFunc)
 	{
 		auto t = create(vm);
 		t.coroFunc = coroFunc;
@@ -94,7 +96,7 @@ static:
 		return t;
 	}
 	
-	package void setHookFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
+	void setHookFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
 	{
 		if(t.hookFunc !is f)
 		{
@@ -103,7 +105,7 @@ static:
 		}
 	}
 	
-	package void setCoroFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
+	void setCoroFunc(ref Allocator alloc, CrocThread* t, CrocFunction* f)
 	{
 		if(t.coroFunc !is f)
 		{
@@ -114,7 +116,7 @@ static:
 	
 	version(CrocExtendedCoro)
 	{
-		package void setCoroFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
+		void setCoroFiber(ref Allocator alloc, CrocThread* t, CrocNativeObj* f)
 		{
 			if(t.coroFiber !is f)
 			{
@@ -125,7 +127,7 @@ static:
 	}
 
 	// Free a thread object.
-	package void free(CrocThread* t)
+	void free(CrocThread* t)
 	{
 		auto b = t.vm.allThreads.remove(t);
 		assert(b);

@@ -33,10 +33,12 @@ static:
 	// ================================================================================================================================================
 	// Package
 	// ================================================================================================================================================
-	
+
+package:
+
 	// Create a new native object, or if one already exists for the given Object, return
 	// that one. For any D object, there is exactly one Croc Native Object.
-	package CrocNativeObj* create(CrocVM* vm, Object obj)
+	CrocNativeObj* create(CrocVM* vm, Object obj)
 	{
 		if(auto o = obj in vm.nativeObjs)
 			return *o;
@@ -49,7 +51,7 @@ static:
 	}
 
 	// Free a native object.
-	package void free(CrocVM* vm, CrocNativeObj* obj)
+	void free(CrocVM* vm, CrocNativeObj* obj)
 	{
 		assert(obj.obj in vm.nativeObjs);
 		vm.nativeObjs.remove(obj.obj);

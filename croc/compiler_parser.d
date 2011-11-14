@@ -35,18 +35,21 @@ import croc.types;
 
 struct Parser
 {
-	private ICompiler c;
-	private Lexer* l;
-	private bool mDanglingDoc = false;
-	private uword mDummyNameCounter = 0;
+private:
+	ICompiler c;
+	Lexer* l;
+	bool mDanglingDoc = false;
+	uword mDummyNameCounter = 0;
 
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
 
+public:
+
 	/**
 	*/
-	public static Parser opCall(ICompiler compiler, Lexer* lexer)
+	static Parser opCall(ICompiler compiler, Lexer* lexer)
 	{
 		Parser ret;
 		ret.c = compiler;
@@ -56,14 +59,14 @@ struct Parser
 	
 	/**
 	*/
-	public bool danglingDoc()
+	bool danglingDoc()
 	{
 		return mDanglingDoc;
 	}
 
 	/**
 	*/
-	public char[] capture(void delegate() dg)
+	char[] capture(void delegate() dg)
 	{
 		if(c.docComments)
 		{
@@ -80,7 +83,7 @@ struct Parser
 
 	/**
 	*/
-	public char[] parseName()
+	char[] parseName()
 	{
 		with(l.expect(Token.Ident))
 			return stringValue;
@@ -88,7 +91,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseDottedName()
+	Expression parseDottedName()
 	{
 		Expression ret = parseIdentExp();
 
@@ -104,7 +107,7 @@ struct Parser
 
 	/**
 	*/
-	public Identifier parseIdentifier()
+	Identifier parseIdentifier()
 	{
 		with(l.expect(Token.Ident))
 			return new(c) Identifier(c, loc, stringValue);
@@ -113,7 +116,7 @@ struct Parser
 	/**
 	Parse a comma-separated list of expressions, such as for argument lists.
 	*/
-	public Expression[] parseArguments()
+	Expression[] parseArguments()
 	{
 		scope args = new List!(Expression)(c.alloc);
 		args ~= parseExpression();
@@ -130,7 +133,7 @@ struct Parser
 	/**
 	Parse a module.
 	*/
-	public Module parseModule()
+	Module parseModule()
 	{
 		auto location = l.loc;
 		auto docs = l.tok.preComment;
@@ -175,7 +178,7 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseStatements(char[] name)
+	FuncDef parseStatements(char[] name)
 	{
 		auto location = l.loc;
 
@@ -200,7 +203,7 @@ struct Parser
 	Params:
 		name = The name to use for error messages and debug locations.
 	*/
-	public FuncDef parseExpressionFunc(char[] name)
+	FuncDef parseExpressionFunc(char[] name)
 	{
 		auto location = l.loc;
 
@@ -225,7 +228,7 @@ struct Parser
 		needScope = If true, and the statement is a block statement, the block will be wrapped
 			in a ScopeStmt. Else, the raw block statement will be returned.
 	*/
-	public Statement parseStatement(bool needScope = true)
+	Statement parseStatement(bool needScope = true)
 	{
 		switch(l.type)
 		{
@@ -299,7 +302,7 @@ struct Parser
 
 	/**
 	*/
-	public Statement parseExpressionStmt()
+	Statement parseExpressionStmt()
 	{
 		auto stmt = parseStatementExpr();
 		l.statementTerm();
@@ -308,7 +311,7 @@ struct Parser
 	
 	/**
 	*/
-	public Decorator parseDecorators()
+	Decorator parseDecorators()
 	{
 		Decorator parseDecorator()
 		{
@@ -378,7 +381,7 @@ struct Parser
 
 	/**
 	*/
-	public Statement parseDeclStmt()
+	Statement parseDeclStmt()
 	{
 		Decorator deco;
 		
@@ -423,7 +426,7 @@ struct Parser
 	/**
 	Parse a local or global variable declaration.
 	*/
-	public VarDecl parseVarDecl()
+	VarDecl parseVarDecl()
 	{
 		auto location = l.loc;
 		auto protection = Protection.Local;
@@ -486,7 +489,7 @@ struct Parser
 	/**
 	Parse a function declaration, optional protection included.
 	*/
-	public FuncDecl parseFuncDecl(Decorator deco)
+	FuncDecl parseFuncDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -516,7 +519,7 @@ struct Parser
 	Returns:
 		The completed function definition.
 	*/
-	public FuncDef parseFuncBody(CompileLoc location, Identifier name)
+	FuncDef parseFuncBody(CompileLoc location, Identifier name)
 	{
 		l.expect(Token.LParen);
 		bool isVararg;
@@ -564,7 +567,7 @@ struct Parser
 	Returns:
 		An array of Param structs.
 	*/
-	public FuncDef.Param[] parseFuncParams(out bool isVararg)
+	FuncDef.Param[] parseFuncParams(out bool isVararg)
 	{
 		alias FuncDef.Param Param;
 		alias FuncDef.TypeMask TypeMask;
@@ -653,7 +656,7 @@ struct Parser
 	a string representation of the type in typeString if documentation generation is enabled, and an optional custom
 	constraint if this function parameter uses a custom constraint.
 	*/
-	public uint parseParamType(out Expression[] classTypes, out char[] typeString, out Expression customConstraint)
+	uint parseParamType(out Expression[] classTypes, out char[] typeString, out Expression customConstraint)
 	{
 		alias FuncDef.TypeMask TypeMask;
 
@@ -800,7 +803,7 @@ struct Parser
 	Parse a simple function declaration. This is basically a function declaration without
 	any preceding 'local' or 'global'. The function must have a name.
 	*/
-	public FuncDef parseSimpleFuncDef()
+	FuncDef parseSimpleFuncDef()
 	{
 		auto location = l.expect(Token.Function).loc;
 		auto name = parseIdentifier();
@@ -811,7 +814,7 @@ struct Parser
 	Parse a function literal. The name is optional, and one will be autogenerated for the
 	function if none exists.
 	*/
-	public FuncDef parseFuncLiteral()
+	FuncDef parseFuncLiteral()
 	{
 		auto location = l.expect(Token.Function).loc;
 
@@ -828,7 +831,7 @@ struct Parser
 	/**
 	Parse a Haskell-style function literal, like "\f -> f + 1" or "\a, b { ... }".
 	*/
-	public FuncDef parseHaskellFuncLiteral()
+	FuncDef parseHaskellFuncLiteral()
 	{
 		auto location = l.expect(Token.Backslash).loc;
 		auto name = dummyFuncLiteralName(location);
@@ -860,7 +863,7 @@ struct Parser
 	/**
 	Parse a class declaration, optional protection included.
 	*/
-	public ClassDecl parseClassDecl(Decorator deco)
+	ClassDecl parseClassDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -890,7 +893,7 @@ struct Parser
 	Returns:
 		An instance of ClassDef.
 	*/
-	public ClassDef parseClassDef(bool nameOptional)
+	ClassDef parseClassDef(bool nameOptional)
 	{
 		auto location = l.expect(Token.Class).loc;
 
@@ -1035,7 +1038,7 @@ struct Parser
 	/**
 	Parse a namespace declaration, optional protection included.
 	*/
-	public NamespaceDecl parseNamespaceDecl(Decorator deco)
+	NamespaceDecl parseNamespaceDecl(Decorator deco)
 	{
 		auto location = l.loc;
 		auto protection = Protection.Default;
@@ -1061,7 +1064,7 @@ struct Parser
 	Returns:
 		An instance of this class.
 	*/
-	public NamespaceDef parseNamespaceDef()
+	NamespaceDef parseNamespaceDef()
 	{
 		auto location = l.loc;
 		l.expect(Token.Namespace);
@@ -1181,7 +1184,7 @@ struct Parser
 
 	/**
 	*/
-	public BlockStmt parseBlockStmt()
+	BlockStmt parseBlockStmt()
 	{
 		auto location = l.expect(Token.LBrace).loc;
 
@@ -1196,7 +1199,7 @@ struct Parser
 
 	/**
 	*/
-	public AssertStmt parseAssertStmt()
+	AssertStmt parseAssertStmt()
 	{
 		auto location = l.expect(Token.Assert).loc;
 		l.expect(Token.LParen);
@@ -1218,7 +1221,7 @@ struct Parser
 
 	/**
 	*/
-	public BreakStmt parseBreakStmt()
+	BreakStmt parseBreakStmt()
 	{
 		auto location = l.expect(Token.Break).loc;
 		char[] name = null;
@@ -1235,7 +1238,7 @@ struct Parser
 
 	/**
 	*/
-	public ContinueStmt parseContinueStmt()
+	ContinueStmt parseContinueStmt()
 	{
 		auto location = l.expect(Token.Continue).loc;
 		char[] name = null;
@@ -1252,7 +1255,7 @@ struct Parser
 
 	/**
 	*/
-	public DoWhileStmt parseDoWhileStmt()
+	DoWhileStmt parseDoWhileStmt()
 	{
 		auto location = l.expect(Token.Do).loc;
 		auto doBody = parseStatement(false);
@@ -1278,7 +1281,7 @@ struct Parser
 	This function will actually parse both C-style and numeric for loops. The return value
 	can be either one.
 	*/
-	public Statement parseForStmt()
+	Statement parseForStmt()
 	{
 		auto location = l.expect(Token.For).loc;
 		char[] name = null;
@@ -1385,7 +1388,7 @@ struct Parser
 
 	/**
 	*/
-	public ForeachStmt parseForeachStmt()
+	ForeachStmt parseForeachStmt()
 	{
 		auto location = l.expect(Token.Foreach).loc;
 		char[] name = null;
@@ -1447,7 +1450,7 @@ struct Parser
 
 	/**
 	*/
-	public IfStmt parseIfStmt()
+	IfStmt parseIfStmt()
 	{
 		auto location = l.expect(Token.If).loc;
 		l.expect(Token.LParen);
@@ -1482,7 +1485,7 @@ struct Parser
 	/**
 	Parse an import statement.
 	*/
-	public ImportStmt parseImportStmt()
+	ImportStmt parseImportStmt()
 	{
 		auto location = l.loc;
 
@@ -1561,7 +1564,7 @@ struct Parser
 
 	/**
 	*/
-	public ReturnStmt parseReturnStmt()
+	ReturnStmt parseReturnStmt()
 	{
 		auto location = l.expect(Token.Return).loc;
 
@@ -1597,7 +1600,7 @@ struct Parser
 	
 	/**
 	*/
-	public SwitchStmt parseSwitchStmt()
+	SwitchStmt parseSwitchStmt()
 	{
 		auto location = l.expect(Token.Switch).loc;
 		char[] name = null;
@@ -1633,7 +1636,7 @@ struct Parser
 
 	/**
 	*/
-	public CaseStmt parseCaseStmt()
+	CaseStmt parseCaseStmt()
 	{
 		auto location = l.expect(Token.Case).loc;
 
@@ -1668,7 +1671,7 @@ struct Parser
 
 	/**
 	*/
-	public DefaultStmt parseDefaultStmt()
+	DefaultStmt parseDefaultStmt()
 	{
 		auto location = l.loc;
 
@@ -1688,7 +1691,7 @@ struct Parser
 
 	/**
 	*/
-	public ThrowStmt parseThrowStmt()
+	ThrowStmt parseThrowStmt()
 	{
 		auto location = l.expect(Token.Throw).loc;
 		auto exp = parseExpression();
@@ -1698,7 +1701,7 @@ struct Parser
 
 	/**
 	*/
-	public ScopeActionStmt parseScopeActionStmt()
+	ScopeActionStmt parseScopeActionStmt()
 	{
 		auto location = l.expect(Token.Scope).loc;
 		l.expect(Token.LParen);
@@ -1723,7 +1726,7 @@ struct Parser
 
 	/**
 	*/
-	public Statement parseTryStmt()
+	Statement parseTryStmt()
 	{
 		alias TryCatchStmt.CatchClause CC;
 
@@ -1795,7 +1798,7 @@ struct Parser
 	
 	/**
 	*/
-	public WhileStmt parseWhileStmt()
+	WhileStmt parseWhileStmt()
 	{
 		auto location = l.expect(Token.While).loc;
 		char[] name = null;
@@ -1828,7 +1831,7 @@ struct Parser
 	can have side effects, as well as assignments, function calls, yields, ?:, &&, and ||
 	expressions. The parsed expression is checked for side effects before being returned.
 	*/
-	public Statement parseStatementExpr()
+	Statement parseStatementExpr()
 	{
 		auto location = l.loc;
 
@@ -1886,7 +1889,7 @@ struct Parser
 		item on the left-hand-side. Therefore this function parses everything $(I but)
 		the first item on the left-hand-side.
 	*/
-	public AssignStmt parseAssignStmt(Expression firstLHS)
+	AssignStmt parseAssignStmt(Expression firstLHS)
 	{
 		auto location = l.loc;
 
@@ -1929,7 +1932,7 @@ struct Parser
 			you can't actually tell that something is an assignment until the LHS is
 			at least parsed, this has to be passed as a parameter.
 	*/
-	public Statement parseOpAssignStmt(Expression exp1)
+	Statement parseOpAssignStmt(Expression exp1)
 	{
 		auto location = l.loc;
 
@@ -1965,7 +1968,7 @@ struct Parser
 	/**
 	Parse an expression.
 	*/
-	public Expression parseExpression()
+	Expression parseExpression()
 	{
 		return parseCondExp();
 	}
@@ -1979,7 +1982,7 @@ struct Parser
 			In this case, the first expression is passed in as a parameter. Otherwise,
 			it defaults to null and this function parses the first expression itself.
 	*/
-	public Expression parseCondExp(Expression exp1 = null)
+	Expression parseCondExp(Expression exp1 = null)
 	{
 		auto location = l.loc;
 
@@ -2013,7 +2016,7 @@ struct Parser
 			In this case, the first expression is passed in as a parameter. Otherwise,
 			it defaults to null and this function parses the first expression itself.
 	*/
-	public Expression parseOrOrExp(Expression exp1 = null)
+	Expression parseOrOrExp(Expression exp1 = null)
 	{
 		auto location = l.loc;
 
@@ -2044,7 +2047,7 @@ struct Parser
 			In this case, the first expression is passed in as a parameter. Otherwise,
 			it defaults to null and this function parses the first expression itself.
 	*/
-	public Expression parseAndAndExp(Expression exp1 = null)
+	Expression parseAndAndExp(Expression exp1 = null)
 	{
 		auto location = l.loc;
 
@@ -2068,7 +2071,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseOrExp()
+	Expression parseOrExp()
 	{
 		auto location = l.loc;
 
@@ -2092,7 +2095,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseXorExp()
+	Expression parseXorExp()
 	{
 		auto location = l.loc;
 
@@ -2116,7 +2119,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseAndExp()
+	Expression parseAndExp()
 	{
 		CompileLoc location = l.loc;
 
@@ -2142,7 +2145,7 @@ struct Parser
 	Parse a comparison expression. This is any of ==, !=, is, !is, <, <=, >, >=,
 	<=>, as, in, and !in.
 	*/
-	public Expression parseCmpExp()
+	Expression parseCmpExp()
 	{
 		auto location = l.loc;
 
@@ -2239,7 +2242,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseShiftExp()
+	Expression parseShiftExp()
 	{
 		auto location = l.loc;
 
@@ -2282,7 +2285,7 @@ struct Parser
 	This function parses not only addition and subtraction expressions, but also
 	concatenation expressions.
 	*/
-	public Expression parseAddExp()
+	Expression parseAddExp()
 	{
 		auto location = l.loc;
 
@@ -2323,7 +2326,7 @@ struct Parser
 	
 	/**
 	*/
-	public Expression parseMulExp()
+	Expression parseMulExp()
 	{
 		auto location = l.loc;
 
@@ -2366,7 +2369,7 @@ struct Parser
 	Parse a unary expression. This parses negation (-), not (!), complement (~),
 	length (#), and coroutine expressions. '#vararg' is also incidentally parsed.
 	*/
-	public Expression parseUnExp()
+	Expression parseUnExp()
 	{
 		auto location = l.loc;
 
@@ -2420,7 +2423,7 @@ struct Parser
 	Parse a primary expression. Will also parse any postfix expressions attached
 	to the primary exps.
 	*/
-	public Expression parsePrimaryExp()
+	Expression parsePrimaryExp()
 	{
 		Expression exp;
 		auto location = l.loc;
@@ -2456,7 +2459,7 @@ struct Parser
 
 	/**
 	*/
-	public IdentExp parseIdentExp()
+	IdentExp parseIdentExp()
 	{
 		auto id = parseIdentifier();
 		return new(c) IdentExp(c, id);
@@ -2464,7 +2467,7 @@ struct Parser
 	
 	/**
 	*/
-	public ThisExp parseThisExp()
+	ThisExp parseThisExp()
 	{
 		with(l.expect(Token.This))
 			return new(c) ThisExp(c, loc);
@@ -2472,7 +2475,7 @@ struct Parser
 	
 	/**
 	*/
-	public NullExp parseNullExp()
+	NullExp parseNullExp()
 	{
 		with(l.expect(Token.Null))
 			return new(c) NullExp(c, loc);
@@ -2480,7 +2483,7 @@ struct Parser
 	
 	/**
 	*/
-	public BoolExp parseBoolExp()
+	BoolExp parseBoolExp()
 	{
 		auto loc = l.loc;
 
@@ -2498,7 +2501,7 @@ struct Parser
 	
 	/**
 	*/
-	public VarargExp parseVarargExp()
+	VarargExp parseVarargExp()
 	{
 		with(l.expect(Token.Vararg))
 			return new(c) VarargExp(c, loc);
@@ -2506,7 +2509,7 @@ struct Parser
 	
 	/**
 	*/
-	public CharExp parseCharExp()
+	CharExp parseCharExp()
 	{
 		with(l.expect(Token.CharLiteral))
 			return new(c) CharExp(c, loc, cast(dchar)intValue);
@@ -2514,7 +2517,7 @@ struct Parser
 	
 	/**
 	*/
-	public IntExp parseIntExp()
+	IntExp parseIntExp()
 	{
 		with(l.expect(Token.IntLiteral))
 			return new(c) IntExp(c, loc, intValue);
@@ -2522,7 +2525,7 @@ struct Parser
 	
 	/**
 	*/
-	public FloatExp parseFloatExp()
+	FloatExp parseFloatExp()
 	{
 		with(l.expect(Token.FloatLiteral))
 			return new(c) FloatExp(c, loc, floatValue);
@@ -2530,7 +2533,7 @@ struct Parser
 	
 	/**
 	*/
-	public StringExp parseStringExp()
+	StringExp parseStringExp()
 	{
 		with(l.expect(Token.StringLiteral))
 			return new(c) StringExp(c, loc, stringValue);
@@ -2538,7 +2541,7 @@ struct Parser
 	
 	/**
 	*/
-	public FuncLiteralExp parseFuncLiteralExp()
+	FuncLiteralExp parseFuncLiteralExp()
 	{
 		auto location = l.loc;
 		auto def = parseFuncLiteral();
@@ -2547,7 +2550,7 @@ struct Parser
 
 	/**
 	*/
-	public FuncLiteralExp parseHaskellFuncLiteralExp()
+	FuncLiteralExp parseHaskellFuncLiteralExp()
 	{
 		auto location = l.loc;
 		auto def = parseHaskellFuncLiteral();
@@ -2556,7 +2559,7 @@ struct Parser
 	
 	/**
 	*/
-	public ClassLiteralExp parseClassLiteralExp()
+	ClassLiteralExp parseClassLiteralExp()
 	{
 		auto location = l.loc;
 		auto def = parseClassDef(true);
@@ -2566,7 +2569,7 @@ struct Parser
 	/**
 	Parse a parenthesized expression.
 	*/
-	public Expression parseParenExp()
+	Expression parseParenExp()
 	{
 		auto location = l.expect(Token.LParen).loc;
 		auto exp = parseExpression();
@@ -2576,7 +2579,7 @@ struct Parser
 
 	/**
 	*/
-	public Expression parseTableCtorExp()
+	Expression parseTableCtorExp()
 	{
 		auto location = l.expect(Token.LBrace).loc;
 
@@ -2653,7 +2656,7 @@ struct Parser
 
 	/**
 	*/
-	public PrimaryExp parseArrayCtorExp()
+	PrimaryExp parseArrayCtorExp()
 	{
 		auto location = l.expect(Token.LBracket).loc;
 
@@ -2692,7 +2695,7 @@ struct Parser
 
 	/**
 	*/
-	public NamespaceCtorExp parseNamespaceCtorExp()
+	NamespaceCtorExp parseNamespaceCtorExp()
 	{
 		auto location = l.loc;
 		auto def = parseNamespaceDef();
@@ -2701,7 +2704,7 @@ struct Parser
 
 	/**
 	*/
-	public YieldExp parseYieldExp()
+	YieldExp parseYieldExp()
 	{
 		auto location = l.expect(Token.Yield).loc;
 		l.expect(Token.LParen);
@@ -2720,7 +2723,7 @@ struct Parser
 
 	/**
 	*/
-	public MethodCallExp parseSuperCallExp()
+	MethodCallExp parseSuperCallExp()
 	{
 		auto location = l.expect(Token.Super).loc;
 
@@ -2784,7 +2787,7 @@ struct Parser
 	Parse a member exp (:a). This is a shorthand expression for "this.a". This
 	also works with super (:super) and paren (:("a")) versions.
 	*/
-	public Expression parseMemberExp()
+	Expression parseMemberExp()
 	{
 		auto loc = l.expect(Token.Colon).loc;
 		CompileLoc endLoc;
@@ -2817,7 +2820,7 @@ struct Parser
 	Params:
 		exp = The expression to which the resulting postfix expression will be attached.
 	*/
-	public Expression parsePostfixExp(Expression exp)
+	Expression parsePostfixExp(Expression exp)
 	{
 		while(true)
 		{
@@ -2995,7 +2998,7 @@ struct Parser
 	if comprehension and optional for comprehension after it, meaning that an entire array
 	or table comprehension is parsed in one call.
 	*/
-	public ForComprehension parseForComprehension()
+	ForComprehension parseForComprehension()
 	{
 		auto loc = l.loc;
 		IfComprehension ifComp;
@@ -3093,7 +3096,7 @@ struct Parser
 	
 	/**
 	*/
-	public IfComprehension parseIfComprehension()
+	IfComprehension parseIfComprehension()
 	{
 		auto loc = l.expect(Token.If).loc;
 		auto condition = parseExpression();
@@ -3104,7 +3107,9 @@ struct Parser
 // Private
 // ================================================================================================================================================
 
-	private Identifier dummyForeachIndex(CompileLoc loc)
+private:
+
+	Identifier dummyForeachIndex(CompileLoc loc)
 	{
 		pushFormat(c.thread, "__dummy{}", mDummyNameCounter++);
 		auto str = c.newString(getString(c.thread, -1));
@@ -3112,7 +3117,7 @@ struct Parser
 		return new(c) Identifier(c, loc, str);
 	}
 
-	private Identifier dummyFuncLiteralName(CompileLoc loc)
+	Identifier dummyFuncLiteralName(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<literal at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
@@ -3120,7 +3125,7 @@ struct Parser
 		return new(c) Identifier(c, loc, str);
 	}
 
-	private Identifier dummyClassLiteralName(CompileLoc loc)
+	Identifier dummyClassLiteralName(CompileLoc loc)
 	{
 		pushFormat(c.thread, "<class at {}({}:{})>", loc.file, loc.line, loc.col);
 		auto str = c.newString(getString(c.thread, -1));
@@ -3128,7 +3133,7 @@ struct Parser
 		return new(c) Identifier(c, loc, str);
 	}
 	
-	private void attachDocs(T)(T t, char[] preDocs)
+	void attachDocs(T)(T t, char[] preDocs)
 	{
 		if(!c.docComments)
 			return;
@@ -3151,7 +3156,7 @@ struct Parser
 			t.docs = l.tok.postComment;
 	}
 	
-	private Expression decoToExp(Decorator dec, Expression exp)
+	Expression decoToExp(Decorator dec, Expression exp)
 	{
 		scope args = new List!(Expression)(c.alloc);
 

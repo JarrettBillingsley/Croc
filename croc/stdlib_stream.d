@@ -42,7 +42,7 @@ import croc.vm;
 struct StreamLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "stream", function uword(CrocThread* t)
 		{
@@ -98,12 +98,12 @@ static:
 		bool closable = true;
 	}
 
-	public InputStream getStream(CrocThread* t, word idx)
+	InputStream getStream(CrocThread* t, word idx)
 	{
 		return checkInstParam!(Members)(t, idx, "stream.InStream").stream;
 	}
 
-	public InputStream getOpenStream(CrocThread* t, word idx)
+	InputStream getOpenStream(CrocThread* t, word idx)
 	{
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InStream");
 
@@ -113,7 +113,7 @@ static:
 		return ret.stream;
 	}
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "InStream", (CreateClass* c)
 		{
@@ -132,12 +132,12 @@ static:
 		newGlobal(t, "InStream");
 	}
 
-	private Members* getThis(CrocThread* t)
+	Members* getThis(CrocThread* t)
 	{
 		return checkInstParam!(Members)(t, 0, "InStream");
 	}
 
-	private Members* getOpenThis(CrocThread* t)
+	Members* getOpenThis(CrocThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "InStream");
 
@@ -172,7 +172,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -217,12 +217,12 @@ static:
 		bool closable = true;
 	}
 
-	public OutputStream getStream(CrocThread* t, word idx)
+	OutputStream getStream(CrocThread* t, word idx)
 	{
 		return checkInstParam!(Members)(t, idx, "stream.OutStream").stream;
 	}
 
-	public OutputStream getOpenStream(CrocThread* t, word idx)
+	OutputStream getOpenStream(CrocThread* t, word idx)
 	{
 		auto ret = checkInstParam!(Members)(t, idx, "stream.OutStream");
 
@@ -232,7 +232,7 @@ static:
 		return ret.stream;
 	}
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "OutStream", (CreateClass* c)
 		{
@@ -256,7 +256,7 @@ static:
 		return checkInstParam!(Members)(t, 0, "OutStream");
 	}
 
-	private Members* getOpenThis(CrocThread* t)
+	Members* getOpenThis(CrocThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "OutStream");
 
@@ -292,7 +292,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -340,12 +340,12 @@ static:
 		bool dirty = false;
 	}
 
-	public IConduit getStream(CrocThread* t, word idx)
+	IConduit getStream(CrocThread* t, word idx)
 	{
 		return checkInstParam!(Members)(t, idx, "stream.InoutStream").stream;
 	}
 
-	public IConduit getOpenStream(CrocThread* t, word idx)
+	IConduit getOpenStream(CrocThread* t, word idx)
 	{
 		auto ret = checkInstParam!(Members)(t, idx, "stream.InoutStream");
 
@@ -355,7 +355,7 @@ static:
 		return ret.stream;
 	}
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "Stream", (CreateClass* c)
 		{
@@ -380,7 +380,7 @@ static:
 		return checkInstParam!(Members)(t, 0, "InoutStream");
 	}
 
-	private Members* getOpenThis(CrocThread* t)
+	Members* getOpenThis(CrocThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "InoutStream");
 
@@ -422,7 +422,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -464,17 +464,19 @@ static:
 
 class MemblockConduit : Conduit, Conduit.Seek
 {
-	private CrocVM* vm;
-	private ulong mMB;
-	private uword mPos = 0;
+private:
+	CrocVM* vm;
+	ulong mMB;
+	uword mPos = 0;
 
-	private this(CrocVM* vm, ulong mb)
+	this(CrocVM* vm, ulong mb)
 	{
 		super();
 		this.vm = vm;
 		mMB = mb;
 	}
 
+public:
 	override char[] toString()
 	{
 		return "<memblock>";
@@ -581,7 +583,7 @@ struct MemInStreamObj
 static:
 	alias InStreamObj.Members Members;
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "MemInStream", "InStream", (CreateClass* c)
 		{
@@ -607,7 +609,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = InStreamObj.getThis(t);
 
@@ -631,7 +633,7 @@ struct MemOutStreamObj
 static:
 	alias OutStreamObj.Members Members;
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "MemOutStream", "OutStream", (CreateClass* c)
 		{
@@ -657,7 +659,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = OutStreamObj.getThis(t);
 
@@ -681,7 +683,7 @@ struct MemInoutStreamObj
 static:
 	alias InoutStreamObj.Members Members;
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		CreateClass(t, "MemInoutStream", "InoutStream", (CreateClass* c)
 		{
@@ -707,7 +709,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = InoutStreamObj.getThis(t);
 
@@ -728,7 +730,7 @@ static:
 
 template ReadFuncs(bool isInout)
 {
-	private void readExact(CrocThread* t, Members* memb, void* dest, uword size)
+	void readExact(CrocThread* t, Members* memb, void* dest, uword size)
 	{
 		while(size > 0)
 		{
@@ -742,7 +744,7 @@ template ReadFuncs(bool isInout)
 		}
 	}
 
-	private uword readAtMost(CrocThread* t, Members* memb, void* dest, uword size)
+	uword readAtMost(CrocThread* t, Members* memb, void* dest, uword size)
 	{
 		auto initial = size;
 
@@ -765,7 +767,7 @@ template ReadFuncs(bool isInout)
 		return initial - size;
 	}
 
-	public uword readVal(T)(CrocThread* t)
+	uword readVal(T)(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -785,7 +787,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword readString(CrocThread* t)
+	uword readString(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -803,7 +805,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword readln(CrocThread* t)
+	uword readln(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -816,7 +818,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword readChars(CrocThread* t)
+	uword readChars(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto num = checkIntParam(t, 1);
@@ -836,7 +838,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword readMemblock(CrocThread* t)
+	uword readMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -874,7 +876,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword rawRead(CrocThread* t)
+	uword rawRead(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -894,7 +896,7 @@ template ReadFuncs(bool isInout)
 		return 1;
 	}
 
-	private uword iterator(CrocThread* t)
+	uword iterator(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -909,7 +911,7 @@ template ReadFuncs(bool isInout)
 		return 2;
 	}
 
-	public uword opApply(CrocThread* t)
+	uword opApply(CrocThread* t)
 	{
 		checkInstParam(t, 0, isInout ? "InoutStream" : "InStream");
 		getUpval(t, 0);
@@ -918,7 +920,7 @@ template ReadFuncs(bool isInout)
 		return 3;
 	}
 
-	public uword skip(CrocThread* t)
+	uword skip(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto dist_ = checkIntParam(t, 1);
@@ -946,7 +948,7 @@ template ReadFuncs(bool isInout)
 
 template WriteFuncs(bool isInout)
 {
-	private void writeExact(CrocThread* t, Members* memb, void* src, uword size)
+	void writeExact(CrocThread* t, Members* memb, void* src, uword size)
 	{
 		while(size > 0)
 		{
@@ -960,7 +962,7 @@ template WriteFuncs(bool isInout)
 		}
 	}
 
-	public uword writeVal(T)(CrocThread* t)
+	uword writeVal(T)(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -979,7 +981,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writeString(CrocThread* t)
+	uword writeString(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -993,7 +995,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword write(CrocThread* t)
+	uword write(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
@@ -1011,7 +1013,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writeln(CrocThread* t)
+	uword writeln(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
@@ -1030,7 +1032,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writef(CrocThread* t)
+	uword writef(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
@@ -1047,7 +1049,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writefln(CrocThread* t)
+	uword writefln(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto p = memb.print;
@@ -1065,7 +1067,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writeChars(CrocThread* t)
+	uword writeChars(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto str = checkStringParam(t, 1);
@@ -1075,7 +1077,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword writeMemblock(CrocThread* t)
+	uword writeMemblock(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkParam(t, 1, CrocValue.Type.Memblock);
@@ -1099,7 +1101,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword flush(CrocThread* t)
+	uword flush(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, "exceptions.IOException", memb.stream.flush());
@@ -1109,7 +1111,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword copy(CrocThread* t)
+	uword copy(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		checkInstParam(t, 1);
@@ -1142,7 +1144,7 @@ template WriteFuncs(bool isInout)
 		return 1;
 	}
 
-	public uword flushOnNL(CrocThread* t)
+	uword flushOnNL(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		safeCode(t, "exceptions.IOException", memb.print.flush = checkBoolParam(t, 1));
@@ -1152,7 +1154,7 @@ template WriteFuncs(bool isInout)
 
 template CommonFuncs(bool isInout, bool isOut)
 {
-	public uword seek(CrocThread* t)
+	uword seek(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -1172,7 +1174,7 @@ template CommonFuncs(bool isInout, bool isOut)
 		return 1;
 	}
 
-	public uword position(CrocThread* t)
+	uword position(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		auto numParams = stackSize(t) - 1;
@@ -1190,7 +1192,7 @@ template CommonFuncs(bool isInout, bool isOut)
 		}
 	}
 
-	public uword size(CrocThread* t)
+	uword size(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		static if(isInout) checkDirty(t, memb);
@@ -1201,7 +1203,7 @@ template CommonFuncs(bool isInout, bool isOut)
 		return 1;
 	}
 
-	public uword close(CrocThread* t)
+	uword close(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 
@@ -1214,7 +1216,7 @@ template CommonFuncs(bool isInout, bool isOut)
 		return 0;
 	}
 
-	public uword isOpen(CrocThread* t)
+	uword isOpen(CrocThread* t)
 	{
 		pushBool(t, !getThis(t).closed);
 		return 1;

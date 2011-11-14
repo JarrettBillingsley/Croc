@@ -162,7 +162,7 @@ static:
 		return checkInstParam!(Members)(t, 0, "Socket");
 	}
 
-	private Members* getOpenThis(CrocThread* t)
+	Members* getOpenThis(CrocThread* t)
 	{
 		auto ret = checkInstParam!(Members)(t, 0, "Socket");
 
@@ -200,7 +200,7 @@ static:
 		return 0;
 	}
 
-	public uword constructor(CrocThread* t)
+	uword constructor(CrocThread* t)
 	{
 		auto memb = getThis(t);
 
@@ -225,7 +225,7 @@ static:
 		return 0;
 	}
 
-	public uword close(CrocThread* t)
+	uword close(CrocThread* t)
 	{
 		auto memb = getOpenThis(t);
 		memb.base.closed = true;

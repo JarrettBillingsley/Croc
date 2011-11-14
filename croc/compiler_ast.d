@@ -154,7 +154,7 @@ const char[][] AstTagNames =
 	"TableComprehension"
 ];
 
-private char[] genEnumMembers()
+char[] genEnumMembers()
 {
 	char[] ret;
 
@@ -298,17 +298,17 @@ abstract class AstNode : IAstNode
 	/**
 	The location of the beginning of this node.
 	*/
-	public CompileLoc location;
+	CompileLoc location;
 
 	/**
 	The location of the end of this node.
 	*/
-	public CompileLoc endLocation;
+	CompileLoc endLocation;
 
 	/**
 	The tag indicating what kind of node this actually is.
 	*/
-	public AstTag type;
+	AstTag type;
 
 	new(uword size, ICompiler c)
 	{
@@ -325,7 +325,7 @@ abstract class AstNode : IAstNode
 		endLocation = The location of the end of this node.
 		type = The type of this node.
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		c.addNode(this);
 		this.location = location;
@@ -336,7 +336,7 @@ abstract class AstNode : IAstNode
 	/**
 	By default, toString() will return the string representation of the node type.
 	*/
-	public char[] toString()
+	char[] toString()
 	{
 		return AstTagNames[type];
 	}
@@ -344,7 +344,7 @@ abstract class AstNode : IAstNode
 	/**
 	Returns a nicer (readable) representation of this kind of node.
 	*/
-	public char[] niceString()
+	char[] niceString()
 	{
 		return NiceAstTagNames[type];
 	}
@@ -354,7 +354,7 @@ abstract class AstNode : IAstNode
 	cast is legal, making it faster. Returns this casted to the given class type
 	if the cast succeeds and null otherwise.
 	*/
-	public T as(T)()
+	T as(T)()
 	{
 		if(type == mixin("AstTag." ~ T.stringof))
 			return cast(T)cast(void*)this;
@@ -373,7 +373,7 @@ Dummy unknown node type.
 */
 class Unknown : AstNode
 {
-	private this(ICompiler c)
+	this(ICompiler c)
 	{
 		super(c, CompileLoc.init, CompileLoc.init, AstTag.Unknown);
 		//assert(false);
@@ -386,9 +386,9 @@ be used in non-expression contexts (such as names in declarations).
 */
 class Identifier : AstNode
 {
-	public char[] name;
+	char[] name;
 
-	public this(ICompiler c, CompileLoc location, char[] name)
+	this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.Identifier);
 		this.name = name;
@@ -428,18 +428,18 @@ class ClassDef : AstNode
 	/**
 	The name of the class. This field will never be null.
 	*/
-	public Identifier name;
+	Identifier name;
 
 	/**
 	The base class from which this class derives. Optional. If it is null, it means the class
 	derives from Object.
 	*/
-	public Expression baseClass;
+	Expression baseClass;
 
 	/**
 	The fields in this class, in the order they were declared. See the Field struct above.
 	*/
-	public Field[] fields;
+	Field[] fields;
 
 	/**
 	Document comments for the declaration.
@@ -448,7 +448,7 @@ class ClassDef : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression baseClass, Field[] fields)
 	{
 		super(c, location, endLocation, AstTag.ClassDef);
 		this.name = name;
@@ -549,25 +549,25 @@ class FuncDef : AstNode
 	without names, this will be filled with an auto-generated name based off the location of
 	where the literal occurred.
 	*/
-	public Identifier name;
+	Identifier name;
 	
 	/**
 	The list of parameters to the function. See the Param struct above. This will always be
 	at least one element long, and element 0 will always be the 'this' parameter.
 	*/
-	public Param[] params;
+	Param[] params;
 
 	/**
 	Indicates whether or not this function is variadic.
 	*/
-	public bool isVararg;
+	bool isVararg;
 	
 	/**
 	The body of the function. In the case of lambda functions (i.e. "function(x) = x * x"), this
 	is a ReturnStmt with one expression, the expression that is the lambda's body. Otherwise, it
 	must (($B must)) be a BlockStmt. This will be checked upon construction.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	Document comments for the declaration.
@@ -576,7 +576,7 @@ class FuncDef : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
+	this(ICompiler c, CompileLoc location, Identifier name, Param[] params, bool isVararg, Statement code)
 	{
 		if(!code.as!(ReturnStmt) && !code.as!(BlockStmt))
 			c.semException(location, "FuncDef code must be a ReturnStmt or BlockStmt, not a '{}'", code.niceString());
@@ -632,18 +632,18 @@ class NamespaceDef : AstNode
 	/**
 	The name of the namespace. This field will never be null.
 	*/
-	public Identifier name;
+	Identifier name;
 
 	/**
 	The namespace which will become the parent of this namespace. This field can be null,
 	in which case the namespace's parent will be set to the environment of the current function.
 	*/
-	public Expression parent;
+	Expression parent;
 
 	/**
 	The fields in this namespace, in an arbitrary order. See the Field struct above.
 	*/
-	public Field[] fields;
+	Field[] fields;
 
 	/**
 	Document comments for the declaration.
@@ -652,7 +652,7 @@ class NamespaceDef : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier name, Expression parent, Field[] fields)
 	{
 		super(c, location, endLocation, AstTag.NamespaceDef);
 		this.name = name;
@@ -675,17 +675,17 @@ class Module : AstNode
 	The name of this module. This is an array of strings, each element of which is one
 	piece of a dotted name. This array will always be at least one element long.
 	*/
-	public char[][] names;
+	char[][] names;
 
 	/**
 	The statements which make up the body of the module. Normally this will be a block
 	statement but it can be other kinds due to semantic analysis.
 	*/
-	public Statement statements;
+	Statement statements;
 
 	/**
 	*/
-	public Decorator decorator;
+	Decorator decorator;
 	
 	/**
 	Document comments for the module.
@@ -694,7 +694,7 @@ class Module : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[][] names, Statement statements, Decorator decorator)
 	{
 		super(c, location, endLocation, AstTag.Module);
 		this.names = names;
@@ -713,7 +713,7 @@ The base class for all statements.
 */
 abstract class Statement : AstNode
 {
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(c, location, endLocation, type);
 	}
@@ -750,18 +750,18 @@ class VarDecl : Statement
 	/**
 	What protection level this declaration uses.
 	*/
-	public Protection protection;
+	Protection protection;
 
 	/**
 	The list of names to be declared. This will always have at least one name.
 	*/
-	public Identifier[] names;
+	Identifier[] names;
 
 	/**
 	The initializer for the variables. This can be empty, in which case the variables
 	will be all be initialized to null.
 	*/
-	public Expression[] initializer;
+	Expression[] initializer;
 
 	/**
 	Document comments for the declaration.
@@ -770,7 +770,7 @@ class VarDecl : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression[] initializer)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Protection protection, Identifier[] names, Expression[] initializer)
 	{
 		super(c, location, endLocation, AstTag.VarDecl);
 		this.protection = protection;
@@ -791,23 +791,23 @@ class Decorator : AstNode
 {
 	/**
 	*/
-	public Expression func;
+	Expression func;
 	
 	/**
 	*/
-	public Expression context;
+	Expression context;
 
 	/**
 	*/
-	public Expression[] args;
+	Expression[] args;
 
 	/**
 	*/
-	public Decorator nextDec;
+	Decorator nextDec;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression func, Expression context, Expression[] args, Decorator nextDec)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression func, Expression context, Expression[] args, Decorator nextDec)
 	{
 		super(c, location, endLocation, AstTag.Decorator);
 		this.func = func;
@@ -832,21 +832,21 @@ class FuncDecl : Statement
 	/**
 	What protection level this declaration uses.
 	*/
-	public Protection protection;
+	Protection protection;
 
 	/**
 	The "guts" of the function declaration.
 	*/
-	public FuncDef def;
+	FuncDef def;
 
 	/**
 	*/
-	public Decorator decorator;
+	Decorator decorator;
 
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, FuncDef def, Decorator decorator)
+	this(ICompiler c, CompileLoc location, Protection protection, FuncDef def, Decorator decorator)
 	{
 		super(c, location, def.endLocation, AstTag.FuncDecl);
 		this.protection = protection;
@@ -863,21 +863,21 @@ class ClassDecl : Statement
 	/**
 	What protection level this declaration uses.
 	*/
-	public Protection protection;
+	Protection protection;
 
 	/**
 	The actual "guts" of the class.
 	*/
-	public ClassDef def;
+	ClassDef def;
 	
 	/**
 	*/
-	public Decorator decorator;
+	Decorator decorator;
 
 	/**
 	The protection parameter can be any kind of protection.
 	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
+	this(ICompiler c, CompileLoc location, Protection protection, ClassDef def, Decorator decorator)
 	{
 		super(c, location, def.endLocation, AstTag.ClassDecl);
 		this.protection = protection;
@@ -894,21 +894,21 @@ class NamespaceDecl : Statement
 	/**
 	What protection level this declaration uses.
 	*/
-	public Protection protection;
+	Protection protection;
 
 	/**
 	The "guts" of the namespace.
 	*/
-	public NamespaceDef def;
+	NamespaceDef def;
 	
 	/**
 	*/
-	public Decorator decorator;
+	Decorator decorator;
 
 	/**
 	The protection parameter can be any level of protection.
 	*/
-	public this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
+	this(ICompiler c, CompileLoc location, Protection protection, NamespaceDef def, Decorator decorator)
 	{
 		super(c, location, def.endLocation, AstTag.NamespaceDecl);
 		this.protection = protection;
@@ -925,18 +925,18 @@ class AssertStmt : Statement
 	/**
 	A required expression that is the condition checked by the assertion.
 	*/
-	public Expression cond;
+	Expression cond;
 
 	/**
 	An optional message that will be used if the assertion fails. This member
 	can be null, in which case a message will be generated for the assertion
 	based on its location. If it's not null, it must evaluate to a string.
 	*/
-	public Expression msg;
+	Expression msg;
 	
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression msg = null)
 	{
 		super(c, location, endLocation, AstTag.AssertStmt);
 		this.cond = cond;
@@ -953,7 +953,7 @@ class ImportStmt : Statement
 	An optional renaming of the import. This member can be null, in which case no renaming
 	is done. In the code "import y as x;", this member corresponds to "x".
 	*/
-	public Identifier importName;
+	Identifier importName;
 
 	/**
 	The expression which evaluates to a string containing the name of the module to import.
@@ -961,24 +961,24 @@ class ImportStmt : Statement
 	will be a StringExp in this case. This expression is checked (if it's constant) to ensure
 	that it's a string when constant folding occurs.
 	*/
-	public Expression expr;
+	Expression expr;
 
 	/**
 	An optional list of symbols to import from the module. In the code "import x : a, b, c",
 	this corresponds to "a, b, c".
 	*/
-	public Identifier[] symbols;
+	Identifier[] symbols;
 
 	/**
 	A parallel array to the symbols array. This holds the names of the symbols as they should
 	be called in this module. The code "import x : a, b" is sugar for "import x : a as a, b as b".
 	In the code "import x : a as y, b as z", this array corresponds to "y, z".
 	*/
-	public Identifier[] symbolNames;
+	Identifier[] symbolNames;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Identifier importName, Expression expr, Identifier[] symbols, Identifier[] symbolNames)
 	{
 		super(c, location, endLocation, AstTag.ImportStmt);
 		this.importName = importName;
@@ -1002,11 +1002,11 @@ class BlockStmt : Statement
 	/**
 	The list of statements contained in the braces.
 	*/
-	public Statement[] statements;
+	Statement[] statements;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement[] statements)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement[] statements)
 	{
 		super(c, location, endLocation, AstTag.BlockStmt);
 		this.statements = statements;
@@ -1032,11 +1032,11 @@ class ScopeStmt : Statement
 	The statement contained within this scope. Typically a block statement, but can
 	be anything.
 	*/
-	public Statement statement;
+	Statement statement;
 
 	/**
 	*/
-	public this(ICompiler c, Statement statement)
+	this(ICompiler c, Statement statement)
 	{
 		super(c, statement.location, statement.endLocation, AstTag.ScopeStmt);
 		this.statement = statement;
@@ -1058,11 +1058,11 @@ class ExpressionStmt : Statement
 	This class does $(B not) check that this expression is side-effecting; that is up to
 	you.
 	*/
-	public Expression expr;
+	Expression expr;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression expr)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression expr)
 	{
 		super(c, location, endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
@@ -1070,7 +1070,7 @@ class ExpressionStmt : Statement
 	
 	/**
 	*/
-	public this(ICompiler c, Expression expr)
+	this(ICompiler c, Expression expr)
 	{
 		super(c, expr.location, expr.endLocation, AstTag.ExpressionStmt);
 		this.expr = expr;
@@ -1087,27 +1087,27 @@ class IfStmt : Statement
 	the value of the condition. In the code "if(local x = y < z){}", this corresponds
 	to "x". This member may be null, in which case there is no variable there.
 	*/
-	public IdentExp condVar;
+	IdentExp condVar;
 
 	/**
 	The condition to test.
 	*/
-	public Expression condition;
+	Expression condition;
 	
 	/**
 	The code to execute if the condition evaluates to true.
 	*/
-	public Statement ifBody;
+	Statement ifBody;
 
 	/**
 	If there is an else clause, this is the code to execute if the condition evaluates to
 	false. If there is no else clause, this member is null.
 	*/
-	public Statement elseBody;
+	Statement elseBody;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, IdentExp condVar, Expression condition, Statement ifBody, Statement elseBody)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, IdentExp condVar, Expression condition, Statement ifBody, Statement elseBody)
 	{
 		super(c, location, endLocation, AstTag.IfStmt);
 
@@ -1127,28 +1127,28 @@ class WhileStmt : Statement
 	An optional loop label used for named breaks/continues. This member may be null, in which
 	case it's an unnamed loop.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	An optional variable to declare inside the statement's condition which will take on
 	the value of the condition. In the code "while(local x = y < z){}", this corresponds
 	to "x". This member may be null, in which case there is no variable there.
 	*/
-	public IdentExp condVar;
+	IdentExp condVar;
 
 	/**
 	The condition to test.
 	*/
-	public Expression condition;
+	Expression condition;
 
 	/**
 	The code inside the loop.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name, IdentExp condVar, Expression condition, Statement code)
+	this(ICompiler c, CompileLoc location, char[] name, IdentExp condVar, Expression condition, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.WhileStmt);
 
@@ -1168,21 +1168,21 @@ class DoWhileStmt : Statement
 	An optional loop label used for named breaks/continues. This member may be null, in which
 	case it's an unnamed loop.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	The code inside the loop.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	The condition to test at the end of the loop.
 	*/
-	public Expression condition;
+	Expression condition;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Statement code, Expression condition)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Statement code, Expression condition)
 	{
 		super(c, location, endLocation, AstTag.DoWhileStmt);
 
@@ -1201,7 +1201,7 @@ class ForStmt : Statement
 	An optional loop label used for named breaks/continues. This member may be null, in which
 	case it's an unnamed loop.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	There are two types of initializers possible in the first clause of the for loop header:
@@ -1233,29 +1233,29 @@ class ForStmt : Statement
 	/**
 	A list of 0 or more initializers (the first clause of the foreach header).
 	*/
-	public Init[] init;
+	Init[] init;
 
 	/**
 	The condition to test at the beginning of each iteration of the loop. This can be
 	null, in which case the only way to get out of the loop is to break, return, or
 	throw an exception.
 	*/
-	public Expression condition;
+	Expression condition;
 
 	/**
 	A list of 0 or more increment expression statements to be evaluated at the end of
 	each iteration of the loop.
 	*/
-	public Statement[] increment;
+	Statement[] increment;
 
 	/**
 	The code inside the loop.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name, Init[] init, Expression cond, Statement[] inc, Statement code)
+	this(ICompiler c, CompileLoc location, char[] name, Init[] init, Expression cond, Statement[] inc, Statement code)
 	{
 		super(c, location, endLocation, AstTag.ForStmt);
 
@@ -1282,40 +1282,40 @@ class ForNumStmt : Statement
 	An optional loop label used for named breaks/continues. This member may be null, in which
 	case it's an unnamed loop.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	The name of the index variable.
 	*/
-	public Identifier index;
+	Identifier index;
 
 	/**
 	The lower bound of the loop (the value before the ".."). If constant, it must be an
 	int.
 	*/
-	public Expression lo;
+	Expression lo;
 
 	/**
 	The upper bound of the loop (the value after the ".."). If constant, it must be an
 	int.
 	*/
-	public Expression hi;
+	Expression hi;
 
 	/**
 	The step value of the loop. If specified, this is the value after the comma after the
 	upper bound. If not specified, this is given an IntExp of value 1. This member is
 	never null. If constant, it must be an int.
 	*/
-	public Expression step;
+	Expression step;
 
 	/**
 	The code inside the loop.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
+	this(ICompiler c, CompileLoc location, char[] name, Identifier index, Expression lo, Expression hi, Expression step, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.ForNumStmt);
 
@@ -1337,14 +1337,14 @@ class ForeachStmt : Statement
 	An optional loop label used for named breaks/continues. This member may be null, in which
 	case it's an unnamed loop.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	The list of index names (the names before the semicolon). This list is always at least
 	two elements long. This is because when you write a foreach loop with only one index,
 	an implicit dummy index is inserted before it.
 	*/
-	public Identifier[] indices;
+	Identifier[] indices;
 
 	/**
 	The container (the stuff after the semicolon). This array can be 1, 2, or 3 elements
@@ -1352,16 +1352,16 @@ class ForeachStmt : Statement
 	the third the "index". However Croc will automatically call opApply on the "iterator"
 	if it's not a function, so this can function like a foreach loop in D.
 	*/
-	public Expression[] container;
+	Expression[] container;
 
 	/**
 	The code inside the loop.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name, Identifier[] indices, Expression[] container, Statement code)
+	this(ICompiler c, CompileLoc location, char[] name, Identifier[] indices, Expression[] container, Statement code)
 	{
 		super(c, location, code.endLocation, AstTag.ForeachStmt);
 
@@ -1387,26 +1387,26 @@ class SwitchStmt : Statement
 	An optional label used for named breaks. This member may be null, in which case it's
 	an unnamed switch.
 	*/
-	public char[] name;
+	char[] name;
 
 	/**
 	The value to switch on.
 	*/
-	public Expression condition;
+	Expression condition;
 
 	/**
 	A list of cases. This is always at least one element long.
 	*/
-	public CaseStmt[] cases;
+	CaseStmt[] cases;
 
 	/**
 	An optional default case. This member can be null.
 	*/
-	public DefaultStmt caseDefault;
+	DefaultStmt caseDefault;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, char[] name, Expression condition, CaseStmt[] cases, DefaultStmt caseDefault)
 	{
 		super(c, location, endLocation, AstTag.SwitchStmt);
 		this.name = name;
@@ -1437,23 +1437,23 @@ class CaseStmt : Statement
 	"case 1, 2, 3:" this corresponds to "1, 2, 3". This will always be at least one element
 	long.
 	*/
-	public CaseCond[] conditions;
+	CaseCond[] conditions;
 	
 	/**
 	If this member is null, this is a "normal" case statement. If this member is non-null, this
 	is a ranged case statement like "case 1 .. 10:". In that case, the 'conditions' member will
 	be exactly one element long and will contain the low range value.
 	*/
-	public Expression highRange;
+	Expression highRange;
 
 	/**
 	The code of the case statement.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Expression highRange, Statement code)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, CaseCond[] conditions, Expression highRange, Statement code)
 	{
 		super(c, location, endLocation, AstTag.CaseStmt);
 		this.conditions = conditions;
@@ -1475,11 +1475,11 @@ class DefaultStmt : Statement
 	/**
 	The code of the statement.
 	*/
-	public Statement code;
+	Statement code;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement code)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement code)
 	{
 		super(c, location, endLocation, AstTag.DefaultStmt);
 		this.code = code;
@@ -1498,7 +1498,7 @@ class ContinueStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name)
+	this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.ContinueStmt);
 		this.name = name;
@@ -1517,7 +1517,7 @@ class BreakStmt : Statement
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] name)
+	this(ICompiler c, CompileLoc location, char[] name)
 	{
 		super(c, location, location, AstTag.BreakStmt);
 		this.name = name;
@@ -1532,11 +1532,11 @@ class ReturnStmt : Statement
 	/**
 	The list of expressions to return. This array may have 0 or more elements.
 	*/
-	public Expression[] exprs;
+	Expression[] exprs;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] exprs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] exprs)
 	{
 		super(c, location, endLocation, AstTag.ReturnStmt);
 		this.exprs = exprs;
@@ -1558,7 +1558,7 @@ class TryCatchStmt : Statement
 	/**
 	The body of code to try.
 	*/
-	public Statement tryBody;
+	Statement tryBody;
 
 	struct CatchClause
 	{
@@ -1566,40 +1566,40 @@ class TryCatchStmt : Statement
 		The variable to use in this catch clause. In the code "try{}catch(e:E){}", this corresponds
 		to 'e'.
 		*/
-		public Identifier catchVar;
+		Identifier catchVar;
 
 		/**
 		The list of exception types that this catch clause catches. In the code "try{}catch(e:E1|E2){}",
 		this corresponds to 'E1|E2'. This array will always be at least one element long.
 		*/
-		public Expression[] exTypes;
+		Expression[] exTypes;
 
 		/**
 		The body of this catch clause.
 		*/
-		public Statement catchBody;
+		Statement catchBody;
 	}
 
 	/**
 	An array of one or more catch clauses that follow the try block.
 	*/
-	public CatchClause[] catches;
+	CatchClause[] catches;
 	
 	/**
 	Filled in during semantic analysis. This is the hidden variable used to actually catch the exception,
 	and its type is switched on by the transformedCatch statement.
 	*/
-	public Identifier hiddenCatchVar;
+	Identifier hiddenCatchVar;
 
 	/**
 	Filled in during semantic analysis. The pretty catch syntax is actually turned into a switch by the
 	compiler. This is that autogenerated statement.
 	*/
-	public Statement transformedCatch;
+	Statement transformedCatch;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, CatchClause[] catches)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, CatchClause[] catches)
 	{
 		super(c, location, endLocation, AstTag.TryCatchStmt);
 
@@ -1625,16 +1625,16 @@ class TryFinallyStmt : Statement
 	/**
 	The body of code to try.
 	*/
-	public Statement tryBody;
+	Statement tryBody;
 
 	/**
 	The body of the finally block.
 	*/
-	public Statement finallyBody;
+	Statement finallyBody;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, Statement finallyBody)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Statement tryBody, Statement finallyBody)
 	{
 		super(c, location, endLocation, AstTag.TryFinallyStmt);
 
@@ -1651,18 +1651,18 @@ class ThrowStmt : Statement
 	/**
 	The value that should be thrown.
 	*/
-	public Expression exp;
+	Expression exp;
 	
 	/**
 	True if this throw is rethrowing a caught exception. This is only set when the throw is
 	auto-generated by scope(success) and scope(failure), and is used to control whether a traceback
 	is needed for the exception (no new traceback is generated for rethrown exceptions).
 	*/
-	public bool rethrowing;
+	bool rethrowing;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Expression exp, bool rethrowing = false)
+	this(ICompiler c, CompileLoc location, Expression exp, bool rethrowing = false)
 	{
 		super(c, location, exp.endLocation, AstTag.ThrowStmt);
 		this.exp = exp;
@@ -1688,16 +1688,16 @@ class ScopeActionStmt : Statement
 	/**
 	One of the above constants, indicates which kind of scope statement this is.
 	*/
-	public ubyte type;
+	ubyte type;
 	
 	/**
 	The statement which will be executed if this scope statement is run.
 	*/
-	public Statement stmt;
+	Statement stmt;
 	
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, ubyte type, Statement stmt)
+	this(ICompiler c, CompileLoc location, ubyte type, Statement stmt)
 	{
 		super(c, location, stmt.endLocation, AstTag.ScopeActionStmt);
 		this.type = type;
@@ -1715,17 +1715,17 @@ class AssignStmt : Statement
 	This list must contain only expressions which can be LHSes. That will be checked
 	at codegen time.
 	*/
-	public Expression[] lhs;
+	Expression[] lhs;
 
 	/**
 	The right-hand side of the assignment. Must always have at least 1 item. This is not checked
 	by the ctor.
 	*/
-	public Expression[] rhs;
+	Expression[] rhs;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression[] rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] lhs, Expression[] rhs)
 	{
 		super(c, location, endLocation, AstTag.AssignStmt);
 		this.lhs = lhs;
@@ -1749,16 +1749,16 @@ abstract class OpAssignStmt : Statement
 	this is a conditional assignment, it may not be 'this'. These conditions will be checked at
 	codegen.
 	*/
-	public Expression lhs;
+	Expression lhs;
 
 	/**
 	The right-hand-side of the assignment.
 	*/
-	public Expression rhs;
+	Expression rhs;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, type);
 		this.lhs = lhs;
@@ -1773,7 +1773,7 @@ class AddAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.AddAssignStmt, lhs, rhs);
 	}
@@ -1786,7 +1786,7 @@ class SubAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.SubAssignStmt, lhs, rhs);
 	}
@@ -1801,19 +1801,19 @@ class CatAssignStmt : Statement
 	The left-hand-side of the assignment. The same constraints apply here as for other
 	reflexive assignments.
 	*/
-	public Expression lhs;
+	Expression lhs;
 
 	/**
 	The right-hand-side of the assignment.
 	*/
-	public Expression rhs;
+	Expression rhs;
 
-	public Expression[] operands;
-	public bool collapsed = false;
+	Expression[] operands;
+	bool collapsed = false;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.CatAssignStmt);
 		this.lhs = lhs;
@@ -1833,7 +1833,7 @@ class MulAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.MulAssignStmt, lhs, rhs);
 	}
@@ -1846,7 +1846,7 @@ class DivAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.DivAssignStmt, lhs, rhs);
 	}
@@ -1859,7 +1859,7 @@ class ModAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.ModAssignStmt, lhs, rhs);
 	}
@@ -1872,7 +1872,7 @@ class OrAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.OrAssignStmt, lhs, rhs);
 	}
@@ -1885,7 +1885,7 @@ class XorAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.XorAssignStmt, lhs, rhs);
 	}
@@ -1898,7 +1898,7 @@ class AndAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.AndAssignStmt, lhs, rhs);
 	}
@@ -1911,7 +1911,7 @@ class ShlAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.ShlAssignStmt, lhs, rhs);
 	}
@@ -1924,7 +1924,7 @@ class ShrAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.ShrAssignStmt, lhs, rhs);
 	}
@@ -1937,7 +1937,7 @@ class UShrAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.UShrAssignStmt, lhs, rhs);
 	}
@@ -1950,7 +1950,7 @@ class CondAssignStmt : OpAssignStmt
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression lhs, Expression rhs)
 	{
 		super(c, location, endLocation, AstTag.CondAssignStmt, lhs, rhs);
 	}
@@ -1964,11 +1964,11 @@ class IncStmt : Statement
 	/**
 	The expression to modify. The same constraints apply as for reflexive assignments.
 	*/
-	public Expression exp;
+	Expression exp;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(c, location, endLocation, AstTag.IncStmt);
 		this.exp = exp;
@@ -1983,11 +1983,11 @@ class DecStmt : Statement
 	/**
 	The expression to modify. The same constraints apply as for reflexive assignments.
 	*/
-	public Expression exp;
+	Expression exp;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(c, location, endLocation, AstTag.DecStmt);
 		this.exp = exp;
@@ -2001,11 +2001,11 @@ class TypecheckStmt : Statement
 {
 	/**
 	*/
-	public FuncDef def;
+	FuncDef def;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, FuncDef def)
+	this(ICompiler c, CompileLoc location, FuncDef def)
 	{
 		super(c, location, location, AstTag.TypecheckStmt);
 		this.def = def;
@@ -2026,7 +2026,7 @@ abstract class Expression : AstNode
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(c, location, endLocation, type);
 	}
@@ -2035,7 +2035,7 @@ abstract class Expression : AstNode
 	Ensure that this expression can be evaluated to nothing, i.e. that it can exist
 	on its own. Throws an exception if not.
 	*/
-	public void checkToNothing(ICompiler c)
+	void checkToNothing(ICompiler c)
 	{
 		if(!hasSideEffects())
 			c.loneStmtException(location, "{} cannot exist on its own", niceString());
@@ -2045,7 +2045,7 @@ abstract class Expression : AstNode
 	Returns whether or not this expression has side effects. If this returns false,
 	checkToNothing will throw an error.
 	*/
-	public bool hasSideEffects()
+	bool hasSideEffects()
 	{
 		return false;
 	}
@@ -2054,7 +2054,7 @@ abstract class Expression : AstNode
 	Ensure that this expression can give multiple return values. If it can't, throws an
 	exception.
 	*/
-	public void checkMultRet(ICompiler c)
+	void checkMultRet(ICompiler c)
 	{
 		if(!isMultRet())
 			c.semException(location, "{} cannot be the source of a multi-target assignment", niceString());
@@ -2064,7 +2064,7 @@ abstract class Expression : AstNode
 	Returns whether this expression can give multiple return values. If this returns
 	false, checkMultRet will throw an error.
 	*/
-	public bool isMultRet()
+	bool isMultRet()
 	{
 		return false;
 	}
@@ -2073,7 +2073,7 @@ abstract class Expression : AstNode
 	Ensure that this expression can be the left-hand side of an assignment. If it can't,
 	throws an exception.
 	*/
-	public void checkLHS(ICompiler c)
+	void checkLHS(ICompiler c)
 	{
 		if(!isLHS())
 			c.semException(location, "{} cannot be the target of an assignment", niceString());
@@ -2083,7 +2083,7 @@ abstract class Expression : AstNode
 	Returns whether this expression can be the left-hand side of an assignment. If this
 	returns false, checkLHS will throw an error.
 	*/
-	public bool isLHS()
+	bool isLHS()
 	{
 		return false;
 	}
@@ -2091,7 +2091,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is a constant value.
 	*/
-	public bool isConstant()
+	bool isConstant()
 	{
 		return false;
 	}
@@ -2099,7 +2099,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is 'null'.
 	*/
-	public bool isNull()
+	bool isNull()
 	{
 		return false;
 	}
@@ -2107,7 +2107,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is a boolean constant.
 	*/
-	public bool isBool()
+	bool isBool()
 	{
 		return false;
 	}
@@ -2116,7 +2116,7 @@ abstract class Expression : AstNode
 	Returns this expression as a boolean constant, if possible. assert(false)s
 	otherwise.
 	*/
-	public bool asBool()
+	bool asBool()
 	{
 		assert(false);
 	}
@@ -2124,7 +2124,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is an integer constant.
 	*/
-	public bool isInt()
+	bool isInt()
 	{
 		return false;
 	}
@@ -2133,7 +2133,7 @@ abstract class Expression : AstNode
 	Returns this expression as an integer constant, if possible. assert(false)s
 	otherwise.
 	*/
-	public crocint asInt()
+	crocint asInt()
 	{
 		assert(false);
 	}
@@ -2141,7 +2141,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is a floating point constant.
 	*/
-	public bool isFloat()
+	bool isFloat()
 	{
 		return false;
 	}
@@ -2150,7 +2150,7 @@ abstract class Expression : AstNode
 	Returns this expression as a floating point constant, if possible. assert(false)s
 	otherwise.
 	*/
-	public crocfloat asFloat()
+	crocfloat asFloat()
 	{
 		assert(false);
 	}
@@ -2158,7 +2158,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is a character constant.
 	*/
-	public bool isChar()
+	bool isChar()
 	{
 		return false;
 	}
@@ -2167,7 +2167,7 @@ abstract class Expression : AstNode
 	Returns this expression as a character constant, if possible. assert(false)s
 	otherwise.
 	*/
-	public dchar asChar()
+	dchar asChar()
 	{
 		assert(false);
 	}
@@ -2175,7 +2175,7 @@ abstract class Expression : AstNode
 	/**
 	Returns whether this expression is a string constant.
 	*/
-	public bool isString()
+	bool isString()
 	{
 		return false;
 	}
@@ -2184,7 +2184,7 @@ abstract class Expression : AstNode
 	Returns this expression as a string constant, if possible. assert(false)s
 	otherwise.
 	*/
-	public char[] asString()
+	char[] asString()
 	{
 		assert(false);
 	}
@@ -2193,7 +2193,7 @@ abstract class Expression : AstNode
 	If this expression is a constant value, returns whether this expression would evaluate
 	as true according to Croc's definition of truth. Otherwise returns false.
 	*/
-	public bool isTrue()
+	bool isTrue()
 	{
 		return false;
 	}
@@ -2207,21 +2207,21 @@ class CondExp : Expression
 	/**
 	The first expression, which comes before the question mark.
 	*/
-	public Expression cond;
+	Expression cond;
 	
 	/**
 	The second expression, which comes between the question mark and the colon.
 	*/
-	public Expression op1;
+	Expression op1;
 
 	/**
 	The third expression, which comes after the colon.
 	*/
-	public Expression op2;
+	Expression op2;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression cond, Expression op1, Expression op2)
 	{
 		super(c, location, endLocation, AstTag.CondExp);
 		this.cond = cond;
@@ -2229,7 +2229,7 @@ class CondExp : Expression
 		this.op2 = op2;
 	}
 
-	public override bool hasSideEffects()
+	override bool hasSideEffects()
 	{
 		return cond.hasSideEffects() || op1.hasSideEffects() || op2.hasSideEffects();
 	}
@@ -2244,16 +2244,16 @@ abstract class BinaryExp : Expression
 	/**
 	The left-hand operand.
 	*/
-	public Expression op1;
+	Expression op1;
 	
 	/**
 	The right-hand operand.
 	*/
-	public Expression op2;
+	Expression op2;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression op1, Expression op2)
 	{
 		super(c, location, endLocation, type);
 		this.op1 = op1;
@@ -2261,7 +2261,7 @@ abstract class BinaryExp : Expression
 	}
 }
 
-private const BinExpMixin =
+const BinExpMixin =
 "public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression left, Expression right)"
 "{"
 	"super(c, location, endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), left, right);"
@@ -2274,7 +2274,7 @@ class OrOrExp : BinaryExp
 {
 	mixin(BinExpMixin);
 
-	public override bool hasSideEffects()
+	override bool hasSideEffects()
 	{
 		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
@@ -2287,7 +2287,7 @@ class AndAndExp : BinaryExp
 {
 	mixin(BinExpMixin);
 
-	public override bool hasSideEffects()
+	override bool hasSideEffects()
 	{
 		return op1.hasSideEffects() || op2.hasSideEffects();
 	}
@@ -2322,7 +2322,7 @@ This class serves as a base class for all equality expressions.
 */
 abstract class BaseEqualExp : BinaryExp
 {
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(c, location, endLocation, type, left, right);
 	}
@@ -2382,7 +2382,7 @@ This class serves as a base class for comparison expressions.
 */
 abstract class BaseCmpExp : BinaryExp
 {
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression left, Expression right)
 	{
 		super(c, location, endLocation, type, left, right);
 	}
@@ -2481,8 +2481,8 @@ This node represents a concatenation (~) expression.
 */
 class CatExp : BinaryExp
 {
-	public Expression[] operands;
-	public bool collapsed = false;
+	Expression[] operands;
+	bool collapsed = false;
 
 	mixin(BinExpMixin);
 	
@@ -2525,18 +2525,18 @@ abstract class UnExp : Expression
 	/**
 	The operand of the expression.
 	*/
-	public Expression op;
+	Expression op;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
 		super(c, location, endLocation, type);
 		op = operand;
 	}
 }
 
-private const UnExpMixin =
+const UnExpMixin =
 "public this(ICompiler c, CompileLoc location, Expression operand)"
 "{"
 	"super(c, location, operand.endLocation, mixin(\"AstTag.\" ~ typeof(this).stringof), operand);"
@@ -2573,7 +2573,7 @@ class LenExp : UnExp
 {
 	mixin(UnExpMixin);
 	
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2596,7 +2596,7 @@ abstract class PostfixExp : UnExp
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type, Expression operand)
 	{
 		super(c, location, endLocation, type, operand);
 	}
@@ -2613,17 +2613,17 @@ class DotExp : PostfixExp
 	expression like "a.x" is sugar for "a.("x")", so this will be a string literal
 	in that case.
 	*/
-	public Expression name;
+	Expression name;
 
 	/**
 	*/
-	public this(ICompiler c, Expression operand, Expression name)
+	this(ICompiler c, Expression operand, Expression name)
 	{
 		super(c, operand.location, name.endLocation, AstTag.DotExp, operand);
 		this.name = name;
 	}
 	
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2634,7 +2634,7 @@ This node corresponds to the super expression (a.super).
 */
 class DotSuperExp : PostfixExp
 {
-	public this(ICompiler c, CompileLoc endLocation, Expression operand)
+	this(ICompiler c, CompileLoc endLocation, Expression operand)
 	{
 		super(c, operand.location, endLocation, AstTag.DotSuperExp, operand);
 	}
@@ -2648,17 +2648,17 @@ class IndexExp : PostfixExp
 	/**
 	The index of the operation (the value inside the brackets).
 	*/
-	public Expression index;
+	Expression index;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc endLocation, Expression operand, Expression index)
+	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression index)
 	{
 		super(c, operand.location, endLocation, AstTag.IndexExp, operand);
 		this.index = index;
 	}
 
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2673,24 +2673,24 @@ class SliceExp : PostfixExp
 	The low index of the slice. If no low index is given, this will be a NullExp.
 	This member will therefore never be null.
 	*/
-	public Expression loIndex;
+	Expression loIndex;
 	
 	/**
 	The high index of the slice. If no high index is given, this will be a NullExp.
 	This member will therefore never be null.
 	*/
-	public Expression hiIndex;
+	Expression hiIndex;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
+	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression loIndex, Expression hiIndex)
 	{
 		super(c, operand.location, endLocation, AstTag.SliceExp, operand);
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
 
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2706,28 +2706,28 @@ class CallExp : PostfixExp
 	the expression "f(with x)". If this member is null, a context of 'null' will
 	be passed to the function.
 	*/
-	public Expression context;
+	Expression context;
 	
 	/**
 	The list of arguments to be passed to the function. This can be 0 or more elements.
 	*/
-	public Expression[] args;
+	Expression[] args;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
+	this(ICompiler c, CompileLoc endLocation, Expression operand, Expression context, Expression[] args)
 	{
 		super(c, operand.location, endLocation, AstTag.CallExp, operand);
 		this.context = context;
 		this.args = args;
 	}
 
-	public override bool hasSideEffects()
+	override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	public override bool isMultRet()
+	override bool isMultRet()
 	{
 		return true;
 	}
@@ -2745,21 +2745,21 @@ class MethodCallExp : PostfixExp
 {
 	/**
 	*/
-	public Expression method;
+	Expression method;
 
 	/**
 	The list of argument to pass to the method. This can have 0 or more elements.
 	*/
-	public Expression[] args;
+	Expression[] args;
 
 	/**
 	If this member is true, 'op' will be null (and will be interpreted as a "this").
 	*/
-	public bool isSuperCall;
+	bool isSuperCall;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression operand, Expression method, Expression[] args, bool isSuperCall)
 	{
 		super(c, location, endLocation, AstTag.MethodCallExp, operand);
 		this.method = method;
@@ -2767,12 +2767,12 @@ class MethodCallExp : PostfixExp
 		this.isSuperCall = isSuperCall;
 	}
 	
-	public override bool hasSideEffects()
+	override bool hasSideEffects()
 	{
 		return true;
 	}
 
-	public override bool isMultRet()
+	override bool isMultRet()
 	{
 		return true;
 	}
@@ -2790,14 +2790,14 @@ class PrimaryExp : Expression
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, AstTag type)
+	this(ICompiler c, CompileLoc location, AstTag type)
 	{
 		super(c, location, location, type);
 	}
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag type)
 	{
 		super(c, location, endLocation, type);
 	}
@@ -2811,18 +2811,18 @@ class IdentExp : PrimaryExp
 	/**
 	The identifier itself.
 	*/
-	public Identifier name;
+	Identifier name;
 
 	/**
 	Create an ident exp from an identifier object.
 	*/
-	public this(ICompiler c, Identifier i)
+	this(ICompiler c, Identifier i)
 	{
 		super(c, i.location, AstTag.IdentExp);
 		this.name = i;
 	}
 
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2835,7 +2835,7 @@ class ThisExp : PrimaryExp
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location)
+	this(ICompiler c, CompileLoc location)
 	{
 		super(c, location, AstTag.ThisExp);
 	}
@@ -2848,22 +2848,22 @@ class NullExp : PrimaryExp
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location)
+	this(ICompiler c, CompileLoc location)
 	{
 		super(c, location, AstTag.NullExp);
 	}
 	
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return false;
 	}
 
-	public override bool isNull()
+	override bool isNull()
 	{
 		return true;
 	}
@@ -2877,32 +2877,32 @@ class BoolExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public bool value;
+	bool value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, bool value)
+	this(ICompiler c, CompileLoc location, bool value)
 	{
 		super(c, location, AstTag.BoolExp);
 		this.value = value;
 	}
 
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return value;
 	}
 
-	public override bool isBool()
+	override bool isBool()
 	{
 		return true;
 	}
 
-	public override bool asBool()
+	override bool asBool()
 	{
 		return value;
 	}
@@ -2916,12 +2916,12 @@ class VarargExp : PrimaryExp
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location)
+	this(ICompiler c, CompileLoc location)
 	{
 		super(c, location, AstTag.VarargExp);
 	}
 
-	public bool isMultRet()
+	bool isMultRet()
 	{
 		return true;
 	}
@@ -2934,7 +2934,7 @@ class VargLenExp : PrimaryExp
 {
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation)
 	{
 		super(c, location, endLocation, AstTag.VargLenExp);
 	}
@@ -2948,17 +2948,17 @@ class VargIndexExp : PrimaryExp
 	/**
 	The index of the operation (the value inside the brackets).
 	*/
-	public Expression index;
+	Expression index;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression index)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression index)
 	{
 		super(c, location, endLocation, AstTag.VargIndexExp);
 		this.index = index;
 	}
 
-	public override bool isLHS()
+	override bool isLHS()
 	{
 		return true;
 	}
@@ -2972,23 +2972,23 @@ class VargSliceExp : PrimaryExp
 	/**
 	The low index of the slice.
 	*/
-	public Expression loIndex;
+	Expression loIndex;
 	
 	/**
 	The high index of the slice.
 	*/
-	public Expression hiIndex;
+	Expression hiIndex;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression loIndex, Expression hiIndex)
 	{
 		super(c, location, endLocation, AstTag.VargSliceExp);
 		this.loIndex = loIndex;
 		this.hiIndex = hiIndex;
 	}
 
-	public override bool isMultRet()
+	override bool isMultRet()
 	{
 		return true;
 	}
@@ -3002,37 +3002,37 @@ class IntExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public crocint value;
+	crocint value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, crocint value)
+	this(ICompiler c, CompileLoc location, crocint value)
 	{
 		super(c, location, AstTag.IntExp);
 		this.value = value;
 	}
 
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return (value != 0);
 	}
 
-	public override bool isInt()
+	override bool isInt()
 	{
 		return true;
 	}
 
-	public override crocint asInt()
+	override crocint asInt()
 	{
 		return value;
 	}
 
-	public override crocfloat asFloat()
+	override crocfloat asFloat()
 	{
 		return cast(crocfloat)value;
 	}
@@ -3046,32 +3046,32 @@ class FloatExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public crocfloat value;
+	crocfloat value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, crocfloat value)
+	this(ICompiler c, CompileLoc location, crocfloat value)
 	{
 		super(c, location, AstTag.FloatExp);
 		this.value = value;
 	}
 
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return (value != 0.0);
 	}
 
-	public override bool isFloat()
+	override bool isFloat()
 	{
 		return true;
 	}
 
-	public override crocfloat asFloat()
+	override crocfloat asFloat()
 	{
 		return value;
 	}
@@ -3085,32 +3085,32 @@ class CharExp : PrimaryExp
 	/**
 	The actual character of the literal.
 	*/
-	public dchar value;
+	dchar value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, dchar value)
+	this(ICompiler c, CompileLoc location, dchar value)
 	{
 		super(c, location, AstTag.CharExp);
 		this.value = value;
 	}
 
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return (value != 0);
 	}
 
-	public override bool isChar()
+	override bool isChar()
 	{
 		return true;
 	}
 
-	public override dchar asChar()
+	override dchar asChar()
 	{
 		return value;
 	}
@@ -3124,32 +3124,32 @@ class StringExp : PrimaryExp
 	/**
 	The actual value of the literal.
 	*/
-	public char[] value;
+	char[] value;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, char[] value)
+	this(ICompiler c, CompileLoc location, char[] value)
 	{
 		super(c, location, AstTag.StringExp);
 		this.value = value;
 	}
 
-	public override bool isConstant()
+	override bool isConstant()
 	{
 		return true;
 	}
 
-	public override bool isTrue()
+	override bool isTrue()
 	{
 		return true;
 	}
 
-	public override bool isString()
+	override bool isString()
 	{
 		return true;
 	}
 
-	public override char[] asString()
+	override char[] asString()
 	{
 		return value;
 	}
@@ -3163,11 +3163,11 @@ class FuncLiteralExp : PrimaryExp
 	/**
 	The actual "guts" of the function.
 	*/
-	public FuncDef def;
+	FuncDef def;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, FuncDef def)
+	this(ICompiler c, CompileLoc location, FuncDef def)
 	{
 		super(c, location, def.endLocation, AstTag.FuncLiteralExp);
 		this.def = def;
@@ -3182,11 +3182,11 @@ class ClassLiteralExp : PrimaryExp
 	/**
 	The actual "guts" of the class.
 	*/
-	public ClassDef def;
+	ClassDef def;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, ClassDef def)
+	this(ICompiler c, CompileLoc location, ClassDef def)
 	{
 		super(c, location, def.endLocation, AstTag.ClassLiteralExp);
 		this.def = def;
@@ -3204,11 +3204,11 @@ class ParenExp : PrimaryExp
 	/**
 	The parenthesized expression.
 	*/
-	public Expression exp;
+	Expression exp;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp)
 	{
 		super(c, location, endLocation, AstTag.ParenExp);
 		this.exp = exp;
@@ -3229,11 +3229,11 @@ class TableCtorExp : PrimaryExp
 	/**
 	An array of fields. The first value in each element is the key; the second the value.
 	*/
-	public Field[] fields;
+	Field[] fields;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Field[] fields)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Field[] fields)
 	{
 		super(c, location, endLocation, AstTag.TableCtorExp);
 		this.fields = fields;
@@ -3253,13 +3253,13 @@ class ArrayCtorExp : PrimaryExp
 	/**
 	The list of values.
 	*/
-	public Expression[] values;
+	Expression[] values;
 
 	protected const uint maxFields = Instruction.MaxArrayFields;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] values)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] values)
 	{
 		super(c, location, endLocation, AstTag.ArrayCtorExp);
 		this.values = values;
@@ -3279,11 +3279,11 @@ class NamespaceCtorExp : PrimaryExp
 	/**
 	The actual "guts" of the namespace.
 	*/
-	public NamespaceDef def;
+	NamespaceDef def;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, NamespaceDef def)
+	this(ICompiler c, CompileLoc location, NamespaceDef def)
 	{
 		super(c, location, def.endLocation, AstTag.NamespaceCtorExp);
 		this.def = def;
@@ -3298,22 +3298,22 @@ class YieldExp : PrimaryExp
 	/**
 	The arguments inside the yield expression.
 	*/
-	public Expression[] args;
+	Expression[] args;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] args)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression[] args)
 	{
 		super(c, location, endLocation, AstTag.YieldExp);
 		this.args = args;
 	}
 
-	public bool hasSideEffects()
+	bool hasSideEffects()
 	{
 		return true;
 	}
 
-	public bool isMultRet()
+	bool isMultRet()
 	{
 		return true;
 	}
@@ -3333,16 +3333,16 @@ abstract class ForComprehension : AstNode
 	/**
 	Optional if comprehension that follows this. This member may be null.
 	*/
-	public IfComprehension ifComp;
+	IfComprehension ifComp;
 
 	/**
 	Optional for comprehension that follows this. This member may be null.
 	*/
-	public ForComprehension forComp;
+	ForComprehension forComp;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag tag)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, AstTag tag)
 	{
 		super(c, location, endLocation, tag);
 	}
@@ -3357,14 +3357,14 @@ class ForeachComprehension : ForComprehension
 	/**
 	These members are the same as for a ForeachStmt.
 	*/
-	public Identifier[] indices;
+	Identifier[] indices;
 	
 	/// ditto
-	public Expression[] container;
+	Expression[] container;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
+	this(ICompiler c, CompileLoc location, Identifier[] indices, Expression[] container, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -3400,20 +3400,20 @@ class ForNumComprehension : ForComprehension
 	/**
 	These members are the same as for a ForNumStmt.
 	*/
-	public Identifier index;
+	Identifier index;
 	
 	/// ditto
-	public Expression lo;
+	Expression lo;
 	
 	/// ditto
-	public Expression hi;
+	Expression hi;
 	
 	/// ditto
-	public Expression step;
+	Expression step;
 
 	/**
 	*/	
-	public this(ICompiler c, CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
+	this(ICompiler c, CompileLoc location, Identifier index, Expression lo, Expression hi, Expression step, IfComprehension ifComp, ForComprehension forComp)
 	{
 		if(ifComp)
 		{
@@ -3448,11 +3448,11 @@ class IfComprehension : AstNode
 	/**
 	The condition to test.
 	*/
-	public Expression condition;
+	Expression condition;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, Expression condition)
+	this(ICompiler c, CompileLoc location, Expression condition)
 	{
 		super(c, location, condition.endLocation, AstTag.IfComprehension);
 		this.condition = condition;
@@ -3468,16 +3468,16 @@ class ArrayComprehension : PrimaryExp
 	The expression which is executed as the innermost thing in the loop and whose values
 	are used to construct the array.
 	*/
-	public Expression exp;
+	Expression exp;
 
 	/**
 	The root of the comprehension tree.
 	*/
-	public ForComprehension forComp;
+	ForComprehension forComp;
 
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression exp, ForComprehension forComp)
 	{
 		super(c, location, endLocation, AstTag.ArrayComprehension);
 
@@ -3494,21 +3494,21 @@ class TableComprehension : PrimaryExp
 	/**
 	The key expression. This is the thing in the brackets at the beginning.
 	*/
-	public Expression key;
+	Expression key;
 
 	/**
 	The value expression. This is the thing after the equals sign at the beginning.
 	*/
-	public Expression value;
+	Expression value;
 	
 	/**
 	The root of the comprehension tree.
 	*/
-	public ForComprehension forComp;
+	ForComprehension forComp;
 	
 	/**
 	*/
-	public this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
+	this(ICompiler c, CompileLoc location, CompileLoc endLocation, Expression key, Expression value, ForComprehension forComp)
 	{
 		super(c, location, endLocation, AstTag.TableComprehension);
 

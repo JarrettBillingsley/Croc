@@ -99,18 +99,21 @@ scope class Compiler : ICompiler
 		AllDocs = All | DocDecorators
 	}
 
-	private CrocThread* t;
-	private	uint mFlags;
-	private bool mIsEof;
-	private bool mIsLoneStmt;
-	private bool mDanglingDoc;
-	private Lexer mLexer;
-	private Parser mParser;
-	private word mStringTab;
+private:
+	CrocThread* t;
+	uint mFlags;
+	bool mIsEof;
+	bool mIsLoneStmt;
+	bool mDanglingDoc;
+	Lexer mLexer;
+	Parser mParser;
+	word mStringTab;
 
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
+
+public:
 
 	/**
 	Constructs a compiler. The given thread will be used to hold temporary data structures,
@@ -122,7 +125,7 @@ scope class Compiler : ICompiler
 	Params:
 		t = The thread with which this compiler will be associated.
 	*/
-	public this(CrocThread* t)
+	this(CrocThread* t)
 	{
 		this.t = t;
 
@@ -151,7 +154,7 @@ scope class Compiler : ICompiler
 		flags = A bitwise or of any code-generation flags you want to use for this compiler.
 			Defaults to All.
 	*/
-	public this(CrocThread* t, uint flags)
+	this(CrocThread* t, uint flags)
 	{
 		this.t = t;
 		mFlags = flags;
@@ -178,7 +181,7 @@ scope class Compiler : ICompiler
 	the VM that owns the given thread. If this isn't set, compilers will default to using the
 	"All" flag.
 	*/
-	public static void setDefaultFlags(CrocThread* t, uint flags)
+	static void setDefaultFlags(CrocThread* t, uint flags)
 	{
 		auto reg = getRegistry(t);
 		pushString(t, "compiler.defaultFlags");
@@ -190,7 +193,7 @@ scope class Compiler : ICompiler
 	/**
 	Set the compiler's code-generation flags.
 	*/
-	public void setFlags(uint flags)
+	void setFlags(uint flags)
 	{
 		mFlags = flags;
 	}
@@ -198,7 +201,7 @@ scope class Compiler : ICompiler
 	/**
 	Returns whether or not code for asserts should be generated.
 	*/
-	public override bool asserts()
+	override bool asserts()
 	{
 		return (mFlags & Asserts) != 0;
 	}
@@ -206,7 +209,7 @@ scope class Compiler : ICompiler
 	/**
 	Returns whether or not code for parameter type constraint checking should be generated.
 	*/
-	public override bool typeConstraints()
+	override bool typeConstraints()
 	{
 		return (mFlags & TypeConstraints) != 0;
 	}
@@ -215,7 +218,7 @@ scope class Compiler : ICompiler
 	Returns whether or not documentation will be extracted from doc comments, but does not
 	say what will be done with it.
 	*/
-	public override bool docComments()
+	override bool docComments()
 	{
 		return (mFlags & (DocTable | DocDecorators)) != 0;
 	}
@@ -223,7 +226,7 @@ scope class Compiler : ICompiler
 	/**
 	Returns whether or not a documentation table will be left on the stack after compilation.
 	*/
-	public override bool docTable()
+	override bool docTable()
 	{
 		return (mFlags & DocTable) != 0;
 	}
@@ -231,7 +234,7 @@ scope class Compiler : ICompiler
 	/**
 	Returns whether or not decorators will be inserted into the code containing code documentation.
 	*/
-	public override bool docDecorators()
+	override bool docDecorators()
 	{
 		return (mFlags & DocDecorators) != 0;
 	}
@@ -257,7 +260,7 @@ catch(CrocException e)
 }
 -----
 	*/
-	public override bool isEof()
+	override bool isEof()
 	{
 		return mIsEof;
 	}
@@ -266,7 +269,7 @@ catch(CrocException e)
 	Returns whether or not the most recently-thrown exception was thrown due to a no-effect expression being used
 	as a statement (yes, this method has a horrible name). Its use is identical to isEof().
 	*/
-	public override bool isLoneStmt()
+	override bool isLoneStmt()
 	{
 		return mIsLoneStmt;
 	}
@@ -275,49 +278,49 @@ catch(CrocException e)
 	Returns whether or not there was a dangling documentation comment at the end of the last-compiled item (that is,
 	a documentation comment that was not attached to anything).
 	*/
-	public override bool isDanglingDoc()
+	override bool isDanglingDoc()
 	{
 		return mDanglingDoc;
 	}
 
-	public override void lexException(CompileLoc loc, char[] msg, ...)
+	override void lexException(CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, "LexicalException", msg, _arguments, _argptr);
 	}
 	
-	public override void synException(CompileLoc loc, char[] msg, ...)
+	override void synException(CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, "SyntaxException", msg, _arguments, _argptr);
 	}
 
-	public override void semException(CompileLoc loc, char[] msg, ...)
+	override void semException(CompileLoc loc, char[] msg, ...)
 	{
 		vexception(loc, "SemanticException", msg, _arguments, _argptr);
 	}
 
-	public override void eofException(CompileLoc loc, char[] msg, ...)
+	override void eofException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsEof = true;
 		vexception(loc, "LexicalException", msg, _arguments, _argptr);
 	}
 
-	public override void loneStmtException(CompileLoc loc, char[] msg, ...)
+	override void loneStmtException(CompileLoc loc, char[] msg, ...)
 	{
 		mIsLoneStmt = true;
 		vexception(loc, "SemanticException", msg, _arguments, _argptr);
 	}
 
-	public override CrocThread* thread()
+	override CrocThread* thread()
 	{
 		return t;
 	}
 
-	public override Allocator* alloc()
+	override Allocator* alloc()
 	{
 		return &t.vm.alloc;
 	}
 
-	public override char[] newString(char[] data)
+	override char[] newString(char[] data)
 	{
 		auto s = createString(t, data);
 		push(t, CrocValue(s));
@@ -343,7 +346,7 @@ catch(CrocException e)
 		of the module. The moduleName parameter holds the canonical name of the module given by the
 		module statement at the beginning of it.
 	*/
-	public word compileModule(char[] filename, out char[] moduleName)
+	word compileModule(char[] filename, out char[] moduleName)
 	{
 		scope file = new UnicodeFile!(char)(filename, Encoding.Unknown);
 		auto src = file.read();
@@ -367,7 +370,7 @@ catch(CrocException e)
 		of the module. The moduleName parameter holds the canonical name of the module given by the
 		module statement at the beginning of it.
 	*/
-	public word compileModule(char[] source, char[] name, out char[] moduleName)
+	word compileModule(char[] source, char[] name, out char[] moduleName)
 	{
 		return commonCompile(
 		{
@@ -404,7 +407,7 @@ catch(CrocException e)
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileStatements(char[] source, char[] name)
+	word compileStatements(char[] source, char[] name)
 	{
 		return commonCompile(
 		{
@@ -439,7 +442,7 @@ catch(CrocException e)
 	Returns:
 		The stack index of the newly-pushed function closure.
 	*/
-	public word compileExpression(char[] source, char[] name)
+	word compileExpression(char[] source, char[] name)
 	{
 		return commonCompile(
 		{
@@ -458,7 +461,9 @@ catch(CrocException e)
 // Private
 // ================================================================================================================================================
 
-	private void vexception(ref CompileLoc loc, char[] exType, char[] msg, TypeInfo[] arguments, va_list argptr)
+private:
+
+	void vexception(ref CompileLoc loc, char[] exType, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{
 		auto ex = getStdException(t, exType);
 		pushNull(t);
@@ -471,7 +476,7 @@ catch(CrocException e)
 		throwException(t);
 	}
 
-	private word commonCompile(void delegate() dg)
+	word commonCompile(void delegate() dg)
 	{
 		mStringTab = newTable(t);
 

@@ -37,8 +37,10 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+package:
+
 	// Create a new namespace object.
-	package CrocNamespace* create(ref Allocator alloc, CrocString* name, CrocNamespace* parent = null)
+	CrocNamespace* create(ref Allocator alloc, CrocString* name, CrocNamespace* parent = null)
 	{
 		assert(name !is null);
 
@@ -49,20 +51,20 @@ static:
 	}
 
 	// Free a namespace object.
-	package void free(ref Allocator alloc, CrocNamespace* ns)
+	void free(ref Allocator alloc, CrocNamespace* ns)
 	{
 		ns.data.clear(alloc);
 		alloc.free(ns);
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get(CrocNamespace* ns, CrocString* key)
+	CrocValue* get(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key);
 	}
 
 	// Sets a key-value pair.
-	package void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
+	void set(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
 		if(setIfExists(alloc, ns, key, value))
 			return;
@@ -73,7 +75,7 @@ static:
 		node.modified |= KeyModified | (value.isObject() ? ValModified : 0);
 	}
 
-	package bool setIfExists(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
+	bool setIfExists(ref Allocator alloc, CrocNamespace* ns, CrocString* key, CrocValue* value)
 	{
 		auto node = ns.data.lookupNode(key);
 
@@ -98,7 +100,7 @@ static:
 	}
 
 	// Remove a key-value pair from the namespace.
-	package void remove(ref Allocator alloc, CrocNamespace* ns, CrocString* key)
+	void remove(ref Allocator alloc, CrocNamespace* ns, CrocString* key)
 	{
 		if(auto node = ns.data.lookupNode(key))
 		{
@@ -109,7 +111,7 @@ static:
 	}
 
 	// Clears all items from the namespace.
-	package void clear(ref Allocator alloc, CrocNamespace* ns)
+	void clear(ref Allocator alloc, CrocNamespace* ns)
 	{
 		foreach(ref node; &ns.data.allNodes)
 		{
@@ -121,28 +123,28 @@ static:
 	}
 
 	// Returns `true` if the key exists in the table.
-	package bool contains(CrocNamespace* ns, CrocString* key)
+	bool contains(CrocNamespace* ns, CrocString* key)
 	{
 		return ns.data.lookup(key) !is null;
 	}
 
-	package bool next(CrocNamespace* ns, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	bool next(CrocNamespace* ns, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		return ns.data.next(idx, key, val);
 	}
 
-	package uword length(CrocNamespace* ns)
+	uword length(CrocNamespace* ns)
 	{
 		return ns.data.length();
 	}
 
-	package template removeKeyRef(char[] alloc, char[] slot)
+	template removeKeyRef(char[] alloc, char[] slot)
 	{
 		const char[] removeKeyRef =
 		"if(!(" ~ slot  ~ ".modified & KeyModified)) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", cast(GCObject*)" ~ slot  ~ ".key);";
 	}
 
-	package template removeValueRef(char[] alloc, char[] slot)
+	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
 		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";

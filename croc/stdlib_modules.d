@@ -44,7 +44,7 @@ static:
 	const Loading = "modules.loading";
 	const Prefixes = "modules.prefixes";
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		newTable(t); setRegistryVar(t, Loading);
 		newTable(t); setRegistryVar(t, Prefixes);
@@ -71,7 +71,7 @@ static:
 		newGlobal(t, "modules");
 	}
 
-	package uword load(CrocThread* t)
+	uword load(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -86,7 +86,7 @@ static:
 		return commonLoad(t, name);
 	}
 
-	package uword reload(CrocThread* t)
+	uword reload(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 
@@ -101,7 +101,7 @@ static:
 		return commonLoad(t, name);
 	}
 
-	package uword commonLoad(CrocThread* t, char[] name)
+	uword commonLoad(CrocThread* t, char[] name)
 	{
 		// Check to see if we're circularly importing
 		auto loading = getRegistryVar(t, Loading);
@@ -174,7 +174,7 @@ static:
 		assert(false);
 	}
 
-	package uword initModule(CrocThread* t)
+	uword initModule(CrocThread* t)
 	{
 		checkAnyParam(t, 1);
 
@@ -312,7 +312,7 @@ static:
 		return 0;
 	}
 
-	package uword customLoad(CrocThread* t)
+	uword customLoad(CrocThread* t)
 	{
 		checkStringParam(t, 1);
 		pushGlobal(t, "customLoaders");
@@ -325,7 +325,7 @@ static:
 		return 0;
 	}
 
-	package uword loadFiles(CrocThread* t)
+	uword loadFiles(CrocThread* t)
 	{
 		auto name = checkStringParam(t, 1);
 		auto pos = name.locatePrior('.');

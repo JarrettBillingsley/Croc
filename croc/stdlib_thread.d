@@ -35,7 +35,7 @@ import croc.vm;
 struct ThreadLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "thread", function uword(CrocThread* t)
 		{

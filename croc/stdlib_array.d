@@ -45,7 +45,7 @@ alias CrocDoc.Extra Extra;
 struct ArrayLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "array", function uword(CrocThread* t)
 		{

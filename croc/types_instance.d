@@ -41,7 +41,9 @@ static:
 	// Package
 	// ================================================================================================================================================
 
-	package CrocInstance* create(CrocVM* vm, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
+package:
+
+	CrocInstance* create(CrocVM* vm, CrocClass* parent, uword numValues = 0, uword extraBytes = 0)
 	{
 		CrocInstance* i;
 
@@ -58,13 +60,13 @@ static:
 		return i;
 	}
 
-	package CrocValue* getField(CrocInstance* i, CrocString* name)
+	CrocValue* getField(CrocInstance* i, CrocString* name)
 	{
 		CrocValue dummy;
 		return getField(i, name, dummy);
 	}
 
-	package CrocValue* getField(CrocInstance* i, CrocString* name, out CrocValue owner)
+	CrocValue* getField(CrocInstance* i, CrocString* name, out CrocValue owner)
 	{
 		if(i.fields !is null)
 		{
@@ -84,7 +86,7 @@ static:
 		return ret;
 	}
 
-	package void setField(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
+	void setField(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
 	{
 		if(i.fields is null)
 		{
@@ -95,7 +97,7 @@ static:
 		namespace.set(alloc, i.fields, name, value);
 	}
 
-	package bool setFieldIfExists(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
+	bool setFieldIfExists(ref Allocator alloc, CrocInstance* i, CrocString* name, CrocValue* value)
 	{
 		if(i.fields is null)
 			return false;
@@ -103,7 +105,7 @@ static:
 		return namespace.setIfExists(alloc, i.fields, name, value);
 	}
 
-	package void setExtraVal(ref Allocator alloc, CrocInstance* i, uword idx, CrocValue* value)
+	void setExtraVal(ref Allocator alloc, CrocInstance* i, uword idx, CrocValue* value)
 	{
 		auto dest = &i.extraValues()[idx];
 		
@@ -114,7 +116,7 @@ static:
 		}
 	}
 
-	package bool derivesFrom(CrocInstance* i, CrocClass* c)
+	bool derivesFrom(CrocInstance* i, CrocClass* c)
 	{
 		for(auto o = i.parent; o !is null; o = o.parent)
 			if(o is c)
@@ -123,7 +125,7 @@ static:
 		return false;
 	}
 
-	package CrocNamespace* fieldsOf(ref Allocator alloc, CrocInstance* i)
+	CrocNamespace* fieldsOf(ref Allocator alloc, CrocInstance* i)
 	{
 		if(i.fields is null)
 		{
@@ -134,7 +136,7 @@ static:
 		return i.fields;
 	}
 
-	package bool next(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
+	bool next(CrocInstance* i, ref uword idx, ref CrocString** key, ref CrocValue* val)
 	{
 		if(i.fields is null)
 			return false;
@@ -142,7 +144,7 @@ static:
 		return i.fields.data.next(idx, key, val);
 	}
 	
-	package uword InstanceSize(uword numValues, uword extraBytes)
+	uword InstanceSize(uword numValues, uword extraBytes)
 	{
 		return CrocInstance.sizeof + (numValues * CrocValue.sizeof) + extraBytes;
 	}

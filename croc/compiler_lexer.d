@@ -38,21 +38,21 @@ import croc.utils;
 
 struct Token
 {
-	public uint type;
+	uint type;
 
 	union
 	{
-		public bool boolValue;
-		public char[] stringValue;
-		public crocint intValue;
-		public crocfloat floatValue;
+		bool boolValue;
+		char[] stringValue;
+		crocint intValue;
+		crocfloat floatValue;
 	}
 
-	public CompileLoc loc;
-	public char[] preComment, postComment;
-	public uword startChar;
+	CompileLoc loc;
+	char[] preComment, postComment;
+	uword startChar;
 
-	public enum
+	enum
 	{
 		As,
 		Assert,
@@ -156,7 +156,7 @@ struct Token
 		EOF
 	}
 
-	public static const char[][] strings =
+	static const char[][] strings =
 	[
 		As: "as",
 		Assert: "assert",
@@ -260,7 +260,7 @@ struct Token
 		EOF: "<EOF>"
 	];
 
-	public static uint[char[]] stringToType;
+	static uint[char[]] stringToType;
 
 	static this()
 	{
@@ -270,7 +270,7 @@ struct Token
 		stringToType.rehash;
 	}
 
-	public bool isOpAssign()
+	bool isOpAssign()
 	{
 		switch(type)
 		{
@@ -294,7 +294,7 @@ struct Token
 		}
 	}
 
-	public char[] typeString()
+	char[] typeString()
 	{
 		return strings[type];
 	}
@@ -302,25 +302,27 @@ struct Token
 
 struct Lexer
 {
-	private ICompiler mCompiler;
-	private CompileLoc mLoc;
-	private char[] mSource;
+private:
+	ICompiler mCompiler;
+	CompileLoc mLoc;
+	char[] mSource;
 
-	private uword mPosition;
-	private dchar mCharacter;
-	private dchar mLookaheadCharacter;
-	private bool mHaveLookahead;
-	private bool mNewlineSinceLastTok;
-	private bool mTokSinceLastNewline;
+	uword mPosition;
+	dchar mCharacter;
+	dchar mLookaheadCharacter;
+	bool mHaveLookahead;
+	bool mNewlineSinceLastTok;
+	bool mTokSinceLastNewline;
 
-	private uword mCaptureStart;
-	private uword mCaptureEnd;
+	uword mCaptureStart;
+	uword mCaptureEnd;
 
-	private Token mTok;
-	private Token mPeekTok;
-	private bool mHavePeekTok;
+	Token mTok;
+	Token mPeekTok;
+	bool mHavePeekTok;
 
-	package static Lexer opCall(ICompiler compiler)
+package:
+	static Lexer opCall(ICompiler compiler)
 	{
 		Lexer ret;
 		ret.mCompiler = compiler;
@@ -331,7 +333,9 @@ struct Lexer
 // Public
 // ================================================================================================================================================
 
-	public void begin(char[] name, char[] source)
+public:
+
+	void begin(char[] name, char[] source)
 	{
 		mLoc = CompileLoc(name, 1, 0);
 		mSource = source;
@@ -350,22 +354,22 @@ struct Lexer
 		next();
 	}
 
-	public Token* tok()
+	Token* tok()
 	{
 		return &mTok;
 	}
 
-	public CompileLoc loc()
+	CompileLoc loc()
 	{
 		return mTok.loc;
 	}
 
-	public uint type()
+	uint type()
 	{
 		return mTok.type;
 	}
 
-	public Token expect(uint t)
+	Token expect(uint t)
 	{
 		if(mTok.type != t)
 			expected(Token.strings[t]);
@@ -378,13 +382,13 @@ struct Lexer
 		return ret;
 	}
 
-	public void expected(char[] message)
+	void expected(char[] message)
 	{
 		auto dg = (type == Token.EOF) ? &mCompiler.eofException : &mCompiler.synException;
 		dg(mTok.loc, "'{}' expected; found '{}' instead", message, Token.strings[mTok.type]);
 	}
 
-	public bool isStatementTerm()
+	bool isStatementTerm()
 	{
 		return mNewlineSinceLastTok ||
 			mTok.type == Token.EOF ||
@@ -394,7 +398,7 @@ struct Lexer
 			mTok.type == Token.RBracket;
 	}
 
-	public void statementTerm()
+	void statementTerm()
 	{
 		if(mNewlineSinceLastTok)
 			return;
@@ -406,7 +410,7 @@ struct Lexer
 			mCompiler.synException(mLoc, "Statement terminator expected, not '{}'", Token.strings[mTok.type]);
 	}
 
-	public Token peek()
+	Token peek()
 	{
 		if(!mHavePeekTok)
 		{
@@ -420,7 +424,7 @@ struct Lexer
 		return mPeekTok;
 	}
 
-	public void next()
+	void next()
 	{
 		if(mHavePeekTok)
 		{
@@ -431,13 +435,13 @@ struct Lexer
 			nextToken();
 	}
 
-	public uword beginCapture()
+	uword beginCapture()
 	{
 		mCaptureEnd = mTok.startChar;
 		return mCaptureEnd;
 	}
 
-	public char[] endCapture(uword captureStart)
+	char[] endCapture(uword captureStart)
 	{
 		return mCompiler.newString(mSource[captureStart .. mCaptureEnd].trim());
 	}
@@ -446,49 +450,51 @@ struct Lexer
 // Private
 // ================================================================================================================================================
 
-	private bool isEOF()
+private:
+
+	bool isEOF()
 	{
 		return (mCharacter == '\0') || (mCharacter == dchar.init);
 	}
 
-	private bool isEOL()
+	bool isEOL()
 	{
 		return isNewline() || isEOF();
 	}
 
-	private bool isWhitespace()
+	bool isWhitespace()
 	{
 		return (mCharacter == ' ') || (mCharacter == '\t') || (mCharacter == '\v') || (mCharacter == '\u000C') || isEOL();
 	}
 
-	private bool isNewline()
+	bool isNewline()
 	{
 		return (mCharacter == '\r') || (mCharacter == '\n');
 	}
 
-	private bool isBinaryDigit()
+	bool isBinaryDigit()
 	{
 		return (mCharacter == '0') || (mCharacter == '1');
 	}
 
-	private bool isHexDigit()
+	bool isHexDigit()
 	{
 		return ((mCharacter >= '0') && (mCharacter <= '9')) ||
 			((mCharacter >= 'a') && (mCharacter <= 'f')) ||
 			((mCharacter >= 'A') && (mCharacter <= 'F'));
 	}
 
-	private bool isDecimalDigit()
+	bool isDecimalDigit()
 	{
 		return (mCharacter >= '0') && (mCharacter <= '9');
 	}
 
-	private bool isAlpha()
+	bool isAlpha()
 	{
 		return ((mCharacter >= 'a') && (mCharacter <= 'z')) || ((mCharacter >= 'A') && (mCharacter <= 'Z'));
 	}
 
-	private ubyte hexDigitToInt(dchar c)
+	ubyte hexDigitToInt(dchar c)
 	{
 		assert((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'), "hexDigitToInt");
 
@@ -501,7 +507,7 @@ struct Lexer
 			return cast(ubyte)(c - 'a' + 10);
 	}
 
-	private dchar readChar()
+	dchar readChar()
 	{
 		if(mPosition >= mSource.length)
 			return dchar.init;
@@ -514,7 +520,7 @@ struct Lexer
 		}
 	}
 
-	private dchar lookaheadChar()
+	dchar lookaheadChar()
 	{
 		assert(!mHaveLookahead, "looking ahead too far");
 
@@ -523,7 +529,7 @@ struct Lexer
 		return mLookaheadCharacter;
 	}
 
-	private void nextChar()
+	void nextChar()
 	{
 		mLoc.col++;
 
@@ -538,7 +544,7 @@ struct Lexer
 		}
 	}
 
-	private void nextLine(bool readMultiple = true)
+	void nextLine(bool readMultiple = true)
 	{
 		while(isNewline() && !isEOF())
 		{
@@ -558,7 +564,7 @@ struct Lexer
 	}
 
 	// This expects the input string to consist entirely of digits within the valid range of radix
-	private bool convertInt(dchar[] str, out crocint ret, uint radix)
+	bool convertInt(dchar[] str, out crocint ret, uint radix)
 	{
 		ret = 0;
 
@@ -588,7 +594,7 @@ struct Lexer
 		return true;
 	}
 
-	private bool convertUInt(dchar[] str, out crocint ret, uint radix)
+	bool convertUInt(dchar[] str, out crocint ret, uint radix)
 	{
 		ret = 0;
 		
@@ -626,7 +632,7 @@ struct Lexer
 		return true;
 	}
 
-	private bool readNumLiteral(bool prependPoint, out crocfloat fret, out crocint iret)
+	bool readNumLiteral(bool prependPoint, out crocfloat fret, out crocint iret)
 	{
 		auto beginning = mLoc;
 		dchar[128] buf;
@@ -804,7 +810,7 @@ struct Lexer
 		}
 	}
 
-	private dchar readEscapeSequence(CompileLoc beginning)
+	dchar readEscapeSequence(CompileLoc beginning)
 	{
 		uint readHexDigits(uint num)
 		{
@@ -905,7 +911,7 @@ struct Lexer
 		return ret;
 	}
 
-	private char[] readStringLiteral(bool escape)
+	char[] readStringLiteral(bool escape)
 	{
 		auto beginning = mLoc;
 
@@ -974,7 +980,7 @@ struct Lexer
 		return mCompiler.newString(arr);
 	}
 
-	private dchar readCharLiteral()
+	dchar readCharLiteral()
 	{
 		auto beginning = mLoc;
 		dchar ret;
@@ -1005,7 +1011,7 @@ struct Lexer
 		return ret;
 	}
 	
-	private void addComment(char[] str)
+	void addComment(char[] str)
 	{
 		void derp(ref char[] existing)
 		{
@@ -1028,7 +1034,7 @@ struct Lexer
 			derp(mTok.preComment);
 	}
 
-	private void readLineComment()
+	void readLineComment()
 	{
 		if(mCompiler.docComments && mCharacter == '/')
 		{
@@ -1062,7 +1068,7 @@ struct Lexer
 		}
 	}
 	
-	private void readBlockComment()
+	void readBlockComment()
 	{
 		if(mCompiler.docComments && mCharacter == '*')
 		{
@@ -1205,7 +1211,7 @@ struct Lexer
 		}
 	}
 
-	private void nextToken()
+	void nextToken()
 	{
 		mNewlineSinceLastTok = false;
 		mTok.preComment = null;

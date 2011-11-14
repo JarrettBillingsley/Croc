@@ -37,8 +37,10 @@ static:
 	// Package
 	// ================================================================================================================================================
 
+package:
+
 	// Create a new table object with `size` slots preallocated in it.
-	package CrocTable* create(ref Allocator alloc, uword size = 0)
+	CrocTable* create(ref Allocator alloc, uword size = 0)
 	{
 		auto t = alloc.allocate!(CrocTable);
 		t.data.prealloc(alloc, size);
@@ -46,19 +48,19 @@ static:
 	}
 
 	// Free a table object.
-	package void free(ref Allocator alloc, CrocTable* t)
+	void free(ref Allocator alloc, CrocTable* t)
 	{
 		t.data.clear(alloc);
 		alloc.free(t);
 	}
 
 	// Get a pointer to the value of a key-value pair, or null if it doesn't exist.
-	package CrocValue* get(CrocTable* t, CrocValue key)
+	CrocValue* get(CrocTable* t, CrocValue key)
 	{
 		return t.data.lookup(key);
 	}
 	
-	package void idxa(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue val)
+	void idxa(ref Allocator alloc, CrocTable* t, ref CrocValue key, ref CrocValue val)
 	{
 		auto node = t.data.lookupNode(key);
 
@@ -103,7 +105,7 @@ static:
 	}
 
 	// remove all key-value pairs from the table.
-	package void clear(ref Allocator alloc, CrocTable* t)
+	void clear(ref Allocator alloc, CrocTable* t)
 	{
 		foreach(ref node; &t.data.allNodes)
 		{
@@ -115,29 +117,29 @@ static:
 	}
 
 	// Returns `true` if the key exists in the table.
-	package bool contains(CrocTable* t, ref CrocValue key)
+	bool contains(CrocTable* t, ref CrocValue key)
 	{
 		return t.data.lookup(key) !is null;
 	}
 
 	// Get the number of key-value pairs in the table.
-	package uword length(CrocTable* t)
+	uword length(CrocTable* t)
 	{
 		return t.data.length();
 	}
 
-	package bool next(CrocTable* t, ref size_t idx, ref CrocValue* key, ref CrocValue* val)
+	bool next(CrocTable* t, ref size_t idx, ref CrocValue* key, ref CrocValue* val)
 	{
 		return t.data.next(idx, key, val);
 	}
 
-	package template removeKeyRef(char[] alloc, char[] slot)
+	template removeKeyRef(char[] alloc, char[] slot)
 	{
 		const char[] removeKeyRef =
 		"if(!(" ~ slot  ~ ".modified & KeyModified) && " ~ slot  ~ ".key.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".key.toGCObject());";
 	}
 
-	package template removeValueRef(char[] alloc, char[] slot)
+	template removeValueRef(char[] alloc, char[] slot)
 	{
 		const char[] removeValueRef =
 		"if(!(" ~ slot  ~ ".modified & ValModified) && " ~ slot  ~ ".value.isObject()) " ~ alloc ~ ".decBuffer.add(" ~ alloc ~ ", " ~ slot  ~ ".value.toGCObject());";

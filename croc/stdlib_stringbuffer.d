@@ -93,7 +93,7 @@ static:
 		newGlobal(t, "StringBuffer");
 	}
 
-	private CrocMemblock* getThis(CrocThread* t)
+	CrocMemblock* getThis(CrocThread* t)
 	{
 		checkInstParam(t, 0, "StringBuffer");
 		getExtraVal(t, 0, Data);
@@ -106,7 +106,7 @@ static:
 		return ret;
 	}
 
-	private CrocMemblock* getData(CrocThread* t, word idx)
+	CrocMemblock* getData(CrocThread* t, word idx)
 	{
 		getExtraVal(t, idx, Data);
 
@@ -118,7 +118,7 @@ static:
 		return ret;
 	}
 
-	private uword getLength(CrocThread* t, word idx = 0)
+	uword getLength(CrocThread* t, word idx = 0)
 	{
 		getExtraVal(t, idx, Length);
 		auto ret = cast(uword)getInt(t, -1);
@@ -126,7 +126,7 @@ static:
 		return ret;
 	}
 
-	private void setLength(CrocThread* t, uword l, word idx = 0)
+	void setLength(CrocThread* t, uword l, word idx = 0)
 	{
 		idx = absIndex(t, idx);
 		pushInt(t, cast(crocint)l);

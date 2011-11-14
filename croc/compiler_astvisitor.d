@@ -95,13 +95,15 @@ abstract class Visitor
 	mixin(generateDispatchTable());
 	static assert(dispatchTable.length == AstTagNames.length, "vtable length doesn't match number of AST tags");
 
-	protected ICompiler c;
+protected:
+	ICompiler c;
 
+public:
 	/**
 	Construct a new instance of Visitor. Each visitor is associated with a compiler. The compiler is used
 	to allocate AST nodes and to throw errors.
 	*/
-	public this(ICompiler c)
+	this(ICompiler c)
 	{
 		this.c = c;
 	}
@@ -109,7 +111,7 @@ abstract class Visitor
 	/**
 	Visit a statement node.
 	*/
-	public final Statement visit(Statement n)
+	final Statement visit(Statement n)
 	{
 		return visitS(n);
 	}
@@ -117,7 +119,7 @@ abstract class Visitor
 	/**
 	Visit an expression node.
 	*/
-	public final Expression visit(Expression n)
+	final Expression visit(Expression n)
 	{
 		return visitE(n);
 	}
@@ -125,32 +127,33 @@ abstract class Visitor
 	/**
 	Visit some other kind of node.
 	*/
-	public final AstNode visit(AstNode n)
+	final AstNode visit(AstNode n)
 	{
 		return visitN(n);
 	}
 
-	public final Statement visitS(Statement n)
+	final Statement visitS(Statement n)
 	{
 		return cast(Statement)cast(void*)dispatch(n);
 	}
 
-	public final Expression visitE(Expression n)
+	final Expression visitE(Expression n)
 	{
 		return cast(Expression)cast(void*)dispatch(n);
 	}
 
-	public final AstNode visitN(AstNode n)
+	final AstNode visitN(AstNode n)
 	{
 		return dispatch(n);
 	}
 
-	protected final AstNode function(Visitor, AstNode) getDispatchFunction(AstNode n)
+protected:
+	final AstNode function(Visitor, AstNode) getDispatchFunction(AstNode n)
 	{
 		return cast(AstNode function(Visitor, AstNode))dispatchTable[n.type];
 	}
 
-	protected final AstNode dispatch(AstNode n)
+	final AstNode dispatch(AstNode n)
 	{
 		return getDispatchFunction(n)(this, n);
 	}
@@ -175,8 +178,8 @@ do anything.
 abstract class IdentityVisitor : Visitor
 {
 	mixin(generateIdentityVisitMethods());
-	
-	public this(ICompiler c)
+
+	this(ICompiler c)
 	{
 		super(c);
 	}

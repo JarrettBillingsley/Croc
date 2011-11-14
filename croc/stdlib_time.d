@@ -43,8 +43,9 @@ import croc.utils;
 
 version(Windows)
 {
-	private extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
-	private extern(Windows) int QueryPerformanceCounter(ulong* count);
+private:
+	extern(Windows) int QueryPerformanceFrequency(ulong* frequency);
+	extern(Windows) int QueryPerformanceCounter(ulong* count);
 }
 else version(Posix)
 {
@@ -67,7 +68,7 @@ static:
 		}
 	}
 
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "time", function uword(CrocThread* t)
 		{
@@ -301,8 +302,8 @@ static:
 	static:
 		align(1) struct Members
 		{
-			protected StopWatch mWatch;
-			protected crocfloat mTime = 0;
+			StopWatch mWatch;
+			crocfloat mTime = 0;
 		}
 
 		void init(CrocThread* t)
@@ -322,7 +323,7 @@ static:
 			newGlobal(t, "Timer");
 		}
 
-		private Members* getThis(CrocThread* t)
+		Members* getThis(CrocThread* t)
 		{
 			return checkInstParam!(Members)(t, 0, "Timer");
 		}

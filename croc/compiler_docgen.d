@@ -37,13 +37,15 @@ import croc.types;
 
 scope class DocGen : IdentityVisitor
 {
-	private word[] mChildIndices;
-	private word[] mDocTables;
-	private CrocThread* t;
-	private word mDocTable;
-	private int mDittoDepth;
+private:
+	word[] mChildIndices;
+	word[] mDocTables;
+	CrocThread* t;
+	word mDocTable;
+	int mDittoDepth;
 
-	public this(ICompiler c)
+public:
+	this(ICompiler c)
 	{
 		super(c);
 		t = c.thread;
@@ -55,7 +57,253 @@ scope class DocGen : IdentityVisitor
 		c.alloc.freeArray(mDocTables);
 	}
 
-	private void pushDocTable(ref CompileLoc loc, char[] kind, char[] name, char[] docs)
+	override Module visit(Module m)
+	{
+		assert(m.statements.as!(BlockStmt) !is null);
+
+		foreach(i, n; m.names)
+		{
+			if(i > 0)
+				pushChar(t, '.');
+			pushString(t, n);
+		}
+
+		cat(t, (m.names.length * 2) - 1);
+		auto name = c.newString(getString(t, -1));
+		pop(t);
+
+		pushDocTable(m.location, "module", name, m.docs ? m.docs : "\n");
+
+		auto b = m.statements.as!(BlockStmt);
+
+		foreach(ref s; b.statements)
+			s = visitS(s);
+			
+		if(c.docDecorators)
+		{
+			// create a "local __doctable = { ... }" as the first statement
+			scope names = new List!(Identifier)(c.alloc);
+			names ~= doctableIdent(m.location);
+			scope inits = new List!(Expression)(c.alloc);
+			inits ~= docTableToAST(m.location);
+
+			scope stmts = new List!(Statement)(c.alloc);
+			stmts ~= new(c) VarDecl(c, m.location, m.location, Protection.Local, names.toArray(), inits.toArray());
+			stmts ~= b.statements;
+			auto oldStmts = b.statements;
+			b.statements = stmts.toArray();
+			c.alloc.freeArray(oldStmts);
+
+			// put a decorator on the module
+			m.decorator = makeDeco(m.location, m.decorator, false);
+		}
+
+		// leave the doc table on the stack -- it's up to the compiler to decide whether or not to drop it
+		return m;
+	}
+
+	FuncDef visitStatements(FuncDef d)
+	{
+		pushDocTable(d.location, "module", d.name.name, "\n");
+
+		auto b = d.code.as!(BlockStmt);
+		assert(b !is null);
+
+		foreach(ref s; b.statements)
+			s = visitS(s);
+
+		if(c.docDecorators)
+		{
+			// create a "local __doctable = { ... }" as the first statement
+			scope names = new List!(Identifier)(c.alloc);
+			names ~= doctableIdent(d.location);
+			scope inits = new List!(Expression)(c.alloc);
+			inits ~= docTableToAST(d.location);
+
+			scope stmts = new List!(Statement)(c.alloc);
+			stmts ~= new(c) VarDecl(c, d.location, d.location, Protection.Local, names.toArray(), inits.toArray());
+			stmts ~= b.statements;
+			auto oldStmts = b.statements;
+			b.statements = stmts.toArray();
+			c.alloc.freeArray(oldStmts);
+		}
+
+		return d;
+	}
+
+	override FuncDecl visit(FuncDecl d)
+	{
+		if(d.def.docs.length == 0)
+			return d;
+
+		d.def = visit(d.def);
+		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
+		return d;
+	}
+
+	override FuncDef visit(FuncDef d)
+	{
+		if(d.docs.length == 0)
+			return d;
+
+		pushDocTable(d.location, "function", d.name.name, d.docs);
+
+		foreach(i, ref p; d.params)
+		{
+			// Skip "this" unless it has a nontrivial typemask
+			if(i == 0 && p.typeMask == FuncDef.TypeMask.Any)
+				continue;
+
+			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
+			// these are technically "int|null"
+			pushDocTable(d.location, "parameter", p.name.name, "\n");
+			
+			pushString(t, p.typeString ? p.typeString : "any");
+			fielda(t, mDocTable, "type");
+
+			if(p.valueString)
+			{
+				pushString(t, p.valueString);
+				fielda(t, mDocTable, "value");
+			}
+
+			popDocTable("params");
+		}
+
+		if(d.isVararg)
+		{
+			pushDocTable(d.location, "parameter", "vararg", "\n");
+			pushString(t, "vararg");
+			fielda(t, mDocTable, "type");
+			popDocTable("params");
+		}
+
+		popDocTable();
+		return d;
+	}
+
+	override ClassDecl visit(ClassDecl d)
+	{
+		if(d.def.docs.length == 0)
+			return d;
+
+		d.def = visit(d.def);
+		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
+		return d;
+	}
+
+	override ClassDef visit(ClassDef d)
+	{
+		if(d.docs.length == 0)
+			return d;
+
+		pushDocTable(d.location, "class", d.name.name, d.docs);
+
+		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
+
+		if(!base || base.name.name != "Object")
+		{
+			pushString(t, d.baseClass.sourceStr);
+			fielda(t, mDocTable, "base");
+		}
+
+		doFields(d.fields);
+		popDocTable();
+		return d;
+	}
+
+	override NamespaceDecl visit(NamespaceDecl d)
+	{
+		if(d.def.docs.length == 0)
+			return d;
+
+		d.def = visit(d.def);
+		doProtection(d.protection);
+
+		if(c.docDecorators)
+			d.decorator = makeDeco(d.location, d.decorator);
+
+		return d;
+	}
+
+	override NamespaceDef visit(NamespaceDef d)
+	{
+		if(d.docs.length == 0)
+			return d;
+
+		pushDocTable(d.location, "namespace", d.name.name, d.docs);
+
+		if(d.parent)
+		{
+			pushString(t, d.parent.sourceStr);
+			fielda(t, mDocTable, "base");
+		}
+
+		doFields(d.fields);
+		popDocTable();
+		return d;
+	}
+	
+	override VarDecl visit(VarDecl d)
+	{
+		if(d.docs.length == 0)
+			return d;
+			
+		void makeTable(uword idx)
+		{
+			pushDocTable(d.location, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
+
+			if(idx < d.initializer.length)
+			{
+				pushString(t, d.initializer[idx].sourceStr);
+				fielda(t, mDocTable, "value");
+			}
+			
+			if(d.protection == Protection.Local)
+				pushString(t, "local");
+			else
+				pushString(t, "global"); // covers "default" protection as well, since we're only dealing with globals
+
+			fielda(t, -2, "protection");
+			popDocTable();
+		}
+
+		for(uword i = 0; i < d.names.length; i++)
+			makeTable(i);
+
+		return d;
+	}
+
+	override ScopeStmt visit(ScopeStmt s)
+	{
+		s.statement = visitS(s.statement);
+		return s;
+	}
+
+	override BlockStmt visit(BlockStmt s)
+	{
+		foreach(ref stmt; s.statements)
+			stmt = visitS(stmt);
+
+		return s;
+	}
+
+	override FuncLiteralExp visit(FuncLiteralExp e)
+	{
+		e.def = visit(e.def);
+		return e;
+	}
+	
+private:
+	void pushDocTable(ref CompileLoc loc, char[] kind, char[] name, char[] docs)
 	{
 		if(mDittoDepth > 0)
 		{
@@ -135,7 +383,7 @@ scope class DocGen : IdentityVisitor
 		}
 	}
 
-	private void popDocTable(char[] parentField = "children")
+	void popDocTable(char[] parentField = "children")
 	{
 		bool wasDitto = false;
 
@@ -179,7 +427,7 @@ scope class DocGen : IdentityVisitor
 		mDocTable = mDocTables[$ - 1];
 	}
 
-	private void ensureChildren(char[] parentField = "children")
+	void ensureChildren(char[] parentField = "children")
 	{
 		pushString(t, parentField);
 
@@ -192,14 +440,14 @@ scope class DocGen : IdentityVisitor
 			pop(t);
 	}
 
-	private void unpopTable()
+	void unpopTable()
 	{
 		field(t, mDocTable, "children");
 		idxi(t, -1, -1);
 		insertAndPop(t, -2);
 	}
 
-	private void doProtection(Protection p)
+	void doProtection(Protection p)
 	{
 		unpopTable();
 
@@ -212,7 +460,7 @@ scope class DocGen : IdentityVisitor
 		pop(t);
 	}
 
-	private void doFields(T)(T[] fields)
+	void doFields(T)(T[] fields)
 	{
 		foreach(ref f; fields)
 		{
@@ -242,7 +490,7 @@ scope class DocGen : IdentityVisitor
 		}
 	}
 
-	private Expression docTableToAST(CompileLoc loc)
+	Expression docTableToAST(CompileLoc loc)
 	{
 		// just has to handle tables, arrays, strings, and ints
 		Expression derp(word slot)
@@ -327,250 +575,5 @@ scope class DocGen : IdentityVisitor
 		args ~= new(c) IntExp(c, init.location, mChildIndices[$ - 1] - 1);
 
 		return new(c) CallExp(c, init.endLocation, f, null, args.toArray());
-	}
-
-	public override Module visit(Module m)
-	{
-		assert(m.statements.as!(BlockStmt) !is null);
-
-		foreach(i, n; m.names)
-		{
-			if(i > 0)
-				pushChar(t, '.');
-			pushString(t, n);
-		}
-
-		cat(t, (m.names.length * 2) - 1);
-		auto name = c.newString(getString(t, -1));
-		pop(t);
-
-		pushDocTable(m.location, "module", name, m.docs ? m.docs : "\n");
-
-		auto b = m.statements.as!(BlockStmt);
-
-		foreach(ref s; b.statements)
-			s = visitS(s);
-			
-		if(c.docDecorators)
-		{
-			// create a "local __doctable = { ... }" as the first statement
-			scope names = new List!(Identifier)(c.alloc);
-			names ~= doctableIdent(m.location);
-			scope inits = new List!(Expression)(c.alloc);
-			inits ~= docTableToAST(m.location);
-
-			scope stmts = new List!(Statement)(c.alloc);
-			stmts ~= new(c) VarDecl(c, m.location, m.location, Protection.Local, names.toArray(), inits.toArray());
-			stmts ~= b.statements;
-			auto oldStmts = b.statements;
-			b.statements = stmts.toArray();
-			c.alloc.freeArray(oldStmts);
-
-			// put a decorator on the module
-			m.decorator = makeDeco(m.location, m.decorator, false);
-		}
-
-		// leave the doc table on the stack -- it's up to the compiler to decide whether or not to drop it
-		return m;
-	}
-
-	public FuncDef visitStatements(FuncDef d)
-	{
-		pushDocTable(d.location, "module", d.name.name, "\n");
-
-		auto b = d.code.as!(BlockStmt);
-		assert(b !is null);
-
-		foreach(ref s; b.statements)
-			s = visitS(s);
-
-		if(c.docDecorators)
-		{
-			// create a "local __doctable = { ... }" as the first statement
-			scope names = new List!(Identifier)(c.alloc);
-			names ~= doctableIdent(d.location);
-			scope inits = new List!(Expression)(c.alloc);
-			inits ~= docTableToAST(d.location);
-
-			scope stmts = new List!(Statement)(c.alloc);
-			stmts ~= new(c) VarDecl(c, d.location, d.location, Protection.Local, names.toArray(), inits.toArray());
-			stmts ~= b.statements;
-			auto oldStmts = b.statements;
-			b.statements = stmts.toArray();
-			c.alloc.freeArray(oldStmts);
-		}
-
-		return d;
-	}
-
-	public override FuncDecl visit(FuncDecl d)
-	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
-		doProtection(d.protection);
-
-		if(c.docDecorators)
-			d.decorator = makeDeco(d.location, d.decorator);
-
-		return d;
-	}
-
-	public override FuncDef visit(FuncDef d)
-	{
-		if(d.docs.length == 0)
-			return d;
-
-		pushDocTable(d.location, "function", d.name.name, d.docs);
-
-		foreach(i, ref p; d.params)
-		{
-			// Skip "this" unless it has a nontrivial typemask
-			if(i == 0 && p.typeMask == FuncDef.TypeMask.Any)
-				continue;
-
-			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
-			// these are technically "int|null"
-			pushDocTable(d.location, "parameter", p.name.name, "\n");
-			
-			pushString(t, p.typeString ? p.typeString : "any");
-			fielda(t, mDocTable, "type");
-
-			if(p.valueString)
-			{
-				pushString(t, p.valueString);
-				fielda(t, mDocTable, "value");
-			}
-
-			popDocTable("params");
-		}
-
-		if(d.isVararg)
-		{
-			pushDocTable(d.location, "parameter", "vararg", "\n");
-			pushString(t, "vararg");
-			fielda(t, mDocTable, "type");
-			popDocTable("params");
-		}
-
-		popDocTable();
-		return d;
-	}
-
-	public override ClassDecl visit(ClassDecl d)
-	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
-		doProtection(d.protection);
-
-		if(c.docDecorators)
-			d.decorator = makeDeco(d.location, d.decorator);
-
-		return d;
-	}
-
-	public override ClassDef visit(ClassDef d)
-	{
-		if(d.docs.length == 0)
-			return d;
-
-		pushDocTable(d.location, "class", d.name.name, d.docs);
-
-		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
-
-		if(!base || base.name.name != "Object")
-		{
-			pushString(t, d.baseClass.sourceStr);
-			fielda(t, mDocTable, "base");
-		}
-
-		doFields(d.fields);
-		popDocTable();
-		return d;
-	}
-
-	public override NamespaceDecl visit(NamespaceDecl d)
-	{
-		if(d.def.docs.length == 0)
-			return d;
-
-		d.def = visit(d.def);
-		doProtection(d.protection);
-
-		if(c.docDecorators)
-			d.decorator = makeDeco(d.location, d.decorator);
-
-		return d;
-	}
-
-	public override NamespaceDef visit(NamespaceDef d)
-	{
-		if(d.docs.length == 0)
-			return d;
-
-		pushDocTable(d.location, "namespace", d.name.name, d.docs);
-
-		if(d.parent)
-		{
-			pushString(t, d.parent.sourceStr);
-			fielda(t, mDocTable, "base");
-		}
-
-		doFields(d.fields);
-		popDocTable();
-		return d;
-	}
-	
-	public override VarDecl visit(VarDecl d)
-	{
-		if(d.docs.length == 0)
-			return d;
-			
-		void makeTable(uword idx)
-		{
-			pushDocTable(d.location, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
-
-			if(idx < d.initializer.length)
-			{
-				pushString(t, d.initializer[idx].sourceStr);
-				fielda(t, mDocTable, "value");
-			}
-			
-			if(d.protection == Protection.Local)
-				pushString(t, "local");
-			else
-				pushString(t, "global"); // covers "default" protection as well, since we're only dealing with globals
-
-			fielda(t, -2, "protection");
-			popDocTable();
-		}
-
-		for(uword i = 0; i < d.names.length; i++)
-			makeTable(i);
-
-		return d;
-	}
-
-	public override ScopeStmt visit(ScopeStmt s)
-	{
-		s.statement = visitS(s.statement);
-		return s;
-	}
-
-	public override BlockStmt visit(BlockStmt s)
-	{
-		foreach(ref stmt; s.statements)
-			stmt = visitS(stmt);
-
-		return s;
-	}
-
-	public override FuncLiteralExp visit(FuncLiteralExp e)
-	{
-		e.def = visit(e.def);
-		return e;
 	}
 }

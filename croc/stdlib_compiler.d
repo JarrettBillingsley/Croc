@@ -35,7 +35,7 @@ import croc.types;
 struct CompilerLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "compiler", function uword(CrocThread* t)
 		{

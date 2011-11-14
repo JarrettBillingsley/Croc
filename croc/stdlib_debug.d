@@ -41,7 +41,7 @@ debug import tango.io.Stdout;
 struct DebugLib
 {
 static:
-	public void init(CrocThread* t)
+	void init(CrocThread* t)
 	{
 		makeModule(t, "debug", function uword(CrocThread* t)
 		{

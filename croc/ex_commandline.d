@@ -72,9 +72,11 @@ version(CrocReadline)
 	// It's a singleton since there's only one stdin..!
 	class ReadlineStream : InputBuffer
 	{
-		private static ReadlineStream _instance;
+	private:
+		static ReadlineStream _instance;
 
-		public static ReadlineStream instance()
+	public:
+		static ReadlineStream instance()
 		{
 			return _instance;
 		}
@@ -86,23 +88,25 @@ version(CrocReadline)
 		}
 
 		// nonstatic
-		private char* mPrompt;
-		private char[] mBuffer;
-		private bool mFirstCall = true;
+	private:
+		char* mPrompt;
+		char[] mBuffer;
+		bool mFirstCall = true;
 
-		private this()
+		this()
 		{
 			if(_instance !is null)
 				throw new Exception("Attempting to create more than one instance of ReadlineStream");
 		}
-
-		public size_t readln(ref char[] dst)
+		
+	public:
+		size_t readln(ref char[] dst)
 		{
 			dst = cast(char[])load();
 			return dst.length;
 		}
 
-		public void maxHistory(int max)
+		void maxHistory(int max)
 		{
 			if(max == -1)
 				unstifle_history();
@@ -113,17 +117,17 @@ version(CrocReadline)
 		/**
 		This depends on p always being 0-terminated (like a string literal).
 		*/
-		public void prompt(char[] p)
+		void prompt(char[] p)
 		{
 			mPrompt = p.ptr;
 		}
 
-		public override size_t read(void[] dst)
+		override size_t read(void[] dst)
 		{
 			throw new IOException("Unimplemented");
 		}
 
-		public override void[] load(size_t max = size_t.max)
+		override void[] load(size_t max = size_t.max)
 		{
 			if(mFirstCall)
 			{
@@ -147,33 +151,33 @@ version(CrocReadline)
 			return buf;
 		}
 
-		public override InputStream input()
+		override InputStream input()
 		{
 			return this;
 		}
 
-		public override IConduit conduit()
+		override IConduit conduit()
 		{
 			return cast(IConduit)this;
 		}
 
-		public override long seek(long, Anchor)
+		override long seek(long, Anchor)
 		{
 			throw new IOException( "Unimplemented" );
 		}
 
-		public override IOStream flush()
+		override IOStream flush()
 		{
 			return this;
 		}
 
-		public override void close()
+		override void close()
 		{
 			mBuffer = null;
 			clear_history();
 		}
 
-		public override void[] slice()
+		override void[] slice()
 		{
 			if(mBuffer is null)
 				mBuffer = cast(char[])load();
@@ -181,7 +185,7 @@ version(CrocReadline)
 			return cast(void[])mBuffer[0 .. $];
 		}
 
-		public override bool next(size_t delegate(void[]) scan)
+		override bool next(size_t delegate(void[]) scan)
 		{
 			if(mBuffer is null)
 				mBuffer = cast(char[])load();
@@ -195,7 +199,7 @@ version(CrocReadline)
 			return true;
 		}
 
-		public override size_t reader(size_t delegate(void[]) consumer)
+		override size_t reader(size_t delegate(void[]) consumer)
 		{
 			if(mBuffer is null)
 				mBuffer = cast(char[])load();
@@ -297,11 +301,12 @@ struct CLI(Input)
 	const char[] Prompt1 = ">>> ";
 	const char[] Prompt2 = "... ";
 
-	private Input mInput;
-	private char[] mPrompt = Prompt1;
-	private bool mRunning;
-	private bool mReplacedExit = false;
-	
+private:
+	Input mInput;
+	char[] mPrompt = Prompt1;
+	bool mRunning;
+	bool mReplacedExit = false;
+
 	static class Goober
 	{
 		CLI!(Input)* self;
@@ -312,110 +317,7 @@ struct CLI(Input)
 		}
 	}
 
-	private void setupExit(CrocThread* t)
-	{
-		// Check that croc.commandline.oldExits exists
-		getRegistry(t);
-		pushString(t, "croc.commandline.oldExits");
-
-		if(!opin(t, -1, -2))
-		{
-			newArray(t, 0);
-			fielda(t, -3);
-		}
-		else
-			pop(t);
-
-		// Check that the croc.commandline.ExitObj class exists
-		pushString(t, "croc.commandline.ExitObj");
-
-		if(!opin(t, -1, -2))
-		{
-			// class ExitObj { function toString() = ... }
-			newClass(t, "ExitObj");
-
-			newFunction(t, 0, function uword(CrocThread* t)
-			{
-				pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
-				return 1;
-			}, "toString");
-
-			fielda(t, -2, "toString");
-
-			dup(t, -2);
-			dup(t, -2);
-			fielda(t, -5);
-			insertAndPop(t, -3);
-		}
-		else
-		{
-			field(t, -2);
-			insertAndPop(t, -2);
-		}
-
-		// Set up the exit object
-		pushNull(t);
-		rawCall(t, -2, 1);
-
-			pushNativeObj(t, new Goober(this));
-		newFunction(t, 0, function uword(CrocThread* t)
-		{
-			getUpval(t, 0);
-			auto g = cast(Goober)getNativeObj(t, -1);
-			g.self.mRunning = false;
-			return 0;
-		}, "exit", 1);
-
-		fielda(t, -2, "opCall");
-
-		// Is there already an 'exit'?
-		if(findGlobal(t, "exit"))
-		{
-			// Already a global named 'exit', replace it carefully.
-			field(t, -1, "exit");
-			dup(t);
-			fielda(t, -4, "old");
-			getRegistryVar(t, "croc.commandline.oldExits");
-			swap(t);
-			cateq(t, -2, 1);
-			pop(t);
-			swap(t);
-			fielda(t, -2, "exit");
-			pop(t);
-
-			mReplacedExit = true;
-		}
-		else
-		{
-			// We can just make the global.
-			newGlobal(t, "exit");
-			mReplacedExit = false;
-		}
-	}
-
-	private void cleanupExit(CrocThread* t)
-	{
-		if(mReplacedExit)
-		{
-			// exit = registry.("croc.commandline.oldExits").pop()
-			getRegistryVar(t, "croc.commandline.oldExits");
-			pushNull(t);
-			methodCall(t, -2, "pop", 1);
-			setGlobal(t, "exit");
-		}
-		else
-		{
-			// This *should* return true, but just in case.
-			if(findGlobal(t, "exit"))
-			{
-				// unset("exit")
-				pushString(t, "exit");
-				removeKey(t, -2);
-				pop(t);
-			}
-		}
-	}
-
+public:
 	/**
 	This method runs an interactive prompt using the Input type that this struct was templated
 	with.
@@ -423,7 +325,7 @@ struct CLI(Input)
 	Params:
 		t = The thread to use for this CLI.
 	*/
-	public void interactive(CrocThread* t)
+	void interactive(CrocThread* t)
 	{
 		// Initialize the input
 		static if(is(Input : Object))
@@ -683,6 +585,111 @@ struct CLI(Input)
 
 			mPrompt = Prompt1;
 			buffer.length = 0;
+		}
+	}
+	
+private:
+	void setupExit(CrocThread* t)
+	{
+		// Check that croc.commandline.oldExits exists
+		getRegistry(t);
+		pushString(t, "croc.commandline.oldExits");
+
+		if(!opin(t, -1, -2))
+		{
+			newArray(t, 0);
+			fielda(t, -3);
+		}
+		else
+			pop(t);
+
+		// Check that the croc.commandline.ExitObj class exists
+		pushString(t, "croc.commandline.ExitObj");
+
+		if(!opin(t, -1, -2))
+		{
+			// class ExitObj { function toString() = ... }
+			newClass(t, "ExitObj");
+
+			newFunction(t, 0, function uword(CrocThread* t)
+			{
+				pushString(t, "Use \"exit()\" or Ctrl+D<enter> to end.");
+				return 1;
+			}, "toString");
+
+			fielda(t, -2, "toString");
+
+			dup(t, -2);
+			dup(t, -2);
+			fielda(t, -5);
+			insertAndPop(t, -3);
+		}
+		else
+		{
+			field(t, -2);
+			insertAndPop(t, -2);
+		}
+
+		// Set up the exit object
+		pushNull(t);
+		rawCall(t, -2, 1);
+
+			pushNativeObj(t, new Goober(this));
+		newFunction(t, 0, function uword(CrocThread* t)
+		{
+			getUpval(t, 0);
+			auto g = cast(Goober)getNativeObj(t, -1);
+			g.self.mRunning = false;
+			return 0;
+		}, "exit", 1);
+
+		fielda(t, -2, "opCall");
+
+		// Is there already an 'exit'?
+		if(findGlobal(t, "exit"))
+		{
+			// Already a global named 'exit', replace it carefully.
+			field(t, -1, "exit");
+			dup(t);
+			fielda(t, -4, "old");
+			getRegistryVar(t, "croc.commandline.oldExits");
+			swap(t);
+			cateq(t, -2, 1);
+			pop(t);
+			swap(t);
+			fielda(t, -2, "exit");
+			pop(t);
+
+			mReplacedExit = true;
+		}
+		else
+		{
+			// We can just make the global.
+			newGlobal(t, "exit");
+			mReplacedExit = false;
+		}
+	}
+
+	void cleanupExit(CrocThread* t)
+	{
+		if(mReplacedExit)
+		{
+			// exit = registry.("croc.commandline.oldExits").pop()
+			getRegistryVar(t, "croc.commandline.oldExits");
+			pushNull(t);
+			methodCall(t, -2, "pop", 1);
+			setGlobal(t, "exit");
+		}
+		else
+		{
+			// This *should* return true, but just in case.
+			if(findGlobal(t, "exit"))
+			{
+				// unset("exit")
+				pushString(t, "exit");
+				removeKey(t, -2);
+				pop(t);
+			}
 		}
 	}
 }
