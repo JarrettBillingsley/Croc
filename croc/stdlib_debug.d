@@ -279,6 +279,7 @@ static:
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
+		bool found = false;
 
 		foreach(ref var; ar.func.scriptFunc.locVarDescs)
 		{
@@ -287,6 +288,7 @@ static:
 				if(idx == 0)
 				{
 					push(t, CrocValue(var.name));
+					found = true;
 					break;
 				}
 
@@ -294,7 +296,7 @@ static:
 			}
 		}
 
-		if(idx != 0)
+		if(!found)
 			throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
 
 		return 1;
@@ -321,6 +323,7 @@ static:
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
+		bool found = false;
 
 		foreach(ref var; ar.func.scriptFunc.locVarDescs)
 		{
@@ -333,6 +336,7 @@ static:
 						// don't inline; if t is thread, invalid push
 						auto v = thread.stack[ar.base + var.reg];
 						push(t, v);
+						found = true;
 						break;
 					}
 
@@ -342,13 +346,13 @@ static:
 				{
 					auto v = thread.stack[ar.base + var.reg];
 					push(t, v);
-					idx = 0;
+					found = true;
 					break;
 				}
 			}
 		}
 
-		if(idx != 0)
+		if(!found)
 		{
 			if(name is null)
 				throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
@@ -382,6 +386,7 @@ static:
 
 		auto originalIdx = idx;
 		auto pc = ar.pc - ar.func.scriptFunc.code.ptr;
+		bool found = false;
 
 		foreach(ref var; ar.func.scriptFunc.locVarDescs)
 		{
@@ -391,7 +396,11 @@ static:
 				{
 					if(idx == 0)
 					{
+						if(var.reg == 0)
+							throwStdException(t, "ValueException", "Cannot set the value of 'this'");
+
 						thread.stack[ar.base + var.reg] = *getValue(t, arg + 3);
+						found = true;
 						break;
 					}
 
@@ -399,14 +408,17 @@ static:
 				}
 				else if(var.name is name)
 				{
+					if(var.reg == 0)
+						throwStdException(t, "ValueException", "Cannot set the value of 'this'");
+
 					thread.stack[ar.base + var.reg] = *getValue(t, arg + 3);
-					idx = 0;
+					found = true;
 					break;
 				}
 			}
 		}
 
-		if(idx != 0)
+		if(!found)
 		{
 			if(name is null)
 				throwStdException(t, "BoundsException", "invalid local index '{}'", originalIdx);
