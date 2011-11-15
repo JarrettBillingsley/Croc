@@ -12,15 +12,15 @@ Permission is granted to anyone to use this software for any purpose,
 including commercial applications, and to alter it and redistribute it freely,
 subject to the following restrictions:
 
-    1. The origin of this software must not be misrepresented; you must not
+	1. The origin of this software must not be misrepresented; you must not
 	claim that you wrote the original software. If you use this software in a
 	product, an acknowledgment in the product documentation would be
 	appreciated but is not required.
 
-    2. Altered source versions must be plainly marked as such, and must not
+	2. Altered source versions must be plainly marked as such, and must not
 	be misrepresented as being the original software.
 
-    3. This notice may not be removed or altered from any source distribution.
+	3. This notice may not be removed or altered from any source distribution.
 ******************************************************************************/
 
 module croc.stdlib_exceptions;
@@ -30,78 +30,85 @@ import croc.api_stack;
 import croc.ex;
 import croc.types;
 
-/*
-+ Exception - Base class for all "generally non-fatal" exceptions.
-	+ CompileException - Base class for exceptions that the Croc compiler throws.
-		+ LexicalException - Thrown for lexical errors in source code.
-		+ SyntaxException - Thrown for syntactic errors in source code.
-		+ SemanticException - Thrown for semantic errors in source code.
-	+ TypeException - Thrown when an incorrect type is given to an operation (i.e. trying to add strings, or invalid types to function parameters).
-	+ ValueException - Generally speaking, indicates that an operation was given a value of the proper type, but the value is invalid
-		somehow - not an acceptible value, or incorrectly formed, or in an invalid state.
-		+ RangeException - A more specific kind of ValueException indicating that a value is out of a valid range of acceptible values. Typically
-			used for mathematical functions, i.e. square root only works on non-negative values.
-		+ UnicodeException - Thrown when Croc is given malformed/invalid Unicode data for a string.
-	+ IOException - Thrown when an IO operation fails or is given invalid inputs.
-	+ OSException - Thrown when the OS is pissy.
-	+ ImportException - Thrown when an import fails; may also have a 'cause' exception in case the import failed because of an exception being thrown.
-	+ LookupException - Base class for "lookup" errors, which covers several kinda of lookups. Sometimes this base class can be thrown too.
-		+ NameException - Thrown on invalid global access (either the name doesn't exist or trying to redefine an existing global). Also for invalid
-			local names when using the debug library.
-		+ BoundsException - Thrown when trying to access an array-like object out of bounds.
-		+ FieldException - Thrown when trying to access an invalid field from a namespace, class, instance etc.
-		+ MethodException - Thrown when trying to call an invalid method on an object.
-	+ RuntimeException - Kind of a catchall type for other random runtime errors. Other exceptions will probably grow out of this one.
-		+ NotImplementedException - A useful exception type that you can throw in methods that are unimplemented (such as in abstrac base class
-			methods).
-	+ CallException - Thrown for some kinda of invalid function calls, such as invalid supercalls.
-		+ ParamException - Thrown for function calls which are invalid because they were nit given the proper number of parameters (not for
-			invalid types though).
-+ Error - Base class for "generally unrecoverable" errors.
-	+ AssertError - Thrown when an assertion fails.
-	+ ApiError - Thrown when the native API is given certain kinds of invalid input, generally inputs which mean the host is
-		malfunctioning or incorrectly programmed. Not thrown for i.e. incorrect types passed to the native API.
-	+ FinalizerError - Thrown when an exception is thrown by a class finalizer. This is typically a big problem as finalizers
-		should never fail. The exception that the finalizer threw is set as the 'cause'.
-	+ SwitchError - Thrown when a switch without a 'default' is given a value not listed in its cases.
-	+ VMError - Thrown for some kinds of internal VM errors.
-*/
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
 
 struct ExDesc
 {
 	char[] name, derives;
+	
+	version(CrocBuiltinDocs)
+		Docs docs;
+}
+
+import tango.core.Tuple;
+
+template Desc(char[] name, char[] derives, char[] docs)
+{
+	version(CrocBuiltinDocs)
+		const Desc = ExDesc(name, derives, Docs("class", name, docs, 0, null, [Extra("protection", "global"), Extra("base", derives)]));
+	else
+		const Desc = ExDesc(name, derives);
 }
 
 private const ExDesc[] ExDescs =
 [
-	{"Exception", "Throwable"},
-		{"CompileException", "Exception"},
-			{"LexicalException",  "CompileException"},
-			{"SyntaxException",   "CompileException"},
-			{"SemanticException", "CompileException"},
-		{"TypeException",   "Exception"},
-		{"ValueException",  "Exception"},
-			{"RangeException",   "ValueException"},
-			{"UnicodeException", "ValueException"},
-		{"IOException",     "Exception"},
-		{"OSException",     "Exception"},
-		{"ImportException", "Exception"},
-		{"LookupException", "Exception"},
-			{"NameException",   "LookupException"},
-			{"BoundsException", "LookupException"},
-			{"FieldException",  "LookupException"},
-			{"MethodException", "LookupException"},
-		{"RuntimeException", "Exception"},
-			{"NotImplementedException", "RuntimeException"},
-		{"CallException",    "Exception"},
-			{"ParamException", "CallException"},
+	Desc!("Exception", "Throwable", "Base class for all \"generally non-fatal\" exceptions. This is exported in the
+		global namespace as well, to make it more convenient to access."),
 
-	{"Error", "Throwable"},
-		{"AssertError",    "Error"},
-		{"ApiError",       "Error"},
-		{"FinalizerError", "Error"},
-		{"SwitchError",    "Error"},
-		{"VMError",        "Error"},
+		Desc!("CompileException", "Exception", "Base class for exceptions that the Croc compiler throws. The
+			`location` field is the source location that caused the exception to be thrown."),
+			Desc!("LexicalException", "CompileException", "Thrown for lexical errors in source code."),
+			Desc!("SyntaxException", "CompileException", "Thrown for syntactic errors in source code."),
+			Desc!("SemanticException", "CompileException", "Thrown for semantic errors in source code."),
+		Desc!("TypeException", "Exception", "Thrown when an incorrect type is given to an operation (i.e. trying
+			to add strings, or when invalid types are given to function parameters)."),
+		Desc!("ValueException", "Exception", "Generally speaking, indicates that an operation was given a value
+			of the proper type, but the value is invalid somehow - not an acceptible value, or incorrectly formed, or
+			in an invalid state. If possible, try to use one of the more specific classes that derive from this, or
+			derive your own."),
+			Desc!("RangeException", "ValueException", "A more specific kind of ValueException indicating that a
+				value is out of a valid range of acceptible values. Typically used for mathematical functions, i.e.
+				square root only works on non-negative values. Note that if the error is because a value is out of the
+				range of valid indices for a container, you should use a `BoundsException` instead."),
+			Desc!("UnicodeException", "ValueException", "Thrown when Croc is given malformed/invalid Unicode data
+				for a string, or when invalid Unicode data is encountered during transcoding."),
+		Desc!("IOException", "Exception", "Thrown when an IO operation fails or is given invalid inputs."),
+		Desc!("OSException", "Exception", "Thrown when the OS is angry."),
+		Desc!("ImportException", "Exception", "Thrown when an import fails; may also have a 'cause' exception in
+			case the import failed because of an exception being thrown."),
+		Desc!("LookupException", "Exception", "Base class for \"lookup\" errors, which covers several kinda of
+			lookups. Sometimes this base class can be thrown too."),
+			Desc!("NameException", "LookupException", "Thrown on invalid global access (either the name doesn't
+				exist or trying to redefine an existing global). Also for invalid local names when using the debug
+				library."),
+			Desc!("BoundsException", "LookupException", "Thrown when trying to access an array-like object out of
+				bounds. You could also use this for other kinds of containers."),
+			Desc!("FieldException", "LookupException", "Thrown when trying to access an invalid field from a
+				namespace, class, instance etc. Unless it's global access, in which case a `NameException` is thrown."),
+			Desc!("MethodException", "LookupException", "Thrown when trying to call an invalid method on an object."),
+		Desc!("RuntimeException", "Exception", "Kind of a catchall type for other random runtime errors. Other
+			exceptions will probably grow out of this one."),
+			Desc!("NotImplementedException", "RuntimeException", "Am exception type that you can throw in methods
+				that are unimplemented (such as in abstract base class methods). This way when an un-overridden method
+				is called, you get an error instead of it silently working."),
+		Desc!("CallException", "Exception", "Thrown for some kinds of invalid function calls, such as invalid supercalls."),
+			Desc!("ParamException", "CallException", "Thrown for function calls which are invalid because they
+				were given an improper number of parameters. However if a function is given parameters of incorrect
+				type, a `TypeException` is thrown instead."),
+
+	Desc!("Error", "Throwable", "Base class for all \"generally unrecoverable\" errors. When an `Error` is thrown,
+		it usually means the program can't continue functioning properly unless the bug is fixed. This is also exported
+		in the global namespace, like `Exception`, for convenience."),
+		Desc!("AssertError", "Error", "Thrown when an assertion fails."),
+		Desc!("ApiError", "Error", "Thrown when the native API is given certain kinds of invalid input,
+			generally inputs which mean the host is malfunctioning or incorrectly programmed. Not thrown for i.e.
+			incorrect types passed to the native API."),
+		Desc!("FinalizerError", "Error", "Thrown when an exception is thrown by a class finalizer. This is typically
+			a big problem as finalizers should never fail. The exception that the finalizer threw is set as the 'cause'."),
+		Desc!("SwitchError", "Error", "Thrown when a switch without a 'default' is given a value not listed in its cases."),
+		Desc!("VMError", "Error", "Thrown for some kinds of internal VM errors."),
 ];
 
 struct ExceptionsLib
@@ -115,19 +122,34 @@ static:
 	{
 		makeModule(t, "exceptions", function uword(CrocThread* t)
 		{
+			version(CrocBuiltinDocs)
+			{
+				scope doc = new CrocDoc(t, __FILE__);
+				doc.push(Docs("module", "Exceptions Library",
+				"This library defines the hierarchy of standard exception types. These types are used by the standard
+				libraries and by the VM itself. You are encouraged to use these types as well, or derive them, for
+				your own code."));
+			}
+
 			CreateClass(t, "Location", (CreateClass* c)
 			{
-				pushInt(t, Unknown); c.field("Unknown");
-				pushInt(t, Native);  c.field("Native");
-				pushInt(t, Script);  c.field("Script");
+				version(CrocBuiltinDocs)
+					doc.push(Location_docs);
 
-				pushString(t, "");   c.field("file");
-				pushInt(t, 0);       c.field("line");
-				pushInt(t, Unknown); c.field("col");
+				pushInt(t, Unknown); version(CrocBuiltinDocs) { doc(-1, Location_Unknown_docs); } c.field("Unknown");
+				pushInt(t, Native);  version(CrocBuiltinDocs) { doc(-1, Location_Native_docs); }  c.field("Native");
+				pushInt(t, Script);  version(CrocBuiltinDocs) { doc(-1, Location_Script_docs); }  c.field("Script");
+
+				pushString(t, "");   version(CrocBuiltinDocs) { doc(-1, Location_file_docs); }    c.field("file");
+				pushInt(t, 0);       version(CrocBuiltinDocs) { doc(-1, Location_line_docs); }    c.field("line");
+				pushInt(t, Unknown); version(CrocBuiltinDocs) { doc(-1, Location_col_docs); }     c.field("col");
 
 				c.method("constructor", 3, &locationConstructor);
 				c.method("toString",    0, &locationToString);
 			});
+			
+			version(CrocBuiltinDocs)
+				doc.pop(-1);
 
 			t.vm.location = getClass(t, -1);
 			newGlobal(t, "Location");
@@ -153,6 +175,10 @@ static:
 				pushGlobal(t, desc.derives);
 				newClass(t, -1, desc.name);
 				*t.vm.stdExceptions.insert(t.vm.alloc, createString(t, desc.name)) = getClass(t, -1);
+				
+				version(CrocBuiltinDocs)
+					doc(-1, desc.docs);
+
 				newGlobal(t, desc.name);
 				pop(t);
 			}
@@ -163,11 +189,53 @@ static:
 			pop(t);
 
 			newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
+			
+			version(CrocBuiltinDocs)
+				doc.pop(0);
+
 			return 0;
 		});
 
 		importModuleNoNS(t, "exceptions");
 
+	}
+	
+	version(CrocBuiltinDocs)
+	{
+		const Docs Location_docs = {kind: "class", name: "Location", docs:
+		"This class holds a source location, which is used in exception tracebacks. There two kinds of locations:
+		compile-time and runtime. Compile-time locations have a column number > 0 and indicate the exact location
+		within a source file where something went wrong. Runtime locations have a column number <= 0, in which case
+		the exact kind of location is encoded in the column number.",
+		extra: [Extra("protection", "global")]};
+
+		const Docs Location_Unknown_docs = {kind: "field", name: "Location.Unknown", docs:
+		"This is one of the types of locations that can be put in the `col` field. It means that there isn't enough
+		information to determine a location for where an error occurred. In this case the file and line will also
+		probably meaningless."};
+		
+		const Docs Location_Native_docs = {kind: "field", name: "Location.Native", docs:
+		"This is another type of location that can be put in the `col` field. It means that the location is within
+		a native function, so there isn't enough information to give a line, but at least the file can be determined."};
+		
+		const Docs Location_Script_docs = {kind: "field", name: "Location.Script", docs:
+		"This is the last type of location that can be put in the `col` field. It means that the location is within
+		script code, so both the file and line can be determined. The column can never be determined at runtime,
+		however."};
+		
+		const Docs Location_file_docs = {kind: "field", name: "Location.file", docs:
+		"This is a string containing the module and function where the error occurred, in the format \"module.name.func\".
+		If `col` is `Location.Unknown`, this field will be the empty string.",
+		extra: [Extra("value", "\"\"")]};
+
+		const Docs Location_line_docs = {kind: "field", name: "Location.line", docs:
+		"This is the line on which the error occurred. If `col` is not `Location.Script`, this field will be 0.",
+		extra: [Extra("value", "0")]};
+
+		const Docs Location_col_docs = {kind: "field", name: "Location.col", docs:
+		"This field serves double duty as either a column number for compilation errors or as a location \"type\".
+		If this field is > 0, it is a compilation error and represents the column where the error occurred. Otherwise,
+		this field will be one of the three constants above (which are all <= 0)."};
 	}
 
 	uword locationConstructor(CrocThread* t)

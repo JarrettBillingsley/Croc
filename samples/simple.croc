@@ -1,12 +1,24 @@
 module samples.simple
 
-// import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
-
 function main()
 {
+// 	dumpItem(docsOf(Object))
+// 	
+// 	dumpItem(docsOf(_doc_))
+// 	dumpItem(docsOf(docsOf))
+//
+// 	BaselibDumper().dump()
 
+	StdlibDumper.dump(exceptions)
 }
 
+// import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
+
+// function main()
+// {
+//
+// }
+// 
 /* import exceptions: TypeException, ValueException
 
 function help(x, child: string = null)
@@ -170,7 +182,7 @@ class DocDumper
 		}
 	}
 
-	function dumpHeader(d)
+	function dumpHeader(d, isChild: bool = :indentChildren)
 	{
 		switch(d.kind)
 		{
@@ -219,9 +231,9 @@ class DocDumper
 		}
 	}
 
-	function dumpItem(d)
+	function dumpItem(d, isChild: bool = :indentChildren)
 	{
-		:dumpHeader(d)
+		:dumpHeader(d, isChild)
 
 		if(d.dittos)
 			foreach(dit; d.dittos)
@@ -230,17 +242,17 @@ class DocDumper
 		switch(d.kind)
 		{
 			case "function", "field", "variable":
-				:dumpDocs(d.docs, :indentChildren)
+				:dumpDocs(d.docs, isChild)
 				writeln()
 				break
 
 			case "class", "namespace":
 				writeln()
-				:dumpDocs(d.docs, :indentChildren)
+				:dumpDocs(d.docs, isChild)
 				writeln()
 
 				foreach(child; d.children)
-					:dumpItem(child)
+					:dumpItem(child, true)
 				break
 
 			default:
@@ -254,7 +266,7 @@ class BaselibDumper : DocDumper
 	this()
 		:indentChildren = true
 
-	function dumpHeader(d)
+	function dumpHeader(d, isChild: bool)
 	{
 		write(" '''`")
 		super.dumpHeader(d)
@@ -290,11 +302,21 @@ class BaselibDumper : DocDumper
 
 class StdlibDumper : DocDumper
 {
-	function dumpHeader(d)
+	function dumpHeader(d, isChild: bool)
 	{
-		write("== '''`")
+		if(isChild)
+			write(" '''`")
+		else
+			write("== '''`")
+
 		super.dumpHeader(d)
-		writeln("`''' ==")
+		
+		if(isChild)
+			write("`'''::")
+		else
+			writeln("`''' ==")
+			
+		writefln(5)
 	}
 
 	function dump(mod)
@@ -312,15 +334,6 @@ class StdlibDumper : DocDumper
 			:dumpItem(child)
 	}
 }
-
-// dumpItem(docsOf(Object))
-
-// dumpItem(docsOf(_doc_))
-// dumpItem(docsOf(docsOf))
-
-// BaselibDumper().dump()
-
-StdlibDumper.dump(modules)
 
 // dumpStdlib(modules)
 
