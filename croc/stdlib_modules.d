@@ -376,15 +376,15 @@ static:
 
 		// Add it to the loaded table
 		setLoaded(t, name, ns);
-		pop(t);
 
 		// Add it to the globals
 		if(foundSplit)
 		{
-			assert(stackSize(t) - 1 == firstChild);
+			dup(t, firstChild);
 			fielda(t, firstParent, childName);
 		}
 
+		dup(t, ns);
 		return 1;
 	}
 
@@ -421,7 +421,7 @@ static:
 	uword runMain(CrocThread* t)
 	{
 		checkParam(t, 1, CrocValue.Type.Namespace);
-
+		
 		if(hasField(t, 1, "main"))
 		{
 			auto main = field(t, 1, "main");
