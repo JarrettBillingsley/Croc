@@ -25,6 +25,8 @@ subject to the following restrictions:
 
 module croc.stdlib_exceptions;
 
+import tango.core.Tuple;
+
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
@@ -37,12 +39,10 @@ alias CrocDoc.Extra Extra;
 struct ExDesc
 {
 	char[] name, derives;
-	
+
 	version(CrocBuiltinDocs)
 		Docs docs;
 }
-
-import tango.core.Tuple;
 
 template Desc(char[] name, char[] derives, char[] docs)
 {
@@ -189,7 +189,7 @@ static:
 			pop(t);
 
 			newFunction(t, 1, &stdException, "stdException"); newGlobal(t, "stdException");
-			
+
 			version(CrocBuiltinDocs)
 				doc.pop(0);
 
@@ -209,34 +209,40 @@ static:
 		the exact kind of location is encoded in the column number.",
 		extra: [Extra("protection", "global")]};
 
-		const Docs Location_Unknown_docs = {kind: "field", name: "Location.Unknown", docs:
+		const Docs Location_Unknown_docs = {kind: "field", name: "Unknown", docs:
 		"This is one of the types of locations that can be put in the `col` field. It means that there isn't enough
 		information to determine a location for where an error occurred. In this case the file and line will also
 		probably meaningless."};
-		
-		const Docs Location_Native_docs = {kind: "field", name: "Location.Native", docs:
+
+		const Docs Location_Native_docs = {kind: "field", name: "Native", docs:
 		"This is another type of location that can be put in the `col` field. It means that the location is within
 		a native function, so there isn't enough information to give a line, but at least the file can be determined."};
-		
-		const Docs Location_Script_docs = {kind: "field", name: "Location.Script", docs:
+
+		const Docs Location_Script_docs = {kind: "field", name: "Script", docs:
 		"This is the last type of location that can be put in the `col` field. It means that the location is within
-		script code, so both the file and line can be determined. The column can never be determined at runtime,
+		script code, the file and (usually) the line can be determined. The column can never be determined at runtime,
 		however."};
-		
-		const Docs Location_file_docs = {kind: "field", name: "Location.file", docs:
+
+		const Docs Location_file_docs = {kind: "field", name: "file", docs:
 		"This is a string containing the module and function where the error occurred, in the format \"module.name.func\".
 		If `col` is `Location.Unknown`, this field will be the empty string.",
 		extra: [Extra("value", "\"\"")]};
 
-		const Docs Location_line_docs = {kind: "field", name: "Location.line", docs:
-		"This is the line on which the error occurred. If `col` is not `Location.Script`, this field will be 0.",
+		const Docs Location_line_docs = {kind: "field", name: "line", docs:
+		"This is the line on which the error occurred. If the location type is `Location.Script`, this field can
+		be -1, which means that no line number could be determined.",
 		extra: [Extra("value", "0")]};
 
-		const Docs Location_col_docs = {kind: "field", name: "Location.col", docs:
+		const Docs Location_col_docs = {kind: "field", name: "col", docs:
 		"This field serves double duty as either a column number for compilation errors or as a location \"type\".
 		If this field is > 0, it is a compilation error and represents the column where the error occurred. Otherwise,
 		this field will be one of the three constants above (which are all <= 0)."};
 	}
+
+	version(CrocBuiltinDocs) const Docs locationConstructor_docs = {kind: "function", name: "this", docs:
+	"Constructor. All parameters are optional. When passed `null` for `file`, the `line` and `col` parameters are ignored,
+	constructing an \"Unknown\" location.",
+	params: [Param("file", "string", "null"), Param("line", "int", "-1"), Param("col", "int", "Location.Script")]};
 
 	uword locationConstructor(CrocThread* t)
 	{
@@ -253,6 +259,13 @@ static:
 		pushInt(t, col);     fielda(t, 0, "col");
 		return 0;
 	}
+
+	version(CrocBuiltinDocs) const Docs locationToString_docs = {kind: "function", name: "toString", docs:
+	"Gives a string representation of the location, in the following formats:
+ * Unknown - `\"<unknown location>\"`
+ * Native - `\"file(native)\"`
+ * Script - `\"file(line)\"` (if `line < 1` then the line will be '?' instead)
+ * otherwise - `\"file(line:col)\"`"};
 
 	uword locationToString(CrocThread* t)
 	{
