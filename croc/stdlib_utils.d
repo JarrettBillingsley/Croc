@@ -27,7 +27,9 @@ module croc.stdlib_utils;
 
 import tango.core.Traits;
 
+import croc.ex;
 import croc.api_interpreter;
+import croc.api_stack;
 import croc.types;
 
 void register(CrocThread* t, char[] name, NativeFunc func, uword numUpvals = 0)
@@ -89,4 +91,54 @@ template CommonRegister(char[] funcName, uword numUpvals = 0, char[] crocName, c
 	const char[] CommonRegister =
 	"newFunction(t, " ~ (numParams.length == 0 ? "" : numParams ~ ", ") ~ "&" ~ funcName ~ ", \"" ~ crocName ~ "\", " ~ ctfe_i2a(numUpvals) ~ ");\n"
 	"version(CrocBuiltinDocs) doc(-1, " ~ funcName ~ "_docs);\n";
+}
+
+struct RegisterFunc
+{
+	char[] name;
+	NativeFunc func;
+	uword maxParams = uword.max;
+	uword numUpvals = 0;
+}
+
+void registerGlobals(CrocThread* t, RegisterFunc[] funcs...)
+{
+	foreach(ref func; funcs)
+	{
+		if(func.maxParams == uword.max)
+			register(t, func.name, func.func, func.numUpvals);
+		else
+			register(t, func.maxParams, func.name, func.func, func.numUpvals);
+	}
+}
+
+void registerFields(CrocThread* t, RegisterFunc[] funcs...)
+{
+	foreach(ref func; funcs)
+	{
+		if(func.maxParams == uword.max)
+			registerField(t, func.name, func.func, func.numUpvals);
+		else
+			registerField(t, func.maxParams, func.name, func.func, func.numUpvals);
+	}
+}
+
+void docGlobals(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
+{
+	foreach(ref d; docs)
+	{
+		pushGlobal(t, d.name);
+		doc(-1, d);
+		pop(t);
+	}
+}
+
+void docFields(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
+{
+	foreach(ref d; docs)
+	{
+		field(t, -1, d.name);
+		doc(-1, d);
+		pop(t);
+	}
 }
