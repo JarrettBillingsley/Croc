@@ -7,9 +7,9 @@ function main()
 // 	dumpItem(docsOf(_doc_))
 // 	dumpItem(docsOf(docsOf))
 //
-// 	BaselibDumper().dump()
+	BaselibDumper().dump()
 
-	StdlibDumper.dump(exceptions)
+// 	StdlibDumper.dump(exceptions)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
@@ -237,7 +237,7 @@ class DocDumper
 
 		if(d.dittos)
 			foreach(dit; d.dittos)
-				:dumpHeader(dit)
+				:dumpHeader(dit, true)
 
 		switch(d.kind)
 		{
