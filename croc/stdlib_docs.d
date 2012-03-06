@@ -40,12 +40,15 @@ struct DocsLib
 static:
 	void init(CrocThread* t)
 	{
-			newTable(t);
+			lookup(t, "hash.WeakKeyTable");
+			pushNull(t);
+			rawCall(t, -2, 1);
+
 			dup(t);
 			dup(t);
 		newFunction(t, &_doc_, "_doc_", 1);   newGlobal(t, "_doc_");
 		newFunction(t, &docsOf, "docsOf", 1); newGlobal(t, "docsOf");
-		newFunction(t, &finishLoadingDocs, "finishLoadingDocs", 1); newGlobal(t, "finishLoadingDocs");
+// 		newFunction(t, &finishLoadingDocs, "finishLoadingDocs", 1); newGlobal(t, "finishLoadingDocs");
 
 		version(CrocBuiltinDocs)
 		{
@@ -64,34 +67,34 @@ static:
 		}
 	}
 
-	uword finishLoadingDocs(CrocThread* t)
-	{
-		auto oldTab = getUpval(t, 0);
-		assert(isTable(t, oldTab));
-
-		auto newTab = lookup(t, "hash.WeakKeyTable");
-		pushNull(t);
-		rawCall(t, -2, 1);
-
-		dup(t, oldTab);
-
-		foreach(word k, word v; foreachLoop(t, 1))
-		{
-			dup(t, k);
-			dup(t, v);
-			idxa(t, newTab);
-		}
-
-		dup(t, newTab);
-		setUpval(t, 0);
-
-		lookup(t, "hash.remove");
-		pushNull(t);
-		pushGlobal(t, "_G");
-		pushString(t, "finishLoadingDocs");
-		rawCall(t, -4, 0);
-		return 0;
-	}
+// 	uword finishLoadingDocs(CrocThread* t)
+// 	{
+// 		auto oldTab = getUpval(t, 0);
+// 		assert(isTable(t, oldTab));
+//
+// 		auto newTab = lookup(t, "hash.WeakKeyTable");
+// 		pushNull(t);
+// 		rawCall(t, -2, 1);
+//
+// 		dup(t, oldTab);
+// 
+// 		foreach(word k, word v; foreachLoop(t, 1))
+// 		{
+// 			dup(t, k);
+// 			dup(t, v);
+// 			idxa(t, newTab);
+// 		}
+//
+// 		dup(t, newTab);
+// 		setUpval(t, 0);
+// 
+// 		lookup(t, "hash.remove");
+// 		pushNull(t);
+// 		pushGlobal(t, "_G");
+// 		pushString(t, "finishLoadingDocs");
+// 		rawCall(t, -4, 0);
+// 		return 0;
+// 	}
 
 	version(CrocBuiltinDocs) Docs _doc__docs = {kind: "function", name: "_doc_", docs:
 	"This is a decorator function used to attach documentation tables to objects. The compiler can attach

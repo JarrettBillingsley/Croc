@@ -3,13 +3,13 @@ module samples.simple
 function main()
 {
 // 	dumpItem(docsOf(Object))
-// 	
+//
 // 	dumpItem(docsOf(_doc_))
 // 	dumpItem(docsOf(docsOf))
 //
-	BaselibDumper().dump()
+// 	BaselibDumper().dump()
 
-// 	StdlibDumper.dump(exceptions)
+	StdlibDumper.dump(gc)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream
@@ -310,13 +310,11 @@ class StdlibDumper : DocDumper
 			write("== '''`")
 
 		super.dumpHeader(d)
-		
+
 		if(isChild)
 			write("`'''::")
 		else
 			writeln("`''' ==")
-			
-		writefln(5)
 	}
 
 	function dump(mod)
@@ -334,8 +332,6 @@ class StdlibDumper : DocDumper
 			:dumpItem(child)
 	}
 }
-
-// dumpStdlib(modules)
 
 /*
 I guess it's baselib (but could be moved?)

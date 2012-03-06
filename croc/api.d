@@ -120,24 +120,30 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	openVMImpl(vm, memFunc, ctx);
 	auto t = mainThread(vm);
 
-	// Docs first so rest of library can be documented as it's defined
-	DocsLib.init(t);
-
 	// Core libs
-	ModulesLib.init(t);
-	ExceptionsLib.init(t);
-	GCLib.init(t);
+	initModulesLib(t);
+	initExceptionsLib(t);
+	initGCLib(t);
 
 	// Safe libs
-	BaseLib.init(t);
+	initBaseLib(t);
 	MemblockLib.init(t);
 	StringLib.init(t); // depends on memblock
 	HashLib.init(t); // depends on string
+	DocsLib.init(t);
 
-	// Oop, let's take a break to stitch up these dependencies
-	pushGlobal(t, "finishLoadingDocs");
-	pushNull(t);
-	rawCall(t, -2, 0);
+	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later)
+	version(CrocBuiltinDocs)
+	{
+		docModulesLib(t);
+		docExceptionsLib(t);
+		docGCLib(t);
+
+		docBaseLib(t);
+		// docMemblockLib(t);
+		// docStringLib(t);
+		// docHashLib(t);
+	}
 
 	// Finish up the safe libs.
 	StreamLib.init(t);
