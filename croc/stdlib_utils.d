@@ -26,6 +26,7 @@ subject to the following restrictions:
 module croc.stdlib_utils;
 
 import tango.core.Traits;
+import tango.text.Util;
 
 import croc.ex;
 import croc.api_interpreter;
@@ -127,7 +128,10 @@ void docGlobals(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
 {
 	foreach(ref d; docs)
 	{
-		pushGlobal(t, d.name);
+		auto pos = d.name.locatePrior('.');
+		pos = pos == d.name.length ? 0 : pos + 1;
+
+		pushGlobal(t, d.name[pos .. $]);
 		doc(-1, d);
 		pop(t);
 	}
@@ -137,7 +141,10 @@ void docFields(CrocThread* t, CrocDoc doc, CrocDoc.Docs[] docs)
 {
 	foreach(ref d; docs)
 	{
-		field(t, -1, d.name);
+		auto pos = d.name.locatePrior('.');
+		pos = pos == d.name.length ? 0 : pos + 1;
+
+		field(t, -1, d.name[pos .. $]);
 		doc(-1, d);
 		pop(t);
 	}

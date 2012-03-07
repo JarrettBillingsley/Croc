@@ -9,7 +9,7 @@ function main()
 //
 // 	BaselibDumper().dump()
 
-	StdlibDumper.dump(gc)
+	StdlibDumper.dump(string)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream

@@ -431,7 +431,7 @@ private const ExDesc[] ExDescs =
 
 version(CrocBuiltinDocs)
 {
-	const Docs Location_docs = {kind: "class", name: "Location", docs:
+	const Docs Location_docs = {kind: "class", name: "exceptions.Location", docs:
 	"This class holds a source location, which is used in exception tracebacks. There two kinds of locations:
 	compile-time and runtime. Compile-time locations have a column number > 0 and indicate the exact location
 	within a source file where something went wrong. Runtime locations have a column number <= 0, in which case

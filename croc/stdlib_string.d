@@ -40,6 +40,10 @@ import croc.stdlib_utils;
 import croc.types;
 import croc.utils;
 
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
+
 // ================================================================================================================================================
 // Public
 // ================================================================================================================================================
@@ -64,6 +68,30 @@ void initStringLib(CrocThread* t)
 	});
 
 	importModuleNoNS(t, "string");
+}
+
+version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
+{
+	pushGlobal(t, "string");
+
+	scope doc = new CrocDoc(t, __FILE__);
+	doc.push(Docs("module", "String Library",
+	"The string library provides functionality for manipulating strings. Most of these functions are accessed as methods of
+	string objects. These are indicated as `s.methodName` in the following docs.
+
+	Remember that strings in Croc are immutable. Therefore these functions never operate on the object on which they were
+	called. They will always return new strings distinct from the original string."));
+
+	// docStringBufferObj(t, doc);
+
+	docFields(t, doc, _globalFuncDocs);
+
+	getTypeMT(t, CrocValue.Type.String);
+		docFields(t, doc, _methodFuncDocs);
+	pop(t);
+
+	doc.pop(-1);
+	pop(t);
 }
 
 // ================================================================================================================================================
@@ -128,17 +156,17 @@ uword _fromRawAscii(CrocThread* t)
 		throwStdException(t, "ValueException", "Memblock must be of type 'u8', not '{}'", mb.kind.name);
 
 	auto src = (cast(char[])mb.data)[cast(uword)lo .. cast(uword)hi];
-  		auto dest = allocArray!(char)(t, src.length);
+	auto dest = allocArray!(char)(t, src.length);
 
-  		scope(exit)
-  			freeArray(t, dest);
+	scope(exit)
+		freeArray(t, dest);
 
-  		foreach(i, char c; src)
-  		{
-	  	if(c <= 0x7f)
-  				dest[i] = c;
-  			else
-  				dest[i] = '\u001a';
+	foreach(i, char c; src)
+	{
+		if(c <= 0x7f)
+			dest[i] = c;
+		else
+			dest[i] = '\u001a';
 	}
 
 	pushString(t, dest);
@@ -153,6 +181,7 @@ const uword VSplitMax = 20;
 const RegisterFunc[] _methodFuncs =
 [
 	{"toRawUnicode", &_toRawUnicode, maxParams: 2},
+	{"toRawAscii",   &_toRawAscii,   maxParams: 1},
 	{"opApply",      &_opApply,      maxParams: 1},
 	{"join",         &_join,         maxParams: 1},
 	{"vjoin",        &_vjoin},
@@ -250,6 +279,37 @@ uword _toRawUnicode(CrocThread* t)
 	
 	push(t, CrocValue(ret));
 	lenai(t, -1, len);
+	return 1;
+}
+
+uword _toRawAscii(CrocThread* t)
+{
+	checkStringParam(t, 0);
+	auto str = getStringObj(t, 0);
+	
+	// Take advantage of the fact that in UTF-8, codepoint length == data length iff all codepoints <= 0x7f -- valid ASCII
+	if(str.length != str.cpLength)
+		throwStdException(t, "ValueException", "Cannot convert string with codepoints higher than U+0007F to ASCII");
+
+	CrocMemblock* ret;
+
+	if(optParam(t, 1, CrocValue.Type.Memblock))
+	{
+		ret = getMemblock(t, 1);
+		dup(t, 1);
+		pushNull(t);
+		pushString(t, "u8");
+		methodCall(t, -3, "type", 0);
+		lenai(t, 1, str.length);
+	}
+	else
+	{
+		newMemblock(t, "u8", str.length);
+		ret = getMemblock(t, -1);
+	}
+
+	(cast(char*)ret.data.ptr)[0 .. str.length] = str.toString()[];
+	push(t, CrocValue(ret));
 	return 1;
 }
 
@@ -894,4 +954,192 @@ uword _iendsWith(CrocThread* t)
 
 	pushBool(t, .endsWith(s1, s2));
 	return 1;
+}
+
+version(CrocBuiltinDocs)
+{
+	const Docs[] _globalFuncDocs =
+	[
+		{kind: "function", name: "string.fromRawUnicode", docs:
+		"Converts data stored in a memblock into a string. The given memblock must be of type `u8`, `u16`, or `u32`.
+		If it's `u8`, it must contain UTF-8 data; if it's `u16`, it must contain UTF-16 data; and if it's `u32`, it
+		must contain UTF-32 data. You can specify only a slice of the memblock to convert into a string with the `lo`
+		and `hi` parameters; the default behavior is to convert the entire memblock. If the data is invalid Unicode,
+		an exception will be thrown. Returns the converted string.",
+		params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
+
+		{kind: "function", name: "string.fromRawAscii", docs:
+		"Similar to `fromRawUnicode`, except converts a memblock containing ASCII data into a string. The memblock
+		must be of type `u8`. Any bytes above U+0007F are turned into the Unicode replacement character, U+0001A.
+		Returns the converted string.",
+		params: [Param("mb", "memblock"), Param("lo", "int", "0"), Param("hi", "int", "#mb")]},
+	];
+
+	const Docs[] _methodFuncDocs =
+	[
+		{kind: "function", name: "s.toRawUnicode", docs:
+		"Converts a string into a memblock containing Unicode-encoded data. The `bits` parameter determines which
+		encoding to use. It defaults to 8, which means the resulting memblock will be filled with a UTF-8 encoding of
+		`s`, and its type will be `u8`. The other two valid values are 16, which will encode UTF-16 data in a memblock
+		of type `u16`, and 32, which will encode UTF-32 data in a memblock of type `u32`.
+
+		You may optionally pass a memblock as the second parameter to be used as the destination memblock. This way you
+		can reuse a memblock as a conversion buffer to avoid memory allocations. The memblock's type will be set
+		appropriately and its data will be replaced by the encoded string data.
+
+		Returns the memblock containing the encoded string data, either a new memblock if `mb` is `null`, or `mb`
+		otherwise.",
+		params: [Param("bits", "int", "8"), Param("mb", "memblock", "null")]},
+
+		{kind: "function", name: "s.toRawAscii", docs:
+		"Similar to `toRawUnicode`, except encodes `s` as ASCII. `s` must not contain any codepoints above U+0007F; that
+		is, `s.isAscii()` must return true for this method to work.
+
+		Just like `toRawUnicode` you can pass a memblock as a destination buffer. Its type will be set to `u8`.
+
+		Returns the memblock containing the encoded string data, either a new memblock if `mb` is `null`, or `mb`
+		otherwise.",
+		params: [Param("mb", "memblock", "null")]},
+
+		{kind: "function", name: "s.opApply", docs:
+		"This function allows you to iterate over the characters of a string with a `foreach` loop.
+
+{{{
+#!croc
+foreach(i, v; \"hello\")
+	writeln(\"string[\", i, \"] = \", v)
+
+foreach(i, v; \"hello\", \"reverse\")
+	writeln(\"string[\", i, \"] = \", v)
+}}}
+
+		As this example shows, if you pass \"reverse\" to the '''`opApply`''' function, either directly or as the second
+		part of the `foreach` container, the iteration will go in reverse, starting at the end of the string.",
+		params: [Param("reverse", "string", "null")]},
+
+		{kind: "function", name: "s.join", docs:
+		"The inverse of the `split` method. This joins together the elements of `arr` using `s` as the separator. The
+		elements of `arr` must all be characters or strings. If `s` is the empty string, this just concatenates all the
+		elements of `arr` together. If `#arr` is 0, returns the empty string. If `#arr` is 1, returns `arr[0]` as a string
+		(so a single character will be converted to a string). Otherwise, returns the elements joined sequentially with the
+		separator (`s`) between each pair of arguments. So \"`\".\".join([\"apple\", \"banana\", \"orange\"])`\" will yield
+		the string `\"apple.banana.orange\"`.",
+		params: [Param("arr", "array")]},
+
+		{kind: "function", name: "s.vjoin", docs:
+		"Similar to `join`, but joins its list of variadic parameters instead of an array. The functionality is otherwise
+		identical. So \"`\".\".join(\"apple\", \"banana\", \"orange\")`\" will yield the string `\"apple.banana.orange\"`.",
+		params: [Param("vararg", "vararg")]},
+
+		{kind: "function", name: "s.isAscii", docs:
+		"Returns a bool indicating whether or not this string is pure ASCII, that is, whether or not all the codepoints in it
+		are less than or equal to U+0007F."},
+
+		{kind: "function", name: "s.toInt", docs:
+		"Converts the string into an integer. If the string does not follow the format of an integer, an exception will be
+		thrown. The optional `base` parameter defaults to 10, but you can use any base between 2 and 36 inclusive.",
+		params: [Param("base", "int", "10")]},
+		
+		{kind: "function", name: "s.toFloat", docs:
+		"Converts the string into a float. If the string does not follow the format of a float, an exception will be thrown."},
+		
+		{kind: "function", name: "s.compare", docs:
+		"Compares the string to the string `other`, and returns an integer. If `s` is less than (alphabetically) `other`, the
+		return is negative; if they are the same, the return is 0; and otherwise, the return is positive. This does not perform
+		language-sensitive collation; this is a pure codepoint comparison. Note that the exact same functionality can be
+		achieved by using the `<=>` operator on two strings.",
+		params: [Param("other", "string")]},
+
+		{kind: "function", name: "s.icompare", docs:
+		"The same as `compare`, but case-insensitive, so \"foo\", \"Foo\", and \"FOO\" will all compare equal, for instance.",
+		params: [Param("other", "string")]},
+		
+		{kind: "function", name: "s.find", docs:
+		"Searches for an occurence of `sub` in `s`. `sub` can be either a string or a single character. The search starts from
+		`start` (which defaults to the first character) and goes right. If `sub` is found, this function returns the integer
+		index of the occurrence in the string, with 0 meaning the first character. Otherwise, if `sub` cannot be found, `#s`
+		is returned.",
+		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
+
+		{kind: "function", name: "s.ifind", docs:
+		"The same as `find`, but case-insensitive.",
+		params: [Param("sub", "string|char"), Param("start", "int", "0")]},
+
+		{kind: "function", name: "s.rfind", docs:
+		"Reverse find. Works similarly to `find`, but the search starts with the character at `start - 1` (which defaults to
+		the last character) and goes ''left''. `start` is not included in the search so you can use the result of this function
+		as the `start` parameter to successive calls. If `sub` is found, this function returns the integer index of the occurrence
+		in the string, with 0 meaning the first character. Otherwise, if `sub` cannot be found, `#s` is returned.",
+		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
+
+		{kind: "function", name: "s.irfind", docs:
+		"The same as `rfind`, but case-insensitive.",
+		params: [Param("sub", "string|char"), Param("start", "int", "#s")]},
+		
+		{kind: "function", name: "s.toLower", docs:
+		"Returns a new string with any uppercase letters converted to lowercase. Non-uppercase letters and non-letters are not
+		affected."},
+		
+		{kind: "function", name: "s.toUpper", docs:
+		"Returns a new string with any lowercase letters converted to uppercase. Non-lowercase letters and non-letters are not
+		affected."},
+		
+		{kind: "function", name: "s.repeat", docs:
+		"Returns a string which is the concatenation of `n` instances of `s`. So `\"hello\".repeat(3)` will return
+		`\"hellohellohello\"`. `n` must be greater than or equal to 0.",
+		params: [Param("n", "int")]},
+		
+		{kind: "function", name: "s.reverse", docs:
+		"Returns a string which is the reversal of `s`."},
+		
+		{kind: "function", name: "s.split", docs:
+		"The inverse of the `join` method. Splits `s` into pieces and returns an array of the split pieces. If no parameters are
+		given, the splitting occurs at whitespace (spaces, tabs, newlines etc.) and all the whitespace is stripped from the split
+		pieces. Thus `\"one\\t\\ttwo\".split()` will return `[\"one\", \"two\"]`. If the `delim` parameter is given, it specifies
+		a delimiting string where `s` will be split. Thus `\"one--two--three\".split(\"--\")` will return `[\"one\", \"two\", \"three\"]`.",
+		params: [Param("delim", "string", "null")]},
+
+		{kind: "function", name: "s.vsplit", docs:
+		"Similar to `split`, but instead of returning an array, returns the split pieces as multiple return values. Thus
+		`\"one\\t\\ttwo\".split()` will return `\"one\", \"two\"`. If the string splits into more than 20 pieces, an error will be
+		thrown (as returning many values can be a memory problem). Otherwise the behavior is identical to `split`.",
+		params: [Param("delim", "string", "null")]},
+		
+		{kind: "function", name: "s.splitLines", docs:
+		"This will split the string at any newline characters (`'\n'`, `'\r'`, or `'\r\n'`). Other whitespace is preserved, and empty
+		lines are preserved. This returns an array of strings, each of which holds one line of text."},
+		
+		{kind: "function", name: "s.vsplitLines", docs:
+		"Similar to `splitLines`, but instead of returning an array, returns the split lines as multiple return values. If the string
+		splits into more than 20 lines, an error will be thrown. Otherwise the behavior is identical to `splitLines`."},
+		
+		{kind: "function", name: "s.strip", docs:
+		"Strips any whitespace from the beginning and end of the string."},
+		
+		{kind: "function", name: "s.lstrip", docs:
+		"Strips any whitespace from just the beginning of the string."},
+
+		{kind: "function", name: "s.rstrip", docs:
+		"Strips any whitespace from just the end of the string."},
+
+		{kind: "function", name: "s.replace", docs:
+		"Replaces any occurrences in `s` of the string `from` with the string `to`.",
+		params: [Param("from", "string"), Param("to", "string")]},
+		
+		{kind: "function", name: "s.startsWith", docs:
+		"Returns a bool of whether or not `s` starts with the substring `other`. This is case-sensitive.",
+		params: [Param("other", "string")]},
+		
+		{kind: "function", name: "s.endsWith", docs:
+		"Returns a bool of whether or not `s` ends with the substring `other`. This is case-sensitive.",
+		params: [Param("other", "string")]},
+
+		{kind: "function", name: "s.istartsWith", docs:
+		"Returns a bool of whether or not `s` starts with the substring `other`. This is case-insensitive.",
+		params: [Param("other", "string")]},
+
+		{kind: "function", name: "s.iendsWith", docs:
+		"Returns a bool of whether or not `s` ends with the substring `other`. This is case-insensitive.",
+		params: [Param("other", "string")]}
+	];
 }

@@ -428,7 +428,7 @@ uword _loadFiles(CrocThread* t)
 
 version(CrocBuiltinDocs) const Docs[] _docTables =
 [
-	{kind: "variable", name: "path", docs:
+	{kind: "variable", name: "modules.path", docs:
 	`This is just a variable that holds a string. This string contains the paths that are used when searching for
 	modules. The paths are specified using forward slashes to separate path components regardless of the underlying
 	OS, and semicolons to separate paths.
@@ -438,18 +438,18 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
 	and "imports/current/foo/bar.croc" in that order.`,
 	extra: [Extra("protection", "global"), Extra("value", `"."`)]},
 
-	{kind: "variable", name: "loaded", docs:
+	{kind: "variable", name: "modules.loaded", docs:
 	"This is a table that holds all currently-loaded modules. The keys are the module names as strings, and the values
 	are the corresponding modules' namespaces. This is the table that `modules.load` will check in first before trying
 	to look for a loader.",
 	extra: [Extra("protection", "global")]},
 
-	{kind: "variable", name: "customLoaders", docs:
+	{kind: "variable", name: "modules.customLoaders", docs:
 	"This is a table which you are free to use. It maps from module names (strings) to functions or namespaces. This
 	table is used by the `customLoad` step in `modules.loaders`; see it for more information.",
 	extra: [Extra("protection", "global")]},
 
-	{kind: "variable", name: "loaders", docs:
+	{kind: "variable", name: "modules.loaders", docs:
 	"This is an important variable. This holds the array of ''module loaders'', which are functions which take the name
 	of a module that's being loaded, and return one of four things: nothing or null, to indicate that the next loader
 	should be tried; a namespace, which is assumed to be the module's namespace; a native function, which is assumed to
@@ -468,14 +468,14 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
    is newer. If it gets through all the paths and finds no files, it returns nothing.",
 	extra: [Extra("protection", "global")]},
 
-	{kind: "function", name: "load", docs:
+	{kind: "function", name: "modules.load", docs:
 	"Loads a module of the given name and, if successful, returns that module's namespace. If the module is
 	already loaded (i.e. it has an entry in the `modules.loaded` table), just returns the preexisting namespace.
-	
+
 	This is the function that the built-in import statement calls. So in fact, \"`import foo.bar`\" and
 	\"`modules.load(\"foo.bar\")`\" do exactly the same thing, at least from the module-loading point of view.
 	Import statements also give you some syntactic advantages with selective and renamed imports.
-	
+
 	The process of loading a module goes something like this:
 
  1. It looks in `modules.loaded` to see if the module of the given name has already been imported. If it has
@@ -493,34 +493,34 @@ version(CrocBuiltinDocs) const Docs[] _docTables =
     thrown saying that the module could not be loaded.",
 	params: [Param("name", "string")],
 	extra: [Extra("protection", "global")]},
-	
-	{kind: "function", name: "reload", docs:
+
+	{kind: "function", name: "modules.reload", docs:
 	"Very similar to `modules.load`, but reloads an already-loaded module. This function replaces step 1 of
 	`modules.load`'s process with a check to see if the module has already been loaded; if it has, it continues
 	on with the process. If it hasn't been loaded, throws an error.",
 	params: [Param("name", "string")],
 	extra: [Extra("protection", "global")]},
-	
-	{kind: "function", name: "initModule", docs:
+
+	{kind: "function", name: "modules.initModule", docs:
 	"Initialize a module with a top-level function/funcdef, and a name. The name is used to create the namespace for
 	the module in the global namespace hierarchy if it doesn't already exist. If the module namespace does already exist
 	(such as in the case when a module is being reloaded), it is cleared before the top-level is called. Once the namespace
 	has been created, the top-level function (or if the first parameter is a funcdef, the result of creating a new closure
 	of that funcdef with the new namespace as the environment) is called with the module namespace as the 'this' parameter.
-	
+
 	If the top-level function completes successfully, the module's namespace will be inserted into the global namespace
 	hierarchy and also be added to the `modules.loaded` table.
-	
+
 	If the top-level function fails, no change will be made to the global namespace hierarchy (unless the module's namespace
 	was cleared).
-	
+
 	Note that if you pass a function as the `topLevel` parameter, it can only be a native function. Script functions'
 	environments are fixed and cannot be set to the new module namespace. For that matter, if you pass a funcdef, that funcdef
 	must not have had any closures created from it yet, as that would associate a namespace with that funcdef as well.",
 	params: [Param("topLevel", "function|funcdef"), Param("name", "string")],
 	extra: [Extra("protection", "global")]},
-	
-	{kind: "function", name: "runMain", docs:
+
+	{kind: "function", name: "modules.runMain", docs:
 	"This will look in the given namespace for a field named main. If one exists, and that field is a function,
 	that function will be called with the namespace as 'this' and any variadic arguments to `runMain` as the
 	arguments. Otherwise, this function does nothing.",
