@@ -128,9 +128,9 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 	// Safe libs
 	initBaseLib(t);
 	MemblockLib.init(t);
-	StringLib.init(t); // depends on memblock
+	initStringLib(t); // depends on memblock
 	HashLib.init(t); // depends on string
-	DocsLib.init(t);
+	initDocsLib(t);
 
 	// Go back and document the libs that we loaded before the doc lib (this is easier than partly-loading the doclib and fixing things later)
 	version(CrocBuiltinDocs)
@@ -138,7 +138,6 @@ CrocThread* openVM(CrocVM* vm, MemFunc memFunc = &DefaultMemFunc, void* ctx = nu
 		docModulesLib(t);
 		docExceptionsLib(t);
 		docGCLib(t);
-
 		docBaseLib(t);
 		// docMemblockLib(t);
 		// docStringLib(t);
