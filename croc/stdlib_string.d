@@ -56,7 +56,7 @@ void initStringLib(CrocThread* t)
 	{
 		importModuleNoNS(t, "memblock");
 
-		StringBufferObj.init(t);
+		initStringBuffer(t);
 		
 		registerGlobals(t, _globalFuncs);
 
@@ -82,7 +82,7 @@ version(CrocBuiltinDocs) void docStringLib(CrocThread* t)
 	Remember that strings in Croc are immutable. Therefore these functions never operate on the object on which they were
 	called. They will always return new strings distinct from the original string."));
 
-	// docStringBufferObj(t, doc);
+	docStringBuffer(t, doc);
 
 	docFields(t, doc, _globalFuncDocs);
 

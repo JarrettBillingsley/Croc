@@ -34,905 +34,1093 @@ import croc.api_interpreter;
 import croc.api_stack;
 import croc.ex;
 import croc.ex_format;
+import croc.stdlib_utils;
 import croc.types;
 import croc.utils;
 
-struct StringBufferObj
+alias CrocDoc.Docs Docs;
+alias CrocDoc.Param Param;
+alias CrocDoc.Extra Extra;
+
+// ================================================================================================================================================
+// Public
+// ================================================================================================================================================
+
+public:
+
+void initStringBuffer(CrocThread* t)
 {
-static:
-	private enum
+	CreateClass(t, "StringBuffer", (CreateClass* c)
 	{
-		Data,
-		Length,
+		c.allocator("allocator", &BasicClassAllocator!(NumFields, 0));
 
-		NumFields
-	}
+		c.method("constructor",    1, &_constructor);
+		c.method("toString",       2, &_toString);
 
-	void init(CrocThread* t)
+		c.method("opEquals",       1, &_opEquals);
+		c.method("opCmp",          1, &_opCmp);
+		c.method("opLength",       0, &_opLength);
+		c.method("opLengthAssign", 1, &_opLengthAssign);
+		c.method("opIndex",        1, &_opIndex);
+		c.method("opIndexAssign",  2, &_opIndexAssign);
+		c.method("opCat",          1, &_opCat);
+		c.method("opCat_r",        1, &_opCat_r);
+		c.method("opCatAssign",       &_opCatAssign);
+		c.method("opSlice",        2, &_opSlice);
+
+		c.method("fill",           1, &_fill);
+		c.method("fillRange",      3, &_fillRange);
+		c.method("insert",         2, &_insert);
+		c.method("remove",         2, &_remove);
+
+		c.method("format",            &_format);
+		c.method("formatln",          &_formatln);
+
+			newFunction(t, &_iterator, "iterator");
+			newFunction(t, &_iteratorReverse, "iteratorReverse");
+		c.method("opApply", 1, &_opApply, 2);
+
+		c.method("opSerialize",   &_opSerialize);
+		c.method("opDeserialize", &_opDeserialize);
+	});
+
+	field(t, -1, "fillRange");
+	fielda(t, -2, "opSliceAssign");
+
+	field(t, -1, "opCatAssign");
+	fielda(t, -2, "append");
+
+	newGlobal(t, "StringBuffer");
+}
+
+version(CrocBuiltinDocs) void docStringBuffer(CrocThread* t, CrocDoc doc)
+{
+	field(t, -1, "StringBuffer");
+		doc.push(_classDocs);
+		docFields(t, doc, _methodDocs);
+		doc.pop(-1);
+	pop(t);
+}
+
+// ================================================================================================================================================
+// Private
+// ================================================================================================================================================
+
+private:
+
+enum
+{
+	Data,
+	Length,
+
+	NumFields
+}
+
+CrocMemblock* _getThis(CrocThread* t)
+{
+	checkInstParam(t, 0, "StringBuffer");
+	getExtraVal(t, 0, Data);
+
+	if(!isMemblock(t, -1))
+		throwStdException(t, "ValueException", "Attempting to call a method on an uninitialized StringBuffer");
+
+	auto ret = getMemblock(t, -1);
+	pop(t);
+	return ret;
+}
+
+CrocMemblock* _getData(CrocThread* t, word idx)
+{
+	getExtraVal(t, idx, Data);
+
+	if(!isMemblock(t, -1))
+		throwStdException(t, "ValueException", "Attempting to operate on an uninitialized StringBuffer");
+
+	auto ret = getMemblock(t, -1);
+	pop(t);
+	return ret;
+}
+
+uword _getLength(CrocThread* t, word idx = 0)
+{
+	getExtraVal(t, idx, Length);
+	auto ret = cast(uword)getInt(t, -1);
+	pop(t);
+	return ret;
+}
+
+void _setLength(CrocThread* t, uword l, word idx = 0)
+{
+	idx = absIndex(t, idx);
+	pushInt(t, cast(crocint)l);
+	setExtraVal(t, idx, Length);
+}
+
+void _ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
+{
+	if(mb.itemLength == 0)
 	{
-		CreateClass(t, "StringBuffer", (CreateClass* c)
-		{
-			c.allocator("allocator", &BasicClassAllocator!(NumFields, 0));
-
-			c.method("constructor",    1, &constructor);
-			c.method("toString",       2, &toString);
-
-			c.method("opEquals",       1, &opEquals);
-			c.method("opCmp",          1, &opCmp);
-			c.method("opLength",       0, &opLength);
-			c.method("opLengthAssign", 1, &opLengthAssign);
-			c.method("opIndex",        1, &opIndex);
-			c.method("opIndexAssign",  2, &opIndexAssign);
-			c.method("opCat",          1, &opCat);
-			c.method("opCat_r",        1, &opCat_r);
-			c.method("opCatAssign",       &opCatAssign);
-			c.method("opSlice",        2, &opSlice);
-
-			c.method("fill",           1, &fill);
-			c.method("fillRange",      3, &fillRange);
-			c.method("insert",         2, &sb_insert);
-			c.method("remove",         2, &remove);
-
-			c.method("format",            &format);
-			c.method("formatln",          &formatln);
-
-				newFunction(t, &iterator, "iterator");
-				newFunction(t, &iteratorReverse, "iteratorReverse");
-			c.method("opApply", 1, &opApply, 2);
-
-			c.method("opSerialize",   &opSerialize);
-			c.method("opDeserialize", &opDeserialize);
-		});
-
-		field(t, -1, "fillRange");
-		fielda(t, -2, "opSliceAssign");
-
-		field(t, -1, "opCatAssign");
-		fielda(t, -2, "append");
-
-		newGlobal(t, "StringBuffer");
-	}
-
-	CrocMemblock* getThis(CrocThread* t)
-	{
-		checkInstParam(t, 0, "StringBuffer");
-		getExtraVal(t, 0, Data);
-
-		if(!isMemblock(t, -1))
-			throwStdException(t, "ValueException", "Attempting to call a method on an uninitialized StringBuffer");
-
-		auto ret = getMemblock(t, -1);
+		push(t, CrocValue(mb));
+		lenai(t, -1, size);
 		pop(t);
-		return ret;
 	}
-
-	CrocMemblock* getData(CrocThread* t, word idx)
+	else if(size > mb.itemLength)
 	{
-		getExtraVal(t, idx, Data);
+		auto l = mb.itemLength;
 
-		if(!isMemblock(t, -1))
-			throwStdException(t, "ValueException", "Attempting to operate on an uninitialized StringBuffer");
+		while(size > l)
+		{
+			if(l & (1 << ((uword.sizeof * 8) - 1)))
+				throwStdException(t, "RangeException", "StringBuffer too big ({} elements)", size);
+			l <<= 1;
+		}
 
-		auto ret = getMemblock(t, -1);
+		push(t, CrocValue(mb));
+		lenai(t, -1, l);
 		pop(t);
-		return ret;
 	}
+}
 
-	uword getLength(CrocThread* t, word idx = 0)
-	{
-		getExtraVal(t, idx, Length);
-		auto ret = cast(uword)getInt(t, -1);
-		pop(t);
-		return ret;
-	}
+uword _constructor(CrocThread* t)
+{
+	checkInstParam(t, 0, "StringBuffer");
 
-	void setLength(CrocThread* t, uword l, word idx = 0)
-	{
-		idx = absIndex(t, idx);
-		pushInt(t, cast(crocint)l);
-		setExtraVal(t, idx, Length);
-	}
+	char[] data = void;
+	uword length = void;
 
-	void ensureSize(CrocThread* t, CrocMemblock* mb, uword size)
+	if(isValidIndex(t, 1))
 	{
-		if(mb.itemLength == 0)
+		if(isString(t, 1))
 		{
-			push(t, CrocValue(mb));
-			lenai(t, -1, size);
-			pop(t);
+			data = getString(t, 1);
+			length = cast(uword)len(t, 1); // need codepoint length
 		}
-		else if(size > mb.itemLength)
-		{
-			auto l = mb.itemLength;
-
-			while(size > l)
-			{
-				if(l & (1 << ((uword.sizeof * 8) - 1)))
-					throwStdException(t, "RangeException", "StringBuffer too big ({} elements)", size);
-				l <<= 1;
-			}
-
-			push(t, CrocValue(mb));
-			lenai(t, -1, l);
-			pop(t);
-		}
-	}
-
-	uword constructor(CrocThread* t)
-	{
-		checkInstParam(t, 0, "StringBuffer");
-
-		char[] data = void;
-		uword length = void;
-
-		if(isValidIndex(t, 1))
-		{
-			if(isString(t, 1))
-			{
-				data = getString(t, 1);
-				length = cast(uword)len(t, 1); // need codepoint length
-			}
-			else if(isInt(t, 1))
-			{
-				data = "";
-				auto l = getInt(t, 1);
-
-				if(l < 0 || l > uword.max)
-					throwStdException(t, "RangeException", "Invalid length: {}", l);
-
-				length = cast(uword)l;
-			}
-		}
-		else
+		else if(isInt(t, 1))
 		{
 			data = "";
-			length = 0;
+			auto l = getInt(t, 1);
+
+			if(l < 0 || l > uword.max)
+				throwStdException(t, "RangeException", "Invalid length: {}", l);
+
+			length = cast(uword)l;
 		}
-
-		newMemblock(t, "u32", length);
-
-		if(data.length > 0)
-		{
-			auto mb = getMemblock(t, -1);
-			uint ate = 0;
-			Utf.toString32(data, cast(dchar[])mb.data, &ate);
-			setLength(t, length);
-		}
-		else
-			setLength(t, 0);
-
-		setExtraVal(t, 0, Data);
-		return 0;
+	}
+	else
+	{
+		data = "";
+		length = 0;
 	}
 
-	uword toString(CrocThread* t)
+	newMemblock(t, "u32", length);
+
+	if(data.length > 0)
 	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto lo = optIntParam(t, 1, 0);
-		auto hi = optIntParam(t, 2, len);
+		auto mb = getMemblock(t, -1);
+		uint ate = 0;
+		Utf.toString32(data, cast(dchar[])mb.data, &ate);
+		_setLength(t, length);
+	}
+	else
+		_setLength(t, 0);
+
+	setExtraVal(t, 0, Data);
+	return 0;
+}
+
+uword _toString(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto lo = optIntParam(t, 1, 0);
+	auto hi = optIntParam(t, 2, len);
+
+	if(lo < 0)
+		lo += len;
+
+	if(hi < 0)
+		hi += len;
 		
-		if(lo < 0)
-			lo += len;
+	if(lo < 0 || lo > hi || hi > len)
+		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
 
-		if(hi < 0)
-			hi += len;
-			
-		if(lo < 0 || lo > hi || hi > len)
-			throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+	pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]);
+	return 1;
+}
 
-		pushFormat(t, "{}", (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi]);
-		return 1;
-	}
+uword _opEquals(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	checkAnyParam(t, 1);
 
-	uword opEquals(CrocThread* t)
+	pushGlobal(t, "StringBuffer");
+
+	if(opis(t, 0, 1))
+		pushBool(t, true);
+	else if(isString(t, 1))
 	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		checkAnyParam(t, 1);
-
-		pushGlobal(t, "StringBuffer");
-
-		if(opis(t, 0, 1))
-			pushBool(t, true);
-		else if(isString(t, 1))
-		{
-			if(len != .len(t, 1))
-				pushBool(t, false);
-			else
-			{
-				auto data = cast(dchar[])mb.data;
-				auto other = getString(t, 1);
-				uword pos = 0;
-
-				foreach(dchar c; other)
-				{
-					if(c != data[pos++])
-					{
-						pushBool(t, false);
-						return 1;
-					}
-				}
-
-				pushBool(t, true);
-			}
-		}
-		else if(as(t, 1, -1))
-		{
-			auto otherLen = getLength(t, 1);
-
-			if(len != otherLen)
-				pushBool(t, false);
-			else
-			{
-				auto other = getData(t, 1);
-
-				auto a = (cast(dchar[])mb.data)[0 .. len];
-				auto b = (cast(dchar[])other.data)[0 .. a.length];
-				pushBool(t, a == b);
-			}
-		}
+		if(len != .len(t, 1))
+			pushBool(t, false);
 		else
-			paramTypeError(t, 1, "string|StringBuffer");
-
-		return 1;
-	}
-
-	uword opCmp(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		checkAnyParam(t, 1);
-
-		pushGlobal(t, "StringBuffer");
-
-		if(opis(t, 0, 1))
-			pushInt(t, 0);
-		else if(isString(t, 1))
 		{
-			auto otherLen = .len(t, 1);
-			auto l = min(len, otherLen);
-
 			auto data = cast(dchar[])mb.data;
 			auto other = getString(t, 1);
 			uword pos = 0;
 
-			foreach(i, dchar c; other)
+			foreach(dchar c; other)
 			{
-				if(pos >= l)
-					break;
-
-				if(c != data[pos])
+				if(c != data[pos++])
 				{
-					pushInt(t, Compare3(c, data[pos]));
+					pushBool(t, false);
 					return 1;
 				}
-
-				pos++;
 			}
 
-			pushInt(t, Compare3(len, cast(uword)otherLen));
+			pushBool(t, true);
 		}
-		else if(as(t, 1, -1))
-		{
-			auto otherLen = getLength(t, 1);
-			auto l = min(len, otherLen);
-			auto other = getData(t, 1);
-			auto a = (cast(dchar[])mb.data)[0 .. l];
-			auto b = (cast(dchar[])other.data)[0 .. l];
+	}
+	else if(as(t, 1, -1))
+	{
+		auto otherLen = _getLength(t, 1);
 
-			if(auto cmp = typeid(dchar[]).compare(&a, &b))
-				pushInt(t, cmp);
-			else
-				pushInt(t, Compare3(len, cast(uword)otherLen));
-		}
+		if(len != otherLen)
+			pushBool(t, false);
 		else
-			paramTypeError(t, 1, "string|StringBuffer");
-
-		return 1;
-	}
-
-	uword opLength(CrocThread* t)
-	{
-		getThis(t);
-		getExtraVal(t, 0, Length);
-		return 1;
-	}
-
-	uword opLengthAssign(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto newLen = checkIntParam(t, 1);
-
-		if(newLen < 0 || newLen > uword.max)
-			throwStdException(t, "RangeException", "Invalid length: {}", newLen);
-
-		auto oldLen = getLength(t);
-
-		if(cast(uword)newLen < oldLen)
-			setLength(t, cast(uword)newLen);
-		else if(cast(uword)newLen > oldLen)
 		{
-			ensureSize(t, mb, cast(uword)newLen);
-			setLength(t, cast(uword)newLen);
-			(cast(dchar[])mb.data)[oldLen .. cast(uword)newLen] = dchar.init;
+			auto other = _getData(t, 1);
+
+			auto a = (cast(dchar[])mb.data)[0 .. len];
+			auto b = (cast(dchar[])other.data)[0 .. a.length];
+			pushBool(t, a == b);
+		}
+	}
+	else
+		paramTypeError(t, 1, "string|StringBuffer");
+
+	return 1;
+}
+
+uword _opCmp(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	checkAnyParam(t, 1);
+
+	pushGlobal(t, "StringBuffer");
+
+	if(opis(t, 0, 1))
+		pushInt(t, 0);
+	else if(isString(t, 1))
+	{
+		auto otherLen = .len(t, 1);
+		auto l = min(len, otherLen);
+
+		auto data = cast(dchar[])mb.data;
+		auto other = getString(t, 1);
+		uword pos = 0;
+
+		foreach(i, dchar c; other)
+		{
+			if(pos >= l)
+				break;
+
+			if(c != data[pos])
+			{
+				pushInt(t, Compare3(c, data[pos]));
+				return 1;
+			}
+
+			pos++;
 		}
 
-		return 0;
+		pushInt(t, Compare3(len, cast(uword)otherLen));
+	}
+	else if(as(t, 1, -1))
+	{
+		auto otherLen = _getLength(t, 1);
+		auto l = min(len, otherLen);
+		auto other = _getData(t, 1);
+		auto a = (cast(dchar[])mb.data)[0 .. l];
+		auto b = (cast(dchar[])other.data)[0 .. l];
+
+		if(auto cmp = typeid(dchar[]).compare(&a, &b))
+			pushInt(t, cmp);
+		else
+			pushInt(t, Compare3(len, cast(uword)otherLen));
+	}
+	else
+		paramTypeError(t, 1, "string|StringBuffer");
+
+	return 1;
+}
+
+uword _opLength(CrocThread* t)
+{
+	_getThis(t);
+	getExtraVal(t, 0, Length);
+	return 1;
+}
+
+uword _opLengthAssign(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto newLen = checkIntParam(t, 1);
+
+	if(newLen < 0 || newLen > uword.max)
+		throwStdException(t, "RangeException", "Invalid length: {}", newLen);
+
+	auto oldLen = _getLength(t);
+
+	if(cast(uword)newLen < oldLen)
+		_setLength(t, cast(uword)newLen);
+	else if(cast(uword)newLen > oldLen)
+	{
+		_ensureSize(t, mb, cast(uword)newLen);
+		_setLength(t, cast(uword)newLen);
+		(cast(dchar[])mb.data)[oldLen .. cast(uword)newLen] = dchar.init;
 	}
 
-	uword opIndex(CrocThread* t)
+	return 0;
+}
+
+uword _opIndex(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto index = checkIntParam(t, 1);
+
+	if(index < 0)
+		index += len;
+
+	if(index < 0 || index >= len)
+		throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
+
+	pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
+	return 1;
+}
+
+uword _opIndexAssign(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto index = checkIntParam(t, 1);
+	auto ch = checkCharParam(t, 2);
+
+	if(index < 0)
+		index += len;
+
+	if(index < 0 || index >= len)
+		throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
+
+	(cast(dchar[])mb.data)[cast(uword)index] = ch;
+	return 0;
+}
+
+uword _opSlice(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto lo = optIntParam(t, 1, 0);
+	auto hi = optIntParam(t, 2, len);
+
+	if(lo < 0)
+		lo += len;
+
+	if(hi < 0)
+		hi += len;
+
+	if(lo < 0 || lo > hi || hi > len)
+		throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
+
+	auto newStr = (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi];
+	
+	pushGlobal(t, "StringBuffer");
+	pushNull(t);
+	pushInt(t, newStr.length);
+	rawCall(t, -3, 1);
+	(cast(dchar[])_getData(t, -1).data)[] = newStr[];
+	_setLength(t, newStr.length, -1);
+	return 1;
+}
+
+uword _opCat(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto src = cast(dchar[])mb.data;
+
+	dchar[] makeObj(crocint addLen)
 	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto index = checkIntParam(t, 1);
+		auto totalLen = len + addLen;
 
-		if(index < 0)
-			index += len;
+		if(totalLen > uword.max)
+			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
 
-		if(index < 0 || index >= len)
-			throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
-
-		pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
-		return 1;
-	}
-
-	uword opIndexAssign(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto index = checkIntParam(t, 1);
-		auto ch = checkCharParam(t, 2);
-
-		if(index < 0)
-			index += len;
-
-		if(index < 0 || index >= len)
-			throwStdException(t, "BoundsException", "Invalid index: {} (buffer length: {})", index, len);
-
-		(cast(dchar[])mb.data)[cast(uword)index] = ch;
-		return 0;
-	}
-
-	uword opSlice(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto lo = optIntParam(t, 1, 0);
-		auto hi = optIntParam(t, 2, len);
-
-		if(lo < 0)
-			lo += len;
-
-		if(hi < 0)
-			hi += len;
-
-		if(lo < 0 || lo > hi || hi > len)
-			throwStdException(t, "BoundsException", "Invalid slice indices: {} .. {} (buffer length: {})", lo, hi, len);
-
-		auto newStr = (cast(dchar[])mb.data)[cast(uword)lo .. cast(uword)hi];
-		
 		pushGlobal(t, "StringBuffer");
 		pushNull(t);
-		pushInt(t, newStr.length);
+		pushInt(t, totalLen);
 		rawCall(t, -3, 1);
-		(cast(dchar[])getData(t, -1).data)[] = newStr[];
-		setLength(t, newStr.length, -1);
-		return 1;
+		_setLength(t, cast(uword)totalLen, -1);
+		auto ret = cast(dchar[])_getData(t, -1).data;
+		ret[0 .. len] = src[0 .. len];
+		return ret[len .. $];
 	}
 
-	uword opCat(CrocThread* t)
+	checkAnyParam(t, 1);
+	pushGlobal(t, "StringBuffer");
+
+	if(isString(t, 1))
 	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto src = cast(dchar[])mb.data;
+		auto dest = makeObj(.len(t, 1));
+		uint ate = 0;
+		Utf.toString32(getString(t, 1), dest, &ate);
+	}
+	else if(isChar(t, 1))
+	{
+		makeObj(1)[0] = getChar(t, 1);
+	}
+	else if(as(t, 1, -1))
+	{
+		auto otherLen = _getLength(t, 1);
+		makeObj(otherLen)[] = (cast(dchar[])_getData(t, 1).data)[0 .. otherLen];
+	}
+	else
+	{
+		pushToString(t, 1);
+		auto s = getString(t, -1);
+		auto dest = makeObj(.len(t, -1));
+		uint ate = 0;
+		Utf.toString32(s, dest, &ate);
+		pop(t);
+	}
 
-		dchar[] makeObj(crocint addLen)
-		{
-			auto totalLen = len + addLen;
+	return 1;
+}
 
-			if(totalLen > uword.max)
-				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+uword _opCat_r(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto src = cast(dchar[])mb.data;
 
-			pushGlobal(t, "StringBuffer");
-			pushNull(t);
-			pushInt(t, totalLen);
-			rawCall(t, -3, 1);
-			setLength(t, cast(uword)totalLen, -1);
-			auto ret = cast(dchar[])getData(t, -1).data;
-			ret[0 .. len] = src[0 .. len];
-			return ret[len .. $];
-		}
+	dchar[] makeObj(crocint addLen)
+	{
+		auto totalLen = len + addLen;
 
-		checkAnyParam(t, 1);
+		if(totalLen > uword.max)
+			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+
 		pushGlobal(t, "StringBuffer");
-
-		if(isString(t, 1))
-		{
-			auto dest = makeObj(.len(t, 1));
-			uint ate = 0;
-			Utf.toString32(getString(t, 1), dest, &ate);
-		}
-		else if(isChar(t, 1))
-		{
-			makeObj(1)[0] = getChar(t, 1);
-		}
-		else if(as(t, 1, -1))
-		{
-			auto otherLen = getLength(t, 1);
-			makeObj(otherLen)[] = (cast(dchar[])getData(t, 1).data)[0 .. otherLen];
-		}
-		else
-		{
-			pushToString(t, 1);
-			auto s = getString(t, -1);
-			auto dest = makeObj(.len(t, -1));
-			uint ate = 0;
-			Utf.toString32(s, dest, &ate);
-			pop(t);
-		}
-
-		return 1;
+		pushNull(t);
+		pushInt(t, totalLen);
+		rawCall(t, -3, 1);
+		_setLength(t, cast(uword)totalLen, -1);
+		auto ret = cast(dchar[])_getData(t, -1).data;
+		ret[cast(uword)addLen .. $] = src[0 .. len];
+		return ret[0 .. cast(uword)addLen];
 	}
 
-	uword opCat_r(CrocThread* t)
+	checkAnyParam(t, 1);
+
+	if(isString(t, 1))
 	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto src = cast(dchar[])mb.data;
-
-		dchar[] makeObj(crocint addLen)
-		{
-			auto totalLen = len + addLen;
-
-			if(totalLen > uword.max)
-				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
-
-			pushGlobal(t, "StringBuffer");
-			pushNull(t);
-			pushInt(t, totalLen);
-			rawCall(t, -3, 1);
-			setLength(t, cast(uword)totalLen, -1);
-			auto ret = cast(dchar[])getData(t, -1).data;
-			ret[cast(uword)addLen .. $] = src[0 .. len];
-			return ret[0 .. cast(uword)addLen];
-		}
-
-		checkAnyParam(t, 1);
-
-		if(isString(t, 1))
-		{
-			auto dest = makeObj(.len(t, 1));
-			uint ate = 0;
-			Utf.toString32(getString(t, 1), dest, &ate);
-		}
-		else if(isChar(t, 1))
-		{
-			makeObj(1)[0] = getChar(t, 1);
-		}
-		else
-		{
-			pushToString(t, 1);
-			auto s = getString(t, -1);
-			auto dest = makeObj(.len(t, -1));
-			uint ate = 0;
-			Utf.toString32(s, dest, &ate);
-			pop(t);
-		}
-
-		return 1;
+		auto dest = makeObj(.len(t, 1));
+		uint ate = 0;
+		Utf.toString32(getString(t, 1), dest, &ate);
+	}
+	else if(isChar(t, 1))
+	{
+		makeObj(1)[0] = getChar(t, 1);
+	}
+	else
+	{
+		pushToString(t, 1);
+		auto s = getString(t, -1);
+		auto dest = makeObj(.len(t, -1));
+		uint ate = 0;
+		Utf.toString32(s, dest, &ate);
+		pop(t);
 	}
 
-	uword opCatAssign(CrocThread* t)
+	return 1;
+}
+
+uword _opCatAssign(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto oldLen = len;
+
+	dchar[] resize(crocint addLen)
 	{
-		auto numParams = stackSize(t) - 1;
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto oldLen = len;
+		auto totalLen = len + addLen;
 
-		dchar[] resize(crocint addLen)
+		if(totalLen > uword.max)
+			throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
+
+		_ensureSize(t, mb, cast(uword)totalLen);
+		_setLength(t, cast(uword)totalLen);
+		auto ret = (cast(dchar[])mb.data)[len .. cast(uword)totalLen];
+		len = cast(uword)totalLen;
+		return ret;
+	}
+
+	checkAnyParam(t, 1);
+	pushGlobal(t, "StringBuffer");
+
+	for(uword i = 1; i <= numParams; i++)
+	{
+		if(isString(t, i))
 		{
-			auto totalLen = len + addLen;
-
-			if(totalLen > uword.max)
-				throwStdException(t, "RangeException", "Result too big ({} elements)", totalLen);
-
-			ensureSize(t, mb, cast(uword)totalLen);
-			setLength(t, cast(uword)totalLen);
-			auto ret = (cast(dchar[])mb.data)[len .. cast(uword)totalLen];
-			len = cast(uword)totalLen;
-			return ret;
+			auto dest = resize(.len(t, i));
+			uint ate = 0;
+			Utf.toString32(getString(t, i), dest, &ate);
 		}
-
-		checkAnyParam(t, 1);
-		pushGlobal(t, "StringBuffer");
-
-		for(uword i = 1; i <= numParams; i++)
+		else if(isChar(t, i))
+			resize(1)[0] = getChar(t, i);
+		else if(as(t, i, -1))
 		{
-			if(isString(t, i))
+			if(opis(t, 0, i))
 			{
-				auto dest = resize(.len(t, i));
-				uint ate = 0;
-				Utf.toString32(getString(t, i), dest, &ate);
-			}
-			else if(isChar(t, i))
-				resize(1)[0] = getChar(t, i);
-			else if(as(t, i, -1))
-			{
-				if(opis(t, 0, i))
-				{
-					// special case for when we're appending a stringbuffer to itself. use the old length
-					resize(oldLen)[] = (cast(dchar[])mb.data)[0 .. oldLen];
-				}
-				else
-				{
-					auto otherLen = getLength(t, i);
-					resize(otherLen)[] = (cast(dchar[])getData(t, i).data)[0 .. otherLen];
-				}
+				// special case for when we're appending a stringbuffer to itself. use the old length
+				resize(oldLen)[] = (cast(dchar[])mb.data)[0 .. oldLen];
 			}
 			else
 			{
-				pushToString(t, i);
-				auto dest = resize(.len(t, -1));
-				uint ate = 0;
-				Utf.toString32(getString(t, -1), dest, &ate);
-				pop(t);
+				auto otherLen = _getLength(t, i);
+				resize(otherLen)[] = (cast(dchar[])_getData(t, i).data)[0 .. otherLen];
 			}
-		}
-
-		// we're returning 'this' in case people want to chain 'append's, since this method is also append.
-		dup(t, 0);
-		return 1;
-	}
-
-	uword iterator(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto index = checkIntParam(t, 1) + 1;
-
-		if(index >= getLength(t))
-			return 0;
-
-		pushInt(t, index);
-		pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
-
-		return 2;
-	}
-
-	uword iteratorReverse(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto index = checkIntParam(t, 1) - 1;
-
-		if(index < 0)
-			return 0;
-
-		pushInt(t, index);
-		pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
-
-		return 2;
-	}
-
-	uword opApply(CrocThread* t)
-	{
-		getThis(t);
-
-		if(optStringParam(t, 1, "") == "reverse")
-		{
-			getUpval(t, 1);
-			dup(t, 0);
-			pushInt(t, getLength(t));
 		}
 		else
 		{
-			getUpval(t, 0);
-			dup(t, 0);
-			pushInt(t, -1);
-		}
-
-		return 3;
-	}
-
-	void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
-	{
-		pushGlobal(t, "StringBuffer");
-
-		if(as(t, filler, -1))
-		{
-			auto other = cast(dchar[])getData(t, filler).data;
-			auto otherLen = getLength(t, filler);
-
-			if(otherLen != (hi - lo))
-				throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
-
-			(cast(dchar[])mb.data)[lo .. hi] = other[0 .. otherLen];
-		}
-		else if(isFunction(t, filler))
-		{
-			void callFunc(uword i)
-			{
-				dup(t, filler);
-				pushNull(t);
-				pushInt(t, i);
-				rawCall(t, -3, 1);
-			}
-
-			auto data = (cast(dchar[])mb.data)[0 .. getLength(t)];
-
-			for(uword i = lo; i < hi; i++)
-			{
-				callFunc(i);
-
-				if(!isChar(t, -1))
-				{
-					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "filler function expected to return a 'char', not '{}'", getString(t, -1));
-				}
-
-				data[i] = getChar(t, -1);
-				pop(t);
-			}
-		}
-		else if(isChar(t, filler))
-			(cast(dchar[])mb.data)[lo .. hi] = getChar(t, filler);
-		else if(isString(t, filler))
-		{
-			auto cpLen = cast(uword)len(t, filler);
-
-			if(cpLen != (hi - lo))
-				throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
-
+			pushToString(t, i);
+			auto dest = resize(.len(t, -1));
 			uint ate = 0;
-			Utf.toString32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi], &ate);
+			Utf.toString32(getString(t, -1), dest, &ate);
+			pop(t);
 		}
-		else if(isArray(t, filler))
+	}
+
+	// we're returning 'this' in case people want to chain 'append's, since this method is also append.
+	dup(t, 0);
+	return 1;
+}
+
+uword _iterator(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto index = checkIntParam(t, 1) + 1;
+
+	if(index >= _getLength(t))
+		return 0;
+
+	pushInt(t, index);
+	pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
+
+	return 2;
+}
+
+uword _iteratorReverse(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto index = checkIntParam(t, 1) - 1;
+
+	if(index < 0)
+		return 0;
+
+	pushInt(t, index);
+	pushChar(t, (cast(dchar[])mb.data)[cast(uword)index]);
+
+	return 2;
+}
+
+uword _opApply(CrocThread* t)
+{
+	_getThis(t);
+
+	if(optStringParam(t, 1, "") == "reverse")
+	{
+		getUpval(t, 1);
+		dup(t, 0);
+		pushInt(t, _getLength(t));
+	}
+	else
+	{
+		getUpval(t, 0);
+		dup(t, 0);
+		pushInt(t, -1);
+	}
+
+	return 3;
+}
+
+void fillImpl(CrocThread* t, CrocMemblock* mb, word filler, uword lo, uword hi)
+{
+	pushGlobal(t, "StringBuffer");
+
+	if(as(t, filler, -1))
+	{
+		auto other = cast(dchar[])_getData(t, filler).data;
+		auto otherLen = _getLength(t, filler);
+
+		if(otherLen != (hi - lo))
+			throwStdException(t, "ValueException", "Length of destination ({}) and length of source ({}) do not match", hi - lo, otherLen);
+
+		(cast(dchar[])mb.data)[lo .. hi] = other[0 .. otherLen];
+	}
+	else if(isFunction(t, filler))
+	{
+		void callFunc(uword i)
 		{
-			auto data = (cast(dchar[])mb.data)[lo .. hi];
-
-			for(uword i = lo, ai = 0; i < hi; i++, ai++)
-			{
-				idxi(t, filler, ai);
-
-				if(!isChar(t, -1))
-				{
-					pushTypeString(t, -1);
-					throwStdException(t, "TypeException", "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
-				}
-
-				data[ai] = getChar(t, -1);
-				pop(t);
-			}
+			dup(t, filler);
+			pushNull(t);
+			pushInt(t, i);
+			rawCall(t, -3, 1);
 		}
-		else
-			paramTypeError(t, filler, "char|string|array|function|StringBuffer");
+
+		auto data = (cast(dchar[])mb.data)[0 .. _getLength(t)];
+
+		for(uword i = lo; i < hi; i++)
+		{
+			callFunc(i);
+
+			if(!isChar(t, -1))
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "filler function expected to return a 'char', not '{}'", getString(t, -1));
+			}
+
+			data[i] = getChar(t, -1);
+			pop(t);
+		}
+	}
+	else if(isChar(t, filler))
+		(cast(dchar[])mb.data)[lo .. hi] = getChar(t, filler);
+	else if(isString(t, filler))
+	{
+		auto cpLen = cast(uword)len(t, filler);
+
+		if(cpLen != (hi - lo))
+			throwStdException(t, "ValueException", "Length of destination ({}) and length of source string ({}) do not match", hi - lo, cpLen);
+
+		uint ate = 0;
+		Utf.toString32(getString(t, filler), (cast(dchar[])mb.data)[lo .. hi], &ate);
+	}
+	else if(isArray(t, filler))
+	{
+		auto data = (cast(dchar[])mb.data)[lo .. hi];
+
+		for(uword i = lo, ai = 0; i < hi; i++, ai++)
+		{
+			idxi(t, filler, ai);
+
+			if(!isChar(t, -1))
+			{
+				pushTypeString(t, -1);
+				throwStdException(t, "TypeException", "array element {} expected to be 'char', not '{}'", ai, getString(t, -1));
+			}
+
+			data[ai] = getChar(t, -1);
+			pop(t);
+		}
+	}
+	else
+		paramTypeError(t, filler, "char|string|array|function|StringBuffer");
+
+	pop(t);
+}
+
+uword _fill(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	checkAnyParam(t, 1);
+	fillImpl(t, mb, 1, 0, _getLength(t));
+	dup(t, 0);
+	return 1;
+}
+
+uword _fillRange(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto lo = optIntParam(t, 1, 0);
+	auto hi = optIntParam(t, 2, len);
+	checkAnyParam(t, 3);
+
+	if(lo < 0)
+		lo += len;
+
+	if(hi < 0)
+		hi += len;
+
+	if(lo < 0 || lo > hi || hi > len)
+		throwStdException(t, "BoundsException", "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
+
+	fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
+	dup(t, 0);
+	return 1;
+}
+
+uword _insert(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+	auto idx = checkIntParam(t, 1);
+	checkAnyParam(t, 2);
+
+	if(idx < 0)
+		idx += len;
+
+	// yes, greater, because it's possible to insert at one past the end of the buffer (it appends)
+	if(len < 0 || idx > len)
+		throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, len);
+
+	dchar[] doResize(crocint otherLen)
+	{
+		auto totalLen = len + otherLen;
+
+		if(totalLen > uword.max)
+			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+
+		auto oldLen = len;
+
+		_ensureSize(t, mb, cast(uword)totalLen);
+		_setLength(t, cast(uword)totalLen);
+
+		auto tmp = (cast(dchar[])mb.data)[0 .. cast(uword)totalLen];
+
+		if(idx < oldLen)
+		{
+			auto end = idx + otherLen;
+			auto numLeft = oldLen - idx;
+			memmove(&tmp[cast(uword)end], &tmp[cast(uword)idx], cast(uword)(numLeft * dchar.sizeof));
+		}
+
+		return tmp[cast(uword)idx .. cast(uword)(idx + otherLen)];
+	}
+
+	pushGlobal(t, "StringBuffer");
+
+	if(isString(t, 2))
+	{
+		auto cpLen = .len(t, 2);
+
+		if(cpLen != 0)
+		{
+			auto str = getString(t, 2);
+			auto tmp = doResize(cpLen);
+			uint ate = 0;
+			Utf.toString32(str, tmp, &ate);
+		}
+	}
+	else if(isChar(t, 2))
+		doResize(1)[0] = getChar(t, 2);
+	else if(as(t, 2, -1))
+	{
+		auto other = cast(dchar[])_getData(t, 2).data;
+		auto otherLen = _getLength(t, 2);
+
+		if(otherLen != 0)
+			doResize(otherLen)[] = other[0 .. otherLen];
+	}
+	else
+	{
+		pushToString(t, 2);
+
+		auto cpLen = .len(t, -1);
+
+		if(cpLen != 0)
+		{
+			auto str = getString(t, -1);
+			auto tmp = doResize(cpLen);
+			uint ate = 0;
+			Utf.toString32(str, tmp, &ate);
+		}
 
 		pop(t);
 	}
 
-	uword fill(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		checkAnyParam(t, 1);
-		fillImpl(t, mb, 1, 0, getLength(t));
-		dup(t, 0);
-		return 1;
-	}
-
-	uword fillRange(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto lo = optIntParam(t, 1, 0);
-		auto hi = optIntParam(t, 2, len);
-		checkAnyParam(t, 3);
-
-		if(lo < 0)
-			lo += len;
-
-		if(hi < 0)
-			hi += len;
-
-		if(lo < 0 || lo > hi || hi > len)
-			throwStdException(t, "BoundsException", "Invalid range indices: {} .. {} (buffer length: {})", lo, hi, len);
-
-		fillImpl(t, mb, 3, cast(uword)lo, cast(uword)hi);
-		dup(t, 0);
-		return 1;
-	}
-
-	uword sb_insert(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-		auto idx = checkIntParam(t, 1);
-		checkAnyParam(t, 2);
-
-		if(idx < 0)
-			idx += len;
-
-		// yes, greater, because it's possible to insert at one past the end of the buffer (it appends)
-		if(len < 0 || idx > len)
-			throwStdException(t, "BoundsException", "Invalid index: {} (length: {})", idx, len);
-
-		dchar[] doResize(crocint otherLen)
-		{
-			auto totalLen = len + otherLen;
-
-			if(totalLen > uword.max)
-				throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
-
-			auto oldLen = len;
-
-			ensureSize(t, mb, cast(uword)totalLen);
-			setLength(t, cast(uword)totalLen);
-
-			auto tmp = (cast(dchar[])mb.data)[0 .. cast(uword)totalLen];
-
-			if(idx < oldLen)
-			{
-				auto end = idx + otherLen;
-				auto numLeft = oldLen - idx;
-				memmove(&tmp[cast(uword)end], &tmp[cast(uword)idx], cast(uword)(numLeft * dchar.sizeof));
-			}
-
-			return tmp[cast(uword)idx .. cast(uword)(idx + otherLen)];
-		}
-
-		pushGlobal(t, "StringBuffer");
-
-		if(isString(t, 2))
-		{
-			auto cpLen = .len(t, 2);
-
-			if(cpLen != 0)
-			{
-				auto str = getString(t, 2);
-				auto tmp = doResize(cpLen);
-				uint ate = 0;
-				Utf.toString32(str, tmp, &ate);
-			}
-		}
-		else if(isChar(t, 2))
-			doResize(1)[0] = getChar(t, 2);
-		else if(as(t, 2, -1))
-		{
-			auto other = cast(dchar[])getData(t, 2).data;
-			auto otherLen = getLength(t, 2);
-
-			if(otherLen != 0)
-				doResize(otherLen)[] = other[0 .. otherLen];
-		}
-		else
-		{
-			pushToString(t, 2);
-
-			auto cpLen = .len(t, -1);
-
-			if(cpLen != 0)
-			{
-				auto str = getString(t, -1);
-				auto tmp = doResize(cpLen);
-				uint ate = 0;
-				Utf.toString32(str, tmp, &ate);
-			}
-
-			pop(t);
-		}
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword remove(CrocThread* t)
-	{
-		auto mb = getThis(t);
-		auto len = getLength(t);
-
-		if(len == 0)
-			throwStdException(t, "ValueException", "StringBuffer is empty");
-
-		auto lo = checkIntParam(t, 1);
-		auto hi = optIntParam(t, 2, lo + 1);
-
-		if(lo < 0)
-			lo += len;
-
-		if(hi < 0)
-			hi += len;
-
-		if(lo < 0 || lo > hi || hi > len)
-			throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, len);
-
-		if(lo != hi)
-		{
-			if(hi < len)
-				memmove(&mb.data[cast(uword)lo * dchar.sizeof], &mb.data[cast(uword)hi * dchar.sizeof], cast(uint)((len - hi) * dchar.sizeof));
-
-			dup(t, 0);
-			pushNull(t);
-			pushInt(t, len - (hi - lo));
-			methodCall(t, -3, "opLengthAssign", 0);
-		}
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword format(CrocThread* t)
-	{
-		auto numParams = stackSize(t) - 1;
-		auto mb = getThis(t);
-		auto len = getLength(t);
-
-		uint sink(char[] data)
-		{
-			ulong totalLen = cast(uword)len + verify(data);
-
-			if(totalLen > uword.max)
-				throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
-
-			ensureSize(t, mb, cast(uword)totalLen);
-			setLength(t, cast(uword)totalLen);
-			auto oldLen = len;
-			len = cast(uword)totalLen;
-
-			uint ate = 0;
-			Utf.toString32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen], &ate);
-			return data.length;
-		}
-
-		formatImpl(t, numParams, &sink);
-
-		dup(t, 0);
-		return 1;
-	}
-
-	uword formatln(CrocThread* t)
-	{
-		format(t);
-		pushNull(t);
-		pushChar(t, '\n');
-		methodCall(t, -3, "append", 1);
-		return 1;
-	}
-
-	uword opSerialize(CrocThread* t)
-	{
-		auto mb = getThis(t);
-
-		// don't know if this is possible, but can't hurt to check
-		if(!mb.ownData)
-			throwStdException(t, "ValueException", "Attempting to serialize a string buffer which does not own its data");
-
-		dup(t, 2);
-		pushNull(t);
-		getExtraVal(t, 0, Length);
-		rawCall(t, -3, 0);
-
-		dup(t, 2);
-		pushNull(t);
-		getExtraVal(t, 0, Data);
-		rawCall(t, -3, 0);
-
-		return 0;
-	}
-
-	uword opDeserialize(CrocThread* t)
-	{
-		checkInstParam(t, 0, "StringBuffer");
-
-		dup(t, 2);
-		pushNull(t);
-		rawCall(t, -2, 1);
-		assert(isInt(t, -1));
-		setExtraVal(t, 0, Length);
-
-		dup(t, 2);
-		pushNull(t);
-		rawCall(t, -2, 1);
-		assert(isMemblock(t, -1));
-		setExtraVal(t, 0, Data);
-
-		return 0;
-	}
+	dup(t, 0);
+	return 1;
 }
+
+uword _remove(CrocThread* t)
+{
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+
+	if(len == 0)
+		throwStdException(t, "ValueException", "StringBuffer is empty");
+
+	auto lo = checkIntParam(t, 1);
+	auto hi = optIntParam(t, 2, lo + 1);
+
+	if(lo < 0)
+		lo += len;
+
+	if(hi < 0)
+		hi += len;
+
+	if(lo < 0 || lo > hi || hi > len)
+		throwStdException(t, "BoundsException", "Invalid indices: {} .. {} (length: {})", lo, hi, len);
+
+	if(lo != hi)
+	{
+		if(hi < len)
+			memmove(&mb.data[cast(uword)lo * dchar.sizeof], &mb.data[cast(uword)hi * dchar.sizeof], cast(uint)((len - hi) * dchar.sizeof));
+
+		dup(t, 0);
+		pushNull(t);
+		pushInt(t, len - (hi - lo));
+		methodCall(t, -3, "opLengthAssign", 0);
+	}
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _format(CrocThread* t)
+{
+	auto numParams = stackSize(t) - 1;
+	auto mb = _getThis(t);
+	auto len = _getLength(t);
+
+	uint sink(char[] data)
+	{
+		ulong totalLen = cast(uword)len + verify(data);
+
+		if(totalLen > uword.max)
+			throwStdException(t, "RangeException", "Invalid size ({})", totalLen);
+
+		_ensureSize(t, mb, cast(uword)totalLen);
+		_setLength(t, cast(uword)totalLen);
+		auto oldLen = len;
+		len = cast(uword)totalLen;
+
+		uint ate = 0;
+		Utf.toString32(data, (cast(dchar[])mb.data)[cast(uword)oldLen .. cast(uword)totalLen], &ate);
+		return data.length;
+	}
+
+	formatImpl(t, numParams, &sink);
+
+	dup(t, 0);
+	return 1;
+}
+
+uword _formatln(CrocThread* t)
+{
+	_format(t);
+	pushNull(t);
+	pushChar(t, '\n');
+	methodCall(t, -3, "append", 1);
+	return 1;
+}
+
+uword _opSerialize(CrocThread* t)
+{
+	auto mb = _getThis(t);
+
+	// don't know if this is possible, but can't hurt to check
+	if(!mb.ownData)
+		throwStdException(t, "ValueException", "Attempting to serialize a string buffer which does not own its data");
+
+	dup(t, 2);
+	pushNull(t);
+	getExtraVal(t, 0, Length);
+	rawCall(t, -3, 0);
+
+	dup(t, 2);
+	pushNull(t);
+	getExtraVal(t, 0, Data);
+	rawCall(t, -3, 0);
+
+	return 0;
+}
+
+uword _opDeserialize(CrocThread* t)
+{
+	checkInstParam(t, 0, "StringBuffer");
+
+	dup(t, 2);
+	pushNull(t);
+	rawCall(t, -2, 1);
+	assert(isInt(t, -1));
+	setExtraVal(t, 0, Length);
+
+	dup(t, 2);
+	pushNull(t);
+	rawCall(t, -2, 1);
+	assert(isMemblock(t, -1));
+	setExtraVal(t, 0, Data);
+
+	return 0;
+}
+
+version(CrocBuiltinDocs)
+{
+	const Docs _classDocs =
+	{kind: "class", name: "string.StringBuffer", docs:
+	"Croc's strings are immutable. While this makes dealing with strings much easier in most cases, it also
+	introduces inefficiency for some operations, such as building up strings piecewise or performing text modification
+	on large string data. `StringBuffer` is a mutable string class that makes these sorts of things possible.
+	`StringBuffer` is optimized for building up strings dynamically, and will overallocate space when the buffer
+	size is increased. It can also preallocate space so that operations on the buffer will not allocate memory. This
+	is particularly useful in situations where memory allocations or GC cycles need to be kept to a minimum.",
+	extra: [Extra("protection", "global")]};
+
+	const Docs[] _methodDocs =
+	[
+		{kind: "function", name: "constructor", docs:
+		"If you pass nothing to the constructor, the `StringBuffer` will be empty. If you pass a string, the `StringBuffer`
+		will be filled with that string's data. If you pass an integer, it means how much space, in characters, should be
+		preallocated in the buffer. However, the length of the `StringBuffer` will still be 0; it's just that no memory will
+		have to be allocated until you put at least `init` characters into it.",
+		params: [Param("init", "string|int", "null")]},
+		
+		{kind: "function", name: "toString", docs:
+		"Converts this `StringBuffer` to a string. You can optionally slice out only a part of the buffer to turn into a
+		string with the `lo` and `hi` parameters, which work like regular slice indices.",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+
+		{kind: "function", name: "opEquals", docs:
+		"Compares this `StringBuffer` to a string or other `StringBuffer` for equality. Works the same as string equality.",
+		params: [Param("other", "string|StringBuffer")]},
+		
+		{kind: "function", name: "opCmp", docs:
+		"Compares this `StringBuffer` to a string or other `StringBuffer`. Works the same as string comparison.",
+		params: [Param("other", "string|StringBuffer")]},
+
+		{kind: "function", name: "opLength", docs:
+		"Gets the length of this `StringBuffer` in characters. Note that this is just the number of characters currently
+		in use; if you preallocate space either with the constructor or by setting the length longer and shorter, the true
+		size of the underlying buffer will not be reported."},
+
+		{kind: "function", name: "opLengthAssign", docs:
+		"Sets the length of this `StringBuffer`. If you increase the length, the new characters will be filled with U+0FFFF.
+		If you decrease the length, characters will be truncated. Note that when you increase the length of the buffer, memory
+		may be overallocated to avoid allocations on every size increase. When you decrease the length of the buffer, that memory
+		is not deallocated, so you can reserve memory for a `StringBuffer` by setting its length to the size you need and then
+		setting it back to 0.",
+		params: [Param("len", "int")]},
+		
+		{kind: "function", name: "opIndex", docs:
+		"Gets the character at the given index.",
+		params: [Param("idx", "int")]},
+
+		{kind: "function", name: "opIndexAssign", docs:
+		"Sets the character at the given index to the given character",
+		params: [Param("idx", "int"), Param("c", "char")]},
+		
+		{kind: "function", name: "opCat", docs:
+		"Concatenates this `StringBuffer` with another value and returns a '''new''' `StringBuffer` containing the concatenation.
+		If you want to instead add data to the beginning or end of a `StringBuffer`, use the `opCatAssign` or `insert` methods.
+		
+		Any type can pe concatenated with a `StringBuffer`; if it isn't a string, character, or another `StringBuffer`, it will have
+		its `toString` method called on it and the result will be concatenated.",
+		params: [Param("o")]},
+
+		{kind: "function", name: "opCat_r", docs:
+		"ditto",
+		params: [Param("o")]},
+		
+		{kind: "function", name: "opCatAssign", docs:
+		"'''Also aliased to `append`.''' 
+		
+		This is the main way to add data into a `StringBuffer` when building up strings piecewise.
+		Each parameter will have `toString` called on it (unless it's a `StringBuffer` itself, so no `toString` is necessary), and
+		the resulting string will be appended to the end of this `StringBuffer`'s data.
+		
+		You can either use the `~=` and `~` operators to use this method, or you can call the `append` method; both are aliased to
+		the same method and do the same thing. Thus, `\"s ~= a ~ b ~ c\"` is functionally identical to `\"s.append(a, b, c)\"` and
+		vice versa.",
+		params: [Param("vararg", "vararg")]},
+		
+		{kind: "function", name: "opSlice", docs:
+		"Slices data out of this `StringBuffer` and creates a new `StringBuffer` with that slice of data. Works just like string
+		slicing.",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this")]},
+		
+		{kind: "function", name: "fill", docs:
+		"A pretty flexible way to fill a `StringBuffer` with some data. This only modifies existing data; the buffer's length is
+		never changed.
+
+		If you pass a character, every character in the buffer will be set to that character.
+
+		If you pass a string, it must be the same length as the buffer, and the string's data is copied into the buffer.
+
+		If you pass an array, it must be the same length of the buffer and all its elements must be characters. Those characters
+		will be copied into the buffer.
+
+		If you pass a `StringBuffer`, it must be the same length as the buffer and its data will be copied into this buffer.
+
+		If you pass a function, it must take an integer and return a character. It will be called on each location in the buffer,
+		and the resulting characters will be put into the buffer.",
+		params: [Param("v", "char|string|array|function|StringBuffer")]},
+		
+		{kind: "function", name: "fillRange", docs:
+		"'''Also aliased to `opSliceAssign`.'''
+		
+		Works just like `fill`, except it works on just a subrange of the buffer. The `lo` and `hi` params work just like slice
+		indices - low inclusive, high noninclusive, negative from the end.
+		
+		You can either call this method directly, or you can use slice-assignment; they are aliased to the same method and do
+		the same thing. Thus, `\"s.fillRange(x, y, z)\"` is functionally identical to `\"s[x .. y] = z\"` and vice versa.",
+		params: [Param("lo", "int", "0"), Param("hi", "int", "#this"), Param("v", "char|string|array|function|StringBuffer")]},
+
+		{kind: "function", name: "insert", docs:
+		"Inserts the string representation of `val` before the character indexed by `idx`. `idx` can be negative, which means an
+		index from the end of the buffer. It can also be the same as the length of this `StringBuffer`, in which case the behavior
+		is identical to appending.",
+		params: [Param("idx", "int"), Param("val")]},
+
+		{kind: "function", name: "remove", docs:
+		"Removes characters from a `StringBuffer`, shifting the data after them (if any) down. The indices work like slice indices.
+		The `hi` index defaults to one more than the `lo` index, so you can remove a single character by just passing the `lo` index.",
+		params: [Param("lo", "int"), Param("hi", "int", "lo + 1")]},
+		
+		{kind: "function", name: "format", docs:
+		"Just like the `format` function in the baselib, except the results are appended directly to the end of this `StringBuffer`
+		without needing a string temporary.",
+		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
+		
+		{kind: "function", name: "formatln", docs:
+		"Same as `format`, but also appends the `\\n` character after appending the formatted string.",
+		params: [Param("fmt", "string"), Param("vararg", "vararg")]},
+		
+		{kind: "function", name: "opApply", docs:
+		"Lets you iterate over `StringBuffer`s with foreach loops just like strings. You can iterate in reverse, just like strings,
+		by passing the string `\"reverse\"` as the second value in the foreach container:
+
+{{{
+#!croc
+local sb = StringBuffer(\"hello\")
+foreach(i, c; sb) { }
+foreach(i, c; sb, \"reverse\") { } // goes backwards
+}}}
+		",
+		params: [Param("reverse", "string", "null")]},
+		
+		{kind: "function", name: "opSerialize", docs:
+		"Overloads to allow instances of `StringBuffer` to be serialized by the serialization library."},
+		
+		{kind: "function", name: "opDeserialize", docs:
+		"ditto"},
+	];
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+

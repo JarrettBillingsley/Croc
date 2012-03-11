@@ -312,7 +312,7 @@ class StdlibDumper : DocDumper
 		super.dumpHeader(d)
 
 		if(isChild)
-			write("`'''::")
+			writeln("`'''::")
 		else
 			writeln("`''' ==")
 	}
