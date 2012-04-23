@@ -2912,7 +2912,7 @@ void execute(CrocThread* t, uword depth = 1)
 				case Op.SetUpval:  auto uv = upvals[mixin(GetUImm)]; mixin(writeBarrier!("t.vm.alloc", "uv")); *uv.value = t.stack[stackBase + rd]; break;
 
 				// Logical and Control Flow
-				case Op.Not: mixin(GetRS); t.stack[stackBase + rd] = RS.isFalse(); break;
+				case Op.Not:  mixin(GetRS); t.stack[stackBase + rd] = RS.isFalse(); break;
 				case Op.Cmp3: mixin(GetRS); mixin(GetRT); t.stack[stackBase + rd] = compareImpl(t, RS, RT); break;
 
 				case Op.Cmp:
@@ -2959,12 +2959,12 @@ void execute(CrocThread* t, uword depth = 1)
 						(*pc) += jump;
 
 					break;
-					
+
 				case Op.In:
 					mixin(GetRS);
 					mixin(GetRT);
 					auto jump = mixin(GetImm);
-					
+
 					if(inImpl(t, RS, RT) == cast(bool)rd)
 						(*pc) += jump;
 					break;
@@ -3035,7 +3035,7 @@ void execute(CrocThread* t, uword depth = 1)
 					auto idx = t.stack[stackBase + rd].mInt;
 					auto hi = t.stack[stackBase + rd + 1].mInt;
 					auto step = t.stack[stackBase + rd + 2].mInt;
-					
+
 					if(step > 0)
 					{
 						if(idx < hi)
@@ -3542,7 +3542,7 @@ void execute(CrocThread* t, uword depth = 1)
 					else
 						throwStdException(t, "TypeException", "Parameter {}: type '{}' does not satisfy constraint '{}'", rd, getString(t, -1), RS.mString.toString());
 					break;
-					
+
 				case Op.AssertFail:
 					auto msg = t.stack[stackBase + rd];
 
@@ -3556,9 +3556,9 @@ void execute(CrocThread* t, uword depth = 1)
 					assert(false);
 
 				// Array and List Operations
-				case Op.Length: mixin(GetRS); lenImpl(t, stackBase + rd, RS); break;
+				case Op.Length:       mixin(GetRS); lenImpl(t, stackBase + rd, RS);  break;
 				case Op.LengthAssign: mixin(GetRS); lenaImpl(t, stackBase + rd, RS); break;
-				case Op.Append: mixin(GetRS); array.append(t.vm.alloc, t.stack[stackBase + rd].mArray, RS); break;
+				case Op.Append:       mixin(GetRS); array.append(t.vm.alloc, t.stack[stackBase + rd].mArray, RS); break;
 
 				case Op.SetArray:
 					auto numVals = mixin(GetUImm);
@@ -3590,7 +3590,7 @@ void execute(CrocThread* t, uword depth = 1)
 					maybeGC(t);
 					break;
 
-				case Op.Index: mixin(GetRS); mixin(GetRT); idxImpl(t, stackBase + rd, RS, RT); break;
+				case Op.Index:       mixin(GetRS); mixin(GetRT); idxImpl(t, stackBase + rd, RS, RT);  break;
 				case Op.IndexAssign: mixin(GetRS); mixin(GetRT); idxaImpl(t, stackBase + rd, RS, RT); break;
 
 				case Op.Field:

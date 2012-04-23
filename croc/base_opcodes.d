@@ -155,7 +155,7 @@ enum Op
 static assert(Op.Add == MM.Add && Op.LAST_MM_OPCODE == MM.LAST_OPCODE_MM, "MMs and opcodes are out of sync!");
 
 // Make sure we don't add too many instructions!
-static assert(Op.max <= Instruction.opcodeMax, "Too many primary opcodes");
+static assert(Op.max <= Instruction.opcodeMax, "Too many opcodes");
 
 const char[][] OpNames =
 [
@@ -257,97 +257,128 @@ const char[][] OpNames =
 ];
 
 /*
-Add...............R: dest, src, src
-AddEq.............R: dest, src, n/a
-And...............R: dest, src, src
-AndEq.............R: dest, src, n/a
-Append............R: dest, src, n/a
-As................R: dest, src, src class
-Call..............R: register of func, num params + 1, num results + 1 (both, 0 = use all to end of stack)
-Cat...............R: dest, src, num values (NOT variadic)
-CatEq.............R: dest, src, num values (NOT variadic)
-CheckObjParam.....R: n/a, index of parameter, object type
-CheckParams.......I: n/a, n/a
-Class.............R: dest, name const index, base class
-Close.............I: reg start, n/a
-Closure...........R: dest, index of funcdef, environment (0 = use current function's environment)
-Coroutine.........R: dest, src, n/a
-Cmp...............R: n/a, src, src
-Cmp3..............R: dest, src, src
-Com...............R: dest, src, n/a
-CustomParamFail...R: n/a, src, condition string
-Dec...............R: dest, n/a, n/a
-Div...............R: dest, src, src
-DivEq.............R: dest, src, n/a
-EndFinal..........I: n/a, n/a
-Equals............R: n/a, src, src
-Field.............R: dest, src, index
-FieldAssign.......R: dest, index, src
-For...............J: base reg, branch offset
-Foreach...........J: base reg, branch offset
-ForeachLoop.......I: base reg, num indices
-ForLoop...........J: base reg, branch offset
-In................R: dest, src value, src object
-Inc...............R: dest, n/a, n/a
-Index.............R: dest, src object, src index
-IndexAssign.......R: dest object, dest index, src
-Is................R: n/a, src, src
-IsTrue............R: n/a, src, n/a
-Je................J: isTrue, branch offset
-Jle...............J: isTrue, branch offset
-Jlt...............J: isTrue, branch offset
-Jmp...............J: 1 = jump / 0 = don't (nop), branch offset
-Length............R: dest, src, n/a
-LengthAssign......R: dest, src, n/a
-LoadConst.........R: dest local, src const, n/a
-Method............R: base reg, object to index, method name
-Mod...............R: dest, src, src
-ModEq.............R: dest, src, n/a
-Move..............R: dest, src, n/a
-Mul...............R: dest, src, src
-MulEq.............R: dest, src, n/a
-Namespace.........R: dest, name const index, parent namespace
-NamespaceNP.......R: dest, name const index, n/a
-Neg...............R: dest, src, n/a
-NewArray..........I: dest, size
-NewGlobal.........R: n/a, src, const index of global name
-NewTable..........I: dest, n/a
-Not...............R: dest, src, n/a
-ObjParamFail......R: n/a, src, n/a
-Or................R: dest, src, src
-OrEq..............R: dest, src, n/a
-PopCatch..........I: n/a, n/a
-PopFinally........I: n/a, n/a
-PushCatch.........J: exception reg, branch offset
-PushFinally.......J: base reg, branch offset
-Ret...............I: n/a, n/a
-SaveRets..........I: base reg, num rets + 1 (0 = save all to end of stack)
-SetArray..........R: dest, num fields + 1 (0 = set all to end of stack), block offset
-Shl...............R: dest, src, src
-ShlEq.............R: dest, src, n/a
-Shr...............R: dest, src, src
-ShrEq.............R: dest, src, n/a
-Slice.............R: dest, src, n/a (indices are at src + 1 and src + 2)
-SliceAssign.......R: dest, src, n/a (indices are at dest + 1 and dest + 2)
-Sub...............R: dest, src, src
-SubEq.............R: dest, src, n/a
-SuperMethod.......R: base reg, object to index, method name
-SuperOf...........R: dest, src, n/a
-Switch............R: n/a, src, index of switch table
-SwitchCmp.........R: n/a, src, src
-Tailcall..........R: Register of func, num params + 1, n/a (0 params = use all to end of stack)
-Throw.............R: n/a, src, 0 = not rethrowing, 1 = rethrowing
-Unwind............I: n/a, number of levels
-UShr..............R: dest, src, src
-UShrEq............R: dest, src, n/a
-Vararg............I: base reg, num rets + 1 (0 = return all to end of stack)
-VargIndex.........R: dest, idx, n/a
-VargIndexAssign...R: n/a, idx, src
-VargLen...........R: dest, n/a, n/a
-VargSlice.........I: base reg, num rets + 1 (0 = return all to end of stack; indices are at base reg and base reg + 1)
-Xor...............R: dest, src, src
-XorEq.............R: dest, src, n/a
-Yield.............R: register of first yielded value, num values + 1, num results + 1 (both, 0 = to end of stack)
+Instruction format is variable length. Each instruction is composed of between 1 and 5 shorts.
+
+First component is rd/op (lower 7 bits are op, upper 9 are rd), followed by 0-4 additional shorts, each of which can be
+either a const-tagged reg/const index, or a signed/unsigned immediate.
+
+Const-tagging: if the top bit is set, the lower 15 bits are an index into the constant table. If the top bit is clear,
+the lower 9 bits are a local index.
+
+rd = dest reg [0 .. 511]
+rdimm = rd as immediate [0 .. 511]
+rs = src reg [0 .. 511] or src const [0 .. 32,767]
+rt = src reg [0 .. 511] or src const [0 .. 32,767]
+imm = signed 16-bit immediate [-32,767 .. 32,767]
+uimm = unsigned 16-bit immediate [0 .. 65,535]
+
+Note that -32,768 is not a valid value for signed immediates -- this value is reserved for use by the codegen phase.
+
+ONE SHORT:
+
+(__)
+	popcatch:    pop EH frame
+	popfinal:    pop EH frame, set currentException to null
+	endfinal:    rethrow any in-flight exception, or continue unwinding if doing so
+	ret:         return
+	checkparams: check params against param masks
+(rd)
+	inc:          rd++
+	dec:          rd--
+	varglen:      rd = #vararg
+	newtab:       rd = {}
+	close:        close open upvals down to and including rd
+	objparamfail: give an error about parameter rd not being of an acceptable type
+(rdimm)
+	unwind: unwind rdimm number of EH frames
+
+TWO SHORTS:
+
+(rd, rs)
+	addeq, subeq, muleq, diveq, modeq, andeq, oreq, xoreq, shleq, shreq, ushreq: rd op= rs
+	neg, com, not:   rd = op rs
+	mov:             rd = rs
+	vargidx:         rd = vararg[rs]
+	len:             rd = #rs
+	lena:            #rd = rs
+	append:          rd.append(rs)
+	coroutine:       rd = coroutine rs
+	superof:         rd = rs.superof
+	customparamfail: give error message about parameter rd not satisfying the constraint whose name is in rs
+	slice:           rd = rs[rs + 1 .. rs + 2]
+	slicea:          rd[rd + 1 .. rd + 2] = rs
+(rd, imm)
+	for:       prepare a numeric for loop with base register rd, then jump by imm
+	forloop:   update a numeric for loop with base register rd, then jump by imm if we should keep going
+	foreach:   prepare a foreach loop with base register rd, then jump by imm
+	pushcatch: push EH catch frame with catch register rd and catch code offset of imm
+	pushfinal: push EH finally frame with slot rd and finally code offset of imm
+(rd, uimm)
+	vararg:      regs[rd .. rd + uimm] = vararg
+	saverets:    save uimm returns starting at rd
+	vargslice:   regs[rd .. rd + uimm] = vararg[rd .. rd + 1]
+	closure:     rd = newclosure(uimm)
+	closurewenv: rd = newclosure(uimm, env: rd)
+	newg:        newglobal(constTable[uimm]); setglobal(constTable[uimm], rd)
+	getg:        rd = getglobal(constTable[uimm])
+	setg:        setglobal(constTable[uimm], rd)
+	getu:        rd = upvals[uimm]
+	setu:        upvals[uimm] = rd
+	newarr:      rd = array.new(constTable[uimm])
+	namespacenp: rd = namespace constTable[uimm] : null {}
+(rdimm, rs)
+	throw:  throw the value in rs; rd == 0 means normal throw, rd == 1 means rethrow
+	switch: switch on the value in rs using switch table index rd
+(rdimm, imm)
+	jmp: if rd == 1, jump by imm, otherwise no-op
+
+THREE SHORTS:
+
+(rd, rs, rt)
+	add, sub, mul, div, mod, cmp3, and, or, xor, shl, shr, ushr: rd = rs op rt
+	idx:    rd = rs[rt]
+	idxa:   rd[rs] = rt
+	in:     rd = rs in rt
+	class:  rd = class rs : rt {} // if rt is a CONST null, inherit from Object; otherwise error
+	as:     rd = rs as rt
+	field:  rd = rs.(rt)
+	fielda: rd.(rs) = rt
+(__, rs, rt)
+	vargidxa: vararg[rs] = rt
+(rd, rs, uimm)
+	cat:   rd = rs ~ rs + 1 ~ ... ~ rs + uimm
+	cateq: rd ~= rs ~ rs + 1 ~ ... ~ rs + uimm
+(rd, rs, imm)
+	checkobjparam: if(!isInstance(regs[rd]) || regs[rd] as rs) jump by imm
+(rd, uimm, imm)
+	foreachloop: update the foreach loop with base reg rd and uimm indices, and if we should go again, jump by imm
+(rd, uimm1, uimm2)
+	call:     regs[rd .. rd + uimm2] = rd(regs[rd + 1 .. rd + uimm1])
+	tcall:    return rd(regs[rd + 1 .. rd + uimm1]) // uimm2 is unused, but this makes codegen easier by not having to change the instruction's size
+	yield:    regs[rd .. rd + uimm2] = yield(regs[rd .. rd + uimm1])
+	setarray: rd.setBlock(uimm2, regs[rd + 1 .. rd + 1 + uimm1])
+(rd, uimm, rt)
+	namespace: rd = namespace constTable[uimm] : rt {}
+(rdimm, rs, imm)
+	istrue: if the truth value of rs matches the truth value in rd, jump by imm
+
+FOUR SHORTS:
+
+(rdimm, rs, rt, imm)
+	cmp:    if rs <=> rt matches the comparison type in rd, jump by imm
+	equals: if((rs == rt) == rd) jump by imm
+	is:     if((rs is rt) == rd) jump by imm
+(__, rs, rt, imm)
+	swcmp: if(switchcmp(rs, rt)) jump by imm
+(rd, rt, uimm1, uimm2)
+	smethod:  method supercall. works same as method, but lookup is based on the proto instead of a value.
+	tsmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
+
+FIVE SHORTS:
+
+(rd, rs, rt, uimm1, uimm2)
+	method:  rd is base reg, rs is object, rt is method name, uimm1 is number of params, uimm2 is number of expected returns.
+	tmethod: same as above, but does a tailcall. uimm2 is unused, but this makes codegen easier
 */
 
 template Mask(uint length)
@@ -359,8 +390,8 @@ align(1) struct Instruction
 {
 	const ushort constBit =  0b1000_0000_0000_0000;
 
-    //  31      23        14       6      0
-	// |rs       |rt       |rd      |op    |
+    //  15        6     0
+	// |rd       |op     |
 
 	const uint   opcodeSize = 7;
 	const uint   opcodeShift = 0;
