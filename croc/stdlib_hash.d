@@ -162,6 +162,7 @@ static:
 		return 1;
 	}
 
+	// TODO: Finish these three
 	uword map(CrocThread* t)
 	{
 		checkParam(t, 0, CrocValue.Type.Table);
@@ -183,6 +184,11 @@ static:
 	}
 
 	uword reduce(CrocThread* t)
+	{
+		return 0;
+	}
+
+	uword filter(CrocThread* t)
 	{
 		return 0;
 	}
@@ -251,11 +257,6 @@ static:
 
 		dup(t, 1);
 		return 1;
-	}
-	
-	uword filter(CrocThread* t)
-	{
-		return 0;
 	}
 
 	uword take(CrocThread* t)
@@ -515,10 +516,10 @@ static:
 }
 
 private const char[] WeakTableCode =
-`local weakref, deref = weakref, deref
-local allWeakTables = {}
+`import string: StringBuffer
 
-import string: StringBuffer
+local weakref, deref = weakref, deref
+local allWeakTables = {}
 
 gc.postCallback$ function postGC()
 {

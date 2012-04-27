@@ -31,14 +31,12 @@ module croc.compiler_codegen;
 import croc.api_interpreter;
 import croc.api_stack;
 import croc.base_alloc;
+import croc.base_opcodes;
 import croc.compiler_ast;
 import croc.compiler_astvisitor;
 import croc.compiler_funcstate;
 import croc.compiler_types;
 import croc.types;
-
-// TODO: abstract codegen enough that we don't need to use the Op1/Op2 values directly
-import croc.base_opcodes;
 
 scope class Codegen : Visitor
 {
@@ -254,15 +252,8 @@ public:
 			}
 		}
 
-		/*
-		if(s.def.params.any((ref Param p) { return p.typeMask != TypeMask.Any; }))
-		if(s.def.params.findIf((ref Param p) { return p.typeMask != TypeMask.Any; }) != s.def.params.length)
-			fs.paramCheck(s.def.code.location);
-		*/
-
 		if(needParamCheck)
 			fs.paramCheck(s.def.code.location);
-
 
 		foreach(idx, ref p; s.def.params)
 		{

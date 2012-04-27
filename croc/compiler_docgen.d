@@ -161,7 +161,7 @@ public:
 			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
 			// these are technically "int|null"
 			pushDocTable(d.location, "parameter", p.name.name, "\n");
-			
+
 			pushString(t, p.typeString ? p.typeString : "any");
 			fielda(t, mDocTable, "type");
 
@@ -251,12 +251,12 @@ public:
 		popDocTable();
 		return d;
 	}
-	
+
 	override VarDecl visit(VarDecl d)
 	{
 		if(d.docs.length == 0)
 			return d;
-			
+
 		void makeTable(uword idx)
 		{
 			pushDocTable(d.location, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
@@ -266,7 +266,7 @@ public:
 				pushString(t, d.initializer[idx].sourceStr);
 				fielda(t, mDocTable, "value");
 			}
-			
+
 			if(d.protection == Protection.Local)
 				pushString(t, "local");
 			else
@@ -301,7 +301,7 @@ public:
 		e.def = visit(e.def);
 		return e;
 	}
-	
+
 private:
 	void pushDocTable(ref CompileLoc loc, char[] kind, char[] name, char[] docs)
 	{
@@ -393,7 +393,7 @@ private:
 
 			if(mDittoDepth > 0)
 				return;
-				
+
 			wasDitto = true;
 		}
 
@@ -419,7 +419,7 @@ private:
 				cateq(t, -2, 1);
 				pop(t);
 			}
-	
+
 			mChildIndices[$ - 1]++;
 		}
 
