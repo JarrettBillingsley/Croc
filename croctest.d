@@ -12,6 +12,31 @@ import croc.addons.gl;
 import croc.addons.net;
 import croc.addons.devil;
 
+import croc.ex_doccomments;
+
+uword processComment_wrap(CrocThread* t)
+{
+	auto str = checkStringParam(t, 1);
+	
+	newTable(t);
+	pushString(t, "dumb.croc"); fielda(t, -2, "file");
+	pushInt(t, 1);              fielda(t, -2, "line");
+	pushString(t, "function");  fielda(t, -2, "kind");
+	pushString(t, "f");         fielda(t, -2, "name");
+
+		newTable(t);
+		pushString(t, "dumb.croc"); fielda(t, -2, "file");
+		pushInt(t, 1);              fielda(t, -2, "line");
+		pushString(t, "parameter"); fielda(t, -2, "kind");
+		pushString(t, "x");         fielda(t, -2, "name");
+	newArrayFromStack(t, 1);
+	fielda(t, -2, "params");
+
+	processComment(t, str);
+
+	return 1;
+}
+
 version(CrocAllAddons)
 {
 	version = CrocPcreAddon;
@@ -38,6 +63,9 @@ void main()
 		version(CrocGlAddon) GlLib.init(t);
 		version(CrocNetAddon) NetLib.init(t);
 		version(CrocDevilAddon) DevilLib.init(t);
+		
+		newFunction(t, &processComment_wrap, "processComment");
+		newGlobal(t, "processComment");
 
 		Compiler.setDefaultFlags(t, Compiler.All | Compiler.DocDecorators);
 		runModule(t, "samples.simple");

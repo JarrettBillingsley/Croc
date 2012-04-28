@@ -1,5 +1,12 @@
 module samples.simple
 
+local comment = 
+"This is a doc comment! This is
+the same paragraph.
+
+This is a new paragraph.
+\authors This is a separate section."
+
 function main()
 {
 // 	dumpItem(docsOf(Object))
@@ -9,7 +16,10 @@ function main()
 //
 // 	BaselibDumper().dump()
 
-	StdlibDumper.dump(string)
+// 	StdlibDumper.dump(string)
+
+	writeln$ json.toJSON(processComment(comment), true)
+// 	writeln$ json.toJSON(docsOf(C), true)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream

@@ -209,7 +209,7 @@ public:
 
 		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
 
-		if(!base || base.name.name != "Object")
+		if(base && base.name.name != "Object")
 		{
 			pushString(t, d.baseClass.sourceStr);
 			fielda(t, mDocTable, "base");
