@@ -423,6 +423,11 @@ class ClassDef : AstNode
 		Document comments for the field.
 		*/
 		char[] docs;
+		
+		/**
+		The location of the doc comments for the field.
+		*/
+		CompileLoc docsLoc;
 	}
 
 	/**
@@ -445,6 +450,11 @@ class ClassDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
+	
+	/**
+	The location of the doc comments for the declaration.
+	*/
+	CompileLoc docsLoc;
 
 	/**
 	*/
@@ -550,7 +560,7 @@ class FuncDef : AstNode
 	where the literal occurred.
 	*/
 	Identifier name;
-	
+
 	/**
 	The list of parameters to the function. See the Param struct above. This will always be
 	at least one element long, and element 0 will always be the 'this' parameter.
@@ -561,7 +571,7 @@ class FuncDef : AstNode
 	Indicates whether or not this function is variadic.
 	*/
 	bool isVararg;
-	
+
 	/**
 	The body of the function. In the case of lambda functions (i.e. "function(x) = x * x"), this
 	is a ReturnStmt with one expression, the expression that is the lambda's body. Otherwise, it
@@ -573,6 +583,11 @@ class FuncDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
+	
+	/**
+	The location of the doc comments for the declaration.
+	*/
+	CompileLoc docsLoc;
 
 	/**
 	*/
@@ -627,6 +642,11 @@ class NamespaceDef : AstNode
 		Document comments for the field.
 		*/
 		char[] docs;
+		
+		/**
+		The location of the doc comments for the field.
+		*/
+		CompileLoc docsLoc;
 	}
 
 	/**
@@ -649,6 +669,11 @@ class NamespaceDef : AstNode
 	Document comments for the declaration.
 	*/
 	char[] docs;
+	
+	/**
+	The location of the doc comments for the declaration.
+	*/
+	CompileLoc docsLoc;
 
 	/**
 	*/
@@ -691,6 +716,11 @@ class Module : AstNode
 	Document comments for the module.
 	*/
 	char[] docs;
+	
+	/**
+	The location of the doc comments for the module.
+	*/
+	CompileLoc docsLoc;
 
 	/**
 	*/
@@ -767,6 +797,11 @@ class VarDecl : Statement
 	Document comments for the declaration.
 	*/
 	char[] docs;
+	
+	/**
+	The location of the doc comments for the declaration.
+	*/
+	CompileLoc docsLoc;
 
 	/**
 	*/

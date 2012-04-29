@@ -231,7 +231,7 @@ SimpleFunctionDeclaration:
 	function Identifier FunctionBody
 
 FunctionBody:
-	( Parameters? ) (Statement | = Expression)
+	'(' Parameters? ')' (Statement | = Expression)
 
 Parameters:
 	(this : Type | Parameter) (, Parameter)* (, vararg)?

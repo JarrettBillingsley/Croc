@@ -50,6 +50,7 @@ struct Token
 
 	CompileLoc loc;
 	char[] preComment, postComment;
+	CompileLoc preCommentLoc, postCommentLoc;
 	uword startChar;
 
 	enum
@@ -597,7 +598,7 @@ private:
 	bool convertUInt(dchar[] str, out crocint ret, uint radix)
 	{
 		ret = 0;
-		
+
 		static if(crocint.sizeof == 8)
 			ulong r = 0;
 		else static if(crocint.sizeof == 4)
@@ -1011,21 +1012,14 @@ private:
 		return ret;
 	}
 	
-	void addComment(char[] str)
+	void addComment(char[] str, CompileLoc location)
 	{
 		void derp(ref char[] existing)
 		{
 			if(existing is null)
 				existing = str;
 			else
-			{
-				scope buf = new List!(char)(mCompiler.alloc);
-				buf ~= existing;
-				buf ~= str;
-				auto arr = buf.toArray();
-				scope(exit) mCompiler.alloc.freeArray(arr);
-				existing = mCompiler.newString(arr);
-			}
+				mCompiler.lexException(location, "Cannot have multiple doc comments in a row; merge them into one comment");
 		}
 
 		if(mTokSinceLastNewline)
@@ -1039,11 +1033,13 @@ private:
 		if(mCompiler.docComments && mCharacter == '/')
 		{
 			nextChar();
-			
+
+			auto loc = mLoc;
+
 			// eat any extra slashes after the opening triple slash
 			while(mCharacter == '/')
 				nextChar();
-				
+
 			// eat whitespace too
 			while(isWhitespace() && !isEOL())
 				nextChar();
@@ -1055,11 +1051,11 @@ private:
 				buf ~= mCharacter;
 				nextChar();
 			}
-			
+
 			buf ~= '\n';
 			auto arr = buf.toArray();
 			scope(exit) mCompiler.alloc.freeArray(arr);
-			addComment(mCompiler.newString(arr));
+			addComment(mCompiler.newString(arr), loc);
 		}
 		else
 		{
@@ -1067,17 +1063,19 @@ private:
 				nextChar();
 		}
 	}
-	
+
 	void readBlockComment()
 	{
 		if(mCompiler.docComments && mCharacter == '*')
 		{
 			nextChar();
-			
+
+			auto loc = mLoc;
+
 			// eat any extra asterisks after opening
 			while(mCharacter == '*')
 				nextChar();
-				
+
 			// eat whitespace too
 			while(isWhitespace() && !isEOL())
 				nextChar();
@@ -1085,13 +1083,13 @@ private:
 			scope buf = new List!(char)(mCompiler.alloc);
 			uint nesting = 1;
 			bool justWS = false;
-			
+
 			void trimTrailingWS()
 			{
 				while(buf.length > 0 && (buf[buf.length - 1] == ' ' || buf[buf.length - 1] == '\t'))
 					buf.length = buf.length - 1;
 			}
-	
+
 			_commentLoop: while(true)
 			{
 				switch(mCharacter)
@@ -1137,7 +1135,7 @@ private:
 						trimTrailingWS();
 						buf ~= '\n';
 						continue;
-	
+
 					case '\0', dchar.init:
 						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
 
@@ -1151,7 +1149,7 @@ private:
 
 				nextChar();
 			}
-			
+
 			// eat any trailing asterisks
 			while(buf.length > 0 && buf[buf.length - 1] == '*')
 				buf.length = buf.length - 1;
@@ -1161,7 +1159,7 @@ private:
 
 			auto arr = buf.toArray();
 			scope(exit) mCompiler.alloc.freeArray(arr);
-			addComment(mCompiler.newString(arr));
+			addComment(mCompiler.newString(arr), loc);
 		}
 		else
 		{
@@ -1216,6 +1214,8 @@ private:
 		mNewlineSinceLastTok = false;
 		mTok.preComment = null;
 		mTok.postComment = null;
+		mTok.preCommentLoc = CompileLoc.init;
+		mTok.postCommentLoc = CompileLoc.init;
 		mTok.startChar = mPosition - 1;
 		mCaptureEnd = mTok.startChar;
 

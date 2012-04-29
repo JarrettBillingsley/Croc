@@ -137,6 +137,7 @@ public:
 	{
 		auto location = l.loc;
 		auto docs = l.tok.preComment;
+		auto docsLoc = l.tok.preCommentLoc;
 		Decorator dec;
 
 		if(l.type == Token.At)
@@ -157,7 +158,7 @@ public:
 		l.statementTerm();
 
 		scope statements = new List!(Statement)(c.alloc);
-		
+
 		while(l.type != Token.EOF)
 			statements ~= parseStatement();
 
@@ -165,10 +166,10 @@ public:
 
 		mDanglingDoc = l.expect(Token.EOF).preComment !is null;
 		auto ret = new(c) Module(c, location, l.loc, names.toArray(), stmts, dec);
-		
+
 		// Prevent final docs from being erroneously attached to the module
 		l.tok.postComment = null;
-		attachDocs(ret, docs);
+		attachDocs(ret, docs, docsLoc);
 		return ret;
 	}
 
@@ -386,6 +387,7 @@ public:
 		Decorator deco;
 		
 		auto docs = l.tok.preComment;
+		auto docsLoc = l.tok.preCommentLoc;
 
 		if(l.type == Token.At)
 			deco = parseDecorators();
@@ -401,20 +403,20 @@ public:
 
 						auto ret = parseVarDecl();
 						l.statementTerm();
-						attachDocs(ret, docs);
+						attachDocs(ret, docs, docsLoc);
 						return ret;
 
-					case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs); return ret;
-					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs); return ret;
-					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs); return ret;
+					case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+					case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+					case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
 
 					default:
 						c.synException(l.loc, "Illegal token '{}' after '{}'", l.peek.typeString(), l.tok.typeString());
 				}
 
-			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs); return ret;
-			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs); return ret;
-			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs); return ret;
+			case Token.Function:  auto ret = parseFuncDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+			case Token.Class:     auto ret = parseClassDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
+			case Token.Namespace: auto ret = parseNamespaceDecl(deco); attachDocs(ret.def, docs, docsLoc); return ret;
 
 			default:
 				l.expected("Declaration");
@@ -927,7 +929,7 @@ public:
 		alias ClassDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(Identifier name, Expression v, char[] preDocs)
+		void addField(Identifier name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
 		{
 			pushString(c.thread, name.name);
 
@@ -943,29 +945,31 @@ public:
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
-			attachDocs(&tmp, preDocs);
+			attachDocs(&tmp, preDocs, preDocsLoc);
 			fields[fields.length - 1] = tmp;
 		}
 
-		void addMethod(FuncDef m, char[] preDocs)
+		void addMethod(FuncDef m, char[] preDocs, CompileLoc preDocsLoc)
 		{
-			addField(m.name, new(c) FuncLiteralExp(c, m.location, m), preDocs);
+			addField(m.name, new(c) FuncLiteralExp(c, m.location, m), preDocs, preDocsLoc);
 			m.docs = fields[fields.length - 1].docs;
+			m.docsLoc = fields[fields.length - 1].docsLoc;
 		}
 
 		while(l.type != Token.RBrace)
 		{
 			auto docs = l.tok.preComment;
+			auto docsLoc = l.tok.preCommentLoc;
 
 			switch(l.type)
 			{
 				case Token.Function:
-					addMethod(parseSimpleFuncDef(), docs);
+					addMethod(parseSimpleFuncDef(), docs, docsLoc);
 					break;
 
 				case Token.This:
 					auto loc = l.expect(Token.This).loc;
-					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))), docs);
+					addMethod(parseFuncBody(loc, new(c) Identifier(c, loc, c.newString("constructor"))), docs, docsLoc);
 					break;
 
 				case Token.At:
@@ -1003,7 +1007,7 @@ public:
 						l.statementTerm();
 					}
 
-					addField(fieldName, decoToExp(dec, init), docs);
+					addField(fieldName, decoToExp(dec, init), docs, docsLoc);
 					break;
 
 				case Token.Ident:
@@ -1020,7 +1024,7 @@ public:
 						v = new(c) NullExp(c, id.location);
 
 					l.statementTerm();
-					addField(id, v, docs);
+					addField(id, v, docs, docsLoc);
 					break;
 
 				case Token.EOF:
@@ -1089,7 +1093,7 @@ public:
 		alias NamespaceDef.Field Field;
 		scope fields = new List!(Field)(c.alloc);
 
-		void addField(char[] name, Expression v, char[] preDocs)
+		void addField(char[] name, Expression v, char[] preDocs, CompileLoc preDocsLoc)
 		{
 			pushString(c.thread, name);
 
@@ -1105,19 +1109,20 @@ public:
 
 			// Stupid no ref returns and stupid compiler not diagnosing this.. stupid stupid
 			auto tmp = fields[fields.length - 1];
-			attachDocs(&tmp, preDocs);
+			attachDocs(&tmp, preDocs, preDocsLoc);
 			fields[fields.length - 1] = tmp;
 		}
 
 		while(l.type != Token.RBrace)
 		{
 			auto docs = l.tok.preComment;
+			auto docsLoc = l.tok.preCommentLoc;
 
 			switch(l.type)
 			{
 				case Token.Function:
 					auto fd = parseSimpleFuncDef();
-					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd), docs);
+					addField(fd.name.name, new(c) FuncLiteralExp(c, fd.location, fd), docs, docsLoc);
 					break;
 
 				case Token.At:
@@ -1147,7 +1152,7 @@ public:
 						l.statementTerm();
 					}
 
-					addField(fieldName.name, decoToExp(dec, init), docs);
+					addField(fieldName.name, decoToExp(dec, init), docs, docsLoc);
 					break;
 
 
@@ -1166,7 +1171,7 @@ public:
 						v = new(c) NullExp(c, loc);
 
 					l.statementTerm();
-					addField(fieldName, v, docs);
+					addField(fieldName, v, docs, docsLoc);
 					break;
 
 				case Token.EOF:
@@ -3133,7 +3138,7 @@ private:
 		return new(c) Identifier(c, loc, str);
 	}
 	
-	void attachDocs(T)(T t, char[] preDocs)
+	void attachDocs(T)(T t, char[] preDocs, CompileLoc preDocsLoc)
 	{
 		if(!c.docComments)
 			return;
@@ -3141,19 +3146,18 @@ private:
 		if(preDocs.length > 0)
 		{
 			if(l.tok.postComment.length > 0)
-			{
-				scope buf = new List!(char)(c.alloc);
-				buf ~= preDocs;
-				buf ~= l.tok.postComment;
-				auto arr = buf.toArray();
-				scope(exit) c.alloc.freeArray(arr);
-				t.docs = c.newString(arr);
-			}
+				c.synException(preDocsLoc, "Cannot have two doc comments on one declaration");
 			else
+			{
 				t.docs = preDocs;
+				t.docsLoc = preDocsLoc;
+			}
 		}
 		else if(l.tok.postComment.length > 0)
+		{
 			t.docs = l.tok.postComment;
+			t.docsLoc = l.tok.postCommentLoc;
+		}	
 	}
 	
 	Expression decoToExp(Decorator dec, Expression exp)
