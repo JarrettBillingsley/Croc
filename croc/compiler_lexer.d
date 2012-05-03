@@ -558,7 +558,7 @@ private:
 
 			mLoc.line++;
 			mLoc.col = 1;
-			
+
 			if(!readMultiple)
 				return;
 		}
@@ -1196,14 +1196,14 @@ private:
 					case '\r', '\n':
 						nextLine();
 						continue;
-	
+
 					case '\0', dchar.init:
 						mCompiler.eofException(mTok.loc, "Unterminated /* */ comment");
-	
+
 					default:
 						break;
 				}
-				
+
 				nextChar();
 			}
 		}
