@@ -224,13 +224,12 @@ RawSectionCommand:
 	'\_'Word
 
 Paragraph:
-	ParaElem+ EOP
+	(ParaElem | TextStructure)+ EOP
 
 ParaElem:
 	Newline
 	Word
 	TextSpan
-	TextStructure
 
 TextSpan:
 	TextSpanCommand ParaElem+ '}'
@@ -289,6 +288,7 @@ EOL:
 EOP:
 	2 or more Newlines
 	EOC
+	SectionCommand
 */
 
 struct CommentProcessor
@@ -377,10 +377,12 @@ private:
 
 	dchar lookaheadChar()
 	{
-		assert(!mHaveLookahead, "looking ahead too far");
+		if(!mHaveLookahead)
+		{
+			mLookaheadCharacter = readChar();
+			mHaveLookahead = true;
+		}
 
-		mLookaheadCharacter = readChar();
-		mHaveLookahead = true;
 		return mLookaheadCharacter;
 	}
 
@@ -414,6 +416,14 @@ private:
 			mCol = 1;
 		}
 	}
+	
+	uword curPos()
+	{
+		if(mHaveLookahead)
+			return mPosition - 2;
+		else
+			return mPosition - 1;
+	}
 
 	// ================================================================================================================================================
 	// Token-level lexing
@@ -423,10 +433,26 @@ private:
 		while(isWhitespace())
 			nextChar();
 	}
-	
+
 	char[] readWord()
 	{
-		return "";
+		auto wordBegin = curPos();
+
+		while(!isWhitespace() && !isEOL())
+			nextChar();
+
+		return mCommentSource[wordBegin .. curPos()];
+	}
+
+	char[] readUntil(dchar c)
+	{
+		auto wordBegin = curPos();
+
+		while(!isEOL() && mCharacter != c)
+			nextChar();
+			
+			
+		return mCommentSource[wordBegin .. curPos()];
 	}
 
 	void nextToken()
@@ -478,12 +504,15 @@ private:
 					else if(!isCommandChar())
 						errorHere("Invalid character '{}' after backslash", mCharacter);
 
-					auto commandStart = mPosition - 1;
+					auto commandStart = curPos();
 
 					while(isCommandChar())
 						nextChar();
 
-					mTok.string = mCommentSource[commandStart .. mPosition - 1];
+					mTok.string = mCommentSource[commandStart .. curPos()];
+					
+					if(mTok.string == "_")
+						error("Custom command must have at least one character after the underscore");
 
 					if(mCharacter == '{')
 					{
@@ -503,9 +532,10 @@ private:
 					else if(mCharacter == '[')
 					{
 						// has to be one of param, throws, link, code, or nlist
+						nextChar();
 
 						eatWhitespace();
-						mTok.arg = readWord();
+						mTok.arg = readUntil(']');
 						eatWhitespace();
 
 						if(mCharacter != ']')
@@ -515,7 +545,11 @@ private:
 
 						switch(mTok.string)
 						{
-							case "param", "throws": mTok.type = Token.SectionBegin; break;
+							case "param", "throws":
+								mTok.type = Token.SectionBegin;
+								if(mCharacter == ':')
+									nextChar();
+								break;
 
 							case "link":
 								mTok.type = Token.TextSpanBegin;
@@ -554,7 +588,7 @@ private:
 					}
 
 				_Word:
-					auto wordStart = mPosition - 1;
+					auto wordStart = curPos();
 
 					while(!isWhitespace() && !isEOL())
 					{
@@ -569,11 +603,13 @@ private:
 							else
 								break;
 						}
+						else if(mCharacter == '}')
+							break;
 						else
 							nextChar();
 					}
 
-					mTok.string = mCommentSource[wordStart .. mPosition - 1];
+					mTok.string = mCommentSource[wordStart .. curPos()];
 					mTok.type = Token.Word;
 					return;
 			}
@@ -586,6 +622,11 @@ private:
 
 		while(mTok.type == Token.Newline || mTok.type == Token.NewParagraph)
 			nextToken();
+	}
+
+	bool isEOP()
+	{
+		return mTok.type == Token.NewParagraph || mTok.type == Token.EOC || mTok.type == Token.SectionBegin;
 	}
 
 	// ================================================================================================================================================
@@ -612,227 +653,224 @@ private:
 
 		// Now for the parsing
 
-		newArray(t, 0);
-
-		do
+		version(none)
 		{
-			pushFormat(t, "({}:{}) {} '{}'", mTok.line, mTok.col, mTok.typeString, mTok.string);
+			newArray(t, 0);
 
-			if(mTok.arg.length > 0)
+			do
 			{
-				pushFormat(t, ": '{}'", mTok.arg);
-				cat(t, 2);
+				pushFormat(t, "({}:{}) {} '{}'", mTok.line, mTok.col, mTok.typeString, mTok.string);
+
+				if(mTok.arg.length > 0)
+				{
+					pushFormat(t, ": '{}'", mTok.arg);
+					cat(t, 2);
+				}
+
+				cateq(t, -2, 1);
+
+				nextToken();
+
+			} while(mTok.type != Token.EOC)
+
+			insertAndPop(t, docTable);
+		}
+		else
+		{
+			beginStdSection("docs");
+
+			while(mTok.type != Token.EOC)
+			{
+				checkForSectionChange();
+				readParagraph();
 			}
 
-			cateq(t, -2, 1);
+			endSection();
 
-			nextToken();
-
-		} while(mTok.type != Token.EOC)
-
-		insertAndPop(t, docTable);
-
-// 		beginStdSection("docs");
-//
-// 		while(mTok.type != Token.EOC)
-// 		{
-// 			checkForSectionChange();
-// 			readParagraph();
-// 		}
-//
-// 		endSection();
+			// If it's a function doc table, make sure all the params have docs members; give them empty docs if not
+			if(mIsFunction)
+				ensureParamDocs();
+		}
 	}
 
-// 	void checkForSectionChange()
-// 	{
-// 		assert(mLine.length > 0);
-// 
-// 		if(mLine[0] == '\\')
-// 		{
-// 			if(mLine.length > 1 && isEscapableChar(mLine[1]))
-// 				return;
-// 
-// 			bool isSpan;
-// 			auto cmd = peekCommand(isSpan);
-// 
-// 			if(isSpan)
-// 				return;
-//
-// 			if(cmd in stdSections)
-// 			{
-// 				if(cmd in funcSections)
-// 				{
-// 					if(!mIsFunction)
-// 						error("Section '{}' can only be used in function doc comments", cmd);
-// 
-// 					switch(cmd)
-// 					{
-// 						case "param":
-// 
-// 						case "throws":
-// 
-// 						case "returns":
-// 							break; // go to normal section processing
-// 
-// 						default: assert(false);
-// 					}
-// 				}
-// 			}
-// 			else if(cmd[0] == '_')
-// 			{
-// 
-// 			}
-// 			else
-// 				error("Unrecognized command '{}'", cmd);
-// 		}
-// 	}
-
-	void blah()
+	void checkForSectionChange()
 	{
+		if(mTok.type != Token.SectionBegin)
+			return;
 
-/*					if(line.startsWith("\\"))
-					{
-						if(line.startsWith("\\\\") || line.startsWith("\\{") || line.startsWith("\\}"))
-							goto _Plaintext;
-// 						Else if line starts with structural command,
-// 							If there is text after it,
-// 								Error.
-// 							End current stretch of text and add to end of paragraph array.
-// 							Switch to the appropriate mode.
-// 						Else if line starts with a section command,
-// 							If current section has no text,
-// 								Add the empty string to the end of current paragraph.
-// 							If new section has already been encountered,
-// 								Error.
-// 							Change section.
-// 							Add field to doctable for new section.
-// 							If there is text after the section command,
-// 								Add it as a paragraph fragment.
-// 						Else if line starts with a text span command,
-// 							Go to plaintext processing.
-// 						Else,
-// 							Error.
-					}
-					else
-						goto _Plaintext;
-					break;
+		assert(mTok.string.length > 0);
 
-				_Plaintext:
-// 						...
-					break;
+		if(mTok.string[0] == '_')
+		{
+			endSection();
+			beginCustomSection(mTok.string[1 .. $]);
+		}
+		else if(mTok.string in funcSections)
+		{
+			if(!mIsFunction)
+				error("Section '{}' is only usable in function doc tables", mTok.string);
 
-				case CodeVerbatim:
-// 					If line consists of nothing but the appropriate ending command,
-// 						Switch to paragraph mode.
-// 					Else,
-// 						Append untrimmed line to verbatim text.
-					break;
-				
-				case ListBegin:
-// 					If line starts with backslash,
-// 						If line starts with \li,
-// 							If inappropriate type for this list,
-// 								Error.
-// 							Start new list item.
-// 							If there is any extra text after \li,
-// 								Add it to the list item's first paragraph.
-// 							Switch to ListItem mode.
-// 						Else if line starts with \endlist,
-// 							Error (no list items).
-// 					Error (must have \li as the first thing inside a list).
-					break;
-				
-				case ListItem:
-// 					If line is empty
-// 					If line starts with backslash,
-// 						If backslash is followed by \, {, or },
-// 							Go to plaintext processing.
-// 						Else if line starts with \endlist,
-// 							If there is text after it,
-// 								Error.
-// 							If current list item has no text,
-// 								Add the empty string to the end of current paragraph.
-// 							End the list array and add it to the owning paragraph.
-// 							Decrease list nesting.
-// 							If current list is a numbered list, decrease numbered list nesting.
-// 							If list nesting is 0,
-// 								Switch to Paragraph mode.
-// 						Else if line starts with \li,
-// 							If inappropriate type for this list,
-// 								Error.
-// 							If current list item has no text,
-// 								Add the empty string to the end of current paragraph.
-// 							Start new list item.
-// 							If there is text after \li,
-// 								Add it as a paragraph fragment.
-// 						Else if line starts with a text span command,
-// 							Go to plaintext processing.
-// 						Else,
-// 							Error.
-// 					Else,
-// 						Go to plaintext processing.
-					break;
+			endSection();
 
-				case TableBegin:
-// 					If already inside a table,
-// 						Error.
-// 					Set "inside table" to true.
-// 					If line starts with backslash,
-// 						If line starts with \row,
-// 							If there is any extra text after \row,
-// 								Error.
-// 							Start new row.
-// 							Switch to RowBegin mode.
-// 						Else if line starts with \endtable,
-// 							Error (no rows).
-// 					Error (must have \row as the first thing inside a table).
-					break;
-
-				case RowBegin:
-// 					If line starts with backslash,
-// 						If line starts with \cell,
-// 							Start new cell.
-// 							If there is text after \cell,
-// 								Add it as a paragraph fragment.
-// 							Switch to Cell mode.
-// 						Else if line starts with \endtable or \row,
-// 							Error (no cells).
-// 					Error (must have \cell as the first thing inside a row).
-					break;
-
-				case Cell:
-// 					If line starts with backslash,
-// 						If backslash is followed by \, {, or },
-// 							Go to plaintext processing.
-// 						Else if line starts with \endtable,
-// 							If there is text after it,
-// 								Error.
-// 							If current cell has no text,
-// 								Add the empty string to the end of current paragraph.
-// 							End the table, normalizing row lengths, and add it to the owning paragraph.
-// 							Set "inside table" to false.
-// 							Switch to Paragraph mode.
-// 						Else if line starts with \cell,
-// 							If current cell has no text,
-// 								Add the empty string to the end of current paragraph.
-// 							Start new cell.
-// 							If there is text after \cell,
-// 								Add it as a paragraph fragment.
-// 						Else if line starts with a text span command,
-// 							Go to plaintext processing.
-// 						Else,
-// 							Error.
-// 					Else,
-// 						Go to plaintext processing.
-					break;
-
+			switch(mTok.string)
+			{
+				case "param": beginParamSection(mTok.arg); break;
+				case "throws": beginThrowsSection(mTok.arg); break;
+				case "returns": beginStdSection(mTok.string); break;
 				default: assert(false);
 			}
-		} */
+		}
+		else
+		{
+			endSection();
+			beginStdSection(mTok.string);
+		}
 
-		// If it's a function doc table, make sure all the params have docs members; give them empty docs if not
-		if(mIsFunction)
-			ensureParamDocs();
+		nextToken();
+	}
+
+	void readParagraph()
+	{
+		auto pgph = beginParagraph();
+		readParaElems(pgph, false);
+
+		if(mTok.type == Token.NewParagraph)
+			nextToken();
+		else
+			assert(mTok.type == Token.EOC || mTok.type == Token.SectionBegin);
+
+		endParagraph(pgph);
+	}
+
+	void readParaElems(uword slot, bool inTextSpan)
+	{
+		const MaxFrags = 50;
+		uword numFrags = 0;
+
+		void addText()
+		{
+			if(numFrags > 0)
+			{
+				concatTextFragments(slot);
+				append(slot);
+			}
+		}
+
+		void commonTextStructure(void delegate() reader)
+		{
+			if(inTextSpan)
+				error("Text structure command '{}' is not allowed inside text spans", mTok.typeString);
+
+			addText();
+			reader();
+			append(slot);
+		}
+
+		_outerLoop: while(true)
+		{
+			switch(mTok.type)
+			{
+				case Token.Newline:
+					nextToken();
+					break;
+
+				case Token.RBrace:
+					if(inTextSpan)
+						break _outerLoop;
+					// else fall through and treat it like a word
+				case Token.Word:
+					pushString(t, mTok.string);
+					numFrags++;
+
+					if(numFrags >= MaxFrags)
+					{
+						concatTextFragments(slot);
+						numFrags = 1;
+					}
+
+					nextToken();
+					break;
+
+				case Token.TextSpanBegin:
+					addText();
+					readTextSpan();
+					append(slot);
+					break;
+
+    			case Token.Code:          commonTextStructure(&readCodeBlock); break;
+    			case Token.Verbatim:      commonTextStructure(&readVerbatimBlock); break;
+    			case Token.BList:         commonTextStructure(&readBulletedList); break;
+    			case Token.NList:         commonTextStructure(&readNumberedList); break;
+    			case Token.DList:         commonTextStructure(&readDefinitionList); break;
+    			case Token.Table:         commonTextStructure(&readTable); break;
+
+    			default:
+    				if(isEOP())
+    				{
+						// if inside a text span, readTextSpan will deal with this, it can give a better error
+						break _outerLoop;
+					}
+					else
+	    				error("Invalid '{}' in paragraph", mTok.typeString);
+			}
+		}
+	}
+
+	void readTextSpan()
+	{
+		assert(mTok.type == Token.TextSpanBegin);
+
+		auto span = beginTextSpan(mTok.string);
+		auto spanString = mTok.string, spanLine = mTok.line, spanCol = mTok.col;
+		nextToken();
+
+		readParaElems(span, true);
+
+		if(mTok.type != Token.RBrace)
+			error(spanLine, spanCol, "Text span '{}' has no closing brace", spanString);
+
+		nextToken();
+
+		endTextSpan(span);
+	}
+
+	void readCodeBlock()
+	{
+		assert(false);
+	}
+
+	void readVerbatimBlock()
+	{
+		assert(false);
+	}
+
+	void readBulletedList()
+	{
+		assert(false);
+	}
+
+	void readNumberedList()
+	{
+		assert(false);
+	}
+
+	void readDefinitionList()
+	{
+		assert(false);
+	}
+
+	void readTable()
+	{
+		assert(false);
+	}
+
+	// ================================================================================================================================================
+	// Helpers
+
+	void append(uword pgph)
+	{
+		lenai(t, pgph, len(t, pgph) + 1);
+		idxai(t, pgph, -1);
 	}
 
 	void beginStdSection(char[] name)
@@ -845,8 +883,6 @@ private:
 		newArray(t, 0);
 		dup(t);
 		fielda(t, docTable, name);
-
-		beginParagraph();
 	}
 
 	void beginCustomSection(char[] name)
@@ -871,8 +907,6 @@ private:
 		dup(t);
 		fielda(t, custom, name);
 		insertAndPop(t, custom);
-
-		beginParagraph();
 	}
 
 	void beginThrowsSection(char[] exName)
@@ -898,8 +932,6 @@ private:
 		dup(t);
 		idxai(t, throws, -1);
 		insertAndPop(t, throws);
-
-		beginParagraph();
 	}
 
 	void beginParamSection(char[] paramName)
@@ -940,15 +972,19 @@ private:
 		dup(t);
 		fielda(t, param, "docs");
 		insertAndPop(t, param);
-
-		beginParagraph();
 	}
 
 	void endSection()
 	{
-		endParagraph(section + 1);
-
 		assert(stackSize(t) - 1 == section);
+		
+		if(len(t, section) == 0)
+		{
+			newArray(t, 1);
+			pushString(t, "");
+			idxai(t, -2, 0);
+			append(section);
+		}
 
 		pop(t);
 	}
@@ -972,16 +1008,41 @@ private:
 		if(stackSize(t) - 1 > pgph)
 		{
 			concatTextFragments(pgph);
-			cateq(t, pgph, 1);
+			append(pgph);
 		}
 
 		if(len(t, pgph) == 0)
 		{
 			pushString(t, "");
-			cateq(t, pgph, 1);
+			append(pgph);
 		}
 
 		pop(t);
+	}
+
+	uword beginTextSpan(char[] type)
+	{
+		newArray(t, 1);
+		pushString(t, type);
+		idxai(t, -2, 0);
+		return absIndex(t, -1);
+	}
+
+	void endTextSpan(uword span)
+	{
+		assert(isArray(t, span));
+
+		if(stackSize(t) - 1 > span)
+		{
+			concatTextFragments(span);
+			append(span);
+		}
+
+		if(len(t, span) == 1)
+		{
+			pushString(t, "");
+			append(span);
+		}
 	}
 
 	void concatTextFragments(uword pgph)
@@ -989,9 +1050,32 @@ private:
 		debug for(uword slot = pgph + 1; slot < stackSize(t); slot++)
 			assert(isString(t, slot));
 
-		cat(t, stackSize(t) - pgph - 1);
-		
-		// TODO: replace \\, \{, \}
+		auto numPieces = stackSize(t) - (pgph + 1);
+
+		assert(numPieces > 0);
+
+		if(numPieces > 1)
+		{
+			pushString(t, " ");
+			pushNull(t);
+			rotate(t, numPieces + 2, 2);
+			methodCall(t, pgph + 1, "vjoin", 1);
+		}
+
+		pushNull(t);
+		pushString(t, "\\\\");
+		pushString(t, "\\");
+		methodCall(t, -4, "replace", 1);
+
+		pushNull(t);
+		pushString(t, "\\{");
+		pushString(t, "{");
+		methodCall(t, -4, "replace", 1);
+
+		pushNull(t);
+		pushString(t, "\\}");
+		pushString(t, "}");
+		methodCall(t, -4, "replace", 1);
 	}
 
 	void ensureParamDocs()
@@ -1019,20 +1103,15 @@ private:
 		verror(mTok.line, mTok.col, msg, _arguments, _argptr);
 	}
 
+	void error(uword line, uword col, char[] msg, ...)
+	{
+		verror(line, col, msg, _arguments, _argptr);
+	}
+
 	void errorHere(char[] msg, ...)
 	{
 		verror(mLine, mCol, msg, _arguments, _argptr);
 	}
-
-// 	void error(uword col, char[] msg, ...)
-// 	{
-// 		verror(mTok.line, col, msg, _arguments, _argptr);
-// 	}
-//
-// 	void error(uword line, uword col, char[] msg, ...)
-// 	{
-// 		verror(line, col, msg, _arguments, _argptr);
-// 	}
 
 	void verror(uword line, uword col, char[] msg, TypeInfo[] arguments, va_list argptr)
 	{

@@ -17,23 +17,8 @@ import croc.ex_doccomments;
 uword processComment_wrap(CrocThread* t)
 {
 	auto str = checkStringParam(t, 1);
-	
-	newTable(t);
-	pushString(t, "dumb.croc"); fielda(t, -2, "file");
-	pushInt(t, 1);              fielda(t, -2, "line");
-	pushString(t, "function");  fielda(t, -2, "kind");
-	pushString(t, "f");         fielda(t, -2, "name");
-
-		newTable(t);
-		pushString(t, "dumb.croc"); fielda(t, -2, "file");
-		pushInt(t, 1);              fielda(t, -2, "line");
-		pushString(t, "parameter"); fielda(t, -2, "kind");
-		pushString(t, "x");         fielda(t, -2, "name");
-	newArrayFromStack(t, 1);
-	fielda(t, -2, "params");
-
+	checkParam(t, 2, CrocValue.Type.Table);
 	processComment(t, str);
-
 	return 1;
 }
 

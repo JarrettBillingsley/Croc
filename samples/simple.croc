@@ -1,15 +1,35 @@
 module samples.simple
 
 local comment =
-@"\authors
+@"I can make some text bold \b{by using the \\b command.}
 
+I'll just \b{bold some stuff here including an open brace \{} and now we're
+back to normal \b{oh wait back to bold \} and there was a closing brace} and normal again."
 
-"
-// "This is a doc comment! This is
-// the same paragraph.
-//
-// This is a new paragraph.
-// \authors This is a separate section."
+local docTable =
+{
+	file = "dumb.croc"
+	line = 1
+	kind = "function"
+	name = "f"
+	
+	params =
+	[
+		{
+			file = "dumb.croc"
+			line = 1
+			kind = "parameter"
+			name = "x"
+		},
+		
+		{
+			file = "dumb.croc"
+			line = 1
+			kind = "parameter"
+			name = "vararg"
+		}
+	]
+}
 
 function main()
 {
@@ -22,7 +42,7 @@ function main()
 
 // 	StdlibDumper.dump(string)
 
-	writeln$ json.toJSON(processComment(comment), true)
+	writeln$ json.toJSON(processComment(comment, docTable), true)
 // 	writeln$ json.toJSON(docsOf(C), true)
 }
 
