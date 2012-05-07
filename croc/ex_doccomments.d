@@ -44,7 +44,7 @@ public:
 // Expects a doc table on the stack, doesn't change stack size.
 void processComment(CrocThread* t, char[] comment)
 {
-	auto p = CommentProcessor(t);
+	auto p = CommentParser(t);
 	p.parse(comment);
 }
 
@@ -61,6 +61,7 @@ struct Token
 	uword col;
 	char[] string;
 	char[] arg;
+	char[] contents;
 
 	enum
 	{
@@ -72,9 +73,7 @@ struct Token
 		TextSpanBegin,
 		RBrace,
 		Code,
-		EndCode,
 		Verbatim,
-		EndVerbatim,
 		BList,
 		NList,
 		DList,
@@ -97,10 +96,8 @@ struct Token
 		SectionBegin: "Section command",
 		TextSpanBegin: "Text span command",
 		RBrace: "}",
-		Code: "Code snippet command",
-		EndCode: "Code snippet end command",
-		Verbatim: "Verbatim command",
-		EndVerbatim: "Verbatim end command",
+		Code: "Code snippet",
+		Verbatim: "Verbatim block",
 		BList: "Bulleted list command",
 		NList: "Numbered list command",
 		DList: "Definition list command",
@@ -181,10 +178,8 @@ static this()
 		"cell": Token.Cell,
 		"code": Token.Code,
 		"dlist": Token.DList,
-		"endcode": Token.EndCode,
 		"endlist": Token.EndList,
 		"endtable": Token.EndTable,
-		"endverbatim": Token.EndVerbatim,
 		"li": Token.ListItem, // Token.DefListItem is handled elsewhere
 		"nlist": Token.NList,
 		"row": Token.Row,
@@ -291,14 +286,13 @@ EOP:
 	SectionCommand
 */
 
-struct CommentProcessor
+struct CommentLexer
 {
 private:
-	CrocThread* t;
-
+	CommentParser* parser;
+	char[] mCommentSource;
 	uword mLine;
 	uword mCol;
-	char[] mCommentSource;
 	uword mPosition;
 	dchar mCharacter;
 	dchar mLookaheadCharacter;
@@ -306,18 +300,18 @@ private:
 
 	Token mTok;
 
-	bool mIsFunction = false;
-	uword mListNest = 0;
-	uword mNumberedListNest = 0;
-
-	uword docTable;
-	uword section;
-
-	static CommentProcessor opCall(CrocThread* t)
+	void begin(char[] source)
 	{
-		CommentProcessor ret;
-		ret.t = t;
-		return ret;
+		mCommentSource = source;
+		mLine = 1;
+		mCol = 0;
+		mPosition = 0;
+		mCharacter = dchar.init;
+		mHaveLookahead = false;
+		mTok = Token.init;
+
+		nextChar();
+		nextNonNewlineToken();
 	}
 
 	// ================================================================================================================================================
@@ -352,7 +346,7 @@ private:
 	{
 		return ((mCharacter >= 'a') && (mCharacter <= 'z')) || ((mCharacter >= 'A') && (mCharacter <= 'Z'));
 	}
-	
+
 	bool isCommandChar()
 	{
 		return mCharacter == '_' || isAlpha();
@@ -425,9 +419,6 @@ private:
 			return mPosition - 1;
 	}
 
-	// ================================================================================================================================================
-	// Token-level lexing
-
 	void eatWhitespace()
 	{
 		while(isWhitespace())
@@ -436,29 +427,64 @@ private:
 
 	char[] readWord()
 	{
-		auto wordBegin = curPos();
+		auto begin = curPos();
 
 		while(!isWhitespace() && !isEOL())
 			nextChar();
 
-		return mCommentSource[wordBegin .. curPos()];
+		return mCommentSource[begin .. curPos()];
 	}
 
 	char[] readUntil(dchar c)
 	{
-		auto wordBegin = curPos();
+		auto begin = curPos();
 
 		while(!isEOL() && mCharacter != c)
 			nextChar();
-			
-			
-		return mCommentSource[wordBegin .. curPos()];
+
+		return mCommentSource[begin .. curPos()];
 	}
+
+	void readRawBlock(char[] kind, char[] endCommand)
+	{
+		if(mCharacter != '\n')
+			errorHere("{} block opening command must be followed by a newline", kind);
+
+		nextLine();
+
+		auto begin = curPos();
+		uword endPos = begin;
+
+		while(!isEOC())
+		{
+			if(mCharacter == '\\' && mCommentSource[mPosition .. $].startsWith(endCommand))
+			{
+				mPosition += endCommand.length; // since mPosition is one ahead, it's already past the backslash
+				nextChar();
+
+				if(!isEOC() && mCharacter != '\n')
+					errorHere("\\{} must be followed by newline or end-of-comment", endCommand);
+
+				mTok.contents = mCommentSource[begin .. endPos];
+				return;
+			}
+
+			readUntil('\n');
+			endPos = curPos();
+			nextLine();
+		}
+
+		error("{} block has no matching '{}'", kind, endCommand);
+	}
+
+	// ================================================================================================================================================
+	// Token-level lexing
 
 	void nextToken()
 	{
-		mTok.string = "";
-		mTok.arg = "";
+		mTok.string = null;
+		mTok.arg = null;
+		mTok.contents = null;
 
 		while(true)
 		{
@@ -510,7 +536,7 @@ private:
 						nextChar();
 
 					mTok.string = mCommentSource[commandStart .. curPos()];
-					
+
 					if(mTok.string == "_")
 						error("Custom command must have at least one character after the underscore");
 
@@ -560,7 +586,11 @@ private:
 								nextChar();
 								break;
 
-							case "code":  mTok.type = Token.Code;  break;
+							case "code":
+								mTok.type = Token.Code;
+								readRawBlock("Code", "endcode");
+								break;
+
 							case "nlist": mTok.type = Token.NList; break;
 							default:      error("Invalid command name '{}'", mTok.string);
 						}
@@ -575,6 +605,14 @@ private:
 					else if(auto type = mTok.string in textStructures)
 					{
 						mTok.type = *type;
+
+						if(mTok.type == Token.Code)
+						{
+							mTok.arg = "croc";
+							readRawBlock("Code", "endcode");
+						}
+						else if(mTok.type == Token.Verbatim)
+							readRawBlock("Verbatim", "endverbatim");
 					}
 					else
 						error("Invalid command '{}'", mTok.string);
@@ -624,17 +662,66 @@ private:
 			nextToken();
 	}
 
+	// ================================================================================================================================================
+	// Other interfaces
+
+	Token tok()
+	{
+		return mTok;
+	}
+
+	uword type()
+	{
+		return mTok.type;
+	}
+
 	bool isEOP()
 	{
 		return mTok.type == Token.NewParagraph || mTok.type == Token.EOC || mTok.type == Token.SectionBegin;
 	}
 
 	// ================================================================================================================================================
-	// Parsing
+	// Error handling
+
+	void error(char[] msg, ...)
+	{
+		parser.verror(mTok.line, mTok.col, msg, _arguments, _argptr);
+	}
+
+	void error(uword line, uword col, char[] msg, ...)
+	{
+		parser.verror(line, col, msg, _arguments, _argptr);
+	}
+
+	void errorHere(char[] msg, ...)
+	{
+		parser.verror(mLine, mCol, msg, _arguments, _argptr);
+	}
+
+}
+
+struct CommentParser
+{
+private:
+	CrocThread* t;
+	CommentLexer l;
+
+	bool mIsFunction = false;
+	uword mListNest = 0;
+	uword mNumberedListNest = 0;
+
+	uword docTable;
+	uword section;
+
+	static CommentParser opCall(CrocThread* t)
+	{
+		CommentParser ret;
+		ret.t = t;
+		return ret;
+	}
 
 	void parse(char[] comment)
 	{
-		mCommentSource = comment;
 		docTable = absIndex(t, -1);
 		assert(isTable(t, docTable));
 		section = docTable + 1;
@@ -642,16 +729,8 @@ private:
 		mIsFunction = getString(t, -1) == "function";
 		pop(t);
 
-		// Start up the lexer
-		mLine = 1;
-		mCol = 0;
-		mPosition = 0;
-		mHaveLookahead = false;
-
-		nextChar();
-		nextNonNewlineToken();
-
-		// Now for the parsing
+		l.parser = this;
+		l.begin(comment);
 
 		version(none)
 		{
@@ -679,7 +758,7 @@ private:
 		{
 			beginStdSection("docs");
 
-			while(mTok.type != Token.EOC)
+			while(l.type != Token.EOC)
 			{
 				checkForSectionChange();
 				readParagraph();
@@ -695,38 +774,38 @@ private:
 
 	void checkForSectionChange()
 	{
-		if(mTok.type != Token.SectionBegin)
+		if(l.type != Token.SectionBegin)
 			return;
 
-		assert(mTok.string.length > 0);
+		assert(l.tok.string.length > 0);
 
-		if(mTok.string[0] == '_')
+		if(l.tok.string[0] == '_')
 		{
 			endSection();
-			beginCustomSection(mTok.string[1 .. $]);
+			beginCustomSection(l.tok.string[1 .. $]);
 		}
-		else if(mTok.string in funcSections)
+		else if(l.tok.string in funcSections)
 		{
 			if(!mIsFunction)
-				error("Section '{}' is only usable in function doc tables", mTok.string);
+				error("Section '{}' is only usable in function doc tables", l.tok.string);
 
 			endSection();
 
-			switch(mTok.string)
+			switch(l.tok.string)
 			{
-				case "param": beginParamSection(mTok.arg); break;
-				case "throws": beginThrowsSection(mTok.arg); break;
-				case "returns": beginStdSection(mTok.string); break;
+				case "param": beginParamSection(l.tok.arg); break;
+				case "throws": beginThrowsSection(l.tok.arg); break;
+				case "returns": beginStdSection(l.tok.string); break;
 				default: assert(false);
 			}
 		}
 		else
 		{
 			endSection();
-			beginStdSection(mTok.string);
+			beginStdSection(l.tok.string);
 		}
 
-		nextToken();
+		l.nextToken();
 	}
 
 	void readParagraph()
@@ -734,10 +813,10 @@ private:
 		auto pgph = beginParagraph();
 		readParaElems(pgph, false);
 
-		if(mTok.type == Token.NewParagraph)
-			nextToken();
+		if(l.type == Token.NewParagraph)
+			l.nextToken();
 		else
-			assert(mTok.type == Token.EOC || mTok.type == Token.SectionBegin);
+			assert(l.type == Token.EOC || l.type == Token.SectionBegin);
 
 		endParagraph(pgph);
 	}
@@ -759,7 +838,7 @@ private:
 		void commonTextStructure(void delegate() reader)
 		{
 			if(inTextSpan)
-				error("Text structure command '{}' is not allowed inside text spans", mTok.typeString);
+				error("Text structure command '{}' is not allowed inside text spans", l.tok.typeString);
 
 			addText();
 			reader();
@@ -768,10 +847,10 @@ private:
 
 		_outerLoop: while(true)
 		{
-			switch(mTok.type)
+			switch(l.type)
 			{
 				case Token.Newline:
-					nextToken();
+					l.nextToken();
 					break;
 
 				case Token.RBrace:
@@ -779,7 +858,7 @@ private:
 						break _outerLoop;
 					// else fall through and treat it like a word
 				case Token.Word:
-					pushString(t, mTok.string);
+					pushString(t, l.tok.string);
 					numFrags++;
 
 					if(numFrags >= MaxFrags)
@@ -788,7 +867,7 @@ private:
 						numFrags = 1;
 					}
 
-					nextToken();
+					l.nextToken();
 					break;
 
 				case Token.TextSpanBegin:
@@ -805,43 +884,71 @@ private:
     			case Token.Table:         commonTextStructure(&readTable); break;
 
     			default:
-    				if(isEOP())
+    				if(l.isEOP())
     				{
 						// if inside a text span, readTextSpan will deal with this, it can give a better error
 						break _outerLoop;
 					}
 					else
-	    				error("Invalid '{}' in paragraph", mTok.typeString);
+	    				error("Invalid '{}' in paragraph", l.tok.typeString);
 			}
 		}
 	}
 
 	void readTextSpan()
 	{
-		assert(mTok.type == Token.TextSpanBegin);
+		assert(l.type == Token.TextSpanBegin);
 
-		auto span = beginTextSpan(mTok.string);
-		auto spanString = mTok.string, spanLine = mTok.line, spanCol = mTok.col;
-		nextToken();
+		auto tok = l.tok;
+		auto span = beginTextSpan(tok.string);
+		l.nextToken();
 
 		readParaElems(span, true);
 
-		if(mTok.type != Token.RBrace)
-			error(spanLine, spanCol, "Text span '{}' has no closing brace", spanString);
+		if(l.type != Token.RBrace)
+			error(tok.line, tok.col, "Text span '{}' has no closing brace", tok.string);
 
-		nextToken();
+		l.nextToken();
 
 		endTextSpan(span);
 	}
 
 	void readCodeBlock()
 	{
-		assert(false);
+		assert(l.type == Token.Code);
+
+		newArray(t, 3);
+		pushString(t, "code");
+		idxai(t, -2, 0);
+		pushString(t, l.tok.arg);
+		idxai(t, -2, 1);
+		pushString(t, l.tok.contents);
+		idxai(t, -2, 2);
+
+		l.nextToken();
+
+		if(l.type != Token.Newline && l.type != Token.EOC)
+			error("\\endcode must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
+
+		l.nextToken();
 	}
 
 	void readVerbatimBlock()
 	{
-		assert(false);
+		assert(l.type == Token.Verbatim);
+
+		newArray(t, 2);
+		pushString(t, "verbatim");
+		idxai(t, -2, 0);
+		pushString(t, l.tok.contents);
+		idxai(t, -2, 1);
+
+		l.nextToken();
+
+		if(l.type != Token.Newline && l.type != Token.EOC)
+			error("\\endverbatim must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
+
+		l.nextToken();
 	}
 
 	void readBulletedList()
@@ -977,7 +1084,7 @@ private:
 	void endSection()
 	{
 		assert(stackSize(t) - 1 == section);
-		
+
 		if(len(t, section) == 0)
 		{
 			newArray(t, 1);
@@ -1098,19 +1205,17 @@ private:
 		}
 	}
 
+	// ================================================================================================================================================
+	// Error handling
+
 	void error(char[] msg, ...)
 	{
-		verror(mTok.line, mTok.col, msg, _arguments, _argptr);
+		verror(l.tok.line, l.tok.col, msg, _arguments, _argptr);
 	}
 
 	void error(uword line, uword col, char[] msg, ...)
 	{
 		verror(line, col, msg, _arguments, _argptr);
-	}
-
-	void errorHere(char[] msg, ...)
-	{
-		verror(mLine, mCol, msg, _arguments, _argptr);
 	}
 
 	void verror(uword line, uword col, char[] msg, TypeInfo[] arguments, va_list argptr)

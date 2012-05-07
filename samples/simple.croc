@@ -1,10 +1,7 @@
 module samples.simple
 
 local comment =
-@"I can make some text bold \b{by using the \\b command.}
-
-I'll just \b{bold some stuff here including an open brace \{} and now we're
-back to normal \b{oh wait back to bold \} and there was a closing brace} and normal again."
+@"this is\b{n't} bold"
 
 local docTable =
 {
