@@ -66,6 +66,7 @@ struct Token
 	enum
 	{
 		EOC,
+		Whitespace,
 		Newline,
 		NewParagraph,
 		Word,
@@ -77,11 +78,12 @@ struct Token
 		BList,
 		NList,
 		DList,
+		Table,
+
 		EndList,
+		EndTable,
 		ListItem,
 		DefListItem,
-		Table,
-		EndTable,
 		Row,
 		Cell
 	}
@@ -89,6 +91,7 @@ struct Token
 	static const char[][] strings =
 	[
 		EOC: "<end of comment>",
+		Whitespace: "Whitespace",
 		Newline: "<newline>",
 		NewParagraph: "<new paragraph>",
 
@@ -101,11 +104,12 @@ struct Token
 		BList: "Bulleted list command",
 		NList: "Numbered list command",
 		DList: "Definition list command",
+		Table: "Table command",
+
 		EndList: "End list command",
+		EndTable: "Table end command",
 		ListItem: "List item command",
 		DefListItem: "Definition list item command",
-		Table: "Table command",
-		EndTable: "Table end command",
 		Row: "Row command",
 		Cell: "Cell command"
 	];
@@ -113,6 +117,11 @@ struct Token
 	char[] typeString()
 	{
 		return strings[type];
+	}
+
+	bool isSubStructure()
+	{
+		return type >= EndList;
 	}
 }
 
@@ -311,6 +320,7 @@ private:
 		mTok = Token.init;
 
 		nextChar();
+		next();
 		nextNonNewlineToken();
 	}
 
@@ -480,7 +490,7 @@ private:
 	// ================================================================================================================================================
 	// Token-level lexing
 
-	void nextToken()
+	void next()
 	{
 		mTok.string = null;
 		mTok.arg = null;
@@ -622,7 +632,8 @@ private:
 					if(isWhitespace())
 					{
 						eatWhitespace();
-						continue;
+						mTok.type = Token.Whitespace;
+						return;
 					}
 
 				_Word:
@@ -656,10 +667,14 @@ private:
 
 	void nextNonNewlineToken()
 	{
-		nextToken();
-
 		while(mTok.type == Token.Newline || mTok.type == Token.NewParagraph)
-			nextToken();
+			next();
+	}
+	
+	void nextNonWhitespaceToken()
+	{
+		while(mTok.type == Token.Newline || mTok.type == Token.NewParagraph || mTok.type == Token.Whitespace)
+			next();
 	}
 
 	// ================================================================================================================================================
@@ -697,17 +712,18 @@ private:
 	{
 		parser.verror(mLine, mCol, msg, _arguments, _argptr);
 	}
-
 }
 
 struct CommentParser
 {
 private:
+	static const char[] NumberedListTypes = ['1', 'a', 'i', 'A', 'I'];
+	static const uword NumberedListMax = NumberedListTypes.length;
+
 	CrocThread* t;
 	CommentLexer l;
 
 	bool mIsFunction = false;
-	uword mListNest = 0;
 	uword mNumberedListNest = 0;
 
 	uword docTable;
@@ -748,7 +764,7 @@ private:
 
 				cateq(t, -2, 1);
 
-				nextToken();
+				next();
 
 			} while(mTok.type != Token.EOC)
 
@@ -805,7 +821,7 @@ private:
 			beginStdSection(l.tok.string);
 		}
 
-		l.nextToken();
+		l.next();
 	}
 
 	void readParagraph()
@@ -814,9 +830,9 @@ private:
 		readParaElems(pgph, false);
 
 		if(l.type == Token.NewParagraph)
-			l.nextToken();
+			l.next();
 		else
-			assert(l.type == Token.EOC || l.type == Token.SectionBegin);
+			assert(l.type == Token.EOC || l.type == Token.SectionBegin || l.tok.isSubStructure());
 
 		endParagraph(pgph);
 	}
@@ -832,6 +848,7 @@ private:
 			{
 				concatTextFragments(slot);
 				append(slot);
+				numFrags = 0;
 			}
 		}
 
@@ -844,21 +861,30 @@ private:
 			reader();
 			append(slot);
 		}
+		
+		l.nextNonWhitespaceToken();
 
 		_outerLoop: while(true)
 		{
 			switch(l.type)
 			{
-				case Token.Newline:
-					l.nextToken();
-					break;
+				case Token.Newline, Token.Whitespace:
+					pushString(t, " ");
+					goto _commonWord;
 
 				case Token.RBrace:
 					if(inTextSpan)
 						break _outerLoop;
-					// else fall through and treat it like a word
+
+					pushString(t, "}");
+					goto _commonWord;
+
 				case Token.Word:
 					pushString(t, l.tok.string);
+
+				_commonWord:
+					l.next();
+
 					numFrags++;
 
 					if(numFrags >= MaxFrags)
@@ -866,8 +892,6 @@ private:
 						concatTextFragments(slot);
 						numFrags = 1;
 					}
-
-					l.nextToken();
 					break;
 
 				case Token.TextSpanBegin:
@@ -878,13 +902,13 @@ private:
 
     			case Token.Code:          commonTextStructure(&readCodeBlock); break;
     			case Token.Verbatim:      commonTextStructure(&readVerbatimBlock); break;
-    			case Token.BList:         commonTextStructure(&readBulletedList); break;
-    			case Token.NList:         commonTextStructure(&readNumberedList); break;
-    			case Token.DList:         commonTextStructure(&readDefinitionList); break;
+    			case Token.BList:
+    			case Token.NList:
+    			case Token.DList:         commonTextStructure(&readList); break;
     			case Token.Table:         commonTextStructure(&readTable); break;
 
     			default:
-    				if(l.isEOP())
+    				if(l.isEOP() || l.tok.isSubStructure())
     				{
 						// if inside a text span, readTextSpan will deal with this, it can give a better error
 						break _outerLoop;
@@ -901,14 +925,14 @@ private:
 
 		auto tok = l.tok;
 		auto span = beginTextSpan(tok.string);
-		l.nextToken();
+		l.next();
 
 		readParaElems(span, true);
 
 		if(l.type != Token.RBrace)
 			error(tok.line, tok.col, "Text span '{}' has no closing brace", tok.string);
 
-		l.nextToken();
+		l.next();
 
 		endTextSpan(span);
 	}
@@ -925,12 +949,12 @@ private:
 		pushString(t, l.tok.contents);
 		idxai(t, -2, 2);
 
-		l.nextToken();
+		l.next();
 
 		if(l.type != Token.Newline && l.type != Token.EOC)
 			error("\\endcode must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
 
-		l.nextToken();
+		l.next();
 	}
 
 	void readVerbatimBlock()
@@ -943,27 +967,158 @@ private:
 		pushString(t, l.tok.contents);
 		idxai(t, -2, 1);
 
-		l.nextToken();
+		l.next();
 
 		if(l.type != Token.Newline && l.type != Token.EOC)
 			error("\\endverbatim must be followed by a newline or end-of-comment, not '{}'", l.tok.typeString());
 
-		l.nextToken();
+		l.next();
 	}
 
-	void readBulletedList()
+	void readList()
 	{
-		assert(false);
-	}
+		assert(l.type == Token.BList || l.type == Token.NList || l.type == Token.DList);
 
-	void readNumberedList()
-	{
-		assert(false);
-	}
+		uword numListSave = mNumberedListNest;
+		scope(exit) mNumberedListNest = numListSave;
+		
+		bool isDefList = l.type == Token.DList;
+		uword arr;
 
-	void readDefinitionList()
-	{
-		assert(false);
+		if(l.type == Token.NList)
+		{
+			auto type = l.tok.arg;
+
+			if(type.length > 0)
+			{
+				if(type.length > 1)
+					error("Invalid numbered list type '{}'", type);
+
+				auto level = NumberedListTypes.find(type[0]);
+
+				if(level == NumberedListMax)
+					error("Invalid numbered list type '{}'", type);
+
+				mNumberedListNest = level;
+			}
+
+			arr = newArray(t, 2);
+			pushString(t, "nlist");
+			idxai(t, -2, 0);
+			pushFormat(t, "{}", NumberedListTypes[mNumberedListNest]);
+			idxai(t, -2, 1);
+
+			mNumberedListNest = (mNumberedListNest + 1) % NumberedListMax;
+		}
+		else
+		{
+			mNumberedListNest = 0;
+			arr = newArray(t, 1);
+
+			if(isDefList)
+				pushString(t, "dlist");
+			else
+				pushString(t, "blist");
+
+			idxai(t, -2, 0);
+		}
+
+		auto tok = l.tok;
+		l.next();
+
+		if(l.type != Token.Newline && l.type != Token.NewParagraph)
+			error("List start command must be followed by a newline");
+
+		l.next();
+		l.nextNonNewlineToken();
+
+		uword item;
+
+		void endItem()
+		{
+			if(len(t, item) == 0)
+			{
+				newArray(t, 1);
+				pushString(t, "");
+				idxai(t, -2, 0);
+				append(item);
+			}
+
+			pop(t);
+		}
+
+		void beginItem()
+		{
+			item = newArray(t, 0);
+			dup(t);
+			append(arr);
+		}
+
+		bool first = true;
+
+		void switchItems()
+		{
+			if(first)
+				first = false;
+			else
+				endItem();
+
+			beginItem();
+		}
+
+		while(l.type != Token.EOC && l.type != Token.EndList)
+		{
+			if(l.type == Token.ListItem)
+			{
+				if(isDefList)
+					error("Cannot use a regular list item in a definition list");
+
+				switchItems();
+				l.next();
+			}
+			else if(l.type == Token.DefListItem)
+			{
+				if(!isDefList)
+					error("Cannot use a definition list item in a numbered/bulleted list");
+
+				switchItems();
+				auto liTok = l.tok;
+				l.next();
+
+				auto defItem = newArray(t, 0);
+				readParaElems(defItem, true);
+
+				if(l.type != Token.RBrace)
+					error(liTok.line, liTok.col, "Definition list item has no closing brace");
+
+				l.next();
+
+				if(stackSize(t) - 1 > defItem)
+				{
+					concatTextFragments(defItem);
+					append(defItem);
+				}
+
+				if(len(t, defItem) == 0)
+					error(liTok.line, liTok.col, "Definition list item must contain a term");
+				else
+					trimFinalText(defItem);
+
+				append(item);
+			}
+			else if(l.type == Token.SectionBegin)
+				error("Cannot change sections inside a list");
+
+			readParagraph();
+		}
+
+		if(first)
+			error(tok.line, tok.col, "List must have at least one item");
+		else if(l.type == Token.EOC)
+			error(tok.line, tok.col, "List has no matching \\endlist command");
+
+		endItem();
+		l.next();
 	}
 
 	void readTable()
@@ -1123,6 +1278,8 @@ private:
 			pushString(t, "");
 			append(pgph);
 		}
+		else
+			trimFinalText(pgph);
 
 		pop(t);
 	}
@@ -1150,6 +1307,32 @@ private:
 			pushString(t, "");
 			append(span);
 		}
+		else
+			trimFinalText(span);
+	}
+
+	void trimFinalText(uword pgph)
+	{
+		assert(isArray(t, pgph));
+		assert(len(t, pgph) > 0);
+
+		idxi(t, pgph, -1);
+
+		if(isString(t, -1))
+		{
+			pushNull(t);
+			methodCall(t, -2, "rstrip", 1);
+
+			if(len(t, -1) > 0)
+				idxai(t, pgph, -1);
+			else
+			{
+				pop(t);
+				lenai(t, pgph, len(t, pgph) - 1);
+			}
+		}
+		else
+			pop(t);
 	}
 
 	void concatTextFragments(uword pgph)
@@ -1158,16 +1341,9 @@ private:
 			assert(isString(t, slot));
 
 		auto numPieces = stackSize(t) - (pgph + 1);
-
 		assert(numPieces > 0);
 
-		if(numPieces > 1)
-		{
-			pushString(t, " ");
-			pushNull(t);
-			rotate(t, numPieces + 2, 2);
-			methodCall(t, pgph + 1, "vjoin", 1);
-		}
+		cat(t, numPieces);
 
 		pushNull(t);
 		pushString(t, "\\\\");

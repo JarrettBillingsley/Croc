@@ -1,7 +1,7 @@
 module samples.simple
 
 local comment =
-@"this is\b{n't} bold"
+@""
 
 local docTable =
 {
@@ -9,7 +9,7 @@ local docTable =
 	line = 1
 	kind = "function"
 	name = "f"
-	
+
 	params =
 	[
 		{
@@ -18,7 +18,7 @@ local docTable =
 			kind = "parameter"
 			name = "x"
 		},
-		
+
 		{
 			file = "dumb.croc"
 			line = 1
