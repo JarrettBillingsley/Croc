@@ -1,7 +1,14 @@
 module samples.simple
 
 local comment =
-@""
+@"\table
+	\row
+		\cell blah
+		\cell blah blah
+	\row
+		\cell wat
+		\cell wat wat
+\endtable"
 
 local docTable =
 {

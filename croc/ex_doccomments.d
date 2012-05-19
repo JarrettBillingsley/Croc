@@ -862,7 +862,7 @@ private:
 			reader();
 			append(slot);
 		}
-		
+
 		l.nextNonWhitespaceToken();
 
 		_outerLoop: while(true)
@@ -982,7 +982,7 @@ private:
 
 		uword numListSave = mNumberedListNest;
 		scope(exit) mNumberedListNest = numListSave;
-		
+
 		bool isDefList = l.type == Token.DList;
 		uword arr;
 
@@ -1033,7 +1033,15 @@ private:
 		l.next();
 		l.nextNonNewlineToken();
 
+		bool first = true;
 		uword item;
+
+		void beginItem()
+		{
+			item = newArray(t, 0);
+			dup(t);
+			append(arr);
+		}
 
 		void endItem()
 		{
@@ -1047,15 +1055,6 @@ private:
 
 			pop(t);
 		}
-
-		void beginItem()
-		{
-			item = newArray(t, 0);
-			dup(t);
-			append(arr);
-		}
-
-		bool first = true;
 
 		void switchItems()
 		{
@@ -1109,8 +1108,10 @@ private:
 			}
 			else if(l.type == Token.SectionBegin)
 				error("Cannot change sections inside a list");
-
-			readParagraph();
+			else if(first)
+				error("Cannot have text before a list item");
+			else
+				readParagraph();
 		}
 
 		if(first)
@@ -1136,10 +1137,10 @@ private:
 		*/
 
 		assert(l.type == Token.Table);
-		
+
 		if(mInTable)
 			error("Tables cannot be nested");
-		
+
 		mInTable = true;
 		scope(exit) mInTable = false;
 
@@ -1157,56 +1158,154 @@ private:
 		idxai(t, -2, 0);
 
 		bool firstRow = true;
+		bool firstCell = true;
 		uword maxRowLength = 0;
+		uword curRowLength = 0;
 		uword row;
-		uword col;
-		
-		void endThing(uword thing)
+		uword cell;
+
+		void beginRow()
 		{
-			if(len(t, item) == 0)
+			row = newArray(t, 0);
+			dup(t);
+			append(tab);
+			firstCell = true;
+			curRowLength = 0;
+		}
+
+		void beginCell()
+		{
+			cell = newArray(t, 0);
+			dup(t);
+			append(row);
+			curRowLength++;
+			maxRowLength = curRowLength > maxRowLength ? curRowLength : maxRowLength;
+		}
+
+		void endRow()
+		{
+			assert(!firstRow);
+			pop(t);
+			row = 0;
+		}
+
+		void endCell()
+		{
+			assert(!firstCell);
+
+			if(len(t, cell) == 0)
 			{
 				newArray(t, 1);
 				pushString(t, "");
 				idxai(t, -2, 0);
-				append(item);
+				append(cell);
 			}
 
 			pop(t);
+			cell = 0;
 		}
 
-		void beginItem()
+		void switchRows()
 		{
-			item = newArray(t, 0);
-			dup(t);
-			append(arr);
-		}
+			if(!firstCell)
+				endCell();
 
-		bool first = true;
-
-		void switchItems()
-		{
-			if(first)
-				first = false;
+			if(firstRow)
+				firstRow = false;
 			else
-				endItem();
+				endRow();
 
-			beginItem();
+			beginRow();
+		}
+
+		void switchCells()
+		{
+			if(firstCell)
+				firstCell = false;
+			else
+				endCell();
+
+			beginCell();
 		}
 
 		while(l.type != Token.EOC && l.type != Token.EndTable)
 		{
-			
+			if(firstRow)
+			{
+				if(l.type != Token.Row)
+					error("Cannot have text outside a cell");
+
+				switchRows();
+				l.next();
+				l.nextNonWhitespaceToken();
+			}
+			else if(firstCell)
+			{
+				if(l.type == Token.Cell)
+				{
+					switchCells();
+					l.next();
+				}
+				else if(l.type == Token.Row)
+				{
+					switchRows();
+					l.next();
+					l.nextNonWhitespaceToken();
+				}
+				else
+					error("Cannot have text outside a cell");
+			}
+			else if(l.type == Token.SectionBegin)
+				error("Cannot change sections inside a table");
+			else if(l.type == Token.Cell)
+			{
+				switchCells();
+				l.next();
+			}
+			else if(l.type == Token.Row)
+			{
+				switchRows();
+				l.next();
+				l.nextNonWhitespaceToken();
+			}
+			else
+				readParagraph();
 		}
-		
-		if(first)
-			error(tok.line, tok.col, "List must have at least one item");
+
+		if(firstRow)
+			error(beginTok.line, beginTok.col, "Table must have at least one row");
 		else if(l.type == Token.EOC)
-			error(tok.line, tok.col, "List has no matching \\endlist command");
+			error(beginTok.line, beginTok.col, "Table has no matching \\endtable command");
+
+		if(!firstCell)
+			endCell();
 
 		endRow();
 		l.next();
-		
-		// Now normalize table columns;
+
+		// Now normalize table columns.
+		auto tableLen = len(t, tab);
+		for(uword i = 1; i < tableLen; i++)
+		{
+			row = idxi(t, tab, i);
+			auto rowLen = len(t, row);
+			assert(rowLen <= maxRowLength);
+
+			if(rowLen < maxRowLength)
+			{
+				lenai(t, row, maxRowLength);
+
+				for(uword j = cast(uword)rowLen; j < maxRowLength; j++)
+				{
+					newArray(t, 1);
+					pushString(t, "");
+					idxai(t, -2, 0);
+					idxai(t, row, j);
+				}
+			}
+
+			pop(t);
+		}
 	}
 
 	// ================================================================================================================================================
