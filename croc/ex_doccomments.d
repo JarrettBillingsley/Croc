@@ -725,6 +725,7 @@ private:
 
 	bool mIsFunction = false;
 	uword mNumberedListNest = 0;
+	bool mInTable = false;
 
 	uword docTable;
 	uword section;
@@ -1123,7 +1124,89 @@ private:
 
 	void readTable()
 	{
-		assert(false);
+		/*
+		Table:
+			'\table' Newline Row+ '\endtable' EOL
+
+		Row:
+			'\row' Newline Cell+
+
+		Cell:
+			'\cell' Paragraph*
+		*/
+
+		assert(l.type == Token.Table);
+		
+		if(mInTable)
+			error("Tables cannot be nested");
+		
+		mInTable = true;
+		scope(exit) mInTable = false;
+
+		auto beginTok = l.tok;
+		l.next();
+
+		if(l.type != Token.Newline && l.type != Token.NewParagraph)
+			error("Table start command must be followed by a newline");
+
+		l.next();
+		l.nextNonNewlineToken();
+
+		auto tab = newArray(t, 1);
+		pushString(t, "table");
+		idxai(t, -2, 0);
+
+		bool firstRow = true;
+		uword maxRowLength = 0;
+		uword row;
+		uword col;
+		
+		void endThing(uword thing)
+		{
+			if(len(t, item) == 0)
+			{
+				newArray(t, 1);
+				pushString(t, "");
+				idxai(t, -2, 0);
+				append(item);
+			}
+
+			pop(t);
+		}
+
+		void beginItem()
+		{
+			item = newArray(t, 0);
+			dup(t);
+			append(arr);
+		}
+
+		bool first = true;
+
+		void switchItems()
+		{
+			if(first)
+				first = false;
+			else
+				endItem();
+
+			beginItem();
+		}
+
+		while(l.type != Token.EOC && l.type != Token.EndTable)
+		{
+			
+		}
+		
+		if(first)
+			error(tok.line, tok.col, "List must have at least one item");
+		else if(l.type == Token.EOC)
+			error(tok.line, tok.col, "List has no matching \\endlist command");
+
+		endRow();
+		l.next();
+		
+		// Now normalize table columns;
 	}
 
 	// ================================================================================================================================================
