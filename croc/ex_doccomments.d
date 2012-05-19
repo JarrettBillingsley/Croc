@@ -306,6 +306,7 @@ private:
 	dchar mCharacter;
 	dchar mLookaheadCharacter;
 	bool mHaveLookahead;
+	bool mNewlineSinceLastTok;
 
 	Token mTok;
 
@@ -322,6 +323,8 @@ private:
 		nextChar();
 		next();
 		nextNonNewlineToken();
+		
+		mNewlineSinceLastTok = true; // set it to true so the very first token is flagged as being at the beginning of a line
 	}
 
 	// ================================================================================================================================================
@@ -492,6 +495,9 @@ private:
 
 	void next()
 	{
+		if(mTok.type != Token.Newline && mTok.type != Token.NewParagraph)
+			mNewlineSinceLastTok = false;
+
 		mTok.string = null;
 		mTok.arg = null;
 		mTok.contents = null;
@@ -509,6 +515,7 @@ private:
 
 				case '\r', '\n':
 					mTok.type = Token.Newline;
+					mNewlineSinceLastTok = true;
 
 					nextLine();
 					eatWhitespace();
@@ -670,7 +677,7 @@ private:
 		while(mTok.type == Token.Newline || mTok.type == Token.NewParagraph)
 			next();
 	}
-	
+
 	void nextNonWhitespaceToken()
 	{
 		while(mTok.type == Token.Newline || mTok.type == Token.NewParagraph || mTok.type == Token.Whitespace)
@@ -693,6 +700,11 @@ private:
 	bool isEOP()
 	{
 		return mTok.type == Token.NewParagraph || mTok.type == Token.EOC || mTok.type == Token.SectionBegin;
+	}
+	
+	bool isFirstOnLine()
+	{
+		return mNewlineSinceLastTok;
 	}
 
 	// ================================================================================================================================================
@@ -795,6 +807,9 @@ private:
 			return;
 
 		assert(l.tok.string.length > 0);
+
+		if(!l.isFirstOnLine())
+			error("Section command must come at the beginning of a line");
 
 		if(l.tok.string[0] == '_')
 		{
@@ -941,6 +956,9 @@ private:
 	void readCodeBlock()
 	{
 		assert(l.type == Token.Code);
+		
+		if(!l.isFirstOnLine())
+			error("Code command must come at the beginning of a line");
 
 		newArray(t, 3);
 		pushString(t, "code");
@@ -961,6 +979,9 @@ private:
 	void readVerbatimBlock()
 	{
 		assert(l.type == Token.Verbatim);
+		
+		if(!l.isFirstOnLine())
+			error("Verbatim command must come at the beginning of a line");
 
 		newArray(t, 2);
 		pushString(t, "verbatim");
@@ -979,6 +1000,9 @@ private:
 	void readList()
 	{
 		assert(l.type == Token.BList || l.type == Token.NList || l.type == Token.DList);
+
+		if(!l.isFirstOnLine())
+			error("List command must come at the beginning of a line");
 
 		uword numListSave = mNumberedListNest;
 		scope(exit) mNumberedListNest = numListSave;
@@ -1125,18 +1149,10 @@ private:
 
 	void readTable()
 	{
-		/*
-		Table:
-			'\table' Newline Row+ '\endtable' EOL
-
-		Row:
-			'\row' Newline Cell+
-
-		Cell:
-			'\cell' Paragraph*
-		*/
-
 		assert(l.type == Token.Table);
+
+		if(!l.isFirstOnLine())
+			error("Table command must come at the beginning of a line");
 
 		if(mInTable)
 			error("Tables cannot be nested");
@@ -1216,6 +1232,8 @@ private:
 				endRow();
 
 			beginRow();
+			l.next();
+			l.nextNonWhitespaceToken();
 		}
 
 		void switchCells()
@@ -1226,48 +1244,29 @@ private:
 				endCell();
 
 			beginCell();
+			l.next();
 		}
 
 		while(l.type != Token.EOC && l.type != Token.EndTable)
 		{
-			if(firstRow)
-			{
-				if(l.type != Token.Row)
-					error("Cannot have text outside a cell");
-
-				switchRows();
-				l.next();
-				l.nextNonWhitespaceToken();
-			}
-			else if(firstCell)
-			{
-				if(l.type == Token.Cell)
-				{
-					switchCells();
-					l.next();
-				}
-				else if(l.type == Token.Row)
-				{
-					switchRows();
-					l.next();
-					l.nextNonWhitespaceToken();
-				}
-				else
-					error("Cannot have text outside a cell");
-			}
-			else if(l.type == Token.SectionBegin)
+			if(l.type == Token.SectionBegin)
 				error("Cannot change sections inside a table");
 			else if(l.type == Token.Cell)
 			{
-				switchCells();
-				l.next();
+				if(firstRow)
+					error("Cannot have a cell outside a row");
+				else
+					switchCells();
 			}
 			else if(l.type == Token.Row)
 			{
+				if(!l.isFirstOnLine())
+					error("Row command must come at the beginning of a line");
+
 				switchRows();
-				l.next();
-				l.nextNonWhitespaceToken();
 			}
+			else if(firstRow || firstCell)
+				error("Cannot have text outside a cell");
 			else
 				readParagraph();
 		}
