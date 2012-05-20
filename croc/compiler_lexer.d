@@ -1023,9 +1023,15 @@ private:
 		}
 
 		if(mTokSinceLastNewline)
+		{
 			derp(mTok.postComment);
+			mTok.postCommentLoc = location;
+		}
 		else
+		{
 			derp(mTok.preComment);
+			mTok.preCommentLoc = location;
+		}
 	}
 
 	void readLineComment()
@@ -1070,8 +1076,6 @@ private:
 		{
 			nextChar();
 
-			auto loc = mLoc;
-
 			// eat any extra asterisks after opening
 			while(mCharacter == '*')
 				nextChar();
@@ -1079,6 +1083,8 @@ private:
 			// eat whitespace too
 			while(isWhitespace() && !isEOL())
 				nextChar();
+
+			auto loc = mLoc;
 
 			scope buf = new List!(char)(mCompiler.alloc);
 			uint nesting = 1;

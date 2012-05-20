@@ -28,10 +28,10 @@ module croc.ex_doccomments;
 
 import tango.core.Vararg;
 import tango.text.Util;
+import Utf = tango.text.convert.Utf;
 
 import croc.api_interpreter;
 import croc.api_stack;
-import croc.ex;
 import croc.types;
 import croc.utils;
 

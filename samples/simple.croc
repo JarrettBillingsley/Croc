@@ -1,41 +1,23 @@
 module samples.simple
 
-local comment =
-@"This is a table:
+/**
+This is a function!
+
 \table
 	\row
-		\cell blah
-		\cell blah blah
+		\cell a
+		\cell b
 	\row
-		\cell
-		\cell wat wat
+		\cell c
+		\cell d
 \endtable
 
-This is text"
-
-local docTable =
+\param[x] is the parameter.
+\returns a value.
+*/
+function C(x)
 {
-	file = "dumb.croc"
-	line = 1
-	kind = "function"
-	name = "f"
 
-	params =
-	[
-		{
-			file = "dumb.croc"
-			line = 1
-			kind = "parameter"
-			name = "x"
-		},
-
-		{
-			file = "dumb.croc"
-			line = 1
-			kind = "parameter"
-			name = "vararg"
-		}
-	]
 }
 
 function main()
@@ -49,8 +31,8 @@ function main()
 
 // 	StdlibDumper.dump(string)
 
-	writeln$ json.toJSON(processComment(comment, docTable), true)
-// 	writeln$ json.toJSON(docsOf(C), true)
+// 	writeln$ json.toJSON(processComment(comment, docTable), true)
+	writeln$ json.toJSON(docsOf(C), true)
 }
 
 // import streams: Stream, MemblockStream, BinaryStream, UTF8Stream

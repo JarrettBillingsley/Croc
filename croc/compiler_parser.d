@@ -385,7 +385,7 @@ public:
 	Statement parseDeclStmt()
 	{
 		Decorator deco;
-		
+
 		auto docs = l.tok.preComment;
 		auto docsLoc = l.tok.preCommentLoc;
 
@@ -3137,7 +3137,7 @@ private:
 		pop(c.thread);
 		return new(c) Identifier(c, loc, str);
 	}
-	
+
 	void attachDocs(T)(T t, char[] preDocs, CompileLoc preDocsLoc)
 	{
 		if(!c.docComments)

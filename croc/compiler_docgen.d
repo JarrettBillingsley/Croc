@@ -33,6 +33,7 @@ import croc.api_stack;
 import croc.compiler_ast;
 import croc.compiler_astvisitor;
 import croc.compiler_types;
+import croc.ex_doccomments;
 import croc.types;
 
 scope class DocGen : IdentityVisitor
@@ -72,7 +73,7 @@ public:
 		auto name = c.newString(getString(t, -1));
 		pop(t);
 
-		pushDocTable(m.location, "module", name, m.docs ? m.docs : "\n");
+		pushDocTable(m.location, m.docsLoc, "module", name, m.docs ? m.docs : "");
 
 		auto b = m.statements.as!(BlockStmt);
 
@@ -104,7 +105,7 @@ public:
 
 	FuncDef visitStatements(FuncDef d)
 	{
-		pushDocTable(d.location, "module", d.name.name, "\n");
+		pushDocTable(d.location, d.location, "module", d.name.name, "");
 
 		auto b = d.code.as!(BlockStmt);
 		assert(b !is null);
@@ -150,7 +151,8 @@ public:
 		if(d.docs.length == 0)
 			return d;
 
-		pushDocTable(d.location, "function", d.name.name, d.docs);
+		// We don't actually process the comments here, as with other kinds of doc tables..
+		pushDocTable(d.location, d.location, "function", d.name.name, "");
 
 		foreach(i, ref p; d.params)
 		{
@@ -160,7 +162,7 @@ public:
 
 			// TODO: this currently does not report the correct typemask for params like "x: int = 4", since
 			// these are technically "int|null"
-			pushDocTable(d.location, "parameter", p.name.name, "\n");
+			pushDocTable(d.location, d.location, "parameter", p.name.name, "");
 
 			pushString(t, p.typeString ? p.typeString : "any");
 			fielda(t, mDocTable, "type");
@@ -176,12 +178,14 @@ public:
 
 		if(d.isVararg)
 		{
-			pushDocTable(d.location, "parameter", "vararg", "\n");
+			pushDocTable(d.location, d.location, "parameter", "vararg", "");
 			pushString(t, "vararg");
 			fielda(t, mDocTable, "type");
 			popDocTable("params");
 		}
 
+		// NOW we do the comment processing
+		addComments(d.docsLoc, d.docs);
 		popDocTable();
 		return d;
 	}
@@ -205,7 +209,7 @@ public:
 		if(d.docs.length == 0)
 			return d;
 
-		pushDocTable(d.location, "class", d.name.name, d.docs);
+		pushDocTable(d.location, d.docsLoc, "class", d.name.name, d.docs);
 
 		auto base = d.baseClass is null ? null : d.baseClass.as!(IdentExp);
 
@@ -239,7 +243,7 @@ public:
 		if(d.docs.length == 0)
 			return d;
 
-		pushDocTable(d.location, "namespace", d.name.name, d.docs);
+		pushDocTable(d.location, d.docsLoc, "namespace", d.name.name, d.docs);
 
 		if(d.parent)
 		{
@@ -259,7 +263,7 @@ public:
 
 		void makeTable(uword idx)
 		{
-			pushDocTable(d.location, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
+			pushDocTable(d.location, d.docsLoc, "variable", d.names[idx].name, idx == 0 ? d.docs : "ditto");
 
 			if(idx < d.initializer.length)
 			{
@@ -303,7 +307,41 @@ public:
 	}
 
 private:
-	void pushDocTable(ref CompileLoc loc, char[] kind, char[] name, char[] docs)
+	void addComments(ref CompileLoc docsLoc, char[] docs)
+	{
+		auto size = stackSize(t);
+		
+		try
+			processComment(t, docs);
+		catch(CrocException e)
+		{
+			setStackSize(t, size);
+			auto ex = catchException(t);
+
+			auto loc = field(t, ex, "location");
+			field(t, loc, "line");
+			auto line = getInt(t, -1);
+			pop(t);
+			field(t, loc, "col");
+			auto col = getInt(t, -1);
+			pop(t);
+
+			line = line + docsLoc.line - 1; // - 1 because it's one-based
+
+			if(line == 1)
+				col += docsLoc.col - 1; // - 1 because it's one-based
+
+			pushInt(t, line);
+			fielda(t, loc, "line");
+			pushInt(t, col);
+			fielda(t, loc, "col");
+
+			pop(t);
+			throwException(t);
+		}
+	}
+
+	void pushDocTable(ref CompileLoc loc, ref CompileLoc docsLoc, char[] kind, char[] name, char[] docs)
 	{
 		if(mDittoDepth > 0)
 		{
@@ -322,7 +360,6 @@ private:
 		pushInt(t,    loc.line); fielda(t, mDocTable, "line");
 		pushString(t, kind);     fielda(t, mDocTable, "kind");
 		pushString(t, name);     fielda(t, mDocTable, "name");
-		pushString(t, docs);     fielda(t, mDocTable, "docs");
 
 		if(kind == "module" || kind == "class" || kind == "namespace")
 			ensureChildren();
@@ -380,6 +417,19 @@ private:
 			dup(t, mDocTable);
 			cateq(t, -2, 1);
 			pop(t, 2);
+
+			// Fill in its docs member with just a single paragraph holding "ditto".
+			newArray(t, 1);
+			newArray(t, 1);
+			pushString(t, "ditto");
+			idxai(t, -2, 0);
+			idxai(t, -2, 0);
+			fielda(t, mDocTable, "docs");
+		}
+		else if(kind != "function" && kind != "parameter")
+		{
+			// Function docs are handled a little differently since they have to be done *after* the param doctables are added
+			addComments(docsLoc, docs);
 		}
 	}
 
@@ -477,7 +527,7 @@ private:
 			else
 			{
 				// TODO: this location might not be on exactly the same line as the field itself.. huge deal?
-				pushDocTable(f.initializer.location, "field", f.name, f.docs);
+				pushDocTable(f.initializer.location, f.docsLoc, "field", f.name, f.docs);
 
 				if(f.initializer.sourceStr)
 				{
